@@ -31,14 +31,14 @@ type newConvergenceVars struct {
 var progressiveNewConvergence = []newConvergenceVars{
 	{
 		clusterSize:          4,
-		convergenceThreshold: time.Second * 1,
-		gossipInterval:       time.Millisecond * 10,
+		convergenceThreshold: time.Second * 4,
+		gossipInterval:       time.Millisecond * 50,
 		peerAddrCount:        1,
 	},
 	{
 		clusterSize:          10,
-		convergenceThreshold: time.Second * 3,
-		gossipInterval:       time.Millisecond * 10,
+		convergenceThreshold: time.Second * 8,
+		gossipInterval:       time.Millisecond * 50,
 		peerAddrCount:        3,
 	},
 }
