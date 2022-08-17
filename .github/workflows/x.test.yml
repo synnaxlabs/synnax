@@ -9,8 +9,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Download latest earthly
-        run: "sudo /bin/sh -c 'wget https://github.com/earthly/earthly/releases/download/v0.6.21/earthly-linux-amd64 -O /usr/local/bin/earthly && chmod +x /usr/local/bin/earthly'"
-      - name: Run unit tests
-        run: earthly --ci --push +unit-test
+      - uses: actions/setup-go@v3
+      - name: Set Up Tests
+        run: |
+          go get github.com/onsi/ginkgo/v2/ginkgo/generators@v2.0.0
+          go get github.com/onsi/ginkgo/v2/ginkgo/internal@v2.0.0
+          go get github.com/onsi/ginkgo/v2/ginkgo/labels@v2.0.0
+          go install github.com/onsi/ginkgo/v2/ginkgo
         working-directory: ./x
+      - name: Test
+        run: ginkgo -r --covermode=atomic --coverprofile=coverage.txt -covermode=atomic
+        working-directory: ./x
+      - name: Upload Coverage
+        uses: codecov/codecov-action@v3
+        with:
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: ./x
