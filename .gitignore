@@ -1,0 +1,9 @@
+
+# |||| INTELLIJ |||
+
+.idea/
+*.iml
+
+# |||| DARWIN ||||
+
+.DS_Store
