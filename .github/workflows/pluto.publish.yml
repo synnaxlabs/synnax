@@ -1,6 +1,8 @@
 name: "Publish"
 on:
   push:
+    paths:
+      - 'pluto/**'
     branches:
       - main
 jobs:
@@ -10,9 +12,13 @@ jobs:
       - uses: actions/checkout@v1
       - name: Install dependencies
         run: yarn
+        working-directory: ./pluto
       - name: Package Lib
         run: yarn build
+        working-directory: ./pluto
       - name: Authenticate With Registry
         run: echo "//npm.pkg.github.com/:_authToken=${{ secrets.NODE_AUTH_TOKEN }}" > ~/.npmrc
+        working-directory: ./pluto
       - name: Publish to Registry
         run: npm publish
+        working-directory: ./pluto

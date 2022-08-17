@@ -1,6 +1,8 @@
 name: "Chromatic"
 on:
   push:
+    paths:
+      - 'pluto/**'
     branches:
       - main
   pull_request:
@@ -11,7 +13,9 @@ jobs:
       - uses: actions/checkout@v1
       - name: Install dependencies
         run: yarn
+        working-directory: ./pluto
       - name: Publish to Chromatic
         uses: chromaui/action@v1
         with:
-          projectToken: ${{ secrets.CHROMATIC_PROJECT_TOKEN }}
+          workingDir: ./pluto
+          projectToken: ${{ secrets.PLUTO_CHROMATIC_PROJECT_TOKEN }}
