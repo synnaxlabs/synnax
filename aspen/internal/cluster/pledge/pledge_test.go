@@ -46,7 +46,7 @@ var _ = Describe("Node", func() {
 					t.BindHandler(handler)
 					addresses = append(addresses, t.Address)
 				}
-				ctx, cancel := context.WithTimeout(context.Background(), 40*time.Millisecond)
+				ctx, cancel := context.WithTimeout(context.Background(), 15*time.Millisecond)
 				defer cancel()
 				id, err := pledge.Pledge(
 					ctx,
@@ -55,8 +55,8 @@ var _ = Describe("Node", func() {
 					pledge.Config{
 						RequestTimeout: 1 * time.Millisecond,
 						Transport:      t1,
-						RetryScale:     2,
-						RetryInterval:  4 * time.Millisecond,
+						RetryScale:     1,
+						RetryInterval:  2 * time.Millisecond,
 					},
 				)
 				Expect(errors.Is(err, context.DeadlineExceeded)).To(BeTrue())
@@ -64,7 +64,7 @@ var _ = Describe("Node", func() {
 				for i, entry := range net.Entries {
 					Expect(entry.Target).To(Equal(addresses[i%4]))
 				}
-				Expect(len(net.Entries)).To(BeNumerically(">", 2))
+				Expect(len(net.Entries)).To(BeNumerically(">", 3))
 			})
 		})
 	})
@@ -80,18 +80,25 @@ var _ = Describe("Node", func() {
 				)
 				for i := 0; i < numCandidates; i++ {
 					t := net.RouteUnary("")
-					cfg := pledge.Config{Transport: t, Logger: logger}
+					cfg := pledge.Config{
+						Transport: t, Logger: logger,
+					}
 					Expect(pledge.Arbitrate(candidates, cfg)).To(Succeed())
 					id := node.ID(i)
 					nodes[id] = node.Node{ID: node.ID(i), Address: t.Address, State: node.StateHealthy}
 				}
-				ctx, cancel := context.WithTimeout(context.Background(), 1000*time.Millisecond)
+				ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
 				defer cancel()
 				id, err := pledge.Pledge(
 					ctx,
 					nodes.Addresses(),
 					candidates,
-					pledge.Config{Transport: t1, Logger: logger},
+					pledge.Config{
+						Transport:     t1,
+						Logger:        logger,
+						RetryScale:    1,
+						RetryInterval: 1 * time.Millisecond,
+					},
 				)
 				Expect(err).To(BeNil())
 				Expect(id).To(Equal(node.ID(10)))
@@ -121,13 +128,18 @@ var _ = Describe("Node", func() {
 					id := node.ID(i)
 					nodes[id] = node.Node{ID: node.ID(i), Address: t.Address, State: node.StateHealthy}
 				}
-				ctx, cancel := context.WithTimeout(context.Background(), 1000*time.Millisecond)
+				ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 				defer cancel()
 				id, err := pledge.Pledge(
 					ctx,
 					[]address.Address{allCandidates()[0].Address},
 					responsibleCandidates,
-					pledge.Config{Transport: t1, Logger: logger},
+					pledge.Config{
+						Transport:     t1,
+						Logger:        logger,
+						RetryInterval: 1 * time.Millisecond,
+						RetryScale:    1,
+					},
 				)
 				Expect(err).To(BeNil())
 				Expect(id).To(Equal(node.ID(10)))
@@ -155,13 +167,18 @@ var _ = Describe("Node", func() {
 					id := node.ID(i)
 					nodes[id] = node.Node{ID: node.ID(i), Address: t.Address, State: node.StateHealthy}
 				}
-				ctx, cancel := context.WithTimeout(context.Background(), 1000*time.Millisecond)
+				ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 				defer cancel()
 				id, err := pledge.Pledge(
 					ctx,
 					[]address.Address{allCandidates()[0].Address},
 					extraCandidates,
-					pledge.Config{Transport: t1, Logger: logger},
+					pledge.Config{
+						Transport:     t1,
+						Logger:        logger,
+						RetryInterval: 1 * time.Millisecond,
+						RetryScale:    1,
+					},
 				)
 				Expect(err).To(BeNil())
 				Expect(id).To(Equal(node.ID(11)))
@@ -189,7 +206,7 @@ var _ = Describe("Node", func() {
 					id := node.ID(i)
 					nodes[id] = node.Node{ID: node.ID(i), Address: t.Address, State: state}
 				}
-				ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+				ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 				defer cancel()
 				id, err := pledge.Pledge(ctx,
 					[]address.Address{candidates()[0].Address},
@@ -230,8 +247,8 @@ var _ = Describe("Node", func() {
 					candidates    = func() node.Group { return nodes }
 					net           = fmock.NewNetwork[node.ID, node.ID]()
 					t1            = net.RouteUnary("")
-					numCandidates = 10
-					numPledges    = 2
+					numCandidates = 20
+					numPledges    = 5
 				)
 				for i := 0; i < numCandidates; i++ {
 					t := net.RouteUnary("")
@@ -249,7 +266,12 @@ var _ = Describe("Node", func() {
 					go func(i int) {
 						defer GinkgoRecover()
 						defer wg.Done()
-						id, err := pledge.Pledge(ctx, nodes.Addresses(), candidates, pledge.Config{Transport: t1, Logger: logger})
+						id, err := pledge.Pledge(ctx, nodes.Addresses(), candidates, pledge.Config{
+							Transport:     t1,
+							Logger:        logger,
+							RetryScale:    1,
+							RetryInterval: 1 * time.Millisecond,
+						})
 						Expect(err).ToNot(HaveOccurred())
 						ids[i] = id
 					}(i)

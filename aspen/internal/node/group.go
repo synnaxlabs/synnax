@@ -11,7 +11,7 @@ func (n Group) WhereState(state State) Group {
 	return n.Where(func(_ ID, n Node) bool { return n.State == state })
 }
 func (n Group) WhereNot(ids ...ID) Group {
-	return n.Where(func(id ID, _ Node) bool { return !lo.Contains(ids, id) })
+	return n.Where(func(id ID, _ Node) bool { return lo.Count(ids, id) == 0 })
 }
 
 func (n Group) WhereActive() Group {

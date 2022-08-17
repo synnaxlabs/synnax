@@ -11,13 +11,12 @@ import (
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/alamos"
 	"github.com/arya-analytics/x/kv/memkv"
+	"github.com/arya-analytics/x/rand"
 	"github.com/arya-analytics/x/signal"
 	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/samber/lo"
 	"go.uber.org/zap"
-	"math"
 	"time"
 )
 
@@ -31,13 +30,13 @@ type newConvergenceVars struct {
 var progressiveNewConvergence = []newConvergenceVars{
 	{
 		clusterSize:          4,
-		convergenceThreshold: time.Second * 4,
+		convergenceThreshold: time.Second * 1,
 		gossipInterval:       time.Millisecond * 50,
 		peerAddrCount:        1,
 	},
 	{
 		clusterSize:          10,
-		convergenceThreshold: time.Second * 8,
+		convergenceThreshold: time.Second * 2,
 		gossipInterval:       time.Millisecond * 50,
 		peerAddrCount:        3,
 	},
@@ -85,7 +84,7 @@ var _ = Describe("Convergence", Serial, Ordered, func() {
 					cluster, err := cluster.Join(
 						clusterCtx,
 						gossipT.Address,
-						lo.Subset(lo.Shuffle(addresses), values.peerAddrCount, math.MaxInt),
+						rand.SubSlice(addresses, values.peerAddrCount),
 						cluster.Config{
 							Logger:     logger,
 							Pledge:     pledge.Config{Transport: pledgeT, RetryInterval: values.gossipInterval, RetryScale: 1},

@@ -18,13 +18,14 @@ func (s *ScaledTicker) Stop() { close(s.stop) }
 
 func (s *ScaledTicker) tick(c chan time.Duration) {
 	t := time.NewTicker(s.dur)
+	defer t.Stop()
 	for {
 		select {
 		case <-s.stop:
 			return
 		case <-t.C:
-			c <- s.dur
 			s.dur = time.Duration(float64(s.dur) * s.Scale)
+			c <- s.dur
 			t.Reset(s.dur)
 		}
 	}

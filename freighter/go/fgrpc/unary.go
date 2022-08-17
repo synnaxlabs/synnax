@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/arya-analytics/freighter"
 	"github.com/arya-analytics/x/address"
+	roacherrors "github.com/cockroachdb/errors"
 	"google.golang.org/grpc"
 )
 
@@ -48,6 +49,9 @@ func (u *UnaryTransport[RQ, RQT, RS, RST]) Exec(ctx context.Context, tReq RQT) (
 	req, err := u.RequestTranslator.Backward(tReq)
 	if err != nil {
 		return tRes, err
+	}
+	if u.Handler == nil {
+		return tRes, roacherrors.New("[freighter]- no handler registered")
 	}
 	res, err := u.Handler(ctx, req)
 	if err != nil {

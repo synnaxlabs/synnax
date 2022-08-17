@@ -1,6 +1,7 @@
 package rand
 
 import (
+	"github.com/samber/lo"
 	"math/rand"
 	"time"
 )
@@ -49,4 +50,32 @@ func SubMap[K comparable, V any](m map[K]V, n int) map[K]V {
 		}
 	}
 	return om
+}
+
+func Elem[V any](options ...V) V {
+	return Slice[V](options)
+}
+
+func Slice[V any](slice []V) V {
+	return slice[rand.Intn(len(slice))]
+}
+
+func SubSlice[V comparable](slice []V, n int) []V {
+	if n >= len(slice) {
+		return slice
+	}
+	os := make([]V, n)
+	i := 0
+	for {
+		if i == n {
+			break
+		}
+		v := Slice[V](slice)
+		if lo.Contains(os, v) {
+			continue
+		}
+		os[i] = v
+		i++
+	}
+	return os
 }
