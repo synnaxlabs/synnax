@@ -231,7 +231,7 @@ var _ = Describe("Node", func() {
 					net           = fmock.NewNetwork[node.ID, node.ID]()
 					t1            = net.RouteUnary("")
 					numCandidates = 10
-					numPledges    = 5
+					numPledges    = 2
 				)
 				for i := 0; i < numCandidates; i++ {
 					t := net.RouteUnary("")
