@@ -12,5 +12,5 @@ jobs:
       - name: Download latest earthly
         run: "sudo /bin/sh -c 'wget https://github.com/earthly/earthly/releases/download/v0.6.21/earthly-linux-amd64 -O /usr/local/bin/earthly && chmod +x /usr/local/bin/earthly'"
       - name: Run unit tests
-        run: earthly --ci --push +unit-tests
+        run: earthly --ci --push +unit-test
         working-directory: ./x
