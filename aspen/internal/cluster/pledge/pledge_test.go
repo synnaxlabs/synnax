@@ -26,7 +26,7 @@ var _ = Describe("Node", func() {
 		logger = l.Sugar()
 	})
 
-	Describe("Pledge", func() {
+	Describe("Pledge", Ordered, Serial, func() {
 
 		Context("No UniqueNodeIDs Responding", func() {
 
@@ -46,7 +46,7 @@ var _ = Describe("Node", func() {
 					t.BindHandler(handler)
 					addresses = append(addresses, t.Address)
 				}
-				ctx, cancel := context.WithTimeout(context.Background(), 15*time.Millisecond)
+				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
 				defer cancel()
 				id, err := pledge.Pledge(
 					ctx,
@@ -56,7 +56,7 @@ var _ = Describe("Node", func() {
 						RequestTimeout: 1 * time.Millisecond,
 						Transport:      t1,
 						RetryScale:     1,
-						RetryInterval:  2 * time.Millisecond,
+						RetryInterval:  1 * time.Millisecond,
 					},
 				)
 				Expect(errors.Is(err, context.DeadlineExceeded)).To(BeTrue())
