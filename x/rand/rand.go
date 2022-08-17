@@ -50,28 +50,3 @@ func SubMap[K comparable, V any](m map[K]V, n int) map[K]V {
 	}
 	return om
 }
-
-func Elem[V any](options ...V) V {
-	return Slice[V](options)
-}
-
-func Slice[V any](slice []V) V {
-	return slice[rand.Intn(len(slice))]
-}
-
-func SubSlice[V comparable](slice []V, n int) []V {
-	if n >= len(slice) {
-		return slice
-	}
-	os := make([]V, n)
-	for i := 0; i < n; i++ {
-		if i != 0 {
-			for v := Slice[V](slice); v == os[i-1]; v = Slice[V](slice) {
-				os[i] = v
-			}
-		} else {
-			os[i] = Slice[V](slice)
-		}
-	}
-	return os
-}

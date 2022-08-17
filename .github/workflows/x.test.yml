@@ -12,15 +12,8 @@ jobs:
       - uses: actions/setup-go@v3
         with:
           go-version: 1.19
-#      - name: Set Up Tests
-#        run: |
-#          go get github.com/onsi/ginkgo/v2/ginkgo/generators@v2.0.0
-#          go get github.com/onsi/ginkgo/v2/ginkgo/internal@v2.0.0
-#          go get github.com/onsi/ginkgo/v2/ginkgo/labels@v2.0.0
-#          go install github.com/onsi/ginkgo/v2/ginkgo
-#        working-directory: ./x
       - name: Test
-        run: go test -v ./...
+        run: go test -v --covermode=atomic --coverprofile=coverage.txt ./...
         working-directory: ./x
       - name: Upload Coverage
         uses: codecov/codecov-action@v3

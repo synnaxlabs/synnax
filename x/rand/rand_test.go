@@ -47,29 +47,4 @@ var _ = Describe("Rand", func() {
 			})
 		})
 	})
-	Describe("Slice", func() {
-		It("Should return a random element in the slice", func() {
-			value := rand.Slice([]int{1, 2, 3, 4, 5, 6})
-			Expect(value > 0).To(BeTrue())
-		})
-		Describe("sub Slice", func() {
-			It("Should return random sub-slice", func() {
-				value := rand.SubSlice([]int{1, 2, 3, 4, 5, 6}, 2)
-				Expect(len(value)).To(Equal(2))
-				Expect(value[0] != value[1]).To(BeTrue())
-			})
-			It("Should return the slice itself", func() {
-				slc := []int{1, 2, 3, 4, 5, 6}
-				value := rand.SubSlice(slc, 20)
-				Expect(len(value)).To(Equal(6))
-				Expect(value).To(Equal(slc))
-			})
-		})
-	})
-	Describe("Element", func() {
-		It("Should return a random element", func() {
-			value := rand.Elem(1, 2, 3)
-			Expect(value > 0).To(BeTrue())
-		})
-	})
 })
