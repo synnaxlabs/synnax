@@ -1,0 +1,16 @@
+.sidebar__container {
+  display: flex;
+  width: calc(var(--base-size) * 10);
+  border-right: var(--border-width) solid var(--gray-m2);
+  height: 100vh;
+  flex-shrink: 0;
+}
+
+.sidebar__header {
+  padding: calc(var(--base-size) * 2) var(--base-size);
+  border-bottom: var(--border-width) solid var(--gray-m2);
+}
+
+.sidebar__footer {
+  padding: calc(var(--base-size) * 3) 0;
+}

@@ -1,0 +1,7 @@
+VERSION 0.6
+
+base-artifact:
+    FROM golang:1.19-alpine3.16
+    WORKDIR /aspen
+    COPY . .
+    SAVE ARTIFACT .

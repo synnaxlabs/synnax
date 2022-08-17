@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package aspen.v1;
+
+service ClusterGossipService {
+  rpc Exec(ClusterGossip) returns (ClusterGossip);
+}
+
+message Node {
+  uint32 id = 1;
+  string address = 2;
+  uint32 state = 3;
+  Heartbeat heartbeat = 4;
+}
+
+message Heartbeat {
+  uint32 generation = 1;
+  uint32 version = 2;
+}
+
+message NodeDigest {
+  uint32 id = 1;
+  Heartbeat heartbeat = 2;
+}
+
+message ClusterGossip {
+  map<uint32, NodeDigest> digests = 1;
+  map<uint32, Node> nodes = 2;
+}
+
+service PledgeService {
+  rpc Exec(ClusterPledge) returns (ClusterPledge);
+}
+
+message ClusterPledge {
+  uint32 node_id = 1;
+}

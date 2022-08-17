@@ -1,0 +1,24 @@
+
+# |||| BUILD ARTIFACTS ||||
+
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.out
+build/
+
+# |||| TEST ARTIFACTS ||||
+
+*.test
+delta-data
+
+# |||| INTELLIJ  ||||
+.idea/
+*.iml
+
+# |||| DARWIN ||||
+
+.DS_Store
+

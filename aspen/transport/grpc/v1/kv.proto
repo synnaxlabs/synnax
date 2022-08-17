@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package aspen.v1;
+
+import "google/protobuf/empty.proto";
+
+service FeedbackService {
+  rpc Exec(FeedbackMessage) returns (google.protobuf.Empty);
+}
+
+message FeedbackMessage {
+  uint32 sender = 1;
+  repeated OperationDigest digests = 2;
+}
+
+message OperationDigest {
+  int64 version = 1;
+  uint32 leaseholder = 2;
+  bytes key = 3;
+}
+
+
+service BatchService {
+  rpc Exec(BatchRequest) returns (BatchRequest);
+}
+
+message BatchRequest {
+  uint32 sender = 1;
+  uint32 leaseholder = 2;
+  repeated Operation operations = 3;
+}
+
+message Operation {
+  uint32 variant = 1;
+  uint32 leaseholder = 2;
+  int64 version = 3;
+  bytes key = 4;
+  bytes value = 5;
+}
+
+service LeaseService {
+  rpc Exec(BatchRequest) returns (google.protobuf.Empty);
+}

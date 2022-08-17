@@ -1,0 +1,45 @@
+.pluto-switch__container {
+  position: relative;
+  display: inline-block;
+  width: calc(var(--base-size) * 5);
+  height: calc(var(--base-size) * 2);
+}
+
+.pluto-switch__input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.pluto-switch__slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--gray-m2);
+  transition: 0.15s;
+  border-radius: calc(var(--base-size) * 4);
+}
+
+.pluto-switch__slider:before {
+  position: absolute;
+  content: "";
+  height: calc(var(--base-size) * 3);
+  width: calc(var(--base-size) * 3);
+  left: 0;
+  bottom: -3px;
+  background-color: var(--gray-m1);
+  transition: 0.15s;
+  border-radius: 50%;
+}
+
+.pluto-switch__input:checked + .pluto-switch__slider {
+  background-color: var(--primary-m1);
+}
+
+.pluto-switch__input:checked + .pluto-switch__slider:before {
+  transform: translateX(calc(var(--base-size) * 2));
+  background-color: var(--primary-p1);
+}

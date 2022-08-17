@@ -1,0 +1,4 @@
+.pluto-header__container {
+  padding: var(--base-size) calc(var(--base-size) * 2);
+  border-bottom: var(--border-width) solid var(--gray-m2);
+}

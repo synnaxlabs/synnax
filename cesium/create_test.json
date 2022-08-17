@@ -1,0 +1,138 @@
+{
+ "cesium": {
+  "create": {
+   "dataWriteDuration": {
+    "avg": 392259,
+    "count": 10,
+    "key": "dataWriteDuration",
+    "max": 466549,
+    "min": 326632,
+    "value": 3922595
+   },
+   "headerFlushDuration": {
+    "avg": 19509,
+    "count": 10,
+    "key": "headerFlushDuration",
+    "max": 41669,
+    "min": 10979,
+    "value": 195099
+   },
+   "lockAcquireDuration": {
+    "avg": 0,
+    "count": 0,
+    "key": "lockAcquireDuration",
+    "max": 0,
+    "min": 0,
+    "value": 0
+   },
+   "lockReleaseDuration": {
+    "avg": 0,
+    "count": 0,
+    "key": "lockReleaseDuration",
+    "max": 0,
+    "min": 0,
+    "value": 0
+   },
+   "requestDuration": {
+    "avg": 20297104,
+    "count": 1,
+    "key": "requestDuration",
+    "max": 20297104,
+    "min": 20297104,
+    "value": 20297104
+   },
+   "segmentSize": {
+    "avg": 2000000,
+    "count": 10,
+    "key": "segmentSize",
+    "max": 2000000,
+    "min": 2000000,
+    "value": 20000000
+   },
+   "totalFlushDuration": {
+    "avg": 413017,
+    "count": 10,
+    "key": "totalFlushDuration",
+    "max": 509961,
+    "min": 340903,
+    "value": 4130171
+   }
+  },
+  "kfs.fs": {
+   "Remove": {
+    "avg": 0,
+    "count": 0,
+    "key": "Remove",
+    "max": 0,
+    "min": 0,
+    "value": 0
+   },
+   "Shutdown": {
+    "avg": 0,
+    "count": 0,
+    "key": "Shutdown",
+    "max": 0,
+    "min": 0,
+    "value": 0
+   },
+   "TryLock": {
+    "avg": 910895,
+    "count": 10,
+    "key": "TryLock",
+    "max": 1503576,
+    "min": 173107,
+    "value": 9108953
+   },
+   "Unlock": {
+    "avg": 268361,
+    "count": 10,
+    "key": "Unlock",
+    "max": 862161,
+    "min": 513,
+    "value": 2683610
+   }
+  },
+  "retrieve": {
+   "dataReadDuration": {
+    "avg": 0,
+    "count": 0,
+    "key": "dataReadDuration",
+    "max": 0,
+    "min": 0,
+    "value": 0
+   },
+   "kvRetrieveDuration": {
+    "avg": 0,
+    "count": 0,
+    "key": "kvRetrieveDuration",
+    "max": 0,
+    "min": 0,
+    "value": 0
+   },
+   "requestDur": {
+    "avg": 0,
+    "count": 0,
+    "key": "requestDur",
+    "max": 0,
+    "min": 0,
+    "value": 0
+   },
+   "segCount": {
+    "avg": 0,
+    "count": 0,
+    "key": "segCount",
+    "max": 0,
+    "min": 0,
+    "value": 0
+   },
+   "segSize": {
+    "avg": 0,
+    "count": 0,
+    "key": "segSize",
+    "max": 0,
+    "min": 0,
+    "value": 0
+   }
+  }
+ }
+}

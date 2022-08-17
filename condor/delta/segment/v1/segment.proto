@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package segment.v1;
+
+import "errors/v1/errors.proto";
+
+service IteratorService {
+  rpc Iterate(stream IteratorRequest) returns (stream IteratorResponse) {}
+}
+
+message IteratorRequest {
+  int32 command = 1;
+  int64 span = 2;
+  TimeRange range = 3;
+  int64 stamp = 4;
+  repeated string keys = 5;
+}
+
+message IteratorResponse {
+  int32 variant = 1;
+  bool ack = 3;
+  int32 command = 4;
+  errors.v1.Response error = 5;
+  repeated Segment segments = 6;
+}
+
+message Segment {
+  string channel_key = 1;
+  int64 start = 2;
+  bytes data = 3;
+}
+
+message TimeRange {
+  int64 start = 1;
+  int64 end = 2;
+}
+
+service WriterService {
+  rpc Write(stream WriterRequest) returns (stream WriterResponse) {}
+}
+
+message WriterRequest {
+  repeated Segment segments = 1;
+}
+
+message WriterResponse {
+  errors.v1.Response error = 1;
+}

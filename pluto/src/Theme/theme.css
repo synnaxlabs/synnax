@@ -1,0 +1,64 @@
+html * {
+  transition: 0.15s ease-in-out;
+  background-color: var(--background);
+  font-family: var(--font-family);
+  color: var(--text-color);
+  margin: 0;
+}
+
+body {
+  margin: 0;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
+  font-family: var(--font-family);
+  color: var(--text-color);
+}
+
+h1 {
+  font-size: var(--h1-font-size);
+  line-height: var(--h1-line-height);
+  font-weight: var(--h1-weight);
+}
+
+h2 {
+  font-size: var(--h2-font-size);
+  line-height: var(--h2-line-height);
+  font-weight: var(--h2-weight);
+}
+
+h3 {
+  font-size: var(--h3-font-size);
+  line-height: var(--h3-line-height);
+  font-weight: var(--h3-weight);
+}
+
+h4 {
+  font-size: var(--h4-font-size);
+  line-height: var(--h4-line-height);
+  font-weight: var(--h4-weight);
+}
+
+h5 {
+  font-size: var(--h5-font-size);
+  line-height: var(--h5-line-height);
+  font-weight: var(--h5-weight);
+}
+
+h6 {
+  font-size: var(--small-font-size);
+  line-height: var(--small-line-height);
+  font-weight: var(--small-weight);
+}
+
+p {
+  font-size: var(--p-font-size);
+  line-height: var(--p-line-height);
+  font-weight: var(--p-weight);
+}

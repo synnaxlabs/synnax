@@ -1,0 +1,122 @@
+package kv
+
+import (
+	"context"
+	"github.com/arya-analytics/aspen/internal/cluster/gossip"
+	"github.com/arya-analytics/aspen/internal/node"
+	"github.com/arya-analytics/freighter"
+	"github.com/arya-analytics/x/confluence"
+	"go/types"
+)
+
+// |||||| OPERATION ||||||
+
+type BatchTransport = freighter.Unary[BatchRequest, BatchRequest]
+
+// |||| SENDER ||||
+
+type operationSender struct {
+	Config
+	confluence.LinearTransform[BatchRequest, BatchRequest]
+}
+
+func newOperationSender(cfg Config) segment {
+	os := &operationSender{Config: cfg}
+	os.TransformFunc.ApplyTransform = os.send
+	return os
+}
+
+func (g *operationSender) send(ctx context.Context, sync BatchRequest) (BatchRequest, bool, error) {
+	// If we have no Operations to propagate, it's best to avoid the network chatter.
+	if sync.empty() {
+		return sync, false, nil
+	}
+	hostID := g.Cluster.HostID()
+	peer := gossip.RandomPeer(g.Cluster.Nodes(), hostID)
+	if peer.Address == "" {
+		return sync, false, nil
+	}
+	sync.Sender = hostID
+	ack, err := g.OperationsTransport.Send(ctx, peer.Address, sync)
+	if err != nil {
+		g.Logger.Errorw("operation gossip failed", "err", err)
+	}
+	// If we have no Operations to apply, avoid the pipeline overhead.
+	return ack, !ack.empty(), nil
+}
+
+// |||| RECEIVER ||||
+
+type operationReceiver struct {
+	Config
+	store store
+	confluence.AbstractUnarySource[BatchRequest]
+	confluence.EmptyFlow
+}
+
+func newOperationReceiver(cfg Config, s store) source {
+	or := &operationReceiver{Config: cfg, store: s}
+	or.OperationsTransport.BindHandler(or.handle)
+	return or
+}
+
+func (g *operationReceiver) handle(ctx context.Context, req BatchRequest) (BatchRequest, error) {
+	select {
+	case <-ctx.Done():
+		return BatchRequest{}, ctx.Err()
+	case g.Out.Inlet() <- req:
+	}
+	br := g.store.ReadState().toBatchRequest()
+	br.Sender = g.Cluster.HostID()
+	return br, nil
+}
+
+// |||||| FEEDBACK ||||||
+
+type FeedbackMessage struct {
+	Sender  node.ID
+	Digests Digests
+}
+
+type FeedbackTransport = freighter.Unary[FeedbackMessage, types.Nil]
+
+// |||| SENDER ||||
+
+type feedbackSender struct {
+	Config
+	confluence.UnarySink[BatchRequest]
+}
+
+func newFeedbackSender(cfg Config) sink {
+	fs := &feedbackSender{Config: cfg}
+	fs.Sink = fs.send
+	return fs
+}
+
+func (f *feedbackSender) send(ctx context.Context, bd BatchRequest) error {
+	msg := FeedbackMessage{Sender: f.Cluster.Host().ID, Digests: bd.digests()}
+	sender, _ := f.Cluster.Node(bd.Sender)
+	if _, err := f.FeedbackTransport.Send(context.TODO(), sender.Address, msg); err != nil {
+		f.Logger.Errorw("feedback gossip failed", "err", err)
+	}
+	return nil
+}
+
+// |||| RECEIVER ||||
+
+type feedbackReceiver struct {
+	Config
+	confluence.AbstractUnarySource[BatchRequest]
+	confluence.EmptyFlow
+}
+
+func newFeedbackReceiver(cfg Config) source {
+	fr := &feedbackReceiver{Config: cfg}
+	fr.FeedbackTransport.BindHandler(fr.handle)
+	return fr
+}
+
+func (f *feedbackReceiver) handle(ctx context.Context, message FeedbackMessage) (types.Nil, error) {
+	f.Out.Inlet() <- message.Digests.toRequest()
+	return types.Nil{}, nil
+}

@@ -1,0 +1,16 @@
+.pluto-value__text--primary {
+  color: var(--primary-z);
+}
+
+.pluto-value__text--error {
+    color: var(--error-z);
+}
+
+.pluto-value__text {
+  position: relative;
+  right: 3px;
+}
+
+.pluto-value__label {
+    color: var(--gray-p2);
+}

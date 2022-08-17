@@ -1,0 +1,8 @@
+version: v1
+name: buf.build/arya-analytics/delta
+breaking:
+  use:
+    - FILE
+lint:
+  use:
+    - DEFAULT

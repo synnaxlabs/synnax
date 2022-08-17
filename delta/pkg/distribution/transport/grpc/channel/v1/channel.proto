@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package channel.v1;
+
+import "google/protobuf/empty.proto";
+
+service ChannelService {
+  rpc Exec(CreateMessage) returns (CreateMessage) {}
+}
+
+message CreateMessage {
+  repeated Channel channels = 1;
+}
+
+message Channel {
+  string name = 1;
+  int32 node_id = 2;
+  int32 key = 3;
+  double data_rate = 4;
+  int32 density = 5;
+}

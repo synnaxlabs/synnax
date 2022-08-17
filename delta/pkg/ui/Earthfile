@@ -1,0 +1,12 @@
+VERSION 0.6
+
+build:
+    FROM node:18.7.0-alpine3.16
+    WORKDIR /delta/pkg/ui
+    COPY ../../../pluto+artifact/* /pluto
+    COPY package.json .
+    COPY yarn.lock .
+    RUN yarn install --frozen-lockfile
+    COPY . .
+    RUN yarn build
+    SAVE ARTIFACT .
