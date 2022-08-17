@@ -4,6 +4,7 @@ import (
 	"github.com/arya-analytics/x/lock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"sync"
 )
 
 var _ = Describe("ApplySink", func() {
@@ -29,11 +30,15 @@ var _ = Describe("ApplySink", func() {
 	It("Should prevent multiple goroutines from acquiring the same key", func() {
 		m := lock.NewLock[int]()
 		acquisitions := make([]bool, 100)
+		var wg sync.WaitGroup
 		for i := 0; i < 100; i++ {
+			wg.Add(1)
 			go func(i int) {
+				defer wg.Done()
 				acquisitions[i] = m.TryLock(1)
 			}(i)
 		}
+		wg.Wait()
 		totalTrue := 0
 		for _, a := range acquisitions {
 			if a {

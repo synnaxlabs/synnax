@@ -63,6 +63,7 @@ func (c *CatchSimple) Exec(ca CatchAction) {
 	}
 	if err := ca(); err != nil {
 		c.runHooks(err)
+		c.errors = append(c.errors, err)
 	}
 }
 

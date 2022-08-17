@@ -35,7 +35,7 @@ var _ = Describe("Catch", func() {
 				Expect(catcher.Error()).To(BeNil())
 			})
 		})
-		Context("ResponseErrors encountered", func() {
+		Context("Errors encountered", func() {
 			var (
 				counter int
 				catcher *errutil.CatchSimple
@@ -133,21 +133,6 @@ var _ = Describe("Catch", func() {
 			close(pipe)
 			wg.Wait()
 			Expect(errs).To(HaveLen(1))
-		})
-	})
-	Describe("With Converter", func() {
-		It("Should convert the error", func() {
-			cc := errutil.ConvertChain{func(err error) (error, bool) {
-				if err.Error() == "not random error" {
-					return errors.New("random error"), true
-				}
-				return nil, false
-			}}
-			c := errutil.NewCatchSimple(errutil.WithConvert(cc))
-			c.Exec(func() error {
-				return errors.New("not random error")
-			})
-			Expect(errors.Is(c.Error(), errors.New("random error"))).To(BeTrue())
 		})
 	})
 })

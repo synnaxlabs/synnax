@@ -2,6 +2,16 @@ VERSION 0.6
 
 base-artifact:
     FROM golang:1.19-alpine3.16
+    RUN apk add build-base
     WORKDIR /x
     COPY . .
     SAVE ARTIFACT .
+
+deps:
+    FROM +base-artifact
+    COPY go.mod go.sum ./
+    RUN go mod download
+
+unit-test:
+    FROM +deps
+    RUN go test -v ./...

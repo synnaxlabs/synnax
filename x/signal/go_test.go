@@ -68,7 +68,7 @@ var _ = Describe("Go", func() {
 				return nil
 			})
 			Expect(errors.Is(ctx.Wait(), context.DeadlineExceeded)).To(BeTrue())
-			Expect(count).To(Equal(2))
+			Expect(count).To(BeNumerically(">", 0))
 		})
 	})
 })
