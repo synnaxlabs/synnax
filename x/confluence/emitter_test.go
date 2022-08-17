@@ -13,11 +13,11 @@ import (
 var _ = Describe("Emitter", func() {
 	It("Should emit values at regular intervals", func() {
 		e := &confluence.Emitter[int]{}
-		e.Interval = 100 * time.Microsecond
+		e.Interval = 1 * time.Millisecond
 		e.Emit = func(ctx context.Context) (int, error) {
 			return 1, nil
 		}
-		ctx, cancel := signal.WithTimeout(context.TODO(), 550*time.Microsecond)
+		ctx, cancel := signal.WithTimeout(context.TODO(), 100*time.Millisecond)
 		defer cancel()
 		stream := confluence.NewStream[int](0)
 		e.OutTo(stream)
