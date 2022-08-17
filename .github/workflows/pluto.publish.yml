@@ -3,6 +3,7 @@ on:
   push:
     paths:
       - 'pluto/**'
+      - '.github/workflows/pluto.publish.yml'
     branches:
       - main
 jobs:

@@ -3,6 +3,7 @@ on:
   push:
     paths:
       - 'pluto/**'
+      - '.github/workflows/pluto.chromatic.yml'
     branches:
       - main
   pull_request:
