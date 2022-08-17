@@ -138,12 +138,4 @@ var _ = Describe("Node", func() {
 
 	})
 
-	Describe("Stringer", func() {
-
-		It("Should stringify a nodes id", func() {
-			Expect(node.ID(1).String()).To(Equal("Node 1"))
-		})
-
-	})
-
 })

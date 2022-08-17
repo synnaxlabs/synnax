@@ -46,7 +46,7 @@ var _ = Describe("Node", func() {
 					t.BindHandler(handler)
 					addresses = append(addresses, t.Address)
 				}
-				ctx, cancel := context.WithTimeout(context.Background(), 15*time.Millisecond)
+				ctx, cancel := context.WithTimeout(context.Background(), 40*time.Millisecond)
 				defer cancel()
 				id, err := pledge.Pledge(
 					ctx,
@@ -56,7 +56,7 @@ var _ = Describe("Node", func() {
 						RequestTimeout: 1 * time.Millisecond,
 						Transport:      t1,
 						RetryScale:     2,
-						RetryInterval:  2 * time.Millisecond,
+						RetryInterval:  4 * time.Millisecond,
 					},
 				)
 				Expect(errors.Is(err, context.DeadlineExceeded)).To(BeTrue())
@@ -64,7 +64,7 @@ var _ = Describe("Node", func() {
 				for i, entry := range net.Entries {
 					Expect(entry.Target).To(Equal(addresses[i%4]))
 				}
-				Expect(len(net.Entries)).To(BeElementOf([]int{3, 4}))
+				Expect(len(net.Entries)).To(BeNumerically(">", 2))
 			})
 		})
 	})
