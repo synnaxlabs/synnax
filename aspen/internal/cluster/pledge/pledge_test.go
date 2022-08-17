@@ -85,7 +85,7 @@ var _ = Describe("Node", func() {
 					id := node.ID(i)
 					nodes[id] = node.Node{ID: node.ID(i), Address: t.Address, State: node.StateHealthy}
 				}
-				ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
+				ctx, cancel := context.WithTimeout(context.Background(), 1000*time.Millisecond)
 				defer cancel()
 				id, err := pledge.Pledge(
 					ctx,
@@ -121,7 +121,7 @@ var _ = Describe("Node", func() {
 					id := node.ID(i)
 					nodes[id] = node.Node{ID: node.ID(i), Address: t.Address, State: node.StateHealthy}
 				}
-				ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+				ctx, cancel := context.WithTimeout(context.Background(), 1000*time.Millisecond)
 				defer cancel()
 				id, err := pledge.Pledge(
 					ctx,
@@ -155,7 +155,7 @@ var _ = Describe("Node", func() {
 					id := node.ID(i)
 					nodes[id] = node.Node{ID: node.ID(i), Address: t.Address, State: node.StateHealthy}
 				}
-				ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+				ctx, cancel := context.WithTimeout(context.Background(), 1000*time.Millisecond)
 				defer cancel()
 				id, err := pledge.Pledge(
 					ctx,
@@ -189,7 +189,7 @@ var _ = Describe("Node", func() {
 					id := node.ID(i)
 					nodes[id] = node.Node{ID: node.ID(i), Address: t.Address, State: state}
 				}
-				ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+				ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 				defer cancel()
 				id, err := pledge.Pledge(ctx,
 					[]address.Address{candidates()[0].Address},
@@ -230,7 +230,7 @@ var _ = Describe("Node", func() {
 					candidates    = func() node.Group { return nodes }
 					net           = fmock.NewNetwork[node.ID, node.ID]()
 					t1            = net.RouteUnary("")
-					numCandidates = 20
+					numCandidates = 10
 					numPledges    = 5
 				)
 				for i := 0; i < numCandidates; i++ {
