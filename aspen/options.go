@@ -124,13 +124,11 @@ func WithPropagationConfig(config PropagationConfig) Option {
 	}
 }
 
-func FastPropagationConfig() PropagationConfig {
-	return PropagationConfig{
-		PledgeRetryInterval:   10 * time.Millisecond,
-		PledgeRetryScale:      1,
-		ClusterGossipInterval: 50 * time.Millisecond,
-		KVGossipInterval:      50 * time.Millisecond,
-	}
+var FastPropagationConfig = PropagationConfig{
+	PledgeRetryInterval:   10 * time.Millisecond,
+	PledgeRetryScale:      1,
+	ClusterGossipInterval: 50 * time.Millisecond,
+	KVGossipInterval:      50 * time.Millisecond,
 }
 
 // WithTransport sets a custom network transport.

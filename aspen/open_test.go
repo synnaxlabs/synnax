@@ -32,6 +32,7 @@ var _ = Describe("RouteStream", func() {
 			aspen.WithLogger(logger),
 			aspen.WithExperiment(alamos.Sub(exp, "db1")),
 			aspen.MemBacked(),
+			aspen.WithPropagationConfig(aspen.FastPropagationConfig),
 		)
 		Expect(err).ToNot(HaveOccurred())
 		db2, err = aspen.Open(
@@ -42,6 +43,7 @@ var _ = Describe("RouteStream", func() {
 			aspen.WithLogger(logger),
 			aspen.WithExperiment(alamos.Sub(exp, "db2")),
 			aspen.MemBacked(),
+			aspen.WithPropagationConfig(aspen.FastPropagationConfig),
 		)
 		Expect(err).ToNot(HaveOccurred())
 	})
@@ -56,7 +58,7 @@ var _ = Describe("RouteStream", func() {
 		Expect(exp.Report().WriteJSON(f)).To(Succeed())
 	})
 	It("Should be able to join two clusters", func() {
-		Expect(len(db1.Nodes())).To(Equal(2))
-		Expect(len(db2.Nodes())).To(Equal(2))
+		Eventually(db1.Nodes).Should(HaveLen(2))
+		Eventually(db2.Nodes).Should(HaveLen(2))
 	})
 })
