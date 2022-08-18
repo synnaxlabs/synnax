@@ -1,5 +1,8 @@
 name: "X Test"
 on:
+  pull_request:
+    branches:
+      - main
   push:
     paths:
       - 'x/**'
