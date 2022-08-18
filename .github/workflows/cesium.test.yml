@@ -14,6 +14,10 @@ jobs:
         with:
           go-version: 1.19
 
+      - name: Build
+        run: go build -v ./...
+        working-directory: ./cesium
+
       - name: Set Up Tests
         run: |
           go get github.com/onsi/ginkgo/v2/ginkgo/generators@v2.0.0
