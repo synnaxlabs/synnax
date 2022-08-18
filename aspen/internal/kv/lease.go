@@ -91,6 +91,9 @@ func (lf *leaseSender) send(ctx context.Context, br BatchRequest) error {
 	)
 	addr, err := lf.Cluster.Resolve(br.Leaseholder)
 	if err != nil {
+		if br.done != nil {
+			br.done(err)
+		}
 		return err
 	}
 	_, err = lf.Config.LeaseTransport.Send(ctx, addr, br)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/arya-analytics/aspen/internal/cluster"
 	"github.com/arya-analytics/aspen/internal/cluster/gossip"
+	"github.com/arya-analytics/aspen/internal/cluster/pledge"
 	"github.com/arya-analytics/aspen/internal/kv"
 	"github.com/arya-analytics/aspen/internal/kv/kvmock"
 	"github.com/arya-analytics/aspen/internal/node"
@@ -34,6 +35,7 @@ var _ = Describe("txn", func() {
 			},
 			cluster.Config{
 				Gossip: gossip.Config{Interval: 50 * time.Millisecond},
+				Pledge: pledge.Config{RetryInterval: 50 * time.Millisecond},
 			},
 		)
 	})
@@ -74,10 +76,11 @@ var _ = Describe("txn", func() {
 					kv2, err := builder.New(kvCtx, kv.Config{}, cluster.Config{})
 					Expect(err).ToNot(HaveOccurred())
 					Expect(kv1.Set([]byte("key"), []byte("value"))).To(Succeed())
-					time.Sleep(200 * time.Millisecond)
-					v, err := kv2.Get([]byte("key"))
-					Expect(err).ToNot(HaveOccurred())
-					Expect(v).To(Equal([]byte("value")))
+					Eventually(func(g Gomega) {
+						v, err := kv2.Get([]byte("key"))
+						g.Expect(err).ToNot(HaveOccurred())
+						g.Expect(v).To(Equal([]byte("value")))
+					}).Should(Succeed())
 				})
 
 			It("Should forward an update to the Leaseholder", func() {
@@ -86,18 +89,20 @@ var _ = Describe("txn", func() {
 				kv2, err := builder.New(kvCtx, kv.Config{}, cluster.Config{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(kv1.Set([]byte("key"), []byte("value"))).To(Succeed())
-				time.Sleep(200 * time.Millisecond)
-				v, err := kv2.Get([]byte("key"))
-				Expect(err).ToNot(HaveOccurred())
-				Expect(v).To(Equal([]byte("value")))
-				Expect(kv2.Set([]byte("key"), []byte("value2"))).To(Succeed())
-				time.Sleep(200 * time.Millisecond)
-				v, err = kv1.Get([]byte("key"))
-				Expect(err).ToNot(HaveOccurred())
-				Expect(v).To(Equal([]byte("value2")))
-				v, err = kv2.Get([]byte("key"))
-				Expect(err).ToNot(HaveOccurred())
-				Expect(v).To(Equal([]byte("value2")))
+				Eventually(func(g Gomega) {
+					v, err := kv2.Get([]byte("key"))
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(v).To(Equal([]byte("value")))
+					g.Expect(kv2.Set([]byte("key"), []byte("value2"))).To(Succeed())
+				}).Should(Succeed())
+				Expect(func(g Gomega) {
+					v, err := kv1.Get([]byte("key"))
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(v).To(Equal([]byte("value2")))
+					v, err = kv2.Get([]byte("key"))
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(v).To(Equal([]byte("value2")))
+				})
 			})
 
 			It("Should return an error when attempting to transfer the leaseAlloc",
@@ -121,12 +126,13 @@ var _ = Describe("txn", func() {
 				Expect(err).ToNot(HaveOccurred())
 				kv2, err := builder.New(kvCtx, kv.Config{}, cluster.Config{})
 				Expect(err).ToNot(HaveOccurred())
-				time.Sleep(50 * time.Millisecond)
+				waitForClusterStateToConverge(builder)
 				Expect(kv1.Set([]byte("key"), []byte("value"), node.ID(2))).To(Succeed())
-				time.Sleep(200 * time.Millisecond)
-				v, err := kv2.Get([]byte("key"))
-				Expect(err).ToNot(HaveOccurred())
-				Expect(v).To(Equal([]byte("value")))
+				Eventually(func(g Gomega) {
+					v, err := kv2.Get([]byte("key"))
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(v).To(Equal([]byte("value")))
+				}).Should(Succeed())
 			})
 
 		})
@@ -174,17 +180,18 @@ var _ = Describe("txn", func() {
 
 		Describe("Remote Leaseholder", func() {
 
-			It("Should applyToAndCommit the operation to storage", func() {
+			It("Should apply the operation to storage", func() {
 				kv1, err := builder.New(kvCtx, kv.Config{}, cluster.Config{})
 				Expect(err).ToNot(HaveOccurred())
 				kv2, err := builder.New(kvCtx, kv.Config{}, cluster.Config{})
 				Expect(err).ToNot(HaveOccurred())
-				time.Sleep(50 * time.Millisecond)
-				Expect(kv1.Set([]byte("key"), []byte("value"), node.ID(2)))
-				time.Sleep(200 * time.Millisecond)
-				v, err := kv2.Get([]byte("key"))
-				Expect(err).ToNot(HaveOccurred())
-				Expect(v).To(Equal([]byte("value")))
+				waitForClusterStateToConverge(builder)
+				Expect(kv1.Set([]byte("key"), []byte("value"), node.ID(2))).To(Succeed())
+				Eventually(func(g Gomega) {
+					v, err := kv2.Get([]byte("key"))
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(v).To(Equal([]byte("value")))
+				}).Should(Succeed())
 			})
 
 		})
@@ -206,10 +213,21 @@ var _ = Describe("txn", func() {
 			}, cluster.Config{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(kv1.Set([]byte("key"), []byte("value"))).To(Succeed())
-			time.Sleep(500 * time.Millisecond)
-			Expect(len(builder.OpNet.Entries)).To(BeElementOf([]int{5, 6}))
+			Eventually(func() int {
+				return len(builder.OpNet.Entries)
+			}).
+				WithPolling(250 * time.Millisecond).
+				WithTimeout(500 * time.Millisecond).
+				Should(BeElementOf([]int{5, 7}))
 		})
 
 	})
 
 })
+
+func waitForClusterStateToConverge(builder *kvmock.Builder) {
+	Eventually(func(g Gomega) {
+		_, err := builder.ClusterAPIs[1].Resolve(2)
+		g.Expect(err).ToNot(HaveOccurred())
+	}).Should(Succeed())
+}
