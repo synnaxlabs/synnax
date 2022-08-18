@@ -1,4 +1,4 @@
-name: "Cesium TEst"
+name: "Cesium Test"
 on:
   push:
     paths:
@@ -23,7 +23,7 @@ jobs:
         working-directory: ./cesium
 
       - name: Test
-        run: ginkgo -v --covermode=atomic --coverprofile=coverage.txt --label-filter="!integration && !performance"
+        run: ginkgo --covermode=atomic --coverprofile=coverage.txt --label-filter="!integration && !performance"
         working-directory: ./cesium
 
       - name: Upload Coverage

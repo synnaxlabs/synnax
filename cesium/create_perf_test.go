@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"github.com/arya-analytics/cesium"
 	"github.com/arya-analytics/x/alamos"
+	. "github.com/arya-analytics/x/testutil"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/zap"
@@ -80,7 +81,7 @@ var progressiveCreate = []createVars{
 	},
 }
 
-var _ = Describe("Create", func() {
+var _ = Describe("Create", Performance, func() {
 	var (
 		db      cesium.DB
 		log     *zap.Logger
