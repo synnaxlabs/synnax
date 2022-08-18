@@ -35,10 +35,13 @@ type Device struct {
 }
 
 func (d *Device) createChannel() (cesium.Channel, error) {
-	return d.DB.CreateChannel().
-		WithRate(d.DataRate).
-		WithType(d.DataType).
-		Exec(d.Ctx)
+	ch := cesium.Channel{
+		DataRate: d.DataRate,
+		DataType: d.DataType,
+	}
+	key, err := d.DB.CreateChannel(ch)
+	ch.Key = key
+	return ch, err
 }
 
 func (d *Device) Start() error {
