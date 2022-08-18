@@ -77,6 +77,12 @@ var _ = Describe("Telem", func() {
 				Expect(r.Start).To(Equal(t0))
 				Expect(r.End).To(Equal(t0.Add(telem.Second)))
 			})
+			It("Should swap the start and end if the start is after the end", func() {
+				t0 := telem.TimeStamp(0)
+				r := telem.TimeStamp(telem.Second).SpanRange(-1 * telem.Second)
+				Expect(r.Start).To(Equal(t0))
+				Expect(r.End).To(Equal(t0.Add(telem.Second)))
+			})
 		})
 
 		Describe("Range", func() {
@@ -112,6 +118,7 @@ var _ = Describe("Telem", func() {
 		})
 
 		Describe("BoundBy", func() {
+
 			It("Should bound the time range to the provided constraints", func() {
 				tr := telem.TimeRange{
 					Start: telem.TimeStamp(telem.Second),
@@ -124,6 +131,24 @@ var _ = Describe("Telem", func() {
 				bounded := tr.BoundBy(bound)
 				Expect(bounded.Start).To(Equal(bound.Start))
 				Expect(bounded.End).To(Equal(bounded.End))
+			})
+
+			It("Should bound the time range even if the start is after the end", func() {
+
+				tr := telem.TimeRange{
+					Start: telem.TimeStamp(telem.Second * 4),
+					End:   telem.TimeStamp(telem.Second),
+				}
+
+				bound := telem.TimeRange{
+					Start: telem.TimeStamp(2 * telem.Second),
+					End:   telem.TimeStamp(telem.Second * 3),
+				}
+
+				bounded := tr.BoundBy(bound)
+				Expect(bounded.Start).To(Equal(bound.End))
+				Expect(bounded.End).To(Equal(bound.Start))
+
 			})
 		})
 
@@ -138,7 +163,7 @@ var _ = Describe("Telem", func() {
 			})
 		})
 
-		Describe("OverlapsWith", func() {
+		Describe("ContainsRange", func() {
 			It("Should return true when the ranges overlap with one another", func() {
 				tr := telem.TimeStamp(0).SpanRange(5 * telem.Second)
 				Expect(tr.ContainsRange(telem.TimeStamp(1).SpanRange(2 * telem.Second))).To(BeTrue())
@@ -152,6 +177,46 @@ var _ = Describe("Telem", func() {
 			It("Should return true if checked against itself", func() {
 				tr := telem.TimeStamp(0).SpanRange(5 * telem.Second)
 				Expect(tr.ContainsRange(tr))
+			})
+		})
+
+		Describe("OverlapsWith", func() {
+			It("Should return true when the ranges overlap with one another", func() {
+				tr := telem.TimeStamp(0).SpanRange(5 * telem.Second)
+				Expect(tr.OverlapsWith(telem.TimeStamp(1).SpanRange(2 * telem.Second))).To(BeTrue())
+			})
+			It("Should return false when the start of one range is the end of another", func() {
+				tr := telem.TimeStamp(0).SpanRange(5 * telem.Second)
+				tr2 := telem.TimeStamp(5 * telem.Second).SpanRange(5 * telem.Second)
+				Expect(tr.OverlapsWith(tr2)).To(BeFalse())
+				Expect(tr2.OverlapsWith(tr)).To(BeFalse())
+			})
+			It("Should return true if checked against itself", func() {
+				tr := telem.TimeStamp(0).SpanRange(5 * telem.Second)
+				Expect(tr.OverlapsWith(tr))
+			})
+			It("Should return false if the ranges do not overlap", func() {
+				tr := telem.TimeStamp(0).SpanRange(5 * telem.Second)
+				tr2 := telem.TimeStamp(5 * telem.Second).SpanRange(5 * telem.Second)
+				Expect(tr.OverlapsWith(tr2)).To(BeFalse())
+				Expect(tr2.OverlapsWith(tr)).To(BeFalse())
+			})
+			It("Should return true if one range is contained within the other", func() {
+				tr := telem.TimeStamp(0).SpanRange(5 * telem.Second)
+				tr2 := telem.TimeStamp(1).SpanRange(2 * telem.Second)
+				Expect(tr.OverlapsWith(tr2)).To(BeTrue())
+				Expect(tr2.OverlapsWith(tr)).To(BeTrue())
+			})
+		})
+
+		Describe("Swap", func() {
+			It("Should swap the start and end times", func() {
+				tr := telem.TimeStamp(0).SpanRange(5 * telem.Second)
+				Expect(tr.Start).To(Equal(telem.TimeStamp(0)))
+				Expect(tr.End).To(Equal(telem.TimeStamp(5 * telem.Second)))
+				tr = tr.Swap()
+				Expect(tr.Start).To(Equal(telem.TimeStamp(5 * telem.Second)))
+				Expect(tr.End).To(Equal(telem.TimeStamp(0)))
 			})
 		})
 
@@ -182,7 +247,13 @@ var _ = Describe("Telem", func() {
 				Expect(telem.TimeSpanZero.IsMax()).To(BeFalse())
 			})
 		})
+		Describe("ByteSize", func() {
+			It("Should return the correct byte size", func() {
+				Expect(telem.Second.ByteSize(1, 8)).To(Equal(telem.Size(8)))
+			})
+		})
 	})
+
 	Describe("Size", func() {
 		Describe("String", func() {
 			It("Should return the correct string", func() {
@@ -191,6 +262,7 @@ var _ = Describe("Telem", func() {
 			})
 		})
 	})
+
 	Describe("DataRate", func() {
 		Describe("Period", func() {
 			It("Should return the correct period for the data rate", func() {
