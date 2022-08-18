@@ -59,13 +59,16 @@ var _ = Describe("OperationSender", func() {
 		})
 		It("Should gossip at the correct interval", func() {
 			g1.GoGossip(gossipCtx)
-			time.Sleep(12 * time.Millisecond)
-			cancel()
-			Expect(errors.Is(gossipCtx.Wait(), context.Canceled)).To(BeTrue())
-			Expect(sOne.CopyState().Nodes).To(HaveLen(3))
-			Expect(sOne.CopyState().Nodes[1].Heartbeat.Version).To(Equal(uint32(2)))
-			Expect(sOne.CopyState().Nodes[3].State).To(Equal(node.StateDead))
-			Expect(sOne.CopyState().Nodes[2].Heartbeat.Version).To(Equal(uint32(0)))
+			defer func() {
+				cancel()
+				Expect(errors.Is(gossipCtx.Wait(), context.Canceled)).To(BeTrue())
+			}()
+			Eventually(func(g Gomega) {
+				g.Expect(sOne.CopyState().Nodes).To(HaveLen(3))
+				g.Expect(sOne.CopyState().Nodes[1].Heartbeat.Version).To(BeNumerically(">", uint32(2)))
+				g.Expect(sOne.CopyState().Nodes[3].State).To(Equal(node.StateDead))
+				g.Expect(sOne.CopyState().Nodes[2].Heartbeat.Version).To(Equal(uint32(0)))
+			}).Should(Succeed())
 		})
 		It("Should return an error when an invalid message is received", func() {
 			_, err := t1.Send(context.Background(), t2.Address, gossip.Message{})

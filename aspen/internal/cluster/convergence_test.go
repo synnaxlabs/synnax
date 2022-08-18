@@ -31,12 +31,12 @@ var progressiveNewConvergence = []newConvergenceVars{
 	{
 		clusterSize:          4,
 		convergenceThreshold: time.Second * 1,
-		gossipInterval:       time.Millisecond * 50,
+		gossipInterval:       time.Millisecond * 10,
 		peerAddrCount:        1,
 	},
 	{
 		clusterSize:          10,
-		convergenceThreshold: time.Second * 2,
+		convergenceThreshold: time.Second * 3,
 		gossipInterval:       time.Millisecond * 50,
 		peerAddrCount:        3,
 	},
@@ -52,16 +52,16 @@ var _ = Describe("Convergence", func() {
 		shutdown   context.CancelFunc
 	)
 
-	BeforeAll(func() {
-		exp = alamos.New("convergence_test")
-	})
-
 	BeforeEach(func() {
 		clusterCtx, shutdown = signal.WithCancel(ctx)
 		gossipNet = fmock.NewNetwork[gossip.Message, gossip.Message]()
 		pledgeNet = fmock.NewNetwork[node.ID, node.ID]()
-		log := zap.NewNop()
-		logger = log.Sugar()
+		logger = zap.NewNop().Sugar()
+	})
+
+	AfterEach(func() {
+		shutdown()
+		Expect(errors.Is(clusterCtx.Wait(), context.Canceled)).To(BeTrue())
 	})
 
 	Context("Serial Pledge", func() {
@@ -81,14 +81,22 @@ var _ = Describe("Convergence", func() {
 				for i := 0; i < values.clusterSize; i++ {
 					gossipT := gossipNet.RouteUnary("")
 					pledgeT := pledgeNet.RouteUnary(gossipT.Address)
+					peerAddresses := rand.SubSlice(addresses, values.peerAddrCount)
 					cluster, err := cluster.Join(
 						clusterCtx,
 						gossipT.Address,
-						rand.SubSlice(addresses, values.peerAddrCount),
+						peerAddresses,
 						cluster.Config{
-							Logger:     logger,
-							Pledge:     pledge.Config{Transport: pledgeT, RetryInterval: values.gossipInterval, RetryScale: 1},
-							Gossip:     gossip.Config{Transport: gossipT, Interval: values.gossipInterval},
+							Logger: logger,
+							Pledge: pledge.Config{
+								Transport:     pledgeT,
+								RetryInterval: values.gossipInterval,
+								RetryScale:    1,
+							},
+							Gossip: gossip.Config{
+								Transport: gossipT,
+								Interval:  values.gossipInterval,
+							},
 							Storage:    memkv.New(),
 							Experiment: alamos.Sub(subExp, fmt.Sprintf("cluster_%v", i)),
 						},
@@ -97,12 +105,12 @@ var _ = Describe("Convergence", func() {
 					addresses = append(addresses, gossipT.Address)
 					clusters = append(clusters, cluster)
 				}
-				time.Sleep(values.convergenceThreshold)
-				shutdown()
-				Expect(errors.Is(clusterCtx.Wait(), context.Canceled)).To(BeTrue())
-				for i, cluster_ := range clusters {
-					Expect(cluster_.HostID()).To(Equal(node.ID(i + 1)))
-					Expect(cluster_.Nodes()).To(HaveLen(values.clusterSize))
+				Expect(len(clusters)).To(Equal(values.clusterSize))
+				for j, cluster_ := range clusters {
+					Expect(cluster_.HostID()).To(Equal(node.ID(j + 1)))
+				}
+				for _, cluster_ := range clusters {
+					Eventually(cluster_.Nodes, values.convergenceThreshold).Should(HaveLen(values.clusterSize))
 				}
 			})
 

@@ -63,6 +63,9 @@ func (cfg Config) Merge(def Config) Config {
 		cfg.Gossip.Experiment = cfg.Experiment
 	}
 
+	cfg.Gossip = cfg.Gossip.Merge(def.Gossip)
+	cfg.Pledge = cfg.Pledge.Merge(def.Pledge)
+
 	return cfg
 }
 

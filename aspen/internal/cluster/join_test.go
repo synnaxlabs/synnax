@@ -34,6 +34,11 @@ var _ = Describe("Join", func() {
 		logger = zap.NewNop().Sugar()
 	})
 
+	AfterEach(func() {
+		shutdown()
+		Expect(errors.Is(clusterCtx.Wait(), context.Canceled)).To(BeTrue())
+	})
+
 	Context("New cluster", func() {
 
 		It("Should correctly join the cluster", func() {
@@ -85,13 +90,9 @@ var _ = Describe("Join", func() {
 			)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(clusterTwo.Host().ID).To(Equal(node.ID(2)))
-
 			By("Converging cluster state through gossip")
-			time.Sleep(300 * time.Millisecond)
-			shutdown()
-			Expect(errors.Is(clusterCtx.Wait(), context.Canceled)).To(BeTrue())
-			Expect(clusterOne.Nodes()).To(HaveLen(2))
-			Expect(clusterTwo.Nodes()).To(HaveLen(2))
+			Eventually(clusterOne.Nodes).Should(HaveLen(2))
+			Eventually(clusterTwo.Nodes).Should(HaveLen(2))
 		})
 
 	})

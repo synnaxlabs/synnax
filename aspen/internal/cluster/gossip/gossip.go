@@ -35,6 +35,7 @@ func New(store store.Store, cfg Config) (*Gossip, error) {
 
 // GoGossip starts a goroutine that gossips at Config.Interval.
 func (g *Gossip) GoGossip(ctx signal.Context) {
+	g.Logger.Infow("starting periodic cluster gossip")
 	signal.GoTick(
 		ctx,
 		g.Interval,
@@ -104,14 +105,12 @@ func (g *Gossip) sync(sync Message) (ack Message) {
 	for _, dig := range sync.Digests {
 		n, ok := snap.Nodes[dig.ID]
 
-		// If we have a more recent version of the node,
-		// return it to the initiator.
+		// If we have a more recent version of the node, return it to the initiator.
 		if ok && n.Heartbeat.OlderThan(dig.Heartbeat) {
 			ack.Nodes[dig.ID] = n
 		}
 
-		// If we don't have the node or our version is out of date,
-		// add it to our digests.
+		// If we don't have the node or our version is out of date, add it to our digests.
 		if !ok || n.Heartbeat.YoungerThan(dig.Heartbeat) {
 			ack.Digests[dig.ID] = node.Digest{ID: dig.ID, Heartbeat: n.Heartbeat}
 		}
@@ -137,7 +136,7 @@ func (g *Gossip) ack(ack Message) (ack2 Message) {
 	for _, dig := range ack.Digests {
 		// If we have the node, and our version is newer, return it to the
 		// peer.
-		if n, ok := snap.Nodes[dig.ID]; !ok || !n.Heartbeat.YoungerThan(dig.Heartbeat) {
+		if n, ok := snap.Nodes[dig.ID]; ok && n.Heartbeat.OlderThan(dig.Heartbeat) {
 			ack2.Nodes[dig.ID] = n
 		}
 	}

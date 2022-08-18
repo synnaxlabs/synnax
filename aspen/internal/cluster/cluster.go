@@ -203,7 +203,10 @@ func gossipInitialState(
 			if ctx.Err() != nil {
 				return ctx.Err()
 			}
-			cfg.Logger.Error("failed to gossip with peer", zap.String("peer", string(peerAddr)), zap.Error(err))
+			cfg.Logger.Error("failed to gossip with peer",
+				zap.String("peer", string(peerAddr)),
+				zap.Error(err),
+			)
 		}
 		if len(s.CopyState().Nodes) > 1 {
 			break

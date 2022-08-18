@@ -244,6 +244,7 @@ var _ = Describe("Pledge", Unit, func() {
 				Expect(id).To(Equal(node.ID(0)))
 			})
 		})
+
 		Context("Concurrent Pledges", func() {
 			It("Should assign unique IDs to all pledges", func() {
 				var (
@@ -263,7 +264,7 @@ var _ = Describe("Pledge", Unit, func() {
 				}
 				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 				defer cancel()
-				wg := sync.WaitGroup{}
+				var wg sync.WaitGroup
 				ids := make([]node.ID, numPledges)
 				for i := 0; i < numPledges; i++ {
 					wg.Add(1)
@@ -273,8 +274,8 @@ var _ = Describe("Pledge", Unit, func() {
 						id, err := pledge.Pledge(ctx, nodes.Addresses(), candidates, pledge.Config{
 							Transport:     t1,
 							Logger:        logger,
-							RetryScale:    1,
-							RetryInterval: 1 * time.Millisecond,
+							RetryScale:    1.25,
+							RetryInterval: 5 * time.Millisecond,
 						})
 						Expect(err).ToNot(HaveOccurred())
 						ids[i] = id
