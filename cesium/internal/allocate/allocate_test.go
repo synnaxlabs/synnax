@@ -2,20 +2,21 @@ package allocate_test
 
 import (
 	"github.com/arya-analytics/cesium/internal/allocate"
+	"github.com/arya-analytics/x/telem"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
 type IntegerItem struct {
 	key  int
-	size int
+	size telem.Size
 }
 
 func (i IntegerItem) Key() int {
 	return i.key
 }
 
-func (i IntegerItem) Size() int {
+func (i IntegerItem) Size() telem.Size {
 	return i.size
 }
 

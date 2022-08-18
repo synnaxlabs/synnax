@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/arya-analytics/cesium/internal/allocate"
 	"github.com/arya-analytics/x/alamos"
+	"github.com/arya-analytics/x/telem"
 	. "github.com/onsi/ginkgo/v2"
 	"sync"
 )
@@ -13,20 +14,20 @@ type perfVars struct {
 	nBatch        int
 	allocPerBatch int
 	key           func(i int) int
-	size          func(k int) int
+	size          func(k int) telem.Size
 	experiment    alamos.Experiment
 }
 
 type allocateItem struct {
 	key  int
-	size int
+	size telem.Size
 }
 
 func (a allocateItem) Key() int {
 	return a.key
 }
 
-func (a allocateItem) Size() int {
+func (a allocateItem) Size() telem.Size {
 	return a.size
 }
 
@@ -43,8 +44,8 @@ var _ = Describe("Perf", func() {
 				key: func(i int) int {
 					return i
 				},
-				size: func(k int) int {
-					return k
+				size: func(k int) telem.Size {
+					return telem.Size(k)
 				},
 				experiment: alamos.New("allocate-1"),
 			},
@@ -55,7 +56,7 @@ var _ = Describe("Perf", func() {
 				key: func(i int) int {
 					return 1
 				},
-				size: func(k int) int {
+				size: func(k int) telem.Size {
 					return 1
 				},
 				experiment: alamos.New("allocate-2"),
@@ -67,8 +68,8 @@ var _ = Describe("Perf", func() {
 				key: func(i int) int {
 					return i
 				},
-				size: func(k int) int {
-					return k
+				size: func(k int) telem.Size {
+					return telem.Size(k)
 				},
 				experiment: alamos.New("allocate-2"),
 			},
@@ -81,8 +82,8 @@ var _ = Describe("Perf", func() {
 					return 1 + (i % 10)
 				},
 				// Returns a random integer between 1 and 100
-				size: func(k int) int {
-					return 1 + (k % 100)
+				size: func(k int) telem.Size {
+					return telem.Size(1 + (k % 100))
 				},
 				experiment: alamos.New("allocate-3"),
 			},
