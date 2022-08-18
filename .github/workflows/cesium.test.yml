@@ -1,0 +1,34 @@
+name: "Cesium TEst"
+on:
+  push:
+    paths:
+      - 'cesium/**'
+      - '.github/workflows/cesium.test.yml'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-go@v3
+        with:
+          go-version: 1.19
+
+      - name: Set Up Tests
+        run: |
+          go get github.com/onsi/ginkgo/v2/ginkgo/generators@v2.0.0
+          go get github.com/onsi/ginkgo/v2/ginkgo/internal@v2.0.0
+          go get github.com/onsi/ginkgo/v2/ginkgo/labels@v2.0.0
+          go install github.com/onsi/ginkgo/v2/ginkgo
+        working-directory: ./cesium
+
+      - name: Test
+        run: ginkgo -v --covermode=atomic --coverprofile=coverage.txt --label-filter="!integration && !performance"
+        working-directory: ./cesium
+
+      - name: Upload Coverage
+        with:
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: ./cesium
+          flags: cesium
