@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-var _ = Describe("Pledge", Unit, func() {
+var _ = Describe("Pledge", func() {
 	var logger *zap.SugaredLogger
 
 	BeforeEach(func() {
