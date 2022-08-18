@@ -84,7 +84,21 @@ var _ = Describe("Delta", func() {
 			Expect(v1).To(Equal(2))
 			_, ok := <-outputOne.Outlet()
 			Expect(ok).To(BeFalse())
-			cancel()
+		})
+		It("Should not send a value when the transform returns false", func() {
+			delta := &confluence.DeltaTransformMultiplier[int, int]{}
+			delta.ApplyTransform = func(ctx context.Context, v int) (int, bool, error) {
+				return v * 2, v != 1, nil
+			}
+			delta.OutTo(outputOne)
+			delta.InFrom(inputOne)
+			ctx, cancel := signal.TODO()
+			defer cancel()
+			delta.Flow(ctx, confluence.CloseInletsOnExit())
+			inputOne.Inlet() <- 1
+			inputOne.Close()
+			_, ok := <-outputOne.Outlet()
+			Expect(ok).To(BeFalse())
 		})
 	})
 })
