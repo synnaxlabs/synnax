@@ -37,6 +37,24 @@ var _ = Describe("Router", func() {
 			source.Out.Inlet() <- 1
 			Expect(sink.In.Outlet()).To(Receive(Equal(1)))
 		})
+		It("Should return an error if source is not found", func() {
+			router := &plumber.UnaryRouter[int]{
+				SourceTarget: "source",
+				SinkTarget:   "sink",
+				Capacity:     1,
+			}
+			Expect(router.Route(p)).ToNot(Succeed())
+		})
+		It("Should return an error if sink is not found", func() {
+			source := &confluence.Emitter[int]{}
+			plumber.SetSource[int](p, "source", source)
+			router := &plumber.UnaryRouter[int]{
+				SourceTarget: "source",
+				SinkTarget:   "sink",
+				Capacity:     1,
+			}
+			Expect(router.PreRoute(p)()).ToNot(Succeed())
+		})
 	})
 
 	Describe("MultiRouter", func() {
@@ -123,7 +141,7 @@ var _ = Describe("Router", func() {
 					Stitch:        plumber.StitchConvergent,
 					Capacity:      1,
 				}
-				Expect(router.Route(p)).To(Succeed())
+				Expect(router.PreRoute(p)()).To(Succeed())
 				sourceOne.Out["sinkOne"].Inlet() <- 1
 				Expect(sinkOne.In.Outlet()).To(Receive(Equal(1)))
 				sourceOne.Out["sinkTwo"].Inlet() <- 1

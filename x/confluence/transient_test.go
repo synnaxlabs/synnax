@@ -26,27 +26,27 @@ func newTransientSegment() *transientSegment {
 }
 
 var _ = Describe("TransientProvider", func() {
+	var (
+		ctx    signal.Context
+		cancel context.CancelFunc
+		trans  confluence.Stream[error]
+		inlet  confluence.Stream[int]
+		outlet confluence.Stream[int]
+		t      *transientSegment
+	)
+	BeforeEach(func() {
+		t = newTransientSegment()
+		trans = confluence.NewStream[error](1)
+		ctx, cancel = signal.TODO()
+		inlet = confluence.NewStream[int](0)
+		t.InFrom(inlet)
+		outlet = confluence.NewStream[int](0)
+		t.OutTo(outlet)
+	})
 
-	Describe("Transient", func() {
-		var (
-			cancel context.CancelFunc
-			trans  confluence.Stream[error]
-			inlet  confluence.Stream[int]
-			outlet confluence.Stream[int]
-		)
-		BeforeEach(func() {
-			t := newTransientSegment()
-			trans = confluence.NewStream[error](1)
-			s := confluence.InjectTransient[int, int](trans, t)
-			var ctx signal.Context
-			ctx, cancel = signal.TODO()
-			inlet = confluence.NewStream[int](0)
-			s.InFrom(inlet)
-			outlet = confluence.NewStream[int](0)
-			s.OutTo(outlet)
-			s.Flow(ctx, confluence.CloseInletsOnExit())
-		})
-		AfterEach(func() { cancel() })
+	AfterEach(func() { cancel() })
+
+	runSpecs := func() {
 		It("Should receive errors from the segment", func() {
 			inlet.Inlet() <- 3
 			Expect(errors.Is(<-trans.Outlet(), errors.New("error"))).To(BeTrue())
@@ -56,67 +56,29 @@ var _ = Describe("TransientProvider", func() {
 			_, ok := <-trans.Outlet()
 			Expect(ok).To(BeFalse())
 		})
+	}
+
+	Describe("Transient", func() {
+		BeforeEach(func() {
+			s := confluence.InjectTransient[int, int](trans, t)
+			s.Flow(ctx, confluence.CloseInletsOnExit())
+		})
+		runSpecs()
 	})
 
 	Describe("TransientSource", func() {
-		var (
-			cancel context.CancelFunc
-			trans  confluence.Stream[error]
-			inlet  confluence.Stream[int]
-			outlet confluence.Stream[int]
-		)
 		BeforeEach(func() {
-			t := newTransientSegment()
-			trans = confluence.NewStream[error](1)
 			s := confluence.InjectTransientSource[int](trans, t)
-			var ctx signal.Context
-			ctx, cancel = signal.TODO()
-			inlet = confluence.NewStream[int](0)
-			t.InFrom(inlet)
-			outlet = confluence.NewStream[int](0)
-			s.OutTo(outlet)
 			s.Flow(ctx, confluence.CloseInletsOnExit())
 		})
-		AfterEach(func() { cancel() })
-		It("Should receive errors from the segment", func() {
-			inlet.Inlet() <- 3
-			Expect(errors.Is(<-trans.Outlet(), errors.New("error"))).To(BeTrue())
-		})
-		It("Should close the transient channel when the segments exit", func() {
-			close(inlet.Inlet())
-			_, ok := <-trans.Outlet()
-			Expect(ok).To(BeFalse())
-		})
+		runSpecs()
 	})
 
 	Describe("TransientSink", func() {
-		var (
-			cancel context.CancelFunc
-			trans  confluence.Stream[error]
-			inlet  confluence.Stream[int]
-			outlet confluence.Stream[int]
-		)
 		BeforeEach(func() {
-			t := newTransientSegment()
-			trans = confluence.NewStream[error](1)
 			s := confluence.InjectTransientSink[int](trans, t)
-			var ctx signal.Context
-			ctx, cancel = signal.TODO()
-			inlet = confluence.NewStream[int](0)
-			t.InFrom(inlet)
-			outlet = confluence.NewStream[int](0)
-			t.OutTo(outlet)
 			s.Flow(ctx, confluence.CloseInletsOnExit(), confluence.CancelOnExitErr())
 		})
-		AfterEach(func() { cancel() })
-		It("Should receive errors from the segment", func() {
-			inlet.Inlet() <- 3
-			Expect(errors.Is(<-trans.Outlet(), errors.New("error"))).To(BeTrue())
-		})
-		It("Should close the transient channel when the segments exit", func() {
-			close(inlet.Inlet())
-			_, ok := <-trans.Outlet()
-			Expect(ok).To(BeFalse())
-		})
+		runSpecs()
 	})
 })

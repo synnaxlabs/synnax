@@ -23,8 +23,6 @@ const (
 type Router[V cfs.Value] interface {
 	Route(p *Pipeline) error
 	PreRoute(p *Pipeline) func() error
-	sourceTargets() []address.Address
-	sinkTargets() []address.Address
 	capacity() int
 }
 
@@ -41,15 +39,6 @@ func (u UnaryRouter[V]) Route(p *Pipeline) error {
 func (u UnaryRouter[V]) PreRoute(p *Pipeline) func() error {
 	return func() error { return u.Route(p) }
 }
-
-// sourceTargets implements Router.
-func (u UnaryRouter[V]) sourceTargets() []address.Address { return []address.Address{u.SourceTarget} }
-
-// sinkTargets implements Router.
-func (u UnaryRouter[V]) sinkTargets() []address.Address { return []address.Address{u.SinkTarget} }
-
-// capacity implements Router.
-func (u UnaryRouter[V]) capacity() int { return u.Capacity }
 
 type MultiRouter[V cfs.Value] struct {
 	SourceTargets []address.Address
@@ -74,12 +63,6 @@ func (m MultiRouter[V]) PreRoute(p *Pipeline) func() error {
 	return func() error { return m.Route(p) }
 }
 
-func (m MultiRouter[V]) sourceTargets() []address.Address { return m.SourceTargets }
-
-func (m MultiRouter[V]) sinkTargets() []address.Address { return m.SinkTargets }
-
-func (m MultiRouter[V]) capacity() int { return m.Capacity }
-
 func (m MultiRouter[V]) linear(p *Pipeline) error {
 	stream := cfs.NewStream[V](m.Capacity)
 	stream.Acquire(int32(len(m.SourceTargets)))
@@ -95,37 +78,25 @@ func (m MultiRouter[V]) weave(p *Pipeline) error {
 }
 
 func (m MultiRouter[V]) convergent(p *Pipeline) error {
-	return m.iterSinks(func(to address.Address) error {
+	return iter(m.SinkTargets, func(to address.Address) error {
 		stream := cfs.NewStream[V](m.Capacity)
 		stream.Acquire(int32(len(m.SourceTargets)))
-		return m.iterSources(func(from address.Address) error {
+		return iter(m.SourceTargets, func(from address.Address) error {
 			return route(p, from, to, stream)
 		})
 	})
 }
 
 func (m MultiRouter[V]) iterAddresses(f func(source, sink address.Address) error) error {
-	for _, sourceAddr := range m.SourceTargets {
-		for _, sinkAddr := range m.SinkTargets {
-			if err := f(sourceAddr, sinkAddr); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
+	return iter(m.SourceTargets, func(source address.Address) error {
+		return iter(m.SinkTargets, func(sink address.Address) error {
+			return f(source, sink)
+		})
+	})
 }
 
-func (m MultiRouter[v]) iterSources(f func(source address.Address) error) error {
-	for _, fromAddr := range m.SourceTargets {
-		if err := f(fromAddr); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (m MultiRouter[V]) iterSinks(f func(to address.Address) error) error {
-	for _, toAddr := range m.SinkTargets {
+func iter(targets []address.Address, f func(to address.Address) error) error {
+	for _, toAddr := range targets {
 		if err := f(toAddr); err != nil {
 			return err
 		}

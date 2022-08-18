@@ -87,6 +87,40 @@ var _ = Describe("Pipeline", func() {
 
 	})
 
+	Describe("GetSink", func() {
+		It("Should return an error if the sink is not found", func() {
+			_, err := plumber.GetSink[int](pipe, "sink")
+			Expect(err).To(HaveOccurred())
+		})
+		It("Should return an error if the sink is of the wrong typer2", func() {
+			plumber.SetSink[int](pipe, "sink", &confluence.UnarySink[int]{})
+			_, err := plumber.GetSink[[]int](pipe, "sink")
+			Expect(err).To(HaveOccurred())
+		})
+	})
+	Describe("GetSegment", func() {
+		It("Should return an error if the segment is not found", func() {
+			_, err := plumber.GetSegment[int, int](pipe, "segment")
+			Expect(err).To(HaveOccurred())
+		})
+		It("Should return an error if the segment is of the wrong type", func() {
+			plumber.SetSegment[int, int](pipe, "segment", &confluence.LinearTransform[int, int]{})
+			_, err := plumber.GetSegment[int, []int](pipe, "segment")
+			Expect(err).To(HaveOccurred())
+		})
+	})
+	Describe("GetSource", func() {
+		It("Should return an error if the source is not found", func() {
+			_, err := plumber.GetSource[int](pipe, "source")
+			Expect(err).To(HaveOccurred())
+		})
+		It("Should return an error if the sink is of the wrong type", func() {
+			plumber.SetSource[int](pipe, "sink", &confluence.Emitter[int]{})
+			_, err := plumber.GetSink[[]int](pipe, "sink")
+			Expect(err).To(HaveOccurred())
+		})
+	})
+
 	Describe("Complex Pipeline", func() {
 
 		It("Should construct and operate the pipe correctly", func() {
