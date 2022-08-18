@@ -12,8 +12,8 @@ var _ = Describe("Ticker", func() {
 		It("Should scale the duration between ticks", func() {
 			t := xtime.NewScaledTicker(1*time.Millisecond, 2)
 			defer t.Stop()
-			Expect(<-t.C).To(Equal(1 * time.Millisecond))
 			Expect(<-t.C).To(Equal(2 * time.Millisecond))
+			Expect(<-t.C).To(Equal(4 * time.Millisecond))
 		})
 	})
 })

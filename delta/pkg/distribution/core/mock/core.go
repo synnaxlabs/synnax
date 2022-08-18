@@ -55,7 +55,7 @@ func (c *CoreBuilder) New() core.Core {
 		aspen.WithExperiment(c.Config.Experiment),
 		aspen.WithLogger(c.Config.Logger.Named("aspen").Sugar()),
 		aspen.WithTransport(trans),
-		aspen.WithPropagationConfig(aspen.FastPropagationConfig()),
+		aspen.WithPropagationConfig(aspen.FastPropagationConfig),
 	)
 	if err != nil {
 		panic(err)

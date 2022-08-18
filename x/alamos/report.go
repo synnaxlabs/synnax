@@ -23,6 +23,14 @@ func (r Report) JSON() ([]byte, error) {
 	return json.MarshalIndent(r, "", " ")
 }
 
+func (r Report) LogArgs() []interface{} {
+	args := make([]interface{}, 0, len(r))
+	for k, v := range r {
+		args = append(args, k, v)
+	}
+	return args
+}
+
 // WriteJSON writes the report as JSON to the given writer.
 func (r Report) WriteJSON(w io.Writer) error {
 	e := json.NewEncoder(w)
