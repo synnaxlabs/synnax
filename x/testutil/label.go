@@ -2,11 +2,9 @@ package testutil
 
 import "github.com/onsi/ginkgo/v2"
 
-const (
-	Integration = "integration"
-	Performance = "performance"
+var (
+	Integration = ginkgo.Label("integration")
+	Performance = ginkgo.Label("performance")
+	Unit        = ginkgo.Label("unit")
+	Slow        = ginkgo.Label("slow")
 )
-
-func LabelIntegration() ginkgo.Labels { return ginkgo.Label(Integration) }
-
-func LabelPerformance() ginkgo.Labels { return ginkgo.Label(Performance) }

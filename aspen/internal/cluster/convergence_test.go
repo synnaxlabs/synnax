@@ -42,7 +42,7 @@ var progressiveNewConvergence = []newConvergenceVars{
 	},
 }
 
-var _ = Describe("Convergence", Serial, Ordered, func() {
+var _ = Describe("Convergence", func() {
 	var (
 		gossipNet  *fmock.Network[gossip.Message, gossip.Message]
 		pledgeNet  *fmock.Network[node.ID, node.ID]

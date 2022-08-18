@@ -1,34 +1,33 @@
 package pledge_test
 
 import (
-	"github.com/arya-analytics/aspen/internal/cluster/pledge"
-	"github.com/cockroachdb/errors"
-	"github.com/samber/lo"
-)
-
-import (
 	"context"
+	"github.com/arya-analytics/aspen/internal/cluster/pledge"
 	"github.com/arya-analytics/aspen/internal/node"
 	"github.com/arya-analytics/freighter/fmock"
 	"github.com/arya-analytics/x/address"
+	. "github.com/arya-analytics/x/testutil"
+	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"sync"
 	"time"
 )
 
-var _ = Describe("Node", func() {
+var _ = Describe("Pledge", Unit, func() {
 	var logger *zap.SugaredLogger
 
 	BeforeEach(func() {
-		l := zap.NewNop()
-		logger = l.Sugar()
+		//l, err := zap.NewProduction()
+		//Expect(err).ToNot(HaveOccurred())
+		logger = zap.NewNop().Sugar()
 	})
 
-	Describe("Pledge", Ordered, Serial, func() {
+	Describe("Pledge", func() {
 
-		Context("No UniqueNodeIDs Responding", func() {
+		Context("No nodes Responding", func() {
 
 			It("Should submit round robin propose requests at scaled intervals", func() {
 				var (
@@ -36,8 +35,7 @@ var _ = Describe("Node", func() {
 					numTransports = 4
 					net           = fmock.NewNetwork[node.ID, node.ID]()
 					handler       = func(ctx context.Context, id node.ID) (node.ID, error) {
-						time.Sleep(2 * time.Millisecond)
-						return 0, ctx.Err()
+						return 0, errors.New("pledge failed")
 					}
 					t1 = net.RouteUnary("")
 				)
@@ -46,25 +44,26 @@ var _ = Describe("Node", func() {
 					t.BindHandler(handler)
 					addresses = append(addresses, t.Address)
 				}
-				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
+				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 				defer cancel()
 				id, err := pledge.Pledge(
 					ctx,
 					addresses,
-					func() (g node.Group) { return g },
+					func() node.Group { return node.Group{} },
 					pledge.Config{
 						RequestTimeout: 1 * time.Millisecond,
 						Transport:      t1,
 						RetryScale:     1,
 						RetryInterval:  1 * time.Millisecond,
+						Logger:         logger,
 					},
 				)
-				Expect(errors.Is(err, context.DeadlineExceeded)).To(BeTrue())
+				Expect(err).To(HaveOccurredAs(context.DeadlineExceeded))
 				Expect(id).To(Equal(node.ID(0)))
 				for i, entry := range net.Entries {
 					Expect(entry.Target).To(Equal(addresses[i%4]))
 				}
-				Expect(len(net.Entries)).To(BeNumerically(">", 3))
+				Expect(net.Entries).ToNot(HaveLen(0))
 			})
 		})
 	})
@@ -82,6 +81,7 @@ var _ = Describe("Node", func() {
 					t := net.RouteUnary("")
 					cfg := pledge.Config{
 						Transport: t, Logger: logger,
+						RetryInterval: 1 * time.Millisecond,
 					}
 					Expect(pledge.Arbitrate(candidates, cfg)).To(Succeed())
 					id := node.ID(i)
@@ -217,7 +217,7 @@ var _ = Describe("Node", func() {
 				Expect(id).To(Equal(node.ID(0)))
 			})
 		})
-		Describe("Cancelling a NodeInfo", func() {
+		Describe("Cancelling a pledge", func() {
 			It("Should stop all operations and return a cancellation error", func() {
 				var (
 					nodes         = make(node.Group)
@@ -228,7 +228,11 @@ var _ = Describe("Node", func() {
 				)
 				for i := 0; i < numCandidates; i++ {
 					t := net.RouteUnary("")
-					cfg := pledge.Config{Transport: t, Logger: logger}
+					cfg := pledge.Config{
+						Transport:     t,
+						Logger:        logger,
+						RetryInterval: 1 * time.Millisecond,
+					}
 					Expect(pledge.Arbitrate(candidates, cfg)).To(Succeed())
 					id := node.ID(i)
 					nodes[id] = node.Node{ID: node.ID(i), Address: t.Address, State: node.StateHealthy}
@@ -236,7 +240,7 @@ var _ = Describe("Node", func() {
 				ctx, cancel := context.WithCancel(context.Background())
 				cancel()
 				id, err := pledge.Pledge(ctx, nodes.Addresses(), candidates, pledge.Config{Transport: t1, Logger: logger})
-				Expect(err).To(Equal(context.Canceled))
+				Expect(err).To(HaveOccurredAs(context.Canceled))
 				Expect(id).To(Equal(node.ID(0)))
 			})
 		})
@@ -247,8 +251,8 @@ var _ = Describe("Node", func() {
 					candidates    = func() node.Group { return nodes }
 					net           = fmock.NewNetwork[node.ID, node.ID]()
 					t1            = net.RouteUnary("")
-					numCandidates = 20
-					numPledges    = 5
+					numCandidates = 10
+					numPledges    = 2
 				)
 				for i := 0; i < numCandidates; i++ {
 					t := net.RouteUnary("")

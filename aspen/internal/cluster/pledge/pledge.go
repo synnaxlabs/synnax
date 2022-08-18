@@ -27,20 +27,22 @@ import (
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/alamos"
 	"github.com/arya-analytics/x/iter"
-	"github.com/arya-analytics/x/rand"
+	xrand "github.com/arya-analytics/x/rand"
 	xtime "github.com/arya-analytics/x/time"
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"math/rand"
 	"sync"
+	"time"
 )
 
 var (
 	// errQuorumUnreachable is returned when a quorum jury cannot be safely assembled.
 	errQuorumUnreachable = errors.New("quorum unreachable")
-	// errProposalRejected is an internal error returned when a juror rejects a pledge proposal from a responsible node.
-	errProposalRejected = errors.New("proposal rejected")
+	// proposalRejected is an internal error returned when a juror rejects a pledge proposal from a responsible node.
+	proposalRejected = errors.New("proposal rejected")
 )
 
 // Pledge pledges a node to a Jury selected from candidateSnapshot for membership.
@@ -74,6 +76,9 @@ func Pledge(
 	alamos.AttachReporter(cfg.Experiment, "pledge", alamos.Debug, cfg)
 	cfg.Logger.Infow("beginning pledge process", cfg.LogArgs()...)
 
+	// introduce random jitter to avoid a thundering herd during concurrent pledging.
+	introduceRandomJitter(cfg.RetryInterval)
+
 	nextAddr := iter.Endlessly(cfg.peerAddresses)
 
 	t := xtime.NewScaledTicker(cfg.RetryInterval, cfg.RetryScale)
@@ -82,7 +87,7 @@ func Pledge(
 	for {
 		select {
 		case <-ctx.Done():
-			return 0, ctx.Err()
+			return 0, errors.CombineErrors(ctx.Err(), err)
 		case dur := <-t.C:
 			addr := nextAddr()
 			cfg.Logger.Infow("pledging to peer", "address", addr)
@@ -94,12 +99,12 @@ func Pledge(
 
 				// If the pledge node has been inducted successfully, allow it to arbitrate
 				// in future pledges.
-				return id, Arbitrate(candidates, cfg)
+				return id, arbitrate(cfg)
 			}
 			if ctx.Err() != nil {
 				return 0, errors.CombineErrors(ctx.Err(), err)
 			}
-			cfg.Logger.Warnw("failed to pledge, retrying", "sleepDur", dur, "err", err)
+			cfg.Logger.Warnw("failed to pledge, retrying", "nextRetry", dur, "err", err)
 		}
 	}
 }
@@ -142,7 +147,8 @@ func (r *responsible) propose(ctx context.Context) (id node.ID, err error) {
 
 	var propC int
 	for propC = 0; propC < r.MaxProposals; propC++ {
-		if err = ctx.Err(); err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			err = errors.CombineErrors(err, ctxErr)
 			break
 		}
 
@@ -192,7 +198,7 @@ func (r *responsible) buildQuorum() (node.Group, error) {
 	if len(healthy) < size {
 		return node.Group{}, errQuorumUnreachable
 	}
-	return rand.SubMap(healthy, size), nil
+	return xrand.SubMap(healthy, size), nil
 }
 
 func (r *responsible) idToPropose() node.ID {
@@ -212,6 +218,10 @@ func (r *responsible) consultQuorum(ctx context.Context, id node.ID, quorum node
 		n_ := n
 		wg.Go(func() error {
 			_, err := r.Transport.Send(reqCtx, n_.Address, id)
+			if errors.Is(err, proposalRejected) {
+				r.Logger.Debugw("quorum rejected proposal", "id", id, "address", n_.Address)
+				cancel()
+			}
 			// If any node returns an error, we need to retry the entire responsible,
 			// so we need to cancel all running requests.
 			if err != nil {
@@ -242,12 +252,12 @@ func (j *juror) verdict(ctx context.Context, id node.ID) (err error) {
 	for _, appID := range j.approvals {
 		if appID == id {
 			j.Logger.Warnw("juror rejected proposal. already approved for a different pledge", "id", id)
-			return errProposalRejected
+			return proposalRejected
 		}
 	}
 	if id <= highestNodeID(j.candidates()) {
 		j.Logger.Warnw("juror rejected proposal. id out of range", "id", id)
-		return errProposalRejected
+		return proposalRejected
 	}
 	j.approvals = append(j.approvals, id)
 	j.Logger.Debugw("juror approved proposal", "id", id)
@@ -256,4 +266,11 @@ func (j *juror) verdict(ctx context.Context, id node.ID) (err error) {
 
 func highestNodeID(candidates node.Group) node.ID {
 	return lo.Max(lo.Keys(candidates))
+}
+
+func introduceRandomJitter(retryInterval time.Duration) {
+	// sleep for a random percentage of the retry interval, somewhere between
+	// 0 and 25%.
+	t := rand.Intn(int(retryInterval / 4))
+	time.Sleep(time.Duration(t))
 }
