@@ -3,7 +3,7 @@ module github.com/arya-analytics/cesium
 go 1.18
 
 require (
-	github.com/arya-analytics/x v0.0.0-20220515045427-6a67c1c0681d
+	github.com/arya-analytics/x v0.0.0-00010101000000-000000000000
 	github.com/cockroachdb/errors v1.8.1
 	github.com/cockroachdb/pebble v0.0.0-20220513193540-b8c9a560bed5
 	github.com/onsi/ginkgo/v2 v2.1.4
@@ -13,7 +13,7 @@ require (
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 )
 
-replace github.com/arya-analytics/x v0.0.0-20220515045427-6a67c1c0681d => ../x
+replace github.com/arya-analytics/x => ../x
 
 require (
 	github.com/DataDog/zstd v1.4.5 // indirect
