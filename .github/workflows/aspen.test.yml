@@ -18,7 +18,7 @@ jobs:
       - name: Upload Coverage
         uses: codecov/codecov-action@v3
         with:
+          directory: ./aspen
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
-          directory: ./aspen
           flags: aspen
