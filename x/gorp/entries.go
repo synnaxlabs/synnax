@@ -2,6 +2,7 @@ package gorp
 
 import (
 	"github.com/arya-analytics/x/query"
+	"github.com/samber/lo"
 	"reflect"
 )
 
@@ -80,7 +81,7 @@ func SetEntries[K Key, E Entry[K]](q query.Query, e *[]E) {
 func GetEntries[K Key, E Entry[K]](q query.Query) *Entries[K, E] {
 	re, ok := q.Get(entriesOptKey)
 	if !ok {
-		SetEntries[K, E](q, new([]E))
+		SetEntries[K, E](q, &[]E{})
 		return GetEntries[K, E](q)
 	}
 	return re.(*Entries[K, E])
@@ -91,9 +92,5 @@ func typePrefix[K Key, E Entry[K]](opts options) []byte {
 		return []byte{}
 	}
 	mName := reflect.TypeOf(*new(E)).Name()
-	b, err := opts.encoder.Encode(mName)
-	if err != nil {
-		panic(err)
-	}
-	return b
+	return lo.Must(opts.encoder.Encode(mName))
 }
