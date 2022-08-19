@@ -36,4 +36,13 @@ var _ = Describe("Parametrize", func() {
 		})
 		p.Construct()
 	})
+	Describe("IterVars", func() {
+		p := alamos.NewParametrize(alamos.IterVars([]int{0, 1}))
+		p.Template(func(i int, value int) {
+			It("Should provide the correct value", func() {
+				Expect(value).To(Equal(i))
+			})
+		})
+		p.Construct()
+	})
 })

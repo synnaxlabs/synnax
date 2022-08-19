@@ -37,7 +37,21 @@ var _ = Describe("Metric", func() {
 		It("Should set the value on teh gauge", func() {
 			gauge := alamos.NewGauge[float64](exp, alamos.Debug, "test.gauge")
 			gauge.Record(1)
+			gauge.Record(-1)
+			gauge.Record(2)
+			gauge.Record(2)
 			Expect(gauge.Values()[0]).To(Equal(1.0))
+		})
+	})
+	Describe("Empty", func() {
+		It("Should do nothing", func() {
+			g := alamos.NewGauge[int8](nil, alamos.Debug, "test.gauge")
+			g.Record(1)
+			g.Record(-1)
+			Expect(g.Count()).To(BeZero())
+			Expect(g.Key()).To(Equal(""))
+			Expect(g.Values()).To(BeEmpty())
+			Expect(g.Report()).To(BeNil())
 		})
 	})
 })

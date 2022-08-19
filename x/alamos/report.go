@@ -1,6 +1,7 @@
 package alamos
 
 import (
+	"bytes"
 	"encoding/json"
 	"io"
 )
@@ -20,15 +21,9 @@ func AttachReporter(exp Experiment, key string, level Level, report Reporter) {
 
 // JSON writes the report as JSON as bytes.
 func (r Report) JSON() ([]byte, error) {
-	return json.MarshalIndent(r, "", " ")
-}
-
-func (r Report) LogArgs() []interface{} {
-	args := make([]interface{}, 0, len(r))
-	for k, v := range r {
-		args = append(args, k, v)
-	}
-	return args
+	b := bytes.NewBuffer([]byte{})
+	err := r.WriteJSON(b)
+	return b.Bytes(), err
 }
 
 // WriteJSON writes the report as JSON to the given writer.
@@ -59,12 +54,6 @@ func (e *experiment) Report() Report {
 		report[k] = v.Report()
 	}
 	return report
-}
-
-func (e *experiment) attachReport(key string, level Level, r Report) {
-	if e.filterTest(level) {
-		e.reports[key] = r
-	}
 }
 
 func (e *experiment) attachReporter(key string, level Level, r Reporter) {

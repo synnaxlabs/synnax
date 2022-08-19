@@ -1,12 +1,20 @@
 package alamos_test
 
 import (
-	"encoding/json"
+	"bytes"
 	"github.com/arya-analytics/x/alamos"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"io/ioutil"
 )
+
+type myReporter struct {
+}
+
+func (m myReporter) Report() alamos.Report {
+	return alamos.Report{
+		"key": "value",
+	}
+}
 
 var _ = Describe("Report", func() {
 	It("Should write the experiment to JSON", func() {
@@ -18,8 +26,16 @@ var _ = Describe("Report", func() {
 		sub := alamos.Sub(exp, "sub")
 		g3 := alamos.NewSeries[float64](sub, alamos.Debug, "gauge3")
 		g3.Record(3.2)
-		file, _ := json.Marshal(exp.Report())
-		err := ioutil.WriteFile("report.json", file, 0644)
+		_ = alamos.NewSeries[float64](nil, alamos.Debug, "gauge4")
+		w := bytes.NewBuffer([]byte{})
+		err := exp.Report().WriteJSON(w)
 		Expect(err).To(BeNil())
+		Expect(w.String()).To(ContainSubstring("gauge"))
+		Expect(exp.Report().String()).To(ContainSubstring("gauge"))
+	})
+	It("Should attach reporters to an experiment", func() {
+		exp := alamos.New("exp")
+		alamos.AttachReporter(exp, "reporter", alamos.Debug, myReporter{})
+		Expect(exp.Report().String()).To(ContainSubstring("key"))
 	})
 })

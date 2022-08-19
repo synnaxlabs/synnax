@@ -13,7 +13,6 @@ type Metric[T any] interface {
 	Values() []T
 	// Count returns the number of times Record was called.
 	Count() int
-
 	baseMetric
 }
 
@@ -121,7 +120,9 @@ func (s *series[T]) Record(v T) { s.values = append(s.values, v) }
 func (s *series[T]) Count() int { return len(s.values) }
 
 func (s *series[T]) Report() map[string]interface{} {
-	return map[string]interface{}{"key": s.Key(), "values": s.values}
+	base := s.baseMetric.Report()
+	base["values"] = s.values
+	return base
 }
 
 // NewSeries creates a new series metric. A series stores all recorded values in a slice.

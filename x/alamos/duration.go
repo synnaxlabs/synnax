@@ -52,7 +52,7 @@ func (s *stopwatch) Stop() time.Duration {
 // Elapsed implement Stopwatch.
 func (s *stopwatch) Elapsed() time.Duration {
 	if s.start.IsZero() {
-		panic("duration defaultBaseMetric not started. please call dur() first")
+		panic("stopwatch started. please call dur() first")
 	}
 	return time.Since(s.start)
 }
@@ -101,15 +101,7 @@ type emptyDuration struct {
 	Metric[time.Duration]
 }
 
-func (e emptyDuration) Record(time.Duration) {}
-
-func (e emptyDuration) Start() {}
-
-func (e emptyDuration) Stop() time.Duration { return 0 }
-
-func (e emptyDuration) Stopwatch() Stopwatch { return &emptyStopwatch{} }
-
-func (e emptyDuration) Values() []time.Duration { return []time.Duration{} }
+func (e emptyDuration) Stopwatch() Stopwatch { return emptyStopwatch{} }
 
 func emptyDurationMetric(exp Experiment, level Level, key string) Duration {
 	if exp != nil && exp.filterTest(level) {
