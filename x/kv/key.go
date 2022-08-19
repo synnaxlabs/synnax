@@ -2,7 +2,7 @@ package kv
 
 import (
 	"bytes"
-	"github.com/arya-analytics/x/binary"
+	"encoding/binary"
 	"github.com/arya-analytics/x/errutil"
 )
 
@@ -17,7 +17,7 @@ func CompositeKey(elems ...interface{}) ([]byte, error) {
 				return err
 			})
 		default:
-			c.Exec(func() error { return binary.Write(b, e) })
+			c.Exec(func() error { return binary.Write(b, binary.LittleEndian, e) })
 		}
 	}
 	return b.Bytes(), nil
