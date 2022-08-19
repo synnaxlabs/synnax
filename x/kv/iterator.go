@@ -1,5 +1,7 @@
 package kv
 
+import "github.com/arya-analytics/x/binary"
+
 type IteratorOptions struct {
 	LowerBound []byte
 	UpperBound []byte
@@ -44,21 +46,21 @@ type Iterator interface {
 	Close() error
 }
 
+func prefixUpperBound(lower []byte) []byte {
+	upper := binary.MakeCopy(lower)
+	for i := len(upper) - 1; i >= 0; i-- {
+		upper[i] = upper[i] + 1
+		if upper[i] != 0 {
+			return upper[:i+1]
+		}
+	}
+	return nil
+}
+
 // PrefixIter returns IteratorOptions, that when passed to db.NewIterator, will
 // return an Iterator that only iterates over keys with the given prefix.
 func PrefixIter(prefix []byte) IteratorOptions {
-	upper := func(b []byte) []byte {
-		end := make([]byte, len(b))
-		copy(end, b)
-		for i := len(end) - 1; i >= 0; i-- {
-			end[i] = end[i] + 1
-			if end[i] != 0 {
-				return end[:i+1]
-			}
-		}
-		return nil
-	}
-	return IteratorOptions{LowerBound: prefix, UpperBound: upper(prefix)}
+	return IteratorOptions{LowerBound: prefix, UpperBound: prefixUpperBound(prefix)}
 }
 
 // RangeIter returns IteratorOptions, that when passed to db.NewIterator, will
