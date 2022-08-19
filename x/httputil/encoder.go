@@ -5,26 +5,34 @@ import (
 	"github.com/cockroachdb/errors"
 )
 
+// EncoderDecoder is an interface that extends binary.EncoderDecoder to
+// add an HTTP content-type.
 type EncoderDecoder interface {
-	binary.EncoderDecoder
 	ContentType() string
+	binary.EncoderDecoder
 }
 
-type JSONEncoderDecoder struct {
-	binary.JSONEncoderDecoder
+type typedEncoderDecoder struct {
+	ct string
+	binary.EncoderDecoder
 }
 
-func (j *JSONEncoderDecoder) ContentType() string { return "application/json" }
+func (t typedEncoderDecoder) ContentType() string { return t.ct }
 
-type MsgPackEncoderDecoder struct {
-	binary.MsgPackEncoderDecoder
-}
-
-func (m *MsgPackEncoderDecoder) ContentType() string { return "application/msgpack" }
+var (
+	JSONEncoderDecoder = typedEncoderDecoder{
+		ct:             "application/json",
+		EncoderDecoder: &binary.JSONEncoderDecoder{},
+	}
+	MsgPackEncoderDecoder = typedEncoderDecoder{
+		ct:             "application/msgpack",
+		EncoderDecoder: &binary.MsgPackEncoderDecoder{},
+	}
+)
 
 var encoderDecoders = []EncoderDecoder{
-	&JSONEncoderDecoder{},
-	&MsgPackEncoderDecoder{},
+	JSONEncoderDecoder,
+	MsgPackEncoderDecoder,
 }
 
 func DetermineEncoderDecoder(contentType string) (EncoderDecoder, error) {
