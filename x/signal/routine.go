@@ -219,7 +219,7 @@ func (r *routine) goRun(f func(context.Context) error) {
 	if r.ctx.key != "" {
 		profileKey = r.ctx.key + "." + r.key
 	}
-	labels := pprof.Labels("key", profileKey)
+	labels := pprof.Labels("routine", profileKey)
 	pprof.Do(r.ctx, labels, func(ctx context.Context) {
 		r.ctx.wrapped.Go(func() (err error) {
 			defer func() {
@@ -241,16 +241,16 @@ func newRoutine(c *core, opts []RoutineOption) *routine {
 }
 
 const routineFailedFormat = `
-------------------------------- FAILURE DIAGNOSTICS ------------------------
+----------------------------- FAILURE DIAGNOSTICS ------------------------------
 
 key: %s
 
--------------------------------- ERROR -------------------------------------
+--------------------------------- ERROR ----------------------------------------
 
 %+v
 
--------------------------------- ROUTINES ----------------------------------
+-------------------------------- ROUTINES --------------------------------------
 %s
 
------------------------------ END DIAGNOSTICS ------------------------------
+----------------------------- END DIAGNOSTICS ----------------------------------
 `

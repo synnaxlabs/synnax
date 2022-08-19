@@ -14,6 +14,7 @@ type Context interface {
 	context.Context
 	Go
 	WaitGroup
+	Census
 }
 
 // WithCancel returns a Context derived from core that is canceled by the given cancel
@@ -71,15 +72,10 @@ type core struct {
 }
 
 func (c *core) routineDiagnostics() string {
-	var info []RoutineInfo
-	for _, r := range c.mu.routines {
-		info = append(info, r.info())
-	}
-
 	// create a strings.Builder, iterate through each piece of info, and pretty
 	// print it.
 	var b strings.Builder
-	for _, i := range info {
+	for _, i := range c.routines() {
 		b.WriteString(i.PrettyString())
 	}
 	return b.String()
