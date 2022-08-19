@@ -2,7 +2,6 @@ package kfs
 
 import (
 	"github.com/arya-analytics/x/alamos"
-	"go.uber.org/zap"
 	"os"
 	"time"
 )
@@ -12,7 +11,6 @@ type options struct {
 	suffix          string
 	experiment      alamos.Experiment
 	maxSyncInterval time.Duration
-	logger          *zap.Logger
 	dirPerms        os.FileMode
 }
 
@@ -35,9 +33,6 @@ func mergeDefaultOptions(o *options) {
 	}
 	if o.baseFS == nil {
 		o.baseFS = &osFS{}
-	}
-	if o.logger == nil {
-		o.logger = zap.NewNop()
 	}
 	if o.dirPerms == 0 {
 		o.dirPerms = 0777
@@ -62,13 +57,6 @@ func WithExperiment(e alamos.Experiment) Option {
 func WithExtensionConfig(s string) Option {
 	return func(o *options) {
 		o.suffix = s
-	}
-}
-
-// WithLogger sets the logger that the KFS uses.
-func WithLogger(logger *zap.Logger) Option {
-	return func(o *options) {
-		o.logger = logger
 	}
 }
 

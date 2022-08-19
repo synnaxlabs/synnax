@@ -1,6 +1,7 @@
 package kfs_test
 
 import (
+	"github.com/arya-analytics/x/fsutil"
 	"github.com/arya-analytics/x/kfs"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -22,17 +23,26 @@ var _ = Describe("KFS", func() {
 		BeforeEach(func() {
 			baseFS = kfs.NewMem()
 			var err error
-			fs, err = kfs.New[int]("testdata", kfs.WithExtensionConfig(".test"), kfs.WithFS(baseFS))
+			fs, err = kfs.New[int](
+				"testdata",
+				kfs.WithExtensionConfig(".test"),
+				kfs.WithFS(baseFS),
+				kfs.WithDirPerms(fsutil.OS_USER_RWX),
+			)
 			Expect(err).ToNot(HaveOccurred())
 		})
 		AfterEach(func() {
 			Expect(fs.RemoveAll()).To(BeNil())
 		})
-		It("Should TryLock and Unlock a single file", func() {
+		It("Should Lock and Unlock a single file", func() {
 			f, err := fs.Acquire(1)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(f).ToNot(BeNil())
 			fs.Release(1)
+			Expect(f.Key()).To(Equal(1))
+		})
+		It("Should panic if kfs attempts to release a key that does not exist", func() {
+			Expect(func() { fs.Release(1) }).To(Panic())
 		})
 		It("Should allow multiple goroutines to access the file ", func() {
 			wg := sync.WaitGroup{}

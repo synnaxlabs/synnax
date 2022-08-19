@@ -4,8 +4,8 @@ package kfs
 
 import (
 	"fmt"
+	"github.com/arya-analytics/x/errutil"
 	"github.com/arya-analytics/x/lock"
-	"go.uber.org/zap"
 	"io"
 	"os"
 	"path/filepath"
@@ -108,9 +108,6 @@ func (fs *defaultFS[T]) Acquire(key T) (File[T], error) {
 	f, err := fs.newEntry(key)
 	f.Lock()
 	fs.mu.Unlock()
-	if err != nil {
-		fs.logger.Error("kfs failed to acquire file", zap.Any("key", key), zap.Error(err))
-	}
 	return f, err
 }
 
@@ -121,11 +118,11 @@ func (fs *defaultFS[T]) Release(key T) {
 	defer sw.Stop()
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
-	if e, ok := fs.entries[key]; ok {
-		e.Unlock()
-	} else {
-		fs.logger.Warn("kfs releasing file that does not exist", zap.Any("key", key))
+	e, ok := fs.entries[key]
+	if !ok {
+		panic("[kfs] - attempted to release file that does not exist")
 	}
+	e.Unlock()
 }
 
 // Remove implements FS.
@@ -140,11 +137,7 @@ func (fs *defaultFS[T]) Remove(key T) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 	delete(fs.entries, key)
-	err := fs.baseFS.Remove(fs.path(key))
-	if err != nil {
-		fs.logger.Error("kfs failed to remove file", zap.Any("key", key), zap.Error(err))
-	}
-	return err
+	return fs.baseFS.Remove(fs.path(key))
 }
 
 // Close implements FS.
@@ -159,25 +152,18 @@ func (fs *defaultFS[T]) Close(pk T) error {
 		return nil
 	}
 	e.Lock()
-	if err := e.Close(); err != nil {
-		fs.logger.Error("kfs failed to close file", zap.Any("key", pk), zap.Error(err))
-		return err
-	}
 	delete(fs.entries, pk)
-	return nil
+	return e.Close()
 }
 
 // RemoveAll implements FS.
 func (fs *defaultFS[T]) RemoveAll() error {
+	c := errutil.NewCatch(errutil.WithAggregation())
 	for pk := range fs.entries {
-		if err := fs.Close(pk); err != nil {
-			return err
-		}
-		if err := fs.Remove(pk); err != nil {
-			return err
-		}
+		c.Exec(func() error { return fs.Remove(pk) })
+		c.Exec(func() error { return fs.Close(pk) })
 	}
-	return nil
+	return c.Error()
 }
 
 // Metrics implements FS.
