@@ -5,6 +5,7 @@ import (
 	"github.com/arya-analytics/x/kv"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
+	"sync"
 	"time"
 )
 
@@ -28,20 +29,23 @@ type FlushSubscriber[S any] struct {
 	Encoder binary.Encoder
 	// Logger is the witness of it all.
 	Logger *zap.SugaredLogger
+	// mu is used to prevent multiple flushes from racing over each other.
+	mu sync.Mutex
 }
 
 // Flush is the handler to bind to the Observable.
 func (f *FlushSubscriber[S]) Flush(state S) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	if time.Since(f.LastFlush) < f.MinInterval {
 		return
 	}
+	f.LastFlush = time.Now()
 	go f.FlushSync(state)
 }
 
 func (f *FlushSubscriber[S]) FlushSync(state S) {
 	if err := f.Store.Set(f.Key, lo.Must(f.Encoder.Encode(state))); err != nil {
 		f.Logger.Errorw("failed to flush", "err", err)
-	} else {
-		f.LastFlush = time.Now()
 	}
 }

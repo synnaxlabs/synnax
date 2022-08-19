@@ -14,13 +14,12 @@ type Observer[T any] interface {
 }
 
 type base[T any] struct {
-	options  *options
 	handlers []func(T)
 }
 
 // New creates a new observer with the given options.
-func New[T any](opts ...Option) Observer[T] {
-	return &base[T]{options: newOptions(opts...)}
+func New[T any]() Observer[T] {
+	return &base[T]{}
 }
 
 // OnChange implements the Observable interface.

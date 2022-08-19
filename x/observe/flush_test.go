@@ -6,6 +6,7 @@ import (
 	"github.com/arya-analytics/x/observe"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"time"
 )
 
 type dataStruct struct {
@@ -20,15 +21,20 @@ var _ = Describe("Flush", func() {
 		flush := &observe.FlushSubscriber[dataStruct]{
 			Key:         []byte("key"),
 			Store:       kv,
-			MinInterval: 0,
+			MinInterval: 5 * time.Millisecond,
 			Encoder:     ecd,
 		}
-		o.OnChange(flush.FlushSync)
+		o.OnChange(flush.Flush)
+
 		o.Notify(dataStruct{Value: []byte("hello")})
-		b, err := kv.Get([]byte("key"))
-		Expect(err).ToNot(HaveOccurred())
-		var ds dataStruct
-		Expect(ecd.Decode(b, &ds)).To(Succeed())
-		Expect(ds.Value).To(Equal([]byte("hello")))
+		o.Notify(dataStruct{Value: []byte("world")})
+
+		Eventually(func(g Gomega) {
+			b, err := kv.Get([]byte("key"))
+			g.Expect(err).ToNot(HaveOccurred())
+			var ds dataStruct
+			g.Expect(ecd.Decode(b, &ds)).To(Succeed())
+			g.Expect(ds.Value).To(Equal([]byte("hello")))
+		}).Should(Succeed())
 	})
 })
