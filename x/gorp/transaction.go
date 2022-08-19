@@ -9,7 +9,7 @@ import (
 // will read from both the DB and any operations previously executed against the Txn.
 type Txn interface {
 	kv.Batch
-	options() *options
+	options() options
 }
 
 type txn struct {
@@ -18,7 +18,7 @@ type txn struct {
 	kv.Batch
 }
 
-func (t txn) options() *options { return t.db.opts }
+func (t txn) options() options { return t.db.opts }
 
 const txnOpt query.OptionKey = "txn"
 

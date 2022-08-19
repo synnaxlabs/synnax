@@ -5,6 +5,7 @@ import (
 	"github.com/arya-analytics/x/binary"
 	"github.com/arya-analytics/x/kv"
 	"github.com/arya-analytics/x/query"
+	"github.com/cockroachdb/errors"
 )
 
 // Retrieve is a query that retrieves Entries from the DB.
@@ -51,14 +52,18 @@ func (r Retrieve[K, E]) Entry(entry *E) Retrieve[K, E] {
 // exist in the database. If Where is set on the query, Retrieve will return a query.NotFound
 // if NO keys pass the Where filter.
 func (r Retrieve[K, E]) Exec(txn Txn) error {
-	return retrieve[K, E]{Txn: txn}.exec(r)
+	_, ok := getWhereKeys[K](r)
+	if ok {
+		return keysRetrieve[K, E](r, txn, txn.options())
+	}
+	return filterRetrieve[K, E](r, txn, txn.options())
 }
 
 // Exists checks whether records matching the query exist in the DB. If the WhereKeys method is
 // set on the query, Exists will return true if ANY of the keys exist in the database. If
 // Where is set on the query, Exists will return true if ANY keys pass the Where filter.
 func (r Retrieve[K, E]) Exists(txn Txn) (bool, error) {
-	return retrieve[K, E]{Txn: txn}.exists(r)
+	return checkExists[K, E](r, txn, txn.options())
 }
 
 // |||||| FILTERS ||||||
@@ -101,7 +106,7 @@ func getFilters[K Key, E Entry[K]](q query.Query) filters[K, E] {
 
 // |||||| WHERE KEYS ||||||
 
-const whereKeysKey query.OptionKey = "whereKeys"
+const whereKeysKey query.OptionKey = "retrieveByKeys"
 
 type whereKeys[K Key] []K
 
@@ -138,49 +143,38 @@ func getWhereKeys[K Key](q query.Query) (whereKeys[K], bool) {
 	return keys.(whereKeys[K]), true
 }
 
-// |||||| EXECUTOR ||||||
-
-type retrieve[K Key, E Entry[K]] struct{ Txn }
-
-func (r retrieve[K, E]) exec(q query.Query) error {
-	if _, ok := getWhereKeys[K](q); ok {
-		return r.whereKeys(q)
-	}
-	return r.filter(q)
-}
-
-func (r retrieve[K, E]) exists(q query.Query) (bool, error) {
+func checkExists[K Key, E Entry[K]](q query.Query, reader kv.Reader, opts options) (bool, error) {
 	if keys, ok := getWhereKeys[K](q); ok {
 		entries := make([]E, 0, len(keys))
 		SetEntries[K, E](q, &entries)
-		if err := r.whereKeys(q); err != nil && err != query.NotFound {
+		if err := keysRetrieve[K, E](q, reader, opts); err != nil && err != query.NotFound {
 			return false, err
 		}
 		return len(entries) == len(keys), nil
 	}
 	entries := make([]E, 0, 1)
 	SetEntries[K, E](q, &entries)
-	if err := r.filter(q); err != nil && err != query.NotFound {
+	if err := filterRetrieve[K, E](q, reader, opts); err != nil && !errors.Is(err, query.NotFound) {
 		return false, err
 	}
 	return len(entries) > 0, nil
 }
 
-func (r retrieve[K, E]) whereKeys(q query.Query) error {
+func keysRetrieve[K Key, E Entry[K]](q query.Query, reader kv.Reader, opts options) error {
 	var (
 		entry   *E
 		keys, _ = getWhereKeys[K](q)
 		f       = getFilters[K, E](q)
 		entries = GetEntries[K, E](q)
-		prefix  = typePrefix[K, E](r.options())
+		prefix  = typePrefix[K, E](opts)
 	)
-	byteKeys, err := keys.bytes(r.options().encoder)
+	byteKeys, err := keys.bytes(opts.encoder)
 	if err != nil {
 		return err
 	}
 	for _, key := range byteKeys {
 		prefixedKey := append(prefix, key...)
-		b, _err := r.Get(prefixedKey)
+		b, _err := reader.Get(prefixedKey)
 		if _err != nil {
 			if _err == kv.NotFound {
 				err = query.NotFound
@@ -189,7 +183,7 @@ func (r retrieve[K, E]) whereKeys(q query.Query) error {
 			}
 			continue
 		}
-		if _err = r.options().decoder.Decode(b, &entry); err != nil {
+		if _err = opts.decoder.Decode(b, &entry); err != nil {
 			return _err
 		}
 		if f.exec(entry) {
@@ -199,12 +193,12 @@ func (r retrieve[K, E]) whereKeys(q query.Query) error {
 	return err
 }
 
-func (r retrieve[K, E]) filter(q query.Query) error {
+func filterRetrieve[K Key, E Entry[K]](q query.Query, reader kv.Reader, opts options) error {
 	var (
 		v       = new(E)
 		f       = getFilters[K, E](q)
 		entries = GetEntries[K, E](q)
-		iter    = WrapKVIter[E](r.NewIterator(kv.PrefixIter(typePrefix[K, E](r.options()))))
+		iter    = WrapKVIter[E](reader.NewIterator(kv.PrefixIter(typePrefix[K, E](opts))))
 	)
 	for iter.First(); iter.Valid(); iter.Next() {
 		iter.BindValue(v)

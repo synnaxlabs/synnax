@@ -12,7 +12,7 @@ import (
 type KVIterator[E any] struct {
 	kv.Iterator
 	error error
-	*options
+	options
 }
 
 // WrapKVIter wraps the provided iterator. All valid calls to iter.Value are

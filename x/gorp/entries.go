@@ -63,7 +63,8 @@ func (e Entries[K, E]) All() []E {
 }
 
 // SetEntry sets the entry that the query will fill results into or write results to.
-// 	Calls to SetEntry will override All previous calls to SetEntry or SetEntries.
+//
+//	Calls to SetEntry will override All previous calls to SetEntry or SetEntries.
 func SetEntry[K Key, E Entry[K]](q query.Query, entry *E) {
 	q.Set(entriesOptKey, &Entries[K, E]{entry: entry, multiple: false})
 }
@@ -85,7 +86,7 @@ func GetEntries[K Key, E Entry[K]](q query.Query) *Entries[K, E] {
 	return re.(*Entries[K, E])
 }
 
-func typePrefix[K Key, E Entry[K]](opts *options) []byte {
+func typePrefix[K Key, E Entry[K]](opts options) []byte {
 	if opts.noTypePrefix {
 		return []byte{}
 	}

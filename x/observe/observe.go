@@ -9,7 +9,7 @@ type Observable[T any] interface {
 // Observer is an interface that can notify subscribers of changes to an observable.
 type Observer[T any] interface {
 	Observable[T]
-	// Notify notifies all subscribers of the value.
+	// Notify notifies all subscribers of the Value.
 	Notify(T)
 }
 

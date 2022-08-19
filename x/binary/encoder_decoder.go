@@ -18,15 +18,10 @@ type Encoder interface {
 	// Encode encodes the value into binary. It returns the encoded value along
 	// with any errors encountered.
 	Encode(value interface{}) ([]byte, error)
-	// EncodeStatic encodes the value into binary. It panics if any errors are
-	// encountered. This is useful for situations where the encoded value is
-	// 
-	EncodeStatic(value interface{}) []byte
 }
 
 type Decoder interface {
 	Decode(data []byte, value interface{}) error
-	DecodeStatic(data []byte, value interface{})
 	DecodeStream(r io.Reader, value interface{}) error
 }
 
@@ -47,25 +42,9 @@ func (e *GobEncoderDecoder) Encode(value interface{}) ([]byte, error) {
 	return b, err
 }
 
-// EncodeStatic implements the Encoder interface.
-func (e *GobEncoderDecoder) EncodeStatic(value interface{}) []byte {
-	b, err := e.Encode(value)
-	if err != nil {
-		panic(err)
-	}
-	return b
-}
-
 // Decode implements the Decoder interface.
 func (e *GobEncoderDecoder) Decode(data []byte, value interface{}) error {
 	return e.DecodeStream(bytes.NewReader(data), value)
-}
-
-// DecodeStatic implements the Decoder interface.
-func (e *GobEncoderDecoder) DecodeStatic(data []byte, value interface{}) {
-	if err := e.Decode(data, value); err != nil {
-		panic(err)
-	}
 }
 
 // DecodeStream implements the Decoder interface.
@@ -81,25 +60,9 @@ func (j *JSONEncoderDecoder) Encode(value interface{}) ([]byte, error) {
 	return json.Marshal(value)
 }
 
-// EncodeStatic implements the Encoder interface.
-func (j *JSONEncoderDecoder) EncodeStatic(value interface{}) []byte {
-	b, err := j.Encode(value)
-	if err != nil {
-		panic(err)
-	}
-	return b
-}
-
 // Decode implements the Decoder interface.
 func (j *JSONEncoderDecoder) Decode(data []byte, value interface{}) error {
 	return json.Unmarshal(data, value)
-}
-
-// DecodeStatic implements the Decoder interface.
-func (j *JSONEncoderDecoder) DecodeStatic(data []byte, value interface{}) {
-	if err := j.Decode(data, value); err != nil {
-		panic(err)
-	}
 }
 
 // DecodeStream implements the Decoder interface.
@@ -115,25 +78,9 @@ func (m *MsgPackEncoderDecoder) Encode(value interface{}) ([]byte, error) {
 	return msgpack.Marshal(value)
 }
 
-// EncodeStatic implements the Encoder interface.
-func (m *MsgPackEncoderDecoder) EncodeStatic(value interface{}) []byte {
-	b, err := m.Encode(value)
-	if err != nil {
-		panic(err)
-	}
-	return b
-}
-
 // Decode implements the Decoder interface.
 func (m *MsgPackEncoderDecoder) Decode(data []byte, value interface{}) error {
 	return m.DecodeStream(bytes.NewReader(data), value)
-}
-
-// DecodeStatic implements the Decoder interface.
-func (m *MsgPackEncoderDecoder) DecodeStatic(data []byte, value interface{}) {
-	if err := m.Decode(data, value); err != nil {
-		panic(err)
-	}
 }
 
 // DecodeStream implements the Decoder interface.
@@ -155,24 +102,9 @@ func (enc *PassThroughEncoderDecoder) Encode(value interface{}) ([]byte, error) 
 	return enc.EncoderDecoder.Encode(value)
 }
 
-// EncodeStatic implements the Encoder interface.
-func (enc *PassThroughEncoderDecoder) EncodeStatic(value interface{}) []byte {
-	if bv, ok := value.([]byte); ok {
-		return bv
-	}
-	return enc.EncoderDecoder.EncodeStatic(value)
-}
-
 // Decode implements the Decoder interface.
 func (enc *PassThroughEncoderDecoder) Decode(data []byte, value interface{}) error {
 	return enc.DecodeStream(bytes.NewReader(data), value)
-}
-
-// DecodeStatic implements the Decoder interface.
-func (enc *PassThroughEncoderDecoder) DecodeStatic(data []byte, value interface{}) {
-	if err := enc.Decode(data, value); err != nil {
-		panic(err)
-	}
 }
 
 // DecodeStream implements the Decoder interface.

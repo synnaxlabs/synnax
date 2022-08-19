@@ -30,12 +30,12 @@ func WithoutTypePrefix() Option {
 	return func(opts *options) { opts.noTypePrefix = true }
 }
 
-func newOptions(opts ...Option) *options {
-	o := &options{}
+func newOptions(opts ...Option) options {
+	o := options{}
 	for _, opt := range opts {
-		opt(o)
+		opt(&o)
 	}
-	mergeDefaultOptions(o)
+	mergeDefaultOptions(&o)
 	return o
 }
 

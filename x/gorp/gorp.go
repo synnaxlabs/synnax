@@ -6,21 +6,19 @@ import (
 
 // Wrap wraps the provided key-value database in a DB.
 func Wrap(kv kv.DB, opts ...Option) *DB {
-	o := newOptions(opts...)
-	mergeDefaultOptions(o)
-	return &DB{DB: kv, opts: o}
+	return &DB{DB: kv, opts: newOptions(opts...)}
 }
 
 // DB is a wrapper around a kv.DB that queries can be executed against. DB implements
 // the Txn interface, so it can be provided to Query.Write.
 type DB struct {
 	kv.DB
-	opts *options
+	opts options
 }
 
 var _ Txn = (*DB)(nil)
 
-func (db *DB) options() *options { return db.opts }
+func (db *DB) options() options { return db.opts }
 
 // BeginTxn begins a new Txn against the DB.
 func (db *DB) BeginTxn() Txn { return txn{Batch: db.NewBatch(), db: db} }
