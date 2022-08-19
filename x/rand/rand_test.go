@@ -4,6 +4,7 @@ import (
 	"github.com/arya-analytics/x/rand"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 )
 
 var _ = Describe("Rand", func() {
@@ -18,7 +19,7 @@ var _ = Describe("Rand", func() {
 				5: 6,
 			}
 		})
-		Describe("Name", func() {
+		Describe("Key", func() {
 			It("Should return a random key", func() {
 				key := rand.MapKey(m)
 				Expect(key > 0).To(BeTrue())
@@ -46,6 +47,12 @@ var _ = Describe("Rand", func() {
 				Expect(value > 0).To(BeTrue())
 			})
 		})
+		Describe("SubMap", func() {
+			It("Should return a random sub map of the provided size", func() {
+				m := rand.SubMap(m, 2)
+				Expect(len(m)).To(Equal(2))
+			})
+		})
 	})
 	Describe("Slice", func() {
 		It("Should return a random element in the slice", func() {
@@ -70,6 +77,14 @@ var _ = Describe("Rand", func() {
 		It("Should return a random element", func() {
 			value := rand.Elem(1, 2, 3)
 			Expect(value > 0).To(BeTrue())
+		})
+		It("Should not introduce any duplicate indexes", func() {
+			slc := make([]int, 1000)
+			for i := 0; i < 1000; i++ {
+				slc[i] = i
+			}
+			sub := rand.SubSlice(slc, 800)
+			Expect(lo.Uniq(sub)).To(Equal(sub))
 		})
 	})
 })

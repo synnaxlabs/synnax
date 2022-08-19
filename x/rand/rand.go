@@ -64,18 +64,22 @@ func SubSlice[V comparable](slice []V, n int) []V {
 	if n >= len(slice) {
 		return slice
 	}
-	os := make([]V, n)
-	i := 0
+	var (
+		c        = 0
+		subSlice = make([]V, n)
+		indexes  = make([]int, n)
+	)
 	for {
-		if i == n {
+		if c == n {
 			break
 		}
-		v := Slice[V](slice)
-		if lo.Contains(os, v) {
+		i := rand.Intn(len(slice))
+		if lo.Contains(indexes, i) {
 			continue
 		}
-		os[i] = v
-		i++
+		indexes[c] = i
+		subSlice[c] = slice[i]
+		c++
 	}
-	return os
+	return subSlice
 }
