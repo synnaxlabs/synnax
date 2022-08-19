@@ -7,7 +7,12 @@ import (
 )
 
 var fsx = []func() kfs.BaseFS{
-	kfs.NewMem,
+	func() kfs.BaseFS {
+		fs := kfs.NewMem()
+		_, err := fs.Create("./testdata/test.txt")
+		Expect(err).ToNot(HaveOccurred())
+		return fs
+	},
 	kfs.NewOS,
 }
 
@@ -20,26 +25,22 @@ var _ = Describe("Os", func() {
 		)
 		BeforeEach(func() { fs = fsFunc() })
 		It("Should open a file for reading and writing", func() {
-			f, err := fs.Create("testdata/test.txt")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(f.Close()).ToNot(HaveOccurred())
-			f, err = fs.Open("testdata/test.txt")
+			f, err := fs.Open("./testdata/test.txt")
 			Expect(err).To(BeNil())
 			Expect(f).NotTo(BeNil())
-			_, err = f.Write([]byte("Hello World"))
-			Expect(err).To(BeNil())
 			Expect(f.Close()).To(BeNil())
-			Expect(fs.Remove("testdata/test.txt")).To(BeNil())
+		})
+		It("Should create and remove a file", func() {
+			f, err := fs.Create("./testdata/ctest.txt")
+			Expect(err).To(BeNil())
+			Expect(f).NotTo(BeNil())
+			Expect(f.Close()).To(BeNil())
+			Expect(fs.Remove("./testdata/ctest.txt")).To(BeNil())
 		})
 		It("Should return stat information for a file", func() {
-			f, err := fs.Create("testdata/test.txt")
-			Expect(err).To(BeNil())
-			Expect(f).NotTo(BeNil())
-			Expect(f.Close()).To(BeNil())
-			fi, err := fs.Stat("testdata/test.txt")
+			fi, err := fs.Stat("./testdata/test.txt")
 			Expect(err).To(BeNil())
 			Expect(fi).NotTo(BeNil())
-			Expect(fs.Remove("testdata/test.txt")).To(BeNil())
 		})
 	}
 
