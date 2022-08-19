@@ -8,20 +8,24 @@ import (
 	"io"
 )
 
+// EncoderDecoder is an interface that encodes and decodes values.
 type EncoderDecoder interface {
 	Encoder
 	Decoder
 }
 
-// Encoder is an entity that can encode a value into binary.
+// Encoder encodes values into binary.
 type Encoder interface {
 	// Encode encodes the value into binary. It returns the encoded value along
 	// with any errors encountered.
 	Encode(value interface{}) ([]byte, error)
 }
 
+// Decoder decodes values from binary.
 type Decoder interface {
+	// Decode decodes data into a pointer value.
 	Decode(data []byte, value interface{}) error
+	// DecodeStream decodes data from the given reader into a pointer value.;
 	DecodeStream(r io.Reader, value interface{}) error
 }
 
