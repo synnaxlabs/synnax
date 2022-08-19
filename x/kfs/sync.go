@@ -30,7 +30,6 @@ type Sync[T comparable] struct {
 // When sync.Shutter.Shutdown is called, the Sync executes a forced sync ON all files and then exits.
 func (s *Sync[T]) Start(ctx signal.Context) <-chan error {
 	errs := make(chan error)
-	c := errutil.NewCatchSimple(errutil.WithHooks(errutil.NewPipeHook(errs)))
 	t := time.NewTicker(s.Interval)
 	ctx.Go(func(ctx context.Context) error {
 		for {
@@ -38,7 +37,9 @@ func (s *Sync[T]) Start(ctx signal.Context) <-chan error {
 			case <-ctx.Done():
 				return errors.CombineErrors(s.forceSync(), ctx.Err())
 			case <-t.C:
-				c.Exec(s.sync)
+				if err := s.sync(); err != nil {
+					errs <- err
+				}
 			}
 		}
 	})
@@ -46,7 +47,7 @@ func (s *Sync[T]) Start(ctx signal.Context) <-chan error {
 }
 
 func (s *Sync[T]) sync() error {
-	c := errutil.NewCatchSimple(errutil.WithAggregation())
+	c := errutil.NewCatch(errutil.WithAggregation())
 	for _, v := range s.FS.OpenFiles() {
 		if v.Age() > s.MaxAge && v.TryLock() {
 			c.Exec(v.Sync)
@@ -57,7 +58,7 @@ func (s *Sync[T]) sync() error {
 }
 
 func (s *Sync[T]) forceSync() error {
-	c := errutil.NewCatchSimple(errutil.WithAggregation())
+	c := errutil.NewCatch(errutil.WithAggregation())
 	for _, v := range s.FS.OpenFiles() {
 		v.Lock()
 		c.Exec(v.Sync)

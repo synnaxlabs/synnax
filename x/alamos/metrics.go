@@ -1,6 +1,7 @@
 package alamos
 
 import (
+	"github.com/arya-analytics/x/types"
 	"sync"
 )
 
@@ -37,7 +38,7 @@ func (b defaultBaseMetric) Report() map[string]interface{} { return map[string]i
 
 // |||||| GAUGE ||||||
 
-type gauge[T Numeric] struct {
+type gauge[T types.Numeric] struct {
 	baseMetric
 	mu    sync.Mutex
 	count int
@@ -48,7 +49,7 @@ type gauge[T Numeric] struct {
 
 // NewGauge creates a new gauge metric. A gauge records the sum of all recorded values as well as
 // the number of times Record was called.
-func NewGauge[T Numeric](exp Experiment, level Level, key string) Metric[T] {
+func NewGauge[T types.Numeric](exp Experiment, level Level, key string) Metric[T] {
 	if m := emptyMetric[T](exp, level, key); m != nil {
 		return m
 	}

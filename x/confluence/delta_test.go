@@ -53,7 +53,7 @@ var _ = Describe("Delta", func() {
 	Describe("DeltaTransformMultiplier", func() {
 		It("Should multiply input values to outputs", func() {
 			delta := &confluence.DeltaTransformMultiplier[int, int]{}
-			delta.ApplyTransform = func(ctx context.Context, v int) (int, bool, error) {
+			delta.Transform = func(ctx context.Context, v int) (int, bool, error) {
 				return v * 2, true, nil
 			}
 			delta.OutTo(outputOne, outputTwo)
@@ -70,7 +70,7 @@ var _ = Describe("Delta", func() {
 		})
 		It("Should close inlets when the delta is closed", func() {
 			delta := &confluence.DeltaTransformMultiplier[int, int]{}
-			delta.ApplyTransform = func(ctx context.Context, v int) (int, bool, error) {
+			delta.Transform = func(ctx context.Context, v int) (int, bool, error) {
 				return v * 2, true, nil
 			}
 			delta.OutTo(outputOne)
@@ -87,7 +87,7 @@ var _ = Describe("Delta", func() {
 		})
 		It("Should not send a value when the transform returns false", func() {
 			delta := &confluence.DeltaTransformMultiplier[int, int]{}
-			delta.ApplyTransform = func(ctx context.Context, v int) (int, bool, error) {
+			delta.Transform = func(ctx context.Context, v int) (int, bool, error) {
 				return v * 2, v != 1, nil
 			}
 			delta.OutTo(outputOne)

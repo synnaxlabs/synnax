@@ -8,7 +8,9 @@ import (
 )
 
 var _ = Describe("Confluence", func() {
+
 	Describe("EmptyFlow", func() {
+
 		It("Should do nothing", func() {
 			ctx, cancel := signal.TODO()
 			defer cancel()
@@ -16,6 +18,7 @@ var _ = Describe("Confluence", func() {
 				confluence.EmptyFlow{}.Flow(ctx)
 			}).ToNot(Panic())
 		})
+
 	})
 
 })

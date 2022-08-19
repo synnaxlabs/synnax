@@ -1,4 +1,4 @@
-package alamos
+package types
 
 // Numeric represents a generic numeric value.
 type Numeric interface {

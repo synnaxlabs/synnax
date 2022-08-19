@@ -33,16 +33,10 @@ var _ = Describe("Counter", Ordered, func() {
 				Expect(c.Value()).To(Equal(int64(0)))
 			})
 			It("Should increment the counter correctly", func() {
-				Expect(c.Increment()).To(Equal(int64(1)))
-			})
-			It("Should decrement the counter correctly", func() {
-				Expect(c.Decrement()).To(Equal(int64(0)))
+				Expect(c.Add()).To(Equal(int64(1)))
 			})
 			It("Should increment the number by a set value", func() {
-				Expect(c.Increment(10)).To(Equal(int64(10)))
-			})
-			It("Should decrement the number by a set value", func() {
-				Expect(c.Decrement(10)).To(Equal(int64(0)))
+				Expect(c.Add(10)).To(Equal(int64(11)))
 			})
 		})
 		Context("Existing Counter", func() {
@@ -50,11 +44,13 @@ var _ = Describe("Counter", Ordered, func() {
 				c, err := kv.NewPersistedCounter(kve, []byte("test-two"))
 				Expect(err).NotTo(HaveOccurred())
 				Expect(c.Value()).To(Equal(int64(0)))
-				_, err = c.Increment()
+				_, err = c.Add(10)
+				Expect(err).NotTo(HaveOccurred())
+				_, err = c.Add(10)
 				Expect(err).NotTo(HaveOccurred())
 				cTwo, err := kv.NewPersistedCounter(kve, []byte("test-two"))
 				Expect(err).NotTo(HaveOccurred())
-				Expect(cTwo.Value()).To(Equal(int64(1)))
+				Expect(cTwo.Value()).To(Equal(int64(20)))
 			})
 		})
 	})

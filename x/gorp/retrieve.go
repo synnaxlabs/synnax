@@ -5,7 +5,6 @@ import (
 	"github.com/arya-analytics/x/binary"
 	"github.com/arya-analytics/x/kv"
 	"github.com/arya-analytics/x/query"
-	"github.com/cockroachdb/errors"
 )
 
 // Retrieve is a query that retrieves Entries from the DB.
@@ -168,18 +167,17 @@ func (r retrieve[K, E]) exists(q query.Query) (bool, error) {
 }
 
 func (r retrieve[K, E]) whereKeys(q query.Query) error {
-	opts := r.options()
 	var (
+		entry   *E
 		keys, _ = getWhereKeys[K](q)
 		f       = getFilters[K, E](q)
 		entries = GetEntries[K, E](q)
-		prefix  = typePrefix[K, E](opts)
+		prefix  = typePrefix[K, E](r.options())
 	)
-	byteKeys, err := keys.bytes(opts.encoder)
+	byteKeys, err := keys.bytes(r.options().encoder)
 	if err != nil {
 		return err
 	}
-	var entry *E
 	for _, key := range byteKeys {
 		prefixedKey := append(prefix, key...)
 		b, _err := r.Get(prefixedKey)
@@ -191,7 +189,7 @@ func (r retrieve[K, E]) whereKeys(q query.Query) error {
 			}
 			continue
 		}
-		if _err = opts.decoder.Decode(b, &entry); err != nil {
+		if _err = r.options().decoder.Decode(b, &entry); err != nil {
 			return _err
 		}
 		if f.exec(entry) {
@@ -202,19 +200,16 @@ func (r retrieve[K, E]) whereKeys(q query.Query) error {
 }
 
 func (r retrieve[K, E]) filter(q query.Query) error {
-	opts := r.options()
 	var (
+		v       = new(E)
 		f       = getFilters[K, E](q)
 		entries = GetEntries[K, E](q)
-		iter    = r.NewIterator(kv.PrefixIter(typePrefix[K, E](opts)))
+		iter    = WrapKVIter[E](r.NewIterator(kv.PrefixIter(typePrefix[K, E](r.options()))))
 	)
-	var entry *E
 	for iter.First(); iter.Valid(); iter.Next() {
-		if err := opts.decoder.Decode(iter.Value(), &entry); err != nil {
-			return errors.Wrap(err, "[gorp] - failed to decode entry")
-		}
-		if f.exec(entry) {
-			entries.Add(*entry)
+		iter.BindValue(v)
+		if f.exec(v) {
+			entries.Add(*v)
 		}
 	}
 	return iter.Close()

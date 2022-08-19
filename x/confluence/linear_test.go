@@ -13,7 +13,7 @@ var _ = Describe("Linear", func() {
 		i := confluence.NewStream[int](1)
 		o := confluence.NewStream[int](1)
 		s := confluence.LinearTransform[int, int]{}
-		s.ApplyTransform = func(ctx context.Context, i int) (int, bool, error) {
+		s.Transform = func(ctx context.Context, i int) (int, bool, error) {
 			return i * i, true, nil
 		}
 		s.InFrom(i)
@@ -28,7 +28,7 @@ var _ = Describe("Linear", func() {
 		i := confluence.NewStream[int](1)
 		o := confluence.NewStream[int](1)
 		s := confluence.LinearTransform[int, int]{}
-		s.ApplyTransform = func(ctx context.Context, i int) (int, bool, error) {
+		s.Transform = func(ctx context.Context, i int) (int, bool, error) {
 			return 0, false, nil
 		}
 		s.InFrom(i)

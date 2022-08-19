@@ -47,13 +47,13 @@ var _ = Describe("Pipeline", func() {
 
 		It("Should shutdown the pipe as segments close their inlets", func() {
 			t1 := &confluence.LinearTransform[int, int]{}
-			t1.ApplyTransform = func(ctx context.Context, v int) (int, bool, error) {
+			t1.Transform = func(ctx context.Context, v int) (int, bool, error) {
 				return v * 2, true, nil
 			}
 			plumber.SetSegment[int, int](pipe, "t1", t1, confluence.CloseInletsOnExit())
 
 			t2 := &confluence.LinearTransform[int, int]{}
-			t2.ApplyTransform = func(ctx context.Context, v int) (int, bool, error) {
+			t2.Transform = func(ctx context.Context, v int) (int, bool, error) {
 				return v * 2, true, nil
 			}
 			plumber.SetSegment[int, int](pipe, "t2", t2, confluence.CloseInletsOnExit())
@@ -147,13 +147,13 @@ var _ = Describe("Pipeline", func() {
 			plumber.SetSource[int](pipe, "emitterTwo", emitterTwo)
 
 			t1 := &confluence.LinearTransform[int, int]{}
-			t1.ApplyTransform = func(ctx context.Context, v int) (int, bool, error) {
+			t1.Transform = func(ctx context.Context, v int) (int, bool, error) {
 				return v * 2, true, nil
 			}
 			plumber.SetSegment[int, int](pipe, "t1", t1)
 
 			t2 := &confluence.LinearTransform[int, int]{}
-			t2.ApplyTransform = func(ctx context.Context, v int) (int, bool, error) {
+			t2.Transform = func(ctx context.Context, v int) (int, bool, error) {
 				return v * 3, true, nil
 			}
 			plumber.SetSegment[int, int](pipe, "t2", t2)
@@ -186,7 +186,7 @@ var _ = Describe("Pipeline", func() {
 			}
 			plumber.SetSegment[int, int](pipe, "switch", sw)
 
-			catch := errutil.NewCatchSimple()
+			catch := errutil.NewCatch()
 
 			catch.Exec(plumber.MultiRouter[int]{
 				SourceTargets: []address.Address{"emitterOne", "emitterTwo"},

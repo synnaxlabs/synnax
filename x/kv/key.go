@@ -2,27 +2,23 @@ package kv
 
 import (
 	"bytes"
+	"github.com/arya-analytics/x/binary"
 	"github.com/arya-analytics/x/errutil"
 )
 
 func CompositeKey(elems ...interface{}) ([]byte, error) {
 	b := new(bytes.Buffer)
-	cw := errutil.NewCatchWrite(b)
+	c := errutil.NewCatch()
 	for _, e := range elems {
 		switch e.(type) {
 		case string:
-			cw.Write([]byte(e.(string)))
+			c.Exec(func() error {
+				_, err := b.WriteString(e.(string))
+				return err
+			})
 		default:
-			cw.Write(e)
+			c.Exec(func() error { return binary.Write(b, e) })
 		}
 	}
-	return b.Bytes(), cw.Error()
-}
-
-func StaticCompositeKey(elems ...interface{}) []byte {
-	b, err := CompositeKey(elems...)
-	if err != nil {
-		panic(err)
-	}
-	return b
+	return b.Bytes(), nil
 }

@@ -40,7 +40,7 @@ func (d *DeltaTransformMultiplier[I, O]) Flow(ctx signal.Context, opts ...Option
 }
 
 func (d *DeltaTransformMultiplier[I, O]) transformAndMultiply(ctx context.Context, i I) error {
-	o, ok, err := d.ApplyTransform(ctx, i)
+	o, ok, err := d.Transform(ctx, i)
 	if !ok || err != nil {
 		return err
 	}

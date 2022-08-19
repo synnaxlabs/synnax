@@ -2,6 +2,7 @@ package gorp
 
 import (
 	"github.com/arya-analytics/x/kv"
+	"github.com/samber/lo"
 )
 
 // KVIterator provides a simple wrapper around a kv.Write that decodes a byte-value
@@ -22,16 +23,16 @@ func WrapKVIter[E any](iter kv.Iterator, opts ...Option) *KVIterator[E] {
 
 // Value returns the decoded value from the iterator. Iter.Alive must be true
 // for calls to return a valid value.
-func (k *KVIterator[E]) Value() (entry E) {
-	if err := k.decoder.Decode(k.Iterator.Value(), &entry); err != nil {
-		k.error = err
-	}
-	return entry
+func (k *KVIterator[E]) Value() (entry E) { k.BindValue(&entry); return entry }
+
+func (k *KVIterator[E]) BindValue(entry *E) {
+	k.error = k.decoder.Decode(k.Iterator.Value(), entry)
 }
 
 func (k *KVIterator[E]) Error() error {
-	if k.error != nil {
-		return k.error
-	}
-	return k.Iterator.Error()
+	return lo.Ternary(k.error != nil, k.error, k.Iterator.Error())
+}
+
+func (k *KVIterator[E]) Valid() bool {
+	return lo.Ternary(k.error != nil, false, k.Iterator.Valid())
 }

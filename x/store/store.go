@@ -1,12 +1,12 @@
 // Package store implements a simple copy-on-read in memory store. It also
 // provides various wrappers to extend functionality:
 //
-//		Observable - allows the caller to observe changes to the store.
-//
+//	Observable - allows the caller to observe changes to the store.
 package store
 
 import (
 	"github.com/arya-analytics/x/observe"
+	"io"
 	"sync"
 )
 
@@ -97,4 +97,12 @@ func ObservableWrap[S State](store Store[S]) Observable[S] {
 func (o *observable[S]) SetState(state S) {
 	o.Store.SetState(state)
 	o.Observer.Notify(state)
+}
+
+// |||||| FLUSHABLE ||||||
+
+type Flushable[S State] interface {
+	Store[S]
+	io.WriterTo
+	io.ReaderFrom
 }

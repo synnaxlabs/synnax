@@ -1,63 +1,40 @@
 package kv
 
 import (
-	"github.com/arya-analytics/x/binary"
+	"encoding/binary"
+	atomicx "github.com/arya-analytics/x/atomic"
 	"github.com/cockroachdb/errors"
-	"github.com/cockroachdb/pebble"
-	"io"
 )
 
-// PersistedCounter implements a simple counter that writes its value to a DB store. To create a new PersistedCounter,
-// call NewPersistedCounter.
+// PersistedCounter implements a simple in64 counter that writes its value to a
+// key-value store. PersistedCounter is safe for concurrent use. To create a new
+// PersistedCounter, call NewPersistedCounter.
 type PersistedCounter struct {
-	kve   DB
-	key   []byte
-	value int64
+	atomicx.Int64Counter
+	kve    DB
+	key    []byte
+	buffer []byte
 }
 
-// NewPersistedCounter opens or creates a persisted counter at the given key. If the counter value is found in storage,
-// sets it in internal state. If the counter value is not found in storage, sets the value to 0.
+// NewPersistedCounter opens or creates a persisted counter at the given key. If
+// the counter value is found in storage, sets its internal state. If the counter
+// value is not found in storage, sets the value to 0.
 func NewPersistedCounter(kv DB, key []byte) (*PersistedCounter, error) {
-	c := &PersistedCounter{kve: kv, key: key}
-	err := Load(kv, c.key, c)
-	if errors.Is(err, pebble.ErrNotFound) {
+	c := &PersistedCounter{kve: kv, key: key, buffer: make([]byte, 8)}
+	b, err := kv.Get(key)
+	if err == nil {
+		c.Int64Counter.Add(int64(binary.LittleEndian.Uint64(b)))
+	} else if errors.Is(err, NotFound) {
 		err = nil
-		c.value = 0
 	}
 	return c, err
 }
 
-// Load implements the Loader interface.
-func (c *PersistedCounter) Load(r io.Reader) error { return binary.Read(r, &c.value) }
-
-// Flush implements the Flusher interface.
-func (c *PersistedCounter) Flush(w io.Writer) error { return binary.Write(w, c.value) }
-
-// Increment increments the counter by the sum of hte given values. Returns the new value as well as any
-// errors encountered while flushing the counter to storage.
-func (c *PersistedCounter) Increment(values ...int64) (int64, error) {
-	if len(values) == 0 {
-		c.value++
-	}
-	for _, v := range values {
-		c.value += v
-	}
-	return c.value, c.flushShelf()
+// Add increments the counter by the sum of the given values. If no values are
+// provided, increments the counter by 1.
+// as well as any errors encountered while flushing the counter to storage.
+func (c *PersistedCounter) Add(delta ...int64) (int64, error) {
+	next := c.Int64Counter.Add(delta...)
+	binary.LittleEndian.PutUint64(c.buffer, uint64(next))
+	return next, c.kve.Set(c.key, c.buffer)
 }
-
-// Decrement decrements the counter by the sum of the given values. Returns the new value as well as any
-// errors encountered while flushing the counter to storage.
-func (c *PersistedCounter) Decrement(values ...int64) (int64, error) {
-	if len(values) == 0 {
-		c.value--
-	}
-	for _, v := range values {
-		c.value -= v
-	}
-	return c.value, c.flushShelf()
-}
-
-// Value returns the current value of the counter.
-func (c *PersistedCounter) Value() int64 { return c.value }
-
-func (c *PersistedCounter) flushShelf() error { return Flush(c.kve, c.key, c, pebble.NoSync) }

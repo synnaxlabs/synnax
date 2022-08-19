@@ -76,7 +76,7 @@ import (
 )
 
 // Value represents an item that can be sent through a Stream.
-type Value any
+type Value = any
 
 // Segment is a type that reads a value from a set of Inlet(s), performs some operation,
 // transformation, etc.and writes a value to a set of Outlet(s). The user of a Segment
@@ -123,9 +123,9 @@ type InletCloser interface {
 // another. A TransformFunc can perform IO, Network InfectedBatch, Aggregations, or any other
 // type of operation.
 type TransformFunc[I, O Value] struct {
-	//	ApplyTransform is the function that performs the transformation. The user of the LinearTransform
+	//	Transform is the function that performs the transformation. The user of the LinearTransform
 	//	should define this function before Flow is called.
-	ApplyTransform func(ctx context.Context, i I) (o O, ok bool, err error)
+	Transform func(ctx context.Context, i I) (o O, ok bool, err error)
 }
 
 // Stream represents a streamImpl of values. Each streamImpl has an addressable Outlet

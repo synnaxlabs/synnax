@@ -16,7 +16,7 @@ type transientSegment struct {
 
 func newTransientSegment() *transientSegment {
 	t := &transientSegment{}
-	t.ApplyTransform = func(ctx context.Context, i int) (int, bool, error) {
+	t.Transform = func(ctx context.Context, i int) (int, bool, error) {
 		if i == 3 {
 			t.Transient() <- errors.New("error")
 		}
