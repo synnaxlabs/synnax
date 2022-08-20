@@ -59,7 +59,7 @@ func (n *Network[RQ, RS]) RouteStream(host address.Address, buffer int) *StreamT
 	if buffer <= 0 {
 		buffer = defaultStreamBuffer
 	}
-	t := &StreamTransport[RQ, RS]{Address: addr, Network: n, BufferSize: buffer}
+	t := &StreamTransport[RQ, RS]{Address: addr, Network: n, BufferSize: buffer, Reporter: reporter}
 	n.mu.streamRoutes[addr] = t
 	return t
 }

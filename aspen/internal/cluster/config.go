@@ -86,6 +86,12 @@ func (cfg Config) Validate() error {
 	if cfg.HostAddress == "" {
 		return errors.New("[cluster] - HostAddress is required")
 	}
+	if len(cfg.StorageKey) == 0 {
+		return errors.New("[cluster] - StorageKey is required")
+	}
+	if cfg.StorageFlushInterval == 0 {
+		return errors.New("[cluster] - StorageFlushInterval must be FlushOnEvery or positive")
+	}
 	c := errutil.NewCatch()
 	c.Exec(cfg.Gossip.Validate)
 	c.Exec(cfg.Pledge.Validate)
@@ -96,7 +102,7 @@ func (cfg Config) Validate() error {
 func (cfg Config) Report() alamos.Report {
 	report := make(alamos.Report)
 	if cfg.Storage != nil {
-		report["storage"] = cfg.Storage.String()
+		report["storage"] = cfg.Storage.Report()
 	} else {
 		report["storage"] = "not provided"
 	}

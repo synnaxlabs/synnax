@@ -255,7 +255,7 @@ var _ = Describe("Telem", func() {
 	})
 
 	Describe("Size", func() {
-		Describe("String", func() {
+		Describe("Report", func() {
 			It("Should return the correct string", func() {
 				s := telem.Size(0)
 				Expect(s.String()).To(Equal("0B"))

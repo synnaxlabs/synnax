@@ -6,6 +6,7 @@ import (
 	"github.com/arya-analytics/freighter"
 	"github.com/arya-analytics/freighter/ferrors"
 	"github.com/arya-analytics/x/address"
+	"go/types"
 )
 
 type message[P freighter.Payload] struct {
@@ -19,13 +20,20 @@ type StreamTransport[RQ, RS freighter.Payload] struct {
 	BufferSize int
 	Network    *Network[RQ, RS]
 	Handler    func(ctx context.Context, srv freighter.ServerStream[RQ, RS]) error
+	freighter.Reporter
 }
+
+var (
+	_ freighter.StreamTransport[int, types.Nil] = (*StreamTransport[int, types.Nil])(nil)
+	_ freighter.ServerStream[int, types.Nil]    = (*ServerStream[int, types.Nil])(nil)
+	_ freighter.ClientStream[int, types.Nil]    = (*ClientStream[int, types.Nil])(nil)
+)
 
 func NewStreamTransport[RQ, RS freighter.Payload](buffer int) *StreamTransport[RQ, RS] {
 	return NewNetwork[RQ, RS]().RouteStream("", buffer)
 }
 
-// StreamTransport implements the freighter.StreamTransport interface.
+// Stream implements the freighter.StreamTransport interface.
 func (s *StreamTransport[RQ, RS]) Stream(
 	ctx context.Context,
 	target address.Address,
@@ -40,10 +48,6 @@ func (s *StreamTransport[RQ, RS]) Stream(
 	client, server := NewStreamPair[RQ, RS](ctx, s.BufferSize, route.BufferSize)
 	go server.Exec(ctx, route.Handler)
 	return client, nil
-}
-
-func (s *StreamTransport[RQ, RS]) Digest() freighter.Digest {
-	return digest
 }
 
 // String implements the freighter interface.

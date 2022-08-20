@@ -24,7 +24,7 @@ var _ = Describe("Key", func() {
 				Expect(k.Lease()).To(Equal(k.NodeID()))
 			})
 		})
-		Describe("String", func() {
+		Describe("Report", func() {
 			It("Should return a string representation of the channels key", func() {
 				k := channel.NewKey(core.NodeID(1), cesium.ChannelKey(2))
 				Expect(k.String()).To(Equal("1-2"))
@@ -55,7 +55,7 @@ var _ = Describe("Key", func() {
 		})
 	})
 	Describe("Key", func() {
-		Describe("String", func() {
+		Describe("Report", func() {
 			It("Should return a string representation of the keys", func() {
 				keys := channel.Keys{
 					channel.NewKey(core.NodeID(1), cesium.ChannelKey(2)),

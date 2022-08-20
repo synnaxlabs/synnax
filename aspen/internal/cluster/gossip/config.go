@@ -63,7 +63,7 @@ func (cfg Config) Validate() error {
 func (cfg Config) Report() alamos.Report {
 	report := make(alamos.Report)
 	report["interval"] = cfg.Interval
-	report["transport"] = cfg.Transport.Digest()
+	report["transport"] = cfg.Transport.Report()
 	return report
 }
 

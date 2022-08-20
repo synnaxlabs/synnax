@@ -2,7 +2,7 @@ package fmock
 
 import "github.com/arya-analytics/freighter"
 
-var digest = freighter.Digest{
+var reporter = freighter.Reporter{
 	Protocol:  "golang-mock",
 	Encodings: []string{"in-memory"},
 }

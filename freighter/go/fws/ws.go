@@ -5,6 +5,7 @@ import (
 	"github.com/arya-analytics/freighter"
 	"github.com/arya-analytics/freighter/ferrors"
 	"github.com/arya-analytics/x/address"
+	"github.com/arya-analytics/x/alamos"
 	"github.com/arya-analytics/x/binary"
 	"github.com/arya-analytics/x/httputil"
 	roacherrors "github.com/cockroachdb/errors"
@@ -37,8 +38,13 @@ type Stream[RQ, RS freighter.Payload] struct {
 	path string
 }
 
-// Digest implements the freighter.Transport interface.
-func (s *Stream[RQ, RS]) Digest() freighter.Digest { return s.Client.Digest() }
+var reporter = freighter.Reporter{
+	Protocol:  "websocket",
+	Encodings: httputil.SupportedContentTypes(),
+}
+
+// Report implements the freighter.Transport interface.
+func (s *Stream[RQ, RS]) Report() alamos.Report { return s.Client.Report() }
 
 func (s *Stream[RQ, RS]) BindTo(r fiber.Router, path string) {
 	s.path = path
@@ -61,24 +67,18 @@ var (
 )
 
 func NewClient[RQ, RS freighter.Payload](ecd httputil.EncoderDecoder) *Client[RQ, RS] {
-	return &Client[RQ, RS]{ecd: ecd}
+	return &Client[RQ, RS]{ecd: ecd, Reporter: reporter}
 }
 
 func NewServer[RQ, RS freighter.Payload](ecd httputil.EncoderDecoder, logger *zap.SugaredLogger) *Server[RQ, RS] {
-	return &Server[RQ, RS]{ecd: ecd, logger: logger}
+	return &Server[RQ, RS]{ecd: ecd, logger: logger, Reporter: reporter}
 }
 
 type Server[RQ, RS freighter.Payload] struct {
 	ecd     httputil.EncoderDecoder
 	logger  *zap.SugaredLogger
 	handler func(ctx context.Context, server freighter.ServerStream[RQ, RS]) error
-}
-
-func (s *Server[RQ, RS]) Digest() freighter.Digest {
-	return freighter.Digest{
-		Protocol:  protocol,
-		Encodings: httputil.SupportedContentTypes(),
-	}
+	freighter.Reporter
 }
 
 func (s *Server[RQ, RS]) BindHandler(
@@ -168,7 +168,7 @@ func (s *Server[RQ, RS]) determineEncoderDecoder(c *fiber.Ctx) (httputil.Encoder
 		if s.ecd.ContentType() == ct {
 			return s.ecd, nil
 		}
-		return httputil.DetermineEncoderDecoder{}, roacherrors.Newf("[freighter] - unsupported content type")
+		return nil, roacherrors.Newf("[freighter] - unsupported content type")
 	}
 	return httputil.DetermineEncoderDecoder(ct)
 }
@@ -176,13 +176,13 @@ func (s *Server[RQ, RS]) determineEncoderDecoder(c *fiber.Ctx) (httputil.Encoder
 type Client[RQ, RS freighter.Payload] struct {
 	dialer ws.Dialer
 	ecd    httputil.EncoderDecoder
+	freighter.Reporter
 }
 
-func (s *Client[RQ, RS]) Digest() freighter.Digest {
-	return freighter.Digest{
-		Protocol:  protocol,
-		Encodings: []string{s.ecd.ContentType()},
-	}
+func (s *Client[RQ, RS]) Report() alamos.Report {
+	r := reporter
+	r.Encodings = []string{s.ecd.ContentType()}
+	return r.Report()
 }
 
 func (s *Client[RQ, RS]) Stream(

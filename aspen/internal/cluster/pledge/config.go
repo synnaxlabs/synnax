@@ -102,7 +102,7 @@ func (cfg Config) Validate() error {
 // Report implements the alamos.Reporter interface. Assumes the Config is valid.
 func (cfg Config) Report() alamos.Report {
 	report := make(alamos.Report)
-	report["Transport"] = cfg.Transport.Digest()
+	report["Transport"] = cfg.Transport.Report()
 	report["requestTimeout"] = cfg.RequestTimeout
 	report["pledgeBaseRetry"] = cfg.RetryInterval
 	report["pledgeRetryScale"] = cfg.RetryScale

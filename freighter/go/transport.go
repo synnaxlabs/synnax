@@ -1,6 +1,9 @@
 package freighter
 
-import "errors"
+import (
+	"errors"
+	"github.com/arya-analytics/x/alamos"
+)
 
 var (
 	// Unreachable is returned when a target cannot be reached.
@@ -11,19 +14,17 @@ var (
 type Payload = any
 
 type Transport interface {
-	Digest() Digest
+	alamos.Reporter
 }
 
-type Digest struct {
+type Reporter struct {
 	Protocol  string
 	Encodings []string
 }
 
-func (d Digest) LogArgs() []interface{} {
-	return []interface{}{
-		"protocol",
-		d.Protocol,
-		"encodings",
-		d.Encodings,
-	}
+func (t Reporter) Report() alamos.Report {
+	rep := make(alamos.Report)
+	rep["protocol"] = t.Protocol
+	rep["encodings"] = t.Encodings
+	return rep
 }

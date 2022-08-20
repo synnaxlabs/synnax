@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/arya-analytics/freighter"
 	"github.com/arya-analytics/x/address"
+	"github.com/arya-analytics/x/alamos"
 	"google.golang.org/grpc"
 	"io"
 )
@@ -16,8 +17,8 @@ type StreamTransportCore[RQ, RQT, RS, RST freighter.Payload] struct {
 	Handler            func(context.Context, freighter.ServerStream[RQ, RS]) error
 }
 
-func (s *StreamTransportCore[RQ, RQT, RS, RST]) Digest() freighter.Digest {
-	return digest
+func (s *StreamTransportCore[RQ, RQT, RS, RST]) Report() alamos.Report {
+	return reporter.Report()
 }
 
 func (s *StreamTransportCore[RQ, RQT, RS, RST]) BindHandler(

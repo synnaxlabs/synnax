@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/arya-analytics/freighter"
 	"github.com/arya-analytics/x/address"
+	"github.com/arya-analytics/x/alamos"
 	roacherrors "github.com/cockroachdb/errors"
 	"google.golang.org/grpc"
 )
@@ -17,8 +18,8 @@ type UnaryTransport[RQ, RQT, RS, RST freighter.Payload] struct {
 	ServiceDesc        *grpc.ServiceDesc
 }
 
-func (u *UnaryTransport[RQ, RQT, RS, RST]) Digest() freighter.Digest {
-	return digest
+func (u *UnaryTransport[RQ, RQT, RS, RST]) Report() alamos.Report {
+	return reporter.Report()
 }
 
 func (u *UnaryTransport[RQ, RQT, RS, RST]) BindTo(reg grpc.ServiceRegistrar) {

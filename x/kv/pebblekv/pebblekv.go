@@ -3,6 +3,7 @@
 package pebblekv
 
 import (
+	"github.com/arya-analytics/x/alamos"
 	kvc "github.com/arya-analytics/x/kv"
 	"github.com/cockroachdb/pebble"
 )
@@ -49,8 +50,9 @@ func (db pebbleKV) NewBatch() kvc.Batch {
 	return batch{db.DB.NewIndexedBatch()}
 }
 
-// String implements the kv.db interface.
-func (db pebbleKV) String() string { return "pebbleKV" }
+func (db pebbleKV) Report() alamos.Report {
+	return alamos.Report{"engine": "pebble"}
+}
 
 type batch struct{ *pebble.Batch }
 

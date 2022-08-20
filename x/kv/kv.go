@@ -4,11 +4,10 @@
 //
 // For a general implementation of DB, see the pebblekv package.
 // For an in-memory implementation of DB, see the memkv package.
-//
 package kv
 
 import (
-	"fmt"
+	"github.com/arya-analytics/x/alamos"
 	"github.com/cockroachdb/pebble"
 )
 
@@ -54,6 +53,5 @@ type DB interface {
 	BatchWriter
 	Reader
 	Closer
-	// Stringer returns a string description of the DB. Used for logging and configuration.
-	fmt.Stringer
+	alamos.Reporter
 }

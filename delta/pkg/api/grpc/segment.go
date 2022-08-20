@@ -84,7 +84,7 @@ package grpc
 //func translateSegmentsBackward(segments []api.segment) ([]*segmentv1.segment, error) {
 //	tSegments := make([]*segmentv1.segment, len(segments))
 //	for i, s := range segments {
-//		tSegments[i] = &segmentv1.segment{ChannelKey: s.ChannelKey.String(), Start: int64(s.Start), Data: s.Data}
+//		tSegments[i] = &segmentv1.segment{ChannelKey: s.ChannelKey.Report(), Start: int64(s.Start), Data: s.Data}
 //	}
 //	return tSegments, nil
 //}

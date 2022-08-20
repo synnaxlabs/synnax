@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/arya-analytics/freighter"
 	"github.com/arya-analytics/x/address"
+	"github.com/arya-analytics/x/alamos"
 )
 
 // Unary is a mock, synchronous implementation of the freighter.Unary interface.
@@ -13,7 +14,7 @@ type Unary[RQ, RS freighter.Payload] struct {
 	Handler func(context.Context, RQ) (RS, error)
 }
 
-func (t *Unary[RQ, RS]) Digest() freighter.Digest { return digest }
+func (t *Unary[RQ, RS]) Report() alamos.Report { return reporter.Report() }
 
 // Send implements the freighter.Unary interface.
 func (t *Unary[RQ, RS]) Send(
