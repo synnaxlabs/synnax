@@ -6,6 +6,7 @@ import (
 	"github.com/arya-analytics/x/confluence"
 	kvx "github.com/arya-analytics/x/kv"
 	"github.com/arya-analytics/x/version"
+	"github.com/samber/lo"
 )
 
 // |||||| FILTER ||||||
@@ -57,13 +58,13 @@ func (vc *versionFilter) filter(op Operation) bool {
 			return err == kvx.NotFound
 		}
 	}
-	if op.Version.YoungerThan(dig.Version) {
-		return false
-	}
-	if op.Version.EqualTo(dig.Version) {
-		return op.Leaseholder > dig.Leaseholder
-	}
-	return true
+	// If the versions of the operation are equal, we select a winning operation
+	// based the which leasehold is higher.
+	return lo.Ternary(
+		op.Version.EqualTo(dig.Version),
+		op.Leaseholder > dig.Leaseholder,
+		op.Version.OlderThan(dig.Version),
+	)
 }
 
 func getDigestFromKV(kve kvx.DB, key []byte) (Digest, error) {

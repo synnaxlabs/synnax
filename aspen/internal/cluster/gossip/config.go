@@ -3,7 +3,8 @@ package gossip
 import (
 	"github.com/arya-analytics/aspen/internal/cluster/store"
 	"github.com/arya-analytics/x/alamos"
-	"github.com/cockroachdb/errors"
+	"github.com/arya-analytics/x/override"
+	"github.com/arya-analytics/x/validate"
 	"go.uber.org/zap"
 	"time"
 )
@@ -26,37 +27,22 @@ type Config struct {
 }
 
 // Override implements the config.Config interface.
-func (cfg Config) Override(override Config) Config {
-	if override.Interval > 0 {
-		cfg.Interval = override.Interval
-	}
-	if override.Logger != nil {
-		cfg.Logger = override.Logger
-	}
-	if override.Transport != nil {
-		cfg.Transport = override.Transport
-	}
-	if override.Store != nil {
-		cfg.Store = override.Store
-	}
+func (cfg Config) Override(other Config) Config {
+	cfg.Interval = override.Numeric(cfg.Interval, other.Interval)
+	cfg.Logger = override.Nil(cfg.Logger, other.Logger)
+	cfg.Transport = override.Nil(cfg.Transport, other.Transport)
+	cfg.Store = override.Nil(cfg.Store, other.Store)
 	return cfg
 }
 
 // Validate implements the config.Config interface.
 func (cfg Config) Validate() error {
-	if cfg.Transport == nil {
-		return errors.New("[gossip] - transport required")
-	}
-	if cfg.Store == nil {
-		return errors.New("[gossip] - store required")
-	}
-	if cfg.Interval <= 0 {
-		return errors.New("[gossip] - interval must be positive")
-	}
-	if cfg.Logger == nil {
-		return errors.New("[gossip] - logger required")
-	}
-	return nil
+	v := validate.New("gossip")
+	validate.NotNil(v, "transport", cfg.Transport)
+	validate.NotNil(v, "store", cfg.Store)
+	validate.Positive(v, "interval", cfg.Interval)
+	validate.NotNil(v, "logger", cfg.Logger)
+	return v.Error()
 }
 
 // Report implements the alamos.Reporter interface. Assumes the config is valid.

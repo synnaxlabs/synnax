@@ -49,8 +49,6 @@ type options struct {
 	experiment alamos.Experiment
 }
 
-func (o *options) String() string { return o.Report().String() }
-
 func (o *options) Report() alamos.Report {
 	// The key-value store and cluster state services will attach their own reports to the experiment,
 	// so we only need to report values that they won't.
@@ -163,7 +161,7 @@ func mergeDefaultOptions(o *options) {
 
 	// |||| KV ||||
 
-	o.kv = o.kv.Merge(def.kv)
+	o.kv = o.kv.Override(def.kv)
 
 	// |||| CLUSTER ||||
 
@@ -199,7 +197,7 @@ func defaultOptions() *options {
 	return &options{
 		dirname:   "",
 		cluster:   cluster.DefaultConfig,
-		kv:        kv.DefaultConfig(),
+		kv:        kv.DefaultConfig,
 		transport: grpct.New(fgrpc.NewPool(grpc.WithTransportCredentials(insecure.NewCredentials()))),
 		logger:    logger.Sugar(),
 	}

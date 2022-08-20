@@ -6,7 +6,8 @@ import (
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/alamos"
 	"github.com/arya-analytics/x/config"
-	"github.com/cockroachdb/errors"
+	"github.com/arya-analytics/x/override"
+	"github.com/arya-analytics/x/validate"
 	"go.uber.org/zap"
 	"time"
 )
@@ -48,55 +49,27 @@ type Config struct {
 var _ config.Config[Config] = Config{}
 
 // Override implements the config.Config interface.
-func (cfg Config) Override(override Config) Config {
-	if override.Transport != nil {
-		cfg.Transport = override.Transport
-	}
-	if override.RequestTimeout != 0 {
-		cfg.RequestTimeout = override.RequestTimeout
-	}
-	if override.RetryInterval != 0 {
-		cfg.RetryInterval = override.RetryInterval
-	}
-	if override.RetryScale != 0 {
-		cfg.RetryScale = override.RetryScale
-	}
-	if override.Logger != nil {
-		cfg.Logger = override.Logger
-	}
-	if override.MaxProposals != 0 {
-		cfg.MaxProposals = override.MaxProposals
-	}
-	if override.Candidates != nil {
-		cfg.Candidates = override.Candidates
-	}
-	if len(override.Peers) > 0 {
-		cfg.Peers = override.Peers
-	}
+func (cfg Config) Override(other Config) Config {
+	cfg.Transport = override.Nil(cfg.Transport, other.Transport)
+	cfg.RequestTimeout = override.Numeric(cfg.RequestTimeout, other.RequestTimeout)
+	cfg.RetryInterval = override.Numeric(cfg.RetryInterval, other.RetryInterval)
+	cfg.RetryScale = override.Numeric(cfg.RetryScale, other.RetryScale)
+	cfg.MaxProposals = override.Numeric(cfg.MaxProposals, other.MaxProposals)
+	cfg.Logger = override.Nil[*zap.SugaredLogger](cfg.Logger, other.Logger)
+	cfg.Candidates = override.Nil(cfg.Candidates, other.Candidates)
+	cfg.Peers = override.Slice(cfg.Peers, other.Peers)
 	return cfg
 }
 
 // Validate implements the config.Config interface.
 func (cfg Config) Validate() error {
-	if cfg.Transport == nil {
-		return errors.New("[pledge] - transport required")
-	}
-	if cfg.RequestTimeout == 0 {
-		return errors.New("[pledge] - request timeout must be non-zero")
-	}
-	if cfg.RetryScale < 1 {
-		return errors.New("[pledge] - retry scale must be >= 1")
-	}
-	if cfg.MaxProposals == 0 {
-		return errors.New("[pledge] - max proposals must be non-zero")
-	}
-	if cfg.Candidates == nil {
-		return errors.New("[pledge] - candidates required")
-	}
-	if cfg.Logger == nil {
-		return errors.New("[pledge] - logger required")
-	}
-	return nil
+	v := validate.New("pledge")
+	validate.NotNil(v, "Transport", cfg.Transport)
+	validate.Positive(v, "RequestTimeout", cfg.RequestTimeout)
+	validate.GreaterThanEq(v, "RetryScale", cfg.RetryScale, 1)
+	validate.NonZero(v, "MaxProposals", cfg.MaxProposals)
+	validate.NotNil(v, "Candidates", cfg.Candidates)
+	return v.Error()
 }
 
 // Report implements the alamos.Reporter interface. Assumes the Config is valid.

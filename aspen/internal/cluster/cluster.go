@@ -79,8 +79,7 @@ func Join(ctx signal.Context, cfgs ...Config) (Cluster, error) {
 	}
 
 	alamos.AttachReporter(c.cfg.Experiment, "cluster", alamos.Debug, c.cfg)
-	c.cfg.Logger.Infow("beginning cluster startup",
-		"storageFlushInterval", c.cfg.StorageFlushInterval)
+	c.cfg.Logger.Infow("beginning cluster startup", c.cfg.Report().LogArgs()...)
 
 	// If our store is empty or invalid and peers were provided, attempt to join
 	// the cluster.

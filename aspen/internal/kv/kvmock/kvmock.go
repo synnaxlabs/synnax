@@ -31,13 +31,12 @@ func NewBuilder(baseKVCfg kv.Config, baseClusterCfg cluster.Config) *Builder {
 	}
 }
 
-func (b *Builder) New(ctx signal.Context, kvCfg kv.Config, clusterCfg cluster.Config) (kv.DB,
-	error) {
+func (b *Builder) New(ctx signal.Context, kvCfg kv.Config, clusterCfg cluster.Config) (kv.DB, error) {
 	clust, err := b.Builder.New(ctx, clusterCfg)
 	if err != nil {
 		return nil, err
 	}
-	kvCfg = kvCfg.Merge(b.BaseCfg)
+	kvCfg = b.BaseCfg.Override(kvCfg)
 	if kvCfg.Engine == nil {
 		kvCfg.Engine = memkv.New()
 	}

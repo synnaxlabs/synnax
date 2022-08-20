@@ -10,6 +10,14 @@ import (
 
 var _ = Describe("Node", func() {
 
+	Describe("Parse", func() {
+		It("Should parse the ID of a node from a string", func() {
+			id, err := node.ID(0).Parse("1")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(id).To(Equal(node.ID(1)))
+		})
+	})
+
 	Describe("Group", func() {
 
 		Describe("Filter", func() {

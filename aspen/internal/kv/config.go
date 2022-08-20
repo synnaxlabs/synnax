@@ -4,7 +4,8 @@ import (
 	"github.com/arya-analytics/aspen/internal/cluster"
 	"github.com/arya-analytics/x/alamos"
 	kvx "github.com/arya-analytics/x/kv"
-	"github.com/cockroachdb/errors"
+	"github.com/arya-analytics/x/override"
+	"github.com/arya-analytics/x/validate"
 	"go.uber.org/zap"
 	"time"
 )
@@ -38,68 +39,39 @@ type Config struct {
 	RecoveryThreshold int
 }
 
-func (cfg Config) Merge(def Config) Config {
-	if cfg.Cluster == nil {
-		cfg.Cluster = def.Cluster
-	}
-	if cfg.OperationsTransport == nil {
-		cfg.OperationsTransport = def.OperationsTransport
-	}
-	if cfg.FeedbackTransport == nil {
-		cfg.FeedbackTransport = def.FeedbackTransport
-	}
-	if cfg.LeaseTransport == nil {
-		cfg.LeaseTransport = def.LeaseTransport
-	}
-	if cfg.Logger == nil {
-		cfg.Logger = def.Logger
-	}
-	if cfg.RecoveryThreshold == 0 {
-		cfg.RecoveryThreshold = def.RecoveryThreshold
-	}
-	if cfg.Engine == nil {
-		cfg.Engine = def.Engine
-	}
-	if cfg.GossipInterval == 0 {
-		cfg.GossipInterval = def.GossipInterval
-	}
+func (cfg Config) Override(other Config) Config {
+	cfg.Cluster = override.Nil(cfg.Cluster, other.Cluster)
+	cfg.OperationsTransport = override.Nil(cfg.OperationsTransport, other.OperationsTransport)
+	cfg.FeedbackTransport = override.Nil(cfg.FeedbackTransport, other.FeedbackTransport)
+	cfg.LeaseTransport = override.Nil(cfg.LeaseTransport, other.LeaseTransport)
+	cfg.Logger = override.Nil(cfg.Logger, other.Logger)
+	cfg.Engine = override.Nil(cfg.Engine, other.Engine)
+	cfg.GossipInterval = override.Numeric(cfg.GossipInterval, other.GossipInterval)
+	cfg.RecoveryThreshold = override.Numeric(cfg.RecoveryThreshold, other.RecoveryThreshold)
 	return cfg
 }
 
 func (cfg Config) Validate() error {
-	if cfg.Cluster == nil {
-		return errors.AssertionFailedf("[kv] - a valid cluster must be provided")
-	}
-	if cfg.OperationsTransport == nil {
-		return errors.AssertionFailedf("[kv] - Operations transport is required")
-	}
-	if cfg.FeedbackTransport == nil {
-		return errors.AssertionFailedf("[kv]  - feedback transport is required")
-	}
-	if cfg.LeaseTransport == nil {
-		return errors.AssertionFailedf("[kv] leaseAlloc transport is required")
-	}
-	if cfg.Engine == nil {
-		return errors.AssertionFailedf("[kv] - engine is required")
-	}
-	return nil
+	v := validate.New("kv")
+	validate.NotNil(v, "Cluster", cfg.Cluster)
+	validate.NotNil(v, "OperationsTransport", cfg.OperationsTransport)
+	validate.NotNil(v, "FeedbackTransport", cfg.FeedbackTransport)
+	validate.NotNil(v, "LeaseTransport", cfg.LeaseTransport)
+	validate.NotNil(v, "Engine", cfg.Engine)
+	return v.Error()
 }
-
-func (cfg Config) String() string { return cfg.Report().String() }
 
 func (cfg Config) Report() alamos.Report {
 	report := make(alamos.Report)
 	report["recoveryThreshold"] = cfg.RecoveryThreshold
 	report["gossipInterval"] = cfg.GossipInterval.String()
-	report["operationsTransport"] = cfg.OperationsTransport.Digest()
-	report["feedbackTransport"] = cfg.FeedbackTransport.Digest()
-	report["leaseTransport"] = cfg.LeaseTransport.Digest()
+	report["operationsTransport"] = cfg.OperationsTransport.Report()
+	report["feedbackTransport"] = cfg.FeedbackTransport.Report()
+	report["leaseTransport"] = cfg.LeaseTransport.Report()
 	return report
 }
 
-func DefaultConfig() Config {
-	return Config{
-		GossipInterval:    1 * time.Second,
-		RecoveryThreshold: 5,
-	}
+var DefaultConfig = Config{
+	GossipInterval:    1 * time.Second,
+	RecoveryThreshold: 5,
 }

@@ -3,6 +3,7 @@ package kv
 import (
 	"fmt"
 	"github.com/arya-analytics/x/address"
+	"github.com/arya-analytics/x/config"
 	"github.com/arya-analytics/x/confluence"
 	"github.com/arya-analytics/x/confluence/plumber"
 	"github.com/arya-analytics/x/errutil"
@@ -95,18 +96,18 @@ const (
 	executorAddr          = "executor"
 )
 
-func Open(ctx signal.Context, cfg Config) (DB, error) {
-	if err := cfg.Validate(); err != nil {
+func Open(ctx signal.Context, cfgs ...Config) (DB, error) {
+	cfg, err := config.OverrideAndValidate(DefaultConfig, cfgs...)
+	if err != nil {
 		return nil, err
 	}
-
-	cfg = cfg.Merge(DefaultConfig())
-
 	db := &kv{
 		Config:     cfg,
 		DB:         cfg.Engine,
 		leaseAlloc: &leaseAllocator{Config: cfg},
 	}
+
+	cfg.Logger.Infow("opening cluster kv", cfg.Report().LogArgs()...)
 
 	va, err := newVersionAssigner(cfg)
 	if err != nil {

@@ -10,6 +10,7 @@ import (
 	kvx "github.com/arya-analytics/x/kv"
 	"github.com/arya-analytics/x/signal"
 	"github.com/cockroachdb/errors"
+	"github.com/samber/lo"
 )
 
 type (
@@ -53,8 +54,5 @@ func (db *db) Close() error {
 	c := errutil.NewCatch(errutil.WithAggregation())
 	c.Exec(db.wg.Wait)
 	c.Exec(db.options.kv.Engine.Close)
-	if !errors.Is(c.Error(), context.Canceled) {
-		return c.Error()
-	}
-	return nil
+	return lo.Ternary(errors.Is(c.Error(), context.Canceled), nil, c.Error())
 }

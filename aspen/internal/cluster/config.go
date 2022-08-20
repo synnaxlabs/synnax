@@ -6,9 +6,9 @@ import (
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/alamos"
 	"github.com/arya-analytics/x/binary"
-	"github.com/arya-analytics/x/errutil"
 	"github.com/arya-analytics/x/kv"
-	"github.com/cockroachdb/errors"
+	"github.com/arya-analytics/x/override"
+	"github.com/arya-analytics/x/validate"
 	"go.uber.org/zap"
 	"time"
 )
@@ -45,57 +45,33 @@ type Config struct {
 	EncoderDecoder binary.EncoderDecoder
 }
 
-func (cfg Config) Override(override Config) Config {
-	if override.HostAddress != "" {
-		cfg.HostAddress = override.HostAddress
-	}
-
-	if override.Logger != nil {
-		cfg.Logger = override.Logger
-		cfg.Pledge.Logger = override.Logger
-		cfg.Gossip.Logger = override.Logger
-	}
-
-	if override.EncoderDecoder != nil {
-		cfg.EncoderDecoder = override.EncoderDecoder
-	}
-
-	if override.StorageFlushInterval != 0 {
-		cfg.StorageFlushInterval = override.StorageFlushInterval
-	}
-	if len(override.StorageKey) != 0 {
-		cfg.StorageKey = override.StorageKey
-	}
-	if override.Storage != nil {
-		cfg.Storage = override.Storage
-	}
-
-	if override.Experiment != nil {
-		cfg.Experiment = override.Experiment
-		cfg.Pledge.Experiment = override.Experiment
-		cfg.Gossip.Experiment = override.Experiment
-	}
-
-	cfg.Gossip = cfg.Gossip.Override(override.Gossip)
-	cfg.Pledge = cfg.Pledge.Override(override.Pledge)
-
+func (cfg Config) Override(other Config) Config {
+	cfg.HostAddress = override.String(cfg.HostAddress, other.HostAddress)
+	cfg.Logger = override.Nil(cfg.Logger, other.Logger)
+	cfg.Pledge.Logger = cfg.Logger
+	cfg.Gossip.Logger = cfg.Logger
+	cfg.EncoderDecoder = override.Nil(cfg.EncoderDecoder, other.EncoderDecoder)
+	cfg.StorageFlushInterval = override.Numeric(cfg.StorageFlushInterval, other.StorageFlushInterval)
+	cfg.StorageKey = override.Slice(cfg.StorageKey, other.StorageKey)
+	cfg.Storage = override.Nil(cfg.Storage, other.Storage)
+	cfg.Experiment = override.Nil(cfg.Experiment, other.Experiment)
+	cfg.Gossip.Experiment = cfg.Experiment
+	cfg.Pledge.Experiment = cfg.Experiment
+	cfg.Gossip = cfg.Gossip.Override(other.Gossip)
+	cfg.Pledge = cfg.Pledge.Override(other.Pledge)
 	return cfg
 }
 
 func (cfg Config) Validate() error {
-	if cfg.HostAddress == "" {
-		return errors.New("[cluster] - HostAddress is required")
-	}
-	if len(cfg.StorageKey) == 0 {
-		return errors.New("[cluster] - StorageKey is required")
-	}
-	if cfg.StorageFlushInterval == 0 {
-		return errors.New("[cluster] - StorageFlushInterval must be FlushOnEvery or positive")
-	}
-	c := errutil.NewCatch()
-	c.Exec(cfg.Gossip.Validate)
-	c.Exec(cfg.Pledge.Validate)
-	return c.Error()
+	v := validate.New("cluster")
+	validate.NotEmptyString(v, "HostAddress", cfg.HostAddress)
+	validate.NotNil(v, "Logger", cfg.Logger)
+	validate.NotNil(v, "EncoderDecoder", cfg.EncoderDecoder)
+	validate.NonZero(v, "StorageFlushInterval", cfg.StorageFlushInterval)
+	validate.NotEmptySlice(v, "StorageKey", cfg.StorageKey)
+	v.Exec(cfg.Gossip.Validate)
+	v.Exec(cfg.Pledge.Validate)
+	return v.Error()
 }
 
 // Report implements the alamos.Reporter interface.
