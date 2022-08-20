@@ -27,10 +27,6 @@ func NewHeader(kve kv.DB) *Header {
 	}
 }
 
-func (s *Header) Get(key segment.Key) (res segment.Header, err error) {
-	return res, gorp.NewRetrieve[[]byte, segment.Header]().Entry(&res).WhereKeys(key.Bytes()).Exec(s.db)
-}
-
 func (s *Header) Set(header segment.Header) error {
 	return gorp.NewCreate[[]byte, segment.Header]().Entry(&header).Exec(s.db)
 }

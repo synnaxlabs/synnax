@@ -68,7 +68,9 @@ type Range struct {
 
 func (r *Range) Range() telem.TimeRange { return r.UnboundedRange().BoundBy(r.Bounds) }
 
-func (r *Range) Empty() bool { return r.UnboundedRange().IsZero() }
+func (r *Range) Empty() bool {
+	return r.UnboundedRange().IsZero()
+}
 
 func (r *Range) UnboundedRange() telem.TimeRange {
 	if len(r.Headers) == 0 {

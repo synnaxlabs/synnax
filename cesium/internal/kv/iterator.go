@@ -3,6 +3,7 @@ package kv
 import (
 	"github.com/arya-analytics/cesium/internal/channel"
 	"github.com/arya-analytics/cesium/internal/segment"
+	"github.com/arya-analytics/x/errutil"
 	"github.com/arya-analytics/x/gorp"
 	"github.com/arya-analytics/x/kv"
 	"github.com/arya-analytics/x/query"
@@ -171,7 +172,7 @@ func NewIterator(kve kv.DB, rng telem.TimeRange, keys ...channel.Key) (iter Iter
 	}
 	compound := make(compoundIterator, len(keys))
 	for i, k := range keys {
-		compound[i] = *newUnaryIterator(kve, rng, k)
+		compound[i] = newUnaryIterator(kve, rng, k)
 	}
 	return compound
 }
@@ -353,7 +354,7 @@ func (i *unaryIterator) NextSpan(span telem.TimeSpan) bool {
 	i.boundRangeToView()
 
 	// In the edge case that we're crossing over the global range boundary, we need to run some special logic ->
-	// If we don't have a non-internal-iter error, we weren't already at the end before this call, and we have
+	// If we don't have a non-internal-_map error, we weren't already at the end before this call, and we have
 	// a valid rng otherwise, then we need to force the internal kv.Write to be valid until the next movement
 	// call.
 	if rng.End.After(i.bounds.End) &&
@@ -515,7 +516,9 @@ func (i *unaryIterator) Seek(stamp telem.TimeStamp) bool {
 }
 
 // Range implements Iterator.
-func (i *unaryIterator) Range() *segment.Range { return i.rng }
+func (i *unaryIterator) Range() *segment.Range {
+	return i.rng
+}
 
 // Ranges implements Iterator.
 func (i *unaryIterator) Ranges() []*segment.Range { return []*segment.Range{i.rng} }
@@ -588,126 +591,66 @@ func (i *unaryIterator) resetError() { i._error = nil }
 
 func (i *unaryIterator) error() error { return i._error }
 
-type compoundIterator []unaryIterator
+type compoundIterator []*unaryIterator
 
 // First implements Iterator.
 func (i compoundIterator) First() bool {
-	for _, it := range i {
-		if !it.First() {
-			return false
-		}
-	}
-	return true
+	return i._map(func(it *unaryIterator) bool { return it.First() })
 }
 
 // Last implements Iterator.
 func (i compoundIterator) Last() bool {
-	for _, it := range i {
-		if !it.Last() {
-			return false
-		}
-	}
-	return true
+	return i._map(func(it *unaryIterator) bool { return it.Last() })
 }
 
 // Next implements Iterator.
 func (i compoundIterator) Next() bool {
-	for _, it := range i {
-		if !it.Next() {
-			return false
-		}
-	}
-	return true
+	return i._map(func(it *unaryIterator) bool { return it.Next() })
 }
 
 // Prev implements Iterator.
 func (i compoundIterator) Prev() bool {
-	for _, it := range i {
-		if !it.Prev() {
-			return false
-		}
-	}
-	return true
+	return i._map(func(it *unaryIterator) bool { return it.Prev() })
 }
 
 // NextSpan implements Iterator.
 func (i compoundIterator) NextSpan(span telem.TimeSpan) bool {
-	for _, it := range i {
-		if !it.NextSpan(span) {
-			return false
-		}
-	}
-	return true
+	return i._map(func(it *unaryIterator) bool { return it.NextSpan(span) })
 }
 
 // PrevSpan implements Iterator.
 func (i compoundIterator) PrevSpan(span telem.TimeSpan) bool {
-	for _, it := range i {
-		if !it.PrevSpan(span) {
-			return false
-		}
-	}
-	return true
+	return i._map(func(it *unaryIterator) bool { return it.PrevSpan(span) })
 }
 
 // SetRange implements Iterator.
 func (i compoundIterator) SetRange(rng telem.TimeRange) bool {
-	for _, it := range i {
-		if !it.SetRange(rng) {
-			return false
-		}
-	}
-	return true
+	return i._map(func(it *unaryIterator) bool { return it.SetRange(rng) })
 }
 
 // SeekFirst implements Iterator.
 func (i compoundIterator) SeekFirst() bool {
-	for _, it := range i {
-		if !it.SeekFirst() {
-			return false
-		}
-	}
-	return true
+	return i._map(func(it *unaryIterator) bool { return it.SeekFirst() })
 }
 
 // SeekLast implements Iterator.
 func (i compoundIterator) SeekLast() bool {
-	for _, it := range i {
-		if !it.SeekLast() {
-			return false
-		}
-	}
-	return true
+	return i._map(func(it *unaryIterator) bool { return it.SeekLast() })
 }
 
 // SeekLT implements Iterator.
 func (i compoundIterator) SeekLT(stamp telem.TimeStamp) bool {
-	for _, it := range i {
-		if !it.SeekLT(stamp) {
-			return false
-		}
-	}
-	return true
+	return i._map(func(it *unaryIterator) bool { return it.SeekLT(stamp) })
 }
 
 // SeekGE implements Iterator.
 func (i compoundIterator) SeekGE(stamp telem.TimeStamp) bool {
-	for _, it := range i {
-		if !it.SeekGE(stamp) {
-			return false
-		}
-	}
-	return true
+	return i._map(func(it *unaryIterator) bool { return it.SeekGE(stamp) })
 }
 
 // Seek implements Iterator.
 func (i compoundIterator) Seek(stamp telem.TimeStamp) bool {
-	for _, it := range i {
-		if !it.Seek(stamp) {
-			return false
-		}
-	}
-	return true
+	return i._map(func(it *unaryIterator) bool { return it.Seek(stamp) })
 }
 
 // Range implements Iterator.
@@ -715,9 +658,9 @@ func (i compoundIterator) Range() *segment.Range { return i[0].Range() }
 
 // Ranges implements Iterator.
 func (i compoundIterator) Ranges() []*segment.Range {
-	var values []*segment.Range
-	for _, it := range i {
-		values = append(values, it.Range())
+	values := make([]*segment.Range, len(i))
+	for i, it := range i {
+		values[i] = it.Range()
 	}
 	return values
 }
@@ -739,11 +682,11 @@ func (i compoundIterator) View() telem.TimeRange {
 		if !it.Valid() {
 			return telem.TimeRangeZero
 		}
-		if i.View().Start.Before(view.Start) {
-			view.Start = i.View().Start
+		if it.View().Start.Before(view.Start) {
+			view.Start = it.View().Start
 		}
-		if i.View().End.After(view.End) {
-			view.End = i.View().End
+		if it.View().End.After(view.End) {
+			view.End = it.View().End
 		}
 	}
 	return view
@@ -751,33 +694,37 @@ func (i compoundIterator) View() telem.TimeRange {
 
 // Error implements Iterator.
 func (i compoundIterator) Error() error {
+	c := errutil.NewCatch(errutil.WithAggregation())
 	for _, it := range i {
-		if err := it.Error(); err != nil {
-			return err
-		}
+		c.Exec(it.Error)
 	}
-	return nil
+	return c.Error()
+
 }
 
 // Valid implements Iterator.
 func (i compoundIterator) Valid() bool {
-	for _, it := range i {
-		if !it.Valid() {
-			return false
-		}
-	}
-	return true
+	return i._map(func(it *unaryIterator) bool { return it.Valid() })
 }
 
 // Close implements Iterator.
 func (i compoundIterator) Close() error {
+	c := errutil.NewCatch(errutil.WithAggregation())
 	for _, it := range i {
-		if err := it.Close(); err != nil {
-			return err
-		}
+		c.Exec(it.Close)
 	}
-	return nil
+	return c.Error()
 }
 
 // Bounds implements Iterator.
 func (i compoundIterator) Bounds() telem.TimeRange { return i[0].Bounds() }
+
+func (i compoundIterator) _map(f func(iter *unaryIterator) bool) bool {
+	ok := true
+	for _, it := range i {
+		if !f(it) {
+			ok = false
+		}
+	}
+	return ok
+}

@@ -16,20 +16,26 @@ var _ = Describe("Write", func() {
 	var (
 		kve      kvx.DB
 		ch       channel.Channel
+		chTwo    channel.Channel
+		chThree  channel.Channel
 		headerKV *kv.Header
 	)
 
 	BeforeEach(func() {
 		ch = channel.Channel{Key: 1, DataRate: 1, DataType: 1}
+		chTwo = channel.Channel{Key: 2, DataRate: 1, DataType: 1}
+		chThree = channel.Channel{Key: 3, DataRate: 1, DataType: 1}
 		kve = memkv.New()
 		headerKV = kv.NewHeader(kve)
 		chKV := kv.NewChannel(kve)
 		Expect(chKV.Set(ch)).To(Succeed())
+		Expect(chKV.Set(chTwo)).To(Succeed())
+		Expect(chKV.Set(chThree)).To(Succeed())
 	})
 
 	AfterEach(func() { Expect(kve.Close()).To(Succeed()) })
 
-	Context("Even Bounded SetRange", func() {
+	Context("Even Bounded Range", func() {
 		var iter kv.Iterator
 		BeforeEach(func() {
 			Expect(headerKV.SetMultiple([]segment.Header{
@@ -202,7 +208,7 @@ var _ = Describe("Write", func() {
 
 	})
 
-	Context("Uneven BoundedRange", func() {
+	Context("Uneven Bounded Range", func() {
 		Context("First BoundedRange Starts After, Last BoundedRange Ends After", func() {
 
 			var iter kv.Iterator
@@ -277,7 +283,7 @@ var _ = Describe("Write", func() {
 		})
 	})
 
-	Context("Invalid BoundedRange", func() {
+	Context("Invalid Bounded Range", func() {
 		var iter kv.Iterator
 		BeforeEach(func() {
 			Expect(headerKV.SetMultiple([]segment.Header{
@@ -709,6 +715,125 @@ var _ = Describe("Write", func() {
 				Expect(iter.Close()).To(Succeed())
 
 			})
+		})
+
+	})
+
+	Context("Compound Iterator", func() {
+
+		Context("Sequences", func() {
+			It("Should move the iterator view correctly", func() {
+				keys := []channel.Key{chThree.Key, chTwo.Key, ch.Key}
+				for _, k := range keys {
+					k := k
+					Expect(headerKV.SetMultiple([]segment.Header{
+						{
+							ChannelKey: k,
+							Start:      0,
+							Size:       100,
+						},
+						{
+							ChannelKey: k,
+							Start:      telem.TimeStamp(100 * telem.Second),
+							Size:       100,
+						},
+						{
+							ChannelKey: k,
+							Start:      telem.TimeStamp(200 * time.Second),
+							Size:       100,
+						},
+						{
+							ChannelKey: k,
+							Start:      telem.TimeStamp(300 * time.Second),
+							Size:       100,
+						},
+					})).To(Succeed())
+				}
+
+				iter := kv.NewIterator(kve, telem.TimeRange{
+					Start: 0,
+					End:   telem.TimeStamp(400 * telem.Second),
+				}, chThree.Key, chTwo.Key, ch.Key)
+
+				By("Moving to the first value")
+				Expect(iter.First()).To(BeTrue())
+
+				By("Moving over the next span")
+				Expect(iter.NextSpan(25 * telem.Second)).To(BeTrue())
+				Expect(iter.View()).To(Equal(telem.TimeRange{
+					Start: telem.TimeStamp(100 * telem.Second),
+					End:   telem.TimeStamp(125 * telem.Second),
+				}))
+				Expect(iter.Valid()).To(BeTrue())
+				Expect(iter.Ranges()).To(HaveLen(3))
+				Expect(iter.Ranges()[0].Headers).To(HaveLen(1))
+				Expect(iter.Ranges()[1].Headers).To(HaveLen(1))
+				Expect(iter.Range().Headers[0].Start).To(Equal(telem.TimeStamp(100 * telem.Second)))
+				Expect(iter.Range().Range()).To(Equal(iter.View()))
+
+				By("Reversing over a span")
+				Expect(iter.PrevSpan(25 * telem.Second)).To(BeTrue())
+				Expect(iter.View()).To(Equal(telem.TimeRange{
+					Start: telem.TimeStamp(75 * telem.Second),
+					End:   telem.TimeStamp(100 * telem.Second),
+				}))
+				Expect(iter.Valid()).To(BeTrue())
+				Expect(iter.Ranges()).To(HaveLen(3))
+				Expect(iter.Ranges()[0].Headers).To(HaveLen(1))
+				Expect(iter.Ranges()[1].Headers).To(HaveLen(1))
+				Expect(iter.Range().Range()).To(Equal(iter.View()))
+
+				By("Reversing over a span again")
+				Expect(iter.PrevSpan(25 * telem.Second)).To(BeTrue())
+				Expect(iter.View()).To(Equal(telem.TimeRange{
+					Start: telem.TimeStamp(50 * telem.Second),
+					End:   telem.TimeStamp(75 * telem.Second),
+				}))
+				Expect(iter.Valid()).To(BeTrue())
+				Expect(iter.Ranges()).To(HaveLen(3))
+				Expect(iter.Ranges()[0].Headers).To(HaveLen(1))
+				Expect(iter.Ranges()[1].Headers).To(HaveLen(1))
+				Expect(iter.Range().Headers[0].Start).To(Equal(telem.TimeStamp(0)))
+				Expect(iter.Range().Range()).To(Equal(iter.View()))
+
+				By("Reversing over the global range boundary")
+				Expect(iter.PrevSpan(100 * telem.Second)).To(BeTrue())
+				Expect(iter.View()).To(Equal(telem.TimeRange{
+					Start: telem.TimeStamp(0 * telem.Second),
+					End:   telem.TimeStamp(50 * telem.Second),
+				}))
+				Expect(iter.Valid()).To(BeTrue())
+				Expect(iter.Ranges()).To(HaveLen(3))
+				Expect(iter.Ranges()[0].Headers).To(HaveLen(1))
+				Expect(iter.Ranges()[1].Headers).To(HaveLen(1))
+
+				By("Reversing over the global range boundary again")
+				Expect(iter.PrevSpan(100 * telem.Second)).To(BeFalse())
+				Expect(iter.Valid()).To(BeFalse())
+
+				By("Moving forward over the next span")
+				Expect(iter.NextSpan(100 * telem.Second)).To(BeTrue())
+				Expect(iter.Valid()).To(BeTrue())
+				Expect(iter.View()).To(Equal(telem.TimeRange{
+					Start: telem.TimeStamp(50 * telem.Second),
+					End:   telem.TimeStamp(150 * telem.Second),
+				}))
+				Expect(iter.Ranges()).To(HaveLen(3))
+				Expect(iter.Ranges()[0].Headers).To(HaveLen(2))
+				Expect(iter.Ranges()[2].Headers).To(HaveLen(2))
+
+				By("Seeking over a range")
+				nextRange := telem.TimeRange{
+					Start: 0,
+					End:   telem.TimeStamp(50 * telem.Second),
+				}
+				Expect(iter.SetRange(nextRange)).To(BeTrue())
+				Expect(iter.Valid()).To(BeTrue())
+				Expect(iter.View()).To(Equal(nextRange))
+				Expect(iter.Range().Range()).To(Equal(nextRange))
+				Expect(iter.Close()).To(Succeed())
+			})
+
 		})
 
 	})
