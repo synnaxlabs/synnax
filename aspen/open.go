@@ -33,7 +33,6 @@ func Open(
 	if err != nil {
 		return nil, err
 	}
-
 	o.kv.Cluster = clust
 
 	kve, err := kv.Open(_ctx, o.kv)
