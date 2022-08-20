@@ -2,32 +2,26 @@ package gossip
 
 import (
 	"context"
-	"github.com/arya-analytics/aspen/internal/cluster/store"
 	"github.com/arya-analytics/aspen/internal/node"
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/alamos"
+	"github.com/arya-analytics/x/config"
 	"github.com/arya-analytics/x/rand"
 	"github.com/arya-analytics/x/signal"
 	"github.com/cockroachdb/errors"
 	"time"
 )
 
-type Gossip struct {
-	Config
-	store store.Store
-}
+type Gossip struct{ Config }
 
 // New opens a new Gossip that will spread cluster state to and from the given store.
-func New(store store.Store, cfg Config) (*Gossip, error) {
-	cfg = cfg.Merge(DefaultConfig())
-	if err := cfg.Validate(); err != nil {
+func New(cfgs ...Config) (*Gossip, error) {
+	cfg, err := config.OverrideAndValidate(DefaultConfig, cfgs...)
+	if err != nil {
 		return nil, err
 	}
-
-	cfg.Logger.Infow("starting cluster gossip", cfg.LogArgs()...)
-
-	g := &Gossip{Config: cfg, store: store}
-
+	cfg.Logger.Infow("starting cluster gossip", cfg.Report().LogArgs()...)
+	g := &Gossip{Config: cfg}
 	alamos.AttachReporter(g.Experiment, "gossip", alamos.Debug, cfg)
 	g.Transport.BindHandler(g.process)
 	return g, nil
@@ -50,7 +44,7 @@ func (g *Gossip) GoGossip(ctx signal.Context) {
 
 func (g *Gossip) GossipOnce(ctx context.Context) error {
 	g.incrementHostHeartbeat()
-	snap := g.store.CopyState()
+	snap := g.Store.CopyState()
 	peer := RandomPeer(snap.Nodes, snap.HostID)
 	if peer.Address == "" {
 		return nil
@@ -60,7 +54,7 @@ func (g *Gossip) GossipOnce(ctx context.Context) error {
 }
 
 func (g *Gossip) GossipOnceWith(ctx context.Context, addr address.Address) error {
-	sync := Message{Digests: g.store.CopyState().Nodes.Digests()}
+	sync := Message{Digests: g.Store.CopyState().Nodes.Digests()}
 	ack, err := g.Transport.Send(ctx, addr, sync)
 	if err != nil {
 		return err
@@ -74,15 +68,12 @@ func (g *Gossip) GossipOnceWith(ctx context.Context, addr address.Address) error
 }
 
 func (g *Gossip) incrementHostHeartbeat() {
-	host := g.store.GetHost()
+	host := g.Store.GetHost()
 	host.Heartbeat = host.Heartbeat.Increment()
-	g.store.Set(host)
+	g.Store.Set(host)
 }
 
 func (g *Gossip) process(ctx context.Context, msg Message) (Message, error) {
-	if ctx.Err() != nil {
-		return Message{}, ctx.Err()
-	}
 	switch msg.variant() {
 	case messageVariantSync:
 		return g.sync(msg), nil
@@ -90,17 +81,13 @@ func (g *Gossip) process(ctx context.Context, msg Message) (Message, error) {
 		g.ack2(msg)
 		return Message{}, nil
 	}
-	err := errors.AssertionFailedf(
-		"[gossip] - received unknown message variant",
-		"msg",
-		msg,
-	)
-	g.Logger.Error(err)
+	err := errors.New("[gossip] - received unknown message variant")
+	g.Logger.Error(err, "msg", msg)
 	return Message{}, err
 }
 
 func (g *Gossip) sync(sync Message) (ack Message) {
-	snap := g.store.CopyState()
+	snap := g.Store.CopyState()
 	ack = Message{Nodes: make(node.Group), Digests: make(node.Digests)}
 	for _, dig := range sync.Digests {
 		n, ok := snap.Nodes[dig.ID]
@@ -130,8 +117,8 @@ func (g *Gossip) sync(sync Message) (ack Message) {
 
 func (g *Gossip) ack(ack Message) (ack2 Message) {
 	// Take a snapshot before we merge the peer's nodes.
-	snap := g.store.CopyState()
-	g.store.Merge(ack.Nodes)
+	snap := g.Store.CopyState()
+	g.Store.Merge(ack.Nodes)
 	ack2 = Message{Nodes: make(node.Group)}
 	for _, dig := range ack.Digests {
 		// If we have the node, and our version is newer, return it to the
@@ -143,9 +130,7 @@ func (g *Gossip) ack(ack Message) (ack2 Message) {
 	return ack2
 }
 
-func (g *Gossip) ack2(ack2 Message) {
-	g.store.Merge(ack2.Nodes)
-}
+func (g *Gossip) ack2(ack2 Message) { g.Store.Merge(ack2.Nodes) }
 
 func RandomPeer(nodes node.Group, host node.ID) node.Node {
 	return rand.MapValue(nodes.WhereState(node.StateHealthy).WhereNot(host))

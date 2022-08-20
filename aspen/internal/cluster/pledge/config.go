@@ -18,13 +18,13 @@ type Transport = freighter.Unary[node.ID, node.ID]
 type Config struct {
 	// Candidates is a Group of nodes to contact as candidates for the formation
 	// of a jury.
-	// [REQUIRED]
+	// [Required]
 	Candidates func() node.Group
 	// Peers is a set of addresses a pledge can contact.
-	// [REQUIRED]
+	// [Required]
 	Peers []address.Address
 	// Transport is used for sending pledge information over the network.
-	// [REQUIRED]
+	// [Required]
 	Transport Transport
 	// RequestTimeout is the timeout for a peer to respond to a pledge or proposal
 	// request. If the request is not responded to before the timeout, a new jury
@@ -92,6 +92,9 @@ func (cfg Config) Validate() error {
 	}
 	if cfg.Candidates == nil {
 		return errors.New("[pledge] - candidates required")
+	}
+	if cfg.Logger == nil {
+		return errors.New("[pledge] - logger required")
 	}
 	return nil
 }

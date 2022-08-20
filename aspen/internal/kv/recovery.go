@@ -14,7 +14,7 @@ type recoveryTransform struct {
 
 func newRecoveryTransform(cfg Config) segment {
 	r := &recoveryTransform{Config: cfg, repetitions: make(map[string]int)}
-	r.LinearTransform.ApplyTransform = r.transform
+	r.LinearTransform.Transform = r.transform
 	return r
 }
 

@@ -67,12 +67,16 @@ func (vc *versionFilter) filter(op Operation) bool {
 }
 
 func getDigestFromKV(kve kvx.DB, key []byte) (Digest, error) {
-	dig := &Digest{}
+	dig := Digest{}
 	key, err := digestKey(key)
 	if err != nil {
-		return *dig, err
+		return dig, err
 	}
-	return *dig, kvx.Load(kve, key, dig)
+	b, err := kve.Get(key)
+	if err != nil {
+		return dig, err
+	}
+	return dig, ecd.Decode(b, &dig)
 }
 
 // |||||| ASSIGNER ||||||
@@ -88,13 +92,13 @@ type versionAssigner struct {
 func newVersionAssigner(cfg Config) (segment, error) {
 	c, err := kvx.NewPersistedCounter(cfg.Engine, []byte(versionCounterKey))
 	v := &versionAssigner{Config: cfg, counter: c}
-	v.LinearTransform.ApplyTransform = v.assign
+	v.LinearTransform.Transform = v.assign
 	return v, err
 }
 
 func (va *versionAssigner) assign(ctx context.Context, br BatchRequest) (BatchRequest, bool, error) {
 	latestVer := va.counter.Value()
-	if _, err := va.counter.Increment(int64(br.size())); err != nil {
+	if _, err := va.counter.Add(int64(br.size())); err != nil {
 		va.Logger.Errorw("failed to assign version", "err", err)
 		return BatchRequest{}, false, nil
 	}

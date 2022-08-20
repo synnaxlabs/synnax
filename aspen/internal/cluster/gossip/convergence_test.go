@@ -76,7 +76,9 @@ var _ = Describe("Convergence", func() {
 				subNodes[n.ID] = n
 				s := store.New()
 				s.SetState(store.State{Nodes: subNodes, HostID: n.ID})
-				g, err := gossip.New(s, configs[n.ID])
+				cfg := configs[n.ID]
+				cfg.Store = s
+				g, err := gossip.New(cfg)
 				Expect(err).ToNot(HaveOccurred())
 				gossips = append(gossips, g)
 				stores = append(stores, s)

@@ -13,7 +13,7 @@ type persist struct {
 
 func newPersist(bw kvx.BatchWriter) segment {
 	ps := &persist{bw: bw}
-	ps.LinearTransform.ApplyTransform = ps.persist
+	ps.LinearTransform.Transform = ps.persist
 	return ps
 }
 

@@ -66,7 +66,7 @@ func (b *Builder) New(opts ...aspen.Option) (aspen.DB, error) {
 }
 
 func (b *Builder) Close() error {
-	c := errutil.NewCatchSimple(errutil.WithAggregation())
+	c := errutil.NewCatch(errutil.WithAggregation())
 	for _, ni := range b.Nodes {
 		c.Exec(ni.DB.Close)
 	}

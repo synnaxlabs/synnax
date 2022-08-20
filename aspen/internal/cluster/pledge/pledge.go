@@ -131,8 +131,6 @@ func arbitrate(cfg Config) error {
 	return nil
 }
 
-// |||||| RESPONSIBLE ||||||
-
 type responsible struct {
 	Config
 	candidateSnapshot node.Group
@@ -231,8 +229,6 @@ func (r *responsible) consultQuorum(ctx context.Context, id node.ID, quorum node
 	return wg.Wait()
 }
 
-// |||||| JUROR ||||||
-
 type juror struct {
 	Config
 	mu        sync.Mutex
@@ -261,9 +257,7 @@ func (j *juror) verdict(ctx context.Context, id node.ID) (err error) {
 	return nil
 }
 
-func highestNodeID(candidates node.Group) node.ID {
-	return lo.Max(lo.Keys(candidates))
-}
+func highestNodeID(candidates node.Group) node.ID { return lo.Max(lo.Keys(candidates)) }
 
 func introduceRandomJitter(retryInterval time.Duration) {
 	// sleep for a random percentage of the retry interval, somewhere between

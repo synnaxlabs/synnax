@@ -10,6 +10,7 @@ import (
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/kv/memkv"
 	"github.com/arya-analytics/x/signal"
+	. "github.com/arya-analytics/x/testutil"
 	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -48,11 +49,11 @@ var _ = Describe("Join", func() {
 			pledgeT1 := pledgeNet.RouteUnary(gossipT1.Address)
 			clusterOne, err := cluster.Join(
 				clusterCtx,
-				gossipT1.Address,
-				[]address.Address{},
 				cluster.Config{
-					Logger: logger,
+					HostAddress: gossipT1.Address,
+					Logger:      logger,
 					Pledge: pledge.Config{
+						Peers:     []address.Address{},
 						Logger:    logger,
 						Transport: pledgeT1,
 					},
@@ -61,7 +62,6 @@ var _ = Describe("Join", func() {
 						Transport: gossipT1,
 						Interval:  100 * time.Millisecond,
 					},
-					Storage: memkv.New(),
 				},
 			)
 			Expect(err).ToNot(HaveOccurred())
@@ -72,11 +72,11 @@ var _ = Describe("Join", func() {
 			pledgeT2 := pledgeNet.RouteUnary(gossipT2.Address)
 			clusterTwo, err := cluster.Join(
 				clusterCtx,
-				gossipT2.Address,
-				[]address.Address{gossipT1.Address},
 				cluster.Config{
-					Logger: logger,
+					HostAddress: gossipT2.Address,
+					Logger:      logger,
 					Pledge: pledge.Config{
+						Peers:     []address.Address{gossipT1.Address},
 						Logger:    logger,
 						Transport: pledgeT2,
 					},
@@ -85,7 +85,6 @@ var _ = Describe("Join", func() {
 						Transport: gossipT2,
 						Interval:  100 * time.Millisecond,
 					},
-					Storage: memkv.New(),
 				},
 			)
 			Expect(err).ToNot(HaveOccurred())
@@ -96,4 +95,83 @@ var _ = Describe("Join", func() {
 		})
 
 	})
+
+	Context("Existing Cluster in Storage", func() {
+
+		It("Should restart cluster activities using the persisted state", func() {
+
+			gossipT1 := gossipNet.RouteUnary("")
+			pledgeT1 := pledgeNet.RouteUnary(gossipT1.Address)
+			clusterOne, err := cluster.Join(
+				clusterCtx,
+				cluster.Config{
+					HostAddress: gossipT1.Address,
+					Logger:      logger,
+					Pledge: pledge.Config{
+						Peers:     []address.Address{},
+						Logger:    logger,
+						Transport: pledgeT1,
+					},
+					Gossip: gossip.Config{
+						Logger:    logger,
+						Transport: gossipT1,
+						Interval:  100 * time.Millisecond,
+					},
+				},
+			)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(clusterOne.Host().ID).To(Equal(node.ID(1)))
+
+			sCtxTwo, cancelTwo := signal.TODO()
+			kvDB := memkv.New()
+			gossipT2 := gossipNet.RouteUnary("")
+			pledgeT2 := pledgeNet.RouteUnary(gossipT2.Address)
+			clusterTwo, err := cluster.Join(
+				sCtxTwo,
+				cluster.Config{
+					HostAddress: gossipT2.Address,
+					Logger:      logger,
+					Pledge: pledge.Config{
+						Peers:     []address.Address{gossipT1.Address},
+						Logger:    logger,
+						Transport: pledgeT2,
+					},
+					Gossip: gossip.Config{
+						Logger:    logger,
+						Transport: gossipT2,
+						Interval:  100 * time.Millisecond,
+					},
+					Storage: kvDB,
+				},
+			)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(clusterTwo.Host().ID).To(Equal(node.ID(2)))
+			cancelTwo()
+			Expect(sCtxTwo.Wait()).To(HaveOccurredAs(context.Canceled))
+
+			clusterTwoAgain, err := cluster.Join(
+				clusterCtx,
+				cluster.Config{
+					HostAddress: gossipT2.Address,
+					Logger:      logger,
+					Pledge: pledge.Config{
+						Logger:    logger,
+						Transport: pledgeT2,
+					},
+					Gossip: gossip.Config{
+						Logger:    logger,
+						Transport: gossipT2,
+						Interval:  100 * time.Millisecond,
+					},
+					Storage:              kvDB,
+					StorageFlushInterval: cluster.FlushOnEvery,
+				})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(clusterTwoAgain.Host().ID).To(Equal(node.ID(2)))
+			Expect(clusterTwoAgain.Nodes()).To(HaveLen(2))
+
+		})
+
+	})
+
 })

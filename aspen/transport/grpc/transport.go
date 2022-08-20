@@ -132,7 +132,7 @@ func New(pool *fgrpc.Pool) *transport {
 	}
 }
 
-// transport implements the aspen.Transport interface.
+// transport implements the aspen.transport interface.
 type transport struct {
 	pledge        *pledgeTransport
 	clusterGossip *clusterGossipTransport

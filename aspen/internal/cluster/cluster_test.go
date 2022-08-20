@@ -76,14 +76,4 @@ var _ = Describe("Cluster", func() {
 
 	})
 
-	Describe("Config", func() {
-
-		It("Should return the cluster configuration", func() {
-			c1, err := builder.New(clusterCtx, cluster.Config{StorageKey: []byte("crazy")})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(c1.Config().StorageKey).To(Equal([]byte("crazy")))
-		})
-
-	})
-
 })

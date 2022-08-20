@@ -12,6 +12,7 @@ import (
 )
 
 var _ = Describe("Config", func() {
+	var mockT = &fmock.Unary[node.ID, node.ID]{}
 
 	DescribeTable("Validation", func(cfg pledge.Config, expected error) {
 		Expect(cfg.Validate()).To(HaveOccurredAs(expected))
@@ -21,19 +22,19 @@ var _ = Describe("Config", func() {
 			errors.New("[pledge] - transport required"),
 		),
 		Entry("Zero RequestTimeout",
-			pledge.Config{Transport: &fmock.Unary[node.ID, node.ID]{}},
+			pledge.Config{Transport: mockT},
 			errors.New("[pledge] - request timeout must be non-zero"),
 		),
 		Entry("RetryScale < 1",
 			pledge.Config{
-				Transport:      &fmock.Unary[node.ID, node.ID]{},
+				Transport:      mockT,
 				RequestTimeout: time.Second,
 			},
 			errors.New("[pledge] - retry scale must be >= 1"),
 		),
 		Entry("MaxProposals == 0",
 			pledge.Config{
-				Transport:      &fmock.Unary[node.ID, node.ID]{},
+				Transport:      mockT,
 				RequestTimeout: time.Second,
 				RetryScale:     1,
 			},
@@ -41,12 +42,22 @@ var _ = Describe("Config", func() {
 		),
 		Entry("Candidates == nil",
 			pledge.Config{
-				Transport:      &fmock.Unary[node.ID, node.ID]{},
+				Transport:      mockT,
 				RequestTimeout: time.Second,
 				RetryScale:     1,
 				MaxProposals:   1,
 			},
 			errors.New("[pledge] - candidates required"),
+		),
+		Entry("Logger == nil",
+			pledge.Config{
+				Transport:      mockT,
+				RequestTimeout: time.Second,
+				RetryScale:     1,
+				MaxProposals:   1,
+				Candidates:     func() node.Group { return node.Group{} },
+			},
+			errors.New("[pledge] - logger required"),
 		),
 	)
 

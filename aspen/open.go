@@ -29,7 +29,7 @@ func Open(
 		return nil, err
 	}
 
-	clust, err := cluster.Join(_ctx, o.addr, o.peerAddresses, o.cluster)
+	clust, err := cluster.Join(_ctx, o.cluster)
 	if err != nil {
 		return nil, err
 	}

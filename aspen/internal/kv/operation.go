@@ -2,11 +2,10 @@ package kv
 
 import (
 	"github.com/arya-analytics/aspen/internal/node"
+	"github.com/arya-analytics/x/binary"
 	"github.com/arya-analytics/x/confluence"
-	"github.com/arya-analytics/x/errutil"
 	kvx "github.com/arya-analytics/x/kv"
 	"github.com/arya-analytics/x/version"
-	"io"
 )
 
 type Variant uint32
@@ -22,6 +21,8 @@ const (
 	infected gossipState = iota
 	recovered
 )
+
+var ecd = &binary.GobEncoderDecoder{}
 
 type Operation struct {
 	Key         []byte
@@ -61,7 +62,11 @@ func (d Digest) apply(w kvx.Writer) error {
 	if err != nil {
 		return err
 	}
-	return kvx.Flush(w, key, d)
+	b, err := ecd.Encode(d)
+	if err != nil {
+		return err
+	}
+	return w.Set(key, b)
 }
 
 type Digests []Digest
@@ -79,24 +84,6 @@ type (
 	source  = confluence.Source[BatchRequest]
 	sink    = confluence.Sink[BatchRequest]
 )
-
-// Load implements the kv.Loader interface.
-func (d *Digest) Load(r io.Reader) error {
-	c := errutil.NewCatchRead(r)
-	c.Read(&d.Version)
-	c.Read(&d.Leaseholder)
-	c.Read(&d.Variant)
-	return c.Error()
-}
-
-// Flush implements the kv.Flusher interface.
-func (d Digest) Flush(w io.Writer) error {
-	c := errutil.NewCatchWrite(w)
-	c.Write(d.Version)
-	c.Write(d.Leaseholder)
-	c.Write(d.Variant)
-	return c.Error()
-}
 
 func (d Digest) Operation() Operation {
 	return Operation{

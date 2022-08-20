@@ -84,11 +84,11 @@ var _ = Describe("Convergence", func() {
 					peerAddresses := rand.SubSlice(addresses, values.peerAddrCount)
 					cluster, err := cluster.Join(
 						clusterCtx,
-						gossipT.Address,
-						peerAddresses,
 						cluster.Config{
-							Logger: logger,
+							HostAddress: gossipT.Address,
+							Logger:      logger,
 							Pledge: pledge.Config{
+								Peers:         peerAddresses,
 								Transport:     pledgeT,
 								RetryInterval: values.gossipInterval,
 								RetryScale:    1,

@@ -233,8 +233,13 @@ var _ = Describe("Pledge", func() {
 		Context("Concurrent Pledges", func() {
 			It("Should assign unique IDs to all pledges", func() {
 				var (
-					nodes         = make(node.Group)
-					candidates    = func() node.Group { return nodes }
+					mu         sync.Mutex
+					nodes      = make(node.Group)
+					candidates = func() node.Group {
+						mu.Lock()
+						defer mu.Unlock()
+						return nodes.Copy()
+					}
 					net           = fmock.NewNetwork[node.ID, node.ID]()
 					numCandidates = 10
 					numPledges    = 2
@@ -271,6 +276,8 @@ var _ = Describe("Pledge", func() {
 						)
 						Expect(err).ToNot(HaveOccurred())
 						ids[i] = id
+						mu.Lock()
+						defer mu.Unlock()
 						nodes[id] = node.Node{ID: id, Address: t.Address, State: node.StateHealthy}
 					}(i)
 				}

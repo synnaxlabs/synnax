@@ -22,7 +22,7 @@ type operationSender struct {
 
 func newOperationSender(cfg Config) segment {
 	os := &operationSender{Config: cfg}
-	os.TransformFunc.ApplyTransform = os.send
+	os.TransformFunc.Transform = os.send
 	return os
 }
 

@@ -32,7 +32,7 @@ func NewNetwork() *Network {
 
 func (n *Network) NewTransport() aspen.Transport { return &transport{net: n} }
 
-// transport is an in-memory, synchronous implementation of aspen.Transport.
+// transport is an in-memory, synchronous implementation of aspen.transport.
 type transport struct {
 	net        *Network
 	pledge     *fmock.Unary[node.ID, node.ID]
@@ -42,7 +42,7 @@ type transport struct {
 	feedback   *fmock.Unary[kv.FeedbackMessage, types.Nil]
 }
 
-// Configure implements aspen.Transport.
+// Configure implements aspen.transport.
 func (t *transport) Configure(ctx signal.Context, addr address.Address, external bool) error {
 	t.pledge = t.net.pledge.RouteUnary(addr)
 	t.cluster = t.net.cluster.RouteUnary(addr)
@@ -52,17 +52,17 @@ func (t *transport) Configure(ctx signal.Context, addr address.Address, external
 	return nil
 }
 
-// Pledge implements aspen.Transport.
+// Pledge implements aspen.transport.
 func (t *transport) Pledge() pledge.Transport { return t.pledge }
 
-// Cluster implements aspen.Transport.
+// Cluster implements aspen.transport.
 func (t *transport) Cluster() gossip.Transport { return t.cluster }
 
-// Operations implements aspen.Transport.
+// Operations implements aspen.transport.
 func (t *transport) Operations() kv.BatchTransport { return t.operations }
 
-// Lease implements aspen.Transport.
+// Lease implements aspen.transport.
 func (t *transport) Lease() kv.LeaseTransport { return t.lease }
 
-// Feedback implements aspen.Transport.
+// Feedback implements aspen.transport.
 func (t *transport) Feedback() kv.FeedbackTransport { return t.feedback }

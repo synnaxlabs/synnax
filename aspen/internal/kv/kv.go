@@ -147,7 +147,7 @@ func Open(ctx signal.Context, cfg Config) (DB, error) {
 		newRecoveryTransform(cfg),
 	)
 
-	c := errutil.NewCatchSimple()
+	c := errutil.NewCatch()
 
 	c.Exec(plumber.MultiRouter[BatchRequest]{
 		SourceTargets: []address.Address{executorAddr, leaseReceiverAddr},

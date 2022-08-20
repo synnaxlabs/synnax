@@ -168,6 +168,8 @@ func mergeDefaultOptions(o *options) {
 	// |||| CLUSTER ||||
 
 	o.cluster.Experiment = o.experiment
+	o.cluster.Pledge.Peers = o.peerAddresses
+	o.cluster.HostAddress = o.addr
 
 	// |||| SHUTDOWN ||||
 
@@ -187,6 +189,7 @@ func mergeDefaultOptions(o *options) {
 
 	if o.bootstrap {
 		o.peerAddresses = []address.Address{}
+		o.cluster.Pledge.Peers = []address.Address{}
 	}
 
 }
@@ -195,7 +198,7 @@ func defaultOptions() *options {
 	logger, _ := zap.NewProduction()
 	return &options{
 		dirname:   "",
-		cluster:   cluster.DefaultConfig(),
+		cluster:   cluster.DefaultConfig,
 		kv:        kv.DefaultConfig(),
 		transport: grpct.New(fgrpc.NewPool(grpc.WithTransportCredentials(insecure.NewCredentials()))),
 		logger:    logger.Sugar(),

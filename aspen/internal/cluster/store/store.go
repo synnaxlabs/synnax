@@ -1,23 +1,18 @@
-// Package store exposes a simple copy-on-read store for managing cluster state.
-// SinkTarget create a new store, call store.New().
+// Package Store exposes a simple copy-on-read Store for managing cluster state.
+// SinkTarget create a new Store, call store.New().
 package store
 
 import (
 	"github.com/arya-analytics/aspen/internal/node"
-	"github.com/arya-analytics/x/binary"
-	"github.com/arya-analytics/x/kv"
 	"github.com/arya-analytics/x/store"
-	"io"
 )
 
-// Store is an interface representing a copy-on-read store for managing cluster state.
+// Store is an interface representing a copy-on-read Store for managing cluster state.
 type Store interface {
 	// Observable allows the caller to react to state changes. This state is not diffed i.e.
 	// any call that modifies the state, even if no actual change occurs, will get sent to the
 	// Observable.
 	store.Observable[State]
-	// FlushLoader allows the caller to flush and load State from a persistent store.
-	kv.FlushLoader
 	// Set sets a node in state.
 	Set(node.Node)
 	// Get returns a node from state. Returns false if the node is not found.
@@ -25,11 +20,11 @@ type Store interface {
 	// Merge merges a node.Group into State.Nodes by selecting nodes from group with heartbeats
 	// that are either not in State or are older than in State.
 	Merge(group node.Group)
-	// Valid returns true if the store is valid i.e. State.HostID has been set.
+	// Valid returns true if the Store is valid i.e. State.HostID has been set.
 	Valid() bool
-	// GetHost returns the host node of the store.
+	// GetHost returns the host node of the Store.
 	GetHost() node.Node
-	// SetHost sets the host for the store.
+	// SetHost sets the host for the Store.
 	SetHost(node.Node)
 }
 
@@ -48,37 +43,9 @@ type State struct {
 	Nodes  node.Group
 }
 
-func (s State) Flush(w io.Writer) error {
-	if err := binary.Write(w, s.HostID); err != nil {
-		return err
-	}
-	for _, n := range s.Nodes {
-		if err := n.Flush(w); err != nil {
-			return err
-		}
-	}
-	return nil
+type core struct {
+	store.Observable[State]
 }
-
-func (s *State) Load(r io.Reader) error {
-	s.Nodes = make(node.Group)
-	if err := binary.Read(r, &s.HostID); err != nil {
-		return err
-	}
-	for {
-		n := &node.Node{}
-		err := n.Load(r)
-		if err == io.EOF {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		s.Nodes[n.ID] = *n
-	}
-}
-
-type core struct{ store.Observable[State] }
 
 // Get implements Store.
 func (c *core) Get(id node.ID) (node.Node, bool) {
@@ -121,16 +88,3 @@ func (c *core) Merge(other node.Group) {
 
 // Valid implements Store.
 func (c *core) Valid() bool { return c.GetHost().ID != 0 }
-
-// Load implements kv.FlushLoader.
-func (c *core) Load(r io.Reader) error {
-	snap := &State{Nodes: make(node.Group)}
-	if err := snap.Load(r); err != nil {
-		return err
-	}
-	c.Observable.SetState(*snap)
-	return nil
-}
-
-// Flush implements kv.FlushLoader.
-func (c *core) Flush(w io.Writer) error { return c.Observable.CopyState().Flush(w) }
