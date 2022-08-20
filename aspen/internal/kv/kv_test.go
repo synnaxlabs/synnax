@@ -121,7 +121,7 @@ var _ = Describe("txn", func() {
 
 		Describe("Remote Leaseholder", func() {
 
-			It("Should applyToAndCommit the operation to storage", func() {
+			It("Should commit the operation to storage", func() {
 				kv1, err := builder.New(kvCtx, kv.Config{}, cluster.Config{})
 				Expect(err).ToNot(HaveOccurred())
 				kv2, err := builder.New(kvCtx, kv.Config{}, cluster.Config{})
@@ -133,6 +133,12 @@ var _ = Describe("txn", func() {
 					g.Expect(err).ToNot(HaveOccurred())
 					g.Expect(v).To(Equal([]byte("value")))
 				}).Should(Succeed())
+			})
+
+			It("Should return an error if the lease option is not a node ID", func() {
+				kv, err := builder.New(kvCtx, kv.Config{}, cluster.Config{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(kv.Set([]byte("key"), []byte("value"), "2")).To(HaveOccurred())
 			})
 
 		})
