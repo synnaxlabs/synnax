@@ -41,6 +41,14 @@ func (r Report) String() string {
 	return string(b)
 }
 
+func (r Report) LogArgs() []interface{} {
+	args := make([]interface{}, 0, len(r))
+	for k, v := range r {
+		args = append(args, k, v)
+	}
+	return args
+}
+
 // Report implements Experiment.
 func (e *experiment) Report() Report {
 	report := make(map[string]interface{})

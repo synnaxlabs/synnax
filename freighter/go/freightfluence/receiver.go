@@ -72,7 +72,7 @@ o:
 			if err != nil {
 				return err
 			}
-			tRes, ok, err := r.ApplyTransform(ctx, res)
+			tRes, ok, err := r.Transform(ctx, res)
 			if !ok {
 				continue o
 			}

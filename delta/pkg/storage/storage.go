@@ -76,7 +76,7 @@ func (s *Store) Close() error {
 	// We execute with aggregation here to ensure that we close all engines and release
 	// the lock regardless if one engine fails to close. This may cause unexpected
 	// behavior in the future, so we need to track it.
-	c := errutil.NewCatchSimple(errutil.WithAggregation())
+	c := errutil.NewCatch(errutil.WithAggregation())
 	c.Exec(s.TS.Close)
 	c.Exec(s.KV.Close)
 	c.Exec(s.releaseLock)

@@ -7,6 +7,7 @@ import (
 	"github.com/arya-analytics/x/kv/pebblekv"
 	"github.com/arya-analytics/x/signal"
 	"github.com/cockroachdb/pebble"
+	"go.uber.org/zap"
 	"path/filepath"
 )
 
@@ -115,7 +116,13 @@ func openFS(ctx signal.Context, opts *options) (core.FS, error) {
 		Interval: opts.fs.sync.interval,
 		MaxAge:   opts.fs.sync.maxAge,
 	}
-	sync.Start(ctx)
+
+	go func() {
+		for err := range sync.Start(ctx) {
+			opts.logger.Error("failed to sync cesium directory", zap.Error(err))
+		}
+	}()
+
 	return fs, err
 }
 

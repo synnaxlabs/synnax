@@ -58,7 +58,7 @@ func (sf *server) Handle(_ctx context.Context, server Server) error {
 	plumber.SetSink[Response](pipe, "sender", sender)
 	plumber.SetSource[Response](pipe, "transient", &TransientSource{transient: transientErrors})
 
-	c := errutil.NewCatchSimple()
+	c := errutil.NewCatch()
 
 	c.Exec(plumber.UnaryRouter[Request]{SourceTarget: "receiver", SinkTarget: "writer"}.PreRoute(pipe))
 

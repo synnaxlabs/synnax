@@ -40,7 +40,7 @@ func newLocalIterator(
 	ts := newCesiumResponseTranslator(host)
 	plumber.SetSegment[cesium.RetrieveResponse, Response](pipe, "translator", ts)
 
-	c := errutil.NewCatchSimple()
+	c := errutil.NewCatch()
 
 	c.Exec(plumber.UnaryRouter[cesium.RetrieveResponse]{
 		SourceTarget: "iterator",
@@ -75,7 +75,7 @@ func newRequestExecutor(
 	iter cesium.StreamIterator,
 ) confluence.Segment[Request, Response] {
 	te := &requestExecutor{iter: iter, host: host}
-	te.LinearTransform.ApplyTransform = te.execute
+	te.LinearTransform.Transform = te.execute
 	return te
 }
 
@@ -93,7 +93,7 @@ type cesiumResponseTranslator struct {
 func newCesiumResponseTranslator(host distribcore.NodeID) confluence.Segment[cesium.RetrieveResponse, Response] {
 	wrapper := &core.StorageWrapper{Host: host}
 	ts := &cesiumResponseTranslator{wrapper: wrapper}
-	ts.LinearTransform.ApplyTransform = ts.translate
+	ts.LinearTransform.Transform = ts.translate
 	return ts
 }
 

@@ -3,6 +3,7 @@ package errors
 import (
 	"github.com/arya-analytics/freighter/ferrors"
 	"github.com/arya-analytics/x/binary"
+	"github.com/samber/lo"
 )
 
 const freighterErrorType ferrors.Type = "delta.api.errors"
@@ -17,7 +18,7 @@ func encode(err error) string {
 	if !tErr.Occurred() {
 		return string(ferrors.Nil)
 	}
-	return string(ecd.EncodeStatic(tErr))
+	return string(lo.Must(ecd.Encode(tErr)))
 }
 
 type rawError struct {
@@ -27,7 +28,7 @@ type rawError struct {
 
 func decode(encoded string) error {
 	var decoded rawError
-	ecd.DecodeStatic([]byte(encoded), &decoded)
+	lo.Must0(ecd.Decode([]byte(encoded), &decoded))
 	switch decoded.Type {
 	case TypeValidation:
 		return parseValidationError(decoded)

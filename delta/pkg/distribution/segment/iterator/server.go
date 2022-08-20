@@ -61,7 +61,7 @@ func (sf *server) Handle(_ctx context.Context, server Server) error {
 	plumber.SetSource[Request](pipe, "receiver", receiver)
 	plumber.SetSink[Response](pipe, "sender", sender)
 
-	c := errutil.NewCatchSimple()
+	c := errutil.NewCatch()
 
 	c.Exec(plumber.UnaryRouter[Request]{
 		SourceTarget: "receiver",

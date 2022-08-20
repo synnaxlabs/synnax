@@ -17,7 +17,7 @@ func newAllocator(counter *fileCounter, cfg allocate.Config) createSegment {
 	a := &allocator{
 		Allocator: allocate.New[channel.Key, core.FileKey, createOperation](counter, cfg),
 	}
-	a.ApplyTransform = a.allocate
+	a.Transform = a.allocate
 	return a
 }
 

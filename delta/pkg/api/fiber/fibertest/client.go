@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"github.com/arya-analytics/x/httputil"
 	"github.com/gofiber/fiber/v2"
+	"github.com/samber/lo"
 	"net/http"
 	"net/http/httptest"
 )
@@ -29,7 +30,7 @@ func (c *Client) Post(
 	req := httptest.NewRequest(
 		http.MethodPost,
 		target,
-		bytes.NewReader(c.EncoderDecoder.EncodeStatic(body)),
+		bytes.NewReader(lo.Must(c.EncoderDecoder.Encode(body))),
 	)
 	req.Header.Set("Content-Type", c.EncoderDecoder.ContentType())
 	c.applyHeaders(req)

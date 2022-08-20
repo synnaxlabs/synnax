@@ -2,7 +2,6 @@ package fmock
 
 import (
 	"context"
-	"fmt"
 	"github.com/arya-analytics/freighter"
 	"github.com/arya-analytics/x/address"
 )
@@ -14,9 +13,7 @@ type Unary[RQ, RS freighter.Payload] struct {
 	Handler func(context.Context, RQ) (RS, error)
 }
 
-func (t *Unary[RQ, RS]) Digest() freighter.Digest {
-	return digest
-}
+func (t *Unary[RQ, RS]) Digest() freighter.Digest { return digest }
 
 // Send implements the freighter.Unary interface.
 func (t *Unary[RQ, RS]) Send(
@@ -24,7 +21,7 @@ func (t *Unary[RQ, RS]) Send(
 	target address.Address,
 	req RQ,
 ) (res RS, err error) {
-	route, ok := t.Network.UnaryRoutes[target]
+	route, ok := t.Network.resolveUnary(target)
 	if !ok || route.Handler == nil {
 		return res, address.TargetNotFound(target)
 	}
@@ -36,9 +33,4 @@ func (t *Unary[RQ, RS]) Send(
 // BindHandler implements the freighter.Unary interface.
 func (t *Unary[RQ, RS]) BindHandler(handler func(context.Context, RQ) (RS, error)) {
 	t.Handler = handler
-}
-
-// String implements the freighter.Unary interface.
-func (t *Unary[RQ, RS]) String() string {
-	return fmt.Sprintf("mock.Unary{} at %s", t.Address)
 }

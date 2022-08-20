@@ -43,7 +43,7 @@ var _ = Describe("Create", func() {
 						{
 							ChannelKey: key,
 							Start:      cesium.Now(),
-							Data:       cesium.MarshalFloat64([]float64{1}),
+							Data:       []byte{1},
 						}}
 
 					By("Opening the create query")
@@ -78,12 +78,12 @@ var _ = Describe("Create", func() {
 						{
 							ChannelKey: key,
 							Start:      cesium.Now(),
-							Data:       cesium.MarshalFloat64([]float64{1}),
+							Data:       []byte{1},
 						},
 						{
 							ChannelKey: key,
 							Start:      cesium.Now().Add(1 * cesium.Second),
-							Data:       cesium.MarshalFloat64([]float64{2}),
+							Data:       []byte{1},
 						},
 					}
 
@@ -117,7 +117,7 @@ var _ = Describe("Create", func() {
 							{
 								ChannelKey: key,
 								Start:      cesium.Now(),
-								Data:       cesium.MarshalFloat64([]float64{1}),
+								Data:       []byte{1},
 							},
 						},
 					}
@@ -126,7 +126,7 @@ var _ = Describe("Create", func() {
 							{
 								ChannelKey: key,
 								Start:      cesium.Now().Add(1 * cesium.Second),
-								Data:       cesium.MarshalFloat64([]float64{2}),
+								Data:       []byte{1},
 							},
 						},
 					}

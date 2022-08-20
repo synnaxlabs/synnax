@@ -13,7 +13,7 @@ type Header struct {
 
 // headerEncoderDecoder is the binary.EncoderDecoder that headers are encoded in.
 // this allows us to iterate across time ranges by byte value.
-var headerEncoderDecoder = &binary.ByteCheckableEncoderDecoder{
+var headerEncoderDecoder = &binary.PassThroughEncoderDecoder{
 	EncoderDecoder: &binary.GobEncoderDecoder{},
 }
 

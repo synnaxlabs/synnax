@@ -269,7 +269,7 @@ func startCreate(ctx signal.Context, cfg createConfig) (query.Factory[Create], e
 
 	plumber.SetSource[[]createOperation](pipe, "query", queryFactory)
 
-	c := errutil.NewCatchSimple()
+	c := errutil.NewCatch()
 
 	c.Exec(plumber.UnaryRouter[[]createOperation]{
 		SourceTarget: "query",

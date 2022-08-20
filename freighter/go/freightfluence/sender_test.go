@@ -74,7 +74,7 @@ var _ = Describe("Sender", func() {
 				Expect(err).ToNot(HaveOccurred())
 				sender := &freightfluence.TransformSender[int, int]{}
 				sender.Sender = client
-				sender.ApplyTransform = func(ctx context.Context, v int) (int, bool, error) {
+				sender.Transform = func(ctx context.Context, v int) (int, bool, error) {
 					return v * 2, true, nil
 				}
 				sender.InFrom(senderStream)
@@ -94,7 +94,7 @@ var _ = Describe("Sender", func() {
 				Expect(err).ToNot(HaveOccurred())
 				sender := &freightfluence.TransformSender[int, int]{}
 				sender.Sender = client
-				sender.ApplyTransform = func(ctx context.Context, v int) (int, bool, error) {
+				sender.Transform = func(ctx context.Context, v int) (int, bool, error) {
 					return v * 2, true, errors.New("error")
 				}
 				sender.InFrom(senderStream)

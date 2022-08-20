@@ -304,7 +304,7 @@ func (d *db) CreateChannel(ch Channel) (ChannelKey, error) {
 			return 0, UniqueViolation
 		}
 	} else {
-		key, err := d.channelKeyCounter.Increment()
+		key, err := d.channelKeyCounter.Add()
 		if err != nil {
 			return 0, err
 		}

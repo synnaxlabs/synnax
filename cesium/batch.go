@@ -22,7 +22,7 @@ type retrieveBatch struct {
 
 func newRetrieveBatch() retrieveSegment {
 	rb := &retrieveBatch{}
-	rb.ApplyTransform = rb.batch
+	rb.Transform = rb.batch
 	return rb
 }
 
@@ -64,7 +64,7 @@ type createBatch struct {
 
 func newCreateBatch() createSegment {
 	cb := &createBatch{}
-	cb.ApplyTransform = cb.batch
+	cb.Transform = cb.batch
 	return cb
 }
 

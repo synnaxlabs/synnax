@@ -27,7 +27,7 @@ func newFileCounter(kve kv.DB, key []byte) (*fileCounter, error) {
 
 // Next implements allocate.NextDescriptor.
 func (f *fileCounter) Next() core.FileKey {
-	v, err := f.Increment()
+	v, err := f.Add()
 	if err != nil {
 		panic(err)
 	}

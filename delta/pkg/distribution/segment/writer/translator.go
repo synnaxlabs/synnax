@@ -16,7 +16,7 @@ type requestTranslator struct {
 
 func newRequestTranslator(host core.NodeID, transient confluence.Inlet[error]) confluence.Segment[Request, cesium.CreateRequest] {
 	rt := &requestTranslator{host: host}
-	rt.ApplyTransform = rt.translate
+	rt.Transform = rt.translate
 	return confluence.InjectTransient[Request, cesium.CreateRequest](transient, rt)
 }
 
@@ -45,6 +45,6 @@ func (rt *responseTranslator) translate(_ context.Context, in cesium.CreateRespo
 
 func newResponseTranslator() *responseTranslator {
 	rt := &responseTranslator{}
-	rt.ApplyTransform = rt.translate
+	rt.Transform = rt.translate
 	return rt
 }

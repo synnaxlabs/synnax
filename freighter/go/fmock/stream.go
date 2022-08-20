@@ -33,7 +33,7 @@ func (s *StreamTransport[RQ, RS]) Stream(
 	if target == "" {
 		target = "localhost:0"
 	}
-	route, ok := s.Network.StreamRoutes[target]
+	route, ok := s.Network.resolveStream(target)
 	if !ok || route.Handler == nil {
 		return nil, address.TargetNotFound(target)
 	}

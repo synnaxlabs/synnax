@@ -77,7 +77,7 @@ o:
 			if !ok {
 				break o
 			}
-			tRes, ok, tErr := s.TransformFunc.ApplyTransform(ctx, res)
+			tRes, ok, tErr := s.TransformFunc.Transform(ctx, res)
 			if tErr != nil {
 				err = tErr
 				break o
@@ -131,7 +131,7 @@ o:
 }
 
 func (m *MultiSender[M]) closeSenders() error {
-	c := errutil.NewCatchSimple(errutil.WithAggregation())
+	c := errutil.NewCatch(errutil.WithAggregation())
 	for _, s := range m.Senders {
 		c.Exec(s.CloseSend)
 	}
@@ -149,7 +149,7 @@ func (s senderMap[M]) send(target address.Address, msg M) error {
 }
 
 func (s senderMap[M]) close() error {
-	c := errutil.NewCatchSimple(errutil.WithAggregation())
+	c := errutil.NewCatch(errutil.WithAggregation())
 	for _, s := range s {
 		c.Exec(s.CloseSend)
 	}

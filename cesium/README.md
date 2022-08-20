@@ -130,7 +130,7 @@ func main() {
 		{
 			ChannelKey: ch.Key,
 			Start:      cesium.Now(),
-			Data:       cesium.MarshalFloat64([]float64{1.0, 2.0, 3.0}),
+			Data:       []byte{1,2,3,4},
 		},
 	}
 

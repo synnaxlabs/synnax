@@ -49,7 +49,7 @@ func (b *Builder) Cleanup() error {
 }
 
 func (b *Builder) Close() error {
-	c := errutil.NewCatchSimple(errutil.WithAggregation())
+	c := errutil.NewCatch(errutil.WithAggregation())
 	for _, store := range b.Stores {
 		c.Exec(store.Close)
 	}

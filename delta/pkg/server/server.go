@@ -58,7 +58,7 @@ func (s *Server) Start(_ context.Context) error {
 }
 
 func (s *Server) Stop() error {
-	c := errutil.NewCatchSimple(errutil.WithAggregation())
+	c := errutil.NewCatch(errutil.WithAggregation())
 	c.Exec(s.fiber.Stop)
 	c.Exec(s.grpc.Stop)
 	return c.Error()

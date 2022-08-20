@@ -194,7 +194,7 @@ func startRetrieve(
 
 	plumber.SetSource[[]retrieveOperation](pipe, "query", queryFactory)
 
-	c := errutil.NewCatchSimple()
+	c := errutil.NewCatch()
 
 	c.Exec(plumber.UnaryRouter[[]retrieveOperation]{
 		SourceTarget: "query",

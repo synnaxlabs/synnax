@@ -161,7 +161,7 @@ func New(
 
 	var (
 		routeEmitterTo address.Address
-		c              = errutil.NewCatchSimple()
+		c              = errutil.NewCatch()
 	)
 
 	// We need to configure different pipelines to optimize for particular cases.

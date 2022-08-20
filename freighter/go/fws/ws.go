@@ -168,7 +168,7 @@ func (s *Server[RQ, RS]) determineEncoderDecoder(c *fiber.Ctx) (httputil.Encoder
 		if s.ecd.ContentType() == ct {
 			return s.ecd, nil
 		}
-		return nil, roacherrors.Newf("[freighter] - unsupported content type")
+		return httputil.DetermineEncoderDecoder{}, roacherrors.Newf("[freighter] - unsupported content type")
 	}
 	return httputil.DetermineEncoderDecoder(ct)
 }

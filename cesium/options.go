@@ -65,7 +65,6 @@ func mergeDefaultOptions(o *options) {
 	if o.logger == nil {
 		o.logger = zap.NewNop()
 	}
-	o.fs.opts = append(o.fs.opts, kfs.WithLogger(o.logger))
 	o.fs.opts = append(o.fs.opts, kfs.WithExperiment(o.exp))
 	o.fs.opts = append(o.fs.opts, kfs.WithExtensionConfig(".tof"))
 }
