@@ -1,4 +1,4 @@
-// Package pledge provides a system for pledging a node to a jury of candidates.
+// Package pledge provides a system for pledging a node to a jury of Candidates.
 // The pledge uses quorum consensus to assign the node a unique ID.
 //
 // To pledge a new node to a jury, call Pledge() with a set of peer addresses.
@@ -14,18 +14,17 @@
 //	the pledge node.
 //	Candidates - A pool of nodes that can be selected to form a jury that can
 //	arbitrate a Pledge.
-//	Jury - A quorum (numCandidates/2 + 1) of candidates that arbitrate a
+//	Jury - A quorum (numCandidates/2 + 1) of Candidates that arbitrate a
 //	Pledge. All jurors must accept the Pledge for the node to be inducted.
 //
-// The following RFC provides details on how the pledging algorithm
-// is implemented. https://github.com/arya-analytics/delta/blob/DA-153-aspen-rfc/docs/rfc/220518-aspen-p2p-network.md#adding-a-member.
+// RFC-2 provides details on how the pledging algorithm is implemented.
 package pledge
 
 import (
 	"context"
 	"github.com/arya-analytics/aspen/internal/node"
-	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/alamos"
+	"github.com/arya-analytics/x/config"
 	"github.com/arya-analytics/x/iter"
 	xrand "github.com/arya-analytics/x/rand"
 	xtime "github.com/arya-analytics/x/time"
@@ -41,45 +40,41 @@ import (
 var (
 	// errQuorumUnreachable is returned when a quorum jury cannot be safely assembled.
 	errQuorumUnreachable = errors.New("quorum unreachable")
-	// proposalRejected is an internal error returned when a juror rejects a pledge proposal from a responsible node.
+	// proposalRejected is an internal error returned when a juror rejects a pledge
+	// proposal from a responsible node.
 	proposalRejected = errors.New("proposal rejected")
 )
 
-// Pledge pledges a node to a Jury selected from candidateSnapshot for membership.
-// Pledge will submit a request to a peer in peers, this peer (called the responsible)
-// will then issue a request to random quorum from candidates with a proposed ID.
-// If the jury approves the request, the pledge will be given membership, assigned a
-// unique ID, and allowed to Arbitrate in future proposals. See algorithm in
-// package level documentation for implementation details. Although IDs are guaranteed
-// to be unique, they are not guarantee to be sequential. Pledge will continue to
-// contact peers in cfg.peerAddresses at a scaling interval until the provided
-// context is cancelled.
-func Pledge(
-	ctx context.Context,
-	peers []address.Address,
-	candidates func() node.Group,
-	cfg Config,
-) (id node.ID, err error) {
+// Pledge pledges a new node to the cluster. This node, called the Pledge,
+// submits a request for id assignment to a peer in peers. If the cluster approves
+// the request, the node will be assigned an ID and registered to arbitrate in
+// future pledge (see the Arbitrate function for more on how this works). IDs
+// of nodes in the cluster are guaranteed to be unique, but are not guaranteed
+// to be sequential. Pledge will continue to contact peers at a scaling interval
+// (defined in cfg.RetryScale and cfg.RetryInterval) until the cluster approves
+// request or the provided context is cancelled. To see the required configuration
+// parameters, see the Config struct.
+func Pledge(ctx context.Context, cfgs ...Config) (id node.ID, err error) {
 	if ctx.Err() != nil {
 		return 0, ctx.Err()
 	}
-	if len(peers) == 0 {
-		return id, errors.New("[pledge] no peers provided")
-	}
-
-	cfg.peerAddresses, cfg.candidates = peers, candidates
-	cfg = cfg.Merge(DefaultConfig())
-	if err = cfg.Validate(); err != nil {
+	cfg, err := config.OverrideAndValidate(DefaultConfig, cfgs...)
+	if err != nil {
 		return id, err
+	}
+	// Because peers are only required whe calling Pledge, we need to perform
+	// this validation outside of config.Validate.
+	if len(cfg.Peers) == 0 {
+		return id, errors.New("[pledge] - at least one peer required")
 	}
 
 	alamos.AttachReporter(cfg.Experiment, "pledge", alamos.Debug, cfg)
-	cfg.Logger.Infow("beginning pledge process", cfg.LogArgs()...)
+	cfg.Logger.Infow("beginning pledge process", cfg.Report().LogArgs()...)
 
 	// introduce random jitter to avoid a thundering herd during concurrent pledging.
 	introduceRandomJitter(cfg.RetryInterval)
 
-	nextAddr := iter.Endlessly(cfg.peerAddresses)
+	nextAddr := iter.Endlessly(cfg.Peers)
 
 	t := xtime.NewScaledTicker(cfg.RetryInterval, cfg.RetryScale)
 	defer t.Stop()
@@ -97,8 +92,8 @@ func Pledge(
 			if err == nil {
 				cfg.Logger.Infow("pledge successful", "assignedHost", id)
 
-				// If the pledge node has been inducted successfully, allow it to arbitrate
-				// in future pledges.
+				// If the pledge node has been inducted successfully, allow it to
+				// arbitrate in future pledges.
 				return id, arbitrate(cfg)
 			}
 			if ctx.Err() != nil {
@@ -109,17 +104,19 @@ func Pledge(
 	}
 }
 
-// Arbitrate registers a node to arbitrate future pledges. When a node calls
-// Arbitrate, it will be made available to become a Responsible or Juror node.
-// Any node that calls arbitrate should also be a member of candidates.
-func Arbitrate(candidates func() node.Group, cfg Config) error {
-	cfg.candidates = candidates
-	cfg = cfg.Merge(DefaultConfig())
-	if err := cfg.Validate(); err != nil {
+// Arbitrate registers a node to arbitrate future pledges. When processing a pledge
+// request, the node will act as responsible for the pledge and submit proposed
+// IDs to a jury of candidate nodes. The responsible node will continue to propose
+// IDs until cfg.MaxProposals is reached. When processing a responisble's proposal,
+// the node will act a juror, and decide if it approves of the proposed ID
+// or not. To see the required configuration parameters, see the Config struct.
+func Arbitrate(cfgs ...Config) error {
+	cfg, err := config.OverrideAndValidate(DefaultConfig, cfgs...)
+	if err != nil {
 		return err
 	}
 	alamos.AttachReporter(cfg.Experiment, "pledge", alamos.Debug, cfg)
-	cfg.Logger.Infow("registering node as pledge arbitrator", cfg.LogArgs()...)
+	cfg.Logger.Infow("registering node as pledge arbitrator", cfg.Report().LogArgs()...)
 	return arbitrate(cfg)
 }
 
@@ -152,13 +149,13 @@ func (r *responsible) propose(ctx context.Context) (id node.ID, err error) {
 			break
 		}
 
-		// pull in the latest candidateSnapshot. We manually refresh candidates
+		// pull in the latest candidateSnapshot. We manually refresh Candidates
 		// to provide a consistent view through the lifetime of the proposal.
 		r.refreshCandidates()
 
-		// Increment the proposed ID unconditionally. Quorum juror's store each
+		// Add the proposed ID unconditionally. Quorum juror's store each
 		// approved request. If one node in the quorum is unreachable, other
-		// candidates may have already approved the request. This means that
+		// Candidates may have already approved the request. This means that
 		// if we retry the request without incrementing the proposed ID, we'll
 		// get a rejection from the candidate that approved the request last time.
 		// This will result in marginally higher IDs being assigned, but it's
@@ -189,7 +186,7 @@ func (r *responsible) propose(ctx context.Context) (id node.ID, err error) {
 	return id, err
 }
 
-func (r *responsible) refreshCandidates() { r.candidateSnapshot = r.Config.candidates() }
+func (r *responsible) refreshCandidates() { r.candidateSnapshot = r.Config.Candidates() }
 
 func (r *responsible) buildQuorum() (node.Group, error) {
 	presentCandidates := r.candidateSnapshot.WhereActive()
@@ -255,7 +252,7 @@ func (j *juror) verdict(ctx context.Context, id node.ID) (err error) {
 			return proposalRejected
 		}
 	}
-	if id <= highestNodeID(j.candidates()) {
+	if id <= highestNodeID(j.Candidates()) {
 		j.Logger.Warnw("juror rejected proposal. id out of range", "id", id)
 		return proposalRejected
 	}
