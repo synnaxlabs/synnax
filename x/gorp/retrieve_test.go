@@ -4,6 +4,7 @@ import (
 	"github.com/arya-analytics/x/kv"
 	"github.com/arya-analytics/x/kv/memkv"
 	"github.com/arya-analytics/x/query"
+	. "github.com/arya-analytics/x/testutil"
 	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -43,8 +44,7 @@ var _ = Describe("RetrieveEntity", Ordered, func() {
 					Entries(&res).
 					Exec(db)
 				By("Returning the correct error")
-				Expect(err).To(HaveOccurred())
-				Expect(errors.Is(err, query.NotFound)).To(BeTrue())
+				Expect(err).To(HaveOccurredAs(query.NotFound))
 				By("Still retrieving as many entries as possible")
 				Expect(res).To(HaveLen(1))
 			})

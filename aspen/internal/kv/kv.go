@@ -1,8 +1,8 @@
 package kv
 
 import (
-	"fmt"
 	"github.com/arya-analytics/x/address"
+	"github.com/arya-analytics/x/alamos"
 	"github.com/arya-analytics/x/config"
 	"github.com/arya-analytics/x/confluence"
 	"github.com/arya-analytics/x/confluence/plumber"
@@ -31,8 +31,7 @@ type DB interface {
 	Writer
 	Reader
 	BatchWriter
-	// Stringer returns a description of the DB storeSink.
-	fmt.Stringer
+	alamos.Reporter
 }
 
 type kv struct {
@@ -74,9 +73,10 @@ func (k *kv) NewBatch() kvx.Batch {
 	return &batch{apply: k.apply, lease: k.leaseAlloc, Batch: k.DB.NewBatch()}
 }
 
-// String implements DB.
-func (k *kv) String() string {
-	return fmt.Sprintf("aspen.kv{} backed by %s", k.Config.Engine)
+func (k *kv) Report() alamos.Report {
+	return alamos.Report{
+		"engine": "aspen-pebble",
+	}
 }
 
 const (

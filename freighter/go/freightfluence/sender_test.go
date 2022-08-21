@@ -30,7 +30,7 @@ var _ = Describe("Sender", func() {
 	})
 	Context("Single StreamTransport", func() {
 		var (
-			streamTransport freighter.Stream[int, int]
+			streamTransport freighter.StreamTransport[int, int]
 			receiverStream  confluence.Stream[int]
 			senderStream    confluence.Stream[int]
 		)

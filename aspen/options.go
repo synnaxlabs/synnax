@@ -161,7 +161,7 @@ func mergeDefaultOptions(o *options) {
 
 	// |||| KV ||||
 
-	o.kv = o.kv.Override(def.kv)
+	o.kv = def.kv.Override(o.kv)
 
 	// |||| CLUSTER ||||
 

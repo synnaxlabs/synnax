@@ -11,6 +11,7 @@ import (
 	"github.com/arya-analytics/freighter"
 	"github.com/arya-analytics/x/query"
 	"github.com/arya-analytics/x/telem"
+	. "github.com/arya-analytics/x/testutil"
 	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -60,8 +61,8 @@ var _ = Describe("Server", func() {
 	})
 	DescribeTable("Open Request", func(keys channel.Keys, expectedResError, expectedTransportError error) {
 		res, err := openRequest(openClient(ctx, 1, services), keys)
-		Expect(errors.Is(res.Error, expectedResError)).To(BeTrue())
-		Expect(errors.Is(err, expectedTransportError)).To(BeTrue())
+		Expect(res.Error).To(HaveOccurredAs(expectedResError))
+		Expect(err).To(HaveOccurredAs(expectedTransportError))
 	},
 		Entry("Open the writer properly when the keys exist", channel.Keys{channel.NewKey(1, 1)}, nil, freighter.EOF),
 		Entry("Return an error when no keys are provided", channel.Keys{}, nil, errors.New("[segment.w] - server expected OpenKeys to be defined")),
@@ -79,7 +80,7 @@ var _ = Describe("Server", func() {
 			cancel()
 			res, err := client.Receive()
 			Expect(res.Error).To(BeNil())
-			Expect(errors.Is(err, context.Canceled)).To(BeTrue())
+			Expect(err).To(HaveOccurredAs(context.Canceled))
 		})
 		Describe("No Cancellation", func() {
 			var client writer.Client
@@ -95,7 +96,7 @@ var _ = Describe("Server", func() {
 				Expect(client.Send(writer.Request{Segments: []core.Segment{s}})).To(Succeed())
 				Expect(client.CloseSend()).To(Succeed())
 				res, err := client.Receive()
-				Expect(errors.Is(err, freighter.EOF)).To(BeTrue())
+				Expect(err).To(HaveOccurredAs(freighter.EOF))
 				Expect(res.Error).ToNot(HaveOccurred())
 			})
 			It("Should return an error when the write request has no channel key", func() {
@@ -109,7 +110,7 @@ var _ = Describe("Server", func() {
 				Expect(err).To(BeNil())
 				res, err = client.Receive()
 				Expect(res.Error).To(BeNil())
-				Expect(errors.Is(err, freighter.EOF)).To(BeTrue())
+				Expect(err).To(HaveOccurredAs(freighter.EOF))
 			})
 		})
 

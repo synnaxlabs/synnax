@@ -20,8 +20,6 @@ import (
 	"time"
 )
 
-const protocol = "websocket"
-
 func New[RQ, RS freighter.Payload](
 	ecd httputil.EncoderDecoder,
 	logger *zap.SugaredLogger,

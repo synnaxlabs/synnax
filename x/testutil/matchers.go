@@ -18,6 +18,9 @@ type haveOccurredAsMatcher struct {
 
 func (m *haveOccurredAsMatcher) Match(actual interface{}) (bool, error) {
 	if actual == nil {
+		if m.Expected == nil {
+			return true, nil
+		}
 		return false, errors.Newf(`Expected error
 
 %s

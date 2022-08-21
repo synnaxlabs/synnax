@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@arya-analytics/pluto": "../../../pluto",
+    "@arya-analytics/pluto": "^0.0.1",
     "@types/uuid": "^8.3.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

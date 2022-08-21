@@ -46,6 +46,9 @@ func provisionServices(logger *zap.Logger) (*mock.CoreBuilder, map[core.NodeID]*
 		core2.Storage.TS,
 		net.RouteUnary(core2.Config.AdvertiseAddress),
 	)
+	Eventually(func(g Gomega) {
+		g.Expect(core1.Cluster.Nodes()).To(HaveLen(2))
+	}).Should(Succeed())
 	return builder, services
 
 }

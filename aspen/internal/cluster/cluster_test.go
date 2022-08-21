@@ -9,7 +9,7 @@ import (
 	"github.com/arya-analytics/aspen/internal/node"
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/signal"
-	"github.com/cockroachdb/errors"
+	. "github.com/arya-analytics/x/testutil"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/zap"
@@ -35,7 +35,7 @@ var _ = Describe("Cluster", func() {
 
 	AfterEach(func() {
 		shutdown()
-		Expect(errors.Is(clusterCtx.Err(), context.Canceled)).To(BeTrue())
+		Expect(clusterCtx.Err()).To(HaveOccurredAs(context.Canceled))
 	})
 
 	Describe("Node", func() {

@@ -7,7 +7,6 @@ import (
 	"github.com/arya-analytics/delta/pkg/storage"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"time"
 )
 
 var _ = Describe("Core", func() {
@@ -23,11 +22,11 @@ var _ = Describe("Core", func() {
 
 		Expect(coreOne.Storage.KV.Set([]byte("foo"), []byte("bar"))).To(Succeed())
 
-		time.Sleep(100 * time.Millisecond)
-
-		v, err := coreOne.Storage.KV.Get([]byte("foo"))
-		Expect(err).To(Succeed())
-		Expect(v).To(Equal([]byte("bar")))
+		Eventually(func(g Gomega) {
+			v, err := coreOne.Storage.KV.Get([]byte("foo"))
+			g.Expect(err).To(Succeed())
+			g.Expect(v).To(Equal([]byte("bar")))
+		}).Should(Succeed())
 
 		Expect(builder.Close()).To(Succeed())
 		Expect(builder.Cleanup()).To(Succeed())

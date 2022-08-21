@@ -14,7 +14,7 @@ import (
 var _ = Describe("Receiver", func() {
 	var (
 		net    *fmock.Network[int, int]
-		stream freighter.Stream[int, int]
+		stream freighter.StreamTransport[int, int]
 	)
 	BeforeEach(func() {
 		net = fmock.NewNetwork[int, int]()

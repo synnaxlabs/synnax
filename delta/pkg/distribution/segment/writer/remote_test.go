@@ -12,7 +12,7 @@ import (
 	"github.com/arya-analytics/delta/pkg/storage"
 	"github.com/arya-analytics/x/query"
 	"github.com/arya-analytics/x/telem"
-	"github.com/cockroachdb/errors"
+	. "github.com/arya-analytics/x/testutil"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gleak"
@@ -106,7 +106,7 @@ var _ = Describe("Remote", Ordered, func() {
 					channel.Keys{channel.NewKey(1, 5)},
 					log,
 				)
-				Expect(errors.Is(err, query.NotFound)).To(BeTrue())
+				Expect(err).To(HaveOccurredAs(query.NotFound))
 			})
 		})
 		Describe("Context Cancellation", func() {
@@ -124,7 +124,7 @@ var _ = Describe("Remote", Ordered, func() {
 				Expect(err).ToNot(HaveOccurred())
 				cancel()
 				By("Exiting immediately")
-				Expect(w.Close()).To(Equal(context.Canceled))
+				Expect(w.Close()).To(HaveOccurredAs(context.Canceled))
 				By("Keeping the request channel open")
 				close(w.Requests())
 			})
@@ -146,7 +146,7 @@ var _ = Describe("Remote", Ordered, func() {
 					close(w.Requests())
 					res, ok := <-w.Responses()
 					Expect(ok).To(BeTrue())
-					Expect(errors.Is(res.Error, query.NotFound)).To(BeTrue())
+					Expect(res.Error).To(HaveOccurredAs(query.NotFound))
 					_, ok = <-w.Responses()
 					Expect(ok).To(BeFalse())
 					Expect(w.Close()).To(Succeed())
