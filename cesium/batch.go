@@ -17,10 +17,10 @@ import (
 //
 // The intent is to maximize sequential IO for a given set of operations.
 type retrieveBatch struct {
-	confluence.LinearTransform[[]retrieveOperation, []retrieveOperation]
+	confluence.LinearTransform[[]retrieveOperationUnary, []retrieveOperationSet]
 }
 
-func newRetrieveBatch() retrieveSegment {
+func newRetrieveBatch() *retrieveBatch {
 	rb := &retrieveBatch{}
 	rb.Transform = rb.batch
 	return rb
@@ -28,19 +28,19 @@ func newRetrieveBatch() retrieveSegment {
 
 func (rb *retrieveBatch) batch(
 	ctx context.Context,
-	ops []retrieveOperation,
-) ([]retrieveOperation, bool, error) {
+	ops []retrieveOperationUnary,
+) ([]retrieveOperationSet, bool, error) {
 	if len(ops) == 0 {
-		return []retrieveOperation{}, false, nil
+		return []retrieveOperationSet{}, false, nil
 	}
 	fileGrouped := make(map[core.FileKey]retrieveOperationSet)
 	for _, op := range ops {
 		fileGrouped[op.FileKey()] = retrieveOperationSet{Set: append(fileGrouped[op.FileKey()].Set, op)}
 	}
-	channelSorted := make([]retrieveOperation, 0, len(fileGrouped))
+	channelSorted := make([]retrieveOperationSet, 0, len(fileGrouped))
 	for _, opSet := range fileGrouped {
 		sort.Slice(opSet.Set, func(i, j int) bool {
-			return opSet.Set[i].Offset() < opSet.Set[j].Offset()
+			return opSet.Set[i].offset() < opSet.Set[j].offset()
 		})
 		channelSorted = append(channelSorted, opSet)
 	}
@@ -59,10 +59,10 @@ func (rb *retrieveBatch) batch(
 //     contiguous ranges of data from an individual channel. By keeping segments
 //     of the same channel together, we can minimize the number of disk seeks.
 type createBatch struct {
-	confluence.LinearTransform[[]createOperation, []createOperation]
+	confluence.LinearTransform[[]createOperationUnary, []createOperationSet]
 }
 
-func newCreateBatch() createSegment {
+func newCreateBatch() *createBatch {
 	cb := &createBatch{}
 	cb.Transform = cb.batch
 	return cb
@@ -70,16 +70,16 @@ func newCreateBatch() createSegment {
 
 func (cb *createBatch) batch(
 	ctx context.Context,
-	ops []createOperation,
-) ([]createOperation, bool, error) {
+	ops []createOperationUnary,
+) ([]createOperationSet, bool, error) {
 	if len(ops) == 0 {
-		return []createOperation{}, false, nil
+		return []createOperationSet{}, false, nil
 	}
 	fileGrouped := make(map[core.FileKey]createOperationSet)
 	for _, op := range ops {
 		fileGrouped[op.FileKey()] = createOperationSet{Set: append(fileGrouped[op.FileKey()].Set, op)}
 	}
-	channelSorted := make([]createOperation, 0, len(fileGrouped))
+	channelSorted := make([]createOperationSet, 0, len(fileGrouped))
 	for _, fileOps := range fileGrouped {
 		sort.Slice(fileOps.Set, func(j, k int) bool {
 			return fileOps.Set[j].

@@ -9,13 +9,13 @@ import (
 )
 
 type allocator struct {
-	confluence.LinearTransform[[]createOperation, []createOperation]
-	allocate.Allocator[channel.Key, core.FileKey, createOperation]
+	confluence.LinearTransform[[]createOperationUnary, []createOperationUnary]
+	allocate.Allocator[channel.Key, core.FileKey, createOperationUnary]
 }
 
-func newAllocator(counter *fileCounter, cfg allocate.Config) createSegment {
+func newAllocator(counter *fileCounter, cfg allocate.Config) *allocator {
 	a := &allocator{
-		Allocator: allocate.New[channel.Key, core.FileKey, createOperation](counter, cfg),
+		Allocator: allocate.New[channel.Key, core.FileKey, createOperationUnary](counter, cfg),
 	}
 	a.Transform = a.allocate
 	return a
@@ -23,8 +23,8 @@ func newAllocator(counter *fileCounter, cfg allocate.Config) createSegment {
 
 func (a *allocator) allocate(
 	ctx context.Context,
-	ops []createOperation,
-) ([]createOperation, bool, error) {
+	ops []createOperationUnary,
+) ([]createOperationUnary, bool, error) {
 	for i, fk := range a.Allocate(ops...) {
 		ops[i].SetFileKey(fk)
 	}

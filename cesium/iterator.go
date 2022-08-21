@@ -5,6 +5,7 @@ import (
 	"github.com/arya-analytics/cesium/internal/kv"
 	"github.com/arya-analytics/x/confluence"
 	"github.com/arya-analytics/x/telem"
+	"github.com/samber/lo"
 	"sync"
 )
 
@@ -67,7 +68,7 @@ type streamIterator struct {
 	// parser converts segment metadata into executable operations on disk.
 	parser *retrieveParser
 	// executor is an Output where generated operations are piped for execution.
-	executor confluence.Inlet[[]retrieveOperation]
+	executor confluence.Inlet[[]retrieveOperationUnary]
 	// wg is used to track the completion status of the latest operations in the iterator.
 	wg     *sync.WaitGroup
 	opErrC chan error
@@ -96,66 +97,30 @@ func newIteratorFromRetrieve(r Retrieve) StreamIterator {
 }
 
 // Next implements StreamIterator.
-func (i *streamIterator) Next() bool {
-	if !i.internal.Next() {
-		return false
-	}
-	i.pipeOperations()
-	return true
-}
+func (i *streamIterator) Next() bool { return i.exec(i.internal.Next) }
 
 // Prev implements StreamIterator.
-func (i *streamIterator) Prev() bool {
-	if !i.internal.Prev() {
-		return false
-	}
-	i.pipeOperations()
-	return true
-}
+func (i *streamIterator) Prev() bool { return i.exec(i.internal.Prev) }
 
 // First implements StreamIterator.
-func (i *streamIterator) First() bool {
-	if !i.internal.First() {
-		return false
-	}
-	i.pipeOperations()
-	return true
-}
+func (i *streamIterator) First() bool { return i.exec(i.internal.First) }
 
 // Last implements StreamIterator.
-func (i *streamIterator) Last() bool {
-	if !i.internal.Last() {
-		return false
-	}
-	i.pipeOperations()
-	return true
-}
+func (i *streamIterator) Last() bool { return i.exec(i.internal.Last) }
 
 // NextSpan implements StreamIterator.
 func (i *streamIterator) NextSpan(span TimeSpan) bool {
-	if !i.internal.NextSpan(span) {
-		return false
-	}
-	i.pipeOperations()
-	return true
+	return i.exec(func() bool { return i.internal.NextSpan(span) })
 }
 
 // PrevSpan implements StreamIterator.
 func (i *streamIterator) PrevSpan(span TimeSpan) bool {
-	if !i.internal.PrevSpan(span) {
-		return false
-	}
-	i.pipeOperations()
-	return true
+	return i.exec(func() bool { return i.internal.PrevSpan(span) })
 }
 
 // NextRange implements StreamIterator.
 func (i *streamIterator) NextRange(tr TimeRange) bool {
-	if !i.internal.SetRange(tr) {
-		return false
-	}
-	i.pipeOperations()
-	return true
+	return i.exec(func() bool { return i.internal.SetRange(tr) })
 }
 
 // SeekFirst implements StreamIterator.
@@ -207,10 +172,7 @@ func (i *streamIterator) error() error {
 }
 
 func (i *streamIterator) Error() error {
-	if i.error() != nil {
-		return i.error()
-	}
-	return i.internal.Error()
+	return lo.Ternary(i.error() == nil, i.internal.Error(), i.error())
 }
 
 func (i *streamIterator) pipeOperations() {
@@ -220,4 +182,12 @@ func (i *streamIterator) pipeOperations() {
 	}
 	i.wg.Add(len(ops))
 	i.executor.Inlet() <- ops
+}
+
+func (i *streamIterator) exec(f func() bool) bool {
+	if !f() {
+		return false
+	}
+	i.pipeOperations()
+	return true
 }

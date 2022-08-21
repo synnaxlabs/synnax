@@ -21,8 +21,8 @@ type createParser struct {
 	header    *kv.Header
 }
 
-func (c *createParser) parse(segments []Segment) ([]createOperation, error) {
-	var ops []createOperation
+func (c *createParser) parse(segments []Segment) ([]createOperationUnary, error) {
+	var ops []createOperationUnary
 	for _, seg := range segments {
 		ch, ok := c.channels[seg.ChannelKey]
 		if !ok {
@@ -51,8 +51,8 @@ type retrieveParser struct {
 	errC      chan<- error
 }
 
-func (r *retrieveParser) parse(ranges []*segment.Range) []retrieveOperation {
-	var ops []retrieveOperation
+func (r *retrieveParser) parse(ranges []*segment.Range) []retrieveOperationUnary {
+	var ops []retrieveOperationUnary
 	for _, rng := range ranges {
 		for _, header := range rng.Headers {
 			seg := header.Sugar(rng.Channel)

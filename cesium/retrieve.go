@@ -19,8 +19,6 @@ import (
 	"time"
 )
 
-type retrieveSegment = confluence.Segment[[]retrieveOperation, []retrieveOperation]
-
 // |||||| CONFIGURATION ||||||
 
 const (
@@ -85,7 +83,7 @@ type RetrieveResponse struct {
 type Retrieve struct {
 	query.Query
 	kve     kv.DB
-	ops     confluence.Inlet[[]retrieveOperation]
+	ops     confluence.Inlet[[]retrieveOperationUnary]
 	metrics retrieveMetrics
 	logger  *zap.Logger
 }
@@ -142,7 +140,7 @@ type retrieveFactory struct {
 	kve     kv.DB
 	logger  *zap.Logger
 	metrics retrieveMetrics
-	confluence.AbstractUnarySource[[]retrieveOperation]
+	confluence.AbstractUnarySource[[]retrieveOperationUnary]
 	confluence.EmptyFlow
 }
 
@@ -166,24 +164,24 @@ func startRetrieve(
 
 	// queue 'debounces' operations so that they can be flushed to disk in efficient
 	// batches.
-	plumber.SetSegment[[]retrieveOperation, []retrieveOperation](
+	plumber.SetSegment[[]retrieveOperationUnary, []retrieveOperationUnary](
 		pipe,
 		"queue",
-		&queue.Debounce[retrieveOperation]{Config: cfg.debounce},
+		&queue.Debounce[retrieveOperationUnary]{Config: cfg.debounce},
 	)
 
 	// batch groups operations into batches that optimize sequential IO.
-	plumber.SetSegment[[]retrieveOperation, []retrieveOperation](
+	plumber.SetSegment[[]retrieveOperationUnary, []retrieveOperationSet](
 		pipe,
 		"batch",
 		newRetrieveBatch(),
 	)
 
 	// persist executes batched operations on disk.
-	plumber.SetSink[[]retrieveOperation](
+	plumber.SetSink[[]retrieveOperationSet](
 		pipe,
 		"persist",
-		persist.New[core.FileKey, retrieveOperation](cfg.fs, cfg.persist),
+		persist.New[core.FileKey, retrieveOperationSet](cfg.fs, cfg.persist),
 	)
 
 	queryFactory := &retrieveFactory{
@@ -192,29 +190,33 @@ func startRetrieve(
 		logger:  cfg.logger,
 	}
 
-	plumber.SetSource[[]retrieveOperation](pipe, "query", queryFactory)
+	plumber.SetSource[[]retrieveOperationUnary](pipe, "query", queryFactory)
 
 	c := errutil.NewCatch()
 
-	c.Exec(plumber.UnaryRouter[[]retrieveOperation]{
+	c.Exec(plumber.UnaryRouter[[]retrieveOperationUnary]{
 		SourceTarget: "query",
 		SinkTarget:   "queue",
 		Capacity:     10,
 	}.PreRoute(pipe))
 
-	c.Exec(plumber.UnaryRouter[[]retrieveOperation]{
+	c.Exec(plumber.UnaryRouter[[]retrieveOperationUnary]{
 		SourceTarget: "queue",
 		SinkTarget:   "batch",
 		Capacity:     10,
 	}.PreRoute(pipe))
 
-	c.Exec(plumber.UnaryRouter[[]retrieveOperation]{
+	c.Exec(plumber.UnaryRouter[[]retrieveOperationSet]{
 		SourceTarget: "batch",
 		SinkTarget:   "persist",
 		Capacity:     10,
 	}.PreRoute(pipe))
 
+	if err := c.Error(); err != nil {
+		panic(c.Error())
+	}
+
 	pipe.Flow(ctx)
 
-	return queryFactory, c.Error()
+	return queryFactory, nil
 }

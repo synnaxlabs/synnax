@@ -23,8 +23,6 @@ import (
 	"time"
 )
 
-type createSegment = confluence.Segment[[]createOperation, []createOperation]
-
 // |||||| CONFIGURATION ||||||
 
 const (
@@ -109,7 +107,7 @@ type CreateResponse struct {
 
 type Create struct {
 	query.Query
-	ops     confluence.Inlet[[]createOperation]
+	ops     confluence.Inlet[[]createOperationUnary]
 	lock    lock.KeyLock[channel.Key]
 	kv      kvx.DB
 	logger  *zap.Logger
@@ -199,7 +197,7 @@ type createFactory struct {
 	logger  *zap.Logger
 	header  *kv.Header
 	metrics createMetrics
-	confluence.AbstractUnarySource[[]createOperation]
+	confluence.AbstractUnarySource[[]createOperationUnary]
 	confluence.EmptyFlow
 }
 
@@ -236,7 +234,7 @@ func startCreate(ctx signal.Context, cfg createConfig) (query.Factory[Create], e
 	pipe := plumber.New()
 
 	// allocator allocates segments to files.
-	plumber.SetSegment[[]createOperation, []createOperation](
+	plumber.SetSegment[[]createOperationUnary, []createOperationUnary](
 		pipe,
 		"allocator",
 		newAllocator(fCount, cfg.allocate),
@@ -244,20 +242,20 @@ func startCreate(ctx signal.Context, cfg createConfig) (query.Factory[Create], e
 
 	// queue 'debounces' operations so that they can be flushed to disk in efficient
 	// batches.
-	plumber.SetSegment[[]createOperation, []createOperation](
+	plumber.SetSegment[[]createOperationUnary, []createOperationUnary](
 		pipe,
 		"queue",
-		&queue.Debounce[createOperation]{Config: cfg.debounce},
+		&queue.Debounce[createOperationUnary]{Config: cfg.debounce},
 	)
 
 	// batch groups operations into batches that are more efficient upon retrieval.
-	plumber.SetSegment(pipe, "batch", newCreateBatch())
+	plumber.SetSegment[[]createOperationUnary, []createOperationSet](pipe, "batch", newCreateBatch())
 
 	// persist executes batched operations to disk.
-	plumber.SetSink[[]createOperation](
+	plumber.SetSink[[]createOperationSet](
 		pipe,
 		"persist",
-		persist.New[core.FileKey, createOperation](cfg.fs, cfg.persist),
+		persist.New[core.FileKey, createOperationSet](cfg.fs, cfg.persist),
 	)
 
 	queryFactory := &createFactory{
@@ -267,35 +265,39 @@ func startCreate(ctx signal.Context, cfg createConfig) (query.Factory[Create], e
 		metrics: newCreateMetrics(cfg.exp),
 	}
 
-	plumber.SetSource[[]createOperation](pipe, "query", queryFactory)
+	plumber.SetSource[[]createOperationUnary](pipe, "query", queryFactory)
 
 	c := errutil.NewCatch()
 
-	c.Exec(plumber.UnaryRouter[[]createOperation]{
+	c.Exec(plumber.UnaryRouter[[]createOperationUnary]{
 		SourceTarget: "query",
 		SinkTarget:   "allocator",
 		Capacity:     1,
 	}.PreRoute(pipe))
 
-	c.Exec(plumber.UnaryRouter[[]createOperation]{
+	c.Exec(plumber.UnaryRouter[[]createOperationUnary]{
 		SourceTarget: "allocator",
 		SinkTarget:   "queue",
 		Capacity:     1,
 	}.PreRoute(pipe))
 
-	c.Exec(plumber.UnaryRouter[[]createOperation]{
+	c.Exec(plumber.UnaryRouter[[]createOperationUnary]{
 		SourceTarget: "queue",
 		SinkTarget:   "batch",
 		Capacity:     1,
 	}.PreRoute(pipe))
 
-	c.Exec(plumber.UnaryRouter[[]createOperation]{
+	c.Exec(plumber.UnaryRouter[[]createOperationSet]{
 		SourceTarget: "batch",
 		SinkTarget:   "persist",
 		Capacity:     1,
 	}.PreRoute(pipe))
 
+	if c.Error() != nil {
+		panic(c.Error())
+	}
+
 	pipe.Flow(ctx)
 
-	return queryFactory, c.Error()
+	return queryFactory, nil
 }

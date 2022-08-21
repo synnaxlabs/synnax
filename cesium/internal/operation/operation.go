@@ -1,13 +1,10 @@
 package operation
 
 import (
-	"context"
 	"github.com/arya-analytics/x/kfs"
 )
 
 type Operation[F comparable] interface {
-	// Context returns a context, that when canceled represents a forced abort of the operation.
-	Context() context.Context
 	// FileKey returns the key of the file to which the operation applies.
 	FileKey() F
 	// WriteError sends an error to the operation. This is only used for IO errors.
@@ -18,10 +15,6 @@ type Operation[F comparable] interface {
 }
 
 type Set[F comparable, O Operation[F]] []O
-
-func (s Set[F, T]) Context() context.Context {
-	return s[0].Context()
-}
 
 func (s Set[F, T]) FileKey() F {
 	return s[0].FileKey()
