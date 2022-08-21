@@ -1,8 +1,9 @@
 package seg
 
 import (
+	"bytes"
+	"encoding/binary"
 	"github.com/arya-analytics/cesium"
-	"github.com/arya-analytics/x/binary"
 	"math/rand"
 )
 
@@ -82,11 +83,12 @@ func (s *RandomFloat64Factory) Generate(n int) []byte {
 }
 
 func writeBytes(data interface{}) []byte {
-	b, err := binary.Marshal(data)
+	b := bytes.NewBuffer(nil)
+	err := binary.Write(b, binary.BigEndian, data)
 	if err != nil {
 		panic(err)
 	}
-	return b
+	return b.Bytes()
 }
 
 func generateSpan(c cesium.Channel, fac DataFactory, span cesium.TimeSpan) []byte {

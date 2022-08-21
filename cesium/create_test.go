@@ -43,8 +43,9 @@ var _ = Describe("Create", func() {
 						{
 							ChannelKey: key,
 							Start:      cesium.Now(),
-							Data:       []byte{1},
-						}}
+							Data:       []byte{1, 2, 3, 4, 5, 6, 7, 8},
+						},
+					}
 
 					By("Opening the create query")
 					Expect(db.Sync(ctx, db.NewCreate().WhereChannels(key),
@@ -78,12 +79,12 @@ var _ = Describe("Create", func() {
 						{
 							ChannelKey: key,
 							Start:      cesium.Now(),
-							Data:       []byte{1},
+							Data:       []byte{1, 2, 3, 4, 5, 6, 7, 8},
 						},
 						{
 							ChannelKey: key,
 							Start:      cesium.Now().Add(1 * cesium.Second),
-							Data:       []byte{1},
+							Data:       []byte{1, 2, 3, 4, 5, 6, 7, 8},
 						},
 					}
 
@@ -117,7 +118,7 @@ var _ = Describe("Create", func() {
 							{
 								ChannelKey: key,
 								Start:      cesium.Now(),
-								Data:       []byte{1},
+								Data:       []byte{1, 2, 3, 4, 5, 6, 7, 8},
 							},
 						},
 					}
@@ -126,7 +127,7 @@ var _ = Describe("Create", func() {
 							{
 								ChannelKey: key,
 								Start:      cesium.Now().Add(1 * cesium.Second),
-								Data:       []byte{1},
+								Data:       []byte{1, 2, 3, 4, 5, 6, 7, 8},
 							},
 						},
 					}

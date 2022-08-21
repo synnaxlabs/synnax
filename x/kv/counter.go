@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	atomicx "github.com/arya-analytics/x/atomic"
 	"github.com/cockroachdb/errors"
+	"github.com/cockroachdb/pebble"
 )
 
 // PersistedCounter implements a simple in64 counter that writes its value to a
@@ -36,5 +37,5 @@ func NewPersistedCounter(kv DB, key []byte) (*PersistedCounter, error) {
 func (c *PersistedCounter) Add(delta ...int64) (int64, error) {
 	next := c.Int64Counter.Add(delta...)
 	binary.LittleEndian.PutUint64(c.buffer, uint64(next))
-	return next, c.kve.Set(c.key, c.buffer)
+	return next, c.kve.Set(c.key, c.buffer, pebble.NoSync)
 }
