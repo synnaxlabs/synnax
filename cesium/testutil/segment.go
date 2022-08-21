@@ -2,8 +2,8 @@ package testutil
 
 import (
 	"bytes"
+	"encoding/binary"
 	"github.com/arya-analytics/cesium"
-	"github.com/arya-analytics/x/binary"
 	"math/rand"
 )
 
@@ -18,7 +18,7 @@ func RandFloat64Slice(n int) []float64 {
 func WriteFloat64Slice(s []float64) (*bytes.Buffer, error) {
 	buf := bytes.NewBuffer(make([]byte, 0, len(s)*8))
 	buf.Reset()
-	err := binary.Write(buf, s)
+	err := binary.Write(buf, binary.BigEndian, s)
 	return buf, err
 }
 
