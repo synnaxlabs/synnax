@@ -17,7 +17,7 @@ type Client struct {
 
 func DefaultClient() *Client {
 	return &Client{
-		EncoderDecoder: &httputil.JSONEncoderDecoder{},
+		EncoderDecoder: httputil.JSONEncoderDecoder,
 		App:            fiber.New(),
 		Headers:        make(map[string]string),
 	}

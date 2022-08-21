@@ -8,7 +8,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/zap"
-	"time"
 )
 
 var _ = Describe("getAttributes", Ordered, func() {
@@ -46,18 +45,18 @@ var _ = Describe("getAttributes", Ordered, func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(resChannels).To(HaveLen(len(created)))
 
-			// Wait for the operations to propagate to another node.
-			time.Sleep(60 * time.Millisecond)
+			Eventually(func(g Gomega) {
+				var resChannelsTwo []channel.Channel
 
-			var resChannelsTwo []channel.Channel
+				err = services[2].
+					NewRetrieve().
+					WhereNodeID(1).
+					Entries(&resChannelsTwo).
+					Exec(ctx)
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(resChannelsTwo).To(HaveLen(len(created)))
+			})
 
-			err = services[2].
-				NewRetrieve().
-				WhereNodeID(1).
-				Entries(&resChannelsTwo).
-				Exec(ctx)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(resChannelsTwo).To(HaveLen(len(created)))
 		})
 		It("Should correctly retrieve a channel by its key", func() {
 			created, err := services[1].NewCreate().

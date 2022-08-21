@@ -60,8 +60,12 @@ var _ = Describe("Remote", Ordered, func() {
 		}
 		factory = seg.NewSequentialFactory(dataFactory, 10*telem.Second, cesiumChannels...)
 		wrapper = &core.StorageWrapper{Host: 3}
-		keys = channel.Keys{channels[0].Key(), channels[1].Key()}
-		time.Sleep(150 * time.Millisecond)
+		keys = channel.KeysFromChannels(channels)
+
+		Eventually(func(g Gomega) {
+			g.Expect(services[3].channel.NewRetrieve().WhereKeys(keys...).Exists(ctx)).To(BeTrue())
+		}).Should(Succeed())
+
 		newWriter = func() (writer.Writer, error) { return openWriter(3, services, builder, keys, log) }
 	})
 	BeforeEach(func() {

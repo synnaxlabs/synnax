@@ -1,4 +1,4 @@
-name: "Pltuo Publish"
+name: "Pluto Publish"
 on:
   push:
     paths:

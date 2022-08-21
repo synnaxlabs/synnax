@@ -71,7 +71,11 @@ var _ = Describe("Compound", Ordered, func() {
 		channels = append(channels, node2Channels...)
 		nChannels = len(channels)
 		writeMockData(builder, 10*telem.Second, 10, 10, channels...)
-		bestEffortSleepUntilStateConverges()
+
+		Eventually(func(g Gomega) {
+			g.Expect(services[2].channel.NewRetrieve().WhereKeys(channel.KeysFromChannels(channels)...).Exists(ctx)).To(BeTrue())
+		}).Should(Succeed())
+
 		iter = openIter(2, services, builder, channel.KeysFromChannels(channels))
 	})
 	AfterAll(func() {

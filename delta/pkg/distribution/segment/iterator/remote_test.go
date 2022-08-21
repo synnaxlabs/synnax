@@ -43,7 +43,11 @@ var _ = Describe("Remote", Ordered, func() {
 		nChan = len(channels)
 		keys := channel.KeysFromChannels(channels)
 		writeMockData(builder, 10*telem.Second, 10, 10, channels...)
-		bestEffortSleepUntilStateConverges()
+
+		Eventually(func(g Gomega) {
+			g.Expect(services[3].channel.NewRetrieve().WhereKeys(keys...).Exists(ctx)).To(BeTrue())
+		}).Should(Succeed())
+
 		iter = openIter(3, services, builder, keys)
 	})
 	AfterAll(func() {

@@ -8,7 +8,6 @@ import (
 	"github.com/arya-analytics/x/telem"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"time"
 )
 
 var _ = Describe("ProviderBuilder", func() {
@@ -34,16 +33,16 @@ var _ = Describe("ProviderBuilder", func() {
 			Expect(err).To(BeNil())
 			Expect(ch.Key().NodeID()).To(Equal(distribution.NodeID(1)))
 
-			time.Sleep(100 * time.Millisecond)
+			Eventually(func(g Gomega) {
+				var resCH channel.Channel
+				g.Expect(coreThree.Channel.NewRetrieve().
+					WhereKeys(ch.Key()).
+					Entry(&resCH).
+					Exec(ctx)).To(Succeed())
 
-			var resCH channel.Channel
+				g.Expect(resCH.Key()).To(Equal(ch.Key()))
+			}).Should(Succeed())
 
-			Expect(coreThree.Channel.NewRetrieve().
-				WhereKeys(ch.Key()).
-				Entry(&resCH).
-				Exec(ctx)).To(Succeed())
-
-			Expect(resCH.Key()).To(Equal(ch.Key()))
 		})
 	})
 

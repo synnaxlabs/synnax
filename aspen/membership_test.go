@@ -211,12 +211,13 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 					Expect(db.Host().Heartbeat.Generation).To(Equal(uint32(1)))
 
 					By("Propagating the incremented heartbeat to other nodes")
-					time.Sleep(100 * time.Millisecond)
 					ctx1 := builder.Nodes[1]
-					n2, err := ctx1.DB.Node(2)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(n2.State).To(Equal(aspen.Healthy))
-					Expect(n2.Heartbeat.Generation).To(Equal(uint32(1)))
+					Eventually(func(g Gomega) {
+						n2, err := ctx1.DB.Node(2)
+						g.Expect(err).ToNot(HaveOccurred())
+						g.Expect(n2.State).To(Equal(aspen.Healthy))
+						g.Expect(n2.Heartbeat.Generation).To(Equal(uint32(1)))
+					})
 
 					By("Closing the databases")
 					Expect(builder.Nodes[1].DB.Close()).To(Succeed())

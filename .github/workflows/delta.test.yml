@@ -1,0 +1,27 @@
+name: "Delta Test"
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    paths:
+      - 'delta/**'
+      - '.github/workflows/delta.test.yml'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: 1.19
+      - name: Test
+        run: go test -v ./... --covermode=atomic --coverprofile=coverage.txt --ginkgo.label-filter="!integration && !performance"
+        working-directory: ./cesium
+      - name: Upload Coverage
+        uses: codecov/codecov-action@v3
+        with:
+          directory: ./delta
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: delta

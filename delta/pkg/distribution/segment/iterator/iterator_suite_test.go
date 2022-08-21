@@ -11,7 +11,6 @@ import (
 	"github.com/arya-analytics/freighter/fmock"
 	"github.com/arya-analytics/x/telem"
 	"go.uber.org/zap"
-	"runtime"
 	"testing"
 	"time"
 
@@ -76,13 +75,6 @@ func writeMockData(
 		stc.CreateCRequestsOfN(numberOfRequests, numberOfSegmentsPerRequest)
 		Expect(stc.CloseAndWait()).ToNot(HaveOccurred())
 	}
-}
-
-// bestEffortSleepUntilStateConverges is a utility that does a best effort wait for state to converge across the cluster.
-// This isn't ideal, but it's a property we need to handle with a weakly consistent data store.
-func bestEffortSleepUntilStateConverges() {
-	runtime.Gosched()
-	time.Sleep(100 * time.Millisecond)
 }
 
 func openIter(
