@@ -35,6 +35,12 @@ jobs:
       - name: Build Image
         run: earthly +docker
         working-directory: ./freighter/integration
+      - name: Upload Image
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
   test-python:
     needs: [ build-integration-image ]
@@ -54,6 +60,9 @@ jobs:
 
     services:
       integration:
-        image: freighter-go-integration:latest
+        image: ghcr.io/arya-analytics/freighter-go-integration:latest
+        credentials:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
         ports:
           - 8080:8080
