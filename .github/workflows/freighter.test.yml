@@ -55,8 +55,8 @@ jobs:
       - name: Install Poetry
         run: |
           pip install poetry
-          poetry install
           poetry config virtualenvs.create false
+          poetry install
         working-directory: ./freighter/py
       - name: Test
         run: pytest
