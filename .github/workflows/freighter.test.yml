@@ -24,7 +24,7 @@ jobs:
           directory: ./freighter/go
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
-          flags: freighter/go
+          flags: freighterGo
 
   build-integration-image:
     runs-on: ubuntu-latest
