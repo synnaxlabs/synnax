@@ -35,3 +35,25 @@ jobs:
       - name: Build Image
         run: earthly +docker
         working-directory: ./freighter/integration
+
+  test-python:
+    needs: [ build-integration-image ]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Step up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.10
+      - name: Install Poetry
+        run: pip install poetry && poetry install
+        working-directory: ./freighter/python
+      - name: Test
+        run: pytest
+        working-directory: ./freighter/python
+
+    services:
+      integration:
+        image: freighter-go-integration:latest
+        ports:
+          - 8080:8080
