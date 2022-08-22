@@ -124,6 +124,14 @@ func (s *Server[RQ, RS]) exec(stream *serverStream[RQ, RS]) error {
 	stream.clientClosed = freighter.StreamClosed
 
 	closed := make(chan struct{}, 1)
+
+	if err := stream.conn.WriteMessage(
+		ws.CloseMessage,
+		ws.FormatCloseMessage(ws.CloseNormalClosure, ""),
+	); err != nil {
+		return err
+	}
+
 	go func() {
 		defer close(closed)
 		for {
@@ -137,13 +145,6 @@ func (s *Server[RQ, RS]) exec(stream *serverStream[RQ, RS]) error {
 			}
 		}
 	}()
-
-	if err := stream.conn.WriteMessage(
-		ws.CloseMessage,
-		ws.FormatCloseMessage(ws.CloseNormalClosure, ""),
-	); err != nil {
-		return err
-	}
 
 	select {
 	case <-stream.ctx.Done():

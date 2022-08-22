@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/zap"
+	"time"
 )
 
 type sampleRequest struct {
@@ -234,16 +235,9 @@ var _ = Describe("StreamTransport", Ordered, Serial, func() {
 				defer cancel()
 				client, err := t.Stream(ctx, addr)
 				Expect(err).ToNot(HaveOccurred())
-				i := 0
-				for {
-					err = client.Send(sampleRequest{ID: 0, Message: "Hello"})
-					if err != nil {
-						Expect(err).To(HaveOccurredAs(freighter.EOF))
-						break
-					}
-					Expect(err).ToNot(HaveOccurred())
-					i++
-				}
+				Eventually(func(g Gomega) {
+					g.Expect(client.Send(sampleRequest{ID: 0, Message: "Hello"})).To(HaveOccurredAs(freighter.EOF))
+				}).WithPolling(10 * time.Millisecond).Should(Succeed())
 				Eventually(serverClosed).Should(BeClosed())
 			})
 		})
