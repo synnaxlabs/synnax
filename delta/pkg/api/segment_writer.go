@@ -48,7 +48,7 @@ type WriterStream = freighter.ServerStream[WriterRequest, WriterResponse]
 //
 // Concrete api implementations (GRPC, Websocket, etc.) are expected to
 // implement the WriterStream interface according to the protocol defined in
-// the freighter.StreamServiceServer interface.
+// the freighter.StreamTransportServer interface.
 //
 // When Write returns an error that is not errors.Canceled, the api
 // implementation is expected to return a WriterResponse.CloseMsg with the error,

@@ -132,9 +132,7 @@ var _ = Describe("StreamTransport", Ordered, Serial, func() {
 						defer GinkgoRecover()
 						defer close(serverClosed)
 						_, err := server.Receive()
-						if err != nil {
-							Fail(err.Error())
-						}
+						Expect(err).ToNot(HaveOccurred())
 						return errors.New("zero is not allowed!")
 					})
 					client, err := t.Stream(context.TODO(), addr)

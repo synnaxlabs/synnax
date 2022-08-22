@@ -1,0 +1,20 @@
+VERSION 0.6
+FROM golang:1.19-alpine3.16
+WORKDIR /freighter/integration
+
+deps:
+    COPY ../../x+source/* /x
+    COPY ../go+source/* /freighter/go
+    COPY go.mod go.sum .
+    RUN go mod download
+
+build:
+    FROM +deps
+    COPY . .
+    RUN go build -o build/freighter/integration main.go
+    SAVE ARTIFACT build/freighter/integration /freighter/integration AS LOCAL build/freighter/integration
+
+docker:
+    COPY +build/freighter/integration .
+    ENTRYPOINT ["/freighter/integration/integration"]
+    SAVE IMAGE freighter-go-integration:latest

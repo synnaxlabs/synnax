@@ -1,12 +1,8 @@
 package iterator
 
 import (
-	"context"
-	"github.com/arya-analytics/cesium"
-	core "github.com/arya-analytics/delta/pkg/distribution/core"
 	"github.com/arya-analytics/x/confluence"
 	"github.com/arya-analytics/x/telem"
-	"github.com/cockroachdb/errors"
 )
 
 // emitter translates iterator commands into req and writes them to a stream.
@@ -72,56 +68,3 @@ func (e *emitter) Exhaust() { e.emit(Request{Command: Exhaust}) }
 func (e *emitter) Error() { e.emit(Request{Command: Error}) }
 
 func (e *emitter) emit(req Request) { e.Out.Inlet() <- req }
-
-func executeRequest(ctx context.Context, host core.NodeID, iter cesium.StreamIterator, req Request) Response {
-	switch req.Command {
-	case Open:
-		ack := newAck(host, req.Command, false)
-		ack.Error = errors.New(
-			"[segment.iterator.serve] - Open command called multiple times",
-		)
-		return ack
-	case Next:
-		return newAck(host, req.Command, iter.Next())
-	case Prev:
-		return newAck(host, req.Command, iter.Prev())
-	case First:
-		return newAck(host, req.Command, iter.First())
-	case Last:
-		return newAck(host, req.Command, iter.Last())
-	case NextSpan:
-		return newAck(host, req.Command, iter.NextSpan(req.Span))
-	case PrevSpan:
-		return newAck(host, req.Command, iter.PrevSpan(req.Span))
-	case NextRange:
-		return newAck(host, req.Command, iter.NextRange(req.Range))
-	case SeekFirst:
-		return newAck(host, req.Command, iter.SeekFirst())
-	case SeekLast:
-		return newAck(host, req.Command, iter.SeekLast())
-	case SeekLT:
-		return newAck(host, req.Command, iter.SeekLT(req.Stamp))
-	case SeekGE:
-		return newAck(host, req.Command, iter.SeekGE(req.Stamp))
-	case Valid:
-		return newAck(host, req.Command, iter.Valid())
-	case Error:
-		err := iter.Error()
-		ack := newAck(host, req.Command, err == nil)
-		ack.Error = err
-		return ack
-	case Close:
-		err := iter.Close()
-		ack := newAck(host, req.Command, err == nil)
-		ack.Error = err
-		return ack
-	case Exhaust:
-		for iter.First(); iter.Next(); iter.Valid() {
-		}
-		return newAck(host, req.Command, true)
-	default:
-		ack := newAck(host, req.Command, false)
-		ack.Error = errors.New("[segment.iterator] - unknown command")
-		return ack
-	}
-}

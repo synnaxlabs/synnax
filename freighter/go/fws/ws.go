@@ -57,11 +57,11 @@ func (s *Stream[RQ, RS]) Stream(
 }
 
 var (
-	_ freighter.StreamTransport[any, types.Nil]     = (*Stream[any, types.Nil])(nil)
-	_ freighter.StreamServiceServer[any, types.Nil] = (*Server[any, types.Nil])(nil)
-	_ freighter.StreamServiceClient[any, types.Nil] = (*Client[any, types.Nil])(nil)
-	_ freighter.ClientStream[any, types.Nil]        = (*clientStream[any, types.Nil])(nil)
-	_ freighter.ServerStream[any, types.Nil]        = (*serverStream[any, types.Nil])(nil)
+	_ freighter.StreamTransport[any, types.Nil]       = (*Stream[any, types.Nil])(nil)
+	_ freighter.StreamTransportServer[any, types.Nil] = (*Server[any, types.Nil])(nil)
+	_ freighter.StreamTransportClient[any, types.Nil] = (*Client[any, types.Nil])(nil)
+	_ freighter.ClientStream[any, types.Nil]          = (*clientStream[any, types.Nil])(nil)
+	_ freighter.ServerStream[any, types.Nil]          = (*serverStream[any, types.Nil])(nil)
 )
 
 func NewClient[RQ, RS freighter.Payload](ecd httputil.EncoderDecoder) *Client[RQ, RS] {

@@ -1,14 +1,11 @@
 import asyncio
-import dataclasses
 
 from dataclasses import dataclass
+from typing import Generic, TypeVar
 
-from delta import errors
 from . import Segment
 from asyncio import Event, Task
 import freighter
-
-from .. import errors
 
 
 @dataclass
@@ -22,11 +19,34 @@ class WriterResponse:
     error: freighter.errors.ErrorPayload
 
 
-class Writer:
+T = TypeVar('T')
+
+
+class Notifier(Generic[T]):
+    event: asyncio.Event
+    lock: asyncio.Lock
+    value: T
+
+    async def maybe_notify(self, value: T):
+        if not self.is_set() and not self.lock.locked():
+            await self.notify(value)
+
+    async def notify(self, value: T):
+        async with self.lock.acquire():
+            self.value = value
+            self.event.set()
+            self.lock.release()
+
+    def is_set(self) -> bool:
+        return self.event.is_set()
+
+
+class BaseWriter:
     keys: list[str]
     transport: freighter.StreamClient
     stream: freighter.Stream[WriterResponse, WriterRequest]
-    error_loop: Task[None]
+    responses: Task[Exception | None]
+    error_notifier: Notifier[Exception]
 
     def __init__(self, transport: freighter.StreamClient) -> None:
         self.transport = transport
@@ -35,34 +55,32 @@ class Writer:
     async def open(self, keys: list[str]):
         self.stream = await self.transport.stream("/segment/write")
         await self.stream.send(WriterRequest(keys, []))
-        self.error_loop = asyncio.create_task(self.listen_for_errors())
+        self.responses = asyncio.create_task(self.listen_for_errors())
 
-    async def write(self, segments: list[Segment]) -> Exception | None:
-        if self.error.is_set():
-            return freighter.EOF()
-        return await self.stream.send(WriterRequest([], segments))
+    async def write(self, segments: list[Segment]) -> bool:
+        if self.error_notifier.is_set():
+            return False
+        err = await self.stream.send(WriterRequest([], segments))
+        if err is not None:
+            await self.error_notifier.maybe_notify(err)
+            return False
+        return True
 
     async def close(self):
         await self.stream.close_send()
-        err = await self.error_loop
+        err = await self.responses
         if err is not None:
             raise err
 
-    async def check_for_error(self) -> Exception | None:
-        if self.error.is_set():
-            self.error.clear()
-            return await self.error_loop
-
     async def listen_for_errors(self) -> Exception | None:
-        while True:
-            res = WriterResponse(error=freighter.errors.ErrorPayload(None, None))
-            err = await self.stream.receive(res)
-            self.error.set()
+        res = WriterResponse(error=freighter.errors.ErrorPayload(None, None))
+        err = await self.stream.receive(res)
+        self.error.set()
 
-            if isinstance(err, freighter.errors.EOF):
-                return None
+        if isinstance(err, freighter.errors.EOF):
+            return None
 
-            if err is not None:
-                raise err
+        if err is not None:
+            raise err
 
-            return freighter.errors.decode(res.error)
+        return freighter.errors.decode(res.error)

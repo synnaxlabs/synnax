@@ -14,11 +14,11 @@ import (
 // are more complex than Unary, and care should be taken when managing the Stream
 // lifecycle.
 type StreamTransport[RQ, RS Payload] interface {
-	StreamServiceClient[RQ, RS]
-	StreamServiceServer[RQ, RS]
+	StreamTransportClient[RQ, RS]
+	StreamTransportServer[RQ, RS]
 }
 
-type StreamServiceClient[RQ, RS Payload] interface {
+type StreamTransportClient[RQ, RS Payload] interface {
 	Transport
 	// Stream opens a stream to the target server using the given context. If
 	// the stream cannot be opened (ex. the server cannot be reached), Stream
@@ -27,7 +27,7 @@ type StreamServiceClient[RQ, RS Payload] interface {
 	Stream(ctx context.Context, target address.Address) (ClientStream[RQ, RS], error)
 }
 
-type StreamServiceServer[RQ, RS Payload] interface {
+type StreamTransportServer[RQ, RS Payload] interface {
 	Transport
 	// BindHandler is called by the server to handle a request from the client. If
 	// the context is cancelled, the server is expected to discard unprocessed
