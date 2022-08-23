@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/arya-analytics/delta/pkg/api/errors"
 	"github.com/go-playground/validator/v10"
 	"go.uber.org/zap"
 	"reflect"
@@ -16,6 +17,9 @@ func newValidator() *validator.Validate {
 var tagNames = []string{"json", "msgpack"}
 
 func tagNameFunc(fld reflect.StructField) string {
+	if fld.Anonymous {
+		return errors.EmbeddedFieldName
+	}
 	for _, tagName := range tagNames {
 		if name, ok := getTagName(fld, tagName); ok {
 			return name

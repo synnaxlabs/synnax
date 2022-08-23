@@ -25,6 +25,7 @@ type WriterRequest struct {
 }
 
 type WriterResponse struct {
+	Ack bool            `json:"ack" msgpack:"ack"`
 	Err ferrors.Payload `json:"error" msgpack:"error"`
 }
 
@@ -134,7 +135,11 @@ func (s *SegmentService) openWriter(ctx context.Context, srv WriterStream) (segm
 		return nil, _err
 	}
 	w, err := s.Internal.NewCreate().WhereChannels(keys...).Write(ctx)
-	return w, errors.MaybeGeneral(err)
+	if err != nil {
+		return nil, errors.General(err)
+	}
+	// Let the client know the writer is ready to receive segments.
+	return w, errors.MaybeUnexpected(srv.Send(WriterResponse{Ack: true}))
 }
 
 func receiveWriterOpenArgs(srv WriterStream) (channel.Keys, errors.Typed) {

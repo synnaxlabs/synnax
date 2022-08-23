@@ -35,23 +35,14 @@ func newFieldFromValidator(v validator.FieldError) Field {
 	return Field{Field: parseFieldName(v), Message: v.Tag()}
 }
 
+const EmbeddedFieldName = "--embedded--"
+
 func parseFieldName(v validator.FieldError) string {
 	// This operation grabs nested struct field names but does not grab the parent
 	// struct field name.
 	path := strings.Split(v.Namespace(), ".")[1:]
 
-	// Rejoin the path with dots.
 	fieldName := strings.Join(path, ".")
-
-	// We use the json tag '.' to indicate an embedded struct,
 	// and this removes the embedded struct field name.
-	if len(fieldName) > 0 {
-		for {
-			if fieldName[0] != '.' {
-				break
-			}
-			fieldName = fieldName[1:]
-		}
-	}
-	return fieldName
+	return strings.Replace(fieldName, EmbeddedFieldName+".", "", -1)
 }

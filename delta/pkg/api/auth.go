@@ -47,7 +47,7 @@ func (s *AuthService) Login(creds auth.InsecureCredentials) (tr TokenResponse, _
 
 // RegistrationRequest is an API request to register a new user.
 type RegistrationRequest struct {
-	auth.InsecureCredentials `json:"." msgpack:"."`
+	auth.InsecureCredentials
 }
 
 // Register registers new user with the provided credentials. If successful, returns a response
