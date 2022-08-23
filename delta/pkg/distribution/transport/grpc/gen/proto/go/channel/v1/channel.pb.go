@@ -76,7 +76,7 @@ type Channel struct {
 	Name     string  `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	NodeId   int32   `protobuf:"varint,2,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
 	Key      int32   `protobuf:"varint,3,opt,name=key,proto3" json:"key,omitempty"`
-	DataRate float64 `protobuf:"fixed64,4,opt,name=data_rate,json=dataRate,proto3" json:"data_rate,omitempty"`
+	Rate float64 `protobuf:"fixed64,4,opt,name=data_rate,json=rate,proto3" json:"data_rate,omitempty"`
 	Density  int32   `protobuf:"varint,5,opt,name=density,proto3" json:"density,omitempty"`
 }
 
@@ -133,9 +133,9 @@ func (x *Channel) GetKey() int32 {
 	return 0
 }
 
-func (x *Channel) GetDataRate() float64 {
+func (x *Channel) GetRate() float64 {
 	if x != nil {
-		return x.DataRate
+		return x.Rate
 	}
 	return 0
 }

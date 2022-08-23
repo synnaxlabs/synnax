@@ -263,25 +263,25 @@ var _ = Describe("Telem", func() {
 		})
 	})
 
-	Describe("DataRate", func() {
+	Describe("Rate", func() {
 		Describe("Period", func() {
 			It("Should return the correct period for the data rate", func() {
-				Expect(telem.DataRate(1).Period()).To(Equal(telem.Second))
+				Expect(telem.Rate(1).Period()).To(Equal(telem.Second))
 			})
 		})
 		Describe("SampleCount", func() {
 			It("Should return the number of samples that fit in the span", func() {
-				Expect(telem.DataRate(10).SampleCount(telem.Second)).To(Equal(10))
+				Expect(telem.Rate(10).SampleCount(telem.Second)).To(Equal(10))
 			})
 		})
 		Describe("Span", func() {
 			It("Should return the span of the provided samples", func() {
-				Expect(telem.DataRate(10).Span(10)).To(Equal(telem.Second))
+				Expect(telem.Rate(10).Span(10)).To(Equal(telem.Second))
 			})
 		})
 		Describe("SizeSpan", func() {
 			It("Should return the span of the provided number of bytes", func() {
-				Expect(telem.DataRate(10).SizeSpan(16, telem.Float64)).To(Equal(200 * telem.Millisecond))
+				Expect(telem.Rate(10).SizeSpan(16, telem.Float64)).To(Equal(200 * telem.Millisecond))
 			})
 		})
 	})

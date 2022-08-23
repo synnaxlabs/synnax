@@ -30,10 +30,10 @@ var _ = Describe("Channel", Ordered, func() {
 		It("Should create a new channel", func() {
 			res, err := svc.Create(context.TODO(), api.ChannelCreateRequest{
 				Channel: api.Channel{
-					Name:     "test",
-					NodeID:   1,
-					DataType: telem.Float64,
-					DataRate: 25 * telem.Hz,
+					Name:    "test",
+					NodeID:  1,
+					Density: telem.Float64,
+					Rate:    25 * telem.Hz,
 				},
 			})
 			Expect(err).To(Equal(errors.Nil))
@@ -54,19 +54,19 @@ var _ = Describe("Channel", Ordered, func() {
 			Expect(len(res.Channels)).To(Equal(0))
 		},
 			Entry("No node id", api.Channel{
-				Name:     "test",
-				DataType: telem.Float64,
-				DataRate: 25 * telem.Hz,
+				Name:    "test",
+				Density: telem.Float64,
+				Rate:    25 * telem.Hz,
 			}, "channel.node_id", "required"),
 			Entry("No Data Type", api.Channel{
-				Name:     "test",
-				NodeID:   1,
-				DataRate: 25 * telem.Hz,
+				Name:   "test",
+				NodeID: 1,
+				Rate:   25 * telem.Hz,
 			}, "channel.data_type", "required"),
 			Entry("No Data Rate", api.Channel{
-				Name:     "test",
-				NodeID:   1,
-				DataType: telem.Float64,
+				Name:    "test",
+				NodeID:  1,
+				Density: telem.Float64,
 			}, "channel.data_rate", "required"),
 		)
 	})

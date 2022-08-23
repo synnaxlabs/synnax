@@ -25,7 +25,7 @@ func (s Sugared) UnboundedSize() telem.Size {
 
 // UnboundedSpan returns the TimeSpan of the underlying segment. This value is not restricted by any bounds set.
 func (s Sugared) UnboundedSpan() telem.TimeSpan {
-	return s.channel.DataRate.SizeSpan(s.UnboundedSize(), s.channel.DataType)
+	return s.channel.Rate.SizeSpan(s.UnboundedSize(), s.channel.Density)
 }
 
 // UnboundedRange returns the time range of the underlying segment. This value is not restricted by any bounds set.
@@ -66,14 +66,14 @@ func (s Sugared) BoundedSpan() telem.TimeSpan { return s.BoundedRange().Span() }
 // BoundedSize returns the size of the underlying segment's data in bytes after being restricted by the bounds set in
 // SetBounds.
 func (s Sugared) BoundedSize() telem.Size {
-	return s.BoundedSpan().ByteSize(s.channel.DataRate, s.channel.DataType)
+	return s.BoundedSpan().ByteSize(s.channel.Rate, s.channel.Density)
 }
 
 // BoundedOffset returns the file offset of the underlying segment after being restricted by the bounds set in
 // SetBounds.
 func (s Sugared) BoundedOffset() telem.Offset {
 	return telem.TimeSpan(s.BoundedRange().Start-s.Start()).ByteSize(s.channel.
-		DataRate, s.channel.DataType)
+		Rate, s.channel.Density)
 }
 
 // ReadDataFrom reads data from the reader into the underlying segment.

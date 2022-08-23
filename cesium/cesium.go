@@ -29,8 +29,8 @@ type DB interface {
 	//      // will automatically generate a sequential uint16 key for the channel.
 	//      // It is possible to specify a custom, UNIQUE key for the channel.
 	//      key, err := cesium.CreateChannel(cesium.Channel{
-	//          DataType: cesium.Float64,
-	//          DataRate: 5 * cesium.Hz,
+	//          Density: cesium.Float64,
+	//          Rate: 5 * cesium.Hz,
 	//		})
 	//		if err != nil {
 	// 	    	 log.Fatal(err)
@@ -218,8 +218,8 @@ type DB interface {
 	//		// Create a channel. The generated key can be used to write data to and
 	// 		// retrieve data from the channel.
 	//		key, err := cesium.CreateChannel(cesium.Channel{
-	//           DataRate: 5 *cesium.Hz,
-	//           DataType: cesium.Float64,
+	//           Rate: 5 *cesium.Hz,
+	//           Density: cesium.Float64,
 	//		})
 	//		if err != nil {
 	//			logger.Fatal(err)

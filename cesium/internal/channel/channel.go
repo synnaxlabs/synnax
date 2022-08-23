@@ -12,9 +12,9 @@ type Key uint16
 func (k Key) String() string { return strconv.Itoa(int(k)) }
 
 type Channel struct {
-	Key      Key
-	DataRate telem.DataRate
-	DataType telem.DataType
+	Key     Key
+	Rate    telem.Rate
+	Density telem.Density
 }
 
 // GorpKey implements the gorp.Entry interface.

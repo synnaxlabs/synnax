@@ -12,11 +12,11 @@ import (
 // Channel is an API-friendly version of the channel.Channel type. It is simplified for
 // use purely as a data container.
 type Channel struct {
-	Key      string              `json:"key" msgpack:"key"`
-	Name     string              `json:"name" msgpack:"name"`
-	NodeID   distribution.NodeID `json:"node_id" msgpack:"node_id" validate:"required"`
-	DataRate telem.DataRate      `json:"data_rate" msgpack:"data_rate" validate:"required"`
-	DataType telem.DataType      `json:"data_type" msgpack:"data_type" validate:"required"`
+	Key     string              `json:"key" msgpack:"key"`
+	Name    string              `json:"name" msgpack:"name"`
+	NodeID  distribution.NodeID `json:"node_id" msgpack:"node_id" validate:"required"`
+	Rate    telem.Rate          `json:"data_rate" msgpack:"data_rate" validate:"required"`
+	Density telem.Density       `json:"data_type" msgpack:"data_type" validate:"required"`
 }
 
 type ChannelService struct {
@@ -63,8 +63,8 @@ func (s *ChannelService) Create(
 		chs, err := s.Internal.NewCreate().
 			WithName(req.Channel.Name).
 			WithNodeID(req.Channel.NodeID).
-			WithDataRate(req.Channel.DataRate).
-			WithDataType(req.Channel.DataType).
+			WithRate(req.Channel.Rate).
+			WithDensity(req.Channel.Density).
 			WithTxn(txn).
 			ExecN(ctx, req.Count)
 		res = ChannelCreateResponse{Channels: translateChannels(chs)}
@@ -108,11 +108,11 @@ func translateChannels(channels []channel.Channel) []Channel {
 	translated := make([]Channel, len(channels))
 	for i, ch := range channels {
 		translated[i] = Channel{
-			Key:      ch.Key().String(),
-			Name:     ch.Name,
-			NodeID:   ch.NodeID,
-			DataRate: ch.DataRate,
-			DataType: ch.DataType,
+			Key:     ch.Key().String(),
+			Name:    ch.Name,
+			NodeID:  ch.NodeID,
+			Rate:    ch.Rate,
+			Density: ch.Density,
 		}
 	}
 	return translated

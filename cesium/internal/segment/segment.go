@@ -36,7 +36,7 @@ func (h Header) GorpKey() []byte { return h.Key().Bytes() }
 // SetOptions implements the gorp.Entry interface.
 func (h Header) SetOptions() []interface{} { return []interface{}{pebble.NoSync} }
 
-func (h Header) End(dr telem.DataRate, dt telem.DataType) telem.TimeStamp {
+func (h Header) End(dr telem.Rate, dt telem.Density) telem.TimeStamp {
 	return h.Start.Add(dr.SizeSpan(h.Size, dt))
 }
 
@@ -78,6 +78,6 @@ func (r *Range) UnboundedRange() telem.TimeRange {
 	}
 	return telem.TimeRange{
 		Start: r.Headers[0].Start,
-		End:   r.Headers[len(r.Headers)-1].End(r.Channel.DataRate, r.Channel.DataType),
+		End:   r.Headers[len(r.Headers)-1].End(r.Channel.Rate, r.Channel.Density),
 	}
 }

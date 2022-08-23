@@ -29,13 +29,13 @@ func (c Create) WithNodeID(nodeID core.NodeID) Create { setNodeID(c, nodeID); re
 // will default to a string version of the channels Key.
 func (c Create) WithName(name string) Create { setName(c, name); return c }
 
-// WithDataRate sets the data rate for the Channel. This option is required, and must be
+// WithRate sets the data rate for the Channel. This option is required, and must be
 // a non-zero value.
-func (c Create) WithDataRate(dr telem.DataRate) Create { telem.SetDataRate(c, dr); return c }
+func (c Create) WithRate(dr telem.Rate) Create { telem.SetRate(c, dr); return c }
 
-// WithDataType sets the data type for the Channel. This option is required, and must be
+// WithDensity sets the data type for the Channel. This option is required, and must be
 // a non-zero value.
-func (c Create) WithDataType(dt telem.DataType) Create { telem.SetDataType(c, dt); return c }
+func (c Create) WithDensity(dt telem.Density) Create { telem.SetDensity(c, dt); return c }
 
 // WithTxn binds a transaction the query will be executed within. If the option is not
 // set, the query will be executed directly against the Service database.
@@ -61,11 +61,11 @@ func (c Create) ExecN(ctx context.Context, n int) ([]Channel, error) {
 
 func assembleFromQuery(q query.Query, n int) ([]Channel, error) {
 	channels := make([]Channel, n)
-	dr, err := telem.GetDataRate(q)
+	dr, err := telem.GetRate(q)
 	if err != nil {
 		return channels, err
 	}
-	dt, err := telem.GetDataType(q)
+	dt, err := telem.GetDensity(q)
 	if err != nil {
 		return channels, err
 	}
@@ -75,7 +75,7 @@ func assembleFromQuery(q query.Query, n int) ([]Channel, error) {
 		channels[i] = Channel{
 			Name:    name,
 			NodeID:  nodeID,
-			Channel: storage.Channel{DataRate: dr, DataType: dt},
+			Channel: storage.Channel{Rate: dr, Density: dt},
 		}
 	}
 	return channels, nil

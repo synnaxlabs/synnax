@@ -5,22 +5,22 @@ import (
 )
 
 const (
-	dataRateOptKey query.OptionKey = "telem.dataRate"
-	timeRangeKey   query.OptionKey = "telem.timeRange"
-	dataTypeKey    query.OptionKey = "telem.dataType"
+	rateOptKey   query.OptionKey = "telem.rate"
+	timeRangeKey query.OptionKey = "telem.timeRange"
+	densityKey   query.OptionKey = "telem.density"
 )
 
-func SetDataRate(q query.Query, dr DataRate) { q.Set(dataRateOptKey, dr) }
+func SetRate(q query.Query, dr Rate) { q.Set(rateOptKey, dr) }
 
 func SetTimeRange(q query.Query, tr TimeRange) { q.Set(timeRangeKey, tr) }
 
-func SetDataType(q query.Query, dt DataType) { q.Set(dataTypeKey, dt) }
+func SetDensity(q query.Query, dt Density) { q.Set(densityKey, dt) }
 
-func GetDataRate(q query.Query) (DataRate, error) {
-	if v, ok := q.Get(dataRateOptKey); ok {
-		return v.(DataRate), nil
+func GetRate(q query.Query) (Rate, error) {
+	if v, ok := q.Get(rateOptKey); ok {
+		return v.(Rate), nil
 	}
-	return 0, InvalidDataRate
+	return 0, InvalidRate
 }
 
 func GetTimeRange(q query.Query) (TimeRange, error) {
@@ -30,9 +30,9 @@ func GetTimeRange(q query.Query) (TimeRange, error) {
 	return TimeRangeZero, InvalidTimeRange
 }
 
-func GetDataType(q query.Query) (DataType, error) {
-	if v, ok := q.Get(dataTypeKey); ok {
-		return v.(DataType), nil
+func GetDensity(q query.Query) (Density, error) {
+	if v, ok := q.Get(densityKey); ok {
+		return v.(Density), nil
 	}
-	return 0, InvalidDataType
+	return 0, InvalidDensity
 }

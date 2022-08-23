@@ -26,16 +26,16 @@ var _ = Describe("Remote", Ordered, func() {
 		var channels []channel.Channel
 		node1Channels, err := services[1].channel.NewCreate().
 			WithName("SG02").
-			WithDataRate(dr).
-			WithDataType(telem.Float64).
+			WithRate(dr).
+			WithDensity(telem.Float64).
 			WithNodeID(1).
 			ExecN(ctx, 1)
 		Expect(err).ToNot(HaveOccurred())
 		channels = append(channels, node1Channels...)
 		node2Channels, err := services[2].channel.NewCreate().
 			WithName("SG02").
-			WithDataRate(dr).
-			WithDataType(telem.Float64).
+			WithRate(dr).
+			WithDensity(telem.Float64).
 			WithNodeID(2).
 			ExecN(ctx, 1)
 		Expect(err).ToNot(HaveOccurred())

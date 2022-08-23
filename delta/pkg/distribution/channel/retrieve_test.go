@@ -29,8 +29,8 @@ var _ = Describe("getAttributes", Ordered, func() {
 		It("Should correctly retrieve a set of channels", func() {
 			created, err := services[1].NewCreate().
 				WithName("SG02").
-				WithDataRate(25*telem.KHz).
-				WithDataType(telem.Float32).
+				WithRate(25*telem.KHz).
+				WithDensity(telem.Float32).
 				WithNodeID(1).
 				ExecN(ctx, 10)
 			Expect(err).ToNot(HaveOccurred())
@@ -61,8 +61,8 @@ var _ = Describe("getAttributes", Ordered, func() {
 		It("Should correctly retrieve a channel by its key", func() {
 			created, err := services[1].NewCreate().
 				WithName("SG02").
-				WithDataRate(25*telem.KHz).
-				WithDataType(telem.Float32).
+				WithRate(25*telem.KHz).
+				WithDensity(telem.Float32).
 				WithNodeID(1).
 				ExecN(ctx, 10)
 			Expect(err).ToNot(HaveOccurred())
@@ -83,8 +83,8 @@ var _ = Describe("getAttributes", Ordered, func() {
 		It("Should return true if a channel exists", func() {
 			_, err := services[1].NewCreate().
 				WithName("SG02").
-				WithDataRate(25*telem.KHz).
-				WithDataType(telem.Float32).
+				WithRate(25*telem.KHz).
+				WithDensity(telem.Float32).
 				WithNodeID(1).
 				ExecN(ctx, 10)
 			Expect(err).ToNot(HaveOccurred())

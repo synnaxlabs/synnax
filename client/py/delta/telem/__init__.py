@@ -181,7 +181,7 @@ class TimeSpan:
         """
         return TimeSpan(self.value - TimeSpan(ts).value)
 
-    def byte_size(self, data_rate: DataRate, data_type: DataType) -> int:
+    def byte_size(self, data_rate: Rate, data_type: Density) -> int:
         return (self / data_rate.period() * data_type).value
 
     def __add__(self, other: UnparsedTimeSpan) -> TimeSpan:
@@ -224,7 +224,7 @@ HOUR = TimeSpan(60) * MINUTE
 
 
 @dataclass
-class DataRate:
+class Rate:
     value: float
 
     def period(self) -> TimeSpan:
@@ -236,19 +236,19 @@ class DataRate:
     def span(self, sample_count: int) -> TimeSpan:
         return self.period() * TimeSpan(sample_count)
 
-    def size_span(self, size: Size, density: DataType) -> TimeSpan:
+    def size_span(self, size: Size, density: Density) -> TimeSpan:
         return self.span(size.value * density.value)
 
     def __mul__(self, other):
-        return DataRate(self.value * other.value)
+        return Rate(self.value * other.value)
 
     def __truediv__(self, other):
-        return DataRate(self.value / other.value)
+        return Rate(self.value / other.value)
 
 
-HZ = DataRate(1)
-KHZ = DataRate(1000) * HZ
-MHZ = DataRate(1000) * KHZ
+HZ = Rate(1)
+KHZ = Rate(1000) * HZ
+MHZ = Rate(1000) * KHZ
 
 
 @dataclass
@@ -295,11 +295,11 @@ class TimeRange:
 
 
 @dataclass
-class DataType:
+class Density:
     value: int
 
     def __mul__(self, other):
-        return DataType(self.value * other.value)
+        return Density(self.value * other.value)
 
 
 @dataclass
@@ -313,17 +313,17 @@ class Size:
         return Size(self.value * other.value)
 
 
-UNKNOWN = DataType(0)
-FLOAT_64 = DataType(8)
-UINT_64 = DataType(8)
-INT_64 = DataType(8)
-FLOAT_32 = DataType(4)
-INT_32 = DataType(4)
-UINT_32 = DataType(4)
-INT_16 = DataType(2)
-UINT_16 = DataType(2)
-INT_8 = DataType(1)
-UINT_8 = DataType(1)
+UNKNOWN = Density(0)
+FLOAT_64 = Density(8)
+UINT_64 = Density(8)
+INT_64 = Density(8)
+FLOAT_32 = Density(4)
+INT_32 = Density(4)
+UINT_32 = Density(4)
+INT_16 = Density(2)
+UINT_16 = Density(2)
+INT_8 = Density(1)
+UINT_8 = Density(1)
 
 UnparsedTimeStamp = TimeSpan | TimeStamp | int | float | datetime.datetime | datetime.timedelta
 UnparsedTimeSpan = TimeSpan | TimeStamp | int | float | datetime.timedelta

@@ -211,7 +211,7 @@ as images, audio, etc. Creating a custom data type is as simple as defining a co
 
 ```go
 // TenByTenImage is a custom data type where each sample is 10 * 10 * 3 bytes in size.
-const TenByTenImage cesium.DataType = 10 * 10 * 3
+const TenByTenImage cesium.Density = 10 * 10 * 3
 
 // Create a new channel that accepts samples of type TenByTenImage.
 cesium.NewCreateChannel().
@@ -224,7 +224,7 @@ It's important to note that Cesium does not plan to validate the data type. It's
 that partial
 samples are not added to a segment. This is mainly for simplicity and separation of concern, as the caller typically
 has more information about the data being written than the storage engine itself does. This decision is definitely
-not hard and fast, as adding simple validation is relatively easy (we can assert `len(data) % DataType == 0` for
+not hard and fast, as adding simple validation is relatively easy (we can assert `len(data) % Density == 0` for
 example).
 
 ## Extending an Existing Key-Value Store

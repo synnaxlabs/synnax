@@ -29,13 +29,13 @@ var _ = Describe("Regression", func() {
 		)
 		BeforeEach(func() {
 			ch = channel.Channel{
-				Key:      1,
-				DataRate: 25,
-				DataType: telem.Float64,
+				Key:     1,
+				Rate:    25,
+				Density: telem.Float64,
 			}
 			Expect(chKV.Set(ch)).To(Succeed())
 			span := 10 * telem.Second
-			size := span.ByteSize(ch.DataRate, ch.DataType)
+			size := span.ByteSize(ch.Rate, ch.Density)
 			var headers []segment.Header
 			for i := 0; i < 10; i++ {
 				headers = append(headers, segment.Header{

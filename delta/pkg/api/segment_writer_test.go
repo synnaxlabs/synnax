@@ -30,8 +30,8 @@ var _ = Describe("SegmentWriter", Ordered, func() {
 		svc = api.NewSegmentService(prov)
 		ch, err := prov.Config.Channel.NewCreate().
 			WithName("test").
-			WithDataRate(25*telem.Hz).
-			WithDataType(telem.Float64).
+			WithRate(25*telem.Hz).
+			WithDensity(telem.Float64).
 			WithNodeID(1).
 			ExecN(ctx, 2)
 		Expect(err).To(BeNil())

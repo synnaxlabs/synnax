@@ -34,8 +34,8 @@ var _ = Describe("Create", Ordered, func() {
 		JustBeforeEach(func() {
 			var err error
 			ch, err = services[1].NewCreate().
-				WithDataRate(5 * telem.Hz).
-				WithDataType(telem.Float64).
+				WithRate(5 * telem.Hz).
+				WithDensity(telem.Float64).
 				WithName("SG01").
 				WithNodeID(channelLeaseNodeID).
 				Exec(ctx)
@@ -53,8 +53,8 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(channels).To(HaveLen(1))
 				cesiumCH := channels[0]
 				Expect(cesiumCH.Key).To(Equal(ch.Key().StorageKey()))
-				Expect(cesiumCH.DataType).To(Equal(telem.Float64))
-				Expect(cesiumCH.DataRate).To(Equal(5 * telem.Hz))
+				Expect(cesiumCH.Density).To(Equal(telem.Float64))
+				Expect(cesiumCH.Rate).To(Equal(5 * telem.Hz))
 			})
 		})
 		Context("Node is remote", func() {
@@ -69,8 +69,8 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(channels).To(HaveLen(1))
 				cesiumCH := channels[0]
 				Expect(cesiumCH.Key).To(Equal(ch.Key().StorageKey()))
-				Expect(cesiumCH.DataType).To(Equal(telem.Float64))
-				Expect(cesiumCH.DataRate).To(Equal(5 * telem.Hz))
+				Expect(cesiumCH.Density).To(Equal(telem.Float64))
+				Expect(cesiumCH.Rate).To(Equal(5 * telem.Hz))
 			})
 			It("Should not create the channel on another node's ceisum gorpDB", func() {
 				channels, err := builder.Cores[1].Storage.TS.RetrieveChannel(ch.Key().StorageKey())
@@ -80,8 +80,8 @@ var _ = Describe("Create", Ordered, func() {
 			It("Should assign a sequential key to the channels on each node",
 				func() {
 					ch2, err := services[1].NewCreate().
-						WithDataRate(5 * telem.Hz).
-						WithDataType(telem.Float64).
+						WithRate(5 * telem.Hz).
+						WithDensity(telem.Float64).
 						WithName("SG01").
 						WithNodeID(1).
 						Exec(ctx)

@@ -14,12 +14,12 @@ type DeviceFactory struct {
 	DB  cesium.DB
 }
 
-func (f DeviceFactory) New(dt cesium.Density, dr cesium.DataRate, fi cesium.TimeSpan) *Device {
+func (f DeviceFactory) New(dt cesium.Density, dr cesium.Rate, fi cesium.TimeSpan) *Device {
 	return &Device{
 		Ctx:           f.Ctx,
 		DB:            f.DB,
-		DataType:      dt,
-		DataRate:      dr,
+		Density:       dt,
+		Rate:          dr,
 		FlushInterval: fi,
 	}
 }
@@ -27,8 +27,8 @@ func (f DeviceFactory) New(dt cesium.Density, dr cesium.DataRate, fi cesium.Time
 type Device struct {
 	Ctx           context.Context
 	DB            cesium.DB
-	DataType      cesium.Density
-	DataRate      cesium.DataRate
+	Density       cesium.Density
+	Rate          cesium.Rate
 	FlushInterval cesium.TimeSpan
 	res           <-chan cesium.CreateResponse
 	cancelFlush   context.CancelFunc
@@ -36,8 +36,8 @@ type Device struct {
 
 func (d *Device) createChannel() (cesium.Channel, error) {
 	ch := cesium.Channel{
-		DataRate: d.DataRate,
-		DataType: d.DataType,
+		Rate:    d.Rate,
+		Density: d.Density,
 	}
 	key, err := d.DB.CreateChannel(ch)
 	ch.Key = key
@@ -64,7 +64,7 @@ func (d *Device) writeSegments(c cesium.Channel) error {
 	sc := &seg.StreamCreate{
 		Req:               req,
 		Res:               res,
-		SequentialFactory: seg.NewSequentialFactory(seg.DataTypeFactory(d.DataType), d.FlushInterval, c),
+		SequentialFactory: seg.NewSequentialFactory(seg.DensityFactory(d.Density), d.FlushInterval, c),
 	}
 	go func() {
 		t := time.NewTicker(d.FlushInterval.Duration())

@@ -8,5 +8,5 @@ class Channel:
     key: str = ""
     name: str = ""
     node_id: int = 0
-    data_rate: telem.DataRate = telem.DataRate(0)
-    data_type: telem.DataType = telem.DataType(0)
+    data_rate: telem.Rate = telem.Rate(0)
+    data_type: telem.Density = telem.Density(0)

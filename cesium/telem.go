@@ -6,8 +6,7 @@ type (
 	TimeStamp = telem.TimeStamp
 	TimeRange = telem.TimeRange
 	TimeSpan  = telem.TimeSpan
-	DataType  = telem.DataType
-	DataRate  = telem.DataRate
+	Rate      = telem.Rate
 	Density   = telem.Density
 	Size      = telem.Size
 )

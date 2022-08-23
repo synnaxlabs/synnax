@@ -43,8 +43,8 @@ var _ = Describe("Server", func() {
 		builder, services = provisionNServices(1, log)
 		_, err := services[1].channel.NewCreate().
 			WithName("SG02").
-			WithDataRate(1*telem.Hz).
-			WithDataType(telem.Float64).
+			WithRate(1*telem.Hz).
+			WithDensity(telem.Float64).
 			WithNodeID(1).
 			ExecN(ctx, 1)
 		Expect(err).ToNot(HaveOccurred())

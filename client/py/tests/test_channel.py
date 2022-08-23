@@ -13,8 +13,8 @@ class TestChannel:
             key="1-1",
             name="test",
             node_id=1,
-            data_rate=telem.DataRate(25),
-            data_type=telem.DataType(8),
+            data_rate=telem.Rate(25),
+            data_type=telem.Density(8),
         )
         encoded = ecd.encode(ch)
         decoded = Channel()

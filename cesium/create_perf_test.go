@@ -20,8 +20,8 @@ import (
 
 type createVars struct {
 	nChannels int
-	dataRate  cesium.DataRate
-	dataType  cesium.Density
+	rate      cesium.Rate
+	density   cesium.Density
 }
 
 type createConfig struct {
@@ -41,43 +41,43 @@ func (c *createConfig) Next() (createVars, error) {
 var progressiveCreate = []createVars{
 	{
 		nChannels: 1,
-		dataRate:  5 * cesium.Hz,
-		dataType:  cesium.Float64,
+		rate:      5 * cesium.Hz,
+		density:   cesium.Float64,
 	},
 	{
 		nChannels: 2,
-		dataRate:  12 * cesium.Hz,
-		dataType:  cesium.Float64,
+		rate:      12 * cesium.Hz,
+		density:   cesium.Float64,
 	},
 	{
 		nChannels: 3,
-		dataRate:  20 * cesium.Hz,
-		dataType:  cesium.Float64,
+		rate:      20 * cesium.Hz,
+		density:   cesium.Float64,
 	},
 	{
 		nChannels: 4,
-		dataRate:  30 * cesium.Hz,
-		dataType:  cesium.Float64,
+		rate:      30 * cesium.Hz,
+		density:   cesium.Float64,
 	},
 	{
 		nChannels: 5,
-		dataRate:  100 * cesium.Hz,
-		dataType:  cesium.Float64,
+		rate:      100 * cesium.Hz,
+		density:   cesium.Float64,
 	},
 	{
 		nChannels: 500,
-		dataRate:  1 * cesium.Hz,
-		dataType:  cesium.Float64,
+		rate:      1 * cesium.Hz,
+		density:   cesium.Float64,
 	},
 	{
 		nChannels: 100,
-		dataRate:  20 * cesium.Hz,
-		dataType:  cesium.Float64,
+		rate:      20 * cesium.Hz,
+		density:   cesium.Float64,
 	},
 	{
 		nChannels: 10,
-		dataRate:  25 * cesium.KHz,
-		dataType:  cesium.Float64,
+		rate:      25 * cesium.KHz,
+		density:   cesium.Float64,
 	},
 }
 
@@ -116,8 +116,8 @@ var _ = Describe("Create", Performance, func() {
 				)
 				for i := 0; i < values.nChannels; i++ {
 					ch := cesium.Channel{
-						DataRate: values.dataRate,
-						DataType: values.dataType,
+						Rate:    values.rate,
+						Density: values.density,
 					}
 					key, err := db.CreateChannel(ch)
 					Expect(err).ToNot(HaveOccurred())
@@ -158,8 +158,8 @@ var _ = Describe("Create", Performance, func() {
 				)
 				for i := 0; i < values.nChannels; i++ {
 					ch := cesium.Channel{
-						DataRate: values.dataRate,
-						DataType: values.dataType,
+						Rate:    values.rate,
+						Density: values.density,
 					}
 					key, err := db.CreateChannel(ch)
 					Expect(err).ToNot(HaveOccurred())

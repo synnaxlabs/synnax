@@ -35,8 +35,8 @@ var _ = Describe("Local", Ordered, func() {
 		dataFactory := &seg.RandomFloat64Factory{Cache: true}
 		channels, err := services[1].channel.NewCreate().
 			WithName("SG02").
-			WithDataRate(25*telem.Hz).
-			WithDataType(telem.Float64).
+			WithRate(25*telem.Hz).
+			WithDensity(telem.Float64).
 			WithNodeID(1).
 			ExecN(ctx, 1)
 		Expect(err).ToNot(HaveOccurred())
