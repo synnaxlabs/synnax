@@ -5,7 +5,6 @@ from freighter import (
 )
 
 from freighter.ws import StreamClient as WSStreamClient
-from delta.segment.writer import Writer
 
 
 class Client:
@@ -17,8 +16,3 @@ class Client:
         self.streamClient = WSStreamClient(
             endpoint=self.endpoint + "/api/v1",
             encoder=MsgpackEncoderDecoder)
-
-    async def write(self, keys: list[str]) -> Writer:
-        w = Writer(self.streamClient)
-        await w.open(keys)
-        return w

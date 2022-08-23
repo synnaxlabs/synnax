@@ -1,6 +1,12 @@
+from dataclasses import dataclass
 
-class ChannelKey:
-    value: bytes
+from delta import telem
 
-    def __init__(self, node_id: int, channel_id: int):
-        self.value = bytes([node_id, channel_id])
+
+@dataclass
+class Channel:
+    key: str = ""
+    name: str = ""
+    node_id: int = 0
+    data_rate: telem.DataRate = telem.DataRate(0)
+    data_type: telem.DataType = telem.DataType(0)

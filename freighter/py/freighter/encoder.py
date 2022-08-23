@@ -42,7 +42,10 @@ class JSONEncoderDecoder:
 
     @staticmethod
     def encode(payload: any) -> bytes:
-        return json.dumps(dataclasses.asdict(payload)).encode()
+        return json.dumps(
+            dataclasses.asdict(payload),
+            ensure_ascii=False,
+        ).encode()
 
     @staticmethod
     def decode(data: bytes, payload: any):
@@ -61,7 +64,7 @@ def merge_payload_dict(data: dict, payload: any):
             setattr(payload, key, value)
 
 
-ENCODERS: list[EncoderDecoder] = [
+ENCODER_DECODERS: list[EncoderDecoder] = [
     JSONEncoderDecoder,
     MsgpackEncoderDecoder
 ]

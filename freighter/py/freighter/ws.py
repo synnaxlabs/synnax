@@ -50,7 +50,7 @@ class Stream(Generic[I, O]):
     ws: websockets.WebSocketClientProtocol
     server_closed: Exception | None
     send_closed: bool
-    close_lock: asyncio.Lock
+    lock: asyncio.Lock
 
     def __init__(
             self,
@@ -61,7 +61,7 @@ class Stream(Generic[I, O]):
         self.ws = ws
         self.send_closed = False
         self.server_closed = None
-        self.close_lock = asyncio.Lock()
+        self.lock = asyncio.Lock()
 
     async def receive(self, payload: I) -> Exception | None:
         if self.server_closed is not None:
@@ -73,7 +73,7 @@ class Stream(Generic[I, O]):
 
         if msg.type == _CLOSE_MESSAGE:
             err = errors.decode(msg.error)
-            await self._close(err)
+            await self._close_server(err)
             return self.server_closed
 
         return None
@@ -97,10 +97,11 @@ class Stream(Generic[I, O]):
         try:
             await self.ws.send(encoded)
         except websockets.exceptions.ConnectionClosedOK:
-            await self._close(None)
+            await self._close_server(None)
             return errors.EOF()
 
     async def close_send(self):
+        await self.lock.acquire()
         if self.send_closed or self.server_closed is not None:
             return
 
@@ -108,11 +109,14 @@ class Stream(Generic[I, O]):
         try:
             await self.ws.send(self.encoder.encode(msg))
         except websockets.exceptions.ConnectionClosedOK:
-            await self._close(None)
+            await self._close_server(None)
             return
+        finally:
+            self.send_closed = True
+            self.lock.release()
 
-    async def _close(self, server_err: Exception | None):
-        await self.close_lock.acquire()
+    async def _close_server(self, server_err: Exception | None):
+        await self.lock.acquire()
 
         if self.server_closed is not None:
             return
@@ -120,6 +124,8 @@ class Stream(Generic[I, O]):
         if server_err is not None:
             self.server_closed = server_err
 
-        await self.ws.close()
-
-        self.close_lock.release()
+        try:
+            await self.ws.close()
+        finally:
+            self.lock.release()
+            await self.close_send()
