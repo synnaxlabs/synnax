@@ -281,7 +281,7 @@ var _ = Describe("Telem", func() {
 		})
 		Describe("SizeSpan", func() {
 			It("Should return the span of the provided number of bytes", func() {
-				Expect(telem.Rate(10).SizeSpan(16, telem.Float64)).To(Equal(200 * telem.Millisecond))
+				Expect(telem.Rate(10).SizeSpan(16, telem.Bit64)).To(Equal(200 * telem.Millisecond))
 			})
 		})
 	})

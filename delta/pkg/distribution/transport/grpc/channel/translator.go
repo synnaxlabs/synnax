@@ -14,11 +14,13 @@ func (c createMessageTranslator) Forward(msg channel.CreateMessage) (*channelv1.
 	tr := &channelv1.CreateMessage{}
 	for _, ch := range msg.Channels {
 		tr.Channels = append(tr.Channels, &channelv1.Channel{
-			Name:    ch.Name,
-			NodeId:  int32(ch.NodeID),
-			Key:     int32(ch.Channel.Key),
-			Rate:    float64(ch.Rate),
-			Density: int32(ch.Density),
+			Name:   ch.Name,
+			NodeId: int32(ch.NodeID),
+			Key:    int32(ch.Channel.Key),
+			DataType: &channelv1.DataType{
+				Key:     ch.DataType.Key,
+				Density: int32(ch.DataType.Density),
+			},
 		})
 	}
 	return tr, nil
@@ -30,10 +32,13 @@ func (c createMessageTranslator) Backward(msg *channelv1.CreateMessage) (channel
 		tr.Channels = append(tr.Channels, channel.Channel{
 			Name:   ch.Name,
 			NodeID: distribcore.NodeID(ch.NodeId),
+			DataType: telem.DataType{
+				Key:     ch.DataType.Key,
+				Density: telem.Density(ch.DataType.Density),
+			},
 			Channel: cesium.Channel{
 				Key:     cesium.ChannelKey(ch.Key),
-				Rate:    telem.Rate(ch.Rate),
-				Density: telem.Density(ch.Density),
+				Density: telem.Density(ch.DataType.Density),
 			},
 		})
 	}

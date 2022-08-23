@@ -42,42 +42,42 @@ var progressiveCreate = []createVars{
 	{
 		nChannels: 1,
 		rate:      5 * cesium.Hz,
-		density:   cesium.Float64,
+		density:   cesium.Bit64,
 	},
 	{
 		nChannels: 2,
 		rate:      12 * cesium.Hz,
-		density:   cesium.Float64,
+		density:   cesium.Bit64,
 	},
 	{
 		nChannels: 3,
 		rate:      20 * cesium.Hz,
-		density:   cesium.Float64,
+		density:   cesium.Bit64,
 	},
 	{
 		nChannels: 4,
 		rate:      30 * cesium.Hz,
-		density:   cesium.Float64,
+		density:   cesium.Bit64,
 	},
 	{
 		nChannels: 5,
 		rate:      100 * cesium.Hz,
-		density:   cesium.Float64,
+		density:   cesium.Bit64,
 	},
 	{
 		nChannels: 500,
 		rate:      1 * cesium.Hz,
-		density:   cesium.Float64,
+		density:   cesium.Bit64,
 	},
 	{
 		nChannels: 100,
 		rate:      20 * cesium.Hz,
-		density:   cesium.Float64,
+		density:   cesium.Bit64,
 	},
 	{
 		nChannels: 10,
 		rate:      25 * cesium.KHz,
-		density:   cesium.Float64,
+		density:   cesium.Bit64,
 	},
 }
 

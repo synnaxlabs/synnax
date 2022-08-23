@@ -7,6 +7,7 @@ import (
 	"github.com/arya-analytics/delta/pkg/distribution/core"
 	"github.com/arya-analytics/delta/pkg/distribution/ontology"
 	"github.com/arya-analytics/delta/pkg/storage"
+	"github.com/arya-analytics/x/telem"
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"strconv"
@@ -145,6 +146,8 @@ type Channel struct {
 	Name string
 	// NodeID is the leaseholder node for the channel.
 	NodeID core.NodeID
+	// DataType is the data type for the channel.
+	DataType telem.DataType
 	// Properties of the channel necessary for storage to perform
 	// operations on it. See the storage.channel docs for more info on this.
 	storage.Channel

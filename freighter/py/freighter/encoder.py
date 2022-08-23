@@ -1,7 +1,7 @@
 import dataclasses
 import enum
 import json
-from typing import Protocol
+from typing import Protocol, Callable, Any, runtime_checkable, Type, TypeVar
 from .transport import Payload
 
 import msgpack
@@ -45,11 +45,24 @@ class JSONEncoderDecoder:
         return json.dumps(
             dataclasses.asdict(payload),
             ensure_ascii=False,
+            default=json_default,
         ).encode()
 
     @staticmethod
     def decode(data: bytes, payload: any):
         merge_payload_dict(json.loads(data), payload)
+
+
+def json_default(self, obj: Any) -> Any:
+    if isinstance(obj, EncodeableDecodeable):
+        return obj.encode()
+    return json.JSONEncoder.default(self, obj)
+
+
+def msgpack_default(self, obj: Any) -> Any:
+    if isinstance(obj, EncodeableDecodeable):
+        return obj.encode()
+    return obj
 
 
 def merge_payload_dict(data: dict, payload: any):
@@ -61,6 +74,8 @@ def merge_payload_dict(data: dict, payload: any):
         elif is_dict:
             payload[key] = value
         else:
+            if isinstance(value, EncodeableDecodeable):
+                value = value.decode()
             setattr(payload, key, value)
 
 
@@ -68,3 +83,13 @@ ENCODER_DECODERS: list[EncoderDecoder] = [
     JSONEncoderDecoder,
     MsgpackEncoderDecoder
 ]
+
+T = TypeVar("T")
+@runtime_checkable
+class EncodeableDecodeable(Protocol[T]):
+    def encode(self) -> Any:
+        ...
+
+    @staticmethod
+    def decode(value: Any) -> T:
+        ...

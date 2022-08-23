@@ -2,78 +2,71 @@ from __future__ import annotations
 
 import datetime
 from dataclasses import dataclass
+from typing import Any
 
 
-@dataclass
-class TimeStamp:
+class TimeStamp(int):
     """TimeStamp represents a 64 bit nanosecond-precision UTC timestamp.
 
     :param value: The nanosecond value of the timestamp
     """
-    value: int
 
-    def __init__(self, value: UnparsedTimeStamp):
+    def __new__(cls, value: UnparsedTimeStamp, *args, **kwargs):
         t = type(value)
-        if t is int:
-            self.value = value
-            return
         if t is float:
-            self.value = int(value)
-            return
-        if t is datetime.datetime:
-            self.value = int((SECOND * (value - epoch).total_seconds()).value)
-            return
-        if t is datetime.timedelta:
-            self.value = int((SECOND * value.total_seconds()).value)
-            return
-        if t is TimeSpan:
-            self.value = int(value.value)
-            return
-        if t is TimeStamp:
-            self.value = value.value
-            return
+            value = int(value)
+        elif t is datetime.datetime:
+            value = int((SECOND * (value - epoch).total_seconds()))
+        elif t is datetime.timedelta:
+            value = int((SECOND * value.total_seconds()))
+        elif t is TimeSpan:
+            value = int(value)
+        elif t is TimeStamp:
+            value = int(value)
+        return super().__new__(cls, value)
 
-        raise TypeError(f"Unable to convert {value} to a TimeStamp")
+    def __init__(self, value: UnparsedTimeStamp, *args, **kwargs):
+        pass
 
     def time(self) -> datetime.datetime:
         """Returns the TimeStamp represented as a datetime.datetime object.
         :return: a datetime.datetime object
         """
-        return datetime.datetime.utcfromtimestamp(self.value / SECOND.value)
+        return datetime.datetime.utcfromtimestamp(self / SECOND)
 
     def is_zero(self) -> bool:
         """Returns true if the TimeStamp is zero.
         :return: True if the TimeStamp is zero, False otherwise
         """
-        return self.value == 0
+        return self == 0
 
     def after(self, ts: UnparsedTimeStamp) -> bool:
         """Returns true if the TimeStamp is after the given TimeStamp.
         :param ts: the TimeStamp to compare to
         :return: True if the TimeStamp is after the given TimeStamp, False otherwise
         """
-        return self.value > TimeStamp(ts).value
+        return self > TimeStamp(ts)
 
     def after_eq(self, ts: UnparsedTimeStamp) -> bool:
         """Returns true if the TimeStamp is after or equal to the given TimeStamp.
         :param ts: the TimeStamp to compare to
         :return: True if the TimeStamp is after or equal to the given TimeStamp, False otherwise
         """
-        return self.value >= TimeStamp(ts).value
+        return self >= TimeStamp(ts)
 
     def before(self, ts: UnparsedTimeStamp) -> bool:
         """Returns true if the TimeStamp is before the given TimeStamp.
         :param ts: the TimeStamp to compare to
         :return: True if the TimeStamp is before the given TimeStamp, False otherwise
         """
-        return self.value < TimeStamp(ts).value
+        return self < TimeStamp(ts)
 
     def before_eq(self, ts: UnparsedTimeStamp) -> bool:
         """Returns true if the TimeStamp is before or equal to the given TimeStamp.
         :param ts: the TimeStamp to compare to
         :return: True if the TimeStamp is before or equal to the given TimeStamp, False otherwise
         """
-        return self.value <= TimeStamp(ts).value
+        return self <= TimeStamp(ts)
 
     def span_range(self, span: TimeSpan) -> TimeRange:
         """Returns a TimeRange that spans the given TimeSpan.
@@ -97,14 +90,14 @@ class TimeStamp:
         :param ts: the second TimeStamp
         :return: a new TimeStamp that is the sum of the two TimeStamps
         """
-        return TimeStamp(self.value + TimeStamp(ts).value)
+        return TimeStamp(int(self) + int(TimeStamp(ts)))
 
     def sub(self, ts: UnparsedTimeStamp) -> TimeStamp:
         """Returns a new TimeStamp that is the difference of the two TimeStamps.
         :param ts: the second TimeStamp
         :return: a new TimeStamp that is the difference of the two TimeStamps
         """
-        return TimeStamp(self.value - TimeStamp(ts).value)
+        return TimeStamp(int(self) - TimeStamp(ts))
 
     def __add__(self, other: UnparsedTimeStamp) -> TimeStamp:
         return self.add(other)
@@ -120,34 +113,24 @@ def now() -> TimeStamp:
     return TimeStamp(datetime.datetime.now())
 
 
-TIME_STAMP_MIN = TimeStamp(0)
-TIME_STAMP_MAX = TimeStamp(0xFFFFFFFFFFFFFFFF)
-
-
-@dataclass
-class TimeSpan:
+class TimeSpan(int):
     """TimeSpan represents a 64 bit nanosecond-precision duration.
     """
-    value: int
 
-    def __init__(self, value: UnparsedTimeSpan):
+    def __new__(cls, value: UnparsedTimeSpan, *args, **kwargs):
         t = type(value)
-        if t is int:
-            self.value = value
-            return
         if t is TimeStamp:
-            self.value = value.value
-            return
-        if t is datetime.timedelta:
-            self.value = int(SECOND.value * value.total_seconds())
-            return
-        if t is float:
-            self.value = int(value)
-            return
-        if t is TimeSpan:
-            self.value = value.value
-            return
-        raise TypeError(f"Unable to convert {value} to a TimeSpan")
+            value = int(value)
+        elif t is datetime.timedelta:
+            value = int(SECOND) * value.total_seconds()
+        elif t is float:
+            value = int(value)
+        elif t is TimeSpan:
+            value = value
+        return super().__new__(cls, value)
+
+    def __init__(self, value: UnparsedTimeSpan, *args, **kwargs):
+        pass
 
     def delta(self) -> datetime.timedelta:
         """Returns the TimeSpan represented as a datetime.timedelta object.
@@ -159,30 +142,30 @@ class TimeSpan:
         """Returns the TimeSpan represented as a number of seconds.
         :return: a number of seconds
         """
-        return self.value / SECOND.value
+        return float(self / SECOND)
 
     def is_zero(self) -> bool:
         """Returns true if the TimeSpan is zero.
         :return: True if the TimeSpan is zero, False otherwise
         """
-        return self.value == 0
+        return self == 0
 
     def add(self, ts: UnparsedTimeSpan) -> TimeSpan:
         """Returns a new TimeSpan that is the sum of the two TimeSpans.
         :param ts: the second TimeSpan
         :return: a new TimeSpan that is the sum of the two TimeSpans
         """
-        return TimeSpan(self.value + TimeSpan(ts).value)
+        return TimeSpan(int(self) + int(TimeSpan(ts)))
 
     def sub(self, ts: UnparsedTimeSpan) -> TimeSpan:
         """Returns a new TimeSpan that is the difference of the two TimeSpans.
         :param ts: the second TimeSpan
         :return: a new TimeSpan that is the difference of the two TimeSpans
         """
-        return TimeSpan(self.value - TimeSpan(ts).value)
+        return TimeSpan(int(self) - int(TimeSpan(ts)))
 
-    def byte_size(self, data_rate: Rate, data_type: Density) -> int:
-        return (self / data_rate.period() * data_type).value
+    def byte_size(self, data_rate: Rate, density: Density) -> int:
+        return self / data_rate.period() * int(density)
 
     def __add__(self, other: UnparsedTimeSpan) -> TimeSpan:
         return self.add(other)
@@ -191,30 +174,32 @@ class TimeSpan:
         return self.sub(other)
 
     def __mul__(self, other: UnparsedTimeSpan) -> TimeSpan:
-        return TimeSpan(TimeSpan(other).value * self.value)
+        return TimeSpan(int(TimeSpan(other)) * int(self))
 
     def __rmul__(self, other: UnparsedTimeSpan) -> TimeSpan:
         return self.__mul__(other)
 
     def __gt__(self, other: UnparsedTimeSpan) -> bool:
-        return self.value > TimeSpan(other).value
+        return int(self) > int(TimeSpan(other))
 
     def __ge__(self, other) -> bool:
-        return self.value >= TimeSpan(other).value
+        return int(self) >= int(TimeSpan(other))
 
     def __lt__(self, other) -> bool:
-        return self.value < TimeSpan(other).value
+        return int(self) < int(TimeSpan(other))
 
     def __le__(self, other: UnparsedTimeSpan) -> bool:
-        return self.value <= TimeSpan(other).value
+        return int(self) <= int(TimeSpan(other))
 
     def __eq__(self, other: UnparsedTimeSpan) -> bool:
-        return self.value == TimeSpan(other).value
+        return int(self) == int(TimeSpan(other))
 
     def __truediv__(self, other: UnparsedTimeSpan) -> TimeSpan:
-        return TimeSpan(self.value / TimeSpan(other).value)
+        return TimeSpan(int(self) / int(TimeSpan(other)))
 
 
+TIME_STAMP_MIN = TimeStamp(0)
+TIME_STAMP_MAX = TimeStamp(0xFFFFFFFFFFFFFFFF)
 NANOSECOND = TimeSpan(1)
 MICROSECOND = TimeSpan(1000) * NANOSECOND
 MILLISECOND = TimeSpan(1000) * MICROSECOND
@@ -223,27 +208,47 @@ MINUTE = TimeSpan(60) * SECOND
 HOUR = TimeSpan(60) * MINUTE
 
 
-@dataclass
-class Rate:
-    value: float
+class Rate(float):
+
+    def __new__(cls, value: UnparsedRate):
+        t = type(value)
+        if t is int:
+            value = float(value)
+        elif t is Rate:
+            value = float(value)
+        elif t is TimeSpan:
+            value = float(1 / value.seconds())
+        return super().__new__(cls, value)
+
+    def __init__(self, value: UnparsedRate):
+        pass
 
     def period(self) -> TimeSpan:
         return TimeSpan(1) / self * SECOND
 
     def sample_count(self, time_span: TimeSpan) -> int:
-        return int(time_span.seconds() * self.value)
+        return int(time_span.seconds() * self)
 
     def span(self, sample_count: int) -> TimeSpan:
         return self.period() * TimeSpan(sample_count)
 
     def size_span(self, size: Size, density: Density) -> TimeSpan:
-        return self.span(size.value * density.value)
+        return self.span(size * density)
 
     def __mul__(self, other):
-        return Rate(self.value * other.value)
+        return Rate(float(self) * float(Rate(other)))
 
     def __truediv__(self, other):
-        return Rate(self.value / other.value)
+        return Rate(float(self) / float(other))
+
+    def __rmul__(self, other):
+        return self.__mul__(other)
+
+    def __str__(self):
+        return str(int(self)) + "Hz"
+
+    def __repr__(self):
+        return str(int(self)) + "Hz"
 
 
 HZ = Rate(1)
@@ -251,7 +256,6 @@ KHZ = Rate(1000) * HZ
 MHZ = Rate(1000) * KHZ
 
 
-@dataclass
 class TimeRange:
     start: TimeStamp
     end: TimeStamp
@@ -261,7 +265,7 @@ class TimeRange:
         self.end = TimeStamp(end)
 
     def span(self) -> TimeSpan:
-        return TimeSpan((self.end - self.start).value)
+        return TimeSpan(self.end - self.start)
 
     def is_zero(self) -> bool:
         return self.span().is_zero()
@@ -294,36 +298,56 @@ class TimeRange:
         return self.span() >= TimeSpan(0)
 
 
-@dataclass
-class Density:
-    value: int
+class Density(int):
+    ...
 
-    def __mul__(self, other):
-        return Density(self.value * other.value)
+    def __new__(cls, value):
+        return super().__new__(cls, value)
+
+    def __init__(self, value):
+        pass
 
 
-@dataclass
-class Size:
-    value: int
+class Size(int):
 
     def __str__(self):
-        return str(self.value) + "B"
+        return str(self) + "B"
 
     def __mul__(self, other):
-        return Size(self.value * other.value)
+        return self * other
 
 
-UNKNOWN = Density(0)
-FLOAT_64 = Density(8)
-UINT_64 = Density(8)
-INT_64 = Density(8)
-FLOAT_32 = Density(4)
-INT_32 = Density(4)
-UINT_32 = Density(4)
-INT_16 = Density(2)
-UINT_16 = Density(2)
-INT_8 = Density(1)
-UINT_8 = Density(1)
+DENSITY_UNKNOWN = Density(0)
+BIT_64 = Density(8)
+BIT_32 = Density(4)
+BIT_16 = Density(2)
+BIT_8 = Density(1)
+
+
+@dataclass
+class DataType:
+    key: str
+    density: Density
+
+    def __str__(self):
+        return self.key
+
+    def __eq__(self, other):
+        return self.key == other.key and self.density == other.density
+
+
+DATA_TYPE_UNKNOWN = DataType("", DENSITY_UNKNOWN)
+FLOAT_64 = DataType("float64", BIT_64)
+FLOAT_32 = DataType("float32", BIT_32)
+INT_64 = DataType("int64", BIT_64)
+INT_32 = DataType("int32", BIT_32)
+INT_16 = DataType("int16", BIT_16)
+INT_8 = DataType("int8", BIT_8)
+UINT_64 = DataType("uint64", BIT_64)
+UINT_32 = DataType("uint32", BIT_32)
+UINT_16 = DataType("uint16", BIT_16)
+UINT_8 = DataType("uint8", BIT_8)
 
 UnparsedTimeStamp = TimeSpan | TimeStamp | int | float | datetime.datetime | datetime.timedelta
 UnparsedTimeSpan = TimeSpan | TimeStamp | int | float | datetime.timedelta
+UnparsedRate = TimeSpan | Rate | int | float

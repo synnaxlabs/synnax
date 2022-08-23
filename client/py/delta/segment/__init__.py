@@ -10,4 +10,4 @@ from delta.telem import TimeStamp
 class Segment:
     channel_key: str = ""
     start: telem.TimeStamp = telem.TimeStamp(0)
-    data: numpy.ndarray = numpy.array([])
+    data: bytes = b""

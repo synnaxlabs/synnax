@@ -19,7 +19,7 @@ var _ = Describe("CreateChannel", func() {
 	It("Should create the channel correctly", func() {
 		c := cesium.Channel{
 			Rate:    25 * cesium.Hz,
-			Density: cesium.Int8,
+			Density: cesium.Bit8,
 		}
 		key, err := db.CreateChannel(c)
 		Expect(key).To(Equal(cesium.ChannelKey(1)))
@@ -30,7 +30,7 @@ var _ = Describe("CreateChannel", func() {
 	Specify("The channel can be retrieved after creation", func() {
 		c := cesium.Channel{
 			Rate:    25 * cesium.Hz,
-			Density: cesium.Int8,
+			Density: cesium.Bit8,
 		}
 		key, err := db.CreateChannel(c)
 		Expect(key).To(Equal(cesium.ChannelKey(1)))

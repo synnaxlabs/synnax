@@ -33,9 +33,9 @@ func (c Create) WithName(name string) Create { setName(c, name); return c }
 // a non-zero value.
 func (c Create) WithRate(dr telem.Rate) Create { telem.SetRate(c, dr); return c }
 
-// WithDensity sets the data type for the Channel. This option is required, and must be
+// WithDataType sets the data type for the Channel. This option is required, and must be
 // a non-zero value.
-func (c Create) WithDensity(dt telem.Density) Create { telem.SetDensity(c, dt); return c }
+func (c Create) WithDataType(dt telem.DataType) Create { telem.SetDataType(c, dt); return c }
 
 // WithTxn binds a transaction the query will be executed within. If the option is not
 // set, the query will be executed directly against the Service database.
@@ -65,7 +65,7 @@ func assembleFromQuery(q query.Query, n int) ([]Channel, error) {
 	if err != nil {
 		return channels, err
 	}
-	dt, err := telem.GetDensity(q)
+	dt, err := telem.GetDataType(q)
 	if err != nil {
 		return channels, err
 	}
@@ -73,9 +73,10 @@ func assembleFromQuery(q query.Query, n int) ([]Channel, error) {
 	nodeID := getNodeID(q)
 	for i := 0; i < n; i++ {
 		channels[i] = Channel{
-			Name:    name,
-			NodeID:  nodeID,
-			Channel: storage.Channel{Rate: dr, Density: dt},
+			Name:     name,
+			NodeID:   nodeID,
+			DataType: dt,
+			Channel:  storage.Channel{Rate: dr, Density: dt.Density},
 		}
 	}
 	return channels, nil

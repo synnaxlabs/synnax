@@ -97,7 +97,7 @@ func generateSpan(c cesium.Channel, fac DataFactory, span cesium.TimeSpan) []byt
 }
 
 func DensityFactory(dt cesium.Density) DataFactory {
-	m := map[cesium.Density]DataFactory{cesium.Float64: &SequentialFloat64Factory{}}
+	m := map[cesium.Density]DataFactory{cesium.Bit64: &SequentialFloat64Factory{}}
 	return m[dt]
 }
 
