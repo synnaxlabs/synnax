@@ -1,0 +1,25 @@
+VERSION 0.6
+FROM golang:1.19-alpine3.16
+RUN apk add build-base
+WORKDIR /delta
+
+deps:
+    COPY ./pkg/ui+build/* ./pkg/ui
+    COPY ../x+source/* /x
+    COPY ../cesium+source/* /cesium
+    COPY ../aspen+source/* /aspen
+    COPY ../freighter/go+source/* /freighter/go
+    COPY ../client/go+source/* /client/go
+    COPY go.mod go.sum ./
+    RUN go mod download
+
+build:
+    FROM +deps
+    COPY . .
+    RUN go build -o build/delta main.go
+    SAVE ARTIFACT build/delta /delta AS LOCAL build/delta
+
+docker:
+    COPY +build/delta .
+    ENTRYPOINT ["/delta/delta", "start"]
+    SAVE IMAGE --push ghcr.io/arya-analytics/delta:latest
