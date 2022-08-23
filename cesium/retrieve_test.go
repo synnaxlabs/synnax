@@ -25,7 +25,7 @@ var _ = Describe("getAttributes", func() {
 			Expect(err).ToNot(HaveOccurred())
 			channel = cesium.Channel{
 				Rate:    1 * cesium.Hz,
-				Density: cesium.Float64,
+				Density: cesium.Bit64,
 			}
 			key, err = db.CreateChannel(channel)
 			channel.Key = key
@@ -96,7 +96,7 @@ var _ = Describe("getAttributes", func() {
 			for i := 0; i < channelCount; i++ {
 				c := cesium.Channel{
 					Rate:    1 * cesium.Hz,
-					Density: cesium.Float64,
+					Density: cesium.Bit64,
 				}
 				k, err := db.CreateChannel(c)
 				c.Key = k

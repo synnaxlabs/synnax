@@ -30,7 +30,7 @@ var _ = Describe("getAttributes", Ordered, func() {
 			created, err := services[1].NewCreate().
 				WithName("SG02").
 				WithRate(25*telem.KHz).
-				WithDensity(telem.Float32).
+				WithDataType(telem.Float32).
 				WithNodeID(1).
 				ExecN(ctx, 10)
 			Expect(err).ToNot(HaveOccurred())
@@ -62,7 +62,7 @@ var _ = Describe("getAttributes", Ordered, func() {
 			created, err := services[1].NewCreate().
 				WithName("SG02").
 				WithRate(25*telem.KHz).
-				WithDensity(telem.Float32).
+				WithDataType(telem.Float32).
 				WithNodeID(1).
 				ExecN(ctx, 10)
 			Expect(err).ToNot(HaveOccurred())
@@ -84,7 +84,7 @@ var _ = Describe("getAttributes", Ordered, func() {
 			_, err := services[1].NewCreate().
 				WithName("SG02").
 				WithRate(25*telem.KHz).
-				WithDensity(telem.Float32).
+				WithDataType(telem.Float32).
 				WithNodeID(1).
 				ExecN(ctx, 10)
 			Expect(err).ToNot(HaveOccurred())

@@ -23,7 +23,7 @@ var _ = Describe("Regression", func() {
 		headerKV = kv.NewHeader(kve)
 
 	})
-	Context("25Hz Float64", func() {
+	Context("25Hz Bit64", func() {
 		var (
 			ch channel.Channel
 		)
@@ -31,7 +31,7 @@ var _ = Describe("Regression", func() {
 			ch = channel.Channel{
 				Key:     1,
 				Rate:    25,
-				Density: telem.Float64,
+				Density: telem.Bit64,
 			}
 			Expect(chKV.Set(ch)).To(Succeed())
 			span := 10 * telem.Second

@@ -26,7 +26,7 @@ var _ = Describe("ProviderBuilder", func() {
 
 			ch, err := coreOne.Channel.NewCreate().
 				WithName("SG_01").
-				WithDensity(telem.Float64).
+				WithDataType(telem.Float64).
 				WithRate(25 * telem.Hz).
 				WithNodeID(1).
 				Exec(ctx)

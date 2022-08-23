@@ -32,7 +32,7 @@ var _ = Describe("Channel", Ordered, func() {
 				Channel: api.Channel{
 					Name:    "test",
 					NodeID:  1,
-					Density: telem.Float64,
+					Density: telem.Bit64,
 					Rate:    25 * telem.Hz,
 				},
 			})
@@ -55,7 +55,7 @@ var _ = Describe("Channel", Ordered, func() {
 		},
 			Entry("No node id", api.Channel{
 				Name:    "test",
-				Density: telem.Float64,
+				Density: telem.Bit64,
 				Rate:    25 * telem.Hz,
 			}, "channel.node_id", "required"),
 			Entry("No Data Type", api.Channel{
@@ -66,7 +66,7 @@ var _ = Describe("Channel", Ordered, func() {
 			Entry("No Data Rate", api.Channel{
 				Name:    "test",
 				NodeID:  1,
-				Density: telem.Float64,
+				Density: telem.Bit64,
 			}, "channel.data_rate", "required"),
 		)
 	})

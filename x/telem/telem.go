@@ -215,15 +215,31 @@ type (
 )
 
 const (
-	Unknown Density = 0
-	Float64 Density = 8
-	Int64   Density = 8
-	Uint64  Density = 8
-	Float32 Density = 4
-	Int32   Density = 4
-	Uint32  Density = 4
-	Int16   Density = 2
-	Uint16  Density = 2
-	Int8    Density = 1
-	Uint8   Density = 1
+	DensityUnknown Density = 0
+	Bit64          Density = 8
+	Bit32          Density = 4
+	Bit16          Density = 2
+	Bit8           Density = 1
+)
+
+type DataType struct {
+	Key     string  `json:"key" msgpack:"key"`
+	Density Density `json:"density" msgpack:"density"`
+}
+
+// String implements fmt.Stringer.
+func (d DataType) String() string { return d.Key }
+
+var (
+	DataTypeUnknown = DataType{"", DensityUnknown}
+	Float64         = DataType{"float64", Bit64}
+	Float32         = DataType{"float32", Bit32}
+	Int64           = DataType{"int64", Bit64}
+	Int32           = DataType{"int32", Bit32}
+	Int16           = DataType{"int16", Bit16}
+	Int8            = DataType{"int8", Bit8}
+	Uint64          = DataType{"uint64", Bit64}
+	Uint32          = DataType{"uint32", Bit32}
+	Uint16          = DataType{"uint16", Bit16}
+	Uint8           = DataType{"uint8", Bit8}
 )

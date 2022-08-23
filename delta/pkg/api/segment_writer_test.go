@@ -31,7 +31,7 @@ var _ = Describe("SegmentWriter", Ordered, func() {
 		ch, err := prov.Config.Channel.NewCreate().
 			WithName("test").
 			WithRate(25*telem.Hz).
-			WithDensity(telem.Float64).
+			WithDataType(telem.Bit64).
 			WithNodeID(1).
 			ExecN(ctx, 2)
 		Expect(err).To(BeNil())

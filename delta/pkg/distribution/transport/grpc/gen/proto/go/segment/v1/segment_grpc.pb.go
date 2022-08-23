@@ -30,7 +30,7 @@ func NewIteratorServiceClient(cc grpc.ClientConnInterface) IteratorServiceClient
 }
 
 func (c *iteratorServiceClient) Iterate(ctx context.Context, opts ...grpc.CallOption) (IteratorService_IterateClient, error) {
-	stream, err := c.cc.NewStream(ctx, &IteratorService_ServiceDesc.Streams[0], "/segment.v1.IteratorService/Write", opts...)
+	stream, err := c.cc.NewStream(ctx, &IteratorService_ServiceDesc.Streams[0], "/segment.v1.IteratorService/Iterate", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +72,7 @@ type UnimplementedIteratorServiceServer struct {
 }
 
 func (UnimplementedIteratorServiceServer) Iterate(IteratorService_IterateServer) error {
-	return status.Errorf(codes.Unimplemented, "method Write not implemented")
+	return status.Errorf(codes.Unimplemented, "method Iterate not implemented")
 }
 
 // UnsafeIteratorServiceServer may be embedded to opt out of forward compatibility for this service.
@@ -121,7 +121,7 @@ var IteratorService_ServiceDesc = grpc.ServiceDesc{
 	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "Write",
+			StreamName:    "Iterate",
 			Handler:       _IteratorService_Iterate_Handler,
 			ServerStreams: true,
 			ClientStreams: true,

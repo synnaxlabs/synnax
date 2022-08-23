@@ -61,7 +61,7 @@ different fields we need to store for a particular type? Can we use the same
 structure for a float64 as for a video frame? Probably not.
 
 A keyed type is much simpler, but may result in more client side code, where we
-need to define parsers for each type key in the registry. It also provides fewer
-opportunities for client and server side validation. On the other hand, it could
-provide more flexibility in terms of defining and registering parsers for custom
-data types.
+need to define parsers for each type key in the registry (maintainability takes
+a hit). It also provides fewer opportunities for client and server side
+validation. On the other hand, it could provide more flexibility in terms of
+defining and registering parsers for custom data types.

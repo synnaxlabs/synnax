@@ -34,7 +34,7 @@ var _ = Describe("Create", func() {
 					By("Creating a new channel")
 					key, err := db.CreateChannel(cesium.Channel{
 						Rate:    1 * cesium.Hz,
-						Density: cesium.Float64,
+						Density: cesium.Bit64,
 					})
 					Expect(err).ToNot(HaveOccurred())
 
@@ -70,7 +70,7 @@ var _ = Describe("Create", func() {
 					By("Creating a new channel")
 					key, err := db.CreateChannel(cesium.Channel{
 						Rate:    1 * cesium.Hz,
-						Density: cesium.Float64,
+						Density: cesium.Bit64,
 					})
 					Expect(err).ToNot(HaveOccurred())
 
@@ -108,7 +108,7 @@ var _ = Describe("Create", func() {
 					By("Creating a new channel")
 					key, err := db.CreateChannel(cesium.Channel{
 						Rate:    1 * cesium.Hz,
-						Density: cesium.Float64,
+						Density: cesium.Bit64,
 					})
 					Expect(err).ToNot(HaveOccurred())
 
@@ -170,7 +170,7 @@ var _ = Describe("Create", func() {
 			By("Creating a new channel")
 			key, err := db.CreateChannel(cesium.Channel{
 				Rate:    1 * cesium.Hz,
-				Density: cesium.Float64,
+				Density: cesium.Bit64,
 			})
 			Expect(err).ToNot(HaveOccurred())
 

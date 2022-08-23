@@ -27,7 +27,7 @@ var _ = Describe("Remote", Ordered, func() {
 		node1Channels, err := services[1].channel.NewCreate().
 			WithName("SG02").
 			WithRate(dr).
-			WithDensity(telem.Float64).
+			WithDataType(telem.Float64).
 			WithNodeID(1).
 			ExecN(ctx, 1)
 		Expect(err).ToNot(HaveOccurred())
@@ -35,7 +35,7 @@ var _ = Describe("Remote", Ordered, func() {
 		node2Channels, err := services[2].channel.NewCreate().
 			WithName("SG02").
 			WithRate(dr).
-			WithDensity(telem.Float64).
+			WithDataType(telem.Float64).
 			WithNodeID(2).
 			ExecN(ctx, 1)
 		Expect(err).ToNot(HaveOccurred())

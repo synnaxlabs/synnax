@@ -31,7 +31,7 @@ func NewChannelServiceClient(cc grpc.ClientConnInterface) ChannelServiceClient {
 
 func (c *channelServiceClient) Exec(ctx context.Context, in *CreateMessage, opts ...grpc.CallOption) (*CreateMessage, error) {
 	out := new(CreateMessage)
-	err := c.cc.Invoke(ctx, "/channel.v1.ChannelService/Write", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/channel.v1.ChannelService/Exec", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +50,7 @@ type UnimplementedChannelServiceServer struct {
 }
 
 func (UnimplementedChannelServiceServer) Exec(context.Context, *CreateMessage) (*CreateMessage, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Write not implemented")
+	return nil, status.Errorf(codes.Unimplemented, "method Exec not implemented")
 }
 
 // UnsafeChannelServiceServer may be embedded to opt out of forward compatibility for this service.
@@ -74,7 +74,7 @@ func _ChannelService_Exec_Handler(srv interface{}, ctx context.Context, dec func
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/channel.v1.ChannelService/Write",
+		FullMethod: "/channel.v1.ChannelService/Exec",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ChannelServiceServer).Exec(ctx, req.(*CreateMessage))
@@ -90,7 +90,7 @@ var ChannelService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*ChannelServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Write",
+			MethodName: "Exec",
 			Handler:    _ChannelService_Exec_Handler,
 		},
 	},

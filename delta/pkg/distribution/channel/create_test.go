@@ -35,7 +35,7 @@ var _ = Describe("Create", Ordered, func() {
 			var err error
 			ch, err = services[1].NewCreate().
 				WithRate(5 * telem.Hz).
-				WithDensity(telem.Float64).
+				WithDataType(telem.Float64).
 				WithName("SG01").
 				WithNodeID(channelLeaseNodeID).
 				Exec(ctx)
@@ -53,7 +53,7 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(channels).To(HaveLen(1))
 				cesiumCH := channels[0]
 				Expect(cesiumCH.Key).To(Equal(ch.Key().StorageKey()))
-				Expect(cesiumCH.Density).To(Equal(telem.Float64))
+				Expect(cesiumCH.Density).To(Equal(telem.Bit64))
 				Expect(cesiumCH.Rate).To(Equal(5 * telem.Hz))
 			})
 		})
@@ -69,7 +69,7 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(channels).To(HaveLen(1))
 				cesiumCH := channels[0]
 				Expect(cesiumCH.Key).To(Equal(ch.Key().StorageKey()))
-				Expect(cesiumCH.Density).To(Equal(telem.Float64))
+				Expect(cesiumCH.Density).To(Equal(telem.Bit64))
 				Expect(cesiumCH.Rate).To(Equal(5 * telem.Hz))
 			})
 			It("Should not create the channel on another node's ceisum gorpDB", func() {
@@ -81,7 +81,7 @@ var _ = Describe("Create", Ordered, func() {
 				func() {
 					ch2, err := services[1].NewCreate().
 						WithRate(5 * telem.Hz).
-						WithDensity(telem.Float64).
+						WithDataType(telem.Float64).
 						WithName("SG01").
 						WithNodeID(1).
 						Exec(ctx)
