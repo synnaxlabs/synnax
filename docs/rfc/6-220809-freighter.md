@@ -1,11 +1,11 @@
-# Freighter - Modular Transport Abstraction
+# 6 - Freighter - Modular Transport Abstraction
 
 **Feature Name** - Freighter - Modular Transport Abstraction \
 **Status** - Complete \
 **Start Date** - 2022-08-09 \
 **Jira Issue** - [DA-166 - Freighter RFC](https://arya-analytics.atlassian.net/browse/DA-166)
 
-# Summary
+# 0 - Summary
 
 In this RFC I propose a design for a protocol agnostic transport abstraction that
 can be used for both internal and client communications in a Delta cluster. The
@@ -17,7 +17,7 @@ HTTP).
 Freighter also defines standards for communicating errors between services,
 allowing exceptions to be communicated in a meaningful manner. 
 
-# Motivation
+# 1 - Motivation
 
 We're currently using the `x/transport` package to abstract away gRPC implementation 
 details for node internal communications. Both Delta's distribution layer and our
@@ -38,7 +38,7 @@ be structured. This is particularly import for exceptions, as it's critical to
 communicate errors in a meaningful manner (such as displaying help text when a 
 user enters invalid data in a form).
 
-# Design
+# 2 - Design
 
 At its core, Freighter defines two behavioral interfaces for exchanging messages
 a client and a server. The unary interface defines a simple request-response cycle,
@@ -46,12 +46,12 @@ while the streaming interface enables performant asynchronous communication over
 long periods of time. While I describe them using go idioms, these interfaces
 can be implemented in many languages.
 
-## Behavioral Interface - Unary
+## 1 - Behavioral Interface - Unary
 
 The unary interface describes a single request-response cycle between a client 
 and a server. 
 
-### Client
+### 1 - Client
 
 A client can send a payload to a server and receive a response using a `send` 
 method with the following signature:
@@ -86,7 +86,7 @@ whether to raise an exception, retry the request, or do something else. Using
 errors for control flow becomes particularly important when defining a streaming 
 interface. More details on error handling to follow.
 
-### Server
+### 2 - Server
 
 A server can receive a payload from a client by binding a handler to the transport's
 `bindHandler` method.
@@ -97,14 +97,14 @@ A server can receive a payload from a client by binding a handler to the transpo
 If the server encounters an error during processing, it can return a non-nil
 error, which the transport will encode and return to the client.
 
-## Behavioral Interface - Streaming
+## 2 - Behavioral Interface - Streaming
 
 The streaming interface enables non-blocking bidirectional communication between a
 client and a server. Streaming interface is complex, requiring delicate control 
 flow. Unary communication should be preferred in cases where performance and 
 asynchronicity are not essential.
 
-### Client
+### 1 - Client
 
 Streaming starts with a client issuing a `stream` request to a particular 
 target:
@@ -157,7 +157,7 @@ impact on the receiving direction of the stream. In most cases, clients should
 wait for `receive` to return a non-nil error to ensure they have received all
 relevant payloads.
 
-### Server
+### 2 - Server
 
 A server can bind a handler to the streaming transport using a `bindHandler`
 function:
@@ -199,7 +199,7 @@ If the error is nil, the client will receive an `EOF` error. If the error is
 non-nil, the transport implementation encodes the error and returns it to the 
 client.
 
-### Typical Lifecycle
+### 3 - Typical Lifecycle
 
 To better understand the lifecycle of a streaming request, let's look at a
 simple example where a client sends a stream of integers to a server, the

@@ -1,4 +1,4 @@
-# Delta - Segment Distribution
+# 3 - Delta - Segment Distribution
 
 **Feature Name**: Delta - Segment Distribution \
 **Status**: Proposed \
@@ -6,7 +6,7 @@
 **Jira
 Issue**: [DA-154- [Delta & Cesium] - Segment Architecture](https://arya-analytics.atlassian.net/browse/DA-154)
 
-# Summary
+# 0 - Summary
 
 In this RFC I propose an architecture for exposing time-series segment storage as a
 monolithic data space. This proposal focuses on serving simple, range-based queries in
@@ -24,7 +24,7 @@ to read and write data to the cluster as if it was a single machine. This interf
 does not require the user to be aware of the storage topology, but provides
 additional context if the caller wants to perform network optimization themselves.
 
-# Vocabulary
+# 1 - Vocabulary
 
 **Sample** - An arbitrary byte array recorded at a specific point in time. \
 **Channel** - A collection of samples across a time range. These samples typically come
@@ -43,7 +43,7 @@ queries on much larger data sets than typical OLTP systems. Data warehouse queri
 fall into the OLAP category of workloads. \
 **OTN** - Over the Network.
 
-# Motivation
+# 2 - Motivation
 
 Separating storage and compute has become a popular technique for scaling data
 intensive systems (
@@ -92,7 +92,7 @@ topology to enable optimization? Or should we make it a completely black box? Th
 following sections reason about and propose an architecture that answers these
 questions.
 
-# Design
+# 3 - Design
 
 The proposed distribution layer (DL) architecture exposes cluster storage as a
 monolithic data space that provides *optional* locality context to caller. A user can
@@ -119,7 +119,7 @@ years old before the development team began to implement these optimizations.
 By providing topology abstraction in the distribution layer, we enable a simple path
 forward to a Delta MVP while laying the groundwork for distributed query processing.
 
-## Principles
+## 1 - Principles
 
 **Computation and Aggregation** - DL contains no computation or
 aggregation logic. Its focus is completely on serving raw segments reads and writes
@@ -144,7 +144,7 @@ specialty queries.
 implementation (GRPC, WS, HTTP, etc.). It's core logic does not interact with any
 specific networking APIs.
 
-## Storage Engine Integration
+## 2 - Storage Engine Integration
 
 Delta's distribution layer directly interacts with two storage engines: Cesium and
 Aspen. DL
@@ -162,7 +162,7 @@ stays consistent (this is particularly relevant for [channels](#Channels)).
 <h5 align="middle">(Very) High Level Distributed Storage Architecture</h5>
 </p>
 
-### Aspen
+### 1 - Aspen
 
 Aspen implements two critical pieces of functionality that the distribution layer
 depends on. The first is the ability to query the address of a node in the cluster:
@@ -184,7 +184,7 @@ cluster:
 By performing lookups on this metadata, the DL can serve segment data for any channel
 from any node in the cluster.
 
-### Cesium
+### 2 - Cesium
 
 Cesium is the main time-series storage engine for Delta. Each Cesium database occupies a
 single directory on disk. The distribution layer interacts with Cesium via four APIs:
@@ -202,7 +202,7 @@ db.NewRetrieve().Iterate(ctx)
 
 Besides these four interfaces, Delta treats Cesium as a black box.
 
-## Channels
+## 3 - Channels
 
 A channel is a collection of samples across a time-range. The data within a channel
 typically arrives from a single source. This can be a physical sensor, software sensor,
@@ -242,7 +242,7 @@ For more information on channel's and segments, see the
 [Cesium RFC](https://github.com/arya-analytics/delta/blob/main/docs/rfc/220517-cesium-segment-storage.md)
 .
 
-### Keys
+### 1 - Keys
 
 A key is a byte array that uniquely identifies a channel across the entire
 cluster. This key is composed of two parts.
@@ -255,9 +255,9 @@ Together, these two elements guarantee uniqueness. By keeping the node ID in
 the key, we can also avoid needing to make a key-value
 lookup when resolving the location of the channel's leaseholder.
 
-## Segment Reads - Iteration
+## 4 - Segment Reads - Iteration
 
-### Query Patterns
+### 1 - Query Patterns
 
 The distribution layer focuses on serving a single query type: sequential iteration over
 large volumes of unprocessed channel data. This 'scan' style pattern serves as the
@@ -292,7 +292,7 @@ Internally, the `segment.Iterator` implementation has the following structure:
 <h5 align="middle">Segment Iterator - Peer Node </h5>
 </p>
 
-### Opening an Iterator
+### 2 - Opening an Iterator
 
 When a client makes a call to `iterator.New`, the distribution layer assembles the
 iterator components in a multistep process.
@@ -312,7 +312,7 @@ iterator components in a multistep process.
 If all of these steps complete successfully, the DL returns the iterator to the
 client where it can begin processing requests.
 
-### Execution Flow
+### 3 - Execution Flow
 
 Let's say the caller makes a call to the `First` method (retrieves the first segment
 in the range). Let's also say we're reading channel data on nodes 3 (the gateway), 5,
@@ -349,7 +349,7 @@ synchronously. Data transfer, on the other hand, is IO and network intensive. Th
 process is done concurrently; batches of segments are returned to the caller via a
 channel. Transport and channel buffers are used for flow control.
 
-### Error Handling
+### 4 - Error Handling
 
 Errors are communicated to the caller via iterator validity state during method calls.
 If any seeking or traversal calls return `false`, the iterator has either reached the
@@ -363,7 +363,7 @@ iterator. The caller is expected to open a new iterator to continue operations. 
 mainly for simplicity, and future improvements may include automatic retries and
 transient error handling.
 
-### Closing an Iterator
+### 5 - Closing an Iterator
 
 There are two ways of closing an iterator: by cancelling the context provided to
 `iterator.New` or calling the `Close` method. Canceling the context immediately
@@ -384,7 +384,7 @@ By calling `Close`, the caller can ensure that they have received all data from 
 iterator before moving on. The distribution layer will track all opened iterators to
 ensure that they are closed before the distribution layer is shut down.
 
-## Segment Writes
+## 5 - Segment Writes
 
 The distribution layer must optimize for recording large volumes of sensor data
 contiguously. It's common for a single node to receive telemetry from thousands of
@@ -406,7 +406,7 @@ Internally, the `segment.Writer` implementation has the following structure:
 <h5 align="middle">Segment Writer - Peer Node </h5>
 </p>
 
-### Opening a Writer
+### 1 - Opening a Writer
 
 When a client opens a `Writer`, the distribution layer assembles the writer components
 in a multistep process similar to the opening of an iterator:
@@ -423,7 +423,7 @@ in a multistep process similar to the opening of an iterator:
    keys of the channels it will write to. The remote node acknowledges the response by
    opening a local writer on its own data store.
 
-### Execution Flow
+### 2 - Execution Flow
 
 Writer execution is less complex than iteration. Let's say we're writing data
 to channels `strain-01`, whose data resides on node 3 (the gateway) and `strain-02`,
@@ -443,7 +443,7 @@ whose data resides on node 5. Let's work through the following scenario:
 6. The peer node receives the segment and writes it to disk. It then sends any errors
    encountered back over the network to the `Writer`.
 
-### Closing a Writer
+### 3 - Closing a Writer
 
 A `Writer` can be closed in two ways: by cancelling the context provided to `writer.New`
 or by closing the writers input channel and calling `Close`. Cancelling the context

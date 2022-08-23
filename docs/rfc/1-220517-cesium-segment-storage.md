@@ -1,4 +1,4 @@
-# Cesium - Channel Segment Storage Engine
+# 1 - Cesium - Channel Segment Storage Engine
 
 **Feature Name:** Channel Segment Storage Engine \
 **Status**: Complete \
@@ -6,7 +6,7 @@
 **Authors**: emilbon99 \
 **Jira Issue**:  [DA-149 - [Cesium] - RFC](https://arya-analytics.atlassian.net/browse/DA-149)
 
-# Summary
+# 0 - Summary
 
 In this RFC I propose an architecture for a time-series storage engine that can serve as Delta's primary means of
 data persistence. This proposal places a heavy focus on interface as opposed to implementation details;
@@ -16,7 +16,7 @@ storage engine.
 This design is by no means complete, and is intended to be a starting point for continuous iteration as Delta's demands
 evolve.
 
-## Vocabulary
+# 1 - Vocabulary
 
 **Sample** - An arbitrary byte array recorded at a specific point in time.  \
 **Channel** - A collection of samples across a time range. \
@@ -35,7 +35,7 @@ This RFC expands on these definitions by asserting specific properties of a Chan
 These properties are omitted from the above definitions as they may fluctuate and affect storage engine implementation
 details.
 
-# Motivation
+# 2 - Motivation
 
 The product pivot from [Arya Core](https://arya-analytics.atlassian.net/wiki/spaces/AA/pages/819257/00+-+Arya+Core) to
 [Delta](https://arya-analytics.atlassian.net/wiki/spaces/AA/pages/9601025/01+-+Delta) is the main driver behind this
@@ -49,9 +49,9 @@ Writing a database storage engine is quite an endeavour, so we'd ideally use an 
 extend its functionality). The following analysis on existing solutions ultimately led to a design that
 extends CockroachDB's [pebble](https://github.com/cockroachdb/pebble).
 
-## Existing Solutions
+# 3 - Existing Solutions
 
-### Key-Value Stores
+## 1 - Key-Value Stores
 
 There are a number of popular key-value stores implemented in Go. Most of these are inspired by earlier alternatives
 written in C or C++ such as [RocksDB](http://rocksdb.org/) or [LevelDB](https://github.com/google/leveldb]). The most
@@ -72,7 +72,7 @@ of values per second is reasonable for append only writes to an SSD.
 It's naive to think we can reach comparable performance to slamming random bytes into a disk, but it's not unreasonable
 to assume we can drastically improve on the speed of a key-value store for a time-series only workload.
 
-### Time-Series Stores
+## 2 - Time-Series Stores
 
 The embedded time-series storage options available in Go are limited. The most popular I've found
 is [tstorage](https://github.com/nakabonne/tstorage), which is tailored towards irregular time-series data.
@@ -83,7 +83,7 @@ Delta is unique in that almost all of its uses involve storing regular time-seri
 simplicity
 and performance. `tstorage` doesn't take advantage of data regularity, and is missing out on the benefits it provides.
 
-### Distributed Key-Value Stores
+## 3 - Distributed Key-Value Stores
 
 Using a distributed key-value store seems like a great fit as it meets requirements for both cluster wide metadata as
 well
@@ -104,7 +104,7 @@ expect
 a write throughput in the tens of millions of samples/s for a cluster of seven nodes, even over a very performant
 network.
 
-# Design
+# 4- Design
 
 The proposed design is named after [Cesium](https://en.wikipedia.org/wiki/Caesium), the element most commonly used in
 atomic clocks. It focuses on simplicity by restricting:
@@ -119,7 +119,7 @@ is further extended to provide support for client side iterators. Streaming quer
 throughput by allowing the
 client to transform or transfer data over the network as more segments are read.
 
-## Restrictions on Time-Series
+## 1 -  Restrictions on Time-Series
 
 Delta is designed to work with data acquisition hardware, and as such, must be optimized for time-series data that
 arrives at predictable, high sample rates (25 KHz+). This is very different a typical IOT use case with edge devices
@@ -127,7 +127,7 @@ streaming low rate data at unpredictable intervals. This is also different from 
 system
 can frequently discard old data. This is not the case in Delta, as telemetry must be kept for extended periods of time.
 
-### Channels
+### 1 -  Channels
 
 A channel's **sample rate** must be predefined. This is by far the largest restriction and optimization that Cesium
 makes.
@@ -172,7 +172,7 @@ cesium.NewCreateChannel().
    Exec(ctx)
 ```
 
-### Segments
+### 2 - Segments
 
 The implications of these restrictions becomes apparent when designing  **segments**. A **segment** is a contiguous run
 of a channel's data. A segment stores the following information:
@@ -203,7 +203,7 @@ durability and write throughput. Larger segments are less durable (written less 
 throughput for both reads and writes, as segment data is written contiguously on disk. See [Data Layout](#data-layout)
 and [Providing Elastic Throughput](#providing-elastic-throughput) for more details.
 
-## Handling Arbitrary Data Types
+## 2 - Handling Arbitrary Data Types
 
 Cesium places no restrictions on data type, and instead represents a type using a **density**.
 This is atypical for a time-series database, but provides flexibility for the caller to define custom data types such
@@ -227,7 +227,7 @@ has more information about the data being written than the storage engine itself
 not hard and fast, as adding simple validation is relatively easy (we can assert `len(data) % Density == 0` for
 example).
 
-## Extending an Existing Key-Value Store
+## 3 -  Extending an Existing Key-Value Store
 
 Cesium's data can be separated into two categories: **metadata** and **segment data**. Metadata is context that can be
 used to fulfill a particular request for segment data. Segment data is the actual time-series samples to be stored,
@@ -247,7 +247,7 @@ well written prefix iteration utilities (very useful for range based lookups).
 There are a number of alternatives such as Dgraph's [Badger](https://github.com/dgraph-io/badger). I haven't done any
 extensive research into the pros and cons of each, as the performance across most of these stores seems comparable.
 
-## Streaming and Iteration
+## 4 - Streaming and Iteration
 
 Optimizing IO is an essential factor in building data intensive distributed systems. Running network and disk IO
 concurrently can lead to significant performance improvements for large data sets. Cesium aims to provide simple
@@ -286,7 +286,7 @@ reading, writing, etc.
 Cesium's query execution model involves a set of individual stages that perform high-level query specific tasks,
 connected to low level batching, debouncing, queueing, and ultimately disk IO stages.
 
-### Retrieve Query Execution
+### 1 - Retrieve Query Execution
 
 A query with the following syntax:
 
@@ -325,7 +325,7 @@ workers don't access the same file in parallel. This stage is also shared with t
 <h6 align="middle">Retrieve Query Pipe</h6>
 </p>
 
-### Create Query Execution
+### 2 - Create Query Execution
 
 A query with the following syntax:
 
@@ -358,7 +358,7 @@ with the retrieve query pipe.
 <h6 align="middle">Create Query Pipe</h6>
 </p>
 
-### Combined Pipe Architecture
+### 3 - Combined Pipe Architecture
 
 <p align="middle">
 <img src="images/220517-cesium-segment-storage/pipe.png" width="100%">
@@ -374,9 +374,9 @@ See [Channel Counts and Segment Merging](#channel-counts-and-segment-merging) fo
 open
 queries affects performance.
 
-## Data Layout + Operations
+## 5 - Data Layout + Operations
 
-### First Principles
+### 1 - First Principles
 
 When considering the organization of Segment data on disk, I decided to design around the following principles:
 
@@ -386,7 +386,7 @@ When considering the organization of Segment data on disk, I decided to design a
 4. Time-ordered reads and writes form the overwhelming majority of operations.
 5. Performant operations on a single channel are more important than on multiple channels.
 
-### Columnar vs. Row-Based
+### 2 - Columnar vs. Row-Based
 
 There are two main ways to structure time-series data on disk: in rows vs. in columns. In rows, the
 first column is a timestamp for the sample, and subsequent columns are samples for a particular channel. The following
@@ -432,7 +432,7 @@ This structure also lends itself well to aggregation. We can calculate the avera
 and store it as metadata in KV. When executing an aggregation across a large time range, Cesium avoids reading
 segments from disk, and instead just uses these pre-calculated values.
 
-### File Allocation
+### 3 - File Allocation
 
 In order to prioritize single channel access, Cesium uses a file allocation scheme that attempts to minimize the channel
 cardinality of a file. This is done using a round-robin style algorithm. When allocating a segment to a file:
@@ -448,7 +448,7 @@ This process repeats for each segment written. Step 3.2 can be optimized further
 combination of the smallest file and the one with the lowest channel cardinality. This adds complexity, and I'm
 planning on waiting until we have some well run benchmarks to determine if it's necessary.
 
-## Providing Elastic Throughput
+## 6 - Providing Elastic Throughput
 
 OLTP databases are designed for high request throughput of small transactions. This means latency is an
 extremely important factor. Cesium follows a different pattern. In section [Segments](#segments), we placed no
@@ -479,7 +479,7 @@ other knobs in the database (such as debounce queue flush rate, batch size, etc.
 this relationship to meet specific use cases (for example, a 1Hz DAQ that has 10000 channels vs a 1 MHz DAQ that has
 10 channels).
 
-# Channel Counts and Segment Merging
+## 7 - Channel Counts and Segment Merging
 
 A Delta node that acquires data is meant to be deployed in proximity to or on a data acquisition computer (DAQ).
 This typically means that a single node will handle no more than ~5000 channels at once. Cesium's architecture
@@ -526,7 +526,7 @@ I'm deciding to leave segment merging out of the scope of this RFC's implementat
 belong
 in subsequent iterations.
 
-# Iteration
+## 8 - Iteration
 
 Cesium is designed to serve queries with results well in the hundreds of gigabytes. This data must be read from disk,
 processed, and sent over the network. It's reasonable to assume that the client won't expect the entire data set to be
@@ -542,7 +542,7 @@ the
 segments in a channel, sending the transformed results back to the server. That way, a client only needs to maintain a
 small section of the channel's data in memory at once..
 
-# Deletes
+## 9 - Deletes
 
 Like reads and writes, deletions are optimized for large ranges of data. Cesium employs tombstones to mark data for
 removal. Retrieve queries will no longer consider these segments as valid, and will avoid them when returning results.
@@ -551,7 +551,7 @@ A periodic garbage collection service will process tombstones and remove the dat
 for this removal process (i.e. interval, tombstone count threshold, etc.) are yet to be determined. File size limits
 will have an impact on these parameters, as larger files will result in more write amplification.
 
-# Aggregation and Transformation
+## 10 - Aggregation and Transformation
 
 Whether to separate storage and compute within a database is an important design decision
 (see [BigQuery](https://cloud.google.com/blog/products/bigquery/separation-of-storage-and-compute-in-bigquery)). This

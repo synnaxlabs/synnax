@@ -1,11 +1,11 @@
-# Signal - GoRoutine Manager
+# 4 - Signal - GoRoutine Manager
 
 **Feature Name**: Signal - GoRoutine Manager \
 **Status**: Implemented \
 **Start Date**: 2020-06-23 \
 **Jira Issue**: [DA-171 - [Delta & X] - Signal RFC](https://arya-analytics.atlassian.net/browse/DA-171)
 
-# Summary
+# 0 - Summary
 
 In this RFC I propose a framework for managing collections of goroutines in a CSP based
 system. Virtually all of Delta's queries are served using a collection of long-lived
@@ -14,12 +14,12 @@ and extract values from these streams. Defining constructs for controlling and
 observing the lifecycle of these routines is essential mitigating complexity
 and maintaining high availability across the Delta cluster.
 
-# Vocabulary and Abbreviations
+# 1 - Vocabulary and Abbreviations
 
 **GR** - goroutine \
 **CSP** - Communicating Sequential Processes
 
-# Motivation
+# 2 - Motivation
 
 The Go language provides several primitives for managing the lifecycle of a goroutine.
 `sync.WaitGroup` and `errgroup.Group` prevent a goroutine from exiting until all of
@@ -47,7 +47,7 @@ application scope, a transient error may be fatal to a request but not to the
 application. Communicating transient errors back to the issuer of a request or the
 observer of the application is essential.
 
-# Design
+# 3 - Design
 
 This isn't a new problem, and many systems have written various ways of alleviating
 the challenges of managing goroutines. Signal is not attempting to reinvent
@@ -69,7 +69,7 @@ GRs. It also adds tracing, panic recovery, deferals, and leak detection.
 The `signal` package's core `Context` type essentially modernizes `stopper` by
 merging it with `ctxgroup.Group`.
 
-## Grouping Routines
+## 1 - Grouping Routines
 
 The `Context` type provides a simple interface for forking a new routine.
 
@@ -91,7 +91,7 @@ the caller to modify the behavior of the routine without having to modify the
 definition of `f`. This is particularly useful for handling functions that can
 operate both within an application and request scope.
 
-## Waiting for Routines to Exit
+## 2 - Waiting for Routines to Exit
 
 The `Context` type provides an interface that extends the methods from `sync.WaitGroup`:
 
@@ -105,7 +105,7 @@ type WaitGroup interface {
 Wait implements the same semantics as `sync.WaitGroup.Wait`. `Stopped` returns a channel
 that is closed when all routines have exited.
 
-## Transient Errors
+## 3 - Transient Errors
 
 The `Context` type provides an interface called `Errors` that can be used to send
 transient errors back to the caller:

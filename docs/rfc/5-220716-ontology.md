@@ -1,4 +1,4 @@
-# MVP - Data Ontology
+# 5 - MVP - Data Ontology
 
 **Feature Name**: MVP - Data Ontology \
 **Status**: Complete \
@@ -6,7 +6,7 @@
 **Authors**: emilbon99 \
 **Jira Issue**: [DA-185 - Data Ontology](https://arya-analytics.atlassian.net/browse/DA-185)
 
-# Summary
+# 0 - Summary
 
 In this RFC I propose a design for a data ontology that can be used to define and
 query the relationships across Delta's various services. The architectural objective
@@ -18,7 +18,7 @@ The ontology is represented as a graph of vertexes and edges. The MVP objective 
 to define an interface to this graph sustainable for long term expansion backed by
 a rudimentary implementation.
 
-# Motivation
+# 1 - Motivation
 
 The need for an ontology arose from the design of Delta's authorization system.
 Let's say we want to block a user from writing segments to a particular channel. We
@@ -60,9 +60,9 @@ The need to establish abstract relationships extends beyond authorization scheme
    certain section of the network?
 2. Communicating data changes to different services in the cluster.
 
-# Design
+# 2 - Design
 
-## Overview
+## 1 - Overview
 
 At its core, the ontology is represented by a directed, acyclic graph or
 [DAG](https://en.wikipedia.org/wiki/Directed_acyclic_graph). This graph is composed of vertexes and edges.
@@ -85,7 +85,7 @@ To make the ontology more semantic, I'm changing the names 'vertex' and 'edge' t
 vertexes to the ontology should understand that it's a graph. Resource and relationship
 provide a simpler view by implying that two entities share a connection.
 
-## The Directed Acyclic Graph (DAG)
+## 2 - The Directed Acyclic Graph (DAG)
 
 As its name suggests, a DAG has two important properties:
 
@@ -131,7 +131,7 @@ temperature sensors but the group temperature sensors is also a temperature sens
 A directed acyclic graph allows us to define dynamic relationships between entities
 while maintaining a well-defined hierarchy.
 
-## Resources and Relationships
+## 3 - Resources and Relationships
 
 Resources and relationships are the two core data types of the ontology. A resource, or
 vertex on the DAG, is a unique entity in the cluster:
@@ -178,7 +178,7 @@ type Relationship struct {
 
 The `ontology` package provides a builtin `ChildOf` relationship type that indicates that `From` is the child of `To`.
 
-## Services
+## 4 - Services
 
 If the ontology's DAG only stores references, where do we actually get resources?
 This is where a service comes in. A service for a particular resource type serves
@@ -200,7 +200,7 @@ traverse the DAG, we can use the service to retrieve the data for a particular r
 Of course, this means we need to extend the `ontology.Resource` type to support holding
 resource data along with the reference.
 
-### Integrating Resource Data
+### 1 - Integrating Resource Data
 
 The process for retrieving resource data is as follows:
 
@@ -238,7 +238,7 @@ attributes from the resource? For example, we may allow or deny access to a chan
 depending on its `Channel.NodeID` field. The only way to access this field is
 through reflection, which I'd like to avoid.
 
-### String-Value Maps
+### 2 - String-Value Maps
 
 Another approach is to use a `fiber.Map` styled design where the resource is stored
 in a string-value map:
@@ -284,7 +284,7 @@ we can set arbitrary key-value pairs and get them later. While it works, the ide
 of turning a struct into a map makes me fee a bit woozy (kind of like injecting a
 bunch of random variables into a context).
 
-### Looking to GraphQL for Inspiration
+### 3 - Looking to GraphQL for Inspiration
 
 In many ways, the ontology serves a similar purpose to a GraphQL wrapper around a
 set of microservices. Of course, the ontology can also be used as an internal bus for
@@ -308,7 +308,7 @@ type Service interface {
 This could be particularly useful if we want to support resources writes through the
 ontology, and could eventually allow for the creation of typesafe APIs.
 
-### (Mild) Digression - Thinking Architecturally
+### 4 - (Mild) Digression - Thinking Architecturally
 
 I'd like to make note of an important distinction between a GraphQL interface and the
 schema concept I introduced above. Many typesafe APIs (GraphQL, gRPC, tRPC, Swagger)
@@ -345,9 +345,9 @@ the ontology, but in the services that interact with it.
 
 This approach may have unforeseen pitfalls. I guess we'll find out.
 
-## Future Work
+## 4 - Future Work
 
-### Writes through the Ontology
+### 1 - Writes through the Ontology
 
 Right now, we're only able to read resource data from the ontology. I think its 
 pertinent to consider whether we'd like to add support for writing to resources in 

@@ -1,4 +1,4 @@
-# Aspen - Gossip Based Peer to Peer Key-Value Store
+# 2 - Aspen - Gossip Based Peer to Peer Key-Value Store
 
 **Feature Name**: Aspen, a Gossip Based Peer to Peer Key-Value Store \
 **Status**: Proposed \
@@ -6,7 +6,7 @@
 **Authors**: emilbon99 \
 **Jira Issue** - [DA-153 - [Aspen] - RFC](https://arya-analytics.atlassian.net/browse/DA-153)
 
-# Summary
+# 0 - Summary
 
 In this RFC I propose an architecture for a gossip based network that can meet Delta's distributed storage and cluster
 membership requirements. Gossip based dissemination is an efficient method for sharing cluster wide state in an eventually
@@ -18,7 +18,7 @@ This proposal focuses on extreme simplicity to achieve a minimum viable implemen
 functionality that contributes towards meeting the requirements laid out in the
 [Delta specification](https://arya-analytics.atlassian.net/wiki/spaces/AA/pages/9601025/01+-+Delta).
 
-# Vocabulary
+# 1 - Vocabulary
 
 **Node** - A machine in the cluster. \
 **Cluster** - A group of nodes that can communicate with each other. \
@@ -27,9 +27,9 @@ action. \
 **Initiator** - A node that initiates gossip with another node. \
 **Peer** - A node that engages in gossip with an initiating node.
 
-# Motivation
+# 2 - Motivation
 
-This RFC is largely driven by the lack of a distributed key-value store that meets Delta's 
+This RFC is driven by the lack of a distributed key-value store that meets Delta's 
 needs. The ACID demands of  OLTP databases typically require that they fail rather 
 than risk data loss. This is an ideal property where data integrity is an absolute 
 requirement (such as financial transactions), but can be disastrous in hardware 
@@ -44,7 +44,7 @@ such as launch control systems, this can result in the loss of a vehicle or even
 Delta requires a distributed data store capable of servicing queries even 
 when the rest of the cluster is unreachable.
 
-# Design
+# 3 - Design
 
 Aspen's design consists of two gossip layers:
 
@@ -59,7 +59,7 @@ sets and deletes in an eventually consistent manner. After receiving a set opera
 the node will gossip the key-value pair to all other nodes until a certain number of 
 redundant conversations (i.e. the node already received the update) have occurred.
 
-## Cluster State Synchronization
+## 1 - Cluster State Synchronization
 
 Delta aims to provide dynamic cluster membership. This is more difficult to accomplish 
 if each node is required to know about *all* other nodes in the cluster before being 
@@ -72,7 +72,7 @@ using a Susceptible-Infected (SI) model. In an SI gossip model, nodes never stop
 spreading a message. This means quite a bit of network message
 amplification, but is useful when it comes to failure detection and membership.
 
-### Cluster State Data Structure
+### 1 -  Cluster State Data Structure
 
 Layer 1 holds cluster state in a node map `map[NodeID]Node`. `NodeID` is a unique `int16` identifier for each node.
 `Node` holds various pieces of identifying information about the node along with its current state.
@@ -112,9 +112,9 @@ Generation uint16
 }
 ```
 
-### Anatomy of a Conversation
+### 2 -  Anatomy of a Conversation
 
-#### Sync Message
+#### 1 - Sync Message
 
 A node initiates conversation with another node by sending a 'sync' message to another node. This message contains
 a list of node digests.
@@ -136,7 +136,7 @@ Digests []Digest
 
 A digest is added to the message for every node in the initiator's state.
 
-#### Ack Message
+#### 2 - Ack Message
 
 After receiving a sync message from the initiator node, the peer node will respond with an ack message:
 
@@ -161,7 +161,7 @@ NodeMap NodeMap
 
 The peer node makes no updates during this period.
 
-#### Ack2 Message
+#### 3 - Ack2 Message
 
 After receiving an ack message from the peer, the initiator updates its own state and responds with a final ack2
 message. The initiator compares the heartbeat of every node in the `AckMessage.NodeMap` with its on state. If the peer
@@ -178,17 +178,17 @@ NodeMap NodeMap
 }
 ```
 
-#### Closing the Conversation
+#### 4 - Closing the Conversation
 
 After receiving the final ack2 message, the initiator will update its own state using the same policy as the peer
 in the section. It will then close the conversation.
 
-### Propagation Rate
+### 2 - Propagation Rate
 
 The propagation rate of cluster state is tuned by the interval at which a node gossips. Higher propagation rates
 will result in heavier network traffic, so it's up to the application to determine the appropriate balance.
 
-## Adding a Member
+## 2 - Adding a Member
 
 Aspen employs a relatively complex process for joining a node to a cluster. This is due to a desire to identify nodes
 using a unique `int16` value. The ID of a node is propagated with almost every message. By using an `int16` vs. `UUID`,
@@ -199,7 +199,7 @@ with a `UUID`.
 The downside of using `int16` id's for nodes is that we need to design a distributed counter. Fortunately, this is a
 solved problem. The join process is as follows:
 
-### Step 1 - Request a Peer to Join
+### 1 - Request a Peer to Join
 
 When joining a new node to a cluster, the joining node (known as the **pledge**) receives a set of one or more peer
 addresses
@@ -215,7 +215,7 @@ The peer that accepts the **pledge** join request is known as the **responsible*
 initiating
 the **pledge**.
 
-### Step 2 - Propose an ID
+### 2 - Propose an ID
 
 The **responsible** node will begin the initiation process by finding the highest id of the nodes within its state.
 It will then select a quorum (>50%) of its peers and send a proposed id with a value one higher. It will then wait
@@ -229,35 +229,35 @@ will
 reselect a quorum of peers and try again. Once an ID is selected, the **responsible** node will send it to the **
 pledge**.
 
-### Step 3 - Disseminate New Node
+### 3 - Disseminate New Node
 
 Once the **pledge** receives an ID assignment from the **responsible** node, it will begin to gossip its state to the
 rest of the cluster. As information about the new node spreads, **jurors** will remove processed approvals from
 their state.
 
-### The First Node
+### 5 - The First Node
 
 The first node to join the cluster is provided with no peer addresses. It will automatically assign itself an ID of 1.
 
-### Implications of Algorithm
+### 6 - Implications of Algorithm
 
 Using a quorum based approach to ID assignment means that we get a strong guarantee that a node will be assigned a
 unique identifier. It also means that a cluster with less than half of its nodes available will not be able to add new
 members.
 This is an important property to consider in scenarios with extremely dynamic cluster membership.
 
-## Key-Value Store
+## 3 - Key-Value Store
 
 Aspen implements a leased driven key-value store on top of layer 1. The gossip protocol that disseminates kv updates
 and tombstones is known as layer 2.
 
-### Vocabulary
+### 1 - Vocabulary
 
 **Host** - The node that is responsible for serving the kv operation to the caller
 (i.e. the node where `Get` or `Set` is called). \
 **Leaseholder** - The only node that can accept writes for a particular key. \
 
-### Interface
+### 2 - Interface
 
 At the simplest level, the key-value store implements the following interface.
 
@@ -274,18 +274,18 @@ Set(key []byte, leaseholder NodeID, value []byte) error
 }
 ```
 
-## Life of a Set/Delete
+### 2 - Life of a Set/Delete
 
 A kv set is processed by the database as follows. It's important to note that deletes and sets are both propagated
 using the same steps.
 
-### Step 1 - Forward Request to Leaseholder
+#### 1 - Forward Request to Leaseholder
 
 If the node ID is non-zero, perform a layer 1 lookup for the leaseholder's address. Forward the request to the
 leaseholder.
 If the node ID is zero, allocate the least to the host node.
 
-### Step 2 - Process the Forwarded Set
+#### 2 - Process the Forwarded Set
 
 Add the key-value pair to an update propagation list. This list has the following structure:
 
@@ -331,11 +331,11 @@ type UpdatePropagationList map[interface{}]Update
 After adding the update to the propagation list, we persist the set to an underlying kv store, and send a durability
 acknowledgement to the host node.
 
-### Step 3 - Propagate the Update
+#### 3 - Propagate the Update
 
 A node will initiate layer 2 gossip at a set interval (default is 1 second). The gossip process is as follows:
 
-#### Step A - Initiator Propagates Update (Sync)
+#### 1 - Initiator Propagates Update (Sync)
 
 The initiating node selects a random peer from layer 1, and set
 
@@ -351,7 +351,7 @@ Updates UpdatePropagationList
 }
 ```
 
-#### Step B - Peer Processes Update and Response (Ack)
+#### 2 - Peer Processes Update and Response (Ack)
 
 After receiving a sync message, the peer node [merges](#merging-updates) the updates into its own state. The node also
 persists the updates to state. The peer node then sends the following ack message back to
@@ -378,13 +378,13 @@ Feedback []Feedback
 }
 ```
 
-#### Step C - Initiator Processes Update
+#### 3 - Initiator Processes Update
 
 After receiving an ack message, the initiator [merges ](#merging-updates) the updates into its own state. Then, for
 each feedback entry, it flips a coin with a `k` probability of returning true. If the coin is true,
 sets the state of the update with the matching key to `StateRemoved`. End of gossip.
 
-### Merging Updates
+### 3 - Merging Updates
 
 Whenever a node receives an `UpdatePropagationList` from another node, it must merge the updates into its own state.
 This process is relevant to steps B and C of the layer 2 gossip algorithm. Each update in the list is merged as follows:
@@ -396,7 +396,7 @@ we haven't, add to internal state.
 
 After the updates to merge have been selected, the node must persist them to KV.
 
-### Life of a Get
+### 3 - Life of a Get
 
 Aspen does not support remote get requests. If a key cannot be found in underlying KV, returns a `ErrNotFound`. This
 decision was made for two reasons:
@@ -406,7 +406,7 @@ decision was made for two reasons:
 
 Providing consistent remote reads is an undertaking for future iterations.
 
-### Garbage Collection
+### 4 -  Garbage Collection
 
 An update only needs to be kept until it has propagated to all cluster members. Unfortunately, determining the interval
 of convergence is difficult. Aspen uses the equations presented in
@@ -436,7 +436,7 @@ store a timestamp along with the set metadata. If the duration between the times
 interval, we can remove the update from persisted storage. The same process applies for both set operations
 and delete tombstones.
 
-### Recovery Constant
+### 5 - Recovery Constant
 
 The same convergence interval approximation can be used for determining how quickly to recover an operation from gossip.
 Aspen will use a variable redundant gossip threshold to determine whether to recover an operation. This means that a
@@ -446,7 +446,7 @@ For smaller clusters, this threshold can stay fixed, but for larger clusters, we
 along with the interval of convergence for the cluster. We're leaving this out of the scope of this RFC, as it isn't
 necessary for a minimum viable implementation.
 
-## Failure Detection
+## 4 - Failure Detection
 
 Failure detection (FD) algorithms are essential for building robust distributed systems. They're also very challenging to implement.
 While this RFC lays the groundwork for adding FD, it does not explicitly implement any processes.
@@ -460,11 +460,11 @@ As far as future implementation goes, the high level plan follows theory laid ou
 This involves piggybacking on layer 1 cluster gossip to mark nodes as susceptible or failed. This is the same strategy
 that hashicorp's `memberlist` uses. Detailed designs are left for future RFCs.
 
-## Failure Recovery
+## 5 - Failure Recovery
 
 Recovering from failures gracefully follows as a natural extension of detecting them.
 
-### Key-Value Storage
+### 1 - Key-Value Storage
 
 Failure Recovery is particularly relevant with regard to maintaining a consistent key-value store. If a node restarts
 after an extended outage, it will likely miss key-value operations that have already recovered. As a result, it's
@@ -473,7 +473,7 @@ important for a recently revived node to receive all missed operations.
 There are a number of approaches to solving the above-mentioned problem. I'll cover a few of the most natural, and then
 propose a viable solution.
 
-#### Forward Entire Store
+#### 1 - Forward Entire Store
 
 This is definitely the simplest approach. When a node recovers and begins to gossip its state once again, a peer
 detects the recovery, and starts forwarding its entire state using the following algorithm (we'll call the 'recovering'
@@ -491,7 +491,7 @@ This approach has its drawbacks. The most obvious is the large volume of data th
 A large portion of the data we're sending is redundant. The second is the blind ingestion process; this leaves a node
 susceptible to bugs that involve an old operation accidentally overwriting a newer one that has already propagated.
 
-#### Forward Entire Store as Gossip
+#### 2 - Forward Entire Store as Gossip
 
 This second approach involves essentially the same process, except that patient ingestion is done through
 the normal gossip pipeline. This allows a node to actively check whether it's overwriting an old version. It also minimizes
@@ -501,7 +501,7 @@ The problem is that this approach involves using the same amount of network traf
 doing something like a blind `SSTable` ingestion with `pebble`.
 
 
-#### High Water Marking
+#### 3 - High Water Marking
 
 My proposed solution to the above inefficiencies involves a technique called high water marking. Each node keeps track
 of a "high water" mark that represents the highest version that a node has received from another node. This data structure
@@ -548,7 +548,7 @@ high water marks.
 The doctor node can now avoid sending all operations before the high water mark, reducing the amount of network traffic
 substantially.
 
-#### Concrete Algorithm
+#### 4 - Concrete Algorithm
 
 The concrete algorithm for recovering a node's key-value store after failure:
 
