@@ -19,6 +19,7 @@ class Unreachable(Exception):
     """
     Raise when a target is unreachable.
     """
+
     target: str
     message: str
 

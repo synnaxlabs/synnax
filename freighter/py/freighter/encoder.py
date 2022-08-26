@@ -71,6 +71,10 @@ def merge_payload_dict(data: dict, payload: any):
         if isinstance(value, dict):
             sub_payload = payload.get(key) if is_dict else getattr(payload, key)
             merge_payload_dict(value, sub_payload)
+        elif isinstance(value, list):
+            sub_payload = payload.get(key) if is_dict else getattr(payload, key)
+            for i in range(len(value)):
+                merge_payload_dict(value[i], sub_payload[i])
         elif is_dict:
             payload[key] = value
         else:
@@ -79,12 +83,11 @@ def merge_payload_dict(data: dict, payload: any):
             setattr(payload, key, value)
 
 
-ENCODER_DECODERS: list[EncoderDecoder] = [
-    JSONEncoderDecoder,
-    MsgpackEncoderDecoder
-]
+ENCODER_DECODERS: list[EncoderDecoder] = [JSONEncoderDecoder, MsgpackEncoderDecoder]
 
 T = TypeVar("T")
+
+
 @runtime_checkable
 class EncodeableDecodeable(Protocol[T]):
     def encode(self) -> Any:
