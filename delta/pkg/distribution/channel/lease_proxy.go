@@ -59,6 +59,7 @@ func (lp *leaseProxy) create(ctx context.Context, txn gorp.Txn, channels []Chann
 
 func (lp *leaseProxy) createLocal(txn gorp.Txn, channels []Channel) ([]Channel, error) {
 	for i, ch := range channels {
+		ch.Channel.Density = ch.DataType.Density
 		key, err := lp.tsDB.CreateChannel(ch.Channel)
 		if err != nil {
 			return nil, err

@@ -16,7 +16,8 @@ type Field struct {
 // Error implements the error interface.
 func (f Field) Error() string { return f.Field + ": " + f.Message }
 
-// Fields is an implementation of the error interface that represents a collection of field errors.
+// Fields is an implementation of the error interface that represents a collection of
+// field errors.
 type Fields []Field
 
 // Error implements the error interface.
@@ -35,7 +36,10 @@ func newFieldFromValidator(v validator.FieldError) Field {
 	return Field{Field: parseFieldName(v), Message: v.Tag()}
 }
 
-const EmbeddedFieldName = "--embedded--"
+// EmbeddedFieldTag can be added to the 'json' or 'msgpack' struct tags on an
+// embedded fields so that validation errors do not include the embedded struct
+// name as part of the error field name.
+const EmbeddedFieldTag = "--embedded--"
 
 func parseFieldName(v validator.FieldError) string {
 	// This operation grabs nested struct field names but does not grab the parent
@@ -43,6 +47,6 @@ func parseFieldName(v validator.FieldError) string {
 	path := strings.Split(v.Namespace(), ".")[1:]
 
 	fieldName := strings.Join(path, ".")
-	// and this removes the embedded struct field name.
-	return strings.Replace(fieldName, EmbeddedFieldName+".", "", -1)
+	// and this removes the embedded struct field tag.
+	return strings.Replace(fieldName, EmbeddedFieldTag+".", "", -1)
 }

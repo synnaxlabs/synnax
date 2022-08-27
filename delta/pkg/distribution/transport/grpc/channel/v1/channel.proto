@@ -16,7 +16,7 @@ message Channel {
   string name = 1;
   int32 node_id = 2;
   int32 key = 3;
-  double data_rate = 4;
+  double rate = 4;
   DataType data_type = 5;
 }
 

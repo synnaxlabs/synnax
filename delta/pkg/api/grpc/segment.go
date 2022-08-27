@@ -35,7 +35,7 @@ package grpc
 //}
 //
 //func (i *iteratorServer) translateRequest(req *segmentv1.IteratorRequest) (api.IteratorRequest, error) {
-//	keys, err := channel.ParseKeys(req.Key)
+//	keys, err := channel.ParseKeys(req.Keys)
 //	return api.IteratorRequest{
 //		Command: api.IteratorCommand(req.Command),
 //		Span:    telem.TimeSpan(req.Span),
@@ -44,7 +44,7 @@ package grpc
 //			End:   telem.TimeStamp(req.Range.End),
 //		},
 //		Stamp: telem.TimeStamp(req.Stamp),
-//		Key:  keys,
+//		Keys:  keys,
 //	}, err
 //}
 //

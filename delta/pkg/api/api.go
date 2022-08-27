@@ -1,3 +1,7 @@
+// Package api implements the client interfaces for interacting with the delta cluster.
+// The top level package is completely transport agnostic, and provides freighter compatible
+// interfaces for all of its services. Sub-packages in this directory wrap the core API
+// services to provide transport specific implementations.
 package api
 
 import (
@@ -12,6 +16,8 @@ import (
 	"go.uber.org/zap"
 )
 
+// Config is all required configuration parameters and services necessary to
+// instantiate the API.
 type Config struct {
 	Logger        *zap.Logger
 	Channel       *channel.Service
@@ -24,6 +30,8 @@ type Config struct {
 	Enforcer      access.Enforcer
 }
 
+// API wraps all implemented API services into a single container. Protocol-specific
+// API implementations should use this struct during instantiation.
 type API struct {
 	Provider Provider
 	Config   Config
@@ -32,11 +40,10 @@ type API struct {
 	Channel  *ChannelService
 }
 
+// New instantiates the delta API using the provided Config. This should probably
+// only be called once.
 func New(cfg Config) API {
-	api := API{
-		Config:   cfg,
-		Provider: NewProvider(cfg),
-	}
+	api := API{Config: cfg, Provider: NewProvider(cfg)}
 	api.Auth = NewAuthService(api.Provider)
 	api.Segment = NewSegmentService(api.Provider)
 	api.Channel = NewChannelService(api.Provider)

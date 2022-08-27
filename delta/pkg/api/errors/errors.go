@@ -1,3 +1,10 @@
+// Package errors implements standard error types and formats to provide uniform,
+// parseable exceptions to delta API consumers.
+//
+// All errors in this package are variations of the Typed struct; an error's type gives
+// the API consumer information on how it should be parsed. All errors in this package
+// can be encoded, and implement freighter interfaces for go-internal and cross language
+// parsing.
 package errors
 
 import (
@@ -10,20 +17,22 @@ var Nil = Typed{Type: TypeNil}
 
 var Cancelled = Typed{Type: TypeGeneral, Err: Message{Message: "request cancelled"}}
 
+// Message is an error that contains a simple string message.
 type Message struct {
 	Message string `json:"message" msgpack:"message"`
 }
 
+// Error implements the error interface.
 func (g Message) Error() string { return g.Message }
 
 func newTypedMessage(t Type, msg string) Typed {
 	return Typed{Type: t, Err: Message{Message: msg}}
 }
 
-// General is an error that doesn't fit into a specific Type. General errors
-// should be used in the case where an error is expected to occur during normal
-// use, such as a query returning multiple results when it should return exactly
-// one. Unexpected errors should be used in the case where an error should not
+// General is an error that doesn't fit into a specific Type. General errors should be
+// used in the case where an error is expected to occur during normal use, such as a
+// query returning multiple results when it should return exactly one. Unexpected errors
+// should be used in the case where an error should not
 // occur during normal use.
 func General(err error) Typed { return newTypedMessage(TypeGeneral, err.Error()) }
 

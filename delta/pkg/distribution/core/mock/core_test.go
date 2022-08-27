@@ -9,7 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Core", func() {
+var _ = Describe("Logging", func() {
 	DescribeTable("New", func(cfg ...distribution.Config) {
 		builder := mock.NewCoreBuilder(cfg...)
 		coreOne := builder.New()

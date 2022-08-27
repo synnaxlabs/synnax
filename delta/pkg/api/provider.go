@@ -12,45 +12,56 @@ import (
 	"go.uber.org/zap"
 )
 
+// Provider is a dependency injection container containing essential utilities
+// for particular API services (if they so require them). Provider should be
+// passed as the one and only argument to a service constructor.
 type Provider struct {
-	Config Config
-	Core   CoreProvider
-	DB     DBProvider
-	User   UserProvider
-	Access AccessProvider
-	Auth   AuthProvider
+	Config     Config
+	Logging    LoggingProvider
+	Validation ValidationProvider
+	DB         DBProvider
+	User       UserProvider
+	Access     AccessProvider
+	Auth       AuthProvider
 }
 
 func NewProvider(cfg Config) Provider {
 	p := Provider{Config: cfg}
-
-	p.Core = CoreProvider{Logger: cfg.Logger.Sugar(), Validator: newValidator()}
-
-	p.DB = DBProvider{Core: p.Core, DB: gorp.Wrap(cfg.Storage.KV)}
-
+	p.Logging = LoggingProvider{Logger: cfg.Logger.Sugar()}
+	p.Validation = ValidationProvider{Validator: newValidator()}
+	p.DB = DBProvider{DB: gorp.Wrap(cfg.Storage.KV)}
 	p.User = UserProvider{User: cfg.User}
-
 	p.Access = AccessProvider{Enforcer: cfg.Enforcer}
-
 	p.Auth = AuthProvider{Token: cfg.Token, Authenticator: cfg.Authenticator}
-
 	return p
 }
 
-type CoreProvider struct {
-	Logger    *zap.SugaredLogger
+// LoggingProvider provides logging utilities to services.
+type LoggingProvider struct {
+	Logger *zap.SugaredLogger
+}
+
+// ValidationProvider provides the global API validator to services.
+type ValidationProvider struct {
 	Validator *validator.Validate
 }
 
-func (c *CoreProvider) Validate(v any) errors.Typed {
-	return errors.MaybeValidation(c.Validator.Struct(v))
+// Validate validates the provided struct. If validation is successful, returns errors.Nil,
+// otherwise, returns an errors.Validation error containing the fields that failed validation.
+func (vp *ValidationProvider) Validate(v any) errors.Typed {
+	return errors.MaybeValidation(vp.Validator.Struct(v))
 }
 
+// DBProvider provides exposes the cluster-wide key-value store to API services.
 type DBProvider struct {
-	DB   *gorp.DB
-	Core CoreProvider
+	DB *gorp.DB
 }
 
+// WithTxn wraps the provided function in a gorp transaction. If the function returns
+// errors.Nil, the transaction is committed. Otherwise, the transaction is aborted.
+// Returns errors.Nil if the commit process is successful. Returns an unexpected
+// error if the abort process fails; otherwise, returns the error returned by the provided
+// function.
 func (db DBProvider) WithTxn(f func(txn gorp.Txn) errors.Typed) (tErr errors.Typed) {
 	txn := db.DB.BeginTxn()
 	defer func() {
@@ -65,21 +76,24 @@ func (db DBProvider) WithTxn(f func(txn gorp.Txn) errors.Typed) (tErr errors.Typ
 	return tErr
 }
 
+// UserProvider provides user information to services.
 type UserProvider struct {
 	User *user.Service
 }
 
+// AccessProvider provides access control information and utilities to services.
 type AccessProvider struct {
 	Enforcer access.Enforcer
 }
 
+// AuthProvider provides authentication and token utilities to services. In most cases
+// authentication should be left up to the protocol-specific middleware.
 type AuthProvider struct {
 	Authenticator auth.Authenticator
 	Token         *token.Service
 }
 
-type Map map[string]interface{}
-
+// OntologyProvider provides the cluster wide ontology to services.
 type OntologyProvider struct {
 	Ontology *ontology.Ontology
 }

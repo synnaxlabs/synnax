@@ -21,6 +21,7 @@ func (c createMessageTranslator) Forward(msg channel.CreateMessage) (*channelv1.
 				Key:     ch.DataType.Key,
 				Density: int32(ch.DataType.Density),
 			},
+			Rate: float64(ch.Rate),
 		})
 	}
 	return tr, nil
@@ -39,6 +40,7 @@ func (c createMessageTranslator) Backward(msg *channelv1.CreateMessage) (channel
 			Channel: cesium.Channel{
 				Key:     cesium.ChannelKey(ch.Key),
 				Density: telem.Density(ch.DataType.Density),
+				Rate:    cesium.Rate(ch.Rate),
 			},
 		})
 	}
