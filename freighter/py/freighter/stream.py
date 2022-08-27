@@ -1,9 +1,9 @@
-from .transport import RS, RQ, Transport
+from .transport import RS, RQ, Transport, PayloadFactory
 from typing import Protocol, Callable
 
 
 class AsyncStreamReceiver(Protocol[RS]):
-    async def receive(self) -> (RS, Exception | None):
+    async def receive(self) -> tuple[RS | None, Exception | None]:
         """
         Receives a response from the stream. It's not safe to call receive concurrently.
 
@@ -16,7 +16,7 @@ class AsyncStreamReceiver(Protocol[RS]):
 
 
 class StreamReceiver(Protocol[RS]):
-    def receive(self) -> (RS, Exception | None):
+    def receive(self) -> tuple[RS | None, Exception | None]:
         """
         Receives a response from the stream. It's not safe to call receive concurrently.
 
@@ -29,7 +29,7 @@ class StreamReceiver(Protocol[RS]):
 
 
 class AsyncStreamSender(Protocol[RQ]):
-    async def send(self, request: RQ) -> Exception:
+    async def send(self, request: RQ) -> Exception | None:
         """
         Sends a request to the stream. It is not safe to call send concurrently
         with close_send or send.
@@ -45,7 +45,7 @@ class AsyncStreamSender(Protocol[RQ]):
 
 
 class StreamSender(Protocol[RQ]):
-    def send(self, request: RQ) -> Exception:
+    def send(self, request: RQ) -> Exception | None:
         """
         Sends a request to the stream. It is not safe to call send concurrently
         with close_send or send.
@@ -61,7 +61,7 @@ class StreamSender(Protocol[RQ]):
 
 
 class AsyncStreamSenderCloser(AsyncStreamSender[RQ]):
-    async def close_send(self) -> None:
+    async def close_send(self) -> Exception | None:
         """
         Lets the server know no more messages will be sent. If the client attempts
         to call send() after calling close_send(), a freighter.errors.StreamClosed
@@ -77,7 +77,7 @@ class AsyncStreamSenderCloser(AsyncStreamSender[RQ]):
 
 
 class StreamSenderCloser(StreamSender[RQ]):
-    def close_send(self) -> None:
+    def close_send(self) -> Exception | None:
         """
         Lets the server know no more messages will be sent. If the client attempts
         to call send() after calling close_send(), a freighter.errors.StreamClosed
@@ -92,24 +92,21 @@ class StreamSenderCloser(StreamSender[RQ]):
         ...
 
 
-class AsyncStream(AsyncStreamReceiver[RS], AsyncStreamSenderCloser[RQ]):
+class AsyncStream(AsyncStreamSenderCloser[RQ], AsyncStreamReceiver[RS]):
     ...
 
 
-class Stream(StreamReceiver[RS], StreamSenderCloser[RQ]):
+class Stream(StreamSenderCloser[RQ], StreamReceiver[RS]):
     ...
-
-
-ResponseFactory = Callable[[], RS]
 
 
 class AsyncStreamClient(Transport):
     async def stream(
-        self, target: str, response_factory: ResponseFactory
-    ) -> AsyncStream[RS, RQ]:
+            self, target: str, response_factory: PayloadFactory[RS],
+    ) -> AsyncStream:
         ...
 
 
 class StreamClient(Transport):
-    def stream(self, target: str, response_Factory: ResponseFactory) -> Stream[RS, RQ]:
+    def stream(self, target: str, response_Factory: PayloadFactory[RS]) -> Stream:
         ...

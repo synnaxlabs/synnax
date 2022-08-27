@@ -2,14 +2,13 @@ import asyncio
 from asyncio import Event
 from threading import Thread
 
-from .transport import RS, RQ
-from typing import Generic, Optional
+from .transport import RS, RQ, PayloadFactoryFunc, PayloadFactory
+from typing import Generic, Optional, ClassVar
 from janus import Queue
 from freighter.stream import (
     AsyncStreamReceiver,
     AsyncStreamClient,
-    Stream as StreamProtocol,
-    ResponseFactory, AsyncStreamSenderCloser,
+    AsyncStreamSenderCloser,
 )
 from freighter.util.threading import Notification
 
@@ -24,7 +23,7 @@ class Receiver(Generic[RS]):
         self._exception = Notification()
         self._wrapped = wrapped
 
-    def receive(self) -> (RS, Exception | None):
+    def receive(self) -> tuple[RS | None, Exception | None]:
         if self._exception.received():
             return None, self._exception.read()
         pld = self._responses.sync_q.get()
@@ -83,24 +82,24 @@ class SenderCloser(Generic[RQ]):
             self._exception.notify(e)
 
 
-class Stream(Thread, Generic[RS, RQ]):
+class Stream(Thread, Generic[RQ, RS]):
     _client: AsyncStreamClient
     _target: str
-    _response_factory: ResponseFactory[RS]
     _open_exception: Optional[Notification[Optional[Exception]]]
     _receiver: Receiver[RS]
     _sender: SenderCloser[RQ]
+    _response_factory: PayloadFactory[RS]
 
     def __init__(
             self,
             client: AsyncStreamClient,
             target: str,
-            response_factory: ResponseFactory[RS]
+            response_factory: PayloadFactoryFunc[RS]
     ) -> None:
         super().__init__()
         self._client = client
         self._target = target
-        self._response_factory = response_factory
+        self._response_factory = PayloadFactory[RS](response_factory)
         self._open_exception = Notification()
         self.start()
         self._ack_open()
@@ -108,7 +107,7 @@ class Stream(Thread, Generic[RS, RQ]):
     def run(self) -> None:
         asyncio.run(self._run())
 
-    def receive(self) -> (RS, Exception | None):
+    def receive(self) -> tuple[RS | None, Exception | None]:
         return self._receiver.receive()
 
     def send(self, pld: RQ) -> Exception | None:
@@ -146,6 +145,8 @@ class StreamClient:
         self.wrapped = wrapped
 
     def stream(
-            self, target: str, response_factory: ResponseFactory
-    ) -> StreamProtocol[RS, RQ]:
-        return Stream(self.wrapped, target, response_factory)
+            self,
+            target: str,
+            response_factory: PayloadFactoryFunc[RS]
+    ) -> Stream[RQ, RS]:
+        return Stream[RQ, RS](self.wrapped, target, response_factory)

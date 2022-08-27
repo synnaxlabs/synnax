@@ -1,3 +1,5 @@
+from asyncio import Protocol
+
 from .error_registry import REGISTRY, Encode, Decode, ErrorPayload, _ErrorProvider
 
 _ERROR_TYPE = "freighter"
@@ -11,7 +13,7 @@ def encode(error: Exception) -> ErrorPayload:
     return REGISTRY.encode(error)
 
 
-def decode(encoded: ErrorPayload) -> Exception:
+def decode(encoded: ErrorPayload) -> Exception | None:
     return REGISTRY.decode(encoded)
 
 
@@ -31,10 +33,6 @@ class Unreachable(Exception):
     def __str__(self):
         return self.message
 
-    @staticmethod
-    def encoded() -> str:
-        return "Unreachable"
-
 
 class StreamClosed(Exception):
     """
@@ -43,10 +41,6 @@ class StreamClosed(Exception):
 
     def __str__(self):
         return "freighter.errors.StreamClosed"
-
-    @staticmethod
-    def encoded() -> str:
-        return "StreamClosed"
 
 
 class EOF(Exception):
@@ -57,10 +51,6 @@ class EOF(Exception):
     def __str__(self):
         return "freighter.errors.EOF"
 
-    @staticmethod
-    def encoded() -> str:
-        return "EOF"
-
 
 _EXCEPTIONS = [
     Unreachable,
@@ -70,16 +60,23 @@ _EXCEPTIONS = [
 
 
 def freighter_encode(exc: Exception) -> str:
-    for e in _EXCEPTIONS:
-        if isinstance(exc, e):
-            return e.encoded()
+    if isinstance(exc, Unreachable):
+        return "Unreachable"
+    if isinstance(exc, StreamClosed):
+        return "StreamClosed"
+    if isinstance(exc, EOF):
+        return "EOF"
+
     raise ValueError(f"Unknown freighter exception: {exc}")
 
 
 def freighter_decode(exc: str) -> Exception:
-    for e in _EXCEPTIONS:
-        if e.encoded() == exc:
-            return e()
+    if exc == "Unreachable":
+        return Unreachable()
+    if exc == "StreamClosed":
+        return StreamClosed()
+    if exc == "EOF":
+        return EOF()
     raise ValueError(f"Unknown freighter exception: {exc}")
 
 

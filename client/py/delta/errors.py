@@ -20,6 +20,7 @@ class APIErrorType(Enum):
     AUTH = "auth"
     UNEXPECTED = "unexpected"
     VALIDATION = "validation"
+    QUERY = "query"
 
 
 class ValidationError(Exception):
@@ -57,17 +58,24 @@ class UnexpectedError(Exception):
     pass
 
 
+class ContiguityError(Exception):
+    """
+    Raised when time-series data is not contiguous.
+    """
+    pass
+
+
+class QueryError(Exception):
+    """
+    Raised when a query error occurs, such as an item not found.
+    """
+    pass
+
+
 @dataclass
 class Field:
     field: str
     message: str
-
-
-class TransportClosed(Exception):
-    """
-    Raised when the transport is closed.
-    """
-    pass
 
 
 def maybe_raise_from_res(res: dict):
@@ -83,8 +91,6 @@ def parse_from_payload(pld: APIErrorPayload) -> Exception | None:
     """
     Parse an error from a dictionary response.
     """
-
-    print(pld)
 
     if type(pld) == dict:
         raise UnexpectedError(f"Unknown error type {pld}")
@@ -112,6 +118,9 @@ def parse_from_payload(pld: APIErrorPayload) -> Exception | None:
 
     if pld.type == APIErrorType.VALIDATION.value:
         return ValidationError(pld.error)
+
+    if pld.type == APIErrorType.QUERY.value:
+        return QueryError(pld.error['message'])
 
     return Exception("unable to parse error")
 

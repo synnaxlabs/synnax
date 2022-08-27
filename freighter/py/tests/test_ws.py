@@ -1,5 +1,3 @@
-import time
-
 import freighter.errors
 from freighter import sync
 from freighter.ws import AsyncWSClient

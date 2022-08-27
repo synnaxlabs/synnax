@@ -2,7 +2,7 @@ import dataclasses
 from typing import Generic
 
 from .encoder import EncoderDecoder
-from .transport import RS, RQ, Payload
+from .transport import RS, RQ, Payload, PayloadFactory, PayloadFactoryFunc
 from urllib3 import PoolManager
 from urllib.parse import urlencode, urljoin
 import urllib3
@@ -14,13 +14,20 @@ http = PoolManager()
 ERROR_ENCODING_HEADER = "freighter"
 
 
-class _HTTPClient:
+class _HTTPClient(Generic[RS]):
     endpoint: Endpoint
     encoder_decoder: EncoderDecoder
+    response_factory: PayloadFactory[RS]
 
-    def __init__(self, endpoint: Endpoint, encoder_decoder: EncoderDecoder):
+    def __init__(
+            self,
+            endpoint: Endpoint,
+            encoder_decoder: EncoderDecoder,
+            response_factory: PayloadFactoryFunc[RS]
+    ):
         self.endpoint = endpoint
         self.encoder_decoder = encoder_decoder
+        self.response_factory = PayloadFactory[RS](response_factory)
 
     @property
     def headers(self) -> dict[str, str]:
@@ -30,8 +37,8 @@ class _HTTPClient:
         }
 
 
-class GETClient(Generic[RS, RQ], _HTTPClient):
-    async def send(self, target: str, req: RS, res: RQ) -> Exception | None:
+class GETClient(Generic[RQ, RS], _HTTPClient):
+    async def send(self, target: str, req: RQ) -> tuple[RS | None, Exception | None]:
         query_args = build_query_string(req)
         url = self.endpoint.build(target) + "?" + query_args
         http_res: urllib3.HTTPResponse
@@ -43,14 +50,14 @@ class GETClient(Generic[RS, RQ], _HTTPClient):
         if http_res.status != 200:
             err = ErrorPayload(None, None)
             self.encoder_decoder.decode(http_res.data, err)
-            return decode(err)
+            return None, decode(err)
 
-        self.encoder_decoder.decode(http_res.data, res)
-        return None
+        self.encoder_decoder.decode(http_res.data, self.response_factory())
+        return None, None
 
 
-class POSTClient(Generic[RS, RQ], _HTTPClient):
-    async def send(self, target: str, req: RS, res: RQ) -> Exception | None:
+class POSTClient(Generic[RQ, RS], _HTTPClient):
+    async def send(self, target: str, req: RQ) -> tuple[RS | None, Exception | None]:
         url = self.endpoint.build(target)
         http_res: urllib3.HTTPResponse
         try:
@@ -66,13 +73,14 @@ class POSTClient(Generic[RS, RQ], _HTTPClient):
         if http_res.status != 200 and http_res.status != 201:
             err = ErrorPayload(None, None)
             self.encoder_decoder.decode(http_res.data, err)
-            return decode(err)
+            return None, decode(err)
 
+        res = self.response_factory()
         self.encoder_decoder.decode(http_res.data, res)
-        return None
+        return res, None
 
 
-def build_query_string(req: RS) -> str:
+def build_query_string(req: RQ) -> str:
     raw_dct = dataclasses.asdict(req)
     parsed_dct = dict()
     for key, val in raw_dct.items():

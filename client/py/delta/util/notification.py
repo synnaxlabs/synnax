@@ -18,10 +18,9 @@ class Notification(Generic[T]):
     async def notify(self, value: T):
         if self.received() or self.lock.locked():
             return
-        async with self.lock.acquire():
+        async with self.lock:
             self.value = value
             self.event.set()
-            self.lock.release()
 
     def received(self) -> bool:
         return self.event.is_set()

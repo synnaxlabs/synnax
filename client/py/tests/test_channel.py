@@ -14,7 +14,7 @@ class TestChannel:
             name="test",
             node_id=1,
             rate=25 * telem.HZ,
-            data_type=telem.FLOAT_64,
+            data_type=telem.FLOAT64,
         )
         encoded = ecd.encode(ch)
         decoded = Channel()

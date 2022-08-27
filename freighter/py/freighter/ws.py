@@ -1,11 +1,11 @@
 import asyncio
 import copy
 
-from websockets import WebSocketClientProtocol, connect
+from websockets.legacy.client import connect, WebSocketClientProtocol
 from websockets.exceptions import ConnectionClosedOK
 
 from .endpoint import Endpoint
-from .transport import RS, RQ, Payload
+from .transport import RS, RQ, P, PayloadFactory
 from typing import Generic, Callable
 from dataclasses import dataclass
 from .errors import StreamClosed
@@ -18,42 +18,23 @@ _CLOSE_MESSAGE = "close"
 
 
 @dataclass
-class _Message(Payload):
+class _Message(Generic[P]):
     type: str
-    payload: Payload | None = None
-    error: ErrorPayload | None = None
+    payload: P
+    error: ErrorPayload | None
 
 
-def empty_message(payload: Payload) -> _Message:
+def empty_message(payload: P) -> _Message[P]:
     return _Message(type=_DATA_MESSAGE, payload=payload, error=ErrorPayload(None, None))
 
 
-class AsyncWSClient(Generic[RS, RQ]):
-    endpoint: Endpoint
-    encoder: EncoderDecoder
-
-    def __init__(self, encoder: EncoderDecoder, endpoint: Endpoint) -> None:
-        self.encoder = encoder
-        self.endpoint = copy.copy(endpoint)
-        self.endpoint.protocol = "ws"
-
-    async def stream(
-            self, target: str, response_factory: Callable[[], RS]
-    ) -> stream.AsyncStream[RS, RQ]:
-        ws = await connect(
-            self.endpoint.build(target),
-            extra_headers={"Content-Type": self.encoder.content_type()},
-        )
-        return AsyncWSStream[RS, RQ](self.encoder, ws, response_factory)
-
-
-class AsyncWSStream(Generic[RS, RQ]):
+class AsyncWSStream(Generic[RQ, RS]):
     encoder: EncoderDecoder
     wrapped: WebSocketClientProtocol
     server_closed: Exception | None
     send_closed: bool
     lock: asyncio.Lock
-    response_factory: Callable[[], RS]
+    response_factory: PayloadFactory[RS]
 
     def __init__(
             self,
@@ -66,17 +47,19 @@ class AsyncWSStream(Generic[RS, RQ]):
         self.send_closed = False
         self.server_closed = None
         self.lock = asyncio.Lock()
-        self.response_factory = response_factory
+        self.response_factory = PayloadFactory[RS](response_factory)
 
-    async def receive(self) -> (RS, Exception | None):
+    async def receive(self) -> tuple[RS | None, Exception | None]:
         if self.server_closed is not None:
             return None, self.server_closed
 
         data = await self.wrapped.recv()
         msg = empty_message(self.response_factory())
+        assert isinstance(data, bytes)
         self.encoder.decode(data, msg)
 
         if msg.type == _CLOSE_MESSAGE:
+            assert msg.error is not None
             await self._close_server(errors.decode(msg.error))
             return None, self.server_closed
 
@@ -102,6 +85,7 @@ class AsyncWSStream(Generic[RS, RQ]):
             await self.wrapped.send(encoded)
         except ConnectionClosedOK:
             return errors.EOF()
+        return None
 
     async def close_send(self):
         await self.lock.acquire()
@@ -123,3 +107,22 @@ class AsyncWSStream(Generic[RS, RQ]):
             self.server_closed = server_err
 
         await self.wrapped.close()
+
+
+class AsyncWSClient(Generic[RQ, RS]):
+    endpoint: Endpoint
+    encoder: EncoderDecoder
+
+    def __init__(self, encoder: EncoderDecoder, endpoint: Endpoint) -> None:
+        self.encoder = encoder
+        self.endpoint = copy.copy(endpoint)
+        self.endpoint.protocol = "ws"
+
+    async def stream(
+            self, target: str, response_factory: Callable[[], RS]
+    ) -> AsyncWSStream[RQ, RS]:
+        ws = await connect(
+            self.endpoint.build(target),
+            extra_headers={"Content-Type": self.encoder.content_type()},
+        )
+        return AsyncWSStream[RQ, RS](self.encoder, ws, response_factory)

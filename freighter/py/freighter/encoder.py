@@ -1,6 +1,7 @@
 import dataclasses
 import enum
 import json
+import typing
 from typing import Protocol, Callable, Any, runtime_checkable, Type, TypeVar
 from .transport import Payload
 
@@ -27,11 +28,11 @@ class MsgpackEncoderDecoder:
         return "application/msgpack"
 
     @staticmethod
-    def encode(payload: any) -> bytes:
+    def encode(payload: Any) -> bytes:
         return msgpack.packb(dataclasses.asdict(payload))
 
     @staticmethod
-    def decode(data: bytes, payload: any):
+    def decode(data: bytes, payload: Any):
         merge_payload_dict(msgpack.unpackb(data), payload)
 
 
@@ -41,7 +42,7 @@ class JSONEncoderDecoder:
         return "application/json"
 
     @staticmethod
-    def encode(payload: any) -> bytes:
+    def encode(payload: Any) -> bytes:
         return json.dumps(
             dataclasses.asdict(payload),
             ensure_ascii=False,
@@ -49,23 +50,19 @@ class JSONEncoderDecoder:
         ).encode()
 
     @staticmethod
-    def decode(data: bytes, payload: any):
+    def decode(data: bytes, payload: Any):
         merge_payload_dict(json.loads(data), payload)
 
 
-def json_default(self, obj: Any) -> Any:
-    if isinstance(obj, EncodeableDecodeable):
-        return obj.encode()
-    return json.JSONEncoder.default(self, obj)
+def json_default(obj: Any) -> Any:
+    return json.JSONEncoder().default(obj)
 
 
-def msgpack_default(self, obj: Any) -> Any:
-    if isinstance(obj, EncodeableDecodeable):
-        return obj.encode()
+def msgpack_default(obj: Any) -> Any:
     return obj
 
 
-def merge_payload_dict(data: dict, payload: any):
+def merge_payload_dict(data: dict, payload: Any):
     is_dict = isinstance(payload, dict)
     for key, value in data.items():
         if isinstance(value, dict):
@@ -78,21 +75,12 @@ def merge_payload_dict(data: dict, payload: any):
         elif is_dict:
             payload[key] = value
         else:
-            if isinstance(value, EncodeableDecodeable):
-                value = value.decode()
             setattr(payload, key, value)
 
 
-ENCODER_DECODERS: list[EncoderDecoder] = [JSONEncoderDecoder, MsgpackEncoderDecoder]
+ENCODER_DECODERS: list[EncoderDecoder] = [
+    JSONEncoderDecoder(),
+    MsgpackEncoderDecoder(),
+]
 
 T = TypeVar("T")
-
-
-@runtime_checkable
-class EncodeableDecodeable(Protocol[T]):
-    def encode(self) -> Any:
-        ...
-
-    @staticmethod
-    def decode(value: Any) -> T:
-        ...

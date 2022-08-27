@@ -5,7 +5,7 @@ from threading import (
 )
 from typing import (
     Generic,
-    TypeVar,
+    TypeVar, Optional,
 )
 
 
@@ -42,7 +42,7 @@ T = TypeVar("T")
 
 class Notification(Generic[T]):
     gate: Gate
-    _value: T | None
+    _value: Optional[T]
 
     def __init__(self):
         self._value = None
@@ -55,7 +55,7 @@ class Notification(Generic[T]):
     def received(self) -> bool:
         return self.gate.is_closed()
 
-    def read(self) -> T:
+    def read(self) -> Optional[T]:
         self.gate.wait_open()
         return self._value
 
@@ -66,7 +66,3 @@ class Notification(Generic[T]):
             )
         self._value = None
         self.gate.open()
-
-    @property
-    def value(self) -> T:
-        return self._value

@@ -3,6 +3,7 @@ from typing import Optional
 
 import freighter
 
+from delta import telem
 from delta.channel import Channel
 
 
@@ -17,6 +18,11 @@ class ChannelRetrieveRequest:
 class ChannelResponse:
     channels: list[Channel]
 
+    def decode(self, data: dict):
+        return ChannelResponse(
+            channels=[Channel(**c) for c in data["channels"]]
+        )
+
 
 @dataclass
 class ChannelCreateRequest:
@@ -24,41 +30,44 @@ class ChannelCreateRequest:
     count: int
 
 
+ChannelRetrieveTransport = freighter.UnaryClient[ChannelRetrieveRequest, ChannelResponse]
+ChannelCreateTransport = freighter.UnaryClient[ChannelCreateRequest, ChannelResponse]
+
+
 class ChannelClient:
-    retrieve_transport: freighter.UnaryClient[ChannelRetrieveRequest, ChannelResponse]
-    create_transport: freighter.UnaryClient[ChannelCreateRequest, ChannelResponse]
+    retrieve_transport: ChannelRetrieveTransport
+    create_transport: ChannelCreateTransport
 
-    def __init__(self, retrieve_transport: freighter.UnaryClient):
+    def __init__(self,
+                 retrieve_transport: ChannelRetrieveTransport,
+                 create_transport: ChannelCreateTransport,
+                 ):
         self.retrieve_transport = retrieve_transport
+        self.create_transport = create_transport
 
-    async def retrieve(self, keys: list[str]) -> list[Channel]:
+    def retrieve(self, keys: list[str]) -> list[Channel]:
         request = ChannelRetrieveRequest(keys=keys)
-        response = ChannelResponse(channels=[])
-        exc = await self.retrieve_transport.send("/channel/retrieve", request, response)
+        res, exc = self.retrieve_transport.send("/channel/retrieve", request)
         if exc is not None:
             raise exc
-        return response.channels
+        return res.channels
 
     async def retrieve_by_name(self, names: list[str]) -> list[Channel]:
         request = ChannelRetrieveRequest(names=names)
-        response = ChannelResponse(channels=[])
-        exc = await self.retrieve_transport.send("/channel/retrieve", request, response)
+        res, exc = await self.retrieve_transport.send("/channel/retrieve", request)
         if exc is not None:
             raise exc
-        return response.channels
+        return res.channels
 
     async def retrieve_by_node(self, node: int) -> list[Channel]:
-        request = ChannelRetrieveRequest(node=node)
-        response = ChannelResponse(channels=[])
-        exc = await self.retrieve_transport.send("/channel/retrieve", request, response)
+        res, exc = await self.retrieve_transport.send("/channel/retrieve", request)
         if exc is not None:
             raise exc
-        return response.channels
+        return res.channels
 
     async def create(self, channel: Channel, count: int = 1):
-        request = ChannelCreateRequest(channel=channel, count=count)
-        response = ChannelResponse(channels=[])
-        exc = await self.create_transport.send("/channel/create", request, response)
+        req = ChannelCreateRequest(channel=channel, count=count)
+        res, exc = await self.create_transport.send("/channel/create", req)
         if exc is not None:
             raise exc
-        return response.channels
+        return res.channels
