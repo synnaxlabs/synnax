@@ -89,10 +89,10 @@ class AsyncCore(BaseCore):
 
 
 class Core(BaseCore):
-    transport: freighter.StreamClient
+    transport: freighter.StreamClient[WriterRequest, WriterResponse]
     stream: freighter.Stream[WriterRequest, WriterResponse]
 
-    def __init__(self, transport: freighter.StreamClient) -> None:
+    def __init__(self, transport: freighter.StreamClient[WriterRequest, WriterResponse]) -> None:
         self.transport = transport
 
     def open(self, keys: list[str]):

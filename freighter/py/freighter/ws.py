@@ -28,7 +28,7 @@ def empty_message(payload: P) -> _Message[P]:
     return _Message(type=_DATA_MESSAGE, payload=payload, error=ErrorPayload(None, None))
 
 
-class AsyncWSStream(Generic[RQ, RS]):
+class WSStream(Generic[RQ, RS]):
     encoder: EncoderDecoder
     wrapped: WebSocketClientProtocol
     server_closed: Exception | None
@@ -109,7 +109,7 @@ class AsyncWSStream(Generic[RQ, RS]):
         await self.wrapped.close()
 
 
-class AsyncWSClient(Generic[RQ, RS]):
+class WSClient(Generic[RQ, RS]):
     endpoint: Endpoint
     encoder: EncoderDecoder
 
@@ -120,9 +120,9 @@ class AsyncWSClient(Generic[RQ, RS]):
 
     async def stream(
             self, target: str, response_factory: Callable[[], RS]
-    ) -> AsyncWSStream[RQ, RS]:
+    ) -> WSStream[RQ, RS]:
         ws = await connect(
             self.endpoint.build(target),
             extra_headers={"Content-Type": self.encoder.content_type()},
         )
-        return AsyncWSStream[RQ, RS](self.encoder, ws, response_factory)
+        return WSStream[RQ, RS](self.encoder, ws, response_factory)

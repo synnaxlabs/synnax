@@ -52,12 +52,14 @@ class SenderCloser(Generic[RQ]):
     _requests: Queue[Optional[RQ]]
     _exception: Notification[Optional[Exception]]
     _close_send: Event
+    _cancel: Event
 
     def __init__(self, wrapped: AsyncStreamSenderCloser[RQ]):
         self._wrapped = wrapped
         self._requests = Queue()
         self._exception = Notification()
         self._close_send = Event()
+        self._cancel = Event()
 
     def send(self, pld: RQ) -> Exception | None:
         if self._exception.received():
@@ -70,12 +72,17 @@ class SenderCloser(Generic[RQ]):
         self._close_send.set()
         return self._exception.read()
 
+    def cancel(self):
+        self._cancel.set()
+
     async def run(self):
         try:
             while True:
                 payload = await self._requests.async_q.get()
                 if self._close_send.is_set() and payload is None:
                     break
+                if self._cancel.is_set() and payload is None:
+                    return
                 exc = await self._wrapped.send(payload)
                 if exc is not None:
                     self._exception.notify(exc)
@@ -114,7 +121,11 @@ class Stream(Thread, Generic[RQ, RS]):
         return self._receiver.received()
 
     def receive(self) -> tuple[RS | None, Exception | None]:
-        return self._receiver.receive()
+        res, exc = self._receiver.receive()
+        if exc is not None:
+            self._sender.cancel()
+            self._sender.send(None)
+        return res, exc
 
     def send(self, pld: RQ) -> Exception | None:
         return self._sender.send(pld)
@@ -144,7 +155,7 @@ class Stream(Thread, Generic[RQ, RS]):
         self._open_exception = None
 
 
-class StreamClient:
+class StreamClient(Generic[RQ, RS]):
     wrapped: AsyncStreamClient
 
     def __init__(self, wrapped: AsyncStreamClient) -> None:

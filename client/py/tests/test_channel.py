@@ -5,11 +5,6 @@ from delta import telem
 from delta.channel import Channel, Client, new_http_client
 
 
-@pytest.fixture(scope="session")
-def channel_client(endpoint: Endpoint) -> Client:
-    return new_http_client(endpoint)
-
-
 class TestClient:
     @pytest.fixture(scope="class")
     def two_channels(self, channel_client: Client) -> list[Channel]:

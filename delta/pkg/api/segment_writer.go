@@ -140,7 +140,7 @@ func (s *SegmentService) openWriter(ctx context.Context, srv WriterStream) (segm
 	}
 	w, err := s.Internal.NewCreate().WhereChannels(keys...).Write(ctx)
 	if err != nil {
-		return nil, errors.General(err)
+		return nil, errors.Query(err)
 	}
 	// Let the client know the writer is ready to receive segments.
 	return w, errors.MaybeUnexpected(srv.Send(WriterResponse{Ack: true}))
