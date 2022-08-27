@@ -1,2 +1,11 @@
-
 __pycache__
+
+# |||| COVERAGE ||||
+
+.coverage
+htmlcov
+
+# ||||| CACHE ||||
+
+.mypy_cache
+.pytest_cache

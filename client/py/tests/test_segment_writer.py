@@ -1,5 +1,4 @@
 import pytest
-from datetime import datetime
 from freighter.ws import WSClient
 from freighter.sync import StreamClient
 from freighter import (
@@ -55,12 +54,13 @@ class TestCore:
         )])
         core.close()
 
-    def test_nonexistent_channel_key(self, core: Core):
+    def test_nonexistent_channel_key(self, core: Core) :
         with pytest.raises(delta.errors.QueryError):
             core.open(["1241-241"])
 
-    def test_write_lock_acquired(self, endpoint: Endpoint, core: Core,
-                                 channel: Channel):
+    def test_write_lock_acquired(
+            self, endpoint: Endpoint, core: Core, channel: Channel,
+    ):
         core2 = new_core(endpoint)
         core_err = None
         core2_err = None
@@ -72,11 +72,8 @@ class TestCore:
             core2.open([channel.key])
         except Exception as e:
             core2_err = e
-
         if core_err is None:
             core.close()
-
         if core2_err is None:
             core2.close()
-
         assert core_err is not None or core2_err is not None

@@ -1,8 +1,7 @@
 import pytest
-from freighter import Endpoint
 
 from delta import telem
-from delta.channel import Channel, Client, new_http_client
+from delta.channel import Channel, Client
 
 
 class TestClient:
@@ -16,7 +15,7 @@ class TestClient:
         )
         return channel_client.create(ch, 2)
 
-    def test_create(self, two_channels: list[Channel]) -> None:
+    def test_create(self, two_channels: list[Channel]):
         assert len(two_channels) == 2
         for channel in two_channels:
             assert channel.name == "test"
