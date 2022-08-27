@@ -49,8 +49,8 @@ class JSONEncoderDecoder:
 
 
 def parse_payload_dict(data: dict, payload: Any):
-    if isinstance(payload, Parser):
-        payload.parse(data)
+    if isinstance(payload, Loadable):
+        payload.load(data)
         return
 
     is_dict = isinstance(payload, dict)
@@ -73,6 +73,6 @@ T = TypeVar("T")
 
 
 @runtime_checkable
-class Parser(Protocol):
-    def parse(self, data: dict):
+class Loadable(Protocol):
+    def load(self, data: dict):
         ...

@@ -52,8 +52,9 @@ class GETClient(_HTTPClient):
             self.encoder_decoder.decode(http_res.data, err)
             return None, decode(err)
 
-        self.encoder_decoder.decode(http_res.data, self.response_factory())
-        return None, None
+        res = self.response_factory()
+        self.encoder_decoder.decode(http_res.data, res)
+        return res, None
 
 
 class POSTClient(_HTTPClient):
@@ -70,7 +71,6 @@ class POSTClient(_HTTPClient):
         except HTTPError as e:
             return None, e
 
-        print(http_res.data)
         if http_res.status != 200 and http_res.status != 201:
             err = ErrorPayload(None, None)
             self.encoder_decoder.decode(http_res.data, err)

@@ -239,9 +239,7 @@ class Rate(float):
             return super().__new__(cls, value)
         if isinstance(value, Rate):
             return value
-
         if isinstance(value, TimeSpan):
-            print(value.seconds())
             value = 1 / value.seconds()
         elif isinstance(value, int):
             value = float(value)
@@ -276,7 +274,8 @@ class Rate(float):
         """Returns the TimeSpan that corresponds to the given number of bytes at this rate and sample density.
         """
         if size % density != 0:
-            raise delta.errors.ContiguityError(f"Size {size} is not a multiple of density {density}")
+            raise delta.errors.ContiguityError(
+                f"Size {size} is not a multiple of density {density}")
         return self.span(int(size / density))
 
     def __str__(self):
@@ -323,7 +322,8 @@ class TimeRange:
         return self.start.before_eq(tr.start) and self.end.after_eq(tr.end)
 
     def overlaps_with(self, tr: TimeRange) -> bool:
-        return self.contains_stamp(tr.start) or self.contains_stamp(tr.end) or tr.contains_range(self)
+        return self.contains_stamp(tr.start) or self.contains_stamp(
+            tr.end) or tr.contains_range(self)
 
     def swap(self) -> TimeRange:
         self.start, self.end = self.end, self.start
@@ -339,8 +339,12 @@ class TimeRange:
 class Density(int):
     ...
 
-    def __new__(cls, value):
-        return super().__new__(cls, value)
+    def __new__(cls, value: UnparsedDensity):
+        if isinstance(value, Density):
+            return value
+        if isinstance(value, int):
+            return super().__new__(cls, value)
+        raise TypeError(f"Cannot convert {type(value)} to Density")
 
     def __init__(self, value):
         pass
@@ -354,15 +358,19 @@ class Size(int):
 
 DENSITY_UNKNOWN = Density(0)
 BIT64 = Density(8)
-BIT_32 = Density(4)
-BIT_16 = Density(2)
-BIT_8 = Density(1)
+BIT32 = Density(4)
+BIT16 = Density(2)
+BIT8 = Density(1)
 
 
 @dataclass
 class DataType:
     key: str
     density: Density
+
+    def __init__(self, key: str, density: UnparsedDensity):
+        self.key = key
+        self.density = Density(density)
 
     def __str__(self):
         return self.key
@@ -373,15 +381,15 @@ class DataType:
 
 DATA_TYPE_UNKNOWN = DataType("", DENSITY_UNKNOWN)
 FLOAT64 = DataType("float64", BIT64)
-FLOAT32 = DataType("float32", BIT_32)
+FLOAT32 = DataType("float32", BIT32)
 INT64 = DataType("int64", BIT64)
-INT32 = DataType("int32", BIT_32)
-INT16 = DataType("int16", BIT_16)
-INT8 = DataType("int8", BIT_8)
+INT32 = DataType("int32", BIT32)
+INT16 = DataType("int16", BIT16)
+INT8 = DataType("int8", BIT8)
 UINT64 = DataType("uint64", BIT64)
-UINT32 = DataType("uint32", BIT_32)
-UINT16 = DataType("uint16", BIT_16)
-UINT8 = DataType("uint8", BIT_8)
+UINT32 = DataType("uint32", BIT32)
+UINT16 = DataType("uint16", BIT16)
+UINT8 = DataType("uint8", BIT8)
 
 UnparsedTimeStamp = Union[
     TimeStamp,
@@ -390,8 +398,6 @@ UnparsedTimeStamp = Union[
     datetime.datetime,
     datetime.timedelta,
 ]
-        # TimeSpan | TimeStamp | int | datetime.datetime | datetime.timedelta | pd.Timestamp | np.datetime64)
-# int | datetime.datetime | datetime.timedelta | pd.Timestamp | np.datetime64)
-
 UnparsedTimeSpan = Union[TimeSpan | TimeStamp | int | datetime.timedelta]
 UnparsedRate = TimeSpan | Rate | float
+UnparsedDensity = Density | int

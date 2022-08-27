@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 
 from delta import telem
@@ -20,14 +22,22 @@ class Channel:
             name: str = "",
             node_id: int = 0,
             rate: telem.UnparsedRate = telem.Rate(0),
-            data_type: telem.DataType = telem.DATA_TYPE_UNKNOWN,
+            data_type: telem.DataType | dict = telem.DATA_TYPE_UNKNOWN,
             key: str = "",
     ):
         self.name = name
         self.node_id = node_id
         self.rate = telem.Rate(rate)
-        self.data_type = data_type
+        if isinstance(data_type, dict):
+            self.data_type = telem.DataType(**data_type)
+        else:
+            self.data_type = data_type
         self.key = key
+
+    @staticmethod
+    def parse(data: dict) -> Channel:
+        data["data_type"] = telem.DataType(**data["data_type"])
+        return Channel(**data)
 
     @property
     def numpy_type(self) -> np.ScalarType:

@@ -1,3 +1,4 @@
+from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional, TypeAlias
 
@@ -13,6 +14,7 @@ from freighter.http import (
 
 from .channel import Channel
 
+
 @dataclass
 class _RetrieveRequest:
     keys: Optional[list[str]] = None
@@ -24,8 +26,8 @@ class _RetrieveRequest:
 class _Response:
     channels: list[Channel]
 
-    def parse(self, data: dict):
-        self.channels = [Channel(**c) for c in data["channels"]]
+    def load(self, data: dict):
+        self.channels = [Channel.parse(c) for c in data["channels"]]
 
 
 def _response_factory() -> _Response:
@@ -42,7 +44,7 @@ _RETRIEVE_ENDPOINT = "/channel/retrieve"
 _CREATE_ENDPOINT = "/channel/create"
 
 ChannelRetrieveTransport: TypeAlias = UnaryClient[_RetrieveRequest, _Response,]
-ChannelCreateTransport: TypeAlias = UnaryClient[_CreateRequest,_Response]
+ChannelCreateTransport: TypeAlias = UnaryClient[_CreateRequest, _Response]
 
 
 class Client:
@@ -62,8 +64,8 @@ class Client:
     def retrieve_by_name(self, names: list[str]) -> list[Channel]:
         return self._retrieve(_RetrieveRequest(names=names))
 
-    def retrieve_by_node(self, node: int) -> list[Channel]:
-        return self._retrieve(_RetrieveRequest(node_id=node))
+    def retrieve_by_node_id(self, node_id: int) -> list[Channel]:
+        return self._retrieve(_RetrieveRequest(node_id=node_id))
 
     def create(self, channel: Channel, count: int = 1) -> list[Channel]:
         req = _CreateRequest(channel=channel, count=count)
