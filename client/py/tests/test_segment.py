@@ -6,7 +6,8 @@ from freighter.encoder import EncoderDecoder, MsgpackEncoderDecoder
 
 from delta import telem
 from delta.channel import Channel
-from delta.segment import BinarySegment, NumpySegment
+from delta.segment import BinarySegment, NumpySegment, SugaredBinarySegment
+from delta.segment.splitter import Splitter
 from delta.segment.validator import ScalarTypeValidator, ContiguityValidator
 from delta import errors
 
@@ -179,7 +180,6 @@ class TestContiguityValidator:
         Should raise an unexpected error
         """
         ch = Channel(
-            key="1-1",
             data_type=telem.INT64,
             rate=1 * telem.HZ,
         )
@@ -191,3 +191,42 @@ class TestContiguityValidator:
         v = ContiguityValidator({})
         with pytest.raises(errors.UnexpectedError):
             v.validate(seg)
+
+
+class TestSplitter:
+    def test_under_threshold_no_split(self):
+        """
+        Should return the original segment.
+        """
+        ch = Channel(
+            data_type=telem.INT64,
+            rate=1 * telem.HZ,
+        )
+        seg = SugaredBinarySegment(
+            channel=ch,
+            start=0,
+            data=b'1234568'
+        )
+        splitter = Splitter(threshold=telem.Size(16))
+        split = splitter.split(seg)
+        assert len(split) == 1
+
+    def test_split_over_threshold(self):
+        """
+        Should split the segment when the size is over the threshold.
+        """
+        ch = Channel(
+            data_type=telem.INT8,
+            rate=1*telem.HZ,
+        )
+        seg = SugaredBinarySegment(
+            channel=ch,
+            start=0,
+            data=b'1234567812345678'
+        )
+        splitter = Splitter(threshold=telem.Size(8))
+        split = splitter.split(seg)
+        assert len(split) == 2
+        assert split[0].start == 0
+        assert split[1].start == 8 * telem.SECOND
+

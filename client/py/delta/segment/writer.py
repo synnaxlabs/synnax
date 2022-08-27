@@ -92,7 +92,8 @@ class Core(BaseCore):
     transport: freighter.StreamClient[WriterRequest, WriterResponse]
     stream: freighter.Stream[WriterRequest, WriterResponse]
 
-    def __init__(self, transport: freighter.StreamClient[WriterRequest, WriterResponse]) -> None:
+    def __init__(self, transport: freighter.StreamClient[
+        WriterRequest, WriterResponse]) -> None:
         self.transport = transport
 
     def open(self, keys: list[str]):
@@ -150,11 +151,14 @@ class NumpyWriter:
         ch = self.channels.get(to)
         if ch is None:
             raise delta.errors.QueryError(f"channel with key {to} not found")
+
         seg = NumpySegment(ch, telem.TimeStamp(start), data)
         for val in self.validators:
             val.validate(seg)
-        encoded = self.encoder.encode(seg)
-        return self.core.write(self.splitter.split(encoded))
+
+        encoded = self.encoder.encode(seg).sugar(ch)
+        split = self.splitter.split(encoded)
+        return self.core.write([seg.desugar() for seg in split])
 
     def close(self):
         self.core.close()

@@ -1,3 +1,4 @@
+from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy
@@ -26,6 +27,9 @@ class Header:
         self.channel_key = channel_key
         self.start = TimeStamp(start)
 
+    def sugar(self, channel: Channel) -> SugaredHeader:
+        return SugaredHeader(channel, self.start)
+
 
 @dataclass
 class BinarySegment(Header):
@@ -39,13 +43,35 @@ class BinarySegment(Header):
         super().__init__(channel_key, start)
         self.data = data
 
+    def sugar(self, channel: Channel) -> SugaredBinarySegment:
+        return SugaredBinarySegment(channel, self.start, self.data)
+
+    @property
+    def size(self) -> telem.Size:
+        return telem.Size(len(self.data))
+
+
+@dataclass
+class SugaredBinarySegment(SugaredHeader):
+    data: bytes = b""
+
+    def __init__(self,
+                 channel: Channel,
+                 start: telem.UnparsedTimeStamp,
+                 data: bytes = b""):
+        super().__init__(channel, start)
+        self.data = data
+
+    def desugar(self) -> BinarySegment:
+        return BinarySegment(self.channel.key, self.start, self.data)
+
     @property
     def size(self) -> telem.Size:
         return telem.Size(len(self.data))
 
     @property
     def span(self) -> TimeSpan:
-        return self.channel.rate.span(self.size)
+        return self.channel.rate.size_span(self.size, self.channel.data_type.density)
 
     @property
     def range(self) -> TimeRange:
