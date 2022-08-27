@@ -1,9 +1,7 @@
-import delta.errors
 from delta.channel import Channel
-from delta.telem.numpy import NUMPY_TYPES
 
 
-class ChannelRegistry:
+class Registry:
     channels: dict[str, Channel]
 
     def __init__(self, channels: list[Channel]) -> None:

@@ -68,16 +68,23 @@ func (s *SegmentService) Iterate(_ctx context.Context, stream IteratorStream) er
 	for {
 		select {
 		case <-ctx.Done():
-			return errors.Unexpected(ctx.Err())
+			return errors.Canceled
 		case res, ok := <-iter.Responses():
 			if !ok {
 				return errors.Nil
 			}
 			segments := make([]Segment, len(res.Segments))
 			for i, seg := range res.Segments {
-				segments[i] = Segment{ChannelKey: seg.ChannelKey.String(), Start: seg.Segment.Start, Data: seg.Segment.Data}
+				segments[i] = Segment{
+					ChannelKey: seg.ChannelKey.String(),
+					Start:      seg.Segment.Start,
+					Data:       seg.Segment.Data,
+				}
 			}
-			if err := stream.Send(IteratorResponse{Variant: iterator.DataResponse, Segments: segments}); err != nil {
+			if err := stream.Send(IteratorResponse{
+				Variant:  iterator.DataResponse,
+				Segments: segments,
+			}); err != nil {
 				return errors.Unexpected(err)
 			}
 		}

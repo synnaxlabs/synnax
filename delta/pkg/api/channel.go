@@ -22,6 +22,7 @@ type Channel struct {
 // ChannelService is the central API for all things channel related.
 type ChannelService struct {
 	LoggingProvider
+	ValidationProvider
 	AuthProvider
 	DBProvider
 	Internal *channel.Service
@@ -29,10 +30,11 @@ type ChannelService struct {
 
 func NewChannelService(p Provider) *ChannelService {
 	return &ChannelService{
-		Internal:        p.Config.Channel,
-		AuthProvider:    p.Auth,
-		LoggingProvider: p.Logging,
-		DBProvider:      p.DB,
+		Internal:           p.Config.Channel,
+		ValidationProvider: p.Validation,
+		AuthProvider:       p.Auth,
+		LoggingProvider:    p.Logging,
+		DBProvider:         p.DB,
 	}
 }
 

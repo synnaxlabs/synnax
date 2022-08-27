@@ -1,7 +1,11 @@
 import pytest
-from freighter import En
+from freighter import Endpoint
 
 
-@pytest.fixture()
-def endpoint():
-    return
+@pytest.fixture(scope="session")
+def endpoint() -> Endpoint:
+    protocol = "http"
+    host = "localhost"
+    port = 8080
+    path_prefix = "/api/v1/"
+    return Endpoint(protocol, host, port, path_prefix)

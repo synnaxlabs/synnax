@@ -2,19 +2,19 @@ import dataclasses
 from typing import Generic
 
 from .encoder import EncoderDecoder
-from .transport import RS, RQ, Payload, PayloadFactory, PayloadFactoryFunc
-from urllib3 import PoolManager
-from urllib.parse import urlencode, urljoin
-import urllib3
+from .transport import RS, RQ, PayloadFactory, PayloadFactoryFunc
+from urllib3 import PoolManager, HTTPResponse
+from urllib.parse import urlencode
 from .errors import ErrorPayload, decode
 from .endpoint import Endpoint
+from urllib3.exceptions import HTTPError
 
 http = PoolManager()
 
 ERROR_ENCODING_HEADER = "freighter"
 
 
-class _HTTPClient(Generic[RS]):
+class _HTTPClient(Generic[RQ, RS]):
     endpoint: Endpoint
     encoder_decoder: EncoderDecoder
     response_factory: PayloadFactory[RS]
@@ -37,15 +37,15 @@ class _HTTPClient(Generic[RS]):
         }
 
 
-class GETClient(Generic[RQ, RS], _HTTPClient):
-    async def send(self, target: str, req: RQ) -> tuple[RS | None, Exception | None]:
+class GETClient(_HTTPClient):
+    def send(self, target: str, req: RQ) -> tuple[RS | None, Exception | None]:
         query_args = build_query_string(req)
         url = self.endpoint.build(target) + "?" + query_args
-        http_res: urllib3.HTTPResponse
+        http_res: HTTPResponse
         try:
             http_res = http.request(method="GET", url=url, headers=self.headers)
-        except urllib3.exceptions.HTTPError as e:
-            return e
+        except HTTPError as e:
+            return None, e
 
         if http_res.status != 200:
             err = ErrorPayload(None, None)
@@ -56,10 +56,10 @@ class GETClient(Generic[RQ, RS], _HTTPClient):
         return None, None
 
 
-class POSTClient(Generic[RQ, RS], _HTTPClient):
-    async def send(self, target: str, req: RQ) -> tuple[RS | None, Exception | None]:
+class POSTClient(_HTTPClient):
+    def send(self, target: str, req: RQ) -> tuple[RS | None, Exception | None]:
         url = self.endpoint.build(target)
-        http_res: urllib3.HTTPResponse
+        http_res: HTTPResponse
         try:
             http_res = http.request(
                 method="POST",
@@ -67,9 +67,10 @@ class POSTClient(Generic[RQ, RS], _HTTPClient):
                 headers=self.headers,
                 body=self.encoder_decoder.encode(req),
             )
-        except urllib3.exceptions.HTTPError as e:
-            return e
+        except HTTPError as e:
+            return None, e
 
+        print(http_res.data)
         if http_res.status != 200 and http_res.status != 201:
             err = ErrorPayload(None, None)
             self.encoder_decoder.decode(http_res.data, err)

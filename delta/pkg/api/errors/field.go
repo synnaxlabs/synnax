@@ -2,6 +2,7 @@ package errors
 
 import (
 	"github.com/go-playground/validator/v10"
+	"github.com/sirupsen/logrus"
 	"strings"
 )
 
@@ -39,7 +40,7 @@ func newFieldFromValidator(v validator.FieldError) Field {
 // EmbeddedFieldTag can be added to the 'json' or 'msgpack' struct tags on an
 // embedded fields so that validation errors do not include the embedded struct
 // name as part of the error field name.
-const EmbeddedFieldTag = "--embedded--"
+const EmbeddedFieldTag = "--embed--"
 
 func parseFieldName(v validator.FieldError) string {
 	// This operation grabs nested struct field names but does not grab the parent
@@ -47,6 +48,7 @@ func parseFieldName(v validator.FieldError) string {
 	path := strings.Split(v.Namespace(), ".")[1:]
 
 	fieldName := strings.Join(path, ".")
+	logrus.Info(fieldName)
 	// and this removes the embedded struct field tag.
 	return strings.Replace(fieldName, EmbeddedFieldTag+".", "", -1)
 }

@@ -1,5 +1,5 @@
-from .transport import RS, RQ, Transport, PayloadFactory
-from typing import Protocol, Callable
+from .transport import RS, RQ, Transport, PayloadFactoryFunc
+from typing import Protocol, Callable, Generic
 
 
 class AsyncStreamReceiver(Protocol[RS]):
@@ -24,6 +24,12 @@ class StreamReceiver(Protocol[RS]):
         :returns Exception: if the server closed the stream abnormally,
         returns the error the server returned.
         :raises Exception: if the transport fails.
+        """
+        ...
+
+    def received(self) -> bool:
+        """
+        Returns True if the stream has received a response.
         """
         ...
 
@@ -100,13 +106,15 @@ class Stream(StreamSenderCloser[RQ], StreamReceiver[RS]):
     ...
 
 
-class AsyncStreamClient(Transport):
+class AsyncStreamClient(Transport, Generic[RQ, RS]):
     async def stream(
-            self, target: str, response_factory: PayloadFactory[RS],
-    ) -> AsyncStream:
+            self, target: str, response_factory: PayloadFactoryFunc[RS],
+    ) -> AsyncStream[RQ, RS]:
         ...
 
 
-class StreamClient(Transport):
-    def stream(self, target: str, response_Factory: PayloadFactory[RS]) -> Stream:
+class StreamClient(Transport, Generic[RQ, RS]):
+    def stream(
+            self, target: str, response_Factory: PayloadFactoryFunc[RS]
+    ) -> Stream[RQ, RS]:
         ...

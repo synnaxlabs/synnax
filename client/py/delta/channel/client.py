@@ -1,40 +1,51 @@
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, TypeAlias
 
-import freighter
+from freighter import (
+    UnaryClient,
+    Endpoint,
+    JSONEncoderDecoder
+)
+from freighter.http import (
+    GETClient,
+    POSTClient,
+)
 
-from delta import telem
-from delta.channel import Channel
-
+from .channel import Channel
 
 @dataclass
-class ChannelRetrieveRequest:
+class _RetrieveRequest:
     keys: Optional[list[str]] = None
-    node: Optional[int] = None
+    node_id: Optional[int] = None
     names: Optional[list[str]] = None
 
 
 @dataclass
-class ChannelResponse:
+class _Response:
     channels: list[Channel]
 
-    def decode(self, data: dict):
-        return ChannelResponse(
-            channels=[Channel(**c) for c in data["channels"]]
-        )
+    def parse(self, data: dict):
+        self.channels = [Channel(**c) for c in data["channels"]]
+
+
+def _response_factory() -> _Response:
+    return _Response(channels=[])
 
 
 @dataclass
-class ChannelCreateRequest:
+class _CreateRequest:
     channel: Channel
     count: int
 
 
-ChannelRetrieveTransport = freighter.UnaryClient[ChannelRetrieveRequest, ChannelResponse]
-ChannelCreateTransport = freighter.UnaryClient[ChannelCreateRequest, ChannelResponse]
+_RETRIEVE_ENDPOINT = "/channel/retrieve"
+_CREATE_ENDPOINT = "/channel/create"
+
+ChannelRetrieveTransport: TypeAlias = UnaryClient[_RetrieveRequest, _Response,]
+ChannelCreateTransport: TypeAlias = UnaryClient[_CreateRequest,_Response]
 
 
-class ChannelClient:
+class Client:
     retrieve_transport: ChannelRetrieveTransport
     create_transport: ChannelCreateTransport
 
@@ -46,28 +57,40 @@ class ChannelClient:
         self.create_transport = create_transport
 
     def retrieve(self, keys: list[str]) -> list[Channel]:
-        request = ChannelRetrieveRequest(keys=keys)
-        res, exc = self.retrieve_transport.send("/channel/retrieve", request)
+        return self._retrieve(_RetrieveRequest(keys=keys))
+
+    def retrieve_by_name(self, names: list[str]) -> list[Channel]:
+        return self._retrieve(_RetrieveRequest(names=names))
+
+    def retrieve_by_node(self, node: int) -> list[Channel]:
+        return self._retrieve(_RetrieveRequest(node_id=node))
+
+    def create(self, channel: Channel, count: int = 1) -> list[Channel]:
+        req = _CreateRequest(channel=channel, count=count)
+        res, exc = self.create_transport.send(_CREATE_ENDPOINT, req)
         if exc is not None:
             raise exc
+        assert res is not None
         return res.channels
 
-    async def retrieve_by_name(self, names: list[str]) -> list[Channel]:
-        request = ChannelRetrieveRequest(names=names)
-        res, exc = await self.retrieve_transport.send("/channel/retrieve", request)
+    def _retrieve(self, req: _RetrieveRequest) -> list[Channel]:
+        res, exc = self.retrieve_transport.send(_RETRIEVE_ENDPOINT, req)
         if exc is not None:
             raise exc
+        assert res is not None
         return res.channels
 
-    async def retrieve_by_node(self, node: int) -> list[Channel]:
-        res, exc = await self.retrieve_transport.send("/channel/retrieve", request)
-        if exc is not None:
-            raise exc
-        return res.channels
 
-    async def create(self, channel: Channel, count: int = 1):
-        req = ChannelCreateRequest(channel=channel, count=count)
-        res, exc = await self.create_transport.send("/channel/create", req)
-        if exc is not None:
-            raise exc
-        return res.channels
+def new_http_client(endpoint: Endpoint) -> Client:
+    return Client(
+        retrieve_transport=GETClient(
+            endpoint=endpoint,
+            response_factory=_response_factory,
+            encoder_decoder=JSONEncoderDecoder(),
+        ),
+        create_transport=POSTClient(
+            endpoint=endpoint,
+            response_factory=_response_factory,
+            encoder_decoder=JSONEncoderDecoder(),
+        )
+    )

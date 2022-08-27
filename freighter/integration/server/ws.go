@@ -32,4 +32,8 @@ func (w Websocket) BindTo(f fiber.Router) {
 	immediatelyExitNominallyServer := fws.NewServer[Message, Message](nil, w.Logger)
 	immediatelyExitNominallyServer.BindTo(f, "/immediatelyExitNominally")
 	immediatelyExitNominallyServer.BindHandler(immediatelyExitNominally)
+
+	respondWithTenMessagesServer := fws.NewServer[Message, Message](nil, w.Logger)
+	respondWithTenMessagesServer.BindTo(f, "/respondWithTenMessages")
+	respondWithTenMessagesServer.BindHandler(respondWithTenMessages)
 }

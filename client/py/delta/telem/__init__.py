@@ -6,7 +6,6 @@ import numpy as np
 import pandas as pd
 from typing import get_args
 from typing import Union
-import numpy.typing as npt
 
 import delta.errors
 
@@ -20,24 +19,23 @@ class TimeStamp(int):
     """
 
     def __new__(cls, value: UnparsedTimeStamp, *args, **kwargs):
-        t = type(value)
-        if isinstance(value, int):
-            return super().__new__(cls, int(value))
-        elif t is TimeStamp:
+        if isinstance(value, TimeStamp):
             return value
 
-        if isinstance(t, TimeSpan):
+        if isinstance(value, TimeSpan):
             value = int(value)
-        elif isinstance(t, datetime.datetime):
+        elif isinstance(value, pd.Timestamp):
+            value = int(value.asm8.view(np.int64))
+        elif isinstance(value, datetime.datetime):
             value = SECOND * int((value - _EPOCH).total_seconds())
-        # elif t is datetime.timedelta:
-        #     value = SECOND * int(value.total_seconds())
-        # elif t is np.datetime64:
-        #     value = int(pd.Timestamp(value).asm8.view(np.int64))
-        # elif t is pd.Timestamp:
-        #     value = int(value.asm8.view(np.int64))
+        elif isinstance(value, datetime.timedelta):
+            value = SECOND * int(value.total_seconds())
+        elif isinstance(value, np.datetime64):
+            value = int(pd.Timestamp(value).asm8.view(np.int64))
+        elif isinstance(value, int):
+            return super().__new__(cls, int(value))
         else:
-            raise TypeError(f"Cannot convert {t} to TimeStamp")
+            raise TypeError(f"Cannot convert {type(value)} to TimeStamp")
 
         return super().__new__(cls, value)
 
@@ -242,10 +240,11 @@ class Rate(float):
         if isinstance(value, Rate):
             return value
 
-        if isinstance(value, int):
-            value = float(value)
-        elif isinstance(value, TimeSpan):
+        if isinstance(value, TimeSpan):
+            print(value.seconds())
             value = 1 / value.seconds()
+        elif isinstance(value, int):
+            value = float(value)
         else:
             raise TypeError(f"Cannot convert {type(value)} to Rate")
         return super().__new__(cls, value)

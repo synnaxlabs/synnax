@@ -23,6 +23,9 @@ class Receiver(Generic[RS]):
         self._exception = Notification()
         self._wrapped = wrapped
 
+    def received(self) -> bool:
+        return self._responses.sync_q.qsize() > 0
+
     def receive(self) -> tuple[RS | None, Exception | None]:
         if self._exception.received():
             return None, self._exception.read()
@@ -106,6 +109,9 @@ class Stream(Thread, Generic[RQ, RS]):
 
     def run(self) -> None:
         asyncio.run(self._run())
+
+    def received(self) -> bool:
+        return self._receiver.received()
 
     def receive(self) -> tuple[RS | None, Exception | None]:
         return self._receiver.receive()

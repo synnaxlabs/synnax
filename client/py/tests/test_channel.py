@@ -1,22 +1,26 @@
 import pytest
+from freighter import Endpoint
 
 from delta import telem
-from delta.channel import Channel
-from dataclasses import asdict
-from freighter.encoder import ENCODER_DECODERS, EncoderDecoder, EncodeableDecodeable
+from delta.channel import Channel, Client, new_http_client
 
 
-class TestChannel:
-    @pytest.mark.parametrize("ecd", ENCODER_DECODERS)
-    def test_encode_decode(self, ecd: EncoderDecoder):
+@pytest.fixture(scope="session")
+def channel_client(endpoint: Endpoint) -> Client:
+    return new_http_client(endpoint)
+
+
+class TestClient:
+
+    def test_create(self, channel_client: Client) -> None:
         ch = Channel(
-            key="1-1",
             name="test",
             node_id=1,
             rate=25 * telem.HZ,
             data_type=telem.FLOAT64,
         )
-        encoded = ecd.encode(ch)
-        decoded = Channel()
-        ecd.decode(encoded, decoded)
-        assert asdict(ch) == asdict(decoded)
+        channels = channel_client.create(ch, 1)
+        assert len(channels) == 1
+        assert channels[0].name == "test"
+        assert channels[0].key != ""
+

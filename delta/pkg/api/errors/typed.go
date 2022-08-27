@@ -12,6 +12,7 @@ const (
 	TypeParse      Type = "parse"
 	TypeAuth       Type = "auth"
 	TypeQuery      Type = "query"
+	TypeRoute      Type = "route"
 )
 
 // Typed is an error that can be parsed based on its type.

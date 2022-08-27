@@ -15,7 +15,7 @@ import (
 // Nil is a typed representation of a nil error.
 var Nil = Typed{Type: TypeNil}
 
-var Cancelled = Typed{Type: TypeGeneral, Err: Message{Message: "request cancelled"}}
+var Canceled = Typed{Type: TypeGeneral, Err: Message{Message: "request cancelled"}}
 
 // Message is an error that contains a simple string message.
 type Message struct {
@@ -113,4 +113,16 @@ func maybe(err error) (Typed, bool) {
 		return t, true
 	}
 	return Typed{}, false
+}
+
+func Route(err error, path string) Typed {
+	return Typed{
+		Type: TypeRoute,
+		Err:  routeError{Path: path, Message: Message{Message: err.Error()}},
+	}
+}
+
+type routeError struct {
+	Path string `json:"path" msgpack:"path"`
+	Message
 }

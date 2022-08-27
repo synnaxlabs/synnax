@@ -7,8 +7,8 @@ import numpy as np
 from delta import telem
 from delta.channel import Channel
 from delta.segment.writer import NumpyWriter, AsyncCore
-from delta.channel.client import ChannelClient
-from delta.channel.client import ChannelRetrieveRequest, ChannelCreateRequest, ChannelResponse
+from delta.channel.client import Client
+from delta.channel.client import _RetrieveRequest, _CreateRequest, _Response
 from freighter.http import GETClient, POSTClient
 from freighter.endpoint import Endpoint
 from freighter.encoder import MsgpackEncoderDecoder, JSONEncoderDecoder
@@ -20,9 +20,9 @@ from asgiref.sync import async_to_sync
 
 def main():
     ep = Endpoint("http", "localhost", 3456, "/api/v1")
-    channel = ChannelClient(
-        GETClient[ChannelRetrieveRequest, ChannelResponse](ep, JSONEncoderDecoder),
-        POSTClient[ChannelCreateRequest, ChannelResponse](ep, JSONEncoderDecoder)
+    channel = Client(
+        GETClient[_RetrieveRequest, _Response](ep, JSONEncoderDecoder),
+        POSTClient[_CreateRequest, _Response](ep, JSONEncoderDecoder)
     )
     async_to_sync(channel.create)(Channel(
         name="test",

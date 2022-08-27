@@ -12,6 +12,7 @@ require (
 	github.com/arya-analytics/x v0.0.0-20220801122519-e4a5e96a532d
 	github.com/cockroachdb/errors v1.9.0
 	github.com/gofiber/fiber/v2 v2.36.0
+	github.com/sirupsen/logrus v1.9.0
 	go.uber.org/zap v1.22.0
 )
 

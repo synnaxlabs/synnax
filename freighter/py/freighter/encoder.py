@@ -1,8 +1,6 @@
 import dataclasses
-import enum
 import json
-import typing
-from typing import Protocol, Callable, Any, runtime_checkable, Type, TypeVar
+from typing import Protocol, Any, TypeVar, runtime_checkable
 from .transport import Payload
 
 import msgpack
@@ -33,7 +31,7 @@ class MsgpackEncoderDecoder:
 
     @staticmethod
     def decode(data: bytes, payload: Any):
-        merge_payload_dict(msgpack.unpackb(data), payload)
+        parse_payload_dict(msgpack.unpackb(data), payload)
 
 
 class JSONEncoderDecoder:
@@ -43,35 +41,23 @@ class JSONEncoderDecoder:
 
     @staticmethod
     def encode(payload: Any) -> bytes:
-        return json.dumps(
-            dataclasses.asdict(payload),
-            ensure_ascii=False,
-            default=json_default,
-        ).encode()
+        return json.dumps(dataclasses.asdict(payload)).encode()
 
     @staticmethod
     def decode(data: bytes, payload: Any):
-        merge_payload_dict(json.loads(data), payload)
+        parse_payload_dict(json.loads(data), payload)
 
 
-def json_default(obj: Any) -> Any:
-    return json.JSONEncoder().default(obj)
+def parse_payload_dict(data: dict, payload: Any):
+    if isinstance(payload, Parser):
+        payload.parse(data)
+        return
 
-
-def msgpack_default(obj: Any) -> Any:
-    return obj
-
-
-def merge_payload_dict(data: dict, payload: Any):
     is_dict = isinstance(payload, dict)
     for key, value in data.items():
         if isinstance(value, dict):
             sub_payload = payload.get(key) if is_dict else getattr(payload, key)
-            merge_payload_dict(value, sub_payload)
-        elif isinstance(value, list):
-            sub_payload = payload.get(key) if is_dict else getattr(payload, key)
-            for i in range(len(value)):
-                merge_payload_dict(value[i], sub_payload[i])
+            parse_payload_dict(value, sub_payload)
         elif is_dict:
             payload[key] = value
         else:
@@ -84,3 +70,9 @@ ENCODER_DECODERS: list[EncoderDecoder] = [
 ]
 
 T = TypeVar("T")
+
+
+@runtime_checkable
+class Parser(Protocol):
+    def parse(self, data: dict):
+        ...

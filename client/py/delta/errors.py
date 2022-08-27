@@ -21,6 +21,7 @@ class APIErrorType(Enum):
     UNEXPECTED = "unexpected"
     VALIDATION = "validation"
     QUERY = "query"
+    ROUTE = "route"
 
 
 class ValidationError(Exception):
@@ -72,6 +73,17 @@ class QueryError(Exception):
     pass
 
 
+class RouteError(Exception):
+    """
+    Raised when an API routing error occurs, such as a 404.
+    """
+    path: str
+
+    def __init__(self, path: str, *args):
+        super().__init__(*args)
+        self.path = path
+
+
 @dataclass
 class Field:
     field: str
@@ -121,6 +133,9 @@ def parse_from_payload(pld: APIErrorPayload) -> Exception | None:
 
     if pld.type == APIErrorType.QUERY.value:
         return QueryError(pld.error['message'])
+
+    if pld.type == APIErrorType.ROUTE.value:
+        return RouteError(pld.error['path'], pld.error['message'])
 
     return Exception("unable to parse error")
 

@@ -12,8 +12,8 @@ import freighter
 from .encoder import NumpyEncoderDecoder
 from .validator import Validator, ScalarTypeValidator, ContiguityValidator
 from .. import telem
-from ..channel.client import ChannelClient
-from ..channel.registry import ChannelRegistry
+from ..channel.client import Client
+from ..channel.registry import Registry
 from ..util.notification import Notification
 from .splitter import Splitter
 
@@ -43,7 +43,7 @@ class BaseCore:
         if exc is not None:
             raise exc
         assert res is not None
-        if res.ack:
+        if not res.ack:
             raise delta.errors.UnexpectedError(
                 "Writer failed to positively acknowledge open request. This is a bug"
                 + "please report it."
@@ -120,24 +120,24 @@ class Core(BaseCore):
 
 class NumpyWriter:
     core: Core
-    channel_client: ChannelClient
+    channel_client: Client
     validators: list[Validator]
     encoder: NumpyEncoderDecoder
-    channels: ChannelRegistry
+    channels: Registry
     splitter: Splitter
 
     def __init__(
             self,
             keys: list[str],
             transport: freighter.StreamClient,
-            channel_client: ChannelClient,
+            channel_client: Client,
     ) -> None:
         self.channel_client = channel_client
         channels = self.channel_client.retrieve(keys)
         if len(channels) != len(keys):
             missing = set(keys) - set([c.key for c in channels])
             raise delta.errors.ValidationError(f"Channels not found: {missing}")
-        self.channels = ChannelRegistry(channels)
+        self.channels = Registry(channels)
         self.core = Core(transport)
         self.validators = [
             ScalarTypeValidator(),

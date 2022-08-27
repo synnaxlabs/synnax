@@ -8,7 +8,7 @@ from delta.telem import TimeStamp, TimeSpan, TimeRange
 
 
 @dataclass
-class Header:
+class SugaredHeader:
     channel: Channel
     start: TimeStamp = TimeStamp(0)
 
@@ -18,11 +18,25 @@ class Header:
 
 
 @dataclass
+class Header:
+    channel_key: str
+    start: TimeStamp = TimeStamp(0)
+
+    def __init__(self, channel_key: str, start: telem.UnparsedTimeStamp):
+        self.channel_key = channel_key
+        self.start = TimeStamp(start)
+
+
+@dataclass
 class BinarySegment(Header):
     data: bytes = b""
 
-    def __init__(self, channel: Channel, start: telem.UnparsedTimeStamp, data: bytes):
-        super().__init__(channel, start)
+    def __init__(self,
+                 channel_key: str = "",
+                 start: telem.UnparsedTimeStamp = telem.TimeStamp(0),
+                 data: bytes = b"",
+                 ):
+        super().__init__(channel_key, start)
         self.data = data
 
     @property
@@ -43,7 +57,7 @@ class BinarySegment(Header):
 
 
 @dataclass
-class NumpySegment(Header):
+class NumpySegment(SugaredHeader):
     data: numpy.ndarray = numpy.array([])
 
     def __init__(self, channel: Channel, start: TimeStamp, data: numpy.ndarray):

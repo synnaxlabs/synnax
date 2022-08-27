@@ -305,7 +305,7 @@ class TestTimeSpan:
 class TestRate:
     @pytest.mark.parametrize("unparsed, expected", [
         (1000, telem.Rate(1000.0)),
-        (1 * telem.SECOND, telem.Rate(1.0)),
+        (telem.SECOND, telem.Rate(1.0)),
     ])
     def test_init(self, unparsed: telem.UnparsedRate, expected: telem.Rate):
         assert telem.Rate(unparsed) == expected

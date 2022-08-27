@@ -16,6 +16,8 @@ func errorResponse(c *fiber.Ctx, err errors.Typed) error {
 		c.Status(fiber.StatusBadRequest)
 	case errors.TypeUnexpected:
 		c.Status(fiber.StatusInternalServerError)
+	case errors.TypeRoute:
+		c.Status(fiber.StatusNotFound)
 	case errors.TypeNil:
 		c.Status(fiber.StatusInternalServerError)
 	}
