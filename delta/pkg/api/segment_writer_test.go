@@ -9,6 +9,7 @@ import (
 	"github.com/arya-analytics/delta/pkg/distribution/channel"
 	"github.com/arya-analytics/freighter/fmock"
 	"github.com/arya-analytics/x/telem"
+	. "github.com/arya-analytics/x/testutil"
 	roacherrors "github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -71,9 +72,9 @@ var _ = Describe("SegmentWriter", Ordered, func() {
 				It("Should return a validation error", func() {
 					client, err := transport.Stream(context.TODO(), "")
 					Expect(err).ToNot(HaveOccurred())
-					w, err := segment.NewWriter(client)
-					Expect(err).To(BeNil())
-					Expect(w.Close()).To(Equal(errors.Validation(errors.Field{
+					_, err = segment.NewWriter(client)
+					Expect(err).ToNot(BeNil())
+					Expect(err).To(Equal(errors.Validation(errors.Field{
 						Field:   "open_keys",
 						Message: "must contain at least one key",
 					})))
@@ -83,9 +84,8 @@ var _ = Describe("SegmentWriter", Ordered, func() {
 				It("Should return a validation error", func() {
 					client, err := transport.Stream(context.TODO(), "")
 					Expect(err).ToNot(HaveOccurred())
-					w, err := segment.NewWriter(client, "invalid")
-					Expect(err).To(BeNil())
-					Expect(w.Close()).To(Equal(errors.Validation(errors.Field{
+					_, err = segment.NewWriter(client, "invalid")
+					Expect(err).To(Equal(errors.Validation(errors.Field{
 						Field:   "open_keys",
 						Message: "[channel] - invalid key format",
 					})))
@@ -95,21 +95,24 @@ var _ = Describe("SegmentWriter", Ordered, func() {
 				It("Should return the correct error", func() {
 					client1, err := transport.Stream(context.TODO(), "")
 					Expect(err).ToNot(HaveOccurred())
-					w1, err := segment.NewWriter(client1, keys.Strings()...)
-					Expect(err).To(BeNil())
 					client2, err := transport.Stream(context.TODO(), "")
-					w2, err := segment.NewWriter(client2, keys.Strings()...)
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 					expectedErr := errors.General(roacherrors.New("[cesium] - lock already held"))
 					// expect one of the two writers to fail
 					oneErr := false
-					if err := w1.Close(); err != nil {
+					w1, w1Err := segment.NewWriter(client1, keys.Strings()...)
+					w2, w2Err := segment.NewWriter(client2, keys.Strings()...)
+					if w1Err != nil {
 						oneErr = true
-						Expect(err).To(Equal(expectedErr))
+						Expect(w1Err).To(HaveOccurredAs(expectedErr))
+					} else {
+						Expect(w1.Close()).To(Succeed())
 					}
-					if err := w2.Close(); err != nil {
+					if w2Err != nil {
 						oneErr = true
-						Expect(err).To(Equal(expectedErr))
+						Expect(w2Err).To(HaveOccurredAs(expectedErr))
+					} else {
+						Expect(w2.Close()).To(Succeed())
 					}
 					Expect(oneErr).To(BeTrue())
 				})

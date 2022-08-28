@@ -47,6 +47,8 @@ var _ = Describe("Channel", Ordered, func() {
 			res, err := svc.Create(context.TODO(), api.ChannelCreateRequest{
 				Channel: ch,
 			})
+			Expect(err).To(HaveOccurred())
+			Expect(err.Err).To(HaveOccurred())
 			flds, ok := err.Err.(errors.Fields)
 			Expect(ok).To(BeTrue())
 			Expect(flds[0].Field).To(Equal(field))
@@ -62,12 +64,12 @@ var _ = Describe("Channel", Ordered, func() {
 				Name:   "test",
 				NodeID: 1,
 				Rate:   25 * telem.Hz,
-			}, "channel.data_type", "required"),
+			}, "channel.data_type.key", "required"),
 			Entry("No Data Rate", api.Channel{
 				Name:     "test",
 				NodeID:   1,
 				DataType: telem.Float64,
-			}, "channel.data_rate", "required"),
+			}, "channel.rate", "required"),
 		)
 	})
 	Describe("Retrieve", func() {

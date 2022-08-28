@@ -223,8 +223,8 @@ const (
 )
 
 type DataType struct {
-	Key     string  `json:"key" msgpack:"key"`
-	Density Density `json:"density" msgpack:"density"`
+	Key     string  `json:"key" msgpack:"key" validate:"required"`
+	Density Density `json:"density" msgpack:"density" validate:"required"`
 }
 
 // String implements fmt.Stringer.

@@ -4,5 +4,12 @@ import (
 	"embed"
 )
 
-//go:embed dist/* dist/assets/*
 var Dist embed.FS
+
+var HaveUI = false
+
+func init() {
+	if HaveUI {
+		Dist = dist
+	}
+}
