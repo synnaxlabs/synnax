@@ -17,6 +17,7 @@ websockets = "^10.3"
 numpy = "^1.23.1"
 mypy = "^0.971"
 arya-freighter = "^0.1.0"
+pandas = "^1.4.3"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.1.2"
