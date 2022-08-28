@@ -2,7 +2,6 @@ package errors
 
 import (
 	"github.com/go-playground/validator/v10"
-	"github.com/sirupsen/logrus"
 	"strings"
 )
 
@@ -48,7 +47,6 @@ func parseFieldName(v validator.FieldError) string {
 	path := strings.Split(v.Namespace(), ".")[1:]
 
 	fieldName := strings.Join(path, ".")
-	logrus.Info(fieldName)
 	// and this removes the embedded struct field tag.
 	return strings.Replace(fieldName, EmbeddedFieldTag+".", "", -1)
 }

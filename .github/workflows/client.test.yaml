@@ -1,0 +1,43 @@
+name: "Client Test"
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    paths:
+      - 'client/**'
+      - '.github/workflows/client.test.yml'
+jobs:
+  test-python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+      - name: Install Poetry
+        run: |
+          pip install poetry
+          poetry config virtualenvs.create false
+          poetry install
+        working-directory: ./client/py
+      - name: Test
+        run: poetry run pytest
+        working-directory: ./client/py
+
+
+    services:
+      delta:
+        image: ghcr.io/arya-analytics/delta:latest
+        env:
+          DELTA_LISTEN_ADDRESS: localhost:8080
+          DELTA_DEBUG: true
+          DELTA_MEM: true
+
+        credentials:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+        ports:
+          - 8080:8080
+
