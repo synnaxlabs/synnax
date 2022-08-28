@@ -8,7 +8,7 @@ on:
       - 'delta/**'
       - '.github/workflows/delta.build.yaml'
 jobs:
-  test:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
