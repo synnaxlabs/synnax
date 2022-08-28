@@ -8,5 +8,3 @@
 # Arya
 
 [![codecov](https://codecov.io/gh/arya-analytics/arya/branch/main/graph/badge.svg?token=6xqpN1pFt8&flag)](https://codecov.io/gh/arya-analytics/arya)
-
-https://codecov.io/gh/arya-analytics/arya/branch/main/graphs/sunburst.svg?token=6xqpN1pFt8
