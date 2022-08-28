@@ -16,7 +16,7 @@ jobs:
         with:
           go-version: 1.19
       - name: Test
-        run: go test -v ./... --covermode=atomic --coverprofile=coverage.txt --ginkgo.label-filter="!integration && !performance"
+        run: go test -tags noui -v ./... --covermode=atomic --coverprofile=coverage.txt --ginkgo.label-filter="!integration && !performance"
         working-directory: ./delta
       - name: Upload Coverage
         uses: codecov/codecov-action@v3
