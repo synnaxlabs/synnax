@@ -6,7 +6,7 @@ on:
   push:
     paths:
       - 'client/**'
-      - '.github/workflows/client.test.yml'
+      - '.github/workflows/client.test.yaml'
 jobs:
   test-python:
     runs-on: ubuntu-latest

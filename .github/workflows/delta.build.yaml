@@ -6,7 +6,7 @@ on:
   push:
     paths:
       - 'delta/**'
-      - '.github/workflows/delta.build.yml'
+      - '.github/workflows/delta.build.yaml'
 jobs:
   test:
     runs-on: ubuntu-latest

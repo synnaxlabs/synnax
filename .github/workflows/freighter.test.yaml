@@ -6,7 +6,7 @@ on:
   push:
     paths:
       - 'freighter/**'
-      - '.github/workflows/freighter.test.yml'
+      - '.github/workflows/freighter.test.yaml'
 jobs:
   test-go:
     runs-on: ubuntu-latest

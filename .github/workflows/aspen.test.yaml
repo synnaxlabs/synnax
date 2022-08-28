@@ -6,7 +6,7 @@ on:
   push:
     paths:
       - 'aspen/**'
-      - '.github/workflows/aspen.test.yml'
+      - '.github/workflows/aspen.test.yaml'
 jobs:
   test:
     runs-on: ubuntu-latest

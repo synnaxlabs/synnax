@@ -6,7 +6,7 @@ on:
   push:
     paths:
       - 'x/**'
-      - '.github/workflows/x.test.yml'
+      - '.github/workflows/x.test.yaml'
 jobs:
   test:
     runs-on: ubuntu-latest

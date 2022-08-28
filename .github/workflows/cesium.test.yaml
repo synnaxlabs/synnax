@@ -6,7 +6,7 @@ on:
   push:
     paths:
       - 'cesium/**'
-      - '.github/workflows/cesium.test.yml'
+      - '.github/workflows/cesium.test.yaml'
 jobs:
   test:
     runs-on: ubuntu-latest
