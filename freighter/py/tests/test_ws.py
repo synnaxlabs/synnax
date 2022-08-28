@@ -1,6 +1,6 @@
 import freighter.errors
 from freighter import sync
-from freighter.ws import AsyncWSClient
+from freighter.ws import WSClient
 from freighter.encoder import MsgpackEncoderDecoder
 from freighter.endpoint import Endpoint
 from .interface import Message, Error
@@ -12,7 +12,7 @@ endpoint = Endpoint("", "localhost", 8080)
 
 class TestWS:
     async def test_basic_exchange(self):
-        client = AsyncWSClient[Message, Message](
+        client = WSClient[Message, Message](
             encoder=MsgpackEncoderDecoder, endpoint=endpoint
         )
         stream = await client.stream("/echo", message_factory)
@@ -28,7 +28,7 @@ class TestWS:
         assert msg is None
 
     async def test_receive_message_after_close(self):
-        client = AsyncWSClient[Message, Message](
+        client = WSClient[Message, Message](
             encoder=MsgpackEncoderDecoder, endpoint=endpoint
         )
         stream = await client.stream("/sendMessageAfterClientClose", message_factory)
@@ -42,7 +42,7 @@ class TestWS:
         assert msg is None
 
     async def test_receive_error(self):
-        client = AsyncWSClient[Message, Message](
+        client = WSClient[Message, Message](
             encoder=MsgpackEncoderDecoder, endpoint=endpoint
         )
         stream = await client.stream("/receiveAndExitWithErr", message_factory)
@@ -56,7 +56,7 @@ class TestWS:
 
 class TestSyncWebsocket:
     def test_basic_exchange(self):
-        client = sync.StreamClient(AsyncWSClient(
+        client = sync.StreamClient[Message, Message](WSClient[Message, Message](
             encoder=MsgpackEncoderDecoder,
             endpoint=endpoint
         ))
@@ -74,7 +74,7 @@ class TestSyncWebsocket:
         assert err is not None
 
     def test_repeated_receive(self):
-        client = sync.StreamClient(AsyncWSClient(
+        client = sync.StreamClient[Message, Message](WSClient[Message, Message](
             encoder=MsgpackEncoderDecoder,
             endpoint=endpoint
         ))

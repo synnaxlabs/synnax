@@ -48,19 +48,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: "3.10"
+
       - name: Install Poetry
         run: |
           pip install poetry
           poetry config virtualenvs.create false
           poetry install
         working-directory: ./freighter/py
+
       - name: Test
         run: pytest
         working-directory: ./freighter/py
+
+      - name: Upload Coverage
+        uses: codecov/codecov-action@v3
+        with:
+          directory: ./freighter/py
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: freighterpy
 
     services:
       integration:
