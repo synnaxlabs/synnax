@@ -26,7 +26,7 @@ jobs:
         working-directory: ./client/py
 
       - name: Test
-        run: pytest --cov
+        run: pytest --cov=arya
         working-directory: ./client/py
 
       - name: Upload Coverage
