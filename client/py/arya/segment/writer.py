@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-import delta.errors
+import arya.errors
 from . import BinarySegment, NumpySegment
 import freighter
 
@@ -44,7 +44,7 @@ class BaseCore:
             raise exc
         assert res is not None
         if not res.ack:
-            raise delta.errors.UnexpectedError(
+            raise arya.errors.UnexpectedError(
                 "Writer failed to positively acknowledge open request. This is a bug"
                 + "please report it."
             )
@@ -146,14 +146,14 @@ class NumpyWriter:
         channels = self.channel_client.retrieve(keys)
         if len(channels) != len(keys):
             missing = set(keys) - set([c.key for c in channels])
-            raise delta.errors.ValidationError(f"Channels not found: {missing}")
+            raise arya.errors.ValidationError(f"Channels not found: {missing}")
         self.channels = Registry(channels)
         self.core.open(keys)
 
     def write(self, to: str, data: np.ndarray, start: telem.UnparsedTimeStamp) -> bool:
         ch = self.channels.get(to)
         if ch is None:
-            raise delta.errors.QueryError(f"channel with key {to} not found")
+            raise arya.errors.QueryError(f"channel with key {to} not found")
         seg = NumpySegment(ch, telem.TimeStamp(start), data)
         for val in self.validators:
             val.validate(seg)

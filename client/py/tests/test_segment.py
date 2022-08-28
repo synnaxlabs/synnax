@@ -4,12 +4,12 @@ import numpy as np
 import pytest
 from freighter.encoder import EncoderDecoder, MsgpackEncoderDecoder
 
-from delta import telem
-from delta.channel import Channel
-from delta.segment import BinarySegment, NumpySegment, SugaredBinarySegment
-from delta.segment.splitter import Splitter
-from delta.segment.validator import ScalarTypeValidator, ContiguityValidator
-from delta import errors
+from arya import telem
+from arya.channel import Channel
+from arya.segment import BinarySegment, NumpySegment, SugaredBinarySegment
+from arya.segment.splitter import Splitter
+from arya.segment.validator import ScalarTypeValidator, ContiguityValidator
+from arya import errors
 
 
 class TestBinarySegment:

@@ -1,7 +1,7 @@
 import pytest
 
-from delta import telem
-from delta.channel import Channel, Client
+from arya import telem
+from arya.channel import Channel, Client
 
 
 class TestClient:

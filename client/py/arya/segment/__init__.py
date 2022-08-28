@@ -3,9 +3,9 @@ from dataclasses import dataclass
 
 import numpy
 
-from delta import telem
-from delta.channel import Channel
-from delta.telem import TimeStamp, TimeSpan, TimeRange
+from arya import telem
+from arya.channel import Channel
+from arya.telem import TimeStamp, TimeSpan, TimeRange
 
 
 @dataclass

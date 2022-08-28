@@ -1,9 +1,9 @@
 from typing import Protocol
 
-import delta.errors
-from delta import telem
-from delta.segment import NumpySegment
-from delta.telem.numpy import to_numpy_type
+import arya.errors
+from arya import telem
+from arya.segment import NumpySegment
+from arya.telem.numpy import to_numpy_type
 
 
 class Validator(Protocol):
@@ -15,13 +15,13 @@ class ScalarTypeValidator:
     def validate(self, seg: NumpySegment) -> None:
         npt = to_numpy_type(seg.channel.data_type)
         if npt is None:
-            raise delta.errors.ValidationError(f"Channel data type {seg.channel.data_type} is not supported")
+            raise arya.errors.ValidationError(f"Channel data type {seg.channel.data_type} is not supported")
 
         if seg.data.dtype != npt:
-            raise delta.errors.ValidationError(f"Expected data type {npt}, got {seg.data.dtype}")
+            raise arya.errors.ValidationError(f"Expected data type {npt}, got {seg.data.dtype}")
 
         if seg.data.ndim != 1:
-            raise delta.errors.ValidationError(f"Expected 1D array, got {seg.data.ndim}")
+            raise arya.errors.ValidationError(f"Expected 1D array, got {seg.data.ndim}")
 
 
 class ContiguityValidator:
@@ -52,14 +52,14 @@ class ContiguityValidator:
         if self.allow_overlap:
             return
         if seg.start.before(hwm):
-            raise delta.errors.ContiguityError(
+            raise arya.errors.ContiguityError(
                 f"Next segment start ({seg.start}) is before the previous segments end ({hwm})")
 
     def _enforce_no_gap(self, hwm: telem.TimeStamp, seg: NumpySegment) -> None:
         if self.allow_gap:
             return
         if seg.start != hwm:
-            raise delta.errors.ContiguityError(
+            raise arya.errors.ContiguityError(
                 f"Next segment start ({seg.start}) is not equal to the previous segments end ({hwm})"
             )
 
@@ -69,5 +69,5 @@ class ContiguityValidator:
     def _get_high_water_mark(self, channel_key: str) -> telem.TimeStamp:
         hwm = self.high_water_marks.get(channel_key, None)
         if hwm is None and not self.allow_no_high_water_mark:
-            raise delta.errors.UnexpectedError(f"No high water mark for channel: {channel_key}")
+            raise arya.errors.UnexpectedError(f"No high water mark for channel: {channel_key}")
         return hwm

@@ -1,5 +1,5 @@
-from delta.channel import Channel
-from delta.segment import NumpySegment, BinarySegment
+from arya.channel import Channel
+from arya.segment import NumpySegment, BinarySegment
 import numpy as np
 
 

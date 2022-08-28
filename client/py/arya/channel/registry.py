@@ -1,4 +1,4 @@
-from delta.channel import Channel
+from arya.channel import Channel
 
 
 class Registry:

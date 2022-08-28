@@ -1,4 +1,3 @@
-import numpy
 import pytest
 import numpy as np
 from freighter.ws import WSClient
@@ -8,13 +7,13 @@ from freighter import (
     Endpoint
 )
 
-import delta.errors
-from delta import telem
-from delta.channel import Client, Channel
-from delta.segment import (
+import arya.errors
+from arya import telem
+from arya.channel import Client, Channel
+from arya.segment import (
     BinarySegment
 )
-from delta.segment.writer import (
+from arya.segment.writer import (
     Core,
     WriterRequest,
     WriterResponse, NumpyWriter
@@ -60,7 +59,7 @@ class TestCore:
         core.close()
 
     def test_nonexistent_channel_key(self, core: Core):
-        with pytest.raises(delta.errors.QueryError):
+        with pytest.raises(arya.errors.QueryError):
             core.open(["1241-241"])
 
     def test_write_lock_acquired(
@@ -101,7 +100,7 @@ class TestNumpy:
         writer.open([channel.key])
         try:
             data = np.random.rand(10).astype(np.int64)
-            with pytest.raises(delta.errors.ValidationError):
+            with pytest.raises(arya.errors.ValidationError):
                 writer.write(to=channel.key, data=data, start=0)
         finally:
             writer.close()
@@ -110,7 +109,7 @@ class TestNumpy:
         writer.open([channel.key])
         try:
             data = np.random.rand(10, 10).astype(np.float64)
-            with pytest.raises(delta.errors.ValidationError):
+            with pytest.raises(arya.errors.ValidationError):
                 writer.write(to=channel.key, data=data, start=0)
         finally:
             writer.close()
@@ -120,7 +119,7 @@ class TestNumpy:
         try:
             data = np.random.rand(10).astype(np.float64)
             writer.write(to=channel.key, data=data, start=0)
-            with pytest.raises(delta.errors.ContiguityError):
+            with pytest.raises(arya.errors.ContiguityError):
                 writer.write(to=channel.key, data=data, start=1)
         finally:
             writer.close()

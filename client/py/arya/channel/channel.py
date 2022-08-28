@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from delta import telem
-from delta.errors import UnexpectedError
-from delta.telem.numpy import to_numpy_type
+from arya import telem
+from arya.errors import UnexpectedError
+from arya.telem.numpy import to_numpy_type
 
 import numpy as np
 

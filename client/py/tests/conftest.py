@@ -1,7 +1,7 @@
 import pytest
 from freighter import Endpoint
 
-from delta import channel
+from arya import channel
 
 
 @pytest.fixture(scope="session")

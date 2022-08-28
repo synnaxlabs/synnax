@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from delta import telem, errors
+from arya import telem, errors
 
 _now = telem.now()
 

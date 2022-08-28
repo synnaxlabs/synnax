@@ -1,8 +1,11 @@
 [tool.poetry]
-name = "freighter"
+name = "arya-freighter"
 version = "0.1.0"
 description = ""
 authors = ["emiliano bonilla <emilbon99@gmail.com>"]
+packages = [
+    { include = "freighter/**/*.py" }
+]
 
 [tool.mypy]
 ignore_missing_imports = true

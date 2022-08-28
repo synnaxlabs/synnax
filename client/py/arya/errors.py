@@ -2,7 +2,7 @@ import json
 from dataclasses import dataclass
 from enum import Enum
 
-import freighter.errors
+import freighter
 
 _FREIGHTER_ERROR_TYPE = "delta.api.errors"
 
