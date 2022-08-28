@@ -92,8 +92,9 @@ class Core(BaseCore):
     transport: freighter.StreamClient[WriterRequest, WriterResponse]
     stream: freighter.Stream[WriterRequest, WriterResponse]
 
-    def __init__(self, transport: freighter.StreamClient[
-        WriterRequest, WriterResponse]) -> None:
+    def __init__(
+            self, transport: freighter.StreamClient[WriterRequest, WriterResponse]
+    ) -> None:
         self.transport = transport
 
     def open(self, keys: list[str]):
@@ -129,33 +130,33 @@ class NumpyWriter:
 
     def __init__(
             self,
-            keys: list[str],
-            transport: freighter.StreamClient,
+            core: Core,
             channel_client: Client,
     ) -> None:
         self.channel_client = channel_client
-        channels = self.channel_client.retrieve(keys)
-        if len(channels) != len(keys):
-            missing = set(keys) - set([c.key for c in channels])
-            raise delta.errors.ValidationError(f"Channels not found: {missing}")
-        self.channels = Registry(channels)
-        self.core = Core(transport)
+        self.core = core
         self.validators = [
             ScalarTypeValidator(),
             ContiguityValidator(dict(), allow_no_high_water_mark=True)
         ]
         self.encoder = NumpyEncoderDecoder()
+        self.splitter = Splitter(threshold=telem.Size(4e6))
+
+    def open(self, keys: list[str]):
+        channels = self.channel_client.retrieve(keys)
+        if len(channels) != len(keys):
+            missing = set(keys) - set([c.key for c in channels])
+            raise delta.errors.ValidationError(f"Channels not found: {missing}")
+        self.channels = Registry(channels)
         self.core.open(keys)
 
     def write(self, to: str, data: np.ndarray, start: telem.UnparsedTimeStamp) -> bool:
         ch = self.channels.get(to)
         if ch is None:
             raise delta.errors.QueryError(f"channel with key {to} not found")
-
         seg = NumpySegment(ch, telem.TimeStamp(start), data)
         for val in self.validators:
             val.validate(seg)
-
         encoded = self.encoder.encode(seg).sugar(ch)
         split = self.splitter.split(encoded)
         return self.core.write([seg.desugar() for seg in split])
