@@ -62,7 +62,7 @@ jobs:
         working-directory: ./freighter/py
 
       - name: Test
-        run: pytest --cov=freighter
+        run: pytest --cov=freighter --cov-report xml:coverage.xml
         working-directory: ./freighter/py
 
       - name: Upload Coverage
