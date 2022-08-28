@@ -22,9 +22,9 @@ var _ = Describe("Write", func() {
 	)
 
 	BeforeEach(func() {
-		ch = channel.Channel{Key: 1, DataRate: 1, DataType: 1}
-		chTwo = channel.Channel{Key: 2, DataRate: 1, DataType: 1}
-		chThree = channel.Channel{Key: 3, DataRate: 1, DataType: 1}
+		ch = channel.Channel{Key: 1, Rate: 1, Density: 1}
+		chTwo = channel.Channel{Key: 2, Rate: 1, Density: 1}
+		chThree = channel.Channel{Key: 3, Rate: 1, Density: 1}
 		kve = memkv.New()
 		headerKV = kv.NewHeader(kve)
 		chKV := kv.NewChannel(kve)

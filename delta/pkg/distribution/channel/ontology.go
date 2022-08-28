@@ -11,11 +11,11 @@ const ontologyType ontology.Type = "channel"
 var _schema = &ontology.Schema{
 	Type: ontologyType,
 	Fields: map[string]schema.Field{
-		"key":      {Type: schema.String},
-		"name":     {Type: schema.String},
-		"nodeID":   {Type: schema.Uint32},
-		"dataRate": {Type: schema.Float64},
-		"dataType": {Type: schema.Uint16},
+		"key":     {Type: schema.String},
+		"name":    {Type: schema.String},
+		"nodeID":  {Type: schema.Uint32},
+		"rate":    {Type: schema.Float64},
+		"Density": {Type: schema.Uint16},
 	},
 }
 
@@ -37,7 +37,7 @@ func newEntity(c Channel) schema.Entity {
 	schema.Set(e, "key", c.Key().String())
 	schema.Set(e, "name", c.Name)
 	schema.Set(e, "nodeID", int32(c.NodeID))
-	schema.Set(e, "dataRate", float64(c.DataRate))
-	schema.Set(e, "dataType", float32(c.DataType))
+	schema.Set(e, "rate", float64(c.Rate))
+	schema.Set(e, "Density", float32(c.Density))
 	return e
 }

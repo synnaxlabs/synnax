@@ -47,6 +47,8 @@ class _Registry:
             return None
 
         if encoded.type in self.providers:
+            if encoded.data is None:
+                raise Exception(f"Error data is missing for {encoded.type}")
             return self.providers[encoded.type].decode(encoded.data)
 
         return Exception(encoded.data)

@@ -33,7 +33,7 @@ var _ = Describe("Channel", Ordered, func() {
 					Name:     "test",
 					NodeID:   1,
 					DataType: telem.Float64,
-					DataRate: 25 * telem.Hz,
+					Rate:     25 * telem.Hz,
 				},
 			})
 			Expect(err).To(Equal(errors.Nil))
@@ -47,6 +47,8 @@ var _ = Describe("Channel", Ordered, func() {
 			res, err := svc.Create(context.TODO(), api.ChannelCreateRequest{
 				Channel: ch,
 			})
+			Expect(err).To(HaveOccurred())
+			Expect(err.Err).To(HaveOccurred())
 			flds, ok := err.Err.(errors.Fields)
 			Expect(ok).To(BeTrue())
 			Expect(flds[0].Field).To(Equal(field))
@@ -56,18 +58,18 @@ var _ = Describe("Channel", Ordered, func() {
 			Entry("No node id", api.Channel{
 				Name:     "test",
 				DataType: telem.Float64,
-				DataRate: 25 * telem.Hz,
+				Rate:     25 * telem.Hz,
 			}, "channel.node_id", "required"),
 			Entry("No Data Type", api.Channel{
-				Name:     "test",
-				NodeID:   1,
-				DataRate: 25 * telem.Hz,
-			}, "channel.data_type", "required"),
+				Name:   "test",
+				NodeID: 1,
+				Rate:   25 * telem.Hz,
+			}, "channel.data_type.key", "required"),
 			Entry("No Data Rate", api.Channel{
 				Name:     "test",
 				NodeID:   1,
 				DataType: telem.Float64,
-			}, "channel.data_rate", "required"),
+			}, "channel.rate", "required"),
 		)
 	})
 	Describe("Retrieve", func() {
@@ -79,14 +81,14 @@ var _ = Describe("Channel", Ordered, func() {
 			})
 			It("Should retrieve a channel by its key", func() {
 				res, err := svc.Retrieve(context.TODO(), api.ChannelRetrieveRequest{
-					Key: []string{"1-1"},
+					Keys: []string{"1-1"},
 				})
 				Expect(err).To(Equal(errors.Nil))
 				Expect(res.Channels).To(HaveLen(1))
 			})
 			It("Should return an error if the key can't be parsed", func() {
 				res, err := svc.Retrieve(context.TODO(), api.ChannelRetrieveRequest{
-					Key: []string{"1-1-1"},
+					Keys: []string{"1-1-1"},
 				})
 				Expect(err).To(Equal(errors.Parse(roacherrors.New("[channel] - invalid key format"))))
 				Expect(res.Channels).To(HaveLen(0))

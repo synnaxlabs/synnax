@@ -16,16 +16,20 @@ import (
 // WriterRequest represents a request to write segment data for a set of channels.
 type WriterRequest struct {
 	// OpenKeys is a slice of channel keys that the client plans to write to.
-	// OpenKeys should only be specified in the	first request to the server, and will be ignored in future requests.
+	// OpenKeys should only be specified in the	first request to the server, and will be
+	// ignored in future requests.
 	OpenKeys []string `json:"open_keys" msgpack:"open_keys"`
-	// Segments is the slice of segments to write. The segments must have keys that are elements of OpenKeys.
-	// The Segments field will be ignored in the first request to the server, and will only be used once an OpenKeys
-	// request has been issues.
+	// Segments is the slice of segments to write. The segments must have keys that are
+	// elements of OpenKeys. The Segments field will be ignored in the first request to
+	// the server, and will only be used once an OpenKeys request has been issued.
 	Segments []Segment `json:"segments" msgpack:"segments"`
 }
 
 type WriterResponse struct {
-	Ack bool            `json:"ack" msgpack:"ack"`
+	// Ack is used to acknowledge requests issued by the client.
+	Ack bool `json:"ack" msgpack:"ack"`
+	// Err is a transient error encountered during writer operation, such as an invalid
+	// segment data type or channel key.
 	Err ferrors.Payload `json:"error" msgpack:"error"`
 }
 
@@ -96,7 +100,7 @@ func (s *SegmentService) Write(_ctx context.Context, stream WriterStream) errors
 	for {
 		select {
 		case <-ctx.Done():
-			return errors.Cancelled
+			return errors.Canceled
 		case err := <-parseErrors:
 			if err := stream.Send(WriterResponse{Err: ferrors.Encode(err)}); err != nil {
 				return errors.Unexpected(err)
@@ -136,7 +140,7 @@ func (s *SegmentService) openWriter(ctx context.Context, srv WriterStream) (segm
 	}
 	w, err := s.Internal.NewCreate().WhereChannels(keys...).Write(ctx)
 	if err != nil {
-		return nil, errors.General(err)
+		return nil, errors.Query(err)
 	}
 	// Let the client know the writer is ready to receive segments.
 	return w, errors.MaybeUnexpected(srv.Send(WriterResponse{Ack: true}))

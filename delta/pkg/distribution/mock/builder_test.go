@@ -27,7 +27,7 @@ var _ = Describe("ProviderBuilder", func() {
 			ch, err := coreOne.Channel.NewCreate().
 				WithName("SG_01").
 				WithDataType(telem.Float64).
-				WithDataRate(25 * telem.Hz).
+				WithRate(25 * telem.Hz).
 				WithNodeID(1).
 				Exec(ctx)
 			Expect(err).To(BeNil())

@@ -33,8 +33,8 @@ var _ = Describe("Create", func() {
 
 					By("Creating a new channel")
 					key, err := db.CreateChannel(cesium.Channel{
-						DataRate: 1 * cesium.Hz,
-						DataType: cesium.Float64,
+						Rate:    1 * cesium.Hz,
+						Density: cesium.Bit64,
 					})
 					Expect(err).ToNot(HaveOccurred())
 
@@ -69,8 +69,8 @@ var _ = Describe("Create", func() {
 				It("Should write the segments correctly", func() {
 					By("Creating a new channel")
 					key, err := db.CreateChannel(cesium.Channel{
-						DataRate: 1 * cesium.Hz,
-						DataType: cesium.Float64,
+						Rate:    1 * cesium.Hz,
+						Density: cesium.Bit64,
 					})
 					Expect(err).ToNot(HaveOccurred())
 
@@ -107,8 +107,8 @@ var _ = Describe("Create", func() {
 				It("Should write the segments correctly", func() {
 					By("Creating a new channel")
 					key, err := db.CreateChannel(cesium.Channel{
-						DataRate: 1 * cesium.Hz,
-						DataType: cesium.Float64,
+						Rate:    1 * cesium.Hz,
+						Density: cesium.Bit64,
 					})
 					Expect(err).ToNot(HaveOccurred())
 
@@ -169,8 +169,8 @@ var _ = Describe("Create", func() {
 		It("Should return an error when another query has a write lock on the channel", func() {
 			By("Creating a new channel")
 			key, err := db.CreateChannel(cesium.Channel{
-				DataRate: 1 * cesium.Hz,
-				DataType: cesium.Float64,
+				Rate:    1 * cesium.Hz,
+				Density: cesium.Bit64,
 			})
 			Expect(err).ToNot(HaveOccurred())
 

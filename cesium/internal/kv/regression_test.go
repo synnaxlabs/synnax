@@ -23,19 +23,19 @@ var _ = Describe("Regression", func() {
 		headerKV = kv.NewHeader(kve)
 
 	})
-	Context("25Hz Float64", func() {
+	Context("25Hz Bit64", func() {
 		var (
 			ch channel.Channel
 		)
 		BeforeEach(func() {
 			ch = channel.Channel{
-				Key:      1,
-				DataRate: 25,
-				DataType: telem.Float64,
+				Key:     1,
+				Rate:    25,
+				Density: telem.Bit64,
 			}
 			Expect(chKV.Set(ch)).To(Succeed())
 			span := 10 * telem.Second
-			size := span.ByteSize(ch.DataRate, ch.DataType)
+			size := span.ByteSize(ch.Rate, ch.Density)
 			var headers []segment.Header
 			for i := 0; i < 10; i++ {
 				headers = append(headers, segment.Header{

@@ -1,7 +1,6 @@
 import dataclasses
-import enum
 import json
-from typing import Protocol
+from typing import Protocol, Any, TypeVar, runtime_checkable
 from .transport import Payload
 
 import msgpack
@@ -27,12 +26,12 @@ class MsgpackEncoderDecoder:
         return "application/msgpack"
 
     @staticmethod
-    def encode(payload: any) -> bytes:
+    def encode(payload: Any) -> bytes:
         return msgpack.packb(dataclasses.asdict(payload))
 
     @staticmethod
-    def decode(data: bytes, payload: any):
-        merge_payload_dict(msgpack.unpackb(data), payload)
+    def decode(data: bytes, payload: Any):
+        parse_payload_dict(msgpack.unpackb(data), payload)
 
 
 class JSONEncoderDecoder:
@@ -41,23 +40,24 @@ class JSONEncoderDecoder:
         return "application/json"
 
     @staticmethod
-    def encode(payload: any) -> bytes:
-        return json.dumps(
-            dataclasses.asdict(payload),
-            ensure_ascii=False,
-        ).encode()
+    def encode(payload: Any) -> bytes:
+        return json.dumps(dataclasses.asdict(payload)).encode()
 
     @staticmethod
-    def decode(data: bytes, payload: any):
-        merge_payload_dict(json.loads(data), payload)
+    def decode(data: bytes, payload: Any):
+        parse_payload_dict(json.loads(data), payload)
 
 
-def merge_payload_dict(data: dict, payload: any):
+def parse_payload_dict(data: dict, payload: Any):
+    if isinstance(payload, Loadable):
+        payload.load(data)
+        return
+
     is_dict = isinstance(payload, dict)
     for key, value in data.items():
         if isinstance(value, dict):
             sub_payload = payload.get(key) if is_dict else getattr(payload, key)
-            merge_payload_dict(value, sub_payload)
+            parse_payload_dict(value, sub_payload)
         elif is_dict:
             payload[key] = value
         else:
@@ -65,6 +65,14 @@ def merge_payload_dict(data: dict, payload: any):
 
 
 ENCODER_DECODERS: list[EncoderDecoder] = [
-    JSONEncoderDecoder,
-    MsgpackEncoderDecoder
+    JSONEncoderDecoder(),
+    MsgpackEncoderDecoder(),
 ]
+
+T = TypeVar("T")
+
+
+@runtime_checkable
+class Loadable(Protocol):
+    def load(self, data: dict):
+        ...

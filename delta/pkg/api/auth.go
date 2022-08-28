@@ -11,7 +11,8 @@ import (
 
 // AuthService is the core authentication service for the delta API.
 type AuthService struct {
-	CoreProvider
+	LoggingProvider
+	ValidationProvider
 	DBProvider
 	AuthProvider
 	UserProvider
@@ -19,15 +20,16 @@ type AuthService struct {
 
 func NewAuthService(p Provider) *AuthService {
 	return &AuthService{
-		CoreProvider: p.Core,
-		DBProvider:   p.DB,
-		AuthProvider: p.Auth,
-		UserProvider: p.User,
+		LoggingProvider:    p.Logging,
+		ValidationProvider: p.Validation,
+		DBProvider:         p.DB,
+		AuthProvider:       p.Auth,
+		UserProvider:       p.User,
 	}
 }
 
-// Login attempts to authenticate a user with the provided credentials. If successful, returns a response
-// containing a valid JWT along with the user's details.
+// Login attempts to authenticate a user with the provided credentials. If successful,
+// returns a response containing a valid JWT along with the user's details.
 func (s *AuthService) Login(creds auth.InsecureCredentials) (tr TokenResponse, _ errors.Typed) {
 	if err := s.Validate(&creds); err.Occurred() {
 		return tr, err
@@ -50,8 +52,8 @@ type RegistrationRequest struct {
 	auth.InsecureCredentials
 }
 
-// Register registers new user with the provided credentials. If successful, returns a response
-// containing a valid JWT along with the user's details.
+// Register registers new user with the provided credentials. If successful, returns a
+// response containing a valid JWT along with the user's details.
 func (s *AuthService) Register(req RegistrationRequest) (tr TokenResponse, _ errors.Typed) {
 	if err := s.Validate(req); err.Occurred() {
 		return tr, err
@@ -117,7 +119,8 @@ func (s *AuthService) ChangeUsername(cur ChangeUsernameRequest) errors.Typed {
 	})
 }
 
-// TokenResponse is a response containing a valid JWT along with details about the user the token is associated with.
+// TokenResponse is a response containing a valid JWT along with details about the user
+// the token is associated with.
 type TokenResponse struct {
 	// User is the user the token is associated with.
 	User user.User `json:"user"`

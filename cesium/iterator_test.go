@@ -33,8 +33,8 @@ var _ = Describe("Iterator", func() {
 		)
 		BeforeEach(func() {
 			channel = cesium.Channel{
-				DataRate: 25 * cesium.Hz,
-				DataType: cesium.Float64,
+				Rate:    25 * cesium.Hz,
+				Density: cesium.Bit64,
 			}
 			var err error
 			key, err = db.CreateChannel(channel)

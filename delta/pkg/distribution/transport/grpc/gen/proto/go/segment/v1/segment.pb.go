@@ -136,7 +136,7 @@ func (x *Segment) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use segment.ProtoReflect.Descriptor instead.
+// Deprecated: Use Segment.ProtoReflect.Descriptor instead.
 func (*Segment) Descriptor() ([]byte, []int) {
 	return file_segment_v1_segment_proto_rawDescGZIP(), []int{1}
 }
@@ -491,7 +491,7 @@ func file_segment_v1_segment_proto_rawDescGZIP() []byte {
 var file_segment_v1_segment_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_segment_v1_segment_proto_goTypes = []interface{}{
 	(*IteratorRequest)(nil),  // 0: segment.v1.IteratorRequest
-	(*Segment)(nil),          // 1: segment.v1.segment
+	(*Segment)(nil),          // 1: segment.v1.Segment
 	(*IteratorResponse)(nil), // 2: segment.v1.IteratorResponse
 	(*WriterRequest)(nil),    // 3: segment.v1.WriterRequest
 	(*WriterResponse)(nil),   // 4: segment.v1.WriterResponse
@@ -499,11 +499,11 @@ var file_segment_v1_segment_proto_goTypes = []interface{}{
 }
 var file_segment_v1_segment_proto_depIdxs = []int32{
 	5, // 0: segment.v1.IteratorRequest.range:type_name -> segment.v1.TimeRange
-	1, // 1: segment.v1.IteratorResponse.segments:type_name -> segment.v1.segment
-	1, // 2: segment.v1.WriterRequest.segments:type_name -> segment.v1.segment
-	0, // 3: segment.v1.IteratorService.Write:input_type -> segment.v1.IteratorRequest
+	1, // 1: segment.v1.IteratorResponse.segments:type_name -> segment.v1.Segment
+	1, // 2: segment.v1.WriterRequest.segments:type_name -> segment.v1.Segment
+	0, // 3: segment.v1.IteratorService.Iterate:input_type -> segment.v1.IteratorRequest
 	3, // 4: segment.v1.WriterService.Write:input_type -> segment.v1.WriterRequest
-	2, // 5: segment.v1.IteratorService.Write:output_type -> segment.v1.IteratorResponse
+	2, // 5: segment.v1.IteratorService.Iterate:output_type -> segment.v1.IteratorResponse
 	4, // 6: segment.v1.WriterService.Write:output_type -> segment.v1.WriterResponse
 	5, // [5:7] is the sub-list for method output_type
 	3, // [3:5] is the sub-list for method input_type

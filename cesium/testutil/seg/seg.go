@@ -92,12 +92,12 @@ func writeBytes(data interface{}) []byte {
 }
 
 func generateSpan(c cesium.Channel, fac DataFactory, span cesium.TimeSpan) []byte {
-	sc := c.DataRate.SampleCount(span)
+	sc := c.Rate.SampleCount(span)
 	return fac.Generate(sc)
 }
 
-func DataTypeFactory(dt cesium.Density) DataFactory {
-	m := map[cesium.Density]DataFactory{cesium.Float64: &SequentialFloat64Factory{}}
+func DensityFactory(dt cesium.Density) DataFactory {
+	m := map[cesium.Density]DataFactory{cesium.Bit64: &SequentialFloat64Factory{}}
 	return m[dt]
 }
 

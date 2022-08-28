@@ -1,0 +1,25 @@
+name: "Delta Build"
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    paths:
+      - 'delta/**'
+      - '.github/workflows/delta.build.yaml'
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Login to Docker
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download latest earthly
+        run: "sudo /bin/sh -c 'wget https://github.com/earthly/earthly/releases/download/v0.6.22/earthly-linux-amd64 -O /usr/local/bin/earthly && chmod +x /usr/local/bin/earthly'"
+      - name: Build Image
+        run: earthly --push +docker
+        working-directory: ./delta

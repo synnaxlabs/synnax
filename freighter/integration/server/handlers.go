@@ -20,6 +20,18 @@ func echo(ctx context.Context, stream ServerStream) error {
 	}
 }
 
+func respondWithTenMessages(
+	ctx context.Context,
+	stream ServerStream,
+) error {
+	for i := 0; i < 10; i++ {
+		if err := stream.Send(Message{Message: "hello", ID: i}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func sendMessageAfterClientClose(
 	ctx context.Context,
 	stream ServerStream,

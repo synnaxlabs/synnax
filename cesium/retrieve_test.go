@@ -24,8 +24,8 @@ var _ = Describe("getAttributes", func() {
 				cesium.WithLogger(log))
 			Expect(err).ToNot(HaveOccurred())
 			channel = cesium.Channel{
-				DataRate: 1 * cesium.Hz,
-				DataType: cesium.Float64,
+				Rate:    1 * cesium.Hz,
+				Density: cesium.Bit64,
 			}
 			key, err = db.CreateChannel(channel)
 			channel.Key = key
@@ -95,8 +95,8 @@ var _ = Describe("getAttributes", func() {
 			Expect(err).ToNot(HaveOccurred())
 			for i := 0; i < channelCount; i++ {
 				c := cesium.Channel{
-					DataRate: 1 * cesium.Hz,
-					DataType: cesium.Float64,
+					Rate:    1 * cesium.Hz,
+					Density: cesium.Bit64,
 				}
 				k, err := db.CreateChannel(c)
 				c.Key = k

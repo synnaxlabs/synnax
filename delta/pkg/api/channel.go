@@ -15,12 +15,14 @@ type Channel struct {
 	Key      string              `json:"key" msgpack:"key"`
 	Name     string              `json:"name" msgpack:"name"`
 	NodeID   distribution.NodeID `json:"node_id" msgpack:"node_id" validate:"required"`
-	DataRate telem.DataRate      `json:"data_rate" msgpack:"data_rate" validate:"required"`
+	Rate     telem.Rate          `json:"rate" msgpack:"rate" validate:"required"`
 	DataType telem.DataType      `json:"data_type" msgpack:"data_type" validate:"required"`
 }
 
+// ChannelService is the central API for all things channel related.
 type ChannelService struct {
-	CoreProvider
+	LoggingProvider
+	ValidationProvider
 	AuthProvider
 	DBProvider
 	Internal *channel.Service
@@ -28,34 +30,41 @@ type ChannelService struct {
 
 func NewChannelService(p Provider) *ChannelService {
 	return &ChannelService{
-		Internal:     p.Config.Channel,
-		AuthProvider: p.Auth,
-		CoreProvider: p.Core,
-		DBProvider:   p.DB,
+		Internal:           p.Config.Channel,
+		ValidationProvider: p.Validation,
+		AuthProvider:       p.Auth,
+		LoggingProvider:    p.Logging,
+		DBProvider:         p.DB,
 	}
 }
 
+// ChannelCreateRequest is a request to create a channel in the cluster.
 type ChannelCreateRequest struct {
+	// Channel is a template for the channel to create.
 	Channel Channel `json:"channel" msgpack:"channel" validate:"required"`
-	Count   int     `json:"count" msgpack:"count"`
+	// Count is the number of channels to create using the template.
+	Count int `json:"count" msgpack:"count"`
 }
 
-func (c ChannelCreateRequest) setDefaults() ChannelCreateRequest {
+func (c ChannelCreateRequest) applyDefaults() ChannelCreateRequest {
 	if c.Count == 0 {
 		c.Count = 1
 	}
 	return c
 }
 
+// ChannelCreateResponse is the response returned after a set of channels have
+// successfully been created in the cluster.
 type ChannelCreateResponse struct {
 	Channels []Channel `json:"channels" msgpack:"channels"`
 }
 
+// Create creates a channel based on the parameters given in the request.
 func (s *ChannelService) Create(
 	ctx context.Context,
 	req ChannelCreateRequest,
 ) (res ChannelCreateResponse, _ errors.Typed) {
-	req = req.setDefaults()
+	req = req.applyDefaults()
 	if err := s.Validate(req); err.Occurred() {
 		return res, err
 	}
@@ -63,7 +72,7 @@ func (s *ChannelService) Create(
 		chs, err := s.Internal.NewCreate().
 			WithName(req.Channel.Name).
 			WithNodeID(req.Channel.NodeID).
-			WithDataRate(req.Channel.DataRate).
+			WithRate(req.Channel.Rate).
 			WithDataType(req.Channel.DataType).
 			WithTxn(txn).
 			ExecN(ctx, req.Count)
@@ -72,15 +81,21 @@ func (s *ChannelService) Create(
 	})
 }
 
+// ChannelRetrieveRequest is a request for retrieving information about a channel
+// from the cluster.
 type ChannelRetrieveRequest struct {
+	// Optional parameter that queries a channel by its node ID.
 	NodeID distribution.NodeID `query:"node_id"`
-	Key    []string            `query:"keys"`
+	// Optional parameter that queries a channel by its key.
+	Keys []string `query:"keys"`
 }
 
 type ChannelRetrieveResponse struct {
 	Channels []Channel `json:"channels" msgpack:"channels"`
 }
 
+// Retrieve retrieves a channel based on the parameters given in the request. If no
+// parameters are specified, retrieves all channels.
 func (s *ChannelService) Retrieve(
 	ctx context.Context,
 	req ChannelRetrieveRequest,
@@ -88,8 +103,8 @@ func (s *ChannelService) Retrieve(
 	var resChannels []channel.Channel
 	q := s.Internal.NewRetrieve().Entries(&resChannels)
 
-	if len(req.Key) != 0 {
-		keys, err := channel.ParseKeys(req.Key)
+	if len(req.Keys) != 0 {
+		keys, err := channel.ParseKeys(req.Keys)
 		if err != nil {
 			return ChannelRetrieveResponse{}, errors.Parse(err)
 		}
@@ -111,7 +126,7 @@ func translateChannels(channels []channel.Channel) []Channel {
 			Key:      ch.Key().String(),
 			Name:     ch.Name,
 			NodeID:   ch.NodeID,
-			DataRate: ch.DataRate,
+			Rate:     ch.Rate,
 			DataType: ch.DataType,
 		}
 	}

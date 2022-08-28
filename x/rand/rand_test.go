@@ -19,7 +19,7 @@ var _ = Describe("Rand", func() {
 				5: 6,
 			}
 		})
-		Describe("Key", func() {
+		Describe("Keys", func() {
 			It("Should return a random key", func() {
 				key := rand.MapKey(m)
 				Expect(key > 0).To(BeTrue())

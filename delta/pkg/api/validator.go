@@ -18,7 +18,7 @@ var tagNames = []string{"json", "msgpack"}
 
 func tagNameFunc(fld reflect.StructField) string {
 	if fld.Anonymous {
-		return errors.EmbeddedFieldName
+		return errors.EmbeddedFieldTag
 	}
 	for _, tagName := range tagNames {
 		if name, ok := getTagName(fld, tagName); ok {

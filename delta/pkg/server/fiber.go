@@ -17,6 +17,7 @@ func newFiberServer(cfg Config) *fiberServer {
 	f := &fiberServer{}
 	f.app = fiber.New(fiber.Config{
 		DisableStartupMessage: true,
+		ErrorHandler:          fiberapi.ErrorHandler,
 	})
 	f.api = cfg.FiberAPI
 	f.api.Route(f.app)

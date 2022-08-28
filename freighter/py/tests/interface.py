@@ -15,6 +15,7 @@ class Error(Exception):
 
 
 def encode_test_error(exc: Exception) -> str:
+    assert isinstance(exc, Error)
     return f"{exc.code},{exc.message}"
 
 

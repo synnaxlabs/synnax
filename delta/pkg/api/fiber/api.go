@@ -4,6 +4,7 @@ import (
 	"github.com/arya-analytics/delta/pkg/api"
 	"github.com/arya-analytics/delta/pkg/ui"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/pprof"
 	"go.uber.org/zap"
 )
@@ -17,6 +18,7 @@ type API struct {
 }
 
 func (a *API) Route(router fiber.Router) {
+	logger.New()
 	router.Use(logMiddleware(a.logger))
 	router.Use(pprof.New())
 	a.ui.Route(router)

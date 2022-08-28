@@ -156,8 +156,8 @@ func (ts TimeSpan) IsZero() bool { return ts == TimeSpanZero }
 // IsMax returns true if the TimeSpan is the maximum possible value.
 func (ts TimeSpan) IsMax() bool { return ts == TimeSpanMax }
 
-func (ts TimeSpan) ByteSize(dataRate DataRate, dataType DataType) Size {
-	return Size(ts / dataRate.Period() * TimeSpan(dataType))
+func (ts TimeSpan) ByteSize(rate Rate, density Density) Size {
+	return Size(ts / rate.Period() * TimeSpan(density))
 }
 
 const (
@@ -183,49 +183,63 @@ func (s Size) String() string { return strconv.Itoa(int(s)) + "B" }
 
 // |||||| DATA RATE ||||||
 
-// DataRate represents a data rate in Hz.
-type DataRate float64
+// Rate represents a rate in Hz.
+type Rate float64
 
-// Period returns a TimeSpan representing the period of the DataRate.
-func (dr DataRate) Period() TimeSpan { return TimeSpan(1 / float64(dr) * float64(Second)) }
+// Period returns a TimeSpan representing the period of the Rate.
+func (dr Rate) Period() TimeSpan { return TimeSpan(1 / float64(dr) * float64(Second)) }
 
 // SampleCount returns n integer representing the number of samples in the provided Span.
-func (dr DataRate) SampleCount(t TimeSpan) int { return int(t.Seconds() * float64(dr)) }
+func (dr Rate) SampleCount(t TimeSpan) int { return int(t.Seconds() * float64(dr)) }
 
 // Span returns a TimeSpan representing the number of samples that occupy the provided Span.
-func (dr DataRate) Span(sampleCount int) TimeSpan { return dr.Period() * TimeSpan(sampleCount) }
+func (dr Rate) Span(sampleCount int) TimeSpan { return dr.Period() * TimeSpan(sampleCount) }
 
 // SizeSpan returns a TimeSpan representing the number of samples that occupy a provided number of bytes.
-func (dr DataRate) SizeSpan(size Size, dataType Density) TimeSpan {
-	return dr.Span(int(size) / int(dataType))
+func (dr Rate) SizeSpan(size Size, Density Density) TimeSpan {
+	return dr.Span(int(size) / int(Density))
 }
 
 const (
 	// Hz represents a data rate of 1 Hz.
-	Hz  DataRate = 1
-	KHz          = 1000 * Hz
-	MHz          = 1000 * KHz
+	Hz  Rate = 1
+	KHz      = 1000 * Hz
+	MHz      = 1000 * KHz
 )
 
 // |||||| DENSITY ||||||
 
 type (
 	// Density represents the density of a data type in bytes per sample.
-	Density uint16
-	// DataType is an alias for Density. It's mostly to provide more semantic naming in certain use cases.
-	DataType = Density
+	Density uint32
 )
 
 const (
-	Unknown Density = 0
-	Float64 Density = 8
-	Int64   Density = 8
-	Uint64  Density = 8
-	Float32 Density = 4
-	Int32   Density = 4
-	Uint32  Density = 4
-	Int16   Density = 2
-	Uint16  Density = 2
-	Int8    Density = 1
-	Uint8   Density = 1
+	DensityUnknown Density = 0
+	Bit64          Density = 8
+	Bit32          Density = 4
+	Bit16          Density = 2
+	Bit8           Density = 1
+)
+
+type DataType struct {
+	Key     string  `json:"key" msgpack:"key" validate:"required"`
+	Density Density `json:"density" msgpack:"density" validate:"required"`
+}
+
+// String implements fmt.Stringer.
+func (d DataType) String() string { return d.Key }
+
+var (
+	DataTypeUnknown = DataType{"", DensityUnknown}
+	Float64         = DataType{"float64", Bit64}
+	Float32         = DataType{"float32", Bit32}
+	Int64           = DataType{"int64", Bit64}
+	Int32           = DataType{"int32", Bit32}
+	Int16           = DataType{"int16", Bit16}
+	Int8            = DataType{"int8", Bit8}
+	Uint64          = DataType{"uint64", Bit64}
+	Uint32          = DataType{"uint32", Bit32}
+	Uint16          = DataType{"uint16", Bit16}
+	Uint8           = DataType{"uint8", Bit8}
 )

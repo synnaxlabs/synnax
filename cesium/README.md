@@ -66,7 +66,7 @@ cesium.Uint8
 
 ### Custom Data Types
 
-Defining a custom data type is as simple as defining a constant of type `cesium.DataType` with its size in bytes:
+Defining a custom data type is as simple as defining a constant of type `cesium.Density` with its size in bytes:
 
 ```go
 package main
@@ -76,7 +76,7 @@ import (
 )
 
 // TenByTenImage is a custom data type where each sample is 10 * 10 * 3 bytes in size.
-const TenByTenImage cesium.DataType = 10 * 10 * 3
+const TenByTenImage cesium.Density = 10 * 10 * 3
 ```
 
 ## Production Readiness
@@ -114,12 +114,12 @@ func main() {
 	}
 
 	const (
-		dataType = cesium.Float64
-		dataRate = 5 * cesium.Hz
+		Density = cesium.Float64
+		rate = 5 * cesium.Hz
 	)
 
 	// Create a new channel whose samples are float64 values recorded at 5 Hz.
-	ch, err := db.NewCreateChannel().WithType(dataType).WithRate(dataRate).Exec(ctx)
+	ch, err := db.NewCreateChannel().WithType(Density).WithRate(rate).Exec(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}

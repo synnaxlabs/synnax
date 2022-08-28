@@ -31,6 +31,13 @@ func NewWriter(stream WriterStream, keys ...string) (Writer, error) {
 		return nil, err
 	}
 	w.mu.receivedRes = make(chan struct{}, 1)
+	res, err := w.stream.Receive()
+	if err != nil {
+		return nil, err
+	}
+	if !res.Ack {
+		return nil, errors.New("failed to open writer")
+	}
 	go w.receiveErrors()
 	return w, nil
 }

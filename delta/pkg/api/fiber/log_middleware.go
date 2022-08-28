@@ -9,11 +9,21 @@ func logMiddleware(log *zap.Logger) fiber.Handler {
 	sugaredL := log.Sugar().Named("server.fiber")
 	return func(c *fiber.Ctx) error {
 		err := c.Next()
-		logFunc(sugaredL, c.Response().StatusCode())("",
+		if err != nil {
+			if err := c.App().ErrorHandler(c, err); err != nil {
+				_ = c.SendStatus(fiber.StatusInternalServerError)
+			}
+		}
+		keysAndValues := []interface{}{
 			"method", c.Method(),
 			"path", c.Path(),
 			"status", c.Response().StatusCode(),
-		)
+		}
+
+		if err != nil {
+			keysAndValues = append(keysAndValues, "err", err)
+		}
+		logFunc(sugaredL, c.Response().StatusCode())("", keysAndValues...)
 		return err
 	}
 }

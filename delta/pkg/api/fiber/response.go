@@ -2,6 +2,7 @@ package fiber
 
 import (
 	errors "github.com/arya-analytics/delta/pkg/api/errors"
+	"github.com/arya-analytics/freighter/ferrors"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -15,8 +16,14 @@ func errorResponse(c *fiber.Ctx, err errors.Typed) error {
 		c.Status(fiber.StatusBadRequest)
 	case errors.TypeUnexpected:
 		c.Status(fiber.StatusInternalServerError)
+	case errors.TypeRoute:
+		c.Status(fiber.StatusNotFound)
 	case errors.TypeNil:
 		c.Status(fiber.StatusInternalServerError)
+	}
+	encoding := c.Get("Error-Encoding", "")
+	if encoding == "freighter" {
+		return c.JSON(ferrors.Encode(err))
 	}
 	return c.JSON(fiber.Map{"error": err})
 }
