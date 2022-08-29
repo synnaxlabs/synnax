@@ -7,6 +7,5 @@ from .stream import (
     AsyncStream
 )
 from .errors import EOF, StreamClosed, ErrorPayload
-from .encoder import MsgpackEncoderDecoder, JSONEncoderDecoder, EncoderDecoder
 from .unary import UnaryClient
 from .endpoint import Endpoint

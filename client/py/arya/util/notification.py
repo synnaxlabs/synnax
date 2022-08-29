@@ -2,7 +2,7 @@ from typing import Generic
 from asyncio import Event, Lock
 from typing import TypeVar
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class Notification(Generic[T]):

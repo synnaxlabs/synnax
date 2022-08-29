@@ -2,27 +2,18 @@ import pytest
 import numpy as np
 from freighter.ws import WSClient
 from freighter.sync import StreamClient
-from freighter import (
-    MsgpackEncoderDecoder,
-    Endpoint
-)
+from freighter import MsgpackEncoderDecoder, Endpoint
 
 import arya.errors
 from arya import telem
 from arya.channel import Client, Channel
-from arya.segment import (
-    BinarySegment
-)
-from arya.segment.writer import (
-    Core,
-    WriterRequest,
-    WriterResponse, NumpyWriter
-)
+from arya.segment import BinarySegment
+from arya.segment.writer import Core, Request, Response, Numpy
 
 
 def new_core(endpoint: Endpoint) -> Core:
-    transport = StreamClient[WriterRequest, WriterResponse](
-        WSClient[WriterRequest, WriterResponse](
+    transport = StreamClient[Request, Response](
+        WSClient[Request, Response](
             encoder=MsgpackEncoderDecoder(),
             endpoint=endpoint,
         ),
@@ -37,25 +28,27 @@ def core(endpoint: Endpoint) -> Core:
 
 @pytest.fixture
 def channel(core: Core, channel_client: Client) -> Channel:
-    return channel_client.create(
+    return channel_client.create_n(
         Channel(
             name="test",
             node_id=1,
             rate=25 * telem.HZ,
             data_type=telem.FLOAT64,
         ),
-        1
+        1,
     )[0]
 
 
 class TestCore:
     def test_basic_write(self, core: Core, channel: Channel):
         core.open([channel.key])
-        core.write([BinarySegment(
-            channel_key=channel.key,
-            start=telem.now(),
-            data=b'12345678'
-        )])
+        core.write(
+            [
+                BinarySegment(
+                    channel_key=channel.key, start=telem.now(), data=b"12345678"
+                )
+            ]
+        )
         core.close()
 
     def test_nonexistent_channel_key(self, core: Core):
@@ -63,7 +56,10 @@ class TestCore:
             core.open(["1241-241"])
 
     def test_write_lock_acquired(
-            self, endpoint: Endpoint, core: Core, channel: Channel,
+        self,
+        endpoint: Endpoint,
+        core: Core,
+        channel: Channel,
     ):
         core2 = new_core(endpoint)
         core_err = None
@@ -85,10 +81,10 @@ class TestCore:
 
 class TestNumpy:
     @pytest.fixture
-    def writer(self, core: Core, channel_client: Client) -> NumpyWriter:
-        return NumpyWriter(core=core, channel_client=channel_client)
+    def writer(self, core: Core, channel_client: Client) -> Numpy:
+        return Numpy(core=core, channel_client=channel_client)
 
-    def test_basic_write(self, channel: Channel, writer: NumpyWriter):
+    def test_basic_write(self, channel: Channel, writer: Numpy):
         writer.open([channel.key])
         try:
             data = np.random.rand(10).astype(np.float64)
@@ -96,7 +92,7 @@ class TestNumpy:
         finally:
             writer.close()
 
-    def test_invalid_data_type(self, channel: Channel, writer: NumpyWriter):
+    def test_invalid_data_type(self, channel: Channel, writer: Numpy):
         writer.open([channel.key])
         try:
             data = np.random.rand(10).astype(np.int64)
@@ -105,7 +101,7 @@ class TestNumpy:
         finally:
             writer.close()
 
-    def test_invalid_data_shape(self, channel: Channel, writer: NumpyWriter):
+    def test_invalid_data_shape(self, channel: Channel, writer: Numpy):
         writer.open([channel.key])
         try:
             data = np.random.rand(10, 10).astype(np.float64)
@@ -114,7 +110,7 @@ class TestNumpy:
         finally:
             writer.close()
 
-    def test_non_contiguous_segments(self, channel: Channel, writer: NumpyWriter):
+    def test_non_contiguous_segments(self, channel: Channel, writer: Numpy):
         writer.open([channel.key])
         try:
             data = np.random.rand(10).astype(np.float64)
@@ -124,7 +120,7 @@ class TestNumpy:
         finally:
             writer.close()
 
-    def test_multi_segment_write(self, channel: Channel, writer: NumpyWriter):
+    def test_multi_segment_write(self, channel: Channel, writer: Numpy):
         writer.open([channel.key])
         n_samples = 1000
         n_writes = 100
@@ -132,14 +128,12 @@ class TestNumpy:
             for i in range(0, n_writes):
                 data = np.random.rand(n_samples).astype(np.float64)
                 writer.write(
-                    to=channel.key,
-                    data=data,
-                    start=channel.rate.span(n_samples) * i
+                    to=channel.key, data=data, start=channel.rate.span(n_samples) * i
                 )
         finally:
             writer.close()
 
-    def test_segment_split(self, channel: Channel, writer: NumpyWriter):
+    def test_segment_split(self, channel: Channel, writer: Numpy):
         span = channel.rate.size_span(telem.Size(9e6), telem.BIT64)
         n_samples = channel.rate.sample_count(span)
         writer.open([channel.key])
@@ -148,5 +142,3 @@ class TestNumpy:
             writer.write(to=channel.key, data=data, start=0)
         finally:
             writer.close()
-
-

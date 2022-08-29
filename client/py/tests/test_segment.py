@@ -8,7 +8,7 @@ from arya import telem
 from arya.channel import Channel
 from arya.segment import BinarySegment, NumpySegment, SugaredBinarySegment
 from arya.segment.splitter import Splitter
-from arya.segment.validator import ScalarTypeValidator, ContiguityValidator
+from arya.segment.validate import ScalarType, Contiguity
 from arya import errors
 
 
@@ -18,7 +18,7 @@ class TestBinarySegment:
         segment = BinarySegment(
             channel_key="1-1",
             start=telem.TimeStamp(1),
-            data=b'12345',
+            data=b"12345",
         )
         encoded = ecd.encode(segment)
         decoded = BinarySegment()
@@ -38,7 +38,7 @@ class TestScalarTypeValidator:
             data=np.array([1, 2, 3], dtype=np.int64),
         )
         try:
-            ScalarTypeValidator().validate(seg)
+            ScalarType().validate(seg)
         except Exception as e:
             pytest.fail(f"Unexpected exception: {e}")
 
@@ -53,7 +53,7 @@ class TestScalarTypeValidator:
             data=np.array([1, 2, 3], dtype=np.int32),
         )
         with pytest.raises(errors.ValidationError):
-            ScalarTypeValidator().validate(seg)
+            ScalarType().validate(seg)
 
     def test_unrecognized_data_type(self):
         """
@@ -66,7 +66,7 @@ class TestScalarTypeValidator:
             data=np.array([1, 2, 3], dtype=np.int64),
         )
         with pytest.raises(errors.ValidationError):
-            ScalarTypeValidator().validate(seg)
+            ScalarType().validate(seg)
 
     def test_invalid_array_dimensions(self):
         """
@@ -79,7 +79,7 @@ class TestScalarTypeValidator:
             data=np.array([[1, 2, 3], [1, 2, 3]], dtype=np.int64),
         )
         with pytest.raises(errors.ValidationError):
-            ScalarTypeValidator().validate(seg)
+            ScalarType().validate(seg)
 
 
 class TestContiguityValidator:
@@ -97,9 +97,11 @@ class TestContiguityValidator:
             start=telem.TimeStamp(100 * telem.SECOND),
             data=np.array([1, 2, 3], dtype=np.int64),
         )
-        v = ContiguityValidator({
-            "1-1": telem.TimeStamp(100 * telem.SECOND),
-        })
+        v = Contiguity(
+            {
+                "1-1": telem.TimeStamp(100 * telem.SECOND),
+            }
+        )
         try:
             v.validate(seg)
         except Exception as e:
@@ -126,9 +128,11 @@ class TestContiguityValidator:
                 data=np.array([1, 2, 3], dtype=np.int64),
             ),
         ]
-        v = ContiguityValidator({
-            "1-1": telem.TimeStamp(100 * telem.SECOND),
-        })
+        v = Contiguity(
+            {
+                "1-1": telem.TimeStamp(100 * telem.SECOND),
+            }
+        )
         for seg in segs:
             try:
                 v.validate(seg)
@@ -149,9 +153,11 @@ class TestContiguityValidator:
             start=telem.TimeStamp(100 * telem.SECOND),
             data=np.array([1, 2, 3], dtype=np.int64),
         )
-        v = ContiguityValidator({
-            "1-1": telem.TimeStamp(101 * telem.SECOND),
-        })
+        v = Contiguity(
+            {
+                "1-1": telem.TimeStamp(101 * telem.SECOND),
+            }
+        )
         with pytest.raises(errors.ContiguityError):
             v.validate(seg)
 
@@ -169,9 +175,11 @@ class TestContiguityValidator:
             start=telem.TimeStamp(100 * telem.SECOND),
             data=np.array([1, 2, 3], dtype=np.int64),
         )
-        v = ContiguityValidator({
-            "1-1": telem.TimeStamp(102 * telem.SECOND),
-        })
+        v = Contiguity(
+            {
+                "1-1": telem.TimeStamp(102 * telem.SECOND),
+            }
+        )
         with pytest.raises(errors.ContiguityError):
             v.validate(seg)
 
@@ -188,7 +196,7 @@ class TestContiguityValidator:
             start=telem.TimeStamp(100 * telem.SECOND),
             data=np.array([1, 2, 3], dtype=np.int64),
         )
-        v = ContiguityValidator({})
+        v = Contiguity({})
         with pytest.raises(errors.UnexpectedError):
             v.validate(seg)
 
@@ -202,11 +210,7 @@ class TestSplitter:
             data_type=telem.INT64,
             rate=1 * telem.HZ,
         )
-        seg = SugaredBinarySegment(
-            channel=ch,
-            start=0,
-            data=b'1234568'
-        )
+        seg = SugaredBinarySegment(channel=ch, start=0, data=b"1234568")
         splitter = Splitter(threshold=telem.Size(16))
         split = splitter.split(seg)
         assert len(split) == 1
@@ -217,16 +221,11 @@ class TestSplitter:
         """
         ch = Channel(
             data_type=telem.INT8,
-            rate=1*telem.HZ,
+            rate=1 * telem.HZ,
         )
-        seg = SugaredBinarySegment(
-            channel=ch,
-            start=0,
-            data=b'1234567812345678'
-        )
+        seg = SugaredBinarySegment(channel=ch, start=0, data=b"1234567812345678")
         splitter = Splitter(threshold=telem.Size(8))
         split = splitter.split(seg)
         assert len(split) == 2
         assert split[0].start == 0
         assert split[1].start == 8 * telem.SECOND
-

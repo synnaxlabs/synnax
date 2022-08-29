@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import datetime
 from dataclasses import dataclass
 import numpy as np
@@ -142,8 +143,7 @@ def now() -> TimeStamp:
 
 
 class TimeSpan(int):
-    """TimeSpan represents a 64 bit nanosecond-precision duration.
-    """
+    """TimeSpan represents a 64 bit nanosecond-precision duration."""
 
     def __new__(cls, value: UnparsedTimeSpan, *args, **kwargs):
         if isinstance(value, int):
@@ -231,8 +231,7 @@ HOUR = TimeSpan(60) * MINUTE
 
 
 class Rate(float):
-    """Rate represents a data rate in Hz
-    """
+    """Rate represents a data rate in Hz"""
 
     def __new__(cls, value: UnparsedRate):
         if isinstance(value, float):
@@ -251,31 +250,27 @@ class Rate(float):
         pass
 
     def period(self) -> TimeSpan:
-        """Returns the period of the rate as a TimeSpan
-        """
+        """Returns the period of the rate as a TimeSpan"""
         return TimeSpan(int(1 / self * float(SECOND)))
 
     def sample_count(self, time_span: UnparsedTimeSpan) -> int:
-        """Returns the number of samples in the given TimeSpan at this rate
-        """
+        """Returns the number of samples in the given TimeSpan at this rate"""
         return int(TimeSpan(time_span) / self.period())
 
     def byte_size(self, time_span: UnparsedTimeSpan, density: Density) -> Size:
-        """Calculates the amount of bytes occupied by the given TimeSpan at the given rate and sample density.
-        """
+        """Calculates the amount of bytes occupied by the given TimeSpan at the given rate and sample density."""
         return Size(self.sample_count(time_span) * int(density))
 
     def span(self, sample_count: int) -> TimeSpan:
-        """Returns the TimeSpan that corresponds to the given number of samples at this rate.
-        """
+        """Returns the TimeSpan that corresponds to the given number of samples at this rate."""
         return self.period() * sample_count
 
     def size_span(self, size: Size, density: Density) -> TimeSpan:
-        """Returns the TimeSpan that corresponds to the given number of bytes at this rate and sample density.
-        """
+        """Returns the TimeSpan that corresponds to the given number of bytes at this rate and sample density."""
         if size % density != 0:
             raise arya.errors.ContiguityError(
-                f"Size {size} is not a multiple of density {density}")
+                f"Size {size} is not a multiple of density {density}"
+            )
         return self.span(int(size / density))
 
     def __str__(self):
@@ -322,8 +317,11 @@ class TimeRange:
         return self.start.before_eq(tr.start) and self.end.after_eq(tr.end)
 
     def overlaps_with(self, tr: TimeRange) -> bool:
-        return self.contains_stamp(tr.start) or self.contains_stamp(
-            tr.end) or tr.contains_range(self)
+        return (
+                self.contains_stamp(tr.start)
+                or self.contains_stamp(tr.end)
+                or tr.contains_range(self)
+        )
 
     def swap(self) -> TimeRange:
         self.start, self.end = self.end, self.start
@@ -351,7 +349,6 @@ class Density(int):
 
 
 class Size(int):
-
     def __str__(self):
         return super(Size, self).__str__() + "B"
 
@@ -368,15 +365,42 @@ class DataType:
     key: str
     density: Density
 
-    def __init__(self, key: str, density: UnparsedDensity):
-        self.key = key
-        self.density = Density(density)
+    def __init__(self, *args, **kwargs):
+        if "key" in kwargs and "density" in kwargs:
+            self.key = kwargs["key"]
+            self.density = Density(kwargs["density"])
+        elif len(args) == 2:
+            self.key = args[0]
+            self.density = Density(args[1])
+        elif len(args) == 1 and isinstance(args[0], DataType):
+            self.key = args[0].key
+            self.density = args[0].density
+        elif len(args) == 1 and isinstance(args[0], dict) and "key" in args[
+                0] and "density" in args[0]:
+            self.key = args[0]["key"]
+            self.density = Density(args[0]["density"])
+        elif len(args) == 1 and issubclass(args[0], np.ScalarType):
+            dt = from_numpy_type(args[0])
+            if dt is None:
+                raise TypeError(f"Cannot convert {args[0]} to DataType")
+            self.key = dt.key
+            self.density = dt.density
+        else:
+            raise TypeError(f"Cannot convert {args} to DataType")
 
     def __str__(self):
         return self.key
 
     def __eq__(self, other):
         return self.key == other.key and self.density == other.density
+
+
+def to_numpy_type(data_type: DataType) -> np.ScalarType:
+    return NUMPY_TYPES.get(data_type.key, None)
+
+
+def from_numpy_type(np_type: np.ScalarType) -> DataType:
+    return DATA_TYPES.get(np_type, None)
 
 
 DATA_TYPE_UNKNOWN = DataType("", DENSITY_UNKNOWN)
@@ -401,3 +425,30 @@ UnparsedTimeStamp = Union[
 UnparsedTimeSpan = Union[TimeSpan | TimeStamp | int | datetime.timedelta]
 UnparsedRate = TimeSpan | Rate | float
 UnparsedDensity = Density | int
+UnparsedDataType = (*np.ScalarType, DataType, dict)
+
+NUMPY_TYPES: dict[str, np.ScalarType] = {
+    FLOAT64.key: np.float64,
+    FLOAT32.key: np.float32,
+    INT64.key: np.int64,
+    INT32.key: np.int32,
+    INT16.key: np.int16,
+    INT8.key: np.int8,
+    UINT64.key: np.uint64,
+    UINT32.key: np.uint32,
+    UINT16.key: np.uint16,
+    UINT8.key: np.uint8,
+}
+
+DATA_TYPES: dict[np.ScalarType, DataType] = {
+    np.float64: FLOAT64,
+    np.float32: FLOAT32,
+    np.int64: INT64,
+    np.int32: INT32,
+    np.int16: INT16,
+    np.int8: INT8,
+    np.uint64: UINT64,
+    np.uint32: UINT32,
+    np.uint16: UINT16,
+    np.uint8: UINT8,
+}

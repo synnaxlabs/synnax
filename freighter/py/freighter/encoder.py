@@ -20,7 +20,7 @@ class EncoderDecoder(Protocol):
         ...
 
 
-class MsgpackEncoderDecoder:
+class Msgpack:
     @staticmethod
     def content_type():
         return "application/msgpack"
@@ -34,7 +34,7 @@ class MsgpackEncoderDecoder:
         parse_payload_dict(msgpack.unpackb(data), payload)
 
 
-class JSONEncoderDecoder:
+class JSON:
     @staticmethod
     def content_type():
         return "application/json"
@@ -65,8 +65,8 @@ def parse_payload_dict(data: dict, payload: Any):
 
 
 ENCODER_DECODERS: list[EncoderDecoder] = [
-    JSONEncoderDecoder(),
-    MsgpackEncoderDecoder(),
+    JSON(),
+    Msgpack(),
 ]
 
 T = TypeVar("T")

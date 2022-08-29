@@ -50,7 +50,7 @@ class _Core(Generic[RQ, RS]):
             encoder_decoder: EncoderDecoder,
             response_factory: PayloadFactoryFunc[RS]
     ):
-        self.endpoint = endpoint
+        self.endpoint = endpoint.child("", "http")
         self.encoder_decoder = encoder_decoder
         self.response_factory = PayloadFactory[RS](response_factory)
 

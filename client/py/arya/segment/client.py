@@ -1,24 +1,27 @@
-from freighter import MsgpackEncoderDecoder, Endpoint
-from freighter.ws import Client as WSClient
-from freighter.sync import StreamClient
+import numpy as np
 
-from arya.segment.writer import (
-    WriterRequest,
-    WriterResponse,
-    NumpyWriter,
-    Core
-)
+from .. import channel, telem
+from ..transport import Transport
+from arya.segment.writer import Numpy, Core
 
 
 class Client:
-    endpoint: Endpoint
+    transport: Transport
+    channel_client: channel.Client
 
-    def write(self, keys: list[str]) -> NumpyWriter:
-        transport = StreamClient[WriterRequest, WriterResponse](
-            WSClient[WriterRequest, WriterResponse](
-                encoder=MsgpackEncoderDecoder(),
-                endpoint=self.endpoint,
-            ),
-        )
-        core = Core(transport=transport)
-        npw = NumpyWriter(core=core)
+    def __init__(self, transport: Transport, channel_client: channel.Client):
+        self.transport = transport
+        self.channel_client = channel_client
+
+    def new_writer(self, keys: list[str]) -> Numpy:
+        core = Core(transport=self.transport.stream)
+        npw = Numpy(core=core, channel_client=self.channel_client)
+        npw.open(keys)
+        return npw
+
+    def write(self, to: str, data: np.ndarray, start: telem.UnparsedTimeStamp):
+        writer = self.new_writer([to])
+        try:
+            writer.write(to, data, start)
+        finally:
+            writer.close()

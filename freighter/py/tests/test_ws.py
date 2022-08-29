@@ -3,7 +3,7 @@ import pytest
 import freighter.errors
 from freighter import sync
 from freighter import ws
-from freighter.encoder import MsgpackEncoderDecoder
+from freighter.encoder import Msgpack
 from freighter.endpoint import Endpoint
 from .interface import Message, Error, message_factory
 
@@ -11,7 +11,7 @@ from .interface import Message, Error, message_factory
 @pytest.fixture
 def async_client(endpoint: Endpoint) -> ws.Client:
     ws_endpoint = endpoint.child("ws", protocol="ws")
-    return ws.Client(encoder=MsgpackEncoderDecoder(), endpoint=ws_endpoint)
+    return ws.Client(encoder=Msgpack(), endpoint=ws_endpoint)
 
 
 @pytest.fixture

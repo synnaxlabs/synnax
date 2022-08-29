@@ -11,31 +11,36 @@ class Validator(Protocol):
         ...
 
 
-class ScalarTypeValidator:
+class ScalarType:
     def validate(self, seg: NumpySegment) -> None:
         npt = to_numpy_type(seg.channel.data_type)
         if npt is None:
-            raise arya.errors.ValidationError(f"Channel data type {seg.channel.data_type} is not supported")
+            raise arya.errors.ValidationError(
+                f"Channel data type {seg.channel.data_type} is not supported"
+            )
 
         if seg.data.dtype != npt:
-            raise arya.errors.ValidationError(f"Expected data type {npt}, got {seg.data.dtype}")
+            raise arya.errors.ValidationError(
+                f"Expected data type {npt}, got {seg.data.dtype}"
+            )
 
         if seg.data.ndim != 1:
             raise arya.errors.ValidationError(f"Expected 1D array, got {seg.data.ndim}")
 
 
-class ContiguityValidator:
+class Contiguity:
     high_water_marks: dict[str, telem.TimeStamp]
     allow_no_high_water_mark: bool = False
     allow_overlap: bool = False
     allow_gap: bool = False
 
-    def __init__(self,
-                 high_water_marks: dict[str, telem.TimeStamp],
-                 allow_no_high_water_mark: bool = False,
-                 allow_overlap: bool = False,
-                 allow_gap: bool = False,
-                 ) -> None:
+    def __init__(
+        self,
+        high_water_marks: dict[str, telem.TimeStamp],
+        allow_no_high_water_mark: bool = False,
+        allow_overlap: bool = False,
+        allow_gap: bool = False,
+    ) -> None:
         self.allow_no_high_water_mark = allow_no_high_water_mark
         self.allow_overlap = allow_overlap
         self.allow_gap = allow_gap
@@ -53,7 +58,8 @@ class ContiguityValidator:
             return
         if seg.start.before(hwm):
             raise arya.errors.ContiguityError(
-                f"Next segment start ({seg.start}) is before the previous segments end ({hwm})")
+                f"Next segment start ({seg.start}) is before the previous segments end ({hwm})"
+            )
 
     def _enforce_no_gap(self, hwm: telem.TimeStamp, seg: NumpySegment) -> None:
         if self.allow_gap:
@@ -69,5 +75,7 @@ class ContiguityValidator:
     def _get_high_water_mark(self, channel_key: str) -> telem.TimeStamp:
         hwm = self.high_water_marks.get(channel_key, None)
         if hwm is None and not self.allow_no_high_water_mark:
-            raise arya.errors.UnexpectedError(f"No high water mark for channel: {channel_key}")
+            raise arya.errors.UnexpectedError(
+                f"No high water mark for channel: {channel_key}"
+            )
         return hwm

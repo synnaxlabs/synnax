@@ -11,108 +11,96 @@ _now = telem.now()
 
 class TestTimeStamp:
     def test_now(self):
-        """Should return the current timestamp
-        """
+        """Should return the current timestamp"""
         now = telem.now() + telem.SECOND
         assert now.time() > datetime.now()
 
-    @pytest.mark.parametrize("unparsed, expected", [
-        (1000, 1000),
-        (105 * telem.MILLISECOND, 105 * telem.MILLISECOND),
-        (datetime.utcfromtimestamp(105), telem.TimeStamp(105 * telem.SECOND)),
-        (pd.Timestamp(105), telem.TimeStamp(105 * telem.NANOSECOND)),
-        (_now, _now),
-        (timedelta(seconds=105), telem.TimeStamp(105 * telem.SECOND)),
-        (np.datetime64(1000, "ms"), telem.TimeStamp(1000 * telem.MILLISECOND)),
-    ])
+    @pytest.mark.parametrize(
+        "unparsed, expected",
+        [
+            (1000, 1000),
+            (105 * telem.MILLISECOND, 105 * telem.MILLISECOND),
+            (datetime.utcfromtimestamp(105), telem.TimeStamp(105 * telem.SECOND)),
+            (pd.Timestamp(105), telem.TimeStamp(105 * telem.NANOSECOND)),
+            (_now, _now),
+            (timedelta(seconds=105), telem.TimeStamp(105 * telem.SECOND)),
+            (np.datetime64(1000, "ms"), telem.TimeStamp(1000 * telem.MILLISECOND)),
+        ],
+    )
     def test_init(self, unparsed: telem.UnparsedTimeStamp, expected: telem.TimeStamp):
         assert telem.TimeStamp(unparsed) == expected
 
     def test_invalid_init(self):
-        """Should raise an exception if the timestamp is invalid
-        """
+        """Should raise an exception if the timestamp is invalid"""
         with pytest.raises(TypeError):
             telem.TimeStamp(1.25)
 
     def test_is_zero(self):
-        """Should return true if the timestamp is zero
-        """
+        """Should return true if the timestamp is zero"""
         ts = telem.TimeStamp(0)
         assert ts.is_zero()
 
     def test_after_false(self):
-        """Should return true if the timestamp is after the given timestamp
-        """
+        """Should return true if the timestamp is after the given timestamp"""
         ts = telem.TimeStamp(1000)
         assert not ts > telem.MICROSECOND
 
     def test_after_true(self):
-        """Should return true if the timestamp is after the given timestamp
-        """
+        """Should return true if the timestamp is after the given timestamp"""
         ts = telem.TimeStamp(10000)
         assert ts > telem.MICROSECOND
 
     def test_after_eq_after(self):
-        """Should return true if the timestamp is after or equal to the given timestamp
-        """
+        """Should return true if the timestamp is after or equal to the given timestamp"""
         ts = telem.TimeStamp(1000)
         assert ts >= telem.MICROSECOND
 
     def test_after_eq_before(self):
-        """Should return true if the timestamp is after or equal to the given timestamp
-        """
+        """Should return true if the timestamp is after or equal to the given timestamp"""
         ts = telem.TimeStamp(100)
         assert not ts >= telem.MICROSECOND
 
     def test_before_false(self):
-        """Should return true if the timestamp is before the given timestamp
-        """
+        """Should return true if the timestamp is before the given timestamp"""
         ts = telem.TimeStamp(1000)
         assert not ts < telem.MICROSECOND
 
     def test_before_true(self):
-        """Should return true if the timestamp is before the given timestamp
-        """
+        """Should return true if the timestamp is before the given timestamp"""
         ts = telem.TimeStamp(100)
         assert ts < telem.MICROSECOND
 
     def test_before_eq_before(self):
-        """Should return true if the timestamp is before or equal to the given timestamp
-        """
+        """Should return true if the timestamp is before or equal to the given timestamp"""
         ts = telem.TimeStamp(100)
         assert ts <= telem.MICROSECOND
 
     def test_before_eq_after(self):
-        """Should return true if the timestamp is before or equal to the given timestamp
-        """
+        """Should return true if the timestamp is before or equal to the given timestamp"""
         ts = telem.TimeStamp(1000)
         assert ts <= telem.MICROSECOND
 
     def test_add(self):
-        """Should add a timespan to a timestamp
-        """
+        """Should add a timespan to a timestamp"""
         ts = telem.TimeStamp(1000)
         ts += telem.MICROSECOND
         assert ts == telem.TimeStamp(2000)
 
     def test_sub(self):
-        """Should subtract a timespan from a timestamp
-        """
+        """Should subtract a timespan from a timestamp"""
         ts = telem.TimeStamp(2000)
         ts = ts - telem.MICROSECOND
         assert ts == telem.TimeStamp(1000)
 
     def test_span_range(self):
-        """Should return a range of timestamps between two timestamps
-        """
+        """Should return a range of timestamps between two timestamps"""
         ts1 = telem.TimeStamp(1000)
         ts2 = telem.TimeSpan(2000)
         range = ts1.span_range(ts2)
         assert range.span() == 2 * telem.MICROSECOND
 
     def test_range(self):
-        """Should return a range of timestamps between two timestamps
-        """
+        """Should return a range of timestamps between two timestamps"""
         ts1 = telem.TimeStamp(1000)
         ts2 = telem.TimeStamp(2000)
         range = ts1.range(ts2)
@@ -253,86 +241,81 @@ class TestTimeRange:
 
 
 class TestTimeSpan:
-    @pytest.mark.parametrize("unparsed, expected", [
-        (1000, telem.MICROSECOND),
-        (timedelta(microseconds=1000), 1000 * telem.MICROSECOND),
-        (telem.TimeStamp(1000), telem.MICROSECOND),
-    ])
+    @pytest.mark.parametrize(
+        "unparsed, expected",
+        [
+            (1000, telem.MICROSECOND),
+            (timedelta(microseconds=1000), 1000 * telem.MICROSECOND),
+            (telem.TimeStamp(1000), telem.MICROSECOND),
+        ],
+    )
     def test_init(self, unparsed: telem.UnparsedTimeSpan, expected: telem.TimeSpan):
         assert telem.TimeSpan(unparsed) == expected
 
     def test_seconds(self):
-        """Should return the number of seconds in the timespan
-        """
+        """Should return the number of seconds in the timespan"""
         assert telem.SECOND.seconds() == 1
 
     def test_is_zero(self):
-        """Should return true if the span is zero
-        """
+        """Should return true if the span is zero"""
         assert telem.TimeSpan(0).is_zero()
 
     def test_delta(self):
-        """Should return a timedelta
-        """
+        """Should return a timedelta"""
         assert telem.SECOND.delta() == timedelta(seconds=1)
 
     def test_add(self):
-        """Should correctly add two time spans
-        """
+        """Should correctly add two time spans"""
         assert telem.MICROSECOND + telem.MICROSECOND == telem.TimeSpan(2000)
 
     def test_sub(self):
-        """Should correctly subtract two time spans
-        """
+        """Should correctly subtract two time spans"""
         assert telem.MICROSECOND - telem.MICROSECOND == telem.TimeSpan(0)
 
     def test_gt(self):
-        """Should correctly compare two time spans
-        """
+        """Should correctly compare two time spans"""
         assert telem.MICROSECOND > telem.NANOSECOND
 
     def test_lt(self):
-        """Should correctly compare two time spans
-        """
+        """Should correctly compare two time spans"""
         assert telem.NANOSECOND < telem.MICROSECOND
 
     def test_le(self):
-        """Should correctly compare two time spans
-        """
+        """Should correctly compare two time spans"""
         assert telem.NANOSECOND <= telem.MICROSECOND
 
 
 class TestRate:
-    @pytest.mark.parametrize("unparsed, expected", [
-        (1000, telem.Rate(1000.0)),
-        (telem.SECOND, telem.Rate(1.0)),
-    ])
+    @pytest.mark.parametrize(
+        "unparsed, expected",
+        [
+            (1000, telem.Rate(1000.0)),
+            (telem.SECOND, telem.Rate(1.0)),
+        ],
+    )
     def test_init(self, unparsed: telem.UnparsedRate, expected: telem.Rate):
         assert telem.Rate(unparsed) == expected
 
     def test_invalid_init(self):
-        """Should raise an exception if the rate is invalid
-        """
+        """Should raise an exception if the rate is invalid"""
         with pytest.raises(TypeError):
             telem.Rate(timedelta(seconds=1))
 
     def test_sample_count(self):
-        """Should return the number of samples
-        """
+        """Should return the number of samples"""
         assert telem.Rate(1.0).sample_count(5 * telem.SECOND) == 5
 
     def test_byte_size(self):
-        """Should return the number of bytes in the given span
-        """
+        """Should return the number of bytes in the given span"""
         assert telem.Rate(1.0).byte_size(5 * telem.SECOND, telem.BIT64) == 40
 
     def test_byte_span(self):
-        """Should return the time span from a byte size
-        """
-        assert telem.Rate(1.0).size_span(telem.Size(40), telem.BIT64) == 5 * telem.SECOND
+        """Should return the time span from a byte size"""
+        assert (
+            telem.Rate(1.0).size_span(telem.Size(40), telem.BIT64) == 5 * telem.SECOND
+        )
 
     def test_byte_span_invalid(self):
-        """Should raise a contiguity error if the size is not a multiple of the density
-        """
+        """Should raise a contiguity error if the size is not a multiple of the density"""
         with pytest.raises(errors.ContiguityError):
             telem.Rate(1.0).size_span(telem.Size(41), telem.BIT64)
