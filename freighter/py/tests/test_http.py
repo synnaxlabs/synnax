@@ -23,6 +23,9 @@ def post_client(client: http.Client) -> http.POSTClient[Message, Message]:
 
 class TestGETClient:
     def test_echo(self, get_client: http.GETClient):
+        """
+        Should echo an incremented ID back to the caller.
+        """
         res, err = get_client.send("/echo", Message(1, "hello"))
         assert err is None
         assert res.id == 2
@@ -31,6 +34,9 @@ class TestGETClient:
 
 class TestPOSTClient:
     def test_echo(self, post_client: http.POSTClient):
+        """
+        Should echo an incremented ID back to the caller.
+        """
         res, err = post_client.send("/echo", Message(1, "hello"))
         assert err is None
         assert res.id == 2

@@ -22,6 +22,9 @@ def sync_client(async_client: ws.Client) -> sync.StreamClient:
 class TestWS:
 
     async def test_basic_exchange(self, async_client: ws.Client):
+        """
+        Should exchange ten echo messages that increment the ID.
+        """
         stream = await async_client.stream("/echo", Message, message_factory)
         for i in range(10):
             await stream.send(Message(i, "hello"))
@@ -34,6 +37,9 @@ class TestWS:
         assert err is not None
 
     async def test_receive_message_after_close(self, async_client: ws.Client):
+        """
+        Should receive a message and EOF error after the server closes the connection.
+        """
         stream = await async_client.stream("/sendMessageAfterClientClose", Message,
                                            message_factory)
         await stream.close_send()
@@ -42,9 +48,12 @@ class TestWS:
         assert msg.id == 0
         assert msg.message == "Close Acknowledged"
         msg, err = await stream.receive()
-        assert err is not None
+        assert isinstance(err, freighter.EOF)
 
     async def test_receive_error(self, async_client):
+        """
+        Should correctly decode a custom error from the server.
+        """
         stream = await async_client.stream("/receiveAndExitWithErr", Message,
                                            message_factory)
         await stream.send(Message(id=1, message="hello"))
@@ -70,6 +79,9 @@ class TestSyncWebsocket:
         assert err is not None
 
     def test_repeated_receive(self, sync_client: sync.StreamClient):
+        """
+        Should receive ten messages from the server.
+        """
         stream = sync_client.stream("/respondWithTenMessages", Message, message_factory)
         c = 0
         while True:
