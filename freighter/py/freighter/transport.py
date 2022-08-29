@@ -18,13 +18,6 @@ RQ = TypeVar("RQ", bound=Payload, contravariant=True)
 P = TypeVar("P", bound=Payload)
 
 
-class Transport(Protocol):
-    """
-    A protocol class representing a general network transport between two
-    entities. This protocol is mainly descriptive.
-    """
-
-
 PayloadFactoryFunc = Callable[[], P]
 
 

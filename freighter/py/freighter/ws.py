@@ -6,12 +6,12 @@ from websockets.exceptions import ConnectionClosedOK
 
 from .endpoint import Endpoint
 from .transport import RS, RQ, P, PayloadFactory
-from typing import Generic, Callable
+from typing import Generic, Callable, Type
 from dataclasses import dataclass
 from .errors import StreamClosed
 from .error_registry import ErrorPayload
 from .encoder import EncoderDecoder
-from . import stream, errors
+from . import errors, AsyncStream
 
 _DATA_MESSAGE = "data"
 _CLOSE_MESSAGE = "close"
@@ -28,7 +28,7 @@ def empty_message(payload: P) -> _Message[P]:
     return _Message(type=_DATA_MESSAGE, payload=payload, error=ErrorPayload(None, None))
 
 
-class WSStream(Generic[RQ, RS]):
+class Stream(Generic[RQ, RS]):
     encoder: EncoderDecoder
     wrapped: WebSocketClientProtocol
     server_closed: Exception | None
@@ -109,7 +109,7 @@ class WSStream(Generic[RQ, RS]):
         await self.wrapped.close()
 
 
-class WSClient(Generic[RQ, RS]):
+class Client:
     endpoint: Endpoint
     encoder: EncoderDecoder
 
@@ -119,10 +119,13 @@ class WSClient(Generic[RQ, RS]):
         self.endpoint.protocol = "ws"
 
     async def stream(
-            self, target: str, response_factory: Callable[[], RS]
-    ) -> WSStream[RQ, RS]:
+            self,
+            target: str,
+            request_type: Type[RQ],
+            response_factory: Callable[[], RS]
+    ) -> AsyncStream[RQ, RS]:
         ws = await connect(
-            self.endpoint.build(target),
+            self.endpoint.path(target),
             extra_headers={"Content-Type": self.encoder.content_type()},
         )
-        return WSStream[RQ, RS](self.encoder, ws, response_factory)
+        return Stream[RQ, RS](self.encoder, ws, response_factory)

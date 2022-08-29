@@ -3,7 +3,7 @@ from asyncio import Event
 from threading import Thread
 
 from .transport import RS, RQ, PayloadFactoryFunc, PayloadFactory
-from typing import Generic, Optional, ClassVar
+from typing import Generic, Optional, ClassVar, Type
 from janus import Queue
 from freighter.stream import (
     AsyncStreamReceiver,
@@ -99,17 +99,20 @@ class Stream(Thread, Generic[RQ, RS]):
     _receiver: Receiver[RS]
     _sender: SenderCloser[RQ]
     _response_factory: PayloadFactory[RS]
+    _request_type: Type[RQ]
 
     def __init__(
             self,
             client: AsyncStreamClient,
             target: str,
+            request_type: Type[RQ],
             response_factory: PayloadFactoryFunc[RS]
     ) -> None:
         super().__init__()
         self._client = client
         self._target = target
         self._response_factory = PayloadFactory[RS](response_factory)
+        self._request_type = request_type
         self._open_exception = Notification()
         self.start()
         self._ack_open()
@@ -123,8 +126,7 @@ class Stream(Thread, Generic[RQ, RS]):
     def receive(self) -> tuple[RS | None, Exception | None]:
         res, exc = self._receiver.receive()
         if exc is not None:
-            self._sender.cancel()
-            self._sender.send(None)
+            self._sender.close_send()
         return res, exc
 
     def send(self, pld: RQ) -> Exception | None:
@@ -136,6 +138,7 @@ class Stream(Thread, Generic[RQ, RS]):
     async def _run(self):
         try:
             self._wrapped = await self._client.stream(self._target,
+                                                      self._request_type,
                                                       self._response_factory)
         except Exception as e:
             self._open_exception.notify(e)
@@ -155,7 +158,7 @@ class Stream(Thread, Generic[RQ, RS]):
         self._open_exception = None
 
 
-class StreamClient(Generic[RQ, RS]):
+class StreamClient:
     wrapped: AsyncStreamClient
 
     def __init__(self, wrapped: AsyncStreamClient) -> None:
@@ -164,6 +167,7 @@ class StreamClient(Generic[RQ, RS]):
     def stream(
             self,
             target: str,
+            request_type: Type[RQ],
             response_factory: PayloadFactoryFunc[RS]
     ) -> Stream[RQ, RS]:
-        return Stream[RQ, RS](self.wrapped, target, response_factory)
+        return Stream[RQ, RS](self.wrapped, target, request_type, response_factory)

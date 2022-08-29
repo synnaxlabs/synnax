@@ -1,5 +1,9 @@
-from .transport import RS, RQ, Transport, PayloadFactoryFunc
-from typing import Protocol, Callable, Generic
+from .transport import (
+    RS,
+    RQ,
+    PayloadFactoryFunc
+)
+from typing import Protocol, Type
 
 
 class AsyncStreamReceiver(Protocol[RS]):
@@ -66,7 +70,7 @@ class StreamSender(Protocol[RQ]):
         ...
 
 
-class AsyncStreamSenderCloser(AsyncStreamSender[RQ]):
+class AsyncStreamSenderCloser(AsyncStreamSender[RQ], Protocol):
     async def close_send(self) -> Exception | None:
         """
         Lets the server know no more messages will be sent. If the client attempts
@@ -82,7 +86,7 @@ class AsyncStreamSenderCloser(AsyncStreamSender[RQ]):
         ...
 
 
-class StreamSenderCloser(StreamSender[RQ]):
+class StreamSenderCloser(StreamSender[RQ], Protocol):
     def close_send(self) -> Exception | None:
         """
         Lets the server know no more messages will be sent. If the client attempts
@@ -98,23 +102,29 @@ class StreamSenderCloser(StreamSender[RQ]):
         ...
 
 
-class AsyncStream(AsyncStreamSenderCloser[RQ], AsyncStreamReceiver[RS]):
+class AsyncStream(AsyncStreamSenderCloser[RQ], AsyncStreamReceiver[RS], Protocol):
     ...
 
 
-class Stream(StreamSenderCloser[RQ], StreamReceiver[RS]):
+class Stream(StreamSenderCloser[RQ], StreamReceiver[RS], Protocol):
     ...
 
 
-class AsyncStreamClient(Transport, Generic[RQ, RS]):
+class AsyncStreamClient(Protocol):
     async def stream(
-            self, target: str, response_factory: PayloadFactoryFunc[RS],
+            self,
+            target: str,
+            request_type: Type[RQ],
+            response_factory: PayloadFactoryFunc[RS]
     ) -> AsyncStream[RQ, RS]:
         ...
 
 
-class StreamClient(Transport, Generic[RQ, RS]):
+class StreamClient(Protocol):
     def stream(
-            self, target: str, response_Factory: PayloadFactoryFunc[RS]
+            self,
+            target: str,
+            request_type: Type[RQ],
+            response_Factory: PayloadFactoryFunc[RS],
     ) -> Stream[RQ, RS]:
         ...

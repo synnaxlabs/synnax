@@ -8,7 +8,7 @@ class UnaryClient(Protocol[RQ, RS]):
     The client side Protocol class of a Unary freighter.
     """
 
-    def send(self, target: str, req: RQ, ) -> tuple[RS | None, Exception | None]:
+    def send(self, target: str, req: RQ) -> tuple[RS | None, Exception | None]:
         """
         Sends a request to the target server and waits until a response is
         returned.
@@ -24,7 +24,7 @@ class UnaryClient(Protocol[RQ, RS]):
 
 class AsyncUnaryClient(Protocol[RQ, RS]):
 
-    async def send(self, target: str, req: RQ, ) -> tuple[RS | None, Exception | None]:
+    async def send(self, target: str, req: RQ) -> tuple[RS | None, Exception | None]:
         """
         Sends a request to the target server and waits until a response is
         returned.
