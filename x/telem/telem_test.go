@@ -99,7 +99,7 @@ var _ = Describe("Telem", func() {
 
 	Describe("TimeRange", func() {
 
-		Describe("Span", func() {
+		Describe("SpanTo", func() {
 			It("Should return the correct time span", func() {
 				tr := telem.TimeRange{
 					Start: telem.TimeStamp(0),
@@ -274,7 +274,7 @@ var _ = Describe("Telem", func() {
 				Expect(telem.Rate(10).SampleCount(telem.Second)).To(Equal(10))
 			})
 		})
-		Describe("Span", func() {
+		Describe("SpanTo", func() {
 			It("Should return the span of the provided samples", func() {
 				Expect(telem.Rate(10).Span(10)).To(Equal(telem.Second))
 			})

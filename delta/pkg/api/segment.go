@@ -2,13 +2,7 @@ package api
 
 import (
 	"github.com/arya-analytics/delta/pkg/distribution/segment"
-	"github.com/arya-analytics/delta/pkg/distribution/segment/iterator"
 	"github.com/arya-analytics/x/telem"
-)
-
-type (
-	IteratorCommand         = iterator.Command
-	IteratorResponseVariant = iterator.ResponseVariant
 )
 
 // Segment is an API-friendly version of the segment.Segment type. It is simplified for

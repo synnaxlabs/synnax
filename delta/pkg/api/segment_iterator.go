@@ -7,8 +7,14 @@ import (
 	"github.com/arya-analytics/delta/pkg/distribution/segment"
 	"github.com/arya-analytics/delta/pkg/distribution/segment/iterator"
 	"github.com/arya-analytics/freighter"
+	"github.com/arya-analytics/freighter/ferrors"
 	"github.com/arya-analytics/x/telem"
 	roacherrors "github.com/cockroachdb/errors"
+)
+
+type (
+	IteratorCommand         = iterator.Command
+	IteratorResponseVariant = iterator.ResponseVariant
 )
 
 type IteratorRequest struct {
@@ -22,8 +28,7 @@ type IteratorRequest struct {
 type IteratorResponse struct {
 	Variant  IteratorResponseVariant `json:"variant"`
 	Ack      bool                    `json:"ack"`
-	Command  IteratorCommand         `json:"command"`
-	Err      errors.Typed            `json:"error"`
+	Err      ferrors.Payload         `json:"error"`
 	Segments []Segment               `json:"segments"`
 }
 
@@ -56,9 +61,8 @@ func (s *SegmentService) Iterate(_ctx context.Context, stream IteratorStream) er
 			ok, err := executeIteratorRequest(iter, req)
 			if err := stream.Send(IteratorResponse{
 				Variant: iterator.AckResponse,
-				Command: req.Command,
 				Ack:     ok,
-				Err:     errors.General(err),
+				Err:     ferrors.Encode(errors.General(err)),
 			}); err != nil {
 				return
 			}
@@ -123,6 +127,18 @@ func executeIteratorRequest(iter segment.Iterator, req IteratorRequest) (bool, e
 	default:
 		return false, errors.Parse(roacherrors.New("unexpected command"))
 	}
+}
+
+func (s *SegmentService) openIterator(ctx context.Context, srv IteratorStream) (segment.Iterator, error) {
+	keys, rng, _err := receiveIteratorOpenArgs(srv)
+	if _err.Occurred() {
+		return nil, _err
+	}
+	i, err := s.Internal.NewRetrieve().WhereChannels(keys...).WhereTimeRange(rng).Iterate(ctx)
+	if err != nil {
+		return nil, errors.Query(err)
+	}
+	return i, errors.MaybeUnexpected(srv.Send(IteratorResponse{Ack: true}))
 }
 
 func receiveIteratorOpenArgs(srv IteratorStream) (channel.Keys, telem.TimeRange, errors.Typed) {

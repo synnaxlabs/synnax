@@ -38,7 +38,7 @@ package grpc
 //	keys, err := channel.ParseKeys(req.Keys)
 //	return api.IteratorRequest{
 //		Command: api.IteratorCommand(req.Command),
-//		Span:    telem.TimeSpan(req.Span),
+//		SpanTo:    telem.TimeSpan(req.SpanTo),
 //		Range: telem.TimeRange{
 //			Start: telem.TimeStamp(req.Range.Start),
 //			End:   telem.TimeStamp(req.Range.End),
