@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import copy
 import datetime
 from dataclasses import dataclass
 import numpy as np
@@ -65,7 +64,8 @@ class TimeStamp(int):
     def after_eq(self, ts: UnparsedTimeStamp) -> bool:
         """Returns true if the TimeStamp is after or equal to the given TimeStamp.
         :param ts: the TimeStamp to compare to
-        :return: True if the TimeStamp is after or equal to the given TimeStamp, False otherwise
+        :return: True if the TimeStamp is after or equal to the given TimeStamp an d False
+        otherwise.
         """
         return super().__ge__(TimeStamp(ts))
 
@@ -79,7 +79,8 @@ class TimeStamp(int):
     def before_eq(self, ts: UnparsedTimeStamp) -> bool:
         """Returns true if the TimeStamp is before or equal to the given TimeStamp.
         :param ts: the TimeStamp to compare to
-        :return: True if the TimeStamp is before or equal to the given TimeStamp, False otherwise
+        :return: True if the TimeStamp is before or equal to the given TimeStamp, and False
+        otherwise.
         """
         return super().__le__(TimeStamp(ts))
 
@@ -228,6 +229,7 @@ MILLISECOND = TimeSpan(1000) * MICROSECOND
 SECOND = TimeSpan(1000) * MILLISECOND
 MINUTE = TimeSpan(60) * SECOND
 HOUR = TimeSpan(60) * MINUTE
+TIME_SPAN_MAX = TimeSpan(0xFFFFFFFFFFFFFFFF)
 
 
 class Rate(float):
@@ -285,6 +287,7 @@ KHZ = Rate(1000) * HZ
 MHZ = Rate(1000) * KHZ
 
 
+@dataclass
 class TimeRange:
     start: TimeStamp
     end: TimeStamp
@@ -360,60 +363,43 @@ BIT16 = Density(2)
 BIT8 = Density(1)
 
 
-@dataclass
-class DataType:
-    key: str
-    density: Density
+class DataType(str):
 
-    def __init__(self, *args, **kwargs):
-        if "key" in kwargs and "density" in kwargs:
-            self.key = kwargs["key"]
-            self.density = Density(kwargs["density"])
-        elif len(args) == 2:
-            self.key = args[0]
-            self.density = Density(args[1])
-        elif len(args) == 1 and isinstance(args[0], DataType):
-            self.key = args[0].key
-            self.density = args[0].density
-        elif len(args) == 1 and isinstance(args[0], dict) and "key" in args[
-                0] and "density" in args[0]:
-            self.key = args[0]["key"]
-            self.density = Density(args[0]["density"])
-        elif len(args) == 1 and issubclass(args[0], np.ScalarType):
-            dt = from_numpy_type(args[0])
-            if dt is None:
-                raise TypeError(f"Cannot convert {args[0]} to DataType")
-            self.key = dt.key
-            self.density = dt.density
-        else:
-            raise TypeError(f"Cannot convert {args} to DataType")
+    def __new__(cls, value: UnparsedDataType):
+        if isinstance(value, DataType):
+            return value
+        if isinstance(value, str):
+            return super().__new__(cls, value)
+        try:
+            if issubclass(value, np.ScalarType):
+                return from_numpy_type(value)
+        except TypeError:
+            pass
+        raise TypeError(f"Cannot convert {type(value)} to DataType")
 
-    def __str__(self):
-        return self.key
-
-    def __eq__(self, other):
-        return self.key == other.key and self.density == other.density
+    def __init__(self, value: UnparsedDataType):
+        pass
 
 
 def to_numpy_type(data_type: DataType) -> np.ScalarType:
-    return NUMPY_TYPES.get(data_type.key, None)
+    return NUMPY_TYPES.get(data_type, None)
 
 
 def from_numpy_type(np_type: np.ScalarType) -> DataType:
     return DATA_TYPES.get(np_type, None)
 
 
-DATA_TYPE_UNKNOWN = DataType("", DENSITY_UNKNOWN)
-FLOAT64 = DataType("float64", BIT64)
-FLOAT32 = DataType("float32", BIT32)
-INT64 = DataType("int64", BIT64)
-INT32 = DataType("int32", BIT32)
-INT16 = DataType("int16", BIT16)
-INT8 = DataType("int8", BIT8)
-UINT64 = DataType("uint64", BIT64)
-UINT32 = DataType("uint32", BIT32)
-UINT16 = DataType("uint16", BIT16)
-UINT8 = DataType("uint8", BIT8)
+DATA_TYPE_UNKNOWN = DataType("")
+FLOAT64 = DataType("float64")
+FLOAT32 = DataType("float32")
+INT64 = DataType("int64")
+INT32 = DataType("int32")
+INT16 = DataType("int16")
+INT8 = DataType("int8")
+UINT64 = DataType("uint64")
+UINT32 = DataType("uint32")
+UINT16 = DataType("uint16")
+UINT8 = DataType("uint8")
 
 UnparsedTimeStamp = Union[
     TimeStamp,
@@ -425,19 +411,19 @@ UnparsedTimeStamp = Union[
 UnparsedTimeSpan = Union[TimeSpan | TimeStamp | int | datetime.timedelta]
 UnparsedRate = TimeSpan | Rate | float
 UnparsedDensity = Density | int
-UnparsedDataType = (*np.ScalarType, DataType, dict)
+UnparsedDataType = (*np.ScalarType, DataType, str)
 
 NUMPY_TYPES: dict[str, np.ScalarType] = {
-    FLOAT64.key: np.float64,
-    FLOAT32.key: np.float32,
-    INT64.key: np.int64,
-    INT32.key: np.int32,
-    INT16.key: np.int16,
-    INT8.key: np.int8,
-    UINT64.key: np.uint64,
-    UINT32.key: np.uint32,
-    UINT16.key: np.uint16,
-    UINT8.key: np.uint8,
+    FLOAT64: np.float64,
+    FLOAT32: np.float32,
+    INT64: np.int64,
+    INT32: np.int32,
+    INT16: np.int16,
+    INT8: np.int8,
+    UINT64: np.uint64,
+    UINT32: np.uint32,
+    UINT16: np.uint16,
+    UINT8: np.uint8,
 }
 
 DATA_TYPES: dict[np.ScalarType, DataType] = {

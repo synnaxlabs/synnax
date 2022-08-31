@@ -63,6 +63,7 @@ class TestWS:
         assert err.message == "unexpected error"
 
 
+@pytest.mark.focus
 class TestSyncWebsocket:
     def test_basic_exchange(self, sync_client: sync.StreamClient):
         stream = sync_client.stream("/echo", Message, message_factory)

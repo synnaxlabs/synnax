@@ -10,6 +10,7 @@ import (
 	"github.com/arya-analytics/freighter/ferrors"
 	"github.com/arya-analytics/x/telem"
 	roacherrors "github.com/cockroachdb/errors"
+	"github.com/sirupsen/logrus"
 )
 
 type (
@@ -23,13 +24,15 @@ type IteratorRequest struct {
 	Range   telem.TimeRange `json:"range" msgpack:"range"`
 	Stamp   telem.TimeStamp `json:"stamp" msgpack:"stamp"`
 	Keys    []string        `json:"keys" msgpack:"keys"`
+	Sync    bool            `json:"sync" msgpack:"sync"`
 }
 
 type IteratorResponse struct {
-	Variant  IteratorResponseVariant `json:"variant"`
-	Ack      bool                    `json:"ack"`
-	Err      ferrors.Payload         `json:"error"`
-	Segments []Segment               `json:"segments"`
+	Variant  IteratorResponseVariant `json:"variant" msgpack:"variant"`
+	Command  IteratorCommand         `json:"command" msgpack:"command"`
+	Ack      bool                    `json:"ack" msgpack:"ack"`
+	Err      ferrors.Payload         `json:"error" msgpack:"error"`
+	Segments []Segment               `json:"segments" msgpack:"segments"`
 }
 
 type IteratorStream = freighter.ServerStream[IteratorRequest, IteratorResponse]
@@ -42,15 +45,12 @@ func (s *SegmentService) Iterate(_ctx context.Context, stream IteratorStream) er
 	// which case resources have already been freed and cancel does nothing).
 	defer cancel()
 
-	keys, tr, _err := receiveIteratorOpenArgs(stream)
-	if _err.Occurred() {
-		return _err
+	iter, err := s.openIterator(ctx, stream)
+	if err.Occurred() {
+		return errors.Unexpected(err)
 	}
 
-	iter, err := s.Internal.NewRetrieve().WhereChannels(keys...).WhereTimeRange(tr).Iterate(ctx)
-	if err != nil {
-		return errors.General(err)
-	}
+	acks := make(chan IteratorResponse)
 
 	go func() {
 		for {
@@ -59,11 +59,16 @@ func (s *SegmentService) Iterate(_ctx context.Context, stream IteratorStream) er
 				return
 			}
 			ok, err := executeIteratorRequest(iter, req)
-			if err := stream.Send(IteratorResponse{
+			res := IteratorResponse{
 				Variant: iterator.AckResponse,
+				Command: req.Command,
 				Ack:     ok,
-				Err:     ferrors.Encode(errors.General(err)),
-			}); err != nil {
+			}
+			if err != nil {
+				res.Err = ferrors.Encode(errors.General(err))
+			}
+			acks <- res
+			if req.Command == iterator.Close {
 				return
 			}
 		}
@@ -75,6 +80,7 @@ func (s *SegmentService) Iterate(_ctx context.Context, stream IteratorStream) er
 			return errors.Canceled
 		case res, ok := <-iter.Responses():
 			if !ok {
+				logrus.Info("returning here")
 				return errors.Nil
 			}
 			segments := make([]Segment, len(res.Segments))
@@ -89,6 +95,10 @@ func (s *SegmentService) Iterate(_ctx context.Context, stream IteratorStream) er
 				Variant:  iterator.DataResponse,
 				Segments: segments,
 			}); err != nil {
+				return errors.Unexpected(err)
+			}
+		case ack := <-acks:
+			if err := stream.Send(ack); err != nil {
 				return errors.Unexpected(err)
 			}
 		}
@@ -124,30 +134,37 @@ func executeIteratorRequest(iter segment.Iterator, req IteratorRequest) (bool, e
 	case iterator.Error:
 		err := iter.Error()
 		return err == nil, err
+	case iterator.Close:
+		err := iter.Close()
+		return err == nil, err
 	default:
 		return false, errors.Parse(roacherrors.New("unexpected command"))
 	}
 }
 
-func (s *SegmentService) openIterator(ctx context.Context, srv IteratorStream) (segment.Iterator, error) {
-	keys, rng, _err := receiveIteratorOpenArgs(srv)
+func (s *SegmentService) openIterator(ctx context.Context, srv IteratorStream) (segment.Iterator, errors.Typed) {
+	keys, rng, sync, _err := receiveIteratorOpenArgs(srv)
 	if _err.Occurred() {
 		return nil, _err
 	}
-	i, err := s.Internal.NewRetrieve().WhereChannels(keys...).WhereTimeRange(rng).Iterate(ctx)
+	q := s.Internal.NewRetrieve().WhereChannels(keys...).WhereTimeRange(rng)
+	if sync {
+		q = q.Sync()
+	}
+	i, err := q.Iterate(ctx)
 	if err != nil {
 		return nil, errors.Query(err)
 	}
-	return i, errors.MaybeUnexpected(srv.Send(IteratorResponse{Ack: true}))
+	return i, errors.MaybeUnexpected(srv.Send(IteratorResponse{Variant: iterator.AckResponse, Ack: true}))
 }
 
-func receiveIteratorOpenArgs(srv IteratorStream) (channel.Keys, telem.TimeRange, errors.Typed) {
+func receiveIteratorOpenArgs(srv IteratorStream) (channel.Keys, telem.TimeRange, bool, errors.Typed) {
 	req, err := srv.Receive()
 	if err != nil {
-		return nil, telem.TimeRangeZero, errors.Unexpected(err)
+		return nil, telem.TimeRangeZero, req.Sync, errors.Unexpected(err)
 	}
 	if req.Command != iterator.Open {
-		return nil, telem.TimeRangeZero, errors.Parse(roacherrors.New("expected open command"))
+		return nil, telem.TimeRangeZero, req.Sync, errors.Parse(roacherrors.New("expected open command"))
 	}
 	keys, err := channel.ParseKeys(req.Keys)
 
@@ -155,5 +172,5 @@ func receiveIteratorOpenArgs(srv IteratorStream) (channel.Keys, telem.TimeRange,
 		req.Range = telem.TimeRangeMax
 	}
 
-	return keys, req.Range, errors.MaybeParse(err)
+	return keys, req.Range, req.Sync, errors.MaybeParse(err)
 }

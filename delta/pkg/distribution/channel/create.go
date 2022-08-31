@@ -76,7 +76,7 @@ func assembleFromQuery(q query.Query, n int) ([]Channel, error) {
 			Name:     name,
 			NodeID:   nodeID,
 			DataType: dt,
-			Channel:  storage.Channel{Rate: dr, Density: dt.Density},
+			Channel:  storage.Channel{Rate: dr, Density: dt.Density()},
 		}
 	}
 	return channels, nil

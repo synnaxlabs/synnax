@@ -17,6 +17,7 @@ type Channel struct {
 	NodeID   distribution.NodeID `json:"node_id" msgpack:"node_id" validate:"required"`
 	Rate     telem.Rate          `json:"rate" msgpack:"rate" validate:"required"`
 	DataType telem.DataType      `json:"data_type" msgpack:"data_type" validate:"required"`
+	Density  telem.Density       `json:"density" msgpack:"density"`
 }
 
 // ChannelService is the central API for all things channel related.
@@ -128,6 +129,7 @@ func translateChannels(channels []channel.Channel) []Channel {
 			NodeID:   ch.NodeID,
 			Rate:     ch.Rate,
 			DataType: ch.DataType,
+			Density:  ch.Density,
 		}
 	}
 	return translated

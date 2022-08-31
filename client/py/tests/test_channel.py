@@ -12,6 +12,7 @@ class TestClient:
             node_id=1,
             rate=25 * telem.HZ,
             data_type=telem.FLOAT64,
+            density=telem.BIT64,
         )
         return channel_client.create_n(ch, 2)
 
@@ -30,7 +31,7 @@ class TestClient:
         assert len(res_channels) == 2
         for i, channel in enumerate(res_channels):
             assert two_channels[i].key == channel.key
-            assert isinstance(two_channels[i].data_type.density, telem.Density)
+            assert isinstance(two_channels[i].density, telem.Density)
 
     def test_retrieve_by_node_id(
         self, two_channels: list[Channel], channel_client: Client

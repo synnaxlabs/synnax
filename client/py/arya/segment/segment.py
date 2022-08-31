@@ -71,7 +71,7 @@ class SugaredBinarySegment(SugaredHeader):
 
     @property
     def span(self) -> TimeSpan:
-        return self.channel.rate.size_span(self.size, self.channel.data_type.density)
+        return self.channel.rate.size_span(self.size, self.channel.density)
 
     @property
     def range(self) -> TimeRange:

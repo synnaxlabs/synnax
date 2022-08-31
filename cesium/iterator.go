@@ -70,7 +70,10 @@ type streamIterator struct {
 	// executor is an Output where generated operations are piped for execution.
 	executor confluence.Inlet[[]retrieveOperationUnary]
 	// wg is used to track the completion status of the latest operations in the iterator.
-	wg     *sync.WaitGroup
+	wg *sync.WaitGroup
+	// sync is a flag indicating whether the iterator should wait for all operations to
+	// for a particular command to complete before returning.
+	sync   bool
 	opErrC chan error
 	_error error
 }
@@ -78,7 +81,11 @@ type streamIterator struct {
 func newIteratorFromRetrieve(r Retrieve) StreamIterator {
 	responses := &confluence.AbstractUnarySource[RetrieveResponse]{}
 	wg := &sync.WaitGroup{}
-	internal := kv.NewIterator(r.kve, timeRange(r), channel.GetKeys(r)...)
+	tr, err := telem.GetTimeRange(r)
+	if err != nil {
+		tr = TimeRangeMax
+	}
+	internal := kv.NewIterator(r.kve, tr, channel.GetKeys(r)...)
 	errC := make(chan error)
 	return &streamIterator{
 		internal: internal,
@@ -93,6 +100,7 @@ func newIteratorFromRetrieve(r Retrieve) StreamIterator {
 		wg:                  wg,
 		AbstractUnarySource: responses,
 		opErrC:              errC,
+		sync:                getSync(r),
 	}
 }
 
@@ -175,19 +183,18 @@ func (i *streamIterator) Error() error {
 	return lo.Ternary(i.error() == nil, i.internal.Error(), i.error())
 }
 
-func (i *streamIterator) pipeOperations() {
-	ops := i.parser.parse(i.internal.Ranges())
-	if len(ops) == 0 {
-		return
-	}
-	i.wg.Add(len(ops))
-	i.executor.Inlet() <- ops
-}
-
 func (i *streamIterator) exec(f func() bool) bool {
 	if !f() {
 		return false
 	}
-	i.pipeOperations()
+	ops := i.parser.parse(i.internal.Ranges())
+	if len(ops) == 0 {
+		return true
+	}
+	i.wg.Add(len(ops))
+	i.executor.Inlet() <- ops
+	if i.sync {
+		i.wg.Wait()
+	}
 	return true
 }

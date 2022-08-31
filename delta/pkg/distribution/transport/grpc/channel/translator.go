@@ -14,14 +14,12 @@ func (c createMessageTranslator) Forward(msg channel.CreateMessage) (*channelv1.
 	tr := &channelv1.CreateMessage{}
 	for _, ch := range msg.Channels {
 		tr.Channels = append(tr.Channels, &channelv1.Channel{
-			Name:   ch.Name,
-			NodeId: int32(ch.NodeID),
-			Key:    int32(ch.Channel.Key),
-			DataType: &channelv1.DataType{
-				Key:     ch.DataType.Key,
-				Density: int32(ch.DataType.Density),
-			},
-			Rate: float64(ch.Rate),
+			Name:     ch.Name,
+			NodeId:   int32(ch.NodeID),
+			Key:      int32(ch.Channel.Key),
+			DataType: string(ch.DataType),
+			Density:  int32(ch.Density),
+			Rate:     float64(ch.Rate),
 		})
 	}
 	return tr, nil
@@ -31,15 +29,12 @@ func (c createMessageTranslator) Backward(msg *channelv1.CreateMessage) (channel
 	var tr channel.CreateMessage
 	for _, ch := range msg.Channels {
 		tr.Channels = append(tr.Channels, channel.Channel{
-			Name:   ch.Name,
-			NodeID: distribcore.NodeID(ch.NodeId),
-			DataType: telem.DataType{
-				Key:     ch.DataType.Key,
-				Density: telem.Density(ch.DataType.Density),
-			},
+			Name:     ch.Name,
+			NodeID:   distribcore.NodeID(ch.NodeId),
+			DataType: telem.DataType(ch.DataType),
 			Channel: cesium.Channel{
 				Key:     cesium.ChannelKey(ch.Key),
-				Density: telem.Density(ch.DataType.Density),
+				Density: telem.Density(ch.Density),
 				Rate:    cesium.Rate(ch.Rate),
 			},
 		})

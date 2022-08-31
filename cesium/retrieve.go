@@ -14,6 +14,7 @@ import (
 	"github.com/arya-analytics/x/query"
 	"github.com/arya-analytics/x/queue"
 	"github.com/arya-analytics/x/signal"
+	"github.com/arya-analytics/x/telem"
 	"github.com/cockroachdb/errors"
 	"go.uber.org/zap"
 	"time"
@@ -26,7 +27,7 @@ const (
 	retrievePersistMaxRoutines = persist.DefaultNumWorkers
 	// retrieveDebounceFlushInterval is the interval at which retrieve debounce queue will flush if the number of
 	// retrieve operations is below the threshold.
-	retrieveDebounceFlushInterval = 10 * time.Millisecond
+	retrieveDebounceFlushInterval = 5 * time.Millisecond
 	// retrieveDebounceFlushThreshold is the number of retrieve operations that must be in the debounce queue before
 	// it flushes
 	retrieveDebounceFlushThreshold = 100
@@ -93,7 +94,12 @@ type Retrieve struct {
 func (r Retrieve) WhereChannels(keys ...ChannelKey) Retrieve { channel.SetKeys(r, keys...); return r }
 
 // WhereTimeRange sets the time range to retrieve data from.
-func (r Retrieve) WhereTimeRange(tr TimeRange) Retrieve { setTimeRange(r, tr); return r }
+func (r Retrieve) WhereTimeRange(tr TimeRange) Retrieve { telem.SetTimeRange(r, tr); return r }
+
+// Sync is an option that only applies to queries than open a StreamIterator.
+// If set to true, the StreamIterator will wait for operations for a particular command
+// to complete before returning.
+func (r Retrieve) Sync() Retrieve { setSync(r, true); return r }
 
 // Stream streams all segments from the iterator out to the channel. Errors encountered
 // during stream construction are returned immediately. Errors encountered during
@@ -118,20 +124,20 @@ func (r Retrieve) Iterate() StreamIterator {
 
 // |||||| OPTIONS ||||||
 
-// |||| TIME RANGE ||||
+// |||| SYNC ||||
 
-const timeRangeOptKey query.OptionKey = "tr"
+const syncOptKey query.OptionKey = "sync"
 
-func setTimeRange(q query.Query, tr TimeRange) {
-	q.Set(timeRangeOptKey, tr)
+func setSync(q query.Query, sync bool) {
+	q.Set(syncOptKey, sync)
 }
 
-func timeRange(q query.Query) TimeRange {
-	tr, ok := q.Get(timeRangeOptKey)
+func getSync(q query.Query) bool {
+	sync, ok := q.Get(syncOptKey)
 	if !ok {
-		return TimeRangeMax
+		return false
 	}
-	return tr.(TimeRange)
+	return sync.(bool)
 }
 
 // |||||| QUERY FACTORY ||||||

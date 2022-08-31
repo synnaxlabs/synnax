@@ -38,6 +38,7 @@ type Request struct {
 	Range telem.TimeRange
 	Stamp telem.TimeStamp
 	Keys  channel.Keys
+	Sync  bool
 }
 
 type ResponseVariant uint8

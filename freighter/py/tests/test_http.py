@@ -1,14 +1,15 @@
 import pytest
 
-from freighter import Endpoint, JSONEncoderDecoder
+from freighter import Endpoint
 from freighter import http
+from freighter import encoder
 from .interface import Message, Error, message_factory
 
 
 @pytest.fixture
 def client(endpoint: Endpoint) -> http.Client:
     http_endpoint = endpoint.child("http", protocol="http")
-    return http.Client(http_endpoint, JSONEncoderDecoder())
+    return http.Client(http_endpoint, encoder.JSON())
 
 
 @pytest.fixture

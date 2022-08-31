@@ -55,60 +55,82 @@ var _ = Describe("Iterator", func() {
 			stc.CreateCRequestsOfN(100, 2)
 
 		})
-		Describe("First", func() {
-			It("Should return the first segment in the iterator", func() {
-				iter := db.NewRetrieve().
-					WhereChannels(key).
-					WhereTimeRange(cesium.TimeRangeMax).
-					Iterate()
-				Expect(iter.Error()).To(BeNil())
-				stream := confluence.NewStream[cesium.RetrieveResponse](1)
-				iter.OutTo(stream)
-				Expect(iter.First()).To(BeTrue())
-				res := <-stream.Outlet()
-				Expect(res.Segments).To(HaveLen(1))
-				Expect(iter.View()).To(Equal(telem.TimeRange{
-					Start: telem.TimeStampMin,
-					End:   telem.TimeStampMin.Add(10 * cesium.Second),
-				}))
-				Expect(res.Segments[0].Start).To(Equal(telem.TimeStampMin))
-				Expect(res.Segments[0].Sugar(channel).UnboundedRange()).To(Equal(
-					telem.TimeRange{
+		Context("Asynchronous", func() {
+			Describe("First", func() {
+				It("Should return the first segment in the iterator", func() {
+					iter := db.NewRetrieve().
+						WhereChannels(key).
+						WhereTimeRange(cesium.TimeRangeMax).
+						Iterate()
+					Expect(iter.Error()).To(BeNil())
+					stream := confluence.NewStream[cesium.RetrieveResponse](1)
+					iter.OutTo(stream)
+					Expect(iter.First()).To(BeTrue())
+					res := <-stream.Outlet()
+					Expect(res.Segments).To(HaveLen(1))
+					Expect(iter.View()).To(Equal(telem.TimeRange{
 						Start: telem.TimeStampMin,
 						End:   telem.TimeStampMin.Add(10 * cesium.Second),
 					}))
-				Expect(iter.Close()).To(Succeed())
+					Expect(res.Segments[0].Start).To(Equal(telem.TimeStampMin))
+					Expect(res.Segments[0].Sugar(channel).UnboundedRange()).To(Equal(
+						telem.TimeRange{
+							Start: telem.TimeStampMin,
+							End:   telem.TimeStampMin.Add(10 * cesium.Second),
+						}))
+					Expect(iter.Close()).To(Succeed())
+				})
+			})
+			Describe("NextSpan", func() {
+				It("Should return the correct span in the iterator", func() {
+					iter := db.NewRetrieve().WhereChannels(key).WhereTimeRange(cesium.TimeRange{
+						Start: telem.TimeStamp(5 * cesium.Second),
+						End:   telem.TimeStampMax,
+					}).Iterate()
+					Expect(iter.Error()).To(BeNil())
+					stream := confluence.NewStream[cesium.RetrieveResponse](1)
+					iter.OutTo(stream)
+					Expect(iter.SeekFirst()).To(BeTrue())
+					Expect(iter.View()).To(Equal(telem.TimeRange{
+						Start: telem.TimeStamp(5 * cesium.Second),
+						End:   telem.TimeStamp(5 * cesium.Second),
+					}))
+					Expect(iter.NextSpan(5 * cesium.Second)).To(BeTrue())
+					res := <-stream.Outlet()
+					Expect(iter.View()).To(Equal(telem.TimeRange{
+						Start: telem.TimeStamp(5 * cesium.Second),
+						End:   telem.TimeStamp(10 * cesium.Second),
+					}))
+					Expect(res.Segments).To(HaveLen(1))
+					Expect(res.Segments[0].Start).To(Equal(telem.TimeStamp(5 * cesium.Second)))
+					Expect(res.Segments[0].Sugar(channel).UnboundedRange()).To(Equal(telem.TimeRange{
+						Start: telem.TimeStamp(5 * cesium.Second),
+						End:   telem.TimeStamp(10 * cesium.Second),
+					}))
+					Expect(iter.Close()).To(Succeed())
+				})
 			})
 		})
-		Describe("NextSpan", func() {
-			It("Should return the correct span in the iterator", func() {
-				iter := db.NewRetrieve().WhereChannels(key).WhereTimeRange(cesium.TimeRange{
-					Start: telem.TimeStamp(5 * cesium.Second),
-					End:   telem.TimeStampMax,
-				}).Iterate()
-				Expect(iter.Error()).To(BeNil())
-				stream := confluence.NewStream[cesium.RetrieveResponse](1)
-				iter.OutTo(stream)
-				Expect(iter.SeekFirst()).To(BeTrue())
-				Expect(iter.View()).To(Equal(telem.TimeRange{
-					Start: telem.TimeStamp(5 * cesium.Second),
-					End:   telem.TimeStamp(5 * cesium.Second),
-				}))
-				Expect(iter.NextSpan(5 * cesium.Second)).To(BeTrue())
-				res := <-stream.Outlet()
-				Expect(iter.View()).To(Equal(telem.TimeRange{
-					Start: telem.TimeStamp(5 * cesium.Second),
-					End:   telem.TimeStamp(10 * cesium.Second),
-				}))
-				Expect(res.Segments).To(HaveLen(1))
-				Expect(res.Segments[0].Start).To(Equal(telem.TimeStamp(5 * cesium.Second)))
-				Expect(res.Segments[0].Sugar(channel).UnboundedRange()).To(Equal(telem.TimeRange{
-					Start: telem.TimeStamp(5 * cesium.Second),
-					End:   telem.TimeStamp(10 * cesium.Second),
-				}))
-				Expect(iter.Close()).To(Succeed())
+		Context("Synchronous", func() {
+			Describe("First", func() {
+				It("Should return the first segment in the iterator", func() {
+					iter := db.NewRetrieve().
+						WhereChannels(key).
+						WhereTimeRange(cesium.TimeRangeMax).
+						Sync().
+						Iterate()
+					Expect(iter.Error()).To(BeNil())
+					stream := confluence.NewStream[cesium.RetrieveResponse](1)
+					iter.OutTo(stream)
+					Expect(iter.First()).To(BeTrue())
+					res := <-stream.Outlet()
+					Expect(res.Segments).To(HaveLen(1))
+					Expect(iter.Close()).To(Succeed())
+				})
 			})
+
 		})
+
 	})
 
 })

@@ -91,6 +91,8 @@ func openIter(
 		services[nodeID].transport.iter,
 		telem.TimeRangeMax,
 		keys,
+		/* sync */ false,
+		zap.L(),
 	)
 	Expect(err).ToNot(HaveOccurred())
 	return iter

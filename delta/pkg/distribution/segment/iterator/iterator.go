@@ -14,6 +14,7 @@ import (
 	"github.com/arya-analytics/x/signal"
 	"github.com/arya-analytics/x/telem"
 	"github.com/cockroachdb/errors"
+	"go.uber.org/zap"
 	"time"
 )
 
@@ -85,8 +86,10 @@ func New(
 	tran Transport,
 	rng telem.TimeRange,
 	keys channel.Keys,
+	sync bool,
+	logger *zap.Logger,
 ) (Iterator, error) {
-	sCtx, cancel := signal.WithCancel(ctx)
+	sCtx, cancel := signal.WithCancel(ctx, signal.WithLogger(logger))
 
 	// First we need to check if all the channels exist and are retrievable in the
 	// database.
@@ -110,7 +113,14 @@ func New(
 		numSenders += 1
 		numReceivers += len(batch.Remote)
 
-		sender, receivers, err := openRemoteIterators(sCtx, tran, batch.Remote, rng, resolver)
+		sender, receivers, err := openRemoteIterators(
+			sCtx,
+			tran,
+			batch.Remote,
+			rng,
+			resolver,
+			sync,
+		)
 		if err != nil {
 			cancel()
 			return nil, err
@@ -131,7 +141,7 @@ func New(
 	if needLocal {
 		numSenders += 1
 		numReceivers += 1
-		localIter, err := newLocalIterator(db, resolver.HostID(), rng, batch.Local)
+		localIter, err := newLocalIterator(db, resolver.HostID(), rng, batch.Local, sync)
 		if err != nil {
 			cancel()
 			return nil, err
@@ -143,13 +153,13 @@ func New(
 
 	// The synchronizer checks that all nodes have acknowledged an iteration
 	// request. This is used to return ok = true from the iterator methods.
-	sync := &synchronizer{nodeIDs: keys.UniqueNodeIDs(), timeout: 2 * time.Second}
+	_synchronizer := &synchronizer{nodeIDs: keys.UniqueNodeIDs(), timeout: 2 * time.Second}
 
 	// Open a ackFilter that will route acknowledgement responses to the iterator
 	// synchronizer. We expect an ack from each remote iterator as well as the
 	// local iterator, so we set our buffer cap at numReceivers.
 	syncMessages := confluence.NewStream[Response](numReceivers)
-	sync.InFrom(syncMessages)
+	_synchronizer.InFrom(syncMessages)
 
 	// Send rejects from the ackFilter to the synchronizer.
 	filter := newAckRouter(syncMessages)
@@ -220,21 +230,21 @@ func New(
 	seg.Flow(sCtx, confluence.CloseInletsOnExit())
 
 	return &iterator{
-		emitter:   emit,
-		sync:      sync,
-		wg:        sCtx,
-		cancel:    cancel,
-		responses: res.Outlet(),
+		emitter:      emit,
+		synchronizer: _synchronizer,
+		wg:           sCtx,
+		cancel:       cancel,
+		responses:    res.Outlet(),
 	}, nil
 }
 
 type iterator struct {
-	emitter   *emitter
-	sync      *synchronizer
-	cancel    context.CancelFunc
-	wg        signal.WaitGroup
-	_error    error
-	responses <-chan Response
+	emitter      *emitter
+	synchronizer *synchronizer
+	cancel       context.CancelFunc
+	wg           signal.WaitGroup
+	_error       error
+	responses    <-chan Response
 }
 
 func (i *iterator) Responses() <-chan Response { return i.responses }
@@ -367,5 +377,5 @@ func (i *iterator) ack(cmd Command) bool {
 }
 
 func (i *iterator) ackWithErr(cmd Command) (bool, error) {
-	return i.sync.sync(context.Background(), cmd)
+	return i.synchronizer.sync(context.Background(), cmd)
 }

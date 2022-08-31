@@ -3,7 +3,6 @@ import pytest
 from freighter import Endpoint
 
 
-@pytest.mark.focus
 class TestEndpoint:
     def test_path(self):
         """

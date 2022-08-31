@@ -3,7 +3,6 @@ from enum import Enum
 
 import freighter
 
-import arya.errors
 from arya import telem
 from arya.segment import BinarySegment
 
@@ -37,10 +36,11 @@ class ResponseVariant(int, Enum):
 @dataclass
 class Request:
     command: Command
-    span: telem.TimeSpan
-    range: telem.TimeRange
-    stamp: telem.TimeStamp
-    keys: list[str]
+    span: telem.TimeSpan | None = None
+    range: telem.TimeRange | None = None
+    stamp: telem.TimeStamp | None = None
+    keys: list[str] | None = None
+    sync: bool = False
 
 
 @dataclass
@@ -60,15 +60,72 @@ def _response_factory() -> Response:
 class Core:
     transport: freighter.StreamClient
     stream: freighter.Stream[Request, Response]
+    values: list[BinarySegment]
 
     def __init__(self, transport: freighter.StreamClient) -> None:
         self.transport = transport
 
-    def open(self, keys: list[str]):
+    def open(self, keys: list[str], tr: telem.TimeRange):
         self.stream = self.transport.stream(_ENDPOINT, Request, _response_factory)
-        self.stream.send(Request(Command.OPEN, None, None, None, keys))
-        _, exc = self.stream.receive()
+        self.exec(command=Command.OPEN, range=tr, keys=keys)
+        self.values = []
+
+    def exec(self, **kwargs) -> bool:
+        exc = self.stream.send(Request(**kwargs))
         if exc is not None:
             raise exc
+        while True:
+            r, exc = self.stream.receive()
+            if exc is not None:
+                raise exc
+            if r.variant == ResponseVariant.ACK:
+                return r.ack
+            self.values = r.segments
 
+    def next(self) -> bool:
+        return self.exec(command=Command.NEXT)
+
+    def prev(self) -> bool:
+        return self.exec(command=Command.PREV)
+
+    def first(self) -> bool:
+        return self.exec(command=Command.FIRST)
+
+    def last(self) -> bool:
+        return self.exec(command=Command.LAST)
+
+    def next_span(self, span: telem.TimeSpan) -> bool:
+        return self.exec(command=Command.NEXT_SPAN, span=span)
+
+    def prev_span(self, span: telem.TimeSpan) -> bool:
+        return self.exec(command=Command.PREV_SPAN, span=span)
+
+    def next_range(self, rng: telem.TimeRange) -> bool:
+        return self.exec(command=Command.NEXT_RANGE, range=rng)
+
+    def seek_first(self) -> bool:
+        return self.exec(command=Command.SEEK_FIRST)
+
+    def seek_last(self) -> bool:
+        return self.exec(command=Command.SEEK_LAST)
+
+    def seek_lt(self, stamp: telem.TimeStamp) -> bool:
+        return self.exec(command=Command.SEEK_LT, stamp=stamp)
+
+    def seek_ge(self, stamp: telem.TimeStamp) -> bool:
+        return self.exec(command=Command.SEEK_GE, stamp=stamp)
+
+    def valid(self) -> bool:
+        return self.exec(command=Command.VALID)
+
+    def exhaust(self) -> bool:
+        return self.exec(command=Command.EXHAUST)
+
+    def close(self):
+        try:
+            self.exec(command=Command.CLOSE)
+        except freighter.errors.EOF:
+            raise ValueError("segment iterator closed unexpectedly")
+        except Exception as e:
+            raise e
 

@@ -16,6 +16,7 @@ func openRemoteIterators(
 	targets map[core.NodeID][]channel.Key,
 	rng telem.TimeRange,
 	resolver aspen.HostResolver,
+	sync bool,
 ) (*freightfluence.MultiSender[Request], []*freightfluence.Receiver[Response], error) {
 	sender := &freightfluence.MultiSender[Request]{}
 	receivers := make([]*freightfluence.Receiver[Response], 0, len(targets))
@@ -24,7 +25,7 @@ func openRemoteIterators(
 		if err != nil {
 			return sender, receivers, err
 		}
-		client, err := openRemoteClient(ctx, tran, targetAddr, keys, rng)
+		client, err := openRemoteClient(ctx, tran, targetAddr, keys, rng, sync)
 		if err != nil {
 			return sender, receivers, err
 		}
@@ -40,6 +41,7 @@ func openRemoteClient(
 	target address.Address,
 	keys channel.Keys,
 	rng telem.TimeRange,
+	sync bool,
 ) (Client, error) {
 	client, err := tran.Stream(ctx, target)
 	if err != nil {
@@ -52,5 +54,6 @@ func openRemoteClient(
 		Command: Open,
 		Keys:    keys,
 		Range:   rng,
+		Sync:    sync,
 	})
 }

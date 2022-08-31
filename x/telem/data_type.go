@@ -28,6 +28,8 @@ var (
 
 var dataTypeDensities = map[DataType]Density{
 	DataTypeUnknown: DensityUnknown,
+	Float64:         Bit64,
+	Float32:         Bit32,
 	Int32:           Bit32,
 	Int16:           Bit16,
 	Int8:            Bit8,
@@ -44,8 +46,6 @@ type DataTypeConstraint interface {
 		float32 |
 		int64 |
 		int32 |
-		int64 |
-		int32 |
 		int16 |
 		int8 |
 		uint64 |
@@ -55,7 +55,7 @@ type DataTypeConstraint interface {
 		[]byte
 }
 
-func ParseBuffer[D DataTypeConstraint](r bytes.Buffer, dt DataType) ([]D, error) {
+func ParseFromBuffer[D DataTypeConstraint](r bytes.Buffer, dt DataType) ([]D, error) {
 	parser := binaryx.NewBufferParser(binary.LittleEndian)
 	switch dt {
 	case Float64:

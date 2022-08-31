@@ -20,7 +20,7 @@ class _Response:
     channels: list[Channel]
 
     def load(self, data: dict):
-        self.channels = [Channel.parse(c) for c in data["channels"]]
+        self.channels = [Channel(**c) for c in data["channels"]]
 
 
 def _response_factory() -> _Response:

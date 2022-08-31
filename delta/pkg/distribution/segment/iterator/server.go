@@ -51,7 +51,7 @@ func (sf *server) Handle(_ctx context.Context, server Server) error {
 		Sender: freighter.SenderEmptyCloser[Response]{StreamSender: server},
 	}
 
-	iter, err := newLocalIterator(sf.db, sf.host, req.Range, req.Keys)
+	iter, err := newLocalIterator(sf.db, sf.host, req.Range, req.Keys, req.Sync)
 	if err != nil {
 		return errors.Wrap(err, "[segment.iterator] - cesium iterator failed to open")
 	}

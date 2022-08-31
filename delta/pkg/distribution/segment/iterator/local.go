@@ -6,6 +6,7 @@ import (
 	"github.com/arya-analytics/delta/pkg/distribution/channel"
 	distribcore "github.com/arya-analytics/delta/pkg/distribution/core"
 	"github.com/arya-analytics/delta/pkg/distribution/segment/core"
+	"github.com/arya-analytics/delta/pkg/storage"
 	"github.com/arya-analytics/x/confluence"
 	"github.com/arya-analytics/x/confluence/plumber"
 	"github.com/arya-analytics/x/errutil"
@@ -14,13 +15,17 @@ import (
 )
 
 func newLocalIterator(
-	db cesium.DB,
+	db storage.TS,
 	host distribcore.NodeID,
 	rng telem.TimeRange,
 	keys channel.Keys,
+	sync bool,
 ) (confluence.Segment[Request, Response], error) {
-
-	iter := db.NewRetrieve().WhereTimeRange(rng).WhereChannels(keys.StorageKeys()...).Iterate()
+	q := db.NewRetrieve().WhereChannels(keys.StorageKeys()...).WhereTimeRange(rng)
+	if sync {
+		q = q.Sync()
+	}
+	iter := q.Iterate()
 	if iter.Error() != nil {
 		return nil, errors.Wrap(iter.Error(), "[segment.iterator] - server failed to open cesium iterator")
 	}

@@ -89,6 +89,11 @@ func (r Retrieve) WhereTimeRange(rng telem.TimeRange) Retrieve {
 	return r
 }
 
+func (r Retrieve) Sync() Retrieve {
+	setSync(r, true)
+	return r
+}
+
 func (r Retrieve) Iterate(ctx context.Context) (Iterator, error) {
 	tr, err := telem.GetTimeRange(r)
 	if err != nil {
@@ -102,6 +107,8 @@ func (r Retrieve) Iterate(ctx context.Context) (Iterator, error) {
 		r.svc.transport.Iterator(),
 		tr,
 		getKeys(r),
+		getSync(r),
+		r.svc.logger,
 	)
 }
 
@@ -112,3 +119,17 @@ const keysKey = "keys"
 func setKeys(q query.Query, keys channel.Keys) { q.Set(keysKey, keys) }
 
 func getKeys(q query.Query) channel.Keys { return q.GetRequired(keysKey).(channel.Keys) }
+
+/// |||||| SYNC |||||
+
+const syncKey = "sync"
+
+func setSync(q query.Query, sync bool) { q.Set(syncKey, sync) }
+
+func getSync(q query.Query) bool {
+	sync, ok := q.Get(syncKey)
+	if !ok {
+		return false
+	}
+	return sync.(bool)
+}
