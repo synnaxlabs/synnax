@@ -1,10 +1,12 @@
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 
 import freighter
 
-from arya import telem
-from arya.segment import BinarySegment
+from arya import telem, channel
+from arya.channel import entity
+from arya.segment import BinarySegment, NumpySegment, encoder
 
 _ENDPOINT = "/segment/iterate"
 
@@ -51,6 +53,21 @@ class Response:
     error: freighter.ErrorPayload
     segments: list[BinarySegment]
 
+    def load(self, data: dict):
+        if data["variant"] == 0:
+            return
+        self.variant = ResponseVariant(data["variant"])
+        if self.variant == ResponseVariant.ACK:
+            self.ack = data["ack"]
+            self.command = Command(data["command"])
+            if "error" in data:
+                self.error = freighter.ErrorPayload(data["error"]["type"],
+                                                    data["error"]["data"])
+        elif self.variant == ResponseVariant.DATA:
+            self.segments = [BinarySegment(**seg) for seg in data["segments"]]
+        else:
+            raise ValueError("Unexpected response variant")
+
 
 def _response_factory() -> Response:
     return Response(ResponseVariant.ACK, False, Command.OPEN,
@@ -67,20 +84,22 @@ class Core:
 
     def open(self, keys: list[str], tr: telem.TimeRange):
         self.stream = self.transport.stream(_ENDPOINT, Request, _response_factory)
-        self.exec(command=Command.OPEN, range=tr, keys=keys)
+        self.exec(command=Command.OPEN, range=tr, keys=keys, sync=True)
         self.values = []
 
     def exec(self, **kwargs) -> bool:
         exc = self.stream.send(Request(**kwargs))
         if exc is not None:
             raise exc
+        self.values = []
         while True:
             r, exc = self.stream.receive()
+            print(ResponseVariant(r.variant))
             if exc is not None:
                 raise exc
             if r.variant == ResponseVariant.ACK:
                 return r.ack
-            self.values = r.segments
+            self.values += r.segments
 
     def next(self) -> bool:
         return self.exec(command=Command.NEXT)
@@ -122,10 +141,37 @@ class Core:
         return self.exec(command=Command.EXHAUST)
 
     def close(self):
-        try:
-            self.exec(command=Command.CLOSE)
-        except freighter.errors.EOF:
-            raise ValueError("segment iterator closed unexpectedly")
-        except Exception as e:
-            raise e
+        self.exec(command=Command.CLOSE)
+        _, exc = self.stream.receive()
+        if not isinstance(exc, freighter.EOF):
+            raise exc
 
+
+class Numpy(Core):
+    decoder: encoder.NumpyEncoderDecoder
+    channel_client: channel.Client
+    channels: channel.Registry
+
+    def __init__(self, transport: freighter.StreamClient,
+                 channel_client: channel.Client):
+        super().__init__(transport)
+        self.decoder = encoder.NumpyEncoderDecoder()
+        self.channel_client = channel_client
+
+    def open(self, keys: list[str], tr: telem.TimeRange) -> None:
+        self.channels = channel.Registry(self.channel_client.retrieve(keys))
+        super().open(keys, tr)
+
+    @property
+    def value(self) -> dict[str, NumpySegment]:
+        decoded = []
+        self.values.sort(key=lambda v: v.start)
+        res = dict()
+        for i, seg in enumerate(self.values):
+            decoded.append(self.decoder.decode(self.channels.get(seg.channel_key), seg))
+        for i, dec in enumerate(decoded):
+            if dec.channel.key in res:
+                res[dec.channel.key].extend(dec)
+            else:
+                res[dec.channel.key] = dec
+        return res

@@ -1,9 +1,12 @@
+from datetime import datetime
+
 import numpy as np
 
 from .. import channel, telem
 from ..transport import Transport
 from . import writer
 from . import iterator
+from .entity import NumpySegment
 
 
 class Client:
@@ -20,6 +23,12 @@ class Client:
         npw.open(keys)
         return npw
 
+    def new_iterator(self, keys: list[str], tr: telem.TimeRange) -> iterator.Numpy:
+        npi = iterator.Numpy(transport=self.transport.stream,
+                             channel_client=self.channel_client)
+        npi.open(keys, tr)
+        return npi
+
     def write(self, to: str, data: np.ndarray, start: telem.UnparsedTimeStamp):
         _writer = self.new_writer([to])
         try:
@@ -27,7 +36,16 @@ class Client:
         finally:
             _writer.close()
 
-    def new_iterator(self, keys: list[str], tr: telem.TimeRange) -> iterator.Core:
-        _iter = iterator.Core(transport=self.transport.stream)
-        _iter.open(keys, tr)
-        return _iter
+    def read(self, from_: str, tr: telem.TimeRange) -> np.ndarray:
+        seg = self.read_seg(from_, tr)
+        return seg.data
+
+    def read_seg(self, from_: str, tr: telem.TimeRange) -> NumpySegment:
+        _iterator = self.new_iterator([from_], tr)
+        seg = None
+        try:
+            _iterator.first()
+            seg = _iterator.value[from_]
+        finally:
+            _iterator.close()
+        return seg

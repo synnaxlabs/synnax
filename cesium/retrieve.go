@@ -101,6 +101,11 @@ func (r Retrieve) WhereTimeRange(tr TimeRange) Retrieve { telem.SetTimeRange(r, 
 // to complete before returning.
 func (r Retrieve) Sync() Retrieve { setSync(r, true); return r }
 
+func (r Retrieve) SendAcks() Retrieve {
+	setSendAcks(r, true)
+	return r
+}
+
 // Stream streams all segments from the iterator out to the channel. Errors encountered
 // during stream construction are returned immediately. Errors encountered during
 // segment reads are returns as part of RetrieveResponse.
@@ -140,6 +145,22 @@ func getSync(q query.Query) bool {
 	return sync.(bool)
 }
 
+// |||||| SEND ACKS |||||
+
+const sendAcksOptKey query.OptionKey = "sendAcks"
+
+func setSendAcks(q query.Query, sendAcks bool) {
+	q.Set(sendAcksOptKey, sendAcks)
+}
+
+func getSendAcks(q query.Query) bool {
+	sendAcks, ok := q.Get(sendAcksOptKey)
+	if !ok {
+		return false
+	}
+	return sendAcks.(bool)
+}
+
 // |||||| QUERY FACTORY ||||||
 
 type retrieveFactory struct {
@@ -168,13 +189,13 @@ func startRetrieve(
 
 	pipe := plumber.New()
 
-	// queue 'debounces' operations so that they can be flushed to disk in efficient
-	// batches.
-	plumber.SetSegment[[]retrieveOperationUnary, []retrieveOperationUnary](
-		pipe,
-		"queue",
-		&queue.Debounce[retrieveOperationUnary]{Config: cfg.debounce},
-	)
+	//// queue 'debounces' operations so that they can be flushed to disk in efficient
+	//// batches.
+	//plumber.SetSegment[[]retrieveOperationUnary, []retrieveOperationUnary](
+	//	pipe,
+	//	"queue",
+	//	&queue.Debounce[retrieveOperationUnary]{Config: cfg.debounce},
+	//)
 
 	// batch groups operations into batches that optimize sequential IO.
 	plumber.SetSegment[[]retrieveOperationUnary, []retrieveOperationSet](
@@ -202,15 +223,15 @@ func startRetrieve(
 
 	c.Exec(plumber.UnaryRouter[[]retrieveOperationUnary]{
 		SourceTarget: "query",
-		SinkTarget:   "queue",
-		Capacity:     10,
-	}.PreRoute(pipe))
-
-	c.Exec(plumber.UnaryRouter[[]retrieveOperationUnary]{
-		SourceTarget: "queue",
 		SinkTarget:   "batch",
 		Capacity:     10,
 	}.PreRoute(pipe))
+
+	//c.Exec(plumber.UnaryRouter[[]retrieveOperationUnary]{
+	//	SourceTarget: "queue",
+	//	SinkTarget:   "batch",
+	//	Capacity:     10,
+	//}.PreRoute(pipe))
 
 	c.Exec(plumber.UnaryRouter[[]retrieveOperationSet]{
 		SourceTarget: "batch",

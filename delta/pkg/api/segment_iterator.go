@@ -50,29 +50,20 @@ func (s *SegmentService) Iterate(_ctx context.Context, stream IteratorStream) er
 		return errors.Unexpected(err)
 	}
 
-	acks := make(chan IteratorResponse)
-
 	go func() {
 		for {
 			req, err := stream.Receive()
 			if err != nil {
 				return
 			}
-			ok, err := executeIteratorRequest(iter, req)
-			res := IteratorResponse{
-				Variant: iterator.AckResponse,
-				Command: req.Command,
-				Ack:     ok,
-			}
-			if err != nil {
-				res.Err = ferrors.Encode(errors.General(err))
-			}
-			acks <- res
+			executeIteratorRequest(iter, req)
 			if req.Command == iterator.Close {
 				return
 			}
 		}
 	}()
+
+	c := 0
 
 	for {
 		select {
@@ -80,8 +71,11 @@ func (s *SegmentService) Iterate(_ctx context.Context, stream IteratorStream) er
 			return errors.Canceled
 		case res, ok := <-iter.Responses():
 			if !ok {
-				logrus.Info("returning here")
 				return errors.Nil
+			}
+			logrus.Info(res.Variant)
+			if res.Variant == iterator.DataResponse {
+				c++
 			}
 			segments := make([]Segment, len(res.Segments))
 			for i, seg := range res.Segments {
@@ -91,54 +85,54 @@ func (s *SegmentService) Iterate(_ctx context.Context, stream IteratorStream) er
 					Data:       seg.Segment.Data,
 				}
 			}
-			if err := stream.Send(IteratorResponse{
-				Variant:  iterator.DataResponse,
+			tRes := IteratorResponse{
+				Variant:  res.Variant,
+				Command:  res.Command,
+				Ack:      res.Ack,
 				Segments: segments,
-			}); err != nil {
-				return errors.Unexpected(err)
 			}
-		case ack := <-acks:
-			if err := stream.Send(ack); err != nil {
+			if res.Error != nil {
+				tRes.Err = ferrors.Encode(res.Error)
+			}
+			if err := stream.Send(tRes); err != nil {
 				return errors.Unexpected(err)
 			}
 		}
 	}
 }
 
-func executeIteratorRequest(iter segment.Iterator, req IteratorRequest) (bool, error) {
+func executeIteratorRequest(iter segment.Iterator, req IteratorRequest) {
 	switch req.Command {
 	case iterator.Next:
-		return iter.Next(), nil
+		iter.Next()
 	case iterator.Prev:
-		return iter.Prev(), nil
+		iter.Prev()
 	case iterator.First:
-		return iter.First(), nil
+		iter.First()
 	case iterator.Last:
-		return iter.Last(), nil
+		iter.Last()
 	case iterator.NextSpan:
-		return iter.NextSpan(req.Span), nil
+		iter.NextSpan(req.Span)
 	case iterator.PrevSpan:
-		return iter.PrevSpan(req.Span), nil
+		iter.PrevSpan(req.Span)
 	case iterator.NextRange:
-		return iter.NextRange(req.Range), nil
+		iter.NextRange(req.Range)
 	case iterator.SeekFirst:
-		return iter.SeekFirst(), nil
+		iter.SeekFirst()
 	case iterator.SeekLast:
-		return iter.SeekLast(), nil
+		iter.SeekLast()
 	case iterator.SeekLT:
-		return iter.SeekLT(req.Stamp), nil
+		iter.SeekLT(req.Stamp)
 	case iterator.SeekGE:
-		return iter.SeekGE(req.Stamp), nil
+		iter.SeekGE(req.Stamp)
 	case iterator.Valid:
-		return iter.Valid(), nil
+		iter.Valid()
 	case iterator.Error:
-		err := iter.Error()
-		return err == nil, err
+		_ = iter.Error()
+	case iterator.Exhaust:
+		iter.Exhaust()
 	case iterator.Close:
-		err := iter.Close()
-		return err == nil, err
-	default:
-		return false, errors.Parse(roacherrors.New("unexpected command"))
+		_ = iter.Close()
 	}
 }
 
@@ -149,7 +143,7 @@ func (s *SegmentService) openIterator(ctx context.Context, srv IteratorStream) (
 	}
 	q := s.Internal.NewRetrieve().WhereChannels(keys...).WhereTimeRange(rng)
 	if sync {
-		q = q.Sync()
+		q = q.Sync().SendAcknowledgements()
 	}
 	i, err := q.Iterate(ctx)
 	if err != nil {

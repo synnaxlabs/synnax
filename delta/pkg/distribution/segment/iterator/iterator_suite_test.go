@@ -92,6 +92,7 @@ func openIter(
 		telem.TimeRangeMax,
 		keys,
 		/* sync */ false,
+		/* sendAcknowledge */ false,
 		zap.L(),
 	)
 	Expect(err).ToNot(HaveOccurred())

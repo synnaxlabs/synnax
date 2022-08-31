@@ -73,9 +73,10 @@ type streamIterator struct {
 	wg *sync.WaitGroup
 	// sync is a flag indicating whether the iterator should wait for all operations to
 	// for a particular command to complete before returning.
-	sync   bool
-	opErrC chan error
-	_error error
+	sync     bool
+	sendAcks bool
+	opErrC   chan error
+	_error   error
 }
 
 func newIteratorFromRetrieve(r Retrieve) StreamIterator {
@@ -101,6 +102,7 @@ func newIteratorFromRetrieve(r Retrieve) StreamIterator {
 		AbstractUnarySource: responses,
 		opErrC:              errC,
 		sync:                getSync(r),
+		sendAcks:            getSendAcks(r),
 	}
 }
 

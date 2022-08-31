@@ -139,11 +139,7 @@ class Numpy:
         self.splitter = Splitter(threshold=telem.Size(4e6))
 
     def open(self, keys: list[str]):
-        channels = self.channel_client.retrieve(keys)
-        if len(channels) != len(keys):
-            missing = set(keys) - set([c.key for c in channels])
-            raise arya.errors.ValidationError(f"Channels not found: {missing}")
-        self.channels = channel.Registry(channels)
+        self.channels = channel.Registry(self.channel_client.retrieve(keys))
         self.core.open(keys)
 
     def write(self, to: str, data: np.ndarray, start: telem.UnparsedTimeStamp) -> bool:

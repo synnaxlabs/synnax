@@ -90,7 +90,6 @@ class SenderCloser(Generic[RQ]):
     def close_send(self) -> Exception | None:
         if self._exception.received():
             return self._handle_exception()
-
         self._requests.sync_q.put(None)
         self._exit.notify(True)
         exc, fatal = self._exception.read(block=True)

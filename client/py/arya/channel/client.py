@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Optional, TypeAlias
 
 import freighter
-from .channel import Channel
+from .entity import Channel
 from .. import telem
 from ..transport import Transport
 

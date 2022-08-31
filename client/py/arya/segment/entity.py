@@ -2,6 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy
+import numpy as np
 
 from arya import telem
 from arya.channel import Channel
@@ -36,10 +37,10 @@ class BinarySegment(Header):
     data: bytes = b""
 
     def __init__(
-        self,
-        channel_key: str = "",
-        start: telem.UnparsedTimeStamp = telem.TimeStamp(0),
-        data: bytes = b"",
+            self,
+            channel_key: str = "",
+            start: telem.UnparsedTimeStamp = telem.TimeStamp(0),
+            data: bytes = b"",
     ):
         super().__init__(channel_key, start)
         self.data = data
@@ -57,7 +58,7 @@ class SugaredBinarySegment(SugaredHeader):
     data: bytes = b""
 
     def __init__(
-        self, channel: Channel, start: telem.UnparsedTimeStamp, data: bytes = b""
+            self, channel: Channel, start: telem.UnparsedTimeStamp, data: bytes = b""
     ):
         super().__init__(channel, start)
         self.data = data
@@ -101,3 +102,8 @@ class NumpySegment(SugaredHeader):
     @property
     def end(self) -> TimeStamp:
         return self.range.end
+
+    def extend(self, other: NumpySegment):
+        assert self.channel == other.channel
+        assert self.end == other.start
+        self.data = np.append(self.data, other.data)

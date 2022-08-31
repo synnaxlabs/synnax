@@ -94,6 +94,11 @@ func (r Retrieve) Sync() Retrieve {
 	return r
 }
 
+func (r Retrieve) SendAcknowledgements() Retrieve {
+	setSendAcks(r, true)
+	return r
+}
+
 func (r Retrieve) Iterate(ctx context.Context) (Iterator, error) {
 	tr, err := telem.GetTimeRange(r)
 	if err != nil {
@@ -108,6 +113,7 @@ func (r Retrieve) Iterate(ctx context.Context) (Iterator, error) {
 		tr,
 		getKeys(r),
 		getSync(r),
+		getSendAcks(r),
 		r.svc.logger,
 	)
 }
@@ -132,4 +138,18 @@ func getSync(q query.Query) bool {
 		return false
 	}
 	return sync.(bool)
+}
+
+// ||||||| SEND ACKNOWLEDGEMENTS |||||||
+
+const sendAcksKey = "sendAcks"
+
+func setSendAcks(q query.Query, sendAcks bool) { q.Set(sendAcksKey, sendAcks) }
+
+func getSendAcks(q query.Query) bool {
+	sendAcks, ok := q.Get(sendAcksKey)
+	if !ok {
+		return false
+	}
+	return sendAcks.(bool)
 }

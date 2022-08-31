@@ -15,22 +15,21 @@ if __name__ == "__main__":
         node_id=1,
     )
     t0 = telem.now()
+    tend: telem.TimeStamp = 0
     w = client.data.new_writer([ch.key])
-    for i in range(100):
+    n_seg = 1
+    n_samples = int(100000)
+    data = np.random.rand(n_samples)
+    for i in range(n_seg):
+        tend = t0.add(ch.rate.span(n_samples) * i)
         w.write(
             ch.key,
-            np.random.rand(100000),
-            t0.add(ch.rate.span(100000) * i)
+            data,
+            tend
         )
     w.close()
-    rng = t0.span_range(ch.rate.span(100 * 100))
-    i = client.data.new_iterator([ch.key], rng)
-    i.first()
-    while i.next():
-        pass
-    print(i.close())
-
-
-
-
-
+    t0 = datetime.now()
+    tend = tend.add(ch.rate.span(n_samples))
+    tr = telem.TimeRange(t0, tend)
+    res_data = client.data.read_seg(ch.key, tr)
+    print(np.array_equal(data, res_data.data))

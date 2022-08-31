@@ -87,6 +87,7 @@ func New(
 	rng telem.TimeRange,
 	keys channel.Keys,
 	sync bool,
+	sendAcknowledgements bool,
 	logger *zap.Logger,
 ) (Iterator, error) {
 	sCtx, cancel := signal.WithCancel(ctx, signal.WithLogger(logger))
@@ -212,7 +213,7 @@ func New(
 		SourceTargets: receiverAddresses,
 		SinkTargets:   []address.Address{"filter"},
 		Stitch:        plumber.StitchUnary,
-		Capacity:      numReceivers,
+		Capacity:      0,
 	}.PreRoute(pipe))
 
 	if c.Error() != nil {
@@ -224,30 +225,36 @@ func New(
 		panic(err)
 	}
 
-	res := confluence.NewStream[Response](numReceivers)
+	res := confluence.NewStream[Response](0)
 
 	seg.OutTo(res)
 	seg.Flow(sCtx, confluence.CloseInletsOnExit())
 
+	if sendAcknowledgements {
+		res.Acquire(1)
+	}
+
 	return &iterator{
-		emitter:      emit,
-		synchronizer: _synchronizer,
-		wg:           sCtx,
-		cancel:       cancel,
-		responses:    res.Outlet(),
+		emitter:              emit,
+		synchronizer:         _synchronizer,
+		wg:                   sCtx,
+		cancel:               cancel,
+		responses:            res,
+		sendAcknowledgements: sendAcknowledgements,
 	}, nil
 }
 
 type iterator struct {
-	emitter      *emitter
-	synchronizer *synchronizer
-	cancel       context.CancelFunc
-	wg           signal.WaitGroup
-	_error       error
-	responses    <-chan Response
+	emitter              *emitter
+	synchronizer         *synchronizer
+	cancel               context.CancelFunc
+	wg                   signal.WaitGroup
+	_error               error
+	responses            confluence.Stream[Response]
+	sendAcknowledgements bool
 }
 
-func (i *iterator) Responses() <-chan Response { return i.responses }
+func (i *iterator) Responses() <-chan Response { return i.responses.Outlet() }
 
 // Next implements Iterator.
 func (i *iterator) Next() bool {
@@ -351,6 +358,10 @@ func (i *iterator) Close() error {
 		return errors.New("[segment.iterator] - negative ack on close. node probably unreachable")
 	}
 
+	if i.sendAcknowledgements {
+		i.responses.Close()
+	}
+
 	// Prevent any further commands from being sent.
 	i.emitter.CloseInlets()
 
@@ -377,5 +388,9 @@ func (i *iterator) ack(cmd Command) bool {
 }
 
 func (i *iterator) ackWithErr(cmd Command) (bool, error) {
-	return i.synchronizer.sync(context.Background(), cmd)
+	ok, err := i.synchronizer.sync(context.Background(), cmd)
+	if i.sendAcknowledgements {
+		i.responses.Inlet() <- Response{Variant: AckResponse, Command: cmd, Ack: ok, Error: err}
+	}
+	return ok, err
 }

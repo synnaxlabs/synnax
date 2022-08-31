@@ -1,4 +1,4 @@
-from .segment import SugaredBinarySegment
+from .entity import SugaredBinarySegment
 from .. import telem
 
 
