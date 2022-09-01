@@ -13,7 +13,7 @@ type StreamIterator interface {
 	// Source is the outlet for the StreamIterator values. All segments read from disk
 	// are piped to the Source outlet. StreamIterator should be the ONLY entity writing
 	// to the Source outlet (StreamIterator.Close will close the Source outlet).
-	confluence.Source[RetrieveResponse]
+	confluence.Source[IteratorResponse]
 	// Next pipes the next segment in the StreamIterator to the Source outlet.
 	// It returns true if the StreamIterator is pointing to a valid segment.
 	Next() bool
@@ -63,7 +63,7 @@ type streamIterator struct {
 	// behind the operations.
 	internal kv.Iterator
 	// UnarySource is where values from the iterator will be piped.
-	*confluence.AbstractUnarySource[RetrieveResponse]
+	*confluence.AbstractUnarySource[IteratorResponse]
 	confluence.EmptyFlow
 	// parser converts segment metadata into executable operations on disk.
 	parser *retrieveParser
@@ -73,14 +73,23 @@ type streamIterator struct {
 	wg *sync.WaitGroup
 	// sync is a flag indicating whether the iterator should wait for all operations to
 	// for a particular command to complete before returning.
-	sync     bool
-	sendAcks bool
-	opErrC   chan error
-	_error   error
+	sync bool
+	// sendAcknowledgements is a flag indicating whether the iterator should send
+	// acknowledgements through the response pipe. The caller can use these acknowledgements
+	// to determine if they've received all data for a particular method.
+	sendAcknowledgements bool
+	// opErrC is used for operations to communicate execution errors back to the caller.
+	opErrC chan error
+	// _error is the error accumulated by the iterator.
+	_error error
+	// methodCounter is an internal counter that tracks the number of methods that have
+	// been executed on the iterator. This counter is used to communicate method completion
+	// acknowledgements through the response pipe.
+	methodCounter int
 }
 
 func newIteratorFromRetrieve(r Retrieve) StreamIterator {
-	responses := &confluence.AbstractUnarySource[RetrieveResponse]{}
+	responses := &confluence.AbstractUnarySource[IteratorResponse]{}
 	wg := &sync.WaitGroup{}
 	tr, err := telem.GetTimeRange(r)
 	if err != nil {
@@ -89,8 +98,9 @@ func newIteratorFromRetrieve(r Retrieve) StreamIterator {
 	internal := kv.NewIterator(r.kve, tr, channel.GetKeys(r)...)
 	errC := make(chan error)
 	return &streamIterator{
-		internal: internal,
-		executor: r.ops,
+		AbstractUnarySource: responses,
+		internal:            internal,
+		executor:            r.ops,
 		parser: &retrieveParser{
 			logger:    r.logger,
 			responses: responses,
@@ -98,11 +108,10 @@ func newIteratorFromRetrieve(r Retrieve) StreamIterator {
 			metrics:   r.metrics,
 			errC:      errC,
 		},
-		wg:                  wg,
-		AbstractUnarySource: responses,
-		opErrC:              errC,
-		sync:                getSync(r),
-		sendAcks:            getSendAcks(r),
+		wg:                   wg,
+		opErrC:               errC,
+		sync:                 getSync(r),
+		sendAcknowledgements: getSendAcks(r),
 	}
 }
 
@@ -134,19 +143,29 @@ func (i *streamIterator) NextRange(tr TimeRange) bool {
 }
 
 // SeekFirst implements StreamIterator.
-func (i *streamIterator) SeekFirst() bool { return i.internal.SeekFirst() }
+func (i *streamIterator) SeekFirst() bool {
+	return i.exec(i.internal.SeekFirst)
+}
 
 // SeekLast implements StreamIterator.
-func (i *streamIterator) SeekLast() bool { return i.internal.SeekLast() }
+func (i *streamIterator) SeekLast() bool {
+	return i.exec(i.internal.SeekLast)
+}
 
 // SeekLT implements StreamIterator.
-func (i *streamIterator) SeekLT(stamp TimeStamp) bool { return i.internal.SeekLT(stamp) }
+func (i *streamIterator) SeekLT(stamp TimeStamp) bool {
+	return i.exec(func() bool { return i.internal.SeekLT(stamp) })
+}
 
 // SeekGE implements StreamIterator.
-func (i *streamIterator) SeekGE(stamp TimeStamp) bool { return i.internal.SeekGE(stamp) }
+func (i *streamIterator) SeekGE(stamp TimeStamp) bool {
+	return i.exec(func() bool { return i.internal.SeekGE(stamp) })
+}
 
 // Seek implements StreamIterator.
-func (i *streamIterator) Seek(stamp TimeStamp) bool { return i.internal.Seek(stamp) }
+func (i *streamIterator) Seek(stamp TimeStamp) bool {
+	return i.exec(func() bool { return i.internal.Seek(stamp) })
+}
 
 // View implements StreamIterator.
 func (i *streamIterator) View() TimeRange { return i.internal.View() }
@@ -163,6 +182,7 @@ func (i *streamIterator) Close() error {
 	}()
 	i.wg.Wait()
 	close(i.opErrC)
+	i.maybeSendAck(err == nil, err)
 	close(i.Out.Inlet())
 	return err
 }
@@ -182,21 +202,39 @@ func (i *streamIterator) error() error {
 }
 
 func (i *streamIterator) Error() error {
-	return lo.Ternary(i.error() == nil, i.internal.Error(), i.error())
+	err := lo.Ternary(i.internal.Error() == nil, i.internal.Error(), i.error())
+	i.maybeSendAck(err == nil, err)
+	return err
 }
 
 func (i *streamIterator) exec(f func() bool) bool {
-	if !f() {
-		return false
+	// Check if this was a seek operation (i.e. we don't need to execute any operations).
+	// Wrap this in a closure as we must evaluate after the operation executes.
+	seek := func() bool {
+		return i.internal.View().Span().IsZero()
+	}
+	if ok := f(); !ok || seek() {
+		i.maybeSendAck(ok, nil)
+		return ok
 	}
 	ops := i.parser.parse(i.internal.Ranges())
-	if len(ops) == 0 {
-		return true
-	}
 	i.wg.Add(len(ops))
 	i.executor.Inlet() <- ops
 	if i.sync {
 		i.wg.Wait()
 	}
+	i.maybeSendAck(true, nil)
 	return true
+}
+
+func (i *streamIterator) maybeSendAck(ack bool, err error) {
+	i.methodCounter += 1
+	if i.sendAcknowledgements {
+		i.Out.Inlet() <- IteratorResponse{
+			Variant: AckResponse,
+			Ack:     ack,
+			Counter: i.methodCounter,
+			Err:     err,
+		}
+	}
 }

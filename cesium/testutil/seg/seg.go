@@ -211,7 +211,7 @@ func (sc *StreamCreate) CloseAndWait() error {
 // |||||| STREAM RETRIEVE ||||||
 
 type StreamRetrieve struct {
-	Res <-chan cesium.RetrieveResponse
+	Res <-chan cesium.IteratorResponse
 }
 
 func (sr StreamRetrieve) All() []cesium.Segment {

@@ -21,81 +21,82 @@ func newLocalIterator(
 	keys channel.Keys,
 	sync bool,
 ) (confluence.Segment[Request, Response], error) {
-	q := db.NewRetrieve().WhereChannels(keys.StorageKeys()...).WhereTimeRange(rng)
+	q := db.NewRetrieve().WhereChannels(keys.StorageKeys()...).WhereTimeRange(rng).SendAcks()
 	if sync {
 		q = q.Sync()
 	}
 	iter := q.Iterate()
-	if iter.Error() != nil {
-		return nil, errors.Wrap(iter.Error(), "[segment.iterator] - server failed to open cesium iterator")
-	}
 
 	pipe := plumber.New()
 
 	// cesiumRes receives segments from the iterator.
-	plumber.SetSource[cesium.RetrieveResponse](pipe, "iterator", iter)
+	plumber.SetSource[cesium.IteratorResponse](pipe, "iterator", iter)
 
 	// executor executes requests as method calls on the iterator. Pipes
 	// synchronous acknowledgements out to the response pipeline.
 	te := newRequestExecutor(host, iter)
-	plumber.SetSegment[Request, Response](pipe, "executor", te)
+	plumber.SetSink[Request](pipe, "executor", te)
 
 	// translator translates cesium res from the iterator source into
 	// res transportable over the network.
 	ts := newCesiumResponseTranslator(host)
-	plumber.SetSegment[cesium.RetrieveResponse, Response](pipe, "translator", ts)
+	plumber.SetSegment[cesium.IteratorResponse, Response](pipe, "translator", ts)
 
 	c := errutil.NewCatch()
 
-	c.Exec(plumber.UnaryRouter[cesium.RetrieveResponse]{
+	c.Exec(plumber.UnaryRouter[cesium.IteratorResponse]{
 		SourceTarget: "iterator",
 		SinkTarget:   "translator",
+		Capacity:     1,
 	}.PreRoute(pipe))
 
 	if c.Error() != nil {
 		panic(c.Error())
 	}
 
-	seg := &plumber.Segment[Request, Response]{Pipeline: pipe}
+	seg := &plumber.Segment[Request, Response]{Pipeline: pipe, NoAcquireForOutlets: true}
 
 	if err := seg.RouteInletTo("executor"); err != nil {
 		panic(err)
 	}
 
-	if err := seg.RouteOutletFrom("translator", "executor"); err != nil {
+	if err := seg.RouteOutletFrom("translator"); err != nil {
 		panic(err)
 	}
 
+	//err := iter.Error()
+	//if err != nil {
+	//	return nil, errors.Wrap(err, "[segment.iterator] - server failed to open cesium iterator")
+	//}
 	return seg, nil
 }
 
 type requestExecutor struct {
 	host distribcore.NodeID
 	iter cesium.StreamIterator
-	confluence.LinearTransform[Request, Response]
+	confluence.UnarySink[Request]
 }
 
 func newRequestExecutor(
 	host distribcore.NodeID,
 	iter cesium.StreamIterator,
-) confluence.Segment[Request, Response] {
+) confluence.Sink[Request] {
 	te := &requestExecutor{iter: iter, host: host}
-	te.LinearTransform.Transform = te.execute
+	te.UnarySink.Sink = te.execute
 	return te
 }
 
-func (te *requestExecutor) execute(ctx context.Context, req Request) (Response, bool, error) {
-	res := executeRequest(ctx, te.host, te.iter, req)
-	// If we don't have a valid response, don't send it.
-	return res, res.Variant != 0, nil
+func (te *requestExecutor) execute(ctx context.Context, req Request) error {
+	executeRequest(ctx, te.host, te.iter, req)
+	return nil
 }
 
 type cesiumResponseTranslator struct {
 	wrapper *core.StorageWrapper
-	confluence.LinearTransform[cesium.RetrieveResponse, Response]
+	confluence.LinearTransform[cesium.IteratorResponse, Response]
 }
 
-func newCesiumResponseTranslator(host distribcore.NodeID) confluence.Segment[cesium.RetrieveResponse, Response] {
+func newCesiumResponseTranslator(host distribcore.NodeID) confluence.Segment[cesium.IteratorResponse, Response] {
 	wrapper := &core.StorageWrapper{Host: host}
 	ts := &cesiumResponseTranslator{wrapper: wrapper}
 	ts.LinearTransform.Transform = ts.translate
@@ -104,9 +105,16 @@ func newCesiumResponseTranslator(host distribcore.NodeID) confluence.Segment[ces
 
 func (te *cesiumResponseTranslator) translate(
 	ctx context.Context,
-	res cesium.RetrieveResponse,
+	res cesium.IteratorResponse,
 ) (Response, bool, error) {
-	return Response{Variant: DataResponse, Segments: te.wrapper.Wrap(res.Segments)}, true, nil
+	return Response{
+		Ack:      res.Ack,
+		Variant:  ResponseVariant(res.Variant),
+		Counter:  res.Counter,
+		Error:    res.Err,
+		Segments: te.wrapper.Wrap(res.Segments),
+	}, true, nil
+
 }
 
 func executeRequest(

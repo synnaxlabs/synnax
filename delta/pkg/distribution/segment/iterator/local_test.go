@@ -42,7 +42,7 @@ var _ = Describe("Local", Ordered, func() {
 	// boolean acknowledgements and segment counts. These tests DO NOT check
 	// for data accuracy.
 	Context("Behavioral Accuracy", func() {
-		Describe("First", func() {
+		FDescribe("First", func() {
 			It("Should return the first segment in the iterator", func() {
 				Expect(iter.First()).To(BeTrue())
 				res := <-iter.Responses()

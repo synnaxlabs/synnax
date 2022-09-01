@@ -44,7 +44,7 @@ func (c *createParser) parse(segments []Segment) ([]createOperationUnary, error)
 }
 
 type retrieveParser struct {
-	responses *confluence.AbstractUnarySource[RetrieveResponse]
+	responses *confluence.AbstractUnarySource[IteratorResponse]
 	logger    *zap.Logger
 	metrics   retrieveMetrics
 	wg        *sync.WaitGroup

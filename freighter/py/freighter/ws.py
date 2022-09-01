@@ -108,15 +108,23 @@ class Stream(Generic[RQ, RS]):
 
         await self.wrapped.close()
 
+DEFAULT_MAX_SIZE = 2**20
 
 class Client:
     endpoint: Endpoint
     encoder: EncoderDecoder
+    max_message_size: int
 
-    def __init__(self, encoder: EncoderDecoder, endpoint: Endpoint) -> None:
+    def __init__(
+            self,
+            encoder: EncoderDecoder,
+            endpoint: Endpoint,
+            max_message_size: int = DEFAULT_MAX_SIZE,
+    ) -> None:
         self.encoder = encoder
         self.endpoint = copy.copy(endpoint)
         self.endpoint.protocol = "ws"
+        self.max_message_size = max_message_size
 
     async def stream(
             self,
@@ -127,5 +135,6 @@ class Client:
         ws = await connect(
             self.endpoint.path(target),
             extra_headers={"Content-Type": self.encoder.content_type()},
+            max_size=self.max_message_size
         )
         return Stream[RQ, RS](self.encoder, ws, response_factory)

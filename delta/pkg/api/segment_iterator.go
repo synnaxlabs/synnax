@@ -10,7 +10,6 @@ import (
 	"github.com/arya-analytics/freighter/ferrors"
 	"github.com/arya-analytics/x/telem"
 	roacherrors "github.com/cockroachdb/errors"
-	"github.com/sirupsen/logrus"
 )
 
 type (
@@ -73,7 +72,6 @@ func (s *SegmentService) Iterate(_ctx context.Context, stream IteratorStream) er
 			if !ok {
 				return errors.Nil
 			}
-			logrus.Info(res.Variant)
 			if res.Variant == iterator.DataResponse {
 				c++
 			}

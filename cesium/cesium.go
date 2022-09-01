@@ -181,7 +181,7 @@ type DB interface {
 	//		for {
 	//          // Open a stream with a buffer value of ten and pipe values from
 	//          // the iterator to it.
-	//			stream := confluence.NewStream[cesium.RetrieveResponse](10)
+	//			stream := confluence.NewStream[cesium.IteratorResponse](10)
 	//			iter.OutTo(stream)
 	//
 	//			for res := range stream.Output() {

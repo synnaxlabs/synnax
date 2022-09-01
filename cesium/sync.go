@@ -19,7 +19,7 @@ func createSync(ctx context.Context, c Create, segments *[]Segment) error {
 }
 
 func retrieveSync(ctx context.Context, r Retrieve, segments *[]Segment) error {
-	resV := make(chan RetrieveResponse)
+	resV := make(chan IteratorResponse)
 	var err error
 	go func() {
 		err = r.Stream(ctx, resV)

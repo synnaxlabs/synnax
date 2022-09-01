@@ -22,7 +22,7 @@ type retrieveOperationUnary struct {
 	wg        *sync.WaitGroup
 	logger    *zap.Logger
 	errC      chan<- error
-	responses *confluence.AbstractUnarySource[RetrieveResponse]
+	responses *confluence.AbstractUnarySource[IteratorResponse]
 }
 
 func (rou retrieveOperationUnary) FileKey() core.FileKey { return rou.seg.FileKey() }
@@ -44,7 +44,10 @@ func (rou retrieveOperationUnary) Exec(f core.File) {
 	s.Start()
 	rou.maybeWriteError(rou.seg.ReadDataFrom(f))
 	s.Stop()
-	rou.responses.Out.Inlet() <- RetrieveResponse{Segments: []segment.Segment{rou.seg.Segment()}}
+	rou.responses.Out.Inlet() <- IteratorResponse{
+		Variant:  DataResponse,
+		Segments: []segment.Segment{rou.seg.Segment()},
+	}
 }
 
 // retrieveOperationSet represents a set of retrieveOperations to execute together.

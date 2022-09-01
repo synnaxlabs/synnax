@@ -41,7 +41,9 @@ func (s *streamImpl[V]) Outlet() <-chan V { return s.values }
 // InletAddress implements Stream.
 func (s *streamImpl[V]) InletAddress() address.Address { return s.inletAddr }
 
-func (s *streamImpl[V]) Acquire(n int32) { s.c.Add(n) }
+func (s *streamImpl[V]) Acquire(n int32) {
+	s.c.Add(n)
+}
 
 func (s *streamImpl[V]) Close() {
 	s.c.Add(-1)

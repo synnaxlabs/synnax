@@ -11,12 +11,14 @@ import (
 )
 
 type synchronizer struct {
+	counter int
 	timeout time.Duration
 	nodeIDs []core.NodeID
 	confluence.UnarySink[Response]
 }
 
 func (a *synchronizer) sync(ctx context.Context, command Command) (bool, error) {
+	a.counter++
 	ctx, cancel := signal.WithTimeout(ctx, 1*time.Second)
 	defer cancel()
 	acknowledgements := make([]core.NodeID, 0, len(a.nodeIDs))
@@ -25,7 +27,7 @@ func (a *synchronizer) sync(ctx context.Context, command Command) (bool, error) 
 		case <-ctx.Done():
 			return false, errors.Wrap(ctx.Err(), "[synchronizer] - timed out")
 		case r, ok := <-a.In.Outlet():
-			if r.Command != command {
+			if r.Counter != a.counter {
 				continue
 			}
 			if !ok {

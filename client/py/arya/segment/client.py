@@ -23,9 +23,10 @@ class Client:
         npw.open(keys)
         return npw
 
-    def new_iterator(self, keys: list[str], tr: telem.TimeRange) -> iterator.Numpy:
+    def new_iterator(self, keys: list[str], tr: telem.TimeRange, aggregate: bool = False) -> iterator.Numpy:
         npi = iterator.Numpy(transport=self.transport.stream,
-                             channel_client=self.channel_client)
+                             channel_client=self.channel_client,
+                             aggregate=aggregate)
         npi.open(keys, tr)
         return npi
 
@@ -41,10 +42,14 @@ class Client:
         return seg.data
 
     def read_seg(self, from_: str, tr: telem.TimeRange) -> NumpySegment:
-        _iterator = self.new_iterator([from_], tr)
+        _iterator = self.new_iterator([from_], tr, aggregate=True)
         seg = None
         try:
+            t0 = datetime.now()
             _iterator.first()
+            while _iterator.next():
+                pass
+            print(f"read_seg: {datetime.now() - t0}")
             seg = _iterator.value[from_]
         finally:
             _iterator.close()

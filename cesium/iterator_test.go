@@ -63,7 +63,7 @@ var _ = Describe("Iterator", func() {
 						WhereTimeRange(cesium.TimeRangeMax).
 						Iterate()
 					Expect(iter.Error()).To(BeNil())
-					stream := confluence.NewStream[cesium.RetrieveResponse](1)
+					stream := confluence.NewStream[cesium.IteratorResponse](1)
 					iter.OutTo(stream)
 					Expect(iter.First()).To(BeTrue())
 					res := <-stream.Outlet()
@@ -88,7 +88,7 @@ var _ = Describe("Iterator", func() {
 						End:   telem.TimeStampMax,
 					}).Iterate()
 					Expect(iter.Error()).To(BeNil())
-					stream := confluence.NewStream[cesium.RetrieveResponse](1)
+					stream := confluence.NewStream[cesium.IteratorResponse](1)
 					iter.OutTo(stream)
 					Expect(iter.SeekFirst()).To(BeTrue())
 					Expect(iter.View()).To(Equal(telem.TimeRange{
@@ -120,7 +120,7 @@ var _ = Describe("Iterator", func() {
 						Sync().
 						Iterate()
 					Expect(iter.Error()).To(BeNil())
-					stream := confluence.NewStream[cesium.RetrieveResponse](1)
+					stream := confluence.NewStream[cesium.IteratorResponse](1)
 					iter.OutTo(stream)
 					Expect(iter.First()).To(BeTrue())
 					res := <-stream.Outlet()

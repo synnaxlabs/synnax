@@ -59,6 +59,8 @@ type Response struct {
 	// Ack is only relevant for variant AckResponse. Is true if the iterator successfully
 	// executed the request.
 	Ack bool
+	// Counter
+	Counter int
 	// Command is only relevant for variant AckResponse. It is  the command that was executed
 	// on the iterator.
 	Command Command

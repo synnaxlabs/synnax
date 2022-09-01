@@ -73,9 +73,22 @@ func mergeRetrieveConfigDefaults(cfg *retrieveConfig) {
 
 // |||||| STREAM ||||||
 
-// RetrieveResponse is a response containing segments satisfying a Retrieve Query as well as any errors
+type ResponseVariant uint8
+
+const (
+	// AckResponse is a response that indicates that an iteration request was acknowledged.
+	AckResponse ResponseVariant = iota + 1
+	// DataResponse is a response that indicates that an iteration request returned data.
+	DataResponse
+)
+
+// IteratorResponse is a response containing segments satisfying a Retrieve Query as well as any errors
 // encountered during the retrieval.
-type RetrieveResponse struct {
+type IteratorResponse struct {
+	Counter  int
+	Variant  ResponseVariant
+	Ack      bool
+	Err      error
 	Segments []segment.Segment
 }
 
@@ -108,13 +121,14 @@ func (r Retrieve) SendAcks() Retrieve {
 
 // Stream streams all segments from the iterator out to the channel. Errors encountered
 // during stream construction are returned immediately. Errors encountered during
-// segment reads are returns as part of RetrieveResponse.
-func (r Retrieve) Stream(ctx context.Context, res chan<- RetrieveResponse) (err error) {
+// segment reads are returns as part of IteratorResponse.
+func (r Retrieve) Stream(ctx context.Context, res chan<- IteratorResponse) (err error) {
 	iter := r.Iterate()
 	iter.OutTo(confluence.NewInlet(res))
 	defer func() {
 		err = errors.CombineErrors(iter.Close(), err)
 	}()
+	iter.SeekFirst()
 	for iter.First(); iter.Valid(); iter.Next() {
 		if ctx.Err() != nil {
 			err = ctx.Err()
@@ -147,7 +161,7 @@ func getSync(q query.Query) bool {
 
 // |||||| SEND ACKS |||||
 
-const sendAcksOptKey query.OptionKey = "sendAcks"
+const sendAcksOptKey query.OptionKey = "sendAcknowledgements"
 
 func setSendAcks(q query.Query, sendAcks bool) {
 	q.Set(sendAcksOptKey, sendAcks)
@@ -227,7 +241,7 @@ func startRetrieve(
 		Capacity:     10,
 	}.PreRoute(pipe))
 
-	//c.Exec(plumber.UnaryRouter[[]retrieveOperationUnary]{
+	//methodCounter.Exec(plumber.UnaryRouter[[]retrieveOperationUnary]{
 	//	SourceTarget: "queue",
 	//	SinkTarget:   "batch",
 	//	Capacity:     10,

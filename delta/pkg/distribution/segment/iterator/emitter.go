@@ -67,4 +67,6 @@ func (e *emitter) Exhaust() { e.emit(Request{Command: Exhaust}) }
 // Error emits an Error request to the stream.
 func (e *emitter) Error() { e.emit(Request{Command: Error}) }
 
-func (e *emitter) emit(req Request) { e.Out.Inlet() <- req }
+func (e *emitter) emit(req Request) {
+	e.Out.Inlet() <- req
+}

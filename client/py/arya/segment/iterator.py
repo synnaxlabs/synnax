@@ -78,9 +78,11 @@ class Core:
     transport: freighter.StreamClient
     stream: freighter.Stream[Request, Response]
     values: list[BinarySegment]
+    aggregate: bool
 
-    def __init__(self, transport: freighter.StreamClient) -> None:
+    def __init__(self, transport: freighter.StreamClient, aggregate: bool = False) -> None:
         self.transport = transport
+        self.aggregate = aggregate
 
     def open(self, keys: list[str], tr: telem.TimeRange):
         self.stream = self.transport.stream(_ENDPOINT, Request, _response_factory)
@@ -91,10 +93,10 @@ class Core:
         exc = self.stream.send(Request(**kwargs))
         if exc is not None:
             raise exc
-        self.values = []
+        if not self.aggregate:
+            self.values = []
         while True:
             r, exc = self.stream.receive()
-            print(ResponseVariant(r.variant))
             if exc is not None:
                 raise exc
             if r.variant == ResponseVariant.ACK:
@@ -152,9 +154,13 @@ class Numpy(Core):
     channel_client: channel.Client
     channels: channel.Registry
 
-    def __init__(self, transport: freighter.StreamClient,
-                 channel_client: channel.Client):
-        super().__init__(transport)
+    def __init__(
+            self,
+            transport: freighter.StreamClient,
+            channel_client: channel.Client,
+            aggregate: bool = False
+    ):
+        super().__init__(transport, aggregate)
         self.decoder = encoder.NumpyEncoderDecoder()
         self.channel_client = channel_client
 

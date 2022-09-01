@@ -226,13 +226,14 @@ func New(
 	}
 
 	res := confluence.NewStream[Response](0)
-
-	seg.OutTo(res)
-	seg.Flow(sCtx, confluence.CloseInletsOnExit())
+	res.SetInletAddress("RES")
 
 	if sendAcknowledgements {
 		res.Acquire(1)
 	}
+
+	seg.OutTo(res)
+	seg.Flow(sCtx, confluence.CloseInletsOnExit())
 
 	return &iterator{
 		emitter:              emit,

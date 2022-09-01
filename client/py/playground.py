@@ -17,8 +17,8 @@ if __name__ == "__main__":
     t0 = telem.now()
     tend: telem.TimeStamp = 0
     w = client.data.new_writer([ch.key])
-    n_seg = 1
-    n_samples = int(100000)
+    n_seg = 1000
+    n_samples = int(1000)
     data = np.random.rand(n_samples)
     for i in range(n_seg):
         tend = t0.add(ch.rate.span(n_samples) * i)
@@ -33,3 +33,4 @@ if __name__ == "__main__":
     tr = telem.TimeRange(t0, tend)
     res_data = client.data.read_seg(ch.key, tr)
     print(np.array_equal(data, res_data.data))
+    print(datetime.now() - t0)

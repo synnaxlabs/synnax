@@ -27,7 +27,7 @@ func newLocalWriter(
 	pipe := plumber.New()
 	plumber.SetSegment[Request, cesium.CreateRequest](pipe, "requestTranslator", reqT)
 	plumber.SetSegment[cesium.CreateResponse, Response](pipe, "responseTranslator", resT)
-	seg := &plumber.Segment[Request, Response]{Pipeline: pipe}
+	seg := &plumber.Segment[Request, Response]{Pipeline: pipe, NoAcquireForOutlets: true}
 	if err := seg.RouteInletTo("requestTranslator"); err != nil {
 		panic(err)
 	}
