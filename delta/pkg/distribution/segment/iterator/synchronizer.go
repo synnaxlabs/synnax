@@ -4,48 +4,43 @@ import (
 	"context"
 	"github.com/arya-analytics/delta/pkg/distribution/core"
 	"github.com/arya-analytics/x/confluence"
-	"github.com/arya-analytics/x/signal"
-	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
-	"time"
 )
 
 type synchronizer struct {
-	counter int
-	timeout time.Duration
-	nodeIDs []core.NodeID
-	confluence.UnarySink[Response]
+	counter          int
+	nodeIDs          []core.NodeID
+	acknowledgements []Response
+	confluence.LinearTransform[Response, Response]
 }
 
-func (a *synchronizer) sync(ctx context.Context, command Command) (bool, error) {
-	a.counter++
-	ctx, cancel := signal.WithTimeout(ctx, 1*time.Second)
-	defer cancel()
-	acknowledgements := make([]core.NodeID, 0, len(a.nodeIDs))
-	for {
-		select {
-		case <-ctx.Done():
-			return false, errors.Wrap(ctx.Err(), "[synchronizer] - timed out")
-		case r, ok := <-a.In.Outlet():
-			if r.Counter != a.counter {
-				continue
-			}
-			if !ok {
-				panic(
-					"[iterator.synchronizer] - response pipe closed before all nodes acked command",
-				)
-			}
-			if !lo.Contains(acknowledgements, r.NodeID) {
-				// If any node does not consider the request as valid, then we consider
-				// the entire command as invalid.
-				if !r.Ack {
-					return false, r.Error
-				}
-				acknowledgements = append(acknowledgements, r.NodeID)
-			}
-			if len(acknowledgements) == len(a.nodeIDs) {
-				return true, nil
-			}
-		}
+func newSynchronizer(nodeIDs []core.NodeID) confluence.Segment[Response, Response] {
+	s := &synchronizer{nodeIDs: nodeIDs, counter: 1}
+	s.LinearTransform.Transform = s.sync
+	return s
+}
+
+func (a *synchronizer) sync(_ context.Context, res Response) (Response, bool, error) {
+	if res.Counter != a.counter {
+		panic("[distribution.iterator] - received out of order response")
+	}
+	a.acknowledgements = append(a.acknowledgements, res)
+
+	if len(a.acknowledgements) == len(a.nodeIDs) {
+		ack := a.buildAck()
+		a.acknowledgements = nil
+		a.counter++
+		return ack, true, nil
+	}
+
+	return res, false, nil
+}
+
+func (a *synchronizer) buildAck() Response {
+	return Response{
+		Variant: AckResponse,
+		Command: a.acknowledgements[0].Command,
+		Ack:     !lo.Contains(lo.Map(a.acknowledgements, func(res Response, _ int) bool { return res.Ack }), false),
+		Counter: a.counter,
 	}
 }

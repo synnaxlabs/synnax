@@ -1,8 +1,6 @@
 package cesium
 
 import (
-	"context"
-	"github.com/arya-analytics/cesium/internal/channel"
 	"github.com/arya-analytics/cesium/internal/core"
 	"github.com/arya-analytics/cesium/internal/persist"
 	"github.com/arya-analytics/cesium/internal/segment"
@@ -11,12 +9,11 @@ import (
 	"github.com/arya-analytics/x/confluence/plumber"
 	"github.com/arya-analytics/x/errutil"
 	"github.com/arya-analytics/x/kv"
-	"github.com/arya-analytics/x/query"
 	"github.com/arya-analytics/x/queue"
 	"github.com/arya-analytics/x/signal"
 	"github.com/arya-analytics/x/telem"
-	"github.com/cockroachdb/errors"
 	"go.uber.org/zap"
+	"go/types"
 	"time"
 )
 
@@ -33,7 +30,7 @@ const (
 	retrieveDebounceFlushThreshold = 100
 )
 
-type retrieveConfig struct {
+type readConfig struct {
 	// exp is used to track metrics for the Retrieve query. See retrieveMetrics for more.
 	exp alamos.Experiment
 	// fs is the file system for reading segment data from.
@@ -50,7 +47,7 @@ type retrieveConfig struct {
 	persist persist.Config
 }
 
-func mergeRetrieveConfigDefaults(cfg *retrieveConfig) {
+func mergeRetrieveConfigDefaults(cfg *readConfig) {
 
 	// |||||| PERSIST ||||||
 
@@ -82,123 +79,44 @@ const (
 	DataResponse
 )
 
+type IterCommand uint8
+
+const (
+	IterNext IterCommand = iota + 1
+	IterPrev
+	IterFirst
+	IterLast
+	NextSpan
+	IterPrevSpan
+	IterRange
+	IterSeekFirst
+	IterSeekLast
+	IterSeekLT
+	IterSeekGE
+	IterValid
+	IterError
+	IterClose
+)
+
+type IteratorRequest struct {
+	Command IterCommand
+	Span    telem.TimeSpan
+	Range   telem.TimeRange
+	Stamp   telem.TimeStamp
+}
+
 // IteratorResponse is a response containing segments satisfying a Retrieve Query as well as any errors
 // encountered during the retrieval.
 type IteratorResponse struct {
 	Counter  int
+	Command  IterCommand
 	Variant  ResponseVariant
 	Ack      bool
 	Err      error
 	Segments []segment.Segment
 }
 
-// |||||| QUERY ||||||
-
-type Retrieve struct {
-	query.Query
-	kve     kv.DB
-	ops     confluence.Inlet[[]retrieveOperationUnary]
-	metrics retrieveMetrics
-	logger  *zap.Logger
-}
-
-// WhereChannels sets the channels to retrieve data for.
-// If no keys are provided, will return an ErrInvalidQuery error.
-func (r Retrieve) WhereChannels(keys ...ChannelKey) Retrieve { channel.SetKeys(r, keys...); return r }
-
-// WhereTimeRange sets the time range to retrieve data from.
-func (r Retrieve) WhereTimeRange(tr TimeRange) Retrieve { telem.SetTimeRange(r, tr); return r }
-
-// Sync is an option that only applies to queries than open a StreamIterator.
-// If set to true, the StreamIterator will wait for operations for a particular command
-// to complete before returning.
-func (r Retrieve) Sync() Retrieve { setSync(r, true); return r }
-
-func (r Retrieve) SendAcks() Retrieve {
-	setSendAcks(r, true)
-	return r
-}
-
-// Stream streams all segments from the iterator out to the channel. Errors encountered
-// during stream construction are returned immediately. Errors encountered during
-// segment reads are returns as part of IteratorResponse.
-func (r Retrieve) Stream(ctx context.Context, res chan<- IteratorResponse) (err error) {
-	iter := r.Iterate()
-	iter.OutTo(confluence.NewInlet(res))
-	defer func() {
-		err = errors.CombineErrors(iter.Close(), err)
-	}()
-	iter.SeekFirst()
-	for iter.First(); iter.Valid(); iter.Next() {
-		if ctx.Err() != nil {
-			err = ctx.Err()
-		}
-	}
-	return err
-}
-
-func (r Retrieve) Iterate() StreamIterator {
-	return newIteratorFromRetrieve(r)
-}
-
-// |||||| OPTIONS ||||||
-
-// |||| SYNC ||||
-
-const syncOptKey query.OptionKey = "sync"
-
-func setSync(q query.Query, sync bool) {
-	q.Set(syncOptKey, sync)
-}
-
-func getSync(q query.Query) bool {
-	sync, ok := q.Get(syncOptKey)
-	if !ok {
-		return false
-	}
-	return sync.(bool)
-}
-
-// |||||| SEND ACKS |||||
-
-const sendAcksOptKey query.OptionKey = "sendAcknowledgements"
-
-func setSendAcks(q query.Query, sendAcks bool) {
-	q.Set(sendAcksOptKey, sendAcks)
-}
-
-func getSendAcks(q query.Query) bool {
-	sendAcks, ok := q.Get(sendAcksOptKey)
-	if !ok {
-		return false
-	}
-	return sendAcks.(bool)
-}
-
-// |||||| QUERY FACTORY ||||||
-
-type retrieveFactory struct {
-	kve     kv.DB
-	logger  *zap.Logger
-	metrics retrieveMetrics
-	confluence.AbstractUnarySource[[]retrieveOperationUnary]
-	confluence.EmptyFlow
-}
-
-func (r retrieveFactory) New() Retrieve {
-	return Retrieve{
-		Query:   query.New(),
-		ops:     r.Out,
-		kve:     r.kve,
-		logger:  r.logger,
-		metrics: r.metrics,
-	}
-}
-
-func startRetrieve(
-	ctx signal.Context,
-	cfg retrieveConfig,
-) (query.Factory[Retrieve], error) {
+func startReadPipeline(ctx signal.Context, cfg readConfig) (confluence.Inlet[[]retrieveOperationUnary], error) {
 	mergeRetrieveConfigDefaults(&cfg)
 
 	pipe := plumber.New()
@@ -225,39 +143,33 @@ func startRetrieve(
 		persist.New[core.FileKey, retrieveOperationSet](cfg.fs, cfg.persist),
 	)
 
-	queryFactory := &retrieveFactory{
-		kve:     cfg.kv,
-		metrics: newRetrieveMetrics(cfg.exp),
-		logger:  cfg.logger,
-	}
-
-	plumber.SetSource[[]retrieveOperationUnary](pipe, "query", queryFactory)
-
 	c := errutil.NewCatch()
 
 	c.Exec(plumber.UnaryRouter[[]retrieveOperationUnary]{
 		SourceTarget: "query",
 		SinkTarget:   "batch",
 		Capacity:     10,
-	}.PreRoute(pipe))
+	}.MustRoute(pipe))
 
-	//methodCounter.Exec(plumber.UnaryRouter[[]retrieveOperationUnary]{
+	//commandCounter.Exec(plumber.UnaryRouter[[]retrieveOperationUnary]{
 	//	SourceTarget: "queue",
 	//	SinkTarget:   "batch",
 	//	Capacity:     10,
-	//}.PreRoute(pipe))
+	//}.MustRoute(pipe))
 
 	c.Exec(plumber.UnaryRouter[[]retrieveOperationSet]{
 		SourceTarget: "batch",
 		SinkTarget:   "persist",
 		Capacity:     10,
-	}.PreRoute(pipe))
+	}.MustRoute(pipe))
 
 	if err := c.Error(); err != nil {
 		panic(c.Error())
 	}
 
 	pipe.Flow(ctx)
+
+	seg := &plumber.Segment[[]IteratorRequest, types.Nil]{}
 
 	return queryFactory, nil
 }

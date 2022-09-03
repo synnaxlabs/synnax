@@ -113,7 +113,7 @@ var _ = Describe("Create", func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					By("Initializing a request")
-					cReqOne := cesium.CreateRequest{
+					cReqOne := cesium.WriteRequest{
 						Segments: []cesium.Segment{
 							{
 								ChannelKey: key,
@@ -122,7 +122,7 @@ var _ = Describe("Create", func() {
 							},
 						},
 					}
-					cReqTwo := cesium.CreateRequest{
+					cReqTwo := cesium.WriteRequest{
 						Segments: []cesium.Segment{
 							{
 								ChannelKey: key,

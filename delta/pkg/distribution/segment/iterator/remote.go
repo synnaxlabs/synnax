@@ -1,31 +1,27 @@
 package iterator
 
 import (
-	"github.com/arya-analytics/aspen"
+	"context"
 	"github.com/arya-analytics/delta/pkg/distribution/channel"
 	"github.com/arya-analytics/delta/pkg/distribution/core"
 	"github.com/arya-analytics/freighter/freightfluence"
 	"github.com/arya-analytics/x/address"
-	"github.com/arya-analytics/x/signal"
 	"github.com/arya-analytics/x/telem"
 )
 
 func openRemoteIterators(
-	ctx signal.Context,
-	tran Transport,
+	ctx context.Context,
 	targets map[core.NodeID][]channel.Key,
-	rng telem.TimeRange,
-	resolver aspen.HostResolver,
-	sync bool,
+	cfg Config,
 ) (*freightfluence.MultiSender[Request], []*freightfluence.Receiver[Response], error) {
 	sender := &freightfluence.MultiSender[Request]{}
 	receivers := make([]*freightfluence.Receiver[Response], 0, len(targets))
 	for nodeID, keys := range targets {
-		targetAddr, err := resolver.Resolve(nodeID)
+		targetAddr, err := cfg.Resolver.Resolve(nodeID)
 		if err != nil {
 			return sender, receivers, err
 		}
-		client, err := openRemoteClient(ctx, tran, targetAddr, keys, rng, sync)
+		client, err := openRemoteClient(ctx, cfg.Transport, targetAddr, keys, cfg.TimeRange)
 		if err != nil {
 			return sender, receivers, err
 		}
@@ -36,24 +32,15 @@ func openRemoteIterators(
 }
 
 func openRemoteClient(
-	ctx signal.Context,
+	ctx context.Context,
 	tran Transport,
 	target address.Address,
 	keys channel.Keys,
 	rng telem.TimeRange,
-	sync bool,
 ) (Client, error) {
 	client, err := tran.Stream(ctx, target)
 	if err != nil {
 		return nil, err
 	}
-
-	// Send an open request to the freighter. This will open a localIterator  on the
-	// target node.
-	return client, client.Send(Request{
-		Command: Open,
-		Keys:    keys,
-		Range:   rng,
-		Sync:    sync,
-	})
+	return client, client.Send(Request{Command: Open, Keys: keys, Range: rng})
 }

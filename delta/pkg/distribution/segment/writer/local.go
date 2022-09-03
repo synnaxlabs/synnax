@@ -4,30 +4,35 @@ import (
 	"context"
 	"github.com/arya-analytics/cesium"
 	"github.com/arya-analytics/delta/pkg/distribution/channel"
-	"github.com/arya-analytics/delta/pkg/distribution/core"
 	"github.com/arya-analytics/x/confluence"
 	"github.com/arya-analytics/x/confluence/plumber"
 )
 
 func newLocalWriter(
 	ctx context.Context,
-	host core.NodeID,
-	db cesium.DB,
 	keys channel.Keys,
 	transient confluence.Inlet[error],
+	cfg Config,
 ) (confluence.Segment[Request, Response], error) {
-	requests, responses, err := db.NewCreate().WhereChannels(keys.StorageKeys()...).Stream(ctx)
+	w, err := cfg.TS.NewStreamWriter(keys.StorageKeys()...)
 	if err != nil {
 		return nil, err
 	}
-	reqT := newRequestTranslator(host, transient)
-	reqT.OutTo(confluence.NewInlet[cesium.CreateRequest](requests))
-	resT := newResponseTranslator()
-	resT.InFrom(confluence.NewOutlet[cesium.CreateResponse](responses))
 	pipe := plumber.New()
-	plumber.SetSegment[Request, cesium.CreateRequest](pipe, "requestTranslator", reqT)
-	plumber.SetSegment[cesium.CreateResponse, Response](pipe, "responseTranslator", resT)
-	seg := &plumber.Segment[Request, Response]{Pipeline: pipe, NoAcquireForOutlets: true}
+	plumber.SetSegment[cesium.WriteRequest, cesium.WriteResponse](pipe, "writer", w)
+	reqT := newRequestTranslator(cfg.Resolver.HostID(), transient)
+	resT := newResponseTranslator()
+	plumber.SetSegment[Request, cesium.WriteRequest](pipe, "requestTranslator", reqT)
+	plumber.SetSegment[cesium.WriteResponse, Response](pipe, "responseTranslator", resT)
+	plumber.UnaryRouter[cesium.WriteRequest]{
+		SourceTarget: "requestTranslator",
+		SinkTarget:   "writer",
+	}.MustRoute(pipe)
+	plumber.UnaryRouter[cesium.WriteResponse]{
+		SourceTarget: "writer",
+		SinkTarget:   "responseTranslator",
+	}.MustRoute(pipe)
+	seg := &plumber.Segment[Request, Response]{Pipeline: pipe}
 	if err := seg.RouteInletTo("requestTranslator"); err != nil {
 		panic(err)
 	}

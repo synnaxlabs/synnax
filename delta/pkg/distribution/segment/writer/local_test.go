@@ -61,20 +61,12 @@ var _ = Describe("Local", Ordered, func() {
 	Context("Behavioral Accuracy", func() {
 		It("Should write a segment to disk", func() {
 			seg := factory.NextN(1)
-			w.Requests() <- writer.Request{Segments: wrapper.Wrap(seg)}
-			close(w.Requests())
-			for res := range w.Responses() {
-				Expect(res.Error).ToNot(HaveOccurred())
-			}
+			w.Write(wrapper.Wrap(seg))
 			Expect(w.Close()).To(Succeed())
 		})
 		It("Should write multiple segments to disk", func() {
 			seg := factory.NextN(10)
-			w.Requests() <- writer.Request{Segments: wrapper.Wrap(seg)}
-			close(w.Requests())
-			for res := range w.Responses() {
-				Expect(res.Error).ToNot(HaveOccurred())
-			}
+			w.Write(wrapper.Wrap(seg))
 			Expect(w.Close()).To(Succeed())
 		})
 		It("Should return an error when another writer has a lock on the channel", func() {

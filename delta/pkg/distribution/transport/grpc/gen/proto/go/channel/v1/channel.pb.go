@@ -108,7 +108,7 @@ func (x *Channel) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Channel.ProtoReflect.Descriptor instead.
+// Deprecated: Use ChannelService.ProtoReflect.Descriptor instead.
 func (*Channel) Descriptor() ([]byte, []int) {
 	return file_channel_v1_channel_proto_rawDescGZIP(), []int{1}
 }
@@ -211,10 +211,10 @@ func file_channel_v1_channel_proto_rawDescGZIP() []byte {
 var file_channel_v1_channel_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_channel_v1_channel_proto_goTypes = []interface{}{
 	(*CreateMessage)(nil), // 0: channel.v1.CreateMessage
-	(*Channel)(nil),       // 1: channel.v1.Channel
+	(*Channel)(nil),       // 1: channel.v1.ChannelService
 }
 var file_channel_v1_channel_proto_depIdxs = []int32{
-	1, // 0: channel.v1.CreateMessage.channels:type_name -> channel.v1.Channel
+	1, // 0: channel.v1.CreateMessage.channels:type_name -> channel.v1.ChannelService
 	0, // 1: channel.v1.ChannelService.Exec:input_type -> channel.v1.CreateMessage
 	0, // 2: channel.v1.ChannelService.Exec:output_type -> channel.v1.CreateMessage
 	2, // [2:3] is the sub-list for method output_type

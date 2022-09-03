@@ -8,7 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Writer", func() {
+var _ = Describe("Write", func() {
 	var (
 		w  ontology.Writer
 		id ontology.ID

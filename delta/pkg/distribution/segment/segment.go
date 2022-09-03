@@ -7,7 +7,9 @@ import (
 )
 
 type (
-	Segment  = core.Segment
-	Iterator = iterator.Iterator
-	Writer   = writer.Writer
+	Segment        = core.Segment
+	Iterator       = iterator.Iterator
+	StreamIterator = iterator.StreamIterator
+	Writer         = writer.Writer
+	StreamWriter   = writer.StreamWriter
 )

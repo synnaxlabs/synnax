@@ -9,7 +9,6 @@ import (
 	"github.com/arya-analytics/delta/pkg/distribution/core/mock"
 	"github.com/arya-analytics/delta/pkg/distribution/segment/core"
 	"github.com/arya-analytics/delta/pkg/distribution/segment/writer"
-	"github.com/arya-analytics/delta/pkg/storage"
 	"github.com/arya-analytics/x/query"
 	"github.com/arya-analytics/x/telem"
 	. "github.com/arya-analytics/x/testutil"
@@ -89,11 +88,7 @@ var _ = Describe("Remote", Ordered, func() {
 				seg := wrapper.Wrap(factory.NextN(1))
 				seg[0].ChannelKey = channels[0].Key()
 				seg[1].ChannelKey = channels[1].Key()
-				w.Requests() <- writer.Request{Segments: seg}
-				close(w.Requests())
-				for res := range w.Responses() {
-					Expect(res.Error).ToNot(HaveOccurred())
-				}
+				w.Write(seg)
 				Expect(w.Close()).To(Succeed())
 			})
 		})
@@ -101,14 +96,16 @@ var _ = Describe("Remote", Ordered, func() {
 	Describe("Error Handling", func() {
 		Describe("channel keys don't exist", func() {
 			It("Should return an error", func() {
-				_, err := writer.New(
+				_, err := writer.NewStream(
 					ctx,
-					builder.Cores[3].Storage.TS,
-					services[3].channel,
-					builder.Cores[3].Cluster,
-					services[3].transport.writer,
-					channel.Keys{channel.NewKey(1, 5)},
-					log,
+					writer.Config{
+						TS:             builder.Cores[3].Storage.TS,
+						ChannelService: services[3].channel,
+						Resolver:       builder.Cores[3].Cluster,
+						Transport:      services[3].transport.writer,
+						ChannelKeys:    channel.Keys{channel.NewKey(1, 5)},
+						Logger:         log,
+					},
 				)
 				Expect(err).To(HaveOccurredAs(query.NotFound))
 			})
@@ -118,44 +115,38 @@ var _ = Describe("Remote", Ordered, func() {
 				ctx, cancel := context.WithCancel(ctx)
 				w, err := writer.New(
 					ctx,
-					builder.Cores[3].Storage.TS,
-					services[3].channel,
-					builder.Cores[3].Cluster,
-					services[3].transport.writer,
-					keys,
-					log,
+					writer.Config{
+						TS:             builder.Cores[3].Storage.TS,
+						ChannelService: services[3].channel,
+						Resolver:       builder.Cores[3].Cluster,
+						Transport:      services[3].transport.writer,
+						ChannelKeys:    keys,
+						Logger:         log,
+					},
 				)
 				Expect(err).ToNot(HaveOccurred())
 				cancel()
 				By("Exiting immediately")
 				Expect(w.Close()).To(HaveOccurredAs(context.Canceled))
-				By("Keeping the request channel open")
-				close(w.Requests())
 			})
 		})
-		Describe("Writing to an unspecified channel", func() {
-			Describe("Node not in the cluster", func() {
-				It("Should return a query error", func() {
-					w, err := newWriter()
-					Expect(err).ToNot(HaveOccurred())
-					w.Requests() <- writer.Request{Segments: []core.Segment{
-						{
-							ChannelKey: channel.NewKey(5, 5),
-							Segment: storage.Segment{
-								Start: 0,
-								Data:  []byte{1, 2, 3, 4, 5},
-							},
-						},
-					}}
-					close(w.Requests())
-					res, ok := <-w.Responses()
-					Expect(ok).To(BeTrue())
-					Expect(res.Error).To(HaveOccurredAs(query.NotFound))
-					_, ok = <-w.Responses()
-					Expect(ok).To(BeFalse())
-					Expect(w.Close()).To(Succeed())
-				})
-			})
-		})
+		//Describe("Writing to an unspecified channel", func() {
+		//	Describe("Node not in the cluster", func() {
+		//		It("Should return a query error", func() {
+		//			w, err := newWriter()
+		//			Expect(err).ToNot(HaveOccurred())
+		//			w.Write([]core.Segment{
+		//				{
+		//					ChannelKey: channel.NewKey(5, 5),
+		//					Segment: storage.Segment{
+		//						Start: 0,
+		//						Data:  []byte{1, 2, 3, 4, 5},
+		//					},
+		//				},
+		//			})
+		//			Expect(w.Close()).To(HaveOccurredAs(query.NotFound))
+		//		})
+		//	})
+		//})
 	})
 })

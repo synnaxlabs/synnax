@@ -6,171 +6,87 @@ import (
 	"github.com/arya-analytics/delta/pkg/distribution/channel"
 	distribcore "github.com/arya-analytics/delta/pkg/distribution/core"
 	"github.com/arya-analytics/delta/pkg/distribution/segment/core"
-	"github.com/arya-analytics/delta/pkg/storage"
 	"github.com/arya-analytics/x/confluence"
 	"github.com/arya-analytics/x/confluence/plumber"
-	"github.com/arya-analytics/x/errutil"
-	"github.com/arya-analytics/x/telem"
-	"github.com/cockroachdb/errors"
+	"github.com/samber/lo"
 )
 
-func newLocalIterator(
-	db storage.TS,
-	host distribcore.NodeID,
-	rng telem.TimeRange,
-	keys channel.Keys,
-	sync bool,
-) (confluence.Segment[Request, Response], error) {
-	q := db.NewRetrieve().WhereChannels(keys.StorageKeys()...).WhereTimeRange(rng).SendAcks()
-	if sync {
-		q = q.Sync()
+func newLocalIterator(keys channel.Keys, cfg Config) (confluence.Segment[Request, Response], error) {
+	iter, err := cfg.TS.NewStreamIterator(cfg.TimeRange, keys.StorageKeys()...)
+	if err != nil {
+		return nil, err
 	}
-	iter := q.Iterate()
-
 	pipe := plumber.New()
-
-	// cesiumRes receives segments from the iterator.
-	plumber.SetSource[cesium.IteratorResponse](pipe, "iterator", iter)
-
-	// executor executes requests as method calls on the iterator. Pipes
-	// synchronous acknowledgements out to the response pipeline.
-	te := newRequestExecutor(host, iter)
-	plumber.SetSink[Request](pipe, "executor", te)
-
-	// translator translates cesium res from the iterator source into
-	// res transportable over the network.
-	ts := newCesiumResponseTranslator(host)
-	plumber.SetSegment[cesium.IteratorResponse, Response](pipe, "translator", ts)
-
-	c := errutil.NewCatch()
-
-	c.Exec(plumber.UnaryRouter[cesium.IteratorResponse]{
+	plumber.SetSegment[cesium.IterateRequest, cesium.IterateResponse](pipe, "iterator", iter)
+	plumber.SetSegment[Request, cesium.IterateRequest](
+		pipe,
+		"requestTranslator",
+		newCesiumRequestTranslator(),
+	)
+	plumber.SetSegment[cesium.IterateResponse, Response](
+		pipe,
+		"responseTranslator",
+		newCesiumResponseTranslator(cfg.Resolver.HostID()),
+	)
+	plumber.UnaryRouter[cesium.IterateRequest]{
+		SourceTarget: "requestTranslator",
+		SinkTarget:   "iterator",
+	}.MustRoute(pipe)
+	plumber.UnaryRouter[cesium.IterateResponse]{
 		SourceTarget: "iterator",
-		SinkTarget:   "translator",
-		Capacity:     1,
-	}.PreRoute(pipe))
-
-	if c.Error() != nil {
-		panic(c.Error())
-	}
-
-	seg := &plumber.Segment[Request, Response]{Pipeline: pipe, NoAcquireForOutlets: true}
-
-	if err := seg.RouteInletTo("executor"); err != nil {
-		panic(err)
-	}
-
-	if err := seg.RouteOutletFrom("translator"); err != nil {
-		panic(err)
-	}
-
-	//err := iter.Error()
-	//if err != nil {
-	//	return nil, errors.Wrap(err, "[segment.iterator] - server failed to open cesium iterator")
-	//}
+		SinkTarget:   "responseTranslator",
+	}.MustRoute(pipe)
+	seg := &plumber.Segment[Request, Response]{Pipeline: pipe}
+	lo.Must0(seg.RouteInletTo("requestTranslator"))
+	lo.Must0(seg.RouteOutletFrom("responseTranslator"))
 	return seg, nil
 }
 
-type requestExecutor struct {
-	host distribcore.NodeID
-	iter cesium.StreamIterator
-	confluence.UnarySink[Request]
-}
-
-func newRequestExecutor(
-	host distribcore.NodeID,
-	iter cesium.StreamIterator,
-) confluence.Sink[Request] {
-	te := &requestExecutor{iter: iter, host: host}
-	te.UnarySink.Sink = te.execute
-	return te
-}
-
-func (te *requestExecutor) execute(ctx context.Context, req Request) error {
-	executeRequest(ctx, te.host, te.iter, req)
-	return nil
-}
-
-type cesiumResponseTranslator struct {
+type storageResponseTranslator struct {
 	wrapper *core.StorageWrapper
-	confluence.LinearTransform[cesium.IteratorResponse, Response]
+	confluence.LinearTransform[cesium.IterateResponse, Response]
 }
 
-func newCesiumResponseTranslator(host distribcore.NodeID) confluence.Segment[cesium.IteratorResponse, Response] {
+func newCesiumResponseTranslator(host distribcore.NodeID) confluence.Segment[cesium.IterateResponse, Response] {
 	wrapper := &core.StorageWrapper{Host: host}
-	ts := &cesiumResponseTranslator{wrapper: wrapper}
+	ts := &storageResponseTranslator{wrapper: wrapper}
 	ts.LinearTransform.Transform = ts.translate
 	return ts
 }
 
-func (te *cesiumResponseTranslator) translate(
+func (te *storageResponseTranslator) translate(
 	ctx context.Context,
-	res cesium.IteratorResponse,
+	res cesium.IterateResponse,
 ) (Response, bool, error) {
 	return Response{
 		Ack:      res.Ack,
 		Variant:  ResponseVariant(res.Variant),
 		Counter:  res.Counter,
+		NodeID:   te.wrapper.Host,
 		Error:    res.Err,
+		Command:  Command(res.Command),
 		Segments: te.wrapper.Wrap(res.Segments),
 	}, true, nil
-
 }
 
-func executeRequest(
+type storageRequestTranslator struct {
+	confluence.LinearTransform[Request, cesium.IterateRequest]
+}
+
+func newCesiumRequestTranslator() confluence.Segment[Request, cesium.IterateRequest] {
+	rq := &storageRequestTranslator{}
+	rq.LinearTransform.Transform = rq.translate
+	return rq
+}
+
+func (te *storageRequestTranslator) translate(
 	ctx context.Context,
-	host distribcore.NodeID,
-	iter cesium.StreamIterator,
 	req Request,
-) Response {
-	switch req.Command {
-	case Open:
-		ack := newAck(host, req.Command, false)
-		ack.Error = errors.New(
-			"[segment.iterator.serve] - Open command called multiple times",
-		)
-		return ack
-	case Next:
-		return newAck(host, req.Command, iter.Next())
-	case Prev:
-		return newAck(host, req.Command, iter.Prev())
-	case First:
-		return newAck(host, req.Command, iter.First())
-	case Last:
-		return newAck(host, req.Command, iter.Last())
-	case NextSpan:
-		return newAck(host, req.Command, iter.NextSpan(req.Span))
-	case PrevSpan:
-		return newAck(host, req.Command, iter.PrevSpan(req.Span))
-	case NextRange:
-		return newAck(host, req.Command, iter.NextRange(req.Range))
-	case SeekFirst:
-		return newAck(host, req.Command, iter.SeekFirst())
-	case SeekLast:
-		return newAck(host, req.Command, iter.SeekLast())
-	case SeekLT:
-		return newAck(host, req.Command, iter.SeekLT(req.Stamp))
-	case SeekGE:
-		return newAck(host, req.Command, iter.SeekGE(req.Stamp))
-	case Valid:
-		return newAck(host, req.Command, iter.Valid())
-	case Error:
-		err := iter.Error()
-		ack := newAck(host, req.Command, err == nil)
-		ack.Error = err
-		return ack
-	case Close:
-		err := iter.Close()
-		ack := newAck(host, req.Command, err == nil)
-		ack.Error = err
-		return ack
-	case Exhaust:
-		for iter.First(); iter.Next(); iter.Valid() {
-		}
-		return newAck(host, req.Command, true)
-	default:
-		ack := newAck(host, req.Command, false)
-		ack.Error = errors.New("[segment.iterator] - unknown command")
-		return ack
-	}
+) (cesium.IterateRequest, bool, error) {
+	return cesium.IterateRequest{
+		Command: cesium.IteratorCommand(req.Command),
+		Span:    req.Span,
+		Range:   req.Range,
+		Stamp:   req.Stamp,
+	}, true, nil
 }

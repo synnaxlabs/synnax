@@ -8,6 +8,7 @@ import (
 	"github.com/arya-analytics/x/telem"
 )
 
+//go:generate stringer -type=Command
 type Command uint8
 
 const (
@@ -19,14 +20,13 @@ const (
 	NextSpan
 	PrevSpan
 	NextRange
+	Valid
+	Error
+	Close
 	SeekFirst
 	SeekLast
 	SeekLT
 	SeekGE
-	Valid
-	Error
-	Close
-	Exhaust
 )
 
 // Request is a request to a remote iterator.
@@ -38,7 +38,6 @@ type Request struct {
 	Range telem.TimeRange
 	Stamp telem.TimeStamp
 	Keys  channel.Keys
-	Sync  bool
 }
 
 type ResponseVariant uint8
