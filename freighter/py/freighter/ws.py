@@ -108,7 +108,9 @@ class Stream(Generic[RQ, RS]):
 
         await self.wrapped.close()
 
-DEFAULT_MAX_SIZE = 2**20
+
+DEFAULT_MAX_SIZE = 2 ** 20
+
 
 class Client:
     endpoint: Endpoint

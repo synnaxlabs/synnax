@@ -6,6 +6,7 @@ import (
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/alamos"
 	"github.com/arya-analytics/x/binary"
+	"github.com/arya-analytics/x/config"
 	"github.com/arya-analytics/x/kv"
 	"github.com/arya-analytics/x/override"
 	"github.com/arya-analytics/x/validate"
@@ -44,6 +45,8 @@ type Config struct {
 	// cluster state.
 	EncoderDecoder binary.EncoderDecoder
 }
+
+var _ config.Config[Config] = Config{}
 
 func (cfg Config) Override(other Config) Config {
 	cfg.HostAddress = override.String(cfg.HostAddress, other.HostAddress)

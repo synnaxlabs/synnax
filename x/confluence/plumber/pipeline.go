@@ -12,9 +12,8 @@ type Segment[I, O cfs.Value] struct {
 	*Pipeline
 	cfs.UnarySink[I]
 	cfs.AbstractUnarySource[O]
-	RouteInletsTo       []address.Address
-	RouteOutletsFrom    []address.Address
-	NoAcquireForOutlets bool
+	RouteInletsTo    []address.Address
+	RouteOutletsFrom []address.Address
 }
 
 func (s *Segment[I, O]) constructEndpointRoutes() {
@@ -25,9 +24,6 @@ func (s *Segment[I, O]) constructEndpointRoutes() {
 	for _, addr := range s.RouteOutletsFrom {
 		source, _ := GetSource[O](s.Pipeline, addr)
 		source.OutTo(s.Out)
-		if !s.NoAcquireForOutlets {
-			s.Out.Acquire(1)
-		}
 	}
 }
 

@@ -15,11 +15,11 @@ var _ = Describe("Regression", func() {
 	var (
 		kve      kvx.DB
 		headerKV *kv.Header
-		chKV     *kv.Channel
+		chKV     *kv.ChannelService
 	)
 	BeforeEach(func() {
 		kve = memkv.New()
-		chKV = kv.NewChannel(kve)
+		chKV = kv.NewChannelService(kve)
 		headerKV = kv.NewHeader(kve)
 
 	})
@@ -48,7 +48,8 @@ var _ = Describe("Regression", func() {
 		})
 		Describe("PrevSpan", func() {
 			It("Should move the iterator view correctly", func() {
-				iter := kv.NewIterator(kve, telem.TimeRangeMax, ch.Key)
+				iter, err := kv.NewIterator(kve, telem.TimeRangeMax, ch.Key)
+				Expect(err).To(Succeed())
 				Expect(iter.SeekLast()).To(BeTrue())
 				Expect(iter.PrevSpan(20 * telem.Second)).To(BeTrue())
 				Expect(iter.View()).To(Equal(telem.TimeRange{

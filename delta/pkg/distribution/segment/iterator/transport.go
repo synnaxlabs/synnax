@@ -22,7 +22,6 @@ const (
 	NextRange
 	Valid
 	Error
-	Close
 	SeekFirst
 	SeekLast
 	SeekLT
@@ -31,13 +30,11 @@ const (
 
 // Request is a request to a remote iterator.
 type Request struct {
-	// Command is the command to execute.
 	Command Command
-	// ... The rest of the parameters are loosely defined arguments specific to the command.
-	Span  telem.TimeSpan
-	Range telem.TimeRange
-	Stamp telem.TimeStamp
-	Keys  channel.Keys
+	Span    telem.TimeSpan
+	Range   telem.TimeRange
+	Stamp   telem.TimeStamp
+	Keys    channel.Keys
 }
 
 type ResponseVariant uint8

@@ -53,6 +53,7 @@ func provisionNServices(n int, logger *zap.Logger) (*mock.CoreBuilder, map[core.
 			TS:        _core.Storage.TS,
 			Resolver:  _core.Cluster,
 			Transport: container.transport.iter,
+			Logger:    zap.NewNop(),
 		})
 		services[_core.Cluster.HostID()] = container
 	}

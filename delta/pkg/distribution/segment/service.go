@@ -64,21 +64,23 @@ func (s *Service) NewStreamWriter(ctx context.Context, keys ...channel.Key) (Str
 
 func (s *Service) newIteratorConfig(tr telem.TimeRange, keys []channel.Key) iterator.Config {
 	return iterator.Config{
-		TS:          s.db,
-		Resolver:    s.resolver,
-		Transport:   s.transport.Iterator(),
-		ChannelKeys: keys,
-		TimeRange:   tr,
-		Logger:      s.logger,
+		TS:             s.db,
+		Resolver:       s.resolver,
+		Transport:      s.transport.Iterator(),
+		ChannelKeys:    keys,
+		TimeRange:      tr,
+		Logger:         s.logger,
+		ChannelService: s.channel,
 	}
 }
 
 func (s *Service) newWriterConfig(keys []channel.Key) writer.Config {
 	return writer.Config{
-		TS:          s.db,
-		Resolver:    s.resolver,
-		Transport:   s.transport.Writer(),
-		ChannelKeys: keys,
-		Logger:      s.logger,
+		TS:             s.db,
+		Resolver:       s.resolver,
+		Transport:      s.transport.Writer(),
+		ChannelKeys:    keys,
+		Logger:         s.logger,
+		ChannelService: s.channel,
 	}
 }

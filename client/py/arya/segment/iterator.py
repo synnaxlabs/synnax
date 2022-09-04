@@ -20,14 +20,12 @@ class Command(int, Enum):
     NEXT_SPAN = 5
     PREV_SPAN = 6
     NEXT_RANGE = 7
-    SEEK_FIRST = 8
-    SEEK_LAST = 9
-    SEEK_LT = 10
-    SEEK_GE = 11
-    VALID = 12
-    ERROR = 13
-    CLOSE = 14
-    EXHAUST = 15
+    VALID = 8
+    ERROR = 9
+    SEEK_FIRST = 11
+    SEEK_LAST = 12
+    SEEK_LT = 13
+    SEEK_GE = 14
 
 
 class ResponseVariant(int, Enum):
@@ -143,7 +141,9 @@ class Core:
         return self.exec(command=Command.EXHAUST)
 
     def close(self):
-        self.exec(command=Command.CLOSE)
+        exc = self.stream.close_send()
+        if exc is not None:
+            raise exc
         _, exc = self.stream.receive()
         if not isinstance(exc, freighter.EOF):
             raise exc

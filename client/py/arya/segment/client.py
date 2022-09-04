@@ -45,11 +45,9 @@ class Client:
         _iterator = self.new_iterator([from_], tr, aggregate=True)
         seg = None
         try:
-            t0 = datetime.now()
             _iterator.first()
             while _iterator.next():
                 pass
-            print(f"read_seg: {datetime.now() - t0}")
             seg = _iterator.value[from_]
         finally:
             _iterator.close()

@@ -46,25 +46,16 @@ type transientSink[V Value] struct {
 	Sink[V]
 }
 
-func (t transient[I, O]) CloseInlets() { t.trans.Close() }
-
-func (t transientSource[V]) CloseInlets() { t.trans.Close() }
-
-func (t transientSink[V]) CloseInlets() { t.trans.Close() }
-
 func (t transient[I, O]) Flow(ctx signal.Context, opts ...Option) {
-	t.trans.Acquire(1)
-	t.Segment.Flow(ctx, append(opts, WithInletCloser(t))...)
+	t.Segment.Flow(ctx, append(opts, WithClosables(t.trans))...)
 }
 
 func (t transientSource[V]) Flow(ctx signal.Context, opts ...Option) {
-	t.trans.Acquire(1)
-	t.Source.Flow(ctx, append(opts, WithInletCloser(t))...)
+	t.Source.Flow(ctx, append(opts, WithClosables(t.trans))...)
 }
 
 func (t transientSink[V]) Flow(ctx signal.Context, opts ...Option) {
-	t.trans.Acquire(1)
-	t.Sink.Flow(ctx, append(opts, WithInletCloser(t))...)
+	t.Sink.Flow(ctx, append(opts, WithClosables(t.trans))...)
 }
 
 func InjectTransient[I, O Value](trans Inlet[error], seg bindableTransientSegment[I, O]) Segment[I, O] {

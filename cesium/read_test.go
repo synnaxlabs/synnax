@@ -2,82 +2,51 @@ package cesium_test
 
 import (
 	"github.com/arya-analytics/cesium"
+	"github.com/arya-analytics/cesium/internal/channel"
 	"github.com/arya-analytics/cesium/testutil/seg"
+	"github.com/arya-analytics/x/telem"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"go.uber.org/zap"
 	"sync"
 )
 
-var _ = Describe("getAttributes", func() {
+var _ = Describe("Read", func() {
+	var db cesium.DB
+	BeforeEach(func() {
+		var err error
+		db, err = cesium.Open("", cesium.MemBacked(), cesium.WithLogger(logger))
+		Expect(err).ToNot(HaveOccurred())
+	})
 	Context("Single channel", func() {
 		var (
-			db      cesium.DB
-			key     cesium.ChannelKey
-			channel cesium.Channel
-			log     *zap.Logger
+			channel *cesium.Channel
+			factory seg.SequentialFactory
 		)
 		BeforeEach(func() {
-			var err error
-			log = zap.NewNop()
-			db, err = cesium.Open("testdata", cesium.MemBacked(),
-				cesium.WithLogger(log))
-			Expect(err).ToNot(HaveOccurred())
-			channel = cesium.Channel{
-				Rate:    1 * cesium.Hz,
-				Density: cesium.Bit64,
-			}
-			key, err = db.CreateChannel(channel)
-			channel.Key = key
-			Expect(err).ToNot(HaveOccurred())
+			channel = &cesium.Channel{Rate: 1 * telem.Hz, Density: telem.Bit64}
+			Expect(db.CreateChannel(channel)).To(Succeed())
+			factory = seg.NewSequentialFactory(&seg.RandomFloat64Factory{}, 10*telem.Second, *channel)
 		})
-		AfterEach(func() {
-			Expect(db.Close()).To(Succeed())
-		})
+		AfterEach(func() { Expect(db.Close()).To(Succeed()) })
 		It("Should read the segments correctly", func() {
-			req, res, err := db.NewCreate().WhereChannels(key).Stream(ctx)
-			Expect(err).ToNot(HaveOccurred())
-			stc := &seg.StreamCreate{
-				Req: req,
-				Res: res,
-				SequentialFactory: seg.NewSequentialFactory(
-					&seg.RandomFloat64Factory{},
-					10*cesium.Second,
-					channel,
-				),
-			}
-			stc.CreateCRequestsOfN(10, 2)
-			Expect(stc.CloseAndWait()).To(Succeed())
+			Expect(db.Write(factory.NextN(20))).To(Succeed())
 			var segments []cesium.Segment
-			q := db.NewRetrieve().WhereChannels(key).WhereTimeRange(cesium.TimeRangeMax)
-			Expect(db.Sync(ctx, q, &segments)).To(Succeed())
-			Expect(len(segments)).To(Equal(20))
+			segments, err := db.Read(telem.TimeRangeMax, channel.Key)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(segments).To(HaveLen(20))
 		})
 		It("It should support multiple concurrent read requests", func() {
-			req, res, err := db.NewCreate().WhereChannels(key).Stream(ctx)
-			Expect(err).ToNot(HaveOccurred())
-			stc := &seg.StreamCreate{
-				Req: req,
-				Res: res,
-				SequentialFactory: seg.NewSequentialFactory(&seg.RandomFloat64Factory{}, 10*cesium.Second,
-					channel),
-			}
-			stc.CreateCRequestsOfN(10, 2)
-			Expect(stc.CloseAndWait()).To(Succeed())
+			Expect(db.Write(factory.NextN(20))).To(Succeed())
 			const nRequests = 10
-			wg := sync.WaitGroup{}
+			var wg sync.WaitGroup
 			wg.Add(nRequests)
 			for i := 0; i < nRequests; i++ {
 				go func() {
 					defer GinkgoRecover()
 					defer wg.Done()
-					var segments []cesium.Segment
-					q := db.NewRetrieve().
-						WhereChannels(key).
-						WhereTimeRange(cesium.TimeRangeMax)
-					err := db.Sync(ctx, q, &segments)
+					segments, err := db.Read(telem.TimeRangeMax, channel.Key)
 					Expect(err).ToNot(HaveOccurred())
-					Expect(len(segments)).To(Equal(20))
+					Expect(segments).To(HaveLen(20))
 				}()
 			}
 			wg.Wait()
@@ -85,7 +54,6 @@ var _ = Describe("getAttributes", func() {
 	})
 	Context("Multi channel", func() {
 		var (
-			db           cesium.DB
 			channels     []cesium.Channel
 			channelCount = 10
 		)
@@ -94,12 +62,8 @@ var _ = Describe("getAttributes", func() {
 			db, err = cesium.Open("testdata", cesium.MemBacked())
 			Expect(err).ToNot(HaveOccurred())
 			for i := 0; i < channelCount; i++ {
-				c := cesium.Channel{
-					Rate:    1 * cesium.Hz,
-					Density: cesium.Bit64,
-				}
-				k, err := db.CreateChannel(c)
-				c.Key = k
+				c := cesium.Channel{Rate: 1 * telem.Hz, Density: telem.Bit64}
+				Expect(db.CreateChannel(&c)).To(Succeed())
 				Expect(err).ToNot(HaveOccurred())
 				channels = append(channels, c)
 			}
@@ -109,24 +73,11 @@ var _ = Describe("getAttributes", func() {
 		})
 		It("Should support reading data from multiple channels", func() {
 			for i := 0; i < channelCount; i++ {
-				req, res, err := db.NewCreate().WhereChannels(channels[i].Key).Stream(ctx)
-				Expect(err).ToNot(HaveOccurred())
-				stc := &seg.StreamCreate{
-					Req: req,
-					Res: res,
-					SequentialFactory: seg.NewSequentialFactory(&seg.RandomFloat64Factory{},
-						10*cesium.Second, channels[i]),
-				}
-				stc.CreateCRequestsOfN(10, 2)
-				Expect(stc.CloseAndWait()).To(Succeed())
+				factory := seg.NewSequentialFactory(&seg.RandomFloat64Factory{}, 10*telem.Second, channels[i])
+				Expect(db.Write(factory.NextN(20))).To(Succeed())
 			}
-			var cPKs []cesium.ChannelKey
-			for _, c := range channels {
-				cPKs = append(cPKs, c.Key)
-			}
-			var segments []cesium.Segment
-			q := db.NewRetrieve().WhereChannels(cPKs...).WhereTimeRange(cesium.TimeRangeMax)
-			Expect(db.Sync(ctx, q, &segments)).To(Succeed())
+			segments, err := db.Read(telem.TimeRangeMax, channel.ExtractKeys(channels)...)
+			Expect(err).ToNot(HaveOccurred())
 			Expect(segments).To(HaveLen(200))
 		})
 	})

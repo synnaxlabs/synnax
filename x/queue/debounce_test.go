@@ -21,8 +21,8 @@ var _ = Describe("Debounce", func() {
 	BeforeEach(func() {
 		d = &queue.Debounce[int]{
 			Config: queue.DebounceConfig{
-				Interval:  30 * time.Millisecond,
-				Threshold: 15,
+				FlushInterval:  30 * time.Millisecond,
+				FlushThreshold: 15,
 			},
 		}
 		req = confluence.NewStream[[]int](10)

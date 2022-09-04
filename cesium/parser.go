@@ -12,16 +12,15 @@ import (
 )
 
 type createParser struct {
-	ctx       context.Context
 	logger    *zap.Logger
 	metrics   createMetrics
 	wg        *sync.WaitGroup
-	responses confluence.AbstractUnarySource[CreateResponse]
+	responses confluence.AbstractUnarySource[WriteResponse]
 	channels  map[channel.Key]channel.Channel
 	header    *kv.Header
 }
 
-func (c *createParser) parse(segments []Segment) ([]createOperationUnary, error) {
+func (c *createParser) parse(ctx context.Context, segments []Segment) ([]createOperationUnary, error) {
 	var ops []createOperationUnary
 	for _, seg := range segments {
 		ch, ok := c.channels[seg.ChannelKey]
@@ -29,7 +28,7 @@ func (c *createParser) parse(segments []Segment) ([]createOperationUnary, error)
 			return ops, errors.AssertionFailedf("invalid channel key")
 		}
 		op := createOperationUnary{
-			ctx:       c.ctx,
+			ctx:       ctx,
 			seg:       seg.Sugar(ch),
 			logger:    c.logger,
 			kv:        c.header,
@@ -44,7 +43,7 @@ func (c *createParser) parse(segments []Segment) ([]createOperationUnary, error)
 }
 
 type retrieveParser struct {
-	responses *confluence.AbstractUnarySource[IteratorResponse]
+	responses *confluence.AbstractUnarySource[IterateResponse]
 	logger    *zap.Logger
 	metrics   retrieveMetrics
 	wg        *sync.WaitGroup

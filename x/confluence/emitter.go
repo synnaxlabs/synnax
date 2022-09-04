@@ -19,7 +19,7 @@ type Emitter[V Value] struct {
 // Flow implements the Flow interface.
 func (e *Emitter[V]) Flow(ctx signal.Context, opts ...Option) {
 	fo := NewOptions(opts)
-	fo.AttachInletCloser(e)
+	fo.AttachClosables(e.Out)
 	signal.GoTick(ctx, e.Interval, e.emit, fo.Signal...)
 }
 

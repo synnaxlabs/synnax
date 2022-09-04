@@ -13,93 +13,194 @@ import (
 	"github.com/arya-analytics/x/confluence"
 	"github.com/arya-analytics/x/confluence/plumber"
 	kvx "github.com/arya-analytics/x/kv"
+	"github.com/arya-analytics/x/lock"
 	"github.com/arya-analytics/x/override"
-	"github.com/arya-analytics/x/query"
 	"github.com/arya-analytics/x/queue"
 	"github.com/arya-analytics/x/signal"
 	"github.com/arya-analytics/x/validate"
 	"github.com/cockroachdb/errors"
+	"github.com/samber/lo"
+	"go.uber.org/zap"
 	"sync"
 	"time"
 )
 
 // WriteRequest is a request containing a set of segments (segment) to write to the DB.
 type WriteRequest struct {
+	// Segments is a set of segments to write to the DB.
 	Segments []segment.Segment
 }
 
 // WriteResponse contains any errors that occurred during the execution of the Create Query.
 type WriteResponse struct {
-	Error error
+	// Err is any error that occurred during writer execution.
+	Err error
 }
 
-func (c Create) Stream(ctx context.Context) (chan<- WriteRequest, <-chan WriteResponse, error) {
-	keys := channel.GetKeys(c)
-	requests := confluence.NewStream[WriteRequest](0)
-	responses := confluence.NewStream[WriteResponse](0)
+type StreamWriter = confluence.Segment[WriteRequest, WriteResponse]
 
-	_channels, err := kv.NewChannel(c.kv).Get(keys...)
+// Writer writes segmented telemetry to the DB. A writer must be closed after use. A Writer
+// is not goroutine-safe, but it is safe to use multiple writers for different channels
+// concurrently.
+//
+// Writer is asynchronous, meaning that calls to Write will return before segments are
+// persisted to disk. The caller can guarantee that all segments have been persisted
+// by calling Close.
+type Writer interface {
+	// Write writes the provided segments to the DB. If the Writer has encountered an
+	// operational error, this method will return false, and the caller is expected
+	// to close the Writer. After Write returns false, subsequent calls to Write will
+	// return false immediately.
+	//
+	// Segments must have channel keys in the set provided to DB.NewWriter. Segment data
+	// must also be valid i.e. it must have non-zero length and be a multiple of the
+	// channel's density. All segments must be provided in time-sorted order on a
+	// per-channel basis.
+	Write(segments []segment.Segment) bool
+	// Close closes the Writer and returns any error accumulated during execution. Close
+	// will block until all segments have been persisted to the DB. It is not safe
+	// to call Close concurrently with any other Writer methods.
+	Close() error
+}
+
+type writer struct {
+	internal  streamWriter
+	requests  confluence.Inlet[WriteRequest]
+	responses confluence.Outlet[WriteResponse]
+	wg        signal.WaitGroup
+	_error    error
+}
+
+func wrapStreamWriter(internal *streamWriter) *writer {
+	sCtx, _ := signal.Background()
+	req := confluence.NewStream[WriteRequest]()
+	res := confluence.NewStream[WriteResponse]()
+	internal.InFrom(req)
+	internal.OutTo(res)
+	internal.Flow(
+		sCtx,
+		confluence.CloseInletsOnExit(),
+		confluence.CancelOnExitErr(),
+	)
+	return &writer{internal: *internal, requests: req, responses: res}
+}
+
+// Write implements the Writer interface.
+func (w writer) Write(segments []segment.Segment) bool {
+	if w.error() != nil {
+		return false
+	}
+	w.requests.Inlet() <- WriteRequest{Segments: segments}
+	return true
+}
+
+// Close implements the Writer interface.
+func (w writer) Close() (err error) {
+	w.requests.Close()
+	for res := range w.responses.Outlet() {
+		err = res.Err
+	}
+	return err
+}
+
+func (w writer) error() error {
+	select {
+	case res := <-w.responses.Outlet():
+		w._error = res.Err
+	default:
+	}
+	return w._error
+}
+
+type streamWriter struct {
+	confluence.AbstractUnarySource[WriteResponse]
+	confluence.UnarySink[WriteRequest]
+	lock       lock.Keys[ChannelKey]
+	keys       []ChannelKey
+	metrics    createMetrics
+	wg         *sync.WaitGroup
+	parser     *createParser
+	operations confluence.Inlet[[]createOperationUnary]
+}
+
+func newStreamWriter(
+	keys []ChannelKey,
+	lock lock.Keys[ChannelKey],
+	kve kvx.DB,
+	metrics createMetrics,
+	logger *zap.Logger,
+	operations confluence.Inlet[[]createOperationUnary],
+) (*streamWriter, error) {
+	keys = lo.Uniq(keys)
+	if len(keys) == 0 {
+		return nil, errors.New("[cesium] - writer opened without keys")
+	}
+	channels, err := kv.NewChannelService(kve).Get(keys...)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	if len(_channels) != len(keys) {
-		return nil, nil, NotFound
-	}
-
-	query.SetContext(c, ctx)
-	if !c.lock.TryLock(keys...) {
-		return nil, nil, errors.New("[cesium] - lock already held")
+	if !lock.TryLock(keys...) {
+		return nil, errors.New("[cesium] - lock already held")
 	}
 
-	channels := make(map[channel.Key]channel.Channel)
-	for _, ch := range _channels {
-		channels[ch.Key] = ch
+	channelMap := make(map[ChannelKey]channel.Channel)
+	for _, ch := range channels {
+		channelMap[ch.Key] = ch
 	}
 
-	res := confluence.AbstractUnarySource[WriteResponse]{}
-	res.OutTo(responses)
-
+	responses := confluence.AbstractUnarySource[WriteResponse]{}
 	wg := &sync.WaitGroup{}
 
-	parser := &createParser{
-		ctx:       ctx,
-		logger:    c.logger,
-		metrics:   c.metrics,
-		header:    kv.NewHeader(c.kv),
-		channels:  channels,
-		responses: res,
-		wg:        wg,
-	}
+	return &streamWriter{
+		lock:       lock,
+		keys:       keys,
+		metrics:    metrics,
+		wg:         wg,
+		operations: operations,
+		parser: &createParser{
+			logger:    logger,
+			metrics:   metrics,
+			header:    kv.NewHeader(kve),
+			channels:  channelMap,
+			responses: responses,
+			wg:        wg,
+		},
+	}, nil
+}
 
-	requestDur := c.metrics.request.Stopwatch()
+func (s *streamWriter) Flow(_ctx signal.Context, opts ...confluence.Option) {
+	o := confluence.NewOptions(opts)
+	o.AttachClosables(s.Out)
+
+	requestDur := s.metrics.request.Stopwatch()
 	requestDur.Start()
-	go func() {
+
+	_ctx.Go(func(ctx context.Context) error {
 		defer func() {
 			requestDur.Stop()
-			c.lock.Unlock(keys...)
+			s.lock.Unlock(s.keys...)
 		}()
 		for {
 			select {
 			case <-ctx.Done():
-				return
-			case req, ok := <-requests.Outlet():
+				return ctx.Err()
+			case req, ok := <-s.In.Outlet():
 				if !ok {
-					wg.Wait()
-					responses.Close()
-					return
+					s.wg.Wait()
+					return nil
 				}
-				ops, err := parser.parse(req.Segments)
+				ops, err := s.parser.parse(ctx, req.Segments)
 				if err != nil {
-					responses.Inlet() <- WriteResponse{Error: err}
+					s.Out.Inlet() <- WriteResponse{Err: err}
+					continue
 				}
-				wg.Add(len(ops))
-				if err := signal.SendUnderContext(ctx, c.ops.Inlet(), ops); err != nil {
-					return
+				s.wg.Add(len(ops))
+				if err := signal.SendUnderContext(ctx, s.operations.Inlet(), ops); err != nil {
+					return err
 				}
 			}
 		}
-	}()
-	return requests.Inlet(), responses.Outlet(), nil
+	}, o.Signal...)
 }
 
 type writeConfig struct {
@@ -196,27 +297,18 @@ func startCreate(ctx signal.Context, _cfg ...writeConfig) (confluence.Inlet[[]cr
 	)
 
 	plumber.UnaryRouter[[]createOperationUnary]{
-		SourceTarget: "query",
-		SinkTarget:   "allocator",
-		Capacity:     1,
-	}.MustRoute(pipe)
-
-	plumber.UnaryRouter[[]createOperationUnary]{
 		SourceTarget: "allocator",
 		SinkTarget:   "queue",
-		Capacity:     1,
 	}.MustRoute(pipe)
 
 	plumber.UnaryRouter[[]createOperationUnary]{
 		SourceTarget: "queue",
 		SinkTarget:   "batch",
-		Capacity:     1,
 	}.MustRoute(pipe)
 
 	plumber.UnaryRouter[[]createOperationSet]{
 		SourceTarget: "batch",
 		SinkTarget:   "persist",
-		Capacity:     1,
 	}.MustRoute(pipe)
 
 	pipe.Flow(ctx)

@@ -27,7 +27,7 @@ var _ = Describe("Write", func() {
 		chThree = channel.Channel{Key: 3, Rate: 1, Density: 1}
 		kve = memkv.New()
 		headerKV = kv.NewHeader(kve)
-		chKV := kv.NewChannel(kve)
+		chKV := kv.NewChannelService(kve)
 		Expect(chKV.Set(ch)).To(Succeed())
 		Expect(chKV.Set(chTwo)).To(Succeed())
 		Expect(chKV.Set(chThree)).To(Succeed())
@@ -35,7 +35,7 @@ var _ = Describe("Write", func() {
 
 	AfterEach(func() { Expect(kve.Close()).To(Succeed()) })
 
-	Context("Even Bounded Range", func() {
+	Context("Even Bounded TimeRange", func() {
 		var iter kv.Iterator
 		BeforeEach(func() {
 			Expect(headerKV.SetMultiple([]segment.Header{
@@ -50,10 +50,12 @@ var _ = Describe("Write", func() {
 					Size:       100,
 				},
 			})).To(Succeed())
-			iter = kv.NewIterator(kve, telem.TimeRange{
+			var err error
+			iter, err = kv.NewIterator(kve, telem.TimeRange{
 				Start: 0,
 				End:   telem.TimeStamp(200 * time.Second),
 			}, ch.Key)
+			Expect(err).ToNot(HaveOccurred())
 		})
 		AfterEach(func() { Expect(iter.Close()).To(Succeed()) })
 
@@ -208,7 +210,7 @@ var _ = Describe("Write", func() {
 
 	})
 
-	Context("Uneven Bounded Range", func() {
+	Context("Uneven Bounded TimeRange", func() {
 		Context("First BoundedRange Starts After, Last BoundedRange Ends After", func() {
 
 			var iter kv.Iterator
@@ -225,10 +227,12 @@ var _ = Describe("Write", func() {
 						Size:       100,
 					},
 				})).To(Succeed())
-				iter = kv.NewIterator(kve, telem.TimeRange{
+				var err error
+				iter, err = kv.NewIterator(kve, telem.TimeRange{
 					Start: telem.TimeStamp(5 * time.Second),
 					End:   telem.TimeStamp(200 * time.Second),
 				}, ch.Key)
+				Expect(err).ToNot(HaveOccurred())
 			})
 			AfterEach(func() { Expect(iter.Close()).To(Succeed()) })
 
@@ -283,8 +287,11 @@ var _ = Describe("Write", func() {
 		})
 	})
 
-	Context("Invalid Bounded Range", func() {
-		var iter kv.Iterator
+	Context("Invalid Bounded TimeRange", func() {
+		var (
+			err  error
+			iter kv.Iterator
+		)
 		BeforeEach(func() {
 			Expect(headerKV.SetMultiple([]segment.Header{
 				{
@@ -298,29 +305,17 @@ var _ = Describe("Write", func() {
 					Size:       100,
 				},
 			})).To(Succeed())
-			iter = kv.NewIterator(kve, telem.TimeRange{
+			iter, err = kv.NewIterator(kve, telem.TimeRange{
 				Start: telem.TimeStamp(5 * time.Second),
 				End:   telem.TimeStamp(210 * time.Second),
 			}, ch.Key)
 		})
-		AfterEach(func() { Expect(iter.Close()).To(Succeed()) })
 
 		Describe("First", func() {
 			It("Should return false", func() {
-				Expect(iter.Error()).To(HaveOccurred())
-				Expect(iter.Error()).To(MatchError("[cesium.kv] - range has no data"))
-				Expect(iter.First()).To(BeFalse())
-				Expect(iter.Valid()).To(BeFalse())
-				Expect(iter.Range().Headers).To(HaveLen(0))
-				Expect(iter.Range().Range()).To(Equal(telem.TimeRangeZero))
-				Expect(iter.Close()).To(Succeed())
-			})
-		})
-
-		Describe("SeekFirst", func() {
-			It("Should return false", func() {
-				Expect(iter.SeekFirst()).To(BeFalse())
-				Expect(iter.Close()).To(Succeed())
+				Expect(iter).To(BeNil())
+				Expect(err).To(HaveOccurred())
+				Expect(err).To(MatchError("[cesium.kv] - range has no data"))
 			})
 		})
 
@@ -345,10 +340,12 @@ var _ = Describe("Write", func() {
 					Size:       1,
 				},
 			})).To(Succeed())
-			iter = kv.NewIterator(kve, telem.TimeRange{
+			var err error
+			iter, err = kv.NewIterator(kve, telem.TimeRange{
 				Start: telem.Now().Sub(10 * telem.Second),
 				End:   telem.Now().Add(10 * telem.Second),
 			}, ch.Key)
+			Expect(err).ToNot(HaveOccurred())
 		})
 		AfterEach(func() { Expect(iter.Close()).To(Succeed()) })
 		It("Should open the iterator without error", func() {
@@ -388,10 +385,11 @@ var _ = Describe("Write", func() {
 							Size:       100,
 						},
 					})).To(Succeed())
-					iter := kv.NewIterator(kve, telem.TimeRange{
+					iter, err := kv.NewIterator(kve, telem.TimeRange{
 						Start: 0,
 						End:   telem.TimeStamp(200 * time.Second),
 					}, ch.Key)
+					Expect(err).ToNot(HaveOccurred())
 					Expect(iter.SeekFirst()).To(BeTrue())
 					Expect(iter.NextSpan(100 * telem.Second)).To(BeTrue())
 					Expect(iter.Valid()).To(BeTrue())
@@ -420,10 +418,11 @@ var _ = Describe("Write", func() {
 							Size:       100,
 						},
 					})).To(Succeed())
-					iter := kv.NewIterator(kve, telem.TimeRange{
+					iter, err := kv.NewIterator(kve, telem.TimeRange{
 						Start: 0,
 						End:   telem.TimeStamp(200 * time.Second),
 					}, ch.Key)
+					Expect(err).ToNot(HaveOccurred())
 					Expect(iter.SeekFirst()).To(BeTrue())
 					Expect(iter.NextSpan(50 * telem.Second)).To(BeTrue())
 					Expect(iter.Valid()).To(BeTrue())
@@ -460,10 +459,11 @@ var _ = Describe("Write", func() {
 						Size:       100,
 					},
 				})).To(Succeed())
-				iter := kv.NewIterator(kve, telem.TimeRange{
+				iter, err := kv.NewIterator(kve, telem.TimeRange{
 					Start: 0,
 					End:   telem.TimeStamp(300 * time.Second),
 				}, ch.Key)
+				Expect(err).ToNot(HaveOccurred())
 				Expect(iter.SeekFirst()).To(BeTrue())
 				Expect(iter.NextSpan(200 * telem.Second)).To(BeTrue())
 				Expect(iter.Valid()).To(BeTrue())
@@ -497,10 +497,11 @@ var _ = Describe("Write", func() {
 						Size:       100,
 					},
 				})).To(Succeed())
-				iter := kv.NewIterator(kve, telem.TimeRange{
+				iter, err := kv.NewIterator(kve, telem.TimeRange{
 					Start: 0,
 					End:   telem.TimeStamp(300 * time.Second),
 				}, ch.Key)
+				Expect(err).ToNot(HaveOccurred())
 				Expect(iter.Seek(telem.TimeStamp(50 * time.Second))).To(BeTrue())
 				Expect(iter.NextSpan(300 * telem.Second)).To(BeTrue())
 				Expect(iter.Valid()).To(BeTrue())
@@ -541,10 +542,11 @@ var _ = Describe("Write", func() {
 						Size:       100,
 					},
 				})).To(Succeed())
-				iter := kv.NewIterator(kve, telem.TimeRange{
+				iter, err := kv.NewIterator(kve, telem.TimeRange{
 					Start: 0,
 					End:   telem.TimeStamp(300 * time.Second),
 				}, ch.Key)
+				Expect(err).ToNot(HaveOccurred())
 				Expect(iter.Seek(telem.TimeStamp(50 * time.Second))).To(BeTrue())
 				Expect(iter.NextSpan(300 * telem.Second)).To(BeTrue())
 				Expect(iter.Valid()).To(BeTrue())
@@ -585,10 +587,11 @@ var _ = Describe("Write", func() {
 						Size:       100,
 					},
 				})).To(Succeed())
-				iter := kv.NewIterator(kve, telem.TimeRange{
+				iter, err := kv.NewIterator(kve, telem.TimeRange{
 					Start: 0,
 					End:   telem.TimeStamp(300 * time.Second),
 				}, ch.Key)
+				Expect(err).ToNot(HaveOccurred())
 
 				By("Moving to the first value")
 				Expect(iter.First()).To(BeTrue())
@@ -682,10 +685,11 @@ var _ = Describe("Write", func() {
 					},
 				}))
 
-				iter := kv.NewIterator(kve, telem.TimeRange{
+				iter, err := kv.NewIterator(kve, telem.TimeRange{
 					Start: 0,
 					End:   telem.TimeStamp(300 * telem.Second),
 				}, ch.Key)
+				Expect(err).ToNot(HaveOccurred())
 
 				By("Moving to the last value")
 				Expect(iter.Last()).To(BeTrue())
@@ -750,10 +754,11 @@ var _ = Describe("Write", func() {
 					})).To(Succeed())
 				}
 
-				iter := kv.NewIterator(kve, telem.TimeRange{
+				iter, err := kv.NewIterator(kve, telem.TimeRange{
 					Start: 0,
 					End:   telem.TimeStamp(400 * telem.Second),
 				}, chThree.Key, chTwo.Key, ch.Key)
+				Expect(err).ToNot(HaveOccurred())
 
 				By("Moving to the first value")
 				Expect(iter.First()).To(BeTrue())

@@ -22,7 +22,7 @@ type retrieveOperationUnary struct {
 	wg        *sync.WaitGroup
 	logger    *zap.Logger
 	errC      chan<- error
-	responses *confluence.AbstractUnarySource[IteratorResponse]
+	responses *confluence.AbstractUnarySource[IterateResponse]
 }
 
 func (rou retrieveOperationUnary) FileKey() core.FileKey { return rou.seg.FileKey() }
@@ -44,7 +44,7 @@ func (rou retrieveOperationUnary) Exec(f core.File) {
 	s.Start()
 	rou.maybeWriteError(rou.seg.ReadDataFrom(f))
 	s.Stop()
-	rou.responses.Out.Inlet() <- IteratorResponse{
+	rou.responses.Out.Inlet() <- IterateResponse{
 		Variant:  DataResponse,
 		Segments: []segment.Segment{rou.seg.Segment()},
 	}
@@ -65,7 +65,7 @@ type createOperationUnary struct {
 	metrics   createMetrics
 	wg        *sync.WaitGroup
 	kv        *kv.Header
-	responses confluence.AbstractUnarySource[CreateResponse]
+	responses confluence.AbstractUnarySource[WriteResponse]
 }
 
 // FileKey implements createOperation.
@@ -76,7 +76,7 @@ func (cou createOperationUnary) ChannelKey() channel.Key { return cou.seg.Channe
 
 // WriteError implements createOperation.
 func (cou createOperationUnary) WriteError(err error) {
-	cou.responses.Out.Inlet() <- CreateResponse{Error: err}
+	cou.responses.Out.Inlet() <- WriteResponse{Err: err}
 }
 
 func (cou createOperationUnary) maybeWriteError(err error) {

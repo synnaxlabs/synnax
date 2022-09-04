@@ -10,9 +10,16 @@ type Options struct {
 	CloseInletsOnExit bool
 }
 
-func (fo *Options) AttachInletCloser(closer InletCloser) {
+func (fo *Options) AttachClosables(closables ...Closable) {
 	if fo.CloseInletsOnExit {
-		fo.Signal = append(fo.Signal, signal.Defer(closer.CloseInlets))
+		for _, inlet := range closables {
+			inlet.Acquire(1)
+		}
+		fo.Signal = append(fo.Signal, signal.Defer(func() {
+			for _, inlet := range closables {
+				inlet.Close()
+			}
+		}))
 	}
 }
 
@@ -26,10 +33,6 @@ func NewOptions(opts []Option) *Options {
 
 type Option func(fo *Options)
 
-func WithInletCloser(closer InletCloser) Option {
-	return func(fo *Options) { fo.AttachInletCloser(closer) }
-}
-
 func CancelOnExitErr() Option {
 	return func(fo *Options) { fo.Signal = append(fo.Signal, signal.CancelOnExitErr()) }
 }
@@ -40,4 +43,8 @@ func WithAddress(addr address.Address) Option {
 
 func CloseInletsOnExit() Option {
 	return func(fo *Options) { fo.CloseInletsOnExit = true }
+}
+
+func WithClosables(closables ...Closable) Option {
+	return func(fo *Options) { fo.AttachClosables(closables...) }
 }

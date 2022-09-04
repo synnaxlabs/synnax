@@ -23,7 +23,7 @@ type LinearTransform[I, O Value] struct {
 // Flow implements the Segment interface.
 func (l *LinearTransform[I, O]) Flow(ctx signal.Context, opts ...Option) {
 	o := NewOptions(opts)
-	o.AttachInletCloser(l)
+	o.AttachClosables(l.Out)
 	l.GoRange(ctx, l.transform, o.Signal...)
 }
 

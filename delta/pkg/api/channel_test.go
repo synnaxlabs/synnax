@@ -11,7 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Channel", Ordered, func() {
+var _ = Describe("ChannelService", Ordered, func() {
 	var (
 		builder *mock.ProviderBuilder
 		prov    api.Provider

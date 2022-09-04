@@ -21,7 +21,7 @@ type DeltaMultiplier[V Value] struct{ Delta[V, V] }
 // Flow implements the Segment interface.
 func (d *DeltaMultiplier[V]) Flow(ctx signal.Context, opts ...Option) {
 	o := NewOptions(opts)
-	o.AttachInletCloser(d)
+	o.AttachClosables(InletsToClosables(d.Out)...)
 	d.GoRange(ctx, d.SendToEach, o.Signal...)
 }
 
@@ -35,7 +35,7 @@ type DeltaTransformMultiplier[I, O Value] struct {
 // Flow implements the Segment interface.
 func (d *DeltaTransformMultiplier[I, O]) Flow(ctx signal.Context, opts ...Option) {
 	o := NewOptions(opts)
-	o.AttachInletCloser(d)
+	o.AttachClosables(InletsToClosables(d.Out)...)
 	d.GoRange(ctx, d.transformAndMultiply, o.Signal...)
 }
 

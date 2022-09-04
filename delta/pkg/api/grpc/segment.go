@@ -35,16 +35,16 @@ package grpc
 //}
 //
 //func (i *iteratorServer) translateRequest(req *segmentv1.IteratorRequest) (api.IteratorRequest, error) {
-//	keys, err := channel.ParseKeys(req.Keys)
+//	keys, err := channel.ParseKeys(req.ChannelKeys)
 //	return api.IteratorRequest{
 //		Command: api.IteratorCommand(req.Command),
 //		SpanTo:    telem.TimeSpan(req.SpanTo),
-//		Range: telem.TimeRange{
-//			Start: telem.TimeStamp(req.Range.Start),
-//			End:   telem.TimeStamp(req.Range.End),
+//		TimeRange: telem.TimeRange{
+//			Start: telem.TimeStamp(req.TimeRange.Start),
+//			End:   telem.TimeStamp(req.TimeRange.End),
 //		},
 //		Stamp: telem.TimeStamp(req.Stamp),
-//		Keys:  keys,
+//		ChannelKeys:  keys,
 //	}, err
 //}
 //

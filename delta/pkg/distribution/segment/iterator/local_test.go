@@ -39,7 +39,7 @@ var _ = Describe("Local", Ordered, func() {
 				Expect(iter.Value()).To(HaveLen(1))
 			})
 		})
-		Describe("SeekFirst + TraverseTo", func() {
+		Describe("SeekFirst + Next", func() {
 			It("Should return the next segment in the iterator", func() {
 				Expect(iter.SeekFirst()).To(BeTrue())
 				Expect(iter.Next()).To(BeTrue())

@@ -5,6 +5,7 @@ import (
 	"github.com/arya-analytics/x/kfs"
 	"github.com/arya-analytics/x/kv"
 	"github.com/arya-analytics/x/kv/pebblekv"
+	"github.com/arya-analytics/x/lock"
 	"github.com/arya-analytics/x/signal"
 	"github.com/cockroachdb/pebble"
 	"go.uber.org/zap"
@@ -60,11 +61,10 @@ func Open(dirname string, opts ...Option) (DB, error) {
 
 	// |||||| CREATE ||||||
 
-	create, err := startCreate(ctx, createConfig{
-		exp:    o.exp,
-		logger: o.logger,
-		fs:     fs,
-		kv:     o.kv.engine,
+	createOperations, err := startCreate(ctx, writeConfig{
+		exp: o.exp,
+		fs:  fs,
+		kv:  o.kv.engine,
 	})
 	if err != nil {
 		shutdown()
@@ -73,11 +73,10 @@ func Open(dirname string, opts ...Option) (DB, error) {
 
 	// |||||| RETRIEVE ||||||
 
-	retrieve, err := startRetrieve(ctx, retrieveConfig{
-		exp:    o.exp,
-		logger: o.logger,
-		fs:     fs,
-		kv:     o.kv.engine,
+	retrieveOperations, err := startReadPipeline(ctx, readConfig{
+		exp: o.exp,
+		fs:  fs,
+		kv:  o.kv.engine,
 	})
 	if err != nil {
 		shutdown()
@@ -95,13 +94,17 @@ func Open(dirname string, opts ...Option) (DB, error) {
 	}
 
 	return &db{
-		kv:                o.kv.engine,
-		externalKV:        o.kv.external,
-		shutdown:          shutdown,
-		create:            create,
-		retrieve:          retrieve,
-		channelKeyCounter: channelKeyCounter,
-		wg:                ctx,
+		kv:                 o.kv.engine,
+		externalKV:         o.kv.external,
+		shutdown:           shutdown,
+		channelCounter:     channelKeyCounter,
+		channelLock:        lock.NewKeys[ChannelKey](),
+		wg:                 ctx,
+		createMetrics:      newCreateMetrics(o.exp),
+		retrieveMetrics:    newRetrieveMetrics(o.exp),
+		logger:             o.logger,
+		retrieveOperations: retrieveOperations,
+		createOperations:   createOperations,
 	}, nil
 }
 

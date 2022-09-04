@@ -343,12 +343,8 @@ func (i *iterator) Error() error {
 // Close implements Iterator.
 func (i *iterator) Close() error {
 	defer i.shutdown()
-
-	// Let all iterators (remote and local) know that it's time to stop.
-	_, err := i.execErr(Request{Command: Close})
 	i.requests.Close()
-
-	return errors.CombineErrors(err, i.wg.Wait())
+	return i.wg.Wait()
 }
 
 func (i *iterator) Value() []core.Segment {

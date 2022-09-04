@@ -85,7 +85,7 @@ var _ = Describe("Telem", func() {
 			})
 		})
 
-		Describe("Range", func() {
+		Describe("TimeRange", func() {
 			It("Should return the correct time range", func() {
 				t0 := telem.TimeStamp(0)
 				t1 := t0.Add(telem.Second)

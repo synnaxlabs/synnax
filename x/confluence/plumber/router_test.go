@@ -53,7 +53,7 @@ var _ = Describe("Router", func() {
 				SinkTarget:   "sink",
 				Capacity:     1,
 			}
-			Expect(router.PreRoute(p)()).ToNot(Succeed())
+			Expect(router.MustRoute(p)()).ToNot(Succeed())
 		})
 	})
 
@@ -141,7 +141,7 @@ var _ = Describe("Router", func() {
 					Stitch:        plumber.StitchConvergent,
 					Capacity:      1,
 				}
-				Expect(router.PreRoute(p)()).To(Succeed())
+				Expect(router.MustRoute(p)()).To(Succeed())
 				sourceOne.Out["sinkOne"].Inlet() <- 1
 				Expect(sinkOne.In.Outlet()).To(Receive(Equal(1)))
 				sourceOne.Out["sinkTwo"].Inlet() <- 1

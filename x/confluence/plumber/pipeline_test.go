@@ -192,19 +192,19 @@ var _ = Describe("Pipeline", func() {
 				SourceTargets: []address.Address{"emitterOne", "emitterTwo"},
 				SinkTargets:   []address.Address{"t1", "t2"},
 				Stitch:        plumber.StitchUnary,
-			}.PreRoute(pipe))
+			}.MustRoute(pipe))
 
 			catch.Exec(plumber.MultiRouter[int]{
 				SourceTargets: []address.Address{"t1", "t2"},
 				SinkTargets:   []address.Address{"switch"},
 				Stitch:        plumber.StitchUnary,
-			}.PreRoute(pipe))
+			}.MustRoute(pipe))
 
 			catch.Exec(plumber.MultiRouter[int]{
 				SourceTargets: []address.Address{"switch"},
 				SinkTargets:   []address.Address{"even", "odd"},
 				Stitch:        plumber.StitchWeave,
-			}.PreRoute(pipe))
+			}.MustRoute(pipe))
 
 			if catch.Error() != nil {
 				Fail("Failed to construct pipeline: " + catch.Error().Error())

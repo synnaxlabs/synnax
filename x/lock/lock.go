@@ -1,6 +1,11 @@
 package lock
 
-import "sync"
+import (
+	"github.com/cockroachdb/errors"
+	"sync"
+)
+
+var ErrLocked = errors.New("locked")
 
 // Locker is an interface representing a lock. It extends the sync.Locker interface
 // by allowing the caller to try to acquire the lock.

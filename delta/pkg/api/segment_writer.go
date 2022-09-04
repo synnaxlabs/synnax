@@ -10,6 +10,8 @@ import (
 	"github.com/arya-analytics/delta/pkg/distribution/segment/writer"
 	"github.com/arya-analytics/freighter"
 	"github.com/arya-analytics/freighter/ferrors"
+	"github.com/arya-analytics/x/confluence"
+	"github.com/arya-analytics/x/signal"
 	roacherrors "github.com/cockroachdb/errors"
 )
 
@@ -38,7 +40,7 @@ type WriterStream = freighter.ServerStream[WriterRequest, WriterResponse]
 // Write exposes a high level api for writing segmented telemetry to the delta
 // cluster. The client is expected to send an initial request containing the
 // keys of the channels to write to. The server will acquire an exclusive lock on
-// these channels. If the channels are already locked, Writer will return with
+// these channels. If the channels are already locked, Write will return with
 // an error. After sending the initial request, the client is free to send segments.
 // The server will route the segments to the appropriate nodes in the cluster,
 // persisting them to disk.
@@ -60,7 +62,7 @@ type WriterStream = freighter.ServerStream[WriterRequest, WriterResponse]
 // and then wait for a reasonable amount of time for the client to close the
 // connection before forcibly terminating the connection.
 func (s *SegmentService) Write(_ctx context.Context, stream WriterStream) errors.Typed {
-	ctx, cancel := context.WithCancel(_ctx)
+	ctx, cancel := signal.WithCancel(_ctx, signal.WithLogger(s.Logger.Desugar()))
 	// cancellation here would occur for one of two reasons. Either we encounter
 	// a fatal error (transport or writer internal) and we need to free all
 	// resources, OR the client executed the close command on the writer (in
@@ -71,6 +73,14 @@ func (s *SegmentService) Write(_ctx context.Context, stream WriterStream) errors
 	if err.Occurred() {
 		return err
 	}
+	requests := confluence.NewStream[writer.Request]()
+	w.InFrom(requests)
+	responses := confluence.NewStream[writer.Response]()
+	w.OutTo(responses)
+	w.Flow(ctx,
+		confluence.CloseInletsOnExit(),
+		confluence.CancelOnExitErr(),
+	)
 
 	parseErrors := make(chan errors.Typed)
 	go func() {
@@ -80,7 +90,7 @@ func (s *SegmentService) Write(_ctx context.Context, stream WriterStream) errors
 			// signatures for closing the writer. Any other error is considered abnormal
 			// and results in immediate cancellation and freeing of all resources.
 			if roacherrors.Is(err, freighter.EOF) {
-				close(w.Requests())
+				requests.Close()
 				return
 			}
 			if err != nil {
@@ -93,7 +103,7 @@ func (s *SegmentService) Write(_ctx context.Context, stream WriterStream) errors
 				parseErrors <- tErr
 				continue
 			}
-			w.Requests() <- writer.Request{Segments: segments}
+			requests.Inlet() <- writer.Request{Segments: segments}
 		}
 	}()
 
@@ -105,9 +115,9 @@ func (s *SegmentService) Write(_ctx context.Context, stream WriterStream) errors
 			if err := stream.Send(WriterResponse{Err: ferrors.Encode(err)}); err != nil {
 				return errors.Unexpected(err)
 			}
-		case resp, ok := <-w.Responses():
+		case resp, ok := <-responses.Outlet():
 			if !ok {
-				return errors.MaybeUnexpected(w.Close())
+				return errors.Nil
 			}
 			if err := stream.Send(WriterResponse{
 				Err: ferrors.Encode(errors.General(resp.Error)),
@@ -133,12 +143,12 @@ func translateSegments(seg []Segment) ([]core.Segment, errors.Typed) {
 	return segments, errors.Nil
 }
 
-func (s *SegmentService) openWriter(ctx context.Context, srv WriterStream) (segment.Writer, errors.Typed) {
+func (s *SegmentService) openWriter(ctx context.Context, srv WriterStream) (segment.StreamWriter, errors.Typed) {
 	keys, _err := receiveWriterOpenArgs(srv)
 	if _err.Occurred() {
 		return nil, _err
 	}
-	w, err := s.Internal.NewCreate().WhereChannels(keys...).Write(ctx)
+	w, err := s.Internal.NewStreamWriter(ctx, keys...)
 	if err != nil {
 		return nil, errors.Query(err)
 	}
