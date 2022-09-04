@@ -20,7 +20,7 @@ func NewBuilder(cfg ...storage.Config) *Builder {
 		_cfg = storage.Config{MemBacked: true}
 	}
 	_cfg.Perm = fsutil.OS_USER_RWX
-	_cfg = _cfg.Merge(storage.DefaultConfig())
+	_cfg = _cfg.Override(storage.DefaultConfig())
 
 	if !_cfg.MemBacked {
 		if err := os.MkdirAll(_cfg.Dirname, _cfg.Perm); err != nil {

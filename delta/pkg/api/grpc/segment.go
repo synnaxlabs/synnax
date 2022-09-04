@@ -50,7 +50,7 @@ package grpc
 //
 //func (i *iteratorServer) translateResponse(res api.IteratorResponse) (*segmentv1.IteratorResponse, error) {
 //	seg, err := translateSegmentsBackward(res.Segments)
-//	return &segmentv1.IteratorResponse{Error: TranslateResponseForward(res.Err), Segments: seg}, err
+//	return &segmentv1.IteratorResponse{Err: TranslateResponseForward(res.Err), Segments: seg}, err
 //}
 //
 //type writerServer struct {
@@ -78,7 +78,7 @@ package grpc
 //}
 //
 //func (w *writerServer) translateResponse(res api.WriterResponse) *segmentv1.WriterResponse {
-//	return &segmentv1.WriterResponse{Error: TranslateResponseForward(res.Err)}
+//	return &segmentv1.WriterResponse{Err: TranslateResponseForward(res.Err)}
 //}
 //
 //func translateSegmentsBackward(segments []api.segment) ([]*segmentv1.segment, error) {

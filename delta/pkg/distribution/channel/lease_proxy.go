@@ -58,13 +58,11 @@ func (lp *leaseProxy) create(ctx context.Context, txn gorp.Txn, channels []Chann
 }
 
 func (lp *leaseProxy) createLocal(txn gorp.Txn, channels []Channel) ([]Channel, error) {
-	for i, ch := range channels {
-		ch.Channel.Density = ch.DataType.Density()
-		key, err := lp.tsDB.CreateChannel(ch.Channel)
-		if err != nil {
+	for i := range channels {
+		channels[i].Channel.Density = channels[i].DataType.Density()
+		if err := lp.tsDB.CreateChannel(&channels[i].Channel); err != nil {
 			return nil, err
 		}
-		channels[i].Channel.Key = key
 	}
 	// TODO: add transaction rollback to cesium clusterDB if this fails.
 	if err := gorp.NewCreate[Key, Channel]().Entries(&channels).Exec(txn); err != nil {

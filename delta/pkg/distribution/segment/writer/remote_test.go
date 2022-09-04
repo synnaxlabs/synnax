@@ -93,7 +93,7 @@ var _ = Describe("Remote", Ordered, func() {
 			})
 		})
 	})
-	Describe("Error Handling", func() {
+	Describe("Err Handling", func() {
 		Describe("channel keys don't exist", func() {
 			It("Should return an error", func() {
 				_, err := writer.NewStream(

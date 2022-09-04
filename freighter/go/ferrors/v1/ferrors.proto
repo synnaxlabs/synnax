@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package ferrors.v1;
+
+option go_package = "github.com/arya-analytics/freighter/ferrors/v1;ferrors";
+
+message ErrorPayload {
+  string Type = 1;
+  string Data = 2;
+}

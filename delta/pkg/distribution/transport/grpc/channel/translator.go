@@ -35,7 +35,7 @@ func (c createMessageTranslator) Backward(msg *channelv1.CreateMessage) (channel
 			Channel: cesium.Channel{
 				Key:     cesium.ChannelKey(ch.Key),
 				Density: telem.Density(ch.Density),
-				Rate:    cesium.Rate(ch.Rate),
+				Rate:    telem.Rate(ch.Rate),
 			},
 		})
 	}

@@ -5,7 +5,9 @@ import (
 	"github.com/arya-analytics/freighter/fgrpc"
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/alamos"
-	"github.com/cockroachdb/errors"
+	"github.com/arya-analytics/x/config"
+	"github.com/arya-analytics/x/override"
+	"github.com/arya-analytics/x/validate"
 	"go.uber.org/zap"
 )
 
@@ -26,34 +28,28 @@ type Config struct {
 	Transports *[]fgrpc.BindableTransport
 }
 
-func (cfg Config) Merge(def Config) Config {
+var _ config.Config[Config] = Config{}
 
-	if cfg.Logger == nil {
-		cfg.Logger = def.Logger
-	}
-
-	// |||| STORAGE ||||
-
-	if cfg.Storage.Logger == nil {
-		cfg.Storage.Logger = cfg.Logger.Named("storage")
-	}
-	if cfg.Storage.Experiment == nil {
-		cfg.Storage.Experiment = cfg.Experiment
-	}
-
+func (cfg Config) Override(other Config) Config {
+	cfg.AdvertiseAddress = override.String(cfg.AdvertiseAddress, other.AdvertiseAddress)
+	cfg.PeerAddresses = override.Slice(cfg.PeerAddresses, other.PeerAddresses)
+	cfg.Experiment = override.Nil(cfg.Experiment, other.Experiment)
+	cfg.Pool = override.Nil(cfg.Pool, other.Pool)
+	cfg.Logger = override.Nil(cfg.Logger, other.Logger)
+	cfg.Storage = cfg.Storage.Override(other.Storage)
+	cfg.Transports = override.Nil(cfg.Transports, other.Transports)
+	cfg.Storage.Logger = cfg.Logger.Named("storage")
+	cfg.Storage.Experiment = cfg.Experiment
 	return cfg
 }
 
 func (cfg Config) Validate() error {
-	if cfg.Pool == nil {
-		return errors.AssertionFailedf("[distribution] - pool required")
-	}
-	return nil
+	v := validate.New("distribution.core")
+	validate.NotNil(v, "Pool", cfg.Pool)
+	return v.Error()
 }
 
-func DefaultConfig() Config {
-	return Config{
-		Logger:  zap.NewNop(),
-		Storage: storage.DefaultConfig(),
-	}
+var DefaultConfig = Config{
+	Logger:  zap.NewNop(),
+	Storage: storage.DefaultConfig,
 }

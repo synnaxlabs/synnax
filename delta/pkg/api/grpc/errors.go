@@ -81,7 +81,7 @@ package grpc
 //}
 //
 //func parseErrorMessageForward(err errors.Typed) *errorsv1.Message {
-//	return &errorsv1.Message{Message: err.Error()}
+//	return &errorsv1.Message{Message: err.Err()}
 //}
 //
 //func parseValidationFieldsForward(err errors.Typed) ([]*errorsv1.Field, bool) {

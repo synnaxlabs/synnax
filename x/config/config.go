@@ -20,3 +20,5 @@ func OverrideAndValidate[C Config[C]](base C, overrides ...C) (C, error) {
 	}
 	return base, base.Validate()
 }
+
+func BoolPointer(b bool) *bool { return &b }

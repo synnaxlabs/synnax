@@ -3,13 +3,13 @@ package segment
 import (
 	"github.com/arya-analytics/cesium"
 	"github.com/arya-analytics/delta/pkg/distribution/channel"
+	distribcore "github.com/arya-analytics/delta/pkg/distribution/core"
 	"github.com/arya-analytics/delta/pkg/distribution/segment"
 	"github.com/arya-analytics/delta/pkg/distribution/segment/iterator"
 	"github.com/arya-analytics/delta/pkg/distribution/segment/writer"
 	sv1 "github.com/arya-analytics/delta/pkg/distribution/transport/grpc/gen/proto/go/segment/v1"
 	"github.com/arya-analytics/freighter/fgrpc"
 	"github.com/arya-analytics/x/telem"
-	"github.com/cockroachdb/errors"
 )
 
 // |||||| WRITER ||||||
@@ -35,11 +35,11 @@ func (w writerRequestTranslator) Forward(req writer.Request) (*sv1.WriterRequest
 type writerResponseTranslator struct{}
 
 func (w writerResponseTranslator) Backward(res *sv1.WriterResponse) (writer.Response, error) {
-	return writer.Response{Error: errors.New(res.Error)}, nil
+	return writer.Response{Err: fgrpc.DecodeError(res.Error)}, nil
 }
 
 func (w writerResponseTranslator) Forward(res writer.Response) (*sv1.WriterResponse, error) {
-	return &sv1.WriterResponse{Error: res.Error.Error()}, nil
+	return &sv1.WriterResponse{Error: fgrpc.EncodeError(res.Err)}, nil
 }
 
 // |||||| ITERATOR ||||||
@@ -76,11 +76,27 @@ func (w iteratorRequestTranslator) Forward(req iterator.Request) (*sv1.IteratorR
 type iteratorResponseTranslator struct{}
 
 func (w iteratorResponseTranslator) Backward(res *sv1.IteratorResponse) (iterator.Response, error) {
-	return iterator.Response{Error: errors.New(res.Error), Segments: tranSegFwd(res.Segments)}, nil
+	return iterator.Response{
+		Variant:  iterator.ResponseVariant(res.Variant),
+		NodeID:   distribcore.NodeID(res.NodeId),
+		Ack:      res.Ack,
+		Counter:  int(res.Counter),
+		Command:  iterator.Command(res.Command),
+		Error:    fgrpc.DecodeError(res.Error),
+		Segments: tranSegFwd(res.Segments),
+	}, nil
 }
 
 func (w iteratorResponseTranslator) Forward(res iterator.Response) (*sv1.IteratorResponse, error) {
-	return &sv1.IteratorResponse{Error: res.Error.Error(), Segments: tranSegBwd(res.Segments)}, nil
+	return &sv1.IteratorResponse{
+		Variant:  int32(res.Variant),
+		NodeId:   int32(res.NodeID),
+		Ack:      res.Ack,
+		Counter:  int32(res.Counter),
+		Command:  int32(res.Command),
+		Error:    fgrpc.EncodeError(res.Error),
+		Segments: tranSegBwd(res.Segments),
+	}, nil
 }
 
 // |||||| SEGMENTS ||||||

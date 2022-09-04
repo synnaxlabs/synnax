@@ -63,7 +63,7 @@ package cesium_test
 //						WhereChannels(key).
 //						WhereTimeRange(cesium.TimeRangeMax).
 //						Iterate()
-//					Expect(iter.Error()).To(BeNil())
+//					Expect(iter.Err()).To(BeNil())
 //					stream := confluence.NewStream[cesium.IterateResponse](1)
 //					iter.OutTo(stream)
 //					Expect(iter.First()).To(BeTrue())
@@ -88,7 +88,7 @@ package cesium_test
 //						Start: telem.TimeStamp(5 * cesium.Second),
 //						End:   telem.TimeStampMax,
 //					}).Iterate()
-//					Expect(iter.Error()).To(BeNil())
+//					Expect(iter.Err()).To(BeNil())
 //					stream := confluence.NewStream[cesium.IterateResponse](1)
 //					iter.OutTo(stream)
 //					Expect(iter.SeekFirst()).To(BeTrue())
@@ -120,7 +120,7 @@ package cesium_test
 //						WhereTimeRange(cesium.TimeRangeMax).
 //						Sync().
 //						Iterate()
-//					Expect(iter.Error()).To(BeNil())
+//					Expect(iter.Err()).To(BeNil())
 //					stream := confluence.NewStream[cesium.IterateResponse](1)
 //					iter.OutTo(stream)
 //					Expect(iter.First()).To(BeTrue())

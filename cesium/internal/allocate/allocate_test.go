@@ -27,7 +27,7 @@ var _ = Describe("Alloc", func() {
 				a allocate.Allocator[int, int, IntegerItem]
 			)
 			BeforeAll(func() {
-				a = allocate.New[int, int, IntegerItem](&allocate.NextDescriptorInt{}, allocate.DefaultConfig())
+				a = allocate.New[int, int, IntegerItem](&allocate.NextDescriptorInt{}, allocate.DefaultConfig)
 			})
 			It("Should allocate the first item to a brand new descriptor", func() {
 				i := IntegerItem{key: 1, size: 1}

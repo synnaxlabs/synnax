@@ -41,7 +41,7 @@ func (w *writer) Write(segments []core.Segment) bool {
 	case <-w.wg.Stopped():
 		return false
 	case res := <-w.responses.Outlet():
-		w.error = res.Error
+		w.error = res.Err
 		return false
 	default:
 		return true
@@ -52,8 +52,8 @@ func (w *writer) Close() error {
 	w.requests.Close()
 	err := w.wg.Wait()
 	for res := range w.responses.Outlet() {
-		if res.Error != nil {
-			err = res.Error
+		if res.Err != nil {
+			err = res.Err
 		}
 	}
 	w.shutdown()

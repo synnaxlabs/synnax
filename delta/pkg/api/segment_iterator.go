@@ -25,7 +25,6 @@ type IteratorRequest struct {
 	Range   telem.TimeRange `json:"range" msgpack:"range"`
 	Stamp   telem.TimeStamp `json:"stamp" msgpack:"stamp"`
 	Keys    []string        `json:"keys" msgpack:"keys"`
-	Sync    bool            `json:"sync" msgpack:"sync"`
 }
 
 type IteratorResponse struct {

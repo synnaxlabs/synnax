@@ -27,7 +27,7 @@ func NewCoreBuilder(cfg ...distribution.Config) *CoreBuilder {
 		_cfg = core.Config{Storage: storage.Config{MemBacked: true}}
 	}
 
-	_cfg = _cfg.Merge(distribution.DefaultConfig())
+	_cfg = _cfg.Override(distribution.DefaultConfig())
 
 	storeBuilder := mockstorage.NewBuilder(_cfg.Storage)
 	net := aspentransmock.NewNetwork()

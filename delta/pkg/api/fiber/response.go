@@ -21,7 +21,7 @@ func errorResponse(c *fiber.Ctx, err errors.Typed) error {
 	case errors.TypeNil:
 		c.Status(fiber.StatusInternalServerError)
 	}
-	encoding := c.Get("Error-Encoding", "")
+	encoding := c.Get("Err-Encoding", "")
 	if encoding == "freighter" {
 		return c.JSON(ferrors.Encode(err))
 	}

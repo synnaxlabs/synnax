@@ -3,6 +3,8 @@ managed:
   enabled: true
   go_package_prefix:
     default: github.com/arya-analytics/delta/pkg/distribution/transport/grpc
+    except:
+      - buf.build/arya-analytics/freighter
 plugins:
   - name: go
     out: gen/proto/go

@@ -40,7 +40,6 @@ class Request:
     range: telem.TimeRange | None = None
     stamp: telem.TimeStamp | None = None
     keys: list[str] | None = None
-    sync: bool = False
 
 
 @dataclass
@@ -84,7 +83,7 @@ class Core:
 
     def open(self, keys: list[str], tr: telem.TimeRange):
         self.stream = self.transport.stream(_ENDPOINT, Request, _response_factory)
-        self.exec(command=Command.OPEN, range=tr, keys=keys, sync=True)
+        self.exec(command=Command.OPEN, range=tr, keys=keys)
         self.values = []
 
     def exec(self, **kwargs) -> bool:
@@ -144,8 +143,10 @@ class Core:
         exc = self.stream.close_send()
         if exc is not None:
             raise exc
-        _, exc = self.stream.receive()
+        pld, exc = self.stream.receive()
+        print(pld)
         if not isinstance(exc, freighter.EOF):
+            print(exc)
             raise exc
 
 

@@ -120,7 +120,7 @@ func (s *SegmentService) Write(_ctx context.Context, stream WriterStream) errors
 				return errors.Nil
 			}
 			if err := stream.Send(WriterResponse{
-				Err: ferrors.Encode(errors.General(resp.Error)),
+				Err: ferrors.Encode(errors.General(resp.Err)),
 			}); err != nil {
 				return errors.Unexpected(err)
 			}

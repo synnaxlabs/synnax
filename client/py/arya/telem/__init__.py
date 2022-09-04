@@ -356,6 +356,7 @@ class Size(int):
         return super(Size, self).__str__() + "B"
 
 
+TIME_RANGE_MAX = TimeRange(TIME_STAMP_MIN, TIME_STAMP_MAX)
 DENSITY_UNKNOWN = Density(0)
 BIT64 = Density(8)
 BIT32 = Density(4)
