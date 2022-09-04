@@ -57,9 +57,23 @@ type DB interface {
 	Read(tr telem.TimeRange, keys ...ChannelKey) ([]Segment, error)
 	NewIterator(tr telem.TimeRange, keys ...ChannelKey) (Iterator, error)
 	NewStreamIterator(tr telem.TimeRange, keys ...ChannelKey) (StreamIterator, error)
+	// Write writes the provided segments to the DB. Segments must meet the following requirements:
+	//
+	//  1. They must be provided in time-order.
+	//  2. Channel keys must be defined and exist in the database.
+	//  3. Data must be valid i.e. it must have non-zero length and be a multiple of the channel's
+	//     density.
+	//
+	// If any segments do not meet these requirements, no data will be written and the DB will
+	// return a validation error. If another goroutine is currently writing to one of the specified
+	// channels, DB	will return ErrChannelLocked.
 	Write(segments []Segment) error
 	NewWriter(keys ...ChannelKey) (Writer, error)
 	NewStreamWriter(keys ...ChannelKey) (StreamWriter, error)
+	// CreateChannel creates a new channel in the DB. The provided channel must have a positive
+	// data rate and density. The caller can provide an optional uint16 Key for the channel.
+	// If the key is not provided, the DB will automatically generate a key. If a key is provided,
+	// the DB will validate that it is unique.
 	CreateChannel(ch *Channel) error
 	RetrieveChannel(keys ...ChannelKey) ([]Channel, error)
 	Close() error
@@ -85,16 +99,6 @@ type db struct {
 	createOperations   confluence.Inlet[[]createOperationUnary]
 }
 
-// Write writes the provided segments to the DB. Segments must meet the following requirements:
-//
-//  1. They must be provided in time-order.
-//  2. Channel keys must be defined and exist in the database.
-//  3. Data must be valid i.e. it must have non-zero length and be a multiple of the channel's
-//     density.
-//
-// If any segments do not meet these requirements, no data will be written and the DB will
-// return a validation error. If another goroutine is currently writing to one of the specified
-// channels, DB	will return ErrChannelLocked.
 func (d *db) Write(segments []Segment) error {
 	keys := lo.Map(segments, func(s Segment, _ int) ChannelKey { return s.ChannelKey })
 	w, err := d.NewWriter(keys...)
@@ -141,10 +145,6 @@ func (d *db) NewStreamIterator(tr telem.TimeRange, keys ...ChannelKey) (StreamIt
 	return d.newStreamIterator(tr, keys)
 }
 
-// CreateChannel creates a new channel in the DB. The provided channel must have a positive
-// data rate and density. The caller can provide an optional uint16 Key for the channel.
-// If the key is not provided, the DB will automatically generate a key. If a key is provided,
-// the DB will validate that it is unique.
 func (d *db) CreateChannel(ch *Channel) error {
 	if ch.Rate <= 0 {
 		return errors.Wrap(
