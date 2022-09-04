@@ -21,6 +21,5 @@ func (c *ChannelService) Set(ch channel.Channel) error {
 }
 
 func (c *ChannelService) Exists(key channel.Key) (bool, error) {
-	var ch channel.Channel
-	return ch.Key != 0, gorp.NewRetrieve[channel.Key, channel.Channel]().Entry(&ch).WhereKeys(key).Exec(c.db)
+	return gorp.NewRetrieve[channel.Key, channel.Channel]().WhereKeys(key).Exists(c.db)
 }

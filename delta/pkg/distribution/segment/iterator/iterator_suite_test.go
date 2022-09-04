@@ -9,6 +9,7 @@ import (
 	"github.com/arya-analytics/delta/pkg/distribution/segment/iterator"
 	"github.com/arya-analytics/delta/pkg/storage"
 	"github.com/arya-analytics/freighter/fmock"
+	"github.com/arya-analytics/x/config"
 	"github.com/arya-analytics/x/telem"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -34,7 +35,7 @@ type serviceContainer struct {
 }
 
 func provisionNServices(n int, logger *zap.Logger) (*mock.CoreBuilder, map[core.NodeID]serviceContainer) {
-	builder := mock.NewCoreBuilder(core.Config{Logger: logger, Storage: storage.Config{MemBacked: true}})
+	builder := mock.NewCoreBuilder(core.Config{Logger: logger, Storage: storage.Config{MemBacked: config.BoolPointer(true)}})
 	services := make(map[core.NodeID]serviceContainer)
 	channelNet := fmock.NewNetwork[channel.CreateMessage, channel.CreateMessage]()
 	iterNet := fmock.NewNetwork[iterator.Request, iterator.Response]()

@@ -167,7 +167,7 @@ type Iterator interface {
 // NewIterator opens a new unaryIterator over the specified time range of a channel.
 func NewIterator(kve kv.DB, rng telem.TimeRange, keys ...channel.Key) (iter Iterator, err error) {
 	if len(keys) == 0 {
-		panic("[cesium.kv] - NewIterator() called with no keys")
+		return nil, errors.New("[cesium] - iterator opened without keys")
 	}
 	if len(keys) == 1 {
 		return newUnaryIterator(kve, rng, keys[0])
@@ -344,7 +344,7 @@ func (i *unaryIterator) NextSpan(span telem.TimeSpan) bool {
 	i.resetValue()
 
 	// If the last segment from the previous rng had relevant data, we need to load it back in.
-	if rng.OverlapsWith(prevRange) {
+	if rng.OverlapsWith(prevRange) || (i.internal.Valid() && i.internal.Value().End(i.channel.Rate, i.channel.Density).After(rng.Start)) {
 		i.appendHeader()
 	}
 

@@ -4,6 +4,7 @@ import (
 	"github.com/arya-analytics/cesium"
 	"github.com/arya-analytics/x/telem"
 	. "github.com/arya-analytics/x/testutil"
+	"github.com/arya-analytics/x/validate"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -26,5 +27,20 @@ var _ = Describe("CreateChannel", func() {
 		resCh := MustSucceed(db.RetrieveChannel(ch.Key))
 		Expect(resCh[0].Rate).To(Equal(telem.Rate(25)))
 		Expect(resCh[0].Density).To(Equal(telem.Density(1)))
+	})
+	Describe("Validation Errors", func() {
+		It("Should return an error if the data rate is zero", func() {
+			ch.Rate = 0
+			Expect(db.CreateChannel(&ch)).To(HaveOccurredAs(validate.ValidationError))
+		})
+		It("Should return an error if the density is zero", func() {
+			ch.Density = 0
+			Expect(db.CreateChannel(&ch)).To(HaveOccurredAs(validate.ValidationError))
+		})
+	})
+	Describe("Unique Violation", func() {
+		It("Should return an error if the channel key is already in use", func() {
+			Expect(db.CreateChannel(&ch)).To(HaveOccurredAs(cesium.UniqueViolation))
+		})
 	})
 })

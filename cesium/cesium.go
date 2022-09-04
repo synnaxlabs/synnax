@@ -25,6 +25,9 @@ var (
 	// ErrChannelLocked is returned when a channel has been locked for writing by another
 	// goroutine.
 	ErrChannelLocked = errors.Wrap(lock.ErrLocked, "[cesium] - channel locked for writing")
+	// RangeHasNoData is returned when a range of data is requested but no data exists in the
+	// range.
+	RangeHasNoData = kv.RangeHasNoData
 )
 
 // DB provides a persistent, concurrent store for reading and writing regular time-series
@@ -149,7 +152,7 @@ func (d *db) CreateChannel(ch *Channel) error {
 	if ch.Rate <= 0 {
 		return errors.Wrap(
 			validate.ValidationError,
-			"[cesium] - channel must be positive",
+			"[cesium] - channel data rate must be positive",
 		)
 	}
 	if ch.Density == 0 {

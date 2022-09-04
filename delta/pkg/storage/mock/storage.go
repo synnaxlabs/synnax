@@ -2,6 +2,7 @@ package mock
 
 import (
 	"github.com/arya-analytics/delta/pkg/storage"
+	"github.com/arya-analytics/x/config"
 	"github.com/arya-analytics/x/errutil"
 	"github.com/arya-analytics/x/fsutil"
 	"os"
@@ -13,16 +14,15 @@ type Builder struct {
 }
 
 func NewBuilder(cfg ...storage.Config) *Builder {
-	var _cfg storage.Config
-	if len(cfg) > 0 {
-		_cfg = cfg[0]
-	} else {
-		_cfg = storage.Config{MemBacked: true}
+	_cfg, err := config.OverrideAndValidate(storage.DefaultConfig, append([]storage.Config{{
+		MemBacked: config.BoolPointer(true),
+		Perm:      fsutil.OS_USER_RWX,
+	}}, cfg...)...)
+	if err != nil {
+		panic(err)
 	}
-	_cfg.Perm = fsutil.OS_USER_RWX
-	_cfg = _cfg.Override(storage.DefaultConfig())
 
-	if !_cfg.MemBacked {
+	if !*_cfg.MemBacked {
 		if err := os.MkdirAll(_cfg.Dirname, _cfg.Perm); err != nil {
 			panic(err)
 		}
@@ -32,7 +32,7 @@ func NewBuilder(cfg ...storage.Config) *Builder {
 }
 
 func (b *Builder) New() (store *storage.Store) {
-	if b.cfg.MemBacked {
+	if *b.cfg.MemBacked {
 		store = b.newMemBacked()
 	} else {
 		store = b.newFSBacked()
@@ -42,7 +42,7 @@ func (b *Builder) New() (store *storage.Store) {
 }
 
 func (b *Builder) Cleanup() error {
-	if b.cfg.MemBacked {
+	if *b.cfg.MemBacked {
 		return nil
 	}
 	return os.RemoveAll(b.cfg.Dirname)

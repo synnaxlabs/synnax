@@ -150,7 +150,7 @@ func (cfg Config) Report() alamos.Report {
 
 // DefaultConfig returns the default configuration for the storage layer.
 var DefaultConfig = Config{
-	Perm:       fsutil.OS_USER_RWX | fsutil.OS_GROUP_R,
+	Perm:       fsutil.OS_USER_RWX,
 	MemBacked:  config.BoolPointer(false),
 	Logger:     zap.NewNop(),
 	Experiment: nil,

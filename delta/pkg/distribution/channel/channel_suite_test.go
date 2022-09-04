@@ -9,6 +9,7 @@ import (
 	"github.com/arya-analytics/delta/pkg/distribution/core/mock"
 	"github.com/arya-analytics/delta/pkg/storage"
 	"github.com/arya-analytics/freighter/fmock"
+	"github.com/arya-analytics/x/config"
 	"go.uber.org/zap"
 	"testing"
 
@@ -30,7 +31,7 @@ func provisionServices(logger *zap.Logger) (*mock.CoreBuilder, map[core.NodeID]*
 	net := fmock.NewNetwork[channel.CreateMessage, channel.CreateMessage]()
 	builder := mock.NewCoreBuilder(distribution.Config{
 		Logger:  logger,
-		Storage: storage.Config{MemBacked: true},
+		Storage: storage.Config{MemBacked: config.BoolPointer(true)},
 	})
 	core1 := builder.New()
 	services[1] = channel.New(

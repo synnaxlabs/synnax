@@ -32,15 +32,17 @@ type Iterator interface {
 	NextSpan(span telem.TimeSpan) bool
 	// PrevSpan pipes all segments in the Iterator from the current
 	PrevSpan(span telem.TimeSpan) bool
-	// SetRange seeks the Iterator to the start of the provided range and pipes all segments bound by it
-	// to the Source responses. It returns true if the iterator is pointing to a valid segment.
-	// If range is TimeRangeMax, exhausts the Iterator. If range is TimeRangeZero, it won't do anything.
+	// SetRange seeks the Iterator to the start of the provided range and pipes all
+	// segments bound by it to the Source responses. It returns true if the iterator is
+	// pointing to a valid segment. If range is TimeRangeMax, exhausts the Iterator. If
+	// range is TimeRangeZero, it won't do anything.
 	SetRange(tr telem.TimeRange) bool
 	// SeekFirst seeks the iterator to the first segment in the range.
 	SeekFirst() bool
 	// SeekLast seeks the iterator to the last segment in the range.
 	SeekLast() bool
-	// SeekLT seeks the Iterator to the first segment with a timestamp less than the provided timestamp.
+	// SeekLT seeks the Iterator to the first segment with a timestamp less than the
+	// provided timestamp.
 	// It returns true if the Iterator is pointing to a valid segment.
 	SeekLT(ts telem.TimeStamp) bool
 	// SeekGE seeks the Iterator to the first segment with a timestamp greater than or equal to the provided timestamp.

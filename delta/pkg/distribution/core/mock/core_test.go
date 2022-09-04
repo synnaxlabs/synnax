@@ -5,6 +5,7 @@ import (
 	"github.com/arya-analytics/delta/pkg/distribution/core"
 	"github.com/arya-analytics/delta/pkg/distribution/core/mock"
 	"github.com/arya-analytics/delta/pkg/storage"
+	"github.com/arya-analytics/x/config"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -33,7 +34,7 @@ var _ = Describe("Logging", func() {
 	},
 		Entry("Should open a three node memory backed distribution core"),
 		Entry("Should open a three node file-system backed distribution core", distribution.Config{
-			Storage: storage.Config{MemBacked: false, Dirname: "./tmp"},
+			Storage: storage.Config{MemBacked: config.BoolPointer(false), Dirname: "./tmp"},
 		}),
 	)
 })

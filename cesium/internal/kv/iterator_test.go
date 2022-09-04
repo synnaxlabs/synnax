@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-var _ = Describe("Write", func() {
+var _ = Describe("Iterator", func() {
 	var (
 		kve      kvx.DB
 		ch       channel.Channel
@@ -38,17 +38,15 @@ var _ = Describe("Write", func() {
 	Context("Even Bounded TimeRange", func() {
 		var iter kv.Iterator
 		BeforeEach(func() {
-			Expect(headerKV.SetMultiple([]segment.Header{
-				{
-					ChannelKey: ch.Key,
-					Start:      0,
-					Size:       100,
-				},
-				{
-					ChannelKey: ch.Key,
-					Start:      telem.TimeStamp(100 * telem.Second),
-					Size:       100,
-				},
+			Expect(headerKV.Set(segment.Header{
+				ChannelKey: ch.Key,
+				Start:      0,
+				Size:       100,
+			})).To(Succeed())
+			Expect(headerKV.Set(segment.Header{
+				ChannelKey: ch.Key,
+				Start:      telem.TimeStamp(100 * telem.Second),
+				Size:       100,
 			})).To(Succeed())
 			var err error
 			iter, err = kv.NewIterator(kve, telem.TimeRange{

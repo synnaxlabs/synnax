@@ -34,7 +34,7 @@ type IterateRequest struct {
 //go:generate stringer -type=IteratorCommand
 type IteratorCommand uint8
 
-func (ic IteratorCommand) hasOps() bool { return ic <= IterRange }
+func (i IteratorCommand) hasOps() bool { return i <= IterRange }
 
 const (
 	IterNext IteratorCommand = iota + 1

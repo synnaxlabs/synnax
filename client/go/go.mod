@@ -8,12 +8,15 @@ replace github.com/arya-analytics/delta => ../../delta
 
 replace github.com/arya-analytics/freighter => ../../freighter/go
 
+replace github.com/arya-analytics/aspen => ../../aspen
+
+replace github.com/arya-analytics/cesium => ../../cesium
+
 require (
-	github.com/arya-analytics/delta v0.0.0-20220801132418-2a1462153dba
+	github.com/arya-analytics/delta v0.0.0-00010101000000-000000000000
 	github.com/arya-analytics/freighter v0.0.0-20220810182625-b66219353383
 	github.com/arya-analytics/x v0.0.0-20220801122519-e4a5e96a532d
 	github.com/cockroachdb/errors v1.9.0
-	github.com/sirupsen/logrus v1.9.0
 )
 
 require (

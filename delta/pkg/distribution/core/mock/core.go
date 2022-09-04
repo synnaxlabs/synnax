@@ -9,6 +9,7 @@ import (
 	"github.com/arya-analytics/delta/pkg/storage"
 	mockstorage "github.com/arya-analytics/delta/pkg/storage/mock"
 	"github.com/arya-analytics/x/address"
+	"github.com/arya-analytics/x/config"
 )
 
 type CoreBuilder struct {
@@ -20,15 +21,14 @@ type CoreBuilder struct {
 }
 
 func NewCoreBuilder(cfg ...distribution.Config) *CoreBuilder {
-	var _cfg core.Config
-	if len(cfg) > 0 {
-		_cfg = cfg[0]
-	} else {
-		_cfg = core.Config{Storage: storage.Config{MemBacked: true}}
+	_cfg, err := config.OverrideAndValidate(distribution.DefaultConfig, append([]distribution.Config{{
+		Storage: storage.Config{
+			MemBacked: config.BoolPointer(true),
+		},
+	}}, cfg...)...)
+	if err != nil {
+		panic(err)
 	}
-
-	_cfg = _cfg.Override(distribution.DefaultConfig())
-
 	storeBuilder := mockstorage.NewBuilder(_cfg.Storage)
 	net := aspentransmock.NewNetwork()
 	addrFactory := &address.Factory{Host: "localhost", PortStart: 0}
