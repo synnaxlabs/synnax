@@ -1,11 +1,5 @@
 package telem
 
-import (
-	"bytes"
-	"encoding/binary"
-	binaryx "github.com/arya-analytics/x/binary"
-)
-
 // DataType is a string that represents a data type.
 type DataType string
 
@@ -39,58 +33,4 @@ var dataTypeDensities = map[DataType]Density{
 	Byte:            Bit8,
 	Int64:           Bit64,
 	Bytes:           DensityUnknown,
-}
-
-type DataTypeConstraint interface {
-	float64 |
-		float32 |
-		int64 |
-		int32 |
-		int16 |
-		int8 |
-		uint64 |
-		uint32 |
-		uint16 |
-		byte |
-		[]byte
-}
-
-func ParseFromBuffer[D DataTypeConstraint](r bytes.Buffer, dt DataType) ([]D, error) {
-	parser := binaryx.NewBufferParser(binary.LittleEndian)
-	switch dt {
-	case Float64:
-		d, err := parser.Float64(r)
-		return any(d).([]D), err
-	case Float32:
-		d, err := parser.Float32(r)
-		return any(d).([]D), err
-	case Int64:
-		d, err := parser.Int64(r)
-		return any(d).([]D), err
-	case Int32:
-		d, err := parser.Int32(r)
-		return any(d).([]D), err
-	case Int16:
-		d, err := parser.Int16(r)
-		return any(d).([]D), err
-	case Int8:
-		d, err := parser.Int8(r)
-		return any(d).([]D), err
-	case Uint64:
-		d, err := parser.Uint64(r)
-		return any(d).([]D), err
-	case Uint32:
-		d, err := parser.Uint32(r)
-		return any(d).([]D), err
-	case Uint16:
-		d, err := parser.Uint16(r)
-		return any(d).([]D), err
-	case Byte:
-		d, err := parser.Byte(r)
-		return any(d).([]D), err
-	case Bytes:
-		return any(r.Bytes()).([]D), nil
-	default:
-		return nil, InvalidDataType
-	}
 }
