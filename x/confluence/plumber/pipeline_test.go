@@ -5,7 +5,6 @@ import (
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/confluence"
 	"github.com/arya-analytics/x/confluence/plumber"
-	"github.com/arya-analytics/x/errutil"
 	"github.com/arya-analytics/x/signal"
 	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
@@ -186,29 +185,23 @@ var _ = Describe("Pipeline", func() {
 			}
 			plumber.SetSegment[int, int](pipe, "switch", sw)
 
-			catch := errutil.NewCatch()
-
-			catch.Exec(plumber.MultiRouter[int]{
+			plumber.MultiRouter[int]{
 				SourceTargets: []address.Address{"emitterOne", "emitterTwo"},
 				SinkTargets:   []address.Address{"t1", "t2"},
 				Stitch:        plumber.StitchUnary,
-			}.PreRoute(pipe))
+			}.MustRoute(pipe)
 
-			catch.Exec(plumber.MultiRouter[int]{
+			plumber.MultiRouter[int]{
 				SourceTargets: []address.Address{"t1", "t2"},
 				SinkTargets:   []address.Address{"switch"},
 				Stitch:        plumber.StitchUnary,
-			}.PreRoute(pipe))
+			}.MustRoute(pipe)
 
-			catch.Exec(plumber.MultiRouter[int]{
+			plumber.MultiRouter[int]{
 				SourceTargets: []address.Address{"switch"},
 				SinkTargets:   []address.Address{"even", "odd"},
 				Stitch:        plumber.StitchWeave,
-			}.PreRoute(pipe))
-
-			if catch.Error() != nil {
-				Fail("Failed to construct pipeline: " + catch.Error().Error())
-			}
+			}.MustRoute(pipe)
 
 			ctx, cancel := signal.TODO()
 			defer cancel()

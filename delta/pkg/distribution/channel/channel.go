@@ -59,7 +59,7 @@ func ParseKey(s string) (k Key, err error) {
 	}
 	nodeID, err := strconv.Atoi(split[0])
 	if err != nil {
-		return k, errors.Wrapf(err, "[channel] - invalid node id")
+		return k, errors.Wrapf(err, "[channel] - key - invalid node id")
 	}
 	cesiumKey, err := strconv.Atoi(split[1])
 	if err != nil {
@@ -74,7 +74,7 @@ func OntologyID(k Key) ontology.ID {
 	return ontology.ID{Type: ontologyType, Key: k.String()}
 }
 
-// Keys extends []Keys with a few convenience methods.
+// Keys extends []ChannelKeys with a few convenience methods.
 type Keys []Key
 
 // KeysFromChannels returns a slice of Keys from a slice of Channel(s).

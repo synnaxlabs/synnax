@@ -3,24 +3,26 @@ package iterator
 import (
 	"context"
 	"github.com/arya-analytics/aspen"
-	"github.com/arya-analytics/cesium"
 	"github.com/arya-analytics/delta/pkg/distribution/channel"
 	"github.com/arya-analytics/delta/pkg/distribution/proxy"
 	"github.com/arya-analytics/delta/pkg/distribution/segment/core"
+	"github.com/arya-analytics/delta/pkg/storage"
 	"github.com/arya-analytics/x/address"
+	"github.com/arya-analytics/x/config"
 	"github.com/arya-analytics/x/confluence"
 	"github.com/arya-analytics/x/confluence/plumber"
-	"github.com/arya-analytics/x/errutil"
+	"github.com/arya-analytics/x/override"
 	"github.com/arya-analytics/x/signal"
 	"github.com/arya-analytics/x/telem"
+	"github.com/arya-analytics/x/validate"
 	"github.com/cockroachdb/errors"
-	"time"
+	"github.com/samber/lo"
+	"go.uber.org/zap"
 )
 
+type StreamIterator = confluence.Segment[Request, Response]
+
 type Iterator interface {
-	// Responses emits segment data retrieved by method calls from the Iterator.
-	// The channel is closed when iterator.Close is called.
-	Responses() <-chan Response
 	// Next retrieves the next segment of each channel's data.
 	// Returns true if the current Iterator.View is pointing to any valid segments.
 	// It's important to note that if channel data is non-contiguous, calls to Next
@@ -47,9 +49,9 @@ type Iterator interface {
 	// PrevSpan reads all channel data occupying the previous span of time. Returns true
 	// if the current Iterator.View is pointing to any valid segments.
 	PrevSpan(span telem.TimeSpan) bool
-	// NextRange seeks the Iterator to the start of the range and reads all channel data
+	// Range seeks the Iterator to the start of the range and reads all channel data
 	// until the end of the range.
-	NextRange(tr telem.TimeRange) bool
+	Range(tr telem.TimeRange) bool
 	// SeekFirst seeks the iterator the start of the iterator range.
 	// Returns true if the current Iterator.View is pointing to any valid segments.
 	SeekFirst() bool
@@ -72,47 +74,71 @@ type Iterator interface {
 	Valid() bool
 	// Error returns any errors accumulated during the iterators lifetime.
 	Error() error
-	// Exhaust seeks to the first position in the Iterator and iterates through all
-	// segments until the Iterator is exhausted.
-	Exhaust() bool
+	Value() []core.Segment
 }
 
-func New(
-	ctx context.Context,
-	db cesium.DB,
-	svc *channel.Service,
-	resolver aspen.HostResolver,
-	tran Transport,
-	rng telem.TimeRange,
-	keys channel.Keys,
-) (Iterator, error) {
-	sCtx, cancel := signal.WithCancel(ctx)
+type Config struct {
+	TimeRange      telem.TimeRange
+	ChannelKeys    channel.Keys
+	TS             storage.TS
+	ChannelService *channel.Service
+	Resolver       aspen.HostResolver
+	Transport      Transport
+	Logger         *zap.Logger
+}
 
-	// First we need to check if all the channels exist and are retrievable in the
-	// database.
-	if err := core.ValidateChannelKeys(ctx, svc, keys); err != nil {
+var _ config.Config[Config] = Config{}
+
+func (cfg Config) Override(other Config) Config {
+	cfg.TimeRange.Start = override.Numeric(cfg.TimeRange.Start, other.TimeRange.Start)
+	cfg.TimeRange.End = override.Numeric(cfg.TimeRange.End, other.TimeRange.End)
+	cfg.ChannelKeys = override.Slice(cfg.ChannelKeys, other.ChannelKeys)
+	cfg.TS = override.Nil(cfg.TS, other.TS)
+	cfg.ChannelService = override.Nil(cfg.ChannelService, other.ChannelService)
+	cfg.Transport = override.Nil(cfg.Transport, other.Transport)
+	cfg.Resolver = override.Nil(cfg.Resolver, other.Resolver)
+	cfg.Logger = override.Nil(cfg.Logger, other.Logger)
+	return cfg
+}
+
+func (cfg Config) Validate() error {
+	v := validate.New("iterator")
+	if cfg.TimeRange.IsZero() {
+		return errors.New("[iterator] no range provided")
+	}
+	validate.NotNil(v, "TS", cfg.TS)
+	validate.NotNil(v, "channel", cfg.ChannelService)
+	validate.NotNil(v, "transport", cfg.Transport)
+	validate.NotNil(v, "resolver", cfg.Resolver)
+	validate.NotNil(v, "logger", cfg.Logger)
+	return v.Error()
+}
+
+func NewStream(ctx context.Context, _cfg ...Config) (StreamIterator, error) {
+	cfg, err := config.OverrideAndValidate(Config{}, _cfg...)
+	if err != nil {
 		return nil, err
 	}
 
-	// TraverseTo we determine IDs of all the target nodes we need to open iterators on.
-	batch := proxy.NewBatchFactory[channel.Key](resolver.HostID()).Batch(keys)
+	// First we need to check if all the channels exist and are retrievable in the
+	// database.
+	if err := core.ValidateChannelKeys(ctx, cfg.ChannelService, cfg.ChannelKeys); err != nil {
+		return nil, err
+	}
+
+	// Determine IDs of all the target nodes we need to open iterators on.
+	batch := proxy.NewBatchFactory[channel.Key](cfg.Resolver.HostID()).Batch(cfg.ChannelKeys)
 
 	var (
 		pipe              = plumber.New()
 		needRemote        = len(batch.Remote) > 0
 		needLocal         = len(batch.Local) > 0
-		numSenders        = 0
-		numReceivers      = 0
 		receiverAddresses []address.Address
 	)
 
 	if needRemote {
-		numSenders += 1
-		numReceivers += len(batch.Remote)
-
-		sender, receivers, err := openRemoteIterators(sCtx, tran, batch.Remote, rng, resolver)
+		sender, receivers, err := openRemoteIterators(ctx, batch.Remote, cfg)
 		if err != nil {
-			cancel()
 			return nil, err
 		}
 
@@ -129,11 +155,8 @@ func New(
 	}
 
 	if needLocal {
-		numSenders += 1
-		numReceivers += 1
-		localIter, err := newLocalIterator(db, resolver.HostID(), rng, batch.Local)
+		localIter, err := newLocalIterator(batch.Local, cfg)
 		if err != nil {
-			cancel()
 			return nil, err
 		}
 		addr := address.Address("local")
@@ -141,28 +164,17 @@ func New(
 		receiverAddresses = append(receiverAddresses, addr)
 	}
 
+	plumber.SetSegment[Response, Response](pipe, "filter", newAckFilter())
+
 	// The synchronizer checks that all nodes have acknowledged an iteration
 	// request. This is used to return ok = true from the iterator methods.
-	sync := &synchronizer{nodeIDs: keys.UniqueNodeIDs(), timeout: 2 * time.Second}
-
-	// Open a ackFilter that will route acknowledgement responses to the iterator
-	// synchronizer. We expect an ack from each remote iterator as well as the
-	// local iterator, so we set our buffer cap at numReceivers.
-	syncMessages := confluence.NewStream[Response](numReceivers)
-	sync.InFrom(syncMessages)
-
-	// Send rejects from the ackFilter to the synchronizer.
-	filter := newAckRouter(syncMessages)
-	plumber.SetSegment[Response, Response](pipe, "filter", filter)
-
-	// emitter emits method calls as requests to stream.
-	emit := &emitter{}
-	plumber.SetSource[Request](pipe, "emitter", emit)
-
-	var (
-		routeEmitterTo address.Address
-		c              = errutil.NewCatch()
+	plumber.SetSegment[Response, Response](
+		pipe,
+		"synchronizer",
+		newSynchronizer(cfg.ChannelKeys.UniqueNodeIDs()),
 	)
+
+	var routeInletTo address.Address
 
 	// We need to configure different pipelines to optimize for particular cases.
 	if needRemote && needLocal {
@@ -173,199 +185,188 @@ func New(
 			"broadcaster",
 			&confluence.DeltaMultiplier[Request]{},
 		)
-		routeEmitterTo = "broadcaster"
+		routeInletTo = "broadcaster"
 
 		// We use confluence.StitchWeave here to dedicate a channel to both the
 		// sender and local, so that they both receive a copy of the emitted request.
-		c.Exec(plumber.MultiRouter[Request]{
+		plumber.MultiRouter[Request]{
 			SourceTargets: []address.Address{"broadcaster"},
 			SinkTargets:   []address.Address{"sender", "local"},
-			Capacity:      1,
 			Stitch:        plumber.StitchWeave,
-		}.PreRoute(pipe))
+		}.MustRoute(pipe)
 	} else if needRemote {
 		// If we only have remote iterators, we can skip the broadcasting step
 		// and forward requests from the emitter directly to the sender.
-		routeEmitterTo = "sender"
+		routeInletTo = "sender"
 	} else {
 		// If we only have local iterators, we can skip the broadcasting step
 		// and forward requests from the emitter directly to the local iterator.
-		routeEmitterTo = "local"
+		routeInletTo = "local"
 	}
 
-	c.Exec(plumber.UnaryRouter[Request]{
-		SourceTarget: "emitter",
-		SinkTarget:   routeEmitterTo,
-	}.PreRoute(pipe))
-
-	c.Exec(plumber.MultiRouter[Response]{
+	plumber.MultiRouter[Response]{
 		SourceTargets: receiverAddresses,
 		SinkTargets:   []address.Address{"filter"},
 		Stitch:        plumber.StitchUnary,
-		Capacity:      numReceivers,
-	}.PreRoute(pipe))
+		Capacity:      len(receiverAddresses),
+	}.MustRoute(pipe)
 
-	if c.Error() != nil {
-		panic(c.Error())
-	}
+	plumber.UnaryRouter[Response]{
+		SourceTarget: "filter",
+		SinkTarget:   "synchronizer",
+	}.MustRoute(pipe)
 
 	seg := &plumber.Segment[Request, Response]{Pipeline: pipe}
-	if err := seg.RouteOutletFrom("filter"); err != nil {
-		panic(err)
+	lo.Must0(seg.RouteOutletFrom("filter", "synchronizer"))
+	lo.Must0(seg.RouteInletTo(routeInletTo))
+
+	return seg, nil
+}
+
+func New(ctx context.Context, _cfg ...Config) (Iterator, error) {
+	cfg, err := config.OverrideAndValidate(Config{}, _cfg...)
+	if err != nil {
+		return nil, err
 	}
-
-	res := confluence.NewStream[Response](numReceivers)
-
-	seg.OutTo(res)
-	seg.Flow(sCtx, confluence.CloseInletsOnExit())
-
+	stream, err := NewStream(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+	sCtx, cancel := signal.Background(
+		signal.WithLogger(cfg.Logger),
+		signal.WithContextKey("iterator"),
+	)
+	requests := confluence.NewStream[Request]()
+	responses := confluence.NewStream[Response]()
+	stream.InFrom(requests)
+	stream.OutTo(responses)
+	stream.Flow(
+		sCtx,
+		confluence.CloseInletsOnExit(),
+		confluence.CancelOnExitErr(),
+	)
 	return &iterator{
-		emitter:   emit,
-		sync:      sync,
+		requests:  requests,
+		responses: responses,
+		internal:  stream,
+		shutdown:  cancel,
 		wg:        sCtx,
-		cancel:    cancel,
-		responses: res.Outlet(),
 	}, nil
 }
 
 type iterator struct {
-	emitter   *emitter
-	sync      *synchronizer
-	cancel    context.CancelFunc
+	requests  confluence.Inlet[Request]
+	responses confluence.Outlet[Response]
+	internal  StreamIterator
+	shutdown  context.CancelFunc
 	wg        signal.WaitGroup
-	_error    error
-	responses <-chan Response
+	value     []Response
 }
-
-func (i *iterator) Responses() <-chan Response { return i.responses }
 
 // Next implements Iterator.
 func (i *iterator) Next() bool {
-	i.emitter.next()
-	return i.ack(Next)
+	i.value = nil
+	return i.exec(Request{Command: Next})
 }
 
 // Prev implements Iterator.
 func (i *iterator) Prev() bool {
-	i.emitter.Prev()
-	return i.ack(Prev)
+	i.value = nil
+	return i.exec(Request{Command: Prev})
 }
 
 // First implements Iterator.
 func (i *iterator) First() bool {
-	i.emitter.First()
-	return i.ack(First)
+	i.value = nil
+	return i.exec(Request{Command: First})
 }
 
 // Last implements Iterator.
 func (i *iterator) Last() bool {
-	i.emitter.Last()
-	return i.ack(Last)
+	i.value = nil
+	return i.exec(Request{Command: Last})
 }
 
 // NextSpan implements Iterator.
 func (i *iterator) NextSpan(span telem.TimeSpan) bool {
-	i.emitter.NextSpan(span)
-	return i.ack(NextSpan)
+	i.value = nil
+	return i.exec(Request{Command: NextSpan, Span: span})
 }
 
 // PrevSpan implements Iterator.
 func (i *iterator) PrevSpan(span telem.TimeSpan) bool {
-	i.emitter.PrevSpan(span)
-	return i.ack(PrevSpan)
+	i.value = nil
+	return i.exec(Request{Command: PrevSpan, Span: span})
 }
 
-// NextRange implements Iterator.
-func (i *iterator) NextRange(tr telem.TimeRange) bool {
-	i.emitter.NextRange(tr)
-	return i.ack(NextRange)
+// Range implements Iterator.
+func (i *iterator) Range(tr telem.TimeRange) bool {
+	i.value = nil
+	return i.exec(Request{Command: NextRange, Range: tr})
 }
 
 // SeekFirst implements Iterator.
 func (i *iterator) SeekFirst() bool {
-	i.emitter.SeekFirst()
-	return i.ack(SeekFirst)
+	i.value = nil
+	return i.exec(Request{Command: SeekFirst})
 }
 
 // SeekLast implements Iterator.
 func (i *iterator) SeekLast() bool {
-	i.emitter.SeekLast()
-	return i.ack(SeekLast)
+	i.value = nil
+	return i.exec(Request{Command: SeekLast})
 }
 
 // SeekLT implements Iterator.
 func (i *iterator) SeekLT(stamp telem.TimeStamp) bool {
-	i.emitter.SeekLT(stamp)
-	return i.ack(SeekLT)
+	i.value = nil
+	return i.exec(Request{Command: SeekLT, Stamp: stamp})
 }
 
 // SeekGE implements Iterator.
 func (i *iterator) SeekGE(stamp telem.TimeStamp) bool {
-	i.emitter.SeekGE(stamp)
-	return i.ack(SeekGE)
-}
-
-// Exhaust implements Iterator.
-func (i *iterator) Exhaust() bool {
-	i.emitter.Exhaust()
-	return i.ack(Exhaust)
+	i.value = nil
+	return i.exec(Request{Command: SeekGE, Stamp: stamp})
 }
 
 // Valid implements Iterator.
 func (i *iterator) Valid() bool {
-	i.emitter.Valid()
-	return i.ack(Valid) && i.error() == nil
+	return i.exec(Request{Command: Valid})
 }
 
 // Error implements Iterator.
 func (i *iterator) Error() error {
-	if i.error() != nil {
-		return i.error()
-	}
-	i.emitter.Error()
-	if ok, err := i.ackWithErr(Error); !ok || err != nil {
-		return errors.CombineErrors(err, errors.New("[iterator] - non positive ack"))
-	}
-	return nil
+	_, err := i.execErr(Request{Command: Error})
+	return err
 }
 
 // Close implements Iterator.
 func (i *iterator) Close() error {
-	defer i.cancel()
-
-	// Let all iterators (remote and local) know that it's time to stop.
-	i.emitter.Close()
-
-	// Wait for all nodes to acknowledge a safe closure.
-	if ok := i.ack(Close); !ok {
-		return errors.New("[segment.iterator] - negative ack on close. node probably unreachable")
-	}
-
-	// Prevent any further commands from being sent.
-	i.emitter.CloseInlets()
-
-	// Wait on all goroutines to exit.
+	defer i.shutdown()
+	i.requests.Close()
 	return i.wg.Wait()
 }
 
-func (i *iterator) error() error {
-	if i._error != nil {
-		return i._error
+func (i *iterator) Value() []core.Segment {
+	var segments []core.Segment
+	for _, resp := range i.value {
+		segments = append(segments, resp.Segments...)
 	}
-	select {
-	case <-i.wg.Stopped():
-		i._error = i.wg.Wait()
-		return i._error
-	default:
-		return nil
-	}
+	return segments
 }
 
-func (i *iterator) ack(cmd Command) bool {
-	ok, _ := i.ackWithErr(cmd)
+func (i *iterator) exec(req Request) bool {
+	ok, _ := i.execErr(req)
 	return ok
 }
 
-func (i *iterator) ackWithErr(cmd Command) (bool, error) {
-	return i.sync.sync(context.Background(), cmd)
+func (i *iterator) execErr(req Request) (bool, error) {
+	i.requests.Inlet() <- req
+	for res := range i.responses.Outlet() {
+		if res.Variant == AckResponse {
+			return res.Ack, res.Error
+		}
+		i.value = append(i.value, res)
+	}
+	return false, nil
 }

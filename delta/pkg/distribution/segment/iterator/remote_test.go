@@ -11,13 +11,14 @@ import (
 	"go.uber.org/zap"
 )
 
-var _ = Describe("Remote", Ordered, func() {
+var _ = Describe("Remote", Ordered, Serial, func() {
 	var (
 		log      *zap.Logger
 		iter     iterator.Iterator
 		builder  *mock.CoreBuilder
 		services map[core.NodeID]serviceContainer
 		nChan    int
+		keys     channel.Keys
 	)
 	BeforeAll(func() {
 		log = zap.NewNop()
@@ -41,60 +42,56 @@ var _ = Describe("Remote", Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 		channels = append(channels, node2Channels...)
 		nChan = len(channels)
-		keys := channel.KeysFromChannels(channels)
+		keys = channel.KeysFromChannels(channels)
 		writeMockData(builder, 10*telem.Second, 10, 10, channels...)
 
 		Eventually(func(g Gomega) {
 			g.Expect(services[3].channel.NewRetrieve().WhereKeys(keys...).Exists(ctx)).To(BeTrue())
 		}).Should(Succeed())
 
-		iter = openIter(3, services, builder, keys)
 	})
-	AfterAll(func() {
-		Expect(iter.Close()).To(Succeed())
-		_, ok := <-iter.Responses()
-		Expect(ok).To(BeFalse())
-		Expect(builder.Close()).To(Succeed())
-	})
+	BeforeEach(func() { iter = openIter(3, services, builder, keys) })
+	AfterEach(func() { Expect(iter.Close()).To(Succeed()) })
+	AfterAll(func() { Expect(builder.Close()).To(Succeed()) })
 	Context("Behavioral Accuracy", func() {
 		Describe("First", func() {
 			It("Should return the first segment in the iterator", func() {
 				Expect(iter.First()).To(BeTrue())
-				Expect(assertResponse(nChan, 1, iter, sensibleTimeoutThreshold)).To(Succeed())
+				Expect(iter.Value()).To(HaveLen(nChan))
 			})
 		})
 		Describe("SeekFirst + TraverseTo", func() {
 			It("Should return the first segment in the iterator", func() {
 				Expect(iter.SeekFirst()).To(BeTrue())
 				Expect(iter.Next()).To(BeTrue())
-				Expect(assertResponse(nChan, 1, iter, sensibleTimeoutThreshold)).To(Succeed())
+				Expect(iter.Value()).To(HaveLen(nChan))
 			})
 		})
 		Describe("SeekLast + Prev", func() {
 			It("Should return the last segment in the iterator", func() {
 				Expect(iter.SeekLast()).To(BeTrue())
 				Expect(iter.Prev()).To(BeTrue())
-				Expect(assertResponse(nChan, 1, iter, sensibleTimeoutThreshold)).To(Succeed())
+				Expect(iter.Value()).To(HaveLen(nChan))
 			})
 		})
 		Describe("NextSpan", func() {
 			It("Should return the next span in the iterator", func() {
 				Expect(iter.SeekFirst()).To(BeTrue())
 				Expect(iter.NextSpan(20 * telem.Second)).To(BeTrue())
-				Expect(assertResponse(nChan*2, 1, iter, sensibleTimeoutThreshold))
+				Expect(iter.Value()).To(HaveLen(nChan * 2))
 			})
 		})
 		Describe("PrevSpan", func() {
 			It("Should return the previous span in the iterator", func() {
 				Expect(iter.SeekLast()).To(BeTrue())
 				Expect(iter.PrevSpan(30 * telem.Second)).To(BeTrue())
-				Expect(assertResponse(nChan*3, 1, iter, sensibleTimeoutThreshold)).To(Succeed())
+				Expect(iter.Value()).To(HaveLen(nChan * 3))
 			})
 		})
-		Describe("NextRange", func() {
+		Describe("ReadView", func() {
 			It("Should return the next range of data in the iterator", func() {
-				Expect(iter.NextRange(telem.TimeRange{Start: 0, End: telem.TimeStamp(25 * telem.Second)})).To(BeTrue())
-				Expect(assertResponse(nChan*3, 1, iter, sensibleTimeoutThreshold)).To(Succeed())
+				Expect(iter.Range(telem.TimeRange{Start: 0, End: telem.TimeStamp(25 * telem.Second)})).To(BeTrue())
+				Expect(iter.Value()).To(HaveLen(nChan * 3))
 			})
 		})
 	})

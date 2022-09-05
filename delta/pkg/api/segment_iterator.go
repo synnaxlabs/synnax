@@ -7,8 +7,16 @@ import (
 	"github.com/arya-analytics/delta/pkg/distribution/segment"
 	"github.com/arya-analytics/delta/pkg/distribution/segment/iterator"
 	"github.com/arya-analytics/freighter"
+	"github.com/arya-analytics/freighter/ferrors"
+	"github.com/arya-analytics/x/confluence"
+	"github.com/arya-analytics/x/signal"
 	"github.com/arya-analytics/x/telem"
 	roacherrors "github.com/cockroachdb/errors"
+)
+
+type (
+	IteratorCommand         = iterator.Command
+	IteratorResponseVariant = iterator.ResponseVariant
 )
 
 type IteratorRequest struct {
@@ -20,47 +28,48 @@ type IteratorRequest struct {
 }
 
 type IteratorResponse struct {
-	Variant  IteratorResponseVariant `json:"variant"`
-	Ack      bool                    `json:"ack"`
-	Command  IteratorCommand         `json:"command"`
-	Err      errors.Typed            `json:"error"`
-	Segments []Segment               `json:"segments"`
+	Variant  IteratorResponseVariant `json:"variant" msgpack:"variant"`
+	Command  IteratorCommand         `json:"command" msgpack:"command"`
+	Ack      bool                    `json:"ack" msgpack:"ack"`
+	Err      ferrors.Payload         `json:"error" msgpack:"error"`
+	Segments []Segment               `json:"segments" msgpack:"segments"`
 }
 
 type IteratorStream = freighter.ServerStream[IteratorRequest, IteratorResponse]
 
 func (s *SegmentService) Iterate(_ctx context.Context, stream IteratorStream) errors.Typed {
-	ctx, cancel := context.WithCancel(_ctx)
+	ctx, cancel := signal.WithCancel(_ctx, signal.WithLogger(s.Logger.Desugar()))
 	// cancellation here would occur for one of two reasons. Either we encounter
 	// a fatal error (transport or iterator internal) and we need to free all
 	// resources, OR the client executed the close command on the iterator (in
 	// which case resources have already been freed and cancel does nothing).
 	defer cancel()
 
-	keys, tr, _err := receiveIteratorOpenArgs(stream)
-	if _err.Occurred() {
-		return _err
+	iter, err := s.openIterator(ctx, stream)
+	if err.Occurred() {
+		return errors.Unexpected(err)
 	}
-
-	iter, err := s.Internal.NewRetrieve().WhereChannels(keys...).WhereTimeRange(tr).Iterate(ctx)
-	if err != nil {
-		return errors.General(err)
-	}
+	requests := confluence.NewStream[iterator.Request]()
+	iter.InFrom(requests)
+	responses := confluence.NewStream[iterator.Response]()
+	iter.OutTo(responses)
+	iter.Flow(ctx, confluence.CloseInletsOnExit(), confluence.CancelOnExitErr())
 
 	go func() {
 		for {
 			req, err := stream.Receive()
+			if roacherrors.Is(err, freighter.EOF) {
+				requests.Close()
+				return
+			}
 			if err != nil {
 				return
 			}
-			ok, err := executeIteratorRequest(iter, req)
-			if err := stream.Send(IteratorResponse{
-				Variant: iterator.AckResponse,
+			requests.Inlet() <- iterator.Request{
 				Command: req.Command,
-				Ack:     ok,
-				Err:     errors.General(err),
-			}); err != nil {
-				return
+				Span:    req.Span,
+				Range:   req.Range,
+				Stamp:   req.Stamp,
 			}
 		}
 	}()
@@ -69,7 +78,7 @@ func (s *SegmentService) Iterate(_ctx context.Context, stream IteratorStream) er
 		select {
 		case <-ctx.Done():
 			return errors.Canceled
-		case res, ok := <-iter.Responses():
+		case res, ok := <-responses.Outlet():
 			if !ok {
 				return errors.Nil
 			}
@@ -81,48 +90,32 @@ func (s *SegmentService) Iterate(_ctx context.Context, stream IteratorStream) er
 					Data:       seg.Segment.Data,
 				}
 			}
-			if err := stream.Send(IteratorResponse{
-				Variant:  iterator.DataResponse,
+			tRes := IteratorResponse{
+				Variant:  res.Variant,
+				Command:  res.Command,
+				Ack:      res.Ack,
 				Segments: segments,
-			}); err != nil {
+			}
+			if res.Error != nil {
+				tRes.Err = ferrors.Encode(res.Error)
+			}
+			if err := stream.Send(tRes); err != nil {
 				return errors.Unexpected(err)
 			}
 		}
 	}
 }
 
-func executeIteratorRequest(iter segment.Iterator, req IteratorRequest) (bool, error) {
-	switch req.Command {
-	case iterator.Next:
-		return iter.Next(), nil
-	case iterator.Prev:
-		return iter.Prev(), nil
-	case iterator.First:
-		return iter.First(), nil
-	case iterator.Last:
-		return iter.Last(), nil
-	case iterator.NextSpan:
-		return iter.NextSpan(req.Span), nil
-	case iterator.PrevSpan:
-		return iter.PrevSpan(req.Span), nil
-	case iterator.NextRange:
-		return iter.NextRange(req.Range), nil
-	case iterator.SeekFirst:
-		return iter.SeekFirst(), nil
-	case iterator.SeekLast:
-		return iter.SeekLast(), nil
-	case iterator.SeekLT:
-		return iter.SeekLT(req.Stamp), nil
-	case iterator.SeekGE:
-		return iter.SeekGE(req.Stamp), nil
-	case iterator.Valid:
-		return iter.Valid(), nil
-	case iterator.Error:
-		err := iter.Error()
-		return err == nil, err
-	default:
-		return false, errors.Parse(roacherrors.New("unexpected command"))
+func (s *SegmentService) openIterator(ctx context.Context, srv IteratorStream) (segment.StreamIterator, errors.Typed) {
+	keys, rng, _err := receiveIteratorOpenArgs(srv)
+	if _err.Occurred() {
+		return nil, _err
 	}
+	iter, err := s.Internal.NewStreamIterator(ctx, rng, keys...)
+	if err != nil {
+		return nil, errors.Query(err)
+	}
+	return iter, errors.MaybeUnexpected(srv.Send(IteratorResponse{Variant: iterator.AckResponse, Ack: true}))
 }
 
 func receiveIteratorOpenArgs(srv IteratorStream) (channel.Keys, telem.TimeRange, errors.Typed) {

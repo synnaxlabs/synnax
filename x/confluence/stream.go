@@ -3,13 +3,14 @@ package confluence
 import (
 	"github.com/arya-analytics/x/address"
 	atomicx "github.com/arya-analytics/x/atomic"
+	"github.com/samber/lo"
 	"sync"
 )
 
 // NewStream opens a new Stream with the given buffer capacity.
-func NewStream[V Value](buffer int) Stream[V] {
+func NewStream[V Value](buffer ...int) Stream[V] {
 	return &streamImpl[V]{
-		values: make(chan V, buffer),
+		values: make(chan V, parseBuffer(buffer)),
 		c:      &atomicx.Int32Counter{},
 	}
 }
@@ -41,7 +42,9 @@ func (s *streamImpl[V]) Outlet() <-chan V { return s.values }
 // InletAddress implements Stream.
 func (s *streamImpl[V]) InletAddress() address.Address { return s.inletAddr }
 
-func (s *streamImpl[V]) Acquire(n int32) { s.c.Add(n) }
+func (s *streamImpl[V]) Acquire(n int32) {
+	s.c.Add(n)
+}
 
 func (s *streamImpl[V]) Close() {
 	s.c.Add(-1)
@@ -82,7 +85,9 @@ func (i *inletImpl[V]) Acquire(n int32) { i.c.Add(n) }
 func (i *inletImpl[V]) Close() {
 	i.c.Add(-1)
 	if i.c.Value() <= 0 {
-		i.once.Do(func() { close(i.values) })
+		i.once.Do(func() {
+			close(i.values)
+		})
 	}
 }
 
@@ -99,3 +104,20 @@ func (o *outletImpl[V]) OutletAddress() address.Address { return o.addr }
 
 // SetOutletAddress implements Outlet.
 func (o *outletImpl[V]) SetOutletAddress(addr address.Address) { o.addr = addr }
+
+func InletsToClosables[V Value](inlets []Inlet[V]) []Closable {
+	return lo.Map(inlets, func(inlet Inlet[V], _ int) Closable { return inlet })
+}
+
+func InletMapToClosables[V Value](inlets map[address.Address]Inlet[V]) []Closable {
+	return lo.MapToSlice(inlets, func(k address.Address, in Inlet[V]) Closable { return in })
+}
+
+const defaultBuffer = 0
+
+func parseBuffer(buffer []int) int {
+	if len(buffer) > 0 {
+		return buffer[0]
+	}
+	return defaultBuffer
+}

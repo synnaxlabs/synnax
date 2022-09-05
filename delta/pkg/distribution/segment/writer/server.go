@@ -2,28 +2,24 @@ package writer
 
 import (
 	"context"
-	"github.com/arya-analytics/delta/pkg/distribution/core"
 	"github.com/arya-analytics/delta/pkg/storage"
 	"github.com/arya-analytics/freighter"
 	"github.com/arya-analytics/freighter/freightfluence"
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/confluence"
 	"github.com/arya-analytics/x/confluence/plumber"
-	"github.com/arya-analytics/x/errutil"
 	"github.com/arya-analytics/x/signal"
 	"github.com/cockroachdb/errors"
-	"go.uber.org/zap"
 )
 
 type server struct {
-	host   core.NodeID
-	db     storage.TS
-	logger *zap.SugaredLogger
+	Config
+	ts storage.TS
 }
 
-func NewServer(db storage.TS, host core.NodeID, transport Transport) *server {
-	sf := &server{db: db, host: host}
-	transport.BindHandler(sf.Handle)
+func NewServer(cfg Config) *server {
+	sf := &server{ts: cfg.TS, Config: cfg}
+	cfg.Transport.BindHandler(sf.Handle)
 	return sf
 }
 
@@ -47,7 +43,7 @@ func (sf *server) Handle(_ctx context.Context, server Server) error {
 
 	transientErrors := confluence.NewStream[error](0)
 
-	w, err := newLocalWriter(ctx, sf.host, sf.db, req.OpenKeys, transientErrors)
+	w, err := newLocalWriter(ctx, req.OpenKeys, transientErrors, sf.Config)
 	if err != nil {
 		return errors.Wrap(err, "[segment.w] - failed to open cesium w")
 	}
@@ -58,18 +54,12 @@ func (sf *server) Handle(_ctx context.Context, server Server) error {
 	plumber.SetSink[Response](pipe, "sender", sender)
 	plumber.SetSource[Response](pipe, "transient", &TransientSource{transient: transientErrors})
 
-	c := errutil.NewCatch()
+	plumber.UnaryRouter[Request]{SourceTarget: "receiver", SinkTarget: "writer"}.MustRoute(pipe)
 
-	c.Exec(plumber.UnaryRouter[Request]{SourceTarget: "receiver", SinkTarget: "writer"}.PreRoute(pipe))
-
-	c.Exec(plumber.MultiRouter[Response]{
+	plumber.MultiRouter[Response]{
 		SourceTargets: []address.Address{"writer", "transient"},
 		SinkTargets:   []address.Address{"sender"},
-	}.PreRoute(pipe))
-
-	if c.Error() != nil {
-		panic(c.Error())
-	}
+	}.MustRoute(pipe)
 
 	pipe.Flow(ctx, confluence.CloseInletsOnExit())
 

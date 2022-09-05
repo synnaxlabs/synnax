@@ -64,7 +64,8 @@ class TimeStamp(int):
     def after_eq(self, ts: UnparsedTimeStamp) -> bool:
         """Returns true if the TimeStamp is after or equal to the given TimeStamp.
         :param ts: the TimeStamp to compare to
-        :return: True if the TimeStamp is after or equal to the given TimeStamp, False otherwise
+        :return: True if the TimeStamp is after or equal to the given TimeStamp an d False
+        otherwise.
         """
         return super().__ge__(TimeStamp(ts))
 
@@ -78,7 +79,8 @@ class TimeStamp(int):
     def before_eq(self, ts: UnparsedTimeStamp) -> bool:
         """Returns true if the TimeStamp is before or equal to the given TimeStamp.
         :param ts: the TimeStamp to compare to
-        :return: True if the TimeStamp is before or equal to the given TimeStamp, False otherwise
+        :return: True if the TimeStamp is before or equal to the given TimeStamp, and False
+        otherwise.
         """
         return super().__le__(TimeStamp(ts))
 
@@ -142,8 +144,7 @@ def now() -> TimeStamp:
 
 
 class TimeSpan(int):
-    """TimeSpan represents a 64 bit nanosecond-precision duration.
-    """
+    """TimeSpan represents a 64 bit nanosecond-precision duration."""
 
     def __new__(cls, value: UnparsedTimeSpan, *args, **kwargs):
         if isinstance(value, int):
@@ -228,11 +229,11 @@ MILLISECOND = TimeSpan(1000) * MICROSECOND
 SECOND = TimeSpan(1000) * MILLISECOND
 MINUTE = TimeSpan(60) * SECOND
 HOUR = TimeSpan(60) * MINUTE
+TIME_SPAN_MAX = TimeSpan(0xFFFFFFFFFFFFFFFF)
 
 
 class Rate(float):
-    """Rate represents a data rate in Hz
-    """
+    """Rate represents a data rate in Hz"""
 
     def __new__(cls, value: UnparsedRate):
         if isinstance(value, float):
@@ -251,31 +252,27 @@ class Rate(float):
         pass
 
     def period(self) -> TimeSpan:
-        """Returns the period of the rate as a TimeSpan
-        """
+        """Returns the period of the rate as a TimeSpan"""
         return TimeSpan(int(1 / self * float(SECOND)))
 
     def sample_count(self, time_span: UnparsedTimeSpan) -> int:
-        """Returns the number of samples in the given TimeSpan at this rate
-        """
+        """Returns the number of samples in the given TimeSpan at this rate"""
         return int(TimeSpan(time_span) / self.period())
 
     def byte_size(self, time_span: UnparsedTimeSpan, density: Density) -> Size:
-        """Calculates the amount of bytes occupied by the given TimeSpan at the given rate and sample density.
-        """
+        """Calculates the amount of bytes occupied by the given TimeSpan at the given rate and sample density."""
         return Size(self.sample_count(time_span) * int(density))
 
     def span(self, sample_count: int) -> TimeSpan:
-        """Returns the TimeSpan that corresponds to the given number of samples at this rate.
-        """
+        """Returns the TimeSpan that corresponds to the given number of samples at this rate."""
         return self.period() * sample_count
 
     def size_span(self, size: Size, density: Density) -> TimeSpan:
-        """Returns the TimeSpan that corresponds to the given number of bytes at this rate and sample density.
-        """
+        """Returns the TimeSpan that corresponds to the given number of bytes at this rate and sample density."""
         if size % density != 0:
             raise arya.errors.ContiguityError(
-                f"Size {size} is not a multiple of density {density}")
+                f"Size {size} is not a multiple of density {density}"
+            )
         return self.span(int(size / density))
 
     def __str__(self):
@@ -290,6 +287,7 @@ KHZ = Rate(1000) * HZ
 MHZ = Rate(1000) * KHZ
 
 
+@dataclass
 class TimeRange:
     start: TimeStamp
     end: TimeStamp
@@ -322,8 +320,11 @@ class TimeRange:
         return self.start.before_eq(tr.start) and self.end.after_eq(tr.end)
 
     def overlaps_with(self, tr: TimeRange) -> bool:
-        return self.contains_stamp(tr.start) or self.contains_stamp(
-            tr.end) or tr.contains_range(self)
+        return (
+                self.contains_stamp(tr.start)
+                or self.contains_stamp(tr.end)
+                or tr.contains_range(self)
+        )
 
     def swap(self) -> TimeRange:
         self.start, self.end = self.end, self.start
@@ -351,11 +352,11 @@ class Density(int):
 
 
 class Size(int):
-
     def __str__(self):
         return super(Size, self).__str__() + "B"
 
 
+TIME_RANGE_MAX = TimeRange(TIME_STAMP_MIN, TIME_STAMP_MAX)
 DENSITY_UNKNOWN = Density(0)
 BIT64 = Density(8)
 BIT32 = Density(4)
@@ -363,33 +364,43 @@ BIT16 = Density(2)
 BIT8 = Density(1)
 
 
-@dataclass
-class DataType:
-    key: str
-    density: Density
+class DataType(str):
 
-    def __init__(self, key: str, density: UnparsedDensity):
-        self.key = key
-        self.density = Density(density)
+    def __new__(cls, value: UnparsedDataType):
+        if isinstance(value, DataType):
+            return value
+        if isinstance(value, str):
+            return super().__new__(cls, value)
+        try:
+            if issubclass(value, np.ScalarType):
+                return from_numpy_type(value)
+        except TypeError:
+            pass
+        raise TypeError(f"Cannot convert {type(value)} to DataType")
 
-    def __str__(self):
-        return self.key
-
-    def __eq__(self, other):
-        return self.key == other.key and self.density == other.density
+    def __init__(self, value: UnparsedDataType):
+        pass
 
 
-DATA_TYPE_UNKNOWN = DataType("", DENSITY_UNKNOWN)
-FLOAT64 = DataType("float64", BIT64)
-FLOAT32 = DataType("float32", BIT32)
-INT64 = DataType("int64", BIT64)
-INT32 = DataType("int32", BIT32)
-INT16 = DataType("int16", BIT16)
-INT8 = DataType("int8", BIT8)
-UINT64 = DataType("uint64", BIT64)
-UINT32 = DataType("uint32", BIT32)
-UINT16 = DataType("uint16", BIT16)
-UINT8 = DataType("uint8", BIT8)
+def to_numpy_type(data_type: DataType) -> np.ScalarType:
+    return NUMPY_TYPES.get(data_type, None)
+
+
+def from_numpy_type(np_type: np.ScalarType) -> DataType:
+    return DATA_TYPES.get(np_type, None)
+
+
+DATA_TYPE_UNKNOWN = DataType("")
+FLOAT64 = DataType("float64")
+FLOAT32 = DataType("float32")
+INT64 = DataType("int64")
+INT32 = DataType("int32")
+INT16 = DataType("int16")
+INT8 = DataType("int8")
+UINT64 = DataType("uint64")
+UINT32 = DataType("uint32")
+UINT16 = DataType("uint16")
+UINT8 = DataType("uint8")
 
 UnparsedTimeStamp = Union[
     TimeStamp,
@@ -401,3 +412,30 @@ UnparsedTimeStamp = Union[
 UnparsedTimeSpan = Union[TimeSpan | TimeStamp | int | datetime.timedelta]
 UnparsedRate = TimeSpan | Rate | float
 UnparsedDensity = Density | int
+UnparsedDataType = (*np.ScalarType, DataType, str)
+
+NUMPY_TYPES: dict[str, np.ScalarType] = {
+    FLOAT64: np.float64,
+    FLOAT32: np.float32,
+    INT64: np.int64,
+    INT32: np.int32,
+    INT16: np.int16,
+    INT8: np.int8,
+    UINT64: np.uint64,
+    UINT32: np.uint32,
+    UINT16: np.uint16,
+    UINT8: np.uint8,
+}
+
+DATA_TYPES: dict[np.ScalarType, DataType] = {
+    np.float64: FLOAT64,
+    np.float32: FLOAT32,
+    np.int64: INT64,
+    np.int32: INT32,
+    np.int16: INT16,
+    np.int8: INT8,
+    np.uint64: UINT64,
+    np.uint32: UINT32,
+    np.uint16: UINT16,
+    np.uint8: UINT8,
+}

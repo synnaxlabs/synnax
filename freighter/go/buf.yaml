@@ -1,0 +1,8 @@
+version: v1
+name: buf.build/arya-analytics/freighter
+breaking:
+  use:
+    - FILE
+lint:
+  use:
+    - DEFAULT

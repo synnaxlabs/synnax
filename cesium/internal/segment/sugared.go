@@ -72,7 +72,7 @@ func (s Sugared) BoundedSize() telem.Size {
 // BoundedOffset returns the file offset of the underlying segment after being restricted by the bounds set in
 // SetBounds.
 func (s Sugared) BoundedOffset() telem.Offset {
-	return telem.TimeSpan(s.BoundedRange().Start-s.Start()).ByteSize(s.channel.
+	return s.header.Offset + telem.TimeSpan(s.BoundedRange().Start-s.Start()).ByteSize(s.channel.
 		Rate, s.channel.Density)
 }
 

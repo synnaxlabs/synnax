@@ -35,22 +35,22 @@ package grpc
 //}
 //
 //func (i *iteratorServer) translateRequest(req *segmentv1.IteratorRequest) (api.IteratorRequest, error) {
-//	keys, err := channel.ParseKeys(req.Keys)
+//	keys, err := channel.ParseKeys(req.ChannelKeys)
 //	return api.IteratorRequest{
 //		Command: api.IteratorCommand(req.Command),
-//		Span:    telem.TimeSpan(req.Span),
-//		Range: telem.TimeRange{
-//			Start: telem.TimeStamp(req.Range.Start),
-//			End:   telem.TimeStamp(req.Range.End),
+//		SpanTo:    telem.TimeSpan(req.SpanTo),
+//		TimeRange: telem.TimeRange{
+//			Start: telem.TimeStamp(req.TimeRange.Start),
+//			End:   telem.TimeStamp(req.TimeRange.End),
 //		},
 //		Stamp: telem.TimeStamp(req.Stamp),
-//		Keys:  keys,
+//		ChannelKeys:  keys,
 //	}, err
 //}
 //
 //func (i *iteratorServer) translateResponse(res api.IteratorResponse) (*segmentv1.IteratorResponse, error) {
 //	seg, err := translateSegmentsBackward(res.Segments)
-//	return &segmentv1.IteratorResponse{Error: TranslateResponseForward(res.Err), Segments: seg}, err
+//	return &segmentv1.IteratorResponse{Err: TranslateResponseForward(res.Err), Segments: seg}, err
 //}
 //
 //type writerServer struct {
@@ -78,7 +78,7 @@ package grpc
 //}
 //
 //func (w *writerServer) translateResponse(res api.WriterResponse) *segmentv1.WriterResponse {
-//	return &segmentv1.WriterResponse{Error: TranslateResponseForward(res.Err)}
+//	return &segmentv1.WriterResponse{Err: TranslateResponseForward(res.Err)}
 //}
 //
 //func translateSegmentsBackward(segments []api.segment) ([]*segmentv1.segment, error) {

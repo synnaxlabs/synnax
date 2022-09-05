@@ -1,9 +1,11 @@
 syntax = "proto3";
 
+import "ferrors/v1/ferrors.proto";
+
 package segment.v1;
 
 service IteratorService {
-    rpc Iterate(stream IteratorRequest) returns (stream IteratorResponse) {}
+  rpc Iterate(stream IteratorRequest) returns (stream IteratorResponse) {}
 }
 
 message IteratorRequest {
@@ -25,8 +27,9 @@ message IteratorResponse {
   int32 node_id = 2;
   bool ack = 3;
   int32 command = 4;
-  string error = 5;
-  repeated Segment segments = 6;
+  int32 counter = 5;
+  ferrors.v1.ErrorPayload error = 6;
+  repeated Segment segments = 7;
 }
 
 service WriterService {
@@ -39,7 +42,7 @@ message WriterRequest {
 }
 
 message WriterResponse {
-  string error = 1;
+  ferrors.v1.ErrorPayload error = 1;
 }
 
 message TimeRange {

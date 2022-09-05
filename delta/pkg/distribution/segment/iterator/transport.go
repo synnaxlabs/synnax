@@ -8,6 +8,7 @@ import (
 	"github.com/arya-analytics/x/telem"
 )
 
+//go:generate stringer -type=Command
 type Command uint8
 
 const (
@@ -19,25 +20,21 @@ const (
 	NextSpan
 	PrevSpan
 	NextRange
+	Valid
+	Error
 	SeekFirst
 	SeekLast
 	SeekLT
 	SeekGE
-	Valid
-	Error
-	Close
-	Exhaust
 )
 
 // Request is a request to a remote iterator.
 type Request struct {
-	// Command is the command to execute.
 	Command Command
-	// ... The rest of the parameters are loosely defined arguments specific to the command.
-	Span  telem.TimeSpan
-	Range telem.TimeRange
-	Stamp telem.TimeStamp
-	Keys  channel.Keys
+	Span    telem.TimeSpan
+	Range   telem.TimeRange
+	Stamp   telem.TimeStamp
+	Keys    channel.Keys
 }
 
 type ResponseVariant uint8
@@ -58,6 +55,8 @@ type Response struct {
 	// Ack is only relevant for variant AckResponse. Is true if the iterator successfully
 	// executed the request.
 	Ack bool
+	// Counter
+	Counter int
 	// Command is only relevant for variant AckResponse. It is  the command that was executed
 	// on the iterator.
 	Command Command

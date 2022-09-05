@@ -13,12 +13,15 @@ package storage
 import (
 	"github.com/arya-analytics/cesium"
 	"github.com/arya-analytics/x/alamos"
+	"github.com/arya-analytics/x/config"
 	"github.com/arya-analytics/x/errutil"
 	"github.com/arya-analytics/x/fsutil"
 	"github.com/arya-analytics/x/gorp"
 	"github.com/arya-analytics/x/kfs"
 	"github.com/arya-analytics/x/kv"
 	"github.com/arya-analytics/x/kv/pebblekv"
+	"github.com/arya-analytics/x/override"
+	"github.com/arya-analytics/x/validate"
 	"github.com/cockroachdb/errors"
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/vfs"
@@ -91,7 +94,7 @@ type Config struct {
 	// Perm is the file permissions to use for the storage directory.
 	Perm fs.FileMode
 	// MemBacked defines whether the node should use a memory-backed file system.
-	MemBacked bool
+	MemBacked *bool
 	// Logger is the logger used by the node.
 	Logger *zap.Logger
 	// Experiment is the experiment used by the node for metrics, reports, and tracing.
@@ -102,73 +105,57 @@ type Config struct {
 	TSEngine TSEngine
 }
 
-func (cfg Config) Merge(other Config) Config {
-	if cfg.Dirname == "" {
-		cfg.Dirname = other.Dirname
-	}
-	if cfg.Perm == 0 {
-		cfg.Perm = other.Perm
-	}
-	if cfg.Logger == nil {
-		cfg.Logger = other.Logger
-	}
-	if cfg.Experiment == nil {
-		cfg.Experiment = other.Experiment
-	}
-	if cfg.KVEngine == 0 {
-		cfg.KVEngine = other.KVEngine
-	}
-	if cfg.TSEngine == 0 {
-		cfg.TSEngine = other.TSEngine
-	}
+var _ config.Config[Config] = Config{}
+
+func (cfg Config) Override(other Config) Config {
+	cfg.Dirname = override.String(cfg.Dirname, other.Dirname)
+	cfg.Perm = override.Numeric(cfg.Perm, other.Perm)
+	cfg.Experiment = override.Nil(cfg.Experiment, other.Experiment)
+	cfg.Logger = override.Nil(cfg.Logger, other.Logger)
+	cfg.KVEngine = override.Numeric(cfg.KVEngine, other.KVEngine)
+	cfg.TSEngine = override.Numeric(cfg.TSEngine, other.TSEngine)
+	cfg.MemBacked = override.Nil(cfg.MemBacked, other.MemBacked)
 	return cfg
 }
 
 func (cfg Config) Validate() error {
-	if !cfg.MemBacked && cfg.Dirname == "" {
-		return errors.New("[storage] - dirname must be set")
+	if !*cfg.MemBacked && cfg.Dirname == "" {
+		return errors.Wrap(validate.ValidationError, "[storage] - dirname must be set")
 	}
 
 	if !lo.Contains[KVEngine](kvEngines, cfg.KVEngine) {
-		return errors.New("[storage] - invalid key-value engine")
+		return errors.Wrap(validate.ValidationError, "[storage] - invalid key-value engine")
 	}
 
 	if !lo.Contains[TSEngine](tsEngines, cfg.TSEngine) {
-		return errors.New("[storage] - invalid time-series engine")
+		return errors.Wrap(validate.ValidationError, "[storage] - invalid time-series engine")
 	}
 
 	if cfg.Perm == 0 {
-		return errors.New("[storage] - insufficient permission bits configured")
+		return errors.Wrap(validate.ValidationError, "[storage] - insufficient permission bits configured")
 	}
 
 	return nil
 }
 
-func (cfg Config) LogArgs() []interface{} {
-	return []interface{}{
-		"dirname",
-		cfg.Dirname,
-		"permissions",
-		cfg.Perm,
-		"memBacked",
-		cfg.MemBacked,
-		"kvEngine",
-		cfg.KVEngine,
-		"tsEngine",
-		cfg.TSEngine,
+func (cfg Config) Report() alamos.Report {
+	return alamos.Report{
+		"dirname":     cfg.Dirname,
+		"permissions": cfg.Perm,
+		"memBacked":   cfg.MemBacked,
+		"kvEngine":    cfg.KVEngine.String(),
+		"tsEngine":    cfg.TSEngine.String(),
 	}
 }
 
 // DefaultConfig returns the default configuration for the storage layer.
-func DefaultConfig() Config {
-	return Config{
-		Perm:       fsutil.OS_USER_RWX | fsutil.OS_GROUP_R,
-		MemBacked:  false,
-		Logger:     zap.NewNop(),
-		Experiment: nil,
-		KVEngine:   PebbleKV,
-		TSEngine:   CesiumTS,
-	}
+var DefaultConfig = Config{
+	Perm:       fsutil.OS_USER_RWX,
+	MemBacked:  config.BoolPointer(false),
+	Logger:     zap.NewNop(),
+	Experiment: nil,
+	KVEngine:   PebbleKV,
+	TSEngine:   CesiumTS,
 }
 
 // Open opens a new Store with the given Config. Open acquires a lock on the directory
@@ -176,15 +163,15 @@ func DefaultConfig() Config {
 // The lock is released when the Store is/closed. Store MUST be closed when it is no
 // longer in use.
 func Open(cfg Config) (s *Store, err error) {
-	cfg = cfg.Merge(DefaultConfig())
-	if err := cfg.Validate(); err != nil {
-		return s, err
+	cfg, err = config.OverrideAndValidate(DefaultConfig, cfg)
+	if err != nil {
+		return nil, err
 	}
 
 	s = &Store{}
 
 	log := cfg.Logger.Sugar()
-	log.Infow("opening storage", cfg.LogArgs()...)
+	log.Infow("opening storage", cfg.Report().LogArgs()...)
 
 	// Open our two file system implementations. We use VFS for acquiring the directory
 	// lock and for the key-value store. We use KFS for the time-series engine, as we
@@ -225,7 +212,7 @@ const (
 )
 
 func openBaseFS(cfg Config) (vfs.FS, kfs.BaseFS) {
-	if cfg.MemBacked {
+	if *cfg.MemBacked {
 		return vfs.NewMem(), kfs.NewMem()
 	} else {
 		return vfs.Default, kfs.NewOS()
@@ -236,7 +223,7 @@ func configureStorageDir(cfg Config, vfs vfs.FS) error {
 	if err := vfs.MkdirAll(cfg.Dirname, cfg.Perm); err != nil {
 		return errors.Wrapf(err, "failed to create storage directory %s", cfg.Dirname)
 	}
-	if !cfg.MemBacked {
+	if !*cfg.MemBacked {
 		return validateSufficientDirPermissions(cfg)
 	}
 	return nil

@@ -1,6 +1,7 @@
 package writer
 
 import (
+	"context"
 	"github.com/arya-analytics/delta/pkg/distribution/channel"
 	"github.com/arya-analytics/delta/pkg/distribution/core"
 	"github.com/arya-analytics/delta/pkg/distribution/proxy"
@@ -8,16 +9,14 @@ import (
 	"github.com/arya-analytics/freighter/freightfluence"
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/confluence"
-	"github.com/arya-analytics/x/signal"
 	"strconv"
 )
 
 func openRemoteWriters(
-	ctx signal.Context,
-	tran Transport,
+	ctx context.Context,
 	targets map[core.NodeID][]channel.Key,
-	resolver core.HostResolver,
 	transient confluence.Inlet[error],
+	cfg Config,
 ) (confluence.Sink[Request], []*freightfluence.Receiver[Response], []address.Address, error) {
 	receivers := make([]*freightfluence.Receiver[Response], 0, len(targets))
 	addrMap := make(proxy.AddressMap)
@@ -25,12 +24,12 @@ func openRemoteWriters(
 	sender := newRequestSwitchSender(addrMap, transient, senders)
 	receiverAddresses := make([]address.Address, 0, len(targets))
 	for nodeID, keys := range targets {
-		targetAddr, err := resolver.Resolve(nodeID)
+		targetAddr, err := cfg.Resolver.Resolve(nodeID)
 		if err != nil {
 			return sender, receivers, receiverAddresses, err
 		}
 		addrMap[nodeID] = targetAddr
-		client, err := openRemoteClient(ctx, tran, targetAddr, keys)
+		client, err := openRemoteClient(ctx, cfg.Transport, targetAddr, keys)
 		if err != nil {
 			return sender, receivers, receiverAddresses, err
 		}
@@ -42,7 +41,7 @@ func openRemoteWriters(
 }
 
 func openRemoteClient(
-	ctx signal.Context,
+	ctx context.Context,
 	tran Transport,
 	target address.Address,
 	keys channel.Keys,

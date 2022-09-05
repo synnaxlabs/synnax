@@ -15,7 +15,7 @@ packages = [
 python = "^3.10"
 websockets = "^10.3"
 mypy = "^0.971"
-arya-freighter = "^0.1.0"
+arya-freighter = { path = "../../freighter/py", develop = true }
 pandas = "^1.4.3"
 
 [tool.poetry.dev-dependencies]

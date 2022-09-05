@@ -17,10 +17,6 @@ message Channel {
   int32 node_id = 2;
   int32 key = 3;
   double rate = 4;
-  DataType data_type = 5;
-}
-
-message DataType {
-  string key = 1;
-  int32 density = 5;
+  string data_type = 5;
+  int32 density = 6;
 }

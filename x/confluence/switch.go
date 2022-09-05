@@ -26,7 +26,7 @@ type Switch[V Value] struct {
 // the switch will exit with an address.TargetNotFound error.
 func (sw *Switch[V]) Flow(ctx signal.Context, opts ...Option) {
 	fo := NewOptions(opts)
-	fo.AttachInletCloser(sw)
+	fo.AttachClosables(InletMapToClosables(sw.Out)...)
 	sw.GoRange(ctx, sw._switch, fo.Signal...)
 }
 
@@ -61,7 +61,7 @@ type BatchSwitch[I, O Value] struct {
 // found, the BatchSwitch will exit with an address.NotFound error.
 func (bsw *BatchSwitch[I, O]) Flow(ctx signal.Context, opts ...Option) {
 	fo := NewOptions(opts)
-	fo.AttachInletCloser(bsw)
+	fo.AttachClosables(InletMapToClosables(bsw.Out)...)
 	bsw.addrMap = make(map[address.Address]O)
 	bsw.GoRange(ctx, bsw._switch, fo.Signal...)
 }

@@ -3,6 +3,7 @@ package mock_test
 import (
 	"github.com/arya-analytics/delta/pkg/storage"
 	"github.com/arya-analytics/delta/pkg/storage/mock"
+	"github.com/arya-analytics/x/config"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -14,11 +15,11 @@ var _ = Describe("Storage", func() {
 			store := b.New()
 			Expect(store).NotTo(BeNil())
 			Expect(store.KV.Set([]byte("foo"), []byte("bar"))).To(Succeed())
-			Expect(store.Close()).To(Succeed())
+			Expect(b.Close()).To(Succeed())
 			Expect(b.Cleanup()).To(Succeed())
 		},
 			Entry("Memory-backed storage implementation"),
-			Entry("File-backed storage implementation", storage.Config{MemBacked: false, Dirname: "./tmp"}),
+			Entry("File-backed storage implementation", storage.Config{MemBacked: config.BoolPointer(false), Dirname: "./tmp"}),
 		)
 	})
 })

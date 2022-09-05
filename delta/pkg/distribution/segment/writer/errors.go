@@ -24,7 +24,7 @@ type TransientSource struct {
 
 func (t *TransientSource) Flow(ctx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
-	o.AttachInletCloser(t)
+	o.AttachClosables(t.Out)
 	ctx.Go(func(ctx context.Context) error {
 		for {
 			select {
@@ -43,5 +43,5 @@ func (t *TransientSource) Flow(ctx signal.Context, opts ...confluence.Option) {
 }
 
 func (t *TransientSource) sendError(ctx context.Context, err error) error {
-	return signal.SendUnderContext(ctx, t.Out.Inlet(), Response{Error: err})
+	return signal.SendUnderContext(ctx, t.Out.Inlet(), Response{Err: err})
 }

@@ -11,6 +11,8 @@ import (
 	"github.com/cockroachdb/errors"
 )
 
+var RangeHasNoData = errors.New("[cesium.kv] - range has no data")
+
 // Iterator is used to iterate over one or more channel's data.
 // Iterator stores its values as a bounded range of segment headers.
 // Iterator is not goroutine safe, but it is safe to open several iterators over the
@@ -129,9 +131,9 @@ type Iterator interface {
 	// contain data, but they are guaranteed to be sequential and overlap with the
 	// Iterator.View. The bounds of reach range will be constrained by Iterator.View.
 	//
-	// It's important to note that the TimeRange returned by Range().Range() will
+	// It's important to note that the TimeRange returned by Range().TimeRange() will
 	// either be equal to or contained in the current View. On the other hande,
-	// Range().UnboundedRange() is either equal or contains Range().Range() (meaning
+	// Range().UnboundedRange() is either equal or contains Range().TimeRange() (meaning
 	// it may be larger than the current View().
 	Ranges() []*segment.Range
 	// Range returns the Range for the first channel in the iterator. Returns
@@ -163,18 +165,21 @@ type Iterator interface {
 }
 
 // NewIterator opens a new unaryIterator over the specified time range of a channel.
-func NewIterator(kve kv.DB, rng telem.TimeRange, keys ...channel.Key) (iter Iterator) {
+func NewIterator(kve kv.DB, rng telem.TimeRange, keys ...channel.Key) (iter Iterator, err error) {
 	if len(keys) == 0 {
-		panic("[cesium.kv] - NewIterator() called with no keys")
+		return nil, errors.New("[cesium] - iterator opened without keys")
 	}
 	if len(keys) == 1 {
 		return newUnaryIterator(kve, rng, keys[0])
 	}
 	compound := make(compoundIterator, len(keys))
 	for i, k := range keys {
-		compound[i] = newUnaryIterator(kve, rng, k)
+		compound[i], err = newUnaryIterator(kve, rng, k)
+		if err != nil {
+			return nil, err
+		}
 	}
-	return compound
+	return compound, err
 }
 
 type unaryIterator struct {
@@ -203,17 +208,17 @@ func newGorpHeaderIter(
 }
 
 // NewIterator opens a new unaryIterator over the specified time range of a channel.
-func newUnaryIterator(kve kv.DB, rng telem.TimeRange, key channel.Key) (iter *unaryIterator) {
+func newUnaryIterator(kve kv.DB, rng telem.TimeRange, key channel.Key) (iter *unaryIterator, err error) {
 	iter = &unaryIterator{bounds: telem.TimeRangeMax}
 
-	chs, err := NewChannel(kve).Get(key)
+	chs, err := NewChannelService(kve).Get(key)
 	if err != nil {
 		iter.maybeSetError(err)
-		return iter
+		return iter, iter.Error()
 	}
 	if len(chs) == 0 {
 		iter.maybeSetError(query.NotFound)
-		return iter
+		return iter, iter.Error()
 	}
 
 	iter.channel = chs[0]
@@ -226,15 +231,15 @@ func newUnaryIterator(kve kv.DB, rng telem.TimeRange, key channel.Key) (iter *un
 	// segment range overlaps with our desired range, we'll use it as the starting
 	// point for the iterator. Otherwise, we'll seek to the first segment that starts
 	// after the start of the range. If this rng overlaps with our desired range,
-	// we'll use it as the starting point for the iterator. Otherwise, set an error
-	// on the iterator.
+	// we'll use it as the starting point for the iterator. Otherwise, return an
+	// error that the range has no data.
 	if iter.SeekLT(rng.Start) && iter.Next() && iter.Range().Range().OverlapsWith(
 		rng) {
 		start = iter.key(iter.Range().UnboundedRange().Start).Bytes()
 	} else if iter.SeekGE(rng.Start) && iter.Next() && iter.Range().Range().OverlapsWith(rng) {
 		start = iter.key(iter.Range().UnboundedRange().Start).Bytes()
 	} else {
-		iter.maybeSetError(errors.New("[cesium.kv] - range has no data"))
+		return nil, errors.CombineErrors(RangeHasNoData, iter.internal.Close())
 	}
 
 	if iter.SeekGE(rng.End) && iter.Prev() && iter.Range().Range().OverlapsWith(rng) {
@@ -242,14 +247,15 @@ func newUnaryIterator(kve kv.DB, rng telem.TimeRange, key channel.Key) (iter *un
 	} else if iter.SeekLT(rng.End) && iter.Next() && iter.Range().Range().OverlapsWith(rng) {
 		end = iter.key(iter.Range().UnboundedRange().End).Bytes()
 	} else {
-		iter.maybeSetError(errors.New("[cesium.kv] - range has no data"))
+		return nil, errors.CombineErrors(RangeHasNoData, iter.internal.Close())
 	}
 
 	iter.bounds = rng
-	iter.maybeSetError(iter.internal.Close())
+	if err := iter.internal.Close(); err != nil {
+		return nil, err
+	}
 	iter.internal = newGorpHeaderIter(kve, kv.RangeIter(start, end))
-
-	return iter
+	return iter, nil
 }
 
 // First implements Iterator.
@@ -338,7 +344,7 @@ func (i *unaryIterator) NextSpan(span telem.TimeSpan) bool {
 	i.resetValue()
 
 	// If the last segment from the previous rng had relevant data, we need to load it back in.
-	if rng.OverlapsWith(prevRange) {
+	if rng.OverlapsWith(prevRange) || (i.internal.Valid() && i.internal.Value().End(i.channel.Rate, i.channel.Density).After(rng.Start)) {
 		i.appendHeader()
 	}
 

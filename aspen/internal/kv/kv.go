@@ -6,7 +6,6 @@ import (
 	"github.com/arya-analytics/x/config"
 	"github.com/arya-analytics/x/confluence"
 	"github.com/arya-analytics/x/confluence/plumber"
-	"github.com/arya-analytics/x/errutil"
 	kvx "github.com/arya-analytics/x/kv"
 	"github.com/arya-analytics/x/signal"
 )
@@ -148,64 +147,58 @@ func Open(ctx signal.Context, cfgs ...Config) (DB, error) {
 		newRecoveryTransform(cfg),
 	)
 
-	c := errutil.NewCatch()
-
-	c.Exec(plumber.MultiRouter[BatchRequest]{
+	plumber.MultiRouter[BatchRequest]{
 		SourceTargets: []address.Address{executorAddr, leaseReceiverAddr},
 		SinkTargets:   []address.Address{leaseProxyAddr},
 		Stitch:        plumber.StitchUnary,
 		Capacity:      1,
-	}.PreRoute(pipe))
+	}.MustRoute(pipe)
 
-	c.Exec(plumber.MultiRouter[BatchRequest]{
+	plumber.MultiRouter[BatchRequest]{
 		SourceTargets: []address.Address{leaseProxyAddr},
 		SinkTargets:   []address.Address{versionAssignerAddr, leaseSenderAddr},
 		Stitch:        plumber.StitchWeave,
 		Capacity:      1,
-	}.PreRoute(pipe))
+	}.MustRoute(pipe)
 
-	c.Exec(plumber.MultiRouter[BatchRequest]{
+	plumber.MultiRouter[BatchRequest]{
 		SourceTargets: []address.Address{operationReceiverAddr, operationSenderAddr},
 		SinkTargets:   []address.Address{versionFilterAddr},
 		Stitch:        plumber.StitchUnary,
 		Capacity:      1,
-	}.PreRoute(pipe))
+	}.MustRoute(pipe)
 
-	c.Exec(plumber.MultiRouter[BatchRequest]{
+	plumber.MultiRouter[BatchRequest]{
 		SourceTargets: []address.Address{versionFilterAddr, versionAssignerAddr},
 		SinkTargets:   []address.Address{persistAddr},
 		Capacity:      1,
 		Stitch:        plumber.StitchUnary,
-	}.PreRoute(pipe))
+	}.MustRoute(pipe)
 
-	c.Exec(plumber.UnaryRouter[BatchRequest]{
+	plumber.UnaryRouter[BatchRequest]{
 		SourceTarget: versionFilterAddr,
 		SinkTarget:   feedbackSenderAddr,
 		Capacity:     1,
-	}.PreRoute(pipe))
+	}.MustRoute(pipe)
 
-	c.Exec(plumber.UnaryRouter[BatchRequest]{
+	plumber.UnaryRouter[BatchRequest]{
 		SourceTarget: feedbackReceiverAddr,
 		SinkTarget:   recoveryTransformAddr,
 		Capacity:     1,
-	}.PreRoute(pipe))
+	}.MustRoute(pipe)
 
-	c.Exec(plumber.MultiRouter[BatchRequest]{
+	plumber.MultiRouter[BatchRequest]{
 		SourceTargets: []address.Address{persistAddr, recoveryTransformAddr},
 		SinkTargets:   []address.Address{storeSinkAddr},
 		Stitch:        plumber.StitchUnary,
 		Capacity:      1,
-	}.PreRoute(pipe))
+	}.MustRoute(pipe)
 
-	c.Exec(plumber.UnaryRouter[BatchRequest]{
+	plumber.UnaryRouter[BatchRequest]{
 		SourceTarget: storeEmitterAddr,
 		SinkTarget:   operationSenderAddr,
 		Capacity:     1,
-	}.PreRoute(pipe))
-
-	if c.Error() != nil {
-		panic(c.Error())
-	}
+	}.MustRoute(pipe)
 
 	pipe.Flow(ctx)
 

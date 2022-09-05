@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"github.com/arya-analytics/cesium"
+	"github.com/arya-analytics/x/telem"
 	"math/rand"
 )
 
@@ -11,7 +12,7 @@ type DataFactory interface {
 	Generate(n int) []byte
 }
 
-func New(c cesium.Channel, fac DataFactory, start cesium.TimeStamp, span cesium.TimeSpan) cesium.Segment {
+func New(c cesium.Channel, fac DataFactory, start telem.TimeStamp, span telem.TimeSpan) cesium.Segment {
 	return cesium.Segment{
 		ChannelKey: c.Key,
 		Data:       generateSpan(c, fac, span),
@@ -19,7 +20,7 @@ func New(c cesium.Channel, fac DataFactory, start cesium.TimeStamp, span cesium.
 	}
 }
 
-func NewSet(c cesium.Channel, fac DataFactory, start cesium.TimeStamp, span cesium.TimeSpan, n int) []cesium.Segment {
+func NewSet(c cesium.Channel, fac DataFactory, start telem.TimeStamp, span telem.TimeSpan, n int) []cesium.Segment {
 	s := make([]cesium.Segment, n)
 	for i := 0; i < n; i++ {
 		s[i] = New(c, fac, start, span)
@@ -27,8 +28,6 @@ func NewSet(c cesium.Channel, fac DataFactory, start cesium.TimeStamp, span cesi
 	}
 	return s
 }
-
-// |||| FLOAT 64 |||||
 
 func GenSlice[T any](n int, fac func(int) T) []T {
 	s := make([]T, n)
@@ -91,17 +90,10 @@ func writeBytes(data interface{}) []byte {
 	return b.Bytes()
 }
 
-func generateSpan(c cesium.Channel, fac DataFactory, span cesium.TimeSpan) []byte {
+func generateSpan(c cesium.Channel, fac DataFactory, span telem.TimeSpan) []byte {
 	sc := c.Rate.SampleCount(span)
 	return fac.Generate(sc)
 }
-
-func DensityFactory(dt cesium.Density) DataFactory {
-	m := map[cesium.Density]DataFactory{cesium.Bit64: &SequentialFloat64Factory{}}
-	return m[dt]
-}
-
-// |||||| SEQUENTIAL FACTORY ||||||
 
 type MultiSequentialFactory struct {
 	factories []SequentialFactory
@@ -122,10 +114,10 @@ func (m *MultiSequentialFactory) NextN(n int) (s []cesium.Segment) {
 }
 
 type sequentialFactory struct {
-	FirstTS cesium.TimeStamp
-	PrevTS  cesium.TimeStamp
+	FirstTS telem.TimeStamp
+	PrevTS  telem.TimeStamp
 	Factory DataFactory
-	Span    cesium.TimeSpan
+	Span    telem.TimeSpan
 	Channel cesium.Channel
 }
 
@@ -134,7 +126,7 @@ type SequentialFactory interface {
 	NextN(n int) []cesium.Segment
 }
 
-func NewSequentialFactory(fac DataFactory, span cesium.TimeSpan, c ...cesium.Channel) SequentialFactory {
+func NewSequentialFactory(fac DataFactory, span telem.TimeSpan, c ...cesium.Channel) SequentialFactory {
 	if len(c) == 0 {
 		panic("no channels provided to sequential factory")
 	}
@@ -149,10 +141,10 @@ func NewSequentialFactory(fac DataFactory, span cesium.TimeSpan, c ...cesium.Cha
 	return multi
 }
 
-func newSingleSequentialFactory(fac DataFactory, span cesium.TimeSpan, c cesium.Channel) SequentialFactory {
+func newSingleSequentialFactory(fac DataFactory, span telem.TimeSpan, c cesium.Channel) SequentialFactory {
 	return &sequentialFactory{
-		FirstTS: cesium.TimeStampMin,
-		PrevTS:  cesium.TimeStampMin,
+		FirstTS: telem.TimeStampMin,
+		PrevTS:  telem.TimeStampMin,
 		Factory: fac,
 		Span:    span,
 		Channel: c,
@@ -168,56 +160,5 @@ func (sf *sequentialFactory) Next() []cesium.Segment {
 func (sf *sequentialFactory) NextN(n int) []cesium.Segment {
 	s := NewSet(sf.Channel, sf.Factory, sf.PrevTS, sf.Span, n)
 	sf.PrevTS = s[n-1].Start.Add(sf.Span)
-	return s
-}
-
-// ||||| STREAM CREATE ||||||
-
-type StreamCreate struct {
-	SequentialFactory
-	Req chan<- cesium.CreateRequest
-	Res <-chan cesium.CreateResponse
-}
-
-func (sc *StreamCreate) Create() cesium.CreateRequest {
-	req := cesium.CreateRequest{Segments: sc.Next()}
-	sc.Req <- req
-	return req
-}
-
-func (sc *StreamCreate) CreateN(n int) cesium.CreateRequest {
-	req := cesium.CreateRequest{Segments: sc.NextN(n)}
-	sc.Req <- req
-	return req
-}
-
-func (sc *StreamCreate) CreateCRequestsOfN(c, n int) []cesium.CreateRequest {
-	reqs := make([]cesium.CreateRequest, c)
-	for i := 0; i < c; i++ {
-		req := sc.CreateN(n)
-		reqs[i] = req
-	}
-	return reqs
-}
-
-func (sc *StreamCreate) CloseAndWait() error {
-	close(sc.Req)
-	for resV := range sc.Res {
-		return resV.Error
-	}
-	return nil
-}
-
-// |||||| STREAM RETRIEVE ||||||
-
-type StreamRetrieve struct {
-	Res <-chan cesium.RetrieveResponse
-}
-
-func (sr StreamRetrieve) All() []cesium.Segment {
-	var s []cesium.Segment
-	for resV := range sr.Res {
-		s = append(s, resV.Segments...)
-	}
 	return s
 }

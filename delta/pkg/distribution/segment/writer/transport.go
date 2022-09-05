@@ -12,7 +12,7 @@ type Request struct {
 }
 
 type Response struct {
-	Error error
+	Err error
 }
 
 type (

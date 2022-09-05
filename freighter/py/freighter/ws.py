@@ -6,12 +6,12 @@ from websockets.exceptions import ConnectionClosedOK
 
 from .endpoint import Endpoint
 from .transport import RS, RQ, P, PayloadFactory
-from typing import Generic, Callable
+from typing import Generic, Callable, Type
 from dataclasses import dataclass
 from .errors import StreamClosed
 from .error_registry import ErrorPayload
 from .encoder import EncoderDecoder
-from . import stream, errors
+from . import errors, AsyncStream
 
 _DATA_MESSAGE = "data"
 _CLOSE_MESSAGE = "close"
@@ -28,7 +28,7 @@ def empty_message(payload: P) -> _Message[P]:
     return _Message(type=_DATA_MESSAGE, payload=payload, error=ErrorPayload(None, None))
 
 
-class WSStream(Generic[RQ, RS]):
+class Stream(Generic[RQ, RS]):
     encoder: EncoderDecoder
     wrapped: WebSocketClientProtocol
     server_closed: Exception | None
@@ -109,20 +109,34 @@ class WSStream(Generic[RQ, RS]):
         await self.wrapped.close()
 
 
-class WSClient(Generic[RQ, RS]):
+DEFAULT_MAX_SIZE = 2 ** 20
+
+
+class Client:
     endpoint: Endpoint
     encoder: EncoderDecoder
+    max_message_size: int
 
-    def __init__(self, encoder: EncoderDecoder, endpoint: Endpoint) -> None:
+    def __init__(
+            self,
+            encoder: EncoderDecoder,
+            endpoint: Endpoint,
+            max_message_size: int = DEFAULT_MAX_SIZE,
+    ) -> None:
         self.encoder = encoder
         self.endpoint = copy.copy(endpoint)
         self.endpoint.protocol = "ws"
+        self.max_message_size = max_message_size
 
     async def stream(
-            self, target: str, response_factory: Callable[[], RS]
-    ) -> WSStream[RQ, RS]:
+            self,
+            target: str,
+            request_type: Type[RQ],
+            response_factory: Callable[[], RS]
+    ) -> AsyncStream[RQ, RS]:
         ws = await connect(
-            self.endpoint.build(target),
+            self.endpoint.path(target),
             extra_headers={"Content-Type": self.encoder.content_type()},
+            max_size=self.max_message_size
         )
-        return WSStream[RQ, RS](self.encoder, ws, response_factory)
+        return Stream[RQ, RS](self.encoder, ws, response_factory)

@@ -1,21 +1,31 @@
+import pytest
+
 import freighter.errors
 from freighter import sync
-from freighter.ws import WSClient
-from freighter.encoder import MsgpackEncoderDecoder
+from freighter import ws
+from freighter.encoder import Msgpack
 from freighter.endpoint import Endpoint
-from .interface import Message, Error
+from .interface import Message, Error, message_factory
 
-message_factory = lambda: Message(None, None)
 
-endpoint = Endpoint("", "localhost", 8080)
+@pytest.fixture
+def async_client(endpoint: Endpoint) -> ws.Client:
+    ws_endpoint = endpoint.child("ws", protocol="ws")
+    return ws.Client(encoder=Msgpack(), endpoint=ws_endpoint)
+
+
+@pytest.fixture
+def sync_client(async_client: ws.Client) -> sync.StreamClient:
+    return sync.StreamClient(async_client)
 
 
 class TestWS:
-    async def test_basic_exchange(self):
-        client = WSClient[Message, Message](
-            encoder=MsgpackEncoderDecoder, endpoint=endpoint
-        )
-        stream = await client.stream("/echo", message_factory)
+
+    async def test_basic_exchange(self, async_client: ws.Client):
+        """
+        Should exchange ten echo messages that increment the ID.
+        """
+        stream = await async_client.stream("/echo", Message, message_factory)
         for i in range(10):
             await stream.send(Message(i, "hello"))
             msg, err = await stream.receive()
@@ -25,42 +35,38 @@ class TestWS:
         await stream.close_send()
         msg, err = await stream.receive()
         assert err is not None
-        assert msg is None
 
-    async def test_receive_message_after_close(self):
-        client = WSClient[Message, Message](
-            encoder=MsgpackEncoderDecoder, endpoint=endpoint
-        )
-        stream = await client.stream("/sendMessageAfterClientClose", message_factory)
+    async def test_receive_message_after_close(self, async_client: ws.Client):
+        """
+        Should receive a message and EOF error after the server closes the connection.
+        """
+        stream = await async_client.stream("/sendMessageAfterClientClose", Message,
+                                           message_factory)
         await stream.close_send()
         msg, err = await stream.receive()
         assert err is None
         assert msg.id == 0
         assert msg.message == "Close Acknowledged"
         msg, err = await stream.receive()
-        assert err is not None
-        assert msg is None
+        assert isinstance(err, freighter.EOF)
 
-    async def test_receive_error(self):
-        client = WSClient[Message, Message](
-            encoder=MsgpackEncoderDecoder, endpoint=endpoint
-        )
-        stream = await client.stream("/receiveAndExitWithErr", message_factory)
+    async def test_receive_error(self, async_client):
+        """
+        Should correctly decode a custom error from the server.
+        """
+        stream = await async_client.stream("/receiveAndExitWithErr", Message,
+                                           message_factory)
         await stream.send(Message(id=1, message="hello"))
         msg, err = await stream.receive()
-        assert msg is None
         assert isinstance(err, Error)
         assert err.code == 1
         assert err.message == "unexpected error"
 
 
+@pytest.mark.focus
 class TestSyncWebsocket:
-    def test_basic_exchange(self):
-        client = sync.StreamClient[Message, Message](WSClient[Message, Message](
-            encoder=MsgpackEncoderDecoder,
-            endpoint=endpoint
-        ))
-        stream = client.stream("/echo", message_factory)
+    def test_basic_exchange(self, sync_client: sync.StreamClient):
+        stream = sync_client.stream("/echo", Message, message_factory)
         for i in range(10):
             err = stream.send(Message(i, "hello"))
             assert err is None
@@ -73,12 +79,11 @@ class TestSyncWebsocket:
         assert msg is None
         assert err is not None
 
-    def test_repeated_receive(self):
-        client = sync.StreamClient[Message, Message](WSClient[Message, Message](
-            encoder=MsgpackEncoderDecoder,
-            endpoint=endpoint
-        ))
-        stream = client.stream("/respondWithTenMessages", message_factory)
+    def test_repeated_receive(self, sync_client: sync.StreamClient):
+        """
+        Should receive ten messages from the server.
+        """
+        stream = sync_client.stream("/respondWithTenMessages", Message, message_factory)
         c = 0
         while True:
             msg, err = stream.receive()

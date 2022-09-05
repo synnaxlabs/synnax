@@ -28,6 +28,7 @@ class ValidationError(Exception):
     """
     Raised when a validation error occurs.
     """
+
     pass
 
 
@@ -35,6 +36,7 @@ class GeneralError(Exception):
     """
     Raised when a general error occurs.
     """
+
     pass
 
 
@@ -42,6 +44,7 @@ class ParseError(Exception):
     """
     Raised when a parse error occurs.
     """
+
     pass
 
 
@@ -49,6 +52,7 @@ class AuthError(Exception):
     """
     Raised when an authentication error occurs.
     """
+
     pass
 
 
@@ -56,6 +60,7 @@ class UnexpectedError(Exception):
     """
     Raised when an unexpected error occurs.
     """
+
     pass
 
 
@@ -63,6 +68,7 @@ class ContiguityError(Exception):
     """
     Raised when time-series data is not contiguous.
     """
+
     pass
 
 
@@ -70,6 +76,7 @@ class QueryError(Exception):
     """
     Raised when a query error occurs, such as an item not found.
     """
+
     pass
 
 
@@ -77,6 +84,7 @@ class RouteError(Exception):
     """
     Raised when an API routing error occurs, such as a 404.
     """
+
     path: str
 
     def __init__(self, path: str, *args):
@@ -117,13 +125,13 @@ def parse_from_payload(pld: APIErrorPayload) -> Exception | None:
         raise ValueError(f"{pld} is not a valid error payload")
 
     if pld.type == APIErrorType.GENERAL.value:
-        return GeneralError(pld.error['message'])
+        return GeneralError(pld.error["message"])
 
     if pld.type == APIErrorType.PARSE.value:
-        return ParseError(pld.error['message'])
+        return ParseError(pld.error["message"])
 
     if pld.type == APIErrorType.AUTH.value:
-        return AuthError(pld.error['message'])
+        return AuthError(pld.error["message"])
 
     if pld.type == APIErrorType.UNEXPECTED.value:
         return UnexpectedError(pld.error)
@@ -132,10 +140,10 @@ def parse_from_payload(pld: APIErrorPayload) -> Exception | None:
         return ValidationError(pld.error)
 
     if pld.type == APIErrorType.QUERY.value:
-        return QueryError(pld.error['message'])
+        return QueryError(pld.error["message"])
 
     if pld.type == APIErrorType.ROUTE.value:
-        return RouteError(pld.error['path'], pld.error['message'])
+        return RouteError(pld.error["path"], pld.error["message"])
 
     return Exception("unable to parse error")
 

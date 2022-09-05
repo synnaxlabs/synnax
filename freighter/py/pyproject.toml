@@ -9,6 +9,7 @@ packages = [
 
 [tool.mypy]
 ignore_missing_imports = true
+strict_optional = false
 
 [tool.poetry.dependencies]
 python = "^3.10"

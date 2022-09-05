@@ -5,6 +5,7 @@ import (
 	"github.com/arya-analytics/x/kfs"
 	"github.com/arya-analytics/x/kv"
 	"github.com/arya-analytics/x/kv/pebblekv"
+	"github.com/arya-analytics/x/lock"
 	"github.com/arya-analytics/x/signal"
 	"github.com/cockroachdb/pebble"
 	"go.uber.org/zap"
@@ -28,7 +29,7 @@ const channelCounterKey = "cs-nc"
 //		// Override the default shutdown threshold.
 //	 cesium.WithShutdownThreshold(time.Second)
 //
-//	 // Set custom shutdown options.
+//	 // SetMultiple custom shutdown options.
 //		cesium.WithShutdownOptions()
 //
 // See each options documentation for more.
@@ -43,48 +44,36 @@ func Open(dirname string, opts ...Option) (DB, error) {
 	sugaredL := o.logger.Sugar()
 	sugaredL.Infow("opening cesium time series engine", o.logArgs()...)
 
-	// |||||| FILE SYSTEM ||||||
-
 	fs, err := openFS(ctx, o)
 	if err != nil {
 		shutdown()
 		return nil, err
 	}
 
-	// |||||| txn ||||||
-
 	if err := maybeOpenKv(o); err != nil {
 		shutdown()
 		return nil, err
 	}
 
-	// |||||| CREATE ||||||
-
-	create, err := startCreate(ctx, createConfig{
-		exp:    o.exp,
-		logger: o.logger,
-		fs:     fs,
-		kv:     o.kv.engine,
+	createOperations, err := startCreate(ctx, writeConfig{
+		exp: o.exp,
+		fs:  fs,
+		kv:  o.kv.engine,
 	})
 	if err != nil {
 		shutdown()
 		return nil, err
 	}
 
-	// |||||| RETRIEVE ||||||
-
-	retrieve, err := startRetrieve(ctx, retrieveConfig{
-		exp:    o.exp,
-		logger: o.logger,
-		fs:     fs,
-		kv:     o.kv.engine,
+	retrieveOperations, err := startReadPipeline(ctx, readConfig{
+		exp: o.exp,
+		fs:  fs,
+		kv:  o.kv.engine,
 	})
 	if err != nil {
 		shutdown()
 		return nil, err
 	}
-
-	// |||||| CHANNEL ||||||
 
 	// a kv persisted counter that tracks the number of channels that a gorpDB has created.
 	// this is used to autogenerate unique keys for a channel.
@@ -95,13 +84,17 @@ func Open(dirname string, opts ...Option) (DB, error) {
 	}
 
 	return &db{
-		kv:                o.kv.engine,
-		externalKV:        o.kv.external,
-		shutdown:          shutdown,
-		create:            create,
-		retrieve:          retrieve,
-		channelKeyCounter: channelKeyCounter,
-		wg:                ctx,
+		kv:                 o.kv.engine,
+		externalKV:         o.kv.external,
+		shutdown:           shutdown,
+		channelCounter:     channelKeyCounter,
+		channelLock:        lock.NewKeys[ChannelKey](),
+		wg:                 ctx,
+		createMetrics:      newCreateMetrics(o.exp),
+		retrieveMetrics:    newRetrieveMetrics(o.exp),
+		logger:             o.logger,
+		retrieveOperations: retrieveOperations,
+		createOperations:   createOperations,
 	}, nil
 }
 

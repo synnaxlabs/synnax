@@ -1,8 +1,3 @@
-from .channel import Channel
-from .client import (
-    new_http_client,
-    Client
-)
+from .entity import Channel
 from .registry import Registry
-
-
+from .client import Client

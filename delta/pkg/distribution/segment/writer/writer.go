@@ -8,55 +8,133 @@ import (
 	"github.com/arya-analytics/delta/pkg/distribution/segment/core"
 	"github.com/arya-analytics/delta/pkg/storage"
 	"github.com/arya-analytics/x/address"
+	"github.com/arya-analytics/x/config"
 	"github.com/arya-analytics/x/confluence"
 	"github.com/arya-analytics/x/confluence/plumber"
+	"github.com/arya-analytics/x/override"
 	"github.com/arya-analytics/x/signal"
+	"github.com/arya-analytics/x/validate"
 	"go.uber.org/zap"
 )
 
+type StreamWriter = confluence.Segment[Request, Response]
+
 type Writer interface {
-	Requests() chan<- Request
-	Responses() <-chan Response
+	Write([]core.Segment) bool
 	Close() error
 }
 
 type writer struct {
-	requests  chan<- Request
-	responses <-chan Response
+	requests  confluence.Inlet[Request]
+	responses confluence.Outlet[Response]
 	wg        signal.WaitGroup
+	shutdown  context.CancelFunc
+	error     error
 }
 
-func (w *writer) Requests() chan<- Request { return w.requests }
+func (w *writer) Write(segments []core.Segment) bool {
+	if w.error != nil {
+		return false
+	}
+	w.requests.Inlet() <- Request{Segments: segments}
+	select {
+	case <-w.wg.Stopped():
+		return false
+	case res := <-w.responses.Outlet():
+		w.error = res.Err
+		return false
+	default:
+		return true
+	}
+}
 
-func (w *writer) Responses() <-chan Response { return w.responses }
+func (w *writer) Close() error {
+	w.requests.Close()
+	err := w.wg.Wait()
+	for res := range w.responses.Outlet() {
+		if res.Err != nil {
+			err = res.Err
+		}
+	}
+	w.shutdown()
+	return err
+}
 
-func (w *writer) Close() error { return w.wg.Wait() }
+type Config struct {
+	TS             storage.TS
+	ChannelService *channel.Service
+	Resolver       distribcore.HostResolver
+	Transport      Transport
+	ChannelKeys    channel.Keys
+	Logger         *zap.Logger
+}
 
-func New(
-	ctx context.Context,
-	db storage.TS,
-	svc *channel.Service,
-	resolver distribcore.HostResolver,
-	tran Transport,
-	keys channel.Keys,
-	logger *zap.Logger,
-) (Writer, error) {
+func (cfg Config) Override(other Config) Config {
+	cfg.TS = override.Nil(cfg.TS, other.TS)
+	cfg.ChannelService = override.Nil(cfg.ChannelService, other.ChannelService)
+	cfg.Resolver = override.Nil(cfg.Resolver, other.Resolver)
+	cfg.Transport = override.Nil(cfg.Transport, other.Transport)
+	cfg.ChannelKeys = override.Nil(cfg.ChannelKeys, other.ChannelKeys)
+	cfg.Logger = override.Nil(cfg.Logger, other.Logger)
+	return cfg
+}
+
+func (cfg Config) Validate() error {
+	v := validate.New("writer")
+	validate.NotNil(v, "TS", cfg.TS)
+	validate.NotNil(v, "ChannelService", cfg.ChannelService)
+	validate.NotNil(v, "Resolver", cfg.Resolver)
+	validate.NotNil(v, "Transport", cfg.Transport)
+	validate.NotEmptySlice(v, "ChannelKeys", cfg.ChannelKeys)
+	validate.NotNil(v, "Logger", cfg.Logger)
+	return v.Error()
+}
+
+func New(ctx context.Context, cfg Config) (Writer, error) {
 	sCtx, cancel := signal.WithCancel(
 		ctx,
 		signal.WithContextKey("writer"),
-		signal.WithLogger(logger),
+		signal.WithLogger(cfg.Logger),
 	)
-	hostID := resolver.HostID()
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	seg, err := NewStream(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+	requests := confluence.NewStream[Request]()
+	responses := confluence.NewStream[Response]()
+	seg.InFrom(requests)
+	seg.OutTo(responses)
+	seg.Flow(sCtx, confluence.CloseInletsOnExit(), confluence.CancelOnExitErr())
+	return &writer{
+		requests:  requests,
+		responses: responses,
+		wg:        sCtx,
+		shutdown:  cancel,
+	}, nil
+}
+
+func NewStream(ctx context.Context, _cfg ...Config) (StreamWriter, error) {
+	cfg, err := config.OverrideAndValidate(Config{}, _cfg...)
+	if err != nil {
+		return nil, err
+	}
+	hostID := cfg.Resolver.HostID()
 
 	// First we need to check if all the channels exist and are retrievable in the
 	//database.
-	if err := core.ValidateChannelKeys(sCtx, svc, keys); err != nil {
-		cancel()
+	if err := core.ValidateChannelKeys(
+		ctx,
+		cfg.ChannelService,
+		cfg.ChannelKeys,
+	); err != nil {
 		return nil, err
 	}
 
 	// TraverseTo we determine the IDs of all the target nodes we need to write to.
-	batch := proxy.NewBatchFactory[channel.Key](hostID).Batch(keys)
+	batch := proxy.NewBatchFactory[channel.Key](hostID).Batch(cfg.ChannelKeys)
 
 	var (
 		pipe              = plumber.New()
@@ -68,9 +146,13 @@ func New(
 	transient := confluence.NewStream[error](0)
 
 	if needRemote {
-		sender, receivers, _receiverAddresses, err := openRemoteWriters(sCtx, tran, batch.Remote, resolver, transient)
+		sender, receivers, _receiverAddresses, err := openRemoteWriters(
+			ctx,
+			batch.Remote,
+			transient,
+			cfg,
+		)
 		if err != nil {
-			cancel()
 			return nil, err
 		}
 
@@ -83,9 +165,8 @@ func New(
 	}
 
 	if needLocal {
-		w, err := newLocalWriter(sCtx, hostID, db, batch.Local, transient)
+		w, err := newLocalWriter(ctx, batch.Local, transient, cfg)
 		if err != nil {
-			cancel()
 			return nil, err
 		}
 		addr := address.Address("localWriter")
@@ -124,12 +205,10 @@ func New(
 		panic(err)
 	}
 
-	input := confluence.NewStream[Request](1)
-	output := confluence.NewStream[Response](1)
+	input := confluence.NewStream[Request]()
+	output := confluence.NewStream[Response]()
 	seg.InFrom(input)
 	seg.OutTo(output)
 
-	seg.Flow(sCtx, confluence.CloseInletsOnExit(), confluence.CancelOnExitErr())
-
-	return &writer{responses: output.Outlet(), requests: input.Inlet(), wg: sCtx}, nil
+	return seg, nil
 }

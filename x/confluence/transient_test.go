@@ -37,6 +37,7 @@ var _ = Describe("TransientProvider", func() {
 	BeforeEach(func() {
 		t = newTransientSegment()
 		trans = confluence.NewStream[error](1)
+		trans.SetInletAddress("transient")
 		ctx, cancel = signal.TODO()
 		inlet = confluence.NewStream[int](0)
 		t.InFrom(inlet)
@@ -52,7 +53,7 @@ var _ = Describe("TransientProvider", func() {
 			Expect(errors.Is(<-trans.Outlet(), errors.New("error"))).To(BeTrue())
 		})
 		It("Should close the transient channel when the segments exit", func() {
-			close(inlet.Inlet())
+			inlet.Close()
 			_, ok := <-trans.Outlet()
 			Expect(ok).To(BeFalse())
 		})

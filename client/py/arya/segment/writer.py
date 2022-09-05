@@ -1,5 +1,4 @@
 import asyncio
-from asyncio import Task
 
 from dataclasses import dataclass
 
@@ -9,37 +8,35 @@ import arya.errors
 from . import BinarySegment, NumpySegment
 import freighter
 
-from .encoder import NumpyEncoderDecoder
-from .validator import Validator, ScalarTypeValidator, ContiguityValidator
+from . import validate
 from .. import telem
-from ..channel.client import Client
-from ..channel.registry import Registry
-from ..util.notification import Notification
+from .. import channel
 from .splitter import Splitter
+from .encoder import NumpyEncoderDecoder
 
 _ENDPOINT = "/segment/write"
 
 
 @dataclass
-class WriterRequest:
+class Request:
     open_keys: list[str]
     segments: list[BinarySegment]
 
 
 @dataclass
-class WriterResponse:
+class Response:
     ack: bool
     error: freighter.ErrorPayload
 
 
-def _response_factory() -> WriterResponse:
-    return WriterResponse(False, freighter.ErrorPayload(None, None))
+def _response_factory() -> Response:
+    return Response(False, freighter.ErrorPayload(None, None))
 
 
 class BaseCore:
     keys: list[str]
 
-    def _ack_open(self, res: WriterResponse | None, exc: Exception | None):
+    def _ack_open(self, res: Response | None, exc: Exception | None):
         if exc is not None:
             raise exc
         assert res is not None
@@ -51,16 +48,16 @@ class BaseCore:
 
 
 class AsyncCore(BaseCore):
-    transport: freighter.AsyncStreamClient[WriterRequest, WriterResponse]
-    stream: freighter.AsyncStream[WriterRequest, WriterResponse]
-    responses: Task[Exception | None]
+    transport: freighter.AsyncStreamClient
+    stream: freighter.AsyncStream[Request, Response]
+    responses: asyncio.Task[Exception | None]
 
     def __init__(self, transport: freighter.AsyncStreamClient) -> None:
         self.transport = transport
 
     async def open(self, keys: list[str]):
-        self.stream = await self.transport.stream(_ENDPOINT, _response_factory)
-        await self.stream.send(WriterRequest(keys, []))
+        self.stream = await self.transport.stream(_ENDPOINT, Request, _response_factory)
+        await self.stream.send(Request(keys, []))
         res, err = await self.stream.receive()
         self._ack_open(res, err)
         self.responses = asyncio.create_task(self.receive_errors())
@@ -68,7 +65,7 @@ class AsyncCore(BaseCore):
     async def write(self, segments: list[BinarySegment]) -> bool:
         if self.responses.done():
             return False
-        err = await self.stream.send(WriterRequest([], segments))
+        err = await self.stream.send(Request([], segments))
         if err is not None:
             raise err
         return True
@@ -89,24 +86,22 @@ class AsyncCore(BaseCore):
 
 
 class Core(BaseCore):
-    transport: freighter.StreamClient[WriterRequest, WriterResponse]
-    stream: freighter.Stream[WriterRequest, WriterResponse]
+    transport: freighter.StreamClient
+    stream: freighter.Stream[Request, Response]
 
-    def __init__(
-            self, transport: freighter.StreamClient[WriterRequest, WriterResponse]
-    ) -> None:
+    def __init__(self, transport: freighter.StreamClient) -> None:
         self.transport = transport
 
     def open(self, keys: list[str]):
-        self.stream = self.transport.stream(_ENDPOINT, _response_factory)
-        self.stream.send(WriterRequest(keys, []))
+        self.stream = self.transport.stream(_ENDPOINT, Request, _response_factory)
+        self.stream.send(Request(keys, []))
         res, err = self.stream.receive()
         self._ack_open(res, err)
 
     def write(self, segments: list[BinarySegment]) -> bool:
         if self.stream.received():
             return False
-        err = self.stream.send(WriterRequest([], segments))
+        err = self.stream.send(Request([], segments))
         if err is not None:
             raise err
         return True
@@ -120,34 +115,30 @@ class Core(BaseCore):
             raise err
 
 
-class NumpyWriter:
+class Numpy:
     core: Core
-    channel_client: Client
-    validators: list[Validator]
+    channel_client: channel.Client
+    validators: list[validate.Validator]
     encoder: NumpyEncoderDecoder
-    channels: Registry
+    channels: channel.Registry
     splitter: Splitter
 
     def __init__(
-            self,
-            core: Core,
-            channel_client: Client,
+        self,
+        core: Core,
+        channel_client: channel.Client,
     ) -> None:
         self.channel_client = channel_client
         self.core = core
         self.validators = [
-            ScalarTypeValidator(),
-            ContiguityValidator(dict(), allow_no_high_water_mark=True)
+            validate.ScalarType(),
+            validate.Contiguity(dict(), allow_no_high_water_mark=True),
         ]
         self.encoder = NumpyEncoderDecoder()
         self.splitter = Splitter(threshold=telem.Size(4e6))
 
     def open(self, keys: list[str]):
-        channels = self.channel_client.retrieve(keys)
-        if len(channels) != len(keys):
-            missing = set(keys) - set([c.key for c in channels])
-            raise arya.errors.ValidationError(f"Channels not found: {missing}")
-        self.channels = Registry(channels)
+        self.channels = channel.Registry(self.channel_client.retrieve(keys))
         self.core.open(keys)
 
     def write(self, to: str, data: np.ndarray, start: telem.UnparsedTimeStamp) -> bool:

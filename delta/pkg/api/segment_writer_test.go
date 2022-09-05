@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"context"
+	"github.com/arya-analytics/cesium"
 	"github.com/arya-analytics/client-go/segment"
 	"github.com/arya-analytics/delta/pkg/api"
 	"github.com/arya-analytics/delta/pkg/api/errors"
@@ -10,7 +11,6 @@ import (
 	"github.com/arya-analytics/freighter/fmock"
 	"github.com/arya-analytics/x/telem"
 	. "github.com/arya-analytics/x/testutil"
-	roacherrors "github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gleak"
@@ -97,7 +97,7 @@ var _ = Describe("SegmentWriter", Ordered, func() {
 					Expect(err).ToNot(HaveOccurred())
 					client2, err := transport.Stream(context.TODO(), "")
 					Expect(err).ToNot(HaveOccurred())
-					expectedErr := errors.General(roacherrors.New("[cesium] - lock already held"))
+					expectedErr := errors.General(cesium.ErrChannelLocked)
 					// expect one of the two writers to fail
 					oneErr := false
 					w1, w1Err := segment.NewWriter(client1, keys.Strings()...)

@@ -9,26 +9,26 @@ import (
 
 var _ = Describe("ApplySink", func() {
 	It("Should allow the caller to acquire the lock", func() {
-		m := lock.NewLock[int]()
+		m := lock.NewKeys[int]()
 		Expect(m.TryLock(1)).To(BeTrue())
 	})
 	It("Should return an error when the caller tries to acquire a lock that is already held", func() {
-		m := lock.NewLock[int]()
+		m := lock.NewKeys[int]()
 		Expect(m.TryLock(1)).To(BeTrue())
 		Expect(m.TryLock(1)).To(BeFalse())
 	})
 	It("Should allow the called to release the lock", func() {
-		m := lock.NewLock[int]()
+		m := lock.NewKeys[int]()
 		Expect(m.TryLock(1)).To(BeTrue())
 		m.Unlock(1)
 		Expect(m.TryLock(1)).To(BeTrue())
 	})
 	It("Should panic if the caller tries to release an unlocked lock", func() {
-		m := lock.NewLock[int]()
+		m := lock.NewKeys[int]()
 		Expect(func() { m.Unlock(1) }).To(Panic())
 	})
 	It("Should prevent multiple goroutines from acquiring the same key", func() {
-		m := lock.NewLock[int]()
+		m := lock.NewKeys[int]()
 		acquisitions := make([]bool, 100)
 		var wg sync.WaitGroup
 		for i := 0; i < 100; i++ {

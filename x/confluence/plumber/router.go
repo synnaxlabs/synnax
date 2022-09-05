@@ -3,6 +3,7 @@ package plumber
 import (
 	"github.com/arya-analytics/x/address"
 	cfs "github.com/arya-analytics/x/confluence"
+	"github.com/samber/lo"
 )
 
 // Stitch is the method a Router  uses to stitch together the segments specified in its route.
@@ -10,13 +11,13 @@ type Stitch byte
 
 const (
 	// StitchUnary is the default stitching method. It means the router will create a single stream and connected
-	// it to all input (from) segments and output (to) segments.
+	// it to all input sink and source segments.
 	StitchUnary Stitch = iota
 	// StitchWeave is a stitching method that means the router will create a stream for each unique combination of
-	// input (from) and output (to) segments.
+	// sink and source.
 	StitchWeave
-	// StitchConvergent is a stitching where a router creates a stream for each output (to) segment and connects it
-	// to all input (from) segments.
+	// StitchConvergent is a stitching where a router creates a stream for each sink and connects it
+	// to all input sources.
 	StitchConvergent
 )
 
@@ -36,8 +37,8 @@ func (u UnaryRouter[V]) Route(p *Pipeline) error {
 	return route(p, u.SourceTarget, u.SinkTarget, cfs.NewStream[V](u.Capacity))
 }
 
-func (u UnaryRouter[V]) PreRoute(p *Pipeline) func() error {
-	return func() error { return u.Route(p) }
+func (u UnaryRouter[V]) MustRoute(p *Pipeline) {
+	lo.Must0(u.Route(p))
 }
 
 type MultiRouter[V cfs.Value] struct {
@@ -59,13 +60,12 @@ func (m MultiRouter[V]) Route(p *Pipeline) error {
 	panic("[confluence.Router] - invalid stitch provided")
 }
 
-func (m MultiRouter[V]) PreRoute(p *Pipeline) func() error {
-	return func() error { return m.Route(p) }
+func (m MultiRouter[V]) MustRoute(p *Pipeline) {
+	lo.Must0(m.Route(p))
 }
 
 func (m MultiRouter[V]) linear(p *Pipeline) error {
 	stream := cfs.NewStream[V](m.Capacity)
-	stream.Acquire(int32(len(m.SourceTargets)))
 	return m.iterAddresses(func(from address.Address, to address.Address) error {
 		return route(p, from, to, stream)
 	})
@@ -80,7 +80,6 @@ func (m MultiRouter[V]) weave(p *Pipeline) error {
 func (m MultiRouter[V]) convergent(p *Pipeline) error {
 	return iter(m.SinkTargets, func(to address.Address) error {
 		stream := cfs.NewStream[V](m.Capacity)
-		stream.Acquire(int32(len(m.SourceTargets)))
 		return iter(m.SourceTargets, func(from address.Address) error {
 			return route(p, from, to, stream)
 		})

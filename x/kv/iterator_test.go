@@ -35,7 +35,7 @@ var _ = Describe("Iterator", func() {
 			Expect(iter.Close()).To(Succeed())
 		})
 	})
-	Describe("Range Iter", func() {
+	Describe("TimeRange Iter", func() {
 		It("Should iterate over keys in a given range", func() {
 
 			for i := 0; i < 10; i++ {

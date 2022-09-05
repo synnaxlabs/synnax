@@ -9,13 +9,12 @@ import (
 	"github.com/arya-analytics/delta/pkg/distribution/segment/iterator"
 	"github.com/arya-analytics/delta/pkg/storage"
 	"github.com/arya-analytics/freighter/fmock"
+	"github.com/arya-analytics/x/config"
 	"github.com/arya-analytics/x/telem"
-	"go.uber.org/zap"
-	"testing"
-	"time"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"go.uber.org/zap"
+	"testing"
 )
 
 var (
@@ -36,7 +35,7 @@ type serviceContainer struct {
 }
 
 func provisionNServices(n int, logger *zap.Logger) (*mock.CoreBuilder, map[core.NodeID]serviceContainer) {
-	builder := mock.NewCoreBuilder(core.Config{Logger: logger, Storage: storage.Config{MemBacked: true}})
+	builder := mock.NewCoreBuilder(core.Config{Logger: logger, Storage: storage.Config{MemBacked: config.BoolPointer(true)}})
 	services := make(map[core.NodeID]serviceContainer)
 	channelNet := fmock.NewNetwork[channel.CreateMessage, channel.CreateMessage]()
 	iterNet := fmock.NewNetwork[iterator.Request, iterator.Response]()
@@ -51,7 +50,12 @@ func provisionNServices(n int, logger *zap.Logger) (*mock.CoreBuilder, map[core.
 			_core.Storage.TS,
 			container.transport.channel,
 		)
-		iterator.NewServer(_core.Storage.TS, _core.Cluster.HostID(), container.transport.iter)
+		iterator.NewServer(iterator.Config{
+			TS:        _core.Storage.TS,
+			Resolver:  _core.Cluster,
+			Transport: container.transport.iter,
+			Logger:    zap.NewNop(),
+		})
 		services[_core.Cluster.HostID()] = container
 	}
 	return builder, services
@@ -65,15 +69,11 @@ func writeMockData(
 ) {
 	dataFactory := &seg.RandomFloat64Factory{Cache: true}
 	for _, ch := range channels {
-		req, res, err := builder.Cores[ch.NodeID].Storage.TS.NewCreate().WhereChannels(ch.Key().StorageKey()).Stream(ctx)
-		Expect(err).ToNot(HaveOccurred())
-		stc := &seg.StreamCreate{
-			Req:               req,
-			Res:               res,
-			SequentialFactory: seg.NewSequentialFactory(dataFactory, segmentSize, ch.Channel),
-		}
-		stc.CreateCRequestsOfN(numberOfRequests, numberOfSegmentsPerRequest)
-		Expect(stc.CloseAndWait()).ToNot(HaveOccurred())
+		factory := seg.NewSequentialFactory(dataFactory, segmentSize, ch.Channel)
+		Expect(builder.Cores[ch.NodeID].
+			Storage.
+			TS.
+			Write(factory.NextN(numberOfSegmentsPerRequest * numberOfRequests))).To(Succeed())
 	}
 }
 
@@ -85,17 +85,16 @@ func openIter(
 ) iterator.Iterator {
 	iter, err := iterator.New(
 		ctx,
-		builder.Cores[nodeID].Storage.TS,
-		services[nodeID].channel,
-		builder.Cores[nodeID].Cluster,
-		services[nodeID].transport.iter,
-		telem.TimeRangeMax,
-		keys,
+		iterator.Config{
+			Logger:         zap.NewNop(),
+			TS:             builder.Cores[nodeID].Storage.TS,
+			Resolver:       builder.Cores[nodeID].Cluster,
+			Transport:      services[nodeID].transport.iter,
+			TimeRange:      telem.TimeRangeMax,
+			ChannelKeys:    keys,
+			ChannelService: services[nodeID].channel,
+		},
 	)
 	Expect(err).ToNot(HaveOccurred())
 	return iter
 }
-
-// sensibleTimeoutThreshold is the amount of time we allow for an iterator to return the expected number of segments
-// before we automatically fail the test.
-const sensibleTimeoutThreshold = 20 * time.Millisecond

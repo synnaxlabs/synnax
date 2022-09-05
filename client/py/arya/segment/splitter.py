@@ -1,4 +1,4 @@
-from . import SugaredBinarySegment
+from .entity import SugaredBinarySegment
 from .. import telem
 
 
@@ -12,8 +12,11 @@ class Splitter:
         if segment.size <= self.threshold:
             return [segment]
         else:
-            truncated = SugaredBinarySegment(segment.channel, segment.start,
-                                             segment.data[:self.threshold])
-            _next = SugaredBinarySegment(segment.channel, truncated.end,
-                                         segment.data[self.threshold:])
+            split_v = self.threshold - (self.threshold % segment.channel.density)
+            truncated = SugaredBinarySegment(
+                segment.channel, segment.start, segment.data[: split_v]
+            )
+            _next = SugaredBinarySegment(
+                segment.channel, truncated.end, segment.data[split_v:]
+            )
             return [truncated, *self.split(_next)]

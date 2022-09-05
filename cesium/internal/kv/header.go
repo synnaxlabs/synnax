@@ -28,7 +28,7 @@ func NewHeader(kve kv.DB) *Header {
 }
 
 func (s *Header) Set(header segment.Header) error {
-	return gorp.NewCreate[[]byte, segment.Header]().Entry(&header).Exec(s.db)
+	return s.SetMultiple([]segment.Header{header})
 }
 
 func (s *Header) SetMultiple(headers []segment.Header) error {

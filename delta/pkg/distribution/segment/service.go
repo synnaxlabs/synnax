@@ -7,7 +7,6 @@ import (
 	"github.com/arya-analytics/delta/pkg/distribution/core"
 	"github.com/arya-analytics/delta/pkg/distribution/segment/iterator"
 	"github.com/arya-analytics/delta/pkg/distribution/segment/writer"
-	"github.com/arya-analytics/x/query"
 	"github.com/arya-analytics/x/telem"
 	"go.uber.org/zap"
 )
@@ -34,81 +33,54 @@ func New(
 		resolver:  resolver,
 		logger:    logger,
 	}
-	hostID := resolver.HostID()
-	iterator.NewServer(db, hostID, transport.Iterator())
-	writer.NewServer(db, hostID, transport.Writer())
+	iterator.NewServer(iterator.Config{
+		TS:        db,
+		Resolver:  resolver,
+		Transport: transport.Iterator(),
+	})
+	writer.NewServer(writer.Config{
+		TS:        db,
+		Resolver:  resolver,
+		Transport: transport.Writer(),
+	})
 	return s
 }
 
-func (s *Service) NewCreate() Create { return newCreate(s) }
-
-func (s *Service) NewRetrieve() Retrieve { return newRetrieve(s) }
-
-type Create struct {
-	query.Query
-	svc *Service
+func (s *Service) NewIterator(ctx context.Context, tr telem.TimeRange, keys ...channel.Key) (Iterator, error) {
+	return iterator.New(ctx, s.newIteratorConfig(tr, keys))
 }
 
-func newCreate(svc *Service) Create {
-	return Create{svc: svc, Query: query.New()}
+func (s *Service) NewStreamIterator(ctx context.Context, tr telem.TimeRange, keys ...channel.Key) (StreamIterator, error) {
+	return iterator.NewStream(ctx, s.newIteratorConfig(tr, keys))
 }
 
-func (c Create) WhereChannels(keys ...channel.Key) Create {
-	setKeys(c, keys)
-	return c
+func (s *Service) NewWriter(ctx context.Context, keys ...channel.Key) (Writer, error) {
+	return writer.New(ctx, s.newWriterConfig(keys))
 }
 
-func (c Create) Write(ctx context.Context) (Writer, error) {
-	return writer.New(
-		ctx,
-		c.svc.db,
-		c.svc.channel,
-		c.svc.resolver,
-		c.svc.transport.Writer(),
-		getKeys(c),
-		c.svc.logger,
-	)
+func (s *Service) NewStreamWriter(ctx context.Context, keys ...channel.Key) (StreamWriter, error) {
+	return writer.NewStream(ctx, s.newWriterConfig(keys))
 }
 
-type Retrieve struct {
-	query.Query
-	svc *Service
-}
-
-func newRetrieve(svc *Service) Retrieve {
-	return Retrieve{svc: svc, Query: query.New()}
-}
-
-func (r Retrieve) WhereChannels(keys ...channel.Key) Retrieve {
-	setKeys(r, keys)
-	return r
-}
-
-func (r Retrieve) WhereTimeRange(rng telem.TimeRange) Retrieve {
-	telem.SetTimeRange(r, rng)
-	return r
-}
-
-func (r Retrieve) Iterate(ctx context.Context) (Iterator, error) {
-	tr, err := telem.GetTimeRange(r)
-	if err != nil {
-		tr = telem.TimeRangeMax
+func (s *Service) newIteratorConfig(tr telem.TimeRange, keys []channel.Key) iterator.Config {
+	return iterator.Config{
+		TS:             s.db,
+		Resolver:       s.resolver,
+		Transport:      s.transport.Iterator(),
+		ChannelKeys:    keys,
+		TimeRange:      tr,
+		Logger:         s.logger,
+		ChannelService: s.channel,
 	}
-	return iterator.New(
-		ctx,
-		r.svc.db,
-		r.svc.channel,
-		r.svc.resolver,
-		r.svc.transport.Iterator(),
-		tr,
-		getKeys(r),
-	)
 }
 
-// |||||| KEYS ||||||
-
-const keysKey = "keys"
-
-func setKeys(q query.Query, keys channel.Keys) { q.Set(keysKey, keys) }
-
-func getKeys(q query.Query) channel.Keys { return q.GetRequired(keysKey).(channel.Keys) }
+func (s *Service) newWriterConfig(keys []channel.Key) writer.Config {
+	return writer.Config{
+		TS:             s.db,
+		Resolver:       s.resolver,
+		Transport:      s.transport.Writer(),
+		ChannelKeys:    keys,
+		Logger:         s.logger,
+		ChannelService: s.channel,
+	}
+}

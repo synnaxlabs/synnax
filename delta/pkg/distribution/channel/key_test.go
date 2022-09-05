@@ -9,8 +9,8 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Keys", func() {
-	Describe("Keys", func() {
+var _ = Describe("ChannelKeys", func() {
+	Describe("ChannelKeys", func() {
 		Describe("New", func() {
 			It("Should create a new key with the given node ID and cesium key", func() {
 				k := channel.NewKey(core.NodeID(1), cesium.ChannelKey(2))
@@ -54,7 +54,7 @@ var _ = Describe("Keys", func() {
 			})
 		})
 	})
-	Describe("Keys", func() {
+	Describe("ChannelKeys", func() {
 		Describe("Report", func() {
 			It("Should return a string representation of the keys", func() {
 				keys := channel.Keys{

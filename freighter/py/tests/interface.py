@@ -8,6 +8,10 @@ class Message:
     message: str | None
 
 
+def message_factory() -> Message:
+    return Message(None, None)
+
+
 @dataclass
 class Error(Exception):
     code: int

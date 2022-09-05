@@ -16,16 +16,21 @@ class TestTimeStamp:
         now = telem.now() + telem.SECOND
         assert now.time() > datetime.now()
 
-    @pytest.mark.parametrize("unparsed, expected", [
-        (1000, 1000),
-        (105 * telem.MILLISECOND, 105 * telem.MILLISECOND),
-        (datetime.utcfromtimestamp(105), telem.TimeStamp(105 * telem.SECOND)),
-        (pd.Timestamp(105), telem.TimeStamp(105 * telem.NANOSECOND)),
-        (_now, _now),
-        (timedelta(seconds=105), telem.TimeStamp(105 * telem.SECOND)),
-        (np.datetime64(1000, "ms"), telem.TimeStamp(1000 * telem.MILLISECOND)),
-    ])
+    @pytest.mark.parametrize(
+        "unparsed, expected",
+        [
+            (1000, 1000),
+            (105 * telem.MILLISECOND, 105 * telem.MILLISECOND),
+            (datetime.utcfromtimestamp(105), telem.TimeStamp(105 * telem.SECOND)),
+            (pd.Timestamp(105), telem.TimeStamp(105 * telem.NANOSECOND)),
+            (_now, _now),
+            (timedelta(seconds=105), telem.TimeStamp(105 * telem.SECOND)),
+            (np.datetime64(1000, "ms"), telem.TimeStamp(1000 * telem.MILLISECOND)),
+        ],
+    )
     def test_init(self, unparsed: telem.UnparsedTimeStamp, expected: telem.TimeStamp):
+        """Should initialize a timestamp from a variety of types
+        """
         assert telem.TimeStamp(unparsed) == expected
 
     def test_invalid_init(self):
@@ -121,8 +126,7 @@ class TestTimeStamp:
 
 class TestTimeRange:
     def test_init_from_datetime(self):
-        """
-        Should initialize a TimeRange from a datetime
+        """Should initialize a TimeRange from a datetime
         """
         dt = datetime(2020, 1, 1, 0, 0, 0)
         dt2 = datetime(2021, 1, 1, 0, 0, 0)
@@ -131,120 +135,104 @@ class TestTimeRange:
         assert tr.end.time() == dt2
 
     def test_span(self):
-        """
-        Should return a valid TimeSpan
+        """Should return a valid TimeSpan
         """
         tr = telem.TimeRange(0, 1000)
         assert tr.span() == telem.TimeSpan(1000)
 
     def test_is_zero(self):
-        """
-        Should return true if the range is zero
+        """Should return true if the range is zero
         """
         tr = telem.TimeRange(0, 0)
         assert tr.is_zero()
 
     def test_bound_by(self):
-        """
-        Should return a bound version of the range
+        """Should return a bound version of the range
         """
         tr = telem.TimeRange(0, 1000)
         bound = tr.bound_by(telem.TimeRange(100, 500))
         assert bound.span() == 400 * telem.NANOSECOND
 
     def test_contains_stamp(self):
-        """
-        Should return true if the range contains a timestamp
+        """Should return true if the range contains a timestamp
         """
         tr = telem.TimeRange(0, 1000)
         assert tr.contains_stamp(telem.TimeStamp(500))
 
     def test_doesnt_contain_stamp(self):
-        """
-        Should return false if the range doesn't contain a timestamp
+        """Should return false if the range doesn't contain a timestamp
         """
         tr = telem.TimeRange(0, 1000)
         assert not tr.contains_stamp(telem.TimeStamp(1500))
 
     def test_stamp_contains_end_of_range(self):
-        """
-        Should return false if the timestamp is the same as the end of the range
+        """Should return false if the timestamp is the same as the end of the range
         """
         tr = telem.TimeRange(0, 1000)
         assert not tr.contains_stamp(telem.TimeStamp(1000))
 
     def test_stamp_contains_start_of_range(self):
-        """
-        Should return true if the timestamp is the same as the start of the range
+        """Should return true if the timestamp is the same as the start of the range
         """
         tr = telem.TimeRange(0, 1000)
         assert tr.contains_stamp(telem.TimeStamp(0))
 
     def test_range_not_contains_range(self):
-        """
-        Should return true if the ranges overlap but a smaller range is not contained
+        """Should return true if the ranges overlap but a smaller range is not contained
         """
         tr = telem.TimeRange(0, 1000)
         tr2 = telem.TimeRange(500, 1500)
         assert not tr.contains_range(tr2)
 
     def test_range_contains_range(self):
-        """
-        Should return true if the ranges overlap and the smaller range is contained
+        """Should return true if the ranges overlap and the smaller range is contained
         """
         tr = telem.TimeRange(0, 1000)
         tr2 = telem.TimeRange(500, 900)
         assert tr.contains_range(tr2)
 
     def test_range_contains_equal(self):
-        """
-        Should return true if the ranges are equal
+        """Should return true if the ranges are equal
         """
         tr = telem.TimeRange(0, 1000)
         tr2 = telem.TimeRange(0, 1000)
         assert tr.contains_range(tr2)
 
     def test_range_overlaps(self):
-        """
-        Should return true if the ranges overlap
+        """Should return true if the ranges overlap
         """
         tr = telem.TimeRange(0, 1000)
         tr2 = telem.TimeRange(500, 900)
         assert tr.overlaps_with(tr2)
 
     def test_range_overlaps_equal(self):
-        """
-        Should return true if the ranges are equal
+        """Should return true if the ranges are equal
         """
         tr = telem.TimeRange(0, 1000)
         tr2 = telem.TimeRange(0, 1000)
         assert tr.overlaps_with(tr2)
 
     def test_range_overlaps_false(self):
-        """
-        Should return false if the ranges don't overlap
+        """Should return false if the ranges don't overlap
         """
         tr = telem.TimeRange(0, 1000)
         tr2 = telem.TimeRange(1500, 2000)
         assert not tr.overlaps_with(tr2)
 
     def test_range_valid(self):
-        """
-        Should return true if the range is valid
+        """Should return true if the range is valid
         """
         tr = telem.TimeRange(0, 1000)
         assert tr.is_valid()
 
     def test_range_invalid(self):
-        """
-        Should return false if the range is invalid
+        """Should return false if the range is invalid
         """
         tr = telem.TimeRange(1000, 0)
         assert not tr.is_valid()
 
     def test_range_swap(self):
-        """
-        Should swap the start and end times
+        """Should swap the start and end times
         """
         tr = telem.TimeRange(1000, 0)
         tr = tr.swap()
@@ -253,11 +241,14 @@ class TestTimeRange:
 
 
 class TestTimeSpan:
-    @pytest.mark.parametrize("unparsed, expected", [
-        (1000, telem.MICROSECOND),
-        (timedelta(microseconds=1000), 1000 * telem.MICROSECOND),
-        (telem.TimeStamp(1000), telem.MICROSECOND),
-    ])
+    @pytest.mark.parametrize(
+        "unparsed, expected",
+        [
+            (1000, telem.MICROSECOND),
+            (timedelta(microseconds=1000), 1000 * telem.MICROSECOND),
+            (telem.TimeStamp(1000), telem.MICROSECOND),
+        ],
+    )
     def test_init(self, unparsed: telem.UnparsedTimeSpan, expected: telem.TimeSpan):
         assert telem.TimeSpan(unparsed) == expected
 
@@ -272,18 +263,15 @@ class TestTimeSpan:
         assert telem.TimeSpan(0).is_zero()
 
     def test_delta(self):
-        """Should return a timedelta
-        """
+        """Should return a timedelta"""
         assert telem.SECOND.delta() == timedelta(seconds=1)
 
     def test_add(self):
-        """Should correctly add two time spans
-        """
+        """Should correctly add two time spans"""
         assert telem.MICROSECOND + telem.MICROSECOND == telem.TimeSpan(2000)
 
     def test_sub(self):
-        """Should correctly subtract two time spans
-        """
+        """Should correctly subtract two time spans"""
         assert telem.MICROSECOND - telem.MICROSECOND == telem.TimeSpan(0)
 
     def test_gt(self):
@@ -303,10 +291,13 @@ class TestTimeSpan:
 
 
 class TestRate:
-    @pytest.mark.parametrize("unparsed, expected", [
-        (1000, telem.Rate(1000.0)),
-        (telem.SECOND, telem.Rate(1.0)),
-    ])
+    @pytest.mark.parametrize(
+        "unparsed, expected",
+        [
+            (1000, telem.Rate(1000.0)),
+            (telem.SECOND, telem.Rate(1.0)),
+        ],
+    )
     def test_init(self, unparsed: telem.UnparsedRate, expected: telem.Rate):
         assert telem.Rate(unparsed) == expected
 
@@ -329,7 +320,10 @@ class TestRate:
     def test_byte_span(self):
         """Should return the time span from a byte size
         """
-        assert telem.Rate(1.0).size_span(telem.Size(40), telem.BIT64) == 5 * telem.SECOND
+        assert (
+                telem.Rate(1.0).size_span(telem.Size(40),
+                                          telem.BIT64) == 5 * telem.SECOND
+        )
 
     def test_byte_span_invalid(self):
         """Should raise a contiguity error if the size is not a multiple of the density

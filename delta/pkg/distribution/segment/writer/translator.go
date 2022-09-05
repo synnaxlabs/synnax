@@ -10,22 +10,22 @@ import (
 
 type requestTranslator struct {
 	host core.NodeID
-	confluence.LinearTransform[Request, cesium.CreateRequest]
+	confluence.LinearTransform[Request, cesium.WriteRequest]
 	confluence.TransientProvider
 }
 
-func newRequestTranslator(host core.NodeID, transient confluence.Inlet[error]) confluence.Segment[Request, cesium.CreateRequest] {
+func newRequestTranslator(host core.NodeID, transient confluence.Inlet[error]) confluence.Segment[Request, cesium.WriteRequest] {
 	rt := &requestTranslator{host: host}
 	rt.Transform = rt.translate
-	return confluence.InjectTransient[Request, cesium.CreateRequest](transient, rt)
+	return confluence.InjectTransient[Request, cesium.WriteRequest](transient, rt)
 }
 
-func (rt *requestTranslator) translate(ctx context.Context, in Request) (cesium.CreateRequest, bool, error) {
-	req := cesium.CreateRequest{Segments: make([]cesium.Segment, 0, len(in.Segments))}
+func (rt *requestTranslator) translate(ctx context.Context, in Request) (cesium.WriteRequest, bool, error) {
+	req := cesium.WriteRequest{Segments: make([]cesium.Segment, 0, len(in.Segments))}
 	for _, seg := range in.Segments {
 		if seg.ChannelKey.NodeID() != rt.host {
 			if err := signal.SendUnderContext(ctx, rt.Transient(), unspecifiedChannelError(seg.ChannelKey)); err != nil {
-				return cesium.CreateRequest{}, false, err
+				return cesium.WriteRequest{}, false, err
 			}
 			continue
 		}
@@ -36,10 +36,10 @@ func (rt *requestTranslator) translate(ctx context.Context, in Request) (cesium.
 }
 
 type responseTranslator struct {
-	confluence.LinearTransform[cesium.CreateResponse, Response]
+	confluence.LinearTransform[cesium.WriteResponse, Response]
 }
 
-func (rt *responseTranslator) translate(_ context.Context, in cesium.CreateResponse) (Response, bool, error) {
+func (rt *responseTranslator) translate(_ context.Context, in cesium.WriteResponse) (Response, bool, error) {
 	return Response(in), true, nil
 }
 

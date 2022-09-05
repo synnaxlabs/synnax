@@ -2,27 +2,26 @@ package iterator
 
 import (
 	"context"
+	"github.com/arya-analytics/aspen"
 	"github.com/arya-analytics/cesium"
-	"github.com/arya-analytics/delta/pkg/distribution/core"
 	"github.com/arya-analytics/freighter"
 	"github.com/arya-analytics/freighter/freightfluence"
 	"github.com/arya-analytics/x/confluence"
 	"github.com/arya-analytics/x/confluence/plumber"
-	"github.com/arya-analytics/x/errutil"
 	"github.com/arya-analytics/x/signal"
 	"github.com/cockroachdb/errors"
 	"go.uber.org/zap"
 )
 
 type server struct {
-	host   core.NodeID
-	db     cesium.DB
-	logger *zap.SugaredLogger
+	resolver aspen.HostResolver
+	ts       cesium.DB
+	logger   *zap.Logger
 }
 
-func NewServer(db cesium.DB, host core.NodeID, transport Transport) *server {
-	sf := &server{db: db, host: host}
-	transport.BindHandler(sf.Handle)
+func NewServer(cfg Config) *server {
+	sf := &server{ts: cfg.TS, resolver: cfg.Resolver, logger: cfg.Logger}
+	cfg.Transport.BindHandler(sf.Handle)
 	return sf
 }
 
@@ -51,9 +50,14 @@ func (sf *server) Handle(_ctx context.Context, server Server) error {
 		Sender: freighter.SenderEmptyCloser[Response]{StreamSender: server},
 	}
 
-	iter, err := newLocalIterator(sf.db, sf.host, req.Range, req.Keys)
+	iter, err := newLocalIterator(req.Keys, Config{
+		TimeRange: req.Range,
+		TS:        sf.ts,
+		Resolver:  sf.resolver,
+		Logger:    sf.logger,
+	})
 	if err != nil {
-		return errors.Wrap(err, "[segment.iterator] - cesium iterator failed to open")
+		return err
 	}
 
 	pipe := plumber.New()
@@ -61,24 +65,17 @@ func (sf *server) Handle(_ctx context.Context, server Server) error {
 	plumber.SetSource[Request](pipe, "receiver", receiver)
 	plumber.SetSink[Response](pipe, "sender", sender)
 
-	c := errutil.NewCatch()
-
-	c.Exec(plumber.UnaryRouter[Request]{
+	plumber.UnaryRouter[Request]{
 		SourceTarget: "receiver",
 		SinkTarget:   "iterator",
-	}.PreRoute(pipe))
+	}.MustRoute(pipe)
 
-	c.Exec(plumber.UnaryRouter[Response]{
+	plumber.UnaryRouter[Response]{
 		SourceTarget: "iterator",
 		SinkTarget:   "sender",
-	}.PreRoute(pipe))
-
-	if c.Error() != nil {
-		panic(c.Error())
-	}
+	}.MustRoute(pipe)
 
 	pipe.Flow(ctx, confluence.CloseInletsOnExit())
 
-	err = ctx.Wait()
-	return err
+	return ctx.Wait()
 }

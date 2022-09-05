@@ -8,6 +8,7 @@ import (
 	"github.com/arya-analytics/delta/pkg/distribution/segment/writer"
 	"github.com/arya-analytics/delta/pkg/storage"
 	"github.com/arya-analytics/freighter/fmock"
+	"github.com/arya-analytics/x/config"
 	"go.uber.org/zap"
 	"testing"
 
@@ -19,7 +20,7 @@ var ctx = context.Background()
 
 func TestWriter(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Writer Suite")
+	RunSpecs(t, "Write Suite")
 }
 
 type serviceContainer struct {
@@ -31,7 +32,7 @@ type serviceContainer struct {
 }
 
 func provisionNServices(n int, logger *zap.Logger) (*mock.CoreBuilder, map[core.NodeID]serviceContainer) {
-	builder := mock.NewCoreBuilder(core.Config{Logger: logger, Storage: storage.Config{MemBacked: true}})
+	builder := mock.NewCoreBuilder(core.Config{Logger: logger, Storage: storage.Config{MemBacked: config.BoolPointer(true)}})
 	services := make(map[core.NodeID]serviceContainer)
 	channelNet := fmock.NewNetwork[channel.CreateMessage, channel.CreateMessage]()
 	writerNet := fmock.NewNetwork[writer.Request, writer.Response]()
@@ -46,7 +47,12 @@ func provisionNServices(n int, logger *zap.Logger) (*mock.CoreBuilder, map[core.
 			_core.Storage.TS,
 			container.transport.channel,
 		)
-		writer.NewServer(_core.Storage.TS, _core.Cluster.HostID(), container.transport.writer)
+		writer.NewServer(writer.Config{
+			TS:             _core.Storage.TS,
+			ChannelService: container.channel,
+			Resolver:       _core.Cluster,
+			Transport:      container.transport.writer,
+		})
 		services[_core.Cluster.HostID()] = container
 	}
 	return builder, services
@@ -61,11 +67,13 @@ func openWriter(
 ) (writer.Writer, error) {
 	return writer.New(
 		ctx,
-		builder.Cores[nodeID].Storage.TS,
-		services[nodeID].channel,
-		builder.Cores[nodeID].Cluster,
-		services[nodeID].transport.writer,
-		keys,
-		log,
+		writer.Config{
+			TS:             builder.Cores[nodeID].Storage.TS,
+			ChannelService: services[nodeID].channel,
+			Resolver:       builder.Cores[nodeID].Cluster,
+			Transport:      services[nodeID].transport.writer,
+			ChannelKeys:    keys,
+			Logger:         log,
+		},
 	)
 }

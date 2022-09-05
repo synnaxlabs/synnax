@@ -28,7 +28,7 @@ var _ = Describe("StreamService", Ordered, func() {
 	AfterAll(func() {
 		Expect(db.Close()).To(Succeed())
 	})
-	Describe("Writer", func() {
+	Describe("Write", func() {
 		Describe("Create", func() {
 			It("Should create a new user", func() {
 				w := svc.NewWriter()

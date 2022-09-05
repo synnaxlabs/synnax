@@ -2,15 +2,17 @@ package storage_test
 
 import (
 	"github.com/arya-analytics/delta/pkg/storage"
+	"github.com/arya-analytics/x/config"
 	"github.com/arya-analytics/x/fsutil"
-	"github.com/cockroachdb/errors"
+	. "github.com/arya-analytics/x/testutil"
+	"github.com/arya-analytics/x/validate"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"os"
 	"path/filepath"
 )
 
-var _ = Describe("StorageKey", func() {
+var _ = Describe("Storage", func() {
 	Describe("Open", func() {
 		var (
 			tempDir string
@@ -35,7 +37,7 @@ var _ = Describe("StorageKey", func() {
 		Describe("Permissions", func() {
 			Describe("New Directory", func() {
 				It("Should set the correct permissions on the storage directory", func() {
-					cfg.Perm = storage.DefaultConfig().Perm
+					cfg.Perm = storage.DefaultConfig.Perm
 					store, err := storage.Open(cfg)
 					Expect(err).NotTo(HaveOccurred())
 					stat, err := os.Stat(cfg.Dirname)
@@ -62,7 +64,7 @@ var _ = Describe("StorageKey", func() {
 		})
 		Describe("Membacked", func() {
 			It("Should open a memory backed version of storage", func() {
-				cfg.MemBacked = true
+				cfg.MemBacked = config.BoolPointer(true)
 				store, err := storage.Open(cfg)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(store.Close()).To(Succeed())
@@ -72,55 +74,53 @@ var _ = Describe("StorageKey", func() {
 	Describe("Config", func() {
 		DescribeTable("Validate", func(
 			spec func(cfg storage.Config) storage.Config,
-			expectedErr error,
+			nil bool,
 		) {
-			iCfg := storage.DefaultConfig()
+			iCfg := storage.DefaultConfig
 			iCfg.Dirname = "foo"
 			err := spec(iCfg).Validate()
-			if expectedErr == nil {
+			if nil {
 				Expect(err).ToNot(HaveOccurred())
 			} else {
-				if !errors.Is(err, expectedErr) {
-					Fail(err.Error())
-				}
+				Expect(err).To(HaveOccurredAs(validate.ValidationError))
 			}
 		},
 			Entry("Directory not set",
 				func(cfg storage.Config) storage.Config {
 					cfg.Dirname = ""
-					cfg.MemBacked = false
+					*cfg.MemBacked = false
 					return cfg
 				},
-				errors.Newf("[storage] - dirname must be set"),
+				false,
 			),
 			Entry("Directory not set, mem-backed",
 				func(cfg storage.Config) storage.Config {
 					cfg.Dirname = ""
-					cfg.MemBacked = true
+					*cfg.MemBacked = true
 					return cfg
 				},
-				nil,
+				true,
 			),
 			Entry("Invalid key-value engine",
 				func(cfg storage.Config) storage.Config {
 					cfg.KVEngine = 12
 					return cfg
 				},
-				errors.New("[storage] - invalid key-value engine"),
+				false,
 			),
 			Entry("Invalid time-series engine",
 				func(cfg storage.Config) storage.Config {
 					cfg.TSEngine = 12
 					return cfg
 				},
-				errors.New("[storage] - invalid time-series engine"),
+				false,
 			),
 			Entry("Invalid permissions",
 				func(cfg storage.Config) storage.Config {
 					cfg.Perm = 0
 					return cfg
 				},
-				errors.New("[storage] - insufficient permission bits configured"),
+				false,
 			),
 		)
 	})

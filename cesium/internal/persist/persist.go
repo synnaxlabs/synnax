@@ -3,10 +3,12 @@ package persist
 import (
 	"context"
 	"github.com/arya-analytics/cesium/internal/operation"
+	"github.com/arya-analytics/x/config"
 	"github.com/arya-analytics/x/confluence"
 	"github.com/arya-analytics/x/kfs"
+	override "github.com/arya-analytics/x/override"
 	"github.com/arya-analytics/x/signal"
-	"go.uber.org/zap"
+	"github.com/arya-analytics/x/validate"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -21,25 +23,32 @@ type Persist[F comparable, O operation.Operation[F]] struct {
 	confluence.UnarySink[[]O]
 }
 
-const (
-	// DefaultNumWorkers is the default maximum number of goroutines Persist can operate at once.
-	DefaultNumWorkers = 10
-)
-
 type Config struct {
 	// NumWorkers represents the number of goroutines that will be used to execute operations.
 	// This value must be at least 1.
 	NumWorkers int
-	// Persist will log events to this Logger.
-	Logger *zap.Logger
 }
 
-func DefaultConfig() Config { return Config{NumWorkers: DefaultNumWorkers} }
+var _ config.Config[Config] = Config{}
+
+func (cfg Config) Override(other Config) Config {
+	cfg.NumWorkers = override.Numeric(cfg.NumWorkers, other.NumWorkers)
+	return cfg
+}
+
+func (cfg Config) Validate() error {
+	v := validate.New("cesium.persist")
+	validate.GreaterThan(v, "NumWorkers", cfg.NumWorkers, 0)
+	return v.Error()
+}
+
+var DefaultConfig = Config{NumWorkers: 10}
 
 // New creates a new Persist that wraps the provided kfs.FS.
-func New[F comparable, O operation.Operation[F]](kfs kfs.FS[F], config Config) *Persist[F, O] {
-	p := &Persist[F, O]{kfs: kfs, Config: config, ops: make(chan O, config.NumWorkers)}
-	return p
+func New[F comparable, O operation.Operation[F]](kfs kfs.FS[F], _cfg Config) (*Persist[F, O], error) {
+	cfg, err := config.OverrideAndValidate(DefaultConfig, _cfg)
+	p := &Persist[F, O]{kfs: kfs, Config: cfg, ops: make(chan O, cfg.NumWorkers)}
+	return p, err
 }
 
 func (p *Persist[K, O]) Flow(ctx signal.Context, opts ...confluence.Option) {

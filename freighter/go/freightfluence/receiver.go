@@ -18,7 +18,7 @@ type Receiver[M freighter.Payload] struct {
 // Flow implements Flow.
 func (r *Receiver[M]) Flow(ctx signal.Context, opts ...Option) {
 	fo := NewOptions(opts)
-	fo.AttachInletCloser(r)
+	fo.AttachClosables(r.Out)
 	ctx.Go(r.receive, fo.Signal...)
 }
 
@@ -54,7 +54,7 @@ type TransformReceiver[I Value, M freighter.Payload] struct {
 // Flow implements Flow.
 func (r *TransformReceiver[I, M]) Flow(ctx signal.Context, opts ...Option) {
 	o := NewOptions(opts)
-	o.AttachInletCloser(r)
+	o.AttachClosables(r.Out)
 	ctx.Go(r.receive, o.Signal...)
 }
 
@@ -84,4 +84,68 @@ o:
 			}
 		}
 	}
+}
+
+type FilterReceiver[I freighter.Payload] struct {
+	Receiver freighter.StreamReceiver[I]
+	AbstractUnarySource[I]
+	FilterFunc[I]
+	Rejects Inlet[I]
+}
+
+func (f *FilterReceiver[I]) Flow(ctx signal.Context, opts ...Option) {
+	o := NewOptions(opts)
+	o.AttachClosables(f.Out, f.Rejects)
+	ctx.Go(f.receive, o.Signal...)
+}
+
+func (f *FilterReceiver[I]) OutTo(inlets ...Inlet[I]) {
+	if len(inlets) > 2 || len(inlets) == 0 {
+		panic("[confluence.ApplySink] - provide at most two and at least one inlet")
+	}
+
+	if len(inlets) == 1 {
+		if f.AbstractUnarySource.Out != nil {
+			f.Rejects = inlets[0]
+			return
+		}
+	}
+
+	f.AbstractUnarySource.OutTo(inlets[0])
+	if len(inlets) == 2 {
+		f.Rejects = inlets[1]
+	}
+}
+
+func (f *FilterReceiver[I]) receive(ctx context.Context) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			res, err := f.Receiver.Receive()
+			if errors.Is(err, freighter.EOF) {
+				return nil
+			}
+			if err != nil {
+				return err
+			}
+			if err := f.filter(ctx, res); err != nil {
+				return err
+			}
+		}
+	}
+}
+
+func (f *FilterReceiver[I]) filter(ctx context.Context, res I) error {
+	ok, err := f.Apply(ctx, res)
+	if err != nil {
+		return err
+	}
+	if ok {
+		return signal.SendUnderContext(ctx, f.Out.Inlet(), res)
+	} else if f.Rejects != nil {
+		return signal.SendUnderContext(ctx, f.Rejects.Inlet(), res)
+	}
+	return nil
 }

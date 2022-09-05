@@ -17,6 +17,7 @@ import (
 	"github.com/arya-analytics/freighter/fgrpc"
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/alamos"
+	"github.com/arya-analytics/x/config"
 	xsignal "github.com/arya-analytics/x/signal"
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
@@ -186,7 +187,7 @@ func newStorageConfig(
 	logger *zap.Logger,
 ) storage.Config {
 	return storage.Config{
-		MemBacked:  viper.GetBool("mem"),
+		MemBacked:  config.BoolPointer(viper.GetBool("mem")),
 		Dirname:    viper.GetString("data"),
 		Logger:     logger.Named("storage"),
 		Experiment: exp,

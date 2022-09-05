@@ -11,7 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Channel", Ordered, func() {
+var _ = Describe("ChannelService", Ordered, func() {
 	var (
 		builder *mock.ProviderBuilder
 		prov    api.Provider
@@ -64,7 +64,7 @@ var _ = Describe("Channel", Ordered, func() {
 				Name:   "test",
 				NodeID: 1,
 				Rate:   25 * telem.Hz,
-			}, "channel.data_type.key", "required"),
+			}, "channel.data_type", "required"),
 			Entry("No Data Rate", api.Channel{
 				Name:     "test",
 				NodeID:   1,

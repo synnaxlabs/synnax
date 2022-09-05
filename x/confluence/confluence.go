@@ -110,13 +110,6 @@ type Sink[O Value] interface {
 type Source[I Value] interface {
 	OutTo(inlets ...Inlet[I])
 	Flow
-	InletCloser
-}
-
-// InletCloser is a type that contains a set of Inlet(s)  that can be closed. This type
-// also typically implements the Source interface.
-type InletCloser interface {
-	CloseInlets()
 }
 
 // TransformFunc is a template for a function  that transforms a value from one type to
@@ -145,9 +138,13 @@ type Inlet[V Value] interface {
 	InletAddress() address.Address
 	// SetInletAddress sets the OutletAddress of the Inlet.
 	SetInletAddress(address.Address)
-	// Close closes the inlet.
+	Closable
+}
+
+type Closable interface {
+	// Close closes the Closable.
 	Close()
-	// Acquire acquires the inlet.
+	// Acquire acquires the Closable.
 	Acquire(n int32)
 }
 

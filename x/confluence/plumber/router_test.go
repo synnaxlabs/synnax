@@ -53,7 +53,7 @@ var _ = Describe("Router", func() {
 				SinkTarget:   "sink",
 				Capacity:     1,
 			}
-			Expect(router.PreRoute(p)()).ToNot(Succeed())
+			Expect(router.Route(p)).ToNot(Succeed())
 		})
 	})
 
@@ -80,7 +80,7 @@ var _ = Describe("Router", func() {
 				sourceOne.Out.Inlet() <- 1
 				Expect(sinkTwo.In.Outlet()).To(Receive(Equal(1)))
 			})
-			It("Should close the channel after both sources release the inlet", func() {
+			It("Should close channel after both sources release the inlet", func() {
 				sourceOne := &confluence.Emitter[int]{}
 				sourceTwo := &confluence.Emitter[int]{}
 				sinkOne := &confluence.UnarySink[int]{}
@@ -141,7 +141,7 @@ var _ = Describe("Router", func() {
 					Stitch:        plumber.StitchConvergent,
 					Capacity:      1,
 				}
-				Expect(router.PreRoute(p)()).To(Succeed())
+				router.MustRoute(p)
 				sourceOne.Out["sinkOne"].Inlet() <- 1
 				Expect(sinkOne.In.Outlet()).To(Receive(Equal(1)))
 				sourceOne.Out["sinkTwo"].Inlet() <- 1

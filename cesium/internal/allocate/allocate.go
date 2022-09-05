@@ -2,7 +2,10 @@ package allocate
 
 import (
 	"github.com/arya-analytics/x/alamos"
+	"github.com/arya-analytics/x/config"
+	"github.com/arya-analytics/x/override"
 	"github.com/arya-analytics/x/telem"
+	"github.com/arya-analytics/x/validate"
 	"math"
 	"sync"
 )
@@ -77,12 +80,25 @@ type Config struct {
 	Experiment alamos.Experiment
 }
 
-// DefaultConfig returns the default configuration for the Allocator.
-func DefaultConfig() Config {
-	return Config{
-		MaxDescriptors: DefaultMaxDescriptors,
-		MaxSize:        DefaultMaxSize,
-	}
+var _ config.Config[Config] = Config{}
+
+func (cfg Config) Override(other Config) Config {
+	cfg.MaxSize = override.Numeric(cfg.MaxSize, other.MaxSize)
+	cfg.MaxDescriptors = override.Numeric(cfg.MaxDescriptors, other.MaxDescriptors)
+	cfg.Experiment = override.Nil(cfg.Experiment, other.Experiment)
+	return cfg
+}
+
+func (cfg Config) Validate() error {
+	v := validate.New("cesium.allocate")
+	validate.Positive(v, "MaxDescriptors", cfg.MaxDescriptors)
+	validate.Positive(v, "MaxSize", cfg.MaxSize)
+	return v.Error()
+}
+
+var DefaultConfig = Config{
+	MaxDescriptors: 50,
+	MaxSize:        5e8,
 }
 
 func mergeConfig(c Config) Config {

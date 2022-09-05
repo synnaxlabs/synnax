@@ -3,112 +3,154 @@ package cesium_test
 import (
 	"github.com/arya-analytics/cesium"
 	"github.com/arya-analytics/cesium/testutil/seg"
-	"github.com/arya-analytics/x/confluence"
 	"github.com/arya-analytics/x/telem"
+	. "github.com/arya-analytics/x/testutil"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"go.uber.org/zap"
 )
 
 var _ = Describe("Iterator", func() {
-	var (
-		db cesium.DB
-	)
+	var db cesium.DB
 	BeforeEach(func() {
-		var err error
-		log := zap.NewNop()
-		db, err = cesium.Open("",
-			cesium.MemBacked(),
-			cesium.WithLogger(log),
-		)
-		Expect(err).ToNot(HaveOccurred())
+		db = MustSucceed(cesium.Open("", cesium.MemBacked(), cesium.WithLogger(logger)))
 	})
 	AfterEach(func() {
 		Expect(db.Close()).To(Succeed())
 	})
-	Context("Single channel", func() {
-		var (
-			key     cesium.ChannelKey
-			channel cesium.Channel
-		)
-		BeforeEach(func() {
-			channel = cesium.Channel{
-				Rate:    25 * cesium.Hz,
-				Density: cesium.Bit64,
-			}
-			var err error
-			key, err = db.CreateChannel(channel)
-			channel.Key = key
-			Expect(err).ToNot(HaveOccurred())
-			req, res, err := db.NewCreate().WhereChannels(key).Stream(ctx)
-			Expect(err).ToNot(HaveOccurred())
-			stc := &seg.StreamCreate{
-				Req: req,
-				Res: res,
-				SequentialFactory: seg.NewSequentialFactory(
-					&seg.SequentialFloat64Factory{},
-					10*cesium.Second,
-					channel,
-				),
-			}
-			Expect(err).ToNot(HaveOccurred())
-			stc.CreateCRequestsOfN(100, 2)
-
-		})
-		Describe("First", func() {
-			It("Should return the first segment in the iterator", func() {
-				iter := db.NewRetrieve().
-					WhereChannels(key).
-					WhereTimeRange(cesium.TimeRangeMax).
-					Iterate()
-				Expect(iter.Error()).To(BeNil())
-				stream := confluence.NewStream[cesium.RetrieveResponse](1)
-				iter.OutTo(stream)
-				Expect(iter.First()).To(BeTrue())
-				res := <-stream.Outlet()
-				Expect(res.Segments).To(HaveLen(1))
-				Expect(iter.View()).To(Equal(telem.TimeRange{
-					Start: telem.TimeStampMin,
-					End:   telem.TimeStampMin.Add(10 * cesium.Second),
-				}))
-				Expect(res.Segments[0].Start).To(Equal(telem.TimeStampMin))
-				Expect(res.Segments[0].Sugar(channel).UnboundedRange()).To(Equal(
-					telem.TimeRange{
-						Start: telem.TimeStampMin,
-						End:   telem.TimeStampMin.Add(10 * cesium.Second),
-					}))
+	Describe("Basic Iteration", func() {
+		Context("Single Channel", func() {
+			It("Should iterate over all segments in a time range", func() {
+				ch := cesium.Channel{Rate: 1 * telem.Hz, Density: telem.Bit64}
+				Expect(db.CreateChannel(&ch)).To(Succeed())
+				factory := seg.NewSequentialFactory(&seg.RandomFloat64Factory{}, 10*telem.Second, ch)
+				Expect(db.Write(factory.NextN(10))).To(Succeed())
+				iter := MustSucceed(db.NewIterator(telem.TimeRangeMax, ch.Key))
+				var segments []cesium.Segment
+				for iter.First(); iter.Valid(); iter.Next() {
+					segments = append(segments, iter.Value()...)
+				}
+				Expect(segments).To(HaveLen(10))
 				Expect(iter.Close()).To(Succeed())
 			})
 		})
-		Describe("NextSpan", func() {
-			It("Should return the correct span in the iterator", func() {
-				iter := db.NewRetrieve().WhereChannels(key).WhereTimeRange(cesium.TimeRange{
-					Start: telem.TimeStamp(5 * cesium.Second),
-					End:   telem.TimeStampMax,
-				}).Iterate()
-				Expect(iter.Error()).To(BeNil())
-				stream := confluence.NewStream[cesium.RetrieveResponse](1)
-				iter.OutTo(stream)
-				Expect(iter.SeekFirst()).To(BeTrue())
-				Expect(iter.View()).To(Equal(telem.TimeRange{
-					Start: telem.TimeStamp(5 * cesium.Second),
-					End:   telem.TimeStamp(5 * cesium.Second),
-				}))
-				Expect(iter.NextSpan(5 * cesium.Second)).To(BeTrue())
-				res := <-stream.Outlet()
-				Expect(iter.View()).To(Equal(telem.TimeRange{
-					Start: telem.TimeStamp(5 * cesium.Second),
-					End:   telem.TimeStamp(10 * cesium.Second),
-				}))
-				Expect(res.Segments).To(HaveLen(1))
-				Expect(res.Segments[0].Start).To(Equal(telem.TimeStamp(5 * cesium.Second)))
-				Expect(res.Segments[0].Sugar(channel).UnboundedRange()).To(Equal(telem.TimeRange{
-					Start: telem.TimeStamp(5 * cesium.Second),
-					End:   telem.TimeStamp(10 * cesium.Second),
-				}))
+		Context("Multi Channel", func() {
+			It("Should iterate over all segments in a time range", func() {
+				ch := cesium.Channel{Rate: 1 * telem.Hz, Density: telem.Bit64}
+				ch2 := cesium.Channel{Rate: 5 * telem.Hz, Density: telem.Bit64}
+				Expect(db.CreateChannel(&ch)).To(Succeed())
+				Expect(db.CreateChannel(&ch2)).To(Succeed())
+				factory := seg.NewSequentialFactory(&seg.RandomFloat64Factory{}, 10*telem.Second, ch, ch2)
+				Expect(db.Write(factory.NextN(10))).To(Succeed())
+				iter := MustSucceed(db.NewIterator(telem.TimeRangeMax, ch.Key, ch2.Key))
+				var segments []cesium.Segment
+				for iter.First(); iter.Valid(); iter.Next() {
+					Expect(iter.Error()).ToNot(HaveOccurred())
+					segments = append(segments, iter.Value()...)
+				}
+				Expect(segments).To(HaveLen(20))
 				Expect(iter.Close()).To(Succeed())
 			})
 		})
 	})
 
+	Describe("Iterating By Span", func() {
+		It("Should iterate over segments a specified time span", func() {
+			ch := cesium.Channel{Rate: 1 * telem.Hz, Density: telem.Bit64}
+			Expect(db.CreateChannel(&ch)).To(Succeed())
+			ch2 := cesium.Channel{Rate: 5 * telem.Hz, Density: telem.Bit64}
+			Expect(db.CreateChannel(&ch2)).To(Succeed())
+			factory := seg.NewSequentialFactory(&seg.RandomFloat64Factory{}, 10*telem.Second, ch, ch2)
+			Expect(db.Write(factory.NextN(10))).To(Succeed())
+			iter := MustSucceed(db.NewIterator(telem.TimeRangeMax, ch.Key, ch2.Key))
+			Expect(iter.SeekFirst()).To(BeTrue())
+			Expect(iter.NextSpan(20 * telem.Second)).To(BeTrue())
+			Expect(iter.Value()).To(HaveLen(4))
+			Expect(iter.NextSpan(20 * telem.Second)).To(BeTrue())
+			Expect(iter.Value()).To(HaveLen(4))
+			Expect(iter.PrevSpan(20 * telem.Second)).To(BeTrue())
+			Expect(iter.Value()).To(HaveLen(4))
+			Expect(iter.Close()).To(Succeed())
+		})
+	})
+
+	Describe("Seeking", func() {
+		It("Should seek to the correct segment in the range", func() {
+			ch := cesium.Channel{Rate: 1 * telem.Hz, Density: telem.Bit64}
+			Expect(db.CreateChannel(&ch)).To(Succeed())
+			factory := seg.NewSequentialFactory(&seg.RandomFloat64Factory{}, 10*telem.Second, ch)
+			Expect(db.Write(factory.NextN(10))).To(Succeed())
+			iter := MustSucceed(db.NewIterator(telem.TimeRangeMax, ch.Key))
+
+			Expect(iter.SeekGE(telem.TimeStamp(5 * telem.Second))).To(BeTrue())
+			Expect(iter.Value()).To(HaveLen(0))
+			Expect(iter.Valid()).To(BeFalse())
+
+			Expect(iter.NextSpan(5 * telem.Second)).To(BeTrue())
+			Expect(iter.Valid()).To(BeTrue())
+			Expect(iter.View()).To(Equal(telem.TimeRange{
+				Start: telem.TimeStamp(10 * telem.Second),
+				End:   telem.TimeStamp(15 * telem.Second),
+			}))
+			Expect(iter.Value()).To(HaveLen(1))
+			Expect(iter.Value()[0].Data).To(HaveLen(40))
+
+			Expect(iter.SeekLT(telem.TimeStamp(5 * telem.Second))).To(BeTrue())
+			Expect(iter.Valid()).To(BeFalse())
+
+			Expect(iter.NextSpan(5 * telem.Second)).To(BeTrue())
+			Expect(iter.View()).To(Equal(telem.TimeRange{
+				Start: telem.TimeStamp(0),
+				End:   telem.TimeStamp(5 * telem.Second),
+			}))
+			Expect(iter.Value()).To(HaveLen(1))
+			Expect(iter.Value()[0].Data).To(HaveLen(40))
+
+			Expect(iter.SeekLast()).To(BeTrue())
+			Expect(iter.Prev()).To(BeTrue())
+			Expect(iter.View()).To(Equal(telem.TimeRange{
+				Start: telem.TimeStamp(90 * telem.Second),
+				End:   telem.TimeStamp(100 * telem.Second),
+			}))
+			Expect(iter.Value()).To(HaveLen(1))
+			Expect(iter.Value()[0].Data).To(HaveLen(80))
+
+			Expect(iter.Close()).To(Succeed())
+		})
+
+	})
+
+	Describe("ReadView", func() {
+		It("Should set the iterator range correctly", func() {
+			ch := cesium.Channel{Rate: 1 * telem.Hz, Density: telem.Bit64}
+			Expect(db.CreateChannel(&ch)).To(Succeed())
+			factory := seg.NewSequentialFactory(&seg.RandomFloat64Factory{}, 10*telem.Second, ch)
+			Expect(db.Write(factory.NextN(10))).To(Succeed())
+			iter := MustSucceed(db.NewIterator(telem.TimeRangeMax, ch.Key))
+			Expect(iter.ReadView(telem.TimeRange{
+				Start: telem.TimeStamp(5 * telem.Second),
+				End:   telem.TimeStamp(15 * telem.Second),
+			})).To(BeTrue())
+			Expect(iter.Value()).To(HaveLen(2))
+			Expect(iter.Value()[0].Data).To(HaveLen(40))
+			Expect(iter.Value()[1].Data).To(HaveLen(40))
+			Expect(iter.Close()).To(Succeed())
+		})
+	})
+
+	Describe("Opening Error Cases", func() {
+		It("Should return an error when the range has no data", func() {
+			ch := cesium.Channel{Rate: 1 * telem.Hz, Density: telem.Bit64}
+			Expect(db.CreateChannel(&ch)).To(Succeed())
+			_, err := db.NewIterator(telem.TimeRangeMax, ch.Key)
+			Expect(err).To(HaveOccurredAs(cesium.RangeHasNoData))
+		})
+		It("Should return an error when no channels are specified", func() {
+			_, err := db.NewIterator(telem.TimeRangeMax)
+			Expect(err).To(HaveOccurred())
+		})
+		It("Should return an error when a channel does not exist", func() {
+			_, err := db.NewIterator(telem.TimeRangeMax, 1)
+			Expect(err).To(HaveOccurredAs(cesium.NotFound))
+		})
+	})
 })

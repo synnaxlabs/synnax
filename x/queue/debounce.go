@@ -2,17 +2,35 @@ package queue
 
 import (
 	"context"
+	"github.com/arya-analytics/x/config"
 	"github.com/arya-analytics/x/confluence"
+	"github.com/arya-analytics/x/override"
 	"github.com/arya-analytics/x/signal"
+	"github.com/arya-analytics/x/validate"
 	"time"
 )
 
 type DebounceConfig struct {
-	// Interval is the time between flushes.
-	Interval time.Duration
-	// Threshold is the maximum number of values to store in Debounce.
-	// Debounce will flush when this threshold is reached, regardless of the Interval.
-	Threshold int
+	// FlushInterval is the time between flushes.
+	FlushInterval time.Duration
+	// FlushThreshold is the maximum number of values to store in Debounce.
+	// Debounce will flush when this threshold is reached, regardless of the FlushInterval.
+	FlushThreshold int
+}
+
+var _ config.Config[DebounceConfig] = DebounceConfig{}
+
+func (cfg DebounceConfig) Override(other DebounceConfig) DebounceConfig {
+	cfg.FlushInterval = override.Numeric(cfg.FlushInterval, other.FlushInterval)
+	cfg.FlushThreshold = override.Numeric(cfg.FlushThreshold, other.FlushThreshold)
+	return cfg
+}
+
+func (cfg DebounceConfig) Validate() error {
+	v := validate.New("queue.Debounce")
+	validate.Positive(v, "FlushInterval", cfg.FlushInterval)
+	validate.NonNegative(v, "FlushThreshold", cfg.FlushThreshold)
+	return v.Error()
 }
 
 // Debounce is a simple, goroutine safe queue that flushes data to a channel on a timer or queue size threshold.
@@ -26,7 +44,7 @@ func (d *Debounce[V]) Flow(ctx signal.Context, opts ...confluence.Option) {
 	fo := confluence.NewOptions(opts)
 	ctx.Go(func(ctx context.Context) error {
 		var (
-			t = time.NewTicker(d.Config.Interval)
+			t = time.NewTicker(d.Config.FlushInterval)
 		)
 		defer t.Stop()
 		for {
@@ -48,7 +66,7 @@ func (d *Debounce[V]) Flow(ctx signal.Context, opts ...confluence.Option) {
 }
 
 func (d *Debounce[V]) fill(C <-chan time.Time) ([]V, bool) {
-	ops := make([]V, 0, d.Config.Threshold)
+	ops := make([]V, 0, d.Config.FlushThreshold)
 	for {
 		select {
 		case values, ok := <-d.In.Outlet():
@@ -56,7 +74,7 @@ func (d *Debounce[V]) fill(C <-chan time.Time) ([]V, bool) {
 				return ops, false
 			}
 			ops = append(ops, values...)
-			if len(ops) >= d.Config.Threshold {
+			if len(ops) >= d.Config.FlushThreshold {
 				return ops, true
 			}
 		case <-C:
