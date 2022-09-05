@@ -312,7 +312,8 @@ class TestRate:
     def test_byte_span(self):
         """Should return the time span from a byte size"""
         assert (
-            telem.Rate(1.0).size_span(telem.Size(40), telem.BIT64) == 5 * telem.SECOND
+                telem.Rate(1.0).size_span(telem.Size(40),
+                                          telem.BIT64) == 5 * telem.SECOND
         )
 
     def test_byte_span_invalid(self):

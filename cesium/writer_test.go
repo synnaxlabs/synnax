@@ -4,7 +4,6 @@ import (
 	"github.com/arya-analytics/cesium"
 	"github.com/arya-analytics/x/telem"
 	. "github.com/arya-analytics/x/testutil"
-	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -102,7 +101,7 @@ var _ = Describe("Writer", func() {
 
 			By("Failing to open the second query")
 			_, err := db.NewWriter(ch.Key)
-			Expect(err).To(HaveOccurredAs(errors.New("[cesium] - lock already held")))
+			Expect(err).To(HaveOccurredAs(cesium.ErrChannelLocked))
 			Expect(w.Close()).To(Succeed())
 		})
 	})

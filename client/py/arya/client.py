@@ -1,6 +1,7 @@
 from arya.transport import Transport
 from . import segment
 from . import channel
+from freighter.endpoint import Endpoint
 
 
 class Client:
@@ -13,6 +14,6 @@ class Client:
             host: str,
             port: int,
     ):
-        self.transport = Transport(host, port)
+        self.transport = Transport(Endpoint(host, port))
         self.channel = channel.Client(self.transport)
         self.data = segment.Client(self.transport, self.channel)

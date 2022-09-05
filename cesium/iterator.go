@@ -15,18 +15,23 @@ import (
 // Iterator iterates over a DB's segments in time order. Cesium's iterator is unique
 // in that its position is not a single point in time, but rather a time range providing
 // a sectioned 'view' over the DB's data. By doing so, the caller can iterate over arbitrary
-// time ranges.
+// spans of time.
 //
 // An iterator can be used to iterate over one or more channel's data, although behavior
 // when iterating over multiple channels is somewhat undefined.
 //
 // Iterator is not safe for concurrent use, although it is safe to have multiple iterators
 // open over the same data operating in different goroutines.
+//
+// It's important to not that the segments returned by the iterator may not exactly reflect
+// the segments written to disk. THe DB may merge small segments together, or split large
+// segments apart. The Iterator may also return partial segments that fit within the
+// current view.
 type Iterator interface {
 	// Next reads the next segment in the iterator. It returns true if the segment was
 	// successfully read, and false otherwise. It sets the iterator's view to the time
 	// range occupied by the segment. The view is guaranteed to be within the iterator's
-	// bounds
+	// bounds.
 	Next() bool
 	// Prev reads the previous segment in the iterator. It returns true if the segment
 	// was successfully read, and false otherwise. It sets the iterator's view to the
@@ -221,8 +226,8 @@ type iterator struct {
 
 func wrapStreamIterator(stream *streamIterator) *iterator {
 	ctx, cancel := signal.Background()
-	requests := confluence.NewStream[IteratorRequest]()
-	responses := confluence.NewStream[IteratorResponse]()
+	requests := confluence.NewStream[IteratorRequest](1)
+	responses := confluence.NewStream[IteratorResponse](1)
 	stream.InFrom(requests)
 	stream.OutTo(responses)
 	stream.Flow(ctx)
@@ -354,8 +359,8 @@ type streamIterator struct {
 	*confluence.AbstractUnarySource[IteratorResponse]
 	confluence.UnarySink[IteratorRequest]
 	internal        kv.Iterator
-	parser          *retrieveParser
-	operations      confluence.Inlet[[]retrieveOperationUnary]
+	parser          *readParser
+	operations      confluence.Inlet[[]readOperation]
 	wg              *sync.WaitGroup
 	operationErrors chan error
 	commandCounter  int
@@ -365,7 +370,7 @@ type streamIterator struct {
 func newStreamIterator(
 	tr telem.TimeRange,
 	keys []ChannelKey,
-	operations confluence.Inlet[[]retrieveOperationUnary],
+	operations confluence.Inlet[[]readOperation],
 	logger *zap.Logger,
 	metrics retrieveMetrics,
 	kve kvx.DB,
@@ -381,7 +386,7 @@ func newStreamIterator(
 		AbstractUnarySource: responses,
 		internal:            internal,
 		operations:          operations,
-		parser: &retrieveParser{
+		parser: &readParser{
 			logger:    logger,
 			responses: responses,
 			wg:        wg,
@@ -407,19 +412,19 @@ func (s *streamIterator) Flow(ctx signal.Context, opts ...confluence.Option) {
 				if !ok {
 					return s.close()
 				}
-				s.exec(req)
+				s.exec(ctx, req)
 			}
 		}
 	}, o.Signal...)
 }
 
-func (s *streamIterator) exec(req IteratorRequest) {
+func (s *streamIterator) exec(ctx context.Context, req IteratorRequest) {
 	ok, err := s.runCmd(req)
 	if !ok || !req.Command.hasOps() {
 		s.sendAck(req, ok, err)
 		return
 	}
-	ops := s.parser.parse(s.internal.Ranges())
+	ops := s.parser.parse(ctx, s.internal.Ranges())
 	s.wg.Add(len(ops))
 	s.operations.Inlet() <- ops
 	s.wg.Wait()

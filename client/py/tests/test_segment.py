@@ -2,7 +2,7 @@ from dataclasses import asdict
 
 import numpy as np
 import pytest
-from freighter.encoder import EncoderDecoder, MsgpackEncoderDecoder
+from freighter import encoder
 
 from arya import telem
 from arya.channel import Channel
@@ -13,8 +13,8 @@ from arya import errors
 
 
 class TestBinarySegment:
-    @pytest.mark.parametrize("ecd", [MsgpackEncoderDecoder])
-    def test_encode_decode(self, ecd: EncoderDecoder):
+    @pytest.mark.parametrize("ecd", [encoder.Msgpack])
+    def test_encode_decode(self, ecd: encoder.EncoderDecoder):
         segment = BinarySegment(
             channel_key="1-1",
             start=telem.TimeStamp(1),
@@ -59,7 +59,7 @@ class TestScalarTypeValidator:
         """
         Should raise a validation error
         """
-        ch = Channel(data_type=telem.DataType("CUSTOM", 100))
+        ch = Channel(data_type=telem.DataType("CUSTOM"))
         seg = NumpySegment(
             channel=ch,
             start=telem.now(),
@@ -222,6 +222,7 @@ class TestSplitter:
         ch = Channel(
             data_type=telem.INT8,
             rate=1 * telem.HZ,
+            density=telem.BIT8,
         )
         seg = SugaredBinarySegment(channel=ch, start=0, data=b"1234567812345678")
         splitter = Splitter(threshold=telem.Size(8))

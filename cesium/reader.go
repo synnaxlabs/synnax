@@ -44,19 +44,19 @@ func (cfg readConfig) Validate() error {
 
 var defaultReadConfig = readConfig{persist: persist.DefaultConfig}
 
-func startReadPipeline(ctx signal.Context, _cfg ...readConfig) (confluence.Inlet[[]retrieveOperationUnary], error) {
+func startReadPipeline(ctx signal.Context, _cfg ...readConfig) (confluence.Inlet[[]readOperation], error) {
 	cfg, err := config.OverrideAndValidate(defaultReadConfig, _cfg...)
 	if err != nil {
 		return nil, err
 	}
 
-	operations := confluence.NewStream[[]retrieveOperationUnary]()
+	operations := confluence.NewStream[[]readOperation]()
 	pipe := plumber.New()
 	batch := newRetrieveBatch()
 	batch.InFrom(operations)
 
 	// batch groups operations into batches that optimize sequential IO.
-	plumber.SetSegment[[]retrieveOperationUnary, []retrieveOperationSet](
+	plumber.SetSegment[[]readOperation, []retrieveOperationSet](
 		pipe,
 		"batch",
 		batch,
@@ -73,6 +73,7 @@ func startReadPipeline(ctx signal.Context, _cfg ...readConfig) (confluence.Inlet
 	plumber.UnaryRouter[[]retrieveOperationSet]{
 		SourceTarget: "batch",
 		SinkTarget:   "persist",
+		Capacity:     1,
 	}.MustRoute(pipe)
 
 	pipe.Flow(ctx)

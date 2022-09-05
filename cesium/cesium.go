@@ -21,7 +21,7 @@ var (
 	// NotFound is returned when a channel or a range of data cannot be found in the DB.
 	NotFound = query.NotFound
 	// UniqueViolation is returned when a provided channel key already exists in the DB.
-	UniqueViolation = query.UniqueViolation
+	UniqueViolation = errors.Wrap(query.UniqueViolation, "[cesium] - channel key already exists")
 	// ErrChannelLocked is returned when a channel has been locked for writing by another
 	// goroutine.
 	ErrChannelLocked = errors.Wrap(lock.ErrLocked, "[cesium] - channel locked for writing")
@@ -123,8 +123,8 @@ type db struct {
 	createMetrics      createMetrics
 	retrieveMetrics    retrieveMetrics
 	logger             *zap.Logger
-	retrieveOperations confluence.Inlet[[]retrieveOperationUnary]
-	createOperations   confluence.Inlet[[]createOperationUnary]
+	retrieveOperations confluence.Inlet[[]readOperation]
+	createOperations   confluence.Inlet[[]writeOperation]
 }
 
 // Write implements DB.

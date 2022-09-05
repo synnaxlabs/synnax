@@ -73,8 +73,8 @@ type writer struct {
 
 func wrapStreamWriter(internal *streamWriter) *writer {
 	sCtx, _ := signal.Background()
-	req := confluence.NewStream[WriteRequest]()
-	res := confluence.NewStream[WriteResponse]()
+	req := confluence.NewStream[WriteRequest](1)
+	res := confluence.NewStream[WriteResponse](1)
 	internal.InFrom(req)
 	internal.OutTo(res)
 	internal.Flow(
@@ -119,8 +119,8 @@ type streamWriter struct {
 	keys       []ChannelKey
 	metrics    createMetrics
 	wg         *sync.WaitGroup
-	parser     *createParser
-	operations confluence.Inlet[[]createOperationUnary]
+	parser     *writeParser
+	operations confluence.Inlet[[]writeOperation]
 }
 
 func newStreamWriter(
@@ -129,7 +129,7 @@ func newStreamWriter(
 	kve kvx.DB,
 	metrics createMetrics,
 	logger *zap.Logger,
-	operations confluence.Inlet[[]createOperationUnary],
+	operations confluence.Inlet[[]writeOperation],
 ) (*streamWriter, error) {
 	keys = lo.Uniq(keys)
 	if len(keys) == 0 {
@@ -157,7 +157,7 @@ func newStreamWriter(
 		metrics:    metrics,
 		wg:         wg,
 		operations: operations,
-		parser: &createParser{
+		parser: &writeParser{
 			logger:    logger,
 			metrics:   metrics,
 			header:    kv.NewHeader(kve),
@@ -253,7 +253,7 @@ var defaultWriteConfig = writeConfig{
 	},
 }
 
-func startCreate(ctx signal.Context, _cfg ...writeConfig) (confluence.Inlet[[]createOperationUnary], error) {
+func startCreate(ctx signal.Context, _cfg ...writeConfig) (confluence.Inlet[[]writeOperation], error) {
 	cfg, err := config.OverrideAndValidate(defaultWriteConfig, _cfg...)
 	if err != nil {
 		return nil, err
@@ -266,13 +266,13 @@ func startCreate(ctx signal.Context, _cfg ...writeConfig) (confluence.Inlet[[]cr
 		return nil, err
 	}
 
-	operations := confluence.NewStream[[]createOperationUnary]()
+	operations := confluence.NewStream[[]writeOperation]()
 	pipe := plumber.New()
 	allocator := newAllocator(fCount, cfg.allocate)
 	allocator.InFrom(operations)
 
 	// allocator allocates segments to files.
-	plumber.SetSegment[[]createOperationUnary, []createOperationUnary](
+	plumber.SetSegment[[]writeOperation, []writeOperation](
 		pipe,
 		"allocator",
 		allocator,
@@ -280,14 +280,14 @@ func startCreate(ctx signal.Context, _cfg ...writeConfig) (confluence.Inlet[[]cr
 
 	// queue 'debounces' operations so that they can be flushed to disk in efficient
 	// batches.
-	plumber.SetSegment[[]createOperationUnary, []createOperationUnary](
+	plumber.SetSegment[[]writeOperation, []writeOperation](
 		pipe,
 		"queue",
-		&queue.Debounce[createOperationUnary]{Config: cfg.debounce},
+		&queue.Debounce[writeOperation]{Config: cfg.debounce},
 	)
 
 	// batch groups operations into batches that are more efficient upon retrieval.
-	plumber.SetSegment[[]createOperationUnary, []createOperationSet](pipe, "batch", newCreateBatch())
+	plumber.SetSegment[[]writeOperation, []createOperationSet](pipe, "batch", newCreateBatch())
 
 	pst, err := persist.New[core.FileKey, createOperationSet](cfg.fs, cfg.persist)
 	if err != nil {
@@ -301,19 +301,22 @@ func startCreate(ctx signal.Context, _cfg ...writeConfig) (confluence.Inlet[[]cr
 		pst,
 	)
 
-	plumber.UnaryRouter[[]createOperationUnary]{
+	plumber.UnaryRouter[[]writeOperation]{
 		SourceTarget: "allocator",
 		SinkTarget:   "queue",
+		Capacity:     1,
 	}.MustRoute(pipe)
 
-	plumber.UnaryRouter[[]createOperationUnary]{
+	plumber.UnaryRouter[[]writeOperation]{
 		SourceTarget: "queue",
 		SinkTarget:   "batch",
+		Capacity:     1,
 	}.MustRoute(pipe)
 
 	plumber.UnaryRouter[[]createOperationSet]{
 		SourceTarget: "batch",
 		SinkTarget:   "persist",
+		Capacity:     1,
 	}.MustRoute(pipe)
 
 	pipe.Flow(ctx)

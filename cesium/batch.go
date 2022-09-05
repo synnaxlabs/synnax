@@ -17,7 +17,7 @@ import (
 //
 // The intent is to maximize sequential IO for a given set of operations.
 type retrieveBatch struct {
-	confluence.LinearTransform[[]retrieveOperationUnary, []retrieveOperationSet]
+	confluence.LinearTransform[[]readOperation, []retrieveOperationSet]
 }
 
 func newRetrieveBatch() *retrieveBatch {
@@ -28,7 +28,7 @@ func newRetrieveBatch() *retrieveBatch {
 
 func (rb *retrieveBatch) batch(
 	ctx context.Context,
-	ops []retrieveOperationUnary,
+	ops []readOperation,
 ) ([]retrieveOperationSet, bool, error) {
 	fileGrouped := make(map[core.FileKey]retrieveOperationSet)
 	for _, op := range ops {
@@ -56,7 +56,7 @@ func (rb *retrieveBatch) batch(
 //     contiguous ranges of data from an individual channel. By keeping segments
 //     of the same channel together, we can minimize the number of disk seeks.
 type createBatch struct {
-	confluence.LinearTransform[[]createOperationUnary, []createOperationSet]
+	confluence.LinearTransform[[]writeOperation, []createOperationSet]
 }
 
 func newCreateBatch() *createBatch {
@@ -67,7 +67,7 @@ func newCreateBatch() *createBatch {
 
 func (cb *createBatch) batch(
 	ctx context.Context,
-	ops []createOperationUnary,
+	ops []writeOperation,
 ) ([]createOperationSet, bool, error) {
 	fileGrouped := make(map[core.FileKey]createOperationSet)
 	for _, op := range ops {

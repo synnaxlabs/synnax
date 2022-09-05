@@ -1,29 +1,23 @@
 import pytest
 import numpy as np
-from freighter.ws import WSClient
 from freighter.sync import StreamClient
-from freighter import MsgpackEncoderDecoder, Endpoint
+from freighter import Endpoint, encoder, ws
 
 import arya.errors
 from arya import telem
 from arya.channel import Client, Channel
 from arya.segment import BinarySegment
 from arya.segment.writer import Core, Request, Response, Numpy
+from arya.transport import Transport
 
 
-def new_core(endpoint: Endpoint) -> Core:
-    transport = StreamClient[Request, Response](
-        WSClient[Request, Response](
-            encoder=MsgpackEncoderDecoder(),
-            endpoint=endpoint,
-        ),
-    )
-    return Core(transport=transport)
+def new_core(transport: Transport) -> Core:
+    return Core(transport=transport.stream)
 
 
 @pytest.fixture
-def core(endpoint: Endpoint) -> Core:
-    return new_core(endpoint)
+def core(transport: Transport) -> Core:
+    return new_core(transport)
 
 
 @pytest.fixture
@@ -56,12 +50,12 @@ class TestCore:
             core.open(["1241-241"])
 
     def test_write_lock_acquired(
-        self,
-        endpoint: Endpoint,
-        core: Core,
-        channel: Channel,
+            self,
+            transport: Transport,
+            core: Core,
+            channel: Channel,
     ):
-        core2 = new_core(endpoint)
+        core2 = new_core(transport=transport)
         core_err = None
         core2_err = None
         try:
