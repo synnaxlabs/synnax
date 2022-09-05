@@ -1,1 +1,7 @@
+# |||||| INTELLIJ ||||||
+
 .idea/
+
+# |||||| DARWIN |||||||
+
+.DS_Store
