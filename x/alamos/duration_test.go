@@ -2,6 +2,7 @@ package alamos_test
 
 import (
 	"github.com/arya-analytics/x/alamos"
+	"github.com/arya-analytics/x/telem"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"time"
@@ -14,7 +15,7 @@ var _ = Describe("Duration", func() {
 			dur := alamos.NewGaugeDuration(exp, alamos.Debug, "test")
 			sw := dur.Stopwatch()
 			sw.Start()
-			Expect(sw.Elapsed()).To(BeNumerically(">", 0))
+			Expect(sw.Elapsed()).To(BeNumerically(">", telem.TimeStamp(0)))
 			sw.Stop()
 		})
 	})
