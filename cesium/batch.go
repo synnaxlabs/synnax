@@ -30,9 +30,6 @@ func (rb *retrieveBatch) batch(
 	ctx context.Context,
 	ops []retrieveOperationUnary,
 ) ([]retrieveOperationSet, bool, error) {
-	if len(ops) == 0 {
-		return []retrieveOperationSet{}, false, nil
-	}
 	fileGrouped := make(map[core.FileKey]retrieveOperationSet)
 	for _, op := range ops {
 		fileGrouped[op.FileKey()] = retrieveOperationSet{Set: append(fileGrouped[op.FileKey()].Set, op)}
@@ -72,9 +69,6 @@ func (cb *createBatch) batch(
 	ctx context.Context,
 	ops []createOperationUnary,
 ) ([]createOperationSet, bool, error) {
-	if len(ops) == 0 {
-		return []createOperationSet{}, false, nil
-	}
 	fileGrouped := make(map[core.FileKey]createOperationSet)
 	for _, op := range ops {
 		fileGrouped[op.FileKey()] = createOperationSet{Set: append(fileGrouped[op.FileKey()].Set, op)}

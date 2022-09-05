@@ -289,11 +289,16 @@ func startCreate(ctx signal.Context, _cfg ...writeConfig) (confluence.Inlet[[]cr
 	// batch groups operations into batches that are more efficient upon retrieval.
 	plumber.SetSegment[[]createOperationUnary, []createOperationSet](pipe, "batch", newCreateBatch())
 
+	pst, err := persist.New[core.FileKey, createOperationSet](cfg.fs, cfg.persist)
+	if err != nil {
+		return nil, err
+	}
+
 	// persist executes batched operations to disk.
 	plumber.SetSink[[]createOperationSet](
 		pipe,
 		"persist",
-		persist.New[core.FileKey, createOperationSet](cfg.fs, cfg.persist),
+		pst,
 	)
 
 	plumber.UnaryRouter[[]createOperationUnary]{

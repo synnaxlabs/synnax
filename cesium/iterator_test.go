@@ -119,14 +119,14 @@ var _ = Describe("Iterator", func() {
 
 	})
 
-	Describe("SetRange", func() {
+	Describe("ReadView", func() {
 		It("Should set the iterator range correctly", func() {
 			ch := cesium.Channel{Rate: 1 * telem.Hz, Density: telem.Bit64}
 			Expect(db.CreateChannel(&ch)).To(Succeed())
 			factory := seg.NewSequentialFactory(&seg.RandomFloat64Factory{}, 10*telem.Second, ch)
 			Expect(db.Write(factory.NextN(10))).To(Succeed())
 			iter := MustSucceed(db.NewIterator(telem.TimeRangeMax, ch.Key))
-			Expect(iter.SetRange(telem.TimeRange{
+			Expect(iter.ReadView(telem.TimeRange{
 				Start: telem.TimeStamp(5 * telem.Second),
 				End:   telem.TimeStamp(15 * telem.Second),
 			})).To(BeTrue())

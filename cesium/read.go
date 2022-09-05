@@ -3,7 +3,6 @@ package cesium
 import (
 	"github.com/arya-analytics/cesium/internal/core"
 	"github.com/arya-analytics/cesium/internal/persist"
-	"github.com/arya-analytics/cesium/internal/segment"
 	"github.com/arya-analytics/x/alamos"
 	"github.com/arya-analytics/x/config"
 	"github.com/arya-analytics/x/confluence"
@@ -11,57 +10,8 @@ import (
 	"github.com/arya-analytics/x/kv"
 	"github.com/arya-analytics/x/override"
 	"github.com/arya-analytics/x/signal"
-	"github.com/arya-analytics/x/telem"
 	"github.com/arya-analytics/x/validate"
 )
-
-type ResponseVariant uint8
-
-const (
-	// AckResponse is a response that indicates that an iteration request was acknowledged.
-	AckResponse ResponseVariant = iota + 1
-	// DataResponse is a response that indicates that an iteration request returned data.
-	DataResponse
-)
-
-type IterateRequest struct {
-	Command IteratorCommand
-	Span    telem.TimeSpan
-	Range   telem.TimeRange
-	Stamp   telem.TimeStamp
-}
-
-//go:generate stringer -type=IteratorCommand
-type IteratorCommand uint8
-
-func (i IteratorCommand) hasOps() bool { return i <= IterRange }
-
-const (
-	IterNext IteratorCommand = iota + 1
-	IterPrev
-	IterFirst
-	IterLast
-	IterNextSpan
-	IterPrevSpan
-	IterRange
-	IterValid
-	IterError
-	IterSeekFirst
-	IterSeekLast
-	IterSeekLT
-	IterSeekGE
-)
-
-// IterateResponse is a response containing segments satisfying a Retrieve Query as well as any errors
-// encountered during the retrieval.
-type IterateResponse struct {
-	Counter  int
-	Command  IteratorCommand
-	Variant  ResponseVariant
-	Ack      bool
-	Err      error
-	Segments []segment.Segment
-}
 
 type readConfig struct {
 	// exp is used to track metrics for the Retrieve query. See retrieveMetrics for more.
@@ -112,12 +62,13 @@ func startReadPipeline(ctx signal.Context, _cfg ...readConfig) (confluence.Inlet
 		batch,
 	)
 
+	pst, err := persist.New[core.FileKey, retrieveOperationSet](cfg.fs, cfg.persist)
+	if err != nil {
+		return nil, err
+	}
+
 	// persist executes batched operations on disk.
-	plumber.SetSink[[]retrieveOperationSet](
-		pipe,
-		"persist",
-		persist.New[core.FileKey, retrieveOperationSet](cfg.fs, cfg.persist),
-	)
+	plumber.SetSink[[]retrieveOperationSet](pipe, "persist", pst)
 
 	plumber.UnaryRouter[[]retrieveOperationSet]{
 		SourceTarget: "batch",

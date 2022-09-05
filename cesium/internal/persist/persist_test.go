@@ -7,6 +7,7 @@ import (
 	"github.com/arya-analytics/x/confluence"
 	"github.com/arya-analytics/x/kfs"
 	"github.com/arya-analytics/x/signal"
+	. "github.com/arya-analytics/x/testutil"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -43,9 +44,9 @@ var _ = Describe("Persist", func() {
 		var err error
 		fs, err = kfs.New[int]("testdata", kfs.WithFS(kfs.NewMem()))
 		Expect(err).ToNot(HaveOccurred())
-		p = persist.New[int, operation.Operation[int]](fs, persist.Config{
+		p = MustSucceed(persist.New[int, operation.Operation[int]](fs, persist.Config{
 			NumWorkers: 50,
-		})
+		}))
 	})
 	Describe("QExec", func() {
 		It("Should execute an operation correctly", func() {

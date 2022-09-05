@@ -43,7 +43,7 @@ func (c *createParser) parse(ctx context.Context, segments []Segment) ([]createO
 }
 
 type retrieveParser struct {
-	responses *confluence.AbstractUnarySource[IterateResponse]
+	responses *confluence.AbstractUnarySource[IteratorResponse]
 	logger    *zap.Logger
 	metrics   retrieveMetrics
 	wg        *sync.WaitGroup

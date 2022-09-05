@@ -88,7 +88,7 @@ var _ = Describe("Compound", Ordered, func() {
 				Expect(iter.Value()).To(HaveLen(nChan * 2))
 			})
 		})
-		Describe("SetRange", func() {
+		Describe("ReadView", func() {
 			It("Should return the next range of data in the iterator", func() {
 				Expect(iter.Range(telem.TimeRange{Start: 0, End: telem.TimeStamp(30 * telem.Second)})).To(BeTrue())
 				Expect(iter.Value()).To(HaveLen(nChan * 3))

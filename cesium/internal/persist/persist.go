@@ -45,9 +45,10 @@ func (cfg Config) Validate() error {
 var DefaultConfig = Config{NumWorkers: 10}
 
 // New creates a new Persist that wraps the provided kfs.FS.
-func New[F comparable, O operation.Operation[F]](kfs kfs.FS[F], config Config) *Persist[F, O] {
-	p := &Persist[F, O]{kfs: kfs, Config: config, ops: make(chan O, config.NumWorkers)}
-	return p
+func New[F comparable, O operation.Operation[F]](kfs kfs.FS[F], _cfg Config) (*Persist[F, O], error) {
+	cfg, err := config.OverrideAndValidate(DefaultConfig, _cfg)
+	p := &Persist[F, O]{kfs: kfs, Config: cfg, ops: make(chan O, cfg.NumWorkers)}
+	return p, err
 }
 
 func (p *Persist[K, O]) Flow(ctx signal.Context, opts ...confluence.Option) {
