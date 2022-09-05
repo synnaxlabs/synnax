@@ -140,7 +140,7 @@ func newStreamWriter(
 		return nil, err
 	}
 	if !lock.TryLock(keys...) {
-		return nil, errors.New("[cesium] - lock already held")
+		return nil, ErrChannelLocked
 	}
 
 	channelMap := make(map[ChannelKey]channel.Channel)

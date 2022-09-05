@@ -58,27 +58,52 @@ type DB interface {
 	// Read returns all segments in the provided time range for the given channels.
 	// The segments are returned in time-order on a per-channel basis.
 	Read(tr telem.TimeRange, keys ...ChannelKey) ([]Segment, error)
+	// NewIterator returns a new, unpositioned Iterator over the given time range
+	// for the provided channels. The iterator will be invalid until a positioning
+	// call (First, Last, SeekFirst, SeekLE, SeekGE) is made.
+	//
+	// The provided iterator will NOT acknowledge any future mutations to the underlying
+	// data, and provides a consistent snapshot of the data at the time of the call.
+	//
+	// An Iterator must be closed when it is no longer needed, or resource leaks may occur.
 	NewIterator(tr telem.TimeRange, keys ...ChannelKey) (Iterator, error)
+	// NewStreamIterator returns a new, unpositioned StreamIterator over the given time
+	// range for the provided channels. The iterator will be invalid until a positioning
+	// request is issued (IterFirst, IterLast, IterSeekFirst, IterSeekLT, IterSeekGE).
+	// The iterator must be closed, either by closing the Inlet or by cancelling
+	// the Flow context.
 	NewStreamIterator(tr telem.TimeRange, keys ...ChannelKey) (StreamIterator, error)
-	// Write writes the provided segments to the DB. Segments must meet the following requirements:
+	// Write writes the provided segments to the DB. Segments must meet the following
+	// requirements:
 	//
 	//  1. They must be provided in time-order.
 	//  2. Channel keys must be defined and exist in the database.
-	//  3. Data must be valid i.e. it must have non-zero length and be a multiple of the channel's
-	//     density.
+	//  3. Data must be valid i.e. it must have non-zero length and be a multiple of the
+	//  channel's density.
 	//
-	// If any segments do not meet these requirements, no data will be written and the DB will
-	// return a validation error. If another goroutine is currently writing to one of the specified
-	// channels, DB	will return ErrChannelLocked.
+	// If any segments do not meet these requirements, no data will be written and the DB
+	// will return a validation error. If another goroutine is currently writing to one
+	// of the specified channels, DB will return ErrChannelLocked.
 	Write(segments []Segment) error
+	// NewWriter returns a new Writer for the provided channels, acquiring an exclusive
+	// lock for the duration of the Writer's usage. The Writer must be closed by calling
+	// Close in order to release the lock.
 	NewWriter(keys ...ChannelKey) (Writer, error)
+	// NewStreamWriter returns a new StreamWriter for the provided channels, acquiring an
+	// exclusive lock for the duration of the Writer's usage. The StreamWriter must be
+	// closed in order to release the lock. This can be done by closing the Inlet or by
+	// cancelling the Flow context.
 	NewStreamWriter(keys ...ChannelKey) (StreamWriter, error)
-	// CreateChannel creates a new channel in the DB. The provided channel must have a positive
-	// data rate and density. The caller can provide an optional uint16 Key for the channel.
-	// If the key is not provided, the DB will automatically generate a key. If a key is provided,
-	// the DB will validate that it is unique.
+	// CreateChannel creates a new channel in the DB. The provided channel must have a
+	// positive data rate and density. The caller can provide an optional uint16 Key
+	// for the channel. If the key is not provided, the DB will automatically generate a
+	// key. If a key is provided, the DB will validate that it is unique.
 	CreateChannel(ch *Channel) error
+	// RetrieveChannel retrieves channels from the DB by their key. Returns a query.NotFound
+	// error if any of the channels cannot be found.
 	RetrieveChannel(keys ...ChannelKey) ([]Channel, error)
+	// Close closes persists all pending data to disk and closes the DB. Close is not
+	// safe to call concurrently with any other DB methods.
 	Close() error
 }
 
@@ -102,6 +127,7 @@ type db struct {
 	createOperations   confluence.Inlet[[]createOperationUnary]
 }
 
+// Write implements DB.
 func (d *db) Write(segments []Segment) error {
 	keys := lo.Map(segments, func(s Segment, _ int) ChannelKey { return s.ChannelKey })
 	w, err := d.NewWriter(keys...)
@@ -112,6 +138,7 @@ func (d *db) Write(segments []Segment) error {
 	return w.Close()
 }
 
+// NewWriter implements DB.
 func (d *db) NewWriter(keys ...ChannelKey) (Writer, error) {
 	wrapped, err := d.newStreamWriter(keys)
 	if err != nil {
@@ -120,10 +147,12 @@ func (d *db) NewWriter(keys ...ChannelKey) (Writer, error) {
 	return wrapStreamWriter(wrapped), nil
 }
 
+// NewStreamWriter implements DB.
 func (d *db) NewStreamWriter(keys ...ChannelKey) (StreamWriter, error) {
 	return d.newStreamWriter(keys)
 }
 
+// Read implements DB.
 func (d *db) Read(tr telem.TimeRange, keys ...ChannelKey) ([]Segment, error) {
 	iter, err := d.NewIterator(tr, keys...)
 	if err != nil {
@@ -136,6 +165,7 @@ func (d *db) Read(tr telem.TimeRange, keys ...ChannelKey) ([]Segment, error) {
 	return segments, iter.Close()
 }
 
+// NewIterator implements DB.
 func (d *db) NewIterator(tr telem.TimeRange, keys ...ChannelKey) (Iterator, error) {
 	wrapped, err := d.newStreamIterator(tr, keys)
 	if err != nil {
@@ -144,10 +174,12 @@ func (d *db) NewIterator(tr telem.TimeRange, keys ...ChannelKey) (Iterator, erro
 	return wrapStreamIterator(wrapped), nil
 }
 
+// NewStreamIterator implements DB.
 func (d *db) NewStreamIterator(tr telem.TimeRange, keys ...ChannelKey) (StreamIterator, error) {
 	return d.newStreamIterator(tr, keys)
 }
 
+// CreateChannel implements DB.
 func (d *db) CreateChannel(ch *Channel) error {
 	if ch.Rate <= 0 {
 		return errors.Wrap(

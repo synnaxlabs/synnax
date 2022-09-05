@@ -156,32 +156,57 @@ type IteratorRequest struct {
 //go:generate stringer -type=IteratorCommand
 type IteratorCommand uint8
 
-func (i IteratorCommand) hasOps() bool { return i <= IterRange }
+// hasOps is a little utility telling us whether the command we've issued has any read
+// operations associated with it.
+func (i IteratorCommand) hasOps() bool { return i <= IterReadView }
 
 const (
+	// IterNext is an enumerated representation of Iterator.Next.
 	IterNext IteratorCommand = iota + 1
+	// IterPrev is an enumerated representation of Iterator.Prev.
 	IterPrev
+	// IterFirst is an enumerated representation of Iterator.First.
 	IterFirst
+	// IterLast is an enumerated representation of Iterator.Last.
 	IterLast
+	// IterNextSpan is an enumerated representation of Iterator.NextSpan.
 	IterNextSpan
+	// IterPrevSpan is an enumerated representation of Iterator.PrevSpan.
 	IterPrevSpan
-	IterRange
+	// IterReadView is an enumerated representation of Iterator.ReadView.
+	IterReadView
+	// IterValid is an enumerated representation of Iterator.Valid.
 	IterValid
+	// IterError is an enumerated representation of Iterator.Error.
 	IterError
+	// IterSeekFirst is an enumerated representation of Iterator.SeekFirst.
 	IterSeekFirst
+	// IterSeekLast is an enumerated representation of Iterator.SeekLast.
 	IterSeekLast
+	// IterSeekLT is an enumerated representation of Iterator.SeekLT.
 	IterSeekLT
+	// IterSeekGE is an enumerated representation of Iterator.SeekGE.
 	IterSeekGE
 )
 
-// IteratorResponse is a response containing segments satisfying a Retrieve Query as well as any errors
-// encountered during the retrieval.
+// IteratorResponse is a response containing segments satisfying a Retrieve Query as
+// well as any errors encountered during the retrieval.
 type IteratorResponse struct {
-	Counter  int
-	Command  IteratorCommand
-	Variant  IteratorResponseType
-	Ack      bool
-	Err      error
+	// Variant is the type of response issued.
+	Variant IteratorResponseType
+	// Counter is  incremented for each request issued to the StreamIterator. The
+	// first request will have a counter value of 1.
+	Counter int
+	// Command is only defined when the response type is IteratorResponseTypeAck.
+	// It indicates the command that was acknowledged.
+	Command IteratorCommand
+	// Ack is only valid when the response type is IteratorResponseTypeAck. It
+	// indicates whether the command was successfully processed.
+	Ack bool
+	// Err is only set an IterError command is issued.
+	Err error
+	// Segments is only set when the response type is IteratorResponseTypeData. It
+	// contains the segments that were read.
 	Segments []Segment
 }
 
@@ -250,7 +275,7 @@ func (i *iterator) PrevSpan(span telem.TimeSpan) bool {
 // ReadView implements Iterator.
 func (i *iterator) ReadView(tr telem.TimeRange) bool {
 	i.resetValue()
-	return i.exec(IteratorRequest{Command: IterRange, Range: tr})
+	return i.exec(IteratorRequest{Command: IterReadView, Range: tr})
 }
 
 // SeekFirst implements Iterator.
@@ -451,7 +476,7 @@ func (s *streamIterator) runCmd(req IteratorRequest) (bool, error) {
 		return s.internal.NextSpan(req.Span), nil
 	case IterPrevSpan:
 		return s.internal.PrevSpan(req.Span), nil
-	case IterRange:
+	case IterReadView:
 		return s.internal.SetRange(req.Range), nil
 	case IterSeekFirst:
 		return s.internal.SeekFirst(), nil

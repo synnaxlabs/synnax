@@ -14,7 +14,7 @@ func _() {
 	_ = x[IterLast-4]
 	_ = x[IterNextSpan-5]
 	_ = x[IterPrevSpan-6]
-	_ = x[IterRange-7]
+	_ = x[IterReadView-7]
 	_ = x[IterValid-8]
 	_ = x[IterError-9]
 	_ = x[IterSeekFirst-10]
