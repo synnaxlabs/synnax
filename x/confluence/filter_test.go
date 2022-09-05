@@ -30,10 +30,10 @@ var _ = Describe("Filter", func() {
 		ctx, cancel := signal.WithCancel(context.Background())
 		inlet := confluence.NewStream[int](3)
 		outlet := confluence.NewStream[int](3)
-		filter := confluence.Filter[int]{
-			Apply: func(ctx context.Context, x int) (bool, error) {
-				return x%3 == 0, nil
-			}}
+		filter := confluence.Filter[int]{}
+		filter.Apply = func(ctx context.Context, x int) (bool, error) {
+			return x%3 == 0, nil
+		}
 		filter.InFrom(inlet)
 		filter.OutTo(outlet)
 		filter.Flow(ctx)
@@ -49,10 +49,10 @@ var _ = Describe("Filter", func() {
 		inlet := confluence.NewStream[int](3)
 		outlet := confluence.NewStream[int](3)
 		rejects := confluence.NewStream[int](3)
-		filter := confluence.Filter[int]{
-			Apply: func(ctx context.Context, x int) (bool, error) {
-				return x%3 == 0, nil
-			}}
+		filter := confluence.Filter[int]{}
+		filter.Apply = func(ctx context.Context, x int) (bool, error) {
+			return x%3 == 0, nil
+		}
 		filter.InFrom(inlet)
 		filter.OutTo(outlet, rejects)
 		filter.Flow(ctx)
@@ -70,10 +70,10 @@ var _ = Describe("Filter", func() {
 		defer cancel()
 		inlet := confluence.NewStream[int](3)
 		outlet := confluence.NewStream[int](3)
-		filter := confluence.Filter[int]{
-			Apply: func(ctx context.Context, x int) (bool, error) {
-				return x%3 == 0, errors.New("error")
-			}}
+		filter := confluence.Filter[int]{}
+		filter.Apply = func(ctx context.Context, x int) (bool, error) {
+			return x%3 == 0, errors.New("error")
+		}
 		filter.InFrom(inlet)
 		filter.OutTo(outlet)
 		filter.Flow(ctx)
