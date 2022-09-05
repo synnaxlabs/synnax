@@ -11,7 +11,6 @@ import freighter
 from . import validate
 from .. import telem
 from .. import channel
-from ..util.notification import Notification
 from .splitter import Splitter
 from .encoder import NumpyEncoderDecoder
 
