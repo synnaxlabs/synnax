@@ -1,6 +1,7 @@
 package writer_test
 
 import (
+	"github.com/arya-analytics/cesium"
 	"github.com/arya-analytics/cesium/testutil/seg"
 	"github.com/arya-analytics/delta/pkg/distribution/channel"
 	distribcore "github.com/arya-analytics/delta/pkg/distribution/core"
@@ -8,7 +9,6 @@ import (
 	"github.com/arya-analytics/delta/pkg/distribution/segment/core"
 	"github.com/arya-analytics/x/telem"
 	. "github.com/arya-analytics/x/testutil"
-	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gleak"
@@ -71,7 +71,7 @@ var _ = Describe("Local", Ordered, func() {
 		})
 		It("Should return an error when another writer has a lock on the channel", func() {
 			_, err := newWriter()
-			Expect(err).To(HaveOccurredAs(errors.New("[cesium] - lock already held")))
+			Expect(err).To(HaveOccurredAs(cesium.ErrChannelLocked))
 		})
 	})
 })
