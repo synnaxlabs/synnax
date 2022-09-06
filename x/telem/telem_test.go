@@ -9,7 +9,7 @@ import (
 
 var _ = Describe("Telem", func() {
 
-	Describe("TimeStamp", func() {
+	Describe("Stamp", func() {
 
 		Describe("Now", func() {
 			It("Should return the current time", func() {

@@ -94,6 +94,7 @@ var startCmd = &cobra.Command{
 				Token:         tokenSvc,
 				Authenticator: authenticator,
 				Enforcer:      access.AllowAll{},
+				Stream:        dist.Stream,
 			}
 
 			api := api.New(apiCfg)

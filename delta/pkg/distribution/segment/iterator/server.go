@@ -47,7 +47,7 @@ func (sf *server) Handle(_ctx context.Context, server Server) error {
 	// sender receives responses from the pipeline and sends them
 	// over the network.
 	sender := &freightfluence.Sender[Response]{
-		Sender: freighter.SenderEmptyCloser[Response]{StreamSender: server},
+		Sender: freighter.SenderNopCloser[Response]{StreamSender: server},
 	}
 
 	iter, err := newLocalIterator(req.Keys, Config{

@@ -19,7 +19,7 @@ import (
 
 var _ = Describe("SegmentWriter", Ordered, func() {
 	var (
-		transport *fmock.StreamTransport[api.WriterRequest, api.WriterResponse]
+		transport *fmock.StreamTransport[api.SegmentWriterRequest, api.SegmentWriterResponse]
 		builder   *mock.ProviderBuilder
 		prov      api.Provider
 		svc       *api.SegmentService
@@ -47,8 +47,8 @@ var _ = Describe("SegmentWriter", Ordered, func() {
 		DeferCleanup(func() {
 			Eventually(gleak.Goroutines).WithTimeout(time.Second).ShouldNot(gleak.HaveLeaked(routines))
 		})
-		transport = fmock.NewStreamTransport[api.WriterRequest, api.WriterResponse](1)
-		transport.BindHandler(func(ctx context.Context, transport api.WriterStream) error {
+		transport = fmock.NewStreamTransport[api.SegmentWriterRequest, api.SegmentWriterResponse](1)
+		transport.BindHandler(func(ctx context.Context, transport api.SegmentWriterStream) error {
 			return svc.Write(ctx, transport)
 		})
 	})

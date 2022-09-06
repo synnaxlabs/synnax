@@ -120,9 +120,9 @@ package cesium_test
 //						Rate:    values.rate,
 //						Density: values.density,
 //					}
-//					key, err := db.CreateChannel(ch)
+//					key, err := db.NewBucket(ch)
 //					Expect(err).ToNot(HaveOccurred())
-//					ch.Key = key
+//					ch.ChannelKey = key
 //					channels = append(channels, ch)
 //				}
 //				Expect(channels).To(HaveLen(values.nChannels))
@@ -131,7 +131,7 @@ package cesium_test
 //				for _, ch := range channels {
 //					go func(ch cesium.ChannelService) {
 //						defer GinkgoRecover()
-//						req, res, err := db.NewCreate().WhereChannels(ch.Key).Stream(ctx)
+//						req, res, err := db.NewCreate().WhereChannels(ch.ChannelKey).Stream(ctx)
 //						Expect(err).ToNot(HaveOccurred())
 //						stc := &seg.StreamCreate{
 //							Req:               req,
@@ -162,9 +162,9 @@ package cesium_test
 //						Rate:    values.rate,
 //						Density: values.density,
 //					}
-//					key, err := db.CreateChannel(ch)
+//					key, err := db.NewBucket(ch)
 //					Expect(err).ToNot(HaveOccurred())
-//					ch.Key = key
+//					ch.ChannelKey = key
 //					channels = append(channels, ch)
 //					keys = append(keys, key)
 //				}

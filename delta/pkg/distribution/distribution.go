@@ -7,6 +7,7 @@ import (
 	"github.com/arya-analytics/delta/pkg/distribution/core"
 	"github.com/arya-analytics/delta/pkg/distribution/ontology"
 	"github.com/arya-analytics/delta/pkg/distribution/segment"
+	"github.com/arya-analytics/delta/pkg/distribution/stream"
 	channeltransport "github.com/arya-analytics/delta/pkg/distribution/transport/grpc/channel"
 	segmenttransport "github.com/arya-analytics/delta/pkg/distribution/transport/grpc/segment"
 )
@@ -29,6 +30,7 @@ type Distribution struct {
 	Channel  *channel.Service
 	Segment  *segment.Service
 	Ontology *ontology.Ontology
+	Stream   *stream.Service
 }
 
 // Close closes the distribution layer.
@@ -54,6 +56,7 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 	*cfg.Transports = append(*cfg.Transports, channelTransport, segmentTransport)
 	d.Channel = channel.New(d.Cluster, gorpDB, d.Storage.TS, channelTransport)
 	d.Segment = segment.New(d.Channel, d.Storage.TS, segmentTransport, d.Cluster, cfg.Logger)
+	d.Stream = stream.Open()
 
 	return d, nil
 }

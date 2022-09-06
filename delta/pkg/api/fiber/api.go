@@ -14,6 +14,7 @@ type API struct {
 	segment *segmentService
 	ui      *uiService
 	channel *channelService
+	stream  *streamService
 	logger  *zap.Logger
 }
 
@@ -26,6 +27,7 @@ func (a *API) Route(router fiber.Router) {
 	a.auth.Route(apiRouter)
 	a.segment.Route(apiRouter)
 	a.channel.Route(apiRouter)
+	a.stream.Route(apiRouter)
 }
 
 func Wrap(from api.API) API {
@@ -34,5 +36,6 @@ func Wrap(from api.API) API {
 	fiberAPI.segment = &segmentService{SegmentService: *from.Segment}
 	fiberAPI.ui = &uiService{Dist: ui.Dist}
 	fiberAPI.channel = &channelService{ChannelService: *from.Channel}
+	fiberAPI.stream = &streamService{StreamService: *from.Stream}
 	return fiberAPI
 }

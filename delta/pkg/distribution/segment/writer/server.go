@@ -39,7 +39,7 @@ func (sf *server) Handle(_ctx context.Context, server Server) error {
 	}
 
 	receiver := &freightfluence.Receiver[Request]{Receiver: server}
-	sender := &freightfluence.Sender[Response]{Sender: freighter.SenderEmptyCloser[Response]{StreamSender: server}}
+	sender := &freightfluence.Sender[Response]{Sender: freighter.SenderNopCloser[Response]{StreamSender: server}}
 
 	transientErrors := confluence.NewStream[error](0)
 

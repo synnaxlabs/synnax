@@ -101,4 +101,26 @@ var _ = Describe("Delta", func() {
 			Expect(ok).To(BeFalse())
 		})
 	})
+	Describe("DynamicDeltaMultiplier", func() {
+		It("Should allow the caller to add and remove outlets dynamically", func() {
+			delta := &confluence.DynamicDeltaMultiplier[int]{}
+			delta.InFrom(inputOne)
+			ctx, cancel := signal.TODO()
+			defer cancel()
+			delta.Flow(ctx)
+			delta.OutTo(outputOne)
+			delta.OutTo(outputTwo)
+			inputOne.Inlet() <- 1
+			v1 := <-outputOne.Outlet()
+			v2 := <-outputTwo.Outlet()
+			Expect(v1).To(Equal(1))
+			Expect(v2).To(Equal(1))
+			delta.Disconnect(outputOne.InletAddress())
+			inputOne.Inlet() <- 2
+			v2 = <-outputTwo.Outlet()
+			_, ok := <-outputOne.Outlet()
+			Expect(v2).To(Equal(2))
+			Expect(ok).To(BeFalse())
+		})
+	})
 })

@@ -22,7 +22,7 @@ func newRequestSwitchSender(
 	senders map[address.Address]freighter.StreamSenderCloser[Request],
 ) confluence.Sink[Request] {
 	rs := &requestSwitchSender{addresses: addresses}
-	rs.Senders = senders
+	rs.Senders = freightfluence.MapTargetedSender[Request](senders)
 	rs.BatchSwitchSender.ApplySwitch = rs._switch
 	return confluence.InjectTransientSink[Request](trans, rs)
 }

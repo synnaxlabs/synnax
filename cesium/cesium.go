@@ -95,7 +95,7 @@ type DB interface {
 	// cancelling the Flow context.
 	NewStreamWriter(keys ...ChannelKey) (StreamWriter, error)
 	// CreateChannel creates a new channel in the DB. The provided channel must have a
-	// positive data rate and density. The caller can provide an optional uint16 Key
+	// positive data rate and density. The caller can provide an optional uint16 ChannelKey
 	// for the channel. If the key is not provided, the DB will automatically generate a
 	// key. If a key is provided, the DB will validate that it is unique.
 	CreateChannel(ch *Channel) error

@@ -9,7 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("CreateChannel", func() {
+var _ = Describe("NewBucket", func() {
 	var (
 		db cesium.DB
 		ch cesium.Channel

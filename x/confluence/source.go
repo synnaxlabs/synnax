@@ -2,6 +2,7 @@ package confluence
 
 import (
 	"context"
+	"fmt"
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/signal"
 )
@@ -56,6 +57,7 @@ func (aus *AbstractUnarySource[O]) CloseInlets() { aus.Out.Close() }
 // addressable map. This is ideal for use cases where the address of an Inlet is
 // relevant to the routing of the value (such as a Switch).
 type AbstractAddressableSource[O Value] struct {
+	PanicOnDuplicateAddress bool
 	// Out is an address map of all Inlet(s) reachable by the Source.
 	Out map[address.Address]Inlet[O]
 }
@@ -68,11 +70,17 @@ func (aas *AbstractAddressableSource[O]) OutTo(inlets ...Inlet[O]) {
 		aas.Out = make(map[address.Address]Inlet[O])
 	}
 	for _, inlet := range inlets {
+		if inlet.InletAddress() == "" {
+			panic("[confluence.AbstractAddressableSource] - inlet must have a valid address")
+		}
+		if _, ok := aas.Out[inlet.InletAddress()]; ok && aas.PanicOnDuplicateAddress {
+			panic(fmt.Sprintf("[confluence.AbstractAddressableSource] - duplicate address %s", inlet.InletAddress()))
+		}
 		aas.Out[inlet.InletAddress()] = inlet
 	}
 }
 
-// Send sends a value to the target address. Returns add
+// Send sends a value to the target address.
 func (aas *AbstractAddressableSource[O]) Send(ctx context.Context, target address.Address, v O) error {
 	inlet, ok := aas.Out[target]
 	if !ok {
@@ -85,5 +93,23 @@ func (aas *AbstractAddressableSource[O]) Send(ctx context.Context, target addres
 func (aas *AbstractAddressableSource[O]) CloseInlets() {
 	for _, inlet := range aas.Out {
 		inlet.Close()
+	}
+}
+
+// DynamicAddressableSource is an implementation of a Source that stores its Inlet(s)
+// in an addressable map. These inlets can be disconnected and reconnected at runtime.
+type DynamicAddressableSource[O Value] struct {
+	AbstractAddressableSource[O]
+}
+
+// OutTo implements the Source interface. Inlets provided must have a valid Inlet.
+func (das *DynamicAddressableSource[O]) OutTo(inlets ...Inlet[O]) {
+	das.AbstractAddressableSource.OutTo(inlets...)
+}
+
+// Disconnect removes the Inlet at the provided address from the Source.
+func (das *DynamicAddressableSource[O]) Disconnect(inlets ...Inlet[O]) {
+	for _, inlet := range inlets {
+		delete(das.Out, inlet.InletAddress())
 	}
 }

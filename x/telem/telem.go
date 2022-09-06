@@ -60,7 +60,7 @@ func (ts TimeStamp) SpanRange(span TimeSpan) TimeRange {
 func (ts TimeStamp) Range(ts2 TimeStamp) TimeRange { return TimeRange{ts, ts2} }
 
 // Report implements fmt.Stringer.
-//func (ts TimeStamp) Report() string { return ts.Time().Report() }
+//func (ts Stamp) Report() string { return ts.Time().Report() }
 
 // |||||| TIME RANGE ||||||
 

@@ -84,7 +84,7 @@ func (cfg Config) Validate() error {
 	validate.NotNil(v, "TS", cfg.TS)
 	validate.NotNil(v, "ChannelService", cfg.ChannelService)
 	validate.NotNil(v, "Resolver", cfg.Resolver)
-	validate.NotNil(v, "Transport", cfg.Transport)
+	validate.NotNil(v, "Sender", cfg.Transport)
 	validate.NotEmptySlice(v, "ChannelKeys", cfg.ChannelKeys)
 	validate.NotNil(v, "Logger", cfg.Logger)
 	return v.Error()

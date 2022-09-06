@@ -64,7 +64,7 @@ func (cfg Config) Override(other Config) Config {
 // Validate implements the config.Config interface.
 func (cfg Config) Validate() error {
 	v := validate.New("pledge")
-	validate.NotNil(v, "Transport", cfg.Transport)
+	validate.NotNil(v, "Sender", cfg.Transport)
 	validate.Positive(v, "RequestTimeout", cfg.RequestTimeout)
 	validate.GreaterThanEq(v, "RetryScale", cfg.RetryScale, 1)
 	validate.NonZero(v, "MaxProposals", cfg.MaxProposals)
@@ -75,7 +75,7 @@ func (cfg Config) Validate() error {
 // Report implements the alamos.Reporter interface. Assumes the Config is valid.
 func (cfg Config) Report() alamos.Report {
 	report := make(alamos.Report)
-	report["Transport"] = cfg.Transport.Report()
+	report["Sender"] = cfg.Transport.Report()
 	report["requestTimeout"] = cfg.RequestTimeout
 	report["pledgeBaseRetry"] = cfg.RetryInterval
 	report["pledgeRetryScale"] = cfg.RetryScale

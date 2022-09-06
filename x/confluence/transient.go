@@ -10,6 +10,13 @@ type TransientProvider struct {
 
 func (t *TransientProvider) Transient() chan<- error { return t.inlet.Inlet() }
 
+func (t *TransientProvider) MaybeTransient(err error) error {
+	if t != nil {
+		t.Transient() <- err
+	}
+	return err
+}
+
 func (t *TransientProvider) bindTransient(err Inlet[error]) { t.inlet = err }
 
 type bindableTransient interface {

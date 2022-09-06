@@ -40,10 +40,10 @@ package grpc
 //		Command: api.IteratorCommand(req.Command),
 //		SpanTo:    telem.TimeSpan(req.SpanTo),
 //		TimeRange: telem.TimeRange{
-//			Start: telem.TimeStamp(req.TimeRange.Start),
-//			End:   telem.TimeStamp(req.TimeRange.End),
+//			Start: telem.Stamp(req.TimeRange.Start),
+//			End:   telem.Stamp(req.TimeRange.End),
 //		},
-//		Stamp: telem.TimeStamp(req.Stamp),
+//		Stamp: telem.Stamp(req.Stamp),
 //		ChannelKeys:  keys,
 //	}, err
 //}
@@ -96,7 +96,7 @@ package grpc
 //		if err != nil {
 //			return nil, err
 //		}
-//		tSegments[i] = api.segment{ChannelKey: channelKey, Start: telem.TimeStamp(s.Start), Data: s.Data}
+//		tSegments[i] = api.segment{ChannelKey: channelKey, Start: telem.Stamp(s.Start), Data: s.Data}
 //	}
 //	return tSegments, nil
 //}

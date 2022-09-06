@@ -11,7 +11,7 @@ type segmentService struct{ api.SegmentService }
 
 func (ss *segmentService) Route(parent fiber.Router) {
 	router := parent.Group("/segment")
-	writerServer := fws.NewServer[api.WriterRequest, api.WriterResponse](
+	writerServer := fws.NewServer[api.SegmentWriterRequest, api.SegmentWriterResponse](
 		nil, ss.Logger,
 	)
 	iterServer := fws.NewServer[api.IteratorRequest, api.IteratorResponse](
@@ -20,7 +20,7 @@ func (ss *segmentService) Route(parent fiber.Router) {
 
 	// We wrap closures around the following handlers to guarantee a typed error
 	// goodResponse.
-	writerServer.BindHandler(func(ctx context.Context, stream api.WriterStream) error {
+	writerServer.BindHandler(func(ctx context.Context, stream api.SegmentWriterStream) error {
 		return ss.Write(ctx, stream)
 	})
 	iterServer.BindHandler(func(ctx context.Context, stream api.IteratorStream) error {

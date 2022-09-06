@@ -11,6 +11,7 @@ import (
 	"github.com/arya-analytics/delta/pkg/distribution/channel"
 	"github.com/arya-analytics/delta/pkg/distribution/ontology"
 	"github.com/arya-analytics/delta/pkg/distribution/segment"
+	"github.com/arya-analytics/delta/pkg/distribution/stream"
 	"github.com/arya-analytics/delta/pkg/storage"
 	"github.com/arya-analytics/delta/pkg/user"
 	"go.uber.org/zap"
@@ -28,6 +29,7 @@ type Config struct {
 	Token         *token.Service
 	Authenticator auth.Authenticator
 	Enforcer      access.Enforcer
+	Stream        *stream.Service
 }
 
 // API wraps all implemented API services into a single container. Protocol-specific
@@ -38,6 +40,7 @@ type API struct {
 	Auth     *AuthService
 	Segment  *SegmentService
 	Channel  *ChannelService
+	Stream   *StreamService
 }
 
 // New instantiates the delta API using the provided Config. This should probably
@@ -47,5 +50,6 @@ func New(cfg Config) API {
 	api.Auth = NewAuthService(api.Provider)
 	api.Segment = NewSegmentService(api.Provider)
 	api.Channel = NewChannelService(api.Provider)
+	api.Stream = NewStreamService(api.Provider)
 	return api
 }

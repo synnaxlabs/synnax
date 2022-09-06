@@ -46,3 +46,8 @@ func (d *DeltaTransformMultiplier[I, O]) transformAndMultiply(ctx context.Contex
 	}
 	return d.SendToEach(ctx, o)
 }
+
+type DynamicDeltaMultiplier[V Value] struct {
+	DeltaMultiplier[V]
+	DynamicAddressableSource[V]
+}
