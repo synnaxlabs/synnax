@@ -10,6 +10,7 @@ import (
 	mockstorage "github.com/arya-analytics/delta/pkg/storage/mock"
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/config"
+	"time"
 )
 
 type CoreBuilder struct {
@@ -67,6 +68,15 @@ func (c *CoreBuilder) New() core.Core {
 	store.KV = clusterKV
 
 	_core := distribution.Core{Config: cfg, Cluster: clusterKV, Storage: store}
+
+	// poll until core is aware of all nodes
+	t := time.NewTicker(aspen.FastPropagationConfig.ClusterGossipInterval)
+	for range t.C {
+		peers := _core.Cluster.Nodes()
+		if len(peers) == len(c.Cores)+1 {
+			break
+		}
+	}
 
 	c.Cores[_core.Cluster.HostID()] = _core
 	return _core

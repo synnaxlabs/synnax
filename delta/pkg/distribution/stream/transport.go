@@ -11,7 +11,7 @@ type WriteRequest struct {
 }
 
 type ReadRequest struct {
-	Keys []channel.Key
+	Keys channel.Keys
 }
 
 type ReadResponse struct {

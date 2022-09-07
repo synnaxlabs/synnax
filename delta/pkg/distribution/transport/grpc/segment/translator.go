@@ -25,11 +25,11 @@ type writerRequestTranslator struct{}
 
 func (w writerRequestTranslator) Backward(req *sv1.WriterRequest) (writer.Request, error) {
 	keys, err := channel.ParseKeys(req.OpenKeys)
-	return writer.Request{OpenKeys: keys, Segments: tranSegFwd(req.Segments)}, err
+	return writer.Request{OpenKeys: keys, Segments: translateSegmentsBackward(req.Segments)}, err
 }
 
 func (w writerRequestTranslator) Forward(req writer.Request) (*sv1.WriterRequest, error) {
-	return &sv1.WriterRequest{OpenKeys: req.OpenKeys.Strings(), Segments: tranSegBwd(req.Segments)}, nil
+	return &sv1.WriterRequest{OpenKeys: req.OpenKeys.Strings(), Segments: translateSegmentsForward(req.Segments)}, nil
 }
 
 type writerResponseTranslator struct{}
@@ -83,7 +83,7 @@ func (w iteratorResponseTranslator) Backward(res *sv1.IteratorResponse) (iterato
 		Counter:  int(res.Counter),
 		Command:  iterator.Command(res.Command),
 		Error:    fgrpc.DecodeError(res.Error),
-		Segments: tranSegFwd(res.Segments),
+		Segments: translateSegmentsBackward(res.Segments),
 	}, nil
 }
 
@@ -95,13 +95,13 @@ func (w iteratorResponseTranslator) Forward(res iterator.Response) (*sv1.Iterato
 		Counter:  int32(res.Counter),
 		Command:  int32(res.Command),
 		Error:    fgrpc.EncodeError(res.Error),
-		Segments: tranSegBwd(res.Segments),
+		Segments: translateSegmentsForward(res.Segments),
 	}, nil
 }
 
 // |||||| SEGMENTS ||||||
 
-func tranSegFwd(segments []*sv1.Segment) []segment.Segment {
+func translateSegmentsBackward(segments []*sv1.Segment) []segment.Segment {
 	tSegments := make([]segment.Segment, len(segments))
 	for i, seg := range segments {
 		key, err := channel.ParseKey(seg.ChannelKey)
@@ -120,7 +120,7 @@ func tranSegFwd(segments []*sv1.Segment) []segment.Segment {
 	return tSegments
 }
 
-func tranSegBwd(segments []segment.Segment) []*sv1.Segment {
+func translateSegmentsForward(segments []segment.Segment) []*sv1.Segment {
 	tSegments := make([]*sv1.Segment, len(segments))
 	for i, seg := range segments {
 		tSegments[i] = &sv1.Segment{

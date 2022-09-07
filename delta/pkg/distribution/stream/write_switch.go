@@ -7,7 +7,6 @@ import (
 	"github.com/arya-analytics/freighter/freightfluence"
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/confluence"
-	"github.com/sirupsen/logrus"
 	"go/types"
 )
 
@@ -37,6 +36,10 @@ func (s *writeSender) Send(ctx context.Context, in []Sample, out map[address.Add
 			err = _err
 			continue
 		}
+		_, ok := out[addr]
+		if !ok {
+			out[addr] = WriteRequest{Samples: make([]Sample, 0, len(in))}
+		}
 		out[addr] = WriteRequest{Samples: append(out[addr].Samples, sample)}
 	}
 	return err
@@ -54,13 +57,16 @@ func newHostSwitch(host distribcore.NodeID) *remoteLocalSwitch {
 }
 
 func (hs *remoteLocalSwitch) _switch(ctx context.Context, samples []Sample, oReqs map[address.Address][]Sample) error {
+	remote := make([]Sample, 0, len(samples))
+	local := make([]Sample, 0, len(samples))
 	for _, sample := range samples {
 		if sample.ChannelKey.NodeID() == hs.host {
-			oReqs["local"] = append(oReqs["local"], sample)
+			local = append(local, sample)
 		} else {
-			oReqs["remote"] = append(oReqs["remote"], sample)
+			remote = append(remote, sample)
 		}
 	}
-	logrus.Info(oReqs)
+	oReqs["local"] = local
+	oReqs["remote"] = remote
 	return nil
 }

@@ -3,11 +3,14 @@ package main
 import (
 	"github.com/arya-analytics/freighter/integration/server"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/logger"
 	"go.uber.org/zap"
 )
 
 func main() {
 	app := fiber.New(fiber.Config{DisableStartupMessage: true})
+	// inject fiber logging middleware
+	app.Use(logger.New())
 	ws := server.Websocket{Logger: zap.S()}
 	ws.BindTo(app)
 	http := server.HTTP{}

@@ -272,7 +272,6 @@ o:
 			}
 			for target, batch := range addrMap {
 				sErr := bsw.Senders.Send(ctx, target, batch)
-				delete(addrMap, target)
 				if sErr = bsw.MaybeTransient(sErr); sErr != nil {
 					err = sErr
 					break o

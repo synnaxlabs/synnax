@@ -17,10 +17,12 @@ require (
 	github.com/arya-analytics/freighter v0.0.0-20220810182625-b66219353383
 	github.com/arya-analytics/x v0.0.0-20220801122519-e4a5e96a532d
 	github.com/cockroachdb/errors v1.9.0
+	github.com/sirupsen/logrus v1.9.0
 )
 
 require (
 	github.com/DataDog/zstd v1.4.5 // indirect
+	github.com/andybalholm/brotli v1.0.4 // indirect
 	github.com/arya-analytics/aspen v0.0.0-20220804103056-48505d5ea44e // indirect
 	github.com/arya-analytics/cesium v0.0.0-20220722114246-333fea6b09d0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
@@ -28,10 +30,13 @@ require (
 	github.com/cockroachdb/pebble v0.0.0-20220513193540-b8c9a560bed5 // indirect
 	github.com/cockroachdb/redact v1.1.3 // indirect
 	github.com/codahale/hdrhistogram v0.0.0-20161010025455-3a0bb77429bd // indirect
+	github.com/fasthttp/websocket v1.5.0 // indirect
 	github.com/getsentry/sentry-go v0.12.0 // indirect
 	github.com/go-playground/locales v0.14.0 // indirect
 	github.com/go-playground/universal-translator v0.18.0 // indirect
 	github.com/go-playground/validator/v10 v10.11.0 // indirect
+	github.com/gofiber/fiber/v2 v2.36.0 // indirect
+	github.com/gofiber/websocket/v2 v2.0.24 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
@@ -44,7 +49,11 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rogpeppe/go-internal v1.8.1 // indirect
 	github.com/samber/lo v1.27.0 // indirect
+	github.com/savsgio/gotils v0.0.0-20211223103454-d0aaa54c5899 // indirect
 	github.com/spf13/afero v1.8.2 // indirect
+	github.com/valyala/bytebufferpool v1.0.0 // indirect
+	github.com/valyala/fasthttp v1.38.0 // indirect
+	github.com/valyala/tcplisten v1.0.0 // indirect
 	github.com/vmihailenco/msgpack/v5 v5.3.5 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect

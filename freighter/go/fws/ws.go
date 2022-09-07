@@ -163,12 +163,19 @@ func (s *Server[RQ, RS]) exec(stream *serverStream[RQ, RS]) error {
 
 func (s *Server[RQ, RS]) determineEncoderDecoder(c *fiber.Ctx) (httputil.EncoderDecoder, error) {
 	ct := c.Get("Content-Type")
+
+	if ct == "" {
+		// try to get it from the query string
+		ct = c.Query("contentType")
+	}
+
 	if s.ecd != nil {
 		if s.ecd.ContentType() == ct {
 			return s.ecd, nil
 		}
 		return nil, roacherrors.Newf("[freighter] - unsupported content type")
 	}
+
 	return httputil.DetermineEncoderDecoder(ct)
 }
 

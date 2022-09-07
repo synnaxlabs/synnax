@@ -8,7 +8,6 @@ import (
 	"github.com/arya-analytics/freighter"
 	"github.com/arya-analytics/x/telem"
 	roacherrors "github.com/cockroachdb/errors"
-	"github.com/sirupsen/logrus"
 	"go/types"
 )
 
@@ -71,7 +70,6 @@ func (s *StreamService) Write(_ctx context.Context, srv SampleWriterStream) erro
 				Value:      sample.Value,
 			})
 		}
-		logrus.Info("writing samples")
 		writer.Inlet() <- samples
 	}
 }
@@ -88,12 +86,10 @@ func (s *StreamService) Read(_ctx context.Context, srv SampleReaderStream) error
 	if err != nil {
 		return errors.Parse(err)
 	}
-	logrus.Info(keys, req.ChannelKeys)
 	reader, closer := s.Internal.NewStreamReader(keys...)
 	defer closer.Close()
 
 	for samples := range reader.Outlet() {
-		logrus.Info("reading samples")
 		var resp []Sample
 		for _, sample := range samples {
 			resp = append(resp, Sample{

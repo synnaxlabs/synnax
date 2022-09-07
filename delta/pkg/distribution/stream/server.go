@@ -21,11 +21,13 @@ func newServer(
 	cfg Config,
 	write Inlet,
 	delta *confluence.DynamicDeltaMultiplier[[]Sample],
+	demands *demandCoordinator,
 ) *server {
 	sf := &server{
-		Config: cfg,
-		write:  write,
-		delta:  delta,
+		Config:  cfg,
+		write:   write,
+		delta:   delta,
+		demands: demands,
 	}
 	sf.Transport.Writer().BindHandler(sf.Write)
 	sf.Transport.Reader().BindHandler(sf.Read)
@@ -74,7 +76,7 @@ func (sf *server) Read(_ctx context.Context, server ReadServerStream) error {
 
 	samples := confluence.NewStream[[]Sample]()
 	samples.SetInletAddress(addr)
-	sf.delta.OutTo(samples)
+	sf.delta.Connect(samples)
 
 	for {
 		select {

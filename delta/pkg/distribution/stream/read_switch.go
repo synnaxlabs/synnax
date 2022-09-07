@@ -10,7 +10,6 @@ import (
 	"github.com/arya-analytics/x/confluence"
 	"github.com/arya-analytics/x/signal"
 	"github.com/samber/lo"
-	"github.com/sirupsen/logrus"
 	"sync"
 )
 
@@ -36,7 +35,7 @@ type remoteReadOperation struct {
 func (r remoteReadOperation) next(nextState map[distribcore.NodeID]channel.Keys) (op remoteReadOperation, diff bool) {
 	keys, ok := nextState[r.nodeID]
 	if !ok {
-		return remoteReadOperation{close: true}, true
+		return remoteReadOperation{nodeID: r.nodeID, close: true}, true
 	}
 	defer delete(nextState, r.nodeID)
 	if len(keys) != len(r.keys) {
@@ -54,8 +53,6 @@ func (d *demandCoordinator) set(addr address.Address, keys []channel.Key) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.demands[addr] = keys
-	ops := d.parseOps()
-	logrus.Info(ops)
 	d.Out.Inlet() <- d.parseOps()
 }
 
@@ -63,8 +60,6 @@ func (d *demandCoordinator) clear(addr address.Address) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	delete(d.demands, addr)
-	ops := d.parseOps()
-	logrus.Info(ops)
 	d.Out.Inlet() <- d.parseOps()
 }
 
@@ -129,6 +124,9 @@ func newRemoteReadCoordinator(
 
 func (r *remoteReadCoordinator) processOp(ctx context.Context, ops []remoteReadOperation) error {
 	for _, op := range ops {
+		if op.nodeID == 0 {
+			panic("invalid node id")
+		}
 		if op.nodeID == r.resolver.HostID() {
 			return nil
 		}

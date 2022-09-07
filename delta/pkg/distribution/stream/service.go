@@ -10,6 +10,7 @@ import (
 	"github.com/arya-analytics/x/signal"
 	"github.com/cockroachdb/errors"
 	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 	"io"
 )
 
@@ -22,7 +23,7 @@ type Service struct {
 	demand   *demandCoordinator
 	write    Inlet
 	delta    *confluence.DynamicDeltaMultiplier[[]Sample]
-	wg       signal.WaitGroup
+	ctx      signal.Context
 	shutdown context.CancelFunc
 }
 
@@ -38,9 +39,9 @@ func Open(cfg Config) *Service {
 	svc := &Service{
 		demand:   newDemandCoordinator(),
 		write:    writes,
-		delta:    &confluence.DynamicDeltaMultiplier[[]Sample]{},
+		delta:    confluence.NewDynamicDeltaMultiplier[[]Sample](),
 		shutdown: cancel,
-		wg:       sCtx,
+		ctx:      sCtx,
 	}
 
 	_remoteReadCoordinator := newRemoteReadCoordinator(
@@ -59,7 +60,7 @@ func Open(cfg Config) *Service {
 	receiver := &readReceiverAggregator{}
 	receiver.InFrom(receivers)
 
-	newServer(cfg, svc.write, svc.delta)
+	newServer(cfg, svc.write, svc.delta, svc.demand)
 
 	writeHostSwitch := newHostSwitch(cfg.Resolver.HostID())
 
@@ -70,6 +71,7 @@ func Open(cfg Config) *Service {
 	writeHostSwitch.InFrom(writes)
 	writeHostSwitch.OutTo(remoteWrites)
 	writeHostSwitch.OutTo(localWrites)
+	receiver.OutTo(localWrites)
 	svc.delta.InFrom(localWrites)
 
 	_writeSender := newWriteSender(
@@ -79,23 +81,74 @@ func Open(cfg Config) *Service {
 	)
 	_writeSender.InFrom(remoteWrites)
 
-	_remoteReadCoordinator.Flow(sCtx, confluence.CloseInletsOnExit())
-	receiver.Flow(sCtx, confluence.CloseInletsOnExit())
-	writeHostSwitch.Flow(sCtx, confluence.CloseInletsOnExit())
-	_writeSender.Flow(sCtx, confluence.CloseInletsOnExit())
-	svc.delta.Flow(sCtx, confluence.CloseInletsOnExit())
+	_remoteReadCoordinator.Flow(
+		sCtx,
+		confluence.CloseInletsOnExit(),
+		confluence.WithAddress("remoteReadCoordinator"),
+	)
+	receiver.Flow(
+		sCtx,
+		confluence.CloseInletsOnExit(),
+		confluence.WithAddress("receiver"),
+	)
+	writeHostSwitch.Flow(
+		sCtx,
+		confluence.CloseInletsOnExit(),
+		confluence.WithAddress("writeHostSwitch"),
+	)
+	_writeSender.Flow(
+		sCtx,
+		confluence.CloseInletsOnExit(),
+		confluence.WithAddress("writeSender"),
+	)
+	svc.delta.Flow(
+		sCtx,
+		confluence.CloseInletsOnExit(),
+		confluence.WithAddress("delta"),
+	)
+
+	go func() {
+		for err := range transient.Outlet() {
+			logrus.Warn(err)
+		}
+	}()
 
 	return svc
 }
 
-func (s *Service) NewStreamReader(keys ...channel.Key) (Outlet, io.Closer) {
+func (s *Service) NewStreamReader(demands ...channel.Key) (Outlet, io.Closer) {
 	stream := confluence.NewStream[[]Sample](10)
 	stream.SetInletAddress(address.Address(uuid.New().String()))
-	s.delta.OutTo(stream)
-	s.demand.set(stream.InletAddress(), keys)
+	s.delta.Connect(stream)
+	s.demand.set(stream.InletAddress(), demands)
 	return stream, ioutil.CloserFunc(func() error {
 		s.delta.Disconnect(stream)
 		s.demand.clear(stream.InletAddress())
+		stream.Close()
+		return nil
+	})
+}
+
+func (s *Service) NewFilteredStreamReader(keys ...channel.Key) (Outlet, io.Closer) {
+	var (
+		unfiltered = confluence.NewStream[[]Sample](10)
+		filtered   = confluence.NewStream[[]Sample](10)
+		filter     = newSampleFilter(keys)
+	)
+	filter.InFrom(unfiltered)
+	filter.OutTo(filtered)
+
+	unfiltered.SetInletAddress(address.Address(uuid.New().String()))
+	s.delta.Connect(unfiltered)
+
+	sCtx, cancel := signal.WithCancel(s.ctx)
+	filter.Flow(sCtx, confluence.CloseInletsOnExit())
+
+	s.demand.set(unfiltered.InletAddress(), keys)
+	return unfiltered, ioutil.CloserFunc(func() error {
+		s.delta.Disconnect(unfiltered)
+		cancel()
+		s.demand.clear(unfiltered.InletAddress())
 		return nil
 	})
 }
@@ -104,7 +157,7 @@ func (s *Service) NewStreamWriter() Inlet { return s.write }
 
 func (s *Service) Close() error {
 	s.shutdown()
-	if err := s.wg.Wait(); !errors.Is(err, context.Canceled) {
+	if err := s.ctx.Wait(); !errors.Is(err, context.Canceled) {
 		return err
 	}
 	return nil

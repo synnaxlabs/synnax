@@ -89,27 +89,19 @@ func (aas *AbstractAddressableSource[O]) Send(ctx context.Context, target addres
 	return signal.SendUnderContext(ctx, inlet.Inlet(), v)
 }
 
+func (aas *AbstractAddressableSource[O]) SendToEach(ctx context.Context, v O) error {
+	for _, inlet := range aas.Out {
+		if err := signal.SendUnderContext(ctx, inlet.Inlet(), v); err != nil {
+			return err
+		}
+	}
+	return nil
+
+}
+
 // CloseInlets closes all Inlet(s) provided to AbstractAddressableSource.OutTo.
 func (aas *AbstractAddressableSource[O]) CloseInlets() {
 	for _, inlet := range aas.Out {
 		inlet.Close()
-	}
-}
-
-// DynamicAddressableSource is an implementation of a Source that stores its Inlet(s)
-// in an addressable map. These inlets can be disconnected and reconnected at runtime.
-type DynamicAddressableSource[O Value] struct {
-	AbstractAddressableSource[O]
-}
-
-// OutTo implements the Source interface. Inlets provided must have a valid Inlet.
-func (das *DynamicAddressableSource[O]) OutTo(inlets ...Inlet[O]) {
-	das.AbstractAddressableSource.OutTo(inlets...)
-}
-
-// Disconnect removes the Inlet at the provided address from the Source.
-func (das *DynamicAddressableSource[O]) Disconnect(inlets ...Inlet[O]) {
-	for _, inlet := range inlets {
-		delete(das.Out, inlet.InletAddress())
 	}
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/arya-analytics/delta/pkg/distribution/stream"
 	channeltransport "github.com/arya-analytics/delta/pkg/distribution/transport/grpc/channel"
 	segmenttransport "github.com/arya-analytics/delta/pkg/distribution/transport/grpc/segment"
+	streamtransport "github.com/arya-analytics/delta/pkg/distribution/transport/grpc/stream"
 )
 
 type (
@@ -53,10 +54,14 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 
 	channelTransport := channeltransport.New(cfg.Pool)
 	segmentTransport := segmenttransport.New(cfg.Pool)
-	*cfg.Transports = append(*cfg.Transports, channelTransport, segmentTransport)
+	streamTransport := streamtransport.New(cfg.Pool)
+	*cfg.Transports = append(*cfg.Transports, channelTransport, segmentTransport, streamTransport)
 	d.Channel = channel.New(d.Cluster, gorpDB, d.Storage.TS, channelTransport)
 	d.Segment = segment.New(d.Channel, d.Storage.TS, segmentTransport, d.Cluster, cfg.Logger)
-	d.Stream = stream.Open()
-
+	d.Stream = stream.Open(stream.Config{
+		Transport: streamTransport,
+		Resolver:  d.Cluster,
+		Logger:    cfg.Logger,
+	})
 	return d, nil
 }

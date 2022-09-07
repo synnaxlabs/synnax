@@ -33,6 +33,32 @@ var (
 	_ segment.Transport               = (*transport)(nil)
 )
 
+type writerTransport struct{ baseWriterTransport }
+
+func (w *writerTransport) Write(server segmentv1.WriterService_WriteServer) error {
+	return w.Handler(server.Context(), w.Server(server))
+}
+
+type iteratorTransport struct{ baseIteratorTransport }
+
+func (t *iteratorTransport) Iterate(server segmentv1.IteratorService_IterateServer) error {
+	return t.Handler(server.Context(), t.Server(server))
+}
+
+type transport struct {
+	wt *writerTransport
+	it *iteratorTransport
+}
+
+func (t *transport) Writer() writer.Transport { return t.wt }
+
+func (t *transport) Iterator() iterator.Transport { return t.it }
+
+func (t *transport) BindTo(server grpc.ServiceRegistrar) {
+	segmentv1.RegisterIteratorServiceServer(server, t.it)
+	segmentv1.RegisterWriterServiceServer(server, t.wt)
+}
+
 func New(pool *fgrpc.Pool) *transport {
 	t := &transport{
 		wt: &writerTransport{baseWriterTransport: baseWriterTransport{
@@ -59,30 +85,4 @@ func New(pool *fgrpc.Pool) *transport {
 		}},
 	}
 	return t
-}
-
-type writerTransport struct{ baseWriterTransport }
-
-func (w *writerTransport) Write(server segmentv1.WriterService_WriteServer) error {
-	return w.Handler(server.Context(), w.Server(server))
-}
-
-type iteratorTransport struct{ baseIteratorTransport }
-
-func (t *iteratorTransport) Iterate(server segmentv1.IteratorService_IterateServer) error {
-	return t.Handler(server.Context(), t.Server(server))
-}
-
-type transport struct {
-	wt *writerTransport
-	it *iteratorTransport
-}
-
-func (t *transport) Writer() writer.Transport { return t.wt }
-
-func (t *transport) Iterator() iterator.Transport { return t.it }
-
-func (t *transport) BindTo(server grpc.ServiceRegistrar) {
-	segmentv1.RegisterIteratorServiceServer(server, t.it)
-	segmentv1.RegisterWriterServiceServer(server, t.wt)
 }

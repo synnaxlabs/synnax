@@ -5,8 +5,10 @@ import (
 	"github.com/arya-analytics/delta/pkg/ui"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/gofiber/fiber/v2/middleware/monitor"
 	"github.com/gofiber/fiber/v2/middleware/pprof"
 	"go.uber.org/zap"
+	"time"
 )
 
 type API struct {
@@ -22,6 +24,9 @@ func (a *API) Route(router fiber.Router) {
 	logger.New()
 	router.Use(logMiddleware(a.logger))
 	router.Use(pprof.New())
+	router.Get("/metrics", monitor.New(monitor.Config{
+		Refresh: 500 * time.Millisecond,
+	}))
 	a.ui.Route(router)
 	apiRouter := router.Group("/api/v1")
 	a.auth.Route(apiRouter)

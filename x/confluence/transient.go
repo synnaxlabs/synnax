@@ -11,6 +11,9 @@ type TransientProvider struct {
 func (t *TransientProvider) Transient() chan<- error { return t.inlet.Inlet() }
 
 func (t *TransientProvider) MaybeTransient(err error) error {
+	if err == nil {
+		return nil
+	}
 	if t != nil {
 		t.Transient() <- err
 	}

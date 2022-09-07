@@ -58,13 +58,15 @@ var _ = Describe("Local", func() {
 	It("Should route written samples to the output", func() {
 		w := svc.NewStreamWriter()
 		cKey := channel.NewKey(1, 1)
-		reader, _ := svc.NewStreamReader(cKey)
-		samples := []stream.Sample{{
-			ChannelKey: cKey,
-			Stamp:      1,
-			Value:      []byte{1},
-		}}
+		reader, _ := svc.NewFilteredStreamReader(cKey)
+		samples := []stream.Sample{
+			{
+				ChannelKey: cKey,
+				Stamp:      1,
+				Value:      []byte{1},
+			},
+		}
 		w.Inlet() <- samples
-		Eventually(reader.Outlet()).Should(Receive(Equal(samples)))
+		Expect(<-reader.Outlet()).To(Equal(samples))
 	})
 })

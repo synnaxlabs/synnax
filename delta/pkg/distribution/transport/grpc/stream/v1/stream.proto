@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+
+package stream.v1;
+
+service ReadService {
+  rpc Read (stream ReadRequest) returns (stream ReadResponse) {}
+}
+
+message Sample {
+  string channel_key = 1;
+  int64 stamp = 2;
+  bytes value = 3;
+}
+
+message ReadRequest {
+  repeated string keys = 1;
+}
+
+message ReadResponse {
+  repeated Sample samples = 1;
+}
+
+service WriteService {
+  rpc Write (stream WriteRequest) returns (stream google.protobuf.Empty) {}
+}
+
+message WriteRequest {
+  repeated Sample samples = 1;
+}

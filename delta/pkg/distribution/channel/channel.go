@@ -7,6 +7,7 @@ import (
 	"github.com/arya-analytics/delta/pkg/distribution/core"
 	"github.com/arya-analytics/delta/pkg/distribution/ontology"
 	"github.com/arya-analytics/delta/pkg/storage"
+	"github.com/arya-analytics/x/set"
 	"github.com/arya-analytics/x/telem"
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
@@ -123,6 +124,9 @@ func (k Keys) Strings() []string {
 	}
 	return s
 }
+
+// ToSet converts the keys to a set.Set.
+func (k Keys) ToSet() set.Set[Key] { return set.New[Key](k...) }
 
 // Channel is a collection is a container representing a collection of samples across
 // a time range. The data within a channel typically arrives from a single source. This
