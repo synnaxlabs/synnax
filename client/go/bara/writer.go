@@ -6,6 +6,7 @@ import (
 	"github.com/arya-analytics/freighter/fws"
 	"github.com/arya-analytics/x/httputil"
 	"github.com/arya-analytics/x/telem"
+	"github.com/sirupsen/logrus"
 	"go/types"
 	"time"
 )
@@ -16,11 +17,12 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	numSamples := 3000
-	requestInterval := 10 * time.Millisecond
+	numSamples := 30
+	requestInterval := 1000 * time.Millisecond
 
 	t := time.NewTicker(requestInterval)
 	for range t.C {
+		logrus.Info("Sending request")
 		samples := make([]api.Sample, numSamples)
 		for i := 0; i < numSamples; i++ {
 			samples[i] = api.Sample{
