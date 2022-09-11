@@ -2,8 +2,8 @@ name: Deploy Documentation Site
 on:
   push:
 jobs:
-  deploy:
-    name: Deploy to GitHub Pages
+  build:
+    name: Build Documentation Site
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -22,7 +22,8 @@ jobs:
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          # Build output to publish to the `gh-pages` branch:
           publish_dir: ./docs/site/build
+          destination_dir: docs
           user_name: github-actions[bot]
           user_email: 41898282+github-actions[bot]@users.noreply.github.com
+
