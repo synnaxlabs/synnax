@@ -2,6 +2,7 @@
   "name": "site",
   "version": "0.0.0",
   "private": true,
+  "homepage": "https://arya-analytics.github.io",
   "scripts": {
     "docusaurus": "docusaurus",
     "start": "docusaurus start",
