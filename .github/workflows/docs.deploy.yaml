@@ -11,6 +11,7 @@ jobs:
         with:
           node-version: 18
           cache: yarn
+          cache-dependency-path: ./docs/site
 
       - name: Install dependencies
         run: yarn install --frozen-lockfile
