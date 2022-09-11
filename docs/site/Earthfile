@@ -1,0 +1,17 @@
+VERSION 0.6
+
+deps:
+    FROM node:18.7.0-alpine3.16
+    COPY ../../pluto+build/* /pluto/
+    WORKDIR /docs/site
+    COPY package.json ./
+    COPY yarn.lock ./
+    RUN yarn install
+
+build:
+    FROM +deps
+    COPY . .
+    RUN yarn build
+    SAVE ARTIFACT build /build AS LOCAL build
+
+
