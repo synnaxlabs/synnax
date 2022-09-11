@@ -9,7 +9,7 @@ const config = {
   title: "Arya Analytics Documentation",
   tagline: "Data Handling for the Modern Era",
   url: "https://arya-analytics.github.io",
-  baseUrl: "/arya",
+  baseUrl: "/arya/",
   onBrokenLinks: "throw",
   onBrokenMarkdownLinks: "warn",
   favicon: "img/favicon.ico",
