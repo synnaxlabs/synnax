@@ -1,10 +1,14 @@
 import test from 'ava';
 
 import { MsgPackEncoderDecoder } from './encoder';
+import Endpoint from './endpoint';
 import { BaseTypedError, EOF, registerError, TypedError } from './errors';
-import { Client } from './ws';
+import { WebSocketClient } from './ws';
 
-const ENDPOINT = 'ws://127.0.0.1:8080';
+const ENDPOINT = new Endpoint({
+  host: '127.0.0.1',
+  port: 8080,
+});
 
 type Message = {
   id?: number;
@@ -40,7 +44,7 @@ registerError({
 
 test('basic exchange', async (t) => {
   // Should exchange ten echo messages that increment the ID.
-  const client = new Client(ENDPOINT, new MsgPackEncoderDecoder());
+  const client = new WebSocketClient(new MsgPackEncoderDecoder(), ENDPOINT);
   const stream = await client.stream<Message, Message>('ws/echo');
 
   for (let i = 0; i < 10; i++) {
@@ -58,7 +62,7 @@ test('basic exchange', async (t) => {
 
 test('receive message after close', async (t) => {
   // Should exchange ten echo messages that increment the ID.
-  const client = new Client(ENDPOINT, new MsgPackEncoderDecoder());
+  const client = new WebSocketClient(new MsgPackEncoderDecoder(), ENDPOINT);
   const stream = await client.stream<Message, Message>(
     'ws/sendMessageAfterClientClose'
   );
@@ -74,7 +78,7 @@ test('receive message after close', async (t) => {
 
 test('receive error', async (t) => {
   // Should exchange ten echo messages that increment the ID.
-  const client = new Client(ENDPOINT, new MsgPackEncoderDecoder());
+  const client = new WebSocketClient(new MsgPackEncoderDecoder(), ENDPOINT);
   const stream = await client.stream<Message, Message>(
     'ws/receiveAndExitWithErr'
   );

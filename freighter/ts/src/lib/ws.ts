@@ -1,7 +1,16 @@
 import { EncoderDecoder } from './encoder';
+import Endpoint from './endpoint';
 import { decodeError, EOF, ErrorPayload, StreamClosed } from './errors';
+import { Runtime, RUNTIME } from './runtime';
 import { ClientStream, StreamClient } from './stream';
 import { Payload } from './transport';
+
+const resolveWebsocketProvider = (): typeof WebSocket => {
+  if (RUNTIME == Runtime.Node) {
+    return require('ws');
+  }
+  return WebSocket;
+};
 
 enum MessageType {
   Data = 'data',
@@ -19,7 +28,7 @@ enum CloseCode {
   GoingAway = 1001,
 }
 
-export class WebsocketStream<RQ extends Payload, RS extends Payload>
+export class WebSocketClientStream<RQ extends Payload, RS extends Payload>
   implements ClientStream<RQ, RS>
 {
   private encoder: EncoderDecoder;
@@ -130,25 +139,27 @@ export class WebsocketStream<RQ extends Payload, RS extends Payload>
   }
 }
 
-export class Client implements StreamClient {
-  endpoint: string;
+export class WebSocketClient implements StreamClient {
+  endpoint: Endpoint;
   encoder: EncoderDecoder;
 
-  constructor(endpoint: string, encoder: EncoderDecoder) {
-    this.endpoint = endpoint;
+  constructor(encoder: EncoderDecoder, endpoint: Endpoint) {
+    this.endpoint = endpoint.child({ protocol: 'ws' });
     this.encoder = encoder;
   }
 
   async stream<RQ extends Payload, RS extends Payload>(
     target: string
   ): Promise<ClientStream<RQ, RS>> {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const WebSocket = require('ws');
-    const url = `${this.endpoint}/${target}?contentType=${this.encoder.contentType}`;
-    const ws = new WebSocket(url);
+    const ResolvedWebSocket = resolveWebsocketProvider();
+    const url = this.endpoint.path(
+      `${target}?contentType=${this.encoder.contentType}`
+    );
+    const ws = new ResolvedWebSocket(url);
+    ws.binaryType = 'arraybuffer';
     return new Promise((resolve, reject) => {
       ws.onopen = () => {
-        resolve(new WebsocketStream(this.encoder, ws));
+        resolve(new WebSocketClientStream(this.encoder, ws));
       };
       ws.onerror = (ev: Event) => {
         reject(ev);

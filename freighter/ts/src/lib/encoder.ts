@@ -1,5 +1,6 @@
 import { decode, encode } from '@msgpack/msgpack';
 
+import { camelKeys, snakeKeys } from './caseconv';
 import { Payload } from './transport';
 
 export interface EncoderDecoder {
@@ -24,11 +25,13 @@ export class JSONEncoderDecoder implements EncoderDecoder {
   contentType = 'application/json';
 
   encode(payload: unknown): Uint8Array {
-    return new TextEncoder().encode(JSON.stringify(payload));
+    return new TextEncoder().encode(JSON.stringify(snakeKeys(payload)));
   }
 
   decode<A>(data: Uint8Array): A {
-    return JSON.parse(new TextDecoder().decode(data)) as unknown as A;
+    return camelKeys(
+      JSON.parse(new TextDecoder().decode(data))
+    ) as unknown as A;
   }
 }
 
