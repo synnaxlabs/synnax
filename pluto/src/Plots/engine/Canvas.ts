@@ -4,22 +4,22 @@ export type PlottingCanvasProps = {
   resize?: boolean;
 };
 
-/** PlottingCanvas instantiates and wraps a document level overlay canvas element that can be used to render pluto plots
+/** Canvas instantiates and wraps a document level overlay canvas element that can be used to render pluto plots
  * intermixed with other DOM elements.
  */
-export default class PlottingCanvas {
+export default class Canvas {
   canvas: HTMLCanvasElement;
   webgl: WebGL2RenderingContext;
   canvasObserver?: ResizeObserver;
 
   /**
-   * Construct a new PlottingCanvas given the specified props.
-   * @param props - The props to use when constructing the PlottingCanvas.
+   * Construct a new Canvas given the specified props.
+   * @param props - The props to use when constructing the Canvas.
    * @property props.canvas - The canvas element to use for rendering. If not specified, a new canvas element will be
    * created and appended to the document body.
    * @property props.antialias - Whether to enable antialiasing. Defaults to true.
    * @property props.resize - Whether to enable automatic resizing of the canvas to match its CSS display size. Defaults to true.
-   * @returns A new PlottingCanvas.
+   * @returns A new Canvas.
    */
   constructor(props: PlottingCanvasProps) {
     this.canvas = this.initializeCanvas(props);
@@ -42,7 +42,7 @@ export default class PlottingCanvas {
     return needResize;
   }
 
-  /** close the PlottingCanvas and removes it from the DOM, freeing all of its resources in the process.
+  /** close the Canvas and removes it from the DOM, freeing all of its resources in the process.
    */
   close() {
     if (this.canvasObserver) {
@@ -65,9 +65,7 @@ export default class PlottingCanvas {
       antialias,
     }) as WebGL2RenderingContext;
     if (!webgl) {
-      throw new Error(
-        "[Pluto] - PlottingCanvas could not initialize WebGL2 context"
-      );
+      throw new Error("[Pluto] - Canvas could not initialize WebGL2 context");
     }
     webgl.clearColor(1, 0, 0, 0);
     webgl.clear(webgl.COLOR_BUFFER_BIT);

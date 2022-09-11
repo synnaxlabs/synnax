@@ -1,8 +1,6 @@
-import { Header, Space } from "@arya-analytics/pluto";
-import { Atom2, Grain } from "tabler-icons-react";
+import { Space, Statistic, HexagonBar, Header } from "@arya-analytics/pluto";
 import Sidebar from "../../lib/Sidebar/Sidebar";
-import { HexagonBar } from "@arya-analytics/pluto";
-import { Statistic } from "@arya-analytics/pluto/src";
+import { Atom2, Grain } from "tabler-icons-react";
 
 const dummyMetrics = () => {
   return [
@@ -74,21 +72,7 @@ export default function Cluster() {
                 flexShrink: 0,
                 padding: 20,
               }}
-            >
-              <Statistic value={6} label="Live Nodes" level="h1" />
-              <Statistic
-                value={3}
-                label="Dead Nodes"
-                level="h1"
-                variant="error"
-              />
-              <Statistic
-                value={5}
-                label="Warning Nodes"
-                level="h1"
-                variant="primary"
-              />
-            </Space>
+            ></Space>
           </Space>
         </Space>
       </Space>

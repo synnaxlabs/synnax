@@ -8,7 +8,8 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "storybook": "start-storybook -p 6006",
-    "build-storybook": "build-storybook"
+    "build-storybook": "build-storybook",
+    "test": "vitest"
   },
   "dependencies": {
     "d3": "^7.6.1",
@@ -33,6 +34,7 @@
     "@typescript-eslint/eslint-plugin": "^5.31.0",
     "@typescript-eslint/parser": "^5.31.0",
     "@vitejs/plugin-react": "^2.0.0",
+    "ava": "^4.3.3",
     "babel-loader": "^8.2.5",
     "chromatic": "^6.7.1",
     "eslint": "^7.32.0 || ^8.2.0",
@@ -45,7 +47,8 @@
     "prettier": "2.7.1",
     "typescript": "^4.6.4",
     "vite": "^3.0.0",
-    "vite-plugin-dts": "^1.4.0"
+    "vite-plugin-dts": "^1.4.0",
+    "vitest": "^0.23.2"
   },
   "files": [
     "dist"
@@ -55,6 +58,23 @@
   "types": "./dist/index.d.ts",
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
+  },
+  "ava": {
+    "failFast": true,
+    "timeout": "60s",
+    "typescript": {
+      "extensions": [
+        "ts",
+        "tsx"
+      ],
+      "rewritePaths": {
+        "src/": "dist/"
+      },
+      "compile": false
+    },
+    "files": [
+      "src/Plots/engine/XYTransformer.spec.tsx"
+    ]
   },
   "readme": "ERROR: No README data found!",
   "_id": "pluto@0.0.0",

@@ -7,6 +7,7 @@ import (
 	"github.com/arya-analytics/x/httputil"
 	"github.com/cockroachdb/errors"
 	"github.com/gofiber/fiber/v2"
+	"github.com/sirupsen/logrus"
 	"go.uber.org/zap"
 )
 
@@ -45,6 +46,7 @@ func (w Websocket) BindTo(f fiber.Router) {
 func wsEcho(ctx context.Context, stream ServerStream) error {
 	for {
 		msg, err := stream.Receive()
+		logrus.Info(msg)
 		if err != nil {
 			return err
 		}

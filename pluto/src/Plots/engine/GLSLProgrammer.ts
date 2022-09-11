@@ -1,4 +1,5 @@
-import { RGBATuple, XYTuple } from "./PlottingEngine";
+import { XYTuple } from "./xy";
+import { RGBATuple } from "./color";
 
 const glslScaleKey = "u_scale";
 const glslOffsetKey = "u_offset";
@@ -22,7 +23,7 @@ export type GLSLProgramBuilderProps = {
   gl: WebGL2RenderingContext;
 };
 
-export class GLSLProgramBuilder {
+export class GLSLProgrammer {
   gl: WebGL2RenderingContext;
   program: WebGLProgram;
 
@@ -56,14 +57,16 @@ export class GLSLProgramBuilder {
 export class GLSLProgram {
   gl: WebGL2RenderingContext;
   program: WebGLProgram;
+  buffer: Float32Array | null;
 
   constructor(webgl: WebGL2RenderingContext, program: WebGLProgram) {
     this.gl = webgl;
     this.program = program;
     this.constructCoordinateBuffer();
+    this.buffer = null;
   }
 
-  use() {
+  setActive() {
     this.gl.useProgram(this.program);
   }
 
@@ -87,12 +90,19 @@ export class GLSLProgram {
   }
 
   draw(points: Float32Array) {
-    this.gl.bufferData(
-      this.gl.ARRAY_BUFFER,
-      points as ArrayBuffer,
-      this.gl.STREAM_DRAW
-    );
+    const bufferNow = performance.now();
+    if (!this.buffer) {
+      this.gl.bufferData(
+        this.gl.ARRAY_BUFFER,
+        points as ArrayBuffer,
+        this.gl.DYNAMIC_DRAW
+      );
+      this.buffer = points;
+    }
+    const bufferTime = performance.now() - bufferNow;
+    const drawNow = performance.now();
     this.gl.drawArrays(this.gl.LINE_STRIP, 0, points.length / 2);
+    const drawTime = performance.now() - drawNow;
   }
 
   constructCoordinateBuffer() {

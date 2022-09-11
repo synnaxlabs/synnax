@@ -52,8 +52,6 @@ export class GETClient extends Core {
     req: RQ
   ): Promise<[RS | undefined, Error | undefined]> {
     const queryString = buildQueryString(req as Record<string, unknown>);
-    // make an axios request
-    // return the response
     const url = this.endpoint.path(target) + '?' + queryString;
     const response = await axios.get(url, this.requestConfig());
 

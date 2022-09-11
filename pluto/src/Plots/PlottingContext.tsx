@@ -4,33 +4,36 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useRef,
   useState,
 } from "react";
 import "./PlotContext.css";
-import PlottingEngine from "./engine/PlottingEngine";
+import BasePlottingContext from "./engine/Canvas";
 
-export const PlottingEngineContext = createContext<PlottingEngine | undefined>(
-  undefined
-);
+export const PlottingContext = createContext<{
+  context?: BasePlottingContext;
+  randomNumber?: number;
+}>({});
 
-export const usePlottingEngine = () => useContext(PlottingEngineContext);
+export const usePlottingContext = () => {
+  return useContext(PlottingContext).context;
+};
 
-export const PlottingEngineProvider = ({
+export const PlottingContextProvider = ({
   children,
 }: PropsWithChildren<any>) => {
-  const [plottingEngine, setPlottingEngine] = useState<
-    PlottingEngine | undefined
-  >(undefined);
-  const setCanvas = useCallback(
-    (canvas: HTMLCanvasElement) =>
-      canvas && setPlottingEngine(new PlottingEngine({ canvas })),
-    []
-  );
+  const [plottingContext, setPlottingContext] = useState<{
+    context?: BasePlottingContext;
+    randomNumber?: number;
+  }>({});
+  const setCanvas = useCallback((canvas: HTMLCanvasElement) => {
+    canvas &&
+      setPlottingContext({ context: new BasePlottingContext({ canvas }) });
+  }, []);
+
   return (
-    <PlottingEngineContext.Provider value={plottingEngine}>
+    <PlottingContext.Provider value={plottingContext}>
       <canvas id="plot-context" ref={setCanvas}></canvas>
       {children}
-    </PlottingEngineContext.Provider>
+    </PlottingContext.Provider>
   );
 };
