@@ -30,4 +30,4 @@ build:
 docker:
     COPY +build/synnax .
     ENTRYPOINT ["/synnax/synnax", "start"]
-    SAVE IMAGE --push ghcr.io/arya-analytics/synnax:latest
+    SAVE IMAGE --push ghcr.io/synnaxlabs/synnax:latest
