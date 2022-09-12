@@ -3,11 +3,6 @@ module github.com/synnaxlabs/synnax
 go 1.19
 
 require (
-	github.com/synnaxlabs/aspen v0.0.0-20220804103056-48505d5ea44e
-	github.com/synnaxlabs/cesium v0.0.0-20220722114246-333fea6b09d0
-	github.com/synnaxlabs/client-go v0.0.0-00010101000000-000000000000
-	github.com/synnaxlabs/freighter v0.0.0-20220810182625-b66219353383
-	github.com/synnaxlabs/x v0.0.0-20220801122519-e4a5e96a532d
 	github.com/cockroachdb/cmux v0.0.0-20170110192607-30d10be49292
 	github.com/cockroachdb/errors v1.9.0
 	github.com/cockroachdb/pebble v0.0.0-20220513193540-b8c9a560bed5
@@ -18,9 +13,13 @@ require (
 	github.com/onsi/ginkgo/v2 v2.1.4
 	github.com/onsi/gomega v1.20.0
 	github.com/samber/lo v1.27.0
-	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/viper v1.12.0
+	github.com/synnaxlabs/aspen v0.0.0-20220804103056-48505d5ea44e
+	github.com/synnaxlabs/cesium v0.0.0-20220722114246-333fea6b09d0
+	github.com/synnaxlabs/client-go v0.0.0-00010101000000-000000000000
+	github.com/synnaxlabs/freighter v0.0.0-20220810182625-b66219353383
+	github.com/synnaxlabs/x v0.0.0-20220801122519-e4a5e96a532d
 	go.uber.org/zap v1.21.0
 	golang.org/x/crypto v0.0.0-20220411220226-7b82a4e95df4
 	golang.org/x/sys v0.0.0-20220722155257-8c9f86f7a55f

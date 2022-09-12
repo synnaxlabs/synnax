@@ -4,7 +4,7 @@ go 1.19
 
 replace github.com/synnaxlabs/x => ../../x
 
-replace github.com/synnaxlabs/delta => ./../../synnax
+replace github.com/synnaxlabs/synnax => ./../../synnax
 
 replace github.com/synnaxlabs/freighter => ../../freighter/go
 
@@ -13,16 +13,14 @@ replace github.com/synnaxlabs/aspen => ../../aspen
 replace github.com/synnaxlabs/cesium => ../../cesium
 
 require (
-	github.com/synnaxlabs/delta v0.0.0-00010101000000-000000000000
-	github.com/synnaxlabs/freighter v0.0.0-20220810182625-b66219353383
-	github.com/synnaxlabs/x v0.0.0-20220801122519-e4a5e96a532d
 	github.com/cockroachdb/errors v1.9.0
+	github.com/synnaxlabs/freighter v0.0.0-20220810182625-b66219353383
+	github.com/synnaxlabs/synnax v0.0.0-00010101000000-000000000000
+	github.com/synnaxlabs/x v0.0.0-20220801122519-e4a5e96a532d
 )
 
 require (
 	github.com/DataDog/zstd v1.4.5 // indirect
-	github.com/synnaxlabs/aspen v0.0.0-20220804103056-48505d5ea44e // indirect
-	github.com/synnaxlabs/cesium v0.0.0-20220722114246-333fea6b09d0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/cockroachdb/logtags v0.0.0-20211118104740-dabe8e521a4f // indirect
 	github.com/cockroachdb/pebble v0.0.0-20220513193540-b8c9a560bed5 // indirect
@@ -45,6 +43,8 @@ require (
 	github.com/rogpeppe/go-internal v1.8.1 // indirect
 	github.com/samber/lo v1.27.0 // indirect
 	github.com/spf13/afero v1.8.2 // indirect
+	github.com/synnaxlabs/aspen v0.0.0-20220804103056-48505d5ea44e // indirect
+	github.com/synnaxlabs/cesium v0.0.0-20220722114246-333fea6b09d0 // indirect
 	github.com/vmihailenco/msgpack/v5 v5.3.5 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
