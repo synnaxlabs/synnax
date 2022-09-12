@@ -8,7 +8,7 @@ const darkCodeTheme = require("prism-react-renderer/themes/dracula");
 const config = {
   title: "Synnax Documentation",
   tagline: "Data Handling for the Modern Era",
-  url: "https://arya-analytics.github.io/",
+  url: "https://docs.synnaxlabs.com/",
   baseUrl: "/",
   onBrokenLinks: "throw",
   onBrokenMarkdownLinks: "warn",
