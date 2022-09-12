@@ -1,11 +1,11 @@
 package kv
 
 import (
-	"github.com/arya-analytics/aspen/internal/node"
 	"github.com/arya-analytics/x/binary"
 	"github.com/arya-analytics/x/confluence"
 	kvx "github.com/arya-analytics/x/kv"
 	"github.com/arya-analytics/x/version"
+	"github.com/synnaxlabs/aspen/internal/node"
 )
 
 type Variant uint32

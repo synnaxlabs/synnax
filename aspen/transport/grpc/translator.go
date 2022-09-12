@@ -1,13 +1,13 @@
 package grpc
 
 import (
-	"github.com/arya-analytics/aspen/internal/cluster/gossip"
-	"github.com/arya-analytics/aspen/internal/kv"
-	"github.com/arya-analytics/aspen/internal/node"
-	aspenv1 "github.com/arya-analytics/aspen/transport/grpc/gen/proto/go/v1"
 	"github.com/arya-analytics/freighter/fgrpc"
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/version"
+	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
+	"github.com/synnaxlabs/aspen/internal/kv"
+	"github.com/synnaxlabs/aspen/internal/node"
+	aspenv1 "github.com/synnaxlabs/aspen/transport/grpc/gen/proto/go/v1"
 )
 
 var (

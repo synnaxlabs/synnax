@@ -3,7 +3,7 @@ package kv
 import (
 	"bytes"
 	"encoding/binary"
-	"github.com/arya-analytics/x/errutil"
+	"github.com/synnaxlabs/x/errutil"
 )
 
 func CompositeKey(elems ...interface{}) ([]byte, error) {

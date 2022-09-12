@@ -1,10 +1,10 @@
 package rand_test
 
 import (
-	"github.com/arya-analytics/x/rand"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/rand"
 )
 
 var _ = Describe("Rand", func() {

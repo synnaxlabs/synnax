@@ -1,9 +1,9 @@
 package time_test
 
 import (
-	xtime "github.com/arya-analytics/x/time"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	xtime "github.com/synnaxlabs/x/time"
 	"time"
 )
 

@@ -2,12 +2,12 @@ package aspen_test
 
 import (
 	"context"
-	"github.com/arya-analytics/aspen"
-	"github.com/arya-analytics/aspen/mock"
 	"github.com/arya-analytics/x/address"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/aspen"
+	"github.com/synnaxlabs/aspen/mock"
 	"go.uber.org/zap"
 	"sync"
 	"time"

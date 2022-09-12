@@ -2,10 +2,10 @@ package fgrpc
 
 import (
 	"context"
-	"github.com/arya-analytics/freighter"
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/alamos"
 	roacherrors "github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/freighter"
 	"google.golang.org/grpc"
 )
 

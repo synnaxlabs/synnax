@@ -1,8 +1,10 @@
-html * {
+* {
   transition: 0.15s ease-in-out;
-  background-color: var(--background);
-  font-family: var(--font-family);
+}
+
+html {
   color: var(--text-color);
+  background-color: var(--background);
   margin: 0;
 }
 

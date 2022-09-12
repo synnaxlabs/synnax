@@ -1,6 +1,6 @@
 package kv
 
-import "github.com/arya-analytics/x/binary"
+import "github.com/synnaxlabs/x/binary"
 
 type IteratorOptions struct {
 	LowerBound []byte

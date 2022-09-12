@@ -1,12 +1,12 @@
 package gorp_test
 
 import (
-	"github.com/arya-analytics/x/binary"
-	"github.com/arya-analytics/x/gorp"
-	"github.com/arya-analytics/x/kv/memkv"
-	"github.com/arya-analytics/x/query"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/query"
 )
 
 var _ = Describe("Entries", func() {

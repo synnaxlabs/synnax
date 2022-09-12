@@ -2,8 +2,6 @@ package pledge_test
 
 import (
 	"context"
-	"github.com/arya-analytics/aspen/internal/cluster/pledge"
-	"github.com/arya-analytics/aspen/internal/node"
 	"github.com/arya-analytics/freighter/fmock"
 	"github.com/arya-analytics/x/address"
 	. "github.com/arya-analytics/x/testutil"
@@ -11,6 +9,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
+	"github.com/synnaxlabs/aspen/internal/node"
 	"go.uber.org/zap"
 	"sync"
 	"time"

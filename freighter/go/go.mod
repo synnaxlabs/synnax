@@ -1,4 +1,4 @@
-module github.com/arya-analytics/freighter
+module github.com/synnaxlabs/freighter
 
 go 1.18
 

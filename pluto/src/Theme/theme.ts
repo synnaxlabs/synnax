@@ -7,7 +7,6 @@ type typography = {
   textTransform?: string;
 };
 
-
 export interface Theme {
   name: string;
   colors: {
@@ -113,9 +112,9 @@ const aryaBase: Theme = {
   typography: {
     family: fontFamily,
     h1: {
-      size: baseSize * 8,
-      weight: "medium",
-      lineHeight: baseSize * 9,
+      size: baseSize * 7,
+      weight: "500",
+      lineHeight: baseSize * 8,
     },
     h2: {
       size: baseSize * 6,
@@ -141,7 +140,7 @@ const aryaBase: Theme = {
     p: {
       size: baseSize * 2.5,
       weight: "regular",
-      lineHeight: baseSize * 3,
+      lineHeight: baseSize * 3.5,
     },
     small: {
       size: baseSize * 2,

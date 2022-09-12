@@ -2,17 +2,17 @@ package gossip_test
 
 import (
 	"context"
-	"github.com/arya-analytics/aspen/internal/cluster/store"
-	"github.com/arya-analytics/aspen/internal/node"
 	"github.com/arya-analytics/freighter/fmock"
 	"github.com/arya-analytics/x/signal"
 	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/aspen/internal/cluster/store"
+	"github.com/synnaxlabs/aspen/internal/node"
 	"go.uber.org/zap"
 	"time"
 
-	"github.com/arya-analytics/aspen/internal/cluster/gossip"
+	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 )
 
 var _ = Describe("OperationSender", func() {

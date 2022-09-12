@@ -1,8 +1,6 @@
 package cluster
 
 import (
-	"github.com/arya-analytics/aspen/internal/cluster/gossip"
-	pledge_ "github.com/arya-analytics/aspen/internal/cluster/pledge"
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/alamos"
 	"github.com/arya-analytics/x/binary"
@@ -10,6 +8,8 @@ import (
 	"github.com/arya-analytics/x/kv"
 	"github.com/arya-analytics/x/override"
 	"github.com/arya-analytics/x/validate"
+	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
+	pledge_ "github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"go.uber.org/zap"
 	"time"
 )

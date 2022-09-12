@@ -1,9 +1,9 @@
 package gorp_test
 
 import (
-	"github.com/arya-analytics/x/gorp"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/gorp"
 )
 
 var _ = Describe("Compound", func() {

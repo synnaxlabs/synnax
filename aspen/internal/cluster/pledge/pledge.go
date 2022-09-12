@@ -22,7 +22,6 @@ package pledge
 
 import (
 	"context"
-	"github.com/arya-analytics/aspen/internal/node"
 	"github.com/arya-analytics/x/alamos"
 	"github.com/arya-analytics/x/config"
 	"github.com/arya-analytics/x/iter"
@@ -30,6 +29,7 @@ import (
 	xtime "github.com/arya-analytics/x/time"
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/aspen/internal/node"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"math/rand"

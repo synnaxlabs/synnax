@@ -1,4 +1,4 @@
-module github.com/arya-analytics/aspen
+module github.com/synnaxlabs/aspen
 
 go 1.19
 

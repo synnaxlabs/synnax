@@ -2,8 +2,8 @@ package fmock
 
 import (
 	"fmt"
-	"github.com/arya-analytics/freighter"
 	"github.com/arya-analytics/x/address"
+	"github.com/synnaxlabs/freighter"
 	"sync"
 )
 

@@ -1,9 +1,9 @@
 package confluence
 
 import (
-	"github.com/arya-analytics/x/address"
-	atomicx "github.com/arya-analytics/x/atomic"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/address"
+	atomicx "github.com/synnaxlabs/x/atomic"
 	"sync"
 )
 

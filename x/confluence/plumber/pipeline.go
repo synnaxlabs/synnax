@@ -1,10 +1,10 @@
 package plumber
 
 import (
-	"github.com/arya-analytics/x/address"
-	cfs "github.com/arya-analytics/x/confluence"
-	"github.com/arya-analytics/x/signal"
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/x/address"
+	cfs "github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/signal"
 	"go/types"
 )
 

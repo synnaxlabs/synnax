@@ -1,9 +1,9 @@
 package plumber
 
 import (
-	"github.com/arya-analytics/x/address"
-	cfs "github.com/arya-analytics/x/confluence"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/address"
+	cfs "github.com/synnaxlabs/x/confluence"
 )
 
 // Stitch is the method a Router  uses to stitch together the segments specified in its route.

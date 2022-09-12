@@ -5,7 +5,7 @@
 package store
 
 import (
-	"github.com/arya-analytics/x/observe"
+	"github.com/synnaxlabs/x/observe"
 	"io"
 	"sync"
 )

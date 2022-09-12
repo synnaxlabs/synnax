@@ -1,7 +1,7 @@
 package confluence
 
 import (
-	"github.com/arya-analytics/x/signal"
+	"github.com/synnaxlabs/x/signal"
 )
 
 type TransientProvider struct {
