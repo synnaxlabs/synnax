@@ -5,8 +5,8 @@ import (
 )
 
 var (
-	Invalid     = errors.New("[delta] - invalid credentials")
-	InvalidHash = errors.New("[delta] - invalid hash")
+	Invalid     = errors.New("[synnax] - invalid credentials")
+	InvalidHash = errors.New("[synnax] - invalid hash")
 )
 
 // Raw represents a raw password. It is not safe to store the raw password on disk.

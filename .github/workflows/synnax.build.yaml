@@ -1,4 +1,4 @@
-name: "Delta Build"
+name: "Synnax Build"
 on:
   pull_request:
     branches:
@@ -6,7 +6,7 @@ on:
   push:
     paths:
       - 'synnax/**'
-      - '.github/workflows/delta.build.yaml'
+      - '.github/workflows/synnax.build.yaml'
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -22,4 +22,4 @@ jobs:
         run: "sudo /bin/sh -c 'wget https://github.com/earthly/earthly/releases/download/v0.6.22/earthly-linux-amd64 -O /usr/local/bin/earthly && chmod +x /usr/local/bin/earthly'"
       - name: Build Image
         run: earthly --push +docker
-        working-directory: ./delta
+        working-directory: ./synnax

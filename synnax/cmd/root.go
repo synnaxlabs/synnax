@@ -16,7 +16,7 @@ var cfgFile string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "delta",
+	Use:   "synnax",
 	Short: "A brief description of your application",
 	Long: `A longer description that spans multiple lines and likely contains
 examples and usage of using your application. For example:
@@ -66,10 +66,10 @@ func initConfig() {
 		viper.AddConfigPath(home)
 		viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 		viper.SetConfigType("yaml")
-		viper.SetConfigName(".delta")
+		viper.SetConfigName(".synnax")
 	}
 
-	viper.SetEnvPrefix("delta")
+	viper.SetEnvPrefix("synnax")
 	viper.AutomaticEnv() // read in environment variables that match
 
 	// If a config file is found, read it in.

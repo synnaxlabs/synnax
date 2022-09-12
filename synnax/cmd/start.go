@@ -155,9 +155,9 @@ func init() {
 	startCmd.Flags().StringP(
 		"data",
 		"d",
-		"delta-data",
+		"synnax-data",
 		`
-			Dirname where Delta will store its data.
+			Dirname where synnax will store its data.
 		`,
 	)
 
