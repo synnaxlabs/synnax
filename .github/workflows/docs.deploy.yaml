@@ -1,6 +1,11 @@
 name: Deploy Documentation Site
 on:
   push:
+    branches:
+      - main
+    paths:
+      - 'docs/site/**'
+      - '.github/workflows/docs.deploy.yaml'
 jobs:
   build:
     name: Build Documentation Site
