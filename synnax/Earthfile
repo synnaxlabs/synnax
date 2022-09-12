@@ -28,6 +28,6 @@ build:
     SAVE ARTIFACT build/synnax /synnax AS LOCAL build/synnax
 
 docker:
-    COPY +build/delta .
-    ENTRYPOINT ["/delta/delta", "start"]
+    COPY +build/synnax .
+    ENTRYPOINT ["/synnax/synnax", "start"]
     SAVE IMAGE --push ghcr.io/arya-analytics/synnax:latest
