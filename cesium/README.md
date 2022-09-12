@@ -1,7 +1,7 @@
 <br />
 <p align="center">
     <a href="https://synnaxlabs.com/">
-        <img src="../docs/media/icon-full-title-white.png" width="70%"/>
+        <img src="../docs/media/logo/title-white.svg" width="80%"/>
     </a>
 </p>
 
