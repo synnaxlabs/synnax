@@ -1,8 +1,8 @@
 package gorp
 
 import (
-	"github.com/arya-analytics/x/kv"
-	"github.com/arya-analytics/x/query"
+	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/query"
 )
 
 // Delete is a query that deletes Entries from the DB.

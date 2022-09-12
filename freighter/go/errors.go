@@ -1,8 +1,8 @@
 package freighter
 
 import (
-	"github.com/arya-analytics/freighter/ferrors"
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/freighter/ferrors"
 	"io"
 )
 

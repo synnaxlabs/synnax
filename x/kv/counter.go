@@ -2,9 +2,9 @@ package kv
 
 import (
 	"encoding/binary"
-	atomicx "github.com/arya-analytics/x/atomic"
 	"github.com/cockroachdb/errors"
 	"github.com/cockroachdb/pebble"
+	atomicx "github.com/synnaxlabs/x/atomic"
 )
 
 // PersistedCounter implements a simple in64 counter that writes its value to a

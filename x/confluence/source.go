@@ -2,8 +2,8 @@ package confluence
 
 import (
 	"context"
-	"github.com/arya-analytics/x/address"
-	"github.com/arya-analytics/x/signal"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/signal"
 )
 
 // AbstractMultiSource is a basic implementation of a Source that can send values to

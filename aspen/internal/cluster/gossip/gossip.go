@@ -2,13 +2,13 @@ package gossip
 
 import (
 	"context"
-	"github.com/arya-analytics/aspen/internal/node"
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/alamos"
 	"github.com/arya-analytics/x/config"
 	"github.com/arya-analytics/x/rand"
 	"github.com/arya-analytics/x/signal"
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/aspen/internal/node"
 	"time"
 )
 

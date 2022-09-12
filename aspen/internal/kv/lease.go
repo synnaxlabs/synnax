@@ -2,12 +2,12 @@ package kv
 
 import (
 	"context"
-	"github.com/arya-analytics/aspen/internal/node"
 	"github.com/arya-analytics/freighter"
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/confluence"
 	kvx "github.com/arya-analytics/x/kv"
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/aspen/internal/node"
 	"go/types"
 )
 

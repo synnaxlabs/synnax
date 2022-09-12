@@ -1,10 +1,10 @@
 package kv
 
 import (
-	"github.com/arya-analytics/aspen/internal/node"
 	"github.com/arya-analytics/x/binary"
 	kvx "github.com/arya-analytics/x/kv"
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/aspen/internal/node"
 	"sync"
 )
 

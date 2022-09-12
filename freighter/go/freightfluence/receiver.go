@@ -2,10 +2,10 @@ package freightfluence
 
 import (
 	"context"
-	"github.com/arya-analytics/freighter"
 	. "github.com/arya-analytics/x/confluence"
 	"github.com/arya-analytics/x/signal"
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/freighter"
 )
 
 // Receiver wraps freighter.StreamReceiver to provide a confluence compatible

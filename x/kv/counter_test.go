@@ -1,12 +1,12 @@
 package kv_test
 
 import (
-	"github.com/arya-analytics/x/kv"
-	"github.com/arya-analytics/x/kv/pebblekv"
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/vfs"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/kv/pebblekv"
 )
 
 var _ = Describe("Counter", Ordered, func() {

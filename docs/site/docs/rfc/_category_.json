@@ -1,6 +1,6 @@
 {
   "label": "Technical RFCs",
-  "position": 3,
+  "position": 5,
   "link": {
     "type": "generated-index",
     "description": "This is a list of collection of technical design documents (RFCs) that detail the platform's architecture.",

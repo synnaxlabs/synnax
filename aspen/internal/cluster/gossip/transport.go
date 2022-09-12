@@ -1,8 +1,8 @@
 package gossip
 
 import (
-	"github.com/arya-analytics/aspen/internal/node"
 	"github.com/arya-analytics/freighter"
+	"github.com/synnaxlabs/aspen/internal/node"
 )
 
 type Transport = freighter.Unary[Message, Message]

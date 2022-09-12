@@ -39,6 +39,14 @@
   margin-right: calc(var(--base-size) * 3);
 }
 
+@media(max-width: 996px) {
+  .navbar__items {
+    flex-direction: row-reverse;
+    justify-content: start;
+  }
+
+}
+
 .footer {
   border-top: var(--border-width) solid var(--gray-m2);
   background: var(--background);

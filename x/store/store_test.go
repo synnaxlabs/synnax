@@ -1,9 +1,9 @@
 package store_test
 
 import (
-	"github.com/arya-analytics/x/store"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/store"
 )
 
 type state struct {

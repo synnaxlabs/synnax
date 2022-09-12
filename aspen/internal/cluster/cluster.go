@@ -7,10 +7,6 @@ package cluster
 
 import (
 	"context"
-	"github.com/arya-analytics/aspen/internal/cluster/gossip"
-	pledge_ "github.com/arya-analytics/aspen/internal/cluster/pledge"
-	"github.com/arya-analytics/aspen/internal/cluster/store"
-	"github.com/arya-analytics/aspen/internal/node"
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/alamos"
 	"github.com/arya-analytics/x/config"
@@ -19,6 +15,10 @@ import (
 	"github.com/arya-analytics/x/observe"
 	"github.com/arya-analytics/x/signal"
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
+	pledge_ "github.com/synnaxlabs/aspen/internal/cluster/pledge"
+	"github.com/synnaxlabs/aspen/internal/cluster/store"
+	"github.com/synnaxlabs/aspen/internal/node"
 	"go.uber.org/zap"
 )
 

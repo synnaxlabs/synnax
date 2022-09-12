@@ -2,8 +2,6 @@ package fws
 
 import (
 	"context"
-	"github.com/arya-analytics/freighter"
-	"github.com/arya-analytics/freighter/ferrors"
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/alamos"
 	"github.com/arya-analytics/x/binary"
@@ -12,6 +10,8 @@ import (
 	ws "github.com/fasthttp/websocket"
 	"github.com/gofiber/fiber/v2"
 	fiberws "github.com/gofiber/websocket/v2"
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/freighter/ferrors"
 	"go.uber.org/zap"
 	"go/types"
 	"io"

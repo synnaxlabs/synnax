@@ -1,8 +1,8 @@
 package override
 
 import (
-	"github.com/arya-analytics/x/types"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/types"
 	"reflect"
 )
 

@@ -2,12 +2,12 @@ package aspen
 
 import (
 	"context"
-	"github.com/arya-analytics/aspen/internal/cluster"
-	"github.com/arya-analytics/aspen/internal/kv"
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/kv/pebblekv"
 	"github.com/arya-analytics/x/signal"
 	"github.com/cockroachdb/pebble"
+	"github.com/synnaxlabs/aspen/internal/cluster"
+	"github.com/synnaxlabs/aspen/internal/kv"
 )
 
 func Open(

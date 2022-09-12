@@ -1,7 +1,7 @@
 package fgrpc
 
 import (
-	"github.com/arya-analytics/freighter"
+	"github.com/synnaxlabs/freighter"
 	"google.golang.org/grpc"
 )
 

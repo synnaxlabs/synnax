@@ -4,7 +4,7 @@ go 1.19
 
 replace github.com/arya-analytics/x => ../../x
 
-replace github.com/arya-analytics/delta => ../../delta
+replace github.com/arya-analytics/delta => ./../../synnax
 
 replace github.com/arya-analytics/freighter => ../../freighter/go
 

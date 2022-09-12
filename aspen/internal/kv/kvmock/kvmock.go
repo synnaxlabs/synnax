@@ -1,13 +1,13 @@
 package kvmock
 
 import (
-	"github.com/arya-analytics/aspen/internal/cluster"
-	"github.com/arya-analytics/aspen/internal/cluster/clustermock"
-	"github.com/arya-analytics/aspen/internal/kv"
-	"github.com/arya-analytics/aspen/internal/node"
 	"github.com/arya-analytics/freighter/fmock"
 	"github.com/arya-analytics/x/kv/memkv"
 	"github.com/arya-analytics/x/signal"
+	"github.com/synnaxlabs/aspen/internal/cluster"
+	"github.com/synnaxlabs/aspen/internal/cluster/clustermock"
+	"github.com/synnaxlabs/aspen/internal/kv"
+	"github.com/synnaxlabs/aspen/internal/node"
 	"go/types"
 )
 

@@ -1,7 +1,7 @@
 package telem
 
 import (
-	"github.com/arya-analytics/x/query"
+	"github.com/synnaxlabs/x/query"
 )
 
 const (

@@ -2,9 +2,9 @@ package mock
 
 import (
 	"context"
-	"github.com/arya-analytics/aspen"
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/errutil"
+	"github.com/synnaxlabs/aspen"
 	"os"
 	"path/filepath"
 	"strconv"

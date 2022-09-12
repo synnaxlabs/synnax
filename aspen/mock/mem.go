@@ -1,8 +1,8 @@
 package mock
 
 import (
-	"github.com/arya-analytics/aspen"
-	"github.com/arya-analytics/aspen/transport/mock"
+	"github.com/synnaxlabs/aspen"
+	"github.com/synnaxlabs/aspen/transport/mock"
 	"time"
 )
 

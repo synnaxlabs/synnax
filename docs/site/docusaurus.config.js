@@ -6,7 +6,7 @@ const darkCodeTheme = require("prism-react-renderer/themes/dracula");
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-  title: "Arya Analytics Documentation",
+  title: "Synnax Documentation",
   tagline: "Data Handling for the Modern Era",
   url: "https://arya-analytics.github.io/",
   baseUrl: "/",

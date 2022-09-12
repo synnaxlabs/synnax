@@ -2,7 +2,7 @@ package confluence
 
 import (
 	"context"
-	"github.com/arya-analytics/x/signal"
+	"github.com/synnaxlabs/x/signal"
 )
 
 // Filter is a segment that reads values from an input Stream, filters them through a

@@ -2,11 +2,11 @@ package kfs_test
 
 import (
 	"context"
-	"github.com/arya-analytics/x/kfs"
-	"github.com/arya-analytics/x/signal"
 	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/kfs"
+	"github.com/synnaxlabs/x/signal"
 	"time"
 )
 

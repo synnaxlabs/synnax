@@ -1,11 +1,11 @@
 package node_test
 
 import (
-	"github.com/arya-analytics/aspen/internal/node"
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/version"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/aspen/internal/node"
 )
 
 var _ = Describe("Node", func() {

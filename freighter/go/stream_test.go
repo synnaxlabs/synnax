@@ -2,9 +2,6 @@ package freighter_test
 
 import (
 	"context"
-	"github.com/arya-analytics/freighter"
-	"github.com/arya-analytics/freighter/fmock"
-	"github.com/arya-analytics/freighter/fws"
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/httputil"
 	. "github.com/arya-analytics/x/testutil"
@@ -12,6 +9,9 @@ import (
 	"github.com/gofiber/fiber/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/freighter/fmock"
+	"github.com/synnaxlabs/freighter/fws"
 	"go.uber.org/zap"
 	"time"
 )

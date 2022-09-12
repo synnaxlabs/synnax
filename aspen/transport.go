@@ -1,11 +1,11 @@
 package aspen
 
 import (
-	"github.com/arya-analytics/aspen/internal/cluster/gossip"
-	"github.com/arya-analytics/aspen/internal/cluster/pledge"
-	"github.com/arya-analytics/aspen/internal/kv"
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/signal"
+	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
+	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
+	"github.com/synnaxlabs/aspen/internal/kv"
 )
 
 type Transport interface {
