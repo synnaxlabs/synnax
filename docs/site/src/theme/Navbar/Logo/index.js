@@ -6,8 +6,9 @@ import {
   aryaLight,
   aryaDark,
 } from "@arya-analytics/pluto";
-import IconGradient from "./icon-gradient.svg";
-import IconWhite from "./icon-white.svg";
+import IconGradient from "../../../../static/img/icon-gradient.svg";
+import IconWhite from "../../../../static/img/icon-white.svg";
+import "@arya-analytics/pluto/dist/style.css";
 
 const types = {
   "icon-white": <IconWhite />,
@@ -27,13 +28,10 @@ export default function LogoWrapper(props) {
   const icon = colorMode === "dark" ? "icon-white" : "icon-gradient";
 
   return (
-    <>
-      <a href="/">
-        {cloneElement(types[icon], {
-          height: 35,
-          style: { marginRight: 10, marginTop: 5 },
-        })}
-      </a>
-    </>
+    <a href="/" {...props} className="navbar__logo">
+      {cloneElement(types[icon], {
+        height: 36,
+      })}
+    </a>
   );
 }

@@ -1,11 +1,10 @@
 # 2 - Aspen - Gossip Based Peer to Peer Key-Value Store
 
-**Feature Name**: Aspen, a Gossip Based Peer to Peer Key-Value Store \
-**Status**: Proposed \
-**Start Date**: 2022-05-18 \
-**Authors**: emilbon99 \
-**Jira Issue**
-- [DA-153 - [Aspen] - RFC](https://arya-analytics.atlassian.net/browse/DA-153)
+**Feature Name** - Aspen, a Gossip Based Peer to Peer Key-Value Store <br />
+**Status** - Complete <br />
+**Start Date** -  2022-05-18 <br />
+**Authors** - emilbon99 <br />
+**Jira Issue** - [DA-153 - [Aspen] - RFC](https://arya-analytics.atlassian.net/browse/DA-153) <br />
 
 # 0 - Summary
 
@@ -26,11 +25,11 @@ meeting the requirements laid out in the
 
 # 1 - Vocabulary
 
-**Node** - A machine in the cluster. \
-**Cluster** - A group of nodes that can communicate with each other. \
+**Node** - A machine in the cluster. <br />
+**Cluster** - A group of nodes that can communicate with each other. <br />
 **Redline** - A threshold for a particular channel value. Most often represents
-a safety limit that triggers an action. \
-**Initiator** - A node that initiates gossip with another node. \
+a safety limit that triggers an action. <br />
+**Initiator** - A node that initiates gossip with another node. <br />
 **Peer** - A node that engages in gossip with an initiating node.
 
 # 2 - Motivation
@@ -447,9 +446,9 @@ interval of convergence. The following equation approximates the number of
 message (`m`) needed to update all but `s` proportion of the cluster:
 
 <p align="middle">
-    <br>
+    <br />
     <img src="https://render.githubusercontent.com/render/math?math=m \approx -N\text{log}s" height="30px"
-         alt="latex eq">
+         alt="latex eq" />
 </p>
 
 This equation shows that the convergence interval is directly dependent on:

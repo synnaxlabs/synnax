@@ -4,7 +4,6 @@
  * work well for content-centric websites.
  */
 
-
 /* You can override the default Infima variables here. */
 :root {
   --ifm-color-primary: var(--primary-z);
@@ -18,4 +17,44 @@
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
   --ifm-background-color: var(--background);
   --ifm-font-family-base: var(--font-family);
+  --ifm-navbar-shadow: none;
+  --ifm-breadcrumb-border-radius: var(--border-radius);
+  --ifm-global-radius: var(--border-radius);
+}
+
+.navbar, .navbar-sidebar__brand{
+  border-bottom: var(--border-width) solid var(--gray-m2);
+  background: none;
+  padding: 0;
+  background: var(--background);
+}
+
+.navbar__link {
+  margin-top: var(--base-size);
+}
+
+.navbar-sidebar__close {
+  display: flex;
+  margin-left: auto;
+  margin-right: calc(var(--base-size) * 3);
+}
+
+.footer {
+  border-top: var(--border-width) solid var(--gray-m2);
+  background: var(--background);
+}
+
+
+.navbar__logo {
+  border-right: var(--border-width) solid var(--gray-m2);
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(var(--base-size) * 10);
+}
+
+.menu__link {
+  border-radius: var(--border-radius);
+  color: var(--text-color);
 }

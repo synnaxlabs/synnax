@@ -1,9 +1,9 @@
 # 5 - MVP - Data Ontology
 
-**Feature Name**: MVP - Data Ontology \
-**Status**: Complete \
-**Start Date**: 2022-07-16 \
-**Authors**: emilbon99 \
+**Feature Name**: MVP - Data Ontology <br />
+**Status**: Complete <br />
+**Start Date**: 2022-07-16 <br />
+**Authors**: emilbon99 <br />
 **Jira
 Issue**: [DA-185 - Data Ontology](https://arya-analytics.atlassian.net/browse/DA-185)
 
@@ -120,10 +120,13 @@ channel could belong to a group of 'temperature sensors' that span multiple
 nodes. Representing both of these relationships in a tree is impossible, but
 it's easy to do in a DAG:
 
-<p align="middle">
-<img src="images/220716-ontology/dag.png" width="50%">
-<h6 align="middle">A simple channel ontology represented as a DAG</h6>
-</p>
+[//]: # (<p align="middle">)
+
+[//]: # (<img src="images/220716-ontology/dag.png" width="50%">)
+
+[//]: # (<h6 align="middle">A simple channel ontology represented as a DAG</h6>)
+
+[//]: # (</p>)
 
 The location of 'Temperature Sensor 2' can be represented my the path "
 /temperature sensors/temperature sensor 2" or by "nodes/node 1/temperature
@@ -135,10 +138,13 @@ does not have any directed cycles. If we were to introduce a directed cycle like
 the following,
 
 
-<p align="middle">
-<img src="images/220716-ontology/dag-bad.png" width="50%">
-<h6 align="middle">An invalid DAG with a directed cycle</h6>
-</p>
+[//]: # (<p align="middle">)
+
+[//]: # (<img src="images/220716-ontology/dag-bad.png" width="50%">)
+
+[//]: # (<h6 align="middle">An invalid DAG with a directed cycle</h6>)
+
+[//]: # (</p>)
 
 the graph would lose its meaning; Temperature Sensor 4 belongs to the group
 temperature sensors but the group temperature sensors is also a temperature

@@ -1,11 +1,9 @@
 # 1 - Cesium - Channel Segment Storage Engine
 
-**Feature Name:** Channel Segment Storage Engine \
-**Status**: Complete \
-**Start Date**: 2022-05-17 \
-**Authors**: emilbon99 \
-**Jira
-Issue**:  [DA-149 - [Cesium] - RFC](https://arya-analytics.atlassian.net/browse/DA-149)
+**Feature Name** - Channel Segment Storage Engine <br />
+**Status** - Complete <br />
+**Start Date** - 2022-05-17 <br />
+**Authors** - emilbon99 <br />
 
 # 0 - Summary
 
@@ -20,18 +18,18 @@ continuous iteration as Delta's demands evolve.
 
 # 1 - Vocabulary
 
-**Sample** - An arbitrary byte array recorded at a specific point in time.  \
-**Channel** - A collection of samples across a time range. \
-**Segment** - A partitioned region of a channel's data.  \
+**Sample** - An arbitrary byte array recorded at a specific point in time.  <br />
+**Channel** - A collection of samples across a time range. <br />
+**Segment** - A partitioned region of a channel's data.  <br />
 **Regular** (in relation to time-series) - A 'regular' Channel is one whose
 samples are recorded at regular intervals
-(1Hz, 5Hz, 10Hz, etc.) \
+(1Hz, 5Hz, 10Hz, etc.) <br />
 **Samples/Second** - A basic measure of write throughput. The size of a regular
 sample should be assumed as 8 bytes (
 i.e. a float64 value) unless otherwise specified, whereas an irregular sample is
 assumed to contain an additional 64 bit timestamp. Write throughput can also be
-expressed in terms of a frequency (1Hz, 5Hz, 25 KHz, 1MHz, etc.) \
-**DAQ** - Data Acquisition Computer. \
+expressed in terms of a frequency (1Hz, 5Hz, 25 KHz, 1MHz, etc.) <br />
+**DAQ** - Data Acquisition Computer. <br />
 **Channel Cardinality** - The number of unique channel keys for a set of
 segments in a file.
 
@@ -219,8 +217,8 @@ the segment. The timestamp of any sample can be calculated with the following
 equation:
 
 <p align="middle">
-<br>
-<img src="https://render.githubusercontent.com/render/math?math=t_{n} = t_{0}%2B\frac{n + D}{S}" height="30px" alt="latex eq" >
+<br />
+<img src="https://render.githubusercontent.com/render/math?math=t_{n} = t_{0}%2B\frac{n + D}{S}" height="30px" alt="latex eq" />
 </p> 
 
 Where `D` is the density of the channel in bytes, `S` is the sample rate in Hz,
@@ -373,7 +371,7 @@ multiple workers don't access the same file in parallel. This stage is also
 shared with the create query pipe.
 
 <p align="middle">
-<img src="images/220517-cesium-segment-storage/retrieve-pipe.png" width="50%">
+<img src="/img/rfc/220517-cesium-segment-storage/retrieve-pipe.png" width="50%" />
 <h6 align="middle">Retrieve Query Pipe</h6>
 </p>
 
@@ -410,14 +408,14 @@ for [Retrieve](#retrieve-query-execution). This stage is shared with the
 retrieve query pipe.
 
 <p align="middle">
-<img src="images/220517-cesium-segment-storage/create-pipe.png" width="50%">
+<img src="/img/rfc/220517-cesium-segment-storage/create-pipe.png" width="50%" />
 <h6 align="middle">Create Query Pipe</h6>
 </p>
 
 ### 3 - Combined Pipe Architecture
 
 <p align="middle">
-<img src="images/220517-cesium-segment-storage/pipe.png" width="100%">
+<img src="/img/rfc/220517-cesium-segment-storage/pipe.png" width="100%" />
 <h6 align="middle">Combined Cesium Pipe Architecture</h6>
 </p>
 

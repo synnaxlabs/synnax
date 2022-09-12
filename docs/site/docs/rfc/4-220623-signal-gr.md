@@ -1,10 +1,9 @@
-# 4 - Signal - GoRoutine Manager
+# 4 - Signal - Goroutine Manager
 
-**Feature Name**: Signal - GoRoutine Manager \
-**Status**: Implemented \
-**Start Date**: 2020-06-23 \
-**Jira
-Issue**: [DA-171 - [Delta & X] - Signal RFC](https://arya-analytics.atlassian.net/browse/DA-171)
+**Feature Name**: Signal - Goroutine Manager<br />
+**Status**: Implemented <br />
+**Start Date**: 2020-06-23 <br />
+**Jira Issue**: [DA-171 - [Delta & X] - Signal RFC](https://arya-analytics.atlassian.net/browse/DA-171)
 
 # 0 - Summary
 
@@ -18,7 +17,7 @@ cluster.
 
 # 1 - Vocabulary and Abbreviations
 
-**GR** - goroutine \
+**GR** - goroutine <br />
 **CSP** - Communicating Sequential Processes
 
 # 2 - Motivation

@@ -1,8 +1,8 @@
 # 3 - Delta - Segment Distribution
 
-**Feature Name**: Delta - Segment Distribution \
-**Status**: Proposed \
-**Start Date**: 2022-06-04 \
+**Feature Name**: Delta - Segment Distribution <br />
+**Status**: Proposed <br />
+**Start Date**: 2022-06-04 <br />
 **Jira
 Issue**: [DA-154- [Delta & Cesium] - Segment Architecture](https://arya-analytics.atlassian.net/browse/DA-154)
 
@@ -26,20 +26,20 @@ optimization themselves.
 
 # 1 - Vocabulary
 
-**Sample** - An arbitrary byte array recorded at a specific point in time. \
+**Sample** - An arbitrary byte array recorded at a specific point in time. <br />
 **Channel** - A collection of samples across a time range. These samples
-typically come from a single source (sensor, software metric, event, etc.). \
-**Segment** - A partitioned region of a channel's data. \
-**Node** - A machine in the cluster. \
-**Cluster** - A group of nodes that can communicate with each other. \
+typically come from a single source (sensor, software metric, event, etc.). <br />
+**Segment** - A partitioned region of a channel's data. <br />
+**Node** - A machine in the cluster. <br />
+**Cluster** - A group of nodes that can communicate with each other. <br />
 **Leaseholder** - A node that holds a lease on a particular piece of data. The
-leaseholder is the only node that can modify the data. \
+leaseholder is the only node that can modify the data. <br />
 **Gateway** - The node that receives a query, and is responsible for executing
-it on the cluster. \
+it on the cluster. <br />
 **Data Warehouse (DWH)** - A system used for storing and reporting data for
 analysis and business intelligence purposes. Data warehouses typically involve
 long-running queries on much larger data sets than typical OLTP systems. Data
-warehouse queries fall into the OLAP category of workloads. \
+warehouse queries fall into the OLAP category of workloads. <br />
 **OTN** - Over the Network.
 
 # 2 - Motivation
@@ -163,7 +163,7 @@ information stays consistent (this is particularly relevant
 for [channels](#Channels)).
 
 <p align="middle">
-<img src="images/220604-segment-distribution/distributed-storage-high-level.png"width="80%">
+<img src="/img/rfc/220604-segment-distribution/distributed-storage-high-level.png"width="80%" />
 <h5 align="middle">(Very) High Level Distributed Storage Architecture</h5>
 </p>
 
@@ -292,12 +292,13 @@ amount of memory, cpu, and network bandwidth used.
 Internally, the `segment.Iterator` implementation has the following structure:
 
 <p align="middle">
-<img src="images/220604-segment-distribution/segment-iterator-gateway.png"width="60%">
+<img src="/img/rfc/220604-segment-distribution/segment-iterator-gateway.png"width="60%" />
 <h5 align="middle">Segment Iterator - Gateway Node </h5>
 </p>
 
+
 <p align="middle">
-<img src="images/220604-segment-distribution/segment-iterator-peer.png"width="40%">
+<img src="/img/rfc/220604-segment-distribution/segment-iterator-peer.png"width="40%" />
 <h5 align="middle">Segment Iterator - Peer Node </h5>
 </p>
 
@@ -412,12 +413,13 @@ that allows them to write segments to disk.
 Internally, the `segment.Writer` implementation has the following structure:
 
 <p align="middle">
-<img src="images/220604-segment-distribution/segment-writer-gateway.png"width="60%">
+<img src="/img/rfc/220604-segment-distribution/segment-writer-gateway.png"width="60%" />
 <h5 align="middle">Segment Writer - Gateway Node </h5>
 </p>
 
+
 <p align="middle">
-<img src="images/220604-segment-distribution/segment-writer-peer.png"width="40%">
+<img src="/img/rfc/220604-segment-distribution/segment-writer-peer.png"width="40%" />
 <h5 align="middle">Segment Writer - Peer Node </h5>
 </p>
 

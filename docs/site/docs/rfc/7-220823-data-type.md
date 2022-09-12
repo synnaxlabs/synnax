@@ -1,7 +1,7 @@
 # 7 - Data Types - Adding Meaning to the Bytes
 
-**Feature Name** - Data Types \
-**Status** - Proposed \
+**Feature Name** - Data Types <br />
+**Status** - Proposed <br />
 **Start Data** - 22-08-23
 
 # 1 - Summary
