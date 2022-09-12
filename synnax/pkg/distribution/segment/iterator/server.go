@@ -2,14 +2,14 @@ package iterator
 
 import (
 	"context"
-	"github.com/arya-analytics/aspen"
-	"github.com/arya-analytics/cesium"
-	"github.com/arya-analytics/freighter"
-	"github.com/arya-analytics/freighter/freightfluence"
-	"github.com/arya-analytics/x/confluence"
-	"github.com/arya-analytics/x/confluence/plumber"
-	"github.com/arya-analytics/x/signal"
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/aspen"
+	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/freighter/freightfluence"
+	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/confluence/plumber"
+	"github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
 )
 

@@ -2,10 +2,10 @@ package fws
 
 import (
 	"context"
-	"github.com/arya-analytics/x/address"
-	"github.com/arya-analytics/x/alamos"
-	"github.com/arya-analytics/x/binary"
-	"github.com/arya-analytics/x/httputil"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/alamos"
+	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/httputil"
 	roacherrors "github.com/cockroachdb/errors"
 	ws "github.com/fasthttp/websocket"
 	"github.com/gofiber/fiber/v2"

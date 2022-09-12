@@ -1,10 +1,10 @@
 package kv
 
 import (
-	"github.com/arya-analytics/cesium/internal/segment"
-	"github.com/arya-analytics/x/binary"
-	"github.com/arya-analytics/x/gorp"
-	"github.com/arya-analytics/x/kv"
+	"github.com/synnaxlabs/cesium/internal/segment"
+	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/kv"
 )
 
 type Header struct {

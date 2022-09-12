@@ -1,8 +1,8 @@
 package errors
 
 import (
-	"github.com/arya-analytics/freighter/ferrors"
-	"github.com/arya-analytics/x/binary"
+	"github.com/synnaxlabs/freighter/ferrors"
+	"github.com/synnaxlabs/x/binary"
 	"github.com/samber/lo"
 )
 

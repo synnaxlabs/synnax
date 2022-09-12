@@ -2,12 +2,12 @@ package core
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/storage"
-	"github.com/arya-analytics/freighter/fgrpc"
-	"github.com/arya-analytics/x/address"
-	"github.com/arya-analytics/x/alamos"
-	"github.com/arya-analytics/x/config"
-	"github.com/arya-analytics/x/override"
-	"github.com/arya-analytics/x/validate"
+	"github.com/synnaxlabs/freighter/fgrpc"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/alamos"
+	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
 

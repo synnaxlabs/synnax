@@ -1,6 +1,6 @@
 package cesium
 
-import "github.com/arya-analytics/x/alamos"
+import "github.com/synnaxlabs/x/alamos"
 
 const (
 	// createMetricsKey is the key used to store create metrics in cesium's

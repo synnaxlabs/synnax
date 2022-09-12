@@ -3,7 +3,7 @@ package channel
 import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/storage"
-	"github.com/arya-analytics/x/gorp"
+	"github.com/synnaxlabs/x/gorp"
 )
 
 // Service is central entity for managing channels within delta's distribution layer. It provides facilities for creating

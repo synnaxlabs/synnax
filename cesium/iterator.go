@@ -2,12 +2,12 @@ package cesium
 
 import (
 	"context"
-	"github.com/arya-analytics/cesium/internal/kv"
-	"github.com/arya-analytics/x/confluence"
-	kvx "github.com/arya-analytics/x/kv"
-	"github.com/arya-analytics/x/signal"
-	"github.com/arya-analytics/x/telem"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/cesium/internal/kv"
+	"github.com/synnaxlabs/x/confluence"
+	kvx "github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 	"sync"
 )

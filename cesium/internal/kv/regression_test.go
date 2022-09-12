@@ -1,12 +1,12 @@
 package kv_test
 
 import (
-	"github.com/arya-analytics/cesium/internal/channel"
-	"github.com/arya-analytics/cesium/internal/kv"
-	"github.com/arya-analytics/cesium/internal/segment"
-	kvx "github.com/arya-analytics/x/kv"
-	"github.com/arya-analytics/x/kv/memkv"
-	"github.com/arya-analytics/x/telem"
+	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/kv"
+	"github.com/synnaxlabs/cesium/internal/segment"
+	kvx "github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )

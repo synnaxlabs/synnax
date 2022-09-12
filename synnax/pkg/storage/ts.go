@@ -1,6 +1,6 @@
 package storage
 
-import "github.com/arya-analytics/cesium"
+import "github.com/synnaxlabs/cesium"
 
 type (
 	TS         = cesium.DB

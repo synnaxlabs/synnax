@@ -1,7 +1,7 @@
 package grpc
 
 import (
-	"github.com/arya-analytics/freighter/fgrpc"
+	"github.com/synnaxlabs/freighter/fgrpc"
 )
 
 type API struct {

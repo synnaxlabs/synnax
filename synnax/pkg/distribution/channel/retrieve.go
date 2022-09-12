@@ -3,7 +3,7 @@ package channel
 import (
 	"context"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
-	"github.com/arya-analytics/x/gorp"
+	"github.com/synnaxlabs/x/gorp"
 )
 
 // Retrieve is used to retrieve information about Channel(s) in delta's distribution

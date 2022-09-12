@@ -3,7 +3,7 @@ package fiber
 import (
 	"context"
 	"github.com/synnaxlabs/synnax/pkg/api"
-	"github.com/arya-analytics/freighter/fws"
+	"github.com/synnaxlabs/freighter/fws"
 	"github.com/gofiber/fiber/v2"
 )
 

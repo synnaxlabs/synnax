@@ -1,13 +1,13 @@
 package cluster
 
 import (
-	"github.com/arya-analytics/x/address"
-	"github.com/arya-analytics/x/alamos"
-	"github.com/arya-analytics/x/binary"
-	"github.com/arya-analytics/x/config"
-	"github.com/arya-analytics/x/kv"
-	"github.com/arya-analytics/x/override"
-	"github.com/arya-analytics/x/validate"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/alamos"
+	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/validate"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	pledge_ "github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"go.uber.org/zap"

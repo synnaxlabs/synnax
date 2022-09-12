@@ -293,7 +293,7 @@ type KV interface {
 	// Set sets a key to a value. nodeID specifies the node that holds the lease on the key.
 	// If nodeID is 0, the lease is assigned to the host node.
 	Set(key []byte, leaseholder NodeID, value []byte) error
-	// Rest of interface is the same as github.com/arya-analytics/x/kv.DB.
+	// Rest of interface is the same as github.com/synnaxlabs/x/kv.DB.
 }
 ```
 

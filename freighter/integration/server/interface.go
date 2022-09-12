@@ -1,9 +1,9 @@
 package server
 
 import (
-	"github.com/arya-analytics/freighter"
-	"github.com/arya-analytics/freighter/ferrors"
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/freighter/ferrors"
 	"strconv"
 	"strings"
 )

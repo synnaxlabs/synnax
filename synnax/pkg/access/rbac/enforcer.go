@@ -2,7 +2,7 @@ package rbac
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/access"
-	"github.com/arya-analytics/x/query"
+	"github.com/synnaxlabs/x/query"
 )
 
 type Enforcer struct {

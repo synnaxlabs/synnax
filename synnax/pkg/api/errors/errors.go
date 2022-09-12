@@ -8,7 +8,7 @@
 package errors
 
 import (
-	"github.com/arya-analytics/x/query"
+	"github.com/synnaxlabs/x/query"
 	"github.com/cockroachdb/errors"
 )
 

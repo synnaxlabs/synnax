@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@arya-analytics/pluto": "../../../pluto",
+    "@synnaxlabs/pluto": "../../../pluto",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "6",

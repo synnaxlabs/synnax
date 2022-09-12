@@ -2,13 +2,13 @@ package api_test
 
 import (
 	"context"
-	"github.com/synnaxlabs/synnax/pkg/api"
-	"github.com/synnaxlabs/synnax/pkg/api/errors"
-	"github.com/synnaxlabs/synnax/pkg/api/mock"
-	"github.com/arya-analytics/x/telem"
 	roacherrors "github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/api"
+	"github.com/synnaxlabs/synnax/pkg/api/errors"
+	"github.com/synnaxlabs/synnax/pkg/api/mock"
+	"github.com/synnaxlabs/x/telem"
 )
 
 var _ = Describe("ChannelService", Ordered, func() {

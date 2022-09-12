@@ -1,11 +1,11 @@
 package allocate
 
 import (
-	"github.com/arya-analytics/x/alamos"
-	"github.com/arya-analytics/x/config"
-	"github.com/arya-analytics/x/override"
-	"github.com/arya-analytics/x/telem"
-	"github.com/arya-analytics/x/validate"
+	"github.com/synnaxlabs/x/alamos"
+	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 	"math"
 	"sync"
 )

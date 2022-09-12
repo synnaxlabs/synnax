@@ -3,7 +3,7 @@
 package store
 
 import (
-	"github.com/arya-analytics/x/store"
+	"github.com/synnaxlabs/x/store"
 	"github.com/synnaxlabs/aspen/internal/node"
 )
 

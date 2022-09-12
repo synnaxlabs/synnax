@@ -1,16 +1,16 @@
 package cesium
 
 import (
-	"github.com/arya-analytics/cesium/internal/core"
-	"github.com/arya-analytics/cesium/internal/persist"
-	"github.com/arya-analytics/x/alamos"
-	"github.com/arya-analytics/x/config"
-	"github.com/arya-analytics/x/confluence"
-	"github.com/arya-analytics/x/confluence/plumber"
-	"github.com/arya-analytics/x/kv"
-	"github.com/arya-analytics/x/override"
-	"github.com/arya-analytics/x/signal"
-	"github.com/arya-analytics/x/validate"
+	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/persist"
+	"github.com/synnaxlabs/x/alamos"
+	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/confluence/plumber"
+	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/validate"
 )
 
 type readConfig struct {

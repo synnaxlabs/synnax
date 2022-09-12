@@ -1,14 +1,14 @@
 package writer_test
 
 import (
-	"github.com/arya-analytics/cesium"
-	"github.com/arya-analytics/cesium/testutil/seg"
+	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/cesium/testutil/seg"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	distribcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/segment/core"
-	"github.com/arya-analytics/x/telem"
-	. "github.com/arya-analytics/x/testutil"
+	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gleak"

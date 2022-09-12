@@ -1,6 +1,7 @@
 package mock
 
 import (
+	"github.com/synnaxlabs/freighter/fmock"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
@@ -8,7 +9,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/segment"
 	"github.com/synnaxlabs/synnax/pkg/distribution/segment/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/segment/writer"
-	"github.com/arya-analytics/freighter/fmock"
 	"go.uber.org/zap"
 )
 

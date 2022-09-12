@@ -2,10 +2,10 @@ package cesium
 
 import (
 	"context"
-	"github.com/arya-analytics/cesium/internal/channel"
-	"github.com/arya-analytics/cesium/internal/kv"
-	"github.com/arya-analytics/cesium/internal/segment"
-	"github.com/arya-analytics/x/confluence"
+	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/kv"
+	"github.com/synnaxlabs/cesium/internal/segment"
+	"github.com/synnaxlabs/x/confluence"
 	"github.com/cockroachdb/errors"
 	"go.uber.org/zap"
 	"sync"

@@ -2,11 +2,11 @@ package server
 
 import (
 	"context"
-	"github.com/arya-analytics/freighter"
-	"github.com/arya-analytics/freighter/fws"
-	"github.com/arya-analytics/x/httputil"
 	"github.com/cockroachdb/errors"
 	"github.com/gofiber/fiber/v2"
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/freighter/fws"
+	"github.com/synnaxlabs/x/httputil"
 	"go.uber.org/zap"
 )
 

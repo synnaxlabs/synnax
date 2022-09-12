@@ -1,10 +1,10 @@
 package kv
 
 import (
-	"github.com/arya-analytics/x/binary"
-	"github.com/arya-analytics/x/confluence"
-	kvx "github.com/arya-analytics/x/kv"
-	"github.com/arya-analytics/x/version"
+	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/confluence"
+	kvx "github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/version"
 	"github.com/synnaxlabs/aspen/internal/node"
 )
 

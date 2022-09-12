@@ -2,7 +2,7 @@ package api
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/segment"
-	"github.com/arya-analytics/x/telem"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // Segment is an API-friendly version of the segment.Segment type. It is simplified for

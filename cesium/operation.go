@@ -2,14 +2,14 @@ package cesium
 
 import (
 	"context"
-	"github.com/arya-analytics/cesium/internal/channel"
-	"github.com/arya-analytics/cesium/internal/core"
-	"github.com/arya-analytics/cesium/internal/kv"
-	"github.com/arya-analytics/cesium/internal/operation"
-	"github.com/arya-analytics/cesium/internal/segment"
-	"github.com/arya-analytics/x/alamos"
-	"github.com/arya-analytics/x/confluence"
-	"github.com/arya-analytics/x/telem"
+	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/kv"
+	"github.com/synnaxlabs/cesium/internal/operation"
+	"github.com/synnaxlabs/cesium/internal/segment"
+	"github.com/synnaxlabs/x/alamos"
+	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 	"sync"
 )

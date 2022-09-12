@@ -2,15 +2,15 @@ package aspen
 
 import (
 	"context"
-	"github.com/arya-analytics/x/address"
-	"github.com/arya-analytics/x/errutil"
-	kvx "github.com/arya-analytics/x/kv"
-	"github.com/arya-analytics/x/signal"
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/kv"
 	"github.com/synnaxlabs/aspen/internal/node"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/errutil"
+	kvx "github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/signal"
 )
 
 type (

@@ -1,9 +1,9 @@
 package writer
 
 import (
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/segment/core"
-	"github.com/arya-analytics/freighter"
 )
 
 type Request struct {

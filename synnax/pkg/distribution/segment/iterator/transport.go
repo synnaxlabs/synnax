@@ -4,8 +4,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	distribcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/segment/core"
-	"github.com/arya-analytics/freighter"
-	"github.com/arya-analytics/x/telem"
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/x/telem"
 )
 
 //go:generate stringer -type=Command

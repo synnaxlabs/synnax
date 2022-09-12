@@ -4,7 +4,7 @@ import (
 	"context"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/gen/proto/go/channel/v1"
-	"github.com/arya-analytics/freighter/fgrpc"
+	"github.com/synnaxlabs/freighter/fgrpc"
 	"google.golang.org/grpc"
 )
 

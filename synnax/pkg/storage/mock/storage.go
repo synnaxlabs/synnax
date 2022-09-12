@@ -2,9 +2,9 @@ package mock
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/storage"
-	"github.com/arya-analytics/x/config"
-	"github.com/arya-analytics/x/errutil"
-	"github.com/arya-analytics/x/fsutil"
+	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errutil"
+	"github.com/synnaxlabs/x/fsutil"
 	"os"
 )
 

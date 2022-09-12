@@ -1,10 +1,10 @@
 package cesium
 
 import (
-	"github.com/arya-analytics/x/alamos"
-	"github.com/arya-analytics/x/kfs"
-	"github.com/arya-analytics/x/kv"
 	"github.com/cockroachdb/pebble/vfs"
+	"github.com/synnaxlabs/x/alamos"
+	"github.com/synnaxlabs/x/kfs"
+	"github.com/synnaxlabs/x/kv"
 	"go.uber.org/zap"
 	"time"
 )

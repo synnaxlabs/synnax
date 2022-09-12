@@ -2,8 +2,8 @@ package aspen_test
 
 import (
 	"context"
-	"github.com/arya-analytics/x/address"
-	"github.com/arya-analytics/x/alamos"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/alamos"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen"

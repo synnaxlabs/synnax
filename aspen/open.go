@@ -2,9 +2,9 @@ package aspen
 
 import (
 	"context"
-	"github.com/arya-analytics/x/address"
-	"github.com/arya-analytics/x/kv/pebblekv"
-	"github.com/arya-analytics/x/signal"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/kv/pebblekv"
+	"github.com/synnaxlabs/x/signal"
 	"github.com/cockroachdb/pebble"
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/kv"

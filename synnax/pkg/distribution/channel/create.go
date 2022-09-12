@@ -4,9 +4,9 @@ import (
 	"context"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/storage"
-	"github.com/arya-analytics/x/gorp"
-	"github.com/arya-analytics/x/query"
-	"github.com/arya-analytics/x/telem"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // Create is used to create a new Channel in delta's distribution layer.

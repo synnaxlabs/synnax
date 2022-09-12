@@ -6,11 +6,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/segment"
 	"github.com/synnaxlabs/synnax/pkg/distribution/segment/iterator"
-	"github.com/arya-analytics/freighter"
-	"github.com/arya-analytics/freighter/ferrors"
-	"github.com/arya-analytics/x/confluence"
-	"github.com/arya-analytics/x/signal"
-	"github.com/arya-analytics/x/telem"
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/freighter/ferrors"
+	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/telem"
 	roacherrors "github.com/cockroachdb/errors"
 )
 

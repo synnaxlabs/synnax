@@ -1,7 +1,7 @@
 package gossip
 
 import (
-	"github.com/arya-analytics/freighter"
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/aspen/internal/node"
 )
 

@@ -2,7 +2,7 @@ version: v1
 managed:
   enabled: true
   go_package_prefix:
-    default: github.com/arya-analytics/freighter/
+    default: github.com/synnaxlabs/freighter/
 plugins:
   - name: go
     out: .

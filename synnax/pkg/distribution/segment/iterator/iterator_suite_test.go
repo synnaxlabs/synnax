@@ -2,17 +2,17 @@ package iterator_test
 
 import (
 	"context"
-	"github.com/arya-analytics/cesium/testutil/seg"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium/testutil/seg"
+	"github.com/synnaxlabs/freighter/fmock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/segment/iterator"
 	"github.com/synnaxlabs/synnax/pkg/storage"
-	"github.com/arya-analytics/freighter/fmock"
-	"github.com/arya-analytics/x/config"
-	"github.com/arya-analytics/x/telem"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 	"testing"
 )

@@ -1,8 +1,8 @@
 package cesium
 
 import (
-	"github.com/arya-analytics/cesium/internal/core"
-	"github.com/arya-analytics/x/kv"
+	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/x/kv"
 )
 
 const (

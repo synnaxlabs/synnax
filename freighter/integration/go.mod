@@ -1,15 +1,15 @@
-module github.com/arya-analytics/freighter/integration
+module github.com/synnaxlabs/freighter/integration
 
 go 1.19
 
 replace (
-	github.com/arya-analytics/freighter => ../go
-	github.com/arya-analytics/x => ../../x
+	github.com/synnaxlabs/freighter => ../go
+	github.com/synnaxlabs/x => ../../x
 )
 
 require (
-	github.com/arya-analytics/freighter v0.0.0-00010101000000-000000000000
-	github.com/arya-analytics/x v0.0.0-20220801122519-e4a5e96a532d
+	github.com/synnaxlabs/freighter v0.0.0-00010101000000-000000000000
+	github.com/synnaxlabs/x v0.0.0-20220801122519-e4a5e96a532d
 	github.com/cockroachdb/errors v1.9.0
 	github.com/gofiber/fiber/v2 v2.36.0
 	github.com/sirupsen/logrus v1.9.0

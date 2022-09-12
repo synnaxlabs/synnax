@@ -1,13 +1,13 @@
 package clustermock_test
 
 import (
-	"github.com/arya-analytics/x/signal"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/cluster/clustermock"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/node"
+	"github.com/synnaxlabs/x/signal"
 	"time"
 )
 

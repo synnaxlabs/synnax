@@ -3,8 +3,8 @@ package auth_test
 import (
 	"github.com/synnaxlabs/synnax/pkg/auth"
 	"github.com/synnaxlabs/synnax/pkg/auth/password"
-	"github.com/arya-analytics/x/gorp"
-	"github.com/arya-analytics/x/kv/memkv"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

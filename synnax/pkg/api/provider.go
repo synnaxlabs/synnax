@@ -7,7 +7,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/user"
-	"github.com/arya-analytics/x/gorp"
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/go-playground/validator/v10"
 	"go.uber.org/zap"
 )

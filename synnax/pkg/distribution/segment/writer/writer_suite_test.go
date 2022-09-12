@@ -2,13 +2,13 @@ package writer_test
 
 import (
 	"context"
+	"github.com/synnaxlabs/freighter/fmock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/segment/writer"
 	"github.com/synnaxlabs/synnax/pkg/storage"
-	"github.com/arya-analytics/freighter/fmock"
-	"github.com/arya-analytics/x/config"
+	"github.com/synnaxlabs/x/config"
 	"go.uber.org/zap"
 	"testing"
 

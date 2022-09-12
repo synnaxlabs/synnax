@@ -1,15 +1,15 @@
 package segment
 
 import (
-	"github.com/arya-analytics/cesium"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	distribcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/segment"
 	"github.com/synnaxlabs/synnax/pkg/distribution/segment/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/segment/writer"
 	sv1 "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/gen/proto/go/segment/v1"
-	"github.com/arya-analytics/freighter/fgrpc"
-	"github.com/arya-analytics/x/telem"
+	"github.com/synnaxlabs/freighter/fgrpc"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // |||||| WRITER ||||||

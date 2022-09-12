@@ -2,15 +2,15 @@ package freightfluence_test
 
 import (
 	"context"
-	"github.com/arya-analytics/x/address"
-	"github.com/arya-analytics/x/confluence"
-	"github.com/arya-analytics/x/signal"
 	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/fmock"
 	"github.com/synnaxlabs/freighter/freightfluence"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/signal"
 )
 
 func clientStreamsToSlice(

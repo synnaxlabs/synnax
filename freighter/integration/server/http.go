@@ -1,7 +1,7 @@
 package server
 
 import (
-	"github.com/arya-analytics/freighter/ferrors"
+	"github.com/synnaxlabs/freighter/ferrors"
 	"github.com/gofiber/fiber/v2"
 )
 

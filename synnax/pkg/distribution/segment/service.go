@@ -2,12 +2,12 @@ package segment
 
 import (
 	"context"
-	"github.com/arya-analytics/cesium"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/segment/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/segment/writer"
-	"github.com/arya-analytics/x/telem"
+	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
 

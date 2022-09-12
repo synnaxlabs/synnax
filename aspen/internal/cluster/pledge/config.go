@@ -1,12 +1,12 @@
 package pledge
 
 import (
-	"github.com/arya-analytics/freighter"
-	"github.com/arya-analytics/x/address"
-	"github.com/arya-analytics/x/alamos"
-	"github.com/arya-analytics/x/config"
-	"github.com/arya-analytics/x/override"
-	"github.com/arya-analytics/x/validate"
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/alamos"
+	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/validate"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"go.uber.org/zap"
 	"time"

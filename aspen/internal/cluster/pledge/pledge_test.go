@@ -2,9 +2,9 @@ package pledge_test
 
 import (
 	"context"
-	"github.com/arya-analytics/freighter/fmock"
-	"github.com/arya-analytics/x/address"
-	. "github.com/arya-analytics/x/testutil"
+	"github.com/synnaxlabs/freighter/fmock"
+	"github.com/synnaxlabs/x/address"
+	. "github.com/synnaxlabs/x/testutil"
 	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

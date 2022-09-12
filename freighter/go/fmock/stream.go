@@ -3,9 +3,9 @@ package fmock
 import (
 	"context"
 	"fmt"
-	"github.com/arya-analytics/x/address"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/ferrors"
+	"github.com/synnaxlabs/x/address"
 	"go/types"
 )
 

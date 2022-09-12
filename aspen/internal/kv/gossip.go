@@ -2,8 +2,8 @@ package kv
 
 import (
 	"context"
-	"github.com/arya-analytics/freighter"
-	"github.com/arya-analytics/x/confluence"
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"go/types"

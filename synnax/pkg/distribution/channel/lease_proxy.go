@@ -6,7 +6,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/synnax/pkg/storage"
-	"github.com/arya-analytics/x/gorp"
+	"github.com/synnaxlabs/x/gorp"
 )
 
 type leaseProxy struct {

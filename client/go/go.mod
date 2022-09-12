@@ -1,28 +1,28 @@
-module github.com/arya-analytics/client-go
+module github.com/synnaxlabs/client-go
 
 go 1.19
 
-replace github.com/arya-analytics/x => ../../x
+replace github.com/synnaxlabs/x => ../../x
 
-replace github.com/arya-analytics/delta => ./../../synnax
+replace github.com/synnaxlabs/delta => ./../../synnax
 
-replace github.com/arya-analytics/freighter => ../../freighter/go
+replace github.com/synnaxlabs/freighter => ../../freighter/go
 
-replace github.com/arya-analytics/aspen => ../../aspen
+replace github.com/synnaxlabs/aspen => ../../aspen
 
-replace github.com/arya-analytics/cesium => ../../cesium
+replace github.com/synnaxlabs/cesium => ../../cesium
 
 require (
-	github.com/arya-analytics/delta v0.0.0-00010101000000-000000000000
-	github.com/arya-analytics/freighter v0.0.0-20220810182625-b66219353383
-	github.com/arya-analytics/x v0.0.0-20220801122519-e4a5e96a532d
+	github.com/synnaxlabs/delta v0.0.0-00010101000000-000000000000
+	github.com/synnaxlabs/freighter v0.0.0-20220810182625-b66219353383
+	github.com/synnaxlabs/x v0.0.0-20220801122519-e4a5e96a532d
 	github.com/cockroachdb/errors v1.9.0
 )
 
 require (
 	github.com/DataDog/zstd v1.4.5 // indirect
-	github.com/arya-analytics/aspen v0.0.0-20220804103056-48505d5ea44e // indirect
-	github.com/arya-analytics/cesium v0.0.0-20220722114246-333fea6b09d0 // indirect
+	github.com/synnaxlabs/aspen v0.0.0-20220804103056-48505d5ea44e // indirect
+	github.com/synnaxlabs/cesium v0.0.0-20220722114246-333fea6b09d0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/cockroachdb/logtags v0.0.0-20211118104740-dabe8e521a4f // indirect
 	github.com/cockroachdb/pebble v0.0.0-20220513193540-b8c9a560bed5 // indirect

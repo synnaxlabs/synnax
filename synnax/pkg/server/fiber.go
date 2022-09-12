@@ -3,7 +3,7 @@ package server
 import (
 	"context"
 	fiberapi "github.com/synnaxlabs/synnax/pkg/api/fiber"
-	"github.com/arya-analytics/x/signal"
+	"github.com/synnaxlabs/x/signal"
 	"github.com/gofiber/fiber/v2"
 	"net"
 )

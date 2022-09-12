@@ -1,8 +1,8 @@
 package node
 
 import (
-	"github.com/arya-analytics/x/address"
-	"github.com/arya-analytics/x/version"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/version"
 	"strconv"
 )
 

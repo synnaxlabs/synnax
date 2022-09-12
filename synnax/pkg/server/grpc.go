@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"github.com/arya-analytics/x/signal"
+	"github.com/synnaxlabs/x/signal"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"net"

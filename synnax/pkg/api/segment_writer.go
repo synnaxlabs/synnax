@@ -2,17 +2,17 @@ package api
 
 import (
 	"context"
-	"github.com/arya-analytics/cesium"
+	roacherrors "github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/freighter/ferrors"
 	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/segment"
 	"github.com/synnaxlabs/synnax/pkg/distribution/segment/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/segment/writer"
-	"github.com/arya-analytics/freighter"
-	"github.com/arya-analytics/freighter/ferrors"
-	"github.com/arya-analytics/x/confluence"
-	"github.com/arya-analytics/x/signal"
-	roacherrors "github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/signal"
 )
 
 // WriterRequest represents a request to write segment data for a set of channels.

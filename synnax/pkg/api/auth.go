@@ -1,12 +1,12 @@
 package api
 
 import (
+	roacherrors "github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/auth"
 	"github.com/synnaxlabs/synnax/pkg/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/user"
-	"github.com/arya-analytics/x/gorp"
-	roacherrors "github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/x/gorp"
 )
 
 // AuthService is the core authentication service for the delta API.

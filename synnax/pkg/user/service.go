@@ -2,8 +2,8 @@ package user
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/arya-analytics/x/gorp"
-	"github.com/arya-analytics/x/query"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 	"github.com/google/uuid"
 )
 

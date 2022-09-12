@@ -2,7 +2,7 @@ package auth
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/auth/password"
-	"github.com/arya-analytics/x/gorp"
+	"github.com/synnaxlabs/x/gorp"
 )
 
 // Authenticator is an interface for validating the identity of a particular entity (

@@ -2,10 +2,10 @@ package storage_test
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/storage"
-	"github.com/arya-analytics/x/config"
-	"github.com/arya-analytics/x/fsutil"
-	. "github.com/arya-analytics/x/testutil"
-	"github.com/arya-analytics/x/validate"
+	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/fsutil"
+	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"os"

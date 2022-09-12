@@ -4,10 +4,10 @@ import (
 	"context"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
-	"github.com/arya-analytics/freighter"
-	"github.com/arya-analytics/freighter/freightfluence"
-	"github.com/arya-analytics/x/address"
-	"github.com/arya-analytics/x/confluence"
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/freighter/freightfluence"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/confluence"
 )
 
 type requestSwitchSender struct {

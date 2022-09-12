@@ -2,7 +2,7 @@ package ontology_test
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/arya-analytics/x/query"
+	"github.com/synnaxlabs/x/query"
 	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

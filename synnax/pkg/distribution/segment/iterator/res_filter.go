@@ -1,7 +1,7 @@
 package iterator
 
 import (
-	"github.com/arya-analytics/x/confluence"
+	"github.com/synnaxlabs/x/confluence"
 )
 
 import (

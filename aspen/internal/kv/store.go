@@ -2,8 +2,8 @@ package kv
 
 import (
 	"context"
-	"github.com/arya-analytics/x/confluence"
-	xstore "github.com/arya-analytics/x/store"
+	"github.com/synnaxlabs/x/confluence"
+	xstore "github.com/synnaxlabs/x/store"
 )
 
 type storeState map[string]Operation

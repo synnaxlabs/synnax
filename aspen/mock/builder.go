@@ -2,8 +2,8 @@ package mock
 
 import (
 	"context"
-	"github.com/arya-analytics/x/address"
-	"github.com/arya-analytics/x/errutil"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/errutil"
 	"github.com/synnaxlabs/aspen"
 	"os"
 	"path/filepath"

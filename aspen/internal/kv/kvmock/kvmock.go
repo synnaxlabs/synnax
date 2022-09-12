@@ -1,9 +1,9 @@
 package kvmock
 
 import (
-	"github.com/arya-analytics/freighter/fmock"
-	"github.com/arya-analytics/x/kv/memkv"
-	"github.com/arya-analytics/x/signal"
+	"github.com/synnaxlabs/freighter/fmock"
+	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/cluster/clustermock"
 	"github.com/synnaxlabs/aspen/internal/kv"

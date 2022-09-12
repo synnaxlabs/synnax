@@ -1,10 +1,10 @@
 package ontology
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
-	"github.com/arya-analytics/x/gorp"
-	"github.com/arya-analytics/x/query"
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 )
 
 type (

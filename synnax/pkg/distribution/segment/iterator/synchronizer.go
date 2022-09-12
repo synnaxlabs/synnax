@@ -2,9 +2,9 @@ package iterator
 
 import (
 	"context"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
-	"github.com/arya-analytics/x/confluence"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/x/confluence"
 )
 
 type synchronizer struct {

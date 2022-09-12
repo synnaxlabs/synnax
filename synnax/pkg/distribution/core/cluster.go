@@ -1,7 +1,7 @@
 package core
 
 import (
-	"github.com/arya-analytics/aspen"
+	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"strconv"
 )

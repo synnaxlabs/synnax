@@ -1,5 +1,5 @@
 {
-  "name": "@arya-analytics/pluto",
+  "name": "@synnaxlabs/pluto",
   "private": false,
   "version": "0.0.1",
   "type": "module",
@@ -58,7 +58,7 @@
   },
   "readme": "ERROR: No README data found!",
   "_id": "pluto@0.0.0",
-  "repository": "https://github.com/arya-analytics/pluto.git",
+  "repository": "https://github.com/synnaxlabs/pluto.git",
   "author": "emiliano bonilla <emilbon99@gmail.com>",
   "license": "MIT"
 }

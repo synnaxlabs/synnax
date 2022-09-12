@@ -2,11 +2,11 @@ package writer
 
 import (
 	"context"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/arya-analytics/x/confluence"
-	"github.com/arya-analytics/x/query"
-	"github.com/arya-analytics/x/signal"
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/signal"
 )
 
 func unspecifiedChannelError(key channel.Key) error {

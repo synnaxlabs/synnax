@@ -2,10 +2,10 @@ package core
 
 import (
 	"context"
+	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/storage"
-	"github.com/arya-analytics/x/query"
-	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/x/query"
 )
 
 type Segment struct {

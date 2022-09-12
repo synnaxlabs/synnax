@@ -2,9 +2,9 @@ package cluster_test
 
 import (
 	"context"
-	"github.com/arya-analytics/x/address"
-	"github.com/arya-analytics/x/signal"
-	. "github.com/arya-analytics/x/testutil"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/signal"
+	. "github.com/synnaxlabs/x/testutil"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen/internal/cluster"

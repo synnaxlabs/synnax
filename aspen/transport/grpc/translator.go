@@ -1,9 +1,9 @@
 package grpc
 
 import (
-	"github.com/arya-analytics/freighter/fgrpc"
-	"github.com/arya-analytics/x/address"
-	"github.com/arya-analytics/x/version"
+	"github.com/synnaxlabs/freighter/fgrpc"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/version"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/kv"
 	"github.com/synnaxlabs/aspen/internal/node"

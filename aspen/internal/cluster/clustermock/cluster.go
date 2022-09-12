@@ -1,9 +1,9 @@
 package clustermock
 
 import (
-	"github.com/arya-analytics/freighter/fmock"
-	"github.com/arya-analytics/x/address"
-	"github.com/arya-analytics/x/signal"
+	"github.com/synnaxlabs/freighter/fmock"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"

@@ -1,12 +1,12 @@
 package kv_test
 
 import (
-	"github.com/arya-analytics/cesium/internal/channel"
-	"github.com/arya-analytics/cesium/internal/kv"
-	kvx "github.com/arya-analytics/x/kv"
-	"github.com/arya-analytics/x/kv/memkv"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/kv"
+	kvx "github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/kv/memkv"
 )
 
 var _ = Describe("Channel", func() {

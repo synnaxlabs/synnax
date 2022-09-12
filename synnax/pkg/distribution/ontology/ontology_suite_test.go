@@ -3,8 +3,8 @@ package ontology_test
 import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
-	"github.com/arya-analytics/x/gorp"
-	"github.com/arya-analytics/x/kv/memkv"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/kv/memkv"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"

@@ -1,10 +1,10 @@
 package cesium_test
 
 import (
-	"github.com/arya-analytics/cesium"
-	"github.com/arya-analytics/x/telem"
-	. "github.com/arya-analytics/x/testutil"
-	"github.com/arya-analytics/x/validate"
+	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )

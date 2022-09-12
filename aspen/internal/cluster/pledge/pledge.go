@@ -22,11 +22,11 @@ package pledge
 
 import (
 	"context"
-	"github.com/arya-analytics/x/alamos"
-	"github.com/arya-analytics/x/config"
-	"github.com/arya-analytics/x/iter"
-	xrand "github.com/arya-analytics/x/rand"
-	xtime "github.com/arya-analytics/x/time"
+	"github.com/synnaxlabs/x/alamos"
+	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/iter"
+	xrand "github.com/synnaxlabs/x/rand"
+	xtime "github.com/synnaxlabs/x/time"
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen/internal/node"

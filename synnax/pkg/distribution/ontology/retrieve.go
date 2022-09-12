@@ -1,8 +1,8 @@
 package ontology
 
 import (
-	"github.com/arya-analytics/x/gorp"
-	"github.com/arya-analytics/x/query"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 )
 
 type Retrieve struct {

@@ -2,10 +2,10 @@ package core
 
 import (
 	"context"
-	"github.com/arya-analytics/aspen"
-	aspentransport "github.com/arya-analytics/aspen/transport/grpc"
+	"github.com/synnaxlabs/aspen"
+	aspentransport "github.com/synnaxlabs/aspen/transport/grpc"
 	"github.com/synnaxlabs/synnax/pkg/storage"
-	"github.com/arya-analytics/x/config"
+	"github.com/synnaxlabs/x/config"
 )
 
 // Core is the foundational primitive for distributed compute in the delta cluster. It exposes the following essential

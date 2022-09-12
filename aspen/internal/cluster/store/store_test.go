@@ -1,7 +1,7 @@
 package store_test
 
 import (
-	"github.com/arya-analytics/x/version"
+	"github.com/synnaxlabs/x/version"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen/internal/cluster/store"

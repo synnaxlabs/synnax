@@ -2,7 +2,7 @@ package errors_test
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/api/errors"
-	"github.com/arya-analytics/freighter/ferrors"
+	"github.com/synnaxlabs/freighter/ferrors"
 	roacherrors "github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

@@ -1,13 +1,13 @@
 package kv
 
 import (
-	"github.com/arya-analytics/x/address"
-	"github.com/arya-analytics/x/alamos"
-	"github.com/arya-analytics/x/config"
-	"github.com/arya-analytics/x/confluence"
-	"github.com/arya-analytics/x/confluence/plumber"
-	kvx "github.com/arya-analytics/x/kv"
-	"github.com/arya-analytics/x/signal"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/alamos"
+	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/confluence/plumber"
+	kvx "github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/signal"
 )
 
 // Writer is a writable key-value storeSink.

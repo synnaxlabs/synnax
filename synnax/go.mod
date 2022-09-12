@@ -3,11 +3,11 @@ module github.com/synnaxlabs/synnax
 go 1.19
 
 require (
-	github.com/arya-analytics/aspen v0.0.0-20220804103056-48505d5ea44e
-	github.com/arya-analytics/cesium v0.0.0-20220722114246-333fea6b09d0
-	github.com/arya-analytics/client-go v0.0.0-00010101000000-000000000000
-	github.com/arya-analytics/freighter v0.0.0-20220810182625-b66219353383
-	github.com/arya-analytics/x v0.0.0-20220801122519-e4a5e96a532d
+	github.com/synnaxlabs/aspen v0.0.0-20220804103056-48505d5ea44e
+	github.com/synnaxlabs/cesium v0.0.0-20220722114246-333fea6b09d0
+	github.com/synnaxlabs/client-go v0.0.0-00010101000000-000000000000
+	github.com/synnaxlabs/freighter v0.0.0-20220810182625-b66219353383
+	github.com/synnaxlabs/x v0.0.0-20220801122519-e4a5e96a532d
 	github.com/cockroachdb/cmux v0.0.0-20170110192607-30d10be49292
 	github.com/cockroachdb/errors v1.9.0
 	github.com/cockroachdb/pebble v0.0.0-20220513193540-b8c9a560bed5
@@ -29,11 +29,11 @@ require (
 )
 
 replace (
-	github.com/arya-analytics/aspen => ../aspen
-	github.com/arya-analytics/cesium => ../cesium
-	github.com/arya-analytics/client-go => ../client/go
-	github.com/arya-analytics/freighter => ../freighter/go
-	github.com/arya-analytics/x => ../x
+	github.com/synnaxlabs/aspen => ../aspen
+	github.com/synnaxlabs/cesium => ../cesium
+	github.com/synnaxlabs/client-go => ../client/go
+	github.com/synnaxlabs/freighter => ../freighter/go
+	github.com/synnaxlabs/x => ../x
 )
 
 require (

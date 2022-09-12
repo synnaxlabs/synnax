@@ -2,11 +2,11 @@ package segment
 
 import (
 	"context"
+	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/segment"
 	"github.com/synnaxlabs/synnax/pkg/distribution/segment/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/segment/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/gen/proto/go/segment/v1"
-	"github.com/arya-analytics/freighter/fgrpc"
 	"google.golang.org/grpc"
 )
 

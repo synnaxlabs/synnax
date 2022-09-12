@@ -3,7 +3,7 @@ package mock_test
 import (
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/storage/mock"
-	"github.com/arya-analytics/x/config"
+	"github.com/synnaxlabs/x/config"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )

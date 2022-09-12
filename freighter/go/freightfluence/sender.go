@@ -2,12 +2,12 @@ package freightfluence
 
 import (
 	"context"
-	"github.com/arya-analytics/x/address"
-	. "github.com/arya-analytics/x/confluence"
-	"github.com/arya-analytics/x/errutil"
-	"github.com/arya-analytics/x/signal"
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/x/address"
+	. "github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/errutil"
+	"github.com/synnaxlabs/x/signal"
 )
 
 // Sender wraps freighter.StreamSenderCloser to provide a confluence compatible

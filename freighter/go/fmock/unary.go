@@ -2,9 +2,9 @@ package fmock
 
 import (
 	"context"
-	"github.com/arya-analytics/x/address"
-	"github.com/arya-analytics/x/alamos"
 	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/alamos"
 )
 
 // Unary is a mock, synchronous implementation of the freighter.Unary interface.

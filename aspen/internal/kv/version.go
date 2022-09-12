@@ -2,10 +2,10 @@ package kv
 
 import (
 	"context"
-	"github.com/arya-analytics/x/address"
-	"github.com/arya-analytics/x/confluence"
-	kvx "github.com/arya-analytics/x/kv"
-	"github.com/arya-analytics/x/version"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/confluence"
+	kvx "github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/version"
 	"github.com/samber/lo"
 )
 

@@ -1,13 +1,13 @@
 package kv
 
 import (
-	"github.com/arya-analytics/cesium/internal/channel"
-	"github.com/arya-analytics/cesium/internal/segment"
-	"github.com/arya-analytics/x/errutil"
-	"github.com/arya-analytics/x/gorp"
-	"github.com/arya-analytics/x/kv"
-	"github.com/arya-analytics/x/query"
-	"github.com/arya-analytics/x/telem"
+	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/segment"
+	"github.com/synnaxlabs/x/errutil"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/cockroachdb/errors"
 )
 

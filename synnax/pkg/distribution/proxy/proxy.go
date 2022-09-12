@@ -1,9 +1,9 @@
 package proxy
 
 import (
-	"github.com/arya-analytics/aspen"
+	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
-	"github.com/arya-analytics/x/address"
+	"github.com/synnaxlabs/x/address"
 )
 
 type Entry interface {

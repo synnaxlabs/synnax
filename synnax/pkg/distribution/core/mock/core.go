@@ -2,14 +2,14 @@ package mock
 
 import (
 	"context"
-	"github.com/arya-analytics/aspen"
-	aspentransmock "github.com/arya-analytics/aspen/transport/mock"
+	"github.com/synnaxlabs/aspen"
+	aspentransmock "github.com/synnaxlabs/aspen/transport/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	mockstorage "github.com/synnaxlabs/synnax/pkg/storage/mock"
-	"github.com/arya-analytics/x/address"
-	"github.com/arya-analytics/x/config"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/config"
 )
 
 type CoreBuilder struct {

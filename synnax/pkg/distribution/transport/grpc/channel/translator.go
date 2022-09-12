@@ -1,11 +1,11 @@
 package channel
 
 import (
-	"github.com/arya-analytics/cesium"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	distribcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	channelv1 "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/gen/proto/go/channel/v1"
-	"github.com/arya-analytics/x/telem"
+	"github.com/synnaxlabs/x/telem"
 )
 
 type createMessageTranslator struct{}

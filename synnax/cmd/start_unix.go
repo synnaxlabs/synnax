@@ -3,7 +3,7 @@
 package cmd
 
 import (
-	"github.com/arya-analytics/x/fsutil"
+	"github.com/synnaxlabs/x/fsutil"
 	"golang.org/x/sys/unix"
 )
 

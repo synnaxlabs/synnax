@@ -2,14 +2,14 @@ package writer
 
 import (
 	"context"
-	"github.com/synnaxlabs/synnax/pkg/storage"
-	"github.com/arya-analytics/freighter"
-	"github.com/arya-analytics/freighter/freightfluence"
-	"github.com/arya-analytics/x/address"
-	"github.com/arya-analytics/x/confluence"
-	"github.com/arya-analytics/x/confluence/plumber"
-	"github.com/arya-analytics/x/signal"
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/freighter/freightfluence"
+	"github.com/synnaxlabs/synnax/pkg/storage"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/confluence/plumber"
+	"github.com/synnaxlabs/x/signal"
 )
 
 type server struct {

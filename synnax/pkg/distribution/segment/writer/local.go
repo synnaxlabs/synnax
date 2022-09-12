@@ -2,10 +2,10 @@ package writer
 
 import (
 	"context"
-	"github.com/arya-analytics/cesium"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/arya-analytics/x/confluence"
-	"github.com/arya-analytics/x/confluence/plumber"
+	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/confluence/plumber"
 )
 
 func newLocalWriter(

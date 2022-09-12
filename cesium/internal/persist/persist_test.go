@@ -2,12 +2,12 @@ package persist_test
 
 import (
 	"context"
-	"github.com/arya-analytics/cesium/internal/operation"
-	"github.com/arya-analytics/cesium/internal/persist"
-	"github.com/arya-analytics/x/confluence"
-	"github.com/arya-analytics/x/kfs"
-	"github.com/arya-analytics/x/signal"
-	. "github.com/arya-analytics/x/testutil"
+	"github.com/synnaxlabs/cesium/internal/operation"
+	"github.com/synnaxlabs/cesium/internal/persist"
+	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/kfs"
+	"github.com/synnaxlabs/x/signal"
+	. "github.com/synnaxlabs/x/testutil"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )

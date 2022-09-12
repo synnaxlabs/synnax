@@ -5,8 +5,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/arya-analytics/x/gorp"
-	"github.com/arya-analytics/x/telem"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // Channel is an API-friendly version of the channel.Channel type. It is simplified for

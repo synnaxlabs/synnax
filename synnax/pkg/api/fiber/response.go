@@ -1,9 +1,9 @@
 package fiber
 
 import (
-	errors "github.com/synnaxlabs/synnax/pkg/api/errors"
-	"github.com/arya-analytics/freighter/ferrors"
 	"github.com/gofiber/fiber/v2"
+	"github.com/synnaxlabs/freighter/ferrors"
+	errors "github.com/synnaxlabs/synnax/pkg/api/errors"
 )
 
 func errorResponse(c *fiber.Ctx, err errors.Typed) error {

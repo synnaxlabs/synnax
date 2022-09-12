@@ -3,9 +3,9 @@ package gossip_test
 import (
 	"context"
 	"fmt"
-	"github.com/arya-analytics/freighter/fmock"
-	"github.com/arya-analytics/x/alamos"
-	"github.com/arya-analytics/x/rand"
+	"github.com/synnaxlabs/freighter/fmock"
+	"github.com/synnaxlabs/x/alamos"
+	"github.com/synnaxlabs/x/rand"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"

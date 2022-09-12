@@ -1,14 +1,14 @@
 package channel_test
 
 import (
-	"github.com/arya-analytics/aspen"
-	"github.com/arya-analytics/cesium"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/aspen"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
-	"github.com/arya-analytics/x/telem"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
 

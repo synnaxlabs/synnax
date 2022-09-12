@@ -2,9 +2,9 @@ package segment_test
 
 import (
 	"encoding/binary"
-	"github.com/arya-analytics/cesium/internal/channel"
-	"github.com/arya-analytics/cesium/internal/segment"
-	"github.com/arya-analytics/x/telem"
+	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/segment"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )

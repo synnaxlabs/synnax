@@ -2,7 +2,7 @@ package rbac
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/arya-analytics/x/gorp"
+	"github.com/synnaxlabs/x/gorp"
 )
 
 type Legislator struct {

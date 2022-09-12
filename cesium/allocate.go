@@ -2,10 +2,10 @@ package cesium
 
 import (
 	"context"
-	"github.com/arya-analytics/cesium/internal/allocate"
-	"github.com/arya-analytics/cesium/internal/channel"
-	"github.com/arya-analytics/cesium/internal/core"
-	"github.com/arya-analytics/x/confluence"
+	"github.com/synnaxlabs/cesium/internal/allocate"
+	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/x/confluence"
 )
 
 type allocator struct {

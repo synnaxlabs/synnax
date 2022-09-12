@@ -2,11 +2,11 @@ package iterator
 
 import (
 	"context"
+	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
-	"github.com/arya-analytics/freighter/freightfluence"
-	"github.com/arya-analytics/x/address"
-	"github.com/arya-analytics/x/telem"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/telem"
 )
 
 func openRemoteIterators(

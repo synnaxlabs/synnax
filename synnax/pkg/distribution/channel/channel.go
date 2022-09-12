@@ -2,14 +2,14 @@ package channel
 
 import (
 	"encoding/binary"
-	"github.com/arya-analytics/aspen"
-	"github.com/arya-analytics/cesium"
+	"github.com/cockroachdb/errors"
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/aspen"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/storage"
-	"github.com/arya-analytics/x/telem"
-	"github.com/cockroachdb/errors"
-	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/telem"
 	"strconv"
 	"strings"
 )

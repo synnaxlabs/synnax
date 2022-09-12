@@ -1,6 +1,6 @@
 <br />
 <p align="center">
-    <a href="https://aryaanalytics.com/">
+    <a href="https://synnaxlabs.com/">
         <img src="../docs/media/icon-full-title-white.png" width="70%"/>
     </a>
 </p>
@@ -23,7 +23,7 @@ Cesium is tailored towards a specific class of time-series data:
 ## Concepts 
 
 The following is an overview of Cesium concepts from an interface perspective. A detailed design 
-[RFC](https://github.com/arya-analytics/delta/blob/main/docs/rfc/220517-cesium-segment-storage.md) is available for those interested in the implementation.
+[RFC](https://github.com/synnaxlabs/delta/blob/main/docs/rfc/220517-cesium-segment-storage.md) is available for those interested in the implementation.
 
 ### Channels
 
@@ -72,7 +72,7 @@ Defining a custom data type is as simple as defining a constant of type `cesium.
 package main
 
 import (
-	"github.com/arya-analytics/cesium"
+	"github.com/synnaxlabs/cesium"
 )
 
 // TenByTenImage is a custom data type where each sample is 10 * 10 * 3 bytes in size.
@@ -86,7 +86,7 @@ Cesium is in Alpha state, and is not ready for production use.
 ## Installation
 
 ```bash
-go get github.com/arya-analytics/cesium
+go get github.com/synnaxlabs/cesium
 ```
 
 ## Getting Started
@@ -100,7 +100,7 @@ package main
 
 import (
 	"context"
-	"github.com/arya-analytics/cesium"
+	"github.com/synnaxlabs/cesium"
 	"log"
 )
 

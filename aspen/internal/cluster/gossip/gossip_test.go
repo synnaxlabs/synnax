@@ -2,8 +2,8 @@ package gossip_test
 
 import (
 	"context"
-	"github.com/arya-analytics/freighter/fmock"
-	"github.com/arya-analytics/x/signal"
+	"github.com/synnaxlabs/freighter/fmock"
+	"github.com/synnaxlabs/x/signal"
 	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
