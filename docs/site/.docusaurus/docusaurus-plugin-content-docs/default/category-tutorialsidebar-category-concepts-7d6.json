@@ -1,0 +1,16 @@
+{
+  "title": "Concepts",
+  "description": "Using the Arya Python Client",
+  "slug": "/category/concepts",
+  "permalink": "/category/concepts",
+  "navigation": {
+    "previous": {
+      "title": "terminology",
+      "permalink": "/terminology"
+    },
+    "next": {
+      "title": "Terminology",
+      "permalink": "/concepts/terminology"
+    }
+  }
+}

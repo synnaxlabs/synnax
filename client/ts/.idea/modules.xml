@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/.idea/client-js.iml" filepath="$PROJECT_DIR$/.idea/client-js.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../../pluto/.idea/pluto.iml" filepath="$PROJECT_DIR$/../../pluto/.idea/pluto.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../../docs/site/.idea/site.iml" filepath="$PROJECT_DIR$/../../docs/site/.idea/site.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../../freighter/ts/.idea/ts.iml" filepath="$PROJECT_DIR$/../../freighter/ts/.idea/ts.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../../delta/pkg/ui/.idea/ui.iml" filepath="$PROJECT_DIR$/../../delta/pkg/ui/.idea/ui.iml" />
+    </modules>
+  </component>
+</project>

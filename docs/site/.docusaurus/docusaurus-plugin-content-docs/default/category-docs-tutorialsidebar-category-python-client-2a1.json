@@ -1,0 +1,16 @@
+{
+  "title": "Python Client",
+  "description": "Using the Arya Python Client",
+  "slug": "/category/python-client",
+  "permalink": "/docs/category/python-client",
+  "navigation": {
+    "previous": {
+      "title": "Get Started",
+      "permalink": "/docs/intro"
+    },
+    "next": {
+      "title": "Get Started",
+      "permalink": "/docs/client-python/get-started"
+    }
+  }
+}

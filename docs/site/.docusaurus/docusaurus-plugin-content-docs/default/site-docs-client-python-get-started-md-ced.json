@@ -1,0 +1,27 @@
+{
+  "unversionedId": "client-python/get-started",
+  "id": "client-python/get-started",
+  "title": "Get Started",
+  "description": "Synnax offers a Python client for communicating with a cluster.",
+  "source": "@site/docs/client-python/get-started.md",
+  "sourceDirName": "client-python",
+  "slug": "/client-python/get-started",
+  "permalink": "/client-python/get-started",
+  "draft": false,
+  "editUrl": "https://github.com/facebook/docusaurus/tree/main/packages/create-docusaurus/templates/shared/docs/client-python/get-started.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 1,
+  "frontMatter": {
+    "sidebar_position": 1
+  },
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Python Client",
+    "permalink": "/category/python-client"
+  },
+  "next": {
+    "title": "Typescript Client",
+    "permalink": "/category/typescript-client"
+  }
+}

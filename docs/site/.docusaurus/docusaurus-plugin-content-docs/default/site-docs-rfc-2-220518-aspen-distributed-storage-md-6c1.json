@@ -1,0 +1,24 @@
+{
+  "unversionedId": "rfc/2-220518-aspen-distributed-storage",
+  "id": "rfc/2-220518-aspen-distributed-storage",
+  "title": "2 - Aspen - Gossip Based Peer to Peer Key-Value Store",
+  "description": "Feature Name - Aspen, a Gossip Based Peer to Peer Key-Value Store",
+  "source": "@site/docs/rfc/2-220518-aspen-distributed-storage.md",
+  "sourceDirName": "rfc",
+  "slug": "/rfc/2-220518-aspen-distributed-storage",
+  "permalink": "/rfc/2-220518-aspen-distributed-storage",
+  "draft": false,
+  "editUrl": "https://github.com/facebook/docusaurus/tree/main/packages/create-docusaurus/templates/shared/docs/rfc/2-220518-aspen-distributed-storage.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "1 - Cesium - Channel Segment Storage Engine",
+    "permalink": "/rfc/1-220517-cesium-segment-storage"
+  },
+  "next": {
+    "title": "3 - Delta - Segment Distribution",
+    "permalink": "/rfc/3-220604-segment-distribution"
+  }
+}

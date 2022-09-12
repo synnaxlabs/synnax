@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/../../../client-js/.idea/client-js.iml" filepath="$PROJECT_DIR$/../../../client-js/.idea/client-js.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../../../pluto/.idea/pluto.iml" filepath="$PROJECT_DIR$/../../../pluto/.idea/pluto.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/ui.iml" filepath="$PROJECT_DIR$/.idea/ui.iml" />
+    </modules>
+  </component>
+</project>

@@ -1,0 +1,98 @@
+{
+  "docusaurus-plugin-content-docs": {
+    "default": {
+      "path": "/",
+      "versions": [
+        {
+          "name": "current",
+          "label": "Next",
+          "isLast": true,
+          "path": "/",
+          "mainDocId": "intro",
+          "docs": [
+            {
+              "id": "client-python/get-started",
+              "path": "/client-python/get-started",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "client-typescript/get-started",
+              "path": "/client-typescript/get-started",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "concepts",
+              "path": "/concepts",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "intro",
+              "path": "/",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "rfc/1-220517-cesium-segment-storage",
+              "path": "/rfc/1-220517-cesium-segment-storage",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "rfc/2-220518-aspen-distributed-storage",
+              "path": "/rfc/2-220518-aspen-distributed-storage",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "rfc/3-220604-segment-distribution",
+              "path": "/rfc/3-220604-segment-distribution",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "rfc/4-220623-signal-gr",
+              "path": "/rfc/4-220623-signal-gr",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "rfc/5-220716-ontology",
+              "path": "/rfc/5-220716-ontology",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "rfc/6-220809-freighter",
+              "path": "/rfc/6-220809-freighter",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "rfc/7-220823-data-type",
+              "path": "/rfc/7-220823-data-type",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "/category/python-client",
+              "path": "/category/python-client",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "/category/typescript-client",
+              "path": "/category/typescript-client",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "/category/technical-rfcs",
+              "path": "/category/technical-rfcs",
+              "sidebar": "tutorialSidebar"
+            }
+          ],
+          "draftIds": [],
+          "sidebars": {
+            "tutorialSidebar": {
+              "link": {
+                "path": "/",
+                "label": "intro"
+              }
+            }
+          }
+        }
+      ],
+      "breadcrumbs": true
+    }
+  }
+}
