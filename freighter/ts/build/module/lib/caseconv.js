@@ -1,8 +1,0 @@
-import { camelKeys as _camelKeys, snakeKeys as _snakeKeys, } from 'js-convert-case';
-const options = {
-    recursive: true,
-    recursiveInArray: true,
-};
-export const snakeKeys = (entity) => _snakeKeys(entity, options);
-export const camelKeys = (entity) => _camelKeys(entity, options);
-//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiY2FzZWNvbnYuanMiLCJzb3VyY2VSb290IjoiIiwic291cmNlcyI6WyIuLi8uLi8uLi9zcmMvbGliL2Nhc2Vjb252LnRzIl0sIm5hbWVzIjpbXSwibWFwcGluZ3MiOiJBQUFBLE9BQU8sRUFDTCxTQUFTLElBQUksVUFBVSxFQUN2QixTQUFTLElBQUksVUFBVSxHQUN4QixNQUFNLGlCQUFpQixDQUFDO0FBRXpCLE1BQU0sT0FBTyxHQUFHO0lBQ2QsU0FBUyxFQUFFLElBQUk7SUFDZixnQkFBZ0IsRUFBRSxJQUFJO0NBQ3ZCLENBQUM7QUFFRixNQUFNLENBQUMsTUFBTSxTQUFTLEdBQUcsQ0FBQyxNQUFlLEVBQUUsRUFBRSxDQUFDLFVBQVUsQ0FBQyxNQUFNLEVBQUUsT0FBTyxDQUFDLENBQUM7QUFDMUUsTUFBTSxDQUFDLE1BQU0sU0FBUyxHQUFHLENBQUMsTUFBZSxFQUFFLEVBQUUsQ0FBQyxVQUFVLENBQUMsTUFBTSxFQUFFLE9BQU8sQ0FBQyxDQUFDIn0=
