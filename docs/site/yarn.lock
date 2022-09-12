@@ -138,7 +138,7 @@
     "@jridgewell/gen-mapping" "^0.1.0"
     "@jridgewell/trace-mapping" "^0.3.9"
 
-"@arya-analytics/pluto@../../pluto":
+"@synnaxlabs/pluto@../../pluto":
   version "0.0.1"
   dependencies:
     d3 "^7.6.1"

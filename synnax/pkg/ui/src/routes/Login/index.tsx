@@ -1,6 +1,6 @@
-import { Input, Space } from "@arya-analytics/pluto";
+import { Input, Space } from "@synnaxlabs/pluto";
 import "./index.css";
-import { Button } from "@arya-analytics/pluto";
+import { Button } from "@synnaxlabs/pluto";
 import Logo from "../../lib/Logo/Logo";
 import { useNavigate } from "react-router-dom";
 

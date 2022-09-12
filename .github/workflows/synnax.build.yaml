@@ -5,7 +5,7 @@ on:
       - main
   push:
     paths:
-      - 'delta/**'
+      - 'synnax/**'
       - '.github/workflows/delta.build.yaml'
 jobs:
   build:

@@ -5,10 +5,10 @@ import {
   applyThemeAsCssVars,
   aryaLight,
   aryaDark,
-} from "@arya-analytics/pluto";
+} from "@synnaxlabs/pluto";
 import IconGradient from "../../../../static/img/icon-gradient.svg";
 import IconWhite from "../../../../static/img/icon-white.svg";
-import "@arya-analytics/pluto/dist/style.css";
+import "@synnaxlabs/pluto/dist/style.css";
 
 const types = {
   "icon-white": <IconWhite />,

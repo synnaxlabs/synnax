@@ -10,9 +10,9 @@
     "@jridgewell/gen-mapping" "^0.1.0"
     "@jridgewell/trace-mapping" "^0.3.9"
 
-"@arya-analytics/pluto@^0.0.1":
+"@synnaxlabs/pluto@^0.0.1":
   version "0.0.1"
-  resolved "https://npm.pkg.github.com/download/@arya-analytics/pluto/0.0.1/717fcbe6e3602e1d43dd6386409aaf6f522a3ad3#717fcbe6e3602e1d43dd6386409aaf6f522a3ad3"
+  resolved "https://npm.pkg.github.com/download/@synnaxlabs/pluto/0.0.1/717fcbe6e3602e1d43dd6386409aaf6f522a3ad3#717fcbe6e3602e1d43dd6386409aaf6f522a3ad3"
   integrity sha512-su9fHLJ4Pq4wMswTzfOF3ocYYyDOLNWisRqI4Kn4fB3Xzg3M8bhuZN5VOnWh4FPPr5Er3r5yQX+TFJfgCo82xQ==
   dependencies:
     react "^18.2.0"

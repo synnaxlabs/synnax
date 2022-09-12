@@ -21,13 +21,13 @@ build:
     COPY . .
     ARG noui=false
     IF [ "$noui" = "true" ]
-        RUN go build -tags noui -o build/delta main.go
+        RUN go build -tags noui -o build/synnax main.go
     ELSE
-        RUN go build -o build/delta main.go
+        RUN go build -o build/synnax main.go
     END
-    SAVE ARTIFACT build/delta /delta AS LOCAL build/delta
+    SAVE ARTIFACT build/synnax /synnax AS LOCAL build/synnax
 
 docker:
     COPY +build/delta .
     ENTRYPOINT ["/delta/delta", "start"]
-    SAVE IMAGE --push ghcr.io/arya-analytics/delta:latest
+    SAVE IMAGE --push ghcr.io/arya-analytics/synnax:latest

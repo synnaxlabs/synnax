@@ -9,13 +9,13 @@ import { ReactComponent as IconWhite } from "./icon-white.svg";
 // @ts-ignore
 import { ReactComponent as IconBlack } from "./icon-black.svg";
 // @ts-ignore
-import { ReactComponent as TitleWhite } from "./full-white.svg";
+import { ReactComponent as TitleWhite } from "./title-white.svg";
 // @ts-ignore
-import { ReactComponent as TitleBlack } from "./full-black.svg";
+import { ReactComponent as TitleBlack } from "./title-black.svg";
 // @ts-ignore
-import { ReactComponent as TitleGradient } from "./full-gradient.svg";
+import { ReactComponent as TitleGradient } from "./title-gradient.svg";
 
-import { useThemeContext } from "@arya-analytics/pluto";
+import { useThemeContext } from "@synnaxlabs/pluto";
 
 export interface LogoProps
   extends Omit<HTMLAttributes<SVGElement>, "width" | "height"> {
@@ -27,9 +27,9 @@ const types = {
   "icon-white": <IconWhite />,
   "icon-black": <IconBlack />,
   "icon-gradient": <IconGradient />,
-  "title-white": <FullWhite />,
-  "title-black": <FullBlack />,
-  "title-gradient": <FullGradient />,
+  "title-white": <TitleWhite />,
+  "title-black": <TitleBlack />,
+  "title-gradient": <TitleGradient />,
 };
 
 export default function Logo({

@@ -1,7 +1,7 @@
-import { Space } from "@arya-analytics/pluto";
+import { Space } from "@synnaxlabs/pluto";
 import Logo from "../Logo/Logo";
 import "./Sidebar.css";
-import { ThemeSwitch } from "@arya-analytics/pluto";
+import { ThemeSwitch } from "@synnaxlabs/pluto";
 
 export default function Sidebar() {
   return (

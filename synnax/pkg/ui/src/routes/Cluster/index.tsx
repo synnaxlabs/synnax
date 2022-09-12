@@ -1,8 +1,8 @@
-import { Header, Space } from "@arya-analytics/pluto";
+import { Header, Space } from "@synnaxlabs/pluto";
 import { Atom2, Grain } from "tabler-icons-react";
 import Sidebar from "../../lib/Sidebar/Sidebar";
-import { HexagonBar } from "@arya-analytics/pluto";
-import { Statistic } from "@arya-analytics/pluto/src";
+import { HexagonBar } from "@synnaxlabs/pluto";
+import { Statistic } from "@synnaxlabs/pluto/src";
 
 const dummyMetrics = () => {
   return [
