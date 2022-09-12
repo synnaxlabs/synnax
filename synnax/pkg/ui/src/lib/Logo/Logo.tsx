@@ -9,23 +9,17 @@ import { ReactComponent as IconWhite } from "./icon-white.svg";
 // @ts-ignore
 import { ReactComponent as IconBlack } from "./icon-black.svg";
 // @ts-ignore
-import { ReactComponent as PartialGradient } from "./partial-gradient.svg";
+import { ReactComponent as TitleWhite } from "./full-white.svg";
 // @ts-ignore
-import { ReactComponent as PartialWhite } from "./partial-white.svg";
+import { ReactComponent as TitleBlack } from "./full-black.svg";
 // @ts-ignore
-import { ReactComponent as PartialBlack } from "./partial-black.svg";
-// @ts-ignore
-import { ReactComponent as FullWhite } from "./full-white.svg";
-// @ts-ignore
-import { ReactComponent as FullBlack } from "./full-black.svg";
-// @ts-ignore
-import { ReactComponent as FullGradient } from "./full-gradient.svg";
+import { ReactComponent as TitleGradient } from "./full-gradient.svg";
 
 import { useThemeContext } from "@arya-analytics/pluto";
 
 export interface LogoProps
   extends Omit<HTMLAttributes<SVGElement>, "width" | "height"> {
-  variant?: "icon" | "partial" | "full";
+  variant?: "icon" | "title";
   mode?: "light" | "dark" | "gradient" | "auto";
 }
 
@@ -33,12 +27,9 @@ const types = {
   "icon-white": <IconWhite />,
   "icon-black": <IconBlack />,
   "icon-gradient": <IconGradient />,
-  "partial-white": <PartialWhite />,
-  "partial-black": <PartialBlack />,
-  "partial-gradient": <PartialGradient />,
-  "full-white": <FullWhite />,
-  "full-black": <FullBlack />,
-  "full-gradient": <FullGradient />,
+  "title-white": <FullWhite />,
+  "title-black": <FullBlack />,
+  "title-gradient": <FullGradient />,
 };
 
 export default function Logo({
