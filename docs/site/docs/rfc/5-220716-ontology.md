@@ -4,8 +4,6 @@
 **Status**: Complete <br />
 **Start Date**: 2022-07-16 <br />
 **Authors**: emilbon99 <br />
-**Jira
-Issue**: [DA-185 - Data Ontology](https://arya-analytics.atlassian.net/browse/DA-185)
 
 # 0 - Summary
 

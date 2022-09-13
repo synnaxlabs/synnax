@@ -3,7 +3,6 @@
 **Feature Name**: Signal - Goroutine Manager<br />
 **Status**: Implemented <br />
 **Start Date**: 2020-06-23 <br />
-**Jira Issue**: [DA-171 - [Delta & X] - Signal RFC](https://arya-analytics.atlassian.net/browse/DA-171)
 
 # 0 - Summary
 

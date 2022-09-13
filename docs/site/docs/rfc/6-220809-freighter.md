@@ -3,7 +3,6 @@
 **Feature Name** - Freighter - Modular Transport Abstraction <br />
 **Status** - Complete <br />
 **Start Date** - 2022-08-09 <br />
-**Jira Issue** - [DA-166 - Freighter RFC](https://arya-analytics.atlassian.net/browse/DA-166)
 
 # 0 - Summary
 

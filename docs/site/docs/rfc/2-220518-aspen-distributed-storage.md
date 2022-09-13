@@ -4,7 +4,6 @@
 **Status** - Complete <br />
 **Start Date** -  2022-05-18 <br />
 **Authors** - emilbon99 <br />
-**Jira Issue** - [DA-153 - [Aspen] - RFC](https://arya-analytics.atlassian.net/browse/DA-153) <br />
 
 # 0 - Summary
 

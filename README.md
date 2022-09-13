@@ -17,7 +17,7 @@ The telemetry engine for operating large scale hardware systems with ease.
 
 # Repository Organization
 
-Synnax is built on top of several different services, all of which are collected
+Synnax is built as a collection of several different projects, all of which are collected
 in this monorepo. The following is a list of the services and their purpose:
 
 * [Aspen](https://github.com/synnaxlabs/synnax/tree/main/aspen) - A gossip based
@@ -34,8 +34,9 @@ is a subpackage of the client package.
 and user-facing documentation for Synnax. Contains the code for the Synnax documentation
 website, technical RFCs, and additonal media such as logos.
 * [Freighter](https://github.com/synnaxlabs/synnax/tree/main/freighter) - A protocol
-agnostic network transport for cross-language unary and streaming communication. The
-core RFC for Freighter is available [here](https://docs.synnaxlabs.com/rfc/6-220809-freighter).
+agnostic network transport for cross-language unary and streaming communication. Freighter
+has implementations in several languages; each implementation is container in a
+sub-directory of the freighter service. The core RFC for Freighter is available [here](https://docs.synnaxlabs.com/rfc/6-220809-freighter).
 * [Pluto](https://github.com/synnaxlabs/synnax/tree/main/pluto) - A React component
 library for building the Synnax user interfaces. This package includes theming
 standards (primary colors, grays, errors, fonts, etc.).
