@@ -33,8 +33,9 @@ jobs:
         run: earthly --push +docker
         working-directory: ./synnax
 
-      - name: Rename Image and Push to Docker Hub
-        run:
-            docker tag ghcr.io/synnaxlabs/synnax:latest synnaxlabs/synnax:latest
-            docker push synnaxlabs/synnax:latest
+      - name: Rename Image
+        run: docker tag ghcr.io/synnaxlabs/synnax:latest synnaxlabs/synnax:latest
+
+      - name: Push to Docker Hub
+        run: docker push synnaxlabs/synnax:latest
 
