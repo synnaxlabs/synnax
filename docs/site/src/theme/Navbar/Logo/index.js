@@ -1,5 +1,4 @@
 import React, { cloneElement, useEffect } from "react";
-import Logo from "@theme-original/Navbar/Logo";
 import { useColorMode } from "@docusaurus/theme-common";
 import {
   applyThemeAsCssVars,

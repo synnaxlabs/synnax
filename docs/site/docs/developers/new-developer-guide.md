@@ -2,7 +2,7 @@
 sidebar_position: 1
 ---
 
-# What I need to Write
+# New Developer Guide
 
 # Repository Structure
 
