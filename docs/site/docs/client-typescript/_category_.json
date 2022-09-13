@@ -1,6 +1,6 @@
 {
   "label": "Typescript Client",
-  "position": 5,
+  "position": 11,
   "link": {
     "type": "generated-index",
     "description": "Using the Arya Typescript Client"

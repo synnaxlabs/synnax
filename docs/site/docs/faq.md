@@ -20,7 +20,7 @@ guidelines.
 
 ### How can I contribute?
 
-Welcome!. Reach out to [Emiliano](mailto:emilbon99@gmail.com) 
+Welcome! Reach out to [Emiliano](mailto:emilbon99@gmail.com) 
 (emilbon99@gmail.com) if you'd like to get involved. While you wait for a response, 
 check out the [New Developer Guide](https://docs.synnaxlabs.com/category/developers) 
 to get up to speed. Also, feel free to browser through the 

@@ -12,7 +12,7 @@ import {Space} from "@synnaxlabs/pluto"
 
 
 <Space direction="horizontal" align="center" size="large" justify="center" style={{margin: "50px 0"}}>
-<Logo variant="title" style={{width: "500px"}}/>
+<Logo variant="title" style={{width: "50%"}}/>
 </Space>
 
 # Get Started
@@ -27,8 +27,6 @@ If you're interested in contributing to Synnax, check out the [New Developer Gui
 and read through our [Technical RFCs](../category/technical-rfcs).
 
 ## Starting a Single Node Cluster
-
-There are several ways to start a single node cluster. We've provided a few options below.
 
 ```mdx-code-block
 <Tabs>
@@ -55,23 +53,15 @@ docker container. This allows you to access the synnax node from your local mach
 connections. This is also the address that other nodes will use to connect when starting
 a multi-node cluster.
 
-`--mem` - Tells the node to use an in-memory database, which is useful for testing
+`--mem` - Tells the node to store its data in memory, which is useful for testing
 purposes.
 
 ```mdx-code-block
 </TabItem>
-```
-
-```mdx-code-block
-<TabItem value="binary" label="Binary">
-```
-
-```mdx-code-block
-</TabItem >
-```
-
-```mdx-code-block
 </Tabs>
 ```
 
+## Connecting to the Node
 
+Now that you have a node running, you can communicate with it using our python
+client library. See the [Python Client](../client-python/get-started) page for more information.
