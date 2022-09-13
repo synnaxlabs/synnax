@@ -17,4 +17,4 @@ build:
 docker:
     COPY +build/freighter/integration .
     ENTRYPOINT ["/freighter/integration/integration"]
-    SAVE IMAGE --push ghcr.io/arya-analytics/freighter-go-integration:latest
+    SAVE IMAGE --push ghcr.io/synnax/freighter-go-integration:latest
