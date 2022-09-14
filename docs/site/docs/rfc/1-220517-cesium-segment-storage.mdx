@@ -13,8 +13,10 @@ focus on interface as opposed to implementation details; a key goal is to define
 a sustainable API that can serve as a clear boundary between Delta and an
 underlying storage engine.
 
+:::info
 This design is by no means complete, and is intended to be a starting point for
 continuous iteration as Delta's demands evolve.
+:::
 
 # 1 - Vocabulary
 
@@ -247,13 +249,15 @@ WithType(TenByTenImage).
 Exec(ctx)
 ```
 
-It's important to note that Cesium does not plan to validate the data type. It's
+:::caution
+Cesium does not plan to validate the data type. It's
 the caller's responsibility to ensure that partial samples are not added to a
 segment. This is mainly for simplicity and separation of concern, as the caller
 typically has more information about the data being written than the storage
 engine itself does. This decision is definitely not hard and fast, as adding
 simple validation is relatively easy (we can assert `len(data) % Density == 0`
 for example).
+:::
 
 ## 3 - Extending an Existing Key-Value Store
 
@@ -419,12 +423,14 @@ Future iterations may involve inserting stages into the simplex stream between
 the Operation and Interface stages to perform aggregations on the data before
 returning it to the caller.
 
+:::info
 It's also relevant to note that Cesium uses a large number of goroutines for a
 single query. This is (kind of)
 intentional, as the database is optimized for high throughput on fewer, large
 queries.
 See [Channel Counts and Segment Merging](#channel-counts-and-segment-merging)
 for more information how the number of open queries affects performance.
+:::
 
 ## 5 - Data Layout + Operations
 
