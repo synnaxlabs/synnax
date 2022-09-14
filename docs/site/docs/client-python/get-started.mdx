@@ -28,7 +28,7 @@ client = synnax.Client(host="localhost",port=8080)
 ## Write Telemetry
 
 To write telemetry to a cluster, we first need to create a channel. If you're unaware of what a channel is, you can
-read more about it [here](../concepts#channel). To create a channel, we use the `.channel.create()` method:
+read more about it [here](../concepts.mdx#channel). To create a channel, we use the `.channel.create()` method:
 
 ```python
 from synnax import telem
@@ -58,7 +58,7 @@ data = np.random.rand(1000, dtype=np.float64)
 # Write the data to the channel. The provided timestamp represents the timestamp for the 
 # first sample in the array.
 start = datetime.now()
-client.data.write(ch, data, start))
+client.data.write(ch, data, start)
 ```
 
 <details>

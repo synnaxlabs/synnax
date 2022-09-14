@@ -28,10 +28,8 @@ const config = {
         docs: {
           routeBasePath: "/",
           sidebarPath: require.resolve("./sidebars.js"),
-          // Please change this to your repo.
-          // Remove this to remove the "edit this page" links.
           editUrl:
-            "https://github.com/facebook/docusaurus/tree/main/packages/create-docusaurus/templates/shared/",
+            "https://github.com/synnaxlabs/synnax/tree/main/docs/site/",
         },
         blog: false,
         theme: {
@@ -49,7 +47,7 @@ const config = {
       },
       navbar: {
         logo: {
-          alt: "Arya Analytics",
+          alt: "Synnax Labs",
           src: "img/logo.svg",
         },
         items: [
@@ -63,7 +61,7 @@ const config = {
       footer: {
         style: "light",
         links: [],
-        copyright: `Copyright © ${new Date().getFullYear()} Arya Analytics, Inc. `,
+        copyright: "."
       },
       prism: {
         theme: lightCodeTheme,
