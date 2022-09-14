@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-import arya.errors
+import synnax.errors
 from . import BinarySegment, NumpySegment
 import freighter
 
@@ -41,7 +41,7 @@ class BaseCore:
             raise exc
         assert res is not None
         if not res.ack:
-            raise arya.errors.UnexpectedError(
+            raise synnax.errors.UnexpectedError(
                 "Writer failed to positively acknowledge open request. This is a bug"
                 + "please report it."
             )
@@ -144,7 +144,7 @@ class Numpy:
     def write(self, to: str, data: np.ndarray, start: telem.UnparsedTimeStamp) -> bool:
         ch = self.channels.get(to)
         if ch is None:
-            raise arya.errors.QueryError(f"channel with key {to} not found")
+            raise synnax.errors.QueryError(f"channel with key {to} not found")
         seg = NumpySegment(ch, telem.TimeStamp(start), data)
         for val in self.validators:
             val.validate(seg)

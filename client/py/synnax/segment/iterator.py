@@ -4,9 +4,9 @@ from enum import Enum
 
 import freighter
 
-from arya import telem, channel
-from arya.channel import entity
-from arya.segment import BinarySegment, NumpySegment, encoder
+from synnax import telem, channel
+from synnax.channel import entity
+from synnax.segment import BinarySegment, NumpySegment, encoder
 
 _ENDPOINT = "/segment/iterate"
 
