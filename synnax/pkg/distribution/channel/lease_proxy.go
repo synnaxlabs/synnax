@@ -40,6 +40,11 @@ func (lp *leaseProxy) handle(ctx context.Context, msg CreateMessage) (CreateMess
 }
 
 func (lp *leaseProxy) create(ctx context.Context, txn gorp.Txn, channels []Channel) ([]Channel, error) {
+	for i := range channels {
+		if channels[i].NodeID == 0 {
+			channels[i].NodeID = lp.cluster.HostID()
+		}
+	}
 	batch := lp.router.Batch(channels)
 	oChannels := make([]Channel, 0, len(channels))
 	for nodeID, entries := range batch.Remote {

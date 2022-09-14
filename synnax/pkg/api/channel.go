@@ -14,7 +14,7 @@ import (
 type Channel struct {
 	Key      string              `json:"key" msgpack:"key"`
 	Name     string              `json:"name" msgpack:"name"`
-	NodeID   distribution.NodeID `json:"node_id" msgpack:"node_id" validate:"required"`
+	NodeID   distribution.NodeID `json:"node_id" msgpack:"node_id"`
 	Rate     telem.Rate          `json:"rate" msgpack:"rate" validate:"required"`
 	DataType telem.DataType      `json:"data_type" msgpack:"data_type" validate:"required"`
 	Density  telem.Density       `json:"density" msgpack:"density"`

@@ -3,7 +3,7 @@ package fiber
 import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/synnaxlabs/freighter/ferrors"
-	errors "github.com/synnaxlabs/synnax/pkg/api/errors"
+	"github.com/synnaxlabs/synnax/pkg/api/errors"
 )
 
 const (

@@ -144,9 +144,7 @@ class Core:
         if exc is not None:
             raise exc
         pld, exc = self.stream.receive()
-        print(pld)
         if not isinstance(exc, freighter.EOF):
-            print(exc)
             raise exc
 
 
