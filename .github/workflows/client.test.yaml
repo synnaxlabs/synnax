@@ -26,7 +26,7 @@ jobs:
         working-directory: ./client/py
 
       - name: Test
-        run: pytest --cov=arya --cov-report xml:coverage.xml
+        run: pytest --cov=freighter --cov-report xml:coverage.xml
         working-directory: ./client/py
 
       - name: Upload Coverage
@@ -39,7 +39,7 @@ jobs:
 
     services:
       synnax:
-        image: ghcr.io/arya-analytics/synnax:latest
+        image: ghcr.io/synnaxlabs/synnax:latest
         env:
           SYNNAX_LISTEN_ADDRESS: localhost:8080
           SYNNAX_DEBUG: true

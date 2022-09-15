@@ -75,7 +75,7 @@ jobs:
 
     services:
       integration:
-        image: ghcr.io/arya-analytics/freighter-go-integration:latest
+        image: ghcr.io/synnaxlabs/freighter-go-integration:latest
         credentials:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
