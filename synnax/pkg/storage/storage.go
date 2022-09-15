@@ -50,7 +50,7 @@ var kvEngines = []KVEngine{PebbleKV}
 
 //go:generate stringer -type=TSEngine
 const (
-	// CesiumTS uses arya analytics' cesium time-series engine.
+	// CesiumTS uses Synnax's cesium time-series engine.
 	CesiumTS TSEngine = iota + 1
 )
 

@@ -7,7 +7,7 @@ export {
   useThemeContext,
   ThemeSwitch,
 } from "./Theme/ThemeContext";
-export { aryaDark, aryaLight } from "./Theme/theme";
+export { synnaxDark, synnaxLight } from "./Theme/theme";
 export { HexagonBar } from "./Metrics/Hexagon/Hexagon";
 export { default as Statistic } from "./Metrics/Statistic/Statistic";
 export { applyThemeAsCssVars } from "./Theme/css";

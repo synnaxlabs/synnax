@@ -47,7 +47,7 @@ const config = {
       },
       items: [
         {
-          href: "https://github.com/synnaxlabs/arya",
+          href: "https://github.com/synnaxlabs/synnax",
           label: "GitHub",
           position: "right",
         },

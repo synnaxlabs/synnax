@@ -71,7 +71,7 @@ These all use an LSM + WAL style architecture, which is a good fit for frequent
 reads and writes on small amounts of data. However, when it comes to high rate
 append only workloads, they do not scale as well as one might hope. Pebbles' own
 [benchmarks](https://cockroachdb.github.io/pebble/) show a maximum write
-throughput of (approximately) 170,000 samples per second, far below Arya Core's
+throughput of (approximately) 170,000 samples per second, far below V1's
 throughput of 6 million values per second. An elastic throughput in the range
 several hundreds of millions of values per second is reasonable for append only
 writes to an SSD.
