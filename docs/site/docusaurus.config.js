@@ -12,9 +12,9 @@ const config = {
   baseUrl: "/",
   onBrokenLinks: "throw",
   onBrokenMarkdownLinks: "warn",
-  favicon: "img/favicon.ico",
-  organizationName: "arya-analytics",
-  projectName: "arya",
+  favicon: "img//icon/favicon.ico",
+  organizationName: "synnaxlabs",
+  projectName: "synnax",
   deploymentBranch: "gh-pages",
   i18n: {
     defaultLocale: "en",
@@ -28,8 +28,7 @@ const config = {
         docs: {
           routeBasePath: "/",
           sidebarPath: require.resolve("./sidebars.js"),
-          editUrl:
-            "https://github.com/synnaxlabs/synnax/tree/main/docs/site/",
+          editUrl: "https://github.com/synnaxlabs/synnax/tree/main/docs/site/",
         },
         blog: false,
         theme: {
@@ -39,35 +38,33 @@ const config = {
     ],
   ],
 
-  themeConfig:
-    /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
-    ({
-      pages: {
-        routeBasePath: "/docs",
+  themeConfig: {
+    pages: {
+      routeBasePath: "/docs",
+    },
+    navbar: {
+      logo: {
+        alt: "Synnax Labs",
+        src: "img/logo.svg",
       },
-      navbar: {
-        logo: {
-          alt: "Synnax Labs",
-          src: "img/logo.svg",
+      items: [
+        {
+          href: "https://github.com/synnaxlabs/arya",
+          label: "GitHub",
+          position: "right",
         },
-        items: [
-          {
-            href: "https://github.com/synnaxlabs/arya",
-            label: "GitHub",
-            position: "right",
-          },
-        ],
-      },
-      footer: {
-        style: "light",
-        links: [],
-        copyright: "."
-      },
-      prism: {
-        theme: lightCodeTheme,
-        darkTheme: darkCodeTheme,
-      },
-    }),
+      ],
+    },
+    footer: {
+      style: "light",
+      links: [],
+      copyright: ".",
+    },
+    prism: {
+      theme: lightCodeTheme,
+      darkTheme: darkCodeTheme,
+    },
+  },
 };
 
 module.exports = config;

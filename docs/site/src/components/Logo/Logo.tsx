@@ -2,18 +2,13 @@ import React, {
   cloneElement,
   HTMLAttributes,
 } from "react";
-import IconGradient from "./icon-gradient.svg";
-import IconWhite from "./icon-white.svg";
-// @ts-ignore
-import IconBlack from "./icon-black.svg";
-// @ts-ignore
-import TitleWhite from "./title-white.svg";
-// @ts-ignore
-import TitleBlack from "./title-black.svg";
-// @ts-ignore
-import TitleGradient from "./title-gradient.svg";
+import IconGradient from "../../../static/img/icon/icon-gradient.svg";
+import IconWhite from "../../../static/img/icon/icon-white.svg";
+import IconBlack from "../../../static/img/icon/icon-black.svg";
+import TitleWhite from "../../../static/img/icon/title-white.svg";
+import TitleBlack from "../../../static/img/icon/title-black.svg";
+import TitleGradient from "../../../static/img/icon/title-gradient.svg";
 
-import { useThemeContext } from "@synnaxlabs/pluto";
 import {useColorMode} from "@docusaurus/theme-common";
 
 export interface LogoProps

@@ -1,36 +1,20 @@
 import React, { cloneElement, useEffect } from "react";
 import { useColorMode } from "@docusaurus/theme-common";
-import {
-  applyThemeAsCssVars,
-  aryaLight,
-  aryaDark,
-} from "@synnaxlabs/pluto";
-import IconGradient from "../../../../static/img/icon-gradient.svg";
-import IconWhite from "../../../../static/img/icon-white.svg";
+import { applyThemeAsCssVars, aryaLight, aryaDark } from "@synnaxlabs/pluto";
 import "@synnaxlabs/pluto/dist/style.css";
-
-const types = {
-  "icon-white": <IconWhite />,
-  "icon-gradient": <IconGradient />,
-};
+import Logo from "../../../components/Logo/Logo";
 
 export default function LogoWrapper(props) {
   const { colorMode } = useColorMode();
   useEffect(() => {
-    if (colorMode === "dark") {
-      applyThemeAsCssVars(document.documentElement, aryaDark);
-    } else {
-      applyThemeAsCssVars(document.documentElement, aryaLight);
-    }
+    applyThemeAsCssVars(
+      document.documentElement,
+      colorMode === "dark" ? aryaDark : aryaLight
+    );
   }, [colorMode]);
-
-  const icon = colorMode === "dark" ? "icon-white" : "icon-gradient";
-
   return (
-    <a href="/" {...props} className="navbar__logo">
-      {cloneElement(types[icon], {
-        height: 36,
-      })}
+    <a href="/" className="navbar__logo">
+      <Logo style={{ height: 38 }} {...props} />
     </a>
   );
 }

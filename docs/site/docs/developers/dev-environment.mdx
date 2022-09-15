@@ -1,0 +1,170 @@
+---
+sidebar_position: 4
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Setting up your Development Environment
+
+```mdx-code-block
+<Tabs>
+<TabItem value="macOS" label="MacOS">
+```
+
+## Base Tooling
+---
+
+The following tools need to be installed regardless of the project you're working on.
+After that, we'll step into project specific tooling.
+
+:::caution
+If you have already completed any of these steps, you can skip them. Although all of these
+tools are safe, installing may cause some unintended side effects for other projects.
+:::
+
+### Homebrew
+
+The easiest way to set up your development environment is by using
+the macOS package manager [Homebrew](https://brew.sh/), which you can install by running the following
+command:
+
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+The next step is to install **Git**, which you can do by running the following command:
+
+### Git
+
+```bash
+brew install git
+```
+
+After that, it's time to clone the Synnax repository. Run the following command in a
+directory of your choice:
+
+```bash
+git clone https://github.com/synnaxlabs/synnax
+```
+
+### Docker
+
+The next step is to install [**Docker**](https://www.docker.com/), which is a containerization platform that
+allows you to run Synnax in a consistent, sandboxed environment. We also use it
+for all our builds and CI/CD pipelines.
+
+:::caution
+This part can be tricky, feel free to reach out if you run into any trouble.
+:::
+
+```bash
+brew install --cask docker
+```
+
+To make sure docker is working, run the following command:
+
+```bash
+docker run hello-world
+```
+
+If you see this message as part of the output, you're good to go:
+
+```bash
+Hello from Docker!
+```
+
+### Earthly
+
+The next step is to install [**Earthly**](https://earthly.dev/), which is a build automation tool that
+allows us to build Synnax in a consistent, reproducible way. It uses Docker under the hood,
+and is a nice, modern alternative to Makefiles.
+
+To install Earthly, run the following command:
+
+```bash
+brew install earthly/earthly/earthly && earthly bootstrap
+```
+
+To verify the installation, run:
+
+```bash
+earthly github.com/earthly/hello-world+hello
+```
+
+## Backend Tooling
+---
+
+### Go
+
+The next step is to install [**Go**](https://golang.org/), which is the programming language we use for
+most of our backend code. We use the latest version of Go 1.19, which you can install
+by running the following command:
+
+```bash
+brew install go
+```
+
+## Frontend Tooling
+---
+
+### Node.js
+
+The next step is to install [**Node.js**](https://nodejs.org/en/), which is the JavaScript
+runtime we use for our frontend code. We use the latest version of Node.js, which you
+can install by running the following command:
+
+```bash
+brew install node
+```
+
+### Yarn
+
+### Installing and Linking Dependencies
+
+## Client Tooling
+---
+
+### Python
+
+The next step is to install [**Python**](https://www.python.org/), which is the programming language we use for
+our client code. We use the latest version of Python 3 (3.10), which you can install by
+running the following command:
+
+```bash
+brew install python
+```
+
+To verify the installation, run
+
+```bash
+python3 --version
+```
+
+You should see the following output:
+
+```bash
+Python 3.10.[X]
+````
+
+### Poetry
+
+
+```mdx-code-block
+</TabItem>
+<TabItem value="windows" label="Windows">
+```
+
+```mdx-code-block
+</TabItem>
+```
+
+```mdx-code-block
+<TabItem value="linux" label="Linux">
+```
+
+```mdx-code-block
+</TabItem>
+</Tabs>
+```
+

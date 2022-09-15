@@ -1,41 +1,47 @@
-# Website
+<br />
+<p align="center">
+    <a href="https://docs.synnaxlabs.com">
+        <img src="../media/logo/title-white-on-black.svg" width="45%"/>
+    </a>
+</p>
 
-This website is built using [Docusaurus 2](https://docusaurus.io/), a modern static website generator.
+# Synnax Documentation Site
+
+This directory contains the source for
+the [Synnax documentation site](https://docs.synnaxlabs.com), which serves as
+the primary knowledge base for the Synnax platform.
 
 ### Installation
 
-```
-$ yarn
+```bash
+yarn
 ```
 
 ### Local Development
 
-```
-$ yarn start
+```bash
+yarn dev
 ```
 
-This command starts a local development server and opens up a browser window. Most changes are reflected live without having to restart the server.
+This command starts a local development server and opens up a browser window.
+Most changes are reflected live without having to restart the server.
 
 ### Build
 
+The site can be built using Earthly:
+
 ```
-$ yarn build
+earthly +build
 ```
 
-This command generates static content into the `build` directory and can be served using any static contents hosting service.
+The built site will be output to `./dist`. To serve the site locally, run:
+
+```
+yarn serve
+```
 
 ### Deployment
 
-Using SSH:
-
-```
-$ USE_SSH=true yarn deploy
-```
-
-Not using SSH:
-
-```
-$ GIT_USER=<Your GitHub username> yarn deploy
-```
-
-If you are using GitHub pages for hosting, this command is a convenient way to build the website and push to the `gh-pages` branch.
+The documentation site is automatically deployed to GitHub Pages whenever a pull
+request is merged into the `main` branch. There's no need to worry about manual
+deployment!
