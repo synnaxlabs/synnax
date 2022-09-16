@@ -269,7 +269,7 @@ func (impl *wsImplementation) start(
 	}()
 	Eventually(func(g Gomega) {
 		_, err := http.Get("http://" + host.String() + "/health")
-		Expect(err).ToNot(HaveOccurred())
+		g.Expect(err).ToNot(HaveOccurred())
 	}).WithPolling(1 * time.Millisecond).Should(Succeed())
 	return t
 }
