@@ -1,8 +1,8 @@
 package server
 
 import (
-	"github.com/synnaxlabs/freighter/ferrors"
 	"github.com/gofiber/fiber/v2"
+	"github.com/synnaxlabs/freighter/ferrors"
 )
 
 type HTTP struct{}

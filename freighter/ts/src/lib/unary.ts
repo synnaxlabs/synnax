@@ -1,13 +1,15 @@
-import {Transport, Payload} from "./transport"
+import { Payload } from './transport';
 
-
-export interface UnaryClient<I extends Payload, O extends Payload> extends Transport {
-  send(target: string, req: I): Promise<[O, Error]>
+export interface UnaryClient<RQ extends Payload, RS extends Payload> {
+  send(target: string, req: RQ): Promise<[RS | undefined, Error | undefined]>;
 }
 
-export interface UnaryServer<I extends Payload, O extends Payload> extends Transport {
-  bind_handle(handle: (req: I) => Promise<[O, Error]>): void
+export interface UnaryServer<RQ extends Payload, RS extends Payload> {
+  bind_handle(
+    handle: (req: RQ) => Promise<[RS | undefined, Error | undefined]>
+  ): void;
 }
 
-export interface Unary<I extends Payload, O extends Payload> extends UnaryClient<I, O>, UnaryServer<I, O> {
-}
+export interface Unary<I extends Payload, O extends Payload>
+  extends UnaryClient<I, O>,
+    UnaryServer<I, O> {}

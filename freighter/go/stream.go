@@ -157,11 +157,11 @@ type StreamSenderCloser[P Payload] interface {
 	CloseSend() error
 }
 
-// SenderEmptyCloser wraps a StreamSender so that it can satisfy the StreamSenderCloser
+// SenderNopCloser wraps a StreamSender so that it can satisfy the StreamSenderCloser
 // interface. This is useful for types that deal with both ServerStream and ClientStream
 // side applications. This allows a ServerStream. StreamSender to be used with client side
 // code.
-type SenderEmptyCloser[P Payload] struct{ StreamSender[P] }
+type SenderNopCloser[P Payload] struct{ StreamSender[P] }
 
 // CloseSend implements the StreamCloser interface.
-func (c SenderEmptyCloser[P]) CloseSend() error { return nil }
+func (c SenderNopCloser[P]) CloseSend() error { return nil }

@@ -13,6 +13,7 @@ import (
 	"github.com/synnaxlabs/x/httputil"
 	. "github.com/synnaxlabs/x/testutil"
 	"go.uber.org/zap"
+	"net/http"
 	"time"
 )
 
@@ -258,11 +259,19 @@ func (impl *wsImplementation) start(
 		logger,
 	)
 	t.BindTo(impl.app, "/")
+	// add a simple health check handler
+	impl.app.Get("/health", func(c *fiber.Ctx) error {
+		return c.SendStatus(fiber.StatusOK)
+	})
 	go func() {
 		if err := impl.app.Listen(host.PortString()); err != nil {
 			logger.Error(err)
 		}
 	}()
+	Eventually(func(g Gomega) {
+		_, err := http.Get("http://" + host.String() + "/health")
+		Expect(err).ToNot(HaveOccurred())
+	}).WithPolling(1 * time.Millisecond).Should(Succeed())
 	return t
 }
 

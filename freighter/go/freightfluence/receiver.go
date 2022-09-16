@@ -2,10 +2,10 @@ package freightfluence
 
 import (
 	"context"
-	. "github.com/synnaxlabs/x/confluence"
-	"github.com/synnaxlabs/x/signal"
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/freighter"
+	. "github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/signal"
 )
 
 // Receiver wraps freighter.StreamReceiver to provide a confluence compatible

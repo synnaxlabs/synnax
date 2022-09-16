@@ -2,9 +2,9 @@ package fgrpc
 
 import (
 	"context"
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/alamos"
-	"github.com/synnaxlabs/freighter"
 	"google.golang.org/grpc"
 	"io"
 )
