@@ -2,6 +2,8 @@ package confluence
 
 import (
 	"context"
+	"fmt"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/signal"
 )
 
@@ -45,4 +47,79 @@ func (d *DeltaTransformMultiplier[I, O]) transformAndMultiply(ctx context.Contex
 		return err
 	}
 	return d.SendToEach(ctx, o)
+}
+
+type DynamicDeltaMultiplier[V Value] struct {
+	UnarySink[V]
+	Source         AbstractMultiSource[V]
+	connections    chan []Inlet[V]
+	disconnections chan []Inlet[V]
+}
+
+func NewDynamicDeltaMultiplier[V Value]() *DynamicDeltaMultiplier[V] {
+	return &DynamicDeltaMultiplier[V]{
+		connections:    make(chan []Inlet[V]),
+		disconnections: make(chan []Inlet[V]),
+	}
+}
+
+func (d *DynamicDeltaMultiplier[V]) Connect(inlets ...Inlet[V]) {
+	d.connections <- inlets
+}
+
+func (d *DynamicDeltaMultiplier[V]) Disconnect(inlets ...Inlet[V]) {
+	d.disconnections <- inlets
+}
+
+func (d *DynamicDeltaMultiplier[v]) Flow(ctx signal.Context, opts ...Option) {
+	o := NewOptions(opts)
+	ctx.Go(func(ctx context.Context) error {
+		for {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case inlets := <-d.connections:
+				d.Source.Out = append(d.Source.Out, inlets...)
+			case inlets := <-d.disconnections:
+				d.performDisconnect(inlets)
+			case v := <-d.In.Outlet():
+				if err := d.Source.SendToEach(ctx, v); err != nil {
+					return err
+				}
+			}
+		}
+	}, o.Signal...)
+}
+
+func (d *DynamicDeltaMultiplier[V]) performDisconnect(inlets []Inlet[V]) {
+	for _, inlet := range inlets {
+		i, ok := d.getInletIndex(inlet)
+		if !ok {
+			panic(fmt.Sprintf(
+				"[confluence] - attempted to disconnect inlet %v, but it was never connected",
+				inlet,
+			))
+		}
+		d.Source.Out = append(d.Source.Out[:i], d.Source.Out[i+1:]...)
+		inlet.Close()
+	}
+}
+
+func (d *DynamicDeltaMultiplier[V]) _a(inlets []Inlet[V]) {
+	for _, inlet := range inlets {
+		_, ok := d.getInletIndex(inlet)
+		if ok {
+			panic(fmt.Sprintf(
+				"[confluence] - attempted to connect inlet that was already connected: %s",
+				inlet.InletAddress()))
+		}
+		d.Source.Out = append(d.Source.Out, inlet)
+	}
+}
+
+func (d *DynamicDeltaMultiplier[V]) getInletIndex(inlet Inlet[V]) (int, bool) {
+	_, i, ok := lo.FindIndexOf(d.Source.Out, func(i Inlet[V]) bool {
+		return i.InletAddress() == inlet.InletAddress()
+	})
+	return i, ok
 }

@@ -6,7 +6,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -17,19 +16,19 @@ var _ = Describe("Switch", func() {
 			var (
 				ctx    signal.Context
 				cancel context.CancelFunc
-				input  confluence.Stream[int]
-				double confluence.Stream[int]
-				single confluence.Stream[int]
-				sw     *confluence.Switch[int]
+				input  Stream[int]
+				double Stream[int]
+				single Stream[int]
+				sw     *Switch[int]
 			)
 			BeforeEach(func() {
 				ctx, cancel = signal.TODO()
-				input = confluence.NewStream[int](3)
-				double = confluence.NewStream[int](3)
-				single = confluence.NewStream[int](3)
+				input = NewStream[int](3)
+				double = NewStream[int](3)
+				single = NewStream[int](3)
 				double.SetInletAddress("double")
 				single.SetInletAddress("single")
-				sw = &confluence.Switch[int]{}
+				sw = &Switch[int]{}
 				sw.InFrom(input)
 				sw.OutTo(double)
 				sw.OutTo(single)
@@ -45,7 +44,7 @@ var _ = Describe("Switch", func() {
 						return "double", true, nil
 					}
 				}
-				sw.Flow(ctx, confluence.CloseInletsOnExit())
+				sw.Flow(ctx, CloseInletsOnExit())
 				input.Inlet() <- 1
 				input.Inlet() <- 2
 				input.Inlet() <- 3
@@ -61,7 +60,7 @@ var _ = Describe("Switch", func() {
 				sw.ApplySwitch = func(ctx context.Context, i int) (address.Address, bool, error) {
 					return "", false, errors.New("test error")
 				}
-				sw.Flow(ctx, confluence.CloseInletsOnExit())
+				sw.Flow(ctx, CloseInletsOnExit())
 				input.Inlet() <- 1
 				input.Inlet() <- 2
 				input.Inlet() <- 3
@@ -72,7 +71,7 @@ var _ = Describe("Switch", func() {
 				sw.ApplySwitch = func(ctx context.Context, i int) (address.Address, bool, error) {
 					return "hello", true, nil
 				}
-				sw.Flow(ctx, confluence.CloseInletsOnExit(), confluence.WithAddress("toCoverThis"))
+				sw.Flow(ctx, CloseInletsOnExit(), WithAddress("toCoverThis"))
 				input.Inlet() <- 1
 				Expect(ctx.Wait()).To(MatchError(address.NotFound))
 
@@ -83,19 +82,19 @@ var _ = Describe("Switch", func() {
 		var (
 			ctx    signal.Context
 			cancel context.CancelFunc
-			input  confluence.Stream[[]int]
-			first  confluence.Stream[int]
-			second confluence.Stream[int]
-			sw     *confluence.BatchSwitch[[]int, int]
+			input  Stream[[]int]
+			first  Stream[int]
+			second Stream[int]
+			sw     *BatchSwitch[[]int, int]
 		)
 		BeforeEach(func() {
 			ctx, cancel = signal.TODO()
-			input = confluence.NewStream[[]int](3)
-			first = confluence.NewStream[int](3)
+			input = NewStream[[]int](3)
+			first = NewStream[int](3)
 			first.SetInletAddress("first")
-			second = confluence.NewStream[int](3)
+			second = NewStream[int](3)
 			second.SetInletAddress("second")
-			sw = &confluence.BatchSwitch[[]int, int]{}
+			sw = &BatchSwitch[[]int, int]{}
 			sw.InFrom(input)
 			sw.OutTo(first)
 			sw.OutTo(second)
@@ -114,7 +113,7 @@ var _ = Describe("Switch", func() {
 				}
 				return nil
 			}
-			sw.Flow(ctx, confluence.CloseInletsOnExit())
+			sw.Flow(ctx, CloseInletsOnExit())
 			input.Inlet() <- []int{1, 2}
 			input.Inlet() <- []int{3, 4}
 			input.Inlet() <- []int{5, 6}
@@ -139,7 +138,7 @@ var _ = Describe("Switch", func() {
 				o["second"] = i[1]
 				return nil
 			}
-			sw.Flow(ctx, confluence.CloseInletsOnExit())
+			sw.Flow(ctx, CloseInletsOnExit())
 			input.Inlet() <- []int{1, 2}
 			input.Inlet() <- []int{3, 4}
 			input.Inlet() <- []int{5, 6}

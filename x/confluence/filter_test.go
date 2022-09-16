@@ -5,7 +5,6 @@ import (
 	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -13,24 +12,24 @@ import (
 var _ = Describe("Filter", func() {
 	Describe("OutTo", func() {
 		It("Should panic if more than two inlets are provided", func() {
-			s1, s2, s3 := confluence.NewStream[int](3), confluence.NewStream[int](3), confluence.NewStream[int](3)
-			filter := confluence.Filter[int]{}
+			s1, s2, s3 := NewStream[int](3), NewStream[int](3), NewStream[int](3)
+			filter := Filter[int]{}
 			Expect(func() {
 				filter.OutTo(s1, s2, s3)
 			}).To(Panic())
 		})
 		It("Should assign the first inlet to accepted and the second inlet to rejected", func() {
-			accepted, rejected := confluence.NewStream[int](3), confluence.NewStream[int](3)
-			filter := confluence.Filter[int]{}
+			accepted, rejected := NewStream[int](3), NewStream[int](3)
+			filter := Filter[int]{}
 			filter.OutTo(accepted, rejected)
 			Expect(filter.Rejects).To(Equal(rejected))
 		})
 	})
 	It("Should filter values correctly", func() {
 		ctx, cancel := signal.WithCancel(context.Background())
-		inlet := confluence.NewStream[int](3)
-		outlet := confluence.NewStream[int](3)
-		filter := confluence.Filter[int]{}
+		inlet := NewStream[int](3)
+		outlet := NewStream[int](3)
+		filter := Filter[int]{}
 		filter.Apply = func(ctx context.Context, x int) (bool, error) {
 			return x%3 == 0, nil
 		}
@@ -46,10 +45,10 @@ var _ = Describe("Filter", func() {
 	})
 	It("Should send to rejects if the filter returns false", func() {
 		ctx, cancel := signal.WithCancel(context.Background())
-		inlet := confluence.NewStream[int](3)
-		outlet := confluence.NewStream[int](3)
-		rejects := confluence.NewStream[int](3)
-		filter := confluence.Filter[int]{}
+		inlet := NewStream[int](3)
+		outlet := NewStream[int](3)
+		rejects := NewStream[int](3)
+		filter := Filter[int]{}
 		filter.Apply = func(ctx context.Context, x int) (bool, error) {
 			return x%3 == 0, nil
 		}
@@ -68,9 +67,9 @@ var _ = Describe("Filter", func() {
 	It("Should exit if the filter returns an error", func() {
 		ctx, cancel := signal.WithCancel(context.Background())
 		defer cancel()
-		inlet := confluence.NewStream[int](3)
-		outlet := confluence.NewStream[int](3)
-		filter := confluence.Filter[int]{}
+		inlet := NewStream[int](3)
+		outlet := NewStream[int](3)
+		filter := Filter[int]{}
 		filter.Apply = func(ctx context.Context, x int) (bool, error) {
 			return x%3 == 0, errors.New("error")
 		}
