@@ -62,8 +62,8 @@ const black: color = "#212429";
 const fontFamily = "Roboto, sans-serif";
 const baseSize: size = 6;
 
-const aryaBase: Theme = {
-  name: "arya-base",
+const synnaxBase: Theme = {
+  name: "synnax-base",
   colors: {
     primary: {
       m1: "#3363BE",
@@ -150,24 +150,24 @@ const aryaBase: Theme = {
   },
 };
 
-export const aryaLight = {
-  ...aryaBase,
-  name: "arya-light",
+export const synnaxLight = {
+  ...synnaxBase,
+  name: "synnax-light",
 };
 
-export const aryaDark = {
-  ...aryaBase,
-  name: "arya-dark",
+export const synnaxDark = {
+  ...synnaxBase,
+  name: "synnax-dark",
   colors: {
-    ...aryaBase.colors,
+    ...synnaxBase.colors,
     gray: {
-      m2: aryaBase.colors.gray.p2,
-      m1: aryaBase.colors.gray.p1,
-      z: aryaBase.colors.gray.z,
-      p1: aryaBase.colors.gray.m1,
-      p2: aryaBase.colors.gray.m2,
+      m2: synnaxBase.colors.gray.p2,
+      m1: synnaxBase.colors.gray.p1,
+      z: synnaxBase.colors.gray.z,
+      p1: synnaxBase.colors.gray.m1,
+      p2: synnaxBase.colors.gray.m2,
     },
-    background: aryaBase.colors.black,
-    text: aryaBase.colors.white,
+    background: synnaxBase.colors.black,
+    text: synnaxBase.colors.white,
   },
 };

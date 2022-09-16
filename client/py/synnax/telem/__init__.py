@@ -7,7 +7,7 @@ import pandas as pd
 from typing import get_args
 from typing import Union
 
-import arya.errors
+import synnax.errors
 
 _EPOCH = datetime.datetime.utcfromtimestamp(0)
 
@@ -270,7 +270,7 @@ class Rate(float):
     def size_span(self, size: Size, density: Density) -> TimeSpan:
         """Returns the TimeSpan that corresponds to the given number of bytes at this rate and sample density."""
         if size % density != 0:
-            raise arya.errors.ContiguityError(
+            raise synnax.errors.ContiguityError(
                 f"Size {size} is not a multiple of density {density}"
             )
         return self.span(int(size / density))

@@ -1,31 +1,30 @@
 package stream_test
 
 import (
-	"github.com/arya-analytics/delta/pkg/distribution/channel"
-	"github.com/arya-analytics/delta/pkg/distribution/core"
-	"github.com/arya-analytics/delta/pkg/distribution/core/mock"
-	"github.com/arya-analytics/delta/pkg/distribution/stream"
-	"github.com/arya-analytics/delta/pkg/storage"
-	"github.com/arya-analytics/freighter/fmock"
-	"github.com/arya-analytics/x/config"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter/fmock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
+	"github.com/synnaxlabs/synnax/pkg/storage"
+	"github.com/synnaxlabs/x/config"
 	"go.uber.org/zap"
 	"go/types"
 )
 
 type mockTransport struct {
-	reader stream.ReadTransport
-	writer stream.WriteTransport
+	reader ReadTransport
+	writer WriteTransport
 }
 
-func (m mockTransport) Reader() stream.ReadTransport { return m.reader }
+func (m mockTransport) Reader() ReadTransport { return m.reader }
 
-func (m mockTransport) Writer() stream.WriteTransport { return m.writer }
+func (m mockTransport) Writer() WriteTransport { return m.writer }
 
 var _ = Describe("Local", func() {
 	var (
-		svc     *stream.Service
+		svc     *Service
 		builder *mock.CoreBuilder
 	)
 	BeforeEach(func() {
@@ -37,13 +36,13 @@ var _ = Describe("Local", func() {
 		})
 		_core := builder.New()
 
-		readerNet := fmock.NewNetwork[stream.ReadRequest, stream.ReadResponse]()
-		writeNet := fmock.NewNetwork[stream.WriteRequest, types.Nil]()
+		readerNet := fmock.NewNetwork[ReadRequest, ReadResponse]()
+		writeNet := fmock.NewNetwork[WriteRequest, types.Nil]()
 		trans := mockTransport{
 			reader: readerNet.RouteStream("", 1),
 			writer: writeNet.RouteStream("", 1),
 		}
-		svc = stream.Open(stream.Config{
+		svc = Open(Config{
 			Transport: trans,
 			Resolver:  _core.Cluster,
 			Logger:    zap.L(),
@@ -59,7 +58,7 @@ var _ = Describe("Local", func() {
 		w := svc.NewStreamWriter()
 		cKey := channel.NewKey(1, 1)
 		reader, _ := svc.NewFilteredStreamReader(cKey)
-		samples := []stream.Sample{
+		samples := []Sample{
 			{
 				ChannelKey: cKey,
 				Stamp:      1,

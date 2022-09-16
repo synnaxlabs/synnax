@@ -40,7 +40,7 @@ export default function Logo({
   let autoVariant: string;
   const { theme } = useThemeContext();
   if (mode == "auto") {
-    if (theme.name === "arya-dark") {
+    if (theme.name === "synnax-dark") {
       autoVariant = "white";
     } else {
       autoVariant = "gradient";

@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
-	"github.com/arya-analytics/delta/pkg/api"
-	"github.com/arya-analytics/freighter/fws"
-	"github.com/arya-analytics/x/httputil"
+	"github.com/synnaxlabs/synnax/pkg/api"
+	"github.com/synnaxlabs/freighter/fws"
+	"github.com/synnaxlabs/x/httputil"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"sync"

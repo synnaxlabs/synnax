@@ -2,11 +2,11 @@ package stream
 
 import (
 	"context"
-	"github.com/arya-analytics/aspen"
-	distribcore "github.com/arya-analytics/delta/pkg/distribution/core"
-	"github.com/arya-analytics/freighter/freightfluence"
-	"github.com/arya-analytics/x/address"
-	"github.com/arya-analytics/x/confluence"
+	"github.com/synnaxlabs/aspen"
+	distribcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/freighter/freightfluence"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/confluence"
 	"go/types"
 )
 

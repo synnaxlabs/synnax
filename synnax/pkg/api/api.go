@@ -11,6 +11,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/segment"
+	"github.com/synnaxlabs/synnax/pkg/distribution/stream"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/user"
 	"go.uber.org/zap"

@@ -1,5 +1,5 @@
 version: v1
-name: buf.build/arya-analytics/aspen
+name: buf.build/synnaxlabs/aspen
 breaking:
   use:
     - FILE

@@ -1,4 +1,4 @@
-import { UnaryClient } from '@arya-analytics/freighter';
+import { UnaryClient } from '@synnaxlabs/freighter';
 import Channel from './Channel';
 import Transport from '../transport';
 

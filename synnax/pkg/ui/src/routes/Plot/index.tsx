@@ -1,4 +1,4 @@
-import { PlottingContextProvider, Space, Plot } from "@arya-analytics/pluto";
+import { PlottingContextProvider, Space, Plot } from "@synnaxlabs/pluto";
 import Sidebar from "../../lib/Sidebar/Sidebar";
 import { useEffect } from "react";
 

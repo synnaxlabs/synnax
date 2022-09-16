@@ -13,8 +13,8 @@ const config = {
   onBrokenLinks: "throw",
   onBrokenMarkdownLinks: "warn",
   favicon: "img/favicon.ico",
-  organizationName: "arya-analytics",
-  projectName: "arya",
+  organizationName: "synnaxlabs",
+  projectName: "synnax",
   deploymentBranch: "gh-pages",
   i18n: {
     defaultLocale: "en",
@@ -49,12 +49,12 @@ const config = {
       },
       navbar: {
         logo: {
-          alt: "Arya Analytics",
+          alt: "Synnax Labs",
           src: "img/logo.svg",
         },
         items: [
           {
-            href: "https://github.com/synnaxlabs/arya",
+            href: "https://github.com/synnaxlabs/synnax",
             label: "GitHub",
             position: "right",
           },
@@ -63,7 +63,7 @@ const config = {
       footer: {
         style: "light",
         links: [],
-        copyright: `Copyright © ${new Date().getFullYear()} Arya Analytics, Inc. `,
+        copyright: `Copyright © ${new Date().getFullYear()} Synnax Labs, Inc. `,
       },
       prism: {
         theme: lightCodeTheme,

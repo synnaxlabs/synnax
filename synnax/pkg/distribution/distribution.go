@@ -2,15 +2,15 @@ package distribution
 
 import (
 	"context"
-	streamtransport "github.com/arya-analytics/delta/pkg/distribution/transport/grpc/stream"
 	"github.com/synnaxlabs/aspen"
-	"github.com/synnaxlabs/synnax/delta/pkg/distribution/stream"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/segment"
+	"github.com/synnaxlabs/synnax/pkg/distribution/stream"
 	channeltransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel"
 	segmenttransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/segment"
+	streamtransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/stream"
 )
 
 type (

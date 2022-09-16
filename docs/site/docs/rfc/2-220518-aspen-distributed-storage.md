@@ -4,7 +4,7 @@
 **Status** - Complete <br />
 **Start Date** -  2022-05-18 <br />
 **Authors** - emilbon99 <br />
-**Jira Issue** - [DA-153 - [Aspen] - RFC](https://arya-analytics.atlassian.net/browse/DA-153) <br />
+**Jira Issue** - [DA-153 - [Aspen] - RFC](https://synnaxlabs.atlassian.net/browse/DA-153) <br />
 
 # 0 - Summary
 
@@ -20,7 +20,7 @@ consistent store.
 This proposal focuses on extreme simplicity to achieve a minimum viable
 implementation. It aims to provide only functionality that contributes towards
 meeting the requirements laid out in the
-[Delta specification](https://arya-analytics.atlassian.net/wiki/spaces/AA/pages/9601025/01+-+Delta)
+[Delta specification](https://synnaxlabs.atlassian.net/wiki/spaces/AA/pages/9601025/01+-+Delta)
 .
 
 # 1 - Vocabulary

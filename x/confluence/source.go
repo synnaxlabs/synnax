@@ -2,6 +2,7 @@ package confluence
 
 import (
 	"context"
+	"fmt"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/signal"
 )

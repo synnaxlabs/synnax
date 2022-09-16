@@ -2,11 +2,11 @@ package main
 
 import (
 	"context"
-	"github.com/arya-analytics/delta/pkg/api"
-	"github.com/arya-analytics/freighter/fws"
-	"github.com/arya-analytics/x/httputil"
-	"github.com/arya-analytics/x/telem"
 	"github.com/sirupsen/logrus"
+	"github.com/synnaxlabs/synnax/pkg/api"
+	"github.com/synnaxlabs/freighter/fws"
+	"github.com/synnaxlabs/x/httputil"
+	"github.com/synnaxlabs/x/telem"
 	"go/types"
 	"time"
 )

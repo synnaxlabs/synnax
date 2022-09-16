@@ -1,4 +1,4 @@
-import { Endpoint } from '@arya-analytics/freighter';
+import { Endpoint } from '@synnaxlabs/freighter';
 import Transport from './transport';
 
 export type ClientProps = {

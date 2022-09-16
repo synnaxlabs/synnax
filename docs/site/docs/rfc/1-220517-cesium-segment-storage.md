@@ -41,10 +41,10 @@ details.
 # 2 - Motivation
 
 The product pivot
-from [Arya Core](https://arya-analytics.atlassian.net/wiki/spaces/AA/pages/819257/00+-+Arya+Core)
+from [synnax Core](https://synnaxlabs.atlassian.net/wiki/spaces/AA/pages/819257/00+-+synnax+Core)
 to
-[Delta](https://arya-analytics.atlassian.net/wiki/spaces/AA/pages/9601025/01+-+Delta)
-is the main driver behind this RFC. Arya Core was built as a database proxy that
+[Delta](https://synnaxlabs.atlassian.net/wiki/spaces/AA/pages/9601025/01+-+Delta)
+is the main driver behind this RFC. synnax Core was built as a database proxy that
 merged and synchronized network requests into several databases. Delta is a
 single binary that implements an entire database including a storage engine.
 This means we must:
@@ -73,7 +73,7 @@ These all use an LSM + WAL style architecture, which is a good fit for frequent
 reads and writes on small amounts of data. However, when it comes to high rate
 append only workloads, they do not scale as well as one might hope. Pebbles' own
 [benchmarks](https://cockroachdb.github.io/pebble/) show a maximum write
-throughput of (approximately) 170,000 samples per second, far below Arya Core's
+throughput of (approximately) 170,000 samples per second, far below synnax Core's
 throughput of 6 million values per second. An elastic throughput in the range
 several hundreds of millions of values per second is reasonable for append only
 writes to an SSD.

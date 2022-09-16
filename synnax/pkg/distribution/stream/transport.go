@@ -1,8 +1,8 @@
 package stream
 
 import (
-	"github.com/arya-analytics/delta/pkg/distribution/channel"
-	"github.com/arya-analytics/freighter"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/freighter"
 	"go/types"
 )
 

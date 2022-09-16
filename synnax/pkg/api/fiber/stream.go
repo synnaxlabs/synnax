@@ -2,9 +2,9 @@ package fiber
 
 import (
 	"context"
-	"github.com/arya-analytics/delta/pkg/api"
-	"github.com/arya-analytics/freighter/fws"
 	"github.com/gofiber/fiber/v2"
+	"github.com/synnaxlabs/freighter/fws"
+	"github.com/synnaxlabs/synnax/pkg/api"
 	"go/types"
 )
 

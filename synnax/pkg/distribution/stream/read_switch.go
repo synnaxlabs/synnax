@@ -2,13 +2,13 @@ package stream
 
 import (
 	"context"
-	"github.com/arya-analytics/delta/pkg/distribution/channel"
-	distribcore "github.com/arya-analytics/delta/pkg/distribution/core"
-	"github.com/arya-analytics/freighter"
-	"github.com/arya-analytics/freighter/freightfluence"
-	"github.com/arya-analytics/x/address"
-	"github.com/arya-analytics/x/confluence"
-	"github.com/arya-analytics/x/signal"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	distribcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/freighter/freightfluence"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/signal"
 	"github.com/samber/lo"
 	"sync"
 )

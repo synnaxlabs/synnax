@@ -2,11 +2,11 @@ package api
 
 import (
 	"context"
-	"github.com/arya-analytics/delta/pkg/api/errors"
-	"github.com/arya-analytics/delta/pkg/distribution/channel"
-	"github.com/arya-analytics/delta/pkg/distribution/stream"
-	"github.com/arya-analytics/freighter"
-	"github.com/arya-analytics/x/telem"
+	"github.com/synnaxlabs/synnax/pkg/api/errors"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/stream"
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/x/telem"
 	roacherrors "github.com/cockroachdb/errors"
 	"go/types"
 )

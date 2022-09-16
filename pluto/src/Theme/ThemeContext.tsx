@@ -6,7 +6,7 @@ import {
   useEffect,
   useMemo,
 } from "react";
-import { Theme, aryaDark, aryaLight } from "./theme";
+import { Theme, synnaxDark, synnaxLight } from "./theme";
 import { applyThemeAsCssVars } from "./css";
 import "./theme.css";
 import Switch from "../Atoms/Switch/Switch";
@@ -15,7 +15,7 @@ const ThemeContext = createContext<{
   theme: Theme;
   toggleTheme: () => void;
 }>({
-  theme: aryaLight,
+  theme: synnaxLight,
   toggleTheme: () => {
     console.log("unimp")
   },

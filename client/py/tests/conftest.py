@@ -1,16 +1,16 @@
 import pytest
 
-import arya
-from arya import Channel, telem
+import synnax
+from synnax import Channel, telem
 
 
 @pytest.fixture(scope="session")
-def client() -> arya.Client:
-    return arya.Client(host="localhost", port=8080)
+def client() -> synnax.Client:
+    return synnax.Client(host="localhost", port=8080)
 
 
 @pytest.fixture
-def channel(client: arya.Client) -> Channel:
+def channel(client: synnax.Client) -> Channel:
     return client.channel.create_n(
         Channel(
             name="test",

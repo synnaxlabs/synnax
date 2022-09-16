@@ -3,7 +3,7 @@ VERSION 0.6
 deps:
     FROM node:18.7.0-alpine3.16
     COPY ../../../pluto+build/* /pluto/
-    WORKDIR /delta/pkg/ui
+    WORKDIR /synnax/pkg/ui
     COPY package.json ./
     COPY yarn.lock ./
     RUN yarn install

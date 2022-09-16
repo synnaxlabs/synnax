@@ -23,8 +23,8 @@ require (
 require (
 	github.com/DataDog/zstd v1.4.5 // indirect
 	github.com/andybalholm/brotli v1.0.4 // indirect
-	github.com/arya-analytics/aspen v0.0.0-20220804103056-48505d5ea44e // indirect
-	github.com/arya-analytics/cesium v0.0.0-20220722114246-333fea6b09d0 // indirect
+	github.com/synnaxlabs/aspen v0.0.0-20220804103056-48505d5ea44e // indirect
+	github.com/synnaxlabs/cesium v0.0.0-20220722114246-333fea6b09d0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/cockroachdb/logtags v0.0.0-20211118104740-dabe8e521a4f // indirect
 	github.com/cockroachdb/pebble v0.0.0-20220513193540-b8c9a560bed5 // indirect

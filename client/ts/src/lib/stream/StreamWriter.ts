@@ -1,5 +1,5 @@
 import { Sample } from './sample';
-import { ClientStream, StreamClient } from '@arya-analytics/freighter';
+import { ClientStream, StreamClient } from '@synnaxlabs/freighter';
 
 type StreamWriterRequest = {
   samples: Sample[];

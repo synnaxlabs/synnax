@@ -4,12 +4,12 @@ import numpy as np
 import pytest
 from freighter import encoder
 
-from arya import telem
-from arya.channel import Channel
-from arya.segment import BinarySegment, NumpySegment, SugaredBinarySegment
-from arya.segment.splitter import Splitter
-from arya.segment.validate import ScalarType, Contiguity
-from arya import errors
+from synnax import telem
+from synnax.channel import Channel
+from synnax.segment import BinarySegment, NumpySegment, SugaredBinarySegment
+from synnax.segment.splitter import Splitter
+from synnax.segment.validate import ScalarType, Contiguity
+from synnax import errors
 
 
 class TestBinarySegment:

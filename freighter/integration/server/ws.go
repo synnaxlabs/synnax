@@ -4,7 +4,6 @@ import (
 	"context"
 	"github.com/cockroachdb/errors"
 	"github.com/gofiber/fiber/v2"
-	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/fws"
 	"github.com/synnaxlabs/x/httputil"

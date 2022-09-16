@@ -1,11 +1,11 @@
 import numpy as np
 
-import arya
-from arya import Channel, telem
+import synnax
+from synnax import Channel, telem
 
 
 class TestNumpy:
-    def test_basic_iteration(self, channel: Channel, client: arya.Client):
+    def test_basic_iteration(self, channel: Channel, client: synnax.Client):
         writer = client.data.new_writer([channel.key])
         try:
             data = np.random.rand(25).astype(np.float64)

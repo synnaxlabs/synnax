@@ -1,4 +1,4 @@
-from arya.channel import Channel
+from synnax.channel import Channel
 
 
 class Registry:

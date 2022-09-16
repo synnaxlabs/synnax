@@ -1,5 +1,5 @@
 import { ThemeProvider } from "../src/Theme/ThemeContext.tsx";
-import {aryaDark, aryaLight} from "../src/Theme/theme.ts";
+import {synnaxDark, synnaxLight} from "../src/Theme/theme.ts";
 
 export const parameters = {
   actions: { argTypesRegex: "^on[A-Z].*" },
@@ -12,5 +12,5 @@ export const parameters = {
 };
 
 export const decorators = [
-  (Story) => <ThemeProvider themes={[aryaDark]}>{Story()}</ThemeProvider>,
+  (Story) => <ThemeProvider themes={[synnaxDark]}>{Story()}</ThemeProvider>,
 ];

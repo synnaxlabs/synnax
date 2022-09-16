@@ -1,4 +1,4 @@
-import { ClientStream } from '@arya-analytics/freighter';
+import { ClientStream } from '@synnaxlabs/freighter';
 import Transport from '../transport';
 import { Sample } from './sample';
 

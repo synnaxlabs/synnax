@@ -5,9 +5,9 @@ from functools import reduce
 import numpy
 import numpy as np
 
-from arya import telem
-from arya.channel import Channel
-from arya.telem import TimeStamp, TimeSpan, TimeRange
+from synnax import telem
+from synnax.channel import Channel
+from synnax.telem import TimeStamp, TimeSpan, TimeRange
 
 
 @dataclass

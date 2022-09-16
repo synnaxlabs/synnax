@@ -1,3 +1,3 @@
-# arya
+# synnax
 
-Arya Client Library
+synnax Client Library

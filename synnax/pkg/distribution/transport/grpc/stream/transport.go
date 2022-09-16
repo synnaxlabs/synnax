@@ -2,9 +2,9 @@ package stream
 
 import (
 	"context"
-	"github.com/arya-analytics/delta/pkg/distribution/stream"
-	sv1 "github.com/arya-analytics/delta/pkg/distribution/transport/grpc/gen/proto/go/stream/v1"
-	"github.com/arya-analytics/freighter/fgrpc"
+	"github.com/synnaxlabs/synnax/pkg/distribution/stream"
+	sv1 "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/gen/proto/go/stream/v1"
+	"github.com/synnaxlabs/freighter/fgrpc"
 	"go/types"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"

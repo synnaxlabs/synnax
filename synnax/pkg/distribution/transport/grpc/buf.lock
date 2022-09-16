@@ -2,6 +2,6 @@
 version: v1
 deps:
   - remote: buf.build
-    owner: arya-analytics
+    owner: synnaxlabs
     repository: freighter
     commit: 65dba518db40476cbd77d4abfcae075b

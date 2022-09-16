@@ -1,9 +1,9 @@
 from typing import Protocol
 
-import arya.errors
-from arya import telem
-from arya.segment import NumpySegment
-from arya.telem.numpy import to_numpy_type
+import synnax.errors
+from synnax import telem
+from synnax.segment import NumpySegment
+from synnax.telem.numpy import to_numpy_type
 
 
 class Validator(Protocol):
@@ -15,17 +15,17 @@ class ScalarType:
     def validate(self, seg: NumpySegment) -> None:
         npt = to_numpy_type(seg.channel.data_type)
         if npt is None:
-            raise arya.errors.ValidationError(
+            raise synnax.errors.ValidationError(
                 f"Channel data type {seg.channel.data_type} is not supported"
             )
 
         if seg.data.dtype != npt:
-            raise arya.errors.ValidationError(
+            raise synnax.errors.ValidationError(
                 f"Expected data type {npt}, got {seg.data.dtype}"
             )
 
         if seg.data.ndim != 1:
-            raise arya.errors.ValidationError(f"Expected 1D array, got {seg.data.ndim}")
+            raise synnax.errors.ValidationError(f"Expected 1D array, got {seg.data.ndim}")
 
 
 class Contiguity:
@@ -57,7 +57,7 @@ class Contiguity:
         if self.allow_overlap:
             return
         if seg.start.before(hwm):
-            raise arya.errors.ContiguityError(
+            raise synnax.errors.ContiguityError(
                 f"Next segment start ({seg.start}) is before the previous segments end ({hwm})"
             )
 
@@ -65,7 +65,7 @@ class Contiguity:
         if self.allow_gap:
             return
         if seg.start != hwm:
-            raise arya.errors.ContiguityError(
+            raise synnax.errors.ContiguityError(
                 f"Next segment start ({seg.start}) is not equal to the previous segments end ({hwm})"
             )
 
@@ -75,7 +75,7 @@ class Contiguity:
     def _get_high_water_mark(self, channel_key: str) -> telem.TimeStamp:
         hwm = self.high_water_marks.get(channel_key, None)
         if hwm is None and not self.allow_no_high_water_mark:
-            raise arya.errors.UnexpectedError(
+            raise synnax.errors.UnexpectedError(
                 f"No high water mark for channel: {channel_key}"
             )
         return hwm

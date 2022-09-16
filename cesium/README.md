@@ -23,7 +23,7 @@ Cesium is tailored towards a specific class of time-series data:
 ## Concepts 
 
 The following is an overview of Cesium concepts from an interface perspective. A detailed design 
-[RFC](https://github.com/synnaxlabs/delta/blob/main/docs/rfc/220517-cesium-segment-storage.md) is available for those interested in the implementation.
+[RFC](https://github.com/synnaxlabs/synnax/blob/main/docs/rfc/220517-cesium-segment-storage.md) is available for those interested in the implementation.
 
 ### Channels
 

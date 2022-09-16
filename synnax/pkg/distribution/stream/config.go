@@ -1,7 +1,7 @@
 package stream
 
 import (
-	distribcore "github.com/arya-analytics/delta/pkg/distribution/core"
+	distribcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"go.uber.org/zap"
 )
 

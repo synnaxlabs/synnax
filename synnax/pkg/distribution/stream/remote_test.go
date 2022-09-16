@@ -1,19 +1,18 @@
 package stream_test
 
 import (
-	"github.com/arya-analytics/delta/pkg/distribution/channel"
-	"github.com/arya-analytics/delta/pkg/distribution/core"
-	"github.com/arya-analytics/delta/pkg/distribution/core/mock"
-	"github.com/arya-analytics/delta/pkg/distribution/stream"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
 	"go.uber.org/zap"
 )
 
 var _ = FDescribe("Remote", func() {
 	var (
 		builder  *mock.CoreBuilder
-		services map[core.NodeID]*stream.Service
+		services map[core.NodeID]*Service
 	)
 	BeforeEach(func() {
 		builder, services = provisionNServices(2, zap.NewNop())
@@ -31,9 +30,9 @@ var _ = FDescribe("Remote", func() {
 		r, closer := services[2].NewStreamReader(key)
 		defer closer.Close()
 
-		inSamples := make([]stream.Sample, 10)
+		inSamples := make([]Sample, 10)
 		for i := 0; i < 10; i++ {
-			inSamples[i] = stream.Sample{
+			inSamples[i] = Sample{
 				ChannelKey: key,
 				Stamp:      1,
 				Value:      []byte("hello"),

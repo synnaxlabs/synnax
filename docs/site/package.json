@@ -2,7 +2,7 @@
   "name": "site",
   "version": "0.0.0",
   "private": true,
-  "homepage": "https://arya-analytics.github.io",
+  "homepage": "https://synnaxlabs.github.io",
   "scripts": {
     "docusaurus": "docusaurus",
     "dev": "docusaurus start",

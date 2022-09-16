@@ -3,8 +3,8 @@ import Logo from "@theme-original/Navbar/Logo";
 import { useColorMode } from "@docusaurus/theme-common";
 import {
   applyThemeAsCssVars,
-  aryaLight,
-  aryaDark,
+  synnaxLight,
+  synnaxDark,
 } from "@synnaxlabs/pluto";
 import IconGradient from "../../../../static/img/icon-gradient.svg";
 import IconWhite from "../../../../static/img/icon-white.svg";
@@ -19,9 +19,9 @@ export default function LogoWrapper(props) {
   const { colorMode } = useColorMode();
   useEffect(() => {
     if (colorMode === "dark") {
-      applyThemeAsCssVars(document.documentElement, aryaDark);
+      applyThemeAsCssVars(document.documentElement, synnaxDark);
     } else {
-      applyThemeAsCssVars(document.documentElement, aryaLight);
+      applyThemeAsCssVars(document.documentElement, synnaxLight);
     }
   }, [colorMode]);
 

@@ -2,9 +2,9 @@ package stream
 
 import (
 	"context"
-	"github.com/arya-analytics/delta/pkg/distribution/channel"
-	"github.com/arya-analytics/x/confluence"
-	"github.com/arya-analytics/x/set"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/set"
 )
 
 type sampleFilter struct {

@@ -4,7 +4,7 @@ import {
   StreamClient,
   WebSocketClient,
   HTTPClient,
-} from '@arya-analytics/freighter';
+} from '@synnaxlabs/freighter';
 
 export default class Transport {
   endpoint: Endpoint;

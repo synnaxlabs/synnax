@@ -2,12 +2,12 @@ package stream
 
 import (
 	"context"
-	"github.com/arya-analytics/delta/pkg/distribution/channel"
-	"github.com/arya-analytics/freighter"
-	"github.com/arya-analytics/x/address"
-	"github.com/arya-analytics/x/confluence"
-	"github.com/arya-analytics/x/ioutil"
-	"github.com/arya-analytics/x/signal"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/ioutil"
+	"github.com/synnaxlabs/x/signal"
 	"github.com/cockroachdb/errors"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
