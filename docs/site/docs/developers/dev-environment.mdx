@@ -2,17 +2,19 @@
 sidebar_position: 4
 ---
 
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
+
 
 # Setting up your Development Environment
 
 This page takes you through the steps of setting up your computer to develop
 Synnax. Instructions are available for both MacOS and Windows. The guide first
 takes you through installing the base tooling necessary for working on any project,
-and then steps into front, backend, and client specific tooling. After you have
+and then steps into frontend, backend, and client specific tooling. After you've
 installed the base tools, you can skip to the section for the part of the project
-you are working on.
+you're working on.
 
 ```mdx-code-block
 <Tabs>
@@ -39,14 +41,14 @@ command:
 ### Clone The Git Repository
 
 The next step is to clone the git repository. If you don't already have git installed,
-you can do so by running the following command:
+you can do so by running:
 
 ```bash
 brew install git
 ```
 
 After that, clone the repository by running the following command in a direcory
-of your choice (we recommend `~/projects):
+of your choice (we recommend `~/projects`):
 
 ```bash
 git clone https://github.com/synnaxlabs/synnax && cd synnax
@@ -56,7 +58,7 @@ git clone https://github.com/synnaxlabs/synnax && cd synnax
 
 The next step is to install [**Docker**](https://www.docker.com/), which is a
 containerization platform that allows us to run Synnax in a consistent, sandboxed
-environment. We also use it for all our builds and CI/CD pipelines.
+environment. We also use it for all of our builds and CI/CD pipelines.
 
 :::caution
 This part can be tricky, feel free to reach out if you run into any trouble.
@@ -80,9 +82,9 @@ Hello from Docker!
 
 ### Install Earthly
 
-The next step is to install [**Earthly**](https://earthly.dev/), which is a build automation tool that
-allows us to build Synnax in a consistent, reproducible way. It uses Docker under the hood,
-and is a nice, modern alternative to Makefiles.
+The next step is to install [**Earthly**](https://earthly.dev/), which is an
+automation tool that allows us to build Synnax in a consistent, reproducible way.
+It uses Docker under the hood, and is a nice, modern alternative to Makefiles.
 
 To install Earthly, run the following command:
 
@@ -100,9 +102,9 @@ earthly github.com/earthly/hello-world+hello
 
 ### Install Go
 
-The next step is to install [**Go**](https://golang.org/), which is the programming language we use for
-most of our backend code. We use the latest version of Go 1.19, which you can install
-by running the following command:
+The next step is to install [**Go**](https://golang.org/), which is the programming
+language we use for our backend code. We use the latest version of Go 1.19, which
+you can install by running:
 
 ```bash
 brew install go
@@ -136,8 +138,8 @@ You should see a bunch of light green output.
 ### Install Node.js
 
 The first step is to install [**Node.js**](https://nodejs.org/en/), which is the
-JavaScript runtime we use for our frontend code. We use the latest version of Node.js,
-which you can install by running the following command:
+JavaScript runtime we use for our frontend code. We use the latest version,
+which you can install by running:
 
 ```bash
 brew install node
@@ -157,8 +159,8 @@ v18.[X].[Y]
 
 ### Install Yarn
 
-The next step is to install [**Yarn**](https://yarnpkg.com/), which is a package
-manager for Node.js:
+The next step is to install [**Yarn**](https://yarnpkg.com/), which is the package
+manager we use for managing our frontend dependencies. You can install it by running:
 
 ```bash
 npm install --global yarn
@@ -202,7 +204,7 @@ brew install python@3.10
 ```
 
 If you get a `permissiond denied` error, you may need to run the command using
-`sudo`. Finally, toverify the installation, run:
+`sudo`. To verify the installation, run:
 
 ```bash
 python3 --version
@@ -226,6 +228,17 @@ To install it, run:
 pip install poetry
 ```
 
+To verify the installation, run the following command in the root directory of the
+repository:
+
+```bash
+cd client/py && poetry install
+```
+
+This should install all dependencies for the client. If you get an error
+saying that `poetry` is not a command, you may need to update your `PATH` environment
+variable. If this happens, let us know so we can help you out.
+
 ```mdx-code-block
 </TabItem>
 <TabItem value="windows" label="Windows">
@@ -244,7 +257,7 @@ If you've already installed WSL, make sure you're using version 2 by running:
 wsl -l -v
 ```
 
-If you're using an Ubuntu Distribution (the default), you should see something
+If you're using an Ubuntu distribution (the default), you should see something
 like this:
 
 ```bash
@@ -254,14 +267,14 @@ like this:
 
 ### Clone the Git Repository
 
-The next step is to clone the Synnax repository. Before cloning, make sure you're
+The next step is to clone the Synnax repository. Make sure you're
 using a WSL terminal. You can do this by running the following command:
 
 ```bash
 wsl
 ```
 
-From here on, **assume all commands should be run within a WSL terminal**. Now, move
+From here on, **assume all commands should be run within WSL**. Now, move
 into a directory of your choice, we recommend making a directory called `projects`
 in your home directory.
 
@@ -289,9 +302,9 @@ environment. We also use it for all our builds and CI/CD pipelines.
 
 The instructions for installing Docker Desktop can be found
 [here](https://docs.docker.com/desktop/windows/wsl/). This is a specific guide
-for using docker with the WSL 2 engine.
+for using Docker with the WSL 2 engine.
 
-After installing, make sure docker is working by running:
+After installing, make sure Docker is working by running:
 
 ```bash
 docker run hello-world
@@ -301,7 +314,6 @@ You should see the following as part of the output:
 
 ```bash
 Hello from Docker!
-This message shows your installation appears to be working correctly.
 ```
 
 ### Install Earthly
@@ -485,6 +497,17 @@ To install it, run:
 ```bash
 pip install poetry
 ```
+
+To verify the installation, run the following command in the root directory of the
+repository:
+
+```bash
+cd client/py && poetry install
+```
+
+This should install all dependencies for the client. If you get an error
+saying that `poetry` is not a command, you may need to update your `PATH` environment
+variable. If this happens, let us know so we can help you out.
 
 ```mdx-code-block
 </TabItem>
