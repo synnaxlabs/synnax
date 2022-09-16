@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/confluence"
+	. "github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/signal"
 	"time"
 )

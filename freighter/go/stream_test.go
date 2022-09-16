@@ -259,7 +259,6 @@ func (impl *wsImplementation) start(
 		logger,
 	)
 	t.BindTo(impl.app, "/")
-	// add a simple health check handler
 	impl.app.Get("/health", func(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusOK)
 	})

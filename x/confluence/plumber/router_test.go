@@ -5,6 +5,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/confluence"
+	. "github.com/synnaxlabs/x/confluence/plumber"
 )
 
 func parseOutletAddrMap[V confluence.Value](

@@ -4,6 +4,7 @@ import (
 	"context"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 )
 
@@ -102,19 +103,19 @@ var _ = Describe("Delta", func() {
 	})
 	Describe("DynamicDeltaMultiplier", func() {
 		It("Should allow the caller to add and remove outlets dynamically", func() {
-			delta := &DynamicDeltaMultiplier[int]{}
+			delta := NewDynamicDeltaMultiplier[int]()
 			delta.InFrom(inputOne)
 			ctx, cancel := signal.TODO()
 			defer cancel()
-			delta.Flow(ctx)
-			delta.OutTo(outputOne)
-			delta.OutTo(outputTwo)
+			delta.Flow(ctx, CloseInletsOnExit())
+			delta.Connect(outputOne)
+			delta.Connect(outputTwo)
 			inputOne.Inlet() <- 1
 			v1 := <-outputOne.Outlet()
 			v2 := <-outputTwo.Outlet()
 			Expect(v1).To(Equal(1))
 			Expect(v2).To(Equal(1))
-			delta.Disconnect(outputOne.InletAddress())
+			delta.Disconnect(outputOne)
 			inputOne.Inlet() <- 2
 			v2 = <-outputTwo.Outlet()
 			_, ok := <-outputOne.Outlet()
