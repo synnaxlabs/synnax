@@ -2,10 +2,10 @@
 package gorp
 
 import (
-	"github.com/arya-analytics/x/binary"
-	"github.com/arya-analytics/x/kv"
-	"github.com/arya-analytics/x/query"
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/query"
 )
 
 // Retrieve is a query that retrieves Entries from the DB.

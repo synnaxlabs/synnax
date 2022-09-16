@@ -1,7 +1,7 @@
 package gorp
 
 import (
-	"github.com/arya-analytics/x/binary"
+	"github.com/synnaxlabs/x/binary"
 	"go.uber.org/zap"
 )
 

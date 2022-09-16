@@ -2,7 +2,7 @@ package freighter
 
 import (
 	"errors"
-	"github.com/arya-analytics/x/alamos"
+	"github.com/synnaxlabs/x/alamos"
 )
 
 var (

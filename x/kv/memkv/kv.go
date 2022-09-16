@@ -3,10 +3,10 @@
 package memkv
 
 import (
-	"github.com/arya-analytics/x/kv"
-	"github.com/arya-analytics/x/kv/pebblekv"
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/vfs"
+	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/kv/pebblekv"
 )
 
 // New opens a new in-memory key-value store implementing the kv.db interface.

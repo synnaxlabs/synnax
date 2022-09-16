@@ -2,11 +2,11 @@ package signal_test
 
 import (
 	"context"
-	"github.com/arya-analytics/x/signal"
-	. "github.com/arya-analytics/x/testutil"
 	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/signal"
+	. "github.com/synnaxlabs/x/testutil"
 	"go.uber.org/zap"
 	"runtime/pprof"
 	"time"

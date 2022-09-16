@@ -1,6 +1,6 @@
 package channel
 
-import "github.com/arya-analytics/x/query"
+import "github.com/synnaxlabs/x/query"
 
 const keysOptKey query.OptionKey = "cks"
 

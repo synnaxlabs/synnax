@@ -1,14 +1,14 @@
 package aspen
 
 import (
-	"github.com/arya-analytics/aspen/internal/cluster"
-	"github.com/arya-analytics/aspen/internal/kv"
-	grpct "github.com/arya-analytics/aspen/transport/grpc"
-	"github.com/arya-analytics/freighter/fgrpc"
-	"github.com/arya-analytics/x/address"
-	"github.com/arya-analytics/x/alamos"
-	kvx "github.com/arya-analytics/x/kv"
 	"github.com/cockroachdb/pebble/vfs"
+	"github.com/synnaxlabs/aspen/internal/cluster"
+	"github.com/synnaxlabs/aspen/internal/kv"
+	grpct "github.com/synnaxlabs/aspen/transport/grpc"
+	"github.com/synnaxlabs/freighter/fgrpc"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/alamos"
+	kvx "github.com/synnaxlabs/x/kv"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"

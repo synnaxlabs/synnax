@@ -16,3 +16,4 @@ export {
   PlottingContextProvider,
   usePlottingContext,
 } from "./Plots/PlottingContext";
+export { applyThemeAsCssVars } from "./Theme/css";

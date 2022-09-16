@@ -7,8 +7,8 @@
 package kv
 
 import (
-	"github.com/arya-analytics/x/alamos"
 	"github.com/cockroachdb/pebble"
+	"github.com/synnaxlabs/x/alamos"
 )
 
 // NotFound is returned when a key is not found in the DB store.

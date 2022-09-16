@@ -1,8 +1,8 @@
 package gorp
 
 import (
-	"github.com/arya-analytics/x/kv"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/kv"
 )
 
 // KVIterator provides a simple wrapper around a kv.Write that decodes a byte-value

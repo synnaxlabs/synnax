@@ -1,7 +1,7 @@
 package fgrpc
 
 import (
-	"github.com/arya-analytics/freighter"
+	"github.com/synnaxlabs/freighter"
 	"go/types"
 	"google.golang.org/protobuf/types/known/emptypb"
 )

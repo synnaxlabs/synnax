@@ -2,7 +2,7 @@ package confluence
 
 import (
 	"context"
-	"github.com/arya-analytics/x/signal"
+	"github.com/synnaxlabs/x/signal"
 )
 
 // AbstractLinear is an abstract Segment that reads values from a single Inlet and

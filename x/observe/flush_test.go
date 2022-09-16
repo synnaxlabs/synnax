@@ -1,11 +1,11 @@
 package observe_test
 
 import (
-	"github.com/arya-analytics/x/binary"
-	"github.com/arya-analytics/x/kv/memkv"
-	"github.com/arya-analytics/x/observe"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/observe"
 	"time"
 )
 

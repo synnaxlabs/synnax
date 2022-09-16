@@ -3,8 +3,8 @@
 package store
 
 import (
-	"github.com/arya-analytics/aspen/internal/node"
-	"github.com/arya-analytics/x/store"
+	"github.com/synnaxlabs/aspen/internal/node"
+	"github.com/synnaxlabs/x/store"
 )
 
 // Store is an interface representing a copy-on-read Store for managing cluster state.

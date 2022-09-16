@@ -1,9 +1,9 @@
 package main
 
 import (
-	"github.com/arya-analytics/freighter/integration/server"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/synnaxlabs/freighter/integration/server"
 	"go.uber.org/zap"
 )
 

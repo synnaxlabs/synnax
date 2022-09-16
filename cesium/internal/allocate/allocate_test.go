@@ -1,10 +1,10 @@
 package allocate_test
 
 import (
-	"github.com/arya-analytics/cesium/internal/allocate"
-	"github.com/arya-analytics/x/telem"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium/internal/allocate"
+	"github.com/synnaxlabs/x/telem"
 )
 
 type IntegerItem struct {

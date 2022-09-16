@@ -1,10 +1,10 @@
 package gossip
 
 import (
-	"github.com/arya-analytics/aspen/internal/cluster/store"
-	"github.com/arya-analytics/x/alamos"
-	"github.com/arya-analytics/x/override"
-	"github.com/arya-analytics/x/validate"
+	"github.com/synnaxlabs/aspen/internal/cluster/store"
+	"github.com/synnaxlabs/x/alamos"
+	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 	"time"
 )

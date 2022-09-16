@@ -2,7 +2,7 @@ version: v1
 managed:
   enabled: true
   go_package_prefix:
-    default: github.com/arya-analytics/aspen/transport/grpc
+    default: github.com/synnaxlabs/aspen/transport/grpc
 plugins:
   - name: go
     out: gen/proto/go

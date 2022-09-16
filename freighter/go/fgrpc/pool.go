@@ -1,8 +1,8 @@
 package fgrpc
 
 import (
-	"github.com/arya-analytics/x/address"
-	"github.com/arya-analytics/x/pool"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/pool"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 )

@@ -1,15 +1,15 @@
 package gorp_test
 
 import (
-	"github.com/arya-analytics/x/kv"
-	"github.com/arya-analytics/x/kv/memkv"
-	"github.com/arya-analytics/x/query"
-	. "github.com/arya-analytics/x/testutil"
 	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/query"
+	. "github.com/synnaxlabs/x/testutil"
 
-	"github.com/arya-analytics/x/gorp"
+	"github.com/synnaxlabs/x/gorp"
 )
 
 var _ = Describe("RetrieveEntity", Ordered, func() {

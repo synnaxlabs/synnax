@@ -1,8 +1,8 @@
 package fgrpc
 
 import (
-	"github.com/arya-analytics/freighter/ferrors"
-	v1 "github.com/arya-analytics/freighter/ferrors/v1"
+	"github.com/synnaxlabs/freighter/ferrors"
+	v1 "github.com/synnaxlabs/freighter/ferrors/v1"
 )
 
 func EncodeError(err error) *v1.ErrorPayload {

@@ -2,9 +2,9 @@ package kfs
 
 import (
 	"context"
-	"github.com/arya-analytics/x/errutil"
-	"github.com/arya-analytics/x/signal"
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/x/errutil"
+	"github.com/synnaxlabs/x/signal"
 	"time"
 )
 

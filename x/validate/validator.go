@@ -1,10 +1,10 @@
 package validate
 
 import (
-	"github.com/arya-analytics/x/errutil"
-	"github.com/arya-analytics/x/types"
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/errutil"
+	"github.com/synnaxlabs/x/types"
 )
 
 type Validator struct {

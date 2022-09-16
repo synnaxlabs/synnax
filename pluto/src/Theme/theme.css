@@ -1,11 +1,11 @@
-html * {
+* {
   transition: 0.15s ease-in-out;
-  font-family: var(--font-family);
-  color: var(--text-color);
 }
 
 html {
+  color: var(--text-color);
   background-color: var(--background);
+  margin: 0;
 }
 
 body {

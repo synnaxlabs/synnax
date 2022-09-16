@@ -1,10 +1,10 @@
 package segment
 
 import (
-	"github.com/arya-analytics/delta/pkg/api"
-	"github.com/arya-analytics/freighter"
-	"github.com/arya-analytics/freighter/ferrors"
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/freighter/ferrors"
+	"github.com/synnaxlabs/synnax/pkg/api"
 	"sync"
 )
 

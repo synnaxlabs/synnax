@@ -3,8 +3,8 @@ package seg
 import (
 	"bytes"
 	"encoding/binary"
-	"github.com/arya-analytics/cesium"
-	"github.com/arya-analytics/x/telem"
+	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/x/telem"
 	"math/rand"
 )
 

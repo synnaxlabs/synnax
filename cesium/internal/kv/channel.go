@@ -1,9 +1,9 @@
 package kv
 
 import (
-	"github.com/arya-analytics/cesium/internal/channel"
-	"github.com/arya-analytics/x/gorp"
-	"github.com/arya-analytics/x/kv"
+	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/kv"
 )
 
 type ChannelService struct {

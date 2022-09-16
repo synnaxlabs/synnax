@@ -71,8 +71,8 @@ package confluence
 
 import (
 	"context"
-	"github.com/arya-analytics/x/address"
-	"github.com/arya-analytics/x/signal"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/signal"
 )
 
 // Value represents an item that can be sent through a Stream.

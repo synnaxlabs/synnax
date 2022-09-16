@@ -4,8 +4,8 @@ package kfs
 
 import (
 	"fmt"
-	"github.com/arya-analytics/x/errutil"
-	"github.com/arya-analytics/x/lock"
+	"github.com/synnaxlabs/x/errutil"
+	"github.com/synnaxlabs/x/lock"
 	"io"
 	"os"
 	"path/filepath"

@@ -2,15 +2,15 @@ package cesium_test
 
 //
 //import (
-//	"github.com/arya-analytics/cesium/testutil/seg"
+//	"github.com/synnaxlabs/cesium/testutil/seg"
 //	_ "net/http/pprof"
 //)
 //
 //import (
 //	"fmt"
-//	"github.com/arya-analytics/cesium"
-//	"github.com/arya-analytics/x/alamos"
-//	. "github.com/arya-analytics/x/testutil"
+//	"github.com/synnaxlabs/cesium"
+//	"github.com/synnaxlabs/x/alamos"
+//	. "github.com/synnaxlabs/x/testutil"
 //	. "github.com/onsi/ginkgo/v2"
 //	. "github.com/onsi/gomega"
 //	"go.uber.org/zap"

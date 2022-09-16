@@ -1,8 +1,8 @@
 package confluence
 
 import (
-	"github.com/arya-analytics/x/address"
-	"github.com/arya-analytics/x/signal"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/signal"
 )
 
 type Options struct {

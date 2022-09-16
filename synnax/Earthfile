@@ -1,0 +1,33 @@
+VERSION 0.6
+FROM golang:1.19-alpine3.16
+RUN apk add build-base
+WORKDIR /synnax
+
+deps:
+    ARG noui=false
+    IF [ "$noui" = "false" ]
+        COPY ./pkg/ui+build/* ./pkg/ui
+    END
+    COPY ../x+source/* /x
+    COPY ../cesium+source/* /cesium
+    COPY ../aspen+source/* /aspen
+    COPY ../freighter/go+source/* /freighter/go
+    COPY ../client/go+source/* /client/go
+    COPY go.mod go.sum ./
+    RUN go mod download
+
+build:
+    FROM +deps
+    COPY . .
+    ARG noui=false
+    IF [ "$noui" = "true" ]
+        RUN go build -tags noui -o build/synnax main.go
+    ELSE
+        RUN go build -o build/synnax main.go
+    END
+    SAVE ARTIFACT build/synnax /synnax AS LOCAL build/synnax
+
+docker:
+    COPY +build/synnax .
+    ENTRYPOINT ["/synnax/synnax", "start"]
+    SAVE IMAGE --push ghcr.io/synnaxlabs/synnax:latest

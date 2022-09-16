@@ -2,7 +2,7 @@ package freighter
 
 import (
 	"context"
-	"github.com/arya-analytics/x/address"
+	"github.com/synnaxlabs/x/address"
 )
 
 // StreamTransport is an entity that implements streaming transport of messages between a

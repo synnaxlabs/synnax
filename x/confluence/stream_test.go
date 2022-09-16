@@ -1,10 +1,10 @@
 package confluence_test
 
 import (
-	"github.com/arya-analytics/x/address"
-	"github.com/arya-analytics/x/confluence"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/confluence"
 )
 
 var _ = Describe("Stream", func() {

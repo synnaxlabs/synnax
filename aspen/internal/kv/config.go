@@ -1,11 +1,11 @@
 package kv
 
 import (
-	"github.com/arya-analytics/aspen/internal/cluster"
-	"github.com/arya-analytics/x/alamos"
-	kvx "github.com/arya-analytics/x/kv"
-	"github.com/arya-analytics/x/override"
-	"github.com/arya-analytics/x/validate"
+	"github.com/synnaxlabs/aspen/internal/cluster"
+	"github.com/synnaxlabs/x/alamos"
+	kvx "github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 	"time"
 )

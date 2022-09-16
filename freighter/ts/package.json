@@ -1,5 +1,5 @@
 {
-  "name": "@arya-analytics/freighter",
+  "name": "@synnaxlabs/freighter",
   "version": "1.0.0",
   "description": "a modular transport abstraction",
   "main": "build/main/index.js",

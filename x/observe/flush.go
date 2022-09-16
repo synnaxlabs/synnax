@@ -1,9 +1,9 @@
 package observe
 
 import (
-	"github.com/arya-analytics/x/binary"
-	"github.com/arya-analytics/x/kv"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/kv"
 	"go.uber.org/zap"
 	"sync"
 	"time"

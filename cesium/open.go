@@ -1,13 +1,13 @@
 package cesium
 
 import (
-	"github.com/arya-analytics/cesium/internal/core"
-	"github.com/arya-analytics/x/kfs"
-	"github.com/arya-analytics/x/kv"
-	"github.com/arya-analytics/x/kv/pebblekv"
-	"github.com/arya-analytics/x/lock"
-	"github.com/arya-analytics/x/signal"
 	"github.com/cockroachdb/pebble"
+	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/x/kfs"
+	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/kv/pebblekv"
+	"github.com/synnaxlabs/x/lock"
+	"github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
 	"path/filepath"
 )

@@ -1,6 +1,6 @@
 package core
 
-import "github.com/arya-analytics/x/kfs"
+import "github.com/synnaxlabs/x/kfs"
 
 type FileKey uint16
 

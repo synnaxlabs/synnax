@@ -1,11 +1,11 @@
 package plumber_test
 
 import (
-	"github.com/arya-analytics/x/address"
-	"github.com/arya-analytics/x/confluence"
-	"github.com/arya-analytics/x/confluence/plumber"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/confluence/plumber"
 )
 
 func parseOutletAddrMap[V confluence.Value](

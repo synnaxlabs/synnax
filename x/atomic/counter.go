@@ -1,7 +1,7 @@
 package atomic
 
 import (
-	"github.com/arya-analytics/x/types"
+	"github.com/synnaxlabs/x/types"
 	"sync/atomic"
 )
 

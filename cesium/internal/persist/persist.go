@@ -2,13 +2,13 @@ package persist
 
 import (
 	"context"
-	"github.com/arya-analytics/cesium/internal/operation"
-	"github.com/arya-analytics/x/config"
-	"github.com/arya-analytics/x/confluence"
-	"github.com/arya-analytics/x/kfs"
-	override "github.com/arya-analytics/x/override"
-	"github.com/arya-analytics/x/signal"
-	"github.com/arya-analytics/x/validate"
+	"github.com/synnaxlabs/cesium/internal/operation"
+	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/kfs"
+	override "github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/validate"
 	"golang.org/x/sync/semaphore"
 )
 

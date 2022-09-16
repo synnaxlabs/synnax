@@ -2,11 +2,11 @@ package queue_test
 
 import (
 	"context"
-	"github.com/arya-analytics/x/confluence"
-	"github.com/arya-analytics/x/queue"
-	"github.com/arya-analytics/x/signal"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/queue"
+	"github.com/synnaxlabs/x/signal"
 	"time"
 )
 

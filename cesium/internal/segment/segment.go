@@ -2,10 +2,10 @@ package segment
 
 import (
 	"encoding/binary"
-	"github.com/arya-analytics/cesium/internal/channel"
-	"github.com/arya-analytics/cesium/internal/core"
-	"github.com/arya-analytics/x/telem"
 	"github.com/cockroachdb/pebble"
+	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/x/telem"
 )
 
 type Segment struct {

@@ -38,12 +38,12 @@ jobs:
           flags: clientpy
 
     services:
-      delta:
-        image: ghcr.io/arya-analytics/delta:latest
+      synnax:
+        image: ghcr.io/arya-analytics/synnax:latest
         env:
-          DELTA_LISTEN_ADDRESS: localhost:8080
-          DELTA_DEBUG: true
-          DELTA_MEM: true
+          SYNNAX_LISTEN_ADDRESS: localhost:8080
+          SYNNAX_DEBUG: true
+          SYNNAX_MEM: true
 
         credentials:
           username: ${{ github.actor }}

@@ -1,8 +1,8 @@
 package httputil
 
 import (
-	"github.com/arya-analytics/x/binary"
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/x/binary"
 )
 
 // EncoderDecoder is an interface that extends binary.EncoderDecoder to

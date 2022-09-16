@@ -3,9 +3,9 @@
 package pebblekv
 
 import (
-	"github.com/arya-analytics/x/alamos"
-	kvc "github.com/arya-analytics/x/kv"
 	"github.com/cockroachdb/pebble"
+	"github.com/synnaxlabs/x/alamos"
+	kvc "github.com/synnaxlabs/x/kv"
 )
 
 type pebbleKV struct{ *pebble.DB }

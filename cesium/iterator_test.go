@@ -1,12 +1,12 @@
 package cesium_test
 
 import (
-	"github.com/arya-analytics/cesium"
-	"github.com/arya-analytics/cesium/testutil/seg"
-	"github.com/arya-analytics/x/telem"
-	. "github.com/arya-analytics/x/testutil"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/cesium/testutil/seg"
+	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Iterator", func() {

@@ -2,10 +2,10 @@ package kv_test
 
 import (
 	"encoding/binary"
-	kvx "github.com/arya-analytics/x/kv"
-	"github.com/arya-analytics/x/kv/memkv"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	kvx "github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/kv/memkv"
 )
 
 var _ = Describe("Iterator", func() {

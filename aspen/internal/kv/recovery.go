@@ -2,8 +2,8 @@ package kv
 
 import (
 	"context"
-	"github.com/arya-analytics/x/confluence"
-	kvx "github.com/arya-analytics/x/kv"
+	"github.com/synnaxlabs/x/confluence"
+	kvx "github.com/synnaxlabs/x/kv"
 )
 
 type recoveryTransform struct {

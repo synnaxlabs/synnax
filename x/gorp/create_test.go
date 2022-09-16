@@ -1,11 +1,11 @@
 package gorp_test
 
 import (
-	"github.com/arya-analytics/x/gorp"
-	"github.com/arya-analytics/x/kv"
-	"github.com/arya-analytics/x/kv/memkv"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/kv/memkv"
 )
 
 type entry struct {

@@ -1,7 +1,7 @@
 package operation
 
 import (
-	"github.com/arya-analytics/x/kfs"
+	"github.com/synnaxlabs/x/kfs"
 )
 
 type Operation[F comparable] interface {

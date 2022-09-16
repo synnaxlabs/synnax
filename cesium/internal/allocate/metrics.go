@@ -1,6 +1,6 @@
 package allocate
 
-import "github.com/arya-analytics/x/alamos"
+import "github.com/synnaxlabs/x/alamos"
 
 type Metrics struct {
 	// Allocate counts the number of keys allocated by the Allocator and the average time to allocate a key.

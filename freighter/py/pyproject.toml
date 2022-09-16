@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "arya-freighter"
+name = "synnax-freighter"
 version = "0.1.0"
 description = ""
 authors = ["emiliano bonilla <emilbon99@gmail.com>"]

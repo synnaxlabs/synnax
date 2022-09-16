@@ -3,8 +3,8 @@ package confluence
 import (
 	"context"
 	"fmt"
-	"github.com/arya-analytics/x/signal"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/signal"
 )
 
 // Delta is an abstract Segment that reads values from an input Stream

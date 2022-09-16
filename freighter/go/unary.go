@@ -2,7 +2,7 @@ package freighter
 
 import (
 	"context"
-	"github.com/arya-analytics/x/address"
+	"github.com/synnaxlabs/x/address"
 )
 
 // Unary is an entity that implements simple bidirectional request-response

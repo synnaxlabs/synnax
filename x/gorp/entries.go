@@ -1,8 +1,8 @@
 package gorp
 
 import (
-	"github.com/arya-analytics/x/query"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/query"
 	"reflect"
 )
 

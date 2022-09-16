@@ -1,7 +1,7 @@
 package gorp
 
 import (
-	"github.com/arya-analytics/x/kv"
+	"github.com/synnaxlabs/x/kv"
 )
 
 // Wrap wraps the provided key-value database in a DB.

@@ -1,8 +1,8 @@
 package channel
 
 import (
-	"github.com/arya-analytics/x/telem"
 	"github.com/cockroachdb/pebble"
+	"github.com/synnaxlabs/x/telem"
 	"strconv"
 )
 

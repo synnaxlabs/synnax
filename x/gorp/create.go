@@ -1,7 +1,7 @@
 package gorp
 
 import (
-	"github.com/arya-analytics/x/query"
+	"github.com/synnaxlabs/x/query"
 )
 
 // Create is a query that creates Entries in the DB.
