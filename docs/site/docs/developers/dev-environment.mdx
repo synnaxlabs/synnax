@@ -7,15 +7,19 @@ import TabItem from '@theme/TabItem';
 
 # Setting up your Development Environment
 
+This page takes you through the steps of setting up your computer to develop
+Synnax. Instructions are available for both MacOS and Windows. The guide first
+takes you through installing the base tooling necessary for working on any project,
+and then steps into front, backend, and client specific tooling. After you have
+installed the base tools, you can skip to the section for the part of the project
+you are working on.
+
 ```mdx-code-block
 <Tabs>
 <TabItem value="macOS" label="MacOS">
 ```
 
 ## Base Tooling
-
-The following tools need to be installed regardless of the project you're working on.
-After that, we'll step into project specific tooling.
 
 :::caution
 If you have already completed any of these steps, you can skip them. Although all of these
@@ -25,7 +29,7 @@ tools are safe, installing may cause some unintended side effects for other proj
 ### Install Homebrew
 
 The easiest way to set up your development environment is by using
-the macOS package manager [Homebrew](https://brew.sh/), which you can install by running the following
+the macOS package manager [**Homebrew**](https://brew.sh/), which you can install by running the following
 command:
 
 ```bash
@@ -34,14 +38,15 @@ command:
 
 ### Clone The Git Repository
 
-If you don't have git installed, you can install it by running:
+The next step is to clone the git repository. If you don't already have git installed,
+you can do so by running the following command:
 
 ```bash
 brew install git
 ```
 
-After that, it's time to clone the Synnax repository. Run the following command in a
-directory of your choice:
+After that, clone the repository by running the following command in a direcory
+of your choice (we recommend `~/projects):
 
 ```bash
 git clone https://github.com/synnaxlabs/synnax && cd synnax
@@ -50,7 +55,7 @@ git clone https://github.com/synnaxlabs/synnax && cd synnax
 ### Install Docker
 
 The next step is to install [**Docker**](https://www.docker.com/), which is a
-containerization platform that allows you to run Synnax in a consistent, sandboxed
+containerization platform that allows us to run Synnax in a consistent, sandboxed
 environment. We also use it for all our builds and CI/CD pipelines.
 
 :::caution
@@ -196,7 +201,8 @@ programming language we use for our client code. We use the latest version of Py
 brew install python@3.10
 ```
 
-To verify the installation, run
+If you get a `permissiond denied` error, you may need to run the command using
+`sudo`. Finally, toverify the installation, run:
 
 ```bash
 python3 --version
@@ -207,6 +213,9 @@ You should see the following output:
 ```bash
 Python 3.10.[X]
 ````
+
+If you see a different version, you may need to update your `PATH` environment variable.
+If this happens, let us know so we can help you out.
 
 ### Install Poetry
 
@@ -226,17 +235,17 @@ pip install poetry
 
 ### Install WSL
 
-The only way to develop Synnax on Windows is by using WSL. If you haven't already,
-follow the instructions [here](https://docs.microsoft.com/en-us/windows/wsl/install-win10).
+Right now, the only way to develop Synnax on Windows is by using WSL. If you haven't
+already installed it, follow the instructions [here](https://docs.microsoft.com/en-us/windows/wsl/install-win10).
 
-If you've already installed WSL, make sure you're running version 2. To see whether
-your linux distribution is set to version 2, run:
+If you've already installed WSL, make sure you're using version 2 by running:
 
 ```bash
 wsl -l -v
 ```
 
-If you're running Ubuntu (the default), you should see something like this:
+If you're using an Ubuntu Distribution (the default), you should see something
+like this:
 
 ```bash
   NAME                   STATE           VERSION
@@ -252,7 +261,7 @@ using a WSL terminal. You can do this by running the following command:
 wsl
 ```
 
-From here on, assume all commands should be run within a WSL terminal. Now, move
+From here on, **assume all commands should be run within a WSL terminal**. Now, move
 into a directory of your choice, we recommend making a directory called `projects`
 in your home directory.
 
@@ -260,14 +269,12 @@ in your home directory.
 cd ~ && mkdir projects && cd projects
 ```
 
-You're free to choose any directory you want, but make sure it's on your WSL
-filesystem. After that, clone the repository by running:
+You're free to choose any directory you want as long as it's on your WSL filesystem.
+After you've created the directory, clone the git repository by running:
 
 ```bash
 git clone https://github.com/synnaxlabs/synnax
 ```
-
-Now it's time to install docker.
 
 ### Install Docker
 
@@ -277,24 +284,31 @@ into any trouble.
 :::
 
 The next step is to install [**Docker**](https://www.docker.com/), which is a
-containerization platform that allows you to run Synnax in a consistent, sandboxed
+containerization platform that allows us to run Synnax in a consistent, sandboxed
 environment. We also use it for all our builds and CI/CD pipelines.
 
-The instructions for installing Docker desktop can be found
-[here](https://docs.docker.com/desktop/windows/wsl/). It's important that you
-run Docker using the WSL backend.
+The instructions for installing Docker Desktop can be found
+[here](https://docs.docker.com/desktop/windows/wsl/). This is a specific guide
+for using docker with the WSL 2 engine.
 
-To make sure docker is working, run the following command within WSL:
+After installing, make sure docker is working by running:
 
 ```bash
 docker run hello-world
 ```
 
+You should see the following as part of the output:
+
+```bash
+Hello from Docker!
+This message shows your installation appears to be working correctly.
+```
+
 ### Install Earthly
 
-The next step is to install [**Earthly**](https://earthly.dev/), which is a build automation tool that
-allows us to build Synnax in a consistent, reproducible way. It uses Docker under the hood,
-and is a nice, modern alternative to Makefiles.
+The next step is to install [**Earthly**](https://earthly.dev/), which is a build
+automation tool that allows us to build Synnax in a consistent, reproducible way.
+It uses Docker under the hood, and is a nice, modern alternative to Makefiles.
 
 To install Earthly, run the following command:
 
@@ -313,8 +327,9 @@ earthly github.com/earthly/hello-world+hello
 ### Install Go
 
 The next step is to install [**Go**](https://golang.org/), which is the programming
-language we use for most of our backend code. We use the latest version of Go 1.19,
-and you can download the latest version by running:
+language we use for of our backend code. We use the latest version of Go 1.19,
+which you can download by running:
+
 
 ```bash
 wget https://golang.org/dl/go1.19.1.linux-amd64.tar.gz
@@ -326,8 +341,10 @@ Then, to extract the archive and install it, run:
 sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.19.1.linux-amd64.tar.gz
 ```
 
-You may be prompted for your password. The final step is to add `/usr/local/go/bin`
-to your `PATH` environment variable. You can do this by running the following command:
+You may be prompted for your password.
+
+The final step is to add `/usr/local/go/bin` to your `PATH` environment variable.
+You can do this by running the following command:
 
 ```bash
 echo PATH=$PATH:/usr/local/go/bin >> ~/.profile && source ~/.profile
@@ -348,7 +365,7 @@ go version go1.19.1 linux/amd64
 ### Run a Test Suite
 
 Next, let's check that the test cases compile and execute correctly. From the
-root level of the repository, run:
+root level of the repository (in our case, `~/projects/synnax`), run:
 
 ```bash
 cd x && go test -v ./...
@@ -360,7 +377,7 @@ You should see a bunch of light green output.
 
 ### Install Node.js
 
-The next step is to install [**Node.js**](https://nodejs.org/en/), which is the
+The first step is to install [**Node.js**](https://nodejs.org/en/), which is the
 JavaScript runtime we use for our frontend code. The first step is add the latest
 version of Node.js to your package manager by running:
 
@@ -450,6 +467,16 @@ You should see something like this:
 Python 3.10.[X]
 ```
 
+Next, run:
+
+```
+python --version
+```
+
+If you see something different from `Python 3.10.[X]`, you may need to update your
+`PATH` environment variable. Let us know if this is happens so we can help you
+resolve it.
+
 ### Install Poetry
 
 We use [**Poetry**](https://python-poetry.org/) to manage our Python dependencies.
@@ -467,5 +494,5 @@ pip install poetry
 ## Next Steps
 
 Now that you've installed all the tooling, you're ready to start contributing to
-Synnax. Per project development instructions can be found in the `README.md`
+Synnax. Project specific development instructions can be found in the `README.md`
 files in each project directory.
