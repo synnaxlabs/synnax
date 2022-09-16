@@ -21,8 +21,13 @@ poetry shell
 
 ## Testing
 
-Unit tests are held in the `tests` directory. To run the test suite, first spawn
-a shell into the virtual environment (see above) and then run:
+Unit tests are held in the `tests` directory. To run the test suite, you need a 
+running instance of the freighter integration server, which lives in the `integration`
+directory of the `freighter` project. See the `README.md` in that directory for
+instructions on how to run the integration server.
+
+
+One that's down, spawn a shell into the virtual environment (see above) and then run:
 
 ```
 pytest

@@ -11,20 +11,21 @@ This directory contains the source for
 the [Synnax documentation site](https://docs.synnaxlabs.com), which serves as
 the primary knowledge base for the Synnax platform.
 
-### Installation
-
-```bash
-yarn
-```
-
 ### Local Development
 
 ```bash
-yarn dev
+earthly +dev
 ```
 
 This command starts a local development server and opens up a browser window.
-Most changes are reflected live without having to restart the server.
+Most changes are reflected live without having to restart the server. If this
+command fails, move into the root directory of the `synnax` repository and run:
+
+```bash
+earthly +clean
+```
+
+This will remove all build artifacts. Then, run the `+dev` command again.
 
 ### Build
 
