@@ -1,0 +1,127 @@
+---
+sidebar_position: 3
+---
+
+# Resources
+
+The following is a collection of useful resources for developing data intensive distributed
+systems. They are organized by category, but some resources may be relevant to multiple categories.
+
+## Data Processing
+
+### Martin Kleppmann  - Designing Data-Intensive Applications
+
+**Link**: [Designing Data-Intensive Applications](https://dataintensive.net/)
+
+A one thousand page behemoth that peers under the hood of large scale data-processing
+systems like Linux, Spark, Hadoop + HDFS, GFS, SQL, NoSQL. It introduces some of the
+fundamental concepts of distributed systems, like ACID Compliance, CAP Theorem, and
+Serializability. It also covers some of the history behind the significant players in
+the space, and how the solutions have changed over time.
+
+## Data Storage
+
+### Fireship - Seven Database Paradigms
+
+**Link**: [Seven Database Paradigms](https://www.youtube.com/watch?v=W2Z7fbCLSTw&ab_channel=Fireship)
+
+An introduction to seven of the most common database paradigms and where they should be
+used. Short, sweet, and to the point.
+
+### CockroachDB - Architecture Resources and Documentation
+
+CockroachDB is a strongly consistent, distributed SQL database. Synnax takes quite a bit
+of inspiration from its high level architecture and its codebase. The following is a list
+of resources detailing CockroachDB's architecture, as well as some important RFCs that
+were used as inspiration for Synnax's design:
+
+* [CockroachDB Architecture Overview](https://www.cockroachlabs.com/docs/stable/architecture/overview.html)
+* Video - [CockroachDB, Architecture of a Geo-Distributed SQL Database](https://www.youtube.com/watch?v=OJySfiMKXLs&ab_channel=DataCouncil)
+* RFC - [CockroachDB: Distributed SQL](https://github.com/cockroachdb/cockroach/blob/master/docs/RFCS/20160421_distributed_sql.md)
+
+
+### Spanner - Google's Globally Distributed Database
+
+[Spanner: Google’s Globally Distributed Database](https://storage.googleapis.com/pub-tools-public-publication-data/pdf/65b514eda12d025585183a641b5a9e096a3c4be5.pdf)
+
+Developed at Google to help power their search engine, Spanner is, in many ways, the
+mother of all strongly consistent distributed databases. This document summarizes Spanner's
+design and provides great background on many of the considerations that go into
+working with distributed systems.
+
+## Building Distributed Systems
+
+### Chris Colohan - What is a Distributed System?
+
+**Link**: [What is a Distributed System?](https://www.youtube.com/watch?v=7VbL89mKK3M&ab_channel=DistributedSystemsCourse)
+
+A ground introduction to what a distributed system is, why it exists, and some example
+of distributed systems in practice.
+
+### Robert Vitillo - Understanding Distributed Systems
+
+**Link**: [Understanding Distributed Systems](https://www.amazon.com/Understanding-Distributed-Systems-distributed-applications/dp/1838430202/ref=sr_1_1?crid=1YE1QBTR8686N&keywords=understanding+distributed+systems&qid=1638315988&sprefix=Underst%2Caps%2C192&sr=8-1)
+
+An introduction to distributed systems. It leaves you with a good understanding of the
+high level components and rules. It covers the following:
+
+* Communication - Reliable Links, Secure Links, Discovery (DNS), and APIs
+* Coordination - System Models, Failure Detection, Clocks, Leader Election, Replication, Transactions
+* Scalability - Functional Decomposition, Partitioning, Duplication, Caching
+* Resiliency - Common Failure Causes, Downstream Resiliency, Upstream Resiliency
+* Testing - Continued Integration/Delivery, Monitoring, and Observability
+
+### Marten Van Steen - Distributed Systems
+
+**Link**: [Distributed Systems](https://www.amazon.com/Distributed-Systems-Maarten-van-Steen/dp/1543057381/ref=sr_1_5?keywords=Distributed+Systems&qid=1638315755&sr=8-5)
+
+A deep dive into the fundamental concepts underlying the design of distributed systems.
+Contains info on the following categories:
+
+1. Architectural Styles
+2. Processes and Basic Concurrency Models
+3. Communication - Networking, Protocols, and Architectures
+4. Naming and Name Resolution
+5. Coordination - Clock Synchronization, Leader Election
+6. Consistency and Replication
+7. Fault Tolerance
+8. Security
+
+## Programming in Go
+
+### FreeCodeCamp - Learn Go Programming
+
+**Link**: [Learn Go Programming](https://www.youtube.com/watch?v=YS4e4q9oBaU&ab_channel=freeCodeCamp.org)
+
+A concise, practical introduction to Go. Not much else to say except that its
+a great way to get into the language.
+
+### C.A.R. Hoare - Communicating Sequential Processes
+
+**Link**: [PDF - Communicating Sequential Processes](http://www.usingcsp.com/cspbook.pdf)
+
+A deep dive into the theory and mathematics behind Go's concurrency model,
+Communicating Sequential Processes (CSP). It's pretty brutal and requires
+some knowledge of discrete mathematics, but it's a great read if you want to
+understand the mathematics behind writing concurrent programs.
+
+## Writing Great Software
+
+### John K. Ousterhout  - A Philosophy of Software Design
+
+**Link**: [A Philosophy of Software Design](https://www.amazon.com/Philosophy-Software-Design-2nd-ebook/dp/B09B8LFKQL/ref=sr_1_1?keywords=A+Philosophy+of+Software+Design&qid=1663177481&sr=8-1)
+
+Discusses the fundamental problem in large scale software design: **managing complexity**.
+It focuses on patterns and principles for writing software that defines clear
+architectural boundaries,  and is built to last.
+
+### Many Authors - Design Patterns: Elements of Reusable Object-Oriented Software
+
+**Link**: [Design Patterns: Elements of Reusable Object-Oriented Software](https://www.amazon.com/Design-Patterns-Elements-Reusable-Object-Oriented/dp/0201633612/ref=sr_1_fkmr3_1?keywords=design+patterns%3A+elements+of+resuable+object-oriented+software&qid=1663177597&sr=8-1-fkmr3)
+
+The bible of software, unless you're a functional programmer. First published in 1994,
+this book is a collection of OOP design patterns that form the core of many of the
+most resilient software systems on the planet.
+
+
+

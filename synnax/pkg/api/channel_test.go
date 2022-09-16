@@ -55,11 +55,6 @@ var _ = Describe("ChannelService", Ordered, func() {
 			Expect(flds[0].Message).To(Equal(message))
 			Expect(len(res.Channels)).To(Equal(0))
 		},
-			Entry("No node id", api.Channel{
-				Name:     "test",
-				DataType: telem.Float64,
-				Rate:     25 * telem.Hz,
-			}, "channel.node_id", "required"),
 			Entry("No Data Type", api.Channel{
 				Name:   "test",
 				NodeID: 1,

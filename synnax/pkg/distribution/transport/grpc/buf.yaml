@@ -1,5 +1,5 @@
 version: v1
-name: buf.build/synnaxlabs/synnax-distribution
+name: buf.build/synnaxlabs/delta-distribution
 deps:
   - buf.build/synnaxlabs/freighter
 breaking:

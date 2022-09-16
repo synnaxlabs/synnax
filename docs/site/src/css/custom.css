@@ -20,6 +20,8 @@
   --ifm-navbar-shadow: none;
   --ifm-breadcrumb-border-radius: var(--border-radius);
   --ifm-global-radius: var(--border-radius);
+  --ifm-tabs-padding-vertical: calc(var(--base-size) * 1.5);
+  --ifm-tabs-padding-horizontal: calc(var(--base-size) * 4);
 }
 
 .navbar, .navbar-sidebar__brand{

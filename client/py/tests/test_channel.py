@@ -41,3 +41,10 @@ class TestClient:
         assert len(res_channels) >= 2
         for channel in res_channels:
             assert channel.node_id == 1
+
+    def test_create_missing_field(self, client: synnax.Client):
+        with pytest.raises(synnax.errors.ValidationError):
+            client.channel.create(
+                name="my_channel",
+                node_id=2,
+            )

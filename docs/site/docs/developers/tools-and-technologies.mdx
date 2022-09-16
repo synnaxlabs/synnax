@@ -1,0 +1,170 @@
+---
+sidebar_position: 3
+---
+
+
+
+
+
+
+
+
+
+import Technology from "../../src/components/developer/Technology"
+
+# Tools and Technologies
+
+The following is a list of major tools and technologies we used to develop Synnax.
+Some of the more obvious ones are emitted (e.g. HTML, CSS, TypeScript, Go etc.)
+for brevity. The list is in alphabetical order.
+
+### Chromatic
+<Technology
+    imageSrc="https://pbs.twimg.com/profile_images/1373286104560979974/Htdxwmba_400x400.png"
+    imageAlt="Chromatic logo"
+    imageHref={"https://www.chromatic.com/"}
+    imageWidth={180}
+    text={`Chromatic is a visual regression testing tool used alongside Storybook
+        to ensure that the UI components we develop are consistent.
+        We currently uses it for versioning our
+        [Pluto](https://github.com/synnaxlabs/synnax/tree/main/pluto)
+        components.`}
+/>
+
+### Codecov
+<Technology
+    imageSrc="https://avatars.githubusercontent.com/u/8226205?s=280&v=4"
+    imageAlt="Codecov logo"
+    imageHref={"https://codecov.io/"}
+    imageWidth={100}
+    text={`Codecov is a code coverage tool used to ensure that our code is
+        sufficiently tested. `}
+/>
+
+### Docker and Docker Hub
+<Technology
+    imageSrc="https://raw.githubusercontent.com/docker-library/docs/c350af05d3fac7b5c3f6327ac82fe4d990d8729c/docker/logo.png"
+    imageHref="https://hub.docker.com/u/synnaxlabs"
+    imageWidth={180}
+    text={`Container images are the best way to package and deploy Synnax across many environments.
+        We currently push all of our images to docker hub.`}
+/>
+
+### Docusaurus
+<Technology
+    imageSrc="https://docusaurus.io/img/docusaurus_keytar.svg"
+    imageWidth={130}
+    imageHref="https://docusaurus.io"
+    text={`This very site is built using Facebook's Docusaurus. It turns our
+    Markdown and MDX files into beautiful, syntax highlighted, and well organized documentation.`}
+/>
+
+### Earthly
+<Technology
+    imageSrc="/img/developer/earthly.png"
+    imageWidth={190}
+    imageHref="https://earthly.dev"
+    text={`Earthly is a build automation tool that runs all of its commands in a container.
+        This allows us to build and test our code in a consistent environment. We
+        use it for makefile style utilities as well as CI based builds in Github Actions.`}
+/>
+
+### Ginkgo and Gomega
+<Technology
+    imageSrc="https://onsi.github.io/ginkgo/images/ginkgo.png"
+    imageWidth={250}
+    imageHref="https://onsi.github.io/ginkgo/"
+    text={`Ginkgo is a BDD style testing framework that we use for all of our go tests. It
+    maintains a similar API to Javascript's Jest or AVA. Ginko is paired with Gomega,
+    a matcher library that allows us to write assertions.`}
+/>
+
+### Github, Github Actions, and Github Container Registry
+<Technology
+    imageSrc="https://cdn-icons-png.flaticon.com/512/25/25231.png"
+    imageHref={"https://github.com/"}
+    imageWidth={180}
+    text={`Github is the home of all of our code. We use GitHub actions for all our our CI/CD needs, including pull linting,
+    pull request testing, and release automation. We store all of our container images images in Github's container registry
+    as well as Docker Hub.`}
+/>
+
+### gRPC
+<Technology
+    imageSrc="https://s.appbrain.com/static/202108171501036/blob/sdk-logos/grpc.png"
+    imageHref="https://grpc.io/"
+    imageWidth={180}
+    text={`gRPC is a high performance, RPC framework that we use for all cluster-internal
+    communication as well as Synnax's client facing API.`}
+/>
+
+### Pebble
+<Technology
+    imageSrc="https://upload.wikimedia.org/wikipedia/en/3/31/Cockroach_Labs_Logo.png"
+    imageHref="https://github.com/cockroachdb/pebble"
+    imageWidth={100}
+    text={`CockroachDB's Pebble is a go-embedded key-value store that we use for persisting
+        all of Synnax's meta data to disk.`}
+/>
+
+### Protocol Buffers
+<Technology
+    imageSrc="https://gisdatascience.com/wp-content/uploads/2018/06/Google-protocol-buffer_2.png"
+    imageHref="https://developers.google.com/protocol-buffers"
+    imageWidth={120}
+    text={`Protocol Buffers are a language and platform neutral serialization format that we use
+        to define all of our gRPC API's.`}
+/>
+
+### Pytest
+<Technology
+    imageSrc="https://upload.wikimedia.org/wikipedia/commons/thumb/0/0a/Python.svg/1200px-Python.svg.png"
+    imageHref="https://docs.pytest.org/en/6.2.x/"
+    imageWidth={110}
+    text={`Pytest is a testing framework for Python that we use for all of our Python tests.`}
+/>
+
+### React
+<Technology
+    imageSrc="https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/React-icon.svg/1200px-React-icon.svg.png"
+    imageHref="https://reactjs.org/"
+    imageWidth={110}
+    text={`React is a Javascript library that we use for all of our frontend components.`}
+/>
+
+### Storybook
+<Technology
+    imageSrc="https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/storybook/storybook.png"
+    imageHref="https://storybook.js.org/"
+    imageWidth={140}
+    text={`Storybook is a UI development environment that we use to develop and test our
+        React components. It allows us to develop components in isolation and
+        view them in a variety of different states.`}
+/>
+
+### Vite
+<Technology
+    imageSrc="https://vitejs.dev/logo.svg"
+    imageHref="https://vitejs.dev/"
+    imageWidth={120}
+    text={`Vite is a Javascript bundler that we use to build our frontend code. It is
+        similar to Webpack but is much faster and has a much smaller bundle size.`}
+/>
+
+### Yarn
+<Technology
+    imageSrc="https://seeklogo.com/images/Y/yarn-logo-F5E7A65FA2-seeklogo.com.png"
+    imageHref="https://yarnpkg.com/"
+    imageWidth={110}
+    text={`Yarn is a Javascript package manager that we use to manage all of our frontend
+        dependencies.`}
+/>
+
+### Websockets
+<Technology
+    imageSrc="https://www.digitalcrafts.com/sites/default/files/150x150xdjango.png.pagespeed.ic.pGWPD7h9G8.png"
+    imageHref="https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API"
+    imageWidth={105}
+    text={`Websockets are a protocol that we use to stream telemetry from Synnax's
+        API to the UI as well as to some client libraries`}
+/>

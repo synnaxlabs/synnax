@@ -9,7 +9,13 @@ deps:
 
 
 build:
+    ARG local=false
     FROM +deps
     COPY . .
     RUN yarn build
-    SAVE ARTIFACT .
+    IF [ "$local" = "true" ]
+        SAVE ARTIFACT node_modules /node_modules AS LOCAL node_modules
+        SAVE ARTIFACT dist /dist AS LOCAL dist
+    ELSE
+        SAVE ARTIFACT .
+    END

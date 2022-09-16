@@ -1,0 +1,36 @@
+---
+sidebar_position: 2
+---
+
+# Repository Structure
+
+Synnax is built as a collection of several different projects, all of which are collected
+in a single [GitHub repository](https://github.com/synnaxlabs/synnax/). The following
+is a list of the projects and their purpose:
+
+* [Aspen](https://github.com/synnaxlabs/synnax/tree/main/aspen) - A gossip based
+distributed key-value store used for propagating and persisting metadata between
+nodes, such cluster topology, state, and configuration. The core RFC for Aspen
+is available [here](https://docs.synnaxlabs.com/rfc/2-220518-aspen-distributed-storage).
+* [Cesium](https://github.com/synnaxlabs/synnax/tree/main/cesium) - An embedded
+time-series engine optimized for high performance reads and writes of regular telemetry. The
+core RFC for Cesium is available [here](https://docs.synnaxlabs.com/rfc/1-220517-cesium-segment-storage).
+* [Client](https://github.com/synnaxlabs/synnax/tree/main/client) - Client libraries
+for synnax available in multiple languages. The implementation for each language
+is a subpackage of the client package.
+* [Documentation](https://github.com/synnaxlabs/synnax/tree/main/docs) - The technical
+and user-facing documentation for Synnax. Contains the code for the Synnax documentation
+website, technical RFCs, and additonal media such as logos.
+* [Freighter](https://github.com/synnaxlabs/synnax/tree/main/freighter) - A protocol
+agnostic network transport for cross-language unary and streaming communication. Freighter
+has implementations in several languages; each implementation is container in a
+sub-directory of the freighter service. The core RFC for Freighter is available [here](https://docs.synnaxlabs.com/rfc/6-220809-freighter).
+* [Pluto](https://github.com/synnaxlabs/synnax/tree/main/pluto) - A React component
+library for building the Synnax user interfaces. This package includes theming
+standards (primary colors, grays, errors, fonts, etc.).
+* [Synnax](https://github.com/synnaxlabs/synnax/tree/main/synnax) - The core Synnax
+server, which integrates all other services to provide a complete telemetry system.
+* [Cluster UI](https://github.com/synnaxlabs/synnax/tree/main/synnax/pkg/ui) - A React
+application for interacting with and managing the Synnax cluster.
+* [X](https://github.com/synnaxlabs/synnax/tree/main/x) - The common utilities
+used across all Synnax services.
