@@ -1,7 +1,7 @@
 version: v1
-name: buf.build/arya-analytics/delta-distribution
+name: buf.build/synnaxlabs/delta-distribution
 deps:
-  - buf.build/arya-analytics/freighter
+  - buf.build/synnaxlabs/freighter
 breaking:
   use:
     - FILE

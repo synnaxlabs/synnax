@@ -1,0 +1,67 @@
+---
+sidebar_position: 1
+slug: /
+sidebar_label: Get Started
+title: ""
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+import Logo from "../src/components/Logo/Logo"
+import {Space} from "@synnaxlabs/pluto"
+
+
+<Space direction="horizontal" align="center" size="large" justify="center" style={{margin: "50px 0"}}>
+<Logo variant="title" style={{width: "50%"}}/>
+</Space>
+
+# Get Started
+
+If you're new to Synnax and want to get started, this is the place to be! This guide will
+walk you through the basics of starting and communicating with a single node cluster. 
+
+If you'd like to know more about the high level concepts of Synnax (i.e. *What is Synnax?*),
+check out the [FAQ](../faq) or the [Concepts](../concepts) page.
+
+If you're interested in contributing to Synnax, check out the [New Developer Guide](../developers/new-developer-guide)
+and read through our [Technical RFCs](../category/technical-rfcs).
+
+## Starting a Single Node Cluster
+
+```mdx-code-block
+<Tabs>
+<TabItem value="docker" label="Docker">
+```
+
+The easiest way to get started with synnax is by pulling the docker image and running it
+locally. To do this, you'll need [Docker](https://docs.docker.com/get-docker/) installed
+and running.
+
+To start a single node, run the following command:
+
+```bash
+docker run -p 8080:8080 synnaxlabs/synnax --listen-address=localhost:8080 --mem
+```
+
+This will pull the latest version of Synnax from docker hub and start a single node
+with the following parameters:
+
+`-p 8080:8080` - This maps the port 8080 on your local machine to the port 8080 on the
+docker container. This allows you to access the synnax node from your local machine.
+
+`--listen-address=localhost:8080` - This tells synnax to listen on port 8080 for incoming
+connections. This is also the address that other nodes will use to connect when starting
+a multi-node cluster.
+
+`--mem` - Tells the node to store its data in memory, which is useful for testing
+purposes.
+
+```mdx-code-block
+</TabItem>
+</Tabs>
+```
+
+## Connecting to the Node
+
+Now that you have a node running, you can communicate with it using our python
+client library. See the [Python Client](../client-python/get-started) page for more information.

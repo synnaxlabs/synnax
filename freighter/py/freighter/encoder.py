@@ -54,6 +54,7 @@ def parse_payload_dict(data: dict, payload: Any):
         return
 
     is_dict = isinstance(payload, dict)
+    print(payload, is_dict, data)
     for key, value in data.items():
         if isinstance(value, dict):
             sub_payload = payload.get(key) if is_dict else getattr(payload, key)

@@ -14,4 +14,13 @@ build:
     RUN yarn build
     SAVE ARTIFACT build /build AS LOCAL build
 
-
+dev:
+    LOCALLY
+    IF [ ! -d "node_modules" ]
+        RUN yarn
+    END
+    RUN earthly ../../+link
+    IF [ ! -d "../../pluto/dist" ]
+        RUN earthly ../../pluto+build --local=true
+    END
+    RUN yarn dev

@@ -6,4 +6,4 @@
 
 # Aspen
 
-[![codecov](https://codecov.io/gh/arya-analytics/arya/branch/main/graph/badge.svg?token=6xqpN1pFt8&flag=aspen)](https://codecov.io/gh/arya-analytics/arya)
+[![codecov](https://codecov.io/gh/synnaxlabs/synnax/branch/main/graph/badge.svg?token=6xqpN1pFt8&flag=aspen)](https://codecov.io/gh/synnaxlabs/synnax)

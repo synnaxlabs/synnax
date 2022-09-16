@@ -23,7 +23,7 @@ var _ = Describe("Delete", func() {
 	Describe("WhereKeys", func() {
 		It("Should delete an entry by key in the db", func() {
 			Expect(gorp.NewCreate[int, entry]().
-				Entry(&entry{ID: 1, Data: "Arya"}).
+				Entry(&entry{ID: 1, Data: "Synnax"}).
 				Exec(db)).To(Succeed())
 			Expect(gorp.NewDelete[int, entry]().WhereKeys(1).Exec(db)).To(Succeed())
 			exists, err := gorp.NewRetrieve[int, entry]().WhereKeys(1).Exists(db)
@@ -37,10 +37,10 @@ var _ = Describe("Delete", func() {
 	Describe("Where", func() {
 		It("Should delete an entry by predicate in the db", func() {
 			Expect(gorp.NewCreate[int, entry]().
-				Entry(&entry{ID: 1, Data: "Arya"}).
+				Entry(&entry{ID: 1, Data: "Synnax"}).
 				Exec(db)).To(Succeed())
 			Expect(gorp.NewDelete[int, entry]().Where(func(e *entry) bool {
-				return e.Data == "Arya"
+				return e.Data == "Synnax"
 			}).Exec(db)).To(Succeed())
 			exists, err := gorp.NewRetrieve[int, entry]().WhereKeys(1).Exists(db)
 			Expect(err).ToNot(HaveOccurred())
@@ -48,7 +48,7 @@ var _ = Describe("Delete", func() {
 		})
 		It("Should not return an error if the entry does not exist", func() {
 			Expect(gorp.NewDelete[int, entry]().Where(func(e *entry) bool {
-				return e.Data == "Arya"
+				return e.Data == "Synnax"
 			}).Exec(db)).To(Succeed())
 		})
 	})

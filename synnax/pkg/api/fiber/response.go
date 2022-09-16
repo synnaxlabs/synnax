@@ -3,7 +3,12 @@ package fiber
 import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/synnaxlabs/freighter/ferrors"
-	errors "github.com/synnaxlabs/synnax/pkg/api/errors"
+	"github.com/synnaxlabs/synnax/pkg/api/errors"
+)
+
+const (
+	ErrorEncodingHeaderKey = "Error-Encoding"
+	ErrorEncodingFreighter = "freighter"
 )
 
 func errorResponse(c *fiber.Ctx, err errors.Typed) error {
@@ -21,8 +26,8 @@ func errorResponse(c *fiber.Ctx, err errors.Typed) error {
 	case errors.TypeNil:
 		c.Status(fiber.StatusInternalServerError)
 	}
-	encoding := c.Get("Err-Encoding", "")
-	if encoding == "freighter" {
+	encoding := c.Get(ErrorEncodingHeaderKey)
+	if encoding == ErrorEncodingFreighter {
 		return c.JSON(ferrors.Encode(err))
 	}
 	return c.JSON(fiber.Map{"error": err})

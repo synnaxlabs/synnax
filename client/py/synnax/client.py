@@ -1,4 +1,4 @@
-from arya.transport import Transport
+from synnax.transport import Transport
 from . import segment
 from . import channel
 from freighter.endpoint import Endpoint

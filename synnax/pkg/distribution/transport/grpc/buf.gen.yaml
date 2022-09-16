@@ -4,7 +4,7 @@ managed:
   go_package_prefix:
     default: github.com/synnaxlabs/delta/pkg/distribution/transport/grpc
     except:
-      - buf.build/arya-analytics/freighter
+      - buf.build/synnaxlabs/freighter
 plugins:
   - name: go
     out: gen/proto/go

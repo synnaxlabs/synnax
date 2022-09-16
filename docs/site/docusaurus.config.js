@@ -4,7 +4,6 @@
 const lightCodeTheme = require("prism-react-renderer/themes/github");
 const darkCodeTheme = require("prism-react-renderer/themes/dracula");
 
-/** @type {import('@docusaurus/types').Config} */
 const config = {
   title: "Synnax Documentation",
   tagline: "Data Handling for the Modern Era",
@@ -12,9 +11,9 @@ const config = {
   baseUrl: "/",
   onBrokenLinks: "throw",
   onBrokenMarkdownLinks: "warn",
-  favicon: "img/favicon.ico",
-  organizationName: "arya-analytics",
-  projectName: "arya",
+  favicon: "img//icon/favicon.ico",
+  organizationName: "synnaxlabs",
+  projectName: "synnax",
   deploymentBranch: "gh-pages",
   i18n: {
     defaultLocale: "en",
@@ -23,15 +22,11 @@ const config = {
   presets: [
     [
       "classic",
-      /** @type {import('@docusaurus/preset-classic').Options} */
       ({
         docs: {
           routeBasePath: "/",
           sidebarPath: require.resolve("./sidebars.js"),
-          // Please change this to your repo.
-          // Remove this to remove the "edit this page" links.
-          editUrl:
-            "https://github.com/facebook/docusaurus/tree/main/packages/create-docusaurus/templates/shared/",
+          editUrl: "https://github.com/synnaxlabs/synnax/tree/main/docs/site/",
         },
         blog: false,
         theme: {
@@ -41,35 +36,33 @@ const config = {
     ],
   ],
 
-  themeConfig:
-    /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
-    ({
-      pages: {
-        routeBasePath: "/docs",
+  themeConfig: {
+    pages: {
+      routeBasePath: "/docs",
+    },
+    navbar: {
+      logo: {
+        alt: "Synnax Labs",
+        src: "img/logo.svg",
       },
-      navbar: {
-        logo: {
-          alt: "Arya Analytics",
-          src: "img/logo.svg",
+      items: [
+        {
+          href: "https://github.com/synnaxlabs/synnax",
+          label: "GitHub",
+          position: "right",
         },
-        items: [
-          {
-            href: "https://github.com/synnaxlabs/arya",
-            label: "GitHub",
-            position: "right",
-          },
-        ],
-      },
-      footer: {
-        style: "light",
-        links: [],
-        copyright: `Copyright © ${new Date().getFullYear()} Arya Analytics, Inc. `,
-      },
-      prism: {
-        theme: lightCodeTheme,
-        darkTheme: darkCodeTheme,
-      },
-    }),
+      ],
+    },
+    footer: {
+      style: "light",
+      links: [],
+      copyright: ".",
+    },
+    prism: {
+      theme: lightCodeTheme,
+      darkTheme: darkCodeTheme,
+    },
+  },
 };
 
 module.exports = config;

@@ -24,12 +24,27 @@ class APIErrorType(Enum):
     ROUTE = "route"
 
 
+class ValidationField:
+    def __init__(self, field: str, message: str):
+        self.field = field
+        self.message = message
+
+
 class ValidationError(Exception):
     """
     Raised when a validation error occurs.
     """
+    fields: list[ValidationField]
 
-    pass
+    def __init__(self, fieldsOrMessage: list[dict] | str):
+        if isinstance(fieldsOrMessage, str):
+            super(ValidationError, self).__init__(fieldsOrMessage)
+        else:
+            self.fields = [ValidationField(f["field"], f["message"]) for f in fieldsOrMessage]
+            super(ValidationError, self).__init__(self.__str__())
+
+    def __str__(self):
+        return "\n".join([f"{f.field}: {f.message}" for f in self.fields])
 
 
 class GeneralError(Exception):

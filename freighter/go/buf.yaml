@@ -1,5 +1,5 @@
 version: v1
-name: buf.build/arya-analytics/freighter
+name: buf.build/synnaxlabs/freighter
 breaking:
   use:
     - FILE

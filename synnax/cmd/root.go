@@ -1,5 +1,5 @@
 /*
-Copyright © 2022 Arya Analytics
+Copyright © 2022 Synnax Labs
 */
 package cmd
 
