@@ -13,7 +13,6 @@ import TabItem from '@theme/TabItem';
 ```
 
 ## Base Tooling
----
 
 The following tools need to be installed regardless of the project you're working on.
 After that, we'll step into project specific tooling.
@@ -50,9 +49,9 @@ git clone https://github.com/synnaxlabs/synnax && cd synnax
 
 ### Docker
 
-The next step is to install [**Docker**](https://www.docker.com/), which is a containerization platform that
-allows you to run Synnax in a consistent, sandboxed environment. We also use it
-for all our builds and CI/CD pipelines.
+The next step is to install [**Docker**](https://www.docker.com/), which is a
+containerization platform that allows you to run Synnax in a consistent, sandboxed
+environment. We also use it for all our builds and CI/CD pipelines.
 
 :::caution
 This part can be tricky, feel free to reach out if you run into any trouble.
@@ -93,7 +92,6 @@ earthly github.com/earthly/hello-world+hello
 ```
 
 ## Backend Tooling
----
 
 ### Go
 
@@ -125,7 +123,6 @@ cd x && go test -v ./...
 ```
 
 ## Frontend Tooling
----
 
 ### Node.js
 
@@ -159,7 +156,6 @@ You should see something like this:
 ```
 
 ## Client Tooling
----
 
 ### Python
 
@@ -191,12 +187,90 @@ Python 3.10.[X]
 <TabItem value="windows" label="Windows">
 ```
 
-```mdx-code-block
-</TabItem>
+## Base Tooling
+
+### WSL
+
+The only way to develop Synnax on Windows is by using WSL. If you haven't already,
+follow the instructions [here](https://docs.microsoft.com/en-us/windows/wsl/install-win10).
+
+If you've already installed WSL, make sure you're running version 2. To see whether
+your linux distribution is set to version 2, run:
+
+```bash
+wsl -l -v
 ```
 
-```mdx-code-block
-<TabItem value="linux" label="Linux">
+If you're running Ubuntu (the default), you should see something like this:
+
+```bash
+  NAME                   STATE           VERSION
+* Ubuntu                 Running         2
+```
+
+### Clone the Git Repository
+
+The next step is to clone the Synnax repository. Before cloning, make sure you're
+using a WSL terminal. You can do this by running the following command:
+
+```bash
+wsl
+```
+
+From here on, assume all commands should be run within a WSL terminal. Now, move
+into a directory of your choice, we recommend making a directory called `projects`
+in your home directory.
+
+```bash
+cd ~ && mkdir projects && cd projects
+```
+
+You're free to choose any directory you want, but make sure it's on your WSL
+filesystem. After that, clone the repository by running:
+
+```bash
+git clone https://github.com/synnaxlabs/synnax
+```
+
+Now it's time to install docker.
+
+### Docker
+
+:::caution
+This part can be tricky, especially on Windows. feel free to reach out if you run
+into any trouble.
+:::
+
+The next step is to install [**Docker**](https://www.docker.com/), which is a
+containerization platform that allows you to run Synnax in a consistent, sandboxed
+environment. We also use it for all our builds and CI/CD pipelines.
+
+The instructions for installing Docker desktop can be found
+[here](https://docs.docker.com/desktop/windows/wsl/). It's important that you
+run Docker using the WSL backend.
+
+To make sure docker is working, run the following command within WSL:
+
+```bash
+docker run hello-world
+```
+
+### Earthly
+
+The next step is to install [**Earthly**](https://earthly.dev/), which is a build automation tool that
+allows us to build Synnax in a consistent, reproducible way. It uses Docker under the hood,
+and is a nice, modern alternative to Makefiles.
+
+To install Earthly, run the following command:
+
+```bash
+sudo /bin/sh -c 'wget https://github.com/earthly/earthly/releases/latest/download/earthly-linux-amd64 -O /usr/local/bin/earthly && chmod +x /usr/local/bin/earthly && /usr/local/bin/earthly bootstrap --with-autocomplete'
+```
+
+To verify the installation, run:
+
+```bash
+earthly github.com/earthly/hello-world+hello
 ```
 
 ```mdx-code-block
