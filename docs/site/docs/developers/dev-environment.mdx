@@ -22,7 +22,7 @@ If you have already completed any of these steps, you can skip them. Although al
 tools are safe, installing may cause some unintended side effects for other projects.
 :::
 
-### Homebrew
+### Install Homebrew
 
 The easiest way to set up your development environment is by using
 the macOS package manager [Homebrew](https://brew.sh/), which you can install by running the following
@@ -32,9 +32,9 @@ command:
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 ```
 
-The next step is to install **Git**, which you can do by running the following command:
+### Clone The Git Repository
 
-### Git
+If you don't have git installed, you can install it by running:
 
 ```bash
 brew install git
@@ -47,7 +47,7 @@ directory of your choice:
 git clone https://github.com/synnaxlabs/synnax && cd synnax
 ```
 
-### Docker
+### Install Docker
 
 The next step is to install [**Docker**](https://www.docker.com/), which is a
 containerization platform that allows you to run Synnax in a consistent, sandboxed
@@ -73,7 +73,7 @@ If you see this message as part of the output, you're good to go:
 Hello from Docker!
 ```
 
-### Earthly
+### Install Earthly
 
 The next step is to install [**Earthly**](https://earthly.dev/), which is a build automation tool that
 allows us to build Synnax in a consistent, reproducible way. It uses Docker under the hood,
@@ -93,7 +93,7 @@ earthly github.com/earthly/hello-world+hello
 
 ## Backend Tooling
 
-### Go
+### Install Go
 
 The next step is to install [**Go**](https://golang.org/), which is the programming language we use for
 most of our backend code. We use the latest version of Go 1.19, which you can install
@@ -115,6 +115,8 @@ The output should look something like this:
 go version go1.19 darwin/amd64
 ```
 
+### Run a Test Suite
+
 Next, let's check that the test cases compile and execute correctly. From the
 root level of the repository, run:
 
@@ -122,9 +124,11 @@ root level of the repository, run:
 cd x && go test -v ./...
 ```
 
+You should see a bunch of light green output.
+
 ## Frontend Tooling
 
-### Node.js
+### Install Node.js
 
 The first step is to install [**Node.js**](https://nodejs.org/en/), which is the
 JavaScript runtime we use for our frontend code. We use the latest version of Node.js,
@@ -134,7 +138,19 @@ which you can install by running the following command:
 brew install node
 ```
 
-### Yarn
+To verify the installation, run:
+
+```bash
+node -v
+```
+
+The output should look something like this:
+
+```bash
+v18.[X].[Y]
+```
+
+### Install Yarn
 
 The next step is to install [**Yarn**](https://yarnpkg.com/), which is a package
 manager for Node.js:
@@ -155,16 +171,29 @@ You should see something like this:
 1.22.[X]
 ```
 
-## Client Tooling
+### Run the Documentation Website
 
-### Python
-
-The next step is to install [**Python**](https://www.python.org/), which is the programming language we use for
-our client code. We use the latest version of Python 3 (3.10), which you can install by
-running the following command:
+To ensure that all the frontend tooling is working well, let's run the documentation
+website. From the root level of the repository, run:
 
 ```bash
-brew install python
+cd docs/site && earthly +dev
+```
+
+This might take a while to run the first time, but should eventually open a browser
+window on `localhost:3000` with the documentation website. You can use `Ctrl+C` to
+stop the server.
+
+## Client Tooling
+
+### Install Python
+
+The first step is to install [**Python**](https://www.python.org/), which is the
+programming language we use for our client code. We use the latest version of Python 3
+(3.10), which you can install by running the following command:
+
+```bash
+brew install python@3.10
 ```
 
 To verify the installation, run
@@ -179,8 +208,14 @@ You should see the following output:
 Python 3.10.[X]
 ````
 
-### Poetry
+### Install Poetry
 
+We use [**Poetry**](https://python-poetry.org/) to manage our Python dependencies.
+To install it, run:
+
+```bash
+pip install poetry
+```
 
 ```mdx-code-block
 </TabItem>
@@ -189,7 +224,7 @@ Python 3.10.[X]
 
 ## Base Tooling
 
-### WSL
+### Install WSL
 
 The only way to develop Synnax on Windows is by using WSL. If you haven't already,
 follow the instructions [here](https://docs.microsoft.com/en-us/windows/wsl/install-win10).
@@ -234,7 +269,7 @@ git clone https://github.com/synnaxlabs/synnax
 
 Now it's time to install docker.
 
-### Docker
+### Install Docker
 
 :::caution
 This part can be tricky, especially on Windows. feel free to reach out if you run
@@ -255,7 +290,7 @@ To make sure docker is working, run the following command within WSL:
 docker run hello-world
 ```
 
-### Earthly
+### Install Earthly
 
 The next step is to install [**Earthly**](https://earthly.dev/), which is a build automation tool that
 allows us to build Synnax in a consistent, reproducible way. It uses Docker under the hood,
@@ -273,8 +308,164 @@ To verify the installation, run:
 earthly github.com/earthly/hello-world+hello
 ```
 
+## Backend Tooling
+
+### Install Go
+
+The next step is to install [**Go**](https://golang.org/), which is the programming
+language we use for most of our backend code. We use the latest version of Go 1.19,
+and you can download the latest version by running:
+
+```bash
+wget https://golang.org/dl/go1.19.1.linux-amd64.tar.gz
+```
+
+Then, to extract the archive and install it, run:
+
+```bash
+sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.19.1.linux-amd64.tar.gz
+```
+
+You may be prompted for your password. The final step is to add `/usr/local/go/bin`
+to your `PATH` environment variable. You can do this by running the following command:
+
+```bash
+echo PATH=$PATH:/usr/local/go/bin >> ~/.profile && source ~/.profile
+```
+
+To verify the installation, run:
+
+```bash
+go version
+```
+
+You should see something like this:
+
+```bash
+go version go1.19.1 linux/amd64
+```
+
+### Run a Test Suite
+
+Next, let's check that the test cases compile and execute correctly. From the
+root level of the repository, run:
+
+```bash
+cd x && go test -v ./...
+```
+
+You should see a bunch of light green output.
+
+## Frontend Tooling
+
+### Install Node.js
+
+The next step is to install [**Node.js**](https://nodejs.org/en/), which is the
+JavaScript runtime we use for our frontend code. The first step is add the latest
+version of Node.js to your package manager by running:
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+```
+
+Then, to install Node.js, run:
+
+```bash
+sudo apt-get install -y nodejs
+```
+
+To verify the installation, run:
+
+```bash
+node --version
+```
+
+You should see something like this:
+
+```bash
+v18.[X].[Y]
+```
+
+### Install Yarn
+
+We use [**Yarn**](https://yarnpkg.com/) to manage our JavaScript dependencies.
+To install it, run:
+
+```bash
+npm install --global yarn
+```
+
+To verify the installation, run:
+
+```bash
+yarn --version
+```
+
+You should see something like this:
+
+```bash
+1.22.[X]
+```
+
+### Run the Documentation Website
+
+To ensure that all the frontend tooling is working well, let's run the documentation
+website. From the root level of the repository, run:
+
+```bash
+cd docs/site && earthly +dev
+```
+
+This might take a while to run the first time, but should eventually open a browser
+window on `localhost:3000` with the documentation website. You can use `Ctrl+C` to
+stop the server.
+
+## Client Tooling
+
+### Install Python
+
+The first step is to install [**Python**](https://www.python.org/), which is the
+programming language we use for our client code. We use the latest version of Python 3 (3.10).
+To install it, we first need to update our package index by running:
+
+```bash
+sudo apt update && sudo apt install software-properties-common && sudo add-apt-repository ppa:deadsnakes/ppa
+```
+
+You may need to press `Enter` to continue. Then, to install Python, run:
+
+```bash
+sudo apt install python3.10
+```
+
+To verify the installation, run:
+
+```bash
+python3.10 --version
+```
+
+You should see something like this:
+
+```bash
+Python 3.10.[X]
+```
+
+### Install Poetry
+
+We use [**Poetry**](https://python-poetry.org/) to manage our Python dependencies.
+To install it, run:
+
+```bash
+pip install poetry
+```
+
 ```mdx-code-block
 </TabItem>
 </Tabs>
 ```
 
+## Next Steps
+
+Now that you've installed all the tooling, you're ready to start contributing to
+Synnax. Per project development instructions can be found in the `README.md`
+files in each project directory.
