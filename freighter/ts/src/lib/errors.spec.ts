@@ -5,9 +5,16 @@ import {
   BaseTypedError,
   decodeError,
   encodeError,
+  EOF,
+  FREIGHTER,
   isTypedError,
+  NONE,
   registerError,
+  StreamClosed,
   TypedError,
+  UNKNOWN,
+  UnknownError,
+  Unreachable,
 } from './errors';
 
 class MyCustomError extends BaseTypedError {
@@ -31,7 +38,7 @@ test('isTypedError', (t) => {
   t.is(error.type, 'MyCustomError');
 });
 
-test('encoding an decoding through registry', (t) => {
+test('encoding and decoding a custom error through registry', (t) => {
   registerError({
     type: 'MyCustomError',
     encode: myCustomErrorEncoder,
@@ -46,4 +53,46 @@ test('encoding an decoding through registry', (t) => {
     decodeError(encoded)
   );
   t.is(decoded.message, 'test');
+});
+
+test('encoding and decoding a null error', (t) => {
+  const encoded = encodeError(null);
+  t.is(encoded.type, NONE);
+  t.is(encoded.data, '');
+  const decoded = decodeError(encoded);
+  t.is(decoded, undefined);
+});
+
+test('encoding and decoding an unrecognized error', (t) => {
+  const error = new Error('test');
+  const encoded = encodeError(error);
+  t.is(encoded.type, UNKNOWN);
+  t.is(encoded.data, '{}');
+  const decoded = decodeError(encoded);
+  t.deepEqual(decoded, new UnknownError('{}'));
+});
+
+test('registering duplicate error should throw', (t) => {
+  registerError({
+    type: 'MyDuplicateError',
+    encode: myCustomErrorEncoder,
+    decode: myCustomErrorDecoder,
+  });
+  t.throws(() => {
+    registerError({
+      type: 'MyDuplicateError',
+      encode: myCustomErrorEncoder,
+      decode: myCustomErrorDecoder,
+    });
+  });
+});
+
+test('encoding and decoding freighter errors', (t) => {
+  [new EOF(), new StreamClosed(), new Unreachable()].forEach((error) => {
+    const encoded = encodeError(error);
+    t.is(encoded.type, FREIGHTER);
+    t.is(encoded.data, error.message);
+    const decoded = decodeError(encoded);
+    t.deepEqual(decoded, error);
+  });
 });

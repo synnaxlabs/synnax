@@ -57,6 +57,7 @@ export const assertErrorType = <T>(type: string, error?: Error): T => {
 
 export const UNKNOWN = 'unknown';
 export const NONE = 'nil';
+export const FREIGHTER = 'freighter';
 
 export type ErrorPayload = {
   type: string;
@@ -128,7 +129,7 @@ export const decodeError = (payload: ErrorPayload): TypedError | undefined => {
   return REGISTRY.decode(payload);
 };
 
-class UnknownError extends BaseTypedError implements TypedError {
+export class UnknownError extends BaseTypedError implements TypedError {
   constructor(message: string) {
     super(message, UNKNOWN);
   }
@@ -136,19 +137,19 @@ class UnknownError extends BaseTypedError implements TypedError {
 
 export class EOF extends BaseTypedError implements TypedError {
   constructor() {
-    super('EOF', 'Freighter');
+    super('EOF', FREIGHTER);
   }
 }
 
 export class StreamClosed extends BaseTypedError implements TypedError {
   constructor() {
-    super('StreamClosed', 'Freighter');
+    super('StreamClosed', FREIGHTER);
   }
 }
 
 export class Unreachable extends BaseTypedError implements TypedError {
   constructor() {
-    super('Unreachable', 'Freighter');
+    super('Unreachable', FREIGHTER);
   }
 }
 
@@ -179,7 +180,7 @@ const freighterErrorDecoder: ErrorDecoder = (encoded: string) => {
 };
 
 registerError({
-  type: 'freighter',
+  type: FREIGHTER,
   encode: freighterErrorEncoder,
   decode: freighterErrorDecoder,
 });
