@@ -44,18 +44,12 @@ class Core {
       responseType: 'arraybuffer',
     };
   }
-}
 
-export class GETClient extends Core {
-  async send<RQ extends Payload, RS extends Payload>(
-    target: string,
-    req: RQ
+  async execute<RS>(
+    request: AxiosRequestConfig
   ): Promise<[RS | undefined, Error | undefined]> {
-    const queryString = buildQueryString(req as Record<string, unknown>);
-    const url = this.endpoint.path(target) + '?' + queryString;
     try {
-      const response = await axios.get(url, this.requestConfig());
-
+      const response = await axios.request(request);
       if (response.status !== 200) {
         const err = this.encoder.decode<ErrorPayload>(response.data);
         return [undefined, decodeError(err)];
@@ -69,29 +63,30 @@ export class GETClient extends Core {
   }
 }
 
+export class GETClient extends Core {
+  async send<RQ extends Payload, RS extends Payload>(
+    target: string,
+    req: RQ
+  ): Promise<[RS | undefined, Error | undefined]> {
+    const queryString = buildQueryString(req as Record<string, unknown>);
+    const request = this.requestConfig();
+    request.method = 'GET';
+    request.url = this.endpoint.path(target) + '?' + queryString;
+    return await this.execute(request);
+  }
+}
+
 export class POSTClient extends Core {
   async send<RQ extends Payload, RS extends Payload>(
     target: string,
     req: RQ
   ): Promise<[RS | undefined, Error | undefined]> {
     const url = this.endpoint.path(target);
-    try {
-      const response = await axios.post(
-        url,
-        this.encoder.encode(req),
-        this.requestConfig()
-      );
-
-      if (response.status !== 200) {
-        const err = this.encoder.decode<ErrorPayload>(response.data);
-        return [undefined, decodeError(err)];
-      }
-
-      const data = this.encoder.decode<RS>(response.data);
-      return [data, undefined];
-    } catch (err) {
-      return [undefined, err as Error];
-    }
+    const request = this.requestConfig();
+    request.method = 'POST';
+    request.url = url;
+    request.data = this.encoder.encode(req);
+    return await this.execute(request);
   }
 }
 
