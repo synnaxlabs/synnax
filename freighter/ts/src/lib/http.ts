@@ -53,15 +53,19 @@ export class GETClient extends Core {
   ): Promise<[RS | undefined, Error | undefined]> {
     const queryString = buildQueryString(req as Record<string, unknown>);
     const url = this.endpoint.path(target) + '?' + queryString;
-    const response = await axios.get(url, this.requestConfig());
+    try {
+      const response = await axios.get(url, this.requestConfig());
 
-    if (response.status !== 200) {
-      const err = this.encoder.decode<ErrorPayload>(response.data);
-      return [undefined, decodeError(err)];
+      if (response.status !== 200) {
+        const err = this.encoder.decode<ErrorPayload>(response.data);
+        return [undefined, decodeError(err)];
+      }
+
+      const data = this.encoder.decode<RS>(response.data);
+      return [data, undefined];
+    } catch (err) {
+      return [undefined, err as Error];
     }
-
-    const data = this.encoder.decode<RS>(response.data);
-    return [data, undefined];
   }
 }
 
@@ -71,19 +75,23 @@ export class POSTClient extends Core {
     req: RQ
   ): Promise<[RS | undefined, Error | undefined]> {
     const url = this.endpoint.path(target);
-    const response = await axios.post(
-      url,
-      this.encoder.encode(req),
-      this.requestConfig()
-    );
+    try {
+      const response = await axios.post(
+        url,
+        this.encoder.encode(req),
+        this.requestConfig()
+      );
 
-    if (response.status !== 200) {
-      const err = this.encoder.decode<ErrorPayload>(response.data);
-      return [undefined, decodeError(err)];
+      if (response.status !== 200) {
+        const err = this.encoder.decode<ErrorPayload>(response.data);
+        return [undefined, decodeError(err)];
+      }
+
+      const data = this.encoder.decode<RS>(response.data);
+      return [data, undefined];
+    } catch (err) {
+      return [undefined, err as Error];
     }
-
-    const data = this.encoder.decode<RS>(response.data);
-    return [data, undefined];
   }
 }
 
