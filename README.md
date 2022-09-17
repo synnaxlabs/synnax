@@ -40,7 +40,7 @@ of where we've been and where we're going.
 
 # Repository Organization
 
-Synnax is built as a collection of several different projects, all of which are collected
+Synnax is built as a collection of several projects, all of which are collected
 in this monorepo. The following is a list of the services and their purpose:
 
 * [Aspen](https://github.com/synnaxlabs/synnax/tree/main/aspen) - A gossip based
@@ -58,7 +58,7 @@ and user-facing documentation for Synnax. Contains the code for the Synnax docum
 website, technical RFCs, and additonal media such as logos.
 * [Freighter](https://github.com/synnaxlabs/synnax/tree/main/freighter) - A protocol
 agnostic network transport for cross-language unary and streaming communication. Freighter
-has implementations in several languages; each implementation is container in a
+has implementations in several languages; each implementation is contained in a
 sub-directory of the freighter service. The core RFC for Freighter is available [here](https://docs.synnaxlabs.com/rfc/6-220809-freighter).
 * [Pluto](https://github.com/synnaxlabs/synnax/tree/main/pluto) - A React component
 library for building the Synnax user interfaces. This package includes theming
@@ -71,7 +71,7 @@ used across all Synnax services. To list a few interesting examples:
   injected code instrumentation.
   * [Confluence](https://github.com/synnaxlabs/synnax/tree/main/x/confluence) - 
   Assemble and run concurrent data processing and message passing pipelines.
-  * [Gorp](https://github.com/synnaxlabs/synnax/tree/main/x/gorp) - Efficent
+  * [Gorp](https://github.com/synnaxlabs/synnax/tree/main/x/gorp) - Efficient
     querying of go-types to and from a key-value store.
   * [Signal](https://github.com/synnaxlabs/synnax/tree/main/x/signal) - A library
     for controlling the lifecycle of communicating sequential processes.
