@@ -5,13 +5,13 @@ import (
 	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/confluence"
+	. "github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 )
 
 type transientSegment struct {
-	confluence.TransientProvider
-	confluence.LinearTransform[int, int]
+	TransientProvider
+	LinearTransform[int, int]
 }
 
 func newTransientSegment() *transientSegment {
@@ -29,19 +29,19 @@ var _ = Describe("TransientProvider", func() {
 	var (
 		ctx    signal.Context
 		cancel context.CancelFunc
-		trans  confluence.Stream[error]
-		inlet  confluence.Stream[int]
-		outlet confluence.Stream[int]
+		trans  Stream[error]
+		inlet  Stream[int]
+		outlet Stream[int]
 		t      *transientSegment
 	)
 	BeforeEach(func() {
 		t = newTransientSegment()
-		trans = confluence.NewStream[error](1)
+		trans = NewStream[error](1)
 		trans.SetInletAddress("transient")
 		ctx, cancel = signal.TODO()
-		inlet = confluence.NewStream[int](0)
+		inlet = NewStream[int](0)
 		t.InFrom(inlet)
-		outlet = confluence.NewStream[int](0)
+		outlet = NewStream[int](0)
 		t.OutTo(outlet)
 	})
 
@@ -61,24 +61,24 @@ var _ = Describe("TransientProvider", func() {
 
 	Describe("Transient", func() {
 		BeforeEach(func() {
-			s := confluence.InjectTransient[int, int](trans, t)
-			s.Flow(ctx, confluence.CloseInletsOnExit())
+			s := InjectTransient[int, int](trans, t)
+			s.Flow(ctx, CloseInletsOnExit())
 		})
 		runSpecs()
 	})
 
 	Describe("TransientSource", func() {
 		BeforeEach(func() {
-			s := confluence.InjectTransientSource[int](trans, t)
-			s.Flow(ctx, confluence.CloseInletsOnExit())
+			s := InjectTransientSource[int](trans, t)
+			s.Flow(ctx, CloseInletsOnExit())
 		})
 		runSpecs()
 	})
 
 	Describe("TransientSink", func() {
 		BeforeEach(func() {
-			s := confluence.InjectTransientSink[int](trans, t)
-			s.Flow(ctx, confluence.CloseInletsOnExit(), confluence.CancelOnExitErr())
+			s := InjectTransientSink[int](trans, t)
+			s.Flow(ctx, CloseInletsOnExit(), CancelOnExitErr())
 		})
 		runSpecs()
 	})

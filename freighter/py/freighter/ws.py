@@ -33,7 +33,6 @@ class Stream(Generic[RQ, RS]):
     wrapped: WebSocketClientProtocol
     server_closed: Exception | None
     send_closed: bool
-    lock: asyncio.Lock
     response_factory: PayloadFactory[RS]
 
     def __init__(
@@ -88,10 +87,8 @@ class Stream(Generic[RQ, RS]):
         return None
 
     async def close_send(self):
-        await self.lock.acquire()
         if self.send_closed or self.server_closed is not None:
             return
-        self.lock.release()
 
         msg = _Message(_CLOSE_MESSAGE, None, None)
         try:

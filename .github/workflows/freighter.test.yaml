@@ -81,3 +81,39 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
         ports:
           - 8080:8080
+
+  test-typescript:
+    needs: [ build-integration-image ]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Node
+        uses: actions/setup-node@v2
+        with:
+          node-version: "18"
+
+      - name: Install Dependencies
+        run: yarn
+        working-directory: ./freighter/ts
+
+      - name: Test
+        run: yarn cov
+        working-directory: ./freighter/ts
+
+      - name: Upload Coverage
+        uses: codecov/codecov-action@v3
+        with:
+          directory: ./freighter/ts
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: freighterTs
+
+    services:
+      integration:
+        image: ghcr.io/synnaxlabs/freighter-go-integration:latest
+        credentials:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+        ports:
+          - 8080:8080

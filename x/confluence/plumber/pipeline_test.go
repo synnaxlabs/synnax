@@ -7,35 +7,35 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/confluence"
-	"github.com/synnaxlabs/x/confluence/plumber"
+	. "github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/signal"
 	"time"
 )
 
 var _ = Describe("Pipeline", func() {
-	var pipe *plumber.Pipeline
-	BeforeEach(func() { pipe = plumber.New() })
+	var pipe *Pipeline
+	BeforeEach(func() { pipe = New() })
 	Describe("Basic Usage", func() {
 		It("Should set and get a source", func() {
 			emitter := &confluence.Emitter[int]{}
-			plumber.SetSource[int](pipe, "source", emitter)
-			source, err := plumber.GetSource[int](pipe, "source")
+			SetSource[int](pipe, "source", emitter)
+			source, err := GetSource[int](pipe, "source")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(source).To(Equal(emitter))
 		})
 
 		It("Should set and get a sink", func() {
 			unarySink := &confluence.UnarySink[int]{}
-			plumber.SetSink[int](pipe, "sink", unarySink)
-			sink, err := plumber.GetSink[int](pipe, "sink")
+			SetSink[int](pipe, "sink", unarySink)
+			sink, err := GetSink[int](pipe, "sink")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(sink).To(Equal(unarySink))
 		})
 
 		It("Should set and get a segment", func() {
 			trans := &confluence.LinearTransform[int, int]{}
-			plumber.SetSegment[int, int](pipe, "segment", trans)
-			segment, err := plumber.GetSegment[int, int](pipe, "segment")
+			SetSegment[int, int](pipe, "segment", trans)
+			segment, err := GetSegment[int, int](pipe, "segment")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(segment).To(Equal(segment))
 		})
@@ -49,20 +49,20 @@ var _ = Describe("Pipeline", func() {
 			t1.Transform = func(ctx context.Context, v int) (int, bool, error) {
 				return v * 2, true, nil
 			}
-			plumber.SetSegment[int, int](pipe, "t1", t1, confluence.CloseInletsOnExit())
+			SetSegment[int, int](pipe, "t1", t1, confluence.CloseInletsOnExit())
 
 			t2 := &confluence.LinearTransform[int, int]{}
 			t2.Transform = func(ctx context.Context, v int) (int, bool, error) {
 				return v * 2, true, nil
 			}
-			plumber.SetSegment[int, int](pipe, "t2", t2, confluence.CloseInletsOnExit())
+			SetSegment[int, int](pipe, "t2", t2, confluence.CloseInletsOnExit())
 
-			Expect(plumber.UnaryRouter[int]{
+			Expect(UnaryRouter[int]{
 				SourceTarget: "t1",
 				SinkTarget:   "t2",
 			}.Route(pipe))
 
-			seg := &plumber.Segment[int, int]{Pipeline: pipe}
+			seg := &Segment[int, int]{Pipeline: pipe}
 			Expect(seg.RouteInletTo("t1")).To(Succeed())
 			Expect(seg.RouteOutletFrom("t2")).To(Succeed())
 
@@ -88,34 +88,34 @@ var _ = Describe("Pipeline", func() {
 
 	Describe("GetSink", func() {
 		It("Should return an error if the sink is not found", func() {
-			_, err := plumber.GetSink[int](pipe, "sink")
+			_, err := GetSink[int](pipe, "sink")
 			Expect(err).To(HaveOccurred())
 		})
 		It("Should return an error if the sink is of the wrong typer2", func() {
-			plumber.SetSink[int](pipe, "sink", &confluence.UnarySink[int]{})
-			_, err := plumber.GetSink[[]int](pipe, "sink")
+			SetSink[int](pipe, "sink", &confluence.UnarySink[int]{})
+			_, err := GetSink[[]int](pipe, "sink")
 			Expect(err).To(HaveOccurred())
 		})
 	})
 	Describe("GetSegment", func() {
 		It("Should return an error if the segment is not found", func() {
-			_, err := plumber.GetSegment[int, int](pipe, "segment")
+			_, err := GetSegment[int, int](pipe, "segment")
 			Expect(err).To(HaveOccurred())
 		})
 		It("Should return an error if the segment is of the wrong type", func() {
-			plumber.SetSegment[int, int](pipe, "segment", &confluence.LinearTransform[int, int]{})
-			_, err := plumber.GetSegment[int, []int](pipe, "segment")
+			SetSegment[int, int](pipe, "segment", &confluence.LinearTransform[int, int]{})
+			_, err := GetSegment[int, []int](pipe, "segment")
 			Expect(err).To(HaveOccurred())
 		})
 	})
 	Describe("GetSource", func() {
 		It("Should return an error if the source is not found", func() {
-			_, err := plumber.GetSource[int](pipe, "source")
+			_, err := GetSource[int](pipe, "source")
 			Expect(err).To(HaveOccurred())
 		})
 		It("Should return an error if the sink is of the wrong type", func() {
-			plumber.SetSource[int](pipe, "sink", &confluence.Emitter[int]{})
-			_, err := plumber.GetSink[[]int](pipe, "sink")
+			SetSource[int](pipe, "sink", &confluence.Emitter[int]{})
+			_, err := GetSink[[]int](pipe, "sink")
 			Expect(err).To(HaveOccurred())
 		})
 	})
@@ -132,7 +132,7 @@ var _ = Describe("Pipeline", func() {
 				}
 				return c1, nil
 			}
-			plumber.SetSource[int](pipe, "emitterOne", emitterOne)
+			SetSource[int](pipe, "emitterOne", emitterOne)
 
 			emitterTwo := &confluence.Emitter[int]{Interval: 1 * time.Millisecond}
 			c2 := 0
@@ -143,19 +143,19 @@ var _ = Describe("Pipeline", func() {
 				}
 				return c2, nil
 			}
-			plumber.SetSource[int](pipe, "emitterTwo", emitterTwo)
+			SetSource[int](pipe, "emitterTwo", emitterTwo)
 
 			t1 := &confluence.LinearTransform[int, int]{}
 			t1.Transform = func(ctx context.Context, v int) (int, bool, error) {
 				return v * 2, true, nil
 			}
-			plumber.SetSegment[int, int](pipe, "t1", t1)
+			SetSegment[int, int](pipe, "t1", t1)
 
 			t2 := &confluence.LinearTransform[int, int]{}
 			t2.Transform = func(ctx context.Context, v int) (int, bool, error) {
 				return v * 3, true, nil
 			}
-			plumber.SetSegment[int, int](pipe, "t2", t2)
+			SetSegment[int, int](pipe, "t2", t2)
 
 			var (
 				evens []int
@@ -167,14 +167,14 @@ var _ = Describe("Pipeline", func() {
 				evens = append(evens, v)
 				return nil
 			}
-			plumber.SetSink[int](pipe, "even", evenSink)
+			SetSink[int](pipe, "even", evenSink)
 
 			oddSink := &confluence.UnarySink[int]{}
 			oddSink.Sink = func(ctx context.Context, v int) error {
 				odds = append(odds, v)
 				return nil
 			}
-			plumber.SetSink[int](pipe, "odd", oddSink)
+			SetSink[int](pipe, "odd", oddSink)
 
 			sw := &confluence.Switch[int]{}
 			sw.ApplySwitch = func(ctx context.Context, v int) (address.Address, bool, error) {
@@ -183,24 +183,24 @@ var _ = Describe("Pipeline", func() {
 				}
 				return "odd", true, nil
 			}
-			plumber.SetSegment[int, int](pipe, "switch", sw)
+			SetSegment[int, int](pipe, "switch", sw)
 
-			plumber.MultiRouter[int]{
+			MultiRouter[int]{
 				SourceTargets: []address.Address{"emitterOne", "emitterTwo"},
 				SinkTargets:   []address.Address{"t1", "t2"},
-				Stitch:        plumber.StitchUnary,
+				Stitch:        StitchUnary,
 			}.MustRoute(pipe)
 
-			plumber.MultiRouter[int]{
+			MultiRouter[int]{
 				SourceTargets: []address.Address{"t1", "t2"},
 				SinkTargets:   []address.Address{"switch"},
-				Stitch:        plumber.StitchUnary,
+				Stitch:        StitchUnary,
 			}.MustRoute(pipe)
 
-			plumber.MultiRouter[int]{
+			MultiRouter[int]{
 				SourceTargets: []address.Address{"switch"},
 				SinkTargets:   []address.Address{"even", "odd"},
-				Stitch:        plumber.StitchWeave,
+				Stitch:        StitchWeave,
 			}.MustRoute(pipe)
 
 			ctx, cancel := signal.TODO()

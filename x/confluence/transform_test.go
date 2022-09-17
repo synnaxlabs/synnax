@@ -5,15 +5,15 @@ import (
 	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/confluence"
+	. "github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 )
 
 var _ = Describe("transform", func() {
 	It("Should transform values correctly", func() {
-		inlet := confluence.NewStream[int](3)
-		outlet := confluence.NewStream[int](4)
-		square := &confluence.LinearTransform[int, int]{}
+		inlet := NewStream[int](3)
+		outlet := NewStream[int](4)
+		square := &LinearTransform[int, int]{}
 		square.Transform = func(ctx context.Context, i int) (int, bool, error) {
 			return i * i, true, nil
 		}

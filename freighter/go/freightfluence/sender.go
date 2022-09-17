@@ -138,9 +138,9 @@ func (m *MultiSender[M]) closeSenders() error {
 	return c.Error()
 }
 
-type senderMap[M freighter.Payload] map[address.Address]freighter.StreamSenderCloser[M]
+type MapTargetedSender[M freighter.Payload] map[address.Address]freighter.StreamSenderCloser[M]
 
-func (s senderMap[M]) send(target address.Address, msg M) error {
+func (s MapTargetedSender[M]) Send(_ context.Context, target address.Address, msg M) error {
 	sender, ok := s[target]
 	if !ok {
 		return address.TargetNotFound(target)
@@ -148,7 +148,7 @@ func (s senderMap[M]) send(target address.Address, msg M) error {
 	return sender.Send(msg)
 }
 
-func (s senderMap[M]) close() error {
+func (s MapTargetedSender[M]) Close() error {
 	c := errutil.NewCatch(errutil.WithAggregation())
 	for _, s := range s {
 		c.Exec(s.CloseSend)
@@ -156,12 +156,41 @@ func (s senderMap[M]) close() error {
 	return c.Error()
 }
 
+type ClientTargetedSender[RQ, RS freighter.Payload] struct {
+	Transport freighter.StreamTransportClient[RQ, RS]
+	MapTargetedSender[RQ]
+}
+
+func (c ClientTargetedSender[RQ, RS]) Send(ctx context.Context, target address.Address, req RQ) error {
+	sender, ok := c.MapTargetedSender[target]
+	if !ok {
+		if err := c.open(ctx, target); err != nil {
+			return err
+		}
+		sender = c.MapTargetedSender[target]
+	}
+	return sender.Send(req)
+}
+
+func (c ClientTargetedSender[RQ, RS]) Close() error {
+	return c.MapTargetedSender.Close()
+}
+
+func (c ClientTargetedSender[RQ, RS]) open(ctx context.Context, target address.Address) error {
+	stream, err := c.Transport.Stream(ctx, target)
+	if err != nil {
+		return err
+	}
+	c.MapTargetedSender[target] = stream
+	return nil
+}
+
 // SwitchSender wraps a map of freighter.StreamSenderCloser to provide a confluence
 // compatible interface for sending messages over a network freighter. SwitchSender
 // receives a value, resolves its target address through a SwitchFunc, and sends it
 // on its merry way.
 type SwitchSender[M freighter.Payload] struct {
-	Senders senderMap[M]
+	Sender TargetedSender[M]
 	SwitchFunc[M]
 	UnarySink[M]
 }
@@ -173,7 +202,7 @@ func (sw *SwitchSender[M]) Flow(ctx signal.Context, opts ...Option) {
 func (sw *SwitchSender[M]) send(ctx context.Context) error {
 	var err error
 	defer func() {
-		err = errors.CombineErrors(sw.Senders.close(), err)
+		err = errors.CombineErrors(sw.Sender.Close(), err)
 	}()
 o:
 	for {
@@ -190,7 +219,7 @@ o:
 				err = swErr
 				break o
 			}
-			if sErr := sw.Senders.send(target, msg); sErr != nil {
+			if sErr := sw.Sender.Send(ctx, target, msg); sErr != nil {
 				err = sErr
 				break o
 			}
@@ -204,9 +233,15 @@ o:
 // receives a batch of values, resolves their target addresses through a BatchSwitchFunc,
 // and sends them on their merry way.
 type BatchSwitchSender[I, O freighter.Payload] struct {
-	Senders senderMap[O]
+	Senders TargetedSender[O]
 	BatchSwitchFunc[I, O]
 	UnarySink[I]
+	TransientProvider
+}
+
+type TargetedSender[M freighter.Payload] interface {
+	Send(ctx context.Context, target address.Address, msg M) error
+	Close() error
 }
 
 func (bsw *BatchSwitchSender[I, O]) Flow(ctx signal.Context, opts ...Option) {
@@ -219,7 +254,7 @@ func (bsw *BatchSwitchSender[I, O]) send(ctx context.Context) error {
 		addrMap = make(map[address.Address]O)
 	)
 	defer func() {
-		err = errors.CombineErrors(bsw.Senders.close(), err)
+		err = errors.CombineErrors(bsw.Senders.Close(), err)
 	}()
 o:
 	for {
@@ -231,14 +266,13 @@ o:
 			if !ok {
 				break o
 			}
-			if swErr := bsw.ApplySwitch(ctx, msg, addrMap); swErr != nil {
+			if swErr := bsw.MaybeTransient(bsw.ApplySwitch(ctx, msg, addrMap)); swErr != nil {
 				err = swErr
 				break o
 			}
 			for target, batch := range addrMap {
-				sErr := bsw.Senders.send(target, batch)
-				delete(addrMap, target)
-				if sErr != nil {
+				sErr := bsw.Senders.Send(ctx, target, batch)
+				if sErr = bsw.MaybeTransient(sErr); sErr != nil {
 					err = sErr
 					break o
 				}

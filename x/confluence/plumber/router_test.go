@@ -5,7 +5,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/confluence"
-	"github.com/synnaxlabs/x/confluence/plumber"
+	. "github.com/synnaxlabs/x/confluence/plumber"
 )
 
 func parseOutletAddrMap[V confluence.Value](
@@ -19,16 +19,16 @@ func parseOutletAddrMap[V confluence.Value](
 }
 
 var _ = Describe("Router", func() {
-	var p *plumber.Pipeline
-	BeforeEach(func() { p = plumber.New() })
+	var p *Pipeline
+	BeforeEach(func() { p = New() })
 
 	Describe("UnaryRouter", func() {
 		It("Should establish a channel between two addresses", func() {
 			source := &confluence.Emitter[int]{}
 			sink := &confluence.UnarySink[int]{}
-			plumber.SetSource[int](p, "source", source)
-			plumber.SetSink[int](p, "sink", sink)
-			router := &plumber.UnaryRouter[int]{
+			SetSource[int](p, "source", source)
+			SetSink[int](p, "sink", sink)
+			router := &UnaryRouter[int]{
 				SourceTarget: "source",
 				SinkTarget:   "sink",
 				Capacity:     1,
@@ -38,7 +38,7 @@ var _ = Describe("Router", func() {
 			Expect(sink.In.Outlet()).To(Receive(Equal(1)))
 		})
 		It("Should return an error if source is not found", func() {
-			router := &plumber.UnaryRouter[int]{
+			router := &UnaryRouter[int]{
 				SourceTarget: "source",
 				SinkTarget:   "sink",
 				Capacity:     1,
@@ -47,8 +47,8 @@ var _ = Describe("Router", func() {
 		})
 		It("Should return an error if sink is not found", func() {
 			source := &confluence.Emitter[int]{}
-			plumber.SetSource[int](p, "source", source)
-			router := &plumber.UnaryRouter[int]{
+			SetSource[int](p, "source", source)
+			router := &UnaryRouter[int]{
 				SourceTarget: "source",
 				SinkTarget:   "sink",
 				Capacity:     1,
@@ -64,14 +64,14 @@ var _ = Describe("Router", func() {
 				sourceTwo := &confluence.Emitter[int]{}
 				sinkOne := &confluence.UnarySink[int]{}
 				sinkTwo := &confluence.UnarySink[int]{}
-				plumber.SetSource[int](p, "sourceOne", sourceOne)
-				plumber.SetSource[int](p, "sourceTwo", sourceTwo)
-				plumber.SetSink[int](p, "sinkOne", sinkOne)
-				plumber.SetSink[int](p, "sinkTwo", sinkTwo)
-				router := &plumber.MultiRouter[int]{
+				SetSource[int](p, "sourceOne", sourceOne)
+				SetSource[int](p, "sourceTwo", sourceTwo)
+				SetSink[int](p, "sinkOne", sinkOne)
+				SetSink[int](p, "sinkTwo", sinkTwo)
+				router := &MultiRouter[int]{
 					SourceTargets: []address.Address{"sourceOne", "sourceTwo"},
 					SinkTargets:   []address.Address{"sinkOne", "sinkTwo"},
-					Stitch:        plumber.StitchUnary,
+					Stitch:        StitchUnary,
 					Capacity:      1,
 				}
 				Expect(router.Route(p)).To(Succeed())
@@ -85,14 +85,14 @@ var _ = Describe("Router", func() {
 				sourceTwo := &confluence.Emitter[int]{}
 				sinkOne := &confluence.UnarySink[int]{}
 				sinkTwo := &confluence.UnarySink[int]{}
-				plumber.SetSource[int](p, "sourceOne", sourceOne)
-				plumber.SetSource[int](p, "sourceTwo", sourceTwo)
-				plumber.SetSink[int](p, "sinkOne", sinkOne)
-				plumber.SetSink[int](p, "sinkTwo", sinkTwo)
-				router := &plumber.MultiRouter[int]{
+				SetSource[int](p, "sourceOne", sourceOne)
+				SetSource[int](p, "sourceTwo", sourceTwo)
+				SetSink[int](p, "sinkOne", sinkOne)
+				SetSink[int](p, "sinkTwo", sinkTwo)
+				router := &MultiRouter[int]{
 					SourceTargets: []address.Address{"sourceOne", "sourceTwo"},
 					SinkTargets:   []address.Address{"sinkOne", "sinkTwo"},
-					Stitch:        plumber.StitchUnary,
+					Stitch:        StitchUnary,
 					Capacity:      1,
 				}
 				Expect(router.Route(p)).To(Succeed())
@@ -108,13 +108,13 @@ var _ = Describe("Router", func() {
 				source := &confluence.Switch[int]{}
 				sinkOne := &confluence.UnarySink[int]{}
 				sinkTwo := &confluence.UnarySink[int]{}
-				plumber.SetSource[int](p, "source", source)
-				plumber.SetSink[int](p, "sinkOne", sinkOne)
-				plumber.SetSink[int](p, "sinkTwo", sinkTwo)
-				router := &plumber.MultiRouter[int]{
+				SetSource[int](p, "source", source)
+				SetSink[int](p, "sinkOne", sinkOne)
+				SetSink[int](p, "sinkTwo", sinkTwo)
+				router := &MultiRouter[int]{
 					SourceTargets: []address.Address{"source"},
 					SinkTargets:   []address.Address{"sinkOne", "sinkTwo"},
-					Stitch:        plumber.StitchWeave,
+					Stitch:        StitchWeave,
 					Capacity:      1,
 				}
 				Expect(router.Route(p)).To(Succeed())
@@ -131,14 +131,14 @@ var _ = Describe("Router", func() {
 				sourceTwo := &confluence.Switch[int]{}
 				sinkOne := &confluence.UnarySink[int]{}
 				sinkTwo := &confluence.UnarySink[int]{}
-				plumber.SetSource[int](p, "sourceOne", sourceOne)
-				plumber.SetSource[int](p, "sourceTwo", sourceTwo)
-				plumber.SetSink[int](p, "sinkOne", sinkOne)
-				plumber.SetSink[int](p, "sinkTwo", sinkTwo)
-				router := &plumber.MultiRouter[int]{
+				SetSource[int](p, "sourceOne", sourceOne)
+				SetSource[int](p, "sourceTwo", sourceTwo)
+				SetSink[int](p, "sinkOne", sinkOne)
+				SetSink[int](p, "sinkTwo", sinkTwo)
+				router := &MultiRouter[int]{
 					SourceTargets: []address.Address{"sourceOne", "sourceTwo"},
 					SinkTargets:   []address.Address{"sinkOne", "sinkTwo"},
-					Stitch:        plumber.StitchConvergent,
+					Stitch:        StitchConvergent,
 					Capacity:      1,
 				}
 				router.MustRoute(p)

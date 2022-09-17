@@ -10,4 +10,4 @@ clean:
     LOCALLY
     ARG hard=false
     RUN rm -rvf *_cache
-    RUN for matcher in *_cache *build dist .idea .docusaurus node_modules; do find . -name "$matcher" -exec rm -rf {} +; done
+    RUN for matcher in *_cache *build dist .idea .docusaurus node_modules coverage; do find . -name "$matcher" -exec rm -rf {} +; done

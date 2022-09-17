@@ -2,8 +2,8 @@ package fmock
 
 import (
 	"fmt"
-	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/x/address"
 	"sync"
 )
 

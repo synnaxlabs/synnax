@@ -11,13 +11,5 @@ export interface Digest {
   encoder: string;
 }
 
-/**
- * Transport represents a general network transport between two entities. This
- * interface is mainly descriptive.
- */
-export interface Transport {
-  digest(): Digest
-}
-
 // Payload represents a piece of data that can be sent over the freighter.
-export type Payload = any;
+export type Payload = unknown;

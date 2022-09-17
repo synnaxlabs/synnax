@@ -2,10 +2,10 @@ package writer
 
 import (
 	"context"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
-	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/freightfluence"
+	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/confluence"
 )
@@ -22,7 +22,7 @@ func newRequestSwitchSender(
 	senders map[address.Address]freighter.StreamSenderCloser[Request],
 ) confluence.Sink[Request] {
 	rs := &requestSwitchSender{addresses: addresses}
-	rs.Senders = senders
+	rs.Senders = freightfluence.MapTargetedSender[Request](senders)
 	rs.BatchSwitchSender.ApplySwitch = rs._switch
 	return confluence.InjectTransientSink[Request](trans, rs)
 }
