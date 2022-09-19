@@ -1,5 +1,8 @@
 from datetime import datetime, timedelta, timezone
 
+import pytz
+from pytz import timezone as pytz_timezone
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -27,9 +30,9 @@ class TestTimeStamp:
             (_now, _now),
             (timedelta(seconds=105), telem.TimeStamp(105 * telem.SECOND)),
             (np.datetime64(1000, "ms"), telem.TimeStamp(1000 * telem.MILLISECOND)),
-            (datetime(2022,2,22,15,41,50), telem.TimeStamp(1645562510000000000)),
-            (datetime(2022,2,22,15,41,50, tzinfo=timezone.utc), telem.TimeStamp(1645544510000000000)),
-            (datetime(2022,2,22,15,41,50), telem.TimeStamp(datetime(2022,2,22,20,41,50, tzinfo=timezone.utc))),
+            (datetime(2022,2,22,15,41,50, tzinfo=pytz_timezone('EST')), telem.TimeStamp(1645562510000000000)),
+            (datetime(2022,2,22,15,41,50, tzinfo=pytz.UTC), telem.TimeStamp(1645544510000000000)),
+            (datetime(2022,2,22,10,41,50, tzinfo=pytz_timezone('EST')), telem.TimeStamp(1645544510000000000)),
         ],
     )
     def test_init(self, unparsed: telem.UnparsedTimeStamp, expected: telem.TimeStamp):

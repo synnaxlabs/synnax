@@ -76,9 +76,3 @@ T = TypeVar("T")
 class Loadable(Protocol):
     def load(self, data: dict):
         ...
-
-
-@runtime_checkable
-class Dumpable(Protocol):
-    def dump(self) -> dict:
-        ...
