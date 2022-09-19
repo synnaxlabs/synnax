@@ -9,8 +9,7 @@ from datetime import (
 from dataclasses import dataclass
 import numpy as np
 import pandas as pd
-from typing import get_args
-from typing import Union
+from typing import get_args, Union
 
 import synnax.errors
 
@@ -21,17 +20,15 @@ class TimeStamp(int):
     TimeStamp. The following types are supported:
 
     * TimeStamp - returns the TimeStamp.
-    * TimeSpan - treats the TimeSpan as a duration since the Unix epoch and returns the
-    resulting TimeStamp.
+    * TimeSpan - treats the TimeSpan as a duration since the Unix epoch in UTC.
     * pd.TimeStamp - converts the pandas TimeStamp to a TimeStamp. If the timestamp is
     not timezone aware, it is assumed to be in the local timezone.
     * datetime - converts the datetime to a TimeStamp.  If the datetime is not timezone
     aware, it is assumed to be in the local timezone.
-    * timedelta - treats the timedelta as a duration since the Unix epoch and returns the
-    resulting TimeStamp.
-    * np.datetime64 - treats the numpy datetime64 as a duration since the Unix epoch and
-    returns the resulting TimeStamp.
-    * int - treats the int as a nanosecond duration since the Unix epoch and returns the resulting
+    * timedelta - treats the timedelta as a duration since the Unix epoch in UTC.
+    * np.datetime64 - treats the numpy datetime64 as a duration since the Unix epoch in
+    UTC.
+    * int - treats the int as a nanosecond duration since the Unix epoch and in UTC.
     TimeStamp.
 
     :param value: An unparsed timestamp value that can be converted to a TimeStamp.
@@ -72,7 +69,7 @@ class TimeStamp(int):
             tzinfo=timezone.utc).astimezone(tzinfo)
 
     def is_zero(self) -> bool:
-        """Returns true if the TimeStamp is zero.
+        """Checks if the timestamp is the Unix epoch.
         :return: True if the TimeStamp is zero, False otherwise
         """
         return self == 0
@@ -288,15 +285,18 @@ class Rate(float):
         return int(TimeSpan(time_span) / self.period())
 
     def byte_size(self, time_span: UnparsedTimeSpan, density: Density) -> Size:
-        """Calculates the amount of bytes occupied by the given TimeSpan at the given rate and sample density."""
+        """Calculates the amount of bytes occupied by the given TimeSpan at the given
+        rate and sample density."""
         return Size(self.sample_count(time_span) * int(density))
 
     def span(self, sample_count: int) -> TimeSpan:
-        """Returns the TimeSpan that corresponds to the given number of samples at this rate."""
+        """Returns the TimeSpan that corresponds to the given number of samples at this
+        rate."""
         return self.period() * sample_count
 
     def size_span(self, size: Size, density: Density) -> TimeSpan:
-        """Returns the TimeSpan that corresponds to the given number of bytes at this rate and sample density."""
+        """Returns the TimeSpan that corresponds to the given number of bytes at this
+        rate and sample density."""
         if size % density != 0:
             raise synnax.errors.ContiguityError(
                 f"Size {size} is not a multiple of density {density}"
