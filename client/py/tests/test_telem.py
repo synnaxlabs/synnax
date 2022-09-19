@@ -134,7 +134,7 @@ class TestTimeStamp:
         """Should correctly convert the TimeStamp to a datetime in local time.
         """
         ts1 = telem.TimeStamp(1645562510000000000)
-        assert ts1.datetime(tzinfo=timezone.utc) == datetime(2022,2,22,15,41,50).astimezone()
+        assert ts1.datetime(tzinfo=timezone.utc) == datetime(2022,2,22,20,41,50, tzinfo=timezone.utc)
 
 
 class TestTimeRange:
