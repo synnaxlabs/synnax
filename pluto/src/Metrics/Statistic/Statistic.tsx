@@ -1,11 +1,11 @@
 import Space from "../../Atoms/Space/Space";
-import Text, { textLevel } from "../../Atoms/Typography/Text";
+import Text, { TextLevel } from "../../Atoms/Typography/Text";
 import { classList } from "../../util/css";
 import "./Value.css";
 
 export interface ValueProps {
   value: number;
-  level?: textLevel;
+  level?: TextLevel;
   label?: string;
   variant?: "primary" | "error";
   color?: string;

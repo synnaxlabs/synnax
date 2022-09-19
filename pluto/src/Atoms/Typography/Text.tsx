@@ -1,9 +1,9 @@
 import { createElement, HTMLAttributes, PropsWithChildren } from "react";
 
-export type textLevel = "h1" | "h2" | "h3" | "h4" | "h5" | "p" | "small";
+export type TextLevel = "h1" | "h2" | "h3" | "h4" | "h5" | "p" | "small";
 
 export interface TextProps extends PropsWithChildren<HTMLAttributes<any>> {
-  level: textLevel;
+  level: TextLevel;
   children: string | number;
 }
 
@@ -20,7 +20,6 @@ const levelTag = {
 const defaultLevel = "h1"
 
 const Text = ({ level = defaultLevel, ...props }: TextProps) => {
-  console.log(levelTag[level]);
   return createElement(levelTag[level] || defaultLevel, { ...props });
 }
 

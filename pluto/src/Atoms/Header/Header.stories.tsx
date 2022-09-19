@@ -5,4 +5,4 @@ export default {
   component: Header,
 };
 
-export const Primary = () => <Header text="Header" size="h3" />;
+export const Primary = () => <Header text="Header" level="h3" />;

@@ -14,7 +14,7 @@ class TestTimeStamp:
         """Should return the current timestamp
         """
         now = telem.now() + telem.SECOND
-        assert now.time() > datetime.now()
+        assert now.datetime() > datetime.now()
 
     @pytest.mark.parametrize(
         "unparsed, expected",
@@ -131,8 +131,8 @@ class TestTimeRange:
         dt = datetime(2020, 1, 1, 0, 0, 0)
         dt2 = datetime(2021, 1, 1, 0, 0, 0)
         tr = telem.TimeRange(dt, dt2)
-        assert tr.start.time() == dt
-        assert tr.end.time() == dt2
+        assert tr.start.datetime() == dt
+        assert tr.end.datetime() == dt2
 
     def test_span(self):
         """Should return a valid TimeSpan

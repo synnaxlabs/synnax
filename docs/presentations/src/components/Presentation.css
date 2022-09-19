@@ -1,0 +1,12 @@
+.slide-container__logo {
+  position: absolute;
+  right: calc(var(--base-size) * 3);
+}
+
+.slide-container__logo--top {
+  top: calc(var(--base-size) * 3);
+}
+
+.slide-container__logo--bottom {
+  bottom: calc(var(--base-size) * 3);
+}

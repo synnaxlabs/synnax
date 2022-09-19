@@ -1,5 +1,5 @@
 import { HTMLAttributes, PropsWithChildren } from "react";
-import { classList } from "../../util/css";
+import  clsx from "clsx";
 import "./Space.css";
 
 export interface SpaceProps
@@ -15,6 +15,7 @@ export interface SpaceProps
     | "spaceAround"
     | "spaceEvenly";
   align?: "start" | "end" | "center" | "stretch";
+  grow?: boolean;
 }
 
 const justifyMap = {
@@ -30,6 +31,7 @@ const Space = ({
   empty = false,
   size = "medium",
   justify = "start",
+  grow = false,
   children,
   align,
   ...props
@@ -44,7 +46,7 @@ const Space = ({
   }
   return (
     <div
-      className={classList(
+      className={clsx(
         "pluto-space",
         typeof size === "string" ? "pluto-space--" + size : undefined,
         props.className
@@ -54,6 +56,7 @@ const Space = ({
         gap,
         justifyContent: justify && justifyMap[justify],
         alignItems: align,
+        flexGrow: grow ? 1 : undefined,
         ...props.style,
       }}
     >

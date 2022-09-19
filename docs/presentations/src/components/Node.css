@@ -1,0 +1,5 @@
+.node__number {
+  position: absolute;
+  right: calc(50% - 12px);
+  top: calc(49% - calc(var(--h1-font-size) / 2));
+}

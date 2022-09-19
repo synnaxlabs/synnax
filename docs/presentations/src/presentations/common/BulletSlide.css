@@ -1,0 +1,25 @@
+.bullet-slide__container--primary {
+  background: var(--primary-p1);
+}
+
+.bullet__number {
+  padding: 5px 10px;
+}
+
+.bullet-slide__container--primary .bullet__number {
+  background: var(--white);
+  color: var(--primary-p1);
+}
+
+.bullet-slide__container--outlined .bullet__number {
+  background: var(--text-color);
+  color: var(--background);
+}
+
+.bullet-slide__container--primary .bullet__text {
+  color: var(--white);
+}
+
+.bullet-slide__container--primary .bullet-slide__title {
+  color: var(--white);
+}

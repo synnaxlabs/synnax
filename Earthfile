@@ -5,6 +5,7 @@ link:
     RUN bash -c "cd pluto && yarn link"
     RUN bash -c "cd synnax/pkg/ui && yarn link @synnaxlabs/pluto"
     RUN bash -c "cd docs/site && yarn link @synnaxlabs/pluto"
+    RUN bash -c "cd docs/presentations && yarn link @synnaxlabs/pluto"
 
 clean:
     LOCALLY

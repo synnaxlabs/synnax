@@ -1,5 +1,5 @@
 type size = number | string;
-type color = number | string;
+type color = string;
 type typography = {
   size: size;
   weight: size;
