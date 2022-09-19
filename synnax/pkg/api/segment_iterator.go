@@ -2,16 +2,16 @@ package api
 
 import (
 	"context"
+	roacherrors "github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/freighter/ferrors"
 	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/segment"
 	"github.com/synnaxlabs/synnax/pkg/distribution/segment/iterator"
-	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/freighter/ferrors"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
-	roacherrors "github.com/cockroachdb/errors"
 )
 
 type (

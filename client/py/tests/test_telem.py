@@ -1,4 +1,8 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+
+import pandas
+import pytz
+from pytz import timezone as pytz_timezone
 
 import numpy as np
 import pandas as pd
@@ -14,18 +18,22 @@ class TestTimeStamp:
         """Should return the current timestamp
         """
         now = telem.now() + telem.SECOND
-        assert now.time() > datetime.now()
+        assert now.datetime() > datetime.now().astimezone()
 
     @pytest.mark.parametrize(
         "unparsed, expected",
         [
             (1000, 1000),
+            (telem.MILLISECOND * 2500,  2500000000),
             (105 * telem.MILLISECOND, 105 * telem.MILLISECOND),
-            (datetime.utcfromtimestamp(105), telem.TimeStamp(105 * telem.SECOND)),
-            (pd.Timestamp(105), telem.TimeStamp(105 * telem.NANOSECOND)),
+            (datetime.utcfromtimestamp(105).replace(tzinfo=timezone.utc), telem.TimeStamp(105 * telem.SECOND)),
             (_now, _now),
             (timedelta(seconds=105), telem.TimeStamp(105 * telem.SECOND)),
             (np.datetime64(1000, "ms"), telem.TimeStamp(1000 * telem.MILLISECOND)),
+            (datetime(2022,2,22,15,41,50, tzinfo=pytz_timezone('EST')), telem.TimeStamp(1645562510000000000)),
+            (datetime(2022,2,22,15,41,50, tzinfo=pytz.UTC), telem.TimeStamp(1645544510000000000)),
+            (datetime(2022,2,22,10,41,50, tzinfo=pytz_timezone('EST')), telem.TimeStamp(1645544510000000000)),
+            (pd.Timestamp(datetime(2022,2,22,15,41,50, tzinfo=pytz_timezone('EST'))), telem.TimeStamp(1645562510000000000)),
         ],
     )
     def test_init(self, unparsed: telem.UnparsedTimeStamp, expected: telem.TimeStamp):
@@ -37,7 +45,7 @@ class TestTimeStamp:
         """Should raise an exception if the timestamp is invalid
         """
         with pytest.raises(TypeError):
-            telem.TimeStamp(1.25)
+            telem.TimeStamp("dog")
 
     def test_is_zero(self):
         """Should return true if the timestamp is zero
@@ -123,16 +131,22 @@ class TestTimeStamp:
         range = ts1.range(ts2)
         assert range.span() == telem.MICROSECOND
 
+    def test_datetime(self):
+        """Should correctly convert the TimeStamp to a datetime in local time.
+        """
+        ts1 = telem.TimeStamp(1645562510000000000)
+        assert ts1.datetime(tzinfo=timezone.utc) == datetime(2022,2,22,20,41,50, tzinfo=timezone.utc)
+
 
 class TestTimeRange:
     def test_init_from_datetime(self):
         """Should initialize a TimeRange from a datetime
         """
-        dt = datetime(2020, 1, 1, 0, 0, 0)
-        dt2 = datetime(2021, 1, 1, 0, 0, 0)
+        dt = datetime(2020, 1, 1, 0, 0, 0).astimezone()
+        dt2 = datetime(2021, 1, 1, 0, 0, 0).astimezone()
         tr = telem.TimeRange(dt, dt2)
-        assert tr.start.time() == dt
-        assert tr.end.time() == dt2
+        assert tr.start.datetime() == dt
+        assert tr.end.datetime() == dt2
 
     def test_span(self):
         """Should return a valid TimeSpan

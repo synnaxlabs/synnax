@@ -1,11 +1,9 @@
 from dataclasses import dataclass
-from datetime import datetime
 from enum import Enum
 
 import freighter
 
 from synnax import telem, channel
-from synnax.channel import entity
 from synnax.segment import BinarySegment, NumpySegment, encoder
 
 _ENDPOINT = "/segment/iterate"

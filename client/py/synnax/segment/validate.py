@@ -3,7 +3,7 @@ from typing import Protocol
 import synnax.errors
 from synnax import telem
 from synnax.segment import NumpySegment
-from synnax.telem.numpy import to_numpy_type
+from synnax.telem import to_numpy_type
 
 
 class Validator(Protocol):

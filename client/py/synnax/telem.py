@@ -1,21 +1,37 @@
 from __future__ import annotations
 
-import datetime
+from datetime import (
+    datetime,
+    timedelta,
+    timezone,
+    tzinfo,
+)
 from dataclasses import dataclass
 import numpy as np
 import pandas as pd
-from typing import get_args
-from typing import Union
+from typing import get_args, Union
 
 import synnax.errors
 
-_EPOCH = datetime.datetime.utcfromtimestamp(0)
-
 
 class TimeStamp(int):
-    """TimeStamp represents a 64 bit nanosecond-precision UTC timestamp.
+    """TimeStamp represents a 64 bit nanosecond-precision UTC timestamp. The TimeStamp
+    constructor accepts a variety of types and will attempt to convert them to a
+    TimeStamp. The following types are supported:
 
-    :param value: The nanosecond value of the timestamp
+    * TimeStamp - returns the TimeStamp.
+    * TimeSpan - treats the TimeSpan as a duration since the Unix epoch in UTC.
+    * pd.TimeStamp - converts the pandas TimeStamp to a TimeStamp. If the timestamp is
+    not timezone aware, it is assumed to be in the local timezone.
+    * datetime - converts the datetime to a TimeStamp.  If the datetime is not timezone
+    aware, it is assumed to be in the local timezone.
+    * timedelta - treats the timedelta as a duration since the Unix epoch in UTC.
+    * np.datetime64 - treats the numpy datetime64 as a duration since the Unix epoch in
+    UTC.
+    * int - treats the int as a nanosecond duration since the Unix epoch and in UTC.
+    TimeStamp.
+
+    :param value: An unparsed timestamp value that can be converted to a TimeStamp.
     """
 
     def __new__(cls, value: UnparsedTimeStamp, *args, **kwargs):
@@ -25,11 +41,11 @@ class TimeStamp(int):
         if isinstance(value, TimeSpan):
             value = int(value)
         elif isinstance(value, pd.Timestamp):
-            value = int(value.asm8.view(np.int64))
-        elif isinstance(value, datetime.datetime):
-            value = SECOND * int((value - _EPOCH).total_seconds())
-        elif isinstance(value, datetime.timedelta):
-            value = SECOND * int(value.total_seconds())
+            value = int(float(SECOND) * value.to_pydatetime().timestamp())
+        elif isinstance(value, datetime):
+            value = int(float(SECOND) * value.timestamp())
+        elif isinstance(value, timedelta):
+            value = int(float(SECOND) * value.total_seconds())
         elif isinstance(value, np.datetime64):
             value = int(pd.Timestamp(value).asm8.view(np.int64))
         elif isinstance(value, int):
@@ -42,14 +58,18 @@ class TimeStamp(int):
     def __init__(self, value: UnparsedTimeStamp, *args, **kwargs):
         pass
 
-    def time(self) -> datetime.datetime:
-        """Returns the TimeStamp represented as a datetime.datetime object.
-        :return: a datetime.datetime object
+    def datetime(self, tzinfo: tzinfo | None = None) -> datetime:
+        """Returns the TimeStamp represented as a timezone aware datetime object.
+
+        :param tzinfo: the timezone to use for the datetime. If None, the local timezone
+        is used.
+        :return: a datetime object
         """
-        return datetime.datetime.utcfromtimestamp(self / SECOND)
+        return datetime.utcfromtimestamp(self / SECOND).replace(
+            tzinfo=timezone.utc).astimezone(tzinfo)
 
     def is_zero(self) -> bool:
-        """Returns true if the TimeStamp is zero.
+        """Checks if the timestamp is the Unix epoch.
         :return: True if the TimeStamp is zero, False otherwise
         """
         return self == 0
@@ -140,7 +160,7 @@ class TimeStamp(int):
 
 
 def now() -> TimeStamp:
-    return TimeStamp(datetime.datetime.now())
+    return TimeStamp(datetime.now())
 
 
 class TimeSpan(int):
@@ -152,18 +172,23 @@ class TimeSpan(int):
         elif isinstance(value, TimeSpan):
             return value
 
-        if isinstance(value, datetime.timedelta):
+        if isinstance(value, timedelta):
             value = int(float(SECOND) * value.total_seconds())
+        elif isinstance(value, np.int64):
+            value = int(value)
+        else:
+            raise TypeError(f"Cannot convert {type(value)} to TimeSpan")
+
         return super().__new__(cls, value)
 
     def __init__(self, value: UnparsedTimeSpan, *args, **kwargs):
         pass
 
-    def delta(self) -> datetime.timedelta:
-        """Returns the TimeSpan represented as a datetime.timedelta object.
-        :return: a datetime.timedelta object
+    def delta(self) -> timedelta:
+        """Returns the TimeSpan represented as a timedelta object.
+        :return: a timedelta object
         """
-        return datetime.timedelta(seconds=self.seconds())
+        return timedelta(seconds=self.seconds())
 
     def seconds(self) -> float:
         """Returns the TimeSpan represented as a number of seconds.
@@ -222,7 +247,7 @@ class TimeSpan(int):
 
 
 TIME_STAMP_MIN = TimeStamp(0)
-TIME_STAMP_MAX = TimeStamp(0xFFFFFFFFFFFFFFFF)
+TIME_STAMP_MAX = TimeStamp(2 ** 63 - 1)
 NANOSECOND = TimeSpan(1)
 MICROSECOND = TimeSpan(1000) * NANOSECOND
 MILLISECOND = TimeSpan(1000) * MICROSECOND
@@ -260,15 +285,18 @@ class Rate(float):
         return int(TimeSpan(time_span) / self.period())
 
     def byte_size(self, time_span: UnparsedTimeSpan, density: Density) -> Size:
-        """Calculates the amount of bytes occupied by the given TimeSpan at the given rate and sample density."""
+        """Calculates the amount of bytes occupied by the given TimeSpan at the given
+        rate and sample density."""
         return Size(self.sample_count(time_span) * int(density))
 
     def span(self, sample_count: int) -> TimeSpan:
-        """Returns the TimeSpan that corresponds to the given number of samples at this rate."""
+        """Returns the TimeSpan that corresponds to the given number of samples at this
+        rate."""
         return self.period() * sample_count
 
     def size_span(self, size: Size, density: Density) -> TimeSpan:
-        """Returns the TimeSpan that corresponds to the given number of bytes at this rate and sample density."""
+        """Returns the TimeSpan that corresponds to the given number of bytes at this
+        rate and sample density."""
         if size % density != 0:
             raise synnax.errors.ContiguityError(
                 f"Size {size} is not a multiple of density {density}"
@@ -406,10 +434,10 @@ UnparsedTimeStamp = Union[
     TimeStamp,
     TimeSpan,
     int,
-    datetime.datetime,
-    datetime.timedelta,
+    datetime,
+    timedelta,
 ]
-UnparsedTimeSpan = Union[TimeSpan | TimeStamp | int | datetime.timedelta]
+UnparsedTimeSpan = Union[TimeSpan | TimeStamp | int | timedelta]
 UnparsedRate = TimeSpan | Rate | float
 UnparsedDensity = Density | int
 UnparsedDataType = (*np.ScalarType, DataType, str)
