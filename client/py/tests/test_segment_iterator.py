@@ -1,7 +1,10 @@
+import pytest
 import numpy as np
+from freighter.encoder import JSON, Msgpack
 
 import synnax
 from synnax import Channel, telem
+from synnax.segment.iterator import Request, Command
 
 
 class TestNumpy:
@@ -25,3 +28,22 @@ class TestNumpy:
             assert c == 3
         finally:
             iter.close()
+
+
+class TestClientRead:
+    def test_basic_read(self, channel: Channel, client: synnax.Client):
+        w = client.data.new_writer([channel.key])
+        # make an empty 1d numpy array
+        data = np.random.rand(25).astype(np.float64)
+        try:
+            w.write(to=channel.key, data=data, start=0)
+            w.write(to=channel.key, data=data, start=1 * telem.SECOND)
+            w.write(to=channel.key, data=data, start=2 * telem.SECOND)
+        finally:
+            w.close()
+        res_data = client.data.read(channel.key,
+                                telem.TimeRange(0, 2500 * telem.MILLISECOND))
+        assert(res_data.shape == (62,))
+        assert np.array_equal(res_data[0:25], data)
+        assert np.array_equal(res_data[25:50], data)
+        assert np.array_equal(res_data[50:62], data[0:12])

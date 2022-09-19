@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-import datetime
+from datetime import (
+    datetime,
+    timedelta,
+    timezone,
+    tzinfo,
+)
 from dataclasses import dataclass
 import numpy as np
 import pandas as pd
@@ -8,9 +13,6 @@ from typing import get_args
 from typing import Union
 
 import synnax.errors
-
-_EPOCH = datetime.datetime.utcfromtimestamp(0)
-
 
 class TimeStamp(int):
     """TimeStamp represents a 64 bit nanosecond-precision UTC timestamp.
@@ -26,10 +28,10 @@ class TimeStamp(int):
             value = int(value)
         elif isinstance(value, pd.Timestamp):
             value = int(value.asm8.view(np.int64))
-        elif isinstance(value, datetime.datetime):
-            value = SECOND * int((value - _EPOCH).total_seconds())
-        elif isinstance(value, datetime.timedelta):
-            value = SECOND * int(value.total_seconds())
+        elif isinstance(value, datetime):
+            value = int(float(SECOND) * value.astimezone(timezone.utc).timestamp())
+        elif isinstance(value, timedelta):
+            value = int(float(SECOND) * value.total_seconds())
         elif isinstance(value, np.datetime64):
             value = int(pd.Timestamp(value).asm8.view(np.int64))
         elif isinstance(value, int):
@@ -42,11 +44,11 @@ class TimeStamp(int):
     def __init__(self, value: UnparsedTimeStamp, *args, **kwargs):
         pass
 
-    def time(self) -> datetime.datetime:
-        """Returns the TimeStamp represented as a datetime.datetime object.
-        :return: a datetime.datetime object
+    def datetime(self, tzinfo: tzinfo | None = None) -> datetime:
+        """Returns the TimeStamp represented as a datetime object.
+        :return: a datetime object
         """
-        return datetime.datetime.utcfromtimestamp(self / SECOND)
+        return datetime.utcfromtimestamp(self / SECOND).replace(tzinfo=timezone.utc).astimezone(tzinfo)
 
     def is_zero(self) -> bool:
         """Returns true if the TimeStamp is zero.
@@ -140,7 +142,7 @@ class TimeStamp(int):
 
 
 def now() -> TimeStamp:
-    return TimeStamp(datetime.datetime.now())
+    return TimeStamp(datetime.now())
 
 
 class TimeSpan(int):
@@ -152,18 +154,21 @@ class TimeSpan(int):
         elif isinstance(value, TimeSpan):
             return value
 
-        if isinstance(value, datetime.timedelta):
+        if isinstance(value, timedelta):
             value = int(float(SECOND) * value.total_seconds())
+        else:
+            raise TypeError(f"Cannot convert {type(value)} to TimeSpan")
+
         return super().__new__(cls, value)
 
     def __init__(self, value: UnparsedTimeSpan, *args, **kwargs):
         pass
 
-    def delta(self) -> datetime.timedelta:
-        """Returns the TimeSpan represented as a datetime.timedelta object.
-        :return: a datetime.timedelta object
+    def delta(self) -> timedelta:
+        """Returns the TimeSpan represented as a timedelta object.
+        :return: a timedelta object
         """
-        return datetime.timedelta(seconds=self.seconds())
+        return timedelta(seconds=self.seconds())
 
     def seconds(self) -> float:
         """Returns the TimeSpan represented as a number of seconds.
@@ -222,7 +227,7 @@ class TimeSpan(int):
 
 
 TIME_STAMP_MIN = TimeStamp(0)
-TIME_STAMP_MAX = TimeStamp(0xFFFFFFFFFFFFFFFF)
+TIME_STAMP_MAX = TimeStamp(2 ** 63 - 1)
 NANOSECOND = TimeSpan(1)
 MICROSECOND = TimeSpan(1000) * NANOSECOND
 MILLISECOND = TimeSpan(1000) * MICROSECOND
@@ -406,10 +411,10 @@ UnparsedTimeStamp = Union[
     TimeStamp,
     TimeSpan,
     int,
-    datetime.datetime,
-    datetime.timedelta,
+    datetime,
+    timedelta,
 ]
-UnparsedTimeSpan = Union[TimeSpan | TimeStamp | int | datetime.timedelta]
+UnparsedTimeSpan = Union[TimeSpan | TimeStamp | int | timedelta]
 UnparsedRate = TimeSpan | Rate | float
 UnparsedDensity = Density | int
 UnparsedDataType = (*np.ScalarType, DataType, str)

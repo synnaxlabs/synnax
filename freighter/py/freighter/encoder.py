@@ -54,7 +54,6 @@ def parse_payload_dict(data: dict, payload: Any):
         return
 
     is_dict = isinstance(payload, dict)
-    print(payload, is_dict, data)
     for key, value in data.items():
         if isinstance(value, dict):
             sub_payload = payload.get(key) if is_dict else getattr(payload, key)
@@ -76,4 +75,10 @@ T = TypeVar("T")
 @runtime_checkable
 class Loadable(Protocol):
     def load(self, data: dict):
+        ...
+
+
+@runtime_checkable
+class Dumpable(Protocol):
+    def dump(self) -> dict:
         ...

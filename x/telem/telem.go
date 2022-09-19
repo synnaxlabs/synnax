@@ -69,9 +69,9 @@ func (ts TimeStamp) Range(ts2 TimeStamp) TimeRange { return TimeRange{ts, ts2} }
 // exclusive.
 type TimeRange struct {
 	// Start is the start of the range.
-	Start TimeStamp
+	Start TimeStamp `json:"start" msgpack:"start"`
 	// End is the end of the range.
-	End TimeStamp
+	End TimeStamp `json:"end" msgpack:"end"`
 }
 
 // Span returns the TimeSpan that the TimeRange occupies.
