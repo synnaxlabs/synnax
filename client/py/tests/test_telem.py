@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
+import pandas
 import pytz
 from pytz import timezone as pytz_timezone
 
@@ -26,13 +27,13 @@ class TestTimeStamp:
             (telem.MILLISECOND * 2500,  2500000000),
             (105 * telem.MILLISECOND, 105 * telem.MILLISECOND),
             (datetime.utcfromtimestamp(105).replace(tzinfo=timezone.utc), telem.TimeStamp(105 * telem.SECOND)),
-            (pd.Timestamp(105), telem.TimeStamp(105 * telem.NANOSECOND)),
             (_now, _now),
             (timedelta(seconds=105), telem.TimeStamp(105 * telem.SECOND)),
             (np.datetime64(1000, "ms"), telem.TimeStamp(1000 * telem.MILLISECOND)),
             (datetime(2022,2,22,15,41,50, tzinfo=pytz_timezone('EST')), telem.TimeStamp(1645562510000000000)),
             (datetime(2022,2,22,15,41,50, tzinfo=pytz.UTC), telem.TimeStamp(1645544510000000000)),
             (datetime(2022,2,22,10,41,50, tzinfo=pytz_timezone('EST')), telem.TimeStamp(1645544510000000000)),
+            (pd.Timestamp(datetime(2022,2,22,15,41,50, tzinfo=pytz_timezone('EST'))), telem.TimeStamp(1645562510000000000)),
         ],
     )
     def test_init(self, unparsed: telem.UnparsedTimeStamp, expected: telem.TimeStamp):

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from synnax import telem
 from synnax.errors import UnexpectedError
-from synnax.telem.numpy import to_numpy_type
+from synnax.telem import to_numpy_type
 
 import numpy as np
 

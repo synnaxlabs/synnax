@@ -14,10 +14,27 @@ from typing import Union
 
 import synnax.errors
 
-class TimeStamp(int):
-    """TimeStamp represents a 64 bit nanosecond-precision UTC timestamp.
 
-    :param value: The nanosecond value of the timestamp
+class TimeStamp(int):
+    """TimeStamp represents a 64 bit nanosecond-precision UTC timestamp. The TimeStamp
+    constructor accepts a variety of types and will attempt to convert them to a
+    TimeStamp. The following types are supported:
+
+    * TimeStamp - returns the TimeStamp.
+    * TimeSpan - treats the TimeSpan as a duration since the Unix epoch and returns the
+    resulting TimeStamp.
+    * pd.TimeStamp - converts the pandas TimeStamp to a TimeStamp. If the timestamp is
+    not timezone aware, it is assumed to be in the local timezone.
+    * datetime - converts the datetime to a TimeStamp.  If the datetime is not timezone
+    aware, it is assumed to be in the local timezone.
+    * timedelta - treats the timedelta as a duration since the Unix epoch and returns the
+    resulting TimeStamp.
+    * np.datetime64 - treats the numpy datetime64 as a duration since the Unix epoch and
+    returns the resulting TimeStamp.
+    * int - treats the int as a nanosecond duration since the Unix epoch and returns the resulting
+    TimeStamp.
+
+    :param value: An unparsed timestamp value that can be converted to a TimeStamp.
     """
 
     def __new__(cls, value: UnparsedTimeStamp, *args, **kwargs):
@@ -27,9 +44,9 @@ class TimeStamp(int):
         if isinstance(value, TimeSpan):
             value = int(value)
         elif isinstance(value, pd.Timestamp):
-            value = int(value.asm8.view(np.int64))
+            value = int(float(SECOND) * value.to_pydatetime().timestamp())
         elif isinstance(value, datetime):
-            value = int(float(SECOND) * value.astimezone(timezone.utc).timestamp())
+            value = int(float(SECOND) * value.timestamp())
         elif isinstance(value, timedelta):
             value = int(float(SECOND) * value.total_seconds())
         elif isinstance(value, np.datetime64):
@@ -45,10 +62,14 @@ class TimeStamp(int):
         pass
 
     def datetime(self, tzinfo: tzinfo | None = None) -> datetime:
-        """Returns the TimeStamp represented as a datetime object.
+        """Returns the TimeStamp represented as a timezone aware datetime object.
+
+        :param tzinfo: the timezone to use for the datetime. If None, the local timezone
+        is used.
         :return: a datetime object
         """
-        return datetime.utcfromtimestamp(self / SECOND).replace(tzinfo=timezone.utc).astimezone(tzinfo)
+        return datetime.utcfromtimestamp(self / SECOND).replace(
+            tzinfo=timezone.utc).astimezone(tzinfo)
 
     def is_zero(self) -> bool:
         """Returns true if the TimeStamp is zero.
@@ -156,6 +177,8 @@ class TimeSpan(int):
 
         if isinstance(value, timedelta):
             value = int(float(SECOND) * value.total_seconds())
+        elif isinstance(value, np.int64):
+            value = int(value)
         else:
             raise TypeError(f"Cannot convert {type(value)} to TimeSpan")
 
