@@ -1,12 +1,13 @@
 from dataclasses import dataclass
 from typing import Callable
 
+from .transport import Payload
+
 TYPE_UNKNOWN = "unknown"
 TYPE_NONE = "nil"
 
 
-@dataclass
-class ErrorPayload:
+class ErrorPayload(Payload):
     """Error payload is a payload that can be sent between a freighter client and server,
     so that it can be decoded into a proper exception by the implementing language.
     """

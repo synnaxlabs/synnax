@@ -25,7 +25,7 @@ class TestWS:
         """Should exchange ten echo messages that increment the ID."""
         stream = await async_client.stream("/echo", Message, Message)
         for i in range(10):
-            await stream.send(Message(i, "hello"))
+            await stream.send(Message(id=i, message="hello"))
             msg, err = await stream.receive()
             assert err is None
             assert msg.id == i + 1
@@ -57,12 +57,11 @@ class TestWS:
         assert err.message == "unexpected error"
 
 
-@pytest.mark.focus
 class TestSyncWebsocket:
     def test_basic_exchange(self, sync_client: SyncStreamClient):
         stream = sync_client.stream("/echo", Message, Message)
         for i in range(10):
-            err = stream.send(Message(i, "hello"))
+            err = stream.send(Message(id=i, message="hello"))
             assert err is None
             msg, err = stream.receive()
             assert err is None

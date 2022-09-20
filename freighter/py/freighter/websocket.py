@@ -1,7 +1,7 @@
 import asyncio
-from dataclasses import dataclass
 from typing import Generic, Type
 
+from pydantic import BaseModel
 from websockets.exceptions import ConnectionClosedOK
 from websockets.legacy.client import WebSocketClientProtocol, connect
 
@@ -16,15 +16,17 @@ _DATA_MESSAGE = "data"
 _CLOSE_MESSAGE = "close"
 
 
-@dataclass
-class _Message(Generic[P]):
+class _Message(Generic[P], BaseModel):
     type: str
-    payload: P
+    payload: P | None
     error: ErrorPayload | None
 
 
-def empty_message(payload: P) -> _Message[P]:
-    return _Message(type=_DATA_MESSAGE, payload=payload, error=ErrorPayload(None, None))
+def _new_res_msg_t(res_t: Type[RS]) -> Type[_Message[RS]]:
+    class _ResMsg(_Message[RS]):
+        payload: res_t | None
+
+    return _ResMsg
 
 
 class WebsocketStream(Generic[RQ, RS]):
@@ -34,7 +36,7 @@ class WebsocketStream(Generic[RQ, RS]):
     wrapped: WebSocketClientProtocol
     server_closed: Exception | None
     send_closed: bool
-    response_factory: Type[RS]
+    res_msg_t: Type[_Message[RS]]
 
     def __init__(
         self,
@@ -47,25 +49,27 @@ class WebsocketStream(Generic[RQ, RS]):
         self.send_closed = False
         self.server_closed = None
         self.lock = asyncio.Lock()
-        self.response_factory = res_t
+        self.res_msg_t = _new_res_msg_t(res_t)
 
     async def receive(self) -> tuple[RS | None, Exception | None]:
+        """Implements the AsyncStream protocol."""
         if self.server_closed is not None:
             return None, self.server_closed
 
         data = await self.wrapped.recv()
-        msg: _Message[RS] = empty_message(self.response_factory.new())
         assert isinstance(data, bytes)
-        self.encoder.decode(data, msg)
+        msg = self.encoder.decode(data, self.res_msg_t)
 
         if msg.type == _CLOSE_MESSAGE:
             assert msg.error is not None
+            print(decode_error(msg.error))
             await self._close_server(decode_error(msg.error))
             return None, self.server_closed
 
         return msg.payload, None
 
     async def send(self, payload: RQ) -> Exception | None:
+        """Implements the AsyncStream protocol."""
         # If the server closed with an error, we return freighter.EOF to the
         # caller, and expect them to discover the close error by calling
         # receive().
@@ -75,7 +79,7 @@ class WebsocketStream(Generic[RQ, RS]):
         if self.send_closed:
             raise StreamClosed
 
-        msg = _Message(_DATA_MESSAGE, payload, None)
+        msg = _Message(type=_DATA_MESSAGE, payload=payload, error=None)
         encoded = self.encoder.encode(msg)
 
         # If the server closed with an error, we return freighter.EOF to the
@@ -88,10 +92,11 @@ class WebsocketStream(Generic[RQ, RS]):
         return None
 
     async def close_send(self):
+        """Implements the AsyncStream protocol."""
         if self.send_closed or self.server_closed is not None:
             return
 
-        msg = _Message(_CLOSE_MESSAGE, None, None)
+        msg = _Message(type=_CLOSE_MESSAGE, payload=None, error=None)
         try:
             await self.wrapped.send(self.encoder.encode(msg))
         finally:
@@ -136,6 +141,7 @@ class WebsocketClient:
     async def stream(
         self, target: str, req_type: Type[RQ], res_type: Type[RS]
     ) -> AsyncStream[RQ, RS]:
+        """Implements the AsyncStreamClient protocol."""
         ws = await connect(
             self._endpoint.child(target).stringify(),
             extra_headers={"Content-Type": self._encoder.content_type()},

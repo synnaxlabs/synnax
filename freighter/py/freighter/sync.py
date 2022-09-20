@@ -158,18 +158,22 @@ class SyncStream(Thread, Generic[RQ, RS]):
         asyncio.run(self._run())
 
     def received(self) -> bool:
+        """Implement the Stream protocol."""
         return self._receiver.received()
 
     def receive(self) -> tuple[RS | None, Exception | None]:
+        """Implement the Stream protocol."""
         res, exc = self._receiver.receive()
         if exc is not None:
             self._sender.cancel()
         return res, exc
 
     def send(self, pld: RQ) -> Exception | None:
+        """Implement the Stream protocol."""
         return self._sender.send(pld)
 
     def close_send(self) -> Exception | None:
+        """Implement the Stream protocol."""
         return self._sender.close_send()
 
     async def _run(self):
@@ -205,4 +209,5 @@ class SyncStreamClient:
     def stream(
         self, target: str, req_t: Type[RQ], res_t: Type[RS]
     ) -> SyncStream[RQ, RS]:
+        """Implement the StreamClient protocol."""
         return SyncStream[RQ, RS](self.wrapped, target, req_t, res_t)

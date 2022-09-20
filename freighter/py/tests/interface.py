@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Type, runtime_checkable
+from typing import Type
+
+from pydantic import BaseModel
 
 from freighter import errors
 
 
-@dataclass
-class Message:
+class Message(BaseModel):
     id: int | None
     message: str | None
 
@@ -16,10 +16,14 @@ class Message:
         return Message(id=None, message=None)
 
 
-@dataclass
 class Error(Exception):
     code: int
     message: str
+
+    def __init__(self, code: int, message: str):
+        self.code = code
+        self.message = message
+        super().__init__(message)
 
 
 def encode_test_error(exc: Exception) -> str:

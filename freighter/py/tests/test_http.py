@@ -14,12 +14,12 @@ def client(endpoint: URL) -> HTTPClient:
 
 @pytest.fixture
 def get_client(client: HTTPClient) -> GETClient[Message, Message]:
-    return client.get(Message, Message)
+    return client.client_get(Message, Message)
 
 
 @pytest.fixture
 def post_client(client: HTTPClient) -> POSTClient[Message, Message]:
-    return client.post(Message, Message)
+    return client.client_post(Message, Message)
 
 
 class TestGETClient:
@@ -27,7 +27,7 @@ class TestGETClient:
         """
         Should echo an incremented ID back to the caller.
         """
-        res, err = get_client.send("/echo", Message(1, "hello"))
+        res, err = get_client.send("/echo", Message(id=1, message="hello"))
         assert err is None
         assert res.id == 2
         assert res.message == "hello"
@@ -38,7 +38,7 @@ class TestPOSTClient:
         """
         Should echo an incremented ID back to the caller.
         """
-        res, err = post_client.send("/echo", Message(1, "hello"))
+        res, err = post_client.send("/echo", Message(id=1, message="hello"))
         assert err is None
         assert res.id == 2
         assert res.message == "hello"

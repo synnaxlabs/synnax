@@ -1,34 +1,13 @@
 from __future__ import annotations
 
-from typing import Protocol, Type, TypeVar
+from typing import TypeAlias, TypeVar
 
+from pydantic import BaseModel
 
-class Payload(Protocol):
-    """
-    Payload is a piece of data that can be sent over the freighter.
-    """
-
-    __dataclass_fields__: dict
-
+Payload: TypeAlias = BaseModel
 
 # Represents the inbound payload for a freighter.
-RS = TypeVar("RS", bound="Response", covariant=True)
-
-
-class Response(Payload):
-    """
-    Response is a piece of data that can be received over the freighter.
-    """
-
-    @classmethod
-    def new(cls: Type[RS]) -> RS:
-        """Creates a new instance of the Response with any blank fields correctly
-        initialized.
-        :returns: A new instance of the Response.
-        """
-        ...
-
-
+RS = TypeVar("RS", bound=Payload, covariant=True)
 # Represents the outbound payload for a freighter.
 RQ = TypeVar("RQ", bound=Payload, contravariant=True)
 # Represents any payload.
