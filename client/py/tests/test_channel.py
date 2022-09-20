@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 
 import synnax
+from synnax import QueryError
 
 
 class TestClient:
@@ -22,7 +23,7 @@ class TestClient:
             assert channel.key != ""
 
     def test_retrieve_by_key(
-            self, two_channels: list[synnax.Channel], client: synnax.Synnax
+        self, two_channels: list[synnax.Channel], client: synnax.Synnax
     ) -> None:
         res_channels = client.channel.retrieve(
             [channel.key for channel in two_channels]
@@ -32,8 +33,12 @@ class TestClient:
             assert two_channels[i].key == channel.key
             assert isinstance(two_channels[i].density, synnax.Density)
 
+    def test_retrieve_by_key_not_found(self, client: synnax.Synnax):
+        with pytest.raises(QueryError):
+            client.channel.retrieve(keys=["1-100000"])
+
     def test_retrieve_by_node_id(
-            self, two_channels: list[synnax.Channel], client: synnax.Synnax
+        self, two_channels: list[synnax.Channel], client: synnax.Synnax
     ) -> None:
         res_channels = client.channel.retrieve_by_node_id(1)
         assert len(res_channels) >= 2

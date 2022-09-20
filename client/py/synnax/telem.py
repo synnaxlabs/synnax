@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import get_args
-
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone, tzinfo
 from typing import Union, get_args
@@ -9,6 +7,7 @@ from typing import Union, get_args
 import numpy as np
 import pandas as pd
 from pydantic import BaseModel
+
 from .exceptions import ContiguityError
 
 
@@ -185,8 +184,7 @@ def now() -> TimeStamp:
 
 
 def since(t: TimeStamp) -> TimeSpan:
-    """Returns the amount of time between the given timestamp and the current time.
-    """
+    """Returns the amount of time between the given timestamp and the current time."""
     return now().span(t)
 
 
@@ -300,7 +298,7 @@ class TimeSpan(int):
 
 
 TIME_STAMP_MIN = TimeStamp(0)
-TIME_STAMP_MAX = TimeStamp(2 ** 63 - 1)
+TIME_STAMP_MAX = TimeStamp(2**63 - 1)
 NANOSECOND = TimeSpan(1)
 MICROSECOND = TimeSpan(1000) * NANOSECOND
 MILLISECOND = TimeSpan(1000) * MICROSECOND
@@ -359,9 +357,7 @@ class Rate(float):
         """Returns the TimeSpan that corresponds to the given number of bytes at this
         rate and sample density."""
         if size % density != 0:
-            raise ContiguityError(
-                f"Size {size} is not a multiple of density {density}"
-            )
+            raise ContiguityError(f"Size {size} is not a multiple of density {density}")
         return self.span(int(size / density))
 
     def __str__(self):
@@ -418,9 +414,9 @@ class TimeRange(BaseModel):
 
     def overlaps_with(self, tr: TimeRange) -> bool:
         return (
-                self.contains_stamp(tr.start)
-                or self.contains_stamp(tr.end)
-                or tr.contains_range(self)
+            self.contains_stamp(tr.start)
+            or self.contains_stamp(tr.end)
+            or tr.contains_range(self)
         )
 
     def swap(self) -> TimeRange:
@@ -454,7 +450,7 @@ class Density(int):
         return cls(v)
 
     def __repr__(self):
-        return f'Density({super().__repr__()})'
+        return f"Density({super().__repr__()})"
 
 
 class Size(int):
@@ -499,9 +495,7 @@ class DataType(str):
 
     @classmethod
     def __modify_schema__(cls, field_schema):
-        field_schema.update(
-            type='string'
-        )
+        field_schema.update(type="string")
 
     @property
     def numpy_type(self, _raise: bool = False) -> np.ScalarType | None:
@@ -515,7 +509,7 @@ class DataType(str):
         return npt
 
     def __repr__(self):
-        return f'DataType({super(DataType, self).__repr__()})'
+        return f"DataType({super(DataType, self).__repr__()})"
 
 
 DATA_TYPE_UNKNOWN = DataType("")

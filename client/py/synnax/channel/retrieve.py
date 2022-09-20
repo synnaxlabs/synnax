@@ -12,7 +12,7 @@ class _Request(Payload):
 
 
 class _Response(Payload):
-    channels: list[ChannelPayload]
+    channels: list[ChannelPayload] | None = []
 
 
 class ChannelRetriever:

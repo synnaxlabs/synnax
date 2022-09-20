@@ -1,5 +1,5 @@
-import pytest
 import numpy as np
+import pytest
 
 import synnax
 
@@ -37,10 +37,14 @@ class TestClientRead:
             writer.write(to=channel.key, data=data, start=2 * synnax.SECOND)
         finally:
             writer.close()
-        res_data = client.data.read(
-            channel.key, 0, 2500 * synnax.MILLISECOND
-        )
+        res_data = client.data.read(channel.key, 0, 2500 * synnax.MILLISECOND)
         assert res_data.shape == (62,)
         assert np.array_equal(res_data[0:25], data)
         assert np.array_equal(res_data[25:50], data)
         assert np.array_equal(res_data[50:62], data[0:12])
+
+    def test_read_non_contiguous(self, channel: synnax.Channel, client: synnax.Synnax):
+        channel.write(0, np.random.rand(25))
+        channel.write(3 * synnax.SECOND, np.random.rand(25))
+        with pytest.raises(synnax.ContiguityError):
+            channel.read(0, 4 * synnax.SECOND)

@@ -52,8 +52,8 @@ from .telem import (
     UnparsedDataType,
     UnparsedDensity,
     UnparsedRate,
-    UnparsedTimeStamp,
     UnparsedTimeSpan,
+    UnparsedTimeStamp,
     now,
     since,
 )

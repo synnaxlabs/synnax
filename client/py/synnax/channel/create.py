@@ -28,7 +28,10 @@ class ChannelCreator:
         rate: UnparsedRate = Rate(0),
         data_type: UnparsedDataType = DATA_TYPE_UNKNOWN,
     ) -> ChannelPayload:
-        return self.create_n(ChannelPayload(name=name, node_id=node_id, rate=rate, data_type=data_type), 1)[0]
+        return self.create_n(
+            ChannelPayload(name=name, node_id=node_id, rate=rate, data_type=data_type),
+            1,
+        )[0]
 
     def create_n(self, channel: ChannelPayload, count: int = 1) -> list[ChannelPayload]:
         req = _Request(channel=channel, count=count)

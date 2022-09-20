@@ -1,9 +1,5 @@
-import asyncio
-
 from freighter import (
     EOF,
-    AsyncStream,
-    AsyncStreamClient,
     ExceptionPayload,
     Payload,
     Stream,
@@ -14,12 +10,12 @@ from numpy import ndarray
 
 from synnax.channel.registry import ChannelRegistry
 from synnax.exceptions import UnexpectedError, ValidationError, ValidationField
-from .sugared import NumpySegment, SugaredBinarySegment
 from synnax.telem import Size, TimeStamp, UnparsedTimeStamp
 
 from .encoder import NumpyEncoderDecoder
 from .payload import SegmentPayload
 from .splitter import Splitter
+from .sugared import NumpySegment, SugaredBinarySegment
 from .validate import ContiguityValidator, ScalarTypeValidator, Validator
 
 _ENDPOINT = "/segment/write"
@@ -48,7 +44,7 @@ class BaseWriter:
                 + "please report it."
             )
 
-    def check_keys(self, segments: list[SegmentPayload]):
+    def _check_keys(self, segments: list[SegmentPayload]):
         for segment in segments:
             if segment.channel_key not in self.keys:
                 raise ValidationError(
@@ -59,48 +55,15 @@ class BaseWriter:
                 )
 
 
-class AsyncCoreWriter(BaseWriter):
-    client: AsyncStreamClient
-    stream: AsyncStream[_Request, _Response]
-    responses: asyncio.Task[Exception | None]
-
-    def __init__(self, client: AsyncStreamClient) -> None:
-        self.client = client
-
-    async def open(self, keys: list[str]):
-        self.keys = keys
-        self.stream = await self.client.stream(_ENDPOINT, _Request, _Response)
-        await self.stream.send(_Request(open_keys=keys, segments=[]))
-        res, err = await self.stream.receive()
-        self._ack_open(res, err)
-        self.responses = asyncio.create_task(self.receive_errors())
-
-    async def write(self, segments: list[SegmentPayload]) -> bool:
-        if self.responses.done():
-            return False
-
-        self.check_keys(segments)
-        err = await self.stream.send(_Request(open_keys=[], segments=segments))
-        if err is not None:
-            raise err
-        return True
-
-    async def close(self):
-        await self.stream.close_send()
-        err = await self.responses
-        assert err is not None
-        if not isinstance(err, EOF):
-            raise err
-
-    async def receive_errors(self) -> Exception | None:
-        res, exc = await self.stream.receive()
-        if exc is None:
-            assert res is not None
-            exc = decode_exception(res.error)
-        return exc
-
-
 class CoreWriter(BaseWriter):
+    """Used to write telemetry to a set of channels in time-order. It should not be
+    instantiated directly, and should instead be created using the segment client.
+
+    Using a writer is ideal when writing large volumes of data (such as recording telemetry
+    from a sensor), but it is relatively complex and challenging to use. If you're looking
+    to write a contiguous block of telemetry, see the segment Client write method instead.
+    """
+
     client: StreamClient
     stream: Stream[_Request, _Response]
 
@@ -108,6 +71,12 @@ class CoreWriter(BaseWriter):
         self.client = client
 
     def open(self, keys: list[str]):
+        """Opens the writer, acquiring an exclusive lock on the given
+        channels for the duration of the writer's lifetime. open must be called before
+        any other writer methods.
+
+        :param keys: A list of keys representing the channels the writer will write to.
+        """
         self.keys = keys
         self.stream = self.client.stream(_ENDPOINT, _Request, _Response)
         self.stream.send(_Request(open_keys=keys, segments=[]))
@@ -115,16 +84,33 @@ class CoreWriter(BaseWriter):
         self._ack_open(res, err)
 
     def write(self, segments: list[SegmentPayload]) -> bool:
+        """Validates and writes the given segments to the database. The provided segments
+        must:
+
+            1. Be in time order (on a per-channel basis).
+            2. Have channel keys in the set of keys provided to open.
+            3. Have non-zero length data with the correct data type for the given channel.
+
+        :param segments: A list of segments to write to the database.
+        :returns: False if the writer has accumulated an error. In this case,
+        the caller should stop executing requests and close the writer.
+        """
         if self.stream.received():
             return False
 
-        self.check_keys(segments)
+        self._check_keys(segments)
         err = self.stream.send(_Request(open_keys=[], segments=segments))
         if err is not None:
             raise err
         return True
 
     def close(self):
+        """Closes the writer, raising any accumulated error encountered during operation.
+        A writer MUST be closed after use, and this method should probably be placed in
+        a 'finally' block. If the writer is not closed, the database will not release
+        the exclusive lock on the channels, preventing any other callers from writing to
+        them. It also might leak resources and threads.
+        """
         self.stream.close_send()
         res, err = self.stream.receive()
         if err is None:
@@ -134,6 +120,14 @@ class CoreWriter(BaseWriter):
 
 
 class NumpyWriter:
+    """Used to write telemetry to a set of channels in time-order. It should not be
+    instantiated directly, and should instead be created using the segment client.
+
+    Using a writer is ideal when writing large volumes of data (such as recording telemetry
+    from a sensor), but it is relatively complex and challenging to use. If you're looking
+    to write a contiguous block of telemetry, see the segment Client write method instead.
+    """
+
     core: CoreWriter
     validators: list[Validator]
     encoder: NumpyEncoderDecoder
@@ -154,16 +148,35 @@ class NumpyWriter:
         self.channels = channels
 
     def open(self, keys: list[str]):
+        """Opens the writer, acquiring an exclusive lock on the given
+        channels for the duration of the writer's lifetime. open must be called before
+        any other writer methods.
+        """
         self.core.open(keys)
 
-    def write(self, to: str, data: ndarray, start: UnparsedTimeStamp) -> bool:
+    def write(self, to: str, start: UnparsedTimeStamp, data: ndarray) -> bool:
+        """Writes the given telemetry to the database.
+
+        :param to: The key of the channel to write to. This key must be present
+        in the list of keys the writer was opened with.
+        :param start: The start timestamp of the first sample in data.
+        :param data: The telemetry to write.
+        :returns: False if the writer has accumulated an error. In this case,
+        the caller should stop executing requests and close the writer.
+        """
         ch = self.channels.get(to)
         seg = NumpySegment(ch, TimeStamp(start), data)
         for val in self.validators:
             val.validate(seg)
-        encoded = SugaredBinarySegment.sugar(ch,self.encoder.encode(seg))
+        encoded = SugaredBinarySegment.sugar(ch, self.encoder.encode(seg))
         split = self.splitter.split(encoded)
         return self.core.write([seg.payload() for seg in split])
 
     def close(self):
+        """Closes the writer, raising any accumulated error encountered during operation.
+        A writer MUST be closed after use, and this method should probably be placed in
+        a 'finally' block. If the writer is not closed, the database will not release
+        the exclusive lock on the channels, preventing any other callers from writing to
+        them. It also might leak resources and threads.
+        """
         self.core.close()

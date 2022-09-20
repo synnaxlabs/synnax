@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from array import array
 from dataclasses import dataclass
 
 from numpy import append, ndarray
 
 from synnax.channel.payload import ChannelPayload
+from synnax.exceptions import ContiguityError, ValidationError
 from synnax.telem import Size, TimeRange, TimeSpan, TimeStamp, UnparsedTimeStamp
 
 from .payload import SegmentPayload
@@ -77,6 +77,18 @@ class NumpySegment(SugaredHeader):
         return self.range.end
 
     def extend(self, other: NumpySegment):
-        assert self.channel == other.channel
-        assert self.end == other.start
+        if self.channel.key != other.channel.key:
+            raise ValidationError(
+                f"""Cannot extend segment because channel keys mismatch.
+                Segment Channel: {self.channel.key}
+                Next Segment Channel: {other.channel.key}
+                """
+            )
+        if self.end != other.start:
+            raise ContiguityError(
+                f"""Cannot extend segment because end and start times are not equal.
+                Segment End: {self.end}
+                Next Segment Start: {other.start}
+                """
+            )
         self.data = append(self.data, other.data)
