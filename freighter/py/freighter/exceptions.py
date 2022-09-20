@@ -7,7 +7,7 @@ TYPE_UNKNOWN = "unknown"
 TYPE_NONE = "nil"
 
 
-class ErrorPayload(Payload):
+class ExceptionPayload(Payload):
     """Error payload is a payload that can be sent between a freighter client and server,
     so that it can be decoded into a proper exception by the implementing language.
     """
@@ -21,28 +21,28 @@ DecoderFunc = Callable[[str], Exception]
 
 
 @dataclass
-class _ErrorProvider:
+class _ExceptionProvider:
     encode: EncoderFunc
     decode: DecoderFunc
 
 
 class _Registry:
-    providers: dict[str, _ErrorProvider]
+    providers: dict[str, _ExceptionProvider]
 
     def __init__(self):
         self.providers = dict()
 
-    def register(self, _type: str, provider: _ErrorProvider) -> None:
+    def register(self, _type: str, provider: _ExceptionProvider) -> None:
         if _type in self.providers:
             raise ValueError(f"Error type {_type} is already registered")
         self.providers[_type] = provider
 
     @staticmethod
-    def encode(error: Exception | None) -> ErrorPayload:
+    def encode(error: Exception | None) -> ExceptionPayload:
         raise NotImplemented
 
-    def decode(self, encoded: ErrorPayload) -> Exception | None:
-        assert isinstance(encoded, ErrorPayload)
+    def decode(self, encoded: ExceptionPayload) -> Exception | None:
+        assert isinstance(encoded, ExceptionPayload)
         if encoded.type == TYPE_NONE:
             return None
         if encoded.type in self.providers:
@@ -55,7 +55,7 @@ class _Registry:
 REGISTRY = _Registry()
 
 
-def register(_type: str, _encode: EncoderFunc, _decode: DecoderFunc) -> None:
+def register_exception(_type: str, _encode: EncoderFunc, _decode: DecoderFunc) -> None:
     """Registers a custom error type with the freighter error registry, which allows
     it to be sent over the network.
 
@@ -64,20 +64,20 @@ def register(_type: str, _encode: EncoderFunc, _decode: DecoderFunc) -> None:
     :param _decode: A function that takes a string and returns an exception.
     :return: None
     """
-    REGISTRY.register(_type, _ErrorProvider(_encode, _decode))
+    REGISTRY.register(_type, _ExceptionProvider(_encode, _decode))
 
 
-def encode(error: Exception) -> ErrorPayload:
+def encode_expection(exc: Exception) -> ExceptionPayload:
     """Encodes an exception into a payload that can be sent between a freighter server
     and client.
 
-    :param error: The exception to encode.
+    :param exc: The exception to encode.
     :return: The encoded error payload.
     """
-    return REGISTRY.encode(error)
+    return REGISTRY.encode(exc)
 
 
-def decode(encoded: ErrorPayload) -> Exception | None:
+def decode_exception(encoded: ExceptionPayload) -> Exception | None:
     """Decode decodes an error payload into an exception. If a custom decoder can be found
     for the error type, it will be used. Otherwise, a generic Exception containing the
     error data is returned.
@@ -152,4 +152,4 @@ def _freighter_decode(exc: str) -> Exception:
 
 
 _FREIGHTER_TYPE = "freighter"
-register(_FREIGHTER_TYPE, _freighter_encode, _freighter_decode)
+register_exception(_FREIGHTER_TYPE, _freighter_encode, _freighter_decode)

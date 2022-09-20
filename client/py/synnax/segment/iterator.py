@@ -1,15 +1,16 @@
-from dataclasses import dataclass
 from enum import Enum
 
-import freighter
+from freighter import EOF, ExceptionPayload, Payload, Stream, StreamClient
 
-from synnax import telem, channel
-from synnax.segment import BinarySegment, NumpySegment, encoder
+from synnax.channel.registry import ChannelRegistry
+from synnax.telem import TimeRange, TimeSpan, TimeStamp
 
-_ENDPOINT = "/segment/iterate"
+from .encoder import NumpyEncoderDecoder
+from .payload import SegmentPayload
+from .sugared import NumpySegment
 
 
-class Command(int, Enum):
+class _Command(int, Enum):
     OPEN = 0
     NEXT = 1
     PREV = 2
@@ -26,66 +27,46 @@ class Command(int, Enum):
     SEEK_GE = 14
 
 
-class ResponseVariant(int, Enum):
+class _ResponseVariant(int, Enum):
     ACK = 1
     DATA = 2
 
 
-@dataclass
-class Request:
-    command: Command
-    span: telem.TimeSpan | None = None
-    range: telem.TimeRange | None = None
-    stamp: telem.TimeStamp | None = None
+class _Request(Payload):
+    command: _Command
+    span: TimeSpan | None = None
+    range: TimeRange | None = None
+    stamp: TimeStamp | None = None
     keys: list[str] | None = None
 
 
-@dataclass
-class Response:
-    variant: ResponseVariant
+class _Response(Payload):
+    variant: _ResponseVariant
     ack: bool
-    command: Command
-    error: freighter.ErrorPayload
-    segments: list[BinarySegment]
-
-    def load(self, data: dict):
-        if data["variant"] == 0:
-            return
-        self.variant = ResponseVariant(data["variant"])
-        if self.variant == ResponseVariant.ACK:
-            self.ack = data["ack"]
-            self.command = Command(data["command"])
-            if "error" in data:
-                self.error = freighter.ErrorPayload(data["error"]["type"],
-                                                    data["error"]["data"])
-        elif self.variant == ResponseVariant.DATA:
-            self.segments = [BinarySegment(**seg) for seg in data["segments"]]
-        else:
-            raise ValueError("Unexpected response variant")
+    command: _Command
+    error: ExceptionPayload
+    segments: list[SegmentPayload]
 
 
-def _response_factory() -> Response:
-    return Response(ResponseVariant.ACK, False, Command.OPEN,
-                    freighter.ErrorPayload(None, None), [])
+class CoreIterator:
+    _ENDPOINT = "/segment/iterate"
 
-
-class Core:
-    transport: freighter.StreamClient
-    stream: freighter.Stream[Request, Response]
-    values: list[BinarySegment]
+    transport: StreamClient
+    stream: Stream[_Request, _Response]
+    values: list[SegmentPayload]
     aggregate: bool
 
-    def __init__(self, transport: freighter.StreamClient, aggregate: bool = False) -> None:
+    def __init__(self, transport: StreamClient, aggregate: bool = False) -> None:
         self.transport = transport
         self.aggregate = aggregate
 
-    def open(self, keys: list[str], tr: telem.TimeRange):
-        self.stream = self.transport.stream(_ENDPOINT, Request, _response_factory)
-        self.exec(command=Command.OPEN, range=tr, keys=keys)
+    def open(self, keys: list[str], tr: TimeRange):
+        self.stream = self.transport.stream(self._ENDPOINT, _Request, _Response)
+        self.exec(command=_Command.OPEN, range=tr, keys=keys)
         self.values = []
 
     def exec(self, **kwargs) -> bool:
-        exc = self.stream.send(Request(**kwargs))
+        exc = self.stream.send(_Request(**kwargs))
         if exc is not None:
             raise exc
         if not self.aggregate:
@@ -94,75 +75,70 @@ class Core:
             r, exc = self.stream.receive()
             if exc is not None:
                 raise exc
-            if r.variant == ResponseVariant.ACK:
+            if r.variant == _ResponseVariant.ACK:
                 return r.ack
             self.values += r.segments
 
     def next(self) -> bool:
-        return self.exec(command=Command.NEXT)
+        return self.exec(command=_Command.NEXT)
 
     def prev(self) -> bool:
-        return self.exec(command=Command.PREV)
+        return self.exec(command=_Command.PREV)
 
     def first(self) -> bool:
-        return self.exec(command=Command.FIRST)
+        return self.exec(command=_Command.FIRST)
 
     def last(self) -> bool:
-        return self.exec(command=Command.LAST)
+        return self.exec(command=_Command.LAST)
 
-    def next_span(self, span: telem.TimeSpan) -> bool:
-        return self.exec(command=Command.NEXT_SPAN, span=span)
+    def next_span(self, span: TimeSpan) -> bool:
+        return self.exec(command=_Command.NEXT_SPAN, span=span)
 
-    def prev_span(self, span: telem.TimeSpan) -> bool:
-        return self.exec(command=Command.PREV_SPAN, span=span)
+    def prev_span(self, span: TimeSpan) -> bool:
+        return self.exec(command=_Command.PREV_SPAN, span=span)
 
-    def next_range(self, rng: telem.TimeRange) -> bool:
-        return self.exec(command=Command.NEXT_RANGE, range=rng)
+    def next_range(self, rng: TimeRange) -> bool:
+        return self.exec(command=_Command.NEXT_RANGE, range=rng)
 
     def seek_first(self) -> bool:
-        return self.exec(command=Command.SEEK_FIRST)
+        return self.exec(command=_Command.SEEK_FIRST)
 
     def seek_last(self) -> bool:
-        return self.exec(command=Command.SEEK_LAST)
+        return self.exec(command=_Command.SEEK_LAST)
 
-    def seek_lt(self, stamp: telem.TimeStamp) -> bool:
-        return self.exec(command=Command.SEEK_LT, stamp=stamp)
+    def seek_lt(self, stamp: TimeStamp) -> bool:
+        return self.exec(command=_Command.SEEK_LT, stamp=stamp)
 
-    def seek_ge(self, stamp: telem.TimeStamp) -> bool:
-        return self.exec(command=Command.SEEK_GE, stamp=stamp)
+    def seek_ge(self, stamp: TimeStamp) -> bool:
+        return self.exec(command=_Command.SEEK_GE, stamp=stamp)
 
     def valid(self) -> bool:
-        return self.exec(command=Command.VALID)
-
-    def exhaust(self) -> bool:
-        return self.exec(command=Command.EXHAUST)
+        return self.exec(command=_Command.VALID)
 
     def close(self):
         exc = self.stream.close_send()
         if exc is not None:
             raise exc
         pld, exc = self.stream.receive()
-        if not isinstance(exc, freighter.EOF):
+        if not isinstance(exc, EOF):
             raise exc
 
 
-class Numpy(Core):
-    decoder: encoder.NumpyEncoderDecoder
-    channel_client: channel.Client
-    channels: channel.Registry
+class NumpyIterator(CoreIterator):
+    decoder: NumpyEncoderDecoder
+    channels: ChannelRegistry
 
     def __init__(
-            self,
-            transport: freighter.StreamClient,
-            channel_client: channel.Client,
-            aggregate: bool = False
+        self,
+        transport: StreamClient,
+        channels: ChannelRegistry,
+        aggregate: bool = False,
     ):
         super().__init__(transport, aggregate)
-        self.decoder = encoder.NumpyEncoderDecoder()
-        self.channel_client = channel_client
+        self.decoder = NumpyEncoderDecoder()
+        self.channel_client = channels
 
-    def open(self, keys: list[str], tr: telem.TimeRange) -> None:
-        self.channels = channel.Registry(self.channel_client.retrieve(keys))
+    def open(self, keys: list[str], tr: TimeRange) -> None:
         super().open(keys, tr)
 
     @property

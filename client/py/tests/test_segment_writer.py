@@ -1,15 +1,13 @@
-import pytest
 import numpy as np
+import pytest
 
-import synnax.errors
+import synnax.exceptions
 from synnax import telem
 from synnax.channel import Channel
 
 
-
-
 class TestNumpy:
-    def test_basic_write(self, channel: Channel, client: synnax.Client):
+    def test_basic_write(self, channel: Channel, client: synnax.Synnax):
         writer = client.data.new_writer([channel.key])
         try:
             data = np.random.rand(10).astype(np.float64)
@@ -17,7 +15,7 @@ class TestNumpy:
         finally:
             writer.close()
 
-    def test_invalid_data_type(self, channel: Channel, client: synnax.Client):
+    def test_invalid_data_type(self, channel: Channel, client: synnax.Synnax):
         writer = client.data.new_writer([channel.key])
         try:
             data = np.random.rand(10).astype(np.int64)
@@ -26,7 +24,7 @@ class TestNumpy:
         finally:
             writer.close()
 
-    def test_invalid_data_shape(self, channel: Channel, client: synnax.Client):
+    def test_invalid_data_shape(self, channel: Channel, client: synnax.Synnax):
         writer = client.data.new_writer([channel.key])
         try:
             data = np.random.rand(10, 10).astype(np.float64)
@@ -35,7 +33,7 @@ class TestNumpy:
         finally:
             writer.close()
 
-    def test_non_contiguous_segments(self, channel: Channel, client: synnax.Client):
+    def test_non_contiguous_segments(self, channel: Channel, client: synnax.Synnax):
         writer = client.data.new_writer([channel.key])
         try:
             data = np.random.rand(10).astype(np.float64)
@@ -45,7 +43,7 @@ class TestNumpy:
         finally:
             writer.close()
 
-    def test_multi_segment_write(self, channel: Channel, client: synnax.Client):
+    def test_multi_segment_write(self, channel: Channel, client: synnax.Synnax):
         writer = client.data.new_writer([channel.key])
         n_samples = 1000
         n_writes = 100
@@ -58,7 +56,7 @@ class TestNumpy:
         finally:
             writer.close()
 
-    def test_segment_split(self, channel: Channel, client: synnax.Client):
+    def test_segment_split(self, channel: Channel, client: synnax.Synnax):
         span = channel.rate.size_span(telem.Size(9e6), telem.BIT64)
         n_samples = channel.rate.sample_count(span)
         writer = client.data.new_writer([channel.key])

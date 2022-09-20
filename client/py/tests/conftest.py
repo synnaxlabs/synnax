@@ -5,12 +5,12 @@ from synnax import Channel, telem
 
 
 @pytest.fixture(scope="session")
-def client() -> synnax.Client:
-    return synnax.Client(host="localhost", port=8080)
+def client() -> synnax.Synnax:
+    return synnax.Synnax(host="localhost", port=8080)
 
 
 @pytest.fixture
-def channel(client: synnax.Client) -> Channel:
+def channel(client: synnax.Synnax) -> Channel:
     return client.channel.create_n(
         Channel(
             name="test",

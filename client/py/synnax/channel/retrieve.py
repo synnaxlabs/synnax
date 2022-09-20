@@ -1,34 +1,39 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from freighter import HTTPClient, Payload, UnaryClient
 
-from freighter import UnaryClient
-from synnax.transport import Transport
-
-from .record import ChannelRecord
+from .payload import ChannelPayload
 
 
-@dataclass
-class _Request:
+class _Request(Payload):
     keys: list[str] | None = None
-    node_id: int = None
+    node_id: int | None = None
     names: list[str] | None = None
 
 
-@dataclass
-class _Response:
-    channels: list[ChannelRecord]
-
-    def load(self, data: dict):
-        self.channels = [ChannelRecord(**c) for c in data["channels"]]
-
-    @classmethod
-    def new(cls):
-        return _Response(channels=[])
+class _Response(Payload):
+    channels: list[ChannelPayload]
 
 
-class Retrieve:
-    transport: UnaryClient[_Request, _Response]
+class ChannelRetriever:
+    _ENDPOINT = "/channel/retrieve"
+    client: UnaryClient[_Request, _Response]
 
-    def __init__(self, transport: Transport):
-        self.transport = transport.http.get(_Request, _Response)
+    def __init__(self, client: HTTPClient):
+        self.client = client.client_get(_Request, _Response)
+
+    def retrieve(self, keys: list[str]) -> list[ChannelPayload]:
+        return self._retrieve(_Request(keys=keys))
+
+    def retrieve_by_name(self, names: list[str]) -> list[ChannelPayload]:
+        return self._retrieve(_Request(names=names))
+
+    def retrieve_by_node_id(self, node_id: int) -> list[ChannelPayload]:
+        return self._retrieve(_Request(node_id=node_id))
+
+    def _retrieve(self, req: _Request) -> list[ChannelPayload]:
+        res, exc = self.client.send(self._ENDPOINT, req)
+        if exc is not None:
+            raise exc
+        assert res is not None
+        return res.channels

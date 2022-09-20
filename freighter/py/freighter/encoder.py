@@ -19,7 +19,7 @@ class EncoderDecoder(Protocol):
         ...
 
 
-class Msgpack:
+class MsgpackEncoder:
     @staticmethod
     def content_type():
         return "application/msgpack"
@@ -33,7 +33,7 @@ class Msgpack:
         return pld_t.parse_obj(msgpack.unpackb(data))
 
 
-class JSON:
+class JSONEncoder:
     STRING_ENCODING = "utf-8"
 
     @staticmethod
@@ -46,12 +46,12 @@ class JSON:
 
     @staticmethod
     def decode(data: bytes, pld_t: Type[P]) -> P:
-        return pld_t.parse_raw(data.decode(JSON.STRING_ENCODING))
+        return pld_t.parse_raw(data.decode(JSONEncoder.STRING_ENCODING))
 
 
 ENCODER_DECODERS: list[EncoderDecoder] = [
-    JSON(),
-    Msgpack(),
+    JSONEncoder(),
+    MsgpackEncoder(),
 ]
 
 T = TypeVar("T")

@@ -1,3 +1,1 @@
-from .entity import Channel
-from .registry import Registry
-from .client import Client
+from .client import Channel, ChannelClient

@@ -4,24 +4,23 @@ import numpy as np
 import pytest
 from freighter import encoder
 
-from synnax import telem
+from synnax import exceptions, telem
 from synnax.channel import Channel
-from synnax.segment import BinarySegment, NumpySegment, SugaredBinarySegment
+from synnax.segment import NumpySegment, PayloadSegment, SugaredBinarySegment
 from synnax.segment.splitter import Splitter
-from synnax.segment.validate import ScalarType, Contiguity
-from synnax import errors
+from synnax.segment.validate import ContiguityValidator, ScalarTypeValidator
 
 
 class TestBinarySegment:
     @pytest.mark.parametrize("ecd", [encoder.Msgpack])
     def test_encode_decode(self, ecd: encoder.EncoderDecoder):
-        segment = BinarySegment(
+        segment = PayloadSegment(
             channel_key="1-1",
             start=telem.TimeStamp(1),
             data=b"12345",
         )
         encoded = ecd.encode(segment)
-        decoded = BinarySegment()
+        decoded = PayloadSegment()
         ecd.decode(encoded, decoded)
         assert asdict(segment) == asdict(decoded)
 
@@ -38,7 +37,7 @@ class TestScalarTypeValidator:
             data=np.array([1, 2, 3], dtype=np.int64),
         )
         try:
-            ScalarType().validate(seg)
+            ScalarTypeValidator().validate(seg)
         except Exception as e:
             pytest.fail(f"Unexpected exception: {e}")
 
@@ -53,7 +52,7 @@ class TestScalarTypeValidator:
             data=np.array([1, 2, 3], dtype=np.int32),
         )
         with pytest.raises(errors.ValidationError):
-            ScalarType().validate(seg)
+            ScalarTypeValidator().validate(seg)
 
     def test_unrecognized_data_type(self):
         """
@@ -66,7 +65,7 @@ class TestScalarTypeValidator:
             data=np.array([1, 2, 3], dtype=np.int64),
         )
         with pytest.raises(errors.ValidationError):
-            ScalarType().validate(seg)
+            ScalarTypeValidator().validate(seg)
 
     def test_invalid_array_dimensions(self):
         """
@@ -79,7 +78,7 @@ class TestScalarTypeValidator:
             data=np.array([[1, 2, 3], [1, 2, 3]], dtype=np.int64),
         )
         with pytest.raises(errors.ValidationError):
-            ScalarType().validate(seg)
+            ScalarTypeValidator().validate(seg)
 
 
 class TestContiguityValidator:
@@ -97,7 +96,7 @@ class TestContiguityValidator:
             start=telem.TimeStamp(100 * telem.SECOND),
             data=np.array([1, 2, 3], dtype=np.int64),
         )
-        v = Contiguity(
+        v = ContiguityValidator(
             {
                 "1-1": telem.TimeStamp(100 * telem.SECOND),
             }
@@ -128,7 +127,7 @@ class TestContiguityValidator:
                 data=np.array([1, 2, 3], dtype=np.int64),
             ),
         ]
-        v = Contiguity(
+        v = ContiguityValidator(
             {
                 "1-1": telem.TimeStamp(100 * telem.SECOND),
             }
@@ -153,7 +152,7 @@ class TestContiguityValidator:
             start=telem.TimeStamp(100 * telem.SECOND),
             data=np.array([1, 2, 3], dtype=np.int64),
         )
-        v = Contiguity(
+        v = ContiguityValidator(
             {
                 "1-1": telem.TimeStamp(101 * telem.SECOND),
             }
@@ -175,7 +174,7 @@ class TestContiguityValidator:
             start=telem.TimeStamp(100 * telem.SECOND),
             data=np.array([1, 2, 3], dtype=np.int64),
         )
-        v = Contiguity(
+        v = ContiguityValidator(
             {
                 "1-1": telem.TimeStamp(102 * telem.SECOND),
             }
@@ -196,7 +195,7 @@ class TestContiguityValidator:
             start=telem.TimeStamp(100 * telem.SECOND),
             data=np.array([1, 2, 3], dtype=np.int64),
         )
-        v = Contiguity({})
+        v = ContiguityValidator({})
         with pytest.raises(errors.UnexpectedError):
             v.validate(seg)
 

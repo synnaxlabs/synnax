@@ -1,48 +1,61 @@
-from datetime import datetime
-
 import numpy as np
 
-from .. import channel, telem
+from synnax.channel.registry import ChannelRegistry
+from synnax.segment.iterator import NumpyIterator as NumpySegmentIterator
+from synnax.segment.writer import CoreWriter as CoreSegmentWriter
+from synnax.segment.writer import NumpyWriter as NumpySegmentWriter
+from synnax.telem import TimeRange, UnparsedTimeStamp
+
 from ..transport import Transport
-from . import writer
 from . import iterator
-from .entity import NumpySegment
+from .sugared import NumpySegment
 
 
-class Client:
+class SegmentClient:
     transport: Transport
-    channel_client: channel.Client
+    channels: ChannelRegistry
 
-    def __init__(self, transport: Transport, channel_client: channel.Client):
+    def __init__(self, transport: Transport, registry: ChannelRegistry):
         self.transport = transport
-        self.channel_client = channel_client
+        self.channels = registry
 
-    def new_writer(self, keys: list[str]) -> writer.Numpy:
-        core = writer.Core(transport=self.transport.stream)
-        npw = writer.Numpy(core=core, channel_client=self.channel_client)
+    def new_writer(self, keys: list[str]) -> NumpySegmentWriter:
+        core = CoreSegmentWriter(client=self.transport.stream)
+        npw = NumpySegmentWriter(core=core, channels=self.channels)
         npw.open(keys)
         return npw
 
-    def new_iterator(self, keys: list[str], tr: telem.TimeRange, aggregate: bool = False) -> iterator.Numpy:
-        npi = iterator.Numpy(transport=self.transport.stream,
-                             channel_client=self.channel_client,
-                             aggregate=aggregate)
+    def new_iterator(
+        self,
+        keys: list[str],
+        tr: TimeRange,
+        aggregate: bool = False,
+    ) -> NumpySegmentIterator:
+        npi = iterator.NumpyIterator(
+            transport=self.transport.stream,
+            channels=self.channels,
+            aggregate=aggregate,
+        )
         npi.open(keys, tr)
         return npi
 
-    def write(self, to: str, data: np.ndarray, start: telem.UnparsedTimeStamp):
+    def write(self, to: str, start: UnparsedTimeStamp, data: np.ndarray):
         _writer = self.new_writer([to])
         try:
             _writer.write(to, data, start)
         finally:
             _writer.close()
 
-    def read(self, from_: str, tr: telem.TimeRange) -> np.ndarray:
-        seg = self.read_seg(from_, tr)
+    def read(
+        self, from_: str, start: UnparsedTimeStamp, end: UnparsedTimeStamp
+    ) -> np.ndarray:
+        seg = self.read_seg(from_, start, end)
         return seg.data
 
-    def read_seg(self, from_: str, tr: telem.TimeRange) -> NumpySegment:
-        _iterator = self.new_iterator([from_], tr, aggregate=True)
+    def read_seg(
+        self, from_: str, start: UnparsedTimeStamp, end: UnparsedTimeStamp
+    ) -> NumpySegment:
+        _iterator = self.new_iterator([from_], TimeRange(start, end), aggregate=True)
         seg = None
         try:
             _iterator.first()

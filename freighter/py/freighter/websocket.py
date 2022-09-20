@@ -7,8 +7,8 @@ from websockets.legacy.client import WebSocketClientProtocol, connect
 
 from . import AsyncStream
 from .encoder import EncoderDecoder
-from .errors import EOF, ErrorPayload, StreamClosed
-from .errors import decode as decode_error
+from .exceptions import EOF, ExceptionPayload, StreamClosed
+from .exceptions import decode_exception as decode_error
 from .transport import RQ, RS, P
 from .url import URL
 
@@ -19,7 +19,7 @@ _CLOSE_MESSAGE = "close"
 class _Message(Generic[P], BaseModel):
     type: str
     payload: P | None
-    error: ErrorPayload | None
+    error: ExceptionPayload | None
 
 
 def _new_res_msg_t(res_t: Type[RS]) -> Type[_Message[RS]]:
@@ -62,8 +62,8 @@ class WebsocketStream(Generic[RQ, RS]):
 
         if msg.type == _CLOSE_MESSAGE:
             assert msg.error is not None
-            print(decode_error(msg.error))
-            await self._close_server(decode_error(msg.error))
+            print(decode_exception(msg.error))
+            await self._close_server(decode_exception(msg.error))
             return None, self.server_closed
 
         return msg.payload, None

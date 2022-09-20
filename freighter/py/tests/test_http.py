@@ -9,7 +9,7 @@ from .interface import Message
 @pytest.fixture
 def client(endpoint: URL) -> HTTPClient:
     http_endpoint = endpoint.child("http")
-    return HTTPClient(http_endpoint, encoder.JSON())
+    return HTTPClient(http_endpoint, encoder.JSONEncoder())
 
 
 @pytest.fixture

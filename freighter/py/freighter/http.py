@@ -7,7 +7,7 @@ from urllib3 import HTTPResponse, PoolManager
 from urllib3.exceptions import HTTPError
 
 from .encoder import EncoderDecoder
-from .errors import ErrorPayload, decode
+from .exceptions import ExceptionPayload, decode_exception
 from .transport import RQ, RS
 from .url import URL
 
@@ -90,8 +90,8 @@ class _Core(Generic[RQ, RS]):
             return None, e
 
         if http_res.status != 200 and http_res.status != 201:
-            err = self.encoder_decoder.decode(http_res.data, ErrorPayload)
-            return None, decode(err)
+            err = self.encoder_decoder.decode(http_res.data, ExceptionPayload)
+            return None, decode_exception(err)
 
         if http_res.data is None:
             return None, None

@@ -1,7 +1,7 @@
 import pytest
 
-import freighter.errors
-from freighter.encoder import Msgpack
+import freighter.exceptions
+from freighter.encoder import MsgpackEncoder
 from freighter.sync import SyncStreamClient
 from freighter.url import URL
 from freighter.websocket import WebsocketClient
@@ -12,7 +12,7 @@ from .interface import Error, Message
 @pytest.fixture
 def async_client(endpoint: URL) -> WebsocketClient:
     ws_endpoint = endpoint.child("ws")
-    return WebsocketClient(encoder=Msgpack(), endpoint=ws_endpoint)
+    return WebsocketClient(encoder=MsgpackEncoder(), endpoint=ws_endpoint)
 
 
 @pytest.fixture
