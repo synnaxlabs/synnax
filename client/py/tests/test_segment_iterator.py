@@ -1,48 +1,44 @@
-import numpy as np
 import pytest
-from freighter.encoder import JSON, Msgpack
+import numpy as np
 
 import synnax
-from synnax import Channel, telem
-from synnax.segment.iterator import _Command, _Request
 
 
-class TestNumpy:
-    def test_basic_iteration(self, channel: Channel, client: synnax.Synnax):
+class TestNumpyIterator:
+    def test_basic_iteration(self, channel: synnax.Channel, client: synnax.Synnax):
         writer = client.data.new_writer([channel.key])
         try:
             data = np.random.rand(25).astype(np.float64)
             writer.write(to=channel.key, data=data, start=0)
-            writer.write(to=channel.key, data=data, start=1 * telem.SECOND)
-            writer.write(to=channel.key, data=data, start=2 * telem.SECOND)
+            writer.write(to=channel.key, data=data, start=1 * synnax.SECOND)
+            writer.write(to=channel.key, data=data, start=2 * synnax.SECOND)
         finally:
             writer.close()
-        iter = client.data.new_iterator([channel.key], tr=telem.TIME_RANGE_MAX)
+        iterator = client.data.new_iterator([channel.key], tr=synnax.TIME_RANGE_MAX)
         try:
-            assert iter.first()
-            assert iter.value[channel.key].data.shape == (25,)
+            assert iterator.first()
+            assert iterator.value[channel.key].data.shape == (25,)
             c = 1
-            while iter.next():
+            while iterator.next():
                 c += 1
-                assert iter.value[channel.key].data.shape == (25,)
+                assert iterator.value[channel.key].data.shape == (25,)
             assert c == 3
         finally:
-            iter.close()
+            iterator.close()
 
 
 class TestClientRead:
-    def test_basic_read(self, channel: Channel, client: synnax.Synnax):
-        w = client.data.new_writer([channel.key])
-        # make an empty 1d numpy array
+    def test_basic_read(self, channel: synnax.Channel, client: synnax.Synnax):
+        writer = client.data.new_writer([channel.key])
         data = np.random.rand(25).astype(np.float64)
         try:
-            w.write(to=channel.key, data=data, start=0)
-            w.write(to=channel.key, data=data, start=1 * telem.SECOND)
-            w.write(to=channel.key, data=data, start=2 * telem.SECOND)
+            writer.write(to=channel.key, data=data, start=0)
+            writer.write(to=channel.key, data=data, start=1 * synnax.SECOND)
+            writer.write(to=channel.key, data=data, start=2 * synnax.SECOND)
         finally:
-            w.close()
+            writer.close()
         res_data = client.data.read(
-            channel.key, telem.TimeRange(0, 2500 * telem.MILLISECOND)
+            channel.key, 0, 2500 * synnax.MILLISECOND
         )
         assert res_data.shape == (62,)
         assert np.array_equal(res_data[0:25], data)

@@ -1,9 +1,9 @@
-from channel import ChannelClient
-from channel.create import ChannelCreator
-from channel.registry import ChannelRegistry
-from channel.retrieve import ChannelRetriever
+from synnax.channel import ChannelClient
+from synnax.channel.create import ChannelCreator
+from synnax.channel.registry import ChannelRegistry
+from synnax.channel.retrieve import ChannelRetriever
 from freighter import URL
-from segment import SegmentClient
+from synnax.segment import SegmentClient
 
 from .transport import Transport
 

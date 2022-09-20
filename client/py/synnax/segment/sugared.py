@@ -35,6 +35,10 @@ class SugaredBinarySegment(SugaredHeader):
             channel_key=self.channel.key, start=self.start, data=self.data
         )
 
+    @classmethod
+    def sugar(cls, ch: ChannelPayload, seg: SegmentPayload) -> SugaredBinarySegment:
+        return cls(ch, seg.start, seg.data)
+
     @property
     def size(self) -> Size:
         return Size(len(self.data))
@@ -54,7 +58,7 @@ class SugaredBinarySegment(SugaredHeader):
 
 @dataclass
 class NumpySegment(SugaredHeader):
-    data: ndarray = array()
+    data: ndarray = ndarray([])
 
     def __init__(self, channel: ChannelPayload, start: TimeStamp, data: ndarray):
         super().__init__(channel, start)

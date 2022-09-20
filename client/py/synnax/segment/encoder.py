@@ -20,5 +20,5 @@ class NumpyEncoderDecoder:
         return NumpySegment(
             channel=channel,
             start=segment.start,
-            data=np.frombuffer(segment.data, dtype=channel.numpy_type),
+            data=np.frombuffer(segment.data, dtype=channel.data_type.numpy_type),
         )

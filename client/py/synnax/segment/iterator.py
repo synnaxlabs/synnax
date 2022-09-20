@@ -28,6 +28,7 @@ class _Command(int, Enum):
 
 
 class _ResponseVariant(int, Enum):
+    NONE = 0
     ACK = 1
     DATA = 2
 
@@ -43,9 +44,9 @@ class _Request(Payload):
 class _Response(Payload):
     variant: _ResponseVariant
     ack: bool
-    command: _Command
-    error: ExceptionPayload
-    segments: list[SegmentPayload]
+    command: _Command | None = None
+    error: ExceptionPayload | None = None
+    segments: list[SegmentPayload] | None = None
 
 
 class CoreIterator:
@@ -136,7 +137,7 @@ class NumpyIterator(CoreIterator):
     ):
         super().__init__(transport, aggregate)
         self.decoder = NumpyEncoderDecoder()
-        self.channel_client = channels
+        self.channels = channels
 
     def open(self, keys: list[str], tr: TimeRange) -> None:
         super().open(keys, tr)

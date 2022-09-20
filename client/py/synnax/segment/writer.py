@@ -12,9 +12,9 @@ from freighter import (
 )
 from numpy import ndarray
 
-from synnax.channel import ChannelRegistry
+from synnax.channel.registry import ChannelRegistry
 from synnax.exceptions import UnexpectedError, ValidationError, ValidationField
-from synnax.segment import NumpySegment
+from .sugared import NumpySegment, SugaredBinarySegment
 from synnax.telem import Size, TimeStamp, UnparsedTimeStamp
 
 from .encoder import NumpyEncoderDecoder
@@ -50,7 +50,7 @@ class BaseWriter:
 
     def check_keys(self, segments: list[SegmentPayload]):
         for segment in segments:
-            if segment.key not in self.keys:
+            if segment.channel_key not in self.keys:
                 raise ValidationError(
                     ValidationField(
                         "key",
@@ -68,6 +68,7 @@ class AsyncCoreWriter(BaseWriter):
         self.client = client
 
     async def open(self, keys: list[str]):
+        self.keys = keys
         self.stream = await self.client.stream(_ENDPOINT, _Request, _Response)
         await self.stream.send(_Request(open_keys=keys, segments=[]))
         res, err = await self.stream.receive()
@@ -107,8 +108,9 @@ class CoreWriter(BaseWriter):
         self.client = client
 
     def open(self, keys: list[str]):
+        self.keys = keys
         self.stream = self.client.stream(_ENDPOINT, _Request, _Response)
-        self.stream.send(_Request(keys, []))
+        self.stream.send(_Request(open_keys=keys, segments=[]))
         res, err = self.stream.receive()
         self._ack_open(res, err)
 
@@ -159,7 +161,7 @@ class NumpyWriter:
         seg = NumpySegment(ch, TimeStamp(start), data)
         for val in self.validators:
             val.validate(seg)
-        encoded = self.encoder.encode(seg).sugar(ch)
+        encoded = SugaredBinarySegment.sugar(ch,self.encoder.encode(seg))
         split = self.splitter.split(encoded)
         return self.core.write([seg.payload() for seg in split])
 

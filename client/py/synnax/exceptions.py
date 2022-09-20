@@ -4,7 +4,7 @@ from enum import Enum
 
 import freighter
 
-_FREIGHTER_ERROR_TYPE = "delta.api.errors"
+_FREIGHTER_EXCEPTION_TYPE = "delta.api.errors"
 
 
 @dataclass
@@ -179,4 +179,4 @@ def _encode(err: Exception) -> str:
     raise NotImplemented
 
 
-freighter.errors.register(_FREIGHTER_ERROR_TYPE, _encode, _decode)
+freighter.register_exception(_FREIGHTER_EXCEPTION_TYPE, _encode, _decode)

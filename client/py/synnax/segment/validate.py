@@ -7,7 +7,7 @@ from synnax.exceptions import (
     ValidationError,
     ValidationField,
 )
-from synnax.segment import NumpySegment
+from .sugared import NumpySegment
 
 
 class Validator(Protocol):

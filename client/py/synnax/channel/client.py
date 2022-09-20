@@ -15,10 +15,13 @@ from .retrieve import ChannelRetriever
 
 
 class Channel(ChannelPayload):
-    segment_client: SegmentClient
+    segment_client: SegmentClient | None = None
+
+    class Config:
+        arbitrary_types_allowed = True
 
     def __init__(self, pld: ChannelPayload, segment_client: SegmentClient):
-        super().__init__(pld.dict())
+        super().__init__(**pld.dict())
         self.segment_client = segment_client
 
     def payload(self) -> ChannelPayload:
@@ -53,15 +56,32 @@ class ChannelClient:
         self.retriever = retriever
         self.creator = creator
 
-    def create_n(self, channel: Channel, count: int = 1) -> list[Channel]:
-        return self.sugar(*self.creator.create_n(channel, count))
+    def create_n(
+        self,
+        name: str = "",
+        rate: UnparsedRate = Rate(0),
+        data_type: UnparsedDataType = DATA_TYPE_UNKNOWN,
+        node_id: int = 0,
+        count: int = 1,
+    ) -> list[Channel]:
+        return self.sugar(
+            *self.creator.create_n(
+                ChannelPayload(
+                    name=name,
+                    node_id=node_id,
+                    rate=rate,
+                    data_type=data_type,
+                ),
+                count,
+            )
+        )
 
     def create(
         self,
         name: str = "",
-        node_id: int = 0,
         rate: UnparsedRate = Rate(0),
         data_type: UnparsedDataType = DATA_TYPE_UNKNOWN,
+        node_id: int = 0,
     ) -> Channel:
         return self.sugar(self.creator.create(name, node_id, rate, data_type))[0]
 

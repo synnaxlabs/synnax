@@ -11,12 +11,9 @@ def client() -> synnax.Synnax:
 
 @pytest.fixture
 def channel(client: synnax.Synnax) -> Channel:
-    return client.channel.create_n(
-        Channel(
-            name="test",
-            node_id=1,
-            rate=25 * telem.HZ,
-            data_type=telem.FLOAT64,
-        ),
-        1,
-    )[0]
+    return client.channel.create(
+        name="test",
+        node_id=1,
+        rate=25 * telem.HZ,
+        data_type=telem.FLOAT64,
+    )
