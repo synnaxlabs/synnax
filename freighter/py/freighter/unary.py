@@ -1,6 +1,6 @@
-from typing import Protocol, Callable, Awaitable
+from typing import Awaitable, Callable, Protocol
 
-from .transport import RS, RQ
+from .transport import RQ, RS
 
 
 class UnaryClient(Protocol[RQ, RS]):
@@ -23,7 +23,6 @@ class UnaryClient(Protocol[RQ, RS]):
 
 
 class AsyncUnaryClient(Protocol[RQ, RS]):
-
     async def send(self, target: str, req: RQ) -> tuple[RS | None, Exception | None]:
         """
         Sends a request to the target server and waits until a response is

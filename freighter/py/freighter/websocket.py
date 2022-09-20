@@ -1,17 +1,16 @@
 import asyncio
-import copy
-
-from websockets.legacy.client import connect, WebSocketClientProtocol
-from websockets.exceptions import ConnectionClosedOK
-
-from .endpoint import Endpoint
-from .transport import RS, RQ, P, PayloadFactory
-from typing import Generic, Callable, Type
 from dataclasses import dataclass
-from .errors import StreamClosed
-from .error_registry import ErrorPayload
+from typing import Generic, Type
+
+from websockets.exceptions import ConnectionClosedOK
+from websockets.legacy.client import WebSocketClientProtocol, connect
+
+from . import AsyncStream
 from .encoder import EncoderDecoder
-from . import errors, AsyncStream
+from .errors import EOF, ErrorPayload, StreamClosed
+from .errors import decode as decode_error
+from .transport import RQ, RS, P
+from .url import URL
 
 _DATA_MESSAGE = "data"
 _CLOSE_MESSAGE = "close"
@@ -28,38 +27,40 @@ def empty_message(payload: P) -> _Message[P]:
     return _Message(type=_DATA_MESSAGE, payload=payload, error=ErrorPayload(None, None))
 
 
-class Stream(Generic[RQ, RS]):
+class WebsocketStream(Generic[RQ, RS]):
+    """An implementation of AsyncStream that is backed by a websocket."""
+
     encoder: EncoderDecoder
     wrapped: WebSocketClientProtocol
     server_closed: Exception | None
     send_closed: bool
-    response_factory: PayloadFactory[RS]
+    response_factory: Type[RS]
 
     def __init__(
-            self,
-            encoder: EncoderDecoder,
-            ws: WebSocketClientProtocol,
-            response_factory: Callable[[], RS],
+        self,
+        encoder: EncoderDecoder,
+        ws: WebSocketClientProtocol,
+        res_t: Type[RS],
     ):
         self.encoder = encoder
         self.wrapped = ws
         self.send_closed = False
         self.server_closed = None
         self.lock = asyncio.Lock()
-        self.response_factory = PayloadFactory[RS](response_factory)
+        self.response_factory = res_t
 
     async def receive(self) -> tuple[RS | None, Exception | None]:
         if self.server_closed is not None:
             return None, self.server_closed
 
         data = await self.wrapped.recv()
-        msg = empty_message(self.response_factory())
+        msg: _Message[RS] = empty_message(self.response_factory.new())
         assert isinstance(data, bytes)
         self.encoder.decode(data, msg)
 
         if msg.type == _CLOSE_MESSAGE:
             assert msg.error is not None
-            await self._close_server(errors.decode(msg.error))
+            await self._close_server(decode_error(msg.error))
             return None, self.server_closed
 
         return msg.payload, None
@@ -69,7 +70,7 @@ class Stream(Generic[RQ, RS]):
         # caller, and expect them to discover the close error by calling
         # receive().
         if self.server_closed is not None:
-            return errors.EOF()
+            return EOF()
 
         if self.send_closed:
             raise StreamClosed
@@ -83,7 +84,7 @@ class Stream(Generic[RQ, RS]):
         try:
             await self.wrapped.send(encoded)
         except ConnectionClosedOK:
-            return errors.EOF()
+            return EOF()
         return None
 
     async def close_send(self):
@@ -106,34 +107,38 @@ class Stream(Generic[RQ, RS]):
         await self.wrapped.close()
 
 
-DEFAULT_MAX_SIZE = 2 ** 20
+DEFAULT_MAX_SIZE = 2**20
 
 
-class Client:
-    endpoint: Endpoint
-    encoder: EncoderDecoder
-    max_message_size: int
+class WebsocketClient:
+    """An implementation of AsyncStreamClient that is backed by a websocket
+
+    :param encoder: The encoder to use for this client.
+    :param endpoint: A base url to use as a prefix for all requests.
+    :param max_message_size: The maximum size of a message to receive. Defaults to
+    DEFAULT_MAX_SIZE.
+    """
+
+    _endpoint: URL
+    _encoder: EncoderDecoder
+    _max_message_size: int
 
     def __init__(
-            self,
-            encoder: EncoderDecoder,
-            endpoint: Endpoint,
-            max_message_size: int = DEFAULT_MAX_SIZE,
+        self,
+        encoder: EncoderDecoder,
+        endpoint: URL,
+        max_message_size: int = DEFAULT_MAX_SIZE,
     ) -> None:
-        self.encoder = encoder
-        self.endpoint = copy.copy(endpoint)
-        self.endpoint.protocol = "ws"
-        self.max_message_size = max_message_size
+        self._encoder = encoder
+        self._endpoint = endpoint.replace(protocol="ws")
+        self._max_message_size = max_message_size
 
     async def stream(
-            self,
-            target: str,
-            request_type: Type[RQ],
-            response_factory: Callable[[], RS]
+        self, target: str, req_type: Type[RQ], res_type: Type[RS]
     ) -> AsyncStream[RQ, RS]:
         ws = await connect(
-            self.endpoint.path(target),
-            extra_headers={"Content-Type": self.encoder.content_type()},
-            max_size=self.max_message_size
+            self._endpoint.child(target).stringify(),
+            extra_headers={"Content-Type": self._encoder.content_type()},
+            max_size=self._max_message_size,
         )
-        return Stream[RQ, RS](self.encoder, ws, response_factory)
+        return WebsocketStream[RQ, RS](self._encoder, ws, res_type)

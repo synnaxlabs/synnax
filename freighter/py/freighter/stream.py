@@ -1,12 +1,11 @@
-from .transport import (
-    RS,
-    RQ,
-    PayloadFactoryFunc
-)
 from typing import Protocol, Type
+
+from .transport import RQ, RS
 
 
 class AsyncStreamReceiver(Protocol[RS]):
+    """Protocol for an entity that receives a stream of response asynchronously."""
+
     async def receive(self) -> tuple[RS | None, Exception | None]:
         """
         Receives a response from the stream. It's not safe to call receive concurrently.
@@ -20,6 +19,8 @@ class AsyncStreamReceiver(Protocol[RS]):
 
 
 class StreamReceiver(Protocol[RS]):
+    """Protocol for an entity that receives a stream of responses."""
+
     def receive(self) -> tuple[RS | None, Exception | None]:
         """
         Receives a response from the stream. It's not safe to call receive concurrently.
@@ -39,6 +40,8 @@ class StreamReceiver(Protocol[RS]):
 
 
 class AsyncStreamSender(Protocol[RQ]):
+    """Protocol for an entity that asynchronously sends a stream of requests."""
+
     async def send(self, request: RQ) -> Exception | None:
         """
         Sends a request to the stream. It is not safe to call send concurrently
@@ -55,6 +58,8 @@ class AsyncStreamSender(Protocol[RQ]):
 
 
 class StreamSender(Protocol[RQ]):
+    """Protocol for an entity that sends a stream of requests."""
+
     def send(self, request: RQ) -> Exception | None:
         """
         Sends a request to the stream. It is not safe to call send concurrently
@@ -71,6 +76,11 @@ class StreamSender(Protocol[RQ]):
 
 
 class AsyncStreamSenderCloser(AsyncStreamSender[RQ], Protocol):
+    """An extension of the AsyncStreamSender protocol that allows the client to
+    asynchronously close the sending direction of the stream when finished issuing
+    requests.
+    """
+
     async def close_send(self) -> Exception | None:
         """
         Lets the server know no more messages will be sent. If the client attempts
@@ -87,6 +97,10 @@ class AsyncStreamSenderCloser(AsyncStreamSender[RQ], Protocol):
 
 
 class StreamSenderCloser(StreamSender[RQ], Protocol):
+    """An extension of the StreamSender protocol that allows the client to
+    close the sending direction of the stream when finished issuing requests.
+    """
+
     def close_send(self) -> Exception | None:
         """
         Lets the server know no more messages will be sent. If the client attempts
@@ -103,28 +117,42 @@ class StreamSenderCloser(StreamSender[RQ], Protocol):
 
 
 class AsyncStream(AsyncStreamSenderCloser[RQ], AsyncStreamReceiver[RS], Protocol):
+    """Protocol for an entity that asynchronously sends and receives a stream of
+    requests and responses.
+    """
+
     ...
 
 
 class Stream(StreamSenderCloser[RQ], StreamReceiver[RS], Protocol):
+    """Protocol for an entity that sends and receives a stream of requests and
+    responses.
+    """
+
     ...
 
 
 class AsyncStreamClient(Protocol):
+    """Protocol for an entity that asynchronously sends and receives a stream of
+    requests and responses from a server.
+    """
+
     async def stream(
-            self,
-            target: str,
-            request_type: Type[RQ],
-            response_factory: PayloadFactoryFunc[RS]
+        self, target: str, req_t: Type[RQ], res_t: Type[RS]
     ) -> AsyncStream[RQ, RS]:
+        """Dials the target and returns a stream that can be used to issue requests
+        and receive responses.
+        """
         ...
 
 
 class StreamClient(Protocol):
-    def stream(
-            self,
-            target: str,
-            request_type: Type[RQ],
-            response_Factory: PayloadFactoryFunc[RS],
-    ) -> Stream[RQ, RS]:
+    """Protocol for an entity that synchronously sends and receives a stream of requests and
+    responses from a server.
+    """
+
+    def stream(self, target: str, req_t: Type[RQ], res_t: Type[RS]) -> Stream[RQ, RS]:
+        """Dialed the target and returns a stream that can be used to issue requests
+        and receive responses.
+        """
         ...

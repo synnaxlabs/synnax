@@ -1,9 +1,10 @@
 import dataclasses
 import json
-from typing import Protocol, Any, TypeVar, runtime_checkable
-from .transport import Payload
+from typing import Any, Protocol, TypeVar, runtime_checkable
 
 import msgpack
+
+from .transport import Payload
 
 
 class EncoderDecoder(Protocol):

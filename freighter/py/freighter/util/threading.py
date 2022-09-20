@@ -1,8 +1,5 @@
-from typing import (
-    Generic,
-    TypeVar, Optional,
-)
 from threading import Event
+from typing import Generic, Optional, TypeVar
 
 T = TypeVar("T")
 

@@ -1,11 +1,6 @@
 __version__ = "0.1.0"
 
-from .stream import (
-    StreamClient,
-    Stream,
-    AsyncStreamClient,
-    AsyncStream
-)
-from .errors import EOF, StreamClosed, ErrorPayload
+from .errors import EOF, ErrorPayload, StreamClosed
+from .stream import AsyncStream, AsyncStreamClient, Stream, StreamClient
 from .unary import UnaryClient
-from .endpoint import Endpoint
+from .url import URL

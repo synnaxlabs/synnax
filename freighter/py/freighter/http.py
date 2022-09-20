@@ -2,14 +2,15 @@ from __future__ import annotations
 
 import dataclasses
 from typing import Generic, Type
+from urllib.parse import urlencode
+
+from urllib3 import HTTPResponse, PoolManager
+from urllib3.exceptions import HTTPError
 
 from .encoder import EncoderDecoder
-from .transport import RS, RQ, PayloadFactory, PayloadFactoryFunc
-from urllib3 import PoolManager, HTTPResponse
-from urllib.parse import urlencode
 from .errors import ErrorPayload, decode
-from .endpoint import Endpoint
-from urllib3.exceptions import HTTPError
+from .transport import RQ, RS
+from .url import URL
 
 http = PoolManager()
 
@@ -18,41 +19,35 @@ _ERROR_ENCODING_HEADER_VALUE = "freighter"
 _CONTENT_TYPE_HEADER_KEY = "Content-Type"
 
 
-class Client:
-    endpoint: Endpoint
+class HTTPClient:
+    endpoint: URL
     encoder_decoder: EncoderDecoder
 
-    def __init__(
-            self, endpoint: Endpoint, encoder_decoder: EncoderDecoder
-    ):
+    def __init__(self, endpoint: URL, encoder_decoder: EncoderDecoder):
         self.endpoint = endpoint
         self.encoder_decoder = encoder_decoder
 
-    def get(
-            self, request_type: Type[RQ], response_factory: PayloadFactoryFunc[RS]
-    ) -> GETClient[RQ, RS]:
-        return GETClient(self.endpoint, self.encoder_decoder, response_factory)
+    def get(self, request_type: Type[RQ], response_type: Type[RS]) -> GETClient[RQ, RS]:
+        return GETClient(self.endpoint, self.encoder_decoder, response_type)
 
-    def post(
-            self, request_type: Type[RQ], response_factory: PayloadFactoryFunc[RS]
-    ) -> POSTClient[RQ, RS]:
-        return POSTClient(self.endpoint, self.encoder_decoder, response_factory)
+    def post(self, request_type: Type[RQ], rs_t: Type[RS]) -> POSTClient[RQ, RS]:
+        return POSTClient(self.endpoint, self.encoder_decoder, rs_t)
 
 
 class _Core(Generic[RQ, RS]):
-    endpoint: Endpoint
+    endpoint: URL
     encoder_decoder: EncoderDecoder
-    response_factory: PayloadFactory[RS]
+    response_factory: Type[RS]
 
     def __init__(
-            self,
-            endpoint: Endpoint,
-            encoder_decoder: EncoderDecoder,
-            response_factory: PayloadFactoryFunc[RS]
+        self,
+        endpoint: URL,
+        encoder_decoder: EncoderDecoder,
+        res_t: Type[RS],
     ):
-        self.endpoint = endpoint.child("", "http")
+        self.endpoint = endpoint.replace(protocol="http")
         self.encoder_decoder = encoder_decoder
-        self.response_factory = PayloadFactory[RS](response_factory)
+        self.response_factory = res_t
 
     @property
     def headers(self) -> dict[str, str]:
@@ -65,7 +60,7 @@ class _Core(Generic[RQ, RS]):
 class GETClient(_Core[RQ, RS]):
     def send(self, target: str, req: RQ) -> tuple[RS | None, Exception | None]:
         query_args = build_query_string(req)
-        url = self.endpoint.path(target) + "?" + query_args
+        url = self.endpoint.child(target).stringify() + "?" + query_args
         http_res: HTTPResponse
         try:
             http_res = http.request(method="GET", url=url, headers=self.headers)
@@ -77,7 +72,7 @@ class GETClient(_Core[RQ, RS]):
             self.encoder_decoder.decode(http_res.data, err)
             return None, decode(err)
 
-        res = self.response_factory()
+        res = self.response_factory.new()
         self.encoder_decoder.decode(http_res.data, res)
         return res, None
 
@@ -87,7 +82,7 @@ class GETClient(_Core[RQ, RS]):
 
 class POSTClient(_Core[RQ, RS]):
     def send(self, target: str, req: RQ) -> tuple[RS | None, Exception | None]:
-        url = self.endpoint.path(target)
+        url = self.endpoint.child(target).stringify()
         http_res: HTTPResponse
         try:
             http_res = http.request(
@@ -104,7 +99,7 @@ class POSTClient(_Core[RQ, RS]):
             self.encoder_decoder.decode(http_res.data, err)
             return None, decode(err)
 
-        res = self.response_factory()
+        res = self.response_factory.new()
         self.encoder_decoder.decode(http_res.data, res)
         return res, None
 

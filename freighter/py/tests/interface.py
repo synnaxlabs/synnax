@@ -1,4 +1,8 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
+from typing import Type, runtime_checkable
+
 from freighter import errors
 
 
@@ -7,9 +11,9 @@ class Message:
     id: int | None
     message: str | None
 
-
-def message_factory() -> Message:
-    return Message(None, None)
+    @classmethod
+    def new(cls: Type[Message]) -> Message:
+        return Message(id=None, message=None)
 
 
 @dataclass

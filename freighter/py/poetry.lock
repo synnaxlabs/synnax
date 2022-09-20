@@ -83,6 +83,20 @@ optional = false
 python-versions = "*"
 
 [[package]]
+name = "isort"
+version = "5.10.1"
+description = "A Python utility / library to sort Python imports."
+category = "dev"
+optional = false
+python-versions = ">=3.6.1,<4.0"
+
+[package.extras]
+pipfile_deprecated_finder = ["pipreqs", "requirementslib"]
+requirements_deprecated_finder = ["pipreqs", "pip-api"]
+colors = ["colorama (>=0.4.3,<0.5.0)"]
+plugins = ["setuptools"]
+
+[[package]]
 name = "janus"
 version = "1.0.0"
 description = "Mixed sync-async queue to interoperate between asyncio tasks and classic threads"
@@ -279,7 +293,7 @@ python-versions = ">=3.7"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.10"
-content-hash = "99f9e58548ad2fad987f0890999747e1d62e01fc40abc4697f21bd2141cbc48b"
+content-hash = "087dcb6f4339c2e97e9d08d3b7668c2fe00d66181ac0af749c7fd28e7b13d299"
 
 [metadata.files]
 atomicwrites = [
@@ -377,6 +391,10 @@ coverage = [
 iniconfig = [
     {file = "iniconfig-1.1.1-py2.py3-none-any.whl", hash = "sha256:011e24c64b7f47f6ebd835bb12a743f2fbe9a26d4cecaa7f53bc4f35ee9da8b3"},
     {file = "iniconfig-1.1.1.tar.gz", hash = "sha256:bc3af051d7d14b2ee5ef9969666def0cd1a000e121eaea580d4a313df4b37f32"},
+]
+isort = [
+    {file = "isort-5.10.1-py3-none-any.whl", hash = "sha256:6f62d78e2f89b4500b080fe3a81690850cd254227f27f75c3a0c491a1f351ba7"},
+    {file = "isort-5.10.1.tar.gz", hash = "sha256:e8443a5e7a020e9d7f97f1d7d9cd17c88bcb3bc7e218bf9cf5095fe550be2951"},
 ]
 janus = [
     {file = "janus-1.0.0-py3-none-any.whl", hash = "sha256:2596ea5482711c1ee3ef2df6c290aaf370a13c55a007826e8f7c32d696d1d00a"},
