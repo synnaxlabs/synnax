@@ -4,7 +4,7 @@ from typing import Type
 
 from pydantic import BaseModel
 
-from freighter import exceptions
+from freighter import register_exception
 
 
 class Message(BaseModel):
@@ -36,4 +36,4 @@ def decode_test_error(encoded: str) -> Exception:
     return Error(int(code), message)
 
 
-errors.register_exception("integration.error", encode_test_error, decode_test_error)
+register_exception("integration.error", encode_test_error, decode_test_error)

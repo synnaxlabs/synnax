@@ -78,7 +78,7 @@ class TestSyncWebsocket:
         c = 0
         while True:
             msg, err = stream.receive()
-            if isinstance(err, freighter.errors.EOF):
+            if isinstance(err, freighter.EOF):
                 break
             c += 1
             assert err is None
