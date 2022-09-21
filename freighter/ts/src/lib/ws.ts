@@ -1,9 +1,10 @@
+import { z } from 'zod';
+
 import { EncoderDecoder } from './encoder';
-import Endpoint from './endpoint';
-import { decodeError, EOF, ErrorPayload, StreamClosed } from './errors';
+import { decodeError, EOF, ErrorPayloadSchema, StreamClosed } from './errors';
 import { Runtime, RUNTIME } from './runtime';
 import { ClientStream, StreamClient } from './stream';
-import { Payload } from './transport';
+import URL from './url';
 
 const resolveWebsocketProvider = (): typeof WebSocket => {
   if (RUNTIME == Runtime.Node) {
@@ -17,32 +18,42 @@ enum MessageType {
   Close = 'close',
 }
 
-type Message<P extends Payload> = {
-  type: MessageType;
-  payload?: P;
-  error?: ErrorPayload;
-};
+const MessageSchema = z.object({
+  type: z.nativeEnum(MessageType),
+  payload: z.unknown().optional(),
+  error: z.optional(ErrorPayloadSchema),
+});
+
+type Message = z.infer<typeof MessageSchema>;
 
 enum CloseCode {
   Normal = 1000,
   GoingAway = 1001,
 }
 
-export class WebSocketClientStream<RQ extends Payload, RS extends Payload>
-  implements ClientStream<RQ, RS>
-{
+export class WebSocketClientStream<RQ, RS> implements ClientStream<RQ, RS> {
   private encoder: EncoderDecoder;
+  private reqSchema: z.ZodSchema<RQ>;
+  private resSchema: z.ZodSchema<RS>;
+
   private ws: WebSocket;
   private server_closed?: Error;
   private send_closed: boolean;
-  private receiveDataQueue: Message<RS>[] = [];
+  private receiveDataQueue: Message[] = [];
   private receiveCallbacksQueue: {
-    resolve: (msg: Message<RS>) => void;
+    resolve: (msg: Message) => void;
     reject: (reason: unknown) => void;
   }[] = [];
 
-  constructor(encoder: EncoderDecoder, ws: WebSocket) {
+  constructor(
+    ws: WebSocket,
+    encoder: EncoderDecoder,
+    reqSchema: z.ZodSchema<RQ>,
+    resSchema: z.ZodSchema<RS>
+  ) {
     this.encoder = encoder;
+    this.reqSchema = reqSchema;
+    this.resSchema = resSchema;
     this.ws = ws;
     this.send_closed = false;
     this.listenForMessages();
@@ -60,7 +71,7 @@ export class WebSocketClientStream<RQ extends Payload, RS extends Payload>
     this.ws.send(
       this.encoder.encode({
         type: MessageType.Data,
-        payload: req,
+        payload: this.reqSchema.parse(req),
       })
     );
 
@@ -82,14 +93,14 @@ export class WebSocketClientStream<RQ extends Payload, RS extends Payload>
       return [undefined, this.server_closed];
     }
 
-    return [msg.payload, undefined];
+    return [this.resSchema.parse(msg.payload), undefined];
   }
 
   closeSend(): void {
     if (this.send_closed || this.server_closed) {
       return undefined;
     }
-    const msg: Message<RS> = { type: MessageType.Close };
+    const msg: Message = { type: MessageType.Close };
     try {
       this.ws.send(this.encoder.encode(msg));
     } finally {
@@ -98,7 +109,7 @@ export class WebSocketClientStream<RQ extends Payload, RS extends Payload>
     return undefined;
   }
 
-  private async receiveMsg(): Promise<Message<RS>> {
+  private async receiveMsg(): Promise<Message> {
     if (this.receiveDataQueue.length !== 0) {
       const msg = this.receiveDataQueue.shift();
       if (msg) {
@@ -115,7 +126,7 @@ export class WebSocketClientStream<RQ extends Payload, RS extends Payload>
 
   private listenForMessages(): void {
     this.ws.onmessage = (ev: MessageEvent) => {
-      const msg = this.encoder.decode<Message<RS>>(ev.data);
+      const msg = MessageSchema.parse(this.encoder.decode(ev.data));
 
       if (this.receiveCallbacksQueue.length > 0) {
         const callback = this.receiveCallbacksQueue.shift();
@@ -139,18 +150,25 @@ export class WebSocketClientStream<RQ extends Payload, RS extends Payload>
   }
 }
 
-export class WebSocketClient implements StreamClient {
-  endpoint: Endpoint;
+export class WebSocketClient<RQ, RS> implements StreamClient<RQ, RS> {
+  endpoint: URL;
   encoder: EncoderDecoder;
+  reqSchema: z.ZodSchema<RQ>;
+  resSchema: z.ZodSchema<RS>;
 
-  constructor(encoder: EncoderDecoder, endpoint: Endpoint) {
-    this.endpoint = endpoint.child({ protocol: 'ws' });
+  constructor(
+    baseURL: URL,
+    encoder: EncoderDecoder,
+    reqSchema: z.ZodSchema<RQ>,
+    resSchema: z.ZodSchema<RS>
+  ) {
+    this.endpoint = baseURL.child({ protocol: 'ws' });
     this.encoder = encoder;
+    this.reqSchema = reqSchema;
+    this.resSchema = resSchema;
   }
 
-  async stream<RQ extends Payload, RS extends Payload>(
-    target: string
-  ): Promise<ClientStream<RQ, RS>> {
+  async stream(target: string): Promise<ClientStream<RQ, RS>> {
     const ResolvedWebSocket = resolveWebsocketProvider();
     const url = this.endpoint.path(
       `${target}?contentType=${this.encoder.contentType}`
@@ -159,7 +177,14 @@ export class WebSocketClient implements StreamClient {
     ws.binaryType = 'arraybuffer';
     return new Promise((resolve, reject) => {
       ws.onopen = () => {
-        resolve(new WebSocketClientStream(this.encoder, ws));
+        resolve(
+          new WebSocketClientStream<RQ, RS>(
+            ws,
+            this.encoder,
+            this.reqSchema,
+            this.resSchema
+          )
+        );
       };
       ws.onerror = (ev: Event) => {
         reject(ev);

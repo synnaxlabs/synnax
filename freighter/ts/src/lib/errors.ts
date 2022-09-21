@@ -2,6 +2,8 @@
  * @description FError is an interface for an error that can be transported over
  * the network.
  */
+import { z } from 'zod';
+
 export interface TypedError extends Error {
   discriminator: 'FreighterError';
   /**
@@ -59,10 +61,12 @@ export const UNKNOWN = 'unknown';
 export const NONE = 'nil';
 export const FREIGHTER = 'freighter';
 
-export type ErrorPayload = {
-  type: string;
-  data: string;
-};
+export const ErrorPayloadSchema = z.object({
+  type: z.string(),
+  data: z.string(),
+});
+
+export type ErrorPayload = z.infer<typeof ErrorPayloadSchema>;
 
 type errorProvider = {
   encode: ErrorEncoder;

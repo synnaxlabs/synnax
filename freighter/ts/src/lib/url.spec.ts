@@ -1,9 +1,9 @@
 import test from 'ava';
 
-import Endpoint from './endpoint';
+import URL from './url';
 
 test('[endpoint] - test path', (t) => {
-  const endpoint = new Endpoint({
+  const endpoint = new URL({
     host: 'localhost',
     port: 8080,
     protocol: 'http',
@@ -13,7 +13,7 @@ test('[endpoint] - test path', (t) => {
 });
 
 test('[endpoint] - child', (t) => {
-  const endpoint = new Endpoint({
+  const endpoint = new URL({
     host: 'localhost',
     port: 8080,
     protocol: 'http',

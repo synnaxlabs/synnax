@@ -5,7 +5,7 @@ type EndpointProps = {
   pathPrefix?: string;
 };
 
-export default class Endpoint {
+export default class URL {
   protocol: string;
   host: string;
   port: number;
@@ -18,14 +18,8 @@ export default class Endpoint {
     this.pathPrefix = pathPrefix;
   }
 
-  child({
-    path,
-    protocol = '',
-  }: {
-    path?: string;
-    protocol?: string;
-  }): Endpoint {
-    return new Endpoint({
+  child({ path, protocol = '' }: { path?: string; protocol?: string }): URL {
+    return new URL({
       host: this.host,
       port: this.port,
       protocol: protocol || this.protocol,

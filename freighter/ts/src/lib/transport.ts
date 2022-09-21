@@ -10,6 +10,3 @@ export interface Digest {
   protocol: string;
   encoder: string;
 }
-
-// Payload represents a piece of data that can be sent over the freighter.
-export type Payload = unknown;

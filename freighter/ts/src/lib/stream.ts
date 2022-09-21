@@ -1,24 +1,19 @@
-import { Payload } from './transport';
-
-export interface StreamReceiver<RS extends Payload> {
+export interface StreamReceiver<RS> {
   receive(): Promise<[RS | undefined, Error | undefined]>;
 }
 
-export interface StreamSender<RQ extends Payload> {
+export interface StreamSender<RQ> {
   send(req: RQ): Error | undefined;
 }
 
-export interface StreamSenderCloser<RQ extends Payload>
-  extends StreamSender<RQ> {
+export interface StreamSenderCloser<RQ> extends StreamSender<RQ> {
   closeSend(): void;
 }
 
-export interface ClientStream<RQ extends Payload, RS extends Payload>
+export interface ClientStream<RQ, RS>
   extends StreamSenderCloser<RQ>,
     StreamReceiver<RS> {}
 
-export interface StreamClient {
-  stream<RQ extends Payload, RS extends Payload>(
-    target: string
-  ): Promise<ClientStream<RQ, RS>>;
+export interface StreamClient<RQ, RS> {
+  stream(target: string): Promise<ClientStream<RQ, RS>>;
 }
