@@ -1,17 +1,14 @@
 from __future__ import annotations
 
-from datetime import (
-    datetime,
-    timedelta,
-    timezone,
-    tzinfo,
-)
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone, tzinfo
+from typing import Union, get_args
+
 import numpy as np
 import pandas as pd
-from typing import get_args, Union
+from pydantic import BaseModel
 
-import synnax.errors
+from .exceptions import ContiguityError
 
 
 class TimeStamp(int):
@@ -41,12 +38,14 @@ class TimeStamp(int):
         if isinstance(value, TimeSpan):
             value = int(value)
         elif isinstance(value, pd.Timestamp):
-            value = int(float(SECOND) * value.to_pydatetime().timestamp())
+            # Convert the timestamp to a timezone aware datetime
+            value = int(float(SECOND) * value.to_pydatetime().astimezone().timestamp())
         elif isinstance(value, datetime):
             value = int(float(SECOND) * value.timestamp())
         elif isinstance(value, timedelta):
             value = int(float(SECOND) * value.total_seconds())
         elif isinstance(value, np.datetime64):
+            # Assume the datetime64 is in UTC
             value = int(pd.Timestamp(value).asm8.view(np.int64))
         elif isinstance(value, int):
             return super().__new__(cls, int(value))
@@ -58,6 +57,23 @@ class TimeStamp(int):
     def __init__(self, value: UnparsedTimeStamp, *args, **kwargs):
         pass
 
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.validate
+
+    @classmethod
+    def validate(cls, v):
+        return cls(v)
+
+    def span(self, other: UnparsedTimeStamp) -> TimeSpan:
+        """Returns the TimeSpan between two timestamps. This span is guaranteed to be
+        positive.
+        """
+        tr = TimeRange(self, other)
+        if not tr.is_valid():
+            tr = tr.swap()
+        return tr.span()
+
     def datetime(self, tzinfo: tzinfo | None = None) -> datetime:
         """Returns the TimeStamp represented as a timezone aware datetime object.
 
@@ -65,8 +81,11 @@ class TimeStamp(int):
         is used.
         :return: a datetime object
         """
-        return datetime.utcfromtimestamp(self / SECOND).replace(
-            tzinfo=timezone.utc).astimezone(tzinfo)
+        return (
+            datetime.utcfromtimestamp(self / SECOND)
+            .replace(tzinfo=timezone.utc)
+            .astimezone(tzinfo)
+        )
 
     def is_zero(self) -> bool:
         """Checks if the timestamp is the Unix epoch.
@@ -160,11 +179,28 @@ class TimeStamp(int):
 
 
 def now() -> TimeStamp:
+    """Returns the current time as a TimeStamp."""
     return TimeStamp(datetime.now())
 
 
+def since(t: TimeStamp) -> TimeSpan:
+    """Returns the amount of time between the given timestamp and the current time."""
+    return now().span(t)
+
+
 class TimeSpan(int):
-    """TimeSpan represents a 64 bit nanosecond-precision duration."""
+    """TimeSpan represents a 64 bit nanosecond-precision duration. The TimeSpan constructor
+    accepts a variety of different types and will attempt to convert them to a TimeSpan.
+    The following types are supported:
+
+    * int: the number of nanoseconds.
+    * np.int64: the number of nanoseconds.
+    * TimeSpan: returns a copy of the TimeSpan.
+    * TimeStamp: the difference between the TimeStamp and the Unix epoch
+    * timedelta: the duration of the timedelta.
+    * pands.Timedelta: the duration of the Timedelta.
+    * np.timedelta64: the duration of the timedelta.
+    """
 
     def __new__(cls, value: UnparsedTimeSpan, *args, **kwargs):
         if isinstance(value, int):
@@ -174,6 +210,10 @@ class TimeSpan(int):
 
         if isinstance(value, timedelta):
             value = int(float(SECOND) * value.total_seconds())
+        elif isinstance(value, pd.Timedelta):
+            value = int(float(SECOND) * value.total_seconds())
+        elif isinstance(value, np.timedelta64):
+            value = int(float(SECOND) * pd.Timedelta(value).total_seconds())
         elif isinstance(value, np.int64):
             value = int(value)
         else:
@@ -183,6 +223,17 @@ class TimeSpan(int):
 
     def __init__(self, value: UnparsedTimeSpan, *args, **kwargs):
         pass
+
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.validate
+
+    @classmethod
+    def validate(cls, value):
+        return cls(value)
+
+    def __repr__(self) -> str:
+        return f"TimeSpan({super().__repr__()})"
 
     def delta(self) -> timedelta:
         """Returns the TimeSpan represented as a timedelta object.
@@ -247,7 +298,7 @@ class TimeSpan(int):
 
 
 TIME_STAMP_MIN = TimeStamp(0)
-TIME_STAMP_MAX = TimeStamp(2 ** 63 - 1)
+TIME_STAMP_MAX = TimeStamp(2**63 - 1)
 NANOSECOND = TimeSpan(1)
 MICROSECOND = TimeSpan(1000) * NANOSECOND
 MILLISECOND = TimeSpan(1000) * MICROSECOND
@@ -276,6 +327,14 @@ class Rate(float):
     def __init__(self, value: UnparsedRate):
         pass
 
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.validate
+
+    @classmethod
+    def validate(cls, v):
+        return cls(v)
+
     def period(self) -> TimeSpan:
         """Returns the period of the rate as a TimeSpan"""
         return TimeSpan(int(1 / self * float(SECOND)))
@@ -298,16 +357,14 @@ class Rate(float):
         """Returns the TimeSpan that corresponds to the given number of bytes at this
         rate and sample density."""
         if size % density != 0:
-            raise synnax.errors.ContiguityError(
-                f"Size {size} is not a multiple of density {density}"
-            )
+            raise ContiguityError(f"Size {size} is not a multiple of density {density}")
         return self.span(int(size / density))
 
     def __str__(self):
         return str(int(self)) + "Hz"
 
     def __repr__(self):
-        return str(int(self)) + "Hz"
+        return f"Rate({super().__repr__()} Hz)"
 
 
 HZ = Rate(1)
@@ -315,14 +372,22 @@ KHZ = Rate(1000) * HZ
 MHZ = Rate(1000) * KHZ
 
 
-@dataclass
-class TimeRange:
+class TimeRange(BaseModel):
     start: TimeStamp
     end: TimeStamp
 
     def __init__(self, start: UnparsedTimeStamp, end: UnparsedTimeStamp):
-        self.start = TimeStamp(start)
-        self.end = TimeStamp(end)
+        super().__init__(start=TimeStamp(start), end=TimeStamp(end))
+
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.validate
+
+    @classmethod
+    def validate(cls, v):
+        if isinstance(v, TimeRange):
+            return cls(v.start, v.end)
+        return cls(start=v[0], end=v[1])
 
     def span(self) -> TimeSpan:
         return TimeSpan(self.end - self.start)
@@ -349,9 +414,9 @@ class TimeRange:
 
     def overlaps_with(self, tr: TimeRange) -> bool:
         return (
-                self.contains_stamp(tr.start)
-                or self.contains_stamp(tr.end)
-                or tr.contains_range(self)
+            self.contains_stamp(tr.start)
+            or self.contains_stamp(tr.end)
+            or tr.contains_range(self)
         )
 
     def swap(self) -> TimeRange:
@@ -366,8 +431,6 @@ class TimeRange:
 
 
 class Density(int):
-    ...
-
     def __new__(cls, value: UnparsedDensity):
         if isinstance(value, Density):
             return value
@@ -377,6 +440,17 @@ class Density(int):
 
     def __init__(self, value):
         pass
+
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.validate
+
+    @classmethod
+    def validate(cls, v):
+        return cls(v)
+
+    def __repr__(self):
+        return f"Density({super().__repr__()})"
 
 
 class Size(int):
@@ -393,7 +467,6 @@ BIT8 = Density(1)
 
 
 class DataType(str):
-
     def __new__(cls, value: UnparsedDataType):
         if isinstance(value, DataType):
             return value
@@ -401,7 +474,10 @@ class DataType(str):
             return super().__new__(cls, value)
         try:
             if issubclass(value, np.ScalarType):
-                return from_numpy_type(value)
+                value = DATA_TYPES.get(value, None)
+                if value is None:
+                    raise TypeError(f"Cannot convert {value} to DataType")
+                return value
         except TypeError:
             pass
         raise TypeError(f"Cannot convert {type(value)} to DataType")
@@ -409,13 +485,31 @@ class DataType(str):
     def __init__(self, value: UnparsedDataType):
         pass
 
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.validate
 
-def to_numpy_type(data_type: DataType) -> np.ScalarType:
-    return NUMPY_TYPES.get(data_type, None)
+    @classmethod
+    def validate(cls, v):
+        return cls(v)
 
+    @classmethod
+    def __modify_schema__(cls, field_schema):
+        field_schema.update(type="string")
 
-def from_numpy_type(np_type: np.ScalarType) -> DataType:
-    return DATA_TYPES.get(np_type, None)
+    @property
+    def numpy_type(self, _raise: bool = False) -> np.ScalarType | None:
+        """Converts a built-in DataType to a numpy type Scalar Type
+        :param _raise: If True, raises a TypeError if the DataType is not a numpy type.
+        :return: The numpy type
+        """
+        npt = NUMPY_TYPES.get(self, None)
+        if npt is None and _raise:
+            raise TypeError(f"Cannot convert {self} to numpy type")
+        return npt
+
+    def __repr__(self):
+        return f"DataType({super(DataType, self).__repr__()})"
 
 
 DATA_TYPE_UNKNOWN = DataType("")
@@ -431,14 +525,21 @@ UINT16 = DataType("uint16")
 UINT8 = DataType("uint8")
 
 UnparsedTimeStamp = Union[
+    int,
     TimeStamp,
     TimeSpan,
-    int,
     datetime,
     timedelta,
+    np.datetime64,
 ]
-UnparsedTimeSpan = Union[TimeSpan | TimeStamp | int | timedelta]
-UnparsedRate = TimeSpan | Rate | float
+UnparsedTimeSpan = Union[
+    int,
+    TimeSpan,
+    TimeStamp,
+    timedelta,
+    np.timedelta64,
+]
+UnparsedRate = Union[int, float, TimeSpan, Rate]
 UnparsedDensity = Density | int
 UnparsedDataType = (*np.ScalarType, DataType, str)
 

@@ -1,29 +1,26 @@
-from dataclasses import asdict
-
 import numpy as np
 import pytest
-from freighter import encoder
+from freighter import EncoderDecoder, MsgpackEncoder
 
-from synnax import telem
-from synnax.channel import Channel
-from synnax.segment import BinarySegment, NumpySegment, SugaredBinarySegment
+import synnax
+from synnax.channel.payload import ChannelPayload
+from synnax.segment.payload import SegmentPayload
 from synnax.segment.splitter import Splitter
-from synnax.segment.validate import ScalarType, Contiguity
-from synnax import errors
+from synnax.segment.sugared import NumpySegment, SugaredBinarySegment
+from synnax.segment.validate import ContiguityValidator, ScalarTypeValidator
 
 
-class TestBinarySegment:
-    @pytest.mark.parametrize("ecd", [encoder.Msgpack])
-    def test_encode_decode(self, ecd: encoder.EncoderDecoder):
-        segment = BinarySegment(
+class TestSegmentPayload:
+    @pytest.mark.parametrize("ecd", [MsgpackEncoder()])
+    def test_encode_decode(self, ecd: EncoderDecoder):
+        segment = SegmentPayload(
             channel_key="1-1",
-            start=telem.TimeStamp(1),
+            start=synnax.TimeStamp(1),
             data=b"12345",
         )
         encoded = ecd.encode(segment)
-        decoded = BinarySegment()
-        ecd.decode(encoded, decoded)
-        assert asdict(segment) == asdict(decoded)
+        decoded = ecd.decode(encoded, SegmentPayload)
+        assert segment.dict() == decoded.dict()
 
 
 class TestScalarTypeValidator:
@@ -31,14 +28,14 @@ class TestScalarTypeValidator:
         """
         Should not raise a validation error
         """
-        ch = Channel(data_type=telem.INT64)
+        ch = ChannelPayload(data_type=synnax.INT64, rate=0)
         seg = NumpySegment(
             channel=ch,
-            start=telem.now(),
+            start=synnax.now(),
             data=np.array([1, 2, 3], dtype=np.int64),
         )
         try:
-            ScalarType().validate(seg)
+            ScalarTypeValidator().validate(seg)
         except Exception as e:
             pytest.fail(f"Unexpected exception: {e}")
 
@@ -46,40 +43,40 @@ class TestScalarTypeValidator:
         """
         Should raise a validation error
         """
-        ch = Channel(data_type=telem.INT64)
+        ch = ChannelPayload(data_type=synnax.INT64, rate=0)
         seg = NumpySegment(
             channel=ch,
-            start=telem.now(),
+            start=synnax.now(),
             data=np.array([1, 2, 3], dtype=np.int32),
         )
-        with pytest.raises(errors.ValidationError):
-            ScalarType().validate(seg)
+        with pytest.raises(synnax.ValidationError):
+            ScalarTypeValidator().validate(seg)
 
     def test_unrecognized_data_type(self):
         """
         Should raise a validation error
         """
-        ch = Channel(data_type=telem.DataType("CUSTOM"))
+        ch = ChannelPayload(data_type=synnax.DataType("CUSTOM"), rate=0)
         seg = NumpySegment(
             channel=ch,
-            start=telem.now(),
+            start=synnax.now(),
             data=np.array([1, 2, 3], dtype=np.int64),
         )
-        with pytest.raises(errors.ValidationError):
-            ScalarType().validate(seg)
+        with pytest.raises(synnax.ValidationError):
+            ScalarTypeValidator().validate(seg)
 
     def test_invalid_array_dimensions(self):
         """
         Should raise a validation error
         """
-        ch = Channel(data_type=telem.INT64)
+        ch = ChannelPayload(data_type=synnax.INT64, rate=0)
         seg = NumpySegment(
             channel=ch,
-            start=telem.now(),
+            start=synnax.now(),
             data=np.array([[1, 2, 3], [1, 2, 3]], dtype=np.int64),
         )
-        with pytest.raises(errors.ValidationError):
-            ScalarType().validate(seg)
+        with pytest.raises(synnax.ValidationError):
+            ScalarTypeValidator().validate(seg)
 
 
 class TestContiguityValidator:
@@ -87,19 +84,19 @@ class TestContiguityValidator:
         """
         Should not raise a validation error
         """
-        ch = Channel(
+        ch = ChannelPayload(
             key="1-1",
-            data_type=telem.INT64,
-            rate=25 * telem.HZ,
+            data_type=synnax.INT64,
+            rate=25 * synnax.HZ,
         )
         seg = NumpySegment(
             channel=ch,
-            start=telem.TimeStamp(100 * telem.SECOND),
+            start=synnax.TimeStamp(100 * synnax.SECOND),
             data=np.array([1, 2, 3], dtype=np.int64),
         )
-        v = Contiguity(
+        v = ContiguityValidator(
             {
-                "1-1": telem.TimeStamp(100 * telem.SECOND),
+                "1-1": synnax.TimeStamp(100 * synnax.SECOND),
             }
         )
         try:
@@ -111,26 +108,26 @@ class TestContiguityValidator:
         """
         Should not raise a validation error
         """
-        ch = Channel(
+        ch = ChannelPayload(
             key="1-1",
-            data_type=telem.INT64,
-            rate=1 * telem.HZ,
+            data_type=synnax.INT64,
+            rate=1 * synnax.HZ,
         )
         segs = [
             NumpySegment(
                 channel=ch,
-                start=telem.TimeStamp(100 * telem.SECOND),
+                start=synnax.TimeStamp(100 * synnax.SECOND),
                 data=np.array([1, 2, 3], dtype=np.int64),
             ),
             NumpySegment(
                 channel=ch,
-                start=telem.TimeStamp(103 * telem.SECOND),
+                start=synnax.TimeStamp(103 * synnax.SECOND),
                 data=np.array([1, 2, 3], dtype=np.int64),
             ),
         ]
-        v = Contiguity(
+        v = ContiguityValidator(
             {
-                "1-1": telem.TimeStamp(100 * telem.SECOND),
+                "1-1": synnax.TimeStamp(100 * synnax.SECOND),
             }
         )
         for seg in segs:
@@ -143,61 +140,61 @@ class TestContiguityValidator:
         """
         Should raise a contiguity error
         """
-        ch = Channel(
+        ch = ChannelPayload(
             key="1-1",
-            data_type=telem.INT64,
-            rate=1 * telem.HZ,
+            data_type=synnax.INT64,
+            rate=1 * synnax.HZ,
         )
         seg = NumpySegment(
             channel=ch,
-            start=telem.TimeStamp(100 * telem.SECOND),
+            start=synnax.TimeStamp(100 * synnax.SECOND),
             data=np.array([1, 2, 3], dtype=np.int64),
         )
-        v = Contiguity(
+        v = ContiguityValidator(
             {
-                "1-1": telem.TimeStamp(101 * telem.SECOND),
+                "1-1": synnax.TimeStamp(101 * synnax.SECOND),
             }
         )
-        with pytest.raises(errors.ContiguityError):
+        with pytest.raises(synnax.ContiguityError):
             v.validate(seg)
 
     def test_gapped_segment(self):
         """
         Should raise a contiguity error
         """
-        ch = Channel(
+        ch = ChannelPayload(
             key="1-1",
-            data_type=telem.INT64,
-            rate=1 * telem.HZ,
+            data_type=synnax.INT64,
+            rate=1 * synnax.HZ,
         )
         seg = NumpySegment(
             channel=ch,
-            start=telem.TimeStamp(100 * telem.SECOND),
+            start=synnax.TimeStamp(100 * synnax.SECOND),
             data=np.array([1, 2, 3], dtype=np.int64),
         )
-        v = Contiguity(
+        v = ContiguityValidator(
             {
-                "1-1": telem.TimeStamp(102 * telem.SECOND),
+                "1-1": synnax.TimeStamp(102 * synnax.SECOND),
             }
         )
-        with pytest.raises(errors.ContiguityError):
+        with pytest.raises(synnax.ContiguityError):
             v.validate(seg)
 
     def test_no_high_water_mark(self):
         """
         Should raise an unexpected error
         """
-        ch = Channel(
-            data_type=telem.INT64,
-            rate=1 * telem.HZ,
+        ch = ChannelPayload(
+            data_type=synnax.INT64,
+            rate=1 * synnax.HZ,
         )
         seg = NumpySegment(
             channel=ch,
-            start=telem.TimeStamp(100 * telem.SECOND),
+            start=synnax.TimeStamp(100 * synnax.SECOND),
             data=np.array([1, 2, 3], dtype=np.int64),
         )
-        v = Contiguity({})
-        with pytest.raises(errors.UnexpectedError):
+        v = ContiguityValidator({})
+        with pytest.raises(synnax.UnexpectedError):
             v.validate(seg)
 
 
@@ -206,12 +203,12 @@ class TestSplitter:
         """
         Should return the original segment.
         """
-        ch = Channel(
-            data_type=telem.INT64,
-            rate=1 * telem.HZ,
+        ch = ChannelPayload(
+            data_type=synnax.INT64,
+            rate=1 * synnax.HZ,
         )
         seg = SugaredBinarySegment(channel=ch, start=0, data=b"1234568")
-        splitter = Splitter(threshold=telem.Size(16))
+        splitter = Splitter(threshold=synnax.Size(16))
         split = splitter.split(seg)
         assert len(split) == 1
 
@@ -219,14 +216,14 @@ class TestSplitter:
         """
         Should split the segment when the size is over the threshold.
         """
-        ch = Channel(
-            data_type=telem.INT8,
-            rate=1 * telem.HZ,
-            density=telem.BIT8,
+        ch = ChannelPayload(
+            data_type=synnax.INT8,
+            rate=1 * synnax.HZ,
+            density=synnax.BIT8,
         )
         seg = SugaredBinarySegment(channel=ch, start=0, data=b"1234567812345678")
-        splitter = Splitter(threshold=telem.Size(8))
+        splitter = Splitter(threshold=synnax.Size(8))
         split = splitter.split(seg)
         assert len(split) == 2
         assert split[0].start == 0
-        assert split[1].start == 8 * telem.SECOND
+        assert split[1].start == 8 * synnax.SECOND

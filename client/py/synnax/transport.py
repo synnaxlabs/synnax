@@ -1,20 +1,25 @@
-from freighter import Endpoint, StreamClient, AsyncStreamClient, UnaryClient
 from freighter import (
-    ws,
-    sync,
-    http,
-    encoder,
+    URL,
+    AsyncStreamClient,
+    HTTPClient,
+    JSONEncoder,
+    MsgpackEncoder,
+    StreamClient,
+    SyncStreamClient,
+    WebsocketClient,
 )
 
 
 class Transport:
-    endpoint: Endpoint
+    endpoint: URL
     stream: StreamClient
     stream_async: AsyncStreamClient
-    http: http.Client
+    http: HTTPClient
 
-    def __init__(self, endpoint: Endpoint) -> None:
-        self.endpoint = endpoint.child("/api/v1/")
-        self.stream_async = ws.Client(endpoint=self.endpoint, encoder=encoder.Msgpack(), max_message_size=int(5e6))
-        self.stream = sync.StreamClient(self.stream_async)
-        self.http = http.Client(endpoint=self.endpoint, encoder_decoder=encoder.JSON())
+    def __init__(self, url: URL) -> None:
+        self.endpoint = url.child("/api/v1/")
+        self.stream_async = WebsocketClient(
+            endpoint=self.endpoint, encoder=MsgpackEncoder(), max_message_size=int(5e6)
+        )
+        self.stream = SyncStreamClient(self.stream_async)
+        self.http = HTTPClient(endpoint=self.endpoint, encoder_decoder=JSONEncoder())

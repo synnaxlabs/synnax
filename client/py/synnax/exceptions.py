@@ -4,11 +4,11 @@ from enum import Enum
 
 import freighter
 
-_FREIGHTER_ERROR_TYPE = "delta.api.errors"
+_FREIGHTER_EXCEPTION_TYPE = "delta.api.errors"
 
 
 @dataclass
-class APIErrorPayload:
+class APIExceptionPayload:
     type: str | None
     error: dict
 
@@ -34,13 +34,19 @@ class ValidationError(Exception):
     """
     Raised when a validation error occurs.
     """
+
     fields: list[ValidationField]
 
-    def __init__(self, fieldsOrMessage: list[dict] | str):
-        if isinstance(fieldsOrMessage, str):
+    def __init__(self, fieldsOrMessage: list[dict] | str | ValidationField):
+        if isinstance(fieldsOrMessage, ValidationField):
+            self.fields = [fieldsOrMessage]
+            super(ValidationError, self).__init__(fieldsOrMessage.message)
+        elif isinstance(fieldsOrMessage, str):
             super(ValidationError, self).__init__(fieldsOrMessage)
         else:
-            self.fields = [ValidationField(f["field"], f["message"]) for f in fieldsOrMessage]
+            self.fields = [
+                ValidationField(f["field"], f["message"]) for f in fieldsOrMessage
+            ]
             super(ValidationError, self).__init__(self.__str__())
 
     def __str__(self):
@@ -122,7 +128,7 @@ def maybe_raise_from_res(res: dict):
         raise exc
 
 
-def parse_from_payload(pld: APIErrorPayload) -> Exception | None:
+def parse_from_payload(pld: APIExceptionPayload) -> Exception | None:
     """
     Parse an error from a dictionary response.
     """
@@ -165,7 +171,7 @@ def parse_from_payload(pld: APIErrorPayload) -> Exception | None:
 
 def _decode(encoded: str) -> Exception:
     dct = json.loads(encoded)
-    pld = APIErrorPayload(**dct)
+    pld = APIExceptionPayload(**dct)
     return parse_from_payload(pld)
 
 
@@ -173,4 +179,4 @@ def _encode(err: Exception) -> str:
     raise NotImplemented
 
 
-freighter.errors.register(_FREIGHTER_ERROR_TYPE, _encode, _decode)
+freighter.register_exception(_FREIGHTER_EXCEPTION_TYPE, _encode, _decode)

@@ -1,20 +1,17 @@
 import asyncio
 import contextlib
 from threading import Thread
+from typing import AsyncIterator, Generic, Optional, Type
 
-from .transport import RS, RQ, PayloadFactoryFunc, PayloadFactory, P
-from typing import Generic, Optional, Type, Callable
 from janus import Queue
-from freighter.stream import (
-    AsyncStreamReceiver,
-    AsyncStreamClient,
-    AsyncStreamSenderCloser,
-)
-from freighter.util.threading import Notification
+
+from .stream import AsyncStreamClient, AsyncStreamReceiver, AsyncStreamSenderCloser
+from .transport import RQ, RS, P
+from .util.threading import Notification
 
 
 @contextlib.asynccontextmanager
-async def process(queue: Queue) -> P:
+async def process(queue: Queue) -> AsyncIterator[P]:
     pld = await queue.async_q.get()
     try:
         yield pld
@@ -22,7 +19,7 @@ async def process(queue: Queue) -> P:
         queue.async_q.task_done()
 
 
-class Receiver(Generic[RS]):
+class _Receiver(Generic[RS]):
     _wrapped: AsyncStreamReceiver[RS]
     _responses: Queue[tuple[RS | None, Exception | None]]
     _exc: Exception | None
@@ -59,7 +56,7 @@ class Receiver(Generic[RS]):
             raise e
 
 
-class SenderCloser(Generic[RQ]):
+class _SenderCloser(Generic[RQ]):
     _wrapped: AsyncStreamSenderCloser[RQ]
     _requests: Queue[Optional[RQ]]
     _exit: Notification[bool]
@@ -77,6 +74,7 @@ class SenderCloser(Generic[RQ]):
 
         self._requests.sync_q.put(pld)
         self._requests.sync_q.join()
+        return None
 
     def cancel(self):
         if self._exception.received():
@@ -103,6 +101,7 @@ class SenderCloser(Generic[RQ]):
             if fatal:
                 raise exc
             return exc
+        return None
 
     async def run(self):
         try:
@@ -130,27 +129,27 @@ class SenderCloser(Generic[RQ]):
         return True
 
 
-class Stream(Thread, Generic[RQ, RS]):
+class SyncStream(Thread, Generic[RQ, RS]):
+    """An implementation of the Stream protocol that wraps an AsyncStreamClient
+    and exposes a synchronous interface.
+    """
+
     _client: AsyncStreamClient
     _target: str
     _open_exception: Optional[Notification[Optional[Exception]]]
-    _receiver: Receiver[RS]
-    _sender: SenderCloser[RQ]
-    _response_factory: PayloadFactory[RS]
+    _receiver: _Receiver[RS]
+    _sender: _SenderCloser[RQ]
+    _response_factory: Type[RS]
     _request_type: Type[RQ]
 
     def __init__(
-            self,
-            client: AsyncStreamClient,
-            target: str,
-            request_type: Type[RQ],
-            response_factory: PayloadFactoryFunc[RS]
+        self, client: AsyncStreamClient, target: str, req_t: Type[RQ], res_t: Type[RS]
     ) -> None:
         super().__init__()
         self._client = client
         self._target = target
-        self._response_factory = PayloadFactory[RS](response_factory)
-        self._request_type = request_type
+        self._response_factory = res_t
+        self._request_type = req_t
         self._open_exception = Notification()
         self.start()
         self._ack_open()
@@ -159,30 +158,34 @@ class Stream(Thread, Generic[RQ, RS]):
         asyncio.run(self._run())
 
     def received(self) -> bool:
+        """Implement the Stream protocol."""
         return self._receiver.received()
 
     def receive(self) -> tuple[RS | None, Exception | None]:
+        """Implement the Stream protocol."""
         res, exc = self._receiver.receive()
         if exc is not None:
             self._sender.cancel()
         return res, exc
 
     def send(self, pld: RQ) -> Exception | None:
+        """Implement the Stream protocol."""
         return self._sender.send(pld)
 
     def close_send(self) -> Exception | None:
+        """Implement the Stream protocol."""
         return self._sender.close_send()
 
     async def _run(self):
         try:
-            self._wrapped = await self._client.stream(self._target,
-                                                      self._request_type,
-                                                      self._response_factory)
+            self._wrapped = await self._client.stream(
+                self._target, self._request_type, self._response_factory
+            )
         except Exception as e:
             self._open_exception.notify(e)
             return
-        self._receiver = Receiver(self._wrapped)
-        self._sender = SenderCloser(self._wrapped)
+        self._receiver = _Receiver(self._wrapped)
+        self._sender = _SenderCloser(self._wrapped)
         self._open_exception.notify(None)
         await asyncio.gather(self._receiver.run(), self._sender.run())
 
@@ -193,16 +196,18 @@ class Stream(Thread, Generic[RQ, RS]):
         self._open_exception = None
 
 
-class StreamClient:
+class SyncStreamClient:
+    """A synchronous wrapper around an AsyncStreamClient that allows a caller to
+    use an AsyncStream synchronously.
+    """
+
     wrapped: AsyncStreamClient
 
     def __init__(self, wrapped: AsyncStreamClient) -> None:
         self.wrapped = wrapped
 
     def stream(
-            self,
-            target: str,
-            request_type: Type[RQ],
-            response_factory: PayloadFactoryFunc[RS]
-    ) -> Stream[RQ, RS]:
-        return Stream[RQ, RS](self.wrapped, target, request_type, response_factory)
+        self, target: str, req_t: Type[RQ], res_t: Type[RS]
+    ) -> SyncStream[RQ, RS]:
+        """Implement the StreamClient protocol."""
+        return SyncStream[RQ, RS](self.wrapped, target, req_t, res_t)

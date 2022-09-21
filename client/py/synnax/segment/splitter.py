@@ -1,5 +1,5 @@
-from .entity import SugaredBinarySegment
 from .. import telem
+from .sugared import SugaredBinarySegment
 
 
 class Splitter:
@@ -14,7 +14,7 @@ class Splitter:
         else:
             split_v = self.threshold - (self.threshold % segment.channel.density)
             truncated = SugaredBinarySegment(
-                segment.channel, segment.start, segment.data[: split_v]
+                segment.channel, segment.start, segment.data[:split_v]
             )
             _next = SugaredBinarySegment(
                 segment.channel, truncated.end, segment.data[split_v:]
