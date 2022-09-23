@@ -23,7 +23,7 @@ export class BaseTypedError extends Error implements TypedError {
   }
 }
 
-type ErrorDecoder = (encoded: string) => TypedError;
+type ErrorDecoder = (encoded: string) => Error | undefined;
 type ErrorEncoder = (error: TypedError) => string;
 
 export const isTypedError = (error: unknown): error is TypedError => {
@@ -97,7 +97,7 @@ class Registry {
     return { type: UNKNOWN, data: JSON.stringify(error) };
   }
 
-  decode(payload: ErrorPayload): TypedError | undefined {
+  decode(payload: ErrorPayload): Error | undefined {
     if (payload.type === NONE) {
       return undefined;
     }
@@ -129,7 +129,7 @@ export const encodeError = (error: unknown): ErrorPayload => {
   return REGISTRY.encode(error);
 };
 
-export const decodeError = (payload: ErrorPayload): TypedError | undefined => {
+export const decodeError = (payload: ErrorPayload): Error | undefined => {
   return REGISTRY.decode(payload);
 };
 

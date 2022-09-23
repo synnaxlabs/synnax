@@ -1,22 +1,22 @@
-import { decode, encode } from '@msgpack/msgpack';
+import { pack, unpack } from 'msgpackr';
 
 import { camelKeys, snakeKeys } from './caseconv';
 
 export interface EncoderDecoder {
   contentType: string;
   encode(payload: unknown): Uint8Array;
-  decode(data: Uint8Array): unknown;
+  decode(data: Uint8Array | ArrayBuffer): unknown;
 }
 
 export class MsgPackEncoderDecoder implements EncoderDecoder {
   contentType = 'application/msgpack';
 
   encode(payload: unknown): Uint8Array {
-    return encode(payload);
+    return pack(payload);
   }
 
   decode(data: Uint8Array): unknown {
-    return camelKeys(decode(data));
+    return camelKeys(unpack(new Uint8Array(data)));
   }
 }
 

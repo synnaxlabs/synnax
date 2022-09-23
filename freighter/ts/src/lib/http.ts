@@ -1,5 +1,5 @@
 import axios, { AxiosRequestConfig } from 'axios';
-import { z } from 'zod';
+import { ZodSchema } from 'zod';
 
 import { EncoderDecoder } from './encoder';
 import { decodeError, ErrorPayloadSchema } from './errors';
@@ -15,47 +15,22 @@ export class HTTPClientFactory {
     this.encoder = encoder;
   }
 
-  get<RQ, RS>(
-    reqSchema: z.ZodSchema<RQ>,
-    resSchema: z.ZodSchema<RS>
-  ): GETClient<RQ, RS> {
-    return new GETClient<RQ, RS>(
-      this.endpoint,
-      this.encoder,
-      reqSchema,
-      resSchema
-    );
+  getClient(): GETClient {
+    return new GETClient(this.endpoint, this.encoder);
   }
 
-  post<RQ, RS>(
-    reqSchema: z.ZodSchema<RQ>,
-    resSchema: z.ZodSchema<RS>
-  ): POSTClient<RQ, RS> {
-    return new POSTClient<RQ, RS>(
-      this.endpoint,
-      this.encoder,
-      reqSchema,
-      resSchema
-    );
+  postClient(): POSTClient {
+    return new POSTClient(this.endpoint, this.encoder);
   }
 }
 
-class Core<RQ, RS> {
+class Core {
   endpoint: URL;
   encoder: EncoderDecoder;
-  reqSchema: z.ZodSchema<RQ>;
-  resSchema: z.ZodSchema<RS>;
 
-  constructor(
-    endpoint: URL,
-    encoder: EncoderDecoder,
-    reqSchema: z.ZodSchema<RQ>,
-    resSchema: z.ZodSchema<RS>
-  ) {
+  constructor(endpoint: URL, encoder: EncoderDecoder) {
     this.endpoint = endpoint.child({ protocol: 'http' });
     this.encoder = encoder;
-    this.reqSchema = reqSchema;
-    this.resSchema = resSchema;
   }
 
   get headers() {
@@ -71,8 +46,9 @@ class Core<RQ, RS> {
     };
   }
 
-  async execute(
-    request: AxiosRequestConfig
+  async execute<RS>(
+    request: AxiosRequestConfig,
+    resSchema: ZodSchema<RS>
   ): Promise<[RS | undefined, Error | undefined]> {
     try {
       const response = await axios.request(request);
@@ -82,7 +58,7 @@ class Core<RQ, RS> {
         );
         return [undefined, decodeError(err)];
       }
-      const data = this.resSchema.parse(this.encoder.decode(response.data));
+      const data = resSchema.parse(this.encoder.decode(response.data));
       return [data, undefined];
     } catch (err) {
       return [undefined, err as Error];
@@ -90,36 +66,32 @@ class Core<RQ, RS> {
   }
 }
 
-export class GETClient<RQ, RS>
-  extends Core<RQ, RS>
-  implements UnaryClient<RQ, RS>
-{
-  async send(
+export class GETClient extends Core implements UnaryClient {
+  async send<RQ, RS>(
     target: string,
-    req: RQ
+    req: RQ,
+    resSchema: ZodSchema<RS>
   ): Promise<[RS | undefined, Error | undefined]> {
     const queryString = buildQueryString(req as Record<string, unknown>);
     const request = this.requestConfig();
     request.method = 'GET';
     request.url = this.endpoint.path(target) + '?' + queryString;
-    return await this.execute(request);
+    return await this.execute(request, resSchema);
   }
 }
 
-export class POSTClient<RQ, RS>
-  extends Core<RQ, RS>
-  implements UnaryClient<RQ, RS>
-{
-  async send(
+export class POSTClient extends Core implements UnaryClient {
+  async send<RQ, RS>(
     target: string,
-    req: RQ
+    req: RQ,
+    resSchema: ZodSchema<RS>
   ): Promise<[RS | undefined, Error | undefined]> {
     const url = this.endpoint.path(target);
     const request = this.requestConfig();
     request.method = 'POST';
     request.url = url;
-    request.data = this.encoder.encode(this.reqSchema.parse(req));
-    return await this.execute(request);
+    request.data = this.encoder.encode(req);
+    return await this.execute(request, resSchema);
   }
 }
 

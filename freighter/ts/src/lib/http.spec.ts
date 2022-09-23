@@ -18,35 +18,53 @@ const MessageSchema = z.object({
   message: z.string().optional(),
 });
 
-const getClient = factory.get(MessageSchema, MessageSchema);
-const postClient = factory.post(MessageSchema, MessageSchema);
+type Message = z.infer<typeof MessageSchema>;
+
+const getClient = factory.getClient();
+const postClient = factory.postClient();
 
 test('[http] - post echo', async (t) => {
-  const [response, error] = await postClient.send('/echo', {
-    id: 1,
-    message: 'hello',
-  });
+  const [response, error] = await postClient.send<Message, Message>(
+    '/echo',
+    {
+      id: 1,
+      message: 'hello',
+    },
+    MessageSchema
+  );
   t.is(error, undefined);
   t.deepEqual(response, { id: 2, message: 'hello' });
 });
 
 test('[http] - get echo', async (t) => {
-  const [response, error] = await getClient.send('/echo', {
-    id: 1,
-    message: 'hello',
-  });
+  const [response, error] = await getClient.send<Message, Message>(
+    '/echo',
+    {
+      id: 1,
+      message: 'hello',
+    },
+    MessageSchema
+  );
   t.is(error, undefined);
   t.deepEqual(response, { id: 2, message: 'hello' });
 });
 
 test('[http] - get not found', async (t) => {
-  const [response, error] = await getClient.send('/not-found', {});
+  const [response, error] = await getClient.send<Message, Message>(
+    '/not-found',
+    {},
+    MessageSchema
+  );
   t.is(error?.message, 'Request failed with status code 404');
   t.is(response, undefined);
 });
 
 test('[http] - post not found', async (t) => {
-  const [response, error] = await postClient.send('/not-found', {});
+  const [response, error] = await postClient.send<Message, Message>(
+    '/not-found',
+    {},
+    MessageSchema
+  );
   t.is(error?.message, 'Request failed with status code 404');
   t.is(response, undefined);
 });

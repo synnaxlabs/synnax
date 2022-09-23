@@ -16,12 +16,7 @@ const MessageSchema = z.object({
   message: z.string().optional(),
 });
 
-const client = new WebSocketClient(
-  url,
-  new MsgPackEncoderDecoder(),
-  MessageSchema,
-  MessageSchema
-);
+const client = new WebSocketClient(url, new MsgPackEncoderDecoder());
 
 class MyCustomError extends BaseTypedError {
   code: number;
@@ -51,7 +46,7 @@ registerError({
 });
 
 test('basic exchange', async (t) => {
-  const stream = await client.stream('ws/echo');
+  const stream = await client.stream('ws/echo', MessageSchema, MessageSchema);
   for (let i = 0; i < 10; i++) {
     stream.send({ id: i, message: 'hello' });
     const [response, error] = await stream.receive();
@@ -66,7 +61,11 @@ test('basic exchange', async (t) => {
 });
 
 test('receive message after close', async (t) => {
-  const stream = await client.stream('ws/sendMessageAfterClientClose');
+  const stream = await client.stream(
+    'ws/sendMessageAfterClientClose',
+    MessageSchema,
+    MessageSchema
+  );
   await stream.closeSend();
   let [response, error] = await stream.receive();
   t.is(error, undefined);
@@ -77,7 +76,11 @@ test('receive message after close', async (t) => {
 });
 
 test('receive error', async (t) => {
-  const stream = await client.stream('ws/receiveAndExitWithErr');
+  const stream = await client.stream(
+    'ws/receiveAndExitWithErr',
+    MessageSchema,
+    MessageSchema
+  );
   stream.send({ id: 0, message: 'hello' });
   const [response, error] = await stream.receive();
   t.deepEqual(error, new MyCustomError('unexpected error', 1));

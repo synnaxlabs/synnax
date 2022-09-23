@@ -42,9 +42,9 @@
   },
   "dependencies": {
     "@bitauth/libauth": "^1.17.1",
-    "@msgpack/msgpack": "^2.8.0",
     "axios": "^0.27.2",
     "js-convert-case": "^4.2.0",
+    "msgpackr": "^1.7.0",
     "ws": "^8.8.1",
     "zod": "^3.19.1"
   },

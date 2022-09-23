@@ -1,9 +1,9 @@
-import { z } from 'zod';
+import { z, ZodSchema } from 'zod';
 
 import { EncoderDecoder } from './encoder';
 import { decodeError, EOF, ErrorPayloadSchema, StreamClosed } from './errors';
 import { Runtime, RUNTIME } from './runtime';
-import { ClientStream, StreamClient } from './stream';
+import { Stream, StreamClient } from './stream';
 import URL from './url';
 
 const resolveWebsocketProvider = (): typeof WebSocket => {
@@ -31,7 +31,7 @@ enum CloseCode {
   GoingAway = 1001,
 }
 
-export class WebSocketClientStream<RQ, RS> implements ClientStream<RQ, RS> {
+export class WebSocketClientStream<RQ, RS> implements Stream<RQ, RS> {
   private encoder: EncoderDecoder;
   private reqSchema: z.ZodSchema<RQ>;
   private resSchema: z.ZodSchema<RS>;
@@ -150,25 +150,20 @@ export class WebSocketClientStream<RQ, RS> implements ClientStream<RQ, RS> {
   }
 }
 
-export class WebSocketClient<RQ, RS> implements StreamClient<RQ, RS> {
+export class WebSocketClient implements StreamClient {
   endpoint: URL;
   encoder: EncoderDecoder;
-  reqSchema: z.ZodSchema<RQ>;
-  resSchema: z.ZodSchema<RS>;
 
-  constructor(
-    baseURL: URL,
-    encoder: EncoderDecoder,
-    reqSchema: z.ZodSchema<RQ>,
-    resSchema: z.ZodSchema<RS>
-  ) {
+  constructor(baseURL: URL, encoder: EncoderDecoder) {
     this.endpoint = baseURL.child({ protocol: 'ws' });
     this.encoder = encoder;
-    this.reqSchema = reqSchema;
-    this.resSchema = resSchema;
   }
 
-  async stream(target: string): Promise<ClientStream<RQ, RS>> {
+  async stream<RQ, RS>(
+    target: string,
+    reqSchema: ZodSchema<RQ>,
+    resSchema: ZodSchema<RS>
+  ): Promise<Stream<RQ, RS>> {
     const ResolvedWebSocket = resolveWebsocketProvider();
     const url = this.endpoint.path(
       `${target}?contentType=${this.encoder.contentType}`
@@ -181,8 +176,8 @@ export class WebSocketClient<RQ, RS> implements StreamClient<RQ, RS> {
           new WebSocketClientStream<RQ, RS>(
             ws,
             this.encoder,
-            this.reqSchema,
-            this.resSchema
+            reqSchema,
+            resSchema
           )
         );
       };
