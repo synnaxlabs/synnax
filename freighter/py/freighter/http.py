@@ -15,17 +15,17 @@ http = PoolManager()
 
 
 class HTTPClientFactory:
-    """HTTPClient provides a POST and GET implementation of the UnaryClient protocol.
+    """HTTPClientFactory provides a POST and GET implementation of the UnaryClient protocol.
 
-    :param endpoint: The base URL for the client.
+    :param url: The base URL for the client.
     :param encoder_decoder: The encoder/decoder to use for the client.
     """
 
     endpoint: URL
     encoder_decoder: EncoderDecoder
 
-    def __init__(self, endpoint: URL, encoder_decoder: EncoderDecoder):
-        self.endpoint = endpoint
+    def __init__(self, url: URL, encoder_decoder: EncoderDecoder):
+        self.endpoint = url
         self.encoder_decoder = encoder_decoder
 
     def get_client(self) -> GETClient:
@@ -92,11 +92,8 @@ class _Core:
 
 
 class GETClient(_Core):
-    """Implementation of the UnaryClient protocol backed by HTTP GET requests.
-
-    :param endpoint: The base URL for the client.
-    :param encoder_decoder: The encoder/decoder to use for the client.
-    :param res_t: The response type.
+    """Implementation of the UnaryClient protocol backed by HTTP GET requests. It should
+    not be instantiated directly, but through the HTTPClientFactory.
     """
 
     def send(self, target: str, req: RQ, res_t: Type[RS]) -> tuple[
@@ -128,11 +125,8 @@ class GETClient(_Core):
 
 
 class POSTClient(_Core):
-    """Implementation of the UnaryClient protocol backed by HTTP POST requests.
-
-    :param endpoint: The base URL for the client.
-    :param encoder_decoder: The encoder/decoder to use for the client.
-    :param res_t: The response type.
+    """Implementation of the UnaryClient protocol backed by HTTP POST requests. it should
+    not be instantiated directly, but through the HTTPClientFactory.
     """
 
     def send(self, target: str, req: RQ, res_t: Type[RS]) -> tuple[

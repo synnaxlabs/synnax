@@ -12,7 +12,7 @@ from .interface import Error, Message
 @pytest.fixture
 def async_client(endpoint: URL) -> WebsocketClient:
     ws_endpoint = endpoint.child("ws")
-    return WebsocketClient(encoder=MsgpackEncoder(), endpoint=ws_endpoint)
+    return WebsocketClient(encoder=MsgpackEncoder(), base_url=ws_endpoint)
 
 
 @pytest.fixture

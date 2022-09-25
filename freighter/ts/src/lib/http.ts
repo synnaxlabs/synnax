@@ -3,9 +3,15 @@ import { ZodSchema } from 'zod';
 
 import { EncoderDecoder } from './encoder';
 import { decodeError, ErrorPayloadSchema } from './errors';
-import { UnaryClient } from './unary';
+import { Unary } from './unary';
 import URL from './url';
 
+/**
+ * HTTPClientFactory provides a POST and GET implementation of the Unary protocol.
+ *
+ * @param url - The base URL of the API.
+ * @param encoder - The encoder/decoder to use for the request/response.
+ */
 export class HTTPClientFactory {
   endpoint: URL;
   encoder: EncoderDecoder;
@@ -33,7 +39,7 @@ class Core {
   private static CONTENT_TYPE_HEADER_KEY = 'Content-Type';
 
   constructor(endpoint: URL, encoder: EncoderDecoder) {
-    this.endpoint = endpoint.child({ protocol: 'http' });
+    this.endpoint = endpoint.replace({ protocol: 'http' });
     this.encoder = encoder;
   }
 
@@ -57,23 +63,25 @@ class Core {
     request: AxiosRequestConfig,
     resSchema: ZodSchema<RS>
   ): Promise<[RS | undefined, Error | undefined]> {
-    try {
-      const response = await axios.request(request);
-      if (response.status < 200 || response.status >= 300) {
-        const err = ErrorPayloadSchema.parse(
-          this.encoder.decode(response.data)
-        );
+    const response = await axios.request(request);
+    if (response.status < 200 || response.status >= 300) {
+      try {
+        const err = this.encoder.decode(response.data, ErrorPayloadSchema);
         return [undefined, decodeError(err)];
+      } catch {
+        return [undefined, new Error(response.data)];
       }
-      const data = resSchema.parse(this.encoder.decode(response.data));
-      return [data, undefined];
-    } catch (err) {
-      return [undefined, err as Error];
     }
+    const data = this.encoder.decode(response.data, resSchema);
+    return [data, undefined];
   }
 }
 
-export class GETClient extends Core implements UnaryClient {
+/**
+ * Implementation of the UnaryClient protocol backed by HTTP GET requests. It
+ * should not be instantiated directly, but through the HTTPClientFactory.
+ */
+export class GETClient extends Core implements Unary {
   async send<RQ, RS>(
     target: string,
     req: RQ,
@@ -82,18 +90,22 @@ export class GETClient extends Core implements UnaryClient {
     const queryString = buildQueryString(req as Record<string, unknown>);
     const request = this.requestConfig();
     request.method = 'GET';
-    request.url = this.endpoint.path(target) + '?' + queryString;
+    request.url = this.endpoint.child(target).stringify() + '?' + queryString;
     return await this.execute(request, resSchema);
   }
 }
 
-export class POSTClient extends Core implements UnaryClient {
+/**
+ * Implementation of the UnaryClient protocol backed by HTTP POST requests. It
+ * should not be instantiated directly, but through the HTTPClientFactory.
+ */
+export class POSTClient extends Core implements Unary {
   async send<RQ, RS>(
     target: string,
     req: RQ,
     resSchema: ZodSchema<RS>
   ): Promise<[RS | undefined, Error | undefined]> {
-    const url = this.endpoint.path(target);
+    const url = this.endpoint.child(target).stringify();
     const request = this.requestConfig();
     request.method = 'POST';
     request.url = url;

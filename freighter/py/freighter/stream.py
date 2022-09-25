@@ -142,6 +142,14 @@ class AsyncStreamClient(Protocol):
     ) -> AsyncStream[RQ, RS]:
         """Dials the target and returns a stream that can be used to issue requests
         and receive responses.
+
+        :param target: The target to dial. In some implementations, this may be an endpoint
+        path, or in others, a complete hostname or URL.
+        :param req_t: The type of the request being issues. This is used to type check
+        outgoing requests.
+        :param res_t: The type of the response being received. This is used to type check
+        incoming responses.
+        :returns: A stream that can be used to issue requests and receive responses.
         """
         ...
 
@@ -152,7 +160,15 @@ class StreamClient(Protocol):
     """
 
     def stream(self, target: str, req_t: Type[RQ], res_t: Type[RS]) -> Stream[RQ, RS]:
-        """Dialed the target and returns a stream that can be used to issue requests
+        """Dials the target and returns a stream that can be used to issue requests
         and receive responses.
+
+        :param target: The target to dial. In some implementations, this may be an endpoint
+        path, or in others, a complete hostname or URL.
+        :param req_t: The type of the request being issues. This is used to type check
+        outgoing requests.
+        :param res_t: The type of the response being received. This is used to type check
+        incoming responses.
+        :returns: A stream that can be used to issue requests and receive responses.
         """
         ...

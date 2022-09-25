@@ -4,8 +4,8 @@ from .transport import RQ, RS
 
 
 class UnaryClient(Protocol):
-    """
-    The client side Protocol class of a Unary freighter.
+    """Protocol for an entity that implements a simple request-response transport
+    between two entities.
     """
 
     def send(
@@ -29,6 +29,9 @@ class UnaryClient(Protocol):
 
 
 class AsyncUnaryClient(Protocol[RQ, RS]):
+    """Protocol for an entity that implements a simple asynchronous request-response transport
+    between two entities.
+    """
     async def send(
             self,
             target: str,

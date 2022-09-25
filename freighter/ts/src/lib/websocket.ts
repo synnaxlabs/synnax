@@ -31,7 +31,10 @@ enum CloseCode {
   GoingAway = 1001,
 }
 
-export class WebSocketClientStream<RQ, RS> implements Stream<RQ, RS> {
+/**
+ * WebsocketStream is an implementation of Stream that is backed by a websocket.
+ */
+class WebsocketStream<RQ, RS> implements Stream<RQ, RS> {
   private encoder: EncoderDecoder;
   private reqSchema: z.ZodSchema<RQ>;
   private resSchema: z.ZodSchema<RS>;
@@ -59,6 +62,7 @@ export class WebSocketClientStream<RQ, RS> implements Stream<RQ, RS> {
     this.listenForMessages();
   }
 
+  /** Implements the Stream protocol */
   send(req: RQ): Error | undefined {
     if (this.server_closed) {
       return new EOF();
@@ -79,6 +83,7 @@ export class WebSocketClientStream<RQ, RS> implements Stream<RQ, RS> {
     return undefined;
   }
 
+  /** Implements the Stream protocol */
   async receive(): Promise<[RS | undefined, Error | undefined]> {
     if (this.server_closed) {
       return [undefined, this.server_closed];
@@ -97,6 +102,7 @@ export class WebSocketClientStream<RQ, RS> implements Stream<RQ, RS> {
     return [this.resSchema.parse(msg.payload), undefined];
   }
 
+  /** Implements the Stream protocol */
   closeSend(): void {
     if (this.send_closed || this.server_closed) {
       return undefined;
@@ -127,7 +133,7 @@ export class WebSocketClientStream<RQ, RS> implements Stream<RQ, RS> {
 
   private listenForMessages(): void {
     this.ws.onmessage = (ev: MessageEvent) => {
-      const msg = MessageSchema.parse(this.encoder.decode(ev.data));
+      const msg = this.encoder.decode(ev.data, MessageSchema);
 
       if (this.receiveCallbacksQueue.length > 0) {
         const callback = this.receiveCallbacksQueue.shift();
@@ -151,35 +157,45 @@ export class WebSocketClientStream<RQ, RS> implements Stream<RQ, RS> {
   }
 }
 
-export class WebSocketClient implements StreamClient {
+/**
+ * WebsocketClient is an implementation of StreamClient that is backed by
+ * websockets.
+ */
+export class WebsocketClient implements StreamClient {
   url: URL;
   encoder: EncoderDecoder;
 
-  constructor(baseURL: URL, encoder: EncoderDecoder) {
-    this.url = baseURL.child({ protocol: 'ws' });
+  static readonly MESSAGE_TYPE = 'arraybuffer';
+
+  /**
+   * @param encoder - The encoder to use for encoding messages and decoding
+   * responses.
+   * @param baseURL - A base url to use as a prefix for all requests.
+   */
+  constructor(encoder: EncoderDecoder, baseURL: URL) {
+    this.url = baseURL.replace({ protocol: 'ws' });
     this.encoder = encoder;
   }
 
+  /**
+   * Implements the StreamClient interface.
+   */
   async stream<RQ, RS>(
     target: string,
     reqSchema: ZodSchema<RQ>,
     resSchema: ZodSchema<RS>
   ): Promise<Stream<RQ, RS>> {
     const ResolvedWebSocket = resolveWebsocketProvider();
-    const url = this.url.path(
-      `${target}?contentType=${this.encoder.contentType}`
-    );
+    const url =
+      this.url.child(target).stringify() +
+      '?contentType=' +
+      this.encoder.contentType;
     const ws = new ResolvedWebSocket(url);
-    ws.binaryType = 'arraybuffer';
+    ws.binaryType = WebsocketClient.MESSAGE_TYPE;
     return new Promise((resolve, reject) => {
       ws.onopen = () => {
         resolve(
-          new WebSocketClientStream<RQ, RS>(
-            ws,
-            this.encoder,
-            reqSchema,
-            resSchema
-          )
+          new WebsocketStream<RQ, RS>(ws, this.encoder, reqSchema, resSchema)
         );
       };
       ws.onerror = (ev: Event) => {

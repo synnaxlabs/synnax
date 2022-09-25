@@ -117,7 +117,7 @@ class WebsocketClient:
     """An implementation of AsyncStreamClient that is backed by a websocket
 
     :param encoder: The encoder to use for this client.
-    :param endpoint: A base url to use as a prefix for all requests.
+    :param base_url: A base url to use as a prefix for all requests.
     :param max_message_size: The maximum size of a message to receive. Defaults to
     DEFAULT_MAX_SIZE.
     """
@@ -129,11 +129,11 @@ class WebsocketClient:
     def __init__(
         self,
         encoder: EncoderDecoder,
-        endpoint: URL,
+        base_url: URL,
         max_message_size: int = DEFAULT_MAX_SIZE,
     ) -> None:
         self._encoder = encoder
-        self._endpoint = endpoint.replace(protocol="ws")
+        self._endpoint = base_url.replace(protocol="ws")
         self._max_message_size = max_message_size
 
     async def stream(

@@ -5,7 +5,7 @@ from urllib.parse import urljoin
 
 
 class URL:
-    """URI is a simple class for building and extending URIs.
+    """URI is a simple class for building and extending URLs.
 
     :param host: The host name or IP address of the server.
     :param port: The port number of the server.
@@ -33,7 +33,7 @@ class URL:
         path: str = None,
         protocol: str = None,
     ) -> URL:
-        """Replace returns a new URI with the specified fields replaced."""
+        """Replace returns a new URL with the specified fields replaced."""
         return URL(
             host or self.host,
             port or self.port,
@@ -42,9 +42,11 @@ class URL:
         )
 
     def child(self, path: str) -> URL:
+        """Creates a new URL with the given path appended to the current path."""
         return URL(self.host, self.port, self._child_prefix(path), self.protocol)
 
     def stringify(self) -> str:
+        """Returns the URL as a string."""
         return f"{self.protocol}://{self.host}:{self.port}/{self.path}"
 
     def _child_prefix(self, path: str):

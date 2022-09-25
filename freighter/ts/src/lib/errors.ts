@@ -1,7 +1,3 @@
-/**
- * @description FError is an interface for an error that can be transported over
- * the network.
- */
 import { z } from 'zod';
 
 export interface TypedError extends Error {
@@ -74,7 +70,7 @@ type errorProvider = {
 };
 
 class Registry {
-  private entries: { [type: string]: errorProvider };
+  private readonly entries: { [type: string]: errorProvider };
 
   constructor() {
     this.entries = {};
@@ -116,19 +112,44 @@ class Registry {
 
 const REGISTRY = new Registry();
 
-export const registerError = (props: {
+/**
+ * Registers a custom error type with the error registry, which allows it to be
+ * encoded/decoded and sent over the network.
+ *
+ * @param type - A unique string identifier for the error type.
+ * @param encode - A function that encodes the error into a string.
+ * @param decode - A function that decodes the error from a string.
+ */
+export const registerError = ({
+  type,
+  encode,
+  decode,
+}: {
   type: string;
   encode: ErrorEncoder;
   decode: ErrorDecoder;
 }) => {
-  const { type, ...provider } = props;
-  REGISTRY.register(type, provider);
+  REGISTRY.register(type, { encode, decode });
 };
 
+/**
+ * Encodes an error into a payload that can be sent between a freighter server
+ * and client.
+ * @param error - The error to encode.
+ * @returns The encoded error.
+ */
 export const encodeError = (error: unknown): ErrorPayload => {
   return REGISTRY.encode(error);
 };
 
+/**
+ * Decodes an error payload into an exception. If a custom decoder can be found
+ * for the error type, it will be used. Otherwise, a generic Error containing
+ * the error data is returned.
+ *
+ * @param payload - The encoded error payload.
+ * @returns The decoded error.
+ */
 export const decodeError = (payload: ErrorPayload): Error | undefined => {
   return REGISTRY.decode(payload);
 };
@@ -139,18 +160,21 @@ export class UnknownError extends BaseTypedError implements TypedError {
   }
 }
 
+/** Thrown/returned when a stream closed normally. */
 export class EOF extends BaseTypedError implements TypedError {
   constructor() {
     super('EOF', FREIGHTER);
   }
 }
 
+/** Thrown/returned when a stream is closed abnormally. */
 export class StreamClosed extends BaseTypedError implements TypedError {
   constructor() {
     super('StreamClosed', FREIGHTER);
   }
 }
 
+/** Thrown when a target is unreachable. */
 export class Unreachable extends BaseTypedError implements TypedError {
   constructor() {
     super('Unreachable', FREIGHTER);

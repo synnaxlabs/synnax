@@ -1,10 +1,10 @@
 import test from 'ava';
 import { z } from 'zod';
 
-import { MsgpackEncoderDecoder } from './encoder';
+import { JSONEncoderDecoder } from './encoder';
 import { BaseTypedError, EOF, registerError, TypedError } from './errors';
 import URL from './url';
-import { WebSocketClient } from './ws';
+import { WebsocketClient } from './websocket';
 
 const url = new URL({
   host: '127.0.0.1',
@@ -16,7 +16,7 @@ const MessageSchema = z.object({
   message: z.string().optional(),
 });
 
-const client = new WebSocketClient(url, new MsgpackEncoderDecoder());
+const client = new WebsocketClient(new JSONEncoderDecoder(), url);
 
 class MyCustomError extends BaseTypedError {
   code: number;

@@ -1,4 +1,4 @@
-export { WebSocketClient, WebSocketClientStream } from './lib/ws';
+export { WebsocketClient } from './lib/websocket';
 export {
   MsgpackEncoderDecoder,
   JSONEncoderDecoder,
@@ -6,7 +6,7 @@ export {
   ENCODERS,
 } from './lib/encoder';
 export { StreamClient, Stream } from './lib/stream';
-export { UnaryClient } from './lib/unary';
+export { Unary } from './lib/unary';
 export { HTTPClientFactory } from './lib/http';
 export { default as URL } from './lib/url';
 export {
