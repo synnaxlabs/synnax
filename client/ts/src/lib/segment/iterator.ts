@@ -55,6 +55,14 @@ const ResponseSchema = z.object({
 
 type Response = z.infer<typeof ResponseSchema>;
 
+/**
+ * Used to iterate over a clusters telemetry in time-order. It should not be
+ * instantiated directly, and should instead be instantiated via the SegmentClient.
+ *
+ * Using an iterator is ideal when querying/processing large ranges of data, but
+ * is relatively complex and difficult to use. If you're looking to retrieve
+ *  telemetry between two timestamps, see the SegmentClient.read method.
+ */
 export class CoreIterator {
   private static ENDPOINT = '/segment/iterate';
   private client: StreamClient;
@@ -67,6 +75,13 @@ export class CoreIterator {
     this.aggregate = aggregate;
   }
 
+  /**
+   * Opens the iterator, configuring it to iterate over the telemetry in the
+   * channels with the given keys within the provided time range.
+   *
+   * @param tr - The time range to iterate over.
+   * @param keys - The keys of the channels to iterate over.
+   */
   async open(tr: TimeRange, keys: string[]) {
     this.stream = await this.client.stream(
       CoreIterator.ENDPOINT,
@@ -79,54 +94,140 @@ export class CoreIterator {
     this.values = [];
   }
 
+  /**
+   * Reads the next segment for each channel in the iterator.
+   *
+   * @returns false if the next segment can't be found for one or more channels or
+   * the iterator has accumulated an error.
+   */
   async next(): Promise<boolean> {
     return this.execute({ command: Command.Next });
   }
 
+  /**
+   * Reads the previous segment for each channel in the iterator.
+   *
+   * @returns false if the next segment can't be found for one or more channels or
+   * the iterator has accumulated an error.
+   */
   async prev(): Promise<boolean> {
     return this.execute({ command: Command.Prev });
   }
 
+  /**
+   * Seeks to the beginning of the time range and reads the first segment of each
+   * channel in the iterator.
+   *
+   * @returns false if no segments exists in the time range for a particular channel
+   * or the iterator has accumulated an error.
+   */
   async first(): Promise<boolean> {
     return this.execute({ command: Command.First });
   }
 
+  /**
+   * Seeks to the end of the time range and reads the last segment of each channel
+   * in the iterator.
+   *
+   * @returns false if no segments exists in the time range for a particular channel,
+   * or the iterator has accumulated an error.
+   */
   async last(): Promise<boolean> {
     return this.execute({ command: Command.Last });
   }
 
+  /**
+   * Reads the next time span of telemetry for each channel in the iterator.
+   *
+   * @returns false if a segment satisfying the request can't be found for a
+   * particular channel or the iterator has accumulated an error.
+   */
   async nextSpan(span: number): Promise<boolean> {
     return this.execute({ command: Command.NextSpan, span });
   }
 
+  /**
+   * Reads the previous time span of telemetry for each channel in the iterator.
+   *
+   * @returns false if a segment satisfying the request can't be found for a particular
+   * channel or the iterator has accumulated an error.
+   */
   async prevSpan(span: number): Promise<boolean> {
     return this.execute({ command: Command.PrevSpan, span });
   }
 
+  /**
+   * Seeks the iterator to the start of the time range and reads the telemetry within
+   * the range for each channel.
+   *
+   * @returns: False if a segment satisfying the request can't be found for a particular
+   * channel or the iterator has accumulated an error.
+   */
   async nextRange(range: TimeRange): Promise<boolean> {
     return this.execute({ command: Command.NextRange, range });
   }
 
+  /**
+   * Seeks the iterator to the first segment in the time range, but does not read
+   * it. Also invalidates the iterator. The iterator will not be considered valid
+   * until a call to first, last, next, prev, prev_span, next_span, or next_range.
+   *
+   * @returns false if the iterator is not pointing to a valid segment for a particular
+   * channel or has accumulated an error.
+   */
   async seekFirst(): Promise<boolean> {
     return this.execute({ command: Command.SeekFirst });
   }
 
+  /** Seeks the iterator to the last segment in the time range, but does not read it.
+   * Also invalidates the iterator. The iterator will not be considered valid
+   * until a call to first, last, next, prev, prev_span, next_span, or next_range.
+   *
+   * @returns false if the iterator is not pointing to a valid segment for a particular
+   * channel or has accumulated an error.
+   */
   async seekLast(): Promise<boolean> {
     return this.execute({ command: Command.SeekLast });
   }
 
+  /**
+   * Seeks the iterator to the first segment whose start is less than or equal to
+   * the provided timestamp. Also invalidates the iterator. The iterator will not be
+   * considered valid until a call to first, last, next, prev, prev_span, next_span, or next_range.
+   *
+   * @returns false if the iterator is not pointing to a valid segment for a particular
+   * channel or has accumulated an error.
+   */
   async seekLT(stamp: number): Promise<boolean> {
     return this.execute({ command: Command.SeekLT, stamp });
   }
 
+  /**
+   * Seeks the iterator to the first segment whose start is greater than or equal to
+   * the provided timestamp. Also invalidates the iterator. The iterator will not be
+   * considered valid until a call to first, last, next, prev, prev_span, next_span, or next_range.
+   *
+   * @returns false if the iterator is not pointing to a valid segment for a particular
+   * channel or has accumulated an error.
+   */
   async seekGE(stamp: number): Promise<boolean> {
     return this.execute({ command: Command.SeekGE, stamp });
   }
 
+  /**
+   * @returns true if the iterator value contains a valid segment, and fale otherwise.
+   * valid most commonly returns false when the iterator is exhausted or has
+   * accumulated an error.
+   */
   async valid(): Promise<boolean> {
     return this.execute({ command: Command.Valid });
   }
 
+  /**
+   * Closes the iterator. An iterator MUST be closed after use, and this method
+   * should probably be placed in a 'finally' block. If the iterator is not closed,
+   * it may leak resources.
+   */
   async close() {
     if (!this.stream) return;
     this.stream?.closeSend();
