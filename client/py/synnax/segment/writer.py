@@ -9,7 +9,7 @@ from freighter import (
 from numpy import ndarray
 
 from synnax.channel.registry import ChannelRegistry
-from synnax.exceptions import UnexpectedError, ValidationError, ValidationField
+from synnax.exceptions import UnexpectedError, ValidationError, Field
 from synnax.telem import Size, TimeStamp, UnparsedTimeStamp
 
 from .encoder import NumpyEncoderDecoder
@@ -17,8 +17,6 @@ from .payload import SegmentPayload
 from .splitter import Splitter
 from .sugared import NumpySegment, SugaredBinarySegment
 from .validate import ContiguityValidator, ScalarTypeValidator, Validator
-
-_ENDPOINT = "/segment/write"
 
 
 class _Request(Payload):
@@ -31,31 +29,7 @@ class _Response(Payload):
     error: ExceptionPayload
 
 
-class BaseWriter:
-    keys: list[str]
-
-    def _ack_open(self, res: _Response | None, exc: Exception | None):
-        if exc is not None:
-            raise exc
-        assert res is not None
-        if not res.ack:
-            raise UnexpectedError(
-                "Writer failed to positively acknowledge open request. This is a bug"
-                + "please report it."
-            )
-
-    def _check_keys(self, segments: list[SegmentPayload]):
-        for segment in segments:
-            if segment.channel_key not in self.keys:
-                raise ValidationError(
-                    ValidationField(
-                        "key",
-                        f"key {segment.key} is not in the list of keys for this writer.",
-                    )
-                )
-
-
-class CoreWriter(BaseWriter):
+class CoreWriter:
     """Used to write telemetry to a set of channels in time-order. It should not be
     instantiated directly, and should instead be created using the segment client.
 
@@ -63,9 +37,10 @@ class CoreWriter(BaseWriter):
     from a sensor), but it is relatively complex and challenging to use. If you're looking
     to write a contiguous block of telemetry, see the segment Client write method instead.
     """
-
+    _ENDPOINT = "/segment/write"
     client: StreamClient
     stream: Stream[_Request, _Response]
+    keys: list[str]
 
     def __init__(self, client: StreamClient) -> None:
         self.client = client
@@ -78,7 +53,7 @@ class CoreWriter(BaseWriter):
         :param keys: A list of keys representing the channels the writer will write to.
         """
         self.keys = keys
-        self.stream = self.client.stream(_ENDPOINT, _Request, _Response)
+        self.stream = self.client.stream(self._ENDPOINT, _Request, _Response)
         self.stream.send(_Request(open_keys=keys, segments=[]))
         res, err = self.stream.receive()
         self._ack_open(res, err)
@@ -118,6 +93,26 @@ class CoreWriter(BaseWriter):
         if not isinstance(err, EOF):
             raise err
 
+    def _ack_open(self, res: _Response | None, exc: Exception | None):
+        if exc is not None:
+            raise exc
+        assert res is not None
+        if not res.ack:
+            raise UnexpectedError(
+                "Writer failed to positively acknowledge open request. This is a bug"
+                + "please report it."
+            )
+
+    def _check_keys(self, segments: list[SegmentPayload]):
+        for segment in segments:
+            if segment.channel_key not in self.keys:
+                raise ValidationError(
+                    Field(
+                        "key",
+                        f"key {segment.key} is not in the list of keys for this writer.",
+                    )
+                )
+
 
 class NumpyWriter:
     """Used to write telemetry to a set of channels in time-order. It should not be
@@ -134,9 +129,9 @@ class NumpyWriter:
     splitter: Splitter
 
     def __init__(
-        self,
-        core: CoreWriter,
-        channels: ChannelRegistry,
+            self,
+            core: CoreWriter,
+            channels: ChannelRegistry,
     ) -> None:
         self.core = core
         self.validators = [

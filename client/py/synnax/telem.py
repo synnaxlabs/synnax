@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone, tzinfo
 from typing import Union, get_args
 
@@ -69,10 +68,7 @@ class TimeStamp(int):
         """Returns the TimeSpan between two timestamps. This span is guaranteed to be
         positive.
         """
-        tr = TimeRange(self, other)
-        if not tr.is_valid():
-            tr = tr.swap()
-        return tr.span()
+        return TimeRange(self, other).make_valid().span()
 
     def datetime(self, tzinfo: tzinfo | None = None) -> datetime:
         """Returns the TimeStamp represented as a timezone aware datetime object.
@@ -128,17 +124,14 @@ class TimeStamp(int):
         :param span: the TimeSpan to span
         :return: a TimeRange that spans the given TimeSpan
         """
-        rng = TimeRange(self, self + span)
-        if not rng.is_valid():
-            rng = rng.swap()
-        return rng
+        return TimeRange(self, self + span).make_valid()
 
     def range(self, ts: UnparsedTimeStamp) -> TimeRange:
         """Returns a new TimeRange spanning the provided time stamps
         :param ts: the second time stamp
         :return: a new TimeRange spanning the provided time stamps
         """
-        return TimeRange(self, TimeStamp(ts))
+        return TimeRange(self, TimeStamp(ts)).make_valid()
 
     def add(self, ts: UnparsedTimeStamp) -> TimeStamp:
         """Returns a new TimeStamp that is the sum of the two TimeStamps.
@@ -298,7 +291,7 @@ class TimeSpan(int):
 
 
 TIME_STAMP_MIN = TimeStamp(0)
-TIME_STAMP_MAX = TimeStamp(2**63 - 1)
+TIME_STAMP_MAX = TimeStamp(2 ** 63 - 1)
 NANOSECOND = TimeSpan(1)
 MICROSECOND = TimeSpan(1000) * NANOSECOND
 MILLISECOND = TimeSpan(1000) * MICROSECOND
@@ -341,7 +334,7 @@ class Rate(float):
 
     def sample_count(self, time_span: UnparsedTimeSpan) -> int:
         """Returns the number of samples in the given TimeSpan at this rate"""
-        return int(TimeSpan(time_span) / self.period())
+        return int(TimeSpan(time_span).seconds() * self)
 
     def byte_size(self, time_span: UnparsedTimeSpan, density: Density) -> Size:
         """Calculates the amount of bytes occupied by the given TimeSpan at the given
@@ -392,6 +385,11 @@ class TimeRange(BaseModel):
     def span(self) -> TimeSpan:
         return TimeSpan(self.end - self.start)
 
+    def make_valid(self) -> TimeRange:
+        if not self.is_valid():
+            return self.swap()
+        return self
+
     def is_zero(self) -> bool:
         return self.span().is_zero()
 
@@ -414,9 +412,9 @@ class TimeRange(BaseModel):
 
     def overlaps_with(self, tr: TimeRange) -> bool:
         return (
-            self.contains_stamp(tr.start)
-            or self.contains_stamp(tr.end)
-            or tr.contains_range(self)
+                self.contains_stamp(tr.start)
+                or self.contains_stamp(tr.end)
+                or tr.contains_range(self)
         )
 
     def swap(self) -> TimeRange:
@@ -467,6 +465,8 @@ BIT8 = Density(1)
 
 
 class DataType(str):
+    """DataType represents a data type as a string
+    """
     def __new__(cls, value: UnparsedDataType):
         if isinstance(value, DataType):
             return value

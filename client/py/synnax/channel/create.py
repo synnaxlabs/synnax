@@ -1,4 +1,4 @@
-from freighter import HTTPClient, Payload, UnaryClient
+from freighter import HTTPClientFactory, Payload, UnaryClient
 
 from synnax.telem import DATA_TYPE_UNKNOWN, Rate, UnparsedDataType, UnparsedRate
 
@@ -16,10 +16,10 @@ class _Response(Payload):
 
 class ChannelCreator:
     _ENDPOINT = "/channel/create"
-    client: UnaryClient[_Request, _Response]
+    client: UnaryClient
 
-    def __init__(self, client: HTTPClient):
-        self.client = client.client_post(_Request, _Response)
+    def __init__(self, client: HTTPClientFactory):
+        self.client = client.post_client()
 
     def create(
         self,
@@ -35,7 +35,7 @@ class ChannelCreator:
 
     def create_n(self, channel: ChannelPayload, count: int = 1) -> list[ChannelPayload]:
         req = _Request(channel=channel, count=count)
-        res, exc = self.client.send(self._ENDPOINT, req)
+        res, exc = self.client.send(self._ENDPOINT, req, _Response)
         if exc is not None:
             raise exc
         assert res is not None

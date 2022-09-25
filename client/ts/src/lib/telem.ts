@@ -1,3 +1,7 @@
+import { registerCustomTypeEncoder } from '@synnaxlabs/freighter';
+
+const valueOfEncoder = (value: unknown): unknown => value?.valueOf();
+
 export class TimeStamp extends Number {
   constructor(value: UnparsedTimeStamp) {
     super(value);
@@ -25,6 +29,12 @@ export class TimeStamp extends Number {
 
   beforeEq(other: TimeStamp): boolean {
     return this.valueOf() <= other.valueOf();
+  }
+
+  static Class = TimeStamp;
+
+  static write(value: TimeStamp): number {
+    return value.valueOf();
   }
 }
 
@@ -125,12 +135,12 @@ export class Density extends Number {
 }
 
 export class TimeRange {
-  start: TimeStamp;
-  end: TimeStamp;
+  start: number;
+  end: number;
 
   constructor(start: UnparsedTimeStamp, end: UnparsedTimeStamp) {
-    this.start = new TimeStamp(start);
-    this.end = new TimeStamp(end);
+    this.start = start as number;
+    this.end = end as number;
   }
 }
 
@@ -154,8 +164,11 @@ export class DataType extends String {
   static readonly String = new DataType('string');
 }
 
-type UnparsedTimeStamp = TimeStamp | number | Number;
-type UnparsedTimeSpan = TimeSpan | number | Number;
-type UnparsedRate = Rate | number | Number;
-type UnparsedDensity = Density | number | Number;
-type UnparsedDataType = DataType | string | String;
+type UnparsedTimeStamp = TimeStamp | number | number;
+type UnparsedTimeSpan = TimeSpan | number | number;
+type UnparsedRate = Rate | number | number;
+type UnparsedDensity = Density | number | number;
+type UnparsedDataType = DataType | string | string;
+
+registerCustomTypeEncoder({ Class: TimeStamp, write: valueOfEncoder });
+registerCustomTypeEncoder({ Class: TimeSpan, write: valueOfEncoder() });

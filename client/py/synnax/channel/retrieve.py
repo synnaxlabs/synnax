@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from freighter import HTTPClient, Payload, UnaryClient
+from freighter import HTTPClientFactory, Payload, UnaryClient
 
 from .payload import ChannelPayload
 
@@ -17,10 +17,10 @@ class _Response(Payload):
 
 class ChannelRetriever:
     _ENDPOINT = "/channel/retrieve"
-    client: UnaryClient[_Request, _Response]
+    client: UnaryClient
 
-    def __init__(self, client: HTTPClient):
-        self.client = client.client_get(_Request, _Response)
+    def __init__(self, client: HTTPClientFactory):
+        self.client = client.get_client()
 
     def retrieve(self, keys: list[str]) -> list[ChannelPayload]:
         return self._retrieve(_Request(keys=keys))
@@ -32,7 +32,7 @@ class ChannelRetriever:
         return self._retrieve(_Request(node_id=node_id))
 
     def _retrieve(self, req: _Request) -> list[ChannelPayload]:
-        res, exc = self.client.send(self._ENDPOINT, req)
+        res, exc = self.client.send(self._ENDPOINT, req, _Response)
         if exc is not None:
             raise exc
         assert res is not None

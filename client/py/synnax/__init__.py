@@ -11,7 +11,7 @@ from .exceptions import (
     RouteError,
     UnexpectedError,
     ValidationError,
-    ValidationField,
+    Field,
 )
 from .telem import (
     BIT8,

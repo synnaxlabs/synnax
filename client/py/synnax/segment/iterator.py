@@ -22,10 +22,10 @@ class _Command(int, Enum):
 
     VALID = 8
     ERROR = 9
-    SEEK_FIRST = 11
-    SEEK_LAST = 12
-    SEEK_LT = 13
-    SEEK_GE = 14
+    SEEK_FIRST = 10
+    SEEK_LAST = 11
+    SEEK_LT = 12
+    SEEK_GE = 13
 
 
 class _ResponseVariant(int, Enum):
@@ -61,20 +61,20 @@ class CoreIterator:
 
     _ENDPOINT = "/segment/iterate"
 
-    transport: StreamClient
+    client: StreamClient
     stream: Stream[_Request, _Response]
     values: list[SegmentPayload]
     aggregate: bool
 
-    def __init__(self, transport: StreamClient, aggregate: bool = False) -> None:
-        self.transport = transport
+    def __init__(self, client: StreamClient, aggregate: bool = False) -> None:
+        self.client = client
         self.aggregate = aggregate
 
     def open(self, keys: list[str], tr: TimeRange):
         """Executes an open command on the iterator, configuring it to iterate over the
         telemetry in the channels with the given keys within the provided time range.
         """
-        self.stream = self.transport.stream(self._ENDPOINT, _Request, _Response)
+        self.stream = self.client.stream(self._ENDPOINT, _Request, _Response)
         self._exec(command=_Command.OPEN, range=tr, keys=keys)
         self.values = []
 

@@ -5,7 +5,7 @@ from synnax.exceptions import (
     ContiguityError,
     UnexpectedError,
     ValidationError,
-    ValidationField,
+    Field,
 )
 
 from .sugared import NumpySegment
@@ -21,7 +21,7 @@ class ScalarTypeValidator:
         npt = seg.channel.data_type.numpy_type
         if npt is None:
             raise ValidationError(
-                ValidationField(
+                Field(
                     "data",
                     f"Data type {seg.channel.data_type} is not supported by this writer.",
                 )
@@ -29,14 +29,14 @@ class ScalarTypeValidator:
 
         if seg.data.dtype != npt:
             raise ValidationError(
-                ValidationField(
+                Field(
                     "data", f"Expected data type {npt}, got {seg.data.dtype}"
                 )
             )
 
         if seg.data.ndim != 1:
             raise ValidationError(
-                ValidationField(
+                Field(
                     "data", f"Expected 1D array, got {seg.data.ndim}D array"
                 )
             )

@@ -80,9 +80,9 @@ class SegmentClient:
         :returns: A numpy array containing the retrieved telemetry.
         :raises ContiguityError: If the telemetry between start and end is non-contiguous.
         """
-        return self.read_seg(from_, start, end).data
+        return self.read_segment(from_, start, end).data
 
-    def read_seg(
+    def read_segment(
         self, from_: str, start: UnparsedTimeStamp, end: UnparsedTimeStamp
     ) -> NumpySegment:
         """Reads a Segment from the given channel between the two timestamps.
