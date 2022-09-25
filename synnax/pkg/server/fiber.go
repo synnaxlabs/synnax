@@ -2,9 +2,10 @@ package server
 
 import (
 	"context"
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	fiberapi "github.com/synnaxlabs/synnax/pkg/api/fiber"
 	"github.com/synnaxlabs/x/signal"
-	"github.com/gofiber/fiber/v2"
 	"net"
 )
 
@@ -19,6 +20,7 @@ func newFiberServer(cfg Config) *fiberServer {
 		DisableStartupMessage: true,
 		ErrorHandler:          fiberapi.ErrorHandler,
 	})
+	f.app.Use(cors.New(cors.Config{AllowOrigins: "*"}))
 	f.api = cfg.FiberAPI
 	f.api.Route(f.app)
 	return f

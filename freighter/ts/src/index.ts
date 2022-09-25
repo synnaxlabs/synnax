@@ -1,7 +1,8 @@
 export { WebSocketClient, WebSocketClientStream } from './lib/ws';
 export {
-  MsgPackEncoderDecoder,
+  MsgpackEncoderDecoder,
   JSONEncoderDecoder,
+  registerCustomTypeEncoder,
   ENCODERS,
 } from './lib/encoder';
 export { StreamClient, Stream } from './lib/stream';

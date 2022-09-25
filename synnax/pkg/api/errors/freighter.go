@@ -1,12 +1,12 @@
 package errors
 
 import (
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter/ferrors"
 	"github.com/synnaxlabs/x/binary"
-	"github.com/samber/lo"
 )
 
-const freighterErrorType ferrors.Type = "delta.api.errors"
+const freighterErrorType ferrors.Type = "synnax.api.errors"
 
 // FreighterType implements the ferrors.Error interface.
 func (t Typed) FreighterType() ferrors.Type { return freighterErrorType }

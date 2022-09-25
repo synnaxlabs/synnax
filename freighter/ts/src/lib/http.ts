@@ -28,6 +28,10 @@ class Core {
   endpoint: URL;
   encoder: EncoderDecoder;
 
+  private static ERROR_ENCODING_HEADER_KEY = 'Error-Encoding';
+  private static ERROR_ENCODING_HEADER_VALUE = 'freighter';
+  private static CONTENT_TYPE_HEADER_KEY = 'Content-Type';
+
   constructor(endpoint: URL, encoder: EncoderDecoder) {
     this.endpoint = endpoint.child({ protocol: 'http' });
     this.encoder = encoder;
@@ -35,7 +39,8 @@ class Core {
 
   get headers() {
     return {
-      'Content-Type': this.encoder.contentType,
+      [Core.CONTENT_TYPE_HEADER_KEY]: this.encoder.contentType,
+      [Core.ERROR_ENCODING_HEADER_KEY]: Core.ERROR_ENCODING_HEADER_VALUE,
     };
   }
 
@@ -43,6 +48,8 @@ class Core {
     return {
       headers: this.headers,
       responseType: 'arraybuffer',
+      withCredentials: false,
+      validateStatus: () => true,
     };
   }
 
@@ -52,7 +59,7 @@ class Core {
   ): Promise<[RS | undefined, Error | undefined]> {
     try {
       const response = await axios.request(request);
-      if (response.status !== 200) {
+      if (response.status < 200 || response.status >= 300) {
         const err = ErrorPayloadSchema.parse(
           this.encoder.decode(response.data)
         );

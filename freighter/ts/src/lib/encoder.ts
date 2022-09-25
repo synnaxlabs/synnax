@@ -1,22 +1,36 @@
-import { pack, unpack } from 'msgpackr';
+import { addExtension, pack, unpack } from 'msgpackr';
 
 import { camelKeys, snakeKeys } from './caseconv';
 
+interface CustomTypeEncoder {
+  // eslint-disable-next-line @typescript-eslint/ban-types
+  Class: Function;
+  write(instance: unknown): unknown;
+}
+
 export interface EncoderDecoder {
   contentType: string;
-  encode(payload: unknown): Uint8Array;
+  encode(payload: unknown): ArrayBuffer;
   decode(data: Uint8Array | ArrayBuffer): unknown;
 }
 
-export class MsgPackEncoderDecoder implements EncoderDecoder {
+interface StaticEncoderDecoder {
+  registerCustomType(encoder: CustomTypeEncoder): void;
+}
+
+export class MsgpackEncoderDecoder implements EncoderDecoder {
   contentType = 'application/msgpack';
 
   encode(payload: unknown): Uint8Array {
-    return pack(payload);
+    return pack(snakeKeys(payload));
   }
 
   decode(data: Uint8Array): unknown {
     return camelKeys(unpack(new Uint8Array(data)));
+  }
+
+  static registerCustomType(encoder: CustomTypeEncoder): void {
+    addExtension({ type: 0, ...encoder });
   }
 }
 
@@ -30,9 +44,24 @@ export class JSONEncoderDecoder implements EncoderDecoder {
   decode(data: Uint8Array): unknown {
     return camelKeys(JSON.parse(new TextDecoder().decode(data)));
   }
+
+  static registerCustomType(): void {
+    return;
+  }
 }
 
 export const ENCODERS: EncoderDecoder[] = [
-  new MsgPackEncoderDecoder(),
+  new MsgpackEncoderDecoder(),
   new JSONEncoderDecoder(),
 ];
+
+export const ENCODER_CLASSES: StaticEncoderDecoder[] = [
+  MsgpackEncoderDecoder,
+  JSONEncoderDecoder,
+];
+
+export const registerCustomTypeEncoder = (encoder: CustomTypeEncoder): void => {
+  ENCODER_CLASSES.forEach((encoderClass) => {
+    encoderClass.registerCustomType(encoder);
+  });
+};

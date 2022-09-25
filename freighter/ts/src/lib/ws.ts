@@ -72,6 +72,7 @@ export class WebSocketClientStream<RQ, RS> implements Stream<RQ, RS> {
       this.encoder.encode({
         type: MessageType.Data,
         payload: this.reqSchema.parse(req),
+        error: undefined,
       })
     );
 
@@ -151,11 +152,11 @@ export class WebSocketClientStream<RQ, RS> implements Stream<RQ, RS> {
 }
 
 export class WebSocketClient implements StreamClient {
-  endpoint: URL;
+  url: URL;
   encoder: EncoderDecoder;
 
   constructor(baseURL: URL, encoder: EncoderDecoder) {
-    this.endpoint = baseURL.child({ protocol: 'ws' });
+    this.url = baseURL.child({ protocol: 'ws' });
     this.encoder = encoder;
   }
 
@@ -165,7 +166,7 @@ export class WebSocketClient implements StreamClient {
     resSchema: ZodSchema<RS>
   ): Promise<Stream<RQ, RS>> {
     const ResolvedWebSocket = resolveWebsocketProvider();
-    const url = this.endpoint.path(
+    const url = this.url.path(
       `${target}?contentType=${this.encoder.contentType}`
     );
     const ws = new ResolvedWebSocket(url);
