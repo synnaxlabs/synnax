@@ -11,14 +11,14 @@ const APIErrorPayloadSchema = z.object({
 type APIErrorPayload = z.infer<typeof APIErrorPayloadSchema>;
 
 enum APIErrorType {
-  GENERAL = 'general',
-  NIL = 'nil',
-  PARSE = 'parse',
-  AUTH = 'auth',
-  UNEXPECTED = 'unexpected',
-  VALIDATION = 'validation',
-  QUERY = 'query',
-  ROUTE = 'route',
+  General = 'general',
+  Nil = 'nil',
+  Parse = 'parse',
+  Auth = 'auth',
+  Unexpected = 'unexpected',
+  Validation = 'validation',
+  Query = 'query',
+  Route = 'route',
 }
 
 export type Field = {
@@ -97,19 +97,19 @@ export class ContiguityError extends BaseError {}
 
 const parsePayload = (payload: APIErrorPayload): Error | undefined => {
   switch (payload.type) {
-    case APIErrorType.GENERAL:
+    case APIErrorType.General:
       return new GeneralError(payload.error.message as string);
-    case APIErrorType.PARSE:
+    case APIErrorType.Parse:
       return new ParseError(payload.error.message as string);
-    case APIErrorType.AUTH:
+    case APIErrorType.Auth:
       return new AuthError(payload.error.message as string);
-    case APIErrorType.UNEXPECTED:
+    case APIErrorType.Unexpected:
       return new UnexpectedError(payload.error as unknown as string);
-    case APIErrorType.VALIDATION:
+    case APIErrorType.Validation:
       return new ValidationError(payload.error.fields as string | Field[]);
-    case APIErrorType.QUERY:
+    case APIErrorType.Query:
       return new QueryError(payload.error.message as string);
-    case APIErrorType.ROUTE:
+    case APIErrorType.Route:
       return new RouteError(
         payload.error.path as string,
         payload.error.message as string

@@ -44,8 +44,6 @@ export default class Sugared {
         Other Segment Channel Key: ${other.channel.key}
       `);
     }
-    console.log(this.end.valueOf() - other.start.valueOf());
-    console.log(this.end.equals(other.start));
     if (!this.end.equals(other.start)) {
       throw new Error(`
       Cannot extend segment because segments are not contiguous.

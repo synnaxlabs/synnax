@@ -19,14 +19,10 @@ export default class Synnax {
 
   constructor({ host, port }: ClientProps) {
     this.transport = new Transport(new URL({ host, port }));
-    const channelRetriever = new ChannelRetriever(this.transport);
-    const channelCreator = new ChannelCreator(this.transport);
-    const channelRegistry = new Registry(channelRetriever);
-    this.data = new SegmentClient(this.transport, channelRegistry);
-    this.channel = new ChannelClient(
-      this.data,
-      channelRetriever,
-      channelCreator
-    );
+    const chRetriever = new ChannelRetriever(this.transport);
+    const chCreator = new ChannelCreator(this.transport);
+    const chRegistry = new Registry(chRetriever);
+    this.data = new SegmentClient(this.transport, chRegistry);
+    this.channel = new ChannelClient(this.data, chRetriever, chCreator);
   }
 }

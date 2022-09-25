@@ -13,26 +13,26 @@ import { SegmentPayload, SegmentPayloadSchema } from './payload';
 import Sugared from './sugared';
 
 enum Command {
-  OPEN = 0,
-  NEXT = 1,
-  PREV = 2,
-  FIRST = 3,
-  LAST = 4,
-  NEXT_SPAN = 5,
-  PREV_SPAN = 6,
-  NEXT_RANGE = 7,
-  VALID = 8,
-  ERROR = 9,
-  SEEK_FIRST = 10,
-  SEEK_LAST = 11,
-  SEEK_LT = 12,
-  SEEK_GE = 13,
+  Open = 0,
+  Next = 1,
+  Prev = 2,
+  First = 3,
+  Last = 4,
+  NextSpan = 5,
+  PrevSpan = 6,
+  NextRange = 7,
+  Valid = 8,
+  Error = 9,
+  SeekFirst = 10,
+  SeekLast = 11,
+  SeekLT = 12,
+  SeekGE = 13,
 }
 
 enum ResponseVariant {
-  NONE = 0,
-  ACK = 1,
-  DATA = 2,
+  None = 0,
+  Ack = 1,
+  Data = 2,
 }
 
 const RequestSchema = z.object({
@@ -75,56 +75,56 @@ export class CoreIterator {
       // @ts-ignore
       ResponseSchema
     );
-    await this.execute({ command: Command.OPEN, keys, range: tr });
+    await this.execute({ command: Command.Open, keys, range: tr });
     this.values = [];
   }
 
   async next(): Promise<boolean> {
-    return this.execute({ command: Command.NEXT });
+    return this.execute({ command: Command.Next });
   }
 
   async prev(): Promise<boolean> {
-    return this.execute({ command: Command.PREV });
+    return this.execute({ command: Command.Prev });
   }
 
   async first(): Promise<boolean> {
-    return this.execute({ command: Command.FIRST });
+    return this.execute({ command: Command.First });
   }
 
   async last(): Promise<boolean> {
-    return this.execute({ command: Command.LAST });
+    return this.execute({ command: Command.Last });
   }
 
   async nextSpan(span: number): Promise<boolean> {
-    return this.execute({ command: Command.NEXT_SPAN, span });
+    return this.execute({ command: Command.NextSpan, span });
   }
 
   async prevSpan(span: number): Promise<boolean> {
-    return this.execute({ command: Command.PREV_SPAN, span });
+    return this.execute({ command: Command.PrevSpan, span });
   }
 
   async nextRange(range: TimeRange): Promise<boolean> {
-    return this.execute({ command: Command.NEXT_RANGE, range });
+    return this.execute({ command: Command.NextRange, range });
   }
 
   async seekFirst(): Promise<boolean> {
-    return this.execute({ command: Command.SEEK_FIRST });
+    return this.execute({ command: Command.SeekFirst });
   }
 
   async seekLast(): Promise<boolean> {
-    return this.execute({ command: Command.SEEK_LAST });
+    return this.execute({ command: Command.SeekLast });
   }
 
   async seekLT(stamp: number): Promise<boolean> {
-    return this.execute({ command: Command.SEEK_LT, stamp });
+    return this.execute({ command: Command.SeekLT, stamp });
   }
 
   async seekGE(stamp: number): Promise<boolean> {
-    return this.execute({ command: Command.SEEK_GE, stamp });
+    return this.execute({ command: Command.SeekGE, stamp });
   }
 
   async valid(): Promise<boolean> {
-    return this.execute({ command: Command.VALID });
+    return this.execute({ command: Command.Valid });
   }
 
   async close() {
@@ -143,7 +143,7 @@ export class CoreIterator {
     for (;;) {
       const [res, err] = await this.stream.receive();
       if (err || !res) throw err;
-      if (res.variant == ResponseVariant.ACK) return res.ack;
+      if (res.variant == ResponseVariant.Ack) return res.ack;
       if (res.segments) this.values.push(...res.segments);
     }
   }
@@ -167,7 +167,6 @@ export class SugaredIterator extends CoreIterator {
         channels.find((c) => c.key == v.channelKey) as ChannelPayload,
         v
       );
-      console.log(sugared.start, sugared.end);
       if (v.channelKey in result) {
         result[v.channelKey].extend(sugared);
       } else {
