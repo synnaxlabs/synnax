@@ -1,15 +1,15 @@
-import ChannelRegistry from '../channel/ChannelRegistry';
+import Registry from '../channel/registry';
 import { TimeRange, TypedArray, UnparsedTimeStamp } from '../telem';
 import Transport from '../transport';
 
-import { CoreIterator, SugaredIterator } from './SegmentIterator';
-import SugaredSegment from './SugaredSegment';
+import { CoreIterator, SugaredIterator } from './iterator';
+import Sugared from './sugared';
 
 export default class SegmentClient {
   private transport: Transport;
-  private channels: ChannelRegistry;
+  private channels: Registry;
 
-  constructor(transport: Transport, channels: ChannelRegistry) {
+  constructor(transport: Transport, channels: Registry) {
     this.transport = transport;
     this.channels = channels;
   }
@@ -32,13 +32,13 @@ export default class SegmentClient {
     from: string,
     start: UnparsedTimeStamp,
     end: UnparsedTimeStamp
-  ): Promise<SugaredSegment> {
+  ): Promise<Sugared> {
     const iter = new SugaredIterator(
       this.transport.streamClient,
       this.channels,
       true
     );
-    let seg: SugaredSegment;
+    let seg: Sugared;
     try {
       await iter.open(new TimeRange(start, end), [from]);
       await iter.first();
@@ -48,6 +48,6 @@ export default class SegmentClient {
     } finally {
       await iter.close();
     }
-    return seg as SugaredSegment;
+    return seg as Sugared;
   }
 }

@@ -1,10 +1,10 @@
 import { UnaryClient } from '@synnaxlabs/freighter';
 import { z } from 'zod';
 
-import { DataType, Rate } from '../telem';
+import { DataType, Rate, UnparsedDataType, UnparsedRate } from '../telem';
 import Transport from '../transport';
 
-import { ChannelPayload, ChannelPayloadSchema } from './ChannelPayload';
+import { ChannelPayload, ChannelPayloadSchema } from './payload';
 
 const RequestSchema = z.object({
   channel: ChannelPayloadSchema,
@@ -19,40 +19,41 @@ const ResponseSchema = z.object({
 
 type Response = z.infer<typeof ResponseSchema>;
 
-export default class ChannelCreator {
+export type CreateChannelProps = {
+  rate: UnparsedRate;
+  dataType: UnparsedDataType;
+  name?: string;
+  nodeId?: number;
+};
+
+export default class Creator {
   private static ENDPOINT = '/channel/create';
   private client: UnaryClient;
 
   constructor(transport: Transport) {
-    this.client = transport.getClient();
+    this.client = transport.postClient();
   }
 
-  async create({
-    name = '',
-    nodeID = 0,
-    rate = new Rate(0),
-    dataType = DataType.Unknown,
-  }: Omit<ChannelPayload, 'density' | 'key'>): Promise<ChannelPayload> {
-    return (
-      await this.execute({
-        channel: { name, nodeID, rate, dataType },
-        count: 1,
-      })
-    ).channels[0];
+  async create(props: CreateChannelProps): Promise<ChannelPayload> {
+    const [channel] = await this.createMany({ ...props, count: 1 });
+    return channel;
   }
 
   async createMany({
+    rate,
+    dataType,
     name = '',
-    nodeID = 0,
-    rate = new Rate(0),
-    dataType = DataType.Unknown,
+    nodeId = 0,
     count = 1,
-  }: Omit<ChannelPayload, 'density' | 'key'> & { count: number }): Promise<
-    ChannelPayload[]
-  > {
+  }: CreateChannelProps & { count: number }): Promise<ChannelPayload[]> {
     return (
       await this.execute({
-        channel: { name, nodeID, rate, dataType },
+        channel: {
+          name,
+          nodeId,
+          rate: new Rate(rate),
+          dataType: new DataType(dataType),
+        },
         count,
       })
     ).channels;
@@ -60,15 +61,13 @@ export default class ChannelCreator {
 
   private async execute(request: Request): Promise<Response> {
     const [res, err] = await this.client.send(
-      ChannelCreator.ENDPOINT,
+      Creator.ENDPOINT,
       request,
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
       ResponseSchema
     );
-    if (err) {
-      throw err;
-    }
+    if (err) throw err;
     return res as Response;
   }
 }

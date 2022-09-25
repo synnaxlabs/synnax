@@ -5,12 +5,12 @@ import {
 } from '@synnaxlabs/freighter';
 import { z } from 'zod';
 
-import { ChannelPayload } from '../channel/ChannelPayload';
-import ChannelRegistry from '../channel/ChannelRegistry';
+import { ChannelPayload } from '../channel/payload';
+import Registry from '../channel/registry';
 import { TimeRange } from '../telem';
 
-import { SegmentPayload, SegmentPayloadSchema } from './SegmentPayload';
-import SugaredSegment from './SugaredSegment';
+import { SegmentPayload, SegmentPayloadSchema } from './payload';
+import Sugared from './sugared';
 
 enum Command {
   OPEN = 0,
@@ -21,7 +21,6 @@ enum Command {
   NEXT_SPAN = 5,
   PREV_SPAN = 6,
   NEXT_RANGE = 7,
-
   VALID = 8,
   ERROR = 9,
   SEEK_FIRST = 10,
@@ -151,25 +150,20 @@ export class CoreIterator {
 }
 
 export class SugaredIterator extends CoreIterator {
-  channels: ChannelRegistry;
+  channels: Registry;
 
-  constructor(
-    client: StreamClient,
-    channels: ChannelRegistry,
-    aggregate = false
-  ) {
+  constructor(client: StreamClient, channels: Registry, aggregate = false) {
     super(client, aggregate);
     this.channels = channels;
   }
 
-  async value(): Promise<Record<string, SugaredSegment>> {
-    console.log(this.values);
-    const result: Record<string, SugaredSegment> = {};
+  async value(): Promise<Record<string, Sugared>> {
+    const result: Record<string, Sugared> = {};
     this.values.sort((a, b) => a.start.valueOf() - b.start.valueOf());
     const keys = this.values.map((v) => v.channelKey);
     const channels = await this.channels.getN(...keys);
     this.values.forEach((v) => {
-      const sugared = new SugaredSegment(
+      const sugared = new Sugared(
         channels.find((c) => c.key == v.channelKey) as ChannelPayload,
         v
       );

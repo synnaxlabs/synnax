@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import Transport from '../transport';
 
-import { ChannelPayload, ChannelPayloadSchema } from './ChannelPayload';
+import { ChannelPayload, ChannelPayloadSchema } from './payload';
 
 const RequestSchema = z.object({
   keys: z.string().array().optional(),
@@ -17,7 +17,7 @@ const ResponseSchema = z.object({
   channels: ChannelPayloadSchema.array(),
 });
 
-export default class ChannelRetriever {
+export default class Retriever {
   private static ENDPOINT = '/channel/retrieve';
   private client: UnaryClient;
 
@@ -27,7 +27,7 @@ export default class ChannelRetriever {
 
   private async execute(request: Request): Promise<ChannelPayload[]> {
     const [res, err] = await this.client.send(
-      ChannelRetriever.ENDPOINT,
+      Retriever.ENDPOINT,
       request,
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
@@ -47,7 +47,7 @@ export default class ChannelRetriever {
     return await this.execute({ names });
   }
 
-  async retrieveByNodeId(nodeId: number): Promise<ChannelPayload[]> {
-    return await this.execute({ nodeId });
+  async retrieveByNodeID(nodeId: number): Promise<ChannelPayload[]> {
+    return await this.execute({ nodeId: nodeId });
   }
 }

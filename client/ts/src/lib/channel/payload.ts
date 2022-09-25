@@ -7,7 +7,7 @@ export const ChannelPayloadSchema = z.object({
   dataType: z.string().transform((s) => new DataType(s)),
   key: z.string().default('').optional(),
   name: z.string().default('').optional(),
-  nodeID: z.number().default(0).optional(),
+  nodeId: z.number().default(0).optional(),
   density: z
     .number()
     .default(0)

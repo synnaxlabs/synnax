@@ -1,11 +1,11 @@
-import { ChannelPayload } from './ChannelPayload';
-import ChannelRetriever from './ChannelRetriever';
+import { ChannelPayload } from './payload';
+import Retriever from './retriever';
 
-export default class ChannelRegistry {
-  private retriever: ChannelRetriever;
+export default class Registry {
+  private retriever: Retriever;
   private channels: Map<string, ChannelPayload>;
 
-  constructor(retriever: ChannelRetriever) {
+  constructor(retriever: Retriever) {
     this.retriever = retriever;
     this.channels = new Map();
   }
