@@ -456,6 +456,11 @@ class Size(int):
         return super(Size, self).__str__() + "B"
 
 
+BYTE = Size(1)
+KILOBYTE = Size(1024) * BYTE
+MEGABYTE = Size(1024) * KILOBYTE
+GIGABYTE = Size(1024) * MEGABYTE
+
 TIME_RANGE_MAX = TimeRange(TIME_STAMP_MIN, TIME_STAMP_MAX)
 DENSITY_UNKNOWN = Density(0)
 BIT64 = Density(8)
@@ -467,6 +472,7 @@ BIT8 = Density(1)
 class DataType(str):
     """DataType represents a data type as a string
     """
+
     def __new__(cls, value: UnparsedDataType):
         if isinstance(value, DataType):
             return value

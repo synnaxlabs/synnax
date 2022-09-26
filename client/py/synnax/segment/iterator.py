@@ -71,8 +71,11 @@ class CoreIterator:
         self.aggregate = aggregate
 
     def open(self, keys: list[str], tr: TimeRange):
-        """Executes an open command on the iterator, configuring it to iterate over the
-        telemetry in the channels with the given keys within the provided time range.
+        """Opens the iterator, configuring it to iterate over the telemetry in the
+        channels with the given keys within the provided time range.
+
+        :param keys: The keys of the channels to iterate over.
+        :param tr: The time range to iterate over.
         """
         self.stream = self.client.stream(self._ENDPOINT, _Request, _Response)
         self._exec(command=_Command.OPEN, range=tr, keys=keys)

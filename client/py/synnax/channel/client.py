@@ -59,9 +59,11 @@ class Channel(ChannelPayload):
 
 
 class ChannelClient:
-    segment_client: SegmentClient
-    retriever: ChannelRetriever
-    creator: ChannelCreator
+    """The core client class for executing channel operations against a Synnax cluster.
+    """
+    _segment_client: SegmentClient
+    _retriever: ChannelRetriever
+    _creator: ChannelCreator
 
     def __init__(
         self,
@@ -69,9 +71,9 @@ class ChannelClient:
         retriever: ChannelRetriever,
         creator: ChannelCreator,
     ):
-        self.segment_client = segment_client
-        self.retriever = retriever
-        self.creator = creator
+        self._segment_client = segment_client
+        self._retriever = retriever
+        self._creator = creator
 
     def create_n(
         self,
@@ -93,7 +95,7 @@ class ChannelClient:
         :returns: A list of created channels.
         """
         return self._sugar(
-            *self.creator.create_n(
+            *self._creator.create_n(
                 ChannelPayload(
                     name=name,
                     node_id=node_id,
@@ -106,9 +108,9 @@ class ChannelClient:
 
     def create(
         self,
+        rate: UnparsedRate,
+        data_type: UnparsedDataType,
         name: str = "",
-        rate: UnparsedRate = Rate(0),
-        data_type: UnparsedDataType = DATA_TYPE_UNKNOWN,
         node_id: int = 0,
     ) -> Channel:
         """Creates a channel using the given template.
@@ -121,7 +123,7 @@ class ChannelClient:
         what this is, don't worry about it.
         :returns: The created channel.
         """
-        return self._sugar(self.creator.create(name, node_id, rate, data_type))[0]
+        return self._sugar(self._creator.create(name, node_id, rate, data_type))[0]
 
     def retrieve(self, keys: list[str]) -> list[Channel]:
         """Retrieves channels with the given keys.
@@ -130,7 +132,7 @@ class ChannelClient:
         :raises QueryError: If any of the channels can't be found.
         :returns: A list of retrieved Channels.
         """
-        return self._sugar(*self.retriever.retrieve(keys))
+        return self._sugar(*self._retriever.retrieve(keys))
 
     def retrieve_by_name(self, names: list[str]) -> list[Channel]:
         """Retrieves channels with the given names.
@@ -138,7 +140,7 @@ class ChannelClient:
         :param names: The list of names to retrieve channels for.
         :returns: A list of retrieved channels matching the given name.
         """
-        return self._sugar(*self.retriever.retrieve_by_name(names))
+        return self._sugar(*self._retriever.retrieve_by_name(names))
 
     def retrieve_by_node_id(self, node_id: int) -> list[Channel]:
         """Retrieves channels whose lease node is the given node_id.
@@ -146,7 +148,7 @@ class ChannelClient:
         :param node_id: The node id to retrieve the channels for.
         :returns: A list of retrieved channels matching the given node id.
         """
-        return self._sugar(*self.retriever.retrieve_by_node_id(node_id))
+        return self._sugar(*self._retriever.retrieve_by_node_id(node_id))
 
     def _sugar(self, *channels: ChannelPayload) -> list[Channel]:
-        return [Channel(c, self.segment_client) for c in channels]
+        return [Channel(c, self._segment_client) for c in channels]

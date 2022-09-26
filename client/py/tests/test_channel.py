@@ -45,13 +45,6 @@ class TestClient:
         for channel in res_channels:
             assert channel.node_id == 1
 
-    def test_create_missing_field(self, client: synnax.Synnax):
-        with pytest.raises(synnax.ValidationError):
-            client.channel.create(
-                name="my_channel",
-                node_id=2,
-            )
-
     def test_read_write_data(self, two_channels: list[synnax.Channel]):
         two_channels[0].write(0, np.array([1.0, 2.0, 3.0]))
         data = two_channels[0].read(0, 2 * synnax.SECOND)

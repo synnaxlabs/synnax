@@ -9,7 +9,7 @@ from freighter import (
 from numpy import ndarray
 
 from synnax.channel.registry import ChannelRegistry
-from synnax.exceptions import UnexpectedError, ValidationError, Field
+from synnax.exceptions import UnexpectedError, ValidationError, Field, GeneralError
 from synnax.telem import Size, TimeStamp, UnparsedTimeStamp
 
 from .encoder import NumpyEncoderDecoder
@@ -39,7 +39,7 @@ class CoreWriter:
     """
     _ENDPOINT = "/segment/write"
     client: StreamClient
-    stream: Stream[_Request, _Response]
+    stream: Stream[_Request, _Response] | None
     keys: list[str]
 
     def __init__(self, client: StreamClient) -> None:
@@ -55,8 +55,15 @@ class CoreWriter:
         self.keys = keys
         self.stream = self.client.stream(self._ENDPOINT, _Request, _Response)
         self.stream.send(_Request(open_keys=keys, segments=[]))
-        res, err = self.stream.receive()
-        self._ack_open(res, err)
+        res, exc = self.stream.receive()
+        if exc is not None:
+            raise exc
+        assert res is not None
+        if not res.ack:
+            raise UnexpectedError(
+                "Writer failed to positively acknowledge open request. This is a bug"
+                + "please report it."
+            )
 
     def write(self, segments: list[SegmentPayload]) -> bool:
         """Validates and writes the given segments to the database. The provided segments
@@ -70,6 +77,7 @@ class CoreWriter:
         :returns: False if the writer has accumulated an error. In this case,
         the caller should stop executing requests and close the writer.
         """
+        self._assert_open()
         if self.stream.received():
             return False
 
@@ -86,22 +94,13 @@ class CoreWriter:
         the exclusive lock on the channels, preventing any other callers from writing to
         them. It also might leak resources and threads.
         """
+        self._assert_open()
         self.stream.close_send()
         res, err = self.stream.receive()
         if err is None:
             err = decode_exception(res.error)
         if not isinstance(err, EOF):
             raise err
-
-    def _ack_open(self, res: _Response | None, exc: Exception | None):
-        if exc is not None:
-            raise exc
-        assert res is not None
-        if not res.ack:
-            raise UnexpectedError(
-                "Writer failed to positively acknowledge open request. This is a bug"
-                + "please report it."
-            )
 
     def _check_keys(self, segments: list[SegmentPayload]):
         for segment in segments:
@@ -113,6 +112,11 @@ class CoreWriter:
                     )
                 )
 
+    def _assert_open(self):
+        if self.stream is None:
+            raise GeneralError(
+                "Writer is not open. Please open before calling write() or close()."
+            )
 
 class NumpyWriter:
     """Used to write telemetry to a set of channels in time-order. It should not be
@@ -127,6 +131,7 @@ class NumpyWriter:
     validators: list[Validator]
     encoder: NumpyEncoderDecoder
     splitter: Splitter
+    channels: ChannelRegistry
 
     def __init__(
             self,
@@ -154,8 +159,11 @@ class NumpyWriter:
 
         :param to: The key of the channel to write to. This key must be present
         in the list of keys the writer was opened with.
-        :param start: The start timestamp of the first sample in data.
-        :param data: The telemetry to write.
+        :param start: The start timestamp of the first sample in data. This must be
+        equal to the end of the previous segment written to the channel (unless
+        this is the first segment written to the channel).
+        :param data: The telemetry to write. This must be a 1D numpy array with
+        the same data type as the channel.
         :returns: False if the writer has accumulated an error. In this case,
         the caller should stop executing requests and close the writer.
         """

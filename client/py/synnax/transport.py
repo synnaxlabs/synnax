@@ -11,15 +11,15 @@ from freighter import (
 
 
 class Transport:
-    endpoint: URL
+    url: URL
     stream: StreamClient
     stream_async: AsyncStreamClient
     http: HTTPClientFactory
 
     def __init__(self, url: URL) -> None:
-        self.endpoint = url.child("/api/v1/")
+        self.url = url.child("/api/v1/")
         self.stream_async = WebsocketClient(
-            endpoint=self.endpoint, encoder=MsgpackEncoder(), max_message_size=int(5e6)
+            base_url=self.url, encoder=MsgpackEncoder(), max_message_size=int(5e6)
         )
         self.stream = SyncStreamClient(self.stream_async)
-        self.http = HTTPClientFactory(endpoint=self.endpoint, encoder_decoder=JSONEncoder())
+        self.http = HTTPClientFactory(url=self.url, encoder_decoder=JSONEncoder())

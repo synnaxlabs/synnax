@@ -10,12 +10,11 @@ from .transport import Transport
 
 
 class Synnax:
-    """Client to perform operations against a Synnax database.
+    """Client to perform operations against a Synnax cluster.
 
     :param host: Hostname of a Synnax server.
     :param port: Port of a Synnax server.
     """
-
     _transport: Transport
     channel: ChannelClient
     data: SegmentClient
