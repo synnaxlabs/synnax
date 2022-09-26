@@ -5,3 +5,6 @@
 # |||||| DARWIN |||||||
 
 .DS_Store
+
+# ||||||| VSCODE ||||||
+.vscode

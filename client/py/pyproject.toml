@@ -19,6 +19,7 @@ websockets = "^10.3"
 mypy = "^0.971"
 pandas = "^1.4.3"
 synnax-freighter = {path= "../../freighter/py", develop = true}
+numpy = "^1.23.3"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.1.2"
@@ -34,3 +35,6 @@ build-backend = "poetry.core.masonry.api"
 [tool.mypy]
 plugins = ["numpy.typing.mypy_plugin"]
 ignore_missing_imports = true
+
+[tool.poetry.scripts]
+CSVParser = "synnax.cli.client:run"
