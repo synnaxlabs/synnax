@@ -598,9 +598,17 @@
   resolved "https://registry.yarnpkg.com/@sindresorhus/is/-/is-0.14.0.tgz#9fb3a3cf3132328151f353de4632e01e52102bea"
   integrity sha512-9NET910DNaIPngYnLLPeg+Ogzqsi9uM4mSboU5y6p8S5DzMTVEsJZrawi+BoDNUVBa2DhJqQYUFvMDfgU062LQ==
 
-"@synnaxlabs/freighter@link:../../freighter/ts":
-  version "0.0.0"
-  uid ""
+"@synnaxlabs/freighter@^0.1.0":
+  version "0.1.0"
+  resolved "https://registry.yarnpkg.com/@synnaxlabs/freighter/-/freighter-0.1.0.tgz#0ef456a8c99998f3b94ee32bf347d62b822ebf3e"
+  integrity sha512-+7UvtHchvvCba4g5EUnOdinW8d5mrsOTmhSK7Fsv+0xj2+WCwJW0VURY+PFhm8TrO3zgnXCs+1xj8+x9jyE1uw==
+  dependencies:
+    "@bitauth/libauth" "^1.17.1"
+    axios "^0.27.2"
+    js-convert-case "^4.2.0"
+    msgpackr "^1.7.0"
+    ws "^8.8.1"
+    zod "^3.19.1"
 
 "@szmarczak/http-timer@^1.1.2":
   version "1.1.2"

@@ -1,13 +1,22 @@
 {
   "name": "@synnaxlabs/freighter",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "a modular transport abstraction",
   "main": "build/main/index.js",
   "typings": "build/main/index.d.ts",
   "module": "build/module/index.js",
-  "repository": "https://github.com/YOUR_GITHUB_USER_NAME/freighter",
+  "repository": "https://github.com/synnaxlabs/synnax",
   "license": "MIT",
-  "keywords": [],
+  "keywords": [
+    "synnax",
+    "grpc",
+    "transport",
+    "client",
+    "data acquisition",
+    "big data",
+    "telemetry",
+    "control systems"
+  ],
   "scripts": {
     "build": "run-p build:*",
     "build:main": "tsc -p tsconfig.json",
