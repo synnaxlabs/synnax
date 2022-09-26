@@ -1,12 +1,14 @@
-from .argreader import Filetype
-
-from numpy import genfromtext
 from os import path
 
-# Uses factory method to get correct filereader
+import numpy as np
+import pandas as pd
+
+from .argreader import Filetype
+
+# Uses factory method to get correct filereader - This supports modularity and adding support for different filetypes down the road
 
 
-class FileReader():
+class FileReader:
     @staticmethod
     def get(ftype, filepath):
         if ftype is Filetype.CSV:
@@ -14,18 +16,21 @@ class FileReader():
         elif ftype is Filetype.XLSX:
             return XLSXReader(filepath)
         else:
-            print('Invalid filetype! (Should never get here!)')
+            print("Invalid filetype! (Should never get here!)")
             exit(-5)
 
 
-class CSVReader():
+class CSVReader:
     def __init__(self, filepath):
         self.filepath = filepath
 
     def getData(self):
-        return genfromtxt(self.filepath, delimiter=',')
+        return np.genfromtxt(self.filepath, delimiter=",")
 
 
-class XLSXReader():
+class XLSXReader:
     def __init(self, filepath):
         self.filepath = filepath
+
+    def getData(self):
+        return np.array(pd.read_excel(self.filepath))

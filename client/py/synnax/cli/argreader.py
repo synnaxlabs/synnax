@@ -1,7 +1,7 @@
 import argparse
 import os
-from os import path
 from enum import Enum
+from os import path
 
 
 class Filetype(Enum):
