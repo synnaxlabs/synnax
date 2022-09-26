@@ -1,4 +1,5 @@
 import {
+  EOF,
   ErrorPayloadSchema,
   Stream,
   StreamClient,
@@ -229,10 +230,11 @@ export class CoreIterator {
    * it may leak resources.
    */
   async close() {
-    if (!this.stream) return;
-    this.stream?.closeSend();
+    if (!this.stream)
+      throw new Error('iterator.open() must be called before any other method');
+    this.stream.closeSend();
     const [, exc] = await this.stream.receive();
-    if (exc?.message != 'EOF') throw exc;
+    if (!(exc instanceof EOF)) throw exc;
   }
 
   private async execute(request: Request): Promise<boolean> {

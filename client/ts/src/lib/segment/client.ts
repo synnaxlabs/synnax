@@ -114,7 +114,6 @@ export default class SegmentClient {
     );
     let seg: TypedSegment;
     try {
-      await iter.open(new TimeRange(start, end), [from]);
       await iter.first();
       // eslint-disable-next-line no-empty
       while (await iter.next()) {}
