@@ -1,10 +1,17 @@
 import { ChannelPayload } from '../channel/payload';
 import { ValidationError } from '../errors';
-import { Density, TimeRange, TimeSpan, TimeStamp, TypedArray } from '../telem';
+import {
+  Density,
+  Size,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+  TypedArray,
+} from '../telem';
 
 import { SegmentPayload } from './payload';
 
-export default class Sugared {
+export default class TypedSegment {
   payload: SegmentPayload;
   channel: ChannelPayload;
   view: TypedArray;
@@ -36,7 +43,11 @@ export default class Sugared {
     return this.range.end;
   }
 
-  extend(other: Sugared) {
+  get size(): Size {
+    return Size.Bytes(this.view.byteLength);
+  }
+
+  extend(other: TypedSegment) {
     if (other.channel.key !== this.channel.key) {
       throw new ValidationError(`
         Cannot extend segment because channel keys mismatch.

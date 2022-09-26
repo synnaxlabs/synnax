@@ -38,17 +38,20 @@ class BaseError extends BaseTypedError {
 export class ValidationError extends BaseError {
   fields: Field[];
 
-  constructor(fieldsOrMessage: string | Field[]) {
+  constructor(fieldsOrMessage: string | Field[] | Field) {
     if (typeof fieldsOrMessage === 'string') {
       super(fieldsOrMessage);
       this.fields = [];
-    } else {
+    } else if (Array.isArray(fieldsOrMessage)) {
       super(
         fieldsOrMessage
           .map((field) => `${field.field}: ${field.message}`)
           .join('\n')
       );
       this.fields = fieldsOrMessage;
+    } else {
+      super(`${fieldsOrMessage.field}: ${fieldsOrMessage.message}`);
+      this.fields = [fieldsOrMessage];
     }
   }
 }
@@ -104,7 +107,7 @@ const parsePayload = (payload: APIErrorPayload): Error | undefined => {
     case APIErrorType.Auth:
       return new AuthError(payload.error.message as string);
     case APIErrorType.Unexpected:
-      return new UnexpectedError(payload.error as unknown as string);
+      return new UnexpectedError(JSON.stringify(payload.error));
     case APIErrorType.Validation:
       return new ValidationError(payload.error.fields as string | Field[]);
     case APIErrorType.Query:

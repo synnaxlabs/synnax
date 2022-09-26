@@ -110,6 +110,15 @@ export class TimeStamp extends Number {
   sub(span: UnparsedTimeSpan): TimeStamp {
     return new TimeStamp(this.valueOf() - span.valueOf());
   }
+
+  /** The maximum possible value for a timestamp */
+  static readonly Max = new TimeStamp(TimeStamp.MAX_VALUE);
+
+  /** The minimum possible value for a timestamp */
+  static readonly Min = new TimeStamp(TimeStamp.MIN_VALUE);
+
+  /** The unix epoch */
+  static readonly Zero = new TimeStamp(0);
 }
 
 /**
@@ -246,12 +255,12 @@ export class TimeSpan extends Number {
   /**
    * The maximum possible value for a TimeSpan.
    */
-  static readonly Max = TimeSpan.MAX_VALUE;
+  static readonly Max = new TimeSpan(TimeSpan.MAX_VALUE);
 
   /**
    * The minimum possible value for a TimeSpan.
    */
-  static readonly Min = TimeSpan.MIN_VALUE;
+  static readonly Min = new TimeSpan(TimeSpan.MIN_VALUE);
 
   /**
    * The zero value for a TimeSpan.
@@ -444,6 +453,8 @@ export class TimeRange {
   equals(other: TimeRange): boolean {
     return this.start.equals(other.start) && this.end.equals(other.end);
   }
+
+  static readonly Max = new TimeRange(TimeStamp.Min, TimeStamp.Max);
 }
 
 /**
@@ -468,6 +479,18 @@ export class DataType extends String {
 
   get string(): string {
     return this.valueOf();
+  }
+
+  get density(): Density {
+    const v = DATA_TYPE_DENSITIES.get(this.string);
+    if (v === undefined) {
+      throw new Error(`Unknown data type: ${this.string}`);
+    }
+    return v;
+  }
+
+  checkArray(array: TypedArray): boolean {
+    return array.constructor === this.arrayConstructor;
   }
 
   toJSON(): string {
@@ -520,11 +543,56 @@ export class DataType extends String {
   static readonly Uint8 = new DataType('uint8');
 }
 
+export class Size extends Number {
+  constructor(value: UnparsedSize) {
+    super(value.valueOf());
+  }
+
+  largerThan(other: Size): boolean {
+    return this.valueOf() > other.valueOf();
+  }
+
+  smallerThan(other: Size): boolean {
+    return this.valueOf() < other.valueOf();
+  }
+
+  static Bytes(value: UnparsedSize): Size {
+    return new Size(value);
+  }
+
+  static readonly Byte = new Size(1);
+
+  static Kilobytes(value: UnparsedSize): Size {
+    return Size.Bytes(value.valueOf() * 1e3);
+  }
+
+  static readonly Kilobyte = Size.Kilobytes(1);
+
+  static Megabytes(value: UnparsedSize): Size {
+    return Size.Kilobytes(value.valueOf() * 1e3);
+  }
+
+  static readonly Megabyte = Size.Megabytes(1);
+
+  static Gigabytes(value: UnparsedSize): Size {
+    return Size.Megabytes(value.valueOf() * 1e3);
+  }
+
+  static readonly Gigabyte = Size.Gigabytes(1);
+
+  static Terabytes(value: UnparsedSize): Size {
+    return Size.Gigabytes(value.valueOf() * 1e3);
+  }
+
+  static readonly Terabyte = Size.Terabytes(1);
+}
+
 export type UnparsedTimeStamp = TimeStamp | TimeSpan | number;
 export type UnparsedTimeSpan = TimeSpan | number;
 export type UnparsedRate = Rate | number;
 export type UnparsedDensity = Density | number;
 export type UnparsedDataType = DataType | string;
+export type UnparsedSize = Size | number;
 
 registerCustomTypeEncoder({ Class: TimeStamp, write: valueOfEncoder });
 registerCustomTypeEncoder({ Class: TimeSpan, write: valueOfEncoder });
@@ -573,4 +641,17 @@ const ARRAY_CONSTRUCTORS: Map<string, TypedArrayConstructor> = new Map<
   [DataType.Int16.string, Int16Array],
   [DataType.Int32.string, Int32Array],
   [DataType.Int64.string, BigInt64Array],
+]);
+
+const DATA_TYPE_DENSITIES = new Map<string, Density>([
+  [DataType.Uint8.string, Density.Bit8],
+  [DataType.Uint16.string, Density.Bit16],
+  [DataType.Uint32.string, Density.Bit32],
+  [DataType.Uint64.string, Density.Bit64],
+  [DataType.Float32.string, Density.Bit32],
+  [DataType.Float64.string, Density.Bit64],
+  [DataType.Int8.string, Density.Bit8],
+  [DataType.Int16.string, Density.Bit16],
+  [DataType.Int32.string, Density.Bit32],
+  [DataType.Int64.string, Density.Bit64],
 ]);

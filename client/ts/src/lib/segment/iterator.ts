@@ -10,7 +10,7 @@ import Registry from '../channel/registry';
 import { TimeRange } from '../telem';
 
 import { SegmentPayload, SegmentPayloadSchema } from './payload';
-import Sugared from './sugared';
+import TypedSegment from './typed';
 
 enum Command {
   Open = 0,
@@ -250,7 +250,7 @@ export class CoreIterator {
   }
 }
 
-export class SugaredIterator extends CoreIterator {
+export class TypedIterator extends CoreIterator {
   channels: Registry;
 
   constructor(client: StreamClient, channels: Registry, aggregate = false) {
@@ -258,13 +258,13 @@ export class SugaredIterator extends CoreIterator {
     this.channels = channels;
   }
 
-  async value(): Promise<Record<string, Sugared>> {
-    const result: Record<string, Sugared> = {};
+  async value(): Promise<Record<string, TypedSegment>> {
+    const result: Record<string, TypedSegment> = {};
     this.values.sort((a, b) => a.start.valueOf() - b.start.valueOf());
     const keys = this.values.map((v) => v.channelKey);
     const channels = await this.channels.getN(...keys);
     this.values.forEach((v) => {
-      const sugared = new Sugared(
+      const sugared = new TypedSegment(
         channels.find((c) => c.key == v.channelKey) as ChannelPayload,
         v
       );

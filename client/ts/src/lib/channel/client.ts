@@ -71,6 +71,16 @@ export class Channel {
   ): Promise<TypedArray> {
     return await this.segmentClient.read(this.key, start, end);
   }
+
+  /**
+   * Writes telemetry to the channel starting at the given timestamp.
+   *
+   * @param start - The starting timestamp of the first sample in data.
+   * @param data - THe telemetry to write to the channel.
+   */
+  async write(start: UnparsedTimeStamp, data: TypedArray) {
+    return await this.segmentClient.write(this.key, start, data);
+  }
 }
 
 /** The core client class for executing channel operations against a Synnax
