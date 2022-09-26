@@ -4,7 +4,7 @@ sidebar_position: 1
 
 # Get Started
 
-Synnax offers a Python client for communicating with a cluster. 
+Synnax offers a Python client for communicating with a cluster.
 
 ## Installation
 
@@ -36,10 +36,10 @@ import numpy as np
 ch = client.channel.create(
     # A useful name for the channel. This is mostly for human consumption.
     name="my-temperature-sensor",
-    # This defines the data rate for the cahnnel. This is the number of 
+    # This defines the data rate for the cahnnel. This is the number of
     # samples per second that will be stored.
     rate=25 * synnax.HZ,
-    # We're using a built-in data type here. While np.float64 itself isn't an 
+    # We're using a built-in data type here. While np.float64 itself isn't an
     # official data type, Synnax can interpret it as a type of telem.FLOAT64.
     data_type=np.float64,
 )
@@ -54,7 +54,7 @@ from datetime import datetime
 # Create a numpy array of 1000 random samples.
 data = np.random.rand(1000)
 
-# Write the data to the channel. The provided timestamp represents the timestamp for the 
+# Write the data to the channel. The provided timestamp represents the timestamp for the
 # first sample in the array.
 start = datetime.now()
 ch.write(start, data)
@@ -131,5 +131,5 @@ This returns a `numpy.ndarray` of the data that was read from the channel.
   end = synnax.TimeStamp(start) + 40 * synnax.SECOND
   res_data = ch.read(start, end)
 ```
-</details>
 
+</details>

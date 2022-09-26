@@ -2,13 +2,12 @@
 sidebar_position: 1
 ---
 
-import Tabs from '@theme/Tabs';
-import TabItem from '@theme/TabItem'
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
 
 # Get Started
 
 Synnax offers a Typescript client for communicating with a cluster.
-
 
 ## Install the Client
 
@@ -18,16 +17,20 @@ The Typescript client is available on NPM, and can be installed with the followi
 <Tabs groupId="package-manager">
 <TabItem value="npm" label="npm">
 ```
+
 ```bash
 npm install @synnax/client
 ```
+
 ```mdx-code-block
 </TabItem>
 <TabItem value="yarn" label="yarn">
 ```
+
 ```bash
 yarn add @synnaxlabs/client
 ```
+
 ```mdx-code-block
 </TabItem>
 </Tabs>
@@ -42,6 +45,7 @@ appropriate environment below.
 <Tabs groupId="environment">
 <TabItem value="node" label="Node.js">
 ```
+
 ## Connect to a Cluster
 
 To connect to a cluster, import the `Synnax` class and instantiate it with the host and
@@ -49,14 +53,14 @@ port of a reachable node in the cluster:
 
 ```ts
 const {
-    Synnax,
-    // ... a few extra imports we'll use later
-    TimeSpan,
-    DataType,
-    Rate
-} = require('@synnaxlabs/client');
+  Synnax,
+  // ... a few extra imports we'll use later
+  TimeSpan,
+  DataType,
+  Rate,
+} = require("@synnaxlabs/client");
 
-const client = new Synnax({host: "localhost", port: 8080})
+const client = new Synnax({ host: "localhost", port: 8080 });
 ```
 
 :::info
@@ -71,23 +75,22 @@ of what a channel is, you can read more about it [here](/concepts#channel). To c
 channel, we use the `.channel.create()` method:
 
 ```ts
-
 const channel = await client.channel.create({
-    // A useful name for the channel. This is mostly for human consumption.
-    name: "my-temperature-sensor",
-    //  This defines the data rate for the channel. This is the number of samples per
-    // second that will be stored.
-    rate: Rate.Hz(1),
-    // This defines the data type for the channel. All data written to the channel must be
-    // of this type.
-    type: DataType.Float64,
-})
+  // A useful name for the channel. This is mostly for human consumption.
+  name: "my-temperature-sensor",
+  //  This defines the data rate for the channel. This is the number of samples per
+  // second that will be stored.
+  rate: Rate.Hz(1),
+  // This defines the data type for the channel. All data written to the channel must be
+  // of this type.
+  type: DataType.Float64,
+});
 ```
 
 Once we have a channel, we can write telemetry to it using the `.write()` method:
 
 ```ts
-await channel.write(0, new Float64Array([1, 2, 3, 4, 5, 6, 7, 8]))
+await channel.write(0, new Float64Array([1, 2, 3, 4, 5, 6, 7, 8]));
 ```
 
 This writes the values `[1, 2, 3, 4, 5, 6, 7, 8]` to the channel, where the timestamp of the
@@ -97,27 +100,24 @@ first value (`1`) is the unix UTC timestamp `0`.
 <summary> <strong> In case you'd like a recap, here's the entire code block.</strong></summary>
 
 ```ts
-const {
-    Synnax,
-    TimeSpan,
-    DataType,
-    Rate
-}  = require('@synnaxlabs/client');
+const { Synnax, TimeSpan, DataType, Rate } = require("@synnaxlabs/client");
 
-const client = new Synnax({host: "localhost", port: 8080})
+const client = new Synnax({ host: "localhost", port: 8080 });
 
 async function main() {
-    const channel = await client.channel.create({
-        name: "my-temperature-sensor",
-        rate: Rate.Hz(1),
-        type: DataType.Float64,
-    })
+  const channel = await client.channel.create({
+    name: "my-temperature-sensor",
+    rate: Rate.Hz(1),
+    type: DataType.Float64,
+  });
 
-    await channel.write(0, new Float64Array([1, 2, 3, 4, 5, 6, 7, 8]))
+  await channel.write(0, new Float64Array([1, 2, 3, 4, 5, 6, 7, 8]));
 }
-main()
+main();
 ```
+
 This code is complete, and should run as is.
+
 </details>
 
 ## Read Telemetry
@@ -126,7 +126,7 @@ Reading telemetry from a channel is as simple as writing to it. To read data fro
 use the `.read()` method:
 
 ```ts
-const data = await channel.read(0, TimeSpan.Seconds(8))
+const data = await channel.read(0, TimeSpan.Seconds(8));
 ```
 
 This reads all data from the channel between the unix UTC times 0 and 8 seconds.
@@ -135,35 +135,28 @@ This reads all data from the channel between the unix UTC times 0 and 8 seconds.
 <summary><strong>And here it is all in one simple script.</strong></summary>
 
 ```ts
-const {
-    Synnax,
-    TimeSpan,
-    DataType,
-    Rate
-}  = require('@synnaxlabs/client');
+const { Synnax, TimeSpan, DataType, Rate } = require("@synnaxlabs/client");
 
-const client = new Synnax({host: "localhost", port: 8080})
+const client = new Synnax({ host: "localhost", port: 8080 });
 
 async function main() {
-    const channel = await client.channel.create({
-        name: "my-temperature-sensor",
-        rate: Rate.Hz(1),
-        type: DataType.Float64,
-    })
+  const channel = await client.channel.create({
+    name: "my-temperature-sensor",
+    rate: Rate.Hz(1),
+    type: DataType.Float64,
+  });
 
-    await channel.write(0, new Float64Array([1, 2, 3, 4, 5, 6, 7, 8]))
+  await channel.write(0, new Float64Array([1, 2, 3, 4, 5, 6, 7, 8]));
 
-    const data = await channel.read(0, TimeSpan.Seconds(8))
+  const data = await channel.read(0, TimeSpan.Seconds(8));
 }
 ```
+
 This code is complete, and should run as is.
+
 </details>
 
 ```mdx-code-block
 </TabItem>
 </Tabs>
 ```
-
-
-
-

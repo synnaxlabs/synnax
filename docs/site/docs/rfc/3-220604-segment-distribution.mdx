@@ -65,7 +65,7 @@ network traffic, a DWH can pre-compute a set of materialized indexes and
 aggregations (i.e. pre-calculate a generalized count for common query patterns).
 A network trip that once required hundreds of gigabytes of data may now require
 only a few hundred bytes. Pre-aggregation is expensive, and the challenge comes
-in determining the most *useful*
+in determining the most _useful_
 aggregations for a particular data set (constantly computing an un-queried
 average on billions of rows is a massive waste of CPU time).
 
@@ -95,7 +95,7 @@ architecture that answers these questions.
 # 3 - Design
 
 The proposed distribution layer (DL) architecture exposes cluster storage as a
-monolithic data space that provides *optional* locality context to caller. A
+monolithic data space that provides _optional_ locality context to caller. A
 user can read and write data from the DL as a black box without any knowledge of
 the underlying cluster topology, but can also ask for additional context to
 perform optimizations within its own layer/domain.
@@ -105,8 +105,8 @@ This is a similar approach to CockroachDB's separation between their
 and key-value layers. When executing a query, the SQL layer can turn a logical
 plan into a physical plan that executes on a single machine, performing unaware
 reads and writes from the distributed kv layer below. It can, however, also
-construct a physical plan that moves aggregation logic to the SQL layers' of *
-other* machines in the cluster. This distributed physical plan can perform
+construct a physical plan that moves aggregation logic to the SQL layers' of _
+other_ machines in the cluster. This distributed physical plan can perform
 aggregations on nodes where the data is stored, and then return a much smaller
 result OTN back to the SQL layer of the responsible node.
 
@@ -126,12 +126,12 @@ the groundwork for distributed query processing.
 logic. Its focus is completely on serving raw segments reads and writes
 efficiently.
 
-**Network Awareness** - DL's interface does *not* require the caller to be aware
+**Network Awareness** - DL's interface does _not_ require the caller to be aware
 of data locality or underlying network topology. The distribution layer provides
 optional context to the caller if they want to implement optimizations
 themselves.
 
-**Layer Boundary** - Services/domains that do *not* require custom distribution
+**Layer Boundary** - Services/domains that do _not_ require custom distribution
 logic do not have any components within DL.
 
 **Domain Oriented** - DL does not expose a single facade as its interface.
@@ -161,8 +161,11 @@ information stays consistent (this is particularly relevant
 for [channels](#Channels)).
 
 <p align="middle">
-<img src="/img/rfc/220604-segment-distribution/distributed-storage-high-level.png"width="80%" />
-<h5 align="middle">(Very) High Level Distributed Storage Architecture</h5>
+  <img
+    src="/img/rfc/220604-segment-distribution/distributed-storage-high-level.png"
+    width="80%"
+  />
+  <h5 align="middle">(Very) High Level Distributed Storage Architecture</h5>
 </p>
 
 ### 1 - Aspen
@@ -221,7 +224,7 @@ consistent, and time-ordered values. Channels have a few important fields:
    data written to the channel will have the same data rate.
 2. Name - A human-readable name for the channel. This name is not used for
    internal purposes.
-3. Data Type - An alias for a channel's *density* i.e. the number of bytes used
+3. Data Type - An alias for a channel's _density_ i.e. the number of bytes used
    by a single sample. A Float64 channel would have a density of 8 bytes. This
    data type is fixed, and cannot be changed without deleting and recreating a
    channel. All data written to the channel will have the same data type.
@@ -229,11 +232,11 @@ consistent, and time-ordered values. Channels have a few important fields:
    is automatically assigned and cannot be changed. See [Keys](#Keys)
    for more information on how this value is selected.
 5. Node ID - The ID of the node that owns the channel. This node is known as the
-   leaseholder, and is the only node that can write *new* channel data to disk.
+   leaseholder, and is the only node that can write _new_ channel data to disk.
    The leaseholder is typically kept in proximity (physically) to the source
    generating the channel's data (e.g. a sensor).
 
-Channel data is partitioned into entities called *segments*. A segment is a
+Channel data is partitioned into entities called _segments_. A segment is a
 reasonably sized (roughly one byte to ten megabyte) sub-range of a channel's
 data. When a client wants to add data to a channel, they submit a set of one or
 more segments in a write request. The size of these segments typically grows
@@ -290,14 +293,19 @@ amount of memory, cpu, and network bandwidth used.
 Internally, the `segment.Iterator` implementation has the following structure:
 
 <p align="middle">
-<img src="/img/rfc/220604-segment-distribution/segment-iterator-gateway.png"width="60%" />
-<h5 align="middle">Segment Iterator - Gateway Node </h5>
+  <img
+    src="/img/rfc/220604-segment-distribution/segment-iterator-gateway.png"
+    width="60%"
+  />
+  <h5 align="middle">Segment Iterator - Gateway Node </h5>
 </p>
 
-
 <p align="middle">
-<img src="/img/rfc/220604-segment-distribution/segment-iterator-peer.png"width="40%" />
-<h5 align="middle">Segment Iterator - Peer Node </h5>
+  <img
+    src="/img/rfc/220604-segment-distribution/segment-iterator-peer.png"
+    width="40%"
+  />
+  <h5 align="middle">Segment Iterator - Peer Node </h5>
 </p>
 
 ### 2 - Opening an Iterator
@@ -411,14 +419,19 @@ that allows them to write segments to disk.
 Internally, the `segment.Writer` implementation has the following structure:
 
 <p align="middle">
-<img src="/img/rfc/220604-segment-distribution/segment-writer-gateway.png"width="60%" />
-<h5 align="middle">Segment Writer - Gateway Node </h5>
+  <img
+    src="/img/rfc/220604-segment-distribution/segment-writer-gateway.png"
+    width="60%"
+  />
+  <h5 align="middle">Segment Writer - Gateway Node </h5>
 </p>
 
-
 <p align="middle">
-<img src="/img/rfc/220604-segment-distribution/segment-writer-peer.png"width="40%" />
-<h5 align="middle">Segment Writer - Peer Node </h5>
+  <img
+    src="/img/rfc/220604-segment-distribution/segment-writer-peer.png"
+    width="40%"
+  />
+  <h5 align="middle">Segment Writer - Peer Node </h5>
 </p>
 
 ### 1 - Opening a Writer
@@ -478,7 +491,7 @@ func main() {
 	writer.Requests() <- writer.Request{Segments: MY_SEGMENTS}
 	// Once we're done writing, close the input channel.
 	close(writer.Requests())
-	// Wait for the writer to return  all errors and close 
+	// Wait for the writer to return  all errors and close
 	// its response channel.
 	for res := range writer.Responses() {
 		// Do something with the error here
