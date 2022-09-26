@@ -28,13 +28,13 @@ client = synnax.Synnax(host="localhost",port=8080)
 ## Write Telemetry
 
 To write telemetry to a cluster, we first need to create a channel. If you're unaware of what a channel is, you can
-read more about it [here](../concepts.mdx#channel). To create a channel, we use the `.channel.create()` method:
+read more about it [here](/concepts#channel). To create a channel, we use the `.channel.create()` method:
 
 ```python
 import numpy as np
 
 ch = client.channel.create(
-    # An useful name for the channel. This is mostly for human consumption.
+    # A useful name for the channel. This is mostly for human consumption.
     name="my-temperature-sensor",
     # This defines the data rate for the cahnnel. This is the number of 
     # samples per second that will be stored.
@@ -45,7 +45,7 @@ ch = client.channel.create(
 )
 ```
 
-Once we have a channel, we can write telemetry to it using the `.data.write()` method:
+Once we have a channel, we can write telemetry to it using the `.write()` method:
 
 ```python
 # ... same imports as above
@@ -105,7 +105,7 @@ res_data = ch.read(start, end)
 This returns a `numpy.ndarray` of the data that was read from the channel.
 
 <details>
-<summary> <strong>And here's it all in one simple script.</strong> </summary>
+<summary> <strong>And here it is all in one simple script.</strong> </summary>
 
 ```python
   import synnax
