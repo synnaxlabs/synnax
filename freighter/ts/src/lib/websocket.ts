@@ -7,9 +7,7 @@ import { Stream, StreamClient } from './stream';
 import URL from './url';
 
 const resolveWebsocketProvider = (): typeof WebSocket => {
-  if (RUNTIME == Runtime.Node) {
-    return require('ws');
-  }
+  if (RUNTIME == Runtime.Node) return require('ws');
   return WebSocket;
 };
 
@@ -32,10 +30,12 @@ enum CloseCode {
 }
 
 /**
- * WebsocketStream is an implementation of Stream that is backed by a websocket.
+ * WebSocketStream is an implementation of Stream that is backed by a websocket.
  */
-class WebsocketStream<RQ, RS> implements Stream<RQ, RS> {
+class WebSocketStream<RQ, RS> implements Stream<RQ, RS> {
   private encoder: EncoderDecoder;
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
   private reqSchema: z.ZodSchema<RQ>;
   private resSchema: z.ZodSchema<RS>;
 
@@ -64,18 +64,13 @@ class WebsocketStream<RQ, RS> implements Stream<RQ, RS> {
 
   /** Implements the Stream protocol */
   send(req: RQ): Error | undefined {
-    if (this.server_closed) {
-      return new EOF();
-    }
-
-    if (this.send_closed) {
-      throw new StreamClosed();
-    }
+    if (this.server_closed) return new EOF();
+    if (this.send_closed) throw new StreamClosed();
 
     this.ws.send(
       this.encoder.encode({
         type: MessageType.Data,
-        payload: this.reqSchema.parse(req),
+        payload: req,
         error: undefined,
       })
     );
@@ -85,21 +80,22 @@ class WebsocketStream<RQ, RS> implements Stream<RQ, RS> {
 
   /** Implements the Stream protocol */
   async receive(): Promise<[RS | undefined, Error | undefined]> {
-    if (this.server_closed) {
-      return [undefined, this.server_closed];
-    }
+    if (this.server_closed) return [undefined, this.server_closed];
 
     const msg = await this.receiveMsg();
 
     if (msg.type == MessageType.Close) {
-      if (!msg.error) {
-        throw new Error('Message error must be defined');
-      }
+      if (!msg.error) throw new Error('Message error must be defined');
       this.server_closed = decodeError(msg.error);
       return [undefined, this.server_closed];
     }
 
     return [this.resSchema.parse(msg.payload), undefined];
+  }
+
+  /** Implements the Stream protocol */
+  received(): boolean {
+    return this.receiveDataQueue.length !== 0;
   }
 
   /** Implements the Stream protocol */
@@ -119,11 +115,8 @@ class WebsocketStream<RQ, RS> implements Stream<RQ, RS> {
   private async receiveMsg(): Promise<Message> {
     if (this.receiveDataQueue.length !== 0) {
       const msg = this.receiveDataQueue.shift();
-      if (msg) {
-        return msg;
-      } else {
-        throw new Error('unexpected undefined message');
-      }
+      if (msg) return msg;
+      throw new Error('unexpected undefined message');
     }
 
     return new Promise((resolve, reject) => {
@@ -137,11 +130,8 @@ class WebsocketStream<RQ, RS> implements Stream<RQ, RS> {
 
       if (this.receiveCallbacksQueue.length > 0) {
         const callback = this.receiveCallbacksQueue.shift();
-        if (callback) {
-          callback.resolve(msg);
-        } else {
-          throw new Error('Unexpected empty callback queue');
-        }
+        if (callback) callback.resolve(msg);
+        else throw new Error('Unexpected empty callback queue');
       } else {
         this.receiveDataQueue.push(msg);
       }
@@ -158,10 +148,10 @@ class WebsocketStream<RQ, RS> implements Stream<RQ, RS> {
 }
 
 /**
- * WebsocketClient is an implementation of StreamClient that is backed by
+ * WebSocketClient is an implementation of StreamClient that is backed by
  * websockets.
  */
-export class WebsocketClient implements StreamClient {
+export class WebSocketClient implements StreamClient {
   url: URL;
   encoder: EncoderDecoder;
 
@@ -177,9 +167,7 @@ export class WebsocketClient implements StreamClient {
     this.encoder = encoder;
   }
 
-  /**
-   * Implements the StreamClient interface.
-   */
+  /** Implements the StreamClient interface. */
   async stream<RQ, RS>(
     target: string,
     reqSchema: ZodSchema<RQ>,
@@ -191,11 +179,11 @@ export class WebsocketClient implements StreamClient {
       '?contentType=' +
       this.encoder.contentType;
     const ws = new ResolvedWebSocket(url);
-    ws.binaryType = WebsocketClient.MESSAGE_TYPE;
+    ws.binaryType = WebSocketClient.MESSAGE_TYPE;
     return new Promise((resolve, reject) => {
       ws.onopen = () => {
         resolve(
-          new WebsocketStream<RQ, RS>(ws, this.encoder, reqSchema, resSchema)
+          new WebSocketStream<RQ, RS>(ws, this.encoder, reqSchema, resSchema)
         );
       };
       ws.onerror = (ev: Event) => {

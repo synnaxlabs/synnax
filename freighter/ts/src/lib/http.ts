@@ -3,7 +3,7 @@ import { ZodSchema } from 'zod';
 
 import { EncoderDecoder } from './encoder';
 import { decodeError, ErrorPayloadSchema } from './errors';
-import { Unary } from './unary';
+import { UnaryClient } from './unary';
 import URL from './url';
 
 /**
@@ -81,7 +81,7 @@ class Core {
  * Implementation of the UnaryClient protocol backed by HTTP GET requests. It
  * should not be instantiated directly, but through the HTTPClientFactory.
  */
-export class GETClient extends Core implements Unary {
+export class GETClient extends Core implements UnaryClient {
   async send<RQ, RS>(
     target: string,
     req: RQ,
@@ -99,7 +99,7 @@ export class GETClient extends Core implements Unary {
  * Implementation of the UnaryClient protocol backed by HTTP POST requests. It
  * should not be instantiated directly, but through the HTTPClientFactory.
  */
-export class POSTClient extends Core implements Unary {
+export class POSTClient extends Core implements UnaryClient {
   async send<RQ, RS>(
     target: string,
     req: RQ,

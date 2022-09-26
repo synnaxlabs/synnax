@@ -47,7 +47,7 @@ func (s *SegmentService) Iterate(_ctx context.Context, stream IteratorStream) er
 
 	iter, err := s.openIterator(ctx, stream)
 	if err.Occurred() {
-		return errors.Unexpected(err)
+		return err
 	}
 	requests := confluence.NewStream[iterator.Request]()
 	iter.InFrom(requests)

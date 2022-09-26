@@ -14,6 +14,11 @@ export interface StreamReceiver<RS> {
    *  @raises Error: if the transport fails.
    */
   receive(): Promise<[RS | undefined, Error | undefined]>;
+
+  /**
+   * @returns true if the stream has received a response
+   */
+  received(): boolean;
 }
 
 /**

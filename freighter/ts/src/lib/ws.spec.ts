@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { JSONEncoderDecoder } from './encoder';
 import { BaseTypedError, EOF, registerError, TypedError } from './errors';
 import URL from './url';
-import { WebsocketClient } from './websocket';
+import { WebSocketClient } from './websocket';
 
 const url = new URL({
   host: '127.0.0.1',
@@ -16,7 +16,7 @@ const MessageSchema = z.object({
   message: z.string().optional(),
 });
 
-const client = new WebsocketClient(new JSONEncoderDecoder(), url);
+const client = new WebSocketClient(new JSONEncoderDecoder(), url);
 
 class MyCustomError extends BaseTypedError {
   code: number;

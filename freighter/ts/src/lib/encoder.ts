@@ -73,7 +73,11 @@ export class JSONEncoderDecoder implements EncoderDecoder {
   contentType = 'application/json';
 
   encode(payload: unknown): ArrayBuffer {
-    return new TextEncoder().encode(JSON.stringify(snakeKeys(payload)));
+    const json = JSON.stringify(snakeKeys(payload), (_, v) => {
+      if (ArrayBuffer.isView(v)) return Array.from(v as Uint8Array);
+      return v;
+    });
+    return new TextEncoder().encode(json);
   }
 
   decode<P>(data: Uint8Array, schema: ZodSchema<P>): P {
