@@ -44,9 +44,7 @@ class ValidationError(Exception):
         elif isinstance(fieldsOrMessage, str):
             super(ValidationError, self).__init__(fieldsOrMessage)
         else:
-            self.fields = [
-                Field(f["field"], f["message"]) for f in fieldsOrMessage
-            ]
+            self.fields = [Field(f["field"], f["message"]) for f in fieldsOrMessage]
             super(ValidationError, self).__init__(self.__str__())
 
     def __str__(self):

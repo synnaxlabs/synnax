@@ -37,6 +37,7 @@ class CoreWriter:
     from a sensor), but it is relatively complex and challenging to use. If you're looking
     to write a contiguous block of telemetry, see the segment Client write method instead.
     """
+
     _ENDPOINT = "/segment/write"
     client: StreamClient
     stream: Stream[_Request, _Response] | None
@@ -118,6 +119,7 @@ class CoreWriter:
                 "Writer is not open. Please open before calling write() or close()."
             )
 
+
 class NumpyWriter:
     """Used to write telemetry to a set of channels in time-order. It should not be
     instantiated directly, and should instead be created using the segment client.
@@ -134,9 +136,9 @@ class NumpyWriter:
     channels: ChannelRegistry
 
     def __init__(
-            self,
-            core: CoreWriter,
-            channels: ChannelRegistry,
+        self,
+        core: CoreWriter,
+        channels: ChannelRegistry,
     ) -> None:
         self.core = core
         self.validators = [

@@ -291,7 +291,7 @@ class TimeSpan(int):
 
 
 TIME_STAMP_MIN = TimeStamp(0)
-TIME_STAMP_MAX = TimeStamp(2 ** 63 - 1)
+TIME_STAMP_MAX = TimeStamp(2**63 - 1)
 NANOSECOND = TimeSpan(1)
 MICROSECOND = TimeSpan(1000) * NANOSECOND
 MILLISECOND = TimeSpan(1000) * MICROSECOND
@@ -412,9 +412,9 @@ class TimeRange(BaseModel):
 
     def overlaps_with(self, tr: TimeRange) -> bool:
         return (
-                self.contains_stamp(tr.start)
-                or self.contains_stamp(tr.end)
-                or tr.contains_range(self)
+            self.contains_stamp(tr.start)
+            or self.contains_stamp(tr.end)
+            or tr.contains_range(self)
         )
 
     def swap(self) -> TimeRange:
@@ -470,8 +470,7 @@ BIT8 = Density(1)
 
 
 class DataType(str):
-    """DataType represents a data type as a string
-    """
+    """DataType represents a data type as a string"""
 
     def __new__(cls, value: UnparsedDataType):
         if isinstance(value, DataType):

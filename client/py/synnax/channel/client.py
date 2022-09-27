@@ -59,8 +59,8 @@ class Channel(ChannelPayload):
 
 
 class ChannelClient:
-    """The core client class for executing channel operations against a Synnax cluster.
-    """
+    """The core client class for executing channel operations against a Synnax cluster."""
+
     _segment_client: SegmentClient
     _retriever: ChannelRetriever
     _creator: ChannelCreator

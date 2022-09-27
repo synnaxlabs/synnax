@@ -5,8 +5,8 @@ from synnax.exceptions import ContiguityError
 from synnax.segment.iterator import NumpyIterator
 from synnax.segment.writer import CoreWriter, NumpyWriter
 from synnax.telem import TimeRange, UnparsedTimeStamp
+from synnax.transport import Transport
 
-from ..transport import Transport
 from . import iterator
 from .sugared import NumpySegment
 
@@ -88,7 +88,7 @@ class SegmentClient:
         """Reads a Segment from the given channel between the two timestamps.
 
         :param from_: The key of the channel to read from.
-        :param start: THe starting timestamp of the range to read from.
+        :param start: The starting timestamp of the range to read from.
         :param end: The ending timestamp of the range to read from.
         :returns: A NumpySegment containing the read telemetry.
         :raises ContiguityError: If the telemetry between start and end is non-contiguous.

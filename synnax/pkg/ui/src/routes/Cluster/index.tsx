@@ -1,11 +1,8 @@
 import { Header, Space } from "@synnaxlabs/pluto";
-import Plot from "react-plotly.js";
 import { Atom2, Grain } from "tabler-icons-react";
 import Sidebar from "../../lib/Sidebar/Sidebar";
 import { HexagonBar } from "@synnaxlabs/pluto";
 import { Statistic } from "@synnaxlabs/pluto/src";
-import { useEffect, useState } from "react";
-import { Synnax, TimeRange, TimeSpan } from "@synnaxlabs/client";
 
 const dummyMetrics = () => {
   return [

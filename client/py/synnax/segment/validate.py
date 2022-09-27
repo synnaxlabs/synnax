@@ -29,16 +29,12 @@ class ScalarTypeValidator:
 
         if seg.data.dtype != npt:
             raise ValidationError(
-                Field(
-                    "data", f"Expected data type {npt}, got {seg.data.dtype}"
-                )
+                Field("data", f"Expected data type {npt}, got {seg.data.dtype}")
             )
 
         if seg.data.ndim != 1:
             raise ValidationError(
-                Field(
-                    "data", f"Expected 1D array, got {seg.data.ndim}D array"
-                )
+                Field("data", f"Expected 1D array, got {seg.data.ndim}D array")
             )
 
 
