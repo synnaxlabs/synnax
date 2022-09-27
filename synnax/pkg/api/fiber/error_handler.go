@@ -1,10 +1,16 @@
 package fiber
 
 import (
-	apierrors "github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/cockroachdb/errors"
 	"github.com/gofiber/fiber/v2"
+	"github.com/samber/lo"
+	apierrors "github.com/synnaxlabs/synnax/pkg/api/errors"
 )
+
+var routeErrorStatuses = []int{
+	fiber.StatusNotFound,
+	fiber.StatusMethodNotAllowed,
+}
 
 func ErrorHandler(c *fiber.Ctx, err error) error {
 	var (
@@ -15,7 +21,7 @@ func ErrorHandler(c *fiber.Ctx, err error) error {
 		return nil
 	}
 	if errors.As(err, &e) {
-		if e.Code == fiber.StatusNotFound {
+		if lo.Contains(routeErrorStatuses, e.Code) {
 			tErr = apierrors.Route(err, c.Path())
 		}
 	} else {

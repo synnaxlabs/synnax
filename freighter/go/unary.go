@@ -5,7 +5,7 @@ import (
 	"github.com/synnaxlabs/x/address"
 )
 
-// Unary is an entity that implements simple bidirectional request-response
+// Unary is an entity that implements simple request-response
 // transport between two entities.
 type Unary[I, O Payload] interface {
 	Transport
@@ -13,7 +13,7 @@ type Unary[I, O Payload] interface {
 	UnaryServer[I, O]
 }
 
-// UnaryClient is the client side interface of Unary freighter.
+// UnaryClient is the client side interface of the Unary transport.
 type UnaryClient[I, O Payload] interface {
 	Transport
 	// Send sends a request to the target server using the given context. The context

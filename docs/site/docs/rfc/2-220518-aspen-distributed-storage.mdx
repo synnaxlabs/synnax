@@ -2,7 +2,7 @@
 
 **Feature Name** - Aspen, a Gossip Based Peer to Peer Key-Value Store <br />
 **Status** - Complete <br />
-**Start Date** -  2022-05-18 <br />
+**Start Date** - 2022-05-18 <br />
 **Authors** - emilbon99 <br />
 
 # 0 - Summary
@@ -67,7 +67,7 @@ Aspen's design consists of two gossip layers:
 ## 1 - Cluster State Synchronization
 
 Delta aims to provide dynamic cluster membership. This is more difficult to
-accomplish if each node is required to know about *all* other nodes in the
+accomplish if each node is required to know about _all_ other nodes in the
 cluster before being initialized. This is the approach taken
 by [etcd](https://etcd.io/). By using a gossip based network, Delta can provide
 a cluster membership system that is dynamic and resilient to failure.
@@ -443,9 +443,12 @@ interval of convergence. The following equation approximates the number of
 message (`m`) needed to update all but `s` proportion of the cluster:
 
 <p align="middle">
-    <br />
-    <img src="https://render.githubusercontent.com/render/math?math=m \approx -N\text{log}s" height="30px"
-         alt="latex eq" />
+  <br />
+  <img
+    src="https://render.githubusercontent.com/render/math?math=m \approx -N\text{log}s"
+    height="30px"
+    alt="latex eq"
+  />
 </p>
 
 This equation shows that the convergence interval is directly dependent on:

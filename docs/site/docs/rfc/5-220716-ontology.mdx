@@ -26,7 +26,7 @@ We can naively approach the problem by binding a permission object to the user
 stating what channels they have access to, and then add a gate somewhere in our
 segment write pipeline that checks whether the user can perform the action. The
 fault in this  
-design is that validating the permissions of a user is *not* core to the
+design is that validating the permissions of a user is _not_ core to the
 algorithms for writing segments to a channel. By adding explicit permission
 checks to the pipeline, we expand the scope of the segment writer beyond a
 single responsibility.
@@ -89,7 +89,7 @@ group of users).
 
 To make the ontology more semantic, I'm changing the names 'vertex' and 'edge'
 to
-*resource* and *relationship*. Vertex and edge imply that a particular service
+_resource_ and _relationship_. Vertex and edge imply that a particular service
 adding vertexes to the ontology should understand that it's a graph. Resource
 and relationship provide a simpler view by implying that two entities share a
 connection.
@@ -101,7 +101,7 @@ As its name suggests, a DAG has two important properties:
 1. Directed - Relationships between entities have a defined hierarchy. When we
    build a relationship between a node and a channel, we'd like to say that a
    channel
-   *belongs* to a node (and definitely not vice versa).
+   _belongs_ to a node (and definitely not vice versa).
 2. Acyclic - There can be no closed loops in the graph. This prevents an entity
    from having a relationship with itself.
 
@@ -118,13 +118,10 @@ channel could belong to a group of 'temperature sensors' that span multiple
 nodes. Representing both of these relationships in a tree is impossible, but
 it's easy to do in a DAG:
 
-[//]: # (<p align="middle">)
-
-[//]: # (<img src="images/220716-ontology/dag.png" width="50%">)
-
-[//]: # (<h6 align="middle">A simple channel ontology represented as a DAG</h6>)
-
-[//]: # (</p>)
+[//]: # '<p align="middle">'
+[//]: # '<img src="images/220716-ontology/dag.png" width="50%">'
+[//]: # '<h6 align="middle">A simple channel ontology represented as a DAG</h6>'
+[//]: # "</p>"
 
 The location of 'Temperature Sensor 2' can be represented my the path "
 /temperature sensors/temperature sensor 2" or by "nodes/node 1/temperature
@@ -135,14 +132,10 @@ It's also important to note that although this graph has undirected cycles, it
 does not have any directed cycles. If we were to introduce a directed cycle like
 the following,
 
-
-[//]: # (<p align="middle">)
-
-[//]: # (<img src="images/220716-ontology/dag-bad.png" width="50%">)
-
-[//]: # (<h6 align="middle">An invalid DAG with a directed cycle</h6>)
-
-[//]: # (</p>)
+[//]: # '<p align="middle">'
+[//]: # '<img src="images/220716-ontology/dag-bad.png" width="50%">'
+[//]: # '<h6 align="middle">An invalid DAG with a directed cycle</h6>'
+[//]: # "</p>"
 
 the graph would lose its meaning; Temperature Sensor 4 belongs to the group
 temperature sensors but the group temperature sensors is also a temperature
@@ -157,15 +150,15 @@ resource, or vertex on the DAG, is a unique entity in the cluster:
 ```go
 package ontology
 
-// Type represents a particular category of resource in the cluster (channel, user, 
-// node, etc). 
+// Type represents a particular category of resource in the cluster (channel, user,
+// node, etc).
 type Type string
 
-// ID is a cluster-unique identifier for the resource, regardless of its type (this 
+// ID is a cluster-unique identifier for the resource, regardless of its type (this
 // is why it's called an ID, and not just a key).
 type ID struct {
-	// Key is a unique identifier for a resource within its Type (i.e. unique to all 
-	// channels). 
+	// Key is a unique identifier for a resource within its Type (i.e. unique to all
+	// channels).
 	Key string
 	// Type is the type of resource.
 	Type Type
@@ -340,8 +333,8 @@ language of choice.
 
 If we're talking about using a typesafe API to communicate between two
 microservices A and B, where A stores the resource (the 'server') and B queries
-it (the 'client'), I think it's important to ask *who is responsible for
-defining the API?*.
+it (the 'client'), I think it's important to ask _who is responsible for
+defining the API?_.
 
 Unless the server is specifically designed to support arbitrary data types and
 relationships (like a database), I think it's prudent to assume the server is
@@ -349,7 +342,7 @@ responsible for letting the client know which resources it exposes. This
 establishes a clear contract with a single source of truth.
 
 This leads me to ask why we define our schemas in custom languages and them
-compile them to GP libraries instead of defining them in their *native* type and
+compile them to GP libraries instead of defining them in their _native_ type and
 compiling them to a custom schema language?
 
 This approach adds complexity, as we need to add support for bidirectional code
@@ -359,12 +352,12 @@ It's the typesafe APIs job to:
 1. Tell the client what type of resources it exposes.
 2. Transport resources to and from the server.
 
-This doesn't mean it's the APIs job to *define the resources themselves*. Why
+This doesn't mean it's the APIs job to _define the resources themselves_. Why
 don't we do that in the microservice code itself, where the majority of the core
 logic lives?
 
 This is the approach I'd like to try with the ontology, where it essentially
-serves as an internal API between different services. Resources should *not* be
+serves as an internal API between different services. Resources should _not_ be
 defined in the ontology, but in the services that interact with it.
 
 This approach may have unforeseen pitfalls. I guess we'll find out.
@@ -383,4 +376,4 @@ typed schemas, and could use them to automatically create typesafe write APIs so
 that services don't have to implement their own.
 
 We won't know until we've put the existing design through its paces, so I'll
-lease this as an open question. 
+lease this as an open question.

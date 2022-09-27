@@ -16,9 +16,7 @@ const ThemeContext = createContext<{
   toggleTheme: () => void;
 }>({
   theme: synnaxLight,
-  toggleTheme: () => {
-    console.log("unimp")
-  },
+  toggleTheme: () => {},
 });
 
 export const useThemeContext = () => useContext(ThemeContext);
@@ -30,7 +28,6 @@ export const ThemeProvider = ({
   const [themeIndex, setThemeIndex] = useState<number>(0);
 
   const toggleTheme = () => {
-    console.log("toggleTheme");
     if (themeIndex === themes.length - 1) {
       setThemeIndex(0);
     } else {
@@ -43,8 +40,6 @@ export const ThemeProvider = ({
   }, [themeIndex]);
 
   const theme = useMemo(() => themes[themeIndex], [themeIndex]);
-
-  console.log(toggleTheme)
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>

@@ -1,15 +1,19 @@
-import { Payload } from './transport';
+import { ZodSchema } from 'zod';
 
-export interface UnaryClient<RQ extends Payload, RS extends Payload> {
-  send(target: string, req: RQ): Promise<[RS | undefined, Error | undefined]>;
+/**
+ * An interface for an entity that implements a simple request-response
+ * transport between two entities.
+ */
+export interface UnaryClient {
+  /**
+   * Sends a request to the target server and waits until a response is received.
+   * @param target - The target server to send the request to.
+   * @param req - The request to send.
+   * @param resSchema - The schema to validate the response against.
+   */
+  send<RQ, RS>(
+    target: string,
+    req: RQ,
+    resSchema: ZodSchema<RS>
+  ): Promise<[RS | undefined, Error | undefined]>;
 }
-
-export interface UnaryServer<RQ extends Payload, RS extends Payload> {
-  bind_handle(
-    handle: (req: RQ) => Promise<[RS | undefined, Error | undefined]>
-  ): void;
-}
-
-export interface Unary<I extends Payload, O extends Payload>
-  extends UnaryClient<I, O>,
-    UnaryServer<I, O> {}

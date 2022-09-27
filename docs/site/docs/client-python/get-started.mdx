@@ -4,7 +4,7 @@ sidebar_position: 1
 
 # Get Started
 
-Synnax offers a Python client for communicating with a cluster. 
+Synnax offers a Python client for communicating with a cluster.
 
 ## Installation
 
@@ -28,24 +28,24 @@ client = synnax.Synnax(host="localhost",port=8080)
 ## Write Telemetry
 
 To write telemetry to a cluster, we first need to create a channel. If you're unaware of what a channel is, you can
-read more about it [here](../concepts.mdx#channel). To create a channel, we use the `.channel.create()` method:
+read more about it [here](/concepts#channel). To create a channel, we use the `.channel.create()` method:
 
 ```python
 import numpy as np
 
 ch = client.channel.create(
-    # An useful name for the channel. This is mostly for human consumption.
+    # A useful name for the channel. This is mostly for human consumption.
     name="my-temperature-sensor",
-    # This defines the data rate for the cahnnel. This is the number of 
+    # This defines the data rate for the cahnnel. This is the number of
     # samples per second that will be stored.
     rate=25 * synnax.HZ,
-    # We're using a built-in data type here. While np.float64 itself isn't an 
+    # We're using a built-in data type here. While np.float64 itself isn't an
     # official data type, Synnax can interpret it as a type of telem.FLOAT64.
     data_type=np.float64,
 )
 ```
 
-Once we have a channel, we can write telemetry to it using the `.data.write()` method:
+Once we have a channel, we can write telemetry to it using the `.write()` method:
 
 ```python
 # ... same imports as above
@@ -54,7 +54,7 @@ from datetime import datetime
 # Create a numpy array of 1000 random samples.
 data = np.random.rand(1000)
 
-# Write the data to the channel. The provided timestamp represents the timestamp for the 
+# Write the data to the channel. The provided timestamp represents the timestamp for the
 # first sample in the array.
 start = datetime.now()
 ch.write(start, data)
@@ -105,7 +105,7 @@ res_data = ch.read(start, end)
 This returns a `numpy.ndarray` of the data that was read from the channel.
 
 <details>
-<summary> <strong>And here's it all in one simple script.</strong> </summary>
+<summary> <strong>And here it is all in one simple script.</strong> </summary>
 
 ```python
   import synnax
@@ -131,5 +131,5 @@ This returns a `numpy.ndarray` of the data that was read from the channel.
   end = synnax.TimeStamp(start) + 40 * synnax.SECOND
   res_data = ch.read(start, end)
 ```
-</details>
 
+</details>
