@@ -321,12 +321,12 @@ export class Rate extends Number {
 
   /**
    * Calculates a TimeSpan given the number of bytes at this rate.
-   * @param byteSize - the number of bytes in the span.
+   * @param size - the number of bytes in the span.
    * @param density - the density of the data in bytes per sample.
    * @returns a TimeSpan that corresponds to the given number of bytes.
    */
-  byteSpan(byteSize: number, density: UnparsedDensity): TimeSpan {
-    return this.span(byteSize / density.valueOf());
+  byteSpan(size: Size, density: UnparsedDensity): TimeSpan {
+    return this.span(size.valueOf() / density.valueOf());
   }
 
   /**

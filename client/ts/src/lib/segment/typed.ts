@@ -1,5 +1,5 @@
 import { ChannelPayload } from '../channel/payload';
-import { ValidationError } from '../errors';
+import { ContiguityError, ValidationError } from '../errors';
 import {
   Density,
   Size,
@@ -30,7 +30,7 @@ export default class TypedSegment {
 
   get span(): TimeSpan {
     return this.channel.rate.byteSpan(
-      this.view.byteLength,
+      Size.Bytes(this.view.byteLength),
       this.channel.density as Density
     );
   }
@@ -54,9 +54,8 @@ export default class TypedSegment {
         Segment Channel Key: ${this.channel.key}
         Other Segment Channel Key: ${other.channel.key}
       `);
-    }
-    if (!this.end.equals(other.start)) {
-      throw new Error(`
+    } else if (!this.end.equals(other.start)) {
+      throw new ContiguityError(`
       Cannot extend segment because segments are not contiguous.
       Segment End: ${this.end}
       Other Segment Start: ${other.start}

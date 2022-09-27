@@ -54,7 +54,10 @@ export class Channel {
     return this.payload.dataType;
   }
 
-  get density(): Density | undefined {
+  get density(): Density {
+    if (!this.payload.density) {
+      throw new Error('Channel density is not set');
+    }
     return this.payload.density;
   }
 
@@ -112,7 +115,7 @@ export default class ChannelClient {
    * @returns the created channel.
    */
   async create(props: CreateChannelProps): Promise<Channel> {
-    return this.sugar(await this.creator.create(props))[0];
+    return (await this.createMany({ ...props, count: 1 }))[0]
   }
 
   /**
@@ -160,7 +163,7 @@ export default class ChannelClient {
    * @param nodeId - The ID of the node to retrieve channels for.
    * @returns A list of retrieved channels matching the given node ID.
    */
-  async retrieveByNodeID(nodeId: number): Promise<Channel[]> {
+  async retrieveByNodeId(nodeId: number): Promise<Channel[]> {
     return this.sugar(...(await this.retriever.retrieveByNodeID(nodeId)));
   }
 

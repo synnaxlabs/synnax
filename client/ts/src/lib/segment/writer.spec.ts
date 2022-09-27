@@ -2,7 +2,7 @@ import test from 'ava';
 
 import Synnax from '../client';
 import { ContiguityError, ValidationError } from '../errors';
-import { DataType, Rate, TimeSpan } from '../telem';
+import { DataType, Rate, Size, TimeSpan } from '../telem';
 import { randomTypedArray } from '../util/telem';
 
 const client = new Synnax({ host: 'localhost', port: 8080 });
@@ -64,6 +64,20 @@ test('TypedWriter - multi segment write', async (t) => {
     for (let i = 0; i < nWrites; i++) {
       await writer.write(ch.key, TimeSpan.Seconds(i * nSamples), data);
     }
+  } finally {
+    await writer.close();
+  }
+  t.true(true);
+});
+
+test('TypedWriter - segment splitting', async (t) => {
+  const ch = await newChannel();
+  const span = ch.rate.byteSpan(new Size(9e6), ch.density);
+  const nSamples = ch.rate.sampleCount(span);
+  const data = randomTypedArray(nSamples, ch.dataType);
+  const writer = await client.data.newWriter([ch.key]);
+  try {
+    await writer.write(ch.key, 0, data);
   } finally {
     await writer.close();
   }

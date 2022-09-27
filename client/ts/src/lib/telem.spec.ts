@@ -4,6 +4,7 @@ import {
   DataType,
   Density,
   Rate,
+  Size,
   TimeRange,
   TimeSpan,
   TimeStamp,
@@ -141,7 +142,11 @@ test('Rate - span', (t) => {
 });
 
 test('Rate - byteSpan', (t) => {
-  t.true(new Rate(1).byteSpan(32, Density.Bit64).equals(TimeSpan.Seconds(4)));
+  t.true(
+    new Rate(1)
+      .byteSpan(new Size(32), Density.Bit64)
+      .equals(TimeSpan.Seconds(4))
+  );
 });
 
 test('Rate - Hz', (t) => {

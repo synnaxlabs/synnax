@@ -2,6 +2,7 @@ import test from 'ava';
 
 import Synnax from '../client';
 import { DataType, Rate } from '../telem';
+import { QueryError } from '../errors';
 
 const client = new Synnax({ host: 'localhost', port: 8080 });
 
@@ -31,3 +32,18 @@ test('Channel - retrieve by key', async (t) => {
   t.deepEqual(retrieved.rate, Rate.Hz(1));
   t.deepEqual(retrieved.dataType, DataType.Float32);
 });
+
+test('Channel - retrieve by key - not found', async (t) => {
+  const err = await t.throwsAsync(async () => {
+    await client.channel.retrieveByKeys("1-1000");
+  })
+  t.true(err instanceof QueryError);
+})
+
+test('Channel - retrieve by node id', async (t) => {
+  const retrieved = await client.channel.retrieveByNodeId(1);
+  t.true(retrieved.length > 0);
+  retrieved.forEach((ch) => {
+    t.is(ch.nodeId, 1);
+  })
+})

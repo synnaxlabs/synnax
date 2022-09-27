@@ -3,6 +3,7 @@ import test from 'ava';
 import Synnax from '../client';
 import { DataType, Rate, TimeRange, TimeSpan } from '../telem';
 import { randomTypedArray } from '../util/telem';
+import { ContiguityError } from '../errors';
 
 const client = new Synnax({ host: 'localhost', port: 8080 });
 
@@ -63,4 +64,15 @@ test('Client - basic read', async (t) => {
   );
   resData.slice(0, 25).forEach((v, i) => t.true(v === data[i]));
   t.true(resData.length === 75);
+});
+
+test('Client - incontiguous read', async (t) => {
+  const ch = await newChannel();
+  const data = randomTypedArray(25, ch.dataType);
+  await ch.write(TimeSpan.Zero, data);
+  await ch.write(TimeSpan.Seconds(2), data);
+  const err = await t.throwsAsync(async () => {
+    await client.data.read(ch.key, TimeSpan.Zero, TimeSpan.Seconds(4));
+  });
+  t.true(err instanceof ContiguityError);
 });
