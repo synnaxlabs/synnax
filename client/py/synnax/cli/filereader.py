@@ -21,16 +21,38 @@ class FileReader:
 
 
 class CSVReader:
+    CHUNKSIZE = 10**6
+
     def __init__(self, filepath):
         self.filepath = filepath
 
     def getData(self):
-        return np.genfromtxt(self.filepath, delimiter=",")
+        return
+
+    def getColSample(self, col):
+        return pd.read_csv(self.filepath, nrows=10)[col]
+
+    def getHeaders(self):
+        return pd.read_csv(self.filepath, nrows=10).columns
+
+    def pushData(self, converter):
+        for chunk in pd.read_csv(self.filepath, chunksize=self.CHUNKSIZE):
+            converter.parseChunk(chunk)
 
 
 class XLSXReader:
     def __init(self, filepath):
         self.filepath = filepath
+        self.headers = pd.read_csv(
+            filepath,
+        )
+
+    def getHeaders(self):
+        pass
 
     def getData(self):
         return np.array(pd.read_excel(self.filepath))
+
+    def pushData(self, converter):
+        for chunk in pd.read_excel(self.filepath, chunksize=self.CHUNKSIZE):
+            converter.parseChunk(chunk)
