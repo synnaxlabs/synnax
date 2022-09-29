@@ -8,8 +8,8 @@ import (
 	"github.com/synnaxlabs/freighter/ferrors"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/httputil"
+	"go.uber.org/zap"
 	"io"
-	"log"
 	"time"
 )
 
@@ -33,8 +33,9 @@ type message[P freighter.Payload] struct {
 
 func newCore[RQ, RS freighter.Payload](
 	ctx context.Context,
-	ecd binary.EncoderDecoder,
 	conn *ws.Conn,
+	ecd binary.EncoderDecoder,
+	logger *zap.SugaredLogger,
 ) core[RQ, RS] {
 	ctx, cancel := context.WithCancel(ctx)
 	b := core[RQ, RS]{
@@ -43,17 +44,21 @@ func newCore[RQ, RS freighter.Payload](
 		conn:     conn,
 		ecd:      ecd,
 		contextC: make(chan struct{}),
+		logger:   logger,
 	}
 	go b.listenForContextCancellation()
 	return b
 }
 
 type core[I, O freighter.Payload] struct {
-	ctx      context.Context
-	cancel   context.CancelFunc
-	contextC chan struct{}
-	conn     *ws.Conn
-	ecd      binary.EncoderDecoder
+	ctx        context.Context
+	cancel     context.CancelFunc
+	contextC   chan struct{}
+	conn       *ws.Conn
+	ecd        binary.EncoderDecoder
+	peerClosed error
+	closed     bool
+	logger     *zap.SugaredLogger
 }
 
 func (c *core[I, O]) send(msg message[O]) error {
@@ -73,6 +78,13 @@ func (c *core[I, O]) receive() (msg message[I], err error) {
 	return msg, c.ecd.DecodeStream(r, &msg)
 }
 
+func (c *core[I, O]) cancelStream() error {
+	close(c.contextC)
+	c.peerClosed = context.Canceled
+	c.cancel()
+	return c.peerClosed
+}
+
 func (c *core[I, O]) listenForContextCancellation() {
 	select {
 	case <-c.contextC:
@@ -83,7 +95,11 @@ func (c *core[I, O]) listenForContextCancellation() {
 			ws.FormatCloseMessage(ws.CloseGoingAway, ""),
 			time.Now().Add(time.Second),
 		); err != nil && !roacherrors.Is(err, ws.ErrCloseSent) {
-			log.Printf("error sending close message: %v \n", err)
+			c.logger.Errorf("error sending close message: %v \n", err)
 		}
 	}
+}
+
+func isRemoteContextCancellation(err error) bool {
+	return ws.IsCloseError(err, ws.CloseGoingAway)
 }

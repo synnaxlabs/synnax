@@ -88,8 +88,6 @@ func (s *Client[RQ, RS]) Stream(
 
 type clientStream[RQ, RS freighter.Payload] struct {
 	core[RS, RQ]
-	serverClosed error
-	sendClosed   bool
 }
 
 func newClientStream[RQ, RS freighter.Payload](
@@ -102,11 +100,11 @@ func newClientStream[RQ, RS freighter.Payload](
 
 // Send implements the freighter.ClientStream interface.
 func (s *clientStream[RQ, RS]) Send(req RQ) error {
-	if s.serverClosed != nil {
+	if s.peerClosed != nil {
 		return freighter.EOF
 	}
 
-	if s.sendClosed {
+	if s.closed {
 		return freighter.StreamClosed
 	}
 
@@ -124,8 +122,8 @@ func (s *clientStream[RQ, RS]) Send(req RQ) error {
 
 // Receive implements the freighter.ClientStream interface.
 func (s *clientStream[RQ, RS]) Receive() (res RS, err error) {
-	if s.serverClosed != nil {
-		return res, s.serverClosed
+	if s.peerClosed != nil {
+		return res, s.peerClosed
 	}
 
 	if s.ctx.Err() != nil {
@@ -137,15 +135,12 @@ func (s *clientStream[RQ, RS]) Receive() (res RS, err error) {
 	// A close message means the server handler exited.
 	if msg.Type == closeMessage {
 		close(s.contextC)
-		s.serverClosed = ferrors.Decode(msg.Err)
-		return res, s.serverClosed
+		s.peerClosed = ferrors.Decode(msg.Err)
+		return res, s.peerClosed
 	}
 
-	if ws.IsCloseError(err, ws.CloseGoingAway) {
-		close(s.contextC)
-		s.serverClosed = context.Canceled
-		s.cancel()
-		return res, s.serverClosed
+	if isRemoteContextCancellation(err) {
+		return res, s.cancelStream()
 	}
 
 	return msg.Payload, err
@@ -153,10 +148,10 @@ func (s *clientStream[RQ, RS]) Receive() (res RS, err error) {
 
 // CloseSend implements the freighter.ClientStream interface.
 func (s *clientStream[RQ, RS]) CloseSend() error {
-	if s.serverClosed != nil || s.sendClosed {
+	if s.peerClosed != nil || s.closed {
 		return nil
 	}
-	s.sendClosed = true
+	s.closed = true
 	return s.core.send(message[RQ]{Type: closeMessage})
 }
 

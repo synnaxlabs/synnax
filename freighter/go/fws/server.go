@@ -8,7 +8,6 @@ import (
 	fiberws "github.com/gofiber/websocket/v2"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/ferrors"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/httputil"
 	"github.com/synnaxlabs/x/override"
@@ -61,13 +60,13 @@ func (s *Server[RQ, RS]) BindTo(router fiber.Router, path string) {
 			return fiber.ErrUpgradeRequired
 		}
 
-		ecd, err := s.determineEncoderDecoder(c)
+		cfg, err := s.parseStreamConfig(c)
 		if err != nil {
 			return err
 		}
 
 		return fiberws.New(func(conn *fiberws.Conn) {
-			err := s.exec(newServerStream[RQ, RS](ecd, conn.Conn))
+			err := s.exec(newServerStream[RQ, RS](conn.Conn, cfg))
 			if err != nil && !roacherrors.Is(err, context.Canceled) {
 				s.Logger.Errorw("error executing server stream", "error", err)
 			}
@@ -92,9 +91,9 @@ func (s *Server[RQ, RS]) exec(stream *serverStream[RQ, RS]) error {
 		return err
 	}
 
-	stream.clientClosed = freighter.StreamClosed
+	stream.peerClosed = freighter.StreamClosed
 
-	closed := make(chan struct{}, 1)
+	clientCloseAck := make(chan struct{}, 1)
 
 	if err := stream.conn.WriteMessage(
 		ws.CloseMessage,
@@ -104,7 +103,7 @@ func (s *Server[RQ, RS]) exec(stream *serverStream[RQ, RS]) error {
 	}
 
 	go func() {
-		defer close(closed)
+		defer close(clientCloseAck)
 		for {
 			_, err := stream.receive()
 			if ws.IsCloseError(err, ws.CloseNormalClosure, ws.CloseGoingAway) {
@@ -122,7 +121,7 @@ func (s *Server[RQ, RS]) exec(stream *serverStream[RQ, RS]) error {
 		break
 	case <-time.After(500 * time.Millisecond):
 		break
-	case <-closed:
+	case <-clientCloseAck:
 		break
 	}
 
@@ -133,6 +132,11 @@ func (s *Server[RQ, RS]) exec(stream *serverStream[RQ, RS]) error {
 }
 
 const queryStringContentType = "contentType"
+
+func (s *Server[RQ, RS]) parseStreamConfig(c *fiber.Ctx) (nextCfg ServerConfig, err error) {
+	nextCfg.EncoderDecoder, err = s.determineEncoderDecoder(c)
+	return s.ServerConfig.Override(nextCfg), err
+}
 
 func (s *Server[RQ, RS]) determineEncoderDecoder(c *fiber.Ctx) (httputil.EncoderDecoder, error) {
 	c.Accepts(httputil.SupportedContentTypes()...)
@@ -153,23 +157,23 @@ func (s *Server[RQ, RS]) determineEncoderDecoder(c *fiber.Ctx) (httputil.Encoder
 	return httputil.DetermineEncoderDecoder(ct)
 }
 
-func newServerStream[RQ, RS freighter.Payload](
-	ecd binary.EncoderDecoder,
-	conn *ws.Conn,
-) *serverStream[RQ, RS] {
-	return &serverStream[RQ, RS]{core: newCore[RQ, RS](context.TODO(), ecd, conn)}
+func newServerStream[RQ, RS freighter.Payload](conn *ws.Conn, cfg ServerConfig) *serverStream[RQ, RS] {
+	return &serverStream[RQ, RS]{core: newCore[RQ, RS](
+		context.TODO(),
+		conn,
+		cfg.EncoderDecoder,
+		cfg.Logger,
+	)}
 }
 
 type serverStream[RQ, RS freighter.Payload] struct {
 	core[RQ, RS]
-	clientClosed error
-	closed       bool
 }
 
 // Receive implements the freighter.ServerStream interface.
 func (s *serverStream[RQ, RS]) Receive() (req RQ, err error) {
-	if s.clientClosed != nil {
-		return req, s.clientClosed
+	if s.peerClosed != nil {
+		return req, s.peerClosed
 	}
 
 	if s.ctx.Err() != nil {
@@ -180,17 +184,12 @@ func (s *serverStream[RQ, RS]) Receive() (req RQ, err error) {
 
 	// A close message means the client called CloseSend.
 	if msg.Type == closeMessage {
-		s.clientClosed = freighter.EOF
-		return req, s.clientClosed
+		s.peerClosed = freighter.EOF
+		return req, s.peerClosed
 	}
 
-	// A close error with code close going away means the client context
-	// was cancelled, and we should cancel the server context.
-	if ws.IsCloseError(err, ws.CloseGoingAway) {
-		close(s.contextC)
-		s.clientClosed = context.Canceled
-		s.cancel()
-		return req, s.clientClosed
+	if isRemoteContextCancellation(err) {
+		return req, s.cancelStream()
 	}
 
 	return msg.Payload, err
