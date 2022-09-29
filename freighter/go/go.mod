@@ -9,7 +9,6 @@ require (
 	github.com/gofiber/websocket/v2 v2.0.24
 	github.com/onsi/ginkgo/v2 v2.1.4
 	github.com/onsi/gomega v1.20.0
-	github.com/sirupsen/logrus v1.9.0
 	github.com/synnaxlabs/x v0.0.0-20220801122519-e4a5e96a532d
 	go.uber.org/zap v1.21.0
 	google.golang.org/grpc v1.38.0
