@@ -56,6 +56,9 @@ class TestWS:
         assert err.code == 1
         assert err.message == "unexpected error"
 
+    async def test_invalid_handshake(self, async_client):
+        stream =
+
 
 class TestSyncWebsocket:
     def test_basic_exchange(self, sync_client: SyncStreamClient):

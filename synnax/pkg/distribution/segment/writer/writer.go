@@ -61,19 +61,21 @@ func (w *writer) Close() error {
 }
 
 type Config struct {
-	TS             storage.TS
-	ChannelService *channel.Service
-	Resolver       distribcore.HostResolver
-	Transport      Transport
-	ChannelKeys    channel.Keys
-	Logger         *zap.Logger
+	TS              storage.TS
+	ChannelService  *channel.Service
+	Resolver        distribcore.HostResolver
+	TransportServer TransportServer
+	TransportClient TransportClient
+	ChannelKeys     channel.Keys
+	Logger          *zap.Logger
 }
 
 func (cfg Config) Override(other Config) Config {
 	cfg.TS = override.Nil(cfg.TS, other.TS)
 	cfg.ChannelService = override.Nil(cfg.ChannelService, other.ChannelService)
 	cfg.Resolver = override.Nil(cfg.Resolver, other.Resolver)
-	cfg.Transport = override.Nil(cfg.Transport, other.Transport)
+	cfg.TransportServer = override.Nil(cfg.TransportServer, other.TransportServer)
+	cfg.TransportClient = override.Nil(cfg.TransportClient, other.TransportClient)
 	cfg.ChannelKeys = override.Nil(cfg.ChannelKeys, other.ChannelKeys)
 	cfg.Logger = override.Nil(cfg.Logger, other.Logger)
 	return cfg
@@ -84,9 +86,10 @@ func (cfg Config) Validate() error {
 	validate.NotNil(v, "TS", cfg.TS)
 	validate.NotNil(v, "ChannelService", cfg.ChannelService)
 	validate.NotNil(v, "Resolver", cfg.Resolver)
-	validate.NotNil(v, "Transport", cfg.Transport)
+	validate.NotNil(v, "TransportServer", cfg.TransportServer)
+	validate.NotNil(v, "TransportClient", cfg.TransportClient)
 	validate.NotEmptySlice(v, "ChannelKeys", cfg.ChannelKeys)
-	validate.NotNil(v, "Logger", cfg.Logger)
+	validate.NotNil(v, "logger", cfg.Logger)
 	return v.Error()
 }
 

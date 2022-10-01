@@ -3,7 +3,7 @@ from typing import Generic, Type
 
 from pydantic import BaseModel
 from websockets.exceptions import ConnectionClosedOK
-from websockets.legacy.client import WebSocketClientProtocol, connect
+from websockets import connect, WebSocketClientProtocol
 
 from . import AsyncStream
 from .encoder import EncoderDecoder
@@ -38,16 +38,15 @@ class WebsocketStream(Generic[RQ, RS]):
     res_msg_t: Type[_Message[RS]]
 
     def __init__(
-        self,
-        encoder: EncoderDecoder,
-        ws: WebSocketClientProtocol,
-        res_t: Type[RS],
+            self,
+            encoder: EncoderDecoder,
+            ws: WebSocketClientProtocol,
+            res_t: Type[RS],
     ):
         self.encoder = encoder
         self.wrapped = ws
         self.send_closed = False
         self.server_closed = None
-        self.lock = asyncio.Lock()
         self.res_msg_t = _new_res_msg_t(res_t)
 
     async def receive(self) -> tuple[RS | None, Exception | None]:
@@ -110,7 +109,7 @@ class WebsocketStream(Generic[RQ, RS]):
         await self.wrapped.close()
 
 
-DEFAULT_MAX_SIZE = 2**20
+DEFAULT_MAX_SIZE = 2 ** 20
 
 
 class WebsocketClient:
@@ -125,24 +124,32 @@ class WebsocketClient:
     _endpoint: URL
     _encoder: EncoderDecoder
     _max_message_size: int
+    _connect_middlware: list[HeaderMiddleware] = []
 
     def __init__(
-        self,
-        encoder: EncoderDecoder,
-        base_url: URL,
-        max_message_size: int = DEFAULT_MAX_SIZE,
+            self,
+            encoder: EncoderDecoder,
+            base_url: URL,
+            max_message_size: int = DEFAULT_MAX_SIZE,
+            connect_middleware: list[HeaderMiddleware] = [],
     ) -> None:
         self._encoder = encoder
         self._endpoint = base_url.replace(protocol="ws")
         self._max_message_size = max_message_size
+        self._connect_middlware = connect_middleware
 
     async def stream(
-        self, target: str, req_type: Type[RQ], res_type: Type[RS]
+            self, target: str, req_type: Type[RQ], res_type: Type[RS]
     ) -> AsyncStream[RQ, RS]:
         """Implements the AsyncStreamClient protocol."""
+
+        headers = {"Content-Type": self._encoder.content_type()}
+        for middleware in self._connect_middlware:
+            middleware(headers)
+
         ws = await connect(
             self._endpoint.child(target).stringify(),
-            extra_headers={"Content-Type": self._encoder.content_type()},
+            extra_headers=headers,
             max_size=self._max_message_size,
         )
         return WebsocketStream[RQ, RS](self._encoder, ws, res_type)

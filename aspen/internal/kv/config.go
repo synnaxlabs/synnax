@@ -1,11 +1,11 @@
 package kv
 
 import (
+	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/x/alamos"
 	kvx "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
-	"github.com/synnaxlabs/aspen/internal/cluster"
 	"go.uber.org/zap"
 	"time"
 )
@@ -15,15 +15,24 @@ type Config struct {
 	// Cluster is the cluster that the DB will use to communicate with other databases.
 	// [Required]
 	Cluster cluster.Cluster
-	// OperationsTransport is used to send key-value Operations between nodes.
+	// BatchTransportClient is used to send key-value Operations to nodes.
 	// [Required]
-	OperationsTransport BatchTransport
-	// FeedbackTransport is used to send gossip feedback between nodes.
+	BatchTransportClient BatchTransportClient
+	// BatchTransportServer is used to receive key-value Operations from nodes.
 	// [Required]
-	FeedbackTransport FeedbackTransport
-	// LeaseTransport is used to send leaseAlloc Operations between nodes.
+	BatchTransportServer BatchTransportServer
+	// FeedbackTransportClient is used to send gossip feedback to nodes.
 	// [Required]
-	LeaseTransport LeaseTransport
+	FeedbackTransportClient FeedbackTransportClient
+	// FeedbackTransportServer is used to receive gossip feedback from nodes.
+	// [Required]
+	FeedbackTransportServer FeedbackTransportServer
+	// LeaseTransportClient is used to receive leaseAlloc Operations between nodes.
+	// [Required]
+	LeaseTransportClient LeaseTransportClient
+	// LeaseTransportServer is used to send leaseAlloc Operations between nodes.
+	// [Required]
+	LeaseTransportServer LeaseTransportServer
 	// Logger is the witness of it all.
 	// [Not Required]
 	Logger *zap.SugaredLogger
@@ -41,9 +50,9 @@ type Config struct {
 
 func (cfg Config) Override(other Config) Config {
 	cfg.Cluster = override.Nil(cfg.Cluster, other.Cluster)
-	cfg.OperationsTransport = override.Nil(cfg.OperationsTransport, other.OperationsTransport)
-	cfg.FeedbackTransport = override.Nil(cfg.FeedbackTransport, other.FeedbackTransport)
-	cfg.LeaseTransport = override.Nil(cfg.LeaseTransport, other.LeaseTransport)
+	cfg.BatchTransportClient = override.Nil(cfg.BatchTransportClient, other.BatchTransportClient)
+	cfg.FeedbackTransportClient = override.Nil(cfg.FeedbackTransportClient, other.FeedbackTransportClient)
+	cfg.LeaseTransportServer = override.Nil(cfg.LeaseTransportServer, other.LeaseTransportServer)
 	cfg.Logger = override.Nil(cfg.Logger, other.Logger)
 	cfg.Engine = override.Nil(cfg.Engine, other.Engine)
 	cfg.GossipInterval = override.Numeric(cfg.GossipInterval, other.GossipInterval)
@@ -54,9 +63,12 @@ func (cfg Config) Override(other Config) Config {
 func (cfg Config) Validate() error {
 	v := validate.New("kv")
 	validate.NotNil(v, "Cluster", cfg.Cluster)
-	validate.NotNil(v, "OperationsTransport", cfg.OperationsTransport)
-	validate.NotNil(v, "FeedbackTransport", cfg.FeedbackTransport)
-	validate.NotNil(v, "LeaseTransport", cfg.LeaseTransport)
+	validate.NotNil(v, "BatchTransportClient", cfg.BatchTransportClient)
+	validate.NotNil(v, "BatchTransportServer", cfg.BatchTransportServer)
+	validate.NotNil(v, "FeedbackTransportClient", cfg.FeedbackTransportClient)
+	validate.NotNil(v, "FeedbackTransportServer", cfg.FeedbackTransportServer)
+	validate.NotNil(v, "LeaseTransportClient", cfg.LeaseTransportServer)
+	validate.NotNil(v, "LeaseTransportServer", cfg.LeaseTransportClient)
 	validate.NotNil(v, "Engine", cfg.Engine)
 	return v.Error()
 }
@@ -65,9 +77,12 @@ func (cfg Config) Report() alamos.Report {
 	report := make(alamos.Report)
 	report["recoveryThreshold"] = cfg.RecoveryThreshold
 	report["gossipInterval"] = cfg.GossipInterval.String()
-	report["operationsTransport"] = cfg.OperationsTransport.Report()
-	report["feedbackTransport"] = cfg.FeedbackTransport.Report()
-	report["leaseTransport"] = cfg.LeaseTransport.Report()
+	report["batchTransportClient"] = cfg.BatchTransportClient.Report()
+	report["batchTransportServer"] = cfg.BatchTransportServer.Report()
+	report["feedbackTransportClient"] = cfg.FeedbackTransportClient.Report()
+	report["feedbackTransportServer"] = cfg.FeedbackTransportServer.Report()
+	report["leaseTransportClient"] = cfg.LeaseTransportClient.Report()
+	report["leaseTransportServer"] = cfg.LeaseTransportServer.Report()
 	return report
 }
 

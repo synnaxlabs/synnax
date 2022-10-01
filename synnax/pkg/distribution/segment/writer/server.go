@@ -19,11 +19,11 @@ type server struct {
 
 func NewServer(cfg Config) *server {
 	sf := &server{ts: cfg.TS, Config: cfg}
-	cfg.Transport.BindHandler(sf.Handle)
+	cfg.TransportServer.BindHandler(sf.Handle)
 	return sf
 }
 
-func (sf *server) Handle(_ctx context.Context, server Server) error {
+func (sf *server) Handle(_ctx context.Context, server ServerStream) error {
 	ctx, cancel := signal.WithCancel(_ctx)
 	defer cancel()
 

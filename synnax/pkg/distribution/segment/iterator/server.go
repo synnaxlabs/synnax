@@ -21,12 +21,12 @@ type server struct {
 
 func NewServer(cfg Config) *server {
 	sf := &server{ts: cfg.TS, resolver: cfg.Resolver, logger: cfg.Logger}
-	cfg.Transport.BindHandler(sf.Handle)
+	cfg.TransportServer.BindHandler(sf.Handle)
 	return sf
 }
 
 // Handle handles incoming req from the freighter.
-func (sf *server) Handle(_ctx context.Context, server Server) error {
+func (sf *server) Handle(_ctx context.Context, server ServerStream) error {
 	ctx, cancel := signal.WithCancel(_ctx)
 	defer cancel()
 

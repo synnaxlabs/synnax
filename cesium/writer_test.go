@@ -18,7 +18,7 @@ var _ = Describe("Writer", func() {
 
 	AfterEach(func() { Expect(db.Close()).To(Succeed()) })
 
-	Describe("DB.Write", func() {
+	Describe("db.Write", func() {
 		It("Should write the segment correctly", func() {
 			ch := cesium.Channel{Rate: 1 * telem.Hz, Density: telem.Bit64}
 			Expect(db.CreateChannel(&ch)).To(Succeed())

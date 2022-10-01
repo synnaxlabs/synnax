@@ -1,8 +1,8 @@
 package core
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/freighter/fgrpc"
+	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/alamos"
 	"github.com/synnaxlabs/x/config"
@@ -45,7 +45,7 @@ func (cfg Config) Override(other Config) Config {
 
 func (cfg Config) Validate() error {
 	v := validate.New("distribution.core")
-	validate.NotNil(v, "Pool", cfg.Pool)
+	validate.NotNil(v, "pool", cfg.Pool)
 	return v.Error()
 }
 

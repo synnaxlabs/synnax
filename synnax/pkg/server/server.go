@@ -2,13 +2,13 @@ package server
 
 import (
 	"context"
-	fiberapi "github.com/synnaxlabs/synnax/pkg/api/fiber"
+	"github.com/cockroachdb/cmux"
+	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/synnax/pkg/api/grpc"
+	fiberapi "github.com/synnaxlabs/synnax/pkg/api/http"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errutil"
 	"github.com/synnaxlabs/x/signal"
-	"github.com/cockroachdb/cmux"
-	"github.com/cockroachdb/errors"
 	"go.uber.org/zap"
 	"net"
 )

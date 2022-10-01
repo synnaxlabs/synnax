@@ -1,13 +1,13 @@
 package kvmock
 
 import (
-	"github.com/synnaxlabs/freighter/fmock"
-	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/cluster/clustermock"
 	"github.com/synnaxlabs/aspen/internal/kv"
 	"github.com/synnaxlabs/aspen/internal/node"
+	"github.com/synnaxlabs/freighter/fmock"
+	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/signal"
 	"go/types"
 )
 
@@ -42,9 +42,12 @@ func (b *Builder) New(ctx signal.Context, kvCfg kv.Config, clusterCfg cluster.Co
 	}
 	kvCfg.Cluster = clust
 	addr := clust.Host().Address
-	kvCfg.OperationsTransport = b.OpNet.RouteUnary(addr)
-	kvCfg.FeedbackTransport = b.FeedbackNet.RouteUnary(addr)
-	kvCfg.LeaseTransport = b.LeaseNet.RouteUnary(addr)
+	kvCfg.BatchTransportClient = b.OpNet.UnaryClient()
+	kvCfg.BatchTransportServer = b.OpNet.UnaryServer(addr)
+	kvCfg.FeedbackTransportServer = b.FeedbackNet.UnaryServer(addr)
+	kvCfg.FeedbackTransportClient = b.FeedbackNet.UnaryClient()
+	kvCfg.LeaseTransportServer = b.LeaseNet.UnaryServer(addr)
+	kvCfg.LeaseTransportClient = b.LeaseNet.UnaryClient()
 	kve, err := kv.Open(ctx, kvCfg)
 	if err != nil {
 		return nil, err

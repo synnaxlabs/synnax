@@ -13,14 +13,12 @@ import (
 
 var _ = Describe("ChannelService", Ordered, func() {
 	var (
-		builder *mock.ProviderBuilder
-		prov    api.Provider
-		svc     *api.ChannelService
+		builder *mock.Builder
 	)
 	BeforeAll(func() {
-		builder = mock.NewProviderBuilder()
+		builder = mock.New()
 		prov = builder.New()
-		svc = api.NewChannelService(prov)
+		svc = api.newChannelService(prov)
 	})
 	AfterAll(func() {
 		Expect(builder.Close()).To(Succeed())
@@ -39,7 +37,7 @@ var _ = Describe("ChannelService", Ordered, func() {
 			Expect(err).To(Equal(errors.Nil))
 			Expect(res.Channels).To(HaveLen(1))
 		})
-		DescribeTable("Validation Errors", func(
+		DescribeTable("validation Errors", func(
 			ch api.Channel,
 			field string,
 			message string,

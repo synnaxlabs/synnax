@@ -1,4 +1,4 @@
-package fws
+package fhttp
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-var reporter = freighter.Reporter{
+var streamReporter = freighter.Reporter{
 	Protocol:  "websocket",
 	Encodings: httputil.SupportedContentTypes(),
 }
@@ -57,7 +57,6 @@ type core[I, O freighter.Payload] struct {
 	conn       *ws.Conn
 	ecd        binary.EncoderDecoder
 	peerClosed error
-	closed     bool
 	logger     *zap.SugaredLogger
 }
 
@@ -98,8 +97,4 @@ func (c *core[I, O]) listenForContextCancellation() {
 			c.logger.Errorf("error sending close message: %v \n", err)
 		}
 	}
-}
-
-func isRemoteContextCancellation(err error) bool {
-	return ws.IsCloseError(err, ws.CloseGoingAway)
 }

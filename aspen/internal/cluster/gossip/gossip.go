@@ -2,13 +2,13 @@ package gossip
 
 import (
 	"context"
+	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/alamos"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/rand"
 	"github.com/synnaxlabs/x/signal"
-	"github.com/cockroachdb/errors"
-	"github.com/synnaxlabs/aspen/internal/node"
 	"time"
 )
 
@@ -23,7 +23,7 @@ func New(cfgs ...Config) (*Gossip, error) {
 	cfg.Logger.Infow("starting cluster gossip", cfg.Report().LogArgs()...)
 	g := &Gossip{Config: cfg}
 	alamos.AttachReporter(g.Experiment, "gossip", alamos.Debug, cfg)
-	g.Transport.BindHandler(g.process)
+	g.TransportServer.BindHandler(g.process)
 	return g, nil
 }
 
@@ -55,7 +55,7 @@ func (g *Gossip) GossipOnce(ctx context.Context) error {
 
 func (g *Gossip) GossipOnceWith(ctx context.Context, addr address.Address) error {
 	sync := Message{Digests: g.Store.CopyState().Nodes.Digests()}
-	ack, err := g.Transport.Send(ctx, addr, sync)
+	ack, err := g.TransportClient.Send(ctx, addr, sync)
 	if err != nil {
 		return err
 	}
@@ -63,7 +63,7 @@ func (g *Gossip) GossipOnceWith(ctx context.Context, addr address.Address) error
 	if len(ack2.Nodes) == 0 {
 		return nil
 	}
-	_, err = g.Transport.Send(ctx, addr, ack2)
+	_, err = g.TransportClient.Send(ctx, addr, ack2)
 	return err
 }
 

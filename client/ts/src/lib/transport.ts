@@ -22,7 +22,9 @@ export default class Transport {
   }
 
   getClient(): UnaryClient {
-    return this.httpFactory.getClient();
+    const client = this.httpFactory.getClient();
+    client.use(tokenMiddleware(this.token));
+    return client
   }
 
   postClient(): UnaryClient {

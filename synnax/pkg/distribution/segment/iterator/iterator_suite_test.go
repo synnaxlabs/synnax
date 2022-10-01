@@ -23,14 +23,14 @@ var (
 
 func TestIterator(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Iterator Suite")
+	RunSpecs(t, "IteratorServer Suite")
 }
 
 type serviceContainer struct {
 	channel   *channel.Service
 	transport struct {
-		channel channel.CreateTransport
-		iter    iterator.Transport
+		channel channel.CreateTransportClient
+		iter    iterator.TransportServer
 	}
 }
 
@@ -42,8 +42,8 @@ func provisionNServices(n int, logger *zap.Logger) (*mock.CoreBuilder, map[core.
 	for i := 0; i < n; i++ {
 		_core := builder.New()
 		var container serviceContainer
-		container.transport.channel = channelNet.RouteUnary(_core.Config.AdvertiseAddress)
-		container.transport.iter = iterNet.RouteStream(_core.Config.AdvertiseAddress, 0)
+		container.transport.channel = channelNet.UnaryServer(_core.Config.AdvertiseAddress)
+		container.transport.iter = iterNet.StreamServer(_core.Config.AdvertiseAddress, 0)
 		container.channel = channel.New(
 			_core.Cluster,
 			_core.Storage.Gorpify(),
@@ -51,10 +51,10 @@ func provisionNServices(n int, logger *zap.Logger) (*mock.CoreBuilder, map[core.
 			container.transport.channel,
 		)
 		iterator.NewServer(iterator.Config{
-			TS:        _core.Storage.TS,
-			Resolver:  _core.Cluster,
-			Transport: container.transport.iter,
-			Logger:    zap.NewNop(),
+			TS:              _core.Storage.TS,
+			Resolver:        _core.Cluster,
+			TransportServer: container.transport.iter,
+			Logger:          zap.NewNop(),
 		})
 		services[_core.Cluster.HostID()] = container
 	}
@@ -86,13 +86,13 @@ func openIter(
 	iter, err := iterator.New(
 		ctx,
 		iterator.Config{
-			Logger:         zap.NewNop(),
-			TS:             builder.Cores[nodeID].Storage.TS,
-			Resolver:       builder.Cores[nodeID].Cluster,
-			Transport:      services[nodeID].transport.iter,
-			TimeRange:      telem.TimeRangeMax,
-			ChannelKeys:    keys,
-			ChannelService: services[nodeID].channel,
+			Logger:          zap.NewNop(),
+			TS:              builder.Cores[nodeID].Storage.TS,
+			Resolver:        builder.Cores[nodeID].Cluster,
+			TransportServer: services[nodeID].transport.iter,
+			TimeRange:       telem.TimeRangeMax,
+			ChannelKeys:     keys,
+			ChannelService:  services[nodeID].channel,
 		},
 	)
 	Expect(err).ToNot(HaveOccurred())

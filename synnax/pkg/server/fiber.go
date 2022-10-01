@@ -4,7 +4,7 @@ import (
 	"context"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
-	fiberapi "github.com/synnaxlabs/synnax/pkg/api/fiber"
+	fiberapi "github.com/synnaxlabs/synnax/pkg/api/http"
 	"github.com/synnaxlabs/x/signal"
 	"net"
 )

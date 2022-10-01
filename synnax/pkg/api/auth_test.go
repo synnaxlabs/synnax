@@ -1,14 +1,14 @@
 package api_test
 
 import (
+	"github.com/cockroachdb/errors"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	apierrors "github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/api/mock"
 	"github.com/synnaxlabs/synnax/pkg/auth"
 	"github.com/synnaxlabs/synnax/pkg/auth/password"
-	"github.com/cockroachdb/errors"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 var testCreds = auth.InsecureCredentials{
@@ -18,14 +18,14 @@ var testCreds = auth.InsecureCredentials{
 
 var _ = Describe("AuthService", Ordered, func() {
 	var (
-		builder *mock.ProviderBuilder
-		prov    api.Provider
+		builder *mock.Builder
+		prov    api.provider
 		svc     *api.AuthService
 	)
 	BeforeAll(func() {
-		builder = mock.NewProviderBuilder()
+		builder = mock.New()
 		prov = builder.New()
-		svc = api.NewAuthService(prov)
+		svc = api.newAuthService(prov)
 	})
 	AfterAll(func() {
 		Expect(builder.Close()).To(Succeed())

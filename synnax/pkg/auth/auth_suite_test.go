@@ -9,5 +9,5 @@ import (
 
 func TestAuth(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Authenticator Suite")
+	RunSpecs(t, "authenticator Suite")
 }

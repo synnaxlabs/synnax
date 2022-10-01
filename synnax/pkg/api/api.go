@@ -5,7 +5,10 @@
 package api
 
 import (
+	"context"
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/access"
+	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/auth"
 	"github.com/synnaxlabs/synnax/pkg/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -14,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/user"
 	"go.uber.org/zap"
+	"go/types"
 )
 
 // Config is all required configuration parameters and services necessary to
@@ -30,22 +34,90 @@ type Config struct {
 	Enforcer      access.Enforcer
 }
 
+type Server struct {
+	AuthLogin          freighter.UnaryServer[auth.InsecureCredentials, TokenResponse]
+	AuthChangeUsername freighter.UnaryServer[ChangeUsernameRequest, types.Nil]
+	AuthChangePassword freighter.UnaryServer[ChangePasswordRequest, types.Nil]
+	AuthRegistration   freighter.UnaryServer[RegistrationRequest, TokenResponse]
+	ChannelCreate      freighter.UnaryServer[ChannelCreateRequest, ChannelCreateResponse]
+	ChannelRetrieve    freighter.UnaryServer[ChannelRetrieveRequest, ChannelRetrieveResponse]
+	SegmentWriter      freighter.StreamServer[SegmentWriterRequest, SegmentWriterResponse]
+	SegmentIterator    freighter.StreamServer[SegmentIteratorRequest, SegmentIteratorResponse]
+}
+
+type Client struct {
+	AuthLogin          freighter.UnaryClient[auth.InsecureCredentials, TokenResponse]
+	AuthChangeUsername freighter.UnaryClient[ChangeUsernameRequest, types.Nil]
+	AuthChangePassword freighter.UnaryClient[ChangePasswordRequest, types.Nil]
+	AuthRegistration   freighter.UnaryClient[RegistrationRequest, TokenResponse]
+	ChannelCreate      freighter.UnaryClient[ChannelCreateRequest, ChannelCreateResponse]
+	ChannelRetrieve    freighter.UnaryClient[ChannelRetrieveRequest, ChannelRetrieveResponse]
+	SegmentWriter      freighter.StreamClient[SegmentWriterRequest, SegmentWriterResponse]
+	SegmentIterator    freighter.StreamClient[SegmentIteratorRequest, SegmentIteratorResponse]
+}
+
 // API wraps all implemented API services into a single container. Protocol-specific
 // API implementations should use this struct during instantiation.
 type API struct {
-	Provider Provider
-	Config   Config
-	Auth     *AuthService
-	Segment  *SegmentService
-	Channel  *ChannelService
+	provider provider
+	config   Config
+	auth     *AuthService
+	segment  *SegmentService
+	channel  *ChannelService
+}
+
+func (a *API) BindTo(t Server) {
+	logger := logMiddleware(a.provider.logging.logger)
+	tk := tokenMiddleware(a.provider.auth.token)
+	t.AuthLogin.Use(logger, tk)
+	t.AuthChangeUsername.Use(logger, tk)
+	t.AuthChangePassword.Use(logger, tk)
+	t.AuthRegistration.Use(logger, tk)
+	t.ChannelCreate.Use(logger, tk)
+	t.ChannelRetrieve.Use(logger, tk)
+	t.SegmentWriter.Use(logger, tk)
+	t.SegmentIterator.Use(logger, tk)
+
+	t.AuthLogin.BindHandler(typedUnaryWrapper(a.auth.Login))
+	t.AuthChangeUsername.BindHandler(noResponseWrapper(a.auth.ChangeUsername))
+	t.AuthChangePassword.BindHandler(noResponseWrapper(a.auth.ChangePassword))
+	t.AuthRegistration.BindHandler(typedUnaryWrapper(a.auth.Register))
+	t.ChannelCreate.BindHandler(typedUnaryWrapper(a.channel.Create))
+	t.ChannelRetrieve.BindHandler(typedUnaryWrapper(a.channel.Retrieve))
+	t.SegmentWriter.BindHandler(typedStreamWrapper(a.segment.Write))
+	t.SegmentIterator.BindHandler(typedStreamWrapper(a.segment.Iterate))
 }
 
 // New instantiates the delta API using the provided Config. This should probably
 // only be called once.
 func New(cfg Config) API {
-	api := API{Config: cfg, Provider: NewProvider(cfg)}
-	api.Auth = NewAuthService(api.Provider)
-	api.Segment = NewSegmentService(api.Provider)
-	api.Channel = NewChannelService(api.Provider)
+	api := API{config: cfg, provider: newProvider(cfg)}
+	api.auth = newAuthService(api.provider)
+	api.segment = newSegmentService(api.provider)
+	api.channel = newChannelService(api.provider)
 	return api
+}
+
+func typedUnaryWrapper[RQ, RS freighter.Payload](
+	handler func(context.Context, RQ) (RS, errors.Typed),
+) func(context.Context, RQ) (RS, error) {
+	return func(ctx context.Context, rq RQ) (RS, error) {
+		return handler(ctx, rq)
+	}
+}
+
+func typedStreamWrapper[RQ, RS freighter.Payload](
+	handler func(context.Context, freighter.ServerStream[RQ, RS]) errors.Typed,
+) func(context.Context, freighter.ServerStream[RQ, RS]) error {
+	return func(ctx context.Context, stream freighter.ServerStream[RQ, RS]) error {
+		return handler(ctx, stream)
+	}
+}
+
+func noResponseWrapper[RQ freighter.Payload](
+	handler func(ctx context.Context, rq RQ) (error errors.Typed),
+) func(ctx context.Context, rq RQ) (rs types.Nil, error error) {
+	return func(ctx context.Context, rq RQ) (types.Nil, error) {
+		return types.Nil{}, handler(ctx, rq)
+	}
 }

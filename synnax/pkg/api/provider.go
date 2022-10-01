@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/go-playground/validator/v10"
 	"github.com/synnaxlabs/synnax/pkg/access"
 	errors "github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/auth"
@@ -8,53 +9,51 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/user"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/go-playground/validator/v10"
 	"go.uber.org/zap"
 )
 
-// Provider is a dependency injection container containing essential utilities
-// for particular API services (if they so require them). Provider should be
-// passed as the one and only argument to a service constructor.
-type Provider struct {
-	Config     Config
-	Logging    LoggingProvider
-	Validation ValidationProvider
-	DB         DBProvider
-	User       UserProvider
-	Access     AccessProvider
-	Auth       AuthProvider
+// provider is a dependency injection container containing essential utilities
+// for particular API services (if they so require them).
+type provider struct {
+	config     Config
+	logging    loggingProvider
+	validation validationProvider
+	db         dbProvider
+	user       userProvider
+	access     AccessProvider
+	auth       authProvider
 }
 
-func NewProvider(cfg Config) Provider {
-	p := Provider{Config: cfg}
-	p.Logging = LoggingProvider{Logger: cfg.Logger.Sugar()}
-	p.Validation = ValidationProvider{Validator: newValidator()}
-	p.DB = DBProvider{DB: gorp.Wrap(cfg.Storage.KV)}
-	p.User = UserProvider{User: cfg.User}
-	p.Access = AccessProvider{Enforcer: cfg.Enforcer}
-	p.Auth = AuthProvider{Token: cfg.Token, Authenticator: cfg.Authenticator}
+func newProvider(cfg Config) provider {
+	p := provider{config: cfg}
+	p.logging = loggingProvider{logger: cfg.Logger.Sugar()}
+	p.validation = validationProvider{validator: newValidator()}
+	p.db = dbProvider{db: gorp.Wrap(cfg.Storage.KV)}
+	p.user = userProvider{user: cfg.User}
+	p.access = AccessProvider{enforcer: cfg.Enforcer}
+	p.auth = authProvider{token: cfg.Token, authenticator: cfg.Authenticator}
 	return p
 }
 
-// LoggingProvider provides logging utilities to services.
-type LoggingProvider struct {
-	Logger *zap.SugaredLogger
+// loggingProvider provides logging utilities to services.
+type loggingProvider struct {
+	logger *zap.SugaredLogger
 }
 
-// ValidationProvider provides the global API validator to services.
-type ValidationProvider struct {
-	Validator *validator.Validate
+// validationProvider provides the global API validator to services.
+type validationProvider struct {
+	validator *validator.Validate
 }
 
 // Validate validates the provided struct. If validation is successful, returns errors.Nil,
 // otherwise, returns an errors.Validation error containing the fields that failed validation.
-func (vp *ValidationProvider) Validate(v any) errors.Typed {
-	return errors.MaybeValidation(vp.Validator.Struct(v))
+func (vp *validationProvider) Validate(v any) errors.Typed {
+	return errors.MaybeValidation(vp.validator.Struct(v))
 }
 
-// DBProvider provides exposes the cluster-wide key-value store to API services.
-type DBProvider struct {
-	DB *gorp.DB
+// dbProvider provides exposes the cluster-wide key-value store to API services.
+type dbProvider struct {
+	db *gorp.DB
 }
 
 // WithTxn wraps the provided function in a gorp transaction. If the function returns
@@ -62,8 +61,8 @@ type DBProvider struct {
 // Returns errors.Nil if the commit process is successful. Returns an unexpected
 // error if the abort process fails; otherwise, returns the error returned by the provided
 // function.
-func (db DBProvider) WithTxn(f func(txn gorp.Txn) errors.Typed) (tErr errors.Typed) {
-	txn := db.DB.BeginTxn()
+func (db dbProvider) WithTxn(f func(txn gorp.Txn) errors.Typed) (tErr errors.Typed) {
+	txn := db.db.BeginTxn()
 	defer func() {
 		if err := txn.Close(); err != nil {
 			tErr = errors.Unexpected(err)
@@ -76,21 +75,21 @@ func (db DBProvider) WithTxn(f func(txn gorp.Txn) errors.Typed) (tErr errors.Typ
 	return tErr
 }
 
-// UserProvider provides user information to services.
-type UserProvider struct {
-	User *user.Service
+// userProvider provides user information to services.
+type userProvider struct {
+	user *user.Service
 }
 
 // AccessProvider provides access control information and utilities to services.
 type AccessProvider struct {
-	Enforcer access.Enforcer
+	enforcer access.Enforcer
 }
 
-// AuthProvider provides authentication and token utilities to services. In most cases
+// authProvider provides authentication and token utilities to services. In most cases
 // authentication should be left up to the protocol-specific middleware.
-type AuthProvider struct {
-	Authenticator auth.Authenticator
-	Token         *token.Service
+type authProvider struct {
+	authenticator auth.Authenticator
+	token         *token.Service
 }
 
 // OntologyProvider provides the cluster wide ontology to services.

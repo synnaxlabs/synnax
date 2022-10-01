@@ -57,7 +57,7 @@ type kvWriter struct {
 	txn gorp.Txn
 }
 
-// Register implements the sec.Authenticator interface.
+// Register implements the sec.authenticator interface.
 func (w *kvWriter) Register(creds InsecureCredentials) error {
 	err := w.checkUsernameExists(creds.Username)
 	if err != nil {
@@ -71,7 +71,7 @@ func (w *kvWriter) Register(creds InsecureCredentials) error {
 	return w.set(sec)
 }
 
-// UpdateUsername implements the sec.Authenticator interface.
+// UpdateUsername implements the sec.authenticator interface.
 func (w *kvWriter) UpdateUsername(creds InsecureCredentials, newUser string) error {
 	secureCreds, err := w.kv.authenticate(creds)
 	if err != nil {
@@ -92,7 +92,7 @@ func (w *kvWriter) checkUsernameExists(user string) error {
 	return err
 }
 
-// UpdatePassword implements the sec.Authenticator interface.
+// UpdatePassword implements the sec.authenticator interface.
 func (w *kvWriter) UpdatePassword(creds InsecureCredentials, newPass password.Raw) error {
 	secureCreds, err := w.kv.authenticate(creds)
 	if err != nil {

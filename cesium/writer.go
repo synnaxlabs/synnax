@@ -259,7 +259,7 @@ func startCreate(ctx signal.Context, _cfg ...writeConfig) (confluence.Inlet[[]wr
 		return nil, err
 	}
 
-	// a kv persisted counter that tracks the number of files that a DB has created.
+	// a kv persisted counter that tracks the number of files that a db has created.
 	// The segment allocator uses it to determine the next file to open.
 	fCount, err := openFileCounter(cfg.kv)
 	if err != nil {

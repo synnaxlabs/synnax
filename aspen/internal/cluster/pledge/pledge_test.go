@@ -2,50 +2,96 @@ package pledge_test
 
 import (
 	"context"
-	"github.com/synnaxlabs/freighter/fmock"
-	"github.com/synnaxlabs/x/address"
-	. "github.com/synnaxlabs/x/testutil"
 	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/node"
+	"github.com/synnaxlabs/freighter/fmock"
+	"github.com/synnaxlabs/x/address"
+	. "github.com/synnaxlabs/x/testutil"
 	"go.uber.org/zap"
 	"sync"
 	"time"
 )
 
-var _ = Describe("Pledge", func() {
-	var logger *zap.SugaredLogger
+func baseConfig(n *fmock.Network[node.ID, node.ID], logger *zap.SugaredLogger) pledge.Config {
+	cfg, _ := baseConfigWithAddr(n, logger)
+	return cfg
+}
 
-	BeforeEach(func() { logger = zap.NewNop().Sugar() })
+func allCandidates(nodes node.Group) func() node.Group {
+	return func() node.Group { return nodes }
+}
 
-	Describe("Pledge", func() {
+func baseConfigWithAddr(n *fmock.Network[node.ID, node.ID], logger *zap.SugaredLogger) (pledge.Config, address.Address) {
+	server := n.UnaryServer("")
+	cfg := pledge.Config{
+		TransportServer: n.UnaryServer(""),
+		TransportClient: n.UnaryClient(),
+		Logger:          logger,
+	}
+	return cfg, server.Address
+}
+
+func provisionCandidates(
+	n int,
+	net *fmock.Network[node.ID, node.ID],
+	candidates func(i int) func() node.Group,
+	nodeState func(i int) node.State,
+	logger *zap.SugaredLogger,
+) node.Group {
+	nodes := make(node.Group, n)
+	if candidates == nil {
+		candidates = func(i int) func() node.Group {
+			return func() node.Group { return nodes }
+		}
+	}
+	if nodeState == nil {
+		nodeState = func(i int) node.State { return node.StateHealthy }
+	}
+	for i := 0; i < n; i++ {
+		cfg, addr := baseConfigWithAddr(net, logger)
+		Expect(pledge.Arbitrate(cfg, pledge.Config{Candidates: candidates(i)})).To(Succeed())
+		id := node.ID(i)
+		nodes[id] = node.Node{ID: node.ID(i), Address: addr, State: nodeState(i)}
+	}
+	return nodes
+}
+
+var _ = Describe("PledgeServer", func() {
+	var (
+		logger *zap.SugaredLogger
+		net    *fmock.Network[node.ID, node.ID]
+	)
+
+	BeforeEach(func() {
+		logger = zap.NewNop().Sugar()
+		net = fmock.NewNetwork[node.ID, node.ID]()
+	})
+
+	Describe("PledgeServer", func() {
 
 		Context("No nodes Responding", func() {
 			It("Should submit round robin proposals at scaled intervals", func() {
 				var (
 					peers         []address.Address
 					numTransports = 4
-					net           = fmock.NewNetwork[node.ID, node.ID]()
 					handler       = func(ctx context.Context, id node.ID) (node.ID, error) {
 						return 0, errors.New("pledge failed")
 					}
-					t1 = net.RouteUnary("")
 				)
 				for i := 0; i < numTransports; i++ {
-					t := net.RouteUnary("")
+					t := net.UnaryServer("")
 					t.BindHandler(handler)
 					peers = append(peers, t.Address)
 				}
 				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 				defer cancel()
-				id, err := pledge.Pledge(ctx, pledge.Config{
+				id, err := pledge.Pledge(ctx, baseConfig(net, logger), pledge.Config{
 					Peers:      peers,
-					Transport:  t1,
 					Candidates: func() node.Group { return node.Group{} },
-					Logger:     logger,
 				}, pledge.BlazingFastConfig)
 				Expect(err).To(HaveOccurredAs(context.DeadlineExceeded))
 				Expect(id).To(Equal(node.ID(0)))
@@ -62,23 +108,15 @@ var _ = Describe("Pledge", func() {
 			It("Should correctly assign an ID", func() {
 				var (
 					nodes         = make(node.Group)
-					candidates    = func() node.Group { return nodes }
-					net           = fmock.NewNetwork[node.ID, node.ID]()
-					t1            = net.RouteUnary("")
+					candidates    = allCandidates(nodes)
 					numCandidates = 10
 				)
-				for i := 0; i < numCandidates; i++ {
-					t := net.RouteUnary("")
-					Expect(pledge.Arbitrate(pledge.Config{Candidates: candidates, Transport: t})).To(Succeed())
-					id := node.ID(i)
-					nodes[id] = node.Node{ID: id, Address: t.Address, State: node.StateHealthy}
-				}
+				provisionCandidates(numCandidates, net, nil, nil, logger)
 				ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
 				defer cancel()
-				id, err := pledge.Pledge(ctx, pledge.Config{
+				id, err := pledge.Pledge(ctx, baseConfig(net, logger), pledge.Config{
 					Peers:      nodes.Addresses(),
 					Candidates: candidates,
-					Transport:  t1,
 				}, pledge.BlazingFastConfig)
 				Expect(err).To(BeNil())
 				Expect(id).To(Equal(node.ID(10)))
@@ -87,36 +125,25 @@ var _ = Describe("Pledge", func() {
 		Context("Responsible is Missing UniqueNodeIDs", func() {
 			It("Should correctly assign an ID", func() {
 				var (
-					nodes                 = make(node.Group)
-					allCandidates         = func() node.Group { return nodes }
-					responsibleCandidates = func() node.Group {
-						return allCandidates().Where(func(id node.ID, _ node.Node) bool {
-							return !lo.Contains([]node.ID{8, 9, 10}, id)
-						})
+					nodes      = make(node.Group)
+					candidates = func(i int) func() node.Group {
+						return func() node.Group {
+							if i == 0 {
+								return nodes.Where(func(id node.ID, _ node.Node) bool {
+									return !lo.Contains([]node.ID{8, 9, 10}, id)
+								})
+							}
+							return nodes
+						}
 					}
-					net = fmock.NewNetwork[node.ID, node.ID]()
-					t1  = net.RouteUnary("")
 				)
-				for i := 0; i < 10; i++ {
-					t := net.RouteUnary("")
-					Expect(pledge.Arbitrate(pledge.Config{
-						Logger:     logger,
-						Transport:  t,
-						Candidates: lo.Ternary(i == 0, responsibleCandidates, allCandidates),
-					})).To(Succeed())
-					id := node.ID(i)
-					nodes[id] = node.Node{ID: node.ID(i), Address: t.Address, State: node.StateHealthy}
-				}
+				nodes = provisionCandidates(10, net, candidates, nil, logger)
 				ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 				defer cancel()
 				id, err := pledge.Pledge(
 					ctx,
-					pledge.Config{
-						Peers:      []address.Address{allCandidates()[0].Address},
-						Transport:  t1,
-						Logger:     logger,
-						Candidates: responsibleCandidates,
-					},
+					baseConfig(net, logger),
+					pledge.Config{Peers: []address.Address{nodes[0].Address}},
 					pledge.BlazingFastConfig,
 				)
 				Expect(err).To(BeNil())
@@ -132,66 +159,36 @@ var _ = Describe("Pledge", func() {
 						return node.Group{10: node.Node{ID: 10, Address: "localhost:10", State: node.StateHealthy}}
 					}
 					net = fmock.NewNetwork[node.ID, node.ID]()
-					t1  = net.RouteUnary("")
 				)
-				for i := 0; i < 10; i++ {
-					t := net.RouteUnary("")
-					Expect(pledge.Arbitrate(pledge.Config{
-						Logger:     logger,
-						Transport:  t,
-						Candidates: lo.Ternary(i%2 == 0, allCandidates, extraCandidates),
-					})).To(Succeed())
-					id := node.ID(i)
-					nodes[id] = node.Node{ID: id, Address: t.Address, State: node.StateHealthy}
-				}
+				nodes = provisionCandidates(10, net, func(i int) func() node.Group {
+					return lo.Ternary(i == 0, extraCandidates, allCandidates)
+				}, nil, logger)
 				ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 				defer cancel()
 				id, err := pledge.Pledge(
 					ctx,
-					pledge.Config{
-						Peers:      []address.Address{allCandidates()[0].Address},
-						Candidates: extraCandidates,
-						Transport:  t1,
-						Logger:     logger,
-					},
+					baseConfig(net, logger),
+					pledge.Config{Peers: []address.Address{allCandidates()[0].Address}},
 					pledge.BlazingFastConfig,
 				)
 				Expect(err).To(BeNil())
 				Expect(id).To(Equal(node.ID(11)))
 			})
 		})
-		Context("Too Few Healthy UniqueNodeIDs SinkTarget Form a Quorum", func() {
+		Context("Too Few Healthy UniqueNodeIDs To Form a Quorum", func() {
 			It("Should return an errQuorumUnreachable", func() {
-				var (
-					nodes         = make(node.Group)
-					candidates    = func() node.Group { return nodes }
-					net           = fmock.NewNetwork[node.ID, node.ID]()
-					t1            = net.RouteUnary("")
-					numCandidates = 10
-				)
-				for i := 0; i < numCandidates; i++ {
-					t := net.RouteUnary("")
-					Expect(pledge.Arbitrate(pledge.Config{
-						Logger:     logger,
-						Transport:  t,
-						Candidates: candidates,
-					})).To(Succeed())
-					id := node.ID(i)
-					nodes[id] = node.Node{
-						ID:      id,
-						Address: t.Address,
-						State:   lo.Ternary(i%2 == 0, node.StateHealthy, node.StateDead),
-					}
-				}
+				var numCandidates = 10
+				nodes := provisionCandidates(numCandidates, net, nil, func(i int) node.State {
+					return lo.Ternary(i%2 == 0, node.StateHealthy, node.StateDead)
+				}, logger)
 				ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 				defer cancel()
 				id, err := pledge.Pledge(
 					ctx,
+					baseConfig(net, logger),
 					pledge.Config{
-						Peers:      []address.Address{candidates()[0].Address},
-						Candidates: candidates,
-						Transport:  t1,
-						Logger:     logger,
+						Peers:      []address.Address{nodes[1].Address},
+						Candidates: allCandidates(nodes),
 					},
 					pledge.BlazingFastConfig,
 				)
@@ -202,28 +199,14 @@ var _ = Describe("Pledge", func() {
 		Describe("Cancelling a pledge", func() {
 			It("Should stop all operations and return a cancellation error", func() {
 				var (
-					nodes         = make(node.Group)
-					candidates    = func() node.Group { return nodes }
-					net           = fmock.NewNetwork[node.ID, node.ID]()
-					t1            = net.RouteUnary("")
 					numCandidates = 10
 				)
-				for i := 0; i < numCandidates; i++ {
-					t := net.RouteUnary("")
-					Expect(pledge.Arbitrate(pledge.Config{
-						Logger:     logger,
-						Candidates: candidates,
-						Transport:  t,
-					})).To(Succeed())
-					id := node.ID(i)
-					nodes[id] = node.Node{ID: id, Address: t.Address, State: node.StateHealthy}
-				}
+				nodes := provisionCandidates(numCandidates, net, nil, nil, logger)
 				ctx, cancel := context.WithCancel(context.Background())
 				cancel()
-				id, err := pledge.Pledge(ctx, pledge.Config{
+				id, err := pledge.Pledge(ctx, baseConfig(net, logger), pledge.Config{
 					Peers:      nodes.Addresses(),
-					Candidates: candidates,
-					Transport:  t1,
+					Candidates: allCandidates(nodes),
 				})
 				Expect(err).To(HaveOccurredAs(context.Canceled))
 				Expect(id).To(Equal(node.ID(0)))
@@ -235,26 +218,15 @@ var _ = Describe("Pledge", func() {
 				var (
 					mu         sync.Mutex
 					nodes      = make(node.Group)
-					candidates = func() node.Group {
+					candidates = func(i int) func() node.Group {
 						mu.Lock()
 						defer mu.Unlock()
-						return nodes.Copy()
+						return func() node.Group { return nodes.Copy() }
 					}
-					net           = fmock.NewNetwork[node.ID, node.ID]()
 					numCandidates = 10
 					numPledges    = 2
 				)
-
-				for i := 0; i < numCandidates; i++ {
-					t := net.RouteUnary("")
-					Expect(pledge.Arbitrate(pledge.Config{
-						Transport:  t,
-						Candidates: candidates,
-					})).To(Succeed())
-					id := node.ID(i)
-					nodes[id] = node.Node{ID: id, Address: t.Address, State: node.StateHealthy}
-				}
-
+				nodes = provisionCandidates(numCandidates, net, candidates, nil, logger)
 				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 				defer cancel()
 				var wg sync.WaitGroup
@@ -264,13 +236,13 @@ var _ = Describe("Pledge", func() {
 					go func(i int) {
 						defer GinkgoRecover()
 						defer wg.Done()
-						t := net.RouteUnary("")
+						cfg, addr := baseConfigWithAddr(net, logger)
 						id, err := pledge.Pledge(
 							ctx,
+							cfg,
 							pledge.Config{
-								Candidates: candidates,
+								Candidates: candidates(0),
 								Peers:      nodes.Addresses(),
-								Transport:  t,
 							},
 							pledge.BlazingFastConfig,
 						)
@@ -278,7 +250,7 @@ var _ = Describe("Pledge", func() {
 						ids[i] = id
 						mu.Lock()
 						defer mu.Unlock()
-						nodes[id] = node.Node{ID: id, Address: t.Address, State: node.StateHealthy}
+						nodes[id] = node.Node{ID: id, Address: addr, State: node.StateHealthy}
 					}(i)
 				}
 				wg.Wait()

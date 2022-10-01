@@ -10,7 +10,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-var _ = Describe("ProviderBuilder", func() {
+var _ = Describe("Builder", func() {
 	Describe("New", func() {
 		It("Should open a three node memory backed distribution layer", func() {
 

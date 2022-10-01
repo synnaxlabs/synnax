@@ -2,53 +2,47 @@ package middleware
 
 import "context"
 
-// Middleware is a general entity that can be executed in a middleware chain.
-// RQ represents the outgoing request type, RS represents the incoming response type.
-type Middleware[RQ, RS any] interface {
-	// Handle is the function that is executed by the middleware chain.
-	// It receives a context and a request. It also receives a next function that
-	// can be used to execute the next middleware in the chain.
-	Handle(
-		ctx context.Context,
-		req RQ,
-		next func() (RS, error),
-	) (RS, error)
+// Middleware is an entity that be executed in a middleware chain. V represents the value
+// type pass through the chain.
+type Middleware[V any] interface {
+	// Exec executes the middleware. It receives a context and a request. It also receives
+	// a next function that can be used to execute the next middleware in the chain.
+	Exec(ctx context.Context, val V, next func(context.Context, V) error) error
 }
 
-// ExecSequentially executes the given middleware chain sequentially against the given
-// request.
-func ExecSequentially[RQ, RS any](
-	ctx context.Context,
-	req RQ,
-	middleware []Middleware[RQ, RS],
-) (RS, error) {
-	return (&Executor[RQ, RS]{Middleware: middleware}).Exec(ctx, req)
+// Finalizer is the final middleware in a chain, and is expected to execute the request.
+type Finalizer[V any] interface {
+	// Finalize is a special middleware that is executed after the middleware chain
+	// has completed. It receives the context and the request that was sent.
+	Finalize(ctx context.Context, value V) error
 }
 
-// Executor executes a chain of middleware.
-type Executor[RQ, RS any] struct {
-	// Middleware is the chain of middleware that will be executed. IMPORTANT: The
-	// last middleware in the chain is not allowed to call the next function, or
-	// the Executor will panic.
-	Middleware []Middleware[RQ, RS]
-}
+// Chain is a chain of middleware that can be executed sequentially.
+type Chain[V any] []Middleware[V]
 
-// Exec executes the middleware chain sequentially given a request. The first
+// Exec executes the middleware chain sequentially given a value. The first
 // middleware will be the first to receive the request, and the last to receive the response.
-func (m *Executor[RQ, RS]) Exec(ctx context.Context, req RQ) (RS, error) {
+func (c Chain[V]) Exec(ctx context.Context, val V, finalizer Finalizer[V]) error {
 	var (
-		c    = 0
-		mw   = make([]Middleware[RQ, RS], len(m.Middleware))
-		next func() (RS, error)
+		i    = 0
+		next func(context.Context, V) error
 	)
-	copy(mw, m.Middleware)
-	next = func() (RS, error) {
-		if c == len(mw) {
-			panic("[middleware] -  last middleware should not call next")
+	next = func(_ctx context.Context, _val V) error {
+		if _ctx.Err() != nil {
+			return _ctx.Err()
 		}
-		_m := mw[c]
-		c++
-		return _m.Handle(ctx, req, next)
+		if i == len(c) {
+			return finalizer.Finalize(_ctx, _val)
+		}
+		_m := c[i]
+		i++
+		return _m.Exec(_ctx, _val, next)
 	}
-	return next()
+	return next(ctx, val)
 }
+
+// Collector allows middleware to be collected and executed in a chain.
+type Collector[RQ any] struct{ Chain[RQ] }
+
+// Use adds middleware to the collector.
+func (p *Collector[RQ]) Use(m ...Middleware[RQ]) { p.Chain = append(p.Chain, m...) }

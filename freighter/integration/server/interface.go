@@ -14,9 +14,9 @@ type Message struct {
 }
 
 type (
-	StreamTransport = freighter.StreamTransport[Message, Message]
-	Server          = freighter.StreamTransportServer[Message, Message]
-	Client          = freighter.StreamTransportClient[Message, Message]
+	StreamTransport = freighter.Stream[Message, Message]
+	Server          = freighter.StreamServer[Message, Message]
+	Client          = freighter.StreamClient[Message, Message]
 	ServerStream    = freighter.ServerStream[Message, Message]
 	ClientStream    = freighter.ClientStream[Message, Message]
 )

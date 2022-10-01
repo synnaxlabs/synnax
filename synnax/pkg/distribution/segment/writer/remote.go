@@ -2,11 +2,11 @@ package writer
 
 import (
 	"context"
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
-	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/confluence"
 	"strconv"
@@ -29,7 +29,7 @@ func openRemoteWriters(
 			return sender, receivers, receiverAddresses, err
 		}
 		addrMap[nodeID] = targetAddr
-		client, err := openRemoteClient(ctx, cfg.Transport, targetAddr, keys)
+		client, err := openRemoteClient(ctx, cfg.TransportClient, targetAddr, keys)
 		if err != nil {
 			return sender, receivers, receiverAddresses, err
 		}
@@ -42,10 +42,10 @@ func openRemoteWriters(
 
 func openRemoteClient(
 	ctx context.Context,
-	tran Transport,
+	tran TransportClient,
 	target address.Address,
 	keys channel.Keys,
-) (Client, error) {
+) (ClientStream, error) {
 	client, err := tran.Stream(ctx, target)
 	if err != nil {
 		return nil, err

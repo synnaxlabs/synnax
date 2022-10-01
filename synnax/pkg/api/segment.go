@@ -14,15 +14,15 @@ type Segment struct {
 }
 
 type SegmentService struct {
-	LoggingProvider
-	AuthProvider
+	loggingProvider
+	authProvider
 	Internal *segment.Service
 }
 
-func NewSegmentService(p Provider) *SegmentService {
+func newSegmentService(p provider) *SegmentService {
 	return &SegmentService{
-		Internal:        p.Config.Segment,
-		AuthProvider:    p.Auth,
-		LoggingProvider: p.Logging,
+		Internal:        p.config.Segment,
+		authProvider:    p.auth,
+		loggingProvider: p.logging,
 	}
 }

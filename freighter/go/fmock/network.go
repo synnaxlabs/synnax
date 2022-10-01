@@ -8,15 +8,15 @@ import (
 )
 
 // Network is a mock network implementation that is ideal for in-memory testing
-// scenarios. It serves as a factory for freighter.StreamTransport and freighter.Unary.
+// scenarios. It serves as a factory for freighter.Stream and freighter.Unary.
 type Network[RQ, RS freighter.Payload] struct {
 	// Entries is a slice of entries in the network. Entries currently only supports
 	// unary entries.
 	Entries []NetworkEntry[RQ, RS]
 	mu      struct {
 		sync.RWMutex
-		unaryRoutes  map[address.Address]*Unary[RQ, RS]
-		streamRoutes map[address.Address]*StreamTransport[RQ, RS]
+		unaryRoutes  map[address.Address]*UnaryServer[RQ, RS]
+		streamRoutes map[address.Address]*StreamServer[RQ, RS]
 	}
 }
 
@@ -29,18 +29,24 @@ type NetworkEntry[RQ, RS freighter.Payload] struct {
 	Error    error
 }
 
-// RouteUnary returns a new freighter.Unary hosted at the given address. This transport
-// is not reachable by other hosts in the network until freighter.Unary.ServeHTTP is called.
-func (n *Network[RQ, RS]) RouteUnary(host address.Address) *Unary[RQ, RS] {
+// UnaryServer returns a new freighter.Unary hosted at the given address. This transport
+// is not reachable by other hosts in the network until freighter.UnaryServer.ServeHTTP is called.
+func (n *Network[RQ, RS]) UnaryServer(host address.Address) *UnaryServer[RQ, RS] {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	pHost := n.parseTarget(host)
-	t := &Unary[RQ, RS]{Address: pHost, Network: n}
-	n.mu.unaryRoutes[pHost] = t
-	return t
+	s := &UnaryServer[RQ, RS]{Network: n, Address: host}
+	n.mu.unaryRoutes[pHost] = s
+	return s
 }
 
-func (n *Network[RQ, RS]) resolveUnary(target address.Address) (*Unary[RQ, RS], bool) {
+func (n *Network[RQ, RS]) UnaryClient() *UnaryClient[RQ, RS] {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	return &UnaryClient[RQ, RS]{Network: n}
+}
+
+func (n *Network[RQ, RS]) resolveUnaryTarget(target address.Address) (*UnaryServer[RQ, RS], bool) {
 	n.mu.RLock()
 	defer n.mu.RUnlock()
 	t, ok := n.mu.unaryRoutes[target]
@@ -49,22 +55,22 @@ func (n *Network[RQ, RS]) resolveUnary(target address.Address) (*Unary[RQ, RS], 
 
 const defaultStreamBuffer = 10
 
-// RouteStream returns a new freighter.StreamTransport hosted at the given address.
+// StreamServer returns a new freighter.Stream hosted at the given address.
 // This transport is not reachable by other hosts in the network until
-// freighter.StreamTransport.ServeHTTP is called.
-func (n *Network[RQ, RS]) RouteStream(host address.Address, buffer int) *StreamTransport[RQ, RS] {
+// freighter.Stream.ServeHTTP is called.
+func (n *Network[RQ, RS]) StreamServer(host address.Address, buffer int) *StreamServer[RQ, RS] {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	addr := n.parseTarget(host)
 	if buffer <= 0 {
 		buffer = defaultStreamBuffer
 	}
-	t := &StreamTransport[RQ, RS]{Address: addr, Network: n, BufferSize: buffer, Reporter: reporter}
-	n.mu.streamRoutes[addr] = t
-	return t
+	s := &StreamServer[RQ, RS]{Reporter: reporter}
+	n.mu.streamRoutes[addr] = s
+	return s
 }
 
-func (n *Network[RQ, RS]) resolveStream(target address.Address) (*StreamTransport[RQ, RS], bool) {
+func (n *Network[RQ, RS]) resolveStreamTarget(target address.Address) (*StreamServer[RQ, RS], bool) {
 	n.mu.RLock()
 	defer n.mu.RUnlock()
 	t, ok := n.mu.streamRoutes[target]
@@ -78,11 +84,10 @@ func (n *Network[RQ, RS]) parseTarget(target address.Address) address.Address {
 	return target
 }
 
-func (n *Network[RQ, RS]) appendEntry(host, target address.Address, req RQ, res RS, err error) {
+func (n *Network[RQ, RS]) appendEntry(target address.Address, req RQ, res RS, err error) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	n.Entries = append(n.Entries, NetworkEntry[RQ, RS]{
-		Host:     host,
 		Target:   target,
 		Request:  req,
 		Response: res,
@@ -93,7 +98,7 @@ func (n *Network[RQ, RS]) appendEntry(host, target address.Address, req RQ, res 
 // NewNetwork returns a new network that can exchange the provided message types.
 func NewNetwork[RQ, RS freighter.Payload]() *Network[RQ, RS] {
 	n := &Network[RQ, RS]{}
-	n.mu.unaryRoutes = make(map[address.Address]*Unary[RQ, RS])
-	n.mu.streamRoutes = make(map[address.Address]*StreamTransport[RQ, RS])
+	n.mu.unaryRoutes = make(map[address.Address]*UnaryServer[RQ, RS])
+	n.mu.streamRoutes = make(map[address.Address]*StreamServer[RQ, RS])
 	return n
 }

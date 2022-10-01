@@ -3,6 +3,7 @@ import { ZodSchema } from 'zod';
 
 import { EncoderDecoder } from './encoder';
 import { decodeError, ErrorPayloadSchema } from './errors';
+import { MD, Middleware, runSequentially } from './middleware';
 import { UnaryClient } from './unary';
 import URL from './url';
 
@@ -33,6 +34,7 @@ export class HTTPClientFactory {
 class Core {
   endpoint: URL;
   encoder: EncoderDecoder;
+  middleware: Middleware[];
 
   private static ERROR_ENCODING_HEADER_KEY = 'Error-Encoding';
   private static ERROR_ENCODING_HEADER_VALUE = 'freighter';
@@ -63,17 +65,28 @@ class Core {
     request: AxiosRequestConfig,
     resSchema: ZodSchema<RS>
   ): Promise<[RS | undefined, Error | undefined]> {
-    const response = await axios.request(request);
-    if (response.status < 200 || response.status >= 300) {
-      try {
-        const err = this.encoder.decode(response.data, ErrorPayloadSchema);
-        return [undefined, decodeError(err)];
-      } catch {
-        return [undefined, new Error(response.data)];
+     let rs: RS | undefined = undefined;
+    const err = await runSequentially(
+      {target: "",},
+     this.middleware, 
+    async (md: MD): Promise<Error | undefined> => {
+      const httpRes = await axios.request(request);
+      if (httpRes.status < 200 || httpRes.status >= 300) {
+        try {
+            const err = this.encoder.decode(httpRes.data, ErrorPayloadSchema);
+            return decodeError(err);
+        } catch {
+            return new Error(httpRes.data)
+          }
       }
-    }
-    const data = this.encoder.decode(response.data, resSchema);
-    return [data, undefined];
+      rs = this.encoder.decode(httpRes.data, resSchema); 
+      return undefined;
+    })
+   return [rs, err] 
+  }
+
+  use(...mw: Middleware[]){
+    this.middleware.push(...mw)
   }
 }
 

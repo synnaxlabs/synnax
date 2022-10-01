@@ -42,7 +42,7 @@ func (m *myLastMiddleware) Handle(
 }
 
 var _ = Describe("ExecSequentially", func() {
-	It("Should execute Middleware in the correct order", func() {
+	It("Should execute clientMiddleware in the correct order", func() {
 		executor := &middleware.Executor[*request, *response]{
 			Middleware: []middleware.Middleware[*request, *response]{
 				&myFirstMiddleware{},

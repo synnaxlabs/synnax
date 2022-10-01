@@ -9,37 +9,72 @@ import (
 	"io"
 )
 
-type StreamTransportCore[RQ, RQT, RS, RST freighter.Payload] struct {
+type StreamClientCore[RQ, RQT, RS, RST freighter.Payload] struct {
 	RequestTranslator  Translator[RQ, RQT]
 	ResponseTranslator Translator[RS, RST]
 	Pool               *Pool
 	ClientFunc         func(context.Context, grpc.ClientConnInterface) (GRPCClientStream[RQT, RST], error)
-	Handler            func(context.Context, freighter.ServerStream[RQ, RS]) error
+	freighter.MiddlewareCollector
 }
 
-func (s *StreamTransportCore[RQ, RQT, RS, RST]) Report() alamos.Report {
+type StreamServerCore[RQ, RQT, RS, RST freighter.Payload] struct {
+	RequestTranslator  Translator[RQ, RQT]
+	ResponseTranslator Translator[RS, RST]
+	ServiceDesc        *grpc.ServiceDesc
+	handler            func(context.Context, freighter.ServerStream[RQ, RS]) error
+	freighter.MiddlewareCollector
+}
+
+func (s *StreamClientCore[RQ, RQT, RS, RST]) Report() alamos.Report {
 	return reporter.Report()
 }
 
-func (s *StreamTransportCore[RQ, RQT, RS, RST]) BindHandler(
+func (s *StreamServerCore[RQ, RQT, RS, RST]) Report() alamos.Report {
+	return reporter.Report()
+}
+
+func (s *StreamServerCore[RQ, RQT, RS, RST]) BindTo(r grpc.ServiceRegistrar) {
+	r.RegisterService(s.ServiceDesc, s)
+}
+
+func (s *StreamServerCore[RQ, RQT, RS, RST]) BindHandler(
 	handler func(ctx context.Context, stream freighter.ServerStream[RQ, RS]) error,
 ) {
-	s.Handler = handler
+	s.handler = handler
 }
 
-func (s *StreamTransportCore[RQ, RQT, RS, RST]) Stream(
+func (s *StreamServerCore[RQ, RQT, RS, RST]) Handler(
+	ctx context.Context, stream freighter.ServerStream[RQ, RS],
+) error {
+	return s.MiddlewareCollector.Exec(
+		ctx,
+		parseMetaData(ctx, s.ServiceDesc.ServiceName),
+		freighter.FinalizerFunc(func(ctx context.Context, md freighter.MD) error {
+			return s.handler(ctx, stream)
+		}),
+	)
+}
+
+func (s *StreamClientCore[RQ, RQT, RS, RST]) Stream(
 	ctx context.Context,
 	target address.Address,
-) (freighter.ClientStream[RQ, RS], error) {
-	conn, err := s.Pool.Acquire(target)
-	if err != nil {
-		return nil, err
-	}
-	stream, err := s.ClientFunc(ctx, conn.ClientConn)
-	return s.Client(stream), err
+) (stream freighter.ClientStream[RQ, RS], _ error) {
+	return stream, s.MiddlewareCollector.Exec(
+		ctx,
+		freighter.MD{Target: target, Protocol: reporter.Protocol},
+		freighter.FinalizerFunc(func(ctx context.Context, md freighter.MD) error {
+			conn, err := s.Pool.Acquire(target)
+			if err != nil {
+				return err
+			}
+			grpcClient, err := s.ClientFunc(ctx, conn.ClientConn)
+			stream = s.Client(grpcClient)
+			return err
+		}),
+	)
 }
 
-func (s *StreamTransportCore[RQ, RQT, RS, RST]) Server(
+func (s *StreamServerCore[RQ, RQT, RS, RST]) Server(
 	stream grpcServerStream[RQT, RST],
 ) freighter.ServerStream[RQ, RS] {
 	return &ServerStream[RQ, RQT, RS, RST]{
@@ -49,7 +84,7 @@ func (s *StreamTransportCore[RQ, RQT, RS, RST]) Server(
 	}
 }
 
-func (s *StreamTransportCore[RQ, RQT, RS, RST]) Client(
+func (s *StreamClientCore[RQ, RQT, RS, RST]) Client(
 	stream GRPCClientStream[RQT, RST],
 ) freighter.ClientStream[RQ, RS] {
 	return &ClientStream[RQ, RQT, RS, RST]{

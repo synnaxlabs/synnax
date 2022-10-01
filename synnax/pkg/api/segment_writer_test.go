@@ -2,33 +2,33 @@ package api_test
 
 import (
 	"context"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gleak"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/client-go/segment"
+	"github.com/synnaxlabs/freighter/fmock"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/api/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/freighter/fmock"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gleak"
 	"time"
 )
 
 var _ = Describe("SegmentWriter", Ordered, func() {
 	var (
-		transport *fmock.StreamTransport[api.WriterRequest, api.WriterResponse]
-		builder   *mock.ProviderBuilder
-		prov      api.Provider
+		transport *fmock.StreamClient[api.SegmentWriterRequest, api.SegmentWriterResponse]
+		builder   *mock.Builder
+		prov      api.provider
 		svc       *api.SegmentService
 		keys      channel.Keys
 	)
 	BeforeAll(func() {
-		builder = mock.NewProviderBuilder()
+		builder = mock.New()
 		prov = builder.New()
-		svc = api.NewSegmentService(prov)
+		svc = api.newSegmentService(prov)
 		ch, err := prov.Config.Channel.NewCreate().
 			WithName("test").
 			WithRate(25*telem.Hz).
@@ -47,8 +47,8 @@ var _ = Describe("SegmentWriter", Ordered, func() {
 		DeferCleanup(func() {
 			Eventually(gleak.Goroutines).WithTimeout(time.Second).ShouldNot(gleak.HaveLeaked(routines))
 		})
-		transport = fmock.NewStreamTransport[api.WriterRequest, api.WriterResponse](1)
-		transport.BindHandler(func(ctx context.Context, transport api.WriterStream) error {
+		transport = fmock.NewStreamTransport[api.SegmentWriterRequest, api.SegmentWriterResponse](1)
+		transport.BindHandler(func(ctx context.Context, transport api.SegmentWriterStream) error {
 			return svc.Write(ctx, transport)
 		})
 	})

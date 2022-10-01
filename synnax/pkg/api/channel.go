@@ -22,20 +22,20 @@ type Channel struct {
 
 // ChannelService is the central API for all things channel related.
 type ChannelService struct {
-	LoggingProvider
-	ValidationProvider
-	AuthProvider
-	DBProvider
-	Internal *channel.Service
+	loggingProvider
+	validationProvider
+	authProvider
+	dbProvider
+	internal *channel.Service
 }
 
-func NewChannelService(p Provider) *ChannelService {
+func newChannelService(p provider) *ChannelService {
 	return &ChannelService{
-		Internal:           p.Config.Channel,
-		ValidationProvider: p.Validation,
-		AuthProvider:       p.Auth,
-		LoggingProvider:    p.Logging,
-		DBProvider:         p.DB,
+		internal:           p.config.Channel,
+		validationProvider: p.validation,
+		authProvider:       p.auth,
+		loggingProvider:    p.logging,
+		dbProvider:         p.db,
 	}
 }
 
@@ -69,8 +69,8 @@ func (s *ChannelService) Create(
 	if err := s.Validate(req); err.Occurred() {
 		return res, err
 	}
-	return res, s.DBProvider.WithTxn(func(txn gorp.Txn) errors.Typed {
-		chs, err := s.Internal.NewCreate().
+	return res, s.dbProvider.WithTxn(func(txn gorp.Txn) errors.Typed {
+		chs, err := s.internal.NewCreate().
 			WithName(req.Channel.Name).
 			WithNodeID(req.Channel.NodeID).
 			WithRate(req.Channel.Rate).
@@ -102,7 +102,7 @@ func (s *ChannelService) Retrieve(
 	req ChannelRetrieveRequest,
 ) (ChannelRetrieveResponse, errors.Typed) {
 	var resChannels []channel.Channel
-	q := s.Internal.NewRetrieve().Entries(&resChannels)
+	q := s.internal.NewRetrieve().Entries(&resChannels)
 
 	if len(req.Keys) != 0 {
 		keys, err := channel.ParseKeys(req.Keys)

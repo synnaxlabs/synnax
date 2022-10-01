@@ -9,5 +9,5 @@ import (
 
 func TestMiddleware(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Middleware Suite")
+	RunSpecs(t, "ClientMiddleware Suite")
 }

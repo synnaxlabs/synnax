@@ -2,6 +2,8 @@ package iterator
 
 import (
 	"context"
+	"github.com/cockroachdb/errors"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
@@ -15,8 +17,6 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"github.com/cockroachdb/errors"
-	"github.com/samber/lo"
 	"go.uber.org/zap"
 )
 
@@ -24,46 +24,46 @@ type StreamIterator = confluence.Segment[Request, Response]
 
 type Iterator interface {
 	// Next retrieves the next segment of each channel's data.
-	// Returns true if the current Iterator.View is pointing to any valid segments.
+	// Returns true if the current IteratorServer.View is pointing to any valid segments.
 	// It's important to note that if channel data is non-contiguous, calls to Next
 	// may return segments that occupy different ranges of time.
 	Next() bool
 	// Prev retrieves the previous segment of each channel's data.
-	// Returns true if the current Iterator.View is pointing to any valid segments.
+	// Returns true if the current IteratorServer.View is pointing to any valid segments.
 	// It's important to note that if channel data is non-contiguous, calls to Prev
 	// may return segments that occupy different ranges of time.
 	Prev() bool
 	// First returns the first segment of each channel's data.
-	// Returns true if the current Iterator.View is pointing to any valid segments.
+	// Returns true if the current IteratorServer.View is pointing to any valid segments.
 	// It's important to note that if channel data is non-contiguous, calls to First
 	// may return segments that occupy different ranges of time.
 	First() bool
 	// Last returns the last segment of each channel's data.
-	// Returns true if the current Iterator.View is pointing to any valid segments.
+	// Returns true if the current IteratorServer.View is pointing to any valid segments.
 	// It's important to note that if channel data is non-contiguous, calls to Last
 	// may return segments that occupy different ranges of time.
 	Last() bool
 	// NextSpan reads all channel data occupying the next span of time. Returns true
-	// if the current Iterator.View is pointing to any valid segments.
+	// if the current IteratorServer.View is pointing to any valid segments.
 	NextSpan(span telem.TimeSpan) bool
 	// PrevSpan reads all channel data occupying the previous span of time. Returns true
-	// if the current Iterator.View is pointing to any valid segments.
+	// if the current IteratorServer.View is pointing to any valid segments.
 	PrevSpan(span telem.TimeSpan) bool
 	// Range seeks the Iterator to the start of the range and reads all channel data
 	// until the end of the range.
 	Range(tr telem.TimeRange) bool
 	// SeekFirst seeks the iterator the start of the iterator range.
-	// Returns true if the current Iterator.View is pointing to any valid segments.
+	// Returns true if the current IteratorServer.View is pointing to any valid segments.
 	SeekFirst() bool
 	// SeekLast seeks the iterator the end of the iterator range.
-	// Returns true if the current Iterator.View is pointing to any valid segments.
+	// Returns true if the current IteratorServer.View is pointing to any valid segments.
 	SeekLast() bool
 	// SeekLT seeks the iterator to the first whose timestamp is less than or equal
-	// to the given timestamp. Returns true if the current Iterator.View is pointing
+	// to the given timestamp. Returns true if the current IteratorServer.View is pointing
 	// to any valid segments.
 	SeekLT(t telem.TimeStamp) bool
 	// SeekGE seeks the iterator to the first whose timestamp is greater than the
-	// given timestamp. Returns true if the current Iterator.View is pointing to
+	// given timestamp. Returns true if the current IteratorServer.View is pointing to
 	// any valid segments.
 	SeekGE(t telem.TimeStamp) bool
 	// Close closes the Iterator, ensuring that all in-progress reads complete
@@ -78,13 +78,14 @@ type Iterator interface {
 }
 
 type Config struct {
-	TimeRange      telem.TimeRange
-	ChannelKeys    channel.Keys
-	TS             storage.TS
-	ChannelService *channel.Service
-	Resolver       aspen.HostResolver
-	Transport      Transport
-	Logger         *zap.Logger
+	TimeRange       telem.TimeRange
+	ChannelKeys     channel.Keys
+	TS              storage.TS
+	ChannelService  *channel.Service
+	Resolver        aspen.HostResolver
+	TransportServer TransportServer
+	TransportClient TransportClient
+	Logger          *zap.Logger
 }
 
 var _ config.Config[Config] = Config{}
@@ -95,7 +96,8 @@ func (cfg Config) Override(other Config) Config {
 	cfg.ChannelKeys = override.Slice(cfg.ChannelKeys, other.ChannelKeys)
 	cfg.TS = override.Nil(cfg.TS, other.TS)
 	cfg.ChannelService = override.Nil(cfg.ChannelService, other.ChannelService)
-	cfg.Transport = override.Nil(cfg.Transport, other.Transport)
+	cfg.TransportServer = override.Nil(cfg.TransportServer, other.TransportServer)
+	cfg.TransportClient = override.Nil(cfg.TransportClient, other.TransportClient)
 	cfg.Resolver = override.Nil(cfg.Resolver, other.Resolver)
 	cfg.Logger = override.Nil(cfg.Logger, other.Logger)
 	return cfg
@@ -108,7 +110,8 @@ func (cfg Config) Validate() error {
 	}
 	validate.NotNil(v, "TS", cfg.TS)
 	validate.NotNil(v, "channel", cfg.ChannelService)
-	validate.NotNil(v, "transport", cfg.Transport)
+	validate.NotNil(v, "transportServer", cfg.TransportServer)
+	validate.NotNil(v, "transportClient", cfg.TransportClient)
 	validate.NotNil(v, "resolver", cfg.Resolver)
 	validate.NotNil(v, "logger", cfg.Logger)
 	return v.Error()

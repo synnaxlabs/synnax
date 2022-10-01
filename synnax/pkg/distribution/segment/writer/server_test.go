@@ -2,31 +2,31 @@ package writer_test
 
 import (
 	"context"
+	"github.com/cockroachdb/errors"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gleak"
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	distribcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/segment/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/segment/writer"
-	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/cockroachdb/errors"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gleak"
 	"go.uber.org/zap"
 	"time"
 )
 
-func openClient(ctx context.Context, id distribution.NodeID, services map[distribution.NodeID]serviceContainer) writer.Client {
+func openClient(ctx context.Context, id distribution.NodeID, services map[distribution.NodeID]serviceContainer) writer.ClientStream {
 	client, err := services[id].transport.writer.Stream(ctx, "localhost:0")
 	Expect(err).ToNot(HaveOccurred())
 	return client
 }
 
-func openRequest(client writer.Client, keys channel.Keys) (writer.Response, error) {
+func openRequest(client writer.ClientStream, keys channel.Keys) (writer.Response, error) {
 	Expect(client.Send(writer.Request{OpenKeys: keys})).To(Succeed())
 	Expect(client.CloseSend()).To(Succeed())
 	return client.Receive()
@@ -83,7 +83,7 @@ var _ = Describe("Server", func() {
 			Expect(err).To(HaveOccurredAs(context.Canceled))
 		})
 		Describe("No Cancellation", func() {
-			var client writer.Client
+			var client writer.ClientStream
 			BeforeEach(func() {
 				client = openClient(ctx, 1, services)
 				Expect(client.Send(writer.Request{OpenKeys: channel.Keys{channel.NewKey(1, 1)}})).To(Succeed())

@@ -15,6 +15,7 @@ type Payload = any
 
 type Transport interface {
 	alamos.Reporter
+	Use(...Middleware)
 }
 
 type Reporter struct {
@@ -27,4 +28,10 @@ func (t Reporter) Report() alamos.Report {
 	rep["protocol"] = t.Protocol
 	rep["encodings"] = t.Encodings
 	return rep
+}
+
+func UseOnAll(m []Middleware, ts ...Transport) {
+	for _, t := range ts {
+		t.Use(m...)
+	}
 }

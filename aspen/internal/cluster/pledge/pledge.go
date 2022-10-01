@@ -6,7 +6,7 @@
 //
 // Vocabulary:
 //
-//	Pledge - Used as both a verb and noun. A "Pledge" is a node that has
+//	Pledge - Used as both a verb and noun. A "PledgeServer" is a node that has
 //	'pledged' itself to the cluster. 'Pledging' is the entire process of
 //	contacting a peer, proposing an ID to a jury, and returning it to the pledge.
 //	Responsible - A node that is responsible for coordinating the Pledge process.
@@ -22,14 +22,14 @@ package pledge
 
 import (
 	"context"
+	"github.com/cockroachdb/errors"
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/alamos"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/iter"
 	xrand "github.com/synnaxlabs/x/rand"
 	xtime "github.com/synnaxlabs/x/time"
-	"github.com/cockroachdb/errors"
-	"github.com/samber/lo"
-	"github.com/synnaxlabs/aspen/internal/node"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"math/rand"
@@ -62,7 +62,7 @@ func Pledge(ctx context.Context, cfgs ...Config) (id node.ID, err error) {
 	if err != nil {
 		return id, err
 	}
-	// Because peers are only required whe calling Pledge, we need to perform
+	// Because peers are only required whe calling PledgeServer, we need to perform
 	// this validation outside of config.Validate.
 	if len(cfg.Peers) == 0 {
 		return id, errors.New("[pledge] - at least one peer required")
@@ -87,7 +87,7 @@ func Pledge(ctx context.Context, cfgs ...Config) (id node.ID, err error) {
 			addr := nextAddr()
 			cfg.Logger.Infow("pledging to peer", "address", addr)
 			reqCtx, cancel := context.WithTimeout(context.Background(), cfg.RequestTimeout)
-			id, err = cfg.Transport.Send(reqCtx, addr, 0)
+			id, err = cfg.TransportClient().Send(reqCtx, addr, 0)
 			cancel()
 			if err == nil {
 				cfg.Logger.Infow("pledge successful", "assignedHost", id)
@@ -122,7 +122,7 @@ func Arbitrate(cfgs ...Config) error {
 
 func arbitrate(cfg Config) error {
 	j := &juror{Config: cfg}
-	cfg.Transport.BindHandler(func(ctx context.Context, id node.ID) (node.ID, error) {
+	cfg.TransportServer().BindHandler(func(ctx context.Context, id node.ID) (node.ID, error) {
 		if id == 0 {
 			return (&responsible{Config: cfg}).propose(ctx)
 		}
@@ -212,7 +212,7 @@ func (r *responsible) consultQuorum(ctx context.Context, id node.ID, quorum node
 	for _, n := range quorum {
 		n_ := n
 		wg.Go(func() error {
-			_, err := r.Transport.Send(reqCtx, n_.Address, id)
+			_, err := r.TransportClient().Send(reqCtx, n_.Address, id)
 			if errors.Is(err, proposalRejected) {
 				r.Logger.Debugw("quorum rejected proposal", "id", id, "address", n_.Address)
 				cancel()

@@ -1,10 +1,10 @@
-package fiber
+package server
 
 import (
 	"bytes"
-	"github.com/synnaxlabs/synnax/pkg/ui"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/filesystem"
+	"github.com/synnaxlabs/synnax/pkg/ui"
 	"io/fs"
 	"net/http"
 )

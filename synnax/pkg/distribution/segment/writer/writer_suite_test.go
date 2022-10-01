@@ -26,8 +26,8 @@ func TestWriter(t *testing.T) {
 type serviceContainer struct {
 	channel   *channel.Service
 	transport struct {
-		channel channel.CreateTransport
-		writer  writer.Transport
+		channel channel.CreateTransportClient
+		writer  writer.TransportServer
 	}
 }
 
@@ -39,8 +39,8 @@ func provisionNServices(n int, logger *zap.Logger) (*mock.CoreBuilder, map[core.
 	for i := 0; i < n; i++ {
 		_core := builder.New()
 		var container serviceContainer
-		container.transport.channel = channelNet.RouteUnary(_core.Config.AdvertiseAddress)
-		container.transport.writer = writerNet.RouteStream(_core.Config.AdvertiseAddress, 0)
+		container.transport.channel = channelNet.UnaryServer(_core.Config.AdvertiseAddress)
+		container.transport.writer = writerNet.StreamServer(_core.Config.AdvertiseAddress, 0)
 		container.channel = channel.New(
 			_core.Cluster,
 			_core.Storage.Gorpify(),
@@ -48,10 +48,10 @@ func provisionNServices(n int, logger *zap.Logger) (*mock.CoreBuilder, map[core.
 			container.transport.channel,
 		)
 		writer.NewServer(writer.Config{
-			TS:             _core.Storage.TS,
-			ChannelService: container.channel,
-			Resolver:       _core.Cluster,
-			Transport:      container.transport.writer,
+			TS:              _core.Storage.TS,
+			ChannelService:  container.channel,
+			Resolver:        _core.Cluster,
+			TransportServer: container.transport.writer,
 		})
 		services[_core.Cluster.HostID()] = container
 	}
@@ -68,12 +68,12 @@ func openWriter(
 	return writer.New(
 		ctx,
 		writer.Config{
-			TS:             builder.Cores[nodeID].Storage.TS,
-			ChannelService: services[nodeID].channel,
-			Resolver:       builder.Cores[nodeID].Cluster,
-			Transport:      services[nodeID].transport.writer,
-			ChannelKeys:    keys,
-			Logger:         log,
+			TS:              builder.Cores[nodeID].Storage.TS,
+			ChannelService:  services[nodeID].channel,
+			Resolver:        builder.Cores[nodeID].Cluster,
+			TransportServer: services[nodeID].transport.writer,
+			ChannelKeys:     keys,
+			Logger:          log,
 		},
 	)
 }

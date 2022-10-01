@@ -28,14 +28,14 @@ var _ = Describe("Sender", func() {
 	BeforeEach(func() {
 		net = fmock.NewNetwork[int, int]()
 	})
-	Context("Single StreamTransport", func() {
+	Context("Single Stream", func() {
 		var (
-			streamTransport freighter.StreamTransport[int, int]
+			streamTransport freighter.Stream[int, int]
 			receiverStream  confluence.Stream[int]
 			senderStream    confluence.Stream[int]
 		)
 		BeforeEach(func() {
-			streamTransport = net.RouteStream("", 10)
+			streamTransport = net.StreamServer("", 10)
 			receiverStream = confluence.NewStream[int](0)
 			senderStream = confluence.NewStream[int](0)
 			streamTransport.BindHandler(func(ctx context.Context, server freighter.ServerStream[int, int]) error {
@@ -116,11 +116,11 @@ var _ = Describe("Sender", func() {
 		BeforeEach(func() {
 			sCtx, cancel = signal.WithCancel(context.TODO())
 			senderStream = confluence.NewStream[int](nStreams)
-			clientTransport := net.RouteStream("", 0)
+			clientTransport := net.StreamServer("", 0)
 			clientSender = make(map[address.Address]freighter.StreamSenderCloser[int], nStreams)
 			receiverStreams = make(map[address.Address]confluence.Stream[int], nStreams)
 			for i := 0; i < nStreams; i++ {
-				stream := net.RouteStream("", 0)
+				stream := net.StreamServer("", 0)
 				receiverStream := confluence.NewStream[int](1)
 				stream.BindHandler(func(ctx context.Context, server freighter.ServerStream[int, int]) error {
 					serverCtx, cancel := signal.WithCancel(ctx)

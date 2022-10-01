@@ -20,6 +20,7 @@ mypy = "^0.971"
 pandas = "^1.4.3"
 #synnax-freighter = {path= "../../freighter/py", develop = true}
 synnax-freighter = "^0.1.0"
+PyJWT = "^2.5.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.1.2"

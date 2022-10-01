@@ -14,11 +14,11 @@ import (
 var _ = Describe("Receiver", func() {
 	var (
 		net    *fmock.Network[int, int]
-		stream freighter.StreamTransport[int, int]
+		stream freighter.Stream[int, int]
 	)
 	BeforeEach(func() {
 		net = fmock.NewNetwork[int, int]()
-		stream = net.RouteStream("", 10)
+		stream = net.StreamServer("", 10)
 	})
 	Describe("Receiver", func() {
 		It("Should operate correctly", func() {
