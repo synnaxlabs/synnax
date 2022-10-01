@@ -20,7 +20,7 @@ type Builder struct {
 	mock.Builder
 }
 
-func (b *Builder) New() api.API { return api.New(b.NewConfig()) }
+func (b *Builder) New() api.Provider { return api.NewProvider(b.NewConfig()) }
 
 func (b *Builder) NewConfig() api.Config {
 	dist := b.Builder.New()

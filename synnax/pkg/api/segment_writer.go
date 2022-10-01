@@ -15,9 +15,9 @@ import (
 	"github.com/synnaxlabs/x/signal"
 )
 
-// SegmentWriterRequest represents a request to write segment data for a set of channels.
+// SegmentWriterRequest represents a request to write Segment data for a set of channels.
 type SegmentWriterRequest struct {
-	// OpenKeys is a slice of channel keys that the client plans to write to.
+	// OpenKeys is a slice of Channel keys that the client plans to write to.
 	// OpenKeys should only be specified in the	first request to the server, and will be
 	// ignored in future requests.
 	OpenKeys []string `json:"open_keys" msgpack:"open_keys"`
@@ -31,7 +31,7 @@ type SegmentWriterResponse struct {
 	// Ack is used to acknowledge requests issued by the client.
 	Ack bool `json:"ack" msgpack:"ack"`
 	// Err is a transient error encountered during writer operation, such as an invalid
-	// segment data type or channel key.
+	// Segment data type or Channel key.
 	Err ferrors.Payload `json:"error" msgpack:"error"`
 }
 

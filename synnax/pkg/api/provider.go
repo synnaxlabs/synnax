@@ -12,22 +12,22 @@ import (
 	"go.uber.org/zap"
 )
 
-// provider is a dependency injection container containing essential utilities
+// Provider is a dependency injection container containing essential utilities
 // for particular API services (if they so require them).
-type provider struct {
-	config     Config
-	logging    loggingProvider
-	validation validationProvider
+type Provider struct {
+	Config     Config
+	Logging    loggingProvider
+	Validation validationProvider
 	db         dbProvider
 	user       userProvider
 	access     AccessProvider
 	auth       authProvider
 }
 
-func newProvider(cfg Config) provider {
-	p := provider{config: cfg}
-	p.logging = loggingProvider{logger: cfg.Logger.Sugar()}
-	p.validation = validationProvider{validator: newValidator()}
+func NewProvider(cfg Config) Provider {
+	p := Provider{Config: cfg}
+	p.Logging = loggingProvider{logger: cfg.Logger.Sugar()}
+	p.Validation = validationProvider{validator: newValidator()}
 	p.db = dbProvider{db: gorp.Wrap(cfg.Storage.KV)}
 	p.user = userProvider{user: cfg.User}
 	p.access = AccessProvider{enforcer: cfg.Enforcer}
@@ -35,7 +35,7 @@ func newProvider(cfg Config) provider {
 	return p
 }
 
-// loggingProvider provides logging utilities to services.
+// loggingProvider provides Logging utilities to services.
 type loggingProvider struct {
 	logger *zap.SugaredLogger
 }
@@ -45,8 +45,8 @@ type validationProvider struct {
 	validator *validator.Validate
 }
 
-// Validate validates the provided struct. If validation is successful, returns errors.Nil,
-// otherwise, returns an errors.Validation error containing the fields that failed validation.
+// Validate validates the provided struct. If Validation is successful, returns errors.Nil,
+// otherwise, returns an errors.Validation error containing the fields that failed Validation.
 func (vp *validationProvider) Validate(v any) errors.Typed {
 	return errors.MaybeValidation(vp.validator.Struct(v))
 }

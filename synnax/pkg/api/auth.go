@@ -19,10 +19,10 @@ type AuthService struct {
 	userProvider
 }
 
-func newAuthService(p provider) *AuthService {
+func NewAuthServer(p Provider) *AuthService {
 	return &AuthService{
-		loggingProvider:    p.logging,
-		validationProvider: p.validation,
+		loggingProvider:    p.Logging,
+		validationProvider: p.Validation,
 		dbProvider:         p.db,
 		authProvider:       p.auth,
 		userProvider:       p.user,

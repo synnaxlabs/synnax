@@ -14,18 +14,20 @@ import (
 var _ = Describe("ChannelService", Ordered, func() {
 	var (
 		builder *mock.Builder
+		prov    api.Provider
+		svc     *api.ChannelService
 	)
 	BeforeAll(func() {
 		builder = mock.New()
 		prov = builder.New()
-		svc = api.newChannelService(prov)
+		svc = api.NewChannelService(prov)
 	})
 	AfterAll(func() {
 		Expect(builder.Close()).To(Succeed())
 		Expect(builder.Cleanup()).To(Succeed())
 	})
 	Describe("Create", func() {
-		It("Should create a new channel", func() {
+		It("Should create a new Channel", func() {
 			res, err := svc.Create(context.TODO(), api.ChannelCreateRequest{
 				Channel: api.Channel{
 					Name:     "test",
@@ -37,7 +39,7 @@ var _ = Describe("ChannelService", Ordered, func() {
 			Expect(err).To(Equal(errors.Nil))
 			Expect(res.Channels).To(HaveLen(1))
 		})
-		DescribeTable("validation Errors", func(
+		DescribeTable("Validation Errors", func(
 			ch api.Channel,
 			field string,
 			message string,
@@ -57,12 +59,12 @@ var _ = Describe("ChannelService", Ordered, func() {
 				Name:   "test",
 				NodeID: 1,
 				Rate:   25 * telem.Hz,
-			}, "channel.data_type", "required"),
+			}, "Channel.data_type", "required"),
 			Entry("No Data Rate", api.Channel{
 				Name:     "test",
 				NodeID:   1,
 				DataType: telem.Float64,
-			}, "channel.rate", "required"),
+			}, "Channel.rate", "required"),
 		)
 	})
 	Describe("Retrieve", func() {
@@ -72,7 +74,7 @@ var _ = Describe("ChannelService", Ordered, func() {
 				Expect(err).To(Equal(errors.Nil))
 				Expect(res.Channels).To(HaveLen(1))
 			})
-			It("Should retrieve a channel by its key", func() {
+			It("Should retrieve a Channel by its key", func() {
 				res, err := svc.Retrieve(context.TODO(), api.ChannelRetrieveRequest{
 					Keys: []string{"1-1"},
 				})

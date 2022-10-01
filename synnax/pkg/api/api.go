@@ -59,15 +59,15 @@ type Client struct {
 // API wraps all implemented API services into a single container. Protocol-specific
 // API implementations should use this struct during instantiation.
 type API struct {
-	provider provider
+	provider Provider
 	config   Config
-	auth     *AuthService
-	segment  *SegmentService
-	channel  *ChannelService
+	Auth     *AuthService
+	Segment  *SegmentService
+	Channel  *ChannelService
 }
 
 func (a *API) BindTo(t Server) {
-	logger := logMiddleware(a.provider.logging.logger)
+	logger := logMiddleware(a.provider.Logging.logger)
 	tk := tokenMiddleware(a.provider.auth.token)
 	t.AuthLogin.Use(logger, tk)
 	t.AuthChangeUsername.Use(logger, tk)
@@ -78,23 +78,23 @@ func (a *API) BindTo(t Server) {
 	t.SegmentWriter.Use(logger, tk)
 	t.SegmentIterator.Use(logger, tk)
 
-	t.AuthLogin.BindHandler(typedUnaryWrapper(a.auth.Login))
-	t.AuthChangeUsername.BindHandler(noResponseWrapper(a.auth.ChangeUsername))
-	t.AuthChangePassword.BindHandler(noResponseWrapper(a.auth.ChangePassword))
-	t.AuthRegistration.BindHandler(typedUnaryWrapper(a.auth.Register))
-	t.ChannelCreate.BindHandler(typedUnaryWrapper(a.channel.Create))
-	t.ChannelRetrieve.BindHandler(typedUnaryWrapper(a.channel.Retrieve))
-	t.SegmentWriter.BindHandler(typedStreamWrapper(a.segment.Write))
-	t.SegmentIterator.BindHandler(typedStreamWrapper(a.segment.Iterate))
+	t.AuthLogin.BindHandler(typedUnaryWrapper(a.Auth.Login))
+	t.AuthChangeUsername.BindHandler(noResponseWrapper(a.Auth.ChangeUsername))
+	t.AuthChangePassword.BindHandler(noResponseWrapper(a.Auth.ChangePassword))
+	t.AuthRegistration.BindHandler(typedUnaryWrapper(a.Auth.Register))
+	t.ChannelCreate.BindHandler(typedUnaryWrapper(a.Channel.Create))
+	t.ChannelRetrieve.BindHandler(typedUnaryWrapper(a.Channel.Retrieve))
+	t.SegmentWriter.BindHandler(typedStreamWrapper(a.Segment.Write))
+	t.SegmentIterator.BindHandler(typedStreamWrapper(a.Segment.Iterate))
 }
 
 // New instantiates the delta API using the provided Config. This should probably
 // only be called once.
 func New(cfg Config) API {
-	api := API{config: cfg, provider: newProvider(cfg)}
-	api.auth = newAuthService(api.provider)
-	api.segment = newSegmentService(api.provider)
-	api.channel = newChannelService(api.provider)
+	api := API{config: cfg, provider: NewProvider(cfg)}
+	api.Auth = NewAuthServer(api.provider)
+	api.Segment = NewSegmentService(api.provider)
+	api.Channel = NewChannelService(api.provider)
 	return api
 }
 

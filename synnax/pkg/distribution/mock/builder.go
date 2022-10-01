@@ -36,8 +36,10 @@ func (b *Builder) New() distribution.Distribution {
 	d := distribution.Distribution{Core: core}
 
 	trans := mockSegmentTransport{
-		iterator: b.iterNet.StreamServer(core.Config.AdvertiseAddress, 0),
-		writer:   b.writerNet.StreamServer(core.Config.AdvertiseAddress, 0),
+		iteratorServer: b.iterNet.StreamServer(core.Config.AdvertiseAddress, 1),
+		writerServer:   b.writerNet.StreamServer(core.Config.AdvertiseAddress, 1),
+		iteratorClient: b.iterNet.StreamClient(1),
+		writerClient:   b.writerNet.StreamClient(1),
 	}
 
 	var err error
@@ -49,6 +51,7 @@ func (b *Builder) New() distribution.Distribution {
 		d.Cluster,
 		d.Storage.Gorpify(),
 		d.Storage.TS,
+		b.channelNet.UnaryClient(),
 		b.channelNet.UnaryServer(core.Config.AdvertiseAddress),
 	)
 	d.Segment = segment.New(d.Channel, d.Storage.TS, trans, d.Cluster, zap.NewNop())
@@ -57,14 +60,24 @@ func (b *Builder) New() distribution.Distribution {
 }
 
 type mockSegmentTransport struct {
-	iterator iterator.TransportServer
-	writer   writer.TransportServer
+	iteratorServer iterator.TransportServer
+	iteratorClient iterator.TransportClient
+	writerServer   writer.TransportServer
+	writerClient   writer.TransportClient
 }
 
 func (m mockSegmentTransport) IteratorServer() iterator.TransportServer {
-	return m.iterator
+	return m.iteratorServer
 }
 
 func (m mockSegmentTransport) WriterServer() writer.TransportServer {
-	return m.writer
+	return m.writerServer
+}
+
+func (m mockSegmentTransport) IteratorClient() iterator.TransportClient {
+	return m.iteratorClient
+}
+
+func (m mockSegmentTransport) WriterClient() writer.TransportClient {
+	return m.writerClient
 }
