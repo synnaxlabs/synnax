@@ -87,7 +87,7 @@ func Pledge(ctx context.Context, cfgs ...Config) (id node.ID, err error) {
 			addr := nextAddr()
 			cfg.Logger.Infow("pledging to peer", "address", addr)
 			reqCtx, cancel := context.WithTimeout(context.Background(), cfg.RequestTimeout)
-			id, err = cfg.TransportClient().Send(reqCtx, addr, 0)
+			id, err = cfg.TransportClient.Send(reqCtx, addr, 0)
 			cancel()
 			if err == nil {
 				cfg.Logger.Infow("pledge successful", "assignedHost", id)
@@ -122,7 +122,7 @@ func Arbitrate(cfgs ...Config) error {
 
 func arbitrate(cfg Config) error {
 	j := &juror{Config: cfg}
-	cfg.TransportServer().BindHandler(func(ctx context.Context, id node.ID) (node.ID, error) {
+	cfg.TransportServer.BindHandler(func(ctx context.Context, id node.ID) (node.ID, error) {
 		if id == 0 {
 			return (&responsible{Config: cfg}).propose(ctx)
 		}
@@ -212,7 +212,7 @@ func (r *responsible) consultQuorum(ctx context.Context, id node.ID, quorum node
 	for _, n := range quorum {
 		n_ := n
 		wg.Go(func() error {
-			_, err := r.TransportClient().Send(reqCtx, n_.Address, id)
+			_, err := r.TransportClient.Send(reqCtx, n_.Address, id)
 			if errors.Is(err, proposalRejected) {
 				r.Logger.Debugw("quorum rejected proposal", "id", id, "address", n_.Address)
 				cancel()

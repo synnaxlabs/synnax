@@ -4,8 +4,7 @@ import (
 	"context"
 	"github.com/cockroachdb/cmux"
 	"github.com/cockroachdb/errors"
-	"github.com/synnaxlabs/synnax/pkg/api/grpc"
-	fiberapi "github.com/synnaxlabs/synnax/pkg/api/http"
+	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errutil"
 	"github.com/synnaxlabs/x/signal"
@@ -15,8 +14,7 @@ import (
 
 type Config struct {
 	ListenAddress address.Address
-	FiberAPI      fiberapi.API
-	GrpcAPI       grpc.API
+	API           api.API
 	Security      struct {
 		Insecure bool
 	}

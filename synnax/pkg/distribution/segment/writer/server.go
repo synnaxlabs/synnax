@@ -49,15 +49,15 @@ func (sf *server) Handle(_ctx context.Context, server ServerStream) error {
 	}
 
 	pipe := plumber.New()
-	plumber.SetSegment[Request, Response](pipe, "writer", w)
+	plumber.SetSegment[Request, Response](pipe, "writerClient", w)
 	plumber.SetSource[Request](pipe, "receiver", receiver)
 	plumber.SetSink[Response](pipe, "sender", sender)
 	plumber.SetSource[Response](pipe, "transient", &TransientSource{transient: transientErrors})
 
-	plumber.UnaryRouter[Request]{SourceTarget: "receiver", SinkTarget: "writer"}.MustRoute(pipe)
+	plumber.UnaryRouter[Request]{SourceTarget: "receiver", SinkTarget: "writerClient"}.MustRoute(pipe)
 
 	plumber.MultiRouter[Response]{
-		SourceTargets: []address.Address{"writer", "transient"},
+		SourceTargets: []address.Address{"writerClient", "transient"},
 		SinkTargets:   []address.Address{"sender"},
 	}.MustRoute(pipe)
 

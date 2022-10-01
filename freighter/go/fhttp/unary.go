@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/gofiber/fiber/v2"
 	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/freighter/ferrors"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/httputil"
 	"strings"
@@ -11,10 +12,10 @@ import (
 
 type unaryServer[RQ, RS freighter.Payload] struct {
 	freighter.Reporter
+	freighter.MiddlewareCollector
 	requestParser func(c *fiber.Ctx, ecd httputil.EncoderDecoder) (RQ, error)
 	path          string
 	handle        func(ctx context.Context, rq RQ) (RS, error)
-	freighter.MiddlewareCollector
 }
 
 func (s unaryServer[RQ, RS]) BindHandler(handle func(ctx context.Context, rq RQ) (RS, error)) {
@@ -22,28 +23,35 @@ func (s unaryServer[RQ, RS]) BindHandler(handle func(ctx context.Context, rq RQ)
 }
 
 func (s unaryServer[RQ, RS]) fiberHandler(c *fiber.Ctx) error {
-	return s.MiddlewareCollector.Exec(
+	c.Accepts(httputil.SupportedContentTypes()...)
+	ecd, err := httputil.DetermineEncoderDecoder(c.Get(fiber.HeaderContentType))
+	if err != nil {
+		return err
+	}
+	if err = s.MiddlewareCollector.Exec(
 		c.Context(),
 		parseRequestParams(c, address.Address(c.Path())),
 		freighter.FinalizerFunc(func(ctx context.Context, _ freighter.MD) error {
-			c.Accepts(httputil.SupportedContentTypes()...)
-			ecd, err := httputil.DetermineEncoderDecoder(c.Get(fiber.HeaderContentType))
-			if err != nil {
-				return err
-			}
 			req, err := s.requestParser(c, ecd)
 			if err != nil {
 				return err
 			}
 			res, err := s.handle(ctx, req)
-			b, err := ecd.Encode(res)
-			if err != nil {
-				return err
-			}
-			_, err = c.Write(b)
-			return err
+			return encodeAndWrite(c, ecd, res)
 		}),
-	)
+	); err != nil {
+		return encodeAndWrite(c, ecd, ferrors.Encode(err))
+	}
+	return nil
+}
+
+func encodeAndWrite(c *fiber.Ctx, ecd httputil.EncoderDecoder, v interface{}) error {
+	b, err := ecd.Encode(v)
+	if err != nil {
+		return err
+	}
+	_, err = c.Write(b)
+	return err
 }
 
 func parseQueryParams[V any](c *fiber.Ctx, v *V) error {

@@ -28,7 +28,7 @@ func allCandidates(nodes node.Group) func() node.Group {
 func baseConfigWithAddr(n *fmock.Network[node.ID, node.ID], logger *zap.SugaredLogger) (pledge.Config, address.Address) {
 	server := n.UnaryServer("")
 	cfg := pledge.Config{
-		TransportServer: n.UnaryServer(""),
+		TransportServer: server,
 		TransportClient: n.UnaryClient(),
 		Logger:          logger,
 	}
@@ -38,11 +38,11 @@ func baseConfigWithAddr(n *fmock.Network[node.ID, node.ID], logger *zap.SugaredL
 func provisionCandidates(
 	n int,
 	net *fmock.Network[node.ID, node.ID],
+	nodes node.Group,
 	candidates func(i int) func() node.Group,
 	nodeState func(i int) node.State,
 	logger *zap.SugaredLogger,
 ) node.Group {
-	nodes := make(node.Group, n)
 	if candidates == nil {
 		candidates = func(i int) func() node.Group {
 			return func() node.Group { return nodes }
@@ -67,6 +67,7 @@ var _ = Describe("PledgeServer", func() {
 	)
 
 	BeforeEach(func() {
+		//logger = lo.Must(zap.NewDevelopment()).Sugar()
 		logger = zap.NewNop().Sugar()
 		net = fmock.NewNetwork[node.ID, node.ID]()
 	})
@@ -108,10 +109,10 @@ var _ = Describe("PledgeServer", func() {
 			It("Should correctly assign an ID", func() {
 				var (
 					nodes         = make(node.Group)
-					candidates    = allCandidates(nodes)
 					numCandidates = 10
 				)
-				provisionCandidates(numCandidates, net, nil, nil, logger)
+				provisionCandidates(numCandidates, net, nodes, nil, nil, logger)
+				candidates := allCandidates(nodes)
 				ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
 				defer cancel()
 				id, err := pledge.Pledge(ctx, baseConfig(net, logger), pledge.Config{
@@ -137,7 +138,7 @@ var _ = Describe("PledgeServer", func() {
 						}
 					}
 				)
-				nodes = provisionCandidates(10, net, candidates, nil, logger)
+				nodes = provisionCandidates(10, net, nodes, candidates, nil, logger)
 				ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 				defer cancel()
 				id, err := pledge.Pledge(
@@ -156,29 +157,37 @@ var _ = Describe("PledgeServer", func() {
 					nodes           = make(node.Group)
 					allCandidates   = func() node.Group { return nodes }
 					extraCandidates = func() node.Group {
-						return node.Group{10: node.Node{ID: 10, Address: "localhost:10", State: node.StateHealthy}}
+						n := nodes.Copy()
+						n[10] = node.Node{ID: 10, Address: "localhost:10", State: node.StateHealthy}
+						return n
 					}
 					net = fmock.NewNetwork[node.ID, node.ID]()
 				)
-				nodes = provisionCandidates(10, net, func(i int) func() node.Group {
-					return lo.Ternary(i == 0, extraCandidates, allCandidates)
+				provisionCandidates(10, net, nodes, func(i int) func() node.Group {
+					return lo.Ternary(i%2 == 0, extraCandidates, allCandidates)
 				}, nil, logger)
 				ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 				defer cancel()
 				id, err := pledge.Pledge(
 					ctx,
 					baseConfig(net, logger),
-					pledge.Config{Peers: []address.Address{allCandidates()[0].Address}},
+					pledge.Config{
+						Peers:      []address.Address{allCandidates()[0].Address},
+						Candidates: extraCandidates,
+					},
 					pledge.BlazingFastConfig,
 				)
 				Expect(err).To(BeNil())
-				Expect(id).To(Equal(node.ID(11)))
+				Expect(id).To(BeNumerically(">=", node.ID(11)))
 			})
 		})
 		Context("Too Few Healthy UniqueNodeIDs To Form a Quorum", func() {
 			It("Should return an errQuorumUnreachable", func() {
-				var numCandidates = 10
-				nodes := provisionCandidates(numCandidates, net, nil, func(i int) node.State {
+				var (
+					numCandidates = 10
+					nodes         = make(node.Group)
+				)
+				provisionCandidates(numCandidates, net, nodes, nil, func(i int) node.State {
 					return lo.Ternary(i%2 == 0, node.StateHealthy, node.StateDead)
 				}, logger)
 				ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
@@ -200,8 +209,9 @@ var _ = Describe("PledgeServer", func() {
 			It("Should stop all operations and return a cancellation error", func() {
 				var (
 					numCandidates = 10
+					nodes         = make(node.Group)
 				)
-				nodes := provisionCandidates(numCandidates, net, nil, nil, logger)
+				provisionCandidates(numCandidates, net, nodes, nil, nil, logger)
 				ctx, cancel := context.WithCancel(context.Background())
 				cancel()
 				id, err := pledge.Pledge(ctx, baseConfig(net, logger), pledge.Config{
@@ -226,7 +236,7 @@ var _ = Describe("PledgeServer", func() {
 					numCandidates = 10
 					numPledges    = 2
 				)
-				nodes = provisionCandidates(numCandidates, net, candidates, nil, logger)
+				provisionCandidates(numCandidates, net, nodes, candidates, nil, logger)
 				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 				defer cancel()
 				var wg sync.WaitGroup

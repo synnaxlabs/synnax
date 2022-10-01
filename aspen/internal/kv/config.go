@@ -51,8 +51,11 @@ type Config struct {
 func (cfg Config) Override(other Config) Config {
 	cfg.Cluster = override.Nil(cfg.Cluster, other.Cluster)
 	cfg.BatchTransportClient = override.Nil(cfg.BatchTransportClient, other.BatchTransportClient)
+	cfg.BatchTransportServer = override.Nil(cfg.BatchTransportServer, other.BatchTransportServer)
 	cfg.FeedbackTransportClient = override.Nil(cfg.FeedbackTransportClient, other.FeedbackTransportClient)
+	cfg.FeedbackTransportServer = override.Nil(cfg.FeedbackTransportServer, other.FeedbackTransportServer)
 	cfg.LeaseTransportServer = override.Nil(cfg.LeaseTransportServer, other.LeaseTransportServer)
+	cfg.LeaseTransportClient = override.Nil(cfg.LeaseTransportClient, other.LeaseTransportClient)
 	cfg.Logger = override.Nil(cfg.Logger, other.Logger)
 	cfg.Engine = override.Nil(cfg.Engine, other.Engine)
 	cfg.GossipInterval = override.Numeric(cfg.GossipInterval, other.GossipInterval)

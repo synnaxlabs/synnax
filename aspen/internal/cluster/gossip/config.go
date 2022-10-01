@@ -34,6 +34,7 @@ func (cfg Config) Override(other Config) Config {
 	cfg.Interval = override.Numeric(cfg.Interval, other.Interval)
 	cfg.Logger = override.Nil(cfg.Logger, other.Logger)
 	cfg.TransportClient = override.Nil(cfg.TransportClient, other.TransportClient)
+	cfg.TransportServer = override.Nil(cfg.TransportServer, other.TransportServer)
 	cfg.Store = override.Nil(cfg.Store, other.Store)
 	return cfg
 }

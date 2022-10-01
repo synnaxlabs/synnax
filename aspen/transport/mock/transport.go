@@ -34,35 +34,50 @@ func (n *Network) NewTransport() aspen.Transport { return &transport{net: n} }
 
 // transport is an in-memory, synchronous implementation of aspen.transport.
 type transport struct {
-	net        *Network
-	pledge     *fmock.UnaryServer[node.ID, node.ID]
-	cluster    *fmock.UnaryServer[gossip.Message, gossip.Message]
-	operations *fmock.UnaryServer[kv.BatchRequest, kv.BatchRequest]
-	lease      *fmock.UnaryServer[kv.BatchRequest, types.Nil]
-	feedback   *fmock.UnaryServer[kv.FeedbackMessage, types.Nil]
+	net            *Network
+	pledgeServer   *fmock.UnaryServer[node.ID, node.ID]
+	pledgeClient   *fmock.UnaryClient[node.ID, node.ID]
+	clusterServer  *fmock.UnaryServer[gossip.Message, gossip.Message]
+	clusterClient  *fmock.UnaryClient[gossip.Message, gossip.Message]
+	batchServer    *fmock.UnaryServer[kv.BatchRequest, kv.BatchRequest]
+	batchClient    *fmock.UnaryClient[kv.BatchRequest, kv.BatchRequest]
+	leaseServer    *fmock.UnaryServer[kv.BatchRequest, types.Nil]
+	leaseClient    *fmock.UnaryClient[kv.BatchRequest, types.Nil]
+	feedbackServer *fmock.UnaryServer[kv.FeedbackMessage, types.Nil]
+	feedbackClient *fmock.UnaryClient[kv.FeedbackMessage, types.Nil]
 }
 
 // Configure implements aspen.transport.
 func (t *transport) Configure(ctx signal.Context, addr address.Address, external bool) error {
-	t.pledge = t.net.pledge.UnaryServer(addr)
-	t.cluster = t.net.cluster.UnaryServer(addr)
-	t.operations = t.net.operations.UnaryServer(addr)
-	t.lease = t.net.lease.UnaryServer(addr)
-	t.feedback = t.net.feedback.UnaryServer(addr)
+	t.pledgeServer = t.net.pledge.UnaryServer(addr)
+	t.pledgeClient = t.net.pledge.UnaryClient()
+	t.clusterServer = t.net.cluster.UnaryServer(addr)
+	t.clusterClient = t.net.cluster.UnaryClient()
+	t.batchServer = t.net.operations.UnaryServer(addr)
+	t.batchClient = t.net.operations.UnaryClient()
+	t.leaseServer = t.net.lease.UnaryServer(addr)
+	t.leaseClient = t.net.lease.UnaryClient()
+	t.feedbackServer = t.net.feedback.UnaryServer(addr)
+	t.feedbackClient = t.net.feedback.UnaryClient()
 	return nil
 }
 
-// Pledge implements aspen.transport.
-func (t *transport) Pledge() pledge.Transport { return t.pledge }
+func (t *transport) PledgeClient() pledge.TransportClient { return t.pledgeClient }
 
-// Cluster implements aspen.transport.
-func (t *transport) Cluster() gossip.TransportClient { return t.cluster }
+func (t *transport) PledgeServer() pledge.TransportServer { return t.pledgeServer }
 
-// Operations implements aspen.transport.
-func (t *transport) Operations() kv.BatchTransport { return t.operations }
+func (t *transport) GossipClient() gossip.TransportClient { return t.clusterClient }
 
-// Lease implements aspen.transport.
-func (t *transport) Lease() kv.LeaseTransportClient { return t.lease }
+func (t *transport) GossipServer() gossip.TransportServer { return t.clusterServer }
 
-// Feedback implements aspen.transport.
-func (t *transport) Feedback() kv.FeedbackTransportClient { return t.feedback }
+func (t *transport) BatchClient() kv.BatchTransportClient { return t.batchClient }
+
+func (t *transport) BatchServer() kv.BatchTransportServer { return t.batchServer }
+
+func (t *transport) LeaseClient() kv.LeaseTransportClient { return t.leaseClient }
+
+func (t *transport) LeaseServer() kv.LeaseTransportServer { return t.leaseServer }
+
+func (t *transport) FeedbackClient() kv.FeedbackTransportClient { return t.feedbackClient }
+
+func (t *transport) FeedbackServer() kv.FeedbackTransportServer { return t.feedbackServer }

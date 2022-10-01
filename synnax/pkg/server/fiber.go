@@ -4,25 +4,24 @@ import (
 	"context"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
-	fiberapi "github.com/synnaxlabs/synnax/pkg/api/http"
+	"github.com/synnaxlabs/freighter/fhttp"
+	httpapi "github.com/synnaxlabs/synnax/pkg/api/http"
 	"github.com/synnaxlabs/x/signal"
 	"net"
 )
 
 type fiberServer struct {
 	app *fiber.App
-	api fiberapi.API
 }
 
 func newFiberServer(cfg Config) *fiberServer {
 	f := &fiberServer{}
-	f.app = fiber.New(fiber.Config{
-		DisableStartupMessage: true,
-		ErrorHandler:          fiberapi.ErrorHandler,
-	})
+	f.app = fiber.New(fiber.Config{DisableStartupMessage: true})
 	f.app.Use(cors.New(cors.Config{AllowOrigins: "*"}))
-	f.api = cfg.FiberAPI
-	f.api.Route(f.app)
+	httpapi.New(fhttp.NewRouter(fhttp.RouterConfig{
+		App:    f.app,
+		Logger: cfg.Logger.Sugar(),
+	}))
 	return f
 }
 func (f fiberServer) start(

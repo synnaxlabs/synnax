@@ -21,7 +21,7 @@ import (
 )
 
 func openClient(ctx context.Context, id distribution.NodeID, services map[distribution.NodeID]serviceContainer) writer.ClientStream {
-	client, err := services[id].transport.writer.Stream(ctx, "localhost:0")
+	client, err := services[id].transport.writerClient.Stream(ctx, "localhost:0")
 	Expect(err).ToNot(HaveOccurred())
 	return client
 }
@@ -64,7 +64,7 @@ var _ = Describe("Server", func() {
 		Expect(res.Err).To(HaveOccurredAs(expectedResError))
 		Expect(err).To(HaveOccurredAs(expectedTransportError))
 	},
-		Entry("Open the writer properly when the keys exist", channel.Keys{channel.NewKey(1, 1)}, nil, freighter.EOF),
+		Entry("Open the writerClient properly when the keys exist", channel.Keys{channel.NewKey(1, 1)}, nil, freighter.EOF),
 		Entry("Return an error when no keys are provided", channel.Keys{}, nil, errors.New("[segment.w] - server expected OpenKeys to be defined")),
 		Entry("Return an error when invalid keys are provided", channel.Keys{channel.NewKey(1, 2)}, nil, query.NotFound),
 	)
@@ -99,7 +99,7 @@ var _ = Describe("Server", func() {
 				Expect(err).To(HaveOccurredAs(freighter.EOF))
 				Expect(res.Err).ToNot(HaveOccurred())
 			})
-			It("Should return an error when the write request has no channel key", func() {
+			It("Should return an error when the write request has no channelClient key", func() {
 				var s core.Segment
 				s.Data = []byte{1, 2, 3}
 				s.Start = telem.TimeStamp(25)

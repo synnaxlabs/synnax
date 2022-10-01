@@ -57,6 +57,7 @@ var _ config.Config[Config] = Config{}
 // Override implements the config.Config interface.
 func (cfg Config) Override(other Config) Config {
 	cfg.TransportClient = override.Nil(cfg.TransportClient, other.TransportClient)
+	cfg.TransportServer = override.Nil(cfg.TransportServer, other.TransportServer)
 	cfg.RequestTimeout = override.Numeric(cfg.RequestTimeout, other.RequestTimeout)
 	cfg.RetryInterval = override.Numeric(cfg.RetryInterval, other.RetryInterval)
 	cfg.RetryScale = override.Numeric(cfg.RetryScale, other.RetryScale)
@@ -71,6 +72,7 @@ func (cfg Config) Override(other Config) Config {
 func (cfg Config) Validate() error {
 	v := validate.New("pledge")
 	validate.NotNil(v, "TransportClient", cfg.TransportClient)
+	validate.NotNil(v, "TransportServer", cfg.TransportServer)
 	validate.Positive(v, "RequestTimeout", cfg.RequestTimeout)
 	validate.GreaterThanEq(v, "RetryScale", cfg.RetryScale, 1)
 	validate.NonZero(v, "MaxProposals", cfg.MaxProposals)

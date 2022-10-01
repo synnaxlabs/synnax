@@ -38,6 +38,7 @@ func provisionServices(logger *zap.Logger) (*mock.CoreBuilder, map[core.NodeID]*
 		core1.Cluster,
 		core1.Storage.Gorpify(),
 		core1.Storage.TS,
+		net.UnaryClient(),
 		net.UnaryServer(core1.Config.AdvertiseAddress),
 	)
 	core2 := builder.New()
@@ -45,6 +46,7 @@ func provisionServices(logger *zap.Logger) (*mock.CoreBuilder, map[core.NodeID]*
 		core2.Cluster,
 		core2.Storage.Gorpify(),
 		core2.Storage.TS,
+		net.UnaryClient(),
 		net.UnaryServer(core2.Config.AdvertiseAddress),
 	)
 	Eventually(func(g Gomega) {

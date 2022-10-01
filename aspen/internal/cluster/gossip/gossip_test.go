@@ -47,6 +47,7 @@ var _ = Describe("OperationSender", func() {
 			g1, err = gossip.New(gossip.Config{
 				Store:           sOne,
 				TransportClient: net.UnaryClient(),
+				TransportServer: t1,
 				Logger:          logger,
 				Interval:        5 * time.Millisecond,
 			})
@@ -54,6 +55,7 @@ var _ = Describe("OperationSender", func() {
 			_, err = gossip.New(gossip.Config{
 				Store:           sTwo,
 				TransportClient: net.UnaryClient(),
+				TransportServer: t2,
 				Logger:          logger,
 				Interval:        5 * time.Millisecond,
 			})

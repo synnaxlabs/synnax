@@ -82,7 +82,7 @@ func (cfg Config) Override(other Config) Config {
 }
 
 func (cfg Config) Validate() error {
-	v := validate.New("writer")
+	v := validate.New("writerClient")
 	validate.NotNil(v, "TS", cfg.TS)
 	validate.NotNil(v, "ChannelService", cfg.ChannelService)
 	validate.NotNil(v, "Resolver", cfg.Resolver)
@@ -96,7 +96,7 @@ func (cfg Config) Validate() error {
 func New(ctx context.Context, cfg Config) (Writer, error) {
 	sCtx, cancel := signal.WithCancel(
 		ctx,
-		signal.WithContextKey("writer"),
+		signal.WithContextKey("writerClient"),
 		signal.WithLogger(cfg.Logger),
 	)
 	if err := cfg.Validate(); err != nil {

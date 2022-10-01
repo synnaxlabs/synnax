@@ -23,33 +23,33 @@ import (
 type StreamIterator = confluence.Segment[Request, Response]
 
 type Iterator interface {
-	// Next retrieves the next segment of each channel's data.
+	// Next retrieves the next segment of each channelClient's data.
 	// Returns true if the current IteratorServer.View is pointing to any valid segments.
-	// It's important to note that if channel data is non-contiguous, calls to Next
+	// It's important to note that if channelClient data is non-contiguous, calls to Next
 	// may return segments that occupy different ranges of time.
 	Next() bool
-	// Prev retrieves the previous segment of each channel's data.
+	// Prev retrieves the previous segment of each channelClient's data.
 	// Returns true if the current IteratorServer.View is pointing to any valid segments.
-	// It's important to note that if channel data is non-contiguous, calls to Prev
+	// It's important to note that if channelClient data is non-contiguous, calls to Prev
 	// may return segments that occupy different ranges of time.
 	Prev() bool
-	// First returns the first segment of each channel's data.
+	// First returns the first segment of each channelClient's data.
 	// Returns true if the current IteratorServer.View is pointing to any valid segments.
-	// It's important to note that if channel data is non-contiguous, calls to First
+	// It's important to note that if channelClient data is non-contiguous, calls to First
 	// may return segments that occupy different ranges of time.
 	First() bool
-	// Last returns the last segment of each channel's data.
+	// Last returns the last segment of each channelClient's data.
 	// Returns true if the current IteratorServer.View is pointing to any valid segments.
-	// It's important to note that if channel data is non-contiguous, calls to Last
+	// It's important to note that if channelClient data is non-contiguous, calls to Last
 	// may return segments that occupy different ranges of time.
 	Last() bool
-	// NextSpan reads all channel data occupying the next span of time. Returns true
+	// NextSpan reads all channelClient data occupying the next span of time. Returns true
 	// if the current IteratorServer.View is pointing to any valid segments.
 	NextSpan(span telem.TimeSpan) bool
-	// PrevSpan reads all channel data occupying the previous span of time. Returns true
+	// PrevSpan reads all channelClient data occupying the previous span of time. Returns true
 	// if the current IteratorServer.View is pointing to any valid segments.
 	PrevSpan(span telem.TimeSpan) bool
-	// Range seeks the Iterator to the start of the range and reads all channel data
+	// Range seeks the Iterator to the start of the range and reads all channelClient data
 	// until the end of the range.
 	Range(tr telem.TimeRange) bool
 	// SeekFirst seeks the iterator the start of the iterator range.
@@ -109,7 +109,7 @@ func (cfg Config) Validate() error {
 		return errors.New("[iterator] no range provided")
 	}
 	validate.NotNil(v, "TS", cfg.TS)
-	validate.NotNil(v, "channel", cfg.ChannelService)
+	validate.NotNil(v, "channelClient", cfg.ChannelService)
 	validate.NotNil(v, "transportServer", cfg.TransportServer)
 	validate.NotNil(v, "transportClient", cfg.TransportClient)
 	validate.NotNil(v, "resolver", cfg.Resolver)
@@ -190,7 +190,7 @@ func NewStream(ctx context.Context, _cfg ...Config) (StreamIterator, error) {
 		)
 		routeInletTo = "broadcaster"
 
-		// We use confluence.StitchWeave here to dedicate a channel to both the
+		// We use confluence.StitchWeave here to dedicate a channelClient to both the
 		// sender and local, so that they both receive a copy of the emitted request.
 		plumber.MultiRouter[Request]{
 			SourceTargets: []address.Address{"broadcaster"},

@@ -29,8 +29,10 @@ func TestIterator(t *testing.T) {
 type serviceContainer struct {
 	channel   *channel.Service
 	transport struct {
-		channel channel.CreateTransportClient
-		iter    iterator.TransportServer
+		channelClient channel.CreateTransportClient
+		channelServer channel.CreateTransportServer
+		iterServer    iterator.TransportServer
+		iterClient    iterator.TransportClient
 	}
 }
 
@@ -42,18 +44,22 @@ func provisionNServices(n int, logger *zap.Logger) (*mock.CoreBuilder, map[core.
 	for i := 0; i < n; i++ {
 		_core := builder.New()
 		var container serviceContainer
-		container.transport.channel = channelNet.UnaryServer(_core.Config.AdvertiseAddress)
-		container.transport.iter = iterNet.StreamServer(_core.Config.AdvertiseAddress, 0)
+		container.transport.channelServer = channelNet.UnaryServer(_core.Config.AdvertiseAddress)
+		container.transport.channelClient = channelNet.UnaryClient()
+		container.transport.iterServer = iterNet.StreamServer(_core.Config.AdvertiseAddress, 0)
+		container.transport.iterClient = iterNet.StreamClient()
 		container.channel = channel.New(
 			_core.Cluster,
 			_core.Storage.Gorpify(),
 			_core.Storage.TS,
-			container.transport.channel,
+			container.transport.channelClient,
+			container.transport.channelServer,
 		)
 		iterator.NewServer(iterator.Config{
 			TS:              _core.Storage.TS,
 			Resolver:        _core.Cluster,
-			TransportServer: container.transport.iter,
+			TransportServer: container.transport.iterServer,
+			TransportClient: container.transport.iterClient,
 			Logger:          zap.NewNop(),
 		})
 		services[_core.Cluster.HostID()] = container
@@ -89,7 +95,8 @@ func openIter(
 			Logger:          zap.NewNop(),
 			TS:              builder.Cores[nodeID].Storage.TS,
 			Resolver:        builder.Cores[nodeID].Cluster,
-			TransportServer: services[nodeID].transport.iter,
+			TransportServer: services[nodeID].transport.iterServer,
+			TransportClient: services[nodeID].transport.iterClient,
 			TimeRange:       telem.TimeRangeMax,
 			ChannelKeys:     keys,
 			ChannelService:  services[nodeID].channel,

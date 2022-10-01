@@ -14,9 +14,6 @@ type grpcServer struct {
 
 func newGRPCServer(cfg Config) *grpcServer {
 	srv := &grpcServer{server: grpc.NewServer(grpc.Creds(insecure.NewCredentials()))}
-	for _, t := range cfg.GrpcAPI.Transports {
-		t.BindTo(srv.server)
-	}
 	return srv
 }
 
