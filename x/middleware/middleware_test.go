@@ -5,6 +5,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/middleware"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 type request struct {
@@ -17,55 +18,47 @@ type response struct {
 
 type myFirstMiddleware struct{}
 
-func (m *myFirstMiddleware) Handle(
+func (m *myFirstMiddleware) Exec(
 	ctx context.Context,
 	req *request,
-	next func() (*response, error),
-) (*response, error) {
+	next func(context.Context, *request) error,
+) error {
 	req.value = "request"
-	res, err := next()
+	err := next(ctx, req)
 	if err != nil {
-		return res, err
+		return err
 	}
-	res.value = "response"
-	return res, nil
+	return nil
 }
 
-type myLastMiddleware struct{}
+type myFinalizer struct{}
 
-func (m *myLastMiddleware) Handle(
-	ctx context.Context,
-	req *request,
-	next func() (*response, error),
-) (*response, error) {
-	return &response{value: "last"}, nil
+func (m *myFinalizer) Finalize(ctx context.Context, req *request) error {
+	return nil
 }
 
 var _ = Describe("ExecSequentially", func() {
-	It("Should execute clientMiddleware in the correct order", func() {
-		executor := &middleware.Executor[*request, *response]{
-			Middleware: []middleware.Middleware[*request, *response]{
-				&myFirstMiddleware{},
-				&myFirstMiddleware{},
-				&myLastMiddleware{},
-			},
+	It("Should execute middleware in the correct order", func() {
+		chain := &middleware.Chain[*request]{
+			&myFirstMiddleware{},
+			&myFirstMiddleware{},
 		}
 		req := &request{}
-		res, err := executor.Exec(context.TODO(), req)
+		err := chain.Exec(context.TODO(), req, &myFinalizer{})
 		Expect(err).To(BeNil())
-		Expect(res.value).To(Equal("response"))
 		Expect(req.value).To(Equal("request"))
 	})
-	It("Should panic if the last middleware calls next", func() {
+	It("Should not execute middleware if the context is canceled", func() {
+		collector := &middleware.Collector[*request]{}
+		collector.Use(
+			&myFirstMiddleware{},
+			&myFirstMiddleware{},
+		)
 		req := &request{}
-		Expect(func() {
-			_, _ = middleware.ExecSequentially(
-				context.TODO(),
-				req,
-				[]middleware.Middleware[*request, *response]{
-					&myFirstMiddleware{},
-					&myFirstMiddleware{},
-				})
-		}).To(Panic())
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		err := collector.Exec(ctx, req, &myFinalizer{})
+		Expect(err).To(HaveOccurredAs(context.Canceled))
+		Expect(req.value).To(Equal(""))
 	})
 })

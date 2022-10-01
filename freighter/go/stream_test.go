@@ -17,36 +17,36 @@ import (
 	"time"
 )
 
-type sampleRequest struct {
+type request struct {
 	ID      int    `json:"id" msgpack:"id"`
 	Message string `json:"message" msgpack:"message"`
 }
 
-type sampleResponse struct {
+type response struct {
 	ID      int    `json:"id" msgpack:"id"`
 	Message string `json:"message" msgpack:"message"`
 }
 
 type (
-	streamServer = freighter.StreamServer[sampleRequest, sampleResponse]
-	streamClient = freighter.StreamClient[sampleRequest, sampleResponse]
-	serverStream = freighter.ServerStream[sampleRequest, sampleResponse]
+	streamServer = freighter.StreamServer[request, response]
+	streamClient = freighter.StreamClient[request, response]
+	serverStream = freighter.ServerStream[request, response]
 )
 
-type implementation interface {
+type streamImplementation interface {
 	start(host address.Address, logger *zap.SugaredLogger) (streamServer, streamClient)
 	stop() error
 }
 
-var implementations = []implementation{
-	&httpImplementation{},
-	&mockImplementation{},
+var streamImplementations = []streamImplementation{
+	&httpStreamImplementation{},
+	&mockStreamImplementation{},
 }
 
 var _ = Describe("Stream", Ordered, Serial, func() {
 	Describe("Implementation Tests", func() {
 
-		for _, impl := range implementations {
+		for _, impl := range streamImplementations {
 			impl := impl
 			var (
 				addr   address.Address
@@ -76,7 +76,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 								Expect(err).To(HaveOccurredAs(freighter.EOF))
 								return err
 							}
-							if err := server.Send(sampleResponse{ID: req.ID + 1, Message: req.Message}); err != nil {
+							if err := server.Send(response{ID: req.ID + 1, Message: req.Message}); err != nil {
 								return err
 							}
 						}
@@ -91,7 +91,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 
 					By("Exchanging ten echo messages")
 					for i := 0; i < 10; i++ {
-						Expect(client.Send(sampleRequest{ID: i, Message: "Hello"})).To(Succeed())
+						Expect(client.Send(request{ID: i, Message: "Hello"})).To(Succeed())
 						msg, err := client.Receive()
 						Expect(err).ToNot(HaveOccurred())
 						Expect(msg.ID).To(Equal(i + 1))
@@ -114,7 +114,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 						defer close(serverClosed)
 						_, err := server.Receive()
 						Expect(err).To(HaveOccurredAs(freighter.EOF))
-						Expect(server.Send(sampleResponse{ID: 1, Message: "Hello"})).To(Succeed())
+						Expect(server.Send(response{ID: 1, Message: "Hello"})).To(Succeed())
 						return nil
 					})
 					client, err := client.Stream(context.TODO(), addr)
@@ -143,7 +143,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 						})
 						client, err := client.Stream(context.TODO(), addr)
 						Expect(err).ToNot(HaveOccurred())
-						Expect(client.Send(sampleRequest{ID: 0, Message: "Hello"})).To(Succeed())
+						Expect(client.Send(request{ID: 0, Message: "Hello"})).To(Succeed())
 						_, err = client.Receive()
 						Expect(err).To(HaveOccurredAs(errors.New("zero is not allowed!")))
 						Eventually(serverClosed).Should(BeClosed())
@@ -162,10 +162,10 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 						})
 						client, err := client.Stream(context.TODO(), addr)
 						Expect(err).ToNot(HaveOccurred())
-						Expect(client.Send(sampleRequest{ID: 0, Message: "Hello"})).To(Succeed())
+						Expect(client.Send(request{ID: 0, Message: "Hello"})).To(Succeed())
 						_, err = client.Receive()
 						Expect(err).To(HaveOccurredAs(errors.New("zero is not allowed!")))
-						err = client.Send(sampleRequest{ID: 0, Message: "Hello"})
+						err = client.Send(request{ID: 0, Message: "Hello"})
 						Expect(err).To(HaveOccurredAs(freighter.EOF))
 						Eventually(serverClosed).Should(BeClosed())
 					})
@@ -209,7 +209,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 						client, err := client.Stream(ctx, addr)
 						Expect(err).ToNot(HaveOccurred())
 						Expect(client.CloseSend()).To(Succeed())
-						err = client.Send(sampleRequest{ID: 0, Message: "Hello"})
+						err = client.Send(request{ID: 0, Message: "Hello"})
 						Expect(err).To(HaveOccurredAs(freighter.StreamClosed))
 
 						_, err = client.Receive()
@@ -229,7 +229,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 						for i := 0; i < 10; i++ {
 							req, err := server.Receive()
 							Expect(err).ToNot(HaveOccurred())
-							Expect(server.Send(sampleResponse{
+							Expect(server.Send(response{
 								ID:      req.ID + i,
 								Message: req.Message,
 							})).To(Succeed())
@@ -241,7 +241,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 					client, err := client.Stream(ctx, addr)
 					Expect(err).ToNot(HaveOccurred())
 					Eventually(func(g Gomega) {
-						g.Expect(client.Send(sampleRequest{ID: 0, Message: "Hello"})).To(HaveOccurredAs(freighter.EOF))
+						g.Expect(client.Send(request{ID: 0, Message: "Hello"})).To(HaveOccurredAs(freighter.EOF))
 					}).WithPolling(10 * time.Millisecond).Should(Succeed())
 					Eventually(serverClosed).Should(BeClosed())
 				})
@@ -256,21 +256,21 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 	})
 })
 
-type httpImplementation struct {
+type httpStreamImplementation struct {
 	app *fiber.App
 }
 
-func (impl *httpImplementation) start(
+func (impl *httpStreamImplementation) start(
 	host address.Address,
 	logger *zap.SugaredLogger,
 ) (streamServer, streamClient) {
 	impl.app = fiber.New(fiber.Config{DisableStartupMessage: true})
 	router := fhttp.NewRouter(fhttp.RouterConfig{App: impl.app, Logger: logger})
-	client := fhttp.NewClient(fhttp.ClientConfig{EncoderDecoder: httputil.MsgPackEncoderDecoder, Logger: logger})
+	client := fhttp.NewClientFactory(fhttp.ClientFactoryConfig{EncoderDecoder: httputil.MsgPackEncoderDecoder, Logger: logger})
 	impl.app.Get("/health", func(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusOK)
 	})
-	server := fhttp.StreamServer[sampleRequest, sampleResponse](router, "/")
+	server := fhttp.StreamServer[request, response](router, "/")
 	go func() {
 		if err := impl.app.Listen(host.PortString()); err != nil {
 			logger.Error(err)
@@ -280,22 +280,22 @@ func (impl *httpImplementation) start(
 		_, err := http.Get("http://" + host.String() + "/health")
 		g.Expect(err).ToNot(HaveOccurred())
 	}).WithPolling(1 * time.Millisecond).Should(Succeed())
-	return server, fhttp.NewStreamClient[sampleRequest, sampleResponse](client)
+	return server, fhttp.StreamClient[request, response](client)
 }
 
-func (impl *httpImplementation) stop() error {
+func (impl *httpStreamImplementation) stop() error {
 	return impl.app.Shutdown()
 }
 
-type mockImplementation struct {
-	net *fmock.Network[sampleRequest, sampleResponse]
+type mockStreamImplementation struct {
+	net *fmock.Network[request, response]
 }
 
-func (impl *mockImplementation) start(
+func (impl *mockStreamImplementation) start(
 	host address.Address,
 	logger *zap.SugaredLogger,
 ) (streamServer, streamClient) {
-	return fmock.NewStreamPair[sampleRequest, sampleResponse]( /*request buffer */ 11 /* response buffer */, 11)
+	return fmock.NewStreamPair[request, response]( /*request buffer */ 11 /* response buffer */, 11)
 }
 
-func (impl *mockImplementation) stop() error { return nil }
+func (impl *mockStreamImplementation) stop() error { return nil }

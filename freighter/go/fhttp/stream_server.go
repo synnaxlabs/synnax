@@ -21,29 +21,30 @@ type streamServer[RQ, RS freighter.Payload] struct {
 	handler func(ctx context.Context, server freighter.ServerStream[RQ, RS]) error
 }
 
-func (s *streamServer[RQ, RS]) BindHandler(handler func(ctx context.Context, server freighter.ServerStream[RQ, RS]) error) {
+func (s *streamServer[RQ, RS]) BindHandler(
+	handler func(ctx context.Context, server freighter.ServerStream[RQ, RS]) error,
+) {
 	s.handler = handler
 }
 
 func (s *streamServer[RQ, RS]) fiberHandler(c *fiber.Ctx) error {
-	return s.MiddlewareCollector.Exec(
+	if !fiberws.IsWebSocketUpgrade(c) {
+		return fiber.ErrUpgradeRequired
+	}
+	c.Accepts(httputil.SupportedContentTypes()...)
+	ecd, err := httputil.DetermineEncoderDecoder(c.Get(fiber.HeaderContentType))
+	if err != nil {
+		return err
+	}
+	if err := s.MiddlewareCollector.Exec(
 		c.Context(),
 		parseRequestParams(c, address.Address(s.path)),
 		freighter.FinalizerFunc(func(ctx context.Context, _ freighter.MD) error {
-			if !fiberws.IsWebSocketUpgrade(c) {
-				return fiber.ErrUpgradeRequired
-			}
-			c.Accepts(httputil.SupportedContentTypes()...)
-			ecd, err := httputil.DetermineEncoderDecoder(c.Get(fiber.HeaderContentType))
-			if err != nil {
-				return err
-			}
 			return fiberws.New(func(c *fiberws.Conn) {
 				if err := func() error {
 					stream := &serverStream[RQ, RS]{core: newCore[RQ, RS](context.TODO(), c.Conn, ecd, zap.S())}
 
 					errPayload := ferrors.Encode(s.handler(stream.ctx, stream))
-
 					if errPayload.Type == ferrors.Nil {
 						errPayload = ferrors.Encode(freighter.EOF)
 					}
@@ -97,7 +98,10 @@ func (s *streamServer[RQ, RS]) fiberHandler(c *fiber.Ctx) error {
 					s.logger.Errorw("stream server handler error", "error", err)
 				}
 			})(c)
-		}))
+		})); err != nil {
+		return encodeAndWrite(c, ecd, ferrors.Encode(err))
+	}
+	return nil
 }
 
 type serverStream[RQ, RS freighter.Payload] struct{ core[RQ, RS] }

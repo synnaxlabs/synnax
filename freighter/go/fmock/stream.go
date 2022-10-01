@@ -106,7 +106,7 @@ func (s *StreamClient[RQ, RS]) Stream(
 	return client, nil
 }
 
-const defaultBuffer = 0
+const defaultBuffer = 10
 
 func parseBuffers(buffers []int) (int, int) {
 	if len(buffers) == 0 {

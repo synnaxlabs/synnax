@@ -1,1 +1,99 @@
-package freighter
+package freighter_test
+
+import (
+	"context"
+	"github.com/gofiber/fiber/v2"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/freighter/fhttp"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/httputil"
+	"go.uber.org/zap"
+	"net/http"
+	"time"
+)
+
+type (
+	unaryServer = freighter.UnaryServer[request, response]
+	unaryClient = freighter.UnaryClient[request, response]
+)
+
+type unaryImplementation interface {
+	start(host address.Address, logger *zap.SugaredLogger) (unaryServer, unaryClient)
+	stop() error
+}
+
+var unaryImplementations = []unaryImplementation{
+	&httpUnaryImplementation{},
+}
+
+var _ = Describe("Unary", Ordered, Serial, func() {
+	Describe("Implementation Tests", func() {
+		for _, impl := range unaryImplementations {
+			impl := impl
+			var (
+				addr   address.Address
+				server unaryServer
+				client unaryClient
+			)
+			BeforeAll(func() {
+				addr = "localhost:8080"
+				l := zap.NewNop()
+				server, client = impl.start(addr, l.Sugar())
+			})
+			AfterAll(func() {
+				Expect(impl.stop()).To(Succeed())
+			})
+			Describe("Normal Operation", func() {
+				It("should send a request", func() {
+					server.BindHandler(func(ctx context.Context, req request) (response, error) {
+						return response{
+							ID:      req.ID,
+							Message: req.Message,
+						}, nil
+					})
+					req := request{ID: 1, Message: "hello"}
+					res, err := client.Send(context.TODO(), addr, req)
+					Expect(err).To(Succeed())
+					Expect(res).To(Equal(response{ID: 1, Message: "hello"}))
+				})
+			})
+		}
+	})
+})
+
+type httpUnaryImplementation struct {
+	app *fiber.App
+}
+
+func (h *httpUnaryImplementation) start(host address.Address, logger *zap.SugaredLogger) (unaryServer, unaryClient) {
+	h.app = fiber.New(fiber.Config{DisableStartupMessage: true})
+	router := fhttp.NewRouter(fhttp.RouterConfig{
+		App:    h.app,
+		Logger: logger,
+	})
+	factory := fhttp.NewClientFactory(fhttp.ClientFactoryConfig{
+		EncoderDecoder: httputil.JSONEncoderDecoder,
+		Logger:         logger,
+	})
+	server := fhttp.UnaryPostServer[request, response](router, "/")
+	client := fhttp.UnaryPostClient[request, response](factory)
+	h.app.Get("/health", func(c *fiber.Ctx) error {
+		return c.SendStatus(fiber.StatusOK)
+	})
+	go func() {
+		if err := h.app.Listen(host.PortString()); err != nil {
+			logger.Error(err)
+		}
+	}()
+	Eventually(func(g Gomega) {
+		_, err := http.Get("http://" + host.String() + "/health")
+		g.Expect(err).ToNot(HaveOccurred())
+	}).WithPolling(1 * time.Millisecond).Should(Succeed())
+	return server, client
+}
+
+func (h *httpUnaryImplementation) stop() error {
+	return h.app.Shutdown()
+}

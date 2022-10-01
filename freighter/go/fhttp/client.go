@@ -9,43 +9,49 @@ import (
 	"go.uber.org/zap"
 )
 
-type ClientConfig struct {
+type ClientFactoryConfig struct {
 	EncoderDecoder httputil.EncoderDecoder
 	Logger         *zap.SugaredLogger
 }
 
-func (c ClientConfig) Validate() error {
-	v := validate.New("[ws.StreamClient]")
+func (c ClientFactoryConfig) Validate() error {
+	v := validate.New("[ws.streamClient]")
 	validate.NotNil(v, "EncoderDecoder", c.EncoderDecoder)
 	return v.Error()
 }
 
-func (c ClientConfig) Override(other ClientConfig) ClientConfig {
+func (c ClientFactoryConfig) Override(other ClientFactoryConfig) ClientFactoryConfig {
 	c.EncoderDecoder = override.Nil(c.EncoderDecoder, other.EncoderDecoder)
 	c.Logger = override.Nil(c.Logger, other.Logger)
 	return c
 }
 
-var DefaultClientConfig = ClientConfig{
+var DefaultClientConfig = ClientFactoryConfig{
 	EncoderDecoder: httputil.MsgPackEncoderDecoder,
 	Logger:         zap.S(),
 }
 
-type Client struct {
-	ClientConfig
+type ClientFactory struct {
+	ClientFactoryConfig
 }
 
-func NewClient(configs ...ClientConfig) *Client {
+func NewClientFactory(configs ...ClientFactoryConfig) *ClientFactory {
 	cfg, err := config.OverrideAndValidate(DefaultClientConfig, configs...)
 	if err != nil {
 		panic(err)
 	}
-	return &Client{ClientConfig: cfg}
+	return &ClientFactory{ClientFactoryConfig: cfg}
 }
 
-func NewStreamClient[RQ, RS freighter.Payload](c *Client) freighter.StreamClient[RQ, RS] {
-	return &StreamClient[RQ, RS]{
+func StreamClient[RQ, RS freighter.Payload](c *ClientFactory) freighter.StreamClient[RQ, RS] {
+	return &streamClient[RQ, RS]{
 		logger: c.Logger,
 		ecd:    c.EncoderDecoder,
+	}
+}
+
+func UnaryPostClient[RQ, RS freighter.Payload](c *ClientFactory) freighter.UnaryClient[RQ, RS] {
+	return &unaryClient[RQ, RS]{
+		ecd: c.EncoderDecoder,
 	}
 }

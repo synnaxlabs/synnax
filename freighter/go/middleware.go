@@ -23,8 +23,8 @@ type (
 // MiddlewareFunc is a utility type so that functions can implement Middleware.
 type MiddlewareFunc func(context.Context, MD, Next) error
 
-// Handle implements Middleware.
-func (m MiddlewareFunc) Handle(ctx context.Context, req MD, next Next) error {
+// Exec implements Middleware.
+func (m MiddlewareFunc) Exec(ctx context.Context, req MD, next Next) error {
 	return m(ctx, req, next)
 }
 

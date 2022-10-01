@@ -15,6 +15,6 @@ func New(router *fhttp.Router) (a api.Server) {
 	a.ChannelCreate = fhttp.UnaryPostServer[api.ChannelCreateRequest, api.ChannelCreateResponse](router, "/api/v1/channel/create")
 	a.ChannelRetrieve = fhttp.UnaryGetServer[api.ChannelRetrieveRequest, api.ChannelRetrieveResponse](router, "/api/v1/channel/retrieve")
 	a.SegmentWriter = fhttp.StreamServer[api.SegmentWriterRequest, api.SegmentWriterResponse](router, "/api/v1/segment/write")
-	a.SegmentIterator = fhttp.StreamServer[api.SegmentIteratorRequest, api.SegmentIteratorResponse](router, "/api/v1/segment/read")
+	a.SegmentIterator = fhttp.StreamServer[api.SegmentIteratorRequest, api.SegmentIteratorResponse](router, "/api/v1/segment/iterate")
 	return a
 }

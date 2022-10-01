@@ -35,7 +35,7 @@ func (n *Network[RQ, RS]) UnaryServer(host address.Address) *UnaryServer[RQ, RS]
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	pHost := n.parseTarget(host)
-	s := &UnaryServer[RQ, RS]{Network: n, Address: host}
+	s := &UnaryServer[RQ, RS]{Network: n, Address: pHost}
 	n.mu.unaryRoutes[pHost] = s
 	return s
 }
@@ -58,16 +58,22 @@ const defaultStreamBuffer = 10
 // StreamServer returns a new freighter.Stream hosted at the given address.
 // This transport is not reachable by other hosts in the network until
 // freighter.Stream.ServeHTTP is called.
-func (n *Network[RQ, RS]) StreamServer(host address.Address, buffer int) *StreamServer[RQ, RS] {
+func (n *Network[RQ, RS]) StreamServer(host address.Address, buffer ...int) *StreamServer[RQ, RS] {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	addr := n.parseTarget(host)
-	if buffer <= 0 {
-		buffer = defaultStreamBuffer
-	}
-	s := &StreamServer[RQ, RS]{Reporter: reporter}
+	b, _ := parseBuffers(buffer)
+	s := &StreamServer[RQ, RS]{Reporter: reporter, BufferSize: b}
 	n.mu.streamRoutes[addr] = s
 	return s
+}
+
+func (n *Network[RQ, RS]) StreamClient(buffers ...int) *StreamClient[RQ, RS] {
+	b, _ := parseBuffers(buffers)
+	return &StreamClient[RQ, RS]{
+		Network:    n,
+		BufferSize: b,
+	}
 }
 
 func (n *Network[RQ, RS]) resolveStreamTarget(target address.Address) (*StreamServer[RQ, RS], bool) {

@@ -29,9 +29,3 @@ func (t Reporter) Report() alamos.Report {
 	rep["encodings"] = t.Encodings
 	return rep
 }
-
-func UseOnAll(m []Middleware, ts ...Transport) {
-	for _, t := range ts {
-		t.Use(m...)
-	}
-}

@@ -17,12 +17,12 @@ import (
 )
 
 var (
-	_ freighter.StreamClient[any, types.Nil] = (*StreamClient[any, types.Nil])(nil)
+	_ freighter.StreamClient[any, types.Nil] = (*streamClient[any, types.Nil])(nil)
 	_ freighter.ClientStream[any, types.Nil] = (*clientStream[any, types.Nil])(nil)
-	_ config.Config[ClientConfig]            = ClientConfig{}
+	_ config.Config[ClientFactoryConfig]     = ClientFactoryConfig{}
 )
 
-type StreamClient[RQ, RS freighter.Payload] struct {
+type streamClient[RQ, RS freighter.Payload] struct {
 	logger *zap.SugaredLogger
 	ecd    httputil.EncoderDecoder
 	dialer ws.Dialer
@@ -30,13 +30,13 @@ type StreamClient[RQ, RS freighter.Payload] struct {
 	freighter.MiddlewareCollector
 }
 
-func (s *StreamClient[RQ, RS]) Report() alamos.Report {
+func (s *streamClient[RQ, RS]) Report() alamos.Report {
 	r := streamReporter
 	r.Encodings = []string{s.ecd.ContentType()}
 	return r.Report()
 }
 
-func (s *StreamClient[RQ, RS]) Stream(
+func (s *streamClient[RQ, RS]) Stream(
 	ctx context.Context,
 	target address.Address,
 ) (stream freighter.ClientStream[RQ, RS], _ error) {

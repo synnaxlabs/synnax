@@ -6,7 +6,6 @@ import (
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/kv"
 	"github.com/synnaxlabs/aspen/internal/node"
-	"github.com/synnaxlabs/aspen/transport"
 	aspenv1 "github.com/synnaxlabs/aspen/transport/grpc/gen/proto/go/v1"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/x/address"
@@ -98,7 +97,7 @@ var (
 	_ aspenv1.FeedbackServiceServer      = (*feedbackServer)(nil)
 )
 
-func New(pool *fgrpc.Pool) transport.Transport {
+func New(pool *fgrpc.Pool) *transportImpl {
 	return &transportImpl{
 		pledgeClient: &pledgeClient{
 			Pool:               pool,
