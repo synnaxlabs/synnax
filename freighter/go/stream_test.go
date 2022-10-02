@@ -17,16 +17,6 @@ import (
 	"time"
 )
 
-type request struct {
-	ID      int    `json:"id" msgpack:"id"`
-	Message string `json:"message" msgpack:"message"`
-}
-
-type response struct {
-	ID      int    `json:"id" msgpack:"id"`
-	Message string `json:"message" msgpack:"message"`
-}
-
 type (
 	streamServer = freighter.StreamServer[request, response]
 	streamClient = freighter.StreamClient[request, response]
@@ -45,7 +35,6 @@ var streamImplementations = []streamImplementation{
 
 var _ = Describe("Stream", Ordered, Serial, func() {
 	Describe("Implementation Tests", func() {
-
 		for _, impl := range streamImplementations {
 			impl := impl
 			var (
@@ -131,6 +120,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 
 			})
 			Describe("Error Handling", func() {
+
 				Describe("Server returns a non-nil error", func() {
 					It("Should send the error to the client", func() {
 						serverClosed := make(chan struct{})
@@ -219,31 +209,62 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 					})
 
 				})
+				Describe("StreamClient attempts to send a message after the server closes", func() {
+					It("Should return a EOF error", func() {
+						serverClosed := make(chan struct{})
+						server.BindHandler(func(ctx context.Context, server serverStream) error {
+							defer close(serverClosed)
+							for i := 0; i < 10; i++ {
+								req, err := server.Receive()
+								Expect(err).ToNot(HaveOccurred())
+								Expect(server.Send(response{
+									ID:      req.ID + i,
+									Message: req.Message,
+								})).To(Succeed())
+							}
+							return nil
+						})
+						ctx, cancel := context.WithCancel(context.TODO())
+						defer cancel()
+						client, err := client.Stream(ctx, addr)
+						Expect(err).ToNot(HaveOccurred())
+						Eventually(func(g Gomega) {
+							g.Expect(client.Send(request{ID: 0, Message: "Hello"})).To(HaveOccurredAs(freighter.EOF))
+						}).WithPolling(10 * time.Millisecond).Should(Succeed())
+						Eventually(serverClosed).Should(BeClosed())
+					})
+				})
 			})
-
-			Describe("StreamClient attempts to send a message after the server closes", func() {
-				It("Should return a EOF error", func() {
+			Describe("Middleware", func() {
+				It("Should be able to intercept the stream request", func() {
 					serverClosed := make(chan struct{})
 					server.BindHandler(func(ctx context.Context, server serverStream) error {
 						defer close(serverClosed)
-						for i := 0; i < 10; i++ {
-							req, err := server.Receive()
-							Expect(err).ToNot(HaveOccurred())
-							Expect(server.Send(response{
-								ID:      req.ID + i,
-								Message: req.Message,
-							})).To(Succeed())
-						}
+						defer GinkgoRecover()
+						_, err := server.Receive()
+						Expect(err).To(HaveOccurredAs(freighter.EOF))
 						return nil
 					})
+					c := 0
+					server.Use(freighter.MiddlewareFunc(func(
+						ctx context.Context,
+						md freighter.MD,
+						next freighter.Next,
+					) error {
+						c++
+						err := next(ctx, md)
+						c++
+						return err
+					}))
 					ctx, cancel := context.WithCancel(context.TODO())
 					defer cancel()
 					client, err := client.Stream(ctx, addr)
 					Expect(err).ToNot(HaveOccurred())
-					Eventually(func(g Gomega) {
-						g.Expect(client.Send(request{ID: 0, Message: "Hello"})).To(HaveOccurredAs(freighter.EOF))
-					}).WithPolling(10 * time.Millisecond).Should(Succeed())
+					Expect(client.CloseSend()).To(Succeed())
+					_, err = client.Receive()
+					Expect(err).To(HaveOccurredAs(freighter.EOF))
 					Eventually(serverClosed).Should(BeClosed())
+					Expect(c).To(Equal(2))
 				})
 			})
 		}
@@ -265,12 +286,13 @@ func (impl *httpStreamImplementation) start(
 	logger *zap.SugaredLogger,
 ) (streamServer, streamClient) {
 	impl.app = fiber.New(fiber.Config{DisableStartupMessage: true})
-	router := fhttp.NewRouter(fhttp.RouterConfig{App: impl.app, Logger: logger})
+	router := fhttp.NewRouter(fhttp.RouterConfig{Logger: logger})
 	client := fhttp.NewClientFactory(fhttp.ClientFactoryConfig{EncoderDecoder: httputil.MsgPackEncoderDecoder, Logger: logger})
 	impl.app.Get("/health", func(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusOK)
 	})
 	server := fhttp.StreamServer[request, response](router, "/")
+	router.BindTo(impl.app)
 	go func() {
 		if err := impl.app.Listen(host.PortString()); err != nil {
 			logger.Error(err)

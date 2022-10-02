@@ -59,6 +59,34 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 					Expect(res).To(Equal(response{ID: 1, Message: "hello"}))
 				})
 			})
+			Describe("Error Handling", func() {
+				It("Should correctly return a custom error to the client", func() {
+					server.BindHandler(func(ctx context.Context, req request) (response, error) {
+						return response{}, myCustomError
+					})
+					req := request{ID: 1, Message: "hello"}
+					_, err := client.Send(context.TODO(), addr, req)
+					Expect(err).To(Equal(myCustomError))
+				})
+			})
+			Describe("Middleware", func() {
+				It("Should correctly call the middleware", func() {
+					c := 0
+					server.Use(freighter.MiddlewareFunc(func(ctx context.Context, md freighter.MD, next freighter.Next) error {
+						c++
+						err := next(ctx, md)
+						c++
+						return err
+					}))
+					server.BindHandler(func(ctx context.Context, req request) (response, error) {
+						return response{}, nil
+					})
+					req := request{ID: 1, Message: "hello"}
+					_, err := client.Send(context.TODO(), addr, req)
+					Expect(err).To(Succeed())
+					Expect(c).To(Equal(2))
+				})
+			})
 		}
 	})
 })
@@ -69,16 +97,14 @@ type httpUnaryImplementation struct {
 
 func (h *httpUnaryImplementation) start(host address.Address, logger *zap.SugaredLogger) (unaryServer, unaryClient) {
 	h.app = fiber.New(fiber.Config{DisableStartupMessage: true})
-	router := fhttp.NewRouter(fhttp.RouterConfig{
-		App:    h.app,
-		Logger: logger,
-	})
+	router := fhttp.NewRouter(fhttp.RouterConfig{Logger: logger})
 	factory := fhttp.NewClientFactory(fhttp.ClientFactoryConfig{
 		EncoderDecoder: httputil.JSONEncoderDecoder,
 		Logger:         logger,
 	})
 	server := fhttp.UnaryPostServer[request, response](router, "/")
 	client := fhttp.UnaryPostClient[request, response](factory)
+	router.BindTo(h.app)
 	h.app.Get("/health", func(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusOK)
 	})

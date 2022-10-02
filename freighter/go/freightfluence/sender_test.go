@@ -30,15 +30,17 @@ var _ = Describe("Sender", func() {
 	})
 	Context("Single Stream", func() {
 		var (
-			streamTransport freighter.Stream[int, int]
-			receiverStream  confluence.Stream[int]
-			senderStream    confluence.Stream[int]
+			server         freighter.StreamServer[int, int]
+			client         freighter.StreamClient[int, int]
+			receiverStream confluence.Stream[int]
+			senderStream   confluence.Stream[int]
 		)
 		BeforeEach(func() {
-			streamTransport = net.StreamServer("", 10)
+			server = net.StreamServer("", 10)
+			client = net.StreamClient()
 			receiverStream = confluence.NewStream[int](0)
 			senderStream = confluence.NewStream[int](0)
-			streamTransport.BindHandler(func(ctx context.Context, server freighter.ServerStream[int, int]) error {
+			server.BindHandler(func(ctx context.Context, server freighter.ServerStream[int, int]) error {
 				sCtx, cancel := signal.WithCancel(ctx)
 				defer cancel()
 				receiver := &freightfluence.Receiver[int]{}
@@ -51,7 +53,7 @@ var _ = Describe("Sender", func() {
 		Describe("Sender", func() {
 			It("Should operate correctly", func() {
 				sCtx, cancel := signal.WithCancel(context.TODO())
-				client, err := streamTransport.Stream(sCtx, "localhost:0")
+				client, err := client.Stream(sCtx, "localhost:0")
 				Expect(err).ToNot(HaveOccurred())
 				sender := &freightfluence.Sender[int]{Sender: client}
 				sender.InFrom(senderStream)
@@ -70,7 +72,7 @@ var _ = Describe("Sender", func() {
 		Describe("TransformSender", func() {
 			It("Should transform values before sending them", func() {
 				sCtx, cancel := signal.WithCancel(context.TODO())
-				client, err := streamTransport.Stream(sCtx, "localhost:0")
+				client, err := client.Stream(sCtx, "localhost:0")
 				Expect(err).ToNot(HaveOccurred())
 				sender := &freightfluence.TransformSender[int, int]{}
 				sender.Sender = client
@@ -90,7 +92,7 @@ var _ = Describe("Sender", func() {
 			It("Should exit when the transform returns an error", func() {
 				sCtx, cancel := signal.WithCancel(context.TODO())
 				defer cancel()
-				client, err := streamTransport.Stream(sCtx, "localhost:0")
+				client, err := client.Stream(sCtx, "localhost:0")
 				Expect(err).ToNot(HaveOccurred())
 				sender := &freightfluence.TransformSender[int, int]{}
 				sender.Sender = client
@@ -116,17 +118,16 @@ var _ = Describe("Sender", func() {
 		BeforeEach(func() {
 			sCtx, cancel = signal.WithCancel(context.TODO())
 			senderStream = confluence.NewStream[int](nStreams)
-			clientTransport := net.StreamServer("", 0)
+			clientTransport := net.StreamClient(1)
 			clientSender = make(map[address.Address]freighter.StreamSenderCloser[int], nStreams)
 			receiverStreams = make(map[address.Address]confluence.Stream[int], nStreams)
 			for i := 0; i < nStreams; i++ {
-				stream := net.StreamServer("", 0)
+				stream := net.StreamServer("", 1)
 				receiverStream := confluence.NewStream[int](1)
-				stream.BindHandler(func(ctx context.Context, server freighter.ServerStream[int, int]) error {
+				stream.BindHandler(func(ctx context.Context, serverStream freighter.ServerStream[int, int]) error {
 					serverCtx, cancel := signal.WithCancel(ctx)
 					defer cancel()
-					receiver := &freightfluence.Receiver[int]{}
-					receiver.Receiver = server
+					receiver := &freightfluence.Receiver[int]{Receiver: serverStream}
 					receiver.OutTo(receiverStream)
 					receiver.Flow(serverCtx, confluence.CloseInletsOnExit())
 					return serverCtx.Wait()
@@ -172,7 +173,7 @@ var _ = Describe("Sender", func() {
 				}
 				sender.InFrom(senderStream)
 				sender.Flow(sCtx)
-				for i := 1; i < nStreams+1; i++ {
+				for i := 0; i < nStreams; i++ {
 					senderStream.Inlet() <- i
 					addr := address.Newf("localhost:%v", i)
 					v := <-receiverStreams[addr].Outlet()

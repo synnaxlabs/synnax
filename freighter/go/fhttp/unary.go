@@ -31,12 +31,11 @@ func (s *unaryServer[RQ, RS]) fiberHandler(c *fiber.Ctx) error {
 		return err
 	}
 	c.Set(fiber.HeaderContentType, ecd.ContentType())
-
-	var res RS
 	req, err := s.requestParser(c, ecd)
 	if err != nil {
 		return err
 	}
+	var res RS
 	err = s.MiddlewareCollector.Exec(
 		c.Context(),
 		parseRequestParams(c, address.Address(c.Path())),
@@ -137,9 +136,4 @@ const freighterMDPrefix = "freighter.md."
 func isFreighterMDParam(k string) bool {
 	// check if the key has the md prefix
 	return strings.HasPrefix(k, freighterMDPrefix)
-}
-
-var unaryReporter = freighter.Reporter{
-	Protocol:  "http",
-	Encodings: httputil.SupportedContentTypes(),
 }

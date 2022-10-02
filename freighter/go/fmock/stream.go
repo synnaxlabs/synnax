@@ -2,6 +2,7 @@ package fmock
 
 import (
 	"context"
+	roacherrors "github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/ferrors"
 	"github.com/synnaxlabs/x/address"
@@ -55,6 +56,7 @@ func NewStreams[RQ, RS freighter.Payload](
 // StreamServer implements the freighter.StreamSever interface using go channels as
 // the transport.
 type StreamServer[RQ, RS freighter.Payload] struct {
+	Address    address.Address
 	BufferSize int
 	Handler    func(ctx context.Context, srv freighter.ServerStream[RQ, RS]) error
 	freighter.Reporter
@@ -66,6 +68,20 @@ func (s *StreamServer[RQ, RS]) BindHandler(handler func(
 	ctx context.Context,
 	srv freighter.ServerStream[RQ, RS]) error) {
 	s.Handler = handler
+}
+
+func (s *StreamServer[RQ, RS]) exec(ctx context.Context, srv *ServerStream[RQ, RS]) error {
+	if s.Handler == nil {
+		return roacherrors.New("no handler bound to stream server")
+	}
+	return s.MiddlewareCollector.Exec(
+		ctx,
+		freighter.MD{Target: s.Address, Protocol: reporter.Protocol, Params: make(freighter.Params)},
+		freighter.FinalizerFunc(func(ctx context.Context, md freighter.MD) error {
+			go srv.exec(ctx, s.Handler)
+			return nil
+		}),
+	)
 }
 
 // StreamClient is a mock implementation of the freighter.Stream interface.
@@ -87,23 +103,22 @@ func (s *StreamClient[RQ, RS]) Stream(
 		target = "localhost:0"
 	}
 	var (
-		handler          func(context.Context, freighter.ServerStream[RQ, RS]) error
 		targetBufferSize int
+		server           *StreamServer[RQ, RS]
 	)
 	if s.Server != nil {
-		handler = s.Server.Handler
-		targetBufferSize = s.Server.BufferSize
+		server = s.Server
+		targetBufferSize = server.BufferSize
 	} else if s.Network != nil {
-		route, ok := s.Network.resolveStreamTarget(target)
-		if !ok || route.Handler == nil {
+		srv, ok := s.Network.resolveStreamTarget(target)
+		if !ok || srv.Handler == nil {
 			return nil, address.TargetNotFound(target)
 		}
-		handler = route.Handler
-		targetBufferSize = route.BufferSize
+		server = srv
+		targetBufferSize = srv.BufferSize
 	}
-	client, server := NewStreams[RQ, RS](ctx, s.BufferSize, targetBufferSize)
-	go server.Exec(ctx, handler)
-	return client, nil
+	clientStream, serverStream := NewStreams[RQ, RS](ctx, s.BufferSize, targetBufferSize)
+	return clientStream, server.exec(ctx, serverStream)
 }
 
 const defaultBuffer = 10
@@ -173,9 +188,7 @@ func (s *ServerStream[RQ, RS]) Receive() (req RQ, err error) {
 	}
 }
 
-// Exec executes the provided serverHandler function, where client is the client side of the
-// server.
-func (s *ServerStream[RQ, RS]) Exec(
+func (s *ServerStream[RQ, RS]) exec(
 	ctx context.Context,
 	handler func(ctx context.Context, server freighter.ServerStream[RQ, RS]) error,
 ) {
