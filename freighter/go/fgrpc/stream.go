@@ -33,10 +33,6 @@ func (s *StreamServerCore[RQ, RQT, RS, RST]) Report() alamos.Report {
 	return reporter.Report()
 }
 
-func (s *StreamServerCore[RQ, RQT, RS, RST]) BindTo(r grpc.ServiceRegistrar) {
-	r.RegisterService(s.ServiceDesc, s)
-}
-
 func (s *StreamServerCore[RQ, RQT, RS, RST]) BindHandler(
 	handler func(ctx context.Context, stream freighter.ServerStream[RQ, RS]) error,
 ) {

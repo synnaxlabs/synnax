@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/synnaxlabs/freighter"
 	"go.uber.org/zap"
+	"time"
 )
 
 func logMiddleware(z *zap.SugaredLogger) freighter.Middleware {
@@ -12,17 +13,18 @@ func logMiddleware(z *zap.SugaredLogger) freighter.Middleware {
 		md freighter.MD,
 		next freighter.Next,
 	) error {
+		t0 := time.Now()
 		err := next(ctx, md)
-		logFunc(z, err)("protocol", md.Protocol, "target", md.Target, "err", err)
+		logFunc(z, err)("api request", "protocol", md.Protocol, "target", md.Target, "requestDur", time.Since(t0), "err", err)
 		return err
 	})
 }
 
-func logFunc(z *zap.SugaredLogger, err error) func(args ...interface{}) {
+func logFunc(z *zap.SugaredLogger, err error) func(msg string, args ...interface{}) {
 	if err != nil {
-		return z.Error
+		return z.Errorw
 	}
-	return z.Info
+	return z.Infow
 }
 
 func constructLogArgs(md freighter.MD, err error) []interface{} {

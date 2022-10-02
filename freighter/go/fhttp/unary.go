@@ -30,21 +30,27 @@ func (s *unaryServer[RQ, RS]) fiberHandler(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	if err = s.MiddlewareCollector.Exec(
+	c.Set(fiber.HeaderContentType, ecd.ContentType())
+
+	var res RS
+	req, err := s.requestParser(c, ecd)
+	if err != nil {
+		return err
+	}
+	err = s.MiddlewareCollector.Exec(
 		c.Context(),
 		parseRequestParams(c, address.Address(c.Path())),
-		freighter.FinalizerFunc(func(ctx context.Context, _ freighter.MD) error {
-			req, err := s.requestParser(c, ecd)
-			if err != nil {
-				return err
-			}
-			res, err := s.handle(ctx, req)
-			return encodeAndWrite(c, ecd, res)
+		freighter.FinalizerFunc(func(ctx context.Context, _ freighter.MD) (err error) {
+			res, err = s.handle(ctx, req)
+			return err
 		}),
-	); err != nil {
-		return encodeAndWrite(c, ecd, ferrors.Encode(err))
+	)
+	fErr := ferrors.Encode(err)
+	if fErr.Type == ferrors.Nil {
+		return encodeAndWrite(c, ecd, res)
 	}
-	return nil
+	c.Status(fiber.StatusBadRequest)
+	return encodeAndWrite(c, ecd, fErr)
 }
 
 type unaryClient[RQ, RS freighter.Payload] struct {

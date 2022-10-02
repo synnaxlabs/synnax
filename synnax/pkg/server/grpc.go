@@ -1,29 +1,30 @@
 package server
 
 import (
-	"context"
-	"github.com/synnaxlabs/x/signal"
+	"github.com/cockroachdb/cmux"
+	"github.com/synnaxlabs/freighter/fgrpc"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-	"net"
+	"google.golang.org/grpc/credentials"
 )
 
-type grpcServer struct {
-	server *grpc.Server
+type GRPCBranch struct {
+	Transports []fgrpc.BindableTransport
+	server     *grpc.Server
 }
 
-func newGRPCServer(cfg Config) *grpcServer {
-	srv := &grpcServer{server: grpc.NewServer(grpc.Creds(insecure.NewCredentials()))}
-	return srv
+func (g *GRPCBranch) Key() string { return "grpc" }
+
+func (g *GRPCBranch) Serve(cfg BranchConfig) error {
+	lis := cfg.Mux.Match(cmux.Any())
+	var opts []grpc.ServerOption
+	if cfg.TLS != nil {
+		opts = append(opts, grpc.Creds(credentials.NewTLS(cfg.TLS)))
+	}
+	g.server = grpc.NewServer(opts...)
+	for _, t := range g.Transports {
+		t.BindTo(g.server)
+	}
+	return filterCloseError(g.server.Serve(lis))
 }
 
-func (g grpcServer) start(ctx signal.Context, lis net.Listener) {
-	ctx.Go(func(ctx context.Context) error {
-		if err := g.server.Serve(lis); !isCloseErr(err) {
-			return err
-		}
-		return nil
-	}, signal.WithKey("server.grpc"), signal.CancelOnExit())
-}
-
-func (g grpcServer) Stop() error { g.server.Stop(); return nil }
+func (g *GRPCBranch) Stop() { g.server.GracefulStop() }

@@ -2,11 +2,10 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
 	"github.com/cockroachdb/cmux"
 	"github.com/cockroachdb/errors"
-	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/errutil"
 	"github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
 	"net"
@@ -14,54 +13,54 @@ import (
 
 type Config struct {
 	ListenAddress address.Address
-	API           api.API
 	Security      struct {
-		Insecure bool
+		TLS *tls.Config
 	}
-	Logger *zap.Logger
+	Logger   *zap.Logger
+	Branches []Branch
 }
 
 type Server struct {
-	config Config
-	fiber  *fiberServer
-	grpc   *grpcServer
+	Config
+	lis net.Listener
 }
 
 func New(cfg Config) *Server {
-	return &Server{
-		config: cfg,
-		fiber:  newFiberServer(cfg),
-		grpc:   newGRPCServer(cfg),
-	}
+	return &Server{Config: cfg}
 }
 
-func (s *Server) Start(_ context.Context) error {
+func (s *Server) Start(_ context.Context) (err error) {
 	// explicitly ignore the context cancellation function here,
 	// as our goroutines will cancel the context when they exit.
-	ctx, _ := signal.Background(signal.WithLogger(s.config.Logger))
-	lis, err := net.Listen("tcp", s.config.ListenAddress.PortString())
+	sCtx, _ := signal.Background(signal.WithLogger(s.Logger))
+	s.lis, err = net.Listen("tcp", s.ListenAddress.PortString())
 	if err != nil {
 		return err
 	}
-	m := newMux(lis)
-	s.grpc.start(ctx, m.grpc)
-	s.fiber.start(ctx, m.http)
-	ctx.Go(func(ctx context.Context) error {
-		if err := m.serve(); !isCloseErr(err) {
-			return err
-		}
-		return nil
-	}, signal.WithKey("server.mux"), signal.CancelOnExit())
-	return ctx.Wait()
+	m := cmux.New(s.lis)
+	bc := BranchConfig{
+		Mux: m,
+		TLS: s.Security.TLS,
+	}
+	for _, b := range s.Branches {
+		b := b
+		sCtx.Go(func(ctx context.Context) error {
+			return b.Serve(bc)
+		}, signal.WithKey(b.Key()))
+	}
+	return filterCloseError(m.Serve())
 }
 
 func (s *Server) Stop() error {
-	c := errutil.NewCatch(errutil.WithAggregation())
-	c.Exec(s.fiber.Stop)
-	c.Exec(s.grpc.Stop)
-	return c.Error()
+	for _, b := range s.Branches {
+		b.Stop()
+	}
+	return nil
 }
 
-func isCloseErr(err error) bool {
-	return errors.Is(err, cmux.ErrListenerClosed) || errors.Is(err, net.ErrClosed)
+func filterCloseError(err error) error {
+	if errors.Is(err, cmux.ErrListenerClosed) || errors.Is(err, net.ErrClosed) {
+		return nil
+	}
+	return err
 }

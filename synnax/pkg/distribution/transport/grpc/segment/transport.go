@@ -63,10 +63,12 @@ func New(pool *fgrpc.Pool) *transport {
 		ws: &writerServer{writerServerCore: writerServerCore{
 			RequestTranslator:  writerRequestTranslator{},
 			ResponseTranslator: writerResponseTranslator{},
+			ServiceDesc:        &segmentv1.WriterService_ServiceDesc,
 		}},
 		is: &iteratorServer{iteratorServerCore: iteratorServerCore{
 			RequestTranslator:  iteratorRequestTranslator{},
 			ResponseTranslator: iteratorResponseTranslator{},
+			ServiceDesc:        &segmentv1.IteratorService_ServiceDesc,
 		}},
 		ic: &iteratorClient{
 			Pool:               pool,
@@ -110,6 +112,6 @@ func (t *transport) IteratorServer() iterator.TransportServer { return t.is }
 func (t *transport) IteratorClient() iterator.TransportClient { return t.ic }
 
 func (t *transport) BindTo(server grpc.ServiceRegistrar) {
-	t.ws.BindTo(server)
-	t.is.BindTo(server)
+	segmentv1.RegisterWriterServiceServer(server, t.ws)
+	segmentv1.RegisterIteratorServiceServer(server, t.is)
 }

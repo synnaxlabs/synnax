@@ -67,16 +67,17 @@ type API struct {
 }
 
 func (a *API) BindTo(t Server) {
+	err := errors.Middleware()
 	logger := logMiddleware(a.provider.Logging.logger)
 	tk := tokenMiddleware(a.provider.auth.token)
-	t.AuthLogin.Use(logger, tk)
-	t.AuthChangeUsername.Use(logger, tk)
-	t.AuthChangePassword.Use(logger, tk)
-	t.AuthRegistration.Use(logger, tk)
-	t.ChannelCreate.Use(logger, tk)
-	t.ChannelRetrieve.Use(logger, tk)
-	t.SegmentWriter.Use(logger, tk)
-	t.SegmentIterator.Use(logger, tk)
+	t.AuthLogin.Use(logger, err)
+	t.AuthChangeUsername.Use(logger, err, tk)
+	t.AuthChangePassword.Use(logger, err, tk)
+	t.AuthRegistration.Use(logger, err)
+	t.ChannelCreate.Use(logger, err, tk)
+	t.ChannelRetrieve.Use(logger, err, tk)
+	t.SegmentWriter.Use(logger, err, tk)
+	t.SegmentIterator.Use(logger, err, tk)
 
 	t.AuthLogin.BindHandler(typedUnaryWrapper(a.Auth.Login))
 	t.AuthChangeUsername.BindHandler(noResponseWrapper(a.Auth.ChangeUsername))

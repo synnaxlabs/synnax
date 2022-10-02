@@ -11,8 +11,14 @@ import (
 	"go.uber.org/zap"
 )
 
+type route struct {
+	path       string
+	handler    fiber.Handler
+	transport  freighter.Transport
+	httpMethod string
+}
+
 type RouterConfig struct {
-	App    *fiber.App
 	Logger *zap.SugaredLogger
 }
 
@@ -20,13 +26,11 @@ var _ config.Config[RouterConfig] = RouterConfig{}
 
 func (r RouterConfig) Validate() error {
 	v := validate.New("[fhttp.Router]")
-	validate.NotNil(v, "App", r.App)
 	validate.NotNil(v, "Logger", r.Logger)
 	return v.Error()
 }
 
 func (r RouterConfig) Override(other RouterConfig) RouterConfig {
-	r.App = override.Nil(r.App, other.App)
 	r.Logger = override.Nil(r.Logger, other.Logger)
 	return r
 }
@@ -41,15 +45,35 @@ func NewRouter(configs ...RouterConfig) *Router {
 
 type Router struct {
 	RouterConfig
-	transports []freighter.Transport
+	routes []route
+}
+
+func (r *Router) BindTo(app *fiber.App) {
+	for _, route := range r.routes {
+		if route.httpMethod == "GET" {
+			app.Get(route.path, route.handler)
+		} else {
+			app.Post(route.path, route.handler)
+		}
+	}
 }
 
 func (r *Router) Report() alamos.Report {
 	return alamos.Report{}
 }
 
-func (r *Router) register(t freighter.Transport) {
-	r.transports = append(r.transports, t)
+func (r *Router) register(
+	path string,
+	httpMethod string,
+	t freighter.Transport,
+	h fiber.Handler,
+) {
+	r.routes = append(r.routes, route{
+		httpMethod: httpMethod,
+		path:       path,
+		handler:    h,
+		transport:  t,
+	})
 }
 
 func StreamServer[RQ, RS freighter.Payload](r *Router, path string) freighter.StreamServer[RQ, RS] {
@@ -58,8 +82,7 @@ func StreamServer[RQ, RS freighter.Payload](r *Router, path string) freighter.St
 		path:     path,
 		logger:   r.Logger,
 	}
-	r.App.Get(path, s.fiberHandler)
-	r.register(s)
+	r.register(path, "GET", s, s.fiberHandler)
 	return s
 }
 
@@ -71,8 +94,7 @@ func UnaryGetServer[RQ, RS freighter.Payload](r *Router, path string) freighter.
 			return req, parseQueryParams(c, &req)
 		},
 	}
-	r.App.Get(path, us.fiberHandler)
-	r.register(us)
+	r.register(path, "GET", us, us.fiberHandler)
 	return us
 }
 
@@ -84,7 +106,6 @@ func UnaryPostServer[RQ, RS freighter.Payload](r *Router, path string) freighter
 			return req, c.BodyParser(&req)
 		},
 	}
-	r.App.Post(path, us.fiberHandler)
-	r.register(us)
+	r.register(path, "POST", us, us.fiberHandler)
 	return us
 }

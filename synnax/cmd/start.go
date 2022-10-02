@@ -8,10 +8,10 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/freighter/fgrpc"
+	"github.com/synnaxlabs/freighter/fhttp"
 	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/api"
-	grpcapi "github.com/synnaxlabs/synnax/pkg/api/grpc"
-	fiberapi "github.com/synnaxlabs/synnax/pkg/api/http"
+	httpapi "github.com/synnaxlabs/synnax/pkg/api/http"
 	"github.com/synnaxlabs/synnax/pkg/auth"
 	"github.com/synnaxlabs/synnax/pkg/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
@@ -85,7 +85,7 @@ var startCmd = &cobra.Command{
 
 			authenticator := &auth.KV{DB: gorp}
 
-			apiCfg := api.Config{
+			_api := api.New(api.Config{
 				Logger:        logger,
 				Channel:       dist.Channel,
 				Segment:       dist.Segment,
@@ -94,20 +94,26 @@ var startCmd = &cobra.Command{
 				Token:         tokenSvc,
 				Authenticator: authenticator,
 				Enforcer:      access.AllowAll{},
+			})
+
+			r := fhttp.NewRouter(fhttp.RouterConfig{Logger: logger.Sugar()})
+			httpAPITransport := httpapi.New(r)
+			_api.BindTo(httpAPITransport)
+
+			//grpcBranch := &server.GRPCBranch{
+			//	Transports: *transports,
+			//}
+			httpBranch := &server.HTTPBranch{
+				Transports: []fhttp.BindableTransport{r},
 			}
-
-			api := api.New(apiCfg)
-			fiberAPI := fiberapi.Wrap(api)
-			grpcAPI := grpcapi.API{Transports: *transports}
-
 			serverCfg := server.Config{
 				ListenAddress: address.Address(viper.GetString("listen-address")),
-				GrpcAPI:       grpcAPI,
-				FiberAPI:      fiberAPI,
 				Logger:        logger,
+				Branches: []server.Branch{
+					httpBranch,
+					//grpcBranch,
+				},
 			}
-			serverCfg.Security.Insecure = true
-
 			srv := server.New(serverCfg)
 			defer func() {
 				err = errors.CombineErrors(err, srv.Stop())
@@ -223,15 +229,15 @@ func newDistributionConfig(
 }
 
 func configureLogging() (*zap.Logger, error) {
-	var config zap.Config
+	var cfg zap.Config
 	if viper.GetBool("debug") {
-		config = zap.NewDevelopmentConfig()
-		config.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+		cfg = zap.NewDevelopmentConfig()
+		cfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 	} else {
-		config = zap.NewProductionConfig()
-		config.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
+		cfg = zap.NewProductionConfig()
+		cfg.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
 	}
-	return config.Build()
+	return cfg.Build()
 }
 
 var (
