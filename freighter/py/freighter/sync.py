@@ -1,12 +1,16 @@
 import asyncio
 import contextlib
+from asyncio import tasks, events, coroutines
 from threading import Thread
 from typing import AsyncIterator, Generic, Optional, Type
 
+from freighter.metadata import MetaData
+from freighter.util.asyncio import cancel_all_tasks
 from janus import Queue
 
-from .stream import AsyncStreamClient, AsyncStreamReceiver, AsyncStreamSenderCloser
-from .transport import RQ, RS, P
+from .stream import AsyncStreamClient, AsyncStreamReceiver, AsyncStreamSenderCloser, \
+    AsyncStream
+from .transport import RQ, RS, P, MiddlewareCollector, Middleware, AsyncNext
 from .util.threading import Notification
 
 
@@ -141,9 +145,17 @@ class SyncStream(Thread, Generic[RQ, RS]):
     _sender: _SenderCloser[RQ]
     _response_factory: Type[RS]
     _request_type: Type[RQ]
+    _collector: MiddlewareCollector
+    _md: MetaData
+    _wrapped: Optional[AsyncStream[RQ, RS]]
 
     def __init__(
-        self, client: AsyncStreamClient, target: str, req_t: Type[RQ], res_t: Type[RS]
+            self,
+            client: AsyncStreamClient,
+            target: str,
+            req_t: Type[RQ],
+            res_t: Type[RS],
+            collector: MiddlewareCollector
     ) -> None:
         super().__init__()
         self._client = client
@@ -151,11 +163,37 @@ class SyncStream(Thread, Generic[RQ, RS]):
         self._response_factory = res_t
         self._request_type = req_t
         self._open_exception = Notification()
+        self._collector = collector
+        self._client.use(self._mw)
         self.start()
         self._ack_open()
 
+    async def _mw(self, md: MetaData, next: AsyncNext):
+        md.params.update(self._md.params)
+        return await next(md)
+
     def run(self) -> None:
-        asyncio.run(self._run())
+        loop = events.new_event_loop()
+        try:
+            events.set_event_loop(loop)
+
+            def finalizer(md: MetaData) -> tuple[Exception | None]:
+                return loop.run_until_complete(self._connect())
+
+            self._md = MetaData("sync_stream", self._target)
+            exc = self._collector.exec(self._md, finalizer)
+            if exc is not None:
+                self._open_exception.notify(exc)
+                return
+            loop.run_until_complete(self._run())
+        finally:
+            try:
+                cancel_all_tasks(loop)
+                loop.run_until_complete(loop.shutdown_asyncgens())
+                loop.run_until_complete(loop.shutdown_default_executor())
+            finally:
+                events.set_event_loop(None)
+                loop.close()
 
     def received(self) -> bool:
         """Implement the Stream protocol."""
@@ -176,14 +214,18 @@ class SyncStream(Thread, Generic[RQ, RS]):
         """Implement the Stream protocol."""
         return self._sender.close_send()
 
-    async def _run(self):
+    async def _connect(self) -> Exception | None:
         try:
             self._wrapped = await self._client.stream(
-                self._target, self._request_type, self._response_factory
+                self._target,
+                self._request_type,
+                self._response_factory,
             )
+            return None
         except Exception as e:
-            self._open_exception.notify(e)
-            return
+            return e
+
+    async def _run(self):
         self._receiver = _Receiver(self._wrapped)
         self._sender = _SenderCloser(self._wrapped)
         self._open_exception.notify(None)
@@ -196,7 +238,7 @@ class SyncStream(Thread, Generic[RQ, RS]):
         self._open_exception = None
 
 
-class SyncStreamClient:
+class SyncStreamClient(MiddlewareCollector):
     """A synchronous wrapper around an AsyncStreamClient that allows a caller to
     use an AsyncStream synchronously.
     """
@@ -204,10 +246,11 @@ class SyncStreamClient:
     wrapped: AsyncStreamClient
 
     def __init__(self, wrapped: AsyncStreamClient) -> None:
+        super().__init__()
         self.wrapped = wrapped
 
     def stream(
-        self, target: str, req_t: Type[RQ], res_t: Type[RS]
+            self, target: str, req_t: Type[RQ], res_t: Type[RS]
     ) -> SyncStream[RQ, RS]:
         """Implement the StreamClient protocol."""
-        return SyncStream[RQ, RS](self.wrapped, target, req_t, res_t)
+        return SyncStream[RQ, RS](self.wrapped, target, req_t, res_t, self)

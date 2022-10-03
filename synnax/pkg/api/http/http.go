@@ -7,7 +7,7 @@ import (
 	"go/types"
 )
 
-func New(router *fhttp.Router) (a api.Server) {
+func New(router *fhttp.Router) (a api.Transport) {
 	a.AuthLogin = fhttp.UnaryPostServer[auth.InsecureCredentials, api.TokenResponse](router, "/api/v1/auth/login")
 	a.AuthRegistration = fhttp.UnaryPostServer[api.RegistrationRequest, api.TokenResponse](router, "/api/v1/auth/register")
 	a.AuthChangePassword = fhttp.UnaryPostServer[api.ChangePasswordRequest, types.Nil](router, "/api/v1/auth/protected/change-password")

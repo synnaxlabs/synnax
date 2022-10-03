@@ -1,9 +1,9 @@
 from typing import Protocol, Type
 
-from .transport import RQ, RS
+from .transport import RQ, RS, Transport, AsyncTransport
 
 
-class UnaryClient(Protocol):
+class UnaryClient(Transport):
     """Protocol for an entity that implements a simple request-response transport
     between two entities.
     """
@@ -28,7 +28,7 @@ class UnaryClient(Protocol):
         ...
 
 
-class AsyncUnaryClient(Protocol[RQ, RS]):
+class AsyncUnaryClient(AsyncTransport):
     """Protocol for an entity that implements a simple asynchronous request-response transport
     between two entities.
     """

@@ -46,7 +46,7 @@ registerError({
 });
 
 test('basic exchange', async (t) => {
-  const stream = await client.stream('ws/echo', MessageSchema, MessageSchema);
+  const stream = await client.stream('stream/echo', MessageSchema, MessageSchema);
   for (let i = 0; i < 10; i++) {
     stream.send({ id: i, message: 'hello' });
     const [response, error] = await stream.receive();
@@ -62,7 +62,7 @@ test('basic exchange', async (t) => {
 
 test('receive message after close', async (t) => {
   const stream = await client.stream(
-    'ws/sendMessageAfterClientClose',
+    'stream/sendMessageAfterClientClose',
     MessageSchema,
     MessageSchema
   );
@@ -77,7 +77,7 @@ test('receive message after close', async (t) => {
 
 test('receive error', async (t) => {
   const stream = await client.stream(
-    'ws/receiveAndExitWithErr',
+    'stream/receiveAndExitWithErr',
     MessageSchema,
     MessageSchema
   );

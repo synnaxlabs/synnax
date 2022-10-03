@@ -8,8 +8,10 @@ from urllib3.exceptions import HTTPError
 
 from .encoder import EncoderDecoder
 from .exceptions import ExceptionPayload, decode_exception
-from .transport import RQ, RS
+from .transport import RQ, RS, Payload
 from .url import URL
+from .transport import MiddlewareCollector
+from .metadata import MetaData
 
 http = PoolManager()
 
@@ -41,21 +43,24 @@ class HTTPClientFactory:
         return POSTClient(self.endpoint, self.encoder_decoder)
 
 
-class _Core:
+class _Core(MiddlewareCollector):
     _ERROR_ENCODING_HEADER_KEY = "Error-Encoding"
     _ERROR_ENCODING_HEADER_VALUE = "freighter"
     _CONTENT_TYPE_HEADER_KEY = "Content-Type"
 
     endpoint: URL
     encoder_decoder: EncoderDecoder
+    res: RS | None
 
     def __init__(
             self,
             endpoint: URL,
             encoder_decoder: EncoderDecoder,
     ):
+        super().__init__()
         self.endpoint = endpoint.replace(protocol="http")
         self.encoder_decoder = encoder_decoder
+        self.res = None
 
     @property
     def headers(self) -> dict[str, str]:
@@ -65,30 +70,38 @@ class _Core:
         }
 
     def request(
-            self, method: str, url: str, request: RQ | None = None,
+            self,
+            method: str,
+            url: str,
+            request: RQ | None = None,
             res_t: Type[RS] | None = None
     ) -> tuple[RS | None, Exception | None]:
+        meta_data = MetaData(url, "http")
 
-        data = None
-        if request is not None:
-            data = self.encoder_decoder.encode(request)
+        def finalizer(md: MetaData) -> Exception | None:
+            data = None
+            if request is not None:
+                data = self.encoder_decoder.encode(request)
 
-        http_res: HTTPResponse
-        try:
-            http_res = http.request(
-                method=method, url=url, headers=self.headers, body=data
-            )
-        except HTTPError as e:
-            return None, e
+            head = {**self.headers, **md.params}
 
-        if http_res.status < 200 or http_res.status >= 300:
-            err = self.encoder_decoder.decode(http_res.data, ExceptionPayload)
-            return None, decode_exception(err)
+            http_res: HTTPResponse
+            try:
+                http_res = http.request(method=method, url=url, headers=head, body=data)
+            except HTTPError as e:
+                return e
 
-        if http_res.data is None:
-            return None, None
+            if http_res.status < 200 or http_res.status >= 300:
+                err = self.encoder_decoder.decode(http_res.data, ExceptionPayload)
+                return decode_exception(err)
 
-        return self.encoder_decoder.decode(http_res.data, res_t), None
+            if http_res.data is None:
+                return None
+
+            self.res = self.encoder_decoder.decode(http_res.data, res_t)
+
+        exc = self.exec(meta_data, finalizer)
+        return self.res, exc
 
 
 class GETClient(_Core):

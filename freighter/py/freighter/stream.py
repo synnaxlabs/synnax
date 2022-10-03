@@ -1,6 +1,6 @@
 from typing import Protocol, Type
 
-from .transport import RQ, RS
+from .transport import RQ, RS, Transport, AsyncTransport
 
 
 class AsyncStreamReceiver(Protocol[RS]):
@@ -132,13 +132,13 @@ class Stream(StreamSenderCloser[RQ], StreamReceiver[RS], Protocol):
     ...
 
 
-class AsyncStreamClient(Protocol):
+class AsyncStreamClient(AsyncTransport):
     """Protocol for an entity that asynchronously sends and receives a stream of
     requests and responses from a server.
     """
 
     async def stream(
-        self, target: str, req_t: Type[RQ], res_t: Type[RS]
+            self, target: str, req_t: Type[RQ], res_t: Type[RS]
     ) -> AsyncStream[RQ, RS]:
         """Dials the target and returns a stream that can be used to issue requests
         and receive responses.
@@ -154,7 +154,7 @@ class AsyncStreamClient(Protocol):
         ...
 
 
-class StreamClient(Protocol):
+class StreamClient(Transport):
     """Protocol for an entity that synchronously sends and receives a stream of requests and
     responses from a server.
     """

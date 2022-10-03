@@ -34,7 +34,7 @@ type Config struct {
 	Enforcer      access.Enforcer
 }
 
-type Server struct {
+type Transport struct {
 	AuthLogin          freighter.UnaryServer[auth.InsecureCredentials, TokenResponse]
 	AuthChangeUsername freighter.UnaryServer[ChangeUsernameRequest, types.Nil]
 	AuthChangePassword freighter.UnaryServer[ChangePasswordRequest, types.Nil]
@@ -43,17 +43,6 @@ type Server struct {
 	ChannelRetrieve    freighter.UnaryServer[ChannelRetrieveRequest, ChannelRetrieveResponse]
 	SegmentWriter      freighter.StreamServer[SegmentWriterRequest, SegmentWriterResponse]
 	SegmentIterator    freighter.StreamServer[SegmentIteratorRequest, SegmentIteratorResponse]
-}
-
-type Client struct {
-	AuthLogin          freighter.UnaryClient[auth.InsecureCredentials, TokenResponse]
-	AuthChangeUsername freighter.UnaryClient[ChangeUsernameRequest, types.Nil]
-	AuthChangePassword freighter.UnaryClient[ChangePasswordRequest, types.Nil]
-	AuthRegistration   freighter.UnaryClient[RegistrationRequest, TokenResponse]
-	ChannelCreate      freighter.UnaryClient[ChannelCreateRequest, ChannelCreateResponse]
-	ChannelRetrieve    freighter.UnaryClient[ChannelRetrieveRequest, ChannelRetrieveResponse]
-	SegmentWriter      freighter.StreamClient[SegmentWriterRequest, SegmentWriterResponse]
-	SegmentIterator    freighter.StreamClient[SegmentIteratorRequest, SegmentIteratorResponse]
 }
 
 // API wraps all implemented API services into a single container. Protocol-specific
@@ -66,7 +55,7 @@ type API struct {
 	Channel  *ChannelService
 }
 
-func (a *API) BindTo(t Server) {
+func (a *API) BindTo(t Transport) {
 	err := errors.Middleware()
 	logger := logMiddleware(a.provider.Logging.logger)
 	tk := tokenMiddleware(a.provider.auth.token)

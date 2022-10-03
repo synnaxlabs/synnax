@@ -8,7 +8,7 @@ import URL from './url';
 const ENDPOINT = new URL({
   host: '127.0.0.1',
   port: 8080,
-  pathPrefix: 'http',
+  pathPrefix: 'unary',
 });
 
 const factory = new HTTPClientFactory(ENDPOINT, new JSONEncoderDecoder());

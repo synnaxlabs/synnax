@@ -48,7 +48,7 @@ func New(cfg ...distribution.Config) *Builder {
 	return builder
 }
 
-func NewTransport() (c api.Client, s api.Server) {
+func NewTransport() (c api.Client, s api.Transport) {
 	s.AuthLogin, c.AuthLogin = fmock.NewUnaryPair[auth.InsecureCredentials, api.TokenResponse]()
 	s.AuthChangeUsername, c.AuthChangeUsername = fmock.NewUnaryPair[api.ChangeUsernameRequest, types.Nil]()
 	s.AuthChangePassword, c.AuthChangePassword = fmock.NewUnaryPair[api.ChangePasswordRequest, types.Nil]()

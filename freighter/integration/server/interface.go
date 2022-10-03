@@ -14,11 +14,10 @@ type Message struct {
 }
 
 type (
-	StreamTransport = freighter.Stream[Message, Message]
-	Server          = freighter.StreamServer[Message, Message]
-	Client          = freighter.StreamClient[Message, Message]
-	ServerStream    = freighter.ServerStream[Message, Message]
-	ClientStream    = freighter.ClientStream[Message, Message]
+	Server       = freighter.StreamServer[Message, Message]
+	Client       = freighter.StreamClient[Message, Message]
+	ServerStream = freighter.ServerStream[Message, Message]
+	ClientStream = freighter.ClientStream[Message, Message]
 )
 
 type TestError struct {
