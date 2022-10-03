@@ -68,3 +68,18 @@ test('[http] - post not found', async (t) => {
   t.is(error?.message, 'Cannot POST /unary/not-found');
   t.is(response, undefined);
 });
+
+test('[http] - middleware', async (t) => {
+  const client = factory.getClient();
+  client.use(async (md, next) => {
+    md.params['Test'] = 'test';
+    return await next(md);
+  });
+  const [response, error] = await client.send<Message, Message>(
+    '/middlewareCheck',
+    {},
+    MessageSchema
+  );
+  t.is(error, undefined);
+  t.is(response?.message, '');
+});

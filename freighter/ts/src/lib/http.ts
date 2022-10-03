@@ -3,7 +3,7 @@ import { ZodSchema } from 'zod';
 
 import { EncoderDecoder } from './encoder';
 import { decodeError, ErrorPayloadSchema } from './errors';
-import { MD, MiddlewareCollector } from './middleware';
+import { MetaData, MiddlewareCollector } from './middleware';
 import { UnaryClient } from './unary';
 import URL from './url';
 
@@ -31,13 +31,11 @@ export class HTTPClientFactory {
   }
 }
 
+export const CONTENT_TYPE_HEADER_KEY = 'Content-Type';
+
 class Core extends MiddlewareCollector {
   endpoint: URL;
   encoder: EncoderDecoder;
-
-  private static ERROR_ENCODING_HEADER_KEY = 'Error-Encoding';
-  private static ERROR_ENCODING_HEADER_VALUE = 'freighter';
-  private static CONTENT_TYPE_HEADER_KEY = 'Content-Type';
 
   constructor(endpoint: URL, encoder: EncoderDecoder) {
     super();
@@ -47,8 +45,7 @@ class Core extends MiddlewareCollector {
 
   get headers() {
     return {
-      [Core.CONTENT_TYPE_HEADER_KEY]: this.encoder.contentType,
-      [Core.ERROR_ENCODING_HEADER_KEY]: Core.ERROR_ENCODING_HEADER_VALUE,
+      [CONTENT_TYPE_HEADER_KEY]: this.encoder.contentType,
     };
   }
 
@@ -71,8 +68,8 @@ class Core extends MiddlewareCollector {
       throw new Error('[freighter.http] - expected valid request url');
 
     const err = await this.executeMiddleware(
-      { target: request.url, protocol: 'http' },
-      async (md: MD): Promise<Error | undefined> => {
+      { target: request.url, protocol: 'http', params: {} },
+      async (md: MetaData): Promise<Error | undefined> => {
         request.headers = { ...request.headers, ...this.headers, ...md.params };
         const httpRes = await axios.request(request);
         if (httpRes.status < 200 || httpRes.status >= 300) {

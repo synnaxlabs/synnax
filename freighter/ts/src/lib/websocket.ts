@@ -3,7 +3,8 @@ import { z, ZodSchema } from 'zod';
 import { EncoderDecoder } from './encoder';
 import { decodeError, EOF, ErrorPayloadSchema, StreamClosed } from './errors';
 import { buildQueryString } from './http';
-import { MD, MiddlewareCollector } from './middleware';
+import { CONTENT_TYPE_HEADER_KEY } from './http';
+import { MetaData, MiddlewareCollector } from './middleware';
 import { Runtime, RUNTIME } from './runtime';
 import { Stream, StreamClient } from './stream';
 import URL from './url';
@@ -31,9 +32,7 @@ enum CloseCode {
   GoingAway = 1001,
 }
 
-/**
- * WebSocketStream is an implementation of Stream that is backed by a websocket.
- */
+/** WebSocketStream is an implementation of Stream that is backed by a websocket. */
 class WebSocketStream<RQ, RS> implements Stream<RQ, RS> {
   private encoder: EncoderDecoder;
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -159,19 +158,19 @@ export class WebSocketClient
   extends MiddlewareCollector
   implements StreamClient
 {
-  url: URL;
+  baseUrl: URL;
   encoder: EncoderDecoder;
 
   static readonly MESSAGE_TYPE = 'arraybuffer';
 
   /**
    * @param encoder - The encoder to use for encoding messages and decoding
-   * responses.
+   *   responses.
    * @param baseURL - A base url to use as a prefix for all requests.
    */
   constructor(encoder: EncoderDecoder, baseURL: URL) {
     super();
-    this.url = baseURL.replace({ protocol: 'ws' });
+    this.baseUrl = baseURL.replace({ protocol: 'ws' });
     this.encoder = encoder;
   }
 
@@ -181,44 +180,46 @@ export class WebSocketClient
     reqSchema: ZodSchema<RQ>,
     resSchema: ZodSchema<RS>
   ): Promise<Stream<RQ, RS>> {
-    const ResolvedWebSocketConstructor = resolveWebSocketConstructor();
+    const socketConstructor = resolveWebSocketConstructor();
     let stream: Stream<RQ, RS> | undefined;
-    const exc = await this.executeMiddleware(
+    const error = await this.executeMiddleware(
       { target, protocol: 'websocket', params: {} },
-      async (md: MD): Promise<Error | undefined> => {
-        const qString = buildQueryString({
-          request: {
-            ['Content-Type']: this.encoder.contentType,
-            ...md.params,
-          },
-          prefix: FREIGHTER_METADATA_PREFIX,
-        });
-        const url = this.url.child(target).stringify() + qString;
-        const ws = new ResolvedWebSocketConstructor(url);
+      async (md: MetaData): Promise<Error | undefined> => {
+        const ws = new socketConstructor(this.buildURL(target, md));
         ws.binaryType = WebSocketClient.MESSAGE_TYPE;
-        const _streamOrErr: Stream<RQ, RS> | Error = await new Promise(
-          (resolve, reject) => {
-            ws.onopen = () => {
-              resolve(
-                new WebSocketStream<RQ, RS>(
-                  ws,
-                  this.encoder,
-                  reqSchema,
-                  resSchema
-                )
-              );
-            };
-            ws.onerror = (ev: Event) => reject(new Error(ev.toString()));
-          }
-        );
-        if (_streamOrErr instanceof Error) {
-          return _streamOrErr;
-        }
-        stream = _streamOrErr;
+        const streamOrErr = await this.wrapSocket(ws, reqSchema, resSchema);
+        if (streamOrErr instanceof Error) return streamOrErr;
+        stream = streamOrErr;
         return undefined;
       }
     );
-    if (exc) throw exc;
+    if (error) throw error;
     return stream as Stream<RQ, RS>;
+  }
+
+  private buildURL(target: string, md: MetaData): string {
+    const qs = buildQueryString({
+      request: {
+        [CONTENT_TYPE_HEADER_KEY]: this.encoder.contentType,
+        ...md.params,
+      },
+      prefix: FREIGHTER_METADATA_PREFIX,
+    });
+    return this.baseUrl.child(target).stringify() + qs;
+  }
+
+  private async wrapSocket<RQ, RS>(
+    ws: WebSocket,
+    reqSchema: ZodSchema<RQ>,
+    resSchema: ZodSchema<RS>
+  ): Promise<WebSocketStream<RQ, RS> | Error> {
+    return await new Promise((resolve, reject) => {
+      ws.onopen = () => {
+        resolve(
+          new WebSocketStream<RQ, RS>(ws, this.encoder, reqSchema, resSchema)
+        );
+      };
+      ws.onerror = (ev: Event) => reject(new Error(ev.toString()));
+    });
   }
 }

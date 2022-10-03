@@ -54,6 +54,7 @@
     "axios": "^0.27.2",
     "js-convert-case": "^4.2.0",
     "msgpackr": "^1.7.0",
+    "prettier-plugin-jsdoc": "^0.4.2",
     "ws": "^8.8.1",
     "zod": "^3.19.1"
   },
