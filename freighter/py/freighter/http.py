@@ -16,7 +16,7 @@ from .metadata import MetaData
 http = PoolManager()
 
 
-class HTTPClientFactory:
+class HTTPClientFactory(MiddlewareCollector):
     """HTTPClientFactory provides a POST and GET implementation of the UnaryClient protocol.
 
     :param url: The base URL for the client.
@@ -27,6 +27,7 @@ class HTTPClientFactory:
     encoder_decoder: EncoderDecoder
 
     def __init__(self, url: URL, encoder_decoder: EncoderDecoder):
+        super().__init__()
         self.endpoint = url
         self.encoder_decoder = encoder_decoder
 
@@ -34,13 +35,17 @@ class HTTPClientFactory:
         """Creates a GET client for the given request and response types.
         :returns: A GET client for the given request and response types.
         """
-        return GETClient(self.endpoint, self.encoder_decoder)
+        gc = GETClient(self.endpoint, self.encoder_decoder)
+        gc.use(*self._middleware)
+        return gc
 
     def post_client(self) -> POSTClient:
         """Creates a POST client for the given request and response types.
         :returns: A POST client for the given request and response types.
         """
-        return POSTClient(self.endpoint, self.encoder_decoder)
+        pc = POSTClient(self.endpoint, self.encoder_decoder)
+        pc.use(*self._middleware)
+        return pc
 
 
 class _Core(MiddlewareCollector):
@@ -53,9 +58,9 @@ class _Core(MiddlewareCollector):
     res: RS | None
 
     def __init__(
-            self,
-            endpoint: URL,
-            encoder_decoder: EncoderDecoder,
+        self,
+        endpoint: URL,
+        encoder_decoder: EncoderDecoder,
     ):
         super().__init__()
         self.endpoint = endpoint.replace(protocol="http")
@@ -70,11 +75,11 @@ class _Core(MiddlewareCollector):
         }
 
     def request(
-            self,
-            method: str,
-            url: str,
-            request: RQ | None = None,
-            res_t: Type[RS] | None = None
+        self,
+        method: str,
+        url: str,
+        request: RQ | None = None,
+        res_t: Type[RS] | None = None,
     ) -> tuple[RS | None, Exception | None]:
         meta_data = MetaData(url, "http")
 
@@ -109,8 +114,9 @@ class GETClient(_Core):
     not be instantiated directly, but through the HTTPClientFactory.
     """
 
-    def send(self, target: str, req: RQ, res_t: Type[RS]) -> tuple[
-        RS | None, Exception | None]:
+    def send(
+        self, target: str, req: RQ, res_t: Type[RS]
+    ) -> tuple[RS | None, Exception | None]:
         """Implements the UnaryClient protocol."""
         return self.request("GET", self._build_url(target, req), None, res_t)
 
@@ -142,8 +148,9 @@ class POSTClient(_Core):
     not be instantiated directly, but through the HTTPClientFactory.
     """
 
-    def send(self, target: str, req: RQ, res_t: Type[RS]) -> tuple[
-        RS | None, Exception | None]:
+    def send(
+        self, target: str, req: RQ, res_t: Type[RS]
+    ) -> tuple[RS | None, Exception | None]:
         """Implements the UnaryClient protocol."""
         return self.request("POST", self.endpoint.child(target).stringify(), req, res_t)
 

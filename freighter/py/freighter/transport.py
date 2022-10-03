@@ -42,7 +42,9 @@ class AsyncTransport(Protocol):
 Next = typing.Callable[[MetaData], Exception | None]
 AsyncNext = typing.Callable[[MetaData], typing.Awaitable[Exception | None]]
 Middleware = typing.Callable[[MetaData, Next], Exception | None]
-AsyncMiddleware = typing.Callable[[MetaData, AsyncNext], typing.Awaitable[Exception | None]]
+AsyncMiddleware = typing.Callable[
+    [MetaData, AsyncNext], typing.Awaitable[Exception | None]
+]
 Finalizer = typing.Callable[[MetaData], Exception | None]
 AsyncFinalizer = typing.Callable[[MetaData], typing.Awaitable[Exception | None]]
 
@@ -57,9 +59,9 @@ class MiddlewareCollector:
         self._middleware.extend(args)
 
     def exec(
-            self,
-            md: MetaData,
-            finalizer: Finalizer,
+        self,
+        md: MetaData,
+        finalizer: Finalizer,
     ):
         middleware = self._middleware.copy()
 
@@ -81,9 +83,9 @@ class AsyncMiddlewareCollector:
         self._middleware.extend(args)
 
     async def exec(
-            self,
-            md: MetaData,
-            finalizer: AsyncFinalizer,
+        self,
+        md: MetaData,
+        finalizer: AsyncFinalizer,
     ):
         middleware = self._middleware.copy()
 

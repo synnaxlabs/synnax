@@ -1,4 +1,5 @@
 from freighter import URL
+from synnax.auth import AuthenticationClient
 
 from synnax.channel import ChannelClient
 from synnax.channel.create import ChannelCreator
@@ -24,8 +25,16 @@ class Synnax:
         self,
         host: str,
         port: int,
+        username: str = "",
+        password: str = "",
     ):
         self._transport = Transport(URL(host=host, port=port))
+        auth = AuthenticationClient(
+            self._transport.http.post_client(), username, password
+        )
+        auth.authenticate()
+        self._transport.http.use(auth.middleware())
+        self._transport.stream_async.use(auth.async_middleware())
         ch_retriever = ChannelRetriever(self._transport.http)
         ch_creator = ChannelCreator(self._transport.http)
         ch_registry = ChannelRegistry(ch_retriever)
