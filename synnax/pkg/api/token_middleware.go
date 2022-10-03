@@ -2,6 +2,8 @@ package api
 
 import (
 	"context"
+	"strings"
+
 	"github.com/cockroachdb/errors"
 	"github.com/gofiber/fiber/v2"
 	"github.com/synnaxlabs/freighter"
@@ -9,7 +11,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/user"
-	"strings"
 )
 
 func tokenMiddleware(svc *token.Service) freighter.Middleware {
@@ -33,18 +34,22 @@ func tokenMiddleware(svc *token.Service) freighter.Middleware {
 
 const tokenParamPrefix = "Bearer "
 
-var invalidAuthenticationParam = apierrors.Auth(errors.New(
-	`
-	invalid authorization param. Format should be
-		'Authorization: Bearer <token>'
-	`,
-))
+var (
+	invalidAuthenticationParam = apierrors.Auth(errors.New(
+		`invalid authorization token. Format should be
+		'Authorization: Bearer <token>'`,
+	))
+	noAuthenticationParam = apierrors.Auth(errors.New("no authentication token provided"))
+)
 
 func tryParseToken(p freighter.Params) (string, apierrors.Typed) {
 	tkParam, ok := p.Get(fiber.HeaderAuthorization)
+	if !ok {
+		return "", noAuthenticationParam
+	}
 	tkStr, ok := tkParam.(string)
 	if !ok {
-		return "", invalidAuthenticationParam
+		return "", noAuthenticationParam
 	}
 	if !strings.HasPrefix(tkStr, tokenParamPrefix) {
 		return "", invalidAuthenticationParam
