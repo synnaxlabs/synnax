@@ -243,7 +243,7 @@ func (s *streamServer[RQ, RS]) fiberHandler(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	if err := s.MiddlewareCollector.Exec(
+	err = s.MiddlewareCollector.Exec(
 		c.Context(),
 		parseRequestParams(c, address.Address(s.path)),
 		freighter.FinalizerFunc(func(ctx context.Context, _ freighter.MD) error {
@@ -305,10 +305,13 @@ func (s *streamServer[RQ, RS]) fiberHandler(c *fiber.Ctx) error {
 					s.logger.Errorw("stream server handler error", "error", err)
 				}
 			})(c)
-		})); err != nil {
-		return encodeAndWrite(c, ecd, ferrors.Encode(err))
+		}))
+	fErr := ferrors.Encode(err)
+	if fErr.Type == ferrors.Nil {
+		return nil
 	}
-	return nil
+	c.Status(fiber.StatusBadRequest)
+	return encodeAndWrite(c, ecd, fErr)
 }
 
 type serverStream[RQ, RS freighter.Payload] struct{ core[RQ, RS] }

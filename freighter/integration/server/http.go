@@ -29,10 +29,28 @@ func BindTo(f *fiber.App, logger *zap.SugaredLogger) {
 	streamRespondWithTenMessagesServer := fhttp.StreamServer[Message, Message](router, "/stream/respondWithTenMessages")
 	streamRespondWithTenMessagesServer.BindHandler(streamRespondWithTenMessages)
 
-	unaryEchoServer := fhttp.UnaryPostServer[Message, Message](router, "/unary/echo")
-	unaryEchoServer.BindHandler(unaryEcho)
+	unaryPostEchoServer := fhttp.UnaryPostServer[Message, Message](router, "/unary/echo")
+	unaryPostEchoServer.BindHandler(unaryEcho)
+
+	unaryGetEchoServer := fhttp.UnaryGetServer[Message, Message](router, "/unary/echo")
+	unaryGetEchoServer.BindHandler(unaryEcho)
+
+	unaryMiddlewareCheckServer := fhttp.UnaryGetServer[Message, Message](router, "/unary/middlewareCheck")
+	unaryMiddlewareCheckServer.BindHandler(unaryEcho)
+	unaryMiddlewareCheckServer.Use(freighter.MiddlewareFunc(checkMiddleware))
+
+	streamMiddlewareCheckServer := fhttp.StreamServer[Message, Message](router, "/stream/middlewareCheck")
+	streamMiddlewareCheckServer.BindHandler(streamEcho)
+	streamMiddlewareCheckServer.Use(freighter.MiddlewareFunc(checkMiddleware))
 
 	router.BindTo(f)
+}
+
+func checkMiddleware(ctx context.Context, md freighter.MD, next freighter.Next) error {
+	if md.Params["Test"] != "test" {
+		return TestError{Message: "test param not found", Code: 1}
+	}
+	return next(ctx, md)
 }
 
 func unaryEcho(ctx context.Context, req Message) (Message, error) {
