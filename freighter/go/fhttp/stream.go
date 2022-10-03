@@ -2,6 +2,11 @@ package fhttp
 
 import (
 	"context"
+	"go/types"
+	"io"
+	"net/http"
+	"time"
+
 	roacherrors "github.com/cockroachdb/errors"
 	ws "github.com/fasthttp/websocket"
 	"github.com/gofiber/fiber/v2"
@@ -14,10 +19,6 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/httputil"
 	"go.uber.org/zap"
-	"go/types"
-	"io"
-	"net/http"
-	"time"
 )
 
 var (
@@ -129,7 +130,7 @@ func (s *streamClient[RQ, RS]) Stream(
 		ctx,
 		freighter.MD{Target: target, Protocol: s.Reporter.Protocol, Params: make(freighter.Params)},
 		freighter.FinalizerFunc(func(ctx context.Context, md freighter.MD) error {
-			md.Params["Content-Type"] = s.ecd.ContentType()
+			md.Params[fiber.HeaderContentType] = s.ecd.ContentType()
 			conn, res, err := s.dialer.DialContext(ctx, "ws://"+target.String(), mdToHeaders(md))
 			if err != nil {
 				return err
@@ -205,11 +206,6 @@ func (s *clientStream[RQ, RS]) CloseSend() error {
 	return s.core.send(message[RQ]{Type: closeMessage})
 }
 
-type clientDialer struct {
-	wrapped      ws.Dialer
-	resolvedConn *ws.Conn
-}
-
 func mdToHeaders(md freighter.MD) http.Header {
 	headers := http.Header{}
 	for k, v := range md.Params {
@@ -238,17 +234,20 @@ func (s *streamServer[RQ, RS]) fiberHandler(c *fiber.Ctx) error {
 	if !fiberws.IsWebSocketUpgrade(c) {
 		return fiber.ErrUpgradeRequired
 	}
-	c.Accepts(httputil.SupportedContentTypes()...)
-	ecd, err := httputil.DetermineEncoderDecoder(c.Get(fiber.HeaderContentType))
+	md := parseRequestMD(c, address.Address(s.path))
+	ecd, err := httputil.DetermineEncoderDecoder(md.Params.GetDefault(fiber.HeaderContentType, "").(string))
 	if err != nil {
-		return err
+		// If we can't determin the encoder/decoder, we can't continue, so we sent a best effort string.
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
 	err = s.MiddlewareCollector.Exec(
 		c.Context(),
-		parseRequestParams(c, address.Address(s.path)),
-		freighter.FinalizerFunc(func(ctx context.Context, _ freighter.MD) error {
+		md,
+		freighter.FinalizerFunc(func(ctx context.Context, md freighter.MD) error {
+
 			return fiberws.New(func(c *fiberws.Conn) {
 				if err := func() error {
+
 					stream := &serverStream[RQ, RS]{core: newCore[RQ, RS](context.TODO(), c.Conn, ecd, zap.S())}
 
 					errPayload := ferrors.Encode(s.handler(stream.ctx, stream))

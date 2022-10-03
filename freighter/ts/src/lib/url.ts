@@ -3,6 +3,7 @@ type URLProps = {
   port: number;
   protocol?: string;
   pathPrefix?: string;
+  params?: string;
 };
 
 /**
@@ -55,7 +56,9 @@ export default class URL {
 
   /** @returns a string representation of the url */
   stringify(): string {
-    return `${this.protocol}://${this.host}:${this.port}/${this.path}`;
+    return removeTrailingSlash(
+      `${this.protocol}://${this.host}:${this.port}/${this.path}`
+    );
   }
 }
 
@@ -67,5 +70,10 @@ const joinPaths = (...paths: string[]): string => {
 const formatPath = (path: string): string => {
   if (!path.endsWith('/')) path += '/';
   if (path.startsWith('/')) path = path.slice(1);
+  return path;
+};
+
+const removeTrailingSlash = (path: string): string => {
+  if (path.endsWith('/')) path = path.slice(0, -1);
   return path;
 };

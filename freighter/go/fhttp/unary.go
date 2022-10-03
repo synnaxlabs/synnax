@@ -3,13 +3,15 @@ package fhttp
 import (
 	"bytes"
 	"context"
+	"net/http"
+	"strings"
+
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/utils"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/ferrors"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/httputil"
-	"net/http"
-	"strings"
 )
 
 type unaryServer[RQ, RS freighter.Payload] struct {
@@ -38,7 +40,7 @@ func (s *unaryServer[RQ, RS]) fiberHandler(c *fiber.Ctx) error {
 	var res RS
 	err = s.MiddlewareCollector.Exec(
 		c.Context(),
-		parseRequestParams(c, address.Address(c.Path())),
+		parseRequestMD(c, address.Address(c.Path())),
 		freighter.FinalizerFunc(func(ctx context.Context, _ freighter.MD) (err error) {
 			res, err = s.handle(ctx, req)
 			return err
@@ -115,23 +117,32 @@ func parseQueryParams[V any](c *fiber.Ctx, v *V) error {
 	return c.QueryParser(v)
 }
 
-func parseRequestParams(c *fiber.Ctx, target address.Address) freighter.MD {
+func parseRequestMD(c *fiber.Ctx, target address.Address) freighter.MD {
 	md := freighter.MD{Protocol: unaryReporter.Protocol, Target: target}
 	headers := c.GetReqHeaders()
-	queryParams := c.AllParams()
-	md.Params = make(freighter.Params, len(headers)+len(queryParams))
+	md.Params = make(freighter.Params, len(headers))
 	for k, v := range c.GetReqHeaders() {
 		md.Params[k] = v
 	}
-	for k, v := range c.AllParams() {
+	for k, v := range parseQueryString(c) {
 		if isFreighterMDParam(k) {
-			md.Params[k] = v
+			md.Params[strings.TrimPrefix(k, freighterMDPrefix)] = v
 		}
 	}
 	return md
 }
 
-const freighterMDPrefix = "freighter.md."
+func parseQueryString(c *fiber.Ctx) map[string]string {
+	data := make(map[string]string)
+	c.Context().QueryArgs().VisitAll(func(key, val []byte) {
+		k := utils.UnsafeString(key)
+		v := utils.UnsafeString(val)
+		data[k] = v
+	})
+	return data
+}
+
+const freighterMDPrefix = "freightermd"
 
 func isFreighterMDParam(k string) bool {
 	// check if the key has the md prefix

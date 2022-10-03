@@ -1,5 +1,7 @@
 import { ZodSchema } from 'zod';
 
+import { Transport } from './transport';
+
 /**
  * Interface for an entity that receives a stream of responses.
  */
@@ -66,7 +68,7 @@ export interface Stream<RQ, RS>
 /**
  * Interface for a bidirectional stream between a client and a server.
  */
-export interface StreamClient {
+export interface StreamClient extends Transport {
   /**
    * Dials the target and returns a stream that can be used to issue requests
    * and receive responses

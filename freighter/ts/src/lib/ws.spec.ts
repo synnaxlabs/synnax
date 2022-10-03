@@ -46,7 +46,11 @@ registerError({
 });
 
 test('basic exchange', async (t) => {
-  const stream = await client.stream('stream/echo', MessageSchema, MessageSchema);
+  const stream = await client.stream(
+    'stream/echo',
+    MessageSchema,
+    MessageSchema
+  );
   for (let i = 0; i < 10; i++) {
     stream.send({ id: i, message: 'hello' });
     const [response, error] = await stream.receive();
@@ -85,4 +89,18 @@ test('receive error', async (t) => {
   const [response, error] = await stream.receive();
   t.deepEqual(error, new MyCustomError('unexpected error', 1));
   t.is(response, undefined);
+});
+
+test('middleware', async (t) => {
+  const myClient = new WebSocketClient(new JSONEncoderDecoder(), url);
+  let c = 0;
+  myClient.use(async (md, next): Promise<Error | undefined> => {
+    if (md.params) {
+      c++;
+      md.params['Test'] = 'test';
+    }
+    return await next(md);
+  });
+  await myClient.stream('stream/middlewareCheck', MessageSchema, MessageSchema);
+  t.is(c, 1);
 });

@@ -2,9 +2,10 @@ package api
 
 import (
 	"context"
+	"time"
+
 	"github.com/synnaxlabs/freighter"
 	"go.uber.org/zap"
-	"time"
 )
 
 func logMiddleware(z *zap.SugaredLogger) freighter.Middleware {

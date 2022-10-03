@@ -1,26 +1,38 @@
 export type MD = {
-    target: string,
-    [key: string]: string
-}
+  target: string;
+  protocol: string;
+  params?: Record<string, string>;
+};
 
-export type Middleware = (
-    md: MD,
-    next: (md: MD) => Promise<Error | undefined>
-) =>  Promise<Error | undefined>;
+export type Next = (md: MD) => Promise<Error | undefined>;
+
+export type Middleware = (md: MD, next: Next) => Promise<Error | undefined>;
 
 type Finalizer = (md: MD) => Promise<Error | undefined>;
 
 export const runSequentially = (
-    md: MD,
-    middleware: Middleware[],
-    finalizer: Finalizer
+  md: MD,
+  middleware: Middleware[],
+  finalizer: Finalizer
 ): Promise<Error | undefined> => {
-    const next = (md: MD) => {
-        if (middleware.length === 0) return finalizer(md);
-        const [nextMW, ..._mws] = middleware
-        middleware = _mws
-        return nextMW(md, next);
-    }
-    return next(md);
-}
+  let i = 0;
+  const next = (md: MD): Promise<Error | undefined> => {
+    if (i == middleware.length) return finalizer(md);
+    const _mw = middleware[i];
+    i++;
+    return _mw(md, next);
+  };
+  return next(md);
+};
 
+export class MiddlewareCollector {
+  middleware: Middleware[] = [];
+
+  use(...mw: Middleware[]) {
+    this.middleware.push(...mw);
+  }
+
+  executeMiddleware(md: MD, finalizer: Finalizer): Promise<Error | undefined> {
+    return runSequentially(md, this.middleware, finalizer);
+  }
+}

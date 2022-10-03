@@ -1,12 +1,12 @@
 import { ZodSchema } from 'zod';
-import { Middleware } from './middleware';
+
+import { Transport } from './transport';
 
 /**
  * An interface for an entity that implements a simple request-response
  * transport between two entities.
  */
-export interface UnaryClient {
-  use(...mw: Middleware[]): void;
+export interface UnaryClient extends Transport {
   /**
    * Sends a request to the target server and waits until a response is received.
    * @param target - The target server to send the request to.
@@ -19,9 +19,3 @@ export interface UnaryClient {
     resSchema: ZodSchema<RS>
   ): Promise<[RS | undefined, Error | undefined]>;
 }
-
-const spreadFunc = (...args: any[]) => {
-  console.log(args)
-}
-
-spreadFunc()

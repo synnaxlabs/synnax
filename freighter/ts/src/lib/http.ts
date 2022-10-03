@@ -3,7 +3,7 @@ import { ZodSchema } from 'zod';
 
 import { EncoderDecoder } from './encoder';
 import { decodeError, ErrorPayloadSchema } from './errors';
-import { MD, Middleware, runSequentially } from './middleware';
+import { MD, MiddlewareCollector } from './middleware';
 import { UnaryClient } from './unary';
 import URL from './url';
 
@@ -31,16 +31,16 @@ export class HTTPClientFactory {
   }
 }
 
-class Core {
+class Core extends MiddlewareCollector {
   endpoint: URL;
   encoder: EncoderDecoder;
-  middleware: Middleware[];
 
   private static ERROR_ENCODING_HEADER_KEY = 'Error-Encoding';
   private static ERROR_ENCODING_HEADER_VALUE = 'freighter';
   private static CONTENT_TYPE_HEADER_KEY = 'Content-Type';
 
   constructor(endpoint: URL, encoder: EncoderDecoder) {
+    super();
     this.endpoint = endpoint.replace({ protocol: 'http' });
     this.encoder = encoder;
   }
@@ -65,28 +65,30 @@ class Core {
     request: AxiosRequestConfig,
     resSchema: ZodSchema<RS>
   ): Promise<[RS | undefined, Error | undefined]> {
-     let rs: RS | undefined = undefined;
-    const err = await runSequentially(
-      {target: "",},
-     this.middleware, 
-    async (md: MD): Promise<Error | undefined> => {
-      const httpRes = await axios.request(request);
-      if (httpRes.status < 200 || httpRes.status >= 300) {
-        try {
+    let rs: RS | undefined = undefined;
+
+    if (!request.url)
+      throw new Error('[freighter.http] - expected valid request url');
+
+    const err = await this.executeMiddleware(
+      { target: request.url, protocol: 'http' },
+      async (md: MD): Promise<Error | undefined> => {
+        request.headers = { ...request.headers, ...this.headers, ...md.params };
+        const httpRes = await axios.request(request);
+        if (httpRes.status < 200 || httpRes.status >= 300) {
+          try {
             const err = this.encoder.decode(httpRes.data, ErrorPayloadSchema);
             return decodeError(err);
-        } catch {
-            return new Error(httpRes.data)
+          } catch {
+            return new Error(httpRes.data);
           }
+        }
+        rs = this.encoder.decode(httpRes.data, resSchema);
+        return undefined;
       }
-      rs = this.encoder.decode(httpRes.data, resSchema); 
-      return undefined;
-    })
-   return [rs, err] 
-  }
+    );
 
-  use(...mw: Middleware[]){
-    this.middleware.push(...mw)
+    return [rs, err];
   }
 }
 
@@ -100,10 +102,11 @@ export class GETClient extends Core implements UnaryClient {
     req: RQ,
     resSchema: ZodSchema<RS>
   ): Promise<[RS | undefined, Error | undefined]> {
-    const queryString = buildQueryString(req as Record<string, unknown>);
     const request = this.requestConfig();
     request.method = 'GET';
-    request.url = this.endpoint.child(target).stringify() + '?' + queryString;
+    request.url =
+      this.endpoint.child(target).stringify() +
+      buildQueryString({ request: req as Record<string, unknown> });
     return await this.execute(request, resSchema);
   }
 }
@@ -127,8 +130,17 @@ export class POSTClient extends Core implements UnaryClient {
   }
 }
 
-const buildQueryString = (request: Record<string, unknown>) => {
-  return Object.keys(request)
-    .map((key) => `${key}=${request[key]}`)
-    .join('&');
+export const buildQueryString = ({
+  request,
+  prefix = '',
+}: {
+  request: Record<string, unknown>;
+  prefix?: string;
+}) => {
+  return (
+    '?' +
+    Object.keys(request)
+      .map((key) => `${prefix}${key}=${request[key]}`)
+      .join('&')
+  );
 };

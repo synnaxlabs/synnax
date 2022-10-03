@@ -2,11 +2,13 @@ import { z, ZodSchema } from 'zod';
 
 import { EncoderDecoder } from './encoder';
 import { decodeError, EOF, ErrorPayloadSchema, StreamClosed } from './errors';
+import { buildQueryString } from './http';
+import { MD, MiddlewareCollector } from './middleware';
 import { Runtime, RUNTIME } from './runtime';
 import { Stream, StreamClient } from './stream';
 import URL from './url';
 
-const resolveWebsocketProvider = (): typeof WebSocket => {
+const resolveWebSocketConstructor = (): typeof WebSocket => {
   if (RUNTIME == Runtime.Node) return require('ws');
   return WebSocket;
 };
@@ -147,11 +149,16 @@ class WebSocketStream<RQ, RS> implements Stream<RQ, RS> {
   }
 }
 
+export const FREIGHTER_METADATA_PREFIX = 'freightermd';
+
 /**
  * WebSocketClient is an implementation of StreamClient that is backed by
  * websockets.
  */
-export class WebSocketClient implements StreamClient {
+export class WebSocketClient
+  extends MiddlewareCollector
+  implements StreamClient
+{
   url: URL;
   encoder: EncoderDecoder;
 
@@ -163,6 +170,7 @@ export class WebSocketClient implements StreamClient {
    * @param baseURL - A base url to use as a prefix for all requests.
    */
   constructor(encoder: EncoderDecoder, baseURL: URL) {
+    super();
     this.url = baseURL.replace({ protocol: 'ws' });
     this.encoder = encoder;
   }
@@ -173,22 +181,44 @@ export class WebSocketClient implements StreamClient {
     reqSchema: ZodSchema<RQ>,
     resSchema: ZodSchema<RS>
   ): Promise<Stream<RQ, RS>> {
-    const ResolvedWebSocket = resolveWebsocketProvider();
-    const url =
-      this.url.child(target).stringify() +
-      '?contentType=' +
-      this.encoder.contentType;
-    const ws = new ResolvedWebSocket(url);
-    ws.binaryType = WebSocketClient.MESSAGE_TYPE;
-    return new Promise((resolve, reject) => {
-      ws.onopen = () => {
-        resolve(
-          new WebSocketStream<RQ, RS>(ws, this.encoder, reqSchema, resSchema)
+    const ResolvedWebSocketConstructor = resolveWebSocketConstructor();
+    let stream: Stream<RQ, RS> | undefined;
+    const exc = await this.executeMiddleware(
+      { target, protocol: 'websocket', params: {} },
+      async (md: MD): Promise<Error | undefined> => {
+        const qString = buildQueryString({
+          request: {
+            ['Content-Type']: this.encoder.contentType,
+            ...md.params,
+          },
+          prefix: FREIGHTER_METADATA_PREFIX,
+        });
+        const url = this.url.child(target).stringify() + qString;
+        const ws = new ResolvedWebSocketConstructor(url);
+        ws.binaryType = WebSocketClient.MESSAGE_TYPE;
+        const _streamOrErr: Stream<RQ, RS> | Error = await new Promise(
+          (resolve, reject) => {
+            ws.onopen = () => {
+              resolve(
+                new WebSocketStream<RQ, RS>(
+                  ws,
+                  this.encoder,
+                  reqSchema,
+                  resSchema
+                )
+              );
+            };
+            ws.onerror = (ev: Event) => reject(new Error(ev.toString()));
+          }
         );
-      };
-      ws.onerror = (ev: Event) => {
-        reject(ev);
-      };
-    });
+        if (_streamOrErr instanceof Error) {
+          return _streamOrErr;
+        }
+        stream = _streamOrErr;
+        return undefined;
+      }
+    );
+    if (exc) throw exc;
+    return stream as Stream<RQ, RS>;
   }
 }

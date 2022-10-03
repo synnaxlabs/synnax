@@ -55,7 +55,7 @@ test('[http] - get not found', async (t) => {
     {},
     MessageSchema
   );
-  t.is(error?.message, 'Cannot GET /http/not-found/');
+  t.is(error?.message, 'Cannot GET /unary/not-found');
   t.is(response, undefined);
 });
 
@@ -65,6 +65,6 @@ test('[http] - post not found', async (t) => {
     {},
     MessageSchema
   );
-  t.is(error?.message, 'Cannot POST /http/not-found/');
+  t.is(error?.message, 'Cannot POST /unary/not-found');
   t.is(response, undefined);
 });

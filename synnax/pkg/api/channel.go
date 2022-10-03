@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -104,7 +105,7 @@ func (s *ChannelService) Retrieve(
 	var resChannels []channel.Channel
 	q := s.internal.NewRetrieve().Entries(&resChannels)
 
-	if len(req.Keys) != 0 {
+	if len(req.Keys) > 0 {
 		keys, err := channel.ParseKeys(req.Keys)
 		if err != nil {
 			return ChannelRetrieveResponse{}, errors.Parse(err)
