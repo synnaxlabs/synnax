@@ -6,6 +6,8 @@ package api
 
 import (
 	"context"
+	"go/types"
+
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/api/errors"
@@ -17,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/user"
 	"go.uber.org/zap"
-	"go/types"
 )
 
 // Config is all required configuration parameters and services necessary to
@@ -32,6 +33,7 @@ type Config struct {
 	Token         *token.Service
 	Authenticator auth.Authenticator
 	Enforcer      access.Enforcer
+	Insecure      bool
 }
 
 type Transport struct {
@@ -59,14 +61,19 @@ func (a *API) BindTo(t Transport) {
 	err := errors.Middleware()
 	logger := logMiddleware(a.provider.Logging.logger)
 	tk := tokenMiddleware(a.provider.auth.token)
-	t.AuthLogin.Use(logger, err)
-	t.AuthChangeUsername.Use(logger, err, tk)
-	t.AuthChangePassword.Use(logger, err, tk)
+	middleware := []freighter.Middleware{logger, err}
+	if !a.config.Insecure {
+		middleware = append(middleware, tk)
+	}
+
 	t.AuthRegistration.Use(logger, err)
-	t.ChannelCreate.Use(logger, err, tk)
-	t.ChannelRetrieve.Use(logger, err, tk)
-	t.SegmentWriter.Use(logger, err, tk)
-	t.SegmentIterator.Use(logger, err, tk)
+	t.AuthLogin.Use(logger, err)
+	t.AuthChangeUsername.Use(middleware...)
+	t.AuthChangePassword.Use(middleware...)
+	t.ChannelCreate.Use(middleware...)
+	t.ChannelRetrieve.Use(middleware...)
+	t.SegmentWriter.Use(middleware...)
+	t.SegmentIterator.Use(middleware...)
 
 	t.AuthLogin.BindHandler(typedUnaryWrapper(a.Auth.Login))
 	t.AuthChangeUsername.BindHandler(noResponseWrapper(a.Auth.ChangeUsername))

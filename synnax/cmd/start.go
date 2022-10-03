@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/alamos"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/gorp"
 	xsignal "github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -73,33 +74,24 @@ var startCmd = &cobra.Command{
 				transports,
 			)
 			dist, err := distribution.Open(ctx, distConfig)
+			defer func() {
+				err = dist.Close()
+			}()
 			if err != nil {
 				return err
 			}
 
-			gorp := dist.Storage.Gorpify()
+			gorpDB := dist.Storage.Gorpify()
 
-			userSvc := &user.Service{DB: gorp, Ontology: dist.Ontology}
+			userSvc := &user.Service{DB: gorpDB, Ontology: dist.Ontology}
 
 			rsaKey, err := rsa.GenerateKey(rand.Reader, 1024)
 
 			tokenSvc := &token.Service{Secret: rsaKey, Expiration: 15 * time.Minute}
 
-			authenticator := &auth.KV{DB: gorp}
+			authenticator := &auth.KV{DB: gorpDB}
 
-			txn := gorp.BeginTxn()
-			if err := authenticator.NewWriterUsingTxn(txn).Register(auth.InsecureCredentials{
-				Username: viper.GetString("user"),
-				Password: password.Raw(viper.GetString("password")),
-			}); err != nil {
-				return err
-			}
-			if err := userSvc.NewWriterUsingTxn(txn).Create(&user.User{
-				Username: viper.GetString("user"),
-			}); err != nil {
-				return err
-			}
-			if err := txn.Commit(); err != nil {
+			if err := maybeProvisionRootUser(gorpDB, authenticator, userSvc); err != nil {
 				return err
 			}
 
@@ -112,6 +104,7 @@ var startCmd = &cobra.Command{
 				Token:         tokenSvc,
 				Authenticator: authenticator,
 				Enforcer:      access.AllowAll{},
+				Insecure:      viper.GetBool("insecure"),
 			})
 
 			r := fhttp.NewRouter(fhttp.RouterConfig{Logger: logger.Sugar()})
@@ -131,7 +124,6 @@ var startCmd = &cobra.Command{
 			srv := server.New(serverCfg)
 			defer func() {
 				err = errors.CombineErrors(err, srv.Stop())
-				err = errors.CombineErrors(err, dist.Close())
 			}()
 			sCtx.Go(srv.Start, xsignal.WithKey("server"))
 			<-ctx.Done()
@@ -192,7 +184,7 @@ func init() {
 
 	startCmd.Flags().BoolP(
 		"debug",
-		"",
+		"v",
 		false,
 		"Enable debug mode.",
 	)
@@ -205,7 +197,7 @@ func init() {
 	)
 
 	startCmd.Flags().String(
-		"user",
+		"username",
 		"synnax",
 		"Username for the admin user.",
 	)
@@ -286,4 +278,33 @@ func configureObservability() alamos.Experiment {
 		opt = alamos.WithFilters(alamos.LevelFilterThreshold{Level: alamos.Production})
 	}
 	return alamos.New(rootExperimentKey, opt)
+}
+
+func maybeProvisionRootUser(
+	db *gorp.DB,
+	authSvc auth.Authenticator,
+	userSvc *user.Service,
+) error {
+	rootUsername := viper.GetString("username")
+	rootPassword := password.Raw(viper.GetString("password"))
+	exists, err := userSvc.UsernameExists(rootUsername)
+	if exists || err != nil {
+		return err
+	}
+	txn := db.BeginTxn()
+	if err := authSvc.NewWriterUsingTxn(txn).Register(auth.InsecureCredentials{
+		Username: rootUsername,
+		Password: rootPassword,
+	}); err != nil {
+		return err
+	}
+	if err := userSvc.NewWriterUsingTxn(txn).Create(&user.User{
+		Username: rootUsername,
+	}); err != nil {
+		return err
+	}
+	if err := txn.Commit(); err != nil {
+		return err
+	}
+	return nil
 }

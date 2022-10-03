@@ -16,7 +16,14 @@ func logMiddleware(z *zap.SugaredLogger) freighter.Middleware {
 	) error {
 		t0 := time.Now()
 		err := next(ctx, md)
-		logFunc(z, err)("api request", "protocol", md.Protocol, "target", md.Target, "requestDur", time.Since(t0), "err", err)
+		logFunc(z, err)(
+			"api request",
+			"protocol", md.Protocol,
+			"target", md.Target,
+			"duration", time.Since(t0),
+			"err",
+			err,
+		)
 		return err
 	})
 }
@@ -26,15 +33,4 @@ func logFunc(z *zap.SugaredLogger, err error) func(msg string, args ...interface
 		return z.Errorw
 	}
 	return z.Infow
-}
-
-func constructLogArgs(md freighter.MD, err error) []interface{} {
-	args := []interface{}{
-		"protocol", md.Protocol,
-		"target", md.Target,
-	}
-	if err != nil {
-		args = append(args, "err", err)
-	}
-	return args
 }
