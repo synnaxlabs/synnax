@@ -8,26 +8,32 @@ import { UnaryClient } from './unary';
 import URL from './url';
 
 /**
- * HTTPClientFactory provides a POST and GET implementation of the Unary protocol.
+ * HTTPClientFactory provides a POST and GET implementation of the Unary
+ * protocol.
  *
  * @param url - The base URL of the API.
  * @param encoder - The encoder/decoder to use for the request/response.
  */
-export class HTTPClientFactory {
+export class HTTPClientFactory extends MiddlewareCollector {
   endpoint: URL;
   encoder: EncoderDecoder;
 
   constructor(endpoint: URL, encoder: EncoderDecoder) {
+    super();
     this.endpoint = endpoint;
     this.encoder = encoder;
   }
 
   getClient(): GETClient {
-    return new GETClient(this.endpoint, this.encoder);
+    const gc = new GETClient(this.endpoint, this.encoder);
+    gc.use(...this.middleware);
+    return gc;
   }
 
   postClient(): POSTClient {
-    return new POSTClient(this.endpoint, this.encoder);
+    const pc = new POSTClient(this.endpoint, this.encoder);
+    pc.use(...this.middleware);
+    return pc;
   }
 }
 

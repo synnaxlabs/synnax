@@ -1,10 +1,15 @@
 import test from 'ava';
 
 import Synnax from '../client';
-import { DataType, Rate } from '../telem';
 import { QueryError } from '../errors';
+import { DataType, Rate } from '../telem';
 
-const client = new Synnax({ host: 'localhost', port: 8080 });
+const client = new Synnax({
+  host: 'localhost',
+  port: 8080,
+  username: 'synnax',
+  password: 'seldon',
+});
 
 test('Channel - create', async (t) => {
   const channel = await client.channel.create({
@@ -35,15 +40,15 @@ test('Channel - retrieve by key', async (t) => {
 
 test('Channel - retrieve by key - not found', async (t) => {
   const err = await t.throwsAsync(async () => {
-    await client.channel.retrieveByKeys("1-1000");
-  })
+    await client.channel.retrieveByKeys('1-1000');
+  });
   t.true(err instanceof QueryError);
-})
+});
 
 test('Channel - retrieve by node id', async (t) => {
   const retrieved = await client.channel.retrieveByNodeId(1);
   t.true(retrieved.length > 0);
   retrieved.forEach((ch) => {
     t.is(ch.nodeId, 1);
-  })
-})
+  });
+});

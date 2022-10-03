@@ -115,7 +115,7 @@ export default class ChannelClient {
    * @returns the created channel.
    */
   async create(props: CreateChannelProps): Promise<Channel> {
-    return (await this.createMany({ ...props, count: 1 }))[0]
+    return (await this.createMany({ ...props, count: 1 }))[0];
   }
 
   /**

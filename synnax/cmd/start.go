@@ -4,6 +4,10 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"os"
+	"os/signal"
+	"time"
+
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -13,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	httpapi "github.com/synnaxlabs/synnax/pkg/api/http"
 	"github.com/synnaxlabs/synnax/pkg/auth"
+	"github.com/synnaxlabs/synnax/pkg/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/server"
@@ -26,9 +31,6 @@ import (
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"os"
-	"os/signal"
-	"time"
 )
 
 // startCmd represents the start command
@@ -85,6 +87,22 @@ var startCmd = &cobra.Command{
 
 			authenticator := &auth.KV{DB: gorp}
 
+			txn := gorp.BeginTxn()
+			if err := authenticator.NewWriterUsingTxn(txn).Register(auth.InsecureCredentials{
+				Username: viper.GetString("user"),
+				Password: password.Raw(viper.GetString("password")),
+			}); err != nil {
+				return err
+			}
+			if err := userSvc.NewWriterUsingTxn(txn).Create(&user.User{
+				Username: viper.GetString("user"),
+			}); err != nil {
+				return err
+			}
+			if err := txn.Commit(); err != nil {
+				return err
+			}
+
 			_api := api.New(api.Config{
 				Logger:        logger,
 				Channel:       dist.Channel,
@@ -100,18 +118,14 @@ var startCmd = &cobra.Command{
 			httpAPITransport := httpapi.New(r)
 			_api.BindTo(httpAPITransport)
 
-			//grpcBranch := &server.GRPCBranch{
-			//	Transports: *transports,
-			//}
-			httpBranch := &server.HTTPBranch{
-				Transports: []fhttp.BindableTransport{r},
-			}
+			grpcBranch := &server.GRPCBranch{Transports: *transports}
+			httpBranch := &server.HTTPBranch{Transports: []fhttp.BindableTransport{r}}
 			serverCfg := server.Config{
 				ListenAddress: address.Address(viper.GetString("listen-address")),
 				Logger:        logger,
 				Branches: []server.Branch{
 					httpBranch,
-					//grpcBranch,
+					grpcBranch,
 				},
 			}
 			srv := server.New(serverCfg)
@@ -181,6 +195,25 @@ func init() {
 		"",
 		false,
 		"Enable debug mode.",
+	)
+
+	startCmd.Flags().BoolP(
+		"insecure",
+		"i",
+		false,
+		"Disable TLS and authentication.",
+	)
+
+	startCmd.Flags().String(
+		"user",
+		"synnax",
+		"Username for the admin user.",
+	)
+
+	startCmd.Flags().String(
+		"password",
+		"seldon",
+		"Password for the admin user.",
 	)
 
 	if err := viper.BindPFlags(startCmd.Flags()); err != nil {

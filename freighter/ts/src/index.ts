@@ -21,3 +21,5 @@ export {
   StreamClosed,
   Unreachable,
 } from './lib/errors';
+export { Middleware, Next, MetaData } from './lib/middleware';
+export { logMiddleware } from './lib/util/log';

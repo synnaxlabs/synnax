@@ -12,10 +12,13 @@ type GRPCBranch struct {
 	server     *grpc.Server
 }
 
+func (g *GRPCBranch) Match() []cmux.Matcher {
+	return []cmux.Matcher{cmux.Any()}
+}
+
 func (g *GRPCBranch) Key() string { return "grpc" }
 
 func (g *GRPCBranch) Serve(cfg BranchConfig) error {
-	lis := cfg.Mux.Match(cmux.Any())
 	var opts []grpc.ServerOption
 	if cfg.TLS != nil {
 		opts = append(opts, grpc.Creds(credentials.NewTLS(cfg.TLS)))
@@ -24,7 +27,7 @@ func (g *GRPCBranch) Serve(cfg BranchConfig) error {
 	for _, t := range g.Transports {
 		t.BindTo(g.server)
 	}
-	return filterCloseError(g.server.Serve(lis))
+	return filterCloseError(g.server.Serve(cfg.Lis))
 }
 
 func (g *GRPCBranch) Stop() { g.server.GracefulStop() }

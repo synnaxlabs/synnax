@@ -3,12 +3,13 @@ package server
 import (
 	"context"
 	"crypto/tls"
+	"net"
+
 	"github.com/cockroachdb/cmux"
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
-	"net"
 )
 
 type Config struct {
@@ -38,13 +39,18 @@ func (s *Server) Start(_ context.Context) (err error) {
 		return err
 	}
 	m := cmux.New(s.lis)
+	listeners := make([]net.Listener, len(s.Branches))
+	for i, b := range s.Branches {
+		listeners[i] = m.Match(b.Match()...)
+	}
 	bc := BranchConfig{
-		Mux: m,
 		TLS: s.Security.TLS,
 	}
-	for _, b := range s.Branches {
+	for i, b := range s.Branches {
 		b := b
+		i := i
 		sCtx.Go(func(ctx context.Context) error {
+			bc.Lis = listeners[i]
 			return b.Serve(bc)
 		}, signal.WithKey(b.Key()))
 	}

@@ -5,7 +5,12 @@ import { ContiguityError, ValidationError } from '../errors';
 import { DataType, Rate, Size, TimeSpan } from '../telem';
 import { randomTypedArray } from '../util/telem';
 
-const client = new Synnax({ host: 'localhost', port: 8080 });
+const client = new Synnax({
+  host: 'localhost',
+  port: 8080,
+  username: 'synnax',
+  password: 'seldon',
+});
 
 const newChannel = async () => {
   return await client.channel.create({

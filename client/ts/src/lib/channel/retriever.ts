@@ -1,6 +1,5 @@
 import { UnaryClient } from '@synnaxlabs/freighter';
 import { z } from 'zod';
-import { tokenMiddleware } from '../auth';
 
 import Transport from '../transport';
 
