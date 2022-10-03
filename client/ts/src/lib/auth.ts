@@ -34,36 +34,52 @@ export default class AuthenticationClient {
   private token: string | undefined;
   private client: UnaryClient;
   private credentials: InsecureCredentials;
-  private authenticated: boolean;
+  authenticating: Promise<void> | undefined;
+  authenticated: boolean;
   user: UserPayload | undefined;
 
   constructor(factory: HTTPClientFactory, creds: InsecureCredentials) {
     this.client = factory.postClient();
     this.credentials = creds;
     this.authenticated = false;
+    this.authenticate();
   }
 
-  async authenticate() {
-    const [res, err] = await this.client.send<
-      InsecureCredentials,
-      TokenResponse
-    >(AuthenticationClient.ENDPOINT, this.credentials, TokenResponseSchema);
-    if (err) {
-      throw err;
-    }
-    this.token = res?.token;
-    this.user = res?.user;
+  authenticate() {
+    this.authenticating = new Promise((resolve, reject) => {
+      this.client
+        .send<InsecureCredentials, TokenResponse>(
+          AuthenticationClient.ENDPOINT,
+          this.credentials,
+          TokenResponseSchema
+        )
+        .then(([res, err]) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          this.token = res?.token;
+          this.user = res?.user;
+          this.authenticated = true;
+          resolve();
+        });
+    });
+  }
+
+  private async maybeWaitAuthenticated() {
+    if (this.authenticating) await this.authenticating;
+    this.authenticating = undefined;
   }
 
   middleware(): Middleware {
     return tokenMiddleware(async () => {
-      if (!this.authenticated) await this.authenticate();
+      await this.maybeWaitAuthenticated();
       if (!this.token) {
         throw new AuthError(
           '[auth] - attempting to authenticate without a token'
         );
       }
-      return this.token as string;
+      return this.token;
     });
   }
 }

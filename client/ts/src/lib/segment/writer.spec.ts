@@ -1,16 +1,11 @@
 import test from 'ava';
 
-import Synnax from '../client';
+import { newClient } from '../../setupspecs';
 import { ContiguityError, ValidationError } from '../errors';
 import { DataType, Rate, Size, TimeSpan } from '../telem';
 import { randomTypedArray } from '../util/telem';
 
-const client = new Synnax({
-  host: 'localhost',
-  port: 8080,
-  username: 'synnax',
-  password: 'seldon',
-});
+const client = newClient();
 
 const newChannel = async () => {
   return await client.channel.create({
