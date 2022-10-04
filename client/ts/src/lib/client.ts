@@ -31,9 +31,9 @@ export default class Synnax {
    * @param props.host - Hostname of a node in the cluster.
    * @param props.port - Port of the node in the cluster.
    * @param props.username - Username for authentication. Not required if the
-   * cluster is insecure.
+   *   cluster is insecure.
    * @param props.password - Password for authentication. Not required if the
-   * cluster is insecure.
+   *   cluster is insecure.
    */
   constructor({ host, port, username, password }: SynnaxProps) {
     this.transport = new Transport(new URL({ host, port }));
