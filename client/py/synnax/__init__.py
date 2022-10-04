@@ -1,7 +1,7 @@
 __version__ = "0.1.0"
 
 from .channel import Channel
-from .client import Synnax
+from .synnax import Synnax
 from .exceptions import (
     AuthError,
     ContiguityError,

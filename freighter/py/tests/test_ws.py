@@ -1,8 +1,8 @@
 import pytest
 
 import freighter.exceptions
-from distlib.metadata import Metadata
 from freighter.encoder import MsgpackEncoder
+from freighter.metadata import MetaData
 from freighter.sync import SyncStreamClient
 from freighter.transport import Next, AsyncNext
 from freighter.url import URL
@@ -42,6 +42,8 @@ class TestWS:
             "/sendMessageAfterClientClose", Message, Message
         )
         await stream.close_send()
+        # calling should be idempotent
+        await stream.close_send()
         msg, err = await stream.receive()
         assert err is None
         assert msg.id == 0
@@ -61,7 +63,7 @@ class TestWS:
     async def test_middleware(self, async_client):
         dct = {"called": False}
 
-        async def mw(md: Metadata, next: AsyncNext) -> Exception | None:
+        async def mw(md: MetaData, next: AsyncNext) -> Exception | None:
             md.params["Test"] = "test"
             dct["called"] = True
             return await next(md)
@@ -75,8 +77,6 @@ class TestWS:
 
 
 class TestSyncWebsocket:
-
-    @pytest.mark.focus
     def test_basic_exchange(self, sync_client: SyncStreamClient):
         stream = sync_client.stream("/echo", Message, Message)
         for i in range(10):
@@ -106,11 +106,10 @@ class TestSyncWebsocket:
         assert c == 10
 
     def test_middleware(self, sync_client: SyncStreamClient):
-        """Should receive ten messages from the server.
-        """
+        """Should receive ten messages from the server."""
         dct = {"called": False}
 
-        def mw(md: Metadata, next: Next) -> Exception | None:
+        def mw(md: MetaData, next: Next) -> Exception | None:
             md.params["Test"] = "test"
             dct["called"] = True
             return next(md)

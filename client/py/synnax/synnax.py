@@ -15,6 +15,10 @@ class Synnax:
 
     :param host: Hostname of a Synnax server.
     :param port: Port of a Synnax server.
+    :param username: Username to authenticate with. Not required if the Synnax cluster
+    is running in insecure mode.
+    :param password: Password to authenticate with. Not required if the Synnax cluster
+    is running in insecure mode.
     """
 
     _transport: Transport
@@ -29,12 +33,12 @@ class Synnax:
         password: str = "",
     ):
         self._transport = Transport(URL(host=host, port=port))
-        auth = AuthenticationClient(
-            self._transport.http.post_client(), username, password
-        )
-        auth.authenticate()
-        self._transport.http.use(auth.middleware())
-        self._transport.stream_async.use(auth.async_middleware())
+        if username != "" or password != "":
+            auth = AuthenticationClient(
+                self._transport.http.post_client(), username, password
+            )
+            auth.authenticate()
+            self._transport.use(auth.middleware())
         ch_retriever = ChannelRetriever(self._transport.http)
         ch_creator = ChannelCreator(self._transport.http)
         ch_registry = ChannelRegistry(ch_retriever)

@@ -3,13 +3,18 @@ import contextlib
 from asyncio import tasks, events, coroutines
 from threading import Thread
 from typing import AsyncIterator, Generic, Optional, Type
+from xmlrpc.client import boolean
 
 from freighter.metadata import MetaData
 from freighter.util.asyncio import cancel_all_tasks
 from janus import Queue
 
-from .stream import AsyncStreamClient, AsyncStreamReceiver, AsyncStreamSenderCloser, \
-    AsyncStream
+from .stream import (
+    AsyncStreamClient,
+    AsyncStreamReceiver,
+    AsyncStreamSenderCloser,
+    AsyncStream,
+)
 from .transport import RQ, RS, P, MiddlewareCollector, Middleware, AsyncNext
 from .util.threading import Notification
 
@@ -94,18 +99,13 @@ class _SenderCloser(Generic[RQ]):
             return self._handle_exception()
         self._requests.sync_q.put(None)
         self._exit.notify(True)
-        exc, fatal = self._exception.read(block=True)
+        return self._handle_exception(block=True)
+
+    def _handle_exception(self, block: boolean = False) -> Exception | None:
+        exc, fatal = self._exception.read(block=block)
         if fatal:
             raise exc
         return exc
-
-    def _handle_exception(self) -> Exception | None:
-        if self._exception.received():
-            exc, fatal = self._exception.read()
-            if fatal:
-                raise exc
-            return exc
-        return None
 
     async def run(self):
         try:
@@ -150,12 +150,12 @@ class SyncStream(Thread, Generic[RQ, RS]):
     _wrapped: Optional[AsyncStream[RQ, RS]]
 
     def __init__(
-            self,
-            client: AsyncStreamClient,
-            target: str,
-            req_t: Type[RQ],
-            res_t: Type[RS],
-            collector: MiddlewareCollector
+        self,
+        client: AsyncStreamClient,
+        target: str,
+        req_t: Type[RQ],
+        res_t: Type[RS],
+        collector: MiddlewareCollector,
     ) -> None:
         super().__init__()
         self._client = client
@@ -250,7 +250,7 @@ class SyncStreamClient(MiddlewareCollector):
         self.wrapped = wrapped
 
     def stream(
-            self, target: str, req_t: Type[RQ], res_t: Type[RS]
+        self, target: str, req_t: Type[RQ], res_t: Type[RS]
     ) -> SyncStream[RQ, RS]:
         """Implement the StreamClient protocol."""
         return SyncStream[RQ, RS](self.wrapped, target, req_t, res_t, self)
