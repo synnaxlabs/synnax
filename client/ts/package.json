@@ -50,7 +50,7 @@
     "node": ">=10"
   },
   "dependencies": {
-    "@synnaxlabs/freighter": "^0.1.0",
+    "@synnaxlabs/freighter": "link:../../freighter/ts",
     "zod": "^3.19.1"
   },
   "devDependencies": {

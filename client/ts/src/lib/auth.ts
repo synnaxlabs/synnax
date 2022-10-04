@@ -55,6 +55,7 @@ export default class AuthenticationClient {
         )
         .then(([res, err]) => {
           if (err) {
+            console.log(err);
             reject(err);
             return;
           }
