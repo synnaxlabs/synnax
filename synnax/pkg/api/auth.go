@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+
 	roacherrors "github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/auth"
@@ -105,17 +106,17 @@ func (s *AuthService) ChangeUsername(ctx context.Context, cur ChangeUsernameRequ
 	}
 	return s.WithTxn(func(txn gorp.Txn) errors.Typed {
 		authWriter := s.authenticator.NewWriterUsingTxn(txn)
+		u, err := s.user.RetrieveByUsername(cur.InsecureCredentials.Username)
+		if err != nil {
+			return errors.MaybeQuery(err)
+		}
 		if err := authWriter.UpdateUsername(
 			cur.InsecureCredentials,
 			cur.NewUsername,
 		); err != nil {
 			return errors.Unexpected(err)
 		}
-		u, err := s.user.RetrieveByUsername(cur.NewUsername)
-		if err != nil {
-			return errors.General(err)
-		}
-		u.Username = cur.InsecureCredentials.Username
+		u.Username = cur.NewUsername
 		return errors.MaybeUnexpected(s.user.NewWriterUsingTxn(txn).Update(u))
 	})
 }

@@ -61,11 +61,14 @@ var startCmd = &cobra.Command{
 			// Set up the tracing backend.
 			exp := configureObservability()
 
+			// An array to hold the transports we use for cluster internal communication.
 			transports := &[]fgrpc.BindableTransport{}
 
-			storageCfg := newStorageConfig(exp, logger)
+			// Set up a pool so we can load balance RPC connections.
 			pool := fgrpc.NewPool(grpc.WithTransportCredentials(insecure.NewCredentials()))
 
+			// Open the distribution layer.
+			storageCfg := newStorageConfig(exp, logger)
 			distConfig, err := newDistributionConfig(
 				pool,
 				exp,
@@ -74,27 +77,24 @@ var startCmd = &cobra.Command{
 				transports,
 			)
 			dist, err := distribution.Open(ctx, distConfig)
-			defer func() {
-				err = dist.Close()
-			}()
+			defer func() { err = dist.Close() }()
 			if err != nil {
 				return err
 			}
 
+			// Set up our high level services.
 			gorpDB := dist.Storage.Gorpify()
-
 			userSvc := &user.Service{DB: gorpDB, Ontology: dist.Ontology}
-
 			rsaKey, err := rsa.GenerateKey(rand.Reader, 1024)
-
 			tokenSvc := &token.Service{Secret: rsaKey, Expiration: 15 * time.Minute}
-
 			authenticator := &auth.KV{DB: gorpDB}
 
+			// Provision the root user.
 			if err := maybeProvisionRootUser(gorpDB, authenticator, userSvc); err != nil {
 				return err
 			}
 
+			// Configure the core API.
 			_api := api.New(api.Config{
 				Logger:        logger,
 				Channel:       dist.Channel,
@@ -107,10 +107,12 @@ var startCmd = &cobra.Command{
 				Insecure:      viper.GetBool("insecure"),
 			})
 
+			// Configure the HTTP API Transport.
 			r := fhttp.NewRouter(fhttp.RouterConfig{Logger: logger.Sugar()})
 			httpAPITransport := httpapi.New(r)
 			_api.BindTo(httpAPITransport)
 
+			// Configure our servers.
 			grpcBranch := &server.GRPCBranch{Transports: *transports}
 			httpBranch := &server.HTTPBranch{Transports: []fhttp.BindableTransport{r}}
 			serverCfg := server.Config{
@@ -122,10 +124,8 @@ var startCmd = &cobra.Command{
 				},
 			}
 			srv := server.New(serverCfg)
-			defer func() {
-				err = errors.CombineErrors(err, srv.Stop())
-			}()
 			sCtx.Go(srv.Start, xsignal.WithKey("server"))
+			defer func() { err = errors.CombineErrors(err, srv.Stop()) }()
 			<-ctx.Done()
 			return nil
 		}, xsignal.WithKey("start"))
