@@ -7,6 +7,8 @@ from freighter import (
     StreamClient,
     SyncStreamClient,
     WebsocketClient,
+    Middleware,
+    AsyncMiddleware,
 )
 
 
@@ -23,3 +25,11 @@ class Transport:
         )
         self.stream = SyncStreamClient(self.stream_async)
         self.http = HTTPClientFactory(url=self.url, encoder_decoder=JSONEncoder())
+
+    def use(self, *middleware: Middleware):
+        self.http.use(*middleware)
+        self.stream.use(*middleware)
+
+    def use_async(self, *middleware: AsyncMiddleware):
+        self.http.use(*middleware)
+        self.stream_async.use(*middleware)

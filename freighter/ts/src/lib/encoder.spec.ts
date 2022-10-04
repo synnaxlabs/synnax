@@ -10,7 +10,7 @@ const SampleSchema = z.object({
 });
 
 ENCODERS.forEach((encoder) => {
-  test(`encoder ${encoder.contentType}`, (t) => {
+  test(`[encoder] - encoder ${encoder.contentType}`, (t) => {
     const sample = {
       channelKey: 'test',
       timeStamp: 123,

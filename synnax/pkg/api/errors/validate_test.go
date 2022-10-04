@@ -1,11 +1,11 @@
 package errors_test
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	roacherrors "github.com/cockroachdb/errors"
 	"github.com/go-playground/validator/v10"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/api/errors"
 )
 
 type structToValidate struct {
@@ -14,8 +14,8 @@ type structToValidate struct {
 }
 
 var _ = Describe("Validate", func() {
-	Describe("Validation", func() {
-		Context("Validator Err", func() {
+	Describe("validation", func() {
+		Context("validator Err", func() {
 			It("Should return a Response with a single Field error", func() {
 				err := validator.New().Struct(structToValidate{Field: "", Email: ""})
 				Expect(err).To(HaveOccurred())
@@ -58,7 +58,7 @@ var _ = Describe("Validate", func() {
 			err := errors.MaybeValidation(nil)
 			Expect(err).To(Equal(errors.Nil))
 		})
-		It("Should return a Validation error if the error is not nil", func() {
+		It("Should return a validation error if the error is not nil", func() {
 			err := errors.MaybeValidation(errors.Field{Field: "Field", Message: "required"})
 			Expect(err).To(HaveOccurred())
 			Expect(err.Type).To(Equal(errors.TypeValidation))

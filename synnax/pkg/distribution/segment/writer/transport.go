@@ -16,7 +16,8 @@ type Response struct {
 }
 
 type (
-	Server    = freighter.ServerStream[Request, Response]
-	Client    = freighter.ClientStream[Request, Response]
-	Transport = freighter.StreamTransport[Request, Response]
+	ServerStream = freighter.ServerStream[Request, Response]
+	ClientStream    = freighter.ClientStream[Request, Response]
+	TransportServer = freighter.StreamServer[Request, Response]
+	TransportClient = freighter.StreamClient[Request, Response]
 )

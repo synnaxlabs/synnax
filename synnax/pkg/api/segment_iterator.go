@@ -19,7 +19,7 @@ type (
 	IteratorResponseVariant = iterator.ResponseVariant
 )
 
-type IteratorRequest struct {
+type SegmentIteratorRequest struct {
 	Command IteratorCommand `json:"command" msgpack:"command"`
 	Span    telem.TimeSpan  `json:"span" msgpack:"span"`
 	Range   telem.TimeRange `json:"range" msgpack:"range"`
@@ -27,7 +27,7 @@ type IteratorRequest struct {
 	Keys    []string        `json:"keys" msgpack:"keys"`
 }
 
-type IteratorResponse struct {
+type SegmentIteratorResponse struct {
 	Variant  IteratorResponseVariant `json:"variant" msgpack:"variant"`
 	Command  IteratorCommand         `json:"command" msgpack:"command"`
 	Ack      bool                    `json:"ack" msgpack:"ack"`
@@ -35,10 +35,10 @@ type IteratorResponse struct {
 	Segments []Segment               `json:"segments" msgpack:"segments"`
 }
 
-type IteratorStream = freighter.ServerStream[IteratorRequest, IteratorResponse]
+type SegmentIteratorStream = freighter.ServerStream[SegmentIteratorRequest, SegmentIteratorResponse]
 
-func (s *SegmentService) Iterate(_ctx context.Context, stream IteratorStream) errors.Typed {
-	ctx, cancel := signal.WithCancel(_ctx, signal.WithLogger(s.Logger.Desugar()))
+func (s *SegmentService) Iterate(_ctx context.Context, stream SegmentIteratorStream) errors.Typed {
+	ctx, cancel := signal.WithCancel(_ctx, signal.WithLogger(s.logger.Desugar()))
 	// cancellation here would occur for one of two reasons. Either we encounter
 	// a fatal error (transport or iterator internal) and we need to free all
 	// resources, OR the client executed the close command on the iterator (in
@@ -90,7 +90,7 @@ func (s *SegmentService) Iterate(_ctx context.Context, stream IteratorStream) er
 					Data:       seg.Segment.Data,
 				}
 			}
-			tRes := IteratorResponse{
+			tRes := SegmentIteratorResponse{
 				Variant:  res.Variant,
 				Command:  res.Command,
 				Ack:      res.Ack,
@@ -106,7 +106,7 @@ func (s *SegmentService) Iterate(_ctx context.Context, stream IteratorStream) er
 	}
 }
 
-func (s *SegmentService) openIterator(ctx context.Context, srv IteratorStream) (segment.StreamIterator, errors.Typed) {
+func (s *SegmentService) openIterator(ctx context.Context, srv SegmentIteratorStream) (segment.StreamIterator, errors.Typed) {
 	keys, rng, _err := receiveIteratorOpenArgs(srv)
 	if _err.Occurred() {
 		return nil, _err
@@ -115,10 +115,10 @@ func (s *SegmentService) openIterator(ctx context.Context, srv IteratorStream) (
 	if err != nil {
 		return nil, errors.Query(err)
 	}
-	return iter, errors.MaybeUnexpected(srv.Send(IteratorResponse{Variant: iterator.AckResponse, Ack: true}))
+	return iter, errors.MaybeUnexpected(srv.Send(SegmentIteratorResponse{Variant: iterator.AckResponse, Ack: true}))
 }
 
-func receiveIteratorOpenArgs(srv IteratorStream) (channel.Keys, telem.TimeRange, errors.Typed) {
+func receiveIteratorOpenArgs(srv SegmentIteratorStream) (channel.Keys, telem.TimeRange, errors.Typed) {
 	req, err := srv.Receive()
 	if err != nil {
 		return nil, telem.TimeRangeZero, errors.Unexpected(err)

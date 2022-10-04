@@ -19,11 +19,11 @@ type server struct {
 
 func NewServer(cfg Config) *server {
 	sf := &server{ts: cfg.TS, Config: cfg}
-	cfg.Transport.BindHandler(sf.Handle)
+	cfg.TransportServer.BindHandler(sf.Handle)
 	return sf
 }
 
-func (sf *server) Handle(_ctx context.Context, server Server) error {
+func (sf *server) Handle(_ctx context.Context, server ServerStream) error {
 	ctx, cancel := signal.WithCancel(_ctx)
 	defer cancel()
 
@@ -49,15 +49,15 @@ func (sf *server) Handle(_ctx context.Context, server Server) error {
 	}
 
 	pipe := plumber.New()
-	plumber.SetSegment[Request, Response](pipe, "writer", w)
+	plumber.SetSegment[Request, Response](pipe, "writerClient", w)
 	plumber.SetSource[Request](pipe, "receiver", receiver)
 	plumber.SetSink[Response](pipe, "sender", sender)
 	plumber.SetSource[Response](pipe, "transient", &TransientSource{transient: transientErrors})
 
-	plumber.UnaryRouter[Request]{SourceTarget: "receiver", SinkTarget: "writer"}.MustRoute(pipe)
+	plumber.UnaryRouter[Request]{SourceTarget: "receiver", SinkTarget: "writerClient"}.MustRoute(pipe)
 
 	plumber.MultiRouter[Response]{
-		SourceTargets: []address.Address{"writer", "transient"},
+		SourceTargets: []address.Address{"writerClient", "transient"},
 		SinkTargets:   []address.Address{"sender"},
 	}.MustRoute(pipe)
 

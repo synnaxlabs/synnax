@@ -2,12 +2,12 @@ package aspen
 
 import (
 	"context"
-	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/kv/pebblekv"
-	"github.com/synnaxlabs/x/signal"
 	"github.com/cockroachdb/pebble"
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/kv"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/kv/pebblekv"
+	"github.com/synnaxlabs/x/signal"
 )
 
 func Open(
@@ -59,10 +59,15 @@ func configureTransport(ctx signal.Context, o *options) error {
 	if err := o.transport.Configure(ctx, o.addr, o.externalTransport); err != nil {
 		return err
 	}
-	o.cluster.Gossip.Transport = o.transport.Cluster()
-	o.cluster.Pledge.Transport = o.transport.Pledge()
-	o.kv.OperationsTransport = o.transport.Operations()
-	o.kv.LeaseTransport = o.transport.Lease()
-	o.kv.FeedbackTransport = o.transport.Feedback()
+	o.cluster.Gossip.TransportClient = o.transport.GossipClient()
+	o.cluster.Gossip.TransportServer = o.transport.GossipServer()
+	o.cluster.Pledge.TransportClient = o.transport.PledgeClient()
+	o.cluster.Pledge.TransportServer = o.transport.PledgeServer()
+	o.kv.BatchTransportServer = o.transport.BatchServer()
+	o.kv.BatchTransportClient = o.transport.BatchClient()
+	o.kv.LeaseTransportServer = o.transport.LeaseServer()
+	o.kv.LeaseTransportClient = o.transport.LeaseClient()
+	o.kv.FeedbackTransportServer = o.transport.FeedbackServer()
+	o.kv.FeedbackTransportClient = o.transport.FeedbackClient()
 	return nil
 }

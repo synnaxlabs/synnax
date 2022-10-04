@@ -19,17 +19,17 @@ func newLocalWriter(
 		return nil, err
 	}
 	pipe := plumber.New()
-	plumber.SetSegment[cesium.WriteRequest, cesium.WriteResponse](pipe, "writer", w)
+	plumber.SetSegment[cesium.WriteRequest, cesium.WriteResponse](pipe, "writerClient", w)
 	reqT := newRequestTranslator(cfg.Resolver.HostID(), transient)
 	resT := newResponseTranslator()
 	plumber.SetSegment[Request, cesium.WriteRequest](pipe, "requestTranslator", reqT)
 	plumber.SetSegment[cesium.WriteResponse, Response](pipe, "responseTranslator", resT)
 	plumber.UnaryRouter[cesium.WriteRequest]{
 		SourceTarget: "requestTranslator",
-		SinkTarget:   "writer",
+		SinkTarget:   "writerClient",
 	}.MustRoute(pipe)
 	plumber.UnaryRouter[cesium.WriteResponse]{
-		SourceTarget: "writer",
+		SourceTarget: "writerClient",
 		SinkTarget:   "responseTranslator",
 	}.MustRoute(pipe)
 	seg := &plumber.Segment[Request, Response]{Pipeline: pipe}

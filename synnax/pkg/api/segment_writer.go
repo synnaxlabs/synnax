@@ -15,9 +15,9 @@ import (
 	"github.com/synnaxlabs/x/signal"
 )
 
-// WriterRequest represents a request to write segment data for a set of channels.
-type WriterRequest struct {
-	// OpenKeys is a slice of channel keys that the client plans to write to.
+// SegmentWriterRequest represents a request to write Segment data for a set of channels.
+type SegmentWriterRequest struct {
+	// OpenKeys is a slice of Channel keys that the client plans to write to.
 	// OpenKeys should only be specified in the	first request to the server, and will be
 	// ignored in future requests.
 	OpenKeys []string `json:"open_keys" msgpack:"open_keys"`
@@ -27,15 +27,15 @@ type WriterRequest struct {
 	Segments []Segment `json:"segments" msgpack:"segments"`
 }
 
-type WriterResponse struct {
+type SegmentWriterResponse struct {
 	// Ack is used to acknowledge requests issued by the client.
 	Ack bool `json:"ack" msgpack:"ack"`
 	// Err is a transient error encountered during writer operation, such as an invalid
-	// segment data type or channel key.
+	// Segment data type or Channel key.
 	Err ferrors.Payload `json:"error" msgpack:"error"`
 }
 
-type WriterStream = freighter.ServerStream[WriterRequest, WriterResponse]
+type SegmentWriterStream = freighter.ServerStream[SegmentWriterRequest, SegmentWriterResponse]
 
 // Write exposes a high level api for writing segmented telemetry to the delta
 // cluster. The client is expected to send an initial request containing the
@@ -54,15 +54,15 @@ type WriterStream = freighter.ServerStream[WriterRequest, WriterResponse]
 // of its own.
 //
 // Concrete api implementations (GRPC, Websocket, etc.) are expected to
-// implement the WriterStream interface according to the protocol defined in
-// the freighter.StreamTransportServer interface.
+// implement the SegmentWriterStream interface according to the protocol defined in
+// the freighter.StreamServer interface.
 //
 // When Write returns an error that is not errors.Canceled, the api
-// implementation is expected to return a WriterResponse.CloseMsg with the error,
+// implementation is expected to return a SegmentWriterResponse.CloseMsg with the error,
 // and then wait for a reasonable amount of time for the client to close the
 // connection before forcibly terminating the connection.
-func (s *SegmentService) Write(_ctx context.Context, stream WriterStream) errors.Typed {
-	ctx, cancel := signal.WithCancel(_ctx, signal.WithLogger(s.Logger.Desugar()))
+func (s *SegmentService) Write(_ctx context.Context, stream SegmentWriterStream) errors.Typed {
+	ctx, cancel := signal.WithCancel(_ctx, signal.WithLogger(s.logger.Desugar()))
 	// cancellation here would occur for one of two reasons. Either we encounter
 	// a fatal error (transport or writer internal) and we need to free all
 	// resources, OR the client executed the close command on the writer (in
@@ -95,7 +95,7 @@ func (s *SegmentService) Write(_ctx context.Context, stream WriterStream) errors
 			}
 			if err != nil {
 				cancel()
-				s.Logger.Error(err)
+				s.logger.Error(err)
 				return
 			}
 			segments, tErr := translateSegments(req.Segments)
@@ -112,14 +112,14 @@ func (s *SegmentService) Write(_ctx context.Context, stream WriterStream) errors
 		case <-ctx.Done():
 			return errors.Canceled
 		case err := <-parseErrors:
-			if err := stream.Send(WriterResponse{Err: ferrors.Encode(err)}); err != nil {
+			if err := stream.Send(SegmentWriterResponse{Err: ferrors.Encode(err)}); err != nil {
 				return errors.Unexpected(err)
 			}
 		case resp, ok := <-responses.Outlet():
 			if !ok {
 				return errors.Nil
 			}
-			if err := stream.Send(WriterResponse{
+			if err := stream.Send(SegmentWriterResponse{
 				Err: ferrors.Encode(errors.General(resp.Err)),
 			}); err != nil {
 				return errors.Unexpected(err)
@@ -143,7 +143,7 @@ func translateSegments(seg []Segment) ([]core.Segment, errors.Typed) {
 	return segments, errors.Nil
 }
 
-func (s *SegmentService) openWriter(ctx context.Context, srv WriterStream) (segment.StreamWriter, errors.Typed) {
+func (s *SegmentService) openWriter(ctx context.Context, srv SegmentWriterStream) (segment.StreamWriter, errors.Typed) {
 	keys, _err := receiveWriterOpenArgs(srv)
 	if _err.Occurred() {
 		return nil, _err
@@ -153,10 +153,10 @@ func (s *SegmentService) openWriter(ctx context.Context, srv WriterStream) (segm
 		return nil, errors.Query(err)
 	}
 	// Let the client know the writer is ready to receive segments.
-	return w, errors.MaybeUnexpected(srv.Send(WriterResponse{Ack: true}))
+	return w, errors.MaybeUnexpected(srv.Send(SegmentWriterResponse{Ack: true}))
 }
 
-func receiveWriterOpenArgs(srv WriterStream) (channel.Keys, errors.Typed) {
+func receiveWriterOpenArgs(srv SegmentWriterStream) (channel.Keys, errors.Typed) {
 	req, err := srv.Receive()
 	if err != nil {
 		return nil, errors.Unexpected(err)

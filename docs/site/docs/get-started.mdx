@@ -45,7 +45,7 @@ and running.
 To start a single node, run the following command:
 
 ```bash
-docker run -p 8080:8080 synnaxlabs/synnax --listen-address=localhost:8080 --mem
+docker run -p 8080:8080 synnaxlabs/synnax --listen-address=localhost:8080 --mem --insecure
 ```
 
 This will pull the latest version of Synnax from docker hub and start a single node
@@ -60,6 +60,9 @@ a multi-node cluster.
 
 `--mem` - Tells the node to store its data in memory, which is useful for testing
 purposes.
+
+`--insecure` - Tells the node to run without authenticating or encrypting requests. This
+is useful for development and testing purposes, but should not be used in production.
 
 ```mdx-code-block
 </TabItem>

@@ -11,13 +11,25 @@ import (
 )
 
 type (
-	baseWriterTransport = fgrpc.StreamTransportCore[
+	writerClient = fgrpc.StreamClientCore[
 		writer.Request,
 		*segmentv1.WriterRequest,
 		writer.Response,
 		*segmentv1.WriterResponse,
 	]
-	baseIteratorTransport = fgrpc.StreamTransportCore[
+	writerServerCore = fgrpc.StreamServerCore[
+		writer.Request,
+		*segmentv1.WriterRequest,
+		writer.Response,
+		*segmentv1.WriterResponse,
+	]
+	iteratorClient = fgrpc.StreamClientCore[
+		iterator.Request,
+		*segmentv1.IteratorRequest,
+		iterator.Response,
+		*segmentv1.IteratorResponse,
+	]
+	iteratorServerCore = fgrpc.StreamServerCore[
 		iterator.Request,
 		*segmentv1.IteratorRequest,
 		iterator.Response,
@@ -26,16 +38,18 @@ type (
 )
 
 var (
-	_ segmentv1.WriterServiceServer   = (*writerTransport)(nil)
-	_ writer.Transport                = (*writerTransport)(nil)
-	_ segmentv1.IteratorServiceServer = (*iteratorTransport)(nil)
-	_ iterator.Transport              = (*iteratorTransport)(nil)
+	_ segmentv1.WriterServiceServer   = (*writerServer)(nil)
+	_ writer.TransportServer          = (*writerServer)(nil)
+	_ writer.TransportClient          = (*writerClient)(nil)
+	_ segmentv1.IteratorServiceServer = (*iteratorServer)(nil)
+	_ iterator.TransportServer        = (*iteratorServer)(nil)
+	_ iterator.TransportClient        = (*iteratorClient)(nil)
 	_ segment.Transport               = (*transport)(nil)
 )
 
 func New(pool *fgrpc.Pool) *transport {
-	t := &transport{
-		wt: &writerTransport{baseWriterTransport: baseWriterTransport{
+	return &transport{
+		wc: &writerClient{
 			Pool:               pool,
 			RequestTranslator:  writerRequestTranslator{},
 			ResponseTranslator: writerResponseTranslator{},
@@ -45,8 +59,18 @@ func New(pool *fgrpc.Pool) *transport {
 			) (fgrpc.GRPCClientStream[*segmentv1.WriterRequest, *segmentv1.WriterResponse], error) {
 				return segmentv1.NewWriterServiceClient(conn).Write(ctx)
 			},
+		},
+		ws: &writerServer{writerServerCore: writerServerCore{
+			RequestTranslator:  writerRequestTranslator{},
+			ResponseTranslator: writerResponseTranslator{},
+			ServiceDesc:        &segmentv1.WriterService_ServiceDesc,
 		}},
-		it: &iteratorTransport{baseIteratorTransport: baseIteratorTransport{
+		is: &iteratorServer{iteratorServerCore: iteratorServerCore{
+			RequestTranslator:  iteratorRequestTranslator{},
+			ResponseTranslator: iteratorResponseTranslator{},
+			ServiceDesc:        &segmentv1.IteratorService_ServiceDesc,
+		}},
+		ic: &iteratorClient{
 			Pool:               pool,
 			RequestTranslator:  iteratorRequestTranslator{},
 			ResponseTranslator: iteratorResponseTranslator{},
@@ -56,33 +80,38 @@ func New(pool *fgrpc.Pool) *transport {
 			) (fgrpc.GRPCClientStream[*segmentv1.IteratorRequest, *segmentv1.IteratorResponse], error) {
 				return segmentv1.NewIteratorServiceClient(conn).Iterate(ctx)
 			},
-		}},
+		},
 	}
-	return t
 }
 
-type writerTransport struct{ baseWriterTransport }
+type writerServer struct{ writerServerCore }
 
-func (w *writerTransport) Write(server segmentv1.WriterService_WriteServer) error {
+func (w *writerServer) Write(server segmentv1.WriterService_WriteServer) error {
 	return w.Handler(server.Context(), w.Server(server))
 }
 
-type iteratorTransport struct{ baseIteratorTransport }
+type iteratorServer struct{ iteratorServerCore }
 
-func (t *iteratorTransport) Iterate(server segmentv1.IteratorService_IterateServer) error {
+func (t *iteratorServer) Iterate(server segmentv1.IteratorService_IterateServer) error {
 	return t.Handler(server.Context(), t.Server(server))
 }
 
 type transport struct {
-	wt *writerTransport
-	it *iteratorTransport
+	ws *writerServer
+	is *iteratorServer
+	wc writer.TransportClient
+	ic iterator.TransportClient
 }
 
-func (t *transport) Writer() writer.Transport { return t.wt }
+func (t *transport) WriterServer() writer.TransportServer { return t.ws }
 
-func (t *transport) Iterator() iterator.Transport { return t.it }
+func (t *transport) WriterClient() writer.TransportClient { return t.wc }
+
+func (t *transport) IteratorServer() iterator.TransportServer { return t.is }
+
+func (t *transport) IteratorClient() iterator.TransportClient { return t.ic }
 
 func (t *transport) BindTo(server grpc.ServiceRegistrar) {
-	segmentv1.RegisterIteratorServiceServer(server, t.it)
-	segmentv1.RegisterWriterServiceServer(server, t.wt)
+	segmentv1.RegisterWriterServiceServer(server, t.ws)
+	segmentv1.RegisterIteratorServiceServer(server, t.is)
 }

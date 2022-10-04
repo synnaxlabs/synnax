@@ -2,7 +2,9 @@ import pytest
 
 import freighter.exceptions
 from freighter.encoder import MsgpackEncoder
+from freighter.metadata import MetaData
 from freighter.sync import SyncStreamClient
+from freighter.transport import Next, AsyncNext
 from freighter.url import URL
 from freighter.websocket import WebsocketClient
 
@@ -11,7 +13,7 @@ from .interface import Error, Message
 
 @pytest.fixture
 def async_client(endpoint: URL) -> WebsocketClient:
-    ws_endpoint = endpoint.child("ws")
+    ws_endpoint = endpoint.child("stream")
     return WebsocketClient(encoder=MsgpackEncoder(), base_url=ws_endpoint)
 
 
@@ -40,6 +42,8 @@ class TestWS:
             "/sendMessageAfterClientClose", Message, Message
         )
         await stream.close_send()
+        # calling should be idempotent
+        await stream.close_send()
         msg, err = await stream.receive()
         assert err is None
         assert msg.id == 0
@@ -55,6 +59,21 @@ class TestWS:
         assert isinstance(err, Error)
         assert err.code == 1
         assert err.message == "unexpected error"
+
+    async def test_middleware(self, async_client):
+        dct = {"called": False}
+
+        async def mw(md: MetaData, next: AsyncNext) -> Exception | None:
+            md.params["Test"] = "test"
+            dct["called"] = True
+            return await next(md)
+
+        async_client.use(mw)
+        stream = await async_client.stream("/middlewareCheck", Message, Message)
+        await stream.close_send()
+        _, err = await stream.receive()
+        assert isinstance(err, freighter.EOF)
+        assert dct["called"]
 
 
 class TestSyncWebsocket:
@@ -85,3 +104,19 @@ class TestSyncWebsocket:
             assert msg.message == "hello"
         stream.close_send()
         assert c == 10
+
+    def test_middleware(self, sync_client: SyncStreamClient):
+        """Should receive ten messages from the server."""
+        dct = {"called": False}
+
+        def mw(md: MetaData, next: Next) -> Exception | None:
+            md.params["Test"] = "test"
+            dct["called"] = True
+            return next(md)
+
+        sync_client.use(mw)
+        stream = sync_client.stream("/middlewareCheck", Message, Message)
+        stream.close_send()
+        _, err = stream.receive()
+        assert isinstance(err, freighter.EOF)
+        assert dct["called"]

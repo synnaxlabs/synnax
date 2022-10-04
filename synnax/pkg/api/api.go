@@ -5,7 +5,12 @@
 package api
 
 import (
+	"context"
+	"go/types"
+
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/access"
+	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/auth"
 	"github.com/synnaxlabs/synnax/pkg/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -28,24 +33,88 @@ type Config struct {
 	Token         *token.Service
 	Authenticator auth.Authenticator
 	Enforcer      access.Enforcer
+	Insecure      bool
+}
+
+type Transport struct {
+	AuthLogin          freighter.UnaryServer[auth.InsecureCredentials, TokenResponse]
+	AuthChangeUsername freighter.UnaryServer[ChangeUsernameRequest, types.Nil]
+	AuthChangePassword freighter.UnaryServer[ChangePasswordRequest, types.Nil]
+	AuthRegistration   freighter.UnaryServer[RegistrationRequest, TokenResponse]
+	ChannelCreate      freighter.UnaryServer[ChannelCreateRequest, ChannelCreateResponse]
+	ChannelRetrieve    freighter.UnaryServer[ChannelRetrieveRequest, ChannelRetrieveResponse]
+	SegmentWriter      freighter.StreamServer[SegmentWriterRequest, SegmentWriterResponse]
+	SegmentIterator    freighter.StreamServer[SegmentIteratorRequest, SegmentIteratorResponse]
 }
 
 // API wraps all implemented API services into a single container. Protocol-specific
 // API implementations should use this struct during instantiation.
 type API struct {
-	Provider Provider
-	Config   Config
+	provider Provider
+	config   Config
 	Auth     *AuthService
 	Segment  *SegmentService
 	Channel  *ChannelService
 }
 
+func (a *API) BindTo(t Transport) {
+	err := errors.Middleware()
+	logger := logMiddleware(a.provider.Logging.logger)
+	tk := tokenMiddleware(a.provider.auth.token)
+	middleware := []freighter.Middleware{logger, err}
+	if !a.config.Insecure {
+		middleware = append(middleware, tk)
+	}
+
+	t.AuthRegistration.Use(logger, err)
+	t.AuthLogin.Use(logger, err)
+	t.AuthChangeUsername.Use(middleware...)
+	t.AuthChangePassword.Use(middleware...)
+	t.ChannelCreate.Use(middleware...)
+	t.ChannelRetrieve.Use(middleware...)
+	t.SegmentWriter.Use(middleware...)
+	t.SegmentIterator.Use(middleware...)
+
+	t.AuthLogin.BindHandler(typedUnaryWrapper(a.Auth.Login))
+	t.AuthChangeUsername.BindHandler(noResponseWrapper(a.Auth.ChangeUsername))
+	t.AuthChangePassword.BindHandler(noResponseWrapper(a.Auth.ChangePassword))
+	t.AuthRegistration.BindHandler(typedUnaryWrapper(a.Auth.Register))
+	t.ChannelCreate.BindHandler(typedUnaryWrapper(a.Channel.Create))
+	t.ChannelRetrieve.BindHandler(typedUnaryWrapper(a.Channel.Retrieve))
+	t.SegmentWriter.BindHandler(typedStreamWrapper(a.Segment.Write))
+	t.SegmentIterator.BindHandler(typedStreamWrapper(a.Segment.Iterate))
+}
+
 // New instantiates the delta API using the provided Config. This should probably
 // only be called once.
 func New(cfg Config) API {
-	api := API{Config: cfg, Provider: NewProvider(cfg)}
-	api.Auth = NewAuthService(api.Provider)
-	api.Segment = NewSegmentService(api.Provider)
-	api.Channel = NewChannelService(api.Provider)
+	api := API{config: cfg, provider: NewProvider(cfg)}
+	api.Auth = NewAuthServer(api.provider)
+	api.Segment = NewSegmentService(api.provider)
+	api.Channel = NewChannelService(api.provider)
 	return api
+}
+
+func typedUnaryWrapper[RQ, RS freighter.Payload](
+	handler func(context.Context, RQ) (RS, errors.Typed),
+) func(context.Context, RQ) (RS, error) {
+	return func(ctx context.Context, rq RQ) (RS, error) {
+		return handler(ctx, rq)
+	}
+}
+
+func typedStreamWrapper[RQ, RS freighter.Payload](
+	handler func(context.Context, freighter.ServerStream[RQ, RS]) errors.Typed,
+) func(context.Context, freighter.ServerStream[RQ, RS]) error {
+	return func(ctx context.Context, stream freighter.ServerStream[RQ, RS]) error {
+		return handler(ctx, stream)
+	}
+}
+
+func noResponseWrapper[RQ freighter.Payload](
+	handler func(ctx context.Context, rq RQ) (error errors.Typed),
+) func(ctx context.Context, rq RQ) (rs types.Nil, error error) {
+	return func(ctx context.Context, rq RQ) (types.Nil, error) {
+		return types.Nil{}, handler(ctx, rq)
+	}
 }

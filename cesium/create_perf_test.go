@@ -84,8 +84,8 @@ package cesium_test
 //
 //var _ = Describe("Create", Performance, func() {
 //	var (
-//		db      cesium.DB
-//		log     *zap.Logger
+//		db      cesium.db
+//		log     *zap.logger
 //		exp     alamos.Experiment
 //		factory seg.DataFactory
 //	)

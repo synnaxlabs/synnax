@@ -49,10 +49,10 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 		return d, err
 	}
 
-	channelTransport := channeltransport.New(cfg.Pool)
+	channelClient, channelServer := channeltransport.New(cfg.Pool)
 	segmentTransport := segmenttransport.New(cfg.Pool)
-	*cfg.Transports = append(*cfg.Transports, channelTransport, segmentTransport)
-	d.Channel = channel.New(d.Cluster, gorpDB, d.Storage.TS, channelTransport)
+	*cfg.Transports = append(*cfg.Transports, channelServer, segmentTransport)
+	d.Channel = channel.New(d.Cluster, gorpDB, d.Storage.TS, channelClient, channelServer)
 	d.Segment = segment.New(d.Channel, d.Storage.TS, segmentTransport, d.Cluster, cfg.Logger)
 
 	return d, nil

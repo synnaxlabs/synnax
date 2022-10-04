@@ -11,7 +11,7 @@ var _ = Describe("Stream", func() {
 	var (
 		addr address.Address = "addr"
 	)
-	Describe("Internal Stream", func() {
+	Describe("internal Stream", func() {
 		Describe("Address", func() {
 			Context("Stream", func() {
 				It("Should set the inlet address properly", func() {

@@ -3,12 +3,8 @@ package cluster_test
 import (
 	"context"
 	"fmt"
-	"github.com/synnaxlabs/freighter/fmock"
-	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/alamos"
-	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/rand"
-	"github.com/synnaxlabs/x/signal"
+	"time"
+
 	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -16,8 +12,13 @@ import (
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/node"
+	"github.com/synnaxlabs/freighter/fmock"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/alamos"
+	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/rand"
+	"github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
-	"time"
 )
 
 type newConvergenceVars struct {
@@ -64,7 +65,7 @@ var _ = Describe("Convergence", func() {
 		Expect(errors.Is(clusterCtx.Wait(), context.Canceled)).To(BeTrue())
 	})
 
-	Context("Serial Pledge", func() {
+	Context("Serial PledgeServer", func() {
 
 		p := alamos.NewParametrize(alamos.IterVars(progressiveNewConvergence))
 		p.Template(func(i int, values newConvergenceVars) {
@@ -79,8 +80,8 @@ var _ = Describe("Convergence", func() {
 				)
 				subExp := alamos.Sub(exp, fmt.Sprintf("convergence_test_%v", i))
 				for i := 0; i < values.clusterSize; i++ {
-					gossipT := gossipNet.RouteUnary("")
-					pledgeT := pledgeNet.RouteUnary(gossipT.Address)
+					gossipT := gossipNet.UnaryServer("")
+					pledgeT := pledgeNet.UnaryServer(gossipT.Address)
 					peerAddresses := rand.SubSlice(addresses, values.peerAddrCount)
 					cluster, err := cluster.Join(
 						clusterCtx,
@@ -88,14 +89,16 @@ var _ = Describe("Convergence", func() {
 							HostAddress: gossipT.Address,
 							Logger:      logger,
 							Pledge: pledge.Config{
-								Peers:         peerAddresses,
-								Transport:     pledgeT,
-								RetryInterval: values.gossipInterval,
-								RetryScale:    1,
+								Peers:           peerAddresses,
+								TransportServer: pledgeT,
+								TransportClient: pledgeNet.UnaryClient(),
+								RetryInterval:   values.gossipInterval,
+								RetryScale:      1,
 							},
 							Gossip: gossip.Config{
-								Transport: gossipT,
-								Interval:  values.gossipInterval,
+								TransportServer: gossipT,
+								TransportClient: gossipNet.UnaryClient(),
+								Interval:        values.gossipInterval,
 							},
 							Storage:    memkv.New(),
 							Experiment: alamos.Sub(subExp, fmt.Sprintf("cluster_%v", i)),

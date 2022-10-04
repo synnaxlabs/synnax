@@ -1,6 +1,7 @@
 import {
   HTTPClientFactory,
   JSONEncoderDecoder,
+  Middleware,
   StreamClient,
   UnaryClient,
   URL,
@@ -27,5 +28,10 @@ export default class Transport {
 
   postClient(): UnaryClient {
     return this.httpFactory.postClient();
+  }
+
+  use(...middleware: Middleware[]) {
+    this.httpFactory.use(...middleware);
+    this.streamClient.use(...middleware);
   }
 }

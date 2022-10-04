@@ -1,10 +1,10 @@
 package gossip
 
 import (
+	"github.com/synnaxlabs/aspen/internal/cluster/store"
 	"github.com/synnaxlabs/x/alamos"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
-	"github.com/synnaxlabs/aspen/internal/cluster/store"
 	"go.uber.org/zap"
 	"time"
 )
@@ -12,9 +12,12 @@ import (
 // Config sets specific parameters for the gossip service. See DefaultConfig
 // for default values. It implements the config.Config interface.
 type Config struct {
-	// Transport is the transport used to exchange gossip between nodes.
+	// TransportClient is the transport used to exchange gossip between nodes.
 	// [Required]
-	Transport Transport
+	TransportClient TransportClient
+	// TransportServer is the transport used to exchange gossip between nodes.
+	// [Required]
+	TransportServer TransportServer
 	// Store is where cluster state will be synchronized to and from.
 	// [Required]
 	Store store.Store
@@ -30,7 +33,8 @@ type Config struct {
 func (cfg Config) Override(other Config) Config {
 	cfg.Interval = override.Numeric(cfg.Interval, other.Interval)
 	cfg.Logger = override.Nil(cfg.Logger, other.Logger)
-	cfg.Transport = override.Nil(cfg.Transport, other.Transport)
+	cfg.TransportClient = override.Nil(cfg.TransportClient, other.TransportClient)
+	cfg.TransportServer = override.Nil(cfg.TransportServer, other.TransportServer)
 	cfg.Store = override.Nil(cfg.Store, other.Store)
 	return cfg
 }
@@ -38,19 +42,21 @@ func (cfg Config) Override(other Config) Config {
 // Validate implements the config.Config interface.
 func (cfg Config) Validate() error {
 	v := validate.New("gossip")
-	validate.NotNil(v, "transport", cfg.Transport)
-	validate.NotNil(v, "store", cfg.Store)
-	validate.Positive(v, "interval", cfg.Interval)
-	validate.NotNil(v, "logger", cfg.Logger)
+	validate.NotNil(v, "TransportClient", cfg.TransportClient)
+	validate.NotNil(v, "TransportServer", cfg.TransportServer)
+	validate.NotNil(v, "Store", cfg.Store)
+	validate.Positive(v, "Interval", cfg.Interval)
+	validate.NotNil(v, "Logger", cfg.Logger)
 	return v.Error()
 }
 
 // Report implements the alamos.Reporter interface. Assumes the config is valid.
 func (cfg Config) Report() alamos.Report {
-	report := make(alamos.Report)
-	report["interval"] = cfg.Interval
-	report["transport"] = cfg.Transport.Report()
-	return report
+	return alamos.Report{
+		"interval":        cfg.Interval,
+		"transportClient": cfg.TransportClient.Report(),
+		"transportServer": cfg.TransportServer.Report(),
+	}
 }
 
 var (

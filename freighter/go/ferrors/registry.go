@@ -6,7 +6,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// Payload is a typed payload for transporting an error over a freighter freighter.
+// Payload is a typed payload for transporting an error OVER A NETWORK.
 // It includes type information as well as encoded error data.
 type Payload struct {
 	// Type is the type of the error.

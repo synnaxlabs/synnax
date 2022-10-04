@@ -26,8 +26,10 @@ func TestWriter(t *testing.T) {
 type serviceContainer struct {
 	channel   *channel.Service
 	transport struct {
-		channel channel.CreateTransport
-		writer  writer.Transport
+		channelClient channel.CreateTransportClient
+		channelServer channel.CreateTransportServer
+		writerClient  writer.TransportClient
+		writerServer  writer.TransportServer
 	}
 }
 
@@ -39,19 +41,23 @@ func provisionNServices(n int, logger *zap.Logger) (*mock.CoreBuilder, map[core.
 	for i := 0; i < n; i++ {
 		_core := builder.New()
 		var container serviceContainer
-		container.transport.channel = channelNet.RouteUnary(_core.Config.AdvertiseAddress)
-		container.transport.writer = writerNet.RouteStream(_core.Config.AdvertiseAddress, 0)
+		container.transport.channelServer = channelNet.UnaryServer(_core.Config.AdvertiseAddress)
+		container.transport.channelClient = channelNet.UnaryClient()
+		container.transport.writerServer = writerNet.StreamServer(_core.Config.AdvertiseAddress, 10)
+		container.transport.writerClient = writerNet.StreamClient(10)
 		container.channel = channel.New(
 			_core.Cluster,
 			_core.Storage.Gorpify(),
 			_core.Storage.TS,
-			container.transport.channel,
+			container.transport.channelClient,
+			container.transport.channelServer,
 		)
 		writer.NewServer(writer.Config{
-			TS:             _core.Storage.TS,
-			ChannelService: container.channel,
-			Resolver:       _core.Cluster,
-			Transport:      container.transport.writer,
+			TS:              _core.Storage.TS,
+			ChannelService:  container.channel,
+			Resolver:        _core.Cluster,
+			TransportServer: container.transport.writerServer,
+			TransportClient: container.transport.writerClient,
 		})
 		services[_core.Cluster.HostID()] = container
 	}
@@ -68,12 +74,13 @@ func openWriter(
 	return writer.New(
 		ctx,
 		writer.Config{
-			TS:             builder.Cores[nodeID].Storage.TS,
-			ChannelService: services[nodeID].channel,
-			Resolver:       builder.Cores[nodeID].Cluster,
-			Transport:      services[nodeID].transport.writer,
-			ChannelKeys:    keys,
-			Logger:         log,
+			TS:              builder.Cores[nodeID].Storage.TS,
+			ChannelService:  services[nodeID].channel,
+			Resolver:        builder.Cores[nodeID].Cluster,
+			TransportServer: services[nodeID].transport.writerServer,
+			TransportClient: services[nodeID].transport.writerClient,
+			ChannelKeys:     keys,
+			Logger:          log,
 		},
 	)
 }

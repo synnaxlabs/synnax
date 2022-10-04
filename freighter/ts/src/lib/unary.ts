@@ -1,10 +1,12 @@
 import { ZodSchema } from 'zod';
 
+import { Transport } from './transport';
+
 /**
  * An interface for an entity that implements a simple request-response
  * transport between two entities.
  */
-export interface UnaryClient {
+export interface UnaryClient extends Transport {
   /**
    * Sends a request to the target server and waits until a response is received.
    * @param target - The target server to send the request to.

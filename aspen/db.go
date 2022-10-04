@@ -7,6 +7,7 @@ import (
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/kv"
 	"github.com/synnaxlabs/aspen/internal/node"
+	"github.com/synnaxlabs/aspen/transport"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errutil"
 	kvx "github.com/synnaxlabs/x/kv"
@@ -14,6 +15,7 @@ import (
 )
 
 type (
+	Transport    = transport.Transport
 	Cluster      = cluster.Cluster
 	Resolver     = cluster.Resolver
 	HostResolver = cluster.HostResolver

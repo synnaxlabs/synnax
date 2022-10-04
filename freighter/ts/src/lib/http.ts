@@ -3,50 +3,55 @@ import { ZodSchema } from 'zod';
 
 import { EncoderDecoder } from './encoder';
 import { decodeError, ErrorPayloadSchema } from './errors';
+import { MetaData, MiddlewareCollector } from './middleware';
 import { UnaryClient } from './unary';
 import URL from './url';
 
 /**
- * HTTPClientFactory provides a POST and GET implementation of the Unary protocol.
+ * HTTPClientFactory provides a POST and GET implementation of the Unary
+ * protocol.
  *
  * @param url - The base URL of the API.
  * @param encoder - The encoder/decoder to use for the request/response.
  */
-export class HTTPClientFactory {
+export class HTTPClientFactory extends MiddlewareCollector {
   endpoint: URL;
   encoder: EncoderDecoder;
 
   constructor(endpoint: URL, encoder: EncoderDecoder) {
+    super();
     this.endpoint = endpoint;
     this.encoder = encoder;
   }
 
   getClient(): GETClient {
-    return new GETClient(this.endpoint, this.encoder);
+    const gc = new GETClient(this.endpoint, this.encoder);
+    gc.use(...this.middleware);
+    return gc;
   }
 
   postClient(): POSTClient {
-    return new POSTClient(this.endpoint, this.encoder);
+    const pc = new POSTClient(this.endpoint, this.encoder);
+    pc.use(...this.middleware);
+    return pc;
   }
 }
 
-class Core {
+export const CONTENT_TYPE_HEADER_KEY = 'Content-Type';
+
+class Core extends MiddlewareCollector {
   endpoint: URL;
   encoder: EncoderDecoder;
 
-  private static ERROR_ENCODING_HEADER_KEY = 'Error-Encoding';
-  private static ERROR_ENCODING_HEADER_VALUE = 'freighter';
-  private static CONTENT_TYPE_HEADER_KEY = 'Content-Type';
-
   constructor(endpoint: URL, encoder: EncoderDecoder) {
+    super();
     this.endpoint = endpoint.replace({ protocol: 'http' });
     this.encoder = encoder;
   }
 
   get headers() {
     return {
-      [Core.CONTENT_TYPE_HEADER_KEY]: this.encoder.contentType,
-      [Core.ERROR_ENCODING_HEADER_KEY]: Core.ERROR_ENCODING_HEADER_VALUE,
+      [CONTENT_TYPE_HEADER_KEY]: this.encoder.contentType,
     };
   }
 
@@ -63,17 +68,30 @@ class Core {
     request: AxiosRequestConfig,
     resSchema: ZodSchema<RS>
   ): Promise<[RS | undefined, Error | undefined]> {
-    const response = await axios.request(request);
-    if (response.status < 200 || response.status >= 300) {
-      try {
-        const err = this.encoder.decode(response.data, ErrorPayloadSchema);
-        return [undefined, decodeError(err)];
-      } catch {
-        return [undefined, new Error(response.data)];
+    let rs: RS | undefined = undefined;
+
+    if (!request.url)
+      throw new Error('[freighter.http] - expected valid request url');
+
+    const err = await this.executeMiddleware(
+      { target: request.url, protocol: 'http', params: {} },
+      async (md: MetaData): Promise<Error | undefined> => {
+        request.headers = { ...request.headers, ...this.headers, ...md.params };
+        const httpRes = await axios.request(request);
+        if (httpRes.status < 200 || httpRes.status >= 300) {
+          try {
+            const err = this.encoder.decode(httpRes.data, ErrorPayloadSchema);
+            return decodeError(err);
+          } catch {
+            return new Error(httpRes.data);
+          }
+        }
+        rs = this.encoder.decode(httpRes.data, resSchema);
+        return undefined;
       }
-    }
-    const data = this.encoder.decode(response.data, resSchema);
-    return [data, undefined];
+    );
+
+    return [rs, err];
   }
 }
 
@@ -87,10 +105,11 @@ export class GETClient extends Core implements UnaryClient {
     req: RQ,
     resSchema: ZodSchema<RS>
   ): Promise<[RS | undefined, Error | undefined]> {
-    const queryString = buildQueryString(req as Record<string, unknown>);
     const request = this.requestConfig();
     request.method = 'GET';
-    request.url = this.endpoint.child(target).stringify() + '?' + queryString;
+    request.url =
+      this.endpoint.child(target).stringify() +
+      buildQueryString({ request: req as Record<string, unknown> });
     return await this.execute(request, resSchema);
   }
 }
@@ -114,8 +133,17 @@ export class POSTClient extends Core implements UnaryClient {
   }
 }
 
-const buildQueryString = (request: Record<string, unknown>) => {
-  return Object.keys(request)
-    .map((key) => `${key}=${request[key]}`)
-    .join('&');
+export const buildQueryString = ({
+  request,
+  prefix = '',
+}: {
+  request: Record<string, unknown>;
+  prefix?: string;
+}) => {
+  return (
+    '?' +
+    Object.keys(request)
+      .map((key) => `${prefix}${key}=${request[key]}`)
+      .join('&')
+  );
 };

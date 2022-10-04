@@ -8,7 +8,7 @@ import URL from './url';
 const ENDPOINT = new URL({
   host: '127.0.0.1',
   port: 8080,
-  pathPrefix: 'http',
+  pathPrefix: 'unary',
 });
 
 const factory = new HTTPClientFactory(ENDPOINT, new JSONEncoderDecoder());
@@ -55,7 +55,7 @@ test('[http] - get not found', async (t) => {
     {},
     MessageSchema
   );
-  t.is(error?.message, 'Cannot GET /http/not-found/');
+  t.is(error?.message, 'Cannot GET /unary/not-found');
   t.is(response, undefined);
 });
 
@@ -65,6 +65,21 @@ test('[http] - post not found', async (t) => {
     {},
     MessageSchema
   );
-  t.is(error?.message, 'Cannot POST /http/not-found/');
+  t.is(error?.message, 'Cannot POST /unary/not-found');
   t.is(response, undefined);
+});
+
+test('[http] - middleware', async (t) => {
+  const client = factory.getClient();
+  client.use(async (md, next) => {
+    md.params['Test'] = 'test';
+    return await next(md);
+  });
+  const [response, error] = await client.send<Message, Message>(
+    '/middlewareCheck',
+    {},
+    MessageSchema
+  );
+  t.is(error, undefined);
+  t.is(response?.message, '');
 });

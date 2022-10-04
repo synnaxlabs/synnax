@@ -12,6 +12,11 @@ from .sugared import NumpySegment
 
 
 class SegmentClient:
+    """SegmentClient provides interfaces for reading and writing segmented
+    telemetry from a Synnax Cluster. SegmentClient should not be instantiated
+    directly, but rather used through the synnax.Synnax class.
+    """
+
     _transport: Transport
     _channels: ChannelRegistry
 

@@ -1,12 +1,12 @@
 package cesium_test
 
 import (
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("CreateChannel", func() {
@@ -28,7 +28,7 @@ var _ = Describe("CreateChannel", func() {
 		Expect(resCh[0].Rate).To(Equal(telem.Rate(25)))
 		Expect(resCh[0].Density).To(Equal(telem.Density(1)))
 	})
-	Describe("Validation Errors", func() {
+	Describe("validation Errors", func() {
 		It("Should return an error if the data rate is zero", func() {
 			ch.Rate = 0
 			Expect(db.CreateChannel(&ch)).To(HaveOccurredAs(validate.ValidationError))

@@ -39,15 +39,3 @@ func (p batchFactory[E]) Batch(entries []E) Batch[E] {
 }
 
 type AddressMap map[core.NodeID]address.Address
-
-func ResolveAddressMap(resolver aspen.Resolver, nodes ...core.NodeID) (AddressMap, error) {
-	addrMap := make(AddressMap, len(nodes))
-	for _, id := range nodes {
-		addr, err := resolver.Resolve(id)
-		if err != nil {
-			return addrMap, err
-		}
-		addrMap[id] = addr
-	}
-	return addrMap, nil
-}

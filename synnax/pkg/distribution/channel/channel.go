@@ -32,7 +32,7 @@ func NewKey(nodeID core.NodeID, cesiumKey storage.ChannelKey) (key Key) {
 func (c Key) NodeID() core.NodeID { return core.NodeID(binary.LittleEndian.Uint32(c[0:4])) }
 
 // StorageKey returns a unique identifier for the Channel within the leaseholder node's
-// storage.TS DB. This value is NOT guaranteed to be unique across the entire cluster.
+// storage.TS db. This value is NOT guaranteed to be unique across the entire cluster.
 func (c Key) StorageKey() storage.ChannelKey {
 	return storage.ChannelKey(binary.LittleEndian.Uint16(c[4:6]))
 }
@@ -164,5 +164,5 @@ func (c Channel) GorpKey() Key { return c.Key() }
 // from.
 func (c Channel) SetOptions() []interface{} { return []interface{}{c.Lease()} }
 
-// Lease implements the proxy.RouteUnary interface.
+// Lease implements the proxy.UnaryServer interface.
 func (c Channel) Lease() core.NodeID { return c.NodeID }

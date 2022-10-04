@@ -14,6 +14,7 @@ interface CustomTypeEncoder {
 
   /**
    * The function that transforms the value before encoding;
+   *
    * @param instance - The instance of the class to transform.
    * @returns The transformed value.
    */
@@ -21,8 +22,8 @@ interface CustomTypeEncoder {
 }
 
 /**
- * EncoderDecoder is an entity that encodes and decodes messages to and from
- * a binary format.
+ * EncoderDecoder is an entity that encodes and decodes messages to and from a
+ * binary format.
  */
 export interface EncoderDecoder {
   /** The HTTP content type of the encoder */
@@ -30,13 +31,15 @@ export interface EncoderDecoder {
 
   /**
    * Encodes the given payload into a binary representation.
+   *
    * @param payload - The payload to encode.
-   * @returns an ArrayBuffer containing the encoded payload.
+   * @returns An ArrayBuffer containing the encoded payload.
    */
   encode(payload: unknown): ArrayBuffer;
 
   /**
    * Decodes the given binary representation into a type checked payload.
+   *
    * @param data - The data to decode.
    * @param schema - The schema to decode the data with.
    */
@@ -47,9 +50,7 @@ interface StaticEncoderDecoder {
   registerCustomType(encoder: CustomTypeEncoder): void;
 }
 
-/***
- * MsgpackEncoderDecoder is a msgpack implementation of EncoderDecoder.
- */
+/** MsgpackEncoderDecoder is a msgpack implementation of EncoderDecoder. */
 export class MsgpackEncoderDecoder implements EncoderDecoder {
   contentType = 'application/msgpack';
 
@@ -66,9 +67,7 @@ export class MsgpackEncoderDecoder implements EncoderDecoder {
   }
 }
 
-/**
- * JSONEncoderDecoder is a JSON implementation of EncoderDecoder.
- */
+/** JSONEncoderDecoder is a JSON implementation of EncoderDecoder. */
 export class JSONEncoderDecoder implements EncoderDecoder {
   contentType = 'application/json';
 
