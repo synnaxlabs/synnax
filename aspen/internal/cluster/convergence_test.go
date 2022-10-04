@@ -3,6 +3,8 @@ package cluster_test
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -17,7 +19,6 @@ import (
 	"github.com/synnaxlabs/x/rand"
 	"github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
-	"time"
 )
 
 type newConvergenceVars struct {
@@ -89,12 +90,14 @@ var _ = Describe("Convergence", func() {
 							Logger:      logger,
 							Pledge: pledge.Config{
 								Peers:           peerAddresses,
-								TransportClient: pledgeT,
+								TransportServer: pledgeT,
+								TransportClient: pledgeNet.UnaryClient(),
 								RetryInterval:   values.gossipInterval,
 								RetryScale:      1,
 							},
 							Gossip: gossip.Config{
-								TransportClient: gossipT,
+								TransportServer: gossipT,
+								TransportClient: gossipNet.UnaryClient(),
 								Interval:        values.gossipInterval,
 							},
 							Storage:    memkv.New(),
