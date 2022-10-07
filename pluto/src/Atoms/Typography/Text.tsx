@@ -1,11 +1,14 @@
-import { createElement, HTMLAttributes, PropsWithChildren } from "react";
+import { createElement, HTMLAttributes } from "react";
+import { FontLevel } from "../../Theme/theme";
 
-export type textLevel = "h1" | "h2" | "h3" | "h4" | "h5" | "p" | "small";
-
-export interface TextProps extends PropsWithChildren<HTMLAttributes<any>> {
-  level: textLevel;
-  children: string | number;
+export interface BaseTextProps {
+  level: FontLevel;
+  children?: string | number;
 }
+
+export interface TextProps
+  extends BaseTextProps,
+    Omit<HTMLAttributes<HTMLParagraphElement>, "children"> {}
 
 const levelTag = {
   h1: "h1",
@@ -17,11 +20,14 @@ const levelTag = {
   small: "h6",
 };
 
-const defaultLevel = "h1"
+export type Size = "small" | "medium" | "large";
 
-const Text = ({ level = defaultLevel, ...props }: TextProps) => {
-  return createElement(levelTag[level] || defaultLevel, { ...props });
+export const sizeLevels: Record<Size, FontLevel> = {
+  small: "small",
+  medium: "p",
+  large: "h4",
+};
+
+export default function Text({ level = "h1", ...props }: TextProps) {
+  return createElement(levelTag[level], { ...props });
 }
-
-
-export default Text;

@@ -7,20 +7,26 @@ type typography = {
   textTransform?: string;
 };
 
+export type FontLevel = "h1" | "h2" | "h3" | "h4" | "h5" | "p" | "small";
+
 export interface Theme {
   name: string;
   colors: {
+    border: color;
     primary: {
       m1: color;
       z: color;
       p1: color;
     };
     gray: {
+      m3: color;
       m2: color;
       m1: color;
-      z: color;
+      m0: color;
+      p0: color;
       p1: color;
       p2: color;
+      p3: color;
     };
     error: {
       m1: color;
@@ -58,8 +64,8 @@ export interface Theme {
 }
 
 const white: color = "#FFFFFF";
-const black: color = "#212429";
-const fontFamily = "Roboto, sans-serif";
+const black: color = "#171716";
+const fontFamily = "Inter, sans-serif";
 const baseSize: size = 6;
 
 const synnaxBase: Theme = {
@@ -71,12 +77,16 @@ const synnaxBase: Theme = {
       p1: "#3b84e5",
     },
     gray: {
-      p2: "#51565e",
-      p1: "#61636b",
-      z: "#ACB5BD",
-      m1: "#b2b2b2",
-      m2: "#c9c9c9",
+      p3: "#1D1D1C",
+      p2: "#30302E",
+      p1: "#474744",
+      p0: "#676762",
+      m0: "#94938D",
+      m1: "#C8C7BF",
+      m2: "#F5F5F1",
+      m3: "#FEFEFD",
     },
+    border: "#C8C7BF",
     error: {
       m1: "#CF1322",
       z: "#F5222D",
@@ -140,12 +150,12 @@ const synnaxBase: Theme = {
     p: {
       size: baseSize * 2.5,
       weight: "regular",
-      lineHeight: baseSize * 3.5,
+      lineHeight: baseSize * 3,
     },
     small: {
       size: baseSize * 2,
       weight: "regular",
-      lineHeight: baseSize * 3,
+      lineHeight: baseSize * (2 + 1 / 3),
     },
   },
 };
@@ -161,12 +171,16 @@ export const synnaxDark = {
   colors: {
     ...synnaxBase.colors,
     gray: {
+      m3: synnaxBase.colors.gray.p3,
       m2: synnaxBase.colors.gray.p2,
       m1: synnaxBase.colors.gray.p1,
-      z: synnaxBase.colors.gray.z,
+      m0: synnaxBase.colors.gray.p0,
+      p0: synnaxBase.colors.gray.m0,
       p1: synnaxBase.colors.gray.m1,
       p2: synnaxBase.colors.gray.m2,
+      p3: synnaxBase.colors.gray.m3,
     },
+    border: synnaxBase.colors.gray.p1,
     background: synnaxBase.colors.black,
     text: synnaxBase.colors.white,
   },

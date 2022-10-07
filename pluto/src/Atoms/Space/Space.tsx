@@ -1,12 +1,20 @@
-import { HTMLAttributes, PropsWithChildren } from "react";
-import { classList } from "../../util/css";
+import clsx from "clsx";
+import {
+  forwardRef,
+  HTMLAttributes,
+  PropsWithChildren,
+  RefObject,
+} from "react";
 import "./Space.css";
+
+type SpaceDirection = "horizontal" | "vertical";
 
 export interface SpaceProps
   extends PropsWithChildren<HTMLAttributes<HTMLDivElement>> {
   empty?: boolean;
   size?: "small" | "medium" | "large" | number;
-  direction?: "horizontal" | "vertical";
+  direction?: SpaceDirection;
+  reverse?: boolean;
   justify?:
     | "start"
     | "end"
@@ -15,6 +23,7 @@ export interface SpaceProps
     | "spaceAround"
     | "spaceEvenly";
   align?: "start" | "end" | "center" | "stretch";
+  grow?: boolean | number;
 }
 
 const justifyMap = {
@@ -26,40 +35,62 @@ const justifyMap = {
   spaceEvenly: "space-evenly",
 };
 
-const Space = ({
-  empty = false,
-  size = "medium",
-  justify = "start",
-  children,
-  align,
-  ...props
-}: SpaceProps) => {
-  let gap;
-  if (empty) {
-    gap = 0
-  } else if (typeof size == "string")  {
-    gap = `pluto-space--${size}`
-  } else{
-    gap = `calc(var(--base-size) * ${size})`
+const Space = forwardRef<HTMLDivElement, SpaceProps>(
+  (
+    {
+      empty = false,
+      size = "medium",
+      justify = "start",
+      reverse = false,
+      direction = "vertical",
+      children,
+      align,
+      ...props
+    }: SpaceProps,
+    ref
+  ) => {
+    let gap;
+    if (empty) {
+      size = "";
+      gap = 0;
+    } else if (typeof size == "string") {
+      gap = `pluto-space--${size}`;
+    } else {
+      gap = `calc(var(--pluto-base-size) * ${size})`;
+    }
+    if (props.grow === true) {
+      props.grow = 1;
+    }
+    return (
+      <div
+        {...props}
+        className={clsx(
+          "pluto-space",
+          typeof size === "string" ? "pluto-space--" + size : undefined,
+          props.className
+        )}
+        ref={ref}
+        style={{
+          flexDirection: getDirection(direction, reverse),
+          gap,
+          justifyContent: justifyMap[justify],
+          alignItems: align,
+          flexGrow: props.grow ? props.grow : undefined,
+          ...props.style,
+        }}
+      >
+        {children}
+      </div>
+    );
   }
-  return (
-    <div
-      className={classList(
-        "pluto-space",
-        typeof size === "string" ? "pluto-space--" + size : undefined,
-        props.className
-      )}
-      style={{
-        flexDirection: props.direction === "horizontal" ? "row" : "column",
-        gap,
-        justifyContent: justify && justifyMap[justify],
-        alignItems: align,
-        ...props.style,
-      }}
-    >
-      {children}
-    </div>
-  );
-}
+);
 
 export default Space;
+
+const getDirection = (direction: SpaceDirection, reverse: boolean) => {
+  if (direction === "horizontal") {
+    return reverse ? "row-reverse" : "row";
+  } else {
+    return reverse ? "column-reverse" : "column";
+  }
+};

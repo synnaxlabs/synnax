@@ -1,43 +1,53 @@
-import { InputHTMLAttributes, PropsWithChildren } from "react";
-import { classList } from "../../util/css";
+import { DetailedHTMLProps, forwardRef, InputHTMLAttributes } from "react";
 import "./Input.css";
 import Space from "../Space/Space";
 import { uuidShort } from "../../util/uuid";
+import clsx from "clsx";
 
-interface InputProps
-  extends Omit<InputHTMLAttributes<HTMLInputElement>, "size"> {
+export interface InputProps
+  extends Omit<
+    DetailedHTMLProps<InputHTMLAttributes<HTMLInputElement>, HTMLInputElement>,
+    "size" | "onChange" | "value"
+  > {
   size?: "small" | "medium";
   name?: string;
   label?: string;
+  value?: string;
+  onChange?: (value: string) => void;
 }
 
-const Input = ({
-  size = "medium",
-  name = uuidShort(),
-  label,
-  placeholder,
-  value,
-  ...props
-}: InputProps) => {
-  return (
-    <Space className="pluto-input__container" size={1}>
-      {label && (
-        <label className="pluto-input__label" htmlFor={name}>
-          {label}
-        </label>
-      )}
+const Input = forwardRef<HTMLInputElement, InputProps>(
+  (
+    {
+      size = "medium",
+      name = uuidShort(),
+      label,
+      placeholder,
+      value,
+      onChange,
+      className,
+      ...props
+    }: InputProps,
+    ref
+  ) => {
+    return (
       <input
+        ref={ref}
         id={name}
         placeholder={placeholder}
-        className={classList(
+        className={clsx(
           "pluto-input__input",
           "pluto-input__input--" + size,
-          props.className
+          className
         )}
+        onChange={(e) => {
+          if (onChange) onChange(e.target.value);
+        }}
+        value={value}
         {...props}
       />
-    </Space>
-  );
-}
+    );
+  }
+);
 
 export default Input;

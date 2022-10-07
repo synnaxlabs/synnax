@@ -1,8 +1,17 @@
-import Text from "./Text";
+import IconText from "./IconText";
+import { AiOutlineDelete } from "react-icons/ai";
 
 export default {
-  title: "Atoms/Text",
-  component: Text,
+  title: "Atoms/IconText",
+  component: IconText,
 };
 
-export const Primary = () => <Text level="h2">Hello</Text>;
+export const Primary = () => (
+  <IconText
+    level="h2"
+    startIcon={<AiOutlineDelete />}
+    endIcon={<AiOutlineDelete />}
+  >
+    Hello
+  </IconText>
+);

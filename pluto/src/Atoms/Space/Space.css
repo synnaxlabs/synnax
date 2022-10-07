@@ -3,13 +3,13 @@
 }
 
 .pluto-space--medium {
-  gap: calc(var(--base-size) * 2);
+  gap: calc(var(--pluto-base-size) * 2);
 }
 
 .pluto-space--large {
-  gap: calc(var(--base-size) * 4);
+  gap: calc(var(--pluto-base-size) * 4);
 }
 
 .pluto-space--small {
-  gap: var(--base-size);
+  gap: var(--pluto-base-size);
 }

@@ -1,0 +1,24 @@
+.pluto-list-col__item__container {
+    width: 100%;
+    height: 30px;
+    padding: 0 var(--pluto-base-size);
+    cursor: pointer;
+}
+
+.pluto-list-col__item__container--selected {
+    background-color: var(--pluto-primary-p1-40)
+}
+
+.pluto-list-col__item__container:hover {
+    background-color: var(--pluto-gray-m2);
+}
+
+
+.pluto-list-col__item__container--selected:hover {
+    background-color: var(--pluto-primary-p1-40);
+}
+
+.pluto-list-col__header__container {
+    padding: var(--pluto-base-size) calc(var(--pluto-base-size) * 2);
+    border-bottom: var(--pluto-border-width) solid var(--pluto-border-color);
+}

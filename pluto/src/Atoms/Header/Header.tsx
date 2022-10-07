@@ -2,7 +2,7 @@ import Space, { SpaceProps } from "../Space/Space";
 import "./Header.css";
 import { cloneElement, ReactElement } from "react";
 import { useThemeContext } from "../../Theme/ThemeContext";
-import { classList } from "../../util/css";
+import clsx from "clsx";
 
 export type FontSize = "h1" | "h2" | "h3" | "h4" | "h5" | "p" | "small";
 
@@ -38,7 +38,7 @@ const Header = ({
   return (
     <Space
       direction="horizontal"
-      className={classList("pluto-header__container", className)}
+      className={clsx("pluto-header__container", className)}
       align="center"
       size="medium"
       style={{ height: sizeVal, ...style }}
