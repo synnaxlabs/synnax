@@ -2,6 +2,8 @@ package channel
 
 import (
 	"context"
+
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -29,6 +31,12 @@ func (r Retrieve) Entries(ch *[]Channel) Retrieve { r.gorp.Entries(ch); return r
 // leaseholder node ID.
 func (r Retrieve) WhereNodeID(nodeID core.NodeID) Retrieve {
 	r.gorp.Where(func(ch *Channel) bool { return ch.NodeID == nodeID })
+	return r
+}
+
+// WhereNames filters for channels whose Name attribute matches the provided name.
+func (r Retrieve) WhereNames(names ...string) Retrieve {
+	r.gorp.Where(func(ch *Channel) bool { return lo.Contains(names, ch.Name) })
 	return r
 }
 

@@ -2,6 +2,9 @@ package channel
 
 import (
 	"encoding/binary"
+	"strconv"
+	"strings"
+
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen"
@@ -10,8 +13,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/telem"
-	"strconv"
-	"strings"
 )
 
 // Key represents a unique identifier for a Channel. This value is guaranteed to be

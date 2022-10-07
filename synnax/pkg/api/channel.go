@@ -90,6 +90,8 @@ type ChannelRetrieveRequest struct {
 	NodeID distribution.NodeID `query:"node_id"`
 	// Optional parameter that queries a Channel by its key.
 	Keys []string `query:"keys"`
+	// Optional parameter that queries a Channel by its name.
+	Names []string `query:"names"`
 }
 
 type ChannelRetrieveResponse struct {
@@ -111,6 +113,10 @@ func (s *ChannelService) Retrieve(
 			return ChannelRetrieveResponse{}, errors.Parse(err)
 		}
 		q = q.WhereKeys(keys...)
+	}
+
+	if len(req.Names) > 0 {
+		q = q.WhereNames(req.Names...)
 	}
 
 	if req.NodeID != 0 {

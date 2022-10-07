@@ -202,7 +202,9 @@ func filterRetrieve[K Key, E Entry[K]](q query.Query, reader kv.Reader, opts opt
 		found   = false
 	)
 	for iter.First(); iter.Valid(); iter.Next() {
+
 		iter.BindValue(v)
+
 		if f.exec(v) {
 			found = true
 			entries.Add(*v)
