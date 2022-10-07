@@ -47,3 +47,11 @@ test('Channel - retrieve by node id', async (t) => {
     t.is(ch.nodeId, 1);
   });
 });
+
+test('Channel - retrieve by name', async (t) => {
+  const retrieved = await client.channel.retrieveByNames("test");
+  t.true(retrieved.length > 0);
+  retrieved.forEach((ch) => {
+    t.is(ch.name, "test");
+  });
+})

@@ -23,15 +23,15 @@ class ChannelRetriever:
         self.client = client.get_client()
 
     def retrieve(self, keys: list[str]) -> list[ChannelPayload]:
-        return self._retrieve(_Request(keys=keys))
+        return self._execute(_Request(keys=keys))
 
-    def retrieve_by_name(self, names: list[str]) -> list[ChannelPayload]:
-        return self._retrieve(_Request(names=names))
+    def retrieve_by_name(self, *names: str) -> list[ChannelPayload]:
+        return self._execute(_Request(names=names))
 
     def retrieve_by_node_id(self, node_id: int) -> list[ChannelPayload]:
-        return self._retrieve(_Request(node_id=node_id))
+        return self._execute(_Request(node_id=node_id))
 
-    def _retrieve(self, req: _Request) -> list[ChannelPayload]:
+    def _execute(self, req: _Request) -> list[ChannelPayload]:
         res, exc = self.client.send(self._ENDPOINT, req, _Response)
         if exc is not None:
             raise exc
