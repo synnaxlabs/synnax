@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"context"
+
 	roacherrors "github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -68,33 +69,41 @@ var _ = Describe("ChannelService", Ordered, func() {
 		)
 	})
 	Describe("Retrieve", func() {
-		Context("All", func() {
-			It("Should retrieve all created channels", func() {
-				res, err := svc.Retrieve(context.TODO(), api.ChannelRetrieveRequest{})
-				Expect(err).To(Equal(errors.Nil))
-				Expect(res.Channels).To(HaveLen(1))
+		It("Should retrieve all created channels", func() {
+			res, err := svc.Retrieve(context.TODO(), api.ChannelRetrieveRequest{})
+			Expect(err).To(Equal(errors.Nil))
+			Expect(res.Channels).To(HaveLen(1))
+		})
+		It("Should retrieve a Channel by its key", func() {
+			res, err := svc.Retrieve(context.TODO(), api.ChannelRetrieveRequest{
+				Keys: []string{"1-1"},
 			})
-			It("Should retrieve a Channel by its key", func() {
-				res, err := svc.Retrieve(context.TODO(), api.ChannelRetrieveRequest{
-					Keys: []string{"1-1"},
-				})
-				Expect(err).To(Equal(errors.Nil))
-				Expect(res.Channels).To(HaveLen(1))
+			Expect(err).To(Equal(errors.Nil))
+			Expect(res.Channels).To(HaveLen(1))
+		})
+		It("Should return an error if the key can't be parsed", func() {
+			res, err := svc.Retrieve(context.TODO(), api.ChannelRetrieveRequest{
+				Keys: []string{"1-1-1"},
 			})
-			It("Should return an error if the key can't be parsed", func() {
-				res, err := svc.Retrieve(context.TODO(), api.ChannelRetrieveRequest{
-					Keys: []string{"1-1-1"},
-				})
-				Expect(err).To(Equal(errors.Parse(roacherrors.New("[channel] - invalid key format"))))
-				Expect(res.Channels).To(HaveLen(0))
+			Expect(err).To(Equal(errors.Parse(roacherrors.New("[channel] - invalid key format"))))
+			Expect(res.Channels).To(HaveLen(0))
+		})
+		It("Should retrieve channels by their node ID", func() {
+			res, err := svc.Retrieve(context.TODO(), api.ChannelRetrieveRequest{
+				NodeID: 1,
 			})
-			It("Should retrieve channels by their node ID", func() {
-				res, err := svc.Retrieve(context.TODO(), api.ChannelRetrieveRequest{
-					NodeID: 1,
-				})
-				Expect(err).To(Equal(errors.Nil))
-				Expect(res.Channels).To(HaveLen(1))
+			Expect(err).To(Equal(errors.Nil))
+			Expect(res.Channels).To(HaveLen(1))
+		})
+		It("Should retrieve channels by their name", func() {
+			res, err := svc.Retrieve(context.TODO(), api.ChannelRetrieveRequest{
+				Names: []string{"test"},
 			})
+			Expect(err).To(Equal(errors.Nil))
+			Expect(res.Channels).To(HaveLen(1))
+			for _, ch := range res.Channels {
+				Expect(ch.Name).To(Equal("test"))
+			}
 		})
 	})
 })
