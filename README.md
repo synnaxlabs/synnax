@@ -34,7 +34,7 @@ guidelines.
 We welcome contributions. Reach out to [Emiliano](mailto:emilbon99@gmail.com) 
 (emilbon99@gmail.com) if you'd like to get involved. While you wait for a response, 
 check out the [New Developer Guide](https://docs.synnaxlabs.com/category/developers) 
-to get up to speed. Also, feel free to browser through the 
+to get up to speed. Also, feel free to browse through the 
 [technical RFCs](https://docs.synnaxlabs.com/category/technical-rfcs) to get a sense 
 of where we've been and where we're going.
 

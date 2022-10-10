@@ -21,7 +21,7 @@ func openRemoteIterators(
 		if err != nil {
 			return sender, receivers, err
 		}
-		client, err := openRemoteClient(ctx, cfg.Transport, targetAddr, keys, cfg.TimeRange)
+		client, err := openRemoteClient(ctx, cfg.TransportClient, targetAddr, keys, cfg.TimeRange)
 		if err != nil {
 			return sender, receivers, err
 		}
@@ -33,11 +33,11 @@ func openRemoteIterators(
 
 func openRemoteClient(
 	ctx context.Context,
-	tran Transport,
+	tran TransportClient,
 	target address.Address,
 	keys channel.Keys,
 	rng telem.TimeRange,
-) (Client, error) {
+) (ClientStream, error) {
 	client, err := tran.Stream(ctx, target)
 	if err != nil {
 		return nil, err

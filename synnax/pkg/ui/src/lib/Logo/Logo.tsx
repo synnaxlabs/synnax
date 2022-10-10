@@ -1,7 +1,4 @@
-import React, {
-  cloneElement,
-  HTMLAttributes,
-} from "react";
+import React, { cloneElement, HTMLAttributes } from "react";
 // @ts-ignore
 import { ReactComponent as IconGradient } from "./icon-gradient.svg";
 // @ts-ignore

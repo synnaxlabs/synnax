@@ -13,61 +13,60 @@ import (
 
 var _ = Describe("Receiver", func() {
 	var (
-		net    *fmock.Network[int, int]
-		stream freighter.StreamTransport[int, int]
+		server freighter.StreamServer[int, int]
+		client freighter.StreamClient[int, int]
 	)
 	BeforeEach(func() {
-		net = fmock.NewNetwork[int, int]()
-		stream = net.RouteStream("", 10)
+		server, client = fmock.NewStreamPair[int, int]()
 	})
 	Describe("Receiver", func() {
 		It("Should operate correctly", func() {
 			var receivedValues []int
 			receiverStream := confluence.NewStream[int](10)
-			stream.BindHandler(func(ctx context.Context, server freighter.ServerStream[int, int]) error {
+			server.BindHandler(func(ctx context.Context, server freighter.ServerStream[int, int]) error {
 				sCtx, cancel := signal.WithCancel(ctx)
 				defer cancel()
 				receiver := &freightfluence.Receiver[int]{Receiver: server}
 				receiver.OutTo(receiverStream)
 				receiver.Flow(sCtx, confluence.CloseInletsOnExit())
-				By("Receiving values from the input stream")
+				By("Receiving values from the input server")
 				receivedValues = append(receivedValues, <-receiverStream.Outlet())
 				return sCtx.Wait()
 			})
-			client, err := stream.Stream(context.TODO(), "localhost:0")
+			stream, err := client.Stream(context.TODO(), "localhost:0")
 			Expect(err).ToNot(HaveOccurred())
-			Expect(client.Send(1)).To(Succeed())
-			Expect(client.CloseSend()).To(Succeed())
+			Expect(stream.Send(1)).To(Succeed())
+			Expect(stream.CloseSend()).To(Succeed())
 			By("Closing the network pipe on return")
-			_, err = client.Receive()
+			_, err = stream.Receive()
 			Expect(err).To(Equal(freighter.EOF))
 			Expect(receivedValues).To(Equal([]int{1}))
-			By("Closing the receive stream on exit")
+			By("Closing the receive server on exit")
 			_, ok := <-receiverStream.Outlet()
 			Expect(ok).To(BeFalse())
 		})
 		It("Should exit the receiver on context cancellation", func() {
 			receiverStream := confluence.NewStream[int](10)
-			stream.BindHandler(func(ctx context.Context, server freighter.ServerStream[int, int]) error {
+			server.BindHandler(func(ctx context.Context, server freighter.ServerStream[int, int]) error {
 				sCtx, cancel := signal.WithCancel(ctx)
 				defer cancel()
 				receiver := &freightfluence.Receiver[int]{Receiver: server}
 				receiver.OutTo(receiverStream)
 				receiver.Flow(sCtx, confluence.CloseInletsOnExit())
-				By("Receiving values from the input stream")
+				By("Receiving values from the input server")
 				return sCtx.Wait()
 			})
 			ctx, cancel := context.WithCancel(context.TODO())
-			client, err := stream.Stream(ctx, "localhost:0")
+			stream, err := client.Stream(ctx, "localhost:0")
 			Expect(err).ToNot(HaveOccurred())
-			Expect(client.Send(1)).To(Succeed())
+			Expect(stream.Send(1)).To(Succeed())
 			By("Closing the network pipe")
 			v := <-receiverStream.Outlet()
 			Expect(v).To(Equal(1))
 			cancel()
-			_, err = client.Receive()
+			_, err = stream.Receive()
 			Expect(err).To(Equal(context.Canceled))
-			By("Closing the receive stream on exit")
+			By("Closing the receive server on exit")
 			_, ok := <-receiverStream.Outlet()
 			Expect(ok).To(BeFalse())
 		})
@@ -76,7 +75,7 @@ var _ = Describe("Receiver", func() {
 		It("It should transform values before sending them through the channel", func() {
 			var receivedValues []int
 			receiverStream := confluence.NewStream[int](10)
-			stream.BindHandler(func(ctx context.Context, server freighter.ServerStream[int, int]) error {
+			server.BindHandler(func(ctx context.Context, server freighter.ServerStream[int, int]) error {
 				sCtx, cancel := signal.WithCancel(ctx)
 				defer cancel()
 				receiver := &freightfluence.TransformReceiver[int, int]{}
@@ -86,19 +85,19 @@ var _ = Describe("Receiver", func() {
 					return v * 2, true, nil
 				}
 				receiver.Flow(sCtx, confluence.CloseInletsOnExit())
-				By("Receiving values from the input stream")
+				By("Receiving values from the input server")
 				receivedValues = append(receivedValues, <-receiverStream.Outlet())
 				return sCtx.Wait()
 			})
-			client, err := stream.Stream(context.TODO(), "localhost:0")
+			stream, err := client.Stream(context.TODO(), "localhost:0")
 			Expect(err).ToNot(HaveOccurred())
-			Expect(client.Send(1)).To(Succeed())
-			Expect(client.CloseSend()).To(Succeed())
+			Expect(stream.Send(1)).To(Succeed())
+			Expect(stream.CloseSend()).To(Succeed())
 			By("Closing the network pipe on return")
-			_, err = client.Receive()
+			_, err = stream.Receive()
 			Expect(err).To(Equal(freighter.EOF))
 			Expect(receivedValues).To(Equal([]int{2}))
-			By("Closing the receive stream on exit")
+			By("Closing the receive server on exit")
 			_, ok := <-receiverStream.Outlet()
 			Expect(ok).To(BeFalse())
 		})

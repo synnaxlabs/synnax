@@ -1,6 +1,9 @@
 package writer_test
 
 import (
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gleak"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/testutil/seg"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -9,9 +12,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/segment/core"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gleak"
 	"go.uber.org/zap"
 	"time"
 
@@ -69,7 +69,7 @@ var _ = Describe("Local", Ordered, func() {
 			w.Write(wrapper.Wrap(seg))
 			Expect(w.Close()).To(Succeed())
 		})
-		It("Should return an error when another writer has a lock on the channel", func() {
+		It("Should return an error when another writerClient has a lock on the channelClient", func() {
 			_, err := newWriter()
 			Expect(err).To(HaveOccurredAs(cesium.ErrChannelLocked))
 		})

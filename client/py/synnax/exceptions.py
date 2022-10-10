@@ -4,7 +4,13 @@ from enum import Enum
 
 import freighter
 
-_FREIGHTER_EXCEPTION_TYPE = "delta.api.errors"
+_FREIGHTER_EXCEPTION_TYPE = "synnax.api.errors"
+
+
+@dataclass
+class Field:
+    field: str
+    message: str
 
 
 @dataclass
@@ -24,29 +30,21 @@ class APIErrorType(Enum):
     ROUTE = "route"
 
 
-class ValidationField:
-    def __init__(self, field: str, message: str):
-        self.field = field
-        self.message = message
-
-
 class ValidationError(Exception):
     """
     Raised when a validation error occurs.
     """
 
-    fields: list[ValidationField]
+    fields: list[Field]
 
-    def __init__(self, fieldsOrMessage: list[dict] | str | ValidationField):
-        if isinstance(fieldsOrMessage, ValidationField):
+    def __init__(self, fieldsOrMessage: list[dict] | str | Field):
+        if isinstance(fieldsOrMessage, Field):
             self.fields = [fieldsOrMessage]
             super(ValidationError, self).__init__(fieldsOrMessage.message)
         elif isinstance(fieldsOrMessage, str):
             super(ValidationError, self).__init__(fieldsOrMessage)
         else:
-            self.fields = [
-                ValidationField(f["field"], f["message"]) for f in fieldsOrMessage
-            ]
+            self.fields = [Field(f["field"], f["message"]) for f in fieldsOrMessage]
             super(ValidationError, self).__init__(self.__str__())
 
     def __str__(self):
@@ -113,22 +111,7 @@ class RouteError(Exception):
         self.path = path
 
 
-@dataclass
-class Field:
-    field: str
-    message: str
-
-
-def maybe_raise_from_res(res: dict):
-    """
-    Raise an error from a dictionary response.
-    """
-    exc = parse_from_payload(res)
-    if exc is not None:
-        raise exc
-
-
-def parse_from_payload(pld: APIExceptionPayload) -> Exception | None:
+def parse_payload(pld: APIExceptionPayload) -> Exception | None:
     """
     Parse an error from a dictionary response.
     """
@@ -172,7 +155,7 @@ def parse_from_payload(pld: APIExceptionPayload) -> Exception | None:
 def _decode(encoded: str) -> Exception:
     dct = json.loads(encoded)
     pld = APIExceptionPayload(**dct)
-    return parse_from_payload(pld)
+    return parse_payload(pld)
 
 
 def _encode(err: Exception) -> str:

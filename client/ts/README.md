@@ -1,1 +1,3 @@
-# Delta Client JS
+# synnax
+
+synnax Client Library

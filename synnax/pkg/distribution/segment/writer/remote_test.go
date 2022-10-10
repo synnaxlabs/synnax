@@ -2,6 +2,9 @@ package writer_test
 
 import (
 	"context"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gleak"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/testutil/seg"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -12,9 +15,6 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gleak"
 	"go.uber.org/zap"
 	"time"
 )
@@ -94,34 +94,36 @@ var _ = Describe("Remote", Ordered, func() {
 		})
 	})
 	Describe("Err Handling", func() {
-		Describe("channel keys don't exist", func() {
+		Describe("channelClient keys don't exist", func() {
 			It("Should return an error", func() {
 				_, err := writer.NewStream(
 					ctx,
 					writer.Config{
-						TS:             builder.Cores[3].Storage.TS,
-						ChannelService: services[3].channel,
-						Resolver:       builder.Cores[3].Cluster,
-						Transport:      services[3].transport.writer,
-						ChannelKeys:    channel.Keys{channel.NewKey(1, 5)},
-						Logger:         log,
+						TS:              builder.Cores[3].Storage.TS,
+						ChannelService:  services[3].channel,
+						Resolver:        builder.Cores[3].Cluster,
+						TransportServer: services[3].transport.writerServer,
+						TransportClient: services[3].transport.writerClient,
+						ChannelKeys:     channel.Keys{channel.NewKey(1, 5)},
+						Logger:          log,
 					},
 				)
 				Expect(err).To(HaveOccurredAs(query.NotFound))
 			})
 		})
 		Describe("Context Cancellation", func() {
-			It("Should immediately close the writer", func() {
+			It("Should immediately close the writerClient", func() {
 				ctx, cancel := context.WithCancel(ctx)
 				w, err := writer.New(
 					ctx,
 					writer.Config{
-						TS:             builder.Cores[3].Storage.TS,
-						ChannelService: services[3].channel,
-						Resolver:       builder.Cores[3].Cluster,
-						Transport:      services[3].transport.writer,
-						ChannelKeys:    keys,
-						Logger:         log,
+						TS:              builder.Cores[3].Storage.TS,
+						ChannelService:  services[3].channel,
+						Resolver:        builder.Cores[3].Cluster,
+						TransportServer: services[3].transport.writerServer,
+						TransportClient: services[3].transport.writerClient,
+						ChannelKeys:     keys,
+						Logger:          log,
 					},
 				)
 				Expect(err).ToNot(HaveOccurred())
@@ -130,23 +132,5 @@ var _ = Describe("Remote", Ordered, func() {
 				Expect(w.Close()).To(HaveOccurredAs(context.Canceled))
 			})
 		})
-		//Describe("Writing to an unspecified channel", func() {
-		//	Describe("Node not in the cluster", func() {
-		//		It("Should return a query error", func() {
-		//			w, err := newWriter()
-		//			Expect(err).ToNot(HaveOccurred())
-		//			w.Write([]core.Segment{
-		//				{
-		//					ChannelKey: channel.NewKey(5, 5),
-		//					Segment: storage.Segment{
-		//						Start: 0,
-		//						Data:  []byte{1, 2, 3, 4, 5},
-		//					},
-		//				},
-		//			})
-		//			Expect(w.Close()).To(HaveOccurredAs(query.NotFound))
-		//		})
-		//	})
-		//})
 	})
 })

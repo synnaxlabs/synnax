@@ -147,7 +147,7 @@ func checkExists[K Key, E Entry[K]](q query.Query, reader kv.Reader, opts option
 	if keys, ok := getWhereKeys[K](q); ok {
 		entries := make([]E, 0, len(keys))
 		SetEntries[K, E](q, &entries)
-		if err := keysRetrieve[K, E](q, reader, opts); err != nil && err != query.NotFound {
+		if err := keysRetrieve[K, E](q, reader, opts); err != nil && !errors.Is(err, query.NotFound) {
 			return false, err
 		}
 		return len(entries) == len(keys), nil
@@ -199,12 +199,19 @@ func filterRetrieve[K Key, E Entry[K]](q query.Query, reader kv.Reader, opts opt
 		f       = getFilters[K, E](q)
 		entries = GetEntries[K, E](q)
 		iter    = WrapKVIter[E](reader.NewIterator(kv.PrefixIter(typePrefix[K, E](opts))))
+		found   = false
 	)
 	for iter.First(); iter.Valid(); iter.Next() {
+
 		iter.BindValue(v)
+
 		if f.exec(v) {
+			found = true
 			entries.Add(*v)
 		}
+	}
+	if !entries.multiple && !found {
+		return query.NotFound
 	}
 	return iter.Close()
 }

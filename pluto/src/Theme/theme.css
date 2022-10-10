@@ -1,6 +1,6 @@
-* {
-  transition: 0.15s ease-in-out;
-}
+/** {*/
+/*  transition: 0.15s ease-in-out;*/
+/*}*/
 
 html {
   color: var(--text-color);

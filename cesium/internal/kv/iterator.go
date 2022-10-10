@@ -1,6 +1,7 @@
 package kv
 
 import (
+	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/segment"
 	"github.com/synnaxlabs/x/errutil"
@@ -8,7 +9,6 @@ import (
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/cockroachdb/errors"
 )
 
 var RangeHasNoData = errors.New("[cesium.kv] - range has no data")
@@ -55,7 +55,7 @@ type Iterator interface {
 	//		2. Iterator.Error is nil.
 	//
 	// If true is returned, sets Iterator.View to the range of the segment. If the
-	// segment range exceeds the iterator Bounds, sets Value().Bounds.Start to the
+	// segment range exceeds the iterator Bounds, sets Value().Bounds.Serve to the
 	// start of the Iterator.Bounds. Constrains Iterator.View in the same manner.
 	Prev() bool
 	// NextSpan moves the Iterator across the provided span, loading any segments it

@@ -22,13 +22,13 @@ var _ = Describe("Channel", func() {
 		Expect(db.Close()).To(Succeed())
 	})
 	Describe("SetMultiple", func() {
-		It("Should set a channel in the DB", func() {
+		It("Should set a channel in the db", func() {
 			Expect(svc.Set(channel.Channel{Key: 1})).To(Succeed())
 		})
 	})
 
 	Describe("Get", func() {
-		It("Should get a channel from the DB", func() {
+		It("Should get a channel from the db", func() {
 			Expect(svc.Set(channel.Channel{Key: 1})).To(Succeed())
 			chs, err := svc.Get(1)
 			Expect(err).To(Succeed())

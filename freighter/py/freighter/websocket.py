@@ -1,14 +1,15 @@
 import asyncio
 from typing import Generic, Type
 
+from freighter.metadata import MetaData
 from pydantic import BaseModel
 from websockets.exceptions import ConnectionClosedOK
-from websockets.legacy.client import WebSocketClientProtocol, connect
+from websockets import connect, WebSocketClientProtocol
 
 from . import AsyncStream
 from .encoder import EncoderDecoder
 from .exceptions import EOF, ExceptionPayload, StreamClosed, decode_exception
-from .transport import RQ, RS, P
+from .transport import RQ, RS, P, AsyncMiddlewareCollector
 from .url import URL
 
 _DATA_MESSAGE = "data"
@@ -38,16 +39,15 @@ class WebsocketStream(Generic[RQ, RS]):
     res_msg_t: Type[_Message[RS]]
 
     def __init__(
-        self,
-        encoder: EncoderDecoder,
-        ws: WebSocketClientProtocol,
-        res_t: Type[RS],
+            self,
+            encoder: EncoderDecoder,
+            ws: WebSocketClientProtocol,
+            res_t: Type[RS],
     ):
         self.encoder = encoder
         self.wrapped = ws
         self.send_closed = False
         self.server_closed = None
-        self.lock = asyncio.Lock()
         self.res_msg_t = _new_res_msg_t(res_t)
 
     async def receive(self) -> tuple[RS | None, Exception | None]:
@@ -110,14 +110,14 @@ class WebsocketStream(Generic[RQ, RS]):
         await self.wrapped.close()
 
 
-DEFAULT_MAX_SIZE = 2**20
+DEFAULT_MAX_SIZE = 2 ** 20
 
 
-class WebsocketClient:
+class WebsocketClient(AsyncMiddlewareCollector):
     """An implementation of AsyncStreamClient that is backed by a websocket
 
     :param encoder: The encoder to use for this client.
-    :param endpoint: A base url to use as a prefix for all requests.
+    :param base_url: A base url to use as a prefix for all requests.
     :param max_message_size: The maximum size of a message to receive. Defaults to
     DEFAULT_MAX_SIZE.
     """
@@ -125,24 +125,46 @@ class WebsocketClient:
     _endpoint: URL
     _encoder: EncoderDecoder
     _max_message_size: int
+    _socket: WebsocketStream[RQ, RS] | None
 
     def __init__(
-        self,
-        encoder: EncoderDecoder,
-        endpoint: URL,
-        max_message_size: int = DEFAULT_MAX_SIZE,
+            self,
+            encoder: EncoderDecoder,
+            base_url: URL,
+            max_message_size: int = DEFAULT_MAX_SIZE,
     ) -> None:
+        super(WebsocketClient, self).__init__()
         self._encoder = encoder
-        self._endpoint = endpoint.replace(protocol="ws")
+        self._endpoint = base_url.replace(protocol="ws")
         self._max_message_size = max_message_size
 
     async def stream(
-        self, target: str, req_type: Type[RQ], res_type: Type[RS]
+            self, target: str, req_type: Type[RQ], res_type: Type[RS]
     ) -> AsyncStream[RQ, RS]:
         """Implements the AsyncStreamClient protocol."""
-        ws = await connect(
-            self._endpoint.child(target).stringify(),
-            extra_headers={"Content-Type": self._encoder.content_type()},
-            max_size=self._max_message_size,
-        )
-        return WebsocketStream[RQ, RS](self._encoder, ws, res_type)
+
+        headers = {"Content-Type": self._encoder.content_type()}
+
+        async def finalizer(md: MetaData) -> Exception | None:
+            headers.update(md.params)
+            try:
+                ws = await connect(
+                    self._endpoint.child(target).stringify(),
+                    extra_headers=headers,
+                    max_size=self._max_message_size,
+                )
+                self._socket = WebsocketStream[RQ, RS](self._encoder, ws, res_type)
+            except Exception as e:
+                return e
+            return None
+
+        exc = await self.exec(MetaData(target, "websocket"), finalizer)
+        if exc is not None:
+            print(exc.__dict__)
+            raise exc
+
+        try:
+            return self._socket
+        finally:
+            self._socket = None
+

@@ -1,15 +1,15 @@
 package cesium_test
 
 import (
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/testutil/seg"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Iterator", func() {
+var _ = Describe("IteratorServer", func() {
 	var db cesium.DB
 	BeforeEach(func() {
 		db = MustSucceed(cesium.Open("", cesium.MemBacked(), cesium.WithLogger(logger)))

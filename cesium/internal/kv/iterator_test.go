@@ -1,18 +1,18 @@
 package kv_test
 
 import (
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/kv"
 	"github.com/synnaxlabs/cesium/internal/segment"
 	kvx "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/telem"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 	"time"
 )
 
-var _ = Describe("Iterator", func() {
+var _ = Describe("IteratorServer", func() {
 	var (
 		kve      kvx.DB
 		ch       channel.Channel
@@ -721,7 +721,7 @@ var _ = Describe("Iterator", func() {
 
 	})
 
-	Context("Compound Iterator", func() {
+	Context("Compound IteratorServer", func() {
 
 		Context("Sequences", func() {
 			It("Should move the iterator view correctly", func() {

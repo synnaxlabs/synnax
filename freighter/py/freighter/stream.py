@@ -1,6 +1,6 @@
 from typing import Protocol, Type
 
-from .transport import RQ, RS
+from .transport import RQ, RS, Transport, AsyncTransport
 
 
 class AsyncStreamReceiver(Protocol[RS]):
@@ -132,27 +132,43 @@ class Stream(StreamSenderCloser[RQ], StreamReceiver[RS], Protocol):
     ...
 
 
-class AsyncStreamClient(Protocol):
+class AsyncStreamClient(AsyncTransport):
     """Protocol for an entity that asynchronously sends and receives a stream of
     requests and responses from a server.
     """
 
     async def stream(
-        self, target: str, req_t: Type[RQ], res_t: Type[RS]
+            self, target: str, req_t: Type[RQ], res_t: Type[RS]
     ) -> AsyncStream[RQ, RS]:
         """Dials the target and returns a stream that can be used to issue requests
         and receive responses.
+
+        :param target: The target to dial. In some implementations, this may be an endpoint
+        path, or in others, a complete hostname or URL.
+        :param req_t: The type of the request being issues. This is used to type check
+        outgoing requests.
+        :param res_t: The type of the response being received. This is used to type check
+        incoming responses.
+        :returns: A stream that can be used to issue requests and receive responses.
         """
         ...
 
 
-class StreamClient(Protocol):
+class StreamClient(Transport):
     """Protocol for an entity that synchronously sends and receives a stream of requests and
     responses from a server.
     """
 
     def stream(self, target: str, req_t: Type[RQ], res_t: Type[RS]) -> Stream[RQ, RS]:
-        """Dialed the target and returns a stream that can be used to issue requests
+        """Dials the target and returns a stream that can be used to issue requests
         and receive responses.
+
+        :param target: The target to dial. In some implementations, this may be an endpoint
+        path, or in others, a complete hostname or URL.
+        :param req_t: The type of the request being issues. This is used to type check
+        outgoing requests.
+        :param res_t: The type of the response being received. This is used to type check
+        incoming responses.
+        :returns: A stream that can be used to issue requests and receive responses.
         """
         ...

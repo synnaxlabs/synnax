@@ -3,14 +3,14 @@ package token_test
 import (
 	"crypto/rand"
 	"crypto/rsa"
-	"github.com/synnaxlabs/synnax/pkg/auth/token"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/auth/token"
 	"time"
 )
 
-var _ = Describe("Token", func() {
+var _ = Describe("token", func() {
 	var (
 		svc *token.Service
 	)

@@ -1,18 +1,21 @@
 package pledge
 
 import (
+	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/alamos"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
-	"github.com/synnaxlabs/aspen/internal/node"
 	"go.uber.org/zap"
 	"time"
 )
 
-type Transport = freighter.Unary[node.ID, node.ID]
+type (
+	TransportClient = freighter.UnaryClient[node.ID, node.ID]
+	TransportServer = freighter.UnaryServer[node.ID, node.ID]
+)
 
 // Config is used for configuring a pledge based membership network. It implements
 // the config.Config interface.
@@ -24,9 +27,12 @@ type Config struct {
 	// Peers is a set of addresses a pledge can contact.
 	// [Required]
 	Peers []address.Address
-	// Transport is used for sending pledge information over the network.
+	// TransportClient is used for sending pledge information over the network.
 	// [Required]
-	Transport Transport
+	TransportClient TransportClient
+	// TransportServer is used for receiving pledge information over the network.
+	// [Required]
+	TransportServer TransportServer
 	// RequestTimeout is the timeout for a peer to respond to a pledge or proposal
 	// request. If the request is not responded to before the timeout, a new jury
 	// will be formed and the request will be retried.
@@ -50,7 +56,8 @@ var _ config.Config[Config] = Config{}
 
 // Override implements the config.Config interface.
 func (cfg Config) Override(other Config) Config {
-	cfg.Transport = override.Nil(cfg.Transport, other.Transport)
+	cfg.TransportClient = override.Nil(cfg.TransportClient, other.TransportClient)
+	cfg.TransportServer = override.Nil(cfg.TransportServer, other.TransportServer)
 	cfg.RequestTimeout = override.Numeric(cfg.RequestTimeout, other.RequestTimeout)
 	cfg.RetryInterval = override.Numeric(cfg.RetryInterval, other.RetryInterval)
 	cfg.RetryScale = override.Numeric(cfg.RetryScale, other.RetryScale)
@@ -64,7 +71,8 @@ func (cfg Config) Override(other Config) Config {
 // Validate implements the config.Config interface.
 func (cfg Config) Validate() error {
 	v := validate.New("pledge")
-	validate.NotNil(v, "Transport", cfg.Transport)
+	validate.NotNil(v, "TransportClient", cfg.TransportClient)
+	validate.NotNil(v, "TransportServer", cfg.TransportServer)
 	validate.Positive(v, "RequestTimeout", cfg.RequestTimeout)
 	validate.GreaterThanEq(v, "RetryScale", cfg.RetryScale, 1)
 	validate.NonZero(v, "MaxProposals", cfg.MaxProposals)
@@ -75,12 +83,13 @@ func (cfg Config) Validate() error {
 // Report implements the alamos.Reporter interface. Assumes the Config is valid.
 func (cfg Config) Report() alamos.Report {
 	report := make(alamos.Report)
-	report["Transport"] = cfg.Transport.Report()
+	report["transportClient"] = cfg.TransportClient.Report()
+	report["transportServer"] = cfg.TransportServer.Report()
 	report["requestTimeout"] = cfg.RequestTimeout
 	report["pledgeBaseRetry"] = cfg.RetryInterval
 	report["pledgeRetryScale"] = cfg.RetryScale
 	report["maxProposals"] = cfg.MaxProposals
-	report["Peers"] = cfg.Peers
+	report["peers"] = cfg.Peers
 	return report
 }
 

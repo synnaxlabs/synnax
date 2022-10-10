@@ -67,7 +67,7 @@ def register_exception(_type: str, _encode: EncoderFunc, _decode: DecoderFunc) -
     REGISTRY.register(_type, _ExceptionProvider(_encode, _decode))
 
 
-def encode_expection(exc: Exception) -> ExceptionPayload:
+def encode_exception(exc: Exception) -> ExceptionPayload:
     """Encodes an exception into a payload that can be sent between a freighter server
     and client.
 
@@ -96,7 +96,7 @@ class Unreachable(Exception):
     target: str
     message: str
 
-    def __init(self, target: str, message="freighter.errors.Unreachable"):
+    def __init__(self, target: str, message="Unreachable"):
         self.target = target
         self.message = message
         super().__init__(message)
@@ -111,7 +111,7 @@ class StreamClosed(Exception):
     """
 
     def __str__(self):
-        return "freighter.errors.StreamClosed"
+        return "StreamClosed"
 
 
 class EOF(Exception):
@@ -120,7 +120,7 @@ class EOF(Exception):
     """
 
     def __str__(self):
-        return "freighter.errors.EOF"
+        return "EOF"
 
 
 _EXCEPTIONS = [
@@ -131,14 +131,7 @@ _EXCEPTIONS = [
 
 
 def _freighter_encode(exc: Exception) -> str:
-    if isinstance(exc, Unreachable):
-        return "Unreachable"
-    if isinstance(exc, StreamClosed):
-        return "StreamClosed"
-    if isinstance(exc, EOF):
-        return "EOF"
-
-    raise ValueError(f"Unknown freighter exception: {exc}")
+    raise NotImplemented
 
 
 def _freighter_decode(exc: str) -> Exception:

@@ -13,8 +13,14 @@ type Service struct {
 	proxy     *leaseProxy
 }
 
-func New(cluster core.Cluster, clusterDB *gorp.DB, tsDB storage.TS, transport CreateTransport) *Service {
-	return &Service{clusterDB: clusterDB, proxy: newLeaseProxy(cluster, clusterDB, tsDB, transport)}
+func New(
+	cluster core.Cluster,
+	clusterDB *gorp.DB,
+	tsDB storage.TS,
+	client CreateTransportClient,
+	server CreateTransportServer,
+) *Service {
+	return &Service{clusterDB: clusterDB, proxy: newLeaseProxy(cluster, clusterDB, tsDB, client, server)}
 }
 
 func (s *Service) NewCreate() Create { return newCreate(s.proxy) }

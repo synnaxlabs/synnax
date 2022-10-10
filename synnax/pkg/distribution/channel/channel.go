@@ -2,6 +2,9 @@ package channel
 
 import (
 	"encoding/binary"
+	"strconv"
+	"strings"
+
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen"
@@ -10,8 +13,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/telem"
-	"strconv"
-	"strings"
 )
 
 // Key represents a unique identifier for a Channel. This value is guaranteed to be
@@ -32,7 +33,7 @@ func NewKey(nodeID core.NodeID, cesiumKey storage.ChannelKey) (key Key) {
 func (c Key) NodeID() core.NodeID { return core.NodeID(binary.LittleEndian.Uint32(c[0:4])) }
 
 // StorageKey returns a unique identifier for the Channel within the leaseholder node's
-// storage.TS DB. This value is NOT guaranteed to be unique across the entire cluster.
+// storage.TS db. This value is NOT guaranteed to be unique across the entire cluster.
 func (c Key) StorageKey() storage.ChannelKey {
 	return storage.ChannelKey(binary.LittleEndian.Uint16(c[4:6]))
 }
@@ -164,5 +165,5 @@ func (c Channel) GorpKey() Key { return c.Key() }
 // from.
 func (c Channel) SetOptions() []interface{} { return []interface{}{c.Lease()} }
 
-// Lease implements the proxy.RouteUnary interface.
+// Lease implements the proxy.UnaryServer interface.
 func (c Channel) Lease() core.NodeID { return c.NodeID }

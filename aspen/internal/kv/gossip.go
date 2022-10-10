@@ -2,16 +2,19 @@ package kv
 
 import (
 	"context"
-	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/node"
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/x/confluence"
 	"go/types"
 )
 
 // |||||| OPERATION ||||||
 
-type BatchTransport = freighter.Unary[BatchRequest, BatchRequest]
+type (
+	BatchTransportClient = freighter.UnaryClient[BatchRequest, BatchRequest]
+	BatchTransportServer = freighter.UnaryServer[BatchRequest, BatchRequest]
+)
 
 // |||| SENDER ||||
 
@@ -37,7 +40,7 @@ func (g *operationSender) send(ctx context.Context, sync BatchRequest) (BatchReq
 		return sync, false, nil
 	}
 	sync.Sender = hostID
-	ack, err := g.OperationsTransport.Send(ctx, peer.Address, sync)
+	ack, err := g.BatchTransportClient.Send(ctx, peer.Address, sync)
 	if err != nil {
 		g.Logger.Errorw("operation gossip failed", "err", err)
 	}
@@ -56,7 +59,7 @@ type operationReceiver struct {
 
 func newOperationReceiver(cfg Config, s store) source {
 	or := &operationReceiver{Config: cfg, store: s}
-	or.OperationsTransport.BindHandler(or.handle)
+	or.BatchTransportServer.BindHandler(or.handle)
 	return or
 }
 
@@ -78,7 +81,10 @@ type FeedbackMessage struct {
 	Digests Digests
 }
 
-type FeedbackTransport = freighter.Unary[FeedbackMessage, types.Nil]
+type (
+	FeedbackTransportClient = freighter.UnaryClient[FeedbackMessage, types.Nil]
+	FeedbackTransportServer = freighter.UnaryServer[FeedbackMessage, types.Nil]
+)
 
 // |||| SENDER ||||
 
@@ -96,7 +102,7 @@ func newFeedbackSender(cfg Config) sink {
 func (f *feedbackSender) send(ctx context.Context, bd BatchRequest) error {
 	msg := FeedbackMessage{Sender: f.Cluster.Host().ID, Digests: bd.digests()}
 	sender, _ := f.Cluster.Node(bd.Sender)
-	if _, err := f.FeedbackTransport.Send(context.TODO(), sender.Address, msg); err != nil {
+	if _, err := f.FeedbackTransportClient.Send(context.TODO(), sender.Address, msg); err != nil {
 		f.Logger.Errorw("feedback gossip failed", "err", err)
 	}
 	return nil
@@ -112,7 +118,7 @@ type feedbackReceiver struct {
 
 func newFeedbackReceiver(cfg Config) source {
 	fr := &feedbackReceiver{Config: cfg}
-	fr.FeedbackTransport.BindHandler(fr.handle)
+	fr.FeedbackTransportServer.BindHandler(fr.handle)
 	return fr
 }
 

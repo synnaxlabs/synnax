@@ -1,15 +1,15 @@
 package mock_test
 
 import (
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/storage/mock"
 	"github.com/synnaxlabs/x/config"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("Storage", func() {
-	Describe("ProviderBuilder", func() {
+	Describe("Builder", func() {
 		DescribeTable("New", func(cfg ...storage.Config) {
 			b := mock.NewBuilder(cfg...)
 			store := b.New()

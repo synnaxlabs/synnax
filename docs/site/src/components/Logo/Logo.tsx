@@ -1,7 +1,4 @@
-import React, {
-  cloneElement,
-  HTMLAttributes,
-} from "react";
+import React, { cloneElement, HTMLAttributes } from "react";
 import IconGradient from "../../../static/img/icon/icon-gradient.svg";
 import IconWhite from "../../../static/img/icon/icon-white.svg";
 import IconBlack from "../../../static/img/icon/icon-black.svg";
@@ -9,7 +6,7 @@ import TitleWhite from "../../../static/img/icon/title-white.svg";
 import TitleBlack from "../../../static/img/icon/title-black.svg";
 import TitleGradient from "../../../static/img/icon/title-gradient.svg";
 
-import {useColorMode} from "@docusaurus/theme-common";
+import { useColorMode } from "@docusaurus/theme-common";
 
 export interface LogoProps
   extends Omit<HTMLAttributes<SVGElement>, "width" | "height"> {

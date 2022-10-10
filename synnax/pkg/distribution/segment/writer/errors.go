@@ -12,7 +12,7 @@ import (
 func unspecifiedChannelError(key channel.Key) error {
 	return errors.Wrapf(
 		query.NotFound,
-		"[writer] - cannot write segment to channel %s because it was not specified when opening the writer",
+		"[writerClient] - cannot write segment to channelClient %s because it was not specified when opening the writerClient",
 		key,
 	)
 }

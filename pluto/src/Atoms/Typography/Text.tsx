@@ -20,7 +20,6 @@ const levelTag = {
 const defaultLevel = "h1"
 
 const Text = ({ level = defaultLevel, ...props }: TextProps) => {
-  console.log(levelTag[level]);
   return createElement(levelTag[level] || defaultLevel, { ...props });
 }
 

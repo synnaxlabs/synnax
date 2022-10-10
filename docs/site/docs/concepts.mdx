@@ -1,36 +1,37 @@
 ---
 sidebar_position: 2
 ---
+
 # Concepts
 
-Before working with Synnax, it's important to understand the core concepts used throughout 
+Before working with Synnax, it's important to understand the core concepts used throughout
 the documentation. We'll start off by covering key data elements and then move on
 to discuss how these elements relate to form a cohesive data schema.
 
 ## Data Elements
 
-### Architecture 
+### Architecture
 
 #### Node
 
-A node is a single instance of Synnax that is running as part of a cluster. At its core, 
-a node is a single executable, and can be deployed on a container in the cloud, on a virtual 
+A node is a single instance of Synnax that is running as part of a cluster. At its core,
+a node is a single executable, and can be deployed on a container in the cloud, on a virtual
 machine, or on an edge device such as a Raspberry Pi.
 
 #### Cluster
 
-A cluster is a collection of nodes that communicate with one another to coordinate data 
-storage, retrieval and operations. A cluster may consist of one or more nodes. 
+A cluster is a collection of nodes that communicate with one another to coordinate data
+storage, retrieval and operations. A cluster may consist of one or more nodes.
 
-### Telemetry 
+### Telemetry
 
 #### Sample
 
-A sample is a simple `(timestamp, value)` pair. Synnax stores timestamps as int64 values 
-that represent a unix epoch in nanoseconds. Timestamps currently store no timezone information, 
-and it is up to the user to ensure that timestamps are consistent with the timezone of 
-the data they are storing. Internally, Synnax stores values as arbitrary byte arrays, 
-although it provides a number of built-in encoders and decoders for common types such as 
+A sample is a simple `(timestamp, value)` pair. Synnax stores timestamps as int64 values
+that represent a unix epoch in nanoseconds. Timestamps currently store no timezone information,
+and it is up to the user to ensure that timestamps are consistent with the timezone of
+the data they are storing. Internally, Synnax stores values as arbitrary byte arrays,
+although it provides a number of built-in encoders and decoders for common types such as
 `float64`and `int64`.
 
 :::tip
@@ -38,28 +39,28 @@ We recommend storing timestamps in UTC for consistency purposes. It makes things
 confusing when querying data.
 :::
 
-#### Channel 
+#### Channel
 
-A channel is a collection of telemetry samples across a time-range. The data within a 
+A channel is a collection of telemetry samples across a time-range. The data within a
 channel typically arrives from a single source. This can be a physical sensor, metric,
-event, or other entity that emits regular, consistent, and time-order values. A channel 
-can also be used for storing derived data, such as a moving average or signal processing 
+event, or other entity that emits regular, consistent, and time-order values. A channel
+can also be used for storing derived data, such as a moving average or signal processing
 result. Channels have a few important properties:
 
-1. Data Rate - The number of samples per second (Hz) that are stored in a channel. This 
-data rate is fixed, and cannot be changed without deleting and recreating a channel. All 
-data written to a channel must have the same data rate.
-2. Name - A human-readable name for the channel that isn't required. It's a best practice 
-to make sure this name is unique.
-3. Data Type - A pre-defined data type that describes the type of sample stored in the 
-channel. Common examples are `float64`, `int64`, `bool`, etc. It's also possible to define 
-custom data types. See the [Data Types](#data-types) section for more information.
-4. Key - A unique identifier for the channel that is used across the entire cluster. This 
-key is automatically assigned and uniquely identifies the channel across the entire cluster.
-5. Node ID - This is the ID of the node that holds the lease on the channel. This node 
-is known as the leaseholder, and is the only node that can write *new* channel data to disk. 
-The leaseholder is typically kept in proximity (physically) to the source generating the 
-channel's data (e.g. a sensor).
+1. Data Rate - The number of samples per second (Hz) that are stored in a channel. This
+   data rate is fixed, and cannot be changed without deleting and recreating a channel. All
+   data written to a channel must have the same data rate.
+2. Name - A human-readable name for the channel that isn't required. It's a best practice
+   to make sure this name is unique.
+3. Data Type - A pre-defined data type that describes the type of sample stored in the
+   channel. Common examples are `float64`, `int64`, `bool`, etc. It's also possible to define
+   custom data types. See the [Data Types](#data-types) section for more information.
+4. Key - A unique identifier for the channel that is used across the entire cluster. This
+   key is automatically assigned and uniquely identifies the channel across the entire cluster.
+5. Node ID - This is the ID of the node that holds the lease on the channel. This node
+   is known as the leaseholder, and is the only node that can write _new_ channel data to disk.
+   The leaseholder is typically kept in proximity (physically) to the source generating the
+   channel's data (e.g. a sensor).
 
 #### Segment
 
@@ -67,9 +68,9 @@ A segment is a partition region of a channel's data. It has three important prop
 
 1. Channel Key - The key of the channel that the segment belongs to.
 2. Start Time - The timestamp of the first sample in the segment.
-2. Data - A collection of sample _values_ represented as an ordered byte array. For a `float64`
-segment, the first 8 bytes of the data array represent the first sample, the next 8 bytes
-represent the second sample, and so on. 
+3. Data - A collection of sample _values_ represented as an ordered byte array. For a `float64`
+   segment, the first 8 bytes of the data array represent the first sample, the next 8 bytes
+   represent the second sample, and so on.
 
 It's important to note that a segment's data does not contain any timestamps. This is because
 the data is assumed to be contiguous and regularly space. The start time of the segment is
@@ -78,7 +79,7 @@ sufficient to determine the timestamp of each sample.
 A channel's data is represented as a collection of segments on disk. Although a segment's
 data must be contiguous, segments themselves to not need to be contiguous with one another.
 This is particularly relevant for use cases where a sensor or other data source is offline
-for a period of time (such as in between tests). Although they can have gaps between them, 
+for a period of time (such as in between tests). Although they can have gaps between them,
 segments must be written in order and cannot overlap.
 
 :::note Segment Size

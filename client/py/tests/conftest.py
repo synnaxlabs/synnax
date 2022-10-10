@@ -6,7 +6,12 @@ from synnax import Channel, telem
 
 @pytest.fixture(scope="session")
 def client() -> synnax.Synnax:
-    return synnax.Synnax(host="localhost", port=8080)
+    return synnax.Synnax(
+        host="localhost",
+        port=8080,
+        username="synnax",
+        password="seldon",
+    )
 
 
 @pytest.fixture

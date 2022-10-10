@@ -1,10 +1,10 @@
 package iterator
 
 import (
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	distribcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/segment/core"
-	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -72,7 +72,8 @@ func newAck(host distribcore.NodeID, cmd Command, ok bool) Response {
 }
 
 type (
-	Server    = freighter.ServerStream[Request, Response]
-	Client    = freighter.ClientStream[Request, Response]
-	Transport = freighter.StreamTransport[Request, Response]
+	ServerStream    = freighter.ServerStream[Request, Response]
+	ClientStream    = freighter.ClientStream[Request, Response]
+	TransportServer = freighter.StreamServer[Request, Response]
+	TransportClient = freighter.StreamClient[Request, Response]
 )

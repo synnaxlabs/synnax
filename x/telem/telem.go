@@ -15,7 +15,7 @@ const (
 )
 
 // TimeStamp stores an epoch time in nanoseconds.
-type TimeStamp int64
+type TimeStamp int
 
 // Now returns the current time as a TimeStamp.
 func Now() TimeStamp { return NewTimeStamp(time.Now()) }
@@ -65,7 +65,7 @@ func (ts TimeStamp) Range(ts2 TimeStamp) TimeRange { return TimeRange{ts, ts2} }
 // |||||| TIME RANGE ||||||
 
 // TimeRange represents a range of time between two TimeStamp. It's important
-// to note that the start of the range is inclusive, while the end of hte range is
+// to note that the start of the range is inclusive, while the end of the range is
 // exclusive.
 type TimeRange struct {
 	// Start is the start of the range.
@@ -210,7 +210,7 @@ const (
 // |||||| DENSITY ||||||
 
 type (
-	// Density represents the density of a data type in bytes per sample.
+	// Density represents a density in bytes per value.
 	Density uint32
 )
 

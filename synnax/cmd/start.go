@@ -4,15 +4,20 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"os"
+	"os/signal"
+	"time"
+
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/freighter/fgrpc"
+	"github.com/synnaxlabs/freighter/fhttp"
 	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/api"
-	fiberapi "github.com/synnaxlabs/synnax/pkg/api/fiber"
-	grpcapi "github.com/synnaxlabs/synnax/pkg/api/grpc"
+	httpapi "github.com/synnaxlabs/synnax/pkg/api/http"
 	"github.com/synnaxlabs/synnax/pkg/auth"
+	"github.com/synnaxlabs/synnax/pkg/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/server"
@@ -21,14 +26,12 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/alamos"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/gorp"
 	xsignal "github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"os"
-	"os/signal"
-	"time"
 )
 
 // startCmd represents the start command
@@ -58,11 +61,14 @@ var startCmd = &cobra.Command{
 			// Set up the tracing backend.
 			exp := configureObservability()
 
+			// An array to hold the transports we use for cluster internal communication.
 			transports := &[]fgrpc.BindableTransport{}
 
-			storageCfg := newStorageConfig(exp, logger)
+			// Set up a pool so we can load balance RPC connections.
 			pool := fgrpc.NewPool(grpc.WithTransportCredentials(insecure.NewCredentials()))
 
+			// Open the distribution layer.
+			storageCfg := newStorageConfig(exp, logger)
 			distConfig, err := newDistributionConfig(
 				pool,
 				exp,
@@ -71,21 +77,25 @@ var startCmd = &cobra.Command{
 				transports,
 			)
 			dist, err := distribution.Open(ctx, distConfig)
+			defer func() { err = dist.Close() }()
 			if err != nil {
 				return err
 			}
 
-			gorp := dist.Storage.Gorpify()
-
-			userSvc := &user.Service{DB: gorp, Ontology: dist.Ontology}
-
+			// Set up our high level services.
+			gorpDB := dist.Storage.Gorpify()
+			userSvc := &user.Service{DB: gorpDB, Ontology: dist.Ontology}
 			rsaKey, err := rsa.GenerateKey(rand.Reader, 1024)
-
 			tokenSvc := &token.Service{Secret: rsaKey, Expiration: 15 * time.Minute}
+			authenticator := &auth.KV{DB: gorpDB}
 
-			authenticator := &auth.KV{DB: gorp}
+			// Provision the root user.
+			if err := maybeProvisionRootUser(gorpDB, authenticator, userSvc); err != nil {
+				return err
+			}
 
-			apiCfg := api.Config{
+			// Configure the core API.
+			_api := api.New(api.Config{
 				Logger:        logger,
 				Channel:       dist.Channel,
 				Segment:       dist.Segment,
@@ -94,26 +104,28 @@ var startCmd = &cobra.Command{
 				Token:         tokenSvc,
 				Authenticator: authenticator,
 				Enforcer:      access.AllowAll{},
-			}
+				Insecure:      viper.GetBool("insecure"),
+			})
 
-			api := api.New(apiCfg)
-			fiberAPI := fiberapi.Wrap(api)
-			grpcAPI := grpcapi.API{Transports: *transports}
+			// Configure the HTTP API Transport.
+			r := fhttp.NewRouter(fhttp.RouterConfig{Logger: logger.Sugar()})
+			httpAPITransport := httpapi.New(r)
+			_api.BindTo(httpAPITransport)
 
+			// Configure our servers.
+			grpcBranch := &server.GRPCBranch{Transports: *transports}
+			httpBranch := &server.HTTPBranch{Transports: []fhttp.BindableTransport{r}}
 			serverCfg := server.Config{
 				ListenAddress: address.Address(viper.GetString("listen-address")),
-				GrpcAPI:       grpcAPI,
-				FiberAPI:      fiberAPI,
 				Logger:        logger,
+				Branches: []server.Branch{
+					httpBranch,
+					grpcBranch,
+				},
 			}
-			serverCfg.Security.Insecure = true
-
 			srv := server.New(serverCfg)
-			defer func() {
-				err = errors.CombineErrors(err, srv.Stop())
-				err = errors.CombineErrors(err, dist.Close())
-			}()
 			sCtx.Go(srv.Start, xsignal.WithKey("server"))
+			defer func() { err = errors.CombineErrors(err, srv.Stop()) }()
 			<-ctx.Done()
 			return nil
 		}, xsignal.WithKey("start"))
@@ -172,9 +184,28 @@ func init() {
 
 	startCmd.Flags().BoolP(
 		"debug",
-		"",
+		"v",
 		false,
 		"Enable debug mode.",
+	)
+
+	startCmd.Flags().BoolP(
+		"insecure",
+		"i",
+		false,
+		"Disable TLS and authentication.",
+	)
+
+	startCmd.Flags().String(
+		"username",
+		"synnax",
+		"Username for the admin user.",
+	)
+
+	startCmd.Flags().String(
+		"password",
+		"seldon",
+		"Password for the admin user.",
 	)
 
 	if err := viper.BindPFlags(startCmd.Flags()); err != nil {
@@ -223,15 +254,15 @@ func newDistributionConfig(
 }
 
 func configureLogging() (*zap.Logger, error) {
-	var config zap.Config
+	var cfg zap.Config
 	if viper.GetBool("debug") {
-		config = zap.NewDevelopmentConfig()
-		config.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+		cfg = zap.NewDevelopmentConfig()
+		cfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 	} else {
-		config = zap.NewProductionConfig()
-		config.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
+		cfg = zap.NewProductionConfig()
+		cfg.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
 	}
-	return config.Build()
+	return cfg.Build()
 }
 
 var (
@@ -247,4 +278,33 @@ func configureObservability() alamos.Experiment {
 		opt = alamos.WithFilters(alamos.LevelFilterThreshold{Level: alamos.Production})
 	}
 	return alamos.New(rootExperimentKey, opt)
+}
+
+func maybeProvisionRootUser(
+	db *gorp.DB,
+	authSvc auth.Authenticator,
+	userSvc *user.Service,
+) error {
+	rootUsername := viper.GetString("username")
+	rootPassword := password.Raw(viper.GetString("password"))
+	exists, err := userSvc.UsernameExists(rootUsername)
+	if exists || err != nil {
+		return err
+	}
+	txn := db.BeginTxn()
+	if err := authSvc.NewWriterUsingTxn(txn).Register(auth.InsecureCredentials{
+		Username: rootUsername,
+		Password: rootPassword,
+	}); err != nil {
+		return err
+	}
+	if err := userSvc.NewWriterUsingTxn(txn).Create(&user.User{
+		Username: rootUsername,
+	}); err != nil {
+		return err
+	}
+	if err := txn.Commit(); err != nil {
+		return err
+	}
+	return nil
 }

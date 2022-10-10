@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -20,29 +21,29 @@ type Channel struct {
 	Density  telem.Density       `json:"density" msgpack:"density"`
 }
 
-// ChannelService is the central API for all things channel related.
+// ChannelService is the central API for all things Channel related.
 type ChannelService struct {
-	LoggingProvider
-	ValidationProvider
-	AuthProvider
-	DBProvider
-	Internal *channel.Service
+	loggingProvider
+	validationProvider
+	authProvider
+	dbProvider
+	internal *channel.Service
 }
 
 func NewChannelService(p Provider) *ChannelService {
 	return &ChannelService{
-		Internal:           p.Config.Channel,
-		ValidationProvider: p.Validation,
-		AuthProvider:       p.Auth,
-		LoggingProvider:    p.Logging,
-		DBProvider:         p.DB,
+		internal:           p.Config.Channel,
+		validationProvider: p.Validation,
+		authProvider:       p.auth,
+		loggingProvider:    p.Logging,
+		dbProvider:         p.db,
 	}
 }
 
-// ChannelCreateRequest is a request to create a channel in the cluster.
+// ChannelCreateRequest is a request to create a Channel in the cluster.
 type ChannelCreateRequest struct {
-	// Channel is a template for the channel to create.
-	Channel Channel `json:"channel" msgpack:"channel" validate:"required"`
+	// Channel is a template for the Channel to create.
+	Channel Channel `json:"Channel" msgpack:"Channel" validate:"required"`
 	// Count is the number of channels to create using the template.
 	Count int `json:"count" msgpack:"count"`
 }
@@ -60,7 +61,7 @@ type ChannelCreateResponse struct {
 	Channels []Channel `json:"channels" msgpack:"channels"`
 }
 
-// Create creates a channel based on the parameters given in the request.
+// Create creates a Channel based on the parameters given in the request.
 func (s *ChannelService) Create(
 	ctx context.Context,
 	req ChannelCreateRequest,
@@ -69,8 +70,8 @@ func (s *ChannelService) Create(
 	if err := s.Validate(req); err.Occurred() {
 		return res, err
 	}
-	return res, s.DBProvider.WithTxn(func(txn gorp.Txn) errors.Typed {
-		chs, err := s.Internal.NewCreate().
+	return res, s.dbProvider.WithTxn(func(txn gorp.Txn) errors.Typed {
+		chs, err := s.internal.NewCreate().
 			WithName(req.Channel.Name).
 			WithNodeID(req.Channel.NodeID).
 			WithRate(req.Channel.Rate).
@@ -82,34 +83,40 @@ func (s *ChannelService) Create(
 	})
 }
 
-// ChannelRetrieveRequest is a request for retrieving information about a channel
+// ChannelRetrieveRequest is a request for retrieving information about a Channel
 // from the cluster.
 type ChannelRetrieveRequest struct {
-	// Optional parameter that queries a channel by its node ID.
+	// Optional parameter that queries a Channel by its node ID.
 	NodeID distribution.NodeID `query:"node_id"`
-	// Optional parameter that queries a channel by its key.
+	// Optional parameter that queries a Channel by its key.
 	Keys []string `query:"keys"`
+	// Optional parameter that queries a Channel by its name.
+	Names []string `query:"names"`
 }
 
 type ChannelRetrieveResponse struct {
 	Channels []Channel `json:"channels" msgpack:"channels"`
 }
 
-// Retrieve retrieves a channel based on the parameters given in the request. If no
+// Retrieve retrieves a Channel based on the parameters given in the request. If no
 // parameters are specified, retrieves all channels.
 func (s *ChannelService) Retrieve(
 	ctx context.Context,
 	req ChannelRetrieveRequest,
 ) (ChannelRetrieveResponse, errors.Typed) {
 	var resChannels []channel.Channel
-	q := s.Internal.NewRetrieve().Entries(&resChannels)
+	q := s.internal.NewRetrieve().Entries(&resChannels)
 
-	if len(req.Keys) != 0 {
+	if len(req.Keys) > 0 {
 		keys, err := channel.ParseKeys(req.Keys)
 		if err != nil {
 			return ChannelRetrieveResponse{}, errors.Parse(err)
 		}
 		q = q.WhereKeys(keys...)
+	}
+
+	if len(req.Names) > 0 {
+		q = q.WhereNames(req.Names...)
 	}
 
 	if req.NodeID != 0 {

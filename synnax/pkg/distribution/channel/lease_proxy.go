@@ -13,20 +13,28 @@ type leaseProxy struct {
 	cluster   core.Cluster
 	clusterDB *gorp.DB
 	tsDB      storage.TS
-	transport CreateTransport
+	client    CreateTransportClient
+	server    CreateTransportServer
 	router    proxy.BatchFactory[Channel]
 	resources *ontology.Ontology
 }
 
-func newLeaseProxy(cluster core.Cluster, clusterDB *gorp.DB, tsDB storage.TS, transport CreateTransport) *leaseProxy {
+func newLeaseProxy(
+	cluster core.Cluster,
+	clusterDB *gorp.DB,
+	tsDB storage.TS,
+	client CreateTransportClient,
+	server CreateTransportServer,
+) *leaseProxy {
 	p := &leaseProxy{
 		cluster:   cluster,
 		clusterDB: clusterDB,
 		tsDB:      tsDB,
-		transport: transport,
+		client:    client,
+		server:    server,
 		router:    proxy.NewBatchFactory[Channel](cluster.HostID()),
 	}
-	p.transport.BindHandler(p.handle)
+	p.server.BindHandler(p.handle)
 	return p
 }
 
@@ -104,7 +112,7 @@ func (lp *leaseProxy) createRemote(ctx context.Context, target core.NodeID, chan
 	if err != nil {
 		return nil, err
 	}
-	res, err := lp.transport.Send(ctx, addr, CreateMessage{Channels: channels})
+	res, err := lp.client.Send(ctx, addr, CreateMessage{Channels: channels})
 	if err != nil {
 		return nil, err
 	}

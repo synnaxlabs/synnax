@@ -1,15 +1,14 @@
-/**
- * Digest represents a set of attributes that briefly describe the underlying
- * transport implementation.
- *
- * @field protocol - a string description of the protocol being used by the
- * freighter.
- * @encoder - a string description of the encoder being used by the freighter.
- */
-export interface Digest {
-  protocol: string;
-  encoder: string;
-}
+import { Middleware } from './middleware';
 
-// Payload represents a piece of data that can be sent over the freighter.
-export type Payload = unknown;
+/**
+ * Transport is a based interface that represents a general transport for
+ * exchanging messages between a client and a server.
+ */
+export interface Transport {
+  /**
+   * Use registers middleware that will be executed in order when the transport
+   *
+   * @param mw - The middleware to register.
+   */
+  use(...mw: Middleware[]): void;
+}
