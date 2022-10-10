@@ -56,26 +56,17 @@ class Converter:
     def datect_data_rate(self, timestampCol):
         cols = self.filereader.get_headers()
 
-        print(timestampCol)
-
         if not timestampCol in cols:
             print("Invalid Timestamp Column Name")
             exit(-11)
 
         tsc = self.filereader.get_cols_sample(timestampCol)
 
-        # print("test")
-        # print(tsc)
-
         diffs = []
         last = tsc.iat[0, 0]
         for ind, row in tsc.itterrows():
-            print("Here")
-            print(row)
             diffs.append(row[1] - last)
             last = row[1]
-
-        print(diffs)
 
     # Chunk is part of a pandas dataframe
     def parseChunk(self, chunk):
@@ -83,10 +74,9 @@ class Converter:
         if self.flags.get("no-empty"):
             chunk.dropna(how="all", axis=1, inplace=True)
 
-        print(chunk.columns.tolist())
-
-        # channels = retrieveChannels(chunk.columns.tolist(), self.client)
-        channels = self.client.channel.retrieve_by_name(chunk.columns.tolist())
+        channels = retrieveChannels(chunk.columns.tolist(), self.client)
+        # channels = self.client.channel.retrieve_by_name(chunk.columns.tolist())
+        # channels = self.client.channel.retrieve_by_name("chunk.columns.tolist()")
 
         channel_names = [ch.name for ch in channels]
         for ch in chunk.columns.tolist():
@@ -102,8 +92,6 @@ class Converter:
                         self.datarate = channels[0].rate
                         print("FORCE: Using datarate " + self.datarate)
 
-                    print(chunk[ch].describe())
-                    print(chunk[ch].dtypes)
                     self.client.channel.create(
                         name=ch, rate=self.datarate, data_type=np.float64
                     )

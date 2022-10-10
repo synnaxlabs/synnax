@@ -1,4 +1,5 @@
 from __future__ import annotations
+import typing
 
 from freighter import HTTPClientFactory, Payload, UnaryClient
 
@@ -8,7 +9,7 @@ from .payload import ChannelPayload
 class _Request(Payload):
     keys: list[str] | None = None
     node_id: int | None = None
-    names: list[str] | None = None
+    names: typing.Any | None = None
 
 
 class _Response(Payload):
