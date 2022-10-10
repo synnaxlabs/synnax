@@ -83,9 +83,10 @@ class Converter:
         if self.flags.get("no-empty"):
             chunk.dropna(how="all", axis=1, inplace=True)
 
-        channels = retrieveChannels(chunk.columns.tolist(), self.client)
+        print(chunk.columns.tolist())
 
-        # channels = self.client.channel.retrieve_by_name(chunk.columns.tolist())
+        # channels = retrieveChannels(chunk.columns.tolist(), self.client)
+        channels = self.client.channel.retrieve_by_name(chunk.columns.tolist())
 
         channel_names = [ch.name for ch in channels]
         for ch in chunk.columns.tolist():
@@ -109,7 +110,8 @@ class Converter:
                 else:
                     exit()
         if self.flags.get("create") or self.flags.get("force"):
-            channels = retrieveChannels(chunk.columns.tolist(), self.client)
+            # channels = retrieveChannels(chunk.columns.tolist(), self.client)
+            channels = self.client.channel.retrieve_by_name(chunk.columns.tolist())
 
         if not self.flags.get("force"):
             channel_datarates = [ch.rate for ch in channels]
