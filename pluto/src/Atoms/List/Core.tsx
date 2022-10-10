@@ -4,17 +4,19 @@ import "./BaseList.css";
 import { useListContext } from "./ListContext";
 import { ListItemProps, TypedListEntry } from "./Types";
 
-export interface BaseListProps<K extends Key, E extends TypedListEntry<K>>
-  extends Omit<HTMLAttributes<HTMLDivElement>, "children" | "onSelect"> {
+export interface ListVirtualCoreProps<
+  K extends Key,
+  E extends TypedListEntry<K>
+> extends Omit<HTMLAttributes<HTMLDivElement>, "children" | "onSelect"> {
   itemHeight: number;
   children: ComponentType<ListItemProps<K, E>>;
 }
 
-const VirtualCore = <K extends Key, E extends TypedListEntry<K>>({
+const ListVirtualCore = <K extends Key, E extends TypedListEntry<K>>({
   itemHeight,
   children: Children,
   ...props
-}: BaseListProps<K, E>) => {
+}: ListVirtualCoreProps<K, E>) => {
   const {
     data,
     columnar: { columns },
@@ -29,15 +31,7 @@ const VirtualCore = <K extends Key, E extends TypedListEntry<K>>({
     overscan: Math.floor(data.length / 10),
   });
   return (
-    <div
-      ref={parentRef}
-      className="pluto-list__container"
-      style={{
-        backgroundColor: "var(--pluto-gray-m3)",
-        height: itemHeight * (data.length > 10 ? 10 : data.length),
-      }}
-      {...props}
-    >
+    <div ref={parentRef} className="pluto-list__container" {...props}>
       <div
         className="pluto-list__inner"
         style={{ height: virtualizer.getTotalSize() }}
@@ -65,7 +59,7 @@ const VirtualCore = <K extends Key, E extends TypedListEntry<K>>({
 };
 
 const ListCore = {
-  Virtual: VirtualCore,
+  Virtual: ListVirtualCore,
 };
 
 export default ListCore;

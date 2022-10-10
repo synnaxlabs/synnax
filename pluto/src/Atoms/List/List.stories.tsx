@@ -54,7 +54,7 @@ const columns = [
 export const Column: ComponentStory<typeof List> = () => (
   <List data={data}>
     <List.Column.Header columns={columns} />
-    <List.Core.Virtual itemHeight={30}>
+    <List.Core.Virtual itemHeight={30} style={{ height: "80vh" }}>
       {(props) => <List.Column.Item {...props} />}
     </List.Core.Virtual>
   </List>
@@ -64,7 +64,7 @@ export const Search: ComponentStory<typeof List> = () => (
   <List data={data}>
     <List.Search />
     <List.Column.Header columns={columns} />
-    <List.Core.Virtual itemHeight={30}>
+    <List.Core.Virtual itemHeight={30} style={{ height: "80vh" }}>
       {(props) => <List.Column.Item {...props} />}
     </List.Core.Virtual>
   </List>

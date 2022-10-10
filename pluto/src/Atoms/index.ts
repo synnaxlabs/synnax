@@ -3,7 +3,7 @@ export * from "./Typography";
 export * from "./Select";
 export * from "./Input";
 export * from "./Button";
-export * from "./ResizePanel";
+export * from "./Resize";
 export * from "./Tag";
 export * from "./List";
 export * from "./Header";

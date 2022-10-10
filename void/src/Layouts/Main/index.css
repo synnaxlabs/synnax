@@ -1,0 +1,10 @@
+.main__container {
+    width: 100vw;
+    height: 100vh;
+}
+
+.main__content {
+    height: 100%;
+    flex-grow: 1;
+    overflow: hidden;
+}

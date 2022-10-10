@@ -9,35 +9,25 @@ import { useListContext } from "./ListContext";
 import {
   Key,
   ListItemProps,
-  TypedColumn,
+  TypedListColumn,
   TypedListEntry,
-  TypedTransform,
+  TypedListTransform,
 } from "./Types";
 import clsx from "clsx";
 import "./ListColumn.css";
 
 type SortState<K extends Key, E extends TypedListEntry<K>> = [keyof E, boolean];
 
-const sortTransform = <K extends Key, E extends TypedListEntry<K>>(
-  k: keyof E,
-  dir: boolean
-): TypedTransform<K, E> => {
-  return (data) => {
-    if (data.length == 0) return data;
-    const v = data[0][k];
-    let sortF = entrySortFunc(typeof v, k);
-    if (!dir) sortF = reverseSort(sortF);
-    return [...data].sort(sortF);
-  };
-};
-
-export interface ColumnHeaderProps<K extends Key, E extends TypedListEntry<K>> {
-  columns: TypedColumn<K, E>[];
+export interface ListColumnHeaderProps<
+  K extends Key,
+  E extends TypedListEntry<K>
+> {
+  columns: TypedListColumn<K, E>[];
 }
 
 const ListColumnHeader = <K extends Key, E extends TypedListEntry<K>>({
   columns: initialColumns,
-}: ColumnHeaderProps<K, E>) => {
+}: ListColumnHeaderProps<K, E>) => {
   const {
     columnar: { columns, setColumns },
     sourceData,
@@ -163,11 +153,11 @@ function getTextWidth(text: string, font: string) {
 }
 
 const columnWidths = <K extends Key, E extends TypedListEntry<K>>(
-  columns: TypedColumn<K, E>[],
+  columns: TypedListColumn<K, E>[],
   data: E[],
   font: string,
   padding: number = 60
-): TypedColumn<K, E>[] => {
+): TypedListColumn<K, E>[] => {
   const le = longestEntries(data);
   return columns.map((col) => {
     const labelWidth = getTextWidth(col.label, font);
@@ -191,6 +181,19 @@ const longestEntries = <K extends Key, E extends TypedListEntry<K>>(
     });
   });
   return longest;
+};
+
+const sortTransform = <K extends Key, E extends TypedListEntry<K>>(
+  k: keyof E,
+  dir: boolean
+): TypedListTransform<K, E> => {
+  return (data) => {
+    if (data.length == 0) return data;
+    const v = data[0][k];
+    let sortF = entrySortFunc(typeof v, k);
+    if (!dir) sortF = reverseSort(sortF);
+    return [...data].sort(sortF);
+  };
 };
 
 const Column = {

@@ -9,10 +9,19 @@ html {
   color: var(--pluto-text-color);
   background-color: var(--pluto-background-color);
   margin: 0;
+  height: 100%;
+  width: 100%;
 }
 
 body {
   margin: 0;
+  height: 100%;
+  width: 100%;
+}
+
+#root {
+  height: 100%;
+  width: 100%;
 }
 
 h1,
@@ -80,4 +89,20 @@ p {
 ::-webkit-scrollbar-thumb {
   background: var(--pluto-gray-m1);
   border-radius: var(--pluto-border-radius);
+}
+
+.pluto-bordered--all {
+  border: var(--pluto-border);
+}
+
+.pluto-bordered--right {
+  border-right: var(--pluto-border);
+}
+
+.pluto-bordered--left {
+  border-left: var(--pluto-border);
+}
+
+.pluto-bordered--top {
+  border-top: var(--pluto-border);
 }

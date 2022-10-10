@@ -1,0 +1,7 @@
+.sidebar-left__start {
+    padding:  calc(var(--pluto-base-size) * 2) var(--pluto-base-size);
+}
+
+.sidebar-left__end {
+    padding:  calc(var(--pluto-base-size) * 2) var(--pluto-base-size);
+}

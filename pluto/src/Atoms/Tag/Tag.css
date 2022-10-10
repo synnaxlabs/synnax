@@ -7,4 +7,5 @@
     padding: calc(var(--pluto-base-size) / 2) calc(var(--pluto-base-size) * 1.5);
     border-radius: var(--pluto-border-radius);
     user-select: none;
+    width: fit-content;
 }

@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { ComponentType, Key, useState } from "react";
+import { Key, useState } from "react";
 import { useKeyHeld } from "../../util/useKeys";
 import { TypedListEntry } from "./Types";
 
@@ -15,18 +15,19 @@ export const useMultiSelect = <K extends Key, E extends TypedListEntry<K>>(
   const shiftPressed = useKeyHeld("Shift");
 
   useEffect(() => {
-    if (!shiftPressed) {
-      setShiftSelected(undefined);
-    }
+    if (!shiftPressed) setShiftSelected(undefined);
   }, [shiftPressed]);
 
   const onSelect = (key: K) => {
     if (shiftPressed && shiftSelected !== undefined) {
-      const indexes = [
+      // We might select in reverse order, so we need to sort the indexes.
+      const [start, end] = [
         data.findIndex((v) => v.key === key),
         data.findIndex((v) => v.key === shiftSelected),
       ].sort((a, b) => a - b);
-      const nextKeys = data.slice(indexes[0], indexes[1] + 1).map((v) => v.key);
+      const nextKeys = data.slice(start, end + 1).map(({ key }) => key);
+      // We already deselect the shiftSelected key, so we don't included it
+      // when checking whether to select or deselect the entire range.
       if (
         nextKeys
           .slice(1, nextKeys.length - 1)

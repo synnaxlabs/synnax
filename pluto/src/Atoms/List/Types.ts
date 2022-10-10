@@ -1,20 +1,20 @@
 export type Key = string | number;
 
-export type CoreColumn = {
+type CoreListColumn = {
   label: string;
   visible?: boolean;
   width?: number;
 };
 
-export type UntypedColumn = {
+export type UntypedListColumn = {
   key: string;
-} & CoreColumn;
+} & CoreListColumn;
 
-export type TypedColumn<K extends Key, E extends TypedListEntry<K>> = {
+export type TypedListColumn<K extends Key, E extends TypedListEntry<K>> = {
   key: keyof E;
-} & CoreColumn;
+} & CoreListColumn;
 
-export type CoreListEntry = {
+type CoreListEntry = {
   [key: string]: any;
 };
 
@@ -26,9 +26,11 @@ export type TypedListEntry<K extends Key> = {
   key: K;
 } & CoreListEntry;
 
-export type UntypedTransform = (data: UntypedListEntry[]) => UntypedListEntry[];
+export type UntypedListTransform = (
+  data: UntypedListEntry[]
+) => UntypedListEntry[];
 
-export type TypedTransform<K extends Key, E extends TypedListEntry<K>> = (
+export type TypedListTransform<K extends Key, E extends TypedListEntry<K>> = (
   data: E[]
 ) => E[];
 
@@ -37,6 +39,6 @@ export type ListItemProps<K extends Key, E extends TypedListEntry<K>> = {
   index: number;
   style: React.CSSProperties;
   selected: boolean;
-  columns: TypedColumn<K, E>[];
+  columns: TypedListColumn<K, E>[];
   onSelect: (key: K) => void;
 };

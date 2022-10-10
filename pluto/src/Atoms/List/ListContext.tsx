@@ -3,11 +3,11 @@ import { createContext } from "react";
 import {
   UntypedListEntry,
   Key,
-  UntypedColumn,
-  UntypedTransform,
+  UntypedListColumn,
+  UntypedListTransform,
   TypedListEntry,
-  TypedColumn,
-  TypedTransform,
+  TypedListColumn,
+  TypedListTransform,
 } from "./Types";
 
 export interface ListContextProps {
@@ -17,10 +17,12 @@ export interface ListContextProps {
   onSelect: (key: Key) => void;
   clearSelected: () => void;
   columnar: {
-    columns: UntypedColumn[];
-    setColumns: (cbk: (columns: UntypedColumn) => UntypedColumn[]) => void;
+    columns: UntypedListColumn[];
+    setColumns: (
+      cbk: (columns: UntypedListColumn) => UntypedListColumn[]
+    ) => void;
   };
-  setTransform: (key: string, transform: UntypedTransform) => void;
+  setTransform: (key: string, transform: UntypedListTransform) => void;
   removeTransform: (key: string) => void;
 }
 
@@ -29,9 +31,9 @@ export interface TypedListContextProps<
   E extends TypedListEntry<K>
 > {
   columnar: {
-    columns: TypedColumn<K, E>[];
+    columns: TypedListColumn<K, E>[];
     setColumns: (
-      cbk: (columns: TypedColumn<K, E>[]) => TypedColumn<K, E>[]
+      cbk: (columns: TypedListColumn<K, E>[]) => TypedListColumn<K, E>[]
     ) => void;
   };
   data: E[];
@@ -39,7 +41,7 @@ export interface TypedListContextProps<
   selected: K[];
   onSelect: (key: K) => void;
   clearSelected: () => void;
-  setTransform: (key: string, transform: TypedTransform<K, E>) => void;
+  setTransform: (key: string, transform: TypedListTransform<K, E>) => void;
   removeTransform: (key: string) => void;
 }
 

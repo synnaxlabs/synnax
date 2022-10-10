@@ -1,25 +1,24 @@
 import clsx from "clsx";
-import { RefObject, useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { AiOutlineClose } from "react-icons/ai";
 import { useThemeContext } from "../../Theme/ThemeContext";
-import { IconButton } from "../Button/Button";
 import Input from "../Input/Input";
-import { ColumnHeader, ListColumnItem } from "../List/ListColumn";
-import VirtualCore from "../List/Core";
-import List from "../List/List";
+import { List } from "../List";
 import { useListContext } from "../List/ListContext";
-import { Key, TypedColumn, TypedListEntry } from "../List/Types";
+import { Key, TypedListColumn, TypedListEntry } from "../List/Types";
 import ListSearch from "../List/ListSearch";
 import Space from "../Space/Space";
-import Tag from "../Tag/Tag";
-import "./MultiSelect.css";
+import { Tag } from "../Tag";
+import "./SelectMultiple.css";
+import Button from "../Button";
+import useClickoutside from "../../util/useClickOutSide";
 
 export interface SelectMultipleProps<
   K extends Key,
   E extends TypedListEntry<K>
 > {
   options?: E[];
-  columns?: TypedColumn<K, E>[];
+  columns?: TypedListColumn<K, E>[];
   listPosition?: "top" | "bottom";
 }
 
@@ -31,14 +30,13 @@ export default function SelectMultiple<
   columns = [],
   listPosition = "bottom",
 }: SelectMultipleProps<K, E>) {
-  const [listVisible, setListVisible] = useState(false);
+  const [visible, setVisible] = useState(false);
   const divRef = useRef<HTMLDivElement>(null);
-  useClickoutside(divRef, () => setListVisible(false));
-
+  useClickoutside(divRef, () => setVisible(false));
   return (
     <List data={options}>
       <Space
-        className="pluto-multi-select__container"
+        className="pluto-select-multiple__container"
         ref={divRef}
         empty
         reverse={listPosition === "top"}
@@ -49,8 +47,8 @@ export default function SelectMultiple<
               <SelectMultipleInput
                 tagKey={"name"}
                 value={value}
-                focused={listVisible}
-                onFocus={() => setListVisible(true)}
+                focused={visible}
+                onFocus={() => setVisible(true)}
                 onChange={onChange}
               />
             );
@@ -58,34 +56,20 @@ export default function SelectMultiple<
         />
         <Space
           className={clsx(
-            "pluto-multi-select__list",
-            `pluto-multi-select__list--${listPosition}`
+            "pluto-select-multiple__list",
+            `pluto-select-multiple__list--${listPosition}`,
+            `pluto-select-multiple__list--${visible ? "visible" : "hidden"}`
           )}
-          style={{ opacity: listVisible ? 1 : 0, zIndex: listVisible ? 1 : -1 }}
           empty
         >
-          <ColumnHeader columns={columns} />
-          <VirtualCore itemHeight={30}>
-            {(props) => <ListColumnItem {...props} />}
-          </VirtualCore>
+          <List.Column.Header columns={columns} />
+          <List.Core.Virtual itemHeight={30}>
+            {(props) => <List.Column.Item {...props} />}
+          </List.Core.Virtual>
         </Space>
       </Space>
     </List>
   );
-}
-
-function useClickoutside(ref: RefObject<any>, onClickOutside: () => void) {
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (ref.current && !ref.current.contains(event.target)) {
-        onClickOutside();
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [ref, onClickOutside]);
 }
 
 interface SelectMultipleInputProps<K extends Key, E extends TypedListEntry<K>> {
@@ -113,10 +97,12 @@ const SelectMultipleInput = <K extends Key, E extends TypedListEntry<K>>({
     <Space
       direction="horizontal"
       empty
-      className="pluto-multi-select__input__container"
+      className="pluto-select-multiple__input__container"
+      align="stretch"
+      grow
     >
       <Input
-        className="pluto-multi-select__input__input"
+        className="pluto-select-multiple__input__input"
         placeholder="Search"
         value={value}
         onChange={onChange}
@@ -125,7 +111,7 @@ const SelectMultipleInput = <K extends Key, E extends TypedListEntry<K>>({
       />
       <Space
         direction="horizontal"
-        className="pluto-multi-select__input__tags"
+        className="pluto-select-multiple__input__tags"
         align="center"
         grow={6}
       >
@@ -144,14 +130,14 @@ const SelectMultipleInput = <K extends Key, E extends TypedListEntry<K>>({
               </Tag>
             );
           })}
-        <IconButton
-          className="pluto-multi-select__input__tags__close"
-          variant="outlined"
-          onClick={clearSelected}
-        >
-          <AiOutlineClose />
-        </IconButton>
       </Space>
+      <Button.IconOnly
+        className="pluto-select-multiple__input__tags__close"
+        variant="outlined"
+        onClick={clearSelected}
+      >
+        <AiOutlineClose />
+      </Button.IconOnly>
     </Space>
   );
 };
