@@ -1,9 +1,9 @@
 import Space from "../Space/Space";
-import { ColumnHeader, ColumnItem } from "./ColumnList";
-import VirtualCore from "./CoreList";
+import { ColumnHeader, ListColumnItem } from "./ListColumn";
+import VirtualCore from "./Core";
 import List from "./List";
-import { Key, TypedColumn, TypedListEntry } from "./ListContext";
-import SearchList from "./SearchList";
+import { Key, TypedColumn, TypedListEntry } from "./Types";
+import ListSearch from "./ListSearch";
 
 export interface ColumnListProps<K extends Key, E extends TypedListEntry<K>> {
   data: E[];
@@ -20,7 +20,7 @@ export const SelectableColumnSearchList = <
   return (
     <List data={data}>
       <Space direction="vertical" empty>
-        <SearchList />
+        <ListSearch />
         <Space
           empty
           style={{
@@ -31,7 +31,7 @@ export const SelectableColumnSearchList = <
         >
           <ColumnHeader columns={columns} />
           <VirtualCore itemHeight={24}>
-            {(props) => <ColumnItem {...props} />}
+            {(props) => <ListColumnItem {...props} />}
           </VirtualCore>
         </Space>
       </Space>

@@ -1,27 +1,21 @@
-import { ButtonHTMLAttributes, cloneElement } from "react";
+import { ButtonHTMLAttributes, cloneElement, ReactElement } from "react";
 import "./Button.css";
-import IconText, { BaseIconTextProps } from "../Typography/IconText";
+import { ComponentSizeTypographyLevels, IconText } from "../Typography";
 import clsx from "clsx";
-import { FontLevel } from "../../Theme/theme";
+import { ComponentSize } from "../../util/types";
 
 interface BaseButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: "filled" | "outlined" | "text";
-  size?: "small" | "medium";
+  size?: ComponentSize;
 }
 
-export interface ButtonProps
-  extends BaseButtonProps,
-    Omit<BaseIconTextProps, "level"> {
+export interface ButtonProps extends BaseButtonProps {
   children: string | number;
+  startIcon?: ReactElement;
+  endIcon?: ReactElement;
 }
 
-const sizeLevels: { [key: string]: FontLevel } = {
-  small: "small",
-  medium: "p",
-  large: "h4",
-};
-
-export default function Button({
+function Button({
   size = "medium",
   variant = "filled",
   className,
@@ -41,7 +35,7 @@ export default function Button({
       {...props}
     >
       <IconText
-        level={sizeLevels[size]}
+        level={ComponentSizeTypographyLevels[size]}
         startIcon={startIcon}
         endIcon={endIcon}
       >
@@ -51,17 +45,17 @@ export default function Button({
   );
 }
 
-export interface IconButtonProps extends BaseButtonProps {
+export interface ButtonIconOnlyProps extends BaseButtonProps {
   children: React.ReactElement;
 }
 
-export const IconButton = ({
+const ButtonIconOnly = ({
   children,
   className,
   variant = "text",
   size = "medium",
   ...props
-}: IconButtonProps) => {
+}: ButtonIconOnlyProps) => {
   return (
     <button
       className={clsx(
@@ -76,3 +70,7 @@ export const IconButton = ({
     </button>
   );
 };
+
+Button.IconOnly = ButtonIconOnly;
+
+export default Button;

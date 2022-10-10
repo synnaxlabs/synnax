@@ -1,8 +1,8 @@
 import { createElement, HTMLAttributes } from "react";
-import { FontLevel } from "../../Theme/theme";
+import { TypographyLevel } from "./Types";
 
 export interface BaseTextProps {
-  level: FontLevel;
+  level: TypographyLevel;
   children?: string | number;
 }
 
@@ -10,7 +10,7 @@ export interface TextProps
   extends BaseTextProps,
     Omit<HTMLAttributes<HTMLParagraphElement>, "children"> {}
 
-const levelTag = {
+const typographyLevelTags = {
   h1: "h1",
   h2: "h2",
   h3: "h3",
@@ -20,14 +20,6 @@ const levelTag = {
   small: "h6",
 };
 
-export type Size = "small" | "medium" | "large";
-
-export const sizeLevels: Record<Size, FontLevel> = {
-  small: "small",
-  medium: "p",
-  large: "h4",
-};
-
 export default function Text({ level = "h1", ...props }: TextProps) {
-  return createElement(levelTag[level], { ...props });
+  return createElement(typographyLevelTags[level], props);
 }

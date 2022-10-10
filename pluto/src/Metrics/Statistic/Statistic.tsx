@@ -1,11 +1,12 @@
 import clsx from "clsx";
 import Space from "../../Atoms/Space/Space";
-import Text, { textLevel } from "../../Atoms/Typography/Text";
+import Text from "../../Atoms/Typography/Text";
 import "./Value.css";
+import { FontLevel } from "../../Theme/theme";
 
 export interface ValueProps {
   value: number;
-  level?: textLevel;
+  level?: FontLevel;
   label?: string;
   variant?: "primary" | "error";
   color?: string;

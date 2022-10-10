@@ -1,13 +1,11 @@
-import React, { PropsWithChildren, useState } from "react";
+import React, { useState } from "react";
 import { useMemo } from "react";
-import {
-  Key,
-  ListContextProvider,
-  TypedColumn,
-  TypedListEntry,
-  TypedTransform,
-} from "./ListContext";
-import { useMultiSelect } from "./SelectList";
+import Column from "./ListColumn";
+import ListCore from "./Core";
+import { ListContext, ListContextProvider } from "./ListContext";
+import ListSearch from "./ListSearch";
+import { Key, TypedColumn, TypedListEntry, TypedTransform } from "./Types";
+import { useMultiSelect } from "./useMultiSelect";
 
 interface ListProps<K extends Key, E extends TypedListEntry<K>>
   extends React.PropsWithChildren<any> {
@@ -62,3 +60,8 @@ export default function List<K extends Key, E extends TypedListEntry<K>>({
     </ListContextProvider>
   );
 }
+
+List.Context = ListContext;
+List.Search = ListSearch;
+List.Core = ListCore;
+List.Column = Column;

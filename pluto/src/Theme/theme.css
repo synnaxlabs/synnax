@@ -1,8 +1,11 @@
+
+
 * {
   box-sizing: border-box;
 }
 
 html {
+  --pluto-border: var(--pluto-border-width) solid var(--pluto-border-color);
   color: var(--pluto-text-color);
   background-color: var(--pluto-background-color);
   margin: 0;

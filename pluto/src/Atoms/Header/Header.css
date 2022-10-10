@@ -1,4 +1,9 @@
 .pluto-header__container {
-  padding: var(--base-size) calc(var(--base-size) * 2);
-  border-bottom: var(--border-width) solid var(--gray-m2);
+  border-bottom: var(--pluto-border);
+  padding: calc(var(--pluto-base-size) * 0.5) calc(var(--pluto-base-size));
+}
+
+.pluto-header__icon {
+  height: 100%;
+  border-right: var(--pluto-border);
 }

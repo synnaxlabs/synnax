@@ -1,8 +1,7 @@
 import { cloneElement } from "react";
-import { FontLevel } from "../../Theme/theme";
 import { useThemeContext } from "../../Theme/ThemeContext";
 import Space, { SpaceProps } from "../Space/Space";
-import Text, { BaseTextProps, TextProps } from "./Text";
+import Text, { BaseTextProps } from "./Text";
 
 export interface BaseIconTextProps
   extends Omit<SpaceProps, "children">,
@@ -15,14 +14,14 @@ export interface BaseIconTextProps
 export interface IconTextProps extends BaseIconTextProps {}
 
 export default function IconText({
+  level = "h1",
   startIcon,
   endIcon,
-  level = "h1",
   children,
   ...props
 }: IconTextProps) {
   const { theme } = useThemeContext();
-  const size = theme.typography[level].lineHeight;
+  const size = theme.typography[level].size;
   const color = theme.colors.text;
   return (
     <Space direction="horizontal" size="small" align="center" {...props}>

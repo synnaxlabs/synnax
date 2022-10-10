@@ -1,7 +1,8 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ComponentType, HTMLAttributes, Key, useRef } from "react";
 import "./BaseList.css";
-import { ListItemProps, TypedListEntry, useListContext } from "./ListContext";
+import { useListContext } from "./ListContext";
+import { ListItemProps, TypedListEntry } from "./Types";
 
 export interface BaseListProps<K extends Key, E extends TypedListEntry<K>>
   extends Omit<HTMLAttributes<HTMLDivElement>, "children" | "onSelect"> {
@@ -9,10 +10,11 @@ export interface BaseListProps<K extends Key, E extends TypedListEntry<K>>
   children: ComponentType<ListItemProps<K, E>>;
 }
 
-export default function VirtualCore<
-  K extends Key,
-  E extends TypedListEntry<K>
->({ itemHeight, children: Children, ...props }: BaseListProps<K, E>) {
+const VirtualCore = <K extends Key, E extends TypedListEntry<K>>({
+  itemHeight,
+  children: Children,
+  ...props
+}: BaseListProps<K, E>) => {
   const {
     data,
     columnar: { columns },
@@ -60,4 +62,10 @@ export default function VirtualCore<
       </div>
     </div>
   );
-}
+};
+
+const ListCore = {
+  Virtual: VirtualCore,
+};
+
+export default ListCore;

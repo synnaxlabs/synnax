@@ -1,35 +1,71 @@
-import VirtualCore from "./CoreList";
-import { SelectableColumnSearchList, ColumnListProps } from "./Lists";
+import { ComponentMeta, ComponentStory } from "@storybook/react";
+import List from "./List";
 
 export default {
   title: "Atoms/List",
-  component: VirtualCore,
+  component: List,
 };
 
-const data = Array.from({ length: 500 }, (_, i) => ({
-  key: i,
-  name: `Item ${i + 1000}`,
-  count: i,
+const dataTypes = [
+  "float64",
+  "int64",
+  "string",
+  "bool",
+  "date",
+  "time",
+  "datetime",
+  "duration",
+  "bytes",
+  "struct",
+  "list",
+  "map",
+  "null",
+];
+
+const namePrefixes = [
+  "strainGauge",
+  "accelerometer",
+  "gyroscope",
+  "magnetometer",
+];
+
+const data = Array.from({ length: 400 }, (_, i) => ({
+  key: `key-${i}`,
+  dataType: dataTypes[Math.floor(Math.random() * dataTypes.length)],
+  name: `${namePrefixes[Math.floor(Math.random() * namePrefixes.length)]}-${i}`,
+  rate: Math.floor(Math.random() * 100),
 }));
 
-const Template = (
-  args: ColumnListProps<
-    string,
-    {
-      key: string;
-      name: string;
-      count: number;
-    }
-  >
-) => <SelectableColumnSearchList {...args} />;
+const columns = [
+  {
+    key: "name",
+    label: "Name",
+  },
+  {
+    key: "dataType",
+    label: "Data Type",
+  },
+  {
+    key: "rate",
+    label: "Rate",
+  },
+];
 
-export const Primary = Template.bind({});
-Primary.args = {
-  data,
-  itemHeight: 30,
-  columns: [
-    { key: "name", label: "Name", visible: true },
-    { key: "count", label: "Count", visible: true },
-  ],
-  style: { height: 300 },
-};
+export const Column: ComponentStory<typeof List> = () => (
+  <List data={data}>
+    <List.Column.Header columns={columns} />
+    <List.Core.Virtual itemHeight={30}>
+      {(props) => <List.Column.Item {...props} />}
+    </List.Core.Virtual>
+  </List>
+);
+
+export const Search: ComponentStory<typeof List> = () => (
+  <List data={data}>
+    <List.Search />
+    <List.Column.Header columns={columns} />
+    <List.Core.Virtual itemHeight={30}>
+      {(props) => <List.Column.Item {...props} />}
+    </List.Core.Virtual>
+  </List>
+);

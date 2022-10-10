@@ -4,11 +4,10 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "start-storybook -p 6006",
+    "build-storybook": "tsc && build-storybook",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "storybook": "start-storybook -p 6006",
-    "build-storybook": "build-storybook",
     "test": "vitest"
   },
   "dependencies": {
@@ -19,6 +18,7 @@
     "fuse.js": "^6.6.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "uplot": "^1.6.22",
     "uuid": "^8.3.2"
   },
   "devDependencies": {

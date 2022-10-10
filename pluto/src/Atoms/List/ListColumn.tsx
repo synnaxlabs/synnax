@@ -5,21 +5,18 @@ import { useFont } from "../../Theme/hooks";
 import { useEffect, useState } from "react";
 import { AiFillCaretDown, AiFillCaretUp } from "react-icons/ai";
 import { sortFunc } from "../../util/sort";
+import { useListContext } from "./ListContext";
 import {
   Key,
   ListItemProps,
   TypedColumn,
   TypedListEntry,
   TypedTransform,
-  useListContext,
-} from "./ListContext";
+} from "./Types";
 import clsx from "clsx";
-import "./ColumnList.css";
+import "./ListColumn.css";
 
-type SortState<K extends unknown, V extends TypedListEntry<K>> = [
-  keyof V,
-  boolean
-];
+type SortState<K extends Key, E extends TypedListEntry<K>> = [keyof E, boolean];
 
 const sortTransform = <K extends Key, E extends TypedListEntry<K>>(
   k: keyof E,
@@ -38,7 +35,7 @@ export interface ColumnHeaderProps<K extends Key, E extends TypedListEntry<K>> {
   columns: TypedColumn<K, E>[];
 }
 
-export const ColumnHeader = <K extends Key, E extends TypedListEntry<K>>({
+const ListColumnHeader = <K extends Key, E extends TypedListEntry<K>>({
   columns: initialColumns,
 }: ColumnHeaderProps<K, E>) => {
   const {
@@ -85,7 +82,7 @@ export const ColumnHeader = <K extends Key, E extends TypedListEntry<K>>({
       className="pluto-list-col__header__container"
     >
       {columns
-        .filter((col) => col.visible)
+        .filter(({ visible = true }) => visible)
         .map((col) => {
           const [key, dir] = sort;
           let endIcon = undefined;
@@ -114,7 +111,7 @@ export const ColumnHeader = <K extends Key, E extends TypedListEntry<K>>({
   );
 };
 
-export const ColumnItem = <K extends Key, E extends TypedListEntry<K>>({
+export const ListColumnItem = <K extends Key, E extends TypedListEntry<K>>({
   entry,
   selected,
   columns,
@@ -134,7 +131,7 @@ export const ColumnItem = <K extends Key, E extends TypedListEntry<K>>({
       {...props}
     >
       {columns
-        .filter((col) => col.visible)
+        .filter(({ visible = true }) => visible)
         .map((col) => (
           <Text
             key={col.key as string}
@@ -195,3 +192,10 @@ const longestEntries = <K extends Key, E extends TypedListEntry<K>>(
   });
   return longest;
 };
+
+const Column = {
+  Header: ListColumnHeader,
+  Item: ListColumnItem,
+};
+
+export default Column;

@@ -1,21 +1,7 @@
 import { useEffect } from "react";
 import { ComponentType, Key, useState } from "react";
 import { useKeyHeld } from "../../util/useKeys";
-import { TypedListEntry } from "./ListContext";
-
-export interface SelectListProps<K extends any> {
-  children: ComponentType<{
-    selected: K[];
-    setSelected: (K: K[]) => void;
-  }>;
-}
-
-export default function SelectList<K extends any>({
-  children: Children,
-}: SelectListProps<K>) {
-  const [selected, setSelected] = useState<K[]>([]);
-  return <Children selected={selected} setSelected={setSelected} />;
-}
+import { TypedListEntry } from "./Types";
 
 export const useMultiSelect = <K extends Key, E extends TypedListEntry<K>>(
   data: E[]
@@ -40,9 +26,7 @@ export const useMultiSelect = <K extends Key, E extends TypedListEntry<K>>(
         data.findIndex((v) => v.key === key),
         data.findIndex((v) => v.key === shiftSelected),
       ].sort((a, b) => a - b);
-
       const nextKeys = data.slice(indexes[0], indexes[1] + 1).map((v) => v.key);
-
       if (
         nextKeys
           .slice(1, nextKeys.length - 1)
@@ -63,13 +47,4 @@ export const useMultiSelect = <K extends Key, E extends TypedListEntry<K>>(
 
   const clearSelected = () => setSelected([]);
   return { selected, onSelect, clearSelected };
-};
-
-export const useHidden = <K extends Key>(): [K[], (key: K) => void] => {
-  const [hidden, setHidden] = useState<K[]>([]);
-  const onHide = (key: K) =>
-    setHidden((hidden) =>
-      hidden.includes(key) ? hidden.filter((i) => i !== key) : [...hidden, key]
-    );
-  return [hidden, onHide];
 };

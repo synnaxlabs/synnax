@@ -1,72 +1,66 @@
-type size = number | string;
-type color = number | string;
-type typography = {
-  size: size;
-  weight: size;
-  lineHeight: number;
-  textTransform?: string;
-};
+import { TypographyDefinition } from "../Atoms/Typography";
 
-export type FontLevel = "h1" | "h2" | "h3" | "h4" | "h5" | "p" | "small";
+type Size = number | string;
+type Color = string;
 
 export interface Theme {
   name: string;
   colors: {
-    border: color;
+    border: Color;
     primary: {
-      m1: color;
-      z: color;
-      p1: color;
+      m1: Color;
+      z: Color;
+      p1: Color;
     };
     gray: {
-      m3: color;
-      m2: color;
-      m1: color;
-      m0: color;
-      p0: color;
-      p1: color;
-      p2: color;
-      p3: color;
+      m3: Color;
+      m2: Color;
+      m1: Color;
+      m0: Color;
+      p0: Color;
+      p1: Color;
+      p2: Color;
+      p3: Color;
     };
     error: {
-      m1: color;
-      z: color;
-      p1: color;
+      m1: Color;
+      z: Color;
+      p1: Color;
     };
     visualization: {
       palettes: {
-        default: color[];
-        [key: string]: color[];
+        default: Color[];
+        [key: string]: Color[];
       };
     };
-    white: color;
-    black: color;
-    background: color;
-    text: color;
+    white: Color;
+    black: Color;
+    background: Color;
+    text: Color;
   };
   sizes: {
     base: number;
     border: {
-      radius: size;
-      width: size;
+      radius: Size;
+      width: Size;
     };
   };
   typography: {
     family: string;
-    h1: typography;
-    h2: typography;
-    h3: typography;
-    h4: typography;
-    h5: typography;
-    p: typography;
-    small: typography;
+    h1: TypographyDefinition;
+    h2: TypographyDefinition;
+    h3: TypographyDefinition;
+    h4: TypographyDefinition;
+    h5: TypographyDefinition;
+    p: TypographyDefinition;
+    small: TypographyDefinition;
   };
 }
 
-const white: color = "#FFFFFF";
-const black: color = "#171716";
+const white: Color = "#FFFFFF";
+const black: Color = "#171716";
 const fontFamily = "Inter, sans-serif";
-const baseSize: size = 6;
+const baseSize: Size = 6;
 
 const synnaxBase: Theme = {
   name: "synnax-base",
@@ -83,7 +77,7 @@ const synnaxBase: Theme = {
       p0: "#676762",
       m0: "#94938D",
       m1: "#C8C7BF",
-      m2: "#F5F5F1",
+      m2: "#e5e5e5",
       m3: "#FEFEFD",
     },
     border: "#C8C7BF",
@@ -154,7 +148,7 @@ const synnaxBase: Theme = {
     },
     small: {
       size: baseSize * 2,
-      weight: "regular",
+      weight: 300,
       lineHeight: baseSize * (2 + 1 / 3),
     },
   },

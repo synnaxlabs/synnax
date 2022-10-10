@@ -20,8 +20,9 @@ export const useKeyPress = ({
   onRelease?: () => void;
 }): void => {
   useEffect(() => {
-    const onKeyDown = (e) => e.key == key && onPress();
-    const onKeyUp = (e) => e.key == key && onRelease && onRelease();
+    const onKeyDown = (e: KeyboardEvent) => e.key == key && onPress();
+    const onKeyUp = (e: KeyboardEvent) =>
+      e.key == key && onRelease && onRelease();
     document.addEventListener("keydown", onKeyDown);
     document.addEventListener("keyup", onKeyUp);
     return () => {

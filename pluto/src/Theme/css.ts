@@ -1,4 +1,3 @@
-import { Color } from "d3";
 import { Theme } from "./theme";
 
 export const applyThemeAsCssVars = (element: HTMLElement, theme: Theme) => {
