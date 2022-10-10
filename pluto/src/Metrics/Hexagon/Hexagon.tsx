@@ -1,7 +1,7 @@
 import { SVGProps, useEffect, useRef, useState } from "react";
 import * as d3 from "d3";
 import { useThemeContext } from "../../Theme/ThemeContext";
-import { FontLevel } from "../../Theme/theme";
+import { TypographyLevel } from "../../Atoms";
 
 export interface Metric {
   name: string;
@@ -12,7 +12,7 @@ export interface Metric {
 
 export interface Title {
   text: string;
-  textLevel: FontLevel;
+  textLevel: TypographyLevel;
 }
 
 export interface HexagonBarProps extends SVGProps<any> {

@@ -11,7 +11,7 @@ import Space from "../Space/Space";
 import { Tag } from "../Tag";
 import "./SelectMultiple.css";
 import Button from "../Button";
-import useClickoutside from "../../util/useClickOutSide";
+import useClickoutside from "../../util/useClickOutside";
 
 export interface SelectMultipleProps<
   K extends Key,

@@ -4,7 +4,7 @@ import Button from "../../Atoms/Button/Button";
 import ResizePanel from "../../Atoms/Resize/ResizePanel";
 import Space from "../../Atoms/Space/Space";
 import NavBar, { NavBarProps, useNavBar } from "../Nav/NavBar";
-import "./Navdrawer.css";
+import "./NavDrawer.css";
 
 export type NavDrawerItem = {
   key: string;

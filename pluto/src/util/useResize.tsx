@@ -1,4 +1,5 @@
-import { useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
+import { ResizeObserver } from "@juggle/resize-observer";
 
 export type useResizeOpts = {
   debounce?: number;
@@ -29,6 +30,12 @@ export const useResize = (
     return () => {
       resizeObserver.disconnect();
     };
+  }, [ref]);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || size.width != 0 || size.height != 0) return;
+    const { width, height } = el.getBoundingClientRect();
+    setSize({ width, height });
   }, [ref]);
   return size;
 };

@@ -30,7 +30,10 @@ const Content = () => {
   return (
     <div className="main__content">
       <MultiResizable direction="vertical">
-        <Plot />
+        <MultiResizable direction="horizontal">
+          <Plot />
+          <Plot />
+        </MultiResizable>
         <Plot />
       </MultiResizable>
     </div>

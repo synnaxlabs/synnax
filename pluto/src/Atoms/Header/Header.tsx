@@ -2,12 +2,12 @@ import Space, { SpaceProps } from "../Space/Space";
 import "./Header.css";
 import { ReactElement } from "react";
 import clsx from "clsx";
-import { FontLevel } from "../../Theme/theme";
 import IconText from "../Typography/IconText";
 import Button from "../Button/Button";
+import { TypographyLevel } from "../Typography";
 
 export interface HeadingProps extends Omit<SpaceProps, "children" | "size"> {
-  level: FontLevel;
+  level: TypographyLevel;
   text: string;
   icon?: ReactElement;
   actions?: Action[];

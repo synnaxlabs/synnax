@@ -22,7 +22,7 @@ export default function AutoSize({
       cloneElement(Children, { width, height })
     );
   return (
-    <div ref={ref} style={{ ...style }} {...props}>
+    <div ref={ref} style={style} {...props}>
       {content}
     </div>
   );

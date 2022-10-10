@@ -1,7 +1,6 @@
 import { ComponentMeta, ComponentStory } from "@storybook/react";
-import Select from ".";
 import { Key, TypedListEntry } from "../List/Types";
-import SelectMultiple, { SelectMultipleProps } from "./SelectMultiple";
+import Select, { SelectMultipleProps } from ".";
 
 export default {
   title: "Atoms/Select",
@@ -17,10 +16,10 @@ const options = Array.from({ length: 500 }).map((_, i) => ({
 
 const MultipleTemplate = <K extends Key, E extends TypedListEntry<K>>(
   args: SelectMultipleProps<K, E>
-) => <SelectMultiple {...args} />;
+) => <Select.Multiple {...args} />;
 
 export const Multiple: ComponentStory<
-  typeof SelectMultiple<
+  typeof Select.Multiple<
     string,
     {
       key: string;

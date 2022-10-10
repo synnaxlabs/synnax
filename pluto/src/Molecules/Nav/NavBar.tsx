@@ -13,7 +13,7 @@ import {
   swapLocation,
   getDirection,
 } from "../../util/spatial";
-import "./Navbar.css";
+import "./NavBar.css";
 
 export interface NavBarProps extends HTMLAttributes<HTMLDivElement> {
   location: Location;

@@ -106,3 +106,7 @@ p {
 .pluto-bordered--top {
   border-top: var(--pluto-border);
 }
+
+.pluto-bordered--bottom {
+  border-bottom: var(--pluto-border);
+}
