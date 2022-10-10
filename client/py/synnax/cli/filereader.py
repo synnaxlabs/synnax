@@ -26,16 +26,16 @@ class CSVReader:
     def __init__(self, filepath):
         self.filepath = filepath
 
-    def getData(self):
+    def get_data(self):
         return
 
-    def getColSample(self, col):
+    def get_cols_sample(self, col):
         return pd.read_csv(self.filepath, nrows=10)[col]
 
-    def getHeaders(self):
+    def get_headers(self):
         return pd.read_csv(self.filepath, nrows=10).columns
 
-    def pushData(self, converter):
+    def push_data_chunks(self, converter):
         for chunk in pd.read_csv(self.filepath, chunksize=self.CHUNKSIZE):
             converter.parseChunk(chunk)
 
@@ -50,9 +50,9 @@ class XLSXReader:
     def getHeaders(self):
         pass
 
-    def getData(self):
+    def get_data(self):
         return np.array(pd.read_excel(self.filepath))
 
-    def pushData(self, converter):
+    def push_data(self, converter):
         for chunk in pd.read_excel(self.filepath, chunksize=self.CHUNKSIZE):
             converter.parseChunk(chunk)

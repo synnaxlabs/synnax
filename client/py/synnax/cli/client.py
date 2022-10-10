@@ -4,16 +4,20 @@ from .argreader import ArgParser
 from .filereader import FileReader
 from .converter import Converter
 
+import synnax
+from datetime import datetime
+
 
 def run():
     ar = ArgParser()
-    filereader = FileReader.get(ar.getFileType(), ar.getFilePath())
-    df = filereader.getData()
-    cols = filereader.getHeaders()
+    filereader = FileReader.get(ar.get_filetype(), ar.get_filepath())
 
     conv = Converter(
         filereader,
-        hostname=ar.getHostname(),
-        port=ar.getPort(),
-        timestampCol=ar.getTimestampCol()[0],
+        ar.get_flags(),
+        hostname=ar.get_hostname(),
+        port=ar.get_port(),
+        timestampCol=ar.get_timestamp_col(),
+        datarate=25 * synnax.HZ,
     )
+    conv.parse()  #
