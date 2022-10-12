@@ -4,6 +4,7 @@ export type Size = number | string;
 
 /* Level of typography i.e paragraph and heading */
 export type TypographyLevel = "h1" | "h2" | "h3" | "h4" | "h5" | "p" | "small";
+export const TypographyLevels = ["h1", "h2", "h3", "h4", "h5", "p", "small"];
 
 /* Defines a particular typography style */
 export type TypographyDefinition = {
@@ -21,4 +22,17 @@ export const ComponentSizeTypographyLevels: Record<
   small: "small",
   medium: "p",
   large: "h1",
+};
+
+export const TypographyLevelComponentSizes: Record<
+  TypographyLevel,
+  ComponentSize
+> = {
+  h1: "large",
+  h2: "large",
+  h3: "medium",
+  h4: "medium",
+  h5: "small",
+  p: "small",
+  small: "small",
 };

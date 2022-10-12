@@ -6,10 +6,10 @@ import {
   useEffect,
   useMemo,
 } from "react";
-import { ThemeProps, synnaxDark, synnaxLight } from "./theme";
+import { ThemeProps, synnaxLight } from "./theme";
 import { applyThemeAsCssVars } from "./css";
 import "./theme.css";
-import Switch from "../Atoms/Tag/Switch/Switch";
+import Switch from "../Atoms/Switch/Switch";
 
 const ThemeContext = createContext<{
   theme: ThemeProps;

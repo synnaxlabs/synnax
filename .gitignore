@@ -9,3 +9,7 @@
 # |||||| VSCODE ||||||
 
 .vscode
+
+# |||||| JS ||||||
+
+node_modules

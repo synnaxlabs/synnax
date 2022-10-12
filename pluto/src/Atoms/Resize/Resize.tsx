@@ -1,7 +1,13 @@
 import clsx from "clsx";
 import { HTMLAttributes, useEffect, useState } from "react";
-import { getDirection, Location } from "../../util/spatial";
-import "./ResizePanel.css";
+import {
+  getDirection,
+  Location,
+  swapDirection,
+  swapLocation,
+} from "../../util/spatial";
+import "./Resize.css";
+import ResizeMultiple from "./ResizeMultiple";
 
 export interface ResizePanelProps extends HTMLAttributes<HTMLDivElement> {
   location: Location;
@@ -9,23 +15,9 @@ export interface ResizePanelProps extends HTMLAttributes<HTMLDivElement> {
   minSize?: number;
   maxSize?: number;
 }
-
-const parseMovement = (location: Location, e: MouseEvent) => {
-  switch (location) {
-    case "top":
-      return e.movementY;
-    case "bottom":
-      return -e.movementY;
-    case "left":
-      return e.movementX;
-    case "right":
-      return -e.movementX;
-  }
-};
-
-export default function ResizePanel({
+function Resize({
   children,
-  location,
+  location = "left",
   minSize = 100,
   maxSize = Infinity,
   initialSize = 200,
@@ -70,6 +62,7 @@ export default function ResizePanel({
         "pluto-resize-panel",
         `pluto-resize-panel--${location}`,
         `pluto-resize-panel--${direction}`,
+        `pluto-bordered--${swapLocation(location)}`,
         className
       )}
       style={parsedStyle}
@@ -79,6 +72,7 @@ export default function ResizePanel({
       <div
         draggable
         className="pluto-resize-panel__handle"
+        data-testid="resize-handle"
         onDragStart={(e) => {
           setDragging(true);
           e.preventDefault();
@@ -89,3 +83,20 @@ export default function ResizePanel({
     </div>
   );
 }
+
+Resize.Multiple = ResizeMultiple;
+
+export default Resize;
+
+const parseMovement = (location: Location, e: MouseEvent) => {
+  switch (location) {
+    case "top":
+      return e.movementY;
+    case "bottom":
+      return -e.movementY;
+    case "left":
+      return e.movementX;
+    case "right":
+      return -e.movementX;
+  }
+};

@@ -1,6 +1,6 @@
 import { AiOutlineClose } from "react-icons/ai";
 import { ComponentSize } from "../../util/types";
-import { IconText } from "../Typography";
+import { Text } from "../Typography";
 import { ComponentSizeTypographyLevels, TextProps } from "../Typography";
 import "./Tag.css";
 
@@ -24,6 +24,7 @@ export default function Tag({
 }: TagProps) {
   const closeIcon = onClose && (
     <AiOutlineClose
+      aria-label="close"
       className="pluto-tag__close"
       onClick={(e) => {
         e.stopPropagation();
@@ -32,7 +33,7 @@ export default function Tag({
     />
   );
   return (
-    <IconText
+    <Text.WithIcon
       endIcon={closeIcon}
       startIcon={icon}
       className="pluto-tag"
@@ -45,6 +46,6 @@ export default function Tag({
       {...props}
     >
       {children}
-    </IconText>
+    </Text.WithIcon>
   );
 }

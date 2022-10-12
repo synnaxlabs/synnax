@@ -1,7 +1,7 @@
 import clsx from "clsx";
 import { ReactElement, useState } from "react";
 import Button from "../../Atoms/Button/Button";
-import ResizePanel from "../../Atoms/Resize/Resize";
+import Resize from "../../Atoms/Resize/Resize";
 import Space from "../../Atoms/Space/Space";
 import NavBar, { NavBarProps, useNavBar } from "../Nav/NavBar";
 import "./NavDrawer.css";
@@ -45,7 +45,7 @@ export default function Navdrawer({
           </NavBar.Content>
         </NavBar>
         {activeItem && (
-          <ResizePanel
+          <Resize
             className={clsx(
               "pluto-navdrawer__content",
               `pluto-navdrawer__content--${direction}`,
@@ -55,7 +55,7 @@ export default function Navdrawer({
             {...activeItem}
           >
             {activeItem.content}
-          </ResizePanel>
+          </Resize>
         )}
       </Space>
     </NavBar.Context.Provider>

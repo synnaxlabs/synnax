@@ -1,11 +1,7 @@
 import { ComponentMeta, ComponentStory } from "@storybook/react";
 import { ComponentSizes } from "../../util/types";
 import Button from "../Button/Button";
-import Space, {
-  SpaceAlignments,
-  SpaceJustifications,
-  SpaceProps,
-} from "./Space";
+import { Space, SpaceAlignments, SpaceJustifications, SpaceProps } from ".";
 
 export default {
   title: "Atoms/Space",

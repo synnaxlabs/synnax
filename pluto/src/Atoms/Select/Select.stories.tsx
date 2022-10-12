@@ -1,6 +1,6 @@
 import { ComponentMeta, ComponentStory } from "@storybook/react";
 import { Key, TypedListEntry } from "../List/Types";
-import Select, { SelectMultipleProps } from ".";
+import { Select, SelectMultipleProps } from ".";
 
 export default {
   title: "Atoms/Select",

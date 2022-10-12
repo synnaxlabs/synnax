@@ -9,6 +9,10 @@
   font-family: var(--pluto-font-family);
 }
 
+.pluto-btn--large {
+  height: calc(var(--pluto-base-size) * 6);
+}
+
 .pluto-btn--medium {
   height: calc(var(--pluto-base-size) * 5);
 }
@@ -87,6 +91,10 @@
 
 .pluto-btn--small .pluto-btn-icon__icon {
   font-size: calc(var(--pluto-base-size) * 2.5);
+}
+
+.pluto-btn--large .pluto-btn-icon__icon {
+  font-size: calc(var(--pluto-base-size) * 4);
 }
 
 

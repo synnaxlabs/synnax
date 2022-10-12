@@ -1,6 +1,6 @@
 import Space from "../Space/Space";
 import Text from "../Typography/Text";
-import IconText from "../Typography/IconText";
+import TextWithIcon from "../Typography/TextWithIcon";
 import { useFont } from "../../Theme/hooks";
 import { useEffect, useState } from "react";
 import { AiFillCaretDown, AiFillCaretUp } from "react-icons/ai";
@@ -81,7 +81,7 @@ const ListColumnHeader = <K extends Key, E extends TypedListEntry<K>>({
             endIcon = dir ? <AiFillCaretUp /> : <AiFillCaretDown />;
           }
           return (
-            <IconText
+            <TextWithIcon
               key={col.key as string}
               justify="spaceBetween"
               level="p"
@@ -95,7 +95,7 @@ const ListColumnHeader = <K extends Key, E extends TypedListEntry<K>>({
               onClick={() => onSort(col.key)}
             >
               {col.label}
-            </IconText>
+            </TextWithIcon>
           );
         })}
     </Space>

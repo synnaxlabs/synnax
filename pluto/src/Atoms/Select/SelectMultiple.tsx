@@ -20,6 +20,7 @@ export interface SelectMultipleProps<
   options?: E[];
   columns?: TypedListColumn<K, E>[];
   listPosition?: "top" | "bottom";
+  tagKey?: keyof E;
 }
 
 export default function SelectMultiple<
@@ -29,6 +30,7 @@ export default function SelectMultiple<
   options = [],
   columns = [],
   listPosition = "bottom",
+  tagKey = "key",
 }: SelectMultipleProps<K, E>) {
   const [visible, setVisible] = useState(false);
   const divRef = useRef<HTMLDivElement>(null);
@@ -45,7 +47,7 @@ export default function SelectMultiple<
           Input={({ value, onChange }) => {
             return (
               <SelectMultipleInput
-                tagKey={"name"}
+                tagKey={tagKey}
                 value={value}
                 focused={visible}
                 onFocus={() => setVisible(true)}
@@ -121,6 +123,7 @@ const SelectMultipleInput = <K extends Key, E extends TypedListEntry<K>>({
             if (!e) return null;
             return (
               <Tag
+                key={e.key}
                 color={theme.colors.visualization.palettes.default[i]}
                 onClose={() => onSelect(e.key)}
                 size="small"
@@ -136,7 +139,7 @@ const SelectMultipleInput = <K extends Key, E extends TypedListEntry<K>>({
         variant="outlined"
         onClick={clearSelected}
       >
-        <AiOutlineClose />
+        <AiOutlineClose aria-label="clear" />
       </Button.IconOnly>
     </Space>
   );

@@ -1,13 +1,16 @@
 import { Children, HTMLAttributes } from "react";
 import { Direction, getLocation } from "../../util/spatial";
 import Space from "../Space/Space";
-import ResizePanel from "./Resize";
+import Resize from "./Resize";
 
-export interface MultiResizeProps extends HTMLAttributes<HTMLDivElement> {
+export interface ResizeMultipleProps extends HTMLAttributes<HTMLDivElement> {
   direction: Direction;
 }
 
-export default function MultiResize({ children, direction }: MultiResizeProps) {
+export default function ResizeMultiple({
+  children,
+  direction,
+}: ResizeMultipleProps) {
   const childArray = Children.toArray(children);
   return (
     <Space
@@ -23,13 +26,13 @@ export default function MultiResize({ children, direction }: MultiResizeProps) {
     >
       {childArray.slice(0, childArray.length - 1).map((child, i) => {
         return (
-          <ResizePanel
+          <Resize
             key={i}
             location={getLocation(direction)}
             style={{ zIndex: i, overflow: "hidden" }}
           >
             {child}
-          </ResizePanel>
+          </Resize>
         );
       })}
       <div style={{ flexGrow: 1, overflow: "hidden" }}>

@@ -21,23 +21,19 @@
 .pluto-resize-panel--left > .pluto-resize-panel__handle {
     right: 0;
     top: 0;
-    border-right: var(--pluto-border);
 }
 
 .pluto-resize-panel--right > .pluto-resize-panel__handle {
     left: 0;
     top: 0;
-    border-left: var(--pluto-border);
 }
 
 .pluto-resize-panel--top > .pluto-resize-panel__handle {
     left: 0;
     bottom: 0;
-    border-top: var(--pluto-border);
 }
 
 .pluto-resize-panel--bottom > .pluto-resize-panel__handle {
     left: 0;
     top: 0;
-    border-bottom: var(--pluto-border);
 }

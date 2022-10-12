@@ -46,56 +46,57 @@ const juitifications = {
   spaceEvenly: "space-evenly",
 };
 
-function Space(
-  {
-    empty = false,
-    size = "medium",
-    justify = "start",
-    reverse = false,
-    direction = "vertical",
-    grow = false,
-    align,
-    className,
-    style,
-    children,
-    ...props
-  }: SpaceProps,
-  ref: ForwardedRef<HTMLDivElement>
-) {
-  let gap;
-  if (empty) {
-    size = null;
-    gap = 0;
-  } else if (typeof size == "string") {
-    gap = `pluto-space--${size}`;
-  } else {
-    gap = `calc(var(--pluto-base-size) * ${size})`;
+const Space = forwardRef(
+  (
+    {
+      empty = false,
+      size = "medium",
+      justify = "start",
+      reverse = false,
+      direction = "vertical",
+      grow = false,
+      align,
+      className,
+      style,
+      children,
+      ...props
+    }: SpaceProps,
+    ref: ForwardedRef<HTMLDivElement>
+  ) => {
+    let gap;
+    if (empty) {
+      size = null;
+      gap = 0;
+    } else if (typeof size == "string") {
+      gap = `pluto-space--${size}`;
+    } else {
+      gap = `calc(var(--pluto-base-size) * ${size})`;
+    }
+    return (
+      <div
+        className={clsx(
+          "pluto-space",
+          typeof size === "string" ? "pluto-space--" + size : undefined,
+          `pluto-space--${direction}`,
+          className
+        )}
+        ref={ref}
+        style={{
+          flexDirection: flexDirection(direction, reverse),
+          justifyContent: juitifications[justify],
+          alignItems: align,
+          flexGrow: Number(grow),
+          gap,
+          ...style,
+        }}
+        {...props}
+      >
+        {children}
+      </div>
+    );
   }
-  return (
-    <div
-      className={clsx(
-        "pluto-space",
-        typeof size === "string" ? "pluto-space--" + size : undefined,
-        `pluto-space--${direction}`,
-        className
-      )}
-      ref={ref}
-      style={{
-        flexDirection: flexDirection(direction, reverse),
-        justifyContent: juitifications[justify],
-        alignItems: align,
-        flexGrow: Number(grow),
-        gap,
-        ...style,
-      }}
-      {...props}
-    >
-      {children}
-    </div>
-  );
-}
-
-export default forwardRef(Space);
+);
+export default Space;
 
 const flexDirection = (direction: Direction, reverse: boolean) => {
   if (direction === "horizontal") {

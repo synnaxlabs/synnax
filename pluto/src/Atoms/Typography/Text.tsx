@@ -1,5 +1,5 @@
 import { createElement, HTMLAttributes } from "react";
-import IconText from "./IconText";
+import TextWithIcon from "./TextWithIcon";
 import { TypographyLevel } from "./Types";
 
 export interface BaseTextProps {
@@ -28,6 +28,6 @@ function Text({ level = "h1", ...props }: TextProps) {
   return createElement(typographyLevelTags[level], props);
 }
 
-Text.WithIcon = IconText;
+Text.WithIcon = TextWithIcon;
 
 export default Text;
