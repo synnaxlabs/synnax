@@ -9,7 +9,7 @@ import ListSearch from "../List/ListSearch";
 import Space from "../Space/Space";
 import { Tag } from "../Tag";
 import "./SelectMultiple.css";
-import Button from "../Button";
+import { Button } from "../Button";
 import useClickoutside from "../../Hooks/useClickOutside";
 import { Theme } from "../../Theme";
 

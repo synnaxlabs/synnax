@@ -4,9 +4,4 @@ export {
   SpaceJustifications,
 } from "./Space";
 
-export type {
-  SpaceAlignment,
-  SpaceJustification,
-  SpaceProps,
-  SpaceBorderedProps,
-} from "./Space";
+export type { SpaceAlignment, SpaceJustification, SpaceProps } from "./Space";

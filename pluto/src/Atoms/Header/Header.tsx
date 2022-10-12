@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import { cloneElement, Fragment, isValidElement, ReactElement } from "react";
-import Button, { ButtonIconOnlyProps } from "../Button";
+import { Button, ButtonIconOnlyProps } from "../Button";
 import { Divider } from "../Divider";
 import { Space, SpaceProps } from "../Space";
 import { Text, TextProps, TypographyLevelComponentSizes } from "../Typography";
