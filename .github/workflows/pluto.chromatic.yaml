@@ -22,6 +22,7 @@ jobs:
 
       - name: Test
         run: yarn test --coverage
+        working-directory: ./pluto
 
       - name: Upload Coverage
         uses: codecov/codecov-action@v3
