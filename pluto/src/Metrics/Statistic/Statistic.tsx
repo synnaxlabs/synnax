@@ -1,11 +1,12 @@
+import clsx from "clsx";
+import { TypographyLevel } from "../../Atoms";
 import Space from "../../Atoms/Space/Space";
-import Text, { textLevel } from "../../Atoms/Typography/Text";
-import { classList } from "../../util/css";
+import Text from "../../Atoms/Typography/Text";
 import "./Value.css";
 
 export interface ValueProps {
   value: number;
-  level?: textLevel;
+  level?: TypographyLevel;
   label?: string;
   variant?: "primary" | "error";
   color?: string;
@@ -21,7 +22,7 @@ export const Statistic = ({
   return (
     <Space empty direction="vertical" align="center" justify="center">
       <Text
-        className={classList(
+        className={clsx(
           "pluto-value__text",
           variant && `pluto-value__text--${variant}`
         )}

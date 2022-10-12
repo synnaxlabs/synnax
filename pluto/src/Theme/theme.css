@@ -1,15 +1,27 @@
-/** {*/
-/*  transition: 0.15s ease-in-out;*/
-/*}*/
+
+
+* {
+  box-sizing: border-box;
+}
 
 html {
-  color: var(--text-color);
-  background-color: var(--background);
+  --pluto-border: var(--pluto-border-width) solid var(--pluto-border-color);
+  color: var(--pluto-text-color);
+  background-color: var(--pluto-background-color);
   margin: 0;
+  height: 100%;
+  width: 100%;
 }
 
 body {
   margin: 0;
+  height: 100%;
+  width: 100%;
+}
+
+#root {
+  height: 100%;
+  width: 100%;
 }
 
 h1,
@@ -19,48 +31,82 @@ h4,
 h5,
 h6,
 p {
-  font-family: var(--font-family);
-  color: var(--text-color);
+  font-family: var(--pluto-font-family);
+  color: var(--pluto-text-color);
+  margin: 0;
 }
 
 h1 {
-  font-size: var(--h1-font-size);
-  line-height: var(--h1-line-height);
-  font-weight: var(--h1-weight);
+  font-size: var(--pluto-h1-size);
+  line-height: var(--pluto-h1-line-height);
+  font-weight: var(--pluto-h1-weight);
 }
 
 h2 {
-  font-size: var(--h2-font-size);
-  line-height: var(--h2-line-height);
-  font-weight: var(--h2-weight);
+  font-size: var(--pluto-h2-size);
+  line-height: var(--pluto-h2-line-height);
+  font-weight: var(--pluto-h2-weight);
 }
 
 h3 {
-  font-size: var(--h3-font-size);
-  line-height: var(--h3-line-height);
-  font-weight: var(--h3-weight);
+  font-size: var(--pluto-h3-size);
+  line-height: var(--pluto-h3-line-height);
+  font-weight: var(--pluto-h3-weight);
 }
 
 h4 {
-  font-size: var(--h4-font-size);
-  line-height: var(--h4-line-height);
-  font-weight: var(--h4-weight);
+  font-size: var(--pluto-h4-size);
+  line-height: var(--pluto-h4-line-height);
+  font-weight: var(--pluto-h4-weight);
 }
 
 h5 {
-  font-size: var(--h5-font-size);
-  line-height: var(--h5-line-height);
-  font-weight: var(--h5-weight);
+  font-size: var(--pluto-h5-size);
+  line-height: var(--pluto-h5-line-height);
+  font-weight: var(--pluto-h5-weight);
 }
 
 h6 {
-  font-size: var(--small-font-size);
-  line-height: var(--small-line-height);
-  font-weight: var(--small-weight);
+  font-size: var(--pluto-small-size);
+  line-height: var(--pluto-small-line-height);
+  font-weight: var(--pluto-small-weight);
 }
 
 p {
-  font-size: var(--p-font-size);
-  line-height: var(--p-line-height);
-  font-weight: var(--p-weight);
+  font-size: var(--pluto-p-size);
+  line-height: var(--pluto-p-line-height);
+  font-weight: var(--pluto-p-weight);
+}
+
+::-webkit-scrollbar {
+  width: calc(var(--pluto-base-size) * 1.5);
+}
+
+::-webkit-scrollbar-track {
+  background: var(--pluto-gray-m3);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--pluto-gray-m1);
+  border-radius: var(--pluto-border-radius);
+}
+
+.pluto-bordered--all {
+  border: var(--pluto-border);
+}
+
+.pluto-bordered--right {
+  border-right: var(--pluto-border);
+}
+
+.pluto-bordered--left {
+  border-left: var(--pluto-border);
+}
+
+.pluto-bordered--top {
+  border-top: var(--pluto-border);
+}
+
+.pluto-bordered--bottom {
+  border-bottom: var(--pluto-border);
 }

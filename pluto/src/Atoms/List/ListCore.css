@@ -1,0 +1,10 @@
+.pluto-list__inner {
+    width: 100%;
+    position: relative;
+}
+
+.pluto-list__container {
+    height: 100%;
+    width: 100%;
+    overflow: auto;
+}

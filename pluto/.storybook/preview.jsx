@@ -1,5 +1,6 @@
 import { ThemeProvider } from "../src/Theme/ThemeContext.tsx";
 import {synnaxDark, synnaxLight} from "../src/Theme/theme.ts";
+import "./index.css"
 
 export const parameters = {
   actions: { argTypesRegex: "^on[A-Z].*" },

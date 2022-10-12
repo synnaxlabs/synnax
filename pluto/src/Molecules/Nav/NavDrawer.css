@@ -1,0 +1,13 @@
+.pluto-navdrawer__content--horizontal {
+    width: "100%";
+}
+
+.pluto-navdrawer__content--vertical {
+    resize: horizontal;
+    height: "100%";
+}
+
+
+.pluto-navdrawer__menu {
+    padding: calc(var(--pluto-base-size) * 2) var(--pluto-base-size);
+}

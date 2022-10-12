@@ -1,53 +1,70 @@
-import Space, { SpaceProps } from "../Space/Space";
+import clsx from "clsx";
+import { cloneElement, Fragment, isValidElement, ReactElement } from "react";
+import { Button, ButtonIconOnlyProps } from "../Button";
+import { Divider } from "../Divider";
+import { Space, SpaceProps } from "../Space";
+import { Text, TextProps, TypographyLevelComponentSizes } from "../Typography";
 import "./Header.css";
-import { cloneElement, ReactElement } from "react";
-import { useThemeContext } from "../../Theme/ThemeContext";
-import { classList } from "../../util/css";
 
-export type FontSize = "h1" | "h2" | "h3" | "h4" | "h5" | "p" | "small";
-
-export interface HeadingProps extends Omit<SpaceProps, "children" | "size"> {
-  size: FontSize;
-  text: string;
+export interface HeaderProps extends Omit<SpaceProps, "children">, TextProps {
+  divided?: boolean;
   icon?: ReactElement;
+  actions?: (ButtonIconOnlyProps | ReactElement)[];
 }
 
-const fontSizeMap = (size: FontSize, children: string) => {
-  const map = {
-    h1: <h1>{children}</h1>,
-    h2: <h2>{children}</h2>,
-    h3: <h3>{children}</h3>,
-    h4: <h4>{children}</h4>,
-    h5: <h5>{children}</h5>,
-    p: <p>{children}</p>,
-    small: <h6>{children}</h6>,
-  };
-  return map[size];
-};
-
-const Header = ({
-  size,
-  text,
+export default function Header({
   icon,
-  style,
+  level = "h1",
+  divided = false,
+  children,
   className,
+  actions,
   ...props
-}: HeadingProps) => {
-  const { theme } = useThemeContext();
-  const sizeVal = theme.typography[size].size;
+}: HeaderProps) {
   return (
     <Space
       direction="horizontal"
-      className={classList("pluto-header__container", className)}
-      align="center"
-      size="medium"
-      style={{ height: sizeVal, ...style }}
+      justify="spaceBetween"
+      className={clsx(`pluto-header pluto-bordered--bottom`, className)}
+      empty
       {...props}
     >
-      {icon && cloneElement(icon, { size: sizeVal })}
-      {fontSizeMap(size, text)}
+      <Text.WithIcon
+        level={level}
+        startIcon={icon}
+        divided={divided}
+        className="pluto-header__text"
+      >
+        {children}
+      </Text.WithIcon>
+      <Space
+        direction="horizontal"
+        size="small"
+        align="center"
+        className="pluto-header__actions"
+      >
+        {actions &&
+          actions.map((action, i) => {
+            const content = isValidElement(action) ? (
+              cloneElement(action, { key: action.key })
+            ) : (
+              <Button.IconOnly
+                onClick={action.onClick}
+                key={i}
+                size={TypographyLevelComponentSizes[level]}
+                {...action}
+              >
+                {action.children}
+              </Button.IconOnly>
+            );
+            return (
+              <Fragment key={i}>
+                {divided && <Divider direction="vertical" />}
+                {content}
+              </Fragment>
+            );
+          })}
+      </Space>
     </Space>
   );
-};
-
-export default Header;
+}

@@ -1,51 +1,100 @@
+.pluto-btn, .pluto-btn * {
+  transition: 0.15s ease-in-out;
+}
+
 .pluto-btn {
-  border-radius: var(--border-radius);
-  border: none;
-  padding-left: calc(var(--base-size) * 2);
-  padding-right: calc(var(--base-size) * 2);
-  font-family: var(--font-family);
   cursor: pointer;
+  border-radius: var(--pluto-border-radius);
+  padding: 0 calc(var(--pluto-base-size) * 2);
+  font-family: var(--pluto-font-family);
+}
+
+.pluto-btn--large {
+  height: calc(var(--pluto-base-size) * 6);
 }
 
 .pluto-btn--medium {
-  height: calc(var(--base-size) * 5);
-  font-size: var(--p-font-size);
-  font-weight: var(--p-weight);
-  line-height: var(--p-line-height);
+  height: calc(var(--pluto-base-size) * 5);
 }
 
 .pluto-btn--small {
-  height: calc(var(--base-size) * 4);
-  font-size: var(--small-font-size);
-  font-weight: var(--small-font-weight);
-  line-height: var(--small-line-height);
+  height: calc(var(--pluto-base-size) * 4);
 }
 
+/* |||| FILLED |||| */
+
 .pluto-btn--filled {
-  color: var(--white);
-  background-color: var(--primary-z);
+  border: none;
+  color: var(--pluto-white);
+  background-color: var(--pluto-primary-z);
 }
 
 .pluto-btn--filled:hover {
-  background-color: var(--primary-p1);
+  background-color: var(--pluto-primary-p1);
 }
 
 .pluto-btn--filled:active {
-  background-color: var(--primary-m1);
+  background-color: var(--pluto-primary-m1);
 }
+
+/* |||| OUTLINED |||| */
 
 .pluto-btn--outlined {
   background: none;
-  border: var(--border-width) solid var(--primary-z);
-  color: var(--primary-z);
+  border: var(--pluto-border-width) solid var(--pluto-border-color);
 }
 
 .pluto-btn--outlined:hover {
-  border-color: var(--primary-p1);
-  color: var(--primary-p1);
+  border-color: var(--pluto-gray-m0);
+}
+
+.pluto-btn--outlined:hover * {
+  color: var(--pluto-gray-p1);
 }
 
 .pluto-btn--outlined:active {
-  border-color: var(--primary-m1);
-  color: var(--primary-m1);
+  border-color: var(--pluto-gray-p1);
 }
+
+.pluto-btn--outlined:active *{
+  color: var(--pluto-gray-p1);
+}
+
+/* |||| TEXT |||| */
+
+.pluto-btn--text {
+  background: none;
+  border: none;
+}
+
+.pluto-btn--text:hover {
+  background-color: var(--pluto-gray-m1);
+}
+
+.pluto-btn--text:active {
+  background-color: var(--pluto-gray-m2);
+}
+
+/* |||| ICON |||| */
+
+.pluto-btn-icon {
+  color: var(--pluto-text-color);
+  padding: 0 var(--pluto-base-size);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.pluto-btn--medium .pluto-btn-icon__icon {
+  font-size: calc(var(--pluto-base-size) * 3);
+}
+
+.pluto-btn--small .pluto-btn-icon__icon {
+  font-size: calc(var(--pluto-base-size) * 2.5);
+}
+
+.pluto-btn--large .pluto-btn-icon__icon {
+  font-size: calc(var(--pluto-base-size) * 4);
+}
+
+

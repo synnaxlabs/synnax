@@ -1,23 +1,32 @@
-import { ButtonHTMLAttributes, PropsWithChildren } from "react";
+import { ButtonHTMLAttributes, cloneElement, ReactElement } from "react";
 import "./Button.css";
-import { classList } from "../../util/css";
+import { ComponentSizeTypographyLevels, Text } from "../Typography";
+import clsx from "clsx";
+import { ComponentSize } from "../../util/types";
 
-interface ButtonProps
-  extends PropsWithChildren<ButtonHTMLAttributes<HTMLButtonElement>> {
-  variant?: "filled" | "outlined";
-  size?: "small" | "medium";
+interface BaseButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: "filled" | "outlined" | "text";
+  size?: ComponentSize;
 }
 
-export default function Button({
-  children,
+export interface ButtonProps extends BaseButtonProps {
+  children: string | number;
+  startIcon?: ReactElement;
+  endIcon?: ReactElement;
+}
+
+function Button({
   size = "medium",
   variant = "filled",
   className,
+  startIcon,
+  endIcon,
+  children,
   ...props
 }: ButtonProps) {
   return (
     <button
-      className={classList(
+      className={clsx(
         "pluto-btn",
         "pluto-btn--" + variant,
         "pluto-btn--" + size,
@@ -25,7 +34,48 @@ export default function Button({
       )}
       {...props}
     >
-      {children}
+      <Text.WithIcon
+        level={ComponentSizeTypographyLevels[size]}
+        startIcon={startIcon}
+        endIcon={endIcon}
+      >
+        {children}
+      </Text.WithIcon>
     </button>
   );
 }
+
+export interface ButtonIconOnlyProps extends BaseButtonProps {
+  /** The icon to render */
+  children: React.ReactElement;
+}
+
+const ButtonIconOnly = ({
+  children,
+  className,
+  variant = "text",
+  size = "medium",
+  ...props
+}: ButtonIconOnlyProps) => {
+  return (
+    <button
+      className={clsx(
+        "pluto-btn pluto-btn-icon",
+        "pluto-btn--" + size,
+        "pluto-btn--" + variant,
+        className
+      )}
+      {...props}
+    >
+      {cloneElement(children, { className: "pluto-btn-icon__icon" })}
+    </button>
+  );
+};
+
+/**
+ * A button that only renders an icon.
+ * @param props - The props for the button. See ButtonIconOnlyProps.
+ */
+Button.IconOnly = ButtonIconOnly;
+
+export default Button;

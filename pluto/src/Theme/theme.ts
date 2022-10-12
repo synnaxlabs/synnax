@@ -1,68 +1,68 @@
-type size = number | string;
-type color = number | string;
-type typography = {
-  size: size;
-  weight: size;
-  lineHeight: number;
-  textTransform?: string;
-};
+import { TypographyDefinition } from "../Atoms/Typography";
 
-export interface Theme {
+type Size = number | string;
+type Color = string;
+
+export interface ThemeProps {
   name: string;
   colors: {
+    border: Color;
     primary: {
-      m1: color;
-      z: color;
-      p1: color;
+      m1: Color;
+      z: Color;
+      p1: Color;
     };
     gray: {
-      m2: color;
-      m1: color;
-      z: color;
-      p1: color;
-      p2: color;
+      m3: Color;
+      m2: Color;
+      m1: Color;
+      m0: Color;
+      p0: Color;
+      p1: Color;
+      p2: Color;
+      p3: Color;
     };
     error: {
-      m1: color;
-      z: color;
-      p1: color;
+      m1: Color;
+      z: Color;
+      p1: Color;
     };
     visualization: {
       palettes: {
-        default: color[];
-        [key: string]: color[];
+        default: Color[];
+        [key: string]: Color[];
       };
     };
-    white: color;
-    black: color;
-    background: color;
-    text: color;
+    white: Color;
+    black: Color;
+    background: Color;
+    text: Color;
   };
   sizes: {
     base: number;
     border: {
-      radius: size;
-      width: size;
+      radius: Size;
+      width: Size;
     };
   };
   typography: {
     family: string;
-    h1: typography;
-    h2: typography;
-    h3: typography;
-    h4: typography;
-    h5: typography;
-    p: typography;
-    small: typography;
+    h1: TypographyDefinition;
+    h2: TypographyDefinition;
+    h3: TypographyDefinition;
+    h4: TypographyDefinition;
+    h5: TypographyDefinition;
+    p: TypographyDefinition;
+    small: TypographyDefinition;
   };
 }
 
-const white: color = "#FFFFFF";
-const black: color = "#212429";
-const fontFamily = "Roboto, sans-serif";
-const baseSize: size = 6;
+const white: Color = "#FFFFFF";
+const black: Color = "#171716";
+const fontFamily = "Inter, sans-serif";
+const baseSize: Size = 6;
 
-const synnaxBase: Theme = {
+const synnaxBase: ThemeProps = {
   name: "synnax-base",
   colors: {
     primary: {
@@ -71,12 +71,16 @@ const synnaxBase: Theme = {
       p1: "#3b84e5",
     },
     gray: {
-      p2: "#51565e",
-      p1: "#61636b",
-      z: "#ACB5BD",
-      m1: "#b2b2b2",
-      m2: "#c9c9c9",
+      p3: "#1D1D1C",
+      p2: "#30302E",
+      p1: "#474744",
+      p0: "#676762",
+      m0: "#94938D",
+      m1: "#C8C7BF",
+      m2: "#e5e5e5",
+      m3: "#FEFEFD",
     },
+    border: "#C8C7BF",
     error: {
       m1: "#CF1322",
       z: "#F5222D",
@@ -140,12 +144,12 @@ const synnaxBase: Theme = {
     p: {
       size: baseSize * 2.5,
       weight: "regular",
-      lineHeight: baseSize * 3.5,
+      lineHeight: baseSize * 3,
     },
     small: {
       size: baseSize * 2,
-      weight: "regular",
-      lineHeight: baseSize * 3,
+      weight: 300,
+      lineHeight: baseSize * (2 + 1 / 3),
     },
   },
 };
@@ -161,12 +165,16 @@ export const synnaxDark = {
   colors: {
     ...synnaxBase.colors,
     gray: {
+      m3: synnaxBase.colors.gray.p3,
       m2: synnaxBase.colors.gray.p2,
       m1: synnaxBase.colors.gray.p1,
-      z: synnaxBase.colors.gray.z,
+      m0: synnaxBase.colors.gray.p0,
+      p0: synnaxBase.colors.gray.m0,
       p1: synnaxBase.colors.gray.m1,
       p2: synnaxBase.colors.gray.m2,
+      p3: synnaxBase.colors.gray.m3,
     },
+    border: synnaxBase.colors.gray.p1,
     background: synnaxBase.colors.black,
     text: synnaxBase.colors.white,
   },

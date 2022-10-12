@@ -1,8 +1,8 @@
 import { Input, Space } from "@synnaxlabs/pluto";
 import "./index.css";
-import { Button } from "@synnaxlabs/pluto";
 import Logo from "../../lib/Logo/Logo";
 import { useNavigate } from "react-router-dom";
+import { Button } from "@synnaxlabs/pluto";
 
 export default function Index() {
   const navigate = useNavigate();

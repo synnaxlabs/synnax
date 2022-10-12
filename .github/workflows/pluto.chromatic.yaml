@@ -1,23 +1,51 @@
-name: "Pluto Chromatic"
+name: "Pluto Test + Chromatic"
 on:
-  push:
-    paths:
-      - 'pluto/**'
-      - '.github/workflows/pluto.chromatic.yaml'
+  pull_request:
     branches:
       - main
-  pull_request:
 jobs:
-  chromatic-deployment:
+  test:
+    name: "Run Tests"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v3
+
+      - name: Set up Node
+        uses: actions/setup-node@v2
+        with:
+          node-version: "18"
+
+      - name: Install Dependencies
+        run: yarn
+        working-directory: ./pluto
+
+      - name: Test
+        run: yarn test --coverage
+        working-directory: ./pluto
+
+      - name: Upload Coverage
+        uses: codecov/codecov-action@v3
+        with:
+          directory: ./pluto
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: pluto
+
+  chromatic-deployment:
+    name: "Chromatic Deployment"
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
       - name: Install dependencies
         run: yarn
         working-directory: pluto
+
       - name: Publish to Chromatic
         uses: chromaui/action@v1
         with:
           workingDir: pluto
           projectToken: ${{ secrets.PLUTO_CHROMATIC_PROJECT_TOKEN }}
-
