@@ -1,1 +1,1 @@
-export { default as ResizePanel } from "./ResizePanel";
+export { default as Resize } from "./Resize";

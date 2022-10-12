@@ -7,7 +7,7 @@ describe("AutoSize", () => {
     Element.prototype.getBoundingClientRect = vi.fn(
       (): DOMRect => ({
         width: 100,
-        height: 100,
+        height: 200,
         top: 0,
         left: 0,
         bottom: 0,

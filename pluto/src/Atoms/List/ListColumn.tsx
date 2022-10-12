@@ -15,6 +15,7 @@ import {
 } from "./Types";
 import clsx from "clsx";
 import "./ListColumn.css";
+import { getTextWidth } from "../../util/canvas";
 
 type SortState<K extends Key, E extends TypedListEntry<K>> = [keyof E, boolean];
 
@@ -142,15 +143,6 @@ export const entrySortFunc =
 
 const reverseSort = (f: (a: any, b: any) => number) => (a: any, b: any) =>
   f(b, a);
-
-const canvas = document.createElement("canvas");
-
-function getTextWidth(text: string, font: string) {
-  const context = canvas.getContext("2d") as CanvasRenderingContext2D;
-  context.font = font;
-  const metrics = context.measureText(text);
-  return metrics.width;
-}
 
 const columnWidths = <K extends Key, E extends TypedListEntry<K>>(
   columns: TypedListColumn<K, E>[],

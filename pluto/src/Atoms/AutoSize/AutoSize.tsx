@@ -1,5 +1,5 @@
 import { cloneElement, ComponentType, ReactElement, useRef } from "react";
-import { useResize, useResizeOpts } from "../../util/useResize";
+import { useResize, useResizeOpts } from "../../Hooks";
 
 export interface AutoSizeProps
   extends Omit<React.HTMLAttributes<HTMLDivElement>, "children">,

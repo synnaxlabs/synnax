@@ -1,6 +1,9 @@
-import { Theme } from "./theme";
+import { ThemeProps } from "./theme";
 
-export const applyThemeAsCssVars = (element: HTMLElement, theme: Theme) => {
+export const applyThemeAsCssVars = (
+  element: HTMLElement,
+  theme: ThemeProps
+) => {
   // |||| COLORS ||||
 
   // || PRIMARY ||

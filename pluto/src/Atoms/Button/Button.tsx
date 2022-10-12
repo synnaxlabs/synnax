@@ -1,6 +1,6 @@
 import { ButtonHTMLAttributes, cloneElement, ReactElement } from "react";
 import "./Button.css";
-import { ComponentSizeTypographyLevels, IconText } from "../Typography";
+import { ComponentSizeTypographyLevels, Text } from "../Typography";
 import clsx from "clsx";
 import { ComponentSize } from "../../util/types";
 
@@ -34,18 +34,19 @@ function Button({
       )}
       {...props}
     >
-      <IconText
+      <Text.WithIcon
         level={ComponentSizeTypographyLevels[size]}
         startIcon={startIcon}
         endIcon={endIcon}
       >
         {children}
-      </IconText>
+      </Text.WithIcon>
     </button>
   );
 }
 
 export interface ButtonIconOnlyProps extends BaseButtonProps {
+  /** The icon to render */
   children: React.ReactElement;
 }
 
@@ -71,6 +72,10 @@ const ButtonIconOnly = ({
   );
 };
 
+/**
+ * A button that only renders an icon.
+ * @param props - The props for the button. See ButtonIconOnlyProps.
+ */
 Button.IconOnly = ButtonIconOnly;
 
 export default Button;

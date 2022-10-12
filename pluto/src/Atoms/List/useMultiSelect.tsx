@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Key, useState } from "react";
-import { useKeyHeld } from "../../util/useKeys";
+import { useKeyHeld } from "../../Hooks/useKeys";
 import { TypedListEntry } from "./Types";
 
 export const useMultiSelect = <K extends Key, E extends TypedListEntry<K>>(

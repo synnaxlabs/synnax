@@ -1,9 +1,0 @@
-.pluto-header__container {
-  border-bottom: var(--pluto-border);
-  padding: calc(var(--pluto-base-size) * 0.5) calc(var(--pluto-base-size));
-}
-
-.pluto-header__icon {
-  height: 100%;
-  border-right: var(--pluto-border);
-}

@@ -2,10 +2,19 @@ import { useEffect, useLayoutEffect, useState } from "react";
 import { ResizeObserver } from "@juggle/resize-observer";
 
 export type useResizeOpts = {
+  /**  Debounce the resize event by this many milliseconds. 
+  Useful for preventing expensive renders until rezizing has stopped. */
   debounce?: number;
 };
 
-export const useResize = (
+/**
+ *  useResize tracks the size of an element and returns the width and height
+ *  whenever it changes.
+ * @param ref - A ref to the element to track.
+ * @param opts -  Options for the hook. See useResizeOpts.
+ * @returns The width and height of the element.
+ */
+const useResize = (
   ref: React.RefObject<HTMLElement>,
   { debounce = 0 }: useResizeOpts = { debounce: 0 }
 ) => {
@@ -31,26 +40,15 @@ export const useResize = (
       resizeObserver.disconnect();
     };
   }, [ref]);
+
   useEffect(() => {
     const el = ref.current;
     if (!el || size.width != 0 || size.height != 0) return;
     const { width, height } = el.getBoundingClientRect();
     setSize({ width, height });
   }, [ref]);
+
   return size;
 };
 
-const useResizing = (): boolean => {
-  const [resizing, setResizing] = useState(false);
-  useLayoutEffect(() => {
-    const handleResizeStart = () => setResizing(true);
-    const handleResizeEnd = () => setResizing(false);
-    window.addEventListener("resize", handleResizeStart);
-    window.addEventListener("resize", handleResizeEnd);
-    return () => {
-      window.removeEventListener("resize", handleResizeStart);
-      window.removeEventListener("resize", handleResizeEnd);
-    };
-  }, []);
-  return resizing;
-};
+export default useResize;

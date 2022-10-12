@@ -6,13 +6,13 @@ import {
   useEffect,
   useMemo,
 } from "react";
-import { Theme, synnaxDark, synnaxLight } from "./theme";
+import { ThemeProps, synnaxDark, synnaxLight } from "./theme";
 import { applyThemeAsCssVars } from "./css";
 import "./theme.css";
-import Switch from "../Atoms/Switch/Switch";
+import Switch from "../Atoms/Tag/Switch/Switch";
 
 const ThemeContext = createContext<{
-  theme: Theme;
+  theme: ThemeProps;
   toggleTheme: () => void;
 }>({
   theme: synnaxLight,
@@ -24,7 +24,7 @@ export const useThemeContext = () => useContext(ThemeContext);
 export const ThemeProvider = ({
   children,
   themes,
-}: PropsWithChildren<{ themes: Theme[] }>) => {
+}: PropsWithChildren<{ themes: ThemeProps[] }>) => {
   const [themeIndex, setThemeIndex] = useState<number>(0);
 
   const toggleTheme = () => {

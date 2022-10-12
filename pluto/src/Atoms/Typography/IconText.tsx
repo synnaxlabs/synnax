@@ -1,5 +1,5 @@
 import { cloneElement } from "react";
-import { useThemeContext } from "../../Theme/ThemeContext";
+import { Theme } from "../../Theme";
 import Space, { SpaceProps } from "../Space/Space";
 import Text, { BaseTextProps } from "./Text";
 
@@ -20,7 +20,7 @@ export default function IconText({
   children,
   ...props
 }: IconTextProps) {
-  const { theme } = useThemeContext();
+  const { theme } = Theme.useContext();
   const size = theme.typography[level].size;
   const color = theme.colors.text;
   return (

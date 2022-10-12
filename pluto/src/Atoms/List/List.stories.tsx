@@ -4,7 +4,7 @@ import List from "./List";
 export default {
   title: "Atoms/List",
   component: List,
-};
+} as ComponentMeta<typeof List>;
 
 const dataTypes = [
   "float64",

@@ -3,7 +3,7 @@ import { TypographyDefinition } from "../Atoms/Typography";
 type Size = number | string;
 type Color = string;
 
-export interface Theme {
+export interface ThemeProps {
   name: string;
   colors: {
     border: Color;
@@ -62,7 +62,7 @@ const black: Color = "#171716";
 const fontFamily = "Inter, sans-serif";
 const baseSize: Size = 6;
 
-const synnaxBase: Theme = {
+const synnaxBase: ThemeProps = {
   name: "synnax-base",
   colors: {
     primary: {

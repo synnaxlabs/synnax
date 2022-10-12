@@ -1,7 +1,7 @@
 import clsx from "clsx";
 import { ReactElement, useState } from "react";
 import Button from "../../Atoms/Button/Button";
-import ResizePanel from "../../Atoms/Resize/ResizePanel";
+import ResizePanel from "../../Atoms/Resize/Resize";
 import Space from "../../Atoms/Space/Space";
 import NavBar, { NavBarProps, useNavBar } from "../Nav/NavBar";
 import "./NavDrawer.css";

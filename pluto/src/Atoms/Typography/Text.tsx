@@ -1,8 +1,11 @@
 import { createElement, HTMLAttributes } from "react";
+import IconText from "./IconText";
 import { TypographyLevel } from "./Types";
 
 export interface BaseTextProps {
+  /* The level of text to display i.e. p, h1, h2 */
   level: TypographyLevel;
+  /* The text to display */
   children?: string | number;
 }
 
@@ -20,6 +23,11 @@ const typographyLevelTags = {
   small: "h6",
 };
 
-export default function Text({ level = "h1", ...props }: TextProps) {
+/* Displays text with a particular level */
+function Text({ level = "h1", ...props }: TextProps) {
   return createElement(typographyLevelTags[level], props);
 }
+
+Text.WithIcon = IconText;
+
+export default Text;

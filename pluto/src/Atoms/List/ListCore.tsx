@@ -1,8 +1,8 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ComponentType, HTMLAttributes, Key, useRef } from "react";
-import "./BaseList.css";
 import { useListContext } from "./ListContext";
 import { ListItemProps, TypedListEntry } from "./Types";
+import "./ListCore.css";
 
 export interface ListVirtualCoreProps<
   K extends Key,

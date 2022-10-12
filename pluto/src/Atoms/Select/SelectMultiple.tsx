@@ -1,7 +1,6 @@
 import clsx from "clsx";
 import { useRef, useState } from "react";
 import { AiOutlineClose } from "react-icons/ai";
-import { useThemeContext } from "../../Theme/ThemeContext";
 import Input from "../Input/Input";
 import { List } from "../List";
 import { useListContext } from "../List/ListContext";
@@ -11,7 +10,8 @@ import Space from "../Space/Space";
 import { Tag } from "../Tag";
 import "./SelectMultiple.css";
 import Button from "../Button";
-import useClickoutside from "../../util/useClickOutside";
+import useClickoutside from "../../Hooks/useClickOutside";
+import { Theme } from "../../Theme";
 
 export interface SelectMultipleProps<
   K extends Key,
@@ -92,7 +92,7 @@ const SelectMultipleInput = <K extends Key, E extends TypedListEntry<K>>({
     E
   >();
 
-  const { theme } = useThemeContext();
+  const { theme } = Theme.useContext();
   return (
     <Space
       direction="horizontal"

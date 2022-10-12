@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useMemo } from "react";
 import Column from "./ListColumn";
-import ListCore from "./Core";
+import ListCore from "./ListCore";
 import { ListContext, ListContextProvider } from "./ListContext";
 import ListSearch from "./ListSearch";
 import {
@@ -66,9 +66,24 @@ function List<K extends Key, E extends TypedListEntry<K>>({
   );
 }
 
+/**
+ * Context is a React Context that contains state used by various List components.
+ */
 List.Context = ListContext;
+
+/**
+ * Search is a component that renders a search bar for filtering the list.
+ */
 List.Search = ListSearch;
+
+/**
+ * Core is a set of components that can be used to render list items.
+ */
 List.Core = ListCore;
+
+/**
+ * Column is a component that renders a list in columnar format.
+ */
 List.Column = Column;
 
 export default List;

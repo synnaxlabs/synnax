@@ -10,7 +10,7 @@ export interface ResizePanelProps extends HTMLAttributes<HTMLDivElement> {
   maxSize?: number;
 }
 
-const getMovement = (location: Location, e: MouseEvent) => {
+const parseMovement = (location: Location, e: MouseEvent) => {
   switch (location) {
     case "top":
       return e.movementY;
@@ -41,7 +41,7 @@ export default function ResizePanel({
     if (dragging) {
       const onMouseMove = (e: MouseEvent) => {
         prevSize((prevSize: number) => {
-          const movement = getMovement(location, e);
+          const movement = parseMovement(location, e);
           if (prevSize + movement < minSize) return minSize;
           if (prevSize + movement > maxSize) return maxSize;
           return prevSize + movement;

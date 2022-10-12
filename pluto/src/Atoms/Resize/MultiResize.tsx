@@ -1,16 +1,13 @@
 import { Children, HTMLAttributes } from "react";
 import { Direction, getLocation } from "../../util/spatial";
 import Space from "../Space/Space";
-import ResizePanel from "./ResizePanel";
+import ResizePanel from "./Resize";
 
-export interface MultiResizableProps extends HTMLAttributes<HTMLDivElement> {
+export interface MultiResizeProps extends HTMLAttributes<HTMLDivElement> {
   direction: Direction;
 }
 
-export default function MultiResizable({
-  children,
-  direction,
-}: MultiResizableProps) {
+export default function MultiResize({ children, direction }: MultiResizeProps) {
   const childArray = Children.toArray(children);
   return (
     <Space

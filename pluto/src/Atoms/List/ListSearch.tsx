@@ -1,6 +1,6 @@
 import { useEffect } from "react";
-import useSearch from "../../util/useSearch";
-import Input from "../Input/Input";
+import { useSearch } from "../../Hooks";
+import { Input } from "../Input";
 import { useListContext } from "./ListContext";
 import { Key, TypedListEntry } from "./Types";
 import "./ListSearch.css";
