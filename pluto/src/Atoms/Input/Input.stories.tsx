@@ -1,3 +1,4 @@
+import { Space } from "../Space";
 import Input from "./Input";
 
 export default {
@@ -5,4 +6,8 @@ export default {
   component: Input,
 };
 
-export const Primary = () => <Input />;
+export const Basic = () => <Input />;
+
+export const Time = () => <Input.Time size="medium" onChange={console.log} />;
+
+export const Date = () => <Input.Date size="medium" onChange={console.log} />;

@@ -3,6 +3,7 @@ import { ReactElement, useState } from "react";
 import Button from "../../Atoms/Button/Button";
 import Resize from "../../Atoms/Resize/Resize";
 import Space from "../../Atoms/Space/Space";
+import { getDirection, swapDirection } from "../../util/spatial";
 import NavBar, { NavBarProps, useNavBar } from "../Nav/NavBar";
 import "./NavDrawer.css";
 
@@ -20,7 +21,7 @@ export interface NavDrawerProps extends NavBarProps {
   initialKey?: string;
 }
 
-export default function Navdrawer({
+export default function NavDrawer({
   items = [],
   initialKey,
   children,
@@ -33,7 +34,14 @@ export default function Navdrawer({
   const activeItem = items.find((item) => item.key === activeKey);
   return (
     <NavBar.Context.Provider value={{ direction, location: props.location }}>
-      <Space direction="horizontal" empty reverse={props.location === "right"}>
+      <Space
+        direction={swapDirection(direction)}
+        empty
+        reverse={props.location === "right" || props.location === "bottom"}
+        className="pluto-navdrawer__container"
+        align="stretch"
+        style={{ height: "100%" }}
+      >
         <NavBar {...props} withContext={false}>
           {children}
           <NavBar.Content className="pluto-navdrawer__menu">

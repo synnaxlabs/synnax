@@ -6,3 +6,4 @@ export * from "./Button";
 export * from "./Resize";
 export * from "./Tag";
 export * from "./List";
+export * from "./Header";

@@ -2,6 +2,8 @@ import { DetailedHTMLProps, forwardRef, InputHTMLAttributes, Ref } from "react";
 import "./Input.css";
 import clsx from "clsx";
 import { ComponentSize } from "../../util/types";
+import InputTime from "./InputTime";
+import InputDate from "./InputDate";
 
 export interface InputProps
   extends Omit<
@@ -15,22 +17,18 @@ export interface InputProps
   onChange?: (value: string) => void;
 }
 
-function Input(
-  {
-    size = "medium",
-    name,
-    label,
-    placeholder,
-    value,
-    onChange,
-    className,
-    ...props
-  }: InputProps,
-  ref: Ref<HTMLInputElement>
-) {
+function Input({
+  size = "medium",
+  name,
+  label,
+  placeholder,
+  value,
+  onChange,
+  className,
+  ...props
+}: InputProps) {
   return (
     <input
-      ref={ref}
       id={name}
       placeholder={placeholder}
       className={clsx(
@@ -47,4 +45,7 @@ function Input(
   );
 }
 
-export default forwardRef(Input);
+Input.Time = InputTime;
+Input.Date = InputDate;
+
+export default Input;
