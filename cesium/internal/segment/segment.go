@@ -2,82 +2,87 @@ package segment
 
 import (
 	"encoding/binary"
-	"github.com/synnaxlabs/cesium/internal/channel"
-	"github.com/synnaxlabs/cesium/internal/core"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/cockroachdb/pebble"
+	"github.com/synnaxlabs/cesium/internal/allocate"
+	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/file"
+	"github.com/synnaxlabs/cesium/internal/position"
+	"github.com/synnaxlabs/cesium/internal/storage"
+	"github.com/synnaxlabs/x/telem"
 )
+
+// MD represents the key-value metadata for a segment.
+type MD struct {
+	// ChannelKey tracks the channel the segment belongs to.
+	ChannelKey channel.Key
+	// FileKey is the key of the file where the segment's data is stored.
+	FileKey file.Key
+	// Alignment is the start position of the segment.
+	Alignment position.Position
+	// Offset is the offset of the segment's data in the file.
+	Offset telem.Offset
+	// Size is the size of the segment's data in the file.
+	Size telem.Size
+}
+
+func (s MD) GorpKey() []byte {
+	key := make([]byte, 11)
+	WriteKey(s.ChannelKey, s.Alignment, key)
+	return key
+}
+
+func (s MD) SetOptions() []interface{} { return []interface{}{pebble.NoSync} }
+
+func (s MD) End(density telem.Density) position.Position {
+	return s.Alignment.Add(position.Span(s.Size / telem.Size(density)))
+}
+
+func (s MD) EndOffset() telem.Offset {
+	return s.Offset + s.Size
+}
+
+func (s MD) Range(density telem.Density) position.Range {
+	return position.Range{
+		Start: s.Alignment,
+		End:   s.End(density),
+	}
+}
+
+const prefix = 's'
+
+func WriteKeyPrefix(chKey channel.Key, into []byte) {
+	into[0] = prefix
+	binary.BigEndian.PutUint16(into[1:], uint16(chKey))
+}
+
+func WriteKey(chKey channel.Key, pos position.Position, into []byte) {
+	WriteKeyPrefix(chKey, into)
+	binary.BigEndian.PutUint64(into[3:], uint64(pos))
+}
 
 type Segment struct {
 	ChannelKey channel.Key
 	Start      telem.TimeStamp
 	Data       []byte
+	MD         MD
 }
 
-func (s Segment) Sugar(ch channel.Channel) *Sugared {
-	return &Sugared{segment: s, channel: ch, bound: telem.TimeRangeMax}
+var _ storage.WriteRequest = Segment{}
+
+func (s Segment) AItem() allocate.Item[channel.Key] {
+	return allocate.Item[channel.Key]{Size: s.Size(), Key: s.ChannelKey}
 }
 
-type Header struct {
-	ChannelKey channel.Key
-	Start      telem.TimeStamp
-	FileKey    core.FileKey
-	Offset     telem.Offset
-	Size       telem.Size
+func (s Segment) Size() telem.Size {
+	return telem.Size(len(s.Data))
 }
 
-func (h Header) Sugar(ch channel.Channel) *Sugared { return &Sugared{header: h, channel: ch} }
+// STarget implements storage.WriteRequest.
+func (s Segment) STarget() file.Key { return s.MD.FileKey }
 
-func (h Header) Key() Key { return NewKey(h.ChannelKey, h.Start) }
+// SData implements storage.WriteRequest.
+func (s Segment) SData() []byte { return s.Data }
 
-// GorpKey implements the gorp.Entry interface.
-func (h Header) GorpKey() []byte { return h.Key().Bytes() }
+func (s Segment) SOffset() telem.Offset { return s.MD.Offset }
 
-// SetOptions implements the gorp.Entry interface.
-func (h Header) SetOptions() []interface{} { return []interface{}{pebble.NoSync} }
-
-func (h Header) End(dr telem.Rate, dt telem.Density) telem.TimeStamp {
-	return h.Start.Add(dr.SizeSpan(h.Size, dt))
-}
-
-const prefix = 's'
-
-type Key [11]byte
-
-func (k Key) Bytes() []byte { return k[:] }
-
-func NewKeyPrefix(channelKey channel.Key) []byte {
-	keyPrefix := make([]byte, 3)
-	keyPrefix[0] = prefix
-	binary.BigEndian.PutUint16(keyPrefix[1:], uint16(channelKey))
-	return keyPrefix
-}
-
-func NewKey(channelKey channel.Key, stamp telem.TimeStamp) (key Key) {
-	key[0] = prefix
-	binary.BigEndian.PutUint16(key[1:3], uint16(channelKey))
-	binary.BigEndian.PutUint64(key[3:], uint64(stamp))
-	return key
-}
-
-type Range struct {
-	Channel channel.Channel
-	Bounds  telem.TimeRange
-	Headers []Header
-}
-
-func (r *Range) Range() telem.TimeRange { return r.UnboundedRange().BoundBy(r.Bounds) }
-
-func (r *Range) Empty() bool {
-	return r.UnboundedRange().IsZero()
-}
-
-func (r *Range) UnboundedRange() telem.TimeRange {
-	if len(r.Headers) == 0 {
-		return telem.TimeRangeZero
-	}
-	return telem.TimeRange{
-		Start: r.Headers[0].Start,
-		End:   r.Headers[len(r.Headers)-1].End(r.Channel.Rate, r.Channel.Density),
-	}
-}
+func (s Segment) SSize() telem.Size { return s.MD.Size }

@@ -7,6 +7,11 @@ package cluster
 
 import (
 	"context"
+	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
+	pledge_ "github.com/synnaxlabs/aspen/internal/cluster/pledge"
+	"github.com/synnaxlabs/aspen/internal/cluster/store"
+	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/alamos"
 	"github.com/synnaxlabs/x/config"
@@ -14,11 +19,6 @@ import (
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/signal"
-	"github.com/cockroachdb/errors"
-	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
-	pledge_ "github.com/synnaxlabs/aspen/internal/cluster/pledge"
-	"github.com/synnaxlabs/aspen/internal/cluster/store"
-	"github.com/synnaxlabs/aspen/internal/node"
 	"go.uber.org/zap"
 )
 
@@ -60,7 +60,7 @@ type HostResolver interface {
 }
 
 // Join joins the host node to the cluster and begins gossiping its state. The
-// node will spread addr as its listening address. A set of peer addresses
+// node will spread addr as its listening address. Key set of peer addresses
 // (other nodes in the cluster) must be provided when joining an existing cluster
 // for the first time. If restarting a node that is already a member of a cluster,
 // the peer addresses can be left empty; Join will attempt to load the existing

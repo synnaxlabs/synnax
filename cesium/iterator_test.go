@@ -94,7 +94,7 @@ var _ = Describe("IteratorServer", func() {
 			Expect(iter.Value()).To(HaveLen(1))
 			Expect(iter.Value()[0].Data).To(HaveLen(40))
 
-			Expect(iter.SeekLT(telem.TimeStamp(5 * telem.Second))).To(BeTrue())
+			Expect(iter.SeekLE(telem.TimeStamp(5 * telem.Second))).To(BeTrue())
 			Expect(iter.Valid()).To(BeFalse())
 
 			Expect(iter.NextSpan(5 * telem.Second)).To(BeTrue())
@@ -138,17 +138,17 @@ var _ = Describe("IteratorServer", func() {
 	})
 
 	Describe("Opening Error Cases", func() {
-		It("Should return an error when the range has no data", func() {
+		It("Should return an err when the range has no data", func() {
 			ch := cesium.Channel{Rate: 1 * telem.Hz, Density: telem.Bit64}
 			Expect(db.CreateChannel(&ch)).To(Succeed())
 			_, err := db.NewIterator(telem.TimeRangeMax, ch.Key)
 			Expect(err).To(HaveOccurredAs(cesium.RangeHasNoData))
 		})
-		It("Should return an error when no channels are specified", func() {
+		It("Should return an err when no Channels are specified", func() {
 			_, err := db.NewIterator(telem.TimeRangeMax)
 			Expect(err).To(HaveOccurred())
 		})
-		It("Should return an error when a channel does not exist", func() {
+		It("Should return an err when a channel does not exist", func() {
 			_, err := db.NewIterator(telem.TimeRangeMax, 1)
 			Expect(err).To(HaveOccurredAs(cesium.NotFound))
 		})

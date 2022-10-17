@@ -5,7 +5,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// Segment is an API-friendly version of the segment.Segment type. It is simplified for
+// Segment is an API-friendly version of the segment.MD type. It is simplified for
 // use purely as a data container.
 type Segment struct {
 	ChannelKey string          `json:"channel_key" msgpack:"channel_key"`

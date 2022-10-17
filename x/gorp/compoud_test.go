@@ -8,14 +8,14 @@ import (
 
 var _ = Describe("Compound", func() {
 	Describe("Next", func() {
-		It("Should return the next Retrieve Clause", func() {
+		It("Should return the next RetrieveP Clause", func() {
 			c := &gorp.Compound[int, entry]{}
 			r := c.Next()
 			Expect(r).To(Equal(c.Clauses[0]))
 		})
 	})
 	Describe("Current", func() {
-		It("Should return the current Retrieve Clause", func() {
+		It("Should return the current RetrieveP Clause", func() {
 			c := &gorp.Compound[int, entry]{}
 			nr := c.Next()
 			r := c.Current()

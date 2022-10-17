@@ -2,14 +2,13 @@ package persist_test
 
 import (
 	"context"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/operation"
-	"github.com/synnaxlabs/cesium/internal/persist"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/kfs"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 type BasicOperation struct {
@@ -37,14 +36,14 @@ func (b *BasicOperation) WriteError(err error) {
 
 var _ = Describe("Persist", func() {
 	var (
-		p  *persist.Persist[int, operation.Operation[int]]
+		p  *Persist[int, operation.Operation[int]]
 		fs kfs.FS[int]
 	)
 	BeforeEach(func() {
 		var err error
 		fs, err = kfs.New[int]("testdata", kfs.WithFS(kfs.NewMem()))
 		Expect(err).ToNot(HaveOccurred())
-		p = MustSucceed(persist.New[int, operation.Operation[int]](fs, persist.Config{
+		p = MustSucceed(New[int, operation.Operation[int]](fs, Config{
 			NumWorkers: 50,
 		}))
 	})
@@ -59,7 +58,7 @@ var _ = Describe("Persist", func() {
 			ops.Inlet() <- []operation.Operation[int]{b}
 			ops.Close()
 			Expect(ctx.Wait()).To(Succeed())
-			// Read the file.
+			// GoRead the file.
 			f, err := fs.Acquire(1)
 			Expect(err).ToNot(HaveOccurred())
 			fs.Release(1)

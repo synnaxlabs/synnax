@@ -67,7 +67,7 @@ var startCmd = &cobra.Command{
 			// Set up a pool so we can load balance RPC connections.
 			pool := fgrpc.NewPool(grpc.WithTransportCredentials(insecure.NewCredentials()))
 
-			// Open the distribution layer.
+			// AcquireSearcher the distribution layer.
 			storageCfg := newStorageConfig(exp, logger)
 			distConfig, err := newDistributionConfig(
 				pool,

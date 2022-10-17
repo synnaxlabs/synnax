@@ -5,7 +5,7 @@ package cesium
 import "strconv"
 
 func _() {
-	// An "invalid array index" compiler error signifies that the constant values have changed.
+	// An "invalid array index" compiler err signifies that the constant values have changed.
 	// Re-run the stringer command to generate them again.
 	var x [1]struct{}
 	_ = x[IterNext-1]
@@ -19,7 +19,7 @@ func _() {
 	_ = x[IterError-9]
 	_ = x[IterSeekFirst-10]
 	_ = x[IterSeekLast-11]
-	_ = x[IterSeekLT-12]
+	_ = x[IterSeekLE-12]
 	_ = x[IterSeekGE-13]
 }
 

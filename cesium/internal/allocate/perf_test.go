@@ -3,7 +3,6 @@ package allocate_test
 import (
 	"fmt"
 	. "github.com/onsi/ginkgo/v2"
-	"github.com/synnaxlabs/cesium/internal/allocate"
 	"github.com/synnaxlabs/x/alamos"
 	"github.com/synnaxlabs/x/telem"
 	"sync"
@@ -33,7 +32,7 @@ func (a allocateItem) Size() telem.Size {
 
 var _ = Describe("Perf", func() {
 	var (
-		a allocate.Allocator[int, int, allocate.Item[int]]
+		a Allocator[int, int, Item[int]]
 	)
 	Describe("Incrementing Allocation Strains", Serial, func() {
 		p := alamos.NewParametrize(alamos.IterVars([]perfVars{
@@ -92,7 +91,7 @@ var _ = Describe("Perf", func() {
 		p.Template(func(i int, values perfVars) {
 			It(fmt.Sprintf("allocation - nr %d - nb %d  - abp %d",
 				values.nRoutines, values.nBatch, values.allocPerBatch), func() {
-				a = allocate.New[int, int, allocate.Item[int]](&allocate.NextDescriptorInt{}, allocate.Config{
+				a = New[int, int, Item[int]](&NextDescriptorInt{}, Config{
 					Experiment: values.experiment,
 				})
 				wg := sync.WaitGroup{}
@@ -101,7 +100,7 @@ var _ = Describe("Perf", func() {
 					go func() {
 						defer wg.Done()
 						for j := 0; j < values.nBatch; j++ {
-							var items []allocate.Item[int]
+							var items []Item[int]
 							for k := 0; k < values.allocPerBatch; k++ {
 								items = append(items, allocateItem{
 									key:  values.key(k),

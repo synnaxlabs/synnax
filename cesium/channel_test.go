@@ -29,17 +29,17 @@ var _ = Describe("CreateChannel", func() {
 		Expect(resCh[0].Density).To(Equal(telem.Density(1)))
 	})
 	Describe("validation Errors", func() {
-		It("Should return an error if the data rate is zero", func() {
+		It("Should return an err if the data rate is zero", func() {
 			ch.Rate = 0
 			Expect(db.CreateChannel(&ch)).To(HaveOccurredAs(validate.ValidationError))
 		})
-		It("Should return an error if the density is zero", func() {
+		It("Should return an err if the density is zero", func() {
 			ch.Density = 0
 			Expect(db.CreateChannel(&ch)).To(HaveOccurredAs(validate.ValidationError))
 		})
 	})
 	Describe("Unique Violation", func() {
-		It("Should return an error if the channel key is already in use", func() {
+		It("Should return an err if the channel key is already in use", func() {
 			Expect(db.CreateChannel(&ch)).To(HaveOccurredAs(cesium.UniqueViolation))
 		})
 	})

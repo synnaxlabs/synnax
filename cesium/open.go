@@ -1,13 +1,14 @@
 package cesium
 
 import (
+	"github.com/cockroachdb/pebble"
 	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/file"
 	"github.com/synnaxlabs/x/kfs"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/pebblekv"
 	"github.com/synnaxlabs/x/lock"
 	"github.com/synnaxlabs/x/signal"
-	"github.com/cockroachdb/pebble"
 	"go.uber.org/zap"
 	"path/filepath"
 )
@@ -75,7 +76,7 @@ func Open(dirname string, opts ...Option) (DB, error) {
 		return nil, err
 	}
 
-	// a kv persisted counter that tracks the number of channels that a gorpDB has created.
+	// a kv persisted counter that tracks the number of Channels that a gorpDB has created.
 	// this is used to autogenerate unique keys for a channel.
 	channelKeyCounter, err := kv.NewPersistedCounter(o.kv.engine, []byte(channelCounterKey))
 	if err != nil {
@@ -100,11 +101,11 @@ func Open(dirname string, opts ...Option) (DB, error) {
 
 func openFS(ctx signal.Context, opts *options) (core.FS, error) {
 	dirname := filepath.Join(opts.dirname, cesiumDirectory)
-	fs, err := kfs.New[core.FileKey](
+	fs, err := kfs.New[file.Key](
 		dirname,
 		opts.fs.opts...,
 	)
-	sync := &kfs.Sync[core.FileKey]{
+	sync := &kfs.Sync[file.Key]{
 		FS:       fs,
 		Interval: opts.fs.sync.interval,
 		MaxAge:   opts.fs.sync.maxAge,

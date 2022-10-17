@@ -10,7 +10,7 @@ import (
 	"sync"
 )
 
-// Allocator is used to allocate items to a set of descriptors. A descriptor can represent a file, buffer (essentially
+// Allocator is used to allocate items to a set of descriptors. Key descriptor can represent a file, buffer (essentially
 // anything assigned with a maximum size).
 //
 // Type Arguments:
@@ -30,18 +30,18 @@ import (
 //
 // Available Means:
 //
-//	A. A completely NEW descriptor if config.MaxDescriptors has not been reached.
+//	Key. Key completely NEW descriptor if config.MaxDescriptors has not been reached.
 //	OR
-//	B. The descriptor with the lowest size if config.MaxDescriptors has been reached.
-type Allocator[K, D comparable, I Item[K]] interface {
+//	V. The descriptor with the lowest size if config.MaxDescriptors has been reached.
+type Allocator[K, D comparable] interface {
 	// Allocate allocates itemDescriptors of a given size to descriptors. Returns a slice of descriptor keys.
-	Allocate(items ...I) []D
+	Allocate(items ...Item[K]) []D
 }
 
-func New[K, D comparable, I Item[K]](nd NextDescriptor[D], config Config) Allocator[K, D, I] {
+func New[K, D comparable](nd NextDescriptor[D], config Config) Allocator[K, D] {
 	mergedCfg := mergeConfig(config)
 	metrics := newMetrics(mergedCfg.Experiment)
-	return &defaultAlloc[K, D, I]{
+	return &defaultAlloc[K, D]{
 		config:          mergedCfg,
 		descriptorSizes: make(map[D]telem.Size),
 		itemDescriptors: make(map[K]D),
@@ -50,11 +50,11 @@ func New[K, D comparable, I Item[K]](nd NextDescriptor[D], config Config) Alloca
 	}
 }
 
-type Item[K comparable] interface {
-	// Key returns the key of the item.
-	Key() K
-	// Size returns the size of the item.
-	Size() telem.Size
+type Item[K comparable] struct {
+	// Key is the key of the item.
+	Key K
+	// Size is the size of the item.
+	Size telem.Size
 }
 
 // NextDescriptor returns a unique descriptor key that represents the next descriptor.
@@ -111,7 +111,7 @@ func mergeConfig(c Config) Config {
 	return c
 }
 
-type defaultAlloc[K, D comparable, I Item[K]] struct {
+type defaultAlloc[K, D comparable] struct {
 	mu              sync.Mutex
 	descriptorSizes map[D]telem.Size
 	itemDescriptors map[K]D
@@ -121,7 +121,7 @@ type defaultAlloc[K, D comparable, I Item[K]] struct {
 }
 
 // Allocate implements the Allocator interface.
-func (d *defaultAlloc[K, D, I]) Allocate(items ...I) []D {
+func (d *defaultAlloc[K, D]) Allocate(items ...Item[K]) []D {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	dKeys := make([]D, len(items))
@@ -131,7 +131,7 @@ func (d *defaultAlloc[K, D, I]) Allocate(items ...I) []D {
 	return dKeys
 }
 
-func (d *defaultAlloc[K, D, I]) allocate(item I) D {
+func (d *defaultAlloc[K, D]) allocate(item Item[K]) D {
 	sw := d.metrics.Allocate.Stopwatch()
 	sw.Start()
 	defer sw.Stop()
@@ -146,14 +146,14 @@ func (d *defaultAlloc[K, D, I]) allocate(item I) D {
 		panic("[cesium.allocate] - descriptor not found")
 	}
 	// If the descriptor is too large, allocate a new descriptor.
-	if (size + item.Size()) > d.config.MaxSize {
+	if (size + item.Size) > d.config.MaxSize {
 		key = d.new(item)
 	}
-	d.descriptorSizes[key] += item.Size()
+	d.descriptorSizes[key] += item.Size
 	return key
 }
 
-func (d *defaultAlloc[K, D, I]) new(item I) (key D) {
+func (d *defaultAlloc[K, D]) new(item Item[K]) (key D) {
 	// Remove any descriptors that are too large.
 	d.scrubOversized()
 	// If we've reached our limit, allocate to the descriptor with the smallest size.
@@ -167,13 +167,13 @@ func (d *defaultAlloc[K, D, I]) new(item I) (key D) {
 	return key
 }
 
-func (d *defaultAlloc[K, D, I]) newDescriptor() D {
+func (d *defaultAlloc[K, D]) newDescriptor() D {
 	n := d.nextD.Next()
 	d.descriptorSizes[n] = 0
 	return n
 }
 
-func (d *defaultAlloc[K, D, I]) scrubOversized() {
+func (d *defaultAlloc[K, D]) scrubOversized() {
 	for key, size := range d.descriptorSizes {
 		if size > d.config.MaxSize {
 			delete(d.descriptorSizes, key)
@@ -181,7 +181,7 @@ func (d *defaultAlloc[K, D, I]) scrubOversized() {
 	}
 }
 
-func (d *defaultAlloc[K, D, I]) smallestDescriptor() (desc D) {
+func (d *defaultAlloc[K, D]) smallestDescriptor() (desc D) {
 	min := telem.Size(math.MaxInt)
 	for k, size := range d.descriptorSizes {
 		if size < min {

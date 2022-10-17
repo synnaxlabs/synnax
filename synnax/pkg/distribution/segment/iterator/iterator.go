@@ -181,7 +181,7 @@ func NewStream(ctx context.Context, _cfg ...Config) (StreamIterator, error) {
 
 	// We need to configure different pipelines to optimize for particular cases.
 	if needRemote && needLocal {
-		// Open a broadcaster that will multiply requests to both the local and remote
+		// AcquireSearcher a broadcaster that will multiply requests to both the local and remote
 		// iterators.
 		plumber.SetSegment[Request, Request](
 			pipe,

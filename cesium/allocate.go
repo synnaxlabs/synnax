@@ -4,29 +4,34 @@ import (
 	"context"
 	"github.com/synnaxlabs/cesium/internal/allocate"
 	"github.com/synnaxlabs/cesium/internal/channel"
-	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/file"
+	"github.com/synnaxlabs/cesium/internal/segment"
 	"github.com/synnaxlabs/x/confluence"
 )
 
-type allocator struct {
-	confluence.LinearTransform[[]writeOperation, []writeOperation]
-	allocate.Allocator[channel.Key, core.FileKey, writeOperation]
+type Allocator struct {
+	confluence.LinearTransform[WriteRequest, segment.Segment]
+	allocate.Allocator[channel.Key, file.Key]
 }
 
-func newAllocator(counter *fileCounter, cfg allocate.Config) *allocator {
-	a := &allocator{
-		Allocator: allocate.New[channel.Key, core.FileKey, writeOperation](counter, cfg),
-	}
+func NewAllocator(alloc allocate.Allocator[channel.Key, file.Key]) *Allocator {
+	a := &Allocator{Allocator: alloc}
 	a.Transform = a.allocate
 	return a
 }
 
-func (a *allocator) allocate(
-	ctx context.Context,
-	ops []writeOperation,
-) ([]writeOperation, bool, error) {
-	for i, fk := range a.Allocate(ops...) {
-		ops[i].SetFileKey(fk)
+func (a *Allocator) allocate(ctx context.Context, w WriteRequest) (segment.Segment, bool, error) {
+	items := make([]allocate.Item[channel.Key], len(w.Segments))
+	for i, item := range w.Segments {
+		items[i] = item.AItem()
 	}
-	return ops, true, nil
+	f := a.Allocator.Allocate(items...)
+	for i, item := range w.Segments {
+		item.MD.FileKey = f[i]
+		w.Segments[i] = item
+	}
+	for _, item := range w.Segments {
+		a.Out.Inlet() <- item
+	}
+	return segment.Segment{}, false, nil
 }

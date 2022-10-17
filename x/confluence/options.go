@@ -48,3 +48,7 @@ func CloseInletsOnExit() Option {
 func WithClosables(closables ...Closable) Option {
 	return func(fo *Options) { fo.AttachClosables(closables...) }
 }
+
+func Defer(fn func()) Option {
+	return func(fo *Options) { fo.Signal = append(fo.Signal, signal.Defer(fn)) }
+}

@@ -30,7 +30,7 @@ package cesium_test
 //	vars []createVars
 //}
 //
-//func (c *createConfig) Next() (createVars, error) {
+//func (c *createConfig) Next() (createVars, err) {
 //	if c.next >= len(c.vars) {
 //		return createVars{}, io.EOF
 //	}
@@ -90,10 +90,10 @@ package cesium_test
 //		factory seg.DataFactory
 //	)
 //	BeforeEach(func() {
-//		var err error
+//		var err err
 //		log = zap.NewNop()
 //		exp = alamos.New("create_test")
-//		db, err = cesium.Open("./testdata",
+//		db, err = cesium.AcquireSearcher("./testdata",
 //			cesium.WithLogger(log),
 //			cesium.WithExperiment(exp),
 //		)
@@ -110,10 +110,10 @@ package cesium_test
 //		config := &createConfig{vars: progressiveCreate}
 //		p := alamos.NewParametrize[createVars](config)
 //		p.Template(func(i int, values createVars) {
-//			It(fmt.Sprintf("Should write data to %v channels in different goroutines"+
+//			It(fmt.Sprintf("Should write data to %v Channels in different goroutines"+
 //				" correctly", values.nChannels), func() {
 //				var (
-//					channels []cesium.ChannelService
+//					Channels []cesium.ChannelService
 //				)
 //				for i := 0; i < values.nChannels; i++ {
 //					ch := cesium.ChannelService{
@@ -122,16 +122,16 @@ package cesium_test
 //					}
 //					key, err := db.CreateChannel(ch)
 //					Expect(err).ToNot(HaveOccurred())
-//					ch.Key = key
-//					channels = append(channels, ch)
+//					ch.key = key
+//					Channels = append(Channels, ch)
 //				}
-//				Expect(channels).To(HaveLen(values.nChannels))
+//				Expect(Channels).To(HaveLen(values.nChannels))
 //				wg := &sync.WaitGroup{}
 //				wg.Add(values.nChannels)
-//				for _, ch := range channels {
+//				for _, ch := range Channels {
 //					go func(ch cesium.ChannelService) {
 //						defer GinkgoRecover()
-//						req, res, err := db.NewCreate().WhereChannels(ch.Key).Stream(ctx)
+//						req, res, err := db.NewCreate().WhereChannels(ch.key).Stream(ctx)
 //						Expect(err).ToNot(HaveOccurred())
 //						stc := &seg.StreamCreate{
 //							Req:               req,
@@ -152,9 +152,9 @@ package cesium_test
 //		config := &createConfig{vars: progressiveCreate}
 //		p := alamos.NewParametrize[createVars](config)
 //		p.Template(func(i int, values createVars) {
-//			It(fmt.Sprintf("Should write to %v channels in a single goroutine corectly", values.nChannels), func() {
+//			It(fmt.Sprintf("Should write to %v Channels in a single goroutine corectly", values.nChannels), func() {
 //				var (
-//					channels []cesium.ChannelService
+//					Channels []cesium.ChannelService
 //					keys     []cesium.ChannelKey
 //				)
 //				for i := 0; i < values.nChannels; i++ {
@@ -164,11 +164,11 @@ package cesium_test
 //					}
 //					key, err := db.CreateChannel(ch)
 //					Expect(err).ToNot(HaveOccurred())
-//					ch.Key = key
-//					channels = append(channels, ch)
+//					ch.key = key
+//					Channels = append(Channels, ch)
 //					keys = append(keys, key)
 //				}
-//				Expect(channels).To(HaveLen(values.nChannels))
+//				Expect(Channels).To(HaveLen(values.nChannels))
 //				req, res, err := db.NewCreate().WhereChannels(keys...).Stream(ctx)
 //				Expect(err).ToNot(HaveOccurred())
 //				stc := &seg.StreamCreate{
@@ -177,7 +177,7 @@ package cesium_test
 //					SequentialFactory: seg.NewSequentialFactory(
 //						factory,
 //						10*cesium.Second,
-//						channels...,
+//						Channels...,
 //					),
 //				}
 //				stc.CreateCRequestsOfN(1, 1)

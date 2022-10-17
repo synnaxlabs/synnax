@@ -133,7 +133,7 @@ func (k Keys) Strings() []string {
 // This Channel type (for the distribution layer) extends a cesium.DB's channel via
 // composition to add fields necessary for cluster wide distribution.
 //
-// A Channel "belongs to" a specific Node. Because delta is oriented towards data collection
+// Key Channel "belongs to" a specific Node. Because delta is oriented towards data collection
 // close to the hardware, it's natural to assume a sensor writes to one and only device.
 // For example, we may have a temperature sensor for a carbon fiber oven connected to a
 // Linux box. The temperature sensor is a Channel that writes to Node residing on the

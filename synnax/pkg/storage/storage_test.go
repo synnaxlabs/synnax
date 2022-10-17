@@ -12,8 +12,8 @@ import (
 	"path/filepath"
 )
 
-var _ = Describe("Storage", func() {
-	Describe("Open", func() {
+var _ = Describe("storage", func() {
+	Describe("AcquireSearcher", func() {
 		var (
 			tempDir string
 			cfg     storage.Config

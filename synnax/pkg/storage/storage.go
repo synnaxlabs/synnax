@@ -1,9 +1,9 @@
 // Package storage provides entities for managing node local stores. Delta uses two
 // database classes for storing its data:
 //
-//  1. A key-value store (implementing the kv.DB interface) for storing cluster wide
+//  1. Key key-value store (implementing the kv.DB interface) for storing cluster wide
 //     metadata.
-//  2. A time-series engine (implementing the cesium.DB interface) for writing chunks
+//  2. Key time-series engine (implementing the cesium.DB interface) for writing chunks
 //     of time-series data.
 //
 // It's important to node the storage package does NOT manage any sort of distributed
@@ -57,7 +57,7 @@ const (
 var tsEngines = []TSEngine{CesiumTS}
 
 // Store represents a node's local storage. The provided KV and TS engines can be
-// used to read and write data. A Store must be closed when it is no longer in use.
+// used to read and write data. Key Store must be closed when it is no longer in use.
 type Store struct {
 	// Config is the configuration for the storage provided to Open.
 	Config Config
@@ -173,7 +173,7 @@ func Open(cfg Config) (s *Store, err error) {
 	log := cfg.Logger.Sugar()
 	log.Infow("opening storage", cfg.Report().LogArgs()...)
 
-	// Open our two file system implementations. We use VFS for acquiring the directory
+	// AcquireSearcher our two file system implementations. We use VFS for acquiring the directory
 	// lock and for the key-value store. We use KFS for the time-series engine, as we
 	// need seekable file handles. This is
 	baseVFS, baseKFS := openBaseFS(cfg)
@@ -192,12 +192,12 @@ func Open(cfg Config) (s *Store, err error) {
 	// Allow the caller to release the lock when they finish using the storage.
 	s.releaseLock = releaser.Close
 
-	// Open the key-value storage engine.
+	// AcquireSearcher the key-value storage engine.
 	if s.KV, err = openKV(cfg, baseVFS); err != nil {
 		return s, errors.CombineErrors(err, s.releaseLock())
 	}
 
-	// Open the time-series engine.
+	// AcquireSearcher the time-series engine.
 	if s.TS, err = openTS(cfg, baseKFS, baseVFS); err != nil {
 		return s, errors.CombineErrors(err, s.releaseLock())
 	}

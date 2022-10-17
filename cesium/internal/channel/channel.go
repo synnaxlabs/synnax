@@ -13,6 +13,8 @@ func (k Key) String() string { return strconv.Itoa(int(k)) }
 
 type Channel struct {
 	Key     Key
+	Index   Key
+	IsIndex bool
 	Rate    telem.Rate
 	Density telem.Density
 }

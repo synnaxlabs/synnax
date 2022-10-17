@@ -2,13 +2,13 @@ package iterator
 
 import (
 	"context"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	distribcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/segment/core"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
-	"github.com/samber/lo"
 )
 
 func newLocalIterator(keys channel.Keys, cfg Config) (confluence.Segment[Request, Response], error) {
@@ -87,6 +87,6 @@ func (te *storageRequestTranslator) translate(
 		Command: cesium.IteratorCommand(req.Command),
 		Span:    req.Span,
 		Range:   req.Range,
-		Stamp:   req.Stamp,
+		Target:  req.Stamp,
 	}, true, nil
 }

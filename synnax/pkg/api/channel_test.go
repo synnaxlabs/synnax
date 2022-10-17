@@ -68,7 +68,7 @@ var _ = Describe("ChannelService", Ordered, func() {
 			}, "Channel.rate", "required"),
 		)
 	})
-	Describe("Retrieve", func() {
+	Describe("RetrieveP", func() {
 		It("Should retrieve all created channels", func() {
 			res, err := svc.Retrieve(context.TODO(), api.ChannelRetrieveRequest{})
 			Expect(err).To(Equal(errors.Nil))

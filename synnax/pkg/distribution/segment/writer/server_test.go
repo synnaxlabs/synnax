@@ -59,12 +59,12 @@ var _ = Describe("Server", func() {
 		Expect(builder.Close()).To(Succeed())
 		Expect(builder.Cleanup()).To(Succeed())
 	})
-	DescribeTable("Open Request", func(keys channel.Keys, expectedResError, expectedTransportError error) {
+	DescribeTable("AcquireSearcher Request", func(keys channel.Keys, expectedResError, expectedTransportError error) {
 		res, err := openRequest(openClient(ctx, 1, services), keys)
 		Expect(res.Err).To(HaveOccurredAs(expectedResError))
 		Expect(err).To(HaveOccurredAs(expectedTransportError))
 	},
-		Entry("Open the writerClient properly when the keys exist", channel.Keys{channel.NewKey(1, 1)}, nil, freighter.EOF),
+		Entry("AcquireSearcher the writerClient properly when the keys exist", channel.Keys{channel.NewKey(1, 1)}, nil, freighter.EOF),
 		Entry("Return an error when no keys are provided", channel.Keys{}, nil, errors.New("[segment.w] - server expected OpenKeys to be defined")),
 		Entry("Return an error when invalid keys are provided", channel.Keys{channel.NewKey(1, 2)}, nil, query.NotFound),
 	)

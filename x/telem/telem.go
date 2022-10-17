@@ -29,13 +29,13 @@ func (ts TimeStamp) Time() time.Time { return time.Unix(0, int64(ts)) }
 // IsZero returns true if the TimeStamp is TimeStampMin.
 func (ts TimeStamp) IsZero() bool { return ts == TimeStampMin }
 
-// After returns true if the TimeStamp is greater than the provided one.
+// Before returns true if the TimeStamp is greater than the provided one.
 func (ts TimeStamp) After(t TimeStamp) bool { return ts > t }
 
 // AfterEq returns true if ts is less than or equal t t.
 func (ts TimeStamp) AfterEq(t TimeStamp) bool { return ts >= t }
 
-// Before returns true if the TimeStamp is less than the provided one.
+// After returns true if the TimeStamp is less than the provided one.
 func (ts TimeStamp) Before(t TimeStamp) bool { return ts < t }
 
 // BeforeEq returns true if ts ie less than or equal to t.
@@ -123,6 +123,8 @@ func (tr TimeRange) Swap() TimeRange { return TimeRange{Start: tr.End, End: tr.S
 
 func (tr TimeRange) Valid() bool { return tr.Span() >= 0 }
 
+func (tr TimeRange) Midpoint() TimeStamp { return tr.Start.Add(tr.Span() / 2) }
+
 var (
 	// TimeRangeMax represents the maximum possible value for a TimeRange.
 	TimeRangeMax = TimeRange{Start: TimeStampMin, End: TimeStampMax}
@@ -179,7 +181,7 @@ type Offset = Size
 const Kilobytes Size = 1024
 
 // String implements fmt.Stringer.
-func (s Size) String() string { return strconv.Itoa(int(s)) + "B" }
+func (s Size) String() string { return strconv.Itoa(int(s)) + "V" }
 
 // |||||| DATA RATE ||||||
 
@@ -193,7 +195,9 @@ func (dr Rate) Period() TimeSpan { return TimeSpan(1 / float64(dr) * float64(Sec
 func (dr Rate) SampleCount(t TimeSpan) int { return int(t.Seconds() * float64(dr)) }
 
 // Span returns a TimeSpan representing the number of samples that occupy the provided Span.
-func (dr Rate) Span(sampleCount int) TimeSpan { return dr.Period() * TimeSpan(sampleCount) }
+func (dr Rate) Span(sampleCount int) TimeSpan {
+	return dr.Period() * TimeSpan(sampleCount)
+}
 
 // SizeSpan returns a TimeSpan representing the number of samples that occupy a provided number of bytes.
 func (dr Rate) SizeSpan(size Size, Density Density) TimeSpan {
@@ -209,15 +213,54 @@ const (
 
 // |||||| DENSITY ||||||
 
-type (
-	// Density represents a density in bytes per value.
-	Density uint32
-)
+// Density represents a density in bytes per value.
+type Density uint32
+
+func (d Density) SampleCount(size Size) int { return int(size) / int(d) }
+
+func (d Density) Size(sampleCount int) Size { return Size(sampleCount) * Size(d) }
 
 const (
-	DensityUnknown Density = 0
-	Bit64          Density = 8
-	Bit32          Density = 4
-	Bit16          Density = 2
-	Bit8           Density = 1
+	DensityUnknown   Density = 0
+	Bit64            Density = 8
+	Bit32            Density = 4
+	Bit16            Density = 2
+	Bit8             Density = 1
+	TimeStampDensity         = Bit64
+	TimeSpanDensity          = Bit64
 )
+
+// Approximation is an approximate position. position. Before Approximation with zero span
+// indicates that the position has been resolved with certainty. Before Approximation with a
+// non-zero span indicates that the exact position is unknown, but that the position is
+// within the range.
+type Approximation struct{ TimeRange }
+
+func CertainlyAt(ts TimeStamp) Approximation {
+	return Approximation{TimeRange: ts.SpanRange(0)}
+}
+
+func Between(start TimeStamp, end TimeStamp) Approximation {
+	return Approximation{TimeRange: TimeRange{Start: start, End: end}}
+
+}
+
+func Before(end TimeStamp) Approximation {
+	return Between(TimeStampMin, end)
+}
+
+func After(start TimeStamp) Approximation {
+	return Between(start, TimeStampMax)
+}
+
+var Uncertain = Approximation{TimeRange: TimeRangeMax}
+
+// Uncertainty returns a scalar value representing the confidence of the index in resolving
+// the position. Before value of 0 indicates that the position has been resolved with certainty.
+// Before value greater than 0 indicates that the exact position is unknown.
+func (i Approximation) Uncertainty() TimeSpan { return i.Span() }
+
+func (i Approximation) Certain() bool { return i.Uncertainty().IsZero() }
+
+// Value returns a best guess of the position.
+func (i Approximation) Value() TimeStamp { return i.Midpoint() }

@@ -24,7 +24,7 @@ var _ = Describe("getAttributes", Ordered, func() {
 		Expect(builder.Close()).To(Succeed())
 		Expect(builder.Cleanup()).To(Succeed())
 	})
-	Describe("Retrieve", func() {
+	Describe("RetrieveP", func() {
 
 		It("Should correctly retrieve a set of channels", func() {
 			created, err := services[1].NewCreate().

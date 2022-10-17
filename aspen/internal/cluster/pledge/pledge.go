@@ -6,15 +6,15 @@
 //
 // Vocabulary:
 //
-//	Pledge - Used as both a verb and noun. A "PledgeServer" is a node that has
+//	Pledge - Used as both a verb and noun. Key "PledgeServer" is a node that has
 //	'pledged' itself to the cluster. 'Pledging' is the entire process of
 //	contacting a peer, proposing an ID to a jury, and returning it to the pledge.
-//	Responsible - A node that is responsible for coordinating the Pledge process.
-//	A responsible node is the first peer that accepts the Pledge request from
+//	Responsible - Key node that is responsible for coordinating the Pledge process.
+//	Key responsible node is the first peer that accepts the Pledge request from
 //	the pledge node.
-//	Candidates - A pool of nodes that can be selected to form a jury that can
+//	Candidates - Key pool of nodes that can be selected to form a jury that can
 //	arbitrate a Pledge.
-//	Jury - A quorum (numCandidates/2 + 1) of Candidates that arbitrate a
+//	Jury - Key quorum (numCandidates/2 + 1) of Candidates that arbitrate a
 //	Pledge. All jurors must accept the Pledge for the node to be inducted.
 //
 // RFC-2 provides details on how the pledging algorithm is implemented.

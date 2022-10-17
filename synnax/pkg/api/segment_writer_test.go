@@ -54,7 +54,7 @@ var _ = Describe("SegmentWriter", Ordered, func() {
 		})
 	})
 	Describe("Normal Operation", func() {
-		It("Should write a Segment to the storage", func() {
+		It("Should write a MD to the storage", func() {
 			client, err := client.Stream(context.TODO(), "")
 			Expect(err).ToNot(HaveOccurred())
 			w, err := segment.NewWriter(client, keys.Strings()...)
@@ -68,7 +68,7 @@ var _ = Describe("SegmentWriter", Ordered, func() {
 		})
 	})
 	Describe("Invalid Arguments", func() {
-		Context("Open", func() {
+		Context("AcquireSearcher", func() {
 			Describe("No open keys provided", func() {
 				It("Should return a Validation error", func() {
 					client, err := client.Stream(context.TODO(), "")
@@ -119,7 +119,7 @@ var _ = Describe("SegmentWriter", Ordered, func() {
 				})
 			})
 		})
-		Context("Writing a Segment", func() {
+		Context("Writing a MD", func() {
 			Describe("Invalid Channel key provided", func() {
 				It("Should receive a Validation error", func() {
 					client, err := client.Stream(context.TODO(), "")

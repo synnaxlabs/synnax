@@ -1,10 +1,9 @@
 package allocate_test
 
 import (
-	"github.com/synnaxlabs/cesium/internal/allocate"
-	"github.com/synnaxlabs/x/telem"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/telem"
 )
 
 type IntegerItem struct {
@@ -24,10 +23,10 @@ var _ = Describe("Alloc", func() {
 	Describe("Simple", func() {
 		Context("Default Config", Ordered, func() {
 			var (
-				a allocate.Allocator[int, int, IntegerItem]
+				a Allocator[int, int, IntegerItem]
 			)
 			BeforeAll(func() {
-				a = allocate.New[int, int, IntegerItem](&allocate.NextDescriptorInt{}, allocate.DefaultConfig)
+				a = New[int, int, IntegerItem](&NextDescriptorInt{}, DefaultConfig)
 			})
 			It("Should allocate the first item to a brand new descriptor", func() {
 				i := IntegerItem{key: 1, size: 1}
@@ -50,7 +49,7 @@ var _ = Describe("Alloc", func() {
 	})
 	Describe("Exceeding max descriptors", func() {
 		It("Should start allocating to the next smallest descriptor", func() {
-			a := allocate.New[int, int, IntegerItem](&allocate.NextDescriptorInt{}, allocate.Config{
+			a := New[int, int, IntegerItem](&NextDescriptorInt{}, Config{
 				MaxDescriptors: 2,
 			})
 			i := IntegerItem{key: 1, size: 1}
@@ -69,7 +68,7 @@ var _ = Describe("Alloc", func() {
 	Describe("Exceeding max descriptor size", func() {
 		Context("Max descriptor count not exceeded", func() {
 			It("Should allocate to a new descriptor", func() {
-				a := allocate.New[int, int, IntegerItem](&allocate.NextDescriptorInt{}, allocate.Config{
+				a := New[int, int, IntegerItem](&NextDescriptorInt{}, Config{
 					MaxSize: 2,
 				})
 
@@ -94,7 +93,7 @@ var _ = Describe("Alloc", func() {
 		Context("Max descriptor count exceeded", func() {
 			It("Should allocate to the next smallest descriptor", func() {
 
-				a := allocate.New[int, int, IntegerItem](&allocate.NextDescriptorInt{}, allocate.Config{
+				a := New[int, int, IntegerItem](&NextDescriptorInt{}, Config{
 					MaxSize:        2,
 					MaxDescriptors: 2,
 				})

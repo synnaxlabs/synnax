@@ -183,7 +183,7 @@ func (s *clientStream[RQ, RS]) Receive() (res RS, err error) {
 
 	msg, err := s.core.receive()
 
-	// A close message means the server handler exited.
+	// Key close message means the server handler exited.
 	if msg.Type == closeMessage {
 		close(s.contextC)
 		s.peerClosed = ferrors.Decode(msg.Err)
@@ -327,7 +327,7 @@ func (s *serverStream[RQ, RS]) Receive() (req RQ, err error) {
 
 	msg, err := s.core.receive()
 
-	// A close message means the client called CloseSend.
+	// Key close message means the client called CloseSend.
 	if msg.Type == closeMessage {
 		s.peerClosed = freighter.EOF
 		return req, s.peerClosed

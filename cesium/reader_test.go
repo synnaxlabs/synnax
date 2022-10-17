@@ -10,7 +10,7 @@ import (
 	"sync"
 )
 
-var _ = Describe("Read", func() {
+var _ = Describe("GoRead", func() {
 	var db cesium.DB
 	BeforeEach(func() {
 		var err error
@@ -71,7 +71,7 @@ var _ = Describe("Read", func() {
 		AfterEach(func() {
 			Expect(db.Close()).To(Succeed())
 		})
-		It("Should support reading data from multiple channels", func() {
+		It("Should support reading data from multiple Channels", func() {
 			for i := 0; i < channelCount; i++ {
 				factory := seg.NewSequentialFactory(&seg.RandomFloat64Factory{}, 10*telem.Second, channels[i])
 				Expect(db.Write(factory.NextN(20))).To(Succeed())

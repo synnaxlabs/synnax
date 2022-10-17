@@ -31,13 +31,13 @@ func (sf *server) Handle(_ctx context.Context, server ServerStream) error {
 	defer cancel()
 
 	// Block until we receive the first request from the remoteIterator. This message should
-	// have an Open command that provides context for opening the cesium iterator.
+	// have an AcquireSearcher command that provides context for opening the cesium iterator.
 	req, err := server.Receive()
 	if err != nil {
 		return err
 	}
 	if req.Command != Open {
-		return errors.New("[segment.iterator] - server expected Open command")
+		return errors.New("[segment.iterator] - server expected AcquireSearcher command")
 	}
 
 	// receiver receives requests from the client and pipes them into the

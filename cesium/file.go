@@ -1,7 +1,7 @@
 package cesium
 
 import (
-	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/file"
 	"github.com/synnaxlabs/x/kv"
 )
 
@@ -18,18 +18,18 @@ const (
 	fileCounterKey = "cesium.nextFile"
 )
 
-type fileCounter struct{ kv.PersistedCounter }
+type Counter struct{ kv.PersistedCounter }
 
-func openFileCounter(kve kv.DB) (*fileCounter, error) {
+func openFileCounter(kve kv.DB) (*Counter, error) {
 	counter, err := kv.NewPersistedCounter(kve, []byte(fileCounterKey))
-	return &fileCounter{PersistedCounter: *counter}, err
+	return &Counter{PersistedCounter: *counter}, err
 }
 
 // Next implements allocate.NextDescriptor.
-func (f *fileCounter) Next() core.FileKey {
+func (f *Counter) Next() file.Key {
 	v, err := f.Add()
 	if err != nil {
 		panic(err)
 	}
-	return core.FileKey(v)
+	return file.Key(v)
 }
