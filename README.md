@@ -3,18 +3,19 @@
     <a href="https://synnaxlabs.com/">
         <img src="docs/media/logo/title-white-on-black.svg" width="45%"/>
     </a>
-
+    <br />
+    <br />
+    <a href="https://app.codecov.io/gh/synnaxlabs/synnax">
+        <img src="https://img.shields.io/codecov/c/gh/synnaxlabs/synnax?token=6xqpN1pFt8&color=green&style=flat-square&logo=codecov" />
+    </a>
+    <a href="https://docs.synnaxlabs.com">
+        <img src="https://img.shields.io/badge/_-documentation-3b84e5?style=flat-square&link=https://docs.synnaxlabs.com&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAQAAAC1QeVaAAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAAAmJLR0QA/4ePzL8AAAAJcEhZcwAALiMAAC4jAXilP3YAAAAHdElNRQfmCg0KKDIsDui/AAAA2UlEQVQY023QLUtDARjF8ecOp4jrirCiIJgMCybLikUsBoPBaFkWBKNpyWhZMi74An4DMSkoLIgYLKKiMMbmS9rPcG+4u3rq/5zD85yITEJo6NsRoiCh6hbXZv1BYR8M7RaywqInNxruPFowgkoOfVkXNnxrKslVLnvXNilMOfWmllULE451rUiNdT0tZVluVd+RMam1rKWnnsKKC8+W0iIh1Lw6UQlh048Difx5TZ+2w7RLD+aMPjbvSifsGTozrjhJ1VbiJWaiG+34iCTHO3Eeg3DvPw2siV92RsVo+XSmkwAAACV0RVh0ZGF0ZTpjcmVhdGUAMjAyMi0xMC0xM1QxMDo0MDo1MCswMDowMIzzdxUAAAAldEVYdGRhdGU6bW9kaWZ5ADIwMjItMTAtMTNUMTA6NDA6NTArMDA6MDD9rs+pAAAAAElFTkSuQmCC" />
+    </a>
 </p>
 
 
 # Synnax
-<a href="https://app.codecov.io/gh/synnaxlabs/synnax">
-  <img src="https://img.shields.io/codecov/c/gh/synnaxlabs/synnax?token=6xqpN1pFt8&color=green&style=flat-square&logo=codecov" />
-</a>
 
-<a href="https://docs.synnaxlabs.com">
-<img src="https://img.shields.io/badge/_-documentation-3b84e5?style=flat-square&link=https://docs.synnaxlabs.com&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAQAAAC1QeVaAAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAAAmJLR0QA/4ePzL8AAAAJcEhZcwAALiMAAC4jAXilP3YAAAAHdElNRQfmCg0KKDIsDui/AAAA2UlEQVQY023QLUtDARjF8ecOp4jrirCiIJgMCybLikUsBoPBaFkWBKNpyWhZMi74An4DMSkoLIgYLKKiMMbmS9rPcG+4u3rq/5zD85yITEJo6NsRoiCh6hbXZv1BYR8M7RaywqInNxruPFowgkoOfVkXNnxrKslVLnvXNilMOfWmllULE451rUiNdT0tZVluVd+RMam1rKWnnsKKC8+W0iIh1Lw6UQlh048Difx5TZ+2w7RLD+aMPjbvSifsGTozrjhJ1VbiJWaiG+34iCTHO3Eeg3DvPw2siV92RsVo+XSmkwAAACV0RVh0ZGF0ZTpjcmVhdGUAMjAyMi0xMC0xM1QxMDo0MDo1MCswMDowMIzzdxUAAAAldEVYdGRhdGU6bW9kaWZ5ADIwMjItMTAtMTNUMTA6NDA6NTArMDA6MDD9rs+pAAAAAElFTkSuQmCC" />
-</a>
 
 The telemetry engine for operating large scale hardware systems with ease.
 
