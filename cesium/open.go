@@ -79,16 +79,16 @@ func Open(dirname string, opts ...Option) (DB, error) {
 	}
 
 	return &db{
-		kv:           kvDB,
-		channelCache: channelCache,
-		externalKV:   o.kv.external,
-		shutdown:     shutdown,
-		channelLock:  lock.NewKeys[ChannelKey](),
-		logger:       o.logger,
-		wg:           ctx,
-		storage:      store,
-		allocator:    alloc,
-		indexes:      idx,
+		kv:          kvDB,
+		channels:    channelCache,
+		externalKV:  o.kv.external,
+		shutdown:    shutdown,
+		channelLock: lock.NewKeys[ChannelKey](),
+		logger:      o.logger,
+		wg:          ctx,
+		storage:     store,
+		allocator:   alloc,
+		indexes:     idx,
 	}, nil
 }
 

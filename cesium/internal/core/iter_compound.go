@@ -110,7 +110,7 @@ type compoundTimeIterator struct {
 	baseCompoundIterator[TimeIterator]
 }
 
-func NewCompoundMDStampIterator(iters ...TimeIterator) TimeIterator {
+func NewCompoundTimeITerator(iters ...TimeIterator) TimeIterator {
 	return &compoundTimeIterator{
 		baseCompoundIterator: baseCompoundIterator[TimeIterator]{iters: iters},
 	}

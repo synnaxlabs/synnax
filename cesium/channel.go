@@ -9,11 +9,11 @@ import (
 )
 
 func (d *db) retrieveChannel(key ChannelKey) (Channel, error) {
-	return d.kv.GetChannel(key)
+	return d.channels.GetChannel(key)
 }
 
 func (d *db) retrieveChannels(keys ...ChannelKey) ([]Channel, error) {
-	return d.kv.GetChannels(keys...)
+	return d.channels.GetChannels(keys...)
 }
 
 func (d *db) createChannel(ch *Channel) error {
@@ -23,7 +23,7 @@ func (d *db) createChannel(ch *Channel) error {
 	if err := d.applyChannelDefaults(ch); err != nil {
 		return err
 	}
-	return d.kv.SetChannel(*ch)
+	return d.channels.SetChannel(*ch)
 }
 
 func (d *db) validateChannel(ch *Channel) error {
@@ -49,7 +49,7 @@ func (d *db) applyChannelDefaults(ch *Channel) error {
 		ch.Rate = index.IrregularRate
 	}
 	if ch.Key != 0 {
-		key, err := d.kv.NextChannelKey()
+		key, err := d.channels.NextChannelKey()
 		if err != nil {
 			return err
 		}
@@ -59,7 +59,7 @@ func (d *db) applyChannelDefaults(ch *Channel) error {
 }
 
 func (d *db) validateIndexExists(idxKey ChannelKey) error {
-	found, err := d.kv.ChannelsExist(idxKey)
+	found, err := d.channels.ChannelsExist(idxKey)
 	if err != nil || found {
 		return err
 	}
@@ -71,7 +71,7 @@ func (d *db) validateIndexExists(idxKey ChannelKey) error {
 }
 
 func (d *db) validateChannelExists(chKey ChannelKey) error {
-	found, err := d.kv.ChannelsExist(chKey)
+	found, err := d.channels.ChannelsExist(chKey)
 	if err != nil || found {
 		return err
 	}

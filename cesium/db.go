@@ -6,7 +6,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/allocate"
 	"github.com/synnaxlabs/cesium/internal/core"
-	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/kv"
 	"github.com/synnaxlabs/cesium/internal/storage"
 	"github.com/synnaxlabs/x/lock"
@@ -117,16 +116,16 @@ type DB interface {
 }
 
 type db struct {
-	kv           *kv.DB
-	channelCache core.ChannelReader
-	externalKV   bool
-	wg           signal.WaitGroup
-	shutdown     context.CancelFunc
-	channelLock  lock.Keys[ChannelKey]
-	logger       *zap.Logger
-	indexes      *indexingEngine
-	allocator    allocate.Allocator[ChannelKey, core.FileKey]
-	storage      *storage.Storage
+	kv          *kv.DB
+	channels    core.ChannelEngine
+	externalKV  bool
+	wg          signal.WaitGroup
+	shutdown    context.CancelFunc
+	channelLock lock.Keys[ChannelKey]
+	logger      *zap.Logger
+	indexes     *indexingEngine
+	allocator   allocate.Allocator[ChannelKey, core.FileKey]
+	storage     *storage.Storage
 }
 
 // Write implements DB.
@@ -176,87 +175,9 @@ func (d *db) NewIterator(tr telem.TimeRange, keys ...ChannelKey) (Iterator, erro
 	return wrapStreamIterator(wrapped), nil
 }
 
+// NewStreamIterator implements DB.
 func (d *db) NewStreamIterator(tr telem.TimeRange, keys ...ChannelKey) (StreamIterator, error) {
 	return d.newStreamIterator(tr, keys...)
-}
-
-// NewStreamIterator implements DB.
-func (d *db) newStreamIterator(tr telem.TimeRange, keys ...ChannelKey) (*streamIterator, error) {
-	// first thing we need to do is retrieve all the channels we're going to be reading
-	channels, err := d.RetrieveChannels(keys...)
-	if err != nil {
-		return nil, err
-	}
-
-	// now we need to construct our non-rate indexes
-	nonRateIndexes := make(map[ChannelKey]index.Searcher)
-	nonRateChannels := make(map[ChannelKey][]core.Channel)
-	rateChannels := make(map[telem.Rate][]core.Channel)
-	for _, ch := range channels {
-		if ch.Index != 0 {
-			_, ok := nonRateIndexes[ch.Index]
-			if !ok {
-				nonRateIndexes[ch.Index], err = d.indexes.acquireSearcher(ch.Index)
-				if err != nil {
-					return nil, err
-				}
-			}
-			nonRateChannels[ch.Index] = append(nonRateChannels[ch.Index], ch)
-		} else {
-			rateChannels[ch.Rate] = append(rateChannels[ch.Rate], ch)
-		}
-	}
-
-	// no we need to construct our index iterators
-	nonRatePositionIters := make(map[ChannelKey]core.PositionIterator)
-	for idxKey, group := range nonRateChannels {
-		var groupIters []core.PositionIterator
-		for _, ch := range group {
-			iter, err := d.kv.NewIterator(ch.Key)
-			if err != nil {
-				return nil, err
-			}
-			groupIters = append(groupIters, iter)
-		}
-		nonRatePositionIters[idxKey] = core.NewCompoundPositionIterator(groupIters...)
-	}
-
-	ratePositionIters := make(map[telem.Rate]core.PositionIterator)
-	for _, group := range rateChannels {
-		var groupIters []core.PositionIterator
-		for _, ch := range group {
-			iter, err := d.kv.NewIterator(ch.Key)
-			if err != nil {
-				return nil, err
-			}
-			groupIters = append(groupIters, iter)
-		}
-		ratePositionIters[group[0].Rate] = core.NewCompoundPositionIterator(groupIters...)
-	}
-
-	indexIters := make([]core.TimeIterator, 0, len(ratePositionIters)+len(nonRatePositionIters))
-	for k, iter := range nonRatePositionIters {
-		idx := nonRateIndexes[k]
-		indexIters = append(
-			indexIters,
-			index.WrapPositionIter(iter, idx),
-		)
-	}
-	for r, iter := range ratePositionIters {
-		idx := index.RateSearcher(r)
-		indexIters = append(
-			indexIters,
-			index.WrapPositionIter(iter, idx),
-		)
-	}
-
-	wrappedIter := core.NewCompoundMDStampIterator(indexIters...)
-
-	wrappedIter.SetBounds(tr)
-
-	reader := d.storage.NewReader()
-	return &streamIterator{mdIter: wrappedIter, reader: reader}, nil
-
 }
 
 // CreateChannel implements DB.
