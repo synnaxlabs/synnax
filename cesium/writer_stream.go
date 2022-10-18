@@ -32,28 +32,9 @@ func (d *db) newStreamWriter(keys []ChannelKey) (StreamWriter, error) {
 	}
 	haveWriteIndexes := len(writeIndexes) > 0
 
-	// now we need to construct our non-rate nonRateIndexes.
-	nonRateIndexes := make(map[ChannelKey]index.Searcher)
-	for _, ch := range channels {
-		if ch.Index != 0 {
-			_, ok := nonRateIndexes[ch.Index]
-			if !ok {
-				nonRateIndexes[ch.Index], err = d.indexes.acquireSearcher(ch.Index)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-
-	// now we need to construct our index map
-	searchIndexes := make(map[ChannelKey]index.Searcher)
-	for _, ch := range channels {
-		if ch.Index != 0 {
-			searchIndexes[ch.Key] = nonRateIndexes[ch.Index]
-		} else {
-			searchIndexes[ch.Key] = index.RateSearcher(ch.Rate)
-		}
+	searchIndexes, err := d.groupIndexesByChannelKey(channels)
+	if err != nil {
+		return nil, err
 	}
 
 	// and now to construct our write pipeline.
@@ -87,11 +68,7 @@ func (d *db) newStreamWriter(keys []ChannelKey) (StreamWriter, error) {
 	)
 
 	// then we need to write our segment metadata to the index.
-	kvW, err := d.kv.NewWriter()
-	if err != nil {
-		return nil, err
-	}
-	mdw := newMDWriter(kvW, keys, d.channelLock)
+	mdw := newMDWriter(d.kv, keys, d.channelLock)
 	plumber.SetSegment[[]core.SugaredSegment, WriteResponse](pipe, "mdWriter", mdw)
 
 	// now it's time to connect everything together.

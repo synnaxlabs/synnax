@@ -130,7 +130,16 @@ func (i *timeIterator) Valid() bool { return i.err == nil && i.internal.Valid() 
 func (i *timeIterator) View() telem.TimeRange { return i.view }
 
 // Value implements core.TimeIterator.
-func (i *timeIterator) Value() []core.SegmentMD { return i.internal.Value() }
+func (i *timeIterator) Value() []core.SegmentMD {
+	segs := i.internal.Value()
+	for j, seg := range segs {
+		start, _ := i.searchTSInBounds(seg.Alignment)
+		start.WarnIfInexact()
+		seg.Start = start.Start
+		segs[j] = seg
+	}
+	return segs
+}
 
 // Error implements core.TimeIterator.
 func (i *timeIterator) Error() error {

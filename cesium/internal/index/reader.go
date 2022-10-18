@@ -32,7 +32,7 @@ func (r *Reader) SearchP(stamp telem.TimeStamp, approx position.Approximation) (
 		if err != nil {
 			return position.Uncertain, err
 		}
-		alignments, err := decodeAlignments(segments)
+		alignments, err := DecodeAlignments(segments)
 		if err != nil {
 			return position.Uncertain, err
 		}
@@ -53,7 +53,7 @@ func (r *Reader) SearchTS(pos position.Position, approx telem.Approximation) (te
 		if err != nil {
 			return telem.Uncertain, err
 		}
-		alignments, err := decodeAlignments(segments)
+		alignments, err := DecodeAlignments(segments)
 		if err != nil {
 			return telem.Uncertain, err
 		}
@@ -72,7 +72,7 @@ func DecodeTimeStamp(data []byte) telem.TimeStamp {
 	return telem.TimeStamp(binary.BigEndian.Uint64(data))
 }
 
-func decodeAlignments(segments []core.SugaredSegment) ([]Alignment, error) {
+func DecodeAlignments(segments []core.SugaredSegment) ([]Alignment, error) {
 	alignmentCount := 0
 	for _, seg := range segments {
 		alignmentCount += telem.TimeStampDensity.SampleCount(seg.Size())

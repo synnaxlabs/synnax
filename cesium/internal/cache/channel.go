@@ -27,6 +27,7 @@ var _ core.ChannelEngine = (*Channel)(nil)
 func (cr *Channel) GetChannel(key core.ChannelKey) (core.Channel, error) {
 	cr.mu.RLock()
 	if ch, ok := cr.cache[key]; ok {
+		cr.mu.RUnlock()
 		return ch, nil
 	}
 	cr.mu.RUnlock()

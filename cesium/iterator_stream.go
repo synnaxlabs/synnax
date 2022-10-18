@@ -62,6 +62,7 @@ func (s *streamIterator) exec(ctx context.Context, req IteratorRequest) {
 		return
 	}
 	segments, err := s.reader.Read(s.mdIter.Value())
+
 	if err != nil {
 		s.sendAck(req, false, err)
 		return
@@ -107,7 +108,7 @@ func (s *streamIterator) sendAck(req IteratorRequest, ok bool, err error) {
 func (s *streamIterator) sendData(req IteratorRequest, ss []core.SugaredSegment) {
 	segs := make([]Segment, len(ss))
 	for i, seg := range ss {
-		segs[i] = Segment{ChannelKey: seg.ChannelKey, Start: 0, Data: seg.Data}
+		segs[i] = Segment{ChannelKey: seg.ChannelKey, Start: seg.Start, Data: seg.Data}
 	}
 	s.Out.Inlet() <- IteratorResponse{
 		SeqNum:   s.seqNum,

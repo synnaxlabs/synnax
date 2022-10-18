@@ -5,9 +5,14 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
+type searcherChannels struct {
+	idx      index.Searcher
+	channels []Channel
+}
+
 // groupChannelsByIndexSearcher takes a set of given channels, groups them by their index,
 // and returns a map of index searchers to the channels that belong to them.
-func (d *db) groupChannelsByIndexSearcher(channels []Channel) (map[index.Searcher][]Channel, error) {
+func (d *db) groupChannelsByIndexSearcher(channels []Channel) ([]searcherChannels, error) {
 	var (
 		// map of channels to the key of the index they belong to
 		nonRateChannels = make(map[ChannelKey][]Channel)
@@ -24,11 +29,14 @@ func (d *db) groupChannelsByIndexSearcher(channels []Channel) (map[index.Searche
 		}
 	}
 
-	// group channels by their index searcher
-	indexes := make(map[index.Searcher][]Channel)
-	// instantiate a new rate searcher for each rate
+	// group channels by their index idx
+	indexes := make([]searcherChannels, 0, len(nonRateChannels)+len(rateChannels))
+	// instantiate a new rate idx for each rate
 	for rate, chs := range rateChannels {
-		indexes[index.RateSearcher(rate)] = chs
+		indexes = append(indexes, searcherChannels{
+			idx:      index.RateSearcher(rate),
+			channels: chs,
+		})
 	}
 	// acquire index searchers for each non-rate index
 	for idxKey, chs := range nonRateChannels {
@@ -36,7 +44,21 @@ func (d *db) groupChannelsByIndexSearcher(channels []Channel) (map[index.Searche
 		if err != nil {
 			return nil, err
 		}
-		indexes[idx] = chs
+		indexes = append(indexes, searcherChannels{
+			idx:      idx,
+			channels: chs,
+		})
 	}
 	return indexes, nil
+}
+
+func (d *db) groupIndexesByChannelKey(channels []Channel) (map[ChannelKey]index.Searcher, error) {
+	indexes, err := d.groupChannelsByIndexSearcher(channels)
+	keyIndexes := make(map[ChannelKey]index.Searcher)
+	for _, pair := range indexes {
+		for _, ch := range pair.channels {
+			keyIndexes[ch.Key] = pair.idx
+		}
+	}
+	return keyIndexes, err
 }

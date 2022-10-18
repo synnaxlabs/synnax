@@ -2,11 +2,19 @@ package cesium
 
 import (
 	"github.com/cockroachdb/errors"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/x/array"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
+
+func Keys(channels []Channel) []ChannelKey {
+	return lo.Map(channels, func(ch Channel, i int) ChannelKey {
+		return ch.Key
+	})
+}
 
 func (d *db) retrieveChannel(key ChannelKey) (Channel, error) {
 	return d.channels.GetChannel(key)
@@ -23,6 +31,9 @@ func (d *db) createChannel(ch *Channel) error {
 	if err := d.applyChannelDefaults(ch); err != nil {
 		return err
 	}
+	if err := d.maybeCreateNewIndexes(ch); err != nil {
+		return err
+	}
 	return d.channels.SetChannel(*ch)
 }
 
@@ -30,11 +41,11 @@ func (d *db) validateChannel(ch *Channel) error {
 	v := validate.New("cesium")
 	if ch.Index != 0 {
 		v.Exec(func() error { return d.validateIndexExists(ch.Index) })
-	} else {
+	} else if !ch.IsIndex {
 		validate.Positive(v, "rate", ch.Rate)
 	}
 	if ch.Key != 0 {
-		v.Exec(func() error { return d.validateChannelExists(ch.Key) })
+		v.Exec(func() error { return d.validateChannelKeyNotAssigned(ch.Key) })
 	}
 	if ch.IsIndex {
 		v.Exec(func() error { return d.validateNewIndexChannel(ch) })
@@ -48,7 +59,7 @@ func (d *db) applyChannelDefaults(ch *Channel) error {
 	if ch.Index != 0 {
 		ch.Rate = index.IrregularRate
 	}
-	if ch.Key != 0 {
+	if ch.Key == 0 {
 		key, err := d.channels.NextChannelKey()
 		if err != nil {
 			return err
@@ -59,35 +70,50 @@ func (d *db) applyChannelDefaults(ch *Channel) error {
 }
 
 func (d *db) validateIndexExists(idxKey ChannelKey) error {
-	found, err := d.channels.ChannelsExist(idxKey)
-	if err != nil || found {
+	ch, err := d.channels.GetChannel(idxKey)
+	if errors.Is(err, query.NotFound) {
+		return errors.Wrapf(
+			validate.ValidationError,
+			"[cesium] - provided index %s does not exist",
+			idxKey,
+		)
+	}
+	if err != nil {
 		return err
 	}
-	return errors.Wrapf(
-		validate.ValidationError,
-		"[cesium] - provided index %s does not exist",
-		idxKey,
-	)
+	if !ch.IsIndex {
+		return errors.Wrapf(
+			validate.ValidationError,
+			"[cesium] - provided channel %s is not an index",
+			idxKey,
+		)
+	}
+	return nil
 }
 
-func (d *db) validateChannelExists(chKey ChannelKey) error {
+func (d *db) validateChannelKeyNotAssigned(chKey ChannelKey) error {
 	found, err := d.channels.ChannelsExist(chKey)
-	if err != nil || found {
+	if err != nil || !found {
 		return err
 	}
 	return errors.Wrapf(
 		validate.ValidationError,
-		"[cesium] - provided channel %s does not exist",
+		"[cesium] - provided key %s already assigned",
 		chKey,
 	)
 }
 
 func (d *db) validateNewIndexChannel(ch *Channel) error {
-	if ch.Density != telem.TimeStampDensity {
+	if ch.Index != 0 {
 		return errors.Wrapf(
 			validate.ValidationError,
+			"[cesium] - index channel can not be indexed",
+		)
+	}
+	if ch.Density != telem.TimeStampDensity {
+		return errors.Wrap(
+			validate.ValidationError,
 			"[cesium] - index channel must use int64 timestamps",
-			telem.TimeStampDensity,
 		)
 	}
 	return nil

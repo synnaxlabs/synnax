@@ -1,14 +1,11 @@
 package cesium
 
 import (
-	"bytes"
 	"context"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/index"
-	"github.com/synnaxlabs/cesium/internal/position"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
-	"github.com/synnaxlabs/x/telem"
 )
 
 // indexMaintainer maintains a set of writable indexes using incoming segmented telemetry.
@@ -37,20 +34,9 @@ func (im *indexMaintainer) sink(ctx context.Context, segments []core.SugaredSegm
 }
 
 func (im *indexMaintainer) maintain(idx index.Writer, seg core.SugaredSegment) error {
-	var (
-		r                            = bytes.NewReader(seg.Data)
-		alignments                   = make([]index.Alignment, len(seg.Data)/int(telem.TimeStampDensity))
-		b                            = make([]byte, telem.TimeStampDensity)
-		i          position.Position = 0
-	)
-	for {
-		var a index.Alignment
-		if _, err := r.Read(b); err != nil {
-			break
-		}
-		a.Stamp = index.DecodeTimeStamp(b)
-		a.Pos = seg.Alignment + i
-		alignments = append(alignments)
+	alignments, err := index.DecodeAlignments([]core.SugaredSegment{seg})
+	if err != nil {
+		return err
 	}
 	return idx.Write(alignments)
 }

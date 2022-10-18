@@ -39,9 +39,9 @@ func (a *allocator) allocate(
 	}
 	for i, reqSeg := range req.Segments {
 		segments[i] = core.SugaredSegment{
-			Start: reqSeg.Start,
-			Data:  reqSeg.Data,
+			Data: reqSeg.Data,
 			SegmentMD: core.SegmentMD{
+				Start:      reqSeg.Start,
 				ChannelKey: reqSeg.ChannelKey,
 				FileKey:    fileKeys[i],
 				Size:       telem.Size(len(reqSeg.Data)),

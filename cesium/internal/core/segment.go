@@ -16,6 +16,8 @@ type SegmentMD struct {
 	FileKey FileKey
 	// Alignment is the start position of the segment.
 	Alignment position.Position
+	// Start is the start time of the segment.
+	Start telem.TimeStamp
 	// Offset is the offset of the segment's data in the file.
 	Offset telem.Offset
 	// Size is the size of the segment's data in the file.
@@ -62,8 +64,6 @@ func WriteSegmentKey(chKey ChannelKey, pos position.Position, into []byte) {
 // SugaredSegment is a partitioned region of a channel's data aligned to a start timestamp.
 // It is used to represent a segment's metadata and data.
 type SugaredSegment struct {
-	// Start is the timestamp of the first sample in the segment.
-	Start telem.TimeStamp
 	// Data is the segment's data. It is assumed to:
 	//
 	// 		1. Be aligned to the start timestamp.

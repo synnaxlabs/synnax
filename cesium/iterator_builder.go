@@ -50,31 +50,34 @@ func (d *db) buildPositionIters(channels []Channel) map[Channel]core.PositionIte
 	return iters
 }
 
+type searchPosIterPair struct {
+	idx  index.Searcher
+	iter core.PositionIterator
+}
+
 // combinePositionIteratorsByIndex take sa set of grouped indexes and position iterators
 // and creates combined position iterators for each index.
 func (d *db) combinePositionIteratorsByIndex(
-	indexes map[index.Searcher][]Channel,
+	indexes []searcherChannels,
 	iters map[Channel]core.PositionIterator,
-) map[index.Searcher]core.PositionIterator {
-	combined := make(map[index.Searcher]core.PositionIterator, len(indexes))
-	for idx, chs := range indexes {
+) []searchPosIterPair {
+	combined := make([]searchPosIterPair, len(indexes))
+	for i, pair := range indexes {
 		var _iters []core.PositionIterator
-		for _, ch := range chs {
+		for _, ch := range pair.channels {
 			_iters = append(_iters, iters[ch])
 		}
-		combined[idx] = core.NewCompoundPositionIterator(_iters...)
+		combined[i] = searchPosIterPair{idx: pair.idx, iter: core.NewCompoundPositionIterator(_iters...)}
 	}
 	return combined
 }
 
 // buildTimeIterators takes a set of position iterators and their corresponding search
 // index, and creates a time iterator for each.
-func (d *db) buildTimeIterators(
-	posIters map[index.Searcher]core.PositionIterator,
-) []core.TimeIterator {
+func (d *db) buildTimeIterators(posIters []searchPosIterPair) []core.TimeIterator {
 	iters := make([]core.TimeIterator, 0, len(posIters))
-	for idx, posIter := range posIters {
-		iters = append(iters, index.WrapPositionIter(posIter, idx))
+	for _, pair := range posIters {
+		iters = append(iters, index.WrapPositionIter(pair.iter, pair.idx))
 	}
 	return iters
 }

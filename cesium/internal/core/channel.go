@@ -4,10 +4,15 @@ import (
 	"github.com/cockroachdb/pebble"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/telem"
+	"strconv"
 )
 
 // ChannelKey is a unique uint16 identifier for a channel.
 type ChannelKey uint16
+
+func (c ChannelKey) String() string {
+	return strconv.Itoa(int(c))
+}
 
 // Channel is a logical collection of telemetry samples across a time-range. The data
 // within a channel typically arrives from a single source. This can be a physical sensor,

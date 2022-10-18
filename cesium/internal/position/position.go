@@ -1,6 +1,9 @@
 package position
 
-import "go.uber.org/zap"
+import (
+	"go.uber.org/zap"
+	"strconv"
+)
 
 type Position int64
 
@@ -37,6 +40,8 @@ func (p Position) SpanRange(span Span) Range {
 }
 
 func (p Position) Span(other Position) Span { return Span(uint64(other) - uint64(p)) }
+
+func (p Position) String() string { return strconv.Itoa(int(p)) }
 
 const (
 	Min = Position(0)
@@ -107,6 +112,8 @@ type Span int64
 
 func (s Span) IsZero() bool { return s == 0 }
 
+func (s Span) String() string { return strconv.Itoa(int(s)) }
+
 type Bytes uint64
 
 // Approximation is an approximate position. position. A Approximation with zero span
@@ -154,8 +161,16 @@ func (a Approximation) MustContain(pos Position) {
 	}
 }
 
+func (a Approximation) String() string {
+	return `Approximation{
+			Start: ` + a.Range.Start.String() + `,
+			End: ` + a.Range.End.String() + `,
+			Uncertainty: ` + a.Uncertainty().String() + `,
+	}`
+}
+
 func (a Approximation) WarnIfInexact() {
 	if !a.Exact() {
-		zap.S().Warnw("unexpected inexact approximation %s", a)
+		zap.S().Warnf("unexpected inexact approximation %s", a)
 	}
 }
