@@ -27,9 +27,18 @@ class ChannelCreator:
         node_id: int = 0,
         rate: UnparsedRate = Rate(0),
         data_type: UnparsedDataType = DATA_TYPE_UNKNOWN,
+        index: str = "",
+        is_index: bool = False,
     ) -> ChannelPayload:
         return self.create_n(
-            ChannelPayload(name=name, node_id=node_id, rate=rate, data_type=data_type),
+            ChannelPayload(
+                name=name,
+                node_id=node_id,
+                rate=rate,
+                data_type=data_type,
+                index=index,
+                is_index=is_index,
+            ),
             1,
         )[0]
 

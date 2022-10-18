@@ -28,14 +28,14 @@ type Iterator interface {
 	// iterator's view to a single point in time at the beginning of the segment. The
 	// view is guaranteed to be within the iterator's bounds. It does NOT read any
 	// segments from disk, and the iterator will not be considered valid until the first
-	// call to a non-seeking method (e.g. Next, Prev, NextSpan, PrevSpan, SetRange, etc).
+	// call to a non-seeking method (e.g. Next, Prev, Next, Prev, SetRange, etc).
 	SeekFirst() bool
 	// SeekLast seeks the iterator to the last segment in the range and sets the iterator's
 	// view to a single point in time at the end of the segment. The view is guaranteed
 	// to be within the iterator's bounds. It returns true if the iterator is pointing
 	// to the end of a valid segment, and false otherwise. It does NOT read any segments
 	// from disk, and the iterator will be considered invalid until the first call to a
-	// non-seeking method (e.g. Next, Prev, NextSpan, PrevSpan, SetRange, etc).
+	// non-seeking method (e.g. Next, Prev, Next, Prev, SetRange, etc).
 	SeekLast() bool
 	// SeekLE seeks the kvPositionIterator to the beginning of the first segment with a timestamp
 	// less than the provided timestamp and sets the iterator's view to a single point
@@ -43,14 +43,14 @@ type Iterator interface {
 	// iterator's bounds. It returns true if the kvPositionIterator is pointing to the beginning of
 	// a valid segment. It does NOT read any segments from disk, and the iterator will
 	// be considered invalid until the first call to a non-seeking method (e.g. Next,
-	// Prev, NextSpan, PrevSpan, SetRange, etc).
+	// Prev, Next, Prev, SetRange, etc).
 	SeekLE(ts telem.TimeStamp) bool
 	// SeekGE seeks the kvPositionIterator to the end of the first segment with a timestamp greater
 	// than the provided timestamp and set's the iterators view to a single point in time
 	// at the end of the segment. The view is guaranteed to be within the iterator's
 	// bounds. It returns true if the kvPositionIterator is pointing to the end of a valid segment.
 	// It does NOT read any segments from disk, and the iterator will be considered invalid
-	// until the first call to a non-seeking method (e.g. Next, Prev, NextSpan, PrevSpan,
+	// until the first call to a non-seeking method (e.g. Next, Prev, Next, Prev,
 	// SetRange, etc).
 	SeekGE(ts telem.TimeStamp) bool
 	// Next reads the next segment in the iterator. It returns true if the segment was

@@ -61,7 +61,7 @@ func (te *storageResponseTranslator) translate(
 	return Response{
 		Ack:      res.Ack,
 		Variant:  ResponseVariant(res.Variant),
-		Counter:  res.SeqNum,
+		SeqNum:   res.SeqNum,
 		NodeID:   te.wrapper.Host,
 		Error:    res.Err,
 		Command:  Command(res.Command),
@@ -86,7 +86,6 @@ func (te *storageRequestTranslator) translate(
 	return cesium.IteratorRequest{
 		Command: cesium.IteratorCommand(req.Command),
 		Span:    req.Span,
-		Range:   req.Range,
-		Target:  req.Stamp,
+		Target:  req.Target,
 	}, true, nil
 }

@@ -69,7 +69,7 @@ func (s *SegmentService) Iterate(_ctx context.Context, stream SegmentIteratorStr
 				Command: req.Command,
 				Span:    req.Span,
 				Range:   req.Range,
-				Stamp:   req.Stamp,
+				Target:  req.Stamp,
 			}
 		}
 	}()

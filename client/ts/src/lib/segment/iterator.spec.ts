@@ -33,10 +33,9 @@ test('TypedIterator - basic iteration', async (t) => {
     false
   );
   try {
-    t.true(await iterator.first());
-    t.true((await iterator.value())[ch.key].view.length === 25);
-    let c = 1;
-    while (await iterator.next()) {
+    t.true(await iterator.seekFirst());
+    let c = 0;
+    while (await iterator.next(TimeSpan.Seconds(1))) {
       c++;
       t.true((await iterator.value())[ch.key].view.length === 25);
     }

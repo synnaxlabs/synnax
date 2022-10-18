@@ -15,25 +15,20 @@ const (
 	Open Command = iota
 	Next
 	Prev
-	First
-	Last
-	NextSpan
-	PrevSpan
-	NextRange
-	Valid
-	Error
 	SeekFirst
 	SeekLast
-	SeekLT
+	SeekLE
 	SeekGE
+	Valid
+	Error
 )
 
 // Request is a request to a remote iterator.
 type Request struct {
 	Command Command
+	Target  telem.TimeStamp
 	Span    telem.TimeSpan
 	Range   telem.TimeRange
-	Stamp   telem.TimeStamp
 	Keys    channel.Keys
 }
 
@@ -55,8 +50,8 @@ type Response struct {
 	// Ack is only relevant for variant AckResponse. Is true if the iterator successfully
 	// executed the request.
 	Ack bool
-	// Counter
-	Counter int
+	// SeqNum
+	SeqNum int
 	// Command is only relevant for variant AckResponse. It is  the command that was executed
 	// on the iterator.
 	Command Command

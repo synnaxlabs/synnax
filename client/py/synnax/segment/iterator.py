@@ -14,18 +14,12 @@ class _Command(int, Enum):
     OPEN = 0
     NEXT = 1
     PREV = 2
-    FIRST = 3
-    LAST = 4
-    NEXT_SPAN = 5
-    PREV_SPAN = 6
-    NEXT_RANGE = 7
-
-    VALID = 8
-    ERROR = 9
-    SEEK_FIRST = 10
-    SEEK_LAST = 11
-    SEEK_LT = 12
-    SEEK_GE = 13
+    SEEK_FIRST = 3
+    SEEK_LAST = 4
+    SEEK_LE = 5
+    SEEK_GE = 6
+    VALID = 7
+    ERROR = 8
 
 
 class _ResponseVariant(int, Enum):
@@ -81,41 +75,7 @@ class CoreIterator:
         self._exec(command=_Command.OPEN, range=tr, keys=keys)
         self.values = []
 
-    def next(self) -> bool:
-        """Reads the next segment for each channel in the iterator.
-
-        :returns: False if the next segment can't be found for one or more channels or
-        the iterator has accumulated an error.
-        """
-        return self._exec(command=_Command.NEXT)
-
-    def prev(self) -> bool:
-        """Reads the previous segment for each channel in the iterator.
-
-        :returns: False if the next segment can't be found for one or more channels or
-        the iterator has accumulated an error.
-        """
-        return self._exec(command=_Command.PREV)
-
-    def first(self) -> bool:
-        """Seeks to the beginning of the time range and reads the first segment of each
-        channel in the iterator.
-
-        :returns: False if no segments exists in the time range for a particular channel
-        or the iterator has accumulated an error.
-        """
-        return self._exec(command=_Command.FIRST)
-
-    def last(self) -> bool:
-        """Seeks to the end of the time range and reads the last segment of each channel
-        in the iterator.
-
-        :returns: False if no segments exists in the time range for a particular channel,
-        or the iterator has accumulated an error.
-        """
-        return self._exec(command=_Command.LAST)
-
-    def next_span(self, span: TimeSpan) -> bool:
+    def next(self, span: TimeSpan) -> bool:
         """Reads the next time span of telemetry for each channel in the iterator.
 
         :returns: False if a segment satisfying the request can't be found for a
@@ -123,22 +83,13 @@ class CoreIterator:
         """
         return self._exec(command=_Command.NEXT_SPAN, span=span)
 
-    def prev_span(self, span: TimeSpan) -> bool:
+    def prev(self, span: TimeSpan) -> bool:
         """Reads the previous time span of telemetry for each channel in the iterator.
 
         :returns: False if a segment satisfying the request can't be found for a particular
         channel or the iterator has accumulated an error.
         """
         return self._exec(command=_Command.PREV_SPAN, span=span)
-
-    def next_range(self, rng: TimeRange) -> bool:
-        """Seeks the iterator to the start of the time range and reads the telemetry within
-        the range for each channel.
-
-        :returns: False if a segment satisfying the request can't be found for a particular
-        channel or the iterator has accumulated an error.
-        """
-        return self._exec(command=_Command.NEXT_RANGE, range=rng)
 
     def seek_first(self) -> bool:
         """Seeks the iterator to the first segment in the time range, but does not read
@@ -168,7 +119,7 @@ class CoreIterator:
         :returns: False if the iterator is not pointing to a valid segment for a particular
         channel or has accumulated an error.
         """
-        return self._exec(command=_Command.SEEK_LT, stamp=stamp)
+        return self._exec(command=_Command.SEEK_LE, stamp=stamp)
 
     def seek_ge(self, stamp: TimeStamp) -> bool:
         """Seeks the iterator to the first segment whose start is greater than or equal to

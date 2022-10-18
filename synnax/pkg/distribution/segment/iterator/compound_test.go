@@ -54,44 +54,32 @@ var _ = Describe("Compound", Ordered, func() {
 		Expect(builder.Close()).To(Succeed())
 	})
 	Context("Behavioral Accuracy", func() {
-		Describe("First", func() {
-			It("Should return the first segment in the iterator", func() {
-				Expect(iter.First()).To(BeTrue())
-				Expect(iter.Value()).To(HaveLen(nChan))
-			})
-		})
-		Describe("SeekFirst + TraverseTo", func() {
+		Describe("SeekFirst + Next", func() {
 			It("Should return the first segment in the iterator", func() {
 				Expect(iter.SeekFirst()).To(BeTrue())
-				Expect(iter.Next()).To(BeTrue())
+				Expect(iter.Next(10 * telem.Second)).To(BeTrue())
 				Expect(iter.Value()).To(HaveLen(nChan))
 			})
 		})
 		Describe("SeekLast + Prev", func() {
 			It("Should return the last segment in the iterator", func() {
 				Expect(iter.SeekLast()).To(BeTrue())
-				Expect(iter.Prev()).To(BeTrue())
+				Expect(iter.Prev(10 * telem.Second)).To(BeTrue())
 				Expect(iter.Value()).To(HaveLen(nChan))
 			})
 		})
-		Describe("NextSpan", func() {
+		Describe("Next", func() {
 			It("Should return the next span in the iterator", func() {
 				Expect(iter.SeekFirst()).To(BeTrue())
-				Expect(iter.NextSpan(20 * telem.Second)).To(BeTrue())
+				Expect(iter.Next(20 * telem.Second)).To(BeTrue())
 				Expect(iter.Value()).To(HaveLen(nChan * 2))
 			})
 		})
-		Describe("PrevSpan", func() {
+		Describe("Prev", func() {
 			It("Should return the previous span in the iterator", func() {
 				Expect(iter.SeekLast()).To(BeTrue())
-				Expect(iter.PrevSpan(20 * telem.Second)).To(BeTrue())
+				Expect(iter.Prev(20 * telem.Second)).To(BeTrue())
 				Expect(iter.Value()).To(HaveLen(nChan * 2))
-			})
-		})
-		Describe("ReadView", func() {
-			It("Should return the next range of data in the iterator", func() {
-				Expect(iter.Range(telem.TimeRange{Start: 0, End: telem.TimeStamp(30 * telem.Second)})).To(BeTrue())
-				Expect(iter.Value()).To(HaveLen(nChan * 3))
 			})
 		})
 	})

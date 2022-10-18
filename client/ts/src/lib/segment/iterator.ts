@@ -8,7 +8,7 @@ import { z } from 'zod';
 
 import { ChannelPayload } from '../channel/payload';
 import Registry from '../channel/registry';
-import { TimeRange } from '../telem';
+import { TimeRange, TimeSpan } from '../telem';
 
 import { SegmentPayload, SegmentPayloadSchema } from './payload';
 import TypedSegment from './typed';
@@ -17,18 +17,13 @@ enum Command {
   Open = 0,
   Next = 1,
   Prev = 2,
-  First = 3,
-  Last = 4,
-  NextSpan = 5,
-  PrevSpan = 6,
-  NextRange = 7,
-  Valid = 8,
-  Error = 9,
-  SeekFirst = 10,
-  SeekLast = 11,
-  SeekLT = 12,
-  SeekGE = 13,
-}
+  SeekFirst = 3,
+  SeekLast = 4,
+  SeekLE = 5,
+  SeekGE = 6,
+  Valid = 7,
+  Error = 8,
+ }
 
 enum ResponseVariant {
   None = 0,
@@ -96,55 +91,13 @@ export class CoreIterator {
   }
 
   /**
-   * Reads the next segment for each channel in the iterator.
-   *
-   * @returns false if the next segment can't be found for one or more channels or
-   * the iterator has accumulated an error.
-   */
-  async next(): Promise<boolean> {
-    return this.execute({ command: Command.Next });
-  }
-
-  /**
-   * Reads the previous segment for each channel in the iterator.
-   *
-   * @returns false if the next segment can't be found for one or more channels or
-   * the iterator has accumulated an error.
-   */
-  async prev(): Promise<boolean> {
-    return this.execute({ command: Command.Prev });
-  }
-
-  /**
-   * Seeks to the beginning of the time range and reads the first segment of each
-   * channel in the iterator.
-   *
-   * @returns false if no segments exists in the time range for a particular channel
-   * or the iterator has accumulated an error.
-   */
-  async first(): Promise<boolean> {
-    return this.execute({ command: Command.First });
-  }
-
-  /**
-   * Seeks to the end of the time range and reads the last segment of each channel
-   * in the iterator.
-   *
-   * @returns false if no segments exists in the time range for a particular channel,
-   * or the iterator has accumulated an error.
-   */
-  async last(): Promise<boolean> {
-    return this.execute({ command: Command.Last });
-  }
-
-  /**
    * Reads the next time span of telemetry for each channel in the iterator.
    *
    * @returns false if a segment satisfying the request can't be found for a
    * particular channel or the iterator has accumulated an error.
    */
-  async nextSpan(span: number): Promise<boolean> {
-    return this.execute({ command: Command.NextSpan, span });
+  async next(span: TimeSpan): Promise<boolean> {
+    return this.execute({ command: Command.Next, span });
   }
 
   /**
@@ -153,19 +106,8 @@ export class CoreIterator {
    * @returns false if a segment satisfying the request can't be found for a particular
    * channel or the iterator has accumulated an error.
    */
-  async prevSpan(span: number): Promise<boolean> {
-    return this.execute({ command: Command.PrevSpan, span });
-  }
-
-  /**
-   * Seeks the iterator to the start of the time range and reads the telemetry within
-   * the range for each channel.
-   *
-   * @returns: False if a segment satisfying the request can't be found for a particular
-   * channel or the iterator has accumulated an error.
-   */
-  async nextRange(range: TimeRange): Promise<boolean> {
-    return this.execute({ command: Command.NextRange, range });
+  async prev(span: TimeSpan): Promise<boolean> {
+    return this.execute({ command: Command.Prev, span });
   }
 
   /**
@@ -199,8 +141,8 @@ export class CoreIterator {
    * @returns false if the iterator is not pointing to a valid segment for a particular
    * channel or has accumulated an error.
    */
-  async seekLT(stamp: number): Promise<boolean> {
-    return this.execute({ command: Command.SeekLT, stamp });
+  async seekLE(stamp: number): Promise<boolean> {
+    return this.execute({ command: Command.SeekLE, stamp });
   }
 
   /**

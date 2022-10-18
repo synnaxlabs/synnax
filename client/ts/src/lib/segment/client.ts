@@ -114,7 +114,7 @@ export default class SegmentClient {
     );
     let seg: TypedSegment;
     try {
-      await iter.first();
+      await iter.seekFirst();
       // eslint-disable-next-line no-empty
       while (await iter.next()) {}
       seg = (await iter.value())[from];
