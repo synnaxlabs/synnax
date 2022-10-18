@@ -1,6 +1,8 @@
 package telem
 
 import (
+	"github.com/synnaxlabs/x/overflow"
+	"go.uber.org/zap"
 	"strconv"
 	"time"
 )
@@ -23,29 +25,41 @@ func Now() TimeStamp { return NewTimeStamp(time.Now()) }
 // NewTimeStamp creates a new TimeStamp from a time.Time.
 func NewTimeStamp(t time.Time) TimeStamp { return TimeStamp(t.UnixNano()) }
 
+// String implements fmt.Stringer.
+func (ts TimeStamp) String() string { return strconv.Itoa(int(ts)) + "ns" }
+
 // Time returns the time.Time representation of the TimeStamp.
 func (ts TimeStamp) Time() time.Time { return time.Unix(0, int64(ts)) }
 
 // IsZero returns true if the TimeStamp is TimeStampMin.
 func (ts TimeStamp) IsZero() bool { return ts == TimeStampMin }
 
-// Before returns true if the TimeStamp is greater than the provided one.
+// After returns true if the TimeStamp is greater than the provided one.
 func (ts TimeStamp) After(t TimeStamp) bool { return ts > t }
 
 // AfterEq returns true if ts is less than or equal t t.
 func (ts TimeStamp) AfterEq(t TimeStamp) bool { return ts >= t }
 
-// After returns true if the TimeStamp is less than the provided one.
+// Before returns true if the TimeStamp is less than the provided one.
 func (ts TimeStamp) Before(t TimeStamp) bool { return ts < t }
 
 // BeforeEq returns true if ts ie less than or equal to t.
 func (ts TimeStamp) BeforeEq(t TimeStamp) bool { return ts <= t }
 
 // Add returns a new TimeStamp with the provided TimeSpan added to it.
-func (ts TimeStamp) Add(tspan TimeSpan) TimeStamp { return TimeStamp(int64(ts) + int64(tspan)) }
+func (ts TimeStamp) Add(tspan TimeSpan) TimeStamp {
+	return TimeStamp(overflow.CapInt64(int64(ts), int64(tspan)))
+}
 
 // Sub returns a new TimeStamp with the provided TimeSpan subtracted from it.
-func (ts TimeStamp) Sub(tspan TimeSpan) TimeStamp { return TimeStamp(int64(ts) - int64(tspan)) }
+func (ts TimeStamp) Sub(tspan TimeSpan) TimeStamp { return ts.Add(-tspan) }
+
+func (ts TimeStamp) Abs() TimeStamp {
+	if ts < 0 {
+		return -ts
+	}
+	return ts
+}
 
 // SpanRange constructs a new TimeRange with the TimeStamp and provided TimeSpan.
 func (ts TimeStamp) SpanRange(span TimeSpan) TimeRange {
@@ -162,13 +176,21 @@ func (ts TimeSpan) ByteSize(rate Rate, density Density) Size {
 	return Size(ts / rate.Period() * TimeSpan(density))
 }
 
+// String implements fmt.Stringer.
+func (ts TimeSpan) String() string { return strconv.Itoa(int(ts)) + "ns" }
+
 const (
-	Nanosecond  = TimeSpan(1)
-	Microsecond = 1000 * Nanosecond
-	Millisecond = 1000 * Microsecond
-	Second      = 1000 * Millisecond
-	Minute      = 60 * Second
-	Hour        = 60 * Minute
+	Nanosecond    = TimeSpan(1)
+	NanosecondTS  = TimeStamp(1)
+	Microsecond   = 1000 * Nanosecond
+	MicrosecondTS = 1000 * NanosecondTS
+	Millisecond   = 1000 * Microsecond
+	MillisecondTS = 1000 * MicrosecondTS
+	Second        = 1000 * Millisecond
+	SecondTS      = 1000 * MillisecondTS
+	Minute        = 60 * Second
+	MinuteTS      = 60 * SecondTS
+	Hour          = 60 * Minute
 )
 
 // |||||| SIZE ||||||
@@ -236,7 +258,7 @@ const (
 // within the range.
 type Approximation struct{ TimeRange }
 
-func CertainlyAt(ts TimeStamp) Approximation {
+func ExactlyAt(ts TimeStamp) Approximation {
 	return Approximation{TimeRange: ts.SpanRange(0)}
 }
 
@@ -258,9 +280,25 @@ var Uncertain = Approximation{TimeRange: TimeRangeMax}
 // Uncertainty returns a scalar value representing the confidence of the index in resolving
 // the position. Before value of 0 indicates that the position has been resolved with certainty.
 // Before value greater than 0 indicates that the exact position is unknown.
-func (i Approximation) Uncertainty() TimeSpan { return i.Span() }
+func (a Approximation) Uncertainty() TimeSpan { return a.Span() }
 
-func (i Approximation) Certain() bool { return i.Uncertainty().IsZero() }
+func (a Approximation) Exact() bool { return a.Uncertainty().IsZero() }
 
 // Value returns a best guess of the position.
-func (i Approximation) Value() TimeStamp { return i.Midpoint() }
+func (a Approximation) Value() TimeStamp { return a.Midpoint() }
+
+func (a Approximation) Contains(ts TimeStamp) bool {
+	return a.TimeRange.ContainsStamp(ts)
+}
+
+func (a Approximation) MustContain(ts TimeStamp) {
+	if !a.Contains(ts) {
+		panic("timestamp not contained in approximation")
+	}
+}
+
+func (a Approximation) WarnIfInexact() {
+	if !a.Exact() {
+		zap.S().Warnf("unexpected inexact approximation: %s", a)
+	}
+}

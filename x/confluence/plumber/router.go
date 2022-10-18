@@ -41,6 +41,10 @@ func (u UnaryRouter[V]) MustRoute(p *Pipeline) {
 	lo.Must0(u.Route(p))
 }
 
+func MustConnect[V cfs.Value](pipe *Pipeline, source, sink address.Address, cap int) {
+	UnaryRouter[V]{SourceTarget: source, SinkTarget: sink, Capacity: cap}.MustRoute(pipe)
+}
+
 type MultiRouter[V cfs.Value] struct {
 	SourceTargets []address.Address
 	SinkTargets   []address.Address

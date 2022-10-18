@@ -5,3 +5,23 @@ type Array[V any] interface {
 	Append(values ...V)
 	Size() int
 }
+
+type array[V any] struct {
+	data []V
+}
+
+func (a *array[V]) Get(index int) V {
+	return a.data[index]
+}
+
+func (a *array[V]) Append(values ...V) {
+	a.data = append(a.data, values...)
+}
+
+func (a *array[V]) Size() int {
+	return len(a.data)
+}
+
+func Wrap[V any](data []V) Array[V] {
+	return &array[V]{data: data}
+}

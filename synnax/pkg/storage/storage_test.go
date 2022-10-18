@@ -13,7 +13,7 @@ import (
 )
 
 var _ = Describe("storage", func() {
-	Describe("AcquireSearcher", func() {
+	Describe("Open", func() {
 		var (
 			tempDir string
 			cfg     storage.Config

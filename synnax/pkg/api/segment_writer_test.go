@@ -68,7 +68,7 @@ var _ = Describe("SegmentWriter", Ordered, func() {
 		})
 	})
 	Describe("Invalid Arguments", func() {
-		Context("AcquireSearcher", func() {
+		Context("Open", func() {
 			Describe("No open keys provided", func() {
 				It("Should return a Validation error", func() {
 					client, err := client.Stream(context.TODO(), "")

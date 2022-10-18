@@ -48,7 +48,7 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(ch.Key().StorageKey()).To(Equal(cesium.ChannelKey(1)))
 			})
 			It("Should create the channel in the cesium gorpDB", func() {
-				channels, err := builder.Cores[1].Storage.TS.RetrieveChannel(ch.Key().StorageKey())
+				channels, err := builder.Cores[1].Storage.TS.RetrieveChannels(ch.Key().StorageKey())
 				Expect(err).ToNot(HaveOccurred())
 				Expect(channels).To(HaveLen(1))
 				cesiumCH := channels[0]
@@ -64,7 +64,7 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(ch.Key().StorageKey()).To(Equal(cesium.ChannelKey(1)))
 			})
 			It("Should create the channel in the cesium gorpDB", func() {
-				channels, err := builder.Cores[2].Storage.TS.RetrieveChannel(ch.Key().StorageKey())
+				channels, err := builder.Cores[2].Storage.TS.RetrieveChannels(ch.Key().StorageKey())
 				Expect(err).ToNot(HaveOccurred())
 				Expect(channels).To(HaveLen(1))
 				cesiumCH := channels[0]
@@ -73,7 +73,7 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(cesiumCH.Rate).To(Equal(5 * telem.Hz))
 			})
 			It("Should not create the channel on another node's ceisum gorpDB", func() {
-				channels, err := builder.Cores[1].Storage.TS.RetrieveChannel(ch.Key().StorageKey())
+				channels, err := builder.Cores[1].Storage.TS.RetrieveChannels(ch.Key().StorageKey())
 				Expect(err).To(HaveOccurred())
 				Expect(channels).To(HaveLen(0))
 			})

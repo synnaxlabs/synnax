@@ -37,12 +37,30 @@ var _ = Describe("Searchable", func() {
 			})
 		})
 		Context("Value after end of array", func() {
-			It("Should return the last value in the array", func() {
+			It("Should return the last value in the array and an index equal to array size", func() {
 				arr := array.Searchable[int]{Array: array.NewRolling[int](10)}
 				arr.Append(1, 3, 5, 7)
 				v, i := arr.Search(compare.NumericUnary(10))
 				Expect(v).To(Equal(7))
-				Expect(i).To(Equal(3))
+				Expect(i).To(Equal(4))
+			})
+		})
+		Context("Single value array", func() {
+			Context("Value before start of array", func() {
+				It("Should return the value of array an index -1", func() {
+					arr := array.Searchable[int]{Array: array.Wrap([]int{1})}
+					v, i := arr.Search(compare.NumericUnary(-10))
+					Expect(v).To(Equal(1))
+					Expect(i).To(Equal(-1))
+				})
+			})
+			Context("Value after end of array", func() {
+				It("Should return the value of array an index 1", func() {
+					arr := array.Searchable[int]{Array: array.Wrap([]int{1})}
+					v, i := arr.Search(compare.NumericUnary(10))
+					Expect(v).To(Equal(1))
+					Expect(i).To(Equal(1))
+				})
 			})
 		})
 	})

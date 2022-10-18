@@ -173,7 +173,7 @@ func Open(cfg Config) (s *Store, err error) {
 	log := cfg.Logger.Sugar()
 	log.Infow("opening storage", cfg.Report().LogArgs()...)
 
-	// AcquireSearcher our two file system implementations. We use VFS for acquiring the directory
+	// Open our two file system implementations. We use VFS for acquiring the directory
 	// lock and for the key-value store. We use KFS for the time-series engine, as we
 	// need seekable file handles. This is
 	baseVFS, baseKFS := openBaseFS(cfg)
@@ -192,12 +192,12 @@ func Open(cfg Config) (s *Store, err error) {
 	// Allow the caller to release the lock when they finish using the storage.
 	s.releaseLock = releaser.Close
 
-	// AcquireSearcher the key-value storage engine.
+	// Open the key-value storage engine.
 	if s.KV, err = openKV(cfg, baseVFS); err != nil {
 		return s, errors.CombineErrors(err, s.releaseLock())
 	}
 
-	// AcquireSearcher the time-series engine.
+	// Open the time-series engine.
 	if s.TS, err = openTS(cfg, baseKFS, baseVFS); err != nil {
 		return s, errors.CombineErrors(err, s.releaseLock())
 	}

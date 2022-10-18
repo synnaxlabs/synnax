@@ -61,7 +61,7 @@ func (te *storageResponseTranslator) translate(
 	return Response{
 		Ack:      res.Ack,
 		Variant:  ResponseVariant(res.Variant),
-		Counter:  res.Counter,
+		Counter:  res.SeqNum,
 		NodeID:   te.wrapper.Host,
 		Error:    res.Err,
 		Command:  Command(res.Command),

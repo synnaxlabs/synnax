@@ -29,5 +29,8 @@ func (s *Searchable[V]) Search(f compare.UnaryFunc[V]) (v V, i int) {
 	if end == -1 {
 		return s.Get(0), -1
 	}
+	if end == s.Size()-1 {
+		return s.Get(end), s.Size()
+	}
 	return s.Get(end), end
 }
