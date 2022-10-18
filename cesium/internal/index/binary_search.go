@@ -30,7 +30,8 @@ func (bsi *BinarySearch) Size() int { return bsi.Array.Size() }
 
 // SearchP implements the PositionSearcher interface.
 func (bsi *BinarySearch) SearchP(stamp telem.TimeStamp, _ position.Approximation) (position.Approximation, error) {
-	return bsi.seekP(stamp), nil
+	pos := bsi.seekP(stamp)
+	return pos, nil
 }
 
 // SearchTS implements the StampSearcher interface.
@@ -79,7 +80,7 @@ func (bsi *BinarySearch) seekTS(pos position.Position) telem.Approximation {
 
 	// We've resolved the value with  certainty.
 	if a.Pos == pos {
-		return telem.CertainlyAt(a.Stamp)
+		return telem.ExactlyAt(a.Stamp)
 	}
 
 	// We know the value is after the end of the index.
@@ -95,6 +96,7 @@ func (bsi *BinarySearch) seekTS(pos position.Position) telem.Approximation {
 	return telem.Between(a.Stamp, bsi.Array.Get(i+1).Stamp)
 }
 
+// Write implements the Writer interface.
 func (bsi *BinarySearch) Write(alignments []Alignment) error {
 	bsi.mu.Lock()
 	defer bsi.mu.Unlock()

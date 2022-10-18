@@ -2,9 +2,7 @@ package cesium
 
 import (
 	"context"
-	"github.com/cockroachdb/pebble"
-	"github.com/synnaxlabs/cesium/internal/kv"
-	"github.com/synnaxlabs/cesium/internal/segment"
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/storage"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/lock"
@@ -14,18 +12,18 @@ import (
 // WriteRequest is a request containing a set of segments (segment) to write to the DB.
 type WriteRequest struct {
 	// Segments is a set of segments to write to the DB.
-	Segments []segment.Segment
+	Segments []Segment
 }
 
 // WriteResponse contains any errors that occurred during the execution of the Create Query.
 type WriteResponse struct {
-	// Err is any err that occurred during writer execution.
+	// Err is any err that occurred during internal execution.
 	Err error
 }
 
 type StreamWriter = confluence.Segment[WriteRequest, WriteResponse]
 
-// Writer writes segmented telemetry to the DB. Key writer must be closed after use. Writer
+// Writer writes segmented telemetry to the DB. FileKey internal must be closed after use. Writer
 // is not goroutine-safe, but it is safe to use multiple writers for different Channels
 // concurrently.
 //
@@ -97,33 +95,65 @@ func (w writer) error() error {
 	return w._error
 }
 
-type MDWriter struct {
-	writer *kv.Writer
-	keys   []ChannelKey
-	lock   lock.Keys[ChannelKey]
-	confluence.LinearTransform[storage.WriteResponse[segment.Segment], WriteResponse]
+// storageWriter writes segment data to the DB.
+type storageWriter struct {
+	internal storage.Writer
+	confluence.LinearTransform[[]core.SugaredSegment, []core.SugaredSegment]
 }
 
-func NewMDWriter(writer *kv.Writer) *MDWriter {
-	md := &MDWriter{writer: writer}
+func newStorageWriter(internal storage.Writer) *storageWriter {
+	s := &storageWriter{internal: internal}
+	s.Transform = s.transform
+	return s
+}
+
+func (s *storageWriter) transform(
+	ctx context.Context,
+	segments []core.SugaredSegment,
+) ([]core.SugaredSegment, bool, error) {
+	mds, err := s.internal.Write(segments)
+	if err != nil {
+		return segments, false, err
+	}
+	for i, seg := range segments {
+		seg.SegmentMD = mds[i]
+		segments[i] = seg
+	}
+	return segments, true, nil
+}
+
+// mdWriter is a writer that writes metadata to the DB.
+type mdWriter struct {
+	internal core.MDWriter
+	keys     []ChannelKey
+	lock     lock.Keys[ChannelKey]
+	confluence.LinearTransform[[]core.SugaredSegment, WriteResponse]
+}
+
+func newMDWriter(writer core.MDWriter, keys []ChannelKey, lock lock.Keys[ChannelKey]) *mdWriter {
+	md := &mdWriter{internal: writer, keys: keys, lock: lock}
+	md.Transform = md.transform
 	return md
 }
 
-func (m *MDWriter) Flow(ctx signal.Context, opts ...confluence.Option) {
+func (m *mdWriter) Flow(ctx signal.Context, opts ...confluence.Option) {
 	m.LinearTransform.Flow(
 		ctx,
-		append(opts, confluence.Defer(func() { m.lock.Unlock(m.keys...) }))...,
+		append(opts, confluence.Defer(func() {
+			m.internal.Commit()
+			m.lock.Unlock(m.keys...)
+		}))...,
 	)
 }
 
-func (m *MDWriter) transform(ctx context.Context, res storage.WriteResponse[segment.Segment]) (WriteResponse, bool, error) {
-	res.Request.MD.Offset = res.Offset
-	res.Request.MD.Size = res.Request.Size()
-	if err := m.writer.Write(res.Request.MD); err != nil {
-		return WriteResponse{Err: err}, true, err
+func (m *mdWriter) transform(
+	ctx context.Context,
+	segments []core.SugaredSegment,
+) (WriteResponse, bool, error) {
+	mds := make([]core.SegmentMD, len(segments))
+	for i, seg := range segments {
+		mds[i] = seg.SegmentMD
 	}
-	if err := m.writer.Commit(pebble.NoSync); err != nil {
-		return WriteResponse{Err: err}, true, err
-	}
-	return WriteResponse{}, false, nil
+	err := m.internal.Write(mds)
+	return WriteResponse{Err: err}, err != nil, err
 }

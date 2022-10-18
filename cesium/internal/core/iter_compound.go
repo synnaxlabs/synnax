@@ -3,7 +3,6 @@ package core
 import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/position"
-	"github.com/synnaxlabs/cesium/internal/segment"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -42,43 +41,43 @@ func (c *baseCompoundIterator[I]) execErr(f func(iter I) error) (err error) {
 	return err
 }
 
-type compoundMDPositionIterator struct {
-	baseCompoundIterator[MDPositionIterator]
+type compoundPositionIterator struct {
+	baseCompoundIterator[PositionIterator]
 }
 
-func NewCompoundMDPositionIterator(iters ...MDPositionIterator) MDPositionIterator {
-	return &compoundMDPositionIterator{
-		baseCompoundIterator: baseCompoundIterator[MDPositionIterator]{iters: iters},
+func NewCompoundPositionIterator(iters ...PositionIterator) PositionIterator {
+	return &compoundPositionIterator{
+		baseCompoundIterator: baseCompoundIterator[PositionIterator]{iters: iters},
 	}
 }
 
-var _ MDPositionIterator = (*compoundMDPositionIterator)(nil)
+var _ PositionIterator = (*compoundPositionIterator)(nil)
 
-func (c *compoundMDPositionIterator) Next(span position.Span) bool {
-	return c.exec(func(i MDPositionIterator) bool { return i.Next(span) })
+func (c *compoundPositionIterator) Next(span position.Span) bool {
+	return c.exec(func(i PositionIterator) bool { return i.Next(span) })
 }
 
-func (c *compoundMDPositionIterator) Prev(span position.Span) bool {
-	return c.exec(func(i MDPositionIterator) bool { return i.Prev(span) })
+func (c *compoundPositionIterator) Prev(span position.Span) bool {
+	return c.exec(func(i PositionIterator) bool { return i.Prev(span) })
 }
 
-func (c *compoundMDPositionIterator) SeekFirst() bool {
-	return c.exec(func(i MDPositionIterator) bool { return i.SeekFirst() })
+func (c *compoundPositionIterator) SeekFirst() bool {
+	return c.exec(func(i PositionIterator) bool { return i.SeekFirst() })
 }
 
-func (c *compoundMDPositionIterator) SeekLast() bool {
-	return c.exec(func(i MDPositionIterator) bool { return i.SeekLast() })
+func (c *compoundPositionIterator) SeekLast() bool {
+	return c.exec(func(i PositionIterator) bool { return i.SeekLast() })
 }
 
-func (c *compoundMDPositionIterator) SeekGE(pos position.Position) bool {
-	return c.exec(func(i MDPositionIterator) bool { return i.SeekGE(pos) })
+func (c *compoundPositionIterator) SeekGE(pos position.Position) bool {
+	return c.exec(func(i PositionIterator) bool { return i.SeekGE(pos) })
 }
 
-func (c *compoundMDPositionIterator) SeekLE(pos position.Position) bool {
-	return c.exec(func(i MDPositionIterator) bool { return i.SeekLE(pos) })
+func (c *compoundPositionIterator) SeekLE(pos position.Position) bool {
+	return c.exec(func(i PositionIterator) bool { return i.SeekLE(pos) })
 }
 
-func (c *compoundMDPositionIterator) View() position.Range {
+func (c *compoundPositionIterator) View() position.Range {
 	starts := make([]position.Position, len(c.iters))
 	ends := make([]position.Position, len(c.iters))
 	for i, w := range c.iters {
@@ -89,61 +88,61 @@ func (c *compoundMDPositionIterator) View() position.Range {
 	return position.Range{Start: lo.Min(starts), End: lo.Max(ends)}
 }
 
-func (c *compoundMDPositionIterator) SetBounds(bounds position.Range) {
+func (c *compoundPositionIterator) SetBounds(bounds position.Range) {
 	for _, w := range c.iters {
 		w.SetBounds(bounds)
 	}
 }
 
-func (c *compoundMDPositionIterator) Bounds() position.Range {
+func (c *compoundPositionIterator) Bounds() position.Range {
 	return c.iters[0].Bounds()
 }
 
-func (c *compoundMDPositionIterator) Value() []segment.MD {
-	var values []segment.MD
+func (c *compoundPositionIterator) Value() []SegmentMD {
+	var values []SegmentMD
 	for _, w := range c.iters {
 		values = append(values, w.Value()...)
 	}
 	return values
 }
 
-type compoundMDStampIterator struct {
-	baseCompoundIterator[MDStampIterator]
+type compoundTimeIterator struct {
+	baseCompoundIterator[TimeIterator]
 }
 
-func NewCompoundMDStampIterator(iters ...MDStampIterator) MDStampIterator {
-	return &compoundMDStampIterator{
-		baseCompoundIterator: baseCompoundIterator[MDStampIterator]{iters: iters},
+func NewCompoundMDStampIterator(iters ...TimeIterator) TimeIterator {
+	return &compoundTimeIterator{
+		baseCompoundIterator: baseCompoundIterator[TimeIterator]{iters: iters},
 	}
 }
 
-var _ MDStampIterator = (*compoundMDStampIterator)(nil)
+var _ TimeIterator = (*compoundTimeIterator)(nil)
 
-func (c *compoundMDStampIterator) Next(span telem.TimeSpan) bool {
-	return c.exec(func(i MDStampIterator) bool { return i.Next(span) })
+func (c *compoundTimeIterator) Next(span telem.TimeSpan) bool {
+	return c.exec(func(i TimeIterator) bool { return i.Next(span) })
 }
 
-func (c *compoundMDStampIterator) Prev(span telem.TimeSpan) bool {
-	return c.exec(func(i MDStampIterator) bool { return i.Prev(span) })
+func (c *compoundTimeIterator) Prev(span telem.TimeSpan) bool {
+	return c.exec(func(i TimeIterator) bool { return i.Prev(span) })
 }
 
-func (c *compoundMDStampIterator) SeekFirst() bool {
-	return c.exec(func(i MDStampIterator) bool { return i.SeekFirst() })
+func (c *compoundTimeIterator) SeekFirst() bool {
+	return c.exec(func(i TimeIterator) bool { return i.SeekFirst() })
 }
 
-func (c *compoundMDStampIterator) SeekLast() bool {
-	return c.exec(func(i MDStampIterator) bool { return i.SeekLast() })
+func (c *compoundTimeIterator) SeekLast() bool {
+	return c.exec(func(i TimeIterator) bool { return i.SeekLast() })
 }
 
-func (c *compoundMDStampIterator) SeekGE(stamp telem.TimeStamp) bool {
-	return c.exec(func(i MDStampIterator) bool { return i.SeekGE(stamp) })
+func (c *compoundTimeIterator) SeekGE(stamp telem.TimeStamp) bool {
+	return c.exec(func(i TimeIterator) bool { return i.SeekGE(stamp) })
 }
 
-func (c *compoundMDStampIterator) SeekLE(stamp telem.TimeStamp) bool {
-	return c.exec(func(i MDStampIterator) bool { return i.SeekLE(stamp) })
+func (c *compoundTimeIterator) SeekLE(stamp telem.TimeStamp) bool {
+	return c.exec(func(i TimeIterator) bool { return i.SeekLE(stamp) })
 }
 
-func (c *compoundMDStampIterator) View() telem.TimeRange {
+func (c *compoundTimeIterator) View() telem.TimeRange {
 	starts := make([]telem.TimeStamp, len(c.iters))
 	ends := make([]telem.TimeStamp, len(c.iters))
 	for i, w := range c.iters {
@@ -154,16 +153,18 @@ func (c *compoundMDStampIterator) View() telem.TimeRange {
 	return telem.TimeRange{Start: lo.Min(starts), End: lo.Max(ends)}
 }
 
-func (c *compoundMDStampIterator) SetBounds(bounds telem.TimeRange) bool {
-	return c.exec(func(i MDStampIterator) bool { return i.SetBounds(bounds) })
+func (c *compoundTimeIterator) SetBounds(bounds telem.TimeRange) bool {
+	return c.exec(func(i TimeIterator) bool {
+		return i.SetBounds(bounds)
+	})
 }
 
-func (c *compoundMDStampIterator) Bounds() telem.TimeRange {
+func (c *compoundTimeIterator) Bounds() telem.TimeRange {
 	return c.iters[0].Bounds()
 }
 
-func (c *compoundMDStampIterator) Value() []segment.MD {
-	var values []segment.MD
+func (c *compoundTimeIterator) Value() []SegmentMD {
+	var values []SegmentMD
 	for _, w := range c.iters {
 		values = append(values, w.Value()...)
 	}

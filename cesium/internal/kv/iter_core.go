@@ -1,16 +1,16 @@
 package kv
 
 import (
-	"github.com/synnaxlabs/cesium/internal/segment"
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv"
 )
 
-type UnaryMDIterator = gorp.KVIterator[segment.MD]
+type coreMDIterator = gorp.KVIterator[core.SegmentMD]
 
-func NewMDIterator(db kv.Reader, opts kv.IteratorOptions) *UnaryMDIterator {
-	return gorp.WrapKVIter[segment.MD](
+func newCoreMDIterator(db kv.Reader, opts kv.IteratorOptions) *coreMDIterator {
+	return gorp.WrapKVIter[core.SegmentMD](
 		db.NewIterator(opts),
 		gorp.WithoutTypePrefix(),
 		gorp.WithEncoderDecoder(segmentEncoderDecoder),

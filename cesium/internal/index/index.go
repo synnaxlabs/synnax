@@ -5,13 +5,13 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
+// Releaser is an index with resources that need to be released when no longer in use.
 type Releaser interface {
+	// Release releases any resources held by the index. Release should not be called
+	// concurrently with any other method. After Release is called, the index is no
+	// longer usable.
 	Release() error
 }
-
-type nopReleaser struct{}
-
-func (n *nopReleaser) Release() error { return nil }
 
 // Alignment is an alignment between a position on the root index and a timestamp.
 type Alignment struct {
@@ -38,7 +38,7 @@ type StampSearcher interface {
 	Releaser
 }
 
-// Searcher is a seekable index.
+// Searcher is a searchable index.
 type Searcher interface {
 	PositionSearcher
 	StampSearcher
@@ -46,6 +46,8 @@ type Searcher interface {
 
 // Writer is a writable index.
 type Writer interface {
+	// Write writes the given alignments to the index. The alignments must be in ascending
+	// order.
 	Write([]Alignment) error
 	Releaser
 }
@@ -56,3 +58,8 @@ type Index interface {
 	Searcher
 	Writer
 }
+
+type nopReleaser struct{}
+
+// Release implements the Releaser interface.
+func (n nopReleaser) Release() error { return nil }

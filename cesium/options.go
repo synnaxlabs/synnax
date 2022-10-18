@@ -9,6 +9,13 @@ import (
 	"time"
 )
 
+const (
+	// cesiumDirectory is the directory in which cesium files are stored.
+	cesiumDirectory = "cesium"
+	// kvDirectory is the directory in which kv files are stored.
+	kvDirectory = "kv"
+)
+
 type Option func(*options)
 
 type options struct {

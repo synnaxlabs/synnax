@@ -12,9 +12,17 @@ func (p Position) BeforeEq(other Position) bool { return p <= other }
 
 func (p Position) AfterEq(other Position) bool { return p >= other }
 
-func (p Position) Add(span Span) Position { return Position(uint64(p) + uint64(span)) }
+func (p Position) Add(span Span) Position {
+	if span > 0 && p > Max-Position(span) {
+		return Max
+	}
+	if span < 0 && p < Min-Position(span) {
+		return Min
+	}
+	return Position(span) + p
+}
 
-func (p Position) Sub(span Span) Position { return Position(uint64(p) - uint64(span)) }
+func (p Position) Sub(span Span) Position { return p.Add(-span) }
 
 func (p Position) Range(other Position) Range { return Range{p, other} }
 

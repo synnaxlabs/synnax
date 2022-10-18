@@ -5,20 +5,23 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-type rateSeeker struct{ telem.Rate }
+type rateSearcher struct {
+	telem.Rate
+	nopReleaser
+}
 
 // RateSearcher returns a Searcher that uses the given rate to seek timestamps and positions.
 // RateSearcher always returns positions with complete certainty.
-func RateSearcher(rate telem.Rate) Searcher { return rateSeeker{rate} }
+func RateSearcher(rate telem.Rate) Searcher { return rateSearcher{Rate: rate} }
 
 // SearchP implements Searcher.
-func (r rateSeeker) SearchP(iPos telem.TimeStamp, _ position.Approximation) (position.Approximation, error) {
+func (r rateSearcher) SearchP(iPos telem.TimeStamp, _ position.Approximation) (position.Approximation, error) {
 	pos := position.Position(telem.TimeSpan(iPos) / r.Period())
 	return position.ExactlyAt(pos), nil
 }
 
-// SearchTS implements SeekTS.
-func (r rateSeeker) SearchTS(iPos position.Position, _ telem.Approximation) (telem.Approximation, error) {
+// SearchTS implements Searcher.
+func (r rateSearcher) SearchTS(iPos position.Position, _ telem.Approximation) (telem.Approximation, error) {
 	ts := telem.TimeStamp(telem.TimeSpan(iPos) * r.Period())
-	return telem.CertainlyAt(ts), nil
+	return telem.ExactlyAt(ts), nil
 }

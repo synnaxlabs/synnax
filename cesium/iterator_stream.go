@@ -31,10 +31,9 @@ type StreamIterator = confluence.Segment[IteratorRequest, IteratorResponse]
 type streamIterator struct {
 	confluence.UnarySink[IteratorRequest]
 	confluence.AbstractUnarySource[IteratorResponse]
-	mdIter  core.MDStampIterator
+	mdIter  core.TimeIterator
+	reader  storage.Reader
 	counter int
-	readRes confluence.Outlet[storage.ReadResponse[Segment]]
-	readReq confluence.Inlet[Segment]
 }
 
 func (s *streamIterator) Flow(ctx signal.Context, opts ...confluence.Option) {
@@ -57,16 +56,15 @@ func (s *streamIterator) exec(ctx context.Context, req IteratorRequest) {
 	ok, err := s.runCmd(req)
 	if !ok || !req.Command.HasOps() {
 		s.sendAck(req, ok, err)
+		return
 	}
-	mds := s.mdIter.Value()
-	for _, md := range mds {
-		s.readReq.Inlet() <- Segment{ChannelKey: md.ChannelKey, MD: md}
+	segments, err := s.reader.Read(s.mdIter.Value())
+	if err != nil {
+		s.sendAck(req, false, err)
+		return
 	}
-	for range mds {
-		res := <-s.readRes.Outlet()
-		s.sendData(req, res)
-	}
-	s.sendAck(req, ok, err)
+	s.sendData(req, segments)
+	s.sendAck(req, true, err)
 }
 
 func (s *streamIterator) runCmd(req IteratorRequest) (bool, error) {
@@ -103,13 +101,19 @@ func (s *streamIterator) sendAck(req IteratorRequest, ok bool, err error) {
 	}
 }
 
-func (s *streamIterator) sendData(req IteratorRequest, readRes storage.ReadResponse[Segment]) {
-	readRes.Request.Data = readRes.Data
+func (s *streamIterator) sendData(req IteratorRequest, ss []core.SugaredSegment) {
+	segs := make([]Segment, len(ss))
+	for i, seg := range ss {
+		segs[i] = Segment{
+			ChannelKey: seg.ChannelKey,
+			Start:      0,
+			Data:       seg.Data,
+		}
+	}
 	s.Out.Inlet() <- IteratorResponse{
 		Counter:  s.counter,
 		Variant:  IteratorResponseTypeData,
-		Segments: []Segment{readRes.Request},
-		Err:      readRes.Err,
+		Segments: segs,
 		Command:  req.Command,
 	}
 }

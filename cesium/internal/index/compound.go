@@ -37,14 +37,14 @@ func (c CompoundSearcher) SearchP(s telem.TimeStamp, guess position.Approximatio
 	return guess, nil
 }
 
-// SearchTS implements SeekTS.
+// SearchTS implements Searcher.
 func (c CompoundSearcher) SearchTS(s position.Position, guess telem.Approximation) (telem.Approximation, error) {
 	for _, seeker := range c {
 		approx, err := seeker.SearchTS(s, guess)
 		if err != nil {
 			return telem.Uncertain, err
 		}
-		if approx.Certain() {
+		if approx.Exact() {
 			return approx, nil
 		}
 		if approx.Uncertainty() < guess.Uncertainty() {
@@ -54,6 +54,7 @@ func (c CompoundSearcher) SearchTS(s position.Position, guess telem.Approximatio
 	return telem.Uncertain, nil
 }
 
+// Release implements Releaser.
 func (c CompoundSearcher) Release() error {
 	for _, seeker := range c {
 		if err := seeker.Release(); err != nil {
@@ -67,6 +68,7 @@ func (c CompoundSearcher) Release() error {
 // the Writer interface.
 type CompoundWriter []Writer
 
+// Write implements Writer.
 func (c CompoundWriter) Write(alignments []Alignment) (err error) {
 	for _, w := range c {
 		err = w.Write(alignments)
@@ -77,6 +79,7 @@ func (c CompoundWriter) Write(alignments []Alignment) (err error) {
 	return nil
 }
 
+// Release implements Releaser.
 func (c CompoundWriter) Release() error {
 	for _, w := range c {
 		if err := w.Release(); err != nil {

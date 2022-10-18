@@ -20,9 +20,9 @@ var _ = Describe("Rate", func() {
 	Describe("SearchTS", func() {
 		It("Should return a certain approximation", func() {
 			rate := index.RateSearcher(10)
-			Expect(rate.SearchTS(0, telem.Uncertain)).To(Equal(telem.CertainlyAt(telem.TimeStamp(0 * telem.Second))))
-			Expect(rate.SearchTS(100, telem.Uncertain)).To(Equal(telem.CertainlyAt(telem.TimeStamp(10 * telem.Second))))
-			Expect(rate.SearchTS(200, telem.Uncertain)).To(Equal(telem.CertainlyAt(telem.TimeStamp(20 * telem.Second))))
+			Expect(rate.SearchTS(0, telem.Uncertain)).To(Equal(telem.ExactlyAt(telem.TimeStamp(0 * telem.Second))))
+			Expect(rate.SearchTS(100, telem.Uncertain)).To(Equal(telem.ExactlyAt(telem.TimeStamp(10 * telem.Second))))
+			Expect(rate.SearchTS(200, telem.Uncertain)).To(Equal(telem.ExactlyAt(telem.TimeStamp(20 * telem.Second))))
 		})
 	})
 })

@@ -24,16 +24,6 @@ import (
 // segments apart. The kvPositionIterator may also return partial segments that fit within the
 // current view.
 type Iterator interface {
-	// Next reads the next segment in the iterator. It returns true if the segment was
-	// successfully read, and false otherwise. It sets the iterator's view to the time
-	// range occupied by the segment. The view is guaranteed to be within the iterator's
-	// bounds.
-	Next(span telem.TimeSpan) bool
-	// Prev reads the previous segment in the iterator. It returns true if the segment
-	// was successfully read, and false otherwise. It sets the iterator's view to the
-	// time range occupied by the segment. the view is guaranteed to be within the
-	// iterator's bounds
-	Prev(span telem.TimeSpan) bool
 	// SeekFirst seeks the iterator to the first segment in the range and sets the
 	// iterator's view to a single point in time at the beginning of the segment. The
 	// view is guaranteed to be within the iterator's bounds. It does NOT read any
@@ -63,6 +53,16 @@ type Iterator interface {
 	// until the first call to a non-seeking method (e.g. Next, Prev, NextSpan, PrevSpan,
 	// SetRange, etc).
 	SeekGE(ts telem.TimeStamp) bool
+	// Next reads the next segment in the iterator. It returns true if the segment was
+	// successfully read, and false otherwise. It sets the iterator's view to the time
+	// range occupied by the segment. The view is guaranteed to be within the iterator's
+	// bounds.
+	Next(span telem.TimeSpan) bool
+	// Prev reads the previous segment in the iterator. It returns true if the segment
+	// was successfully read, and false otherwise. It sets the iterator's view to the
+	// time range occupied by the segment. the view is guaranteed to be within the
+	// iterator's bounds
+	Prev(span telem.TimeSpan) bool
 	// View returns the current range of values the kvPositionIterator has a 'view' of.  This view
 	// represents the range of data range segments currently held in Value.
 	View() telem.TimeRange
@@ -93,22 +93,34 @@ const (
 	IteratorResponseTypeData
 )
 
+// IteratorCommand is an enumeration of commands that can be sent to an iterator.
 type IteratorCommand uint8
 
 const (
+	// IterNext represents a call to Iterator.Next.
 	IterNext IteratorCommand = iota + 1
+	// IterPrev represents a call to Iterator.Prev.
 	IterPrev
+	// IterSeekFirst represents a call to Iterator.SeekFirst.
 	IterSeekFirst
+	// IterSeekLast represents a call to Iterator.SeekLast.
 	IterSeekLast
+	// IterSeekLE represents a call to Iterator.SeekLE.
 	IterSeekLE
+	// IterSeekGE represents a call to Iterator.SeekGE.
 	IterSeekGE
+	// IterValid represents a call to Iterator.Valid.
 	IterValid
+	// IterError represents a call to Iterator.Close.
 	IterError
 )
 
+// HasOps returns true if the IteratorCommand has any associated on disk operations.
 func (i IteratorCommand) HasOps() bool { return i <= IterPrev }
 
 // IteratorRequest is issued to an StreamIterator asking it to read data from a DB.
+//
+//go:generate stringer -type=IteratorCommand
 type IteratorRequest struct {
 	// Command is the command to execute. See kvPositionIterator documentation for the behavior
 	// of specific commands.
@@ -148,13 +160,13 @@ type iterator struct {
 	wg       signal.WaitGroup
 }
 
-func wrapStreamIterator(wrapped *streamIterator) Iterator {
+func wrapStreamIterator(wrap *streamIterator) Iterator {
 	ctx, cancel := signal.Background()
 	requests := confluence.NewStream[IteratorRequest](1)
 	responses := confluence.NewStream[IteratorResponse](1)
-	wrapped.InFrom(requests)
-	wrapped.OutTo(responses)
-	wrapped.Flow(ctx)
+	wrap.InFrom(requests)
+	wrap.OutTo(responses)
+	wrap.Flow(ctx)
 	return &iterator{
 		inlet:    requests,
 		outlet:   responses,
@@ -163,46 +175,57 @@ func wrapStreamIterator(wrapped *streamIterator) Iterator {
 	}
 }
 
+// Next implements Iterator.
 func (i *iterator) Next(span telem.TimeSpan) bool {
 	return i.exec(IteratorRequest{Command: IterNext, Span: span})
 }
 
+// Prev implements Iterator.
 func (i *iterator) Prev(span telem.TimeSpan) bool {
 	return i.exec(IteratorRequest{Command: IterPrev, Span: span})
 }
 
+// SeekFirst implements Iterator.
 func (i *iterator) SeekFirst() bool {
 	return i.exec(IteratorRequest{Command: IterSeekFirst})
 }
 
+// SeekLast implements Iterator.
 func (i *iterator) SeekLast() bool {
 	return i.exec(IteratorRequest{Command: IterSeekLast})
 }
 
+// SeekLE implements Iterator.
 func (i *iterator) SeekLE(ts telem.TimeStamp) bool {
 	return i.exec(IteratorRequest{Command: IterSeekLE, Target: ts})
 }
 
+// SeekGE implements Iterator.
 func (i *iterator) SeekGE(ts telem.TimeStamp) bool {
 	return i.exec(IteratorRequest{Command: IterSeekGE, Target: ts})
 }
 
+// Error implements Iterator.
 func (i *iterator) Error() error {
 	_, err := i.execErr(IteratorRequest{Command: IterError})
 	return err
 }
 
+// Valid implements Iterator.
 func (i *iterator) Valid() bool {
 	ok, _ := i.execErr(IteratorRequest{Command: IterValid})
 	return ok
 }
 
+// Value implements Iterator.
 func (i *iterator) Value() []Segment { return i.value }
 
+// View implements Iterator.
 func (i *iterator) View() telem.TimeRange { return i.wrapped.mdIter.View() }
 
+// Close implements Iterator.
 func (i *iterator) Close() error {
-	i.shutdown()
+	i.inlet.Close()
 	if err := i.wg.Wait(); !errors.Is(err, context.Canceled) {
 		return err
 	}
@@ -215,6 +238,7 @@ func (i *iterator) exec(req IteratorRequest) bool {
 }
 
 func (i *iterator) execErr(req IteratorRequest) (bool, error) {
+	i.value = nil
 	i.inlet.Inlet() <- req
 	for res := range i.outlet.Outlet() {
 		if res.Variant == IteratorResponseTypeAck {

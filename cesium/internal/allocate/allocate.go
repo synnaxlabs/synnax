@@ -35,7 +35,7 @@ import (
 //	V. The descriptor with the lowest size if config.MaxDescriptors has been reached.
 type Allocator[K, D comparable] interface {
 	// Allocate allocates itemDescriptors of a given size to descriptors. Returns a slice of descriptor keys.
-	Allocate(items ...Item[K]) []D
+	Allocate(items ...Item[K]) ([]D, error)
 }
 
 func New[K, D comparable](nd NextDescriptor[D], config Config) Allocator[K, D] {
@@ -58,9 +58,7 @@ type Item[K comparable] struct {
 }
 
 // NextDescriptor returns a unique descriptor key that represents the next descriptor.
-type NextDescriptor[D comparable] interface {
-	Next() D
-}
+type NextDescriptor[D comparable] func() (D, error)
 
 const (
 	// DefaultMaxDescriptors is the default maximum number of descriptors.
@@ -121,25 +119,32 @@ type defaultAlloc[K, D comparable] struct {
 }
 
 // Allocate implements the Allocator interface.
-func (d *defaultAlloc[K, D]) Allocate(items ...Item[K]) []D {
+func (d *defaultAlloc[K, D]) Allocate(items ...Item[K]) ([]D, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	dKeys := make([]D, len(items))
+	var err error
 	for i, item := range items {
-		dKeys[i] = d.allocate(item)
+		dKeys[i], err = d.allocate(item)
+		if err != nil {
+			return nil, err
+		}
 	}
-	return dKeys
+	return dKeys, nil
 }
 
-func (d *defaultAlloc[K, D]) allocate(item Item[K]) D {
+func (d *defaultAlloc[K, D]) allocate(item Item[K]) (key D, err error) {
 	sw := d.metrics.Allocate.Stopwatch()
 	sw.Start()
 	defer sw.Stop()
 	// By default, allocate to the same descriptor as the previous item.
-	key, ok := d.itemDescriptors[item.Key()]
+	key, ok := d.itemDescriptors[item.Key]
 	// If we can't find the item, allocated it to a new descriptor.
 	if !ok {
-		key = d.new(item)
+		key, err = d.new(item)
+		if err != nil {
+			return key, err
+		}
 	}
 	size, ok := d.descriptorSizes[key]
 	if !ok {
@@ -147,33 +152,39 @@ func (d *defaultAlloc[K, D]) allocate(item Item[K]) D {
 	}
 	// If the descriptor is too large, allocate a new descriptor.
 	if (size + item.Size) > d.config.MaxSize {
-		key = d.new(item)
+		key, err = d.new(item)
+		if err != nil {
+			return key, err
+		}
 	}
 	d.descriptorSizes[key] += item.Size
-	return key
+	return key, err
 }
 
-func (d *defaultAlloc[K, D]) new(item Item[K]) (key D) {
+func (d *defaultAlloc[K, D]) new(item Item[K]) (key D, err error) {
 	// Remove any descriptors that are too large.
-	d.scrubOversized()
+	d.scrubOversize()
 	// If we've reached our limit, allocate to the descriptor with the smallest size.
 	if len(d.descriptorSizes) >= d.config.MaxDescriptors {
 		key = d.smallestDescriptor()
 	} else {
 		// If we haven't reached our limit, allocate to a new descriptor.
-		key = d.newDescriptor()
+		key, err = d.newDescriptor()
+		if err != nil {
+			return key, err
+		}
 	}
-	d.itemDescriptors[item.Key()] = key
-	return key
+	d.itemDescriptors[item.Key] = key
+	return key, nil
 }
 
-func (d *defaultAlloc[K, D]) newDescriptor() D {
-	n := d.nextD.Next()
+func (d *defaultAlloc[K, D]) newDescriptor() (D, error) {
+	n, err := d.nextD()
 	d.descriptorSizes[n] = 0
-	return n
+	return n, err
 }
 
-func (d *defaultAlloc[K, D]) scrubOversized() {
+func (d *defaultAlloc[K, D]) scrubOversize() {
 	for key, size := range d.descriptorSizes {
 		if size > d.config.MaxSize {
 			delete(d.descriptorSizes, key)
@@ -191,8 +202,10 @@ func (d *defaultAlloc[K, D]) smallestDescriptor() (desc D) {
 	return desc
 }
 
-type NextDescriptorInt struct {
-	v int
+func NextDescriptionInt() NextDescriptor[int] {
+	i := 0
+	return func() (int, error) {
+		i++
+		return i, nil
+	}
 }
-
-func (n *NextDescriptorInt) Next() int { n.v++; return n.v }

@@ -38,8 +38,8 @@ var _ = Describe("BinarySearch", func() {
 		})
 		Describe("SearchTS", func() {
 			It("Should return a completely certain approximation", func() {
-				Expect(bsi.SearchTS(0, telem.Uncertain)).To(Equal(telem.CertainlyAt(0)))
-				Expect(bsi.SearchTS(6, telem.Uncertain)).To(Equal(telem.CertainlyAt(8)))
+				Expect(bsi.SearchTS(0, telem.Uncertain)).To(Equal(telem.ExactlyAt(0)))
+				Expect(bsi.SearchTS(6, telem.Uncertain)).To(Equal(telem.ExactlyAt(8)))
 			})
 		})
 	})

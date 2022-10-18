@@ -2,10 +2,13 @@ package cesium
 
 import (
 	"github.com/cockroachdb/pebble"
+	"github.com/synnaxlabs/cesium/internal/allocate"
+	"github.com/synnaxlabs/cesium/internal/cache"
 	"github.com/synnaxlabs/cesium/internal/core"
-	"github.com/synnaxlabs/cesium/internal/file"
+	"github.com/synnaxlabs/cesium/internal/index"
+	"github.com/synnaxlabs/cesium/internal/kv"
+	"github.com/synnaxlabs/cesium/internal/storage"
 	"github.com/synnaxlabs/x/kfs"
-	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/pebblekv"
 	"github.com/synnaxlabs/x/lock"
 	"github.com/synnaxlabs/x/signal"
@@ -51,61 +54,51 @@ func Open(dirname string, opts ...Option) (DB, error) {
 		return nil, err
 	}
 
+	store := storage.Wrap(fs)
+
 	if err := maybeOpenKv(o); err != nil {
 		shutdown()
 		return nil, err
 	}
 
-	createOperations, err := startCreate(ctx, writeConfig{
-		exp: o.exp,
-		fs:  fs,
-		kv:  o.kv.engine,
-	})
+	kvDB, err := kv.Open(o.kv.engine)
 	if err != nil {
-		shutdown()
 		return nil, err
 	}
 
-	retrieveOperations, err := startReadPipeline(ctx, readConfig{
-		exp: o.exp,
-		fs:  fs,
-		kv:  o.kv.engine,
-	})
-	if err != nil {
-		shutdown()
-		return nil, err
-	}
+	alloc := allocate.New[ChannelKey, core.FileKey](kvDB.NextFile, allocate.DefaultConfig)
 
-	// a kv persisted counter that tracks the number of Channels that a gorpDB has created.
-	// this is used to autogenerate unique keys for a channel.
-	channelKeyCounter, err := kv.NewPersistedCounter(o.kv.engine, []byte(channelCounterKey))
-	if err != nil {
-		shutdown()
-		return nil, err
+	channelCache := cache.NewChannel(kvDB, kvDB)
+
+	idx := &indexingEngine{
+		channelReader: channelCache,
+		memSearchers:  make(map[ChannelKey]index.Searcher),
+		memWriters:    make(map[ChannelKey]index.Writer),
+		storage:       store,
+		kvDB:          kvDB,
 	}
 
 	return &db{
-		kv:                 o.kv.engine,
-		externalKV:         o.kv.external,
-		shutdown:           shutdown,
-		channelCounter:     channelKeyCounter,
-		channelLock:        lock.NewKeys[ChannelKey](),
-		wg:                 ctx,
-		createMetrics:      newCreateMetrics(o.exp),
-		retrieveMetrics:    newRetrieveMetrics(o.exp),
-		logger:             o.logger,
-		retrieveOperations: retrieveOperations,
-		createOperations:   createOperations,
+		kv:           kvDB,
+		channelCache: channelCache,
+		externalKV:   o.kv.external,
+		shutdown:     shutdown,
+		channelLock:  lock.NewKeys[ChannelKey](),
+		logger:       o.logger,
+		wg:           ctx,
+		storage:      store,
+		allocator:    alloc,
+		indexes:      idx,
 	}, nil
 }
 
 func openFS(ctx signal.Context, opts *options) (core.FS, error) {
 	dirname := filepath.Join(opts.dirname, cesiumDirectory)
-	fs, err := kfs.New[file.Key](
+	fs, err := kfs.New[core.FileKey](
 		dirname,
 		opts.fs.opts...,
 	)
-	sync := &kfs.Sync[file.Key]{
+	sync := &kfs.Sync[core.FileKey]{
 		FS:       fs,
 		Interval: opts.fs.sync.interval,
 		MaxAge:   opts.fs.sync.maxAge,
@@ -126,6 +119,7 @@ func maybeOpenKv(opts *options) error {
 			filepath.Join(opts.dirname, kvDirectory),
 			&pebble.Options{FS: opts.kv.fs},
 		)
+		pebbleDB.Flush()
 		opts.kv.engine = pebblekv.Wrap(pebbleDB)
 		return err
 	}

@@ -1,84 +1,126 @@
 package index
 
 import (
+	"bytes"
 	"encoding/binary"
+	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/position"
 	"github.com/synnaxlabs/cesium/internal/storage"
 	"github.com/synnaxlabs/x/telem"
+	"io"
 )
 
-func newReaderIndex(reader storage.Reader[any]) *readerIndex {
-	return &readerIndex{reader: reader}
+// Reader is an index that uses a core.PositionIterator to resolve timestamps
+// and positions from a storage.Reader.
+type Reader struct {
+	// Reader is the storage.Reader to read segments from.
+	Reader storage.Reader
+	// Iter is the core.PositionIterator to use to resolve positions. Control
+	// over the iterator (including closure) should be relinquished to the index.
+	Iter core.PositionIterator
 }
 
-//type ReaderIndex struct {
-//	Reader storage.Reader[]
-//	Iter   core.MDIterator
-//	mu     sync.Mutex
-//}
-//
-//func (r *ReaderIndex) SearchP(stamp telem.TimeStamp, guess position.Range) (position.Range, error) {
-//	r.mu.Lock()
-//	defer r.mu.Unlock()
-//	r.Iter.SetBounds(guess)
-//	var (
-//		ltOk  = r.Iter.SeekFirst()
-//		first = position.Position(-1)
-//		last  = position.Position(0)
-//	)
-//	if ltOk {
-//		for r.Iter.Next(guess.Span()) {
-//			md := r.Iter.Value()
-//			segments, err := r.Reader.Read(md)
-//			if err != nil {
-//				return position.RangeZero, err
-//			}
-//			if first == -1 {
-//				first = segments[0].Alignment
-//			}
-//			for _, seg := range segments {
-//				for i := 0; i < len(seg.SData); i += 8 {
-//					ts := DecodeTimeStamp(seg.SData[i : i+8])
-//					if ts.AfterEq(stamp) {
-//						pos := seg.Alignment.Add(position.Span(i / 8))
-//						return pos.SpanRange(0), nil
-//					}
-//				}
-//				last = seg.Alignment.Add(position.Span(len(seg.SData) / 8))
-//			}
-//		}
-//	}
-//	if !r.Iter.SeekGE(guess.Start) {
-//		if ltOk {
-//			return last.SpanRange(0), nil
-//		}
-//		return position.RangeZero, errors.New("index has no data")
-//	}
-//	return first.SpanRange(0), nil
-//}
-//
-//func (r *ReaderIndex) SeekS(pos position.Position) (telem.TimeRange, error) {
-//	r.mu.Lock()
-//	defer r.mu.Unlock()
-//	r.Iter.SetBounds(position.Range{Start: pos, End: pos})
-//	ltOk := r.Iter.SeekLE(pos)
-//	if ltOk {
-//		for r.Iter.Next(position.Span(1)) {
-//			md := r.Iter.Value()
-//			segments, err := r.Reader.Read(md)
-//			if err != nil {
-//				return telem.TimeRangeZero, err
-//			}
-//			for _, seg := range segments {
-//				if seg.Alignment.AfterEq(pos) {
-//					return DecodeTimeStamp(seg.SData[pos.Sub(position.Span(seg.Alignment))*8:]).SpanRange(0), nil
-//				}
-//			}
-//		}
-//	}
-//	return telem.TimeRangeZero, errors.New("index has no data")
-//}
-//
+var _ Searcher = (*Reader)(nil)
+
+// SearchP implements Searcher.
+func (r *Reader) SearchP(stamp telem.TimeStamp, guess position.Approximation) (position.Approximation, error) {
+	r.Iter.SetBounds(guess.Range)
+	var (
+		firstPos = position.Position(-1)
+		first    = telem.TimeStamp(-1)
+		last     = telem.TimeStamp(0)
+		lastPos  = position.Position(-1)
+	)
+	for r.Iter.SeekFirst(); r.Iter.Next(guess.Span()); {
+		segments, err := r.Reader.Read(r.Iter.Value())
+		if err != nil {
+			return position.Uncertain, err
+		}
+		for _, seg := range segments {
+			approx := position.Uncertain
+			IterTimeStamps(seg.Data, func(j int, ts telem.TimeStamp) bool {
+				if first == -1 {
+					first = ts
+					firstPos = calcPos(seg.Alignment, j)
+				}
+				last = ts
+				lastPos = calcPos(seg.Alignment, j)
+				if ts.AfterEq(stamp) {
+					approx = position.ExactlyAt(calcPos(seg.Alignment, j))
+					return false
+				}
+				return true
+			})
+			if approx.Exact() {
+				return approx, nil
+			}
+		}
+	}
+
+	if firstPos == -1 || lastPos == -1 {
+		return position.Uncertain, nil
+	}
+	firstDiff := stamp.Sub(telem.TimeSpan(first)).Abs()
+	lastDiff := stamp.Sub(telem.TimeSpan(last)).Abs()
+	if firstDiff < lastDiff {
+		return position.ExactlyAt(firstPos - 1), nil
+	} else {
+		return position.ExactlyAt(lastPos + 1), nil
+	}
+}
+
+// SearchTS implements Searcher.
+func (r *Reader) SearchTS(pos position.Position, guess telem.Approximation) (telem.Approximation, error) {
+	r.Iter.SetBounds(position.Range{Start: pos.Sub(10), End: pos.Add(10)})
+	for r.Iter.SeekFirst(); r.Iter.Next(position.Span(20)); {
+		segments, err := r.Reader.Read(r.Iter.Value())
+		if err != nil {
+			return telem.Uncertain, err
+		}
+		for _, seg := range segments {
+			approx := telem.Uncertain
+			IterTimeStamps(seg.Data, func(i int, ts telem.TimeStamp) bool {
+				if calcPos(seg.Alignment, i).AfterEq(pos) {
+					approx = telem.ExactlyAt(ts)
+					return false
+				}
+				return true
+			})
+			if approx.Exact() {
+				return approx, nil
+			}
+		}
+	}
+	return telem.Uncertain, nil
+}
+
+// Release implements Releaser.
+func (r *Reader) Release() error { return r.Iter.Close() }
 
 func DecodeTimeStamp(data []byte) telem.TimeStamp {
 	return telem.TimeStamp(binary.BigEndian.Uint64(data))
+}
+
+func IterTimeStamps(data []byte, f func(int, telem.TimeStamp) bool) {
+	var (
+		reader = bytes.NewReader(data)
+		b      = make([]byte, 8)
+		i      = 0
+	)
+	for {
+		_, err := reader.Read(b)
+		if errors.Is(err, io.EOF) {
+			return
+		}
+		ts := DecodeTimeStamp(b)
+		if !f(i, ts) {
+			return
+		}
+		i++
+	}
+}
+
+func calcPos(base position.Position, i int) position.Position {
+	return base.Add(position.Span(i))
 }
