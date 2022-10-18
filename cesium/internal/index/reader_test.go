@@ -18,7 +18,7 @@ import (
 
 type indexWriter struct {
 	channelKey core.ChannelKey
-	core.MDWriter
+	*kv.DB
 	storage.Writer
 }
 
@@ -41,8 +41,10 @@ func (i indexWriter) write(
 		},
 	}
 	mds := lo.Must(i.Writer.Write([]core.SugaredSegment{seg}))
-	lo.Must0(i.MDWriter.Write(mds))
-	lo.Must0(i.MDWriter.Commit())
+	mdw := lo.Must(i.DB.NewWriter())
+	lo.Must0(mdw.Write(mds))
+	lo.Must0(mdw.Commit())
+	lo.Must0(mdw.Close())
 }
 
 var _ = Describe("Reader", Ordered, func() {
@@ -75,7 +77,7 @@ var _ = Describe("Reader", Ordered, func() {
 		}
 		i = indexWriter{
 			channelKey: key,
-			MDWriter:   lo.Must(db.NewWriter()),
+			DB:         db,
 			Writer:     store.NewWriter(),
 		}
 	})
@@ -109,6 +111,49 @@ var _ = Describe("Reader", Ordered, func() {
 			It("Should return the exact timestamp", func() {
 				i.write(100, []telem.TimeStamp{1000, 1200, 1300, 1500})
 				Expect(newR().SearchTS(103, telem.Uncertain)).To(Equal(telem.ExactlyAt(1500)))
+			})
+		})
+	})
+	Context("Inexact Match", func() {
+		Describe("SearchP", func() {
+			It("Should return an approximation between the two closest positions", func() {
+				i.write(100, []telem.TimeStamp{1000, 1200, 1300, 1500})
+				Expect(newR().SearchP(1250, position.Uncertain)).To(Equal(position.Between(101, 102)))
+			})
+		})
+		Describe("SearchTS", func() {
+			It("Should return an approximation between the two closest timestamps", func() {
+				i.write(100, []telem.TimeStamp{1000, 1200, 1300, 1500})
+				i.write(105, []telem.TimeStamp{1800, 1900, 2000, 2100})
+				Expect(newR().SearchTS(104, telem.Uncertain)).To(Equal(telem.Between(1500, 1800)))
+			})
+		})
+	})
+	Context("Before First", func() {
+		Describe("SearchP", func() {
+			It("Should return an approximation before the first value", func() {
+				i.write(100, []telem.TimeStamp{1000, 1200, 1300, 1500})
+				Expect(newR().SearchP(900, position.Uncertain)).To(Equal(position.Before(100)))
+			})
+		})
+		Describe("SearchTS", func() {
+			It("Should return an approximation before the first value", func() {
+				i.write(100, []telem.TimeStamp{1000, 1200, 1300, 1500})
+				Expect(newR().SearchTS(99, telem.Uncertain)).To(Equal(telem.Before(1000)))
+			})
+		})
+	})
+	Context("After Last", func() {
+		Describe("SearchP", func() {
+			It("Should return an approximation after the last value", func() {
+				i.write(100, []telem.TimeStamp{1000, 1200, 1300, 1500})
+				Expect(newR().SearchP(1600, position.Uncertain)).To(Equal(position.After(103)))
+			})
+		})
+		Describe("SearchTS", func() {
+			It("Should return an approximation after the last value", func() {
+				i.write(100, []telem.TimeStamp{1000, 1200, 1300, 1500})
+				Expect(newR().SearchTS(110, telem.Uncertain)).To(Equal(telem.After(1500)))
 			})
 		})
 	})

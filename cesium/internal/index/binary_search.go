@@ -29,17 +29,17 @@ var _ Searcher = (*BinarySearch)(nil)
 func (bsi *BinarySearch) Size() int { return bsi.Array.Size() }
 
 // SearchP implements the PositionSearcher interface.
-func (bsi *BinarySearch) SearchP(stamp telem.TimeStamp, _ position.Approximation) (position.Approximation, error) {
-	pos := bsi.seekP(stamp)
+func (bsi *BinarySearch) SearchP(stamp telem.TimeStamp, approx position.Approximation) (position.Approximation, error) {
+	pos := bsi.searchP(stamp, approx)
 	return pos, nil
 }
 
 // SearchTS implements the StampSearcher interface.
-func (bsi *BinarySearch) SearchTS(pos position.Position, _ telem.Approximation) (telem.Approximation, error) {
-	return bsi.seekTS(pos), nil
+func (bsi *BinarySearch) SearchTS(pos position.Position, approx telem.Approximation) (telem.Approximation, error) {
+	return bsi.searchTS(pos, approx), nil
 }
 
-func (bsi *BinarySearch) seekP(stamp telem.TimeStamp) position.Approximation {
+func (bsi *BinarySearch) searchP(stamp telem.TimeStamp, approx position.Approximation) position.Approximation {
 	bsi.mu.RLock()
 	defer bsi.mu.RUnlock()
 	if bsi.Size() == 0 {
@@ -55,20 +55,20 @@ func (bsi *BinarySearch) seekP(stamp telem.TimeStamp) position.Approximation {
 	}
 
 	// We know the value is after the end of the index.
-	if i == bsi.Array.Size()-1 {
-		return position.After(a.Pos)
+	if i == bsi.Array.Size() {
+		return position.Between(a.Pos, approx.End)
 	}
 
 	// We know the value is before the start of the index.
 	if i == -1 {
-		return position.Before(a.Pos)
+		return position.Between(approx.Start, a.Pos)
 	}
 
 	// We know the value is somewhere between these two.
 	return position.Between(a.Pos, bsi.Array.Get(i+1).Pos)
 }
 
-func (bsi *BinarySearch) seekTS(pos position.Position) telem.Approximation {
+func (bsi *BinarySearch) searchTS(pos position.Position, approx telem.Approximation) telem.Approximation {
 	bsi.mu.RLock()
 	defer bsi.mu.RUnlock()
 	if bsi.Size() == 0 {
@@ -84,14 +84,15 @@ func (bsi *BinarySearch) seekTS(pos position.Position) telem.Approximation {
 	}
 
 	// We know the value is after the end of the index.
-	if i == bsi.Array.Size()-1 {
-		return telem.After(a.Stamp)
+	if i == bsi.Array.Size() {
+		return telem.Between(a.Stamp, approx.End)
 	}
 
 	// We know the value is before the start of the index.
 	if i == -1 {
-		return telem.Before(a.Stamp)
+		return telem.Between(approx.Start, a.Stamp)
 	}
+
 	// We know the value is somewhere between these two.
 	return telem.Between(a.Stamp, bsi.Array.Get(i+1).Stamp)
 }
@@ -107,4 +108,22 @@ func (bsi *BinarySearch) Write(alignments []Alignment) error {
 		}
 	}
 	return nil
+}
+
+func binarySearchP(
+	stamp telem.TimeStamp,
+	approx position.Approximation,
+	alignments []Alignment,
+) position.Approximation {
+	bs := &BinarySearch{Array: array.Searchable[Alignment]{Array: array.Wrap(alignments)}}
+	return bs.searchP(stamp, approx)
+}
+
+func binarySearchTS(
+	pos position.Position,
+	approx telem.Approximation,
+	alignments []Alignment,
+) telem.Approximation {
+	bs := &BinarySearch{Array: array.Searchable[Alignment]{Array: array.Wrap(alignments)}}
+	return bs.searchTS(pos, approx)
 }

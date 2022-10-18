@@ -81,5 +81,8 @@ func (s SugaredSegment) AItem() allocate.Item[ChannelKey] {
 }
 
 func (s SugaredSegment) Size() telem.Size {
+	if s.Data == nil {
+		return s.SegmentMD.Size
+	}
 	return telem.Size(len(s.Data))
 }

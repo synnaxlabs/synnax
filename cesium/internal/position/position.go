@@ -140,3 +140,17 @@ func (i Approximation) Exact() bool { return i.Uncertainty().IsZero() }
 
 // Value returns a best guess of the position.
 func (i Approximation) Value() Position { return i.Range.Midpoint() }
+
+func (i Approximation) Uncertain() bool {
+	return i.Range.Start == Min && i.Range.End == Max
+}
+
+func (i Approximation) Contains(pos Position) bool {
+	return i.Range.ContainsPos(pos)
+}
+
+func (i Approximation) MustContain(pos Position) {
+	if !i.Contains(pos) {
+		panic("position out of approximation")
+	}
+}

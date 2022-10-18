@@ -10,6 +10,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"sort"
+	"time"
 )
 
 func marshalTimeSpanBigEndian(values []telem.TimeSpan) []byte {
@@ -94,10 +95,12 @@ var _ = Describe("Writer", func() {
 				Data:       marshalInt64BigEndian([]int64{2, 4, 6, 8, 10, 13, 16}),
 			}}
 			Expect(db.Write(segments)).To(Succeed())
+			t0 := time.Now()
 			segments, err := db.Read(telem.TimeRange{
-				Start: telem.TimeStamp(5 * telem.Second),
+				Start: telem.TimeStamp(1 * telem.Second),
 				End:   telem.TimeStamp(12 * telem.Second),
 			}, ch.Key)
+			logrus.Info(time.Since(t0))
 			logrus.Info(segments)
 			Expect(err).To(Succeed())
 		})
@@ -125,7 +128,7 @@ var _ = Describe("Writer", func() {
 					{ChannelKey: 1, Start: 12, Data: []byte{1, 2, 3, 4, 5, 6, 7, 8}},
 				}},
 			),
-			FEntry("Single channel, multi segment, single request",
+			Entry("Single channel, multi segment, single request",
 				[]cesium.Channel{{Rate: 1 * telem.Hz, Density: telem.Bit64}},
 				[][]cesium.Segment{{
 					{ChannelKey: 1, Start: 12, Data: []byte{1, 2, 3, 4, 5, 6, 7, 8}},
