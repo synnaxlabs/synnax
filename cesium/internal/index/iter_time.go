@@ -23,16 +23,18 @@ func WrapPositionIter(wrap core.PositionIterator, idx Searcher) core.TimeIterato
 
 // SetBounds implements core.TimeIterator.
 func (i *timeIterator) SetBounds(bounds telem.TimeRange) bool {
-	start, ok := i.searchP(bounds.Start, position.Uncertain)
+	startApprox, ok := i.searchP(bounds.Start, position.Uncertain)
 	if !ok {
 		return false
 	}
-	end, ok := i.searchP(bounds.End, position.Uncertain)
+	endApprox, ok := i.searchP(bounds.End, position.Uncertain)
 	if !ok {
 		return false
 	}
-	posBounds := position.Range{Start: start.Value(), End: end.Value()}
-	i.internal.SetBounds(posBounds)
+	i.internal.SetBounds(position.Range{
+		Start: startApprox.Start,
+		End:   endApprox.End,
+	})
 	i.bounds = bounds
 	return true
 }
@@ -77,9 +79,17 @@ func (i *timeIterator) SeekLast() bool {
 
 // Next implements core.TimeIterator.
 func (i *timeIterator) Next(span telem.TimeSpan) bool {
-	posSpan, ok := i.seekSpan(span)
+	start := i.internal.View().End
+	endApprox, ok := i.searchPInBounds(i.view.End.Add(span))
 	if !ok {
 		return false
+	}
+	posSpan := start.Span(endApprox.Start)
+	// When we approach the ned of the bounds, we end up
+	// approximating a zero span, and end up in an infinite loop.
+	// This is a workaround for that.
+	if endApprox.End == i.internal.Bounds().End {
+		posSpan = start.Span(endApprox.End)
 	}
 	if !i.internal.Next(posSpan) {
 		return false
@@ -89,9 +99,17 @@ func (i *timeIterator) Next(span telem.TimeSpan) bool {
 
 // Prev implements core.TimeIterator.
 func (i *timeIterator) Prev(span telem.TimeSpan) bool {
-	posSpan, ok := i.seekSpan(span)
+	end := i.internal.View().Start
+	startApprox, ok := i.searchPInBounds(i.view.Start.Sub(span))
 	if !ok {
 		return false
+	}
+	posSpan := startApprox.End.Span(end)
+	// When we approach the ned of the bounds, we end up
+	// approximating a zero span, and end up in an infinite loop.
+	// This is a workaround for that.
+	if startApprox.Start == i.internal.Bounds().Start {
+		posSpan = startApprox.Start.Span(end)
 	}
 	if !i.internal.Prev(posSpan) {
 		return false
@@ -123,19 +141,21 @@ func (i *timeIterator) Error() error {
 func (i *timeIterator) Bounds() telem.TimeRange { return i.bounds }
 
 func (i *timeIterator) updateView() bool {
-	start, ok := i.searchTSInBounds(i.internal.View().Start)
+	startApprox, ok := i.searchTSInBounds(i.internal.View().Start)
 	if !ok {
 		return false
 	}
-	end, ok := i.searchTSInBounds(i.internal.View().End)
+	endApprox, ok := i.searchTSInBounds(i.internal.View().End)
 	if !ok {
 		return false
 	}
-	i.view = telem.TimeRange{Start: start.Value(), End: end.Value()}
+	startApprox.WarnIfInexact()
+	startApprox.WarnIfInexact()
+	i.view = telem.TimeRange{Start: startApprox.Start, End: endApprox.End}
 	return true
 }
 
-func (i *timeIterator) seekSpan(span telem.TimeSpan) (position.Span, bool) {
+func (i *timeIterator) searchSpan(span telem.TimeSpan) (position.Span, bool) {
 	rng := i.view.Start.SpanRange(span)
 	startPos, ok := i.searchPInBounds(rng.Start)
 	if !ok {
@@ -145,7 +165,7 @@ func (i *timeIterator) seekSpan(span telem.TimeSpan) (position.Span, bool) {
 	if !ok {
 		return 0, false
 	}
-	return position.Span(endPos.Value() - startPos.Value()), true
+	return position.Span(endPos.Start - startPos.End), true
 }
 
 func (i *timeIterator) searchP(stamp telem.TimeStamp, guess position.Approximation) (position.Approximation, bool) {
@@ -176,4 +196,12 @@ func (i *timeIterator) searchTSInBounds(pos position.Position) (telem.Approximat
 		pos,
 		telem.Between(i.bounds.Start, i.bounds.End),
 	)
+}
+
+func (i *timeIterator) internalAtStart() bool {
+	return i.internal.View().Start == i.internal.Bounds().Start
+}
+
+func (i *timeIterator) internalAtEnd() bool {
+	return i.internal.View().End == i.internal.Bounds().End
 }

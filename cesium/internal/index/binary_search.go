@@ -29,17 +29,25 @@ var _ Searcher = (*BinarySearch)(nil)
 func (bsi *BinarySearch) Size() int { return bsi.Array.Size() }
 
 // SearchP implements the PositionSearcher interface.
-func (bsi *BinarySearch) SearchP(stamp telem.TimeStamp, approx position.Approximation) (position.Approximation, error) {
-	pos := bsi.searchP(stamp, approx)
-	return pos, nil
+func (bsi *BinarySearch) SearchP(
+	stamp telem.TimeStamp,
+	approx position.Approximation,
+) (position.Approximation, error) {
+	return bsi.searchP(stamp, approx), nil
 }
 
 // SearchTS implements the StampSearcher interface.
-func (bsi *BinarySearch) SearchTS(pos position.Position, approx telem.Approximation) (telem.Approximation, error) {
+func (bsi *BinarySearch) SearchTS(
+	pos position.Position,
+	approx telem.Approximation,
+) (telem.Approximation, error) {
 	return bsi.searchTS(pos, approx), nil
 }
 
-func (bsi *BinarySearch) searchP(stamp telem.TimeStamp, approx position.Approximation) position.Approximation {
+func (bsi *BinarySearch) searchP(
+	stamp telem.TimeStamp,
+	approx position.Approximation,
+) position.Approximation {
 	bsi.mu.RLock()
 	defer bsi.mu.RUnlock()
 	if bsi.Size() == 0 {
@@ -68,7 +76,10 @@ func (bsi *BinarySearch) searchP(stamp telem.TimeStamp, approx position.Approxim
 	return position.Between(a.Pos, bsi.Array.Get(i+1).Pos)
 }
 
-func (bsi *BinarySearch) searchTS(pos position.Position, approx telem.Approximation) telem.Approximation {
+func (bsi *BinarySearch) searchTS(
+	pos position.Position,
+	approx telem.Approximation,
+) telem.Approximation {
 	bsi.mu.RLock()
 	defer bsi.mu.RUnlock()
 	if bsi.Size() == 0 {

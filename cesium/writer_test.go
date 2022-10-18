@@ -84,21 +84,28 @@ var _ = Describe("Writer", func() {
 					9 * telem.Second,
 					12 * telem.Second,
 					15 * telem.Second,
-					//17 * telem.Second,
-					//18 * telem.Second,
+					17 * telem.Second,
+					18 * telem.Second,
 				}),
 			}}
 			Expect(db.Write(indexSegments)).To(Succeed())
-			segments := []cesium.Segment{{
-				ChannelKey: ch.Key,
-				Start:      0,
-				Data:       marshalInt64BigEndian([]int64{2, 4, 6, 8, 10, 13, 16}),
-			}}
+			segments := []cesium.Segment{
+				{
+					ChannelKey: ch.Key,
+					Start:      0,
+					Data:       marshalInt64BigEndian([]int64{2, 4, 6, 8}),
+				},
+				{
+					ChannelKey: ch.Key,
+					Start:      telem.TimeStamp(9 * telem.Second),
+					Data:       marshalInt64BigEndian([]int64{10, 13, 16}),
+				},
+			}
 			Expect(db.Write(segments)).To(Succeed())
 			t0 := time.Now()
 			segments, err := db.Read(telem.TimeRange{
 				Start: telem.TimeStamp(1 * telem.Second),
-				End:   telem.TimeStamp(12 * telem.Second),
+				End:   telem.TimeStamp(13 * telem.Second),
 			}, ch.Key)
 			logrus.Info(time.Since(t0))
 			logrus.Info(segments)
@@ -131,8 +138,8 @@ var _ = Describe("Writer", func() {
 			Entry("Single channel, multi segment, single request",
 				[]cesium.Channel{{Rate: 1 * telem.Hz, Density: telem.Bit64}},
 				[][]cesium.Segment{{
-					{ChannelKey: 1, Start: 12, Data: []byte{1, 2, 3, 4, 5, 6, 7, 8}},
-					{ChannelKey: 1, Start: 13, Data: []byte{1, 2, 3, 4, 5, 6, 7, 8}},
+					{ChannelKey: 1, Start: telem.TimeStamp(12 * telem.Second), Data: []byte{1, 2, 3, 4, 5, 6, 7, 8}},
+					{ChannelKey: 1, Start: telem.TimeStamp(13 * telem.Second), Data: []byte{1, 2, 3, 4, 5, 6, 7, 8}},
 				}},
 			),
 			Entry("Single channel, multi segment, multi request",

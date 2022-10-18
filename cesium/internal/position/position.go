@@ -1,5 +1,7 @@
 package position
 
+import "go.uber.org/zap"
+
 type Position int64
 
 func (p Position) IsZero() bool { return p == 0 }
@@ -134,23 +136,26 @@ var Uncertain = Approximation{Range: Range{Start: Min, End: Max}}
 // Uncertainty returns a scalar value representing the confidence of the index in resolving
 // the position. A value of 0 indicates that the position has been resolved with certainty.
 // A value greater than 0 indicates that the exact position is unknown.
-func (i Approximation) Uncertainty() Span { return i.Range.Span() }
+func (a Approximation) Uncertainty() Span { return a.Range.Span() }
 
-func (i Approximation) Exact() bool { return i.Uncertainty().IsZero() }
+func (a Approximation) Exact() bool { return a.Uncertainty().IsZero() }
 
-// Value returns a best guess of the position.
-func (i Approximation) Value() Position { return i.Range.Midpoint() }
-
-func (i Approximation) Uncertain() bool {
-	return i.Range.Start == Min && i.Range.End == Max
+func (a Approximation) Uncertain() bool {
+	return a.Range.Start == Min && a.Range.End == Max
 }
 
-func (i Approximation) Contains(pos Position) bool {
-	return i.Range.ContainsPos(pos)
+func (a Approximation) Contains(pos Position) bool {
+	return a.Range.ContainsPos(pos)
 }
 
-func (i Approximation) MustContain(pos Position) {
-	if !i.Contains(pos) {
+func (a Approximation) MustContain(pos Position) {
+	if !a.Contains(pos) {
 		panic("position out of approximation")
+	}
+}
+
+func (a Approximation) WarnIfInexact() {
+	if !a.Exact() {
+		zap.S().Warnw("unexpected inexact approximation %s", a)
 	}
 }

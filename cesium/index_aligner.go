@@ -3,6 +3,7 @@ package cesium
 import (
 	"context"
 	"github.com/samber/lo"
+	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/position"
@@ -40,11 +41,14 @@ func (ia *indexAligner) align(
 		if !ok {
 			panic("index not found")
 		}
-		pos, err := idx.SearchP(seg.Start, position.Uncertain)
+		approx, err := idx.SearchP(seg.Start, position.Uncertain)
 		if err != nil {
 			return nil, false, err
 		}
-		seg.Alignment = pos.Value()
+		if !approx.Exact() {
+			logrus.Warn("invalid approximate position")
+		}
+		seg.Alignment = approx.Start
 		segments[i] = seg
 	}
 	return segments, true, nil

@@ -130,6 +130,7 @@ func (i *positionIterator) SeekLast() bool {
 func (i *positionIterator) Next(span position.Span) bool {
 	// If the current view is already at the end of the bounds, we can't go any further.
 	if i.view.End == i.bounds.End {
+		i.view.Start = i.view.End
 		return false
 	}
 
@@ -158,6 +159,7 @@ func (i *positionIterator) Prev(span position.Span) bool {
 	// If the current view is already at the beginning of the bounds, we can't go
 	// any further.
 	if i.view.Start == i.bounds.Start {
+		i.view.End = i.view.Start
 		return false
 	}
 

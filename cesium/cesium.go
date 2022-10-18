@@ -132,7 +132,7 @@ type db struct {
 
 // Write implements DB.
 func (d *db) Write(segments []Segment) error {
-	keys := lo.Map(segments, func(s Segment, _ int) ChannelKey { return s.ChannelKey })
+	keys := lo.Uniq(lo.Map(segments, func(s Segment, _ int) ChannelKey { return s.ChannelKey }))
 	w, err := d.NewWriter(keys...)
 	if err != nil {
 		return err
