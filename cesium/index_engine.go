@@ -39,7 +39,7 @@ func (i *indexingEngine) acquireSearcher(idxKey ChannelKey) (index.Searcher, err
 func (i *indexingEngine) acquireWriter(key ChannelKey) (index.Writer, error) {
 	var idx index.CompoundWriter
 	memIdx, ok := i.memWriters[key]
-	if !ok {
+	if ok {
 		idx = append(idx, memIdx)
 	}
 	return idx, nil

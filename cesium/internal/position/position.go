@@ -145,6 +145,10 @@ var Uncertain = Approximation{Range: Range{Start: Min, End: Max}}
 // A value greater than 0 indicates that the exact position is unknown.
 func (a Approximation) Uncertainty() Span { return a.Range.Span() }
 
+func (a Approximation) BetterThan(other Approximation) bool {
+	return a.Uncertainty() < other.Uncertainty()
+}
+
 func (a Approximation) Exact() bool { return a.Uncertainty().IsZero() }
 
 func (a Approximation) Uncertain() bool {

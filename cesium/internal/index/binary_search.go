@@ -56,7 +56,9 @@ func (bsi *BinarySearch) searchP(
 
 	c := compare.NumericUnary(stamp)
 	a, i := bsi.Array.Search(func(a Alignment) compare.Result { return c(a.Stamp) })
-
+	if !approx.Contains(a.Pos) {
+		return approx
+	}
 	// We've resolved the value with certainty.
 	if a.Stamp == stamp {
 		return position.ExactlyAt(a.Pos)

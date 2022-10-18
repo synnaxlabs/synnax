@@ -30,7 +30,7 @@ func (c CompoundSearcher) SearchP(s telem.TimeStamp, guess position.Approximatio
 		if approx.Exact() {
 			return approx, nil
 		}
-		if approx.Uncertainty() < guess.Uncertainty() {
+		if approx.BetterThan(guess) {
 			guess = approx
 		}
 	}

@@ -56,7 +56,7 @@ func (d *db) validateChannel(ch *Channel) error {
 }
 
 func (d *db) applyChannelDefaults(ch *Channel) error {
-	if ch.Index != 0 {
+	if ch.Index != 0 || ch.IsIndex {
 		ch.Rate = index.IrregularRate
 	}
 	if ch.Key == 0 {
