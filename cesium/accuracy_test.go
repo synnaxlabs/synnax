@@ -271,6 +271,20 @@ var _ = Describe("Accuracy", Ordered, func() {
 						Marshal([]int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}),
 					)
 				})
+
+				Specify("Partial Range", func() {
+					segments := MustSucceed(db.Read(
+						(13 * telem.SecondTS).SpanRange(10*telem.Second),
+						key,
+					))
+					Expect(segments).To(HaveLen(1))
+					expectSegment(
+						segments[0],
+						key,
+						13*telem.SecondTS,
+						Marshal([]int64{3, 4, 5, 6}),
+					)
+				})
 			})
 
 		})

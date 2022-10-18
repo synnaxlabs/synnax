@@ -41,7 +41,7 @@ func (i indexWriter) write(
 		},
 	}
 	mds := lo.Must(i.Writer.Write([]core.SugaredSegment{seg}))
-	mdw := lo.Must(i.DB.NewWriter())
+	mdw := i.DB.NewWriter()
 	lo.Must0(mdw.Write(mds))
 	lo.Must0(mdw.Commit())
 	lo.Must0(mdw.Close())
@@ -63,15 +63,16 @@ var _ = Describe("Reader", Ordered, func() {
 	})
 	BeforeEach(func() {
 		key := lo.Must(db.NextChannelKey())
-		Expect(db.SetChannel(core.Channel{
+		ch := core.Channel{
 			Key:     key,
 			IsIndex: true,
 			Density: telem.TimeStampDensity,
-		})).To(Succeed())
+		}
+		Expect(db.SetChannel(ch)).To(Succeed())
 		newR = func() *index.Reader {
 			r = &index.Reader{
 				Reader: store.NewReader(),
-				Iter:   lo.Must(db.NewIterator(key)),
+				Iter:   db.NewIterator(ch),
 			}
 			return r
 		}

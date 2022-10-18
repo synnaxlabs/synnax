@@ -38,11 +38,14 @@ type Allocator[K, D comparable] interface {
 	Allocate(items ...Item[K]) ([]D, error)
 }
 
-func New[K, D comparable](nd NextDescriptor[D], config Config) Allocator[K, D] {
-	mergedCfg := mergeConfig(config)
-	metrics := newMetrics(mergedCfg.Experiment)
+func New[K, D comparable](nd NextDescriptor[D], cfgs ...Config) Allocator[K, D] {
+	cfg, err := config.OverrideAndValidate(DefaultConfig, cfgs...)
+	if err != nil {
+		panic(err)
+	}
+	metrics := newMetrics(cfg.Experiment)
 	return &defaultAlloc[K, D]{
-		config:          mergedCfg,
+		config:          cfg,
 		descriptorSizes: make(map[D]telem.Size),
 		itemDescriptors: make(map[K]D),
 		nextD:           nd,
@@ -97,16 +100,6 @@ func (cfg Config) Validate() error {
 var DefaultConfig = Config{
 	MaxDescriptors: 50,
 	MaxSize:        5e8,
-}
-
-func mergeConfig(c Config) Config {
-	if c.MaxDescriptors == 0 {
-		c.MaxDescriptors = DefaultMaxDescriptors
-	}
-	if c.MaxSize == 0 {
-		c.MaxSize = DefaultMaxSize
-	}
-	return c
 }
 
 type defaultAlloc[K, D comparable] struct {
@@ -202,7 +195,7 @@ func (d *defaultAlloc[K, D]) smallestDescriptor() (desc D) {
 	return desc
 }
 
-func NextDescriptionInt() NextDescriptor[int] {
+func NextDescriptorInt() NextDescriptor[int] {
 	i := 0
 	return func() (int, error) {
 		i++
