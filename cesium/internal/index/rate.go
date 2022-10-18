@@ -5,6 +5,8 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
+const IrregularRate = 1e9 * telem.Hz
+
 type rateSearcher struct {
 	telem.Rate
 	nopReleaser

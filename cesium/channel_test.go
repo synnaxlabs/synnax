@@ -24,7 +24,7 @@ var _ = Describe("CreateChannel", func() {
 		Expect(ch.Key).To(Equal(cesium.ChannelKey(1)))
 	})
 	Specify("The channel can be retrieved after creation", func() {
-		resCh := MustSucceed(db.RetrieveChannel(ch.Key))
+		resCh := MustSucceed(db.RetrieveChannels(ch.Key))
 		Expect(resCh[0].Rate).To(Equal(telem.Rate(25)))
 		Expect(resCh[0].Density).To(Equal(telem.Density(1)))
 	})

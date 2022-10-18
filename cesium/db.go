@@ -9,14 +9,10 @@ import (
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/kv"
 	"github.com/synnaxlabs/cesium/internal/storage"
-	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/array"
-	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/lock"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
 
@@ -105,13 +101,16 @@ type DB interface {
 	// cancelling the Flow context.
 	NewStreamWriter(keys ...ChannelKey) (StreamWriter, error)
 	// CreateChannel creates a new channel in the DB. The provided channel must have a
-	// positive data rate and density. The caller can provide an optional uint16 segmentKey
+	// positive data rate and density. The caller can provide an optional uint16 key
 	// for the channel. If the key is not provided, the DB will automatically generate a
 	// key. If a key is provided, the DB will validate that it is unique.
 	CreateChannel(ch *Channel) error
-	// RetrieveChannel retrieves Channels from the DB by their key. Returns a query.NotFound
+	// RetrieveChannels retrieves Channels from the DB by their key. Returns a query.NotFound
 	// err if any of the Channels cannot be found.
-	RetrieveChannel(keys ...ChannelKey) ([]Channel, error)
+	RetrieveChannels(keys ...ChannelKey) ([]Channel, error)
+	// RetrieveChannel retrieves a Channel from the DB by its key. Returns a query.NotFound
+	// err if the Channel cannot be found.
+	RetrieveChannel(key ChannelKey) (Channel, error)
 	// Close closes persists all pending data to disk and closes the DB. Close is not
 	// safe to call concurrently with any other DB methods.
 	Close() error
@@ -184,7 +183,7 @@ func (d *db) NewStreamIterator(tr telem.TimeRange, keys ...ChannelKey) (StreamIt
 // NewStreamIterator implements DB.
 func (d *db) newStreamIterator(tr telem.TimeRange, keys ...ChannelKey) (*streamIterator, error) {
 	// first thing we need to do is retrieve all the channels we're going to be reading
-	channels, err := d.RetrieveChannel(keys...)
+	channels, err := d.RetrieveChannels(keys...)
 	if err != nil {
 		return nil, err
 	}
@@ -256,76 +255,21 @@ func (d *db) newStreamIterator(tr telem.TimeRange, keys ...ChannelKey) (*streamI
 	wrappedIter.SetBounds(tr)
 
 	reader := d.storage.NewReader()
-	return &streamIterator{
-		mdIter: wrappedIter,
-		reader: reader,
-	}, nil
+	return &streamIterator{mdIter: wrappedIter, reader: reader}, nil
 
 }
 
 // CreateChannel implements DB.
-func (d *db) CreateChannel(ch *Channel) error {
-	if ch.Index != 0 {
-		found, err := d.kv.ChannelsExist(ch.Index)
-		if err != nil {
-			return err
-		}
-		if !found {
-			return errors.Wrapf(validate.ValidationError, "[cesium] - channel index %d does not exist", ch.Index)
-		}
-		ch.Rate = 1e9 * telem.Hz
-	}
-	if ch.Rate <= 0 {
-		return errors.Wrap(
-			validate.ValidationError,
-			"[cesium] - channel data rate must be positive",
-		)
-	}
-	if ch.Density == 0 {
-		return errors.Wrap(
-			validate.ValidationError,
-			"[cesium] - channel density cannot be zero",
-		)
-	}
-	if ch.Key != 0 {
-		exists, err := d.kv.ChannelsExist(ch.Key)
-		if err != nil {
-			return err
-		}
-		if exists {
-			return UniqueViolation
-		}
-	} else {
-		key, err := d.kv.NextChannelKey()
-		if err != nil {
-			return err
-		}
-		ch.Key = key
-	}
+func (d *db) CreateChannel(ch *Channel) error { return d.createChannel(ch) }
 
-	// set up our in memory indexes
-	if ch.IsIndex {
-		var (
-			writer   index.CompoundWriter
-			searcher index.CompoundSearcher
-		)
-		i1 := &index.BinarySearch{
-			Every: 1,
-			Array: array.Searchable[index.Alignment]{
-				Array: array.NewRolling[index.Alignment](10000),
-			},
-		}
-		writer = append(writer, i1)
-		searcher = append(searcher, i1)
-		d.indexes.memWriters[ch.Key] = writer
-		d.indexes.memSearchers[ch.Key] = searcher
-	}
-	return d.kv.SetChannel(*ch)
+// RetrieveChannels implements DB.
+func (d *db) RetrieveChannels(keys ...ChannelKey) ([]Channel, error) {
+	return d.retrieveChannels(keys...)
 }
 
 // RetrieveChannel implements DB.
-func (d *db) RetrieveChannel(keys ...ChannelKey) ([]Channel, error) {
-	return d.kv.GetChannels(keys...)
+func (d *db) RetrieveChannel(key ChannelKey) (Channel, error) {
+	return d.retrieveChannel(key)
 }
 
 // Close implements DB.
@@ -341,124 +285,4 @@ func (d *db) Close() error {
 		return err
 	}
 	return nil
-}
-
-func (d *db) newStreamWriter(keys []ChannelKey) (StreamWriter, error) {
-	// first thing we need to do is retrieve all the Channels.
-	channels, err := d.RetrieveChannel(keys...)
-	if err != nil {
-		return nil, err
-	}
-
-	// now we need to acquire a lock on all the Channels.
-	if !d.channelLock.TryLock(keys...) {
-		return nil, ErrChannelLocked
-	}
-
-	// now we need to check if there are any nonRateIndexes we need to maintain.
-	writeIndexes := make(map[ChannelKey]index.Writer)
-	for _, ch := range channels {
-		if ch.IsIndex {
-			writeIndexes[ch.Key], err = d.indexes.acquireWriter(ch.Key)
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-	haveWriteIndexes := len(writeIndexes) > 0
-
-	// now we need to construct our non-rate nonRateIndexes.
-	nonRateIndexes := make(map[ChannelKey]index.Searcher)
-	for _, ch := range channels {
-		if ch.Index != 0 {
-			_, ok := nonRateIndexes[ch.Index]
-			if !ok {
-				nonRateIndexes[ch.Index], err = d.indexes.acquireSearcher(ch.Index)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-
-	// now we need to construct our index map
-	searchIndexes := make(map[ChannelKey]index.Searcher)
-	for _, ch := range channels {
-		if ch.Index != 0 {
-			searchIndexes[ch.Key] = nonRateIndexes[ch.Index]
-		} else {
-			searchIndexes[ch.Key] = index.RateSearcher(ch.Rate)
-		}
-	}
-
-	// and now to construct our write pipeline.
-	pipe := plumber.New()
-
-	// first we need to allocate our segments to a file.
-	ac := newAllocator(d.allocator)
-	plumber.SetSegment[WriteRequest, []core.SugaredSegment](pipe, "allocator", ac)
-
-	// then we need to align our segments with the root index.
-	ia := newIndexAligner(searchIndexes)
-	plumber.SetSegment[[]core.SugaredSegment, []core.SugaredSegment](pipe, "indexAligner", ia)
-
-	var routeIndexAlignerTo address.Address = "storage"
-	if haveWriteIndexes {
-		routeIndexAlignerTo = "indexFilter"
-		// we need to route our segments to the maintainer conditionally
-		indexFilter := newIndexMaintenanceRouter(d.kv.ChannelReader)
-		plumber.SetSegment[[]core.SugaredSegment, []core.SugaredSegment](pipe, "indexFilter", indexFilter)
-
-		// we need to maintain our non-rate indexes.
-		maintainer := newIndexMaintainer(writeIndexes)
-		plumber.SetSink[[]core.SugaredSegment](pipe, "maintainer", maintainer)
-	}
-
-	// now we need to route our segments to be written to storage.
-	plumber.SetSegment[[]core.SugaredSegment, []core.SugaredSegment](
-		pipe,
-		"storage",
-		newStorageWriter(d.storage.NewWriter()),
-	)
-
-	// then we need to write our segment metadata to the index.
-	kvW, err := d.kv.NewWriter()
-	if err != nil {
-		return nil, err
-	}
-	mdw := newMDWriter(kvW, keys, d.channelLock)
-	plumber.SetSegment[[]core.SugaredSegment, WriteResponse](pipe, "mdWriter", mdw)
-
-	// now it's time to connect everything together.
-	seg := &plumber.Segment[WriteRequest, WriteResponse]{Pipeline: pipe}
-	lo.Must0(seg.RouteInletTo("allocator"))
-	lo.Must0(seg.RouteOutletFrom("mdWriter"))
-
-	plumber.UnaryRouter[[]core.SugaredSegment]{
-		SourceTarget: "allocator",
-		SinkTarget:   "indexAligner",
-	}.MustRoute(pipe)
-
-	plumber.UnaryRouter[[]core.SugaredSegment]{
-		SourceTarget: "indexAligner",
-		SinkTarget:   routeIndexAlignerTo,
-	}.MustRoute(pipe)
-
-	if haveWriteIndexes {
-		plumber.UnaryRouter[[]core.SugaredSegment]{
-			SourceTarget: "indexFilter",
-			SinkTarget:   "maintainer",
-		}.MustRoute(pipe)
-		plumber.UnaryRouter[[]core.SugaredSegment]{
-			SourceTarget: "indexFilter",
-			SinkTarget:   "storage",
-		}.MustRoute(pipe)
-	}
-
-	plumber.UnaryRouter[[]core.SugaredSegment]{
-		SourceTarget: "storage",
-		SinkTarget:   "mdWriter",
-	}.MustRoute(pipe)
-
-	return seg, nil
 }

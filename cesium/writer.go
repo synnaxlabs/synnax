@@ -1,11 +1,7 @@
 package cesium
 
 import (
-	"context"
-	"github.com/synnaxlabs/cesium/internal/core"
-	"github.com/synnaxlabs/cesium/internal/storage"
 	"github.com/synnaxlabs/x/confluence"
-	"github.com/synnaxlabs/x/lock"
 	"github.com/synnaxlabs/x/signal"
 )
 
@@ -15,7 +11,7 @@ type WriteRequest struct {
 	Segments []Segment
 }
 
-// WriteResponse contains any errors that occurred during the execution of the Create Query.
+// WriteResponse contains any errors that occurred during the execution of the write.
 type WriteResponse struct {
 	// Err is any err that occurred during internal execution.
 	Err error
@@ -23,13 +19,13 @@ type WriteResponse struct {
 
 type StreamWriter = confluence.Segment[WriteRequest, WriteResponse]
 
-// Writer writes segmented telemetry to the DB. FileKey internal must be closed after use. Writer
-// is not goroutine-safe, but it is safe to use multiple writers for different Channels
-// concurrently.
+// Writer writes segmented telemetry to the DB. Writer must be closed after use.
+// Writer is not goroutine-safe, but it is safe to use multiple writers for different
+// channels concurrently.
 //
 // Writer is asynchronous, meaning that calls to Write will return before segments are
 // persisted to disk. The caller can guarantee that all segments have been persisted
-// by calling Close.
+// by waiting on Close to return.
 type Writer interface {
 	// Write writes the provided segments to the DB. If the Writer has encountered an
 	// operational err, this method will return false, and the caller is expected
@@ -41,7 +37,7 @@ type Writer interface {
 	// channel's density. All segments must be provided in time-sorted order on a
 	// per-channel basis.
 	Write(segments []Segment) bool
-	// Close closes the Writer and returns any err accumulated during execution. Close
+	// Close closes the Writer and returns any error accumulated during execution. Close
 	// will block until all segments have been persisted to the DB. It is not safe
 	// to call Close concurrently with any other Writer methods.
 	Close() error
@@ -93,67 +89,4 @@ func (w writer) error() error {
 	default:
 	}
 	return w._error
-}
-
-// storageWriter writes segment data to the DB.
-type storageWriter struct {
-	internal storage.Writer
-	confluence.LinearTransform[[]core.SugaredSegment, []core.SugaredSegment]
-}
-
-func newStorageWriter(internal storage.Writer) *storageWriter {
-	s := &storageWriter{internal: internal}
-	s.Transform = s.transform
-	return s
-}
-
-func (s *storageWriter) transform(
-	ctx context.Context,
-	segments []core.SugaredSegment,
-) ([]core.SugaredSegment, bool, error) {
-	mds, err := s.internal.Write(segments)
-	if err != nil {
-		return segments, false, err
-	}
-	for i, seg := range segments {
-		seg.SegmentMD = mds[i]
-		segments[i] = seg
-	}
-	return segments, true, nil
-}
-
-// mdWriter is a writer that writes metadata to the DB.
-type mdWriter struct {
-	internal core.MDWriter
-	keys     []ChannelKey
-	lock     lock.Keys[ChannelKey]
-	confluence.LinearTransform[[]core.SugaredSegment, WriteResponse]
-}
-
-func newMDWriter(writer core.MDWriter, keys []ChannelKey, lock lock.Keys[ChannelKey]) *mdWriter {
-	md := &mdWriter{internal: writer, keys: keys, lock: lock}
-	md.Transform = md.transform
-	return md
-}
-
-func (m *mdWriter) Flow(ctx signal.Context, opts ...confluence.Option) {
-	m.LinearTransform.Flow(
-		ctx,
-		append(opts, confluence.Defer(func() {
-			m.internal.Commit()
-			m.lock.Unlock(m.keys...)
-		}))...,
-	)
-}
-
-func (m *mdWriter) transform(
-	ctx context.Context,
-	segments []core.SugaredSegment,
-) (WriteResponse, bool, error) {
-	mds := make([]core.SegmentMD, len(segments))
-	for i, seg := range segments {
-		mds[i] = seg.SegmentMD
-	}
-	err := m.internal.Write(mds)
-	return WriteResponse{Err: err}, err != nil, err
 }

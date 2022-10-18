@@ -10,7 +10,7 @@ import (
 )
 
 // StreamIterator provides a streaming interface for iterating over a DB's segments
-// in time order. StreamIterator provides the underlying functionality for kvPositionIterator,
+// in time order. StreamIterator provides the underlying functionality for Iterator,
 // and has almost exactly the same semantics. The streaming interface is exposed
 // as a confluence segment that can accept one input stream and one output stream.
 //
@@ -31,12 +31,15 @@ type StreamIterator = confluence.Segment[IteratorRequest, IteratorResponse]
 type streamIterator struct {
 	confluence.UnarySink[IteratorRequest]
 	confluence.AbstractUnarySource[IteratorResponse]
-	mdIter  core.TimeIterator
-	reader  storage.Reader
-	counter int
+	mdIter core.TimeIterator
+	reader storage.Reader
+	seqNum int
 }
 
+// Flow implements the confluence.Segment interface.
 func (s *streamIterator) Flow(ctx signal.Context, opts ...confluence.Option) {
+	o := confluence.NewOptions(opts)
+	o.AttachClosables(s.Out)
 	ctx.Go(func(ctx context.Context) error {
 		for {
 			select {
@@ -49,7 +52,7 @@ func (s *streamIterator) Flow(ctx signal.Context, opts ...confluence.Option) {
 				s.exec(ctx, req)
 			}
 		}
-	})
+	}, o.Signal...)
 }
 
 func (s *streamIterator) exec(ctx context.Context, req IteratorRequest) {
@@ -91,9 +94,9 @@ func (s *streamIterator) runCmd(req IteratorRequest) (bool, error) {
 }
 
 func (s *streamIterator) sendAck(req IteratorRequest, ok bool, err error) {
-	s.counter += 1
+	s.seqNum += 1
 	s.Out.Inlet() <- IteratorResponse{
-		Counter: s.counter,
+		SeqNum:  s.seqNum,
 		Variant: IteratorResponseTypeAck,
 		Ack:     ok,
 		Err:     err,
@@ -104,14 +107,10 @@ func (s *streamIterator) sendAck(req IteratorRequest, ok bool, err error) {
 func (s *streamIterator) sendData(req IteratorRequest, ss []core.SugaredSegment) {
 	segs := make([]Segment, len(ss))
 	for i, seg := range ss {
-		segs[i] = Segment{
-			ChannelKey: seg.ChannelKey,
-			Start:      0,
-			Data:       seg.Data,
-		}
+		segs[i] = Segment{ChannelKey: seg.ChannelKey, Start: 0, Data: seg.Data}
 	}
 	s.Out.Inlet() <- IteratorResponse{
-		Counter:  s.counter,
+		SeqNum:   s.seqNum,
 		Variant:  IteratorResponseTypeData,
 		Segments: segs,
 		Command:  req.Command,

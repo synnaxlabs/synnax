@@ -135,9 +135,9 @@ type IteratorRequest struct {
 type IteratorResponse struct {
 	// Variant is the type of response issued.
 	Variant IteratorResponseType
-	// Counter is  incremented for each request issued to the StreamIterator. The
-	// first request will have a counter value of 1.
-	Counter int
+	// SeqNum is incremented for each request issued to the StreamIterator. The
+	// first request will have a sequence number of 1.
+	SeqNum int
 	// Command is only defined when the response type is IteratorResponseTypeAck.
 	// It indicates the command that was acknowledged.
 	Command IteratorCommand

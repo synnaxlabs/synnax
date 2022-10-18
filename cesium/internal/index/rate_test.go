@@ -8,7 +8,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-var _ = Describe("Rate", func() {
+var _ = Describe("IrregularRate", func() {
 	Describe("SeekP", func() {
 		It("Should return a certain approximation", func() {
 			rate := index.RateSearcher(10)
