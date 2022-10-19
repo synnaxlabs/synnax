@@ -1,7 +1,7 @@
 {
-  "name": "@synnaxlabs/freighter",
+  "name": "@synnaxlabs/drift",
   "version": "0.2.0",
-  "description": "a modular transport abstraction",
+  "description": "redux state synchronization and window management for electron apps",
   "main": "build/main/index.js",
   "typings": "build/main/index.d.ts",
   "module": "build/module/index.js",
@@ -50,15 +50,17 @@
     "node": ">=10"
   },
   "dependencies": {
-    "axios": "^0.27.2",
-    "js-convert-case": "^4.2.0",
-    "msgpackr": "^1.7.0",
-    "ws": "^8.8.1",
-    "zod": "^3.19.1"
+    "@reduxjs/toolkit": "^1.8.6",
+    "@tauri-apps/api": "^1.1.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-redux": "^8.0.4"
   },
   "devDependencies": {
     "@ava/typescript": "^1.1.1",
     "@istanbuljs/nyc-config-typescript": "^1.0.1",
+    "@types/react": "^18.0.21",
+    "@types/react-dom": "^18.0.6",
     "@typescript-eslint/eslint-plugin": "^4.0.1",
     "@typescript-eslint/parser": "^4.0.1",
     "ava": "^3.12.1",
