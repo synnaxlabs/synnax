@@ -1,29 +1,25 @@
 import { Middleware, PayloadAction } from '@reduxjs/toolkit';
-import { parseDriftMD } from './actions';
-import { Runtime } from './runtime';
-import { executeAction, isDriftAction } from './slice';
+import { desugarType } from './type';
+import { Window } from './window';
+import { executeAction } from './slice';
 
-export const middleware = ({
-  runtime,
-}: {
-  runtime: Runtime;
-}): Middleware<unknown, any> => {
+export const middleware = (window: Window): Middleware<unknown, any> => {
   return ({ getState }) =>
     (next) =>
     (action) => {
-      let { type } = action;
-      const { baseType, winID, fromListener } = parseDriftMD(type);
-      const isDrift = isDriftAction(baseType);
-      action.type = baseType;
-      if (winID === runtime.winKey()) return;
+      let { type: sugaredType } = action;
+      const { type, key, fromListener } = desugarType(sugaredType);
+      action.type = type;
+      // The action is recirculating from our own relay.
+      if (key === window.key()) return;
       if (!fromListener) {
-        if (isDrift) executeAction({ runtime, action, getState });
-        relayAction(runtime, action);
+        executeAction({ window, action, getState });
+        relayAction(window, action);
       }
       return next(action);
     };
 };
 
-const relayAction = (runtime: Runtime, action: PayloadAction<unknown>) => {
-  runtime.emit({ action, winKey: runtime.winKey() });
+const relayAction = (window: Window, action: PayloadAction<unknown>) => {
+  window.emit({ action, key: window.key() });
 };

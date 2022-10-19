@@ -8,41 +8,42 @@ import { appWindow, WebviewWindow } from '@tauri-apps/api/window';
 import {
   KeyedWindowProps,
   Event as DriftEvent,
-  Runtime as DriftRuntime,
-} from '../runtime';
+  Window as DriftWindow,
+} from '../window';
 
 const actionEvent = 'drift:action';
-const tauriWindowCreated = 'tauri://created';
 const tauriError = 'tauri://error';
 
-export class Runtime implements DriftRuntime {
+export default class Window implements DriftWindow {
+  window: WebviewWindow;
   unsubscribe?: void | UnlistenFn;
 
-  ready(): void {
-    appWindow.show();
+  constructor(window?: WebviewWindow) {
+    this.window = window || appWindow;
+  }
+
+  key(): string {
+    return this.window.label;
   }
 
   isMain(): boolean {
-    return appWindow.label === 'main';
+    return this.window.label === 'main';
   }
 
   release() {
     this.unsubscribe && this.unsubscribe();
   }
 
+  ready(): void {
+    this.window.show();
+  }
+
   createWindow({ key, ...props }: KeyedWindowProps) {
-    return new Promise<Window>((resolve, reject) => {
-      const w = new WebviewWindow(key as string, {
-        ...props,
-        visible: false,
-      });
-      w.once(tauriWindowCreated, () => {
-        resolve(w as unknown as Window);
-      });
-      w.once(tauriError, (err: unknown) => {
-        reject(err);
-      });
+    const w = new WebviewWindow(key as string, {
+      ...props,
+      visible: false,
     });
+    w.once(tauriError, console.error);
   }
 
   emit(event: DriftEvent): void {
@@ -59,7 +60,11 @@ export class Runtime implements DriftRuntime {
       });
   }
 
-  winKey(): string {
-    return appWindow.label;
+  onClose(cb: () => void): void {
+    this.window.onCloseRequested(cb);
+  }
+
+  close(key: string): void {
+    WebviewWindow.getByLabel(key)?.close();
   }
 }

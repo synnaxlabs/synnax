@@ -1,14 +1,13 @@
 import reactLogo from './assets/react.svg';
 import { useSelector, useDispatch } from 'react-redux';
 import './App.css';
-import store, { incremented } from './store';
+import { incremented } from './store';
 import { createWindow } from '@synnaxlabs/drift';
-import { appWindow } from '@tauri-apps/api/window';
 
 function App() {
   const { value: count } = useSelector((state: any) => state.counter);
+  const { numCreated } = useSelector((state: any) => state.drift);
   const dispatch = useDispatch();
-  console.log(appWindow.label);
   return (
     <div className="App">
       <div>
@@ -24,15 +23,21 @@ function App() {
         <button
           onClick={() => {
             dispatch(incremented());
+          }}
+        >
+          count is {count}
+        </button>
+        <button
+          onClick={() => {
             dispatch(
               createWindow({
-                key: `count-${count}`,
+                title: `Window ${numCreated}`,
                 url: 'http://localhost:5173',
               })
             );
           }}
         >
-          count is {count}
+          {numCreated} windows created
         </button>
         <p>
           Edit <code>src/App.tsx</code> and save to test HMR

@@ -1,5 +1,5 @@
 import { createSlice, combineReducers } from '@reduxjs/toolkit';
-import { slice, TauriRuntime, configureStore } from '@synnaxlabs/drift';
+import { slice, TauriWindow, configureStore } from '@synnaxlabs/drift';
 
 const counterSlice = createSlice({
   name: 'counter',
@@ -19,7 +19,7 @@ const counterSlice = createSlice({
 export const { incremented, decremented } = counterSlice.actions;
 
 const store = configureStore({
-  runtime: new TauriRuntime(),
+  window: new TauriWindow(),
   reducer: combineReducers({
     counter: counterSlice.reducer,
     drift: slice.reducer,

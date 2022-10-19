@@ -1,14 +1,21 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { DRIFT_NAME } from './actions';
-import { Runtime, KeyedWindowProps } from './runtime';
+import { DRIFT_NAME } from './type';
+import { Window, KeyedWindowProps, WindowProps } from './window';
 
-export interface State {
+export interface DriftState {
   windows: { [key: string]: KeyedWindowProps };
+  numCreated: number;
 }
 
-export type SetWindow = PayloadAction<KeyedWindowProps>;
+export interface StoreState {
+  drift: DriftState;
+}
 
-export const initialState: State = {
+export type CreateWindow = PayloadAction<WindowProps>;
+export type CloseWindow = PayloadAction<string>;
+
+export const initialState: DriftState = {
+  numCreated: 1,
   windows: {},
 };
 
@@ -16,39 +23,52 @@ export const slice = createSlice({
   name: DRIFT_NAME,
   initialState,
   reducers: {
-    setWindow: ({ windows }, { payload }: SetWindow) => {
+    createWindow: (state, { payload }: CreateWindow) => {
       const { key } = payload;
-      if (!key) {
-        console.warn('[drift] - no key provided to setWindow');
-        return;
-      }
-      windows[key] = payload;
+      state.numCreated += 1;
+      if (key) state.windows[key] = payload as KeyedWindowProps;
+    },
+    closeWindow: ({ windows }, { payload: { key } }: CreateWindow) => {
+      if (key) delete windows[key];
     },
   },
 });
 
-export const { setWindow } = slice.actions;
-export const createWindow = setWindow;
+export const { createWindow, closeWindow } = slice.actions;
 
-const ACTION_TYPES = [setWindow.type];
-
-export const isDriftAction = (type: string) => ACTION_TYPES.includes(type);
+const isSliceAction = (type: string) => type.startsWith(DRIFT_NAME);
 
 export const executeAction = ({
-  runtime,
+  window,
   action,
   getState,
 }: {
-  runtime: Runtime;
+  window: Window;
   action: PayloadAction<unknown>;
-  getState: () => { drift: State };
+  getState: () => StoreState;
 }) => {
+  if (!isSliceAction(action.type)) return;
+  const s = getState();
   switch (action.type) {
-    case setWindow.type:
-      const { payload: props } = action as SetWindow;
-      const w = getWindow(getState().drift, props.key);
-      if (!w) runtime.createWindow(props);
+    case createWindow.type:
+      const { payload: props } = action as CreateWindow;
+      const keyedProps = maybeAssignKey(s, props);
+      if (!winExists(s, keyedProps.key)) window.createWindow(keyedProps);
+      return;
+    case closeWindow.type:
+      const { payload: key } = action as CloseWindow;
+      if (winExists(s, key)) window.close(key);
+      return;
   }
 };
 
-const getWindow = (state: State, key: string) => state.windows[key];
+const winExists = (state: StoreState, key: string) =>
+  state.drift.windows.hasOwnProperty(key);
+
+const maybeAssignKey = (
+  state: StoreState,
+  props: WindowProps
+): KeyedWindowProps => {
+  props.key = props.key || `win-${state.drift.numCreated + 1}`;
+  return props as KeyedWindowProps;
+};
