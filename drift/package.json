@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/drift",
-  "version": "0.2.0",
+  "version": "0.1.0",
   "description": "redux state synchronization and window management for electron apps",
   "main": "build/main/index.js",
   "typings": "build/main/index.d.ts",
@@ -9,13 +9,16 @@
   "license": "MIT",
   "keywords": [
     "synnax",
-    "grpc",
-    "transport",
     "client",
     "data acquisition",
     "big data",
     "telemetry",
-    "control systems"
+    "control systems",
+    "redux",
+    "react",
+    "state synchronization",
+    "tauri",
+    "electron"
   ],
   "scripts": {
     "build": "run-p build:*",
