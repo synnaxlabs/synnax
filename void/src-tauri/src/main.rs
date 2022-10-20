@@ -4,7 +4,7 @@
 )]
 
 use cocoa::appkit::{NSWindow, NSWindowStyleMask};
-use tauri::{Runtime, Window, Manager};
+use tauri::{Runtime, Window};
 
 pub trait WindowExt {
   #[cfg(target_os = "macos")]
@@ -43,10 +43,11 @@ impl<R: Runtime> WindowExt for Window<R> {
 
 fn main() {
    tauri::Builder::default()
-      .setup(|app| {
-         let win = app.get_window("main").unwrap();
-         win.set_transparent_titlebar(true);
-         Ok(())
+      .on_window_event(|event| match event.event() {
+         tauri::WindowEvent::Focused {..} => {
+            event.window().set_transparent_titlebar(true);
+         }
+         _ => {}
       })
       .run(tauri::generate_context!())
       .expect("error while running tauri application");

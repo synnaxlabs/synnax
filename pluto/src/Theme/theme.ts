@@ -131,9 +131,9 @@ const synnaxBase: ThemeProps = {
       lineHeight: baseSize * 5,
     },
     h4: {
-      size: baseSize * 3.5,
+      size: baseSize * 3,
       weight: "medium",
-      lineHeight: baseSize * 4,
+      lineHeight: baseSize * 3.5,
     },
     h5: {
       size: baseSize * 2,

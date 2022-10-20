@@ -7,6 +7,8 @@ export interface BaseTextProps {
   level: TypographyLevel;
   /* The text to display */
   children?: string | number;
+  /* The color of the text */
+  color?: string;
 }
 
 export interface TextProps
@@ -24,7 +26,9 @@ const typographyLevelTags = {
 };
 
 /* Displays text with a particular level */
-function Text({ level = "h1", ...props }: TextProps) {
+function Text({ level = "h1", color, ...props }: TextProps) {
+  props.style = { color, ...props.style };
+  props.className = `pluto-text pluto-text--${level} ${props.className}`;
   return createElement(typographyLevelTags[level], props);
 }
 

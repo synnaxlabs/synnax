@@ -3,7 +3,7 @@ import { ReactElement, useState } from "react";
 import Button from "../../Atoms/Button/Button";
 import Resize from "../../Atoms/Resize/Resize";
 import Space from "../../Atoms/Space/Space";
-import { getDirection, swapDirection } from "../../util/spatial";
+import { swapDirection } from "../../util/spatial";
 import NavBar, { NavBarProps, useNavBar } from "../Nav/NavBar";
 import "./NavDrawer.css";
 
@@ -11,9 +11,9 @@ export type NavDrawerItem = {
   key: string;
   content: ReactElement;
   icon: ReactElement;
-  minWidth?: number;
-  maxWidth?: number;
-  initialWidth?: number;
+  minSize?: number;
+  maxSize?: number;
+  initialSize?: number;
 };
 
 export interface NavDrawerProps extends NavBarProps {

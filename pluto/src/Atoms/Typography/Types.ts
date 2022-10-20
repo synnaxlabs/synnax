@@ -33,6 +33,6 @@ export const TypographyLevelComponentSizes: Record<
   h3: "medium",
   h4: "medium",
   h5: "small",
-  p: "small",
+  p: "medium",
   small: "small",
 };

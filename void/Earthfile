@@ -1,0 +1,28 @@
+VERSION 0.6
+
+deps:
+    FROM node:18.7.0-alpine3.16
+    COPY ../../pluto+build/* /pluto/
+    COPY ../../client/ts+build/* /client/ts/
+    COPY ../drift+build/* /drift/
+    WORKDIR /void
+    COPY package.json ./
+    COPY yarn.lock ./
+    RUN yarn install
+
+dev:
+    LOCALLY
+    IF [ ! -d "node_modules" ]
+        RUN yarn
+    END
+    RUN earthly ../+link
+    IF [ ! -d "../pluto/dist" ]
+        RUN earthly ../pluto+build --local=true
+    END
+    IF [ ! -d "../client/ts/build" ]
+        RUN earthly ../client/ts+build --local=true
+    END
+    IF [ ! -d "../drift/build" ]
+        RUN earthly ../drift+build --local=true
+    END
+    RUN yarn tauri dev

@@ -1,19 +1,14 @@
-import {
-  AutoSizer,
-  Space,
-  Plot as PlutoPlot,
-  MultiSelect,
-} from "@synnaxlabs/pluto";
+import { AutoSize, Space, LinePlot, Select } from "@synnaxlabs/pluto";
 
 const data = {
-  a: Array.from({ length: 100000 }, (_, i) => i),
+  a: Array.from({ length: 1000 }, (_, i) => i),
   b: Array.from(
-    { length: 100000 },
-    (_, i) => Math.sin(i / 1000) * 2 + Math.random() * 0.1
+    { length: 1000 },
+    (_, i) => Math.sin(i / 10) * 2 + Math.random() * 0.1
   ),
   c: Array.from(
-    { length: 100000 },
-    (_, i) => Math.cos(i / 1900) + Math.random() * 0.1
+    { length: 1000 },
+    (_, i) => Math.cos(i / 20) + Math.random() * 0.1
   ),
 };
 
@@ -53,9 +48,9 @@ const series = [
 export default function Plot() {
   return (
     <Space style={{ width: "100%", height: "100%", padding: "12px" }}>
-      <AutoSizer style={{ flexGrow: 1, overflow: "hidden" }} debounce={100}>
+      <AutoSize style={{ flexGrow: 1, overflow: "hidden" }} debounce={100}>
         {({ width, height }) => (
-          <PlutoPlot
+          <LinePlot
             width={width}
             height={height}
             data={data}
@@ -63,8 +58,8 @@ export default function Plot() {
             series={series}
           />
         )}
-      </AutoSizer>
-      <MultiSelect
+      </AutoSize>
+      <Select.Multiple
         listPosition="top"
         columns={[
           {

@@ -22,26 +22,35 @@ export default function TextWithIcon({
   startIcon,
   endIcon,
   children,
+  color,
   ...props
 }: TextWithIconProps) {
-  const formattedStartIcon = startIcon && useFormattedIcon(startIcon, level);
-  const formattedEndIcon = endIcon && useFormattedIcon(endIcon, level);
+  const formattedStartIcon =
+    startIcon && useFormattedIcon(startIcon, level, color);
+  const formattedEndIcon = endIcon && useFormattedIcon(endIcon, level, color);
   return (
     <Space direction="horizontal" size="small" align="center" {...props}>
       {formattedStartIcon && formattedStartIcon}
       {divided && <Divider direction="vertical" />}
-      {children && <Text level={level}>{children}</Text>}
+      {children && (
+        <Text color={color} level={level}>
+          {children}
+        </Text>
+      )}
       {divided && formattedEndIcon && <Divider direction="vertical" />}
       {formattedEndIcon && formattedEndIcon}
     </Space>
   );
 }
 
-const useFormattedIcon = (icon: React.ReactElement, level: TypographyLevel) => {
+const useFormattedIcon = (
+  icon: React.ReactElement,
+  level: TypographyLevel,
+  color?: string
+) => {
   const { theme } = Theme.useContext();
   const size = theme.typography[level]?.size;
-  console.log(size);
   if (!size) return <h1>Hello</h1>;
-  const color = theme.colors.text;
+  color = color || theme.colors.text;
   return cloneElement(icon, { size, color });
 };

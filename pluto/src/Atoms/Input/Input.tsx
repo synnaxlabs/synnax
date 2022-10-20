@@ -1,51 +1,47 @@
-import { DetailedHTMLProps, forwardRef, InputHTMLAttributes, Ref } from "react";
+import {
+  DetailedHTMLProps,
+  forwardRef,
+  InputHTMLAttributes,
+  Ref,
+  RefAttributes,
+} from "react";
 import "./Input.css";
 import clsx from "clsx";
 import { ComponentSize } from "../../util/types";
-import InputTime from "./InputTime";
-import InputDate from "./InputDate";
 
-export interface InputProps
+interface BaseInputProps
   extends Omit<
     DetailedHTMLProps<InputHTMLAttributes<HTMLInputElement>, HTMLInputElement>,
-    "size" | "onChange" | "value"
+    "size" | "ref"
   > {
   size?: ComponentSize;
   name?: string;
   label?: string;
-  value?: string;
-  onChange?: (value: string) => void;
 }
 
-function Input({
-  size = "medium",
-  name,
-  label,
-  placeholder,
-  value,
-  onChange,
-  className,
-  ...props
-}: InputProps) {
-  return (
-    <input
-      id={name}
-      placeholder={placeholder}
-      className={clsx(
-        "pluto-input__input",
-        "pluto-input__input--" + size,
-        className
-      )}
-      onChange={(e) => {
-        if (onChange) onChange(e.target.value);
-      }}
-      value={value}
-      {...props}
-    />
-  );
-}
+export interface InputProps
+  extends BaseInputProps,
+    RefAttributes<HTMLInputElement> {}
 
-Input.Time = InputTime;
-Input.Date = InputDate;
+const Input = forwardRef<HTMLInputElement, BaseInputProps>(
+  (
+    { size = "medium", label, placeholder, value, className, ...props },
+    ref
+  ) => {
+    return (
+      <input
+        ref={ref}
+        placeholder={placeholder}
+        className={clsx(
+          "pluto-input__input",
+          "pluto-input__input--" + size,
+          className
+        )}
+        value={value}
+        {...props}
+      />
+    );
+  }
+);
 
 export default Input;

@@ -1,7 +1,7 @@
 import clsx from "clsx";
 import { useRef, useState } from "react";
 import { AiOutlineClose } from "react-icons/ai";
-import Input from "../Input/Input";
+import Input, { InputProps } from "../Input/Input";
 import { List } from "../List";
 import { useListContext } from "../List/ListContext";
 import { Key, TypedListColumn, TypedListEntry } from "../List/Types";
@@ -74,9 +74,8 @@ export default function SelectMultiple<
   );
 }
 
-interface SelectMultipleInputProps<K extends Key, E extends TypedListEntry<K>> {
-  value?: string;
-  onChange?: (value: string) => void;
+interface SelectMultipleInputProps<K extends Key, E extends TypedListEntry<K>>
+  extends InputProps {
   focused: boolean;
   onFocus: () => void;
   tagKey: keyof E;

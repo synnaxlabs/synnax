@@ -1,0 +1,7 @@
+.pluto-input-help-text {
+    margin-left: var(--pluto-base-size);
+}
+
+.pluto-input-help-text--error {
+    color: var(--pluto-error-z);
+}

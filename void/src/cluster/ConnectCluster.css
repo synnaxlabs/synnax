@@ -1,0 +1,3 @@
+.connect-cluster__content {
+    padding: calc(var(--pluto-base-size) * 2) calc(var(--pluto-base-size) * 3);
+}

@@ -30,7 +30,8 @@ h3,
 h4,
 h5,
 h6,
-p {
+p,
+label {
   font-family: var(--pluto-font-family);
   color: var(--pluto-text-color);
   margin: 0;
@@ -72,11 +73,18 @@ h6 {
   font-weight: var(--pluto-small-weight);
 }
 
+label {
+  font-size: var(--pluto-p-size);
+  line-height: var(--pluto-p-line-height);
+  font-weight: var(--pluto-p-weight);
+}
+
 p {
   font-size: var(--pluto-p-size);
   line-height: var(--pluto-p-line-height);
   font-weight: var(--pluto-p-weight);
 }
+
 
 ::-webkit-scrollbar {
   width: calc(var(--pluto-base-size) * 1.5);

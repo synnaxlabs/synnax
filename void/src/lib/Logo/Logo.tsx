@@ -12,7 +12,7 @@ import { ReactComponent as TitleBlack } from "./title-black.svg";
 // @ts-ignore
 import { ReactComponent as TitleGradient } from "./title-gradient.svg";
 
-import { useThemeContext } from "@synnaxlabs/pluto";
+import { Theme } from "@synnaxlabs/pluto";
 
 export interface LogoProps
   extends Omit<HTMLAttributes<SVGElement>, "width" | "height"> {
@@ -35,7 +35,7 @@ export default function Logo({
   ...props
 }: LogoProps) {
   let autoVariant: string;
-  const { theme } = useThemeContext();
+  const { theme } = Theme.useContext();
   if (mode == "auto") {
     if (theme.name === "synnax-dark") {
       autoVariant = "white";

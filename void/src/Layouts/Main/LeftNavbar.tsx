@@ -1,4 +1,4 @@
-import { Nav, ThemeSwitch } from "@synnaxlabs/pluto";
+import { Nav, Theme } from "@synnaxlabs/pluto";
 import ClustersItem from "../../cluster/ConfigureClusters";
 import Logo from "../../lib/Logo/Logo";
 import ResourcesItem from "../../resources/ResourcesTree";
@@ -11,7 +11,7 @@ export default function LeftNavbar() {
         <Logo style={{ width: "100%" }} />
       </Nav.Bar.Start>
       <Nav.Bar.End className="sidebar-left__end" bordered>
-        <ThemeSwitch />
+        <Theme.Switch />
       </Nav.Bar.End>
     </Nav.Drawer>
   );

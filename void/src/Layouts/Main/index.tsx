@@ -1,4 +1,4 @@
-import { MultiResizable, Space } from "@synnaxlabs/pluto";
+import { Resize, Space } from "@synnaxlabs/pluto";
 import Plot from "../Plot/Plot";
 import BottomNavbar from "./BottomNavbar";
 import "./index.css";
@@ -27,15 +27,5 @@ export default function Layout() {
 }
 
 const Content = () => {
-  return (
-    <div className="main__content">
-      <MultiResizable direction="vertical">
-        <MultiResizable direction="horizontal">
-          <Plot />
-          <Plot />
-        </MultiResizable>
-        <Plot />
-      </MultiResizable>
-    </div>
-  );
+  return <div className="main__content"></div>;
 };

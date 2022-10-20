@@ -1,28 +1,24 @@
-import { useEffect } from "react";
+import { ComponentType, useEffect } from "react";
 import { useSearch } from "../../Hooks";
-import { Input } from "../Input";
+import { Input as DefaultInput, InputProps } from "../Input";
 import { useListContext } from "./ListContext";
 import { Key, TypedListEntry } from "./Types";
 import "./ListSearch.css";
 
 export interface ListSearchProps<K extends Key, E extends TypedListEntry<K>> {
-  Input?: React.ComponentType<{
-    value?: string;
-    onChange?: (value: string) => void;
-    className?: string;
-  }>;
+  Input?: ComponentType<InputProps>;
 }
 
 export default function ListSearch<K extends Key, E extends TypedListEntry<K>>({
-  Input: InputC = Input,
+  Input = DefaultInput,
 }: ListSearchProps<K, E>) {
   const [query, setQuery, search] = useSearch<E>();
   const { setTransform } = useListContext<K, E>();
   useEffect(() => setTransform("search", search), [search]);
   return (
-    <InputC
+    <Input
       value={query}
-      onChange={setQuery}
+      onChange={(e) => setQuery(e.target.value)}
       className="pluto-list__search__input"
     />
   );

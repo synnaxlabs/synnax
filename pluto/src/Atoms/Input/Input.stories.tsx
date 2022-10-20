@@ -1,5 +1,5 @@
 import { Space } from "../Space";
-import Input from "./Input";
+import { Input } from ".";
 
 export default {
   title: "Atoms/Input",
