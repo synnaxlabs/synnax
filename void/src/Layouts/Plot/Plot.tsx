@@ -45,10 +45,15 @@ const series = [
   },
 ];
 
+const options = Array.from({ length: 500 }, (_, i) => ({
+  key: i,
+  name: `Option ${i}`,
+}));
+
 export default function Plot() {
   return (
     <Space style={{ width: "100%", height: "100%", padding: "12px" }}>
-      <AutoSize style={{ flexGrow: 1, overflow: "hidden" }} debounce={100}>
+      <AutoSize style={{ flexGrow: 1, overflow: "hidden" }}>
         {({ width, height }) => (
           <LinePlot
             width={width}
@@ -61,6 +66,7 @@ export default function Plot() {
       </AutoSize>
       <Select.Multiple
         listPosition="top"
+        tagKey="name"
         columns={[
           {
             key: "name",
@@ -68,11 +74,7 @@ export default function Plot() {
             visible: true,
           },
         ]}
-        options={[
-          {
-            name: "Series 1",
-          },
-        ]}
+        options={options}
       />
     </Space>
   );

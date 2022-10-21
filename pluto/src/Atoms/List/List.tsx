@@ -10,16 +10,20 @@ import {
   TypedListEntry,
   TypedListTransform,
 } from "./Types";
-import { useMultiSelect } from "./useMultiSelect";
+import { useMultiSelect, useMultiSelectProps } from "./useMultiSelect";
 
 export interface ListProps<K extends Key, E extends TypedListEntry<K>>
-  extends React.PropsWithChildren<any> {
+  extends React.PropsWithChildren<any>,
+    useMultiSelectProps<K, E> {
   data: E[];
 }
 
 function List<K extends Key, E extends TypedListEntry<K>>({
   children,
   data,
+  selectMultiple = true,
+  selected: selectedProp,
+  onSelect: onSelectProp,
 }: ListProps<K, E>) {
   const [transforms, setTransforms] = useState<
     Record<string, TypedListTransform<K, E> | undefined>
@@ -41,9 +45,12 @@ function List<K extends Key, E extends TypedListEntry<K>>({
     );
   }, [data, transforms]);
 
-  const { selected, onSelect, clearSelected } = useMultiSelect<K, E>(
-    transformedData
-  );
+  const { selected, onSelect, clearSelected } = useMultiSelect<K, E>({
+    data: transformedData,
+    selectMultiple,
+    selected: selectedProp,
+    onSelect: onSelectProp,
+  });
 
   return (
     <ListContextProvider

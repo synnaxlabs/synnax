@@ -1,11 +1,25 @@
 import { useEffect } from "react";
 import { Key, useState } from "react";
 import { useKeyHeld } from "../../Hooks/useKeys";
+import SelectMultiple from "../Select/SelectMultiple";
 import { TypedListEntry } from "./Types";
 
-export const useMultiSelect = <K extends Key, E extends TypedListEntry<K>>(
-  data: E[]
-): {
+export interface useMultiSelectProps<
+  K extends Key,
+  E extends TypedListEntry<K>
+> {
+  data: E[];
+  selected?: K[];
+  selectMultiple?: boolean;
+  onSelect?: (selected: K[]) => void;
+}
+
+export const useMultiSelect = <K extends Key, E extends TypedListEntry<K>>({
+  data,
+  selected: selectedProp,
+  selectMultiple,
+  onSelect: onSelectProp,
+}: useMultiSelectProps<K, E>): {
   selected: K[];
   onSelect: (key: K) => void;
   clearSelected: () => void;
@@ -19,7 +33,10 @@ export const useMultiSelect = <K extends Key, E extends TypedListEntry<K>>(
   }, [shiftPressed]);
 
   const onSelect = (key: K) => {
-    if (shiftPressed && shiftSelected !== undefined) {
+    let nextSelected: K[] = [];
+    if (!selectMultiple) {
+      nextSelected = selected.includes(key) ? [] : [key];
+    } else if (shiftPressed && shiftSelected !== undefined) {
       // We might select in reverse order, so we need to sort the indexes.
       const [start, end] = [
         data.findIndex((v) => v.key === key),
@@ -33,18 +50,24 @@ export const useMultiSelect = <K extends Key, E extends TypedListEntry<K>>(
           .slice(1, nextKeys.length - 1)
           .every((k) => selected.includes(k))
       ) {
-        setSelected(selected.filter((k) => !nextKeys.includes(k)));
+        nextSelected = selected.filter((k) => !nextKeys.includes(k));
       } else {
-        setSelected([...selected, ...nextKeys]);
+        nextSelected = [...selected, ...nextKeys];
       }
       setShiftSelected(undefined);
     } else {
       if (shiftPressed) setShiftSelected(key);
       if (selected.includes(key))
-        setSelected(selected.filter((i) => i !== key));
-      else setSelected([...selected, key]);
+        nextSelected = selected.filter((k) => k !== key);
+      else nextSelected = [...selected, key];
     }
+    setSelected(nextSelected);
+    onSelectProp?.(nextSelected);
   };
+
+  useEffect(() => {
+    if (selectedProp) setSelected(selectedProp);
+  }, [selectedProp]);
 
   const clearSelected = () => setSelected([]);
   return { selected, onSelect, clearSelected };

@@ -10,7 +10,11 @@ import { UserPayload, UserPayloadSchema } from './user/payload';
 
 export const tokenMiddleware = (token: () => Promise<string>): Middleware => {
   return async (md, next) => {
-    md.params['Authorization'] = `Bearer ${await token()}`;
+    try {
+      md.params['Authorization'] = `Bearer ${await token()}`;
+    } catch (err) {
+      return err as Error;
+    }
     return await next(md);
   };
 };
@@ -19,7 +23,6 @@ export const InsecureCredentialsSchema = z.object({
   username: z.string(),
   password: z.string(),
 });
-
 export type InsecureCredentials = z.infer<typeof InsecureCredentialsSchema>;
 
 export const TokenResponseSchema = z.object({

@@ -56,7 +56,7 @@ export const configureStore = async ({
     middleware: (def) => [...def(), middleware(window)],
   });
 
-  window.onClose(() => store?.dispatch(closeWindow({ key: window.key() })));
+  window.onClose(() => store?.dispatch(closeWindow()));
 
   return store;
 };

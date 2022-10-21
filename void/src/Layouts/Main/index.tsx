@@ -27,5 +27,15 @@ export default function Layout() {
 }
 
 const Content = () => {
-  return <div className="main__content"></div>;
+  return (
+    <div className="main__content">
+      <Resize.Multiple>
+        <Resize.Multiple direction="horizontal">
+          <Plot />
+          <Plot />
+        </Resize.Multiple>
+        <Plot />
+      </Resize.Multiple>
+    </div>
+  );
 };

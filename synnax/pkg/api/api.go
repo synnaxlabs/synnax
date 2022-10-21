@@ -43,6 +43,7 @@ type Transport struct {
 	AuthRegistration   freighter.UnaryServer[RegistrationRequest, TokenResponse]
 	ChannelCreate      freighter.UnaryServer[ChannelCreateRequest, ChannelCreateResponse]
 	ChannelRetrieve    freighter.UnaryServer[ChannelRetrieveRequest, ChannelRetrieveResponse]
+	ConnectivityCheck  freighter.UnaryServer[types.Nil, types.Nil]
 	SegmentWriter      freighter.StreamServer[SegmentWriterRequest, SegmentWriterResponse]
 	SegmentIterator    freighter.StreamServer[SegmentIteratorRequest, SegmentIteratorResponse]
 }
@@ -50,11 +51,12 @@ type Transport struct {
 // API wraps all implemented API services into a single container. Protocol-specific
 // API implementations should use this struct during instantiation.
 type API struct {
-	provider Provider
-	config   Config
-	Auth     *AuthService
-	Segment  *SegmentService
-	Channel  *ChannelService
+	provider     Provider
+	config       Config
+	Auth         *AuthService
+	Segment      *SegmentService
+	Channel      *ChannelService
+	Connectivity *ConnectivityService
 }
 
 func (a *API) BindTo(t Transport) {
@@ -72,6 +74,7 @@ func (a *API) BindTo(t Transport) {
 	t.AuthChangePassword.Use(middleware...)
 	t.ChannelCreate.Use(middleware...)
 	t.ChannelRetrieve.Use(middleware...)
+	t.ConnectivityCheck.Use(middleware...)
 	t.SegmentWriter.Use(middleware...)
 	t.SegmentIterator.Use(middleware...)
 
@@ -81,6 +84,7 @@ func (a *API) BindTo(t Transport) {
 	t.AuthRegistration.BindHandler(typedUnaryWrapper(a.Auth.Register))
 	t.ChannelCreate.BindHandler(typedUnaryWrapper(a.Channel.Create))
 	t.ChannelRetrieve.BindHandler(typedUnaryWrapper(a.Channel.Retrieve))
+	t.ConnectivityCheck.BindHandler(typedUnaryWrapper(a.Connectivity.Check))
 	t.SegmentWriter.BindHandler(typedStreamWrapper(a.Segment.Write))
 	t.SegmentIterator.BindHandler(typedStreamWrapper(a.Segment.Iterate))
 }

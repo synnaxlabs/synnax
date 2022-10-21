@@ -12,7 +12,7 @@ export interface StoreState {
 }
 
 export type CreateWindow = PayloadAction<WindowProps>;
-export type CloseWindow = PayloadAction<string>;
+export type CloseWindow = PayloadAction<string | undefined>;
 
 export const initialState: DriftState = {
   numCreated: 1,
@@ -28,7 +28,7 @@ export const slice = createSlice({
       state.numCreated += 1;
       if (key) state.windows[key] = payload as KeyedWindowProps;
     },
-    closeWindow: ({ windows }, { payload: { key } }: CreateWindow) => {
+    closeWindow: ({ windows }, { payload: key }: CloseWindow) => {
       if (key) delete windows[key];
     },
   },
@@ -56,7 +56,8 @@ export const executeAction = ({
       if (!winExists(s, keyedProps.key)) window.createWindow(keyedProps);
       return;
     case closeWindow.type:
-      const { payload: key } = action as CloseWindow;
+      const { payload } = action as CloseWindow;
+      const key = payload || window.key();
       if (winExists(s, key)) window.close(key);
       return;
   }

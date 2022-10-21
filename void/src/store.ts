@@ -1,7 +1,15 @@
 import { combineReducers } from "@reduxjs/toolkit";
-import { slice, TauriWindow, configureStore } from "@synnaxlabs/drift";
+import {
+  slice as driftSlice,
+  TauriWindow,
+  configureStore,
+} from "@synnaxlabs/drift";
+import clusterSlice from "./cluster/slice";
 
 export default configureStore({
   window: new TauriWindow(),
-  reducer: combineReducers({ drift: slice.reducer }),
+  reducer: combineReducers({
+    cluster: clusterSlice.reducer,
+    drift: driftSlice.reducer,
+  }),
 });

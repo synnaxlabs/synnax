@@ -13,7 +13,9 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
     <Router>
       <Provider store={store}>
-        <Theme.Provider themes={[Theme.themes.synnaxDark]}>
+        <Theme.Provider
+          themes={[Theme.themes.synnaxDark, Theme.themes.synnaxLight]}
+        >
           <Routes>
             <Route path="/" element={<Main />} />
             <Route path="/cluster/connect" element={<ConnectCluster />} />
