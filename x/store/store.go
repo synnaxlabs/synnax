@@ -5,7 +5,9 @@
 package store
 
 import (
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/override"
 	"io"
 	"sync"
 )
@@ -17,9 +19,9 @@ type State = any
 type Reader[S State] interface {
 	// CopyState returns a copy of the current state.
 	CopyState() S
-	// ReadState returns a read-only view of the current state.
+	// PeekState returns a read-only view of the current state.
 	// Modifications to the returned state may cause undefined behavior.
-	ReadState() S
+	PeekState() S
 }
 
 // Writer is a writable Store.
@@ -67,8 +69,8 @@ func (c *core[S]) CopyState() S {
 	return c.copy(c.state)
 }
 
-// ReadState implements Store.
-func (c *core[S]) ReadState() S {
+// PeekState implements Store.
+func (c *core[S]) PeekState() S {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.state
@@ -84,19 +86,40 @@ type Observable[S State] interface {
 }
 
 type observable[S State] struct {
+	ObservableConfig[S]
 	Store[S]
 	observe.Observer[S]
 	mu sync.Mutex
 }
 
-func ObservableWrap[S State](store Store[S]) Observable[S] {
-	return &observable[S]{Store: store, Observer: observe.New[S]()}
+type ObservableConfig[S State] struct {
+	ShouldNotify func(prevState S, nextState S) bool
+}
+
+var _ config.Config[ObservableConfig[any]] = ObservableConfig[any]{}
+
+func (o ObservableConfig[S]) Override(
+	other ObservableConfig[S],
+) ObservableConfig[S] {
+	o.ShouldNotify = override.Nil(o.ShouldNotify, other.ShouldNotify)
+	return o
+}
+
+func (o ObservableConfig[S]) Validate() error {
+	return nil
+}
+
+func ObservableWrap[S State](store Store[S], cfgs ...ObservableConfig[S]) Observable[S] {
+	cfg, _ := config.OverrideAndValidate(ObservableConfig[S]{}, cfgs...)
+	return &observable[S]{ObservableConfig: cfg, Store: store, Observer: observe.New[S]()}
 }
 
 // SetState implements StorageKey.CopyState.
 func (o *observable[S]) SetState(state S) {
+	if o.ShouldNotify == nil || o.ShouldNotify(o.PeekState(), state) {
+		o.Observer.GoNotify(state)
+	}
 	o.Store.SetState(state)
-	o.Observer.Notify(state)
 }
 
 // |||||| FLUSHABLE ||||||

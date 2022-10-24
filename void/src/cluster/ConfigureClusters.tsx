@@ -12,13 +12,13 @@ function ConfigureClusters() {
   return (
     <Space empty>
       <Header
-        level="p"
+        level="h4"
         divided
         icon={<AiFillDatabase />}
         actions={[
           {
             children: <AiOutlinePlus />,
-            onClick: () => createConnectClusterWindow(dispatch),
+            onClick: () => dispatch(createConnectClusterWindow()),
           },
         ]}
       >

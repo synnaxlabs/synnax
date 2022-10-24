@@ -3,8 +3,7 @@
   border: var(--pluto-border-width) solid var(--pluto-border-color);
   background: none;
   color: var(--pluto-text-color);
-  padding-left: calc(var(--pluto-base-size) * 2);
-  padding-right: calc(var(--pluto-base-size) * 2);
+  padding: 0 2rem;
 }
 
 .pluto-input__input::placeholder {
@@ -12,14 +11,14 @@
 }
 
 .pluto-input__input--medium {
-  height: calc(var(--pluto-base-size) * 5);
+  height: 4.5rem;
   font-size: var(--pluto-p-size);
   font-weight: var(--pluto-p-weight);
   line-height: var(--pluto-p-line-height);
 }
 
 .pluto-input__input--small {
-  height: calc(var(--pluto-base-size) * 4);
+  height: 4rem;
   font-size: var(--pluto-small-size);
   font-weight: var(--pluto-small-font-weight);
   line-height: var(--pluto-small-line-height);

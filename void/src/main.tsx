@@ -14,11 +14,11 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <Router>
       <Provider store={store}>
         <Theme.Provider
-          themes={[Theme.themes.synnaxDark, Theme.themes.synnaxLight]}
+          themes={[Theme.themes.synnaxDark, Theme.themes.synnaxDark]}
         >
           <Routes>
             <Route path="/" element={<Main />} />
-            <Route path="/cluster/connect" element={<ConnectCluster />} />
+            <Route path="/cluster/connect/:key" element={<ConnectCluster />} />
           </Routes>
         </Theme.Provider>
       </Provider>

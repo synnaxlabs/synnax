@@ -42,60 +42,71 @@ export const applyThemeAsCssVars = (
 
   // |||| SIZES ||||
 
-  setProperty(element, "--pluto-base-size", theme.sizes.base);
-  setProperty(element, "--pluto-border-radius", theme.sizes.border.radius);
-  setProperty(element, "--pluto-border-width", theme.sizes.border.width);
-  setProperty(element, "--pluto-font-family", theme.typography.family);
+  setProperty(element, "--pluto-base-size", theme.sizes.base, "px");
+  setProperty(
+    element,
+    "--pluto-border-radius",
+    theme.sizes.border.radius,
+    "px"
+  );
+  setProperty(element, "--pluto-border-width", theme.sizes.border.width, "px");
 
   // |||| TYPOGRAPHY ||||
 
+  setProperty(element, "--pluto-font-family", theme.typography.family);
+
   // || H1 ||
 
-  setProperty(element, "--pluto-h1-size", theme.typography.h1.size);
+  setProperty(element, "--pluto-h1-size", theme.typography.h1.size, "rem");
   setProperty(
     element,
     "--pluto-h1-line-height",
-    theme.typography.h1.lineHeight
+    theme.typography.h1.lineHeight,
+    "rem"
   );
   setProperty(element, "--pluto-h1-weight", theme.typography.h1.weight);
 
   // || H2 ||
 
-  setProperty(element, "--pluto-h2-size", theme.typography.h2.size);
+  setProperty(element, "--pluto-h2-size", theme.typography.h2.size, "rem");
   setProperty(
     element,
     "--pluto-h2-line-height",
-    theme.typography.h2.lineHeight
+    theme.typography.h2.lineHeight,
+    "rem"
   );
   setProperty(element, "--pluto-h2-weight", theme.typography.h2.weight);
 
   // || H3 ||
 
-  setProperty(element, "--pluto-h3-size", theme.typography.h3.size);
+  setProperty(element, "--pluto-h3-size", theme.typography.h3.size, "rem");
   setProperty(
     element,
     "--pluto-h3-line-height",
-    theme.typography.h3.lineHeight
+    theme.typography.h3.lineHeight,
+    "rem"
   );
   setProperty(element, "--pluto-h3-weight", theme.typography.h3.weight);
 
   // || H4 ||
 
-  setProperty(element, "--pluto-h4-size", theme.typography.h4.size);
+  setProperty(element, "--pluto-h4-size", theme.typography.h4.size, "rem");
   setProperty(
     element,
     "--pluto-h4-line-height",
-    theme.typography.h4.lineHeight
+    theme.typography.h4.lineHeight,
+    "rem"
   );
   setProperty(element, "--pluto-h4-weight", theme.typography.h4.weight);
 
   // || H5 ||
 
-  setProperty(element, "--pluto-h5-size", theme.typography.h5.size);
+  setProperty(element, "--pluto-h5-size", theme.typography.h5.size, "rem");
   setProperty(
     element,
     "--pluto-h5-line-height",
-    theme.typography.h5.lineHeight
+    theme.typography.h5.lineHeight,
+    "rem"
   );
   setProperty(element, "--pluto-h5-weight", theme.typography.h5.weight);
   setProperty(
@@ -106,17 +117,28 @@ export const applyThemeAsCssVars = (
 
   // || P ||
 
-  setProperty(element, "--pluto-p-size", theme.typography.p.size);
-  setProperty(element, "--pluto-p-line-height", theme.typography.p.lineHeight);
+  setProperty(element, "--pluto-p-size", theme.typography.p.size, "rem");
+  setProperty(
+    element,
+    "--pluto-p-line-height",
+    theme.typography.p.lineHeight,
+    "rem"
+  );
   setProperty(element, "--pluto-p-weight", theme.typography.p.weight);
 
   // || SMALL ||
 
-  setProperty(element, "--pluto-small-size", theme.typography.small.size);
+  setProperty(
+    element,
+    "--pluto-small-size",
+    theme.typography.small.size,
+    "rem"
+  );
   setProperty(
     element,
     "--pluto-small-line-height",
-    theme.typography.small.lineHeight
+    theme.typography.small.lineHeight,
+    "rem"
   );
   setProperty(element, "--pluto-small-weight", theme.typography.small.weight);
 };
@@ -124,13 +146,12 @@ export const applyThemeAsCssVars = (
 const setProperty = (
   element: HTMLElement,
   property: string,
-  value: string | number | null | undefined
+  value: string | number | null | undefined,
+  numberUnit: string = ""
 ) => {
-  if (value === null || value === undefined) {
-    return;
-  }
+  if (value === null || value === undefined) return;
   if (typeof value === "number") {
-    value = value + "px";
+    value = `${value}${numberUnit}`;
   }
   element.style.setProperty(property, String(value));
 };

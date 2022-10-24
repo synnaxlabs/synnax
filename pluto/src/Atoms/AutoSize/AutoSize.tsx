@@ -1,4 +1,11 @@
-import { cloneElement, ComponentType, ReactElement, useRef } from "react";
+import {
+  cloneElement,
+  ComponentType,
+  ReactElement,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { useResize, useResizeOpts } from "../../Hooks";
 
 export interface AutoSizeProps
@@ -6,13 +13,11 @@ export interface AutoSizeProps
     useResizeOpts {
   children: ComponentType<{ width: number; height: number }> | ReactElement;
 }
-
-export default function AutoSize({
+const AutoSize = ({
   children: Children,
-  style,
   debounce,
   ...props
-}: AutoSizeProps) {
+}: AutoSizeProps) => {
   const ref = useRef<HTMLDivElement>(null);
   const { width, height } = useResize(ref, { debounce });
   let content: ReactElement =
@@ -22,8 +27,10 @@ export default function AutoSize({
       cloneElement(Children, { width, height })
     );
   return (
-    <div ref={ref} style={style} {...props}>
+    <div ref={ref} {...props}>
       {content}
     </div>
   );
-}
+};
+
+export default AutoSize;

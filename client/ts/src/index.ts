@@ -14,5 +14,7 @@ export {
   UnexpectedError,
   ValidationError,
 } from './lib/errors';
-export { Channel } from './lib/channel/client';
-export { Connectivity } from './lib/connectivity';
+export * from './lib/channel';
+export * from './lib/ontology';
+export * from './lib/connectivity';
+export * from './lib/ontology';

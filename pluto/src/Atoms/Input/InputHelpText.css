@@ -1,5 +1,5 @@
 .pluto-input-help-text {
-    margin-left: var(--pluto-base-size);
+    margin-left: 1rem;
 }
 
 .pluto-input-help-text--error {

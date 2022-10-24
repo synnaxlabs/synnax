@@ -1,3 +1,10 @@
 .connect-cluster__content {
-    padding: calc(var(--pluto-base-size) * 2) calc(var(--pluto-base-size) * 3);
+    padding: 2rem 3rem;
+}
+.connect-cluster__input__host {
+    flex-grow: 1;
+}
+
+.connect-cluster__input__port {
+    width: 20rem;
 }

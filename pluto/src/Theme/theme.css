@@ -11,6 +11,7 @@ html {
   margin: 0;
   height: 100%;
   width: 100%;
+  font-size: var(--pluto-base-size);
 }
 
 body {
@@ -73,13 +74,7 @@ h6 {
   font-weight: var(--pluto-small-weight);
 }
 
-label {
-  font-size: var(--pluto-p-size);
-  line-height: var(--pluto-p-line-height);
-  font-weight: var(--pluto-p-weight);
-}
-
-p {
+p, label {
   font-size: var(--pluto-p-size);
   line-height: var(--pluto-p-line-height);
   font-weight: var(--pluto-p-weight);
@@ -87,7 +82,7 @@ p {
 
 
 ::-webkit-scrollbar {
-  width: calc(var(--pluto-base-size) * 1.5);
+  width: 1.5rem;
 }
 
 ::-webkit-scrollbar-track {

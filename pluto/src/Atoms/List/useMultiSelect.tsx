@@ -1,39 +1,37 @@
 import { useEffect } from "react";
-import { Key, useState } from "react";
+import { useState } from "react";
 import { useKeyHeld } from "../../Hooks/useKeys";
-import SelectMultiple from "../Select/SelectMultiple";
-import { TypedListEntry } from "./Types";
+import { ListEntry } from "./Types";
 
-export interface useMultiSelectProps<
-  K extends Key,
-  E extends TypedListEntry<K>
-> {
+export interface useMultiSelectProps<E extends ListEntry> {
   data: E[];
-  selected?: K[];
+  selected?: string[];
   selectMultiple?: boolean;
-  onSelect?: (selected: K[]) => void;
+  onSelect?: (selected: string[]) => void;
 }
 
-export const useMultiSelect = <K extends Key, E extends TypedListEntry<K>>({
+export const useMultiSelect = <E extends ListEntry>({
   data,
   selected: selectedProp,
   selectMultiple,
   onSelect: onSelectProp,
-}: useMultiSelectProps<K, E>): {
-  selected: K[];
-  onSelect: (key: K) => void;
+}: useMultiSelectProps<E>): {
+  selected: string[];
+  onSelect: (key: string) => void;
   clearSelected: () => void;
 } => {
-  const [selected, setSelected] = useState<K[]>([]);
-  const [shiftSelected, setShiftSelected] = useState<K | undefined>(undefined);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [shiftSelected, setShiftSelected] = useState<string | undefined>(
+    undefined
+  );
   const shiftPressed = useKeyHeld("Shift");
 
   useEffect(() => {
     if (!shiftPressed) setShiftSelected(undefined);
   }, [shiftPressed]);
 
-  const onSelect = (key: K) => {
-    let nextSelected: K[] = [];
+  const onSelect = (key: string) => {
+    let nextSelected: string[] = [];
     if (!selectMultiple) {
       nextSelected = selected.includes(key) ? [] : [key];
     } else if (shiftPressed && shiftSelected !== undefined) {
@@ -61,6 +59,7 @@ export const useMultiSelect = <K extends Key, E extends TypedListEntry<K>>({
         nextSelected = selected.filter((k) => k !== key);
       else nextSelected = [...selected, key];
     }
+    console.log(nextSelected);
     setSelected(nextSelected);
     onSelectProp?.(nextSelected);
   };

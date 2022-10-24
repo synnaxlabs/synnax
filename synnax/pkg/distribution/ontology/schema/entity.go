@@ -1,36 +1,38 @@
 package schema
 
 type Entity struct {
-	schema *Schema
-	data   map[string]interface{}
+	Schema *Schema                `json:"schema" msgpack:"schema"`
+	Name   string                 `json:"name" msgpack:"name"`
+	Data   map[string]interface{} `json:"data" msgpack:"data"`
 }
 
 func Get[V Value](d Entity, k string) (v V, ok bool) {
-	rv, ok := d.data[k]
+	rv, ok := d.Data[k]
 	if !ok {
 		return v, false
 	}
 	v, ok = rv.(V)
 	if !ok {
-		panic("[schema] - invalid field type")
+		panic("[Schema] - invalid field type")
 	}
 	return v, true
 }
 
 func Set[V Value](D Entity, k string, v V) {
-	f, ok := D.schema.Fields[k]
+	f, ok := D.Schema.Fields[k]
 	if !ok {
-		panic("[schema] - field not found")
+		panic("[Schema] - field not found")
 	}
 	if !f.Type.AssertValue(v) {
-		panic("[schema] - invalid field type")
+		panic("[Schema] - invalid field type")
 	}
-	D.data[k] = v
+	D.Data[k] = v
 }
 
-func NewEntity(schema *Schema) Entity {
+func NewEntity(schema *Schema, name string) Entity {
 	return Entity{
-		schema: schema,
-		data:   map[string]interface{}{},
+		Schema: schema,
+		Name:   name,
+		Data:   map[string]interface{}{},
 	}
 }

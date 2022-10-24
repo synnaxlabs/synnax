@@ -1,10 +1,27 @@
 import { useEffect, useLayoutEffect, useState } from "react";
 import { ResizeObserver } from "@juggle/resize-observer";
+import debounceF from "../util/debounce";
 
 export type useResizeOpts = {
   /**  Debounce the resize event by this many milliseconds. 
   Useful for preventing expensive renders until rezizing has stopped. */
   debounce?: number;
+};
+
+/** Checks if any element on the dom is currently being dragged */
+const useDragging = (): boolean => {
+  const [dragging, setDragging] = useState(false);
+  useEffect(() => {
+    const onMouseDown = () => setDragging(true);
+    const onMouseUp = () => setDragging(false);
+    document.addEventListener("mousedown", onMouseDown);
+    document.addEventListener("mouseup", onMouseUp);
+    return () => {
+      document.removeEventListener("mousedown", onMouseDown);
+      document.removeEventListener("mouseup", onMouseUp);
+    };
+  }, []);
+  return dragging;
 };
 
 /**
@@ -19,33 +36,19 @@ const useResize = (
   { debounce = 0 }: useResizeOpts = { debounce: 0 }
 ) => {
   const [size, setSize] = useState({ width: 0, height: 0 });
+
+  const dragging = useDragging();
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    let timeoutF: NodeJS.Timeout;
-    const resizeObserver = new ResizeObserver(([entry]) => {
-      const f = () => {
-        const { width, height } = entry.target.getBoundingClientRect();
-        setSize({ width, height });
-      };
-      if (debounce != 0) {
-        clearTimeout(timeoutF);
-        timeoutF = setTimeout(f, debounce);
-      } else {
-        f();
-      }
-    });
+    const f = debounceF((el: Element) => {
+      const { width, height } = el.getBoundingClientRect();
+      setSize({ width, height });
+    }, debounce);
+    f(el);
+    const resizeObserver = new ResizeObserver(([entry]) => f(entry.target));
     resizeObserver.observe(el);
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, [ref]);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el || size.width != 0 || size.height != 0) return;
-    const { width, height } = el.getBoundingClientRect();
-    setSize({ width, height });
+    return () => resizeObserver.disconnect();
   }, [ref]);
 
   return size;

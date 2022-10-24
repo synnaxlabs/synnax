@@ -1,20 +1,18 @@
 import { PropsWithChildren, useContext } from "react";
 import { createContext } from "react";
 import {
-  UntypedListEntry,
-  Key,
+  ListEntry,
   UntypedListColumn,
   UntypedListTransform,
-  TypedListEntry,
   TypedListColumn,
   TypedListTransform,
 } from "./Types";
 
 export interface ListContextProps {
-  data: UntypedListEntry[];
-  sourceData: UntypedListEntry[];
-  selected: Key[];
-  onSelect: (key: Key) => void;
+  data: ListEntry[];
+  sourceData: ListEntry[];
+  selected: string[];
+  onSelect: (key: string) => void;
   clearSelected: () => void;
   columnar: {
     columns: UntypedListColumn[];
@@ -26,22 +24,19 @@ export interface ListContextProps {
   removeTransform: (key: string) => void;
 }
 
-export interface TypedListContextProps<
-  K extends Key,
-  E extends TypedListEntry<K>
-> {
+export interface TypedListContextProps<E extends ListEntry> {
   columnar: {
-    columns: TypedListColumn<K, E>[];
+    columns: TypedListColumn<E>[];
     setColumns: (
-      cbk: (columns: TypedListColumn<K, E>[]) => TypedListColumn<K, E>[]
+      cbk: (columns: TypedListColumn<E>[]) => TypedListColumn<E>[]
     ) => void;
   };
   data: E[];
   sourceData: E[];
-  selected: K[];
-  onSelect: (key: K) => void;
+  selected: string[];
+  onSelect: (key: string) => void;
   clearSelected: () => void;
-  setTransform: (key: string, transform: TypedListTransform<K, E>) => void;
+  setTransform: (key: string, transform: TypedListTransform<E>) => void;
   removeTransform: (key: string) => void;
 }
 
@@ -59,27 +54,19 @@ export const ListContext = createContext<ListContextProps>({
   onSelect: () => {},
 });
 
-export const useListContext = <
-  K extends Key,
-  E extends TypedListEntry<K>
->() => {
-  return useContext(ListContext) as unknown as TypedListContextProps<K, E>;
+export const useListContext = <E extends ListEntry>() => {
+  return useContext(ListContext) as unknown as TypedListContextProps<E>;
 };
 
-export interface ListContextProviderProps<
-  K extends Key,
-  E extends TypedListEntry<K>
-> extends PropsWithChildren<any> {
-  value: TypedListContextProps<K, E>;
+export interface ListContextProviderProps<E extends ListEntry>
+  extends PropsWithChildren<any> {
+  value: TypedListContextProps<E>;
 }
 
-export const ListContextProvider = <
-  K extends Key,
-  E extends TypedListEntry<K>
->({
+export const ListContextProvider = <E extends ListEntry>({
   value,
   children,
-}: ListContextProviderProps<K, E>) => {
+}: ListContextProviderProps<E>) => {
   return (
     <ListContext.Provider value={value as unknown as ListContextProps}>
       {children}

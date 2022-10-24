@@ -6,14 +6,15 @@ function RangeSelector() {
     <Space>
       <Header
         level="p"
-        text="Range Selector"
         icon={<AiFillBoxPlot />}
         actions={[
           {
-            icon: <AiOutlinePlus />,
+            children: <AiOutlinePlus />,
           },
         ]}
-      />
+      >
+        Range Selection
+      </Header>
     </Space>
   );
 }

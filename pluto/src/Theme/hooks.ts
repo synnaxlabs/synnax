@@ -6,5 +6,5 @@ export const useFont = (level: TypographyLevel) => {
     theme: { typography },
   } = useThemeContext();
   const { weight, size } = typography[level];
-  return `${weight} ${typography.family} ${size}px`;
+  return `${weight} ${typography.family} ${size}rem`;
 };

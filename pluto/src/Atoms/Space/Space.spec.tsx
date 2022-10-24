@@ -39,8 +39,6 @@ describe("Space", () => {
     expect(c.getByText("Hello")).toBeTruthy();
     const world = c.getByText("World");
     expect(world).toBeTruthy();
-    expect(world.parentElement?.style.gap).toBe(
-      "calc(var(--pluto-base-size) * 2)"
-    );
+    expect(world.parentElement?.style.gap).toBe("2rem");
   });
 });

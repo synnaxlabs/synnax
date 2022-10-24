@@ -1,4 +1,5 @@
-import { cloneElement } from "react";
+import { thresholdFreedmanDiaconis } from "d3";
+import React, { Children, cloneElement, ReactElement } from "react";
 import { Theme } from "../../Theme";
 import { Divider } from "../Divider";
 import Space, { SpaceProps } from "../Space/Space";
@@ -8,8 +9,8 @@ import { TypographyLevel } from "./Types";
 export interface BaseTextWithIconProps
   extends Omit<SpaceProps, "children">,
     BaseTextProps {
-  startIcon?: React.ReactElement;
-  endIcon?: React.ReactElement;
+  startIcon?: ReactElement | ReactElement[];
+  endIcon?: ReactElement | ReactElement[];
   children?: string | number;
   divided?: boolean;
 }
@@ -25,32 +26,36 @@ export default function TextWithIcon({
   color,
   ...props
 }: TextWithIconProps) {
-  const formattedStartIcon =
-    startIcon && useFormattedIcon(startIcon, level, color);
-  const formattedEndIcon = endIcon && useFormattedIcon(endIcon, level, color);
+  const endIcons = startIcon && useFormattedIcons(startIcon, level, color);
+  const startIcons = endIcon && useFormattedIcons(endIcon, level, color);
   return (
     <Space direction="horizontal" size="small" align="center" {...props}>
-      {formattedStartIcon && formattedStartIcon}
+      {endIcons && endIcons.map((i) => i)}
       {divided && <Divider direction="vertical" />}
       {children && (
         <Text color={color} level={level}>
           {children}
         </Text>
       )}
-      {divided && formattedEndIcon && <Divider direction="vertical" />}
-      {formattedEndIcon && formattedEndIcon}
+      {divided && startIcons && <Divider direction="vertical" />}
+      {startIcons && startIcons.map((i) => i)}
     </Space>
   );
 }
 
-const useFormattedIcon = (
-  icon: React.ReactElement,
+const useFormattedIcons = (
+  icon: ReactElement | ReactElement[],
   level: TypographyLevel,
   color?: string
-) => {
+): ReactElement[] => {
   const { theme } = Theme.useContext();
-  const size = theme.typography[level]?.size;
-  if (!size) return <h1>Hello</h1>;
+  const size = Number(theme.typography[level]?.lineHeight) * theme.sizes.base;
   color = color || theme.colors.text;
-  return cloneElement(icon, { size, color });
+  return toArray(icon).map((icon) =>
+    cloneElement(icon, { size, color, ...icon.props })
+  );
+};
+
+const toArray = (children: ReactElement | ReactElement[]): ReactElement[] => {
+  return Children.toArray(children) as ReactElement[];
 };

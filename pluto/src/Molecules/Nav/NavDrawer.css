@@ -10,5 +10,5 @@
 
 
 .pluto-navdrawer__menu {
-    padding: calc(var(--pluto-base-size) * 2) var(--pluto-base-size);
+    padding: 1rem 1rem;
 }

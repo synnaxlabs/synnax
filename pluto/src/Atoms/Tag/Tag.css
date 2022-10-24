@@ -4,7 +4,7 @@
 }
 
 .pluto-tag {
-    padding: calc(var(--pluto-base-size) / 2) calc(var(--pluto-base-size) * 1.5);
+    padding: 0.5rem 1.5rem;
     border-radius: var(--pluto-border-radius);
     user-select: none;
     width: fit-content;

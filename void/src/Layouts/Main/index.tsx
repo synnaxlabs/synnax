@@ -1,4 +1,5 @@
-import { Resize, Space } from "@synnaxlabs/pluto";
+import { Mosaic, useMosaic, MosaicNode, Space } from "@synnaxlabs/pluto";
+import { useClientConnector } from "../../cluster/useActiveClient";
 import Plot from "../Plot/Plot";
 import BottomNavbar from "./BottomNavbar";
 import "./index.css";
@@ -6,7 +7,41 @@ import LeftNavbar from "./LeftNavbar";
 import RightNavbar from "./RightNavbar";
 import TopNavbar from "./TopNavbar";
 
+const initialTree: MosaicNode = {
+  key: 0,
+  level: 0,
+  direction: "horizontal",
+  first: {
+    level: 1,
+    key: 1,
+    tabs: [
+      {
+        tabKey: "1",
+        title: "Tab 1",
+        content: <Plot />,
+      },
+    ],
+  },
+  last: {
+    level: 1,
+    key: 2,
+    tabs: [
+      {
+        tabKey: "2",
+        title: "Tab 2",
+        content: <Plot />,
+      },
+      {
+        tabKey: "3",
+        title: "Tab 3",
+        content: <Plot />,
+      },
+    ],
+  },
+};
+
 export default function Layout() {
+  useClientConnector();
   return (
     <Space direction="vertical" size="large" className="main__container" empty>
       <TopNavbar />
@@ -27,15 +62,10 @@ export default function Layout() {
 }
 
 const Content = () => {
+  const { insertTab, ...props } = useMosaic({ initialTree });
   return (
     <div className="main__content">
-      <Resize.Multiple>
-        <Resize.Multiple direction="horizontal">
-          <Plot />
-          <Plot />
-        </Resize.Multiple>
-        <Plot />
-      </Resize.Multiple>
+      <Mosaic {...props} />
     </div>
   );
 };

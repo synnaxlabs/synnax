@@ -1,4 +1,5 @@
 import { ComponentMeta, ComponentStory } from "@storybook/react";
+import { AutoSize } from "../AutoSize";
 import List from "./List";
 
 export default {

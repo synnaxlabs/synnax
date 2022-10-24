@@ -2,18 +2,18 @@ import { ComponentType, useEffect } from "react";
 import { useSearch } from "../../Hooks";
 import { Input as DefaultInput, InputProps } from "../Input";
 import { useListContext } from "./ListContext";
-import { Key, TypedListEntry } from "./Types";
+import { ListEntry } from "./Types";
 import "./ListSearch.css";
 
-export interface ListSearchProps<K extends Key, E extends TypedListEntry<K>> {
+export interface ListSearchProps<E extends ListEntry> {
   Input?: ComponentType<InputProps>;
 }
 
-export default function ListSearch<K extends Key, E extends TypedListEntry<K>>({
+export default function ListSearch<E extends ListEntry>({
   Input = DefaultInput,
-}: ListSearchProps<K, E>) {
+}: ListSearchProps<E>) {
   const [query, setQuery, search] = useSearch<E>();
-  const { setTransform } = useListContext<K, E>();
+  const { setTransform } = useListContext<E>();
   useEffect(() => setTransform("search", search), [search]);
   return (
     <Input

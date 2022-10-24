@@ -3,9 +3,8 @@ export type { ListProps } from "./List";
 export type { ListColumnHeaderProps } from "./ListColumn";
 export type { ListContextProps } from "./ListContext";
 export type {
-  UntypedListColumn as UntypedColumn,
-  TypedListColumn as TypedColumn,
-  UntypedListEntry,
-  TypedListEntry,
+  UntypedListColumn,
+  TypedListColumn,
+  ListEntry,
   ListItemProps,
 } from "./Types";

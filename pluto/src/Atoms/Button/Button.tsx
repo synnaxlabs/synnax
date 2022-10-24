@@ -4,18 +4,19 @@ import { ComponentSizeTypographyLevels, Text } from "../Typography";
 import clsx from "clsx";
 import { ComponentSize } from "../../util/types";
 
-interface BaseButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+export interface BaseButtonProps
+  extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: "filled" | "outlined" | "text";
   size?: ComponentSize;
 }
 
 export interface ButtonProps extends BaseButtonProps {
   children: string | number;
-  startIcon?: ReactElement;
-  endIcon?: ReactElement;
+  startIcon?: ReactElement | ReactElement[];
+  endIcon?: ReactElement | ReactElement[];
 }
 
-function Button({
+const Button = ({
   size = "medium",
   variant = "filled",
   className,
@@ -23,7 +24,7 @@ function Button({
   endIcon,
   children,
   ...props
-}: ButtonProps) {
+}: ButtonProps) => {
   return (
     <button
       className={clsx(
@@ -46,39 +47,6 @@ function Button({
       </Text.WithIcon>
     </button>
   );
-}
-
-export interface ButtonIconOnlyProps extends BaseButtonProps {
-  /** The icon to render */
-  children: React.ReactElement;
-}
-
-const ButtonIconOnly = ({
-  children,
-  className,
-  variant = "text",
-  size = "medium",
-  ...props
-}: ButtonIconOnlyProps) => {
-  return (
-    <button
-      className={clsx(
-        "pluto-btn pluto-btn-icon",
-        "pluto-btn--" + size,
-        "pluto-btn--" + variant,
-        className
-      )}
-      {...props}
-    >
-      {cloneElement(children, { className: "pluto-btn-icon__icon" })}
-    </button>
-  );
 };
-
-/**
- * A button that only renders an icon.
- * @param props - The props for the button. See ButtonIconOnlyProps.
- */
-Button.IconOnly = ButtonIconOnly;
 
 export default Button;

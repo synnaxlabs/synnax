@@ -2,7 +2,6 @@ import { URL } from '@synnaxlabs/freighter';
 import { z } from 'zod';
 
 import AuthenticationClient from './auth';
-import ChannelClient from './channel/client';
 import ChannelCreator from './channel/creator';
 import Registry from './channel/registry';
 import ChannelRetriever from './channel/retriever';
@@ -10,6 +9,8 @@ import ConnectivityClient from './connectivity';
 import SegmentClient from './segment/client';
 import { TimeSpan } from './telem';
 import Transport from './transport';
+import OntologyClient from './ontology/client';
+import { ChannelClient } from './channel';
 
 export const synnaxPropsSchema = z.object({
   host: z.string().min(1),
@@ -33,6 +34,7 @@ export default class Synnax {
   channel: ChannelClient;
   auth: AuthenticationClient | undefined;
   connectivity: ConnectivityClient;
+  ontology: OntologyClient;
 
   /**
    * @param props.host - Hostname of a node in the cluster.
@@ -66,5 +68,10 @@ export default class Synnax {
       this.transport.getClient(),
       connectivityPollFrequency
     );
+    this.ontology = new OntologyClient(this.transport);
+  }
+
+  close() {
+    this.connectivity.stopChecking();
   }
 }

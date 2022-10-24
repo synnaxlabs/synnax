@@ -1,11 +1,11 @@
 package store_test
 
 import (
-	"github.com/synnaxlabs/x/version"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen/internal/cluster/store"
 	"github.com/synnaxlabs/aspen/internal/node"
+	"github.com/synnaxlabs/x/version"
 )
 
 var _ = Describe("Store", func() {
@@ -22,11 +22,11 @@ var _ = Describe("Store", func() {
 
 	})
 
-	Describe("Set and Node", func() {
+	Describe("SetNode and Node", func() {
 
 		It("Should set a node in Store", func() {
-			s.Set(node.Node{ID: 1})
-			n, ok := s.Get(1)
+			s.SetNode(node.Node{ID: 1})
+			n, ok := s.GetNode(1)
 			Expect(ok).To(BeTrue())
 			Expect(n.ID).To(Equal(node.ID(1)))
 		})
@@ -37,18 +37,18 @@ var _ = Describe("Store", func() {
 
 		It("Should add nonexistent nodes", func() {
 			s.Merge(node.Group{1: node.Node{ID: 1}})
-			n, ok := s.Get(1)
+			n, ok := s.GetNode(1)
 			Expect(ok).To(BeTrue())
 			Expect(n.ID).To(Equal(node.ID(1)))
 		})
 
 		It("Should replaces nodes with an old heartbeat", func() {
-			s.Set(node.Node{ID: 1})
+			s.SetNode(node.Node{ID: 1})
 			s.Merge(node.Group{1: node.Node{ID: 1, Heartbeat: version.Heartbeat{
 				Version:    1,
 				Generation: 0,
 			}}})
-			n, ok := s.Get(1)
+			n, ok := s.GetNode(1)
 			Expect(ok).To(BeTrue())
 			Expect(n.ID).To(Equal(node.ID(1)))
 			Expect(n.Heartbeat.Version).To(Equal(uint32(1)))

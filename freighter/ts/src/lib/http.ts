@@ -1,4 +1,4 @@
-import axios, { AxiosRequestConfig } from 'axios';
+import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
 import { ZodSchema } from 'zod';
 
 import { EncoderDecoder } from './encoder';
@@ -77,7 +77,12 @@ class Core extends MiddlewareCollector {
       { target: request.url, protocol: 'http', params: {} },
       async (md: MetaData): Promise<Error | undefined> => {
         request.headers = { ...request.headers, ...this.headers, ...md.params };
-        const httpRes = await axios.request(request);
+        let httpRes: AxiosResponse;
+        try {
+          httpRes = await axios.request(request);
+        } catch (err) {
+          return err as Error;
+        }
         if (httpRes.status < 200 || httpRes.status >= 300) {
           try {
             const err = this.encoder.decode(httpRes.data, ErrorPayloadSchema);

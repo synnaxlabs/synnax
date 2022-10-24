@@ -1,8 +1,6 @@
 import clsx from "clsx";
 import { ReactElement, useState } from "react";
-import Button from "../../Atoms/Button/Button";
-import Resize from "../../Atoms/Resize/Resize";
-import Space from "../../Atoms/Space/Space";
+import { Button, Resize, Space } from "../../Atoms";
 import { swapDirection } from "../../util/spatial";
 import NavBar, { NavBarProps, useNavBar } from "../Nav/NavBar";
 import "./NavDrawer.css";

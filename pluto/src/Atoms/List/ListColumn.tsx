@@ -7,37 +7,33 @@ import { AiFillCaretDown, AiFillCaretUp } from "react-icons/ai";
 import { sortFunc } from "../../util/sort";
 import { useListContext } from "./ListContext";
 import {
-  Key,
+  ListEntry,
   ListItemProps,
   TypedListColumn,
-  TypedListEntry,
   TypedListTransform,
 } from "./Types";
 import clsx from "clsx";
 import "./ListColumn.css";
 import { getTextWidth } from "../../util/canvas";
 
-type SortState<K extends Key, E extends TypedListEntry<K>> = [keyof E, boolean];
+type SortState<E extends ListEntry> = [keyof E, boolean];
 
-export interface ListColumnHeaderProps<
-  K extends Key,
-  E extends TypedListEntry<K>
-> {
-  columns: TypedListColumn<K, E>[];
+export interface ListColumnHeaderProps<E extends ListEntry> {
+  columns: TypedListColumn<E>[];
 }
 
-const ListColumnHeader = <K extends Key, E extends TypedListEntry<K>>({
+const ListColumnHeader = <E extends ListEntry>({
   columns: initialColumns,
-}: ListColumnHeaderProps<K, E>) => {
+}: ListColumnHeaderProps<E>) => {
   const {
     columnar: { columns, setColumns },
     sourceData,
     setTransform,
     removeTransform,
-  } = useListContext<K, E>();
+  } = useListContext<E>();
 
   const font = useFont("p");
-  const [sort, setSort] = useState<SortState<K, E>>(["", false]);
+  const [sort, setSort] = useState<SortState<E>>(["", false]);
 
   const onSort = (k: keyof E) => {
     const [prevSort, prevDir] = sort;
@@ -102,13 +98,13 @@ const ListColumnHeader = <K extends Key, E extends TypedListEntry<K>>({
   );
 };
 
-export const ListColumnItem = <K extends Key, E extends TypedListEntry<K>>({
+export const ListColumnItem = <E extends ListEntry>({
   entry,
   selected,
   columns,
   onSelect,
   ...props
-}: ListItemProps<K, E>) => {
+}: ListItemProps<E>) => {
   return (
     <Space
       className={clsx(
@@ -137,19 +133,19 @@ export const ListColumnItem = <K extends Key, E extends TypedListEntry<K>>({
 };
 
 export const entrySortFunc =
-  <K extends Key, E extends TypedListEntry<K>>(type: string, key: keyof E) =>
+  <E extends ListEntry>(type: string, key: keyof E) =>
   (a: E, b: E) =>
     sortFunc(type)(a[key], b[key]);
 
 const reverseSort = (f: (a: any, b: any) => number) => (a: any, b: any) =>
   f(b, a);
 
-const columnWidths = <K extends Key, E extends TypedListEntry<K>>(
-  columns: TypedListColumn<K, E>[],
+const columnWidths = <E extends ListEntry>(
+  columns: TypedListColumn<E>[],
   data: E[],
   font: string,
   padding: number = 60
-): TypedListColumn<K, E>[] => {
+): TypedListColumn<E>[] => {
   const le = longestEntries(data);
   return columns.map((col) => {
     const labelWidth = getTextWidth(col.label, font);
@@ -161,7 +157,7 @@ const columnWidths = <K extends Key, E extends TypedListEntry<K>>(
   });
 };
 
-const longestEntries = <K extends Key, E extends TypedListEntry<K>>(
+const longestEntries = <E extends ListEntry>(
   data: E[]
 ): Record<keyof E, string> => {
   const longest = {} as Record<keyof E, string>;
@@ -175,10 +171,10 @@ const longestEntries = <K extends Key, E extends TypedListEntry<K>>(
   return longest;
 };
 
-const sortTransform = <K extends Key, E extends TypedListEntry<K>>(
+const sortTransform = <E extends ListEntry>(
   k: keyof E,
   dir: boolean
-): TypedListTransform<K, E> => {
+): TypedListTransform<E> => {
   return (data) => {
     if (data.length == 0) return data;
     const v = data[0][k];

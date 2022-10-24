@@ -8,16 +8,16 @@ import (
 	"github.com/synnaxlabs/x/config"
 )
 
-// Core is the foundational primitive for distributed compute in the delta cluster. It exposes the following essential
+// Core is the foundational primitive for distributed compute in the delta Cluster. It exposes the following essential
 // APIs:
 //
 //  1. StorageKey.KV - an eventually consistent distributed key-value store.
 //  2. StorageKey.TS - a node local time-series engine for writing segment data.
-//  3. Cluster - an API for querying information about the underlying cluster topology.
+//  3. Cluster - an API for querying information about the underlying Cluster topology.
 type Core struct {
 	// Config is the configuration for the distribution layer.
 	Config Config
-	// Cluster is the API for the delta cluster.
+	// Cluster is the API for the delta Cluster.
 	Cluster aspen.Cluster
 	// Storage is the storage for the node. The distribution layer replaces the original key-value store with
 	// a distributed key-value store. The caller should NOT call Close on the storage engine.
@@ -52,7 +52,6 @@ func Open(ctx context.Context, cfg Config) (c Core, err error) {
 		aspen.WithLogger(cfg.Logger.Sugar()),
 		aspen.WithTransport(clusterTransport),
 	)
-
 	c.Cluster = clusterKV
 	// configure out storage system to use a distributed key-value store
 	c.Storage.KV = clusterKV

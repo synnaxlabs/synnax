@@ -1,11 +1,6 @@
 import clsx from "clsx";
-import { HTMLAttributes, useEffect, useState } from "react";
-import {
-  getDirection,
-  Location,
-  swapDirection,
-  swapLocation,
-} from "../../util/spatial";
+import { HTMLAttributes, useEffect, useRef, useState } from "react";
+import { getDirection, Location, swapLocation } from "../../util/spatial";
 import "./Resize.css";
 import ResizeMultiple from "./ResizeMultiple";
 
@@ -14,6 +9,7 @@ export interface ResizePanelProps extends HTMLAttributes<HTMLDivElement> {
   initialSize?: number;
   minSize?: number;
   maxSize?: number;
+  onResize?: (size: number) => void;
 }
 function Resize({
   children,
@@ -21,39 +17,37 @@ function Resize({
   minSize = 100,
   maxSize = Infinity,
   initialSize = 200,
+  onResize,
   className,
   style,
   ...props
 }: ResizePanelProps) {
-  const [size, prevSize] = useState(initialSize);
+  const [size, setSize] = useState<number>(initialSize);
   const [dragging, setDragging] = useState(false);
   const direction = getDirection(location);
 
   useEffect(() => {
-    if (dragging) {
-      const onMouseMove = (e: MouseEvent) => {
-        prevSize((prevSize: number) => {
-          const movement = parseMovement(location, e);
-          if (prevSize + movement < minSize) return minSize;
-          if (prevSize + movement > maxSize) return maxSize;
-          return prevSize + movement;
-        });
-      };
-      const onMouseUp = () => setDragging(false);
-      document.addEventListener("mousemove", onMouseMove);
-      document.addEventListener("mouseup", onMouseUp);
-      return () => {
-        document.removeEventListener("mousemove", onMouseMove);
-        document.removeEventListener("mouseup", onMouseUp);
-      };
-    }
-  }, [dragging]);
+    if (!dragging) return;
+    const onMouseMove = (e: MouseEvent) => {
+      setSize((prevSize: number) => {
+        return calcNextSize(e, location, prevSize, minSize, maxSize);
+      });
+      onResize?.(size);
+    };
+    const onMouseUp = () => setDragging(false);
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+    return () => {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    };
+  }, [dragging, onResize]);
 
   const parsedStyle: React.CSSProperties = { ...style };
   if (direction === "horizontal") {
-    parsedStyle.height = size;
+    parsedStyle.height = size || initialSize;
   } else {
-    parsedStyle.width = size;
+    parsedStyle.width = size || initialSize;
   }
 
   return (
@@ -98,5 +92,20 @@ const parseMovement = (location: Location, e: MouseEvent) => {
       return e.movementX;
     case "right":
       return -e.movementX;
+    case "center":
+      return 0;
   }
+};
+
+export const calcNextSize = (
+  e: MouseEvent,
+  location: Location,
+  prevSize: number,
+  minSize: number,
+  maxSize: number
+) => {
+  const movement = parseMovement(location, e);
+  if (prevSize + movement < minSize) return minSize;
+  if (prevSize + movement > maxSize) return maxSize;
+  return prevSize + movement;
 };

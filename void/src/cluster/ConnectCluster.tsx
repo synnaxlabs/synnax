@@ -2,7 +2,7 @@ import CoreWindow from "../lib/Windows/CoreWindow";
 import { Dispatch, AnyAction } from "@reduxjs/toolkit";
 import { createWindow } from "@synnaxlabs/drift";
 import { Button, Header, Input, Nav, Space } from "@synnaxlabs/pluto";
-import { AiFillApi, AiOutlineCheck } from "react-icons/ai";
+import { AiFillApi } from "react-icons/ai";
 import { FieldValues, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -12,64 +12,82 @@ import {
   synnaxPropsSchema,
 } from "@synnaxlabs/client";
 import "./ConnectCluster.css";
-import { useState } from "react";
-import { ConnectionState, setCluster } from "./slice";
+import { useEffect, useState } from "react";
+import { ConnectionState, setCluster, useSelectCluster } from "./slice";
 import ConnectionStatus from "./ConnectionStatus";
-import { useSelector, useDispatch } from "react-redux";
+import { useDispatch } from "react-redux";
 import { closeWindow } from "@synnaxlabs/drift";
 import { z } from "zod";
+import { useParams } from "react-router-dom";
 
 const formSchema = synnaxPropsSchema.extend({
   name: z.string().optional(),
 });
 
+const testConnection = async (
+  props: SynnaxProps
+): Promise<[string | undefined, ConnectionState]> => {
+  const conn = new Synnax(props);
+  await conn.connectivity.check();
+  conn.close();
+  return [
+    conn.connectivity.clusterKey,
+    {
+      status: conn.connectivity.status(),
+      message: conn.connectivity.statusMessage(),
+    },
+  ];
+};
+
 export default function ConnectCluster() {
+  const dispatch = useDispatch();
+  const [key, setKey] = useState("");
+  const { key: paramsKey } = useParams<{ key: string }>();
+  const cluster = useSelectCluster(key);
+  const [testConnState, setConnState] = useState<ConnectionState | undefined>(
+    undefined
+  );
+
   const {
+    getValues,
+    trigger,
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm({ resolver: zodResolver(formSchema) });
+  } = useForm({
+    resolver: zodResolver(formSchema),
+    defaultValues: { name: cluster?.name, ...cluster?.props },
+  });
 
-  const dispatch = useDispatch();
+  useEffect(() => {
+    if (paramsKey) setKey(paramsKey);
+  }, [paramsKey]);
 
-  const [connectionState, setConnectionState] = useState<
-    ConnectionState | undefined
-  >(undefined);
-
-  const onSubmit = (data: FieldValues) => {
-    const client = new Synnax(data as SynnaxProps);
-    setConnectionState({
-      status: Connectivity.CONNECTING,
-      message: "Connecting...",
-    });
-    client.connectivity
-      .check()
-      .then(() => {
-        const status = client.connectivity.status();
-        if (status === Connectivity.CONNECTED) {
-          const state = { status, message: "Connected" };
-          setConnectionState({ status, message: "Connected" });
-          dispatch(
-            setCluster({
-              active: true,
-              name: data.name,
-              props: data as SynnaxProps,
-              state,
-            })
-          );
-        } else {
-          setConnectionState({
-            status,
-            message: client.connectivity.error()?.message || "",
-          });
-        }
+  const onSubmit = async (data: FieldValues) => {
+    const name = data.name;
+    delete data.name;
+    const [clusterKey, connState] = await testConnection(data as SynnaxProps);
+    if (connState.status !== Connectivity.CONNECTED) {
+      setConnState(connState);
+      return;
+    }
+    dispatch(
+      setCluster({
+        active: true,
+        key: clusterKey as string,
+        name: name,
+        state: connState,
+        props: data as SynnaxProps,
       })
-      .catch((err) => {
-        setConnectionState({
-          status: Connectivity.FAILED,
-          message: err.message,
-        });
-      });
+    );
+    dispatch(closeWindow());
+  };
+
+  const onTestConnection = async () => {
+    const ok = await trigger();
+    if (!ok) return;
+    const [, state] = await testConnection(getValues() as SynnaxProps);
+    setConnState(state);
   };
 
   return (
@@ -90,7 +108,7 @@ export default function ConnectCluster() {
                 label="Host"
                 placeholder="localhost"
                 helpText={errors.host?.message?.toString()}
-                style={{ flexGrow: 1 }}
+                className="connect-cluster__input__host"
                 {...register("host")}
               />
               <Input.Item
@@ -98,7 +116,7 @@ export default function ConnectCluster() {
                 type="number"
                 placeholder="8080"
                 helpText={errors.port?.message?.toString()}
-                style={{ width: 100 }}
+                className="connect-cluster__input__port"
                 {...register("port")}
               />
             </Space>
@@ -120,32 +138,27 @@ export default function ConnectCluster() {
       </Space>
       <Nav.Bar location="bottom" size={48} style={{ flexShrink: 0 }}>
         <Nav.Bar.Start style={{ padding: "0 12px" }}>
-          {connectionState && <ConnectionStatus state={connectionState} />}
+          {testConnState && <ConnectionStatus state={testConnState} />}
         </Nav.Bar.Start>
         <Nav.Bar.End style={{ padding: 6 }}>
-          {connectionState?.status === Connectivity.CONNECTED ? (
-            <Button variant="filled" onClick={() => dispatch(closeWindow())}>
-              Done
-            </Button>
-          ) : (
-            <Button type="submit" size="medium" form="my-form">
-              Connect
-            </Button>
-          )}
+          <Button variant="text" size="medium" onClick={onTestConnection}>
+            Test Connection
+          </Button>
+          <Button variant="filled" type="submit" form="my-form">
+            Done
+          </Button>
         </Nav.Bar.End>
       </Nav.Bar>
     </CoreWindow>
   );
 }
 
-export const createConnectClusterWindow = (dispatch: Dispatch<AnyAction>) => {
-  dispatch(
-    createWindow({
-      url: "http://localhost:5173/cluster/connect",
-      resizable: false,
-      height: 425,
-      width: 550,
-      title: "Connect a cluster",
-    })
-  );
+export const createConnectClusterWindow = (key?: string) => {
+  return createWindow({
+    url: `http://localhost:5173/cluster/connect/${key}`,
+    resizable: false,
+    height: 425,
+    width: 650,
+    title: "Connect a cluster",
+  });
 };

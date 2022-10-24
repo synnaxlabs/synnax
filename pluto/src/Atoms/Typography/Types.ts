@@ -1,16 +1,16 @@
 import { ComponentSize } from "../../util/types";
 
-export type Size = number | string;
-
 /* Level of typography i.e paragraph and heading */
 export type TypographyLevel = "h1" | "h2" | "h3" | "h4" | "h5" | "p" | "small";
 export const TypographyLevels = ["h1", "h2", "h3", "h4", "h5", "p", "small"];
+
+export type Size = number | string;
 
 /* Defines a particular typography style */
 export type TypographyDefinition = {
   size: Size;
   weight: Size;
-  lineHeight: number;
+  lineHeight: Size;
   textTransform?: string;
 };
 

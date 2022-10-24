@@ -4,7 +4,7 @@ import { AiOutlineClose } from "react-icons/ai";
 import Input, { InputProps } from "../Input/Input";
 import { List } from "../List";
 import { useListContext } from "../List/ListContext";
-import { Key, TypedListColumn, TypedListEntry } from "../List/Types";
+import { ListEntry, TypedListColumn } from "../List/Types";
 import ListSearch from "../List/ListSearch";
 import Space from "../Space/Space";
 import { Tag } from "../Tag";
@@ -13,25 +13,19 @@ import { Button } from "../Button";
 import useClickoutside from "../../Hooks/useClickOutside";
 import { Theme } from "../../Theme";
 
-export interface SelectMultipleProps<
-  K extends Key,
-  E extends TypedListEntry<K>
-> {
+export interface SelectMultipleProps<E extends ListEntry> {
   options?: E[];
-  columns?: TypedListColumn<K, E>[];
+  columns?: TypedListColumn<E>[];
   listPosition?: "top" | "bottom";
   tagKey?: keyof E;
 }
 
-export default function SelectMultiple<
-  K extends Key,
-  E extends TypedListEntry<K>
->({
+export default function SelectMultiple<E extends ListEntry>({
   options = [],
   columns = [],
   listPosition = "bottom",
   tagKey = "key",
-}: SelectMultipleProps<K, E>) {
+}: SelectMultipleProps<E>) {
   const [visible, setVisible] = useState(false);
   const divRef = useRef<HTMLDivElement>(null);
   useClickoutside(divRef, () => setVisible(false));
@@ -74,24 +68,20 @@ export default function SelectMultiple<
   );
 }
 
-interface SelectMultipleInputProps<K extends Key, E extends TypedListEntry<K>>
-  extends InputProps {
+interface SelectMultipleInputProps<E extends ListEntry> extends InputProps {
   focused: boolean;
   onFocus: () => void;
   tagKey: keyof E;
 }
 
-const SelectMultipleInput = <K extends Key, E extends TypedListEntry<K>>({
+const SelectMultipleInput = <E extends ListEntry>({
   value,
   onChange,
   focused,
   onFocus,
   tagKey,
-}: SelectMultipleInputProps<K, E>) => {
-  const { selected, sourceData, onSelect, clearSelected } = useListContext<
-    K,
-    E
-  >();
+}: SelectMultipleInputProps<E>) => {
+  const { selected, sourceData, onSelect, clearSelected } = useListContext<E>();
 
   const { theme } = Theme.useContext();
   return (

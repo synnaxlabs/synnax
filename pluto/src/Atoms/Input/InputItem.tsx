@@ -3,6 +3,7 @@ import { Space } from "../Space";
 import Input, { InputProps } from "./Input";
 import InputHelpText from "./InputHelpText";
 import InputLabel from "./InputLabel";
+import clsx from "clsx";
 
 export interface InputItemProps extends InputProps {
   label?: string;
@@ -10,12 +11,12 @@ export interface InputItemProps extends InputProps {
 }
 
 const InputItem = forwardRef<HTMLInputElement, InputItemProps>(
-  ({ label, helpText, style, ...props }: InputItemProps, ref) => {
+  ({ label, helpText, style, className, ...props }: InputItemProps, ref) => {
     return (
       <Space
-        className="pluto-input-item"
-        direction="vertical"
         size="small"
+        className={clsx("pluto-input-item", className)}
+        direction="vertical"
         style={style}
       >
         <InputLabel>{label}</InputLabel>

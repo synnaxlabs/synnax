@@ -3,18 +3,18 @@ import { z } from 'zod';
 
 import Transport from '../transport';
 
-import { ChannelPayload, ChannelPayloadSchema } from './payload';
+import { ChannelPayload, channelPayloadSchema } from './payload';
 
-const RequestSchema = z.object({
+const requestSchema = z.object({
   keys: z.string().array().optional(),
   nodeId: z.number().optional(),
   names: z.string().array().optional(),
 });
 
-type Request = z.infer<typeof RequestSchema>;
+type Request = z.infer<typeof requestSchema>;
 
-const ResponseSchema = z.object({
-  channels: ChannelPayloadSchema.array(),
+const responseSchema = z.object({
+  channels: channelPayloadSchema.array(),
 });
 
 export default class Retriever {
@@ -31,11 +31,9 @@ export default class Retriever {
       request,
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
-      ResponseSchema
+      responseSchema
     );
-    if (err) {
-      throw err;
-    }
+    if (err) throw err;
     return res?.channels as ChannelPayload[];
   }
 

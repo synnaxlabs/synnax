@@ -54,7 +54,7 @@ const Space = forwardRef(
       justify = "start",
       reverse = false,
       direction = "vertical",
-      grow = false,
+      grow,
       align,
       className,
       style,
@@ -70,8 +70,18 @@ const Space = forwardRef(
     } else if (typeof size == "string") {
       gap = `pluto-space--${size}`;
     } else {
-      gap = `calc(var(--pluto-base-size) * ${size})`;
+      gap = `${size}rem`;
     }
+    style = {
+      gap,
+      flexDirection: flexDirection(direction, reverse),
+      justifyContent: juitifications[justify],
+      alignItems: align,
+      ...style,
+    };
+
+    if (grow !== undefined) style.flexGrow = Number(grow);
+
     return (
       <div
         className={clsx(
@@ -81,14 +91,7 @@ const Space = forwardRef(
           className
         )}
         ref={ref}
-        style={{
-          flexDirection: flexDirection(direction, reverse),
-          justifyContent: juitifications[justify],
-          alignItems: align,
-          flexGrow: Number(grow),
-          gap,
-          ...style,
-        }}
+        style={style}
         {...props}
       >
         {children}

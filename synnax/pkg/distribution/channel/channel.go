@@ -10,7 +10,6 @@ import (
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -67,12 +66,6 @@ func ParseKey(s string) (k Key, err error) {
 		return k, errors.Wrapf(err, "[channel] - invalid cesium key")
 	}
 	return NewKey(aspen.NodeID(nodeID), cesium.ChannelKey(cesiumKey)), nil
-}
-
-// OntologyID returns a unique identifier for a Channel for use within a resource
-// ontology.
-func OntologyID(k Key) ontology.ID {
-	return ontology.ID{Type: ontologyType, Key: k.String()}
 }
 
 // Keys extends []ChannelKeys with a few convenience methods.

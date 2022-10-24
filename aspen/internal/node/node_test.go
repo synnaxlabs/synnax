@@ -1,11 +1,11 @@
 package node_test
 
 import (
-	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/version"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen/internal/node"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/version"
 )
 
 var _ = Describe("Node", func() {
@@ -92,7 +92,7 @@ var _ = Describe("Node", func() {
 
 	})
 
-	Describe("Copy", func() {
+	Describe("CopyState", func() {
 
 		It("Should copy a group of nodes", func() {
 			g := node.Group{

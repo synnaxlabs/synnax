@@ -52,8 +52,17 @@ const options = Array.from({ length: 500 }, (_, i) => ({
 
 export default function Plot() {
   return (
-    <Space style={{ width: "100%", height: "100%", padding: "12px" }}>
-      <AutoSize style={{ flexGrow: 1, overflow: "hidden" }}>
+    <div
+      style={{
+        overflow: "hidden",
+        height: "100%",
+        width: "100%",
+      }}
+    >
+      <AutoSize
+        style={{ height: "calc(100% - 36px)", overflow: "hidden" }}
+        debounce={100}
+      >
         {({ width, height }) => (
           <LinePlot
             width={width}
@@ -76,6 +85,6 @@ export default function Plot() {
         ]}
         options={options}
       />
-    </Space>
+    </div>
   );
 }

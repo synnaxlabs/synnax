@@ -6,6 +6,10 @@ import (
 	"reflect"
 )
 
+func If[T any](value T, override T, condition bool) T {
+	return lo.Ternary(condition, override, value)
+}
+
 func Numeric[N types.Numeric](value N, override N) N {
 	return lo.Ternary(override != 0, override, value)
 }

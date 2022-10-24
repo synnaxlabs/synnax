@@ -1,6 +1,7 @@
 package pledge
 
 import (
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
@@ -13,8 +14,13 @@ import (
 )
 
 type (
-	TransportClient = freighter.UnaryClient[node.ID, node.ID]
-	TransportServer = freighter.UnaryServer[node.ID, node.ID]
+	Request struct {
+		ID         node.ID
+		ClusterKey uuid.UUID
+	}
+	Response        = Request
+	TransportClient = freighter.UnaryClient[Request, Response]
+	TransportServer = freighter.UnaryServer[Request, Response]
 )
 
 // Config is used for configuring a pledge based membership network. It implements
@@ -33,6 +39,10 @@ type Config struct {
 	// TransportServer is used for receiving pledge information over the network.
 	// [Required]
 	TransportServer TransportServer
+	// ClusterKey is a unique key for the cluster. This value is consistent across
+	// all nodes in the cluster.
+	// [Required]
+	ClusterKey uuid.UUID
 	// RequestTimeout is the timeout for a peer to respond to a pledge or proposal
 	// request. If the request is not responded to before the timeout, a new jury
 	// will be formed and the request will be retried.
@@ -58,6 +68,7 @@ var _ config.Config[Config] = Config{}
 func (cfg Config) Override(other Config) Config {
 	cfg.TransportClient = override.Nil(cfg.TransportClient, other.TransportClient)
 	cfg.TransportServer = override.Nil(cfg.TransportServer, other.TransportServer)
+	cfg.ClusterKey = override.If(cfg.ClusterKey, other.ClusterKey, other.ClusterKey != uuid.Nil)
 	cfg.RequestTimeout = override.Numeric(cfg.RequestTimeout, other.RequestTimeout)
 	cfg.RetryInterval = override.Numeric(cfg.RetryInterval, other.RetryInterval)
 	cfg.RetryScale = override.Numeric(cfg.RetryScale, other.RetryScale)
@@ -83,6 +94,7 @@ func (cfg Config) Validate() error {
 // Report implements the alamos.Reporter interface. Assumes the Config is valid.
 func (cfg Config) Report() alamos.Report {
 	report := make(alamos.Report)
+	report["clusterKey"] = cfg.ClusterKey.String()
 	report["transportClient"] = cfg.TransportClient.Report()
 	report["transportServer"] = cfg.TransportServer.Report()
 	report["requestTimeout"] = cfg.RequestTimeout

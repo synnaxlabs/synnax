@@ -4,33 +4,28 @@ import Column from "./ListColumn";
 import ListCore from "./ListCore";
 import { ListContext, ListContextProvider } from "./ListContext";
 import ListSearch from "./ListSearch";
-import {
-  Key,
-  TypedListColumn,
-  TypedListEntry,
-  TypedListTransform,
-} from "./Types";
+import { ListEntry, TypedListColumn, TypedListTransform } from "./Types";
 import { useMultiSelect, useMultiSelectProps } from "./useMultiSelect";
 
-export interface ListProps<K extends Key, E extends TypedListEntry<K>>
+export interface ListProps<E extends ListEntry>
   extends React.PropsWithChildren<any>,
-    useMultiSelectProps<K, E> {
+    useMultiSelectProps<E> {
   data: E[];
 }
 
-function List<K extends Key, E extends TypedListEntry<K>>({
+function List<E extends ListEntry>({
   children,
   data,
   selectMultiple = true,
   selected: selectedProp,
   onSelect: onSelectProp,
-}: ListProps<K, E>) {
+}: ListProps<E>) {
   const [transforms, setTransforms] = useState<
-    Record<string, TypedListTransform<K, E> | undefined>
+    Record<string, TypedListTransform<E> | undefined>
   >({});
-  const [columns, setColumns] = useState<TypedListColumn<K, E>[]>([]);
+  const [columns, setColumns] = useState<TypedListColumn<E>[]>([]);
 
-  const setTransform = (key: string, transform: TypedListTransform<K, E>) => {
+  const setTransform = (key: string, transform: TypedListTransform<E>) => {
     setTransforms((transforms) => ({ ...transforms, [key]: transform }));
   };
 
@@ -45,7 +40,7 @@ function List<K extends Key, E extends TypedListEntry<K>>({
     );
   }, [data, transforms]);
 
-  const { selected, onSelect, clearSelected } = useMultiSelect<K, E>({
+  const { selected, onSelect, clearSelected } = useMultiSelect<E>({
     data: transformedData,
     selectMultiple,
     selected: selectedProp,
