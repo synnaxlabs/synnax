@@ -1,10 +1,11 @@
 import { OntologyID, OntologyResource, OntologyRoot } from "@synnaxlabs/client";
 import { Tree, TreeEntry, Header, Space } from "@synnaxlabs/pluto";
 import { useEffect, useState } from "react";
-import { AiFillDatabase, AiFillFolder } from "react-icons/ai";
-import { MdOutlineDeviceHub, MdOutlineSensors } from "react-icons/md";
-import { useActiveClient } from "../cluster/useActiveClient";
+import { AiFillFolder } from "react-icons/ai";
+import { useActiveClient } from "../cluster/components/useActiveClient";
 import { resourceTypes } from "./resources";
+import { useDispatch } from "react-redux";
+import { Dispatch } from "redux";
 
 const updateTreeEntry = (
   data: TreeEntry[],
@@ -22,10 +23,11 @@ const updateTreeEntry = (
 };
 
 const convertOntologyResources = (
+  dispatch: Dispatch<any>,
   resources: OntologyResource[]
 ): TreeEntry[] => {
   return resources.map(({ id, entity: { name } }) => {
-    const { icon, hasChildren } = resourceTypes[id.type];
+    const { icon, hasChildren } = resourceTypes(dispatch)[id.type];
     return {
       key: id.toString(),
       title: name,
@@ -39,12 +41,14 @@ const convertOntologyResources = (
 function ResourcesTree() {
   const client = useActiveClient();
   const [data, setData] = useState<TreeEntry[]>([]);
+  const dispatch = useDispatch();
 
   useEffect(() => {
     if (!client) return;
     const fn = async () => {
       const resources = await client.ontology.retrieveChildren(OntologyRoot);
-      setData(convertOntologyResources(resources));
+      console.log(resources);
+      setData(convertOntologyResources(dispatch, resources));
     };
     fn();
   }, [client]);
@@ -57,6 +61,11 @@ function ResourcesTree() {
       <Tree
         data={data}
         style={{ overflowY: "auto", overflowX: "hidden", flexGrow: 1 }}
+        onSelect={([key]: string[]) => {
+          const id = OntologyID.parseString(key);
+          const { onSelect } = resourceTypes(dispatch)[id.type];
+          onSelect?.(id);
+        }}
         onExpand={(key) => {
           if (!client) return;
           const fn = async () => {
@@ -66,7 +75,7 @@ function ResourcesTree() {
             updateTreeEntry(
               data,
               {
-                children: convertOntologyResources(resources),
+                children: convertOntologyResources(dispatch, resources),
               },
               key
             );

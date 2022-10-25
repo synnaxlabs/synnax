@@ -16,6 +16,7 @@ export interface TabsProps
   emptyContent?: ReactElement | null;
   children?: ComponentType<{ tab: TabEntry }> | null;
   onTabDragStart?: (e: React.DragEvent<HTMLDivElement>, tab: TabEntry) => void;
+  onTabDragEnd?: (e: React.DragEvent<HTMLDivElement>, tab: TabEntry) => void;
 }
 
 export interface TabEntry {
@@ -30,6 +31,7 @@ const Tabs = ({
   onClose: propsOnClose,
   selected: propsSelected,
   onTabDragStart,
+  onTabDragEnd,
   closable = true,
   tabs: propsTabs = [],
   emptyContent = null,
@@ -97,6 +99,7 @@ const Tabs = ({
             closable={closable}
             onClose={onClose}
             onTabDragStart={onTabDragStart}
+            onTabDragEnd={onTabDragEnd}
             {...tab}
           />
         ))}
@@ -109,6 +112,7 @@ const Tabs = ({
 export interface TabProps extends TabEntry {
   selected?: string;
   onTabDragStart?: (e: React.DragEvent<HTMLDivElement>, tab: TabEntry) => void;
+  onTabDragEnd?: (e: React.DragEvent<HTMLDivElement>, tab: TabEntry) => void;
   onSelect: (key: string) => void;
   onClose: (key: string) => void;
 }
@@ -121,6 +125,7 @@ const Tab = ({
   title,
   closable,
   onTabDragStart,
+  onTabDragEnd,
 }: TabProps) => {
   return (
     <Space
@@ -136,6 +141,7 @@ const Tab = ({
       onDragStart={(e) =>
         onTabDragStart && onTabDragStart(e, { tabKey, title })
       }
+      onDragEnd={(e) => onTabDragEnd && onTabDragEnd(e, { tabKey, title })}
     >
       <Text level="p">{title}</Text>
       {closable && (

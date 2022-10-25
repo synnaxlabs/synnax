@@ -1,5 +1,5 @@
-import { ConnectionState } from "./slice";
 import {
+  AiFillDatabase,
   AiFillInfoCircle,
   AiFillWarning,
   AiOutlineCheck,
@@ -9,6 +9,8 @@ import {
 import { Text, TextProps, TypographyLevel } from "@synnaxlabs/pluto";
 import { ReactElement } from "react";
 import { Connectivity } from "@synnaxlabs/client";
+import { ConnectionState, DEFAULT_CONNECTION_STATE } from "../../types";
+import { useSelectActiveCluster } from "../../store";
 
 export interface ConnectionStatusProps {
   state: ConnectionState;
@@ -21,14 +23,26 @@ const connectionStatusVariants: Record<Connectivity, StatusVariant> = {
   [Connectivity.DISCNNECTED]: "warning",
 };
 
-export default function ConnectionStatus({ state }: ConnectionStatusProps) {
+export const ActiveConnectionBadge = () => {
+  const cluster = useSelectActiveCluster();
   return (
-    <StatusBadge
-      variant={connectionStatusVariants[state.status]}
-      message={state.message}
-    />
+    <Text.WithIcon level="p" startIcon={<AiFillDatabase />}>
+      {cluster ? cluster.name : "No Active Cluster"}
+    </Text.WithIcon>
   );
-}
+};
+
+export const ActiveConnectionStatus = () => {
+  const cluster = useSelectActiveCluster();
+  const connState = cluster?.state || DEFAULT_CONNECTION_STATE;
+  return <ConnectionStatus state={connState} />;
+};
+
+export const ConnectionStatus = ({
+  state: { message, status },
+}: ConnectionStatusProps) => (
+  <StatusBadge variant={connectionStatusVariants[status]} message={message} />
+);
 
 type StatusVariant =
   | "success"

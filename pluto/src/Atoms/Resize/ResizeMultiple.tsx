@@ -1,68 +1,124 @@
 import clsx from "clsx";
-import { drag } from "d3";
-import {
-  Children,
-  HTMLAttributes,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+
+import { Children, useCallback, useEffect, useRef, useState } from "react";
 import { useResize } from "../../Hooks";
 import {
-  Direction,
+  Dimensions,
   getDirection,
+  getDirectionalSize,
   getLocation,
   swapLocation,
 } from "../../util/spatial";
-import { AutoSize } from "../AutoSize";
-import Space from "../Space/Space";
-import Resize, { calcNextSize, ResizePanelProps } from "./Resize";
+import Space, { SpaceProps } from "../Space/Space";
+import {
+  anyExceedsBounds,
+  calcNextSize,
+  parseMovement,
+  ResizePanelProps,
+} from "./Resize";
 
-export interface ResizeMultipleProps extends HTMLAttributes<HTMLDivElement> {
-  direction: Direction;
+export interface ResizeMultipleProps extends SpaceProps {
   onResize?: (sizes: number[]) => void;
   initialSizes?: number[];
+  maxSize?: number;
+  minSize?: number;
 }
 
+const validateSizes = (numChildren: number, sizes: number[]): boolean =>
+  sizes.length >= numChildren - 1;
+
+const calculatePercentages = (
+  numChildren: number,
+  sizes: number[],
+  parentSize: number
+) => {
+  const arePercentages = sizes.every((size) => size <= 1);
+  if (!arePercentages) {
+    sizes = sizes.map((size) => size / parentSize);
+  }
+
+  let totalSize = sizes.reduce((a, b) => a + b, 0);
+
+  // If we have fewer sizes than children, we need to approximate the
+  // remaining sizes.
+  if (sizes.length < numChildren) {
+    const diff = 1 - totalSize;
+    const remaining = numChildren - sizes.length;
+    sizes = sizes.concat(
+      Array.from({ length: remaining }, () => diff / remaining)
+    );
+  }
+
+  totalSize = sizes.reduce((a, b) => a + b, 0);
+
+  // If our total size is not equal to 1, we need to scale our sizes
+  if (totalSize < 0.99 || totalSize > 1.01) {
+    sizes = sizes.map((size) => size / totalSize);
+  }
+
+  return sizes;
+};
+
 export default function ResizeMultiple({
-  children,
-  direction,
+  direction = "horizontal",
   onResize,
   initialSizes = [],
+  children: _children,
+  maxSize = Infinity,
+  minSize = 100,
   ...props
 }: ResizeMultipleProps) {
-  const childArray = Children.toArray(children);
+  const children = Children.toArray(_children);
+
   const [sizes, setSizes] = useState<number[]>(initialSizes);
   const parentRef = useRef<HTMLDivElement>(null);
   const location = getLocation(direction);
-
   const [dragging, setDragging] = useState<number | undefined>(undefined);
 
-  const { width, height } = useResize(parentRef);
+  const handleResize = useCallback(
+    (dims: Dimensions) =>
+      setSizes((prevSizes) => {
+        const nextPSize = getDirectionalSize(direction, dims);
+        const prevPSize = prevSizes.reduce((a, b) => a + b, 0);
+        if (nextPSize === prevPSize) return prevSizes;
 
-  useEffect(() => {
-    // distribute the size of the parent ref equally among the children
-    const parentSize = direction === "horizontal" ? width : height;
-    const childSize = parentSize / childArray.length;
-    setSizes(Array(childArray.length).fill(childSize));
-  }, [width, height]);
+        // If the previous sizes aren't valid, simply distribute the space evenly
+        // between all children.
+        if (!validateSizes(children.length, prevSizes))
+          return Array.from(
+            { length: children.length },
+            () => nextPSize / children.length
+          );
+
+        let sizePercentages = calculatePercentages(
+          children.length,
+          prevSizes,
+          nextPSize
+        );
+        return sizePercentages.map((size) => size * nextPSize);
+      }),
+    [direction, children.length]
+  );
+
+  useResize({ ref: parentRef, onResize: handleResize });
 
   useEffect(() => {
     if (dragging === undefined) return;
     const onMouseMove = (e: MouseEvent) => {
       setSizes((prevSizes: number[]) => {
-        console.log(dragging);
-        const next = calcNextSize(e, location, prevSizes[dragging], 200, 80000);
-        // calc diff
-        const diff = next - prevSizes[dragging];
-        // add or subtract diff evenly to all other sizes
-        const newSizes = prevSizes.map((size, i) => {
+        const movement = parseMovement(location, e);
+        const next = prevSizes[dragging] + movement;
+        const nextSibling = prevSizes[dragging + 1] - movement;
+        if (anyExceedsBounds([next, nextSibling], minSize, maxSize))
+          return prevSizes;
+        return prevSizes.map((size, i) => {
           if (i === dragging) return next;
-          return size - diff / (prevSizes.length - 1);
+          if (i === dragging + 1) return nextSibling;
+          return size;
         });
-        return newSizes;
       });
+      const totalSize = sizes.reduce((a, b) => a + b, 0);
+      onResize?.(sizes.map((size) => size / totalSize));
     };
     const onMouseUp = () => setDragging(undefined);
     document.addEventListener("mousemove", onMouseMove);
@@ -73,17 +129,6 @@ export default function ResizeMultiple({
     };
   }, [dragging, onResize]);
 
-  const _onResize = useCallback(
-    (i: number, size: number) => {
-      setSizes((prevSizes) => {
-        const nextSizes = [...prevSizes];
-        nextSizes[i] = size;
-        return nextSizes;
-      });
-      onResize?.(sizes);
-    },
-    [onResize]
-  );
   return (
     <Space
       ref={parentRef}
@@ -93,7 +138,7 @@ export default function ResizeMultiple({
       grow
       {...props}
     >
-      {childArray.map((child, i) => {
+      {children.map((child, i) => {
         return (
           <BaseResize
             onDrag={(i: number) => setDragging(i)}
@@ -101,7 +146,7 @@ export default function ResizeMultiple({
             index={i}
             location={location}
             size={sizes[i]}
-            showHandle={i !== childArray.length - 1}
+            showHandle={i !== children.length - 1}
           >
             {child}
           </BaseResize>
@@ -110,24 +155,6 @@ export default function ResizeMultiple({
     </Space>
   );
 }
-
-const ResizeChild = ({
-  onResize,
-  index,
-  initialSizes,
-  ...props
-}: Omit<ResizePanelProps, "onResize" | "initialSize"> & {
-  index: number;
-  onResize: (index: number, size: number) => void;
-  initialSizes: number[];
-}) => {
-  const initialSize = initialSizes[index];
-  const _onResize = useCallback(
-    (size: number) => onResize(index, size),
-    [onResize]
-  );
-  return <Resize {...props} onResize={_onResize} />;
-};
 
 const BaseResize = ({
   location,
@@ -158,7 +185,7 @@ const BaseResize = ({
         "pluto-resize-panel",
         `pluto-resize-panel--${location}`,
         `pluto-resize-panel--${direction}`,
-        `pluto-bordered--${swapLocation(location)}`,
+        showHandle && `pluto-bordered--${swapLocation(location)}`,
         className
       )}
       style={parsedStyle}

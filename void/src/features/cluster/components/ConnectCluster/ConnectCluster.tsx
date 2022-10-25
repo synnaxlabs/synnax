@@ -1,5 +1,4 @@
-import CoreWindow from "../lib/Windows/CoreWindow";
-import { Dispatch, AnyAction } from "@reduxjs/toolkit";
+import CoreWindow from "../../../../components/Windows/CoreWindow";
 import { createWindow } from "@synnaxlabs/drift";
 import { Button, Header, Input, Nav, Space } from "@synnaxlabs/pluto";
 import { AiFillApi } from "react-icons/ai";
@@ -13,37 +12,26 @@ import {
 } from "@synnaxlabs/client";
 import "./ConnectCluster.css";
 import { useEffect, useState } from "react";
-import { ConnectionState, setCluster, useSelectCluster } from "./slice";
-import ConnectionStatus from "./ConnectionStatus";
 import { useDispatch } from "react-redux";
 import { closeWindow } from "@synnaxlabs/drift";
 import { z } from "zod";
 import { useParams } from "react-router-dom";
 
+import { ConnectionState } from "@/features/cluster/types";
+import { testConnection } from "../../util/testConnection";
+import { setCluster, useSelectCluster } from "../../store";
+import { ConnectionStatus } from "../ConnectionStatus/ConnectionStatus";
+
 const formSchema = synnaxPropsSchema.extend({
   name: z.string().optional(),
 });
 
-const testConnection = async (
-  props: SynnaxProps
-): Promise<[string | undefined, ConnectionState]> => {
-  const conn = new Synnax(props);
-  await conn.connectivity.check();
-  conn.close();
-  return [
-    conn.connectivity.clusterKey,
-    {
-      status: conn.connectivity.status(),
-      message: conn.connectivity.statusMessage(),
-    },
-  ];
-};
-
 export default function ConnectCluster() {
   const dispatch = useDispatch();
   const [key, setKey] = useState("");
-  const { key: paramsKey } = useParams<{ key: string }>();
+
   const cluster = useSelectCluster(key);
+
   const [testConnState, setConnState] = useState<ConnectionState | undefined>(
     undefined
   );
@@ -66,7 +54,9 @@ export default function ConnectCluster() {
   const onSubmit = async (data: FieldValues) => {
     const name = data.name;
     delete data.name;
-    const [clusterKey, connState] = await testConnection(data as SynnaxProps);
+    const { clusterKey, state: connState } = await testConnection(
+      data as SynnaxProps
+    );
     if (connState.status !== Connectivity.CONNECTED) {
       setConnState(connState);
       return;
@@ -86,7 +76,7 @@ export default function ConnectCluster() {
   const onTestConnection = async () => {
     const ok = await trigger();
     if (!ok) return;
-    const [, state] = await testConnection(getValues() as SynnaxProps);
+    const { state } = await testConnection(getValues() as SynnaxProps);
     setConnState(state);
   };
 

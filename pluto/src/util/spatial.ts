@@ -37,3 +37,14 @@ export const swapLocation = (location: Location): Location => {
       return "center";
   }
 };
+export const getDirectionalSize = (
+  direction: Direction,
+  { width, height }: { width: number; height: number }
+): number => {
+  return direction === "horizontal" ? width : height;
+};
+
+export type Dimensions = {
+  width: number;
+  height: number;
+};

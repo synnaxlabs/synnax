@@ -1,7 +1,8 @@
 import { OntologyID, OntologyResourceType } from "@synnaxlabs/client";
-import { ReactElement } from "react";
+import { Dispatch, ReactElement } from "react";
 import { AiFillDatabase } from "react-icons/ai";
 import { MdOutlineDeviceHub, MdSensors } from "react-icons/md";
+import { insertTab } from "../../mosaic/slice";
 
 export interface ResourceType {
   type: OntologyResourceType;
@@ -10,7 +11,9 @@ export interface ResourceType {
   hasChildren: boolean;
 }
 
-export const resourceTypes: Record<OntologyResourceType, ResourceType> = {
+export const resourceTypes = (
+  dispatch: Dispatch<any>
+): Record<OntologyResourceType, ResourceType> => ({
   [OntologyResourceType.Cluster]: {
     type: OntologyResourceType.Cluster,
     icon: <AiFillDatabase />,
@@ -25,5 +28,14 @@ export const resourceTypes: Record<OntologyResourceType, ResourceType> = {
     type: OntologyResourceType.Channel,
     icon: <MdSensors />,
     hasChildren: false,
+    onSelect: (id) =>
+      dispatch(
+        insertTab({
+          tab: {
+            tabKey: `channel ${id.toString()}`,
+            title: `CdA_LOX_inj`,
+          },
+        })
+      ),
   },
-};
+});

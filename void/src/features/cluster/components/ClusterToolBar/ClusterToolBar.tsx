@@ -1,12 +1,12 @@
-import { createWindow } from "@synnaxlabs/drift";
 import { Space, Header, List, Text, ListItemProps } from "@synnaxlabs/pluto";
 import { AiFillDatabase, AiOutlinePlus } from "react-icons/ai";
 import { useDispatch } from "react-redux";
-import { createConnectClusterWindow } from "./ConnectCluster";
+import { createConnectClusterWindow } from "../ConnectCluster/ConnectCluster";
 import { useSelector } from "react-redux";
-import { Cluster, setActiveCluster } from "./slice";
+import { setActiveCluster } from "../../store/slice";
+import { Cluster } from "../../types";
 
-function ConfigureClusters() {
+const Content = () => {
   const dispatch = useDispatch();
   const clusters = useSelector((state: any) => state.cluster.clusters);
   return (
@@ -36,15 +36,15 @@ function ConfigureClusters() {
           }
         }}
       >
-        <List.Core.Virtual itemHeight={30}>{ClusterListItem}</List.Core.Virtual>
+        <List.Core.Virtual itemHeight={30}>{ListItem}</List.Core.Virtual>
       </List>
     </Space>
   );
-}
+};
 
-interface ClusterListItemProps extends ListItemProps<string, Cluster> {}
+interface ClusterListItemProps extends ListItemProps<Cluster> {}
 
-const ClusterListItem = ({
+const ListItem = ({
   entry,
   style,
   selected,
@@ -66,7 +66,7 @@ const ClusterListItem = ({
         height: 30,
         cursor: "pointer",
         userSelect: "none",
-        backgroundColor: selected && "var(--pluto-primary-p1-20)",
+        backgroundColor: selected ? "var(--pluto-primary-p1-20)" : "",
         borderLeft: selected && "3px solid var(--pluto-primary-p1)",
         ...style,
       }}
@@ -77,13 +77,11 @@ const ClusterListItem = ({
   );
 };
 
-const ClustersItem = {
+export const ClusterToolBar = {
   key: "clusters",
-  content: <ConfigureClusters />,
+  content: <Content />,
   icon: <AiFillDatabase />,
   minSize: 150,
   maxSize: 500,
   initialSize: 250,
 };
-
-export default ClustersItem;

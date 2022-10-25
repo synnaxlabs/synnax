@@ -14,3 +14,16 @@ Primary.args = {
     height: "100%",
   },
 };
+
+export const Multiple: ComponentStory<typeof Resize.Multiple> = () => {
+  return (
+    <Resize.Multiple
+      initialSizes={[100, 200]}
+      style={{ border: "1px solid red" }}
+    >
+      <h1>Hello From One</h1>
+      <h1>Hello From Two</h1>
+      <h1>Hello From Three</h1>
+    </Resize.Multiple>
+  );
+};

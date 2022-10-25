@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Resize } from "../../Atoms";
 import { Tabs } from "../../Atoms/Tabs";
 import { TabEntry, TabProps, TabsProps } from "../../Atoms/Tabs/Tabs";
-import MosaicTree, { MosaicNode } from "./MosaicTree";
+import { MosaicNode } from "./MosaicTree";
 import { Location } from "../../util/spatial";
 import "./Mosaic.css";
 
@@ -17,16 +17,19 @@ const Mosaic = (props: MosaicProps) => {
     tree: { tabs, direction, first, last, key, size },
     onResize,
   } = props;
-  if (tabs && tabs.length > 0) return <MosaicTabNode {...props} />;
-  if (!direction || !last || !first)
-    throw new Error("[BUG] - Invalid MosaicTreeNode");
+  if (tabs !== undefined) return <MosaicTabNode {...props} />;
 
   const _onResize = (sizes: number[]) => onResize(key, sizes[0]);
 
   return (
     <Resize.Multiple
       direction={direction}
-      style={{ position: "relative", height: "100%", width: "100%" }}
+      align="stretch"
+      style={{
+        position: "relative",
+        height: "100%",
+        width: "100%",
+      }}
       onResize={_onResize}
       initialSizes={size ? [size] : undefined}
     >
@@ -48,18 +51,19 @@ const MosaicTabNode = ({ tree: node, onDrop, ...props }: MosaicProps) => {
     e.preventDefault();
     const validDrop =
       tabs.filter((t) => t.tabKey !== currentlyDragging).length > 0;
+    if (currentlyDragging) setCurrentlyDragging(null);
+    if (dragMask) setDragMask(null);
     if (!validDrop) return;
     onDrop(
       key,
       e.dataTransfer.getData("tabKey"),
       insertLocation(getDragLocationPercents(e))
     );
-    if (dragMask) setDragMask(null);
-    if (currentlyDragging) setCurrentlyDragging(null);
   };
 
   const onDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
+    e.stopPropagation();
     const loc = insertLocation(getDragLocationPercents(e));
     // get the tab data, get a boolean value checking whether the length of the tabs
     // in node would be zero if the tab was removed
@@ -89,6 +93,7 @@ const MosaicTabNode = ({ tree: node, onDrop, ...props }: MosaicProps) => {
           e.dataTransfer.setData("tabKey", tabEntry.tabKey);
           setCurrentlyDragging(tabEntry.tabKey);
         }}
+        onTabDragEnd={() => setCurrentlyDragging(null)}
       />
       {dragMask && (
         <div

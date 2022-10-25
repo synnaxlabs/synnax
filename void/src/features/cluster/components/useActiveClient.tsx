@@ -1,13 +1,16 @@
 import { Connectivity, Synnax, TimeSpan } from "@synnaxlabs/client";
 import { useEffect } from "react";
 import { useDispatch } from "react-redux";
-import clientPool from "./ClientPool";
-import { setClusterConnectionState, useSelectActiveCluster } from "./slice";
+import clientPool from "../context/ClientProvider";
+import {
+  setClusterConnectionState,
+  useSelectActiveCluster,
+} from "../store/slice";
 
 export const useActiveClient = (): Synnax | undefined => {
   const activeCluster = useSelectActiveCluster();
   if (!activeCluster) return undefined;
-  return clientPool.acquire(activeCluster.key);
+  return clientPool.acquire(activeCluster.id);
 };
 
 export const useClientConnector = () => {
@@ -15,7 +18,7 @@ export const useClientConnector = () => {
   const activeCluster = useSelectActiveCluster();
   useEffect(() => {
     if (!activeCluster) return clientPool.closeAll();
-    const { key, props } = activeCluster;
+    const { id: key, props } = activeCluster;
 
     const existingC = clientPool.acquire(key);
     if (existingC && existingC.connectivity.status() === Connectivity.CONNECTED)

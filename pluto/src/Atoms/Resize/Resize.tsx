@@ -82,7 +82,7 @@ Resize.Multiple = ResizeMultiple;
 
 export default Resize;
 
-const parseMovement = (location: Location, e: MouseEvent) => {
+export const parseMovement = (location: Location, e: MouseEvent) => {
   switch (location) {
     case "top":
       return e.movementY;
@@ -108,4 +108,12 @@ export const calcNextSize = (
   if (prevSize + movement < minSize) return minSize;
   if (prevSize + movement > maxSize) return maxSize;
   return prevSize + movement;
+};
+
+export const anyExceedsBounds = (
+  nums: number[],
+  min: number,
+  max: number
+): boolean => {
+  return nums.some((num) => num < min || num > max);
 };

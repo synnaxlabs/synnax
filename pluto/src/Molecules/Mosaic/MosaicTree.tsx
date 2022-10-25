@@ -33,14 +33,16 @@ export default class MosaicTree {
    * the tab is inserted into the closest ancestor. This is to deal
    * with tree garbage collection.
    * @param key - The key of the node to insert the tab into.
-   * @param entry - The tab to insert.
+   * @param tab - The tab to insert.
    * @param loc - The location where the tab was 'dropped' relative to the node.
    */
-  insert(key: number, entry: TabEntry, loc: Location) {
+  insert(tab: TabEntry, key?: number, loc?: Location) {
+    if (!loc) loc = "center";
+    if (!key) return this.insertAnywhere(this.root, tab);
     const node = this.findOrAncestor(key);
-    if (loc === "center") return node.tabs?.push(entry);
+    if (loc === "center") return node.tabs?.push(tab);
     const [insertTo, sibling, dir] = splitArrangement(loc);
-    node[insertTo] = { key: 0, tabs: [entry], level: node.level + 1 };
+    node[insertTo] = { key: 0, tabs: [tab], level: node.level + 1 };
     node[sibling] = { key: 0, tabs: node.tabs, level: node.level + 1 };
     if (!node.first || !node.last) throw new Error("Invalid tree");
     /** Assigning these values to start and end keeps the tree sorted */
@@ -48,19 +50,16 @@ export default class MosaicTree {
     node.last.key = node.key * 2 + 1;
     node.direction = dir;
     node.tabs = undefined;
+    node.size = undefined;
   }
 
-  insertAnywhere(entry: TabEntry) {
-    return this._insertAnywhere(this.root, entry);
-  }
-
-  private _insertAnywhere(node: MosaicNode, entry: TabEntry): void {
+  private insertAnywhere(node: MosaicNode, tab: TabEntry): void {
     if (node.tabs) {
-      node.tabs.push(entry);
+      node.tabs.push(tab);
       return;
     }
-    if (node.first) return this._insertAnywhere(node.first, entry);
-    if (node.last) return this._insertAnywhere(node.last, entry);
+    if (node.first) return this.insertAnywhere(node.first, tab);
+    if (node.last) return this.insertAnywhere(node.last, tab);
   }
 
   /**
@@ -89,11 +88,11 @@ export default class MosaicTree {
    * @param tabKey - The key of the tab to move. This tab must exist in the tree.
    * @param loc - The location where the tab was 'dropped' relative to the node.
    */
-  move(to: number, tabKey: string, loc: Location) {
+  move(tabKey: string, to: number, loc: Location) {
     const [tab, entry] = this.findTab(tabKey);
     if (!tab || !entry) throw TabNotFound;
     this.remove(tabKey);
-    this.insert(to, tab, loc);
+    this.insert(tab, to, loc);
   }
 
   resize(key: number, size: number) {

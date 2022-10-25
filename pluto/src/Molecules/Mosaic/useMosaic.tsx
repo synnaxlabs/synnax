@@ -21,7 +21,7 @@ export const useMosaic = ({ initialTree }: UseMosaicProps): UseMosaicReturn => {
 
   const onDrop = (key: number, tabKey: string, loc: Location) => {
     const t = new MosaicTree(tree);
-    t.move(key, tabKey, loc);
+    t.move(tabKey, key, loc);
     setTree(t.shallowCopy());
   };
 
@@ -34,11 +34,7 @@ export const useMosaic = ({ initialTree }: UseMosaicProps): UseMosaicReturn => {
   const insertTab = (tab: TabEntry, key?: number, loc?: Location) => {
     if (!loc) loc = "center";
     const t = new MosaicTree(tree);
-    if (!key) {
-      t.insertAnywhere(tab);
-    } else {
-      t.insert(key, tab, loc);
-    }
+    t.insert(tab, key, loc);
     setTree(t.shallowCopy());
   };
 

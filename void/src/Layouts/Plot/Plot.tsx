@@ -1,16 +1,19 @@
-import { AutoSize, Space, LinePlot, Select } from "@synnaxlabs/pluto";
+import { TimeStamp } from "@synnaxlabs/client";
+import { AutoSize, Space, LinePlot, Select, Data } from "@synnaxlabs/pluto";
+import { memo, useEffect, useState } from "react";
+import { useActiveClient } from "../../features/cluster/components/useActiveClient";
 
-const data = {
-  a: Array.from({ length: 1000 }, (_, i) => i),
-  b: Array.from(
-    { length: 1000 },
-    (_, i) => Math.sin(i / 10) * 2 + Math.random() * 0.1
-  ),
-  c: Array.from(
-    { length: 1000 },
-    (_, i) => Math.cos(i / 20) + Math.random() * 0.1
-  ),
-};
+// const data = {
+//   a: Array.from({ length: 1000 }, (_, i) => i),
+//   b: Array.from(
+//     { length: 1000 },
+//     (_, i) => Math.sin(i / 10) * 2 + Math.random() * 0.1
+//   ),
+//   c: Array.from(
+//     { length: 1000 },
+//     (_, i) => Math.cos(i / 20) + Math.random() * 0.1
+//   ),
+// };
 
 const axes = [
   {
@@ -23,25 +26,14 @@ const axes = [
     label: "Y",
     location: "left",
   },
-  {
-    key: "y2",
-    label: "Y2",
-    location: "right",
-  },
 ];
 
 const series = [
   {
     label: "Series 1",
-    x: "a",
-    y: "b",
+    x: "b",
+    y: "a",
     axis: "y",
-  },
-  {
-    label: "Series 1",
-    x: "a",
-    y: "c",
-    axis: "y2",
   },
 ];
 
@@ -50,13 +42,34 @@ const options = Array.from({ length: 500 }, (_, i) => ({
   name: `Option ${i}`,
 }));
 
-export default function Plot() {
+const Plot = () => {
+  const client = useActiveClient();
+  const [data, setData] = useState<Data>({ a: [], b: [] });
+
+  useEffect(() => {
+    if (!client) return;
+
+    const fn = async () => {
+      const ch = (await client.channel.retrieveByKeys("1-1"))[0];
+      console.log(ch.key);
+      const chData = await ch.read(0, 9000000000000000000);
+      console.log(chData);
+      let _data = {
+        b: Array.from({ length: chData.length }, (_, i) => i),
+        a: chData,
+      };
+      setData(_data);
+    };
+    fn();
+  }, [client]);
+
   return (
     <div
       style={{
         overflow: "hidden",
         height: "100%",
         width: "100%",
+        padding: "2rem",
       }}
     >
       <AutoSize
@@ -87,4 +100,6 @@ export default function Plot() {
       />
     </div>
   );
-}
+};
+
+export default memo(Plot);

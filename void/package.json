@@ -16,6 +16,7 @@
     "@synnaxlabs/pluto": "../pluto",
     "@tauri-apps/api": "^1.1.0",
     "clsx": "^1.2.1",
+    "proxy-memoize": "^1.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-hook-form": "^7.38.0",
@@ -32,8 +33,17 @@
     "@types/react": "^18.0.17",
     "@types/react-dom": "^18.0.6",
     "@types/uuid": "^8.3.4",
+    "@typescript-eslint/eslint-plugin": "^5.0.0",
     "@vitejs/plugin-react": "^2.1.0",
-    "typescript": "^4.6.4",
+    "eslint": "^8.0.1",
+    "eslint-config-prettier": "^8.5.0",
+    "eslint-config-standard-with-typescript": "^23.0.0",
+    "eslint-plugin-import": "^2.25.2",
+    "eslint-plugin-n": "^15.0.0",
+    "eslint-plugin-promise": "^6.0.0",
+    "eslint-plugin-react": "^7.31.10",
+    "prettier": "2.7.1",
+    "typescript": "*",
     "vite": "^3.1.0"
   }
 }

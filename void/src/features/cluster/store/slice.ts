@@ -1,28 +1,15 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { Connectivity, SynnaxProps } from "@synnaxlabs/client";
-import { Dispatch } from "react";
 import { useSelector } from "react-redux";
-import { Optional } from "../util/types";
-
-export type Cluster = {
-  key: string;
-  name: string;
-  props: SynnaxProps;
-  active: boolean;
-  state: ConnectionState;
-};
-
-export type ConnectionState = {
-  status: Connectivity;
-  message?: string;
-};
+import { Optional } from "../../../util/types";
+import { Cluster, ConnectionState } from "../types";
 
 export type ClusterSliceState = {
   reconnect: boolean;
   clusters: Cluster[];
 };
 
-export type ClusterSliceStoreState = {
+export type ClusterStoreState = {
   cluster: ClusterSliceState;
 };
 
@@ -50,13 +37,13 @@ export type SetClusterConnectionState = PayloadAction<{
 }>;
 export type ToggleRecconnectAction = PayloadAction<undefined>;
 
-const slice = createSlice({
+export const {
+  actions: { setCluster, setActiveCluster, setClusterConnectionState },
+  reducer: clusterReducer,
+} = createSlice({
   name: "cluster",
   initialState,
   reducers: {
-    toggleReconnect: (state) => {
-      state.reconnect = !state.reconnect;
-    },
     setClusterConnectionState: (
       { clusters },
       { payload: { key, state } }: SetClusterConnectionState
@@ -67,7 +54,7 @@ const slice = createSlice({
       }
     },
     setCluster: ({ clusters }, { payload: cluster }: SetClusterAction) => {
-      const index = clusters.findIndex(({ key }) => key === cluster.key);
+      const index = clusters.findIndex(({ key: key }) => key === cluster.key);
       if (index >= 0) {
         clusters[index] = cluster as Cluster;
       } else {
@@ -83,28 +70,9 @@ const slice = createSlice({
   },
 });
 
-export const useSelectActiveCluster = () =>
-  useSelector(({ cluster: { clusters } }: ClusterSliceStoreState) =>
-    clusters.find(({ active }) => active)
-  );
-
-export const useSelectCluster = (key: string): Cluster | undefined =>
-  useSelector(({ cluster: { clusters } }: ClusterSliceStoreState) =>
-    clusters.find(({ key: clusterKey }) => clusterKey === key)
-  );
-
 const changeActiveCluster = (clusters: Cluster[], key: string) => {
   return clusters.map((cluster) => ({
     ...cluster,
     active: cluster.key === key,
   }));
 };
-
-export const {
-  toggleReconnect,
-  setCluster,
-  setActiveCluster,
-  setClusterConnectionState,
-} = slice.actions;
-
-export default slice;
