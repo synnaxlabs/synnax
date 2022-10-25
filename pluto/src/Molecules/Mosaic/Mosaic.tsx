@@ -1,25 +1,29 @@
 import React, { useState } from "react";
-import { Resize } from "../../Atoms";
-import { Tabs } from "../../Atoms/Tabs";
-import { TabEntry, TabProps, TabsProps } from "../../Atoms/Tabs/Tabs";
-import { MosaicNode } from "./MosaicTree";
-import { Location } from "../../util/spatial";
+import { Resize, Tabs, Tab, TabsProps } from "@/atoms";
+import { MosaicLeaf } from "./mosaicTree";
+import { Location } from "@/util";
 import "./Mosaic.css";
 
 export interface MosaicProps extends Omit<TabsProps, "onDrop" | "tabs"> {
   onDrop: (key: number, tabKey: string, loc: Location) => void;
   onResize: (key: number, size: number) => void;
-  tree: MosaicNode;
+  root: MosaicLeaf;
 }
 
-const Mosaic = (props: MosaicProps) => {
+export const Mosaic = (props: MosaicProps) => {
   const {
-    tree: { tabs, direction, first, last, key, size },
+    root: { tabs, direction, first, last, key, size },
     onResize,
   } = props;
-  if (tabs !== undefined) return <MosaicTabNode {...props} />;
+
+  if (tabs !== undefined) return <MosaicTabLeaf {...props} />;
 
   const _onResize = (sizes: number[]) => onResize(key, sizes[0]);
+
+  if (!first || !last) {
+    console.warn("Mosaic tree is malformed");
+    return null;
+  }
 
   return (
     <Resize.Multiple
@@ -33,14 +37,14 @@ const Mosaic = (props: MosaicProps) => {
       onResize={_onResize}
       initialSizes={size ? [size] : undefined}
     >
-      <Mosaic {...props} tree={first} />
-      <Mosaic {...props} tree={last} />
+      <Mosaic {...props} root={first} />
+      <Mosaic {...props} root={last} />
     </Resize.Multiple>
   );
 };
 
-const MosaicTabNode = ({ tree: node, onDrop, ...props }: MosaicProps) => {
-  const { key, tabs } = node as Omit<MosaicNode, "tabs"> & { tabs: TabEntry[] };
+const MosaicTabLeaf = ({ root: node, onDrop, ...props }: MosaicProps) => {
+  const { key, tabs } = node as Omit<MosaicLeaf, "tabs"> & { tabs: Tab[] };
 
   const [dragMask, setDragMask] = useState<Location | null>(null);
   const [currentlyDragging, setCurrentlyDragging] = useState<string | null>(
@@ -82,7 +86,7 @@ const MosaicTabNode = ({ tree: node, onDrop, ...props }: MosaicProps) => {
     <>
       <Tabs
         style={{ height: "100%" }}
-        tabs={tabs as TabProps[]}
+        tabs={tabs as Tab[]}
         {...props}
         onDrop={_onDrop}
         onDragOver={onDragOver}
@@ -138,5 +142,3 @@ const insertLocation = ({ px, py }: { px: number; py: number }) => {
   if (py < aY && py > bY) return "right";
   throw new Error("[bug] - invalid insert position");
 };
-
-export default Mosaic;

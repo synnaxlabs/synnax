@@ -1,5 +1,5 @@
 import { ComponentMeta, ComponentStory } from "@storybook/react";
-import { ListEntry } from "../List/Types";
+import { ListEntry } from "../List/types";
 import { Select, SelectMultipleProps } from ".";
 
 export default {

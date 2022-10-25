@@ -1,7 +1,7 @@
 import { SVGProps, useEffect, useRef, useState } from "react";
 import * as d3 from "d3";
-import { TypographyLevel } from "../../Atoms";
-import { Theme } from "../../Theme";
+import { TypographyLevel } from "../../atoms";
+import { Theme } from "../../theme";
 
 export interface Metric {
   name: string;

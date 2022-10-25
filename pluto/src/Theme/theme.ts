@@ -1,4 +1,4 @@
-import { TypographyDefinition } from "../Atoms/Typography";
+import { TypographyDefinition } from "../atoms/Typography";
 
 type Size = number | string;
 type Color = string;

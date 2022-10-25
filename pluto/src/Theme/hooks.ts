@@ -1,4 +1,4 @@
-import { TypographyLevel } from "../Atoms";
+import { TypographyLevel } from "../atoms";
 import { useThemeContext } from "./ThemeContext";
 
 export const useFont = (level: TypographyLevel) => {

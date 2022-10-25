@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useState } from "react";
-import { useKeyHeld } from "../../Hooks/useKeys";
-import { ListEntry } from "./Types";
+import { useKeyHeld } from "@/hooks";
+import { ListEntry } from "./types";
 
 export interface useMultiSelectProps<E extends ListEntry> {
   data: E[];

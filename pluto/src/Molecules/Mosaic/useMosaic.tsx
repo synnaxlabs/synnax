@@ -1,57 +1,48 @@
 import { useState } from "react";
-import { TabEntry } from "../../Atoms/Tabs";
-import MosaicTree, { MosaicNode } from "./MosaicTree";
-import { Location } from "../../util/spatial";
+import {
+  insertMosaicTab,
+  MosaicLeaf,
+  moveMosaicTab,
+  removeMosaicTab,
+  resizeMosaicLeaf,
+  selectMosaicTab,
+} from "./mosaicTree";
+import { Location } from "@/util";
+import { Tab } from "@/atoms";
 
 export interface UseMosaicProps {
-  initialTree: MosaicNode;
+  initialTree: MosaicLeaf;
 }
 
 export interface UseMosaicReturn {
-  tree: MosaicNode;
+  root: MosaicLeaf;
   onDrop: (key: number, tabKey: string, loc: Location) => void;
   onClose: (tabKey: string) => void;
-  insertTab: (tab: TabEntry, key?: number, loc?: Location) => void;
+  insertTab: (tab: Tab, key?: number, loc?: Location) => void;
   onSelect: (tabKey: string) => void;
   onResize: (key: number, sizes: number) => void;
 }
 
 export const useMosaic = ({ initialTree }: UseMosaicProps): UseMosaicReturn => {
-  const [tree, setTree] = useState(initialTree);
+  const [root, setRoot] = useState(initialTree);
 
-  const onDrop = (key: number, tabKey: string, loc: Location) => {
-    const t = new MosaicTree(tree);
-    t.move(tabKey, key, loc);
-    setTree(t.shallowCopy());
-  };
+  const onDrop = (key: number, tabKey: string, loc: Location) =>
+    setRoot((r) => moveMosaicTab(r, tabKey, key, loc));
 
-  const onClose = (tabKey: string) => {
-    const t = new MosaicTree(tree);
-    t.remove(tabKey);
-    setTree(t.shallowCopy());
-  };
+  const onClose = (tabKey: string) =>
+    setRoot((r) => removeMosaicTab(r, tabKey));
 
-  const insertTab = (tab: TabEntry, key?: number, loc?: Location) => {
-    if (!loc) loc = "center";
-    const t = new MosaicTree(tree);
-    t.insert(tab, key, loc);
-    setTree(t.shallowCopy());
-  };
+  const insertTab = (tab: Tab, key?: number, loc?: Location) =>
+    setRoot((r) => insertMosaicTab(r, tab, key, loc));
 
-  const onSelect = (tabKey: string) => {
-    const t = new MosaicTree(tree);
-    t.select(tabKey);
-    setTree(t.shallowCopy());
-  };
+  const onSelect = (tabKey: string) =>
+    setRoot((r) => selectMosaicTab(r, tabKey));
 
-  const onResize = (key: number, size: number) => {
-    const t = new MosaicTree(tree);
-    t.resize(key, size);
-    setTree(t.shallowCopy());
-  };
+  const onResize = (key: number, size: number) =>
+    setRoot((r) => resizeMosaicLeaf(r, key, size));
 
   return {
-    tree,
+    root,
     onDrop,
     onClose,
     insertTab,

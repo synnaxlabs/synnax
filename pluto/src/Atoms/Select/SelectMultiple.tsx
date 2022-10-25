@@ -1,17 +1,14 @@
 import clsx from "clsx";
 import { useRef, useState } from "react";
 import { AiOutlineClose } from "react-icons/ai";
-import Input, { InputProps } from "../Input/Input";
-import { List } from "../List";
-import { useListContext } from "../List/ListContext";
-import { ListEntry, TypedListColumn } from "../List/Types";
-import ListSearch from "../List/ListSearch";
-import Space from "../Space/Space";
-import { Tag } from "../Tag";
+import { Input, InputProps } from "@/atoms/Input";
+import { Space } from "@/atoms/Space";
+import { List, ListEntry, TypedListColumn } from "@/atoms/List";
+import { Tag } from "@/atoms/Tag";
+import { Button } from "@/atoms/Button";
+import { useClickoutside } from "@/hooks";
+import { Theme } from "../../theme";
 import "./SelectMultiple.css";
-import { Button } from "../Button";
-import useClickoutside from "../../Hooks/useClickOutside";
-import { Theme } from "../../Theme";
 
 export interface SelectMultipleProps<E extends ListEntry> {
   options?: E[];
@@ -20,12 +17,12 @@ export interface SelectMultipleProps<E extends ListEntry> {
   tagKey?: keyof E;
 }
 
-export default function SelectMultiple<E extends ListEntry>({
+export const SelectMultiple = <E extends ListEntry>({
   options = [],
   columns = [],
   listPosition = "bottom",
   tagKey = "key",
-}: SelectMultipleProps<E>) {
+}: SelectMultipleProps<E>) => {
   const [visible, setVisible] = useState(false);
   const divRef = useRef<HTMLDivElement>(null);
   useClickoutside(divRef, () => setVisible(false));
@@ -37,7 +34,7 @@ export default function SelectMultiple<E extends ListEntry>({
         empty
         reverse={listPosition === "top"}
       >
-        <ListSearch
+        <List.Search
           Input={({ value, onChange }) => {
             return (
               <SelectMultipleInput
@@ -66,7 +63,7 @@ export default function SelectMultiple<E extends ListEntry>({
       </Space>
     </List>
   );
-}
+};
 
 interface SelectMultipleInputProps<E extends ListEntry> extends InputProps {
   focused: boolean;
@@ -81,7 +78,8 @@ const SelectMultipleInput = <E extends ListEntry>({
   onFocus,
   tagKey,
 }: SelectMultipleInputProps<E>) => {
-  const { selected, sourceData, onSelect, clearSelected } = useListContext<E>();
+  const { selected, sourceData, onSelect, clearSelected } =
+    List.useContext<E>();
 
   const { theme } = Theme.useContext();
   return (

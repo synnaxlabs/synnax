@@ -1,7 +1,6 @@
 import { ComponentStory, ComponentMeta } from "@storybook/react";
-import { useEffect } from "react";
 import { Mosaic } from ".";
-import { MosaicNode } from "./MosaicTree";
+import { MosaicLeaf } from "./mosaicTree";
 import { useMosaic } from "./useMosaic";
 
 export default {
@@ -9,7 +8,7 @@ export default {
   component: Mosaic,
 };
 
-const initialTree: MosaicNode = {
+const initialTree: MosaicLeaf = {
   key: 0,
   level: 0,
   direction: "horizontal",

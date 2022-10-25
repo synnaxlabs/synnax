@@ -1,6 +1,6 @@
 import { expect, describe, it } from "vitest";
 import { render } from "@testing-library/react";
-import Space from "./Space";
+import { Space } from ".";
 
 describe("Space", () => {
   it("should render items with a space between them", () => {

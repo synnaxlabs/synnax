@@ -1,5 +1,5 @@
 import { ComponentMeta, ComponentStory } from "@storybook/react";
-import Resize from "./Resize";
+import { Resize } from ".";
 
 export default {
   title: "Atoms/Resize",

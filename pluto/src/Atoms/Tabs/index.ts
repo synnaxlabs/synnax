@@ -1,6 +1,6 @@
-import CoreTabs from "./Tabs";
+import { Tabs as CoreTabs } from "./Tabs";
 
-export type { TabEntry, TabsProps } from "./Tabs";
+export type { Tab, TabsProps } from "./Tabs";
 
 type CoreTabsType = typeof CoreTabs;
 

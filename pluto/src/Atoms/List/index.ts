@@ -1,10 +1,22 @@
-export { default as List } from "./List";
-export type { ListProps } from "./List";
-export type { ListColumnHeaderProps } from "./ListColumn";
-export type { ListContextProps } from "./ListContext";
-export type {
-  UntypedListColumn,
-  TypedListColumn,
-  ListEntry,
-  ListItemProps,
-} from "./Types";
+import { List as BaseList } from "./List";
+import { ListColumn } from "./ListColumn";
+import { useListContext } from "./ListContext";
+import { ListCore } from "./ListCore";
+import { ListSearch } from "./ListSearch";
+export type { ListEntry, TypedListColumn } from "./types";
+
+type BaseListType = typeof BaseList;
+
+interface ListType extends BaseListType {
+  Column: typeof ListColumn;
+  Search: typeof ListSearch;
+  Core: typeof ListCore;
+  useContext: typeof useListContext;
+}
+
+export const List = BaseList as ListType;
+
+List.Column = ListColumn;
+List.Search = ListSearch;
+List.Core = ListCore;
+List.useContext = useListContext;

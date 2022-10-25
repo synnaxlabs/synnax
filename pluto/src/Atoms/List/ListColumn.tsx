@@ -1,7 +1,6 @@
-import Space from "../Space/Space";
-import Text from "../Typography/Text";
-import TextWithIcon from "../Typography/TextWithIcon";
-import { useFont } from "../../Theme/hooks";
+import { Space } from "@/atoms/Space";
+import { Text } from "@/atoms/Typography";
+import { useFont } from "@/theme";
 import { useEffect, useState } from "react";
 import { AiFillCaretDown, AiFillCaretUp } from "react-icons/ai";
 import { sortFunc } from "../../util/sort";
@@ -11,7 +10,7 @@ import {
   ListItemProps,
   TypedListColumn,
   TypedListTransform,
-} from "./Types";
+} from "./types";
 import clsx from "clsx";
 import "./ListColumn.css";
 import { getTextWidth } from "../../util/canvas";
@@ -77,7 +76,7 @@ const ListColumnHeader = <E extends ListEntry>({
             endIcon = dir ? <AiFillCaretUp /> : <AiFillCaretDown />;
           }
           return (
-            <TextWithIcon
+            <Text.WithIcon
               key={col.key as string}
               justify="spaceBetween"
               level="p"
@@ -91,14 +90,14 @@ const ListColumnHeader = <E extends ListEntry>({
               onClick={() => onSort(col.key)}
             >
               {col.label}
-            </TextWithIcon>
+            </Text.WithIcon>
           );
         })}
     </Space>
   );
 };
 
-export const ListColumnItem = <E extends ListEntry>({
+const ListColumnItem = <E extends ListEntry>({
   entry,
   selected,
   columns,
@@ -132,7 +131,7 @@ export const ListColumnItem = <E extends ListEntry>({
   );
 };
 
-export const entrySortFunc =
+const entrySortFunc =
   <E extends ListEntry>(type: string, key: keyof E) =>
   (a: E, b: E) =>
     sortFunc(type)(a[key], b[key]);
@@ -184,9 +183,7 @@ const sortTransform = <E extends ListEntry>(
   };
 };
 
-const Column = {
+export const ListColumn = {
   Header: ListColumnHeader,
   Item: ListColumnItem,
 };
-
-export default Column;

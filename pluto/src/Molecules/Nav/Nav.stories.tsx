@@ -1,7 +1,7 @@
 import { ComponentMeta, ComponentStory } from "@storybook/react";
 import { MdGrain } from "react-icons/md";
 import { Nav, NavDrawerProps } from ".";
-import { Header } from "../../Atoms";
+import { Header } from "../../atoms";
 import { NavBarProps } from "./NavBar";
 
 export default {

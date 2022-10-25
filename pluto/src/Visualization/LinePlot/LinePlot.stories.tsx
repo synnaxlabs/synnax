@@ -1,5 +1,5 @@
 import { ComponentMeta, ComponentStory } from "@storybook/react";
-import { AutoSize } from "../../Atoms/AutoSize";
+import { AutoSize } from "../../atoms/AutoSize";
 import LinePlot, { PlotProps } from "./LinePlot";
 import { Axis, Series } from "./Types";
 

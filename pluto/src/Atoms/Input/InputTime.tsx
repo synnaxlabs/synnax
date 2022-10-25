@@ -1,11 +1,11 @@
-import { ComponentSize } from "../../util/types";
+import { ComponentSize } from "@/util";
 
 export interface InputTimeProps {
   size?: ComponentSize;
   onChange?: (value: string) => void;
 }
 
-export default function InputTime({ size, onChange }: InputTimeProps) {
+export const InputTime = ({ size, onChange }: InputTimeProps) => {
   return (
     <input
       type="time"
@@ -14,4 +14,4 @@ export default function InputTime({ size, onChange }: InputTimeProps) {
       className={`pluto-input__input pluto-input__input--${size}`}
     />
   );
-}
+};

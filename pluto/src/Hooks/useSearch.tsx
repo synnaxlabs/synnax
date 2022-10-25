@@ -1,11 +1,11 @@
 import Fuse from "fuse.js";
 import { useCallback, useState } from "react";
 
-export default function <E extends Record<string, any>>(): [
+export const useSearch = <E extends Record<string, any>>(): [
   string,
   (value: string) => void,
   (data: E[]) => E[]
-] {
+] => {
   const [query, setQuery] = useState("");
   const searchFunc = useCallback(
     (data: E[]) => {
@@ -16,4 +16,4 @@ export default function <E extends Record<string, any>>(): [
     [query]
   );
   return [query, setQuery, searchFunc];
-}
+};

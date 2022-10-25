@@ -20,7 +20,7 @@ export interface UseResizeProps extends BaseSizeProps {
  * @param opts -  Options for the hook. See useResizeOpts.
  * @returns The width and height of the element.
  */
-const useResize = ({ ref, onResize, debounce = 0 }: UseResizeProps) => {
+export const useResize = ({ ref, onResize, debounce = 0 }: UseResizeProps) => {
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -34,8 +34,6 @@ const useResize = ({ ref, onResize, debounce = 0 }: UseResizeProps) => {
     return () => resizeObserver.disconnect();
   }, [onResize, ref]);
 };
-
-export default useResize;
 
 export interface UseSizeProps extends BaseSizeProps {}
 

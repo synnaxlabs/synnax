@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { DetailedHTMLProps, HTMLAttributes, LabelHTMLAttributes } from "react";
+import { DetailedHTMLProps, HTMLAttributes } from "react";
 import "./InputLabel.css";
 
 export interface InputLabelProps
@@ -10,8 +10,8 @@ export interface InputLabelProps
   label?: string;
 }
 
-export default function InputLabel(props: InputLabelProps) {
+export const InputLabel = (props: InputLabelProps) => {
   return (
     <label className={clsx("pluto-input-label", props.className)} {...props} />
   );
-}
+};

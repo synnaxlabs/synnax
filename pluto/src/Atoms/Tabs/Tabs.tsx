@@ -1,32 +1,32 @@
 import { ComponentType, ReactElement, useEffect, useState } from "react";
 import clsx from "clsx";
 import { Space, SpaceProps } from "../Space";
-import { Text } from "../Typography";
-import { Button } from "../Button";
+import { Text } from "@/atoms/Typography";
+import { Button } from "@/atoms/Button";
 import { AiOutlineClose } from "react-icons/ai";
 import "./Tabs.css";
 
 export interface TabsProps
   extends Omit<SpaceProps, "children" | "onSelect" | "size"> {
-  tabs: TabEntry[];
+  tabs: Tab[];
   selected?: string;
   onSelect?: (key: string) => void;
   onClose?: (key: string) => void;
   closable?: boolean;
   emptyContent?: ReactElement | null;
-  children?: ComponentType<{ tab: TabEntry }> | null;
-  onTabDragStart?: (e: React.DragEvent<HTMLDivElement>, tab: TabEntry) => void;
-  onTabDragEnd?: (e: React.DragEvent<HTMLDivElement>, tab: TabEntry) => void;
+  children?: ComponentType<{ tab: Tab }> | null;
+  onTabDragStart?: (e: React.DragEvent<HTMLDivElement>, tab: Tab) => void;
+  onTabDragEnd?: (e: React.DragEvent<HTMLDivElement>, tab: Tab) => void;
 }
 
-export interface TabEntry {
+export interface Tab {
   tabKey: string;
   title: string;
   content?: ReactElement;
   closable?: boolean;
 }
 
-const Tabs = ({
+export const Tabs = ({
   onSelect: propsOnSelect,
   onClose: propsOnClose,
   selected: propsSelected,
@@ -40,7 +40,7 @@ const Tabs = ({
   onDrag,
   ...props
 }: TabsProps) => {
-  const [tabs, setTabs] = useState<TabEntry[]>(propsTabs);
+  const [tabs, setTabs] = useState<Tab[]>(propsTabs);
   const [selected, setSelected] = useState<string>(
     propsSelected || tabs[0]?.tabKey || ""
   );
@@ -92,7 +92,7 @@ const Tabs = ({
         empty
       >
         {tabs.map((tab) => (
-          <Tab
+          <TabC
             key={tab.tabKey}
             selected={selected}
             onSelect={onSelect}
@@ -109,15 +109,15 @@ const Tabs = ({
   );
 };
 
-export interface TabProps extends TabEntry {
+export interface TabProps extends Tab {
   selected?: string;
-  onTabDragStart?: (e: React.DragEvent<HTMLDivElement>, tab: TabEntry) => void;
-  onTabDragEnd?: (e: React.DragEvent<HTMLDivElement>, tab: TabEntry) => void;
+  onTabDragStart?: (e: React.DragEvent<HTMLDivElement>, tab: Tab) => void;
+  onTabDragEnd?: (e: React.DragEvent<HTMLDivElement>, tab: Tab) => void;
   onSelect: (key: string) => void;
   onClose: (key: string) => void;
 }
 
-const Tab = ({
+const TabC = ({
   selected,
   onSelect,
   onClose,
@@ -159,5 +159,3 @@ const Tab = ({
     </Space>
   );
 };
-
-export default Tabs;

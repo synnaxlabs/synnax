@@ -1,7 +1,7 @@
 import { Nav, Theme } from "@synnaxlabs/pluto";
 import ClusterToolBar from "../../features/cluster/components/ClusterToolBar/ClusterToolBar";
 import Logo from "../../components/Logo/Logo";
-import ResourcesItem from "../../features/resources/ResourcesTree";
+import ResourcesToolBar from "../../features/resources/components/ResourcesToolBar/ResourcesToolBar";
 import "./LeftNavbar.css";
 
 export default function LeftNavbar() {
@@ -9,7 +9,7 @@ export default function LeftNavbar() {
     <Nav.Drawer
       location="left"
       size={48}
-      items={[ClusterToolBar, ResourcesItem]}
+      items={[ClusterToolBar, ResourcesToolBar]}
     >
       <Nav.Bar.Start className="sidebar-left__start" bordered>
         <Logo style={{ width: "100%" }} />

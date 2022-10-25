@@ -1,7 +1,10 @@
 import { AiOutlineClose } from "react-icons/ai";
-import { ComponentSize } from "../../util/types";
-import { Text } from "../Typography";
-import { ComponentSizeTypographyLevels, TextProps } from "../Typography";
+import { ComponentSize } from "@/util";
+import {
+  Text,
+  ComponentSizeTypographyLevels,
+  TextProps,
+} from "@/atoms/Typography";
 import "./Tag.css";
 
 export interface TagProps extends Omit<TextProps, "level"> {
@@ -12,7 +15,7 @@ export interface TagProps extends Omit<TextProps, "level"> {
   variant?: "filled" | "outlined";
 }
 
-export default function Tag({
+export const Tag = ({
   children = "",
   size = "medium",
   variant = "filled",
@@ -21,7 +24,7 @@ export default function Tag({
   onClose,
   style,
   ...props
-}: TagProps) {
+}: TagProps) => {
   const closeIcon = onClose && (
     <AiOutlineClose
       aria-label="close"
@@ -48,4 +51,4 @@ export default function Tag({
       {children}
     </Text.WithIcon>
   );
-}
+};

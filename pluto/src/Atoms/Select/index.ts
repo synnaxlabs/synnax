@@ -1,4 +1,4 @@
-import SelectMultiple from "./SelectMultiple";
+import { SelectMultiple } from "./SelectMultiple";
 
 export type { SelectMultipleProps } from "./SelectMultiple";
 

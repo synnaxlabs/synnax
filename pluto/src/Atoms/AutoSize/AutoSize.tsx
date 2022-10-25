@@ -1,19 +1,12 @@
-import {
-  cloneElement,
-  ComponentType,
-  ReactElement,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
-import { useSize } from "../../Hooks/useResize";
+import { cloneElement, ComponentType, ReactElement, useRef } from "react";
+import { useSize } from "@/hooks";
 
 export interface AutoSizeProps
   extends Omit<React.HTMLAttributes<HTMLDivElement>, "children"> {
   children: ComponentType<{ width: number; height: number }> | ReactElement;
   debounce?: number;
 }
-const AutoSize = ({
+export const AutoSize = ({
   children: Children,
   debounce,
   ...props
@@ -32,5 +25,3 @@ const AutoSize = ({
     </div>
   );
 };
-
-export default AutoSize;

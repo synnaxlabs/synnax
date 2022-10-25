@@ -5,14 +5,14 @@ import React, {
   HTMLAttributes,
   useContext,
 } from "react";
-import { Space, SpaceProps } from "../../Atoms";
+import { Space, SpaceProps } from "@/atoms";
 import {
   Direction,
   Position,
   Location,
   swapLocation,
   getDirection,
-} from "../../util/spatial";
+} from "@/util";
 import "./NavBar.css";
 
 export interface NavBarProps extends HTMLAttributes<HTMLDivElement> {
@@ -43,13 +43,13 @@ export const useNavBar = ({
   return { style, direction };
 };
 
-export default function NavBar({
+export const NavBar = ({
   location,
   size = 60,
   withContext = true,
   children,
   ...props
-}: NavBarProps) {
+}: NavBarProps) => {
   const { style, direction } = useNavBar({ location, size });
   let content = withContext ? (
     <NavbarContext.Provider value={{ location, direction }}>
@@ -74,7 +74,7 @@ export default function NavBar({
       {content}
     </Space>
   );
-}
+};
 
 export interface NavbarContentProps extends SpaceProps {
   bordered?: boolean;
@@ -113,4 +113,5 @@ NavBar.Center = contentFactory("center");
 NavBar.End = contentFactory("end");
 NavBar.Content = contentFactory("");
 NavBar.Context = NavbarContext;
+
 NavBar.useContext = () => useContext(NavbarContext);

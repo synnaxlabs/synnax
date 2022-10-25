@@ -2,7 +2,6 @@ import clsx from "clsx";
 import { HTMLAttributes, useEffect, useRef, useState } from "react";
 import { getDirection, Location, swapLocation } from "../../util/spatial";
 import "./Resize.css";
-import ResizeMultiple from "./ResizeMultiple";
 
 export interface ResizePanelProps extends HTMLAttributes<HTMLDivElement> {
   location: Location;
@@ -11,7 +10,8 @@ export interface ResizePanelProps extends HTMLAttributes<HTMLDivElement> {
   maxSize?: number;
   onResize?: (size: number) => void;
 }
-function Resize({
+
+export const Resize = ({
   children,
   location = "left",
   minSize = 100,
@@ -21,7 +21,7 @@ function Resize({
   className,
   style,
   ...props
-}: ResizePanelProps) {
+}: ResizePanelProps) => {
   const [size, setSize] = useState<number>(initialSize);
   const [dragging, setDragging] = useState(false);
   const direction = getDirection(location);
@@ -76,11 +76,7 @@ function Resize({
       ></div>
     </div>
   );
-}
-
-Resize.Multiple = ResizeMultiple;
-
-export default Resize;
+};
 
 export const parseMovement = (location: Location, e: MouseEvent) => {
   switch (location) {

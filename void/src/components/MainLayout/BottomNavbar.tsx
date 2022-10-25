@@ -1,6 +1,6 @@
 import {
+  ActiveClusterBadge,
   ActiveConnectionBadge,
-  ActiveConnectionStatus,
 } from "@/features/cluster/components/ConnectionStatus/ConnectionStatus";
 import { Nav, Divider } from "@synnaxlabs/pluto";
 
@@ -9,9 +9,9 @@ export default function BottomNavbar() {
     <Nav.Bar location="bottom" size={32}>
       <Nav.Bar.End className="void-main-layout__bottom-navbar">
         <Divider direction="vertical" />
-        <ActiveConnectionBadge />
+        <ActiveClusterBadge />
         <Divider direction="vertical" />
-        <ActiveConnectionStatus />
+        <ActiveConnectionBadge />
       </Nav.Bar.End>
     </Nav.Bar>
   );

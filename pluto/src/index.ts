@@ -1,7 +1,6 @@
-export * from "./Theme";
-export * from "./Atoms";
-export * from "./Hooks";
-export * from "./Molecules";
-export * from "./Visualization";
-export * from "./util/spatial";
-export { default as debounce } from "./util/debounce";
+export * from "./theme";
+export * from "./atoms";
+export * from "./hooks";
+export * from "./molecules";
+export * from "./visualization";
+export * from "./util";

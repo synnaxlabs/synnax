@@ -1,5 +1,5 @@
 import { ComponentMeta, ComponentStory } from "@storybook/react";
-import Tag, { TagProps } from "./Tag";
+import { Tag, TagProps } from ".";
 
 export default {
   title: "Atoms/Tag",

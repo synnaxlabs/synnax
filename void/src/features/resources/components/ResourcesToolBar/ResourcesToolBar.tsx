@@ -2,8 +2,8 @@ import { OntologyID, OntologyResource, OntologyRoot } from "@synnaxlabs/client";
 import { Tree, TreeEntry, Header, Space } from "@synnaxlabs/pluto";
 import { useEffect, useState } from "react";
 import { AiFillFolder } from "react-icons/ai";
-import { useActiveClient } from "../cluster/components/useActiveClient";
-import { resourceTypes } from "./resources";
+import { useActiveClient } from "../../../cluster/components/useActiveClient";
+import { resourceTypes } from "../../resources";
 import { useDispatch } from "react-redux";
 import { Dispatch } from "redux";
 
@@ -38,7 +38,7 @@ const convertOntologyResources = (
   });
 };
 
-function ResourcesTree() {
+const ResourcesTree = () => {
   const client = useActiveClient();
   const [data, setData] = useState<TreeEntry[]>([]);
   const dispatch = useDispatch();
@@ -47,7 +47,6 @@ function ResourcesTree() {
     if (!client) return;
     const fn = async () => {
       const resources = await client.ontology.retrieveChildren(OntologyRoot);
-      console.log(resources);
       setData(convertOntologyResources(dispatch, resources));
     };
     fn();
@@ -86,12 +85,10 @@ function ResourcesTree() {
       />
     </Space>
   );
-}
+};
 
-const ResourcesItem = {
+export const ResourcesToolBar = {
   key: "resources",
   icon: <AiFillFolder />,
   content: <ResourcesTree />,
 };
-
-export default ResourcesItem;

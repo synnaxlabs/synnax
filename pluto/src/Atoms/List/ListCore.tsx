@@ -1,7 +1,7 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { ComponentType, HTMLAttributes, Key, useRef } from "react";
+import { ComponentType, HTMLAttributes, useRef } from "react";
 import { useListContext } from "./ListContext";
-import { ListEntry, ListItemProps } from "./Types";
+import { ListEntry, ListItemProps } from "./types";
 import "./ListCore.css";
 
 export interface ListVirtualCoreProps<E extends ListEntry>
@@ -56,8 +56,6 @@ const ListVirtualCore = <E extends ListEntry>({
   );
 };
 
-const ListCore = {
+export const ListCore = {
   Virtual: ListVirtualCore,
 };
-
-export default ListCore;

@@ -2,9 +2,9 @@ import { createContext, useContext } from "react";
 
 export type LayoutRenderers = Record<string, React.FC>;
 
-const LayoutRenderersContext = createContext<LayoutRenderers>({});
+const LayoutRendererContext = createContext<LayoutRenderers>({});
 
 export const useLayoutRenderer = (key: string) =>
-  useContext(LayoutRenderersContext)[key];
+  useContext(LayoutRendererContext)[key];
 
-export const LayoutRenderersProvider = LayoutRenderersContext.Provider;
+export const LayoutRendererProvider = LayoutRendererContext.Provider;

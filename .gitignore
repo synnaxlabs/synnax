@@ -6,10 +6,6 @@
 
 .DS_Store
 
-# |||||| VSCODE ||||||
-
-.vscode
-
 # |||||| JS ||||||
 
 node_modules

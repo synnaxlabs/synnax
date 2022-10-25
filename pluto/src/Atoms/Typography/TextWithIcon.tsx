@@ -1,23 +1,20 @@
-import { thresholdFreedmanDiaconis } from "d3";
-import React, { Children, cloneElement, ReactElement } from "react";
-import { Theme } from "../../Theme";
-import { Divider } from "../Divider";
-import Space, { SpaceProps } from "../Space/Space";
-import Text, { BaseTextProps } from "./Text";
-import { TypographyLevel } from "./Types";
+import { Children, cloneElement, ReactElement } from "react";
+import { Theme } from "@/theme";
+import { Divider } from "@/atoms/Divider";
+import { Space, SpaceProps } from "@/atoms/Space";
+import { Text, CoreTextProps } from "./Text";
+import { TypographyLevel } from "./types";
 
-export interface BaseTextWithIconProps
+export interface TextWithIconProps
   extends Omit<SpaceProps, "children">,
-    BaseTextProps {
+    CoreTextProps {
   startIcon?: ReactElement | ReactElement[];
   endIcon?: ReactElement | ReactElement[];
   children?: string | number;
   divided?: boolean;
 }
 
-export interface TextWithIconProps extends BaseTextWithIconProps {}
-
-export default function TextWithIcon({
+export const TextWithIcon = ({
   level = "h1",
   divided = false,
   startIcon,
@@ -25,7 +22,7 @@ export default function TextWithIcon({
   children,
   color,
   ...props
-}: TextWithIconProps) {
+}: TextWithIconProps) => {
   const endIcons = startIcon && useFormattedIcons(startIcon, level, color);
   const startIcons = endIcon && useFormattedIcons(endIcon, level, color);
   return (
@@ -41,7 +38,7 @@ export default function TextWithIcon({
       {startIcons && startIcons.map((i) => i)}
     </Space>
   );
-}
+};
 
 const useFormattedIcons = (
   icon: ReactElement | ReactElement[],

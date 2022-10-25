@@ -1,8 +1,8 @@
-import { ButtonHTMLAttributes, cloneElement, ReactElement } from "react";
+import { ButtonHTMLAttributes, ReactElement } from "react";
 import "./Button.css";
-import { ComponentSizeTypographyLevels, Text } from "../Typography";
+import { ComponentSizeTypographyLevels, Text } from "@/atoms/Typography";
 import clsx from "clsx";
-import { ComponentSize } from "../../util/types";
+import { ComponentSize } from "@/util";
 
 export interface BaseButtonProps
   extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -16,7 +16,7 @@ export interface ButtonProps extends BaseButtonProps {
   endIcon?: ReactElement | ReactElement[];
 }
 
-const Button = ({
+export const Button = ({
   size = "medium",
   variant = "filled",
   className,
@@ -48,5 +48,3 @@ const Button = ({
     </button>
   );
 };
-
-export default Button;

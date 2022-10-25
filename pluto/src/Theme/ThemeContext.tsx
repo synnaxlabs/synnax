@@ -9,7 +9,7 @@ import {
 import { ThemeProps, synnaxLight } from "./theme";
 import { applyThemeAsCssVars } from "./css";
 import "./theme.css";
-import Switch from "../Atoms/Switch/Switch";
+import { Switch } from "@/atoms";
 
 const ThemeContext = createContext<{
   theme: ThemeProps;

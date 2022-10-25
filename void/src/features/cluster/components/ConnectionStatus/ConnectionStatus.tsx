@@ -23,7 +23,7 @@ const connectionStatusVariants: Record<Connectivity, StatusVariant> = {
   [Connectivity.DISCNNECTED]: "warning",
 };
 
-export const ActiveConnectionBadge = () => {
+export const ActiveClusterBadge = () => {
   const cluster = useSelectActiveCluster();
   return (
     <Text.WithIcon level="p" startIcon={<AiFillDatabase />}>
@@ -32,63 +32,14 @@ export const ActiveConnectionBadge = () => {
   );
 };
 
-export const ActiveConnectionStatus = () => {
+export const ActiveConnectionBadge = () => {
   const cluster = useSelectActiveCluster();
   const connState = cluster?.state || DEFAULT_CONNECTION_STATE;
-  return <ConnectionStatus state={connState} />;
+  return <ConnectionBadge state={connState} />;
 };
 
-export const ConnectionStatus = ({
+export const ConnectionBadge = ({
   state: { message, status },
 }: ConnectionStatusProps) => (
   <StatusBadge variant={connectionStatusVariants[status]} message={message} />
 );
-
-type StatusVariant =
-  | "success"
-  | "error"
-  | "warning"
-  | "info"
-  | "warning"
-  | "loading";
-
-export interface StatusBadgeProps
-  extends Omit<TextProps, "children" | "level"> {
-  level?: TypographyLevel;
-  message: string;
-  variant: StatusVariant;
-}
-
-const statusVariantIcons: Record<StatusVariant, ReactElement> = {
-  info: <AiFillInfoCircle />,
-  warning: <AiFillWarning />,
-  error: <AiOutlineClose />,
-  success: <AiOutlineCheck />,
-  loading: <AiOutlineWarning />,
-};
-
-const statusVariantColors: Record<StatusVariant, string> = {
-  info: "var(--pluto-text-color)",
-  error: "var(--pluto-error-z)",
-  warning: "var(--pluto-warning-z)",
-  success: "var(--pluto-primary-z)",
-  loading: "var(--pluto-text-color)",
-};
-
-export const StatusBadge = ({
-  variant = "error",
-  message,
-  level = "p",
-  ...props
-}: StatusBadgeProps) => {
-  return (
-    <Text.WithIcon
-      color={statusVariantColors[variant]}
-      level={level}
-      startIcon={statusVariantIcons[variant]}
-      {...props}
-    >
-      {message}
-    </Text.WithIcon>
-  );
-};

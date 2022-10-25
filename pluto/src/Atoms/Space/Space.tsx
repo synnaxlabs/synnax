@@ -10,7 +10,9 @@ import { ComponentSize } from "../../util/types";
 import "./Space.css";
 
 export type SpaceAlignment = "start" | "center" | "end" | "stretch";
+
 export const SpaceAlignments = ["start", "center", "end", "stretch"] as const;
+
 export type SpaceJustification =
   | "start"
   | "center"
@@ -18,6 +20,7 @@ export type SpaceJustification =
   | "spaceBetween"
   | "spaceAround"
   | "spaceEvenly";
+
 export const SpaceJustifications = [
   "start",
   "center",
@@ -26,6 +29,7 @@ export const SpaceJustifications = [
   "spaceAround",
   "spaceEvenly",
 ] as const;
+
 export interface SpaceProps
   extends PropsWithChildren<HTMLAttributes<HTMLDivElement>> {
   empty?: boolean;
@@ -37,16 +41,7 @@ export interface SpaceProps
   grow?: boolean | number;
 }
 
-const juitifications = {
-  start: "flex-start",
-  center: "center",
-  end: "flex-end",
-  spaceBetween: "space-between",
-  spaceAround: "space-around",
-  spaceEvenly: "space-evenly",
-};
-
-const Space = forwardRef(
+export const Space = forwardRef(
   (
     {
       empty = false,
@@ -75,7 +70,7 @@ const Space = forwardRef(
     style = {
       gap,
       flexDirection: flexDirection(direction, reverse),
-      justifyContent: juitifications[justify],
+      justifyContent: justifications[justify],
       alignItems: align,
       ...style,
     };
@@ -99,7 +94,6 @@ const Space = forwardRef(
     );
   }
 );
-export default Space;
 
 const flexDirection = (direction: Direction, reverse: boolean) => {
   if (direction === "horizontal") {
@@ -107,4 +101,13 @@ const flexDirection = (direction: Direction, reverse: boolean) => {
   } else {
     return reverse ? "column-reverse" : "column";
   }
+};
+
+const justifications = {
+  start: "flex-sart",
+  center: "center",
+  end: "flex-end",
+  spaceBetween: "space-between",
+  spaceAround: "space-around",
+  spaceEvenly: "space-evenly",
 };

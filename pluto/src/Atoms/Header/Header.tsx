@@ -1,9 +1,13 @@
 import clsx from "clsx";
 import { cloneElement, Fragment, isValidElement, ReactElement } from "react";
-import { Button, ButtonIconOnlyProps } from "../Button";
-import { Divider } from "../Divider";
-import { Space, SpaceProps } from "../Space";
-import { Text, TextProps, TypographyLevelComponentSizes } from "../Typography";
+import { Button, ButtonIconOnlyProps } from "@/atoms/Button";
+import { Divider } from "@/atoms/Divider";
+import { Space, SpaceProps } from "@/atoms/Space";
+import {
+  Text,
+  TextProps,
+  TypographyLevelComponentSizes,
+} from "@/atoms/Typography";
 import "./Header.css";
 
 export interface HeaderProps extends Omit<SpaceProps, "children">, TextProps {
@@ -12,7 +16,7 @@ export interface HeaderProps extends Omit<SpaceProps, "children">, TextProps {
   actions?: (ButtonIconOnlyProps | ReactElement)[];
 }
 
-export default function Header({
+export const Header = ({
   icon,
   level = "h1",
   divided = false,
@@ -20,7 +24,7 @@ export default function Header({
   className,
   actions,
   ...props
-}: HeaderProps) {
+}: HeaderProps) => {
   return (
     <Space
       direction="horizontal"
@@ -67,4 +71,4 @@ export default function Header({
       </Space>
     </Space>
   );
-}
+};

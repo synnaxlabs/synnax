@@ -1,14 +1,13 @@
 import { ComponentMeta, ComponentStory } from "@storybook/react";
 import { AiFillDatabase, AiFillPhone } from "react-icons/ai";
-import { Tree } from ".";
-import { TreeEntry, TreeNodeProps } from "./Tree";
+import { Tree, TreeLeaf } from ".";
 
 export default {
   title: "Atoms/Tree",
   component: Tree,
-};
+} as ComponentMeta<typeof Tree>;
 
-const nodes: TreeEntry[] = [
+const nodes: TreeLeaf[] = [
   {
     key: "cluster",
     title: "Cluster",

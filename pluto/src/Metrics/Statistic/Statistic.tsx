@@ -1,8 +1,5 @@
 import clsx from "clsx";
-import { TypographyLevel } from "../../Atoms";
-import Space from "../../Atoms/Space/Space";
-import Text from "../../Atoms/Typography/Text";
-import "./Value.css";
+import { Space, Text, TypographyLevel } from "@/atoms";
 
 export interface ValueProps {
   value: number;

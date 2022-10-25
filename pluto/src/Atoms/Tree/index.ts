@@ -1,5 +1,5 @@
-import CoreTree from "./Tree";
-export type { TreeProps, TreeEntry } from "./Tree";
+import { Tree as CoreTree } from "./Tree";
+export type { TreeProps, TreeLeaf } from "./Tree";
 
 type CoreTreeType = typeof CoreTree;
 

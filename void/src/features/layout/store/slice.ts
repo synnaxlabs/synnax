@@ -3,7 +3,7 @@ import { MosaicNode, TabEntry, MosaicTree, Location } from "@synnaxlabs/pluto";
 import { LayoutContent, LayoutPlacement } from "../types";
 
 export interface LayoutState {
-  contents: Record<string, LayoutContent<any, any>>;
+  contents: Record<string, LayoutContent<any>>;
   placements: Record<string, LayoutPlacement>;
   mosaic: MosaicNode;
 }
@@ -11,12 +11,24 @@ export interface LayoutState {
 export type LayoutStoreState = { layout: LayoutState };
 
 const initialState: LayoutState = {
-  contents: {},
-  placements: {},
+  contents: {
+    main: {
+      key: "main",
+      title: "Void",
+      type: "main",
+      props: {},
+    },
+  },
+  placements: {
+    main: {
+      contentKey: "main",
+      location: "window",
+    },
+  },
   mosaic: { key: 0, level: 0 },
 };
 
-export type SetLayoutContentAction = PayloadAction<LayoutContent<any, any>>;
+export type SetLayoutContentAction = PayloadAction<LayoutContent<any>>;
 export type DeleteLayoutContentAction = PayloadAction<string>;
 export type SetPlacementAction = PayloadAction<LayoutPlacement>;
 export type DeletePlacementAction = PayloadAction<string>;

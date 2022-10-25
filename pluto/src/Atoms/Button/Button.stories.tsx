@@ -1,6 +1,6 @@
 import { ComponentMeta, ComponentStory } from "@storybook/react";
 import { AiOutlineDelete } from "react-icons/ai";
-import Button, { ButtonProps } from "./Button";
+import { Button, ButtonProps } from ".";
 
 export default {
   title: "Atoms/Button",

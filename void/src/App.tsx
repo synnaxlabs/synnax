@@ -4,7 +4,14 @@ import store from "./store";
 import "./index.css";
 import "@synnaxlabs/pluto/dist/style.css";
 import { Theme } from "@synnaxlabs/pluto";
-import { LayoutRenderersProvider } from "@/features/layout";
+import { LayoutRendererProvider, LayoutWindow } from "@/features/layout";
+import { MainLayout } from "./components/MainLayout";
+import { ConnectCluster } from "@/features/cluster";
+
+const layoutRenderers = {
+  main: MainLayout,
+  connectCluster: ConnectCluster,
+};
 
 export const App = () => {
   return (
@@ -13,7 +20,9 @@ export const App = () => {
         <Theme.Provider
           themes={[Theme.themes.synnaxDark, Theme.themes.synnaxLight]}
         >
-          <LayoutRenderersProvider value={{}}></LayoutRenderersProvider>
+          <LayoutRendererProvider value={layoutRenderers}>
+            <LayoutWindow />
+          </LayoutRendererProvider>
         </Theme.Provider>
       </DriftProvider>
     </StrictMode>

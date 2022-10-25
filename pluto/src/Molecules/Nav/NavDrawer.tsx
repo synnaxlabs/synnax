@@ -1,8 +1,8 @@
 import clsx from "clsx";
 import { ReactElement, useState } from "react";
-import { Button, Resize, Space } from "../../Atoms";
+import { Button, Resize, Space } from "../../atoms";
 import { swapDirection } from "../../util/spatial";
-import NavBar, { NavBarProps, useNavBar } from "../Nav/NavBar";
+import { NavBar, NavBarProps, useNavBar } from "./NavBar";
 import "./NavDrawer.css";
 
 export type NavDrawerItem = {
@@ -19,12 +19,12 @@ export interface NavDrawerProps extends NavBarProps {
   initialKey?: string;
 }
 
-export default function NavDrawer({
+export const NavDrawer = ({
   items = [],
   initialKey,
   children,
   ...props
-}: NavDrawerProps) {
+}: NavDrawerProps) => {
   const { direction } = useNavBar(props);
   const [activeKey, setActiveKey] = useState<string | undefined>(initialKey);
   const onClick = (key: string) =>
@@ -66,4 +66,4 @@ export default function NavDrawer({
       </Space>
     </NavBar.Context.Provider>
   );
-}
+};

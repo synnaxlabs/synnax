@@ -11,26 +11,30 @@ import {
   synnaxPropsSchema,
 } from "@synnaxlabs/client";
 import "./ConnectCluster.css";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useDispatch } from "react-redux";
 import { closeWindow } from "@synnaxlabs/drift";
 import { z } from "zod";
-import { useParams } from "react-router-dom";
 
 import { ConnectionState } from "@/features/cluster/types";
 import { testConnection } from "../../util/testConnection";
 import { setCluster, useSelectCluster } from "../../store";
-import { ConnectionStatus } from "../ConnectionStatus/ConnectionStatus";
+import { ConnectionBadge } from "../ConnectionStatus/ConnectionStatus";
 
 const formSchema = synnaxPropsSchema.extend({
   name: z.string().optional(),
 });
 
-export default function ConnectCluster() {
-  const dispatch = useDispatch();
-  const [key, setKey] = useState("");
+export interface ConnectClusterProps {
+  clusterKey?: string;
+}
 
-  const cluster = useSelectCluster(key);
+export const ConnectCluster = ({
+  clusterKey: propsClusterKey = "",
+}: ConnectClusterProps) => {
+  const dispatch = useDispatch();
+
+  const cluster = useSelectCluster(propsClusterKey);
 
   const [testConnState, setConnState] = useState<ConnectionState | undefined>(
     undefined
@@ -46,10 +50,6 @@ export default function ConnectCluster() {
     resolver: zodResolver(formSchema),
     defaultValues: { name: cluster?.name, ...cluster?.props },
   });
-
-  useEffect(() => {
-    if (paramsKey) setKey(paramsKey);
-  }, [paramsKey]);
 
   const onSubmit = async (data: FieldValues) => {
     const name = data.name;
@@ -128,7 +128,7 @@ export default function ConnectCluster() {
       </Space>
       <Nav.Bar location="bottom" size={48} style={{ flexShrink: 0 }}>
         <Nav.Bar.Start style={{ padding: "0 12px" }}>
-          {testConnState && <ConnectionStatus state={testConnState} />}
+          {testConnState && <ConnectionBadge state={testConnState} />}
         </Nav.Bar.Start>
         <Nav.Bar.End style={{ padding: 6 }}>
           <Button variant="text" size="medium" onClick={onTestConnection}>
@@ -141,14 +141,4 @@ export default function ConnectCluster() {
       </Nav.Bar>
     </CoreWindow>
   );
-}
-
-export const createConnectClusterWindow = (key?: string) => {
-  return createWindow({
-    url: `http://localhost:5173/cluster/connect/${key}`,
-    resizable: false,
-    height: 425,
-    width: 650,
-    title: "Connect a cluster",
-  });
 };

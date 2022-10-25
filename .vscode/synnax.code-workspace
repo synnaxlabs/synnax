@@ -1,0 +1,67 @@
+{
+  "folders": [
+    {
+      "path": "../",
+      "name": "synnax-root"
+    },
+    {
+      "path": "../aspen",
+      "name": "aspen"
+    },
+    {
+      "path": "../cesium",
+      "name": "cesium",
+    },
+    {
+      "path": "../client/ts",
+      "name": "client/ts",
+    },
+    {
+      "path": "../client/py",
+      "name": "client/py",
+    },
+    {
+      "path": "../client/go",
+      "name": "client/go",
+    },
+    {
+      "path": "../docs/site",
+      "name": "docs/site",
+    },
+    {
+      "path": "../drift",
+      "name":  "drift",
+    },
+    {
+      "path": "../freighter/ts",
+      "name": "freighter/ts",
+    },
+    {
+      "path": "../freighter/py",
+      "name": "freighter/py",
+    },
+    {
+      "path": "../freighter/go",
+      "name": "freighter/go",
+    },
+    {
+      "path": "../freighter/integration",
+      "name": "freighter/integration",
+    },
+    {
+      "path": "../pluto",
+      "name":  "pluto",
+    },
+    {
+      "path": "../synnax",
+      "name": "synnax-server",
+    },
+    {
+      "path": "../void",
+      "name": "void"
+    }
+  ],
+  "settings": {
+    "editor.formatOnSave": true
+  }
+}

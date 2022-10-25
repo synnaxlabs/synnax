@@ -1,11 +1,14 @@
 import { Component, ReactNode } from "react";
 
-export type LayoutContent<S, P> = {
+export type LayoutContent<P> = {
   key: string;
   type: string;
   title: string;
+  /**
+   * Props is the set of props that will be passed to the renderer from the
+   * layout
+   */
   props: P;
-  state: S;
 };
 
 export type LayoutPlacementLocation = "window" | "mosaic";
@@ -16,7 +19,4 @@ export type LayoutPlacement = {
   contentKey: string;
 };
 
-export type LayoutRendererProps<S, P> = LayoutContent<S, P> &
-  Omit<LayoutPlacement, "contentKey">;
-
-export type LayoutRenderer<S, P> = Component<LayoutRendererProps<S, P>>;
+export type LayoutRenderer<P> = Component<P>;

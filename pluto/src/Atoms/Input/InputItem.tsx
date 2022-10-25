@@ -1,8 +1,8 @@
 import { forwardRef } from "react";
 import { Space } from "../Space";
-import Input, { InputProps } from "./Input";
-import InputHelpText from "./InputHelpText";
-import InputLabel from "./InputLabel";
+import { Input, InputProps } from "./Input";
+import { InputHelpText } from "./InputHelpText";
+import { InputLabel } from "./InputLabel";
 import clsx from "clsx";
 
 export interface InputItemProps extends InputProps {
@@ -10,7 +10,7 @@ export interface InputItemProps extends InputProps {
   helpText?: string;
 }
 
-const InputItem = forwardRef<HTMLInputElement, InputItemProps>(
+export const InputItem = forwardRef<HTMLInputElement, InputItemProps>(
   ({ label, helpText, style, className, ...props }: InputItemProps, ref) => {
     return (
       <Space
@@ -26,5 +26,3 @@ const InputItem = forwardRef<HTMLInputElement, InputItemProps>(
     );
   }
 );
-
-export default InputItem;

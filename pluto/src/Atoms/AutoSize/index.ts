@@ -1,2 +1,1 @@
-export { default as AutoSize } from "./AutoSize";
-export type { AutoSizeProps } from "./AutoSize";
+export * from "./AutoSize";

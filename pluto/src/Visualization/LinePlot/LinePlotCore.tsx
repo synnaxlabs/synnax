@@ -1,7 +1,7 @@
 import { memo, useMemo, useRef, useEffect, ComponentType } from "react";
 import { Axis, Data, Series } from "./Types";
 import uPlot from "uplot";
-import { Theme, ThemeProps } from "../../Theme";
+import { Theme, ThemeProps } from "../../theme";
 import "uplot/dist/uPlot.min.css";
 import "./LinePlotCore.css";
 

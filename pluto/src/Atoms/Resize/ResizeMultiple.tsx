@@ -1,21 +1,16 @@
 import clsx from "clsx";
 
 import { Children, useCallback, useEffect, useRef, useState } from "react";
-import { useResize } from "../../Hooks";
+import { useResize } from "@/hooks";
 import {
   Dimensions,
   getDirection,
   getDirectionalSize,
   getLocation,
   swapLocation,
-} from "../../util/spatial";
-import Space, { SpaceProps } from "../Space/Space";
-import {
-  anyExceedsBounds,
-  calcNextSize,
-  parseMovement,
-  ResizePanelProps,
-} from "./Resize";
+} from "@/util";
+import { Space, SpaceProps } from "@/atoms/Space";
+import { anyExceedsBounds, parseMovement, ResizePanelProps } from "./Resize";
 
 export interface ResizeMultipleProps extends SpaceProps {
   onResize?: (sizes: number[]) => void;
@@ -24,42 +19,7 @@ export interface ResizeMultipleProps extends SpaceProps {
   minSize?: number;
 }
 
-const validateSizes = (numChildren: number, sizes: number[]): boolean =>
-  sizes.length >= numChildren - 1;
-
-const calculatePercentages = (
-  numChildren: number,
-  sizes: number[],
-  parentSize: number
-) => {
-  const arePercentages = sizes.every((size) => size <= 1);
-  if (!arePercentages) {
-    sizes = sizes.map((size) => size / parentSize);
-  }
-
-  let totalSize = sizes.reduce((a, b) => a + b, 0);
-
-  // If we have fewer sizes than children, we need to approximate the
-  // remaining sizes.
-  if (sizes.length < numChildren) {
-    const diff = 1 - totalSize;
-    const remaining = numChildren - sizes.length;
-    sizes = sizes.concat(
-      Array.from({ length: remaining }, () => diff / remaining)
-    );
-  }
-
-  totalSize = sizes.reduce((a, b) => a + b, 0);
-
-  // If our total size is not equal to 1, we need to scale our sizes
-  if (totalSize < 0.99 || totalSize > 1.01) {
-    sizes = sizes.map((size) => size / totalSize);
-  }
-
-  return sizes;
-};
-
-export default function ResizeMultiple({
+export const ResizeMultiple = ({
   direction = "horizontal",
   onResize,
   initialSizes = [],
@@ -67,7 +27,7 @@ export default function ResizeMultiple({
   maxSize = Infinity,
   minSize = 100,
   ...props
-}: ResizeMultipleProps) {
+}: ResizeMultipleProps) => {
   const children = Children.toArray(_children);
 
   const [sizes, setSizes] = useState<number[]>(initialSizes);
@@ -154,7 +114,7 @@ export default function ResizeMultiple({
       })}
     </Space>
   );
-}
+};
 
 const BaseResize = ({
   location,
@@ -207,4 +167,39 @@ const BaseResize = ({
       )}
     </div>
   );
+};
+
+const validateSizes = (numChildren: number, sizes: number[]): boolean =>
+  sizes.length >= numChildren - 1;
+
+const calculatePercentages = (
+  numChildren: number,
+  sizes: number[],
+  parentSize: number
+) => {
+  const arePercentages = sizes.every((size) => size <= 1);
+  if (!arePercentages) {
+    sizes = sizes.map((size) => size / parentSize);
+  }
+
+  let totalSize = sizes.reduce((a, b) => a + b, 0);
+
+  // If we have fewer sizes than children, we need to approximate the
+  // remaining sizes.
+  if (sizes.length < numChildren) {
+    const diff = 1 - totalSize;
+    const remaining = numChildren - sizes.length;
+    sizes = sizes.concat(
+      Array.from({ length: remaining }, () => diff / remaining)
+    );
+  }
+
+  totalSize = sizes.reduce((a, b) => a + b, 0);
+
+  // If our total size is not equal to 1, we need to scale our sizes
+  if (totalSize < 0.99 || totalSize > 1.01) {
+    sizes = sizes.map((size) => size / totalSize);
+  }
+
+  return sizes;
 };

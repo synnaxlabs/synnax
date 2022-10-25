@@ -1,8 +1,7 @@
 import { createElement, HTMLAttributes } from "react";
-import TextWithIcon from "./TextWithIcon";
-import { TypographyLevel } from "./Types";
+import { TypographyLevel } from "./types";
 
-export interface BaseTextProps {
+export interface CoreTextProps {
   /* The level of text to display i.e. p, h1, h2 */
   level: TypographyLevel;
   /* The text to display */
@@ -12,7 +11,7 @@ export interface BaseTextProps {
 }
 
 export interface TextProps
-  extends BaseTextProps,
+  extends CoreTextProps,
     Omit<HTMLAttributes<HTMLParagraphElement>, "children"> {}
 
 const typographyLevelTags = {
@@ -25,13 +24,8 @@ const typographyLevelTags = {
   small: "h6",
 };
 
-/* Displays text with a particular level */
-function Text({ level = "h1", color, ...props }: TextProps) {
+export const Text = ({ level = "h1", color, ...props }: TextProps) => {
   props.style = { color, ...props.style };
   props.className = `pluto-text pluto-text--${level} ${props.className}`;
   return createElement(typographyLevelTags[level], props);
-}
-
-Text.WithIcon = TextWithIcon;
-
-export default Text;
+};

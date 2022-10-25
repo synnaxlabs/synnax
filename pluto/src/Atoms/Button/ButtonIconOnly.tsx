@@ -7,7 +7,7 @@ export interface ButtonIconOnlyProps extends BaseButtonProps {
   children: React.ReactElement;
 }
 
-const ButtonIconOnly = ({
+export const ButtonIconOnly = ({
   children,
   className,
   variant = "text",
@@ -28,5 +28,3 @@ const ButtonIconOnly = ({
     </button>
   );
 };
-
-export default ButtonIconOnly;

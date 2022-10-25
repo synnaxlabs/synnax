@@ -1,11 +1,11 @@
-import { ComponentSize } from "../../util/types";
+import { ComponentSize } from "@/util";
 
 export interface InputDateProps {
   size?: ComponentSize;
   onChange?: (value: string) => void;
 }
 
-export default function InputDate({ size, onChange }: InputDateProps) {
+export const InputDate = ({ size, onChange }: InputDateProps) => {
   return (
     <input
       type="date"
@@ -13,4 +13,4 @@ export default function InputDate({ size, onChange }: InputDateProps) {
       className={`pluto-input__input pluto-input__input--${size}`}
     />
   );
-}
+};

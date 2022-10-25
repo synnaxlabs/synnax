@@ -4,30 +4,24 @@ import {
   ReactElement,
   useState,
 } from "react";
-import { Text } from "../Typography";
-import {
-  AiFillCaretDown,
-  AiFillCaretRight,
-  AiFillCaretUp,
-} from "react-icons/ai";
+import { AiFillCaretDown, AiFillCaretRight } from "react-icons/ai";
 import "./Tree.css";
-import { Button } from "../Button";
-import { ButtonProps } from "../Button/Button";
+import { Button, ButtonProps } from "@/atoms/Button";
 import { useMultiSelect, useMultiSelectProps } from "../List/useMultiSelect";
 import clsx from "clsx";
 
 export interface TreeProps
-  extends useMultiSelectProps<TreeEntry>,
+  extends useMultiSelectProps<TreeLeaf>,
     Omit<
       DetailedHTMLProps<HtmlHTMLAttributes<HTMLUListElement>, HTMLUListElement>,
       "onSelect"
     > {
-  data: TreeEntry[];
+  data: TreeLeaf[];
   selected?: string[];
   onExpand?: (key: string) => void;
 }
 
-const Tree = ({
+export const Tree = ({
   data,
   selected: propsSelected,
   onSelect: propsOnSelect,
@@ -35,7 +29,7 @@ const Tree = ({
   className,
   ...props
 }: TreeProps) => {
-  const { selected, onSelect } = useMultiSelect<TreeEntry>({
+  const { selected, onSelect } = useMultiSelect<TreeLeaf>({
     selectMultiple: false,
     selected: propsSelected,
     onSelect: propsOnSelect,
@@ -45,7 +39,7 @@ const Tree = ({
   return (
     <ul className={clsx("pluto-tree__list pluto-tree__container")} {...props}>
       {data.map((entry) => (
-        <TreeNode
+        <TreeLeafC
           {...entry}
           nodeKey={entry.key}
           selected={selected}
@@ -57,15 +51,15 @@ const Tree = ({
   );
 };
 
-export interface TreeEntry {
+export interface TreeLeaf {
   key: string;
   title: string;
   hasChildren?: boolean;
   icon?: ReactElement;
-  children?: TreeEntry[];
+  children?: TreeLeaf[];
 }
 
-export interface TreeNodeProps extends Omit<TreeEntry, "key"> {
+interface TreeLeafProps extends Omit<TreeLeaf, "key"> {
   onSelect: (key: string) => void;
   selected: string[];
   nodeKey: string;
@@ -73,7 +67,7 @@ export interface TreeNodeProps extends Omit<TreeEntry, "key"> {
   onExpand?: (key: string) => void;
 }
 
-const TreeNode = ({
+const TreeLeafC = ({
   nodeKey,
   title,
   icon,
@@ -82,7 +76,7 @@ const TreeNode = ({
   children = [],
   hasChildren,
   onExpand,
-}: TreeNodeProps) => {
+}: TreeLeafProps) => {
   const [expanded, setExpanded] = useState(false);
   return (
     <li className="tree-node__container">
@@ -102,7 +96,7 @@ const TreeNode = ({
       {expanded && children.length > 0 && (
         <ul className="pluto-tree__list">
           {children.map((child) => (
-            <TreeNode
+            <TreeLeafC
               {...child}
               nodeKey={child.key}
               onSelect={onSelect}
@@ -153,5 +147,3 @@ const TreeNodeButton = ({
     </Button>
   );
 };
-
-export default Tree;

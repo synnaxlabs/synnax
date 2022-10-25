@@ -2,12 +2,11 @@ import {
   DetailedHTMLProps,
   forwardRef,
   InputHTMLAttributes,
-  Ref,
   RefAttributes,
 } from "react";
 import "./Input.css";
 import clsx from "clsx";
-import { ComponentSize } from "../../util/types";
+import { ComponentSize } from "@/util";
 
 interface BaseInputProps
   extends Omit<
@@ -23,7 +22,7 @@ export interface InputProps
   extends BaseInputProps,
     RefAttributes<HTMLInputElement> {}
 
-const Input = forwardRef<HTMLInputElement, BaseInputProps>(
+export const Input = forwardRef<HTMLInputElement, BaseInputProps>(
   (
     { size = "medium", label, placeholder, value, className, ...props },
     ref
@@ -43,5 +42,3 @@ const Input = forwardRef<HTMLInputElement, BaseInputProps>(
     );
   }
 );
-
-export default Input;

@@ -11,6 +11,11 @@ export default defineConfig({
       insertTypesEntry: true,
     }),
   ],
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "src"),
+    },
+  },
   build: {
     sourcemap: true,
     lib: {

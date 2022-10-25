@@ -19,7 +19,7 @@ import { LayoutContent } from "./LayoutContent";
 
 const MOSAIC_RESIZE_DEBOUNCE = 100; // ms
 
-export const Mosaic = () => {
+export const LayoutMosaic = () => {
   const mosaic = useSelectMosaic();
   const dispatch = useDispatch();
 

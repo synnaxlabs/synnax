@@ -6,7 +6,7 @@ import {
   UntypedListTransform,
   TypedListColumn,
   TypedListTransform,
-} from "./Types";
+} from "./types";
 
 export interface ListContextProps {
   data: ListEntry[];
