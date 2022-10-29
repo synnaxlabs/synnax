@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useMemo } from "react";
-import { ListContext, ListContextProvider } from "./ListContext";
+import { ListContextProvider } from "./ListContext";
 import { ListEntry, TypedListColumn, TypedListTransform } from "./types";
 import { useMultiSelect, useMultiSelectProps } from "./useMultiSelect";
 

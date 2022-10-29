@@ -1,25 +1,32 @@
+import { Action, AnyAction } from '@reduxjs/toolkit';
 import {
-  listen,
   emit,
+  listen,
   Event as TauriEvent,
   UnlistenFn,
 } from '@tauri-apps/api/event';
 import { appWindow, WebviewWindow } from '@tauri-apps/api/window';
+
+import { StoreState } from '../slice';
 import {
-  KeyedWindowProps,
   Event as DriftEvent,
   Window as DriftWindow,
+  KeyedWindowProps,
 } from '../window';
 
-const actionEvent = 'drift:action';
+const actionEvent = 'action';
 const tauriError = 'tauri://error';
 
-export default class Window implements DriftWindow {
+export default class Window<S extends StoreState, A extends Action = AnyAction>
+  implements DriftWindow<S, A>
+{
   window: WebviewWindow;
   unsubscribe?: void | UnlistenFn;
+  nextClose: boolean;
 
   constructor(window?: WebviewWindow) {
     this.window = window || appWindow;
+    this.nextClose = false;
   }
 
   key(): string {
@@ -46,13 +53,13 @@ export default class Window implements DriftWindow {
     w.once(tauriError, console.error);
   }
 
-  emit(event: DriftEvent): void {
+  emit(event: DriftEvent<S, A>): void {
     emit(actionEvent, event);
   }
 
-  subscribe(lis: (action: DriftEvent) => void): void {
+  subscribe(lis: (action: DriftEvent<S, A>) => void): void {
     listen<string>(actionEvent, (event: TauriEvent<string>) => {
-      lis(JSON.parse(event.payload) as DriftEvent);
+      lis(JSON.parse(event.payload) as DriftEvent<S, A>);
     })
       .catch(console.error)
       .then((unlisten) => {
@@ -60,11 +67,28 @@ export default class Window implements DriftWindow {
       });
   }
 
-  onClose(cb: () => void): void {
-    this.window.onCloseRequested(cb);
+  onCloseRequested(cb: () => void): void {
+    this.window.onCloseRequested((e) => {
+      // Only propagate the close request if the event
+      // is for the current window.
+      if (e.windowLabel === this.key()) {
+        e.preventDefault();
+        cb();
+      }
+    });
   }
 
   close(key: string): void {
-    WebviewWindow.getByLabel(key)?.close();
+    const win = WebviewWindow.getByLabel(key);
+    if (win) win.close();
+  }
+
+  focus(key: string): void {
+    const win = WebviewWindow.getByLabel(key);
+    if (win) win.setFocus();
+  }
+
+  exists(key: string): boolean {
+    return !!WebviewWindow.getByLabel(key);
   }
 }

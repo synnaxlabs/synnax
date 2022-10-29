@@ -1,6 +1,6 @@
 import { addons } from "@storybook/addons";
 import { themes, create } from "@storybook/theming";
-import { synnaxDark } from "../src/Theme/theme";
+import { synnaxDark } from "../src/theme/theme";
 import "./index.css";
 
 const theme = create({

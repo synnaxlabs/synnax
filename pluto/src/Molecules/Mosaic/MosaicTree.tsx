@@ -29,18 +29,33 @@ export const insertMosaicTab = (
   loc?: Location
 ): MosaicLeaf => {
   if (!loc) loc = "center";
-  if (!key) {
+  if (key === undefined) {
     insertAnywhere(root, tab);
-    return { ...root };
+    return root;
   }
   const node = findOrAncestor(root, key);
   if (loc === "center") {
     node.tabs?.push(tab);
-    return { ...root };
+    return root;
   }
   const [insertTo, sibling, dir] = splitArrangement(loc);
-  node[insertTo] = { key: 0, tabs: [tab], level: node.level + 1 };
-  node[sibling] = { key: 0, tabs: node.tabs, level: node.level + 1 };
+  node[insertTo] = {
+    key: 0,
+    tabs: [tab],
+    level: node.level + 1,
+    selected: tab.tabKey,
+  };
+
+  const siblingSelected =
+    node.tabs?.find((t) => t.tabKey === node.selected)?.tabKey ??
+    node.tabs?.[0]?.tabKey;
+
+  node[sibling] = {
+    key: 0,
+    tabs: node.tabs,
+    level: node.level + 1,
+    selected: siblingSelected,
+  };
   if (!node.first || !node.last) throw new Error("Invalid tree");
   /** Assigning these values to start and end keeps the tree sorted */
   node.first.key = node.key * 2;
@@ -48,12 +63,14 @@ export const insertMosaicTab = (
   node.direction = dir;
   node.tabs = undefined;
   node.size = undefined;
-  return { ...root };
+  node.selected = "";
+  return root;
 };
 
 const insertAnywhere = (node: MosaicLeaf, tab: Tab): void => {
-  if (node.tabs) {
+  if (node.tabs !== undefined) {
     node.tabs.push(tab);
+    node.selected = tab.tabKey;
     return;
   }
   if (node.first) return insertAnywhere(node.first, tab);
@@ -71,6 +88,10 @@ export const removeMosaicTab = (
   const [, entry] = findMosaicTab(root, tabKey);
   if (!entry) throw TabNotFound;
   entry.tabs = entry.tabs?.filter((t) => t.tabKey !== tabKey);
+  if (!entry.tabs?.find((t) => t.tabKey === entry.selected)) {
+    entry.selected = entry.tabs?.[0]?.tabKey;
+  }
+
   return gc(root);
 };
 
@@ -84,7 +105,7 @@ export const selectMosaicTab = (
   const [tab, entry] = findMosaicTab(root, tabKey);
   if (!tab || !entry) throw TabNotFound;
   entry.selected = tabKey;
-  return { ...root };
+  return root;
 };
 
 /**
@@ -101,8 +122,9 @@ export const moveMosaicTab = (
 ): MosaicLeaf => {
   const [tab, entry] = findMosaicTab(root, tabKey);
   if (!tab || !entry) throw TabNotFound;
-  root = removeMosaicTab(root, tabKey);
-  return insertMosaicTab(root, tab, to, loc);
+  const r2 = removeMosaicTab(root, tabKey);
+  const r3 = insertMosaicTab(r2, tab, to, loc);
+  return r3;
 };
 
 export const resizeMosaicLeaf = (
@@ -113,7 +135,7 @@ export const resizeMosaicLeaf = (
   const node = findMosaicLeaf(root, key);
   if (!node) throw new Error("Node not found");
   else node.size = size;
-  return { ...root };
+  return root;
 };
 
 /**
@@ -132,17 +154,22 @@ const gc = (root: MosaicLeaf): MosaicLeaf => {
   while (gced) {
     [root, gced] = _gc(root);
   }
-  return { ...root };
+  return root;
 };
 
 const _gc = (node: MosaicLeaf): [MosaicLeaf, boolean] => {
   if (!node.first || !node.last) return [node, false];
-  if (shouldGc(node.first)) return [node.last, true];
-  if (shouldGc(node.last)) return [node.first, true];
+  if (shouldGc(node.first)) return [liftUp(node.last, false), true];
+  if (shouldGc(node.last)) return [liftUp(node.first, true), true];
   let [sGC, eGC] = [false, false];
   [node.first, sGC] = _gc(node.first);
   [node.last, eGC] = _gc(node.last);
   return [node, sGC || eGC];
+};
+
+const liftUp = (node: MosaicLeaf, isFirst: boolean): MosaicLeaf => {
+  node.size = undefined;
+  return node;
 };
 
 const shouldGc = (node: MosaicLeaf): boolean => {

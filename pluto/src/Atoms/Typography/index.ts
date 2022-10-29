@@ -1,4 +1,5 @@
 import { Text as CoreText } from "./Text";
+import { TextEditable } from "./TextEditable";
 import { TextWithIcon } from "./TextWithIcon";
 export type { CoreTextProps, TextProps } from "./Text";
 export type { Size, TypographyDefinition, TypographyLevel } from "./types";
@@ -12,8 +13,11 @@ type CoreTextType = typeof CoreText;
 
 interface TextType extends CoreTextType {
   WithIcon: typeof TextWithIcon;
+  Editable: typeof TextEditable;
 }
 
 export const Text = CoreText as TextType;
 
 Text.WithIcon = TextWithIcon;
+
+Text.Editable = TextEditable;

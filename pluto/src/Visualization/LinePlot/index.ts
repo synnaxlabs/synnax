@@ -1,2 +1,2 @@
-export { default as LinePlot } from "./LinePlot";
-export type { Series, Axis, Data } from "./Types";
+export { LinePlot } from "./LinePlot";
+export * from "./types";

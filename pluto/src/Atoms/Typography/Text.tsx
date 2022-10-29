@@ -1,4 +1,4 @@
-import { createElement, HTMLAttributes } from "react";
+import { createElement, forwardRef, HTMLAttributes } from "react";
 import { TypographyLevel } from "./types";
 
 export interface CoreTextProps {
@@ -24,8 +24,10 @@ const typographyLevelTags = {
   small: "h6",
 };
 
-export const Text = ({ level = "h1", color, ...props }: TextProps) => {
-  props.style = { color, ...props.style };
-  props.className = `pluto-text pluto-text--${level} ${props.className}`;
-  return createElement(typographyLevelTags[level], props);
-};
+export const Text = forwardRef(
+  ({ level = "h1", color, ...props }: TextProps, ref) => {
+    props.style = { color, ...props.style };
+    props.className = `pluto-text pluto-text--${level} ${props.className}`;
+    return createElement(typographyLevelTags[level], { ref, ...props });
+  }
+);

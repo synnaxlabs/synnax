@@ -4,14 +4,19 @@ import {
   TauriWindow,
   configureStore,
 } from "@synnaxlabs/drift";
-import clusterSlice from "./features/cluster/store/slice";
-import mosaicSlice from "./mosaic/slice";
+import { appWindow } from "@tauri-apps/api/window";
+import { clusterReducer } from "@/features/cluster";
+import { layoutReducer } from "@/features/layout";
+import { visualizationReducer } from "@/features/visualization";
 
-export default configureStore({
-  window: new TauriWindow(),
-  reducer: combineReducers({
-    cluster: clusterSlice.reducer,
-    drift: driftSlice.reducer,
-    mosaic: mosaicSlice.reducer,
-  }),
+const reducer = combineReducers({
+  drift: driftSlice.reducer,
+  cluster: clusterReducer,
+  layout: layoutReducer,
+  visualization: visualizationReducer,
+});
+
+export const store = configureStore<ReturnType<typeof reducer>>({
+  window: new TauriWindow(appWindow),
+  reducer,
 });

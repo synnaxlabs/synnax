@@ -1,7 +1,7 @@
 import { ComponentMeta, ComponentStory } from "@storybook/react";
 import { AutoSize } from "../../atoms/AutoSize";
-import LinePlot, { PlotProps } from "./LinePlot";
-import { Axis, Series } from "./Types";
+import { LinePlot } from "./LinePlot";
+import { Axis, Series } from "./types";
 
 export default {
   title: "Visualization/Line Plot",

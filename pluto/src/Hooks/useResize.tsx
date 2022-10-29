@@ -1,6 +1,6 @@
 import { RefObject, useLayoutEffect, useState } from "react";
 import { ResizeObserver } from "@juggle/resize-observer";
-import debounceF from "../util/debounce";
+import { debounce as debounceF } from "@/util";
 
 interface BaseSizeProps {
   ref: RefObject<HTMLElement>;

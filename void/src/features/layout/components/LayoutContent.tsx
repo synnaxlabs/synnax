@@ -1,12 +1,11 @@
 import { memo } from "react";
-import {
-  useLayoutRenderer,
-  useSelectLayoutRendererProps,
-} from "@/features/layout";
+import { useLayoutRenderer } from "../context";
+import { useSelectLayout } from "../store";
 
-export const LayoutContent = memo(({ contentKey }: { contentKey: string }) => {
-  const props = useSelectLayoutRendererProps(contentKey);
-  if (!props) return null;
-  const renderer = useLayoutRenderer(props.type);
-  return renderer ? renderer(props) : null;
+export const LayoutContent = memo(({ layoutKey }: { layoutKey: string }) => {
+  const props = useSelectLayout(layoutKey);
+  const Renderer = useLayoutRenderer(props.type);
+  return Renderer ? (
+    <Renderer layoutKey={layoutKey} onClose={() => {}} />
+  ) : null;
 });

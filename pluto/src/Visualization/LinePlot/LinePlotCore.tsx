@@ -1,23 +1,19 @@
 import { memo, useMemo, useRef, useEffect, ComponentType } from "react";
-import { Axis, Data, Series } from "./Types";
+import { Axis, PlotData, LinePlotMetadata, Series } from "./types";
 import uPlot from "uplot";
-import { Theme, ThemeProps } from "../../theme";
+import { Theming, Theme } from "../../theming";
 import "uplot/dist/uPlot.min.css";
 import "./LinePlotCore.css";
 
-export interface LinePlotCoreProps {
-  width: number;
-  height: number;
-  data: Data;
-  series: Series[];
-  axes: Axis[];
+export interface LinePlotCoreProps extends LinePlotMetadata {
+  data: PlotData;
 }
 
 export type LinePlotCore = ComponentType<LinePlotCoreProps>;
 
 function UPlotLinePlotCore(props: LinePlotCoreProps) {
   const ref = useRef<HTMLDivElement>(null);
-  const { theme } = Theme.useContext();
+  const { theme } = Theming.useContext();
 
   const [options, alignedData] = useMemo(
     () => buildPlot(props, theme),
@@ -37,7 +33,7 @@ function UPlotLinePlotCore(props: LinePlotCoreProps) {
 
 const buildPlot = (
   { series, data, width, height, axes }: LinePlotCoreProps,
-  theme: ThemeProps
+  theme: Theme
 ): [uPlot.Options, uPlot.AlignedData] => {
   const alignedData = alignData(data, series);
   return [
@@ -70,12 +66,12 @@ const locationSides = {
   top: 0,
 };
 
-const alignData = (data: Data, series: Series[]): uPlot.AlignedData => {
+const alignData = (data: PlotData, series: Series[]): uPlot.AlignedData => {
   if (!data || !series) return [];
   return uPlot.join(series.map(({ x, y }) => [data[x], data[y]]));
 };
 
-const buildAxes = (axes: Axis[], theme: ThemeProps): uPlot.Axis[] => {
+const buildAxes = (axes: Axis[], theme: Theme): uPlot.Axis[] => {
   if (!axes) return [];
   return axes.map(({ key, label, location = "bottom" }) => {
     return {
@@ -93,7 +89,7 @@ const buildAxes = (axes: Axis[], theme: ThemeProps): uPlot.Axis[] => {
   });
 };
 
-const buildSeries = (series: Series[], theme: ThemeProps): uPlot.Series[] => {
+const buildSeries = (series: Series[], theme: Theme): uPlot.Series[] => {
   if (!series) return [];
   const s = series.map(({ label, color, axis }, i) => {
     return {
@@ -122,8 +118,6 @@ const buildScales = (axes: Axis[]): uPlot.Scales => {
   return s;
 };
 
-const Cores = {
+export const LinePlotCore = {
   UPlot: memo(UPlotLinePlotCore),
 };
-
-export default Cores;

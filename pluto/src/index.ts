@@ -1,4 +1,4 @@
-export * from "./theme";
+export * from "./theming";
 export * from "./atoms";
 export * from "./hooks";
 export * from "./molecules";

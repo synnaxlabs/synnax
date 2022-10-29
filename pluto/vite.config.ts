@@ -2,20 +2,17 @@ import { defineConfig } from "vite";
 import path from "node:path";
 import react from "@vitejs/plugin-react";
 import dts from "vite-plugin-dts";
+import tsConfigPaths from "vite-tsconfig-paths";
 
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
+    tsConfigPaths(),
     react(),
     dts({
       insertTypesEntry: true,
     }),
   ],
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "src"),
-    },
-  },
   build: {
     sourcemap: true,
     lib: {

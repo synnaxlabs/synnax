@@ -6,7 +6,7 @@ import { createWindow } from '@synnaxlabs/drift';
 
 function App() {
   const { value: count } = useSelector((state: any) => state.counter);
-  const { numCreated } = useSelector((state: any) => state.drift);
+  const { numCreated, windows } = useSelector((state: any) => state.drift);
   const dispatch = useDispatch();
   return (
     <div className="App">
@@ -37,7 +37,8 @@ function App() {
             );
           }}
         >
-          {numCreated} windows created
+          {numCreated} windows created, {Object.keys(windows).length} windows
+          open
         </button>
         <p>
           Edit <code>src/App.tsx</code> and save to test HMR

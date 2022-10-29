@@ -1,6 +1,7 @@
 import { createContext, useContext } from "react";
+import { LayoutRenderer } from "../types";
 
-export type LayoutRenderers = Record<string, React.FC>;
+export type LayoutRenderers = Record<string, LayoutRenderer>;
 
 const LayoutRendererContext = createContext<LayoutRenderers>({});
 

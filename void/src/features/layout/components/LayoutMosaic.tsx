@@ -4,16 +4,17 @@ import {
   deleteLayoutMosaicTab,
   selectLayoutMosaicTab,
   resizeLayoutMosaicTab,
-} from "@/features/layout/store";
+} from "../store";
 import { useDispatch } from "react-redux";
 import {
   Mosaic as PlutoMosaic,
   debounce,
   Location,
   Space,
-  TabEntry,
+  Tab,
 } from "@synnaxlabs/pluto";
-import Logo from "@/components/Logo/Logo";
+import { Logo } from "@/components";
+
 import { memo } from "react";
 import { LayoutContent } from "./LayoutContent";
 
@@ -38,22 +39,20 @@ export const LayoutMosaic = () => {
   const onResize = debounce(
     (key: number, size: number) =>
       dispatch(resizeLayoutMosaicTab({ key, size })),
-    MOSAIC_RESIZE_DEBOUNCE
+    0
   );
 
   return (
-    <div className="main__content">
-      <PlutoMosaic
-        tree={mosaic}
-        onDrop={handleDrop}
-        onClose={handleClose}
-        onSelect={handleSelect}
-        onResize={onResize}
-        emptyContent={<EmptyContent />}
-      >
-        {Content}
-      </PlutoMosaic>
-    </div>
+    <PlutoMosaic
+      root={mosaic}
+      onDrop={handleDrop}
+      onClose={handleClose}
+      onSelect={handleSelect}
+      onResize={onResize}
+      emptyContent={EmptyContent}
+    >
+      {Content}
+    </PlutoMosaic>
   );
 };
 
@@ -72,6 +71,6 @@ const EmptyContent = () => (
   </Space>
 );
 
-const Content = memo(({ tab }: { tab: TabEntry }) => {
-  return <LayoutContent contentKey={tab.tabKey} />;
+const Content = memo(({ tab }: { tab: Tab }) => {
+  return <LayoutContent layoutKey={tab.tabKey} />;
 });

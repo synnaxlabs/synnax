@@ -15,5 +15,3 @@ export const debounce = <F extends (...args: any[]) => any>(
 
   return debounced as (...args: Parameters<F>) => ReturnType<F>;
 };
-
-export default debounce;

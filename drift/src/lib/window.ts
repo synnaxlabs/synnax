@@ -1,4 +1,13 @@
-import { PayloadAction } from '@reduxjs/toolkit';
+import {
+  Action,
+  AnyAction,
+  CombinedState,
+  PayloadAction,
+  PreloadedState,
+} from '@reduxjs/toolkit';
+import { NoInfer } from '@reduxjs/toolkit/dist/tsHelpers';
+
+import { StoreState } from './slice';
 
 type Optional<T, K extends keyof T> = Pick<Partial<T>, K> & Omit<T, K>;
 
@@ -31,13 +40,13 @@ export type KeyedWindowProps = {
 /**
  * An event emitted by drift to communicate state changes.
  */
-export type Event = {
+export type Event<S extends StoreState, A extends Action = AnyAction> = {
   /** The key of the window that emitted the event */
   key: string;
   /** A redux state action */
-  action?: PayloadAction<unknown>;
+  action?: PayloadAction<A>;
   /** The entire redux store state. Sent only on the creation of new windows */
-  state?: any;
+  state?: PreloadedState<CombinedState<NoInfer<S>>>;
   /** sendInitialState is set to true when the window is requesting a state forward */
   sendInitialState?: boolean;
 };
@@ -47,7 +56,7 @@ export type Event = {
  * Drift uses this runtime to manage windows and communicate between them. Practically,
  * Runtime represents the runtime of a single window.
  */
-export interface Window {
+export interface Window<S extends StoreState, A extends Action = AnyAction> {
   /**
    * @returns true if the window is the main window of the application i.e. the first
    * forked
@@ -71,12 +80,12 @@ export interface Window {
    * Emits an event to all windows in the application.
    * @param event - The event to emit.
    */
-  emit(event: Event): void;
+  emit(event: Event<S, A>): void;
   /**
    * Listens for an event from any window in the application.
    * @param lis - The callback to call when the event is received.
    */
-  subscribe(lis: (event: Event) => void): void;
+  subscribe(lis: (event: Event<S, A>) => void): void;
   /**
    * Release is called by drift when operations are complete and the
    * runtime should release any listeners it is using for communication.
@@ -85,9 +94,17 @@ export interface Window {
   /**
    * Calls the provided function with the current window is closing.
    */
-  onClose(cb: () => void): void;
+  onCloseRequested(cb: () => void): void;
   /**
    * Closes the window with the given key.
    */
   close(key: string): void;
+  /**
+   * Focuses the window with the given key.
+   */
+  focus(key: string): void;
+  /**
+   * Checks if the window with the given key exists.
+   */
+  exists(key: string): boolean;
 }

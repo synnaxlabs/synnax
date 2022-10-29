@@ -1,5 +1,5 @@
 import { Children, cloneElement, ReactElement } from "react";
-import { Theme } from "@/theme";
+import { Theming } from "@/theming";
 import { Divider } from "@/atoms/Divider";
 import { Space, SpaceProps } from "@/atoms/Space";
 import { Text, CoreTextProps } from "./Text";
@@ -45,7 +45,7 @@ const useFormattedIcons = (
   level: TypographyLevel,
   color?: string
 ): ReactElement[] => {
-  const { theme } = Theme.useContext();
+  const { theme } = Theming.useContext();
   const size = Number(theme.typography[level]?.lineHeight) * theme.sizes.base;
   color = color || theme.colors.text;
   return toArray(icon).map((icon) =>

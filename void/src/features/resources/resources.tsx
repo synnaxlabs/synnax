@@ -2,7 +2,8 @@ import { OntologyID, OntologyResourceType } from "@synnaxlabs/client";
 import { Dispatch, ReactElement } from "react";
 import { AiFillDatabase } from "react-icons/ai";
 import { MdOutlineDeviceHub, MdSensors } from "react-icons/md";
-import { insertTab } from "../../mosaic/slice";
+import { LayoutPlacer } from "@/features/layout";
+import { createVisualization } from "@/features/visualization";
 
 export interface ResourceType {
   type: OntologyResourceType;
@@ -12,8 +13,13 @@ export interface ResourceType {
 }
 
 export const resourceTypes = (
-  dispatch: Dispatch<any>
+  placer: LayoutPlacer
 ): Record<OntologyResourceType, ResourceType> => ({
+  [OntologyResourceType.Builtin]: {
+    type: OntologyResourceType.Builtin,
+    icon: <AiFillDatabase />,
+    hasChildren: true,
+  },
   [OntologyResourceType.Cluster]: {
     type: OntologyResourceType.Cluster,
     icon: <AiFillDatabase />,
@@ -28,14 +34,8 @@ export const resourceTypes = (
     type: OntologyResourceType.Channel,
     icon: <MdSensors />,
     hasChildren: false,
-    onSelect: (id) =>
-      dispatch(
-        insertTab({
-          tab: {
-            tabKey: `channel ${id.toString()}`,
-            title: `CdA_LOX_inj`,
-          },
-        })
-      ),
+    onSelect: (id) => {
+      placer(createVisualization({ channels: [id.key] }));
+    },
   },
 });

@@ -1,7 +1,7 @@
 import { SVGProps, useEffect, useRef, useState } from "react";
 import * as d3 from "d3";
 import { TypographyLevel } from "../../atoms";
-import { Theme } from "../../theme";
+import { Theming } from "../../theming";
 
 export interface Metric {
   name: string;
@@ -72,7 +72,7 @@ export const HexagonBar = ({
 }: HexagonBarProps) => {
   const ref = useRef(null);
   const [numPaths, setNumPaths] = useState<number>(0);
-  const { theme } = Theme.useContext();
+  const { theme } = Theming.useContext();
 
   useEffect(() => {
     const svgEl = d3.select(ref.current);

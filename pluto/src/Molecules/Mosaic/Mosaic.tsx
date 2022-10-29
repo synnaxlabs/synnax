@@ -33,6 +33,7 @@ export const Mosaic = (props: MosaicProps) => {
         position: "relative",
         height: "100%",
         width: "100%",
+        overflow: "hidden",
       }}
       onResize={_onResize}
       initialSizes={size ? [size] : undefined}
@@ -83,7 +84,7 @@ const MosaicTabLeaf = ({ root: node, onDrop, ...props }: MosaicProps) => {
   };
 
   return (
-    <>
+    <div style={{ position: "relative", height: "100%" }}>
       <Tabs
         style={{ height: "100%" }}
         tabs={tabs as Tab[]}
@@ -105,7 +106,7 @@ const MosaicTabLeaf = ({ root: node, onDrop, ...props }: MosaicProps) => {
           style={dragMaskStyle[dragMask]}
         ></div>
       )}
-    </>
+    </div>
   );
 };
 

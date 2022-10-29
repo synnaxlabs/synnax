@@ -9,10 +9,8 @@ import {
 } from "react-icons/ai";
 import { StatusVariant } from "./types";
 
-export interface StatusBadgeProps
-  extends Omit<TextProps, "children" | "level"> {
+export interface StatusBadgeProps extends Omit<TextProps, "level"> {
   level?: TypographyLevel;
-  message: string;
   variant: StatusVariant;
 }
 
@@ -27,14 +25,13 @@ const statusVariantIcons: Record<StatusVariant, ReactElement> = {
 const statusVariantColors: Record<StatusVariant, string> = {
   info: "var(--pluto-text-color)",
   error: "var(--pluto-error-z)",
-  warning: "var(--pluto-warning-z)",
+  warning: "var(--pluto-text-color)",
   success: "var(--pluto-primary-z)",
   loading: "var(--pluto-text-color)",
 };
 
-export const StatusBadge = ({
+export const StatusText = ({
   variant = "error",
-  message,
   level = "p",
   ...props
 }: StatusBadgeProps) => {
@@ -44,8 +41,6 @@ export const StatusBadge = ({
       level={level}
       startIcon={statusVariantIcons[variant]}
       {...props}
-    >
-      {message}
-    </Text.WithIcon>
+    />
   );
 };

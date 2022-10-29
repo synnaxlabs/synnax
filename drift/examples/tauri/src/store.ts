@@ -18,12 +18,14 @@ const counterSlice = createSlice({
 
 export const { incremented, decremented } = counterSlice.actions;
 
-const store = configureStore({
+const rootReducer = combineReducers({
+  counter: counterSlice.reducer,
+  drift: slice.reducer,
+});
+
+const store = configureStore<ReturnType<typeof rootReducer>, any>({
   window: new TauriWindow(),
-  reducer: combineReducers({
-    counter: counterSlice.reducer,
-    drift: slice.reducer,
-  }),
+  reducer: rootReducer,
 });
 
 export default store;

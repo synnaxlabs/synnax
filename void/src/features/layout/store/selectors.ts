@@ -1,16 +1,13 @@
 import memoize from "proxy-memoize";
 import { useCallback } from "react";
 import { useSelector } from "react-redux";
-import { LayoutContent } from "../types";
 import { LayoutStoreState } from "./slice";
+import { Theme } from "@synnaxlabs/pluto";
 
-export const useSelectLayoutContent = <S, P>(key: string) =>
+export const useSelectLayout = (key: string) =>
   useSelector(
     useCallback(
-      memoize(
-        (state: LayoutStoreState) =>
-          state.layout.contents[key] as LayoutContent<S, P>
-      ),
+      memoize((state: LayoutStoreState) => state.layout.layouts[key]),
       [key]
     )
   );
@@ -23,27 +20,14 @@ export const useSelectMosaic = () =>
     )
   );
 
-export const useSelectWindowPlacement = (winKey: string) =>
-  useSelector(
+export const useSelectTheme = (): Theme => {
+  const theme = useSelector(
     useCallback(
-      memoize((state: LayoutStoreState) => state.layout.placements[winKey]),
-      [winKey]
+      memoize(
+        (state: LayoutStoreState) => state.layout.themes[state.layout.theme]
+      ),
+      []
     )
   );
-
-export const useSelectLayoutRendererProps = <S, P>(key: string) =>
-  useSelector(
-    useCallback(
-      memoize((state: LayoutStoreState) => {
-        const placement = state.layout.placements[key];
-        if (!placement) return undefined;
-        const content = state.layout.contents[placement.contentKey];
-        if (!content) return undefined;
-        return {
-          ...content,
-          ...placement,
-        };
-      }),
-      [key]
-    )
-  );
+  return theme;
+};

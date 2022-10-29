@@ -1,178 +1,141 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-import { MosaicNode, TabEntry, MosaicTree, Location } from "@synnaxlabs/pluto";
-import { LayoutContent, LayoutPlacement } from "../types";
+import {
+  insertMosaicTab,
+  removeMosaicTab,
+  moveMosaicTab,
+  resizeMosaicLeaf,
+  MosaicLeaf,
+  selectMosaicTab,
+  Location,
+  Theming,
+  Theme,
+} from "@synnaxlabs/pluto";
+import { Layout } from "../types";
 
-export interface LayoutState {
-  contents: Record<string, LayoutContent<any>>;
-  placements: Record<string, LayoutPlacement>;
-  mosaic: MosaicNode;
-}
-
-export type LayoutStoreState = { layout: LayoutState };
-
-const initialState: LayoutState = {
-  contents: {
-    main: {
-      key: "main",
-      title: "Void",
-      type: "main",
-      props: {},
-    },
-  },
-  placements: {
-    main: {
-      contentKey: "main",
-      location: "window",
-    },
-  },
-  mosaic: { key: 0, level: 0 },
+export type LayoutState = {
+  theme: string;
+  themes: Record<string, Theme>;
+  layouts: Record<string, Layout>;
+  mosaic: MosaicLeaf;
 };
 
-export type SetLayoutContentAction = PayloadAction<LayoutContent<any>>;
-export type DeleteLayoutContentAction = PayloadAction<string>;
-export type SetPlacementAction = PayloadAction<LayoutPlacement>;
-export type DeletePlacementAction = PayloadAction<string>;
-export type MovePlacementAction = PayloadAction<LayoutPlacement>;
+export interface LayoutStoreState {
+  layout: LayoutState;
+}
+
+const initialState: LayoutState = {
+  theme: "synnaxDark",
+  themes: Theming.themes,
+  layouts: {
+    main: {
+      title: "Main",
+      key: "main",
+      type: "main",
+      location: "window",
+      window: {
+        navTop: false,
+      },
+    },
+  },
+  mosaic: {
+    key: 0,
+    level: 0,
+    tabs: [],
+  },
+};
+
+export type PlaceLayoutAction = PayloadAction<Layout>;
+export type RemoveLayoutAction = PayloadAction<string>;
+
+export type SetThemeAction = PayloadAction<string>;
+export type ToggleThemeAction = PayloadAction<void>;
 
 type DeleteLayoutMosaicTabAction = PayloadAction<{ tabKey: string }>;
-
 type MoveLayoutMosaicTabAction = PayloadAction<{
   tabKey: string;
   key: number;
   loc: Location;
 }>;
-
 type ResizeLayoutMosaicTabAction = PayloadAction<{ key: number; size: number }>;
-
 type SelectLayoutMosaicTabAction = PayloadAction<{ tabKey: string }>;
 
-export const layoutSlice = createSlice({
+export const {
+  actions: {
+    placeLayout,
+    removeLayout,
+    deleteLayoutMosaicTab,
+    moveLayoutMosaicTab,
+    selectLayoutMosaicTab,
+    resizeLayoutMosaicTab,
+    toggleTheme,
+    setTheme,
+  },
+  reducer: layoutReducer,
+} = createSlice({
   name: "layout",
   initialState,
   reducers: {
-    setLayoutContent: (
-      { contents },
-      { payload: content }: SetLayoutContentAction
-    ) => {
-      contents[content.key] = content;
+    placeLayout: (state, { payload: layout }: PlaceLayoutAction) => {
+      const { key, title, location, window } = layout;
+
+      const prev = state.layouts[key];
+
+      // If we're moving from a mosaic, remove the tab.
+      if (prev && prev.location === "mosaic" && location !== "mosaic") {
+        state.mosaic = removeMosaicTab(initialState.mosaic, key);
+      }
+
+      // If we're move to a mosaic, insert a tab.
+      if (location === "mosaic")
+        state.mosaic = insertMosaicTab(state.mosaic, { tabKey: key, title });
+
+      state.layouts[key] = layout;
     },
-    deleteLayoutContent: (
-      { mosaic, placements, contents },
-      { payload: contentKey }: DeleteLayoutContentAction
-    ) => {
-      delete contents[contentKey];
-      [mosaic, placements] = _deleteLayoutPlacement(
-        contentKey,
-        mosaic,
-        placements
-      );
-    },
-    deleteLayoutPlacement: (
-      { placements, mosaic },
-      { payload: key }: DeletePlacementAction
-    ) => {
-      [mosaic, placements] = _deleteLayoutPlacement(key, mosaic, placements);
-    },
-    setLayoutPlacement: (
-      { mosaic, placements, contents },
-      { payload: placement }: SetPlacementAction
-    ) => {
-      const { contentKey, location } = placement;
-      const existingC = contents[contentKey];
-      if (!existingC)
-        return console.error("No content found for key", contentKey);
+    removeLayout: (state, { payload: contentKey }: RemoveLayoutAction) => {
+      const layout = state.layouts[contentKey];
+      if (!layout) return;
+      const { location } = layout;
 
-      const existingP = placements[contentKey];
+      if (location === "mosaic")
+        state.mosaic = removeMosaicTab(state.mosaic, contentKey);
 
-      // If we're mosivng from a mosaic to a window, we need to remove the tab
-      // from the mosaic.
-      if (existingP && existingP.location === "mosaic" && location === "window")
-        mosaic = _removeMosaicTab(initialState.mosaic, contentKey);
-
-      // If we're mosivng from a window to a mosaic, we need to add the tab
-      // to the mosaic.
-      if (existingP.location !== "mosaic" && location == "mosaic")
-        mosaic = _insertMosaicTab(mosaic, {
-          tabKey: contentKey,
-          title: existingC?.title,
-        });
-
-      placements[contentKey] = { contentKey, location };
+      delete state.layouts[contentKey];
     },
     deleteLayoutMosaicTab: (
-      { mosaic, placements: placement, contents: content },
+      state,
       { payload: { tabKey } }: DeleteLayoutMosaicTabAction
     ) => {
-      mosaic = _removeMosaicTab(mosaic, tabKey);
-      delete placement[tabKey];
-      delete content[tabKey];
+      state.mosaic = removeMosaicTab(state.mosaic, tabKey);
+      delete state.layouts[tabKey];
     },
     moveLayoutMosaicTab: (
-      { mosaic },
+      state,
       { payload: { tabKey, key, loc } }: MoveLayoutMosaicTabAction
     ) => {
-      const tree = new MosaicTree(mosaic);
-      tree.move(tabKey, key, loc);
-      mosaic = tree.shallowCopy();
+      const m = moveMosaicTab(state.mosaic, tabKey, key, loc);
+      state.mosaic = m;
     },
     selectLayoutMosaicTab: (
-      { mosaic },
+      state,
       { payload: { tabKey } }: SelectLayoutMosaicTabAction
     ) => {
-      const tree = new MosaicTree(mosaic);
-      tree.select(tabKey);
-      mosaic = tree.shallowCopy();
+      const mosaic = selectMosaicTab(state.mosaic, tabKey);
+      state.mosaic = mosaic;
     },
     resizeLayoutMosaicTab: (
-      { mosaic },
+      state,
       { payload: { key, size } }: ResizeLayoutMosaicTabAction
     ) => {
-      const tree = new MosaicTree(mosaic);
-      tree.resize(key, size);
-      mosaic = tree.shallowCopy();
+      state.mosaic = resizeMosaicLeaf(state.mosaic, key, size);
+    },
+    setTheme: (state, { payload: key }: SetThemeAction) => {
+      state.theme = key;
+    },
+    toggleTheme: (state) => {
+      const keys = Object.keys(state.themes);
+      const index = keys.indexOf(state.theme);
+      const next = keys[(index + 1) % keys.length];
+      state.theme = next;
     },
   },
 });
-
-export const {
-  setLayoutContent,
-  deleteLayoutContent,
-  setLayoutPlacement,
-  deleteLayoutPlacement,
-  deleteLayoutMosaicTab,
-  moveLayoutMosaicTab,
-  selectLayoutMosaicTab,
-  resizeLayoutMosaicTab,
-} = layoutSlice.actions;
-
-const _removeMosaicTab = (mosaic: MosaicNode, tabKey: string) => {
-  const tree = new MosaicTree(mosaic);
-  tree.remove(tabKey);
-  return tree.shallowCopy();
-};
-
-const _insertMosaicTab = (
-  mosaic: MosaicNode,
-  tab: TabEntry,
-  key?: number | undefined,
-  loc?: Location | undefined
-) => {
-  const tree = new MosaicTree(mosaic);
-  tree.insert(tab, key, loc);
-  return tree.shallowCopy();
-};
-
-const _deleteLayoutPlacement = (
-  contentKey: string,
-  mosaic: MosaicNode,
-  placements: Record<string, LayoutPlacement>
-): [MosaicNode, Record<string, LayoutPlacement>] => {
-  const existingP = placements[contentKey];
-  if (existingP) {
-    delete placements[contentKey];
-    if (existingP.location === "mosaic") {
-      mosaic = _removeMosaicTab(mosaic, contentKey);
-    }
-  }
-  return [mosaic, placements];
-};

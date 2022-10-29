@@ -12,12 +12,12 @@ import { ReactComponent as TitleBlack } from "./title-black.svg";
 // @ts-ignore
 import { ReactComponent as TitleGradient } from "./title-gradient.svg";
 
-import { Theme } from "@synnaxlabs/pluto";
+import { Theming } from "@synnaxlabs/pluto";
 
 export interface LogoProps
   extends Omit<HTMLAttributes<SVGElement>, "width" | "height"> {
   variant?: "icon" | "title";
-  mode?: "light" | "dark" | "gradient" | "auto";
+  color?: "white" | "black" | "gradient" | "auto";
 }
 
 const types = {
@@ -29,24 +29,23 @@ const types = {
   "title-gradient": <TitleGradient />,
 };
 
-export default function Logo({
+export const Logo = ({
   variant = "icon",
-  mode = "auto",
+  color = "auto",
   ...props
-}: LogoProps) {
-  let autoVariant: string;
-  const { theme } = Theme.useContext();
-  if (mode == "auto") {
-    if (theme.name === "synnax-dark") {
-      autoVariant = "white";
+}: LogoProps) => {
+  let autoColor = color;
+  const { theme } = Theming.useContext();
+  if (color == "auto") {
+    if (theme.key === "synnax-dark") {
+      autoColor = "white";
     } else {
-      autoVariant = "gradient";
+      autoColor = "gradient";
     }
-  } else {
-    autoVariant = variant;
   }
-  const type = `${variant}-${autoVariant}`;
+
+  const type = `${variant}-${autoColor}`;
   // @ts-ignore
   const icon = types[type] as React.DetailedReactHTMLElement<any, HTMLElement>;
   return cloneElement(icon, props);
-}
+};

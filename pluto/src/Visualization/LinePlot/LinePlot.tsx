@@ -1,7 +1,7 @@
-import Cores, { LinePlotCoreProps } from "./LinePlotCore";
+import { LinePlotCore, LinePlotCoreProps } from "./LinePlotCore";
 
-export interface PlotProps extends LinePlotCoreProps {}
+export interface LinePlotProps extends LinePlotCoreProps {}
 
-export default function Plot(props: PlotProps) {
-  return <Cores.UPlot {...props} />;
-}
+export const LinePlot = (props: LinePlotProps) => {
+  return <LinePlotCore.UPlot {...props} />;
+};

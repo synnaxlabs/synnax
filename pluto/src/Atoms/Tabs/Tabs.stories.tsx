@@ -1,6 +1,6 @@
-import { ComponentMeta, ComponentStory } from "@storybook/react";
+import { ComponentStory } from "@storybook/react";
 import { Tabs } from ".";
-import { Resize } from "../Resize";
+import { useStaticTabs } from "./Tabs";
 
 export default {
   title: "Atoms/Tabs",
@@ -20,13 +20,7 @@ const exampleTabs = [
   },
 ];
 
-export const Primary: ComponentStory<typeof Tabs> = (args) => (
-  <Resize.Multiple direction="horizontal">
-    <Tabs tabs={exampleTabs} selected="tab2">
-      {({ tab }) => <h2>{tab.tabKey}</h2>}
-    </Tabs>
-    <Tabs tabs={exampleTabs} selected="tab2">
-      {({ tab }) => <h2>{tab.tabKey}</h2>}
-    </Tabs>
-  </Resize.Multiple>
-);
+export const Primary: ComponentStory<typeof Tabs> = (args) => {
+  const props = useStaticTabs({ tabs: exampleTabs });
+  return <Tabs {...props}>{({ tab }) => <h2>{tab.tabKey}</h2>}</Tabs>;
+};

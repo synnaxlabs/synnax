@@ -16,3 +16,7 @@ export const WithIcon = () => (
     level="h2"
   />
 );
+
+export const Editable = () => (
+  <Text.Editable level="h1" text="hello"></Text.Editable>
+);

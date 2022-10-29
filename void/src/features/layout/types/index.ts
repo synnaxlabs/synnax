@@ -1,22 +1,23 @@
-import { Component, ReactNode } from "react";
-
-export type LayoutContent<P> = {
-  key: string;
-  type: string;
-  title: string;
-  /**
-   * Props is the set of props that will be passed to the renderer from the
-   * layout
-   */
-  props: P;
-};
+import { WindowProps } from "@synnaxlabs/drift";
+import { Component, ComponentProps, ComponentType } from "react";
 
 export type LayoutPlacementLocation = "window" | "mosaic";
 
-export type LayoutPlacement = {
-  winKey?: string;
+export type Layout = {
+  key: string;
+  type: string;
+  title: string;
   location: LayoutPlacementLocation;
-  contentKey: string;
+  window?: LayoutWindowProps;
 };
 
-export type LayoutRenderer<P> = Component<P>;
+export type LayoutRendererProps = {
+  layoutKey: string;
+  onClose: () => void;
+};
+
+export type LayoutRenderer = ComponentType<LayoutRendererProps>;
+
+export type LayoutWindowProps = Omit<WindowProps, "key" | "url"> & {
+  navTop?: boolean;
+};

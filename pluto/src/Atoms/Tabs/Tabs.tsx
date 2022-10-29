@@ -1,4 +1,4 @@
-import { ComponentType, ReactElement, useEffect, useState } from "react";
+import React, { ComponentType, ReactElement, useEffect, useState } from "react";
 import clsx from "clsx";
 import { Space, SpaceProps } from "../Space";
 import { Text } from "@/atoms/Typography";
@@ -6,17 +6,16 @@ import { Button } from "@/atoms/Button";
 import { AiOutlineClose } from "react-icons/ai";
 import "./Tabs.css";
 
-export interface TabsProps
-  extends Omit<SpaceProps, "children" | "onSelect" | "size"> {
+export interface TabsProps extends Omit<SpaceProps, "children" | "onSelect"> {
   tabs: Tab[];
   selected?: string;
   onSelect?: (key: string) => void;
   onClose?: (key: string) => void;
-  closable?: boolean;
-  emptyContent?: ReactElement | null;
+  emptyContent?: ComponentType | null;
   children?: ComponentType<{ tab: Tab }> | null;
   onTabDragStart?: (e: React.DragEvent<HTMLDivElement>, tab: Tab) => void;
   onTabDragEnd?: (e: React.DragEvent<HTMLDivElement>, tab: Tab) => void;
+  onTitleChange?: (key: string, title: string) => void;
 }
 
 export interface Tab {
@@ -26,56 +25,44 @@ export interface Tab {
   closable?: boolean;
 }
 
+export interface UseStaticTabsProps {
+  tabs: Tab[];
+}
+
+export const useStaticTabs = ({ tabs }: UseStaticTabsProps): TabsProps => {
+  const [selected, setSelected] = useState(tabs[0].tabKey);
+
+  return {
+    tabs,
+    selected,
+    onSelect: setSelected,
+  };
+};
+
 export const Tabs = ({
-  onSelect: propsOnSelect,
-  onClose: propsOnClose,
-  selected: propsSelected,
+  onSelect,
+  onClose,
+  selected,
   onTabDragStart,
   onTabDragEnd,
-  closable = true,
-  tabs: propsTabs = [],
-  emptyContent = null,
+  tabs = [],
+  emptyContent: EmptyContent = null,
   className,
   children: Children,
   onDrag,
+  onTitleChange,
   ...props
 }: TabsProps) => {
-  const [tabs, setTabs] = useState<Tab[]>(propsTabs);
-  const [selected, setSelected] = useState<string>(
-    propsSelected || tabs[0]?.tabKey || ""
-  );
-
-  useEffect(() => {
-    setTabs(propsTabs);
-  }, [propsTabs]);
-
-  useEffect(() => {
-    if (!propsTabs.map((t) => t.tabKey).includes(selected)) {
-      setSelected(propsTabs[0]?.tabKey || "");
-    }
-  }, [tabs]);
-
-  useEffect(() => {
-    if (propsSelected) setSelected(propsSelected);
-  }, [propsSelected]);
-
+  let content = null;
   const selectedTab = tabs.find((tab) => tab.tabKey === selected);
-
-  const onSelect = (key: string) => {
-    setSelected(key);
-    propsOnSelect?.(key);
-  };
-
-  const onClose = (key: string) => {
-    setTabs((tabs) => tabs.filter((tab) => tab.tabKey !== key));
-    propsOnClose?.(key);
-  };
-
-  let content: ReactElement;
-  if (selectedTab && Children) {
-    content = <Children tab={selectedTab} />;
-  } else {
-    content = selectedTab?.content ?? emptyContent ?? <></>;
+  if (selectedTab) {
+    if (Children) {
+      content = <Children tab={selectedTab} />;
+    } else if (selectedTab.content) {
+      content = selectedTab.content;
+    }
+  } else if (tabs.length === 0 && EmptyContent) {
+    content = <EmptyContent />;
   }
 
   return (
@@ -96,10 +83,10 @@ export const Tabs = ({
             key={tab.tabKey}
             selected={selected}
             onSelect={onSelect}
-            closable={closable}
             onClose={onClose}
             onTabDragStart={onTabDragStart}
             onTabDragEnd={onTabDragEnd}
+            onTitleChange={onTitleChange}
             {...tab}
           />
         ))}
@@ -113,8 +100,9 @@ export interface TabProps extends Tab {
   selected?: string;
   onTabDragStart?: (e: React.DragEvent<HTMLDivElement>, tab: Tab) => void;
   onTabDragEnd?: (e: React.DragEvent<HTMLDivElement>, tab: Tab) => void;
-  onSelect: (key: string) => void;
-  onClose: (key: string) => void;
+  onSelect?: (key: string) => void;
+  onClose?: (key: string) => void;
+  onTitleChange?: (key: string, title: string) => void;
 }
 
 const TabC = ({
@@ -123,10 +111,25 @@ const TabC = ({
   onClose,
   tabKey,
   title,
-  closable,
   onTabDragStart,
   onTabDragEnd,
+  onTitleChange,
 }: TabProps) => {
+  const onDragStart = (e: React.DragEvent<HTMLDivElement>) => {
+    if (onTabDragStart) onTabDragStart(e, { tabKey, title });
+  };
+
+  const onDragEnd = (e: React.DragEvent<HTMLDivElement>) => {
+    if (onTabDragEnd) onTabDragEnd(e, { tabKey, title });
+  };
+
+  const _onClose = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    if (onClose) onClose(tabKey);
+  };
+
+  const _onSelect = () => onSelect && onSelect(tabKey);
+
   return (
     <Space
       className={clsx(
@@ -137,20 +140,21 @@ const TabC = ({
       direction="horizontal"
       justify="center"
       align="center"
-      onClick={() => onSelect(tabKey)}
-      onDragStart={(e) =>
-        onTabDragStart && onTabDragStart(e, { tabKey, title })
-      }
-      onDragEnd={(e) => onTabDragEnd && onTabDragEnd(e, { tabKey, title })}
+      onClick={_onSelect}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
     >
-      <Text level="p">{title}</Text>
-      {closable && (
+      <Text.Editable
+        level="p"
+        text={title}
+        onChange={(newText) => {
+          if (onTitleChange) onTitleChange(tabKey, newText);
+        }}
+      />
+      {onClose && (
         <Button.IconOnly
           size="small"
-          onClick={(e) => {
-            e.stopPropagation();
-            onClose(tabKey);
-          }}
+          onClick={_onClose}
           style={{ height: "3rem", padding: "1rem 0.25rem" }}
         >
           <AiOutlineClose />

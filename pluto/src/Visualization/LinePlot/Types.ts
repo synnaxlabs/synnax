@@ -17,6 +17,13 @@ export type Axis = {
 
 export type Array = uPlot.TypedArray | number[];
 
-export type Data = {
+export interface PlotData {
   [key: string]: Array;
-};
+}
+
+export interface LinePlotMetadata {
+  width: number;
+  height: number;
+  series: Series[];
+  axes: Axis[];
+}

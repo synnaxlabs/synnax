@@ -19,10 +19,8 @@ function RangeSelector() {
   );
 }
 
-const RangeSelectorItem = {
+export const RangeSelectorItem = {
   key: "rangeSelector",
   icon: <AiFillBoxPlot />,
   content: <RangeSelector />,
 };
-
-export default RangeSelectorItem;

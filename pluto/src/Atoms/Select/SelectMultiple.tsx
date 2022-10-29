@@ -7,7 +7,7 @@ import { List, ListEntry, TypedListColumn } from "@/atoms/List";
 import { Tag } from "@/atoms/Tag";
 import { Button } from "@/atoms/Button";
 import { useClickoutside } from "@/hooks";
-import { Theme } from "../../theme";
+import { Theming } from "../../theming";
 import "./SelectMultiple.css";
 
 export interface SelectMultipleProps<E extends ListEntry> {
@@ -81,7 +81,7 @@ const SelectMultipleInput = <E extends ListEntry>({
   const { selected, sourceData, onSelect, clearSelected } =
     List.useContext<E>();
 
-  const { theme } = Theme.useContext();
+  const { theme } = Theming.useContext();
   return (
     <Space
       direction="horizontal"

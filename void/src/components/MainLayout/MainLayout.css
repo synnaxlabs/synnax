@@ -4,7 +4,7 @@
 }
 
 .void-main-layout__content {
-    height: 100%;
+    height: calc(100vh - 72px);
     flex-grow: 1;
     overflow: hidden;
 }

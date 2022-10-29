@@ -4,7 +4,6 @@ export type Cluster = {
   key: string;
   name: string;
   props: SynnaxProps;
-  active: boolean;
   state: ConnectionState;
 };
 
@@ -14,6 +13,6 @@ export type ConnectionState = {
 };
 
 export const DEFAULT_CONNECTION_STATE: ConnectionState = {
-  status: Connectivity.DISCNNECTED,
+  status: Connectivity.Disconnected,
   message: "Disconnected",
 };

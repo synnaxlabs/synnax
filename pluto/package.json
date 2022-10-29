@@ -19,7 +19,8 @@
     "fuse.js": "^6.6.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "uplot": "^1.6.22"
+    "uplot": "^1.6.22",
+    "vite-tsconfig-paths": "^3.5.2"
   },
   "devDependencies": {
     "@babel/core": "^7.18.9",

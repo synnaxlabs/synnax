@@ -4,10 +4,10 @@ import { TimeSpan } from './telem';
 
 /** Represents the connection state of a client to a synnax cluster. */
 export enum Connectivity {
-  DISCNNECTED = 'DISCONNECTED',
-  CONNECTING = 'CONNECTING',
-  CONNECTED = 'CONNECTED',
-  FAILED = 'FAILED',
+  Disconnected = 'Disconnected',
+  Connecting = 'Connecting',
+  Connected = 'Connected',
+  Failed = 'Failed',
 }
 
 const connectivityResponseSchema = z.object({
@@ -17,7 +17,7 @@ const connectivityResponseSchema = z.object({
 /** Polls a synnax cluster for connectivity information. */
 export default class ConnectivityClient {
   private static ENDPOINT = '/connectivity/check';
-  private _status = Connectivity.DISCNNECTED;
+  private _status = Connectivity.Disconnected;
   private _error?: Error;
   private _statusMessage?: string;
   private pollFrequency = TimeSpan.Seconds(30);
@@ -40,6 +40,7 @@ export default class ConnectivityClient {
     this.client = client;
     this.pollFrequency = pollFreq;
     this.onChangeHandlers = [];
+    this.check();
     this.startChecking();
   }
 
@@ -61,16 +62,16 @@ export default class ConnectivityClient {
         connectivityResponseSchema
       );
       if (!err) {
-        this._status = Connectivity.CONNECTED;
+        this._status = Connectivity.Connected;
         this._statusMessage = 'Connected';
         if (res) this.clusterKey = res.clusterKey;
       } else {
-        this._status = Connectivity.FAILED;
+        this._status = Connectivity.Failed;
         this._error = err;
         this._statusMessage = `Connection Failed: ${this._error?.message}`;
       }
     } catch (err) {
-      this._status = Connectivity.FAILED;
+      this._status = Connectivity.Failed;
       this._error = err as Error;
       this._statusMessage = `Connection Failed: ${this._error?.message}`;
     }
