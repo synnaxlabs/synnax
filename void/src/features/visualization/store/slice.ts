@@ -13,22 +13,16 @@ export const initialState: VisualizationState = {
   visualizations: {},
 };
 
-type CreateVisualizationAction = PayloadAction<Visualization>;
+type SetVisualizationAction = PayloadAction<Visualization>;
 
 export const {
-  actions: { createVisualization },
+  actions: { setVisualization },
   reducer: visualizationReducer,
 } = createSlice({
   name: "visualization",
   initialState,
   reducers: {
-    createVisualization: (state, { payload }: PayloadAction<Visualization>) => {
-      if (state.visualizations[payload.layoutKey]) {
-        console.warn(
-          `Visualization with key ${payload.layoutKey} already exists`
-        );
-        return;
-      }
+    setVisualization: (state, { payload }: SetVisualizationAction) => {
       state.visualizations[payload.layoutKey] = payload;
     },
   },

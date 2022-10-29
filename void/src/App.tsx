@@ -8,12 +8,12 @@ import {
 } from "@/features/layout";
 import { MainLayout } from "./components";
 import { ConnectCluster } from "@/features/cluster";
-import { Plot } from "@/features/visualization";
+import { VisualizationLayoutRenderer } from "@/features/visualization";
 
 const layoutRenderers = {
   main: MainLayout,
   connectCluster: ConnectCluster,
-  plot: Plot,
+  visualization: VisualizationLayoutRenderer,
 };
 
 export const App = () => {

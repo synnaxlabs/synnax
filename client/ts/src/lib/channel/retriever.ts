@@ -48,4 +48,8 @@ export default class Retriever {
   async retrieveByNodeID(nodeId: number): Promise<ChannelPayload[]> {
     return await this.execute({ nodeId });
   }
+
+  async retrieveAll(): Promise<ChannelPayload[]> {
+    return await this.execute({});
+  }
 }

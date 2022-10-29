@@ -1,1 +1,1 @@
-export * from "./Plot";
+export { VisualizationLayoutRenderer } from "./VisualizationLayoutRenderer";

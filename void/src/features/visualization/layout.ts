@@ -2,17 +2,23 @@ import { Layout, LayoutCreator, LayoutCreatorProps } from "@/features/layout";
 import { Visualization } from "./types";
 import { nanoid } from "nanoid";
 import { Optional } from "@/util/types";
-import { createVisualization as storeCreateVizualization } from "./store";
+import { setVisualization as storeCreateVizualization } from "./store";
 
 export const createVisualization =
   (initial: Optional<Visualization, "layoutKey">): LayoutCreator =>
   ({ dispatch }: LayoutCreatorProps): Layout => {
     const key = initial.layoutKey ?? nanoid();
-    dispatch(storeCreateVizualization({ ...initial, layoutKey: key }));
+    dispatch(
+      storeCreateVizualization({
+        ...initial,
+        layoutKey: key,
+        variant: "linePlot",
+      })
+    );
     return {
       key,
       location: "mosaic",
-      type: "plot",
+      type: "visualization",
       title: initial.layoutKey || "Plot",
     };
   };

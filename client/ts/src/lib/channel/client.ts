@@ -18,7 +18,7 @@ import ChannelRetriever from './retriever';
  */
 export class Channel {
   private readonly segmentClient: SegmentClient;
-  private payload: ChannelPayload;
+  payload: ChannelPayload;
 
   constructor(payload: ChannelPayload, segmentClient: SegmentClient) {
     this.payload = payload;
@@ -167,6 +167,10 @@ export default class ChannelClient {
    */
   async retrieveByNodeId(nodeId: number): Promise<Channel[]> {
     return this.sugar(...(await this.retriever.retrieveByNodeID(nodeId)));
+  }
+
+  async retrieveAll(): Promise<Channel[]> {
+    return this.sugar(...(await this.retriever.retrieveAll()));
   }
 
   private sugar(...payloads: ChannelPayload[]): Channel[] {

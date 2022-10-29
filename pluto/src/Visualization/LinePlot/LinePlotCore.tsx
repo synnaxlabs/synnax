@@ -68,7 +68,11 @@ const locationSides = {
 
 const alignData = (data: PlotData, series: Series[]): uPlot.AlignedData => {
   if (!data || !series) return [];
-  return uPlot.join(series.map(({ x, y }) => [data[x], data[y]]));
+  return uPlot.join(
+    series
+      .filter(({ x, y }) => data[x] && data[y])
+      .map(({ x, y }) => [data[x], data[y]])
+  );
 };
 
 const buildAxes = (axes: Axis[], theme: Theme): uPlot.Axis[] => {

@@ -9,12 +9,13 @@ import { Button } from "@/atoms/Button";
 import { useClickoutside } from "@/hooks";
 import { Theming } from "../../theming";
 import "./SelectMultiple.css";
+import { ListProps } from "../List/List";
 
-export interface SelectMultipleProps<E extends ListEntry> {
+export interface SelectMultipleProps<E extends ListEntry>
+  extends Omit<ListProps<E>, "data"> {
   options?: E[];
-  columns?: TypedListColumn<E>[];
-  listPosition?: "top" | "bottom";
   tagKey?: keyof E;
+  listPosition?: "top" | "bottom";
 }
 
 export const SelectMultiple = <E extends ListEntry>({
@@ -22,12 +23,13 @@ export const SelectMultiple = <E extends ListEntry>({
   columns = [],
   listPosition = "bottom",
   tagKey = "key",
+  ...props
 }: SelectMultipleProps<E>) => {
   const [visible, setVisible] = useState(false);
   const divRef = useRef<HTMLDivElement>(null);
   useClickoutside(divRef, () => setVisible(false));
   return (
-    <List data={options}>
+    <List data={options} {...props}>
       <Space
         className="pluto-select-multiple__container"
         ref={divRef}
