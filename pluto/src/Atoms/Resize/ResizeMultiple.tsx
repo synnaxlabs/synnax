@@ -1,16 +1,9 @@
-import clsx from "clsx";
-
 import { Children, useCallback, useEffect, useRef, useState } from "react";
 import { useResize } from "@/hooks";
-import {
-  Dimensions,
-  getDirection,
-  getDirectionalSize,
-  getLocation,
-  swapLocation,
-} from "@/util";
+import { Dimensions, getDirectionalSize, getLocation } from "@/util";
 import { Space, SpaceProps } from "@/atoms/Space";
-import { anyExceedsBounds, parseMovement, ResizePanelProps } from "./Resize";
+import { anyExceedsBounds, parseMovement } from "./Resize";
+import { ResizeCore } from "./ResizeCore";
 
 export interface ResizeMultipleProps extends SpaceProps {
   onResize?: (sizes: number[]) => void;
@@ -40,7 +33,7 @@ export const ResizeMultiple = ({
       setSizes((prevSizes) => {
         const nextPSize = getDirectionalSize(direction, dims);
         const prevPSize = prevSizes.reduce((a, b) => a + b, 0);
-        if (nextPSize === prevPSize) return prevSizes;
+        if (nextPSize === prevPSize || nextPSize === 0) return prevSizes;
 
         // If the previous sizes aren't valid, simply distribute the space evenly
         // between all children.
@@ -100,72 +93,18 @@ export const ResizeMultiple = ({
     >
       {children.map((child, i) => {
         return (
-          <BaseResize
-            onDrag={(i: number) => setDragging(i)}
+          <ResizeCore
+            onDragStart={() => setDragging(i)}
             key={i}
-            index={i}
             location={location}
             size={sizes[i]}
             showHandle={i !== children.length - 1}
           >
             {child}
-          </BaseResize>
+          </ResizeCore>
         );
       })}
     </Space>
-  );
-};
-
-const BaseResize = ({
-  location,
-  style,
-  size,
-  className,
-  children,
-  onDrag,
-  index,
-  showHandle,
-  ...props
-}: Omit<ResizePanelProps, "onDrag"> & {
-  index: number;
-  size: number;
-  showHandle: boolean;
-  onDrag: (i: number) => void;
-}) => {
-  const direction = getDirection(location);
-  const parsedStyle: React.CSSProperties = { ...style, overflow: "hidden" };
-  if (direction === "horizontal") {
-    parsedStyle.height = size;
-  } else {
-    parsedStyle.width = size;
-  }
-  return (
-    <div
-      className={clsx(
-        "pluto-resize-panel",
-        `pluto-resize-panel--${location}`,
-        `pluto-resize-panel--${direction}`,
-        showHandle && `pluto-bordered--${swapLocation(location)}`,
-        className
-      )}
-      style={parsedStyle}
-      {...props}
-    >
-      {children}
-      {showHandle && (
-        <div
-          draggable
-          className="pluto-resize-panel__handle"
-          data-testid="resize-handle"
-          onDragStart={(e) => {
-            e.preventDefault();
-            onDrag(index);
-          }}
-          onDrag={(e) => e.preventDefault()}
-          onDragEnd={(e) => e.preventDefault()}
-        ></div>
-      )}
-    </div>
   );
 };
 

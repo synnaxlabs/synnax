@@ -9,3 +9,7 @@
 # |||||| JS ||||||
 
 node_modules
+
+# |||||| RUST ||||||
+
+/target/

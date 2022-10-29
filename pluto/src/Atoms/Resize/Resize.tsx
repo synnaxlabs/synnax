@@ -2,8 +2,10 @@ import clsx from "clsx";
 import { HTMLAttributes, useEffect, useRef, useState } from "react";
 import { getDirection, Location, swapLocation } from "../../util/spatial";
 import "./Resize.css";
+import { ResizeCore, ResizeCoreProps } from "./ResizeCore";
 
-export interface ResizePanelProps extends HTMLAttributes<HTMLDivElement> {
+export interface ResizePanelProps
+  extends Omit<ResizeCoreProps, "showHandle" | "size"> {
   location: Location;
   initialSize?: number;
   minSize?: number;
@@ -12,19 +14,15 @@ export interface ResizePanelProps extends HTMLAttributes<HTMLDivElement> {
 }
 
 export const Resize = ({
-  children,
   location = "left",
   minSize = 100,
   maxSize = Infinity,
   initialSize = 200,
   onResize,
-  className,
-  style,
   ...props
 }: ResizePanelProps) => {
   const [size, setSize] = useState<number>(initialSize);
   const [dragging, setDragging] = useState(false);
-  const direction = getDirection(location);
 
   useEffect(() => {
     if (!dragging) return;
@@ -43,38 +41,19 @@ export const Resize = ({
     };
   }, [dragging, onResize]);
 
-  const parsedStyle: React.CSSProperties = { ...style };
-  if (direction === "horizontal") {
-    parsedStyle.height = size || initialSize;
-  } else {
-    parsedStyle.width = size || initialSize;
-  }
-
   return (
-    <div
-      className={clsx(
-        "pluto-resize-panel",
-        `pluto-resize-panel--${location}`,
-        `pluto-resize-panel--${direction}`,
-        `pluto-bordered--${swapLocation(location)}`,
-        className
-      )}
-      style={parsedStyle}
+    <ResizeCore
+      draggable
+      location={location}
+      size={size}
+      onDragStart={(e) => {
+        setDragging(true);
+        e.preventDefault();
+      }}
+      onDrag={(e) => e.preventDefault()}
+      onDragEnd={(e) => e.preventDefault()}
       {...props}
-    >
-      {children}
-      <div
-        draggable
-        className="pluto-resize-panel__handle"
-        data-testid="resize-handle"
-        onDragStart={(e) => {
-          setDragging(true);
-          e.preventDefault();
-        }}
-        onDrag={(e) => e.preventDefault()}
-        onDragEnd={(e) => e.preventDefault()}
-      ></div>
-    </div>
+    />
   );
 };
 

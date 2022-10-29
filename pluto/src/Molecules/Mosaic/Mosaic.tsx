@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Resize, Tabs, Tab, TabsProps } from "@/atoms";
-import { MosaicLeaf } from "./mosaicTree";
+import { MosaicLeaf } from "./types";
 import { Location } from "@/util";
 import "./Mosaic.css";
 

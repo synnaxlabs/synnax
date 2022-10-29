@@ -1,12 +1,12 @@
 import { useState } from "react";
 import {
   insertMosaicTab,
-  MosaicLeaf,
   moveMosaicTab,
   removeMosaicTab,
   resizeMosaicLeaf,
   selectMosaicTab,
 } from "./mosaicTree";
+import { MosaicLeaf } from "./types";
 import { Location } from "@/util";
 import { Tab } from "@/atoms";
 
@@ -18,7 +18,6 @@ export interface UseMosaicReturn {
   root: MosaicLeaf;
   onDrop: (key: number, tabKey: string, loc: Location) => void;
   onClose: (tabKey: string) => void;
-  insertTab: (tab: Tab, key?: number, loc?: Location) => void;
   onSelect: (tabKey: string) => void;
   onResize: (key: number, sizes: number) => void;
 }
@@ -45,10 +44,7 @@ export const useMosaic = ({ initialTree }: UseMosaicProps): UseMosaicReturn => {
     root,
     onDrop,
     onClose,
-    insertTab,
     onSelect,
     onResize,
   };
 };
-
-export default useMosaic;

@@ -36,8 +36,8 @@ export const Input = forwardRef<HTMLInputElement, BaseInputProps>(
           "pluto-input__input--" + size,
           className
         )}
-        value={value}
         {...props}
+        value={value}
       />
     );
   }

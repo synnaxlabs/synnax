@@ -16,9 +16,9 @@ describe("Nav", () => {
               content: <div>Home</div>,
             },
             {
-              key: "home",
+              key: "space",
               icon: <MdHomeFilled aria-label="space" />,
-              content: <div>Home</div>,
+              content: <div>Space</div>,
             },
           ]}
         ></Nav.Drawer>

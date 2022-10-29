@@ -6,7 +6,11 @@ export default {
   component: Resize,
 } as ComponentMeta<typeof Resize>;
 
-const Template = (args: any) => <Resize {...args}>Resize</Resize>;
+const Template = (args: any) => (
+  <Resize {...args}>
+    <h1>Resize</h1>
+  </Resize>
+);
 
 export const Primary: ComponentStory<typeof Resize> = Template.bind({});
 Primary.args = {
@@ -19,7 +23,7 @@ export const Multiple: ComponentStory<typeof Resize.Multiple> = () => {
   return (
     <Resize.Multiple
       initialSizes={[100, 200]}
-      style={{ border: "1px solid red" }}
+      style={{ border: "1px solid var(--pluto-gray-m2)", height: "100%" }}
     >
       <h1>Hello From One</h1>
       <h1>Hello From Two</h1>

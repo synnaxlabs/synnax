@@ -60,7 +60,6 @@ export const useMultiSelect = <E extends ListEntry>({
       else nextSelected = [...selected, key];
     }
     setSelected(nextSelected);
-    console.log("ON SELECT");
     onSelectProp?.(nextSelected);
   };
 

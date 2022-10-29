@@ -1,6 +1,6 @@
 import { ComponentStory, ComponentMeta } from "@storybook/react";
 import { Mosaic } from ".";
-import { MosaicLeaf } from "./mosaicTree";
+import { MosaicLeaf } from "./types";
 import { useMosaic } from "./useMosaic";
 
 export default {

@@ -1,4 +1,4 @@
-import React, { ComponentType, ReactElement, useEffect, useState } from "react";
+import React, { ComponentType, ReactNode, useState } from "react";
 import clsx from "clsx";
 import { Space, SpaceProps } from "../Space";
 import { Text } from "@/atoms/Typography";
@@ -11,7 +11,7 @@ export interface TabsProps extends Omit<SpaceProps, "children" | "onSelect"> {
   selected?: string;
   onSelect?: (key: string) => void;
   onClose?: (key: string) => void;
-  emptyContent?: ComponentType | null;
+  emptyContent?: ReactNode | ComponentType | null;
   children?: ComponentType<{ tab: Tab }> | null;
   onTabDragStart?: (e: React.DragEvent<HTMLDivElement>, tab: Tab) => void;
   onTabDragEnd?: (e: React.DragEvent<HTMLDivElement>, tab: Tab) => void;
@@ -21,7 +21,7 @@ export interface TabsProps extends Omit<SpaceProps, "children" | "onSelect"> {
 export interface Tab {
   tabKey: string;
   title: string;
-  content?: ReactElement;
+  content?: ReactNode;
   closable?: boolean;
 }
 
@@ -29,8 +29,11 @@ export interface UseStaticTabsProps {
   tabs: Tab[];
 }
 
+export const resetTabSelection = (selected: string = "", tabs: Tab[] = []) =>
+  tabs.find((t) => t.tabKey === selected) ? selected : tabs[0]?.tabKey;
+
 export const useStaticTabs = ({ tabs }: UseStaticTabsProps): TabsProps => {
-  const [selected, setSelected] = useState(tabs[0].tabKey);
+  const [selected, setSelected] = useState(tabs[0]?.tabKey ?? "");
 
   return {
     tabs,
@@ -62,7 +65,8 @@ export const Tabs = ({
       content = selectedTab.content;
     }
   } else if (tabs.length === 0 && EmptyContent) {
-    content = <EmptyContent />;
+    content =
+      typeof EmptyContent === "function" ? <EmptyContent /> : EmptyContent;
   }
 
   return (
@@ -157,7 +161,7 @@ const TabC = ({
           onClick={_onClose}
           style={{ height: "3rem", padding: "1rem 0.25rem" }}
         >
-          <AiOutlineClose />
+          <AiOutlineClose aria-label="pluto-tabs__close" />
         </Button.IconOnly>
       )}
     </Space>
