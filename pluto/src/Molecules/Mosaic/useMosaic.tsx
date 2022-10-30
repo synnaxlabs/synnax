@@ -26,13 +26,13 @@ export const useMosaic = ({ initialTree }: UseMosaicProps): UseMosaicReturn => {
   const [root, setRoot] = useState(initialTree);
 
   const onDrop = (key: number, tabKey: string, loc: Location) =>
-    setRoot((r) => moveMosaicTab(r, tabKey, key, loc));
+    setRoot((r) => moveMosaicTab(r, tabKey, loc, key));
 
   const onClose = (tabKey: string) =>
     setRoot((r) => removeMosaicTab(r, tabKey));
 
   const insertTab = (tab: Tab, key?: number, loc?: Location) =>
-    setRoot((r) => insertMosaicTab(r, tab, key, loc));
+    setRoot((r) => insertMosaicTab(r, tab, loc, key));
 
   const onSelect = (tabKey: string) =>
     setRoot((r) => selectMosaicTab(r, tabKey));

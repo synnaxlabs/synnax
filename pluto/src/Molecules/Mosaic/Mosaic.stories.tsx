@@ -10,10 +10,8 @@ export default {
 
 const initialTree: MosaicLeaf = {
   key: 0,
-  level: 0,
   direction: "horizontal",
   first: {
-    level: 1,
     key: 1,
     tabs: [
       {
@@ -24,7 +22,6 @@ const initialTree: MosaicLeaf = {
     ],
   },
   last: {
-    level: 1,
     key: 2,
     tabs: [
       {
@@ -42,6 +39,6 @@ const initialTree: MosaicLeaf = {
 };
 
 export const Primary: ComponentStory<typeof Mosaic> = (args) => {
-  const { insertTab, ...props } = useMosaic({ initialTree });
+  const props = useMosaic({ initialTree });
   return <Mosaic {...props} />;
 };

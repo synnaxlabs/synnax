@@ -9,7 +9,7 @@ import {
 import { Theme, synnaxLight } from "./theme";
 import { applyThemeAsCssVars } from "./css";
 import "./theme.css";
-import { Switch } from "@/atoms";
+import { Switch, SwitchProps } from "@/atoms";
 
 export interface ThemeProviderProps extends PropsWithChildren<any> {
   theme: Theme;
@@ -23,11 +23,17 @@ const ThemeContext = createContext<ThemeProviderProps>({
   setTheme: (key: string) => {},
 });
 
-export const useThemeProvider = (
-  themes: Record<string, Theme>
-): ThemeProviderProps => {
+export interface UseThemeProviderProps {
+  themes: Record<string, Theme>;
+  defaultTheme?: string;
+}
+
+export const useThemeProvider = ({
+  themes,
+  defaultTheme,
+}: UseThemeProviderProps) => {
   const [selected, setSelected] = useState<string>(
-    Object.values(themes)[0]?.key
+    defaultTheme || Object.keys(themes)[0]
   );
 
   const toggleTheme = () => {
@@ -67,13 +73,15 @@ export const ThemeProvider = ({
   );
 };
 
-export const ThemeSwitch = () => {
+export const ThemeSwitch = ({ onChange, ...props }: SwitchProps) => {
   const { theme, toggleTheme } = useContext(ThemeContext);
   return (
     <Switch
-      onChange={() => {
+      onChange={(e) => {
         toggleTheme();
+        if (onChange) onChange(e);
       }}
-    ></Switch>
+      {...props}
+    />
   );
 };
