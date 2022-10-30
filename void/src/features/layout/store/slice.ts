@@ -1,11 +1,7 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import {
-  insertMosaicTab,
-  removeMosaicTab,
-  moveMosaicTab,
-  resizeMosaicLeaf,
+  Mosaic,
   MosaicLeaf,
-  selectMosaicTab,
   Location,
   Theming,
   Theme,
@@ -38,8 +34,7 @@ const initialState: LayoutState = {
     },
   },
   mosaic: {
-    key: 0,
-    level: 0,
+    key: 1,
     tabs: [],
   },
 };
@@ -76,18 +71,18 @@ export const {
   initialState,
   reducers: {
     placeLayout: (state, { payload: layout }: PlaceLayoutAction) => {
-      const { key, title, location, window } = layout;
+      const { key, location } = layout;
 
       const prev = state.layouts[key];
 
       // If we're moving from a mosaic, remove the tab.
       if (prev && prev.location === "mosaic" && location !== "mosaic") {
-        state.mosaic = removeMosaicTab(initialState.mosaic, key);
+        state.mosaic = Mosaic.removeTab(initialState.mosaic, key);
       }
 
       // If we're move to a mosaic, insert a tab.
       if (location === "mosaic")
-        state.mosaic = insertMosaicTab(state.mosaic, { tabKey: key, title });
+        state.mosaic = Mosaic.removeTab(state.mosaic, key);
 
       state.layouts[key] = layout;
     },
@@ -97,7 +92,7 @@ export const {
       const { location } = layout;
 
       if (location === "mosaic")
-        state.mosaic = removeMosaicTab(state.mosaic, contentKey);
+        state.mosaic = Mosaic.removeTab(state.mosaic, contentKey);
 
       delete state.layouts[contentKey];
     },
@@ -105,28 +100,28 @@ export const {
       state,
       { payload: { tabKey } }: DeleteLayoutMosaicTabAction
     ) => {
-      state.mosaic = removeMosaicTab(state.mosaic, tabKey);
+      state.mosaic = Mosaic.removeTab(state.mosaic, tabKey);
       delete state.layouts[tabKey];
     },
     moveLayoutMosaicTab: (
       state,
       { payload: { tabKey, key, loc } }: MoveLayoutMosaicTabAction
     ) => {
-      const m = moveMosaicTab(state.mosaic, tabKey, key, loc);
+      const m = Mosaic.moveTab(state.mosaic, tabKey, loc, key);
       state.mosaic = m;
     },
     selectLayoutMosaicTab: (
       state,
       { payload: { tabKey } }: SelectLayoutMosaicTabAction
     ) => {
-      const mosaic = selectMosaicTab(state.mosaic, tabKey);
+      const mosaic = Mosaic.selectTab(state.mosaic, tabKey);
       state.mosaic = mosaic;
     },
     resizeLayoutMosaicTab: (
       state,
       { payload: { key, size } }: ResizeLayoutMosaicTabAction
     ) => {
-      state.mosaic = resizeMosaicLeaf(state.mosaic, key, size);
+      state.mosaic = Mosaic.resizeLeaf(state.mosaic, key, size);
     },
     setTheme: (state, { payload: key }: SetThemeAction) => {
       state.theme = key;

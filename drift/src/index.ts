@@ -1,11 +1,12 @@
-export { default as TauriWindow } from './lib/tauri';
-export { Window, WindowProps } from './lib/window';
-export { configureStore } from './lib/store';
+export { Runtime } from './runtime';
+export { configureStore } from './configureStore';
 export {
-  slice,
+  reducer,
   createWindow,
   closeWindow,
   registerProcess,
   completeProcess,
-} from './lib/slice';
-export * from './lib/react';
+} from './state';
+export { WindowProps, WindowState, Window } from './window';
+export * from './react';
+export * from './tauri';

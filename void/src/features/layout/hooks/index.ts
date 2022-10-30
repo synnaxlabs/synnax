@@ -19,7 +19,7 @@ export interface LayoutCreatorProps {
 
 export type LayoutCreator = (props: LayoutCreatorProps) => Layout;
 
-export type LayoutPlacer = (layout_: Layout | LayoutCreator) => void;
+export type LayoutPlacer = (layout: Layout | LayoutCreator) => void;
 
 export const useLayoutPlacer = () => {
   const dispatch = useDispatch();
@@ -43,13 +43,12 @@ export const useLayoutPlacer = () => {
   );
 };
 
-export const useLayoutRemover = (contentKey: string) => {
+export const useLayoutRemover = (key: string) => {
   const dispatch = useDispatch();
-  const layout = useSelectLayout(contentKey);
+  const layout = useSelectLayout(key);
   return () => {
-    dispatch(removeLayout(contentKey));
-    if (layout.location === "window")
-      dispatch(closeWindow({ key: contentKey }));
+    dispatch(removeLayout(key));
+    if (layout.location === "window") dispatch(closeWindow(key));
   };
 };
 

@@ -7,26 +7,28 @@ import {
 } from '@tauri-apps/api/event';
 import { appWindow, WebviewWindow } from '@tauri-apps/api/window';
 
-import { StoreState } from '../slice';
-import {
-  Event as DriftEvent,
-  Window as DriftWindow,
-  KeyedWindowProps,
-} from '../window';
+import { Event, Runtime } from '../runtime';
+import { StoreState } from '../state';
+import { KeyedWindowProps } from '../window';
 
 const actionEvent = 'action';
 const tauriError = 'tauri://error';
 
-export default class Window<S extends StoreState, A extends Action = AnyAction>
-  implements DriftWindow<S, A>
+/**
+ * A Tauri backed implementation of the drift Runtime.
+ */
+export class TauriRuntime<S extends StoreState, A extends Action = AnyAction>
+  implements Runtime<S, A>
 {
-  window: WebviewWindow;
-  unsubscribe?: void | UnlistenFn;
-  nextClose: boolean;
+  private window: WebviewWindow;
+  private unsubscribe?: void | UnlistenFn;
 
+  /**
+   * @param window - The WebviewWindow to use as the underlying engine for this runtime.
+   * This should not be set in 99% of cases. Only use this if you know what you're doing.
+   */
   constructor(window?: WebviewWindow) {
     this.window = window || appWindow;
-    this.nextClose = false;
   }
 
   key(): string {
@@ -53,13 +55,13 @@ export default class Window<S extends StoreState, A extends Action = AnyAction>
     w.once(tauriError, console.error);
   }
 
-  emit(event: DriftEvent<S, A>): void {
-    emit(actionEvent, event);
+  emit(event: Omit<Event<S, A>, 'emitter'>): void {
+    emit(actionEvent, { ...event, emitter: this.key() });
   }
 
-  subscribe(lis: (action: DriftEvent<S, A>) => void): void {
+  subscribe(lis: (action: Event<S, A>) => void): void {
     listen<string>(actionEvent, (event: TauriEvent<string>) => {
-      lis(JSON.parse(event.payload) as DriftEvent<S, A>);
+      lis(JSON.parse(event.payload) as Event<S, A>);
     })
       .catch(console.error)
       .then((unlisten) => {
