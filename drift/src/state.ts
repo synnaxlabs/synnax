@@ -1,9 +1,12 @@
 import {
   Action,
   AnyAction,
+  PreloadedState as BasePreloadedState,
+  CombinedState,
   createSlice,
   PayloadAction,
 } from '@reduxjs/toolkit';
+import { NoInfer } from '@reduxjs/toolkit/dist/tsHelpers';
 
 import { Runtime } from './runtime';
 import { KeyedWindowProps, Window, WindowProps, WindowState } from './window';
@@ -18,6 +21,10 @@ interface DriftState {
 export interface StoreState {
   drift: DriftState;
 }
+
+export type PreloadedState<S extends StoreState> = BasePreloadedState<
+  CombinedState<NoInfer<S>>
+>;
 
 type MaybeKeyPayload = { key?: string };
 type KeyPayload = { key: string };

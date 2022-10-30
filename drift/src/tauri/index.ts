@@ -9,10 +9,11 @@ import { appWindow, WebviewWindow } from '@tauri-apps/api/window';
 
 import { Event, Runtime } from '../runtime';
 import { StoreState } from '../state';
-import { KeyedWindowProps } from '../window';
+import { KeyedWindowProps, MAIN_WINDOW } from '../window';
 
 const actionEvent = 'action';
 const tauriError = 'tauri://error';
+const notFound = (key: string) => new Error(`Window not found: ${key}`);
 
 /**
  * A Tauri backed implementation of the drift Runtime.
@@ -36,7 +37,7 @@ export class TauriRuntime<S extends StoreState, A extends Action = AnyAction>
   }
 
   isMain(): boolean {
-    return this.window.label === 'main';
+    return this.window.label === MAIN_WINDOW;
   }
 
   release() {
@@ -55,8 +56,14 @@ export class TauriRuntime<S extends StoreState, A extends Action = AnyAction>
     w.once(tauriError, console.error);
   }
 
-  emit(event: Omit<Event<S, A>, 'emitter'>): void {
-    emit(actionEvent, { ...event, emitter: this.key() });
+  emit(event: Omit<Event<S, A>, 'emitter'>, to?: string): void {
+    let e = emit;
+    if (to) {
+      const win = WebviewWindow.getByLabel(to);
+      if (!win) throw notFound(to);
+      e = win.emit;
+    }
+    e(actionEvent, { ...event, emitter: this.key() });
   }
 
   subscribe(lis: (action: Event<S, A>) => void): void {
@@ -74,6 +81,8 @@ export class TauriRuntime<S extends StoreState, A extends Action = AnyAction>
       // Only propagate the close request if the event
       // is for the current window.
       if (e.windowLabel === this.key()) {
+        // Prevent default so the window doesn't close
+        // until all processes are complete.
         e.preventDefault();
         cb();
       }

@@ -1,6 +1,8 @@
 /** Represents the state of a window in it's lifecycle  */
 export type WindowState = 'creating' | 'created' | 'closing' | 'closed';
 
+export const MAIN_WINDOW = 'main';
+
 /** Properties of a window managed by drift  */
 export type Window = {
   /** Lifecycle state */

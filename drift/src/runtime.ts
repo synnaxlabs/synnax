@@ -1,12 +1,6 @@
-import {
-  Action,
-  AnyAction,
-  CombinedState,
-  PreloadedState,
-} from '@reduxjs/toolkit';
-import { NoInfer } from '@reduxjs/toolkit/dist/tsHelpers';
+import { Action, AnyAction } from '@reduxjs/toolkit';
 
-import { StoreState } from './state';
+import { PreloadedState, StoreState } from './state';
 import { KeyedWindowProps } from './window';
 
 /**
@@ -18,9 +12,9 @@ export type Event<S extends StoreState, A extends Action = AnyAction> = {
   /** A redux state action */
   action?: A;
   /** The entire redux store state. Sent only on the creation of new windows */
-  state?: PreloadedState<CombinedState<NoInfer<S>>>;
-  /** sendInitialState is set to true when the window is requesting a state forward */
-  sendInitialState?: boolean;
+  state?: PreloadedState<S>;
+  /** sendState is set to true when the window is requesting a state forward */
+  sendState?: boolean;
 };
 
 /**
@@ -50,8 +44,9 @@ export interface Runtime<S extends StoreState, A extends Action = AnyAction> {
   /**
    * Emits an event to all windows in the application.
    * @param event - The event to emit.
+   * @param to - If set, the event will only be emitted to the window with the given key.
    */
-  emit(event: Omit<Event<S, A>, 'emitter'>): void;
+  emit(event: Omit<Event<S, A>, 'emitter'>, to?: string): void;
   /**
    * Listens for an event from any window in the application.
    * @param lis - The callback to call when the event is received.

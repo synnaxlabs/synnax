@@ -1,14 +1,7 @@
-import {
-  Action,
-  AnyAction,
-  CombinedState,
-  PreloadedState,
-  Store,
-} from '@reduxjs/toolkit';
-import { NoInfer } from '@reduxjs/toolkit/dist/tsHelpers';
+import { Action, AnyAction, Store } from '@reduxjs/toolkit';
 
 import { Runtime } from './runtime';
-import { DriftAction, StoreState } from './state';
+import { DriftAction, PreloadedState, StoreState } from './state';
 import { sugar } from './sugar';
 
 /**
@@ -22,16 +15,12 @@ import { sugar } from './sugar';
 export const listen = <S extends StoreState, A extends Action = AnyAction>(
   runtime: Runtime<S, A>,
   store: Store<S, A | DriftAction> | undefined,
-  resolve: (value: PreloadedState<CombinedState<NoInfer<S>>>) => void
+  resolve: (value: PreloadedState<S>) => void
 ) => {
-  runtime.subscribe(({ action, emitter, state, sendInitialState }) => {
+  runtime.subscribe(({ action, emitter, state, sendState }) => {
     if (!store) return state && resolve(state);
-
     if (action) return store.dispatch(sugar(action, emitter));
-
-    if (sendInitialState && runtime.isMain())
-      runtime.emit({
-        state: store.getState() as PreloadedState<CombinedState<NoInfer<S>>>,
-      });
+    if (sendState && runtime.isMain())
+      runtime.emit({ state: store.getState() as PreloadedState<S> }, emitter);
   });
 };

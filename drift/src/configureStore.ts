@@ -1,13 +1,10 @@
 import {
   Action,
   AnyAction,
-  configureStore as baseConfigureStore,
+  configureStore as base,
   ConfigureStoreOptions as BaseOpts,
-  CombinedState,
-  PreloadedState,
   Store,
 } from '@reduxjs/toolkit';
-import { NoInfer } from '@reduxjs/toolkit/dist/tsHelpers';
 
 import { listen } from './listener';
 import { configureMiddleware, Middlewares } from './middleware';
@@ -15,10 +12,12 @@ import { Runtime } from './runtime';
 import {
   closeWindow,
   DriftAction,
+  PreloadedState,
   setWindowKey,
   setWindowStatus,
   StoreState,
 } from './state';
+import { MAIN_WINDOW } from './window';
 
 /**
  * Extends the default configureStore options to add a runtime argument.
@@ -59,17 +58,15 @@ export const configureStore = async <
 }: ConfigureStoreOptions<S, A, M>): Promise<Store<S, A | DriftAction>> => {
   let store: Store<S, A | DriftAction> | undefined = undefined;
 
-  preloadedState = await new Promise<
-    PreloadedState<CombinedState<NoInfer<S>>> | undefined
-  >((resolve) => {
-    listen(runtime, store, resolve);
-    // If we're the main window, we have no state to wait for.
-    if (runtime.isMain()) resolve(preloadedState);
-    // Otherwise, send a request asking the main window the initial state.
-    else runtime.emit({ sendInitialState: true });
-  });
+  preloadedState = await new Promise<PreloadedState<S> | undefined>(
+    (resolve) => {
+      listen(runtime, store, resolve);
+      if (runtime.isMain()) resolve(preloadedState);
+      else runtime.emit({ sendState: true }, MAIN_WINDOW);
+    }
+  );
 
-  store = baseConfigureStore<S, A, M>({
+  store = base<S, A, M>({
     ...opts,
     preloadedState,
     middleware: configureMiddleware(middleware, runtime),
