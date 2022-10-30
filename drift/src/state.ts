@@ -9,7 +9,13 @@ import {
 import { NoInfer } from '@reduxjs/toolkit/dist/tsHelpers';
 
 import { Runtime } from './runtime';
-import { KeyedWindowProps, Window, WindowProps, WindowState } from './window';
+import {
+  KeyedWindowProps,
+  MAIN_WINDOW,
+  Window,
+  WindowProps,
+  WindowState,
+} from './window';
 
 /** The Slice State */
 interface DriftState {
@@ -267,7 +273,8 @@ export const executeAction = <
       // Execute a close request even if we can't find the window in state.
       // This is mainly to deal with redux state being out of sync with the
       // window state.
-      if (readyToClose(0 /* threshold */, windows[key])) runtime.close(key);
+      const win = windows[key];
+      if (!win || win.processCount <= 0) runtime.close(key);
       break;
     }
     case actions.completeProcess.type: {

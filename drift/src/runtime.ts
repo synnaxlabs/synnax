@@ -53,11 +53,6 @@ export interface Runtime<S extends StoreState, A extends Action = AnyAction> {
    */
   subscribe(lis: (event: Event<S, A>) => void): void;
   /**
-   * Release is called by drift when operations are complete and the
-   * runtime should release any listeners it is using for communication.
-   */
-  release(): void;
-  /**
    * Calls the provided function with the current window is closing.
    */
   onCloseRequested(cb: () => void): void;

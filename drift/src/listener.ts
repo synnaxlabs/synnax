@@ -14,13 +14,14 @@ import { sugar } from './sugar';
  */
 export const listen = <S extends StoreState, A extends Action = AnyAction>(
   runtime: Runtime<S, A>,
-  store: Store<S, A | DriftAction> | undefined,
+  store: () => Store<S, A | DriftAction> | undefined,
   resolve: (value: PreloadedState<S>) => void
 ) => {
   runtime.subscribe(({ action, emitter, state, sendState }) => {
-    if (!store) return state && resolve(state);
-    if (action) return store.dispatch(sugar(action, emitter));
+    const s = store();
+    if (!s) return state && resolve(state);
+    if (action) return s.dispatch(sugar(action, emitter));
     if (sendState && runtime.isMain())
-      runtime.emit({ state: store.getState() as PreloadedState<S> }, emitter);
+      runtime.emit({ state: s.getState() as PreloadedState<S> }, emitter);
   });
 };

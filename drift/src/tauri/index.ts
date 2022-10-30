@@ -15,6 +15,13 @@ const actionEvent = 'action';
 const tauriError = 'tauri://error';
 const notFound = (key: string) => new Error(`Window not found: ${key}`);
 
+const encode = <S extends StoreState, A extends Action = AnyAction>(
+  event: Event<S, A>
+) => JSON.stringify(event);
+const decode = <S extends StoreState, A extends Action = AnyAction>(
+  event: string
+) => JSON.parse(event) as Event<S, A>;
+
 /**
  * A Tauri backed implementation of the drift Runtime.
  */
@@ -56,20 +63,21 @@ export class TauriRuntime<S extends StoreState, A extends Action = AnyAction>
     w.once(tauriError, console.error);
   }
 
-  emit(event: Omit<Event<S, A>, 'emitter'>, to?: string): void {
-    let e = emit;
+  emit(event_: Omit<Event<S, A>, 'emitter'>, to?: string): void {
+    const event = encode({ ...event_, emitter: this.key() });
     if (to) {
       const win = WebviewWindow.getByLabel(to);
       if (!win) throw notFound(to);
-      e = win.emit;
+      win.emit(actionEvent, event);
+    } else {
+      emit(actionEvent, event);
     }
-    e(actionEvent, { ...event, emitter: this.key() });
   }
 
   subscribe(lis: (action: Event<S, A>) => void): void {
-    listen<string>(actionEvent, (event: TauriEvent<string>) => {
-      lis(JSON.parse(event.payload) as Event<S, A>);
-    })
+    listen<string>(actionEvent, (event: TauriEvent<string>) =>
+      lis(decode(event.payload))
+    )
       .catch(console.error)
       .then((unlisten) => {
         this.unsubscribe = unlisten;
