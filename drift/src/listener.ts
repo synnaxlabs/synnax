@@ -25,17 +25,13 @@ export const listen = <S extends StoreState, A extends Action = AnyAction>(
   resolve: (value: PreloadedState<CombinedState<NoInfer<S>>>) => void
 ) => {
   runtime.subscribe(({ action, emitter, state, sendInitialState }) => {
-    if (!store) {
-      if (state) resolve(state);
-      return;
-    }
+    if (!store) return state && resolve(state);
 
-    if (action) {
-      store.dispatch(sugar(action, emitter));
-    } else if (sendInitialState && runtime.isMain()) {
+    if (action) return store.dispatch(sugar(action, emitter));
+
+    if (sendInitialState && runtime.isMain())
       runtime.emit({
         state: store.getState() as PreloadedState<CombinedState<NoInfer<S>>>,
       });
-    }
   });
 };
