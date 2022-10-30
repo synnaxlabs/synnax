@@ -62,6 +62,7 @@
     }
   ],
   "settings": {
-    "editor.formatOnSave": true
+    "editor.formatOnSave": true,
+    "liveServer.settings.multiRootWorkspaceName": "synnax-root"
   }
 }
