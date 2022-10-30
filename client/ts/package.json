@@ -2,9 +2,9 @@
   "name": "@synnaxlabs/client",
   "version": "0.2.1",
   "description": "synnax Client Library",
-  "main": "build/main/index.js",
-  "typings": "build/main/index.d.ts",
-  "module": "build/module/index.js",
+  "main": "dist/main/index.js",
+  "typings": "dist/main/index.d.ts",
+  "module": "dist/module/index.js",
   "repository": "https://github.com/synnaxlabs/synnax",
   "license": "MIT",
   "keywords": [
@@ -18,9 +18,7 @@
     "control systems"
   ],
   "scripts": {
-    "build": "run-p build:*",
-    "build:main": "tsc -p tsconfig.json",
-    "build:module": "tsc -p tsconfig.module.json",
+    "build": "tsc -p tsconfig.json && tsc -p tsconfig.module.json",
     "fix": "run-s fix:*",
     "fix:prettier": "prettier \"src/**/*.ts\" --write",
     "fix:lint": "eslint src --ext .ts --fix",
@@ -38,10 +36,10 @@
     "cov:lcov": "nyc report --reporter=lcov",
     "cov:send": "run-s cov:lcov && codecov",
     "cov:check": "nyc report && nyc check-coverage --lines 100 --functions 100 --branches 100",
-    "doc": "run-s doc:html && open-cli build/docs/index.html",
-    "doc:html": "typedoc src/ --exclude **/*.spec.ts --target ES6 --mode file --out build/docs",
-    "doc:json": "typedoc src/ --exclude **/*.spec.ts --target ES6 --mode file --json build/docs/typedoc.json",
-    "doc:publish": "gh-pages -m \"[ci skip] Updates\" -d build/docs",
+    "doc": "run-s doc:html && open-cli dist/docs/index.html",
+    "doc:html": "typedoc src/ --exclude **/*.spec.ts --target ES6 --mode file --out dist/docs",
+    "doc:json": "typedoc src/ --exclude **/*.spec.ts --target ES6 --mode file --json dist/docs/typedoc.json",
+    "doc:publish": "gh-pages -m \"[ci skip] Updates\" -d dist/docs",
     "version": "standard-version",
     "reset-hard": "git clean -dfx && git reset --hard && yarn",
     "prepare-release": "run-s reset-hard test cov:check doc:html version doc:publish"
@@ -50,7 +48,7 @@
     "node": ">=10"
   },
   "dependencies": {
-    "@synnaxlabs/freighter": "^0.2.0",
+    "@synnaxlabs/freighter": "*",
     "zod": "^3.19.1"
   },
   "devDependencies": {
@@ -61,7 +59,6 @@
     "ava": "^3.12.1",
     "codecov": "^3.5.0",
     "cspell": "^4.1.0",
-    "cz-conventional-changelog": "^3.3.0",
     "eslint": "^7.8.0",
     "eslint-config-prettier": "^6.11.0",
     "eslint-plugin-eslint-comments": "^3.2.0",
@@ -78,8 +75,8 @@
     "typescript": "^4.0.2"
   },
   "files": [
-    "build/main",
-    "build/module",
+    "dist/main",
+    "dist/module",
     "!**/*.spec.*",
     "!**/*.json",
     "CHANGELOG.md",
@@ -91,17 +88,12 @@
     "timeout": "60s",
     "typescript": {
       "rewritePaths": {
-        "src/": "build/main/"
+        "src/": "dist/main/"
       }
     },
     "files": [
-      "!build/module/**"
+      "!dist/module/**"
     ]
-  },
-  "config": {
-    "commitizen": {
-      "path": "cz-conventional-changelog"
-    }
   },
   "prettier": {
     "singleQuote": true

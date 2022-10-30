@@ -65,10 +65,10 @@ export const ClusterProvider = ({ children }: ClusterContextProps) => {
   }, [activeClusterKey]);
 
   useWindowLifecycle(() => {
-    dispatch(registerProcess({}));
+    dispatch(registerProcess());
     return () => {
       if (s.client) s.client.close();
-      dispatch(completeProcess({}));
+      dispatch(completeProcess());
     };
   });
 

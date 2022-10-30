@@ -1,0 +1,4 @@
+export { default as OntologyClient } from './client';
+export { OntologyResourceType, } from './payload';
+export { OntologyID, OntologyRoot } from './payload';
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiaW5kZXguanMiLCJzb3VyY2VSb290IjoiIiwic291cmNlcyI6WyIuLi8uLi8uLi8uLi9zcmMvbGliL29udG9sb2d5L2luZGV4LnRzIl0sIm5hbWVzIjpbXSwibWFwcGluZ3MiOiJBQUFBLE9BQU8sRUFBRSxPQUFPLElBQUksY0FBYyxFQUFFLE1BQU0sVUFBVSxDQUFDO0FBQ3JELE9BQU8sRUFJTCxvQkFBb0IsR0FDckIsTUFBTSxXQUFXLENBQUM7QUFFbkIsT0FBTyxFQUFFLFVBQVUsRUFBRSxZQUFZLEVBQUUsTUFBTSxXQUFXLENBQUMifQ==

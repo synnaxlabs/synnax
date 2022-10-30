@@ -14,7 +14,7 @@ build:
     RUN yarn build
     IF [ "$local" = "true" ] 
         SAVE ARTIFACT node_modules /node_modules AS LOCAL node_modules
-        SAVE ARTIFACT build /build AS LOCAL build
+        SAVE ARTIFACT dist /dist AS LOCAL dist
     ELSE 
         SAVE ARTIFACT .
     END

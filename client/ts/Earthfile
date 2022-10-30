@@ -2,7 +2,7 @@ VERSION 0.6
 
 deps:
     FROM node:18.7.0-alpine3.16
-    COPY ../../freighter/ts+build/* /freighter/
+    COPY (../../freighter/ts+build/* --local=true) /freighter/
     WORKDIR /client/ts
     COPY package.json ./
     COPY yarn.lock ./

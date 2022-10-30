@@ -1,0 +1,3 @@
+export { Channel, default as ChannelClient } from './client';
+export { channelPayloadSchema } from './payload';
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiaW5kZXguanMiLCJzb3VyY2VSb290IjoiIiwic291cmNlcyI6WyIuLi8uLi8uLi8uLi9zcmMvbGliL2NoYW5uZWwvaW5kZXgudHMiXSwibmFtZXMiOltdLCJtYXBwaW5ncyI6IkFBQUEsT0FBTyxFQUFFLE9BQU8sRUFBRSxPQUFPLElBQUksYUFBYSxFQUFFLE1BQU0sVUFBVSxDQUFDO0FBQzdELE9BQU8sRUFBa0Isb0JBQW9CLEVBQUUsTUFBTSxXQUFXLENBQUMifQ==

@@ -1,0 +1,13 @@
+{
+    "private": true,
+    "workspaces": [
+        "./freighter/ts",
+        "./client/ts",
+        "./void",
+        "./pluto",
+        "./drift"
+    ],
+    "devDependencies": {
+        "turbo": "^1.6.2"
+    }
+}

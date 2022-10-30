@@ -9,13 +9,7 @@ import {
 import { NoInfer } from '@reduxjs/toolkit/dist/tsHelpers';
 
 import { Runtime } from './runtime';
-import {
-  KeyedWindowProps,
-  MAIN_WINDOW,
-  Window,
-  WindowProps,
-  WindowState,
-} from './window';
+import { KeyedWindowProps, Window, WindowProps, WindowState } from './window';
 
 /** The Slice State */
 interface DriftState {

@@ -11,9 +11,9 @@
   "dependencies": {
     "@fontsource/inter": "^4.5.14",
     "@hookform/resolvers": "^2.9.9",
-    "@synnaxlabs/client": "../client/ts",
-    "@synnaxlabs/drift": "../drift",
-    "@synnaxlabs/pluto": "../pluto",
+    "@synnaxlabs/client": "*",
+    "@synnaxlabs/pluto": "*",
+    "@synnaxlabs/drift":  "*",
     "@tauri-apps/api": "^1.1.0",
     "clsx": "^1.2.1",
     "nanoid": "^4.0.0",

@@ -150,7 +150,7 @@ export const buildQueryString = ({
   request: Record<string, unknown> | null;
   prefix?: string;
 }) => {
-  if (!request) return '';
+  if (request === null) return '';
   return (
     '?' +
     Object.keys(request)
