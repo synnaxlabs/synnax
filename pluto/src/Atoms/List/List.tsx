@@ -1,11 +1,11 @@
-import React, { useState } from "react";
+import { PropsWithChildren, useState } from "react";
 import { useMemo } from "react";
 import { ListContextProvider } from "./ListContext";
 import { ListEntry, TypedListColumn, TypedListTransform } from "./types";
 import { useMultiSelect, useMultiSelectProps } from "./useMultiSelect";
 
 export interface ListProps<E extends ListEntry>
-  extends React.PropsWithChildren<any>,
+  extends PropsWithChildren<unknown>,
     useMultiSelectProps<E> {
   data: E[];
 }

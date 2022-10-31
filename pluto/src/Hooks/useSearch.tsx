@@ -1,7 +1,7 @@
 import Fuse from "fuse.js";
 import { useCallback, useState } from "react";
 
-export const useSearch = <E extends Record<string, any>>(): [
+export const useSearch = <E extends Record<string, unknown>>(): [
   string,
   (value: string) => void,
   (data: E[]) => E[]

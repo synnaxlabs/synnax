@@ -43,15 +43,15 @@ export interface TypedListContextProps<E extends ListEntry> {
 export const ListContext = createContext<ListContextProps>({
   columnar: {
     columns: [],
-    setColumns: () => {},
+    setColumns: () => undefined,
   },
   sourceData: [],
-  clearSelected: () => {},
+  clearSelected: () => undefined,
   selected: [],
   data: [],
-  setTransform: () => {},
-  removeTransform: () => {},
-  onSelect: () => {},
+  setTransform: () => undefined,
+  removeTransform: () => undefined,
+  onSelect: () => undefined,
 });
 
 export const useListContext = <E extends ListEntry>() => {
@@ -59,7 +59,7 @@ export const useListContext = <E extends ListEntry>() => {
 };
 
 export interface ListContextProviderProps<E extends ListEntry>
-  extends PropsWithChildren<any> {
+  extends PropsWithChildren<unknown> {
   value: TypedListContextProps<E>;
 }
 

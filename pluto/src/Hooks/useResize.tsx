@@ -24,7 +24,7 @@ export const useResize = ({ ref, onResize, debounce = 0 }: UseResizeProps) => {
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const f = debounceF((el: Element) => {
+    const f = debounceF<(el: Element) => void>((el: Element) => {
       const { width, height } = el.getBoundingClientRect();
       onResize({ width, height });
     }, debounce);
@@ -35,7 +35,7 @@ export const useResize = ({ ref, onResize, debounce = 0 }: UseResizeProps) => {
   }, [onResize, ref]);
 };
 
-export interface UseSizeProps extends BaseSizeProps {}
+export type UseSizeProps = BaseSizeProps;
 
 /**
  * useSize tracks the size of an element and returns it.

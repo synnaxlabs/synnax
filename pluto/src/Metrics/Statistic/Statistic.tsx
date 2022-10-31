@@ -14,7 +14,6 @@ export const Statistic = ({
   level = "h4",
   variant = "primary",
   label,
-  color,
 }: ValueProps) => {
   return (
     <Space empty direction="vertical" align="center" justify="center">

@@ -5,13 +5,13 @@ import { useListContext } from "./ListContext";
 import { ListEntry } from "./types";
 import "./ListSearch.css";
 
-export interface ListSearchProps<E extends ListEntry> {
+export interface ListSearchProps {
   Input?: ComponentType<InputProps>;
 }
 
 export const ListSearch = <E extends ListEntry>({
   Input = DefaultInput,
-}: ListSearchProps<E>) => {
+}: ListSearchProps) => {
   const [query, setQuery, search] = useSearch<E>();
   const { setTransform } = useListContext<E>();
   useEffect(() => setTransform("search", search), [search]);

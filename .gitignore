@@ -9,6 +9,7 @@
 # |||||| JS ||||||
 
 node_modules
+dist
 
 # |||||| RUST ||||||
 

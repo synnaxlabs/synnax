@@ -31,3 +31,4 @@ export const Text = forwardRef(
     return createElement(typographyLevelTags[level], { ref, ...props });
   }
 );
+Text.displayName = "Text";

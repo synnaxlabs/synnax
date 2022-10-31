@@ -3,18 +3,20 @@ import { useRef, useState } from "react";
 import { AiOutlineClose } from "react-icons/ai";
 import { Input, InputProps } from "@/atoms/Input";
 import { Space } from "@/atoms/Space";
-import { List, ListEntry, TypedListColumn } from "@/atoms/List";
+import { List, ListEntry } from "@/atoms/List";
 import { Tag } from "@/atoms/Tag";
 import { Button } from "@/atoms/Button";
 import { useClickoutside } from "@/hooks";
 import { Theming } from "../../theming";
 import "./SelectMultiple.css";
 import { ListProps } from "../List/List";
+import { TypedListColumn } from "../List";
 
 export interface SelectMultipleProps<E extends ListEntry>
   extends Omit<ListProps<E>, "data"> {
   options?: E[];
   tagKey?: keyof E;
+  columns: TypedListColumn<E>[];
   listPosition?: "top" | "bottom";
 }
 

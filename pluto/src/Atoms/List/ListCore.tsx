@@ -34,7 +34,7 @@ const ListVirtualCore = <E extends ListEntry>({
         className="pluto-list__inner"
         style={{ height: virtualizer.getTotalSize() }}
       >
-        {virtualizer.getVirtualItems().map(({ index, start }, i) => {
+        {virtualizer.getVirtualItems().map(({ index, start }) => {
           const entry = data[index];
           return (
             <Children

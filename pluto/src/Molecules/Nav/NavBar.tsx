@@ -51,7 +51,7 @@ export const NavBar = ({
   ...props
 }: NavBarProps) => {
   const { style, direction } = useNavBar({ location, size });
-  let content = withContext ? (
+  const content = withContext ? (
     <NavbarContext.Provider value={{ location, direction }}>
       {children}
     </NavbarContext.Provider>
@@ -83,7 +83,7 @@ export interface NavbarContentProps extends SpaceProps {
 const contentFactory = (
   pos: Position | ""
 ): ComponentType<NavbarContentProps> => {
-  return ({
+  const Content = ({
     children,
     bordered = true,
     className,
@@ -106,6 +106,7 @@ const contentFactory = (
       </Space>
     );
   };
+  return Content;
 };
 
 NavBar.Start = contentFactory("start");

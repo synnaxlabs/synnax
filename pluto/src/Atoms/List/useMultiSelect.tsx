@@ -3,14 +3,19 @@ import { useState } from "react";
 import { useKeyHeld } from "@/hooks";
 import { ListEntry } from "./types";
 
-export interface useMultiSelectProps<E extends ListEntry> {
+export interface useMultiSelectProps<E extends Record<string, unknown>> {
   data: E[];
   selected?: string[];
   selectMultiple?: boolean;
   onSelect?: (selected: string[]) => void;
 }
 
-export const useMultiSelect = <E extends ListEntry>({
+type KeyedRecord = {
+  key: string;
+  [key: string]: unknown;
+};
+
+export const useMultiSelect = <E extends KeyedRecord>({
   data,
   selected: selectedProp,
   selectMultiple,

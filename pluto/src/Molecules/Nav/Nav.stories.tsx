@@ -1,6 +1,6 @@
 import { ComponentMeta, ComponentStory } from "@storybook/react";
 import { MdGrain } from "react-icons/md";
-import { Nav, NavDrawerProps } from ".";
+import { Nav } from ".";
 import { Header } from "../../atoms";
 import { NavBarProps } from "./NavBar";
 
@@ -13,9 +13,7 @@ const Template = (args: NavBarProps) => <Nav.Bar {...args} />;
 
 export const LeftBar: ComponentStory<typeof Nav.Bar> = Template.bind({});
 
-export const LeftDrawer: ComponentStory<typeof Nav.Drawer> = (
-  args: NavDrawerProps
-) => {
+export const LeftDrawer: ComponentStory<typeof Nav.Drawer> = () => {
   return (
     <Nav.Drawer
       initialKey="2"

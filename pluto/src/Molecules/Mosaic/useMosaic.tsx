@@ -1,6 +1,5 @@
 import { useState } from "react";
 import {
-  insertMosaicTab,
   moveMosaicTab,
   removeMosaicTab,
   resizeMosaicLeaf,
@@ -8,7 +7,6 @@ import {
 } from "./mosaicTree";
 import { MosaicLeaf } from "./types";
 import { Location } from "@/util";
-import { Tab } from "@/atoms";
 
 export interface UseMosaicProps {
   initialTree: MosaicLeaf;
@@ -30,9 +28,6 @@ export const useMosaic = ({ initialTree }: UseMosaicProps): UseMosaicReturn => {
 
   const onClose = (tabKey: string) =>
     setRoot((r) => removeMosaicTab(r, tabKey));
-
-  const insertTab = (tab: Tab, key?: number, loc?: Location) =>
-    setRoot((r) => insertMosaicTab(r, tab, loc, key));
 
   const onSelect = (tabKey: string) =>
     setRoot((r) => selectMosaicTab(r, tabKey));

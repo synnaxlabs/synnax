@@ -1,6 +1,6 @@
-import { fireEvent, render } from "@testing-library/react";
+import { render } from "@testing-library/react";
 import { AiFillCloseCircle } from "react-icons/ai";
-import { expect, describe, it, beforeAll, vi } from "vitest";
+import { expect, describe, it } from "vitest";
 import { Text } from ".";
 
 describe("Text", () => {

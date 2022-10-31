@@ -13,7 +13,7 @@ export type TypedListColumn<E extends ListEntry> = {
 } & ListColumn;
 
 type CoreListEntry = {
-  [key: string]: any;
+  [key: string]: string | number;
 };
 
 export type ListEntry = {

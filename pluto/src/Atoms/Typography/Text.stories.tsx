@@ -1,4 +1,4 @@
-import { ComponentMeta, ComponentStory } from "@storybook/react";
+import { ComponentMeta } from "@storybook/react";
 import { AiFillDatabase, AiOutlineDelete } from "react-icons/ai";
 import { Text } from ".";
 

@@ -20,7 +20,7 @@ const exampleTabs = [
   },
 ];
 
-export const Primary: ComponentStory<typeof Tabs> = (args) => {
+export const Primary: ComponentStory<typeof Tabs> = () => {
   const props = useStaticTabs({ tabs: exampleTabs });
   return <Tabs {...props}>{({ tab }) => <h2>{tab.tabKey}</h2>}</Tabs>;
 };

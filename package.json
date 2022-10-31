@@ -1,11 +1,17 @@
 {
     "private": true,
+    "scripts": {
+        "build": "npx turbo build",
+        "dev:pluto": "npx turbo dev --filter pluto"
+    },
     "workspaces": [
         "./freighter/ts",
         "./client/ts",
         "./void",
         "./pluto",
-        "./drift"
+        "./drift",
+        "./tsconfig",
+        "./eslint-config-custom"
     ],
     "devDependencies": {
         "turbo": "^1.6.2"

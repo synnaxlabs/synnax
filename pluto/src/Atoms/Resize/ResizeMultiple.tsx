@@ -43,7 +43,7 @@ export const ResizeMultiple = ({
             () => nextPSize / children.length
           );
 
-        let sizePercentages = calculatePercentages(
+        const sizePercentages = calculatePercentages(
           children.length,
           prevSizes,
           nextPSize

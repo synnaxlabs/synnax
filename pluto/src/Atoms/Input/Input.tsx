@@ -15,7 +15,6 @@ interface BaseInputProps
   > {
   size?: ComponentSize;
   name?: string;
-  label?: string;
 }
 
 export interface InputProps
@@ -23,10 +22,7 @@ export interface InputProps
     RefAttributes<HTMLInputElement> {}
 
 export const Input = forwardRef<HTMLInputElement, BaseInputProps>(
-  (
-    { size = "medium", label, placeholder, value, className, ...props },
-    ref
-  ) => {
+  ({ size = "medium", placeholder, value, className, ...props }, ref) => {
     return (
       <input
         ref={ref}
@@ -42,3 +38,4 @@ export const Input = forwardRef<HTMLInputElement, BaseInputProps>(
     );
   }
 );
+Input.displayName = "Input";

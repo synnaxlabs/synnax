@@ -15,7 +15,7 @@ export interface Title {
   textLevel: TypographyLevel;
 }
 
-export interface HexagonBarProps extends SVGProps<any> {
+export interface HexagonBarProps extends SVGProps<unknown> {
   title?: Title;
   strokeWidth: number;
   metrics: Metric[];
@@ -67,20 +67,21 @@ const curveFunc = d3
 export const HexagonBar = ({
   strokeWidth = 5,
   metrics = [],
-  title,
   ...props
 }: HexagonBarProps) => {
-  const ref = useRef(null);
+  const ref = useRef<SVGSVGElement>(null);
   const [numPaths, setNumPaths] = useState<number>(0);
   const { theme } = Theming.useContext();
 
   useEffect(() => {
+    if (!ref.current) return;
     const svgEl = d3.select(ref.current);
     svgEl.selectAll("*").remove();
     svgEl.attr("viewBox", "0 0 100 100");
   }, []);
 
   useEffect(() => {
+    if (!ref.current) return;
     const svgEl = d3.select(ref.current);
     metrics.forEach((metric, i) => {
       const pathID = `path-${i}`;
@@ -105,5 +106,7 @@ export const HexagonBar = ({
     setNumPaths(metrics.length);
   }, [metrics, strokeWidth]);
 
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
   return <svg ref={ref} {...props} />;
 };

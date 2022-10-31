@@ -8,7 +8,7 @@ export interface InputHelpTextProps extends Partial<TextProps> {
 }
 
 export const InputHelpText = ({
-  level,
+  className,
   variant = "error",
   ...props
 }: InputHelpTextProps) => {
@@ -17,7 +17,7 @@ export const InputHelpText = ({
       className={clsx(
         "pluto-input-help-text",
         `pluto-input-help-text--${variant}`,
-        props.className
+        className
       )}
       level="small"
       {...props}

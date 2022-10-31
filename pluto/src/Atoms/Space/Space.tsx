@@ -94,6 +94,7 @@ export const Space = forwardRef(
     );
   }
 );
+Space.displayName = "Space";
 
 const flexDirection = (direction: Direction, reverse: boolean) => {
   if (direction === "horizontal") {

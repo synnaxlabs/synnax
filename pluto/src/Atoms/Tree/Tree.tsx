@@ -26,7 +26,6 @@ export const Tree = ({
   selected: propsSelected,
   onSelect: propsOnSelect,
   onExpand,
-  className,
   ...props
 }: TreeProps) => {
   const { selected, onSelect } = useMultiSelect<TreeLeaf>({
@@ -41,6 +40,7 @@ export const Tree = ({
       {data.map((entry) => (
         <TreeLeafC
           {...entry}
+          key={entry.key}
           nodeKey={entry.key}
           selected={selected}
           onSelect={onSelect}
@@ -51,13 +51,13 @@ export const Tree = ({
   );
 };
 
-export interface TreeLeaf {
+export type TreeLeaf = {
   key: string;
   title: string;
   hasChildren?: boolean;
   icon?: ReactElement;
   children?: TreeLeaf[];
-}
+};
 
 interface TreeLeafProps extends Omit<TreeLeaf, "key"> {
   onSelect: (key: string) => void;
@@ -98,6 +98,7 @@ const TreeLeafC = ({
           {children.map((child) => (
             <TreeLeafC
               {...child}
+              key={child.key}
               nodeKey={child.key}
               onSelect={onSelect}
               selected={selected}
@@ -121,7 +122,6 @@ export interface TreeNodeButtonProps
 }
 
 const TreeNodeButton = ({
-  nodeKey,
   title,
   icon,
   selected,
@@ -129,7 +129,7 @@ const TreeNodeButton = ({
   showExpandIcon,
   ...props
 }: TreeNodeButtonProps) => {
-  let icons: ReactElement[] = [];
+  const icons: ReactElement[] = [];
   if (showExpandIcon)
     icons.push(expanded ? <AiFillCaretDown /> : <AiFillCaretRight />);
   if (icon) icons.push(icon);

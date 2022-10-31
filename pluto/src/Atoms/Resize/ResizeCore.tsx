@@ -1,7 +1,6 @@
 import { getDirection, swapLocation, Location } from "@/util";
 import clsx from "clsx";
 import { DetailedHTMLProps, HTMLAttributes } from "react";
-import { ResizePanelProps } from "./Resize";
 
 export interface ResizeCoreProps
   extends DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement> {

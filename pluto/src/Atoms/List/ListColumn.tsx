@@ -136,14 +136,16 @@ const entrySortFunc =
   (a: E, b: E) =>
     sortFunc(type)(a[key], b[key]);
 
-const reverseSort = (f: (a: any, b: any) => number) => (a: any, b: any) =>
-  f(b, a);
+const reverseSort =
+  <T,>(f: (a: T, b: T) => number) =>
+  (a: T, b: T) =>
+    f(b, a);
 
 const columnWidths = <E extends ListEntry>(
   columns: TypedListColumn<E>[],
   data: E[],
   font: string,
-  padding: number = 60
+  padding = 60
 ): TypedListColumn<E>[] => {
   const le = longestEntries(data);
   return columns.map((col) => {
@@ -161,11 +163,16 @@ const longestEntries = <E extends ListEntry>(
 ): Record<keyof E, string> => {
   const longest = {} as Record<keyof E, string>;
   data.forEach((entry: E) => {
-    Object.entries(entry).map(([key, value]: [keyof E, string]) => {
-      if (value.length > (longest[key]?.length || 0)) {
-        longest[key] = value;
+    Object.entries(entry).map(
+      ([key, value]: [keyof E, string | number | undefined]) => {
+        if (
+          typeof value === "string" &&
+          value.length > (longest[key]?.length || 0)
+        ) {
+          longest[key] = value;
+        }
       }
-    });
+    );
   });
   return longest;
 };

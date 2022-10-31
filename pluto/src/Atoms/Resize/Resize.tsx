@@ -1,6 +1,5 @@
-import clsx from "clsx";
-import { HTMLAttributes, useEffect, useRef, useState } from "react";
-import { getDirection, Location, swapLocation } from "../../util/spatial";
+import { useEffect, useState } from "react";
+import { Location } from "../../util/spatial";
 import "./Resize.css";
 import { ResizeCore, ResizeCoreProps } from "./ResizeCore";
 

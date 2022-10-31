@@ -7,7 +7,9 @@ import tsConfigPaths from "vite-tsconfig-paths";
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
-    tsConfigPaths(),
+    tsConfigPaths({
+      projects: [path.resolve(__dirname, "tsconfig.json")],
+    }),
     react(),
     dts({
       insertTypesEntry: true,

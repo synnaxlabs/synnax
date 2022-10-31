@@ -13,7 +13,7 @@ export const AutoSize = ({
 }: AutoSizeProps) => {
   const ref = useRef<HTMLDivElement>(null);
   const { width, height } = useSize({ ref, debounce });
-  let content: ReactElement =
+  const content: ReactElement =
     typeof Children === "function" ? (
       <Children width={width} height={height} />
     ) : (

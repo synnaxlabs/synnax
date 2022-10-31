@@ -2,15 +2,20 @@ import { fireEvent, render } from "@testing-library/react";
 import { expect, describe, it, beforeAll, vi } from "vitest";
 import { Select } from ".";
 import { mockBoundingClientRect } from "../../testutil/mocks";
+import { TypedListColumn } from "../List";
 
-const mockColumns = [
+const mockColumns: TypedListColumn<{
+  key: string;
+  name: string;
+  age: number;
+}>[] = [
   {
-    key: "name" as "name",
+    key: "name",
     label: "Name",
     visible: true,
   },
   {
-    key: "age" as "age",
+    key: "age",
     label: "Age",
     visible: true,
   },

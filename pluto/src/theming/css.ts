@@ -144,7 +144,7 @@ const setProperty = (
   element: HTMLElement,
   property: string,
   value: string | number | null | undefined,
-  numberUnit: string = ""
+  numberUnit = ""
 ) => {
   if (value === null || value === undefined) return;
   if (typeof value === "number") {

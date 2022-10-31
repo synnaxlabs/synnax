@@ -1,12 +1,13 @@
 import { ComponentMeta, ComponentStory } from "@storybook/react";
 import { Resize } from ".";
+import { ResizePanelProps } from "./Resize";
 
 export default {
   title: "Atoms/Resize",
   component: Resize,
 } as ComponentMeta<typeof Resize>;
 
-const Template = (args: any) => (
+const Template = (args: ResizePanelProps) => (
   <Resize {...args}>
     <h1>Resize</h1>
   </Resize>

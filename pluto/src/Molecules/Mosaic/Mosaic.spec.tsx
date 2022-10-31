@@ -1,5 +1,5 @@
 import { render } from "@testing-library/react";
-import { expect, describe, it, vi } from "vitest";
+import { expect, describe, it } from "vitest";
 import { Mosaic, MosaicLeaf } from ".";
 import { useMosaic, UseMosaicProps } from "./useMosaic";
 

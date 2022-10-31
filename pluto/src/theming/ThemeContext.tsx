@@ -11,7 +11,7 @@ import { applyThemeAsCssVars } from "./css";
 import "./theme.css";
 import { Switch, SwitchProps } from "@/atoms";
 
-export interface ThemeProviderProps extends PropsWithChildren<any> {
+export interface ThemeProviderProps extends PropsWithChildren<unknown> {
   theme: Theme;
   toggleTheme: () => void;
   setTheme: (key: string) => void;
@@ -19,8 +19,8 @@ export interface ThemeProviderProps extends PropsWithChildren<any> {
 
 const ThemeContext = createContext<ThemeProviderProps>({
   theme: synnaxLight,
-  toggleTheme: () => {},
-  setTheme: (key: string) => {},
+  toggleTheme: () => undefined,
+  setTheme: () => undefined,
 });
 
 export interface UseThemeProviderProps {
@@ -74,7 +74,7 @@ export const ThemeProvider = ({
 };
 
 export const ThemeSwitch = ({ onChange, ...props }: SwitchProps) => {
-  const { theme, toggleTheme } = useContext(ThemeContext);
+  const { toggleTheme } = useContext(ThemeContext);
   return (
     <Switch
       onChange={(e) => {

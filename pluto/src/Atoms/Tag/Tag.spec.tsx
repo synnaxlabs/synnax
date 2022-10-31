@@ -1,5 +1,5 @@
 import { fireEvent, render } from "@testing-library/react";
-import { expect, describe, it, beforeAll, vi } from "vitest";
+import { expect, describe, it, vi } from "vitest";
 import { Tag } from ".";
 
 describe("Tag", () => {

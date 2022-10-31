@@ -2,7 +2,7 @@ import clsx from "clsx";
 import { HTMLAttributes } from "react";
 import "./Switch.css";
 
-export interface SwitchProps extends HTMLAttributes<HTMLInputElement> {}
+export type SwitchProps = HTMLAttributes<HTMLInputElement>;
 
 export const Switch = ({ className, ...props }: SwitchProps) => {
   return (

@@ -26,3 +26,5 @@ export const InputItem = forwardRef<HTMLInputElement, InputItemProps>(
     );
   }
 );
+
+InputItem.displayName = "InputItem";

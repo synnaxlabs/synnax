@@ -11,7 +11,7 @@ const Template = (props: TagProps) => <Tag {...props} />;
 export const Primary: ComponentStory<typeof Tag> = Template.bind({});
 Primary.args = {
   children: "Tag",
-  onClose: () => {},
+  onClose: () => undefined,
   variant: "filled",
   size: "medium",
 };

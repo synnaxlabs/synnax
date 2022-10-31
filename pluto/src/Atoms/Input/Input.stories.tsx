@@ -1,4 +1,3 @@
-import { Space } from "../Space";
 import { Input } from ".";
 
 export default {

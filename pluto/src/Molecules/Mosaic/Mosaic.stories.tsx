@@ -6,7 +6,7 @@ import { useMosaic } from "./useMosaic";
 export default {
   title: "Molecules/Mosaic",
   component: Mosaic,
-};
+} as ComponentMeta<typeof Mosaic>;
 
 const initialTree: MosaicLeaf = {
   key: 0,
@@ -38,7 +38,7 @@ const initialTree: MosaicLeaf = {
   },
 };
 
-export const Primary: ComponentStory<typeof Mosaic> = (args) => {
+export const Primary: ComponentStory<typeof Mosaic> = () => {
   const props = useMosaic({ initialTree });
   return <Mosaic {...props} />;
 };

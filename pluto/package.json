@@ -8,7 +8,8 @@
     "build-storybook": "tsc && build-storybook",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "test": "vitest"
+    "test": "vitest",
+    "lint": "TIMING=1 eslint \"src/**/*.ts*\""
   },
   "dependencies": {
     "@juggle/resize-observer": "^3.4.0",
@@ -30,6 +31,8 @@
     "@storybook/addon-links": "^6.5.9",
     "@storybook/builder-vite": "^0.2.1",
     "@storybook/react": "^6.5.9",
+    "@synnaxlabs/tsconfig": "*",
+    "eslint-config-custom": "*",
     "@testing-library/react": "^13.4.0",
     "@types/d3": "^7.4.0",
     "@types/react": "^18.0.15",

@@ -29,7 +29,7 @@ export interface UseStaticTabsProps {
   tabs: Tab[];
 }
 
-export const resetTabSelection = (selected: string = "", tabs: Tab[] = []) =>
+export const resetTabSelection = (selected = "", tabs: Tab[] = []) =>
   tabs.find((t) => t.tabKey === selected) ? selected : tabs[0]?.tabKey;
 
 export const useStaticTabs = ({ tabs }: UseStaticTabsProps): TabsProps => {
@@ -52,7 +52,6 @@ export const Tabs = ({
   emptyContent: EmptyContent = null,
   className,
   children: Children,
-  onDrag,
   onTitleChange,
   ...props
 }: TabsProps) => {
@@ -151,7 +150,7 @@ const TabC = ({
       <Text.Editable
         level="p"
         text={title}
-        onChange={(newText) => {
+        onChange={(newText: string) => {
           if (onTitleChange) onTitleChange(tabKey, newText);
         }}
       />
