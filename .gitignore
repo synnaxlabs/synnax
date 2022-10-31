@@ -14,3 +14,7 @@ dist
 # |||||| RUST ||||||
 
 /target/
+
+# |||||| TURBO REPO ||||||
+
+.turbo/
