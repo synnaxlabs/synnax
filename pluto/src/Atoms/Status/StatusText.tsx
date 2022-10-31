@@ -3,8 +3,8 @@ import { Text, TextProps, TypographyLevel } from "../Typography";
 import {
   AiFillInfoCircle,
   AiFillWarning,
-  AiOutlineClose,
   AiOutlineCheck,
+  AiOutlineClose,
   AiOutlineWarning,
 } from "react-icons/ai";
 import { StatusVariant } from "./types";

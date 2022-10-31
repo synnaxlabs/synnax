@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import { useState } from "react";
 import { useKeyHeld } from "@/hooks";
-import { ListEntry } from "./types";
 
 export interface useMultiSelectProps<E extends Record<string, unknown>> {
   data: E[];

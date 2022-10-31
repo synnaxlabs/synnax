@@ -13,9 +13,7 @@
     </a>
 </p>
 
-
 # Synnax
-
 
 The telemetry engine for operating large scale hardware systems with ease.
 
@@ -85,18 +83,17 @@ in this monorepo. The following is a list of the services and their purpose:
 * [Synnax](https://github.com/synnaxlabs/synnax/tree/main/synnax) - The core
   Synnax server, which integrates all other services to provide a complete
   telemetry system.
-  * [X](https://github.com/synnaxlabs/synnax/tree/main/x) - The common utilities
+* [ X](https://github.com/synnaxlabs/synnax/tree/main/x) - The common utilities
   used across all Synnax services. To list a few interesting examples:
     * [Alamos](https://github.com/synnaxlabs/synnax/tree/main/x/alamos) -
       Dependency injected code instrumentation.
-    * [Confluence](https://github.com/synnaxlabs/synnax/tree/main/x/confluence)
-      - Assemble and run concurrent data processing and message passing
-      pipelines.
+    * [Confluence](https://github.com/synnaxlabs/synnax/tree/main/x/confluence) -
+      Assemble and run concurrent data processing and message passing pipelines.
     * [Gorp](https://github.com/synnaxlabs/synnax/tree/main/x/gorp) - Efficient
       querying of go-types to and from a key-value store.
     * [Signal](https://github.com/synnaxlabs/synnax/tree/main/x/signal) - A
       library for controlling the lifecycle of communicating sequential
       processes.
-  
-  
+
+
 

@@ -3,13 +3,13 @@ import {
   AnyAction,
   PreloadedState as BasePreloadedState,
   CombinedState,
-  createSlice,
   PayloadAction,
-} from '@reduxjs/toolkit';
-import { NoInfer } from '@reduxjs/toolkit/dist/tsHelpers';
+  createSlice,
+} from "@reduxjs/toolkit";
+import { NoInfer } from "@reduxjs/toolkit/dist/tsHelpers";
 
-import { Runtime } from './runtime';
-import { KeyedWindowProps, Window, WindowProps, WindowState } from './window';
+import { Runtime } from "./runtime";
+import { KeyedWindowProps, Window, WindowProps, WindowState } from "./window";
 
 /** The Slice State */
 interface DriftState {
@@ -39,13 +39,13 @@ export type DriftAction = PayloadAction<
 >;
 
 export const initialState: DriftState = {
-  key: 'main',
+  key: "main",
   windows: {
     main: {
       processCount: 0,
-      state: 'created',
+      state: "created",
       props: {
-        key: 'main',
+        key: "main",
       },
     },
   },
@@ -55,12 +55,12 @@ const assertKey = <T extends MaybeKeyPayload>(
   pld: MaybeKeyPayload
 ): T & KeyPayload => {
   if (pld.key === undefined) {
-    throw new Error('drift - bug - key is undefined');
+    throw new Error("drift - bug - key is undefined");
   }
   return pld as T & KeyPayload;
 };
 
-const SLICE_NAME = 'drift';
+const SLICE_NAME = "drift";
 
 const slice = createSlice({
   name: SLICE_NAME,
@@ -75,7 +75,7 @@ const slice = createSlice({
       assertKey(payload);
       if (!key) return;
       state.windows[key] = {
-        state: 'creating',
+        state: "creating",
         processCount: 0,
         props: payload as KeyedWindowProps,
       };
@@ -92,7 +92,7 @@ const slice = createSlice({
       { payload }: PayloadAction<CloseWindowPayload>
     ) => {
       const { key } = assertKey<CloseWindowPayload>(payload);
-      windows[key].state = 'closing';
+      windows[key].state = "closing";
     },
     registerProcess: (
       { windows },
@@ -110,7 +110,7 @@ const slice = createSlice({
       win.processCount -= 1;
       // If the window is closing and there are no more processes, mark it
       // as closed.
-      if (readyToClose(0, win)) win.state = 'closed';
+      if (readyToClose(0, win)) win.state = "closed";
     },
   },
 });
@@ -214,7 +214,7 @@ export const shouldEmit = (emitted: boolean, type: string) =>
  * @returns true if the window is ready to be closed.
  */
 const readyToClose = (threshold: number, state?: Window): boolean =>
-  !state || (state.processCount <= threshold && state.state === 'closing');
+  !state || (state.processCount <= threshold && state.state === "closing");
 
 /**
  * Conditionally returns a default key for a given action.

@@ -1,4 +1,4 @@
-import { expect, describe, it, afterAll, vi, beforeAll } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { render } from "@testing-library/react";
 import { AutoSize } from ".";
 

@@ -1,10 +1,10 @@
 import {
+  PropsWithChildren,
   createContext,
   useContext,
-  useState,
-  PropsWithChildren,
   useEffect,
   useMemo,
+  useState,
 } from "react";
 import { Theme, synnaxLight } from "./theme";
 import { applyThemeAsCssVars } from "./css";

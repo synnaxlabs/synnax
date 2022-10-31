@@ -2,7 +2,7 @@ import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
 import { ZodSchema } from 'zod';
 
 import { EncoderDecoder } from './encoder';
-import { decodeError, ErrorPayloadSchema } from './errors';
+import { ErrorPayloadSchema, decodeError } from './errors';
 import { MetaData, MiddlewareCollector } from './middleware';
 import { UnaryClient } from './unary';
 import URL from './url';
@@ -149,7 +149,7 @@ export const buildQueryString = ({
 }: {
   request: Record<string, unknown> | null;
   prefix?: string;
-}) => {
+}): string => {
   if (request === null) return '';
   return (
     '?' +

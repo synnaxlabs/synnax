@@ -1,5 +1,5 @@
-import { expect, describe, it, vi, beforeAll } from "vitest";
-import { render, fireEvent } from "@testing-library/react";
+import { beforeAll, describe, expect, it, vi } from "vitest";
+import { fireEvent, render } from "@testing-library/react";
 import { List } from ".";
 import { mockBoundingClientRect } from "../../testutil/mocks";
 

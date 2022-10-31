@@ -1,8 +1,8 @@
-import { Action, AnyAction, Store } from '@reduxjs/toolkit';
-import { createElement, ReactElement, useEffect, useState } from 'react';
-import { Provider as Base, ProviderProps as BaseProps } from 'react-redux';
+import { Action, AnyAction, Store } from "@reduxjs/toolkit";
+import { ReactElement, createElement, useEffect, useState } from "react";
+import { Provider as Base, ProviderProps as BaseProps } from "react-redux";
 
-import { StoreState } from '../state';
+import { StoreState } from "../state";
 
 /**
  * Overrides the default react-redux Provider to allow for a promise based
@@ -11,7 +11,7 @@ import { StoreState } from '../state';
 export interface ProviderProps<
   S extends StoreState,
   A extends Action = AnyAction
-> extends Omit<BaseProps<A>, 'store'> {
+> extends Omit<BaseProps<A>, "store"> {
   store: Promise<Store<S, A>>;
 }
 

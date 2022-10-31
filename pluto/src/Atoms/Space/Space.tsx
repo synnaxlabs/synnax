@@ -1,9 +1,9 @@
 import clsx from "clsx";
 import {
   ForwardedRef,
-  forwardRef,
   HTMLAttributes,
   PropsWithChildren,
+  forwardRef,
 } from "react";
 import { Direction } from "../../util/spatial";
 import { ComponentSize } from "../../util/types";

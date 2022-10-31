@@ -1,5 +1,5 @@
 import { fireEvent, render } from "@testing-library/react";
-import { expect, describe, it, beforeAll, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { Select } from ".";
 import { mockBoundingClientRect } from "../../testutil/mocks";
 import { TypedListColumn } from "../List";

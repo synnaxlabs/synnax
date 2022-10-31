@@ -1,4 +1,4 @@
-import { ComponentStory, ComponentMeta } from "@storybook/react";
+import { ComponentMeta, ComponentStory } from "@storybook/react";
 import { Mosaic } from ".";
 import { MosaicLeaf } from "./types";
 import { useMosaic } from "./useMosaic";

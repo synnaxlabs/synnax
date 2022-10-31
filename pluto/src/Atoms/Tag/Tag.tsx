@@ -1,8 +1,8 @@
 import { AiOutlineClose } from "react-icons/ai";
 import { ComponentSize } from "@/util";
 import {
-  Text,
   ComponentSizeTypographyLevels,
+  Text,
   TextProps,
 } from "@/atoms/Typography";
 import "./Tag.css";

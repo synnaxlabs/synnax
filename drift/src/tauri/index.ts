@@ -1,18 +1,18 @@
-import { Action, AnyAction } from '@reduxjs/toolkit';
+import { Action, AnyAction } from "@reduxjs/toolkit";
 import {
-  emit,
-  listen,
   Event as TauriEvent,
   UnlistenFn,
-} from '@tauri-apps/api/event';
-import { appWindow, WebviewWindow } from '@tauri-apps/api/window';
+  emit,
+  listen,
+} from "@tauri-apps/api/event";
+import { WebviewWindow, appWindow } from "@tauri-apps/api/window";
 
-import { Event, Runtime } from '../runtime';
-import { StoreState } from '../state';
-import { KeyedWindowProps, MAIN_WINDOW } from '../window';
+import { Event, Runtime } from "../runtime";
+import { StoreState } from "../state";
+import { KeyedWindowProps, MAIN_WINDOW } from "../window";
 
-const actionEvent = 'action';
-const tauriError = 'tauri://error';
+const actionEvent = "action";
+const tauriError = "tauri://error";
 const notFound = (key: string) => new Error(`Window not found: ${key}`);
 
 const encode = <S extends StoreState, A extends Action = AnyAction>(
@@ -63,7 +63,7 @@ export class TauriRuntime<S extends StoreState, A extends Action = AnyAction>
     w.once(tauriError, console.error);
   }
 
-  emit(event_: Omit<Event<S, A>, 'emitter'>, to?: string): void {
+  emit(event_: Omit<Event<S, A>, "emitter">, to?: string): void {
     const event = encode({ ...event_, emitter: this.key() });
     if (to) {
       const win = WebviewWindow.getByLabel(to);

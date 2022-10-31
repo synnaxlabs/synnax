@@ -1,4 +1,4 @@
-import { resetTabSelection, Tabs as CoreTabs, useStaticTabs } from "./Tabs";
+import { Tabs as CoreTabs, resetTabSelection, useStaticTabs } from "./Tabs";
 
 export type { Tab, TabsProps } from "./Tabs";
 

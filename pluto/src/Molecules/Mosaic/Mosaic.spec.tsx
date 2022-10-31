@@ -1,7 +1,7 @@
 import { render } from "@testing-library/react";
-import { expect, describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { Mosaic, MosaicLeaf } from ".";
-import { useMosaic, UseMosaicProps } from "./useMosaic";
+import { UseMosaicProps, useMosaic } from "./useMosaic";
 
 const TestMosaic = (props: UseMosaicProps) => {
   const props_ = useMosaic(props);

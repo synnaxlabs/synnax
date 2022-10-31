@@ -1,17 +1,17 @@
 import clsx from "clsx";
 import React, {
-  ComponentType,
   CSSProperties,
+  ComponentType,
   HTMLAttributes,
   useContext,
 } from "react";
 import { Space, SpaceProps } from "@/atoms";
 import {
   Direction,
-  Position,
   Location,
-  swapLocation,
+  Position,
   getDirection,
+  swapLocation,
 } from "@/util";
 import "./NavBar.css";
 

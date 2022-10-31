@@ -1,8 +1,8 @@
 import {
   DetailedHTMLProps,
-  forwardRef,
   InputHTMLAttributes,
   RefAttributes,
+  forwardRef,
 } from "react";
 import "./Input.css";
 import clsx from "clsx";

@@ -5,6 +5,7 @@ module.exports = {
     "plugin:react/recommended",
     "turbo",
     "prettier",
+    "plugin:import/typescript",
   ],
   plugins: ["react", "@typescript-eslint"],
   parser: "@typescript-eslint/parser",
@@ -22,5 +23,6 @@ module.exports = {
   },
   rules: {
     "react/react-in-jsx-scope": "off",
+    "sort-imports": ["error", { ignoreDeclarationSort: true }],
   },
 };

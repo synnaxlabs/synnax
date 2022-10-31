@@ -1,4 +1,4 @@
-import { getDirection, swapLocation, Location } from "@/util";
+import { Location, getDirection, swapLocation } from "@/util";
 import clsx from "clsx";
 import { DetailedHTMLProps, HTMLAttributes } from "react";
 

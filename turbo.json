@@ -12,6 +12,9 @@
         },
         "dev": {
             "cache": false
+        },
+        "fix": {
+            "cache": false
         }
     }
 }

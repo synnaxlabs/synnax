@@ -1,4 +1,4 @@
-import { createElement, forwardRef, HTMLAttributes } from "react";
+import { HTMLAttributes, createElement, forwardRef } from "react";
 import { TypographyLevel } from "./types";
 
 export interface CoreTextProps {

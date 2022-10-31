@@ -1,23 +1,23 @@
 import {
   Action,
   AnyAction,
-  configureStore as base,
   ConfigureStoreOptions as BaseOpts,
   Store,
-} from '@reduxjs/toolkit';
+  configureStore as base,
+} from "@reduxjs/toolkit";
 
-import { listen } from './listener';
-import { configureMiddleware, Middlewares } from './middleware';
-import { Runtime } from './runtime';
+import { listen } from "./listener";
+import { Middlewares, configureMiddleware } from "./middleware";
+import { Runtime } from "./runtime";
 import {
-  closeWindow,
   DriftAction,
   PreloadedState,
+  StoreState,
+  closeWindow,
   setWindowKey,
   setWindowStatus,
-  StoreState,
-} from './state';
-import { MAIN_WINDOW } from './window';
+} from "./state";
+import { MAIN_WINDOW } from "./window";
 
 /**
  * Extends the default configureStore options to add a runtime argument.
@@ -74,7 +74,7 @@ export const configureStore = async <
   });
 
   store.dispatch(setWindowKey(runtime.key()));
-  store.dispatch(setWindowStatus('created'));
+  store.dispatch(setWindowStatus("created"));
   runtime.onCloseRequested(() => store?.dispatch(closeWindow()));
   runtime.ready();
 

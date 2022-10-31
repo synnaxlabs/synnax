@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Text, CoreTextProps } from "./Text";
+import { CoreTextProps, Text } from "./Text";
 
 export interface TextEditableProps extends CoreTextProps {
   /* The text to display */

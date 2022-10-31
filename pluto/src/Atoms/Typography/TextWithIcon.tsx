@@ -1,8 +1,8 @@
-import { Children, cloneElement, ReactElement } from "react";
+import { Children, ReactElement, cloneElement } from "react";
 import { Theming } from "@/theming";
 import { Divider } from "@/atoms/Divider";
 import { Space, SpaceProps } from "@/atoms/Space";
-import { Text, CoreTextProps } from "./Text";
+import { CoreTextProps, Text } from "./Text";
 import { TypographyLevel } from "./types";
 
 export interface TextWithIconProps
