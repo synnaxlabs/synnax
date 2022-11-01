@@ -20,6 +20,11 @@
             "cache": false
         },
 				"test": {
+					"dependsOn": ["^build"],
+					"cache": false
+				},
+				"cov": {
+					"dependsOn": ["^build"],
 					"cache": false
 				}
     }

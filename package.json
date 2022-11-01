@@ -8,6 +8,9 @@
 				"test:pluto": "npx turbo test --filter pluto",
 				"dev:delta": "npx turbo dev --filter delta",
 				"test:drift": "npx turbo test --filter drift",
+				"test:freighter": "npx turbo test --filter freighter",
+				"test:client": "npx turbo test --filter client",
+				"cov:client": "npx turbo cov --filter client",
         "fix": "npx turbo fix"
     },
     "workspaces": [
