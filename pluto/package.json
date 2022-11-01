@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "start-storybook -p 6006",
     "build-storybook": "tsc && build-storybook",
-    "build": "tsc && vite build --config ./pluto/vite.config",
+    "build": "tsc && vite build",
 		"watch": "tsc && vite build --watch",
     "preview": "vite preview",
     "test": "vitest",
