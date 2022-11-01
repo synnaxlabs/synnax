@@ -24,7 +24,7 @@ jobs:
         run: yarn
 
       - name: Test
-        run: yarn build:pluto
+        run: yarn cov:pluto
 
       - name: Upload Coverage
         uses: codecov/codecov-action@v3
