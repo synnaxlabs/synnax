@@ -7,6 +7,7 @@ on:
 		paths:
 			- "drift/**"
 			- ".github/workflows/drift.test.yaml"
+
 jobs:
 	test:
   	name: "Run Tests"
