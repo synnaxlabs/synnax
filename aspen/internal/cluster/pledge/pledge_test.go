@@ -196,7 +196,7 @@ var _ = Describe("PledgeServer", func() {
 				}, logger)
 				ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 				defer cancel()
-				res, err := pledge.Pledge(
+				_, err := pledge.Pledge(
 					ctx,
 					baseConfig(net, logger),
 					pledge.Config{
