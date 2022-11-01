@@ -3,10 +3,10 @@ on:
 	pull_request:
 		branches:
 			- main
-		push:
-			paths:
-				- "drift/**"
-				- ".github/workflows/drift.test.yaml"
+	push:
+		paths:
+			- "drift/**"
+			- ".github/workflows/drift.test.yaml"
 test:
   name: "Run Tests"
   runs-on: ubuntu-latest
