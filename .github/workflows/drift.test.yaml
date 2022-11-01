@@ -1,0 +1,33 @@
+name: "Drift Test"
+on:
+	pull_request:
+		branches:
+			- main
+		push:
+			paths:
+				- "drift/**"
+				- ".github/workflows/drift.test.yaml"
+test:
+  name: "Run Tests"
+  runs-on: ubuntu-latest
+  steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Node
+      uses: actions/setup-node@v2
+      with:
+        node-version: "18"
+
+    - name: Install Dependencies
+      run: yarn
+
+    - name: Test
+      run: yarn cov:drift
+
+    - name: Upload Coverage
+      uses: codecov/codecov-action@v3
+      with:
+        directory: ./drift
+        fail_ci_if_error: true
+        token: ${{ secrets.CODECOV_TOKEN }}
+        flags: drift

@@ -17,11 +17,9 @@ jobs:
 
       - name: Install Dependencies
         run: yarn
-        working-directory: ./pluto
 
       - name: Test
-        run: yarn test --coverage
-        working-directory: ./pluto
+        run: yarn cov:pluto
 
       - name: Upload Coverage
         uses: codecov/codecov-action@v3

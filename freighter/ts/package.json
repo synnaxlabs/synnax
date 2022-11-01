@@ -19,13 +19,8 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json && tsc -p tsconfig.module.json",
-    "fix": "run-s fix:*",
-    "fix:prettier": "prettier \"src/**/*.ts\" --write",
-    "fix:lint": "eslint src --ext .ts --fix",
-    "test": "run-s build test:*",
-    "test:lint": "eslint src --ext .ts",
-    "test:prettier": "prettier \"src/**/*.ts\" --list-different",
-    "test:unit": "nyc --silent ava",
+    "test": "nyc --silent ava",
+		"cov": "nyc --silent ava && nyc report --reporter=lcov && nyc report --reporter=html",
     "lint": "TIMING=1 eslint \"src/**/*.ts*\""
   },
   "engines": {
