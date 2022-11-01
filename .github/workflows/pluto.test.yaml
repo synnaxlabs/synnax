@@ -3,10 +3,10 @@ on:
   pull_request:
     branches:
       - main
-	push:
-		paths:
-			- "pluto/**"
-			- ".github/workflows/pluto.test.yaml"
+  push:
+    paths:
+      - "pluto/**"
+      - ".github/workflows/pluto.test.yaml"
 jobs:
   test:
     name: "Run Tests"
