@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 )
 
-var _ = Describe("Storage", func() {
+var _ = Describe("storage", func() {
 	Describe("Open", func() {
 		var (
 			tempDir string
@@ -82,7 +82,7 @@ var _ = Describe("Storage", func() {
 			if nil {
 				Expect(err).ToNot(HaveOccurred())
 			} else {
-				Expect(err).To(HaveOccurredAs(validate.ValidationError))
+				Expect(err).To(HaveOccurredAs(validate.Error))
 			}
 		},
 			Entry("Directory not set",

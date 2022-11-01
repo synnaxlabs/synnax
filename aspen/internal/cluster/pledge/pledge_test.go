@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-func baseConfig(n *fmock.Network[node.ID, node.ID], logger *zap.SugaredLogger) pledge.Config {
+func baseConfig(n *fmock.Network[pledge.Request, pledge.Response], logger *zap.SugaredLogger) pledge.Config {
 	cfg, _ := baseConfigWithAddr(n, logger)
 	return cfg
 }
@@ -25,7 +25,7 @@ func allCandidates(nodes node.Group) func() node.Group {
 	return func() node.Group { return nodes }
 }
 
-func baseConfigWithAddr(n *fmock.Network[node.ID, node.ID], logger *zap.SugaredLogger) (pledge.Config, address.Address) {
+func baseConfigWithAddr(n *fmock.Network[pledge.Request, pledge.Response], logger *zap.SugaredLogger) (pledge.Config, address.Address) {
 	server := n.UnaryServer("")
 	cfg := pledge.Config{
 		TransportServer: server,
@@ -37,7 +37,7 @@ func baseConfigWithAddr(n *fmock.Network[node.ID, node.ID], logger *zap.SugaredL
 
 func provisionCandidates(
 	n int,
-	net *fmock.Network[node.ID, node.ID],
+	net *fmock.Network[pledge.Request, pledge.Response],
 	nodes node.Group,
 	candidates func(i int) func() node.Group,
 	nodeState func(i int) node.State,
@@ -53,7 +53,9 @@ func provisionCandidates(
 	}
 	for i := 0; i < n; i++ {
 		cfg, addr := baseConfigWithAddr(net, logger)
-		Expect(pledge.Arbitrate(cfg, pledge.Config{Candidates: candidates(i)})).To(Succeed())
+		Expect(pledge.Arbitrate(cfg, pledge.Config{
+			Candidates: candidates(i),
+		})).To(Succeed())
 		id := node.ID(i)
 		nodes[id] = node.Node{ID: node.ID(i), Address: addr, State: nodeState(i)}
 	}
@@ -63,13 +65,13 @@ func provisionCandidates(
 var _ = Describe("PledgeServer", func() {
 	var (
 		logger *zap.SugaredLogger
-		net    *fmock.Network[node.ID, node.ID]
+		net    *fmock.Network[pledge.Request, pledge.Response]
 	)
 
 	BeforeEach(func() {
 		//logger = lo.Must(zap.NewDevelopment()).Sugar()
 		logger = zap.NewNop().Sugar()
-		net = fmock.NewNetwork[node.ID, node.ID]()
+		net = fmock.NewNetwork[pledge.Request, pledge.Response]()
 	})
 
 	Describe("PledgeServer", func() {
@@ -79,8 +81,8 @@ var _ = Describe("PledgeServer", func() {
 				var (
 					peers         []address.Address
 					numTransports = 4
-					handler       = func(ctx context.Context, id node.ID) (node.ID, error) {
-						return 0, errors.New("pledge failed")
+					handler       = func(ctx context.Context, req pledge.Request) (pledge.Response, error) {
+						return req, errors.New("pledge failed")
 					}
 				)
 				for i := 0; i < numTransports; i++ {
@@ -90,12 +92,12 @@ var _ = Describe("PledgeServer", func() {
 				}
 				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 				defer cancel()
-				id, err := pledge.Pledge(ctx, baseConfig(net, logger), pledge.Config{
+				res, err := pledge.Pledge(ctx, baseConfig(net, logger), pledge.Config{
 					Peers:      peers,
 					Candidates: func() node.Group { return node.Group{} },
 				}, pledge.BlazingFastConfig)
 				Expect(err).To(HaveOccurredAs(context.DeadlineExceeded))
-				Expect(id).To(Equal(node.ID(0)))
+				Expect(res.ID).To(Equal(node.ID(0)))
 				for i, entry := range net.Entries {
 					Expect(entry.Target).To(Equal(peers[i%4]))
 				}
@@ -105,7 +107,7 @@ var _ = Describe("PledgeServer", func() {
 	})
 
 	Describe("Responsible", func() {
-		Context("Cluster State is Synchronized", func() {
+		Context("cluster State is Synchronized", func() {
 			It("Should correctly assign an ID", func() {
 				var (
 					nodes         = make(node.Group)
@@ -115,12 +117,12 @@ var _ = Describe("PledgeServer", func() {
 				candidates := allCandidates(nodes)
 				ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
 				defer cancel()
-				id, err := pledge.Pledge(ctx, baseConfig(net, logger), pledge.Config{
+				res, err := pledge.Pledge(ctx, baseConfig(net, logger), pledge.Config{
 					Peers:      nodes.Addresses(),
 					Candidates: candidates,
 				}, pledge.BlazingFastConfig)
 				Expect(err).To(BeNil())
-				Expect(id).To(Equal(node.ID(10)))
+				Expect(res.ID).To(Equal(node.ID(10)))
 			})
 		})
 		Context("Responsible is Missing UniqueNodeIDs", func() {
@@ -141,14 +143,16 @@ var _ = Describe("PledgeServer", func() {
 				nodes = provisionCandidates(10, net, nodes, candidates, nil, logger)
 				ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 				defer cancel()
-				id, err := pledge.Pledge(
+				res, err := pledge.Pledge(
 					ctx,
 					baseConfig(net, logger),
-					pledge.Config{Peers: []address.Address{nodes[0].Address}},
+					pledge.Config{
+						Peers: []address.Address{nodes[0].Address},
+					},
 					pledge.BlazingFastConfig,
 				)
 				Expect(err).To(BeNil())
-				Expect(id).To(Equal(node.ID(10)))
+				Expect(res.ID).To(Equal(node.ID(10)))
 			})
 		})
 		Context("One juror are aware of a new node", func() {
@@ -161,14 +165,14 @@ var _ = Describe("PledgeServer", func() {
 						n[10] = node.Node{ID: 10, Address: "localhost:10", State: node.StateHealthy}
 						return n
 					}
-					net = fmock.NewNetwork[node.ID, node.ID]()
+					net = fmock.NewNetwork[pledge.Request, pledge.Response]()
 				)
 				provisionCandidates(10, net, nodes, func(i int) func() node.Group {
 					return lo.Ternary(i%2 == 0, extraCandidates, allCandidates)
 				}, nil, logger)
 				ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 				defer cancel()
-				id, err := pledge.Pledge(
+				res, err := pledge.Pledge(
 					ctx,
 					baseConfig(net, logger),
 					pledge.Config{
@@ -178,7 +182,7 @@ var _ = Describe("PledgeServer", func() {
 					pledge.BlazingFastConfig,
 				)
 				Expect(err).To(BeNil())
-				Expect(id).To(BeNumerically(">=", node.ID(11)))
+				Expect(res.ID).To(BeNumerically(">=", node.ID(11)))
 			})
 		})
 		Context("Too Few Healthy UniqueNodeIDs To Form a Quorum", func() {
@@ -192,7 +196,7 @@ var _ = Describe("PledgeServer", func() {
 				}, logger)
 				ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 				defer cancel()
-				id, err := pledge.Pledge(
+				_, err := pledge.Pledge(
 					ctx,
 					baseConfig(net, logger),
 					pledge.Config{
@@ -202,7 +206,6 @@ var _ = Describe("PledgeServer", func() {
 					pledge.BlazingFastConfig,
 				)
 				Expect(err).To(HaveOccurredAs(context.DeadlineExceeded))
-				Expect(id).To(Equal(node.ID(0)))
 			})
 		})
 		Describe("Cancelling a pledge", func() {
@@ -214,12 +217,12 @@ var _ = Describe("PledgeServer", func() {
 				provisionCandidates(numCandidates, net, nodes, nil, nil, logger)
 				ctx, cancel := context.WithCancel(context.Background())
 				cancel()
-				id, err := pledge.Pledge(ctx, baseConfig(net, logger), pledge.Config{
+				res, err := pledge.Pledge(ctx, baseConfig(net, logger), pledge.Config{
 					Peers:      nodes.Addresses(),
 					Candidates: allCandidates(nodes),
 				})
 				Expect(err).To(HaveOccurredAs(context.Canceled))
-				Expect(id).To(Equal(node.ID(0)))
+				Expect(res.ID).To(Equal(node.ID(0)))
 			})
 		})
 
@@ -247,7 +250,7 @@ var _ = Describe("PledgeServer", func() {
 						defer GinkgoRecover()
 						defer wg.Done()
 						cfg, addr := baseConfigWithAddr(net, logger)
-						id, err := pledge.Pledge(
+						res, err := pledge.Pledge(
 							ctx,
 							cfg,
 							pledge.Config{
@@ -257,10 +260,10 @@ var _ = Describe("PledgeServer", func() {
 							pledge.BlazingFastConfig,
 						)
 						Expect(err).ToNot(HaveOccurred())
-						ids[i] = id
+						ids[i] = res.ID
 						mu.Lock()
 						defer mu.Unlock()
-						nodes[id] = node.Node{ID: id, Address: addr, State: node.StateHealthy}
+						nodes[res.ID] = node.Node{ID: res.ID, Address: addr, State: node.StateHealthy}
 					}(i)
 				}
 				wg.Wait()

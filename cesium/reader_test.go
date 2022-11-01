@@ -4,13 +4,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
-	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/testutil/seg"
 	"github.com/synnaxlabs/x/telem"
 	"sync"
 )
 
-var _ = Describe("Read", func() {
+var _ = Describe("GoRead", func() {
 	var db cesium.DB
 	BeforeEach(func() {
 		var err error
@@ -71,12 +71,12 @@ var _ = Describe("Read", func() {
 		AfterEach(func() {
 			Expect(db.Close()).To(Succeed())
 		})
-		It("Should support reading data from multiple channels", func() {
+		It("Should support reading data from multiple Channels", func() {
 			for i := 0; i < channelCount; i++ {
 				factory := seg.NewSequentialFactory(&seg.RandomFloat64Factory{}, 10*telem.Second, channels[i])
 				Expect(db.Write(factory.NextN(20))).To(Succeed())
 			}
-			segments, err := db.Read(telem.TimeRangeMax, channel.ExtractKeys(channels)...)
+			segments, err := db.Read(telem.TimeRangeMax, core.ChannelKeys(channels)...)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(segments).To(HaveLen(200))
 		})

@@ -21,7 +21,7 @@ func newSynchronizer(nodeIDs []core.NodeID) confluence.Segment[Response, Respons
 }
 
 func (a *synchronizer) sync(_ context.Context, res Response) (Response, bool, error) {
-	if res.Counter != a.counter {
+	if res.SeqNum != a.counter {
 		panic("[distribution.iterator] - received out of order response")
 	}
 	a.acknowledgements = append(a.acknowledgements, res)
@@ -41,6 +41,6 @@ func (a *synchronizer) buildAck() Response {
 		Variant: AckResponse,
 		Command: a.acknowledgements[0].Command,
 		Ack:     !lo.Contains(lo.Map(a.acknowledgements, func(res Response, _ int) bool { return res.Ack }), false),
-		Counter: a.counter,
+		SeqNum:  a.counter,
 	}
 }

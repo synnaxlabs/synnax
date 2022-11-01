@@ -1,19 +1,26 @@
 import { URL } from '@synnaxlabs/freighter';
+import { z } from 'zod';
 
 import AuthenticationClient from './auth';
-import ChannelClient from './channel/client';
 import ChannelCreator from './channel/creator';
 import Registry from './channel/registry';
 import ChannelRetriever from './channel/retriever';
+import ConnectivityClient from './connectivity';
 import SegmentClient from './segment/client';
+import { TimeSpan } from './telem';
 import Transport from './transport';
+import OntologyClient from './ontology/client';
+import { ChannelClient } from './channel';
 
-export type SynnaxProps = {
-  host: string;
-  port: number;
-  username?: string;
-  password?: string;
-};
+export const synnaxPropsSchema = z.object({
+  host: z.string().min(1),
+  port: z.number().or(z.string()),
+  username: z.string().optional(),
+  password: z.string().optional(),
+  connectivityPollFrequency: z.instanceof(TimeSpan).optional(),
+});
+
+export type SynnaxProps = z.infer<typeof synnaxPropsSchema>;
 
 /**
  * Client to perform operations against a Synnax cluster.
@@ -26,6 +33,8 @@ export default class Synnax {
   data: SegmentClient;
   channel: ChannelClient;
   auth: AuthenticationClient | undefined;
+  connectivity: ConnectivityClient;
+  ontology: OntologyClient;
 
   /**
    * @param props.host - Hostname of a node in the cluster.
@@ -35,8 +44,14 @@ export default class Synnax {
    * @param props.password - Password for authentication. Not required if the
    *   cluster is insecure.
    */
-  constructor({ host, port, username, password }: SynnaxProps) {
-    this.transport = new Transport(new URL({ host, port }));
+  constructor({
+    host,
+    port,
+    username,
+    password,
+    connectivityPollFrequency,
+  }: SynnaxProps) {
+    this.transport = new Transport(new URL({ host, port: Number(port) }));
     if (username && password) {
       this.auth = new AuthenticationClient(this.transport.httpFactory, {
         username,
@@ -49,5 +64,14 @@ export default class Synnax {
     const chRegistry = new Registry(chRetriever);
     this.data = new SegmentClient(this.transport, chRegistry);
     this.channel = new ChannelClient(this.data, chRetriever, chCreator);
+    this.connectivity = new ConnectivityClient(
+      this.transport.getClient(),
+      connectivityPollFrequency
+    );
+    this.ontology = new OntologyClient(this.transport);
+  }
+
+  close() {
+    this.connectivity.stopChecking();
   }
 }

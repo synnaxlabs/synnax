@@ -2,13 +2,13 @@ package segment
 
 import (
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	distribcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/segment"
 	"github.com/synnaxlabs/synnax/pkg/distribution/segment/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/segment/writer"
 	sv1 "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/gen/proto/go/segment/v1"
-	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -55,8 +55,8 @@ func (w iteratorRequestTranslator) Backward(req *sv1.IteratorRequest) (iterator.
 			Start: telem.TimeStamp(req.Range.Start),
 			End:   telem.TimeStamp(req.Range.End),
 		},
-		Stamp: telem.TimeStamp(req.Stamp),
-		Keys:  keys,
+		Target: telem.TimeStamp(req.Stamp),
+		Keys:   keys,
 	}, err
 }
 
@@ -68,7 +68,7 @@ func (w iteratorRequestTranslator) Forward(req iterator.Request) (*sv1.IteratorR
 			Start: int64(req.Range.Start),
 			End:   int64(req.Range.End),
 		},
-		Stamp: int64(req.Stamp),
+		Stamp: int64(req.Target),
 		Keys:  req.Keys.Strings(),
 	}, nil
 }
@@ -80,7 +80,7 @@ func (w iteratorResponseTranslator) Backward(res *sv1.IteratorResponse) (iterato
 		Variant:  iterator.ResponseVariant(res.Variant),
 		NodeID:   distribcore.NodeID(res.NodeId),
 		Ack:      res.Ack,
-		Counter:  int(res.Counter),
+		SeqNum:   int(res.Counter),
 		Command:  iterator.Command(res.Command),
 		Error:    fgrpc.DecodeError(res.Error),
 		Segments: tranSegFwd(res.Segments),
@@ -92,7 +92,7 @@ func (w iteratorResponseTranslator) Forward(res iterator.Response) (*sv1.Iterato
 		Variant:  int32(res.Variant),
 		NodeId:   int32(res.NodeID),
 		Ack:      res.Ack,
-		Counter:  int32(res.Counter),
+		Counter:  int32(res.SeqNum),
 		Command:  int32(res.Command),
 		Error:    fgrpc.EncodeError(res.Error),
 		Segments: tranSegBwd(res.Segments),

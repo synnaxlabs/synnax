@@ -1,0 +1,77 @@
+import { describe, expect, it } from "vitest";
+import { fireEvent, render } from "@testing-library/react";
+import { Nav } from ".";
+import { MdHomeFilled } from "react-icons/md";
+
+describe("Nav", () => {
+  describe("Drawer", () => {
+    it("should render an icon to the screen when we provide an item", () => {
+      const rendered = render(
+        <Nav.Drawer
+          location="left"
+          items={[
+            {
+              key: "home",
+              icon: <MdHomeFilled aria-label="home" />,
+              content: <div>Home</div>,
+            },
+            {
+              key: "space",
+              icon: <MdHomeFilled aria-label="space" />,
+              content: <div>Space</div>,
+            },
+          ]}
+        ></Nav.Drawer>
+      );
+      expect(rendered.getByLabelText("home")).toBeTruthy();
+      expect(rendered.getByLabelText("space")).toBeTruthy();
+    });
+    it("should render the correct content for the active key", async () => {
+      const rendered = render(
+        <Nav.Drawer
+          location="left"
+          items={[
+            {
+              key: "space",
+              icon: <MdHomeFilled aria-label="space" />,
+              content: <div>SPACE!</div>,
+            },
+            {
+              key: "something",
+              icon: <MdHomeFilled aria-label="something" />,
+              content: <div>something!</div>,
+            },
+          ]}
+        ></Nav.Drawer>
+      );
+      const icon = rendered.getByLabelText("space");
+      expect(await rendered.queryByText("SPACE!")).toBeFalsy();
+      fireEvent.click(icon);
+      expect(rendered.getByText("SPACE!")).toBeTruthy();
+    });
+    it("should render a horizontal drawer correctly", () => {
+      const rendered = render(
+        <Nav.Drawer
+          location="bottom"
+          items={[
+            {
+              key: "space",
+              icon: <MdHomeFilled aria-label="space" />,
+              content: <div>SPACE!</div>,
+            },
+            {
+              key: "something",
+              icon: <MdHomeFilled aria-label="something" />,
+              content: <div>something!</div>,
+            },
+          ]}
+        ></Nav.Drawer>
+      );
+      expect(rendered.getByLabelText("something")).toBeTruthy();
+      expect(rendered.getByLabelText("space")).toBeTruthy();
+      expect(
+        rendered.getByLabelText("space").parentElement?.parentElement?.className
+      ).toContain("horizontal");
+    });
+  });
+});

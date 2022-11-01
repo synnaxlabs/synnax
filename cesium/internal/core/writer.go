@@ -1,0 +1,12 @@
+package core
+
+// MDWriter writes segment metadata to disk.
+type MDWriter interface {
+	// Write writes the segment metadata to the writer. The writes are not durable until
+	// Commit is called.
+	Write([]SegmentMD) error
+	// Commit commits the writes to disk.
+	Commit() error
+	// Close closes the writer, releasing an uncommitted writes.
+	Close() error
+}

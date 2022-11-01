@@ -8,3 +8,5 @@ type (
 	Channel    = cesium.Channel
 	ChannelKey = cesium.ChannelKey
 )
+
+const AutoSpan = cesium.AutoSpan

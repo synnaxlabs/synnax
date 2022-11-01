@@ -1,9 +1,9 @@
 import {
-  decodeError,
   EOF,
   ErrorPayloadSchema,
   Stream,
   StreamClient,
+  decodeError,
 } from '@synnaxlabs/freighter';
 import { z } from 'zod';
 

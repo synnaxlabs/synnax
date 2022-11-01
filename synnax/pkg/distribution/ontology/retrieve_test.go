@@ -20,7 +20,7 @@ var _ = Describe("RetrieveEntity", func() {
 				Entry(&r).
 				Exec(),
 			).To(Succeed())
-			v, ok := schema.Get[string](r.Entity(), "key")
+			v, ok := schema.Get[string](r.Entity, "key")
 			Expect(ok).To(BeTrue())
 			Expect(v).To(Equal("A"))
 		})
@@ -34,10 +34,10 @@ var _ = Describe("RetrieveEntity", func() {
 				Entries(&r).
 				Exec(),
 			).To(Succeed())
-			v, ok := schema.Get[string](r[0].Entity(), "key")
+			v, ok := schema.Get[string](r[0].Entity, "key")
 			Expect(ok).To(BeTrue())
 			Expect(v).To(Equal("A"))
-			v, ok = schema.Get[string](r[1].Entity(), "key")
+			v, ok = schema.Get[string](r[1].Entity, "key")
 			Expect(ok).To(BeTrue())
 			Expect(v).To(Equal("B"))
 		})
@@ -49,15 +49,15 @@ var _ = Describe("RetrieveEntity", func() {
 				b := newEmptyID("B")
 				Expect(w.DefineResource(a)).To(Succeed())
 				Expect(w.DefineResource(b)).To(Succeed())
-				Expect(w.DefineRelationship(a, b, ontology.Parent)).To(Succeed())
+				Expect(w.DefineRelationship(a, ontology.ParentOf, b)).To(Succeed())
 				var r ontology.Resource
 				Expect(w.NewRetrieve().
 					WhereIDs(a).
-					TraverseTo(ontology.Parents).
+					TraverseTo(ontology.Children).
 					Entry(&r).
 					Exec(),
 				).To(Succeed())
-				v, ok := schema.Get[string](r.Entity(), "key")
+				v, ok := schema.Get[string](r.Entity, "key")
 				Expect(ok).To(BeTrue())
 				Expect(v).To(Equal("B"))
 			})
@@ -68,19 +68,19 @@ var _ = Describe("RetrieveEntity", func() {
 				Expect(w.DefineResource(a)).To(Succeed())
 				Expect(w.DefineResource(b)).To(Succeed())
 				Expect(w.DefineResource(c)).To(Succeed())
-				Expect(w.DefineRelationship(a, b, ontology.Parent)).To(Succeed())
-				Expect(w.DefineRelationship(a, c, ontology.Parent)).To(Succeed())
+				Expect(w.DefineRelationship(a, ontology.ParentOf, b)).To(Succeed())
+				Expect(w.DefineRelationship(a, ontology.ParentOf, c)).To(Succeed())
 				var r []ontology.Resource
 				Expect(w.NewRetrieve().
 					WhereIDs(a).
-					TraverseTo(ontology.Parents).
+					TraverseTo(ontology.Children).
 					Entries(&r).
 					Exec(),
 				).To(Succeed())
-				v, ok := schema.Get[string](r[0].Entity(), "key")
+				v, ok := schema.Get[string](r[0].Entity, "key")
 				Expect(ok).To(BeTrue())
 				Expect(v).To(Equal("B"))
-				v, ok = schema.Get[string](r[1].Entity(), "key")
+				v, ok = schema.Get[string](r[1].Entity, "key")
 				Expect(ok).To(BeTrue())
 				Expect(v).To(Equal("C"))
 			})
@@ -91,17 +91,17 @@ var _ = Describe("RetrieveEntity", func() {
 				Expect(w.DefineResource(a)).To(Succeed())
 				Expect(w.DefineResource(b)).To(Succeed())
 				Expect(w.DefineResource(c)).To(Succeed())
-				Expect(w.DefineRelationship(a, b, ontology.Parent)).To(Succeed())
-				Expect(w.DefineRelationship(b, c, ontology.Parent)).To(Succeed())
+				Expect(w.DefineRelationship(a, ontology.ParentOf, b)).To(Succeed())
+				Expect(w.DefineRelationship(b, ontology.ParentOf, c)).To(Succeed())
 				var r ontology.Resource
 				Expect(w.NewRetrieve().
 					WhereIDs(a).
-					TraverseTo(ontology.Parents).
-					TraverseTo(ontology.Parents).
+					TraverseTo(ontology.Children).
+					TraverseTo(ontology.Children).
 					Entry(&r).
 					Exec(),
 				).To(Succeed())
-				v, ok := schema.Get[string](r.Entity(), "key")
+				v, ok := schema.Get[string](r.Entity, "key")
 				Expect(ok).To(BeTrue())
 				Expect(v).To(Equal("C"))
 			})

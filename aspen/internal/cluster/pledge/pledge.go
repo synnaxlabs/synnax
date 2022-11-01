@@ -6,15 +6,15 @@
 //
 // Vocabulary:
 //
-//	Pledge - Used as both a verb and noun. A "PledgeServer" is a node that has
+//	Pledge - Used as both a verb and noun. Key "PledgeServer" is a node that has
 //	'pledged' itself to the cluster. 'Pledging' is the entire process of
 //	contacting a peer, proposing an ID to a jury, and returning it to the pledge.
-//	Responsible - A node that is responsible for coordinating the Pledge process.
-//	A responsible node is the first peer that accepts the Pledge request from
+//	Responsible - Key node that is responsible for coordinating the Pledge process.
+//	Key responsible node is the first peer that accepts the Pledge request from
 //	the pledge node.
-//	Candidates - A pool of nodes that can be selected to form a jury that can
+//	Candidates - Key pool of nodes that can be selected to form a jury that can
 //	arbitrate a Pledge.
-//	Jury - A quorum (numCandidates/2 + 1) of Candidates that arbitrate a
+//	Jury - Key quorum (numCandidates/2 + 1) of Candidates that arbitrate a
 //	Pledge. All jurors must accept the Pledge for the node to be inducted.
 //
 // RFC-2 provides details on how the pledging algorithm is implemented.
@@ -54,18 +54,18 @@ var (
 // (defined in cfg.RetryScale and cfg.RetryInterval) until the cluster approves
 // request or the provided context is cancelled. To see the required configuration
 // parameters, see the Config struct.
-func Pledge(ctx context.Context, cfgs ...Config) (id node.ID, err error) {
+func Pledge(ctx context.Context, cfgs ...Config) (res Response, err error) {
 	if ctx.Err() != nil {
-		return 0, ctx.Err()
+		return res, ctx.Err()
 	}
 	cfg, err := config.OverrideAndValidate(DefaultConfig, cfgs...)
 	if err != nil {
-		return id, err
+		return res, err
 	}
 	// Because peers are only required whe calling PledgeServer, we need to perform
 	// this validation outside of config.Validate.
 	if len(cfg.Peers) == 0 {
-		return id, errors.New("[pledge] - at least one peer required")
+		return res, errors.New("[pledge] - at least one peer required")
 	}
 
 	alamos.AttachReporter(cfg.Experiment, "pledge", alamos.Debug, cfg)
@@ -82,22 +82,27 @@ func Pledge(ctx context.Context, cfgs ...Config) (id node.ID, err error) {
 	for {
 		select {
 		case <-ctx.Done():
-			return 0, errors.CombineErrors(ctx.Err(), err)
+			return Response{}, errors.CombineErrors(ctx.Err(), err)
 		case dur := <-t.C:
 			addr := nextAddr()
 			cfg.Logger.Infow("pledging to peer", "address", addr)
 			reqCtx, cancel := context.WithTimeout(context.Background(), cfg.RequestTimeout)
-			id, err = cfg.TransportClient.Send(reqCtx, addr, 0)
+			res, err = cfg.TransportClient.Send(reqCtx, addr, Request{ID: 0})
 			cancel()
 			if err == nil {
-				cfg.Logger.Infow("pledge successful", "assignedHost", id)
+				cfg.Logger.Infow(
+					"pledge successful",
+					"assignedHost", res.ID,
+					"clusterKey", res.ClusterKey,
+				)
 
 				// If the pledge node has been inducted successfully, allow it to
 				// arbitrate in future pledges.
-				return id, arbitrate(cfg)
+				cfg.ClusterKey = res.ClusterKey
+				return res, arbitrate(cfg)
 			}
 			if ctx.Err() != nil {
-				return 0, errors.CombineErrors(ctx.Err(), err)
+				return res, errors.CombineErrors(ctx.Err(), err)
 			}
 			cfg.Logger.Warnw("failed to pledge, retrying", "nextRetry", dur, "err", err)
 		}
@@ -122,11 +127,11 @@ func Arbitrate(cfgs ...Config) error {
 
 func arbitrate(cfg Config) error {
 	j := &juror{Config: cfg}
-	cfg.TransportServer.BindHandler(func(ctx context.Context, id node.ID) (node.ID, error) {
-		if id == 0 {
+	cfg.TransportServer.BindHandler(func(ctx context.Context, req Request) (Response, error) {
+		if req.ID == 0 {
 			return (&responsible{Config: cfg}).propose(ctx)
 		}
-		return 0, j.verdict(ctx, id)
+		return Response{}, j.verdict(ctx, req)
 	})
 	return nil
 }
@@ -137,8 +142,10 @@ type responsible struct {
 	_proposedID       node.ID
 }
 
-func (r *responsible) propose(ctx context.Context) (id node.ID, err error) {
+func (r *responsible) propose(ctx context.Context) (res Response, err error) {
 	r.Logger.Infow("responsible received pledge. starting proposal process.")
+
+	res.ClusterKey = r.ClusterKey
 
 	var propC int
 	for propC = 0; propC < r.MaxProposals; propC++ {
@@ -158,7 +165,7 @@ func (r *responsible) propose(ctx context.Context) (id node.ID, err error) {
 		// get a rejection from the candidate that approved the request last time.
 		// This will result in marginally higher IDs being assigned, but it's
 		// better than adding a lot of extra logic to the proposal process.
-		id = r.idToPropose()
+		res.ID = r.idToPropose()
 
 		quorum, qErr := r.buildQuorum()
 		if qErr != nil {
@@ -166,22 +173,22 @@ func (r *responsible) propose(ctx context.Context) (id node.ID, err error) {
 			break
 		}
 
-		r.Logger.Debugw("responsible proposing", "id", id, "quorumCount", len(quorum))
+		r.Logger.Debugw("responsible proposing", "id", res.ID, "quorumCount", len(quorum))
 
 		// If any node returns an error, it means we need to retry the responsible with a new ID.
-		if err = r.consultQuorum(ctx, id, quorum); err != nil {
+		if err = r.consultQuorum(ctx, res.ID, quorum); err != nil {
 			r.Logger.Errorw("quorum rejected proposal. retrying.", "err", zap.Error(err))
 			continue
 		}
 
-		r.Logger.Debugw("quorum accepted pledge", "id", id)
+		r.Logger.Debugw("quorum accepted pledge", "id", res.ID)
 
 		// If no candidate return an error, it means we reached a quorum approval,
 		// and we can safely return the new ID to the caller.
-		return id, nil
+		return res, nil
 	}
 	r.Logger.Errorw("responsible failed to build healthy quorum", "numProposals", propC, "err", err)
-	return id, err
+	return res, err
 }
 
 func (r *responsible) refreshCandidates() { r.candidateSnapshot = r.Config.Candidates() }
@@ -212,7 +219,7 @@ func (r *responsible) consultQuorum(ctx context.Context, id node.ID, quorum node
 	for _, n := range quorum {
 		n_ := n
 		wg.Go(func() error {
-			_, err := r.TransportClient.Send(reqCtx, n_.Address, id)
+			_, err := r.TransportClient.Send(reqCtx, n_.Address, Request{ID: id})
 			if errors.Is(err, proposalRejected) {
 				r.Logger.Debugw("quorum rejected proposal", "id", id, "address", n_.Address)
 				cancel()
@@ -235,25 +242,25 @@ type juror struct {
 	approvals []node.ID
 }
 
-func (j *juror) verdict(ctx context.Context, id node.ID) (err error) {
-	j.Logger.Debugw("juror received proposal. making verdict", "id", id)
+func (j *juror) verdict(ctx context.Context, req Request) (err error) {
+	j.Logger.Debugw("juror received proposal. making verdict", "id", req.ID)
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
 	j.mu.Lock()
 	defer j.mu.Unlock()
 	for _, appID := range j.approvals {
-		if appID == id {
-			j.Logger.Warnw("juror rejected proposal. already approved for a different pledge", "id", id)
+		if appID == req.ID {
+			j.Logger.Warnw("juror rejected proposal. already approved for a different pledge", "id", req.ID)
 			return proposalRejected
 		}
 	}
-	if id <= highestNodeID(j.Candidates()) {
-		j.Logger.Warnw("juror rejected proposal. id out of range", "id", id)
+	if req.ID <= highestNodeID(j.Candidates()) {
+		j.Logger.Warnw("juror rejected proposal. id out of range", "id", req.ID)
 		return proposalRejected
 	}
-	j.approvals = append(j.approvals, id)
-	j.Logger.Debugw("juror approved proposal", "id", id)
+	j.approvals = append(j.approvals, req.ID)
+	j.Logger.Debugw("juror approved proposal", "id", req.ID)
 	return nil
 }
 

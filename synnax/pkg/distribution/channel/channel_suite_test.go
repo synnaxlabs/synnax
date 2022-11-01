@@ -40,6 +40,7 @@ func provisionServices(logger *zap.Logger) (*mock.CoreBuilder, map[core.NodeID]*
 		core1.Storage.TS,
 		net.UnaryClient(),
 		net.UnaryServer(core1.Config.AdvertiseAddress),
+		nil,
 	)
 	core2 := builder.New()
 	services[2] = channel.New(
@@ -48,6 +49,7 @@ func provisionServices(logger *zap.Logger) (*mock.CoreBuilder, map[core.NodeID]*
 		core2.Storage.TS,
 		net.UnaryClient(),
 		net.UnaryServer(core2.Config.AdvertiseAddress),
+		nil,
 	)
 	Eventually(func(g Gomega) {
 		g.Expect(core1.Cluster.Nodes()).To(HaveLen(2))

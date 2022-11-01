@@ -8,6 +8,12 @@ import (
 
 const ontologyType ontology.Type = "channel"
 
+// OntologyID returns a unique identifier for a Channel for use within a resource
+// ontology.
+func OntologyID(k Key) ontology.ID {
+	return ontology.ID{Type: ontologyType, Key: k.String()}
+}
+
 var _schema = &ontology.Schema{
 	Type: ontologyType,
 	Fields: map[string]schema.Field{
@@ -15,7 +21,7 @@ var _schema = &ontology.Schema{
 		"name":    {Type: schema.String},
 		"nodeID":  {Type: schema.Uint32},
 		"rate":    {Type: schema.Float64},
-		"Density": {Type: schema.Uint16},
+		"Density": {Type: schema.Uint32},
 	},
 }
 
@@ -29,15 +35,16 @@ func (s *Service) RetrieveEntity(key string) (schema.Entity, error) {
 		return schema.Entity{}, err
 	}
 	var ch Channel
-	return newEntity(ch), s.NewRetrieve().WhereKeys(k).Entry(&ch).Exec(context.TODO())
+	err = s.NewRetrieve().WhereKeys(k).Entry(&ch).Exec(context.TODO())
+	return newEntity(ch), err
 }
 
 func newEntity(c Channel) schema.Entity {
-	e := schema.NewEntity(_schema)
+	e := schema.NewEntity(_schema, c.Name)
 	schema.Set(e, "key", c.Key().String())
 	schema.Set(e, "name", c.Name)
-	schema.Set(e, "nodeID", int32(c.NodeID))
+	schema.Set(e, "nodeID", uint32(c.NodeID))
 	schema.Set(e, "rate", float64(c.Rate))
-	schema.Set(e, "Density", float32(c.Density))
+	schema.Set(e, "Density", uint32(c.Density))
 	return e
 }

@@ -2,6 +2,7 @@ package channel
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -19,8 +20,9 @@ func New(
 	tsDB storage.TS,
 	client CreateTransportClient,
 	server CreateTransportServer,
+	ontology *ontology.Ontology,
 ) *Service {
-	return &Service{clusterDB: clusterDB, proxy: newLeaseProxy(cluster, clusterDB, tsDB, client, server)}
+	return &Service{clusterDB: clusterDB, proxy: newLeaseProxy(cluster, clusterDB, tsDB, client, server, ontology)}
 }
 
 func (s *Service) NewCreate() Create { return newCreate(s.proxy) }

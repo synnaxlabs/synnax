@@ -1,8 +1,8 @@
-import axios, { AxiosRequestConfig } from 'axios';
+import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
 import { ZodSchema } from 'zod';
 
 import { EncoderDecoder } from './encoder';
-import { decodeError, ErrorPayloadSchema } from './errors';
+import { ErrorPayloadSchema, decodeError } from './errors';
 import { MetaData, MiddlewareCollector } from './middleware';
 import { UnaryClient } from './unary';
 import URL from './url';
@@ -66,7 +66,7 @@ class Core extends MiddlewareCollector {
 
   async execute<RS>(
     request: AxiosRequestConfig,
-    resSchema: ZodSchema<RS>
+    resSchema: ZodSchema<RS> | null
   ): Promise<[RS | undefined, Error | undefined]> {
     let rs: RS | undefined = undefined;
 
@@ -77,7 +77,12 @@ class Core extends MiddlewareCollector {
       { target: request.url, protocol: 'http', params: {} },
       async (md: MetaData): Promise<Error | undefined> => {
         request.headers = { ...request.headers, ...this.headers, ...md.params };
-        const httpRes = await axios.request(request);
+        let httpRes: AxiosResponse;
+        try {
+          httpRes = await axios.request(request);
+        } catch (err) {
+          return err as Error;
+        }
         if (httpRes.status < 200 || httpRes.status >= 300) {
           try {
             const err = this.encoder.decode(httpRes.data, ErrorPayloadSchema);
@@ -86,7 +91,7 @@ class Core extends MiddlewareCollector {
             return new Error(httpRes.data);
           }
         }
-        rs = this.encoder.decode(httpRes.data, resSchema);
+        if (resSchema) rs = this.encoder.decode(httpRes.data, resSchema);
         return undefined;
       }
     );
@@ -102,14 +107,15 @@ class Core extends MiddlewareCollector {
 export class GETClient extends Core implements UnaryClient {
   async send<RQ, RS>(
     target: string,
-    req: RQ,
-    resSchema: ZodSchema<RS>
+    req: RQ | null,
+    resSchema: ZodSchema<RS> | null
   ): Promise<[RS | undefined, Error | undefined]> {
     const request = this.requestConfig();
     request.method = 'GET';
     request.url =
       this.endpoint.child(target).stringify() +
       buildQueryString({ request: req as Record<string, unknown> });
+    request.data = null;
     return await this.execute(request, resSchema);
   }
 }
@@ -121,14 +127,18 @@ export class GETClient extends Core implements UnaryClient {
 export class POSTClient extends Core implements UnaryClient {
   async send<RQ, RS>(
     target: string,
-    req: RQ,
-    resSchema: ZodSchema<RS>
+    req: RQ | null,
+    resSchema: ZodSchema<RS> | null
   ): Promise<[RS | undefined, Error | undefined]> {
     const url = this.endpoint.child(target).stringify();
     const request = this.requestConfig();
     request.method = 'POST';
     request.url = url;
-    request.data = this.encoder.encode(req);
+    if (req) {
+      request.data = this.encoder.encode(req);
+    } else {
+      request.data = null;
+    }
     return await this.execute(request, resSchema);
   }
 }
@@ -137,9 +147,10 @@ export const buildQueryString = ({
   request,
   prefix = '',
 }: {
-  request: Record<string, unknown>;
+  request: Record<string, unknown> | null;
   prefix?: string;
-}) => {
+}): string => {
+  if (request === null) return '';
   return (
     '?' +
     Object.keys(request)

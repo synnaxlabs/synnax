@@ -1,6 +1,8 @@
 package telem
 
 import (
+	"github.com/synnaxlabs/x/overflow"
+	"go.uber.org/zap"
 	"strconv"
 	"time"
 )
@@ -23,6 +25,9 @@ func Now() TimeStamp { return NewTimeStamp(time.Now()) }
 // NewTimeStamp creates a new TimeStamp from a time.Time.
 func NewTimeStamp(t time.Time) TimeStamp { return TimeStamp(t.UnixNano()) }
 
+// String implements fmt.Stringer.
+func (ts TimeStamp) String() string { return strconv.Itoa(int(ts)) + "ns" }
+
 // Time returns the time.Time representation of the TimeStamp.
 func (ts TimeStamp) Time() time.Time { return time.Unix(0, int64(ts)) }
 
@@ -42,10 +47,19 @@ func (ts TimeStamp) Before(t TimeStamp) bool { return ts < t }
 func (ts TimeStamp) BeforeEq(t TimeStamp) bool { return ts <= t }
 
 // Add returns a new TimeStamp with the provided TimeSpan added to it.
-func (ts TimeStamp) Add(tspan TimeSpan) TimeStamp { return TimeStamp(int64(ts) + int64(tspan)) }
+func (ts TimeStamp) Add(tspan TimeSpan) TimeStamp {
+	return TimeStamp(overflow.CapInt64(int64(ts), int64(tspan)))
+}
 
 // Sub returns a new TimeStamp with the provided TimeSpan subtracted from it.
-func (ts TimeStamp) Sub(tspan TimeSpan) TimeStamp { return TimeStamp(int64(ts) - int64(tspan)) }
+func (ts TimeStamp) Sub(tspan TimeSpan) TimeStamp { return ts.Add(-tspan) }
+
+func (ts TimeStamp) Abs() TimeStamp {
+	if ts < 0 {
+		return -ts
+	}
+	return ts
+}
 
 // SpanRange constructs a new TimeRange with the TimeStamp and provided TimeSpan.
 func (ts TimeStamp) SpanRange(span TimeSpan) TimeRange {
@@ -123,6 +137,8 @@ func (tr TimeRange) Swap() TimeRange { return TimeRange{Start: tr.End, End: tr.S
 
 func (tr TimeRange) Valid() bool { return tr.Span() >= 0 }
 
+func (tr TimeRange) Midpoint() TimeStamp { return tr.Start.Add(tr.Span() / 2) }
+
 var (
 	// TimeRangeMax represents the maximum possible value for a TimeRange.
 	TimeRangeMax = TimeRange{Start: TimeStampMin, End: TimeStampMax}
@@ -160,13 +176,21 @@ func (ts TimeSpan) ByteSize(rate Rate, density Density) Size {
 	return Size(ts / rate.Period() * TimeSpan(density))
 }
 
+// String implements fmt.Stringer.
+func (ts TimeSpan) String() string { return strconv.Itoa(int(ts)) + "ns" }
+
 const (
-	Nanosecond  = TimeSpan(1)
-	Microsecond = 1000 * Nanosecond
-	Millisecond = 1000 * Microsecond
-	Second      = 1000 * Millisecond
-	Minute      = 60 * Second
-	Hour        = 60 * Minute
+	Nanosecond    = TimeSpan(1)
+	NanosecondTS  = TimeStamp(1)
+	Microsecond   = 1000 * Nanosecond
+	MicrosecondTS = 1000 * NanosecondTS
+	Millisecond   = 1000 * Microsecond
+	MillisecondTS = 1000 * MicrosecondTS
+	Second        = 1000 * Millisecond
+	SecondTS      = 1000 * MillisecondTS
+	Minute        = 60 * Second
+	MinuteTS      = 60 * SecondTS
+	Hour          = 60 * Minute
 )
 
 // |||||| SIZE ||||||
@@ -179,7 +203,7 @@ type Offset = Size
 const Kilobytes Size = 1024
 
 // String implements fmt.Stringer.
-func (s Size) String() string { return strconv.Itoa(int(s)) + "B" }
+func (s Size) String() string { return strconv.Itoa(int(s)) + "V" }
 
 // |||||| DATA RATE ||||||
 
@@ -193,7 +217,9 @@ func (dr Rate) Period() TimeSpan { return TimeSpan(1 / float64(dr) * float64(Sec
 func (dr Rate) SampleCount(t TimeSpan) int { return int(t.Seconds() * float64(dr)) }
 
 // Span returns a TimeSpan representing the number of samples that occupy the provided Span.
-func (dr Rate) Span(sampleCount int) TimeSpan { return dr.Period() * TimeSpan(sampleCount) }
+func (dr Rate) Span(sampleCount int) TimeSpan {
+	return dr.Period() * TimeSpan(sampleCount)
+}
 
 // SizeSpan returns a TimeSpan representing the number of samples that occupy a provided number of bytes.
 func (dr Rate) SizeSpan(size Size, Density Density) TimeSpan {
@@ -209,15 +235,70 @@ const (
 
 // |||||| DENSITY ||||||
 
-type (
-	// Density represents a density in bytes per value.
-	Density uint32
-)
+// Density represents a density in bytes per value.
+type Density uint32
+
+func (d Density) SampleCount(size Size) int { return int(size) / int(d) }
+
+func (d Density) Size(sampleCount int) Size { return Size(sampleCount) * Size(d) }
 
 const (
-	DensityUnknown Density = 0
-	Bit64          Density = 8
-	Bit32          Density = 4
-	Bit16          Density = 2
-	Bit8           Density = 1
+	DensityUnknown   Density = 0
+	Bit64            Density = 8
+	Bit32            Density = 4
+	Bit16            Density = 2
+	Bit8             Density = 1
+	TimeStampDensity         = Bit64
+	TimeSpanDensity          = Bit64
 )
+
+// Approximation is an approximate position. position. Before Approximation with zero span
+// indicates that the position has been resolved with certainty. Before Approximation with a
+// non-zero span indicates that the exact position is unknown, but that the position is
+// within the range.
+type Approximation struct{ TimeRange }
+
+func ExactlyAt(ts TimeStamp) Approximation {
+	return Approximation{TimeRange: ts.SpanRange(0)}
+}
+
+func Between(start TimeStamp, end TimeStamp) Approximation {
+	return Approximation{TimeRange: TimeRange{Start: start, End: end}}
+
+}
+
+func Before(end TimeStamp) Approximation {
+	return Between(TimeStampMin, end)
+}
+
+func After(start TimeStamp) Approximation {
+	return Between(start, TimeStampMax)
+}
+
+var Uncertain = Approximation{TimeRange: TimeRangeMax}
+
+// Uncertainty returns a scalar value representing the confidence of the index in resolving
+// the position. Before value of 0 indicates that the position has been resolved with certainty.
+// Before value greater than 0 indicates that the exact position is unknown.
+func (a Approximation) Uncertainty() TimeSpan { return a.Span() }
+
+func (a Approximation) Exact() bool { return a.Uncertainty().IsZero() }
+
+// Value returns a best guess of the position.
+func (a Approximation) Value() TimeStamp { return a.Midpoint() }
+
+func (a Approximation) Contains(ts TimeStamp) bool {
+	return a.TimeRange.ContainsStamp(ts)
+}
+
+func (a Approximation) MustContain(ts TimeStamp) {
+	if !a.Contains(ts) {
+		panic("timestamp not contained in approximation")
+	}
+}
+
+func (a Approximation) WarnIfInexact() {
+	if !a.Exact() {
+		zap.S().Warnf("unexpected inexact approximation: %s", a)
+	}
+}

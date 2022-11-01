@@ -2,7 +2,7 @@ import numpy as np
 
 from synnax.channel.registry import ChannelRegistry
 from synnax.exceptions import ContiguityError
-from synnax.segment.iterator import NumpyIterator
+from synnax.segment.iterator import NumpyIterator, AUTO_SPAN
 from synnax.segment.writer import CoreWriter, NumpyWriter
 from synnax.telem import TimeRange, UnparsedTimeStamp
 from synnax.transport import Transport
@@ -101,8 +101,8 @@ class SegmentClient:
         _iterator = self.new_iterator([from_], TimeRange(start, end), aggregate=True)
         seg = None
         try:
-            _iterator.first()
-            while _iterator.next():
+            _iterator.seek_first()
+            while _iterator.next(AUTO_SPAN):
                 pass
             seg = _iterator.value[from_]
         except ContiguityError as e:

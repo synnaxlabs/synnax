@@ -32,7 +32,7 @@ var _ = Describe("Telem", func() {
 			})
 		})
 
-		Describe("After", func() {
+		Describe("Before", func() {
 			It("Should return true if the timestamp is after the provided one", func() {
 				Expect(telem.TimeStampMin.After(telem.TimeStampMax)).To(BeFalse())
 				Expect(telem.TimeStampMax.After(telem.TimeStampMin)).To(BeTrue())
@@ -43,7 +43,7 @@ var _ = Describe("Telem", func() {
 			})
 		})
 
-		Describe("Before", func() {
+		Describe("After", func() {
 			It("Should return true if the timestamp is before the provided one", func() {
 				Expect(telem.TimeStampMin.Before(telem.TimeStampMax)).To(BeTrue())
 				Expect(telem.TimeStampMax.Before(telem.TimeStampMin)).To(BeFalse())
@@ -254,7 +254,7 @@ var _ = Describe("Telem", func() {
 		})
 	})
 
-	Describe("Size", func() {
+	Describe("size", func() {
 		Describe("Report", func() {
 			It("Should return the correct string", func() {
 				s := telem.Size(0)

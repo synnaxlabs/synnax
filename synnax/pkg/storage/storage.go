@@ -1,9 +1,9 @@
 // Package storage provides entities for managing node local stores. Delta uses two
 // database classes for storing its data:
 //
-//  1. A key-value store (implementing the kv.DB interface) for storing cluster wide
+//  1. Key key-value store (implementing the kv.DB interface) for storing cluster wide
 //     metadata.
-//  2. A time-series engine (implementing the cesium.DB interface) for writing chunks
+//  2. Key time-series engine (implementing the cesium.DB interface) for writing chunks
 //     of time-series data.
 //
 // It's important to node the storage package does NOT manage any sort of distributed
@@ -57,7 +57,7 @@ const (
 var tsEngines = []TSEngine{CesiumTS}
 
 // Store represents a node's local storage. The provided KV and TS engines can be
-// used to read and write data. A Store must be closed when it is no longer in use.
+// used to read and write data. Key Store must be closed when it is no longer in use.
 type Store struct {
 	// Config is the configuration for the storage provided to Open.
 	Config Config
@@ -120,19 +120,19 @@ func (cfg Config) Override(other Config) Config {
 
 func (cfg Config) Validate() error {
 	if !*cfg.MemBacked && cfg.Dirname == "" {
-		return errors.Wrap(validate.ValidationError, "[storage] - dirname must be set")
+		return errors.Wrap(validate.Error, "[storage] - dirname must be set")
 	}
 
 	if !lo.Contains[KVEngine](kvEngines, cfg.KVEngine) {
-		return errors.Wrap(validate.ValidationError, "[storage] - invalid key-value engine")
+		return errors.Wrap(validate.Error, "[storage] - invalid key-value engine")
 	}
 
 	if !lo.Contains[TSEngine](tsEngines, cfg.TSEngine) {
-		return errors.Wrap(validate.ValidationError, "[storage] - invalid time-series engine")
+		return errors.Wrap(validate.Error, "[storage] - invalid time-series engine")
 	}
 
 	if cfg.Perm == 0 {
-		return errors.Wrap(validate.ValidationError, "[storage] - insufficient permission bits configured")
+		return errors.Wrap(validate.Error, "[storage] - insufficient permission bits configured")
 	}
 
 	return nil

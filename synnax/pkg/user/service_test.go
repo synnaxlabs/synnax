@@ -52,7 +52,7 @@ var _ = Describe("StreamService", Ordered, func() {
 			})
 		})
 	})
-	Describe("Retrieve", func() {
+	Describe("RetrieveP", func() {
 		It("Should retrieve a user by its key", func() {
 			user, err := svc.Retrieve(userKey)
 			Expect(err).ToNot(HaveOccurred())

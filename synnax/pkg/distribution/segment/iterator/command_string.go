@@ -11,22 +11,17 @@ func _() {
 	_ = x[Open-0]
 	_ = x[Next-1]
 	_ = x[Prev-2]
-	_ = x[First-3]
-	_ = x[Last-4]
-	_ = x[NextSpan-5]
-	_ = x[PrevSpan-6]
-	_ = x[NextRange-7]
-	_ = x[Valid-8]
-	_ = x[Error-9]
-	_ = x[SeekFirst-10]
-	_ = x[SeekLast-11]
-	_ = x[SeekLT-12]
-	_ = x[SeekGE-13]
+	_ = x[SeekFirst-3]
+	_ = x[SeekLast-4]
+	_ = x[SeekLE-5]
+	_ = x[SeekGE-6]
+	_ = x[Valid-7]
+	_ = x[Error-8]
 }
 
-const _Command_name = "OpenNextPrevFirstLastNextSpanPrevSpanNextRangeValidErrorSeekFirstSeekLastSeekLTSeekGE"
+const _Command_name = "OpenNextPrevSeekFirstSeekLastSeekLESeekGEValidError"
 
-var _Command_index = [...]uint8{0, 4, 8, 12, 17, 21, 29, 37, 46, 51, 56, 65, 73, 79, 85}
+var _Command_index = [...]uint8{0, 4, 8, 12, 21, 29, 35, 41, 46, 51}
 
 func (i Command) String() string {
 	if i >= Command(len(_Command_index)-1) {

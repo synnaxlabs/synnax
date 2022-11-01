@@ -38,7 +38,7 @@ export class MiddlewareCollector {
   middleware: Middleware[] = [];
 
   /** Implements the Transport interface */
-  use(...mw: Middleware[]) {
+  use(...mw: Middleware[]): void {
     this.middleware.push(...mw);
   }
 

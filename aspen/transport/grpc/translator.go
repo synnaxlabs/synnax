@@ -1,17 +1,19 @@
 package grpc
 
 import (
-	"github.com/synnaxlabs/freighter/fgrpc"
-	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/version"
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
+	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/kv"
 	"github.com/synnaxlabs/aspen/internal/node"
 	aspenv1 "github.com/synnaxlabs/aspen/transport/grpc/gen/proto/go/v1"
+	"github.com/synnaxlabs/freighter/fgrpc"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/version"
 )
 
 var (
-	_ fgrpc.Translator[node.ID, *aspenv1.ClusterPledge]              = pledgeTranslator{}
+	_ fgrpc.Translator[pledge.Request, *aspenv1.ClusterPledge]       = pledgeTranslator{}
 	_ fgrpc.Translator[gossip.Message, *aspenv1.ClusterGossip]       = clusterGossipTranslator{}
 	_ fgrpc.Translator[kv.BatchRequest, *aspenv1.BatchRequest]       = batchTranslator{}
 	_ fgrpc.Translator[kv.FeedbackMessage, *aspenv1.FeedbackMessage] = feedbackTranslator{}
@@ -19,12 +21,16 @@ var (
 
 type pledgeTranslator struct{}
 
-func (p pledgeTranslator) Forward(id node.ID) (*aspenv1.ClusterPledge, error) {
-	return &aspenv1.ClusterPledge{NodeId: uint32(id)}, nil
+func (p pledgeTranslator) Forward(req pledge.Request) (*aspenv1.ClusterPledge, error) {
+	return &aspenv1.ClusterPledge{NodeId: uint32(req.ID), ClusterKey: req.ClusterKey.String()}, nil
 }
 
-func (p pledgeTranslator) Backward(msg *aspenv1.ClusterPledge) (node.ID, error) {
-	return node.ID(msg.NodeId), nil
+func (p pledgeTranslator) Backward(msg *aspenv1.ClusterPledge) (pledge.Request, error) {
+	cKey, err := uuid.Parse(msg.ClusterKey)
+	if err != nil {
+		return pledge.Request{}, err
+	}
+	return pledge.Request{ID: node.ID(msg.NodeId), ClusterKey: cKey}, nil
 }
 
 type clusterGossipTranslator struct{}

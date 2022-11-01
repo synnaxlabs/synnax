@@ -4,6 +4,8 @@ import (
 	"context"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium"
+	. "github.com/synnaxlabs/x/testutil"
 	"go.uber.org/zap"
 	"os"
 	"testing"
@@ -14,6 +16,15 @@ var (
 	logger *zap.Logger
 )
 
+func openMemDB() cesium.DB {
+	db, err := cesium.Open("",
+		cesium.MemBacked(),
+		cesium.WithLogger(logger),
+	)
+	Expect(err).To(Succeed())
+	return db
+}
+
 func TestCaesium(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Caesium Suite")
@@ -21,7 +32,9 @@ func TestCaesium(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	ctx = context.Background()
+	logger = MustSucceed(zap.NewDevelopment())
 	logger = zap.NewNop()
+	zap.ReplaceGlobals(logger)
 })
 
 var _ = AfterSuite(func() {

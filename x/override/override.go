@@ -6,12 +6,20 @@ import (
 	"reflect"
 )
 
+func If[T any](value T, override T, condition bool) T {
+	return lo.Ternary(condition, override, value)
+}
+
 func Numeric[N types.Numeric](value N, override N) N {
 	return lo.Ternary(override != 0, override, value)
 }
 
 func String[T ~string](value T, override T) T {
 	return lo.Ternary(override != "", override, value)
+}
+
+func Zero[T ~struct{}](value T, override T) T {
+	return lo.Ternary(reflect.DeepEqual(override, T{}), value, override)
 }
 
 func Nil[T any](value T, override T) T {
@@ -24,6 +32,10 @@ func Nil[T any](value T, override T) T {
 
 func Slice[T any](value []T, override []T) []T {
 	return lo.Ternary(len(override) > 0, override, value)
+}
+
+func BooleanTrue(value bool, override bool) bool {
+	return lo.Ternary(override, override, value)
 }
 
 func isInterface[T any]() bool {

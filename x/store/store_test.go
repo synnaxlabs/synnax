@@ -3,6 +3,7 @@ package store_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/store"
 )
 
@@ -28,7 +29,7 @@ var _ = Describe("StorageKey", func() {
 	})
 	Describe("Observable", func() {
 		It("Should initialize an observable store correctly", func() {
-			s := store.ObservableWrap(store.New(copyState))
+			s := store.ObservableWrap(store.New(copyState), store.ObservableConfig[state]{GoNotify: config.BoolPointer(false)})
 			var changedState state
 			s.OnChange(func(s state) { changedState = s })
 			s.SetState(state{value: 2})

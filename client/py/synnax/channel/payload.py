@@ -14,3 +14,5 @@ class ChannelPayload(Payload):
     name: str = ""
     node_id: int = 0
     key: str = ""
+    is_index: bool = False
+    index: str = ""

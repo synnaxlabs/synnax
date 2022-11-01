@@ -9,7 +9,7 @@ import (
 
 // PersistedCounter implements a simple in64 counter that writes its value to a
 // key-value store. PersistedCounter is safe for concurrent use. To create a new
-// PersistedCounter, call NewPersistedCounter.
+// PersistedCounter, call OpenCounter.
 type PersistedCounter struct {
 	atomicx.Int64Counter
 	kve    DB
@@ -17,10 +17,10 @@ type PersistedCounter struct {
 	buffer []byte
 }
 
-// NewPersistedCounter opens or creates a persisted counter at the given key. If
+// OpenCounter opens or creates a persisted counter at the given key. If
 // the counter value is found in storage, sets its internal state. If the counter
 // value is not found in storage, sets the value to 0.
-func NewPersistedCounter(kv DB, key []byte) (*PersistedCounter, error) {
+func OpenCounter(kv DB, key []byte) (*PersistedCounter, error) {
 	c := &PersistedCounter{kve: kv, key: key, buffer: make([]byte, 8)}
 	b, err := kv.Get(key)
 	if err == nil {

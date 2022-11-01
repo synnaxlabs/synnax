@@ -19,6 +19,8 @@ type Channel struct {
 	Rate     telem.Rate          `json:"rate" msgpack:"rate" validate:"required"`
 	DataType telem.DataType      `json:"data_type" msgpack:"data_type" validate:"required"`
 	Density  telem.Density       `json:"density" msgpack:"density"`
+	IsIndex  bool                `json:"is_index" msgpack:"is_index"`
+	Index    string              `json:"index" msgpack:"index"`
 }
 
 // ChannelService is the central API for all things Channel related.

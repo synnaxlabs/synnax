@@ -1,0 +1,32 @@
+{
+    "private": true,
+    "scripts": {
+        "build": "npx turbo build",
+				"build:pluto": "npx turbo build --filter pluto",
+        "lint": "npx turbo lint",
+				"watch": "npx turbo watch --parallel",
+        "dev:pluto": "npx turbo dev --filter pluto",
+				"test:pluto": "npx turbo test --filter pluto",
+				"dev:delta": "npx turbo dev --filter delta",
+				"test:drift": "npx turbo test --filter drift",
+				"test:freighter": "npx turbo test --filter freighter",
+				"test:client": "npx turbo test --filter client",
+				"cov:client": "npx turbo cov --filter client",
+				"cov:pluto": "npx turbo cov --filter pluto",
+				"cov:drift": "npx turbo cov --filter drift",
+				"cov:freighter": "npx turbo cov --filter freighter",
+        "fix": "npx turbo fix"
+    },
+    "workspaces": [
+        "./freighter/ts",
+        "./client/ts",
+        "./delta",
+        "./pluto",
+        "./drift",
+        "./configs/ts",
+        "./configs/eslint"
+    ],
+    "devDependencies": {
+        "turbo": "^1.6.2"
+    }
+}

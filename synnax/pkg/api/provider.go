@@ -6,6 +6,7 @@ import (
 	errors "github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/auth"
 	"github.com/synnaxlabs/synnax/pkg/auth/token"
+	distribcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/user"
 	"github.com/synnaxlabs/x/gorp"
@@ -22,6 +23,8 @@ type Provider struct {
 	user       userProvider
 	access     AccessProvider
 	auth       authProvider
+	cluster    clusterProvider
+	ontology   OntologyProvider
 }
 
 func NewProvider(cfg Config) Provider {
@@ -32,6 +35,8 @@ func NewProvider(cfg Config) Provider {
 	p.user = userProvider{user: cfg.User}
 	p.access = AccessProvider{enforcer: cfg.Enforcer}
 	p.auth = authProvider{token: cfg.Token, authenticator: cfg.Authenticator}
+	p.cluster = clusterProvider{cluster: cfg.Cluster}
+	p.ontology = OntologyProvider{Ontology: cfg.Ontology}
 	return p
 }
 
@@ -95,4 +100,9 @@ type authProvider struct {
 // OntologyProvider provides the cluster wide ontology to services.
 type OntologyProvider struct {
 	Ontology *ontology.Ontology
+}
+
+// clusterProvider provides cluster topology information to services.
+type clusterProvider struct {
+	cluster distribcore.Cluster
 }

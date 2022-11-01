@@ -1,0 +1,11 @@
+.delta-line-plot__container {
+    overflow: hidden;
+    height: 100%;
+    width: 100%;
+    padding: 2rem;
+}
+
+.delta-line-plot__plot__container {
+    height: calc(100% - 36px);
+    overflow: hidden;
+}

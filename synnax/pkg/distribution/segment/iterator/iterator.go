@@ -23,45 +23,22 @@ import (
 type StreamIterator = confluence.Segment[Request, Response]
 
 type Iterator interface {
-	// Next retrieves the next segment of each channelClient's data.
-	// Returns true if the current IteratorServer.View is pointing to any valid segments.
-	// It's important to note that if channelClient data is non-contiguous, calls to Next
-	// may return segments that occupy different ranges of time.
-	Next() bool
-	// Prev retrieves the previous segment of each channelClient's data.
-	// Returns true if the current IteratorServer.View is pointing to any valid segments.
-	// It's important to note that if channelClient data is non-contiguous, calls to Prev
-	// may return segments that occupy different ranges of time.
-	Prev() bool
-	// First returns the first segment of each channelClient's data.
-	// Returns true if the current IteratorServer.View is pointing to any valid segments.
-	// It's important to note that if channelClient data is non-contiguous, calls to First
-	// may return segments that occupy different ranges of time.
-	First() bool
-	// Last returns the last segment of each channelClient's data.
-	// Returns true if the current IteratorServer.View is pointing to any valid segments.
-	// It's important to note that if channelClient data is non-contiguous, calls to Last
-	// may return segments that occupy different ranges of time.
-	Last() bool
-	// NextSpan reads all channelClient data occupying the next span of time. Returns true
+	// Next reads all channelClient data occupying the next span of time. Returns true
 	// if the current IteratorServer.View is pointing to any valid segments.
-	NextSpan(span telem.TimeSpan) bool
-	// PrevSpan reads all channelClient data occupying the previous span of time. Returns true
+	Next(span telem.TimeSpan) bool
+	// Prev reads all channelClient data occupying the previous span of time. Returns true
 	// if the current IteratorServer.View is pointing to any valid segments.
-	PrevSpan(span telem.TimeSpan) bool
-	// Range seeks the Iterator to the start of the range and reads all channelClient data
-	// until the end of the range.
-	Range(tr telem.TimeRange) bool
+	Prev(span telem.TimeSpan) bool
 	// SeekFirst seeks the iterator the start of the iterator range.
 	// Returns true if the current IteratorServer.View is pointing to any valid segments.
 	SeekFirst() bool
 	// SeekLast seeks the iterator the end of the iterator range.
 	// Returns true if the current IteratorServer.View is pointing to any valid segments.
 	SeekLast() bool
-	// SeekLT seeks the iterator to the first whose timestamp is less than or equal
+	// SeekLE seeks the iterator to the first whose timestamp is less than or equal
 	// to the given timestamp. Returns true if the current IteratorServer.View is pointing
 	// to any valid segments.
-	SeekLT(t telem.TimeStamp) bool
+	SeekLE(t telem.TimeStamp) bool
 	// SeekGE seeks the iterator to the first whose timestamp is greater than the
 	// given timestamp. Returns true if the current IteratorServer.View is pointing to
 	// any valid segments.
@@ -145,10 +122,10 @@ func NewStream(ctx context.Context, _cfg ...Config) (StreamIterator, error) {
 			return nil, err
 		}
 
-		// Set up our sender as a sink for the request pipeline.
+		// SetState up our sender as a sink for the request pipeline.
 		plumber.SetSink[Request](pipe, "sender", sender)
 
-		// Set up our remote receivers as sources for the response pipeline.
+		// SetState up our remote receivers as sources for the response pipeline.
 		receiverAddresses = make([]address.Address, len(receivers))
 		for i, c := range receivers {
 			addr := address.Newf("client-%v", i+1)
@@ -267,45 +244,15 @@ type iterator struct {
 }
 
 // Next implements Iterator.
-func (i *iterator) Next() bool {
+func (i *iterator) Next(span telem.TimeSpan) bool {
 	i.value = nil
-	return i.exec(Request{Command: Next})
+	return i.exec(Request{Command: Next, Span: span})
 }
 
 // Prev implements Iterator.
-func (i *iterator) Prev() bool {
+func (i *iterator) Prev(span telem.TimeSpan) bool {
 	i.value = nil
-	return i.exec(Request{Command: Prev})
-}
-
-// First implements Iterator.
-func (i *iterator) First() bool {
-	i.value = nil
-	return i.exec(Request{Command: First})
-}
-
-// Last implements Iterator.
-func (i *iterator) Last() bool {
-	i.value = nil
-	return i.exec(Request{Command: Last})
-}
-
-// NextSpan implements Iterator.
-func (i *iterator) NextSpan(span telem.TimeSpan) bool {
-	i.value = nil
-	return i.exec(Request{Command: NextSpan, Span: span})
-}
-
-// PrevSpan implements Iterator.
-func (i *iterator) PrevSpan(span telem.TimeSpan) bool {
-	i.value = nil
-	return i.exec(Request{Command: PrevSpan, Span: span})
-}
-
-// Range implements Iterator.
-func (i *iterator) Range(tr telem.TimeRange) bool {
-	i.value = nil
-	return i.exec(Request{Command: NextRange, Range: tr})
+	return i.exec(Request{Command: Prev, Span: span})
 }
 
 // SeekFirst implements Iterator.
@@ -320,16 +267,16 @@ func (i *iterator) SeekLast() bool {
 	return i.exec(Request{Command: SeekLast})
 }
 
-// SeekLT implements Iterator.
-func (i *iterator) SeekLT(stamp telem.TimeStamp) bool {
+// SeekLE implements Iterator.
+func (i *iterator) SeekLE(stamp telem.TimeStamp) bool {
 	i.value = nil
-	return i.exec(Request{Command: SeekLT, Stamp: stamp})
+	return i.exec(Request{Command: SeekLE, Target: stamp})
 }
 
 // SeekGE implements Iterator.
 func (i *iterator) SeekGE(stamp telem.TimeStamp) bool {
 	i.value = nil
-	return i.exec(Request{Command: SeekGE, Stamp: stamp})
+	return i.exec(Request{Command: SeekGE, Target: stamp})
 }
 
 // Valid implements Iterator.

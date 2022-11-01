@@ -7,7 +7,7 @@ import (
 	"sync"
 )
 
-var _ = Describe("Counter", func() {
+var _ = Describe("SeqNum", func() {
 	Describe("Int32Counter", func() {
 		It("Should increment the counter atomically", func() {
 			wg := sync.WaitGroup{}

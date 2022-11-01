@@ -55,7 +55,7 @@ var _ = Describe("txn", func() {
 
 	})
 
-	Describe("Set", func() {
+	Describe("SetNode", func() {
 
 		Describe("Local Leaseholder", func() {
 
@@ -224,7 +224,7 @@ var _ = Describe("txn", func() {
 			}).
 				WithPolling(250 * time.Millisecond).
 				WithTimeout(500 * time.Millisecond).
-				Should(BeElementOf([]int{5, 7}))
+				Should(BeElementOf([]int{5, 6, 7}))
 		})
 
 	})

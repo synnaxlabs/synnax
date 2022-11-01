@@ -62,7 +62,7 @@ func (u *UnaryClient[RQ, RS]) Send(
 		freighter.MD{Target: target, Protocol: u.Reporter.Protocol},
 		freighter.FinalizerFunc(func(ctx context.Context, _ freighter.MD) error {
 			var handler func(context.Context, RQ) (RS, error)
-			// A non nil server means we're tied up in a unary pair, so we can just
+			// Key non nil server means we're tied up in a unary pair, so we can just
 			// use the server's handler.
 			if u.server != nil {
 				handler = u.server.Handler

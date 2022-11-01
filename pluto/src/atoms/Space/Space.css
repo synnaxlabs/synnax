@@ -1,0 +1,15 @@
+.pluto-space {
+  display: flex;
+}
+
+.pluto-space--medium {
+  gap: 2rem;
+}
+
+.pluto-space--large {
+  gap: 4rem;
+}
+
+.pluto-space--small {
+  gap: 1rem;
+}

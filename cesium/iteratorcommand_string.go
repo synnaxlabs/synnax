@@ -10,22 +10,17 @@ func _() {
 	var x [1]struct{}
 	_ = x[IterNext-1]
 	_ = x[IterPrev-2]
-	_ = x[IterFirst-3]
-	_ = x[IterLast-4]
-	_ = x[IterNextSpan-5]
-	_ = x[IterPrevSpan-6]
-	_ = x[IterReadView-7]
-	_ = x[IterValid-8]
-	_ = x[IterError-9]
-	_ = x[IterSeekFirst-10]
-	_ = x[IterSeekLast-11]
-	_ = x[IterSeekLT-12]
-	_ = x[IterSeekGE-13]
+	_ = x[IterSeekFirst-3]
+	_ = x[IterSeekLast-4]
+	_ = x[IterSeekLE-5]
+	_ = x[IterSeekGE-6]
+	_ = x[IterValid-7]
+	_ = x[IterError-8]
 }
 
-const _IteratorCommand_name = "IterNextIterPrevIterFirstIterLastIterNextSpanIterPrevSpanIterRangeIterValidIterErrorIterSeekFirstIterSeekLastIterSeekLTIterSeekGE"
+const _IteratorCommand_name = "IterNextIterPrevIterSeekFirstIterSeekLastIterSeekLEIterSeekGEIterValidIterError"
 
-var _IteratorCommand_index = [...]uint8{0, 8, 16, 25, 33, 45, 57, 66, 75, 84, 97, 109, 119, 129}
+var _IteratorCommand_index = [...]uint8{0, 8, 16, 29, 41, 51, 61, 70, 79}
 
 func (i IteratorCommand) String() string {
 	i -= 1

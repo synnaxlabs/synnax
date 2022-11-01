@@ -1,4 +1,8 @@
-export { default as Synnax } from './lib/client';
+export {
+  default as Synnax,
+  synnaxPropsSchema,
+  SynnaxProps,
+} from './lib/client';
 export * from './lib/telem';
 export {
   AuthError,
@@ -10,4 +14,7 @@ export {
   UnexpectedError,
   ValidationError,
 } from './lib/errors';
-export { Channel } from './lib/channel/client';
+export * from './lib/channel';
+export * from './lib/ontology';
+export * from './lib/connectivity';
+export * from './lib/ontology';
