@@ -10,6 +10,7 @@
 		"watch": "tsc && vite build --watch",
     "preview": "vite preview",
     "test": "vitest",
+		"cov": "vitest --coverage",
     "lint": "TIMING=1 eslint \"src/**/*.ts*\"",
     "fix": "eslint \"src/**/*.ts*\" --fix"
   },
