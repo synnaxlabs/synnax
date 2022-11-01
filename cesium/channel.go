@@ -73,7 +73,7 @@ func (d *db) validateIndexExists(idxKey ChannelKey) error {
 	ch, err := d.channels.GetChannel(idxKey)
 	if errors.Is(err, query.NotFound) {
 		return errors.Wrapf(
-			validate.ValidationError,
+			validate.Error,
 			"[cesium] - provided index %s does not exist",
 			idxKey,
 		)
@@ -83,7 +83,7 @@ func (d *db) validateIndexExists(idxKey ChannelKey) error {
 	}
 	if !ch.IsIndex {
 		return errors.Wrapf(
-			validate.ValidationError,
+			validate.Error,
 			"[cesium] - provided channel %s is not an index",
 			idxKey,
 		)
@@ -97,7 +97,7 @@ func (d *db) validateChannelKeyNotAssigned(chKey ChannelKey) error {
 		return err
 	}
 	return errors.Wrapf(
-		validate.ValidationError,
+		validate.Error,
 		"[cesium] - provided key %s already assigned",
 		chKey,
 	)
@@ -106,13 +106,13 @@ func (d *db) validateChannelKeyNotAssigned(chKey ChannelKey) error {
 func (d *db) validateNewIndexChannel(ch *Channel) error {
 	if ch.Index != 0 {
 		return errors.Wrapf(
-			validate.ValidationError,
+			validate.Error,
 			"[cesium] - index channel can not be indexed",
 		)
 	}
 	if ch.Density != telem.TimeStampDensity {
 		return errors.Wrap(
-			validate.ValidationError,
+			validate.Error,
 			"[cesium] - index channel must use int64 timestamps",
 		)
 	}

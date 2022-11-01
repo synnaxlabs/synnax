@@ -25,7 +25,7 @@ func (v *Validator) Ternary(cond bool, msg string) {
 func (v *Validator) Ternaryf(cond bool, format string, args ...any) {
 	v.Exec(func() error {
 		return lo.Ternary(cond,
-			errors.Wrapf(Error, "[%s] - "+format, append([]any{v.scope}, args)...),
+			errors.Wrapf(Error, "[%s] - "+format, append([]any{v.scope}, args...)...),
 			nil,
 		)
 	})
