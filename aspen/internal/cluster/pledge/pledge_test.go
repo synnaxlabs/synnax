@@ -206,7 +206,6 @@ var _ = Describe("PledgeServer", func() {
 					pledge.BlazingFastConfig,
 				)
 				Expect(err).To(HaveOccurredAs(context.DeadlineExceeded))
-				Expect(res.ID).To(Equal(node.ID(0)))
 			})
 		})
 		Describe("Cancelling a pledge", func() {

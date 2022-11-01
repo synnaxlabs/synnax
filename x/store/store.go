@@ -93,7 +93,11 @@ type observable[S State] struct {
 }
 
 type ObservableConfig[S State] struct {
+	// ShouldNotify is a function that diffs the old and new state and returns
+	// true if subscribers of the state should be notified.
 	ShouldNotify func(prevState S, nextState S) bool
+	// GoNotify is a boolean indicating whether to notify subscribers in a goroutine.
+	GoNotify *bool
 }
 
 var _ config.Config[ObservableConfig[any]] = ObservableConfig[any]{}
@@ -102,6 +106,7 @@ func (o ObservableConfig[S]) Override(
 	other ObservableConfig[S],
 ) ObservableConfig[S] {
 	o.ShouldNotify = override.Nil(o.ShouldNotify, other.ShouldNotify)
+	o.GoNotify = override.Nil(o.GoNotify, other.GoNotify)
 	return o
 }
 
@@ -110,14 +115,20 @@ func (o ObservableConfig[S]) Validate() error {
 }
 
 func ObservableWrap[S State](store Store[S], cfgs ...ObservableConfig[S]) Observable[S] {
-	cfg, _ := config.OverrideAndValidate(ObservableConfig[S]{}, cfgs...)
+	cfg, _ := config.OverrideAndValidate(ObservableConfig[S]{
+		GoNotify: config.BoolPointer(true),
+	}, cfgs...)
 	return &observable[S]{ObservableConfig: cfg, Store: store, Observer: observe.New[S]()}
 }
 
 // SetState implements StorageKey.CopyState.
 func (o *observable[S]) SetState(state S) {
 	if o.ShouldNotify == nil || o.ShouldNotify(o.PeekState(), state) {
-		o.Observer.GoNotify(state)
+		if *o.ObservableConfig.GoNotify {
+			o.Observer.GoNotify(state)
+		} else {
+			o.Observer.Notify(state)
+		}
 	}
 	o.Store.SetState(state)
 }
