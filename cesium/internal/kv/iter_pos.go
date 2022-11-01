@@ -55,7 +55,7 @@ func (i *positionIterator) SetBounds(rng position.Range) {
 		rng.Start = internal.Value().Alignment
 	}
 
-	// SeekLE to the first segment that ends AFTER then end of the range If internal
+	// SeekGE to the first segment that ends AFTER then end of the range. If internal
 	// overlaps with our desired range, we'll use internal as the ending point for the
 	// iterator. Otherwise, we'll seek to the first segment that ends before the
 	// end of the range. If this Bounds overlaps with our desired range, we'll use internal
@@ -134,6 +134,10 @@ func (i *positionIterator) Next(span position.Span) bool {
 		return false
 	}
 
+	if span == core.AutoPosSpan {
+		return i.autoNext()
+	}
+
 	i.reset(i.view.End.SpanRange(span).BoundBy(i.bounds))
 
 	// Check the current iterator value. If it overlaps with the view, we'll use it.
@@ -154,6 +158,37 @@ func (i *positionIterator) Next(span position.Span) bool {
 	return i.value.PartiallySatisfied()
 }
 
+func (i *positionIterator) autoNext() bool {
+	i.reset(i.view.End.SpanRange(position.SpanMax).BoundBy(i.bounds))
+
+	if i.View().IsZero() {
+		i.value.Accumulate(i.internal.Value())
+		return i.value.PartiallySatisfied()
+	}
+
+	if !i.internal.Next() {
+		return false
+	}
+
+	i.value.Accumulate(i.internal.Value())
+	i.view = i.internal.Value().Range(i.ch.Density)
+	return i.value.PartiallySatisfied()
+}
+
+func (i *positionIterator) autoPrev() bool {
+	i.reset(i.view.Start.SpanRange(-position.SpanMax).BoundBy(i.bounds))
+
+	if i.View().IsZero() {
+		i.value.Accumulate(i.internal.Value())
+		return i.value.PartiallySatisfied()
+	}
+
+	i.internal.Prev()
+	i.value.Accumulate(i.internal.Value())
+	i.view = i.internal.Value().Range(i.ch.Density)
+	return i.value.PartiallySatisfied()
+}
+
 // Prev implements core.PositionIterator.
 func (i *positionIterator) Prev(span position.Span) bool {
 	// If the current view is already at the beginning of the bounds, we can't go
@@ -163,8 +198,11 @@ func (i *positionIterator) Prev(span position.Span) bool {
 		return false
 	}
 
-	i.view = i.view.Start.SpanRange(-span).BoundBy(i.bounds)
-	i.value.Reset(i.view)
+	if span == core.AutoPosSpan {
+		return i.autoPrev()
+	}
+
+	i.reset(i.view.Start.SpanRange(-span).BoundBy(i.bounds))
 
 	// Check the current iterator value. If it overlaps with the view, we'll use it.
 	i.value.Accumulate(i.internal.Value())

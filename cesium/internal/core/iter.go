@@ -5,6 +5,11 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
+const (
+	AutoTimeSpan = telem.TimeSpan(-1)
+	AutoPosSpan  = position.Span(-1)
+)
+
 // BaseIterator is the base iterator all iterators must implement.
 type BaseIterator interface {
 	// Close closes the iterator, frees all resources, and returns any accumulated

@@ -3,6 +3,7 @@ package cesium
 import (
 	"context"
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -117,6 +118,11 @@ const (
 
 // HasOps returns true if the IteratorCommand has any associated on disk operations.
 func (i IteratorCommand) HasOps() bool { return i <= IterPrev }
+
+// AutoSpan is a TimeSpan value that can be passed to PrevSpan or NextSpan to indicate
+// that the iterator should automatically determine the span to use. This is useful
+// for efficiently iterating over large spans of time quickly.
+const AutoSpan = core.AutoTimeSpan
 
 // IteratorRequest is issued to an StreamIterator asking it to read data from a DB.
 //

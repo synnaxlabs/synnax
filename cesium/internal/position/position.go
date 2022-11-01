@@ -114,6 +114,11 @@ func (s Span) IsZero() bool { return s == 0 }
 
 func (s Span) String() string { return strconv.Itoa(int(s)) }
 
+const (
+	SpanMax = Span(int64(^uint64(0) >> 1))
+	SpanMin = Span(0)
+)
+
 type Bytes uint64
 
 // Approximation is an approximate position. position. A Approximation with zero span

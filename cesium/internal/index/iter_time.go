@@ -79,13 +79,20 @@ func (i *timeIterator) SeekLast() bool {
 
 // Next implements core.TimeIterator.
 func (i *timeIterator) Next(span telem.TimeSpan) bool {
+	if span == core.AutoTimeSpan {
+		if !i.internal.Next(core.AutoPosSpan) {
+			return false
+		}
+		return i.updateView()
+	}
+
 	start := i.internal.View().End
 	endApprox, ok := i.searchPInBounds(i.view.End.Add(span))
 	if !ok {
 		return false
 	}
 	posSpan := start.Span(endApprox.Start)
-	// When we approach the ned of the bounds, we end up
+	// When we approach the end of the bounds, we end up
 	// approximating a zero span, and end up in an infinite loop.
 	// This is a workaround for that.
 	if endApprox.End == i.internal.Bounds().End {
@@ -99,6 +106,12 @@ func (i *timeIterator) Next(span telem.TimeSpan) bool {
 
 // Prev implements core.TimeIterator.
 func (i *timeIterator) Prev(span telem.TimeSpan) bool {
+	if span == core.AutoTimeSpan {
+		if !i.internal.Prev(core.AutoPosSpan) {
+			return false
+		}
+		return i.updateView()
+	}
 	end := i.internal.View().Start
 	startApprox, ok := i.searchPInBounds(i.view.Start.Sub(span))
 	if !ok {

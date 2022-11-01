@@ -5,11 +5,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	distribcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/segment/core"
+	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/telem"
 )
 
 //go:generate stringer -type=Command
 type Command uint8
+
+const AutoSpan = storage.AutoSpan
 
 const (
 	Open Command = iota
