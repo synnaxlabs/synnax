@@ -1,7 +1,7 @@
 import { Action, AnyAction } from "@reduxjs/toolkit";
 
-import { PreloadedState, StoreState } from "./state";
-import { KeyedWindowProps } from "./window";
+import { PreloadedState, StoreState } from "@/state";
+import { KeyedWindowProps } from "@/window";
 
 /**
  * An event emitted by drift to communicate state changes.

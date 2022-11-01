@@ -4,14 +4,9 @@ import react from "@vitejs/plugin-react";
 import dts from "vite-plugin-dts";
 import tsConfigPaths from "vite-tsconfig-paths";
 
-console.log(path.resolve(__dirname, "tsconfig.json").toString());
-console.log(path.resolve(__dirname, "src/index.ts").toString());
-
 export default defineConfig({
 	plugins: [
-		tsConfigPaths({
-			projects: [path.resolve(__dirname, "tsconfig.json")],
-		}),
+		tsConfigPaths(),
 		react(),
 		dts({
 			insertTypesEntry: true,
