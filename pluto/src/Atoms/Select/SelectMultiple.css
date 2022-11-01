@@ -4,7 +4,8 @@
 
 .pluto-select-multiple__container {
     position: relative;
-    flex-grow: 1;}
+    flex-grow: 1;
+	}
 
 .pluto-select-multiple__list {
     background-color: var(--pluto-gray-m3);
@@ -23,12 +24,12 @@
 
 .pluto-select-multiple__list--top {
     border-radius: var(--pluto-border-radius) var(--pluto-border-radius) 0 0;
-    bottom: 29px;
+    bottom: calc(4.5rem - 1px);
 }
 
 .pluto-select-multiple__list--bottom {
     border-radius: 0 0 var(--pluto-border-radius) var(--pluto-border-radius);
-    top: 29px;
+    top: calc(4.5rem - 1px);
 }
 
 .pluto-select-multiple__input__input {
@@ -46,7 +47,7 @@
 }
 
 .pluto-select-multiple__input__tags::-webkit-scrollbar {
-    display: none; 
+    display: none;
 }
 
 .pluto-select-multiple__input__tags__close {

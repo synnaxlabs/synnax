@@ -57,8 +57,12 @@
       "name": "synnax-server",
     },
     {
-      "path": "../void",
-      "name": "void"
+      "path": "../delta",
+      "name": "delta"
+    },
+    {
+      "path": "../x",
+      "name": "x",
     }
   ],
   "settings": {

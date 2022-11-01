@@ -13,8 +13,14 @@
         "dev": {
             "cache": false
         },
+				"watch": {
+					"cache": false
+				},
         "fix": {
             "cache": false
-        }
+        },
+				"test": {
+					"cache": false
+				}
     }
 }

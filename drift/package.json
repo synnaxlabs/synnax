@@ -6,8 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+		"watch": "tsc && vite build --watch",
     "preview": "vite preview",
-    "lint": "TIMING=1 eslint \"src/**/*.ts*\""
+    "lint": "TIMING=1 eslint \"src/**/*.ts*\"",
+		"test": "vitest --coverage"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^2.2.0",

@@ -3,13 +3,17 @@
     "scripts": {
         "build": "npx turbo build",
         "lint": "npx turbo lint",
+				"watch": "npx turbo watch --parallel",
         "dev:pluto": "npx turbo dev --filter pluto",
+				"test:pluto": "npx turbo test --filter pluto",
+				"dev:delta": "npx turbo dev --filter delta",
+				"test:drift": "npx turbo test --filter drift",
         "fix": "npx turbo fix"
     },
     "workspaces": [
         "./freighter/ts",
         "./client/ts",
-        "./void",
+        "./delta",
         "./pluto",
         "./drift",
         "./configs/ts",

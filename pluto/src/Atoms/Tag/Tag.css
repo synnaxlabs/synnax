@@ -4,8 +4,10 @@
 }
 
 .pluto-tag {
-    padding: 0.5rem 1.5rem;
+    padding: 0rem 1rem;
     border-radius: var(--pluto-border-radius);
     user-select: none;
     width: fit-content;
+		height: 100%;
+		max-height: 5rem;
 }

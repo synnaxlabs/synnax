@@ -1,0 +1,47 @@
+{
+  "name": "@synnaxlabs/delta",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tauri dev",
+		"dev:vite": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@fontsource/inter": "^4.5.14",
+    "@hookform/resolvers": "^2.9.9",
+    "@synnaxlabs/client": "*",
+    "@synnaxlabs/pluto": "*",
+    "@synnaxlabs/drift":  "*",
+    "@tauri-apps/api": "^1.1.0",
+    "clsx": "^1.2.1",
+    "nanoid": "^4.0.0",
+    "proxy-memoize": "^1.2.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-hook-form": "^7.38.0",
+    "react-icons": "^4.4.0",
+    "react-redux": "^8.0.4",
+    "react-router-dom": "6",
+    "uplot": "^1.6.22",
+    "uuid": "^9.0.0",
+    "vite-plugin-svgr": "^2.2.1",
+    "zod": "^3.19.1"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^1.1.1",
+    "@types/react": "^18.0.17",
+    "@types/react-dom": "^18.0.6",
+    "@types/uuid": "^8.3.4",
+    "@vitejs/plugin-react": "^2.1.0",
+    "eslint": "^8.0.1",
+		"@synnaxlabs/tsconfig": "*",
+		"eslint-config-synnaxlabs": "*",
+    "prettier": "2.7.1",
+    "typescript": "*",
+    "vite": "^3.1.0",
+    "vite-tsconfig-paths": "^3.5.2"
+  }
+}

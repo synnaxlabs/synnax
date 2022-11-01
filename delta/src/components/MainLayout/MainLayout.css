@@ -1,0 +1,10 @@
+.delta-main__container {
+    width: 100vw;
+    height: 100vh;
+}
+
+.delta-main-layout__content {
+    height: calc(100vh - 72px);
+    flex-grow: 1;
+    overflow: hidden;
+}
