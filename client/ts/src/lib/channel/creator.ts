@@ -4,17 +4,17 @@ import { z } from 'zod';
 import { DataType, Rate, UnparsedDataType, UnparsedRate } from '../telem';
 import Transport from '../transport';
 
-import { ChannelPayload, ChannelPayloadSchema } from './payload';
+import { ChannelPayload, channelPayloadSchema } from './payload';
 
 const RequestSchema = z.object({
-  channel: ChannelPayloadSchema,
+  channel: channelPayloadSchema,
   count: z.number(),
 });
 
 type Request = z.infer<typeof RequestSchema>;
 
 const ResponseSchema = z.object({
-  channels: ChannelPayloadSchema.array(),
+  channels: channelPayloadSchema.array(),
 });
 
 type Response = z.infer<typeof ResponseSchema>;

@@ -33,5 +33,6 @@ service PledgeService {
 }
 
 message ClusterPledge {
-  uint32 node_id = 1;
+  string cluster_key = 1;
+  uint32 node_id = 2;
 }

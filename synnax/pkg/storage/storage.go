@@ -120,19 +120,19 @@ func (cfg Config) Override(other Config) Config {
 
 func (cfg Config) Validate() error {
 	if !*cfg.MemBacked && cfg.Dirname == "" {
-		return errors.Wrap(validate.ValidationError, "[storage] - dirname must be set")
+		return errors.Wrap(validate.Error, "[storage] - dirname must be set")
 	}
 
 	if !lo.Contains[KVEngine](kvEngines, cfg.KVEngine) {
-		return errors.Wrap(validate.ValidationError, "[storage] - invalid key-value engine")
+		return errors.Wrap(validate.Error, "[storage] - invalid key-value engine")
 	}
 
 	if !lo.Contains[TSEngine](tsEngines, cfg.TSEngine) {
-		return errors.Wrap(validate.ValidationError, "[storage] - invalid time-series engine")
+		return errors.Wrap(validate.Error, "[storage] - invalid time-series engine")
 	}
 
 	if cfg.Perm == 0 {
-		return errors.Wrap(validate.ValidationError, "[storage] - insufficient permission bits configured")
+		return errors.Wrap(validate.Error, "[storage] - insufficient permission bits configured")
 	}
 
 	return nil

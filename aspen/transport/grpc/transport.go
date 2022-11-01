@@ -5,7 +5,6 @@ import (
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/kv"
-	"github.com/synnaxlabs/aspen/internal/node"
 	aspenv1 "github.com/synnaxlabs/aspen/transport/grpc/gen/proto/go/v1"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/x/address"
@@ -18,15 +17,15 @@ import (
 
 type (
 	pledgeClient = fgrpc.UnaryClient[
-		node.ID,
+		pledge.Request,
 		*aspenv1.ClusterPledge,
-		node.ID,
+		pledge.Response,
 		*aspenv1.ClusterPledge,
 	]
 	pledgeServer = fgrpc.UnaryServer[
-		node.ID,
+		pledge.Request,
 		*aspenv1.ClusterPledge,
-		node.ID,
+		pledge.Response,
 		*aspenv1.ClusterPledge,
 	]
 	clusterGossipClient = fgrpc.UnaryClient[

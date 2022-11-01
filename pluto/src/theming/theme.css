@@ -1,0 +1,114 @@
+
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  --pluto-border: var(--pluto-border-width) solid var(--pluto-border-color);
+  background-color: var(--pluto-background-color);
+  margin: 0;
+  height: 100%;
+  width: 100%;
+  font-size: var(--pluto-base-size);
+}
+
+body {
+  margin: 0;
+  height: 100%;
+  width: 100%;
+}
+
+#root {
+  height: 100%;
+  width: 100%;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+label {
+  font-family: var(--pluto-font-family);
+  color: var(--pluto-text-color);
+  margin: 0;
+}
+
+h1 {
+  font-size: var(--pluto-h1-size);
+  line-height: var(--pluto-h1-line-height);
+  font-weight: var(--pluto-h1-weight);
+}
+
+h2 {
+  font-size: var(--pluto-h2-size);
+  line-height: var(--pluto-h2-line-height);
+  font-weight: var(--pluto-h2-weight);
+}
+
+h3 {
+  font-size: var(--pluto-h3-size);
+  line-height: var(--pluto-h3-line-height);
+  font-weight: var(--pluto-h3-weight);
+}
+
+h4 {
+  font-size: var(--pluto-h4-size);
+  line-height: var(--pluto-h4-line-height);
+  font-weight: var(--pluto-h4-weight);
+}
+
+h5 {
+  font-size: var(--pluto-h5-size);
+  line-height: var(--pluto-h5-line-height);
+  font-weight: var(--pluto-h5-weight);
+}
+
+h6 {
+  font-size: var(--pluto-small-size);
+  line-height: var(--pluto-small-line-height);
+  font-weight: var(--pluto-small-weight);
+}
+
+p, label {
+  font-size: var(--pluto-p-size);
+  line-height: var(--pluto-p-line-height);
+  font-weight: var(--pluto-p-weight);
+}
+
+
+::-webkit-scrollbar {
+  width: 1.5rem;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--pluto-gray-m3);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--pluto-gray-m1);
+  border-radius: var(--pluto-border-radius);
+}
+
+.pluto-bordered--all {
+  border: var(--pluto-border);
+}
+
+.pluto-bordered--right {
+  border-right: var(--pluto-border);
+}
+
+.pluto-bordered--left {
+  border-left: var(--pluto-border);
+}
+
+.pluto-bordered--top {
+  border-top: var(--pluto-border);
+}
+
+.pluto-bordered--bottom {
+  border-bottom: var(--pluto-border);
+}

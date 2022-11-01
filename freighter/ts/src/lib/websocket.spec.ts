@@ -2,7 +2,7 @@ import test from 'ava';
 import { z } from 'zod';
 
 import { JSONEncoderDecoder } from './encoder';
-import { BaseTypedError, EOF, registerError, TypedError } from './errors';
+import { BaseTypedError, EOF, TypedError, registerError } from './errors';
 import URL from './url';
 import { WebSocketClient } from './websocket';
 

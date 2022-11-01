@@ -31,11 +31,11 @@ var _ = Describe("CreateChannel", func() {
 	Describe("validation Errors", func() {
 		It("Should return an error if the data rate is zero", func() {
 			ch.Rate = 0
-			Expect(db.CreateChannel(&ch)).To(HaveOccurredAs(validate.ValidationError))
+			Expect(db.CreateChannel(&ch)).To(HaveOccurredAs(validate.Error))
 		})
 		It("Should return an error if the density is zero", func() {
 			ch.Density = 0
-			Expect(db.CreateChannel(&ch)).To(HaveOccurredAs(validate.ValidationError))
+			Expect(db.CreateChannel(&ch)).To(HaveOccurredAs(validate.Error))
 		})
 	})
 	Describe("Unique Violation", func() {

@@ -10,7 +10,7 @@ import (
 )
 
 var _ = Describe("Entries", func() {
-	Describe("Get and Set", func() {
+	Describe("Get and SetState", func() {
 		It("Should return an empty slice if no entries were set on the query", func() {
 			q := gorp.NewRetrieve[int, entry]()
 			entries := gorp.GetEntries[int, entry](q)

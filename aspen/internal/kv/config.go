@@ -65,7 +65,7 @@ func (cfg Config) Override(other Config) Config {
 
 func (cfg Config) Validate() error {
 	v := validate.New("kv")
-	validate.NotNil(v, "Cluster", cfg.Cluster)
+	validate.NotNil(v, "cluster", cfg.Cluster)
 	validate.NotNil(v, "BatchTransportClient", cfg.BatchTransportClient)
 	validate.NotNil(v, "BatchTransportServer", cfg.BatchTransportServer)
 	validate.NotNil(v, "FeedbackTransportClient", cfg.FeedbackTransportClient)

@@ -46,10 +46,10 @@ type Writer interface {
 	// DefineRelationship defines a directional relationship of type t between the
 	// resources with the given IDs. If the relationship already exists, DefineRelationship
 	// does nothing.
-	DefineRelationship(from, to ID, t RelationshipType) error
+	DefineRelationship(from ID, t RelationshipType, to ID) error
 	// DeleteRelationship deletes the relationship with the given IDs and type. If the
 	// relationship does not exist, DeleteRelationship does nothing.
-	DeleteRelationship(from, to ID, t RelationshipType) error
+	DeleteRelationship(from ID, t RelationshipType, to ID) error
 	// NewRetrieve opens a new Retrieve query that uses the Writer's transaction.
 	NewRetrieve() Retrieve
 }

@@ -1,6 +1,4 @@
-export const sortFunc = <V extends unknown>(
-  t: string
-): ((a: V, b: V) => number) => {
+export const sortFunc = <V>(t: string): ((a: V, b: V) => number) => {
   switch (t) {
     case "string":
       return (a: V, b: V) => (a as string).localeCompare(b as string);
@@ -8,6 +6,6 @@ export const sortFunc = <V extends unknown>(
       return (a: V, b: V) => (a as number) - (b as number);
     default:
       console.warn("sortFunc: unknown type");
-      return (a: V, b: V) => 0;
+      return () => 0;
   }
 };

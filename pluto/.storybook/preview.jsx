@@ -1,5 +1,4 @@
-import { ThemeProvider } from "../src/Theme/ThemeContext.tsx";
-import {synnaxDark, synnaxLight} from "../src/Theme/theme.ts";
+import { Theming } from "../src"
 import "./index.css"
 
 export const parameters = {
@@ -13,5 +12,5 @@ export const parameters = {
 };
 
 export const decorators = [
-  (Story) => <ThemeProvider themes={[synnaxDark]}>{Story()}</ThemeProvider>,
+  (Story) => <Theming.Provider theme={Theming.themes.synnaxDark}>{Story()}</Theming.Provider>,
 ];

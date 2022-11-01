@@ -51,7 +51,7 @@ func newStoreEmitter(s store, cfg Config) source {
 }
 
 func (e *storeEmitter) Emit(ctx context.Context) (BatchRequest, error) {
-	return e.store.ReadState().toBatchRequest(), nil
+	return e.store.PeekState().toBatchRequest(), nil
 }
 
 type storeSink struct {

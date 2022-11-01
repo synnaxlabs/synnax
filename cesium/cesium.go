@@ -2,6 +2,8 @@ package cesium
 
 import (
 	"context"
+	"github.com/cockroachdb/errors"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/kv"
 	"github.com/synnaxlabs/cesium/internal/segment"
@@ -12,8 +14,6 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"github.com/cockroachdb/errors"
-	"github.com/samber/lo"
 	"go.uber.org/zap"
 )
 
@@ -183,13 +183,13 @@ func (d *db) NewStreamIterator(tr telem.TimeRange, keys ...ChannelKey) (StreamIt
 func (d *db) CreateChannel(ch *Channel) error {
 	if ch.Rate <= 0 {
 		return errors.Wrap(
-			validate.ValidationError,
+			validate.Error,
 			"[cesium] - channel data rate must be positive",
 		)
 	}
 	if ch.Density == 0 {
 		return errors.Wrap(
-			validate.ValidationError,
+			validate.Error,
 			"[cesium] - channel density cannot be zero",
 		)
 	}

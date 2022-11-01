@@ -5,7 +5,6 @@ import (
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/kv"
-	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter/fmock"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/signal"
@@ -13,7 +12,7 @@ import (
 )
 
 type Network struct {
-	pledge     *fmock.Network[node.ID, node.ID]
+	pledge     *fmock.Network[pledge.Request, pledge.Response]
 	cluster    *fmock.Network[gossip.Message, gossip.Message]
 	operations *fmock.Network[kv.BatchRequest, kv.BatchRequest]
 	lease      *fmock.Network[kv.BatchRequest, types.Nil]
@@ -22,7 +21,7 @@ type Network struct {
 
 func NewNetwork() *Network {
 	return &Network{
-		pledge:     fmock.NewNetwork[node.ID, node.ID](),
+		pledge:     fmock.NewNetwork[pledge.Request, pledge.Response](),
 		cluster:    fmock.NewNetwork[gossip.Message, gossip.Message](),
 		operations: fmock.NewNetwork[kv.BatchRequest, kv.BatchRequest](),
 		lease:      fmock.NewNetwork[kv.BatchRequest, types.Nil](),
@@ -35,8 +34,8 @@ func (n *Network) NewTransport() aspen.Transport { return &transport{net: n} }
 // transport is an in-memory, synchronous implementation of aspen.transport.
 type transport struct {
 	net            *Network
-	pledgeServer   *fmock.UnaryServer[node.ID, node.ID]
-	pledgeClient   *fmock.UnaryClient[node.ID, node.ID]
+	pledgeServer   *fmock.UnaryServer[pledge.Request, pledge.Response]
+	pledgeClient   *fmock.UnaryClient[pledge.Request, pledge.Response]
 	clusterServer  *fmock.UnaryServer[gossip.Message, gossip.Message]
 	clusterClient  *fmock.UnaryClient[gossip.Message, gossip.Message]
 	batchServer    *fmock.UnaryServer[kv.BatchRequest, kv.BatchRequest]

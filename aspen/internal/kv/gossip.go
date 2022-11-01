@@ -69,7 +69,7 @@ func (g *operationReceiver) handle(ctx context.Context, req BatchRequest) (Batch
 		return BatchRequest{}, ctx.Err()
 	case g.Out.Inlet() <- req:
 	}
-	br := g.store.ReadState().toBatchRequest()
+	br := g.store.PeekState().toBatchRequest()
 	br.Sender = g.Cluster.HostID()
 	return br, nil
 }

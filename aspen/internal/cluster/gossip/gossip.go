@@ -70,7 +70,7 @@ func (g *Gossip) GossipOnceWith(ctx context.Context, addr address.Address) error
 func (g *Gossip) incrementHostHeartbeat() {
 	host := g.Store.GetHost()
 	host.Heartbeat = host.Heartbeat.Increment()
-	g.Store.Set(host)
+	g.Store.SetNode(host)
 }
 
 func (g *Gossip) process(ctx context.Context, msg Message) (Message, error) {

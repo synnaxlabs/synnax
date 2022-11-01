@@ -49,10 +49,21 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 		return d, err
 	}
 
+	nodeOntologySvc := &core.NodeOntologyService{
+		Logger:   cfg.Logger.Sugar(),
+		Ontology: d.Ontology,
+		Cluster:  d.Cluster,
+	}
+	clusterOntologySvc := &core.ClusterOntologyService{Cluster: d.Cluster}
+	d.Ontology.RegisterService(clusterOntologySvc)
+	d.Ontology.RegisterService(nodeOntologySvc)
+	nodeOntologySvc.ListenForChanges()
+
 	channelClient, channelServer := channeltransport.New(cfg.Pool)
 	segmentTransport := segmenttransport.New(cfg.Pool)
 	*cfg.Transports = append(*cfg.Transports, channelServer, segmentTransport)
-	d.Channel = channel.New(d.Cluster, gorpDB, d.Storage.TS, channelClient, channelServer)
+	d.Channel = channel.New(d.Cluster, gorpDB, d.Storage.TS, channelClient, channelServer, d.Ontology)
+	d.Ontology.RegisterService(d.Channel)
 	d.Segment = segment.New(d.Channel, d.Storage.TS, segmentTransport, d.Cluster, cfg.Logger)
 
 	return d, nil
