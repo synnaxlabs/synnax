@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "start-storybook -p 6006",
     "build-storybook": "tsc && build-storybook",
-    "build": "tsc && vite build --config ./pluto/vite.config.ts",
+    "build": "tsc && vite build --config ./pluto/vite.config",
 		"watch": "tsc && vite build --watch",
     "preview": "vite preview",
     "test": "vitest",
@@ -17,16 +17,16 @@
   "dependencies": {
     "@juggle/resize-observer": "^3.4.0",
     "@tanstack/react-virtual": "^3.0.0-beta.18",
-    "@testing-library/user-event": "^14.4.3",
     "clsx": "^1.2.1",
     "d3": "^7.6.1",
     "fuse.js": "^6.6.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "uplot": "^1.6.22",
-    "vite-tsconfig-paths": "^3.5.2"
+    "uplot": "^1.6.22"
   },
   "devDependencies": {
+    "@testing-library/user-event": "^14.4.3",
+    "vite-tsconfig-paths": "^3.5.2",
     "@babel/core": "^7.18.9",
     "@storybook/addon-actions": "^6.5.9",
     "@storybook/addon-essentials": "^6.5.9",

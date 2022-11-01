@@ -2,9 +2,9 @@ import { Action, AnyAction } from "@reduxjs/toolkit";
 import { Event as TauriEvent, UnlistenFn, emit, listen } from "@tauri-apps/api/event";
 import { WebviewWindow, appWindow } from "@tauri-apps/api/window";
 
-import { Event, Runtime } from "../runtime";
-import { StoreState } from "../state";
-import { KeyedWindowProps, MAIN_WINDOW } from "../window";
+import { Event, Runtime } from "@/runtime";
+import { StoreState } from "@/state";
+import { KeyedWindowProps, MAIN_WINDOW } from "@/window";
 
 const actionEvent = "action";
 const tauriError = "tauri://error";
