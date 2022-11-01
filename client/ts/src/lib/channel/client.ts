@@ -18,7 +18,7 @@ import ChannelRetriever from './retriever';
  */
 export class Channel {
   private readonly segmentClient: SegmentClient;
-  private payload: ChannelPayload;
+  payload: ChannelPayload;
 
   constructor(payload: ChannelPayload, segmentClient: SegmentClient) {
     this.payload = payload;
@@ -66,7 +66,7 @@ export class Channel {
    *
    * @param start - The starting timestamp of the range to read from.
    * @param end - The ending timestamp of the range to read from.
-   * @returns a typed array containing the retrieved
+   * @returns A typed array containing the retrieved
    */
   async read(
     start: UnparsedTimeStamp,
@@ -86,9 +86,10 @@ export class Channel {
   }
 }
 
-/** The core client class for executing channel operations against a Synnax
- * database .
- * */
+/**
+ * The core client class for executing channel operations against a Synnax
+ * cluster.
+ */
 export default class ChannelClient {
   private readonly segmentClient: SegmentClient;
   private readonly retriever: ChannelRetriever;
@@ -110,24 +111,24 @@ export default class ChannelClient {
    * @param props.rate - The rate of the channel.
    * @param props.dataType - The data type of the channel.
    * @param props.name - The name of the channel. Optional.
-   * @param props.nodeId - The ID of the node that holds the lease on the channel.
-   * If you don't know what this is, don't worry about it.
-   * @returns the created channel.
+   * @param props.nodeId - The ID of the node that holds the lease on the
+   *   channel. If you don't know what this is, don't worry about it.
+   * @returns The created channel.
    */
   async create(props: CreateChannelProps): Promise<Channel> {
     return (await this.createMany({ ...props, count: 1 }))[0];
   }
 
   /**
-   * creates N channels using the given parameters as a template.
+   * Creates N channels using the given parameters as a template.
    *
    * @param props.rate - The rate of the channel.
    * @param props.dataType - The data type of the channel.
    * @param props.name - The name of the channel. Optional.
-   * @param props.nodeId - The ID of the node that holds the lease on the channel.
-   * If you don't know what this is, don't worry about it.
+   * @param props.nodeId - The ID of the node that holds the lease on the
+   *   channel. If you don't know what this is, don't worry about it.
    * @param props.count - The number of channels to create.
-   * @returns the created channels.
+   * @returns The created channels.
    */
   async createMany(
     props: CreateChannelProps & { count: number }
@@ -139,8 +140,8 @@ export default class ChannelClient {
    * Retrieves channels with the given keys.
    *
    * @param keys - The keys of the channels to retrieve.
+   * @returns The retrieved channels.
    * @throws QueryError if any of the channels can't be found.
-   * @returns the retrieved channels.
    */
   async retrieveByKeys(...keys: string[]): Promise<Channel[]> {
     return this.sugar(...(await this.retriever.retrieveByKeys(...keys)));
@@ -150,8 +151,9 @@ export default class ChannelClient {
    * Retrieves channels with the given names.
    *
    * @param names - The list of names to retrieve channels for.
-   * @returns A list of retrieved channels matching the given names. If a channel
-   * with a given name can't be found, it will be omitted from the list.
+   * @returns A list of retrieved channels matching the given names. If a
+   *   channel with a given name can't be found, it will be omitted from the
+   *   list.
    */
   async retrieveByNames(...names: string[]): Promise<Channel[]> {
     return this.sugar(...(await this.retriever.retrieveByNames(...names)));
@@ -165,6 +167,10 @@ export default class ChannelClient {
    */
   async retrieveByNodeId(nodeId: number): Promise<Channel[]> {
     return this.sugar(...(await this.retriever.retrieveByNodeID(nodeId)));
+  }
+
+  async retrieveAll(): Promise<Channel[]> {
+    return this.sugar(...(await this.retriever.retrieveAll()));
   }
 
   private sugar(...payloads: ChannelPayload[]): Channel[] {

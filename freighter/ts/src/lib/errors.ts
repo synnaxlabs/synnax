@@ -128,7 +128,7 @@ export const registerError = ({
   type: string;
   encode: ErrorEncoder;
   decode: ErrorDecoder;
-}) => {
+}): void => {
   REGISTRY.register(type, { encode, decode });
 };
 

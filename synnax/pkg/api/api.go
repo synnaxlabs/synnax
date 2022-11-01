@@ -8,6 +8,8 @@ import (
 	"context"
 	"go/types"
 
+	distribcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
+
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/api/errors"
@@ -33,6 +35,7 @@ type Config struct {
 	Token         *token.Service
 	Authenticator auth.Authenticator
 	Enforcer      access.Enforcer
+	Cluster       distribcore.Cluster
 	Insecure      bool
 }
 
@@ -43,18 +46,22 @@ type Transport struct {
 	AuthRegistration   freighter.UnaryServer[RegistrationRequest, TokenResponse]
 	ChannelCreate      freighter.UnaryServer[ChannelCreateRequest, ChannelCreateResponse]
 	ChannelRetrieve    freighter.UnaryServer[ChannelRetrieveRequest, ChannelRetrieveResponse]
+	ConnectivityCheck  freighter.UnaryServer[types.Nil, ConnectivityCheckResponse]
 	SegmentWriter      freighter.StreamServer[SegmentWriterRequest, SegmentWriterResponse]
 	SegmentIterator    freighter.StreamServer[SegmentIteratorRequest, SegmentIteratorResponse]
+	OntologyRetrieve   freighter.UnaryServer[OntologyRetrieveRequest, OntologyRetrieveResponse]
 }
 
 // API wraps all implemented API services into a single container. Protocol-specific
 // API implementations should use this struct during instantiation.
 type API struct {
-	provider Provider
-	config   Config
-	Auth     *AuthService
-	Segment  *SegmentService
-	Channel  *ChannelService
+	provider     Provider
+	config       Config
+	Auth         *AuthService
+	Segment      *SegmentService
+	Channel      *ChannelService
+	Connectivity *ConnectivityService
+	Ontology     *OntologyService
 }
 
 func (a *API) BindTo(t Transport) {
@@ -72,8 +79,10 @@ func (a *API) BindTo(t Transport) {
 	t.AuthChangePassword.Use(middleware...)
 	t.ChannelCreate.Use(middleware...)
 	t.ChannelRetrieve.Use(middleware...)
+	t.ConnectivityCheck.Use(middleware...)
 	t.SegmentWriter.Use(middleware...)
 	t.SegmentIterator.Use(middleware...)
+	t.OntologyRetrieve.Use(middleware...)
 
 	t.AuthLogin.BindHandler(typedUnaryWrapper(a.Auth.Login))
 	t.AuthChangeUsername.BindHandler(noResponseWrapper(a.Auth.ChangeUsername))
@@ -81,8 +90,10 @@ func (a *API) BindTo(t Transport) {
 	t.AuthRegistration.BindHandler(typedUnaryWrapper(a.Auth.Register))
 	t.ChannelCreate.BindHandler(typedUnaryWrapper(a.Channel.Create))
 	t.ChannelRetrieve.BindHandler(typedUnaryWrapper(a.Channel.Retrieve))
+	t.ConnectivityCheck.BindHandler(typedUnaryWrapper(a.Connectivity.Check))
 	t.SegmentWriter.BindHandler(typedStreamWrapper(a.Segment.Write))
 	t.SegmentIterator.BindHandler(typedStreamWrapper(a.Segment.Iterate))
+	t.OntologyRetrieve.BindHandler(typedUnaryWrapper(a.Ontology.Retrieve))
 }
 
 // New instantiates the delta API using the provided Config. This should probably
@@ -92,6 +103,8 @@ func New(cfg Config) API {
 	api.Auth = NewAuthServer(api.provider)
 	api.Segment = NewSegmentService(api.provider)
 	api.Channel = NewChannelService(api.provider)
+	api.Connectivity = NewConnectivityService(api.provider)
+	api.Ontology = NewOntologyService(api.provider)
 	return api
 }
 

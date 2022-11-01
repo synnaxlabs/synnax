@@ -2,6 +2,7 @@ package freighter
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/x/middleware"
 )
 
@@ -13,12 +14,34 @@ type (
 	Finalizer = middleware.Finalizer[MD]
 	// Next is a function that is called to continue the middleware chain.
 	Next = func(context.Context, MD) error
-	// MiddlewareChain is a chain of middleware that can be executed sequentially.
-	MiddlewareChain = middleware.Chain[MD]
-	// MiddlewareCollector implements the Transport.Use method and collects middleware
-	// for execution in a MiddlewareChain.
-	MiddlewareCollector = middleware.Collector[MD]
+	// ContextKey is a type that can be used to store and retrieve freighter specific
+	// values from a context.
+	ContextKey string
 )
+
+const MDContextKey ContextKey = "freighter.md"
+
+func setMDOnContext(ctx context.Context, md MD) context.Context {
+	return context.WithValue(ctx, MDContextKey, md)
+}
+
+func MDFromContext(ctx context.Context) MD {
+	return ctx.Value(MDContextKey).(MD)
+}
+
+// MiddlewareChain is a chain of middleware that can be executed sequentially.
+// It extends the middleware.Chain type to embed request metadata as a context value.
+type MiddlewareCollector struct{ middleware.Chain[MD] }
+
+// Exec maintains the middleware.Chain interface.
+func (mc *MiddlewareCollector) Exec(ctx context.Context, md MD, finalizer middleware.Finalizer[MD]) error {
+	return mc.Chain.Exec(ctx, md, FinalizerFunc(func(ctx context.Context, md MD) error {
+		return finalizer.Finalize(setMDOnContext(ctx, md), md)
+	}))
+}
+
+// Use maintains the middleware.Collector interface.
+func (mc *MiddlewareCollector) Use(m ...Middleware) { mc.Chain = append(mc.Chain, m...) }
 
 // MiddlewareFunc is a utility type so that functions can implement Middleware.
 type MiddlewareFunc func(context.Context, MD, Next) error

@@ -45,15 +45,15 @@ type Traverser struct {
 }
 
 var (
-	Children = Traverser{
+	Parents = Traverser{
 		Filter: func(res *Resource, rel *Relationship) bool {
-			return rel.Type == Parent && rel.To == res.ID
+			return rel.Type == ParentOf && rel.To == res.ID
 		},
 		Direction: Backward,
 	}
-	Parents = Traverser{
+	Children = Traverser{
 		Filter: func(res *Resource, rel *Relationship) bool {
-			return rel.Type == Parent && rel.From == res.ID
+			return rel.Type == ParentOf && rel.From == res.ID
 		},
 		Direction: Forward,
 	}
@@ -118,7 +118,7 @@ func (r retrieve) exec(q Retrieve) error {
 			if err != nil {
 				return err
 			}
-			res.entity = data
+			res.Entity = data
 			entries.Set(i, res)
 		}
 		if len(resources) == 0 {

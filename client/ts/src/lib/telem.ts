@@ -2,9 +2,7 @@ import { registerCustomTypeEncoder } from '@synnaxlabs/freighter';
 
 const valueOfEncoder = (value: unknown): unknown => value?.valueOf();
 
-/**
- * Represents a nanosecond precision UTC timestamp.
- */
+/** Represents a nanosecond precision UTC timestamp. */
 export class TimeStamp extends Number {
   constructor(value: UnparsedTimeStamp) {
     super(value);
@@ -12,8 +10,9 @@ export class TimeStamp extends Number {
 
   /**
    * Checks if the TimeStamp is equal to another TimeStamp.
-   * @param other - the other TimeStamp to compare to.
-   * @returns true if the TimeStamps are equal, false otherwise.
+   *
+   * @param other - The other TimeStamp to compare to.
+   * @returns True if the TimeStamps are equal, false otherwise.
    */
   equals(other: UnparsedTimeStamp): boolean {
     return this.valueOf() === new TimeStamp(other).valueOf();
@@ -21,9 +20,10 @@ export class TimeStamp extends Number {
 
   /**
    * Creates a TimeSpan representing the duration between the two timestamps.
-   * @param other - the other TimeStamp to compare to.
-   * @returns a TimeSpan representing the duration between the two timestamps.
-   * The span is guaranteed to be positive.
+   *
+   * @param other - The other TimeStamp to compare to.
+   * @returns A TimeSpan representing the duration between the two timestamps.
+   *   The span is guaranteed to be positive.
    */
   span(other: UnparsedTimeStamp): TimeSpan {
     return this.range(other).span();
@@ -31,19 +31,22 @@ export class TimeStamp extends Number {
 
   /**
    * Creates a TimeRange spanning the given TimeStamp.
-   * @param other - the other TimeStamp to compare to.
-   * @returns a TimeRange spanning the given TimeStamp that is guaranteed to be valid,
-   * regardless of the TimeStamp order.
+   *
+   * @param other - The other TimeStamp to compare to.
+   * @returns A TimeRange spanning the given TimeStamp that is guaranteed to be
+   *   valid, regardless of the TimeStamp order.
    */
   range(other: UnparsedTimeStamp): TimeRange {
     return new TimeRange(this, other).makeValid();
   }
 
   /**
-   * Creates a TimeRange starting at the TimeStamp and spanning the given TimeSpan.
-   * @param other - the TimeSpan to span.
-   * @returns a TimeRange starting at the TimeStamp and spanning the given TimeSpan.
-   * The TimeRange is guaranteed to be valid.
+   * Creates a TimeRange starting at the TimeStamp and spanning the given
+   * TimeSpan.
+   *
+   * @param other - The TimeSpan to span.
+   * @returns A TimeRange starting at the TimeStamp and spanning the given
+   *   TimeSpan. The TimeRange is guaranteed to be valid.
    */
   spanRange(other: UnparsedTimeSpan): TimeRange {
     return this.range(this.add(other)).makeValid();
@@ -51,7 +54,8 @@ export class TimeStamp extends Number {
 
   /**
    * Checks if the TimeStamp represents the unix epoch.
-   * @returns true if the TimeStamp represents the unix epoch, false otherwise.
+   *
+   * @returns True if the TimeStamp represents the unix epoch, false otherwise.
    */
   isZero(): boolean {
     return this.valueOf() === 0;
@@ -59,8 +63,10 @@ export class TimeStamp extends Number {
 
   /**
    * Checks if the TimeStamp is after the given TimeStamp.
-   * @param other - the other TimeStamp to compare to.
-   * @returns true if the TimeStamp is after the given TimeStamp, false otherwise.
+   *
+   * @param other - The other TimeStamp to compare to.
+   * @returns True if the TimeStamp is after the given TimeStamp, false
+   *   otherwise.
    */
   after(other: UnparsedTimeStamp): boolean {
     return this.valueOf() > new TimeStamp(other).valueOf();
@@ -68,8 +74,10 @@ export class TimeStamp extends Number {
 
   /**
    * Checks if the TimeStamp is after or equal to the given TimeStamp.
-   * @param other - the other TimeStamp to compare to.
-   * @returns true if the TimeStamp is after or equal to the given TimeStamp, false otherwise.
+   *
+   * @param other - The other TimeStamp to compare to.
+   * @returns True if the TimeStamp is after or equal to the given TimeStamp,
+   *   false otherwise.
    */
   afterEq(other: UnparsedTimeStamp): boolean {
     return this.valueOf() >= new TimeStamp(other).valueOf();
@@ -77,8 +85,10 @@ export class TimeStamp extends Number {
 
   /**
    * Checks if the TimeStamp is before the given TimeStamp.
-   * @param other - the other TimeStamp to compare to.
-   * @returns true if the TimeStamp is before the given TimeStamp, false otherwise.
+   *
+   * @param other - The other TimeStamp to compare to.
+   * @returns True if the TimeStamp is before the given TimeStamp, false
+   *   otherwise.
    */
   before(other: UnparsedTimeStamp): boolean {
     return this.valueOf() < new TimeStamp(other).valueOf();
@@ -86,8 +96,10 @@ export class TimeStamp extends Number {
 
   /**
    * Checks if TimeStamp is before or equal to the current timestamp.
-   * @param other - the other TimeStamp to compare to.
-   * @returns true if TimeStamp is before or equal to the current timestamp, false otherwise.
+   *
+   * @param other - The other TimeStamp to compare to.
+   * @returns True if TimeStamp is before or equal to the current timestamp,
+   *   false otherwise.
    */
   beforeEq(other: UnparsedTimeStamp): boolean {
     return this.valueOf() <= new TimeStamp(other).valueOf();
@@ -95,8 +107,10 @@ export class TimeStamp extends Number {
 
   /**
    * Adds a TimeSpan to the TimeStamp.
-   * @param span - the TimeSpan to add.
-   * @returns a new TimeStamp representing the sum of the TimeStamp and TimeSpan.
+   *
+   * @param span - The TimeSpan to add.
+   * @returns A new TimeStamp representing the sum of the TimeStamp and
+   *   TimeSpan.
    */
   add(span: UnparsedTimeSpan): TimeStamp {
     return new TimeStamp(this.valueOf() + span.valueOf());
@@ -104,8 +118,10 @@ export class TimeStamp extends Number {
 
   /**
    * Subtracts a TimeSpan from the TimeStamp.
-   * @param span - the TimeSpan to subtract.
-   * @returns a new TimeStamp representing the difference of the TimeStamp and TimeSpan.
+   *
+   * @param span - The TimeSpan to subtract.
+   * @returns A new TimeStamp representing the difference of the TimeStamp and
+   *   TimeSpan.
    */
   sub(span: UnparsedTimeSpan): TimeStamp {
     return new TimeStamp(this.valueOf() - span.valueOf());
@@ -121,24 +137,26 @@ export class TimeStamp extends Number {
   static readonly Zero = new TimeStamp(0);
 }
 
-/**
- * TimeSpan represents a nanosecond precision duration.
- */
+/** TimeSpan represents a nanosecond precision duration. */
 export class TimeSpan extends Number {
   constructor(value: UnparsedTimeSpan) {
     super(value);
   }
 
-  /**
-   * @returns the number of seconds in the TimeSpan.
-   */
+  /** @returns The number of seconds in the TimeSpan. */
   seconds(): number {
     return this.valueOf() / TimeSpan.Seconds(1).valueOf();
   }
 
+  /** @returns The number of milliseconds in the TimeSpan. */
+  milliseconds(): number {
+    return this.valueOf() / TimeSpan.Milliseconds(1).valueOf();
+  }
+
   /**
    * Checks if the TimeSpan represents a zero duration.
-   * @returns true if the TimeSpan represents a zero duration, false otherwise.
+   *
+   * @returns True if the TimeSpan represents a zero duration, false otherwise.
    */
   isZero(): boolean {
     return this.valueOf() === 0;
@@ -146,7 +164,8 @@ export class TimeSpan extends Number {
 
   /**
    * Checks if the TimeSpan is equal to another TimeSpan.
-   * @returns true if the TimeSpans are equal, false otherwise.
+   *
+   * @returns True if the TimeSpans are equal, false otherwise.
    */
   equals(other: UnparsedTimeSpan): boolean {
     return this.valueOf() === new TimeSpan(other).valueOf();
@@ -154,7 +173,8 @@ export class TimeSpan extends Number {
 
   /**
    * Adds a TimeSpan to the TimeSpan.
-   * @returns a new TimeSpan representing the sum of the two TimeSpans.
+   *
+   * @returns A new TimeSpan representing the sum of the two TimeSpans.
    */
   add(other: UnparsedTimeSpan): TimeSpan {
     return new TimeSpan(this.valueOf() + new TimeSpan(other).valueOf());
@@ -162,6 +182,7 @@ export class TimeSpan extends Number {
 
   /**
    * Creates a TimeSpan representing the duration between the two timestamps.
+   *
    * @param other
    */
   sub(other: UnparsedTimeSpan): TimeSpan {
@@ -170,122 +191,107 @@ export class TimeSpan extends Number {
 
   /**
    * Creates a TimeSpan representing the given number of nanoseconds.
-   * @param value - the number of nanoseconds.
-   * @returns a TimeSpan representing the given number of nanoseconds.
+   *
+   * @param value - The number of nanoseconds.
+   * @returns A TimeSpan representing the given number of nanoseconds.
    */
   static Nanoseconds(value: UnparsedTimeSpan = 1): TimeSpan {
     return new TimeSpan(value);
   }
 
-  /**
-   * A nanosecond.
-   */
+  /** A nanosecond. */
   static readonly Nanosecond = TimeSpan.Nanoseconds(1);
 
   /**
    * Creates a TimeSpan representing the given number of microseconds.
-   * @param value - the number of microseconds.
-   * @returns a TimeSpan representing the given number of microseconds.
+   *
+   * @param value - The number of microseconds.
+   * @returns A TimeSpan representing the given number of microseconds.
    */
   static Microseconds(value: UnparsedTimeStamp = 1): TimeSpan {
     return TimeSpan.Nanoseconds(value.valueOf() * 1000);
   }
 
-  /**
-   * A microsecond.
-   */
+  /** A microsecond. */
   static readonly Microsecond = TimeSpan.Microseconds(1);
 
   /**
    * Creates a TimeSpan representing the given number of milliseconds.
-   * @param value - the number of milliseconds.
-   * @returns a TimeSpan representing the given number of milliseconds.
+   *
+   * @param value - The number of milliseconds.
+   * @returns A TimeSpan representing the given number of milliseconds.
    */
   static Milliseconds(value: UnparsedTimeStamp = 1): TimeSpan {
     return TimeSpan.Microseconds(value.valueOf() * 1000);
   }
 
-  /**
-   * A millisecond.
-   */
+  /** A millisecond. */
   static readonly Millisecond = TimeSpan.Milliseconds(1);
 
   /**
    * Creates a TimeSpan representing the given number of seconds.
-   * @param value - the number of seconds.
-   * @returns a TimeSpan representing the given number of seconds.
+   *
+   * @param value - The number of seconds.
+   * @returns A TimeSpan representing the given number of seconds.
    */
   static Seconds(value: UnparsedTimeStamp = 1): TimeSpan {
     return TimeSpan.Milliseconds(value.valueOf() * 1000);
   }
 
-  /**
-   * A second.
-   */
+  /** A second. */
   static readonly Second = TimeSpan.Seconds(1);
 
   /**
    * Creates a TimeSpan representing the given number of minutes.
-   * @param value - the number of minutes.
-   * @returns a TimeSpan representing the given number of minutes.
+   *
+   * @param value - The number of minutes.
+   * @returns A TimeSpan representing the given number of minutes.
    */
   static Minutes(value: UnparsedTimeStamp = 1): TimeSpan {
     return TimeSpan.Seconds(value.valueOf() * 60);
   }
 
-  /**
-   * A minute.
-   */
+  /** A minute. */
   static readonly Minute = TimeSpan.Minutes(1);
 
   /**
    * Creates a TimeSpan representing the given number of hours.
-   * @param value - the number of hours.
-   * @returns a TimeSpan representing the given number of hours.
+   *
+   * @param value - The number of hours.
+   * @returns A TimeSpan representing the given number of hours.
    */
   static Hours(value: UnparsedTimeStamp = 1): TimeSpan {
     return TimeSpan.Minutes(value.valueOf() * 60);
   }
 
-  /**
-   * Represents an hour.
-   */
+  /** Represents an hour. */
   static readonly Hour = TimeSpan.Hours(1);
 
-  /**
-   * The maximum possible value for a TimeSpan.
-   */
+  /** The maximum possible value for a TimeSpan. */
   static readonly Max = new TimeSpan(TimeSpan.MAX_VALUE);
 
-  /**
-   * The minimum possible value for a TimeSpan.
-   */
+  /** The minimum possible value for a TimeSpan. */
   static readonly Min = new TimeSpan(TimeSpan.MIN_VALUE);
 
-  /**
-   * The zero value for a TimeSpan.
-   */
+  /** The zero value for a TimeSpan. */
   static readonly Zero = new TimeSpan(0);
 }
 
-/**
- * Rate represents a data rate in Hz.
- */
+/** Rate represents a data rate in Hz. */
 export class Rate extends Number {
   constructor(value: UnparsedRate) {
     super(value);
   }
 
-  /**
-   * @returns the number of seconds in the Rate.
-   */
+  /** @returns The number of seconds in the Rate. */
   equals(other: UnparsedRate): boolean {
     return this.valueOf() === new Rate(other).valueOf();
   }
 
   /**
    * Calculates the period of the Rate as a TimeSpan.
-   * @returns a TimeSpan representing the period of the Rate.
+   *
+   * @returns A TimeSpan representing the period of the Rate.
    */
   period(): TimeSpan {
     return new TimeSpan(TimeSpan.Seconds(this.valueOf()).valueOf());
@@ -293,8 +299,9 @@ export class Rate extends Number {
 
   /**
    * Calculates the number of samples in the given TimeSpan at this rate.
-   * @param duration - the duration to calculate the sample count from.
-   * @returns the number of samples in the given TimeSpan at this rate.
+   *
+   * @param duration - The duration to calculate the sample count from.
+   * @returns The number of samples in the given TimeSpan at this rate.
    */
   sampleCount(duration: UnparsedTimeSpan): number {
     return new TimeSpan(duration).seconds() * this.valueOf();
@@ -302,9 +309,10 @@ export class Rate extends Number {
 
   /**
    * Calculates the number of bytes in the given TimeSpan at this rate.
-   * @param span - the duration to calculate the byte count from.
-   * @param density - the density of the data in bytes per sample.
-   * @returns the number of bytes in the given TimeSpan at this rate.
+   *
+   * @param span - The duration to calculate the byte count from.
+   * @param density - The density of the data in bytes per sample.
+   * @returns The number of bytes in the given TimeSpan at this rate.
    */
   byteCount(span: UnparsedTimeSpan, density: UnparsedDensity): number {
     return this.sampleCount(span) * new Density(density).valueOf();
@@ -312,8 +320,9 @@ export class Rate extends Number {
 
   /**
    * Calculates a TimeSpan given the number of samples at this rate.
-   * @param sampleCount - the number of samples in the span.
-   * @returns a TimeSpan that corresponds to the given number of samples.
+   *
+   * @param sampleCount - The number of samples in the span.
+   * @returns A TimeSpan that corresponds to the given number of samples.
    */
   span(sampleCount: number): TimeSpan {
     return TimeSpan.Seconds(sampleCount / this.valueOf());
@@ -321,9 +330,10 @@ export class Rate extends Number {
 
   /**
    * Calculates a TimeSpan given the number of bytes at this rate.
-   * @param size - the number of bytes in the span.
-   * @param density - the density of the data in bytes per sample.
-   * @returns a TimeSpan that corresponds to the given number of bytes.
+   *
+   * @param size - The number of bytes in the span.
+   * @param density - The density of the data in bytes per sample.
+   * @returns A TimeSpan that corresponds to the given number of bytes.
    */
   byteSpan(size: Size, density: UnparsedDensity): TimeSpan {
     return this.span(size.valueOf() / density.valueOf());
@@ -331,8 +341,9 @@ export class Rate extends Number {
 
   /**
    * Creates a Rate representing the given number of Hz.
-   * @param value - the number of Hz.
-   * @returns a Rate representing the given number of Hz.
+   *
+   * @param value - The number of Hz.
+   * @returns A Rate representing the given number of Hz.
    */
   static Hz(value: number): Rate {
     return new Rate(value);
@@ -340,47 +351,37 @@ export class Rate extends Number {
 
   /**
    * Creates a Rate representing the given number of kHz.
-   * @param value - the number of kHz.
-   * @returns a Rate representing the given number of kHz.
+   *
+   * @param value - The number of kHz.
+   * @returns A Rate representing the given number of kHz.
    */
   static KHz(value: number): Rate {
     return Rate.Hz(value * 1000);
   }
 }
 
-/**
- * Density represents the number of bytes in a value.
- */
+/** Density represents the number of bytes in a value. */
 export class Density extends Number {
   /**
    * Creates a Density representing the given number of bytes per value.
-   * @param value - the number of bytes per value.
-   * @returns a Density representing the given number of bytes per value.
-   * @constructor
+   *
+   * @class
+   * @param value - The number of bytes per value.
+   * @returns A Density representing the given number of bytes per value.
    */
   constructor(value: UnparsedDensity) {
     super(value);
   }
 
-  /**
-   * Represents an Unknown/Invalid Density.
-   */
+  /** Represents an Unknown/Invalid Density. */
   static readonly Unknown = new Density(0);
-  /**
-   * Represents a Density of 64 bits per value.
-   */
+  /** Represents a Density of 64 bits per value. */
   static readonly Bit64 = new Density(8);
-  /**
-   * Represents a Density of 32 bits per value.
-   */
+  /** Represents a Density of 32 bits per value. */
   static readonly Bit32 = new Density(4);
-  /**
-   * Represents a Density of 16 bits per value.
-   */
+  /** Represents a Density of 16 bits per value. */
   static readonly Bit16 = new Density(2);
-  /**
-   * Represents a Density of 8 bits per value.
-   */
+  /** Represents a Density of 8 bits per value. */
   static readonly Bit8 = new Density(1);
 }
 
@@ -389,8 +390,8 @@ export class Density extends Number {
  * to note that the start of the range is inclusive, while the end of the range
  * is exclusive.
  *
- * @property start - a TimeStamp representing the start of the range.
- * @property end - a Timestamp representing the end of the range.
+ * @property start - A TimeStamp representing the start of the range.
+ * @property end - A Timestamp representing the end of the range.
  */
 export class TimeRange {
   start: TimeStamp;
@@ -398,24 +399,24 @@ export class TimeRange {
 
   /**
    * Creates a TimeRange from the given start and end TimeStamps.
-   * @param start - a TimeStamp representing the start of the range.
-   * @param end - a TimeStamp representing the end of the range.
+   *
+   * @param start - A TimeStamp representing the start of the range.
+   * @param end - A TimeStamp representing the end of the range.
    */
   constructor(start: UnparsedTimeStamp, end: UnparsedTimeStamp) {
     this.start = new TimeStamp(start);
     this.end = new TimeStamp(end);
   }
 
-  /**
-   * @returns the TimeSpan occupied by the TimeRange.
-   */
+  /** @returns The TimeSpan occupied by the TimeRange. */
   span(): TimeSpan {
     return new TimeSpan(this.end.valueOf() - this.start.valueOf());
   }
 
   /**
    * Checks if the timestamp is valid i.e. the start is before the end.
-   * @returns true if the TimeRange is valid.
+   *
+   * @returns True if the TimeRange is valid.
    */
   isValid(): boolean {
     return this.start.valueOf() <= this.end.valueOf();
@@ -423,7 +424,8 @@ export class TimeRange {
 
   /**
    * Makes sure the TimeRange is valid i.e. the start is before the end.
-   * @returns a TimeRange that is valid.
+   *
+   * @returns A TimeRange that is valid.
    */
   makeValid(): TimeRange {
     return this.isValid() ? this : this.swap();
@@ -431,7 +433,8 @@ export class TimeRange {
 
   /**
    * Checks if the TimeRange has a zero span.
-   * @returns true if the TimeRange has a zero span.
+   *
+   * @returns True if the TimeRange has a zero span.
    */
   isZero(): boolean {
     return this.span().isZero();
@@ -439,7 +442,8 @@ export class TimeRange {
 
   /**
    * Creates a new TimeRange with the start and end swapped.
-   * @returns a TimeRange with the start and end swapped.
+   *
+   * @returns A TimeRange with the start and end swapped.
    */
   swap(): TimeRange {
     return new TimeRange(this.end, this.start);
@@ -447,8 +451,9 @@ export class TimeRange {
 
   /**
    * Checks if the TimeRange is equal to the given TimeRange.
-   * @param other - the TimeRange to compare to.
-   * @returns true if the TimeRange is equal to the given TimeRange.
+   *
+   * @param other - The TimeRange to compare to.
+   * @returns True if the TimeRange is equal to the given TimeRange.
    */
   equals(other: TimeRange): boolean {
     return this.start.equals(other.start) && this.end.equals(other.end);
@@ -457,9 +462,7 @@ export class TimeRange {
   static readonly Max = new TimeRange(TimeStamp.Min, TimeStamp.Max);
 }
 
-/**
- * DataType is a string that represents a data type.
- */
+/** DataType is a string that represents a data type. */
 export class DataType extends String {
   constructor(value: UnparsedDataType) {
     if (typeof value === 'string') {
@@ -497,49 +500,27 @@ export class DataType extends String {
     return this.string;
   }
 
-  /**
-   * Represents an Unknown/Invalid DataType.
-   */
+  /** Represents an Unknown/Invalid DataType. */
   static readonly Unknown = new DataType('unknown');
-  /**
-   * Represents a 64-bit floating point value.
-   */
+  /** Represents a 64-bit floating point value. */
   static readonly Float64 = new DataType('float64');
-  /**
-   * Represents a 32-bit floating point value.
-   */
+  /** Represents a 32-bit floating point value. */
   static readonly Float32 = new DataType('float32');
-  /**
-   * Represents a 64-bit signed integer value.
-   */
+  /** Represents a 64-bit signed integer value. */
   static readonly Int64 = new DataType('int64');
-  /**
-   * Represents a 32-bit signed integer value.
-   */
+  /** Represents a 32-bit signed integer value. */
   static readonly Int32 = new DataType('int32');
-  /**
-   * Represents a 16-bit signed integer value.
-   */
+  /** Represents a 16-bit signed integer value. */
   static readonly Int16 = new DataType('int16');
-  /**
-   * Represents a 8-bit signed integer value.
-   */
+  /** Represents a 8-bit signed integer value. */
   static readonly Int8 = new DataType('int8');
-  /**
-   * Represents a 64-bit unsigned integer value.
-   */
+  /** Represents a 64-bit unsigned integer value. */
   static readonly Uint64 = new DataType('uint64');
-  /**
-   * Represents a 32-bit unsigned integer value.
-   */
+  /** Represents a 32-bit unsigned integer value. */
   static readonly Uint32 = new DataType('uint32');
-  /**
-   * Represents a 16-bit unsigned integer value.
-   */
+  /** Represents a 16-bit unsigned integer value. */
   static readonly Uint16 = new DataType('uint16');
-  /**
-   * Represents a 8-bit unsigned integer value.
-   */
+  /** Represents a 8-bit unsigned integer value. */
   static readonly Uint8 = new DataType('uint8');
 }
 

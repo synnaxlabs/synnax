@@ -12,16 +12,16 @@ import (
 )
 
 type Config struct {
-	// AdvertiseAddress is the address the distribution layer will advertise to the rest of the nodes in the cluster.
+	// AdvertiseAddress is the address the distribution layer will advertise to the rest of the nodes in the Cluster.
 	AdvertiseAddress address.Address
-	// PeerAddresses is a list of addresses of other nodes to contact in the cluster for bootstrapping.
-	// If no addresses are provided and storage is empty, the distribution layer will bootstrap a new cluster.
-	// If a cluster already exists in storage, the addresses in this list will be ignored.
+	// PeerAddresses is a list of addresses of other nodes to contact in the Cluster for bootstrapping.
+	// If no addresses are provided and storage is empty, the distribution layer will bootstrap a new Cluster.
+	// If a Cluster already exists in storage, the addresses in this list will be ignored.
 	PeerAddresses []address.Address
 	Experiment    alamos.Experiment
 	// Logger is the witness of it all.
 	Logger *zap.Logger
-	// Pool is a pool for grpc connections to other nodes in the cluster.
+	// Pool is a pool for grpc connections to other nodes in the Cluster.
 	Pool *fgrpc.Pool
 	// Storage is the storage configuration to use for the node.
 	Storage    storage.Config

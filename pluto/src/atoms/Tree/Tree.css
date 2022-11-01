@@ -1,0 +1,21 @@
+.pluto-tree__container, .pluto-tree__container ul {
+    list-style-type: none;
+}
+
+.pluto-tree__container {
+    padding: 0rem !important;
+}
+
+.pluto-tree__list {
+    padding-left: 4rem;
+}
+
+.pluto-tree__node__button {
+    padding: 0 1.5rem !important;
+    width: 100%;
+    height: 4rem !important;
+}
+
+.pluto-tree__node__button--selected {
+    background-color: var(--pluto-primary-p1-40) !important;
+}

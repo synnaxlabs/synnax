@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { DataType, Density, Rate } from '../telem';
 
-export const ChannelPayloadSchema = z.object({
+export const channelPayloadSchema = z.object({
   rate: z.number().transform((n) => new Rate(n)),
   dataType: z.string().transform((s) => new DataType(s)),
   key: z.string().default('').optional(),
@@ -17,4 +17,4 @@ export const ChannelPayloadSchema = z.object({
   isIndex: z.boolean().default(false).optional(),
 });
 
-export type ChannelPayload = z.infer<typeof ChannelPayloadSchema>;
+export type ChannelPayload = z.infer<typeof channelPayloadSchema>;

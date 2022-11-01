@@ -2,12 +2,12 @@ package aspen_test
 
 import (
 	"context"
-	"github.com/synnaxlabs/x/address"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/aspen/mock"
+	"github.com/synnaxlabs/x/address"
 	"go.uber.org/zap"
 	"sync"
 	"time"
@@ -21,7 +21,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 		logger = l.Sugar()
 	})
 
-	Describe("Bootstrap Cluster", func() {
+	Describe("Bootstrap cluster", func() {
 
 		It("Should correctly bootstrap a cluster", func() {
 			db, err := aspen.Open(
@@ -37,7 +37,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 			By("Opening without error")
 			Expect(err).ToNot(HaveOccurred())
 
-			By("Assigning a valid NodeID of 1")
+			By("Assigning a valid ID of 1")
 			Expect(db.HostID()).To(Equal(aspen.NodeID(1)))
 
 			By("Adding itself to the node list")
@@ -64,7 +64,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 			By("Opening without error")
 			Expect(err).ToNot(HaveOccurred())
 
-			By("Assigning a valid NodeID of 1")
+			By("Assigning a valid ID of 1")
 			Expect(db.HostID()).To(Equal(aspen.NodeID(1)))
 		})
 
@@ -89,7 +89,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 				By("Joining the second node to the cluster without error")
 				Expect(err).ToNot(HaveOccurred())
 
-				By("Assigning a unique NodeID of 2")
+				By("Assigning a unique ID of 2")
 				Expect(db.HostID()).To(Equal(aspen.NodeID(2)))
 			}()
 			db, err := aspen.Open(
@@ -105,7 +105,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 			By("Joining the first node to the cluster without error")
 			Expect(err).ToNot(HaveOccurred())
 
-			By("Assigning a unique NodeID of 1")
+			By("Assigning a unique ID of 1")
 			Expect(db.HostID()).To(Equal(aspen.NodeID(1)))
 			wg.Wait()
 
@@ -148,7 +148,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 			}
 			wg.Wait()
 
-			By("Assigning a unique NodeID to each node")
+			By("Assigning a unique ID to each node")
 			Expect(len(lo.Uniq(ids))).To(Equal(len(ids)))
 
 			By("Safely closing the database")
@@ -204,7 +204,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 					)
 					Expect(err).ToNot(HaveOccurred())
 
-					By("Assigning the correct NodeID")
+					By("Assigning the correct ID")
 					Expect(db.HostID()).To(Equal(aspen.NodeID(2)))
 
 					By("Incrementing the heartbeat generation")

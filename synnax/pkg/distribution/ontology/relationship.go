@@ -7,13 +7,12 @@ import (
 type RelationshipType string
 
 const (
-	Parent RelationshipType = "parent"
+	ParentOf RelationshipType = "parent"
 )
 
 type Relationship struct {
-	From ID
-	To   ID
-	Type RelationshipType
+	From, To ID
+	Type     RelationshipType
 }
 
 func (r Relationship) GorpKey() string {

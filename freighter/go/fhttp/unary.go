@@ -41,7 +41,7 @@ func (s *unaryServer[RQ, RS]) fiberHandler(c *fiber.Ctx) error {
 	err = s.MiddlewareCollector.Exec(
 		c.Context(),
 		parseRequestMD(c, address.Address(c.Path())),
-		freighter.FinalizerFunc(func(ctx context.Context, _ freighter.MD) (err error) {
+		freighter.FinalizerFunc(func(ctx context.Context, md freighter.MD) (err error) {
 			res, err = s.handle(ctx, req)
 			return err
 		}),

@@ -1,11 +1,11 @@
-import { z, ZodSchema } from 'zod';
+import { ZodSchema, z } from 'zod';
 
 import { EncoderDecoder } from './encoder';
-import { decodeError, EOF, ErrorPayloadSchema, StreamClosed } from './errors';
+import { EOF, ErrorPayloadSchema, StreamClosed, decodeError } from './errors';
 import { buildQueryString } from './http';
 import { CONTENT_TYPE_HEADER_KEY } from './http';
 import { MetaData, MiddlewareCollector } from './middleware';
-import { Runtime, RUNTIME } from './runtime';
+import { RUNTIME, Runtime } from './runtime';
 import { Stream, StreamClient } from './stream';
 import URL from './url';
 
@@ -32,6 +32,11 @@ enum CloseCode {
   GoingAway = 1001,
 }
 
+type ReceiveCallbacksQueue = {
+  resolve: (msg: Message) => void;
+  reject: (reason: unknown) => void;
+}[];
+
 /** WebSocketStream is an implementation of Stream that is backed by a websocket. */
 class WebSocketStream<RQ, RS> implements Stream<RQ, RS> {
   private encoder: EncoderDecoder;
@@ -44,10 +49,7 @@ class WebSocketStream<RQ, RS> implements Stream<RQ, RS> {
   private server_closed?: Error;
   private send_closed: boolean;
   private receiveDataQueue: Message[] = [];
-  private receiveCallbacksQueue: {
-    resolve: (msg: Message) => void;
-    reject: (reason: unknown) => void;
-  }[] = [];
+  private receiveCallbacksQueue: ReceiveCallbacksQueue = [];
 
   constructor(
     ws: WebSocket,

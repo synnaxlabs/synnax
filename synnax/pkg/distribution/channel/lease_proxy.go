@@ -16,7 +16,7 @@ type leaseProxy struct {
 	client    CreateTransportClient
 	server    CreateTransportServer
 	router    proxy.BatchFactory[Channel]
-	resources *ontology.Ontology
+	ontology  *ontology.Ontology
 }
 
 func newLeaseProxy(
@@ -25,6 +25,7 @@ func newLeaseProxy(
 	tsDB storage.TS,
 	client CreateTransportClient,
 	server CreateTransportServer,
+	ontology *ontology.Ontology,
 ) *leaseProxy {
 	p := &leaseProxy{
 		cluster:   cluster,
@@ -33,6 +34,7 @@ func newLeaseProxy(
 		client:    client,
 		server:    server,
 		router:    proxy.NewBatchFactory[Channel](cluster.HostID()),
+		ontology:  ontology,
 	}
 	p.server.BindHandler(p.handle)
 	return p
@@ -88,8 +90,8 @@ func (lp *leaseProxy) maybeSetResources(
 	txn gorp.Txn,
 	channels []Channel,
 ) error {
-	if lp.resources != nil {
-		w := lp.resources.NewWriterUsingTxn(txn)
+	if lp.ontology != nil {
+		w := lp.ontology.NewWriterUsingTxn(txn)
 		for _, channel := range channels {
 			rtk := OntologyID(channel.Key())
 			if err := w.DefineResource(rtk); err != nil {
@@ -97,8 +99,8 @@ func (lp *leaseProxy) maybeSetResources(
 			}
 			if err := w.DefineRelationship(
 				core.NodeOntologyID(channel.NodeID),
+				ontology.ParentOf,
 				rtk,
-				ontology.Parent,
 			); err != nil {
 				return err
 			}

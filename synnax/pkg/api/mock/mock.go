@@ -37,6 +37,7 @@ func (b *Builder) NewConfig() api.Config {
 		Token:         &token.Service{Secret: key, Expiration: 10000 * time.Hour},
 		Authenticator: &auth.KV{DB: dist.Storage.Gorpify()},
 		Enforcer:      access.AllowAll{},
+		Cluster:       dist.Cluster,
 	}
 
 }

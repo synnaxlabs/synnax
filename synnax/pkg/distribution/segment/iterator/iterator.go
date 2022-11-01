@@ -122,10 +122,10 @@ func NewStream(ctx context.Context, _cfg ...Config) (StreamIterator, error) {
 			return nil, err
 		}
 
-		// Set up our sender as a sink for the request pipeline.
+		// SetState up our sender as a sink for the request pipeline.
 		plumber.SetSink[Request](pipe, "sender", sender)
 
-		// Set up our remote receivers as sources for the response pipeline.
+		// SetState up our remote receivers as sources for the response pipeline.
 		receiverAddresses = make([]address.Address, len(receivers))
 		for i, c := range receivers {
 			addr := address.Newf("client-%v", i+1)

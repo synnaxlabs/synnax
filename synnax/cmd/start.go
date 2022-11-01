@@ -58,13 +58,13 @@ var startCmd = &cobra.Command{
 		// Perform the rest of the startup within a separate goroutine
 		// we can properly handle signal interrupts.
 		sCtx.Go(func(ctx context.Context) (err error) {
-			// Set up the tracing backend.
+			// SetState up the tracing backend.
 			exp := configureObservability()
 
 			// An array to hold the transports we use for cluster internal communication.
 			transports := &[]fgrpc.BindableTransport{}
 
-			// Set up a pool so we can load balance RPC connections.
+			// SetState up a pool so we can load balance RPC connections.
 			pool := fgrpc.NewPool(grpc.WithTransportCredentials(insecure.NewCredentials()))
 
 			// AcquireSearcher the distribution layer.
@@ -77,12 +77,12 @@ var startCmd = &cobra.Command{
 				transports,
 			)
 			dist, err := distribution.Open(ctx, distConfig)
-			defer func() { err = dist.Close() }()
 			if err != nil {
 				return err
 			}
+			defer func() { err = dist.Close() }()
 
-			// Set up our high level services.
+			// SetState up our high level services.
 			gorpDB := dist.Storage.Gorpify()
 			userSvc := &user.Service{DB: gorpDB, Ontology: dist.Ontology}
 			rsaKey, err := rsa.GenerateKey(rand.Reader, 1024)
@@ -105,6 +105,8 @@ var startCmd = &cobra.Command{
 				Authenticator: authenticator,
 				Enforcer:      access.AllowAll{},
 				Insecure:      viper.GetBool("insecure"),
+				Cluster:       dist.Cluster,
+				Ontology:      dist.Ontology,
 			})
 
 			// Configure the HTTP API Transport.

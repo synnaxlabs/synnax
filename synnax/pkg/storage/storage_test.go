@@ -82,7 +82,7 @@ var _ = Describe("storage", func() {
 			if nil {
 				Expect(err).ToNot(HaveOccurred())
 			} else {
-				Expect(err).To(HaveOccurredAs(validate.ValidationError))
+				Expect(err).To(HaveOccurredAs(validate.Error))
 			}
 		},
 			Entry("Directory not set",

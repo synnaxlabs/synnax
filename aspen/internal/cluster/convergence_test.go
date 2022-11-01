@@ -46,7 +46,7 @@ var progressiveNewConvergence = []newConvergenceVars{
 var _ = Describe("Convergence", func() {
 	var (
 		gossipNet  *fmock.Network[gossip.Message, gossip.Message]
-		pledgeNet  *fmock.Network[node.ID, node.ID]
+		pledgeNet  *fmock.Network[pledge.Request, pledge.Response]
 		logger     *zap.SugaredLogger
 		exp        alamos.Experiment
 		clusterCtx signal.Context
@@ -56,7 +56,7 @@ var _ = Describe("Convergence", func() {
 	BeforeEach(func() {
 		clusterCtx, shutdown = signal.WithCancel(ctx)
 		gossipNet = fmock.NewNetwork[gossip.Message, gossip.Message]()
-		pledgeNet = fmock.NewNetwork[node.ID, node.ID]()
+		pledgeNet = fmock.NewNetwork[pledge.Request, pledge.Response]()
 		logger = zap.NewNop().Sugar()
 	})
 

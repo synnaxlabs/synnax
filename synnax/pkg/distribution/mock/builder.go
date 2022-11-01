@@ -4,6 +4,7 @@ import (
 	"github.com/synnaxlabs/freighter/fmock"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	distribcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/segment"
@@ -47,12 +48,26 @@ func (b *Builder) New() distribution.Distribution {
 	if err != nil {
 		panic(err)
 	}
+
+	nodeOntologySvc := &distribcore.NodeOntologyService{
+		Logger:   d.Config.Logger.Sugar(),
+		Cluster:  d.Cluster,
+		Ontology: d.Ontology,
+	}
+	clusterOntologySvc := &distribcore.ClusterOntologyService{
+		Cluster: d.Cluster,
+	}
+	d.Ontology.RegisterService(nodeOntologySvc)
+	d.Ontology.RegisterService(clusterOntologySvc)
+	nodeOntologySvc.ListenForChanges()
+
 	d.Channel = channel.New(
 		d.Cluster,
 		d.Storage.Gorpify(),
 		d.Storage.TS,
 		b.channelNet.UnaryClient(),
 		b.channelNet.UnaryServer(core.Config.AdvertiseAddress),
+		d.Ontology,
 	)
 	d.Segment = segment.New(d.Channel, d.Storage.TS, trans, d.Cluster, zap.NewNop())
 

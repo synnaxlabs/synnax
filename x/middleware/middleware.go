@@ -21,7 +21,7 @@ type Finalizer[V any] interface {
 type Chain[V any] []Middleware[V]
 
 // Exec executes the middleware chain sequentially given a value. The first
-// middleware will be the first to receive the request, and the last to receive the response.
+// middleware will be the first to receive the incoming, and the last to receive the outgoing value.
 func (c Chain[V]) Exec(ctx context.Context, val V, finalizer Finalizer[V]) error {
 	var (
 		i    = 0

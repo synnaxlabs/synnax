@@ -1,11 +1,11 @@
 package ontology_test
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/x/query"
 	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/x/query"
 )
 
 var _ = Describe("Write", func() {
@@ -55,11 +55,15 @@ var _ = Describe("Write", func() {
 		})
 		Describe("Defining a Relationship", func() {
 			It("Should define a relationship by its ID", func() {
-				Expect(w.DefineRelationship(idOne, idTwo, ontology.Parent)).To(Succeed())
+				Expect(w.DefineRelationship(
+					idOne,
+					ontology.ParentOf,
+					idTwo,
+				)).To(Succeed())
 				var res []ontology.Resource
 				Expect(w.NewRetrieve().
 					WhereIDs(idOne).
-					TraverseTo(ontology.Parents).
+					TraverseTo(ontology.Children).
 					Entries(&res).
 					Exec()).To(Succeed())
 				Expect(res).To(HaveLen(1))
@@ -69,8 +73,8 @@ var _ = Describe("Write", func() {
 				It("Should return a query.NotFound error", func() {
 					err := w.DefineRelationship(
 						idOne,
+						ontology.ParentOf,
 						newEmptyID("42"),
-						ontology.Parent,
 					)
 					Expect(err).To(HaveOccurred())
 					Expect(errors.Is(err, query.NotFound)).To(BeTrue())
@@ -80,19 +84,19 @@ var _ = Describe("Write", func() {
 				It(
 					"Should return an error if a relationship is defined in two directions",
 					func() {
-						Expect(w.DefineRelationship(idOne, idTwo, ontology.Parent)).To(Succeed())
-						err := w.DefineRelationship(idTwo, idOne, ontology.Parent)
+						Expect(w.DefineRelationship(idOne, ontology.ParentOf, idTwo)).To(Succeed())
+						err := w.DefineRelationship(idTwo, ontology.ParentOf, idOne)
 						Expect(err).To(HaveOccurred())
 						Expect(errors.Is(err, ontology.CyclicDependency)).To(BeTrue())
 					},
 				)
 				It("Should return an error is a relationships creates a cycle",
 					func() {
-						Expect(w.DefineRelationship(idOne, idTwo, ontology.Parent)).To(Succeed())
+						Expect(w.DefineRelationship(idOne, ontology.ParentOf, idTwo)).To(Succeed())
 						idThree := ontology.ID{Key: "qux", Type: "quux"}
 						Expect(w.DefineResource(idThree)).To(Succeed())
-						Expect(w.DefineRelationship(idTwo, idThree, ontology.Parent)).To(Succeed())
-						err := w.DefineRelationship(idThree, idOne, ontology.Parent)
+						Expect(w.DefineRelationship(idTwo, ontology.ParentOf, idThree)).To(Succeed())
+						err := w.DefineRelationship(idThree, ontology.ParentOf, idOne)
 						Expect(err).To(HaveOccurred())
 						Expect(errors.Is(err, ontology.CyclicDependency)).To(BeTrue())
 					})
@@ -100,12 +104,12 @@ var _ = Describe("Write", func() {
 		})
 		Describe("Deleting a Relationship", func() {
 			It("Should delete a relationship by its ID", func() {
-				Expect(w.DefineRelationship(idOne, idTwo, ontology.Parent)).To(Succeed())
-				Expect(w.DeleteRelationship(idOne, idTwo, ontology.Parent)).To(Succeed())
+				Expect(w.DefineRelationship(idOne, ontology.ParentOf, idTwo)).To(Succeed())
+				Expect(w.DeleteRelationship(idOne, ontology.ParentOf, idTwo)).To(Succeed())
 				var res []ontology.Resource
 				Expect(w.NewRetrieve().
 					WhereIDs(idOne).
-					TraverseTo(ontology.Parents).
+					TraverseTo(ontology.Children).
 					Entries(&res).
 					Exec()).To(Succeed())
 				Expect(res).To(HaveLen(0))
@@ -113,8 +117,8 @@ var _ = Describe("Write", func() {
 		})
 		Describe("Idempotency", func() {
 			Specify("Defining a relationship should be idempotent", func() {
-				Expect(w.DefineRelationship(idOne, idTwo, ontology.Parent)).To(Succeed())
-				Expect(w.DefineRelationship(idOne, idTwo, ontology.Parent)).To(Succeed())
+				Expect(w.DefineRelationship(idOne, ontology.ParentOf, idTwo)).To(Succeed())
+				Expect(w.DefineRelationship(idOne, ontology.ParentOf, idTwo)).To(Succeed())
 			})
 		})
 	})

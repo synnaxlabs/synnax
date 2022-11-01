@@ -66,3 +66,11 @@ const subjectKey = "Subject"
 func setSubject(p freighter.Params, subject ontology.ID) {
 	p.Set(subjectKey, subject)
 }
+
+func getSubject(ctx context.Context) ontology.ID {
+	s, ok := freighter.MDFromContext(ctx).Params.Get(subjectKey)
+	if !ok {
+		panic("[api] - no subject found in context")
+	}
+	return s.(ontology.ID)
+}

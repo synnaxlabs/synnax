@@ -76,5 +76,5 @@ type Value interface {
 func assertValueType[V Value](v interface{}) bool { _, ok := v.(V); return ok }
 
 type Field struct {
-	Type FieldType
+	Type FieldType `json:"type" msgpack:"type"`
 }

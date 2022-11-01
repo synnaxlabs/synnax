@@ -54,6 +54,7 @@ func provisionNServices(n int, logger *zap.Logger) (*mock.CoreBuilder, map[core.
 			_core.Storage.TS,
 			container.transport.channelClient,
 			container.transport.channelServer,
+			nil,
 		)
 		iterator.NewServer(iterator.Config{
 			TS:              _core.Storage.TS,

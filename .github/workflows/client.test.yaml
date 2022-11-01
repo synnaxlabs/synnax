@@ -5,8 +5,8 @@ on:
       - main
   push:
     paths:
-      - 'client/**'
-      - '.github/workflows/client.test.yaml'
+      - "client/**"
+      - ".github/workflows/client.test.yaml"
 jobs:
   test-python:
     runs-on: ubuntu-latest
@@ -51,7 +51,6 @@ jobs:
         ports:
           - 8080:8080
 
-
   test-typescript:
     runs-on: ubuntu-latest
     steps:
@@ -64,11 +63,9 @@ jobs:
 
       - name: Install Dependencies
         run: yarn
-        working-directory: ./client/ts
 
       - name: Test
-        run: yarn cov
-        working-directory: ./client/ts
+        run: yarn cov:client
 
       - name: Upload Coverage
         uses: codecov/codecov-action@v3
@@ -91,7 +88,3 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
         ports:
           - 8080:8080
-
-
-
-

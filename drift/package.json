@@ -1,0 +1,38 @@
+{
+  "name": "@synnaxlabs/drift",
+  "private": false,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+		"watch": "tsc && vite build --watch",
+    "preview": "vite preview",
+    "lint": "TIMING=1 eslint \"src/**/*.ts*\"",
+		"test": "vitest",
+		"cov": "vitest --coverage"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^2.2.0",
+    "typescript": "^4.6.4",
+    "vite": "^3.2.0",
+    "vite-plugin-dts": "^1.6.6",
+    "vite-tsconfig-paths": "^3.5.2",
+    "vitest": "^0.24.3",
+    "@synnaxlabs/tsconfig": "*",
+    "eslint-config-synnaxlabs": "*"
+  },
+  "dependencies": {
+    "@reduxjs/toolkit": "^1.8.6",
+    "@tauri-apps/api": "^1.1.0",
+    "proxy-memoize": "^1.2.0",
+    "react": "^18.2.0",
+    "react-redux": "^8.0.4"
+  },
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/pluto.umd.js",
+  "module": "./dist/pluto.es.js",
+  "types": "./dist/index.d.ts"
+}

@@ -8,6 +8,7 @@ package cluster
 import (
 	"context"
 	"github.com/cockroachdb/errors"
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	pledge_ "github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/cluster/store"
@@ -19,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/signal"
+	storex "github.com/synnaxlabs/x/store"
 	"go.uber.org/zap"
 )
 
@@ -31,14 +33,19 @@ var ErrNotFound = errors.New("[cluster] - node not found")
 // Cluster represents a group of nodes that can exchange their state with each other.
 type Cluster interface {
 	HostResolver
+	// Key returns a unique key for the cluster. This value is consistent across
+	// all nodes in the cluster.
+	Key() uuid.UUID
 	// Nodes returns a node.Group of all nodes in the cluster. The returned map
-	// is not safe to modify. To modify, use node.Group.Copy().
+	// is not safe to modify. To modify, use node.Group.CopyState().
 	Nodes() node.Group
 	// Node returns the member Node with the given ID.
 	Node(id node.ID) (node.Node, error)
 	// Observable returns can be used to monitor changes to the cluster state. Be careful not to modify the
 	// contents of the returned State.
 	observe.Observable[State]
+	// Reader allows reading the current state of the cluster.
+	storex.Reader[State]
 }
 
 // Resolver is used to resolve a reachable address for a node in the cluster.
@@ -60,7 +67,7 @@ type HostResolver interface {
 }
 
 // Join joins the host node to the cluster and begins gossiping its state. The
-// node will spread addr as its listening address. Key set of peer addresses
+// node will spread addr as its listening address. A set of peer addresses
 // (other nodes in the cluster) must be provided when joining an existing cluster
 // for the first time. If restarting a node that is already a member of a cluster,
 // the peer addresses can be left empty; Join will attempt to load the existing
@@ -87,11 +94,12 @@ func Join(ctx signal.Context, cfgs ...Config) (Cluster, error) {
 		c.cfg.Logger.Infow(
 			"no existing cluster found in storage. pledging to cluster instead",
 		)
-		id, err := pledge_.Pledge(ctx, c.cfg.Pledge)
+		pledgeRes, err := pledge_.Pledge(ctx, c.cfg.Pledge)
 		if err != nil {
 			return nil, err
 		}
-		c.Store.SetHost(node.Node{ID: id, Address: c.cfg.HostAddress})
+		c.Store.SetHost(node.Node{ID: pledgeRes.ID, Address: c.cfg.HostAddress})
+		c.Store.SetClusterKey(pledgeRes.ClusterKey)
 		// operationSender initial cluster state, so we can contact it for
 		// information on other nodes instead of peers.
 
@@ -103,9 +111,11 @@ func Join(ctx signal.Context, cfgs ...Config) (Cluster, error) {
 		// If our store isn't valid, and we haven't received peers, assume we're
 		// bootstrapping a new cluster.
 		c.Store.SetHost(node.Node{ID: 1, Address: c.cfg.HostAddress})
+		c.SetClusterKey(uuid.New())
 		c.cfg.Logger.Infow(
 			"no peers provided, bootstrapping new cluster",
 		)
+		c.cfg.Pledge.ClusterKey = c.Key()
 		if err := pledge_.Arbitrate(c.cfg.Pledge); err != nil {
 			return c, err
 		}
@@ -118,8 +128,8 @@ func Join(ctx signal.Context, cfgs ...Config) (Cluster, error) {
 
 		host := c.Store.GetHost()
 		host.Heartbeat = host.Heartbeat.Restart()
-		c.Store.Set(host)
-
+		c.Store.SetNode(host)
+		c.cfg.Pledge.ClusterKey = c.Key()
 		if err := pledge_.Arbitrate(c.cfg.Pledge); err != nil {
 			return nil, err
 		}
@@ -140,18 +150,23 @@ type cluster struct {
 	gossip *gossip.Gossip
 }
 
+// Key implements the Cluster interface.
+func (c *cluster) Key() uuid.UUID {
+	return c.Store.PeekState().ClusterKey
+}
+
 // Host implements the Cluster interface.
 func (c *cluster) Host() node.Node { return c.Store.GetHost() }
 
 // HostID implements the Cluster interface.
-func (c *cluster) HostID() node.ID { return c.Store.ReadState().HostID }
+func (c *cluster) HostID() node.ID { return c.Store.PeekState().HostID }
 
 // Nodes implements the Cluster interface.
-func (c *cluster) Nodes() node.Group { return c.Store.ReadState().Nodes }
+func (c *cluster) Nodes() node.Group { return c.Store.PeekState().Nodes }
 
 // Node implements the Cluster interface.
 func (c *cluster) Node(id node.ID) (node.Node, error) {
-	n, ok := c.Store.Get(id)
+	n, ok := c.Store.GetNode(id)
 	if !ok {
 		return n, ErrNotFound
 	}

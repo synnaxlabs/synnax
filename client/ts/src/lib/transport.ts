@@ -3,8 +3,8 @@ import {
   JSONEncoderDecoder,
   Middleware,
   StreamClient,
-  UnaryClient,
   URL,
+  UnaryClient,
   WebSocketClient,
 } from '@synnaxlabs/freighter';
 
