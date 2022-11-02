@@ -2,7 +2,6 @@ import argparse
 import os
 from enum import Enum
 from os import path
-from tokenize import Double
 
 
 class Filetype(Enum):

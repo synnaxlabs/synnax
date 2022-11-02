@@ -291,7 +291,7 @@ class TimeSpan(int):
 
 
 TIME_STAMP_MIN = TimeStamp(0)
-TIME_STAMP_MAX = TimeStamp(2**63 - 1)
+TIME_STAMP_MAX = TimeStamp(2 ** 63 - 1)
 NANOSECOND = TimeSpan(1)
 MICROSECOND = TimeSpan(1000) * NANOSECOND
 MILLISECOND = TimeSpan(1000) * MICROSECOND
@@ -479,7 +479,7 @@ class DataType(str):
             return super().__new__(cls, value)
         try:
             if issubclass(value, np.ScalarType):
-                value = DATA_TYPES.get(value, None)
+                value = NUMPY_TO_DATA_TYPE.get(value, None)
                 if value is None:
                     raise TypeError(f"Cannot convert {value} to DataType")
                 return value
@@ -508,13 +508,16 @@ class DataType(str):
         :param _raise: If True, raises a TypeError if the DataType is not a numpy type.
         :return: The numpy type
         """
-        npt = NUMPY_TYPES.get(self, None)
+        npt = DATA_TYPE_TO_NUMPY.get(self, None)
         if npt is None and _raise:
             raise TypeError(f"Cannot convert {self} to numpy type")
         return npt
 
     def __repr__(self):
         return f"DataType({super(DataType, self).__repr__()})"
+
+    def string(self):
+        return str(self)
 
 
 DATA_TYPE_UNKNOWN = DataType("")
@@ -528,6 +531,18 @@ UINT64 = DataType("uint64")
 UINT32 = DataType("uint32")
 UINT16 = DataType("uint16")
 UINT8 = DataType("uint8")
+DATA_TYPES = [
+    FLOAT64,
+    FLOAT32,
+    INT64,
+    INT32,
+    INT16,
+    INT8,
+    UINT64,
+    UINT32,
+    UINT16,
+    UINT8,
+]
 
 UnparsedTimeStamp = Union[
     int,
@@ -548,7 +563,7 @@ UnparsedRate = Union[int, float, TimeSpan, Rate]
 UnparsedDensity = Density | int
 UnparsedDataType = (*np.ScalarType, DataType, str)
 
-NUMPY_TYPES: dict[str, np.ScalarType] = {
+DATA_TYPE_TO_NUMPY: dict[str, np.ScalarType] = {
     FLOAT64: np.float64,
     FLOAT32: np.float32,
     INT64: np.int64,
@@ -560,16 +575,4 @@ NUMPY_TYPES: dict[str, np.ScalarType] = {
     UINT16: np.uint16,
     UINT8: np.uint8,
 }
-
-DATA_TYPES: dict[np.ScalarType, DataType] = {
-    np.float64: FLOAT64,
-    np.float32: FLOAT32,
-    np.int64: INT64,
-    np.int32: INT32,
-    np.int16: INT16,
-    np.int8: INT8,
-    np.uint64: UINT64,
-    np.uint32: UINT32,
-    np.uint16: UINT16,
-    np.uint8: UINT8,
-}
+NUMPY_TO_DATA_TYPE = {v: k for k, v in DATA_TYPE_TO_NUMPY.items()}

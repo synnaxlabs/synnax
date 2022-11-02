@@ -57,6 +57,13 @@ class Channel(ChannelPayload):
         """
         self.segment_client.write(self.key, start, data)
 
+    def as_dict(self) -> dict:
+        """Returns a dictionary representation of the channel.
+
+        :returns: A dictionary representation of the channel.
+        """
+        return self._payload().dict()
+
 
 class ChannelClient:
     """The core client class for executing channel operations against a Synnax cluster."""
@@ -108,10 +115,12 @@ class ChannelClient:
 
     def create(
         self,
-        rate: UnparsedRate,
-        data_type: UnparsedDataType,
         name: str = "",
         node_id: int = 0,
+        rate: UnparsedRate = Rate(0),
+        data_type: UnparsedDataType = DATA_TYPE_UNKNOWN,
+        index: str = "",
+        is_index: bool = False,
     ) -> Channel:
         """Creates a channel using the given template.
 
@@ -123,7 +132,9 @@ class ChannelClient:
         what this is, don't worry about it.
         :returns: The created channel.
         """
-        return self._sugar(self._creator.create(name, node_id, rate, data_type))[0]
+        return self._sugar(
+            self._creator.create(name, node_id, rate, data_type, index, is_index))[
+            0]
 
     def retrieve(self, keys: list[str]) -> list[Channel]:
         """Retrieves channels with the given keys.

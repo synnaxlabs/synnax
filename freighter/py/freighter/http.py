@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+import time
 from typing import Type
 from urllib.parse import urlencode
 
 from urllib3 import HTTPResponse, PoolManager
-from urllib3.exceptions import HTTPError
+from urllib3.exceptions import HTTPError, MaxRetryError
 
 from .encoder import EncoderDecoder
-from .exceptions import ExceptionPayload, decode_exception
+from .exceptions import ExceptionPayload, decode_exception, Unreachable
 from .transport import RQ, RS, Payload
 from .url import URL
 from .transport import MiddlewareCollector
@@ -93,6 +94,8 @@ class _Core(MiddlewareCollector):
             http_res: HTTPResponse
             try:
                 http_res = http.request(method=method, url=url, headers=head, body=data)
+            except MaxRetryError as e:
+                return Unreachable(url, e)
             except HTTPError as e:
                 return e
 

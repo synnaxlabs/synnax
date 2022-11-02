@@ -33,6 +33,16 @@ func (c Create) WithName(name string) Create { setName(c, name); return c }
 // a non-zero value.
 func (c Create) WithRate(dr telem.Rate) Create { telem.SetRate(c, dr); return c }
 
+func (c Create) WithIndex(idx Key) Create {
+	setIndex(c, idx)
+	return c
+}
+
+func (c Create) WithIsIndex(isIndex bool) Create {
+	setIsIndex(c, isIndex)
+	return c
+}
+
 // WithDataType sets the data type for the Channel. This option is required, and must be
 // a non-zero value.
 func (c Create) WithDataType(dt telem.DataType) Create { telem.SetDataType(c, dt); return c }
@@ -71,6 +81,8 @@ func assembleFromQuery(q query.Query, n int) ([]Channel, error) {
 	}
 	name := getName(q)
 	nodeID := getNodeID(q)
+	index := getIndex(q)
+	isIndex := getIsIndex(q)
 	for i := 0; i < n; i++ {
 		channels[i] = Channel{
 			Name:     name,
@@ -79,6 +91,8 @@ func assembleFromQuery(q query.Query, n int) ([]Channel, error) {
 			Channel: storage.Channel{
 				Rate:    dr,
 				Density: dt.Density(),
+				Index:    index.StorageKey(),
+				IsIndex:  isIndex,
 			},
 		}
 	}
@@ -109,4 +123,31 @@ func getName(q query.Query) string {
 		return v.(string)
 	}
 	return ""
+}
+
+// |||||| INDEX ||||||
+
+const indexKey query.OptionKey = "index"
+
+func setIndex(q query.Query, index Key) { q.Set(indexKey, index) }
+
+func getIndex(q query.Query) Key {
+	if v, ok := q.Get(indexKey); ok {
+		return v.(Key)
+	}
+	return Key{}
+}
+
+// |||||| IS INDEX ||||||
+
+const isIndexKey query.OptionKey = "isIndex"
+
+func setIsIndex(q query.Query, isIndex bool) { q.Set(isIndexKey, isIndex) }
+
+
+func getIsIndex(q query.Query) bool {
+	if v, ok := q.Get(isIndexKey); ok {
+		return v.(bool)
+	}
+	return false
 }

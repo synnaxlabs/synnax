@@ -123,6 +123,19 @@ class EOF(Exception):
         return "EOF"
 
 
+class Unreachable(Exception):
+    """
+    Raise when a target is unreachable.
+    """
+
+    target: str
+    base: Exception
+
+    def __init__(self, target: str, base: Exception | None = None):
+        self.target = target
+        self.base = base
+        super().__init__(f"Target {target} unreachable")
+
 _EXCEPTIONS = [
     Unreachable,
     StreamClosed,

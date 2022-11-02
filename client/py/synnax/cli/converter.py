@@ -40,7 +40,7 @@ class Converter:
         self.client = synnax.Synnax(host=hostname, port=port)
 
     def set_test_name(self, name):
-        self.tags.name = name
+        self.tags.key = name
 
     def set_flag(self, key, value):
         self.tags.flags.update({key, value})
@@ -78,7 +78,7 @@ class Converter:
         # channels = self.client.channel.retrieve_by_name(chunk.columns.tolist())
         # channels = self.client.channel.retrieve_by_name("chunk.columns.tolist()")
 
-        channel_names = [ch.name for ch in channels]
+        channel_names = [ch.key for ch in channels]
         for ch in chunk.columns.tolist():
             if not ch in channel_names:
                 print("Channel Not Found")

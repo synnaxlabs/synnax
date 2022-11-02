@@ -16,7 +16,7 @@ type Channel struct {
 	Key      string              `json:"key" msgpack:"key"`
 	Name     string              `json:"name" msgpack:"name"`
 	NodeID   distribution.NodeID `json:"node_id" msgpack:"node_id"`
-	Rate     telem.Rate          `json:"rate" msgpack:"rate" validate:"required"`
+	Rate     telem.Rate          `json:"rate" msgpack:"rate"`
 	DataType telem.DataType      `json:"data_type" msgpack:"data_type" validate:"required"`
 	Density  telem.Density       `json:"density" msgpack:"density"`
 	IsIndex  bool                `json:"is_index" msgpack:"is_index"`
@@ -72,12 +72,22 @@ func (s *ChannelService) Create(
 	if err := s.Validate(req); err.Occurred() {
 		return res, err
 	}
+	var idx channel.Key
+	if req.Channel.Index != "" {
+		var err error
+		idx, err = channel.ParseKey(req.Channel.Index)
+		if err != nil {
+			return res, errors.Parse(err)
+		}
+	}
 	return res, s.dbProvider.WithTxn(func(txn gorp.Txn) errors.Typed {
 		chs, err := s.internal.NewCreate().
 			WithName(req.Channel.Name).
 			WithNodeID(req.Channel.NodeID).
 			WithRate(req.Channel.Rate).
 			WithDataType(req.Channel.DataType).
+			WithIndex(idx).
+			WithIsIndex(req.Channel.IsIndex).
 			WithTxn(txn).
 			ExecN(ctx, req.Count)
 		res = ChannelCreateResponse{Channels: translateChannels(chs)}
