@@ -2,6 +2,7 @@ package channel
 
 import (
 	"context"
+	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/gorp"
@@ -83,6 +84,7 @@ func assembleFromQuery(q query.Query, n int) ([]Channel, error) {
 	nodeID := getNodeID(q)
 	index := getIndex(q)
 	isIndex := getIsIndex(q)
+	logrus.Info(dt)
 	for i := 0; i < n; i++ {
 		channels[i] = Channel{
 			Name:     name,
@@ -91,8 +93,8 @@ func assembleFromQuery(q query.Query, n int) ([]Channel, error) {
 			Channel: storage.Channel{
 				Rate:    dr,
 				Density: dt.Density(),
-				Index:    index.StorageKey(),
-				IsIndex:  isIndex,
+				Index:   index.StorageKey(),
+				IsIndex: isIndex,
 			},
 		}
 	}
@@ -143,7 +145,6 @@ func getIndex(q query.Query) Key {
 const isIndexKey query.OptionKey = "isIndex"
 
 func setIsIndex(q query.Query, isIndex bool) { q.Set(isIndexKey, isIndex) }
-
 
 func getIsIndex(q query.Query) bool {
 	if v, ok := q.Get(isIndexKey); ok {

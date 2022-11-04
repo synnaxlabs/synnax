@@ -14,7 +14,7 @@ class CSVReader:
     def __init__(self,
                  path: Path,
                  channel_keys: list[str] = None,
-                 chunk_size: int = None,
+                 chunk_size: int = 1000,
                  ):
         self.path = path
         self.reader = pd.read_csv(
@@ -26,7 +26,7 @@ class CSVReader:
 
     def channels(self) -> list[ChannelMeta]:
         if not self._channels:
-            self._channels = [ChannelMeta(key=key, meta_data={}) for key in
+            self._channels = [ChannelMeta(name=name, meta_data={}) for name in
                               pd.read_csv(self.path, nrows=0).columns]
         return self._channels
 

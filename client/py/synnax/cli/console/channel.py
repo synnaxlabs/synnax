@@ -1,29 +1,45 @@
-from rich import print
-from rich.table import Table
-from rich.prompt import Prompt
+import fnmatch
 
-from synnax import Channel
+from ..flow import Context
 
 
-def prompt_select_channel(channels: list[Channel], allow_none: bool = False) -> Channel:
-    print(f"[#3774d0]Select a channel from the following list:")
-    t = Table(show_header=True, header_style="bold magenta")
-    t.add_column("Option #", justify="right", style="dim", no_wrap=True)
-    t.add_column("Channel Name", style="cyan")
-    t.add_column("Channel Key", style="cyan")
-    t.add_column("Node ID", style="cyan")
-    t.add_column("Index", style="cyan")
-    t.add_column("Data Type", style="cyan")
-    t.add_column("Data Rate", style="cyan")
+def prompt_group_channel_names(
+    ctx: Context,
+    channels: list[str],
+) -> dict[str, list[str]] | None:
+    ctx.console.info("""
+    You can enter 'all' for all channels or a comma-separated list of:
+    1) Names (e.g. 'channel1, channel2, channel3')
+    2) Channel indices (e.g. '1, 2, 3')
+    3) A pattern to match (e.g. 'channel*, sensor*')
+    4) A combination of the above (e.g. '1, 2, channel3, my_dog*')
+    """)
+    res = ctx.console.ask("channels")
+    return group_channel_names(ctx, channels, res.split(","))
 
-    for i, ch in enumerate(channels):
-        t.add_row(str(i), ch.name, ch.key, str(ch.node_id), str(ch.index),
-                  ch.data_type, str(ch.data_rate))
 
-    print(t)
-    choices = [str(i) for i in range(len(channels))]
-    if allow_none:
-        print(f"[#3774d0]Enter 'none' to select no channel.")
-        choices.append("none")
-    i = Prompt.ask("Select an option #", choices=choices)
-    return channels[int(i)]
+def group_channel_names(
+    ctx: Context,
+    all_names: list[str],
+    matchers: list[str],
+):
+    grouped = {}
+    for entry in matchers:
+        entry = entry.strip()
+        channels = []
+        if entry.isdigit():
+            index = int(entry)
+            if index < 0 or index >= len(all_names):
+                ctx.console.error(f"Invalid channel index: {index}[/]")
+                continue
+            channels.append(all_names[index])
+        else:
+            for name in all_names:
+                if fnmatch.fnmatch(name, entry):
+                    channels.append(name)
+            if not channels:
+                ctx.console.error(f"No channels match pattern: {entry}[/]")
+                if not ctx.console.confirm("Continue?", default=True):
+                    return None
+        grouped[entry] = channels
+    return grouped

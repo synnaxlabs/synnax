@@ -9,7 +9,7 @@ from .payload import ChannelPayload
 class _Request(Payload):
     keys: list[str] | None = None
     node_id: int | None = None
-    names: typing.Any | None = None
+    names: list[str] | None = None
 
 
 class _Response(Payload):

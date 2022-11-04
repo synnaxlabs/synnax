@@ -287,13 +287,285 @@ var _ = Describe("Accuracy", Ordered, func() {
 				})
 			})
 
+			Describe("Non-Contiguous", func() {
+				var (
+					key    cesium.ChannelKey
+					idxKey cesium.ChannelKey
+				)
+				BeforeAll(func() {
+					chs, w := createWriter(
+						db,
+						cesium.Channel{IsIndex: true, Density: telem.Bit64},
+					)
+					idxKey = cesium.Keys(chs)[0]
+					Expect(w.Write([]cesium.Segment{
+						{
+							ChannelKey: idxKey,
+							Start:      10 * telem.SecondTS,
+							Data: MarshalTimeStamps([]telem.TimeStamp{
+								10 * telem.SecondTS,
+								12 * telem.SecondTS,
+								13 * telem.SecondTS,
+								18 * telem.SecondTS,
+								19 * telem.SecondTS,
+								22 * telem.SecondTS,
+								23 * telem.SecondTS,
+								30 * telem.SecondTS,
+								35 * telem.SecondTS,
+								40 * telem.SecondTS,
+								42 * telem.SecondTS,
+								43 * telem.SecondTS,
+								44 * telem.SecondTS,
+								45 * telem.SecondTS,
+								47 * telem.SecondTS,
+								48 * telem.SecondTS,
+								49 * telem.SecondTS,
+								50 * telem.SecondTS,
+								52 * telem.SecondTS,
+								53 * telem.SecondTS,
+							}),
+						},
+					})).To(BeTrue())
+					Expect(w.Close()).To(Succeed())
+					chs, w2 := createWriter(db, cesium.Channel{Index: idxKey, Density: telem.Bit64})
+					key = cesium.Keys(chs)[0]
+					Expect(w2.Write([]cesium.Segment{
+						{
+							ChannelKey: key,
+							Start:      10 * telem.SecondTS,
+							Data:       Marshal([]int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}),
+						},
+						{
+							ChannelKey: key,
+							Start:      42 * telem.SecondTS,
+							Data:       Marshal([]int64{11, 12, 13, 14, 15, 16, 17, 18, 19, 20}),
+						},
+					})).To(BeTrue())
+					Expect(w2.Close()).To(Succeed())
+				})
+
+				Specify("Even Range", func() {
+					segments := MustSucceed(db.Read(
+						(10 * telem.SecondTS).SpanRange(44*telem.Second),
+						key,
+					))
+					Expect(segments).To(HaveLen(2))
+					expectSegment(
+						segments[0],
+						key,
+						10*telem.SecondTS,
+						Marshal([]int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}),
+					)
+					expectSegment(
+						segments[1],
+						key,
+						42*telem.SecondTS,
+						Marshal([]int64{11, 12, 13, 14, 15, 16, 17, 18, 19, 20}),
+					)
+				})
+
+				Specify("Partial Range", func() {
+					segments := MustSucceed(db.Read(
+						(44 * telem.SecondTS).SpanRange(5*telem.Second),
+						key,
+					))
+					Expect(segments).To(HaveLen(1))
+					expectSegment(
+						segments[0],
+						key,
+						44*telem.SecondTS,
+						Marshal([]int64{13, 14, 15, 16}),
+					)
+				})
+			})
 		})
 
 	})
 	Context("Multi Channel", func() {
 		Context("Indexed", func() {
-			Context("Shared Index", func() {})
-			Context("Multi Index", func() {})
+			Context("Shared Index", func() {
+				var (
+					key1, key2, key3, idxKey cesium.ChannelKey
+				)
+				BeforeAll(func() {
+					chs, w := createWriter(
+						db,
+						cesium.Channel{IsIndex: true, Density: telem.Bit64},
+					)
+					idxKey = cesium.Keys(chs)[0]
+					Expect(w.Write([]cesium.Segment{
+						{
+							ChannelKey: idxKey,
+							Start:      10 * telem.SecondTS,
+							Data: MarshalTimeStamps([]telem.TimeStamp{
+								10 * telem.SecondTS,
+								12 * telem.SecondTS,
+								13 * telem.SecondTS,
+								18 * telem.SecondTS,
+								19 * telem.SecondTS,
+								22 * telem.SecondTS,
+								23 * telem.SecondTS,
+								30 * telem.SecondTS,
+								35 * telem.SecondTS,
+								40 * telem.SecondTS,
+							}),
+						},
+					})).To(BeTrue())
+					Expect(w.Close()).To(Succeed())
+					chs, w2 := createWriter(db,
+						cesium.Channel{Index: idxKey, Density: telem.Bit64},
+						cesium.Channel{Index: idxKey, Density: telem.Bit64},
+						cesium.Channel{Index: idxKey, Density: telem.Bit64},
+					)
+					key1 = cesium.Keys(chs)[0]
+					key2 = cesium.Keys(chs)[1]
+					key3 = cesium.Keys(chs)[2]
+					Expect(w2.Write([]cesium.Segment{
+						{
+							ChannelKey: key1,
+							Start:      10 * telem.SecondTS,
+							Data:       Marshal([]int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}),
+						},
+					})).To(BeTrue())
+					Expect(w2.Write([]cesium.Segment{
+						{
+							ChannelKey: key2,
+							Start:      10 * telem.SecondTS,
+							Data:       Marshal([]int64{11, 12, 13, 14, 15, 16, 17, 18, 19, 20}),
+						},
+					})).To(BeTrue())
+					Expect(w2.Write([]cesium.Segment{
+						{
+							ChannelKey: key3,
+							Start:      10 * telem.SecondTS,
+							Data:       Marshal([]int64{21, 22, 23, 24, 25, 26, 27, 28, 29, 30}),
+						},
+					})).To(BeTrue())
+					Expect(w2.Close()).To(Succeed())
+				})
+
+				Specify("Even Range", func() {
+					segments := MustSucceed(db.Read(
+						(10 * telem.SecondTS).SpanRange(31*telem.Second),
+						key1, key2, key3,
+					))
+					Expect(segments).To(HaveLen(3))
+					expectSegment(
+						segments[0],
+						key1,
+						10*telem.SecondTS,
+						Marshal([]int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}),
+					)
+					expectSegment(
+						segments[1],
+						key2,
+						10*telem.SecondTS,
+						Marshal([]int64{11, 12, 13, 14, 15, 16, 17, 18, 19, 20}),
+					)
+					expectSegment(
+						segments[2],
+						key3,
+						10*telem.SecondTS,
+						Marshal([]int64{21, 22, 23, 24, 25, 26, 27, 28, 29, 30}),
+					)
+				})
+
+				Specify("Partial Range", func() {
+					segments := MustSucceed(db.Read(
+						(12 * telem.SecondTS).SpanRange(19*telem.Second),
+						key1, key2, key3,
+					))
+					Expect(segments).To(HaveLen(3))
+					expectSegment(
+						segments[0],
+						key1,
+						12*telem.SecondTS,
+						Marshal([]int64{2, 3, 4, 5, 6, 7, 8}),
+					)
+					expectSegment(
+						segments[1],
+						key2,
+						12*telem.SecondTS,
+						Marshal([]int64{12, 13, 14, 15, 16, 17, 18}),
+					)
+					expectSegment(
+						segments[2],
+						key3,
+						12*telem.SecondTS,
+						Marshal([]int64{22, 23, 24, 25, 26, 27, 28}),
+					)
+				})
+
+			})
+			Context("Multi Index", func() {
+				var (
+					key1, key2     cesium.ChannelKey
+					idxOne, idxTwo cesium.ChannelKey
+				)
+				BeforeEach(func() {
+					chs, w := createWriter(
+						db,
+						cesium.Channel{IsIndex: true, Density: telem.Bit64},
+						cesium.Channel{IsIndex: true, Density: telem.Bit64},
+					)
+					idxOne = cesium.Keys(chs)[0]
+					idxTwo = cesium.Keys(chs)[1]
+
+					Expect(w.Write([]cesium.Segment{
+						{
+							ChannelKey: idxOne,
+							Start:      10 * telem.SecondTS,
+							Data: MarshalTimeStamps([]telem.TimeStamp{
+								10 * telem.SecondTS,
+								11 * telem.SecondTS,
+								13 * telem.SecondTS,
+								14 * telem.SecondTS,
+								18 * telem.SecondTS,
+								22 * telem.SecondTS,
+								25 * telem.SecondTS,
+							}),
+						},
+					})).To(BeTrue())
+					Expect(w.Write([]cesium.Segment{
+						{
+							ChannelKey: idxTwo,
+							Start:      10 * telem.SecondTS,
+							Data: MarshalTimeStamps([]telem.TimeStamp{
+								10 * telem.SecondTS,
+								13 * telem.SecondTS,
+								15 * telem.SecondTS,
+								16 * telem.SecondTS,
+								17 * telem.SecondTS,
+								24 * telem.SecondTS,
+							}),
+						},
+					})).To(BeTrue())
+					Expect(w.Close()).To(Succeed())
+
+					chs, w = createWriter(
+						db,
+						cesium.Channel{Index: idxOne, Density: telem.Bit64},
+						cesium.Channel{Index: idxTwo, Density: telem.Bit64},
+					)
+					key1 = cesium.Keys(chs)[0]
+					key2 = cesium.Keys(chs)[1]
+					Expect(w.Write([]cesium.Segment{
+						{
+							ChannelKey: key1,
+							Start:      10 * telem.SecondTS,
+							Data:       Marshal([]int64{1, 2, 3, 4, 5, 6, 7),
+						},
+					})).To(BeTrue())
+					Expect(w.Write([]cesium.Segment{
+						{
+							ChannelKey: key2,
+							Start:      10 * telem.SecondTS,
+							Data:       Marshal([]int64{11, 12, 13, 14, 15, 16}),
+						},
+					})).To(BeTrue())
+					Expect(w.Close()).To(Succeed())
+				})
+			})
 		})
 		Context("Rate Based", func() {
 			Context("Shared Rate", func() {})

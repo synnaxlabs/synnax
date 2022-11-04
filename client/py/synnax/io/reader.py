@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 
 class ChannelMeta(BaseModel):
-    key: str
+    name: str
     meta_data: dict[str, Any]
 
 

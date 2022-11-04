@@ -145,13 +145,13 @@ class ChannelClient:
         """
         return self._sugar(*self._retriever.retrieve(keys))
 
-    def retrieve_by_name(self, names: list[str]) -> list[Channel]:
+    def retrieve_by_name(self, *name: str) -> list[Channel]:
         """Retrieves channels with the given names.
 
-        :param names: The list of names to retrieve channels for.
+        :param name: The list of names to retrieve channels for.
         :returns: A list of retrieved channels matching the given name.
         """
-        return self._sugar(*self._retriever.retrieve_by_name(names))
+        return self._sugar(*self._retriever.retrieve_by_name(*name))
 
     def retrieve_by_node_id(self, node_id: int) -> list[Channel]:
         """Retrieves channels whose lease node is the given node_id.

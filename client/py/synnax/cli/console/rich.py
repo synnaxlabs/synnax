@@ -3,6 +3,8 @@ from rich.prompt import Prompt, Confirm, FloatPrompt, IntPrompt
 
 
 class RichConsole:
+    """A rich text implementation of the Console protocol.
+    """
     info_color: str
     warn_color: str
     error_color: str
@@ -10,10 +12,10 @@ class RichConsole:
 
     def __init__(
         self,
-        info_color: str = "#377D40",
+        info_color: str = "#3774D0",
         warn_color: str = "yellow",
         error_color: str = "red",
-        success_color: str = "blue",
+        success_color: str = "green",
     ):
         self.info_color = info_color
         self.warn_color = warn_color
@@ -35,7 +37,7 @@ class RichConsole:
     def ask(
         self,
         question: str,
-        choices: list[str],
+        choices: list[str] = None,
         default: str = None,
     ) -> str:
         return Prompt.ask(
@@ -62,6 +64,15 @@ class RichConsole:
         return FloatPrompt.ask(
             question,
             default=default,
+        )
+
+    def ask_password(
+        self,
+        question: str,
+    ) -> str:
+        return Prompt.ask(
+            question,
+            password=True,
         )
 
     def confirm(

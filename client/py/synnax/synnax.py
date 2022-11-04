@@ -1,17 +1,30 @@
 from freighter import URL
-from synnax.auth import AuthenticationClient
+from pydantic import BaseModel
 
-from synnax.channel import ChannelClient
-from synnax.channel.create import ChannelCreator
-from synnax.channel.registry import ChannelRegistry
-from synnax.channel.retrieve import ChannelRetriever
-from synnax.segment import SegmentClient
+from .auth import AuthenticationClient
+
+from .channel import ChannelClient
+from .channel.create import ChannelCreator
+from .channel.registry import ChannelRegistry
+from .channel.retrieve import ChannelRetriever
+from .segment import SegmentClient
 
 from .transport import Transport
 
 
+class SynnaxOptions(BaseModel):
+    """Options class for the Synnax client.
+    """
+    host: str
+    port: int
+    username: str = ""
+    password: str = ""
+
+
 class Synnax:
-    """Client to perform operations against a Synnax cluster.
+    """Client to perform operations against a Synnax cluster. If no credentials are provided
+    in the options, the client will attempt to load them from the configuration file (
+    ~/.synnax/config.json) or from environment variables.
 
     :param host: Hostname of a Synnax server.
     :param port: Port of a Synnax server.
@@ -27,8 +40,8 @@ class Synnax:
 
     def __init__(
         self,
-        host: str,
-        port: int,
+        host: str = "",
+        port: int = 0,
         username: str = "",
         password: str = "",
     ):

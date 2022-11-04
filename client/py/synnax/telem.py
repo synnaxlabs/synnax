@@ -46,6 +46,8 @@ class TimeStamp(int):
         elif isinstance(value, np.datetime64):
             # Assume the datetime64 is in UTC
             value = int(pd.Timestamp(value).asm8.view(np.int64))
+        elif isinstance(value, np.int64):
+            value = int(value)
         elif isinstance(value, int):
             return super().__new__(cls, int(value))
         else:
@@ -551,6 +553,7 @@ UnparsedTimeStamp = Union[
     datetime,
     timedelta,
     np.datetime64,
+    np.int64,
 ]
 UnparsedTimeSpan = Union[
     int,

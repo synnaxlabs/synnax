@@ -23,6 +23,7 @@ rich = "^12.6.0"
 pick = "^2.0.2"
 pydantic = "^1.10.2"
 synnax-freighter = {path = "../../freighter/py", develop = true}
+keyring = "^23.9.3"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.1.2"
@@ -41,4 +42,6 @@ plugins = ["numpy.typing.mypy_plugin"]
 ignore_missing_imports = true
 
 [tool.poetry.scripts]
-root = "synnax.cli.client:run"
+root = "synnax.cli.ingest:ingestion"
+login = "synnax.cli.login:login"
+credentials = "synnax.cli.login:credentials"

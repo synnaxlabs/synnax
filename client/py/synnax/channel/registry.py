@@ -10,7 +10,7 @@ class ChannelRegistry:
         if channels is None:
             channels = list()
         self.retriever = retriever
-        self.channels = {ch.key: ch for ch in channels}
+        self.channels = {ch.name: ch for ch in channels}
 
     def get(self, key: str) -> ChannelPayload | None:
         record = self.channels.get(key, None)

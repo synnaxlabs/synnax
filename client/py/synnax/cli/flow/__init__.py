@@ -8,6 +8,9 @@ T = TypeVar('T')
 class Context:
     console: Console
 
+    def __init__(self, console: Console):
+        self.console = console
+
 
 class Flow(Generic[T]):
     steps: dict[str, Callable[[Context, T], str | None]]
