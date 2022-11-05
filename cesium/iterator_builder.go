@@ -77,7 +77,7 @@ func (d *db) combinePositionIteratorsByIndex(
 func (d *db) buildTimeIterators(posIters []searchPosIterPair) []core.TimeIterator {
 	iters := make([]core.TimeIterator, 0, len(posIters))
 	for _, pair := range posIters {
-		iters = append(iters, index.WrapPositionIter(pair.iter, pair.idx))
+		iters = append(iters, index.WrapPositionIter(pair.iter, pair.idx, d.logger))
 	}
 	return iters
 }

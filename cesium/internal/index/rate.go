@@ -1,6 +1,7 @@
 package index
 
 import (
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/position"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -15,6 +16,8 @@ type rateSearcher struct {
 // RateSearcher returns a Searcher that uses the given rate to seek timestamps and positions.
 // RateSearcher always returns positions with complete certainty.
 func RateSearcher(rate telem.Rate) Searcher { return rateSearcher{Rate: rate} }
+
+func (r rateSearcher) Key() core.ChannelKey { return core.ChannelKey(0) }
 
 // SearchP implements Searcher.
 func (r rateSearcher) SearchP(iPos telem.TimeStamp, _ position.Approximation) (position.Approximation, error) {

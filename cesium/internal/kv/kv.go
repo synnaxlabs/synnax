@@ -4,6 +4,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/gorp"
 	kvx "github.com/synnaxlabs/x/kv"
+	"go.uber.org/zap"
 )
 
 type DB struct {
@@ -11,9 +12,10 @@ type DB struct {
 	core.ChannelWriter
 	core.ChannelReader
 	core.FileCounter
+	logger *zap.Logger
 }
 
-func Open(db kvx.DB) (*DB, error) {
+func Open(db kvx.DB, logger *zap.Logger) (*DB, error) {
 	ce, err := openChannelEngine(db, "channel-counter")
 	c, err := openFileCounter(db, []byte("file-counter"))
 	if err != nil {
@@ -24,13 +26,14 @@ func Open(db kvx.DB) (*DB, error) {
 		ChannelWriter: ce,
 		ChannelReader: ce,
 		FileCounter:   c,
+		logger:        logger,
 	}
 	return _db, err
 
 }
 
 func (k *DB) NewIterator(ch core.Channel) core.PositionIterator {
-	return newPositionIterator(k.DB, ch)
+	return newPositionIterator(k.DB, ch, k.logger)
 }
 
 func (k *DB) NewWriter() core.MDWriter {

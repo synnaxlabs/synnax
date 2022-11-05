@@ -30,7 +30,7 @@ func (i *indexingEngine) acquireSearcher(idxKey ChannelKey) (index.Searcher, err
 	}
 
 	readIter := i.kvDB.NewIterator(ch)
-	readIdx := &index.Reader{Reader: i.storage.NewReader(), Iter: readIter}
+	readIdx := &index.Reader{Reader: i.storage.NewReader(), Iter: readIter, ChannelKey: idxKey}
 	idx = append(idx, readIdx)
 
 	return idx, nil

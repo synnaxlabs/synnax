@@ -103,6 +103,10 @@ func (r Range) Midpoint() Position {
 	return r.Start.Add(r.Span() / 2)
 }
 
+func (r Range) String() string {
+	return r.Start.String() + "-" + r.End.String()
+}
+
 var (
 	RangeMax  = Range{Start: Min, End: Max}
 	RangeZero = Range{}
@@ -168,14 +172,6 @@ func (a Approximation) MustContain(pos Position) {
 	if !a.Contains(pos) {
 		panic("position out of approximation")
 	}
-}
-
-func (a Approximation) String() string {
-	return `Approximation{
-			Start: ` + a.Range.Start.String() + `,
-			End: ` + a.Range.End.String() + `,
-			Uncertainty: ` + a.Uncertainty().String() + `,
-	}`
 }
 
 func (a Approximation) WarnIfInexact() {

@@ -61,7 +61,7 @@ func Open(dirname string, opts ...Option) (DB, error) {
 		return nil, err
 	}
 
-	kvDB, err := kv.Open(o.kv.engine)
+	kvDB, err := kv.Open(o.kv.engine, o.logger)
 	if err != nil {
 		return nil, err
 	}

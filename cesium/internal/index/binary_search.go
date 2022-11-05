@@ -1,6 +1,7 @@
 package index
 
 import (
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/position"
 	"github.com/synnaxlabs/x/array"
 	"github.com/synnaxlabs/x/compare"
@@ -20,13 +21,18 @@ type BinarySearch struct {
 	// Array is the underlying binary searchable array that the index uses as its backing
 	// store.
 	Array array.Searchable[Alignment]
-	mu    sync.RWMutex
+	// Key is the key used to identify the index.
+	ChannelKey core.ChannelKey
+	mu         sync.RWMutex
 	nopReleaser
 }
 
 var _ Searcher = (*BinarySearch)(nil)
 
 func (bsi *BinarySearch) Size() int { return bsi.Array.Size() }
+
+// Key implements the Keyed interface.
+func (bsi *BinarySearch) Key() core.ChannelKey { return bsi.ChannelKey }
 
 // SearchP implements the PositionSearcher interface.
 func (bsi *BinarySearch) SearchP(

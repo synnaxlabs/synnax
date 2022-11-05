@@ -132,6 +132,7 @@ func (d *db) maybeCreateNewIndexes(ch *Channel) error {
 		Array: array.Searchable[index.Alignment]{
 			Array: array.NewRolling[index.Alignment](10000),
 		},
+		ChannelKey: ch.Key,
 	}
 	idxWriter = append(idxWriter, i1)
 	idxSearcher = append(idxSearcher, i1)

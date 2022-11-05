@@ -1,6 +1,7 @@
 package index
 
 import (
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/position"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -19,6 +20,14 @@ import (
 type CompoundSearcher []Searcher
 
 var _ Searcher = CompoundSearcher{}
+
+// Key implements the Keyed interface.
+func (c CompoundSearcher) Key() core.ChannelKey {
+	if len(c) == 0 {
+		return core.ChannelKey(0)
+	}
+	return c[0].Key()
+}
 
 // SearchP implements Searcher.
 func (c CompoundSearcher) SearchP(s telem.TimeStamp, guess position.Approximation) (position.Approximation, error) {
@@ -67,6 +76,16 @@ func (c CompoundSearcher) Release() error {
 // CompoundWriter is a collection of Writers that are executed in order to implement
 // the Writer interface.
 type CompoundWriter []Writer
+
+var _ Writer = CompoundWriter{}
+
+// Key implements the Keyed interface.
+func (c CompoundWriter) Key() core.ChannelKey {
+	if len(c) == 0 {
+		return core.ChannelKey(0)
+	}
+	return c[0].Key()
+}
 
 // Write implements Writer.
 func (c CompoundWriter) Write(alignments []Alignment) (err error) {

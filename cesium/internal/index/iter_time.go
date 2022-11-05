@@ -5,6 +5,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/position"
 	"github.com/synnaxlabs/x/telem"
+	"go.uber.org/zap"
 )
 
 type timeIterator struct {
@@ -13,35 +14,53 @@ type timeIterator struct {
 	bounds   telem.TimeRange
 	view     telem.TimeRange
 	err      error
+	logger   *zap.Logger
 }
 
 // WrapPositionIter wraps a core.PositionIterator and a searchable index to implement
 // a core.TimeIterator.
-func WrapPositionIter(wrap core.PositionIterator, idx Searcher) core.TimeIterator {
-	return &timeIterator{internal: wrap, idx: idx}
+func WrapPositionIter(
+	wrap core.PositionIterator,
+	idx Searcher,
+	logger *zap.Logger,
+) core.TimeIterator {
+	return &timeIterator{internal: wrap, idx: idx, logger: logger}
 }
 
 // SetBounds implements core.TimeIterator.
 func (i *timeIterator) SetBounds(bounds telem.TimeRange) bool {
-	startApprox, ok := i.searchP(bounds.Start, position.Uncertain)
-	if !ok {
+	startApprox, startOk := i.searchP(bounds.Start, position.Uncertain)
+	endApprox, endOk := i.searchP(bounds.End, position.Uncertain)
+	i.logger.Debug(
+		"setting bounds",
+		zap.Stringer("bounds", bounds),
+		zap.Stringer("idx", i.idx.Key()),
+		zap.Stringer("startApprox", startApprox),
+		zap.Stringer("endApprox", endApprox),
+	)
+	if !startOk || !endOk {
 		return false
 	}
-	endApprox, ok := i.searchP(bounds.End, position.Uncertain)
-	if !ok {
-		return false
-	}
+
 	i.internal.SetBounds(position.Range{
-		Start: startApprox.Start,
+		Start: startApprox.End,
 		End:   endApprox.End,
 	})
+
 	i.bounds = bounds
+
 	return true
 }
 
 // SeekLE implements core.TimeIterator.
 func (i *timeIterator) SeekLE(stamp telem.TimeStamp) bool {
 	pos, ok := i.searchPInBounds(stamp)
+	i.logger.Debug(
+		"seeking LE",
+		zap.Stringer("idx", i.idx.Key()),
+		zap.Stringer("stamp", stamp),
+		zap.Stringer("posApprox", pos),
+	)
 	if !ok {
 		return false
 	}
@@ -52,6 +71,12 @@ func (i *timeIterator) SeekLE(stamp telem.TimeStamp) bool {
 // SeekGE implements core.TimeIterator.
 func (i *timeIterator) SeekGE(stamp telem.TimeStamp) bool {
 	pos, ok := i.searchPInBounds(stamp)
+	i.logger.Debug(
+		"seeking GE",
+		zap.Stringer("idx", i.idx.Key()),
+		zap.Stringer("stamp", stamp),
+		zap.Stringer("posApprox", pos),
+	)
 	if !ok {
 		return false
 	}
@@ -63,6 +88,9 @@ func (i *timeIterator) SeekGE(stamp telem.TimeStamp) bool {
 
 // SeekFirst implements core.TimeIterator.
 func (i *timeIterator) SeekFirst() bool {
+	i.logger.Debug("seeking first",
+		zap.Stringer("idx", i.idx.Key()),
+	)
 	if !i.internal.SeekFirst() {
 		return false
 	}
@@ -71,6 +99,9 @@ func (i *timeIterator) SeekFirst() bool {
 
 // SeekLast implements core.TimeIterator.
 func (i *timeIterator) SeekLast() bool {
+	i.logger.Debug("seeking last",
+		zap.Stringer("idx", i.idx.Key()),
+	)
 	if !i.internal.SeekLast() {
 		return false
 	}
@@ -79,6 +110,11 @@ func (i *timeIterator) SeekLast() bool {
 
 // Next implements core.TimeIterator.
 func (i *timeIterator) Next(span telem.TimeSpan) bool {
+	i.logger.Debug("next",
+		zap.Stringer("idx", i.idx.Key()),
+		zap.Stringer("span", span),
+		zap.Bool("auto", span == core.AutoTimeSpan),
+	)
 	if span == core.AutoTimeSpan {
 		if !i.internal.Next(core.AutoPosSpan) {
 			return false
@@ -88,6 +124,11 @@ func (i *timeIterator) Next(span telem.TimeSpan) bool {
 
 	start := i.internal.View().End
 	endApprox, ok := i.searchPInBounds(i.view.End.Add(span))
+	i.logger.Debug("next: approximations",
+		zap.Stringer("idx", i.idx.Key()),
+		zap.Stringer("startApprox", start),
+		zap.Stringer("endApprox", endApprox),
+	)
 	if !ok {
 		return false
 	}
@@ -106,6 +147,11 @@ func (i *timeIterator) Next(span telem.TimeSpan) bool {
 
 // Prev implements core.TimeIterator.
 func (i *timeIterator) Prev(span telem.TimeSpan) bool {
+	i.logger.Debug("prev",
+		zap.Stringer("idx", i.idx.Key()),
+		zap.Stringer("span", span),
+		zap.Bool("auto", span == core.AutoTimeSpan),
+	)
 	if span == core.AutoTimeSpan {
 		if !i.internal.Prev(core.AutoPosSpan) {
 			return false
@@ -114,6 +160,11 @@ func (i *timeIterator) Prev(span telem.TimeSpan) bool {
 	}
 	end := i.internal.View().Start
 	startApprox, ok := i.searchPInBounds(i.view.Start.Sub(span))
+	i.logger.Debug("prev: startApprox",
+		zap.Stringer("idx", i.idx.Key()),
+		zap.Stringer("endApprox", end),
+		zap.Stringer("startApprox", startApprox),
+	)
 	if !ok {
 		return false
 	}

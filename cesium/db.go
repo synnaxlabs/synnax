@@ -160,7 +160,7 @@ func (d *db) Read(tr telem.TimeRange, keys ...ChannelKey) ([]Segment, error) {
 		return nil, err
 	}
 	var segments []Segment
-	for iter.SeekFirst(); iter.Next(telem.TimeSpanMax); {
+	for iter.SeekFirst(); iter.Next(AutoSpan); {
 		segments = append(segments, iter.Value()...)
 	}
 	return segments, iter.Close()

@@ -1,6 +1,7 @@
 package index
 
 import (
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/position"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -11,6 +12,12 @@ type Releaser interface {
 	// concurrently with any other method. After Release is called, the index is no
 	// longer usable.
 	Release() error
+}
+
+// Keyed is an index that can be indexed by a key.
+type Keyed interface {
+	// Key returns the key of the index.
+	Key() core.ChannelKey
 }
 
 // Alignment is an alignment between a position on the root index and a timestamp.
@@ -28,6 +35,7 @@ type PositionSearcher interface {
 	// Returns an Approximation representing the index's best resolution.
 	SearchP(s telem.TimeStamp, guess position.Approximation) (position.Approximation, error)
 	Releaser
+	Keyed
 }
 
 // StampSearcher seeks TimeStamps on the root index given a position.
@@ -36,6 +44,7 @@ type StampSearcher interface {
 	// represents the index's best resolution of the TimeStamp.
 	SearchTS(p position.Position, guess telem.Approximation) (telem.Approximation, error)
 	Releaser
+	Keyed
 }
 
 // Searcher is a searchable index.
@@ -50,6 +59,7 @@ type Writer interface {
 	// order.
 	Write([]Alignment) error
 	Releaser
+	Keyed
 }
 
 // Index is a readable and writable index that allows a caller to translate

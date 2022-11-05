@@ -5,6 +5,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/position"
 	"github.com/synnaxlabs/x/kv"
+	"go.uber.org/zap"
 )
 
 // positionIterator is a key-value backed implementation of core.PositionIterator.
@@ -14,22 +15,31 @@ type positionIterator struct {
 	view     position.Range
 	bounds   position.Range
 	value    *accumulate.Accumulator
+	logger   *zap.Logger
 	_key     []byte
 }
 
-func newPositionIterator(db kv.DB, ch core.Channel) core.PositionIterator {
-
+func newPositionIterator(
+	db kv.DB,
+	ch core.Channel,
+	logger *zap.Logger,
+) core.PositionIterator {
 	return &positionIterator{
 		ch:       ch,
 		internal: newCoreMDIterator(db, kv.IteratorOptions{}),
 		value:    &accumulate.Accumulator{Density: ch.Density, Merge: false, Slice: true},
 		bounds:   position.RangeMax,
+		logger:   logger,
 		_key:     make([]byte, 11),
 	}
 }
 
 // SetBounds implements core.PositionIterator.
 func (i *positionIterator) SetBounds(rng position.Range) {
+	i.logger.Info("setting bounds",
+		zap.Stringer("channel", i.ch.Key),
+		zap.Stringer("bounds", rng),
+	)
 	// acquireSearcher an iterator over the entire range.
 	internal := i.internal
 	i.bounds = rng
@@ -37,12 +47,21 @@ func (i *positionIterator) SetBounds(rng position.Range) {
 
 	prefix := make([]byte, 3)
 	core.WriteSegmentKeyPrefix(i.ch.Key, prefix)
+	// Open an iterator over the entire channel's data, so we can
+	// establish an accurate lower and upper kv bound.
 	opts := kv.PrefixIter(prefix)
 	internal.SetBounds(opts.LowerBound, opts.UpperBound)
 
 	start, end := make([]byte, 11), make([]byte, 11)
 	core.WriteSegmentKey(i.ch.Key, rng.Start, start)
 	core.WriteSegmentKey(i.ch.Key, rng.End, end)
+	i.logger.Debug("setting bounds",
+		zap.Stringer("channel", i.ch.Key),
+		zap.Binary("kvPrefix", prefix),
+		zap.Stringer("bounds", rng),
+		zap.Binary("kvStart", start),
+		zap.Binary("kvEnd", end),
+	)
 
 	// SeekLE to the first segment that starts BEFORE the start of the range. If the
 	// segment range overlaps with our desired range, we'll use internal as the starting
@@ -68,11 +87,25 @@ func (i *positionIterator) SetBounds(rng position.Range) {
 
 	core.WriteSegmentKey(i.ch.Key, rng.Start, start)
 	core.WriteSegmentKey(i.ch.Key, rng.End, end)
+
+	i.logger.Debug("final kv params",
+		zap.Stringer("channel", i.ch.Key),
+		zap.Binary("prefix", prefix),
+		zap.Stringer("bounds", rng),
+		zap.Binary("kvStart", start),
+		zap.Binary("kvEnd", end),
+	)
+
 	internal.SetBounds(start, end)
 }
 
 // SeekLE implements core.PositionIterator.
 func (i *positionIterator) SeekLE(pos position.Position) bool {
+	i.logger.Debug("seeking le",
+		zap.Stringer("channel", i.ch.Key),
+		zap.Stringer("position", pos),
+	)
+
 	if !i.internal.SeekLT(i.key(pos)) {
 		return false
 	}
@@ -94,6 +127,10 @@ func (i *positionIterator) SeekLE(pos position.Position) bool {
 
 // SeekGE implements core.PositionIterator.
 func (i *positionIterator) SeekGE(pos position.Position) bool {
+	i.logger.Debug("seeking ge",
+		zap.Stringer("channel", i.ch.Key),
+		zap.Stringer("position", pos),
+	)
 	if i.SeekLE(pos) && i.view.Start == pos {
 		return true
 	}
@@ -110,6 +147,9 @@ func (i *positionIterator) SeekGE(pos position.Position) bool {
 
 // SeekFirst implements core.PositionIterator.
 func (i *positionIterator) SeekFirst() bool {
+	i.logger.Debug("seeking first",
+		zap.Stringer("channel", i.ch.Key),
+	)
 	if !i.internal.First() {
 		return false
 	}
@@ -119,6 +159,9 @@ func (i *positionIterator) SeekFirst() bool {
 
 // SeekLast implements core.PositionIterator.
 func (i *positionIterator) SeekLast() bool {
+	i.logger.Debug("seeking last",
+		zap.Stringer("channel", i.ch.Key),
+	)
 	if !i.internal.Last() {
 		return false
 	}
@@ -128,6 +171,17 @@ func (i *positionIterator) SeekLast() bool {
 
 // Next implements core.PositionIterator.
 func (i *positionIterator) Next(span position.Span) bool {
+	i.logger.Debug("next",
+		zap.Stringer("channel", i.ch.Key),
+		zap.Stringer("view", i.view),
+		zap.Stringer("span", span),
+		zap.Bool("auto", span == core.AutoPosSpan),
+	)
+	defer i.logger.Debug("next done",
+		zap.Stringer("channel", i.ch.Key),
+		zap.Stringer("view", i.view),
+		zap.Stringer("accumulatorBounds", i.value.Bounds),
+	)
 	// If the current view is already at the end of the bounds, we can't go any further.
 	if i.view.End == i.bounds.End {
 		i.view.Start = i.view.End
@@ -159,31 +213,20 @@ func (i *positionIterator) Next(span position.Span) bool {
 }
 
 func (i *positionIterator) autoNext() bool {
-	i.reset(i.view.End.SpanRange(position.SpanMax).BoundBy(i.bounds))
-
-	if i.View().IsZero() {
-		i.value.Accumulate(i.internal.Value())
-		return i.value.PartiallySatisfied()
-	}
-
-	if !i.internal.Next() {
+	i.value.Reset(i.view.End.SpanRange(position.SpanMax).BoundBy(i.Bounds()))
+	if !i.View().IsZero() && !i.internal.Next() {
 		return false
 	}
-
 	i.value.Accumulate(i.internal.Value())
 	i.view = i.internal.Value().Range(i.ch.Density)
 	return i.value.PartiallySatisfied()
 }
 
 func (i *positionIterator) autoPrev() bool {
-	i.reset(i.view.Start.SpanRange(-position.SpanMax).BoundBy(i.bounds))
-
-	if i.View().IsZero() {
-		i.value.Accumulate(i.internal.Value())
-		return i.value.PartiallySatisfied()
+	i.value.Reset(i.view.Start.SpanRange(position.SpanMax).BoundBy(i.Bounds()))
+	if !i.View().IsZero() && !i.internal.Prev() {
+		return false
 	}
-
-	i.internal.Prev()
 	i.value.Accumulate(i.internal.Value())
 	i.view = i.internal.Value().Range(i.ch.Density)
 	return i.value.PartiallySatisfied()
@@ -191,6 +234,12 @@ func (i *positionIterator) autoPrev() bool {
 
 // Prev implements core.PositionIterator.
 func (i *positionIterator) Prev(span position.Span) bool {
+	i.logger.Debug("prev",
+		zap.Stringer("channel", i.ch.Key),
+		zap.Stringer("view", i.view),
+		zap.Stringer("span", span),
+		zap.Bool("auto", span == core.AutoPosSpan),
+	)
 	// If the current view is already at the beginning of the bounds, we can't go
 	// any further.
 	if i.view.Start == i.bounds.Start {

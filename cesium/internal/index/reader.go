@@ -15,12 +15,17 @@ type Reader struct {
 	Reader storage.Reader
 	// Iter is the core.PositionIterator to use to resolve positions. Control
 	// over the iterator (including closure) should be relinquished to the index.
-	Iter        core.PositionIterator
+	Iter core.PositionIterator
+	// ChannelKey is the key of the channel that the index is for.
+	ChannelKey  core.ChannelKey
 	targetStamp telem.TimeStamp
 	targetPos   position.Position
 }
 
 var _ Searcher = (*Reader)(nil)
+
+// Key implements the Keyed interface.
+func (r *Reader) Key() core.ChannelKey { return r.ChannelKey }
 
 // SearchP implements Searcher.
 func (r *Reader) SearchP(stamp telem.TimeStamp, approx position.Approximation) (position.Approximation, error) {

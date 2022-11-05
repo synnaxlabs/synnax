@@ -17,6 +17,7 @@ var (
 )
 
 func openMemDB() cesium.DB {
+	//logger = lo.Must(zap.NewDevelopment())
 	db, err := cesium.Open("",
 		cesium.MemBacked(),
 		cesium.WithLogger(logger),
