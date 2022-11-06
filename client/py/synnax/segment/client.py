@@ -104,7 +104,6 @@ class SegmentClient:
             _iterator.seek_first()
             while _iterator.next(AUTO_SPAN):
                 pass
-            print(_iterator.value)
             seg = _iterator.value[from_]
         except ContiguityError as e:
             raise ContiguityError(

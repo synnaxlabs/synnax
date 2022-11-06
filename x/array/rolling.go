@@ -2,7 +2,7 @@ package array
 
 type RollingArray[V any] struct {
 	Capacity int
-	size     int
+	len      int
 	zeroPos  int
 	values   []V
 }
@@ -10,14 +10,14 @@ type RollingArray[V any] struct {
 func NewRolling[V any](cap int) *RollingArray[V] {
 	return &RollingArray[V]{
 		Capacity: cap,
-		size:     0,
+		len:      0,
 		values:   make([]V, cap),
 		zeroPos:  0,
 	}
 }
 
 func (o *RollingArray[V]) Get(index int) V {
-	if index > (o.size - 1) {
+	if index > (o.len - 1) {
 		panic("[orderedArray] - index out of bounds")
 	}
 	if o.zeroPos+index >= o.Capacity {
@@ -26,8 +26,8 @@ func (o *RollingArray[V]) Get(index int) V {
 	return o.values[o.zeroPos+index]
 }
 
-func (o *RollingArray[V]) Size() int {
-	return o.size
+func (o *RollingArray[V]) Len() int {
+	return o.len
 }
 
 func (o *RollingArray[V]) Append(values ...V) {
@@ -35,23 +35,23 @@ func (o *RollingArray[V]) Append(values ...V) {
 		panic("[rollingArray] - cannot append more values than capacity")
 	}
 
-	if o.size < o.Capacity {
-		if len(values) <= (o.Capacity - o.size) {
+	if o.len < o.Capacity {
+		if len(values) <= (o.Capacity - o.len) {
 			for i, v := range values {
-				o.values[o.size+i] = v
+				o.values[o.len+i] = v
 			}
-			o.size += len(values)
+			o.len += len(values)
 		} else {
-			remaining := o.Capacity - o.size
+			remaining := o.Capacity - o.len
 			for i, v := range values {
 				if i < remaining {
-					o.values[o.size+i] = v
+					o.values[o.len+i] = v
 				} else {
 					o.values[o.zeroPos+i-remaining] = v
 				}
 			}
 			o.zeroPos = len(values) - remaining
-			o.size += remaining
+			o.len += remaining
 		}
 	} else {
 		if len(values) < (o.Capacity - o.zeroPos) {

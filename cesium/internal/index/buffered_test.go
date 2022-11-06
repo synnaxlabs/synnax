@@ -1,0 +1,90 @@
+package index_test
+
+import (
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium/internal/index"
+	"github.com/synnaxlabs/cesium/internal/position"
+	"github.com/synnaxlabs/x/array"
+	. "github.com/synnaxlabs/x/testutil"
+)
+
+var _ = FDescribe("Buffered", func() {
+	Describe("Write and Search", func() {
+		It("Should correctly write and search for a position in a set of alignments", func() {
+			buf := index.Buffered{
+				Wrapped: &index.BinarySearch{
+					Array: array.Searchable[index.Alignment]{
+						Array: array.NewRolling[index.Alignment](10),
+					},
+				},
+			}
+			Expect(buf.Write([]index.Alignment{
+				{
+					Pos:   1,
+					Stamp: 1,
+				},
+				{
+					Pos:   2,
+					Stamp: 3,
+				},
+				{
+					Pos:   3,
+					Stamp: 5,
+				},
+			})).To(Succeed())
+			Expect(buf.Write([]index.Alignment{
+				{
+					Pos:   4,
+					Stamp: 7,
+				},
+				{
+					Pos:   5,
+					Stamp: 9,
+				},
+			})).To(Succeed())
+			p := MustSucceed(buf.SearchP(8, position.Uncertain))
+			Expect(p).To(Equal(position.Between(4, 5)))
+			p2 := MustSucceed(buf.SearchP(2, position.Uncertain))
+			Expect(p2).To(Equal(position.Between(1, 2)))
+		})
+	})
+	Describe("Commit", func() {
+		It("Should flush any unneeded array buffers to the wrapped index", func() {
+			wrapped := &index.BinarySearch{
+				Array: array.Searchable[index.Alignment]{
+					Array: array.NewRolling[index.Alignment](10),
+				},
+			}
+			buf := index.Buffered{Wrapped: wrapped}
+			Expect(buf.Write([]index.Alignment{
+				{
+					Pos:   1,
+					Stamp: 1,
+				},
+				{
+					Pos:   2,
+					Stamp: 3,
+				},
+				{
+					Pos:   3,
+					Stamp: 5,
+				},
+			})).To(Succeed())
+			Expect(buf.Write([]index.Alignment{
+				{
+					Pos:   4,
+					Stamp: 7,
+				},
+				{
+					Pos:   5,
+					Stamp: 9,
+				},
+			})).To(Succeed())
+			Expect(buf.Commit(4)).To(Succeed())
+			Expect(wrapped.Array.Len()).To(Equal(0))
+			Expect(buf.Commit(5)).To(Succeed())
+			Expect(wrapped.Array.Len()).To(Equal(3))
+		})
+	})
+})

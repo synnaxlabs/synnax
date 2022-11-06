@@ -29,7 +29,7 @@ type BinarySearch struct {
 
 var _ Searcher = (*BinarySearch)(nil)
 
-func (bsi *BinarySearch) Size() int { return bsi.Array.Size() }
+func (bsi *BinarySearch) Size() int { return bsi.Array.Len() }
 
 // Key implements the Keyed interface.
 func (bsi *BinarySearch) Key() core.ChannelKey { return bsi.ChannelKey }
@@ -71,7 +71,7 @@ func (bsi *BinarySearch) searchP(
 	}
 
 	// We know the value is after the end of the index.
-	if i == bsi.Array.Size() {
+	if i == bsi.Array.Len() {
 		return position.Between(a.Pos, approx.End)
 	}
 
@@ -103,7 +103,7 @@ func (bsi *BinarySearch) searchTS(
 	}
 
 	// We know the value is after the end of the index.
-	if i == bsi.Array.Size() {
+	if i == bsi.Array.Len() {
 		return telem.Between(a.Stamp, approx.End)
 	}
 

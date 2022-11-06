@@ -3,7 +3,7 @@ package array
 type Array[V any] interface {
 	Get(index int) V
 	Append(values ...V)
-	Size() int
+	Len() int
 }
 
 type array[V any] struct {
@@ -18,7 +18,7 @@ func (a *array[V]) Append(values ...V) {
 	a.data = append(a.data, values...)
 }
 
-func (a *array[V]) Size() int {
+func (a *array[V]) Len() int {
 	return len(a.data)
 }
 

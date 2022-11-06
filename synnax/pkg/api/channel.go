@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 
-	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -127,8 +126,6 @@ func (s *ChannelService) Retrieve(
 		}
 		q = q.WhereKeys(keys...)
 	}
-
-	logrus.Info(req.Names)
 
 	if len(req.Names) > 0 {
 		q = q.WhereNames(req.Names...)

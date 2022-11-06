@@ -136,6 +136,7 @@ func (d *db) Write(segments []Segment) error {
 		return err
 	}
 	w.Write(segments)
+	w.Commit()
 	return w.Close()
 }
 

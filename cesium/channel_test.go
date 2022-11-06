@@ -10,7 +10,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-var _ = Describe("Channel", Ordered, func() {
+var _ = Describe("ChannelKey", Ordered, func() {
 	var db cesium.DB
 	BeforeAll(func() { db = openMemDB() })
 	AfterAll(func() { Expect(db.Close()).To(Succeed()) })
@@ -34,32 +34,32 @@ var _ = Describe("Channel", Ordered, func() {
 				}
 			}
 		},
-			Entry("Channel has no density",
+			Entry("ChannelKey has no density",
 				errors.Wrap(validate.Error, "[cesium] - density must be positive"),
 				cesium.Channel{Rate: 10 * telem.Hz},
 			),
-			Entry("Channel key already exists",
+			Entry("ChannelKey key already exists",
 				errors.Wrap(validate.Error, "[cesium] - provided key 1 already assigned"),
 				cesium.Channel{Key: 1, Rate: 10 * telem.Hz, Density: telem.Bit64},
 			),
-			Entry("Channel IsIndex - Non Bit64 Density",
+			Entry("ChannelKey IsIndex - Non Bit64 Density",
 				errors.Wrap(validate.Error, "[cesium] - index channel must use int64 timestamps"),
 				cesium.Channel{IsIndex: true, Density: telem.Bit32},
 			),
-			Entry("Channel IsIndex - Index non-zero",
+			Entry("ChannelKey IsIndex - Index non-zero",
 				errors.Wrap(validate.Error, "[cesium] - index channel can not be indexed"),
 				cesium.Channel{Key: 45, IsIndex: true, Density: telem.Bit64},
 				cesium.Channel{IsIndex: true, Index: 45},
 			),
-			Entry("Channel has index - Index does not exist",
+			Entry("ChannelKey has index - Index does not exist",
 				errors.Wrapf(validate.Error, "[cesium] - provided index %s does not exist", cesium.ChannelKey(40000)),
 				cesium.Channel{Index: 40000, Density: telem.Bit32},
 			),
-			Entry("Channel has no index - fixed rate not provided",
+			Entry("ChannelKey has no index - fixed rate not provided",
 				errors.Wrap(validate.Error, "[cesium] - rate must be positive"),
 				cesium.Channel{Density: telem.Bit32},
 			),
-			Entry("Channel has index - provided index key is not an indexed channel",
+			Entry("ChannelKey has index - provided index key is not an indexed channel",
 				errors.Wrapf(validate.Error, "[cesium] - provided channel %s is not an index", cesium.ChannelKey(60)),
 				cesium.Channel{Key: 60, Density: telem.Bit32, Rate: 1 * telem.Hz},
 				cesium.Channel{Key: 61, Index: 60, Density: telem.Bit32},

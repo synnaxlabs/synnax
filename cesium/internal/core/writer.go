@@ -1,7 +1,7 @@
 package core
 
-// MDWriter writes segment metadata to disk.
-type MDWriter interface {
+// MDBatch writes segment metadata to disk.
+type MDBatch interface {
 	// Write writes the segment metadata to the writer. The writes are not durable until
 	// Commit is called.
 	Write([]SegmentMD) error
@@ -9,4 +9,6 @@ type MDWriter interface {
 	Commit() error
 	// Close closes the writer, releasing an uncommitted writes.
 	Close() error
+	// NewIterator
+	NewIterator(Channel) PositionIterator
 }

@@ -28,7 +28,7 @@ func (c *createExecutor[K, E]) exec(q query.Query) error {
 		opts    = c.options()
 		entries = GetEntries[K, E](q)
 	)
-	w := &KVWriter[K, E]{Batch: c.Txn, options: opts}
+	w := &KVBatch[K, E]{Batch: c.Txn, options: opts}
 	for _, entry := range entries.All() {
 		if err := w.Write(entry); err != nil {
 			return err

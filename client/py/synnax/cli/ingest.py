@@ -235,19 +235,16 @@ def run_ingestion(ctx: Context, cli: IngestionCLI) -> None:
     """
     ctx.console.info("Starting ingestion process...")
     data = cli.reader.read()
-    gseCh = [ch for ch in cli.db_channels if ch.name == "gse.timestamp (ul)"][0]
-    w = cli.client.data.new_writer([gseCh.key])
-    d = data["gse.timestamp (ul)"]
-    print(d.to_numpy(dtype=np.int64))
-    w.write(gseCh.key, d[0], d.to_numpy(dtype=np.int64))
-    w.close()
+    # gseCh = [ch for ch in cli.db_channels if ch.name == "gse.timestamp (ul)"][0]
+    # w = cli.client.data.new_writer([gseCh.key])
+    # d = data["gse.timestamp (ul)"]
+    # print(d.to_numpy(dtype=np.int64))
+    # w.write(gseCh.key, d[0], d.to_numpy(dtype=np.int64))
+    # w.close()
     w = cli.client.data.new_writer([ch.key for ch in cli.db_channels])
     for label, series in data.items():
-        print(label, d[0])
-        if label == "gse.timestamp (ul)":
-            continue
         ch = [ch for ch in cli.db_channels if ch.name == label][0]
-        w.write(ch.key, d[0], series.to_numpy(dtype=np.float64))
+        w.write(ch.key, 0, series.to_numpy(dtype=np.float64))
     w.close()
 
 

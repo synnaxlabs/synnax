@@ -139,6 +139,10 @@ func (tr TimeRange) Valid() bool { return tr.Span() >= 0 }
 
 func (tr TimeRange) Midpoint() TimeStamp { return tr.Start.Add(tr.Span() / 2) }
 
+func (tr TimeRange) String() string {
+	return tr.Start.String() + " - " + tr.End.String()
+}
+
 var (
 	// TimeRangeMax represents the maximum possible value for a TimeRange.
 	TimeRangeMax = TimeRange{Start: TimeStampMin, End: TimeStampMax}

@@ -15,10 +15,10 @@ var _ = Describe("RollingArray", func() {
 	})
 	Describe("Append", func() {
 		Context("array is not full - Appended values don't exceed capacity", func() {
-			It("Should append the value to the array and increase its Size", func() {
+			It("Should append the value to the array and increase its Len", func() {
 				arr := array.NewRolling[int](10)
 				arr.Append(1)
-				Expect(arr.Size()).To(Equal(1))
+				Expect(arr.Len()).To(Equal(1))
 				Expect(arr.Get(0)).To(Equal(1))
 			})
 		})
@@ -26,7 +26,7 @@ var _ = Describe("RollingArray", func() {
 			It("Should append the value to the array", func() {
 				arr := array.NewRolling[int](3)
 				arr.Append(1, 2)
-				Expect(arr.Size()).To(Equal(2))
+				Expect(arr.Len()).To(Equal(2))
 				arr.Append(4, 5)
 				Expect(arr.Get(0)).To(Equal(2))
 				Expect(arr.Get(1)).To(Equal(4))
@@ -37,7 +37,7 @@ var _ = Describe("RollingArray", func() {
 			It("Should append the value to the array", func() {
 				arr := array.NewRolling[int](3)
 				arr.Append(1, 2, 3)
-				Expect(arr.Size()).To(Equal(3))
+				Expect(arr.Len()).To(Equal(3))
 				arr.Append(4)
 				Expect(arr.Get(0)).To(Equal(2))
 				Expect(arr.Get(1)).To(Equal(3))

@@ -19,3 +19,7 @@ coverage
 # |||||| TURBO REPO ||||||
 
 .turbo/
+
+# |||||| SYNNAX ||||||
+
+synnax-data/

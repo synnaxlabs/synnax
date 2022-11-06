@@ -20,7 +20,7 @@ type positionIterator struct {
 }
 
 func newPositionIterator(
-	db kv.DB,
+	db kv.Reader,
 	ch core.Channel,
 	logger *zap.Logger,
 ) core.PositionIterator {
@@ -218,7 +218,7 @@ func (i *positionIterator) autoNext() bool {
 		return false
 	}
 	i.value.Accumulate(i.internal.Value())
-	i.view = i.internal.Value().Range(i.ch.Density)
+	i.view = i.internal.Value().Range(i.ch.Density).BoundBy(i.bounds)
 	return i.value.PartiallySatisfied()
 }
 
@@ -228,7 +228,7 @@ func (i *positionIterator) autoPrev() bool {
 		return false
 	}
 	i.value.Accumulate(i.internal.Value())
-	i.view = i.internal.Value().Range(i.ch.Density)
+	i.view = i.internal.Value().Range(i.ch.Density).BoundBy(i.bounds)
 	return i.value.PartiallySatisfied()
 }
 

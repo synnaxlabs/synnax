@@ -41,9 +41,9 @@ var _ = Describe("Accuracy", Ordered, func() {
 	var db cesium.DB
 	BeforeAll(func() { db = openMemDB() })
 	AfterAll(func() {
-		Expect(db.Close()).To(Succeed())
+		//Expect(db.Close()).To(Succeed())
 	})
-	Context("Single Channel", func() {
+	Context("Single ChannelKey", func() {
 
 		Context("Rate Based", func() {
 
@@ -64,6 +64,7 @@ var _ = Describe("Accuracy", Ordered, func() {
 							Data:       Marshal([]int64{6, 7, 8, 9, 10}),
 						},
 					})).To(BeTrue())
+					w.Commit()
 					Expect(w.Close()).To(Succeed())
 					key = cesium.Keys(chs)[0]
 				})
@@ -170,6 +171,7 @@ var _ = Describe("Accuracy", Ordered, func() {
 							Data:       Marshal([]int64{9, 10, 11, 12}),
 						},
 					})).To(BeTrue())
+					w.Commit()
 					Expect(w.Close()).To(Succeed())
 				})
 
@@ -260,6 +262,7 @@ var _ = Describe("Accuracy", Ordered, func() {
 							}),
 						},
 					})).To(BeTrue())
+					w.Commit()
 					Expect(w.Close()).To(Succeed())
 					chs, w2 := createWriter(db, cesium.Channel{Index: idxKey, Density: telem.Bit64})
 					key = cesium.Keys(chs)[0]
@@ -268,6 +271,7 @@ var _ = Describe("Accuracy", Ordered, func() {
 						Start:      10 * telem.SecondTS,
 						Data:       Marshal([]int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}),
 					}})).To(BeTrue())
+					w2.Commit()
 					Expect(w2.Close()).To(Succeed())
 				})
 
@@ -339,6 +343,7 @@ var _ = Describe("Accuracy", Ordered, func() {
 							}),
 						},
 					})).To(BeTrue())
+					w.Commit()
 					Expect(w.Close()).To(Succeed())
 					chs, w2 := createWriter(db, cesium.Channel{Index: idxKey, Density: telem.Bit64})
 					key = cesium.Keys(chs)[0]
@@ -354,6 +359,7 @@ var _ = Describe("Accuracy", Ordered, func() {
 							Data:       Marshal([]int64{11, 12, 13, 14, 15, 16, 17, 18, 19, 20}),
 						},
 					})).To(BeTrue())
+					w2.Commit()
 					Expect(w2.Close()).To(Succeed())
 				})
 
@@ -394,7 +400,7 @@ var _ = Describe("Accuracy", Ordered, func() {
 		})
 
 	})
-	Context("Multi Channel", func() {
+	Context("Multi ChannelKey", func() {
 		Context("Indexed", func() {
 			Context("Shared Index", func() {
 				var (
@@ -424,6 +430,7 @@ var _ = Describe("Accuracy", Ordered, func() {
 							}),
 						},
 					})).To(BeTrue())
+					w.Commit()
 					Expect(w.Close()).To(Succeed())
 					chs, w2 := createWriter(db,
 						cesium.Channel{Index: idxKey, Density: telem.Bit64},
@@ -454,6 +461,7 @@ var _ = Describe("Accuracy", Ordered, func() {
 							Data:       Marshal([]int64{21, 22, 23, 24, 25, 26, 27, 28, 29, 30}),
 						},
 					})).To(BeTrue())
+					w2.Commit()
 					Expect(w2.Close()).To(Succeed())
 				})
 
@@ -554,6 +562,7 @@ var _ = Describe("Accuracy", Ordered, func() {
 								}),
 							},
 						})).To(BeTrue())
+						w.Commit()
 						Expect(w.Close()).To(Succeed())
 
 						chs, w = createWriter(
@@ -577,6 +586,7 @@ var _ = Describe("Accuracy", Ordered, func() {
 								Data:       Marshal([]int64{11, 12, 13, 14, 15, 16}),
 							},
 						})).To(BeTrue())
+						w.Commit()
 						Expect(w.Close()).To(Succeed())
 					})
 
@@ -683,6 +693,7 @@ var _ = Describe("Accuracy", Ordered, func() {
 								}),
 							},
 						})).To(BeTrue())
+						w.Commit()
 						Expect(w.Close()).To(Succeed())
 						chs, w = createWriter(
 							db,
@@ -713,6 +724,7 @@ var _ = Describe("Accuracy", Ordered, func() {
 								Data:       Marshal([]int64{6, 7, 8, 9, 10}),
 							},
 						})).To(BeTrue())
+						w.Commit()
 						Expect(w.Close()).To(Succeed())
 					})
 

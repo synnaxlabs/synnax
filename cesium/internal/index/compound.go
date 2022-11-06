@@ -31,36 +31,46 @@ func (c CompoundSearcher) Key() core.ChannelKey {
 
 // SearchP implements Searcher.
 func (c CompoundSearcher) SearchP(s telem.TimeStamp, guess position.Approximation) (position.Approximation, error) {
-	for _, seeker := range c {
-		approx, err := seeker.SearchP(s, guess)
-		if err != nil {
-			return position.Uncertain, err
-		}
-		if approx.Exact() {
-			return approx, nil
-		}
-		if approx.BetterThan(guess) {
-			guess = approx
-		}
-	}
-	return guess, nil
+	approx, _, err := c.searchP(s, guess)
+	return approx, err
 }
 
 // SearchTS implements Searcher.
 func (c CompoundSearcher) SearchTS(s position.Position, guess telem.Approximation) (telem.Approximation, error) {
-	for _, seeker := range c {
+	approx, _, err := c.searchTS(s, guess)
+	return approx, err
+}
+
+func (c CompoundSearcher) searchTS(s position.Position, guess telem.Approximation) (telem.Approximation, int, error) {
+	for i, seeker := range c {
 		approx, err := seeker.SearchTS(s, guess)
 		if err != nil {
-			return telem.Uncertain, err
+			return telem.Uncertain, 0, err
 		}
 		if approx.Exact() {
-			return approx, nil
+			return approx, i, nil
 		}
 		if approx.Uncertainty() < guess.Uncertainty() {
 			guess = approx
 		}
 	}
-	return telem.Uncertain, nil
+	return guess, len(c) - 1, nil
+}
+
+func (c CompoundSearcher) searchP(s telem.TimeStamp, guess position.Approximation) (position.Approximation, int, error) {
+	for i, seeker := range c {
+		approx, err := seeker.SearchP(s, guess)
+		if err != nil {
+			return position.Uncertain, 0, err
+		}
+		if approx.Exact() {
+			return approx, i, nil
+		}
+		if approx.BetterThan(guess) {
+			guess = approx
+		}
+	}
+	return guess, len(c) - 1, nil
 }
 
 // Release implements Releaser.

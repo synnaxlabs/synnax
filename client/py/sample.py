@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import numpy as np
 
 from synnax import Synnax
@@ -9,6 +11,12 @@ s = Synnax(
     password="seldon"
 )
 
-ch = s.channel.retrieve_by_name("ec.vlv2.i (Amps)")[0]
+ch = s.channel.retrieve_by_name("gse.pressure[15] (psi)")[0]
 
-ch.read(0,100000000000000)
+t0 = datetime.now()
+d = ch.read(0,100000000000000)
+
+t1 = datetime.now()
+print(t1-t0)
+print(d)
+

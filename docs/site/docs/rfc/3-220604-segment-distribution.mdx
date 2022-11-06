@@ -150,10 +150,10 @@ any specific networking APIs.
 
 Delta's distribution layer directly interacts with two storage engines: Cesium
 and Aspen. DL
-uses [Aspen](https://github.com/synnaxlabs/delta/blob/main/docs/rfc/220518-aspen-distributed-storage.md)
+uses [Aspen](https://github.com/synnaxlabs/delta/blob/main/docs/rfc/2-220518-aspen-distributed-storage.md)
 for querying cluster topology as well as storing distributed key-value data. It
 uses one or
-more [Cesium](https://github.com/synnaxlabs/delta/blob/main/docs/rfc/220517-cesium-segment-storage.md)
+more [Cesium](https://github.com/synnaxlabs/delta/blob/main/docs/rfc/1-220517-cesium-segment-storage.md)
 database(s) for reading and writing time-series data from disk. Because the
 distribution layer uses multiple storage engines, there's a certain amount of
 overlap and data reconciliation that must be performed in order to ensure that

@@ -37,7 +37,7 @@ var _ = Describe("Searchable", func() {
 			})
 		})
 		Context("Value after end of array", func() {
-			It("Should return the last value in the array and an index equal to array size", func() {
+			It("Should return the last value in the array and an index equal to array len", func() {
 				arr := array.Searchable[int]{Array: array.NewRolling[int](10)}
 				arr.Append(1, 3, 5, 7)
 				v, i := arr.Search(compare.NumericUnary(10))

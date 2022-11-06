@@ -14,6 +14,7 @@ import (
 	"github.com/synnaxlabs/x/kfs"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/telem"
+	"go.uber.org/zap"
 )
 
 type indexWriter struct {
@@ -58,7 +59,7 @@ var _ = Describe("Reader", Ordered, func() {
 	BeforeAll(func() {
 		_kfs := lo.Must(kfs.New[core.FileKey]("", kfs.WithFS(kfs.NewMem())))
 		store = storage.Wrap(_kfs)
-		db = lo.Must(kv.Open(memkv.New()))
+		db = lo.Must(kv.Open(memkv.New(), zap.NewNop()))
 
 	})
 	BeforeEach(func() {

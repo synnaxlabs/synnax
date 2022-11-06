@@ -12,7 +12,7 @@ type Searchable[V any] struct{ Array[V] }
 // returns the value at that position and the index of that position.
 func (s *Searchable[V]) Search(f compare.UnaryFunc[V]) (v V, i int) {
 	start := 0
-	end := s.Size() - 1
+	end := s.Len() - 1
 	for start <= end {
 		mid := (start + end) / 2
 		v := s.Get(mid)
@@ -29,8 +29,8 @@ func (s *Searchable[V]) Search(f compare.UnaryFunc[V]) (v V, i int) {
 	if end == -1 {
 		return s.Get(0), -1
 	}
-	if end == s.Size()-1 {
-		return s.Get(end), s.Size()
+	if end == s.Len()-1 {
+		return s.Get(end), s.Len()
 	}
 	return s.Get(end), end
 }

@@ -2,16 +2,16 @@ package gorp
 
 import "github.com/synnaxlabs/x/kv"
 
-type KVWriter[K Key, E Entry[K]] struct {
+type KVBatch[K Key, E Entry[K]] struct {
 	kv.Batch
 	options
 }
 
-func WrapKVBatch[K Key, E Entry[K]](batch kv.Batch, opts ...Option) *KVWriter[K, E] {
-	return &KVWriter[K, E]{Batch: batch, options: newOptions(opts...)}
+func WrapKVBatch[K Key, E Entry[K]](batch kv.Batch, opts ...Option) *KVBatch[K, E] {
+	return &KVBatch[K, E]{Batch: batch, options: newOptions(opts...)}
 }
 
-func (w *KVWriter[K, E]) Write(entry E) error {
+func (w *KVBatch[K, E]) Write(entry E) error {
 	prefix := typePrefix[K, E](w.options)
 	data, err := w.encoder.Encode(entry)
 	if err != nil {
@@ -29,7 +29,7 @@ func (w *KVWriter[K, E]) Write(entry E) error {
 	return nil
 }
 
-func (w *KVWriter[K, E]) WriteMany(entries []E) error {
+func (w *KVBatch[K, E]) WriteMany(entries []E) error {
 	for _, entry := range entries {
 		if err := w.Write(entry); err != nil {
 			return err
@@ -38,7 +38,7 @@ func (w *KVWriter[K, E]) WriteMany(entries []E) error {
 	return nil
 }
 
-func (w *KVWriter[K, E]) Delete(key K) error {
+func (w *KVBatch[K, E]) Delete(key K) error {
 	prefix := typePrefix[K, E](w.options)
 	data, err := w.encoder.Encode(key)
 	if err != nil {

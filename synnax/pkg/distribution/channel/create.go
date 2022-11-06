@@ -2,7 +2,6 @@ package channel
 
 import (
 	"context"
-	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/gorp"
@@ -84,7 +83,6 @@ func assembleFromQuery(q query.Query, n int) ([]Channel, error) {
 	nodeID := getNodeID(q)
 	index := getIndex(q)
 	isIndex := getIsIndex(q)
-	logrus.Info(dt)
 	for i := 0; i < n; i++ {
 		channels[i] = Channel{
 			Name:     name,
