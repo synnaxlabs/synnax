@@ -123,4 +123,15 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 			Expect(d).To(HaveLen(2))
 		})
 	})
+	Describe("Write Lock Violation", func() {
+		It("Should fail if the user attempts to write to a channel that is locked", func() {
+			chs, w := createWriter(
+				db,
+				cesium.Channel{Rate: 1 * telem.Hz, Density: telem.Bit64},
+			)
+			_, err := db.NewWriter(chs[0].Key)
+			Expect(err).To(HaveOccurredAs(cesium.ErrWriteLock))
+			Expect(w.Close()).To(Succeed())
+		})
+	})
 })

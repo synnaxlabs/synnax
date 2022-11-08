@@ -12,13 +12,7 @@ import (
 var _ = FDescribe("ThresholdBuffer", func() {
 	Describe("Add and Search", func() {
 		It("Should correctly write and search for a position in a set of alignments", func() {
-			buf := index.ThresholdBuffer{
-				Wrapped: &index.BinarySearch{
-					Array: array.Searchable[index.Alignment]{
-						Array: array.NewRolling[index.Alignment](10),
-					},
-				},
-			}
+			buf := index.ThresholdBuffer{}
 			Expect(buf.Add([]index.Alignment{
 				{
 					Pos:   1,
@@ -51,12 +45,12 @@ var _ = FDescribe("ThresholdBuffer", func() {
 	})
 	Describe("WriteToBelowThreshold", func() {
 		It("Should flush any unneeded array chunks to the wrapped index", func() {
-			wrapped := &index.BinarySearch{
+			underlying := &index.BinarySearch{
 				Array: array.Searchable[index.Alignment]{
 					Array: array.NewRolling[index.Alignment](10),
 				},
 			}
-			buf := index.ThresholdBuffer{Wrapped: wrapped}
+			buf := index.ThresholdBuffer{}
 			Expect(buf.Add([]index.Alignment{
 				{
 					Pos:   1,
@@ -81,10 +75,10 @@ var _ = FDescribe("ThresholdBuffer", func() {
 					Stamp: 9,
 				},
 			})).To(Succeed())
-			Expect(buf.WriteToBelowThreshold(2)).To(Succeed())
-			Expect(wrapped.Array.Len()).To(Equal(0))
-			Expect(buf.WriteToBelowThreshold(3)).To(Succeed())
-			Expect(wrapped.Array.Len()).To(Equal(3))
+			Expect(buf.WriteToBelowThreshold(2, underlying)).To(Succeed())
+			Expect(underlying.Array.Len()).To(Equal(0))
+			Expect(buf.WriteToBelowThreshold(3, underlying)).To(Succeed())
+			Expect(underlying.Array.Len()).To(Equal(3))
 		})
 	})
 })

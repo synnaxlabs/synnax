@@ -2,45 +2,32 @@ package iterator
 
 import (
 	"context"
-	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/segment/core"
 	"github.com/synnaxlabs/x/confluence"
 )
 
 type synchronizer struct {
-	counter          int
-	nodeIDs          []core.NodeID
-	acknowledgements []Response
+	internal core.Synchronizer
 	confluence.LinearTransform[Response, Response]
 }
 
-func newSynchronizer(nodeIDs []core.NodeID) confluence.Segment[Response, Response] {
-	s := &synchronizer{nodeIDs: nodeIDs, counter: 1}
+func newSynchronizer(nodeCount int) confluence.Segment[Response, Response] {
+	s := &synchronizer{}
+	s.internal.NodeCount = nodeCount
+	s.internal.SeqNum = 1
 	s.LinearTransform.Transform = s.sync
 	return s
 }
 
 func (a *synchronizer) sync(_ context.Context, res Response) (Response, bool, error) {
-	if res.SeqNum != a.counter {
-		panic("[distribution.iterator] - received out of order response")
+	ack, seqNum, fulfilled := a.internal.Sync(res.SeqNum, res.Ack)
+	if fulfilled {
+		return Response{
+			Variant: AckResponse,
+			Command: res.Command,
+			Ack:     ack,
+			SeqNum:  seqNum,
+		}, true, nil
 	}
-	a.acknowledgements = append(a.acknowledgements, res)
-
-	if len(a.acknowledgements) == len(a.nodeIDs) {
-		ack := a.buildAck()
-		a.acknowledgements = nil
-		a.counter++
-		return ack, true, nil
-	}
-
-	return res, false, nil
-}
-
-func (a *synchronizer) buildAck() Response {
-	return Response{
-		Variant: AckResponse,
-		Command: a.acknowledgements[0].Command,
-		Ack:     !lo.Contains(lo.Map(a.acknowledgements, func(res Response, _ int) bool { return res.Ack }), false),
-		SeqNum:  a.counter,
-	}
+	return Response{}, false, nil
 }

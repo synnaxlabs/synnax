@@ -32,6 +32,15 @@ func (m Keys[K]) TryLock(keys ...K) bool {
 	return true
 }
 
+// TryLockWithReleaser has identical semantics to TryLock, but returns a
+// Releaser that can be used to release the locks on the given keys.
+func (m Keys[K]) TryLockWithReleaser(keys ...K) (bool, Releaser) {
+	if m.TryLock(keys...) {
+		return true, ReleaserFunc(func() { m.Unlock(keys...) })
+	}
+	return false, nil
+}
+
 // Unlock releases the locks on the given keys. Panics if any key is not locked.
 func (m Keys[K]) Unlock(keys ...K) {
 	m.mu.Lock()

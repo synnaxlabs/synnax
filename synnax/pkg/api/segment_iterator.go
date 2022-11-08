@@ -68,8 +68,8 @@ func (s *SegmentService) Iterate(_ctx context.Context, stream SegmentIteratorStr
 			requests.Inlet() <- iterator.Request{
 				Command: req.Command,
 				Span:    req.Span,
-				Range:   req.Range,
-				Target:  req.Stamp,
+				Bounds:  req.Range,
+				Stamp:   req.Stamp,
 			}
 		}
 	}()
@@ -96,8 +96,8 @@ func (s *SegmentService) Iterate(_ctx context.Context, stream SegmentIteratorStr
 				Ack:      res.Ack,
 				Segments: segments,
 			}
-			if res.Error != nil {
-				tRes.Err = ferrors.Encode(res.Error)
+			if res.Err != nil {
+				tRes.Err = ferrors.Encode(res.Err)
 			}
 			if err := stream.Send(tRes); err != nil {
 				return errors.Unexpected(err)
@@ -123,11 +123,7 @@ func receiveIteratorOpenArgs(srv SegmentIteratorStream) (channel.Keys, telem.Tim
 	if err != nil {
 		return nil, telem.TimeRangeZero, errors.Unexpected(err)
 	}
-	if req.Command != iterator.Open {
-		return nil, telem.TimeRangeZero, errors.Parse(roacherrors.New("expected open command"))
-	}
 	keys, err := channel.ParseKeys(req.Keys)
-
 	if req.Range.IsZero() {
 		req.Range = telem.TimeRangeMax
 	}

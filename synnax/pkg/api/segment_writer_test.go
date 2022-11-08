@@ -98,7 +98,7 @@ var _ = Describe("SegmentWriter", Ordered, func() {
 					Expect(err).ToNot(HaveOccurred())
 					client2, err := client.Stream(context.TODO(), "")
 					Expect(err).ToNot(HaveOccurred())
-					expectedErr := errors.General(cesium.ErrChannelLocked)
+					expectedErr := errors.General(cesium.ErrWriteLock)
 					// expect one of the two writers to fail
 					oneErr := false
 					w1, w1Err := segment.NewWriter(client1, keys.Strings()...)

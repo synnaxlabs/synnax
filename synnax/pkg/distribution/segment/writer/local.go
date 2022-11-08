@@ -11,7 +11,6 @@ import (
 func newLocalWriter(
 	ctx context.Context,
 	keys channel.Keys,
-	transient confluence.Inlet[error],
 	cfg Config,
 ) (confluence.Segment[Request, Response], error) {
 	w, err := cfg.TS.NewStreamWriter(keys.StorageKeys()...)
@@ -20,7 +19,7 @@ func newLocalWriter(
 	}
 	pipe := plumber.New()
 	plumber.SetSegment[cesium.WriteRequest, cesium.WriteResponse](pipe, "writerClient", w)
-	reqT := newRequestTranslator(cfg.Resolver.HostID(), transient)
+	reqT := newRequestTranslator(cfg.Resolver.HostID(), cfg.Logger)
 	resT := newResponseTranslator()
 	plumber.SetSegment[Request, cesium.WriteRequest](pipe, "requestTranslator", reqT)
 	plumber.SetSegment[cesium.WriteResponse, Response](pipe, "responseTranslator", resT)

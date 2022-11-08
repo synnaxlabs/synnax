@@ -16,17 +16,20 @@ import (
 )
 
 var (
-	// NotFound is returned when a ch or a range of data cannot be found in the DB.
-	NotFound = query.NotFound
+	// ChannelNotFound is returned when a ch or a range of data cannot be found in the DB.
+	ChannelNotFound = errors.Wrap(query.NotFound, "[cesium] - channel not found")
 	// UniqueViolation is returned when a provided ch key already exists in the DB.
-	UniqueViolation = errors.Wrap(query.UniqueViolation, "[cesium] - ch key already exists")
-	// ErrChannelLocked is returned when a ch has been locked for writing by another
-	// goroutine.
-	ErrChannelLocked = errors.Wrap(lock.ErrLocked, "[cesium] - ch locked for writing")
+	UniqueViolation = errors.Wrap(query.UniqueViolation, "[cesium] - channel already exists")
+	// ErrWriteLock is returned when a caller attempts to write to a channel that is
+	// already being written to by another goroutine.
+	ErrWriteLock = errors.Wrap(lock.ErrLocked, "[cesium] - write lock acquired by different user")
 )
 
 type (
-	Channel    = core.Channel
+	// Channel is a logical collection of telemetry samples across a time-range.
+	// See the core.Channel documentation for more details.
+	Channel = core.Channel
+	// ChannelKey is a unique uint16 identifier for a Channel within a DB.
 	ChannelKey = core.ChannelKey
 	Segment    struct {
 		ChannelKey ChannelKey
@@ -49,7 +52,7 @@ type (
 // to store a timestamp or delta.
 //
 // ChannelKey Channel's data is partitioned into entities called segments, which are reasonably sized
-// sub-ranges of a ch's data. ChannelKey Segment is defined by a start time, ch key,
+// sub-ranges of a channel's data. ChannelKey Segment is defined by a start time, ch key,
 // and binary data. ChannelKey segment's start time is the timestamp for the first sample in the segment.
 // Segments must be written in time-order (append only), and cannot be modified once written,
 // although it is possible to leave gaps between the end of one segment and the start of
@@ -58,7 +61,7 @@ type (
 // ChannelKey DB is safe for concurrent read and write use, although it is not possible to write
 // data to a single ch concurrently. When writing data to a ch, the DB will
 // acquire an exclusive lock for the duration of the request. If another goroutine
-// attempts to write to the ch, a DB will return ErrChannelLocked.
+// attempts to write to the ch, a DB will return ErrWriteLock.
 type DB interface {
 	// Read returns all segments in the provided time range for the given Channels.
 	// The segments are returned in time-order on a per-ch basis.
@@ -78,17 +81,25 @@ type DB interface {
 	// The iterator must be closed, either by closing the Inlet or by cancelling
 	// the Flow context.
 	NewStreamIterator(tr telem.TimeRange, keys ...ChannelKey) (StreamIterator, error)
-	// Write writes the provided segments to the DB. Segments must meet the following
-	// requirements:
+	// Write atomically writes the provided segments to the DB. Each Segment must
+	// meet the following criteria:
 	//
-	//  1. They must be provided in time-order.
-	//  2. Channel keys must be defined and exist in the database.
-	//  3. SData must be valid i.e. it must have non-zero length and be a multiple of the
-	//  ch's density.
+	//		1. Index Channel Segments (Channel.IsIndex == true):
+	//			- Must contain ordered int64 values.
+	//			- The first timestamp must equal the `Start` field of the Segment.
+	//			- Must not overlap with any other segment in the ch.
+	//
+	//		2. Indexed Channel Segments (Channel.Index != 0):
+	//			- Must have the same starting timestamp and size as a Segment written
+	//			  to the index channel.
+	//         	- Must not overlap with any other segment in the channel.
+	//
+	//		3. Rate Based Channel Segments (Channel.Index == 0 && Channel.Rate != 0):
+	//			- Must not overlap with any other segment in the ch./
 	//
 	// If any segments do not meet these requirements, no data will be written and the DB
 	// will return a validation err. If another goroutine is currently writing to one
-	// of the specified Channels, DB will return ErrChannelLocked.
+	// of the specified Channels, DB will return ErrWriteLock.
 	Write(segments []Segment) error
 	// NewWriter returns a new Writer for the provided Channels, acquiring an exclusive
 	// lock for the duration of the Writer's usage. The Writer must be closed by calling
@@ -99,19 +110,19 @@ type DB interface {
 	// closed in order to release the lock. This can be done by closing the Inlet or by
 	// cancelling the Flow context.
 	NewStreamWriter(keys ...ChannelKey) (StreamWriter, error)
-	// CreateChannel creates a new ch in the DB. The provided ch must have a
+	// CreateChannel creates a new channel in the DB. The provided channel must have a
 	// positive data rate and density. The caller can provide an optional uint16 key
-	// for the ch. If the key is not provided, the DB will automatically generate a
+	// for the channel. If the key is not provided, the DB will automatically generate a
 	// key. If a key is provided, the DB will validate that it is unique.
 	CreateChannel(ch *Channel) error
-	// RetrieveChannels retrieves Channels from the DB by their key. Returns a query.NotFound
-	// err if any of the Channels cannot be found.
+	// RetrieveChannels retrieves channels from the DB by their key. Returns a ChannelNotFound
+	// err if any of the channel cannot be found.
 	RetrieveChannels(keys ...ChannelKey) ([]Channel, error)
-	// RetrieveChannel retrieves a Channel from the DB by its key. Returns a query.NotFound
+	// RetrieveChannel retrieves a Channel from the DB by its key. Returns a ChannelNotFound
 	// err if the Channel cannot be found.
 	RetrieveChannel(key ChannelKey) (Channel, error)
-	// Close closes persists all pending data to disk and closes the DB. Close is not
-	// safe to call concurrently with any other DB methods.
+	// Close waits for all pending writes to complete and closes the DB. Close is
+	// not safe to call concurrently with any other DB method.
 	Close() error
 }
 

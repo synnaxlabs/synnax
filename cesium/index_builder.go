@@ -51,14 +51,3 @@ func (d *db) groupChannelsByIndexSearcher(channels []Channel) ([]searcherChannel
 	}
 	return indexes, nil
 }
-
-func (d *db) groupIndexesByChannelKey(channels []Channel) (map[ChannelKey]index.Searcher, error) {
-	indexes, err := d.groupChannelsByIndexSearcher(channels)
-	keyIndexes := make(map[ChannelKey]index.Searcher)
-	for _, pair := range indexes {
-		for _, ch := range pair.channels {
-			keyIndexes[ch.Key] = pair.idx
-		}
-	}
-	return keyIndexes, err
-}

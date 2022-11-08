@@ -1,9 +1,9 @@
 package errors_test
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/api/errors"
 )
 
 var _ = Describe("Field", func() {

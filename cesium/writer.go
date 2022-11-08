@@ -22,8 +22,8 @@ type Writer interface {
 	// Write will immediately return false until the user acknowledges the error by
 	// calling Error, or by closing the Writer.
 	//
-	// Segments must have ch keys in the set provided to DB.NewWriter. Segment data
-	// must also be valid. The validation rules are as follows:
+	// Segments must have channel keys in the set provided to DB.NewWriter. Segment's must
+	// meet the following requirements:
 	//
 	//		1. Index Channels (Channel.IsIndex == true):
 	//			- Must contain ordered int64 values.

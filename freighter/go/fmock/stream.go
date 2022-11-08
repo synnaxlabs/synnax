@@ -202,7 +202,7 @@ func (s *ServerStream[RQ, RS]) exec(
 }
 
 type ClientStream[RQ, RS freighter.Payload] struct {
-	// ctx is the context the ServerStream was started with. Yes, Yes! RQ know this is a bad
+	// ctx is the context the ServerStream was started with. Yes, Yes! I know this is a bad
 	// practice, but in this case we're essentially using it as a data container,
 	// and we have a very good grasp on how it's used.
 	ctx          context.Context

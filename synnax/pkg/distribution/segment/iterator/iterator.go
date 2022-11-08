@@ -51,6 +51,8 @@ type Iterator interface {
 	Valid() bool
 	// Error returns any errors accumulated during the iterators lifetime.
 	Error() error
+	// SetBounds sets the lower and upper bounds of the iterator.
+	SetBounds(bounds telem.TimeRange) bool
 	Value() []core.Segment
 }
 
@@ -151,7 +153,7 @@ func NewStream(ctx context.Context, _cfg ...Config) (StreamIterator, error) {
 	plumber.SetSegment[Response, Response](
 		pipe,
 		"synchronizer",
-		newSynchronizer(cfg.ChannelKeys.UniqueNodeIDs()),
+		newSynchronizer(len(cfg.ChannelKeys.UniqueNodeIDs())),
 	)
 
 	var routeInletTo address.Address
@@ -270,13 +272,13 @@ func (i *iterator) SeekLast() bool {
 // SeekLE implements Iterator.
 func (i *iterator) SeekLE(stamp telem.TimeStamp) bool {
 	i.value = nil
-	return i.exec(Request{Command: SeekLE, Target: stamp})
+	return i.exec(Request{Command: SeekLE, Stamp: stamp})
 }
 
 // SeekGE implements Iterator.
 func (i *iterator) SeekGE(stamp telem.TimeStamp) bool {
 	i.value = nil
-	return i.exec(Request{Command: SeekGE, Target: stamp})
+	return i.exec(Request{Command: SeekGE, Stamp: stamp})
 }
 
 // Valid implements Iterator.
@@ -297,6 +299,10 @@ func (i *iterator) Close() error {
 	return i.wg.Wait()
 }
 
+func (i *iterator) SetBounds(bounds telem.TimeRange) bool {
+	return i.exec(Request{Command: SetBounds, Bounds: bounds})
+}
+
 func (i *iterator) Value() []core.Segment {
 	var segments []core.Segment
 	for _, resp := range i.value {
@@ -314,7 +320,7 @@ func (i *iterator) execErr(req Request) (bool, error) {
 	i.requests.Inlet() <- req
 	for res := range i.responses.Outlet() {
 		if res.Variant == AckResponse {
-			return res.Ack, res.Error
+			return res.Ack, res.Err
 		}
 		i.value = append(i.value, res)
 	}

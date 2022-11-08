@@ -14,6 +14,7 @@ type requestSwitchSender struct {
 	freightfluence.BatchSwitchSender[Request, Request]
 	addresses proxy.AddressMap
 	confluence.TransientProvider
+	accumulatedErr error
 }
 
 func newRequestSwitchSender(
@@ -27,11 +28,23 @@ func newRequestSwitchSender(
 	return confluence.InjectTransientSink[Request](trans, rs)
 }
 
-func (rs *requestSwitchSender) _switch(ctx context.Context, r Request, oReqs map[address.Address]Request) error {
+func (rs *requestSwitchSender) _switch(
+	ctx context.Context,
+	r Request,
+	oReqs map[address.Address]Request,
+) error {
+	if rs.accumulatedErr != nil {
+		if r.Command == Error {
+			return sendErrorAck(ctx, rs.Transient(), rs.accumulatedErr)
+		}
+		return nil
+	}
 	for _, seg := range r.Segments {
 		addr, ok := rs.addresses[seg.ChannelKey.NodeID()]
 		if !ok {
-			rs.Transient() <- unspecifiedChannelError(seg.ChannelKey)
+			if err := sendBadAck(ctx, rs.Transient()); err != nil {
+				return err
+			}
 			continue
 		}
 		oReqs[addr] = Request{Segments: append(oReqs[addr].Segments, seg)}

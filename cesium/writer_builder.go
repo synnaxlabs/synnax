@@ -12,7 +12,7 @@ func (d *db) newStreamWriter(keys []ChannelKey) (StreamWriter, error) {
 
 	locked, releaser := d.channelLock.TryLockWithReleaser(keys...)
 	if !locked {
-		return nil, ErrChannelLocked
+		return nil, ErrWriteLock
 	}
 
 	mdBatch := d.kv.NewBatch()

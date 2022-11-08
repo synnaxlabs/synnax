@@ -50,5 +50,5 @@ func openRemoteClient(
 	if err != nil {
 		return nil, err
 	}
-	return client, client.Send(Request{OpenKeys: keys})
+	return client, client.Send(Request{Keys: keys})
 }

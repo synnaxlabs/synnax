@@ -2,7 +2,6 @@ package iterator
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/freighter"
@@ -36,9 +35,6 @@ func (sf *server) Handle(_ctx context.Context, server ServerStream) error {
 	if err != nil {
 		return err
 	}
-	if req.Command != Open {
-		return errors.New("[segment.iterator] - server expected open command")
-	}
 
 	// receiver receives requests from the client and pipes them into the
 	// requestPipeline.
@@ -51,7 +47,7 @@ func (sf *server) Handle(_ctx context.Context, server ServerStream) error {
 	}
 
 	iter, err := newLocalIterator(req.Keys, Config{
-		TimeRange: req.Range,
+		TimeRange: req.Bounds,
 		TS:        sf.ts,
 		Resolver:  sf.resolver,
 		Logger:    sf.logger,
@@ -64,18 +60,8 @@ func (sf *server) Handle(_ctx context.Context, server ServerStream) error {
 	plumber.SetSegment[Request, Response](pipe, "iterator", iter)
 	plumber.SetSource[Request](pipe, "receiver", receiver)
 	plumber.SetSink[Response](pipe, "sender", sender)
-
-	plumber.UnaryRouter[Request]{
-		SourceTarget: "receiver",
-		SinkTarget:   "iterator",
-	}.MustRoute(pipe)
-
-	plumber.UnaryRouter[Response]{
-		SourceTarget: "iterator",
-		SinkTarget:   "sender",
-	}.MustRoute(pipe)
-
+	plumber.MustConnect[Request](pipe, "receiver", "iterator", 1)
+	plumber.MustConnect[Response](pipe, "iterator", "sender", 1)
 	pipe.Flow(ctx, confluence.CloseInletsOnExit())
-
 	return ctx.Wait()
 }

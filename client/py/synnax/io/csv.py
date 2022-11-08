@@ -14,7 +14,7 @@ class CSVReader:
     def __init__(self,
                  path: Path,
                  channel_keys: list[str] = None,
-                 chunk_size: int = 1000,
+                 chunk_size: int = 1000000,
                  ):
         self.path = path
         self.reader = pd.read_csv(

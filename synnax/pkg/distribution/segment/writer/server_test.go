@@ -27,7 +27,7 @@ func openClient(ctx context.Context, id distribution.NodeID, services map[distri
 }
 
 func openRequest(client writer.ClientStream, keys channel.Keys) (writer.Response, error) {
-	Expect(client.Send(writer.Request{OpenKeys: keys})).To(Succeed())
+	Expect(client.Send(writer.Request{Keys: keys})).To(Succeed())
 	Expect(client.CloseSend()).To(Succeed())
 	return client.Receive()
 }
@@ -65,14 +65,14 @@ var _ = Describe("Server", func() {
 		Expect(err).To(HaveOccurredAs(expectedTransportError))
 	},
 		Entry("Open the writerClient properly when the keys exist", channel.Keys{channel.NewKey(1, 1)}, nil, freighter.EOF),
-		Entry("Return an error when no keys are provided", channel.Keys{}, nil, errors.New("[segment.w] - server expected OpenKeys to be defined")),
+		Entry("Return an error when no keys are provided", channel.Keys{}, nil, errors.New("[segment.w] - server expected Keys to be defined")),
 		Entry("Return an error when invalid keys are provided", channel.Keys{channel.NewKey(1, 2)}, nil, query.NotFound),
 	)
 	Describe("Write Request", func() {
 		It("Should immediately abort all operations when the context is cancelled", func() {
 			ctx, cancel := context.WithCancel(context.TODO())
 			client := openClient(ctx, 1, services)
-			Expect(client.Send(writer.Request{OpenKeys: channel.Keys{channel.NewKey(1, 1)}})).To(Succeed())
+			Expect(client.Send(writer.Request{Keys: channel.Keys{channel.NewKey(1, 1)}})).To(Succeed())
 			var s core.Segment
 			s.Data = []byte{1, 2, 3}
 			s.Start = telem.TimeStamp(25)
@@ -86,7 +86,7 @@ var _ = Describe("Server", func() {
 			var client writer.ClientStream
 			BeforeEach(func() {
 				client = openClient(ctx, 1, services)
-				Expect(client.Send(writer.Request{OpenKeys: channel.Keys{channel.NewKey(1, 1)}})).To(Succeed())
+				Expect(client.Send(writer.Request{Keys: channel.Keys{channel.NewKey(1, 1)}})).To(Succeed())
 			})
 			It("Should execute a valid write request", func() {
 				var s core.Segment

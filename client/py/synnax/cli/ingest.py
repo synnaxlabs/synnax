@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import numpy as np
 
 import synnax
@@ -241,10 +243,14 @@ def run_ingestion(ctx: Context, cli: IngestionCLI) -> None:
     # print(d.to_numpy(dtype=np.int64))
     # w.write(gseCh.key, d[0], d.to_numpy(dtype=np.int64))
     # w.close()
+    t0 = datetime.now()
     w = cli.client.data.new_writer([ch.key for ch in cli.db_channels])
     for label, series in data.items():
         ch = [ch for ch in cli.db_channels if ch.name == label][0]
+        print(ch)
         w.write(ch.key, 0, series.to_numpy(dtype=np.float64))
+    w.commit()
     w.close()
+    print(f"Finished in {datetime.now() - t0}")
 
 

@@ -67,7 +67,7 @@ type BaseFile interface {
 	io.ReaderAt
 	io.ReadWriteCloser
 	io.Seeker
-	// Sync syncs the file to the FS (os.Target.sync).
+	// Sync syncs the file to the FS (os.Stamp.sync).
 	Sync() error
 }
 

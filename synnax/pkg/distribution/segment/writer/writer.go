@@ -21,40 +21,65 @@ type StreamWriter = confluence.Segment[Request, Response]
 
 type Writer interface {
 	Write([]core.Segment) bool
+	Commit() bool
+	Error() error
 	Close() error
 }
 
 type writer struct {
-	requests  confluence.Inlet[Request]
-	responses confluence.Outlet[Response]
-	wg        signal.WaitGroup
-	shutdown  context.CancelFunc
-	error     error
+	requests          confluence.Inlet[Request]
+	responses         confluence.Outlet[Response]
+	wg                signal.WaitGroup
+	shutdown          context.CancelFunc
+	hasAccumulatedErr bool
 }
 
 func (w *writer) Write(segments []core.Segment) bool {
-	if w.error != nil {
+	if w.hasAccumulatedErr {
 		return false
 	}
-	w.requests.Inlet() <- Request{Segments: segments}
 	select {
 	case <-w.wg.Stopped():
 		return false
-	case res := <-w.responses.Outlet():
-		w.error = res.Err
+	case <-w.responses.Outlet():
+		w.hasAccumulatedErr = true
 		return false
-	default:
+	case w.requests.Inlet() <- Request{Segments: segments}:
 		return true
 	}
+}
+
+func (w *writer) Commit() bool {
+	if w.hasAccumulatedErr {
+		return false
+	}
+	select {
+	case <-w.wg.Stopped():
+		return false
+	case w.requests.Inlet() <- Request{Command: Commit}:
+	}
+	for res := range w.responses.Outlet() {
+		if res.Command == Commit {
+			return res.Ack
+		}
+	}
+	return false
+}
+
+func (w *writer) Error() error {
+	w.requests.Inlet() <- Request{Command: Error}
+	for res := range w.responses.Outlet() {
+		if res.Command == Error {
+			return res.Err
+		}
+	}
+	return nil
 }
 
 func (w *writer) Close() error {
 	w.requests.Close()
 	err := w.wg.Wait()
-	for res := range w.responses.Outlet() {
-		if res.Err != nil {
-			err = res.Err
-		}
+	for range w.responses.Outlet() {
 	}
 	w.shutdown()
 	return err
@@ -148,6 +173,14 @@ func NewStream(ctx context.Context, _cfg ...Config) (StreamWriter, error) {
 
 	transient := confluence.NewStream[error](0)
 
+	// The synchronizer checks that all nodes have acknowledged an iteration
+	// request. This is used to return ok = true from the iterator methods.
+	plumber.SetSegment[Response, Response](
+		pipe,
+		"synchronizer",
+		newSynchronizer(len(cfg.ChannelKeys.UniqueNodeIDs())),
+	)
+
 	if needRemote {
 		sender, receivers, _receiverAddresses, err := openRemoteWriters(
 			ctx,
@@ -168,7 +201,7 @@ func NewStream(ctx context.Context, _cfg ...Config) (StreamWriter, error) {
 	}
 
 	if needLocal {
-		w, err := newLocalWriter(ctx, batch.Local, transient, cfg)
+		w, err := newLocalWriter(ctx, batch.Local, cfg)
 		if err != nil {
 			return nil, err
 		}
@@ -197,14 +230,23 @@ func NewStream(ctx context.Context, _cfg ...Config) (StreamWriter, error) {
 		routeRequestsTo = "localWriter"
 	}
 
-	receiverAddresses = append(receiverAddresses, "transient")
-	plumber.SetSource[Response](pipe, "transient", &TransientSource{transient: transient})
+	if needRemote {
+		receiverAddresses = append(receiverAddresses, "transient")
+		plumber.SetSource[Response](pipe, "transient", &TransientSource{transient: transient})
+	}
+
+	plumber.MultiRouter[Response]{
+		SourceTargets: receiverAddresses,
+		SinkTargets:   []address.Address{"synchronizer"},
+		Stitch:        plumber.StitchUnary,
+		Capacity:      len(receiverAddresses),
+	}.MustRoute(pipe)
 
 	seg := &plumber.Segment[Request, Response]{Pipeline: pipe}
 	if err := seg.RouteInletTo(routeRequestsTo); err != nil {
 		panic(err)
 	}
-	if err := seg.RouteOutletFrom(receiverAddresses...); err != nil {
+	if err := seg.RouteOutletFrom("synchronizer"); err != nil {
 		panic(err)
 	}
 

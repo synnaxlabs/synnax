@@ -1,3 +1,5 @@
+from enum import Enum
+
 from freighter import (
     EOF,
     ExceptionPayload,
@@ -19,12 +21,21 @@ from .sugared import NumpySegment, SugaredBinarySegment
 from .validate import ContiguityValidator, ScalarTypeValidator, Validator
 
 
+class _Command(int, Enum):
+    NONE = 0
+    WRITE = 1
+    COMMIT = 2
+    ERROR = 3
+
+
 class _Request(Payload):
+    command: _Command
     open_keys: list[str]
     segments: list[SegmentPayload]
 
 
 class _Response(Payload):
+    command: _Command
     ack: bool
     error: ExceptionPayload
 
@@ -55,16 +66,10 @@ class CoreWriter:
         """
         self.keys = keys
         self.stream = self.client.stream(self._ENDPOINT, _Request, _Response)
-        self.stream.send(_Request(open_keys=keys, segments=[]))
+        self.stream.send(_Request(command=_Command.NONE, open_keys=keys, segments=[]))
         res, exc = self.stream.receive()
         if exc is not None:
             raise exc
-        assert res is not None
-        if not res.ack:
-            raise UnexpectedError(
-                "Writer failed to positively acknowledge open request. This is a bug"
-                + "please report it."
-            )
 
     def write(self, segments: list[SegmentPayload]) -> bool:
         """Validates and writes the given segments to the database. The provided segments
@@ -83,10 +88,33 @@ class CoreWriter:
             return False
 
         self._check_keys(segments)
-        err = self.stream.send(_Request(open_keys=[], segments=segments))
+        err = self.stream.send(_Request(command=_Command.WRITE, open_keys=[], segments=segments))
         if err is not None:
             raise err
         return True
+
+    def commit(self) -> bool:
+        self._assert_open()
+        if self.stream.received():
+            return False
+        err = self.stream.send(_Request(command=_Command.COMMIT, open_keys=[], segments=[]))
+        if err is not None:
+            raise err
+
+        while True:
+            res, err = self.stream.receive()
+            print(res)
+            if err is not None:
+                raise err
+            if res.command == _Command.COMMIT:
+                return res.ack
+
+    def error(self) -> Exception:
+        self.stream.send(_Request(command=_Command.ERROR, open_keys=[], segments=[]))
+        res, err = self.stream.receive()
+        if err is not None:
+            raise err
+        return decode_exception(res.error)
 
     def close(self):
         """Closes the writer, raising any accumulated error encountered during operation.
@@ -155,6 +183,12 @@ class NumpyWriter:
         any other writer methods.
         """
         self.core.open(keys)
+
+    def commit(self) -> bool:
+        return self.core.commit()
+
+    def error(self) -> Exception:
+        return self.core.error()
 
     def write(self, to: str, start: UnparsedTimeStamp, data: ndarray) -> bool:
         """Writes the given telemetry to the database.

@@ -4,6 +4,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gleak"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/testutil/seg"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -18,7 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/segment/writer"
 )
 
-var _ = Describe("Local", Ordered, func() {
+var _ = FDescribe("Local", Ordered, func() {
 	var (
 		log       *zap.Logger
 		w         writer.Writer
@@ -30,7 +31,7 @@ var _ = Describe("Local", Ordered, func() {
 		newWriter func() (writer.Writer, error)
 	)
 	BeforeAll(func() {
-		log = zap.NewNop()
+		log = lo.Must(zap.NewDevelopment())
 		builder, services = provisionNServices(1, log)
 		dataFactory := &seg.RandomFloat64Factory{Cache: true}
 		channels, err := services[1].channel.NewCreate().
@@ -61,17 +62,19 @@ var _ = Describe("Local", Ordered, func() {
 	Context("Behavioral Accuracy", func() {
 		It("Should write a segment to disk", func() {
 			seg := factory.NextN(1)
-			w.Write(wrapper.Wrap(seg))
+			Expect(w.Write(wrapper.Wrap(seg))).To(BeTrue())
+			Expect(w.Commit()).To(BeTrue())
 			Expect(w.Close()).To(Succeed())
 		})
 		It("Should write multiple segments to disk", func() {
 			seg := factory.NextN(10)
-			w.Write(wrapper.Wrap(seg))
+			Expect(w.Write(wrapper.Wrap(seg))).To(BeTrue())
+			Expect(w.Commit()).To(BeTrue())
 			Expect(w.Close()).To(Succeed())
 		})
 		It("Should return an error when another writerClient has a lock on the channelClient", func() {
 			_, err := newWriter()
-			Expect(err).To(HaveOccurredAs(cesium.ErrChannelLocked))
+			Expect(err).To(HaveOccurredAs(cesium.ErrWriteLock))
 		})
 	})
 })

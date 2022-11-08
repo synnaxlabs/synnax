@@ -127,6 +127,18 @@ func (w *streamWriter) Flow(ctx signal.Context, opts ...confluence.Option) {
 }
 
 func (w *streamWriter) write(req WriteRequest) error {
+	sugared := w.sugar(req.Segments)
+	// This guarantees that we write to indexes before we write to any channels
+	// that are indexed by them.
+	for _, b := range w.batches {
+		indexSegments, ok := sugared[b.Key()]
+		if ok {
+			if err := w._write(b.Key(), indexSegments); err != nil {
+				return err
+			}
+			delete(sugared, b.Key())
+		}
+	}
 	return iter.MapForEachUntilError(w.sugar(req.Segments), w._write)
 }
 

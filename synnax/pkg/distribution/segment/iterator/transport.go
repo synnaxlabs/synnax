@@ -15,8 +15,7 @@ type Command uint8
 const AutoSpan = storage.AutoSpan
 
 const (
-	Open Command = iota
-	Next
+	Next Command = iota + 1
 	Prev
 	SeekFirst
 	SeekLast
@@ -24,15 +23,21 @@ const (
 	SeekGE
 	Valid
 	Error
+	SetBounds
 )
 
-// Request is a request to a remote iterator.
+// Request is a request to an iterator.
 type Request struct {
+	// Command is the command to execute on the iterator.
 	Command Command
-	Target  telem.TimeStamp
-	Span    telem.TimeSpan
-	Range   telem.TimeRange
-	Keys    channel.Keys
+	// Stamp should be set during calls to SeekLE and SeekGE.
+	Stamp telem.TimeStamp
+	// Span should be set during calls to Next and Prev.
+	Span telem.TimeSpan
+	// Bounds should be set during calls to SetBounds.
+	Bounds telem.TimeRange
+	// Keys should only be set when opening the iterator.
+	Keys channel.Keys
 }
 
 type ResponseVariant uint8
@@ -48,6 +53,10 @@ const (
 type Response struct {
 	// Variant is the type of response returned.
 	Variant ResponseVariant
+	// Command is non-zero when the
+	Command Command
+	// Segments is only relevant for DataResponse. It is the data returned by the iterator.
+	Segments []core.Segment
 	// NodeID is the node ID where the remote iterator lives.
 	NodeID distribcore.NodeID
 	// Ack is only relevant for variant AckResponse. Is true if the iterator successfully
@@ -55,14 +64,9 @@ type Response struct {
 	Ack bool
 	// SeqNum
 	SeqNum int
-	// Command is only relevant for variant AckResponse. It is  the command that was executed
-	// on the iterator.
-	Command Command
 	// Err is only relevant for variant AckResponse. It is an error returned during a call to
 	// Iterator.Error
-	Error error
-	// Segments is only relevant for DataResponse. It is the data returned by the iterator.
-	Segments []core.Segment
+	Err error
 }
 
 func newAck(host distribcore.NodeID, cmd Command, ok bool) Response {

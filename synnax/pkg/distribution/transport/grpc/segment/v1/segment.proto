@@ -37,12 +37,17 @@ service WriterService {
 }
 
 message WriterRequest {
-  repeated string open_keys = 1;
-  repeated Segment segments = 2;
+	int32 command = 1;
+  repeated string open_keys = 2;
+  repeated Segment segments = 3;
 }
 
 message WriterResponse {
-  ferrors.v1.ErrorPayload error = 1;
+	int32 command = 1;
+	bool ack = 2;
+	int32 node_id = 3;
+	int32 counter = 4;
+  ferrors.v1.ErrorPayload error = 5;
 }
 
 message TimeRange {

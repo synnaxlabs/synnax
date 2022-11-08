@@ -170,6 +170,7 @@ class CoreIterator:
             self.values = []
         while True:
             r, exc = self.stream.receive()
+            print(r.ack)
             if exc is not None:
                 raise exc
             if r.variant == _ResponseVariant.ACK:

@@ -17,6 +17,7 @@ import (
 
 // SegmentWriterRequest represents a request to write Segment data for a set of channels.
 type SegmentWriterRequest struct {
+	Command WriterCommand `json:"command" msgpack:"command"`
 	// OpenKeys is a slice of Channel keys that the client plans to write to.
 	// OpenKeys should only be specified in the	first request to the server, and will be
 	// ignored in future requests.
@@ -27,9 +28,13 @@ type SegmentWriterRequest struct {
 	Segments []Segment `json:"segments" msgpack:"segments"`
 }
 
+type (
+	WriterCommand = writer.Command
+)
+
 type SegmentWriterResponse struct {
-	// Ack is used to acknowledge requests issued by the client.
-	Ack bool `json:"ack" msgpack:"ack"`
+	Command WriterCommand `json:"command" msgpack:"command"`
+	Ack     bool          `json:"ack" msgpack:"ack"`
 	// Err is a transient error encountered during writer operation, such as an invalid
 	// Segment data type or Channel key.
 	Err ferrors.Payload `json:"error" msgpack:"error"`
@@ -103,7 +108,7 @@ func (s *SegmentService) Write(_ctx context.Context, stream SegmentWriterStream)
 				parseErrors <- tErr
 				continue
 			}
-			requests.Inlet() <- writer.Request{Segments: segments}
+			requests.Inlet() <- writer.Request{Command: req.Command, Segments: segments}
 		}
 	}()
 
@@ -120,7 +125,9 @@ func (s *SegmentService) Write(_ctx context.Context, stream SegmentWriterStream)
 				return errors.Nil
 			}
 			if err := stream.Send(SegmentWriterResponse{
-				Err: ferrors.Encode(errors.General(resp.Err)),
+				Command: resp.Command,
+				Ack:     resp.Ack,
+				Err:     ferrors.Encode(errors.MaybeGeneral(resp.Err)),
 			}); err != nil {
 				return errors.Unexpected(err)
 			}
@@ -153,7 +160,7 @@ func (s *SegmentService) openWriter(ctx context.Context, srv SegmentWriterStream
 		return nil, errors.Query(err)
 	}
 	// Let the client know the writer is ready to receive segments.
-	return w, errors.MaybeUnexpected(srv.Send(SegmentWriterResponse{Ack: true}))
+	return w, errors.MaybeUnexpected(srv.Send(SegmentWriterResponse{}))
 }
 
 func receiveWriterOpenArgs(srv SegmentWriterStream) (channel.Keys, errors.Typed) {

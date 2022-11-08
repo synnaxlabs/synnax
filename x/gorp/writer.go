@@ -1,29 +1,32 @@
 package gorp
 
-import "github.com/synnaxlabs/x/kv"
+import (
+	"github.com/synnaxlabs/x/kv"
+)
 
 type KVBatch[K Key, E Entry[K]] struct {
 	kv.Batch
-	options
+	opts options
 }
 
 func WrapKVBatch[K Key, E Entry[K]](batch kv.Batch, opts ...Option) *KVBatch[K, E] {
-	return &KVBatch[K, E]{Batch: batch, options: newOptions(opts...)}
+	return &KVBatch[K, E]{Batch: batch, opts: newOptions(opts...)}
 }
 
 func (w *KVBatch[K, E]) Write(entry E) error {
-	prefix := typePrefix[K, E](w.options)
-	data, err := w.encoder.Encode(entry)
+	prefix := typePrefix[K, E](w.opts)
+	data, err := w.opts.encoder.Encode(entry)
 	if err != nil {
 		return err
 	}
-	key, err := w.encoder.Encode(entry.GorpKey())
+	key, err := w.opts.encoder.Encode(entry.GorpKey())
 	if err != nil {
 		return err
 	}
 	// NOTE: We need to be careful with this operation in the future.
 	// Because we aren't copying prefix, we're modifying the underlying slice.
-	if err = w.Set(append(prefix, key...), data, entry.SetOptions()...); err != nil {
+	prefixedKey := append(prefix, key...)
+	if err = w.Set(prefixedKey, data, entry.SetOptions()...); err != nil {
 		return err
 	}
 	return nil
@@ -39,8 +42,8 @@ func (w *KVBatch[K, E]) WriteMany(entries []E) error {
 }
 
 func (w *KVBatch[K, E]) Delete(key K) error {
-	prefix := typePrefix[K, E](w.options)
-	data, err := w.encoder.Encode(key)
+	prefix := typePrefix[K, E](w.opts)
+	data, err := w.opts.encoder.Encode(key)
 	if err != nil {
 		return err
 	}
@@ -50,4 +53,8 @@ func (w *KVBatch[K, E]) Delete(key K) error {
 		return err
 	}
 	return nil
+}
+
+func (w *KVBatch[K, E]) options() options {
+	return w.opts
 }
