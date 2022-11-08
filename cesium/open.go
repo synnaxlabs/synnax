@@ -69,12 +69,11 @@ func Open(dirname string, opts ...Option) (DB, error) {
 	alloc := allocate.New[ChannelKey, core.FileKey](kvDB.NextFile, allocate.DefaultConfig)
 	channelCache := cache.WrapChannelEngine(kvDB)
 
-	idx := &indexingEngine{
-		channelReader: channelCache,
-		memSearchers:  make(map[ChannelKey]index.Searcher),
-		memWriters:    make(map[ChannelKey]index.Writer),
-		storage:       store,
-		kvDB:          kvDB,
+	idx := &indexRegistry{
+		channels: channelCache,
+		indexes:  make(map[ChannelKey]index.Index),
+		storage:  store,
+		kvDB:     kvDB,
 	}
 
 	return &db{

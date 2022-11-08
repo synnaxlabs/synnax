@@ -41,7 +41,7 @@ var _ = Describe("Accuracy", Ordered, func() {
 	var db cesium.DB
 	BeforeAll(func() { db = openMemDB() })
 	AfterAll(func() {
-		//Expect(db.Close()).To(Succeed())
+		Expect(db.Close()).To(Succeed())
 	})
 	Context("Single ChannelKey", func() {
 
@@ -330,6 +330,12 @@ var _ = Describe("Accuracy", Ordered, func() {
 								30 * telem.SecondTS,
 								35 * telem.SecondTS,
 								40 * telem.SecondTS,
+							}),
+						},
+						{
+							ChannelKey: idxKey,
+							Start:      42 * telem.SecondTS,
+							Data: MarshalTimeStamps([]telem.TimeStamp{
 								42 * telem.SecondTS,
 								43 * telem.SecondTS,
 								44 * telem.SecondTS,
@@ -645,7 +651,7 @@ var _ = Describe("Accuracy", Ordered, func() {
 						)
 						idxOne = cesium.Keys(chs)[0]
 						idxTwo = cesium.Keys(chs)[1]
-						// Write two segments to each idx, with a gap between them
+						// Add two segments to each idx, with a gap between them
 						Expect(w.Write([]cesium.Segment{
 							{
 								ChannelKey: idxOne,

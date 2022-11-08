@@ -9,17 +9,17 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = FDescribe("Buffered", func() {
-	Describe("Write and Search", func() {
+var _ = FDescribe("ThresholdBuffer", func() {
+	Describe("Add and Search", func() {
 		It("Should correctly write and search for a position in a set of alignments", func() {
-			buf := index.Buffered{
+			buf := index.ThresholdBuffer{
 				Wrapped: &index.BinarySearch{
 					Array: array.Searchable[index.Alignment]{
 						Array: array.NewRolling[index.Alignment](10),
 					},
 				},
 			}
-			Expect(buf.Write([]index.Alignment{
+			Expect(buf.Add([]index.Alignment{
 				{
 					Pos:   1,
 					Stamp: 1,
@@ -33,7 +33,7 @@ var _ = FDescribe("Buffered", func() {
 					Stamp: 5,
 				},
 			})).To(Succeed())
-			Expect(buf.Write([]index.Alignment{
+			Expect(buf.Add([]index.Alignment{
 				{
 					Pos:   4,
 					Stamp: 7,
@@ -49,15 +49,15 @@ var _ = FDescribe("Buffered", func() {
 			Expect(p2).To(Equal(position.Between(1, 2)))
 		})
 	})
-	Describe("Commit", func() {
-		It("Should flush any unneeded array buffers to the wrapped index", func() {
+	Describe("WriteToBelowThreshold", func() {
+		It("Should flush any unneeded array chunks to the wrapped index", func() {
 			wrapped := &index.BinarySearch{
 				Array: array.Searchable[index.Alignment]{
 					Array: array.NewRolling[index.Alignment](10),
 				},
 			}
-			buf := index.Buffered{Wrapped: wrapped}
-			Expect(buf.Write([]index.Alignment{
+			buf := index.ThresholdBuffer{Wrapped: wrapped}
+			Expect(buf.Add([]index.Alignment{
 				{
 					Pos:   1,
 					Stamp: 1,
@@ -71,7 +71,7 @@ var _ = FDescribe("Buffered", func() {
 					Stamp: 5,
 				},
 			})).To(Succeed())
-			Expect(buf.Write([]index.Alignment{
+			Expect(buf.Add([]index.Alignment{
 				{
 					Pos:   4,
 					Stamp: 7,
@@ -81,9 +81,9 @@ var _ = FDescribe("Buffered", func() {
 					Stamp: 9,
 				},
 			})).To(Succeed())
-			Expect(buf.Commit(4)).To(Succeed())
+			Expect(buf.WriteToBelowThreshold(2)).To(Succeed())
 			Expect(wrapped.Array.Len()).To(Equal(0))
-			Expect(buf.Commit(5)).To(Succeed())
+			Expect(buf.WriteToBelowThreshold(3)).To(Succeed())
 			Expect(wrapped.Array.Len()).To(Equal(3))
 		})
 	})

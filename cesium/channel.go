@@ -84,7 +84,7 @@ func (d *db) validateIndexExists(idxKey ChannelKey) error {
 	if !ch.IsIndex {
 		return errors.Wrapf(
 			validate.Error,
-			"[cesium] - provided channel %s is not an index",
+			"[cesium] - provided ch %s is not an index",
 			idxKey,
 		)
 	}
@@ -107,13 +107,13 @@ func (d *db) validateNewIndexChannel(ch *Channel) error {
 	if ch.Index != 0 {
 		return errors.Wrapf(
 			validate.Error,
-			"[cesium] - index channel can not be indexed",
+			"[cesium] - index ch can not be indexed",
 		)
 	}
 	if ch.Density != telem.TimeStampDensity {
 		return errors.Wrap(
 			validate.Error,
-			"[cesium] - index channel must use int64 timestamps",
+			"[cesium] - index ch must use int64 timestamps",
 		)
 	}
 	return nil
@@ -123,10 +123,6 @@ func (d *db) maybeCreateNewIndexes(ch *Channel) error {
 	if !ch.IsIndex {
 		return nil
 	}
-	var (
-		idxWriter   index.CompoundWriter
-		idxSearcher index.CompoundSearcher
-	)
 	i1 := &index.BinarySearch{
 		Every: 100,
 		Array: array.Searchable[index.Alignment]{
@@ -134,9 +130,6 @@ func (d *db) maybeCreateNewIndexes(ch *Channel) error {
 		},
 		ChannelKey: ch.Key,
 	}
-	idxWriter = append(idxWriter, i1)
-	idxSearcher = append(idxSearcher, i1)
-	d.indexes.memWriters[ch.Key] = idxWriter
-	d.indexes.memSearchers[ch.Key] = idxSearcher
+	d.indexes.indexes[ch.Key] = i1
 	return nil
 }

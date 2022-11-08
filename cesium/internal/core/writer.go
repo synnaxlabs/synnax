@@ -1,5 +1,7 @@
 package core
 
+import "github.com/synnaxlabs/cesium/internal/position"
+
 // MDBatch writes segment metadata to disk.
 type MDBatch interface {
 	// Write writes the segment metadata to the writer. The writes are not durable until
@@ -11,4 +13,5 @@ type MDBatch interface {
 	Close() error
 	// NewIterator
 	NewIterator(Channel) PositionIterator
+	Retrieve(ChannelKey, position.Position) (SegmentMD, error)
 }

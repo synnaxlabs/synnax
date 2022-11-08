@@ -10,13 +10,20 @@ import (
 
 // positionIterator is a key-value backed implementation of core.PositionIterator.
 type positionIterator struct {
-	ch       core.Channel
+	// ch is the channel that this iterator is iterating over.
+	ch core.Channel
+	// internal is the underlying naive segment iterator.
 	internal *coreMDIterator
-	view     position.Range
-	bounds   position.Range
-	value    *accumulate.Accumulator
-	logger   *zap.Logger
-	_key     []byte
+	// view stores the iterators current view.
+	view position.Range
+	// bounds stores the iterators bounds.
+	bounds position.Range
+	// value stores the  current accumulated value satisfying the iterator's view.
+	value *accumulate.Accumulator
+	// logger is the witness of it all.
+	logger *zap.Logger
+	// keyBuf is a reusable buffer for writing keys.
+	keyBuf []byte
 }
 
 func newPositionIterator(
@@ -30,7 +37,7 @@ func newPositionIterator(
 		value:    &accumulate.Accumulator{Density: ch.Density, Merge: false, Slice: true},
 		bounds:   position.RangeMax,
 		logger:   logger,
-		_key:     make([]byte, 11),
+		keyBuf:   make([]byte, 11),
 	}
 }
 
@@ -63,23 +70,18 @@ func (i *positionIterator) SetBounds(rng position.Range) {
 		zap.Binary("kvEnd", end),
 	)
 
-	// SeekLE to the first segment that starts BEFORE the start of the range. If the
-	// segment range overlaps with our desired range, we'll use internal as the starting
+	// SeekLT to the first segment that starts BEFORE the start of the range. If the
+	// segment range overlaps with our desired range, we'll use it as the starting
 	// point for the iterator. Otherwise, we'll seek to the first segment that starts
-	// after the start of the range. If this Bounds overlaps with our desired range,
-	// we'll use internal as the starting point for the iterator. Otherwise, return an
-	// err that the range has no data.
+	// after the start of the range. If this overlaps with our desired range,
+	// we'll use internal as the starting point for the iterator. Otherwise,
+	// the iterator has no data.
 	if (internal.SeekLT(start) && internal.Value().Range(i.ch.Density).OverlapsWith(rng)) ||
 		(internal.SeekGE(start) && internal.Value().Range(i.ch.Density).OverlapsWith(rng)) {
 		rng.Start = internal.Value().Alignment
 	}
 
-	// SeekGE to the first segment that ends AFTER then end of the range. If internal
-	// overlaps with our desired range, we'll use internal as the ending point for the
-	// iterator. Otherwise, we'll seek to the first segment that ends before the
-	// end of the range. If this Bounds overlaps with our desired range, we'll use internal
-	// as the ending point for the iterator. Otherwise, return an err that the
-	// range has no data.
+	// Same process as above, but ofr hte end of the range.
 	if (internal.SeekGE(end) && internal.Value().Range(i.ch.Density).OverlapsWith(rng)) ||
 		(internal.SeekLT(end) && internal.Value().Range(i.ch.Density).OverlapsWith(rng)) {
 		rng.End = internal.Value().End(i.ch.Density)
@@ -88,7 +90,7 @@ func (i *positionIterator) SetBounds(rng position.Range) {
 	core.WriteSegmentKey(i.ch.Key, rng.Start, start)
 	core.WriteSegmentKey(i.ch.Key, rng.End, end)
 
-	i.logger.Debug("final kv params",
+	i.logger.Debug("adjusted kv bounds",
 		zap.Stringer("channel", i.ch.Key),
 		zap.Binary("prefix", prefix),
 		zap.Stringer("bounds", rng),
@@ -176,14 +178,17 @@ func (i *positionIterator) Next(span position.Span) bool {
 		zap.Stringer("view", i.view),
 		zap.Stringer("span", span),
 		zap.Bool("auto", span == core.AutoPosSpan),
+		zap.Stringer("bounds", i.bounds),
 	)
-	defer i.logger.Debug("next done",
-		zap.Stringer("channel", i.ch.Key),
-		zap.Stringer("view", i.view),
-		zap.Stringer("accumulatorBounds", i.value.Bounds),
-	)
-	// If the current view is already at the end of the bounds, we can't go any further.
-	if i.view.End == i.bounds.End {
+	defer func() {
+		i.logger.Debug("next done",
+			zap.Stringer("channel", i.ch.Key),
+			zap.Stringer("view", i.view),
+			zap.Stringer("accumulatorBounds", i.value.Bounds),
+		)
+	}()
+
+	if i.atEnd() {
 		i.view.Start = i.view.End
 		return false
 	}
@@ -222,16 +227,6 @@ func (i *positionIterator) autoNext() bool {
 	return i.value.PartiallySatisfied()
 }
 
-func (i *positionIterator) autoPrev() bool {
-	i.value.Reset(i.view.Start.SpanRange(position.SpanMax).BoundBy(i.Bounds()))
-	if !i.View().IsZero() && !i.internal.Prev() {
-		return false
-	}
-	i.value.Accumulate(i.internal.Value())
-	i.view = i.internal.Value().Range(i.ch.Density).BoundBy(i.bounds)
-	return i.value.PartiallySatisfied()
-}
-
 // Prev implements core.PositionIterator.
 func (i *positionIterator) Prev(span position.Span) bool {
 	i.logger.Debug("prev",
@@ -242,7 +237,7 @@ func (i *positionIterator) Prev(span position.Span) bool {
 	)
 	// If the current view is already at the beginning of the bounds, we can't go
 	// any further.
-	if i.view.Start == i.bounds.Start {
+	if i.atStart() {
 		i.view.End = i.view.Start
 		return false
 	}
@@ -268,6 +263,24 @@ func (i *positionIterator) Prev(span position.Span) bool {
 	return i.value.PartiallySatisfied()
 }
 
+func (i *positionIterator) atStart() bool {
+	return i.view.Start == i.bounds.Start
+}
+
+func (i *positionIterator) atEnd() bool {
+	return i.view.End == i.bounds.End
+}
+
+func (i *positionIterator) autoPrev() bool {
+	i.value.Reset(i.view.Start.SpanRange(position.SpanMax).BoundBy(i.Bounds()))
+	if !i.View().IsZero() && !i.internal.Prev() {
+		return false
+	}
+	i.value.Accumulate(i.internal.Value())
+	i.view = i.internal.Value().Range(i.ch.Density).BoundBy(i.bounds)
+	return i.value.PartiallySatisfied()
+}
+
 // Value implements core.PositionIterator.
 func (i *positionIterator) Value() []core.SegmentMD { return i.value.Segments }
 
@@ -279,7 +292,7 @@ func (i *positionIterator) Valid() bool {
 // Close implements core.PositionIterator.
 func (i *positionIterator) Close() error {
 	i.reset(position.Range{})
-	i._key = nil
+	i.keyBuf = nil
 	return i.internal.Close()
 }
 
@@ -295,6 +308,6 @@ func (i *positionIterator) Bounds() position.Range { return i.bounds }
 func (i *positionIterator) reset(view position.Range) { i.view = view; i.value.Reset(view) }
 
 func (i *positionIterator) key(pos position.Position) []byte {
-	core.WriteSegmentKey(i.ch.Key, pos, i._key)
-	return i._key
+	core.WriteSegmentKey(i.ch.Key, pos, i.keyBuf)
+	return i.keyBuf
 }

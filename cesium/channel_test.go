@@ -43,11 +43,11 @@ var _ = Describe("ChannelKey", Ordered, func() {
 				cesium.Channel{Key: 1, Rate: 10 * telem.Hz, Density: telem.Bit64},
 			),
 			Entry("ChannelKey IsIndex - Non Bit64 Density",
-				errors.Wrap(validate.Error, "[cesium] - index channel must use int64 timestamps"),
+				errors.Wrap(validate.Error, "[cesium] - index ch must use int64 timestamps"),
 				cesium.Channel{IsIndex: true, Density: telem.Bit32},
 			),
 			Entry("ChannelKey IsIndex - Index non-zero",
-				errors.Wrap(validate.Error, "[cesium] - index channel can not be indexed"),
+				errors.Wrap(validate.Error, "[cesium] - index ch can not be indexed"),
 				cesium.Channel{Key: 45, IsIndex: true, Density: telem.Bit64},
 				cesium.Channel{IsIndex: true, Index: 45},
 			),
@@ -59,8 +59,8 @@ var _ = Describe("ChannelKey", Ordered, func() {
 				errors.Wrap(validate.Error, "[cesium] - rate must be positive"),
 				cesium.Channel{Density: telem.Bit32},
 			),
-			Entry("ChannelKey has index - provided index key is not an indexed channel",
-				errors.Wrapf(validate.Error, "[cesium] - provided channel %s is not an index", cesium.ChannelKey(60)),
+			Entry("ChannelKey has index - provided index key is not an indexed ch",
+				errors.Wrapf(validate.Error, "[cesium] - provided ch %s is not an index", cesium.ChannelKey(60)),
 				cesium.Channel{Key: 60, Density: telem.Bit32, Rate: 1 * telem.Hz},
 				cesium.Channel{Key: 61, Index: 60, Density: telem.Bit32},
 			),
@@ -68,7 +68,7 @@ var _ = Describe("ChannelKey", Ordered, func() {
 	})
 	Describe("Retrieve", func() {
 		Context("RetrieveChannel", func() {
-			It("Should retrieve a channel by its key", func() {
+			It("Should retrieve a ch by its key", func() {
 				ch := cesium.Channel{Rate: 10 * telem.Hz, Density: telem.Bit64}
 				Expect(db.CreateChannel(&ch)).To(Succeed())
 				Expect(db.RetrieveChannel(ch.Key)).To(Equal(ch))

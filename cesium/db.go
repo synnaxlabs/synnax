@@ -16,13 +16,13 @@ import (
 )
 
 var (
-	// NotFound is returned when a channel or a range of data cannot be found in the DB.
+	// NotFound is returned when a ch or a range of data cannot be found in the DB.
 	NotFound = query.NotFound
-	// UniqueViolation is returned when a provided channel key already exists in the DB.
-	UniqueViolation = errors.Wrap(query.UniqueViolation, "[cesium] - channel key already exists")
-	// ErrChannelLocked is returned when a channel has been locked for writing by another
+	// UniqueViolation is returned when a provided ch key already exists in the DB.
+	UniqueViolation = errors.Wrap(query.UniqueViolation, "[cesium] - ch key already exists")
+	// ErrChannelLocked is returned when a ch has been locked for writing by another
 	// goroutine.
-	ErrChannelLocked = errors.Wrap(lock.ErrLocked, "[cesium] - channel locked for writing")
+	ErrChannelLocked = errors.Wrap(lock.ErrLocked, "[cesium] - ch locked for writing")
 )
 
 type (
@@ -49,19 +49,19 @@ type (
 // to store a timestamp or delta.
 //
 // ChannelKey Channel's data is partitioned into entities called segments, which are reasonably sized
-// sub-ranges of a channel's data. ChannelKey Segment is defined by a start time, channel key,
+// sub-ranges of a ch's data. ChannelKey Segment is defined by a start time, ch key,
 // and binary data. ChannelKey segment's start time is the timestamp for the first sample in the segment.
 // Segments must be written in time-order (append only), and cannot be modified once written,
 // although it is possible to leave gaps between the end of one segment and the start of
 // another.
 //
 // ChannelKey DB is safe for concurrent read and write use, although it is not possible to write
-// data to a single channel concurrently. When writing data to a channel, the DB will
+// data to a single ch concurrently. When writing data to a ch, the DB will
 // acquire an exclusive lock for the duration of the request. If another goroutine
-// attempts to write to the channel, a DB will return ErrChannelLocked.
+// attempts to write to the ch, a DB will return ErrChannelLocked.
 type DB interface {
 	// Read returns all segments in the provided time range for the given Channels.
-	// The segments are returned in time-order on a per-channel basis.
+	// The segments are returned in time-order on a per-ch basis.
 	Read(tr telem.TimeRange, keys ...ChannelKey) ([]Segment, error)
 	// NewIterator returns a new, unpositioned kvPositionIterator over the given time range
 	// for the provided Channels. The iterator will be invalid until a positioning
@@ -84,7 +84,7 @@ type DB interface {
 	//  1. They must be provided in time-order.
 	//  2. Channel keys must be defined and exist in the database.
 	//  3. SData must be valid i.e. it must have non-zero length and be a multiple of the
-	//  channel's density.
+	//  ch's density.
 	//
 	// If any segments do not meet these requirements, no data will be written and the DB
 	// will return a validation err. If another goroutine is currently writing to one
@@ -99,9 +99,9 @@ type DB interface {
 	// closed in order to release the lock. This can be done by closing the Inlet or by
 	// cancelling the Flow context.
 	NewStreamWriter(keys ...ChannelKey) (StreamWriter, error)
-	// CreateChannel creates a new channel in the DB. The provided channel must have a
+	// CreateChannel creates a new ch in the DB. The provided ch must have a
 	// positive data rate and density. The caller can provide an optional uint16 key
-	// for the channel. If the key is not provided, the DB will automatically generate a
+	// for the ch. If the key is not provided, the DB will automatically generate a
 	// key. If a key is provided, the DB will validate that it is unique.
 	CreateChannel(ch *Channel) error
 	// RetrieveChannels retrieves Channels from the DB by their key. Returns a query.NotFound
@@ -123,7 +123,7 @@ type db struct {
 	shutdown    context.CancelFunc
 	channelLock lock.Keys[ChannelKey]
 	logger      *zap.Logger
-	indexes     *indexingEngine
+	indexes     *indexRegistry
 	allocator   allocate.Allocator[ChannelKey, core.FileKey]
 	storage     *storage.Storage
 }
@@ -170,10 +170,7 @@ func (d *db) Read(tr telem.TimeRange, keys ...ChannelKey) ([]Segment, error) {
 // NewIterator implements DB.
 func (d *db) NewIterator(tr telem.TimeRange, keys ...ChannelKey) (Iterator, error) {
 	wrapped, err := d.newStreamIterator(tr, keys...)
-	if err != nil {
-		return nil, err
-	}
-	return wrapStreamIterator(wrapped), nil
+	return wrapStreamIterator(wrapped), err
 }
 
 // NewStreamIterator implements DB.

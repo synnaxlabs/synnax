@@ -3,6 +3,7 @@ package core
 import (
 	"encoding/binary"
 	"github.com/cockroachdb/pebble"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/allocate"
 	"github.com/synnaxlabs/cesium/internal/position"
 	"github.com/synnaxlabs/x/telem"
@@ -85,4 +86,10 @@ func (s SugaredSegment) Size() telem.Size {
 		return s.SegmentMD.Size
 	}
 	return telem.Size(len(s.Data))
+}
+
+func AllocationItems(segments []SugaredSegment) []allocate.Item[ChannelKey] {
+	return lo.Map(segments, func(s SugaredSegment, i int) allocate.Item[ChannelKey] {
+		return s.AItem()
+	})
 }

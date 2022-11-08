@@ -43,5 +43,19 @@ func (t *TransientSource) Flow(ctx signal.Context, opts ...confluence.Option) {
 }
 
 func (t *TransientSource) sendError(ctx context.Context, err error) error {
-	return signal.SendUnderContext(ctx, t.Out.Inlet(), Response{Err: err})
+	var res Response
+	if err == nil {
+		res = Response{Command: Data, Ack: false}
+	} else {
+		res = Response{Command: Error, Ack: false, Err: err}
+	}
+	return signal.SendUnderContext(ctx, t.Out.Inlet(), res)
+}
+
+func sendBadAck(ctx context.Context, transient chan<- error) error {
+	return signal.SendUnderContext(ctx, transient, nil)
+}
+
+func sendErrorAck(ctx context.Context, transient chan<- error, err error) error {
+	return signal.SendUnderContext(ctx, transient, err)
 }

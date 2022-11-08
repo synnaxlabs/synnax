@@ -90,13 +90,6 @@ func WithFS(vfs vfs.FS, baseKFS kfs.BaseFS) Option {
 	}
 }
 
-func WithKVEngine(kv kv.DB) Option {
-	return func(o *options) {
-		o.kv.external = true
-		o.kv.engine = kv
-	}
-}
-
 func WithLogger(logger *zap.Logger) Option {
 	return func(o *options) {
 		o.logger = logger

@@ -10,67 +10,65 @@ func (d *db) newStreamWriter(keys []ChannelKey) (StreamWriter, error) {
 		return nil, err
 	}
 
-	if !d.channelLock.TryLock(keys...) {
+	locked, releaser := d.channelLock.TryLockWithReleaser(keys...)
+	if !locked {
 		return nil, ErrChannelLocked
 	}
 
-	// Check whether we need to maintain any indexes.
-	writeIndexes := make(map[ChannelKey]index.Writer)
+	mdBatch := d.kv.NewBatch()
+
+	w := &streamWriter{
+		lockReleaser:  releaser,
+		mdBatch:       mdBatch,
+		alloc:         d.allocator,
+		storageWriter: d.storage.NewWriter(),
+		idxProcessors: make(map[ChannelKey]indexProcessor, len(channels)),
+	}
+
+	batchIndexes := make(map[ChannelKey]*index.Batch)
 	for _, ch := range channels {
 		if ch.IsIndex {
-			writeIndexes[ch.Key], err = d.indexes.acquireWriter(ch.Key)
+			batchIndexes[ch.Key], err = d.indexes.wrapMDBatch(ch.Key, mdBatch)
 			if err != nil {
 				return nil, err
 			}
-		}
-	}
-	w := &streamWriter{
-		kv:              d.kv,
-		kvWriter:        d.kv.NewWriter(),
-		alloc:           d.allocator,
-		storageWriter:   d.storage.NewWriter(),
-		rateAligners:    make(map[ChannelKey]*rateAligner),
-		indexAligners:   make(map[ChannelKey]*indexAligner),
-		indexedAligners: make(map[ChannelKey]*indexedAligner),
-	}
-
-	searchIndexes, err := d.groupIndexesByChannelKey(channels)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, ch := range channels {
-		if ch.IsIndex {
-			w.indexAligners[ch.Key] = &indexAligner{
+			w.idxReleasers = append(w.idxReleasers, batchIndexes[ch.Key])
+			w.idxProcessors[ch.Key] = &indexIndexProcessor{
 				hwm:      0,
 				channel:  ch,
-				buffer:   &index.Buffered{Wrapped: writeIndexes[ch.Key]},
-				searcher: searchIndexes[ch.Key],
+				writer:   batchIndexes[ch.Key],
+				searcher: index.RateSearcher(ch.Rate),
 			}
 		}
 	}
+
 	for _, ch := range channels {
 		if ch.Index != 0 {
-			buf, ok := w.indexAligners[ch.Index]
-			searcher := searchIndexes[ch.Key]
-			if ok {
-				searcher = index.CompoundSearcher{buf.buffer, searcher}
+			var (
+				searcher index.Searcher
+				ok       bool
+			)
+			searcher, ok = batchIndexes[ch.Index]
+			if !ok {
+				searcher, err = d.indexes.newSearcher(ch.Index)
+				w.idxReleasers = append(w.idxReleasers, searcher)
+				if err != nil {
+					return nil, err
+				}
 			}
-			idxCh, err := d.RetrieveChannel(ch.Index)
-			if err != nil {
-				return nil, err
-			}
-			w.indexedAligners[ch.Key] = &indexedAligner{
+			w.idxProcessors[ch.Key] = &indexedIndexProcessor{
 				hwm:      0,
-				channel:  ch,
+				ch:       ch,
 				searcher: searcher,
-				iter:     w.kvWriter.NewIterator(idxCh),
+				batch:    mdBatch,
 			}
 		} else if !ch.IsIndex {
-			w.rateAligners[ch.Key] = &rateAligner{
-				channel:  ch,
+			idx := index.RateSearcher(ch.Rate)
+			w.idxReleasers = append(w.idxReleasers, idx)
+			w.idxProcessors[ch.Key] = &rateIndexProcessor{
 				hwm:      0,
-				searcher: searchIndexes[ch.Key],
+				ch:       ch,
+				searcher: idx,
 			}
 		}
 	}

@@ -11,37 +11,23 @@ func (d *db) newStreamIterator(tr telem.TimeRange, keys ...ChannelKey) (*streamI
 	if err != nil {
 		return nil, err
 	}
-
-	// build a position iterator for each of our requested channels.
 	positionIters := d.buildPositionIters(channels)
 	if err != nil {
 		return nil, err
 	}
-
-	// group channels by their index
 	indexes, err := d.groupChannelsByIndexSearcher(channels)
 	if err != nil {
 		return nil, err
 	}
-
-	// coming position iterators by their index
 	posIters := d.combinePositionIteratorsByIndex(indexes, positionIters)
-
-	// convert combined position iterators to time iterators
 	timeIters := d.buildTimeIterators(posIters)
-
-	// combine time iterators into a single time iterator
 	timeIter := d.combineTimeIterators(timeIters)
-
-	// set the time range on the combined time iterator
 	timeIter.SetBounds(tr)
-
 	reader := d.storage.NewReader()
-
 	return &streamIterator{mdIter: timeIter, reader: reader}, nil
 }
 
-// buildPositionIters opens a position iterator for each provided channel.
+// buildPositionIters opens a position iterator for each provided ch.
 func (d *db) buildPositionIters(channels []Channel) map[Channel]core.PositionIterator {
 	iters := make(map[Channel]core.PositionIterator, len(channels))
 	for _, ch := range channels {

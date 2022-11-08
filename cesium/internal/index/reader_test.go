@@ -42,7 +42,7 @@ func (i indexWriter) write(
 		},
 	}
 	mds := lo.Must(i.Writer.Write([]core.SugaredSegment{seg}))
-	mdw := i.DB.NewWriter()
+	mdw := i.DB.NewBatch()
 	lo.Must0(mdw.Write(mds))
 	lo.Must0(mdw.Commit())
 	lo.Must0(mdw.Close())

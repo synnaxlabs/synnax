@@ -2,74 +2,72 @@ package cesium
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 )
 
-// Iterator iterates over a DB's segments in time order. Cesium's iterator is unique
+// AutoSpan is a TimeSpan value that can be passed to Prev or Next to indicate
+// that the iterator should automatically determine the span to use. This is useful
+// for efficiently iterating over large spans of time quickly.
+const AutoSpan = core.AutoTimeSpan
+
+// Iterator iterates over a DB's telemetry in time order. Cesium's iterator is unique
 // in that its position is not a single point in time, but rather a time range providing
 // a sectioned 'view' over the DB's data. By doing so, the caller can iterate over arbitrary
 // spans of time.
 //
-// An iterator can be used to iterate over one or more channel's data, although behavior
-// when iterating over multiple Channels is somewhat undefined.
+// An iterator can be used to iterate over one or more ch's data.
 //
-// kvPositionIterator is not safe for concurrent use, although it is safe to have multiple iterators
+// Iterator is not safe for concurrent use, although it is safe to have multiple iterators
 // open over the same data operating in different goroutines.
-//
-// It's important to not that the segments returned by the iterator may not exactly reflect
-// the segments written to disk. THe DB may merge small segments together, or split large
-// segments apart. The kvPositionIterator may also return partial segments that fit within the
-// current view.
 type Iterator interface {
 	// SeekFirst seeks the iterator to the first segment in the range and sets the
-	// iterator's view to a single point in time at the beginning of the segment. The
-	// view is guaranteed to be within the iterator's bounds. It does NOT read any
-	// segments from disk, and the iterator will not be considered valid until the first
-	// call to a non-seeking method (e.g. Next, Prev, Next, Prev, SetRange, etc).
+	// iterator's view to a single point in time at the beginning of the segment.
+	// Returns true if the iterator is pointing to a valid segment, and false otherwise.
+	// SeekFirst reads no segments from disk, and the iterator will not be considered valid
+	// until the first call to Next or Prev.
 	SeekFirst() bool
 	// SeekLast seeks the iterator to the last segment in the range and sets the iterator's
-	// view to a single point in time at the end of the segment. The view is guaranteed
-	// to be within the iterator's bounds. It returns true if the iterator is pointing
-	// to the end of a valid segment, and false otherwise. It does NOT read any segments
-	// from disk, and the iterator will be considered invalid until the first call to a
-	// non-seeking method (e.g. Next, Prev, Next, Prev, SetRange, etc).
+	// view to a single point in time at the end of the segment. It returns true if the
+	// iterator is pointing to the end of a valid segment, and false otherwise. It does NOT
+	// read any segments from disk, and the iterator will be considered invalid until the
+	// first call to Next or Prev.
 	SeekLast() bool
-	// SeekLE seeks the kvPositionIterator to the beginning of the first segment with a timestamp
-	// less than the provided timestamp and sets the iterator's view to a single point
-	// in time at the beginning of the segment. The view is guaranteed to be within the
-	// iterator's bounds. It returns true if the kvPositionIterator is pointing to the beginning of
+	// SeekLE seeks the iterator to the first sample whose timestamp is less than or equal
+	// to the given timestamp, and sets the iterator's view to a single point at the
+	// sample's timestamp. It returns true if the Iterator is pointing to the beginning of
 	// a valid segment. It does NOT read any segments from disk, and the iterator will
-	// be considered invalid until the first call to a non-seeking method (e.g. Next,
-	// Prev, Next, Prev, SetRange, etc).
+	// be considered invalid until the first call to Next or Prev.
 	SeekLE(ts telem.TimeStamp) bool
-	// SeekGE seeks the kvPositionIterator to the end of the first segment with a timestamp greater
+	// SeekGE seeks the iterator to the end of the first sample with a timestamp greater
 	// than the provided timestamp and set's the iterators view to a single point in time
-	// at the end of the segment. The view is guaranteed to be within the iterator's
-	// bounds. It returns true if the kvPositionIterator is pointing to the end of a valid segment.
-	// It does NOT read any segments from disk, and the iterator will be considered invalid
-	// until the first call to a non-seeking method (e.g. Next, Prev, Next, Prev,
-	// SetRange, etc).
+	// at the sample's timestamp. s It returns true if the kvPositionIterator is pointing
+	// to a valid segment. It does NOT read any segments from disk, and the iterator will
+	// be considered invalid until the first call to Next or Prev.
 	SeekGE(ts telem.TimeStamp) bool
-	// Next reads the next segment in the iterator. It returns true if the segment was
-	// successfully read, and false otherwise. It sets the iterator's view to the time
-	// range occupied by the segment. The view is guaranteed to be within the iterator's
-	// bounds.
+	// Next advances the iterator across the given span, reading any telemetry segments
+	// it encounters. It returns true if the iterator is pointing to ANY valid segments,
+	// and false otherwise. It sets the iterator's view to the time range it advanced across.
+	//
+	// If the provided span is AutoSpan, the iterator will automatically choose the
+	// timespan to advance across. This is useful for quickly iterating over an iterator's
+	// entire range.
 	Next(span telem.TimeSpan) bool
-	// Prev reads the previous segment in the iterator. It returns true if the segment
-	// was successfully read, and false otherwise. It sets the iterator's view to the
-	// time range occupied by the segment. the view is guaranteed to be within the
-	// iterator's bounds
+	// Prev advances the iterator backwards across the given span, reading any telemetry
+	// segments it encounters. It returns true if the iterator is pointing to ANY valid
+	// segments, and false otherwise. It sets the iterator's view to the time range it
+	// advanced across.
+	//
+	// If the provided span is AutoSpan, the iterator will automatically choose the
+	// timespan to advance across. This is useful for quickly iterating over an iterator's
+	// entire range.j
 	Prev(span telem.TimeSpan) bool
-	// View returns the current range of values the kvPositionIterator has a 'view' of.  This view
-	// represents the range of data range segments currently held in Value.
+	// View returns the current range of values the iterator has a 'view' of.
+	// This view represents the range of telemetry segments currently held in Value.
+	// View is guaranteed to be within the iterator's bounds.
 	View() telem.TimeRange
-	// Close closes the iterator, ensuring that all in-progress segment reads have
-	// completed. An iterator MUST be closed after use, or else it will leak resources.
-	Close() error
 	// Valid returns true if the iterator is pointing at any valid segments AND has
 	// not accumulated an err.
 	Valid() bool
@@ -80,81 +78,9 @@ type Iterator interface {
 	// include any data outside the view. The segments are NOT guaranteed to be contiguous,
 	// however, and are also NOT guaranteed to be in time order.
 	Value() []Segment
-}
-
-// IteratorResponseType is the type of the response an iterator will return.
-type IteratorResponseType uint8
-
-const (
-	// IteratorResponseTypeAck is a response that indicates that an iteration request
-	// has completed successfully.
-	IteratorResponseTypeAck IteratorResponseType = iota + 1
-	// IteratorResponseTypeData is a response that indicates that an iteration request
-	// returned data.
-	IteratorResponseTypeData
-)
-
-// IteratorCommand is an enumeration of commands that can be sent to an iterator.
-type IteratorCommand uint8
-
-const (
-	// IterNext represents a call to Iterator.Next.
-	IterNext IteratorCommand = iota + 1
-	// IterPrev represents a call to Iterator.Prev.
-	IterPrev
-	// IterSeekFirst represents a call to Iterator.SeekFirst.
-	IterSeekFirst
-	// IterSeekLast represents a call to Iterator.SeekLast.
-	IterSeekLast
-	// IterSeekLE represents a call to Iterator.SeekLE.
-	IterSeekLE
-	// IterSeekGE represents a call to Iterator.SeekGE.
-	IterSeekGE
-	// IterValid represents a call to Iterator.Valid.
-	IterValid
-	// IterError represents a call to Iterator.Close.
-	IterError
-)
-
-// HasOps returns true if the IteratorCommand has any associated on disk operations.
-func (i IteratorCommand) HasOps() bool { return i <= IterPrev }
-
-// AutoSpan is a TimeSpan value that can be passed to PrevSpan or NextSpan to indicate
-// that the iterator should automatically determine the span to use. This is useful
-// for efficiently iterating over large spans of time quickly.
-const AutoSpan = core.AutoTimeSpan
-
-// IteratorRequest is issued to an StreamIterator asking it to read data from a DB.
-//
-//go:generate stringer -type=IteratorCommand
-type IteratorRequest struct {
-	// Command is the command to execute. See kvPositionIterator documentation for the behavior
-	// of specific commands.
-	Command IteratorCommand
-	// The following fields are only used for commands that require them.
-	Span   telem.TimeSpan
-	Target telem.TimeStamp
-}
-
-// IteratorResponse is a response containing segments satisfying a RetrieveP Query as
-// well as any errors encountered during the retrieval.
-type IteratorResponse struct {
-	// Variant is the type of response issued.
-	Variant IteratorResponseType
-	// SeqNum is incremented for each request issued to the StreamIterator. The
-	// first request will have a sequence number of 1.
-	SeqNum int
-	// Command is only defined when the response type is IteratorResponseTypeAck.
-	// It indicates the command that was acknowledged.
-	Command IteratorCommand
-	// Ack is only valid when the response type is IteratorResponseTypeAck. It
-	// indicates whether the command was successfully processed.
-	Ack bool
-	// Err is only set an IterError command is issued.
-	Err error
-	// Segments is only set when the response type is IteratorResponseTypeData. It
-	// contains the segments that were read.
-	Segments []Segment
+	// Close closes the iterator, ensuring that all in-progress segment reads have
+	// completed. An iterator MUST be closed after use, or else it will leak resources.
+	Close() error
 }
 
 type iterator struct {
@@ -203,12 +129,12 @@ func (i *iterator) SeekLast() bool {
 
 // SeekLE implements Iterator.
 func (i *iterator) SeekLE(ts telem.TimeStamp) bool {
-	return i.exec(IteratorRequest{Command: IterSeekLE, Target: ts})
+	return i.exec(IteratorRequest{Command: IterSeekLE, Stamp: ts})
 }
 
 // SeekGE implements Iterator.
 func (i *iterator) SeekGE(ts telem.TimeStamp) bool {
-	return i.exec(IteratorRequest{Command: IterSeekGE, Target: ts})
+	return i.exec(IteratorRequest{Command: IterSeekGE, Stamp: ts})
 }
 
 // Error implements Iterator.
@@ -223,6 +149,11 @@ func (i *iterator) Valid() bool {
 	return ok
 }
 
+// SetBounds implements Iterator.
+func (i *iterator) SetBounds(bounds telem.TimeRange) {
+	i.exec(IteratorRequest{Command: IterSetBounds, Bounds: bounds})
+}
+
 // Value implements Iterator.
 func (i *iterator) Value() []Segment { return i.value }
 
@@ -232,10 +163,9 @@ func (i *iterator) View() telem.TimeRange { return i.wrapped.mdIter.View() }
 // Close implements Iterator.
 func (i *iterator) Close() error {
 	i.inlet.Close()
-	if err := i.wg.Wait(); !errors.Is(err, context.Canceled) {
-		return err
-	}
-	return nil
+	err := i.wg.Wait()
+	i.shutdown()
+	return err
 }
 
 func (i *iterator) exec(req IteratorRequest) bool {
@@ -247,7 +177,7 @@ func (i *iterator) execErr(req IteratorRequest) (bool, error) {
 	i.value = nil
 	i.inlet.Inlet() <- req
 	for res := range i.outlet.Outlet() {
-		if res.Variant == IteratorResponseTypeAck {
+		if res.Variant == IteratorAckResponse {
 			return res.Ack, res.Err
 		}
 		i.value = append(i.value, res.Segments...)

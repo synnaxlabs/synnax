@@ -17,7 +17,7 @@ var _ = Describe("GoRead", func() {
 		db, err = cesium.Open("", cesium.MemBacked(), cesium.WithLogger(logger))
 		Expect(err).ToNot(HaveOccurred())
 	})
-	Context("Single channel", func() {
+	Context("Single ch", func() {
 		var (
 			channel *cesium.Channel
 			factory seg.SequentialFactory
@@ -52,7 +52,7 @@ var _ = Describe("GoRead", func() {
 			wg.Wait()
 		})
 	})
-	Context("Multi channel", func() {
+	Context("Multi ch", func() {
 		var (
 			channels     []cesium.Channel
 			channelCount = 10

@@ -40,7 +40,7 @@ func (d *db) groupChannelsByIndexSearcher(channels []Channel) ([]searcherChannel
 	}
 	// acquire index searchers for each non-rate index
 	for idxKey, chs := range nonRateChannels {
-		idx, err := d.indexes.acquireSearcher(idxKey)
+		idx, err := d.indexes.newSearcher(idxKey)
 		if err != nil {
 			return nil, err
 		}

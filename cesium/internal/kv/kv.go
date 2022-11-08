@@ -36,10 +36,10 @@ func (k *DB) NewIterator(ch core.Channel) core.PositionIterator {
 	return newPositionIterator(k.DB, ch, k.logger)
 }
 
-func (k *DB) NewWriter() core.MDBatch {
+func (k *DB) NewBatch() core.MDBatch {
 	return &Batch{
 		KVBatch: gorp.WrapKVBatch[[]byte, core.SegmentMD](
-			k.NewBatch(),
+			kvx.NewMultiCommitBatch(k.DB),
 			gorp.WithEncoderDecoder(segmentEncoderDecoder),
 			gorp.WithoutTypePrefix(),
 		),
