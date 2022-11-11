@@ -251,7 +251,7 @@ func validateSufficientDirPermissions(cfg Config) error {
 		return err
 	}
 	// We need the directory to have at least the permissions set in Config.Perm.
-	if !fsutil.CheckSufficientPermissions(stat.Mode(), cfg.Perm) {
+	if !fsutil.CheckSufficientPermissions(stat.Mode().Perm(), cfg.Perm) {
 		return errors.Newf(
 			insufficientDirPermissions,
 			cfg.Dirname,
