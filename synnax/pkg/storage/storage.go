@@ -230,11 +230,11 @@ func configureStorageDir(cfg Config, vfs vfs.FS) error {
 }
 
 const insufficientDirPermissions = `
-Existing storage
+Existing storage directory
 
 %s
 
-directory has permissions
+has permissions
 
 %v
 
