@@ -8,7 +8,7 @@ def select_from_table(
     allow_none: bool = False,
     default: int = None,
 ) -> int | None:
-    """Prompts the user to select a row from a table.
+    """Prompts the user to select a row.py from a table.
 
     :param ctx: The current flow Context.
     :param columns: The columns of the table.
@@ -16,7 +16,7 @@ def select_from_table(
     :param allow_none: Whether to allow the user to select nothing.
     :param default: The default option to select. If a default is provided,
     allow_none is ignored.
-    :returns: The index of the selected row or None if nothing was selected.
+    :returns: The index of the selected row.py or None if nothing was selected.
     """
     ctx.console.table(columns=["option", *columns], rows=[
         {"option": str(i), **row} for i, row in enumerate(rows)

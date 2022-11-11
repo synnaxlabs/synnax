@@ -2,6 +2,7 @@ package cesium
 
 import (
 	"github.com/cockroachdb/errors"
+	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/position"
@@ -104,6 +105,7 @@ func (s *indexedIndexProcessor) process(segments []core.SugaredSegment) ([]core.
 			)
 		}
 		seg.Alignment = alignment.Start
+		logrus.Info(seg.Alignment, seg.ChannelKey)
 		s.maybeUpdateHwm(seg)
 		segments[i] = seg
 	}
@@ -141,8 +143,13 @@ func (p *indexIndexProcessor) process(segments []core.SugaredSegment) ([]core.Su
 		}
 		seg.Alignment = alignment.Start
 		alignments, err := index.DecodeAlignments([]core.SugaredSegment{seg})
+		logrus.Info(seg.Data[0:8])
 		if seg.Start != alignments[0].Stamp {
-			return nil, errors.New("bad seg")
+			return nil, errors.Wrapf(
+				validate.Error,
+				"segment start does not align with a known position in the index: %s != %s",
+				seg.Start, alignments[0].Stamp,
+			)
 		}
 		if err != nil {
 			return nil, err

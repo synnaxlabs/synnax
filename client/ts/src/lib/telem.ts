@@ -5,7 +5,7 @@ const valueOfEncoder = (value: unknown): unknown => value?.valueOf();
 /** Represents a nanosecond precision UTC timestamp. */
 export class TimeStamp extends Number {
 	constructor(value: UnparsedTimeStamp) {
-		if (value instanceof TimeStamp || value instanceof TimeSpan) super(value.valueOf());
+		if (value instanceof Number) super(value.valueOf());
 		else super(value);
 	}
 
@@ -141,7 +141,7 @@ export class TimeStamp extends Number {
 /** TimeSpan represents a nanosecond precision duration. */
 export class TimeSpan extends Number {
 	constructor(value: UnparsedTimeSpan) {
-		if (value instanceof TimeSpan) super(value.valueOf());
+		if (value instanceof Number) super(value.valueOf());
 		else super(value);
 	}
 
@@ -282,7 +282,7 @@ export class TimeSpan extends Number {
 /** Rate represents a data rate in Hz. */
 export class Rate extends Number {
 	constructor(value: UnparsedRate) {
-		if (value instanceof Rate) super(value.valueOf());
+		if (value instanceof Number) super(value.valueOf());
 		else super(value);
 	}
 
@@ -373,7 +373,7 @@ export class Density extends Number {
 	 * @returns A Density representing the given number of bytes per value.
 	 */
 	constructor(value: UnparsedDensity) {
-		if (value instanceof Density) super(value.valueOf());
+		if (value instanceof Number) super(value.valueOf());
 		else super(value);
 	}
 

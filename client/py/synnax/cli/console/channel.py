@@ -30,7 +30,7 @@ def group_channel_names(
         if entry.isdigit():
             index = int(entry)
             if index < 0 or index >= len(all_names):
-                ctx.console.error(f"Invalid channel index: {index}[/]")
+                ctx.console.error(f"Invalid channel index: {index}")
                 continue
             channels.append(all_names[index])
         else:
@@ -38,7 +38,7 @@ def group_channel_names(
                 if fnmatch.fnmatch(name, entry):
                     channels.append(name)
             if not channels:
-                ctx.console.error(f"No channels match pattern: {entry}[/]")
+                ctx.console.error(f"No channels match pattern: {entry}")
                 if not ctx.console.confirm("Continue?", default=True):
                     return None
         grouped[entry] = channels

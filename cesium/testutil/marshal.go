@@ -11,7 +11,7 @@ import (
 func Marshal[T types.Numeric](values []T) []byte {
 	buf := new(bytes.Buffer)
 	for _, v := range values {
-		Expect(binary.Write(buf, binary.BigEndian, v)).To(Succeed())
+		Expect(binary.Write(buf, binary.LittleEndian, v)).To(Succeed())
 	}
 	return buf.Bytes()
 }
@@ -19,7 +19,7 @@ func Marshal[T types.Numeric](values []T) []byte {
 func MarshalTimeStamps(values []telem.TimeStamp) []byte {
 	buf := new(bytes.Buffer)
 	for _, v := range values {
-		Expect(binary.Write(buf, binary.BigEndian, int64(v))).To(Succeed())
+		Expect(binary.Write(buf, binary.LittleEndian, int64(v))).To(Succeed())
 	}
 	return buf.Bytes()
 }

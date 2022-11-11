@@ -1,7 +1,3 @@
-from datetime import datetime
-
-import numpy as np
-
 import synnax
 from .channel import (
     maybe_select_channel,
@@ -10,32 +6,41 @@ from .channel import (
 from .connect import connect_client, prompt_client_options, load_config_options
 from .console.rich import RichConsole
 from .file import prompt_file
-from .select import select_from_table
-from .suggest import determine_suggestions
 from .telem import prompt_data_type_select
 from .. import Synnax
 from .flow import Context, Flow
-from synnax.io import Factory
-from ..io.reader import Reader, ChannelMeta
+from ..ingest.row import RowIngestionEngine
+from ..io import RowReader, ReaderType, ReaderFactory, ChannelMeta
 from ..telem import INT64, Rate
 from ..cli.console.channel import prompt_group_channel_names
 
 
 class IngestionCLI:
-    factory: Factory
-    reader: Reader | None
+    factory: ReaderFactory
+    reader: RowReader | None
     client: Synnax | None
     filtered_channels: list[ChannelMeta] | None
     not_found: list[ChannelMeta] | None
     db_channels: list[synnax.Channel] | None
 
-    def __init__(self, factory: Factory):
+    def __init__(self, factory: ReaderFactory):
         self.factory = factory
         self.reader = None
         self.client = None
         self.filtered_channels = None
         self.not_found = None
         self.db_channels = None
+
+
+def run_ingestion(ctx: Context, cli: IngestionCLI) -> None:
+    """Runs the ingestion process.
+    """
+    if cli.reader.type() == ReaderType.Row:
+        engine = RowIngestionEngine(cli.client, cli.reader, cli.db_channels)
+    else:
+        raise NotImplementedError("Only row ingestion is supported at this time.")
+    ctx.console.info("Starting ingestion process...")
+    engine.run()
 
 
 def ingestion():
@@ -47,7 +52,7 @@ def ingestion():
     flow.add("validate_channels", validate_channels)
     flow.add("create_channels", create_channels)
     flow.add("ingest", run_ingestion)
-    flow.run(IngestionCLI(synnax.io.Factory()), "initialize_reader")
+    flow.run(IngestionCLI(synnax.io.ReaderFactory()), "initialize_reader")
 
 
 def initialize_reader(
@@ -59,7 +64,7 @@ def initialize_reader(
     path = prompt_file(ctx)
     if path is None:
         return None
-    cli.reader = cli.factory.new_reader(path)
+    cli.reader = cli.factory.retrieve(path)
     return "connect_client"
 
 
@@ -89,10 +94,12 @@ def channels_to_ingest(ctx: Context, cli: IngestionCLI) -> str | None:
     """Prompts the user to select channels to ingest.
     """
     ctx.console.info("Which channels would you like to ingest?")
-    grouped = prompt_group_channel_names(ctx, [ch.name for ch in cli.reader.channels()])
+    channels = cli.reader.channels()
+    grouped = prompt_group_channel_names(ctx, [ch.name for ch in channels])
     if grouped is None or len(grouped) == 0:
         return None
-    cli.filtered_channels = [v for _, v in grouped.items()]
+    all_names = [v for l in grouped.values() for v in l]
+    cli.filtered_channels = [ch for ch in channels if ch.name in all_names]
     return "validate_channels"
 
 
@@ -134,7 +141,8 @@ def create_indexes(
     grouped = prompt_group_channel_names(ctx, [ch.name for ch in options])
     names = [name for v in grouped.values() for name in v]
     for name in names:
-        cli.client.channel.create(name=name, is_index=True, data_type=INT64)
+        ch = cli.client.channel.create(name=name, is_index=True, data_type=INT64)
+        cli.db_channels.append(ch)
     return [ch for ch in options if ch.name not in names]
 
 
@@ -231,26 +239,3 @@ def create_channels(ctx: Context, cli: IngestionCLI) -> str | None:
             cli.db_channels.append(ch)
 
     return "ingest"
-
-def run_ingestion(ctx: Context, cli: IngestionCLI) -> None:
-    """Runs the ingestion process.
-    """
-    ctx.console.info("Starting ingestion process...")
-    data = cli.reader.read()
-    # gseCh = [ch for ch in cli.db_channels if ch.name == "gse.timestamp (ul)"][0]
-    # w = cli.client.data.new_writer([gseCh.key])
-    # d = data["gse.timestamp (ul)"]
-    # print(d.to_numpy(dtype=np.int64))
-    # w.write(gseCh.key, d[0], d.to_numpy(dtype=np.int64))
-    # w.close()
-    t0 = datetime.now()
-    w = cli.client.data.new_writer([ch.key for ch in cli.db_channels])
-    for label, series in data.items():
-        ch = [ch for ch in cli.db_channels if ch.name == label][0]
-        print(ch)
-        w.write(ch.key, 0, series.to_numpy(dtype=np.float64))
-    w.commit()
-    w.close()
-    print(f"Finished in {datetime.now() - t0}")
-
-

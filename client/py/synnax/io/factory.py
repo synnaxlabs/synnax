@@ -1,19 +1,21 @@
-from .reader import Reader
+from .protocol import RowReader
 from .csv import CSVReader
 from pathlib import Path
 
-READERS: list[type[Reader]] = [
+READERS: list[type[RowReader]] = [
     CSVReader,
 ]
 
 
-class Factory:
-    reader_classes: list[type[Reader]]
+class ReaderFactory:
+    """A registry for retrieving readers for different file types.
+    """
+    reader_classes: list[type[RowReader]]
 
-    def __init__(self, readers: list[type[Reader]] = None):
+    def __init__(self, readers: list[type[RowReader]] = None):
         self.reader_classes = readers or READERS
 
-    def new_reader(self, path: Path) -> Reader:
+    def retrieve(self, path: Path) -> RowReader:
         if not path.exists():
             raise FileNotFoundError(f"File not found: {path}")
 

@@ -230,7 +230,7 @@ func configureStorageDir(cfg Config, vfs vfs.FS) error {
 }
 
 const insufficientDirPermissions = `
-Existing storage 
+Existing storage
 
 %s
 
@@ -238,7 +238,7 @@ directory has permissions
 
 %v
 
-Delta requires the storage directory to have at least 
+Delta requires the storage directory to have at least
 
 %v
 
@@ -250,8 +250,8 @@ func validateSufficientDirPermissions(cfg Config) error {
 	if err != nil {
 		return err
 	}
-	// We need the director to have at least the permissions set in Config.Perm.
-	if stat.Mode().Perm()&fsutil.OS_ALL_RWX != cfg.Perm {
+	// We need the directory to have at least the permissions set in Config.Perm.
+	if !fsutil.CheckSufficientPermissions(stat.Mode(), cfg.Perm) {
 		return errors.Newf(
 			insufficientDirPermissions,
 			cfg.Dirname,

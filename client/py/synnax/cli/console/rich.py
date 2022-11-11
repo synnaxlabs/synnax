@@ -96,7 +96,7 @@ class RichConsole:
         for column in columns:
             table.add_column(column)
         for row in rows:
-            # order the row by the columns
+            # order the row.py by the columns
             table.add_row(*[row[column] for column in columns])
 
         print(table)

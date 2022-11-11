@@ -71,6 +71,7 @@ class SegmentClient:
         _writer = self.new_writer([to])
         try:
             _writer.write(to, start, data)
+            _writer.commit()
         finally:
             _writer.close()
 

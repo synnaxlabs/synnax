@@ -74,7 +74,7 @@ func (r *Reader) SearchTS(pos position.Position, approx telem.Approximation) (te
 func (r *Reader) Release() error { return r.Iter.Close() }
 
 func DecodeTimeStamp(data []byte) telem.TimeStamp {
-	return telem.TimeStamp(binary.BigEndian.Uint64(data))
+	return telem.TimeStamp(binary.LittleEndian.Uint64(data))
 }
 
 func DecodeAlignments(segments []core.SugaredSegment) ([]Alignment, error) {

@@ -38,3 +38,10 @@ const (
 	OS_ALL_RW  = OS_ALL_R | OS_ALL_W
 	OS_ALL_RWX = OS_ALL_RW | OS_ALL_X
 )
+
+// CheckSufficientPermissions checks if the given actual file mode grants at least
+// the permissions expected by the given threshold. If the actual file mode is
+// insufficient, false is returned. Otherwise, true is returned.
+func CheckSufficientPermissions(actual, threshold os.FileMode) bool {
+	return actual&threshold == threshold
+}

@@ -21,20 +21,14 @@ const channelCounterKey = "cs-nc"
 // Open opens a new DB whose files are stored in the given directory.
 // DB can be opened with a variety of options:
 //
-//		// Open a DB in memory.
-//	 cesium.MemBacked()
+//	// Open a DB in memory.
+//	cesium.MemBacked()
 //
-//	 // Open a DB with the provided logger.
-//		cesium.WithLogger(zap.NewNop())
+//	// Open a DB with the provided logger.
+//	cesium.WithLogger(zap.NewNop())
 //
-//		// Bind an alamos.Experiment to register DB metrics.
-//		cesium.WithExperiment(alamos.WithCancel("myExperiment"))
-//
-//		// Override the default shutdown threshold.
-//	 cesium.WithShutdownThreshold(time.Second)
-//
-//	 // SetMultiple custom shutdown options.
-//		cesium.WithShutdownOptions()
+//	// Bind an alamos.Experiment to register DB metrics.
+//	cesium.WithExperiment(alamos.WithCancel("myExperiment"))
 //
 // See each options documentation for more.
 func Open(dirname string, opts ...Option) (DB, error) {

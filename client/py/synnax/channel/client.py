@@ -64,6 +64,12 @@ class Channel(ChannelPayload):
         """
         return self._payload().dict()
 
+    def __hash__(self):
+        return hash(self.key)
+
+    def __eq__(self, other):
+        return self.key == other.key
+
 
 class ChannelClient:
     """The core client class for executing channel operations against a Synnax cluster."""
