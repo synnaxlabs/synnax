@@ -1,6 +1,7 @@
 package channel
 
 import (
+	"context"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/storage"
@@ -25,8 +26,26 @@ func New(
 	return &Service{clusterDB: clusterDB, proxy: newLeaseProxy(cluster, clusterDB, tsDB, client, server, ontology)}
 }
 
-func (s *Service) NewCreate() Create { return newCreate(s.proxy) }
-
-func (s *Service) NewRetrieve() Retrieve {
-	return newRetrieve(s.clusterDB)
+func (s *Service) Create(channel *Channel) error {
+	return s.CreateWithTxn(s.clusterDB, channel)
 }
+
+func (s *Service) CreateMany(channels *[]Channel) error {
+	return s.CreateManyWithTxn(s.clusterDB, channels)
+}
+
+func (s *Service) CreateWithTxn(txn gorp.Txn, ch *Channel) error {
+	channels := []Channel{*ch}
+	err := s.proxy.create(context.TODO(), txn, &channels)
+	if err != nil {
+		return err
+	}
+	*ch = channels[0]
+	return nil
+}
+
+func (s *Service) CreateManyWithTxn(txn gorp.Txn, channels *[]Channel) error {
+	return s.proxy.create(context.TODO(), txn, channels)
+}
+
+func (s *Service) NewRetrieve() Retrieve { return newRetrieve(s.clusterDB) }

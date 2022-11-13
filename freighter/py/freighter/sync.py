@@ -1,6 +1,6 @@
 import asyncio
 import contextlib
-from asyncio import tasks, events, coroutines
+from asyncio import events
 from threading import Thread
 from typing import AsyncIterator, Generic, Optional, Type
 from xmlrpc.client import boolean
@@ -15,7 +15,7 @@ from .stream import (
     AsyncStreamSenderCloser,
     AsyncStream,
 )
-from .transport import RQ, RS, P, MiddlewareCollector, Middleware, AsyncNext
+from .transport import RQ, RS, P, MiddlewareCollector, AsyncNext
 from .util.threading import Notification
 
 
@@ -146,7 +146,7 @@ class SyncStream(Thread, Generic[RQ, RS]):
     _response_factory: Type[RS]
     _request_type: Type[RQ]
     _collector: MiddlewareCollector
-    _md: MetaData
+    _in_md: MetaData
     _wrapped: Optional[AsyncStream[RQ, RS]]
 
     def __init__(
@@ -168,20 +168,20 @@ class SyncStream(Thread, Generic[RQ, RS]):
         self.start()
         self._ack_open()
 
-    async def _mw(self, md: MetaData, next: AsyncNext):
-        md.params.update(self._md.params)
-        return await next(md)
+    async def _mw(self, md: MetaData, _next: AsyncNext):
+        md.params.update(self._in_md.params)
+        return await _next(md)
 
     def run(self) -> None:
         loop = events.new_event_loop()
         try:
             events.set_event_loop(loop)
 
-            def finalizer(md: MetaData) -> tuple[Exception | None]:
+            def finalizer(_: MetaData) -> tuple[MetaData, Exception | None]:
                 return loop.run_until_complete(self._connect())
 
-            self._md = MetaData("sync_stream", self._target)
-            exc = self._collector.exec(self._md, finalizer)
+            self._in_md = MetaData("sync_stream", self._target)
+            _, exc = self._collector.exec(self._in_md, finalizer)
             if exc is not None:
                 self._open_exception.notify(exc)
                 return
@@ -214,16 +214,17 @@ class SyncStream(Thread, Generic[RQ, RS]):
         """Implement the Stream protocol."""
         return self._sender.close_send()
 
-    async def _connect(self) -> Exception | None:
+    async def _connect(self) -> tuple[MetaData, Exception | None]:
+        out_md = MetaData("sync_stream", self._target)
         try:
             self._wrapped = await self._client.stream(
                 self._target,
                 self._request_type,
                 self._response_factory,
             )
-            return None
+            return out_md, None
         except Exception as e:
-            return e
+            return out_md, e
 
     async def _run(self):
         self._receiver = _Receiver(self._wrapped)

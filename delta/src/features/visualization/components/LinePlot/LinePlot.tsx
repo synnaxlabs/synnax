@@ -7,16 +7,28 @@ import {
 	Space,
 	Theming,
 } from "@synnaxlabs/pluto";
-import { useEffect, useLayoutEffect, useState } from "react";
-import { LinePlotVisualization, Visualization } from "../../types";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { SugaredLinePlotVisualization, Visualization } from "../../types";
 import { LinePlotControls } from "./LinePlotControls";
 import "./LinePlot.css";
 
 export interface LinePlotProps {
-	visualization: LinePlotVisualization;
+	visualization: SugaredLinePlotVisualization;
 	onChange: (vis: Visualization) => void;
 	client: Synnax;
 	resizeDebounce: number;
+}
+
+function usePrevious(value) {
+	// The ref object is a generic container whose current property is mutable ...
+	// ... and can hold any value, similar to an instance property on a class
+	const ref = useRef();
+	// Store current value in ref
+	useEffect(() => {
+		ref.current = value;
+	}, [value]); // Only re-run if value changes
+	// Return previous value (happens before update in useEffect above)
+	return ref.current;
 }
 
 export const LinePlot = ({
@@ -25,37 +37,37 @@ export const LinePlot = ({
 	onChange,
 	resizeDebounce,
 }: LinePlotProps) => {
-	const { axes, series, channels } = visualization;
+	const { axes, series, channels, ranges } = visualization;
 	const [data, setData] = useState<PlotData>({});
 	const {
 		theme: { colors },
 	} = Theming.useContext();
-
-	const [channelOpts, setChannelOpts] = useState<ChannelPayload[]>([]);
+	const prevVisu = usePrevious(visualization);
 
 	useEffect(() => {
-		const fn = async () => {
-			const channels = await client.channel.retrieveAll();
-			console.log(channels);
-			setChannelOpts(channels.map((ch) => ch.payload));
-		};
-		fn();
-	}, [client]);
-
-	const onChannelSelect = (channels: string[]) => {
+		if (
+			prevVisu &&
+			prevVisu.channels.length == visualization.channels.length &&
+			prevVisu.ranges.length === visualization.ranges.length
+		)
+			return;
 		const fn = async () => {
 			const nextData: PlotData = {};
-			for (const channel of channels) {
-				const data = await client.data.read(channel, 0, 900000000000000);
-				nextData[channel] = data;
-				// if channel is last channel
-				if (channels.indexOf(channel) === channels.length - 1) {
-					nextData["time"] = Array.from({ length: data.length }, (_, i) => i);
+			console.log("HELLO", ranges, channels);
+			for (const range of ranges) {
+				for (const key of channels) {
+					const data = await client.data.read(key, range.start, range.end);
+					console.log(data);
+					nextData[key] = data;
+					if (channels.indexOf(key) === channels.length - 1) {
+						nextData["time"] = Array.from({ length: data.length }, (_, i) => i);
+					}
 				}
 			}
 			setData(nextData);
 			onChange({
 				...visualization,
+				ranges: ranges.map((range) => range.key),
 				series: channels.map((ch) => ({
 					label: ch,
 					x: "time",
@@ -79,11 +91,7 @@ export const LinePlot = ({
 			} as Visualization);
 		};
 		fn();
-	};
-
-	useLayoutEffect(() => {
-		onChannelSelect(channels);
-	}, []);
+	}, [client, channels, ranges]);
 
 	return (
 		<div className="delta-line-plot__container">
@@ -98,21 +106,11 @@ export const LinePlot = ({
 					/>
 				)}
 			</AutoSize>
-			<Space direction="vertical">
-				<Select.Multiple
-					selected={channels}
-					onSelect={onChannelSelect}
-					options={channelOpts}
-					tagKey="name"
-					listPosition="top"
-					columns={[
-						{
-							key: "name",
-							label: "Name",
-						},
-					]}
-				/>
-			</Space>
+			<LinePlotControls
+				visualization={visualization}
+				onChange={onChange}
+				client={client}
+			/>
 		</div>
 	);
 };

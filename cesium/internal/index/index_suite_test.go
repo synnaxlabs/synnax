@@ -9,5 +9,5 @@ import (
 
 func TestIndex(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Index Suite")
+	RunSpecs(t, "StorageIndex Suite")
 }

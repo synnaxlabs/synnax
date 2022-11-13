@@ -3,13 +3,13 @@
 }
 
 .pluto-resize-panel--vertical > .pluto-resize-panel__handle{
-    width: calc(var(--pluto-border-width) * 10);
+    width: calc(var(--pluto-border-width) * 5);
     height: 100%;
     cursor: col-resize;
 }
 
 .pluto-resize-panel--horizontal > .pluto-resize-panel__handle{
-    height: calc(var(--pluto-border-width) * 10);
+    height: calc(var(--pluto-border-width) * 5);
     width: 100%;
     cursor: row-resize;
 }

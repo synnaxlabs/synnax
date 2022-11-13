@@ -15,7 +15,7 @@ class ChannelRegistry:
     def get(self, key: str) -> ChannelPayload | None:
         record = self.channels.get(key, None)
         if record is None:
-            record = self.retriever.retrieve([key])[0]
+            record = self.retriever.get(key=key)
             self.channels[key] = record
         return record
 

@@ -84,17 +84,17 @@ type DB interface {
 	// Write atomically writes the provided segments to the DB. Each Segment must
 	// meet the following criteria:
 	//
-	//		1. Index Channel Segments (Channel.IsIndex == true):
+	//		1. StorageIndex Channel Segments (Channel.IsIndex == true):
 	//			- Must contain ordered int64 values.
 	//			- The first timestamp must equal the `Start` field of the Segment.
 	//			- Must not overlap with any other segment in the ch.
 	//
-	//		2. Indexed Channel Segments (Channel.Index != 0):
+	//		2. Indexed Channel Segments (Channel.StorageIndex != 0):
 	//			- Must have the same starting timestamp and size as a Segment written
 	//			  to the index channel.
 	//         	- Must not overlap with any other segment in the channel.
 	//
-	//		3. Rate Based Channel Segments (Channel.Index == 0 && Channel.Rate != 0):
+	//		3. Rate Based Channel Segments (Channel.StorageIndex == 0 && Channel.Rate != 0):
 	//			- Must not overlap with any other segment in the ch./
 	//
 	// If any segments do not meet these requirements, no data will be written and the DB
@@ -115,6 +115,11 @@ type DB interface {
 	// for the channel. If the key is not provided, the DB will automatically generate a
 	// key. If a key is provided, the DB will validate that it is unique.
 	CreateChannel(ch *Channel) error
+	// CreateChannels creates multiple channels in the DB. The provided channels must have a
+	// positive data rate and density. The caller can provide an optional uint16 key
+	// for each channel. If the key is not provided, the DB will automatically generate a
+	// key. If a key is provided, the DB will validate that it is unique.
+	CreateChannels(chs *[]Channel) error
 	// RetrieveChannels retrieves channels from the DB by their key. Returns a ChannelNotFound
 	// err if any of the channel cannot be found.
 	RetrieveChannels(keys ...ChannelKey) ([]Channel, error)
@@ -191,6 +196,9 @@ func (d *db) NewStreamIterator(tr telem.TimeRange, keys ...ChannelKey) (StreamIt
 
 // CreateChannel implements DB.
 func (d *db) CreateChannel(ch *Channel) error { return d.createChannel(ch) }
+
+// CreateChannels implements DB.
+func (d *db) CreateChannels(chs *[]Channel) error { return d.createChannels(chs) }
 
 // RetrieveChannels implements DB.
 func (d *db) RetrieveChannels(keys ...ChannelKey) ([]Channel, error) {

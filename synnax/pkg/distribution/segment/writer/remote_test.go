@@ -37,25 +37,14 @@ var _ = Describe("Remote", Ordered, func() {
 		builder, services = provisionNServices(3, log)
 		dataFactory := &seg.RandomFloat64Factory{Cache: true}
 		dr := 1 * telem.Hz
-		store1Channels, err := services[1].channel.NewCreate().
-			WithName("SG02").
-			WithRate(dr).
-			WithDataType(telem.Float64).
-			WithNodeID(1).
-			ExecN(ctx, 1)
-		Expect(err).ToNot(HaveOccurred())
-		channels = append(channels, store1Channels...)
-		store2Channels, err := services[2].channel.NewCreate().
-			WithName("SG02").
-			WithRate(dr).
-			WithDataType(telem.Float64).
-			WithNodeID(2).
-			ExecN(ctx, 1)
-		Expect(err).ToNot(HaveOccurred())
-		channels = append(channels, store2Channels...)
+		store1Ch := channel.Channel{Name: "SG01", Rate: dr, DataType: telem.Float64, NodeID: 1}
+		Expect(services[1].channel.Create(&store1Ch)).To(Succeed())
+		store2Ch := channel.Channel{Name: "SG02", Rate: dr, DataType: telem.Float64, NodeID: 2}
+		Expect(services[2].channel.Create(&store2Ch)).To(Succeed())
 		var cesiumChannels []cesium.Channel
+		channels = []channel.Channel{store1Ch, store2Ch}
 		for _, c := range channels {
-			cesiumChannels = append(cesiumChannels, c.Channel)
+			cesiumChannels = append(cesiumChannels, c.Storage())
 		}
 		factory = seg.NewSequentialFactory(dataFactory, 10*telem.Second, cesiumChannels...)
 		wrapper = &core.StorageWrapper{Host: 3}

@@ -1,13 +1,14 @@
 package cesium_test
 
 import (
+	"sort"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	. "github.com/synnaxlabs/cesium/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"sort"
 )
 
 func createWriter(db cesium.DB, ch ...cesium.Channel) ([]cesium.Channel, cesium.Writer) {
@@ -43,7 +44,7 @@ var _ = Describe("Accuracy", Ordered, func() {
 	AfterAll(func() {
 		Expect(db.Close()).To(Succeed())
 	})
-	Context("Single ChannelKey", func() {
+	Context("Single Channel", func() {
 
 		Context("Rate Based", func() {
 
@@ -406,9 +407,9 @@ var _ = Describe("Accuracy", Ordered, func() {
 		})
 
 	})
-	Context("Multi ChannelKey", func() {
+	Context("Multi Channel", func() {
 		Context("Indexed", func() {
-			Context("Shared Index", func() {
+			Context("Shared StorageIndex", func() {
 				var (
 					key1, key2, key3, idxKey cesium.ChannelKey
 				)
@@ -524,7 +525,7 @@ var _ = Describe("Accuracy", Ordered, func() {
 				})
 
 			})
-			Context("Multi Index", func() {
+			Context("Multi StorageIndex", func() {
 				Describe("Contiguous", func() {
 					var (
 						key1, key2     cesium.ChannelKey
@@ -804,9 +805,407 @@ var _ = Describe("Accuracy", Ordered, func() {
 			})
 		})
 		Context("Rate Based", func() {
-			Context("Shared Rate", func() {})
-			Context("Multi Rate", func() {})
+			Context("Shared Rate", func() {
+				var (
+					key1, key2 cesium.ChannelKey
+				)
+				BeforeEach(func() {
+					dr := 1 * telem.Hz
+					chs, w := createWriter(
+						db,
+						cesium.Channel{Rate: dr, Density: telem.Bit64},
+						cesium.Channel{Rate: dr, Density: telem.Bit64},
+					)
+					key1 = cesium.Keys(chs)[0]
+					key2 = cesium.Keys(chs)[1]
+					Expect(w.Write([]cesium.Segment{
+						{
+							ChannelKey: key1,
+							Start:      10 * telem.SecondTS,
+							Data:       Marshal([]int64{1, 2, 3, 4, 5, 6}),
+						},
+						{
+							ChannelKey: key1,
+							Start:      16 * telem.SecondTS,
+							Data:       Marshal([]int64{7, 8, 9, 10, 11}),
+						},
+						{
+							ChannelKey: key2,
+							Start:      10 * telem.SecondTS,
+							Data:       Marshal([]int64{1, 2, 3, 4, 5}),
+						},
+						{
+							ChannelKey: key2,
+							Start:      15 * telem.SecondTS,
+							Data:       Marshal([]int64{6, 7, 8, 9, 10, 11}),
+						},
+					})).To(BeTrue())
+					Expect(w.Commit()).To(BeTrue())
+					Expect(w.Close()).To(Succeed())
+				})
+				Specify("Even Range", func() {
+					segments := MustSucceed(db.Read(
+						(10 * telem.SecondTS).SpanRange(11*telem.Second),
+						key1, key2,
+					))
+					Expect(segments).To(HaveLen(4))
+					sortSegs(segments)
+					expectSeg(
+						segments[0],
+						key1,
+						10*telem.SecondTS,
+						Marshal([]int64{1, 2, 3, 4, 5, 6}),
+					)
+					expectSeg(
+						segments[1],
+						key1,
+						16*telem.SecondTS,
+						Marshal([]int64{7, 8, 9, 10, 11}),
+					)
+					expectSeg(
+						segments[2],
+						key2,
+						10*telem.SecondTS,
+						Marshal([]int64{1, 2, 3, 4, 5}),
+					)
+					expectSeg(
+						segments[3],
+						key2,
+						15*telem.SecondTS,
+						Marshal([]int64{6, 7, 8, 9, 10, 11}),
+					)
+				})
+
+				Specify("Partial Range", func() {
+					segments := MustSucceed(db.Read(
+						(12 * telem.SecondTS).SpanRange(6*telem.Second),
+						key1, key2,
+					))
+					Expect(segments).To(HaveLen(4))
+					sortSegs(segments)
+					expectSeg(
+						segments[0],
+						key1,
+						12*telem.SecondTS,
+						Marshal([]int64{3, 4, 5, 6}),
+					)
+					expectSeg(
+						segments[1],
+						key1,
+						16*telem.SecondTS,
+						Marshal([]int64{7, 8}),
+					)
+					expectSeg(
+						segments[2],
+						key2,
+						12*telem.SecondTS,
+						Marshal([]int64{3, 4, 5}),
+					)
+					expectSeg(
+						segments[3],
+						key2,
+						15*telem.SecondTS,
+						Marshal([]int64{6, 7, 8}),
+					)
+				})
+			})
+			Context("Multi Rate", func() {
+				var (
+					key1, key2 cesium.ChannelKey
+				)
+				BeforeEach(func() {
+					dr1 := 1 * telem.Hz
+					dr2 := 2 * telem.Hz
+					chs, w := createWriter(
+						db,
+						cesium.Channel{Rate: dr1, Density: telem.Bit64},
+						cesium.Channel{Rate: dr2, Density: telem.Bit64},
+					)
+					key1 = cesium.Keys(chs)[0]
+					key2 = cesium.Keys(chs)[1]
+					Expect(w.Write([]cesium.Segment{
+						{
+							ChannelKey: key1,
+							Start:      10 * telem.SecondTS,
+							Data:       Marshal([]int64{1, 2, 3, 4, 5, 6}),
+						},
+						{
+							ChannelKey: key1,
+							Start:      16 * telem.SecondTS,
+							Data:       Marshal([]int64{7, 8, 9, 10, 11}),
+						},
+						{
+							ChannelKey: key2,
+							Start:      10 * telem.SecondTS,
+							Data:       Marshal([]int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}),
+						},
+						{
+							ChannelKey: key2,
+							Start:      15 * telem.SecondTS,
+							Data:       Marshal([]int64{11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21}),
+						},
+					})).To(BeTrue())
+					Expect(w.Commit()).To(BeTrue())
+					Expect(w.Close()).To(Succeed())
+				})
+				Specify("Even Range", func() {
+					segments := MustSucceed(db.Read(
+						(10 * telem.SecondTS).SpanRange(11*telem.Second),
+						key1, key2,
+					))
+					Expect(segments).To(HaveLen(4))
+					sortSegs(segments)
+					expectSeg(
+						segments[0],
+						key1,
+						10*telem.SecondTS,
+						Marshal([]int64{1, 2, 3, 4, 5, 6}),
+					)
+					expectSeg(
+						segments[1],
+						key1,
+						16*telem.SecondTS,
+						Marshal([]int64{7, 8, 9, 10, 11}),
+					)
+					expectSeg(
+						segments[2],
+						key2,
+						10*telem.SecondTS,
+						Marshal([]int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}),
+					)
+					expectSeg(
+						segments[3],
+						key2,
+						15*telem.SecondTS,
+						Marshal([]int64{11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21}),
+					)
+				})
+
+				Specify("Partial Range", func() {
+					segments := MustSucceed(db.Read(
+						(12 * telem.SecondTS).SpanRange(6*telem.Second),
+						key1, key2,
+					))
+					Expect(segments).To(HaveLen(4))
+					sortSegs(segments)
+					expectSeg(
+						segments[0],
+						key1,
+						12*telem.SecondTS,
+						Marshal([]int64{3, 4, 5, 6}),
+					)
+					expectSeg(
+						segments[1],
+						key1,
+						16*telem.SecondTS,
+						Marshal([]int64{7, 8}),
+					)
+					expectSeg(
+						segments[2],
+						key2,
+						12*telem.SecondTS,
+						Marshal([]int64{5, 6, 7, 8, 9, 10}),
+					)
+					expectSeg(
+						segments[3],
+						key2,
+						15*telem.SecondTS,
+						Marshal([]int64{11, 12, 13, 14, 15, 16}),
+					)
+				})
+			})
 		})
-		Context("Mixed", func() {})
+		Context("Mixed", func() {
+			var (
+				idxOne, idxTwo                   cesium.ChannelKey
+				dr1Hz, dr2Hz, idxedOne, idxedTwo cesium.ChannelKey
+			)
+			BeforeEach(func() {
+				idxChs, w := createWriter(
+					db,
+					cesium.Channel{IsIndex: true, Density: telem.Bit64},
+					cesium.Channel{IsIndex: true, Density: telem.Bit64},
+				)
+				idxOne = cesium.Keys(idxChs)[0]
+				idxTwo = cesium.Keys(idxChs)[1]
+				w.Write([]cesium.Segment{
+					{
+						ChannelKey: idxOne,
+						Start:      10 * telem.SecondTS,
+						Data: MarshalTimeStamps([]telem.TimeStamp{
+							10 * telem.SecondTS,
+							11 * telem.SecondTS,
+							14 * telem.SecondTS,
+							17 * telem.SecondTS,
+							18 * telem.SecondTS,
+							19 * telem.SecondTS,
+							22 * telem.SecondTS,
+							23 * telem.SecondTS,
+							24 * telem.SecondTS,
+							28 * telem.SecondTS,
+							30 * telem.SecondTS,
+						}),
+					},
+					{
+						ChannelKey: idxTwo,
+						Start:      10 * telem.SecondTS,
+						Data: MarshalTimeStamps([]telem.TimeStamp{
+							10 * telem.SecondTS,
+							14 * telem.SecondTS,
+							15 * telem.SecondTS,
+							18 * telem.SecondTS,
+							20 * telem.SecondTS,
+							22 * telem.SecondTS,
+							24 * telem.SecondTS,
+							25 * telem.SecondTS,
+							26 * telem.SecondTS,
+							29 * telem.SecondTS,
+							30 * telem.SecondTS,
+						}),
+					},
+				})
+				Expect(w.Commit()).To(BeTrue())
+				Expect(w.Close()).To(Succeed())
+				dr1 := 1 * telem.Hz
+				dr2 := 2 * telem.Hz
+				chs, w := createWriter(
+					db,
+					cesium.Channel{Rate: dr1, Density: telem.Bit64},
+					cesium.Channel{Rate: dr2, Density: telem.Bit64},
+					cesium.Channel{Index: idxOne, Density: telem.Bit64},
+					cesium.Channel{Index: idxTwo, Density: telem.Bit64},
+				)
+				keys := cesium.Keys(chs)
+				dr1Hz = keys[0]
+				dr2Hz = keys[1]
+				idxedOne = keys[2]
+				idxedTwo = keys[3]
+
+				Expect(w.Write([]cesium.Segment{
+					{
+						ChannelKey: dr1Hz,
+						Start:      10 * telem.SecondTS,
+						Data:       Marshal([]int64{1, 2, 3, 4, 5, 6}),
+					},
+					{
+						ChannelKey: dr1Hz,
+						Start:      16 * telem.SecondTS,
+						Data:       Marshal([]int64{7, 8, 9, 10, 11}),
+					},
+					{
+						ChannelKey: dr2Hz,
+						Start:      10 * telem.SecondTS,
+						Data:       Marshal([]int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}),
+					},
+					{
+						ChannelKey: dr2Hz,
+						Start:      15 * telem.SecondTS,
+						Data:       Marshal([]int64{11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21}),
+					},
+					{
+						ChannelKey: idxedOne,
+						Start:      10 * telem.SecondTS,
+						Data:       Marshal([]int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}),
+					},
+					{
+						ChannelKey: idxedTwo,
+						Start:      10 * telem.SecondTS,
+						Data:       Marshal([]int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}),
+					},
+				})).To(BeTrue())
+				Expect(w.Commit()).To(BeTrue())
+				Expect(w.Close()).To(Succeed())
+			})
+
+			It("Should read the correct values between 10 and 30 seconds", func() {
+				segments := MustSucceed(db.Read(
+					(10 * telem.SecondTS).SpanRange(21*telem.Second),
+					dr1Hz, dr2Hz, idxedOne, idxedTwo,
+				))
+				Expect(segments).To(HaveLen(6))
+				sortSegs(segments)
+				expectSeg(
+					segments[0],
+					dr1Hz,
+					10*telem.SecondTS,
+					Marshal([]int64{1, 2, 3, 4, 5, 6}),
+				)
+				expectSeg(
+					segments[1],
+					dr1Hz,
+					16*telem.SecondTS,
+					Marshal([]int64{7, 8, 9, 10, 11}),
+				)
+				expectSeg(
+					segments[2],
+					dr2Hz,
+					10*telem.SecondTS,
+					Marshal([]int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}),
+				)
+				expectSeg(
+					segments[3],
+					dr2Hz,
+					15*telem.SecondTS,
+					Marshal([]int64{11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21}),
+				)
+				expectSeg(
+					segments[4],
+					idxedOne,
+					10*telem.SecondTS,
+					Marshal([]int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}),
+				)
+				expectSeg(
+					segments[5],
+					idxedTwo,
+					10*telem.SecondTS,
+					Marshal([]int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}),
+				)
+			})
+
+			It("Should read the correct values between 5 and 25 seconds ", func() {
+				segments := MustSucceed(db.Read(
+					(10 * telem.SecondTS).SpanRange(8*telem.Second),
+					dr1Hz, dr2Hz, idxedOne, idxedTwo,
+				))
+				Expect(segments).To(HaveLen(6))
+				sortSegs(segments)
+				expectSeg(
+					segments[0],
+					dr1Hz,
+					10*telem.SecondTS,
+					Marshal([]int64{1, 2, 3, 4, 5, 6}),
+				)
+				expectSeg(
+					segments[1],
+					dr1Hz,
+					16*telem.SecondTS,
+					Marshal([]int64{7, 8}),
+				)
+				expectSeg(
+					segments[2],
+					dr2Hz,
+					10*telem.SecondTS,
+					Marshal([]int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}),
+				)
+				expectSeg(
+					segments[3],
+					dr2Hz,
+					(15 * telem.SecondTS),
+					Marshal([]int64{11, 12, 13, 14, 15, 16}),
+				)
+				expectSeg(
+					segments[4],
+					idxedOne,
+					10*telem.SecondTS,
+					Marshal([]int64{1, 2, 3, 4}),
+				)
+				expectSeg(
+					segments[5],
+					idxedTwo,
+					10*telem.SecondTS,
+					Marshal([]int64{1, 2, 3}),
+				)
+			})
+		})
 	})
 })

@@ -27,12 +27,18 @@ var _ = Describe("getAttributes", Ordered, func() {
 	Describe("RetrieveP", func() {
 
 		It("Should correctly retrieve a set of channels", func() {
-			created, err := services[1].NewCreate().
-				WithName("SG02").
-				WithRate(25*telem.KHz).
-				WithDataType(telem.Float32).
-				WithNodeID(1).
-				ExecN(ctx, 10)
+			ch1 := channel.Channel{
+				Rate:     25 * telem.Hz,
+				DataType: telem.Float32,
+				Name:     "SG02",
+			}
+			ch2 := channel.Channel{
+				Rate:     25 * telem.Hz,
+				DataType: telem.Float32,
+				Name:     "SG03",
+			}
+			created := []channel.Channel{ch1, ch2}
+			err := services[1].CreateMany(&created)
 			Expect(err).ToNot(HaveOccurred())
 
 			var resChannels []channel.Channel
@@ -59,14 +65,20 @@ var _ = Describe("getAttributes", Ordered, func() {
 
 		})
 		It("Should correctly retrieve a channel by its key", func() {
-			created, err := services[1].NewCreate().
-				WithName("SG02").
-				WithRate(25*telem.KHz).
-				WithDataType(telem.Float32).
-				WithNodeID(1).
-				ExecN(ctx, 10)
+			created := []channel.Channel{
+				{
+					Rate:     25 * telem.Hz,
+					DataType: telem.Float32,
+					Name:     "SG02",
+				},
+				{
+					Rate:     25 * telem.Hz,
+					DataType: telem.Float32,
+					Name:     "SG03",
+				},
+			}
+			err := services[1].CreateMany(&created)
 			Expect(err).ToNot(HaveOccurred())
-
 			var resChannels []channel.Channel
 
 			err = services[1].
@@ -81,20 +93,24 @@ var _ = Describe("getAttributes", Ordered, func() {
 	})
 	Describe("Exists", func() {
 		It("Should return true if a channel exists", func() {
-			_, err := services[1].NewCreate().
-				WithName("SG02").
-				WithRate(25*telem.KHz).
-				WithDataType(telem.Float32).
-				WithNodeID(1).
-				ExecN(ctx, 10)
-			Expect(err).ToNot(HaveOccurred())
-
-			key, err := channel.ParseKey("1-21")
+			created := []channel.Channel{
+				{
+					Rate:     25 * telem.Hz,
+					DataType: telem.Float32,
+					Name:     "SG02",
+				},
+				{
+					Rate:     25 * telem.Hz,
+					DataType: telem.Float32,
+					Name:     "SG03",
+				},
+			}
+			err := services[1].CreateMany(&created)
 			Expect(err).ToNot(HaveOccurred())
 
 			exists, err := services[1].
 				NewRetrieve().
-				WhereKeys(key).
+				WhereKeys(created[0].Key()).
 				Exists(ctx)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(exists).To(BeTrue())

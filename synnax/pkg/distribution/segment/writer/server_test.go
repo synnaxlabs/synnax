@@ -41,13 +41,8 @@ var _ = Describe("Server", func() {
 	BeforeEach(func() {
 		log = zap.NewNop()
 		builder, services = provisionNServices(1, log)
-		_, err := services[1].channel.NewCreate().
-			WithName("SG02").
-			WithRate(1*telem.Hz).
-			WithDataType(telem.Float64).
-			WithNodeID(1).
-			ExecN(ctx, 1)
-		Expect(err).ToNot(HaveOccurred())
+		ch := channel.Channel{Name: "SG02", Rate: 1 * telem.Hz, DataType: telem.Float64, NodeID: 1}
+		Expect(services[1].channel.Create(&ch)).To(Succeed())
 	})
 	BeforeEach(func() {
 		routines := gleak.Goroutines()

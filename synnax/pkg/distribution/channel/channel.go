@@ -135,6 +135,9 @@ func (k Keys) Strings() []string {
 // Data for a channel can only be written through the leaseholder. This helps solve a lot
 // of consistency and atomicity issues.
 type Channel struct {
+	// Key is a unique identifier for the channel within a cesium.DB. If not set when
+	// creating a channel, a unique key will be generated.
+	StorageKey storage.ChannelKey
 	// Name is a human-readable name for the channel. This name does not have to be
 	// unique.
 	Name string
@@ -142,13 +145,24 @@ type Channel struct {
 	NodeID core.NodeID
 	// DataType is the data type for the channel.
 	DataType telem.DataType
-	// Properties of the channel necessary for storage to perform
-	// operations on it. See the storage.channel docs for more info on this.
-	storage.Channel
+	// StorageIndex is the channel used to index the channel's values. The StorageIndex is used to
+	// associate a value with a timestamp. If zero, the channel's data will be indexed
+	// using its rate. One of StorageIndex or Rate must be non-zero.
+	StorageIndex storage.ChannelKey
+	// IsIndex is set to true if the channel is an index channel. StorageIndex channels must
+	// be int64 values written in ascending order. StorageIndex channels are most commonly
+	// unix nanosecond timestamps.
+	IsIndex bool
+	// Rate sets the rate at which the channels values are written. This is used to
+	// determine the timestamp of each sample.
+	Rate telem.Rate
 }
 
 // Key returns the key for the Channel.
-func (c Channel) Key() Key { return NewKey(c.NodeID, c.Channel.Key) }
+func (c Channel) Key() Key { return NewKey(c.NodeID, c.StorageKey) }
+
+// Index returns the key for the Channel's index channel.
+func (c Channel) Index() Key { return NewKey(c.NodeID, c.StorageIndex) }
 
 // GorpKey implements the gorp.Entry interface.
 func (c Channel) GorpKey() Key { return c.Key() }
@@ -160,3 +174,19 @@ func (c Channel) SetOptions() []interface{} { return []interface{}{c.Lease()} }
 
 // Lease implements the proxy.UnaryServer interface.
 func (c Channel) Lease() core.NodeID { return c.NodeID }
+
+func (c Channel) Storage() storage.Channel {
+	return storage.Channel{
+		Key:     c.StorageKey,
+		Density: c.DataType.Density(),
+		IsIndex: c.IsIndex,
+		Index:   c.StorageIndex,
+		Rate:    c.Rate,
+	}
+}
+
+func toStorage(channels []Channel) []storage.Channel {
+	return lo.Map(channels, func(channel Channel, _ int) storage.Channel {
+		return channel.Storage()
+	})
+}

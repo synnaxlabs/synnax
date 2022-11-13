@@ -77,6 +77,7 @@ const slice = createSlice({
 				processCount: 0,
 				props: payload as KeyedWindowProps,
 			};
+			console.log(state.windows);
 		},
 		setWindowState: ({ windows }, { payload }: PayloadAction<SetWindowPayload>) => {
 			const { key, state } = assertKey<SetWindowPayload>(payload);

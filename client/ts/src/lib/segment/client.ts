@@ -88,8 +88,10 @@ export default class SegmentClient {
 		from: string,
 		start: UnparsedTimeStamp,
 		end: UnparsedTimeStamp
-	): Promise<TypedArray> {
-		return (await this.readSegment(from, start, end)).view;
+	): Promise<TypedArray | undefined> {
+		const seg = await this.readSegment(from, start, end);
+		if (seg) return seg.view;
+		return undefined;
 	}
 
 	/**
@@ -106,12 +108,9 @@ export default class SegmentClient {
 		from: string,
 		start: UnparsedTimeStamp,
 		end: UnparsedTimeStamp
-	): Promise<TypedSegment> {
-		const iter = await this.newIterator(
-			new TimeRange(start, end),
-			[from],
-			/* accumulate */ true
-		);
+	): Promise<TypedSegment | undefined> {
+		const tr = new TimeRange(start, end);
+		const iter = await this.newIterator(tr, [from], /* accumulate */ true);
 		let seg: TypedSegment;
 		try {
 			await iter.seekFirst();

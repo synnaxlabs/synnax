@@ -15,7 +15,7 @@ var _ = Describe("ChannelKey", Ordered, func() {
 	BeforeAll(func() { db = openMemDB() })
 	AfterAll(func() { Expect(db.Close()).To(Succeed()) })
 	Describe("Create", func() {
-		Describe("Key Assignment", func() {
+		Describe("StorageKey Assignment", func() {
 			It("Should assign an auto-incremented key if a key is not present", func() {
 				ch := cesium.Channel{Rate: 10 * telem.Hz, Density: telem.Bit64}
 				Expect(db.CreateChannel(&ch)).To(Succeed())
@@ -46,12 +46,12 @@ var _ = Describe("ChannelKey", Ordered, func() {
 				errors.Wrap(validate.Error, "[cesium] - index ch must use int64 timestamps"),
 				cesium.Channel{IsIndex: true, Density: telem.Bit32},
 			),
-			Entry("ChannelKey IsIndex - Index non-zero",
+			Entry("ChannelKey IsIndex - StorageIndex non-zero",
 				errors.Wrap(validate.Error, "[cesium] - index ch can not be indexed"),
 				cesium.Channel{Key: 45, IsIndex: true, Density: telem.Bit64},
 				cesium.Channel{IsIndex: true, Index: 45},
 			),
-			Entry("ChannelKey has index - Index does not exist",
+			Entry("ChannelKey has index - StorageIndex does not exist",
 				errors.Wrapf(validate.Error, "[cesium] - provided index %s does not exist", cesium.ChannelKey(40000)),
 				cesium.Channel{Index: 40000, Density: telem.Bit32},
 			),
@@ -65,6 +65,20 @@ var _ = Describe("ChannelKey", Ordered, func() {
 				cesium.Channel{Key: 61, Index: 60, Density: telem.Bit32},
 			),
 		)
+		Describe("Create Many", func() {
+			It("Should create multiple channels", func() {
+				chs := []cesium.Channel{
+					{Rate: 10 * telem.Hz, Density: telem.Bit64},
+					{Rate: 10 * telem.Hz, Density: telem.Bit64},
+					{Rate: 10 * telem.Hz, Density: telem.Bit64},
+				}
+				Expect(db.CreateChannels(&chs)).To(Succeed())
+				Expect(chs).To(HaveLen(3))
+				for _, ch := range chs {
+					Expect(ch.Key).To(BeNumerically(">", 0))
+				}
+			})
+		})
 	})
 	Describe("Retrieve", func() {
 		Context("RetrieveChannel", func() {

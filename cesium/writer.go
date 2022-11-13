@@ -25,17 +25,17 @@ type Writer interface {
 	// Segments must have channel keys in the set provided to DB.NewWriter. Segment's must
 	// meet the following requirements:
 	//
-	//		1. Index Channels (Channel.IsIndex == true):
+	//		1. StorageIndex Channels (Channel.IsIndex == true):
 	//			- Must contain ordered int64 values.
 	//			- The first timestamp must equal the `Start` field of the Segment.
 	//			- Must not overlap with any other segment in the ch.
 	//
-	//		2. Indexed Channels (Channel.Index != 0):
+	//		2. Indexed Channels (Channel.StorageIndex != 0):
 	//			- Must have the same starting timestamp and size as a segment written
 	//			  to the index ch.
 	//         	- Must not overlap with any other segment in the ch.
 	//
-	//		3. Rate Based Channels (Channel.Index == 0 && Channel.Rate != 0):
+	//		3. Rate Based Channels (Channel.StorageIndex == 0 && Channel.Rate != 0):
 	//			- Must not overlap with any other segment in the ch.
 	//
 	// When writing to channels that are indexed, the caller should write to the index

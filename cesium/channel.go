@@ -37,6 +37,16 @@ func (d *db) createChannel(ch *Channel) error {
 	return d.channels.SetChannel(*ch)
 }
 
+func (d *db) createChannels(chs *[]Channel) error {
+	for i, ch := range *chs {
+		if err := d.createChannel(&ch); err != nil {
+			return err
+		}
+		(*chs)[i] = ch
+	}
+	return nil
+}
+
 func (d *db) validateChannel(ch *Channel) error {
 	v := validate.New("cesium")
 	if ch.Index != 0 {

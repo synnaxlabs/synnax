@@ -3,14 +3,17 @@ from pathlib import Path
 import pandas as pd
 from pandas.io.parsers import TextFileReader
 
+from synnax.io.matcher import new_extension_matcher
 from synnax.io.protocol import ChannelMeta, ReaderType
 
+CSVMatcher = new_extension_matcher(["csv"])
 
-class CSVReader:
+
+class CSVReader(CSVMatcher):
     """A RowReader implementation for CSV files.
     """
     reader: TextFileReader
-    path: Path
+    _path: Path
     _channels: list[ChannelMeta] | None
     channel_keys: list[str] | None
 
@@ -19,19 +22,19 @@ class CSVReader:
                  channel_keys: list[str] = None,
                  chunk_size: int = None,
                  ):
-        self.path = path
+        self._path = path
         self.channel_keys = channel_keys
         self._channels = None
 
     def channels(self) -> list[ChannelMeta]:
         if not self._channels:
             self._channels = [ChannelMeta(name=name, meta_data={}) for name in
-                              pd.read_csv(self.path, nrows=0).columns]
+                              pd.read_csv(self._path, nrows=0).columns]
         return self._channels
 
     def set_chunk_size(self, chunk_size: int):
         self.reader = pd.read_csv(
-            self.path,
+            self._path,
             chunksize=chunk_size,
             usecols=self.channel_keys,
         )
@@ -43,10 +46,21 @@ class CSVReader:
     def type(cls) -> ReaderType:
         return ReaderType.Row
 
-    @classmethod
-    def extensions(cls) -> list[str]:
-        return ["csv"]
+    def path(self) -> Path:
+        return self._path
 
-    @classmethod
-    def match(cls, path: Path) -> bool:
-        return path.suffix[1:] in cls.extensions()
+
+class CSVWriter(CSVMatcher):
+    _path: Path
+
+    def __init__(
+        self,
+        path: Path,
+    ):
+        self._path = path
+
+    def write(self, df: pd.DataFrame):
+        df.to_csv(self._path, index=False)
+
+    def path(self) -> Path:
+        return self._path

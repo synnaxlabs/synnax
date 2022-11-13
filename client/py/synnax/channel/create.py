@@ -6,8 +6,7 @@ from .payload import ChannelPayload
 
 
 class _Request(Payload):
-    channel: ChannelPayload
-    count: int
+    channels: list[ChannelPayload]
 
 
 class _Response(Payload):
@@ -30,20 +29,19 @@ class ChannelCreator:
         index: str = "",
         is_index: bool = False,
     ) -> ChannelPayload:
-        return self.create_n(
-            ChannelPayload(
-                name=name,
-                node_id=node_id,
-                rate=rate,
-                data_type=data_type,
-                index=index,
-                is_index=is_index,
-            ),
-            1,
+        print(data_type)
+        return self.create_many([ChannelPayload(
+            data_type=data_type,
+            name=name,
+            node_id=node_id,
+            rate=rate,
+            index=index,
+            is_index=is_index,
+        )]
         )[0]
 
-    def create_n(self, channel: ChannelPayload, count: int = 1) -> list[ChannelPayload]:
-        req = _Request(channel=channel, count=count)
+    def create_many(self, channels: list[ChannelPayload]) -> list[ChannelPayload]:
+        req = _Request(channels=channels)
         res, exc = self.client.send(self._ENDPOINT, req, _Response)
         if exc is not None:
             raise exc

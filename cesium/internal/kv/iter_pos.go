@@ -173,6 +173,7 @@ func (i *positionIterator) SeekLast() bool {
 
 // Next implements core.PositionIterator.
 func (i *positionIterator) Next(span position.Span) bool {
+	i.clearValue()
 	i.logger.Debug("next",
 		zap.Stringer("channel", i.ch.Key),
 		zap.Stringer("view", i.view),
@@ -229,6 +230,7 @@ func (i *positionIterator) autoNext() bool {
 
 // Prev implements core.PositionIterator.
 func (i *positionIterator) Prev(span position.Span) bool {
+	i.clearValue()
 	i.logger.Debug("prev",
 		zap.Stringer("channel", i.ch.Key),
 		zap.Stringer("view", i.view),
@@ -306,6 +308,8 @@ func (i *positionIterator) View() position.Range { return i.view }
 func (i *positionIterator) Bounds() position.Range { return i.bounds }
 
 func (i *positionIterator) reset(view position.Range) { i.view = view; i.value.Reset(view) }
+
+func (i *positionIterator) clearValue() { i.value.Reset(position.RangeZero) }
 
 func (i *positionIterator) key(pos position.Position) []byte {
 	core.WriteSegmentKey(i.ch.Key, pos, i.keyBuf)

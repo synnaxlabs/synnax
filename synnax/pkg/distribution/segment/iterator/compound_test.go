@@ -23,23 +23,11 @@ var _ = Describe("Compound", Ordered, func() {
 		log = zap.NewNop()
 		dr := 25 * telem.Hz
 		builder, services = provisionNServices(2, log)
-		var channels []channel.Channel
-		node1Channels, err := services[1].channel.NewCreate().
-			WithName("SG02").
-			WithRate(dr).
-			WithDataType(telem.Float64).
-			WithNodeID(1).
-			ExecN(ctx, 1)
-		Expect(err).ToNot(HaveOccurred())
-		channels = append(channels, node1Channels...)
-		node2Channels, err := services[2].channel.NewCreate().
-			WithName("SG02").
-			WithRate(dr).
-			WithDataType(telem.Float64).
-			WithNodeID(2).
-			ExecN(ctx, 1)
-		Expect(err).ToNot(HaveOccurred())
-		channels = append(channels, node2Channels...)
+		node1Ch := channel.Channel{Name: "SG01", Rate: dr, DataType: telem.Float64, NodeID: 1}
+		node2Ch := channel.Channel{Name: "SG02", Rate: dr, DataType: telem.Float64, NodeID: 2}
+		Expect(services[1].channel.Create(&node1Ch)).To(Succeed())
+		Expect(services[2].channel.Create(&node2Ch)).To(Succeed())
+		channels := []channel.Channel{node1Ch, node2Ch}
 		nChan = len(channels)
 		writeMockData(builder, 10*telem.Second, 10, 10, channels...)
 

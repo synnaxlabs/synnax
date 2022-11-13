@@ -7,6 +7,7 @@ from synnax.telem import (
     UnparsedDataType,
     UnparsedRate,
     UnparsedTimeStamp,
+    UnparsedDensity,
 )
 
 from .create import ChannelCreator
@@ -15,8 +16,7 @@ from .retrieve import ChannelRetriever
 
 
 class Channel(ChannelPayload):
-    """Represents a Channel in a Synnax database. It should not be instantiated directly,
-    and should be created or retrieved using the Synnax Client.
+    """Represents a Channel in a Synnax database.
     """
 
     segment_client: SegmentClient | None = None
@@ -24,8 +24,28 @@ class Channel(ChannelPayload):
     class Config:
         arbitrary_types_allowed = True
 
-    def __init__(self, pld: ChannelPayload, segment_client: SegmentClient):
-        super().__init__(**pld.dict())
+    def __init__(
+        self,
+        data_type: UnparsedDataType,
+        rate: UnparsedRate,
+        name: str = "",
+        node_id: int = 0,
+        key: str = "",
+        density: UnparsedDensity = 0,
+        is_index: bool = False,
+        index: str = "",
+        segment_client: SegmentClient = None,
+    ):
+        super().__init__(
+            data_type=data_type,
+            rate=rate,
+            name=name,
+            node_id=node_id,
+            key=key,
+            density=density,
+            is_index=is_index,
+            index=index,
+        )
         self.segment_client = segment_client
 
     def _payload(self) -> ChannelPayload:
@@ -36,6 +56,8 @@ class Channel(ChannelPayload):
             name=self.name,
             node_id=self.node_id,
             key=self.key,
+            index=self.index,
+            is_index=self.is_index,
         )
 
     def read(self, start: UnparsedTimeStamp, end: UnparsedTimeStamp) -> ndarray:
@@ -57,12 +79,9 @@ class Channel(ChannelPayload):
         """
         self.segment_client.write(self.key, start, data)
 
-    def as_dict(self) -> dict:
-        """Returns a dictionary representation of the channel.
-
-        :returns: A dictionary representation of the channel.
-        """
-        return self._payload().dict()
+    def _assert_created(self):
+        if not self.segment_client:
+            raise ValidationError("cannot read from a channel that has not been created")
 
     def __hash__(self):
         return hash(self.key)
@@ -88,36 +107,10 @@ class ChannelClient:
         self._retriever = retriever
         self._creator = creator
 
-    def create_n(
-        self,
-        name: str = "",
-        rate: UnparsedRate = Rate(0),
-        data_type: UnparsedDataType = DATA_TYPE_UNKNOWN,
-        node_id: int = 0,
-        count: int = 1,
-    ) -> list[Channel]:
-        """Creates N channels using the given parameters as a template.
-
-        :param name: The name of the channel to create.
-        :param rate: The sample rate of the channel in Hz.
-        :param data_type: The data type of the channel. Can be any type in
-        UnparsedDataType, such as np.float64 or np.int64,
-        :param node_id: The node that holds the lease on the channel. If you don't know
-        what this is, don't worry about it.
-        :param count: The number of channels to create.
-        :returns: A list of created channels.
+    def create_many(self, channels: list[Channel]) -> list[Channel]:
+        """Creates all channels in the given list.
         """
-        return self._sugar(
-            *self._creator.create_n(
-                ChannelPayload(
-                    name=name,
-                    node_id=node_id,
-                    rate=rate,
-                    data_type=data_type,
-                ),
-                count,
-            )
-        )
+        return self._sugar(*self._creator.create_many([c._payload() for c in channels]))
 
     def create(
         self,
@@ -138,34 +131,29 @@ class ChannelClient:
         what this is, don't worry about it.
         :returns: The created channel.
         """
-        return self._sugar(
-            self._creator.create(name, node_id, rate, data_type, index, is_index))[
-            0]
+        return self._sugar(self._creator.create(name=name, node_id=node_id, rate=rate, data_type=data_type, index=index, is_index=is_index))[0]
 
-    def retrieve(self, keys: list[str]) -> list[Channel]:
+    def get(self, key: str = None, name: str = None) -> Channel:
         """Retrieves channels with the given keys.
 
         :param keys: The list of keys to retrieve channels for.
         :raises QueryError: If any of the channels can't be found.
         :returns: A list of retrieved Channels.
         """
-        return self._sugar(*self._retriever.retrieve(keys))
+        return self._sugar(self._retriever.get(key, name))
 
-    def retrieve_by_name(self, *name: str) -> list[Channel]:
-        """Retrieves channels with the given names.
+    def filter(
+        self,
+        keys: list[str] = None,
+        names: list[str] = None,
+        node_id: int = None,
+    ) -> list[Channel]:
+        """Filters channels using the given parameters.
 
-        :param name: The list of names to retrieve channels for.
-        :returns: A list of retrieved channels matching the given name.
+        :param kwargs: The parameters to filter channels by.
+        :returns: A list of channels that match the given parameters.
         """
-        return self._sugar(*self._retriever.retrieve_by_name(*name))
-
-    def retrieve_by_node_id(self, node_id: int) -> list[Channel]:
-        """Retrieves channels whose lease node is the given node_id.
-
-        :param node_id: The node id to retrieve the channels for.
-        :returns: A list of retrieved channels matching the given node id.
-        """
-        return self._sugar(*self._retriever.retrieve_by_node_id(node_id))
+        return self._sugar(*self._retriever.filter(keys, names, node_id))
 
     def _sugar(self, *channels: ChannelPayload) -> list[Channel]:
-        return [Channel(c, self._segment_client) for c in channels]
+        return [Channel(**c.dict(), segment_client=self._segment_client) for c in channels]

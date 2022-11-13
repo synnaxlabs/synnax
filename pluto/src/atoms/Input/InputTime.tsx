@@ -1,17 +1,19 @@
+import { forwardRef } from "react";
 import { ComponentSize } from "@/util";
+import { InputProps } from "./Input";
 
-export interface InputTimeProps {
-  size?: ComponentSize;
-  onChange?: (value: string) => void;
-}
+export interface InputTimeProps extends InputProps {}
 
-export const InputTime = ({ size, onChange }: InputTimeProps) => {
-  return (
-    <input
-      type="time"
-      step="1"
-      onChange={(e) => onChange && onChange(e.target.value)}
-      className={`pluto-input__input pluto-input__input--${size}`}
-    />
-  );
-};
+export const InputTime = forwardRef<HTMLInputElement, InputTimeProps>(
+	({ size, ...props }: InputTimeProps, ref) => {
+		return (
+			<input
+				ref={ref}
+				type="time"
+				step="1"
+				className={`pluto-input__input pluto-input__input--${size}`}
+				{...props}
+			/>
+		);
+	}
+);

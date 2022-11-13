@@ -4,6 +4,7 @@ import typing
 from freighter import HTTPClientFactory, Payload, UnaryClient
 
 from .payload import ChannelPayload
+from ..exceptions import ValidationError, QueryError
 
 
 class _Request(Payload):
@@ -23,14 +24,26 @@ class ChannelRetriever:
     def __init__(self, client: HTTPClientFactory):
         self.client = client.get_client()
 
-    def retrieve(self, keys: list[str]) -> list[ChannelPayload]:
-        return self._execute(_Request(keys=keys))
+    def get(self, key: str = None, name: str = None) -> ChannelPayload:
+        req = _Request()
+        if key is None and name is None:
+            raise ValidationError("Must specify a key or name")
+        if key is not None:
+            req.keys = [key]
+        if name is not None:
+            req.names = [name]
+        res = self._execute(req)
+        if len(res) == 0:
+            raise QueryError("channel not found")
+        return res[0]
 
-    def retrieve_by_name(self, *names: str) -> list[ChannelPayload]:
-        return self._execute(_Request(names=names))
-
-    def retrieve_by_node_id(self, node_id: int) -> list[ChannelPayload]:
-        return self._execute(_Request(node_id=node_id))
+    def filter(
+        self,
+        keys: list[str] = None,
+        names: list[str] = None,
+        node_id: int = None,
+    ) -> list[ChannelPayload]:
+        return self._execute(_Request(keys=keys, names=names))
 
     def _execute(self, req: _Request) -> list[ChannelPayload]:
         res, exc = self.client.send(self._ENDPOINT, req, _Response)

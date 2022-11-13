@@ -145,7 +145,8 @@ class WebsocketClient(AsyncMiddlewareCollector):
 
         headers = {"Content-Type": self._encoder.content_type()}
 
-        async def finalizer(md: MetaData) -> Exception | None:
+        async def finalizer(md: MetaData) -> tuple[MetaData, Exception | None]:
+            out_meta_data = MetaData(target, "websocket")
             headers.update(md.params)
             try:
                 ws = await connect(
@@ -155,12 +156,11 @@ class WebsocketClient(AsyncMiddlewareCollector):
                 )
                 self._socket = WebsocketStream[RQ, RS](self._encoder, ws, res_type)
             except Exception as e:
-                return e
-            return None
+                return out_meta_data, e
+            return out_meta_data, None
 
-        exc = await self.exec(MetaData(target, "websocket"), finalizer)
+        _, exc = await self.exec(MetaData(target, "websocket"), finalizer)
         if exc is not None:
-            print(exc.__dict__)
             raise exc
 
         try:

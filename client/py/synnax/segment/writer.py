@@ -103,7 +103,6 @@ class CoreWriter:
 
         while True:
             res, err = self.stream.receive()
-            print(res)
             if err is not None:
                 raise err
             if res.command == _Command.COMMIT:
@@ -171,7 +170,7 @@ class NumpyWriter:
         self.core = core
         self.validators = [
             ScalarTypeValidator(),
-            ContiguityValidator(dict(), allow_no_high_water_mark=True),
+            # ContiguityValidator(dict(), allow_no_high_water_mark=True),
         ]
         self.encoder = NumpyEncoderDecoder()
         self.splitter = Splitter(threshold=Size(4e6))

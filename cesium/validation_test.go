@@ -14,7 +14,7 @@ var _ = Describe("Validation", Ordered, func() {
 	var db cesium.DB
 	BeforeAll(func() { db = openMemDB() })
 
-	Describe("Invalid Channel Key", func() {
+	Describe("Invalid Channel StorageKey", func() {
 		It("Should return a validation error", func() {
 			chs, w := createWriter(db, cesium.Channel{Rate: 10 * telem.Hz, Density: telem.Bit64})
 			Expect(w.Write([]cesium.Segment{{ChannelKey: chs[0].Key + 1, Start: 10 * telem.SecondTS, Data: Marshal([]float64{1, 2, 3, 4})}})).To(BeTrue())

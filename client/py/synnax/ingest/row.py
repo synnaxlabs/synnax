@@ -1,4 +1,5 @@
 import gc
+from datetime import datetime
 
 from pandas import DataFrame
 
@@ -23,7 +24,7 @@ class RowIngestionEngine:
         client: Synnax,
         reader: RowReader,
         channels: list[Channel],
-        soft_mem_limit: int = 100 * MEGABYTE,
+        soft_mem_limit: int = 500 * MEGABYTE,
     ):
         self.channels = channels
         self.idx_grouped = {ch: list() for ch in channels if ch.is_index}
@@ -62,7 +63,12 @@ class RowIngestionEngine:
         for idx, channels in self.idx_grouped.items():
             idx_data = chunk[idx.name].to_numpy(dtype=idx.data_type)
             start = idx_data[0]
-            self.writer.write(idx.key, start, idx_data)
+            print(self.writer.write(idx.key, start, idx_data))
             for ch in channels:
+                t0 = datetime.now()
                 ch_data = chunk[ch.name].to_numpy(dtype=ch.data_type)
-                self.writer.write(ch.key, start, ch_data)
+                print("conversion time:", datetime.now() - t0)
+                print(ch.key, len(ch_data))
+                t0 = datetime.now()
+                print(self.writer.write(ch.key, start, ch_data))
+                print("write time:", datetime.now() - t0)

@@ -23,20 +23,31 @@ class TokenResponse(Payload):
 
 
 AUTHORIZATION_HEADER = "Authorization"
+TOKEN_REFRESH_HEADER = "Refresh-Token"
 
 
-def auth_middleware(token: Callable[[], str]) -> Middleware:
-    def mw(md: MetaData, next: Next) -> Middleware:
+def token_middleware(token: Callable[[], str],
+                     set_token: Callable[[str], None]) -> Middleware:
+    def mw(md: MetaData, _next: Next):
         md.set(AUTHORIZATION_HEADER, "Bearer " + token())
-        return next(md)
+        out_md, exc = _next(md)
+        if TOKEN_REFRESH_HEADER in out_md.params:
+            tk = out_md.get(TOKEN_REFRESH_HEADER)
+            set_token(tk)
+        return out_md, exc
 
     return mw
 
 
-def async_auth_middleware(token: Callable[[], str]) -> Middleware:
-    async def mw(md: MetaData, next: AsyncNext) -> Middleware:
+def async_token_middleware(token: Callable[[], str],
+                           set_token: Callable[[str], None]) -> Middleware:
+    async def mw(md: MetaData, _next: AsyncNext):
         md.set(AUTHORIZATION_HEADER, "Bearer " + token())
-        return await next(md)
+        out_md, exc = await _next(md)
+        if TOKEN_REFRESH_HEADER in out_md:
+            token = out_md.get(TOKEN_REFRESH_HEADER)
+            set_token(token)
+        return out_md, exc
 
     return mw
 
@@ -74,8 +85,11 @@ class AuthenticationClient:
     def get_token(self) -> str:
         return self.token
 
-    def middleware(self) -> Middleware:
-        return auth_middleware(self.get_token)
+    def set_token(self, token: str) -> None:
+        self.token = token
 
-    def async_middleware(self) -> AsyncMiddleware:
-        return async_auth_middleware(self.get_token)
+    def middleware(self) -> list[Middleware]:
+        return [token_middleware(self.get_token, self.set_token)]
+
+    def async_middleware(self) -> list[AsyncMiddleware]:
+        return [async_token_middleware(self.get_token, self.set_token)]

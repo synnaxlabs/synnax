@@ -40,6 +40,22 @@ func (u *UnaryServer[RQ, RS]) BindHandler(handler func(context.Context, RQ) (RS,
 	u.Handler = handler
 }
 
+func (u *UnaryServer[RQ, RS]) exec(ctx context.Context, req RQ, iMD freighter.MD) (res RS, oMD freighter.MD, err error) {
+	oMD, err = u.MiddlewareCollector.Exec(
+		ctx,
+		iMD,
+		freighter.FinalizerFunc(func(ctx context.Context, iMD freighter.MD) (oMD freighter.MD, err error) {
+			res, err = u.Handler(ctx, req)
+			return freighter.MD{
+				Target:   u.Address,
+				Protocol: u.Protocol,
+				Params:   make(freighter.Params),
+			}, err
+		}),
+	)
+	return res, oMD, err
+}
+
 // UnaryClient implements the freighter.UnaryCLinet interface using go channels as the
 // transport.
 type UnaryClient[RQ, RS freighter.Payload] struct {
@@ -57,26 +73,31 @@ func (u *UnaryClient[RQ, RS]) Send(
 	target address.Address,
 	req RQ,
 ) (res RS, err error) {
-	return res, u.MiddlewareCollector.Exec(
+	_, err = u.MiddlewareCollector.Exec(
 		ctx,
 		freighter.MD{Target: target, Protocol: u.Reporter.Protocol},
-		freighter.FinalizerFunc(func(ctx context.Context, _ freighter.MD) error {
-			var handler func(context.Context, RQ) (RS, error)
-			// Key non nil server means we're tied up in a unary pair, so we can just
+		freighter.FinalizerFunc(func(ctx context.Context, iMD freighter.MD) (freighter.MD, error) {
+			var (
+				handler func(context.Context, RQ, freighter.MD) (RS, freighter.MD, error)
+				oMD     freighter.MD
+			)
+
+			// StorageKey non nil server means we're tied up in a unary pair, so we can just
 			// use the server's handler.
 			if u.server != nil {
-				handler = u.server.Handler
+				handler = u.server.exec
 			} else if u.Network != nil {
 				route, ok := u.Network.resolveUnaryTarget(target)
 				if !ok || route.Handler == nil {
-					return address.TargetNotFound(target)
+					return oMD, address.TargetNotFound(target)
 				}
-				handler = route.Handler
+				handler = route.exec
 			}
-			res, err = handler(ctx, req)
+			res, oMD, err = handler(ctx, req, iMD)
 			if u.Network != nil {
 				u.Network.appendEntry(target, req, res, err)
 			}
-			return err
+			return oMD, err
 		}))
+	return res, err
 }

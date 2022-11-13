@@ -51,7 +51,7 @@ class Synnax:
                 self._transport.http.post_client(), username, password
             )
             auth.authenticate()
-            self._transport.use(auth.middleware())
+            self._transport.use(*auth.middleware())
         ch_retriever = ChannelRetriever(self._transport.http)
         ch_creator = ChannelCreator(self._transport.http)
         ch_registry = ChannelRegistry(ch_retriever)

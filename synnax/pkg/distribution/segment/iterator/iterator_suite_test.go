@@ -76,7 +76,7 @@ func writeMockData(
 ) {
 	dataFactory := &seg.RandomFloat64Factory{Cache: true}
 	for _, ch := range channels {
-		factory := seg.NewSequentialFactory(dataFactory, segmentSize, ch.Channel)
+		factory := seg.NewSequentialFactory(dataFactory, segmentSize, ch.Storage())
 		Expect(builder.Cores[ch.NodeID].
 			Storage.
 			TS.

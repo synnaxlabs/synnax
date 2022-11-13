@@ -36,6 +36,7 @@ export const Tree = ({
 				<TreeLeafC
 					{...entry}
 					key={entry.key}
+					depth={1}
 					nodeKey={entry.key}
 					selected={selected}
 					onSelect={onSelect}
@@ -60,6 +61,7 @@ interface TreeLeafProps extends Omit<TreeLeaf, "key"> {
 	nodeKey: string;
 	hasChildren?: boolean;
 	onExpand?: (key: string) => void;
+	depth: number;
 }
 
 const TreeLeafC = ({
@@ -71,11 +73,13 @@ const TreeLeafC = ({
 	children = [],
 	hasChildren,
 	onExpand,
+	depth,
 }: TreeLeafProps) => {
 	const [expanded, setExpanded] = useState(false);
 	return (
 		<li className="tree-node__container">
 			<TreeNodeButton
+				style={{ paddingLeft: `${depth * 2}rem` }}
 				selected={selected.includes(nodeKey)}
 				title={title}
 				icon={icon}
@@ -95,6 +99,7 @@ const TreeLeafC = ({
 							key={child.key}
 							nodeKey={child.key}
 							onSelect={onSelect}
+							depth={depth + 1}
 							selected={selected}
 							onExpand={onExpand}
 						/>

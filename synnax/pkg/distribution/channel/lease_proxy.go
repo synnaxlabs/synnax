@@ -42,14 +42,15 @@ func newLeaseProxy(
 
 func (lp *leaseProxy) handle(ctx context.Context, msg CreateMessage) (CreateMessage, error) {
 	txn := lp.clusterDB.BeginTxn()
-	channels, err := lp.create(ctx, txn, msg.Channels)
+	err := lp.create(ctx, txn, &msg.Channels)
 	if err != nil {
 		return CreateMessage{}, err
 	}
-	return CreateMessage{Channels: channels}, txn.Commit()
+	return CreateMessage{Channels: msg.Channels}, txn.Commit()
 }
 
-func (lp *leaseProxy) create(ctx context.Context, txn gorp.Txn, channels []Channel) ([]Channel, error) {
+func (lp *leaseProxy) create(ctx context.Context, txn gorp.Txn, _channels *[]Channel) error {
+	channels := *_channels
 	for i := range channels {
 		if channels[i].NodeID == 0 {
 			channels[i].NodeID = lp.cluster.HostID()
@@ -60,30 +61,32 @@ func (lp *leaseProxy) create(ctx context.Context, txn gorp.Txn, channels []Chann
 	for nodeID, entries := range batch.Remote {
 		remoteChannels, err := lp.createRemote(ctx, nodeID, entries)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		oChannels = append(oChannels, remoteChannels...)
 	}
-	ch, err := lp.createLocal(txn, batch.Local)
+	err := lp.createLocal(txn, &batch.Local)
 	if err != nil {
-		return oChannels, err
+		return err
 	}
-	oChannels = append(oChannels, ch...)
-	return oChannels, nil
+	oChannels = append(oChannels, batch.Local...)
+	*_channels = oChannels
+	return nil
 }
 
-func (lp *leaseProxy) createLocal(txn gorp.Txn, channels []Channel) ([]Channel, error) {
-	for i := range channels {
-		channels[i].Channel.Density = channels[i].DataType.Density()
-		if err := lp.tsDB.CreateChannel(&channels[i].Channel); err != nil {
-			return nil, err
-		}
+func (lp *leaseProxy) createLocal(txn gorp.Txn, channels *[]Channel) error {
+	storageChannels := toStorage(*channels)
+	if err := lp.tsDB.CreateChannels(&storageChannels); err != nil {
+		return err
+	}
+	for i := range storageChannels {
+		(*channels)[i].StorageKey = storageChannels[i].Key
 	}
 	// TODO: add transaction rollback to cesium clusterDB if this fails.
-	if err := gorp.NewCreate[Key, Channel]().Entries(&channels).Exec(txn); err != nil {
-		return nil, err
+	if err := gorp.NewCreate[Key, Channel]().Entries(channels).Exec(txn); err != nil {
+		return err
 	}
-	return channels, lp.maybeSetResources(txn, channels)
+	return lp.maybeSetResources(txn, *channels)
 }
 
 func (lp *leaseProxy) maybeSetResources(

@@ -8,7 +8,7 @@ from synnax import QueryError
 class TestClient:
     @pytest.fixture(scope="class")
     def two_channels(self, client: synnax.Synnax) -> list[synnax.Channel]:
-        return client.channel.create_n(
+        return client.channel.create_many(
             name="test",
             node_id=1,
             rate=1 * synnax.HZ,

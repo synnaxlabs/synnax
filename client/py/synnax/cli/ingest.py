@@ -2,28 +2,30 @@ import synnax
 from .channel import (
     maybe_select_channel,
     channel_name_table,
+    Channel,
 )
 from .connect import connect_client, prompt_client_options, load_config_options
 from .console.rich import RichConsole
-from .file import prompt_file
+from .io import prompt_file
 from .telem import prompt_data_type_select
 from .. import Synnax
 from .flow import Context, Flow
 from ..ingest.row import RowIngestionEngine
-from ..io import RowReader, ReaderType, ReaderFactory, ChannelMeta
+from ..io import RowReader, ReaderType, IOFactory, ChannelMeta
 from ..telem import INT64, Rate
 from ..cli.console.channel import prompt_group_channel_names
+from ..exceptions import QueryError
 
 
 class IngestionCLI:
-    factory: ReaderFactory
+    factory: IOFactory
     reader: RowReader | None
     client: Synnax | None
     filtered_channels: list[ChannelMeta] | None
     not_found: list[ChannelMeta] | None
     db_channels: list[synnax.Channel] | None
 
-    def __init__(self, factory: ReaderFactory):
+    def __init__(self, factory: IOFactory):
         self.factory = factory
         self.reader = None
         self.client = None
@@ -52,7 +54,7 @@ def ingestion():
     flow.add("validate_channels", validate_channels)
     flow.add("create_channels", create_channels)
     flow.add("ingest", run_ingestion)
-    flow.run(IngestionCLI(synnax.io.ReaderFactory()), "initialize_reader")
+    flow.run(IngestionCLI(synnax.io.IOFactory()), "initialize_reader")
 
 
 def initialize_reader(
@@ -64,7 +66,7 @@ def initialize_reader(
     path = prompt_file(ctx)
     if path is None:
         return None
-    cli.reader = cli.factory.retrieve(path)
+    cli.reader = cli.factory.new_reader(path)
     return "connect_client"
 
 
@@ -111,12 +113,13 @@ def validate_channels(ctx: Context, cli: IngestionCLI) -> str | None:
     cli.not_found = []
     cli.db_channels = []
     for channel in cli.filtered_channels:
-        ch = maybe_select_channel(
-            ctx,
-            cli.client.channel.retrieve_by_name(channel.name),
-            channel.name,
-        )
-        if not ch:
+        try:
+            ch = maybe_select_channel(
+                ctx,
+                cli.client.channel.get(name=channel.name),
+                channel.name,
+            )
+        except QueryError:
             cli.not_found.append(channel)
         else:
             cli.db_channels.append(ch)
@@ -186,7 +189,7 @@ def create_channels(ctx: Context, cli: IngestionCLI) -> str | None:
             # if the user entered a string, we have an index channel, and we
             #  need to make sure that the string is a valid index. Look first
             # in not_found then try to query
-            res = cli.client.channel.retrieve_by_name(_choice)
+            res = cli.client.channel.filter(names=[_choice])
             idx = maybe_select_channel(ctx, res, _choice)
             if not idx:
                 ctx.console.ask(f"No channel found for index {_choice}")
@@ -212,6 +215,7 @@ def create_channels(ctx: Context, cli: IngestionCLI) -> str | None:
         dt = prompt_data_type_select(ctx)
         assigned_dts[dt] = group
 
+    to_create = []
     for rate_or_index, channels in assigned_dr_idx.items():
         # if the rate_or_index is a string, it is an index channel
         index = ""
@@ -222,20 +226,20 @@ def create_channels(ctx: Context, cli: IngestionCLI) -> str | None:
             index = rate_or_index
 
         for channel in channels:
-            # find the dt in which the channel exists
             dt = None
             for k, v in assigned_dts.items():
                 if channel in v:
                     dt = k
                     break
 
-            ch = cli.client.channel.create(
+            to_create.append(Channel(
                 name=channel.name,
                 is_index=False,
                 index=index,
                 rate=rate,
                 data_type=dt
-            )
-            cli.db_channels.append(ch)
+            ))
+
+    cli.db_channels.extend(cli.client.channel.create_many(to_create))
 
     return "ingest"

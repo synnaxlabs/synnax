@@ -2,6 +2,7 @@ package fgrpc
 
 import (
 	"context"
+
 	roacherrors "github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
@@ -29,6 +30,9 @@ type UnaryClient[RQ, RQT, RS, RST freighter.Payload] struct {
 	ResponseTranslator Translator[RS, RST]
 	// Pool is the pool of gRPC connections the transport will use to make requests.
 	Pool *Pool
+	// ServiceDesc is the gRPC service description that the transport will use to bind
+	// to a gRPC service registrar.
+	ServiceDesc *grpc.ServiceDesc
 	// Client is a function that executes the grpc request.
 	Client func(context.Context, grpc.ClientConnInterface, RQT) (RST, error)
 	freighter.MiddlewareCollector
@@ -67,51 +71,57 @@ func (u *UnaryClient[RQ, RQT, RS, RST]) Send(
 	ctx context.Context,
 	target address.Address,
 	req RQ,
-) (res RS, _ error) {
-	return res, u.MiddlewareCollector.Exec(
+) (res RS, err error) {
+	_, err = u.MiddlewareCollector.Exec(
 		ctx,
 		freighter.MD{Target: target, Protocol: reporter.Protocol},
-		freighter.FinalizerFunc(func(ctx context.Context, md freighter.MD) error {
+		freighter.FinalizerFunc(func(ctx context.Context, md freighter.MD) (oMD freighter.MD, err error) {
 			attachMetaData(ctx, md)
 			conn, err := u.Pool.Acquire(target)
 			if err != nil {
-				return err
+				return oMD, err
 			}
 			tReq, err := u.RequestTranslator.Forward(req)
 			if err != nil {
-				return err
+				return oMD, err
 			}
 			tRes, err := u.Client(ctx, conn.ClientConn, tReq)
+			parseMetaData(ctx, u.ServiceDesc.ServiceName)
 			if err != nil {
-				return err
+				return oMD, err
 			}
 			res, err = u.ResponseTranslator.Backward(tRes)
-			return err
+			return oMD, err
 		}),
 	)
+	return res, err
 }
 
+// Exec implements the GRPC service interface.
 func (u *UnaryServer[RQ, RQT, RS, RST]) Exec(ctx context.Context, tReq RQT) (tRes RST, err error) {
-	return tRes, u.MiddlewareCollector.Exec(
+	oMD, err := u.MiddlewareCollector.Exec(
 		ctx,
 		parseMetaData(ctx, u.ServiceDesc.ServiceName),
-		freighter.FinalizerFunc(func(ctx context.Context, md freighter.MD) error {
+		freighter.FinalizerFunc(func(ctx context.Context, md freighter.MD) (freighter.MD, error) {
+			oMD := freighter.MD{Protocol: reporter.Protocol, Target: md.Target, Params: md.Params}
 			if u.handler == nil {
-				return roacherrors.New("[freighter]- no handler registered")
+				return oMD, roacherrors.New("[freighter]- no handler registered")
 			}
 			req, err := u.RequestTranslator.Backward(tReq)
 			if err != nil {
-				return err
+				return oMD, err
 			}
 			res, err := u.handler(ctx, req)
 			if err != nil {
-				return err
+				return oMD, err
 			}
 			tRes, err = u.ResponseTranslator.Forward(res)
-			return err
+			return oMD, err
 		},
 		),
 	)
+	attachMetaData(ctx, oMD)
+	return tRes, err
 }
 
 func (u *UnaryServer[RQ, RQT, RS, RST]) BindHandler(

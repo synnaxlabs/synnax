@@ -11,6 +11,9 @@ func (s *Synchronizer) Sync(seqNum int, ack bool) (_ack bool, _seqNum int, fulfi
 	if seqNum != s.SeqNum {
 		panic("[distribution.exec] - received out of order response")
 	}
+	if s.Counter == 0 {
+		s.ack = true
+	}
 	s.Counter++
 	if !ack {
 		s.ack = false

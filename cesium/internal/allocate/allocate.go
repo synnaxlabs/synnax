@@ -10,7 +10,7 @@ import (
 	"sync"
 )
 
-// Allocator is used to allocate items to a set of descriptors. Key descriptor can represent a file, buffer (essentially
+// Allocator is used to allocate items to a set of descriptors. StorageKey descriptor can represent a file, buffer (essentially
 // anything assigned with a maximum size).
 //
 // Type Arguments:
@@ -30,7 +30,7 @@ import (
 //
 // Available Means:
 //
-//	Key. Key completely NEW descriptor if config.MaxDescriptors has not been reached.
+//	StorageKey. StorageKey completely NEW descriptor if config.MaxDescriptors has not been reached.
 //	OR
 //	V. The descriptor with the lowest size if config.MaxDescriptors has been reached.
 type Allocator[K, D comparable] interface {

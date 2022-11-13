@@ -12,7 +12,22 @@ class ReaderType(Enum):
     Column = "column"
 
 
-class BaseReader(Protocol):
+class Matcher(Protocol):
+    @classmethod
+    def extensions(cls) -> list[str]:
+        """:returns: a list of file extensions that the reader can read. Sometimes the
+        list is not exhaustive, and is mostly used for informational purposes. For
+        accurate file extension matching, use the :meth:`match` method.
+        """
+        ...
+
+    @classmethod
+    def match(cls, path: Path) -> bool:
+        """:returns: whether the reader can read the file at the given path."""
+        ...
+
+
+class BaseReader(Matcher):
     """The base reader protocol that all other reader protocols must implement.
 
     :param path: The path to the file to read.
@@ -37,17 +52,8 @@ class BaseReader(Protocol):
         """:returns : the type of reader."""
         ...
 
-    @classmethod
-    def extensions(cls) -> list[str]:
-        """:returns: a list of file extensions that the reader can read. Sometimes the
-        list is not exhaustive, and is mostly used for informational purposes. For
-        accurate file extension matching, use the :meth:`match` method.
-        """
-        ...
-
-    @classmethod
-    def match(cls, path: Path) -> bool:
-        """:returns: whether the reader can read the file at the given path."""
+    def path(self) -> Path:
+        """:returns: the path to the file."""
         ...
 
 
@@ -80,3 +86,18 @@ class ColumnReader(BaseReader):
         dataframe contains columns for each key in keys.
         """
         ...
+
+
+class Writer(Matcher):
+    def __init__(
+        self,
+        path: Path,
+    ):
+        ...
+
+    def write(self, df: DataFrame):
+        """Writes the given dataframe to the file."""
+        ...
+
+    def path(self) -> Path:
+        """:returns: the path to the file."""

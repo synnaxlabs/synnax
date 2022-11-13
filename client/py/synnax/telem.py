@@ -295,12 +295,39 @@ class TimeSpan(int):
 TIME_STAMP_MIN = TimeStamp(0)
 TIME_STAMP_MAX = TimeStamp(2 ** 63 - 1)
 NANOSECOND = TimeSpan(1)
+NANOSECOND_UNITS = "ns"
 MICROSECOND = TimeSpan(1000) * NANOSECOND
+MICROSECOND_UNITS = "us"
 MILLISECOND = TimeSpan(1000) * MICROSECOND
+MILLISECOND_UNITS = "ms"
 SECOND = TimeSpan(1000) * MILLISECOND
+SECOND_UNITS = "s"
 MINUTE = TimeSpan(60) * SECOND
+MINUTE_UNITS = "m"
 HOUR = TimeSpan(60) * MINUTE
+HOUR_UNITS = "h"
 TIME_SPAN_MAX = TimeSpan(0xFFFFFFFFFFFFFFFF)
+
+TIME_UNITS = {
+    NANOSECOND_UNITS: NANOSECOND,
+    MICROSECOND_UNITS: MICROSECOND,
+    MILLISECOND_UNITS: MILLISECOND,
+    SECOND_UNITS: SECOND,
+    MINUTE_UNITS: MINUTE,
+    HOUR_UNITS: HOUR,
+}
+
+
+def convert_time_units(data: np.ndarray, _from: str, to: str):
+    """Converts the data from one time unit to another.
+    :param data: the data to convert
+    :param _from: the units of the data
+    :param to: the units to convert to
+    :return: the data in the new units
+    """
+    if _from == to:
+        return data
+    return data * TIME_UNITS[_from] / TIME_UNITS[to]
 
 
 class Rate(float):

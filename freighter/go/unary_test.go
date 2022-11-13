@@ -72,11 +72,11 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 			Describe("Middleware", func() {
 				It("Should correctly call the middleware", func() {
 					c := 0
-					server.Use(freighter.MiddlewareFunc(func(ctx context.Context, md freighter.MD, next freighter.Next) error {
+					server.Use(freighter.MiddlewareFunc(func(ctx context.Context, md freighter.MD, next freighter.Next) (freighter.MD, error) {
 						c++
-						err := next(ctx, md)
+						oMd, err := next(ctx, md)
 						c++
-						return err
+						return oMd, err
 					}))
 					server.BindHandler(func(ctx context.Context, req request) (response, error) {
 						return response{}, nil

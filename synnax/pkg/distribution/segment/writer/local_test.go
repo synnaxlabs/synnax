@@ -34,16 +34,11 @@ var _ = FDescribe("Local", Ordered, func() {
 		log = lo.Must(zap.NewDevelopment())
 		builder, services = provisionNServices(1, log)
 		dataFactory := &seg.RandomFloat64Factory{Cache: true}
-		channels, err := services[1].channel.NewCreate().
-			WithName("SG02").
-			WithRate(25*telem.Hz).
-			WithDataType(telem.Float64).
-			WithNodeID(1).
-			ExecN(ctx, 1)
-		Expect(err).ToNot(HaveOccurred())
-		factory = seg.NewSequentialFactory(dataFactory, 10*telem.Second, channels[0].Channel)
+		ch := channel.Channel{Name: "SG02", Rate: 25 * telem.Hz, DataType: telem.Float64, NodeID: 1}
+		Expect(services[1].channel.Create(&ch)).To(Succeed())
+		factory = seg.NewSequentialFactory(dataFactory, 10*telem.Second, ch.Storage())
 		wrapper = &core.StorageWrapper{Host: 1}
-		keys = channel.Keys{channels[0].Key()}
+		keys = channel.Keys{ch.Key()}
 		newWriter = func() (writer.Writer, error) { return openWriter(1, services, builder, keys, log) }
 	})
 	BeforeEach(func() {

@@ -33,12 +33,13 @@ var _ = Describe("Create", Ordered, func() {
 		)
 		JustBeforeEach(func() {
 			var err error
-			ch, err = services[1].NewCreate().
-				WithRate(5 * telem.Hz).
-				WithDataType(telem.Float64).
-				WithName("SG01").
-				WithNodeID(channelLeaseNodeID).
-				Exec(ctx)
+			ch = channel.Channel{
+				Rate:     5 * telem.Hz,
+				Name:     "SG01",
+				DataType: telem.Float64,
+				NodeID:   channelLeaseNodeID,
+			}
+			err = services[1].Create(&ch)
 			Expect(err).ToNot(HaveOccurred())
 		})
 		Context("Node is local", func() {
@@ -79,12 +80,13 @@ var _ = Describe("Create", Ordered, func() {
 			})
 			It("Should assign a sequential key to the channels on each node",
 				func() {
-					ch2, err := services[1].NewCreate().
-						WithRate(5 * telem.Hz).
-						WithDataType(telem.Float64).
-						WithName("SG01").
-						WithNodeID(1).
-						Exec(ctx)
+					ch2 := &channel.Channel{
+						Rate:     5 * telem.Hz,
+						Name:     "SG01",
+						DataType: telem.Float64,
+						NodeID:   1,
+					}
+					err := services[1].Create(ch2)
 					Expect(err).To(BeNil())
 					Expect(ch2.Key().NodeID()).To(Equal(aspen.NodeID(1)))
 					Expect(ch2.Key().StorageKey()).To(Equal(cesium.ChannelKey(3)))

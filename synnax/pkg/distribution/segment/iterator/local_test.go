@@ -21,15 +21,10 @@ var _ = Describe("Local", Ordered, func() {
 	BeforeAll(func() {
 		log = zap.L()
 		builder, services = provisionNServices(1, log)
-		channels, err := services[1].channel.NewCreate().
-			WithName("SG02").
-			WithRate(25*telem.Hz).
-			WithDataType(telem.Float64).
-			WithNodeID(1).
-			ExecN(ctx, 1)
-		Expect(err).ToNot(HaveOccurred())
-		writeMockData(builder, 10*telem.Second, 10, 1, channels...)
-		iter = openIter(1, services, builder, channel.KeysFromChannels(channels))
+		ch := channel.Channel{Name: "SG01", Rate: 25 * telem.Hz, DataType: telem.Float64, NodeID: 1}
+		Expect(services[1].channel.Create(&ch)).To(Succeed())
+		writeMockData(builder, 10*telem.Second, 10, 1, ch)
+		iter = openIter(1, services, builder, channel.Keys{ch.Key()})
 	})
 	AfterAll(func() { Expect(iter.Close()).To(Succeed()) })
 	Context("Behavioral Accuracy", func() {

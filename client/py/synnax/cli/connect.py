@@ -50,6 +50,7 @@ def connect_client(ctx: Context, opts: SynnaxOptions) -> Synnax | None:
     except AuthError:
         return ctx.console.error("Invalid credentials")
     except Exception as e:
-        return ctx.console.error(f"An error occurred: {e}")
+        raise e
+        # return ctx.console.error(f"An error occurred: {e}")
     ctx.console.success("Connection successful!")
     return client

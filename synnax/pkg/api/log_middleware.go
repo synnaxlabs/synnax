@@ -13,9 +13,9 @@ func logMiddleware(z *zap.SugaredLogger) freighter.Middleware {
 		ctx context.Context,
 		md freighter.MD,
 		next freighter.Next,
-	) error {
+	) (freighter.MD, error) {
 		t0 := time.Now()
-		err := next(ctx, md)
+		oMd, err := next(ctx, md)
 		logFunc(z, err)(
 			"api request",
 			"protocol", md.Protocol,
@@ -24,7 +24,7 @@ func logMiddleware(z *zap.SugaredLogger) freighter.Middleware {
 			"err",
 			err,
 		)
-		return err
+		return oMd, err
 	})
 }
 

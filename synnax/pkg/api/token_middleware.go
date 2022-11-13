@@ -13,22 +13,28 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/user"
 )
 
+const tokenRefreshHeader = "Refresh-Token"
+
 func tokenMiddleware(svc *token.Service) freighter.Middleware {
 	return freighter.MiddlewareFunc(func(
 		ctx context.Context,
 		md freighter.MD,
 		next freighter.Next,
-	) error {
+	) (oMD freighter.MD, err error) {
 		tk, _err := tryParseToken(md.Params)
 		if _err.Occurred() {
-			return _err
+			return oMD, _err
 		}
-		userKey, err := svc.Validate(tk)
+		userKey, newTK, err := svc.ValidateMaybeRefresh(tk)
 		if err != nil {
-			return apierrors.Auth(err)
+			return oMD, apierrors.Auth(err)
 		}
 		setSubject(md.Params, user.OntologyID(userKey))
-		return next(ctx, md)
+		oMD, err = next(ctx, md)
+		if newTK != "" {
+			oMD.Params.Set(tokenRefreshHeader, newTK)
+		}
+		return oMD, err
 	})
 }
 

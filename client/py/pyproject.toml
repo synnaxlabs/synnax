@@ -45,3 +45,4 @@ ignore_missing_imports = true
 root = "synnax.cli.ingest:ingestion"
 login = "synnax.cli.login:login"
 credentials = "synnax.cli.login:credentials"
+tsconvert = "synnax.cli.util:convert_timestamp_precision"
