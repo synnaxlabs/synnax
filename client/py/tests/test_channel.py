@@ -2,18 +2,26 @@ import numpy as np
 import pytest
 
 import synnax
-from synnax import QueryError
+from synnax import QueryError, Channel
 
 
 class TestClient:
     @pytest.fixture(scope="class")
     def two_channels(self, client: synnax.Synnax) -> list[synnax.Channel]:
-        return client.channel.create_many(
-            name="test",
-            node_id=1,
-            rate=1 * synnax.HZ,
-            data_type=synnax.FLOAT64,
-            count=2,
+        return client.channel.create_many([
+            Channel(
+                name="test",
+                node_id=1,
+                rate=1 * synnax.HZ,
+                data_type=synnax.FLOAT64,
+            ),
+            Channel(
+                name="test",
+                node_id=1,
+                rate=1 * synnax.HZ,
+                data_type=synnax.FLOAT64,
+            )
+        ]
         )
 
     def test_create(self, two_channels: list[synnax.Channel]):
@@ -25,8 +33,8 @@ class TestClient:
     def test_retrieve_by_key(
         self, two_channels: list[synnax.Channel], client: synnax.Synnax
     ) -> None:
-        res_channels = client.channel.retrieve(
-            [channel.key for channel in two_channels]
+        res_channels = client.channel.filter(
+            keys=[channel.key for channel in two_channels]
         )
         assert len(res_channels) == 2
         for i, channel in enumerate(res_channels):
@@ -35,12 +43,12 @@ class TestClient:
 
     def test_retrieve_by_key_not_found(self, client: synnax.Synnax):
         with pytest.raises(QueryError):
-            client.channel.retrieve(keys=["1-100000"])
+            client.channel.get(key="1-100000")
 
     def test_retrieve_by_node_id(
         self, two_channels: list[synnax.Channel], client: synnax.Synnax
     ) -> None:
-        res_channels = client.channel.retrieve_by_node_id(1)
+        res_channels = client.channel.filter(node_id=1)
         assert len(res_channels) >= 2
         for channel in res_channels:
             assert channel.node_id == 1
@@ -53,7 +61,7 @@ class TestClient:
     def test_retrieve_by_name(
         self, two_channels: list[synnax.Channel], client: synnax.Synnax
     ) -> None:
-        res_channels = client.channel.retrieve_by_name("test")
+        res_channels = client.channel.filter(names=["test"])
         assert len(res_channels) >= 2
         for channel in res_channels:
             assert channel.name == "test"

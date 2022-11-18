@@ -31,18 +31,6 @@ class TestNumpy:
         finally:
             writer.close()
 
-    def test_non_contiguous_segments(
-        self, channel: synnax.Channel, client: synnax.Synnax
-    ):
-        writer = client.data.new_writer([channel.key])
-        try:
-            data = np.random.rand(10).astype(np.float64)
-            writer.write(to=channel.key, data=data, start=0)
-            with pytest.raises(synnax.ContiguityError):
-                writer.write(to=channel.key, data=data, start=1)
-        finally:
-            writer.close()
-
     def test_multi_segment_write(self, channel: synnax.Channel, client: synnax.Synnax):
         writer = client.data.new_writer([channel.key])
         n_samples = 1000

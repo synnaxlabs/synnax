@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+from synnax.segment.iterator import AUTO_SPAN
 
 import synnax
 
@@ -13,13 +14,13 @@ class TestNumpyIterator:
             writer.write(to=channel.key, data=data, start=1 * synnax.SECOND)
             writer.write(to=channel.key, data=data, start=2 * synnax.SECOND)
         finally:
+            writer.commit()
             writer.close()
         iterator = client.data.new_iterator([channel.key], tr=synnax.TIME_RANGE_MAX)
         try:
-            assert iterator.first()
-            assert iterator.value[channel.key].data.shape == (25,)
-            c = 1
-            while iterator.next():
+            assert iterator.seek_first()
+            c = 0
+            while iterator.next(AUTO_SPAN):
                 c += 1
                 assert iterator.value[channel.key].data.shape == (25,)
             assert c == 3
@@ -36,6 +37,7 @@ class TestClientRead:
             writer.write(to=channel.key, data=data, start=1 * synnax.SECOND)
             writer.write(to=channel.key, data=data, start=2 * synnax.SECOND)
         finally:
+            writer.commit()
             writer.close()
         res_data = client.data.read(channel.key, 0, 2500 * synnax.MILLISECOND)
         assert res_data.shape == (62,)
