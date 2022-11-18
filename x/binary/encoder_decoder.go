@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"encoding/json"
+	"github.com/sirupsen/logrus"
 	"github.com/vmihailenco/msgpack/v5"
 	"io"
 )
@@ -66,6 +67,7 @@ func (j *JSONEncoderDecoder) Encode(value interface{}) ([]byte, error) {
 
 // Decode implements the Decoder interface.
 func (j *JSONEncoderDecoder) Decode(data []byte, value interface{}) error {
+	logrus.Info(string(data))
 	return json.Unmarshal(data, value)
 }
 
