@@ -9,7 +9,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = FDescribe("ThresholdBuffer", func() {
+var _ = Describe("ThresholdBuffer", func() {
 	Describe("Add and Search", func() {
 		It("Should correctly write and search for a position in a set of alignments", func() {
 			buf := index.ThresholdBuffer{}

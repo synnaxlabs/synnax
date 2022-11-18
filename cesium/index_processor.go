@@ -5,6 +5,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/position"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -77,31 +78,31 @@ func (s *indexedIndexProcessor) process(segments []core.SugaredSegment) ([]core.
 		if err != nil {
 			return nil, err
 		}
-		//if !alignment.Exact() {
-		//	return nil, errors.Wrap(
-		//		validate.Error,
-		//		"segment start does not align with a known position in the index",
-		//	)
-		//}
-		//if alignment.Start.Before(s.hwm) {
-		//	return nil, ErrSegmentOverlap
-		//}
-		//_, _ := s.batch.Retrieve(s.ch.Index, alignment.Start)
-		//if errors.Is(err, query.NotFound) {
-		//	return nil, errors.Wrap(
-		//		validate.Error,
-		//		"segment start timestamp must be aligned with the start of a segment in the index",
-		//	)
-		//}
-		//if err != nil {
-		//	return nil, err
-		//}
-		//if seg.Size() != md.Size {
-		//	return nil, errors.Wrap(
-		//		validate.Error,
-		//		"segment size does not match the size of the segment in the index",
-		//	)
-		//}
+		if !alignment.Exact() {
+			return nil, errors.Wrap(
+				validate.Error,
+				"segment start does not align with a known position in the index",
+			)
+		}
+		if alignment.Start.Before(s.hwm) {
+			return nil, ErrSegmentOverlap
+		}
+		md, err := s.batch.Retrieve(s.ch.Index, alignment.Start)
+		if errors.Is(err, query.NotFound) {
+			return nil, errors.Wrap(
+				validate.Error,
+				"segment start timestamp must be aligned with the start of a segment in the index",
+			)
+		}
+		if err != nil {
+			return nil, err
+		}
+		if seg.Size() != md.Size {
+			return nil, errors.Wrap(
+				validate.Error,
+				"segment size does not match the size of the segment in the index",
+			)
+		}
 		seg.Alignment = alignment.Start
 		s.maybeUpdateHwm(seg)
 		segments[i] = seg

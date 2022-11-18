@@ -29,8 +29,7 @@ func (i indexWriter) write(
 ) {
 	buf := bytes.NewBuffer(make([]byte, 0, len(timestamps)*int(telem.TimeStampDensity)))
 	for _, ts := range timestamps {
-
-		lo.Must0(binary.Write(buf, binary.BigEndian, int64(ts)))
+		lo.Must0(binary.Write(buf, binary.LittleEndian, int64(ts)))
 	}
 	b := buf.Bytes()
 	seg := core.SugaredSegment{
