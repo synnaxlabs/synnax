@@ -55,7 +55,7 @@ var _ = Describe("Validation", Ordered, func() {
 				Expect(w.Commit()).To(BeFalse())
 				Expect(w.Close()).To(MatchError(validate.Error))
 			})
-			Specify("Single Add", func() {
+			Specify("Single Insert", func() {
 				Expect(w.Write(segments)).To(BeTrue())
 				Expect(w.Commit()).To(BeFalse())
 				Expect(w.Close()).To(MatchError(validate.Error))

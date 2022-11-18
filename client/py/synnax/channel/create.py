@@ -29,7 +29,6 @@ class ChannelCreator:
         index: str = "",
         is_index: bool = False,
     ) -> ChannelPayload:
-        print(data_type)
         return self.create_many([ChannelPayload(
             data_type=data_type,
             name=name,

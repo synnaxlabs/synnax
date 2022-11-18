@@ -652,7 +652,7 @@ var _ = Describe("Accuracy", Ordered, func() {
 						)
 						idxOne = cesium.Keys(chs)[0]
 						idxTwo = cesium.Keys(chs)[1]
-						// Add two segments to each idx, with a gap between them
+						// Insert two segments to each idx, with a gap between them
 						Expect(w.Write([]cesium.Segment{
 							{
 								ChannelKey: idxOne,

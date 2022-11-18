@@ -28,11 +28,6 @@ const Content = () => {
 				direction="vertical"
 				entries={[
 					{
-						key: "visualizations",
-						title: "Visualizations",
-						content: <h1>Hello</h1>,
-					},
-					{
 						key: "ranges",
 						title: "Ranges",
 						content: <RangesAccordionEntry />,

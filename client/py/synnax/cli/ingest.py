@@ -113,13 +113,12 @@ def validate_channels(ctx: Context, cli: IngestionCLI) -> str | None:
     cli.not_found = []
     cli.db_channels = []
     for channel in cli.filtered_channels:
-        try:
-            ch = maybe_select_channel(
-                ctx,
-                cli.client.channel.get(name=channel.name),
-                channel.name,
-            )
-        except QueryError:
+        ch = maybe_select_channel(
+            ctx,
+            cli.client.channel.filter(names=[channel.name]),
+            channel.name,
+        )
+        if ch is None:
             cli.not_found.append(channel)
         else:
             cli.db_channels.append(ch)

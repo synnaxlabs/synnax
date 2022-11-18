@@ -22,6 +22,7 @@ export const LinePlotControls = ({
 	useEffect(() => {
 		const fn = async () => {
 			const channels = await client.channel.retrieveAll();
+			console.log(channels);
 			setChannelOpts(channels.map((ch) => ch.payload));
 		};
 		fn();

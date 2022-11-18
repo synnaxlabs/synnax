@@ -140,7 +140,7 @@ class ChannelClient:
         :raises QueryError: If any of the channels can't be found.
         :returns: A list of retrieved Channels.
         """
-        return self._sugar(self._retriever.get(key, name))
+        return self._sugar(self._retriever.get(key, name))[0]
 
     def filter(
         self,

@@ -25,5 +25,5 @@ def convert_timestamp_precision():
     df = reader.read()
     converted = convert_time_units(df[ch.name], curr, desired)
     df[ch.name] = converted.astype(np.int64)
-    w = io_factory.new_writer(reader.path().parent / "converted.csv")
+    w = io_factory.new_writer(reader.path().parent / "masa-hotfire.csv")
     w.write(df)
