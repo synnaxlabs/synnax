@@ -2,7 +2,6 @@ package writer
 
 import (
 	"context"
-	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/synnax/pkg/distribution/segment/core"
 	"github.com/synnaxlabs/x/confluence"
 )
@@ -29,7 +28,6 @@ func (a *synchronizer) sync(_ context.Context, res Response) (Response, bool, er
 	// the gateway execution pipeline. In this case, we artificially increment the
 	// sequence number to ensure the caller receives the correct sequence numbers for
 	// future commands.
-	logrus.Info(res)
 	if res.SeqNum == -1 {
 		res.SeqNum = a.internal.SeqNum
 		a.artificialSeqNumInc++

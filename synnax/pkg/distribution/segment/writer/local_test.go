@@ -4,7 +4,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gleak"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/testutil/seg"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -19,7 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/segment/writer"
 )
 
-var _ = FDescribe("Local", Ordered, func() {
+var _ = Describe("Local", Ordered, func() {
 	var (
 		log       *zap.Logger
 		w         writer.Writer
@@ -31,7 +30,7 @@ var _ = FDescribe("Local", Ordered, func() {
 		newWriter func() (writer.Writer, error)
 	)
 	BeforeAll(func() {
-		log = lo.Must(zap.NewDevelopment())
+		log = zap.NewNop()
 		builder, services = provisionNServices(1, log)
 		dataFactory := &seg.RandomFloat64Factory{Cache: true}
 		ch := channel.Channel{Name: "SG02", Rate: 25 * telem.Hz, DataType: telem.Float64, NodeID: 1}

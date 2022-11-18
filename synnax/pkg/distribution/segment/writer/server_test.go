@@ -94,19 +94,6 @@ var _ = Describe("Server", func() {
 				Expect(err).To(HaveOccurredAs(freighter.EOF))
 				Expect(res.Err).ToNot(HaveOccurred())
 			})
-			It("Should return an error when the write request has no channelClient key", func() {
-				var s core.Segment
-				s.Data = []byte{1, 2, 3}
-				s.Start = telem.TimeStamp(25)
-				Expect(client.Send(writer.Request{Segments: []core.Segment{s}})).To(Succeed())
-				Expect(client.CloseSend()).To(Succeed())
-				res, err := client.Receive()
-				Expect(errors.Is(res.Err, query.NotFound)).To(BeTrue())
-				Expect(err).To(BeNil())
-				res, err = client.Receive()
-				Expect(res.Err).To(BeNil())
-				Expect(err).To(HaveOccurredAs(freighter.EOF))
-			})
 		})
 
 	})
