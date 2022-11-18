@@ -32,7 +32,7 @@ def token_middleware(token: Callable[[], str],
         md.set(AUTHORIZATION_HEADER, "Bearer " + token())
         out_md, exc = _next(md)
         if TOKEN_REFRESH_HEADER in out_md.params:
-            tk = out_md.get(TOKEN_REFRESH_HEADER)
+            tk = out_md.retrieve(TOKEN_REFRESH_HEADER)
             set_token(tk)
         return out_md, exc
 
@@ -45,7 +45,7 @@ def async_token_middleware(token: Callable[[], str],
         md.set(AUTHORIZATION_HEADER, "Bearer " + token())
         out_md, exc = await _next(md)
         if TOKEN_REFRESH_HEADER in out_md:
-            token = out_md.get(TOKEN_REFRESH_HEADER)
+            token = out_md.retrieve(TOKEN_REFRESH_HEADER)
             set_token(token)
         return out_md, exc
 

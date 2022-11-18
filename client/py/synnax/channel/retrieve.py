@@ -24,7 +24,7 @@ class ChannelRetriever:
     def __init__(self, client: HTTPClientFactory):
         self.client = client.get_client()
 
-    def get(self, key: str = None, name: str = None) -> ChannelPayload:
+    def retrieve(self, key: str = None, name: str = None) -> ChannelPayload:
         req = _Request()
         if key is None and name is None:
             raise ValidationError("Must specify a key or name")
@@ -35,6 +35,8 @@ class ChannelRetriever:
         res = self._execute(req)
         if len(res) == 0:
             raise QueryError("channel not found")
+        elif len(res) > 1:
+            raise QueryError("multiple channels found")
         return res[0]
 
     def filter(

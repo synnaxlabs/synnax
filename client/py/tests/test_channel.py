@@ -43,7 +43,7 @@ class TestClient:
 
     def test_retrieve_by_key_not_found(self, client: synnax.Synnax):
         with pytest.raises(QueryError):
-            client.channel.get(key="1-100000")
+            client.channel.retrieve(key="1-100000")
 
     def test_retrieve_by_node_id(
         self, two_channels: list[synnax.Channel], client: synnax.Synnax

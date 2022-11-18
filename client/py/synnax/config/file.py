@@ -66,5 +66,5 @@ def set_nested(d, key, value):
 def get_nested(d, key):
     keys = key.split(".")
     for key in keys[:-1]:
-        d = d.get(key, {})
-    return d.get(keys[-1])
+        d = d.retrieve(key, {})
+    return d.retrieve(keys[-1])

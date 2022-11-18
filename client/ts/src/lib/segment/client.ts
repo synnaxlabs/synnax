@@ -70,6 +70,7 @@ export default class SegmentClient {
 		try {
 			return await writer.write(to, start, data);
 		} finally {
+			await writer.commit();
 			await writer.close();
 		}
 	}

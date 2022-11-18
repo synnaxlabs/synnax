@@ -154,8 +154,13 @@ export const buildQueryString = ({
 	if (request === null) return '';
 	return (
 		'?' +
-		Object.keys(request)
-			.map((key) => `${prefix}${key}=${request[key]}`)
+		Object.entries(request)
+			.filter(([, value]) => {
+				if (value === undefined || value === null) return false;
+				if (Array.isArray(value)) return value.length > 0;
+				return true;
+			})
+			.map(([key, value]) => `${prefix}${key}=${value}`)
 			.join('&')
 	);
 };

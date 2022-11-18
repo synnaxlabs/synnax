@@ -109,11 +109,15 @@ class CoreWriter:
                 return res.ack
 
     def error(self) -> Exception:
+        self._assert_open()
         self.stream.send(_Request(command=_Command.ERROR, open_keys=[], segments=[]))
-        res, err = self.stream.receive()
-        if err is not None:
-            raise err
-        return decode_exception(res.error)
+
+        while True:
+            res, err = self.stream.receive()
+            if err is not None:
+                raise err
+            if res.command == _Command.ERROR:
+                return decode_exception(res.error)
 
     def close(self):
         """Closes the writer, raising any accumulated error encountered during operation.

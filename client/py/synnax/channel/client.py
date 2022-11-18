@@ -1,4 +1,5 @@
 from numpy import ndarray
+from synnax import ValidationError
 
 from synnax.segment.client import SegmentClient as SegmentClient
 from synnax.telem import (
@@ -27,7 +28,7 @@ class Channel(ChannelPayload):
     def __init__(
         self,
         data_type: UnparsedDataType,
-        rate: UnparsedRate,
+        rate: UnparsedRate = 0,
         name: str = "",
         node_id: int = 0,
         key: str = "",
@@ -133,14 +134,14 @@ class ChannelClient:
         """
         return self._sugar(self._creator.create(name=name, node_id=node_id, rate=rate, data_type=data_type, index=index, is_index=is_index))[0]
 
-    def get(self, key: str = None, name: str = None) -> Channel:
+    def retrieve(self, key: str = None, name: str = None) -> Channel:
         """Retrieves channels with the given keys.
 
         :param keys: The list of keys to retrieve channels for.
         :raises QueryError: If any of the channels can't be found.
         :returns: A list of retrieved Channels.
         """
-        return self._sugar(self._retriever.get(key, name))[0]
+        return self._sugar(self._retriever.retrieve(key, name))[0]
 
     def filter(
         self,
