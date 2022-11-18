@@ -24,13 +24,14 @@ var _ = Describe("Builder", func() {
 			Expect(coreTwo.Cluster.HostID()).To(Equal(core.NodeID(2)))
 			Expect(coreThree.Cluster.HostID()).To(Equal(core.NodeID(3)))
 
-			ch, err := coreOne.Channel.NewCreate().
-				WithName("SG_01").
-				WithDataType(telem.Float64).
-				WithRate(25 * telem.Hz).
-				WithNodeID(1).
-				Exec(ctx)
-			Expect(err).To(BeNil())
+			ch := channel.Channel{
+				Name:     "SG_01",
+				DataType: telem.Float64,
+				Rate:     25 * telem.Hz,
+				NodeID:   1,
+			}
+
+			Expect(coreOne.Channel.Create(&ch)).To(Succeed())
 			Expect(ch.Key().NodeID()).To(Equal(distribution.NodeID(1)))
 
 			Eventually(func(g Gomega) {
