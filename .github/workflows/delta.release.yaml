@@ -15,7 +15,7 @@ jobs:
         with:
           node-version: 18
       - name: Get Version
-        run: "echo "PACKAGE_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_ENV
+        run: echo "PACKAGE_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_ENV
         working-directory: ./delta
 
       - name: Create Release
