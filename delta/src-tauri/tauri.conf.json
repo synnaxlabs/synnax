@@ -53,7 +53,9 @@
     },
     "updater": {
       "active": true,
-			"endpoints": []
+			"endpoints": [],
+			"dialog": true,
+			"pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEIzNzRCODgxRjYyQ0UwRDYKUldUVzRDejJnYmgwcy90b1VFaldkYmZsN3ZBdmRQSFZmUFN4dmZYU29UdTBUUHpJYmI0Sm9ES3oK"
     },
     "windows": [
       {
