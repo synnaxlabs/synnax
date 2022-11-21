@@ -1,13 +1,13 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/schema.json",
   "build": {
-    "beforeBuildCommand": "yarn build",
+    "beforeBuildCommand": "yarn build-vite",
     "beforeDevCommand": "yarn dev-vite",
     "devPath": "http://localhost:5174",
     "distDir": "../dist"
   },
   "package": {
-    "productName": "Synnax",
+    "productName": "Synnax Delta",
     "version": "0.1.0"
   },
   "tauri": {
@@ -52,7 +52,8 @@
       "csp": null
     },
     "updater": {
-      "active": false
+      "active": true,
+			"endpoints": []
     },
     "windows": [
       {

@@ -1,12 +1,13 @@
 {
   "name": "@synnaxlabs/delta",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "tauri dev",
+		"build": "tauri build",
 		"dev-vite": "vite",
-    "build": "tsc && vite build",
+    "build-vite": "tsc && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
