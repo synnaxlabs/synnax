@@ -7,7 +7,11 @@ import { useSelectRangeFilterCore, WorkspaceStoreState } from "@/features/worksp
 import memoize from "proxy-memoize";
 import { useCallback } from "react";
 import { useSelector } from "react-redux";
-import { Visualization } from "../types";
+import {
+	LinePlotVisualization,
+	SugaredLinePlotVisualization,
+	Visualization,
+} from "../types";
 import { VisualizationStoreState } from "./slice";
 
 export const useSelectVisualizationCore = (
@@ -37,7 +41,10 @@ export const useSelectSugaredVisualization = (
 				if (!vis) return undefined;
 				switch (vis.variant) {
 					case "linePlot":
-						const ranges = useSelectRangeFilterCore(state, vis.ranges);
+						const ranges = useSelectRangeFilterCore(
+							state,
+							(vis as LinePlotVisualization).ranges
+						);
 						return {
 							...vis,
 							ranges,

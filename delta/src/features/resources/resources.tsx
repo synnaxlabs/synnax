@@ -4,6 +4,7 @@ import { AiFillDatabase } from "react-icons/ai";
 import { MdOutlineDeviceHub, MdSensors } from "react-icons/md";
 import { LayoutPlacer } from "@/features/layout";
 import { createVisualization } from "@/features/visualization";
+import { LinePlotVisualization } from "../visualization/types";
 
 export interface ResourceType {
 	type: OntologyResourceType;
@@ -35,7 +36,9 @@ export const resourceTypes = (
 		icon: <MdSensors />,
 		hasChildren: false,
 		onSelect: (id) => {
-			placer(createVisualization({ channels: [id.key], ranges: [] }));
+			placer(
+				createVisualization<LinePlotVisualization>({ channels: [id.key], ranges: [] })
+			);
 		},
 	},
 });

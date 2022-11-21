@@ -1,5 +1,5 @@
 import { Layout, useLayoutPlacer } from "@/features/layout";
-import { Space, Header, List, Text, ListItemProps } from "@synnaxlabs/pluto";
+import { Space, Header, List, Text, ListItemProps, ListEntry } from "@synnaxlabs/pluto";
 import { AiFillDatabase, AiOutlinePlus } from "react-icons/ai";
 import { useDispatch } from "react-redux";
 import { useSelectActiveCluster, useSelectClusters } from "../store";
@@ -42,7 +42,7 @@ const Content = () => {
 			</Header>
 			<List
 				selectMultiple={false}
-				data={Object.values(clusters)}
+				data={Object.values(clusters) as unknown as ListEntry[]}
 				selected={active ? [active?.key] : []}
 				onSelect={(key: string[]) => {
 					dispatch(setActiveCluster(key[0] || null));
@@ -60,7 +60,7 @@ const ListItem = ({
 	selected,
 	onSelect,
 	...props
-}: ListItemProps<Cluster>) => {
+}: ListItemProps<Omit<Cluster, "props" | "state">>) => {
 	return (
 		<Space
 			direction="horizontal"

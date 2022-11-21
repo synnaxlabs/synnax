@@ -1,15 +1,13 @@
 import clsx from "clsx";
 import React, {
 	CSSProperties,
-	ComponentType,
 	HTMLAttributes,
+	PropsWithChildren,
 	useContext,
-	FunctionComponent,
 } from "react";
 import { Space, SpaceProps } from "@/atoms";
 import { Direction, Location, Position, getDirection, swapLocation } from "@/util";
 import "./NavBar.css";
-import { Nav } from ".";
 
 export interface NavBarProps extends HTMLAttributes<HTMLDivElement> {
 	location: Location;
@@ -72,8 +70,11 @@ const CoreNavBar = ({
 	);
 };
 
-export interface NavbarContentProps extends SpaceProps {
+export interface NavbarContentProps
+	extends PropsWithChildren<HTMLAttributes<HTMLDivElement>> {
 	bordered?: boolean;
+	className?: string;
+	children: React.ReactNode;
 }
 
 const contentFactory = (pos: Position | "") => {
@@ -107,20 +108,25 @@ type CoreNavBarType = typeof CoreNavBar;
 
 const useNavBarContext = () => useContext(NavbarContext);
 
+const NavBarStart = contentFactory("start");
+const NavBarEnd = contentFactory("end");
+const NavBarCenter = contentFactory("center");
+const NavBarContent = contentFactory("");
+
 export interface NavBarType extends CoreNavBarType {
-	Start: FunctionComponent<NavbarContentProps>;
-	Center: FunctionComponent<NavbarContentProps>;
-	End: FunctionComponent<NavbarContentProps>;
-	Content: FunctionComponent<NavbarContentProps>;
+	Start: typeof NavBarStart;
+	Center: typeof NavBarCenter;
+	End: typeof NavBarEnd;
+	Content: typeof NavBarContent;
 	Context: typeof NavbarContext;
 	useContext: typeof useNavBarContext;
 }
 
 export const NavBar = CoreNavBar as NavBarType;
 
-NavBar.Start = contentFactory("start");
-NavBar.Center = contentFactory("center");
-NavBar.End = contentFactory("end");
-NavBar.Content = contentFactory("");
+NavBar.Start = NavBarStart;
+NavBar.Center = NavBarCenter;
+NavBar.End = NavBarEnd;
+NavBar.Content = NavBarContent;
 NavBar.Context = NavbarContext;
 NavBar.useContext = useNavBarContext;

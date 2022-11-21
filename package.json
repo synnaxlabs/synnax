@@ -3,6 +3,7 @@
     "scripts": {
         "build": "npx turbo build",
 				"build:pluto": "npx turbo build --filter pluto",
+				"build:delta": "npx turbo build --filter delta",
         "lint": "npx turbo lint",
 				"watch": "npx turbo watch --parallel",
         "dev:pluto": "npx turbo dev --filter pluto",

@@ -1,13 +1,11 @@
-import { Synnax, ChannelPayload } from "@synnaxlabs/client";
+import { Synnax } from "@synnaxlabs/client";
 import {
 	AutoSize,
 	LinePlot as PlutoLinePlot,
 	PlotData,
-	Select,
-	Space,
 	Theming,
 } from "@synnaxlabs/pluto";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SugaredLinePlotVisualization, Visualization } from "../../types";
 import { LinePlotControls } from "./LinePlotControls";
 import "./LinePlot.css";
@@ -19,10 +17,10 @@ export interface LinePlotProps {
 	resizeDebounce: number;
 }
 
-function usePrevious(value) {
+function usePrevious<V>(value: V) {
 	// The ref object is a generic container whose current property is mutable ...
 	// ... and can hold any value, similar to an instance property on a class
-	const ref = useRef();
+	const ref = useRef<V>();
 	// Store current value in ref
 	useEffect(() => {
 		ref.current = value;
@@ -60,7 +58,7 @@ export const LinePlot = ({
 					console.log(data);
 					nextData[key] = data;
 					if (channels.indexOf(key) === channels.length - 1) {
-						nextData["time"] = Array.from({ length: data.length }, (_, i) => i);
+						nextData["time"] = Array.from({ length: data?.length || 0 }, (_, i) => i);
 					}
 				}
 			}
