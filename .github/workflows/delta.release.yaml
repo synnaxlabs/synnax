@@ -1,6 +1,11 @@
 name: "Delta Release"
 on:
   push:
+
+env:
+  TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+  TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+
 jobs:
   create-release:
     runs-on: ubuntu-20.04
@@ -63,9 +68,7 @@ jobs:
 
       - name: Install Dependencies and Build
         run: yarn && yarn build:delta
-        env:
-          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
-          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+
 
       - uses: tauri-apps/tauri-action@v0
         env:
