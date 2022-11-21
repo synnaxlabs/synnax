@@ -1,4 +1,4 @@
-package fsutil_test
+package buffalo_test
 
 import (
 	"testing"
@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestFsutil(t *testing.T) {
+func TestBuffalo(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Fsutil Suite")
+	RunSpecs(t, "Buffalo Suite")
 }

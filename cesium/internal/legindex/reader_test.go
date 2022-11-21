@@ -1,4 +1,4 @@
-package index_test
+package legindex_test
 
 import (
 	"bytes"
@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/core"
-	"github.com/synnaxlabs/cesium/internal/index"
+	"github.com/synnaxlabs/cesium/internal/legindex"
 	"github.com/synnaxlabs/cesium/internal/kv"
 	"github.com/synnaxlabs/cesium/internal/position"
 	"github.com/synnaxlabs/cesium/internal/storage"
@@ -49,11 +49,11 @@ func (i indexWriter) write(
 
 var _ = Describe("Reader", Ordered, func() {
 	var (
-		newR  func() *index.Reader
+		newR  func() *legindex.Reader
 		i     indexWriter
 		db    *kv.DB
 		store *storage.Storage
-		r     *index.Reader
+		r     *legindex.Reader
 	)
 	BeforeAll(func() {
 		_kfs := lo.Must(kfs.New[core.FileKey]("", kfs.WithFS(kfs.NewMem())))
@@ -69,8 +69,8 @@ var _ = Describe("Reader", Ordered, func() {
 			Density: telem.TimeStampDensity,
 		}
 		Expect(db.SetChannel(ch)).To(Succeed())
-		newR = func() *index.Reader {
-			r = &index.Reader{
+		newR = func() *legindex.Reader {
+			r = &legindex.Reader{
 				Reader: store.NewReader(),
 				Iter:   db.NewIterator(ch),
 			}

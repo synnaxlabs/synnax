@@ -70,7 +70,7 @@ func (i *positionIterator) SetBounds(rng position.Range) {
 		zap.Binary("kvEnd", end),
 	)
 
-	// SeekLT to the first segment that starts BEFORE the start of the range. If the
+	// SeekLE to the first segment that starts BEFORE the start of the range. If the
 	// segment range overlaps with our desired range, we'll use it as the starting
 	// point for the iterator. Otherwise, we'll seek to the first segment that starts
 	// after the start of the range. If this overlaps with our desired range,

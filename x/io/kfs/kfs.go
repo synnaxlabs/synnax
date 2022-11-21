@@ -38,7 +38,7 @@ type FS[T comparable] interface {
 
 // File is a file in the FS. It implements:
 //
-//	io.ReaderAt
+//	fs.ReaderAtFS
 //	io.ReadWriteCloser
 //	io.Seeker
 type File[T comparable] interface {

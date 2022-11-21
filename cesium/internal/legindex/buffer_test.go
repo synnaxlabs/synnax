@@ -1,9 +1,9 @@
-package index_test
+package legindex_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/cesium/internal/index"
+	"github.com/synnaxlabs/cesium/internal/legindex"
 	"github.com/synnaxlabs/cesium/internal/position"
 	"github.com/synnaxlabs/x/array"
 	. "github.com/synnaxlabs/x/testutil"
@@ -12,8 +12,8 @@ import (
 var _ = Describe("ThresholdBuffer", func() {
 	Describe("Add and Search", func() {
 		It("Should correctly write and search for a position in a set of alignments", func() {
-			buf := index.ThresholdBuffer{}
-			Expect(buf.Add([]index.Alignment{
+			buf := legindex.ThresholdBuffer{}
+			Expect(buf.Add([]legindex.Alignment{
 				{
 					Pos:   1,
 					Stamp: 1,
@@ -27,7 +27,7 @@ var _ = Describe("ThresholdBuffer", func() {
 					Stamp: 5,
 				},
 			})).To(Succeed())
-			Expect(buf.Add([]index.Alignment{
+			Expect(buf.Add([]legindex.Alignment{
 				{
 					Pos:   4,
 					Stamp: 7,
@@ -45,13 +45,13 @@ var _ = Describe("ThresholdBuffer", func() {
 	})
 	Describe("WriteToBelowThreshold", func() {
 		It("Should flush any unneeded array chunks to the wrapped index", func() {
-			underlying := &index.BinarySearch{
-				Array: array.Searchable[index.Alignment]{
-					Array: array.NewRolling[index.Alignment](10),
+			underlying := &legindex.BinarySearch{
+				Array: array.Searchable[legindex.Alignment]{
+					Array: array.NewRolling[legindex.Alignment](10),
 				},
 			}
-			buf := index.ThresholdBuffer{}
-			Expect(buf.Add([]index.Alignment{
+			buf := legindex.ThresholdBuffer{}
+			Expect(buf.Add([]legindex.Alignment{
 				{
 					Pos:   1,
 					Stamp: 1,
@@ -65,7 +65,7 @@ var _ = Describe("ThresholdBuffer", func() {
 					Stamp: 5,
 				},
 			})).To(Succeed())
-			Expect(buf.Add([]index.Alignment{
+			Expect(buf.Add([]legindex.Alignment{
 				{
 					Pos:   4,
 					Stamp: 7,

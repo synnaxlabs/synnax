@@ -1,15 +1,15 @@
-package index_test
+package legindex_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/cesium/internal/index"
+	"github.com/synnaxlabs/cesium/internal/legindex"
 	"github.com/synnaxlabs/cesium/internal/position"
 	"github.com/synnaxlabs/x/telem"
 )
 
 var _ = Describe("BinarySearch", func() {
-	var bsi *index.BinarySearch
+	var bsi *legindex.BinarySearch
 	Context("Empty", func() {
 		BeforeEach(func() {
 			bsi = newRollingBinarySearchIndex(0)
@@ -28,7 +28,7 @@ var _ = Describe("BinarySearch", func() {
 	Context("Exact Match", func() {
 		BeforeEach(func() {
 			bsi = newRollingBinarySearchIndex(10)
-			Expect(bsi.Write([]index.Alignment{{0, 0}, {2, 4}, {6, 8}})).To(Succeed())
+			Expect(bsi.Write([]legindex.Alignment{{0, 0}, {2, 4}, {6, 8}})).To(Succeed())
 		})
 		Describe("SearchP", func() {
 			It("Should return a completely certain approximation", func() {
@@ -46,7 +46,7 @@ var _ = Describe("BinarySearch", func() {
 	Context("Inexact Match", func() {
 		BeforeEach(func() {
 			bsi = newRollingBinarySearchIndex(10)
-			Expect(bsi.Write([]index.Alignment{{0, 0}, {2, 4}, {6, 8}})).To(Succeed())
+			Expect(bsi.Write([]legindex.Alignment{{0, 0}, {2, 4}, {6, 8}})).To(Succeed())
 		})
 		Describe("SearchP", func() {
 			It("Should return the correct approximation", func() {
@@ -64,7 +64,7 @@ var _ = Describe("BinarySearch", func() {
 	Context("Before Start", func() {
 		BeforeEach(func() {
 			bsi = newRollingBinarySearchIndex(10)
-			Expect(bsi.Write([]index.Alignment{{2, 4}, {6, 8}, {10, 12}})).To(Succeed())
+			Expect(bsi.Write([]legindex.Alignment{{2, 4}, {6, 8}, {10, 12}})).To(Succeed())
 		})
 		Describe("SearchP", func() {
 			It("Should return the correct approximation", func() {
@@ -80,7 +80,7 @@ var _ = Describe("BinarySearch", func() {
 	Context("After End", func() {
 		BeforeEach(func() {
 			bsi = newRollingBinarySearchIndex(10)
-			Expect(bsi.Write([]index.Alignment{{2, 4}, {6, 8}, {10, 12}})).To(Succeed())
+			Expect(bsi.Write([]legindex.Alignment{{2, 4}, {6, 8}, {10, 12}})).To(Succeed())
 		})
 		Describe("SearchP", func() {
 			It("Should return the correct approximation", func() {

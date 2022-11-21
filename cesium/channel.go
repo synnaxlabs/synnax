@@ -3,7 +3,7 @@ package cesium
 import (
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/cesium/internal/index"
+	"github.com/synnaxlabs/cesium/internal/legindex"
 	"github.com/synnaxlabs/x/array"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -67,7 +67,7 @@ func (d *db) validateChannel(ch *Channel) error {
 
 func (d *db) applyChannelDefaults(ch *Channel) error {
 	if ch.Index != 0 || ch.IsIndex {
-		ch.Rate = index.IrregularRate
+		ch.Rate = legindex.IrregularRate
 	}
 	if ch.Key == 0 {
 		key, err := d.channels.NextChannelKey()
@@ -133,10 +133,10 @@ func (d *db) maybeCreateNewIndexes(ch *Channel) error {
 	if !ch.IsIndex {
 		return nil
 	}
-	i1 := &index.BinarySearch{
+	i1 := &legindex.BinarySearch{
 		Every: 100,
-		Array: array.Searchable[index.Alignment]{
-			Array: array.NewRolling[index.Alignment](10000),
+		Array: array.Searchable[legindex.Alignment]{
+			Array: array.NewRolling[legindex.Alignment](10000),
 		},
 		ChannelKey: ch.Key,
 	}

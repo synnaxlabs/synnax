@@ -5,7 +5,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/allocate"
 	"github.com/synnaxlabs/cesium/internal/cache"
 	"github.com/synnaxlabs/cesium/internal/core"
-	"github.com/synnaxlabs/cesium/internal/index"
+	"github.com/synnaxlabs/cesium/internal/legindex"
 	"github.com/synnaxlabs/cesium/internal/kv"
 	"github.com/synnaxlabs/cesium/internal/storage"
 	"github.com/synnaxlabs/x/kfs"
@@ -65,7 +65,7 @@ func Open(dirname string, opts ...Option) (DB, error) {
 
 	idx := &indexRegistry{
 		channels: channelCache,
-		indexes:  make(map[ChannelKey]index.Index),
+		indexes:  make(map[ChannelKey]legindex.Index),
 		storage:  store,
 		kvDB:     kvDB,
 	}

@@ -3,7 +3,7 @@ package cesium
 import (
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/cesium/internal/core"
-	"github.com/synnaxlabs/cesium/internal/index"
+	"github.com/synnaxlabs/cesium/internal/legindex"
 	"github.com/synnaxlabs/cesium/internal/position"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
@@ -17,7 +17,7 @@ var (
 // and returns the aligned indexes. In some cases, the processed segments may
 // be split into multiple segments and may be used to update the index.
 type indexProcessor interface {
-	index.Keyed
+	legindex.Keyed
 	process(segment []core.SugaredSegment) ([]core.SugaredSegment, error)
 	highWaterMark() position.Position
 }
@@ -31,10 +31,10 @@ var (
 type rateIndexProcessor struct {
 	ch       Channel
 	hwm      position.Position
-	searcher index.Searcher
+	searcher legindex.Searcher
 }
 
-// Key implements the index.Keyed interface.
+// Key implements the legindex.Keyed interface.
 func (s *rateIndexProcessor) Key() ChannelKey { return s.searcher.Key() }
 
 // highWaterMark implements the indexProcessor interface.
@@ -61,11 +61,11 @@ func (s *rateIndexProcessor) process(segments []core.SugaredSegment) ([]core.Sug
 type indexedIndexProcessor struct {
 	ch       Channel
 	hwm      position.Position
-	searcher index.Searcher
+	searcher legindex.Searcher
 	batch    core.MDBatch
 }
 
-// Key implements the index.Keyed interface.
+// Key implements the legindex.Keyed interface.
 func (s *indexedIndexProcessor) Key() ChannelKey { return s.searcher.Key() }
 
 // highWaterMark implements the indexProcessor interface.
@@ -119,8 +119,8 @@ func (s *indexedIndexProcessor) maybeUpdateHwm(seg core.SugaredSegment) {
 
 type indexIndexProcessor struct {
 	channel  Channel
-	searcher index.Searcher
-	writer   index.Writer
+	searcher legindex.Searcher
+	writer   legindex.Writer
 	hwm      position.Position
 }
 
@@ -140,7 +140,7 @@ func (p *indexIndexProcessor) process(segments []core.SugaredSegment) ([]core.Su
 			return nil, ErrSegmentOverlap
 		}
 		seg.Alignment = alignment.Start
-		alignments, err := index.DecodeAlignments([]core.SugaredSegment{seg})
+		alignments, err := legindex.DecodeAlignments([]core.SugaredSegment{seg})
 		if seg.Start != alignments[0].Stamp {
 			return nil, errors.Wrapf(
 				validate.Error,

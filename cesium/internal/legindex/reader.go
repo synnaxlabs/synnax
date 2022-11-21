@@ -1,4 +1,4 @@
-package index
+package legindex
 
 import (
 	"encoding/binary"

@@ -2,7 +2,7 @@ package cesium
 
 import (
 	"github.com/synnaxlabs/cesium/internal/core"
-	"github.com/synnaxlabs/cesium/internal/index"
+	"github.com/synnaxlabs/cesium/internal/legindex"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -37,7 +37,7 @@ func (d *db) buildPositionIters(channels []Channel) map[Channel]core.PositionIte
 }
 
 type searchPosIterPair struct {
-	idx  index.Searcher
+	idx  legindex.Searcher
 	iter core.PositionIterator
 }
 
@@ -63,7 +63,7 @@ func (d *db) combinePositionIteratorsByIndex(
 func (d *db) buildTimeIterators(posIters []searchPosIterPair) []core.TimeIterator {
 	iters := make([]core.TimeIterator, 0, len(posIters))
 	for _, pair := range posIters {
-		iters = append(iters, index.WrapPositionIter(pair.iter, pair.idx, d.logger))
+		iters = append(iters, legindex.WrapPositionIter(pair.iter, pair.idx, d.logger))
 	}
 	return iters
 }

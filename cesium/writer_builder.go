@@ -1,7 +1,7 @@
 package cesium
 
 import (
-	"github.com/synnaxlabs/cesium/internal/index"
+	"github.com/synnaxlabs/cesium/internal/legindex"
 )
 
 func (d *db) newStreamWriter(keys []ChannelKey) (StreamWriter, error) {
@@ -25,7 +25,7 @@ func (d *db) newStreamWriter(keys []ChannelKey) (StreamWriter, error) {
 		idxProcessors: make(map[ChannelKey]indexProcessor, len(channels)),
 	}
 
-	batchIndexes := make(map[ChannelKey]*index.Batch)
+	batchIndexes := make(map[ChannelKey]*legindex.Batch)
 	for _, ch := range channels {
 		if ch.IsIndex {
 			batchIndexes[ch.Key], err = d.indexes.wrapMDBatch(ch.Key, mdBatch)
@@ -37,7 +37,7 @@ func (d *db) newStreamWriter(keys []ChannelKey) (StreamWriter, error) {
 				hwm:      0,
 				channel:  ch,
 				writer:   batchIndexes[ch.Key],
-				searcher: index.RateSearcher(ch.Rate),
+				searcher: legindex.RateSearcher(ch.Rate),
 			}
 		}
 	}
@@ -45,7 +45,7 @@ func (d *db) newStreamWriter(keys []ChannelKey) (StreamWriter, error) {
 	for _, ch := range channels {
 		if ch.Index != 0 {
 			var (
-				searcher index.Searcher
+				searcher legindex.Searcher
 				ok       bool
 			)
 			searcher, ok = batchIndexes[ch.Index]
@@ -63,7 +63,7 @@ func (d *db) newStreamWriter(keys []ChannelKey) (StreamWriter, error) {
 				batch:    mdBatch,
 			}
 		} else if !ch.IsIndex {
-			idx := index.RateSearcher(ch.Rate)
+			idx := legindex.RateSearcher(ch.Rate)
 			w.idxReleasers = append(w.idxReleasers, idx)
 			w.idxProcessors[ch.Key] = &rateIndexProcessor{
 				hwm:      0,

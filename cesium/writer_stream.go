@@ -5,7 +5,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/cesium/internal/allocate"
 	"github.com/synnaxlabs/cesium/internal/core"
-	"github.com/synnaxlabs/cesium/internal/index"
+	"github.com/synnaxlabs/cesium/internal/legindex"
 	"github.com/synnaxlabs/cesium/internal/position"
 	"github.com/synnaxlabs/cesium/internal/storage"
 	"github.com/synnaxlabs/x/confluence"
@@ -77,8 +77,8 @@ type streamWriter struct {
 	confluence.UnarySink[WriteRequest]
 	confluence.AbstractUnarySource[WriteResponse]
 	idxProcessors map[ChannelKey]indexProcessor
-	batches       []*index.Batch
-	idxReleasers  []index.Releaser
+	batches       []*legindex.Batch
+	idxReleasers  []legindex.Releaser
 	lockReleaser  lock.Releaser
 	alloc         allocate.Allocator[ChannelKey, core.FileKey]
 	storageWriter storage.Writer

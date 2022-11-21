@@ -1,12 +1,12 @@
 package cesium
 
 import (
-	"github.com/synnaxlabs/cesium/internal/index"
+	"github.com/synnaxlabs/cesium/internal/legindex"
 	"github.com/synnaxlabs/x/telem"
 )
 
 type searcherChannels struct {
-	idx      index.Searcher
+	idx      legindex.Searcher
 	channels []Channel
 }
 
@@ -34,7 +34,7 @@ func (d *db) groupChannelsByIndexSearcher(channels []Channel) ([]searcherChannel
 	// instantiate a new rate idx for each rate
 	for rate, chs := range rateChannels {
 		indexes = append(indexes, searcherChannels{
-			idx:      index.RateSearcher(rate),
+			idx:      legindex.RateSearcher(rate),
 			channels: chs,
 		})
 	}

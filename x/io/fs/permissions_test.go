@@ -1,4 +1,4 @@
-package fsutil_test
+package fs_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"

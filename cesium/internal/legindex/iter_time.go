@@ -1,4 +1,4 @@
-package index
+package legindex
 
 import (
 	"github.com/cockroachdb/errors"

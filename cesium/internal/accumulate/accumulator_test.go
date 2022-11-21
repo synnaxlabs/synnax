@@ -11,7 +11,7 @@ import (
 
 var _ = Describe("Accumulator", func() {
 	Context("Single Segment", func() {
-		Context("Within Bounds", func() {
+		Context("Within bounds", func() {
 			It("Should accumulate the segment correctly", func() {
 				a := &accumulate.Accumulator{Density: 1, Bounds: position.Range{End: 100}}
 				Expect(a.Accumulate(core.SegmentMD{
@@ -27,7 +27,7 @@ var _ = Describe("Accumulator", func() {
 				Expect(a.PartiallySatisfied()).To(BeTrue())
 			})
 		})
-		Context("After Bounds", func() {
+		Context("After bounds", func() {
 			It("Should not accumulate the segment", func() {
 				a := &accumulate.Accumulator{Density: 1, Bounds: position.Range{Start: 100, End: 200}}
 				Expect(a.Accumulate(core.SegmentMD{
@@ -40,7 +40,7 @@ var _ = Describe("Accumulator", func() {
 				Expect(a.PartiallySatisfied()).To(BeFalse())
 			})
 		})
-		Context("Overlaps with Beginning of Bounds", func() {
+		Context("Overlaps with Beginning of bounds", func() {
 			It("Should accumulate the segment correctly", func() {
 				a := &accumulate.Accumulator{Density: 1, Bounds: position.Range{Start: 50, End: 200}}
 				Expect(a.Accumulate(core.SegmentMD{
@@ -56,7 +56,7 @@ var _ = Describe("Accumulator", func() {
 				Expect(a.PartiallySatisfied()).To(BeTrue())
 			})
 		})
-		Context("Overlaps with End of Bounds", func() {
+		Context("Overlaps with End of bounds", func() {
 			It("Should accumulate the segment correctly", func() {
 				a := &accumulate.Accumulator{Density: 1, Bounds: position.Range{Start: 0, End: 50}}
 				Expect(a.Accumulate(core.SegmentMD{
