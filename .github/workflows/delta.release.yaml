@@ -1,5 +1,6 @@
 name: "Delta Release"
-on: pull_request
+on:
+  pull_request:
 jobs:
   create-release:
     runs-on: ubuntu-20.04
