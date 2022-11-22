@@ -42,28 +42,18 @@ func (it *Iterator) SeekLast() bool { return it.SeekLE(it.bounds.End) }
 // exists, SeekLE seeks to the closes range whose ending timestamp is less than the provided
 // timestamp. If no such range exists, SeekLE returns false.
 func (it *Iterator) SeekLE(stamp telem.TimeStamp) bool {
-	return it.seek(func() (int, *pointer, bool) {
-		i, ptr := it.idx.searchLE(stamp)
-		return i, &ptr, i != -1 && ptr.bounds.OverlapsWith(it.bounds)
-	})
+	it.valid = true
+	it.position = it.idx.searchLE(stamp)
+	return it.reload()
 }
 
 // SeekGE seeks to the range whose Range contain the provided timestamp. If no such range
 // exists, SeekGE seeks to the closes range whose starting timestamp is greater than the
 // provided timestamp. If no such range exists, SeekGE returns false.
 func (it *Iterator) SeekGE(stamp telem.TimeStamp) bool {
-	return it.seek(func() (int, *pointer, bool) {
-		i, ptr := it.idx.searchGE(stamp)
-		return i, &ptr, i != -1 && ptr.bounds.OverlapsWith(it.bounds)
-	})
-}
-
-func (it *Iterator) seek(f func() (int, *pointer, bool)) bool {
-	i, ptr, valid := f()
-	it.valid = valid
-	it.position = i
-	it._value = ptr
-	return it.valid
+	it.valid = true
+	it.position = it.idx.searchGE(stamp)
+	return it.reload()
 }
 
 // Next advances the iterator to the next range. If the iterator has been exhausted, Next
@@ -73,12 +63,7 @@ func (it *Iterator) Next() bool {
 		return false
 	}
 	it.position++
-	ptr, ok := it.idx.get(it.position)
-	if !ok || !ptr.bounds.OverlapsWith(it.bounds) {
-		it.valid = false
-	}
-	it._value = &ptr
-	return it.valid
+	return it.reload()
 }
 
 // Prev advances the iterator to the previous range. If the iterator has been exhausted,
@@ -88,12 +73,7 @@ func (it *Iterator) Prev() bool {
 		return false
 	}
 	it.position--
-	ptr, ok := it.idx.get(it.position)
-	if !ok || !ptr.bounds.OverlapsWith(it.bounds) {
-		it.valid = false
-	}
-	it._value = &ptr
-	return it.valid
+	return it.reload()
 }
 
 // Valid returns true if the iterator is currently pointing to a valid range and has
@@ -101,14 +81,27 @@ func (it *Iterator) Prev() bool {
 func (it *Iterator) Valid() bool { return it.valid }
 
 // Range returns the time interval occupied by current range.
-func (it *Iterator) Range() telem.TimeRange { return it._value.bounds }
+func (it *Iterator) Range() telem.TimeRange { return it._value.TimeRange }
 
-// NewReader returns a new Reader that can be used to read telemetry ranges from the current
+// NewReader returns a new Reader that can be used to read telemetry from the current
 // range. The returned Reader is not safe for concurrent use, but it is safe to have
 // multiple Readers open over the same range.
 func (it *Iterator) NewReader() (*Reader, error) {
 	if !it.Valid() {
-		panic("cannot open a reader on an invalidated iterator")
+		panic("[ranger] - cannot open a reader on an invalidated iterator")
 	}
 	return it.readerFactory(it._value)
+}
+
+func (it *Iterator) reload() bool {
+	if it.position == -1 {
+		it.valid = false
+		return it.valid
+	}
+	ptr, ok := it.idx.get(it.position)
+	if !ok || !ptr.OverlapsWith(it.bounds) {
+		it.valid = false
+	}
+	it._value = &ptr
+	return it.valid
 }

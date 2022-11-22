@@ -2,6 +2,7 @@ package ranger
 
 import (
 	"github.com/cockroachdb/errors"
+	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -27,21 +28,21 @@ type WriterConfig struct {
 // the ending bound of the range. If the WriterConfig.End parameter is set, Commit will
 // ignore the provided timestamp and use the WriterConfig.End parameter instead.
 type Writer struct {
-	*WriterConfig
+	cfg        WriterConfig
 	prevCommit telem.TimeStamp
 	idx        *index
-	wrapped    OffsetWriteCloser
-	length     uint32
+	fileKey    uint16
+	wrapped    xio.OffsetWriteCloser
 }
 
-func (w *Writer) Len() int64 { return int64(w.length) }
+func (w *Writer) Len() int64 { return w.wrapped.Len() }
 
 // Writer writes binary telemetry to the range. Write is not safe to call concurrently
 // with any other Writer methods. The contents of p are safe to modify after Write
 // returns.
 func (w *Writer) Write(p []byte) (n int, err error) { return w.wrapped.Write(p) }
 
-// Commit commits the range to the DB, making it available for reading by other processes.
+// Commit commits the range to the DB, making it tryAcquire for reading by other processes.
 // If the WriterConfig.End parameter was set, Commit will ignore the provided timestamp
 // and use the WriterConfig.End parameter instead. If the WriterConfig.End parameter was
 // not set, Commit will validate that the provided timestamp is strictly greater than the
@@ -50,18 +51,17 @@ func (w *Writer) Write(p []byte) (n int, err error) { return w.wrapped.Write(p) 
 // and the provided timestamp overlaps with any other ranges within the DB, Commit will
 // return an error.
 func (w *Writer) Commit(end telem.TimeStamp) error {
-	if !w.End.IsZero() {
-		end = w.End
+	if !w.cfg.End.IsZero() {
+		end = w.cfg.End
 	}
 	if err := w.validateCommitRange(end); err != nil {
 		return err
 	}
-	tr := telem.TimeRange{Start: w.Start, End: end}
 	ptr := pointer{
-		bounds:  tr,
-		offset:  uint32(w.wrapped.Offset()),
-		length:  uint32(w.wrapped.Length()),
-		fileKey: w.wrapped.FileKey(),
+		TimeRange: telem.TimeRange{Start: w.cfg.Start, End: end},
+		offset:    uint32(w.wrapped.Offset()),
+		length:    uint32(w.wrapped.Len()),
+		fileKey:   w.fileKey,
 	}
 	if w.prevCommit.IsZero() {
 		return w.idx.insert(ptr)
@@ -78,7 +78,7 @@ func (w *Writer) validateCommitRange(end telem.TimeStamp) error {
 	if !w.prevCommit.IsZero() && end.Before(w.prevCommit) {
 		return errors.New("commit timestamp must be strictly greater than the previous commit")
 	}
-	if !w.Start.Before(end) {
+	if !w.cfg.Start.Before(end) {
 		return errors.New("commit timestamp must be strictly greater than the starting timestamp")
 	}
 	return nil

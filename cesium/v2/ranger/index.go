@@ -1,7 +1,7 @@
 package ranger
 
 import (
-	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/telem"
 	"sync"
 )
@@ -11,154 +11,141 @@ type index struct {
 		sync.RWMutex
 		pointers []pointer
 	}
-	persist *indexPersist
+	observer observe.Observer[indexUpdate]
 }
 
-func openIndex(fs xfs.FS) (*index, error) {
-	persist, err := openIndexPersist(fs)
-	if err != nil {
-		return nil, err
-	}
-	pointers, err := persist.load()
-	if err != nil {
-		return nil, err
-	}
-	idx := &index{persist: persist}
-	idx.mu.pointers = pointers
-	return idx, nil
+type indexUpdate struct {
+	afterIndex int
 }
+
+var _ observe.Observable[indexUpdate] = (*index)(nil)
+
+// OnChange implements the Observable interface.
+func (idx *index) OnChange(f func(update indexUpdate)) { idx.observer.OnChange(f) }
 
 // insert adds a new pointer to the index.
 func (idx *index) insert(p pointer) error {
-	idx.mu.Lock()
-	defer idx.mu.Unlock()
-
-	if len(idx.mu.pointers) == 0 {
-		idx.mu.pointers = append(idx.mu.pointers, p)
-		return idx.persist.persist(0, idx.mu.pointers)
-	}
-
-	if p.bounds.Start.After(idx.mu.pointers[len(idx.mu.pointers)-1].bounds.End) {
-		idx.mu.pointers = append(idx.mu.pointers, p)
-		return idx.persist.persist(len(idx.mu.pointers)-1, idx.mu.pointers)
-	}
-
-	if p.bounds.Start.Before(idx.mu.pointers[0].bounds.Start) {
-		idx.mu.pointers = append([]pointer{p}, idx.mu.pointers...)
-		return idx.persist.persist(0, idx.mu.pointers)
-	}
-
-	start, end := 0, len(idx.mu.pointers)-1
-	for start <= end {
-		mid := (start + end) / 2
-		ptr := idx.mu.pointers[mid]
-		if ptr.bounds.OverlapsWith(p.bounds) {
-			return ErrRangeOverlap
-		}
-		if p.bounds.Start.Before(ptr.bounds.Start) {
-			end = mid - 1
-		} else {
-			start = mid + 1
+	idx.mu.RLock()
+	insertAt := 0
+	if len(idx.mu.pointers) != 0 {
+		// Hot path optimization for appending to the end of the index.
+		if idx.afterLast(p.Start) {
+			insertAt = len(idx.mu.pointers)
+		} else if !idx.beforeFirst(p.Start) {
+			i, overlap := idx.unprotectedSearch(p.TimeRange)
+			if overlap {
+				return ErrRangeOverlap
+			}
+			insertAt = i
 		}
 	}
-	idx.mu.pointers = append(idx.mu.pointers[:end+1], idx.mu.pointers[end:]...)
-	idx.mu.pointers[end] = p
-	return idx.persist.persist(end, idx.mu.pointers)
+	idx.mu.RUnlock()
+	idx.insertAt(insertAt, p)
+	return nil
 }
 
 // update the pointer with the same start timestamp as p.
 func (idx *index) update(p pointer) error {
-	idx.mu.Lock()
-	defer idx.mu.Unlock()
-
+	idx.mu.RLock()
 	if len(idx.mu.pointers) == 0 {
 		return RangeNotFound
 	}
-
 	lastI := len(idx.mu.pointers) - 1
-
-	if p.bounds.Start == idx.mu.pointers[lastI].bounds.Start {
-		return idx.updateAt(len(idx.mu.pointers)-1, p)
+	updateAt := lastI
+	if p.Start != idx.mu.pointers[lastI].Start {
+		updateAt, _ = idx.unprotectedSearch(p.Start.SpanRange(0))
 	}
+	idx.mu.RUnlock()
+	return idx.updateAt(updateAt, p)
+}
 
-	start, end := 0, len(idx.mu.pointers)-1
-	for start <= end {
-		mid := (start + end) / 2
-		ptr := idx.mu.pointers[mid]
-		if ptr.bounds.Start == p.bounds.Start {
-			return idx.updateAt(mid, p)
-		}
-		if p.bounds.Start.Before(ptr.bounds.Start) {
-			end = mid - 1
+func (idx *index) afterLast(ts telem.TimeStamp) bool {
+	return ts.After(idx.mu.pointers[len(idx.mu.pointers)-1].End)
+}
+
+func (idx *index) beforeFirst(ts telem.TimeStamp) bool {
+	return ts.Before(idx.mu.pointers[0].Start)
+}
+
+func (idx *index) insertAt(i int, p pointer) {
+	idx.modifyAfter(i, func() {
+		if i == 0 {
+			idx.mu.pointers = append([]pointer{p}, idx.mu.pointers...)
+		} else if i == len(idx.mu.pointers) {
+			idx.mu.pointers = append(idx.mu.pointers, p)
 		} else {
-			start = mid + 1
+			idx.mu.pointers = append(idx.mu.pointers[:i], append([]pointer{p}, idx.mu.pointers[i:]...)...)
 		}
-	}
-	return RangeNotFound
+	})
 }
 
-func (idx *index) updateAt(i int, p pointer) error {
-	if i != len(idx.mu.pointers)-1 {
-		fut := idx.mu.pointers[i+1]
-		if fut.bounds.OverlapsWith(p.bounds) {
-			return ErrRangeOverlap
+func (idx *index) updateAt(i int, p pointer) (err error) {
+	idx.modifyAfter(i, func() {
+		oldP := idx.mu.pointers[i]
+		if oldP.Start != p.Start {
+			err = RangeNotFound
+		} else if i != len(idx.mu.pointers)-1 && idx.mu.pointers[i+1].OverlapsWith(p.TimeRange) ||
+			i != 0 && idx.mu.pointers[i-1].OverlapsWith(p.TimeRange) {
+			err = ErrRangeOverlap
+		} else {
+			idx.mu.pointers[i] = p
 		}
-	}
-	if i != 0 {
-		past := idx.mu.pointers[i-1]
-		if past.bounds.OverlapsWith(p.bounds) {
-			return ErrRangeOverlap
+	})
+	return
+}
+
+func (idx *index) modifyAfter(i int, f func()) {
+	update := indexUpdate{afterIndex: i}
+	defer func() {
+		idx.observer.Notify(update)
+	}()
+	idx.mu.Lock()
+	defer idx.mu.Unlock()
+	f()
+}
+
+func (idx *index) searchLE(ts telem.TimeStamp) (i int) {
+	idx.read(func() {
+		var exact bool
+		i, exact = idx.unprotectedSearch(ts.SpanRange(0))
+		// If the result isn't exact and we're at the earliest position in the index,
+		// it means our timestamp is before the earliest pointer in the index.
+		if !exact && i == 0 {
+			i = -1
 		}
-	}
-	idx.mu.pointers[i] = p
-	return idx.persist.persist(i, idx.mu.pointers)
+	})
+	return
 }
 
-func (idx *index) searchLE(ts telem.TimeStamp) (int, pointer) {
-	i, exact := idx.search(ts)
-	if exact {
-		return i, idx.mu.pointers[i]
-	}
-	if i == 0 {
-		return -1, pointer{}
-	}
-	return i - 1, idx.mu.pointers[i-1]
+func (idx *index) searchGE(ts telem.TimeStamp) (i int) {
+	idx.read(func() {
+		var exact bool
+		i, exact = idx.unprotectedSearch(ts.SpanRange(0))
+		if !exact && i == len(idx.mu.pointers) {
+			i = -1
+		}
+	})
+	return
 }
 
-func (idx *index) searchGE(ts telem.TimeStamp) (int, pointer) {
-	i, _ := idx.search(ts)
-	if i == len(idx.mu.pointers) {
-		return -1, pointer{}
-	}
-	return i, idx.mu.pointers[i]
-}
-
-// searchGE searches for the first pointer whose bounds overlap with the given timestamp.
-// If no such pointer exists, returns the insertion index of the pointer that would be
-// inserted if the timestamp were to be inserted.
-func (idx *index) search(ts telem.TimeStamp) (int, bool) {
-	idx.mu.RLock()
-	defer idx.mu.RUnlock()
+func (idx *index) unprotectedSearch(tr telem.TimeRange) (int, bool) {
 	if len(idx.mu.pointers) == 0 {
 		return -1, false
 	}
-	start, end := 0, len(idx.mu.pointers)
+	start, end := 0, len(idx.mu.pointers)-1
 	for start < end {
 		mid := (start + end) / 2
 		ptr := idx.mu.pointers[mid]
-		if ptr.bounds.ContainsStamp(ts) {
+		if ptr.OverlapsWith(tr) {
 			return mid, true
 		}
-		if ts.Before(ptr.bounds.Start) {
+		if tr.Start.Before(ptr.Start) {
 			end = mid - 1
 		} else {
 			start = mid + 1
 		}
 	}
-	if end == len(idx.mu.pointers) {
-		return end, false
-	}
-	return end, idx.mu.pointers[end].bounds.ContainsStamp(ts)
+	return end, false
 }
 
 func (idx *index) get(i int) (pointer, bool) {
@@ -168,4 +155,10 @@ func (idx *index) get(i int) (pointer, bool) {
 		return pointer{}, false
 	}
 	return idx.mu.pointers[i], true
+}
+
+func (idx *index) read(f func()) {
+	idx.mu.RLock()
+	defer idx.mu.RUnlock()
+	f()
 }

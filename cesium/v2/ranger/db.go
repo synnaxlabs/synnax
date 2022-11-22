@@ -2,10 +2,15 @@ package ranger
 
 import (
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
 	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
 )
 
 var (
@@ -17,16 +22,61 @@ var (
 
 // DB provides a persistent, concurrent store for reading and writing ranges of telemetry.
 type DB struct {
-	idx *index
-	fs  *fs
+	idx       *index
+	dataFiles *fileController
 }
 
-func Open(fs xfs.FS) (*DB, error) {
-	idx, err := openIndex(fs)
+type Config struct {
+	FS             xfs.FS
+	FileSize       telem.Size
+	MaxDescriptors int
+	Logger         *zap.Logger
+}
+
+func (c Config) Validate() error {
+	v := validate.New("ranger")
+	validate.Positive(v, "fileSize", c.FileSize)
+	validate.Positive(v, "maxDescriptors", c.MaxDescriptors)
+	validate.NotNil(v, "fs", c.FS)
+	return v.Error()
+}
+
+func (c Config) Override(other Config) Config {
+	c.MaxDescriptors = override.Numeric(c.MaxDescriptors, other.MaxDescriptors)
+	c.FileSize = override.Numeric(c.FileSize, other.FileSize)
+	c.FS = override.Nil(c.FS, other.FS)
+	return c
+}
+
+var DefaultConfig = Config{
+	FileSize:       1 * telem.Gigabyte,
+	MaxDescriptors: 100,
+}
+
+var _ config.Config[Config] = Config{}
+
+func Open(configs ...Config) (*DB, error) {
+	cfg, err := config.OverrideAndValidate(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
-	return &DB{idx: idx, fs: newFS(fs)}, nil
+	idx := &index{
+		observer: observe.New[indexUpdate](),
+	}
+	idxPst, err := openIndexPersist(idx, cfg)
+	if err != nil {
+		return nil, err
+	}
+	idx.mu.pointers, err = idxPst.load()
+	if err != nil {
+		return nil, err
+	}
+	controller, err := openFileController(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return &DB{idx: idx, dataFiles: controller}, nil
 }
 
 // NewIterator opens a new invalidated Iterator using the given options.
@@ -38,22 +88,24 @@ func (db *DB) NewIterator(opts *IteratorConfig) *Iterator {
 }
 
 // NewWriter opens a new Writer using the given configuration.
-func (db *DB) NewWriter(cfg *WriterConfig) (*Writer, error) {
-	wrapped, err := db.fs.newOffsetWriteCloser()
+func (db *DB) NewWriter(cfg WriterConfig) (*Writer, error) {
+	key, wrapped, err := db.dataFiles.acquireWriter()
 	if err != nil {
 		return nil, err
 	}
-	return &Writer{wrapped: wrapped, idx: db.idx, WriterConfig: cfg}, nil
+	return &Writer{fileKey: key, wrapped: wrapped, idx: db.idx, cfg: cfg}, nil
 }
 
 func (db *DB) newReader(ptr *pointer) (*Reader, error) {
-	wrapped, err := db.fs.newReader(ptr.fileKey)
+	wrapped, err := db.dataFiles.acquireReader(ptr.fileKey)
 	if err != nil {
 		return nil, err
 	}
+	reader := xio.PartialReader(wrapped, int64(ptr.offset), int64(ptr.length))
 	return &Reader{
 		ptr:      ptr,
-		ReaderAt: xio.PartialReader(wrapped, int64(ptr.offset), int64(ptr.length)),
+		ReaderAt: reader,
+		Reader:   reader,
 		Closer:   wrapped,
 	}, nil
 }

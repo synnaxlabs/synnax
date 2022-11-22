@@ -9,10 +9,11 @@ import (
 type Reader struct {
 	ptr *pointer
 	io.ReaderAt
+	io.Reader
 	io.Closer
 }
 
 func (r *Reader) Len() int64 { return int64(r.ptr.length) }
 
 // Range returns the time interval occupied by the range.
-func (r *Reader) Range() telem.TimeRange { return r.ptr.bounds }
+func (r *Reader) Range() telem.TimeRange { return r.ptr.TimeRange }
