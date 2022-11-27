@@ -3,14 +3,10 @@ package cesium
 import (
 	"context"
 	"github.com/cockroachdb/errors"
-	"github.com/synnaxlabs/cesium/internal/allocate"
-	"github.com/synnaxlabs/cesium/internal/core"
-	"github.com/synnaxlabs/cesium/internal/legindex"
-	"github.com/synnaxlabs/cesium/internal/position"
-	"github.com/synnaxlabs/cesium/internal/storage"
+	"github.com/synnaxlabs/cesium/internal/index"
+	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/confluence"
-	"github.com/synnaxlabs/x/iter"
-	"github.com/synnaxlabs/x/lock"
+	"github.com/synnaxlabs/x/errutil"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -28,13 +24,12 @@ const (
 	WriterError
 )
 
-// WriteRequest is a request containing a set of segments (segment) to write to the DB.
+// WriteRequest is a request containing an arrow.Record to write to the DB.
 type WriteRequest struct {
 	// Command is the command to execute on the writer.
 	Command WriterCommand
-	// Segments is a set of segments to write. Segments is ignored during calls
-	// to WriterCommit and WriterError.
-	Segments []Segment
+	// Frame is the arrow record to write to the DB.
+	Frame telem.Frame
 }
 
 // WriteResponse contains any errors that occurred during write execution.
@@ -51,40 +46,44 @@ type WriteResponse struct {
 	Err error
 }
 
-// StreamWriter provides a streaming interface for writing segmented telemetry to a DB.
+// StreamWriter provides a streaming interface for writing telemetry to the DB.
 // StreamWriter provides the underlying functionality for Writer, and has almost exactly
-// the same semantics. The streaming interface is exposed as a confluence segment that
+// the same semantics. The streaming interface is exposed as a confluence Segment that
 // can accept one input stream and one output stream.
 //
-// To write segments, issue a WriteRequest to the StreamWriter's inlet. The StreamWriter
-// will return any errors encountered during write execution through the outlet as a
-// WriteResponse of variant WriteErrResponse. If the write was successful, the StreamWriter
-// will not send any response.
+// To write a record, issue a WriteRequest to the StreamWriter's inlet. If the write fails
+// for any reason, the StreamWriter will send a WriteResponse with a negative WriteResponse.Ack
+// value. All future writes will fail until the error is resolved. To resolve the error,
+// issue a WriteRequest with a WriterError command to the StreamWriter's inlet. The StreamWriter
+// will increment WriteResponse.SeqNum and send a WriteResponse with the error. The error will
+// be considered resolved, and the StreamWriter will resume normal operation.
 //
-// To commit the write, issue a WriteRequest with command WriterCommit to the StreamWriter's
-// inlet. The StreamWriter will respond with a WriteResponse of variant WriteCommitResponse
-// containing any errors encountered during commit execution. If the commit was successful,
-// the StreamWriter will send a CommitResponse with a nil error.
+// StreamWriter is atomic, meaning the caller must issue a Write with a WriterCommit
+// command to commit the write. If the commit fails, the StreamWriter will send a WriteResponse
+// with a negative WriteResponse.Ack value. All future writes will fail until the error is
+// resolved. To resolve the error, see the above paragraph.
 //
 // To close the StreamWriter, simply close the inlet. The StreamWriter will ensure that all
 // in-progress requests have been served before closing the outlet. Closing the writer
 // will NOT commit any pending writes. Once the StreamWriter has released all resources,
-// the output stream will be closed and the StreamWriter will return any accumulated err
+// the output stream will be closed and the StreamWriter will return any accumulated error
 // through the signal context provided to Flow.
 type StreamWriter = confluence.Segment[WriteRequest, WriteResponse]
 
 type streamWriter struct {
+	WriterConfig
 	confluence.UnarySink[WriteRequest]
 	confluence.AbstractUnarySource[WriteResponse]
-	idxProcessors map[ChannelKey]indexProcessor
-	batches       []*legindex.Batch
-	idxReleasers  []legindex.Releaser
-	lockReleaser  lock.Releaser
-	alloc         allocate.Allocator[ChannelKey, core.FileKey]
-	storageWriter storage.Writer
-	mdBatch       core.MDBatch
-	err           error
-	seqNum        int
+	internal     map[string]unary.Writer
+	writingToIdx bool
+	idx          struct {
+		index.Index
+		key           string
+		highWaterMark telem.TimeStamp
+	}
+	sampleCount int64
+	seqNum      int
+	err         error
 }
 
 // Flow implements the confluence.Flow interface.
@@ -95,30 +94,28 @@ func (w *streamWriter) Flow(ctx signal.Context, opts ...confluence.Option) {
 		for {
 			select {
 			case <-ctx.Done():
-				return ctx.Err()
+				return errors.CombineErrors(w.close(), ctx.Err())
 			case req, ok := <-w.In.Outlet():
 				if !ok {
 					return w.close()
 				}
 				if req.Command == WriterError {
 					w.seqNum++
-					w.Out.Inlet() <- WriteResponse{Command: WriterError, Err: w.err, SeqNum: w.seqNum}
+					w.sendRes(req, false, w.err)
 					w.err = nil
+					continue
 				}
 				if w.err != nil {
-					w.Out.Inlet() <- WriteResponse{Command: req.Command, Ack: false, SeqNum: w.seqNum}
+					w.sendRes(req, false, nil)
 					continue
 				}
 				if req.Command == WriterCommit {
 					w.seqNum++
-					if err := w.commit(); err != nil {
-						w.err = err
-					}
-					w.Out.Inlet() <- WriteResponse{Command: WriterCommit, Ack: w.err == nil, SeqNum: w.seqNum}
+					w.err = w.commit()
+					w.sendRes(req, w.err == nil, nil)
 				} else {
-					if err := w.write(req); err != nil {
-						w.err = err
-						w.Out.Inlet() <- WriteResponse{Command: WriterWrite, Ack: false, SeqNum: w.seqNum}
+					if w.err = w.write(req); w.err != nil {
+						w.sendRes(req, false, nil)
 					}
 				}
 			}
@@ -126,94 +123,84 @@ func (w *streamWriter) Flow(ctx signal.Context, opts ...confluence.Option) {
 	}, o.Signal...)
 }
 
+func (w *streamWriter) sendRes(req WriteRequest, ack bool, err error) {
+	w.Out.Inlet() <- WriteResponse{
+		Command: req.Command,
+		Ack:     ack,
+		SeqNum:  w.seqNum,
+		Err:     err,
+	}
+}
+
 func (w *streamWriter) write(req WriteRequest) error {
-	sugared := w.sugar(req.Segments)
-	// This guarantees that we write to indexes before we write to any channels
-	// that are indexed by them.
-	for _, b := range w.batches {
-		indexSegments, ok := sugared[b.Key()]
-		if ok {
-			if err := w._write(b.Key(), indexSegments); err != nil {
-				return err
-			}
-			delete(sugared, b.Key())
+	if !req.Frame.Even() {
+		return errors.Wrapf(validate.Error, "cannot write uneven frame")
+	}
+
+	if !req.Frame.Unique() {
+		return errors.Wrapf(validate.Error, "cannot write frame with duplicate channels")
+	}
+
+	if len(req.Frame.Keys()) != len(w.internal) {
+		return errors.Wrapf(validate.Error, "cannot write frame without data for all channels")
+	}
+
+	w.sampleCount += req.Frame.Len()
+
+	for _, arr := range req.Frame.Arrays {
+		_chW, ok := w.internal[arr.Key]
+		if !ok {
+			return ChannelNotFound
 		}
-	}
-	return iter.MapForEachUntilError(w.sugar(req.Segments), w._write)
-}
 
-func (w *streamWriter) sugar(segments []Segment) map[ChannelKey][]core.SugaredSegment {
-	sugared := make(map[ChannelKey][]core.SugaredSegment, len(segments))
-	for _, seg := range segments {
-		sugared[seg.ChannelKey] = append(
-			sugared[seg.ChannelKey],
-			core.SugaredSegment{
-				Data: seg.Data,
-				SegmentMD: core.SegmentMD{
-					Start:      seg.Start,
-					ChannelKey: seg.ChannelKey,
-					Size:       telem.Size(len(seg.Data)),
-				},
-			})
-	}
-	return sugared
-}
+		chW := &_chW
 
-func (w *streamWriter) _write(key ChannelKey, segments []core.SugaredSegment) error {
-	idxProcessor, ok := w.idxProcessors[key]
-	if !ok {
-		return errors.Wrap(
-			validate.Error,
-			"segment ch key not in set provided to NewBatch",
-		)
-	}
-	segments, err := idxProcessor.process(segments)
-	if err != nil {
-		return err
-	}
-	fileKeys, err := w.alloc.Allocate(core.AllocationItems(segments)...)
-	for i, fileKey := range fileKeys {
-		segments[i].FileKey = fileKey
-	}
-	md, err := w.storageWriter.Write(segments)
-	if err != nil {
-		return err
-	}
-	return w.mdBatch.Write(md)
-}
-
-func (w *streamWriter) commit() error {
-	for _, idxW := range w.batches {
-		minHwm := position.Max
-		for _, idxW2 := range w.idxProcessors {
-			if idxW2.Key() == idxW.Key() && idxW2.highWaterMark().Before(minHwm) {
-				minHwm = idxW2.highWaterMark()
-			}
+		if w.writingToIdx && w.idx.key == arr.Key {
+			w.updateHighWater(arr)
 		}
-		if err := idxW.CommitBelowThreshold(minHwm); err != nil {
+
+		if err := chW.Write(arr); err != nil {
 			return err
 		}
 	}
-	if err := w.mdBatch.Commit(); err != nil {
-		return err
-	}
+
 	return nil
 }
 
-func (w *streamWriter) close() error {
-	for _, idxW := range w.batches {
-		if err := idxW.Commit(); err != nil {
-			return err
-		}
-	}
-	if err := w.mdBatch.Close(); err != nil {
+func (w *streamWriter) commit() (err error) {
+	end, err := w.resolveCommitEnd()
+	// because the range is exclusive, we need to add 1 to the end
+	end++
+	if err != nil {
 		return err
 	}
-	for _, idx := range w.idxReleasers {
-		if err := idx.Release(); err != nil {
-			return err
-		}
+	c := errutil.NewCatch(errutil.WithAggregation())
+	for _, chW := range w.internal {
+		c.Exec(func() error { return chW.CommitWithEnd(end) })
 	}
-	w.lockReleaser.Release()
-	return w.err
+	w.err = c.Error()
+	return
+}
+
+func (w *streamWriter) updateHighWater(col telem.Array) error {
+	if col.DataType != telem.TimeStampT {
+		return errors.Wrapf(validate.Error, "invalid data type for channel %s, expected %s, got %s", w.idx.key, telem.TimeStampT, col.DataType)
+	}
+	w.idx.highWaterMark = telem.ValueAt[telem.TimeStamp](col, col.Len()-1)
+	return nil
+}
+
+func (w *streamWriter) resolveCommitEnd() (telem.TimeStamp, error) {
+	if w.writingToIdx {
+		return w.idx.highWaterMark, nil
+	}
+	return w.idx.Stamp(w.Start, w.sampleCount-1)
+}
+
+func (w *streamWriter) close() error {
+	c := errutil.NewCatch(errutil.WithAggregation())
+	for _, chW := range w.internal {
+		c.Exec(chW.Close)
+	}
+	return errors.CombineErrors(w.err, c.Error())
 }

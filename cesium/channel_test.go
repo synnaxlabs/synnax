@@ -15,90 +15,47 @@ var _ = Describe("ChannelKey", Ordered, func() {
 	BeforeAll(func() { db = openMemDB() })
 	AfterAll(func() { Expect(db.Close()).To(Succeed()) })
 	Describe("Create", func() {
-		Describe("StorageKey Assignment", func() {
+		Describe("Happy Path", func() {
 			It("Should assign an auto-incremented key if a key is not present", func() {
-				ch := cesium.Channel{Rate: 10 * telem.Hz, Density: telem.Bit64}
-				Expect(db.CreateChannel(&ch)).To(Succeed())
-				Expect(ch.Key).To(Equal(cesium.ChannelKey(1)))
-				ch.Key = 0
-				Expect(db.CreateChannel(&ch)).To(Succeed())
-				Expect(ch.Key).To(Equal(cesium.ChannelKey(2)))
+				ch := cesium.Channel{Key: "chOne", Rate: 10 * telem.Hz, DataType: telem.Float64T}
+				Expect(db.CreateChannel(ch)).To(Succeed())
+				Expect(ch.Key).To(Equal("chOne"))
 			})
 		})
 		DescribeTable("Validation", func(expected error, channels ...cesium.Channel) {
-			for i, ch := range channels {
-				if i == len(channels)-1 {
-					Expect(db.CreateChannel(&ch)).To(HaveOccurredAs(expected))
-				} else {
-					Expect(db.CreateChannel(&ch)).To(Succeed())
-				}
-			}
+			Expect(db.CreateChannel(channels...)).To(HaveOccurredAs(expected))
 		},
-			Entry("ChannelKey has no density",
-				errors.Wrap(validate.Error, "[cesium] - density must be positive"),
-				cesium.Channel{Rate: 10 * telem.Hz},
+			Entry("ChannelKey has no datatype",
+				errors.Wrap(validate.Error, "[cesium] - data type must be set"),
+				cesium.Channel{Key: "10", Rate: 10 * telem.Hz},
 			),
 			Entry("ChannelKey key already exists",
-				errors.Wrap(validate.Error, "[cesium] - provided key 1 already assigned"),
-				cesium.Channel{Key: 1, Rate: 10 * telem.Hz, Density: telem.Bit64},
+				errors.Wrap(validate.Error, "[cesium] - channel 11 already exists"),
+				cesium.Channel{Key: "11", DataType: telem.Float32T, Rate: 10 * telem.Hz},
+				cesium.Channel{Key: "11", Rate: 10 * telem.Hz, DataType: telem.Float64T},
 			),
-			Entry("ChannelKey IsIndex - Non Bit64 Density",
-				errors.Wrap(validate.Error, "[cesium] - index ch must use int64 timestamps"),
-				cesium.Channel{IsIndex: true, Density: telem.Bit32},
+			Entry("ChannelKey IsIndex - Non Int64 Array Type",
+				errors.Wrap(validate.Error, "[cesium] - index channel must be of type timestamp"),
+				cesium.Channel{Key: "12", IsIndex: true, DataType: telem.Float32T},
 			),
 			Entry("ChannelKey IsIndex - StorageIndex non-zero",
-				errors.Wrap(validate.Error, "[cesium] - index ch can not be indexed"),
-				cesium.Channel{Key: 45, IsIndex: true, Density: telem.Bit64},
-				cesium.Channel{IsIndex: true, Index: 45},
+				errors.Wrap(validate.Error, "[cesium] - index channel cannot be indexed by another channel"),
+				cesium.Channel{Key: "45", IsIndex: true, DataType: telem.Int64T},
+				cesium.Channel{Key: "46", IsIndex: true, Index: "45", DataType: telem.Int64T},
 			),
 			Entry("ChannelKey has index - StorageIndex does not exist",
-				errors.Wrapf(validate.Error, "[cesium] - provided index %s does not exist", cesium.ChannelKey(40000)),
-				cesium.Channel{Index: 40000, Density: telem.Bit32},
+				errors.Wrapf(validate.Error, "[cesium] - index %s does not exist", "40000"),
+				cesium.Channel{Key: "47", Index: "40000", DataType: telem.Float64T},
 			),
 			Entry("ChannelKey has no index - fixed rate not provided",
 				errors.Wrap(validate.Error, "[cesium] - rate must be positive"),
-				cesium.Channel{Density: telem.Bit32},
+				cesium.Channel{Key: "48", DataType: telem.Float32T},
 			),
-			Entry("ChannelKey has index - provided index key is not an indexed ch",
-				errors.Wrapf(validate.Error, "[cesium] - provided ch %s is not an index", cesium.ChannelKey(60)),
-				cesium.Channel{Key: 60, Density: telem.Bit32, Rate: 1 * telem.Hz},
-				cesium.Channel{Key: 61, Index: 60, Density: telem.Bit32},
+			Entry("ChannelKey has index - provided index key is not an indexed channel",
+				errors.Wrap(validate.Error, "[cesium] - channel 60 is not an index"),
+				cesium.Channel{Key: "60", DataType: telem.Float32T, Rate: 1 * telem.Hz},
+				cesium.Channel{Key: "61", Index: "60", DataType: telem.Float32T},
 			),
 		)
-		Describe("Create Many", func() {
-			It("Should create multiple channels", func() {
-				chs := []cesium.Channel{
-					{Rate: 10 * telem.Hz, Density: telem.Bit64},
-					{Rate: 10 * telem.Hz, Density: telem.Bit64},
-					{Rate: 10 * telem.Hz, Density: telem.Bit64},
-				}
-				Expect(db.CreateChannels(&chs)).To(Succeed())
-				Expect(chs).To(HaveLen(3))
-				for _, ch := range chs {
-					Expect(ch.Key).To(BeNumerically(">", 0))
-				}
-			})
-		})
-	})
-	Describe("Retrieve", func() {
-		Context("RetrieveChannel", func() {
-			It("Should retrieve a ch by its key", func() {
-				ch := cesium.Channel{Rate: 10 * telem.Hz, Density: telem.Bit64}
-				Expect(db.CreateChannel(&ch)).To(Succeed())
-				Expect(db.RetrieveChannel(ch.Key)).To(Equal(ch))
-			})
-		})
-		Context("RetrieveChannels", func() {
-			It("Should retrieve multiple channels by their key", func() {
-				channels := []cesium.Channel{
-					{Rate: 10 * telem.Hz, Density: telem.Bit64},
-					{Rate: 9 * telem.Hz, Density: telem.Bit64},
-				}
-				for i := range channels {
-					Expect(db.CreateChannel(&channels[i])).To(Succeed())
-				}
-				Expect(db.RetrieveChannels(channels[0].Key, channels[1].Key)).To(Equal(channels))
-			})
-		})
 	})
 })

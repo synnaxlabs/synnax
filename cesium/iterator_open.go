@@ -1,0 +1,28 @@
+package cesium
+
+import (
+	"github.com/synnaxlabs/cesium/internal/ranger"
+	"github.com/synnaxlabs/cesium/internal/unary"
+)
+
+func (db *cesium) NewIterator(cfg IteratorConfig) (Iterator, error) {
+	internal, err := db.newStreamIterator(cfg)
+	return wrapStreamIterator(internal), err
+}
+
+func (db *cesium) NewStreamIterator(cfg IteratorConfig) (StreamIterator, error) {
+	return db.newStreamIterator(cfg)
+}
+
+func (db *cesium) newStreamIterator(cfg IteratorConfig) (*streamIterator, error) {
+	internal := make([]*unary.Iterator, len(cfg.Channels))
+	for i, key := range cfg.Channels {
+		uDB, err := db.getUnary(key)
+		if err != nil {
+			return nil, err
+		}
+		internal[i] = uDB.NewIterator(ranger.IteratorConfig{Bounds: cfg.Bounds})
+	}
+
+	return &streamIterator{internal: internal}, nil
+}
