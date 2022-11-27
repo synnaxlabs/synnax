@@ -33,7 +33,7 @@ var _ = Describe("ChannelService", Ordered, func() {
 				Channel: api.Channel{
 					Name:     "test",
 					NodeID:   1,
-					DataType: telem.Float64,
+					DataType: telem.Float64T,
 					Rate:     25 * telem.Hz,
 				},
 			})
@@ -56,15 +56,15 @@ var _ = Describe("ChannelService", Ordered, func() {
 			Expect(flds[0].Message).To(Equal(message))
 			Expect(len(res.Channels)).To(Equal(0))
 		},
-			Entry("No Data Type", api.Channel{
+			Entry("No Array Type", api.Channel{
 				Name:   "test",
 				NodeID: 1,
 				Rate:   25 * telem.Hz,
 			}, "Channel.data_type", "required"),
-			Entry("No Data Rate", api.Channel{
+			Entry("No Array Rate", api.Channel{
 				Name:     "test",
 				NodeID:   1,
-				DataType: telem.Float64,
+				DataType: telem.Float64T,
 			}, "Channel.rate", "required"),
 		)
 	})

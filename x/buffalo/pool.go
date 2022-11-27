@@ -7,16 +7,16 @@ import (
 )
 
 type Pool struct {
-	wrapped *sync.Pool
+	internal *sync.Pool
 }
 
 func NewPool(cap int) *Pool {
 	return &Pool{
-		wrapped: &sync.Pool{
+		internal: &sync.Pool{
 			New: func() interface{} {
 				return &Buffer{
 					refCount: &atomic.Int32Counter{},
-					wrapped:  bytes.NewBuffer(make([]byte, 0, cap)),
+					internal: bytes.NewBuffer(make([]byte, 0, cap)),
 				}
 			},
 		},
@@ -24,9 +24,9 @@ func NewPool(cap int) *Pool {
 }
 
 func (p *Pool) Acquire() *Buffer {
-	b := p.wrapped.Get().(*Buffer)
+	b := p.internal.Get().(*Buffer)
 	b.Retain()
 	return b
 }
 
-func (p *Pool) release(b *Buffer) { p.wrapped.Put(b) }
+func (p *Pool) release(b *Buffer) { p.internal.Put(b) }

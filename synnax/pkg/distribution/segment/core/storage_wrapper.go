@@ -14,12 +14,12 @@ type StorageWrapper struct {
 
 // Wrap converts a slice of cesium.segment into a slice of Segment.
 func (cw *StorageWrapper) Wrap(segments []cesium.Segment) []Segment {
-	wrapped := make([]Segment, len(segments))
+	internal := make([]Segment, len(segments))
 	for i, seg := range segments {
-		wrapped[i] = Segment{
+		internal[i] = Segment{
 			ChannelKey: channel.NewKey(cw.Host, seg.ChannelKey),
 			Segment:    seg,
 		}
 	}
-	return wrapped
+	return internal
 }

@@ -44,5 +44,5 @@ func GetDataType(q query.Query) (DataType, error) {
 	if v, ok := q.Get(dataTypeKey); ok {
 		return v.(DataType), nil
 	}
-	return DataTypeUnknown, InvalidDataType
+	return UnknownT, InvalidDataType
 }

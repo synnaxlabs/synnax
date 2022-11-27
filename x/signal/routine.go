@@ -221,7 +221,7 @@ func (r *routine) goRun(f func(context.Context) error) {
 	}
 	labels := pprof.Labels("routine", profileKey)
 	pprof.Do(r.ctx, labels, func(ctx context.Context) {
-		r.ctx.wrapped.Go(func() (err error) {
+		r.ctx.internal.Go(func() (err error) {
 			defer func() {
 				r.runPostlude(err)
 			}()

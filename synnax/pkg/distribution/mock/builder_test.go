@@ -26,7 +26,7 @@ var _ = Describe("Builder", func() {
 
 			ch := channel.Channel{
 				Name:     "SG_01",
-				DataType: telem.Float64,
+				DataType: telem.Float64T,
 				Rate:     25 * telem.Hz,
 				NodeID:   1,
 			}

@@ -29,12 +29,12 @@ var _ = Describe("getAttributes", Ordered, func() {
 		It("Should correctly retrieve a set of channels", func() {
 			ch1 := channel.Channel{
 				Rate:     25 * telem.Hz,
-				DataType: telem.Float32,
+				DataType: telem.Float32T,
 				Name:     "SG02",
 			}
 			ch2 := channel.Channel{
 				Rate:     25 * telem.Hz,
-				DataType: telem.Float32,
+				DataType: telem.Float32T,
 				Name:     "SG03",
 			}
 			created := []channel.Channel{ch1, ch2}
@@ -68,12 +68,12 @@ var _ = Describe("getAttributes", Ordered, func() {
 			created := []channel.Channel{
 				{
 					Rate:     25 * telem.Hz,
-					DataType: telem.Float32,
+					DataType: telem.Float32T,
 					Name:     "SG02",
 				},
 				{
 					Rate:     25 * telem.Hz,
-					DataType: telem.Float32,
+					DataType: telem.Float32T,
 					Name:     "SG03",
 				},
 			}
@@ -96,12 +96,12 @@ var _ = Describe("getAttributes", Ordered, func() {
 			created := []channel.Channel{
 				{
 					Rate:     25 * telem.Hz,
-					DataType: telem.Float32,
+					DataType: telem.Float32T,
 					Name:     "SG02",
 				},
 				{
 					Rate:     25 * telem.Hz,
-					DataType: telem.Float32,
+					DataType: telem.Float32T,
 					Name:     "SG03",
 				},
 			}

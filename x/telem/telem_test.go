@@ -269,7 +269,7 @@ var _ = Describe("Telem", func() {
 				Expect(telem.Rate(1).Period()).To(Equal(telem.Second))
 			})
 		})
-		Describe("SampleCount", func() {
+		Describe("Distance", func() {
 			It("Should return the number of samples that fit in the span", func() {
 				Expect(telem.Rate(10).SampleCount(telem.Second)).To(Equal(10))
 			})

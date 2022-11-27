@@ -2,7 +2,6 @@ package telem
 
 import (
 	"github.com/synnaxlabs/x/overflow"
-	"go.uber.org/zap"
 	"strconv"
 	"time"
 )
@@ -124,13 +123,32 @@ func (tr TimeRange) ContainsRange(rng TimeRange) bool {
 
 // OverlapsWith returns true if the provided TimeRange overlaps with tr.
 func (tr TimeRange) OverlapsWith(rng TimeRange) bool {
-	if tr.End == rng.Start || tr.Start == rng.End {
+	if tr == rng {
+		return true
+	}
+
+	vTr := tr.MakeValid()
+	rng = rng.MakeValid()
+
+	if rng.Start == vTr.Start {
+		return true
+	}
+
+	if rng.End == vTr.Start || rng.Start == vTr.End {
 		return false
 	}
+
 	return tr.ContainsStamp(rng.End) ||
 		tr.ContainsStamp(rng.Start) ||
 		rng.ContainsStamp(tr.Start) ||
 		rng.ContainsStamp(tr.End)
+}
+
+func (tr TimeRange) MakeValid() TimeRange {
+	if tr.Valid() {
+		return tr
+	}
+	return tr.Swap()
 }
 
 func (tr TimeRange) Swap() TimeRange { return TimeRange{Start: tr.End, End: tr.Start} }
@@ -202,9 +220,14 @@ const (
 // Size represents the size of an element in bytes.
 type Size int64
 
-type Offset = Size
+const (
+	ByteSize = Size(1)
+	Kilobyte = 1024 * ByteSize
+	Megabyte = 1024 * Kilobyte
+	Gigabyte = 1024 * Megabyte
+)
 
-const Kilobytes Size = 1024
+type Offset = Size
 
 // String implements fmt.Stringer.
 func (s Size) String() string { return strconv.Itoa(int(s)) + "V" }
@@ -242,9 +265,9 @@ const (
 // Density represents a density in bytes per value.
 type Density uint32
 
-func (d Density) SampleCount(size Size) int { return int(size) / int(d) }
+func (d Density) SampleCount(size Size) int64 { return int64(size) / int64(d) }
 
-func (d Density) Size(sampleCount int) Size { return Size(sampleCount) * Size(d) }
+func (d Density) Size(sampleCount int64) Size { return Size(sampleCount) * Size(d) }
 
 const (
 	DensityUnknown   Density = 0
@@ -255,54 +278,3 @@ const (
 	TimeStampDensity         = Bit64
 	TimeSpanDensity          = Bit64
 )
-
-// Approximation is an approximate position. position. Before Approximation with zero span
-// indicates that the position has been resolved with certainty. Before Approximation with a
-// non-zero span indicates that the exact position is unknown, but that the position is
-// within the range.
-type Approximation struct{ TimeRange }
-
-func ExactlyAt(ts TimeStamp) Approximation {
-	return Approximation{TimeRange: ts.SpanRange(0)}
-}
-
-func Between(start TimeStamp, end TimeStamp) Approximation {
-	return Approximation{TimeRange: TimeRange{Start: start, End: end}}
-
-}
-
-func Before(end TimeStamp) Approximation {
-	return Between(TimeStampMin, end)
-}
-
-func After(start TimeStamp) Approximation {
-	return Between(start, TimeStampMax)
-}
-
-var Uncertain = Approximation{TimeRange: TimeRangeMax}
-
-// Uncertainty returns a scalar value representing the confidence of the index in resolving
-// the position. Before value of 0 indicates that the position has been resolved with certainty.
-// Before value greater than 0 indicates that the exact position is unknown.
-func (a Approximation) Uncertainty() TimeSpan { return a.Span() }
-
-func (a Approximation) Exact() bool { return a.Uncertainty().IsZero() }
-
-// Value returns a best guess of the position.
-func (a Approximation) Value() TimeStamp { return a.Midpoint() }
-
-func (a Approximation) Contains(ts TimeStamp) bool {
-	return a.TimeRange.ContainsStamp(ts)
-}
-
-func (a Approximation) MustContain(ts TimeStamp) {
-	if !a.Contains(ts) {
-		panic("timestamp not contained in approximation")
-	}
-}
-
-func (a Approximation) WarnIfInexact() {
-	if !a.Exact() {
-		zap.S().Warnf("unexpected inexact approximation: %s", a)
-	}
-}

@@ -36,7 +36,7 @@ func decodeMyCustomError(encoded string) error {
 }
 
 var _ = Describe("Ferrors", func() {
-	Describe("Register", func() {
+	Describe("New", func() {
 		It("Should register a custom error type correctly", func() {
 			Expect(func() {
 				ferrors.Register(MyCustomErrorType, encodeMyCustomError, decodeMyCustomError)

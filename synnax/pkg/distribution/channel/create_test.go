@@ -36,7 +36,7 @@ var _ = Describe("Create", Ordered, func() {
 			ch = channel.Channel{
 				Rate:     5 * telem.Hz,
 				Name:     "SG01",
-				DataType: telem.Float64,
+				DataType: telem.Float64T,
 				NodeID:   channelLeaseNodeID,
 			}
 			err = services[1].Create(&ch)
@@ -83,7 +83,7 @@ var _ = Describe("Create", Ordered, func() {
 					ch2 := &channel.Channel{
 						Rate:     5 * telem.Hz,
 						Name:     "SG01",
-						DataType: telem.Float64,
+						DataType: telem.Float64T,
 						NodeID:   1,
 					}
 					err := services[1].Create(ch2)

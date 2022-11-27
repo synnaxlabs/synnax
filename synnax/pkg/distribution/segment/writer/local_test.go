@@ -33,7 +33,7 @@ var _ = Describe("Local", Ordered, func() {
 		log = zap.NewNop()
 		builder, services = provisionNServices(1, log)
 		dataFactory := &seg.RandomFloat64Factory{Cache: true}
-		ch := channel.Channel{Name: "SG02", Rate: 25 * telem.Hz, DataType: telem.Float64, NodeID: 1}
+		ch := channel.Channel{Name: "SG02", Rate: 25 * telem.Hz, DataType: telem.Float64T, NodeID: 1}
 		Expect(services[1].channel.Create(&ch)).To(Succeed())
 		factory = seg.NewSequentialFactory(dataFactory, 10*telem.Second, ch.Storage())
 		wrapper = &core.StorageWrapper{Host: 1}

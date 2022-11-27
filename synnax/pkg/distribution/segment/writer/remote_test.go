@@ -37,9 +37,9 @@ var _ = Describe("Remote", Ordered, func() {
 		builder, services = provisionNServices(3, log)
 		dataFactory := &seg.RandomFloat64Factory{Cache: true}
 		dr := 1 * telem.Hz
-		store1Ch := channel.Channel{Name: "SG01", Rate: dr, DataType: telem.Float64, NodeID: 1}
+		store1Ch := channel.Channel{Name: "SG01", Rate: dr, DataType: telem.Float64T, NodeID: 1}
 		Expect(services[1].channel.Create(&store1Ch)).To(Succeed())
-		store2Ch := channel.Channel{Name: "SG02", Rate: dr, DataType: telem.Float64, NodeID: 2}
+		store2Ch := channel.Channel{Name: "SG02", Rate: dr, DataType: telem.Float64T, NodeID: 2}
 		Expect(services[2].channel.Create(&store2Ch)).To(Succeed())
 		var cesiumChannels []cesium.Channel
 		channels = []channel.Channel{store1Ch, store2Ch}

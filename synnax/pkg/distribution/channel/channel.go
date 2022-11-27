@@ -132,7 +132,7 @@ func (k Keys) Strings() []string {
 // Linux box. The temperature sensor is a Channel that writes to Node residing on the
 // Linux box.
 //
-// Data for a channel can only be written through the leaseholder. This helps solve a lot
+// Array for a channel can only be written through the leaseholder. This helps solve a lot
 // of consistency and atomicity issues.
 type Channel struct {
 	// Key is a unique identifier for the channel within a cesium.DB. If not set when

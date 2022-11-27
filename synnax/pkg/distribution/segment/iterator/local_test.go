@@ -21,7 +21,7 @@ var _ = Describe("Local", Ordered, func() {
 	BeforeAll(func() {
 		log = zap.L()
 		builder, services = provisionNServices(1, log)
-		ch := channel.Channel{Name: "SG01", Rate: 25 * telem.Hz, DataType: telem.Float64, NodeID: 1}
+		ch := channel.Channel{Name: "SG01", Rate: 25 * telem.Hz, DataType: telem.Float64T, NodeID: 1}
 		Expect(services[1].channel.Create(&ch)).To(Succeed())
 		writeMockData(builder, 10*telem.Second, 10, 1, ch)
 		iter = openIter(1, services, builder, channel.Keys{ch.Key()})

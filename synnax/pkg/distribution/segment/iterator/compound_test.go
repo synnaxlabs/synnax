@@ -23,8 +23,8 @@ var _ = Describe("Compound", Ordered, func() {
 		log = zap.NewNop()
 		dr := 25 * telem.Hz
 		builder, services = provisionNServices(2, log)
-		node1Ch := channel.Channel{Name: "SG01", Rate: dr, DataType: telem.Float64, NodeID: 1}
-		node2Ch := channel.Channel{Name: "SG02", Rate: dr, DataType: telem.Float64, NodeID: 2}
+		node1Ch := channel.Channel{Name: "SG01", Rate: dr, DataType: telem.Float64T, NodeID: 1}
+		node2Ch := channel.Channel{Name: "SG02", Rate: dr, DataType: telem.Float64T, NodeID: 2}
 		Expect(services[1].channel.Create(&node1Ch)).To(Succeed())
 		Expect(services[2].channel.Create(&node2Ch)).To(Succeed())
 		channels := []channel.Channel{node1Ch, node2Ch}

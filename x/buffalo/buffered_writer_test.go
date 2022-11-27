@@ -16,40 +16,40 @@ var _ = Describe("BufferedWriter", func() {
 		Context("Evenly divisible", func() {
 			It("Should flush the buffer when full", func() {
 				buf := p.Acquire()
-				wrapped := p.Acquire()
+				internal := p.Acquire()
 				writer := &buffalo.BufferedWriter{
 					Buffer: buf,
-					Writer: wrapped,
+					Writer: internal,
 				}
 				b := make([]byte, 512)
 				n := MustSucceed(writer.Write(b))
 				Expect(n).To(Equal(512))
 				Expect(buf.Len()).To(Equal(512))
-				Expect(wrapped.Len()).To(Equal(0))
+				Expect(internal.Len()).To(Equal(0))
 				n = MustSucceed(writer.Write(b))
 				Expect(n).To(Equal(512))
 				Expect(buf.Len()).To(Equal(512))
-				Expect(wrapped.Len()).To(Equal(512))
+				Expect(internal.Len()).To(Equal(512))
 			})
 		})
 		Context("Not evenly divisible", func() {
 			It("Should flush the buffer when full", func() {
 				buf := p.Acquire()
-				wrapped := p.Acquire()
+				internal := p.Acquire()
 				writer := &buffalo.BufferedWriter{
 					Buffer: buf,
-					Writer: wrapped,
+					Writer: internal,
 				}
 				b := make([]byte, 256)
 				n := MustSucceed(writer.Write(b))
 				Expect(n).To(Equal(256))
 				Expect(buf.Len()).To(Equal(256))
-				Expect(wrapped.Len()).To(Equal(0))
+				Expect(internal.Len()).To(Equal(0))
 				b2 := make([]byte, 512)
 				n = MustSucceed(writer.Write(b2))
 				Expect(n).To(Equal(512))
 				Expect(buf.Len()).To(Equal(512))
-				Expect(wrapped.Len()).To(Equal(256))
+				Expect(internal.Len()).To(Equal(256))
 			})
 		})
 	})

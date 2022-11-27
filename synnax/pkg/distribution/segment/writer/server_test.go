@@ -41,7 +41,7 @@ var _ = Describe("Server", func() {
 	BeforeEach(func() {
 		log = zap.NewNop()
 		builder, services = provisionNServices(1, log)
-		ch := channel.Channel{Name: "SG02", Rate: 1 * telem.Hz, DataType: telem.Float64, NodeID: 1}
+		ch := channel.Channel{Name: "SG02", Rate: 1 * telem.Hz, DataType: telem.Float64T, NodeID: 1}
 		Expect(services[1].channel.Create(&ch)).To(Succeed())
 	})
 	BeforeEach(func() {

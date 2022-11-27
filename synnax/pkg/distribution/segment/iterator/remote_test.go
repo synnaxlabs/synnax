@@ -24,8 +24,8 @@ var _ = Describe("Remote", Ordered, Serial, func() {
 		log = zap.NewNop()
 		builder, services = provisionNServices(3, log)
 		dr := 1 * telem.Hz
-		node1Ch := channel.Channel{Name: "SG01", Rate: dr, DataType: telem.Float64, NodeID: 1}
-		node2Ch := channel.Channel{Name: "SG02", Rate: dr, DataType: telem.Float64, NodeID: 2}
+		node1Ch := channel.Channel{Name: "SG01", Rate: dr, DataType: telem.Float64T, NodeID: 1}
+		node2Ch := channel.Channel{Name: "SG02", Rate: dr, DataType: telem.Float64T, NodeID: 2}
 		Expect(services[1].channel.Create(&node1Ch)).To(Succeed())
 		Expect(services[2].channel.Create(&node2Ch)).To(Succeed())
 		channels := []channel.Channel{node1Ch, node2Ch}

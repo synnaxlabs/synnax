@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -96,8 +95,6 @@ func (s *ChannelService) Retrieve(
 ) (ChannelRetrieveResponse, errors.Typed) {
 	var resChannels []channel.Channel
 	q := s.internal.NewRetrieve().Entries(&resChannels)
-
-	logrus.Info(req)
 
 	if len(req.Keys) > 0 {
 		keys, err := channel.ParseKeys(req.Keys)

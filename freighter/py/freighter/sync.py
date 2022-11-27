@@ -29,15 +29,15 @@ async def process(queue: Queue) -> AsyncIterator[P]:
 
 
 class _Receiver(Generic[RS]):
-    _wrapped: AsyncStreamReceiver[RS]
+    _internal: AsyncStreamReceiver[RS]
     _responses: Queue[tuple[RS | None, Exception | None]]
     _exc: Exception | None
     _fatal_exception: Notification[Exception | None]
 
-    def __init__(self, wrapped: AsyncStreamReceiver[RS]):
+    def __init__(self, internal: AsyncStreamReceiver[RS]):
         self._responses = Queue(maxsize=1)
         self._fatal_exception = Notification()
-        self._wrapped = wrapped
+        self._internal = internal
         self._exc = None
 
     def received(self) -> bool:
@@ -56,7 +56,7 @@ class _Receiver(Generic[RS]):
     async def run(self):
         try:
             while True:
-                pld, exc = await self._wrapped.receive()
+                pld, exc = await self._internal.receive()
                 await self._responses.async_q.put((pld, exc))
                 if exc is not None:
                     return
@@ -66,13 +66,13 @@ class _Receiver(Generic[RS]):
 
 
 class _SenderCloser(Generic[RQ]):
-    _wrapped: AsyncStreamSenderCloser[RQ]
+    _internal: AsyncStreamSenderCloser[RQ]
     _requests: Queue[Optional[RQ]]
     _exit: Notification[bool]
     _exception: Notification[tuple[Exception, bool]]
 
-    def __init__(self, wrapped: AsyncStreamSenderCloser[RQ]):
-        self._wrapped = wrapped
+    def __init__(self, internal: AsyncStreamSenderCloser[RQ]):
+        self._internal = internal
         self._requests = Queue()
         self._exception = Notification()
         self._exit = Notification()
@@ -113,7 +113,7 @@ class _SenderCloser(Generic[RQ]):
                 async with process(self._requests) as pld:
                     if await self._maybe_exit(pld):
                         return
-                    exc = await self._wrapped.send(pld)
+                    exc = await self._internal.send(pld)
                     if exc is not None:
                         self._exception.notify((exc, False))
                         return
@@ -128,7 +128,7 @@ class _SenderCloser(Generic[RQ]):
         exc: Exception | None = None
         graceful = self._exit.read()
         if graceful:
-            exc = await self._wrapped.close_send()
+            exc = await self._internal.close_send()
         self._exception.notify((exc, False))
         return True
 
@@ -147,7 +147,7 @@ class SyncStream(Thread, Generic[RQ, RS]):
     _request_type: Type[RQ]
     _collector: MiddlewareCollector
     _in_md: MetaData
-    _wrapped: Optional[AsyncStream[RQ, RS]]
+    _internal: Optional[AsyncStream[RQ, RS]]
 
     def __init__(
         self,
@@ -217,7 +217,7 @@ class SyncStream(Thread, Generic[RQ, RS]):
     async def _connect(self) -> tuple[MetaData, Exception | None]:
         out_md = MetaData("sync_stream", self._target)
         try:
-            self._wrapped = await self._client.stream(
+            self._internal = await self._client.stream(
                 self._target,
                 self._request_type,
                 self._response_factory,
@@ -227,8 +227,8 @@ class SyncStream(Thread, Generic[RQ, RS]):
             return out_md, e
 
     async def _run(self):
-        self._receiver = _Receiver(self._wrapped)
-        self._sender = _SenderCloser(self._wrapped)
+        self._receiver = _Receiver(self._internal)
+        self._sender = _SenderCloser(self._internal)
         self._open_exception.notify(None)
         await asyncio.gather(self._receiver.run(), self._sender.run())
 
@@ -244,14 +244,14 @@ class SyncStreamClient(MiddlewareCollector):
     use an AsyncStream synchronously.
     """
 
-    wrapped: AsyncStreamClient
+    internal: AsyncStreamClient
 
-    def __init__(self, wrapped: AsyncStreamClient) -> None:
+    def __init__(self, internal: AsyncStreamClient) -> None:
         super().__init__()
-        self.wrapped = wrapped
+        self.internal = internal
 
     def stream(
         self, target: str, req_t: Type[RQ], res_t: Type[RS]
     ) -> SyncStream[RQ, RS]:
         """Implement the StreamClient protocol."""
-        return SyncStream[RQ, RS](self.wrapped, target, req_t, res_t, self)
+        return SyncStream[RQ, RS](self.internal, target, req_t, res_t, self)

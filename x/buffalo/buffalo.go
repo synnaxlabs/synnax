@@ -8,7 +8,7 @@ import (
 
 type Buffer struct {
 	refCount *atomic.Int32Counter
-	wrapped  *bytes.Buffer
+	internal *bytes.Buffer
 	pool     *Pool
 }
 
@@ -27,26 +27,26 @@ func (b *Buffer) Release() {
 }
 
 func (b *Buffer) Write(p []byte) (n int, err error) {
-	return b.wrapped.Write(p)
+	return b.internal.Write(p)
 }
 
 func (b *Buffer) Resize(n int) {
-	b.wrapped.Reset()
-	b.wrapped.Grow(n)
+	b.internal.Reset()
+	b.internal.Grow(n)
 }
 
 func (b *Buffer) Reset() {
-	b.wrapped.Reset()
+	b.internal.Reset()
 }
 
 func (b *Buffer) Cap() int {
-	return b.wrapped.Cap()
+	return b.internal.Cap()
 }
 
 func (b *Buffer) Len() int {
-	return b.wrapped.Len()
+	return b.internal.Len()
 }
 
 func (b *Buffer) WriteTo(w io.Writer) (n int64, err error) {
-	return b.wrapped.WriteTo(w)
+	return b.internal.WriteTo(w)
 }

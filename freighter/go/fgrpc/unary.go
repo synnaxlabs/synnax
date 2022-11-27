@@ -16,7 +16,7 @@ var (
 )
 
 // UnaryClient wraps a unary gRPC client to provide a freighter compatible interface.
-// The unary gRPC service being wrapped must meet two requirements:
+// The unary gRPC service being internal must meet two requirements:
 //
 //  1. It contains only a single RPC method.
 //  2. That RPC method must be named Exec for UnaryClient to properly implement the
