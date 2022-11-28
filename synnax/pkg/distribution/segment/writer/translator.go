@@ -30,7 +30,7 @@ func (rt *requestTranslator) translate(ctx context.Context, in Request) (cesium.
 			rt.logger.DPanic("received write request for channel whose lease is not the current node")
 			continue
 		}
-		seg.Segment.ChannelKey = seg.ChannelKey.StorageKey()
+		seg.Segment.ChannelKey = seg.ChannelKey.LocalKey()
 		req.Segments = append(req.Segments, seg.Segment)
 	}
 	return req, true, nil

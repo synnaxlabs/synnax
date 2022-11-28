@@ -50,7 +50,7 @@ type core[S State] struct {
 // New opens a new Store. copy is a function that copies the state.
 // It's up to the caller to determine the depth of the copy. Store
 // serves as a proxy to the state, so it's important to yield access
-// control to the Store (i.e. only alter the state through StorageKey.SetState calls).
+// control to the Store (i.e. only alter the state through LocalKey.SetState calls).
 func New[S State](copy func(S) S) Store[S] {
 	return &core[S]{copy: copy}
 }
@@ -121,7 +121,7 @@ func ObservableWrap[S State](store Store[S], cfgs ...ObservableConfig[S]) Observ
 	return &observable[S]{ObservableConfig: cfg, Store: store, Observer: observe.New[S]()}
 }
 
-// SetState implements StorageKey.CopyState.
+// SetState implements LocalKey.CopyState.
 func (o *observable[S]) SetState(state S) {
 	if o.ShouldNotify == nil || o.ShouldNotify(o.PeekState(), state) {
 		if *o.ObservableConfig.GoNotify {

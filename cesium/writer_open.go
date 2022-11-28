@@ -39,7 +39,7 @@ func (db *cesium) newStreamWriter(cfg WriterConfig) (*streamWriter, error) {
 		}
 		if i == 0 {
 			if u.Channel.Index != "" {
-				idxU, err := db.getUnary(u.Channel.Key)
+				idxU, err := db.getUnary(u.Channel.Index)
 				if err != nil {
 					return nil, err
 				}

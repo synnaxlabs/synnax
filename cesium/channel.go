@@ -7,13 +7,32 @@ import (
 
 // CreateChannel implements DB.
 func (db *cesium) CreateChannel(ch ...Channel) error {
-
 	for _, c := range ch {
 		if err := db.createChannel(c); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func (db *cesium) RetrieveChannels(keys ...string) ([]Channel, error) {
+	chs := make([]Channel, 0, len(keys))
+	for _, key := range keys {
+		ch, err := db.RetrieveChannel(key)
+		if err != nil {
+			return nil, err
+		}
+		chs = append(chs, ch)
+	}
+	return chs, nil
+}
+
+func (db *cesium) RetrieveChannel(key string) (Channel, error) {
+	ch, ok := db.dbs[key]
+	if !ok {
+		return Channel{}, ChannelNotFound
+	}
+	return ch.Channel, nil
 }
 
 func (db *cesium) createChannel(ch Channel) (err error) {

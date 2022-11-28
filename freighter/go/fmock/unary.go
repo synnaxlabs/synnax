@@ -82,7 +82,7 @@ func (u *UnaryClient[RQ, RS]) Send(
 				oMD     freighter.MD
 			)
 
-			// StorageKey non nil server means we're tied up in a unary pair, so we can just
+			// LocalKey non nil server means we're tied up in a unary pair, so we can just
 			// use the server's handler.
 			if u.server != nil {
 				handler = u.server.exec

@@ -6,6 +6,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/synnax/pkg/storage"
+	"github.com/synnaxlabs/x/counter"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -17,6 +18,7 @@ type leaseProxy struct {
 	server    CreateTransportServer
 	router    proxy.BatchFactory[Channel]
 	ontology  *ontology.Ontology
+	counter   counter.Uint16Error
 }
 
 func newLeaseProxy(
@@ -75,18 +77,28 @@ func (lp *leaseProxy) create(ctx context.Context, txn gorp.Txn, _channels *[]Cha
 }
 
 func (lp *leaseProxy) createLocal(txn gorp.Txn, channels *[]Channel) error {
-	storageChannels := toStorage(*channels)
-	if err := lp.tsDB.CreateChannels(&storageChannels); err != nil {
+	if err := lp.assignLocalKeys(channels); err != nil {
 		return err
 	}
-	for i := range storageChannels {
-		(*channels)[i].StorageKey = storageChannels[i].Key
+	storageChannels := toStorage(*channels)
+	if err := lp.tsDB.CreateChannel(storageChannels...); err != nil {
+		return err
 	}
-	// TODO: add transaction rollback to cesium clusterDB if this fails.
 	if err := gorp.NewCreate[Key, Channel]().Entries(channels).Exec(txn); err != nil {
 		return err
 	}
 	return lp.maybeSetResources(txn, *channels)
+}
+
+func (lp *leaseProxy) assignLocalKeys(channels *[]Channel) error {
+	v := lp.counter.Add(uint16(len(*channels)))
+	if lp.counter.Error() != nil {
+		return lp.counter.Error()
+	}
+	for i, ch := range *channels {
+		ch.LocalKey = storage.ChannelKey(v - uint16(i))
+	}
+	return nil
 }
 
 func (lp *leaseProxy) maybeSetResources(

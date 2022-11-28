@@ -23,9 +23,16 @@ func (db *cesium) openUnary(ch Channel) error {
 	// need to set the index on the unary database. Otherwise, we assume the database
 	// is self-indexing.
 	if u.Channel.Index != "" && !u.Channel.IsIndex {
-		idxDB, ok := db.dbs[u.Channel.Index]
-		if !ok {
-			panic("index database not found")
+		idxDB, err := db.getUnary(u.Channel.Index)
+		if errors.Is(err, ChannelNotFound) {
+			err = db.openUnary(Channel{Key: u.Channel.Index})
+			if err != nil {
+				return err
+			}
+			idxDB, err = db.getUnary(u.Channel.Index)
+			if err != nil {
+				return err
+			}
 		}
 		u.SetIndex((&idxDB).Index())
 	}
@@ -40,4 +47,9 @@ func (db *cesium) getUnary(key string) (unary.DB, error) {
 		return unary.DB{}, errors.Wrapf(ChannelNotFound, "channel: %s", key)
 	}
 	return u, nil
+}
+
+func (db *cesium) unaryIsOpen(key string) bool {
+	_, ok := db.dbs[key]
+	return ok
 }

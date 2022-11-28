@@ -11,8 +11,8 @@ import (
 // Core is the foundational primitive for distributed compute in the delta Cluster. It exposes the following essential
 // APIs:
 //
-//  1. StorageKey.KV - an eventually consistent distributed key-value store.
-//  2. StorageKey.TS - a node local time-series engine for writing segment data.
+//  1. LocalKey.KV - an eventually consistent distributed key-value store.
+//  2. LocalKey.TS - a node local time-series engine for writing segment data.
 //  3. Cluster - an API for querying information about the underlying Cluster topology.
 type Core struct {
 	// Config is the configuration for the distribution layer.

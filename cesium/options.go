@@ -34,6 +34,7 @@ func newOptions(dirname string, opts ...Option) *options {
 func mergeDefaultOptions(o *options) {
 	o.logger = override.Nil(zap.NewNop(), o.logger)
 	o.metaECD = override.Nil[binary.EncoderDecoder](&binary.JSONEncoderDecoder{}, o.metaECD)
+	o.fs = override.Nil[xfs.FS](xfs.Default, o.fs)
 }
 
 func WithFS(fs xfs.FS) Option {
@@ -44,7 +45,7 @@ func WithFS(fs xfs.FS) Option {
 
 func MemBacked() Option {
 	return func(o *options) {
-		o.fs = xfs.NewMemFS()
+		o.fs = xfs.NewMem()
 	}
 }
 

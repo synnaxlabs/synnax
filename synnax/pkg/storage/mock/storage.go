@@ -4,7 +4,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errutil"
-	"github.com/synnaxlabs/x/fsutil"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	"os"
 )
 
@@ -16,7 +16,7 @@ type Builder struct {
 func NewBuilder(cfg ...storage.Config) *Builder {
 	_cfg, err := config.OverrideAndValidate(storage.DefaultConfig, append([]storage.Config{{
 		MemBacked: config.BoolPointer(true),
-		Perm:      fsutil.OS_USER_RWX,
+		Perm:      xfs.OS_USER_RWX,
 	}}, cfg...)...)
 	if err != nil {
 		panic(err)

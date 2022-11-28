@@ -2,7 +2,7 @@ package kv
 
 // Batch  is an ordered collection of key-value operations on the DB. Batch implements
 // the Reader interface, and will read key-value pairs from both the Batch and underlying DB.
-// StorageKey batch must be committed for its changes to be persisted.
+// LocalKey batch must be committed for its changes to be persisted.
 type Batch interface {
 	Writer
 	Reader

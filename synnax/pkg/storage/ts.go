@@ -4,9 +4,6 @@ import "github.com/synnaxlabs/cesium"
 
 type (
 	TS         = cesium.DB
-	Segment    = cesium.Segment
 	Channel    = cesium.Channel
-	ChannelKey = cesium.ChannelKey
+	ChannelKey uint16
 )
-
-const AutoSpan = cesium.AutoSpan

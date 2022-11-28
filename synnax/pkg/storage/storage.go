@@ -1,9 +1,9 @@
 // Package storage provides entities for managing node local stores. Delta uses two
 // database classes for storing its data:
 //
-//  1. StorageKey key-value store (implementing the kv.DB interface) for storing cluster wide
+//  1. LocalKey key-value store (implementing the kv.DB interface) for storing cluster wide
 //     metadata.
-//  2. StorageKey time-series engine (implementing the cesium.DB interface) for writing chunks
+//  2. LocalKey time-series engine (implementing the cesium.DB interface) for writing chunks
 //     of time-series data.
 //
 // It's important to node the storage package does NOT manage any sort of distributed
@@ -19,9 +19,8 @@ import (
 	"github.com/synnaxlabs/x/alamos"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errutil"
-	"github.com/synnaxlabs/x/fsutil"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/kfs"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/pebblekv"
 	"github.com/synnaxlabs/x/override"
@@ -57,7 +56,7 @@ const (
 var tsEngines = []TSEngine{CesiumTS}
 
 // Store represents a node's local storage. The provided KV and TS engines can be
-// used to read and write data. StorageKey Store must be closed when it is no longer in use.
+// used to read and write data. LocalKey Store must be closed when it is no longer in use.
 type Store struct {
 	// Config is the configuration for the storage provided to Open.
 	Config Config
@@ -65,8 +64,8 @@ type Store struct {
 	KV kv.DB
 	// TS is the time-series engine for the node.
 	TS TS
-	// releaseLock is a function that releases the lock on the storage file system.
-	releaseLock func() error
+	// lock is a function that releases the lock on the storage file system.
+	lock io.Closer
 }
 
 // Gorpify returns a gorp.DB that can be used to interact with the storage key-value store.
@@ -82,7 +81,7 @@ func (s *Store) Close() error {
 	c := errutil.NewCatch(errutil.WithAggregation())
 	c.Exec(s.TS.Close)
 	c.Exec(s.KV.Close)
-	c.Exec(s.releaseLock)
+	c.Exec(s.lock.Close)
 	return c.Error()
 }
 
@@ -150,7 +149,7 @@ func (cfg Config) Report() alamos.Report {
 
 // DefaultConfig returns the default configuration for the storage layer.
 var DefaultConfig = Config{
-	Perm:       fsutil.OS_USER_RWX,
+	Perm:       xfs.OS_USER_RWX,
 	MemBacked:  config.BoolPointer(false),
 	Logger:     zap.NewNop(),
 	Experiment: nil,
@@ -176,7 +175,7 @@ func Open(cfg Config) (s *Store, err error) {
 	// Open our two file system implementations. We use VFS for acquiring the directory
 	// lock and for the key-value store. We use KFS for the time-series engine, as we
 	// need seekable file handles. This is
-	baseVFS, baseKFS := openBaseFS(cfg)
+	baseVFS, fs := openBaseFS(cfg)
 
 	// Configure our storage directory with the correct permissions.
 	if err := configureStorageDir(cfg, baseVFS); err != nil {
@@ -190,16 +189,17 @@ func Open(cfg Config) (s *Store, err error) {
 		return s, err
 	}
 	// Allow the caller to release the lock when they finish using the storage.
-	s.releaseLock = releaser.Close
+	s.lock = releaser
 
 	// Open the key-value storage engine.
 	if s.KV, err = openKV(cfg, baseVFS); err != nil {
-		return s, errors.CombineErrors(err, s.releaseLock())
+		return s, errors.CombineErrors(err, s.lock.Close())
 	}
 
 	// Open the time-series engine.
-	if s.TS, err = openTS(cfg, baseKFS, baseVFS); err != nil {
-		return s, errors.CombineErrors(err, s.releaseLock())
+	if s.TS, err = openTS(cfg, fs); err != nil {
+		_ = s.KV.Close()
+		return s, errors.CombineErrors(err, s.lock.Close())
 	}
 
 	return s, nil
@@ -211,11 +211,11 @@ const (
 	cesiumDirname = "cesium"
 )
 
-func openBaseFS(cfg Config) (vfs.FS, kfs.BaseFS) {
+func openBaseFS(cfg Config) (vfs.FS, xfs.FS) {
 	if *cfg.MemBacked {
-		return vfs.NewMem(), kfs.NewMem()
+		return vfs.NewMem(), xfs.NewMem()
 	} else {
-		return vfs.Default, kfs.NewOS()
+		return vfs.Default, xfs.Default
 	}
 }
 
@@ -251,7 +251,7 @@ func validateSufficientDirPermissions(cfg Config) error {
 		return err
 	}
 	// We need the directory to have at least the permissions set in Config.Perm.
-	if !fsutil.CheckSufficientPermissions(stat.Mode().Perm(), cfg.Perm) {
+	if !xfs.CheckSufficientPermissions(stat.Mode().Perm(), cfg.Perm) {
 		return errors.Newf(
 			insufficientDirPermissions,
 			cfg.Dirname,
@@ -292,15 +292,14 @@ func openKV(cfg Config, fs vfs.FS) (kv.DB, error) {
 	return pebblekv.Wrap(db), err
 }
 
-func openTS(cfg Config, fs kfs.BaseFS, vfs vfs.FS) (TS, error) {
+func openTS(cfg Config, fs xfs.FS) (TS, error) {
 	if cfg.TSEngine != CesiumTS {
 		return nil, errors.Newf("[storage] - unsupported time-series engine: %v", cfg.TSEngine)
 	}
 	dirname := filepath.Join(cfg.Dirname, cesiumDirname)
 	return cesium.Open(
 		dirname,
-		cesium.WithFS(vfs, fs),
+		cesium.WithFS(fs),
 		cesium.WithLogger(cfg.Logger),
-		cesium.WithExperiment(cfg.Experiment),
 	)
 }

@@ -24,7 +24,7 @@ var _ = Describe("Iterator Behavior", func() {
 		BeforeEach(func() {
 			logger := zap.NewNop()
 			indexDB = MustSucceed(unary.Open(unary.Config{
-				FS: fs.NewMemFS(),
+				FS: fs.NewMem(),
 				Channel: core.Channel{
 					Key:      "index",
 					DataType: telem.TimeStampT,
@@ -34,7 +34,7 @@ var _ = Describe("Iterator Behavior", func() {
 				Logger: logger,
 			}))
 			db = MustSucceed(unary.Open(unary.Config{
-				FS: fs.NewMemFS(),
+				FS: fs.NewMem(),
 				Channel: core.Channel{
 					Key:      "data",
 					DataType: telem.Int64T,

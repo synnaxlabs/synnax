@@ -23,7 +23,7 @@ func write(db *ranger.DB, rng telem.TimeRange, data []byte) {
 var _ = Describe("Iterator Behavior", func() {
 	var db *ranger.DB
 	BeforeEach(func() {
-		db = MustSucceed(ranger.Open(ranger.Config{FS: fs.NewMemFS()}))
+		db = MustSucceed(ranger.Open(ranger.Config{FS: fs.NewMem()}))
 	})
 	AfterEach(func() { Expect(db.Close()).To(Succeed()) })
 	Describe("Valid", func() {

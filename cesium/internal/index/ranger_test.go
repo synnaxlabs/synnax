@@ -18,7 +18,7 @@ var _ = Describe("Ranger", func() {
 	)
 	BeforeEach(func() {
 		db = MustSucceed(ranger.Open(ranger.Config{
-			FS: fs.NewMemFS(),
+			FS: fs.NewMem(),
 		}))
 		idx = &index.Ranger{
 			DB:     db,

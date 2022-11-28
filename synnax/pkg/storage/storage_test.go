@@ -5,7 +5,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/fsutil"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 	"os"
@@ -50,13 +50,13 @@ var _ = Describe("storage", func() {
 				var p string
 				BeforeEach(func() {
 					p = filepath.Join(tempDir, "x-storage")
-					Expect(os.Mkdir(p, fsutil.OS_USER_R)).To(Succeed())
+					Expect(os.Mkdir(p, xfs.OS_USER_R)).To(Succeed())
 					cfg.Dirname = p
 				})
 				AfterEach(func() { Expect(os.RemoveAll(p)).To(Succeed()) })
 				It("Should return an error if the directory exists but has insufficient permissions", func() {
 					// use os.Stat to check the dir permissions
-					cfg.Perm = fsutil.OS_USER_RWX
+					cfg.Perm = xfs.OS_USER_RWX
 					_, err := storage.Open(cfg)
 					Expect(err).To(HaveOccurred())
 				})

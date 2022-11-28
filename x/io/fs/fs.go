@@ -24,7 +24,7 @@ type defaultFS struct {
 	perm os.FileMode
 }
 
-var DefaultFS FS = &defaultFS{perm: defaultPerm}
+var Default FS = &defaultFS{perm: defaultPerm}
 
 func (d *defaultFS) Open(name string, flag int) (File, error) {
 	return os.OpenFile(path.Join(d.dir, name), flag, d.perm)
@@ -62,7 +62,7 @@ func OSDirFS(dir string) (FS, error) {
 	return &defaultFS{dir: dir, perm: defaultPerm}, err
 }
 
-func NewMemFS() FS {
+func NewMem() FS {
 	return &memFS{
 		Fs:   afero.NewMemMapFs(),
 		perm: defaultPerm,
@@ -79,6 +79,9 @@ func (m *memFS) Open(name string, flag int) (File, error) {
 }
 
 func (m *memFS) Sub(name string) (FS, error) {
+	if err := m.Fs.MkdirAll(name, m.perm); err != nil {
+		return nil, err
+	}
 	return &memFS{Fs: afero.NewBasePathFs(m.Fs, name)}, nil
 }
 

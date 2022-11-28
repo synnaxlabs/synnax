@@ -129,7 +129,7 @@ func tranSegFwd(segments []*sv1.Segment) []segment.Segment {
 		tSegments[i] = segment.Segment{
 			ChannelKey: key,
 			Segment: cesium.Segment{
-				ChannelKey: key.StorageKey(),
+				ChannelKey: key.LocalKey(),
 				Start:      telem.TimeStamp(seg.Start),
 				Data:       seg.Data,
 			},

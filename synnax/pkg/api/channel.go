@@ -126,7 +126,7 @@ func translateChannelsForward(channels []channel.Channel) []Channel {
 			Rate:     ch.Rate,
 			DataType: ch.DataType,
 			IsIndex:  ch.IsIndex,
-			Index:    ch.StorageIndex.String(),
+			Index:    ch.LocalIndex.String(),
 			Density:  ch.DataType.Density(),
 		}
 	}
@@ -148,14 +148,14 @@ func translateChannelsBackward(channels []Channel) ([]channel.Channel, error) {
 			if err != nil {
 				return nil, err
 			}
-			tCH.StorageKey = key.StorageKey()
+			tCH.LocalKey = key.LocalKey()
 		}
 		if ch.Index != "" {
 			index, err := channel.ParseKey(ch.Index)
 			if err != nil {
 				return nil, err
 			}
-			tCH.StorageIndex = index.StorageKey()
+			tCH.LocalIndex = index.LocalKey()
 		}
 		translated[i] = tCH
 	}

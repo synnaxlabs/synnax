@@ -15,7 +15,7 @@ var _ = Describe("ChannelKeys", func() {
 			It("Should create a new key with the given node ID and cesium key", func() {
 				k := channel.NewKey(core.NodeID(1), cesium.ChannelKey(2))
 				Expect(k.NodeID()).To(Equal(core.NodeID(1)))
-				Expect(k.StorageKey()).To(Equal(cesium.ChannelKey(2)))
+				Expect(k.LocalKey()).To(Equal(cesium.ChannelKey(2)))
 			})
 		})
 		Describe("Lease", func() {

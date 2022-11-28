@@ -16,7 +16,7 @@ var _ = Describe("Writer Behavior", func() {
 		var db *unary.DB
 		BeforeEach(func() {
 			db = MustSucceed(unary.Open(unary.Config{
-				FS: fs.NewMemFS(),
+				FS: fs.NewMem(),
 				Channel: core.Channel{
 					Key:      "data",
 					DataType: telem.TimeStampT,
@@ -44,7 +44,7 @@ var _ = Describe("Writer Behavior", func() {
 		)
 		BeforeEach(func() {
 			indexDB = MustSucceed(unary.Open(unary.Config{
-				FS: fs.NewMemFS(),
+				FS: fs.NewMem(),
 				Channel: core.Channel{
 					Key:      "index",
 					DataType: telem.TimeStampT,
@@ -52,7 +52,7 @@ var _ = Describe("Writer Behavior", func() {
 				},
 			}))
 			db = MustSucceed(unary.Open(unary.Config{
-				FS: fs.NewMemFS(),
+				FS: fs.NewMem(),
 				Channel: core.Channel{
 					Key:      "data",
 					DataType: telem.Int64T,

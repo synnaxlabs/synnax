@@ -23,6 +23,8 @@ func Keys(channels ...Channel) []string {
 
 type DB interface {
 	CreateChannel(channels ...Channel) error
+	RetrieveChannel(key string) (Channel, error)
+	RetrieveChannels(keys ...string) ([]Channel, error)
 	Write(start telem.TimeStamp, frame telem.Frame) error
 	WriteArray(start telem.TimeStamp, arr telem.Array) error
 	NewWriter(cfg WriterConfig) (Writer, error)
