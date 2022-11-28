@@ -11,11 +11,11 @@ import (
 // StreamIterator provides a streaming interface for iterating over a DB's segments
 // in time order. StreamIterator provides the underlying functionality for Iterator,
 // and has almost exactly the same semantics. The streaming interface is exposed
-// as a confluence Segment that can accept one input stream and one output stream.
+// as a confluence Framer that can accept one input stream and one output stream.
 //
 // To read segments, issue an IteratorRequest to the StreamIterator's inlet. The
 // StreamIterator will respond by sending one or more IteratorResponse messages to
-// the outlet. All responses containing Segment data will have a type of
+// the outlet. All responses containing Framer data will have a type of
 // IteratorDataResponse and will contain one or more segments. The last response
 // for any request will have a type of IteratorAckResponse and will contain
 // the name of the command that was acknowledged, and incremented sequence number,
@@ -97,7 +97,7 @@ type IteratorResponse struct {
 	Err error
 	// Frame is the telemetry frame that was read from the DB. It is only set
 	// when the response type is IteratorDataResponse.
-	Frame telem.Frame
+	Frame Frame
 }
 
 type streamIterator struct {

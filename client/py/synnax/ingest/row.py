@@ -6,7 +6,7 @@ from pandas import DataFrame
 from .. import Channel, Synnax
 from ..telem import MEGABYTE
 from ..io import RowReader
-from ..segment import NumpyWriter
+from ..framer import NumpyWriter
 
 
 class RowIngestionEngine:

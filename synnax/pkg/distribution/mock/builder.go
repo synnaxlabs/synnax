@@ -6,10 +6,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	distribcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/segment"
-	"github.com/synnaxlabs/synnax/pkg/distribution/segment/iterator"
-	"github.com/synnaxlabs/synnax/pkg/distribution/segment/writer"
 	"go.uber.org/zap"
 )
 
@@ -69,7 +69,7 @@ func (b *Builder) New() distribution.Distribution {
 		b.channelNet.UnaryServer(core.Config.AdvertiseAddress),
 		d.Ontology,
 	)
-	d.Segment = segment.New(d.Channel, d.Storage.TS, trans, d.Cluster, zap.NewNop())
+	d.Framer = framer.Open(d.Channel, d.Storage.TS, trans, d.Cluster, zap.NewNop())
 
 	return d
 }

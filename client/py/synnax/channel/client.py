@@ -1,7 +1,7 @@
 from numpy import ndarray
 from synnax import ValidationError
 
-from synnax.segment.client import SegmentClient as SegmentClient
+from synnax.framer import FramerClient
 from synnax.telem import (
     DATA_TYPE_UNKNOWN,
     Rate,
@@ -20,7 +20,7 @@ class Channel(ChannelPayload):
     """Represents a Channel in a Synnax database.
     """
 
-    segment_client: SegmentClient | None = None
+    segment_client: FramerClient | None = None
 
     class Config:
         arbitrary_types_allowed = True
@@ -35,7 +35,7 @@ class Channel(ChannelPayload):
         density: UnparsedDensity = 0,
         is_index: bool = False,
         index: str = "",
-        segment_client: SegmentClient = None,
+        segment_client: FramerClient = None,
     ):
         super().__init__(
             data_type=data_type,
@@ -94,13 +94,13 @@ class Channel(ChannelPayload):
 class ChannelClient:
     """The core client class for executing channel operations against a Synnax cluster."""
 
-    _segment_client: SegmentClient
+    _segment_client: FramerClient
     _retriever: ChannelRetriever
     _creator: ChannelCreator
 
     def __init__(
         self,
-        segment_client: SegmentClient,
+        segment_client: FramerClient,
         retriever: ChannelRetriever,
         creator: ChannelCreator,
     ):

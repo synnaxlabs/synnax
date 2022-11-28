@@ -58,10 +58,10 @@ func (s *NodeOntologyService) update(state ClusterState) {
 	w := s.Ontology.NewWriter()
 	clusterID := ClusterOntologyID(s.Cluster.Key())
 	if err := w.DefineResource(clusterID); err != nil {
-		s.Logger.Errorf("failed to define Cluster resource: %v", err)
+		s.Logger.Errorf("failed to define HostResolver resource: %v", err)
 	}
 	if err := w.DefineRelationship(ontology.Root, ontology.ParentOf, clusterID); err != nil {
-		s.Logger.Errorf("failed to define Cluster relationship: %v", err)
+		s.Logger.Errorf("failed to define HostResolver relationship: %v", err)
 	}
 	for _, n := range state.Nodes {
 		nodeID := NodeOntologyID(n.ID)
@@ -69,7 +69,7 @@ func (s *NodeOntologyService) update(state ClusterState) {
 			s.Logger.Errorf("failed to define node resource: %v", err)
 		}
 		if err := w.DefineRelationship(clusterID, ontology.ParentOf, nodeID); err != nil {
-			s.Logger.Errorf("failed to define Cluster relationship: %v", err)
+			s.Logger.Errorf("failed to define HostResolver relationship: %v", err)
 		}
 	}
 }
@@ -101,8 +101,8 @@ var _ ontology.Service = (*ClusterOntologyService)(nil)
 
 func (s *ClusterOntologyService) Schema() *schema.Schema { return _clusterSchema }
 
-func (s *ClusterOntologyService) RetrieveEntity(key string) (schema.Entity, error) {
-	e := schema.NewEntity(_clusterSchema, "Cluster")
+func (s *ClusterOntologyService) RetrieveEntity(_ string) (schema.Entity, error) {
+	e := schema.NewEntity(_clusterSchema, "HostResolver")
 	schema.Set(e, "key", s.Cluster.Key().String())
 	return e, nil
 }

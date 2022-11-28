@@ -1,11 +1,15 @@
 package channel
 
+import "C"
 import (
 	"context"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/storage"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Service is central entity for managing channels within delta's distribution layer. It provides facilities for creating
@@ -15,15 +19,42 @@ type Service struct {
 	proxy     *leaseProxy
 }
 
-func New(
-	cluster core.Cluster,
-	clusterDB *gorp.DB,
-	tsDB storage.TS,
-	client CreateTransportClient,
-	server CreateTransportServer,
-	ontology *ontology.Ontology,
-) *Service {
-	return &Service{clusterDB: clusterDB, proxy: newLeaseProxy(cluster, clusterDB, tsDB, client, server, ontology)}
+type Config struct {
+	HostResolver core.HostResolver
+	ClusterDB    *gorp.DB
+	TS           storage.TS
+	Transport    Transport
+	Ontology     *ontology.Ontology
+}
+
+var _ config.Config[Config] = Config{}
+
+func (c Config) Validate() error {
+	v := validate.New("distribution.channel")
+	validate.NotNil(v, "HostResolver", c.HostResolver)
+	validate.NotNil(v, "ClusterDB", c.ClusterDB)
+	validate.NotNil(v, "TS", c.TS)
+	validate.NotNil(v, "Transport", c.Transport)
+	return v.Error()
+}
+
+func (c Config) Override(other Config) Config {
+	c.HostResolver = override.Nil(c.HostResolver, other.HostResolver)
+	c.ClusterDB = override.Nil(c.ClusterDB, other.ClusterDB)
+	c.TS = override.Nil(c.TS, other.TS)
+	c.Transport = override.Nil(c.Transport, other.Transport)
+	c.Ontology = override.Nil(c.Ontology, other.Ontology)
+	return c
+}
+
+var DefaultConfig = Config{}
+
+func New(configs ...Config) (*Service, error) {
+	cfg, err := config.OverrideAndValidate(DefaultConfig, configs...)
+	if err != nil {
+		return nil, err
+	}
+	return &Service{clusterDB: cfg.ClusterDB, proxy: newLeaseProxy(cfg)}, nil
 }
 
 func (s *Service) Create(channel *Channel) error {

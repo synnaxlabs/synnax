@@ -29,7 +29,7 @@ type WriteRequest struct {
 	// Command is the command to execute on the writer.
 	Command WriterCommand
 	// Frame is the arrow record to write to the DB.
-	Frame telem.Frame
+	Frame Frame
 }
 
 // WriteResponse contains any errors that occurred during write execution.
@@ -48,7 +48,7 @@ type WriteResponse struct {
 
 // StreamWriter provides a streaming interface for writing telemetry to the DB.
 // StreamWriter provides the underlying functionality for Writer, and has almost exactly
-// the same semantics. The streaming interface is exposed as a confluence Segment that
+// the same semantics. The streaming interface is exposed as a confluence Framer that
 // can accept one input stream and one output stream.
 //
 // To write a record, issue a WriteRequest to the StreamWriter's inlet. If the write fails
@@ -137,7 +137,7 @@ func (w *streamWriter) write(req WriteRequest) error {
 		return errors.Wrapf(validate.Error, "cannot write uneven frame")
 	}
 
-	if !req.Frame.Unique() {
+	if !req.Frame.Unary() {
 		return errors.Wrapf(validate.Error, "cannot write frame with duplicate channels")
 	}
 
@@ -147,15 +147,16 @@ func (w *streamWriter) write(req WriteRequest) error {
 
 	w.sampleCount += req.Frame.Len()
 
-	for _, arr := range req.Frame.Arrays {
-		_chW, ok := w.internal[arr.Key]
+	for i, arr := range req.Frame.Arrays {
+		key := req.Frame.Key(i)
+		_chW, ok := w.internal[req.Frame.Key(i)]
 		if !ok {
 			return ChannelNotFound
 		}
 
 		chW := &_chW
 
-		if w.writingToIdx && w.idx.key == arr.Key {
+		if w.writingToIdx && w.idx.key == key {
 			w.updateHighWater(arr)
 		}
 

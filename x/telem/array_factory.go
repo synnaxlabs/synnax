@@ -18,24 +18,12 @@ func NewArrayV[T types.Numeric](data ...T) (arr Array) {
 	return NewArray[T](data)
 }
 
-func NewKeyedArrayV[T types.Numeric](key string, data ...T) Array {
-	arr := NewArray[T](data)
-	arr.Key = key
-	return arr
-}
-
 func NewSecondsTSV(data ...TimeStamp) (arr Array) {
 	for i := range data {
 		data[i] *= SecondTS
 	}
 	arr.DataType = TimeStampT
 	arr.Data = MarshalSlice(data, arr.DataType)
-	return arr
-}
-
-func NewKeyedSecondsTSV(key string, data ...TimeStamp) Array {
-	arr := NewSecondsTSV(data...)
-	arr.Key = key
 	return arr
 }
 

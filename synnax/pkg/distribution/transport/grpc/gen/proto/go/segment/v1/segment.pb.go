@@ -100,18 +100,17 @@ func (x *IteratorRequest) GetKeys() []string {
 	return nil
 }
 
-type Segment struct {
+type Frame struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	ChannelKey string `protobuf:"bytes,1,opt,name=channel_key,json=channelKey,proto3" json:"channel_key,omitempty"`
-	Start      int64  `protobuf:"varint,2,opt,name=start,proto3" json:"start,omitempty"`
-	Data       []byte `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`
+	Keys   []string `protobuf:"bytes,1,rep,name=keys,proto3" json:"keys,omitempty"`
+	Arrays []*Array `protobuf:"bytes,2,rep,name=arrays,proto3" json:"arrays,omitempty"`
 }
 
-func (x *Segment) Reset() {
-	*x = Segment{}
+func (x *Frame) Reset() {
+	*x = Frame{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_segment_v1_segment_proto_msgTypes[1]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -119,13 +118,13 @@ func (x *Segment) Reset() {
 	}
 }
 
-func (x *Segment) String() string {
+func (x *Frame) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*Segment) ProtoMessage() {}
+func (*Frame) ProtoMessage() {}
 
-func (x *Segment) ProtoReflect() protoreflect.Message {
+func (x *Frame) ProtoReflect() protoreflect.Message {
 	mi := &file_segment_v1_segment_proto_msgTypes[1]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -137,26 +136,82 @@ func (x *Segment) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Segment.ProtoReflect.Descriptor instead.
-func (*Segment) Descriptor() ([]byte, []int) {
+// Deprecated: Use Frame.ProtoReflect.Descriptor instead.
+func (*Frame) Descriptor() ([]byte, []int) {
 	return file_segment_v1_segment_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *Segment) GetChannelKey() string {
+func (x *Frame) GetKeys() []string {
 	if x != nil {
-		return x.ChannelKey
+		return x.Keys
+	}
+	return nil
+}
+
+func (x *Frame) GetArrays() []*Array {
+	if x != nil {
+		return x.Arrays
+	}
+	return nil
+}
+
+type Array struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Range    *TimeRange `protobuf:"bytes,1,opt,name=range,proto3" json:"range,omitempty"`
+	DataType string     `protobuf:"bytes,2,opt,name=data_type,json=dataType,proto3" json:"data_type,omitempty"`
+	Data     []byte     `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`
+}
+
+func (x *Array) Reset() {
+	*x = Array{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_segment_v1_segment_proto_msgTypes[2]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Array) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Array) ProtoMessage() {}
+
+func (x *Array) ProtoReflect() protoreflect.Message {
+	mi := &file_segment_v1_segment_proto_msgTypes[2]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Array.ProtoReflect.Descriptor instead.
+func (*Array) Descriptor() ([]byte, []int) {
+	return file_segment_v1_segment_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *Array) GetRange() *TimeRange {
+	if x != nil {
+		return x.Range
+	}
+	return nil
+}
+
+func (x *Array) GetDataType() string {
+	if x != nil {
+		return x.DataType
 	}
 	return ""
 }
 
-func (x *Segment) GetStart() int64 {
-	if x != nil {
-		return x.Start
-	}
-	return 0
-}
-
-func (x *Segment) GetData() []byte {
+func (x *Array) GetData() []byte {
 	if x != nil {
 		return x.Data
 	}
@@ -168,19 +223,19 @@ type IteratorResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Variant  int32            `protobuf:"varint,1,opt,name=variant,proto3" json:"variant,omitempty"`
-	NodeId   int32            `protobuf:"varint,2,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
-	Ack      bool             `protobuf:"varint,3,opt,name=ack,proto3" json:"ack,omitempty"`
-	Command  int32            `protobuf:"varint,4,opt,name=command,proto3" json:"command,omitempty"`
-	Counter  int32            `protobuf:"varint,5,opt,name=counter,proto3" json:"counter,omitempty"`
-	Error    *v1.ErrorPayload `protobuf:"bytes,6,opt,name=error,proto3" json:"error,omitempty"`
-	Segments []*Segment       `protobuf:"bytes,7,rep,name=segments,proto3" json:"segments,omitempty"`
+	Variant int32            `protobuf:"varint,1,opt,name=variant,proto3" json:"variant,omitempty"`
+	NodeId  int32            `protobuf:"varint,2,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
+	Ack     bool             `protobuf:"varint,3,opt,name=ack,proto3" json:"ack,omitempty"`
+	Command int32            `protobuf:"varint,4,opt,name=command,proto3" json:"command,omitempty"`
+	Counter int32            `protobuf:"varint,5,opt,name=counter,proto3" json:"counter,omitempty"`
+	Error   *v1.ErrorPayload `protobuf:"bytes,6,opt,name=error,proto3" json:"error,omitempty"`
+	Frame   *Frame           `protobuf:"bytes,7,opt,name=frame,proto3" json:"frame,omitempty"`
 }
 
 func (x *IteratorResponse) Reset() {
 	*x = IteratorResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_segment_v1_segment_proto_msgTypes[2]
+		mi := &file_segment_v1_segment_proto_msgTypes[3]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -193,7 +248,7 @@ func (x *IteratorResponse) String() string {
 func (*IteratorResponse) ProtoMessage() {}
 
 func (x *IteratorResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_segment_v1_segment_proto_msgTypes[2]
+	mi := &file_segment_v1_segment_proto_msgTypes[3]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -206,7 +261,7 @@ func (x *IteratorResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IteratorResponse.ProtoReflect.Descriptor instead.
 func (*IteratorResponse) Descriptor() ([]byte, []int) {
-	return file_segment_v1_segment_proto_rawDescGZIP(), []int{2}
+	return file_segment_v1_segment_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *IteratorResponse) GetVariant() int32 {
@@ -251,9 +306,9 @@ func (x *IteratorResponse) GetError() *v1.ErrorPayload {
 	return nil
 }
 
-func (x *IteratorResponse) GetSegments() []*Segment {
+func (x *IteratorResponse) GetFrame() *Frame {
 	if x != nil {
-		return x.Segments
+		return x.Frame
 	}
 	return nil
 }
@@ -263,15 +318,16 @@ type WriterRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Command  int32      `protobuf:"varint,1,opt,name=command,proto3" json:"command,omitempty"`
-	OpenKeys []string   `protobuf:"bytes,2,rep,name=open_keys,json=openKeys,proto3" json:"open_keys,omitempty"`
-	Segments []*Segment `protobuf:"bytes,3,rep,name=segments,proto3" json:"segments,omitempty"`
+	Command  int32    `protobuf:"varint,1,opt,name=command,proto3" json:"command,omitempty"`
+	OpenKeys []string `protobuf:"bytes,2,rep,name=open_keys,json=openKeys,proto3" json:"open_keys,omitempty"`
+	Start    int64    `protobuf:"varint,3,opt,name=start,proto3" json:"start,omitempty"`
+	Frame    *Frame   `protobuf:"bytes,4,opt,name=frame,proto3" json:"frame,omitempty"`
 }
 
 func (x *WriterRequest) Reset() {
 	*x = WriterRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_segment_v1_segment_proto_msgTypes[3]
+		mi := &file_segment_v1_segment_proto_msgTypes[4]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -284,7 +340,7 @@ func (x *WriterRequest) String() string {
 func (*WriterRequest) ProtoMessage() {}
 
 func (x *WriterRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_segment_v1_segment_proto_msgTypes[3]
+	mi := &file_segment_v1_segment_proto_msgTypes[4]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -297,7 +353,7 @@ func (x *WriterRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WriterRequest.ProtoReflect.Descriptor instead.
 func (*WriterRequest) Descriptor() ([]byte, []int) {
-	return file_segment_v1_segment_proto_rawDescGZIP(), []int{3}
+	return file_segment_v1_segment_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *WriterRequest) GetCommand() int32 {
@@ -314,9 +370,16 @@ func (x *WriterRequest) GetOpenKeys() []string {
 	return nil
 }
 
-func (x *WriterRequest) GetSegments() []*Segment {
+func (x *WriterRequest) GetStart() int64 {
 	if x != nil {
-		return x.Segments
+		return x.Start
+	}
+	return 0
+}
+
+func (x *WriterRequest) GetFrame() *Frame {
+	if x != nil {
+		return x.Frame
 	}
 	return nil
 }
@@ -336,7 +399,7 @@ type WriterResponse struct {
 func (x *WriterResponse) Reset() {
 	*x = WriterResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_segment_v1_segment_proto_msgTypes[4]
+		mi := &file_segment_v1_segment_proto_msgTypes[5]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -349,7 +412,7 @@ func (x *WriterResponse) String() string {
 func (*WriterResponse) ProtoMessage() {}
 
 func (x *WriterResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_segment_v1_segment_proto_msgTypes[4]
+	mi := &file_segment_v1_segment_proto_msgTypes[5]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -362,7 +425,7 @@ func (x *WriterResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WriterResponse.ProtoReflect.Descriptor instead.
 func (*WriterResponse) Descriptor() ([]byte, []int) {
-	return file_segment_v1_segment_proto_rawDescGZIP(), []int{4}
+	return file_segment_v1_segment_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *WriterResponse) GetCommand() int32 {
@@ -412,7 +475,7 @@ type TimeRange struct {
 func (x *TimeRange) Reset() {
 	*x = TimeRange{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_segment_v1_segment_proto_msgTypes[5]
+		mi := &file_segment_v1_segment_proto_msgTypes[6]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -425,7 +488,7 @@ func (x *TimeRange) String() string {
 func (*TimeRange) ProtoMessage() {}
 
 func (x *TimeRange) ProtoReflect() protoreflect.Message {
-	mi := &file_segment_v1_segment_proto_msgTypes[5]
+	mi := &file_segment_v1_segment_proto_msgTypes[6]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -438,7 +501,7 @@ func (x *TimeRange) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TimeRange.ProtoReflect.Descriptor instead.
 func (*TimeRange) Descriptor() ([]byte, []int) {
-	return file_segment_v1_segment_proto_rawDescGZIP(), []int{5}
+	return file_segment_v1_segment_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *TimeRange) GetStart() int64 {
@@ -471,35 +534,41 @@ var file_segment_v1_segment_proto_rawDesc = []byte{
 	0x69, 0x6d, 0x65, 0x52, 0x61, 0x6e, 0x67, 0x65, 0x52, 0x05, 0x72, 0x61, 0x6e, 0x67, 0x65, 0x12,
 	0x14, 0x0a, 0x05, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x18, 0x04, 0x20, 0x01, 0x28, 0x03, 0x52, 0x05,
 	0x73, 0x74, 0x61, 0x6d, 0x70, 0x12, 0x12, 0x0a, 0x04, 0x6b, 0x65, 0x79, 0x73, 0x18, 0x05, 0x20,
-	0x03, 0x28, 0x09, 0x52, 0x04, 0x6b, 0x65, 0x79, 0x73, 0x22, 0x54, 0x0a, 0x07, 0x53, 0x65, 0x67,
-	0x6d, 0x65, 0x6e, 0x74, 0x12, 0x1f, 0x0a, 0x0b, 0x63, 0x68, 0x61, 0x6e, 0x6e, 0x65, 0x6c, 0x5f,
-	0x6b, 0x65, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0a, 0x63, 0x68, 0x61, 0x6e, 0x6e,
-	0x65, 0x6c, 0x4b, 0x65, 0x79, 0x12, 0x14, 0x0a, 0x05, 0x73, 0x74, 0x61, 0x72, 0x74, 0x18, 0x02,
-	0x20, 0x01, 0x28, 0x03, 0x52, 0x05, 0x73, 0x74, 0x61, 0x72, 0x74, 0x12, 0x12, 0x0a, 0x04, 0x64,
-	0x61, 0x74, 0x61, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x04, 0x64, 0x61, 0x74, 0x61, 0x22,
-	0xec, 0x01, 0x0a, 0x10, 0x49, 0x74, 0x65, 0x72, 0x61, 0x74, 0x6f, 0x72, 0x52, 0x65, 0x73, 0x70,
-	0x6f, 0x6e, 0x73, 0x65, 0x12, 0x18, 0x0a, 0x07, 0x76, 0x61, 0x72, 0x69, 0x61, 0x6e, 0x74, 0x18,
-	0x01, 0x20, 0x01, 0x28, 0x05, 0x52, 0x07, 0x76, 0x61, 0x72, 0x69, 0x61, 0x6e, 0x74, 0x12, 0x17,
-	0x0a, 0x07, 0x6e, 0x6f, 0x64, 0x65, 0x5f, 0x69, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x05, 0x52,
-	0x06, 0x6e, 0x6f, 0x64, 0x65, 0x49, 0x64, 0x12, 0x10, 0x0a, 0x03, 0x61, 0x63, 0x6b, 0x18, 0x03,
-	0x20, 0x01, 0x28, 0x08, 0x52, 0x03, 0x61, 0x63, 0x6b, 0x12, 0x18, 0x0a, 0x07, 0x63, 0x6f, 0x6d,
-	0x6d, 0x61, 0x6e, 0x64, 0x18, 0x04, 0x20, 0x01, 0x28, 0x05, 0x52, 0x07, 0x63, 0x6f, 0x6d, 0x6d,
-	0x61, 0x6e, 0x64, 0x12, 0x18, 0x0a, 0x07, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x65, 0x72, 0x18, 0x05,
-	0x20, 0x01, 0x28, 0x05, 0x52, 0x07, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x65, 0x72, 0x12, 0x2e, 0x0a,
-	0x05, 0x65, 0x72, 0x72, 0x6f, 0x72, 0x18, 0x06, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x18, 0x2e, 0x66,
-	0x65, 0x72, 0x72, 0x6f, 0x72, 0x73, 0x2e, 0x76, 0x31, 0x2e, 0x45, 0x72, 0x72, 0x6f, 0x72, 0x50,
-	0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x52, 0x05, 0x65, 0x72, 0x72, 0x6f, 0x72, 0x12, 0x2f, 0x0a,
-	0x08, 0x73, 0x65, 0x67, 0x6d, 0x65, 0x6e, 0x74, 0x73, 0x18, 0x07, 0x20, 0x03, 0x28, 0x0b, 0x32,
-	0x13, 0x2e, 0x73, 0x65, 0x67, 0x6d, 0x65, 0x6e, 0x74, 0x2e, 0x76, 0x31, 0x2e, 0x53, 0x65, 0x67,
-	0x6d, 0x65, 0x6e, 0x74, 0x52, 0x08, 0x73, 0x65, 0x67, 0x6d, 0x65, 0x6e, 0x74, 0x73, 0x22, 0x77,
-	0x0a, 0x0d, 0x57, 0x72, 0x69, 0x74, 0x65, 0x72, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12,
-	0x18, 0x0a, 0x07, 0x63, 0x6f, 0x6d, 0x6d, 0x61, 0x6e, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x05,
-	0x52, 0x07, 0x63, 0x6f, 0x6d, 0x6d, 0x61, 0x6e, 0x64, 0x12, 0x1b, 0x0a, 0x09, 0x6f, 0x70, 0x65,
-	0x6e, 0x5f, 0x6b, 0x65, 0x79, 0x73, 0x18, 0x02, 0x20, 0x03, 0x28, 0x09, 0x52, 0x08, 0x6f, 0x70,
-	0x65, 0x6e, 0x4b, 0x65, 0x79, 0x73, 0x12, 0x2f, 0x0a, 0x08, 0x73, 0x65, 0x67, 0x6d, 0x65, 0x6e,
-	0x74, 0x73, 0x18, 0x03, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x13, 0x2e, 0x73, 0x65, 0x67, 0x6d, 0x65,
-	0x6e, 0x74, 0x2e, 0x76, 0x31, 0x2e, 0x53, 0x65, 0x67, 0x6d, 0x65, 0x6e, 0x74, 0x52, 0x08, 0x73,
-	0x65, 0x67, 0x6d, 0x65, 0x6e, 0x74, 0x73, 0x22, 0x9f, 0x01, 0x0a, 0x0e, 0x57, 0x72, 0x69, 0x74,
+	0x03, 0x28, 0x09, 0x52, 0x04, 0x6b, 0x65, 0x79, 0x73, 0x22, 0x46, 0x0a, 0x05, 0x46, 0x72, 0x61,
+	0x6d, 0x65, 0x12, 0x12, 0x0a, 0x04, 0x6b, 0x65, 0x79, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x09,
+	0x52, 0x04, 0x6b, 0x65, 0x79, 0x73, 0x12, 0x29, 0x0a, 0x06, 0x61, 0x72, 0x72, 0x61, 0x79, 0x73,
+	0x18, 0x02, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x11, 0x2e, 0x73, 0x65, 0x67, 0x6d, 0x65, 0x6e, 0x74,
+	0x2e, 0x76, 0x31, 0x2e, 0x41, 0x72, 0x72, 0x61, 0x79, 0x52, 0x06, 0x61, 0x72, 0x72, 0x61, 0x79,
+	0x73, 0x22, 0x65, 0x0a, 0x05, 0x41, 0x72, 0x72, 0x61, 0x79, 0x12, 0x2b, 0x0a, 0x05, 0x72, 0x61,
+	0x6e, 0x67, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x15, 0x2e, 0x73, 0x65, 0x67, 0x6d,
+	0x65, 0x6e, 0x74, 0x2e, 0x76, 0x31, 0x2e, 0x54, 0x69, 0x6d, 0x65, 0x52, 0x61, 0x6e, 0x67, 0x65,
+	0x52, 0x05, 0x72, 0x61, 0x6e, 0x67, 0x65, 0x12, 0x1b, 0x0a, 0x09, 0x64, 0x61, 0x74, 0x61, 0x5f,
+	0x74, 0x79, 0x70, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08, 0x64, 0x61, 0x74, 0x61,
+	0x54, 0x79, 0x70, 0x65, 0x12, 0x12, 0x0a, 0x04, 0x64, 0x61, 0x74, 0x61, 0x18, 0x03, 0x20, 0x01,
+	0x28, 0x0c, 0x52, 0x04, 0x64, 0x61, 0x74, 0x61, 0x22, 0xe4, 0x01, 0x0a, 0x10, 0x49, 0x74, 0x65,
+	0x72, 0x61, 0x74, 0x6f, 0x72, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x18, 0x0a,
+	0x07, 0x76, 0x61, 0x72, 0x69, 0x61, 0x6e, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x05, 0x52, 0x07,
+	0x76, 0x61, 0x72, 0x69, 0x61, 0x6e, 0x74, 0x12, 0x17, 0x0a, 0x07, 0x6e, 0x6f, 0x64, 0x65, 0x5f,
+	0x69, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x05, 0x52, 0x06, 0x6e, 0x6f, 0x64, 0x65, 0x49, 0x64,
+	0x12, 0x10, 0x0a, 0x03, 0x61, 0x63, 0x6b, 0x18, 0x03, 0x20, 0x01, 0x28, 0x08, 0x52, 0x03, 0x61,
+	0x63, 0x6b, 0x12, 0x18, 0x0a, 0x07, 0x63, 0x6f, 0x6d, 0x6d, 0x61, 0x6e, 0x64, 0x18, 0x04, 0x20,
+	0x01, 0x28, 0x05, 0x52, 0x07, 0x63, 0x6f, 0x6d, 0x6d, 0x61, 0x6e, 0x64, 0x12, 0x18, 0x0a, 0x07,
+	0x63, 0x6f, 0x75, 0x6e, 0x74, 0x65, 0x72, 0x18, 0x05, 0x20, 0x01, 0x28, 0x05, 0x52, 0x07, 0x63,
+	0x6f, 0x75, 0x6e, 0x74, 0x65, 0x72, 0x12, 0x2e, 0x0a, 0x05, 0x65, 0x72, 0x72, 0x6f, 0x72, 0x18,
+	0x06, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x18, 0x2e, 0x66, 0x65, 0x72, 0x72, 0x6f, 0x72, 0x73, 0x2e,
+	0x76, 0x31, 0x2e, 0x45, 0x72, 0x72, 0x6f, 0x72, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x52,
+	0x05, 0x65, 0x72, 0x72, 0x6f, 0x72, 0x12, 0x27, 0x0a, 0x05, 0x66, 0x72, 0x61, 0x6d, 0x65, 0x18,
+	0x07, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x11, 0x2e, 0x73, 0x65, 0x67, 0x6d, 0x65, 0x6e, 0x74, 0x2e,
+	0x76, 0x31, 0x2e, 0x46, 0x72, 0x61, 0x6d, 0x65, 0x52, 0x05, 0x66, 0x72, 0x61, 0x6d, 0x65, 0x22,
+	0x85, 0x01, 0x0a, 0x0d, 0x57, 0x72, 0x69, 0x74, 0x65, 0x72, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
+	0x74, 0x12, 0x18, 0x0a, 0x07, 0x63, 0x6f, 0x6d, 0x6d, 0x61, 0x6e, 0x64, 0x18, 0x01, 0x20, 0x01,
+	0x28, 0x05, 0x52, 0x07, 0x63, 0x6f, 0x6d, 0x6d, 0x61, 0x6e, 0x64, 0x12, 0x1b, 0x0a, 0x09, 0x6f,
+	0x70, 0x65, 0x6e, 0x5f, 0x6b, 0x65, 0x79, 0x73, 0x18, 0x02, 0x20, 0x03, 0x28, 0x09, 0x52, 0x08,
+	0x6f, 0x70, 0x65, 0x6e, 0x4b, 0x65, 0x79, 0x73, 0x12, 0x14, 0x0a, 0x05, 0x73, 0x74, 0x61, 0x72,
+	0x74, 0x18, 0x03, 0x20, 0x01, 0x28, 0x03, 0x52, 0x05, 0x73, 0x74, 0x61, 0x72, 0x74, 0x12, 0x27,
+	0x0a, 0x05, 0x66, 0x72, 0x61, 0x6d, 0x65, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x11, 0x2e,
+	0x73, 0x65, 0x67, 0x6d, 0x65, 0x6e, 0x74, 0x2e, 0x76, 0x31, 0x2e, 0x46, 0x72, 0x61, 0x6d, 0x65,
+	0x52, 0x05, 0x66, 0x72, 0x61, 0x6d, 0x65, 0x22, 0x9f, 0x01, 0x0a, 0x0e, 0x57, 0x72, 0x69, 0x74,
 	0x65, 0x72, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x18, 0x0a, 0x07, 0x63, 0x6f,
 	0x6d, 0x6d, 0x61, 0x6e, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x05, 0x52, 0x07, 0x63, 0x6f, 0x6d,
 	0x6d, 0x61, 0x6e, 0x64, 0x12, 0x10, 0x0a, 0x03, 0x61, 0x63, 0x6b, 0x18, 0x02, 0x20, 0x01, 0x28,
@@ -551,31 +620,34 @@ func file_segment_v1_segment_proto_rawDescGZIP() []byte {
 	return file_segment_v1_segment_proto_rawDescData
 }
 
-var file_segment_v1_segment_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_segment_v1_segment_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_segment_v1_segment_proto_goTypes = []interface{}{
 	(*IteratorRequest)(nil),  // 0: segment.v1.IteratorRequest
-	(*Segment)(nil),          // 1: segment.v1.Segment
-	(*IteratorResponse)(nil), // 2: segment.v1.IteratorResponse
-	(*WriterRequest)(nil),    // 3: segment.v1.WriterRequest
-	(*WriterResponse)(nil),   // 4: segment.v1.WriterResponse
-	(*TimeRange)(nil),        // 5: segment.v1.TimeRange
-	(*v1.ErrorPayload)(nil),  // 6: ferrors.v1.ErrorPayload
+	(*Frame)(nil),            // 1: segment.v1.Frame
+	(*Array)(nil),            // 2: segment.v1.Array
+	(*IteratorResponse)(nil), // 3: segment.v1.IteratorResponse
+	(*WriterRequest)(nil),    // 4: segment.v1.WriterRequest
+	(*WriterResponse)(nil),   // 5: segment.v1.WriterResponse
+	(*TimeRange)(nil),        // 6: segment.v1.TimeRange
+	(*v1.ErrorPayload)(nil),  // 7: ferrors.v1.ErrorPayload
 }
 var file_segment_v1_segment_proto_depIdxs = []int32{
-	5, // 0: segment.v1.IteratorRequest.range:type_name -> segment.v1.TimeRange
-	6, // 1: segment.v1.IteratorResponse.error:type_name -> ferrors.v1.ErrorPayload
-	1, // 2: segment.v1.IteratorResponse.segments:type_name -> segment.v1.Segment
-	1, // 3: segment.v1.WriterRequest.segments:type_name -> segment.v1.Segment
-	6, // 4: segment.v1.WriterResponse.error:type_name -> ferrors.v1.ErrorPayload
-	0, // 5: segment.v1.IteratorService.Iterate:input_type -> segment.v1.IteratorRequest
-	3, // 6: segment.v1.WriterService.Write:input_type -> segment.v1.WriterRequest
-	2, // 7: segment.v1.IteratorService.Iterate:output_type -> segment.v1.IteratorResponse
-	4, // 8: segment.v1.WriterService.Write:output_type -> segment.v1.WriterResponse
-	7, // [7:9] is the sub-list for method output_type
-	5, // [5:7] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	6, // 0: segment.v1.IteratorRequest.range:type_name -> segment.v1.TimeRange
+	2, // 1: segment.v1.Frame.arrays:type_name -> segment.v1.Array
+	6, // 2: segment.v1.Array.range:type_name -> segment.v1.TimeRange
+	7, // 3: segment.v1.IteratorResponse.error:type_name -> ferrors.v1.ErrorPayload
+	1, // 4: segment.v1.IteratorResponse.frame:type_name -> segment.v1.Frame
+	1, // 5: segment.v1.WriterRequest.frame:type_name -> segment.v1.Frame
+	7, // 6: segment.v1.WriterResponse.error:type_name -> ferrors.v1.ErrorPayload
+	0, // 7: segment.v1.IteratorService.Iterate:input_type -> segment.v1.IteratorRequest
+	4, // 8: segment.v1.WriterService.Write:input_type -> segment.v1.WriterRequest
+	3, // 9: segment.v1.IteratorService.Iterate:output_type -> segment.v1.IteratorResponse
+	5, // 10: segment.v1.WriterService.Write:output_type -> segment.v1.WriterResponse
+	9, // [9:11] is the sub-list for method output_type
+	7, // [7:9] is the sub-list for method input_type
+	7, // [7:7] is the sub-list for extension type_name
+	7, // [7:7] is the sub-list for extension extendee
+	0, // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_segment_v1_segment_proto_init() }
@@ -597,7 +669,7 @@ func file_segment_v1_segment_proto_init() {
 			}
 		}
 		file_segment_v1_segment_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Segment); i {
+			switch v := v.(*Frame); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -609,7 +681,7 @@ func file_segment_v1_segment_proto_init() {
 			}
 		}
 		file_segment_v1_segment_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*IteratorResponse); i {
+			switch v := v.(*Array); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -621,7 +693,7 @@ func file_segment_v1_segment_proto_init() {
 			}
 		}
 		file_segment_v1_segment_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*WriterRequest); i {
+			switch v := v.(*IteratorResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -633,7 +705,7 @@ func file_segment_v1_segment_proto_init() {
 			}
 		}
 		file_segment_v1_segment_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*WriterResponse); i {
+			switch v := v.(*WriterRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -645,6 +717,18 @@ func file_segment_v1_segment_proto_init() {
 			}
 		}
 		file_segment_v1_segment_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*WriterResponse); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_segment_v1_segment_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*TimeRange); i {
 			case 0:
 				return &v.state
@@ -663,7 +747,7 @@ func file_segment_v1_segment_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_segment_v1_segment_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   6,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

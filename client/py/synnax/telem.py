@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from freighter import Payload
+
 from datetime import datetime, timedelta, timezone, tzinfo
 from typing import Union, get_args
 
@@ -606,3 +608,26 @@ DATA_TYPE_TO_NUMPY: dict[str, np.ScalarType] = {
     UINT8: np.uint8,
 }
 NUMPY_TO_DATA_TYPE = {v: k for k, v in DATA_TYPE_TO_NUMPY.items()}
+
+
+class ArrayHeader(Payload):
+    time_range: TimeRange
+    data_type: DataType
+
+
+class BinaryArray(ArrayHeader):
+    data: bytes = b""
+
+
+class NumpyArray(ArrayHeader):
+    data: np.ndarray
+
+    @classmethod
+    def from_binary(cls, arr: BinaryArray) -> NumpyArray:
+        return NumpyArray(
+            data_type=arr.data_type,
+            time_range=arr.time_range,
+            data=np.frombuffer(arr.data, dtype=arr.data_type.numpy_type)
+        )
+
+

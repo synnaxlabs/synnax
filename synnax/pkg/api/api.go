@@ -16,8 +16,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/auth"
 	"github.com/synnaxlabs/synnax/pkg/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/segment"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/user"
 	"go.uber.org/zap"
@@ -28,7 +28,7 @@ import (
 type Config struct {
 	Logger        *zap.Logger
 	Channel       *channel.Service
-	Segment       *segment.Service
+	Segment       *framer.Service
 	Ontology      *ontology.Ontology
 	Storage       *storage.Store
 	User          *user.Service

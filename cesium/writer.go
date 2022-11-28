@@ -14,7 +14,7 @@ type WriterConfig struct {
 }
 
 type Writer interface {
-	Write(frame telem.Frame) bool
+	Write(frame Frame) bool
 	Commit() bool
 	Error() error
 	Close() error
@@ -44,7 +44,7 @@ func wrapStreamWriter(internal StreamWriter) *writer {
 }
 
 // Write implements the Writer interface.
-func (w *writer) Write(rec telem.Frame) bool {
+func (w *writer) Write(rec Frame) bool {
 	if w.hasAccumulatedErr {
 		return false
 	}

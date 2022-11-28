@@ -3,9 +3,9 @@ package segment
 import (
 	"context"
 	"github.com/synnaxlabs/freighter/fgrpc"
-	"github.com/synnaxlabs/synnax/pkg/distribution/segment"
-	"github.com/synnaxlabs/synnax/pkg/distribution/segment/iterator"
-	"github.com/synnaxlabs/synnax/pkg/distribution/segment/writer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/gen/proto/go/segment/v1"
 	"google.golang.org/grpc"
 )
@@ -44,7 +44,7 @@ var (
 	_ segmentv1.IteratorServiceServer = (*iteratorServer)(nil)
 	_ iterator.TransportServer        = (*iteratorServer)(nil)
 	_ iterator.TransportClient        = (*iteratorClient)(nil)
-	_ segment.Transport               = (*transport)(nil)
+	_ framer.Transport                = (*transport)(nil)
 )
 
 func New(pool *fgrpc.Pool) *transport {

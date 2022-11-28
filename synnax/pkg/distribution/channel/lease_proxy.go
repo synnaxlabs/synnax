@@ -11,39 +11,22 @@ import (
 )
 
 type leaseProxy struct {
-	cluster   core.Cluster
-	clusterDB *gorp.DB
-	tsDB      storage.TS
-	client    CreateTransportClient
-	server    CreateTransportServer
-	router    proxy.BatchFactory[Channel]
-	ontology  *ontology.Ontology
-	counter   counter.Uint16Error
+	Config
+	router  proxy.BatchFactory[Channel]
+	counter counter.Uint16Error
 }
 
-func newLeaseProxy(
-	cluster core.Cluster,
-	clusterDB *gorp.DB,
-	tsDB storage.TS,
-	client CreateTransportClient,
-	server CreateTransportServer,
-	ontology *ontology.Ontology,
-) *leaseProxy {
+func newLeaseProxy(cfg Config) *leaseProxy {
 	p := &leaseProxy{
-		cluster:   cluster,
-		clusterDB: clusterDB,
-		tsDB:      tsDB,
-		client:    client,
-		server:    server,
-		router:    proxy.NewBatchFactory[Channel](cluster.HostID()),
-		ontology:  ontology,
+		Config: cfg,
+		router: proxy.NewBatchFactory[Channel](cfg.HostResolver.HostID()),
 	}
-	p.server.BindHandler(p.handle)
+	p.Server.BindHandler(p.handle)
 	return p
 }
 
 func (lp *leaseProxy) handle(ctx context.Context, msg CreateMessage) (CreateMessage, error) {
-	txn := lp.clusterDB.BeginTxn()
+	txn := lp.ClusterDB.BeginTxn()
 	err := lp.create(ctx, txn, &msg.Channels)
 	if err != nil {
 		return CreateMessage{}, err
@@ -55,7 +38,7 @@ func (lp *leaseProxy) create(ctx context.Context, txn gorp.Txn, _channels *[]Cha
 	channels := *_channels
 	for i := range channels {
 		if channels[i].NodeID == 0 {
-			channels[i].NodeID = lp.cluster.HostID()
+			channels[i].NodeID = lp.HostResolver.HostID()
 		}
 	}
 	batch := lp.router.Batch(channels)
@@ -81,7 +64,7 @@ func (lp *leaseProxy) createLocal(txn gorp.Txn, channels *[]Channel) error {
 		return err
 	}
 	storageChannels := toStorage(*channels)
-	if err := lp.tsDB.CreateChannel(storageChannels...); err != nil {
+	if err := lp.TS.CreateChannel(storageChannels...); err != nil {
 		return err
 	}
 	if err := gorp.NewCreate[Key, Channel]().Entries(channels).Exec(txn); err != nil {
@@ -105,18 +88,14 @@ func (lp *leaseProxy) maybeSetResources(
 	txn gorp.Txn,
 	channels []Channel,
 ) error {
-	if lp.ontology != nil {
-		w := lp.ontology.NewWriterUsingTxn(txn)
-		for _, channel := range channels {
-			rtk := OntologyID(channel.Key())
+	if lp.Ontology != nil {
+		w := lp.Ontology.NewWriterUsingTxn(txn)
+		for _, ch := range channels {
+			rtk := OntologyID(ch.Key())
 			if err := w.DefineResource(rtk); err != nil {
 				return err
 			}
-			if err := w.DefineRelationship(
-				core.NodeOntologyID(channel.NodeID),
-				ontology.ParentOf,
-				rtk,
-			); err != nil {
+			if err := w.DefineRelationship(core.NodeOntologyID(ch.NodeID), ontology.ParentOf, rtk); err != nil {
 				return err
 			}
 		}
@@ -125,11 +104,11 @@ func (lp *leaseProxy) maybeSetResources(
 }
 
 func (lp *leaseProxy) createRemote(ctx context.Context, target core.NodeID, channels []Channel) ([]Channel, error) {
-	addr, err := lp.cluster.Resolve(target)
+	addr, err := lp.HostResolver.Resolve(target)
 	if err != nil {
 		return nil, err
 	}
-	res, err := lp.client.Send(ctx, addr, CreateMessage{Channels: channels})
+	res, err := lp.Client.Send(ctx, addr, CreateMessage{Channels: channels})
 	if err != nil {
 		return nil, err
 	}

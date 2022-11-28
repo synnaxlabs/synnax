@@ -5,41 +5,47 @@ import "ferrors/v1/ferrors.proto";
 package segment.v1;
 
 service IteratorService {
-  rpc Iterate(stream IteratorRequest) returns (stream IteratorResponse) {}
+	rpc Iterate(stream IteratorRequest) returns (stream IteratorResponse) {}
 }
 
 message IteratorRequest {
-  int32 command = 1;
-  int64 span = 2;
-  TimeRange range = 3;
-  int64 stamp = 4;
-  repeated string keys = 5;
+	int32 command = 1;
+	int64 span = 2;
+	TimeRange range = 3;
+	int64 stamp = 4;
+	repeated string keys = 5;
 }
 
-message Segment {
-  string channel_key = 1;
-  int64 start = 2;
-  bytes data = 3;
+message Frame {
+	repeated string keys = 1;
+	repeated Array arrays = 2;
+}
+
+message Array {
+	TimeRange range = 1;
+	string data_type = 2;
+	bytes data = 3;
 }
 
 message IteratorResponse {
-  int32 variant = 1;
-  int32 node_id = 2;
-  bool ack = 3;
-  int32 command = 4;
-  int32 counter = 5;
-  ferrors.v1.ErrorPayload error = 6;
-  repeated Segment segments = 7;
+	int32 variant = 1;
+	int32 node_id = 2;
+	bool ack = 3;
+	int32 command = 4;
+	int32 counter = 5;
+	ferrors.v1.ErrorPayload error = 6;
+	Frame frame = 7;
 }
 
 service WriterService {
-  rpc Write(stream WriterRequest) returns (stream WriterResponse) {}
+	rpc Write(stream WriterRequest) returns (stream WriterResponse) {}
 }
 
 message WriterRequest {
 	int32 command = 1;
-  repeated string open_keys = 2;
-  repeated Segment segments = 3;
+	repeated string open_keys = 2;
+	int64 start = 3;
+	Frame frame = 4;
 }
 
 message WriterResponse {
@@ -47,10 +53,10 @@ message WriterResponse {
 	bool ack = 2;
 	int32 node_id = 3;
 	int32 counter = 4;
-  ferrors.v1.ErrorPayload error = 5;
+	ferrors.v1.ErrorPayload error = 5;
 }
 
 message TimeRange {
-  int64 start = 1;
-  int64 end = 2;
+	int64 start = 1;
+	int64 end = 2;
 }

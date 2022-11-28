@@ -41,7 +41,7 @@ type cesium struct {
 }
 
 // Write implements DB.
-func (db *cesium) Write(start telem.TimeStamp, frame telem.Frame) error {
+func (db *cesium) Write(start telem.TimeStamp, frame Frame) error {
 	var config WriterConfig
 	config.Channels = make([]string, len(frame.Arrays))
 	for i, arr := range frame.Arrays {
@@ -57,8 +57,8 @@ func (db *cesium) Write(start telem.TimeStamp, frame telem.Frame) error {
 	return w.Close()
 }
 
-func (db *cesium) WriteArray(start telem.TimeStamp, arr telem.Array) error {
-	return db.Write(start, telem.Frame{Arrays: []telem.Array{arr}})
+func (db *cesium) WriteArray(start telem.TimeStamp, key string, arr telem.Array) error {
+	return db.Write(start, NewFrame([]string{key}, []telem.Array{arr}))
 }
 
 // Read implements DB.

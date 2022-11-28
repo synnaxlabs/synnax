@@ -20,12 +20,12 @@
 // values (i.e. chan<- Value). Inlets and Outlets are also addressable, which allows you
 // to send messages to segments with different addresses based on some criteria.
 //
-// Collections of Segments can also be composed into a pipeline using the plumber
+// Collections of Frame can also be composed into a pipeline using the plumber
 // package's plumber.Pipeline. The Pipeline type is itself a Segment that can be
 // connected to other Segment(s). This allows for a flexible and powerful
 // composition capabilities.
 //
-// The confluence package provides a number of built-in Segments that can be used
+// The confluence package provides a number of built-in Frame that can be used
 // by themselves or embedded into custom Segment(s) that provide functionality specific
 // to your use case.
 //
@@ -124,7 +124,7 @@ type TransformFunc[I, O Value] struct {
 // Stream represents a streamImpl of values. Each streamImpl has an addressable Outlet
 // and an addressable Inlet. These addresses are best represented as unique locations where values
 // are received from (Inlet) and sent to (Outlet). It is also generally OK to share a streamImpl across multiple
-// Segments, as long as those segments perform are replicates of one another.
+// Frame, as long as those segments perform are replicates of one another.
 type Stream[V Value] interface {
 	Inlet[V]
 	Outlet[V]

@@ -16,7 +16,7 @@ import (
 // Key represents a unique identifier for a Channel. This value is guaranteed to be
 // unique across the entire cluster. It is composed of a uint32 ID representing the
 // node holding the lease on the channel, and a uint16 key representing a unique
-// identifier for the channel on the node's cesium.DB.
+// node-local identifier.
 type Key [6]byte
 
 // NewKey generates a new Key from the provided components.
@@ -67,7 +67,15 @@ func ParseKey(s string) (k Key, err error) {
 	return NewKey(aspen.NodeID(nodeID), storage.ChannelKey(cesiumKey)), nil
 }
 
-// Keys extends []ChannelKeys with a few convenience methods.
+func MustParseKey(s string) Key {
+	key, err := ParseKey(s)
+	if err != nil {
+		panic(err)
+	}
+	return key
+}
+
+// Keys extends []Keys with a few convenience methods.
 type Keys []Key
 
 // KeysFromChannels returns a slice of Keys from a slice of Channel(s).
@@ -116,6 +124,8 @@ func (k Keys) Strings() []string {
 	}
 	return s
 }
+
+func (k Keys) Unique() Keys { return lo.Uniq(k) }
 
 // Channel is a collection is a container representing a collection of samples across
 // a time range. The data within a channel typically arrives from a single source. This
