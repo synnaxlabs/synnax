@@ -61,12 +61,12 @@ func (db *cesium) validateNewChannel(ch Channel) error {
 	v := validate.New("cesium")
 	validate.NotEmptyString(v, "key", ch.Key)
 	validate.NotEmptyString(v, "data type", ch.DataType)
-	validate.NotInMapf(v, ch.Key, db.dbs, "channel %s already exists", ch.Key)
+	validate.MapDoesNotContainF(v, ch.Key, db.dbs, "channel %s already exists", ch.Key)
 	if ch.IsIndex {
 		v.Ternary(ch.DataType != telem.TimeStampT, "index channel must be of type timestamp")
 		v.Ternaryf(ch.Index != "" && ch.Index != ch.Key, "index channel cannot be indexed by another channel")
 	} else if ch.Index != "" {
-		validate.InMapf(v, ch.Index, db.dbs, "index %s does not exist", ch.Index)
+		validate.MapContainsf(v, ch.Index, db.dbs, "index %s does not exist", ch.Index)
 		v.Funcf(func() bool {
 			return !db.dbs[ch.Index].Channel.IsIndex
 		}, "channel %s is not an index", ch.Index)

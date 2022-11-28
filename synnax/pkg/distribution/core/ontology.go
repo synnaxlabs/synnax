@@ -14,12 +14,14 @@ const (
 	clusterOntologyType ontology.Type = "cluster"
 )
 
-// NodeOntologyID returns a unique identifier for a Node for use within a resource
+// NodeOntologyID returns a unique identifier for a Node to use within a resource
 // Ontology.
 func NodeOntologyID(id NodeID) ontology.ID {
 	return ontology.ID{Type: nodeOntologyType, Key: strconv.Itoa(int(id))}
 }
 
+// ClusterOntologyID returns a unique identifier for a Cluster to use with a
+// resource Ontology.
 func ClusterOntologyID(key uuid.UUID) ontology.ID {
 	return ontology.ID{Type: clusterOntologyType, Key: key.String()}
 }
@@ -41,6 +43,8 @@ var (
 	}
 )
 
+// NodeOntologyService implements the ontology.Service interface to provide resource access
+// to a cluster's nodes.
 type NodeOntologyService struct {
 	Logger   *zap.SugaredLogger
 	Ontology *ontology.Ontology
@@ -49,6 +53,8 @@ type NodeOntologyService struct {
 
 var _ ontology.Service = (*NodeOntologyService)(nil)
 
+// ListenForChanges starts listening for changes to the cluster topology (nodes leaving,
+// joining, changing state, etc.)
 func (s *NodeOntologyService) ListenForChanges() {
 	s.update(s.Cluster.PeekState())
 	s.Cluster.OnChange(s.update)
@@ -74,8 +80,10 @@ func (s *NodeOntologyService) update(state ClusterState) {
 	}
 }
 
+// Schema implements ontology.Service.
 func (s *NodeOntologyService) Schema() *schema.Schema { return _nodeSchema }
 
+// RetrieveEntity implements ontology.Service.
 func (s *NodeOntologyService) RetrieveEntity(key string) (schema.Entity, error) {
 	id, err := strconv.Atoi(key)
 	if err != nil {
@@ -93,14 +101,18 @@ func newNodeEntity(n Node) schema.Entity {
 	return e
 }
 
+// ClusterOntologyService implements the ontology.Service to provide resource access
+// to metadata about a Cluster.
 type ClusterOntologyService struct {
 	Cluster Cluster
 }
 
 var _ ontology.Service = (*ClusterOntologyService)(nil)
 
+// Schema implements ontology.Service.
 func (s *ClusterOntologyService) Schema() *schema.Schema { return _clusterSchema }
 
+// RetrieveEntity implements ontology.Service.
 func (s *ClusterOntologyService) RetrieveEntity(_ string) (schema.Entity, error) {
 	e := schema.NewEntity(_clusterSchema, "HostResolver")
 	schema.Set(e, "key", s.Cluster.Key().String())

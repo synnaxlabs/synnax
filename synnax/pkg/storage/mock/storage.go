@@ -8,31 +8,36 @@ import (
 	"os"
 )
 
+// Builder is a utility for provisioning mock stores.
 type Builder struct {
-	cfg    storage.Config
+	// Config is the configuration used to provision new stores.
+	Config storage.Config
+	// Stores is a slice all stores provisioned by the Builder.
 	Stores []*storage.Store
 }
 
-func NewBuilder(cfg ...storage.Config) *Builder {
-	_cfg, err := config.OverrideAndValidate(storage.DefaultConfig, append([]storage.Config{{
+// NewBuilder opens a new Builder that provisions stores using the given configuration.
+func NewBuilder(configs ...storage.Config) *Builder {
+	cfg, err := config.OverrideAndValidate(storage.DefaultConfig, append([]storage.Config{{
 		MemBacked: config.BoolPointer(true),
 		Perm:      xfs.OS_USER_RWX,
-	}}, cfg...)...)
+	}}, configs...)...)
 	if err != nil {
 		panic(err)
 	}
 
-	if !*_cfg.MemBacked {
-		if err := os.MkdirAll(_cfg.Dirname, _cfg.Perm); err != nil {
+	if !*cfg.MemBacked {
+		if err := os.MkdirAll(cfg.Dirname, cfg.Perm); err != nil {
 			panic(err)
 		}
 	}
 
-	return &Builder{cfg: _cfg}
+	return &Builder{Config: cfg}
 }
 
+// New provisions a new store.
 func (b *Builder) New() (store *storage.Store) {
-	if *b.cfg.MemBacked {
+	if *b.Config.MemBacked {
 		store = b.newMemBacked()
 	} else {
 		store = b.newFSBacked()
@@ -41,13 +46,18 @@ func (b *Builder) New() (store *storage.Store) {
 	return store
 }
 
+// Cleanup removes all test data written to disk by the stores provisioned by the Builder.
+// Cleanup should only be called after Close, and is not safe to call concurrently
+// with any other Builder or Store methods.
 func (b *Builder) Cleanup() error {
-	if *b.cfg.MemBacked {
+	if *b.Config.MemBacked {
 		return nil
 	}
-	return os.RemoveAll(b.cfg.Dirname)
+	return os.RemoveAll(b.Config.Dirname)
 }
 
+// Close closes all stores provisioned by the Builder. Close is not safe to call concurrently
+// with any other Builder or provisioned Store methods.
 func (b *Builder) Close() error {
 	c := errutil.NewCatch(errutil.WithAggregation())
 	for _, store := range b.Stores {
@@ -57,7 +67,7 @@ func (b *Builder) Close() error {
 }
 
 func (b *Builder) newMemBacked() *storage.Store {
-	store, err := storage.Open(b.cfg)
+	store, err := storage.Open(b.Config)
 	if err != nil {
 		panic(err)
 	}
@@ -65,12 +75,12 @@ func (b *Builder) newMemBacked() *storage.Store {
 }
 
 func (b *Builder) newFSBacked() *storage.Store {
-	// open a temporary directory prefixed with cfg.dirname
-	tempDir, err := os.MkdirTemp(b.cfg.Dirname, "delta-test-")
+	// open a temporary directory prefixed with Config.dirname
+	tempDir, err := os.MkdirTemp(b.Config.Dirname, "delta-test-")
 	if err != nil {
 		panic(err)
 	}
-	nCfg := b.cfg
+	nCfg := b.Config
 	nCfg.Dirname = tempDir
 	store, err := storage.Open(nCfg)
 	if err != nil {

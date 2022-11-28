@@ -22,7 +22,7 @@ func (f *HTTPBranch) Key() string { return "http" }
 func (f *HTTPBranch) Serve(cfg BranchConfig) error {
 	f.app = fiber.New(fiber.Config{
 		DisableStartupMessage: true,
-		ReadBufferSize:        int(10 * telem.Kilobytes),
+		ReadBufferSize:        int(10 * telem.Kilobyte),
 	})
 	f.app.Use(cors.New(cors.Config{AllowOrigins: "*"}))
 	for _, t := range f.Transports {

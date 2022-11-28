@@ -96,7 +96,7 @@ func NotEmptyString[T ~string](v *Validator, name string, value T) bool {
 	return v.Ternaryf(value == "", "%s must be set", name)
 }
 
-func NotInMapf[K comparable, V any](
+func MapDoesNotContainF[K comparable, V any](
 	v *Validator,
 	value K,
 	m map[K]V,
@@ -109,7 +109,7 @@ func NotInMapf[K comparable, V any](
 	}, format, args...)
 }
 
-func InMapf[K comparable, V any](
+func MapContainsf[K comparable, V any](
 	v *Validator,
 	value K,
 	m map[K]V,

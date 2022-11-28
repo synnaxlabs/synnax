@@ -1,13 +1,13 @@
-// Package storage provides entities for managing node local stores. Delta uses two
-// database classes for storing its data:
+// Package storage provides entities for managing node local storage. Synnax implements
+// two database classes for storing its data:
 //
-//  1. LocalKey key-value store (implementing the kv.DB interface) for storing cluster wide
+//  1. A key-value store (implementing the kv.DB interface) for storing cluster wide
 //     metadata.
-//  2. LocalKey time-series engine (implementing the cesium.DB interface) for writing chunks
-//     of time-series data.
+//  2. A time-series engine (implementing the TS interface) for writing frames of
+//     telemetry.
 //
-// It's important to node the storage package does NOT manage any sort of distributed
-// storage implementation.
+// It's important to note that the storage package does NOT manage any sort of
+// distributed storage implementation.
 package storage
 
 import (
@@ -33,9 +33,9 @@ import (
 )
 
 type (
-	// KVEngine represents the available key-value storage engines delta can use.
+	// KVEngine is an enumeration of  the available key-value storage engines synnax can use.
 	KVEngine uint8
-	// TSEngine represents the available time-series storage engines delta can use.
+	// TSEngine is an enumeration of the available time-series storage engines delta can use.
 	TSEngine uint8
 )
 
@@ -49,7 +49,7 @@ var kvEngines = []KVEngine{PebbleKV}
 
 //go:generate stringer -type=TSEngine
 const (
-	// CesiumTS uses Synnax's cesium time-series engine.
+	// CesiumTS uses synnax's cesium time-series engine.
 	CesiumTS TSEngine = iota + 1
 )
 
@@ -64,7 +64,7 @@ type Store struct {
 	KV kv.DB
 	// TS is the time-series engine for the node.
 	TS TS
-	// lock is a function that releases the lock on the storage file system.
+	// lock is the lock held on the storage directory.
 	lock io.Closer
 }
 
@@ -94,7 +94,7 @@ type Config struct {
 	Perm fs.FileMode
 	// MemBacked defines whether the node should use a memory-backed file system.
 	MemBacked *bool
-	// Logger is the logger used by the node.
+	// Logger is the witness ofit all.
 	Logger *zap.Logger
 	// Experiment is the experiment used by the node for metrics, reports, and tracing.
 	Experiment alamos.Experiment
@@ -106,6 +106,7 @@ type Config struct {
 
 var _ config.Config[Config] = Config{}
 
+// Override implements Config.
 func (cfg Config) Override(other Config) Config {
 	cfg.Dirname = override.String(cfg.Dirname, other.Dirname)
 	cfg.Perm = override.Numeric(cfg.Perm, other.Perm)
@@ -117,26 +118,17 @@ func (cfg Config) Override(other Config) Config {
 	return cfg
 }
 
+// Validate implements Config.
 func (cfg Config) Validate() error {
-	if !*cfg.MemBacked && cfg.Dirname == "" {
-		return errors.Wrap(validate.Error, "[storage] - dirname must be set")
-	}
-
-	if !lo.Contains[KVEngine](kvEngines, cfg.KVEngine) {
-		return errors.Wrap(validate.Error, "[storage] - invalid key-value engine")
-	}
-
-	if !lo.Contains[TSEngine](tsEngines, cfg.TSEngine) {
-		return errors.Wrap(validate.Error, "[storage] - invalid time-series engine")
-	}
-
-	if cfg.Perm == 0 {
-		return errors.Wrap(validate.Error, "[storage] - insufficient permission bits configured")
-	}
-
-	return nil
+	v := validate.New("storage")
+	v.Ternaryf(!*cfg.MemBacked && cfg.Dirname == "", "dirname must be set")
+	v.Ternaryf(!lo.Contains(kvEngines, cfg.KVEngine), "invalid key-value engine %s", cfg.KVEngine)
+	v.Ternaryf(!lo.Contains(tsEngines, cfg.TSEngine), "invalid time-series engine %s", cfg.TSEngine)
+	v.Ternary(cfg.Perm == 0, "insufficient permission bits on directory")
+	return v.Error()
 }
 
+// Report implements the alamos.Reporter interface.
 func (cfg Config) Report() alamos.Report {
 	return alamos.Report{
 		"dirname":     cfg.Dirname,
@@ -173,9 +165,9 @@ func Open(cfg Config) (s *Store, err error) {
 	log.Infow("opening storage", cfg.Report().LogArgs()...)
 
 	// Open our two file system implementations. We use VFS for acquiring the directory
-	// lock and for the key-value store. We use KFS for the time-series engine, as we
-	// need seekable file handles. This is
-	baseVFS, fs := openBaseFS(cfg)
+	// lock and for the key-value store. We use XFS for the time-series engine, as we
+	// need seekable file handles.
+	baseVFS, baseXFS := openBaseFS(cfg)
 
 	// Configure our storage directory with the correct permissions.
 	if err := configureStorageDir(cfg, baseVFS); err != nil {
@@ -197,8 +189,8 @@ func Open(cfg Config) (s *Store, err error) {
 	}
 
 	// Open the time-series engine.
-	if s.TS, err = openTS(cfg, fs); err != nil {
-		_ = s.KV.Close()
+	if s.TS, err = openTS(cfg, baseXFS); err != nil {
+		err = errors.CombineErrors(err, s.KV.Close())
 		return s, errors.CombineErrors(err, s.lock.Close())
 	}
 
@@ -238,7 +230,7 @@ has permissions
 
 %v
 
-Delta requires the storage directory to have at least
+Synnax requires the storage directory to have at least
 
 %v
 
@@ -267,7 +259,7 @@ Failed to acquire lock on storage directory
 
 	%s
 
-Is there another Delta node using the same directory?
+Is there another Synnax node using the same directory?
 `
 
 func acquireLock(cfg Config, fs vfs.FS) (io.Closer, error) {
@@ -280,6 +272,11 @@ func acquireLock(cfg Config, fs vfs.FS) (io.Closer, error) {
 }
 
 func openKV(cfg Config, fs vfs.FS) (kv.DB, error) {
+	if cfg.KVEngine != PebbleKV {
+		{
+			return nil, errors.Newf("[storage]- unsupported key-value engine: %s", cfg.TSEngine)
+		}
+	}
 	dirname := filepath.Join(cfg.Dirname, kvDirname)
 	db, err := pebble.Open(dirname, &pebble.Options{FS: fs})
 	if err != nil {
@@ -294,7 +291,7 @@ func openKV(cfg Config, fs vfs.FS) (kv.DB, error) {
 
 func openTS(cfg Config, fs xfs.FS) (TS, error) {
 	if cfg.TSEngine != CesiumTS {
-		return nil, errors.Newf("[storage] - unsupported time-series engine: %v", cfg.TSEngine)
+		return nil, errors.Newf("[storage] - unsupported time-series engine: %s", cfg.TSEngine)
 	}
 	dirname := filepath.Join(cfg.Dirname, cesiumDirname)
 	return cesium.Open(

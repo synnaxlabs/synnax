@@ -11,11 +11,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // SegmentWriterRequest represents a request to write Framer data for a set of channels.
 type SegmentWriterRequest struct {
 	Command WriterCommand `json:"command" msgpack:"command"`
+	//
+	Start telem.TimeStamp
 	// OpenKeys is a slice of Channel keys that the client plans to write to.
 	// OpenKeys should only be specified in the	first request to the server, and will be
 	// ignored in future requests.
@@ -134,11 +137,11 @@ func (s *SegmentService) Write(_ctx context.Context, stream SegmentWriterStream)
 }
 
 func (s *SegmentService) openWriter(ctx context.Context, srv SegmentWriterStream) (framer.StreamWriter, errors.Typed) {
-	keys, _err := receiveWriterOpenArgs(srv)
+	start, keys, _err := receiveWriterOpenArgs(srv)
 	if _err.Occurred() {
 		return nil, _err
 	}
-	w, err := s.Internal.NewStreamWriter(ctx, keys...)
+	w, err := s.Internal.NewStreamWriter(ctx, start, keys...)
 	if err != nil {
 		return nil, errors.Query(err)
 	}
@@ -146,20 +149,22 @@ func (s *SegmentService) openWriter(ctx context.Context, srv SegmentWriterStream
 	return w, errors.MaybeUnexpected(srv.Send(SegmentWriterResponse{}))
 }
 
-func receiveWriterOpenArgs(srv SegmentWriterStream) (channel.Keys, errors.Typed) {
+func receiveWriterOpenArgs(
+	srv SegmentWriterStream,
+) (telem.TimeStamp, channel.Keys, errors.Typed) {
 	req, err := srv.Receive()
 	if err != nil {
-		return nil, errors.Unexpected(err)
+		return 0, nil, errors.Unexpected(err)
 	}
 	keys, err := channel.ParseKeys(req.OpenKeys)
 	if err != nil {
-		return nil, errors.Validation(errors.Field{Field: "open_keys", Message: err.Error()})
+		return 0, nil, errors.Validation(errors.Field{Field: "open_keys", Message: err.Error()})
 	}
 	if len(keys) == 0 {
-		return nil, errors.Validation(errors.Field{
+		return 0, nil, errors.Validation(errors.Field{
 			Field:   "open_keys",
 			Message: "must contain at least one key",
 		})
 	}
-	return keys, errors.Nil
+	return req.Start, keys, errors.Nil
 }
