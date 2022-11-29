@@ -3,6 +3,7 @@ package cesium
 import (
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/errutil"
 	"github.com/synnaxlabs/x/query"
@@ -11,7 +12,8 @@ import (
 
 var (
 	// ChannelNotFound is returned when a channel or a range of data cannot be found in the DB.
-	ChannelNotFound = errors.Wrap(query.NotFound, "[cesium] - channel not found")
+	ChannelNotFound  = errors.Wrap(query.NotFound, "[cesium] - channel not found")
+	ErrDiscontinuous = index.ErrDiscontinuous
 )
 
 type (

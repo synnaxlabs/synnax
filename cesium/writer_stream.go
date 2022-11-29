@@ -148,7 +148,11 @@ func (w *streamWriter) write(req WriteRequest) error {
 		key := req.Frame.Key(i)
 		_chW, ok := w.internal[req.Frame.Key(i)]
 		if !ok {
-			return ChannelNotFound
+			return errors.Wrapf(
+				validate.Error,
+				"cannot write array for channel %s that was not specified when opening the writer",
+				key,
+			)
 		}
 
 		chW := &_chW

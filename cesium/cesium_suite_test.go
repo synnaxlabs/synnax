@@ -1,7 +1,6 @@
 package cesium_test
 
 import (
-	"context"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
@@ -11,20 +10,14 @@ import (
 	"testing"
 )
 
-var (
-	ctx    context.Context
-	logger *zap.Logger
-)
+var logger *zap.Logger
 
 func openMemDB() cesium.DB {
-	//logger = lo.Must(zap.NewDevelopment())
-	db := MustSucceed(cesium.Open(
+	return MustSucceed(cesium.Open(
 		"./testdata",
 		cesium.MemBacked(),
-		//cesium.WithLogger(logger),
+		cesium.WithLogger(logger),
 	))
-
-	return db
 }
 
 func TestCaesium(t *testing.T) {
@@ -33,7 +26,6 @@ func TestCaesium(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	ctx = context.Background()
 	logger = MustSucceed(zap.NewDevelopment())
 	logger = zap.NewNop()
 	zap.ReplaceGlobals(logger)

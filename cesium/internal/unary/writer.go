@@ -86,7 +86,7 @@ func (w *Writer) validate(arr telem.Array) error {
 	if arr.DataType != w.Channel.DataType {
 		return errors.Wrapf(
 			validate.Error,
-			"invalid arr type  for Channel %s, expected %s, got %s",
+			"invalid array data type for channel %s, expected %s, got %s",
 			w.Channel.Key,
 			w.Channel.DataType,
 			arr.DataType,

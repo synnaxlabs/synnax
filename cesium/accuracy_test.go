@@ -11,9 +11,7 @@ import (
 var _ = Describe("Accuracy", Ordered, func() {
 	var db cesium.DB
 	BeforeAll(func() { db = openMemDB() })
-	AfterAll(func() {
-		Expect(db.Close()).To(Succeed())
-	})
+	AfterAll(func() { Expect(db.Close()).To(Succeed()) })
 	Context("Single Channel", func() {
 
 		Context("Rate Based", Ordered, func() {
