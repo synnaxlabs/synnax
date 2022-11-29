@@ -57,14 +57,13 @@ type Iterator interface {
 }
 
 type Config struct {
-	TimeRange       telem.TimeRange
-	ChannelKeys     channel.Keys
-	TS              storage.TS
-	ChannelService  *channel.Service
-	HostResolver    aspen.HostResolver
-	TransportServer TransportServer
-	TransportClient TransportClient
-	Logger          *zap.Logger
+	TimeRange      telem.TimeRange
+	ChannelKeys    channel.Keys
+	TS             storage.TS
+	ChannelService *channel.Service
+	HostResolver   aspen.HostResolver
+	Transport      Transport
+	Logger         *zap.Logger
 }
 
 var _ config.Config[Config] = Config{}
@@ -75,8 +74,7 @@ func (cfg Config) Override(other Config) Config {
 	cfg.ChannelKeys = override.Slice(cfg.ChannelKeys, other.ChannelKeys)
 	cfg.TS = override.Nil(cfg.TS, other.TS)
 	cfg.ChannelService = override.Nil(cfg.ChannelService, other.ChannelService)
-	cfg.TransportServer = override.Nil(cfg.TransportServer, other.TransportServer)
-	cfg.TransportClient = override.Nil(cfg.TransportClient, other.TransportClient)
+	cfg.Transport = override.Nil(cfg.Transport, other.Transport)
 	cfg.HostResolver = override.Nil(cfg.HostResolver, other.HostResolver)
 	cfg.Logger = override.Nil(cfg.Logger, other.Logger)
 	return cfg
@@ -89,8 +87,7 @@ func (cfg Config) Validate() error {
 	}
 	validate.NotNil(v, "TS", cfg.TS)
 	validate.NotNil(v, "channelClient", cfg.ChannelService)
-	validate.NotNil(v, "transportServer", cfg.TransportServer)
-	validate.NotNil(v, "transportClient", cfg.TransportClient)
+	validate.NotNil(v, "transport", cfg.Transport)
 	validate.NotNil(v, "resolver", cfg.HostResolver)
 	validate.NotNil(v, "logger", cfg.Logger)
 	return v.Error()

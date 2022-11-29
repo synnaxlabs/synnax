@@ -6,8 +6,6 @@ import (
 )
 
 type Transport interface {
-	IteratorClient() iterator.TransportClient
-	IteratorServer() iterator.TransportServer
-	WriterServer() writer.TransportServer
-	WriterClient() writer.TransportClient
+	Iterator() iterator.Transport
+	Writer() writer.Transport
 }

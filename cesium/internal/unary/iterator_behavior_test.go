@@ -50,8 +50,8 @@ var _ = Describe("Iterator Behavior", func() {
 		})
 		Describe("Happy paths", func() {
 			Specify("Simple forward exhaustion", func() {
-				unary.Write(indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15))
-				unary.Write(db, 10*telem.SecondTS, telem.NewArrayV[int64](1, 2, 3, 4, 5, 6))
+				Expect(unary.Write(indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15))).To(Succeed())
+				Expect(unary.Write(db, 10*telem.SecondTS, telem.NewArrayV[int64](1, 2, 3, 4, 5, 6))).To(Succeed())
 				iter := db.NewIterator(ranger.IterRange((5 * telem.SecondTS).SpanRange(10 * telem.Second)))
 				Expect(iter.SeekFirst()).To(BeTrue())
 				Expect(iter.View()).To(Equal((10 * telem.SecondTS).SpanRange(0)))

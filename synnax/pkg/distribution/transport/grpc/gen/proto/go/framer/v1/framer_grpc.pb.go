@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.2.0
 // - protoc             (unknown)
-// source: segment/v1/segment.proto
+// source: framer/v1/framer.proto
 
 package segmentv1
 
@@ -131,7 +131,7 @@ var IteratorService_ServiceDesc = grpc.ServiceDesc{
 			ClientStreams: true,
 		},
 	},
-	Metadata: "segment/v1/segment.proto",
+	Metadata: "framer/v1/framer.proto",
 }
 
 // WriterServiceClient is the client API for WriterService service.
@@ -247,5 +247,5 @@ var WriterService_ServiceDesc = grpc.ServiceDesc{
 			ClientStreams: true,
 		},
 	},
-	Metadata: "segment/v1/segment.proto",
+	Metadata: "framer/v1/framer.proto",
 }

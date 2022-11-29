@@ -16,10 +16,9 @@ type server struct {
 	ts storage.TS
 }
 
-func NewServer(cfg Config) *server {
+func NewServer(cfg Config) {
 	sf := &server{ts: cfg.TS, Config: cfg}
-	cfg.TransportServer.BindHandler(sf.Handle)
-	return sf
+	cfg.Transport.Server().BindHandler(sf.Handle)
 }
 
 func (sf *server) Handle(_ctx context.Context, server ServerStream) error {
@@ -39,7 +38,7 @@ func (sf *server) Handle(_ctx context.Context, server ServerStream) error {
 	receiver := &freightfluence.Receiver[Request]{Receiver: server}
 	sender := &freightfluence.Sender[Response]{Sender: freighter.SenderNopCloser[Response]{StreamSender: server}}
 
-	w, err := newLocalWriter(ctx, req.Keys, sf.Config)
+	w, err := newLocalWriter(req.Keys, sf.Config)
 	if err != nil {
 		return errors.Wrap(err, "[segment.w] - failed to open cesium w")
 	}

@@ -36,12 +36,12 @@ type WriteRequest struct {
 type WriteResponse struct {
 	// Command is the command that is being responded to.
 	Command WriterCommand
-	// Ack represents the return value of the command.
+	// Ack represents the return frame of the command.
 	Ack bool
 	// SeqNum is the current sequence number of the command being executed. SeqNum is
 	// incremented for WriterError and WriterCommit calls, but NOT WriterWrite calls.
 	SeqNum int
-	// Err is the return value of WriterError. Err is nil during calls to
+	// Err is the return frame of WriterError. Err is nil during calls to
 	// WriterWrite and WriterCommit.
 	Err error
 }
@@ -53,14 +53,14 @@ type WriteResponse struct {
 //
 // To write a record, issue a WriteRequest to the StreamWriter's inlet. If the write fails
 // for any reason, the StreamWriter will send a WriteResponse with a negative WriteResponse.Ack
-// value. All future writes will fail until the error is resolved. To resolve the error,
+// frame. All future writes will fail until the error is resolved. To resolve the error,
 // issue a WriteRequest with a WriterError command to the StreamWriter's inlet. The StreamWriter
 // will increment WriteResponse.SeqNum and send a WriteResponse with the error. The error will
 // be considered resolved, and the StreamWriter will resume normal operation.
 //
 // StreamWriter is atomic, meaning the caller must issue a Write with a WriterCommit
 // command to commit the write. If the commit fails, the StreamWriter will send a WriteResponse
-// with a negative WriteResponse.Ack value. All future writes will fail until the error is
+// with a negative WriteResponse.Ack frame. All future writes will fail until the error is
 // resolved. To resolve the error, see the above paragraph.
 //
 // To close the StreamWriter, simply close the inlet. The StreamWriter will ensure that all
@@ -157,7 +157,9 @@ func (w *streamWriter) write(req WriteRequest) error {
 		chW := &_chW
 
 		if w.writingToIdx && w.idx.key == key {
-			w.updateHighWater(arr)
+			if err := w.updateHighWater(arr); err != nil {
+				return err
+			}
 		}
 
 		if err := chW.Write(arr); err != nil {

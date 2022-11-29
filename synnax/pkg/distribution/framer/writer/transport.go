@@ -40,3 +40,8 @@ type (
 	TransportServer = freighter.StreamServer[Request, Response]
 	TransportClient = freighter.StreamClient[Request, Response]
 )
+
+type Transport interface {
+	Server() TransportServer
+	Client() TransportClient
+}

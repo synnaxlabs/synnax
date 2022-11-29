@@ -21,7 +21,7 @@ func openRemoteIterators(
 		if err != nil {
 			return sender, receivers, err
 		}
-		client, err := openRemoteClient(ctx, cfg.TransportClient, targetAddr, keys, cfg.TimeRange)
+		client, err := openRemoteClient(ctx, cfg.Transport.Client(), targetAddr, keys, cfg.TimeRange)
 		if err != nil {
 			return sender, receivers, err
 		}

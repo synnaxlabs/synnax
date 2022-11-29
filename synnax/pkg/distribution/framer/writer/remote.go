@@ -29,7 +29,7 @@ func openRemoteWriters(
 			return sender, receivers, receiverAddresses, err
 		}
 		addrMap[nodeID] = targetAddr
-		client, err := openRemoteClient(ctx, cfg.TransportClient, targetAddr, keys)
+		client, err := openRemoteClient(ctx, cfg.Transport.Client(), targetAddr, keys)
 		if err != nil {
 			return sender, receivers, receiverAddresses, err
 		}

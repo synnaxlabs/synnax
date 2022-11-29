@@ -17,12 +17,10 @@ var _ = Describe("Ranger", func() {
 		idx index.Index
 	)
 	BeforeEach(func() {
-		db = MustSucceed(ranger.Open(ranger.Config{
-			FS: fs.NewMem(),
-		}))
+		db = MustSucceed(ranger.Open(ranger.Config{FS: fs.NewMem()}))
 		idx = &index.Ranger{
 			DB:     db,
-			Logger: MustSucceed(zap.NewDevelopment()),
+			Logger: zap.NewNop(),
 		}
 	})
 	AfterEach(func() {

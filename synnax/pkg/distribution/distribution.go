@@ -8,7 +8,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	channeltransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel"
-	segmenttransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/segment"
+	segmenttransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer"
 )
 
 type (

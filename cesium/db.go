@@ -15,21 +15,34 @@ var (
 	ChannelNotFound = errors.Wrap(query.NotFound, "[cesium] - channel not found")
 )
 
-type Channel = core.Channel
+type (
+	Channel = core.Channel
+	Frame   = core.Frame
+)
 
 func Keys(channels ...Channel) []string {
 	return lo.Uniq(lo.Map(channels, func(c Channel, _ int) string { return c.Key }))
 }
 
+func NewFrame(keys []string, arrays []telem.Array) Frame { return core.NewFrame(keys, arrays) }
+
+// DB provides a persistent, concurrent store for reading and writing arrays of telemetry.
+//
+// A DB works with three data types: Channels, Arrays, and Frames. A Channel is a named
+// collection of samples across a time range, and typically represents a single data source,
+// such as a physical sensor, software sensor, metric, or event.
 type DB interface {
+	// CreateChannel creates the given channels in the DB.
 	CreateChannel(channels ...Channel) error
+	// RetrieveChannel retrieves the channel with the given key.
 	RetrieveChannel(key string) (Channel, error)
+	// RetrieveChannels retrieves the channels with the given keys.
 	RetrieveChannels(keys ...string) ([]Channel, error)
-	Write(start telem.TimeStamp, frame telem.Frame) error
-	WriteArray(start telem.TimeStamp, arr telem.Array) error
+	Write(start telem.TimeStamp, frame Frame) error
+	WriteArray(start telem.TimeStamp, key string, arr telem.Array) error
 	NewWriter(cfg WriterConfig) (Writer, error)
 	NewStreamWriter(cfg WriterConfig) (StreamWriter, error)
-	Read(tr telem.TimeRange, keys ...string) (telem.Frame, error)
+	Read(tr telem.TimeRange, keys ...string) (Frame, error)
 	NewIterator(cfg IteratorConfig) (Iterator, error)
 	NewStreamIterator(cfg IteratorConfig) (StreamIterator, error)
 	Close() error
@@ -42,12 +55,7 @@ type cesium struct {
 
 // Write implements DB.
 func (db *cesium) Write(start telem.TimeStamp, frame Frame) error {
-	var config WriterConfig
-	config.Channels = make([]string, len(frame.Arrays))
-	for i, arr := range frame.Arrays {
-		config.Channels[i] = arr.Key
-	}
-	config.Start = start
+	config := WriterConfig{Start: start, Channels: frame.Keys()}
 	w, err := db.NewWriter(config)
 	if err != nil {
 		return err
@@ -57,12 +65,13 @@ func (db *cesium) Write(start telem.TimeStamp, frame Frame) error {
 	return w.Close()
 }
 
+// WriteArray implements DB.
 func (db *cesium) WriteArray(start telem.TimeStamp, key string, arr telem.Array) error {
-	return db.Write(start, NewFrame([]string{key}, []telem.Array{arr}))
+	return db.Write(start, core.NewFrame([]string{key}, []telem.Array{arr}))
 }
 
 // Read implements DB.
-func (db *cesium) Read(tr telem.TimeRange, keys ...string) (frame telem.Frame, err error) {
+func (db *cesium) Read(tr telem.TimeRange, keys ...string) (frame Frame, err error) {
 	var config IteratorConfig
 	config.Channels = keys
 	config.Bounds = tr
@@ -77,7 +86,7 @@ func (db *cesium) Read(tr telem.TimeRange, keys ...string) (frame telem.Frame, e
 		return
 	}
 	for iter.Next(telem.TimeSpanMax) {
-		frame.Arrays = append(frame.Arrays, iter.Value().Arrays...)
+		frame = frame.AppendFrame(iter.Value())
 	}
 	return
 }

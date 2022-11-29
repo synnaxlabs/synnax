@@ -12,7 +12,7 @@ type Iterator struct {
 	Channel  core.Channel
 	internal *ranger.Iterator
 	view     telem.TimeRange
-	frame    telem.Frame
+	frame    core.Frame
 	idx      index.Index
 	bounds   telem.TimeRange
 	err      error
@@ -26,7 +26,7 @@ func (i *Iterator) SetBounds(tr telem.TimeRange) {
 
 func (i *Iterator) Bounds() telem.TimeRange { return i.bounds }
 
-func (i *Iterator) Value() telem.Frame { return i.frame }
+func (i *Iterator) Value() core.Frame { return i.frame }
 
 func (i *Iterator) View() telem.TimeRange { return i.view }
 
@@ -148,9 +148,9 @@ func (i *Iterator) accumulate() bool {
 
 func (i *Iterator) insert(arr telem.Array) {
 	if len(i.frame.Arrays) == 0 || i.frame.Arrays[len(i.frame.Arrays)-1].Range.End.Before(arr.Range.Start) {
-		i.frame.Arrays = append(i.frame.Arrays, arr)
+		i.frame = i.frame.Append(i.Channel.Key, arr)
 	} else {
-		i.frame.Arrays = append([]telem.Array{arr}, i.frame.Arrays...)
+		i.frame = i.frame.Prepend(i.Channel.Key, arr)
 	}
 }
 
@@ -167,7 +167,6 @@ func (i *Iterator) read() (arr telem.Array, err error) {
 	_, err = r.ReadAt(b, int64(start))
 	arr.Data = b
 	arr.DataType = i.Channel.DataType
-	arr.Key = i.Channel.Key
 	arr.Range = i.internal.Range().BoundBy(i.view)
 	return
 }
@@ -211,7 +210,7 @@ func (i *Iterator) satisfied() bool {
 func (i *Iterator) partiallySatisfied() bool { return len(i.frame.Arrays) > 0 }
 
 func (i *Iterator) reset(nextView telem.TimeRange) {
-	i.frame = telem.Frame{}
+	i.frame = core.Frame{}
 	i.view = nextView
 }
 

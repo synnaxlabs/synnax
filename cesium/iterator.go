@@ -15,7 +15,7 @@ type Iterator interface {
 	SeekLE(ts telem.TimeStamp) bool
 	Next(span telem.TimeSpan) bool
 	Prev(span telem.TimeSpan) bool
-	Value() telem.Frame
+	Value() Frame
 	SetBounds(tr telem.TimeRange)
 	Valid() bool
 	Close() error
@@ -25,7 +25,7 @@ type iterator struct {
 	internal *streamIterator
 	inlet    confluence.Inlet[IteratorRequest]
 	outlet   confluence.Outlet[IteratorResponse]
-	value    telem.Frame
+	frame    Frame
 	shutdown context.CancelFunc
 	wg       signal.WaitGroup
 	logger   *zap.Logger
@@ -94,7 +94,7 @@ func (i *iterator) SetBounds(bounds telem.TimeRange) {
 }
 
 // Value implements Iterator.
-func (i *iterator) Value() telem.Frame { return i.value }
+func (i *iterator) Value() Frame { return i.frame }
 
 // Close implements Iterator.
 func (i *iterator) Close() error {
@@ -110,13 +110,13 @@ func (i *iterator) exec(req IteratorRequest) bool {
 }
 
 func (i *iterator) execErr(req IteratorRequest) (bool, error) {
-	i.value = telem.Frame{}
+	i.frame = Frame{}
 	i.inlet.Inlet() <- req
 	for res := range i.outlet.Outlet() {
 		if res.Variant == IteratorAckResponse {
 			return res.Ack, res.Err
 		}
-		i.value.Arrays = append(i.value.Arrays, res.Frame.Arrays...)
+		i.frame = i.frame.AppendFrame(res.Frame)
 	}
 	i.logger.DPanic(unexpectedSteamClosure)
 	return false, nil

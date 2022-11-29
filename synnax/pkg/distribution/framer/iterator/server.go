@@ -20,7 +20,7 @@ type server struct {
 
 func StartServer(cfg Config) {
 	sf := &server{ts: cfg.TS, resolver: cfg.HostResolver, logger: cfg.Logger}
-	cfg.TransportServer.BindHandler(sf.Handle)
+	cfg.Transport.Server().BindHandler(sf.Handle)
 }
 
 // Handle handles incoming req from the freighter.
