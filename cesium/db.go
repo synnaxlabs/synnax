@@ -2,7 +2,6 @@ package cesium
 
 import (
 	"github.com/cockroachdb/errors"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/errutil"
@@ -19,10 +18,6 @@ type (
 	Channel = core.Channel
 	Frame   = core.Frame
 )
-
-func Keys(channels ...Channel) []string {
-	return lo.Uniq(lo.Map(channels, func(c Channel, _ int) string { return c.Key }))
-}
 
 func NewFrame(keys []string, arrays []telem.Array) Frame { return core.NewFrame(keys, arrays) }
 
@@ -55,8 +50,7 @@ type cesium struct {
 
 // Write implements DB.
 func (db *cesium) Write(start telem.TimeStamp, frame Frame) error {
-	config := WriterConfig{Start: start, Channels: frame.Keys()}
-	w, err := db.NewWriter(config)
+	w, err := db.NewWriter(WriterConfig{Start: start, Channels: frame.Keys()})
 	if err != nil {
 		return err
 	}
@@ -72,16 +66,11 @@ func (db *cesium) WriteArray(start telem.TimeStamp, key string, arr telem.Array)
 
 // Read implements DB.
 func (db *cesium) Read(tr telem.TimeRange, keys ...string) (frame Frame, err error) {
-	var config IteratorConfig
-	config.Channels = keys
-	config.Bounds = tr
-	iter, err := db.NewIterator(config)
+	iter, err := db.NewIterator(IteratorConfig{Channels: keys, Bounds: tr})
 	if err != nil {
 		return
 	}
-	defer func() {
-		err = iter.Close()
-	}()
+	defer func() { err = iter.Close() }()
 	if !iter.SeekFirst() {
 		return
 	}

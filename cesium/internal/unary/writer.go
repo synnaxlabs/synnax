@@ -67,14 +67,16 @@ func (w *Writer) commitWithEnd(end telem.TimeStamp) (telem.TimeStamp, error) {
 	if end.IsZero() {
 		// we're using w.numWritten - 1 here because we want the timestamp of the last
 		// written frame.
-		var err error
-		end, err = w.idx.Stamp(w.start, w.numWritten-1)
-		end++
+		approx, err := w.idx.Stamp(w.start, w.numWritten-1)
 		if err != nil {
 			return 0, err
 		}
+		if !approx.Exact() {
+			return 0, errors.New("could not get exact timestamp")
+		}
+		// Add 1 to the end timestamp because the end timestamp is exclusive.
+		end = approx.Lower + 1
 	}
-	// Add 1 to the end timestamp because the end timestamp is exclusive.
 	return end, w.internal.Commit(end)
 }
 

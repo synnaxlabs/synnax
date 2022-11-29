@@ -106,6 +106,7 @@ func (w *streamWriter) Flow(ctx signal.Context, opts ...confluence.Option) {
 					continue
 				}
 				if w.err != nil {
+					w.seqNum++
 					w.sendRes(req, false, nil)
 					continue
 				}
@@ -115,6 +116,7 @@ func (w *streamWriter) Flow(ctx signal.Context, opts ...confluence.Option) {
 					w.sendRes(req, w.err == nil, nil)
 				} else {
 					if w.err = w.write(req); w.err != nil {
+						w.seqNum++
 						w.sendRes(req, false, nil)
 					}
 				}
@@ -124,12 +126,7 @@ func (w *streamWriter) Flow(ctx signal.Context, opts ...confluence.Option) {
 }
 
 func (w *streamWriter) sendRes(req WriteRequest, ack bool, err error) {
-	w.Out.Inlet() <- WriteResponse{
-		Command: req.Command,
-		Ack:     ack,
-		SeqNum:  w.seqNum,
-		Err:     err,
-	}
+	w.Out.Inlet() <- WriteResponse{Command: req.Command, Ack: ack, SeqNum: w.seqNum, Err: err}
 }
 
 func (w *streamWriter) write(req WriteRequest) error {
@@ -172,14 +169,14 @@ func (w *streamWriter) write(req WriteRequest) error {
 
 func (w *streamWriter) commit() (err error) {
 	end, err := w.resolveCommitEnd()
-	// because the range is exclusive, we need to add 1 to the end
-	end++
 	if err != nil {
 		return err
 	}
+	// because the range is exclusive, we need to add 1 to the end
+	end.Lower++
 	c := errutil.NewCatch(errutil.WithAggregation())
 	for _, chW := range w.internal {
-		c.Exec(func() error { return chW.CommitWithEnd(end) })
+		c.Exec(func() error { return chW.CommitWithEnd(end.Lower) })
 	}
 	w.err = c.Error()
 	return
@@ -193,9 +190,9 @@ func (w *streamWriter) updateHighWater(col telem.Array) error {
 	return nil
 }
 
-func (w *streamWriter) resolveCommitEnd() (telem.TimeStamp, error) {
+func (w *streamWriter) resolveCommitEnd() (index.TimeStampApproximation, error) {
 	if w.writingToIdx {
-		return w.idx.highWaterMark, nil
+		return index.Exactly(w.idx.highWaterMark), nil
 	}
 	return w.idx.Stamp(w.Start, w.sampleCount-1)
 }

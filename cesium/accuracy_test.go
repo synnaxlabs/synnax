@@ -94,15 +94,19 @@ var _ = Describe("Accuracy", Ordered, func() {
 					}
 					Expect(actual).To(Equal(expected))
 				},
-				Entry("Max Range",
+				Entry("Max range",
 					telem.TimeRangeMax,
 					append(first, second...),
 				),
-				Entry("Empty Range",
-					(12*telem.SecondTS).SpanRange(0),
+				Entry("Empty range - not on known timestamp",
+					(9*telem.SecondTS).SpanRange(0),
 					[]int64{},
 				),
-				Entry("Single, Even Range",
+				Entry("Empty range - on known timestamp",
+					(10*telem.SecondTS).SpanRange(0),
+					[]int64{},
+				),
+				Entry("Single, even range",
 					(2*telem.SecondTS).Range(21*telem.SecondTS),
 					first,
 				),
@@ -110,9 +114,17 @@ var _ = Describe("Accuracy", Ordered, func() {
 					(2*telem.SecondTS).Range(20*telem.SecondTS),
 					first[:len(first)-1],
 				),
-				Entry("Single, Partial Range",
+				Entry("Single, partial range - start and end on known timestamps",
 					(4*telem.SecondTS).SpanRange(4*telem.Second),
 					[]int64{2, 3},
+				),
+				Entry("Single, partial range - start known end unknown",
+					(4*telem.SecondTS).SpanRange(7*telem.Second),
+					[]int64{2, 3, 4, 5},
+				),
+				Entry("Single, partial range - start unknown end unknown",
+					(7*telem.SecondTS).Range(11*telem.SecondTS),
+					[]int64{4, 5},
 				),
 				Entry("Multi, End at Second Start",
 					(2*telem.SecondTS).Range(22*telem.SecondTS),
@@ -189,6 +201,73 @@ var _ = Describe("Accuracy", Ordered, func() {
 				)
 			})
 		})
+		Context("Indexed", func() {
+			Context("Different Indexes", Ordered, func() {
+				var (
+					idxKey1 = "multiChIdxDiffIdx1"
+					idxKey2 = "multiChIdxDiffIdx2"
+					key1    = "multiChIdxDiff1"
+					key2    = "multiChIdxDiff2"
+					data1   = []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+					data2   = []int64{11, 12, 13, 14, 15, 16, 17, 18, 19, 20}
+					// converted to seconds on write
+					idxData1 = []telem.TimeStamp{1, 3, 5, 7, 9, 11, 18, 22, 31, 35}
+					idxData2 = []telem.TimeStamp{1, 2, 6, 7, 12, 14, 17, 21, 27, 33}
+				)
+				BeforeAll(func() {
+					Expect(db.CreateChannel(
+						cesium.Channel{Key: idxKey1, DataType: telem.TimeStampT, IsIndex: true},
+						cesium.Channel{Key: idxKey2, DataType: telem.TimeStampT, IsIndex: true},
+						cesium.Channel{Key: key1, Index: idxKey1, DataType: telem.Int64T},
+						cesium.Channel{Key: key2, Index: idxKey2, DataType: telem.Int64T},
+					)).To(Succeed())
+					Expect(db.WriteArray(1*telem.SecondTS, idxKey1, telem.NewSecondsTSV(idxData1...))).To(Succeed())
+					Expect(db.WriteArray(1*telem.SecondTS, idxKey2, telem.NewSecondsTSV(idxData2...))).To(Succeed())
+					Expect(db.WriteArray(1*telem.SecondTS, key1, telem.NewArray(data1))).To(Succeed())
+					Expect(db.WriteArray(1*telem.SecondTS, key2, telem.NewArray(data2))).To(Succeed())
+				})
+				DescribeTable("Accuracy",
+					func(
+						tr telem.TimeRange,
+						expected1 []int64,
+						expected2 []int64,
+					) {
+						frame := MustSucceed(db.Read(tr, key1, key2))
+						actual1 := []int64{}
+						actual2 := []int64{}
+						for i, arr := range frame.Arrays {
+							if frame.Key(i) == key1 {
+								actual1 = append(actual1, telem.Unmarshal[int64](arr)...)
+							} else {
+								actual2 = append(actual2, telem.Unmarshal[int64](arr)...)
+							}
+						}
+						Expect(actual1).To(Equal(expected1))
+						Expect(actual2).To(Equal(expected2))
+					},
+					Entry("Max Range",
+						telem.TimeRangeMax,
+						data1,
+						data2,
+					),
+					Entry("Empty Range",
+						(10*telem.SecondTS).SpanRange(0),
+						[]int64{},
+						[]int64{},
+					),
+					Entry("Partial Range",
+						(3*telem.SecondTS).Range(11*telem.SecondTS),
+						[]int64{2, 3, 4, 5},
+						[]int64{13, 14},
+					),
+					Entry("Even on one Index",
+						(3*telem.SecondTS).Range(33*telem.SecondTS),
+						[]int64{2, 3, 4, 5, 6, 7, 8, 9},
+						[]int64{13, 14, 15, 16, 17, 18, 19},
+					),
+				)
+			})
 
+		})
 	})
 })

@@ -10,8 +10,10 @@ type Rate struct {
 	Logger *zap.Logger
 }
 
+var _ Index = Rate{}
+
 // Distance implements Index.
-func (r Rate) Distance(tr telem.TimeRange, continuous bool) (count int64, err error) {
+func (r Rate) Distance(tr telem.TimeRange, continuous bool) (approx DistanceApproximation, err error) {
 	r.Logger.Debug("idx distance",
 		zap.Stringer("timeRange", tr),
 		zap.Bool("continuous", continuous),
@@ -20,23 +22,22 @@ func (r Rate) Distance(tr telem.TimeRange, continuous bool) (count int64, err er
 		r.Logger.Debug("idx distance done",
 			zap.Stringer("timeRange", tr),
 			zap.Bool("continuous", continuous),
-			zap.Int64("count", count),
+			zap.Stringer("approx", approx),
 		)
 	}()
 
-	var sub int64 = 1
-	// If we're above the end of the range slightly, we want to include the last sample.
-	if telem.TimeSpan(tr.End)%r.Rate.Period() != 0 {
-		sub = 0
-	}
-
-	count = int64(tr.Span()/r.Rate.Period()) - sub
+	approx = Between(
+		int64(r.Rate.ClosestGE(tr.Start).Span(r.Rate.ClosestLE(tr.End))/r.Rate.Period()),
+		int64(r.Rate.ClosestLE(tr.Start).Span(r.Rate.ClosestGE(tr.End))/r.Rate.Period()),
+	)
 	return
 }
 
 // Stamp implements Searcher.
-func (r Rate) Stamp(ref telem.TimeStamp, sampleCount int64) (telem.TimeStamp, error) {
-	end := ref.Add(r.Rate.Span(int(sampleCount)))
-	r.Logger.Debug("idx stamp done", zap.Stringer("ref", ref), zap.Int64("sampleCount", sampleCount), zap.Stringer("end", end))
-	return end, nil
+func (r Rate) Stamp(ref telem.TimeStamp, distance int64) (approx TimeStampApproximation, err error) {
+	approx = Between(
+		r.Rate.ClosestLE(ref).Add(r.Rate.Span(int(distance))),
+		r.Rate.ClosestGE(ref).Add(r.Rate.Span(int(distance))),
+	)
+	return
 }

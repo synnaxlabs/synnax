@@ -43,10 +43,7 @@ func (db *cesium) newStreamWriter(cfg WriterConfig) (*streamWriter, error) {
 				if err != nil {
 					return nil, err
 				}
-				idx = &index.Ranger{
-					DB:     idxU.Ranger,
-					Logger: db.logger,
-				}
+				idx = &index.Ranger{DB: idxU.Ranger, Logger: db.logger}
 				idxChannel = idxU.Channel
 			} else {
 				idx = index.Rate{Rate: u.Channel.Rate, Logger: db.logger}
@@ -70,6 +67,7 @@ func (db *cesium) newStreamWriter(cfg WriterConfig) (*streamWriter, error) {
 	w.writingToIdx = writingToIdx
 	w.idx.highWaterMark = cfg.Start
 	w.idx.Index = idx
+	w.seqNum = 1
 	return w, nil
 }
 

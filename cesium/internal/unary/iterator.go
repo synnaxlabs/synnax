@@ -84,6 +84,10 @@ func (i *Iterator) Next(span telem.TimeSpan) (ok bool) {
 
 	i.reset(i.view.End.SpanRange(span).BoundBy(i.bounds))
 
+	if i.view.IsZero() {
+		return
+	}
+
 	i.accumulate()
 	if i.satisfied() || i.err != nil {
 		return
@@ -107,6 +111,10 @@ func (i *Iterator) Prev(span telem.TimeSpan) (ok bool) {
 	}
 
 	i.reset(i.view.Start.SpanRange(span).BoundBy(i.bounds))
+
+	if i.view.IsZero() {
+		return
+	}
 
 	i.accumulate()
 	if i.satisfied() || i.err != nil {
@@ -173,28 +181,27 @@ func (i *Iterator) read() (arr telem.Array, err error) {
 
 func (i *Iterator) sliceRange() (telem.Offset, telem.Size, error) {
 	var (
-		startOffCount int64 = 0
-		endOffCount         = i.Channel.DataType.Density().SampleCount(telem.Size(i.internal.Len() - 1))
-		err           error
+		err         error
+		startApprox = index.Exactly[int64](0)
+		endApprox   = index.Exactly(i.Channel.DataType.Density().SampleCount(telem.Size(i.internal.Len())))
 	)
 	if i.internal.Range().Start.Before(i.view.Start) {
-		// we add 1 to the start offset because our range is inclusive, and the index
-		// considers the end of the range exclusive
-		target := i.internal.Range().Start.Range(i.view.Start + 1)
-		startOffCount, err = i.idx.Distance(target, true)
+		target := i.internal.Range().Start.Range(i.view.Start)
+		startApprox, err = i.idx.Distance(target, true)
 		if err != nil {
 			return 0, 0, err
 		}
 	}
 	if i.internal.Range().End.After(i.view.End) {
 		target := i.internal.Range().Start.Range(i.view.End)
-		endOffCount, err = i.idx.Distance(target, true)
+		endApprox, err = i.idx.Distance(target, true)
 		if err != nil {
 			return 0, 0, err
 		}
 	}
-	startOffset := i.Channel.DataType.Density().Size(startOffCount)
-	size := i.Channel.DataType.Density().Size(endOffCount+1) - startOffset
+
+	startOffset := i.Channel.DataType.Density().Size(startApprox.Upper)
+	size := i.Channel.DataType.Density().Size(endApprox.Upper) - startOffset
 	return startOffset, size, nil
 }
 

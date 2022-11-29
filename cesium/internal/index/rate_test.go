@@ -10,18 +10,57 @@ import (
 )
 
 var _ = Describe("Rate", func() {
-	Describe("Distance", func() {
-		It("Should return the distance between two timestamps", func() {
-			idx := index.Rate{Rate: 1 * telem.Hz, Logger: zap.NewNop()}
-			dist := MustSucceed(idx.Distance((0 * telem.SecondTS).SpanRange(8*telem.Second), true))
-			Expect(dist).To(Equal(int64(7)))
-		})
-	})
+	DescribeTable("Distance", func(tr telem.TimeRange, expected index.DistanceApproximation) {
+		idx := index.Rate{Rate: 1 * telem.Hz, Logger: zap.NewNop()}
+		actual := MustSucceed(idx.Distance(tr, true))
+		Expect(actual).To(Equal(expected))
+	},
+		Entry("Zero zero",
+			telem.TimeRangeZero,
+			index.Exactly[int64](0),
+		),
+		Entry("Empty range - exact stamp",
+			(1*telem.SecondTS).SpanRange(0),
+			index.Exactly[int64](0),
+		),
+		Entry("Range - exact start exact end",
+			(1*telem.SecondTS).Range(2*telem.SecondTS),
+			index.Exactly[int64](1),
+		),
+		Entry("Range - exact start inexact end",
+			(1*telem.SecondTS).Range(2500*telem.MillisecondTS),
+			index.Between[int64](1, 2),
+		),
+		Entry("Range - inexact start exact end",
+			(1500*telem.MillisecondTS).Range(5*telem.SecondTS),
+			index.Between[int64](3, 4),
+		),
+		Entry("Range - inexact start inexact end",
+			(3500*telem.MillisecondTS).Range(6500*telem.MillisecondTS),
+			index.Between[int64](2, 4),
+		),
+	)
 	Describe("Stamp", func() {
-		It("Should return the timestamp at the given distance", func() {
+		DescribeTable("Distance", func(ts telem.TimeStamp, dist int, expected index.TimeStampApproximation) {
 			idx := index.Rate{Rate: 1 * telem.Hz, Logger: zap.NewNop()}
-			ts := MustSucceed(idx.Stamp(0*telem.SecondTS, 7))
-			Expect(ts).To(Equal(7 * telem.SecondTS))
-		})
+			actual := MustSucceed(idx.Stamp(ts, int64(dist)))
+			Expect(actual).To(Equal(expected))
+		},
+			Entry("Zero zero",
+				telem.TimeStamp(0),
+				0,
+				index.Exactly[telem.TimeStamp](0),
+			),
+			Entry("Exact start",
+				1*telem.SecondTS,
+				2,
+				index.Exactly[telem.TimeStamp](3*telem.SecondTS),
+			),
+			Entry("Exact end",
+				1500*telem.MillisecondTS,
+				2,
+				index.Between[telem.TimeStamp](3*telem.SecondTS, 4*telem.SecondTS),
+			),
+		)
 	})
 })

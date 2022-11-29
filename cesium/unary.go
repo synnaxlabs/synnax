@@ -49,7 +49,4 @@ func (db *cesium) getUnary(key string) (unary.DB, error) {
 	return u, nil
 }
 
-func (db *cesium) unaryIsOpen(key string) bool {
-	_, ok := db.dbs[key]
-	return ok
-}
+func (db *cesium) unaryIsOpen(key string) bool { _, ok := db.dbs[key]; return ok }

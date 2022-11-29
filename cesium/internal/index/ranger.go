@@ -1,7 +1,6 @@
 package index
 
 import (
-	"encoding/binary"
 	"github.com/synnaxlabs/cesium/internal/ranger"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
@@ -13,20 +12,22 @@ type Ranger struct {
 	Logger *zap.Logger
 }
 
+var _ Index = (*Ranger)(nil)
+
 // Distance implements Index.
-func (i *Ranger) Distance(tr telem.TimeRange, continuous bool) (count int64, err error) {
+func (i *Ranger) Distance(tr telem.TimeRange, continuous bool) (approx DistanceApproximation, err error) {
 	i.Logger.Debug("idx distance",
 		zap.Stringer("timeRange", tr),
 		zap.Bool("continuous", continuous),
 	)
-	var startPos, endPos int64
+	var startApprox, endApprox DistanceApproximation
 	defer func() {
 		i.Logger.Debug("idx distance done",
 			zap.Stringer("timeRange", tr),
+			zap.Stringer("count", approx),
 			zap.Bool("continuous", continuous),
-			zap.Int64("count", count),
-			zap.Int64("startPos", startPos),
-			zap.Int64("endPos", endPos),
+			zap.Stringer("startApprox", startApprox),
+			zap.Stringer("endApprox", endApprox),
 			zap.Error(err),
 		)
 	}()
@@ -39,7 +40,6 @@ func (i *Ranger) Distance(tr telem.TimeRange, continuous bool) (count int64, err
 	}
 
 	if tr.IsZero() {
-		count = 0
 		return
 	}
 
@@ -48,104 +48,116 @@ func (i *Ranger) Distance(tr telem.TimeRange, continuous bool) (count int64, err
 		return
 	}
 
-	startPos, err = i.searchGE(tr.Start, r)
+	startApprox, err = i.search(tr.Start, r)
 	if err != nil {
 		return
 	}
 
 	if iter.Range().ContainsStamp(tr.End) || tr.End == iter.Range().End {
-		endPos, err = i.searchLT(tr.End, r)
-		if err != nil {
-			return 0, err
-		}
-		return endPos - startPos, nil
+		endApprox, err = i.search(tr.End, r)
+		approx = Between(
+			endApprox.Lower-startApprox.Upper,
+			endApprox.Upper-startApprox.Lower,
+		)
+		return
 	} else if continuous {
-		return 0, ErrDiscontinuous
+		err = ErrDiscontinuous
+		return
 	}
 
-	startDist := (iter.Len() / 8) - startPos
+	l := r.Len() / 8
+	startToFirstEnd := Between[int64](l-startApprox.Upper, l-startApprox.Lower)
 	var gap int64 = 0
 
 	for {
 		if !iter.Next() {
 			if continuous {
-				return 0, ErrDiscontinuous
+				err = ErrDiscontinuous
+				return
 			}
-			return startDist + (iter.Len() / 8) + gap, nil
+			approx = Between(
+				startToFirstEnd.Lower+(iter.Len()/8)+gap,
+				startToFirstEnd.Lower+(iter.Len()/8)+gap,
+			)
+			return
 		}
 		if iter.Range().ContainsStamp(tr.End) {
 			r, err = iter.NewReader()
 			if err != nil {
-				return 0, err
+				return
 			}
-			endPos, err = i.searchLT(tr.End, r)
+			endApprox, err = i.search(tr.End, r)
 			if err != nil {
-				return 0, err
+				return
 			}
-			return startDist + endPos + gap, nil
+			approx = Between(
+				startToFirstEnd.Lower+gap+endApprox.Lower,
+				startToFirstEnd.Upper+gap+endApprox.Upper,
+			)
+			return
 		}
 		gap += iter.Len()
 	}
 }
 
-func (i *Ranger) Stamp(ref telem.TimeStamp, offset int64) (telem.TimeStamp, error) {
+// Stamp implements Index.
+func (i *Ranger) Stamp(ref telem.TimeStamp, offset int64) (approx TimeStampApproximation, err error) {
 	iter := i.DB.NewIterator(ranger.IterRange(ref.SpanRange(telem.TimeSpanMax)))
 	if !iter.SeekFirst() ||
 		iter.Len()/int64(telem.TimeStampDensity) <= offset ||
 		!iter.Range().ContainsStamp(ref) {
-		return 0, ErrDiscontinuous
+		err = ErrDiscontinuous
+		return
 	}
 
 	if offset == 0 {
-		return ref, nil
+		approx = Exactly(ref)
+		return
 	}
 
 	r, err := iter.NewReader()
 	if err != nil {
-		return 0, err
+		return
 	}
-	pos, err := i.searchGE(ref, r)
+	startApprox, err := i.search(ref, r)
 	if err != nil {
-		return 0, err
+		return
 	}
-	pos += offset
-	ts, err := readTimeStamp(r, pos*8, make([]byte, 8))
-	return ts, err
+	lowerTs, err := readStamp(r, (startApprox.Lower+offset)*8, make([]byte, 8))
+	if err != nil {
+		return
+	}
+	upperTs, err := readStamp(r, (startApprox.Upper+offset)*8, make([]byte, 8))
+	if err != nil {
+		return
+	}
+	return Between(lowerTs, upperTs), nil
 }
 
-func (i *Ranger) searchLT(ts telem.TimeStamp, r io.Reader) (int64, error) {
-	pos, _, err := i.searchInsert(ts, r.(*ranger.Reader))
-	return pos - 1, err
-}
-
-func (i *Ranger) searchGE(ts telem.TimeStamp, r *ranger.Reader) (int64, error) {
-	pos, _, err := i.searchInsert(ts, r)
-	return pos, err
-}
-
-func (i *Ranger) searchInsert(ts telem.TimeStamp, r *ranger.Reader) (int64, bool, error) {
+func (i *Ranger) search(ts telem.TimeStamp, r *ranger.Reader) (DistanceApproximation, error) {
 	var (
 		start int64 = 0
-		end   int64 = (r.Len() / 8) - 1
+		end         = (r.Len() / 8) - 1
+		buf         = make([]byte, 8)
 	)
 	for start <= end {
 		mid := (start + end) / 2
-		midTs, err := readTimeStamp(r, mid*8, make([]byte, 8))
+		midTs, err := readStamp(r, mid*8, buf)
 		if err != nil {
-			return 0, false, err
+			return Exactly[int64](0), err
 		}
 		if midTs == ts {
-			return mid, true, nil
+			return Exactly[int64](mid), nil
 		} else if midTs < ts {
 			start = mid + 1
 		} else {
 			end = mid - 1
 		}
 	}
-	return end + 1, false, nil
+	return Between(end, end+1), nil
 }
 
-func readTimeStamp(r io.ReaderAt, offset int64, buf []byte) (telem.TimeStamp, error) {
+func readStamp(r io.ReaderAt, offset int64, buf []byte) (telem.TimeStamp, error) {
 	_, err := r.ReadAt(buf, offset)
-	return telem.TimeStamp(binary.LittleEndian.Uint64(buf)), err
+	return telem.UnmarshalF[telem.TimeStamp](telem.TimeStampT)(buf), err
 }
