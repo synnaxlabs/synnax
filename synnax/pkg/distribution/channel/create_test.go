@@ -53,7 +53,7 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(channels).To(HaveLen(1))
 				cesiumCH := channels[0]
-				Expect(cesiumCH.Key).To(Equal(ch.Key().LocalKey()))
+				Expect(cesiumCH.Key).To(Equal(ch.Key().String()))
 				Expect(cesiumCH.DataType).To(Equal(telem.Float64T))
 				Expect(cesiumCH.Rate).To(Equal(5 * telem.Hz))
 			})
@@ -69,7 +69,7 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(channels).To(HaveLen(1))
 				cesiumCH := channels[0]
-				Expect(cesiumCH.Key).To(Equal(ch.Key().LocalKey()))
+				Expect(cesiumCH.Key).To(Equal(ch.Key().String()))
 				Expect(cesiumCH.DataType).To(Equal(telem.Float64T))
 				Expect(cesiumCH.Rate).To(Equal(5 * telem.Hz))
 			})

@@ -16,13 +16,18 @@ type leaseProxy struct {
 	counter counter.Uint16Error
 }
 
-func newLeaseProxy(cfg Config) *leaseProxy {
-	p := &leaseProxy{
-		Config: cfg,
-		router: proxy.NewBatchFactory[Channel](cfg.HostResolver.HostID()),
+func newLeaseProxy(cfg Config) (*leaseProxy, error) {
+	c, err := openCounter(cfg.HostResolver.HostID(), cfg.ClusterDB)
+	if err != nil {
+		return nil, err
 	}
-	p.Server.BindHandler(p.handle)
-	return p
+	p := &leaseProxy{
+		Config:  cfg,
+		router:  proxy.NewBatchFactory[Channel](cfg.HostResolver.HostID()),
+		counter: c,
+	}
+	p.Transport.CreateServer().BindHandler(p.handle)
+	return p, nil
 }
 
 func (lp *leaseProxy) handle(ctx context.Context, msg CreateMessage) (CreateMessage, error) {
@@ -80,6 +85,7 @@ func (lp *leaseProxy) assignLocalKeys(channels *[]Channel) error {
 	}
 	for i, ch := range *channels {
 		ch.LocalKey = storage.ChannelKey(v - uint16(i))
+		(*channels)[i] = ch
 	}
 	return nil
 }
@@ -108,7 +114,7 @@ func (lp *leaseProxy) createRemote(ctx context.Context, target core.NodeID, chan
 	if err != nil {
 		return nil, err
 	}
-	res, err := lp.Client.Send(ctx, addr, CreateMessage{Channels: channels})
+	res, err := lp.Transport.CreateClient().Send(ctx, addr, CreateMessage{Channels: channels})
 	if err != nil {
 		return nil, err
 	}

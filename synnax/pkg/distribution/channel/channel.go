@@ -185,13 +185,16 @@ func (c Channel) SetOptions() []interface{} { return []interface{}{c.Lease()} }
 func (c Channel) Lease() core.NodeID { return c.NodeID }
 
 func (c Channel) Storage() storage.Channel {
-	return storage.Channel{
+	s := storage.Channel{
 		Key:      c.Key().String(),
 		DataType: c.DataType,
 		IsIndex:  c.IsIndex,
-		Index:    c.Index().String(),
 		Rate:     c.Rate,
 	}
+	if c.LocalIndex != 0 {
+		s.Index = c.Index().String()
+	}
+	return s
 }
 
 func toStorage(channels []Channel) []storage.Channel {

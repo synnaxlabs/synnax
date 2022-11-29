@@ -54,7 +54,11 @@ func New(configs ...Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Service{clusterDB: cfg.ClusterDB, proxy: newLeaseProxy(cfg)}, nil
+	proxy, err := newLeaseProxy(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &Service{clusterDB: cfg.ClusterDB, proxy: proxy}, nil
 }
 
 func (s *Service) Create(channel *Channel) error {
