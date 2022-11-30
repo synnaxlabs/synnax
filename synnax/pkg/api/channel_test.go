@@ -12,7 +12,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-var _ = Describe("ChannelService", Ordered, func() {
+var _ = Describe("ChannelReader", Ordered, func() {
 	var (
 		builder *mock.Builder
 		prov    api.Provider

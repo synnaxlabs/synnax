@@ -41,7 +41,7 @@ func (f Frame) SplitByHost(host core.NodeID) (local Frame, remote Frame) {
 	return local, remote
 }
 
-func (f Frame) StorageFrame() storage.Frame { return cesium.NewFrame(f.keys.Strings(), f.Arrays) }
+func (f Frame) ToStorage() storage.Frame { return cesium.NewFrame(f.keys.Strings(), f.Arrays) }
 
 func NewFrame(keys channel.Keys, arrays []telem.Array) Frame {
 	return Frame{

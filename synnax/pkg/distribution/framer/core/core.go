@@ -7,11 +7,11 @@ import (
 	"github.com/synnaxlabs/x/query"
 )
 
-func ValidateChannelKeys(ctx context.Context, svc *channel.Service, keys []channel.Key) error {
+func ValidateChannelKeys(ctx context.Context, chReader channel.Reader, keys []channel.Key) error {
 	if len(keys) == 0 {
 		return errors.New("[segment] - no channels provided")
 	}
-	exists, err := svc.NewRetrieve().WhereKeys(keys...).Exists(ctx)
+	exists, err := chReader.NewRetrieve().WhereKeys(keys...).Exists(ctx)
 	if !exists {
 		return errors.Wrapf(query.NotFound, "[segment] - channel keys %s not found", keys)
 	}

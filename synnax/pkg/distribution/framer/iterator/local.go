@@ -4,17 +4,16 @@ import (
 	"context"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	distribcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 )
 
-func newLocalIterator(keys channel.Keys, cfg Config) (confluence.Segment[Request, Response], error) {
-	iter, err := cfg.TS.NewStreamIterator(cesium.IteratorConfig{
-		Bounds:   cfg.TimeRange,
-		Channels: keys.Strings(),
+func (s *Service) newGatewayIterator(cfg Config) (confluence.Segment[Request, Response], error) {
+	iter, err := s.TS.NewStreamIterator(cesium.IteratorConfig{
+		Bounds:   cfg.Bounds,
+		Channels: cfg.Keys.Strings(),
 	})
 	if err != nil {
 		return nil, err
@@ -29,7 +28,7 @@ func newLocalIterator(keys channel.Keys, cfg Config) (confluence.Segment[Request
 	plumber.SetSegment[cesium.IteratorResponse, Response](
 		pipe,
 		"responseTranslator",
-		newCesiumResponseTranslator(cfg.HostResolver.HostID()),
+		newCesiumResponseTranslator(s.HostResolver.HostID()),
 	)
 	plumber.UnaryRouter[cesium.IteratorRequest]{
 		SourceTarget: "requestTranslator",

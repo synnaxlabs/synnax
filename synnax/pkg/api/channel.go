@@ -28,7 +28,7 @@ type ChannelService struct {
 	validationProvider
 	authProvider
 	dbProvider
-	internal *channel.Service
+	internal *channel.service
 }
 
 func NewChannelService(p Provider) *ChannelService {

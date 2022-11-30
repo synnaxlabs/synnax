@@ -2,68 +2,81 @@ package writer
 
 import (
 	"context"
+	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/signal"
 )
 
-type requestSwitchSender struct {
+type peerSwitchSender struct {
 	freightfluence.BatchSwitchSender[Request, Request]
-	addresses proxy.AddressMap
-	confluence.TransientProvider
+	confluence.AbstractUnarySource[Response]
+	addresses      proxy.AddressMap
 	accumulatedErr error
 }
 
 func newRequestSwitchSender(
 	addresses proxy.AddressMap,
-	trans confluence.Inlet[error],
 	senders map[address.Address]freighter.StreamSenderCloser[Request],
-) confluence.Sink[Request] {
-	rs := &requestSwitchSender{addresses: addresses}
+) confluence.Segment[Request, Response] {
+	rs := &peerSwitchSender{addresses: addresses}
 	rs.Senders = freightfluence.MapTargetedSender[Request](senders)
 	rs.BatchSwitchSender.ApplySwitch = rs._switch
-	return confluence.InjectTransientSink[Request](trans, rs)
+	return rs
 }
 
-func (rs *requestSwitchSender) _switch(
+func (rs *peerSwitchSender) _switch(
 	ctx context.Context,
 	r Request,
 	oReqs map[address.Address]Request,
 ) error {
 	if rs.accumulatedErr != nil {
 		if r.Command == Error {
-			return sendErrorAck(ctx, rs.Transient(), rs.accumulatedErr)
+			if err := signal.SendUnderContext(ctx, rs.Out.Inlet(), Response{
+				Command: r.Command,
+				Ack:     false,
+			}); err != nil {
+				return err
+			}
+			rs.accumulatedErr = nil
 		}
 		return nil
 	}
-	for nodeID, frame := range r.Frame.SplitByNodeID() {
-		addr, ok := rs.addresses[nodeID]
-		if !ok {
-			if err := sendBadAck(ctx, rs.Transient()); err != nil {
-				return err
+	if r.Command == Data {
+		for nodeID, frame := range r.Frame.SplitByNodeID() {
+			addr, ok := rs.addresses[nodeID]
+			if !ok {
+				return signal.SendUnderContext[Response](ctx, rs.Out.Inlet(), Response{
+					Command: Error,
+					Err:     errors.New("no address found for nodeID"),
+				})
 			}
-			continue
+			oReqs[addr] = Request{Frame: frame}
 		}
-		oReqs[addr] = Request{Frame: frame}
+	} else {
+		for _, addr := range rs.addresses {
+			oReqs[addr] = r
+		}
 	}
 	return nil
 }
 
-type remoteLocalSwitch struct {
+type peerGatewaySwitch struct {
 	confluence.BatchSwitch[Request, Request]
 	host core.NodeID
 }
 
-func newRemoteLocalSwitch(host core.NodeID) *remoteLocalSwitch {
-	rl := &remoteLocalSwitch{host: host}
+func newPeerGatewaySwitch(host core.NodeID) *peerGatewaySwitch {
+	rl := &peerGatewaySwitch{host: host}
 	rl.ApplySwitch = rl._switch
 	return rl
 }
 
-func (rl *remoteLocalSwitch) _switch(ctx context.Context, r Request, oReqs map[address.Address]Request) error {
+func (rl *peerGatewaySwitch) _switch(ctx context.Context, r Request, oReqs map[address.Address]Request) error {
 	local, remote := r.Frame.SplitByHost(rl.host)
 	oReqs["localWriter"] = Request{Frame: local}
 	oReqs["remoteSender"] = Request{Frame: remote}

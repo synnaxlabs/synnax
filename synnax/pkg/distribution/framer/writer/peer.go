@@ -12,43 +12,44 @@ import (
 	"strconv"
 )
 
-func openRemoteWriters(
+func (s *Service) openManyPeers(
 	ctx context.Context,
 	targets map[core.NodeID][]channel.Key,
-	transient confluence.Inlet[error],
-	cfg Config,
-) (confluence.Sink[Request], []*freightfluence.Receiver[Response], []address.Address, error) {
-	receivers := make([]*freightfluence.Receiver[Response], 0, len(targets))
-	addrMap := make(proxy.AddressMap)
-	senders := make(map[address.Address]freighter.StreamSenderCloser[Request])
-	sender := newRequestSwitchSender(addrMap, transient, senders)
-	receiverAddresses := make([]address.Address, 0, len(targets))
+) (confluence.Segment[Request, Response], []*freightfluence.Receiver[Response], []address.Address, error) {
+	var (
+		receivers         = make([]*freightfluence.Receiver[Response], 0, len(targets))
+		addrMap           = make(proxy.AddressMap)
+		senders           = make(map[address.Address]freighter.StreamSenderCloser[Request])
+		sender            = newRequestSwitchSender(addrMap, senders)
+		receiverAddresses = make([]address.Address, 0, len(targets))
+	)
+
 	for nodeID, keys := range targets {
-		targetAddr, err := cfg.HostResolver.Resolve(nodeID)
+		target, err := s.HostResolver.Resolve(nodeID)
 		if err != nil {
 			return sender, receivers, receiverAddresses, err
 		}
-		addrMap[nodeID] = targetAddr
-		client, err := openRemoteClient(ctx, cfg.Transport.Client(), targetAddr, keys)
+		addrMap[nodeID] = target
+		client, err := s.openPeer(ctx, target, Config{Keys: keys})
 		if err != nil {
 			return sender, receivers, receiverAddresses, err
 		}
-		senders[targetAddr] = client
+		senders[target] = client
 		receivers = append(receivers, &freightfluence.Receiver[Response]{Receiver: client})
 		receiverAddresses = append(receiverAddresses, address.Address("receiver-"+strconv.Itoa(int(nodeID))))
 	}
+
 	return sender, receivers, receiverAddresses, nil
 }
 
-func openRemoteClient(
+func (s *Service) openPeer(
 	ctx context.Context,
-	tran TransportClient,
 	target address.Address,
-	keys channel.Keys,
+	cfg Config,
 ) (ClientStream, error) {
-	client, err := tran.Stream(ctx, target)
+	client, err := s.Transport.Client().Stream(ctx, target)
 	if err != nil {
 		return nil, err
 	}
-	return client, client.Send(Request{Keys: keys})
+	return client, client.Send(Request{Keys: cfg.Keys})
 }

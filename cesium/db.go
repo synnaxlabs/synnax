@@ -8,6 +8,7 @@ import (
 	"github.com/synnaxlabs/x/errutil"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	"io"
 )
 
 var (
@@ -29,20 +30,40 @@ func NewFrame(keys []string, arrays []telem.Array) Frame { return core.NewFrame(
 // collection of samples across a time range, and typically represents a single data source,
 // such as a physical sensor, software sensor, metric, or event.
 type DB interface {
+	ChannelDB
+	Writable
+	Readable
+	io.Closer
+}
+
+type Readable interface {
+	Read(tr telem.TimeRange, keys ...string) (Frame, error)
+	NewIterator(cfg IteratorConfig) (Iterator, error)
+	StreamIterable
+}
+
+type StreamIterable interface {
+	NewStreamIterator(cfg IteratorConfig) (StreamIterator, error)
+}
+
+type Writable interface {
+	Write(start telem.TimeStamp, frame Frame) error
+	WriteArray(start telem.TimeStamp, key string, arr telem.Array) error
+	NewWriter(cfg WriterConfig) (Writer, error)
+	StreamWritable
+}
+
+type StreamWritable interface {
+	NewStreamWriter(cfg WriterConfig) (StreamWriter, error)
+}
+
+type ChannelDB interface {
 	// CreateChannel creates the given channels in the DB.
 	CreateChannel(channels ...Channel) error
 	// RetrieveChannel retrieves the channel with the given key.
 	RetrieveChannel(key string) (Channel, error)
 	// RetrieveChannels retrieves the channels with the given keys.
 	RetrieveChannels(keys ...string) ([]Channel, error)
-	Write(start telem.TimeStamp, frame Frame) error
-	WriteArray(start telem.TimeStamp, key string, arr telem.Array) error
-	NewWriter(cfg WriterConfig) (Writer, error)
-	NewStreamWriter(cfg WriterConfig) (StreamWriter, error)
-	Read(tr telem.TimeRange, keys ...string) (Frame, error)
-	NewIterator(cfg IteratorConfig) (Iterator, error)
-	NewStreamIterator(cfg IteratorConfig) (StreamIterator, error)
-	Close() error
 }
 
 type cesium struct {

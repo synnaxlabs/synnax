@@ -21,10 +21,7 @@ func newRequestTranslator(host core.NodeID, logger *zap.Logger) confluence.Segme
 }
 
 func (rt *requestTranslator) translate(ctx context.Context, in Request) (cesium.WriteRequest, bool, error) {
-	return cesium.WriteRequest{
-		Command: cesium.WriterCommand(in.Command),
-		Frame:   in.Frame.StorageFrame(),
-	}, true, nil
+	return cesium.WriteRequest{Command: cesium.WriterCommand(in.Command), Frame: in.Frame.ToStorage()}, true, nil
 }
 
 type responseTranslator struct {

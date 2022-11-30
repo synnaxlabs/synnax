@@ -27,11 +27,11 @@ var _schema = &ontology.Schema{
 	},
 }
 
-var _ ontology.Service = (*Service)(nil)
+var _ ontology.Service = (*service)(nil)
 
-func (s *Service) Schema() *schema.Schema { return _schema }
+func (s *service) Schema() *schema.Schema { return _schema }
 
-func (s *Service) RetrieveEntity(key string) (schema.Entity, error) {
+func (s *service) RetrieveEntity(key string) (schema.Entity, error) {
 	k, err := ParseKey(key)
 	if err != nil {
 		return schema.Entity{}, err

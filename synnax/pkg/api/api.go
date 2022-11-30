@@ -27,7 +27,7 @@ import (
 // instantiate the API.
 type Config struct {
 	Logger        *zap.Logger
-	Channel       *channel.Service
+	Channel       *channel.service
 	Segment       *framer.Service
 	Ontology      *ontology.Ontology
 	Storage       *storage.Store

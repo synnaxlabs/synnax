@@ -7,8 +7,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	tmock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock"
-	"github.com/synnaxlabs/synnax/pkg/storage"
-	"github.com/synnaxlabs/x/config"
 	"go.uber.org/zap"
 	"testing"
 
@@ -25,61 +23,40 @@ func TestWriter(t *testing.T) {
 }
 
 type serviceContainer struct {
-	channel   *channel.Service
+	channel   channel.Service
+	writer    *writer.Service
 	transport struct {
 		channel channel.Transport
 		writer  writer.Transport
 	}
 }
 
-func provisionNServices(n int, logger *zap.Logger) (*mock.CoreBuilder, map[core.NodeID]serviceContainer) {
+func provision(n int, logger *zap.Logger) (*mock.CoreBuilder, map[core.NodeID]serviceContainer) {
 	var (
-		builder = mock.NewCoreBuilder(core.Config{
-			Logger:  logger,
-			Storage: storage.Config{MemBacked: config.BoolPointer(true)},
-		})
+		builder    = mock.NewCoreBuilder(core.Config{Logger: logger})
 		services   = make(map[core.NodeID]serviceContainer)
 		channelNet = tmock.NewChannelNetwork()
 		writerNet  = tmock.NewFramerWriterNetwork()
 	)
 	for i := 0; i < n; i++ {
-		_core := builder.New()
-		var container serviceContainer
-		container.transport.channel = channelNet.New(_core.Config.AdvertiseAddress)
-		container.transport.writer = writerNet.New(_core.Config.AdvertiseAddress /*buffer*/, 10)
+		var (
+			c         = builder.New()
+			container serviceContainer
+		)
 		container.channel = MustSucceed(channel.New(channel.Config{
-			HostResolver: _core.Cluster,
-			ClusterDB:    _core.Storage.Gorpify(),
-			TS:           _core.Storage.TS,
-			Transport:    container.transport.channel,
+			HostResolver: c.Cluster,
+			ClusterDB:    c.Storage.Gorpify(),
+			TS:           c.Storage.TS,
+			Transport:    channelNet.New(c.Config.AdvertiseAddress),
 		}))
-		writer.NewServer(writer.Config{
-			TS:             _core.Storage.TS,
-			ChannelService: container.channel,
-			HostResolver:   _core.Cluster,
-			Transport:      container.transport.writer,
-		})
-		services[_core.Cluster.HostID()] = container
+		container.writer = MustSucceed(writer.NewService(writer.ServiceConfig{
+			TS:            c.Storage.TS,
+			ChannelReader: container.channel,
+			HostResolver:  c.Cluster,
+			Transport:     writerNet.New(c.Config.AdvertiseAddress /*buffer*/, 10),
+			Logger:        logger,
+		}))
+		services[c.Cluster.HostID()] = container
 	}
 	return builder, services
-}
-
-func openWriter(
-	nodeID core.NodeID,
-	services map[core.NodeID]serviceContainer,
-	builder *mock.CoreBuilder,
-	keys channel.Keys,
-	log *zap.Logger,
-) (writer.Writer, error) {
-	return writer.New(
-		ctx,
-		writer.Config{
-			TS:             builder.Cores[nodeID].Storage.TS,
-			ChannelService: services[nodeID].channel,
-			HostResolver:   builder.Cores[nodeID].Cluster,
-			Transport:      services[nodeID].transport.writer,
-			Keys:           keys,
-			Logger:         log,
-		},
-	)
 }

@@ -14,6 +14,8 @@ type (
 	StreamIterator = iterator.StreamIterator
 	Writer         = writer.Writer
 	StreamWriter   = writer.StreamWriter
+	WriterConfig   = writer.Config
+	IteratorConfig = iterator.Config
 )
 
 func NewFrame(keys channel.Keys, arrays []telem.Array) Frame {

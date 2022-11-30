@@ -12,7 +12,7 @@ import (
 
 var _ = Describe("getAttributes", Ordered, func() {
 	var (
-		services map[aspen.NodeID]*channel.Service
+		services map[aspen.NodeID]*channel.service
 		builder  *mock.CoreBuilder
 		log      *zap.Logger
 	)

@@ -5,20 +5,17 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/freightfluence"
-	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/signal"
 )
 
-type server struct {
-	Config
-	ts storage.TS
-}
+type server struct{ ServiceConfig }
 
-func NewServer(cfg Config) {
-	sf := &server{ts: cfg.TS, Config: cfg}
-	cfg.Transport.Server().BindHandler(sf.Handle)
+func startServer(cfg ServiceConfig) *server {
+	s := &server{ServiceConfig: cfg}
+	cfg.Transport.Server().BindHandler(s.Handle)
+	return s
 }
 
 func (sf *server) Handle(_ctx context.Context, server ServerStream) error {
@@ -38,7 +35,7 @@ func (sf *server) Handle(_ctx context.Context, server ServerStream) error {
 	receiver := &freightfluence.Receiver[Request]{Receiver: server}
 	sender := &freightfluence.Sender[Response]{Sender: freighter.SenderNopCloser[Response]{StreamSender: server}}
 
-	w, err := newLocalWriter(req.Keys, sf.Config)
+	w, err := newLocalWriter(sf)
 	if err != nil {
 		return errors.Wrap(err, "[segment.w] - failed to open cesium w")
 	}

@@ -14,7 +14,7 @@ import (
 
 var _ = Describe("Create", Ordered, func() {
 	var (
-		services map[core.NodeID]*channel.Service
+		services map[core.NodeID]*channel.service
 		builder  *mock.CoreBuilder
 		log      *zap.Logger
 	)

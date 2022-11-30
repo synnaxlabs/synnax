@@ -15,8 +15,8 @@ type Retrieve struct {
 	db   *gorp.DB
 }
 
-func newRetrieve(db *gorp.DB) Retrieve {
-	return Retrieve{gorp: gorp.NewRetrieve[Key, Channel](), db: db}
+func NewRetrieve(DB *gorp.DB) Retrieve {
+	return Retrieve{gorp: gorp.NewRetrieve[Key, Channel](), db: DB}
 }
 
 // Entry binds the Channel that Retrieve will fill results into. This is an identical
@@ -48,7 +48,7 @@ func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 }
 
 // WithTxn binds a transaction the query will be executed within. If the option is not set,
-// the query will be executed directly against the Service database.
+// the query will be executed directly against the service database.
 func (r Retrieve) WithTxn(txn gorp.Txn) Retrieve { gorp.SetTxn(r.gorp, txn); return r }
 
 // Exec executes the query, binding

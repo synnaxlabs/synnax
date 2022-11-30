@@ -12,11 +12,27 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Service is central entity for managing channels within delta's distribution layer. It provides facilities for creating
+// service is central entity for managing channels within delta's distribution layer. It provides facilities for creating
 // and retrieving channels.
-type Service struct {
+type service struct {
 	clusterDB *gorp.DB
 	proxy     *leaseProxy
+}
+
+type Service interface {
+	Reader
+	Writer
+}
+
+type Writer interface {
+	Create(channel *Channel) error
+	CreateMany(channels *[]Channel) error
+	CreateWithTxn(txn gorp.Txn, channel *Channel) error
+	CreateManyWithTxn(txn gorp.Txn, channels *[]Channel) error
+}
+
+type Reader interface {
+	NewRetrieve() Retrieve
 }
 
 type Config struct {
@@ -49,7 +65,7 @@ func (c Config) Override(other Config) Config {
 
 var DefaultConfig = Config{}
 
-func New(configs ...Config) (*Service, error) {
+func New(configs ...Config) (Service, error) {
 	cfg, err := config.OverrideAndValidate(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err
@@ -58,18 +74,16 @@ func New(configs ...Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Service{clusterDB: cfg.ClusterDB, proxy: proxy}, nil
+	return &service{clusterDB: cfg.ClusterDB, proxy: proxy}, nil
 }
 
-func (s *Service) Create(channel *Channel) error {
-	return s.CreateWithTxn(s.clusterDB, channel)
-}
+func (s *service) Create(channel *Channel) error { return s.CreateWithTxn(s.clusterDB, channel) }
 
-func (s *Service) CreateMany(channels *[]Channel) error {
+func (s *service) CreateMany(channels *[]Channel) error {
 	return s.CreateManyWithTxn(s.clusterDB, channels)
 }
 
-func (s *Service) CreateWithTxn(txn gorp.Txn, ch *Channel) error {
+func (s *service) CreateWithTxn(txn gorp.Txn, ch *Channel) error {
 	channels := []Channel{*ch}
 	err := s.proxy.create(context.TODO(), txn, &channels)
 	if err != nil {
@@ -79,8 +93,8 @@ func (s *Service) CreateWithTxn(txn gorp.Txn, ch *Channel) error {
 	return nil
 }
 
-func (s *Service) CreateManyWithTxn(txn gorp.Txn, channels *[]Channel) error {
+func (s *service) CreateManyWithTxn(txn gorp.Txn, channels *[]Channel) error {
 	return s.proxy.create(context.TODO(), txn, channels)
 }
 
-func (s *Service) NewRetrieve() Retrieve { return newRetrieve(s.clusterDB) }
+func (s *service) NewRetrieve() Retrieve { return NewRetrieve(s.clusterDB) }

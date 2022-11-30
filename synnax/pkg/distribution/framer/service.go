@@ -9,24 +9,26 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
 
-type Service struct{ Config }
-
-type Config struct {
-	ChannelService *channel.Service
-	TS             storage.TS
-	Transport      Transport
-	HostResolver   core.HostResolver
-	Logger         *zap.Logger
+type Service struct {
+	writer   *writer.Service
+	iterator *iterator.Service
 }
 
-func (c Config) Validate() error {
+type ServiceConfig struct {
+	ChannelReader channel.Reader
+	TS            storage.TS
+	Transport     Transport
+	HostResolver  core.HostResolver
+	Logger        *zap.Logger
+}
+
+func (c ServiceConfig) Validate() error {
 	v := validate.New("distribution.framer")
-	validate.NotNil(v, "channelService", c.ChannelService)
+	validate.NotNil(v, "channelReader", c.ChannelReader)
 	validate.NotNil(v, "ts", c.TS)
 	validate.NotNil(v, "transport", c.Transport)
 	validate.NotNil(v, "hostResolver", c.HostResolver)
@@ -34,8 +36,8 @@ func (c Config) Validate() error {
 	return v.Error()
 }
 
-func (c Config) Override(other Config) Config {
-	c.ChannelService = override.Nil(c.ChannelService, other.ChannelService)
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.ChannelReader = override.Nil(c.ChannelReader, other.ChannelReader)
 	c.TS = override.Nil(c.TS, other.TS)
 	c.Transport = override.Nil(c.Transport, other.Transport)
 	c.HostResolver = override.Nil(c.HostResolver, other.HostResolver)
@@ -43,65 +45,44 @@ func (c Config) Override(other Config) Config {
 	return c
 }
 
-var _ config.Config[Config] = Config{}
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
-var DefaultConfig = Config{Logger: zap.NewNop()}
+var DefaultConfig = ServiceConfig{Logger: zap.NewNop()}
 
-func Open(cfg ...Config) (*Service, error) {
-	_cfg, err := config.OverrideAndValidate(DefaultConfig, cfg...)
+func Open(configs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.OverrideAndValidate(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{Config: _cfg}
-	iterator.StartServer(iterator.Config{
-		TS:           s.TS,
-		HostResolver: s.HostResolver,
-		Transport:    s.Transport.Iterator(),
+	s := &Service{}
+	s.iterator, err = iterator.NewService(iterator.ServiceConfig{
+		TS:           cfg.TS,
+		HostResolver: cfg.HostResolver,
+		Transport:    cfg.Transport.Iterator(),
 	})
-	writer.NewServer(writer.Config{
-		TS:           s.TS,
-		HostResolver: s.HostResolver,
-		Transport:    s.Transport.Writer(),
+	if err != nil {
+		return nil, err
+	}
+	s.writer, err = writer.NewService(writer.ServiceConfig{
+		TS:           cfg.TS,
+		HostResolver: cfg.HostResolver,
+		Transport:    cfg.Transport.Writer(),
 	})
-	return s, nil
+	return s, err
 }
 
-func (s *Service) NewIterator(ctx context.Context, tr telem.TimeRange, keys ...channel.Key) (Iterator, error) {
-	return iterator.New(ctx, s.newIteratorConfig(tr, keys))
+func (s *Service) NewIterator(ctx context.Context, cfg IteratorConfig) (Iterator, error) {
+	return s.iterator.New(ctx, cfg)
 }
 
-func (s *Service) NewStreamIterator(ctx context.Context, tr telem.TimeRange, keys ...channel.Key) (StreamIterator, error) {
-	return iterator.NewStream(ctx, s.newIteratorConfig(tr, keys))
+func (s *Service) NewStreamIterator(ctx context.Context, cfg IteratorConfig) (StreamIterator, error) {
+	return s.iterator.NewStream(ctx, cfg)
 }
 
-func (s *Service) NewWriter(ctx context.Context, start telem.TimeStamp, keys ...channel.Key) (Writer, error) {
-	return writer.New(ctx, s.newWriterConfig(start, keys))
+func (s *Service) NewWriter(ctx context.Context, cfg WriterConfig) (Writer, error) {
+	return s.writer.New(ctx, cfg)
 }
 
-func (s *Service) NewStreamWriter(ctx context.Context, start telem.TimeStamp, keys ...channel.Key) (StreamWriter, error) {
-	return writer.NewStream(ctx, s.newWriterConfig(start, keys))
-}
-
-func (s *Service) newIteratorConfig(tr telem.TimeRange, keys []channel.Key) iterator.Config {
-	return iterator.Config{
-		TS:             s.TS,
-		HostResolver:   s.HostResolver,
-		Transport:      s.Transport.Iterator(),
-		ChannelKeys:    keys,
-		TimeRange:      tr,
-		Logger:         s.Logger,
-		ChannelService: s.ChannelService,
-	}
-}
-
-func (s *Service) newWriterConfig(start telem.TimeStamp, keys []channel.Key) writer.Config {
-	return writer.Config{
-		Start:          start,
-		Keys:           keys,
-		TS:             s.TS,
-		HostResolver:   s.HostResolver,
-		Transport:      s.Transport.Writer(),
-		Logger:         s.Logger,
-		ChannelService: s.ChannelService,
-	}
+func (s *Service) NewStreamWriter(ctx context.Context, cfg WriterConfig) (StreamWriter, error) {
+	return s.writer.NewStream(ctx, cfg)
 }

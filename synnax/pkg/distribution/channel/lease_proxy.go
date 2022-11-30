@@ -48,18 +48,18 @@ func (lp *leaseProxy) create(ctx context.Context, txn gorp.Txn, _channels *[]Cha
 	}
 	batch := lp.router.Batch(channels)
 	oChannels := make([]Channel, 0, len(channels))
-	for nodeID, entries := range batch.Remote {
+	for nodeID, entries := range batch.Peers {
 		remoteChannels, err := lp.createRemote(ctx, nodeID, entries)
 		if err != nil {
 			return err
 		}
 		oChannels = append(oChannels, remoteChannels...)
 	}
-	err := lp.createLocal(txn, &batch.Local)
+	err := lp.createLocal(txn, &batch.Gateway)
 	if err != nil {
 		return err
 	}
-	oChannels = append(oChannels, batch.Local...)
+	oChannels = append(oChannels, batch.Gateway...)
 	*_channels = oChannels
 	return nil
 }

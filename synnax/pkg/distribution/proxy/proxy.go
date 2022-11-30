@@ -19,20 +19,20 @@ type batchFactory[E Entry] struct {
 }
 
 type Batch[E Entry] struct {
-	Local  []E
-	Remote map[core.NodeID][]E
+	Gateway []E
+	Peers   map[core.NodeID][]E
 }
 
 func NewBatchFactory[E Entry](host aspen.NodeID) BatchFactory[E] { return batchFactory[E]{host} }
 
 func (p batchFactory[E]) Batch(entries []E) Batch[E] {
-	b := Batch[E]{Remote: make(map[core.NodeID][]E)}
+	b := Batch[E]{Peers: make(map[core.NodeID][]E)}
 	for _, entry := range entries {
 		lease := entry.Lease()
 		if lease == p.host {
-			b.Local = append(b.Local, entry)
+			b.Gateway = append(b.Gateway, entry)
 		} else {
-			b.Remote[lease] = append(b.Remote[lease], entry)
+			b.Peers[lease] = append(b.Peers[lease], entry)
 		}
 	}
 	return b

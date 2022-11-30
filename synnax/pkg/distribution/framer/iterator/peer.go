@@ -9,19 +9,21 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-func openRemoteIterators(
+func (s *Service) openManyPeers(
 	ctx context.Context,
+	bounds telem.TimeRange,
 	targets map[core.NodeID][]channel.Key,
-	cfg Config,
 ) (*freightfluence.MultiSender[Request], []*freightfluence.Receiver[Response], error) {
-	sender := &freightfluence.MultiSender[Request]{}
-	receivers := make([]*freightfluence.Receiver[Response], 0, len(targets))
+	var (
+		sender    = &freightfluence.MultiSender[Request]{}
+		receivers = make([]*freightfluence.Receiver[Response], 0, len(targets))
+	)
 	for nodeID, keys := range targets {
-		targetAddr, err := cfg.HostResolver.Resolve(nodeID)
+		target, err := s.HostResolver.Resolve(nodeID)
 		if err != nil {
 			return sender, receivers, err
 		}
-		client, err := openRemoteClient(ctx, cfg.Transport.Client(), targetAddr, keys, cfg.TimeRange)
+		client, err := s.openPeer(ctx, target, Config{Keys: keys, Bounds: bounds})
 		if err != nil {
 			return sender, receivers, err
 		}
@@ -31,16 +33,14 @@ func openRemoteIterators(
 	return sender, receivers, nil
 }
 
-func openRemoteClient(
+func (s *Service) openPeer(
 	ctx context.Context,
-	tran TransportClient,
 	target address.Address,
-	keys channel.Keys,
-	rng telem.TimeRange,
+	cfg Config,
 ) (ClientStream, error) {
-	client, err := tran.Stream(ctx, target)
+	client, err := s.Transport.Client().Stream(ctx, target)
 	if err != nil {
 		return nil, err
 	}
-	return client, client.Send(Request{Keys: keys, Bounds: rng})
+	return client, client.Send(Request{Keys: cfg.Keys, Bounds: cfg.Bounds})
 }

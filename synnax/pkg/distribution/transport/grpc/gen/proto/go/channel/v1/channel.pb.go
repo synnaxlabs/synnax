@@ -226,8 +226,8 @@ var file_channel_v1_channel_proto_goTypes = []interface{}{
 }
 var file_channel_v1_channel_proto_depIdxs = []int32{
 	1, // 0: channel.v1.CreateMessage.channels:type_name -> channel.v1.Channel
-	0, // 1: channel.v1.ChannelService.Exec:input_type -> channel.v1.CreateMessage
-	0, // 2: channel.v1.ChannelService.Exec:output_type -> channel.v1.CreateMessage
+	0, // 1: channel.v1.ChannelReader.Exec:input_type -> channel.v1.CreateMessage
+	0, // 2: channel.v1.ChannelReader.Exec:output_type -> channel.v1.CreateMessage
 	2, // [2:3] is the sub-list for method output_type
 	1, // [1:2] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name

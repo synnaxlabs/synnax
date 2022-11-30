@@ -26,7 +26,7 @@ var DefaultConfig = core.DefaultConfig
 
 type Distribution struct {
 	Core
-	Channel  *channel.Service
+	Channel  *channel.service
 	Framer   *framer.Service
 	Ontology *ontology.Ontology
 }
@@ -75,12 +75,12 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 	}
 	d.Ontology.RegisterService(d.Channel)
 
-	d.Framer, err = framer.Open(framer.Config{
-		ChannelService: d.Channel,
-		TS:             d.Storage.TS,
-		Transport:      segmentTransport,
-		HostResolver:   d.Cluster,
-		Logger:         cfg.Logger,
+	d.Framer, err = framer.Open(framer.ServiceConfig{
+		ChannelReader: d.Channel,
+		TS:            d.Storage.TS,
+		Transport:     segmentTransport,
+		HostResolver:  d.Cluster,
+		Logger:        cfg.Logger,
 	})
 
 	return d, err

@@ -499,7 +499,7 @@ func (x *TimeRange) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use TimeRange.ProtoReflect.Descriptor instead.
+// Deprecated: Use Bounds.ProtoReflect.Descriptor instead.
 func (*TimeRange) Descriptor() ([]byte, []int) {
 	return file_framer_v1_framer_proto_rawDescGZIP(), []int{6}
 }
@@ -628,13 +628,13 @@ var file_framer_v1_framer_proto_goTypes = []interface{}{
 	(*IteratorResponse)(nil), // 3: segment.v1.IteratorResponse
 	(*WriterRequest)(nil),    // 4: segment.v1.WriterRequest
 	(*WriterResponse)(nil),   // 5: segment.v1.WriterResponse
-	(*TimeRange)(nil),        // 6: segment.v1.TimeRange
+	(*TimeRange)(nil),        // 6: segment.v1.Bounds
 	(*v1.ErrorPayload)(nil),  // 7: ferrors.v1.ErrorPayload
 }
 var file_framer_v1_framer_proto_depIdxs = []int32{
-	6, // 0: segment.v1.IteratorRequest.range:type_name -> segment.v1.TimeRange
+	6, // 0: segment.v1.IteratorRequest.range:type_name -> segment.v1.Bounds
 	2, // 1: segment.v1.Frame.arrays:type_name -> segment.v1.Array
-	6, // 2: segment.v1.Array.range:type_name -> segment.v1.TimeRange
+	6, // 2: segment.v1.Array.range:type_name -> segment.v1.Bounds
 	7, // 3: segment.v1.IteratorResponse.error:type_name -> ferrors.v1.ErrorPayload
 	1, // 4: segment.v1.IteratorResponse.frame:type_name -> segment.v1.Frame
 	1, // 5: segment.v1.WriterRequest.frame:type_name -> segment.v1.Frame

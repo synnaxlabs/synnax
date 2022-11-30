@@ -18,14 +18,15 @@ type server struct {
 	logger   *zap.Logger
 }
 
-func StartServer(cfg Config) {
-	sf := &server{ts: cfg.TS, resolver: cfg.HostResolver, logger: cfg.Logger}
-	cfg.Transport.Server().BindHandler(sf.Handle)
+func startServer(cfg ServiceConfig) *server {
+	s := &server{ts: cfg.TS, resolver: cfg.HostResolver, logger: cfg.Logger}
+	cfg.Transport.Server().BindHandler(s.handle)
+	return s
 }
 
-// Handle handles incoming req from the freighter.
-func (sf *server) Handle(_ctx context.Context, server ServerStream) error {
-	ctx, cancel := signal.WithCancel(_ctx)
+// Handle implements freighter.StreamServer.
+func (sf *server) handle(ctx context.Context, server ServerStream) error {
+	sCtx, cancel := signal.WithCancel(ctx)
 	defer cancel()
 
 	// Block until we receive the first request from the remoteIterator. This message should
@@ -45,8 +46,7 @@ func (sf *server) Handle(_ctx context.Context, server ServerStream) error {
 		Sender: freighter.SenderNopCloser[Response]{StreamSender: server},
 	}
 
-	iter, err := newLocalIterator(req.Keys, Config{
-		TimeRange:    req.Bounds,
+	iter, err := newGatewayIterator(req.Keys, ServiceConfig{
 		TS:           sf.ts,
 		HostResolver: sf.resolver,
 		Logger:       sf.logger,
@@ -61,6 +61,6 @@ func (sf *server) Handle(_ctx context.Context, server ServerStream) error {
 	plumber.SetSink[Response](pipe, "sender", sender)
 	plumber.MustConnect[Request](pipe, "receiver", "iterator", 1)
 	plumber.MustConnect[Response](pipe, "iterator", "sender", 1)
-	pipe.Flow(ctx, confluence.CloseInletsOnExit())
-	return ctx.Wait()
+	pipe.Flow(sCtx, confluence.CloseInletsOnExit())
+	return sCtx.Wait()
 }

@@ -85,7 +85,7 @@ var _ = Describe("Telem", func() {
 			})
 		})
 
-		Describe("TimeRange", func() {
+		Describe("Bounds", func() {
 			It("Should return the correct time range", func() {
 				t0 := telem.TimeStamp(0)
 				t1 := t0.Add(telem.Second)
@@ -97,7 +97,7 @@ var _ = Describe("Telem", func() {
 
 	})
 
-	Describe("TimeRange", func() {
+	Describe("Bounds", func() {
 
 		Describe("SpanTo", func() {
 			It("Should return the correct time span", func() {
