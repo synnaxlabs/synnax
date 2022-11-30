@@ -46,12 +46,12 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 // Validate implements Config.
 func (cfg ServiceConfig) Validate() error {
-	v := validate.New("iterator")
-	validate.NotNil(v, "TS", cfg.TS)
-	validate.NotNil(v, "channelClient", cfg.ChannelReader)
-	validate.NotNil(v, "transport", cfg.Transport)
-	validate.NotNil(v, "resolver", cfg.HostResolver)
-	validate.NotNil(v, "logger", cfg.Logger)
+	v := validate.New("distribution.framer.iterator")
+	validate.NotNil(v, "TSChannel", cfg.TS)
+	validate.NotNil(v, "ChannelReader", cfg.ChannelReader)
+	validate.NotNil(v, "Transport", cfg.Transport)
+	validate.NotNil(v, "Resolver", cfg.HostResolver)
+	validate.NotNil(v, "Logger", cfg.Logger)
 	return v.Error()
 }
 
@@ -136,12 +136,12 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 
 	if needLocal {
 		gwCfg := Config{Keys: batch.Gateway, Bounds: cfg.Bounds}
-		localIter, err := s.newGatewayIterator(gwCfg)
+		gatewwayIter, err := newStorageIterator(s.ServiceConfig, gwCfg)
 		if err != nil {
 			return nil, err
 		}
-		addr := address.Address("local")
-		plumber.SetSegment[Request, Response](pipe, addr, localIter)
+		addr := address.Address("gateway")
+		plumber.SetSegment[Request, Response](pipe, addr, gatewwayIter)
 		receiverAddresses = append(receiverAddresses, addr)
 	}
 
@@ -172,7 +172,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 		// sender and local, so that they both receive a copy of the emitted request.
 		plumber.MultiRouter[Request]{
 			SourceTargets: []address.Address{"broadcaster"},
-			SinkTargets:   []address.Address{"sender", "local"},
+			SinkTargets:   []address.Address{"sender", "gateway"},
 			Stitch:        plumber.StitchWeave,
 		}.MustRoute(pipe)
 	} else if needRemote {
@@ -180,9 +180,9 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 		// and forward requests from the emitter directly to the sender.
 		routeInletTo = "sender"
 	} else {
-		// If we only have local iterators, we can skip the broadcasting step
+		// If we only have a gateway iterator, we can skip the broadcasting step
 		// and forward requests from the emitter directly to the local iterator.
-		routeInletTo = "local"
+		routeInletTo = "gateway"
 	}
 
 	plumber.MultiRouter[Response]{

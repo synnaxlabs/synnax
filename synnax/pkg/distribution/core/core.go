@@ -13,7 +13,7 @@ import (
 // Core is the foundational primitive for distributed compute in a synnax Cluster. It
 // exposes the following services:
 //
-//  1. Storage.TS - A time-series storage engine for writing node-local telemetry frames.
+//  1. Storage.TSChannel - A time-series storage engine for writing node-local telemetry frames.
 //  2. Storage.KV - An eventually consistent, key-value store for maintaining cluster
 //     wide meta-data and state.
 //  3. Cluster - An API for querying information about the Cluster topology.

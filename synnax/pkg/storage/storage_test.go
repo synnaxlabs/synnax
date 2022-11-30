@@ -71,7 +71,7 @@ var _ = Describe("storage", func() {
 			})
 		})
 	})
-	Describe("Config", func() {
+	Describe("ServiceConfig", func() {
 		DescribeTable("Validate", func(
 			spec func(cfg storage.Config) storage.Config,
 			nil bool,

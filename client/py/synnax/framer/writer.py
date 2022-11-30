@@ -47,7 +47,7 @@ class CoreWriter:
     to write a contiguous block of telemetry, see the segment Client write method instead.
     """
 
-    _ENDPOINT = "/segment/write"
+    _ENDPOINT = "/frame/write"
     client: StreamClient
     stream: Stream[_Request, _Response] | None
     keys: list[str]

@@ -10,7 +10,7 @@ import (
 )
 
 // Config sets specific parameters for the gossip service. See DefaultConfig
-// for default values. It implements the config.Config interface.
+// for default values. It implements the config.ServiceConfig interface.
 type Config struct {
 	// TransportClient is the transport used to exchange gossip between nodes.
 	// [Required]
@@ -29,7 +29,7 @@ type Config struct {
 	Experiment alamos.Experiment
 }
 
-// Override implements the config.Config interface.
+// Override implements the config.ServiceConfig interface.
 func (cfg Config) Override(other Config) Config {
 	cfg.Interval = override.Numeric(cfg.Interval, other.Interval)
 	cfg.Logger = override.Nil(cfg.Logger, other.Logger)
@@ -39,7 +39,7 @@ func (cfg Config) Override(other Config) Config {
 	return cfg
 }
 
-// Validate implements the config.Config interface.
+// Validate implements the config.ServiceConfig interface.
 func (cfg Config) Validate() error {
 	v := validate.New("gossip")
 	validate.NotNil(v, "TransportClient", cfg.TransportClient)

@@ -30,7 +30,7 @@ func (b *Builder) NewConfig() api.Config {
 	return api.Config{
 		Logger:        zap.NewNop(),
 		Channel:       dist.Channel,
-		Segment:       dist.Framer,
+		Framer:        dist.Framer,
 		Ontology:      dist.Ontology,
 		Storage:       dist.Storage,
 		User:          &user.Service{DB: dist.Storage.Gorpify(), Ontology: dist.Ontology},

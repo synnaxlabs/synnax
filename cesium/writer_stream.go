@@ -99,6 +99,9 @@ func (w *streamWriter) Flow(ctx signal.Context, opts ...confluence.Option) {
 				if !ok {
 					return w.close()
 				}
+				if req.Command < WriterWrite || req.Command > WriterError {
+					panic("invalid command")
+				}
 				if req.Command == WriterError {
 					w.seqNum++
 					w.sendRes(req, false, w.err)

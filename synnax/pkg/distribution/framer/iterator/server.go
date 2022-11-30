@@ -2,24 +2,17 @@ package iterator
 
 import (
 	"context"
-	"github.com/synnaxlabs/aspen"
-	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/signal"
-	"go.uber.org/zap"
 )
 
-type server struct {
-	resolver aspen.HostResolver
-	ts       cesium.DB
-	logger   *zap.Logger
-}
+type server struct{ ServiceConfig }
 
 func startServer(cfg ServiceConfig) *server {
-	s := &server{ts: cfg.TS, resolver: cfg.HostResolver, logger: cfg.Logger}
+	s := &server{ServiceConfig: cfg}
 	cfg.Transport.Server().BindHandler(s.handle)
 	return s
 }
@@ -46,11 +39,13 @@ func (sf *server) handle(ctx context.Context, server ServerStream) error {
 		Sender: freighter.SenderNopCloser[Response]{StreamSender: server},
 	}
 
-	iter, err := newGatewayIterator(req.Keys, ServiceConfig{
-		TS:           sf.ts,
-		HostResolver: sf.resolver,
-		Logger:       sf.logger,
-	})
+	iter, err := newStorageIterator(
+		sf.ServiceConfig,
+		Config{
+			Keys:   req.Keys,
+			Bounds: req.Bounds,
+		},
+	)
 	if err != nil {
 		return err
 	}

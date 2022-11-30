@@ -98,7 +98,7 @@ var startCmd = &cobra.Command{
 			_api := api.New(api.Config{
 				Logger:        logger,
 				Channel:       dist.Channel,
-				Segment:       dist.Framer,
+				Framer:        dist.Framer,
 				Storage:       dist.Storage,
 				User:          userSvc,
 				Token:         tokenSvc,

@@ -80,7 +80,7 @@ var _ = Describe("Keys", func() {
 				Expect(err).To(HaveOccurred())
 			})
 		})
-		Describe("TS", func() {
+		Describe("TSChannel", func() {
 			It("Should return an array of the cesium keys", func() {
 				keys := channel.Keys{
 					channel.NewKey(core.NodeID(1), storage.ChannelKey(2)),

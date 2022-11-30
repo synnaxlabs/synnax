@@ -75,7 +75,7 @@ func (b *Builder) newMemBacked() *storage.Store {
 }
 
 func (b *Builder) newFSBacked() *storage.Store {
-	// open a temporary directory prefixed with Config.dirname
+	// open a temporary directory prefixed with ServiceConfig.dirname
 	tempDir, err := os.MkdirTemp(b.Config.Dirname, "delta-test-")
 	if err != nil {
 		panic(err)

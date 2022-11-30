@@ -35,7 +35,7 @@ type SegmentService struct {
 
 func NewSegmentService(p Provider) *SegmentService {
 	return &SegmentService{
-		Internal:        p.Config.Segment,
+		Internal:        p.Config.Framer,
 		authProvider:    p.auth,
 		loggingProvider: p.Logging,
 	}

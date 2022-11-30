@@ -15,6 +15,7 @@ type (
 	TSWriteResponse    = cesium.WriteResponse
 	TSIteratorRequest  = cesium.IteratorRequest
 	TSIteratorResponse = cesium.IteratorResponse
+	TSChannelManager   = cesium.ChannelManager
 	WritableTS         = cesium.Writable
 	StreamWritableTS   = cesium.StreamWritable
 	ReadableTS         = cesium.Readable

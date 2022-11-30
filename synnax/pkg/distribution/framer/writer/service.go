@@ -72,7 +72,7 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements ServiceConfig.
 func (cfg ServiceConfig) Validate() error {
 	v := validate.New("distribution.framer.writer")
-	validate.NotNil(v, "TS", cfg.TS)
+	validate.NotNil(v, "TSChannel", cfg.TS)
 	validate.NotNil(v, "ChannelReader", cfg.ChannelReader)
 	validate.NotNil(v, "HostResolver", cfg.HostResolver)
 	validate.NotNil(v, "Transport", cfg.Transport)

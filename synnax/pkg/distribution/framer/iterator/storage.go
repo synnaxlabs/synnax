@@ -10,7 +10,7 @@ import (
 	"github.com/synnaxlabs/x/confluence/plumber"
 )
 
-func newGatewayIterator(sCfg ServiceConfig, cfg Config) (confluence.Segment[Request, Response], error) {
+func newStorageIterator(sCfg ServiceConfig, cfg Config) (confluence.Segment[Request, Response], error) {
 	iter, err := sCfg.TS.NewStreamIterator(cesium.IteratorConfig{
 		Bounds:   cfg.Bounds,
 		Channels: cfg.Keys.Strings(),

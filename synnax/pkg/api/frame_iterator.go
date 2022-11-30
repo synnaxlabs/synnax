@@ -19,7 +19,7 @@ type (
 	IteratorResponseVariant = iterator.ResponseVariant
 )
 
-type SegmentIteratorRequest struct {
+type FrameIteratorRequest struct {
 	Command IteratorCommand `json:"command" msgpack:"command"`
 	Span    telem.TimeSpan  `json:"span" msgpack:"span"`
 	Range   telem.TimeRange `json:"range" msgpack:"range"`
@@ -27,15 +27,15 @@ type SegmentIteratorRequest struct {
 	Keys    []string        `json:"keys" msgpack:"keys"`
 }
 
-type SegmentIteratorResponse struct {
+type FrameIteratorResponse struct {
 	Variant IteratorResponseVariant `json:"variant" msgpack:"variant"`
 	Command IteratorCommand         `json:"command" msgpack:"command"`
 	Ack     bool                    `json:"ack" msgpack:"ack"`
 	Err     ferrors.Payload         `json:"error" msgpack:"error"`
-	Frame   Frame                   `json:"segments" msgpack:"segments"`
+	Frame   Frame                   `json:"frame" msgpack:"frame"`
 }
 
-type SegmentIteratorStream = freighter.ServerStream[SegmentIteratorRequest, SegmentIteratorResponse]
+type SegmentIteratorStream = freighter.ServerStream[FrameIteratorRequest, FrameIteratorResponse]
 
 func (s *SegmentService) Iterate(_ctx context.Context, stream SegmentIteratorStream) errors.Typed {
 	ctx, cancel := signal.WithCancel(_ctx, signal.WithLogger(s.logger.Desugar()))
@@ -82,7 +82,7 @@ func (s *SegmentService) Iterate(_ctx context.Context, stream SegmentIteratorStr
 			if !ok {
 				return errors.Nil
 			}
-			tRes := SegmentIteratorResponse{
+			tRes := FrameIteratorResponse{
 				Variant: res.Variant,
 				Command: res.Command,
 				Ack:     res.Ack,
@@ -99,15 +99,15 @@ func (s *SegmentService) Iterate(_ctx context.Context, stream SegmentIteratorStr
 }
 
 func (s *SegmentService) openIterator(ctx context.Context, srv SegmentIteratorStream) (framer.StreamIterator, errors.Typed) {
-	keys, rng, _err := receiveIteratorOpenArgs(srv)
+	keys, bounds, _err := receiveIteratorOpenArgs(srv)
 	if _err.Occurred() {
 		return nil, _err
 	}
-	iter, err := s.Internal.NewStreamIterator(ctx, rng, keys...)
+	iter, err := s.Internal.NewStreamIterator(ctx, framer.IteratorConfig{Bounds: bounds, Keys: keys})
 	if err != nil {
 		return nil, errors.Query(err)
 	}
-	return iter, errors.MaybeUnexpected(srv.Send(SegmentIteratorResponse{Variant: iterator.AckResponse, Ack: true}))
+	return iter, errors.MaybeUnexpected(srv.Send(FrameIteratorResponse{Variant: iterator.AckResponse, Ack: true}))
 }
 
 func receiveIteratorOpenArgs(srv SegmentIteratorStream) (channel.Keys, telem.TimeRange, errors.Typed) {

@@ -53,7 +53,7 @@ const NOT_OPEN = new GeneralError(
  * write() method.
  */
 export class CoreWriter {
-	private static ENDPOINT = '/segment/write';
+	private static ENDPOINT = '/frame/write';
 	private client: StreamClient;
 	private stream: Stream<Request, Response> | undefined;
 	private keys: string[];

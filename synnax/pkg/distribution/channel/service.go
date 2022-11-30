@@ -22,6 +22,7 @@ type service struct {
 type Service interface {
 	Reader
 	Writer
+	ontology.Service
 }
 
 type Writer interface {
@@ -35,37 +36,37 @@ type Reader interface {
 	NewRetrieve() Retrieve
 }
 
-type Config struct {
+type ServiceConfig struct {
 	HostResolver core.HostResolver
 	ClusterDB    *gorp.DB
-	TS           storage.TS
+	TSChannel    storage.TSChannelManager
 	Transport    Transport
 	Ontology     *ontology.Ontology
 }
 
-var _ config.Config[Config] = Config{}
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
-func (c Config) Validate() error {
+func (c ServiceConfig) Validate() error {
 	v := validate.New("distribution.channel")
 	validate.NotNil(v, "HostResolver", c.HostResolver)
 	validate.NotNil(v, "ClusterDB", c.ClusterDB)
-	validate.NotNil(v, "TS", c.TS)
+	validate.NotNil(v, "TSChannel", c.TSChannel)
 	validate.NotNil(v, "Transport", c.Transport)
 	return v.Error()
 }
 
-func (c Config) Override(other Config) Config {
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.HostResolver = override.Nil(c.HostResolver, other.HostResolver)
 	c.ClusterDB = override.Nil(c.ClusterDB, other.ClusterDB)
-	c.TS = override.Nil(c.TS, other.TS)
+	c.TSChannel = override.Nil(c.TSChannel, other.TSChannel)
 	c.Transport = override.Nil(c.Transport, other.Transport)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	return c
 }
 
-var DefaultConfig = Config{}
+var DefaultConfig = ServiceConfig{}
 
-func New(configs ...Config) (Service, error) {
+func New(configs ...ServiceConfig) (Service, error) {
 	cfg, err := config.OverrideAndValidate(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err

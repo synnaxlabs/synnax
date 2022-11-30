@@ -11,20 +11,20 @@ import (
 )
 
 type leaseProxy struct {
-	Config
+	ServiceConfig
 	router  proxy.BatchFactory[Channel]
 	counter counter.Uint16Error
 }
 
-func newLeaseProxy(cfg Config) (*leaseProxy, error) {
+func newLeaseProxy(cfg ServiceConfig) (*leaseProxy, error) {
 	c, err := openCounter(cfg.HostResolver.HostID(), cfg.ClusterDB)
 	if err != nil {
 		return nil, err
 	}
 	p := &leaseProxy{
-		Config:  cfg,
-		router:  proxy.NewBatchFactory[Channel](cfg.HostResolver.HostID()),
-		counter: c,
+		ServiceConfig: cfg,
+		router:        proxy.NewBatchFactory[Channel](cfg.HostResolver.HostID()),
+		counter:       c,
 	}
 	p.Transport.CreateServer().BindHandler(p.handle)
 	return p, nil
@@ -69,7 +69,7 @@ func (lp *leaseProxy) createLocal(txn gorp.Txn, channels *[]Channel) error {
 		return err
 	}
 	storageChannels := toStorage(*channels)
-	if err := lp.TS.CreateChannel(storageChannels...); err != nil {
+	if err := lp.TSChannel.CreateChannel(storageChannels...); err != nil {
 		return err
 	}
 	if err := gorp.NewCreate[Key, Channel]().Entries(channels).Exec(txn); err != nil {

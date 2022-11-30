@@ -67,7 +67,6 @@ func (db *cesium) newStreamWriter(cfg WriterConfig) (*streamWriter, error) {
 	w.writingToIdx = writingToIdx
 	w.idx.highWaterMark = cfg.Start
 	w.idx.Index = idx
-	w.seqNum = 1
 	return w, nil
 }
 

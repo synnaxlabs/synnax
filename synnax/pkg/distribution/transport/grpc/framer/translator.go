@@ -4,7 +4,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	distribcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
+	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
@@ -98,7 +98,7 @@ type iteratorResponseTranslator struct{}
 func (w iteratorResponseTranslator) Backward(res *fv1.IteratorResponse) (iterator.Response, error) {
 	return iterator.Response{
 		Variant: iterator.ResponseVariant(res.Variant),
-		NodeID:  distribcore.NodeID(res.NodeId),
+		NodeID:  dcore.NodeID(res.NodeId),
 		Ack:     res.Ack,
 		SeqNum:  int(res.Counter),
 		Command: iterator.Command(res.Command),

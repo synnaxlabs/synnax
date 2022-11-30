@@ -42,10 +42,10 @@ type FramerIteratorNetwork struct {
 	Internal *fmock.Network[iterator.Request, iterator.Response]
 }
 
-func (c *FramerIteratorNetwork) New(addr address.Address) iterator.Transport {
+func (c *FramerIteratorNetwork) New(addr address.Address, buffers ...int) iterator.Transport {
 	return &FramerIteratorTransport{
-		client: c.Internal.StreamClient(),
-		server: c.Internal.StreamServer(addr),
+		client: c.Internal.StreamClient(buffers...),
+		server: c.Internal.StreamServer(addr, buffers...),
 	}
 }
 

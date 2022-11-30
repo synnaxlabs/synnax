@@ -17,9 +17,9 @@ import (
 	"time"
 )
 
-var _ = Describe("SegmentWriter", Ordered, func() {
+var _ = Describe("FrameWriter", Ordered, func() {
 	var (
-		client  *fmock.StreamClient[api.SegmentWriterRequest, api.SegmentWriterResponse]
+		client  *fmock.StreamClient[api.FrameWriterRequest, api.FrameWriterResponse]
 		builder *mock.Builder
 		prov    api.Provider
 		svc     *api.SegmentService
@@ -47,8 +47,8 @@ var _ = Describe("SegmentWriter", Ordered, func() {
 		DeferCleanup(func() {
 			Eventually(gleak.Goroutines).WithTimeout(time.Second).ShouldNot(gleak.HaveLeaked(routines))
 		})
-		var server *fmock.StreamServer[api.SegmentWriterRequest, api.SegmentWriterResponse]
-		server, client = fmock.NewStreamPair[api.SegmentWriterRequest, api.SegmentWriterResponse](1)
+		var server *fmock.StreamServer[api.FrameWriterRequest, api.FrameWriterResponse]
+		server, client = fmock.NewStreamPair[api.FrameWriterRequest, api.FrameWriterResponse](1)
 		server.BindHandler(func(ctx context.Context, transport api.SegmentWriterStream) error {
 			return svc.Write(ctx, transport)
 		})

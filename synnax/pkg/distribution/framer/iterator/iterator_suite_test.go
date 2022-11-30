@@ -40,11 +40,11 @@ func provision(n int, logger *zap.Logger) (*mock.CoreBuilder, map[core.NodeID]se
 			c    = builder.New()
 			cont serviceContainer
 		)
-		cont.channel = MustSucceed(channel.New(channel.Config{
+		cont.channel = MustSucceed(channel.New(channel.ServiceConfig{
 			HostResolver: c.Cluster,
 			ClusterDB:    c.Storage.Gorpify(),
 			Transport:    channelNet.New(c.Config.AdvertiseAddress),
-			TS:           c.Storage.TS,
+			TSChannel:    c.Storage.TS,
 		}))
 		cont.iter = MustSucceed(iterator.NewService(iterator.ServiceConfig{
 			TS:            c.Storage.TS,

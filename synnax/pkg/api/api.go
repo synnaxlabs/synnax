@@ -8,7 +8,7 @@ import (
 	"context"
 	"go/types"
 
-	distribcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
+	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/access"
@@ -27,15 +27,15 @@ import (
 // instantiate the API.
 type Config struct {
 	Logger        *zap.Logger
-	Channel       *channel.service
-	Segment       *framer.Service
+	Channel       channel.Service
+	Framer        *framer.Service
 	Ontology      *ontology.Ontology
 	Storage       *storage.Store
 	User          *user.Service
 	Token         *token.Service
 	Authenticator auth.Authenticator
 	Enforcer      access.Enforcer
-	Cluster       distribcore.Cluster
+	Cluster       dcore.Cluster
 	Insecure      bool
 }
 
@@ -47,8 +47,8 @@ type Transport struct {
 	ChannelCreate      freighter.UnaryServer[ChannelCreateRequest, ChannelCreateResponse]
 	ChannelRetrieve    freighter.UnaryServer[ChannelRetrieveRequest, ChannelRetrieveResponse]
 	ConnectivityCheck  freighter.UnaryServer[types.Nil, ConnectivityCheckResponse]
-	SegmentWriter      freighter.StreamServer[SegmentWriterRequest, SegmentWriterResponse]
-	SegmentIterator    freighter.StreamServer[SegmentIteratorRequest, SegmentIteratorResponse]
+	FrameWriter        freighter.StreamServer[FrameWriterRequest, FrameWriterResponse]
+	FrameReader        freighter.StreamServer[FrameIteratorRequest, FrameIteratorResponse]
 	OntologyRetrieve   freighter.UnaryServer[OntologyRetrieveRequest, OntologyRetrieveResponse]
 }
 
@@ -80,8 +80,8 @@ func (a *API) BindTo(t Transport) {
 	t.ChannelCreate.Use(middleware...)
 	t.ChannelRetrieve.Use(middleware...)
 	t.ConnectivityCheck.Use(middleware...)
-	t.SegmentWriter.Use(middleware...)
-	t.SegmentIterator.Use(middleware...)
+	t.FrameWriter.Use(middleware...)
+	t.FrameReader.Use(middleware...)
 	t.OntologyRetrieve.Use(middleware...)
 
 	t.AuthLogin.BindHandler(typedUnaryWrapper(a.Auth.Login))
@@ -91,8 +91,8 @@ func (a *API) BindTo(t Transport) {
 	t.ChannelCreate.BindHandler(typedUnaryWrapper(a.Channel.Create))
 	t.ChannelRetrieve.BindHandler(typedUnaryWrapper(a.Channel.Retrieve))
 	t.ConnectivityCheck.BindHandler(typedUnaryWrapper(a.Connectivity.Check))
-	t.SegmentWriter.BindHandler(typedStreamWrapper(a.Segment.Write))
-	t.SegmentIterator.BindHandler(typedStreamWrapper(a.Segment.Iterate))
+	t.FrameWriter.BindHandler(typedStreamWrapper(a.Segment.Write))
+	t.FrameReader.BindHandler(typedStreamWrapper(a.Segment.Iterate))
 	t.OntologyRetrieve.BindHandler(typedUnaryWrapper(a.Ontology.Retrieve))
 }
 

@@ -39,16 +39,16 @@ func provisionServices(logger *zap.Logger) (*mock.CoreBuilder, map[core.NodeID]*
 		core2 = builder.New()
 	)
 
-	services[1] = MustSucceed(channel.New(channel.Config{
+	services[1] = MustSucceed(channel.New(channel.ServiceConfig{
 		HostResolver: core1.Cluster,
 		ClusterDB:    core1.Storage.Gorpify(),
-		TS:           core1.Storage.TS,
+		TSChannel:    core1.Storage.TS,
 		Transport:    net.New(core1.Config.AdvertiseAddress),
 	}))
-	services[2] = MustSucceed(channel.New(channel.Config{
+	services[2] = MustSucceed(channel.New(channel.ServiceConfig{
 		HostResolver: core2.Cluster,
 		ClusterDB:    core2.Storage.Gorpify(),
-		TS:           core2.Storage.TS,
+		TSChannel:    core2.Storage.TS,
 		Transport:    net.New(core2.Config.AdvertiseAddress),
 	}))
 	Eventually(func(g Gomega) {

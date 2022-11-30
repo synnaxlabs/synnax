@@ -3,7 +3,7 @@ package iterator
 import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	distribcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
+	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/telem"
@@ -58,7 +58,7 @@ type Response struct {
 	// Frame is only relevant for DataResponse. It is the data returned by the iterator.
 	Frame core.Frame
 	// NodeID is the node ID where the remote iterator lives.
-	NodeID distribcore.NodeID
+	NodeID dcore.NodeID
 	// Ack is only relevant for variant AckResponse. Is true if the iterator successfully
 	// executed the request.
 	Ack bool
@@ -67,10 +67,6 @@ type Response struct {
 	// Err is only relevant for variant AckResponse. It is an error returned during a call to
 	// Iterator.Error
 	Err error
-}
-
-func newAck(host distribcore.NodeID, cmd Command, ok bool) Response {
-	return Response{Variant: AckResponse, Ack: ok, Command: cmd, NodeID: host}
 }
 
 type (

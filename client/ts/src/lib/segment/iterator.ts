@@ -63,7 +63,7 @@ type Response = z.infer<typeof ResponseSchema>;
  *  telemetry between two timestamps, see the SegmentClient.read method.
  */
 export class CoreIterator {
-	private static ENDPOINT = '/segment/iterate';
+	private static ENDPOINT = '/frame/iterate';
 	private client: StreamClient;
 	private stream: Stream<Request, Response> | undefined;
 	private readonly aggregate: boolean = false;

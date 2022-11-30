@@ -26,7 +26,7 @@ var DefaultConfig = core.DefaultConfig
 
 type Distribution struct {
 	Core
-	Channel  *channel.service
+	Channel  channel.Service
 	Framer   *framer.Service
 	Ontology *ontology.Ontology
 }
@@ -63,10 +63,10 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 	segmentTransport := segmenttransport.New(cfg.Pool)
 	*cfg.Transports = append(*cfg.Transports, channelTransport, segmentTransport)
 
-	d.Channel, err = channel.New(channel.Config{
+	d.Channel, err = channel.New(channel.ServiceConfig{
 		HostResolver: d.Cluster,
 		ClusterDB:    gorpDB,
-		TS:           d.Storage.TS,
+		TSChannel:    d.Storage.TS,
 		Transport:    channelTransport,
 		Ontology:     d.Ontology,
 	})

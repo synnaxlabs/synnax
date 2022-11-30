@@ -14,8 +14,8 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// SegmentWriterRequest represents a request to write Framer data for a set of channels.
-type SegmentWriterRequest struct {
+// FrameWriterRequest represents a request to write Framer data for a set of channels.
+type FrameWriterRequest struct {
 	Command WriterCommand `json:"command" msgpack:"command"`
 	//
 	Start telem.TimeStamp
@@ -33,7 +33,7 @@ type (
 	WriterCommand = writer.Command
 )
 
-type SegmentWriterResponse struct {
+type FrameWriterResponse struct {
 	Command WriterCommand `json:"command" msgpack:"command"`
 	Ack     bool          `json:"ack" msgpack:"ack"`
 	// Err is a transient error encountered during writer operation, such as an invalid
@@ -41,7 +41,7 @@ type SegmentWriterResponse struct {
 	Err ferrors.Payload `json:"error" msgpack:"error"`
 }
 
-type SegmentWriterStream = freighter.ServerStream[SegmentWriterRequest, SegmentWriterResponse]
+type SegmentWriterStream = freighter.ServerStream[FrameWriterRequest, FrameWriterResponse]
 
 // Write exposes a high level api for writing segmented telemetry to the delta
 // cluster. The client is expected to send an initial request containing the
@@ -64,7 +64,7 @@ type SegmentWriterStream = freighter.ServerStream[SegmentWriterRequest, SegmentW
 // the freighter.StreamServer interface.
 //
 // When Write returns an error that is not errors.Canceled, the api
-// implementation is expected to return a SegmentWriterResponse.CloseMsg with the error,
+// implementation is expected to return a FrameWriterResponse.CloseMsg with the error,
 // and then wait for a reasonable amount of time for the client to close the
 // connection before forcibly terminating the connection.
 func (s *SegmentService) Write(_ctx context.Context, stream SegmentWriterStream) errors.Typed {
@@ -118,14 +118,14 @@ func (s *SegmentService) Write(_ctx context.Context, stream SegmentWriterStream)
 		case <-ctx.Done():
 			return errors.Canceled
 		case err := <-parseErrors:
-			if err := stream.Send(SegmentWriterResponse{Err: ferrors.Encode(err)}); err != nil {
+			if err := stream.Send(FrameWriterResponse{Err: ferrors.Encode(err)}); err != nil {
 				return errors.Unexpected(err)
 			}
 		case resp, ok := <-responses.Outlet():
 			if !ok {
 				return errors.Nil
 			}
-			if err := stream.Send(SegmentWriterResponse{
+			if err := stream.Send(FrameWriterResponse{
 				Command: resp.Command,
 				Ack:     resp.Ack,
 				Err:     ferrors.Encode(errors.MaybeGeneral(resp.Err)),
@@ -141,12 +141,12 @@ func (s *SegmentService) openWriter(ctx context.Context, srv SegmentWriterStream
 	if _err.Occurred() {
 		return nil, _err
 	}
-	w, err := s.Internal.NewStreamWriter(ctx, start, keys...)
+	w, err := s.Internal.NewStreamWriter(ctx, framer.WriterConfig{Start: start, Keys: keys})
 	if err != nil {
 		return nil, errors.Query(err)
 	}
 	// Let the client know the writer is ready to receive segments.
-	return w, errors.MaybeUnexpected(srv.Send(SegmentWriterResponse{}))
+	return w, errors.MaybeUnexpected(srv.Send(FrameWriterResponse{}))
 }
 
 func receiveWriterOpenArgs(

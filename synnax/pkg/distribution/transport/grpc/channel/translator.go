@@ -2,7 +2,7 @@ package channel
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	distribcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
+	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	channelv1 "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/gen/proto/go/channel/v1"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/telem"
@@ -32,7 +32,7 @@ func (c createMessageTranslator) Backward(msg *channelv1.CreateMessage) (channel
 		tr.Channels = append(tr.Channels, channel.Channel{
 			LocalKey:   storage.ChannelKey(ch.StorageKey),
 			Name:       ch.Name,
-			NodeID:     distribcore.NodeID(ch.NodeId),
+			NodeID:     dcore.NodeID(ch.NodeId),
 			DataType:   telem.DataType(ch.DataType),
 			LocalIndex: storage.ChannelKey(ch.StorageIndex),
 			IsIndex:    ch.IsIndex,

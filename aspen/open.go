@@ -17,9 +17,13 @@ func Open(
 	peers []address.Address,
 	opts ...Option,
 ) (DB, error) {
-	_ctx, shutdown := signal.WithCancel(ctx)
-
 	o := newOptions(dirname, addr, peers, opts...)
+
+	_ctx, shutdown := signal.WithCancel(
+		ctx,
+		signal.WithContextKey("aspen"),
+		signal.WithLogger(o.logger.Desugar()),
+	)
 
 	if err := openKV(o); err != nil {
 		return nil, err

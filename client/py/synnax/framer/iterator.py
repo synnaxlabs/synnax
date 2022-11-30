@@ -53,7 +53,7 @@ class CoreIterator:
     between two timestamps, see the segment Client read method instead.
     """
 
-    _ENDPOINT = "/segment/iterate"
+    _ENDPOINT = "/frame/iterate"
 
     client: StreamClient
     stream: Stream[_Request, _Response]

@@ -1,7 +1,7 @@
 package channel
 
 import (
-	distribcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
+	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/x/counter"
 	"github.com/synnaxlabs/x/kv"
 	"strconv"
@@ -27,7 +27,7 @@ func (c *keyCounter) Value() uint16 { return uint16(c.internal.Value()) }
 
 func (c *keyCounter) Error() error { return c.err }
 
-func openCounter(nodeID distribcore.NodeID, kve kv.DB) (counter.Uint16Error, error) {
+func openCounter(nodeID dcore.NodeID, kve kv.DB) (counter.Uint16Error, error) {
 	c, err := kv.OpenCounter(kve, []byte(strconv.Itoa(int(nodeID))+counterKey))
 	if err != nil {
 		return nil, err

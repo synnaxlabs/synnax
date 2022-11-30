@@ -16,8 +16,8 @@ func New(router *fhttp.Router) (a api.Transport) {
 	a.ChannelCreate = fhttp.UnaryPostServer[api.ChannelCreateRequest, api.ChannelCreateResponse](router, "/api/v1/channel/create")
 	a.ChannelRetrieve = fhttp.UnaryGetServer[api.ChannelRetrieveRequest, api.ChannelRetrieveResponse](router, "/api/v1/channel/retrieve")
 	a.ConnectivityCheck = fhttp.UnaryGetServer[types.Nil, api.ConnectivityCheckResponse](router, "/api/v1/connectivity/check")
-	a.SegmentWriter = fhttp.StreamServer[api.SegmentWriterRequest, api.SegmentWriterResponse](router, "/api/v1/segment/write")
-	a.SegmentIterator = fhttp.StreamServer[api.SegmentIteratorRequest, api.SegmentIteratorResponse](router, "/api/v1/segment/iterate")
+	a.FrameWriter = fhttp.StreamServer[api.FrameWriterRequest, api.FrameWriterResponse](router, "/api/v1/frame/write")
+	a.FrameReader = fhttp.StreamServer[api.FrameIteratorRequest, api.FrameIteratorResponse](router, "/api/v1/frame/iterate")
 	a.OntologyRetrieve = fhttp.UnaryGetServer[api.OntologyRetrieveRequest, api.OntologyRetrieveResponse](router, "/api/v1/ontology/retrieve")
 	return a
 }

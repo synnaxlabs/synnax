@@ -30,7 +30,7 @@ func NewFrame(keys []string, arrays []telem.Array) Frame { return core.NewFrame(
 // collection of samples across a time range, and typically represents a single data source,
 // such as a physical sensor, software sensor, metric, or event.
 type DB interface {
-	ChannelDB
+	ChannelManager
 	Writable
 	Readable
 	io.Closer
@@ -57,7 +57,7 @@ type StreamWritable interface {
 	NewStreamWriter(cfg WriterConfig) (StreamWriter, error)
 }
 
-type ChannelDB interface {
+type ChannelManager interface {
 	// CreateChannel creates the given channels in the DB.
 	CreateChannel(channels ...Channel) error
 	// RetrieveChannel retrieves the channel with the given key.

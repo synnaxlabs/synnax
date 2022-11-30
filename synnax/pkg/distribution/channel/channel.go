@@ -144,9 +144,6 @@ func (k Keys) Unique() Keys { return lo.Uniq(k) }
 // Array for a channel can only be written through the leaseholder. This helps solve a lot
 // of consistency and atomicity issues.
 type Channel struct {
-	// Key is a unique identifier for the channel within a cesium.DB. If not set when
-	// creating a channel, a unique key will be generated.
-	LocalKey storage.ChannelKey
 	// Name is a human-readable name for the channel. This name does not have to be
 	// unique.
 	Name string
@@ -154,10 +151,6 @@ type Channel struct {
 	NodeID core.NodeID
 	// DataType is the data type for the channel.
 	DataType telem.DataType
-	// LocalIndex is the channel used to index the channel's values. The LocalIndex is used to
-	// associate a value with a timestamp. If zero, the channel's data will be indexed
-	// using its rate. One of LocalIndex or Rate must be non-zero.
-	LocalIndex storage.ChannelKey
 	// IsIndex is set to true if the channel is an index channel. LocalIndex channels must
 	// be int64 values written in ascending order. LocalIndex channels are most commonly
 	// unix nanosecond timestamps.
@@ -165,6 +158,13 @@ type Channel struct {
 	// Rate sets the rate at which the channels values are written. This is used to
 	// determine the timestamp of each sample.
 	Rate telem.Rate
+	// Key is a unique identifier for the channel within a cesium.DB. If not set when
+	// creating a channel, a unique key will be generated.
+	LocalKey storage.ChannelKey
+	// LocalIndex is the channel used to index the channel's values. The LocalIndex is used to
+	// associate a value with a timestamp. If zero, the channel's data will be indexed
+	// using its rate. One of LocalIndex or Rate must be non-zero.
+	LocalIndex storage.ChannelKey
 }
 
 // Key returns the key for the Channel.

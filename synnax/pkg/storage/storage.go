@@ -94,7 +94,7 @@ type Config struct {
 	Perm fs.FileMode
 	// MemBacked defines whether the node should use a memory-backed file system.
 	MemBacked *bool
-	// Logger is the witness ofit all.
+	// Logger is the witness of it all.
 	Logger *zap.Logger
 	// Experiment is the experiment used by the node for metrics, reports, and tracing.
 	Experiment alamos.Experiment
@@ -242,7 +242,7 @@ func validateSufficientDirPermissions(cfg Config) error {
 	if err != nil {
 		return err
 	}
-	// We need the directory to have at least the permissions set in Config.Perm.
+	// We need the directory to have at least the permissions set in ServiceConfig.Perm.
 	if !xfs.CheckSufficientPermissions(stat.Mode().Perm(), cfg.Perm) {
 		return errors.Newf(
 			insufficientDirPermissions,
