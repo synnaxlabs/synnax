@@ -35,7 +35,7 @@ func (sf *server) Handle(_ctx context.Context, server ServerStream) error {
 	receiver := &freightfluence.Receiver[Request]{Receiver: server}
 	sender := &freightfluence.Sender[Response]{Sender: freighter.SenderNopCloser[Response]{StreamSender: server}}
 
-	w, err := newLocalWriter(sf)
+	w, err := newStorageWriter(sf.ServiceConfig, Config{Keys: req.Keys, Start: req.Start})
 	if err != nil {
 		return errors.Wrap(err, "[segment.w] - failed to open cesium w")
 	}

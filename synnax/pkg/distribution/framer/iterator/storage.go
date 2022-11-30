@@ -4,14 +4,14 @@ import (
 	"context"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
-	distribcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
+	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 )
 
-func (s *Service) newGatewayIterator(cfg Config) (confluence.Segment[Request, Response], error) {
-	iter, err := s.TS.NewStreamIterator(cesium.IteratorConfig{
+func newGatewayIterator(sCfg ServiceConfig, cfg Config) (confluence.Segment[Request, Response], error) {
+	iter, err := sCfg.TS.NewStreamIterator(cesium.IteratorConfig{
 		Bounds:   cfg.Bounds,
 		Channels: cfg.Keys.Strings(),
 	})
@@ -28,7 +28,7 @@ func (s *Service) newGatewayIterator(cfg Config) (confluence.Segment[Request, Re
 	plumber.SetSegment[cesium.IteratorResponse, Response](
 		pipe,
 		"responseTranslator",
-		newCesiumResponseTranslator(s.HostResolver.HostID()),
+		newCesiumResponseTranslator(sCfg.HostResolver.HostID()),
 	)
 	plumber.UnaryRouter[cesium.IteratorRequest]{
 		SourceTarget: "requestTranslator",
@@ -44,7 +44,7 @@ func (s *Service) newGatewayIterator(cfg Config) (confluence.Segment[Request, Re
 	return seg, nil
 }
 
-func newCesiumResponseTranslator(host distribcore.NodeID) confluence.Segment[cesium.IteratorResponse, Response] {
+func newCesiumResponseTranslator(host dcore.NodeID) confluence.Segment[cesium.IteratorResponse, Response] {
 	wrapper := &core.StorageWrapper{Host: host}
 	ts := &storageResponseTranslator{wrapper: wrapper}
 	ts.LinearTransform.Transform = ts.translate

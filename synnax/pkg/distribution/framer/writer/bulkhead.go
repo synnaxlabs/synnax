@@ -27,13 +27,18 @@ func (b *bulkhead) Flow(ctx signal.Context, opts ...confluence.Option) {
 			case <-ctx.Done():
 				return ctx.Err()
 			case b.closed = <-b.signal:
-			case req := <-b.In.Outlet():
+			case req, ok := <-b.In.Outlet():
+				if !ok {
+					return nil
+				}
 				block, err := b.gate(ctx, req)
 				if err != nil {
 					return err
 				}
 				if !block {
-					return signal.SendUnderContext(ctx, b.Out.Inlet(), req)
+					if err := signal.SendUnderContext(ctx, b.Out.Inlet(), req); err != nil {
+						return err
+					}
 				}
 			}
 		}

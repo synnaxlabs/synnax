@@ -13,11 +13,12 @@ type synchronizer struct {
 	bulkheadSignal      chan bool
 }
 
-func newSynchronizer(nodeCount int) confluence.Segment[Response, Response] {
+func newSynchronizer(nodeCount int, bulkheadSig chan bool) confluence.Segment[Response, Response] {
 	s := &synchronizer{}
 	s.internal.NodeCount = nodeCount
 	s.internal.SeqNum = 1
 	s.LinearTransform.Transform = s.sync
+	s.bulkheadSignal = bulkheadSig
 	return s
 }
 

@@ -4,7 +4,7 @@ import (
 	"context"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	distribcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
+	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/synnax/pkg/storage"
@@ -43,7 +43,7 @@ type ServiceConfig struct {
 	// HostResolver is used to resolve the host address for nodes in the cluster in order
 	// to route writes.
 	// [REQUIRED]
-	HostResolver distribcore.HostResolver
+	HostResolver dcore.HostResolver
 	// Transport is the network transport for sending and receiving writes from other
 	// nodes in the cluster.
 	// [REQUIRED]
@@ -71,12 +71,12 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 // Validate implements ServiceConfig.
 func (cfg ServiceConfig) Validate() error {
-	v := validate.New("writerClient")
+	v := validate.New("distribution.framer.writer")
 	validate.NotNil(v, "TS", cfg.TS)
 	validate.NotNil(v, "ChannelReader", cfg.ChannelReader)
 	validate.NotNil(v, "HostResolver", cfg.HostResolver)
 	validate.NotNil(v, "Transport", cfg.Transport)
-	validate.NotNil(v, "logger", cfg.Logger)
+	validate.NotNil(v, "Logger", cfg.Logger)
 	return v.Error()
 }
 
@@ -145,10 +145,11 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamWriter, erro
 
 	// The synchronizer checks that all nodes have acknowledged an iteration
 	// request. This is used to return ok = true from the iterator methods.
+	synchro := newSynchronizer(len(cfg.Keys.UniqueNodeIDs()), bulkhead.signal)
 	plumber.SetSegment[Response, Response](
 		pipe,
 		"synchronizer",
-		newSynchronizer(len(cfg.Keys.UniqueNodeIDs())),
+		synchro,
 	)
 
 	if needPeerRouting {
@@ -168,7 +169,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamWriter, erro
 
 	if needGatewayRouting {
 		gwCfg := Config{Start: cfg.Start, Keys: batch.Gateway}
-		w, err := s.newGatewayWriter(gwCfg)
+		w, err := newStorageWriter(s.ServiceConfig, gwCfg)
 		if err != nil {
 			return nil, err
 		}
@@ -195,7 +196,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamWriter, erro
 		routeBulkheadTo = "localWriter"
 	}
 
-	plumber.MustConnect(pipe, "bulkhead", routeBulkheadTo, 1)
+	plumber.MustConnect[Request](pipe, "bulkhead", routeBulkheadTo, 1)
 
 	plumber.MultiRouter[Response]{
 		SourceTargets: receiverAddresses,
