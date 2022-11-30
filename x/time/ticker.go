@@ -13,7 +13,7 @@ type ScaledTicker struct {
 	stop  chan struct{}
 }
 
-// Stop stops the ticker
+// Stop stops the ticker.
 func (s *ScaledTicker) Stop() { close(s.stop) }
 
 func (s *ScaledTicker) tick(c chan time.Duration) {
