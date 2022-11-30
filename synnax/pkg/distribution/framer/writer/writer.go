@@ -35,6 +35,7 @@ type writer struct {
 	hasAccumulatedErr bool
 }
 
+// Write implements Writer.
 func (w *writer) Write(frame core.Frame) bool {
 	if w.hasAccumulatedErr {
 		return false

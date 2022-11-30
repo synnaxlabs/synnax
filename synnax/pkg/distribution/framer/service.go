@@ -54,14 +54,14 @@ func Open(cfg ...Config) (*Service, error) {
 	}
 	s := &Service{Config: _cfg}
 	iterator.StartServer(iterator.Config{
-		TS:              s.TS,
-		HostResolver:    s.HostResolver,
-		TransportServer: s.Transport.IteratorServer(),
+		TS:           s.TS,
+		HostResolver: s.HostResolver,
+		Transport:    s.Transport.Iterator(),
 	})
 	writer.NewServer(writer.Config{
-		TS:              s.TS,
-		HostResolver:    s.HostResolver,
-		TransportServer: s.Transport.WriterServer(),
+		TS:           s.TS,
+		HostResolver: s.HostResolver,
+		Transport:    s.Transport.Writer(),
 	})
 	return s, nil
 }
@@ -84,26 +84,24 @@ func (s *Service) NewStreamWriter(ctx context.Context, start telem.TimeStamp, ke
 
 func (s *Service) newIteratorConfig(tr telem.TimeRange, keys []channel.Key) iterator.Config {
 	return iterator.Config{
-		TS:              s.TS,
-		HostResolver:    s.HostResolver,
-		TransportServer: s.Transport.IteratorServer(),
-		TransportClient: s.Transport.IteratorClient(),
-		ChannelKeys:     keys,
-		TimeRange:       tr,
-		Logger:          s.Logger,
-		ChannelService:  s.ChannelService,
+		TS:             s.TS,
+		HostResolver:   s.HostResolver,
+		Transport:      s.Transport.Iterator(),
+		ChannelKeys:    keys,
+		TimeRange:      tr,
+		Logger:         s.Logger,
+		ChannelService: s.ChannelService,
 	}
 }
 
 func (s *Service) newWriterConfig(start telem.TimeStamp, keys []channel.Key) writer.Config {
 	return writer.Config{
-		Start:           start,
-		Keys:            keys,
-		TS:              s.TS,
-		HostResolver:    s.HostResolver,
-		TransportServer: s.Transport.WriterServer(),
-		TransportClient: s.Transport.WriterClient(),
-		Logger:          s.Logger,
-		ChannelService:  s.ChannelService,
+		Start:          start,
+		Keys:           keys,
+		TS:             s.TS,
+		HostResolver:   s.HostResolver,
+		Transport:      s.Transport.Writer(),
+		Logger:         s.Logger,
+		ChannelService: s.ChannelService,
 	}
 }

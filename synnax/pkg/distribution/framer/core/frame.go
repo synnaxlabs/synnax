@@ -78,3 +78,7 @@ func (cw *StorageWrapper) Wrap(frame storage.Frame) Frame {
 	}
 	return NewFrame(keys, frame.Arrays)
 }
+
+func UnaryFrame(key channel.Key, array telem.Array) Frame {
+	return NewFrame(channel.Keys{key}, []telem.Array{array})
+}

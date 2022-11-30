@@ -21,9 +21,6 @@ func newSynchronizer(nodeCount int) confluence.Segment[Response, Response] {
 }
 
 func (a *synchronizer) sync(_ context.Context, res Response) (Response, bool, error) {
-	if res.Command == Data {
-		return res, true, nil
-	}
 	// If the SeqNum is -1, it means the response is coming from transient errors in
 	// the gateway execution pipeline. In this case, we artificially increment the
 	// sequence number to ensure the caller receives the correct sequence numbers for
@@ -42,5 +39,4 @@ func (a *synchronizer) sync(_ context.Context, res Response) (Response, bool, er
 		}, true, nil
 	}
 	return Response{}, false, nil
-
 }

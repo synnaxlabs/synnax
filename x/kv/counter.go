@@ -3,7 +3,6 @@ package kv
 import (
 	"encoding/binary"
 	"github.com/cockroachdb/errors"
-	"github.com/cockroachdb/pebble"
 	atomicx "github.com/synnaxlabs/x/atomic"
 )
 
@@ -37,5 +36,5 @@ func OpenCounter(kv DB, key []byte) (*PersistedCounter, error) {
 func (c *PersistedCounter) Add(delta ...int64) (int64, error) {
 	next := c.Int64Counter.Add(delta...)
 	binary.LittleEndian.PutUint64(c.buffer, uint64(next))
-	return next, c.kve.Set(c.key, c.buffer, pebble.NoSync)
+	return next, c.kve.Set(c.key, c.buffer)
 }

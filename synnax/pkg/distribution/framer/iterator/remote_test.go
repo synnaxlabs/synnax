@@ -17,7 +17,6 @@ var _ = Describe("Remote", Ordered, Serial, func() {
 		iter     iterator.Iterator
 		builder  *mock.CoreBuilder
 		services map[core.NodeID]serviceContainer
-		nChan    int
 		keys     channel.Keys
 	)
 	BeforeAll(func() {
@@ -30,8 +29,6 @@ var _ = Describe("Remote", Ordered, Serial, func() {
 		Expect(services[2].channel.Create(&node2Ch)).To(Succeed())
 		channels := []channel.Channel{node1Ch, node2Ch}
 		keys = channel.KeysFromChannels(channels)
-		nChan = len(channels)
-		writeMockData(builder, 10*telem.Second, 10, 10, channels...)
 
 		Eventually(func(g Gomega) {
 			g.Expect(services[3].channel.NewRetrieve().WhereKeys(keys...).Exists(ctx)).To(BeTrue())
@@ -42,13 +39,11 @@ var _ = Describe("Remote", Ordered, Serial, func() {
 	AfterEach(func() { Expect(iter.Close()).To(Succeed()) })
 	AfterAll(func() { Expect(builder.Close()).To(Succeed()) })
 	Context("Behavioral Accuracy", func() {
-		Describe("SeekFirst + Next", func() {
-			It("Should return the first segment in the iterator", func() {
-				Expect(iter.SeekFirst()).To(BeTrue())
-				Expect(iter.Next(10 * telem.Second)).To(BeTrue())
-				Expect(iter.Value()).To(HaveLen(nChan))
-			})
-		})
+		DescribeTable("Basic Acknowledgements",
+			func(ack bool) { Expect(ack).To(BeTrue()) },
+			iter.SeekFirst(),
+			iter.SeekLast(),
+		)
 		Describe("SeekLast + Prev", func() {
 			It("Should return the last segment in the iterator", func() {
 				Expect(iter.SeekLast()).To(BeTrue())

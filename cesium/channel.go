@@ -15,6 +15,7 @@ func (db *cesium) CreateChannel(ch ...Channel) error {
 	return nil
 }
 
+// RetrieveChannels implements DB.
 func (db *cesium) RetrieveChannels(keys ...string) ([]Channel, error) {
 	chs := make([]Channel, 0, len(keys))
 	for _, key := range keys {
@@ -27,6 +28,7 @@ func (db *cesium) RetrieveChannels(keys ...string) ([]Channel, error) {
 	return chs, nil
 }
 
+// RetrieveChannel implements DB.
 func (db *cesium) RetrieveChannel(key string) (Channel, error) {
 	ch, ok := db.dbs[key]
 	if !ok {

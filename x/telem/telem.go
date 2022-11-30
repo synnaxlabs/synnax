@@ -72,6 +72,8 @@ func (ts TimeStamp) SpanRange(span TimeSpan) TimeRange {
 // Range constructs a new TimeRange with the TimeStamp and provided TimeStamp.
 func (ts TimeStamp) Range(ts2 TimeStamp) TimeRange { return TimeRange{ts, ts2} }
 
+func (ts TimeStamp) Span(t TimeStamp) TimeSpan { return TimeSpan(t - ts) }
+
 // Report implements fmt.Stringer.
 //func (ts TimeStamp) Report() string { return ts.Time().Report() }
 
@@ -251,6 +253,16 @@ func (dr Rate) Span(sampleCount int) TimeSpan {
 // SizeSpan returns a TimeSpan representing the number of samples that occupy a provided number of bytes.
 func (dr Rate) SizeSpan(size Size, Density Density) TimeSpan {
 	return dr.Span(int(size) / int(Density))
+}
+
+// ClosestGE returns the closest larger timestamp that is an even multiple of the rate's period.
+func (dr Rate) ClosestGE(ts TimeStamp) TimeStamp {
+	return ts.Add(TimeSpan(ts) % dr.Period())
+}
+
+// ClosestLE returns the closest smaller timestamp that is an even multiple of the rate's period.
+func (dr Rate) ClosestLE(ts TimeStamp) TimeStamp {
+	return ts.Sub(TimeSpan(ts) % dr.Period())
 }
 
 const (
