@@ -19,6 +19,7 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 18
+
       - name: Get Version
         run: echo "PACKAGE_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_ENV
         working-directory: ./delta
@@ -31,7 +32,7 @@ jobs:
             const { data: { id } }  = await github.rest.repos.createRelease({
                           owner: context.repo.owner,
                           repo: context.repo.repo,
-                          tag_name: `app-v${process.env.PACKAGE_VERSION}`,
+                          tag_name: `delta-v${process.env.PACKAGE_VERSION}`,
                           name: `Synnax Delta v${process.env.PACKAGE_VERSION}`,
                           body: "Synnax Delta Release",
                           draft: true,
@@ -39,59 +40,68 @@ jobs:
             })
             return id
 
-  build-tauri:
-    needs: create-release
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: [ macos-latest, ubuntu-20.04, windows-latest ]
+  publish-release:
+    runs-on: ubuntu-20.04
+    needs: [ create-release ]
 
-    runs-on: ${{ matrix.platform }}
     steps:
-      - uses: actions/checkout@v3
-
       - name: Setup Node
         uses: actions/setup-node@v3
         with:
           node-version: 18
 
-      - name: Install Rust Stable
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
+			- name: Get Version
+        run: echo "PACKAGE_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_ENV
+        working-directory: ./delta
 
-      - name: Install Dependencies on Ubuntu
-        if: matrix.platform == 'ubuntu-20.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev webkit2gtk-4.0 libappindicator3-dev librsvg2-dev patchelf
+			- name: Add Auto Update JSON File
+				id: auto-update-json-file
+				uses: actions/github-script@v6
+				env:
+					release_id: ${{ needs.create-release.outputs.release_id }}
+				with:
+					script: |
+						const fs = await import("fs");
 
-      - name: Install Dependencies and Build
-        run: yarn && yarn build:delta
+						const packageVersion = process.env.PACKAGE_VERSON
+						const {
+							repo: { repo, owner },
+						} = context;
+
+						const baseURL = `https://github.com/${owner}/${repo}/releases/download/app-v${packageVersion}/`;
+
+						const darwinURL = baseURL + "Synnax.app.tar.gz";
+						const linuxURL = baseURL + `synnax_${packageVersion}_amd64.AppImage.tar.gz`;
+						const windowsURL = baseURL + `Synnax_${packageVersion}_x64_en-US.msi.zip`;
+						const pub_date = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+
+						const data = {
+							version: `v${packageVersion}`,
+							notes: "Synnax Update",
+							pub_date,
+							platforms: {
+								"darwin-x86_64": {
+									signature: await (await fetch(darwinURL + ".sig")).text(),
+									url: darwinURL,
+								},
+								"linux-x86_64": {
+									signature: await (await fetch(linuxURL + ".sig")).text(),
+									url: linuxURL,
+								},
+								"windows-x86_64": {
+									signature: await (await fetch(windowsURL + ".sig")).text(),
+									url: windowsURL,
+								},
+							},
+						};
+
+						fs.writeFileSync("delta/release-spec.json", JSON.stringify(data, null, 2));
 
 
-      - uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          releaseId: ${{ needs.create-release.outputs.release_id }}
-
-  publish-release:
-    runs-on: ubuntu-20.04
-    needs: [ create-release, build-tauri ]
-
-    steps:
-      - name: Publish Release
-        id: publish-release
-        uses: actions/github-script@v6
-        env:
-          release_id: ${{ needs.create-release.outputs.release_id }}
-        with:
-          script: |
-            github.rest.repos.updateRelease({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                release_id: process.env.release_id,
-                draft: false,
-                prerelease: false,
-            })
+			- name: Commit Auto Update JSON File
+				id: commit-auto-update-json-file
+				uses: EndBug/add-and-commit@v9
+				with:
+					add: "*"
+					default_author: github_actor
+					message: "Auto Update JSON File"
