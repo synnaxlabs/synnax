@@ -61,10 +61,19 @@ jobs:
         with:
           toolchain: stable
 
-      - uses: Swatinem/rust-cache@v2
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
         with:
           workspaces: delta/src-tauri -> target
           key: ${{ runner.os }}
+
+      - name: Turbo Cache
+        uses: actions/cache@v3
+        with:
+          path: .turbo-cache
+          key: ${{ runner.os }}-turbo-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-
 
       - name: Install Dependencies on Ubuntu
         if: matrix.platform == 'ubuntu-20.04'
@@ -130,11 +139,11 @@ jobs:
 
             const baseURL = `https://github.com/${owner}/${repo}/releases/download/app-v${packageVersion}/`;
 
-            const darwinURL = baseURL + "Synnax.Delta.app.tar.gz";
+            const darwinURL = baseURL + "Synnax.app.tar.gz";
             const darwinSig = await github.request(`GET ${darwinURL}.sig`);
-            const linuxURL = baseURL + `synnax-delta_${packageVersion}_amd64.AppImage.tar.gz`;
+            const linuxURL = baseURL + `synnax_${packageVersion}_amd64.AppImage.tar.gz`;
             const linuxSig = await github.request(`GET ${linuxURL}.sig`);
-            const windowsURL = baseURL + `Synnax.Delta_${packageVersion}_x64_en-US.msi.zip`;
+            const windowsURL = baseURL + `Synnax_${packageVersion}_x64_en-US.msi.zip`;
             const windowsSig = await github.request(`GET ${windowsURL}.sig`);
             const pub_date = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
             const ecd = new TextDecoder();
@@ -168,3 +177,4 @@ jobs:
           add: "*"
           default_author: github_actor
           message: "Auto Update JSON File"
+          pull: "--commit --no-edit"
