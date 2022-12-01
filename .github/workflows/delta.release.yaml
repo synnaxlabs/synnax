@@ -68,38 +68,41 @@ jobs:
 
             const packageVersion = process.env.PACKAGE_VERSON;
             const {
-                repo: { repo, owner },
+              repo: { repo, owner },
             } = context;
 
             const baseURL = `https://github.com/${owner}/${repo}/releases/download/app-v${packageVersion}/`;
 
-            const darwinURL = baseURL + "Synnax.app.tar.gz";
-            const linuxURL = baseURL + `synnax_${packageVersion}_amd64.AppImage.tar.gz`;
-            const windowsURL = baseURL + `Synnax_${packageVersion}_x64_en-US.msi.zip`;
+            const darwinURL = baseURL + "Synnax.Delta.app.tar.gz";
+            const darwinSig = await github.request(`GET ${darwinURL}.sig`);
+            const linuxURL = baseURL + `synnax-delta_${packageVersion}_amd64.AppImage.tar.gz`;
+            const linuxSig = await github.request(`GET ${linuxURL}.sig`);
+            const windowsURL = baseURL + `Synnax.Delta_${packageVersion}_x64_en-US.msi.zip`;
+            const windowsSig = await github.request(`GET ${windowsURL}.sig`);
             const pub_date = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+            const ecd = new TextDecoder();
 
             const data = {
-                version: `v${packageVersion}`,
-                notes: "Synnax Update",
-                pub_date,
-                platforms: {
-                    "darwin-x86_64": {
-                        signature: await (await fetch(darwinURL + ".sig")).text(),
-                        url: darwinURL,
-                    },
-                    "linux-x86_64": {
-                        signature: await (await fetch(linuxURL + ".sig")).text(),
-                        url: linuxURL,
-                    },
-                    "windows-x86_64": {
-                        signature: await (await fetch(windowsURL + ".sig")).text(),
-                        url: windowsURL,
-                    },
+              version: `v${packageVersion}`,
+              notes: "Synnax Update",
+              pub_date,
+              platforms: {
+                "darwin-x86_64": {
+                  signature: ecd.decode(darwinSig.data),
+                  url: darwinURL,
                 },
+                "linux-x86_64": {
+                  signature: ecd.decode(linuxSig.data),
+                  url: linuxURL,
+                },
+                "windows-x86_64": {
+                  signature: ecd.decode(windowsSig.data),
+                  url: windowsURL,
+                },
+              },
             };
 
             fs.writeFileSync("delta/release-spec.json", JSON.stringify(data, null, 2));
-
 
       - name: Commit Auto Update JSON File
         id: commit-auto-update-json-file
