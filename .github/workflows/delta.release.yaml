@@ -65,7 +65,7 @@ jobs:
           script: |
             const fs = await import("fs");
 
-            const packageVersion = process.env.PACKAGE_VERSON;
+            const packageVersion = process.env.PACKAGE_VERSION;
             const {
               repo: { repo, owner },
             } = context;
