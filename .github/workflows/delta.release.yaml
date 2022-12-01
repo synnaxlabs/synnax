@@ -64,7 +64,7 @@ jobs:
         with:
           script: |
             const fs = await import("fs");
-						const fetch = await import("node-fetch");
+            const fetch = await import("node-fetch");
 
             const packageVersion = process.env.PACKAGE_VERSON;
             const {
