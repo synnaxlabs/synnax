@@ -61,6 +61,11 @@ jobs:
         with:
           toolchain: stable
 
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: delta/src-tauri -> target
+          key: ${{ runner.os }}
+
       - name: Install Dependencies on Ubuntu
         if: matrix.platform == 'ubuntu-20.04'
         run: |
