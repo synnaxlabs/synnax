@@ -49,10 +49,10 @@ impl<R: Runtime> WindowExt for Window<R> {
   }
 
 	#[cfg(target_os = "linux")]
-	fn position_traffic_lights(&self, x: f64, y: f64) {}
+	fn position_traffic_lights(&self, _x: f64, _y: f64) {}
 
 	#[cfg(target_os = "windows")]
-	fn position_traffic_lights(&self, x: f64, y: f64) {}
+	fn position_traffic_lights(&self, _x: f64, _y: f64) {}
 
 
 	 #[cfg(target_os = "macos")]

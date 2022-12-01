@@ -1,9 +1,9 @@
 {
     "private": true,
     "scripts": {
-        "build": "npx turbo build",
-				"build:pluto": "npx turbo build --filter pluto",
-				"build:delta": "npx turbo build --filter delta",
+        "build": "npx turbo build --cache-dir=./.turbo-cache",
+				"build:pluto": "npx turbo build --filter pluto --cache-dir=./.turbo-cache",
+				"build:delta": "npx turbo build --filter delta --cache-dir=./.turbo-cache",
         "lint": "npx turbo lint",
 				"watch": "npx turbo watch --parallel",
         "dev:pluto": "npx turbo dev --filter pluto",
