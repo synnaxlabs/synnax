@@ -42,7 +42,7 @@ jobs:
 
   publish-release:
     runs-on: ubuntu-20.04
-    needs: [ create-release ]
+    needs: [create-release]
 
     steps:
       - uses: actions/checkout@v3
@@ -64,7 +64,6 @@ jobs:
         with:
           script: |
             const fs = await import("fs");
-            const fetch = await import("node-fetch");
 
             const packageVersion = process.env.PACKAGE_VERSON;
             const {
