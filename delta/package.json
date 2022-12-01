@@ -20,7 +20,6 @@
     "antd": "^4.24.2",
     "clsx": "^1.2.1",
     "nanoid": "^4.0.0",
-    "octokit": "^2.0.10",
     "proxy-memoize": "^1.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
