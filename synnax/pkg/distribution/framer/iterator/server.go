@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/freightfluence"
+	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/signal"
@@ -17,45 +18,34 @@ func startServer(cfg ServiceConfig) *server {
 	return s
 }
 
-// Handle implements freighter.StreamServer.
+// handle implements freighter.StreamServer.
 func (sf *server) handle(ctx context.Context, server ServerStream) error {
 	sCtx, cancel := signal.WithCancel(ctx)
 	defer cancel()
 
-	// Block until we receive the first request from the remoteIterator. This message should
-	// have an open command that provides context for opening the cesium iterator.
 	req, err := server.Receive()
 	if err != nil {
 		return err
 	}
 
-	// receiver receives requests from the client and pipes them into the
-	// requestPipeline.
-	receiver := &freightfluence.Receiver[Request]{Receiver: server}
-
-	// sender receives responses from the pipeline and sends them
-	// over the network.
-	sender := &freightfluence.Sender[Response]{
+	receiver := &freightfluence.TransformReceiver[storage.TSIteratorRequest, Request]{Receiver: server}
+	receiver.Transform = newStorageRequestTranslator()
+	sender := &freightfluence.TransformSender[storage.TSIteratorResponse, Response]{
 		Sender: freighter.SenderNopCloser[Response]{StreamSender: server},
 	}
+	sender.Transform = newStorageResponseTranslator(sf.HostResolver.HostID())
 
-	iter, err := newStorageIterator(
-		sf.ServiceConfig,
-		Config{
-			Keys:   req.Keys,
-			Bounds: req.Bounds,
-		},
-	)
+	iter, err := sf.TS.NewStreamIterator(storage.IteratorConfig{Channels: req.Keys.Strings(), Bounds: req.Bounds})
 	if err != nil {
 		return err
 	}
 
 	pipe := plumber.New()
-	plumber.SetSegment[Request, Response](pipe, "iterator", iter)
-	plumber.SetSource[Request](pipe, "receiver", receiver)
-	plumber.SetSink[Response](pipe, "sender", sender)
-	plumber.MustConnect[Request](pipe, "receiver", "iterator", 1)
-	plumber.MustConnect[Response](pipe, "iterator", "sender", 1)
+	plumber.SetSegment[storage.TSIteratorRequest, storage.TSIteratorResponse](pipe, "storage", iter)
+	plumber.SetSource[storage.TSIteratorRequest](pipe, "receiver", receiver)
+	plumber.SetSink[storage.TSIteratorResponse](pipe, "sender", sender)
+	plumber.MustConnect[Request](pipe, "receiver", "storage", 1)
+	plumber.MustConnect[Response](pipe, "storage", "sender", 1)
 	pipe.Flow(sCtx, confluence.CloseInletsOnExit())
 	return sCtx.Wait()
 }

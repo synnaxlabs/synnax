@@ -26,13 +26,18 @@ type ServiceConfig struct {
 	Logger        *zap.Logger
 }
 
+var (
+	_             config.Config[ServiceConfig] = ServiceConfig{}
+	DefaultConfig                              = ServiceConfig{Logger: zap.NewNop()}
+)
+
 func (c ServiceConfig) Validate() error {
 	v := validate.New("distribution.framer")
-	validate.NotNil(v, "channelReader", c.ChannelReader)
-	validate.NotNil(v, "ts", c.TS)
-	validate.NotNil(v, "transport", c.Transport)
-	validate.NotNil(v, "hostResolver", c.HostResolver)
-	validate.NotNil(v, "logger", c.Logger)
+	validate.NotNil(v, "ChannelReader", c.ChannelReader)
+	validate.NotNil(v, "TS", c.TS)
+	validate.NotNil(v, "Transport", c.Transport)
+	validate.NotNil(v, "HostResolver", c.HostResolver)
+	validate.NotNil(v, "Logger", c.Logger)
 	return v.Error()
 }
 
@@ -45,17 +50,13 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	return c
 }
 
-var _ config.Config[ServiceConfig] = ServiceConfig{}
-
-var DefaultConfig = ServiceConfig{Logger: zap.NewNop()}
-
 func Open(configs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.OverrideAndValidate(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
 	s := &Service{}
-	s.iterator, err = iterator.NewService(iterator.ServiceConfig{
+	s.iterator, err = iterator.OpenService(iterator.ServiceConfig{
 		TS:           cfg.TS,
 		HostResolver: cfg.HostResolver,
 		Transport:    cfg.Transport.Iterator(),
@@ -63,7 +64,7 @@ func Open(configs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	s.writer, err = writer.NewService(writer.ServiceConfig{
+	s.writer, err = writer.OpenService(writer.ServiceConfig{
 		TS:           cfg.TS,
 		HostResolver: cfg.HostResolver,
 		Transport:    cfg.Transport.Writer(),

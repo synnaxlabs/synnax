@@ -55,13 +55,15 @@ func (rs *peerSwitchSender) _switch(
 					Err:     errors.New("no address found for nodeID"),
 				})
 			}
-			oReqs[addr] = Request{Frame: frame}
+			r.Frame = frame
+			oReqs[addr] = r
 		}
 	} else {
 		for _, addr := range rs.addresses {
 			oReqs[addr] = r
 		}
 	}
+
 	return nil
 }
 
@@ -78,7 +80,10 @@ func newPeerGatewaySwitch(host core.NodeID) *peerGatewaySwitch {
 
 func (rl *peerGatewaySwitch) _switch(ctx context.Context, r Request, oReqs map[address.Address]Request) error {
 	local, remote := r.Frame.SplitByHost(rl.host)
-	oReqs["localWriter"] = Request{Frame: local}
-	oReqs["remoteSender"] = Request{Frame: remote}
+	pr, gr := r, r
+	pr.Frame = remote
+	gr.Frame = local
+	oReqs[gatewayWriterAddr] = gr
+	oReqs[peerSenderAddr] = pr
 	return nil
 }

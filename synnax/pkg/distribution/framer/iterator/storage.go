@@ -1,17 +1,15 @@
 package iterator
 
 import (
-	"context"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
-	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 )
 
-func newStorageIterator(sCfg ServiceConfig, cfg Config) (confluence.Segment[Request, Response], error) {
-	iter, err := sCfg.TS.NewStreamIterator(cesium.IteratorConfig{
+func (s *Service) newGateway(cfg Config) (confluence.Segment[Request, Response], error) {
+	iter, err := s.TS.NewStreamIterator(cesium.IteratorConfig{
 		Bounds:   cfg.Bounds,
 		Channels: cfg.Keys.Strings(),
 	})
@@ -19,75 +17,17 @@ func newStorageIterator(sCfg ServiceConfig, cfg Config) (confluence.Segment[Requ
 		return nil, err
 	}
 	pipe := plumber.New()
-	plumber.SetSegment[cesium.IteratorRequest, cesium.IteratorResponse](pipe, "iterator", iter)
-	plumber.SetSegment[Request, cesium.IteratorRequest](
-		pipe,
-		"requestTranslator",
-		newCesiumRequestTranslator(),
-	)
-	plumber.SetSegment[cesium.IteratorResponse, Response](
-		pipe,
-		"responseTranslator",
-		newCesiumResponseTranslator(sCfg.HostResolver.HostID()),
-	)
-	plumber.UnaryRouter[cesium.IteratorRequest]{
-		SourceTarget: "requestTranslator",
-		SinkTarget:   "iterator",
-	}.MustRoute(pipe)
-	plumber.UnaryRouter[cesium.IteratorResponse]{
-		SourceTarget: "iterator",
-		SinkTarget:   "responseTranslator",
-	}.MustRoute(pipe)
+	reqT := &confluence.LinearTransform[Request, cesium.IteratorRequest]{}
+	reqT.Transform = newStorageRequestTranslator()
+	resT := &confluence.LinearTransform[cesium.IteratorResponse, Response]{}
+	resT.Transform = newStorageResponseTranslator(s.HostResolver.HostID())
+	plumber.SetSegment[cesium.IteratorRequest, cesium.IteratorResponse](pipe, "storage", iter)
+	plumber.SetSegment[Request, cesium.IteratorRequest](pipe, "requests", reqT)
+	plumber.SetSegment[cesium.IteratorResponse, Response](pipe, "responses", resT)
+	plumber.MustConnect[storage.TSIteratorRequest](pipe, "requests", "iterator", 1)
+	plumber.MustConnect[storage.TSIteratorResponse](pipe, "storage", "responses", 1)
 	seg := &plumber.Segment[Request, Response]{Pipeline: pipe}
-	lo.Must0(seg.RouteInletTo("requestTranslator"))
-	lo.Must0(seg.RouteOutletFrom("responseTranslator"))
+	lo.Must0(seg.RouteInletTo("requests"))
+	lo.Must0(seg.RouteOutletFrom("responses"))
 	return seg, nil
-}
-
-func newCesiumResponseTranslator(host dcore.NodeID) confluence.Segment[cesium.IteratorResponse, Response] {
-	wrapper := &core.StorageWrapper{Host: host}
-	ts := &storageResponseTranslator{wrapper: wrapper}
-	ts.LinearTransform.Transform = ts.translate
-	return ts
-}
-
-type storageResponseTranslator struct {
-	wrapper *core.StorageWrapper
-	confluence.LinearTransform[cesium.IteratorResponse, Response]
-}
-
-func (te *storageResponseTranslator) translate(
-	ctx context.Context,
-	res cesium.IteratorResponse,
-) (Response, bool, error) {
-	return Response{
-		Ack:     res.Ack,
-		Variant: ResponseVariant(res.Variant),
-		SeqNum:  res.SeqNum,
-		NodeID:  te.wrapper.Host,
-		Err:     res.Err,
-		Command: Command(res.Command),
-		Frame:   te.wrapper.Wrap(res.Frame),
-	}, true, nil
-}
-
-type storageRequestTranslator struct {
-	confluence.LinearTransform[Request, cesium.IteratorRequest]
-}
-
-func newCesiumRequestTranslator() confluence.Segment[Request, cesium.IteratorRequest] {
-	rq := &storageRequestTranslator{}
-	rq.LinearTransform.Transform = rq.translate
-	return rq
-}
-
-func (te *storageRequestTranslator) translate(
-	ctx context.Context,
-	req Request,
-) (cesium.IteratorRequest, bool, error) {
-	return cesium.IteratorRequest{
-		Command: cesium.IteratorCommand(req.Command),
-		Span:    req.Span,
-		Stamp:   req.Stamp,
-	}, true, nil
 }

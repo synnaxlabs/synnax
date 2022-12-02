@@ -3,10 +3,12 @@ package writer
 import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/x/telem"
 )
 
+//go:generate stringer -type=Command
 type Command uint8
 
 const (
@@ -31,6 +33,7 @@ type Response struct {
 	Command Command
 	Ack     bool
 	SeqNum  int
+	NodeID  dcore.NodeID
 	Err     error
 }
 

@@ -21,9 +21,14 @@ func (f Frame) SplitByNodeID() map[core.NodeID]Frame {
 	frames := make(map[core.NodeID]Frame)
 	for i, key := range f.keys {
 		nodeID := key.NodeID()
-		nf := frames[nodeID]
-		nf.keys = append(nf.keys, key)
-		nf.Arrays = append(nf.Arrays, f.Arrays[i])
+		nf, ok := frames[nodeID]
+		if !ok {
+			frames[nodeID] = NewFrame([]channel.Key{key}, []telem.Array{f.Arrays[i]})
+		} else {
+			nf.keys = append(nf.keys, key)
+			nf.Arrays = append(nf.Arrays, f.Arrays[i])
+			frames[nodeID] = nf
+		}
 	}
 	return frames
 }
@@ -64,14 +69,7 @@ func MergeFrames(frames []Frame) (f Frame) {
 	return f
 }
 
-// StorageWrapper wraps slices of storage.Framer into slices of Framer by
-// adding the appropriate host information.
-type StorageWrapper struct {
-	Host core.NodeID
-}
-
-// Wrap a telemetry frame from the storage layer
-func (cw *StorageWrapper) Wrap(frame storage.Frame) Frame {
+func NewFrameFromStorage(frame storage.Frame) Frame {
 	keys := make(channel.Keys, len(frame.Arrays))
 	for i := range frame.Arrays {
 		keys[i] = channel.MustParseKey(frame.Key(i))

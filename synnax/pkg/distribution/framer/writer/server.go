@@ -2,9 +2,10 @@ package writer
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/freightfluence"
+	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/signal"
@@ -14,37 +15,39 @@ type server struct{ ServiceConfig }
 
 func startServer(cfg ServiceConfig) *server {
 	s := &server{ServiceConfig: cfg}
-	cfg.Transport.Server().BindHandler(s.Handle)
+	cfg.Transport.Server().BindHandler(s.handle)
 	return s
 }
 
-func (sf *server) Handle(_ctx context.Context, server ServerStream) error {
-	ctx, cancel := signal.WithCancel(_ctx)
+func (sf *server) handle(ctx context.Context, server ServerStream) error {
+	sCtx, cancel := signal.WithCancel(ctx)
 	defer cancel()
 
-	// Block until we receive the first request from the remote w. This message
-	// should have a Keys command that provides context for opening the cesium writer.
+	// the first request provides the parameters for opening the storage writer
 	req, err := server.Receive()
 	if err != nil {
 		return err
 	}
-	if len(req.Keys) == 0 {
-		return errors.AssertionFailedf("[segment.w] - server expected Keys to be defined")
-	}
 
-	receiver := &freightfluence.Receiver[Request]{Receiver: server}
-	sender := &freightfluence.Sender[Response]{Sender: freighter.SenderNopCloser[Response]{StreamSender: server}}
+	// senders and receivers must be set up to distribution requests and responses
+	// to their storage counterparts.
+	receiver := &freightfluence.TransformReceiver[cesium.WriteRequest, Request]{Receiver: server}
+	receiver.Transform = newRequestTranslator()
+	sender := &freightfluence.TransformSender[cesium.WriteResponse, Response]{Sender: freighter.SenderNopCloser[Response]{StreamSender: server}}
+	sender.Transform = newResponseTranslator(sf.HostResolver.HostID())
 
-	w, err := newStorageWriter(sf.ServiceConfig, Config{Keys: req.Keys, Start: req.Start})
+	w, err := sf.TS.NewStreamWriter(storage.WriterConfig{Start: req.Start, Channels: req.Keys.Strings()})
 	if err != nil {
-		return errors.Wrap(err, "[segment.w] - failed to open cesium w")
+		return err
 	}
+
 	pipe := plumber.New()
-	plumber.SetSegment[Request, Response](pipe, "writerClient", w)
-	plumber.SetSource[Request](pipe, "receiver", receiver)
-	plumber.SetSink[Response](pipe, "sender", sender)
-	plumber.MustConnect[Request](pipe, "receiver", "writerClient", 1)
-	plumber.MustConnect[Response](pipe, "writerClient", "sender", 1)
-	pipe.Flow(ctx, confluence.CloseInletsOnExit())
-	return ctx.Wait()
+	plumber.SetSegment[cesium.WriteRequest, cesium.WriteResponse](pipe, "storage", w)
+	plumber.SetSource[cesium.WriteRequest](pipe, "receiver", receiver)
+	plumber.SetSink[cesium.WriteResponse](pipe, "sender", sender)
+	plumber.MustConnect[cesium.WriteRequest](pipe, "receiver", "storage", 1)
+	plumber.MustConnect[cesium.WriteResponse](pipe, "storage", "sender", 1)
+	pipe.Flow(sCtx, confluence.CloseInletsOnExit())
+
+	return sCtx.Wait()
 }

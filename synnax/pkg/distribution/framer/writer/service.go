@@ -53,13 +53,25 @@ type ServiceConfig struct {
 	Logger *zap.Logger
 }
 
-// DefaultConfig is the default configuration for opening a Writer or StreamWriter. It
-// is not complete and must be supplemented with the required fields.
-var DefaultConfig = ServiceConfig{Logger: zap.NewNop()}
+var (
+	_ config.Config[ServiceConfig] = ServiceConfig{}
+	// DefaultConfig is the default configuration for opening a Writer or StreamWriter. It
+	// is not complete and must be supplemented with the required fields.
+	DefaultConfig = ServiceConfig{Logger: zap.NewNop()}
+)
 
-var _ config.Config[ServiceConfig] = ServiceConfig{}
+// Validate implements config.Config.
+func (cfg ServiceConfig) Validate() error {
+	v := validate.New("distribution.framer.writer")
+	validate.NotNil(v, "TS", cfg.TS)
+	validate.NotNil(v, "ChannelReader", cfg.ChannelReader)
+	validate.NotNil(v, "HostResolver", cfg.HostResolver)
+	validate.NotNil(v, "Transport", cfg.Transport)
+	validate.NotNil(v, "Logger", cfg.Logger)
+	return v.Error()
+}
 
-// Override implements ServiceConfig.
+// Override implements config.Config.
 func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	cfg.TS = override.Nil(cfg.TS, other.TS)
 	cfg.ChannelReader = override.Nil(cfg.ChannelReader, other.ChannelReader)
@@ -69,26 +81,24 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	return cfg
 }
 
-// Validate implements ServiceConfig.
-func (cfg ServiceConfig) Validate() error {
-	v := validate.New("distribution.framer.writer")
-	validate.NotNil(v, "TSChannel", cfg.TS)
-	validate.NotNil(v, "ChannelReader", cfg.ChannelReader)
-	validate.NotNil(v, "HostResolver", cfg.HostResolver)
-	validate.NotNil(v, "Transport", cfg.Transport)
-	validate.NotNil(v, "Logger", cfg.Logger)
-	return v.Error()
-}
-
 type Service struct {
 	ServiceConfig
 	server *server
 }
 
-func NewService(configs ...ServiceConfig) (*Service, error) {
+func OpenService(configs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.OverrideAndValidate(DefaultConfig, configs...)
 	return &Service{ServiceConfig: cfg, server: startServer(cfg)}, err
 }
+
+const (
+	synchronizerAddr      = address.Address("synchronizer")
+	peerSenderAddr        = address.Address("peerSender")
+	gatewayWriterAddr     = address.Address("gatewayWriter")
+	peerGatewaySwitchAddr = address.Address("peerGatewaySwitch")
+	bulkheadAddr          = address.Address("bulkhead")
+	bulkheadResponsesAddr = address.Address("bulkheadResponses")
+)
 
 func (s *Service) New(ctx context.Context, cfg Config) (Writer, error) {
 	sCtx, cancel := signal.WithCancel(
@@ -111,102 +121,79 @@ func (s *Service) New(ctx context.Context, cfg Config) (Writer, error) {
 // NewStream opens a new StreamWriter using the given configuration. The provided context
 // is only used for opening the stream and is not used for concurrent flow control.
 func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamWriter, error) {
-	hostID := s.HostResolver.HostID()
-
-	// Assert all the channels exist and are retrievable in the cluster.
 	if err := core.ValidateChannelKeys(ctx, s.ChannelReader, cfg.Keys); err != nil {
 		return nil, err
 	}
 
-	// Determine the IDs of all the target nodes we need to write to.
-	batch := proxy.NewBatchFactory[channel.Key](hostID).Batch(cfg.Keys)
-
 	var (
+		hostID             = s.HostResolver.HostID()
+		batch              = proxy.NewBatchFactory[channel.Key](hostID).Batch(cfg.Keys)
 		pipe               = plumber.New()
 		needPeerRouting    = len(batch.Peers) > 0
 		needGatewayRouting = len(batch.Gateway) > 0
 		receiverAddresses  []address.Address
+		routeBulkheadTo    address.Address
 	)
 
-	bulkhead := newBulkhead()
-	bulkhead.signal = make(chan bool, 1)
-
-	plumber.SetSegment[Request, Request](
-		pipe,
-		"bulkhead",
-		bulkhead,
-	)
-
-	plumber.SetSource[Response](
-		pipe,
-		"bulkheadResponses",
-		&bulkhead.responses,
-	)
-
-	// The synchronizer checks that all nodes have acknowledged an iteration
-	// request. This is used to return ok = true from the iterator methods.
-	synchro := newSynchronizer(len(cfg.Keys.UniqueNodeIDs()), bulkhead.signal)
+	bh := &bulkhead{signal: make(chan bool, 1)}
+	plumber.SetSegment[Request, Request](pipe, bulkheadAddr, bh)
+	plumber.SetSource[Response](pipe, bulkheadResponsesAddr, &bh.responses)
 	plumber.SetSegment[Response, Response](
 		pipe,
-		"synchronizer",
-		synchro,
+		synchronizerAddr,
+		newSynchronizer(len(cfg.Keys.UniqueNodeIDs()), bh.signal),
 	)
 
 	if needPeerRouting {
+		routeBulkheadTo = peerSenderAddr
 		sender, receivers, _receiverAddresses, err := s.openManyPeers(ctx, batch.Peers)
 		if err != nil {
 			return nil, err
 		}
-
-		// Set up our sender as a sink for the request pipeline.
-		plumber.SetSegment[Request, Response](pipe, "peerSender", sender)
+		plumber.SetSegment[Request, Response](pipe, peerSenderAddr, sender)
 		receiverAddresses = _receiverAddresses
 		for i, receiver := range receivers {
 			plumber.SetSource[Response](pipe, _receiverAddresses[i], receiver)
 		}
-		receiverAddresses = append(receiverAddresses, "peerSender")
+		receiverAddresses = append(receiverAddresses, peerSenderAddr)
 	}
 
 	if needGatewayRouting {
-		gwCfg := Config{Start: cfg.Start, Keys: batch.Gateway}
-		w, err := newStorageWriter(s.ServiceConfig, gwCfg)
+		routeBulkheadTo = gatewayWriterAddr
+		w, err := s.newGateway(Config{Start: cfg.Start, Keys: batch.Gateway})
 		if err != nil {
 			return nil, err
 		}
-		addr := address.Address("localWriter")
-		plumber.SetSegment[Request, Response](pipe, addr, w)
-		receiverAddresses = append(receiverAddresses, addr)
+		plumber.SetSegment[Request, Response](pipe, gatewayWriterAddr, w)
+		receiverAddresses = append(receiverAddresses, gatewayWriterAddr)
 	}
 
-	var routeBulkheadTo address.Address
-
 	if needPeerRouting && needGatewayRouting {
-		rls := newPeerGatewaySwitch(hostID)
-		plumber.SetSegment[Request, Request](pipe, "peerGatewaySwitch", rls)
-		routeBulkheadTo = "peerGatewaySwitch"
+		routeBulkheadTo = peerGatewaySwitchAddr
+		plumber.SetSegment[Request, Request](
+			pipe,
+			peerGatewaySwitchAddr,
+			newPeerGatewaySwitch(hostID),
+		)
 		plumber.MultiRouter[Request]{
-			SourceTargets: []address.Address{"peerGatewaySwitch"},
-			SinkTargets:   []address.Address{"peerSender", "localWriter"},
+			SourceTargets: []address.Address{peerGatewaySwitchAddr},
+			SinkTargets:   []address.Address{peerSenderAddr, gatewayWriterAddr},
 			Stitch:        plumber.StitchWeave,
 			Capacity:      2,
 		}.MustRoute(pipe)
-	} else if needPeerRouting {
-		routeBulkheadTo = "peerSender"
-	} else {
-		routeBulkheadTo = "localWriter"
 	}
 
-	plumber.MustConnect[Request](pipe, "bulkhead", routeBulkheadTo, 1)
+	plumber.MustConnect[Request](pipe, bulkheadAddr, routeBulkheadTo, 1)
 
 	plumber.MultiRouter[Response]{
 		SourceTargets: receiverAddresses,
-		SinkTargets:   []address.Address{"synchronizer"},
+		SinkTargets:   []address.Address{synchronizerAddr},
 		Stitch:        plumber.StitchUnary,
 		Capacity:      len(receiverAddresses),
 	}.MustRoute(pipe)
 
 	seg := &plumber.Segment[Request, Response]{Pipeline: pipe}
-	lo.Must0(seg.RouteInletTo("bulkhead"))
-	lo.Must0(seg.RouteOutletFrom("bulkheadResponses", "synchronizer"))
+	lo.Must0(seg.RouteInletTo(bulkheadAddr))
+	lo.Must0(seg.RouteOutletFrom(bulkheadResponsesAddr, synchronizerAddr))
 	return seg, nil
 }

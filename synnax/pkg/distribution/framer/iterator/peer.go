@@ -23,7 +23,7 @@ func (s *Service) openManyPeers(
 		if err != nil {
 			return sender, receivers, err
 		}
-		client, err := s.openPeer(ctx, target, Config{Keys: keys, Bounds: bounds})
+		client, err := s.openPeerClient(ctx, target, Config{Keys: keys, Bounds: bounds})
 		if err != nil {
 			return sender, receivers, err
 		}
@@ -33,11 +33,7 @@ func (s *Service) openManyPeers(
 	return sender, receivers, nil
 }
 
-func (s *Service) openPeer(
-	ctx context.Context,
-	target address.Address,
-	cfg Config,
-) (ClientStream, error) {
+func (s *Service) openPeerClient(ctx context.Context, target address.Address, cfg Config) (ClientStream, error) {
 	client, err := s.Transport.Client().Stream(ctx, target)
 	if err != nil {
 		return nil, err

@@ -16,8 +16,7 @@ type bulkhead struct {
 	confluence.AbstractLinear[Request, Request]
 }
 
-func newBulkhead() *bulkhead { return &bulkhead{} }
-
+// Flow implements the confluence.Flow interface.
 func (b *bulkhead) Flow(ctx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
 	o.AttachClosables(b.responses.Out, b.Out)
@@ -31,11 +30,16 @@ func (b *bulkhead) Flow(ctx signal.Context, opts ...confluence.Option) {
 				if !ok {
 					return nil
 				}
-				block, err := b.gate(ctx, req)
-				if err != nil {
-					return err
-				}
-				if !block {
+				block := b.closed && (req.Command == Data || req.Command == Commit)
+				if block {
+					if err := signal.SendUnderContext(
+						ctx,
+						b.responses.Out.Inlet(),
+						Response{Command: req.Command, Ack: false},
+					); err != nil {
+						return err
+					}
+				} else {
 					if err := signal.SendUnderContext(ctx, b.Out.Inlet(), req); err != nil {
 						return err
 					}
@@ -43,13 +47,4 @@ func (b *bulkhead) Flow(ctx signal.Context, opts ...confluence.Option) {
 			}
 		}
 	}, o.Signal...)
-}
-
-func (b *bulkhead) gate(ctx context.Context, r Request) (bool, error) {
-	shouldBlock := b.closed && (r.Command == Data || r.Command == Commit)
-	var err error
-	if shouldBlock {
-		err = signal.SendUnderContext(ctx, b.responses.Out.Inlet(), Response{Command: r.Command, Ack: false})
-	}
-	return shouldBlock, err
 }

@@ -30,7 +30,7 @@ func (s *Service) openManyPeers(
 			return sender, receivers, receiverAddresses, err
 		}
 		addrMap[nodeID] = target
-		client, err := s.openPeer(ctx, target, Config{Keys: keys})
+		client, err := s.openPeerClient(ctx, target, Config{Keys: keys})
 		if err != nil {
 			return sender, receivers, receiverAddresses, err
 		}
@@ -42,8 +42,7 @@ func (s *Service) openManyPeers(
 	return sender, receivers, receiverAddresses, nil
 }
 
-func (s *Service) openPeer(
-	ctx context.Context,
+func (s *Service) openPeerClient(ctx context.Context,
 	target address.Address,
 	cfg Config,
 ) (ClientStream, error) {

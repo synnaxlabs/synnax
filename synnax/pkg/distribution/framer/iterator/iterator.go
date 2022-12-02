@@ -47,7 +47,6 @@ type Iterator interface {
 type iterator struct {
 	requests  confluence.Inlet[Request]
 	responses confluence.Outlet[Response]
-	internal  StreamIterator
 	shutdown  context.CancelFunc
 	wg        signal.WaitGroup
 	value     []Response

@@ -20,8 +20,8 @@ import (
 )
 
 type Config struct {
-	Bounds telem.TimeRange
 	Keys   channel.Keys
+	Bounds telem.TimeRange
 }
 
 type ServiceConfig struct {
@@ -32,7 +32,10 @@ type ServiceConfig struct {
 	Logger        *zap.Logger
 }
 
-var _ config.Config[ServiceConfig] = ServiceConfig{}
+var (
+	_             config.Config[ServiceConfig] = ServiceConfig{}
+	DefaultConfig                              = ServiceConfig{Logger: zap.NewNop()}
+)
 
 // Override implements Config.
 func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
@@ -47,7 +50,7 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements Config.
 func (cfg ServiceConfig) Validate() error {
 	v := validate.New("distribution.framer.iterator")
-	validate.NotNil(v, "TSChannel", cfg.TS)
+	validate.NotNil(v, "TS", cfg.TS)
 	validate.NotNil(v, "ChannelReader", cfg.ChannelReader)
 	validate.NotNil(v, "Transport", cfg.Transport)
 	validate.NotNil(v, "Resolver", cfg.HostResolver)
@@ -60,17 +63,21 @@ type Service struct {
 	server *server
 }
 
-var DefaultConfig = ServiceConfig{
-	Logger: zap.NewNop(),
-}
-
-func NewService(configs ...ServiceConfig) (*Service, error) {
+func OpenService(configs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.OverrideAndValidate(DefaultConfig, configs...)
 	return &Service{
 		ServiceConfig: cfg,
 		server:        startServer(cfg),
 	}, err
 }
+
+const (
+	peerSenderAddr   address.Address = "peerSender"
+	gatewayIterAddr  address.Address = "gatewayWriter"
+	ackFilterAddr    address.Address = "filter"
+	broadcasterAddr  address.Address = "broadcaster"
+	synchronizerAddr address.Address = "synchronizer"
+)
 
 func (s *Service) New(ctx context.Context, cfg Config) (Iterator, error) {
 	stream, err := s.NewStream(ctx, cfg)
@@ -81,51 +88,36 @@ func (s *Service) New(ctx context.Context, cfg Config) (Iterator, error) {
 		signal.WithLogger(s.Logger),
 		signal.WithContextKey("iterator"),
 	)
-	requests := confluence.NewStream[Request]()
-	responses := confluence.NewStream[Response]()
-	stream.InFrom(requests)
-	stream.OutTo(responses)
-	stream.Flow(
-		sCtx,
-		confluence.CloseInletsOnExit(),
-		confluence.CancelOnExitErr(),
-	)
-	return &iterator{
-		requests:  requests,
-		responses: responses,
-		internal:  stream,
-		shutdown:  cancel,
-		wg:        sCtx,
-	}, nil
+	req := confluence.NewStream[Request]()
+	res := confluence.NewStream[Response]()
+	stream.InFrom(req)
+	stream.OutTo(res)
+	stream.Flow(sCtx, confluence.CloseInletsOnExit(), confluence.CancelOnExitErr())
+	return &iterator{requests: req, responses: res, shutdown: cancel, wg: sCtx}, nil
 }
 
 func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, error) {
-	// First we need to check if all the channels exist and are retrievable in the
-	// database.
 	if err := core.ValidateChannelKeys(ctx, s.ChannelReader, cfg.Keys); err != nil {
 		return nil, err
 	}
 
-	// Determine IDs of all the target nodes we need to open iterators on.
-	batch := proxy.NewBatchFactory[channel.Key](s.HostResolver.HostID()).Batch(cfg.Keys)
-
 	var (
-		pipe              = plumber.New()
-		needRemote        = len(batch.Peers) > 0
-		needLocal         = len(batch.Gateway) > 0
-		receiverAddresses []address.Address
+		hostID             = s.HostResolver.HostID()
+		batch              = proxy.NewBatchFactory[channel.Key](hostID).Batch(cfg.Keys)
+		pipe               = plumber.New()
+		needPeerRouting    = len(batch.Peers) > 0
+		needGatewayRouting = len(batch.Gateway) > 0
+		receiverAddresses  []address.Address
+		routeInletTo       address.Address
 	)
 
-	if needRemote {
+	if needPeerRouting {
+		routeInletTo = peerSenderAddr
 		sender, receivers, err := s.openManyPeers(ctx, cfg.Bounds, batch.Peers)
 		if err != nil {
 			return nil, err
 		}
-
-		// SetState up our sender as a sink for the request pipeline.
-		plumber.SetSink[Request](pipe, "sender", sender)
-
-		// SetState up our remote receivers as sources for the response pipeline.
+		plumber.SetSink[Request](pipe, peerSenderAddr, sender)
 		receiverAddresses = make([]address.Address, len(receivers))
 		for i, c := range receivers {
 			addr := address.Newf("client-%v", i+1)
@@ -134,72 +126,49 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 		}
 	}
 
-	if needLocal {
-		gwCfg := Config{Keys: batch.Gateway, Bounds: cfg.Bounds}
-		gatewwayIter, err := newStorageIterator(s.ServiceConfig, gwCfg)
+	if needGatewayRouting {
+		routeInletTo = gatewayIterAddr
+		gatewayIter, err := s.newGateway(Config{Keys: batch.Gateway, Bounds: cfg.Bounds})
 		if err != nil {
 			return nil, err
 		}
-		addr := address.Address("gateway")
-		plumber.SetSegment[Request, Response](pipe, addr, gatewwayIter)
-		receiverAddresses = append(receiverAddresses, addr)
+		plumber.SetSegment[Request, Response](pipe, gatewayIterAddr, gatewayIter)
+		receiverAddresses = append(receiverAddresses, gatewayIterAddr)
 	}
 
-	plumber.SetSegment[Response, Response](pipe, "filter", newAckFilter())
+	if needPeerRouting && needGatewayRouting {
+		routeInletTo = broadcasterAddr
+		plumber.SetSegment[Request, Request](
+			pipe,
+			broadcasterAddr,
+			&confluence.DeltaMultiplier[Request]{},
+		)
+		plumber.MultiRouter[Request]{
+			SourceTargets: []address.Address{broadcasterAddr},
+			SinkTargets:   []address.Address{peerSenderAddr, gatewayIterAddr},
+			Stitch:        plumber.StitchWeave,
+			Capacity:      2,
+		}.MustRoute(pipe)
+	}
 
-	// The synchronizer checks that all nodes have acknowledged an iteration
-	// request. This is used to return ok = true from the iterator methods.
+	plumber.SetSegment[Response, Response](pipe, ackFilterAddr, newAckFilter())
 	plumber.SetSegment[Response, Response](
 		pipe,
-		"synchronizer",
+		synchronizerAddr,
 		newSynchronizer(len(cfg.Keys.UniqueNodeIDs())),
 	)
 
-	var routeInletTo address.Address
-
-	// We need to configure different pipelines to optimize for particular cases.
-	if needRemote && needLocal {
-		// Open a broadcaster that will multiply requests to both the local and remote
-		// iterators.
-		plumber.SetSegment[Request, Request](
-			pipe,
-			"broadcaster",
-			&confluence.DeltaMultiplier[Request]{},
-		)
-		routeInletTo = "broadcaster"
-
-		// We use confluence.StitchWeave here to dedicate a channelClient to both the
-		// sender and local, so that they both receive a copy of the emitted request.
-		plumber.MultiRouter[Request]{
-			SourceTargets: []address.Address{"broadcaster"},
-			SinkTargets:   []address.Address{"sender", "gateway"},
-			Stitch:        plumber.StitchWeave,
-		}.MustRoute(pipe)
-	} else if needRemote {
-		// If we only have remote iterators, we can skip the broadcasting step
-		// and forward requests from the emitter directly to the sender.
-		routeInletTo = "sender"
-	} else {
-		// If we only have a gateway iterator, we can skip the broadcasting step
-		// and forward requests from the emitter directly to the local iterator.
-		routeInletTo = "gateway"
-	}
-
 	plumber.MultiRouter[Response]{
 		SourceTargets: receiverAddresses,
-		SinkTargets:   []address.Address{"filter"},
+		SinkTargets:   []address.Address{ackFilterAddr},
 		Stitch:        plumber.StitchUnary,
 		Capacity:      len(receiverAddresses),
 	}.MustRoute(pipe)
 
-	plumber.UnaryRouter[Response]{
-		SourceTarget: "filter",
-		SinkTarget:   "synchronizer",
-	}.MustRoute(pipe)
+	plumber.MustConnect(pipe, ackFilterAddr, synchronizerAddr, 1)
 
 	seg := &plumber.Segment[Request, Response]{Pipeline: pipe}
-	lo.Must0(seg.RouteOutletFrom("filter", "synchronizer"))
+	lo.Must0(seg.RouteOutletFrom(ackFilterAddr, synchronizerAddr))
 	lo.Must0(seg.RouteInletTo(routeInletTo))
-
 	return seg, nil
 }

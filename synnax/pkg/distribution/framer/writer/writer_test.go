@@ -34,38 +34,39 @@ var (
 	}
 )
 
-var _ = Describe("Happy Path", func() {
-	scenarios := [](func() scenario){
+var _ = Describe("Writer", Ordered, func() {
+	scenarios := []func() scenario{
 		gatewayOnlyScenario,
 		peerOnlyScenario,
 		mixedScenario,
 	}
 	for _, sF := range scenarios {
+		_sF := sF
 		var s scenario
-		BeforeEach(func() {
-			s = sF()
-		})
-		AfterEach(func() { Expect(s.close.Close()).To(Succeed()) })
-		Specify("It should write data to the channels", func() {
-			writer := MustSucceed(s.service.New(context.TODO(), writer.Config{Keys: s.keys, Start: 10 * telem.SecondTS}))
+		BeforeAll(func() { s = _sF() })
+		AfterAll(func() { Expect(s.close.Close()).To(Succeed()) })
+
+		Specify("It should write and commit data to the channels", func() {
+			writer := MustSucceed(s.service.New(context.TODO(), writer.Config{
+				Keys:  s.keys,
+				Start: 10 * telem.SecondTS,
+			}))
 			Expect(writer.Write(core.NewFrame(
 				s.keys,
 				[]telem.Array{
 					telem.NewArrayV[int64](1, 2, 3),
 					telem.NewArrayV[int64](3, 4, 5),
 					telem.NewArrayV[int64](5, 6, 7),
-				},
-			))).To(BeTrue())
+				}),
+			)).To(BeTrue())
 			Expect(writer.Commit()).To(BeTrue())
-			Expect(writer.Write(
-				core.NewFrame(
-					s.keys,
-					[]telem.Array{
-						telem.NewArrayV[int64](1, 2, 3),
-						telem.NewArrayV[int64](3, 4, 5),
-						telem.NewArrayV[int64](5, 6, 7),
-					},
-				),
+			Expect(writer.Write(core.NewFrame(
+				s.keys,
+				[]telem.Array{
+					telem.NewArrayV[int64](1, 2, 3),
+					telem.NewArrayV[int64](3, 4, 5),
+					telem.NewArrayV[int64](5, 6, 7),
+				}),
 			)).To(BeTrue())
 			Expect(writer.Commit()).To(BeTrue())
 			Expect(writer.Close()).To(Succeed())
@@ -100,10 +101,18 @@ func peerOnlyScenario() scenario {
 
 	for i, ch := range channels {
 		ch.NodeID = dcore.NodeID(i + 2)
-		Expect(svc.channel.Create(&ch)).To(Succeed())
+		channels[i] = ch
 	}
 
 	Expect(svc.channel.CreateMany(&channels)).To(Succeed())
+
+	Eventually(func(g Gomega) {
+		var chs []channel.Channel
+		err := svc.channel.NewRetrieve().Entries(&chs).WhereKeys(channel.KeysFromChannels(channels)...).Exec(context.TODO())
+		g.Expect(err).To(Succeed())
+		g.Expect(chs).To(HaveLen(len(channels)))
+	}).Should(Succeed())
+
 	keys := channel.KeysFromChannels(channels)
 	return scenario{
 		keys:    keys,
@@ -119,10 +128,16 @@ func mixedScenario() scenario {
 
 	for i, ch := range channels {
 		ch.NodeID = dcore.NodeID(i + 1)
-		Expect(svc.channel.Create(&ch)).To(Succeed())
+		channels[i] = ch
 	}
 
 	Expect(svc.channel.CreateMany(&channels)).To(Succeed())
+	Eventually(func(g Gomega) {
+		var chs []channel.Channel
+		err := svc.channel.NewRetrieve().Entries(&chs).WhereKeys(channel.KeysFromChannels(channels)...).Exec(context.TODO())
+		g.Expect(err).To(Succeed())
+		g.Expect(chs).To(HaveLen(len(channels)))
+	}).Should(Succeed())
 	keys := channel.KeysFromChannels(channels)
 	return scenario{
 		keys:    keys,

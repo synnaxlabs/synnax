@@ -21,13 +21,10 @@ func newSynchronizer(nodeCount int) confluence.Segment[Response, Response] {
 
 func (a *synchronizer) sync(_ context.Context, res Response) (Response, bool, error) {
 	ack, seqNum, fulfilled := a.internal.Sync(res.SeqNum, res.Ack)
-	if fulfilled {
-		return Response{
-			Variant: AckResponse,
-			Command: res.Command,
-			Ack:     ack,
-			SeqNum:  seqNum,
-		}, true, nil
-	}
-	return Response{}, false, nil
+	return Response{
+		Variant: AckResponse,
+		Command: res.Command,
+		Ack:     ack,
+		SeqNum:  seqNum,
+	}, fulfilled, nil
 }
