@@ -37,7 +37,7 @@ var _ = Describe("RetrieveEntity", Ordered, func() {
 					Exec(db)).To(Succeed())
 				Expect(res).To(Equal([]entry{entries[0]}))
 			})
-			It("Should return a query.NotFound error if the key is not found", func() {
+			It("Should return a query.NotFound error if ANY key is not found", func() {
 				var res []entry
 				err := gorp.NewRetrieve[int, entry]().
 					WhereKeys(entries[0].GorpKey(), 444444).
@@ -48,7 +48,15 @@ var _ = Describe("RetrieveEntity", Ordered, func() {
 				By("Still retrieving as many entries as possible")
 				Expect(res).To(HaveLen(1))
 			})
-			Describe("exists", func() {
+			It("Should still retrieve all possible entries even if some are not found", func() {
+				var res []entry
+				Expect(gorp.NewRetrieve[int, entry]().
+					WhereKeys(44444, entries[0].GorpKey(), entries[1].GorpKey()).
+					Entries(&res).
+					Exec(db)).To(HaveOccurredAs(query.NotFound))
+				Expect(res).To(Equal(entries[:2]))
+			})
+			Describe("Exists", func() {
 				It("Should return true if ALL keys have matching entries", func() {
 					exists, err := gorp.NewRetrieve[int, entry]().
 						WhereKeys(entries[0].GorpKey(), entries[1].GorpKey()).
