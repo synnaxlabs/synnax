@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	roacherrors "github.com/cockroachdb/errors"
-	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/ferrors"
 	"github.com/synnaxlabs/synnax/pkg/api/errors"
@@ -157,7 +156,6 @@ func receiveWriterOpenConfig(
 	if err != nil {
 		return cfg, errors.Unexpected(err)
 	}
-	logrus.Info(req.Config.Keys)
 	keys, err := channel.ParseKeys(req.Config.Keys)
 	if err != nil {
 		return cfg, errors.Validation(errors.Field{Field: "config.openKeys", Message: err.Error()})

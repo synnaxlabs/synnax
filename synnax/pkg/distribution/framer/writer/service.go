@@ -248,7 +248,7 @@ func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) er
 				return v.Newf("channel rate mismatch: expected %s, found %s", c.Rate, refRate)
 			}
 		} else if c.Index() != refIndex {
-			return v.Newf("keys must have the same index: expected %s, found %s", c.Index(), refIndex)
+			return v.Newf("keys must have the same index: expected %s, found %s", refIndex, c.Index())
 		}
 	}
 	return nil

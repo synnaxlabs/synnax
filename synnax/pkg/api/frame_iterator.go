@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	roacherrors "github.com/cockroachdb/errors"
-	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/ferrors"
 	"github.com/synnaxlabs/synnax/pkg/api/errors"
@@ -76,13 +75,10 @@ func (s *FrameService) Iterate(_ctx context.Context, stream FrameIteratorStream)
 	}()
 
 	for {
-		logrus.Info("waiting for response")
 		select {
 		case <-ctx.Done():
-			logrus.Info("CANCELELD")
 			return errors.Canceled
 		case res, ok := <-responses.Outlet():
-			logrus.Info(res, ok)
 			if !ok {
 				return errors.Nil
 			}

@@ -68,6 +68,12 @@ func (lp *leaseProxy) createLocal(txn gorp.Txn, channels *[]Channel) error {
 	if err := lp.assignLocalKeys(channels); err != nil {
 		return err
 	}
+	for i, ch := range *channels {
+		if ch.IsIndex {
+			ch.LocalIndex = ch.StorageKey
+			(*channels)[i] = ch
+		}
+	}
 	storageChannels := toStorage(*channels)
 	if err := lp.TSChannel.CreateChannel(storageChannels...); err != nil {
 		return err

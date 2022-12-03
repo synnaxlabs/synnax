@@ -157,6 +157,9 @@ func translateChannelsBackward(channels []Channel) ([]channel.Channel, error) {
 			}
 			tCH.LocalIndex = index.LocalKey()
 		}
+		if ch.IsIndex {
+			tCH.LocalIndex = tCH.StorageKey
+		}
 		translated[i] = tCH
 	}
 	return translated, nil

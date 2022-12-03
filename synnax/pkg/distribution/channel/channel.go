@@ -151,25 +151,25 @@ func (k Keys) Difference(other Keys) (Keys, Keys) { return lo.Difference(k, othe
 type Channel struct {
 	// Name is a human-readable name for the channel. This name does not have to be
 	// unique.
-	Name string
+	Name string `json:"name" msgpack:"name"`
 	// NodeID is the leaseholder node for the channel.
-	NodeID core.NodeID
+	NodeID core.NodeID `json:"node_id" msgpack:"node_id"`
 	// DataType is the data type for the channel.
-	DataType telem.DataType
+	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 	// IsIndex is set to true if the channel is an index channel. LocalIndex channels must
 	// be int64 values written in ascending order. LocalIndex channels are most commonly
 	// unix nanosecond timestamps.
-	IsIndex bool
+	IsIndex bool `json:"is_index" msgpack:"is_index"`
 	// Rate sets the rate at which the channels values are written. This is used to
 	// determine the timestamp of each sample.
-	Rate telem.Rate
+	Rate telem.Rate `json:"rate" msgpack:"rate"`
 	// Key is a unique identifier for the channel within a cesium.DB. If not set when
 	// creating a channel, a unique key will be generated.
-	StorageKey storage.ChannelKey
+	StorageKey storage.ChannelKey `json:"storage_key" msgpack:"storage_key"`
 	// LocalIndex is the channel used to index the channel's values. The LocalIndex is used to
 	// associate a value with a timestamp. If zero, the channel's data will be indexed
 	// using its rate. One of LocalIndex or Rate must be non-zero.
-	LocalIndex storage.ChannelKey
+	LocalIndex storage.ChannelKey `json:"local_index" msgpack:"local_index"`
 }
 
 // Key returns the key for the Channel.
