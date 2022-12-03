@@ -28,7 +28,7 @@ type ChannelService struct {
 	validationProvider
 	authProvider
 	dbProvider
-	internal *channel.service
+	internal channel.Service
 }
 
 func NewChannelService(p Provider) *ChannelService {
@@ -126,7 +126,7 @@ func translateChannelsForward(channels []channel.Channel) []Channel {
 			Rate:     ch.Rate,
 			DataType: ch.DataType,
 			IsIndex:  ch.IsIndex,
-			Index:    ch.LocalIndex.String(),
+			Index:    ch.Index().String(),
 			Density:  ch.DataType.Density(),
 		}
 	}

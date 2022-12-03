@@ -411,6 +411,8 @@ class TimeRange(BaseModel):
     def validate(cls, v):
         if isinstance(v, TimeRange):
             return cls(v.start, v.end)
+        elif isinstance(v, dict):
+            return cls(**v)
         return cls(start=v[0], end=v[1])
 
     def span(self) -> TimeSpan:
@@ -611,7 +613,7 @@ NUMPY_TO_DATA_TYPE = {v: k for k, v in DATA_TYPE_TO_NUMPY.items()}
 
 
 class ArrayHeader(Payload):
-    time_range: TimeRange
+    time_range: TimeRange | None
     data_type: DataType
 
 
@@ -622,12 +624,22 @@ class BinaryArray(ArrayHeader):
 class NumpyArray(ArrayHeader):
     data: np.ndarray
 
+    class Config:
+        arbitrary_types_allowed = True
+
     @classmethod
     def from_binary(cls, arr: BinaryArray) -> NumpyArray:
         return NumpyArray(
             data_type=arr.data_type,
             time_range=arr.time_range,
             data=np.frombuffer(arr.data, dtype=arr.data_type.numpy_type)
+        )
+
+    def to_binary(self) -> BinaryArray:
+        return BinaryArray(
+            data_type=self.data_type,
+            time_range=self.time_range,
+            data=self.data.tobytes()
         )
 
 

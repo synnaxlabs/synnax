@@ -19,7 +19,7 @@ func (c *keyCounter) Add(delta ...uint16) uint16 {
 	for _, d := range delta {
 		total += int64(d)
 	}
-	total, c.err = c.internal.Add(int64(total))
+	total, c.err = c.internal.Add(total)
 	return uint16(total)
 }
 

@@ -1,14 +1,15 @@
 import numpy as np
+import pandas as pd
 
 from synnax.channel.registry import ChannelRegistry
 from synnax.exceptions import ContiguityError
 from .iterator import NumpyIterator, AUTO_SPAN
-from .writer import CoreWriter, NumpyWriter
-from synnax.telem import TimeRange, UnparsedTimeStamp
+from .writer import DataFrameWriter
+from synnax.telem import TimeRange, UnparsedTimeStamp, NumpyArray
 from synnax.transport import Transport
 
 from . import iterator
-from .sugared import NumpySegment
+from .. import telem
 
 
 class FramerClient:
@@ -24,7 +25,7 @@ class FramerClient:
         self._transport = transport
         self._channels = registry
 
-    def new_writer(self, keys: list[str]) -> NumpyWriter:
+    def new_writer(self, start: UnparsedTimeStamp, keys: list[str]) -> DataFrameWriter:
         """Opens a new writer on the given channels.
 
         :param keys: A list of channel keys that the writer will write to. A writer
@@ -32,9 +33,8 @@ class FramerClient:
         for more.
         :returns: A NumpyWriter that can be used to write telemetry to the given channels.
         """
-        core = CoreWriter(client=self._transport.stream)
-        npw = NumpyWriter(core=core, channels=self._channels)
-        npw.open(keys)
+        npw = DataFrameWriter(client=self._transport.stream, registry=self._channels)
+        npw.open(start, keys)
         return npw
 
     def new_iterator(
@@ -68,9 +68,9 @@ class FramerClient:
         :param data: The telemetry to write to the channel.
         :returns: None.
         """
-        _writer = self.new_writer([to])
+        _writer = self.new_writer(start, [to])
         try:
-            _writer.write(to, start, data)
+            _writer.write(pd.DataFrame({to: data}))
             _writer.commit()
         finally:
             _writer.close()
@@ -86,11 +86,11 @@ class FramerClient:
         :returns: A numpy array containing the retrieved telemetry.
         :raises ContiguityError: If the telemetry between start and end is non-contiguous.
         """
-        return self.read_segment(from_, start, end).data
+        return self.read_array(from_, start, end).data
 
-    def read_segment(
+    def read_array(
         self, from_: str, start: UnparsedTimeStamp, end: UnparsedTimeStamp
-    ) -> NumpySegment:
+    ) -> NumpyArray:
         """Reads a Segment from the given channel between the two timestamps.
 
         :param from_: The key of the channel to read from.
@@ -100,12 +100,11 @@ class FramerClient:
         :raises ContiguityError: If the telemetry between start and end is non-contiguous.
         """
         _iterator = self.new_iterator([from_], TimeRange(start, end), aggregate=True)
-        seg = None
         try:
             _iterator.seek_first()
-            while _iterator.next(AUTO_SPAN):
+            while _iterator.next(10000 * telem.SECOND):
                 pass
-            seg = _iterator.value[from_]
+            frame = _iterator.value
         except ContiguityError as e:
             raise ContiguityError(
                 f"""Channel data between {start} and {end} is non-contiguous.
@@ -113,4 +112,4 @@ class FramerClient:
             ) from e
         finally:
             _iterator.close()
-        return seg
+        return frame[from_]

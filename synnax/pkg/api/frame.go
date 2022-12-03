@@ -8,7 +8,7 @@ import (
 )
 
 type Frame struct {
-	Keys []string
+	Keys []string `json:"keys" msgpack:"keys"`
 	telem.Frame
 }
 
@@ -27,14 +27,14 @@ func toDistributionFrame(f Frame) (framer.Frame, errors.Typed) {
 	return framer.NewFrame(keys, f.Arrays), errors.Nil
 }
 
-type SegmentService struct {
+type FrameService struct {
 	loggingProvider
 	authProvider
 	Internal *framer.Service
 }
 
-func NewSegmentService(p Provider) *SegmentService {
-	return &SegmentService{
+func NewSegmentService(p Provider) *FrameService {
+	return &FrameService{
 		Internal:        p.Config.Framer,
 		authProvider:    p.auth,
 		loggingProvider: p.Logging,

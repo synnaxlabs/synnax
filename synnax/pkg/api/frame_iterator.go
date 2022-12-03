@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	roacherrors "github.com/cockroachdb/errors"
+	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/ferrors"
 	"github.com/synnaxlabs/synnax/pkg/api/errors"
@@ -35,9 +36,9 @@ type FrameIteratorResponse struct {
 	Frame   Frame                   `json:"frame" msgpack:"frame"`
 }
 
-type SegmentIteratorStream = freighter.ServerStream[FrameIteratorRequest, FrameIteratorResponse]
+type FrameIteratorStream = freighter.ServerStream[FrameIteratorRequest, FrameIteratorResponse]
 
-func (s *SegmentService) Iterate(_ctx context.Context, stream SegmentIteratorStream) errors.Typed {
+func (s *FrameService) Iterate(_ctx context.Context, stream FrameIteratorStream) errors.Typed {
 	ctx, cancel := signal.WithCancel(_ctx, signal.WithLogger(s.logger.Desugar()))
 	// cancellation here would occur for one of two reasons. Either we encounter
 	// a fatal error (transport or iterator internal) and we need to free all
@@ -51,7 +52,7 @@ func (s *SegmentService) Iterate(_ctx context.Context, stream SegmentIteratorStr
 	}
 	requests := confluence.NewStream[iterator.Request]()
 	iter.InFrom(requests)
-	responses := confluence.NewStream[iterator.Response]()
+	responses := confluence.NewStream[iterator.Response](1)
 	iter.OutTo(responses)
 	iter.Flow(ctx, confluence.CloseInletsOnExit(), confluence.CancelOnExitErr())
 
@@ -75,10 +76,13 @@ func (s *SegmentService) Iterate(_ctx context.Context, stream SegmentIteratorStr
 	}()
 
 	for {
+		logrus.Info("waiting for response")
 		select {
 		case <-ctx.Done():
+			logrus.Info("CANCELELD")
 			return errors.Canceled
 		case res, ok := <-responses.Outlet():
+			logrus.Info(res, ok)
 			if !ok {
 				return errors.Nil
 			}
@@ -98,7 +102,7 @@ func (s *SegmentService) Iterate(_ctx context.Context, stream SegmentIteratorStr
 	}
 }
 
-func (s *SegmentService) openIterator(ctx context.Context, srv SegmentIteratorStream) (framer.StreamIterator, errors.Typed) {
+func (s *FrameService) openIterator(ctx context.Context, srv FrameIteratorStream) (framer.StreamIterator, errors.Typed) {
 	keys, bounds, _err := receiveIteratorOpenArgs(srv)
 	if _err.Occurred() {
 		return nil, _err
@@ -110,7 +114,7 @@ func (s *SegmentService) openIterator(ctx context.Context, srv SegmentIteratorSt
 	return iter, errors.MaybeUnexpected(srv.Send(FrameIteratorResponse{Variant: iterator.AckResponse, Ack: true}))
 }
 
-func receiveIteratorOpenArgs(srv SegmentIteratorStream) (channel.Keys, telem.TimeRange, errors.Typed) {
+func receiveIteratorOpenArgs(srv FrameIteratorStream) (channel.Keys, telem.TimeRange, errors.Typed) {
 	req, err := srv.Receive()
 	if err != nil {
 		return nil, telem.TimeRangeZero, errors.Unexpected(err)

@@ -277,7 +277,12 @@ const (
 // Density represents a density in bytes per value.
 type Density uint32
 
-func (d Density) SampleCount(size Size) int64 { return int64(size) / int64(d) }
+func (d Density) SampleCount(size Size) int64 {
+	if d == 0 {
+		panic("attempted to call sample count on undefined density")
+	}
+	return int64(size) / int64(d)
+}
 
 func (d Density) Size(sampleCount int64) Size { return Size(sampleCount) * Size(d) }
 

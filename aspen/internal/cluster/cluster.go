@@ -229,7 +229,7 @@ func (c *cluster) goFlushStore(ctx signal.Context) {
 			<-ctx.Done()
 			flush.FlushSync(c.Store.CopyState())
 			return ctx.Err()
-		})
+		}, signal.WithKey("flush"))
 	}
 }
 

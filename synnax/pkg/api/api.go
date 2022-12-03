@@ -58,7 +58,7 @@ type API struct {
 	provider     Provider
 	config       Config
 	Auth         *AuthService
-	Segment      *SegmentService
+	Segment      *FrameService
 	Channel      *ChannelService
 	Connectivity *ConnectivityService
 	Ontology     *OntologyService

@@ -6,7 +6,7 @@ from pandas import DataFrame
 from .. import Channel, Synnax
 from ..telem import MEGABYTE
 from ..io import RowReader
-from ..framer import NumpyWriter
+from ..framer import DataFrameWriter
 
 
 class RowIngestionEngine:
@@ -14,7 +14,7 @@ class RowIngestionEngine:
     Synnax cluster.
     """
     client: Synnax
-    writer: NumpyWriter
+    writer: DataFrameWriter
     reader: RowReader
     channels: list[Channel]
     idx_grouped: dict[Channel, list[Channel]]

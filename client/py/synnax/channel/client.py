@@ -1,5 +1,5 @@
 from numpy import ndarray
-from synnax import ValidationError
+from synnax.exceptions import ValidationError
 
 from synnax.framer import FramerClient
 from synnax.telem import (

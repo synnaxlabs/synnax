@@ -3,9 +3,9 @@ package telem
 import "github.com/synnaxlabs/x/types"
 
 type Array struct {
-	Range    TimeRange
-	DataType DataType
-	Data     []byte
+	TimeRange TimeRange `json:"time_range" msgpack:"time_range"`
+	DataType  DataType  `json:"data_type" msgpack:"data_type"`
+	Data      []byte    `json:"data" msgpack:"data"`
 }
 
 func (a Array) Len() int64 { return a.DataType.Density().SampleCount(a.Size()) }

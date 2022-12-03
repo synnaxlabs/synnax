@@ -155,7 +155,7 @@ func (i *Iterator) accumulate() bool {
 }
 
 func (i *Iterator) insert(arr telem.Array) {
-	if len(i.frame.Arrays) == 0 || i.frame.Arrays[len(i.frame.Arrays)-1].Range.End.Before(arr.Range.Start) {
+	if len(i.frame.Arrays) == 0 || i.frame.Arrays[len(i.frame.Arrays)-1].TimeRange.End.Before(arr.TimeRange.Start) {
 		i.frame = i.frame.Append(i.Channel.Key, arr)
 	} else {
 		i.frame = i.frame.Prepend(i.Channel.Key, arr)
@@ -175,7 +175,7 @@ func (i *Iterator) read() (arr telem.Array, err error) {
 	_, err = r.ReadAt(b, int64(start))
 	arr.Data = b
 	arr.DataType = i.Channel.DataType
-	arr.Range = i.internal.Range().BoundBy(i.view)
+	arr.TimeRange = i.internal.Range().BoundBy(i.view)
 	return
 }
 
@@ -209,8 +209,8 @@ func (i *Iterator) satisfied() bool {
 	if !i.partiallySatisfied() {
 		return false
 	}
-	start := i.frame.Arrays[0].Range.Start
-	end := i.frame.Arrays[len(i.frame.Arrays)-1].Range.End
+	start := i.frame.Arrays[0].TimeRange.Start
+	end := i.frame.Arrays[len(i.frame.Arrays)-1].TimeRange.End
 	return i.view == start.Range(end)
 }
 

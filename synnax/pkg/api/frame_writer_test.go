@@ -22,7 +22,7 @@ var _ = Describe("FrameWriter", Ordered, func() {
 		client  *fmock.StreamClient[api.FrameWriterRequest, api.FrameWriterResponse]
 		builder *mock.Builder
 		prov    api.Provider
-		svc     *api.SegmentService
+		svc     *api.FrameService
 		keys    channel.Keys
 	)
 	BeforeAll(func() {

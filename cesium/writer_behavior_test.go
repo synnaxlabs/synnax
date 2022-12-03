@@ -39,9 +39,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 
 				By("Reading the data back")
 				frame := MustSucceed(db.Read(telem.TimeRangeMax, "basic1"))
-				Expect(frame.Arrays[0].Range).To(Equal((10 * telem.SecondTS).Range(13*telem.SecondTS + 1)))
+				Expect(frame.Arrays[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(13*telem.SecondTS + 1)))
 				tsFrame := MustSucceed(db.Read(telem.TimeRangeMax, "basic1Index"))
-				Expect(tsFrame.Arrays[0].Range).To(Equal((10 * telem.SecondTS).Range(13*telem.SecondTS + 1)))
+				Expect(tsFrame.Arrays[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(13*telem.SecondTS + 1)))
 			})
 		})
 	})

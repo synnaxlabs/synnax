@@ -8,15 +8,14 @@ from freighter import (
     StreamClient,
     decode_exception,
 )
-from numpy import ndarray
+from pandas import DataFrame
+from synnax.channel.payload import ChannelPayload
 
 from synnax.channel.registry import ChannelRegistry
 from synnax.exceptions import ValidationError, Field, GeneralError
-from synnax.telem import Size, TimeStamp, UnparsedTimeStamp
+from synnax.telem import TimeStamp, UnparsedTimeStamp
 
-from .payload import Payload, BinaryFrame, NumpyFrame
-from .splitter import Splitter
-from .validate import ScalarTypeValidator, Validator
+from .payload import BinaryFrame, pandas_to_frame
 
 
 class _Command(int, Enum):
@@ -26,10 +25,15 @@ class _Command(int, Enum):
     ERROR = 3
 
 
+class _Config(Payload):
+    keys: list[str]
+    start: TimeStamp
+
+
 class _Request(Payload):
     command: _Command
-    open_keys: list[str]
-    frame: BinaryFrame
+    config: _Config = None
+    frame: BinaryFrame = None
 
 
 class _Response(Payload):
@@ -38,13 +42,43 @@ class _Response(Payload):
     error: ExceptionPayload
 
 
-class CoreWriter:
-    """Used to write telemetry to a set of channels in time-order. It should not be
-    instantiated directly, and should instead be created using the segment client.
+class FrameWriter:
+    """CoreWriter is used to write a range of telemetry to a set of channels in time
+    order. It should not be instantiated directly, and should instead be created using
+    the frame client.
 
-    Using a writer is ideal when writing large volumes of data (such as recording telemetry
-    from a sensor), but it is relatively complex and challenging to use. If you're looking
-    to write a contiguous block of telemetry, see the segment Client write method instead.
+    The writer is a streaming protocol that is heavily optimized for performance. This
+    comes at the cost of increased complexity, and should only be used directly when
+    writing large volumes of data (such as recording telemetry from a sensor or ingesting
+    data from a file). Simpler methods (such as the frame client's write method) should
+    be used in most cases.
+
+    The protocol is as follows:
+
+    1. The writer is opened with a starting timestamp and a list of channel keys. The
+    writer will fail to open if the starting timestamp overlaps with any existing
+    telemetry for any of the channels specified. If the writer is opened successfully,
+    the caller is then free to write frames to the writer.
+
+    2. To writer a frame, the call can use the write method and follow the validation
+    rules described in its method's documentation. This process is asynchronous, meaning
+    that write will return before the frame has been written to the database. This also
+    means that the writer can accumulate an error after write is called. If the writer
+    accumulates an error, all subsequent write and commit calls will return False. The
+    caller can check for errors by calling the error method, which returns the
+    accumulated error and resets the writer for future use. The caller can also check
+    for errors by closing the writer, which will raise any accumulated error.
+
+    3. To commit the written frames to the database, the caller can call the commit
+    method. Unlike write, commit is synchronous, meaning that it will not return until
+    all frames have been committed to the database. If the writer has accumulated an
+    error, commit will return False. After the caller acknowledges the error, they can
+    attempt to commit again. Commit can be called several times throughout a writer's
+    lifetime, and will commit all frames written since the last commit.
+
+    4. A writer MUST be closed after use in order to prevent resource leaks. Close
+    should typically be called in a 'finally' block. If the writer has accumulated an
+    error, close will raise the accumulated error.
     """
 
     _ENDPOINT = "/frame/write"
@@ -55,51 +89,56 @@ class CoreWriter:
     def __init__(self, client: StreamClient) -> None:
         self.client = client
 
-    def open(self, keys: list[str]):
-        """Opens the writer, acquiring an exclusive lock on the given
-        channels for the duration of the writer's lifetime. open must be called before
-        any other writer methods.
+    def open(self, start: UnparsedTimeStamp, keys: list[str]):
+        """Opens the writer to write a range of telemetry starting at the given time.
 
+        :param start: The starting timestamp of the new range to write to. If start
+        overlaps with existing telemetry, the writer will fail to open.
         :param keys: A list of keys representing the channels the writer will write to.
+        All frames written to the writer must have exactly one array for each key in
+        this list.
         """
         self.keys = keys
         self.stream = self.client.stream(self._ENDPOINT, _Request, _Response)
-        self.stream.send(_Request(command=_Command.NONE, open_keys=keys, segments=[]))
+        self.stream.send(_Request(command=_Command.NONE,
+                                  config=_Config(keys=keys, start=TimeStamp(start))))
         res, exc = self.stream.receive()
         if exc is not None:
             raise exc
 
-    def write(self, segments: list[Payload]) -> bool:
-        """Validates and writes the given segments to the database. The provided segments
-        must:
+    def write(self, frame: BinaryFrame) -> bool:
+        """Writes the given frame to the database. The provided frame must:
 
-            1. Be in time order (on a per-channel basis).
-            2. Have channel keys in the set of keys provided to open.
-            3. Have non-zero length data with the correct data type for the given channel.
+        :param frame: The frame to write to the database. The frame must:
 
-        :param segments: A list of segments to write to the database.
-        :returns: False if the writer has accumulated an error. In this case,
-        the caller should stop executing requests and close the writer.
+            1. Have exactly one array for each key in the list of keys provided to the
+            writer's open method.
+            2. Have equal length arrays for each key.
+            3. When writing to an index (i.e. TimeStamp) channel, the values must be
+            monotonically increasing.
+
+        :returns: False if the writer has accumulated an error.
         """
         self._assert_open()
         if self.stream.received():
             return False
 
-        self._check_keys(segments)
-        err = self.stream.send(
-            _Request(command=_Command.WRITE, open_keys=[], segments=segments)
-        )
+        self._check_keys(frame)
+        err = self.stream.send(_Request(command=_Command.WRITE, frame=frame))
         if err is not None:
             raise err
         return True
 
     def commit(self) -> bool:
+        """Commits the written frames to the database. Commit is synchronous, meaning that
+        it will not return until all frames have been committed to the database. If the
+        writer has accumulated an error, commit will return False. After the caller
+        acknowledges the error, they can attempt to commit again.
+        """
         self._assert_open()
         if self.stream.received():
             return False
-        err = self.stream.send(
-            _Request(command=_Command.COMMIT, open_keys=[], segments=[])
-        )
+        err = self.stream.send(_Request(command=_Command.COMMIT))
         if err is not None:
             raise err
 
@@ -111,6 +150,10 @@ class CoreWriter:
                 return res.ack
 
     def error(self) -> Exception:
+        """Returns the exception that the writer has accumulated, if any. If the writer
+        has not accumulated an error, this method will return None. This method will
+        clear the writer's error state, allowing the writer to be used again.
+        """
         self._assert_open()
         self.stream.send(_Request(command=_Command.ERROR, open_keys=[], segments=[]))
 
@@ -124,9 +167,7 @@ class CoreWriter:
     def close(self):
         """Closes the writer, raising any accumulated error encountered during operation.
         A writer MUST be closed after use, and this method should probably be placed in
-        a 'finally' block. If the writer is not closed, the database will not release
-        the exclusive lock on the channels, preventing any other callers from writing to
-        them. It also might leak resources and threads.
+        a 'finally' block.
         """
         self._assert_open()
         self.stream.close_send()
@@ -136,15 +177,24 @@ class CoreWriter:
         if not isinstance(err, EOF):
             raise err
 
-    def _check_keys(self, segments: list[Payload]):
-        for segment in segments:
-            if segment.channel_key not in self.keys:
-                raise ValidationError(
-                    Field(
-                        "key",
-                        f"key {segment.key} is not in the list of keys for this writer.",
-                    )
+    def _check_keys(self, frame: BinaryFrame):
+        missing = set(self.keys) - set(frame.keys)
+        extra = set(frame.keys) - set(self.keys)
+        if missing and extra:
+            raise ValidationError(
+                Field(
+                    "keys",
+                    f"frame is missing keys {missing} and has extra keys {extra}",
                 )
+            )
+        elif missing:
+            raise ValidationError(
+                Field("keys", f"frame is missing keys {missing}")
+            )
+        elif extra:
+            raise ValidationError(
+                Field("keys", f"frame has extra keys {extra}")
+            )
 
     def _assert_open(self):
         if self.stream is None:
@@ -153,75 +203,32 @@ class CoreWriter:
             )
 
 
-class NumpyWriter:
-    """Used to write telemetry to a set of channels in time-order. It should not be
-    instantiated directly, and should instead be created using the segment client.
-
-    Using a writer is ideal when writing large volumes of data (such as recording telemetry
-    from a sensor), but it is relatively complex and challenging to use. If you're looking
-    to write a contiguous block of telemetry, see the segment Client write method instead.
+class DataFrameWriter(FrameWriter):
+    """DataFrameWriter extends the FrameWriter protocol by allowing the caller to Write
+    pandas DataFrames.
     """
 
-    core: CoreWriter
-    validators: list[Validator]
-    splitter: Splitter
-    channels: ChannelRegistry
+    registry: ChannelRegistry
+    channels: list[ChannelPayload]
 
     def __init__(
         self,
-        core: CoreWriter,
-        channels: ChannelRegistry,
+        client: StreamClient,
+        registry: ChannelRegistry,
     ) -> None:
-        self.core = core
-        self.validators = [
-            ScalarTypeValidator(),
-            # ContiguityValidator(dict(), allow_no_high_water_mark=True),
-        ]
-        self.encoder = NumpyEncoderDecoder()
-        self.splitter = Splitter(threshold=Size(4e6))
-        self.channels = channels
+        super().__init__(client)
+        self.registry = registry
+        self.channels = []
 
-    def open(self, keys: list[str]):
+    def open(self, start: UnparsedTimeStamp, keys: list[str]):
         """Opens the writer, acquiring an exclusive lock on the given
         channels for the duration of the writer's lifetime. open must be called before
         any other writer methods.
         """
-        self.core.open(keys)
+        super(DataFrameWriter, self).open(start, keys)
+        self.channels = self.registry.get_n(keys)
 
-    def commit(self) -> bool:
-        return self.core.commit()
-
-    def error(self) -> Exception:
-        return self.core.error()
-
-    def write(self, to: str, start: UnparsedTimeStamp, data: ndarray) -> bool:
-        """Writes the given telemetry to the database.
-
-        :param to: The key of the channel to write to. This key must be present
-        in the list of keys the writer was opened with.
-        :param start: The start timestamp of the first sample in data. This must be
-        equal to the end of the previous segment written to the channel (unless
-        this is the first segment written to the channel).
-        :param data: The telemetry to write. This must be a 1D numpy array with
-        the same data type as the channel.
-        :returns: False if the writer has accumulated an error. In this case,
-        the caller should stop executing requests and close the writer.
-        """
-        ch = self.channels.get(to)
-        frame = NumpyFrame(
-
+    def write(self, frame: DataFrame):
+        super(DataFrameWriter, self).write(
+            pandas_to_frame(self.channels, frame).to_binary(),
         )
-        for val in self.validators:
-            val.validate(seg)
-        encoded = SugaredBinarySegment.sugar(ch, self.encoder.encode(seg))
-        split = self.splitter.split(encoded)
-        return self.core.write([seg.payload() for seg in split])
-
-    def close(self):
-        """Closes the writer, raising any accumulated error encountered during operation.
-        A writer MUST be closed after use, and this method should probably be placed in
-        a 'finally' block. If the writer is not closed, the database will not release
-        the exclusive lock on the channels, preventing any other callers from writing to
-        them. It also might leak resources and threads.
-        """
-        self.core.close()

@@ -115,6 +115,9 @@ func (cfg Config) Override(other Config) Config {
 	cfg.KVEngine = override.Numeric(cfg.KVEngine, other.KVEngine)
 	cfg.TSEngine = override.Numeric(cfg.TSEngine, other.TSEngine)
 	cfg.MemBacked = override.Nil(cfg.MemBacked, other.MemBacked)
+	if *cfg.MemBacked {
+		cfg.Dirname = ""
+	}
 	return cfg
 }
 

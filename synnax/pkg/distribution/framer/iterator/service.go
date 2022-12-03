@@ -75,7 +75,6 @@ func OpenService(configs ...ServiceConfig) (*Service, error) {
 const (
 	peerSenderAddr   address.Address = "peerSender"
 	gatewayIterAddr  address.Address = "gatewayWriter"
-	ackFilterAddr    address.Address = "filter"
 	broadcasterAddr  address.Address = "broadcaster"
 	synchronizerAddr address.Address = "synchronizer"
 )
@@ -152,7 +151,6 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 		}.MustRoute(pipe)
 	}
 
-	plumber.SetSegment[Response, Response](pipe, ackFilterAddr, newAckFilter())
 	plumber.SetSegment[Response, Response](
 		pipe,
 		synchronizerAddr,
@@ -161,15 +159,13 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 
 	plumber.MultiRouter[Response]{
 		SourceTargets: receiverAddresses,
-		SinkTargets:   []address.Address{ackFilterAddr},
+		SinkTargets:   []address.Address{synchronizerAddr},
 		Stitch:        plumber.StitchUnary,
 		Capacity:      len(receiverAddresses),
 	}.MustRoute(pipe)
 
-	plumber.MustConnect[Response](pipe, ackFilterAddr, synchronizerAddr, 1)
-
 	seg := &plumber.Segment[Request, Response]{Pipeline: pipe}
-	lo.Must0(seg.RouteOutletFrom(ackFilterAddr, synchronizerAddr))
+	lo.Must0(seg.RouteOutletFrom(synchronizerAddr))
 	lo.Must0(seg.RouteInletTo(routeInletTo))
 	return seg, nil
 }

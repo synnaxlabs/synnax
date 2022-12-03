@@ -41,7 +41,7 @@ class _Response(Payload):
     ack: bool
     command: _Command | None = None
     error: ExceptionPayload | None = None
-    segments: list[Payload] | None = None
+    frame: BinaryFrame | None = None
 
 
 class CoreIterator:
@@ -172,7 +172,7 @@ class CoreIterator:
                 raise exc
             if r.variant == _ResponseVariant.ACK:
                 return r.ack
-            self.values += r.segments
+            self.values.append(r.frame)
 
 
 class NumpyIterator(CoreIterator):

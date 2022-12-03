@@ -57,17 +57,21 @@ func Open(configs ...ServiceConfig) (*Service, error) {
 	}
 	s := &Service{}
 	s.iterator, err = iterator.OpenService(iterator.ServiceConfig{
-		TS:           cfg.TS,
-		HostResolver: cfg.HostResolver,
-		Transport:    cfg.Transport.Iterator(),
+		TS:            cfg.TS,
+		HostResolver:  cfg.HostResolver,
+		Transport:     cfg.Transport.Iterator(),
+		ChannelReader: cfg.ChannelReader,
+		Logger:        cfg.Logger,
 	})
 	if err != nil {
 		return nil, err
 	}
 	s.writer, err = writer.OpenService(writer.ServiceConfig{
-		TS:           cfg.TS,
-		HostResolver: cfg.HostResolver,
-		Transport:    cfg.Transport.Writer(),
+		TS:            cfg.TS,
+		HostResolver:  cfg.HostResolver,
+		Transport:     cfg.Transport.Writer(),
+		ChannelReader: cfg.ChannelReader,
+		Logger:        cfg.Logger,
 	})
 	return s, err
 }

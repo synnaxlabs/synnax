@@ -119,7 +119,7 @@ var startCmd = &cobra.Command{
 			httpBranch := &server.HTTPBranch{Transports: []fhttp.BindableTransport{r}}
 			serverCfg := server.Config{
 				ListenAddress: address.Address(viper.GetString("listen-address")),
-				Logger:        logger,
+				Logger:        logger.Named("server"),
 				Branches:      []server.Branch{httpBranch, grpcBranch},
 			}
 			srv := server.New(serverCfg)

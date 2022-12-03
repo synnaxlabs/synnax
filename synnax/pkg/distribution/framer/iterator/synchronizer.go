@@ -2,6 +2,7 @@ package iterator
 
 import (
 	"context"
+	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/x/confluence"
 )
@@ -20,11 +21,19 @@ func newSynchronizer(nodeCount int) confluence.Segment[Response, Response] {
 }
 
 func (a *synchronizer) sync(_ context.Context, res Response) (Response, bool, error) {
+	if res.Variant == DataResponse {
+		logrus.Info("syncing data response", res)
+		return res, true, nil
+	}
 	ack, seqNum, fulfilled := a.internal.Sync(res.SeqNum, res.Ack)
-	return Response{
-		Variant: AckResponse,
-		Command: res.Command,
-		Ack:     ack,
-		SeqNum:  seqNum,
-	}, fulfilled, nil
+	if fulfilled {
+		logrus.Info("synchronizer: fulfilled", res)
+		return Response{
+			Variant: AckResponse,
+			Command: res.Command,
+			Ack:     ack,
+			SeqNum:  seqNum,
+		}, true, nil
+	}
+	return Response{}, false, nil
 }

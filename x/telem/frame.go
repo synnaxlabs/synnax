@@ -1,7 +1,7 @@
 package telem
 
 type Frame struct {
-	Arrays []Array
+	Arrays []Array `json:"arrays" msgpack:"arrays"`
 }
 
 func (f Frame) Even() bool {
@@ -9,7 +9,7 @@ func (f Frame) Even() bool {
 		if f.Arrays[i].Len() != f.Arrays[0].Len() {
 			return false
 		}
-		if f.Arrays[i].Range != f.Arrays[0].Range {
+		if f.Arrays[i].TimeRange != f.Arrays[0].TimeRange {
 			return false
 		}
 	}

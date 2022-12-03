@@ -27,7 +27,7 @@ var _ = Describe("WriterBehavior", func() {
 				Expect(w.Close()).To(Succeed())
 			})
 		})
-		Context("Range overlap", func() {
+		Context("TimeRange overlap", func() {
 			It("Should fail to open the writer", func() {
 				w := MustSucceed(db.NewWriter(ranger.WriterConfig{
 					Start: 10 * telem.SecondTS,
@@ -52,7 +52,7 @@ var _ = Describe("WriterBehavior", func() {
 				Expect(w.Close()).To(Succeed())
 			})
 		})
-		Context("Range overlap", func() {
+		Context("TimeRange overlap", func() {
 			It("Should fail to commit", func() {
 				w := MustSucceed(db.NewWriter(ranger.WriterConfig{
 					Start: 10 * telem.SecondTS,

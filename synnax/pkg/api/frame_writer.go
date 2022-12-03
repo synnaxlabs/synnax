@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	roacherrors "github.com/cockroachdb/errors"
+	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/ferrors"
 	"github.com/synnaxlabs/synnax/pkg/api/errors"
@@ -14,15 +15,15 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
+type FrameWriterConfig struct {
+	Start telem.TimeStamp `json:"start" msgpack:"start"`
+	Keys  []string        `json:"keys" msgpack:"keys"`
+}
+
 // FrameWriterRequest represents a request to write Framer data for a set of channels.
 type FrameWriterRequest struct {
-	Command WriterCommand `json:"command" msgpack:"command"`
-	//
-	Start telem.TimeStamp
-	// OpenKeys is a slice of Channel keys that the client plans to write to.
-	// OpenKeys should only be specified in the	first request to the server, and will be
-	// ignored in future requests.
-	OpenKeys []string `json:"open_keys" msgpack:"open_keys"`
+	Command WriterCommand     `json:"command" msgpack:"command"`
+	Config  FrameWriterConfig `json:"config" msgpack:"config"`
 	// Segments is the slice of segments to write. The segments must have keys that are
 	// elements of OpenKeys. The Segments field will be ignored in the first request to
 	// the server, and will only be used once an OpenKeys request has been issued.
@@ -67,7 +68,7 @@ type SegmentWriterStream = freighter.ServerStream[FrameWriterRequest, FrameWrite
 // implementation is expected to return a FrameWriterResponse.CloseMsg with the error,
 // and then wait for a reasonable amount of time for the client to close the
 // connection before forcibly terminating the connection.
-func (s *SegmentService) Write(_ctx context.Context, stream SegmentWriterStream) errors.Typed {
+func (s *FrameService) Write(_ctx context.Context, stream SegmentWriterStream) errors.Typed {
 	ctx, cancel := signal.WithCancel(_ctx, signal.WithLogger(s.logger.Desugar()))
 	// cancellation here would occur for one of two reasons. Either we encounter
 	// a fatal error (transport or writer internal) and we need to free all
@@ -136,12 +137,12 @@ func (s *SegmentService) Write(_ctx context.Context, stream SegmentWriterStream)
 	}
 }
 
-func (s *SegmentService) openWriter(ctx context.Context, srv SegmentWriterStream) (framer.StreamWriter, errors.Typed) {
-	start, keys, _err := receiveWriterOpenArgs(srv)
+func (s *FrameService) openWriter(ctx context.Context, srv SegmentWriterStream) (framer.StreamWriter, errors.Typed) {
+	cfg, _err := receiveWriterOpenConfig(srv)
 	if _err.Occurred() {
 		return nil, _err
 	}
-	w, err := s.Internal.NewStreamWriter(ctx, framer.WriterConfig{Start: start, Keys: keys})
+	w, err := s.Internal.NewStreamWriter(ctx, cfg)
 	if err != nil {
 		return nil, errors.Query(err)
 	}
@@ -149,22 +150,18 @@ func (s *SegmentService) openWriter(ctx context.Context, srv SegmentWriterStream
 	return w, errors.MaybeUnexpected(srv.Send(FrameWriterResponse{}))
 }
 
-func receiveWriterOpenArgs(
+func receiveWriterOpenConfig(
 	srv SegmentWriterStream,
-) (telem.TimeStamp, channel.Keys, errors.Typed) {
+) (cfg framer.WriterConfig, _ errors.Typed) {
 	req, err := srv.Receive()
 	if err != nil {
-		return 0, nil, errors.Unexpected(err)
+		return cfg, errors.Unexpected(err)
 	}
-	keys, err := channel.ParseKeys(req.OpenKeys)
+	logrus.Info(req.Config.Keys)
+	keys, err := channel.ParseKeys(req.Config.Keys)
 	if err != nil {
-		return 0, nil, errors.Validation(errors.Field{Field: "open_keys", Message: err.Error()})
+		return cfg, errors.Validation(errors.Field{Field: "config.openKeys", Message: err.Error()})
 	}
-	if len(keys) == 0 {
-		return 0, nil, errors.Validation(errors.Field{
-			Field:   "open_keys",
-			Message: "must contain at least one key",
-		})
-	}
-	return req.Start, keys, errors.Nil
+	cfg.Keys = keys
+	return cfg, errors.Nil
 }

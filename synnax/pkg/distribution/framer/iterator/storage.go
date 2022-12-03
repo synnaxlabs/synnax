@@ -24,7 +24,7 @@ func (s *Service) newGateway(cfg Config) (confluence.Segment[Request, Response],
 	plumber.SetSegment[cesium.IteratorRequest, cesium.IteratorResponse](pipe, "storage", iter)
 	plumber.SetSegment[Request, cesium.IteratorRequest](pipe, "requests", reqT)
 	plumber.SetSegment[cesium.IteratorResponse, Response](pipe, "responses", resT)
-	plumber.MustConnect[storage.TSIteratorRequest](pipe, "requests", "iterator", 1)
+	plumber.MustConnect[storage.TSIteratorRequest](pipe, "requests", "storage", 1)
 	plumber.MustConnect[storage.TSIteratorResponse](pipe, "storage", "responses", 1)
 	seg := &plumber.Segment[Request, Response]{Pipeline: pipe}
 	lo.Must0(seg.RouteInletTo("requests"))

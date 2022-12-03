@@ -1,2 +1,2 @@
 from .client import FramerClient
-from .writer import NumpyWriter, CoreWriter
+from .writer import DataFrameWriter, FrameWriter

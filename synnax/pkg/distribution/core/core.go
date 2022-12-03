@@ -53,7 +53,7 @@ func Open(ctx context.Context, cfg Config) (c Core, err error) {
 		cfg.PeerAddresses,
 		aspen.WithEngine(c.Storage.KV),
 		aspen.WithExperiment(cfg.Experiment),
-		aspen.WithLogger(cfg.Logger.Sugar()),
+		aspen.WithLogger(cfg.Logger.Named("aspen").Sugar()),
 		aspen.WithTransport(clusterTransport),
 	)
 	c.Cluster = clusterKV

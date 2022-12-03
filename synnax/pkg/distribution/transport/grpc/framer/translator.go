@@ -143,7 +143,7 @@ func tranArrayFwd(arrays []*fv1.Array) []telem.Array {
 	for i, arr := range arrays {
 		tArrays[i] = telem.Array{
 			DataType: telem.DataType(arr.DataType),
-			Range: telem.TimeRange{
+			TimeRange: telem.TimeRange{
 				Start: telem.TimeStamp(arr.Range.Start),
 				End:   telem.TimeStamp(arr.Range.End),
 			},
@@ -159,8 +159,8 @@ func tranArrBwd(arrays []telem.Array) []*fv1.Array {
 		tArrays[i] = &fv1.Array{
 			DataType: string(arr.DataType),
 			Range: &fv1.TimeRange{
-				Start: int64(arr.Range.Start),
-				End:   int64(arr.Range.End),
+				Start: int64(arr.TimeRange.Start),
+				End:   int64(arr.TimeRange.End),
 			},
 			Data: arr.Data,
 		}
