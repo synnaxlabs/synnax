@@ -2,6 +2,8 @@ package channel
 
 import (
 	"context"
+	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/x/query"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
@@ -12,6 +14,7 @@ import (
 // layer.
 type Retrieve struct {
 	gorp gorp.Retrieve[Key, Channel]
+	keys Keys
 	db   *gorp.DB
 }
 
@@ -43,6 +46,7 @@ func (r Retrieve) WhereNames(names ...string) Retrieve {
 // WhereKeys filters for channels with the provided Key. This is an identical interface
 // to gorp.Retrieve.
 func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
+	r.keys = append(r.keys, keys...)
 	r.gorp.WhereKeys(keys...)
 	return r
 }
@@ -52,11 +56,25 @@ func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 func (r Retrieve) WithTxn(txn gorp.Txn) Retrieve { gorp.SetTxn(r.gorp, txn); return r }
 
 // Exec executes the query, binding
-func (r Retrieve) Exec(ctx context.Context) error { return r.gorp.Exec(gorp.GetTxn(r.gorp, r.db)) }
+func (r Retrieve) Exec(_ context.Context) error {
+	return r.maybeEnrichError(r.gorp.Exec(gorp.GetTxn(r.gorp, r.db)))
+}
 
 // Exists checks if the query has results matching its parameters. If used in conjunction
 // with WhereKeys, Exists will ONLY return true if ALL the keys have a matching Channel.
 // Otherwise, Exists returns true if the query has ANY results.
 func (r Retrieve) Exists(ctx context.Context) (bool, error) {
 	return r.gorp.Exists(gorp.GetTxn(r.gorp, r.db))
+}
+
+func (r Retrieve) maybeEnrichError(err error) error {
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, query.NotFound) && len(r.keys) > 0 {
+		channels := gorp.GetEntries[Key, Channel](r.gorp).All()
+		diff, _ := r.keys.Difference(KeysFromChannels(channels))
+		return errors.Wrapf(query.NotFound, "channels with keys %v not found", diff)
+	}
+	return err
 }

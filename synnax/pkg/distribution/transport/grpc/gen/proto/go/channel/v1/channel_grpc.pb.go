@@ -18,7 +18,7 @@ import (
 // Requires gRPC-Go v1.32.0 or later.
 const _ = grpc.SupportPackageIsVersion7
 
-// ChannelServiceClient is the client API for ChannelReader service.
+// ChannelServiceClient is the client API for ChannelService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ChannelServiceClient interface {
@@ -35,14 +35,14 @@ func NewChannelServiceClient(cc grpc.ClientConnInterface) ChannelServiceClient {
 
 func (c *channelServiceClient) Exec(ctx context.Context, in *CreateMessage, opts ...grpc.CallOption) (*CreateMessage, error) {
 	out := new(CreateMessage)
-	err := c.cc.Invoke(ctx, "/channel.v1.ChannelReader/Exec", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/channel.v1.ChannelService/Exec", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// ChannelServiceServer is the server API for ChannelReader service.
+// ChannelServiceServer is the server API for ChannelService service.
 // All implementations should embed UnimplementedChannelServiceServer
 // for forward compatibility
 type ChannelServiceServer interface {
@@ -78,7 +78,7 @@ func _ChannelService_Exec_Handler(srv interface{}, ctx context.Context, dec func
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/channel.v1.ChannelReader/Exec",
+		FullMethod: "/channel.v1.ChannelService/Exec",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ChannelServiceServer).Exec(ctx, req.(*CreateMessage))
@@ -86,11 +86,11 @@ func _ChannelService_Exec_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
-// ChannelService_ServiceDesc is the grpc.ServiceDesc for ChannelReader service.
+// ChannelService_ServiceDesc is the grpc.ServiceDesc for ChannelService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var ChannelService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "channel.v1.ChannelReader",
+	ServiceName: "channel.v1.ChannelService",
 	HandlerType: (*ChannelServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{

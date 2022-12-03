@@ -56,7 +56,7 @@ const (
 var tsEngines = []TSEngine{CesiumTS}
 
 // Store represents a node's local storage. The provided KV and TS engines can be
-// used to read and write data. LocalKey Store must be closed when it is no longer in use.
+// used to read and write data. A Store must be closed when it is no longer in use.
 type Store struct {
 	// Config is the configuration for the storage provided to Open.
 	Config Config

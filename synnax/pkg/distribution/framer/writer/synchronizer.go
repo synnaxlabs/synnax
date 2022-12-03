@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/signal"
 )
 
 type synchronizer struct {
@@ -22,14 +23,7 @@ func newSynchronizer(nodeCount int, bulkheadSig chan bool) confluence.Segment[Re
 	return s
 }
 
-func (a *synchronizer) sync(_ context.Context, res Response) (Response, bool, error) {
-	// If we receive a negative ack from a data write on any node, close the bulkhead
-	// to prevent more writes from being processed.
-	if res.Command == Data && !res.Ack {
-		a.bulkheadSignal <- true
-		return res, true, nil
-	}
-
+func (a *synchronizer) sync(ctx context.Context, res Response) (Response, bool, error) {
 	// If the SeqNum is -1, it means the responses is coming from transient errors in
 	// the gateway execution pipeline. In this case, we artificially increment the
 	// sequence number to ensure the caller receives the correct sequence numbers for
@@ -37,15 +31,23 @@ func (a *synchronizer) sync(_ context.Context, res Response) (Response, bool, er
 	if res.SeqNum == -1 {
 		res.SeqNum = a.internal.SeqNum
 		a.artificialSeqNumInc++
-		return res, true, nil
+		return res, true, signal.SendUnderContext(ctx, a.bulkheadSignal, true)
+	}
+
+	// If we receive a negative ack from a data write on any node, close the validator
+	// to prevent more writes from being processed.
+	if res.Command == Data && !res.Ack {
+		return res, true, signal.SendUnderContext(ctx, a.bulkheadSignal, true)
 	}
 
 	ack, seqNum, fulfilled := a.internal.Sync(res.SeqNum, res.Ack)
 	if fulfilled {
 		// If the caller has acknowledged the error by sending an error info request,
-		// we're free to open the bulkhead again and allow writes.
+		// we're free to open the validator again and allow writes.
 		if res.Command == Error {
-			a.bulkheadSignal <- false
+			if err := signal.SendUnderContext(ctx, a.bulkheadSignal, false); err != nil {
+				return res, true, err
+			}
 		}
 		return Response{
 			Command: res.Command,

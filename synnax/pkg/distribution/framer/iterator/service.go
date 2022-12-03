@@ -2,10 +2,10 @@ package iterator
 
 import (
 	"context"
+	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/address"
@@ -13,6 +13,7 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -97,7 +98,7 @@ func (s *Service) New(ctx context.Context, cfg Config) (Iterator, error) {
 }
 
 func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, error) {
-	if err := core.ValidateChannelKeys(ctx, s.ChannelReader, cfg.Keys); err != nil {
+	if err := s.validateChannelKeys(ctx, cfg.Keys); err != nil {
 		return nil, err
 	}
 
@@ -165,10 +166,25 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 		Capacity:      len(receiverAddresses),
 	}.MustRoute(pipe)
 
-	plumber.MustConnect(pipe, ackFilterAddr, synchronizerAddr, 1)
+	plumber.MustConnect[Response](pipe, ackFilterAddr, synchronizerAddr, 1)
 
 	seg := &plumber.Segment[Request, Response]{Pipeline: pipe}
 	lo.Must0(seg.RouteOutletFrom(ackFilterAddr, synchronizerAddr))
 	lo.Must0(seg.RouteInletTo(routeInletTo))
 	return seg, nil
+}
+
+func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) error {
+	v := validate.New("distribution.framer.iterator")
+	if validate.NotEmptySlice(v, "Keys", keys) {
+		return v.Error()
+	}
+	exists, err := s.ChannelReader.NewRetrieve().WhereKeys(keys...).Exists(ctx)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return errors.Wrapf(query.NotFound, "some channel keys %v not found", keys)
+	}
+	return nil
 }

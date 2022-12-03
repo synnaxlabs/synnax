@@ -24,21 +24,25 @@ var (
 type writerRequestTranslator struct{}
 
 func (w writerRequestTranslator) Backward(req *fv1.WriterRequest) (writer.Request, error) {
-	keys, err := channel.ParseKeys(req.OpenKeys)
+	keys, err := channel.ParseKeys(req.Config.Keys)
 	return writer.Request{
 		Command: writer.Command(req.Command),
-		Keys:    keys,
-		Start:   telem.TimeStamp(req.Start),
-		Frame:   tranFrameFwd(req.Frame),
+		Config: writer.Config{
+			Keys:  keys,
+			Start: telem.TimeStamp(req.Config.Start),
+		},
+		Frame: tranFrameFwd(req.Frame),
 	}, err
 }
 
 func (w writerRequestTranslator) Forward(req writer.Request) (*fv1.WriterRequest, error) {
 	return &fv1.WriterRequest{
-		Command:  int32(req.Command),
-		OpenKeys: req.Keys.Strings(),
-		Start:    int64(req.Start),
-		Frame:    tranFrmBwd(req.Frame),
+		Command: int32(req.Command),
+		Config: &fv1.WriterConfig{
+			Keys:  req.Config.Keys.Strings(),
+			Start: int64(req.Config.Start),
+		},
+		Frame: tranFrmBwd(req.Frame),
 	}, nil
 }
 

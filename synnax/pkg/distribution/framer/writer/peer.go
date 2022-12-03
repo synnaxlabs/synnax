@@ -15,7 +15,7 @@ import (
 func (s *Service) openManyPeers(
 	ctx context.Context,
 	targets map[core.NodeID][]channel.Key,
-) (confluence.Segment[Request, Response], []*freightfluence.Receiver[Response], []address.Address, error) {
+) (confluence.Sink[Request], []*freightfluence.Receiver[Response], []address.Address, error) {
 	var (
 		receivers         = make([]*freightfluence.Receiver[Response], 0, len(targets))
 		addrMap           = make(proxy.AddressMap)
@@ -50,5 +50,5 @@ func (s *Service) openPeerClient(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	return client, client.Send(Request{Keys: cfg.Keys})
+	return client, client.Send(Request{Config: cfg})
 }

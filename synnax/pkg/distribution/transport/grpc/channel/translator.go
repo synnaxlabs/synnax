@@ -14,7 +14,7 @@ func (c createMessageTranslator) Forward(msg channel.CreateMessage) (*channelv1.
 	tr := &channelv1.CreateMessage{}
 	for _, ch := range msg.Channels {
 		tr.Channels = append(tr.Channels, &channelv1.Channel{
-			StorageKey:   int32(ch.LocalKey),
+			StorageKey:   int32(ch.StorageKey),
 			Name:         ch.Name,
 			NodeId:       int32(ch.NodeID),
 			DataType:     string(ch.DataType),
@@ -30,7 +30,7 @@ func (c createMessageTranslator) Backward(msg *channelv1.CreateMessage) (channel
 	var tr channel.CreateMessage
 	for _, ch := range msg.Channels {
 		tr.Channels = append(tr.Channels, channel.Channel{
-			LocalKey:   storage.ChannelKey(ch.StorageKey),
+			StorageKey: storage.ChannelKey(ch.StorageKey),
 			Name:       ch.Name,
 			NodeID:     dcore.NodeID(ch.NodeId),
 			DataType:   telem.DataType(ch.DataType),

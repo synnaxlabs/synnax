@@ -47,6 +47,9 @@ func (w *writer) Commit() bool {
 	select {
 	case <-w.wg.Stopped():
 		return false
+	case <-w.responses.Outlet():
+		w.hasAccumulatedErr = true
+		return false
 	case w.requests.Inlet() <- Request{Command: Commit}:
 	}
 	for res := range w.responses.Outlet() {
@@ -69,9 +72,9 @@ func (w *writer) Error() error {
 
 func (w *writer) Close() error {
 	w.requests.Close()
-	err := w.wg.Wait()
 	for range w.responses.Outlet() {
 	}
+	err := w.wg.Wait()
 	w.shutdown()
 	return err
 }

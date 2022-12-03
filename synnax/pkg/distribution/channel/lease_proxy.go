@@ -84,7 +84,7 @@ func (lp *leaseProxy) assignLocalKeys(channels *[]Channel) error {
 		return lp.counter.Error()
 	}
 	for i, ch := range *channels {
-		ch.LocalKey = storage.ChannelKey(v - uint16(i))
+		ch.StorageKey = storage.ChannelKey(v - uint16(i))
 		(*channels)[i] = ch
 	}
 	return nil

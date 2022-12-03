@@ -71,7 +71,7 @@ func (cfg Config) Validate() error {
 	validate.NotNil(v, "logger", cfg.Logger)
 	validate.NotNil(v, "EncoderDecoder", cfg.EncoderDecoder)
 	validate.NonZero(v, "StorageFlushInterval", cfg.StorageFlushInterval)
-	validate.NotEmptySlice(v, "LocalKey", cfg.StorageKey)
+	validate.NotEmptySlice(v, "StorageKey", cfg.StorageKey)
 	v.Exec(cfg.Gossip.Validate)
 	v.Exec(cfg.Pledge.Validate)
 	return v.Error()

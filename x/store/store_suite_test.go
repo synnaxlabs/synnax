@@ -9,5 +9,5 @@ import (
 
 func TestStore(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "LocalKey Suite")
+	RunSpecs(t, "Store Suite")
 }

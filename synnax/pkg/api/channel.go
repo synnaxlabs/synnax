@@ -148,7 +148,7 @@ func translateChannelsBackward(channels []Channel) ([]channel.Channel, error) {
 			if err != nil {
 				return nil, err
 			}
-			tCH.LocalKey = key.LocalKey()
+			tCH.StorageKey = key.LocalKey()
 		}
 		if ch.Index != "" {
 			index, err := channel.ParseKey(ch.Index)

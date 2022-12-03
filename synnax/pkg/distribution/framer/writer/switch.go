@@ -2,27 +2,25 @@ package writer
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/confluence"
-	"github.com/synnaxlabs/x/signal"
+	"go.uber.org/zap"
 )
 
 type peerSwitchSender struct {
 	freightfluence.BatchSwitchSender[Request, Request]
-	confluence.AbstractUnarySource[Response]
-	addresses      proxy.AddressMap
-	accumulatedErr error
+	addresses proxy.AddressMap
+	logger    *zap.Logger
 }
 
 func newRequestSwitchSender(
 	addresses proxy.AddressMap,
 	senders map[address.Address]freighter.StreamSenderCloser[Request],
-) confluence.Segment[Request, Response] {
+) confluence.Sink[Request] {
 	rs := &peerSwitchSender{addresses: addresses}
 	rs.Senders = freightfluence.MapTargetedSender[Request](senders)
 	rs.BatchSwitchSender.ApplySwitch = rs._switch
@@ -34,26 +32,11 @@ func (rs *peerSwitchSender) _switch(
 	r Request,
 	oReqs map[address.Address]Request,
 ) error {
-	if rs.accumulatedErr != nil {
-		if r.Command == Error {
-			if err := signal.SendUnderContext(ctx, rs.Out.Inlet(), Response{
-				Command: r.Command,
-				Ack:     false,
-			}); err != nil {
-				return err
-			}
-			rs.accumulatedErr = nil
-		}
-		return nil
-	}
 	if r.Command == Data {
 		for nodeID, frame := range r.Frame.SplitByNodeID() {
 			addr, ok := rs.addresses[nodeID]
 			if !ok {
-				return signal.SendUnderContext[Response](ctx, rs.Out.Inlet(), Response{
-					Command: Error,
-					Err:     errors.New("no address found for nodeID"),
-				})
+				rs.logger.DPanic("missing address for node", zap.Uint32("node", uint32(nodeID)))
 			}
 			r.Frame = frame
 			oReqs[addr] = r

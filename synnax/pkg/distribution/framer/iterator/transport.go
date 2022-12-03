@@ -40,6 +40,7 @@ type Request struct {
 	Keys channel.Keys
 }
 
+//go:generate stringer -type=ResponseVariant
 type ResponseVariant uint8
 
 const (

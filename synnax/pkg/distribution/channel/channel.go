@@ -125,7 +125,12 @@ func (k Keys) Strings() []string {
 	return s
 }
 
+// Unique removes duplicate keys from the slice and returns the result.
 func (k Keys) Unique() Keys { return lo.Uniq(k) }
+
+// Difference compares two sets of keys and returns the keys that are absent in other
+// followed by the keys that are absent in k.
+func (k Keys) Difference(other Keys) (Keys, Keys) { return lo.Difference(k, other) }
 
 // Channel is a collection is a container representing a collection of samples across
 // a time range. The data within a channel typically arrives from a single source. This
@@ -160,7 +165,7 @@ type Channel struct {
 	Rate telem.Rate
 	// Key is a unique identifier for the channel within a cesium.DB. If not set when
 	// creating a channel, a unique key will be generated.
-	LocalKey storage.ChannelKey
+	StorageKey storage.ChannelKey
 	// LocalIndex is the channel used to index the channel's values. The LocalIndex is used to
 	// associate a value with a timestamp. If zero, the channel's data will be indexed
 	// using its rate. One of LocalIndex or Rate must be non-zero.
@@ -168,7 +173,7 @@ type Channel struct {
 }
 
 // Key returns the key for the Channel.
-func (c Channel) Key() Key { return NewKey(c.NodeID, c.LocalKey) }
+func (c Channel) Key() Key { return NewKey(c.NodeID, c.StorageKey) }
 
 // Index returns the key for the Channel's index channel.
 func (c Channel) Index() Key { return NewKey(c.NodeID, c.LocalIndex) }
