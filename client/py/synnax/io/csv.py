@@ -1,4 +1,3 @@
-from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -52,7 +51,6 @@ class CSVReader(CSVMatcher):
     def path(self) -> Path:
         return self._path
 
-    @property
     def nsamples(self) -> int:
         if not self._row_count:
             self._row_count = estimate_row_count(self._path)
@@ -72,16 +70,21 @@ def estimate_row_count(path: Path) -> int:
 
 
 class CSVWriter(CSVMatcher):
+    """A Writer implementation for CSV files.
+    """
     _path: Path
+    _header: bool
 
     def __init__(
         self,
         path: Path,
     ):
         self._path = path
+        self._header = True
 
     def write(self, df: pd.DataFrame):
-        df.to_csv(self._path, index=False)
+        df.to_csv(self._path, index=False, mode='a', header=self._header)
+        self._header = False
 
     def path(self) -> Path:
         return self._path

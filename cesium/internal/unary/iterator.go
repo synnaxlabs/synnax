@@ -219,7 +219,7 @@ func (i *Iterator) read(start telem.Offset, size telem.Size) (arr telem.Array, _
 		return
 	}
 	n, err := r.ReadAt(b, int64(start))
-	if err != nil {
+	if err != nil && !errors.Is(err, io.EOF) {
 		return arr, err
 	}
 	if n < len(b) {

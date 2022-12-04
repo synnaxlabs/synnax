@@ -21,9 +21,13 @@ def convert_timestamp_precision():
     curr = prompt_time_units_select(ctx)
     ctx.console.info("What is the desired precision?")
     desired = prompt_time_units_select(ctx)
-    reader.set_chunk_size(100000000)
-    df = reader.read()
-    converted = convert_time_units(df[ch.name], curr, desired)
-    df[ch.name] = converted.astype(np.int64)
-    w = io_factory.new_writer(reader.path().parent / "masa-hotfire.csv")
-    w.write(df)
+    path = ctx.console.ask("Where would you like to save the converted data?")
+    writer = io_factory.new_writer(reader.path().parent / path)
+    reader.set_chunk_size(25000)
+    while True:
+        try:
+            chunk = reader.read()
+        except StopIteration:
+            break
+        chunk[ch.name] = convert_time_units(chunk[ch.name], curr, desired).astype(np.int64)
+        writer.write(chunk)

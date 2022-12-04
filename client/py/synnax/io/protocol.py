@@ -56,10 +56,10 @@ class BaseReader(Matcher):
         """:returns: the path to the file."""
         ...
 
-    @property
     def nsamples(self) -> int:
         """:returns: the number of samples in the file.
         """
+        ...
 
 
 class RowReader(BaseReader):
@@ -101,7 +101,9 @@ class Writer(Matcher):
         ...
 
     def write(self, df: DataFrame):
-        """Writes the given dataframe to the file."""
+        """Writes the given dataframe to the file. If the file already contains data,
+        the new frame is appended to the existing data.
+        """
         ...
 
     def path(self) -> Path:

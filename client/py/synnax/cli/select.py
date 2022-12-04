@@ -26,4 +26,4 @@ def select_from_table(
         default = "None"
         ctx.console.info("Press enter to select nothing.")
     i = ctx.console.ask("Select an option #", choices=choices, default=default)
-    return None if i is "None" else int(i)
+    return None if i  == "None" else int(i)

@@ -2,8 +2,13 @@ import gc
 from datetime import datetime
 
 from pandas import DataFrame
-from rich.progress import Progress, TextColumn, BarColumn, TaskProgressColumn, \
+from rich.progress import (
+    Progress,
+    TextColumn,
+    BarColumn,
+    TaskProgressColumn,
     TimeElapsedColumn
+)
 
 from .. import Channel, Synnax
 from ..telem import MEGABYTE, TimeStamp
@@ -60,16 +65,15 @@ class RowIngestionEngine:
                 TimeElapsedColumn(),
                 TextColumn("{task.fields[tp]} samples/s"),
             ) as progress:
-                task = progress.add_task("ingest", total=self.reader.nsamples, tp=0)
+                task = progress.add_task("ingest", total=self.reader.nsamples(), tp=0)
                 while True:
                     try:
                         t0 = datetime.now()
                         chunk = self.reader.read()
                         self._write(chunk)
                         gc.collect()
-                        progress.update(task, advance=chunk.size,
-                                        tp=chunk.size / (
-                                            datetime.now() - t0).total_seconds())
+                        tp = chunk.size / (datetime.now() - t0).total_seconds()
+                        progress.update(task, advance=chunk.size,tp=tp)
                     except StopIteration:
                         break
             self.writer.commit()
@@ -81,11 +85,3 @@ class RowIngestionEngine:
             if channel.name in df.columns:
                 df.rename(columns={channel.name: channel.key}, inplace=True)
         self.writer.write(df)
-
-    def _get_channel(self, name: str):
-        """Get the channel object from the list of channels"""
-        for ch in self.channels:
-            print(name, ch.name)
-            if ch.name == name:
-                return ch
-        return None

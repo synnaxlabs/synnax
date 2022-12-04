@@ -1,16 +1,14 @@
 import numpy as np
 import pandas as pd
+from synnax import telem
 
 from synnax.channel.registry import ChannelRegistry
-from synnax.exceptions import ContiguityError
 from .iterator import NumpyIterator, AUTO_SPAN
 from .writer import DataFrameWriter
 from synnax.telem import TimeRange, UnparsedTimeStamp, NumpyArray
 from synnax.transport import Transport
 
 from . import iterator
-from .. import telem
-
 
 class FramerClient:
     """SegmentClient provides interfaces for reading and writing segmented
