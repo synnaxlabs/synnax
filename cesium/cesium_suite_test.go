@@ -22,7 +22,7 @@ func openMemDB() cesium.DB {
 
 func TestCaesium(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Caesium Suite")
+	RunSpecs(t, "Cesium Suite")
 }
 
 var _ = BeforeSuite(func() {

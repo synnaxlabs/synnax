@@ -232,7 +232,7 @@ const (
 type Offset = Size
 
 // String implements fmt.Stringer.
-func (s Size) String() string { return strconv.Itoa(int(s)) + "V" }
+func (s Size) String() string { return strconv.Itoa(int(s)) + "B" }
 
 // |||||| DATA RATE ||||||
 

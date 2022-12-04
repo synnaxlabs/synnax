@@ -101,7 +101,7 @@ func (i *Ranger) Distance(tr telem.TimeRange, continuous bool) (approx DistanceA
 }
 
 // Stamp implements Index.
-func (i *Ranger) Stamp(ref telem.TimeStamp, offset int64) (approx TimeStampApproximation, err error) {
+func (i *Ranger) Stamp(ref telem.TimeStamp, offset int64, continuous bool) (approx TimeStampApproximation, err error) {
 	i.Logger.Debug("idx stamp",
 		zap.Stringer("ref", ref),
 		zap.Int64("offset", offset),
@@ -114,8 +114,12 @@ func (i *Ranger) Stamp(ref telem.TimeStamp, offset int64) (approx TimeStampAppro
 			zap.Error(err),
 		)
 	}()
+
 	iter := i.DB.NewIterator(ranger.IterRange(ref.SpanRange(telem.TimeSpanMax)))
-	if !iter.SeekFirst() || !iter.Range().ContainsStamp(ref) {
+
+	if !iter.SeekFirst() ||
+		!iter.Range().ContainsStamp(ref) ||
+		(offset >= iter.Len()/8 && continuous) {
 		err = ErrDiscontinuous
 		return
 	}
@@ -134,16 +138,36 @@ func (i *Ranger) Stamp(ref telem.TimeStamp, offset int64) (approx TimeStampAppro
 		return
 	}
 
-	if startApprox.Lower+offset >= iter.Len()/8 {
-		approx = Between(iter.Range().End, telem.TimeStampMax)
-		return
+	endOffset := startApprox.Upper + offset
+	gap := iter.Len() / 8
+	if endOffset > iter.Len()/8 {
+		for {
+			if !iter.Next() {
+				if continuous {
+					err = ErrDiscontinuous
+					return
+				}
+				approx = Between(iter.Range().End, telem.TimeStampMax)
+				return
+			}
+			gap += iter.Len() / 8
+			if endOffset < gap {
+				r, err = iter.NewReader()
+				if err != nil {
+					return
+				}
+				endOffset -= gap - iter.Len()/8
+				break
+			}
+		}
+
 	}
 
-	lowerTs, err := readStamp(r, (startApprox.Lower+offset)*8, make([]byte, 8))
+	lowerTs, err := readStamp(r, (endOffset-(startApprox.Upper-startApprox.Lower))*8, make([]byte, 8))
 	if err != nil {
 		return
 	}
-	upperTs, err := readStamp(r, (startApprox.Upper+offset)*8, make([]byte, 8))
+	upperTs, err := readStamp(r, (endOffset)*8, make([]byte, 8))
 	if err != nil {
 		return
 	}

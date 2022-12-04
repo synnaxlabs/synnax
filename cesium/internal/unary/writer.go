@@ -67,7 +67,7 @@ func (w *Writer) commitWithEnd(end telem.TimeStamp) (telem.TimeStamp, error) {
 	if end.IsZero() {
 		// we're using w.numWritten - 1 here because we want the timestamp of the last
 		// written frame.
-		approx, err := w.idx.Stamp(w.start, w.numWritten-1)
+		approx, err := w.idx.Stamp(w.start, w.numWritten-1, true)
 		if err != nil {
 			return 0, err
 		}

@@ -201,7 +201,7 @@ func (w *streamWriter) resolveCommitEnd() (index.TimeStampApproximation, error) 
 	if w.writingToIdx {
 		return index.Exactly(w.idx.highWaterMark), nil
 	}
-	return w.idx.Stamp(w.Start, w.sampleCount-1)
+	return w.idx.Stamp(w.Start, w.sampleCount-1, true)
 }
 
 func (w *streamWriter) close() error {

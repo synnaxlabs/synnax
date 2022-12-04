@@ -43,7 +43,7 @@ var _ = Describe("Rate", func() {
 	Describe("Stamp", func() {
 		DescribeTable("Distance", func(ts telem.TimeStamp, dist int, expected index.TimeStampApproximation) {
 			idx := index.Rate{Rate: 1 * telem.Hz, Logger: zap.NewNop()}
-			actual := MustSucceed(idx.Stamp(ts, int64(dist)))
+			actual := MustSucceed(idx.Stamp(ts, int64(dist), true))
 			Expect(actual).To(Equal(expected))
 		},
 			Entry("Zero zero",

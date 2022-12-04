@@ -132,7 +132,7 @@ var _ = Describe("Ranger", func() {
 				expected index.TimeStampApproximation,
 				expectedErr error,
 			) {
-				actual, err := idx.Stamp(start, int64(distance))
+				actual, err := idx.Stamp(start, int64(distance), true)
 				if expectedErr != nil {
 					Expect(err).To(HaveOccurredAs(expectedErr))
 				} else {
@@ -161,13 +161,71 @@ var _ = Describe("Ranger", func() {
 				Entry("Ref in range and exact, distance out of range",
 					2*telem.SecondTS,
 					20,
-					index.Between(20*telem.SecondTS+1, telem.TimeStampMax),
-					nil,
+					index.Exactly[telem.TimeStamp](0),
+					index.ErrDiscontinuous,
 				),
 				Entry("Ref in range and inexact",
 					4*telem.SecondTS,
 					3,
 					index.Between[telem.TimeStamp](9*telem.SecondTS, 15*telem.SecondTS),
+					nil,
+				),
+			)
+		})
+		Context("Discontinuous", func() {
+			BeforeEach(func() {
+				Expect(ranger.Write(
+					db,
+					(1 * telem.SecondTS).Range(20*telem.SecondTS+1),
+					telem.NewSecondsTSV(1, 2, 3, 5, 7, 9, 15, 19, 20).Data,
+				)).To(Succeed())
+				Expect(ranger.Write(
+					db,
+					(30 * telem.SecondTS).Range(40*telem.SecondTS+1),
+					telem.NewSecondsTSV(30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40).Data,
+				))
+				Expect(ranger.Write(
+					db,
+					(55 * telem.SecondTS).Range(65*telem.SecondTS+1),
+					telem.NewSecondsTSV(55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65).Data,
+				))
+			})
+			DescribeTable("Discontinuous", func(
+				start telem.TimeStamp,
+				distance int,
+				expected index.TimeStampApproximation,
+				expectedErr error,
+			) {
+				actual, err := idx.Stamp(start, int64(distance), false)
+				if expectedErr != nil {
+					Expect(err).To(HaveOccurredAs(expectedErr))
+				} else {
+					Expect(err).To(BeNil())
+				}
+				Expect(actual).To(Equal(expected))
+			},
+				Entry("Crossing Range",
+					2*telem.SecondTS,
+					15,
+					index.Exactly(37*telem.SecondTS),
+					nil,
+				),
+				Entry("Crossing Multiple Ranges",
+					2*telem.SecondTS,
+					27,
+					index.Exactly(63*telem.SecondTS),
+					nil,
+				),
+				Entry("End of last Range",
+					2*telem.SecondTS,
+					30,
+					index.Between(65*telem.SecondTS+1, telem.TimeStampMax),
+					nil,
+				),
+				Entry("After All Ranges",
+					2*telem.SecondTS,
+					500,
+					index.Between(65*telem.SecondTS+1, telem.TimeStampMax),
 					nil,
 				),
 			)

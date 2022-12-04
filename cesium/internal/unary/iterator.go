@@ -114,7 +114,7 @@ func (i *Iterator) autoNext() bool {
 		i.err = err
 		return false
 	}
-	endApprox, err := i.idx.Stamp(i.view.Start, i.IteratorConfig.AutoChunkSize)
+	endApprox, err := i.idx.Stamp(i.view.Start, i.IteratorConfig.AutoChunkSize, false)
 	if err != nil {
 		i.err = err
 		return false
@@ -217,11 +217,10 @@ func (i *Iterator) read(start telem.Offset, size telem.Size) (arr telem.Array, _
 		return
 	}
 	n, err := r.ReadAt(b, int64(start))
-	if errors.Is(err, io.EOF) {
-		arr.Data = b[:n]
-	} else {
-		arr.Data = b
+	if n < len(b) {
+		b = b[:n]
 	}
+	arr.Data = b
 	arr.DataType = i.Channel.DataType
 	arr.TimeRange = i.internal.Range().BoundBy(i.view)
 	return

@@ -30,5 +30,5 @@ type Index interface {
 	// (the inverse of Distance). Stamp assumes the caller is aware of discontinuities
 	// in the underlying time series, and will calculate the ending timestamp even
 	// across discontinuous ranges.
-	Stamp(ref telem.TimeStamp, distance int64) (TimeStampApproximation, error)
+	Stamp(ref telem.TimeStamp, distance int64, continuous bool) (TimeStampApproximation, error)
 }
