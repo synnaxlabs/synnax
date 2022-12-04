@@ -54,7 +54,7 @@ var _ = Describe("Stream", func() {
 				inlet.Inlet() <- 1
 				Expect(<-ch).To(Equal(1))
 			})
-			It("Should close the wrapped channel", func() {
+			It("Should close the internal channel", func() {
 				inlet.Close()
 			})
 		})

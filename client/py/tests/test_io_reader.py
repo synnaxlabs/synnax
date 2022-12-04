@@ -9,7 +9,6 @@ BASE_DIR = pathlib.Path("./tests/testdata/io")
 VALID_FILE = BASE_DIR / "valid"
 
 
-@pytest.mark.focus
 @pytest.mark.parametrize("ext", factory.extensions())
 class TestFactory:
 

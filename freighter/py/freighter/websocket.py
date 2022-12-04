@@ -33,7 +33,7 @@ class WebsocketStream(Generic[RQ, RS]):
     """An implementation of AsyncStream that is backed by a websocket."""
 
     encoder: EncoderDecoder
-    wrapped: WebSocketClientProtocol
+    internal: WebSocketClientProtocol
     server_closed: Exception | None
     send_closed: bool
     res_msg_t: Type[_Message[RS]]
@@ -45,7 +45,7 @@ class WebsocketStream(Generic[RQ, RS]):
             res_t: Type[RS],
     ):
         self.encoder = encoder
-        self.wrapped = ws
+        self.internal = ws
         self.send_closed = False
         self.server_closed = None
         self.res_msg_t = _new_res_msg_t(res_t)
@@ -55,7 +55,7 @@ class WebsocketStream(Generic[RQ, RS]):
         if self.server_closed is not None:
             return None, self.server_closed
 
-        data = await self.wrapped.recv()
+        data = await self.internal.recv()
         assert isinstance(data, bytes)
         msg = self.encoder.decode(data, self.res_msg_t)
 
@@ -84,7 +84,7 @@ class WebsocketStream(Generic[RQ, RS]):
         # caller, and expect them to discover the close error by calling
         # receive().
         try:
-            await self.wrapped.send(encoded)
+            await self.internal.send(encoded)
         except ConnectionClosedOK:
             return EOF()
         return None
@@ -96,7 +96,7 @@ class WebsocketStream(Generic[RQ, RS]):
 
         msg = _Message(type=_CLOSE_MESSAGE, payload=None, error=None)
         try:
-            await self.wrapped.send(self.encoder.encode(msg))
+            await self.internal.send(self.encoder.encode(msg))
         finally:
             self.send_closed = True
 
@@ -107,7 +107,7 @@ class WebsocketStream(Generic[RQ, RS]):
         if server_err is not None:
             self.server_closed = server_err
 
-        await self.wrapped.close()
+        await self.internal.close()
 
 
 DEFAULT_MAX_SIZE = 2 ** 20

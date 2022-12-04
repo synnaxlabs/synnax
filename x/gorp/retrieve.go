@@ -176,14 +176,14 @@ func keysRetrieve[K Key, E Entry[K]](q query.Query, reader kv.Reader, opts optio
 		prefixedKey := append(prefix, key...)
 		b, _err := reader.Get(prefixedKey)
 		if _err != nil {
-			if _err == kv.NotFound {
+			if errors.Is(_err, kv.NotFound) {
 				err = query.NotFound
 			} else {
 				err = _err
 			}
 			continue
 		}
-		if _err = opts.decoder.Decode(b, &entry); err != nil {
+		if _err = opts.decoder.Decode(b, &entry); _err != nil {
 			return _err
 		}
 		if f.exec(entry) {

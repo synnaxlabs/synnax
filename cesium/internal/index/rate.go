@@ -1,32 +1,43 @@
 package index
 
 import (
-	"github.com/synnaxlabs/cesium/internal/core"
-	"github.com/synnaxlabs/cesium/internal/position"
 	"github.com/synnaxlabs/x/telem"
+	"go.uber.org/zap"
 )
 
-const IrregularRate = 1e9 * telem.Hz
-
-type rateSearcher struct {
-	telem.Rate
-	nopReleaser
+type Rate struct {
+	Rate   telem.Rate
+	Logger *zap.Logger
 }
 
-// RateSearcher returns a Searcher that uses the given rate to seek timestamps and positions.
-// RateSearcher always returns positions with complete certainty.
-func RateSearcher(rate telem.Rate) Searcher { return rateSearcher{Rate: rate} }
+var _ Index = Rate{}
 
-func (r rateSearcher) Key() core.ChannelKey { return core.ChannelKey(0) }
+// Distance implements Index.
+func (r Rate) Distance(tr telem.TimeRange, continuous bool) (approx DistanceApproximation, err error) {
+	r.Logger.Debug("idx distance",
+		zap.Stringer("timeRange", tr),
+		zap.Bool("continuous", continuous),
+	)
+	defer func() {
+		r.Logger.Debug("idx distance done",
+			zap.Stringer("timeRange", tr),
+			zap.Bool("continuous", continuous),
+			zap.Stringer("approx", approx),
+		)
+	}()
 
-// SearchP implements Searcher.
-func (r rateSearcher) SearchP(iPos telem.TimeStamp, _ position.Approximation) (position.Approximation, error) {
-	pos := position.Position(telem.TimeSpan(iPos) / r.Period())
-	return position.ExactlyAt(pos), nil
+	approx = Between(
+		int64(r.Rate.ClosestGE(tr.Start).Span(r.Rate.ClosestLE(tr.End))/r.Rate.Period()),
+		int64(r.Rate.ClosestLE(tr.Start).Span(r.Rate.ClosestGE(tr.End))/r.Rate.Period()),
+	)
+	return
 }
 
-// SearchTS implements Searcher.
-func (r rateSearcher) SearchTS(iPos position.Position, _ telem.Approximation) (telem.Approximation, error) {
-	ts := telem.TimeStamp(telem.TimeSpan(iPos) * r.Period())
-	return telem.ExactlyAt(ts), nil
+// Stamp implements Searcher.
+func (r Rate) Stamp(ref telem.TimeStamp, distance int64, _ bool) (approx TimeStampApproximation, err error) {
+	approx = Between(
+		r.Rate.ClosestLE(ref).Add(r.Rate.Span(int(distance))),
+		r.Rate.ClosestGE(ref).Add(r.Rate.Span(int(distance))),
+	)
+	return
 }

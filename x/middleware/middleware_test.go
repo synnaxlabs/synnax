@@ -21,35 +21,31 @@ type myFirstMiddleware struct{}
 func (m *myFirstMiddleware) Exec(
 	ctx context.Context,
 	req *request,
-	next func(context.Context, *request) error,
-) error {
+	next func(context.Context, *request) (*response, error),
+) (*response, error) {
 	req.value = "request"
-	err := next(ctx, req)
-	if err != nil {
-		return err
-	}
-	return nil
+	return next(ctx, req)
 }
 
 type myFinalizer struct{}
 
-func (m *myFinalizer) Finalize(ctx context.Context, req *request) error {
-	return nil
+func (m *myFinalizer) Finalize(ctx context.Context, req *request) (*response, error) {
+	return nil, nil
 }
 
 var _ = Describe("ExecSequentially", func() {
 	It("Should execute middleware in the correct order", func() {
-		chain := &middleware.Chain[*request]{
+		chain := &middleware.Chain[*request, *response]{
 			&myFirstMiddleware{},
 			&myFirstMiddleware{},
 		}
 		req := &request{}
-		err := chain.Exec(context.TODO(), req, &myFinalizer{})
+		_, err := chain.Exec(context.TODO(), req, &myFinalizer{})
 		Expect(err).To(BeNil())
 		Expect(req.value).To(Equal("request"))
 	})
 	It("Should not execute middleware if the context is canceled", func() {
-		collector := &middleware.Collector[*request]{}
+		collector := &middleware.Collector[*request, *response]{}
 		collector.Use(
 			&myFirstMiddleware{},
 			&myFirstMiddleware{},
@@ -57,7 +53,7 @@ var _ = Describe("ExecSequentially", func() {
 		req := &request{}
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
-		err := collector.Exec(ctx, req, &myFinalizer{})
+		_, err := collector.Exec(ctx, req, &myFinalizer{})
 		Expect(err).To(HaveOccurredAs(context.Canceled))
 		Expect(req.value).To(Equal(""))
 	})

@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -29,7 +28,7 @@ type ChannelService struct {
 	validationProvider
 	authProvider
 	dbProvider
-	internal *channel.Service
+	internal channel.Service
 }
 
 func NewChannelService(p Provider) *ChannelService {
@@ -45,7 +44,7 @@ func NewChannelService(p Provider) *ChannelService {
 // ChannelCreateRequest is a request to create a Channel in the cluster.
 type ChannelCreateRequest struct {
 	// Channel is a template for the Channel to create.
-	Channels []Channel `json:"channels" msgpack:"channels" validate:"required"`
+	Channels []Channel `json:"channels" msgpack:"channels" validate:"required,dive"`
 }
 
 // ChannelCreateResponse is the response returned after a set of channels have
@@ -97,8 +96,6 @@ func (s *ChannelService) Retrieve(
 	var resChannels []channel.Channel
 	q := s.internal.NewRetrieve().Entries(&resChannels)
 
-	logrus.Info(req)
-
 	if len(req.Keys) > 0 {
 		keys, err := channel.ParseKeys(req.Keys)
 		if err != nil {
@@ -129,7 +126,7 @@ func translateChannelsForward(channels []channel.Channel) []Channel {
 			Rate:     ch.Rate,
 			DataType: ch.DataType,
 			IsIndex:  ch.IsIndex,
-			Index:    ch.StorageIndex.String(),
+			Index:    ch.Index().String(),
 			Density:  ch.DataType.Density(),
 		}
 	}
@@ -151,14 +148,17 @@ func translateChannelsBackward(channels []Channel) ([]channel.Channel, error) {
 			if err != nil {
 				return nil, err
 			}
-			tCH.StorageKey = key.StorageKey()
+			tCH.StorageKey = key.LocalKey()
 		}
 		if ch.Index != "" {
 			index, err := channel.ParseKey(ch.Index)
 			if err != nil {
 				return nil, err
 			}
-			tCH.StorageIndex = index.StorageKey()
+			tCH.LocalIndex = index.LocalKey()
+		}
+		if ch.IsIndex {
+			tCH.LocalIndex = tCH.StorageKey
 		}
 		translated[i] = tCH
 	}

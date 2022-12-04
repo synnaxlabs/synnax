@@ -7,7 +7,7 @@ from .channel import ChannelClient
 from .channel.create import ChannelCreator
 from .channel.registry import ChannelRegistry
 from .channel.retrieve import ChannelRetriever
-from .segment import SegmentClient
+from .framer import FramerClient
 
 from .transport import Transport
 
@@ -36,7 +36,7 @@ class Synnax:
 
     _transport: Transport
     channel: ChannelClient
-    data: SegmentClient
+    data: FramerClient
 
     def __init__(
         self,
@@ -55,5 +55,5 @@ class Synnax:
         ch_retriever = ChannelRetriever(self._transport.http)
         ch_creator = ChannelCreator(self._transport.http)
         ch_registry = ChannelRegistry(ch_retriever)
-        self.data = SegmentClient(self._transport, ch_registry)
+        self.data = FramerClient(self._transport, ch_registry)
         self.channel = ChannelClient(self.data, ch_retriever, ch_creator)

@@ -31,7 +31,7 @@ var _ = Describe("AuthService", Ordered, func() {
 		Expect(builder.Close()).To(Succeed())
 		Expect(builder.Cleanup()).To(Succeed())
 	})
-	Describe("Register", func() {
+	Describe("New", func() {
 		It("Should register a new user", func() {
 			tr, err := svc.Register(ctx, api.RegistrationRequest{InsecureCredentials: testCreds})
 			Expect(err).To(MatchError(apierrors.Nil))

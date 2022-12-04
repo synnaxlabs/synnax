@@ -2,9 +2,7 @@ package cesium
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
-	"github.com/synnaxlabs/cesium/internal/core"
-	"github.com/synnaxlabs/cesium/internal/storage"
+	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -13,11 +11,11 @@ import (
 // StreamIterator provides a streaming interface for iterating over a DB's segments
 // in time order. StreamIterator provides the underlying functionality for Iterator,
 // and has almost exactly the same semantics. The streaming interface is exposed
-// as a confluence segment that can accept one input stream and one output stream.
+// as a confluence Framer that can accept one input stream and one output stream.
 //
 // To read segments, issue an IteratorRequest to the StreamIterator's inlet. The
 // StreamIterator will respond by sending one or more IteratorResponse messages to
-// the outlet. All responses containing segment data will have a type of
+// the outlet. All responses containing Framer data will have a type of
 // IteratorDataResponse and will contain one or more segments. The last response
 // for any request will have a type of IteratorAckResponse and will contain
 // the name of the command that was acknowledged, and incremented sequence number,
@@ -97,17 +95,21 @@ type IteratorResponse struct {
 	Ack bool
 	// Err is only set an IterError command is being responded to.
 	Err error
-	// Segments is only set when the response type is IteratorDataResponse. It
-	// contains the segments that were read.
-	Segments []Segment
+	// Frame is the telemetry frame that was read from the DB. It is only set
+	// when the response type is IteratorDataResponse.
+	Frame Frame
 }
 
 type streamIterator struct {
 	confluence.UnarySink[IteratorRequest]
 	confluence.AbstractUnarySource[IteratorResponse]
-	mdIter core.TimeIterator
-	reader storage.Reader
-	seqNum int
+	internal []*unary.Iterator
+	seqNum   int
+}
+
+type IteratorConfig struct {
+	Bounds   telem.TimeRange
+	Channels []string
 }
 
 // Flow implements the confluence.Segment interface.
@@ -121,75 +123,84 @@ func (s *streamIterator) Flow(ctx signal.Context, opts ...confluence.Option) {
 				return ctx.Err()
 			case req, ok := <-s.In.Outlet():
 				if !ok {
-					return s.mdIter.Close()
+					return s.close()
 				}
-				s.exec(ctx, req)
+				ok, err := s.exec(req)
+				s.seqNum++
+				s.Out.Inlet() <- IteratorResponse{
+					Variant: IteratorAckResponse,
+					Command: req.Command,
+					SeqNum:  s.seqNum,
+					Ack:     ok,
+					Err:     err,
+				}
 			}
 		}
 	}, o.Signal...)
 }
 
-func (s *streamIterator) exec(ctx context.Context, req IteratorRequest) {
-	ok, err := s.runCmd(req)
-	if !ok || !req.Command.HasOps() {
-		s.sendAck(req, ok, err)
-		return
-	}
-	segments, err := s.reader.Read(s.mdIter.Value())
-
-	if err != nil {
-		s.sendAck(req, false, err)
-		return
-	}
-	s.sendData(req, segments)
-	s.sendAck(req, true, err)
-}
-
-func (s *streamIterator) runCmd(req IteratorRequest) (bool, error) {
+func (s *streamIterator) exec(req IteratorRequest) (ok bool, err error) {
 	switch req.Command {
 	case IterNext:
-		return s.mdIter.Next(req.Span), nil
+		ok = s.execWithOps(func(i *unary.Iterator) bool { return i.Next(req.Span) })
 	case IterPrev:
-		return s.mdIter.Prev(req.Span), nil
+		ok = s.execWithOps(func(i *unary.Iterator) bool { return i.Prev(req.Span) })
 	case IterSeekFirst:
-		return s.mdIter.SeekFirst(), nil
+		ok = s.execWithoutOps(func(i *unary.Iterator) bool { return i.SeekFirst() })
 	case IterSeekLast:
-		return s.mdIter.SeekLast(), nil
-	case IterSeekGE:
-		return s.mdIter.SeekGE(req.Stamp), nil
+		ok = s.execWithoutOps(func(i *unary.Iterator) bool { return i.SeekLast() })
 	case IterSeekLE:
-		return s.mdIter.SeekLE(req.Stamp), nil
+		ok = s.execWithoutOps(func(i *unary.Iterator) bool { return i.SeekLE(req.Stamp) })
+	case IterSeekGE:
+		ok = s.execWithoutOps(func(i *unary.Iterator) bool { return i.SeekGE(req.Stamp) })
 	case IterValid:
-		return s.mdIter.Valid(), nil
+		ok = s.execWithoutOps(func(i *unary.Iterator) bool { return i.Valid() })
 	case IterError:
-		return false, s.mdIter.Error()
+		err = s.error()
 	case IterSetBounds:
-		return s.mdIter.SetBounds(req.Bounds), nil
-	default:
-		return false, errors.Errorf("unknown iterator command: %v", req.Command)
+		ok = s.execWithoutOps(func(i *unary.Iterator) bool { i.SetBounds(req.Bounds); return true })
 	}
+	return
 }
 
-func (s *streamIterator) sendAck(req IteratorRequest, ok bool, err error) {
-	s.seqNum += 1
-	s.Out.Inlet() <- IteratorResponse{
-		SeqNum:  s.seqNum,
-		Variant: IteratorAckResponse,
-		Ack:     ok,
-		Err:     err,
-		Command: req.Command,
+func (s *streamIterator) execWithOps(f func(i *unary.Iterator) bool) (ok bool) {
+	for _, i := range s.internal {
+		if f(i) {
+			ok = true
+			s.Out.Inlet() <- IteratorResponse{
+				Variant: IteratorDataResponse,
+				Command: IterNext,
+				SeqNum:  s.seqNum,
+				Frame:   i.Value(),
+			}
+		}
 	}
+	return ok
 }
 
-func (s *streamIterator) sendData(req IteratorRequest, ss []core.SugaredSegment) {
-	segments := make([]Segment, len(ss))
-	for i, seg := range ss {
-		segments[i] = Segment{ChannelKey: seg.ChannelKey, Start: seg.Start, Data: seg.Data}
+func (s *streamIterator) execWithoutOps(f func(i *unary.Iterator) bool) (ok bool) {
+	for _, i := range s.internal {
+		if f(i) {
+			ok = true
+		}
 	}
-	s.Out.Inlet() <- IteratorResponse{
-		SeqNum:   s.seqNum,
-		Variant:  IteratorDataResponse,
-		Segments: segments,
-		Command:  req.Command,
+	return
+}
+
+func (s *streamIterator) error() error {
+	for _, i := range s.internal {
+		if err := i.Error(); err != nil {
+			return err
+		}
 	}
+	return nil
+}
+
+func (s *streamIterator) close() error {
+	for _, i := range s.internal {
+		if err := i.Close(); err != nil {
+			return err
+		}
+	}
+	return nil
 }

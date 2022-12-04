@@ -13,7 +13,15 @@ type ScaledTicker struct {
 	stop  chan struct{}
 }
 
-// Stop stops the ticker.
+// NewScaledTicker returns a new ScaledTicker that ticks at the given duration and scale.
+func NewScaledTicker(d time.Duration, scale float64) *ScaledTicker {
+	c := make(chan time.Duration)
+	t := &ScaledTicker{dur: d, Scale: scale, stop: make(chan struct{}), C: c}
+	go t.tick(c)
+	return t
+}
+
+// Stop stops the ticker
 func (s *ScaledTicker) Stop() { close(s.stop) }
 
 func (s *ScaledTicker) tick(c chan time.Duration) {
@@ -29,12 +37,4 @@ func (s *ScaledTicker) tick(c chan time.Duration) {
 			t.Reset(s.dur)
 		}
 	}
-}
-
-// NewScaledTicker returns a new ScaledTicker that ticks at the given duration and scale.
-func NewScaledTicker(d time.Duration, scale float64) *ScaledTicker {
-	c := make(chan time.Duration)
-	t := &ScaledTicker{dur: d, Scale: scale, stop: make(chan struct{}), C: c}
-	go t.tick(c)
-	return t
 }

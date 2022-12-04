@@ -2,12 +2,12 @@
 // building concurrent value passing programs. Confluence is built around two core
 // types: Value and Segment.
 //
-// StorageKey Value can is any piece of data that can be passed through
+// A Value can is any piece of data that can be passed through
 // a go channel. Because channels are typically mutex locked, values should generally
 // be exchanged as batches of data as opposed to individual entities (i.e.
 // pass []int as the as opposed to int).
 //
-// StorageKey Segment is an entity that processes values. StorageKey Segment is typically
+// A Segment is an entity that processes values. A Segment is typically
 // a goroutine that reads values from an input channel, does some operation on them
 // (sum, avg, IO write, network write, etc.), and passes a result to an output channel.
 // This is not to say that the functionality of a Segment cannot extend beyond a
@@ -20,26 +20,26 @@
 // values (i.e. chan<- Value). Inlets and Outlets are also addressable, which allows you
 // to send messages to segments with different addresses based on some criteria.
 //
-// Collections of Segments can also be composed into a pipeline using the plumber
+// Collections of Frame can also be composed into a pipeline using the plumber
 // package's plumber.Pipeline. The Pipeline type is itself a Segment that can be
 // connected to other Segment(s). This allows for a flexible and powerful
 // composition capabilities.
 //
-// The confluence package provides a number of built-in Segments that can be used
+// The confluence package provides a number of built-in Frame that can be used
 // by themselves or embedded into custom Segment(s) that provide functionality specific
 // to your use case.
 //
-// StorageKey Segment is a composition of three interfaces:
+// A Segment is a composition of three interfaces:
 //
 //  1. Flow - Flow.Flow method is used to start any and all operations (goroutines,
 //     network pipes, etc.) used by a Segment. The context provided to Flow should be
 //     used to stop operations and clear process resources.
 //
-//  2. Source - StorageKey Source is the part of the Segment that can send values to output
+//  2. Source - A Source is the part of the Segment that can send values to output
 //     streams (Inlet(s)). Inlets(s) are bound to the Sink (and therefore Segment)
 //     by calling the ApplySink.OutTo(inlets ...Inlet[ValueType]) method.
 //
-//  3. Sink - StorageKey Sink is the part of the Segment that can receive values.
+//  3. Sink - A Sink is the part of the Segment that can receive values.
 //     Input streams (Outlet(s)). Outlet(s) are bound to the Sink (and therefore Segment)
 //     by calling the Sink.InFrom(outlets ...Outlet[ValueType]) method.
 //
@@ -52,7 +52,7 @@
 //  2. All output streams (Inlet(s)) must be bound to a Segment by using
 //     the OutTo() method.
 //
-//  3. The only way to start a Segment is by calling the Flow.Flow method. StorageKey single
+//  3. The only way to start a Segment is by calling the Flow.Flow method. A single
 //     instance of a Segment (if passed as a pointer) should generally only be running
 //     once at a time. This is not to say that Segment(s) shouldn't be restarted. This
 //     rule is more of a guideline, and can be broken when you know what you're doing.
@@ -113,7 +113,7 @@ type Source[I Value] interface {
 }
 
 // TransformFunc is a template for a function  that transforms a value from one type to
-// another. StorageKey TransformFunc can perform IO, Network InfectedBatch, Aggregations, or any other
+// another. A TransformFunc can perform IO, Network InfectedBatch, Aggregations, or any other
 // type of operation.
 type TransformFunc[I, O Value] struct {
 	//	Transform is the function that performs the transformation. The user of the LinearTransform
@@ -124,7 +124,7 @@ type TransformFunc[I, O Value] struct {
 // Stream represents a streamImpl of values. Each streamImpl has an addressable Outlet
 // and an addressable Inlet. These addresses are best represented as unique locations where values
 // are received from (Inlet) and sent to (Outlet). It is also generally OK to share a streamImpl across multiple
-// Segments, as long as those segments perform are replicates of one another.
+// Frame, as long as those segments perform are replicates of one another.
 type Stream[V Value] interface {
 	Inlet[V]
 	Outlet[V]

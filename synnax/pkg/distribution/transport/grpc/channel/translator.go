@@ -2,7 +2,7 @@ package channel
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	distribcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
+	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	channelv1 "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/gen/proto/go/channel/v1"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/telem"
@@ -18,7 +18,7 @@ func (c createMessageTranslator) Forward(msg channel.CreateMessage) (*channelv1.
 			Name:         ch.Name,
 			NodeId:       int32(ch.NodeID),
 			DataType:     string(ch.DataType),
-			StorageIndex: int32(ch.StorageIndex),
+			StorageIndex: int32(ch.LocalIndex),
 			IsIndex:      ch.IsIndex,
 			Rate:         float64(ch.Rate),
 		})
@@ -30,13 +30,13 @@ func (c createMessageTranslator) Backward(msg *channelv1.CreateMessage) (channel
 	var tr channel.CreateMessage
 	for _, ch := range msg.Channels {
 		tr.Channels = append(tr.Channels, channel.Channel{
-			StorageKey:   storage.ChannelKey(ch.StorageKey),
-			Name:         ch.Name,
-			NodeID:       distribcore.NodeID(ch.NodeId),
-			DataType:     telem.DataType(ch.DataType),
-			StorageIndex: storage.ChannelKey(ch.StorageIndex),
-			IsIndex:      ch.IsIndex,
-			Rate:         telem.Rate(ch.Rate),
+			StorageKey: storage.ChannelKey(ch.StorageKey),
+			Name:       ch.Name,
+			NodeID:     dcore.NodeID(ch.NodeId),
+			DataType:   telem.DataType(ch.DataType),
+			LocalIndex: storage.ChannelKey(ch.StorageIndex),
+			IsIndex:    ch.IsIndex,
+			Rate:       telem.Rate(ch.Rate),
 		})
 	}
 	return tr, nil

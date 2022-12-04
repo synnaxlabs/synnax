@@ -11,7 +11,7 @@ class TestAuthentication:
         with pytest.raises(AuthError):
             Synnax(
                 host="localhost",
-                port=8080,
+                port=9090,
                 username="synnax",
                 password="wrong",
             )
@@ -23,6 +23,6 @@ class TestAuthentication:
         with pytest.raises(ValidationError):
             Synnax(
                 host="localhost",
-                port=8080,
+                port=9090,
                 username="synnax",
             )

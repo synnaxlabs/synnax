@@ -19,8 +19,8 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json && tsc -p tsconfig.module.json",
-    "test": "nyc --silent ava",
-    "cov": "nyc --silent ava && nyc report --reporter=lcov && nyc report --reporter-html",
+    "test": "nyc --silent ava -s",
+    "cov": "nyc --silent ava -s && nyc report --reporter=lcov && nyc report --reporter-html",
     "lint": "TIMING=1 eslint \"src/**/*.ts*\""
   },
   "engines": {

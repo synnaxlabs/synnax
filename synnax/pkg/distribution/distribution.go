@@ -5,10 +5,10 @@ import (
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/segment"
 	channeltransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel"
-	segmenttransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/segment"
+	segmenttransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer"
 )
 
 type (
@@ -26,16 +26,16 @@ var DefaultConfig = core.DefaultConfig
 
 type Distribution struct {
 	Core
-	Channel  *channel.Service
-	Segment  *segment.Service
+	Channel  channel.Service
+	Framer   *framer.Service
 	Ontology *ontology.Ontology
 }
 
 // Close closes the distribution layer.
 func (d Distribution) Close() error { return d.Storage.Close() }
 
-// Open opens the distribution layer for the node using the provided Config. The caller is responsible for closing the
-// distribution layer when it is no longer in use.
+// Open opens the distribution layer for the node using the provided Config. The caller
+// is responsible for closing the distribution layer when it is no longer in use.
 func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 	d.Core, err = core.Open(ctx, cfg)
 	if err != nil {
@@ -59,12 +59,29 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 	d.Ontology.RegisterService(nodeOntologySvc)
 	nodeOntologySvc.ListenForChanges()
 
-	channelClient, channelServer := channeltransport.New(cfg.Pool)
+	channelTransport := channeltransport.New(cfg.Pool)
 	segmentTransport := segmenttransport.New(cfg.Pool)
-	*cfg.Transports = append(*cfg.Transports, channelServer, segmentTransport)
-	d.Channel = channel.New(d.Cluster, gorpDB, d.Storage.TS, channelClient, channelServer, d.Ontology)
-	d.Ontology.RegisterService(d.Channel)
-	d.Segment = segment.New(d.Channel, d.Storage.TS, segmentTransport, d.Cluster, cfg.Logger)
+	*cfg.Transports = append(*cfg.Transports, channelTransport, segmentTransport)
 
-	return d, nil
+	d.Channel, err = channel.New(channel.ServiceConfig{
+		HostResolver: d.Cluster,
+		ClusterDB:    gorpDB,
+		TSChannel:    d.Storage.TS,
+		Transport:    channelTransport,
+		Ontology:     d.Ontology,
+	})
+	if err != nil {
+		return d, err
+	}
+	d.Ontology.RegisterService(d.Channel)
+
+	d.Framer, err = framer.Open(framer.ServiceConfig{
+		ChannelReader: d.Channel,
+		TS:            d.Storage.TS,
+		Transport:     segmentTransport,
+		HostResolver:  d.Cluster,
+		Logger:        cfg.Logger,
+	})
+
+	return d, err
 }

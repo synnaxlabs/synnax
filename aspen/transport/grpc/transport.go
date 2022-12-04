@@ -109,6 +109,7 @@ func New(pool *fgrpc.Pool) *transportImpl {
 			) (*aspenv1.ClusterPledge, error) {
 				return aspenv1.NewPledgeServiceClient(conn).Exec(ctx, req)
 			},
+			ServiceDesc: &aspenv1.PledgeService_ServiceDesc,
 		},
 		pledgeServer: &pledgeServer{
 			RequestTranslator:  pledgeTranslator{},
@@ -126,6 +127,7 @@ func New(pool *fgrpc.Pool) *transportImpl {
 			) (*aspenv1.ClusterGossip, error) {
 				return aspenv1.NewClusterGossipServiceClient(conn).Exec(ctx, req)
 			},
+			ServiceDesc: &aspenv1.ClusterGossipService_ServiceDesc,
 		},
 		gossipServer: &clusterGossipServer{
 			RequestTranslator:  clusterGossipTranslator{},
@@ -143,6 +145,7 @@ func New(pool *fgrpc.Pool) *transportImpl {
 			) (*aspenv1.BatchRequest, error) {
 				return aspenv1.NewBatchServiceClient(conn).Exec(ctx, req)
 			},
+			ServiceDesc: &aspenv1.BatchService_ServiceDesc,
 		},
 		batchServer: &batchServer{
 			RequestTranslator:  batchTranslator{},
@@ -160,6 +163,7 @@ func New(pool *fgrpc.Pool) *transportImpl {
 			) (*emptypb.Empty, error) {
 				return aspenv1.NewLeaseServiceClient(conn).Exec(ctx, req)
 			},
+			ServiceDesc: &aspenv1.LeaseService_ServiceDesc,
 		},
 		leaseServer: &leaseServer{
 			RequestTranslator:  batchTranslator{},
@@ -177,6 +181,7 @@ func New(pool *fgrpc.Pool) *transportImpl {
 			) (*emptypb.Empty, error) {
 				return aspenv1.NewFeedbackServiceClient(conn).Exec(ctx, req)
 			},
+			ServiceDesc: &aspenv1.FeedbackService_ServiceDesc,
 		},
 		feedbackServer: &feedbackServer{
 			RequestTranslator:  feedbackTranslator{},

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/gob"
 	"encoding/json"
-	"github.com/sirupsen/logrus"
 	"github.com/vmihailenco/msgpack/v5"
 	"io"
 )
@@ -67,13 +66,19 @@ func (j *JSONEncoderDecoder) Encode(value interface{}) ([]byte, error) {
 
 // Decode implements the Decoder interface.
 func (j *JSONEncoderDecoder) Decode(data []byte, value interface{}) error {
-	logrus.Info(string(data))
 	return json.Unmarshal(data, value)
 }
 
 // DecodeStream implements the Decoder interface.
 func (j *JSONEncoderDecoder) DecodeStream(r io.Reader, value interface{}) error {
 	return json.NewDecoder(r).Decode(value)
+}
+
+type JSONIdentEncoderDecoder struct{ JSONEncoderDecoder }
+
+// Encode implements the Encoder interface.
+func (j *JSONIdentEncoderDecoder) Encode(value interface{}) ([]byte, error) {
+	return json.MarshalIndent(value, "", "  ")
 }
 
 // MsgPackEncoderDecoder is a msgpack implementation of EncoderDecoder.

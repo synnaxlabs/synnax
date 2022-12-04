@@ -28,5 +28,5 @@ class ChannelRegistry:
                 results.append(record)
             retrieve_keys.append(key)
         if retrieve_keys:
-            results.extend(self.retriever.retrieve(retrieve_keys))
+            results.extend(self.retriever.filter(keys=retrieve_keys))
         return results

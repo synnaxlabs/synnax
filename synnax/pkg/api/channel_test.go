@@ -2,7 +2,6 @@ package api_test
 
 import (
 	"context"
-
 	roacherrors "github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -12,7 +11,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-var _ = Describe("ChannelService", Ordered, func() {
+var _ = Describe("ChannelReader", Ordered, func() {
 	var (
 		builder *mock.Builder
 		prov    api.Provider
@@ -30,12 +29,12 @@ var _ = Describe("ChannelService", Ordered, func() {
 	Describe("Create", func() {
 		It("Should create a new Channel", func() {
 			res, err := svc.Create(context.TODO(), api.ChannelCreateRequest{
-				Channel: api.Channel{
+				Channels: []api.Channel{{
 					Name:     "test",
 					NodeID:   1,
-					DataType: telem.Float64,
+					DataType: telem.Float64T,
 					Rate:     25 * telem.Hz,
-				},
+				}},
 			})
 			Expect(err).To(Equal(errors.Nil))
 			Expect(res.Channels).To(HaveLen(1))
@@ -46,7 +45,7 @@ var _ = Describe("ChannelService", Ordered, func() {
 			message string,
 		) {
 			res, err := svc.Create(context.TODO(), api.ChannelCreateRequest{
-				Channel: ch,
+				Channels: []api.Channel{ch},
 			})
 			Expect(err).To(HaveOccurred())
 			Expect(err.Err).To(HaveOccurred())
@@ -60,12 +59,7 @@ var _ = Describe("ChannelService", Ordered, func() {
 				Name:   "test",
 				NodeID: 1,
 				Rate:   25 * telem.Hz,
-			}, "Channel.data_type", "required"),
-			Entry("No Data Rate", api.Channel{
-				Name:     "test",
-				NodeID:   1,
-				DataType: telem.Float64,
-			}, "Channel.rate", "required"),
+			}, "channels[0].data_type", "required"),
 		)
 	})
 	Describe("RetrieveP", func() {

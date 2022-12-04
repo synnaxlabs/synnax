@@ -56,6 +56,11 @@ class BaseReader(Matcher):
         """:returns: the path to the file."""
         ...
 
+    @property
+    def nsamples(self) -> int:
+        """:returns: the number of samples in the file.
+        """
+
 
 class RowReader(BaseReader):
     """Row readers implement a strategy that reads a file row.py by row.py. Because Synnax

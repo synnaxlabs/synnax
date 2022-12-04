@@ -14,4 +14,4 @@ type WaitGroup interface {
 }
 
 // Wait implements the WaitGroup interface.
-func (c *core) Wait() error { return c.wrapped.Wait() }
+func (c *core) Wait() error { return c.internal.Wait() }

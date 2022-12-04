@@ -8,7 +8,7 @@ from synnax import Channel, telem
 def client() -> synnax.Synnax:
     return synnax.Synnax(
         host="localhost",
-        port=8080,
+        port=9090,
         username="synnax",
         password="seldon",
     )
