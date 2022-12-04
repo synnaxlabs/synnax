@@ -8,6 +8,8 @@ import (
 	"github.com/synnaxlabs/cesium/internal/ranger"
 	"github.com/synnaxlabs/x/binary"
 	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"os"
 )
@@ -39,13 +41,41 @@ func (db *DB) NewWriter(cfg ranger.WriterConfig) (*Writer, error) {
 	return &Writer{start: cfg.Start, Channel: db.Channel, internal: w, idx: db.index()}, err
 }
 
-func (db *DB) NewIterator(cfg ranger.IteratorConfig) *Iterator {
-	iter := db.Ranger.NewIterator(cfg)
+type IteratorConfig struct {
+	Bounds telem.TimeRange
+	// AutoChunkSize sets the maximum size of a chunk that will be returned by the
+	// iterator when using AutoSpan in calls ot Next or Prev.
+	AutoChunkSize int64
+}
+
+func IterRange(tr telem.TimeRange) IteratorConfig {
+	return IteratorConfig{Bounds: ranger.IterRange(tr).Bounds, AutoChunkSize: 0}
+}
+
+var (
+	DefaultIteratorConfig = IteratorConfig{AutoChunkSize: 1000}
+)
+
+func (i IteratorConfig) Override(other IteratorConfig) IteratorConfig {
+	i.Bounds.Start = override.Numeric(i.Bounds.Start, other.Bounds.Start)
+	i.Bounds.End = override.Numeric(i.Bounds.End, other.Bounds.End)
+	i.AutoChunkSize = override.Numeric(i.AutoChunkSize, other.AutoChunkSize)
+	return i
+}
+
+func (i IteratorConfig) toRanger() ranger.IteratorConfig {
+	return ranger.IteratorConfig{Bounds: i.Bounds}
+}
+
+func (db *DB) NewIterator(cfg IteratorConfig) *Iterator {
+	cfg = DefaultIteratorConfig.Override(cfg)
+	iter := db.Ranger.NewIterator(cfg.toRanger())
 	i := &Iterator{
-		idx:      db.index(),
-		Channel:  db.Channel,
-		internal: iter,
-		logger:   db.Logger,
+		idx:            db.index(),
+		Channel:        db.Channel,
+		internal:       iter,
+		logger:         db.Logger,
+		IteratorConfig: cfg,
 	}
 	i.SetBounds(cfg.Bounds)
 	return i

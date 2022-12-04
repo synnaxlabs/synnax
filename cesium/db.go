@@ -9,6 +9,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"io"
+	"sync"
 )
 
 var (
@@ -68,6 +69,7 @@ type ChannelManager interface {
 
 type cesium struct {
 	*options
+	mu  sync.RWMutex
 	dbs map[string]unary.DB
 }
 

@@ -2,6 +2,8 @@ import gc
 from datetime import datetime
 
 from pandas import DataFrame
+from rich.progress import Progress, TextColumn, BarColumn, TaskProgressColumn, \
+    TimeElapsedColumn
 
 from .. import Channel, Synnax
 from ..telem import MEGABYTE
@@ -24,7 +26,7 @@ class RowIngestionEngine:
         client: Synnax,
         reader: RowReader,
         channels: list[Channel],
-        soft_mem_limit: int = 500 * MEGABYTE,
+        soft_mem_limit: int = 10 * MEGABYTE,
     ):
         self.channels = channels
         self.idx_grouped = {ch: list() for ch in channels if ch.is_index}
@@ -35,7 +37,8 @@ class RowIngestionEngine:
         self.reader = reader
         self.reader.set_chunk_size(self.get_chunk_size())
         self.client = client
-        self.writer = self.client.data.new_writer([ch.key for ch in channels])
+        self.writer = self.client.data.new_writer(start=0,
+                                                  keys=[ch.key for ch in channels])
 
     def get_chunk_size(self):
         """Sum the density of all channels to determine the chunk size.
@@ -46,29 +49,40 @@ class RowIngestionEngine:
         """Run the ingestion engine.
         """
         try:
-            while True:
-                try:
-                    chunk = self.reader.read()
-                    self._run_chunk(chunk)
-                    gc.collect()
-                except StopIteration:
-                    break
+            with Progress(
+                BarColumn(),
+                TaskProgressColumn(),
+                TextColumn("{task.completed} out of {task.total} samples"),
+                TimeElapsedColumn(),
+                TextColumn("{task.fields[tp]} samples/s"),
+            ) as progress:
+                task = progress.add_task("ingest", total=self.reader.nsamples, tp=0)
+                throughput = 0
+                while True:
+                    try:
+                        t0 = datetime.now()
+                        chunk = self.reader.read()
+                        self._write(chunk)
+                        gc.collect()
+                        progress.update(task, advance=chunk.size,
+                                        tp=chunk.size / (
+                                                datetime.now() - t0).total_seconds())
+                    except StopIteration:
+                        break
             self.writer.commit()
         finally:
             self.writer.close()
 
-    def _run_chunk(self, chunk: DataFrame):
-        """Ingest a chunk of data.
-        """
-        for idx, channels in self.idx_grouped.items():
-            idx_data = chunk[idx.name].to_numpy(dtype=idx.data_type)
-            start = idx_data[0]
-            print(self.writer.write(idx.key, start, idx_data))
-            for ch in channels:
-                t0 = datetime.now()
-                ch_data = chunk[ch.name].to_numpy(dtype=ch.data_type)
-                print("conversion time:", datetime.now() - t0)
-                print(ch.key, len(ch_data))
-                t0 = datetime.now()
-                print(self.writer.write(ch.key, start, ch_data))
-                print("write time:", datetime.now() - t0)
+    def _write(self, df: DataFrame):
+        for channel in self.channels:
+            if channel.name in df.columns:
+                df.rename(columns={channel.name: channel.key}, inplace=True)
+        self.writer.write(df)
+
+    def _get_channel(self, name: str):
+        """Get the channel object from the list of channels"""
+        for ch in self.channels:
+            print(name, ch.name)
+            if ch.name == name:
+                return ch
+        return None

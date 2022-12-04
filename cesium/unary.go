@@ -37,11 +37,15 @@ func (db *cesium) openUnary(ch Channel) error {
 		u.SetIndex((&idxDB).Index())
 	}
 
+	db.mu.Lock()
 	db.dbs[ch.Key] = *u
+	db.mu.Unlock()
 	return nil
 }
 
 func (db *cesium) getUnary(key string) (unary.DB, error) {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
 	u, ok := db.dbs[key]
 	if !ok {
 		return unary.DB{}, errors.Wrapf(ChannelNotFound, "channel: %s", key)
@@ -49,4 +53,9 @@ func (db *cesium) getUnary(key string) (unary.DB, error) {
 	return u, nil
 }
 
-func (db *cesium) unaryIsOpen(key string) bool { _, ok := db.dbs[key]; return ok }
+func (db *cesium) unaryIsOpen(key string) bool {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+	_, ok := db.dbs[key];
+	return ok
+}

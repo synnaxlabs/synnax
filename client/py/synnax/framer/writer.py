@@ -60,9 +60,9 @@ class FrameWriter:
     telemetry for any of the channels specified. If the writer is opened successfully,
     the caller is then free to write frames to the writer.
 
-    2. To writer a frame, the call can use the write method and follow the validation
+    2. To writer a frame, the caller can use the write method and follow the validation
     rules described in its method's documentation. This process is asynchronous, meaning
-    that write will return before the frame has been written to the database. This also
+    that write will return before the frame has been written to the cluster. This also
     means that the writer can accumulate an error after write is called. If the writer
     accumulates an error, all subsequent write and commit calls will return False. The
     caller can check for errors by calling the error method, which returns the
@@ -117,7 +117,9 @@ class FrameWriter:
             3. When writing to an index (i.e. TimeStamp) channel, the values must be
             monotonically increasing.
 
-        :returns: False if the writer has accumulated an error.
+        :returns: False if the writer has accumulated an error. If this is the case,
+        the caller should acknowledge the error by calling the error method or closing
+        the writer.
         """
         self._assert_open()
         if self.stream.received():
@@ -130,10 +132,12 @@ class FrameWriter:
         return True
 
     def commit(self) -> bool:
-        """Commits the written frames to the database. Commit is synchronous, meaning that
-        it will not return until all frames have been committed to the database. If the
-        writer has accumulated an error, commit will return False. After the caller
-        acknowledges the error, they can attempt to commit again.
+        """Commits the written frames to the database. Commit is synchronous, meaning
+        that it will not return until all frames have been committed to the database.
+
+        :returns: False if the commit failed due to an error. In this case, the caller
+        should acknowledge the error by calling the error method or closing the writer.
+        After the error is acknowledged, the caller can attempt to commit again.
         """
         self._assert_open()
         if self.stream.received():
@@ -150,7 +154,8 @@ class FrameWriter:
                 return res.ack
 
     def error(self) -> Exception:
-        """Returns the exception that the writer has accumulated, if any. If the writer
+        """
+        :returns: The exception that the writer has accumulated, if any. If the writer
         has not accumulated an error, this method will return None. This method will
         clear the writer's error state, allowing the writer to be used again.
         """

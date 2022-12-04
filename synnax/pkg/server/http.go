@@ -4,6 +4,8 @@ import (
 	"github.com/cockroachdb/cmux"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/monitor"
+	"github.com/gofiber/fiber/v2/middleware/pprof"
 	"github.com/synnaxlabs/freighter/fhttp"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -25,6 +27,8 @@ func (f *HTTPBranch) Serve(cfg BranchConfig) error {
 		ReadBufferSize:        int(10 * telem.Kilobyte),
 	})
 	f.app.Use(cors.New(cors.Config{AllowOrigins: "*"}))
+	f.app.Get("/metrics", monitor.New(monitor.Config{Title: "Synnax Metrics"}))
+	f.app.Use(pprof.New())
 	for _, t := range f.Transports {
 		t.BindTo(f.app)
 	}

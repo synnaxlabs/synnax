@@ -102,14 +102,9 @@ class FramerClient:
         _iterator = self.new_iterator([from_], TimeRange(start, end), aggregate=True)
         try:
             _iterator.seek_first()
-            while _iterator.next(10000 * telem.SECOND):
+            while _iterator.next(AUTO_SPAN):
                 pass
             frame = _iterator.value
-        except ContiguityError as e:
-            raise ContiguityError(
-                f"""Channel data between {start} and {end} is non-contiguous.
-                """
-            ) from e
         finally:
             _iterator.close()
         return frame[from_]

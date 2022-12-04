@@ -102,10 +102,20 @@ func (i *Ranger) Distance(tr telem.TimeRange, continuous bool) (approx DistanceA
 
 // Stamp implements Index.
 func (i *Ranger) Stamp(ref telem.TimeStamp, offset int64) (approx TimeStampApproximation, err error) {
+	i.Logger.Debug("idx stamp",
+		zap.Stringer("ref", ref),
+		zap.Int64("offset", offset),
+	)
+	defer func() {
+		i.Logger.Debug("idx stamp done",
+			zap.Stringer("ref", ref),
+			zap.Int64("offset", offset),
+			zap.Stringer("approx", approx),
+			zap.Error(err),
+		)
+	}()
 	iter := i.DB.NewIterator(ranger.IterRange(ref.SpanRange(telem.TimeSpanMax)))
-	if !iter.SeekFirst() ||
-		iter.Len()/int64(telem.TimeStampDensity) <= offset ||
-		!iter.Range().ContainsStamp(ref) {
+	if !iter.SeekFirst() || !iter.Range().ContainsStamp(ref) {
 		err = ErrDiscontinuous
 		return
 	}
@@ -123,6 +133,12 @@ func (i *Ranger) Stamp(ref telem.TimeStamp, offset int64) (approx TimeStampAppro
 	if err != nil {
 		return
 	}
+
+	if startApprox.Lower+offset >= iter.Len()/8 {
+		approx = Between(iter.Range().End, telem.TimeStampMax)
+		return
+	}
+
 	lowerTs, err := readStamp(r, (startApprox.Lower+offset)*8, make([]byte, 8))
 	if err != nil {
 		return

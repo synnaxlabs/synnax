@@ -2,6 +2,7 @@ package cesium
 
 import (
 	"context"
+	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -20,6 +21,8 @@ type Iterator interface {
 	Valid() bool
 	Close() error
 }
+
+const AutoSpan = unary.AutoSpan
 
 type iterator struct {
 	internal *streamIterator

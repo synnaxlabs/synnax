@@ -1,7 +1,6 @@
 package cesium
 
 import (
-	"github.com/synnaxlabs/cesium/internal/ranger"
 	"github.com/synnaxlabs/cesium/internal/unary"
 )
 
@@ -21,7 +20,7 @@ func (db *cesium) newStreamIterator(cfg IteratorConfig) (*streamIterator, error)
 		if err != nil {
 			return nil, err
 		}
-		internal[i] = uDB.NewIterator(ranger.IteratorConfig{Bounds: cfg.Bounds})
+		internal[i] = uDB.NewIterator(unary.IteratorConfig{Bounds: cfg.Bounds})
 	}
 
 	return &streamIterator{internal: internal}, nil

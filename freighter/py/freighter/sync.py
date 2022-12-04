@@ -196,22 +196,26 @@ class SyncStream(Thread, Generic[RQ, RS]):
                 loop.close()
 
     def received(self) -> bool:
-        """Implement the Stream protocol."""
+        """Implement the Stream protocol.
+        """
         return self._receiver.received()
 
     def receive(self) -> tuple[RS | None, Exception | None]:
-        """Implement the Stream protocol."""
+        """Implement the Stream protocol.
+        """
         res, exc = self._receiver.receive()
         if exc is not None:
             self._sender.cancel()
         return res, exc
 
     def send(self, pld: RQ) -> Exception | None:
-        """Implement the Stream protocol."""
+        """Implement the Stream protocol.
+        """
         return self._sender.send(pld)
 
     def close_send(self) -> Exception | None:
-        """Implement the Stream protocol."""
+        """Implement the Stream protocol.
+        """
         return self._sender.close_send()
 
     async def _connect(self) -> tuple[MetaData, Exception | None]:

@@ -2,7 +2,6 @@ package storage
 
 import (
 	"github.com/synnaxlabs/cesium"
-	"github.com/synnaxlabs/x/telem"
 )
 
 type (
@@ -27,4 +26,4 @@ type (
 	WriterConfig       = cesium.WriterConfig
 )
 
-const AutoSpan = telem.TimeSpan(-1)
+const AutoSpan = cesium.AutoSpan

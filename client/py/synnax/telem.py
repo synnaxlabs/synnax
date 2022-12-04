@@ -554,6 +554,7 @@ class DataType(str):
 
 
 DATA_TYPE_UNKNOWN = DataType("")
+TIMESTAMP = DataType("timestamp")
 FLOAT64 = DataType("float64")
 FLOAT32 = DataType("float32")
 INT64 = DataType("int64")
@@ -641,5 +642,3 @@ class NumpyArray(ArrayHeader):
             time_range=self.time_range,
             data=self.data.tobytes()
         )
-
-

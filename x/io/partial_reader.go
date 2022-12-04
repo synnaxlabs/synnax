@@ -46,10 +46,10 @@ func (r *partialReader) ReadAt(p []byte, off int64) (n int, err error) {
 	if err != nil {
 		return
 	}
-	//nextRead := off + int64(n)
-	//if nextRead >= r.length {
-	//	err = io.EOF
-	//	n = int(r.length - off)
-	//}
+	if r.offset+off+int64(len(p)) > r.length {
+		p = p[:r.length-r.offset-off]
+		n = len(p)
+		err = io.EOF
+	}
 	return n, err
 }

@@ -12,9 +12,8 @@ from .. import Synnax
 from .flow import Context, Flow
 from ..ingest.row import RowIngestionEngine
 from ..io import RowReader, ReaderType, IOFactory, ChannelMeta
-from ..telem import INT64, Rate
+from ..telem import INT64, Rate, TIMESTAMP
 from ..cli.console.channel import prompt_group_channel_names
-from ..exceptions import QueryError
 
 
 class IngestionCLI:
@@ -143,7 +142,7 @@ def create_indexes(
     grouped = prompt_group_channel_names(ctx, [ch.name for ch in options])
     names = [name for v in grouped.values() for name in v]
     for name in names:
-        ch = cli.client.channel.create(name=name, is_index=True, data_type=INT64)
+        ch = cli.client.channel.create(name=name, is_index=True, data_type=TIMESTAMP)
         cli.db_channels.append(ch)
     return [ch for ch in options if ch.name not in names]
 
@@ -173,9 +172,6 @@ def create_channels(ctx: Context, cli: IngestionCLI) -> str | None:
     idx_grouped = group_by_idx(ctx, cli.not_found)
     if idx_grouped is None:
         return None
-
-    # First thing we must try to do is get the set of all data rates
-    # or indexes that are being used in db_channels
 
     assigned_dr_idx = {}
     for key, group in idx_grouped.items():
