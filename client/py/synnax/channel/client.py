@@ -69,7 +69,7 @@ class Channel(ChannelPayload):
         :returns: A numpy array containing the retrieved telemetry from the database.
         :raises ContiguityError: If the telemetry between start and end is non-contiguous.
         """
-        return self.segment_client.read(self.key, start, end)
+        return self.segment_client.read(self.key, start, end).data
 
     def write(self, start: UnparsedTimeStamp, data: ndarray):
         """Writes telemetry to the channel starting at the given timestamp.

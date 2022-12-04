@@ -28,6 +28,7 @@ class BinaryFrame(FrameHeader):
         for key in unique_keys:
             indices = [i for i, x in enumerate(keys) if x == key]
             if len(indices) == 1:
+                next_arrays.append(self.arrays[indices[0]])
                 continue
 
             first = self.arrays[indices[0]]
@@ -45,6 +46,7 @@ class BinaryFrame(FrameHeader):
 
         self.arrays = next_arrays
         self.keys = unique_keys
+
 
 class NumpyFrame(FrameHeader):
     arrays: list[NumpyArray] | None

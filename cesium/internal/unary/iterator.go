@@ -211,18 +211,21 @@ func (i *Iterator) insert(arr telem.Array) {
 }
 
 func (i *Iterator) read(start telem.Offset, size telem.Size) (arr telem.Array, _ error) {
+	arr.DataType = i.Channel.DataType
+	arr.TimeRange = i.internal.Range().BoundBy(i.view)
 	b := make([]byte, size)
 	r, err := i.internal.NewReader()
 	if err != nil {
 		return
 	}
 	n, err := r.ReadAt(b, int64(start))
+	if err != nil {
+		return arr, err
+	}
 	if n < len(b) {
 		b = b[:n]
 	}
 	arr.Data = b
-	arr.DataType = i.Channel.DataType
-	arr.TimeRange = i.internal.Range().BoundBy(i.view)
 	return
 }
 

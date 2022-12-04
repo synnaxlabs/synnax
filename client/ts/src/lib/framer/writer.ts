@@ -245,7 +245,7 @@ export class RecordWriter {
    * the caller should stop executing requests and close the writer.
    */
   async write(record: Record<string, TypedArray>): Promise<boolean> {
-    return this.core.write(frameFromRecord(this.channels, record));
+    return await this.core.write(frameFromRecord(this.channels, record));
   }
 
   async commit() {
