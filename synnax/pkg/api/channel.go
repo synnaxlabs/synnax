@@ -44,7 +44,7 @@ func NewChannelService(p Provider) *ChannelService {
 // ChannelCreateRequest is a request to create a Channel in the cluster.
 type ChannelCreateRequest struct {
 	// Channel is a template for the Channel to create.
-	Channels []Channel `json:"channels" msgpack:"channels" validate:"required"`
+	Channels []Channel `json:"channels" msgpack:"channels" validate:"required,dive"`
 }
 
 // ChannelCreateResponse is the response returned after a set of channels have

@@ -2,7 +2,6 @@ package api_test
 
 import (
 	"context"
-
 	roacherrors "github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -30,12 +29,12 @@ var _ = Describe("ChannelReader", Ordered, func() {
 	Describe("Create", func() {
 		It("Should create a new Channel", func() {
 			res, err := svc.Create(context.TODO(), api.ChannelCreateRequest{
-				Channel: api.Channel{
+				Channels: []api.Channel{{
 					Name:     "test",
 					NodeID:   1,
 					DataType: telem.Float64T,
 					Rate:     25 * telem.Hz,
-				},
+				}},
 			})
 			Expect(err).To(Equal(errors.Nil))
 			Expect(res.Channels).To(HaveLen(1))
@@ -46,7 +45,7 @@ var _ = Describe("ChannelReader", Ordered, func() {
 			message string,
 		) {
 			res, err := svc.Create(context.TODO(), api.ChannelCreateRequest{
-				Channel: ch,
+				Channels: []api.Channel{ch},
 			})
 			Expect(err).To(HaveOccurred())
 			Expect(err.Err).To(HaveOccurred())
@@ -56,16 +55,11 @@ var _ = Describe("ChannelReader", Ordered, func() {
 			Expect(flds[0].Message).To(Equal(message))
 			Expect(len(res.Channels)).To(Equal(0))
 		},
-			Entry("No Array Type", api.Channel{
+			Entry("No Data Type", api.Channel{
 				Name:   "test",
 				NodeID: 1,
 				Rate:   25 * telem.Hz,
-			}, "Channel.data_type", "required"),
-			Entry("No Array Rate", api.Channel{
-				Name:     "test",
-				NodeID:   1,
-				DataType: telem.Float64T,
-			}, "Channel.rate", "required"),
+			}, "channels[0].data_type", "required"),
 		)
 	})
 	Describe("RetrieveP", func() {

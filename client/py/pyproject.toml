@@ -22,8 +22,8 @@ PyJWT = "^2.5.0"
 rich = "^12.6.0"
 pick = "^2.0.2"
 pydantic = "^1.10.2"
-#synnax-freighter = "^0.2.1"
-synnax-freighter = {path = "../../freighter/py", develop = true}
+synnax-freighter = "^0.2.1"
+#synnax-freighter = {path = "../../freighter/py", develop = true}
 keyring = "^23.9.3"
 
 [tool.poetry.dev-dependencies]
