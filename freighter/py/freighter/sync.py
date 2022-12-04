@@ -32,11 +32,9 @@ class _Receiver(Generic[RS]):
     _internal: AsyncStreamReceiver[RS]
     _responses: Queue[tuple[RS | None, Exception | None]]
     _exc: Exception | None
-    _fatal_exception: Notification[Exception | None]
 
     def __init__(self, internal: AsyncStreamReceiver[RS]):
         self._responses = Queue(maxsize=1)
-        self._fatal_exception = Notification()
         self._internal = internal
         self._exc = None
 
@@ -44,9 +42,6 @@ class _Receiver(Generic[RS]):
         return self._responses.sync_q.qsize() > 0
 
     def receive(self) -> tuple[RS | None, Exception | None]:
-        if self._fatal_exception.received():
-            raise self._fatal_exception.read()
-
         if self._exc is not None:
             return None, self._exc
 
@@ -61,7 +56,7 @@ class _Receiver(Generic[RS]):
                 if exc is not None:
                     return
         except Exception as e:
-            self._fatal_exception.notify(e)
+            await self._responses.async_q.put((None, e))
             raise e
 
 
