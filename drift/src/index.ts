@@ -8,5 +8,5 @@ export {
 	completeProcess,
 } from "@/state";
 export type { WindowProps, WindowState, Window } from "@/window";
-export * from "@/react";
-export * from "@/tauri";
+export { Provider, useWindowLifecycle } from "@/react";
+export { TauriRuntime } from "@/tauri";

@@ -19,6 +19,7 @@ coverage
 # |||||| TURBO REPO ||||||
 
 .turbo/
+.turbo-cache/
 
 # |||||| SYNNAX ||||||
 

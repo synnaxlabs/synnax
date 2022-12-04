@@ -1,0 +1,183 @@
+name: "Delta Release"
+on:
+  pull_request:
+    branches:
+      - main
+
+env:
+  TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+  TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+
+jobs:
+  create-release:
+    runs-on: ubuntu-20.04
+    outputs:
+      release_id: ${{ steps.create-release.outputs.result }}
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Get Version
+        run: echo "PACKAGE_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_ENV
+        working-directory: ./delta
+
+      - name: Create Release
+        id: create-release
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const { data: { id } }  = await github.rest.repos.createRelease({
+                          owner: context.repo.owner,
+                          repo: context.repo.repo,
+                          tag_name: `delta-v${process.env.PACKAGE_VERSION}`,
+                          name: `Synnax Delta v${process.env.PACKAGE_VERSION}`,
+                          body: "Synnax Delta Release",
+                          draft: true,
+                          prerelease: false,
+            })
+            return id
+
+  build-tauri:
+    needs: create-release
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [macos-latest, ubuntu-20.04, windows-latest]
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: "yarn"
+
+      - name: Install Rust Stable
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: delta/src-tauri -> target
+          key: ${{ runner.os }}
+
+      - name: Turbo Cache
+        uses: actions/cache@v3
+        with:
+          path: .turbo-cache
+          key: ${{ runner.os }}-turbo-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-
+
+      - name: Install Dependencies on Ubuntu
+        if: matrix.platform == 'ubuntu-20.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev webkit2gtk-4.0 libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Install Dependencies and Build
+        run: yarn --prefer-offline && yarn build:delta
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          releaseId: ${{ needs.create-release.outputs.release_id }}
+
+  publish-release:
+    runs-on: ubuntu-20.04
+    needs: [create-release, build-tauri]
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Publish Release
+        id: publish-release
+        uses: actions/github-script@v6
+        env:
+          release_id: ${{ needs.create-release.outputs.release_id }}
+        with:
+          script: |
+            github.rest.repos.updateRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: process.env.release_id,
+                draft: false,
+                prerelease: false,
+            })
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Get Version
+        run: echo "PACKAGE_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_ENV
+        working-directory: ./delta
+
+      - name: Add Auto Update JSON File
+        id: auto-update-json-file
+        uses: actions/github-script@v6
+        env:
+          release_id: ${{ needs.create-release.outputs.release_id }}
+        with:
+          script: |
+            const fs = await import("fs");
+
+            const packageVersion = process.env.PACKAGE_VERSION;
+            const {
+              repo: { repo, owner },
+            } = context;
+
+            const baseURL = `https://github.com/${owner}/${repo}/releases/download/delta-v${packageVersion}/`;
+
+            const darwinURL = baseURL + "Synnax.app.tar.gz";
+            const darwinSig = await github.request(`GET ${darwinURL}.sig`);
+            const linuxURL = baseURL + `synnax_${packageVersion}_amd64.AppImage.tar.gz`;
+            const linuxSig = await github.request(`GET ${linuxURL}.sig`);
+            const windowsURL = baseURL + `Synnax_${packageVersion}_x64_en-US.msi.zip`;
+            const windowsSig = await github.request(`GET ${windowsURL}.sig`);
+            const pub_date = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+            const ecd = new TextDecoder();
+
+            const data = {
+              version: `v${packageVersion}`,
+              notes: "Synnax Update",
+              pub_date,
+              platforms: {
+                "darwin-x86_64": {
+                  signature: ecd.decode(darwinSig.data),
+                  url: darwinURL,
+                },
+                "linux-x86_64": {
+                  signature: ecd.decode(linuxSig.data),
+                  url: linuxURL,
+                },
+                "windows-x86_64": {
+                  signature: ecd.decode(windowsSig.data),
+                  url: windowsURL,
+                },
+              },
+            };
+
+            fs.writeFileSync("delta/release-spec.json", JSON.stringify(data, null, 2));
+
+      - name: Commit Auto Update JSON File
+        id: commit-auto-update-json-file
+        uses: EndBug/add-and-commit@v9
+        with:
+          add: "*"
+          default_author: github_actor
+          message: "Auto Update JSON File"
+          pull: "--commit --no-edit"

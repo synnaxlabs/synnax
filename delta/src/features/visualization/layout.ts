@@ -5,7 +5,7 @@ import { Optional } from "@/util/types";
 import { setVisualization as storeCreateVizualization } from "./store";
 
 export const createVisualization =
-	(initial: Optional<Visualization, "layoutKey">): LayoutCreator =>
+	<V extends Visualization>(initial: Partial<V>): LayoutCreator =>
 	({ dispatch }: LayoutCreatorProps): Layout => {
 		const key = initial.layoutKey ?? nanoid();
 		dispatch(

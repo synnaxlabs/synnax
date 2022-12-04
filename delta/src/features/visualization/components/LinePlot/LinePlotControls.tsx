@@ -17,12 +17,16 @@ export const LinePlotControls = ({
 }: LinePlotControlsProps) => {
   const ranges = useSelectRanges();
   const { channels } = visualization;
-  const [channelOpts, setChannelOpts] = useState<ChannelPayload[]>([]);
+  const [channelOpts, setChannelOpts] = useState<(ChannelPayload & { key: string })[]>(
+    []
+  );
 
   useEffect(() => {
     const fn = async () => {
       const channels = await client.channel.retrieveAll();
-      setChannelOpts(channels.map((ch) => ch.payload));
+      setChannelOpts(
+        channels.map((ch) => ch.payload as ChannelPayload & { key: string })
+      );
     };
     fn();
   }, [client]);
@@ -48,7 +52,7 @@ export const LinePlotControls = ({
       <Select.Multiple
         selected={channels}
         onSelect={handleChannelSelect}
-        options={channelOpts}
+        options={channelOpts as unknown as (Record<string, string> & { key: string })[]}
         tagKey="name"
         listPosition="top"
         columns={[
