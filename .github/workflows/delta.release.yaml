@@ -1,6 +1,8 @@
 name: "Delta Release"
 on:
-  push:
+  pull_request:
+    branches:
+      - main
 
 env:
   TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}

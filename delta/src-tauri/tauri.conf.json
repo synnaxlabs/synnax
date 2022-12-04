@@ -54,7 +54,7 @@
     "updater": {
       "active": true,
 			"endpoints": [
-				"https://raw.githubusercontent.com/synnaxlabs/synnax/71-working-delta-build-for-windows-and-macos/delta/release-spec.json"
+				"https://raw.githubusercontent.com/synnaxlabs/synnax/main/delta/release-spec.json"
 			],
 			"dialog": true,
 			"pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEIzNzRCODgxRjYyQ0UwRDYKUldUVzRDejJnYmgwcy90b1VFaldkYmZsN3ZBdmRQSFZmUFN4dmZYU29UdTBUUHpJYmI0Sm9ES3oK"
