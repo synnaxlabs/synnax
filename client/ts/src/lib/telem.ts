@@ -566,6 +566,8 @@ export class DataType extends String {
   static readonly Uint16 = new DataType('uint16');
   /** Represents a 8-bit unsigned integer value. */
   static readonly Uint8 = new DataType('uint8');
+  /** Represents a 64-bit unix epoch. */
+  static readonly TimeStamp = new DataType('timestamp');
 }
 
 export class Size extends Number {
@@ -666,6 +668,7 @@ const ARRAY_CONSTRUCTORS: Map<string, TypedArrayConstructor> = new Map<
   [DataType.Int16.string, Int16Array],
   [DataType.Int32.string, Int32Array],
   [DataType.Int64.string, BigInt64Array],
+  [DataType.TimeStamp.string, BigInt64Array],
 ]);
 
 const DATA_TYPE_DENSITIES = new Map<string, Density>([
@@ -679,4 +682,5 @@ const DATA_TYPE_DENSITIES = new Map<string, Density>([
   [DataType.Int16.string, Density.Bit16],
   [DataType.Int32.string, Density.Bit32],
   [DataType.Int64.string, Density.Bit64],
+  [DataType.TimeStamp.string, Density.Bit64],
 ]);

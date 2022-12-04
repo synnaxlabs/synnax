@@ -130,7 +130,6 @@ func (i *Iterator) autoNext() bool {
 	startOffset := i.Channel.DataType.Density().Size(startApprox.Upper)
 
 	arr, err := i.read(startOffset, i.Channel.DataType.Density().Size(i.IteratorConfig.AutoChunkSize))
-
 	if err != nil && !errors.Is(err, io.EOF) {
 		i.err = err
 		return false

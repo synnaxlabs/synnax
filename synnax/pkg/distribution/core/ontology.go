@@ -114,7 +114,7 @@ func (s *ClusterOntologyService) Schema() *schema.Schema { return _clusterSchema
 
 // RetrieveEntity implements ontology.Service.
 func (s *ClusterOntologyService) RetrieveEntity(_ string) (schema.Entity, error) {
-	e := schema.NewEntity(_clusterSchema, "HostResolver")
+	e := schema.NewEntity(_clusterSchema, "Cluster")
 	schema.Set(e, "key", s.Cluster.Key().String())
 	return e, nil
 }

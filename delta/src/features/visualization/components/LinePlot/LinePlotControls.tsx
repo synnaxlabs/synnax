@@ -5,72 +5,71 @@ import { useEffect, useState } from "react";
 import { LinePlotVisualization, SugaredLinePlotVisualization } from "../../types";
 
 export interface LinePlotControlsProps {
-	visualization: SugaredLinePlotVisualization;
-	onChange: (vis: LinePlotVisualization) => void;
-	client: Synnax;
+  visualization: SugaredLinePlotVisualization;
+  onChange: (vis: LinePlotVisualization) => void;
+  client: Synnax;
 }
 
 export const LinePlotControls = ({
-	visualization,
-	onChange,
-	client,
+  visualization,
+  onChange,
+  client,
 }: LinePlotControlsProps) => {
-	const ranges = useSelectRanges();
-	const { channels } = visualization;
-	const [channelOpts, setChannelOpts] = useState<ChannelPayload[]>([]);
+  const ranges = useSelectRanges();
+  const { channels } = visualization;
+  const [channelOpts, setChannelOpts] = useState<ChannelPayload[]>([]);
 
-	useEffect(() => {
-		const fn = async () => {
-			const channels = await client.channel.retrieveAll();
-			console.log(channels);
-			setChannelOpts(channels.map((ch) => ch.payload));
-		};
-		fn();
-	}, [client]);
+  useEffect(() => {
+    const fn = async () => {
+      const channels = await client.channel.retrieveAll();
+      setChannelOpts(channels.map((ch) => ch.payload));
+    };
+    fn();
+  }, [client]);
 
-	const handleChannelSelect = (selected: string[]) => {
-		onChange({
-			...visualization,
-			ranges: visualization.ranges.map((range) => range.key),
-			channels: selected,
-		});
-	};
+  const handleChannelSelect = (selected: string[]) => {
+    onChange({
+      ...visualization,
+      ranges: visualization.ranges.map((range) => range.key),
+      channels: selected,
+    });
+  };
 
-	const handleRangeSelect = (selected: string[]) => {
-		onChange({
-			...visualization,
-			ranges: selected,
-			channels: visualization.channels,
-		});
-	};
+  const handleRangeSelect = (selected: string[]) => {
+    onChange({
+      ...visualization,
+      ranges: selected,
+      channels: visualization.channels,
+    });
+  };
 
-	return (
-		<Space direction="vertical">
-			<Select.Multiple
-				selected={channels}
-				onSelect={handleChannelSelect}
-				options={channelOpts}
-				tagKey="name"
-				listPosition="top"
-				columns={[
-					{
-						key: "name",
-						label: "Name",
-					},
-				]}
-			/>
-			<Select.Multiple
-				selected={visualization.ranges.map((range) => range.key)}
-				listPosition="top"
-				onSelect={handleRangeSelect}
-				options={ranges}
-				columns={[
-					{
-						key: "name",
-						label: "Name",
-					},
-				]}
-			/>
-		</Space>
-	);
+  return (
+    <Space direction="vertical">
+      <Select.Multiple
+        selected={channels}
+        onSelect={handleChannelSelect}
+        options={channelOpts}
+        tagKey="name"
+        listPosition="top"
+        columns={[
+          {
+            key: "name",
+            label: "Name",
+          },
+        ]}
+      />
+      <Select.Multiple
+        selected={visualization.ranges.map((range) => range.key)}
+        listPosition="top"
+        onSelect={handleRangeSelect}
+        options={ranges}
+        columns={[
+          {
+            key: "name",
+            label: "Name",
+          },
+        ]}
+      />
+    </Space>
+  );
 };

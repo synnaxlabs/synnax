@@ -236,7 +236,7 @@ const concatTypedArrays = (a: ArrayPayload, b: ArrayPayload): ArrayPayload => {
   if (!a.dataType || !b.dataType) {
     throw new Error('Cannot concat arrays with unknown data type');
   }
-  if (a.dataType != b.dataType) {
+  if (a.dataType.valueOf() != b.dataType.valueOf()) {
     throw new Error('Cannot concat arrays with different data types');
   }
   const c = new Uint8Array(a.data.length + b.data.length);

@@ -86,7 +86,9 @@ class FramerClient:
         :returns: A numpy array containing the retrieved telemetry.
         :raises ContiguityError: If the telemetry between start and end is non-contiguous.
         """
-        return self.read_array(from_, start, end).data
+        arr = self.read_array(from_, start, end)
+        print(arr.time_range.start.datetime(), arr.time_range.end.datetime())
+        return arr.data
 
     def read_array(
         self, from_: str, start: UnparsedTimeStamp, end: UnparsedTimeStamp

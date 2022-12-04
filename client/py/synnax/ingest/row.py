@@ -6,7 +6,7 @@ from rich.progress import Progress, TextColumn, BarColumn, TaskProgressColumn, \
     TimeElapsedColumn
 
 from .. import Channel, Synnax
-from ..telem import MEGABYTE
+from ..telem import MEGABYTE, TimeStamp
 from ..io import RowReader
 from ..framer import DataFrameWriter
 
@@ -35,10 +35,14 @@ class RowIngestionEngine:
 
         self.mem_limit = soft_mem_limit
         self.reader = reader
-        self.reader.set_chunk_size(self.get_chunk_size())
         self.client = client
-        self.writer = self.client.data.new_writer(start=0,
-                                                  keys=[ch.key for ch in channels])
+        self.reader.set_chunk_size(1)
+        df = self.reader.read()
+        self.writer = self.client.data.new_writer(
+            start=TimeStamp(df[list(self.idx_grouped.keys())[0].name][0]),
+            keys=[ch.key for ch in channels],
+        )
+        self.reader.set_chunk_size(self.get_chunk_size())
 
     def get_chunk_size(self):
         """Sum the density of all channels to determine the chunk size.
@@ -57,7 +61,6 @@ class RowIngestionEngine:
                 TextColumn("{task.fields[tp]} samples/s"),
             ) as progress:
                 task = progress.add_task("ingest", total=self.reader.nsamples, tp=0)
-                throughput = 0
                 while True:
                     try:
                         t0 = datetime.now()
@@ -66,7 +69,7 @@ class RowIngestionEngine:
                         gc.collect()
                         progress.update(task, advance=chunk.size,
                                         tp=chunk.size / (
-                                                datetime.now() - t0).total_seconds())
+                                            datetime.now() - t0).total_seconds())
                     except StopIteration:
                         break
             self.writer.commit()

@@ -14,6 +14,37 @@ class FrameHeader(Payload):
 class BinaryFrame(FrameHeader):
     arrays: list[BinaryArray] | None
 
+    def compact(self):
+        # compact together arrays that have the same key
+
+        if self.arrays is None:
+            return
+
+        keys = self.keys
+        unique_keys = list(set(keys))
+
+        next_arrays = []
+
+        for key in unique_keys:
+            indices = [i for i, x in enumerate(keys) if x == key]
+            if len(indices) == 1:
+                continue
+
+            first = self.arrays[indices[0]]
+            rest = [self.arrays[i] for i in indices[1:]]
+            rest.sort(key=lambda x: x.time_range.start)
+            combined = BinaryArray(
+                time_range=TimeRange(
+                    start=first.time_range.start,
+                    end=rest[-1].time_range.end,
+                ),
+                data=b"".join([x.data for x in rest]),
+                data_type=first.data_type,
+            )
+            next_arrays.append(combined)
+
+        self.arrays = next_arrays
+        self.keys = unique_keys
 
 class NumpyFrame(FrameHeader):
     arrays: list[NumpyArray] | None
@@ -23,13 +54,15 @@ class NumpyFrame(FrameHeader):
 
     @classmethod
     def from_binary(cls, frame: BinaryFrame) -> NumpyFrame:
-        return NumpyFrame(keys=frame.keys, arrays=[NumpyArray.from_binary(arr) for arr in frame.arrays])
+        return NumpyFrame(keys=frame.keys,
+                          arrays=[NumpyArray.from_binary(arr) for arr in frame.arrays])
 
     def to_dataframe(self) -> DataFrame:
         return DataFrame({key: arr.data for key, arr in zip(self.keys, self.arrays)})
 
     def to_binary(self) -> BinaryFrame:
-        return BinaryFrame(keys=self.keys, arrays=[arr.to_binary() for arr in self.arrays])
+        return BinaryFrame(keys=self.keys,
+                           arrays=[arr.to_binary() for arr in self.arrays])
 
     def __getitem__(self, key: str) -> NumpyArray:
         return self.arrays[self.keys.index(key)]
