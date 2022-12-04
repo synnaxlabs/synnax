@@ -7,11 +7,6 @@ type ReaderAtCloser interface {
 	io.Closer
 }
 
-type ReaderReaderAt interface {
-	io.Reader
-	io.ReaderAt
-}
-
 type WriterAtCloser interface {
 	io.WriterAt
 	io.Closer

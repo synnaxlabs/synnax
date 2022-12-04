@@ -4,14 +4,16 @@ import (
 	"io"
 )
 
-// PartialReader is a internal around io.ReaderAt the returns a Reader over a subset
+// PartialReader wraps an io.ReaderAt the returns a Reader over a subset
 // of the underlying data.
-func PartialReader(r io.ReaderAt, offset, length int64) ReaderReaderAt {
-	return &partialReader{
-		internal: r,
-		offset:   offset,
-		length:   length,
-	}
+func PartialReader(r io.ReaderAt, offset, length int64) io.Reader {
+	return &partialReader{internal: r, offset: offset, length: length}
+}
+
+// PartialReaderAt wraps an io.ReaderAt the returns a ReaderAt over a subset
+// of the underlying data.
+func PartialReaderAt(r io.ReaderAt, offset, length int64) io.ReaderAt {
+	return &partialReader{internal: r, offset: offset, length: length}
 }
 
 type partialReader struct {
@@ -21,6 +23,7 @@ type partialReader struct {
 	internal io.ReaderAt
 }
 
+// Read implements io.Reader.
 func (r *partialReader) Read(p []byte) (n int, err error) {
 	if r.nRead >= r.length {
 		return 0, io.EOF
@@ -38,6 +41,7 @@ func (r *partialReader) Read(p []byte) (n int, err error) {
 	return n, err
 }
 
+// ReadAt implements io.ReaderAt.
 func (r *partialReader) ReadAt(p []byte, off int64) (n int, err error) {
 	if off >= r.length {
 		return 0, io.EOF
