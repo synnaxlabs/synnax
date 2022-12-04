@@ -79,7 +79,7 @@ jobs:
       synnax:
         image: ghcr.io/synnaxlabs/synnax:latest
         env:
-          SYNNAX_LISTEN_ADDRESS: localhost:8080
+          SYNNAX_LISTEN_ADDRESS: localhost:9090
           SYNNAX_DEBUG: true
           SYNNAX_MEM: true
 
@@ -87,4 +87,4 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
         ports:
-          - 8080:8080
+          - 9090:9090
