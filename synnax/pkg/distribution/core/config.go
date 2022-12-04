@@ -24,12 +24,15 @@ type Config struct {
 	// Pool is a pool for grpc connections to other nodes in the Cluster.
 	Pool *fgrpc.Pool
 	// Storage is the storage configuration to use for the node.
-	Storage    storage.Config
+	Storage storage.Config
+	// Transports is a list of transports the distribution uses for communication.
+	// These Transports must be bound to the node's grpc server.
 	Transports *[]fgrpc.BindableTransport
 }
 
 var _ config.Config[Config] = Config{}
 
+// Override implements Config.
 func (cfg Config) Override(other Config) Config {
 	cfg.AdvertiseAddress = override.String(cfg.AdvertiseAddress, other.AdvertiseAddress)
 	cfg.PeerAddresses = override.Slice(cfg.PeerAddresses, other.PeerAddresses)
@@ -43,6 +46,7 @@ func (cfg Config) Override(other Config) Config {
 	return cfg
 }
 
+// Validate implements Config.
 func (cfg Config) Validate() error {
 	v := validate.New("distribution.core")
 	validate.NotNil(v, "pool", cfg.Pool)

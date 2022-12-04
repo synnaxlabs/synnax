@@ -27,20 +27,10 @@ func (c *createExecutor[K, E]) exec(q query.Query) error {
 	var (
 		opts    = c.options()
 		entries = GetEntries[K, E](q)
-		prefix  = typePrefix[K, E](opts)
 	)
+	w := &KVBatch[K, E]{Batch: c.Txn, opts: opts}
 	for _, entry := range entries.All() {
-		data, err := opts.encoder.Encode(entry)
-		if err != nil {
-			return err
-		}
-		key, err := opts.encoder.Encode(entry.GorpKey())
-		if err != nil {
-			return err
-		}
-		// NOTE: We need to be careful with this operation in the future.
-		// Because we aren't copying prefix, we're modifying the underlying slice.
-		if err = c.Txn.Set(append(prefix, key...), data, entry.SetOptions()...); err != nil {
+		if err := w.Write(entry); err != nil {
 			return err
 		}
 	}

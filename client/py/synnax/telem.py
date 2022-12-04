@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from freighter import Payload
+
 from datetime import datetime, timedelta, timezone, tzinfo
 from typing import Union, get_args
 
@@ -46,6 +48,8 @@ class TimeStamp(int):
         elif isinstance(value, np.datetime64):
             # Assume the datetime64 is in UTC
             value = int(pd.Timestamp(value).asm8.view(np.int64))
+        elif isinstance(value, np.int64):
+            value = int(value)
         elif isinstance(value, int):
             return super().__new__(cls, int(value))
         else:
@@ -291,14 +295,41 @@ class TimeSpan(int):
 
 
 TIME_STAMP_MIN = TimeStamp(0)
-TIME_STAMP_MAX = TimeStamp(2**63 - 1)
+TIME_STAMP_MAX = TimeStamp(2 ** 63 - 1)
 NANOSECOND = TimeSpan(1)
+NANOSECOND_UNITS = "ns"
 MICROSECOND = TimeSpan(1000) * NANOSECOND
+MICROSECOND_UNITS = "us"
 MILLISECOND = TimeSpan(1000) * MICROSECOND
+MILLISECOND_UNITS = "ms"
 SECOND = TimeSpan(1000) * MILLISECOND
+SECOND_UNITS = "s"
 MINUTE = TimeSpan(60) * SECOND
+MINUTE_UNITS = "m"
 HOUR = TimeSpan(60) * MINUTE
+HOUR_UNITS = "h"
 TIME_SPAN_MAX = TimeSpan(0xFFFFFFFFFFFFFFFF)
+
+TIME_UNITS = {
+    NANOSECOND_UNITS: NANOSECOND,
+    MICROSECOND_UNITS: MICROSECOND,
+    MILLISECOND_UNITS: MILLISECOND,
+    SECOND_UNITS: SECOND,
+    MINUTE_UNITS: MINUTE,
+    HOUR_UNITS: HOUR,
+}
+
+
+def convert_time_units(data: np.ndarray, _from: str, to: str):
+    """Converts the data from one time unit to another.
+    :param data: the data to convert
+    :param _from: the units of the data
+    :param to: the units to convert to
+    :return: the data in the new units
+    """
+    if _from == to:
+        return data
+    return data * TIME_UNITS[_from] / TIME_UNITS[to]
 
 
 class Rate(float):
@@ -380,6 +411,8 @@ class TimeRange(BaseModel):
     def validate(cls, v):
         if isinstance(v, TimeRange):
             return cls(v.start, v.end)
+        elif isinstance(v, dict):
+            return cls(**v)
         return cls(start=v[0], end=v[1])
 
     def span(self) -> TimeSpan:
@@ -479,7 +512,7 @@ class DataType(str):
             return super().__new__(cls, value)
         try:
             if issubclass(value, np.ScalarType):
-                value = DATA_TYPES.get(value, None)
+                value = NUMPY_TO_DATA_TYPE.get(value, None)
                 if value is None:
                     raise TypeError(f"Cannot convert {value} to DataType")
                 return value
@@ -508,7 +541,7 @@ class DataType(str):
         :param _raise: If True, raises a TypeError if the DataType is not a numpy type.
         :return: The numpy type
         """
-        npt = NUMPY_TYPES.get(self, None)
+        npt = DATA_TYPE_TO_NUMPY.get(self, None)
         if npt is None and _raise:
             raise TypeError(f"Cannot convert {self} to numpy type")
         return npt
@@ -516,8 +549,12 @@ class DataType(str):
     def __repr__(self):
         return f"DataType({super(DataType, self).__repr__()})"
 
+    def string(self):
+        return str(self)
+
 
 DATA_TYPE_UNKNOWN = DataType("")
+TIMESTAMP = DataType("timestamp")
 FLOAT64 = DataType("float64")
 FLOAT32 = DataType("float32")
 INT64 = DataType("int64")
@@ -528,6 +565,18 @@ UINT64 = DataType("uint64")
 UINT32 = DataType("uint32")
 UINT16 = DataType("uint16")
 UINT8 = DataType("uint8")
+DATA_TYPES = [
+    FLOAT64,
+    FLOAT32,
+    INT64,
+    INT32,
+    INT16,
+    INT8,
+    UINT64,
+    UINT32,
+    UINT16,
+    UINT8,
+]
 
 UnparsedTimeStamp = Union[
     int,
@@ -536,6 +585,7 @@ UnparsedTimeStamp = Union[
     datetime,
     timedelta,
     np.datetime64,
+    np.int64,
 ]
 UnparsedTimeSpan = Union[
     int,
@@ -548,7 +598,7 @@ UnparsedRate = Union[int, float, TimeSpan, Rate]
 UnparsedDensity = Density | int
 UnparsedDataType = (*np.ScalarType, DataType, str)
 
-NUMPY_TYPES: dict[str, np.ScalarType] = {
+DATA_TYPE_TO_NUMPY: dict[str, np.ScalarType] = {
     FLOAT64: np.float64,
     FLOAT32: np.float32,
     INT64: np.int64,
@@ -560,16 +610,35 @@ NUMPY_TYPES: dict[str, np.ScalarType] = {
     UINT16: np.uint16,
     UINT8: np.uint8,
 }
+NUMPY_TO_DATA_TYPE = {v: k for k, v in DATA_TYPE_TO_NUMPY.items()}
 
-DATA_TYPES: dict[np.ScalarType, DataType] = {
-    np.float64: FLOAT64,
-    np.float32: FLOAT32,
-    np.int64: INT64,
-    np.int32: INT32,
-    np.int16: INT16,
-    np.int8: INT8,
-    np.uint64: UINT64,
-    np.uint32: UINT32,
-    np.uint16: UINT16,
-    np.uint8: UINT8,
-}
+
+class ArrayHeader(Payload):
+    time_range: TimeRange | None
+    data_type: DataType
+
+
+class BinaryArray(ArrayHeader):
+    data: bytes = b""
+
+
+class NumpyArray(ArrayHeader):
+    data: np.ndarray
+
+    class Config:
+        arbitrary_types_allowed = True
+
+    @classmethod
+    def from_binary(cls, arr: BinaryArray) -> NumpyArray:
+        return NumpyArray(
+            data_type=arr.data_type,
+            time_range=arr.time_range,
+            data=np.frombuffer(arr.data, dtype=arr.data_type.numpy_type)
+        )
+
+    def to_binary(self) -> BinaryArray:
+        return BinaryArray(
+            data_type=self.data_type,
+            time_range=self.time_range,
+            data=self.data.tobytes()
+        )

@@ -8,7 +8,6 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen"
-	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/telem"
@@ -17,13 +16,13 @@ import (
 // Key represents a unique identifier for a Channel. This value is guaranteed to be
 // unique across the entire cluster. It is composed of a uint32 ID representing the
 // node holding the lease on the channel, and a uint16 key representing a unique
-// identifier for the channel on the node's cesium.DB.
+// node-local identifier.
 type Key [6]byte
 
 // NewKey generates a new Key from the provided components.
-func NewKey(nodeID core.NodeID, cesiumKey storage.ChannelKey) (key Key) {
+func NewKey(nodeID core.NodeID, localKey storage.ChannelKey) (key Key) {
 	binary.LittleEndian.PutUint32(key[0:4], uint32(nodeID))
-	binary.LittleEndian.PutUint16(key[4:6], uint16(cesiumKey))
+	binary.LittleEndian.PutUint16(key[4:6], uint16(localKey))
 	return key
 }
 
@@ -31,9 +30,9 @@ func NewKey(nodeID core.NodeID, cesiumKey storage.ChannelKey) (key Key) {
 // node for the Channel.
 func (c Key) NodeID() core.NodeID { return core.NodeID(binary.LittleEndian.Uint32(c[0:4])) }
 
-// StorageKey returns a unique identifier for the Channel within the leaseholder node's
+// LocalKey returns a unique identifier for the Channel within the leaseholder node's
 // storage.TS db. This value is NOT guaranteed to be unique across the entire cluster.
-func (c Key) StorageKey() storage.ChannelKey {
+func (c Key) LocalKey() storage.ChannelKey {
 	return storage.ChannelKey(binary.LittleEndian.Uint16(c[4:6]))
 }
 
@@ -47,7 +46,7 @@ const strKeySep = "-"
 // String returns the Key as a string in the format of "NodeID-CesiumKey", so
 // a channel with a NodeID of 1 and a CesiumKey of 2 would return "1-2".
 func (c Key) String() string {
-	return strconv.Itoa(int(c.NodeID())) + strKeySep + strconv.Itoa(int(c.StorageKey()))
+	return strconv.Itoa(int(c.NodeID())) + strKeySep + strconv.Itoa(int(c.LocalKey()))
 }
 
 // ParseKey parses a string representation of a Key into a Key. The key must be in
@@ -65,10 +64,18 @@ func ParseKey(s string) (k Key, err error) {
 	if err != nil {
 		return k, errors.Wrapf(err, "[channel] - invalid cesium key")
 	}
-	return NewKey(aspen.NodeID(nodeID), cesium.ChannelKey(cesiumKey)), nil
+	return NewKey(aspen.NodeID(nodeID), storage.ChannelKey(cesiumKey)), nil
 }
 
-// Keys extends []ChannelKeys with a few convenience methods.
+func MustParseKey(s string) Key {
+	key, err := ParseKey(s)
+	if err != nil {
+		panic(err)
+	}
+	return key
+}
+
+// Keys extends []Keys with a few convenience methods.
 type Keys []Key
 
 // KeysFromChannels returns a slice of Keys from a slice of Channel(s).
@@ -92,11 +99,11 @@ func ParseKeys(keys []string) (Keys, error) {
 	return k, nil
 }
 
-// StorageKeys calls Key.StorageKey() on each key and returns a slice with the results.
+// StorageKeys calls Key.LocalKey() on each key and returns a slice with the results.
 func (k Keys) StorageKeys() []storage.ChannelKey {
 	keys := make([]storage.ChannelKey, len(k))
 	for i, key := range k {
-		keys[i] = key.StorageKey()
+		keys[i] = key.LocalKey()
 	}
 	return keys
 }
@@ -118,6 +125,13 @@ func (k Keys) Strings() []string {
 	return s
 }
 
+// Unique removes duplicate keys from the slice and returns the result.
+func (k Keys) Unique() Keys { return lo.Uniq(k) }
+
+// Difference compares two sets of keys and returns the keys that are absent in other
+// followed by the keys that are absent in k.
+func (k Keys) Difference(other Keys) (Keys, Keys) { return lo.Difference(k, other) }
+
 // Channel is a collection is a container representing a collection of samples across
 // a time range. The data within a channel typically arrives from a single source. This
 // can be a physical sensor, software sensor, metric, event, or any other entity that
@@ -126,29 +140,43 @@ func (k Keys) Strings() []string {
 // This Channel type (for the distribution layer) extends a cesium.DB's channel via
 // composition to add fields necessary for cluster wide distribution.
 //
-// A Channel "belongs to" a specific Node. Because delta is oriented towards data collection
+// Key Channel "belongs to" a specific Node. Because delta is oriented towards data collection
 // close to the hardware, it's natural to assume a sensor writes to one and only device.
 // For example, we may have a temperature sensor for a carbon fiber oven connected to a
 // Linux box. The temperature sensor is a Channel that writes to Node residing on the
 // Linux box.
 //
-// Data for a channel can only be written through the leaseholder. This helps solve a lot
+// Array for a channel can only be written through the leaseholder. This helps solve a lot
 // of consistency and atomicity issues.
 type Channel struct {
 	// Name is a human-readable name for the channel. This name does not have to be
 	// unique.
-	Name string
+	Name string `json:"name" msgpack:"name"`
 	// NodeID is the leaseholder node for the channel.
-	NodeID core.NodeID
+	NodeID core.NodeID `json:"node_id" msgpack:"node_id"`
 	// DataType is the data type for the channel.
-	DataType telem.DataType
-	// Properties of the channel necessary for storage to perform
-	// operations on it. See the storage.channel docs for more info on this.
-	storage.Channel
+	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
+	// IsIndex is set to true if the channel is an index channel. LocalIndex channels must
+	// be int64 values written in ascending order. LocalIndex channels are most commonly
+	// unix nanosecond timestamps.
+	IsIndex bool `json:"is_index" msgpack:"is_index"`
+	// Rate sets the rate at which the channels values are written. This is used to
+	// determine the timestamp of each sample.
+	Rate telem.Rate `json:"rate" msgpack:"rate"`
+	// Key is a unique identifier for the channel within a cesium.DB. If not set when
+	// creating a channel, a unique key will be generated.
+	StorageKey storage.ChannelKey `json:"storage_key" msgpack:"storage_key"`
+	// LocalIndex is the channel used to index the channel's values. The LocalIndex is used to
+	// associate a value with a timestamp. If zero, the channel's data will be indexed
+	// using its rate. One of LocalIndex or Rate must be non-zero.
+	LocalIndex storage.ChannelKey `json:"local_index" msgpack:"local_index"`
 }
 
 // Key returns the key for the Channel.
-func (c Channel) Key() Key { return NewKey(c.NodeID, c.Channel.Key) }
+func (c Channel) Key() Key { return NewKey(c.NodeID, c.StorageKey) }
+
+// Index returns the key for the Channel's index channel.
+func (c Channel) Index() Key { return NewKey(c.NodeID, c.LocalIndex) }
 
 // GorpKey implements the gorp.Entry interface.
 func (c Channel) GorpKey() Key { return c.Key() }
@@ -160,3 +188,22 @@ func (c Channel) SetOptions() []interface{} { return []interface{}{c.Lease()} }
 
 // Lease implements the proxy.UnaryServer interface.
 func (c Channel) Lease() core.NodeID { return c.NodeID }
+
+func (c Channel) Storage() storage.Channel {
+	s := storage.Channel{
+		Key:      c.Key().String(),
+		DataType: c.DataType,
+		IsIndex:  c.IsIndex,
+		Rate:     c.Rate,
+	}
+	if c.LocalIndex != 0 {
+		s.Index = c.Index().String()
+	}
+	return s
+}
+
+func toStorage(channels []Channel) []storage.Channel {
+	return lo.Map(channels, func(channel Channel, _ int) storage.Channel {
+		return channel.Storage()
+	})
+}

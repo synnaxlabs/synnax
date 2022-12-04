@@ -46,9 +46,7 @@ func (db pebbleKV) NewIterator(opts kvc.IteratorOptions) kvc.Iterator {
 	return db.DB.NewIter(&pebble.IterOptions{LowerBound: opts.LowerBound, UpperBound: opts.UpperBound})
 }
 
-func (db pebbleKV) NewBatch() kvc.Batch {
-	return batch{db.DB.NewIndexedBatch()}
-}
+func (db pebbleKV) NewBatch() kvc.Batch { return batch{db.DB.NewIndexedBatch()} }
 
 func (db pebbleKV) Report() alamos.Report {
 	return alamos.Report{"engine": "pebble"}

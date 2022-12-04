@@ -11,14 +11,14 @@ func Middleware() freighter.Middleware {
 		ctx context.Context,
 		md freighter.MD,
 		next freighter.Next,
-	) error {
-		err := next(ctx, md)
+	) (freighter.MD, error) {
+		oMd, err := next(ctx, md)
 		var t Typed
 		if roacherrors.As(err, &t) {
 			if !t.Occurred() {
-				return nil
+				return oMd, nil
 			}
 		}
-		return err
+		return oMd, err
 	})
 }

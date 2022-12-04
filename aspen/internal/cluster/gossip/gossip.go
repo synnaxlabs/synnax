@@ -39,6 +39,7 @@ func (g *Gossip) GoGossip(ctx signal.Context) {
 			}
 			return nil
 		},
+		signal.WithKey("gossip"),
 	)
 }
 

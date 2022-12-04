@@ -66,7 +66,7 @@ export const ConnectCluster = ({ layoutKey, onClose }: LayoutRendererProps) => {
 				Connect a Cluster
 			</Header>
 			<Space className="connect-cluster__content" direction="vertical" grow>
-				<form onSubmit={handleSubmit(onSubmit)} id="my-form">
+				<form onSubmit={handleSubmit(onSubmit)} id="connect-cluster">
 					<Space direction="vertical">
 						<Input.Item
 							label="Name"
@@ -114,7 +114,7 @@ export const ConnectCluster = ({ layoutKey, onClose }: LayoutRendererProps) => {
 					<Button variant="text" size="medium" onClick={handleTestConnection}>
 						Test Connection
 					</Button>
-					<Button variant="filled" type="submit" form="my-form">
+					<Button variant="filled" type="submit" form="connect-cluster">
 						Done
 					</Button>
 				</Nav.Bar.End>

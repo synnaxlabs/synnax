@@ -56,7 +56,7 @@ func (e *Entries[K, E]) Set(i int, entry E) {
 }
 
 // All returns a slice of all entries currently bound to the query.
-func (e Entries[K, E]) All() []E {
+func (e *Entries[K, E]) All() []E {
 	if e.multiple {
 		return *e.entries
 	}

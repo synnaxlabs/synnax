@@ -38,14 +38,15 @@ func (s *unaryServer[RQ, RS]) fiberHandler(c *fiber.Ctx) error {
 		return err
 	}
 	var res RS
-	err = s.MiddlewareCollector.Exec(
+	oMD, err := s.MiddlewareCollector.Exec(
 		c.Context(),
 		parseRequestMD(c, address.Address(c.Path())),
-		freighter.FinalizerFunc(func(ctx context.Context, md freighter.MD) (err error) {
+		freighter.FinalizerFunc(func(ctx context.Context, md freighter.MD) (oMD freighter.MD, err error) {
 			res, err = s.handle(ctx, req)
-			return err
+			return freighter.MD{Protocol: md.Protocol, Params: make(freighter.Params)}, err
 		}),
 	)
+	setResponseMD(c, oMD)
 	fErr := ferrors.Encode(err)
 	if fErr.Type == ferrors.Nil {
 		return encodeAndWrite(c, ecd, res)
@@ -65,13 +66,13 @@ func (u *unaryClient[RQ, RS]) Send(
 	target address.Address,
 	req RQ,
 ) (res RS, err error) {
-	return res, u.MiddlewareCollector.Exec(
+	_, err = u.MiddlewareCollector.Exec(
 		ctx,
 		freighter.MD{Protocol: unaryReporter.Protocol, Target: target},
-		freighter.FinalizerFunc(func(ctx context.Context, md freighter.MD) error {
+		freighter.FinalizerFunc(func(ctx context.Context, iMD freighter.MD) (oMD freighter.MD, err error) {
 			b, err := u.ecd.Encode(req)
 			if err != nil {
-				return err
+				return oMD, err
 			}
 			httpReq, err := http.NewRequestWithContext(
 				ctx,
@@ -80,28 +81,28 @@ func (u *unaryClient[RQ, RS]) Send(
 				bytes.NewReader(b),
 			)
 			if err != nil {
-				return err
+				return oMD, err
 			}
+			setRequestMD(httpReq, iMD)
 			httpReq.Header.Set(fiber.HeaderContentType, u.ecd.ContentType())
-			for k, v := range md.Params {
-				if vStr, ok := v.(string); ok {
-					httpReq.Header.Set(k, vStr)
-				}
-			}
+
 			httpRes, err := (&http.Client{}).Do(httpReq)
+			oMD = parseResponseMD(httpRes, target)
 			if err != nil {
-				return err
+				return oMD, err
 			}
+
 			if httpRes.StatusCode < 200 || httpRes.StatusCode >= 300 {
 				var pld ferrors.Payload
 				if err := u.ecd.DecodeStream(httpRes.Body, &pld); err != nil {
-					return err
+					return oMD, err
 				}
-				return ferrors.Decode(pld)
+				return oMD, ferrors.Decode(pld)
 			}
-			return u.ecd.DecodeStream(httpRes.Body, &res)
+			return oMD, u.ecd.DecodeStream(httpRes.Body, &res)
 		}),
 	)
+	return res, err
 }
 
 func encodeAndWrite(c *fiber.Ctx, ecd httputil.EncoderDecoder, v interface{}) error {
@@ -125,9 +126,33 @@ func parseRequestMD(c *fiber.Ctx, target address.Address) freighter.MD {
 		md.Params[k] = v
 	}
 	for k, v := range parseQueryString(c) {
-		if isFreighterMDParam(k) {
+		if isFreighterQueryStringParam(k) {
 			md.Params[strings.TrimPrefix(k, freighterMDPrefix)] = v
 		}
+	}
+	return md
+}
+
+func setRequestMD(c *http.Request, md freighter.MD) {
+	for k, v := range md.Params {
+		if vStr, ok := v.(string); ok {
+			c.Header.Set(freighterMDPrefix+k, vStr)
+		}
+	}
+}
+
+func setResponseMD(c *fiber.Ctx, md freighter.MD) {
+	for k, v := range md.Params {
+		if vStr, ok := v.(string); ok {
+			c.Set(freighterMDPrefix+k, vStr)
+		}
+	}
+}
+
+func parseResponseMD(c *http.Response, target address.Address) freighter.MD {
+	md := freighter.MD{Protocol: unaryReporter.Protocol, Target: target, Params: make(freighter.Params, len(c.Header))}
+	for k, v := range c.Header {
+		md.Params[k] = v[0]
 	}
 	return md
 }
@@ -144,7 +169,7 @@ func parseQueryString(c *fiber.Ctx) map[string]string {
 
 const freighterMDPrefix = "freightermd"
 
-func isFreighterMDParam(k string) bool {
+func isFreighterQueryStringParam(k string) bool {
 	// check if the key has the md prefix
 	return strings.HasPrefix(k, freighterMDPrefix)
 }

@@ -77,7 +77,7 @@ const ResourcesTree = () => {
 					onSelect?.(id);
 				}}
 				onExpand={(key) => {
-					if (!client) return;
+					if (!client || !key) return;
 					const fn = async () => {
 						const resources = await client.ontology.retrieveChildren(
 							OntologyID.parseString(key)

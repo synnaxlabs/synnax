@@ -4,10 +4,15 @@ root = true
 charset = utf-8
 end_of_line = lf
 indent_size = 2
-indent_style = tab
 insert_final_newline = true
 trim_trailing_whitespace = true
 max_line_length = 88
 
-[*.t]
-trim_trailing_whitespace = false
+# 4 space indentation
+[*.{py,java,r,R}]
+indent_style = space
+indent_size = 4
+
+[{Makefile,go.mod,go.sum,*.go,.gitmodules}]
+indent_style = tab
+indent_size = 4

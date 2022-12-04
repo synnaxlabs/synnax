@@ -44,28 +44,32 @@ class AsyncTransport(Protocol):
         ...
 
 
-Next = typing.Callable[[MetaData], Exception | None]
+Next = typing.Callable[[MetaData], tuple[MetaData, Exception | None]]
 """Executes the next middleware in the chain"""
 
-AsyncNext = typing.Callable[[MetaData], typing.Awaitable[Exception | None]]
+AsyncNext = typing.Callable[
+    [MetaData], typing.Awaitable[tuple[MetaData, Exception | None]]
+]
 """Executes the next middleware in the chain"""
 
 
-Middleware = typing.Callable[[MetaData, Next], Exception | None]
+Middleware = typing.Callable[[MetaData, Next], tuple[MetaData, Exception | None]]
 """"Middleware is a general middleware function that can be used to parse/attach
 metadata to a request or alter its behvaior."""
 
 AsyncMiddleware = typing.Callable[
-    [MetaData, AsyncNext], typing.Awaitable[Exception | None]
+    [MetaData, AsyncNext], typing.Awaitable[tuple[MetaData, Exception | None]]
 ]
 """Middleware is a general middleware function that can be used to parse/attach
 metadata to a request or alter its behvaior."""
 
-Finalizer = typing.Callable[[MetaData], Exception | None]
+Finalizer = typing.Callable[[MetaData], tuple[MetaData, Exception | None]]
 """Finalizer is a middleware that is executed as the last step in a chain.
 It is used to finalize the request and return the response."""
 
-AsyncFinalizer = typing.Callable[[MetaData], typing.Awaitable[Exception | None]]
+AsyncFinalizer = typing.Callable[
+    [MetaData], typing.Awaitable[tuple[MetaData, Exception | None]]
+]
 """Finalizer is a middleware that is executed as the last step in a chain.
 It is used to finalize the request and return the response."""
 
@@ -96,7 +100,7 @@ class MiddlewareCollector:
         """
         middleware = self._middleware.copy()
 
-        def _next(_md: MetaData) -> Exception | None:
+        def _next(_md: MetaData) -> tuple[MetaData, Exception | None]:
             if len(middleware) == 0:
                 return finalizer(_md)
             return middleware.pop()(_md, _next)
@@ -130,7 +134,7 @@ class AsyncMiddlewareCollector:
         """
         middleware = self._middleware.copy()
 
-        async def _next(_md: MetaData) -> Exception | None:
+        async def _next(_md: MetaData) -> tuple[MetaData, Exception | None]:
             if len(middleware) == 0:
                 return await finalizer(_md)
             return await middleware.pop()(_md, _next)

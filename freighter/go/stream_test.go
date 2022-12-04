@@ -119,7 +119,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 				})
 
 			})
-			Describe("Error Handling", func() {
+			Describe("Err Handling", func() {
 
 				Describe("Server returns a non-nil error", func() {
 					It("Should send the error to the client", func() {
@@ -250,11 +250,11 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 						ctx context.Context,
 						md freighter.MD,
 						next freighter.Next,
-					) error {
+					) (freighter.MD, error) {
 						c++
-						err := next(ctx, md)
+						oMd, err := next(ctx, md)
 						c++
-						return err
+						return oMd, err
 					}))
 					ctx, cancel := context.WithCancel(context.TODO())
 					defer cancel()

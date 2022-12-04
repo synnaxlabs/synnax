@@ -1,3 +1,5 @@
+// Package core provides entities for managing distributed storage and networking in a
+// synnax Cluster. It serves as the base for the larger distribution layer.
 package core
 
 import (
@@ -8,24 +10,26 @@ import (
 	"github.com/synnaxlabs/x/config"
 )
 
-// Core is the foundational primitive for distributed compute in the delta Cluster. It exposes the following essential
-// APIs:
+// Core is the foundational primitive for distributed compute in a synnax Cluster. It
+// exposes the following services:
 //
-//  1. StorageKey.KV - an eventually consistent distributed key-value store.
-//  2. StorageKey.TS - a node local time-series engine for writing segment data.
-//  3. Cluster - an API for querying information about the underlying Cluster topology.
+//  1. Storage.TSChannel - A time-series storage engine for writing node-local telemetry frames.
+//  2. Storage.KV - An eventually consistent, key-value store for maintaining cluster
+//     wide meta-data and state.
+//  3. Cluster - An API for querying information about the Cluster topology.
 type Core struct {
 	// Config is the configuration for the distribution layer.
 	Config Config
 	// Cluster is the API for the delta Cluster.
-	Cluster aspen.Cluster
-	// Storage is the storage for the node. The distribution layer replaces the original key-value store with
-	// a distributed key-value store. The caller should NOT call Close on the storage engine.
+	Cluster Cluster
+	// Storage is the storage for the node. The distribution layer replaces the original
+	// key-value store with a distributed key-value store. The caller should NOT call
+	// Close on the storage engine.
 	Storage *storage.Store
 }
 
-// Open opens a new  core distribution layer. The caller is responsible for closing the distribution layer when it is
-// no longer in use.
+// Open opens a new  core distribution layer. The caller is responsible for closing the
+// distribution layer when it is no longer in use.
 func Open(ctx context.Context, cfg Config) (c Core, err error) {
 	cfg, err = config.OverrideAndValidate(DefaultConfig, cfg)
 	if err != nil {
@@ -40,7 +44,7 @@ func Open(ctx context.Context, cfg Config) (c Core, err error) {
 	clusterTransport := aspentransport.New(cfg.Pool)
 	*cfg.Transports = append(*cfg.Transports, clusterTransport)
 
-	// Since we're using our own key-value engine, the value we used for 'dirname'
+	// Since we're using our own key-value engine, the value we use for 'dirname'
 	// doesn't matter.
 	clusterKV, err := aspen.Open(
 		ctx,
@@ -49,11 +53,13 @@ func Open(ctx context.Context, cfg Config) (c Core, err error) {
 		cfg.PeerAddresses,
 		aspen.WithEngine(c.Storage.KV),
 		aspen.WithExperiment(cfg.Experiment),
-		aspen.WithLogger(cfg.Logger.Sugar()),
+		aspen.WithLogger(cfg.Logger.Named("aspen").Sugar()),
 		aspen.WithTransport(clusterTransport),
 	)
 	c.Cluster = clusterKV
-	// configure out storage system to use a distributed key-value store
+
+	// Replace storage's key-value store with a distributed version.
 	c.Storage.KV = clusterKV
+
 	return c, err
 }

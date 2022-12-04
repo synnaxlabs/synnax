@@ -125,23 +125,25 @@ func (s *streamClient[RQ, RS]) Report() alamos.Report {
 func (s *streamClient[RQ, RS]) Stream(
 	ctx context.Context,
 	target address.Address,
-) (stream freighter.ClientStream[RQ, RS], _ error) {
-	return stream, s.MiddlewareCollector.Exec(
+) (stream freighter.ClientStream[RQ, RS], err error) {
+	_, err = s.MiddlewareCollector.Exec(
 		ctx,
 		freighter.MD{Target: target, Protocol: s.Reporter.Protocol, Params: make(freighter.Params)},
-		freighter.FinalizerFunc(func(ctx context.Context, md freighter.MD) error {
+		freighter.FinalizerFunc(func(ctx context.Context, md freighter.MD) (oMD freighter.MD, err error) {
 			md.Params[fiber.HeaderContentType] = s.ecd.ContentType()
 			conn, res, err := s.dialer.DialContext(ctx, "ws://"+target.String(), mdToHeaders(md))
+			oMD = parseResponseMD(res, target)
 			if err != nil {
-				return err
+				return oMD, err
 			}
 			if res.StatusCode != fiber.StatusSwitchingProtocols {
-				return roacherrors.New("[ws] - unable to upgrade connection")
+				return oMD, roacherrors.New("[ws] - unable to upgrade connection")
 			}
 			stream = &clientStream[RQ, RS]{core: newCore[RS, RQ](ctx, conn, s.ecd, s.logger)}
-			return nil
+			return oMD, nil
 		}),
 	)
+	return stream, err
 }
 
 type clientStream[RQ, RS freighter.Payload] struct {
@@ -234,18 +236,18 @@ func (s *streamServer[RQ, RS]) fiberHandler(c *fiber.Ctx) error {
 	if !fiberws.IsWebSocketUpgrade(c) {
 		return fiber.ErrUpgradeRequired
 	}
-	md := parseRequestMD(c, address.Address(s.path))
-	ecd, err := httputil.DetermineEncoderDecoder(md.Params.GetDefault(fiber.HeaderContentType, "").(string))
+	iMD := parseRequestMD(c, address.Address(s.path))
+	ecd, err := httputil.DetermineEncoderDecoder(iMD.Params.GetDefault(fiber.HeaderContentType, "").(string))
 	if err != nil {
 		// If we can't determin the encoder/decoder, we can't continue, so we sent a best effort string.
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
-	err = s.MiddlewareCollector.Exec(
+	oMD, err := s.MiddlewareCollector.Exec(
 		c.Context(),
-		md,
-		freighter.FinalizerFunc(func(ctx context.Context, md freighter.MD) error {
-
-			return fiberws.New(func(c *fiberws.Conn) {
+		iMD,
+		freighter.FinalizerFunc(func(ctx context.Context, md freighter.MD) (oMD freighter.MD, err error) {
+			oMD = freighter.MD{Target: iMD.Target, Protocol: s.Reporter.Protocol, Params: make(freighter.Params)}
+			return oMD, fiberws.New(func(c *fiberws.Conn) {
 				if err := func() error {
 
 					stream := &serverStream[RQ, RS]{core: newCore[RQ, RS](context.TODO(), c.Conn, ecd, zap.S())}
@@ -305,6 +307,7 @@ func (s *streamServer[RQ, RS]) fiberHandler(c *fiber.Ctx) error {
 				}
 			})(c)
 		}))
+	setResponseMD(c, oMD)
 	fErr := ferrors.Encode(err)
 	if fErr.Type == ferrors.Nil {
 		return nil

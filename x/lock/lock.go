@@ -14,3 +14,12 @@ type Locker interface {
 	// TryLock tries to acquire the lock. Returns true if the lock was acquired.
 	TryLock() bool
 }
+
+type Releaser interface {
+	// Release releases the lock. Panics if the lock is not held.
+	Release()
+}
+
+type ReleaserFunc func()
+
+func (f ReleaserFunc) Release() { f() }

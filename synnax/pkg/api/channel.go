@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-
 	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -16,9 +15,11 @@ type Channel struct {
 	Key      string              `json:"key" msgpack:"key"`
 	Name     string              `json:"name" msgpack:"name"`
 	NodeID   distribution.NodeID `json:"node_id" msgpack:"node_id"`
-	Rate     telem.Rate          `json:"rate" msgpack:"rate" validate:"required"`
+	Rate     telem.Rate          `json:"rate" msgpack:"rate"`
 	DataType telem.DataType      `json:"data_type" msgpack:"data_type" validate:"required"`
 	Density  telem.Density       `json:"density" msgpack:"density"`
+	IsIndex  bool                `json:"is_index" msgpack:"is_index"`
+	Index    string              `json:"index" msgpack:"index"`
 }
 
 // ChannelService is the central API for all things Channel related.
@@ -27,7 +28,7 @@ type ChannelService struct {
 	validationProvider
 	authProvider
 	dbProvider
-	internal *channel.Service
+	internal channel.Service
 }
 
 func NewChannelService(p Provider) *ChannelService {
@@ -43,16 +44,7 @@ func NewChannelService(p Provider) *ChannelService {
 // ChannelCreateRequest is a request to create a Channel in the cluster.
 type ChannelCreateRequest struct {
 	// Channel is a template for the Channel to create.
-	Channel Channel `json:"Channel" msgpack:"Channel" validate:"required"`
-	// Count is the number of channels to create using the template.
-	Count int `json:"count" msgpack:"count"`
-}
-
-func (c ChannelCreateRequest) applyDefaults() ChannelCreateRequest {
-	if c.Count == 0 {
-		c.Count = 1
-	}
-	return c
+	Channels []Channel `json:"channels" msgpack:"channels" validate:"required,dive"`
 }
 
 // ChannelCreateResponse is the response returned after a set of channels have
@@ -66,19 +58,16 @@ func (s *ChannelService) Create(
 	ctx context.Context,
 	req ChannelCreateRequest,
 ) (res ChannelCreateResponse, _ errors.Typed) {
-	req = req.applyDefaults()
 	if err := s.Validate(req); err.Occurred() {
 		return res, err
 	}
+	translated, err := translateChannelsBackward(req.Channels)
+	if err != nil {
+		return res, errors.Parse(err)
+	}
 	return res, s.dbProvider.WithTxn(func(txn gorp.Txn) errors.Typed {
-		chs, err := s.internal.NewCreate().
-			WithName(req.Channel.Name).
-			WithNodeID(req.Channel.NodeID).
-			WithRate(req.Channel.Rate).
-			WithDataType(req.Channel.DataType).
-			WithTxn(txn).
-			ExecN(ctx, req.Count)
-		res = ChannelCreateResponse{Channels: translateChannels(chs)}
+		err := s.internal.CreateManyWithTxn(txn, &translated)
+		res = ChannelCreateResponse{Channels: translateChannelsForward(translated)}
 		return errors.MaybeQuery(err)
 	})
 }
@@ -124,10 +113,10 @@ func (s *ChannelService) Retrieve(
 	}
 
 	err := errors.MaybeQuery(q.Exec(ctx))
-	return ChannelRetrieveResponse{Channels: translateChannels(resChannels)}, err
+	return ChannelRetrieveResponse{Channels: translateChannelsForward(resChannels)}, err
 }
 
-func translateChannels(channels []channel.Channel) []Channel {
+func translateChannelsForward(channels []channel.Channel) []Channel {
 	translated := make([]Channel, len(channels))
 	for i, ch := range channels {
 		translated[i] = Channel{
@@ -136,8 +125,42 @@ func translateChannels(channels []channel.Channel) []Channel {
 			NodeID:   ch.NodeID,
 			Rate:     ch.Rate,
 			DataType: ch.DataType,
-			Density:  ch.Density,
+			IsIndex:  ch.IsIndex,
+			Index:    ch.Index().String(),
+			Density:  ch.DataType.Density(),
 		}
 	}
 	return translated
+}
+
+func translateChannelsBackward(channels []Channel) ([]channel.Channel, error) {
+	translated := make([]channel.Channel, len(channels))
+	for i, ch := range channels {
+		tCH := channel.Channel{
+			Name:     ch.Name,
+			NodeID:   ch.NodeID,
+			Rate:     ch.Rate,
+			DataType: ch.DataType,
+			IsIndex:  ch.IsIndex,
+		}
+		if ch.Key != "" {
+			key, err := channel.ParseKey(ch.Key)
+			if err != nil {
+				return nil, err
+			}
+			tCH.StorageKey = key.LocalKey()
+		}
+		if ch.Index != "" {
+			index, err := channel.ParseKey(ch.Index)
+			if err != nil {
+				return nil, err
+			}
+			tCH.LocalIndex = index.LocalKey()
+		}
+		if ch.IsIndex {
+			tCH.LocalIndex = tCH.StorageKey
+		}
+		translated[i] = tCH
+	}
+	return translated, nil
 }

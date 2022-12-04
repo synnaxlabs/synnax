@@ -1,7 +1,7 @@
 import Synnax, { SynnaxProps } from './lib/client';
 
 export const HOST = 'localhost';
-export const PORT = 8080;
+export const PORT = 9090;
 
 export const newClient = (...props: SynnaxProps[]): Synnax => {
   let _props = {};

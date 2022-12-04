@@ -67,7 +67,7 @@ var startCmd = &cobra.Command{
 			// SetState up a pool so we can load balance RPC connections.
 			pool := fgrpc.NewPool(grpc.WithTransportCredentials(insecure.NewCredentials()))
 
-			// Open the distribution layer.
+			// AcquireSearcher the distribution layer.
 			storageCfg := newStorageConfig(exp, logger)
 			distConfig, err := newDistributionConfig(
 				pool,
@@ -82,7 +82,7 @@ var startCmd = &cobra.Command{
 			}
 			defer func() { err = dist.Close() }()
 
-			// SetState up our high level services.
+			// Set up our high level services.
 			gorpDB := dist.Storage.Gorpify()
 			userSvc := &user.Service{DB: gorpDB, Ontology: dist.Ontology}
 			rsaKey, err := rsa.GenerateKey(rand.Reader, 1024)
@@ -98,7 +98,7 @@ var startCmd = &cobra.Command{
 			_api := api.New(api.Config{
 				Logger:        logger,
 				Channel:       dist.Channel,
-				Segment:       dist.Segment,
+				Framer:        dist.Framer,
 				Storage:       dist.Storage,
 				User:          userSvc,
 				Token:         tokenSvc,
@@ -119,11 +119,8 @@ var startCmd = &cobra.Command{
 			httpBranch := &server.HTTPBranch{Transports: []fhttp.BindableTransport{r}}
 			serverCfg := server.Config{
 				ListenAddress: address.Address(viper.GetString("listen-address")),
-				Logger:        logger,
-				Branches: []server.Branch{
-					httpBranch,
-					grpcBranch,
-				},
+				Logger:        logger.Named("server"),
+				Branches:      []server.Branch{httpBranch, grpcBranch},
 			}
 			srv := server.New(serverCfg)
 			sCtx.Go(srv.Start, xsignal.WithKey("server"))
@@ -287,21 +284,21 @@ func maybeProvisionRootUser(
 	authSvc auth.Authenticator,
 	userSvc *user.Service,
 ) error {
-	rootUsername := viper.GetString("username")
-	rootPassword := password.Raw(viper.GetString("password"))
-	exists, err := userSvc.UsernameExists(rootUsername)
+	rootUser := viper.GetString("username")
+	rootPass := password.Raw(viper.GetString("password"))
+	exists, err := userSvc.UsernameExists(rootUser)
 	if exists || err != nil {
 		return err
 	}
 	txn := db.BeginTxn()
 	if err := authSvc.NewWriterUsingTxn(txn).Register(auth.InsecureCredentials{
-		Username: rootUsername,
-		Password: rootPassword,
+		Username: rootUser,
+		Password: rootPass,
 	}); err != nil {
 		return err
 	}
 	if err := userSvc.NewWriterUsingTxn(txn).Create(&user.User{
-		Username: rootUsername,
+		Username: rootUser,
 	}); err != nil {
 		return err
 	}

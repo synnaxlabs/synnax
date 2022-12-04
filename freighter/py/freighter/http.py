@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+import time
 from typing import Type
 from urllib.parse import urlencode
 
 from urllib3 import HTTPResponse, PoolManager
-from urllib3.exceptions import HTTPError
+from urllib3.exceptions import HTTPError, MaxRetryError
 
 from .encoder import EncoderDecoder
-from .exceptions import ExceptionPayload, decode_exception
+from .exceptions import ExceptionPayload, decode_exception, Unreachable
 from .transport import RQ, RS, Payload
 from .url import URL
 from .transport import MiddlewareCollector
@@ -81,9 +82,10 @@ class _Core(MiddlewareCollector):
         request: RQ | None = None,
         res_t: Type[RS] | None = None,
     ) -> tuple[RS | None, Exception | None]:
-        meta_data = MetaData(url, "http")
+        in_meta_data = MetaData(url, "http")
 
-        def finalizer(md: MetaData) -> Exception | None:
+        def finalizer(md: MetaData) -> tuple[MetaData, Exception | None]:
+            out_meta_data = MetaData(url, "http")
             data = None
             if request is not None:
                 data = self.encoder_decoder.encode(request)
@@ -93,19 +95,24 @@ class _Core(MiddlewareCollector):
             http_res: HTTPResponse
             try:
                 http_res = http.request(method=method, url=url, headers=head, body=data)
+            except MaxRetryError as e:
+                return out_meta_data, Unreachable(url, e)
             except HTTPError as e:
-                return e
+                return out_meta_data, e
+
+            out_meta_data.params = http_res.headers
 
             if http_res.status < 200 or http_res.status >= 300:
                 err = self.encoder_decoder.decode(http_res.data, ExceptionPayload)
-                return decode_exception(err)
+                return out_meta_data, decode_exception(err)
 
             if http_res.data is None:
-                return None
+                return out_meta_data, None
 
             self.res = self.encoder_decoder.decode(http_res.data, res_t)
+            return out_meta_data, None
 
-        exc = self.exec(meta_data, finalizer)
+        _, exc = self.exec(in_meta_data, finalizer)
         return self.res, exc
 
 

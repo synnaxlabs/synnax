@@ -1,6 +1,7 @@
 package telem
 
 import (
+	"github.com/synnaxlabs/x/overflow"
 	"strconv"
 	"time"
 )
@@ -23,6 +24,9 @@ func Now() TimeStamp { return NewTimeStamp(time.Now()) }
 // NewTimeStamp creates a new TimeStamp from a time.Time.
 func NewTimeStamp(t time.Time) TimeStamp { return TimeStamp(t.UnixNano()) }
 
+// String implements fmt.Stringer.
+func (ts TimeStamp) String() string { return strconv.Itoa(int(ts)) + "ns" }
+
 // Time returns the time.Time representation of the TimeStamp.
 func (ts TimeStamp) Time() time.Time { return time.Unix(0, int64(ts)) }
 
@@ -42,10 +46,19 @@ func (ts TimeStamp) Before(t TimeStamp) bool { return ts < t }
 func (ts TimeStamp) BeforeEq(t TimeStamp) bool { return ts <= t }
 
 // Add returns a new TimeStamp with the provided TimeSpan added to it.
-func (ts TimeStamp) Add(tspan TimeSpan) TimeStamp { return TimeStamp(int64(ts) + int64(tspan)) }
+func (ts TimeStamp) Add(tspan TimeSpan) TimeStamp {
+	return TimeStamp(overflow.CapInt64(int64(ts), int64(tspan)))
+}
 
 // Sub returns a new TimeStamp with the provided TimeSpan subtracted from it.
-func (ts TimeStamp) Sub(tspan TimeSpan) TimeStamp { return TimeStamp(int64(ts) - int64(tspan)) }
+func (ts TimeStamp) Sub(tspan TimeSpan) TimeStamp { return ts.Add(-tspan) }
+
+func (ts TimeStamp) Abs() TimeStamp {
+	if ts < 0 {
+		return -ts
+	}
+	return ts
+}
 
 // SpanRange constructs a new TimeRange with the TimeStamp and provided TimeSpan.
 func (ts TimeStamp) SpanRange(span TimeSpan) TimeRange {
@@ -58,6 +71,8 @@ func (ts TimeStamp) SpanRange(span TimeSpan) TimeRange {
 
 // Range constructs a new TimeRange with the TimeStamp and provided TimeStamp.
 func (ts TimeStamp) Range(ts2 TimeStamp) TimeRange { return TimeRange{ts, ts2} }
+
+func (ts TimeStamp) Span(t TimeStamp) TimeSpan { return TimeSpan(t - ts) }
 
 // Report implements fmt.Stringer.
 //func (ts TimeStamp) Report() string { return ts.Time().Report() }
@@ -110,18 +125,43 @@ func (tr TimeRange) ContainsRange(rng TimeRange) bool {
 
 // OverlapsWith returns true if the provided TimeRange overlaps with tr.
 func (tr TimeRange) OverlapsWith(rng TimeRange) bool {
-	if tr.End == rng.Start || tr.Start == rng.End {
+	if tr == rng {
+		return true
+	}
+
+	vTr := tr.MakeValid()
+	rng = rng.MakeValid()
+
+	if rng.Start == vTr.Start {
+		return true
+	}
+
+	if rng.End == vTr.Start || rng.Start == vTr.End {
 		return false
 	}
+
 	return tr.ContainsStamp(rng.End) ||
 		tr.ContainsStamp(rng.Start) ||
 		rng.ContainsStamp(tr.Start) ||
 		rng.ContainsStamp(tr.End)
 }
 
+func (tr TimeRange) MakeValid() TimeRange {
+	if tr.Valid() {
+		return tr
+	}
+	return tr.Swap()
+}
+
 func (tr TimeRange) Swap() TimeRange { return TimeRange{Start: tr.End, End: tr.Start} }
 
 func (tr TimeRange) Valid() bool { return tr.Span() >= 0 }
+
+func (tr TimeRange) Midpoint() TimeStamp { return tr.Start.Add(tr.Span() / 2) }
+
+func (tr TimeRange) String() string {
+	return tr.Start.String() + " - " + tr.End.String()
+}
 
 var (
 	// TimeRangeMax represents the maximum possible value for a TimeRange.
@@ -160,13 +200,21 @@ func (ts TimeSpan) ByteSize(rate Rate, density Density) Size {
 	return Size(ts / rate.Period() * TimeSpan(density))
 }
 
+// String implements fmt.Stringer.
+func (ts TimeSpan) String() string { return strconv.Itoa(int(ts)) + "ns" }
+
 const (
-	Nanosecond  = TimeSpan(1)
-	Microsecond = 1000 * Nanosecond
-	Millisecond = 1000 * Microsecond
-	Second      = 1000 * Millisecond
-	Minute      = 60 * Second
-	Hour        = 60 * Minute
+	Nanosecond    = TimeSpan(1)
+	NanosecondTS  = TimeStamp(1)
+	Microsecond   = 1000 * Nanosecond
+	MicrosecondTS = 1000 * NanosecondTS
+	Millisecond   = 1000 * Microsecond
+	MillisecondTS = 1000 * MicrosecondTS
+	Second        = 1000 * Millisecond
+	SecondTS      = 1000 * MillisecondTS
+	Minute        = 60 * Second
+	MinuteTS      = 60 * SecondTS
+	Hour          = 60 * Minute
 )
 
 // |||||| SIZE ||||||
@@ -174,9 +222,14 @@ const (
 // Size represents the size of an element in bytes.
 type Size int64
 
-type Offset = Size
+const (
+	ByteSize = Size(1)
+	Kilobyte = 1024 * ByteSize
+	Megabyte = 1024 * Kilobyte
+	Gigabyte = 1024 * Megabyte
+)
 
-const Kilobytes Size = 1024
+type Offset = Size
 
 // String implements fmt.Stringer.
 func (s Size) String() string { return strconv.Itoa(int(s)) + "B" }
@@ -193,11 +246,23 @@ func (dr Rate) Period() TimeSpan { return TimeSpan(1 / float64(dr) * float64(Sec
 func (dr Rate) SampleCount(t TimeSpan) int { return int(t.Seconds() * float64(dr)) }
 
 // Span returns a TimeSpan representing the number of samples that occupy the provided Span.
-func (dr Rate) Span(sampleCount int) TimeSpan { return dr.Period() * TimeSpan(sampleCount) }
+func (dr Rate) Span(sampleCount int) TimeSpan {
+	return dr.Period() * TimeSpan(sampleCount)
+}
 
 // SizeSpan returns a TimeSpan representing the number of samples that occupy a provided number of bytes.
 func (dr Rate) SizeSpan(size Size, Density Density) TimeSpan {
 	return dr.Span(int(size) / int(Density))
+}
+
+// ClosestGE returns the closest larger timestamp that is an even multiple of the rate's period.
+func (dr Rate) ClosestGE(ts TimeStamp) TimeStamp {
+	return ts.Add(TimeSpan(ts) % dr.Period())
+}
+
+// ClosestLE returns the closest smaller timestamp that is an even multiple of the rate's period.
+func (dr Rate) ClosestLE(ts TimeStamp) TimeStamp {
+	return ts.Sub(TimeSpan(ts) % dr.Period())
 }
 
 const (
@@ -209,15 +274,24 @@ const (
 
 // |||||| DENSITY ||||||
 
-type (
-	// Density represents a density in bytes per value.
-	Density uint32
-)
+// Density represents a density in bytes per value.
+type Density uint32
+
+func (d Density) SampleCount(size Size) int64 {
+	if d == 0 {
+		panic("attempted to call sample count on undefined density")
+	}
+	return int64(size) / int64(d)
+}
+
+func (d Density) Size(sampleCount int64) Size { return Size(sampleCount) * Size(d) }
 
 const (
-	DensityUnknown Density = 0
-	Bit64          Density = 8
-	Bit32          Density = 4
-	Bit16          Density = 2
-	Bit8           Density = 1
+	DensityUnknown   Density = 0
+	Bit64            Density = 8
+	Bit32            Density = 4
+	Bit16            Density = 2
+	Bit8             Density = 1
+	TimeStampDensity         = Bit64
+	TimeSpanDensity          = Bit64
 )

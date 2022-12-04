@@ -9,11 +9,11 @@ import (
 type (
 	// Middleware is an interface that can be implemented to intercept and modify requests
 	// either to a server (client side) or from a client (server side).
-	Middleware = middleware.Middleware[MD]
+	Middleware = middleware.Middleware[MD, MD]
 	// Finalizer is the final middleware in a chain, and is expected to execute the request.
-	Finalizer = middleware.Finalizer[MD]
+	Finalizer = middleware.Finalizer[MD, MD]
 	// Next is a function that is called to continue the middleware chain.
-	Next = func(context.Context, MD) error
+	Next = func(context.Context, MD) (MD, error)
 	// ContextKey is a type that can be used to store and retrieve freighter specific
 	// values from a context.
 	ContextKey string
@@ -29,13 +29,13 @@ func MDFromContext(ctx context.Context) MD {
 	return ctx.Value(MDContextKey).(MD)
 }
 
-// MiddlewareChain is a chain of middleware that can be executed sequentially.
+// MiddlewareCollector is a chain of middleware that can be executed sequentially.
 // It extends the middleware.Chain type to embed request metadata as a context value.
-type MiddlewareCollector struct{ middleware.Chain[MD] }
+type MiddlewareCollector struct{ middleware.Chain[MD, MD] }
 
 // Exec maintains the middleware.Chain interface.
-func (mc *MiddlewareCollector) Exec(ctx context.Context, md MD, finalizer middleware.Finalizer[MD]) error {
-	return mc.Chain.Exec(ctx, md, FinalizerFunc(func(ctx context.Context, md MD) error {
+func (mc *MiddlewareCollector) Exec(ctx context.Context, md MD, finalizer middleware.Finalizer[MD, MD]) (MD, error) {
+	return mc.Chain.Exec(ctx, md, FinalizerFunc(func(ctx context.Context, md MD) (MD, error) {
 		return finalizer.Finalize(setMDOnContext(ctx, md), md)
 	}))
 }
@@ -44,17 +44,17 @@ func (mc *MiddlewareCollector) Exec(ctx context.Context, md MD, finalizer middle
 func (mc *MiddlewareCollector) Use(m ...Middleware) { mc.Chain = append(mc.Chain, m...) }
 
 // MiddlewareFunc is a utility type so that functions can implement Middleware.
-type MiddlewareFunc func(context.Context, MD, Next) error
+type MiddlewareFunc func(context.Context, MD, Next) (MD, error)
 
 // Exec implements Middleware.
-func (m MiddlewareFunc) Exec(ctx context.Context, req MD, next Next) error {
+func (m MiddlewareFunc) Exec(ctx context.Context, req MD, next Next) (MD, error) {
 	return m(ctx, req, next)
 }
 
 // FinalizerFunc is a utility type so that functions can implement Finalizer.
-type FinalizerFunc func(context.Context, MD) error
+type FinalizerFunc func(context.Context, MD) (MD, error)
 
 // Finalize implements Finalizer.
-func (f FinalizerFunc) Finalize(ctx context.Context, req MD) error {
+func (f FinalizerFunc) Finalize(ctx context.Context, req MD) (MD, error) {
 	return f(ctx, req)
 }

@@ -3,8 +3,12 @@
     height: 100vh;
 }
 
+.delta-main-layout__content__container {
+	height: calc(100vh - 36px - 32px);
+}
+
 .delta-main-layout__content {
-    height: calc(100vh - 72px);
     flex-grow: 1;
     overflow: hidden;
+		height: 100%;
 }

@@ -19,7 +19,7 @@ func copyState(s state) state {
 	return s
 }
 
-var _ = Describe("StorageKey", func() {
+var _ = Describe("Store", func() {
 	Describe("core", func() {
 		It("Should initialize a basic store correctly", func() {
 			s := store.New(copyState)

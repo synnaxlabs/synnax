@@ -4,7 +4,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// Hashers is a list of hashers that delta uses to encrypt and validate passwords.
+// Hashers is a list of hashers that synnax uses to encrypt and validate passwords.
 // The Hashers are tried in order. The first Hasher that returns a non-nil error
 // is used. This value should generally remain unmodified unless the cluster is tailored
 // to specific user needs.

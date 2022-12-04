@@ -60,7 +60,6 @@ export const configureStore = async <
 
 	preloadedState = await new Promise<PreloadedState<S> | undefined>((resolve) => {
 		listen(runtime, () => store, resolve);
-		// listen(runtime, store, resolve);
 		if (runtime.isMain()) resolve(preloadedState);
 		else runtime.emit({ sendState: true }, MAIN_WINDOW);
 	});

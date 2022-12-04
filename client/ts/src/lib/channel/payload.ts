@@ -13,6 +13,8 @@ export const channelPayloadSchema = z.object({
     .default(0)
     .transform((n) => new Density(n))
     .optional(),
+  index: z.string().default('').optional(),
+  isIndex: z.boolean().default(false).optional(),
 });
 
 export type ChannelPayload = z.infer<typeof channelPayloadSchema>;

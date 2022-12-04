@@ -59,7 +59,7 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 					Expect(res).To(Equal(response{ID: 1, Message: "hello"}))
 				})
 			})
-			Describe("Error Handling", func() {
+			Describe("Err Handling", func() {
 				It("Should correctly return a custom error to the client", func() {
 					server.BindHandler(func(ctx context.Context, req request) (response, error) {
 						return response{}, myCustomError
@@ -72,11 +72,11 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 			Describe("Middleware", func() {
 				It("Should correctly call the middleware", func() {
 					c := 0
-					server.Use(freighter.MiddlewareFunc(func(ctx context.Context, md freighter.MD, next freighter.Next) error {
+					server.Use(freighter.MiddlewareFunc(func(ctx context.Context, md freighter.MD, next freighter.Next) (freighter.MD, error) {
 						c++
-						err := next(ctx, md)
+						oMd, err := next(ctx, md)
 						c++
-						return err
+						return oMd, err
 					}))
 					server.BindHandler(func(ctx context.Context, req request) (response, error) {
 						return response{}, nil

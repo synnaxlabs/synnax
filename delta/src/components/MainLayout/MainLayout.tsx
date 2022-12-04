@@ -12,7 +12,12 @@ export const MainLayout = () => {
 		<ClusterProvider>
 			<Space direction="vertical" size="large" className="delta-main__container" empty>
 				<NavTop />
-				<Space direction="horizontal" size="large" grow empty>
+				<Space
+					direction="horizontal"
+					size="large"
+					className="delta-main-layout__content__container"
+					empty
+				>
 					<NavLeft />
 					<div className="delta-main-layout__content">
 						<LayoutMosaic />

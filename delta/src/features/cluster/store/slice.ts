@@ -34,7 +34,6 @@ export type SetClusterConnectionState = PayloadAction<{
   key: string;
   state: ConnectionState;
 }>;
-export type ToggleRecconnectAction = PayloadAction<undefined>;
 
 export const {
   actions: { setCluster, setActiveCluster, setClusterConnectionState },

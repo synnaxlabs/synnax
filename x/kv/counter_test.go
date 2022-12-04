@@ -9,7 +9,7 @@ import (
 	"github.com/synnaxlabs/x/kv/pebblekv"
 )
 
-var _ = Describe("Counter", Ordered, func() {
+var _ = Describe("SeqNum", Ordered, func() {
 	var (
 		kve kv.DB
 	)
@@ -22,11 +22,11 @@ var _ = Describe("Counter", Ordered, func() {
 		Expect(kve.Close()).To(Succeed())
 	})
 	Describe("PersistedCounter", func() {
-		Context("Requests Counter", Ordered, func() {
+		Context("Requests SeqNum", Ordered, func() {
 			var c *kv.PersistedCounter
 			BeforeAll(func() {
 				var err error
-				c, err = kv.NewPersistedCounter(kve, []byte("test"))
+				c, err = kv.OpenCounter(kve, []byte("test"))
 				Expect(err).NotTo(HaveOccurred())
 			})
 			It("Should create a counter with a starting value of 0", func() {
@@ -39,16 +39,16 @@ var _ = Describe("Counter", Ordered, func() {
 				Expect(c.Add(10)).To(Equal(int64(11)))
 			})
 		})
-		Context("Existing Counter", func() {
+		Context("Existing SeqNum", func() {
 			It("Should load the value of the existing counter", func() {
-				c, err := kv.NewPersistedCounter(kve, []byte("test-two"))
+				c, err := kv.OpenCounter(kve, []byte("test-two"))
 				Expect(err).NotTo(HaveOccurred())
 				Expect(c.Value()).To(Equal(int64(0)))
 				_, err = c.Add(10)
 				Expect(err).NotTo(HaveOccurred())
 				_, err = c.Add(10)
 				Expect(err).NotTo(HaveOccurred())
-				cTwo, err := kv.NewPersistedCounter(kve, []byte("test-two"))
+				cTwo, err := kv.OpenCounter(kve, []byte("test-two"))
 				Expect(err).NotTo(HaveOccurred())
 				Expect(cTwo.Value()).To(Equal(int64(20)))
 			})

@@ -35,6 +35,10 @@ func (c *Catch) Error() error {
 	return c.Errors()[0]
 }
 
+func (c *Catch) HasError() bool {
+	return len(c.errors) > 0
+}
+
 // Errors returns all errors caught. Will only have len > 1 if WithAggregation
 // opt is used on instantiation.
 func (c *Catch) Errors() []error { return c.errors }

@@ -57,7 +57,7 @@ var _ = Describe("txn", func() {
 
 	Describe("SetNode", func() {
 
-		Describe("Local Leaseholder", func() {
+		Describe("Gateway Leaseholder", func() {
 
 			It("Should commit the operation to storage", func() {
 				kv, err := builder.New(kvCtx, kv.Config{}, cluster.Config{})
@@ -119,7 +119,7 @@ var _ = Describe("txn", func() {
 
 		})
 
-		Describe("Remote Leaseholder", func() {
+		Describe("Peers Leaseholder", func() {
 
 			It("Should commit the operation to storage", func() {
 				kv1, err := builder.New(kvCtx, kv.Config{}, cluster.Config{})
@@ -166,7 +166,7 @@ var _ = Describe("txn", func() {
 
 	Describe("Delete", func() {
 
-		Describe("Local Leaseholder", func() {
+		Describe("Gateway Leaseholder", func() {
 
 			It("Should applyToAndCommit the operation to storage", func() {
 				kv, err := builder.New(kvCtx, kv.Config{}, cluster.Config{})
@@ -184,7 +184,7 @@ var _ = Describe("txn", func() {
 
 		})
 
-		Describe("Remote Leaseholder", func() {
+		Describe("Peers Leaseholder", func() {
 
 			It("Should apply the operation to storage", func() {
 				kv1, err := builder.New(kvCtx, kv.Config{}, cluster.Config{})

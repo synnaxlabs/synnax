@@ -24,7 +24,7 @@ type (
 )
 
 // Config is used for configuring a pledge based membership network. It implements
-// the config.Config interface.
+// the config.ServiceConfig interface.
 type Config struct {
 	// Candidates is a Group of nodes to contact as candidates for the formation
 	// of a jury.
@@ -64,7 +64,7 @@ type Config struct {
 
 var _ config.Config[Config] = Config{}
 
-// Override implements the config.Config interface.
+// Override implements the config.ServiceConfig interface.
 func (cfg Config) Override(other Config) Config {
 	cfg.TransportClient = override.Nil(cfg.TransportClient, other.TransportClient)
 	cfg.TransportServer = override.Nil(cfg.TransportServer, other.TransportServer)
@@ -79,7 +79,7 @@ func (cfg Config) Override(other Config) Config {
 	return cfg
 }
 
-// Validate implements the config.Config interface.
+// Validate implements the config.ServiceConfig interface.
 func (cfg Config) Validate() error {
 	v := validate.New("pledge")
 	validate.NotNil(v, "TransportClient", cfg.TransportClient)

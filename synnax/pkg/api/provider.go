@@ -6,7 +6,7 @@ import (
 	errors "github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/auth"
 	"github.com/synnaxlabs/synnax/pkg/auth/token"
-	distribcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
+	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/user"
 	"github.com/synnaxlabs/x/gorp"
@@ -104,5 +104,5 @@ type OntologyProvider struct {
 
 // clusterProvider provides cluster topology information to services.
 type clusterProvider struct {
-	cluster distribcore.Cluster
+	cluster dcore.Cluster
 }

@@ -5,7 +5,8 @@ const valueOfEncoder = (value: unknown): unknown => value?.valueOf();
 /** Represents a nanosecond precision UTC timestamp. */
 export class TimeStamp extends Number {
   constructor(value: UnparsedTimeStamp) {
-    super(value);
+    if (value instanceof Number) super(value.valueOf());
+    else super(value);
   }
 
   /**
@@ -128,19 +129,60 @@ export class TimeStamp extends Number {
   }
 
   /** The maximum possible value for a timestamp */
-  static readonly Max = new TimeStamp(TimeStamp.MAX_VALUE);
+  static readonly MAX = new TimeStamp(TimeStamp.MAX_SAFE_INTEGER);
 
   /** The minimum possible value for a timestamp */
-  static readonly Min = new TimeStamp(TimeStamp.MIN_VALUE);
+  static readonly MIN = new TimeStamp(TimeStamp.MIN_SAFE_INTEGER);
 
   /** The unix epoch */
-  static readonly Zero = new TimeStamp(0);
+  static readonly ZERO = new TimeStamp(0);
+
+  /* One nanosecond after the unix epoch */
+  static readonly Nanosecond = TimeStamp.Nanoseconds(1);
+
+  /** @returns a new TimeStamp n nanoseconds after the unix epoch */
+  static Nanoseconds(value: UnparsedTimeStamp): TimeStamp {
+    return new TimeStamp(value);
+  }
+
+  /** One microsecond after the unix epoch */
+  static readonly Microsecond = TimeStamp.Microseconds(1);
+
+  /** @returns a new TimeStamp n microseconds after the unix epoch */
+  static Microseconds(value: UnparsedTimeStamp): TimeStamp {
+    return TimeStamp.Nanoseconds(value.valueOf() * 1000);
+  }
+
+  /** One millisecond after the unix epoch */
+  static readonly Millisecond = TimeStamp.Milliseconds(1);
+
+  /** @returns a new TimeStamp n milliseconds after the unix epoch */
+  static Milliseconds(value: UnparsedTimeStamp): TimeStamp {
+    return TimeStamp.Microseconds(value.valueOf() * 1000);
+  }
+
+  /** One second after the unix epoch */
+  static readonly Second = TimeStamp.Seconds(1);
+
+  /** @returns a new TimeStamp n seconds after the unix epoch */
+  static Seconds(value: UnparsedTimeStamp): TimeStamp {
+    return TimeStamp.Milliseconds(value.valueOf() * 1000);
+  }
+
+  /** One minute after the unix epoch */
+  static readonly Minute = TimeStamp.Minutes(1);
+
+  /** @returns a new TimeStamp n minutes after the unix epoch */
+  static Minutes(value: UnparsedTimeStamp): TimeStamp {
+    return TimeStamp.Seconds(value.valueOf() * 60);
+  }
 }
 
 /** TimeSpan represents a nanosecond precision duration. */
 export class TimeSpan extends Number {
   constructor(value: UnparsedTimeSpan) {
-    super(value);
+    if (value instanceof Number) super(value.valueOf());
+    else super(value);
   }
 
   /** @returns The number of seconds in the TimeSpan. */
@@ -268,10 +310,10 @@ export class TimeSpan extends Number {
   static readonly Hour = TimeSpan.Hours(1);
 
   /** The maximum possible value for a TimeSpan. */
-  static readonly Max = new TimeSpan(TimeSpan.MAX_VALUE);
+  static readonly Max = new TimeSpan(9223372036854775807);
 
   /** The minimum possible value for a TimeSpan. */
-  static readonly Min = new TimeSpan(TimeSpan.MIN_VALUE);
+  static readonly Min = new TimeSpan(-922337203685477580);
 
   /** The zero value for a TimeSpan. */
   static readonly Zero = new TimeSpan(0);
@@ -280,7 +322,8 @@ export class TimeSpan extends Number {
 /** Rate represents a data rate in Hz. */
 export class Rate extends Number {
   constructor(value: UnparsedRate) {
-    super(value);
+    if (value instanceof Number) super(value.valueOf());
+    else super(value);
   }
 
   /** @returns The number of seconds in the Rate. */
@@ -370,7 +413,8 @@ export class Density extends Number {
    * @returns A Density representing the given number of bytes per value.
    */
   constructor(value: UnparsedDensity) {
-    super(value);
+    if (value instanceof Number) super(value.valueOf());
+    else super(value);
   }
 
   /** Represents an Unknown/Invalid Density. */
@@ -459,7 +503,7 @@ export class TimeRange {
     return this.start.equals(other.start) && this.end.equals(other.end);
   }
 
-  static readonly Max = new TimeRange(TimeStamp.Min, TimeStamp.Max);
+  static readonly Max = new TimeRange(TimeStamp.MIN, TimeStamp.MAX);
 }
 
 /** DataType is a string that represents a data type. */
@@ -522,6 +566,8 @@ export class DataType extends String {
   static readonly Uint16 = new DataType('uint16');
   /** Represents a 8-bit unsigned integer value. */
   static readonly Uint8 = new DataType('uint8');
+  /** Represents a 64-bit unix epoch. */
+  static readonly TimeStamp = new DataType('timestamp');
 }
 
 export class Size extends Number {
@@ -569,7 +615,7 @@ export class Size extends Number {
 }
 
 export type UnparsedTimeStamp = TimeStamp | TimeSpan | number;
-export type UnparsedTimeSpan = TimeSpan | number;
+export type UnparsedTimeSpan = TimeSpan | TimeStamp | number;
 export type UnparsedRate = Rate | number;
 export type UnparsedDensity = Density | number;
 export type UnparsedDataType = DataType | string;
@@ -579,7 +625,7 @@ registerCustomTypeEncoder({ Class: TimeStamp, write: valueOfEncoder });
 registerCustomTypeEncoder({ Class: TimeSpan, write: valueOfEncoder });
 registerCustomTypeEncoder({
   Class: DataType,
-  write: (v) => (v as DataType).string,
+  write: (v: unknown) => (v as DataType).string,
 });
 registerCustomTypeEncoder({ Class: Rate, write: valueOfEncoder });
 registerCustomTypeEncoder({ Class: Density, write: valueOfEncoder });
@@ -622,6 +668,7 @@ const ARRAY_CONSTRUCTORS: Map<string, TypedArrayConstructor> = new Map<
   [DataType.Int16.string, Int16Array],
   [DataType.Int32.string, Int32Array],
   [DataType.Int64.string, BigInt64Array],
+  [DataType.TimeStamp.string, BigInt64Array],
 ]);
 
 const DATA_TYPE_DENSITIES = new Map<string, Density>([
@@ -635,4 +682,5 @@ const DATA_TYPE_DENSITIES = new Map<string, Density>([
   [DataType.Int16.string, Density.Bit16],
   [DataType.Int32.string, Density.Bit32],
   [DataType.Int64.string, Density.Bit64],
+  [DataType.TimeStamp.string, Density.Bit64],
 ]);

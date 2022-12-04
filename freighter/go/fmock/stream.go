@@ -70,16 +70,20 @@ func (s *StreamServer[RQ, RS]) BindHandler(handler func(
 	s.Handler = handler
 }
 
-func (s *StreamServer[RQ, RS]) exec(ctx context.Context, srv *ServerStream[RQ, RS]) error {
+func (s *StreamServer[RQ, RS]) exec(
+	ctx context.Context,
+	srv *ServerStream[RQ, RS],
+	iMD freighter.MD,
+) (freighter.MD, error) {
 	if s.Handler == nil {
-		return roacherrors.New("no handler bound to stream server")
+		return iMD, roacherrors.New("no handler bound to stream server")
 	}
 	return s.MiddlewareCollector.Exec(
 		ctx,
-		freighter.MD{Target: s.Address, Protocol: reporter.Protocol, Params: make(freighter.Params)},
-		freighter.FinalizerFunc(func(ctx context.Context, md freighter.MD) error {
+		iMD,
+		freighter.FinalizerFunc(func(ctx context.Context, md freighter.MD) (freighter.MD, error) {
 			go srv.exec(ctx, s.Handler)
-			return nil
+			return freighter.MD{Target: s.Address, Protocol: s.Protocol, Params: make(freighter.Params)}, nil
 		}),
 	)
 }
@@ -98,27 +102,35 @@ type StreamClient[RQ, RS freighter.Payload] struct {
 func (s *StreamClient[RQ, RS]) Stream(
 	ctx context.Context,
 	target address.Address,
-) (freighter.ClientStream[RQ, RS], error) {
-	if target == "" {
-		target = "localhost:0"
-	}
-	var (
-		targetBufferSize int
-		server           *StreamServer[RQ, RS]
+) (stream freighter.ClientStream[RQ, RS], err error) {
+	_, err = s.MiddlewareCollector.Exec(
+		ctx,
+		freighter.MD{Target: target, Protocol: s.Protocol, Params: make(freighter.Params)},
+		freighter.FinalizerFunc(func(ctx context.Context, md freighter.MD) (oMD freighter.MD, err error) {
+			if target == "" {
+				target = "localhost:0"
+			}
+			var (
+				targetBufferSize int
+				server           *StreamServer[RQ, RS]
+			)
+			if s.Server != nil {
+				server = s.Server
+				targetBufferSize = server.BufferSize
+			} else if s.Network != nil {
+				srv, ok := s.Network.resolveStreamTarget(target)
+				if !ok || srv.Handler == nil {
+					return oMD, address.TargetNotFound(target)
+				}
+				server = srv
+				targetBufferSize = srv.BufferSize
+			}
+			var serverStream *ServerStream[RQ, RS]
+			stream, serverStream = NewStreams[RQ, RS](ctx, s.BufferSize, targetBufferSize)
+			return server.exec(ctx, serverStream, md)
+		}),
 	)
-	if s.Server != nil {
-		server = s.Server
-		targetBufferSize = server.BufferSize
-	} else if s.Network != nil {
-		srv, ok := s.Network.resolveStreamTarget(target)
-		if !ok || srv.Handler == nil {
-			return nil, address.TargetNotFound(target)
-		}
-		server = srv
-		targetBufferSize = srv.BufferSize
-	}
-	clientStream, serverStream := NewStreams[RQ, RS](ctx, s.BufferSize, targetBufferSize)
-	return clientStream, server.exec(ctx, serverStream)
+	return stream, err
 }
 
 const defaultBuffer = 10
@@ -202,7 +214,7 @@ func (s *ServerStream[RQ, RS]) exec(
 }
 
 type ClientStream[RQ, RS freighter.Payload] struct {
-	// ctx is the context the ServerStream was started with. Yes, Yes! RQ know this is a bad
+	// ctx is the context the ServerStream was started with. Yes, Yes! I know this is a bad
 	// practice, but in this case we're essentially using it as a data container,
 	// and we have a very good grasp on how it's used.
 	ctx          context.Context

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tauri dev",
-		"dev:vite": "vite",
+		"dev-vite": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview"
   },
@@ -16,6 +16,7 @@
     "@synnaxlabs/pluto": "*",
     "@synnaxlabs/drift":  "*",
     "@tauri-apps/api": "^1.1.0",
+		"antd": "^4.24.2",
     "clsx": "^1.2.1",
     "nanoid": "^4.0.0",
     "proxy-memoize": "^1.2.0",

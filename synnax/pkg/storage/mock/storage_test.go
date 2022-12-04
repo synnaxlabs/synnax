@@ -8,7 +8,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 )
 
-var _ = Describe("Storage", func() {
+var _ = Describe("storage", func() {
 	Describe("Builder", func() {
 		DescribeTable("New", func(cfg ...storage.Config) {
 			b := mock.NewBuilder(cfg...)
@@ -19,7 +19,7 @@ var _ = Describe("Storage", func() {
 			Expect(b.Cleanup()).To(Succeed())
 		},
 			Entry("Memory-backed storage implementation"),
-			Entry("File-backed storage implementation", storage.Config{MemBacked: config.BoolPointer(false), Dirname: "./tmp"}),
+			Entry("Stamp-backed storage implementation", storage.Config{MemBacked: config.BoolPointer(false), Dirname: "./tmp"}),
 		)
 	})
 })

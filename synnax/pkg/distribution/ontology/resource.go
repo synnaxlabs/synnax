@@ -22,7 +22,7 @@ type ID struct {
 	// Key is a string that uniquely identifies a Resource within its Type.
 	Key string
 	// Type defines the type of Resource the Key refers to :). For example,
-	// a channel is a Resource of type "channel". A user is a Resource of type
+	// a channel is a Resource of type "channel". Key user is a Resource of type
 	// "user".
 	Type Type
 }

@@ -6,7 +6,7 @@ import ChannelCreator from './channel/creator';
 import Registry from './channel/registry';
 import ChannelRetriever from './channel/retriever';
 import ConnectivityClient from './connectivity';
-import SegmentClient from './segment/client';
+import FrameClient from './framer/client';
 import { TimeSpan } from './telem';
 import Transport from './transport';
 import OntologyClient from './ontology/client';
@@ -30,7 +30,7 @@ export type SynnaxProps = z.infer<typeof synnaxPropsSchema>;
  */
 export default class Synnax {
   private transport: Transport;
-  data: SegmentClient;
+  data: FrameClient;
   channel: ChannelClient;
   auth: AuthenticationClient | undefined;
   connectivity: ConnectivityClient;
@@ -62,7 +62,7 @@ export default class Synnax {
     const chRetriever = new ChannelRetriever(this.transport);
     const chCreator = new ChannelCreator(this.transport);
     const chRegistry = new Registry(chRetriever);
-    this.data = new SegmentClient(this.transport, chRegistry);
+    this.data = new FrameClient(this.transport, chRegistry);
     this.channel = new ChannelClient(this.data, chRetriever, chCreator);
     this.connectivity = new ConnectivityClient(
       this.transport.getClient(),

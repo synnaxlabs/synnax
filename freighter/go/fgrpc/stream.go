@@ -2,16 +2,18 @@ package fgrpc
 
 import (
 	"context"
+	"io"
+
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/alamos"
 	"google.golang.org/grpc"
-	"io"
 )
 
 type StreamClientCore[RQ, RQT, RS, RST freighter.Payload] struct {
 	RequestTranslator  Translator[RQ, RQT]
 	ResponseTranslator Translator[RS, RST]
+	ServiceDesc        *grpc.ServiceDesc
 	Pool               *Pool
 	ClientFunc         func(context.Context, grpc.ClientConnInterface) (GRPCClientStream[RQT, RST], error)
 	freighter.MiddlewareCollector
@@ -42,32 +44,35 @@ func (s *StreamServerCore[RQ, RQT, RS, RST]) BindHandler(
 func (s *StreamServerCore[RQ, RQT, RS, RST]) Handler(
 	ctx context.Context, stream freighter.ServerStream[RQ, RS],
 ) error {
-	return s.MiddlewareCollector.Exec(
+	oMD, err := s.MiddlewareCollector.Exec(
 		ctx,
 		parseMetaData(ctx, s.ServiceDesc.ServiceName),
-		freighter.FinalizerFunc(func(ctx context.Context, md freighter.MD) error {
-			return s.handler(ctx, stream)
+		freighter.FinalizerFunc(func(ctx context.Context, md freighter.MD) (freighter.MD, error) {
+			return freighter.MD{Protocol: md.Protocol, Params: make(freighter.Params)}, s.handler(ctx, stream)
 		}),
 	)
+	attachMetaData(ctx, oMD)
+	return err
 }
 
 func (s *StreamClientCore[RQ, RQT, RS, RST]) Stream(
 	ctx context.Context,
 	target address.Address,
 ) (stream freighter.ClientStream[RQ, RS], _ error) {
-	return stream, s.MiddlewareCollector.Exec(
+	_, err := s.MiddlewareCollector.Exec(
 		ctx,
 		freighter.MD{Target: target, Protocol: reporter.Protocol},
-		freighter.FinalizerFunc(func(ctx context.Context, md freighter.MD) error {
+		freighter.FinalizerFunc(func(ctx context.Context, md freighter.MD) (oMD freighter.MD, err error) {
 			conn, err := s.Pool.Acquire(target)
 			if err != nil {
-				return err
+				return oMD, err
 			}
 			grpcClient, err := s.ClientFunc(ctx, conn.ClientConn)
 			stream = s.Client(grpcClient)
-			return err
+			return parseMetaData(ctx, s.ServiceDesc.ServiceName), err
 		}),
 	)
+	return stream, err
 }
 
 func (s *StreamServerCore[RQ, RQT, RS, RST]) Server(

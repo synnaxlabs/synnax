@@ -1,0 +1,206 @@
+package cesium
+
+import (
+	"context"
+	"github.com/synnaxlabs/cesium/internal/unary"
+	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/telem"
+)
+
+// StreamIterator provides a streaming interface for iterating over a DB's segments
+// in time order. StreamIterator provides the underlying functionality for Iterator,
+// and has almost exactly the same semantics. The streaming interface is exposed
+// as a confluence Framer that can accept one input stream and one output stream.
+//
+// To read segments, issue an IteratorRequest to the StreamIterator's inlet. The
+// StreamIterator will respond by sending one or more IteratorResponse messages to
+// the outlet. All responses containing Framer data will have a type of
+// IteratorDataResponse and will contain one or more segments. The last response
+// for any request will have a type of IteratorAckResponse and will contain
+// the name of the command that was acknowledged, and incremented sequence number,
+// and ack boolean indicating whether the command was successfully processed.
+//
+// To close the StreamIterator, simply close the inlet. The StreamIterator will ensure
+// that all in-progress requests have been served before closing the outlet. The
+// StreamIterator will return any accumulated err through the signal context
+// provided to Flow.
+type StreamIterator = confluence.Segment[IteratorRequest, IteratorResponse]
+
+// IteratorResponseVariant is the type of the response an iterator will return.
+type IteratorResponseVariant uint8
+
+const (
+	// IteratorAckResponse is a response that indicates that an iteration request
+	// has completed successfully.
+	IteratorAckResponse IteratorResponseVariant = iota + 1
+	// IteratorDataResponse is a response that indicates that an iteration request
+	// returned data.
+	IteratorDataResponse
+)
+
+// IteratorCommand is an enumeration of commands that can be sent to an iterator.
+type IteratorCommand uint8
+
+const (
+	// IterNext represents a call to Iterator.Next.
+	IterNext IteratorCommand = iota + 1
+	// IterPrev represents a call to Iterator.Prev.
+	IterPrev
+	// IterSeekFirst represents a call to Iterator.SeekFirst.
+	IterSeekFirst
+	// IterSeekLast represents a call to Iterator.SeekLast.
+	IterSeekLast
+	// IterSeekLE represents a call to Iterator.SeekLE.
+	IterSeekLE
+	// IterSeekGE represents a call to Iterator.SeekGE.
+	IterSeekGE
+	// IterValid represents a call to Iterator.Valid.
+	IterValid
+	// IterError represents a call to Iterator.Close.
+	IterError
+	// IterSetBounds represents a call to Iterator.SetBounds.
+	IterSetBounds
+)
+
+// HasOps returns true if the IteratorCommand has any associated on disk operations.
+func (i IteratorCommand) HasOps() bool { return i <= IterPrev }
+
+// IteratorRequest is issued to an StreamIterator asking it to read data from a DB.
+//
+//go:generate stringer -type=IteratorCommand
+type IteratorRequest struct {
+	// Command is the command to execute.
+	Command IteratorCommand
+	// Stamp should be set during a request to IterSeekLE or IterSeekGE.
+	Stamp telem.TimeStamp
+	// Span should be set during a request to IterNext or IterPrev.
+	Span telem.TimeSpan
+	// Bounds should be set during a request to IterSetBounds.
+	Bounds telem.TimeRange
+}
+
+// IteratorResponse is a response containing segments satisfying a RetrieveP Query as
+// well as any errors encountered during the retrieval.
+type IteratorResponse struct {
+	// Variant is the type of response being issued.
+	Variant IteratorResponseVariant
+	// SeqNum is incremented for each request issued to the StreamIterator. The
+	// first request will have a sequence number of 1.
+	SeqNum int
+	// Command defines the command that the response relates to.
+	Command IteratorCommand
+	// Ack is only valid when the response type is IteratorAckResponse. It
+	// indicates whether the command was successfully processed.
+	Ack bool
+	// Err is only set an IterError command is being responded to.
+	Err error
+	// Frame is the telemetry frame that was read from the DB. It is only set
+	// when the response type is IteratorDataResponse.
+	Frame Frame
+}
+
+type streamIterator struct {
+	confluence.UnarySink[IteratorRequest]
+	confluence.AbstractUnarySource[IteratorResponse]
+	internal []*unary.Iterator
+	seqNum   int
+}
+
+type IteratorConfig struct {
+	Bounds   telem.TimeRange
+	Channels []string
+}
+
+// Flow implements the confluence.Segment interface.
+func (s *streamIterator) Flow(ctx signal.Context, opts ...confluence.Option) {
+	o := confluence.NewOptions(opts)
+	o.AttachClosables(s.Out)
+	ctx.Go(func(ctx context.Context) error {
+		for {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case req, ok := <-s.In.Outlet():
+				if !ok {
+					return s.close()
+				}
+				ok, err := s.exec(req)
+				s.seqNum++
+				s.Out.Inlet() <- IteratorResponse{
+					Variant: IteratorAckResponse,
+					Command: req.Command,
+					SeqNum:  s.seqNum,
+					Ack:     ok,
+					Err:     err,
+				}
+			}
+		}
+	}, o.Signal...)
+}
+
+func (s *streamIterator) exec(req IteratorRequest) (ok bool, err error) {
+	switch req.Command {
+	case IterNext:
+		ok = s.execWithOps(func(i *unary.Iterator) bool { return i.Next(req.Span) })
+	case IterPrev:
+		ok = s.execWithOps(func(i *unary.Iterator) bool { return i.Prev(req.Span) })
+	case IterSeekFirst:
+		ok = s.execWithoutOps(func(i *unary.Iterator) bool { return i.SeekFirst() })
+	case IterSeekLast:
+		ok = s.execWithoutOps(func(i *unary.Iterator) bool { return i.SeekLast() })
+	case IterSeekLE:
+		ok = s.execWithoutOps(func(i *unary.Iterator) bool { return i.SeekLE(req.Stamp) })
+	case IterSeekGE:
+		ok = s.execWithoutOps(func(i *unary.Iterator) bool { return i.SeekGE(req.Stamp) })
+	case IterValid:
+		ok = s.execWithoutOps(func(i *unary.Iterator) bool { return i.Valid() })
+	case IterError:
+		err = s.error()
+	case IterSetBounds:
+		ok = s.execWithoutOps(func(i *unary.Iterator) bool { i.SetBounds(req.Bounds); return true })
+	}
+	return
+}
+
+func (s *streamIterator) execWithOps(f func(i *unary.Iterator) bool) (ok bool) {
+	for _, i := range s.internal {
+		if f(i) {
+			ok = true
+			s.Out.Inlet() <- IteratorResponse{
+				Variant: IteratorDataResponse,
+				Command: IterNext,
+				SeqNum:  s.seqNum,
+				Frame:   i.Value(),
+			}
+		}
+	}
+	return ok
+}
+
+func (s *streamIterator) execWithoutOps(f func(i *unary.Iterator) bool) (ok bool) {
+	for _, i := range s.internal {
+		if f(i) {
+			ok = true
+		}
+	}
+	return
+}
+
+func (s *streamIterator) error() error {
+	for _, i := range s.internal {
+		if err := i.Error(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *streamIterator) close() error {
+	for _, i := range s.internal {
+		if err := i.Close(); err != nil {
+			return err
+		}
+	}
+	return nil
+}

@@ -1,13 +1,13 @@
 package auth_test
 
 import (
+	"github.com/cockroachdb/errors"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/auth"
 	"github.com/synnaxlabs/synnax/pkg/auth/password"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/cockroachdb/errors"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("KV", Ordered, func() {
@@ -24,7 +24,7 @@ var _ = Describe("KV", Ordered, func() {
 	AfterAll(func() {
 		Expect(DB.Close()).To(Succeed())
 	})
-	Describe("Register", func() {
+	Describe("New", func() {
 		It("Should register the credentials in the key-value store", func() {
 			w := authenticator.NewWriter()
 			err := w.Register(creds)

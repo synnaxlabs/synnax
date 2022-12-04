@@ -47,7 +47,7 @@ type gauge[T types.Numeric] struct {
 }
 
 // NewGauge creates a new gauge metric. A gauge records the sum of all recorded values as well as
-// the number of times Record was called.
+// the number of times Frame was called.
 func NewGauge[T types.Numeric](exp Experiment, level Level, key string) Metric[T] {
 	if m := emptyMetric[T](exp, level, key); m != nil {
 		return m

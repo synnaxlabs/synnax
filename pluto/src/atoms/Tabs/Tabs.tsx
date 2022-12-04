@@ -69,26 +69,28 @@ export const Tabs = ({
 
 	return (
 		<Space className={clsx("pluto-tabs__container", className)} empty {...props}>
-			<Space
-				className="pluto-tabs__tabs"
-				direction="horizontal"
-				align="center"
-				justify="start"
-				empty
-			>
-				{tabs.map((tab) => (
-					<TabC
-						key={tab.tabKey}
-						selected={selected}
-						onSelect={onSelect}
-						onClose={onClose}
-						onTabDragStart={onTabDragStart}
-						onTabDragEnd={onTabDragEnd}
-						onTitleChange={onTitleChange}
-						{...tab}
-					/>
-				))}
-			</Space>
+			{tabs.length > 0 && (
+				<Space
+					className="pluto-tabs__tabs"
+					direction="horizontal"
+					align="center"
+					justify="start"
+					empty
+				>
+					{tabs.map((tab) => (
+						<TabC
+							key={tab.tabKey}
+							selected={selected}
+							onSelect={onSelect}
+							onClose={onClose}
+							onTabDragStart={onTabDragStart}
+							onTabDragEnd={onTabDragEnd}
+							onTitleChange={onTitleChange}
+							{...tab}
+						/>
+					))}
+				</Space>
+			)}
 			{content}
 		</Space>
 	);

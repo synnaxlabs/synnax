@@ -9,5 +9,5 @@ import (
 
 func TestStorage(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "StorageKey Suite")
+	RunSpecs(t, "Storage Suite")
 }

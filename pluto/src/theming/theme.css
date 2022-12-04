@@ -35,6 +35,7 @@ label {
   font-family: var(--pluto-font-family);
   color: var(--pluto-text-color);
   margin: 0;
+	white-space: nowrap;
 }
 
 h1 {
@@ -82,6 +83,7 @@ p, label {
 
 ::-webkit-scrollbar {
   width: 1.5rem;
+	height: 1.5rem;
 }
 
 ::-webkit-scrollbar-track {
