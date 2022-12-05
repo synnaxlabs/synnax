@@ -112,11 +112,10 @@ func (db *DB) newReader(ptr pointer) (*Reader, error) {
 	if err != nil {
 		return nil, err
 	}
-	reader := xio.PartialReader(internal, int64(ptr.offset), int64(ptr.length))
+	reader := xio.PartialReaderAt(internal, int64(ptr.offset), int64(ptr.length))
 	return &Reader{
 		ptr:      ptr,
 		ReaderAt: reader,
-		Reader:   reader,
 		Closer:   internal,
 	}, nil
 }

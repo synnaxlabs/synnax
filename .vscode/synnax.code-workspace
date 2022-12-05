@@ -1,68 +1,68 @@
 {
   "folders": [
     {
-      "path": "../",
-      "name": "synnax-root"
+      "name": "synnax-root",
+      "path": ".."
     },
     {
-      "path": "../aspen",
-      "name": "aspen"
+      "name": "aspen",
+      "path": "../aspen"
     },
     {
-      "path": "../cesium",
       "name": "cesium",
+      "path": "../cesium"
     },
     {
-      "path": "../client/ts",
       "name": "client/ts",
+      "path": "../client/ts"
     },
     {
-      "path": "../client/py",
       "name": "client/py",
+      "path": "../client/py"
     },
     {
-      "path": "../client/go",
       "name": "client/go",
+      "path": "../client/go"
     },
     {
-      "path": "../docs/site",
       "name": "docs/site",
+      "path": "../docs/site"
     },
     {
-      "path": "../drift",
-      "name":  "drift",
+      "name": "drift",
+      "path": "../drift"
     },
     {
-      "path": "../freighter/ts",
       "name": "freighter/ts",
+      "path": "../freighter/ts"
     },
     {
-      "path": "../freighter/py",
       "name": "freighter/py",
+      "path": "../freighter/py"
     },
     {
-      "path": "../freighter/go",
       "name": "freighter/go",
+      "path": "../freighter/go"
     },
     {
-      "path": "../freighter/integration",
       "name": "freighter/integration",
+      "path": "../freighter/integration"
     },
     {
-      "path": "../pluto",
-      "name":  "pluto",
-    },
-    {
-      "path": "../synnax",
       "name": "synnax-server",
+      "path": "../synnax"
     },
     {
-      "path": "../delta",
-      "name": "delta"
+      "name": "pluto",
+      "path": "../pluto"
     },
     {
-      "path": "../x",
+      "name": "delta",
+      "path": "../delta"
+    },
+    {
       "name": "x",
+      "path": "../x"
     }
   ],
   "settings": {

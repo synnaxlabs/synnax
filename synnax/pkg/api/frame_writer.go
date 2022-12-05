@@ -161,5 +161,6 @@ func receiveWriterOpenConfig(
 		return cfg, errors.Validation(errors.Field{Field: "config.openKeys", Message: err.Error()})
 	}
 	cfg.Keys = keys
+	cfg.Start = req.Config.Start
 	return cfg, errors.Nil
 }

@@ -84,4 +84,5 @@ class RowIngestionEngine:
         for channel in self.channels:
             if channel.name in df.columns:
                 df.rename(columns={channel.name: channel.key}, inplace=True)
+                df[channel.key] = df[channel.key].astype(channel.data_type.numpy_type)
         self.writer.write(df)
