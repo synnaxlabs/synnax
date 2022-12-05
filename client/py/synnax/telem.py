@@ -609,6 +609,7 @@ DATA_TYPE_TO_NUMPY: dict[str, np.ScalarType] = {
     UINT32: np.uint32,
     UINT16: np.uint16,
     UINT8: np.uint8,
+    TIMESTAMP: np.int64,
 }
 NUMPY_TO_DATA_TYPE = {v: k for k, v in DATA_TYPE_TO_NUMPY.items()}
 

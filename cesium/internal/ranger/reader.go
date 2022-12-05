@@ -9,7 +9,6 @@ import (
 type Reader struct {
 	ptr pointer
 	io.ReaderAt
-	io.Reader
 	io.Closer
 }
 
