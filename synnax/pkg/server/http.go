@@ -1,6 +1,7 @@
 package server
 
 import (
+	"crypto/tls"
 	"github.com/cockroachdb/cmux"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -26,12 +27,21 @@ func (f *HTTPBranch) Serve(cfg BranchConfig) error {
 		DisableStartupMessage: true,
 		ReadBufferSize:        int(10 * telem.Kilobyte),
 	})
+
+	if cfg.Debug {
+		f.app.Get("/metrics", monitor.New(monitor.Config{Title: "Synnax Metrics"}))
+		f.app.Use(pprof.New())
+	}
 	f.app.Use(cors.New(cors.Config{AllowOrigins: "*"}))
-	f.app.Get("/metrics", monitor.New(monitor.Config{Title: "Synnax Metrics"}))
-	f.app.Use(pprof.New())
+
 	for _, t := range f.Transports {
 		t.BindTo(f.app)
 	}
+
+	if !*cfg.Security.Insecure {
+		cfg.Lis = tls.NewListener(cfg.Lis, cfg.Security.TLS)
+	}
+
 	return filterCloseError(f.app.Listener(cfg.Lis))
 }
 

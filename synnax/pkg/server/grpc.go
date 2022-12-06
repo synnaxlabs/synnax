@@ -20,8 +20,8 @@ func (g *GRPCBranch) Key() string { return "grpc" }
 
 func (g *GRPCBranch) Serve(cfg BranchConfig) error {
 	var opts []grpc.ServerOption
-	if cfg.TLS != nil {
-		opts = append(opts, grpc.Creds(credentials.NewTLS(cfg.TLS)))
+	if !*cfg.Security.Insecure {
+		opts = append(opts, grpc.Creds(credentials.NewTLS(cfg.Security.TLS)))
 	}
 	g.server = grpc.NewServer(opts...)
 	for _, t := range g.Transports {

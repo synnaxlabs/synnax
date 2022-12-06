@@ -1,15 +1,15 @@
 package server
 
 import (
-	"crypto/tls"
 	"net"
 
 	"github.com/cockroachdb/cmux"
 )
 
 type BranchConfig struct {
-	Lis net.Listener
-	TLS *tls.Config
+	Lis      net.Listener
+	Security SecurityConfig
+	Debug    bool
 }
 
 type Branch interface {

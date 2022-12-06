@@ -1,0 +1,116 @@
+# 9 - Encrypting Cluster Communications
+
+**Feature Name** - Encrypting Cluster Communications <br />
+**Status** - Proposed <br />
+**Start Date** - 2022-12-05 <br />
+**Authors** - emilbon99 <br />
+
+# 0 - Summary
+
+In this RFC I propose an architecture for encrypting both intra cluster and client facing
+communication. As Synnax uses a variety of transport protocols, with the aim of supporting
+new protocols in the future, we need a solution that is as transport agnostic as possible.
+Although out of scope for this RFC, we also need to consider encryption as a mechanism for
+authentication between members of the cluster.
+
+This RFC starts off with a summary of the different properties we need from an encryption
+mechanism, and then goes on to discuss the different protocols Synnax uses (any may use
+in the future) and how they implement encryption. This is followed by an analysis of
+the ways existing distributed systems implement encryption (CockroachDB, etcd, Consul,
+etc.), how they compare to the Synnax use case, and what useful characteristics we can
+adopt. Finally, this RFC proposes a baseline design and implementation for encrypting
+cluster communications.
+
+# 1 - Vocabulary
+
+**Node** - A machine in the cluster. <br />
+**Cluster** - A group of nodes that can communicate with each other. <br />
+**Gateway** - The node that receives incoming client requests, and forwards them to the
+appropriate node. <br />
+**Peer** - A node that receives requests from a gateway, and executes them. <br />
+
+# 2 - Motivation
+
+The motivation here is relatively straightforward, although the impetus for implementing
+encryption at this stage is not. Encryption was not an initial requirement for the MVP
+version of Synnax, but there are a few key reasons why we need to implement it now.
+Primarily, the data flowing through the cluster can be sensitive and ITAR controlled,
+meaning potential information leaks are a serious concern. Second, and more practically,
+the Windows build of the current user interface doesn't allow for making unencrypted HTTP
+requests, which means our Windows users can't use the Synnax UI. This is most of our potential
+customers, so we need to fix this issue ASAP.
+
+# 3 - Requirements
+
+# 3.0 - Transport Agnostic
+
+Synnax currently uses HTTP and gRPC for communication, with the possibility of using
+protocols like WebRTC in the future. We need an encryption design that can easily expand
+to support new protocols, and doesn't require extensive changes to the existing codebase.
+
+# 3.1 - Easy to Configure
+
+Configuring encryption for distributed compute clusters is notoriously, tedious, complex
+and difficult. We should aim to minimize the difficulty of provisioning the appropriate
+security mechanisms and credentials to enable encryption.
+
+# 3.3 - Implementing Security Best Practices
+
+We should implement encryption in a way that follows best practices for securing
+distributed systems.
+
+# 3.4 - Support for Insecure Mode
+
+# 3.5 - (Eventually) Authentication
+
+Although out of scope for this RFC, using encryption keys as a mechanism for authentication
+is a must for running in tightly controlled production scenarios. The initial design
+should be set up to allow for this in the future.
+
+# 3.6 - (Eventually) Encryption at Rest
+
+Encryption is largely focused on the transport layer, but applications that can hold
+particularly sensitive data (such as Synnax) should eventually support encryption at rest.
+This means that are encryption providers need to extend beyond the transport areas of the codebase,
+and allow other services to access them.
+
+# 3.7 - (Eventually) Key Rotation
+
+Certificate rotation is common, if not essential for secure systems. Unfortunately, key
+rotation compounds the complexity of configuring a security system. The initial design
+of Synnax's encryption system should keep eventual certificate rotation in mind.
+
+# 3.8 - (Eventually) Support for Key Distribution Centers and Central Secret Stores
+
+Although not a requirement for the initial design, key distribution centers such as
+Hashicorp Vault and central secret stores such as AWS Secrets Manager are common in
+production environments. The initial design should be flexible enough to enable support
+for these in the future.
+
+
+# 4 - Transport Protocols
+
+# 4.1 - HTTP
+
+Synnax Server uses [Fiber](docs.gofiber.io) as its HTTP server. Fiber implements TLS
+encryption using the standard `*tls.Config` provided by the Go standard library, and accepts
+a `net.Listener` as its input. This means we can provide any secured `net.Listener` to
+Fiber, and it will use it to serve HTTP requests. In terms of key rotation, `*tls.Config`
+supports certificate rotation by providing a `GetCertificate` function, which can be used
+to dynamically provide a certificate based on the client's SNI. The same method can be
+used for enabling mutual TLS authentication.
+
+# 4.2 - gRPC
+
+The gRPC TLS implementation is more confusing that its HTTP counterpart. The gRPC server
+can be passed a `*tls.Config` through the options in its credentials package, but it also
+accepts a `net.Listener` as its input. It's unclear whether the optimal approach is to
+provide a `net.Listener` that wraps a `*tls.Config`, or to provide a `*tls.Config` to
+the gRPC server. From reading the gRPC source code, it seems like the former is the
+intended approach.
+
+# 5 - Existing Solutions
+
+# 5.1 - CockroachDB
+
+# 6 - Design

@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"github.com/synnaxlabs/synnax/pkg/security/tls"
+	"google.golang.org/grpc/credentials"
 	"os"
 	"os/signal"
 	"time"
@@ -31,15 +33,21 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 // startCmd represents the start command
 var startCmd = &cobra.Command{
 	Use:   "start",
-	Short: "",
-	Long:  ``,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Short: "Starts a Synnax Node",
+	Long: `
+Starts a Synnax Node using the data directory specified by the --data flag,
+and listening on the address specified by the --listen-address flag. If --peer-addresses
+is specified and no existing data is found, the node will attempt to join the cluster
+formed by its peers.
+	`,
+	Example: `synnax start --listen-address [host:port] --data /mnt/ssd1 --peer-addresses [host:port],[host:port] --insecure`,
+	Args:    cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		logger, err := configureLogging()
 		if err != nil {
 			return err
@@ -57,15 +65,20 @@ var startCmd = &cobra.Command{
 
 		// Perform the rest of the startup within a separate goroutine
 		// we can properly handle signal interrupts.
-		sCtx.Go(func(ctx context.Context) (err error) {
-			// SetState up the tracing backend.
+		sCtx.Go(func(ctx context.Context) error {
+			// Set up the tracing backend.
 			exp := configureObservability()
+
+			tlsProv, err := configureTLS()
+			if err != nil {
+				return err
+			}
 
 			// An array to hold the transports we use for cluster internal communication.
 			transports := &[]fgrpc.BindableTransport{}
 
-			// SetState up a pool so we can load balance RPC connections.
-			pool := fgrpc.NewPool(grpc.WithTransportCredentials(insecure.NewCredentials()))
+			// SetState up a pool to load balance RPC connections.
+			pool := fgrpc.NewPool(grpc.WithTransportCredentials(credentials.NewTLS(tlsProv.Config())))
 
 			// AcquireSearcher the distribution layer.
 			storageCfg := newStorageConfig(exp, logger)
@@ -85,7 +98,11 @@ var startCmd = &cobra.Command{
 			// Set up our high level services.
 			gorpDB := dist.Storage.Gorpify()
 			userSvc := &user.Service{DB: gorpDB, Ontology: dist.Ontology}
-			rsaKey, err := rsa.GenerateKey(rand.Reader, 1024)
+			// get the RSA key from the tls provider
+			rsaKey, err := rsa.GenerateKey(rand.Reader, 2048)
+			if err != nil {
+				return err
+			}
 			tokenSvc := &token.Service{Secret: rsaKey, Expiration: 15 * time.Minute}
 			authenticator := &auth.KV{DB: gorpDB}
 
@@ -94,7 +111,7 @@ var startCmd = &cobra.Command{
 				return err
 			}
 
-			// Configure the core API.
+			// Configure the API core.
 			_api := api.New(api.Config{
 				Logger:        logger,
 				Channel:       dist.Channel,
@@ -111,8 +128,8 @@ var startCmd = &cobra.Command{
 
 			// Configure the HTTP API Transport.
 			r := fhttp.NewRouter(fhttp.RouterConfig{Logger: logger.Sugar()})
-			httpAPITransport := httpapi.New(r)
-			_api.BindTo(httpAPITransport)
+			httpAPI := httpapi.New(r)
+			_api.BindTo(httpAPI)
 
 			// Configure our servers.
 			grpcBranch := &server.GRPCBranch{Transports: *transports}
@@ -122,7 +139,12 @@ var startCmd = &cobra.Command{
 				Logger:        logger.Named("server"),
 				Branches:      []server.Branch{httpBranch, grpcBranch},
 			}
-			srv := server.New(serverCfg)
+			serverCfg.Security.TLS = tlsProv.Config()
+			srv, err := server.New(serverCfg)
+			if err != nil {
+				return err
+			}
+
 			sCtx.Go(srv.Start, xsignal.WithKey("server"))
 			defer func() { err = errors.CombineErrors(err, srv.Stop()) }()
 			<-ctx.Done()
@@ -277,6 +299,10 @@ func configureObservability() alamos.Experiment {
 		opt = alamos.WithFilters(alamos.LevelFilterThreshold{Level: alamos.Production})
 	}
 	return alamos.New(rootExperimentKey, opt)
+}
+
+func configureTLS() (tls.Provider, error) {
+	return nil, nil
 }
 
 func maybeProvisionRootUser(

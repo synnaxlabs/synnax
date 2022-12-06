@@ -3,6 +3,9 @@ package server
 import (
 	"context"
 	"crypto/tls"
+	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/validate"
 	"net"
 
 	"github.com/cockroachdb/cmux"
@@ -14,11 +17,39 @@ import (
 
 type Config struct {
 	ListenAddress address.Address
-	Security      struct {
-		TLS *tls.Config
+	Security      SecurityConfig
+	Logger        *zap.Logger
+	Branches      []Branch
+}
+
+type SecurityConfig struct {
+	Insecure *bool
+	TLS      *tls.Config
+}
+
+var (
+	_             config.Config[Config] = Config{}
+	DefaultConfig                       = Config{
+		Security: SecurityConfig{
+			Insecure: config.BoolPointer(false),
+		},
 	}
-	Logger   *zap.Logger
-	Branches []Branch
+)
+
+func (c Config) Override(other Config) Config {
+	c.ListenAddress = override.String(c.ListenAddress, other.ListenAddress)
+	c.Security.Insecure = override.Nil(c.Security.Insecure, other.Security.Insecure)
+	c.Security.TLS = override.Nil(c.Security.TLS, other.Security.TLS)
+	c.Logger = override.Nil(c.Logger, other.Logger)
+	c.Branches = override.Slice(c.Branches, other.Branches)
+	return c
+}
+
+func (c Config) Validate() error {
+	v := validate.New("server")
+	validate.NotEmptyString(v, "listenAddress", c.ListenAddress)
+	validate.NotNil(v, "logger", c.Logger)
+	return v.Error()
 }
 
 type Server struct {
@@ -26,8 +57,9 @@ type Server struct {
 	lis net.Listener
 }
 
-func New(cfg Config) *Server {
-	return &Server{Config: cfg}
+func New(configs ...Config) (*Server, error) {
+	cfg, err := config.OverrideAndValidate(DefaultConfig, configs...)
+	return &Server{Config: cfg}, err
 }
 
 func (s *Server) Start(_ context.Context) (err error) {
@@ -38,14 +70,14 @@ func (s *Server) Start(_ context.Context) (err error) {
 	if err != nil {
 		return err
 	}
+
 	m := cmux.New(s.lis)
 	listeners := make([]net.Listener, len(s.Branches))
 	for i, b := range s.Branches {
 		listeners[i] = m.Match(b.Match()...)
 	}
-	bc := BranchConfig{
-		TLS: s.Security.TLS,
-	}
+
+	bc := BranchConfig{}
 	for i, b := range s.Branches {
 		b := b
 		i := i
