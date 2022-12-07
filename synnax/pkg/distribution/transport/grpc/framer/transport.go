@@ -2,6 +2,7 @@ package framer
 
 import (
 	"context"
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
@@ -45,6 +46,7 @@ var (
 	_ iterator.TransportServer       = (*iteratorServer)(nil)
 	_ iterator.TransportClient       = (*iteratorClient)(nil)
 	_ framer.Transport               = (*transport)(nil)
+	_ fgrpc.BindableTransport        = (*transport)(nil)
 )
 
 func New(pool *fgrpc.Pool) *transport {
@@ -109,9 +111,11 @@ func (t *transport) Writer() writer.Transport { return t.writer }
 
 func (t *transport) Iterator() iterator.Transport { return t.iterator }
 
-func (t *transport) BindTo(server grpc.ServiceRegistrar) {
+func (t *transport) BindTo(server grpc.ServiceRegistrar, mw ...freighter.Middleware) {
 	framerv1.RegisterWriterServiceServer(server, t.writer.server)
 	framerv1.RegisterIteratorServiceServer(server, t.iterator.server)
+	t.iterator.server.Use(mw...)
+	t.writer.server.Use(mw...)
 }
 
 type writerTransport struct {

@@ -4,7 +4,7 @@ import (
 	"github.com/cockroachdb/cmux"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type GRPCBranch struct {
@@ -12,7 +12,7 @@ type GRPCBranch struct {
 	server     *grpc.Server
 }
 
-func (g *GRPCBranch) Match() []cmux.Matcher {
+func (g *GRPCBranch) Matchers() []cmux.Matcher {
 	return []cmux.Matcher{cmux.Any()}
 }
 
@@ -20,14 +20,16 @@ func (g *GRPCBranch) Key() string { return "grpc" }
 
 func (g *GRPCBranch) Serve(cfg BranchConfig) error {
 	var opts []grpc.ServerOption
-	if !*cfg.Security.Insecure {
-		opts = append(opts, grpc.Creds(credentials.NewTLS(cfg.Security.TLS)))
+	if *cfg.Security.Insecure {
+		opts = append(opts, grpc.Creds(insecure.NewCredentials()))
+	} else {
+		opts = append(opts, grpc.Creds(fgrpc.NewMuxCredentials(cfg.Logger)))
 	}
 	g.server = grpc.NewServer(opts...)
 	for _, t := range g.Transports {
-		t.BindTo(g.server)
+		t.BindTo(g.server, fgrpc.MTLSMiddleware(cfg.Security.CAName))
 	}
-	return filterCloseError(g.server.Serve(cfg.Lis))
+	return filterCloserError(g.server.Serve(cfg.Lis))
 }
 
 func (g *GRPCBranch) Stop() { g.server.GracefulStop() }

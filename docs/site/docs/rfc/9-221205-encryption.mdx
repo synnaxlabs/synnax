@@ -61,26 +61,35 @@ distributed systems.
 
 # 3.4 - Support for Insecure Mode
 
-# 3.5 - (Eventually) Authentication
+It should be possible to run a cluster in insecure mode without encryption. This is to
+allow for easier development and testing, and to allow for the possibility of running
+a secure cluster by using other mechanisms (e.g. a VPN).
+
+# 3.5 - A Tale of One Port
+
+Simplicity is king, and right now we're able to support both HTTP and gRPC on the same port.
+We should aim to keep it that way.
+
+# 3.6 - (Eventually) Authentication
 
 Although out of scope for this RFC, using encryption keys as a mechanism for authentication
 is a must for running in tightly controlled production scenarios. The initial design
 should be set up to allow for this in the future.
 
-# 3.6 - (Eventually) Encryption at Rest
+# 3.7 - (Eventually) Encryption at Rest
 
 Encryption is largely focused on the transport layer, but applications that can hold
 particularly sensitive data (such as Synnax) should eventually support encryption at rest.
 This means that are encryption providers need to extend beyond the transport areas of the codebase,
 and allow other services to access them.
 
-# 3.7 - (Eventually) Key Rotation
+# 3.8 - (Eventually) Key Rotation
 
 Certificate rotation is common, if not essential for secure systems. Unfortunately, key
 rotation compounds the complexity of configuring a security system. The initial design
 of Synnax's encryption system should keep eventual certificate rotation in mind.
 
-# 3.8 - (Eventually) Support for Key Distribution Centers and Central Secret Stores
+# 3.9 - (Eventually) Support for Key Distribution Centers and Central Secret Stores
 
 Although not a requirement for the initial design, key distribution centers such as
 Hashicorp Vault and central secret stores such as AWS Secrets Manager are common in
@@ -95,10 +104,12 @@ for these in the future.
 Synnax Server uses [Fiber](docs.gofiber.io) as its HTTP server. Fiber implements TLS
 encryption using the standard `*tls.Config` provided by the Go standard library, and accepts
 a `net.Listener` as its input. This means we can provide any secured `net.Listener` to
-Fiber, and it will use it to serve HTTP requests. In terms of key rotation, `*tls.Config`
+Fiber, and it will use it to serve HTTP(S) requests. In terms of key rotation, `*tls.Config`
 supports certificate rotation by providing a `GetCertificate` function, which can be used
 to dynamically provide a certificate based on the client's SNI. The same method can be
-used for enabling mutual TLS authentication.
+used for enabling mutual TLS authentication. CA rotation is also supported by providing
+specifying a `VerifyConnection` handler along with a `VerifyPeerCertificate` handler for
+enabling mutual TLS authentication.
 
 # 4.2 - gRPC
 
@@ -109,8 +120,114 @@ provide a `net.Listener` that wraps a `*tls.Config`, or to provide a `*tls.Confi
 the gRPC server. From reading the gRPC source code, it seems like the former is the
 intended approach.
 
+
+
 # 5 - Existing Solutions
 
 # 5.1 - CockroachDB
 
+# 5.1.0 - `cockroach cert`
+
+CockroachDB provides a
+[command line tool](https://www.cockroachlabs.com/docs/stable/cockroach-cert.html) for
+generating self-signed CAs, certificates, and keys, which can be used to easily secure a cluster.
+This is a great tool for getting started, and I'd love to incorporate something similar
+into Synnax.
+
+# 5.1.1 - A Tale of Two Ports
+
+CockroachDB uses one port for HTTP and a separate port gRPC and PGWire. The reason is that
+gRPC behaves differently than most HTTP clients: "where most clients wait for an acknowledgement
+from the server before sending headers, gRPC does not."
+
 # 6 - Design
+
+## 6.1 - HTTP/HTTPS/gRPC and mTLS over a Single Port
+
+The initial design takes an unorthodox approach to securing HTTP, HTTPS, and gRPC over a
+single port, while incorporating mTLS _only_ for intra-cluster mTLS authentication. The design
+uses several layers of connection multiplexing along with a set of custom gRPC transport
+credentials and per-rpc middleware to achieve this.
+
+### 6.1.0 - Insecure Mode
+
+The server configuration in insecure mode is straightforward:
+
+<p align="middle">
+  <img
+    src="/img/rfc/9-221205-encryption/mux-insecure.png"
+    width="50%"
+  />
+  <h6 align="middle">Retrieve Query Pipe</h6>
+</p>
+
+1. The incoming connection is passed to a root multiplexer (provided by Cockroach Labs
+wonderful fork of [cmux](https://github.com/cockroachdb/cmux)), which matches against:
+
+2. HTTP/1.1 requests, which are passed to the HTTP server.
+
+3. All other requests, which are passed to the gRPC server.
+
+It's then the GRPC and HTTP APIs responsibility to handle the request (including any
+authentication).
+
+### 6.1.1 - Secure Mode
+
+The server configuration in secure mode is more complicated, and requires a two layer
+multiplex along with some creative custom middleware and transport credentials.
+
+<p align="middle">
+  <img
+    src="/img/rfc/9-221205-encryption/mux-secure.png"
+    width="50%"
+  />
+  <h6 align="middle">Retrieve Query Pipe</h6>
+</p>
+
+1. Just like in insecure mode, the incoming connection is passed to a root multiplexer,
+which matches against:
+
+2. HTTP/1.1 requests, which are passed to an insecure HTTP server that redirects all
+requests to HTTPS.
+
+3. All other requests are passed to a second multiplexer which performs the TLS handshake
+using [`tls.NewListener`](https://golang.org/pkg/crypto/tls/#NewListener). After the
+handshake completes, the same matching process as in insecure mode is performed:
+
+4. HTTP/1.1 requests, which are passed to the HTTP server.
+
+5. All other requests, which are passed to the gRPC server.
+
+While a bit complex, this is all fine and dandy. The problem comes when we want to implement
+mTLS authentication for intra cluster RPCs. We want consumers of the Synnax API to be able
+to interact with a secure cluster using password and token based authentication. If we
+configure our TLS in the secure multiplexer to require and verify client certificates, we
+end up enabling mTLS for gRPC, but not all HTTP requests also need to use mTLS. This means
+that we need to be able to selectively enable mTLS for gRPC, but not for HTTP.
+
+The trick here lies in allowing the TLS multiplexer to verify the client certificate _if_
+it's provided, but not require it. Then, our HTTP server can proceed as normal without
+mTLS. We now move the responsibility of validating that the certificate verification
+was performed to the gRPC server. This is a two-step process:
+
+### 6.1.2 - gRPC mTLS
+
+Go's gRPC implementation allows a caller to inspect the underlying connections authentication
+info by using the `peer.FromContext` function. This function returns a `peer.Peer` struct
+with an `AuthInfo` field that contains the authentication info. We can inspect the
+contents of this field in per RPC middleware to ensure that the client was authenticated
+using mTLS.
+
+This auth info is populated by the `TransportCredentials` passed to the gRPC server on initialization. When running
+a standalone gRPC server in secure mode, we would typically use  `credentials.NewTLS`
+option that generates this auth info for us.
+
+However, our multiplexed server performs the TLS handshake before passing the connection
+to the gRPC server. This means that we don't pass any secure transport credentials to the
+server, and would instead use `insecure.NewCredentials` to disable authentication. The
+issue is that now our middleware won't receive any auth info, and we won't be able to
+validate that the client was authenticated using mTLS.
+
+The solution is to create custom transport credentials that inspect the `tls.ConnectionState`
+of the connection handed over by the multiplexer. We can then pass this auth info to the
+middleware, and validate that the client was authenticated using mTLS.

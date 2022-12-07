@@ -46,6 +46,8 @@ func (mc *MiddlewareCollector) Use(m ...Middleware) { mc.Chain = append(mc.Chain
 // MiddlewareFunc is a utility type so that functions can implement Middleware.
 type MiddlewareFunc func(context.Context, MD, Next) (MD, error)
 
+var _ Middleware = MiddlewareFunc(nil)
+
 // Exec implements Middleware.
 func (m MiddlewareFunc) Exec(ctx context.Context, req MD, next Next) (MD, error) {
 	return m(ctx, req, next)

@@ -1,4 +1,4 @@
-package security
+package core
 
 import (
 	"crypto/rand"
@@ -16,19 +16,12 @@ const (
 
 func NewBaseX509() (*x509.Certificate, error) {
 	sn, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
-	if err != nil {
-		return nil, err
-	}
-
 	cert := &x509.Certificate{
 		SerialNumber: sn,
-		Subject: pkix.Name{
-			CommonName: caCommonName,
-		},
-		NotBefore: time.Now().Add(validFrom),
-		NotAfter:  time.Now().Add(validFor),
-		KeyUsage:  x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+		Subject:      pkix.Name{CommonName: caCommonName},
+		NotBefore:    time.Now().Add(validFrom),
+		NotAfter:     time.Now().Add(validFor),
+		KeyUsage:     x509.KeyUsageKeyAgreement | x509.KeyUsageDigitalSignature,
 	}
-
-	return cert, nil
+	return cert, err
 }

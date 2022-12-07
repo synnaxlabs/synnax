@@ -19,6 +19,7 @@ class SynnaxOptions(BaseModel):
     port: int
     username: str = ""
     password: str = ""
+    secure: bool = False
 
 
 class Synnax:
@@ -44,8 +45,9 @@ class Synnax:
         port: int = 0,
         username: str = "",
         password: str = "",
+        secure: bool = False,
     ):
-        self._transport = Transport(URL(host=host, port=port))
+        self._transport = Transport(URL(host=host, port=port, protocol="https" if secure else "http"))
         if username != "" or password != "":
             auth = AuthenticationClient(
                 self._transport.http.post_client(), username, password

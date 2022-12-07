@@ -1,22 +1,26 @@
 package server
 
 import (
-	"crypto/tls"
 	"github.com/cockroachdb/cmux"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/filesystem"
 	"github.com/gofiber/fiber/v2/middleware/monitor"
 	"github.com/gofiber/fiber/v2/middleware/pprof"
 	"github.com/synnaxlabs/freighter/fhttp"
+	"github.com/synnaxlabs/synnax/pkg/ui"
 	"github.com/synnaxlabs/x/telem"
+	"net/http"
+	"time"
 )
 
 type HTTPBranch struct {
-	app        *fiber.App
-	Transports []fhttp.BindableTransport
+	app          *fiber.App
+	Transports   []fhttp.BindableTransport
+	ContentTypes []string
 }
 
-func (f *HTTPBranch) Match() []cmux.Matcher {
+func (f *HTTPBranch) Matchers() []cmux.Matcher {
 	return []cmux.Matcher{cmux.HTTP1Fast()}
 }
 
@@ -26,6 +30,7 @@ func (f *HTTPBranch) Serve(cfg BranchConfig) error {
 	f.app = fiber.New(fiber.Config{
 		DisableStartupMessage: true,
 		ReadBufferSize:        int(10 * telem.Kilobyte),
+		ReadTimeout:           500 * time.Millisecond,
 	})
 
 	if cfg.Debug {
@@ -38,11 +43,14 @@ func (f *HTTPBranch) Serve(cfg BranchConfig) error {
 		t.BindTo(f.app)
 	}
 
-	if !*cfg.Security.Insecure {
-		cfg.Lis = tls.NewListener(cfg.Lis, cfg.Security.TLS)
-	}
+	f.app.Use("/", filesystem.New(filesystem.Config{
+		Root:       http.FS(ui.Dist),
+		PathPrefix: "dist",
+		Browse:     true,
+		Index:      "index.html",
+	}))
 
-	return filterCloseError(f.app.Listener(cfg.Lis))
+	return filterCloserError(f.app.Listener(cfg.Lis))
 }
 
 func (f *HTTPBranch) Stop() { _ = f.app.Shutdown() }

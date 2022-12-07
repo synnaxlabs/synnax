@@ -9,7 +9,7 @@ import (
 // registrar.
 type BindableTransport interface {
 	// BindTo binds the transport to the given gRPC service registrar.
-	BindTo(reg grpc.ServiceRegistrar)
+	BindTo(reg grpc.ServiceRegistrar, middleware ...freighter.Middleware)
 }
 
 var reporter = freighter.Reporter{

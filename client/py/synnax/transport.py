@@ -24,7 +24,11 @@ class Transport:
             base_url=self.url, encoder=MsgpackEncoder(), max_message_size=int(5e6)
         )
         self.stream = SyncStreamClient(self.stream_async)
-        self.http = HTTPClientFactory(url=self.url, encoder_decoder=JSONEncoder())
+        self.http = HTTPClientFactory(
+            url=self.url,
+            encoder_decoder=JSONEncoder(),
+            secure=self.url.protocol == "https",
+        )
 
     def use(self, *middleware: Middleware):
         self.http.use(*middleware)

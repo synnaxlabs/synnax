@@ -1,6 +1,7 @@
 package token_test
 
 import (
+	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
 	"github.com/google/uuid"
@@ -10,15 +11,23 @@ import (
 	"time"
 )
 
+type mockKeyService struct {
+	key *rsa.PrivateKey
+}
+
+func (m *mockKeyService) Key() crypto.PrivateKey {
+	return m.key
+}
+
 var _ = Describe("token", func() {
 	var (
 		svc *token.Service
 	)
 	BeforeEach(func() {
-		k, err := rsa.GenerateKey(rand.Reader, 2048)
+		k, err := rsa.GenerateKey(rand.Reader, 1024)
 		Expect(err).ToNot(HaveOccurred())
 		svc = &token.Service{
-			Secret:     k,
+			KeyService: &mockKeyService{key: k},
 			Expiration: 5 * time.Second,
 		}
 	})

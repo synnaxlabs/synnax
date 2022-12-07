@@ -86,7 +86,7 @@ func NewLoader(configs ...LoaderConfig) (*Loader, error) {
 // LoadCACertAndKey loads the CA certificate and its private key. If multiple
 // certificates are found in the CA certificate file, the first one is used.
 func (l *Loader) LoadCACertAndKey() (c *x509.Certificate, k crypto.PrivateKey, err error) {
-	c, k, err = l.load(l.CACertPath, l.CAKeyPath)
+	c, k, err = l.loadX509(l.CACertPath, l.CAKeyPath)
 	if errors.Is(err, fs.ErrNotExist) {
 		err = errors.Wrapf(err, "CA certificate not found")
 	}
@@ -94,31 +94,44 @@ func (l *Loader) LoadCACertAndKey() (c *x509.Certificate, k crypto.PrivateKey, e
 }
 
 func (l *Loader) LoadNodeCertAndKey() (c *x509.Certificate, k crypto.PrivateKey, err error) {
-	c, k, err = l.load(l.NodeCertPath, l.NodeKeyPath)
+	c, k, err = l.loadX509(l.NodeCertPath, l.NodeKeyPath)
 	if errors.Is(err, fs.ErrNotExist) {
 		err = errors.Wrapf(err, "node certificate not found")
 	}
 	return
 }
 
-func (l *Loader) load(certPath, keyPath string) (*x509.Certificate, crypto.PrivateKey, error) {
-	certPEM, err := l.readAll(certPath)
-	if err != nil {
-		return nil, nil, err
+func (l *Loader) LoadNodeTLSCertAndKey() (c *tls.Certificate, err error) {
+	c, err = l.loadTLS(l.NodeCertPath, l.NodeKeyPath)
+	if errors.Is(err, fs.ErrNotExist) {
+		err = errors.Wrapf(err, "node certificate not found")
 	}
-	keyPEM, err := l.readAll(keyPath)
-	if err != nil {
-		return nil, nil, err
-	}
-	c, err := tls.X509KeyPair(certPEM, keyPEM)
-	if err != nil {
-		return nil, nil, err
-	}
+	return
+}
+
+func (l *Loader) loadX509(certPath, keyPath string) (*x509.Certificate, crypto.PrivateKey, error) {
+	c, err := l.loadTLS(certPath, keyPath)
 	certParsed, err := x509.ParseCertificate(c.Certificate[0])
 	if err != nil {
 		return nil, nil, err
 	}
 	return certParsed, c.PrivateKey, nil
+}
+
+func (l *Loader) loadTLS(certPath, keyPath string) (*tls.Certificate, error) {
+	certPEM, err := l.readAll(certPath)
+	if err != nil {
+		return nil, err
+	}
+	keyPEM, err := l.readAll(keyPath)
+	if err != nil {
+		return nil, err
+	}
+	c, err := tls.X509KeyPair(certPEM, keyPEM)
+	if err != nil {
+		return nil, err
+	}
+	return &c, err
 }
 
 func (l *Loader) readAll(path string) ([]byte, error) {

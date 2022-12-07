@@ -32,7 +32,9 @@ type FramerTransport struct {
 	writer   writer.Transport
 }
 
-var _ framer.Transport = (*FramerTransport)(nil)
+var (
+	_ framer.Transport = (*FramerTransport)(nil)
+)
 
 func (c FramerTransport) Iterator() iterator.Transport { return c.iterator }
 

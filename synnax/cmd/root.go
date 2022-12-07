@@ -34,7 +34,7 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
-	certCmd.PersistentFlags().StringVar(&certFactoryConfig.CertsDir, "certs-dir", cert.DefaultLoaderConfig.CertsDir, "The directory to store the certificates in.")
+	rootCmd.PersistentFlags().String("certs-dir", cert.DefaultLoaderConfig.CertsDir, "The directory to store the certificates in.")
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.synnax.yaml)")
 }
 

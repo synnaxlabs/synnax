@@ -7,7 +7,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"github.com/cockroachdb/errors"
-	"github.com/synnaxlabs/synnax/pkg/security"
+	"github.com/synnaxlabs/synnax/pkg/security/core"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -109,13 +109,14 @@ func (c *Factory) CreateCAPair() error {
 		}
 	}
 
-	base, err := security.NewBaseX509()
+	base, err := core.NewBaseX509()
 	if err != nil {
 		return err
 	}
 
 	base.BasicConstraintsValid = true
 	base.IsCA = true
+	base.MaxPathLen = 1
 	base.KeyUsage |= x509.KeyUsageCertSign
 	base.KeyUsage |= x509.KeyUsageContentCommitment
 
@@ -150,7 +151,7 @@ func (c *Factory) CreateNodePair() error {
 		return err
 	}
 
-	base, err := security.NewBaseX509()
+	base, err := core.NewBaseX509()
 	if err != nil {
 		return err
 	}

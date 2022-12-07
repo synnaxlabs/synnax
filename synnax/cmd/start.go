@@ -2,10 +2,11 @@ package cmd
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/rsa"
-	"github.com/synnaxlabs/synnax/pkg/security/tls"
+	"github.com/synnaxlabs/synnax/pkg/security"
+	"github.com/synnaxlabs/synnax/pkg/security/cert"
+	"github.com/synnaxlabs/x/httputil"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"os"
 	"os/signal"
 	"time"
@@ -69,7 +70,7 @@ formed by its peers.
 			// Set up the tracing backend.
 			exp := configureObservability()
 
-			tlsProv, err := configureTLS()
+			secSvc, err := configureSecurity()
 			if err != nil {
 				return err
 			}
@@ -78,7 +79,13 @@ formed by its peers.
 			transports := &[]fgrpc.BindableTransport{}
 
 			// SetState up a pool to load balance RPC connections.
-			pool := fgrpc.NewPool(grpc.WithTransportCredentials(credentials.NewTLS(tlsProv.Config())))
+			var opts []grpc.DialOption
+			if viper.GetBool("insecure") {
+				opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+			} else {
+				opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(secSvc.TLS())))
+			}
+			pool := fgrpc.NewPool(opts...)
 
 			// AcquireSearcher the distribution layer.
 			storageCfg := newStorageConfig(exp, logger)
@@ -98,12 +105,7 @@ formed by its peers.
 			// Set up our high level services.
 			gorpDB := dist.Storage.Gorpify()
 			userSvc := &user.Service{DB: gorpDB, Ontology: dist.Ontology}
-			// get the RSA key from the tls provider
-			rsaKey, err := rsa.GenerateKey(rand.Reader, 2048)
-			if err != nil {
-				return err
-			}
-			tokenSvc := &token.Service{Secret: rsaKey, Expiration: 15 * time.Minute}
+			tokenSvc := &token.Service{KeyService: secSvc, Expiration: 15 * time.Minute}
 			authenticator := &auth.KV{DB: gorpDB}
 
 			// Provision the root user.
@@ -133,13 +135,18 @@ formed by its peers.
 
 			// Configure our servers.
 			grpcBranch := &server.GRPCBranch{Transports: *transports}
-			httpBranch := &server.HTTPBranch{Transports: []fhttp.BindableTransport{r}}
+			httpBranch := &server.HTTPBranch{
+				Transports:   []fhttp.BindableTransport{r},
+				ContentTypes: httputil.SupportedContentTypes(),
+			}
 			serverCfg := server.Config{
 				ListenAddress: address.Address(viper.GetString("listen-address")),
 				Logger:        logger.Named("server"),
 				Branches:      []server.Branch{httpBranch, grpcBranch},
 			}
-			serverCfg.Security.TLS = tlsProv.Config()
+			serverCfg.Security.CAName = "Synnax CA"
+			serverCfg.Security.TLS = secSvc.TLS()
+			serverCfg.Security.Insecure = config.BoolPointer(viper.GetBool("insecure"))
 			srv, err := server.New(serverCfg)
 			if err != nil {
 				return err
@@ -301,8 +308,14 @@ func configureObservability() alamos.Experiment {
 	return alamos.New(rootExperimentKey, opt)
 }
 
-func configureTLS() (tls.Provider, error) {
-	return nil, nil
+func configureSecurity() (security.Service, error) {
+	loader, err := cert.NewLoader(cert.LoaderConfig{
+		CertsDir: rootCmd.PersistentFlags().Lookup("certs-dir").Value.String(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return security.NewService(loader)
 }
 
 func maybeProvisionRootUser(

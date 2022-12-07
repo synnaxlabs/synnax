@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/x/address"
 )
@@ -24,6 +25,7 @@ var certCA = &cobra.Command{
 			return err
 		}
 		certFactoryConfig.Logger = l.Sugar()
+		certFactoryConfig.CertsDir = viper.GetString("certs-dir")
 		factory, err := cert.NewFactory(certFactoryConfig)
 		if err != nil {
 			return err
@@ -43,6 +45,7 @@ var certNode = &cobra.Command{
 			addresses[i] = address.Address(host)
 		}
 		certFactoryConfig.Hosts = addresses
+		certFactoryConfig.CertsDir = viper.GetString("certs-dir")
 		l, err := configureLogging()
 		if err != nil {
 			return err

@@ -6,10 +6,8 @@ import (
 
 var Dist embed.FS
 
-var HaveUI = false
+var HaveUI bool
 
 func init() {
-	if HaveUI {
-		Dist = dist
-	}
+	Dist = dist
 }
