@@ -19,15 +19,15 @@ type (
 	ContextKey string
 )
 
+// MDContextKey is the context key used to store freighter metadata.
 const MDContextKey ContextKey = "freighter.md"
 
 func setMDOnContext(ctx context.Context, md MD) context.Context {
 	return context.WithValue(ctx, MDContextKey, md)
 }
 
-func MDFromContext(ctx context.Context) MD {
-	return ctx.Value(MDContextKey).(MD)
-}
+// MDFromContext returns the freighter metadata from the given context.
+func MDFromContext(ctx context.Context) MD { return ctx.Value(MDContextKey).(MD) }
 
 // MiddlewareCollector is a chain of middleware that can be executed sequentially.
 // It extends the middleware.Chain type to embed request metadata as a context value.
@@ -60,3 +60,5 @@ type FinalizerFunc func(context.Context, MD) (MD, error)
 func (f FinalizerFunc) Finalize(ctx context.Context, req MD) (MD, error) {
 	return f(ctx, req)
 }
+
+var NopFinalizer = FinalizerFunc(func(_ context.Context, md MD) (MD, error) { return md, nil })
