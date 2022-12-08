@@ -40,10 +40,21 @@ type Direction uint8
 
 const (
 	// Forward represents a forward traversal i.e. From -> To.
-	Forward Direction = 1
+	Forward Direction = iota + 1
 	// Backward represents a backward traversal i.e. To -> From.
 	Backward Direction = 2
 )
+
+// GetID returns the directional ID of the relationship.
+func (d Direction) GetID(rel *Relationship) ID {
+	if d == Forward {
+		return rel.To
+	}
+	if d == Backward {
+		return rel.From
+	}
+	panic("invalid direction")
+}
 
 // Traverser is a struct that defines the traversal of a relationship between entities
 // in the ontology.
@@ -159,12 +170,7 @@ func (r retrieve) traverse(
 		Where(func(rel *Relationship) bool {
 			for _, resource := range resources {
 				if traverse.Filter(&resource, rel) {
-					if traverse.Direction == Forward {
-						nextIDs = append(nextIDs, rel.To)
-					} else {
-						nextIDs = append(nextIDs, rel.From)
-					}
-					break
+					nextIDs = append(nextIDs, traverse.Direction.GetID(rel))
 				}
 			}
 			return false

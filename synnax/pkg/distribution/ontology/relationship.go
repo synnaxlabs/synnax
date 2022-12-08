@@ -19,6 +19,9 @@ const (
 	ParentOf RelationshipType = "parent"
 )
 
+// Relationship is a struct that represents a relationship between two resources in the
+// ontology. A relationship is defined by a type, a from and a to field. This means that
+// two resources can have multiple relationships of different types between them.
 type Relationship struct {
 	// From, To are the IDs of the related resources.
 	From, To ID
