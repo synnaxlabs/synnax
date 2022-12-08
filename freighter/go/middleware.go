@@ -61,4 +61,11 @@ func (f FinalizerFunc) Finalize(ctx context.Context, req MD) (MD, error) {
 	return f(ctx, req)
 }
 
+// NopFinalizer is a Finalizer that returns the request metadata unmodified.
 var NopFinalizer = FinalizerFunc(func(_ context.Context, md MD) (MD, error) { return md, nil })
+
+func UseOnAll(middleware []Middleware, transports ...Transport) {
+	for _, t := range transports {
+		t.Use(middleware...)
+	}
+}

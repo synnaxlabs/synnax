@@ -83,9 +83,9 @@ func NewLoader(configs ...LoaderConfig) (*Loader, error) {
 	return &Loader{LoaderConfig: cfg}, err
 }
 
-// LoadCACertAndKey loads the CA certificate and its private key. If multiple
+// LoadCAPair loads the CA certificate and its private key. If multiple
 // certificates are found in the CA certificate file, the first one is used.
-func (l *Loader) LoadCACertAndKey() (c *x509.Certificate, k crypto.PrivateKey, err error) {
+func (l *Loader) LoadCAPair() (c *x509.Certificate, k crypto.PrivateKey, err error) {
 	c, k, err = l.loadX509(l.CACertPath, l.CAKeyPath)
 	if errors.Is(err, fs.ErrNotExist) {
 		err = errors.Wrapf(err, "CA certificate not found")
@@ -93,7 +93,16 @@ func (l *Loader) LoadCACertAndKey() (c *x509.Certificate, k crypto.PrivateKey, e
 	return
 }
 
-func (l *Loader) LoadNodeCertAndKey() (c *x509.Certificate, k crypto.PrivateKey, err error) {
+func (l *Loader) LoadCAs() ([]*x509.Certificate, error) {
+	certBytes, err := l.readAll(l.CACertPath)
+	if err != nil {
+		return nil, err
+	}
+	return x509.ParseCertificates(certBytes)
+}
+
+// LoadNodePair loads the node certificate and its private key.
+func (l *Loader) LoadNodePair() (c *x509.Certificate, k crypto.PrivateKey, err error) {
 	c, k, err = l.loadX509(l.NodeCertPath, l.NodeKeyPath)
 	if errors.Is(err, fs.ErrNotExist) {
 		err = errors.Wrapf(err, "node certificate not found")
@@ -101,7 +110,8 @@ func (l *Loader) LoadNodeCertAndKey() (c *x509.Certificate, k crypto.PrivateKey,
 	return
 }
 
-func (l *Loader) LoadNodeTLSCertAndKey() (c *tls.Certificate, err error) {
+// LoadNodeTLS loads the node TLS certificate.
+func (l *Loader) LoadNodeTLS() (c *tls.Certificate, err error) {
 	c, err = l.loadTLS(l.NodeCertPath, l.NodeKeyPath)
 	if errors.Is(err, fs.ErrNotExist) {
 		err = errors.Wrapf(err, "node certificate not found")

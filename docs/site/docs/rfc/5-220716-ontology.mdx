@@ -25,8 +25,7 @@ Let's say we want to block a user from writing segments to a particular channel.
 We can naively approach the problem by binding a permission object to the user
 stating what channels they have access to, and then add a gate somewhere in our
 segment write pipeline that checks whether the user can perform the action. The
-fault in this  
-design is that validating the permissions of a user is _not_ core to the
+fault in this design is that validating the permissions of a user is _not_ core to the
 algorithms for writing segments to a channel. By adding explicit permission
 checks to the pipeline, we expand the scope of the segment writer beyond a
 single responsibility.

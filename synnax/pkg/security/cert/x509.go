@@ -1,4 +1,4 @@
-package core
+package cert
 
 import (
 	"crypto/rand"
@@ -14,7 +14,7 @@ const (
 	caCommonName = "Synnax CA"
 )
 
-func NewBaseX509() (*x509.Certificate, error) {
+func newBasex509() (*x509.Certificate, error) {
 	sn, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
 	cert := &x509.Certificate{
 		SerialNumber: sn,

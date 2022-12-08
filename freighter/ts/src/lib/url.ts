@@ -62,18 +62,16 @@ export default class URL {
   }
 }
 
-// joinPath joins the two paths, ensuring there is a single slash between them.
-const joinPaths = (...paths: string[]): string => {
-  return paths.map(formatPath).join('');
-};
+/** @returns the paths joined with a single slash */
+const joinPaths = (...paths: string[]): string => paths.map(formatPath).join('');
 
+/** ensures that a path is correctly formatted for joining */
 const formatPath = (path: string): string => {
   if (!path.endsWith('/')) path += '/';
   if (path.startsWith('/')) path = path.slice(1);
   return path;
 };
 
-const removeTrailingSlash = (path: string): string => {
-  if (path.endsWith('/')) path = path.slice(0, -1);
-  return path;
-};
+/** removes the trailing slash from a path */
+const removeTrailingSlash = (path: string): string =>
+  path.endsWith('/') ? path.slice(0, -1) : path;

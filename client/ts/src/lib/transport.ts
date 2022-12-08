@@ -8,18 +8,20 @@ import {
   WebSocketClient,
 } from '@synnaxlabs/freighter';
 
+const baseAPIEndpoint = '/api/v1/';
+
 export default class Transport {
   url: URL;
   httpFactory: HTTPClientFactory;
   streamClient: StreamClient;
+  secure: boolean;
 
-  constructor(url: URL) {
-    this.url = url.child('/api/v1/');
-    this.httpFactory = new HTTPClientFactory(
-      this.url,
-      new JSONEncoderDecoder()
-    );
-    this.streamClient = new WebSocketClient(new JSONEncoderDecoder(), this.url);
+  constructor(url: URL, secure: boolean = false) {
+    this.secure = secure;
+    this.url = url.child(baseAPIEndpoint);
+    const ecd = new JSONEncoderDecoder();
+    this.httpFactory = new HTTPClientFactory(this.url, ecd, this.secure);
+    this.streamClient = new WebSocketClient(this.url, ecd, this.secure);
   }
 
   getClient(): UnaryClient {

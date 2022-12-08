@@ -57,8 +57,17 @@ func ToPrivateKey(b *pem.Block) (crypto.PrivateKey, error) {
 	return nil, errors.New("[security] - unsupported key type")
 }
 
-func Write(w io.Writer, block *pem.Block) error { return pem.Encode(w, block) }
+// Write writes the PEM blocks to the writer.
+func Write(w io.Writer, blocks ...*pem.Block) error {
+	for _, b := range blocks {
+		if err := pem.Encode(w, b); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
+// Read reads the first PEM block from the reader.
 func Read(r io.Reader) (*pem.Block, error) {
 	b, err := io.ReadAll(r)
 	if err != nil {
@@ -66,4 +75,22 @@ func Read(r io.Reader) (*pem.Block, error) {
 	}
 	p, _ := pem.Decode(b)
 	return p, nil
+}
+
+// ReadMany reads all PEM blocks from the reader.
+func ReadMany(r io.Reader) (blocks []*pem.Block, err error) {
+	b, err := io.ReadAll(r)
+	if err != nil {
+		return
+	}
+	for {
+		var p *pem.Block
+		p, b = pem.Decode(b)
+		if p == nil {
+			break
+		}
+		blocks = append(blocks, p)
+	}
+	return
+
 }

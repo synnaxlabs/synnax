@@ -18,6 +18,7 @@ export const synnaxPropsSchema = z.object({
   username: z.string().optional(),
   password: z.string().optional(),
   connectivityPollFrequency: z.instanceof(TimeSpan).optional(),
+  secure: z.boolean().optional().default(false),
 });
 
 export type SynnaxProps = z.infer<typeof synnaxPropsSchema>;
@@ -50,8 +51,9 @@ export default class Synnax {
     username,
     password,
     connectivityPollFrequency,
+    secure,
   }: SynnaxProps) {
-    this.transport = new Transport(new URL({ host, port: Number(port) }));
+    this.transport = new Transport(new URL({ host, port: Number(port) }), secure);
     if (username && password) {
       this.auth = new AuthenticationClient(this.transport.httpFactory, {
         username,

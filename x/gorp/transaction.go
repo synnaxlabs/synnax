@@ -5,8 +5,10 @@ import (
 	"github.com/synnaxlabs/x/query"
 )
 
-// Txn is a transaction that can be atomically executed against a DB. Retrieve queries
-// will read from both the DB and any operations previously executed against the Txn.
+// Txn represents a generalized key-value transaction that executes atomically against
+// an underlying database. DB implements the Txn interface, which will execute
+// queries directly against the DB. To open an isolated transaction against the DB, use
+// DB.BeginTxn.
 type Txn interface {
 	kv.Batch
 	options() options

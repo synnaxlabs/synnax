@@ -13,7 +13,7 @@ type dagWriter struct {
 	retrieve retrieve
 }
 
-var CyclicDependency = errors.New("[ontology] cyclic dependency")
+var ErrCycle = errors.New("[ontology] - cyclic dependency")
 
 // DefineResource implements the Writer interface.
 func (d dagWriter) DefineResource(tk ID) error {
@@ -51,7 +51,7 @@ func (d dagWriter) DefineRelationship(from ID, t RelationshipType, to ID) error 
 		return err
 	}
 	if _, exists := descendants[from]; exists {
-		return CyclicDependency
+		return ErrCycle
 	}
 	return gorp.NewCreate[string, Relationship]().Entry(&rel).Exec(d.txn)
 
@@ -146,7 +146,7 @@ func (d dagWriter) checkRelationshipExists(rel Relationship) (bool, error) {
 		return false, err
 	}
 	if reverseExists {
-		return true, CyclicDependency
+		return true, ErrCycle
 	}
 	return exists, nil
 }

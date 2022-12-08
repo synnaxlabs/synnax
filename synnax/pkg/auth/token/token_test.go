@@ -15,7 +15,7 @@ type mockKeyService struct {
 	key *rsa.PrivateKey
 }
 
-func (m *mockKeyService) Key() crypto.PrivateKey {
+func (m *mockKeyService) NodeSecret() crypto.PrivateKey {
 	return m.key
 }
 

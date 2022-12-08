@@ -13,7 +13,7 @@ import (
 // Service is a service for generating and validating tokens with UUID issuers.
 type Service struct {
 	// KeyService is the service used to generate and validate keys.
-	KeyService security.KeyService
+	KeyService security.KeyProvider
 	// Expiration is the duration that the token will be valid for.
 	Expiration time.Duration
 	// RefreshThreshold is the duration before the token expires that a new token will be
@@ -71,7 +71,7 @@ func (s *Service) isCloseToExpired(claims *jwt.StandardClaims) bool {
 }
 
 func (s *Service) signingMethodAndKey() (jwt.SigningMethod, interface{}) {
-	key := s.KeyService.Key()
+	key := s.KeyService.NodeSecret()
 	switch key.(type) {
 	case *rsa.PrivateKey:
 		return jwt.SigningMethodRS512, key
@@ -84,7 +84,7 @@ func (s *Service) signingMethodAndKey() (jwt.SigningMethod, interface{}) {
 }
 
 func (s *Service) publicKey() interface{} {
-	key := s.KeyService.Key()
+	key := s.KeyService.NodeSecret()
 	switch key.(type) {
 	case *rsa.PrivateKey:
 		return key.(*rsa.PrivateKey).Public()

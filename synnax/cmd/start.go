@@ -5,6 +5,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/x/httputil"
+	"github.com/synnaxlabs/x/query"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"os"
@@ -54,10 +55,10 @@ formed by its peers.
 			return err
 		}
 
-		sigC := make(chan os.Signal, 1)
-		signal.Notify(sigC, os.Interrupt)
+		interruptC := make(chan os.Signal, 1)
+		signal.Notify(interruptC, os.Interrupt)
 
-		// any data store on the node is considered sensitive, so we need to set the
+		// Any data store on the node is considered sensitive, so we need to set the
 		// permission mask for all files appropriately.
 		disablePermissionBits()
 
@@ -78,7 +79,7 @@ formed by its peers.
 			// An array to hold the transports we use for cluster internal communication.
 			transports := &[]fgrpc.BindableTransport{}
 
-			// SetState up a pool to load balance RPC connections.
+			// Set up a pool to load balance RPC connections.
 			var opts []grpc.DialOption
 			if viper.GetBool("insecure") {
 				opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -87,7 +88,7 @@ formed by its peers.
 			}
 			pool := fgrpc.NewPool(opts...)
 
-			// AcquireSearcher the distribution layer.
+			// Open the distribution layer.
 			storageCfg := newStorageConfig(exp, logger)
 			distConfig, err := newDistributionConfig(
 				pool,
@@ -159,7 +160,7 @@ formed by its peers.
 		}, xsignal.WithKey("start"))
 
 		select {
-		case <-sigC:
+		case <-interruptC:
 			logger.Info("received interrupt signal, shutting down")
 			cancel()
 		case <-sCtx.Stopped():
@@ -308,14 +309,14 @@ func configureObservability() alamos.Experiment {
 	return alamos.New(rootExperimentKey, opt)
 }
 
-func configureSecurity() (security.Service, error) {
+func configureSecurity() (security.Provider, error) {
 	loader, err := cert.NewLoader(cert.LoaderConfig{
 		CertsDir: rootCmd.PersistentFlags().Lookup("certs-dir").Value.String(),
 	})
 	if err != nil {
 		return nil, err
 	}
-	return security.NewService(loader)
+	return security.NewProvider(loader)
 }
 
 func maybeProvisionRootUser(
@@ -323,26 +324,24 @@ func maybeProvisionRootUser(
 	authSvc auth.Authenticator,
 	userSvc *user.Service,
 ) error {
-	rootUser := viper.GetString("username")
-	rootPass := password.Raw(viper.GetString("password"))
-	exists, err := userSvc.UsernameExists(rootUser)
-	if exists || err != nil {
+	uname := viper.GetString("username")
+	pass := password.Raw(viper.GetString("password"))
+	exists, err := userSvc.UsernameExists(uname)
+	if err != nil {
 		return err
+	}
+	if exists {
+		return errors.Wrapf(query.UniqueViolation, "user %q already exists", uname)
 	}
 	txn := db.BeginTxn()
-	if err := authSvc.NewWriterUsingTxn(txn).Register(auth.InsecureCredentials{
-		Username: rootUser,
-		Password: rootPass,
+	if err = authSvc.NewWriterUsingTxn(txn).Register(auth.InsecureCredentials{
+		Username: uname,
+		Password: pass,
 	}); err != nil {
 		return err
 	}
-	if err := userSvc.NewWriterUsingTxn(txn).Create(&user.User{
-		Username: rootUser,
-	}); err != nil {
+	if err = userSvc.NewWriterUsingTxn(txn).Create(&user.User{Username: uname}); err != nil {
 		return err
 	}
-	if err := txn.Commit(); err != nil {
-		return err
-	}
-	return nil
+	return txn.Commit()
 }

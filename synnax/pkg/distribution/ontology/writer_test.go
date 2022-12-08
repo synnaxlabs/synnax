@@ -87,7 +87,7 @@ var _ = Describe("Write", func() {
 						Expect(w.DefineRelationship(idOne, ontology.ParentOf, idTwo)).To(Succeed())
 						err := w.DefineRelationship(idTwo, ontology.ParentOf, idOne)
 						Expect(err).To(HaveOccurred())
-						Expect(errors.Is(err, ontology.CyclicDependency)).To(BeTrue())
+						Expect(errors.Is(err, ontology.ErrCycle)).To(BeTrue())
 					},
 				)
 				It("Should return an error is a relationships creates a cycle",
@@ -98,7 +98,7 @@ var _ = Describe("Write", func() {
 						Expect(w.DefineRelationship(idTwo, ontology.ParentOf, idThree)).To(Succeed())
 						err := w.DefineRelationship(idThree, ontology.ParentOf, idOne)
 						Expect(err).To(HaveOccurred())
-						Expect(errors.Is(err, ontology.CyclicDependency)).To(BeTrue())
+						Expect(errors.Is(err, ontology.ErrCycle)).To(BeTrue())
 					})
 			})
 		})

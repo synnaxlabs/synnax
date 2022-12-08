@@ -15,7 +15,7 @@ import (
 //	}
 //
 // They key has two elements so for two reasons. First, by storing the Type we know which
-// Service to query for additional info on the Resource. Second, while a ID.Key may be
+// Service to query for additional info on the Resource. Second, while a [ID.Key] may be
 // unique for a particular resource (e.g. channel), it might not be unique across ALL
 // resources. We need something universally unique across the entire delta cluster.
 type ID struct {
@@ -61,8 +61,12 @@ func ParseIds(s []string) ([]ID, error) {
 	return ids, nil
 }
 
+// Resource represents a resource with a unique [ID] in the ontology along with its
+// [Entity] information.
 type Resource struct {
-	ID     ID     `json:"id" msgpack:"id"`
+	// ID is the unique identifier for the resource.
+	ID ID `json:"id" msgpack:"id"`
+	// Entity is the entity information for the resource.
 	Entity Entity `json:"entity" msgpack:"entity"`
 }
 

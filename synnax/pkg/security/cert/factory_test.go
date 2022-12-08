@@ -25,7 +25,7 @@ var _ = Describe("Factory", func() {
 				KeySize:      smallKeySize,
 			}))
 			Expect(f.CreateCAPair()).To(Succeed())
-			c, k := MustSucceed2(f.Loader.LoadCACertAndKey())
+			c, k := MustSucceed2(f.Loader.LoadCAPair())
 			Expect(c).ToNot(BeNil())
 			Expect(k).ToNot(BeNil())
 		})
@@ -56,7 +56,7 @@ var _ = Describe("Factory", func() {
 			}))
 			Expect(f.CreateCAPair()).To(Succeed())
 			Expect(f.CreateNodePair()).To(Succeed())
-			c, k := MustSucceed2(f.Loader.LoadNodeCertAndKey())
+			c, k := MustSucceed2(f.Loader.LoadNodePair())
 			Expect(c).ToNot(BeNil())
 			Expect(k).ToNot(BeNil())
 		})

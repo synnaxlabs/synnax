@@ -5,16 +5,18 @@ import (
 	"github.com/synnaxlabs/x/query"
 )
 
+// Retrieve implements a set of methods for retrieving resources and traversing their
+// relationships in teh ontology.
 type Retrieve struct {
 	txn   gorp.Txn
 	exec  func(r Retrieve) error
-	query *gorp.Compound[ID, Resource]
+	query *gorp.CompoundRetrieve[ID, Resource]
 }
 
-func newRetrieve(db gorp.Txn, exec func(r Retrieve) error) Retrieve {
+func newRetrieve(txn gorp.Txn, exec func(r Retrieve) error) Retrieve {
 	r := Retrieve{
-		txn:   db,
-		query: &gorp.Compound[ID, Resource]{},
+		txn:   txn,
+		query: &gorp.CompoundRetrieve[ID, Resource]{},
 		exec:  exec,
 	}
 	r.query.Next()
@@ -27,30 +29,41 @@ func (r Retrieve) WhereIDs(keys ...ID) Retrieve {
 	return r
 }
 
+// Where filters resources by the provided predicate.
 func (r Retrieve) Where(filter func(r *Resource) bool) Retrieve {
 	r.query.Current().Where(filter)
 	return r
 }
 
+// Direction is the direction of a relationship traversal.
 type Direction uint8
 
 const (
-	Forward  Direction = 1
+	// Forward represents a forward traversal i.e. From -> To.
+	Forward Direction = 1
+	// Backward represents a backward traversal i.e. To -> From.
 	Backward Direction = 2
 )
 
+// Traverser is a struct that defines the traversal of a relationship between entities
+// in the ontology.
 type Traverser struct {
-	Filter    func(res *Resource, rel *Relationship) bool
+	// Filter if a function that returns true if the given Resource and Relationship
+	// should be included in the traversal results.
+	Filter func(res *Resource, rel *Relationship) bool
+	// Direction is the direction of the traversal. See (Direction) for more.
 	Direction Direction
 }
 
 var (
+	// Parents traverses to the parents of a resource.
 	Parents = Traverser{
 		Filter: func(res *Resource, rel *Relationship) bool {
 			return rel.Type == ParentOf && rel.To == res.ID
 		},
 		Direction: Backward,
 	}
+	// Children traverses to the children of a resource.
 	Children = Traverser{
 		Filter: func(res *Resource, rel *Relationship) bool {
 			return rel.Type == ParentOf && rel.From == res.ID
@@ -99,7 +112,7 @@ func getTraverser(q query.Query) Traverser {
 }
 
 type retrieve struct {
-	services services
+	services serviceRegistrar
 }
 
 func (r retrieve) exec(q Retrieve) error {
@@ -111,28 +124,29 @@ func (r retrieve) exec(q Retrieve) error {
 		if err := clause.Exec(q.txn); err != nil {
 			return err
 		}
-		entries := gorp.GetEntries[ID, Resource](clause)
-		resources := entries.All()
-		for i, res := range resources {
-			data, err := r.services.RetrieveEntity(res.ID)
-			if err != nil {
-				return err
-			}
-			res.Entity = data
-			entries.Set(i, res)
+		atLast := len(q.query.Clauses) == i+1
+		resources, err := r.retrieveEntities(clause)
+		if err != nil || len(resources) == 0 || atLast {
+			return err
 		}
-		if len(resources) == 0 {
-			break
-		}
-		if atLast := len(q.query.Clauses) == i+1; atLast {
-			return nil
-		}
-		var err error
 		if nextIDs, err = r.traverse(q.txn, getTraverser(clause), resources); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func (r retrieve) retrieveEntities(clause gorp.Retrieve[ID, Resource]) ([]Resource, error) {
+	entries := gorp.GetEntries[ID, Resource](clause)
+	for j, res := range entries.All() {
+		data, err := r.services.retrieveEntity(res.ID)
+		if err != nil {
+			return nil, err
+		}
+		res.Entity = data
+		entries.Set(j, res)
+	}
+	return entries.All(), nil
 }
 
 func (r retrieve) traverse(

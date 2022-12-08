@@ -7,7 +7,6 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"github.com/cockroachdb/errors"
-	"github.com/synnaxlabs/synnax/pkg/security/core"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -92,7 +91,7 @@ func (c *Factory) CreateCAPair() error {
 		if err != nil {
 			return err
 		}
-		if err := c.writePEM(c.CAKeyPath, p); err != nil {
+		if err := c.writePEM(c.CAKeyPath, p /* multi */, false); err != nil {
 			return err
 		}
 	} else {
@@ -109,7 +108,7 @@ func (c *Factory) CreateCAPair() error {
 		}
 	}
 
-	base, err := core.NewBaseX509()
+	base, err := newBasex509()
 	if err != nil {
 		return err
 	}
@@ -124,12 +123,12 @@ func (c *Factory) CreateCAPair() error {
 	if err != nil {
 		return err
 	}
-	return c.writePEM(c.CACertPath, xpem.FromCertBytes(b))
+	return c.writePEM(c.CACertPath, xpem.FromCertBytes(b) /*multi */, true)
 }
 
 // CreateNodePair creates a new node certificate and its private key.
 func (c *Factory) CreateNodePair() error {
-	ca, caPrivate, err := c.Loader.LoadCACertAndKey()
+	ca, caPrivate, err := c.Loader.LoadCAPair()
 	if err != nil {
 		return err
 	}
@@ -147,11 +146,11 @@ func (c *Factory) CreateNodePair() error {
 	if err != nil {
 		return err
 	}
-	if err = c.writePEM(c.NodeKeyPath, keyP); err != nil {
+	if err = c.writePEM(c.NodeKeyPath, keyP, false); err != nil {
 		return err
 	}
 
-	base, err := core.NewBaseX509()
+	base, err := newBasex509()
 	if err != nil {
 		return err
 	}
@@ -170,7 +169,7 @@ func (c *Factory) CreateNodePair() error {
 		return err
 	}
 
-	return c.writePEM(c.NodeCertPath, xpem.FromCertBytes(b))
+	return c.writePEM(c.NodeCertPath, xpem.FromCertBytes(b) /* multi */, false)
 }
 
 func (c *Factory) readPEM(p string) (b *pem.Block, err error) {
@@ -180,9 +179,17 @@ func (c *Factory) readPEM(p string) (b *pem.Block, err error) {
 	})
 }
 
-func (c *Factory) writePEM(p string, block *pem.Block) error {
+func (c *Factory) writePEM(p string, block *pem.Block, multi bool) error {
 	return c.withFile(p, c.writeFlag(), func(f xfs.File) error {
-		return xpem.Write(f, block)
+		blocks, err := xpem.ReadMany(f)
+		if len(blocks) > 0 && !multi {
+			return errors.Newf("file %s already contains a PEM block, and multi is false", p)
+		}
+		if err != nil {
+			return err
+		}
+		blocks = append(blocks, block)
+		return xpem.Write(f, blocks...)
 	})
 }
 
