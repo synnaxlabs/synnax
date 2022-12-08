@@ -1,7 +1,6 @@
 package ontology
 
 import (
-	"fmt"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -32,7 +31,7 @@ var _ gorp.Entry[string] = Relationship{}
 
 // GorpKey implements the gorp.Entry interface.
 func (r Relationship) GorpKey() string {
-	return fmt.Sprintf("%s:%s:%s", r.From.String(), r.To.String(), r.Type)
+	return r.From.String() + ":" + string(r.Type) + ":" + r.To.String()
 
 }
 
