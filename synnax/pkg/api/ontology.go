@@ -33,7 +33,7 @@ func (o *OntologyService) Retrieve(
 	req OntologyRetrieveRequest,
 ) (res OntologyRetrieveResponse, err errors.Typed) {
 	res.Resources = []ontology.Resource{}
-	ids, _err := ontology.ParseIds(req.IDs)
+	ids, _err := ontology.ParseIDs(req.IDs)
 	if _err != nil {
 		return res, errors.Parse(_err)
 	}

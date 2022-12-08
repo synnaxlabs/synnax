@@ -23,9 +23,6 @@ func (s serviceRegistrar) register(svc Service) {
 }
 
 func (s serviceRegistrar) retrieveEntity(id ID) (Entity, error) {
-	if id.Type == BuiltIn {
-		return Entity{}, nil
-	}
 	svc, ok := s[id.Type]
 	if !ok {
 		panic("[ontology] - service not found")

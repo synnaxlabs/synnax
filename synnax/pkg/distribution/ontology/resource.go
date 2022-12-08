@@ -1,7 +1,6 @@
 package ontology
 
 import (
-	"fmt"
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"strings"
@@ -27,6 +26,7 @@ type ID struct {
 	Type Type
 }
 
+// Validate ensures that the given ID has both a Key and Type.
 func (k ID) Validate() error {
 	if k.Key == "" {
 		return errors.Newf("[resource] - key is required")
@@ -37,10 +37,10 @@ func (k ID) Validate() error {
 	return nil
 }
 
-func (k ID) String() string {
-	return fmt.Sprintf("%s:%s", k.Type, k.Key)
-}
+// String returns a string representation of the Resource.
+func (k ID) String() string { return string(k.Type) + ":" + k.Key }
 
+// ParseID parses the given string into an ID.
 func ParseID(s string) (ID, error) {
 	split := strings.Split(s, ":")
 	if len(split) != 2 {
@@ -49,8 +49,9 @@ func ParseID(s string) (ID, error) {
 	return ID{Type: schema.Type(split[0]), Key: split[1]}, nil
 }
 
-func ParseIds(s []string) ([]ID, error) {
-	var ids []ID
+// ParseIDs parses the given strings into IDs.
+func ParseIDs(s []string) ([]ID, error) {
+	ids := make([]ID, 0, len(s))
 	for _, id := range s {
 		parsed, err := ParseID(id)
 		if err != nil {

@@ -13,6 +13,7 @@ type dagWriter struct {
 	retrieve retrieve
 }
 
+// ErrCycle is returned when a cycle is created in the graph.
 var ErrCycle = errors.New("[ontology] - cyclic dependency")
 
 // DefineResource implements the Writer interface.

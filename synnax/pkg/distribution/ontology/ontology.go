@@ -42,7 +42,7 @@ type Ontology struct {
 func Open(db *gorp.DB) (*Ontology, error) {
 	o := &Ontology{
 		db:       db,
-		retrieve: retrieve{services: make(serviceRegistrar)},
+		retrieve: retrieve{services: serviceRegistrar{BuiltIn: &builtinService{}}},
 	}
 	err := o.NewRetrieve().WhereIDs(Root).Exec()
 	if errors.Is(err, query.NotFound) {
