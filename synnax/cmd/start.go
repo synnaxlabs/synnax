@@ -5,7 +5,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/x/httputil"
-	"github.com/synnaxlabs/x/query"
 	"google.golang.org/grpc/credentials"
 	insecureGRPC "google.golang.org/grpc/credentials/insecure"
 	"os"
@@ -274,11 +273,8 @@ func maybeProvisionRootUser(
 	uname := viper.GetString("username")
 	pass := password.Raw(viper.GetString("password"))
 	exists, err := userSvc.UsernameExists(uname)
-	if err != nil {
+	if err != nil || exists {
 		return err
-	}
-	if exists {
-		return errors.Wrapf(query.UniqueViolation, "user %q already exists", uname)
 	}
 	txn := db.BeginTxn()
 	if err = authSvc.NewWriterUsingTxn(txn).Register(auth.InsecureCredentials{
