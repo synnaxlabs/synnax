@@ -109,7 +109,7 @@ func start(cmd *cobra.Command) {
 		// Set up our high level services.
 		gorpDB := dist.Storage.Gorpify()
 		userSvc := &user.Service{DB: gorpDB, Ontology: dist.Ontology}
-		tokenSvc := &token.Service{KeyService: secProvider, Expiration: 15 * time.Minute}
+		tokenSvc := &token.Service{KeyProvider: secProvider, Expiration: 15 * time.Minute}
 		authenticator := &auth.KV{DB: gorpDB}
 
 		// Provision the root user.
