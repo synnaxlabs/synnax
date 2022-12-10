@@ -219,11 +219,11 @@ func buildServerConfig(
 	logger *zap.Logger,
 ) (cfg server.Config) {
 	cfg.Branches = append(cfg.Branches,
-		&server.GRPCBranch{Transports: grpcTransports},
 		&server.SecureHTTPBranch{
 			Transports:   httpTransports,
 			ContentTypes: httputil.SupportedContentTypes(),
 		},
+		&server.GRPCBranch{Transports: grpcTransports},
 		server.NewHTTPRedirectBranch(),
 	)
 	cfg.ListenAddress = address.Address(viper.GetString("listen"))

@@ -53,5 +53,6 @@ func (h *HTTPRedirectBranch) Stop() {
 }
 
 func secureHTTPRedirect(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, "https://"+r.Host+r.RequestURI, http.StatusMovedPermanently)
+	url := "https://" + r.Host + r.URL.String()
+	http.Redirect(w, r, url, http.StatusMovedPermanently)
 }

@@ -92,7 +92,10 @@ func (c Config) Validate() error {
 // Server is the main server for a Synnax node. It processes all incoming RPCs and API
 // requests. A Server can be configured to multiplex multiple Branches on the same port.
 // It can also serve secure branches behind a TLS listener.
-type Server struct{ Config }
+type Server struct {
+	Config
+	wg signal.WaitGroup
+}
 
 // New creates a new server using the specified configuration. The server must be started
 // using the Serve method. If the configuration is invalid, an error is returned.
@@ -108,6 +111,7 @@ func (s *Server) Serve() (err error) {
 	s.Logger.Sugar().Debugw("starting server", s.Report().LogArgs()...)
 
 	sCtx, cancel := signal.Background(signal.WithLogger(s.Logger), signal.WithContextKey("server"))
+	s.wg = sCtx
 	defer cancel()
 	lis, err := net.Listen("tcp", s.ListenAddress.PortString())
 	if err != nil {
@@ -119,12 +123,14 @@ func (s *Server) Serve() (err error) {
 	return s.serveSecure(sCtx, lis)
 }
 
-// Stop stops the server. Any errors encountered during shutdown are returned through
-// the Serve method.
+// Stop stops the server gracefully, waiting for all branches to stop serving requests.
+// If the server exits abnormally, the error can be discovered through the return value
+// if the Serve method.
 func (s *Server) Stop() {
 	for _, b := range s.Branches {
 		b.Stop()
 	}
+	<-s.wg.Stopped()
 }
 
 func (s *Server) serveSecure(sCtx signal.Context, lis net.Listener) error {
@@ -166,6 +172,9 @@ func (s *Server) startBranches(
 	branches := lo.Filter(s.Branches, func(b Branch, _ int) bool {
 		return b.Routing().Policy.ShouldServe(*s.Security.Insecure, insecureMux)
 	})
+	if len(branches) == 0 {
+		return
+	}
 
 	s.Logger.Sugar().Debugw(
 		"starting branches",
@@ -180,8 +189,8 @@ func (s *Server) startBranches(
 	bc := BranchContext{Security: s.Security, Debug: *s.Debug}
 	for i, b := range branches {
 		b, i := b, i
-		bc.Lis = listeners[i]
 		sCtx.Go(func(context.Context) error {
+			bc.Lis = listeners[i]
 			return filterCloserError(b.Serve(bc))
 		}, signal.WithKey(b.Key()))
 	}
