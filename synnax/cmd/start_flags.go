@@ -1,0 +1,64 @@
+package cmd
+
+func configureStartFlags() {
+	startCmd.Flags().StringP(
+		"listen-address",
+		"l",
+		"127.0.0.1:9090",
+		`
+			`,
+	)
+
+	startCmd.Flags().StringSliceP(
+		"peer-addresses",
+		"p",
+		nil,
+		`
+			Addresses of additional peers in the cluster.
+		`,
+	)
+
+	startCmd.Flags().StringP(
+		"data",
+		"d",
+		"synnax-data",
+		`
+			Dirname where synnax will store its data.
+		`,
+	)
+
+	startCmd.Flags().BoolP(
+		"mem",
+		"m",
+		false,
+		`
+			Use in-memory storage.
+			`,
+	)
+
+	startCmd.Flags().BoolP(
+		"debug",
+		"v",
+		false,
+		"Enable debug mode.",
+	)
+
+	startCmd.Flags().BoolP(
+		"insecure",
+		"i",
+		false,
+		"Disable TLS and authentication.",
+	)
+
+	startCmd.Flags().String(
+		"username",
+		"synnax",
+		"Username for the admin user.",
+	)
+
+	startCmd.Flags().String(
+		"password",
+		"seldon",
+		"Password for the admin user.",
+	)
+}

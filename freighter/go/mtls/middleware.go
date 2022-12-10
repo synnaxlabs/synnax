@@ -7,6 +7,7 @@ import (
 	"github.com/synnaxlabs/freighter"
 )
 
+// AuthError is returned whenever the client certificate cannot be validated.
 var AuthError = errors.Wrapf(
 	freighter.SecurityError,
 	"unable to verify TLS certificate",

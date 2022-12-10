@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"github.com/cockroachdb/cmux"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -14,43 +15,74 @@ import (
 	"time"
 )
 
-type HTTPBranch struct {
-	app          *fiber.App
-	Transports   []fhttp.BindableTransport
+// SecureHTTPBranch is a Branch that serves HTTP requests behind a TLS multiplexer in
+// secure mode.
+type SecureHTTPBranch struct {
+	// Transports is a list of transports that the Branch will serve.
+	Transports []fhttp.BindableTransport
+	// ContentTypes is a  list of content types that the Branch will serve.
 	ContentTypes []string
+	// internal is the underlying fiber.App instance used to serve requests.
+	internal *fiber.App
 }
 
-func (f *HTTPBranch) Matchers() []cmux.Matcher {
-	return []cmux.Matcher{cmux.HTTP1Fast()}
-}
+var _ Branch = (*SecureHTTPBranch)(nil)
 
-func (f *HTTPBranch) Key() string { return "http" }
-
-func (f *HTTPBranch) Serve(cfg BranchConfig) error {
-	f.app = fiber.New(fiber.Config{
-		DisableStartupMessage: true,
-		ReadBufferSize:        int(10 * telem.Kilobyte),
-		ReadTimeout:           500 * time.Millisecond,
-	})
-
-	if cfg.Debug {
-		f.app.Get("/metrics", monitor.New(monitor.Config{Title: "Synnax Metrics"}))
-		f.app.Use(pprof.New())
+// Routing implements Branch.
+func (b *SecureHTTPBranch) Routing() BranchRouting {
+	return BranchRouting{
+		PreferSecure:    true,
+		ServeIfInsecure: true,
+		Matchers:        []cmux.Matcher{cmux.HTTP1Fast()},
 	}
-	f.app.Use(cors.New(cors.Config{AllowOrigins: "*"}))
-
-	for _, t := range f.Transports {
-		t.BindTo(f.app)
-	}
-
-	f.app.Use("/", filesystem.New(filesystem.Config{
-		Root:       http.FS(ui.Dist),
-		PathPrefix: "dist",
-		Browse:     true,
-		Index:      "index.html",
-	}))
-
-	return filterCloserError(f.app.Listener(cfg.Lis))
 }
 
-func (f *HTTPBranch) Stop() { _ = f.app.Shutdown() }
+// Key implements Branch.
+func (b *SecureHTTPBranch) Key() string { return "http" }
+
+// Serve implements Branch.
+func (b *SecureHTTPBranch) Serve(ctx BranchContext) error {
+	b.internal = fiber.New(b.getConfig(ctx))
+	b.maybeRouteDebugUtil(ctx)
+	b.routeUI()
+	for _, t := range b.Transports {
+		t.BindTo(b.internal)
+	}
+	return filterCloserError(b.internal.Listener(ctx.Lis))
+}
+
+// Stop	implements Branch.
+func (b *SecureHTTPBranch) Stop() { _ = b.internal.Shutdown() }
+
+func (b *SecureHTTPBranch) maybeRouteDebugUtil(ctx BranchContext) {
+	if ctx.Debug {
+		b.internal.Get("/metrics", monitor.New(monitor.Config{Title: "Synnax Metrics"}))
+		b.internal.Use(pprof.New())
+		b.internal.Use(cors.New(cors.Config{AllowOrigins: "*"}))
+	}
+}
+
+func (b *SecureHTTPBranch) routeUI() {
+	if ui.HaveUI {
+		b.internal.Get("/", filesystem.New(filesystem.Config{
+			Root:       http.FS(ui.Dist),
+			PathPrefix: "dist",
+			Browse:     true,
+		}))
+	} else {
+		b.internal.Get("/", func(c *fiber.Ctx) error {
+			return c.SendStream(bytes.NewReader(ui.BareHTML))
+		})
+	}
+}
+
+var baseFiberConfig = fiber.Config{
+	DisableStartupMessage: true,
+	ReadBufferSize:        int(10 * telem.Kilobyte),
+	ReadTimeout:           10 * time.Second,
+}
+
+func (b *SecureHTTPBranch) getConfig(ctx BranchContext) fiber.Config {
+	baseFiberConfig.AppName = ctx.ServerName
+	return baseFiberConfig
+}

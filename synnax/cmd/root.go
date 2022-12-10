@@ -1,6 +1,3 @@
-/*
-Copyright © 2022 Synnax Labs
-*/
 package cmd
 
 import (
@@ -36,6 +33,9 @@ func init() {
 	cobra.OnInitialize(initConfig)
 	rootCmd.PersistentFlags().String("certs-dir", cert.DefaultLoaderConfig.CertsDir, "The directory to store the certificates in.")
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.synnax.yaml)")
+	if err := viper.BindPFlags(rootCmd.PersistentFlags()); err != nil {
+		zap.S().Error("failed to bind flags", zap.Error(err))
+	}
 }
 
 func initConfig() {

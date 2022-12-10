@@ -4,10 +4,12 @@ import (
 	"crypto"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/x/config"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
+	xpem "github.com/synnaxlabs/x/pem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 	"io"
@@ -93,12 +95,31 @@ func (l *Loader) LoadCAPair() (c *x509.Certificate, k crypto.PrivateKey, err err
 	return
 }
 
+// LoadCAs loads all CA certificates from the CA certificate file.
 func (l *Loader) LoadCAs() ([]*x509.Certificate, error) {
 	certBytes, err := l.readAll(l.CACertPath)
 	if err != nil {
 		return nil, err
 	}
-	return x509.ParseCertificates(certBytes)
+	var (
+		certs []*x509.Certificate
+		block *pem.Block
+	)
+	for len(certBytes) > 0 {
+		block, certBytes = pem.Decode(certBytes)
+		if block == nil {
+			break
+		}
+		if block.Type != xpem.TypeCertificate || len(block.Headers) != 0 {
+			continue
+		}
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return nil, err
+		}
+		certs = append(certs, cert)
+	}
+	return certs, nil
 }
 
 // LoadNodePair loads the node certificate and its private key.
@@ -121,6 +142,9 @@ func (l *Loader) LoadNodeTLS() (c *tls.Certificate, err error) {
 
 func (l *Loader) loadX509(certPath, keyPath string) (*x509.Certificate, crypto.PrivateKey, error) {
 	c, err := l.loadTLS(certPath, keyPath)
+	if err != nil {
+		return nil, nil, err
+	}
 	certParsed, err := x509.ParseCertificate(c.Certificate[0])
 	if err != nil {
 		return nil, nil, err

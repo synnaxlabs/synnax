@@ -2,7 +2,6 @@ package channel
 
 import (
 	"context"
-	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/gen/proto/go/channel/v1"
@@ -22,19 +21,20 @@ type server = fgrpc.UnaryServer[
 	*channelv1.CreateMessage,
 ]
 
+// Transport is a grpc backed implementation of the channel.Transport interface.
 type Transport struct {
 	client *client
 	server *server
 }
 
+// CreateClient implements the channel.Transport interface.
 func (t Transport) CreateClient() channel.CreateTransportClient { return t.client }
 
+// CreateServer implements the channel.Transport interface.
 func (t Transport) CreateServer() channel.CreateTransportServer { return t.server }
 
-func (t Transport) BindTo(reg grpc.ServiceRegistrar, mw ...freighter.Middleware) {
-	t.server.Use(mw...)
-	t.server.BindTo(reg)
-}
+// BindTo implements the fgrpc.BindableTransport interface.
+func (t Transport) BindTo(reg grpc.ServiceRegistrar) { t.server.BindTo(reg) }
 
 var (
 	_ channel.CreateTransportClient  = (*client)(nil)
@@ -44,6 +44,7 @@ var (
 	_ fgrpc.BindableTransport        = (*Transport)(nil)
 )
 
+// New creates a new grpc Transport that opens connections from the given pool.
 func New(pool *fgrpc.Pool) Transport {
 	c := &client{
 		Pool:               pool,

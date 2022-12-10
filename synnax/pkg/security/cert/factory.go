@@ -29,15 +29,16 @@ type FactoryConfig struct {
 }
 
 var (
-	_                    config.Config[FactoryConfig] = FactoryConfig{}
-	DefaultFactoryConfig                              = FactoryConfig{
+	_ config.Config[FactoryConfig] = FactoryConfig{}
+	// DefaultFactoryConfig returns the default configuration for a Factory.
+	DefaultFactoryConfig = FactoryConfig{
 		LoaderConfig:  DefaultLoaderConfig,
 		KeySize:       2048,
 		AllowKeyReuse: config.BoolPointer(false),
 	}
 )
 
-// Override implements Config.
+// Override implements [config.Config].
 func (f FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 	f.KeySize = override.Numeric(f.KeySize, other.KeySize)
 	f.Logger = override.Nil(f.Logger, other.Logger)
@@ -47,7 +48,7 @@ func (f FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 	return f
 }
 
-// Validate implements Config.
+// Validate implements [config.Config].
 func (f FactoryConfig) Validate() error {
 	v := validate.New("cert.Factory")
 	validate.Positive(v, "KeySize", f.KeySize)
@@ -56,7 +57,7 @@ func (f FactoryConfig) Validate() error {
 	return v.Error()
 }
 
-// Factory is generates self-signed certificates.
+// Factory generates self-signed certificates.
 type Factory struct {
 	FactoryConfig
 	Loader Loader
@@ -208,9 +209,9 @@ func (c *Factory) withFile(p string, flag int, fn func(fs xfs.File) error) error
 
 func (c *Factory) writeFlag() int {
 	if *c.AllowKeyReuse {
-		return os.O_CREATE | os.O_WRONLY
+		return os.O_CREATE | os.O_RDWR
 	}
-	return os.O_CREATE | os.O_WRONLY | os.O_EXCL
+	return os.O_CREATE | os.O_RDWR | os.O_EXCL
 }
 
 func (c *Factory) readFlag() int { return os.O_RDONLY }

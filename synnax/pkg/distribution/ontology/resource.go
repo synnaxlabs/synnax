@@ -13,7 +13,7 @@ import (
 //	    Type: "user",
 //	}
 //
-// They key has two elements so for two reasons. First, by storing the Type we know which
+// The key has two elements for several reasons. First, by storing the Type we know which
 // Service to query for additional info on the Resource. Second, while a [ID.Key] may be
 // unique for a particular resource (e.g. channel), it might not be unique across ALL
 // resources. We need something universally unique across the entire delta cluster.

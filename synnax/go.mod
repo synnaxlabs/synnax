@@ -17,7 +17,6 @@ require (
 	github.com/spf13/viper v1.12.0
 	github.com/synnaxlabs/aspen v0.0.0-20220804103056-48505d5ea44e
 	github.com/synnaxlabs/cesium v0.0.0-20220722114246-333fea6b09d0
-	github.com/synnaxlabs/client-go v0.0.0-00010101000000-000000000000
 	github.com/synnaxlabs/freighter v0.0.0-20220810182625-b66219353383
 	github.com/synnaxlabs/x v0.0.0-20220801122519-e4a5e96a532d
 	go.uber.org/zap v1.21.0

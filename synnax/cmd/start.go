@@ -58,33 +58,33 @@ formed by its peers.
 		interruptC := make(chan os.Signal, 1)
 		signal.Notify(interruptC, os.Interrupt)
 
-		// Any data store on the node is considered sensitive, so we need to set the
+		// Any data stored on the node is considered sensitive, so we need to set the
 		// permission mask for all files appropriately.
 		disablePermissionBits()
 
 		sCtx, cancel := xsignal.WithCancel(cmd.Context(), xsignal.WithLogger(logger))
 		defer cancel()
 
-		// Perform the rest of the startup within a separate goroutine
-		// we can properly handle signal interrupts.
+		// Perform the rest of the startup within a separate goroutine so we can properly
+		// handle signal interrupts.
 		sCtx.Go(func(ctx context.Context) error {
 			// Set up the tracing backend.
 			exp := configureObservability()
 
-			secSvc, err := configureSecurity()
+			secProvider, err := configureSecurity()
 			if err != nil {
 				return err
 			}
 
-			// An array to hold the transports we use for cluster internal communication.
-			transports := &[]fgrpc.BindableTransport{}
+			// An array to hold the grpcTransports we use for cluster internal communication.
+			grpcTransports := &[]fgrpc.BindableTransport{}
 
 			// Set up a pool to load balance RPC connections.
 			var opts []grpc.DialOption
 			if viper.GetBool("insecure") {
 				opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 			} else {
-				opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(secSvc.TLS())))
+				opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(secProvider.TLS())))
 			}
 			pool := fgrpc.NewPool(opts...)
 
@@ -95,7 +95,7 @@ formed by its peers.
 				exp,
 				logger,
 				storageCfg,
-				transports,
+				grpcTransports,
 			)
 			dist, err := distribution.Open(ctx, distConfig)
 			if err != nil {
@@ -106,7 +106,7 @@ formed by its peers.
 			// Set up our high level services.
 			gorpDB := dist.Storage.Gorpify()
 			userSvc := &user.Service{DB: gorpDB, Ontology: dist.Ontology}
-			tokenSvc := &token.Service{KeyService: secSvc, Expiration: 15 * time.Minute}
+			tokenSvc := &token.Service{KeyService: secProvider, Expiration: 15 * time.Minute}
 			authenticator := &auth.KV{DB: gorpDB}
 
 			// Provision the root user.
@@ -131,30 +131,21 @@ formed by its peers.
 
 			// Configure the HTTP API Transport.
 			r := fhttp.NewRouter(fhttp.RouterConfig{Logger: logger.Sugar()})
-			httpAPI := httpapi.New(r)
-			_api.BindTo(httpAPI)
+			_api.BindTo(httpapi.New(r))
 
-			// Configure our servers.
-			grpcBranch := &server.GRPCBranch{Transports: *transports}
-			httpBranch := &server.HTTPBranch{
-				Transports:   []fhttp.BindableTransport{r},
-				ContentTypes: httputil.SupportedContentTypes(),
-			}
-			serverCfg := server.Config{
-				ListenAddress: address.Address(viper.GetString("listen-address")),
-				Logger:        logger.Named("server"),
-				Branches:      []server.Branch{httpBranch, grpcBranch},
-			}
-			serverCfg.Security.CAName = "Synnax CA"
-			serverCfg.Security.TLS = secSvc.TLS()
-			serverCfg.Security.Insecure = config.BoolPointer(viper.GetBool("insecure"))
-			srv, err := server.New(serverCfg)
+			srv, err := server.New(newServerConfig(
+				*grpcTransports,
+				[]fhttp.BindableTransport{r},
+				secProvider,
+				logger,
+			))
 			if err != nil {
 				return err
 			}
-
-			sCtx.Go(srv.Start, xsignal.WithKey("server"))
-			defer func() { err = errors.CombineErrors(err, srv.Stop()) }()
+			sCtx.Go(func(_ context.Context) error {
+				return srv.Serve()
+			}, xsignal.WithKey("server"))
+			defer srv.Stop()
 			<-ctx.Done()
 			return nil
 		}, xsignal.WithKey("start"))
@@ -175,68 +166,7 @@ formed by its peers.
 
 func init() {
 	rootCmd.AddCommand(startCmd)
-
-	startCmd.Flags().StringP(
-		"listen-address",
-		"l",
-		"127.0.0.1:9090",
-		`
-			`,
-	)
-
-	startCmd.Flags().StringSliceP(
-		"peer-addresses",
-		"p",
-		nil,
-		`
-			Addresses of additional peers in the cluster.
-		`,
-	)
-
-	startCmd.Flags().StringP(
-		"data",
-		"d",
-		"synnax-data",
-		`
-			Dirname where synnax will store its data.
-		`,
-	)
-
-	startCmd.Flags().BoolP(
-		"mem",
-		"m",
-		false,
-		`
-			Use in-memory storage.
-			`,
-	)
-
-	startCmd.Flags().BoolP(
-		"debug",
-		"v",
-		false,
-		"Enable debug mode.",
-	)
-
-	startCmd.Flags().BoolP(
-		"insecure",
-		"i",
-		false,
-		"Disable TLS and authentication.",
-	)
-
-	startCmd.Flags().String(
-		"username",
-		"synnax",
-		"Username for the admin user.",
-	)
-
-	startCmd.Flags().String(
-		"password",
-		"seldon",
-		"Password for the admin user.",
-	)
-
+	configureStartFlags()
 	if err := viper.BindPFlags(startCmd.Flags()); err != nil {
 		panic(err)
 	}
@@ -282,11 +212,33 @@ func newDistributionConfig(
 	}, err
 }
 
+func newServerConfig(
+	grpcTransports []fgrpc.BindableTransport,
+	httpTransports []fhttp.BindableTransport,
+	sec security.Provider,
+	logger *zap.Logger,
+) (cfg server.Config) {
+	cfg.Branches = append(cfg.Branches,
+		&server.GRPCBranch{Transports: grpcTransports},
+		&server.SecureHTTPBranch{
+			Transports:   httpTransports,
+			ContentTypes: httputil.SupportedContentTypes(),
+		},
+		server.NewHTTPRedirectBranch(),
+	)
+	cfg.ListenAddress = address.Address(viper.GetString("listen-address"))
+	cfg.Logger = logger.Named("server")
+	cfg.Security.TLS = sec.TLS()
+	cfg.Security.Insecure = config.BoolPointer(viper.GetBool("insecure"))
+	return cfg
+}
+
 func configureLogging() (*zap.Logger, error) {
 	var cfg zap.Config
 	if viper.GetBool("debug") {
 		cfg = zap.NewDevelopmentConfig()
 		cfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+		cfg.Encoding = "console"
 	} else {
 		cfg = zap.NewProductionConfig()
 		cfg.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
@@ -310,13 +262,11 @@ func configureObservability() alamos.Experiment {
 }
 
 func configureSecurity() (security.Provider, error) {
-	loader, err := cert.NewLoader(cert.LoaderConfig{
-		CertsDir: rootCmd.PersistentFlags().Lookup("certs-dir").Value.String(),
+	return security.NewProvider(security.ProviderConfig{
+		LoaderConfig: cert.LoaderConfig{
+			CertsDir: rootCmd.PersistentFlags().Lookup("certs-dir").Value.String(),
+		},
 	})
-	if err != nil {
-		return nil, err
-	}
-	return security.NewProvider(loader)
 }
 
 func maybeProvisionRootUser(

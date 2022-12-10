@@ -3,73 +3,92 @@ package server
 import (
 	"context"
 	"crypto/tls"
-	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errutil"
-	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/validate"
-	"net"
-	"net/http"
-
 	"github.com/cockroachdb/cmux"
 	"github.com/cockroachdb/errors"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
+	"net"
 )
 
+// Config is the configuration for a Server.
 type Config struct {
+	// ListenAddress is the address the server will listen on. The server's name will be
+	// set to the host portion of the address.
 	ListenAddress address.Address
-	Security      SecurityConfig
-	Logger        *zap.Logger
-	Branches      []Branch
+	// Security is the security configuration.
+	Security SecurityConfig
+	// Branches is a list of branches to serve.
+	Branches []Branch
+	// Logger is the witness of it all.
+	Logger *zap.Logger
+	// Debug is a flag to enable debugging endpoints and utilities.
+	Debug *bool
 }
 
+// SecurityConfig is the security configuration for the server.
 type SecurityConfig struct {
+	// Insecure is a flag to indicate whether the server should run in insecure mode.
+	// If so, the server will not use TLS and will not verify client certificates.
+	// All secure Branches with Routing.ServeIfInsecure set to true will be served.
+	// If false,  the server will use TLS and will verify client certificates.
+	// All secure Branches with Routing.ServeIfSecure set to true will be served.
 	Insecure *bool
-	TLS      *tls.Config
-	CAName   string
+	// TLS is the TLS configuration for the server.
+	TLS *tls.Config
 }
 
 var (
-	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{
+	_ config.Config[Config] = Config{}
+	// DefaultConfig is the default server configuration.
+	DefaultConfig = Config{
+		Debug: config.BoolPointer(false),
 		Security: SecurityConfig{
 			Insecure: config.BoolPointer(false),
 		},
 	}
 )
 
+// Override implements the config.Config interface.
 func (c Config) Override(other Config) Config {
 	c.ListenAddress = override.String(c.ListenAddress, other.ListenAddress)
 	c.Security.Insecure = override.Nil(c.Security.Insecure, other.Security.Insecure)
 	c.Security.TLS = override.Nil(c.Security.TLS, other.Security.TLS)
-	c.Security.CAName = override.String(c.Security.CAName, other.Security.CAName)
 	c.Logger = override.Nil(c.Logger, other.Logger)
 	c.Branches = override.Slice(c.Branches, other.Branches)
+	c.Debug = override.Nil(c.Debug, other.Debug)
 	return c
 }
 
+// Validate implements the config.Config interface.
 func (c Config) Validate() error {
 	v := validate.New("server")
 	validate.NotEmptyString(v, "listenAddress", c.ListenAddress)
 	validate.NotNil(v, "logger", c.Logger)
-	validate.NotEmptyString(v, "security.caName", c.Security.CAName)
 	return v.Error()
 }
 
-type Server struct {
-	Config
-	// closers are supplemental closers to be call on shutdown
-	closers []func(ctx context.Context) error
-}
+// Server is the main server for a Synnax node. It processes all incoming RPCs and API
+// requests. A Server can be configured to multiplex multiple Branches on the same port.
+// It can also serve secure branches behind a TLS listener.
+type Server struct{ Config }
 
+// New creates a new server using the specified configuration. The server must be started
+// using the Serve method. If the configuration is invalid, an error is returned.
 func New(configs ...Config) (*Server, error) {
 	cfg, err := config.OverrideAndValidate(DefaultConfig, configs...)
 	return &Server{Config: cfg}, err
 }
 
-func (s *Server) Start(_ context.Context) (err error) {
-	sCtx, cancel := signal.Background(signal.WithLogger(s.Logger))
+// Serve starts the server and blocks until all branches have stopped. Only returns an
+// error if the server exits abnormally (i.e. it wil ignore any errors emitted during
+// standard shutdown procedure).
+func (s *Server) Serve() (err error) {
+	sCtx, cancel := signal.Background(signal.WithLogger(s.Logger), signal.WithContextKey("server"))
 	defer cancel()
 	lis, err := net.Listen("tcp", s.ListenAddress.PortString())
 	if err != nil {
@@ -81,58 +100,77 @@ func (s *Server) Start(_ context.Context) (err error) {
 	return s.serveSecure(sCtx, lis)
 }
 
+// Stop stops the server. Any errors encountered during shutdown are returned through
+// the Serve method.
+func (s *Server) Stop() {
+	for _, b := range s.Branches {
+		b.Stop()
+	}
+}
+
 func (s *Server) serveSecure(sCtx signal.Context, lis net.Listener) error {
 	var (
-		rootMux     = cmux.New(lis)
-		insecureLis = rootMux.Match(cmux.HTTP1Fast())
-		secureMux   = cmux.New(tls.NewListener(rootMux.Match(cmux.Any()), s.Security.TLS))
+		root     = cmux.New(lis)
+		insecure = cmux.New(root.Match(cmux.HTTP1Fast()))
+		secure   = cmux.New(tls.NewListener(root.Match(cmux.Any()), s.Security.TLS))
 	)
-	s.goRedirectInsecure(sCtx, insecureLis)
-	s.startBranches(sCtx, secureMux)
+
+	s.startBranches(sCtx, secure, lo.Filter(s.Branches, func(b Branch, _ int) bool {
+		return b.Routing().PreferSecure
+	}))
+
+	s.startBranches(sCtx, insecure, lo.Filter(s.Branches, func(b Branch, _ int) bool {
+		info := b.Routing()
+		return !info.PreferSecure && info.ServeIfSecure
+	}))
+
 	sCtx.Go(func(ctx context.Context) error {
-		return filterCloserError(secureMux.Serve())
-	}, signal.WithKey("secureMux"))
-	return filterCloserError(rootMux.Serve())
+		return filterCloserError(secure.Serve())
+	}, signal.WithKey("secure"))
+
+	sCtx.Go(func(ctx context.Context) error {
+		return filterCloserError(insecure.Serve())
+	}, signal.WithKey("insecureMux"))
+
+	sCtx.Go(func(ctx context.Context) error {
+		return filterCloserError(root.Serve())
+	}, signal.WithKey("rootMux"))
+
+	return sCtx.Wait()
 }
 
 func (s *Server) serveInsecure(sCtx signal.Context, lis net.Listener) error {
-	rootMux := cmux.New(lis)
-	s.startBranches(sCtx, rootMux)
-	return filterCloserError(rootMux.Serve())
+	mux := cmux.New(lis)
+	s.startBranches(sCtx, mux, lo.Filter(s.Branches, func(b Branch, _ int) bool {
+		return b.Routing().ServeIfInsecure
+	}))
+	return filterCloserError(mux.Serve())
 }
 
-func (s *Server) startBranches(sCtx signal.Context, mux cmux.CMux) {
-	listeners := make([]net.Listener, len(s.Branches))
-	for i, b := range s.Branches {
-		listeners[i] = mux.Match(b.Matchers()...)
+func (s *Server) startBranches(
+	sCtx signal.Context,
+	mux cmux.CMux,
+	branches []Branch,
+) {
+	listeners := make([]net.Listener, len(branches))
+	for i, b := range branches {
+		listeners[i] = mux.Match(b.Routing().Matchers...)
 	}
-	bc := BranchConfig{Security: s.Security}
-	for i, b := range s.Branches {
+	bc := BranchContext{Security: s.Security, Debug: *s.Debug}
+	for i, b := range branches {
 		b, i := b, i
-		sCtx.Go(func(ctx context.Context) error {
-			bc.Lis = listeners[i]
-			return b.Serve(bc)
+		bc.Lis = listeners[i]
+		sCtx.Go(func(context.Context) error {
+			return filterCloserError(b.Serve(bc))
 		}, signal.WithKey(b.Key()))
 	}
 }
 
-func (s *Server) goRedirectInsecure(sCtx signal.Context, lis net.Listener) {
-	srv := &http.Server{Handler: http.HandlerFunc(secureHTTPRedirect)}
-	sCtx.Go(func(ctx context.Context) error {
-		return filterCloserError(srv.Serve(lis))
-	}, signal.WithKey("redirect"))
-	s.closers = append(s.closers, srv.Shutdown)
-}
-
-func (s *Server) Stop() error {
-	for _, b := range s.Branches {
-		b.Stop()
+func (s *Server) baseBranchContext() BranchContext {
+	return BranchContext{
+		Security:   s.Security,
+		ServerName: s.ListenAddress.HostString(),
 	}
-	c := errutil.NewCatch(errutil.WithAggregation())
-	for _, closer := range s.closers {
-		c.ExecWithCtx(context.Background(), closer)
-	}
-	return c.Error()
 }
 
 func filterCloserError(err error) error {
@@ -140,8 +178,4 @@ func filterCloserError(err error) error {
 		return nil
 	}
 	return err
-}
-
-func secureHTTPRedirect(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, "https://"+r.Host+r.RequestURI, http.StatusMovedPermanently)
 }

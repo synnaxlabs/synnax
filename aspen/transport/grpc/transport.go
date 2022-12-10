@@ -6,7 +6,6 @@ import (
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/kv"
 	aspenv1 "github.com/synnaxlabs/aspen/transport/grpc/gen/proto/go/v1"
-	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/signal"
@@ -227,15 +226,11 @@ func (t *transport) FeedbackServer() kv.FeedbackTransportServer { return t.feedb
 
 func (t *transport) FeedbackClient() kv.FeedbackTransportClient { return t.feedbackClient }
 
-func (t *transport) BindTo(reg grpc.ServiceRegistrar, middleware ...freighter.Middleware) {
+func (t *transport) BindTo(reg grpc.ServiceRegistrar) {
 	t.pledgeServer.BindTo(reg)
-	t.pledgeServer.Use(middleware...)
 	t.gossipServer.BindTo(reg)
-	t.gossipServer.Use(middleware...)
 	t.batchServer.BindTo(reg)
-	t.batchServer.Use(middleware...)
 	t.leaseServer.BindTo(reg)
-	t.leaseServer.Use(middleware...)
 	t.feedbackServer.BindTo(reg)
 }
 
