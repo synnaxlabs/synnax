@@ -17,6 +17,7 @@ import (
 	"os"
 )
 
+// LoaderConfig is the configuration for creating a new Loader.
 type LoaderConfig struct {
 	// CertsDir is the directory where the certificates are stored.
 	CertsDir string
@@ -35,8 +36,9 @@ type LoaderConfig struct {
 }
 
 var (
-	_                   config.Config[LoaderConfig] = LoaderConfig{}
-	DefaultLoaderConfig                             = LoaderConfig{
+	_ config.Config[LoaderConfig] = LoaderConfig{}
+	// DefaultLoaderConfig is the default configuration for a Loader.
+	DefaultLoaderConfig = LoaderConfig{
 		CertsDir:     "./certs",
 		CAKeyPath:    "ca.key",
 		CACertPath:   "ca.crt",
@@ -72,10 +74,11 @@ func (l LoaderConfig) Validate() error {
 }
 
 // Loader is a certificate Loader.
-type Loader struct {
-	LoaderConfig
-}
+type Loader struct{ LoaderConfig }
 
+// NewLoader creates a new Loader using the given configuration. Returns an error if the
+// configuration is invalid. If the directory at LoaderConfig.CertsDir does not exist,
+// it is created.
 func NewLoader(configs ...LoaderConfig) (*Loader, error) {
 	cfg, err := config.OverrideAndValidate(DefaultLoaderConfig, configs...)
 	if err != nil {

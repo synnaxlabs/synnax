@@ -5,9 +5,9 @@ import (
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/config"
+	"go.uber.org/zap"
 )
-
-var certFactoryConfig = cert.FactoryConfig{}
 
 var certCmd = &cobra.Command{
 	Use:   "cert",
@@ -20,13 +20,11 @@ var certCA = &cobra.Command{
 	Short: "Generate a self-signed CA certificate.",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		l, err := configureLogging()
+		l, err := configureLogging(viper.GetBool("verbose"))
 		if err != nil {
 			return err
 		}
-		certFactoryConfig.Logger = l.Sugar()
-		certFactoryConfig.CertsDir = viper.GetString("certs-dir")
-		factory, err := cert.NewFactory(certFactoryConfig)
+		factory, err := cert.NewFactory(buildCertFactoryConfig(l))
 		if err != nil {
 			return err
 		}
@@ -39,19 +37,18 @@ var certNode = &cobra.Command{
 	Short: "Generate a self-signed node certificate.",
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, hosts []string) error {
+		l, err := configureLogging(viper.GetBool("verbose"))
+		if err != nil {
+			return err
+		}
 		// convert hosts to addresses
 		addresses := make([]address.Address, len(hosts))
 		for i, host := range hosts {
 			addresses[i] = address.Address(host)
 		}
-		certFactoryConfig.Hosts = addresses
-		certFactoryConfig.CertsDir = viper.GetString("certs-dir")
-		l, err := configureLogging()
-		if err != nil {
-			return err
-		}
-		certFactoryConfig.Logger = l.Sugar()
-		factory, err := cert.NewFactory(certFactoryConfig)
+		cfg := buildCertFactoryConfig(l)
+		cfg.Hosts = addresses
+		factory, err := cert.NewFactory(cfg)
 		if err != nil {
 			return err
 		}
@@ -62,11 +59,25 @@ var certNode = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(certCmd)
 
-	certCmd.PersistentFlags().StringVar(&certFactoryConfig.CAKeyPath, "ca-key", "", "The path to the CA key.")
-	certCmd.PersistentFlags().StringVar(&certFactoryConfig.CACertPath, "ca-cert", "", "The path to the CA certificate.")
-	certCmd.PersistentFlags().StringVar(&certFactoryConfig.NodeKeyPath, "node-key", "", "The path to the node key.")
-	certCmd.PersistentFlags().StringVar(&certFactoryConfig.NodeCertPath, "node-cert", "", "The path to the node certificate.")
-
 	certCmd.AddCommand(certCA)
 	certCmd.AddCommand(certNode)
+}
+
+func buildCertLoaderConfig(logger *zap.Logger) cert.LoaderConfig {
+	return cert.LoaderConfig{
+		CertsDir:     viper.GetString("certs-dir"),
+		CAKeyPath:    viper.GetString("ca-key"),
+		CACertPath:   viper.GetString("ca-cert"),
+		NodeKeyPath:  viper.GetString("node-key"),
+		NodeCertPath: viper.GetString("node-cert"),
+		Logger:       logger.Sugar(),
+	}
+}
+
+func buildCertFactoryConfig(logger *zap.Logger) cert.FactoryConfig {
+	return cert.FactoryConfig{
+		LoaderConfig:  buildCertLoaderConfig(logger),
+		AllowKeyReuse: config.BoolPointer(viper.GetBool("allow-key-reuse")),
+		KeySize:       viper.GetInt("key-size"),
+	}
 }

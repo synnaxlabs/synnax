@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"go.uber.org/zap"
 	"os"
 	"strings"
@@ -9,8 +8,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
-
-var cfgFile string
 
 var rootCmd = &cobra.Command{
 	Use:   "synnax",
@@ -31,14 +28,12 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
-	rootCmd.PersistentFlags().String("certs-dir", cert.DefaultLoaderConfig.CertsDir, "The directory to store the certificates in.")
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.synnax.yaml)")
-	if err := viper.BindPFlags(rootCmd.PersistentFlags()); err != nil {
-		zap.S().Error("failed to bind flags", zap.Error(err))
-	}
+	configureRootFlags()
+	bindFlags(rootCmd)
 }
 
 func initConfig() {
+	cfgFile := viper.GetString("config")
 	if cfgFile != "" {
 		viper.SetConfigFile(cfgFile)
 	} else {

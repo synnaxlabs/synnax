@@ -2,7 +2,7 @@ package cmd
 
 func configureStartFlags() {
 	startCmd.Flags().StringP(
-		"listen-address",
+		"listen",
 		"l",
 		"127.0.0.1:9090",
 		`
@@ -10,44 +10,31 @@ func configureStartFlags() {
 	)
 
 	startCmd.Flags().StringSliceP(
-		"peer-addresses",
+		"peers",
 		"p",
 		nil,
-		`
-			Addresses of additional peers in the cluster.
-		`,
+		"Addresses of additional peers in the cluster.",
 	)
 
 	startCmd.Flags().StringP(
 		"data",
 		"d",
 		"synnax-data",
-		`
-			Dirname where synnax will store its data.
-		`,
+		"Dirname where the synnax node will store its data.",
 	)
 
 	startCmd.Flags().BoolP(
 		"mem",
 		"m",
 		false,
-		`
-			Use in-memory storage.
-			`,
-	)
-
-	startCmd.Flags().BoolP(
-		"debug",
-		"v",
-		false,
-		"Enable debug mode.",
+		"Use in-memory storage",
 	)
 
 	startCmd.Flags().BoolP(
 		"insecure",
 		"i",
 		false,
-		"Disable TLS and authentication.",
+		"Disable encryption, authentication, and authorization.",
 	)
 
 	startCmd.Flags().String(
