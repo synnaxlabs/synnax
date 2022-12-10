@@ -44,6 +44,7 @@ func (b *SecureHTTPBranch) Serve(ctx BranchContext) error {
 	b.internal = fiber.New(b.getConfig(ctx))
 	b.maybeRouteDebugUtil(ctx)
 	b.routeUI()
+	b.internal.Use(cors.New(cors.Config{AllowOrigins: "*"}))
 	for _, t := range b.Transports {
 		t.BindTo(b.internal)
 	}
@@ -57,7 +58,6 @@ func (b *SecureHTTPBranch) maybeRouteDebugUtil(ctx BranchContext) {
 	if ctx.Debug {
 		b.internal.Get("/metrics", monitor.New(monitor.Config{Title: "Synnax Metrics"}))
 		b.internal.Use(pprof.New())
-		b.internal.Use(cors.New(cors.Config{AllowOrigins: "*"}))
 	}
 }
 
