@@ -21,21 +21,49 @@ type BranchContext struct {
 	Logger *zap.Logger
 }
 
+// RoutingPolicy determines how a Branch should be served depending on the security
+// configuration of the Server.
+type RoutingPolicy int
+
+const (
+	// ServeOnlyIfInsecure serves the Branch only if the server is running in insecure
+	// mode.
+	ServeOnlyIfInsecure RoutingPolicy = iota + 1
+	// ServeOnlyIfSecure serves the Branch only if the server is running in secure mode.
+	ServeOnlyIfSecure
+	// ServeOnInsecureIfSecure serves the Branch without TLS if the server is running
+	// in secure mode.
+	ServeOnInsecureIfSecure
+	// ServeAlwaysPreferSecure serves the Branch with TLS if the server is running in
+	// secure mode and without TLS if the server is running in insecure mode.
+	ServeAlwaysPreferSecure
+	// ServeAlwaysPreferInsecure serves the Branch without TLS regardless of the server
+	// mode.
+	ServeAlwaysPreferInsecure
+)
+
+// ShouldServe returns true if the Branch should be served under the given listening
+// conditions.
+func (r RoutingPolicy) ShouldServe(insecure, insecureMux bool) bool {
+	if !insecure && !insecureMux {
+		return r == ServeAlwaysPreferSecure || r == ServeOnlyIfSecure
+	} else if !insecure && insecureMux {
+		return r == ServeOnInsecureIfSecure || r == ServeAlwaysPreferInsecure
+	} else if insecure && insecureMux {
+		return r == ServeAlwaysPreferInsecure || r == ServeOnlyIfInsecure || r == ServeAlwaysPreferSecure
+	}
+	panic("[server]  - invalid routing policy")
+}
+
 // BranchRouting is the information provided by a Branch to the Server so that it can
 // appropriately route requests to it.
 type BranchRouting struct {
 	// Matchers returns a list of cmux matchers that will be used to determine
 	// which requests should be handled by this branch.
 	Matchers []cmux.Matcher
-	// PreferSecure returns true if this branch should be run behind a TLS multiplexer when
-	// running in secure mode.
-	PreferSecure bool
-	// ServeIfSecure returns true if this branch should be run even if the server is
-	// running in secure mode.
-	ServeIfSecure bool
-	// ServeIfInsecure returns true if this branch should be run even if the server is
-	// running in insecure mode.
-	ServeIfInsecure bool
+	// Policy determines how this branch should be served depending on the current
+	// security configuration of the server.
+	Policy RoutingPolicy
 }
 
 // Branch represents a sub-server of the main server, which process requests that

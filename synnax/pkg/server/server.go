@@ -7,6 +7,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/alamos"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
@@ -30,6 +31,15 @@ type Config struct {
 	Debug *bool
 }
 
+// Report implements the alamos.Reporter interface.
+func (c Config) Report() alamos.Report {
+	base := c.Security.Report()
+	base["listenAddress"] = c.ListenAddress
+	base["branches"] = branchKeys(c.Branches)
+	base["debug"] = *c.Debug
+	return base
+}
+
 // SecurityConfig is the security configuration for the server.
 type SecurityConfig struct {
 	// Insecure is a flag to indicate whether the server should run in insecure mode.
@@ -42,7 +52,14 @@ type SecurityConfig struct {
 	TLS *tls.Config
 }
 
+// Report implements the alamos.Reporter interface.
+func (s SecurityConfig) Report() alamos.Report {
+	return alamos.Report{"insecure": *s.Insecure}
+}
+
 var (
+	_ alamos.Reporter       = Config{}
+	_ alamos.Reporter       = SecurityConfig{}
 	_ config.Config[Config] = Config{}
 	// DefaultConfig is the default server configuration.
 	DefaultConfig = Config{
@@ -88,6 +105,8 @@ func New(configs ...Config) (*Server, error) {
 // error if the server exits abnormally (i.e. it wil ignore any errors emitted during
 // standard shutdown procedure).
 func (s *Server) Serve() (err error) {
+	s.Logger.Sugar().Debugw("starting server", s.Report().LogArgs()...)
+
 	sCtx, cancel := signal.Background(signal.WithLogger(s.Logger), signal.WithContextKey("server"))
 	defer cancel()
 	lis, err := net.Listen("tcp", s.ListenAddress.PortString())
@@ -115,14 +134,8 @@ func (s *Server) serveSecure(sCtx signal.Context, lis net.Listener) error {
 		secure   = cmux.New(tls.NewListener(root.Match(cmux.Any()), s.Security.TLS))
 	)
 
-	s.startBranches(sCtx, secure, lo.Filter(s.Branches, func(b Branch, _ int) bool {
-		return b.Routing().PreferSecure
-	}))
-
-	s.startBranches(sCtx, insecure, lo.Filter(s.Branches, func(b Branch, _ int) bool {
-		info := b.Routing()
-		return !info.PreferSecure && info.ServeIfSecure
-	}))
+	s.startBranches(sCtx, secure /*insecureMux*/, false)
+	s.startBranches(sCtx, insecure /*insecureMux*/, true)
 
 	sCtx.Go(func(ctx context.Context) error {
 		return filterCloserError(secure.Serve())
@@ -141,17 +154,25 @@ func (s *Server) serveSecure(sCtx signal.Context, lis net.Listener) error {
 
 func (s *Server) serveInsecure(sCtx signal.Context, lis net.Listener) error {
 	mux := cmux.New(lis)
-	s.startBranches(sCtx, mux, lo.Filter(s.Branches, func(b Branch, _ int) bool {
-		return b.Routing().ServeIfInsecure
-	}))
+	s.startBranches(sCtx, mux /*insecureMux*/, true)
 	return filterCloserError(mux.Serve())
 }
 
 func (s *Server) startBranches(
 	sCtx signal.Context,
 	mux cmux.CMux,
-	branches []Branch,
+	insecureMux bool,
 ) {
+	branches := lo.Filter(s.Branches, func(b Branch, _ int) bool {
+		return b.Routing().Policy.ShouldServe(*s.Security.Insecure, insecureMux)
+	})
+
+	s.Logger.Sugar().Debugw(
+		"starting branches",
+		"branches", branchKeys(branches),
+		"insecureMux", insecureMux,
+	)
+
 	listeners := make([]net.Listener, len(branches))
 	for i, b := range branches {
 		listeners[i] = mux.Match(b.Routing().Matchers...)
@@ -178,4 +199,12 @@ func filterCloserError(err error) error {
 		return nil
 	}
 	return err
+}
+
+func branchKeys(branches []Branch) []string {
+	keys := make([]string, len(branches))
+	for i, b := range branches {
+		keys[i] = b.Key()
+	}
+	return keys
 }

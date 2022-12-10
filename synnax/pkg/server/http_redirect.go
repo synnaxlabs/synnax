@@ -28,10 +28,8 @@ func (h *HTTPRedirectBranch) Key() string { return "http-redirect" }
 func (h *HTTPRedirectBranch) Routing() (i BranchRouting) {
 	// Don't serve this branch if we're running in insecure mode.
 	return BranchRouting{
-		PreferSecure:    false,
-		ServeIfInsecure: false,
-		ServeIfSecure:   true,
-		Matchers:        []cmux.Matcher{cmux.HTTP1Fast()},
+		Policy:   ServeOnInsecureIfSecure,
+		Matchers: []cmux.Matcher{cmux.HTTP1Fast()},
 	}
 }
 
@@ -47,6 +45,10 @@ func (h *HTTPRedirectBranch) Serve(ctx BranchContext) error {
 
 // Stop implements Branch.
 func (h *HTTPRedirectBranch) Stop() {
+	// If the serve is nil, it means we never served this branch.
+	if h.server == nil {
+		return
+	}
 	h.stopErr <- h.server.Shutdown(context.TODO())
 }
 

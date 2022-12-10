@@ -19,9 +19,8 @@ var _ Branch = (*GRPCBranch)(nil)
 // Routing implements Branch.
 func (g *GRPCBranch) Routing() BranchRouting {
 	return BranchRouting{
-		PreferSecure:    true,
-		ServeIfInsecure: true,
-		Matchers:        []cmux.Matcher{cmux.Any()},
+		Policy:   ServeAlwaysPreferSecure,
+		Matchers: []cmux.Matcher{cmux.Any()},
 	}
 }
 
