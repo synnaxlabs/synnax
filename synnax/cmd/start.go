@@ -241,9 +241,7 @@ func configureLogging(verbose bool) (*zap.Logger, error) {
 	return cfg.Build()
 }
 
-var (
-	rootExperimentKey = "experiment"
-)
+var rootExperimentKey = "experiment"
 
 func configureObservability(verbose bool) alamos.Experiment {
 	var opt alamos.Option
@@ -259,6 +257,7 @@ func configureSecurity(logger *zap.Logger, insecure bool) (security.Provider, er
 	return security.NewProvider(security.ProviderConfig{
 		LoaderConfig: buildCertLoaderConfig(logger),
 		Insecure:     config.BoolPointer(insecure),
+		KeySize:      viper.GetInt("key-size"),
 	})
 }
 

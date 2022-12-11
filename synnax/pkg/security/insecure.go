@@ -14,14 +14,11 @@ type insecureProvider struct {
 
 func newInsecureProvider(cfg ProviderConfig) (Provider, error) {
 	key, err := rsa.GenerateKey(rand.Reader, cfg.KeySize)
-	if err != nil {
-		return nil, err
-	}
-	return &insecureProvider{nodeSecret: key}, nil
+	return &insecureProvider{nodeSecret: key}, err
 }
 
 // TLS implements TLSProvider.
 func (p *insecureProvider) TLS() *tls.Config { return nil }
 
-// NodeSecret implements KeyProvider.
-func (p *insecureProvider) NodeSecret() crypto.PrivateKey { return p.nodeSecret }
+// NodePrivate implements KeyProvider.
+func (p *insecureProvider) NodePrivate() crypto.PrivateKey { return p.nodeSecret }

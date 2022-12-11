@@ -71,7 +71,7 @@ func (s *Service) isCloseToExpired(claims *jwt.StandardClaims) bool {
 }
 
 func (s *Service) signingMethodAndKey() (jwt.SigningMethod, interface{}) {
-	key := s.KeyProvider.NodeSecret()
+	key := s.KeyProvider.NodePrivate()
 	switch key.(type) {
 	case *rsa.PrivateKey:
 		return jwt.SigningMethodRS512, key
@@ -84,7 +84,7 @@ func (s *Service) signingMethodAndKey() (jwt.SigningMethod, interface{}) {
 }
 
 func (s *Service) publicKey() interface{} {
-	key := s.KeyProvider.NodeSecret()
+	key := s.KeyProvider.NodePrivate()
 	switch key.(type) {
 	case *rsa.PrivateKey:
 		return key.(*rsa.PrivateKey).Public()

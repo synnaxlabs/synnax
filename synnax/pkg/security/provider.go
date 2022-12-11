@@ -21,8 +21,8 @@ type TLSProvider interface {
 
 // KeyProvider provides information of private keys for the node.
 type KeyProvider interface {
-	// NodeSecret returns the private key of the node's TLS certificate.
-	NodeSecret() crypto.PrivateKey
+	// NodePrivate returns the private key of the node's TLS certificate.
+	NodePrivate() crypto.PrivateKey
 }
 
 // Provider provides security information and services for the node. It's important to note
@@ -33,10 +33,13 @@ type Provider interface {
 	KeyProvider
 }
 
+// ProviderConfig is the configuration for creating a new Provider.
 type ProviderConfig struct {
 	cert.LoaderConfig
+	// Insecure indicates whether the node should run in insecure mode.
 	Insecure *bool
-	KeySize  int
+	// KeySize is the size of private key to use in case key generation is required.
+	KeySize int
 }
 
 var (

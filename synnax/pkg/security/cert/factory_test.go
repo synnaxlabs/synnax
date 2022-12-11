@@ -4,14 +4,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
+	"github.com/synnaxlabs/synnax/pkg/security/mock"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
 )
-
-// smallKeySize to run tests faster.
-const smallKeySize = 512
 
 var _ = Describe("Factory", func() {
 	var fs xfs.FS
@@ -22,17 +20,20 @@ var _ = Describe("Factory", func() {
 		It("Should generate a CA and a key", func() {
 			f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
 				LoaderConfig: cert.LoaderConfig{FS: fs},
-				KeySize:      smallKeySize,
+				KeySize:      mock.SmallKeySize,
 			}))
 			Expect(f.CreateCAPair()).To(Succeed())
 			c, k := MustSucceed2(f.Loader.LoadCAPair())
 			Expect(c).ToNot(BeNil())
 			Expect(k).ToNot(BeNil())
+			cas, err := f.Loader.LoadCAs()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cas).To(HaveLen(1))
 		})
 		It("Should not allow key reuse by default", func() {
 			f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
 				LoaderConfig: cert.LoaderConfig{FS: fs},
-				KeySize:      smallKeySize,
+				KeySize:      mock.SmallKeySize,
 			}))
 			Expect(f.CreateCAPair()).To(Succeed())
 			Expect(f.CreateCAPair()).ToNot(Succeed())
@@ -41,7 +42,7 @@ var _ = Describe("Factory", func() {
 			f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
 				LoaderConfig:  cert.LoaderConfig{FS: fs},
 				AllowKeyReuse: config.BoolPointer(true),
-				KeySize:       smallKeySize,
+				KeySize:       mock.SmallKeySize,
 			}))
 			Expect(f.CreateCAPair()).To(Succeed())
 			Expect(f.CreateCAPair()).To(Succeed())
@@ -52,18 +53,21 @@ var _ = Describe("Factory", func() {
 			f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
 				LoaderConfig: cert.LoaderConfig{FS: fs},
 				Hosts:        []address.Address{"synnaxlabs.com"},
-				KeySize:      smallKeySize,
+				KeySize:      mock.SmallKeySize,
 			}))
 			Expect(f.CreateCAPair()).To(Succeed())
 			Expect(f.CreateNodePair()).To(Succeed())
 			c, k := MustSucceed2(f.Loader.LoadNodePair())
 			Expect(c).ToNot(BeNil())
 			Expect(k).ToNot(BeNil())
+			tlsC, err := f.Loader.LoadNodeTLS()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(tlsC).ToNot(BeNil())
 		})
 		It("Should fail to generate a node cert and key if no CA is present", func() {
 			f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
 				LoaderConfig: cert.LoaderConfig{FS: fs},
-				KeySize:      smallKeySize,
+				KeySize:      mock.SmallKeySize,
 			}))
 			err := f.CreateNodePair()
 			Expect(err).To(HaveOccurred())
@@ -72,7 +76,7 @@ var _ = Describe("Factory", func() {
 		It("Should fail is no hosts are provided", func() {
 			f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
 				LoaderConfig: cert.LoaderConfig{FS: fs},
-				KeySize:      smallKeySize,
+				KeySize:      mock.SmallKeySize,
 			}))
 			Expect(f.CreateCAPair()).To(Succeed())
 			err := f.CreateNodePair()

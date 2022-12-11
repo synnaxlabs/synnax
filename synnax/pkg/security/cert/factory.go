@@ -194,17 +194,16 @@ func (c *Factory) writePEM(p string, block *pem.Block, multi bool) error {
 	})
 }
 
-func (c *Factory) withFile(p string, flag int, fn func(fs xfs.File) error) error {
+func (c *Factory) withFile(p string, flag int, fn func(fs xfs.File) error) (err error) {
 	f, err := c.FS.Open(p, flag)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		if err := f.Close(); err != nil {
-			c.Logger.Error(err)
-		}
+		err = errors.CombineErrors(err, f.Close())
 	}()
-	return fn(f)
+	err = fn(f)
+	return
 }
 
 func (c *Factory) writeFlag() int {

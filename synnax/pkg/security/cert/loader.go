@@ -9,7 +9,6 @@ import (
 	"github.com/synnaxlabs/x/config"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
-	xpem "github.com/synnaxlabs/x/pem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 	"io"
@@ -110,12 +109,6 @@ func (l *Loader) LoadCAs() ([]*x509.Certificate, error) {
 	)
 	for len(certBytes) > 0 {
 		block, certBytes = pem.Decode(certBytes)
-		if block == nil {
-			break
-		}
-		if block.Type != xpem.TypeCertificate || len(block.Headers) != 0 {
-			continue
-		}
 		cert, err := x509.ParseCertificate(block.Bytes)
 		if err != nil {
 			return nil, err

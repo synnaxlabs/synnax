@@ -24,15 +24,15 @@ func newSecureProvider(cfg ProviderConfig) (Provider, error) {
 	}
 	p := &secureProvider{ProviderConfig: cfg, loader: l, certPool: x509.NewCertPool()}
 	cas, err := l.LoadCAs()
-	p.tls, err = l.LoadNodeTLS()
-	if err != nil {
-		return nil, err
-	}
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
 	for _, ca := range cas {
 		p.certPool.AddCert(ca)
+	}
+	p.tls, err = l.LoadNodeTLS()
+	if err != nil {
+		return nil, err
 	}
 	return p, nil
 }
@@ -44,7 +44,6 @@ func newSecureProvider(cfg ProviderConfig) (Provider, error) {
 // athey provide forward secrecy and authentication[3].
 //
 // Thanks to the CockroachDB team for this list of cipher suites[4].
-
 //
 // [1]: https://github.com/golang/go/blob/4aa1efed4853ea067d665a952eee77c52faac774/src/crypto/tls/cipher_suites.go#L215-L270
 // [2]: https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4
@@ -72,8 +71,8 @@ func (p *secureProvider) TLS() *tls.Config {
 	}
 }
 
-// NodeSecret implements KeyProvider.
-func (p *secureProvider) NodeSecret() crypto.PrivateKey { return p.tls.PrivateKey }
+// NodePrivate implements KeyProvider.
+func (p *secureProvider) NodePrivate() crypto.PrivateKey { return p.tls.PrivateKey }
 
 func (p *secureProvider) getClientCert(info *tls.CertificateRequestInfo) (*tls.Certificate, error) {
 	return p.tls, nil
