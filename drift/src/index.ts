@@ -10,4 +10,3 @@ export {
 export type { WindowProps, WindowState, Window } from "@/window";
 export { Provider, useWindowLifecycle } from "@/react";
 export { TauriRuntime } from "@/tauri";
-export { ElectronRuntime } from "@/electron";

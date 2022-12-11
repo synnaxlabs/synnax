@@ -1,3 +1,4 @@
+import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
 import { ZodSchema } from 'zod';
 
 import { EncoderDecoder } from './encoder';
@@ -5,59 +6,34 @@ import { ErrorPayloadSchema, decodeError } from './errors';
 import { MetaData, MiddlewareCollector } from './middleware';
 import { UnaryClient } from './unary';
 import URL from './url';
-import { Runtime, RUNTIME } from './runtime';
-
-/**
- * BaseHTTPClient is a base representation of the fetch API. Depending on the current
- * runtime, this can be swapped out for other implementations.
- */
-type BaseHTTPClient = (
-  url: RequestInfo,
-  init?: RequestInit | undefined
-) => Promise<Response>;
-
-const resolveBaseHTTPClient = (): BaseHTTPClient => {
-  if (RUNTIME == Runtime.Node) return require('node-fetch');
-  return fetch;
-};
 
 /**
  * HTTPClientFactory provides a POST and GET implementation of the Unary
  * protocol.
  *
- * @param baseEndpointer - The base endpoint of the API.
+ * @param url - The base URL of the API.
  * @param encoder - The encoder/decoder to use for the request/response.
- * @param secure - Whether to use https or http.
  */
 export class HTTPClientFactory extends MiddlewareCollector {
-  baseEndpoint: URL;
+  endpoint: URL;
   encoder: EncoderDecoder;
   secure: boolean;
-  base: BaseHTTPClient;
 
-  constructor(
-    baseEndpoint: URL,
-    encoder: EncoderDecoder,
-    secure: boolean = false,
-    base?: BaseHTTPClient
-  ) {
+  constructor(endpoint: URL, encoder: EncoderDecoder, secure: boolean = false) {
     super();
-    this.base = base ?? resolveBaseHTTPClient();
-    this.baseEndpoint = baseEndpoint;
+    this.endpoint = endpoint;
     this.encoder = encoder;
     this.secure = secure;
   }
 
-  /** @returns A UnaryClient that uses GET requests. */
   getClient(): GETClient {
-    const gc = new GETClient(this.baseEndpoint, this.encoder, this.secure, this.base);
+    const gc = new GETClient(this.endpoint, this.encoder, this.secure);
     gc.use(...this.middleware);
     return gc;
   }
 
-  /** @returns a UnaryClient that uses POST requests. */
   postClient(): POSTClient {
-    const pc = new POSTClient(this.baseEndpoint, this.encoder, this.secure, this.base);
+    const pc = new POSTClient(this.endpoint, this.encoder, this.secure);
     pc.use(...this.middleware);
     return pc;
   }
@@ -68,16 +44,9 @@ export const CONTENT_TYPE_HEADER_KEY = 'Content-Type';
 class Core extends MiddlewareCollector {
   endpoint: URL;
   encoder: EncoderDecoder;
-  base: BaseHTTPClient;
 
-  constructor(
-    endpoint: URL,
-    encoder: EncoderDecoder,
-    secure: boolean = false,
-    base: BaseHTTPClient
-  ) {
+  constructor(endpoint: URL, encoder: EncoderDecoder, secure: boolean = false) {
     super();
-    this.base = base;
     this.endpoint = endpoint.replace({ protocol: secure ? 'https' : 'http' });
     this.encoder = encoder;
   }
@@ -88,49 +57,49 @@ class Core extends MiddlewareCollector {
     };
   }
 
-  requestConfig(): RequestInit {
+  requestConfig(): AxiosRequestConfig {
     return {
       headers: this.headers,
-      credentials: 'omit',
+      responseType: 'arraybuffer',
+      withCredentials: false,
+      validateStatus: () => true,
     };
   }
 
   async execute<RS>(
-    url: string,
-    request: RequestInit,
+    request: AxiosRequestConfig,
     resSchema: ZodSchema<RS> | null
   ): Promise<[RS | undefined, Error | undefined]> {
-    let res: RS | undefined = undefined;
+    let rs: RS | undefined = undefined;
+
+    if (!request.url) throw new Error('[freighter.http] - expected valid request url');
 
     const [, err] = await this.executeMiddleware(
-      { target: url, protocol: 'http', params: {} },
+      { target: request.url, protocol: 'http', params: {} },
       async (md: MetaData): Promise<[MetaData, Error | undefined]> => {
-        let outMD: MetaData = { ...md };
+        let outMD: MetaData = { ...md, params: {} };
         request.headers = { ...request.headers, ...this.headers, ...md.params };
-        let rawRes: Response;
+        let httpRes: AxiosResponse;
         try {
-          rawRes = await this.base(url, request);
+          httpRes = await axios.request(request);
         } catch (err) {
           return [outMD, err as Error];
         }
-        rawRes.headers.forEach((value, key) => (outMD.params[key] = value));
-        if (rawRes.status < 200 || rawRes.status >= 300) {
+        outMD.params = httpRes.headers as Record<string, string>;
+        if (httpRes.status < 200 || httpRes.status >= 300) {
           try {
-            const err = this.encoder.decode(
-              await rawRes.arrayBuffer(),
-              ErrorPayloadSchema
-            );
+            const err = this.encoder.decode(httpRes.data, ErrorPayloadSchema);
             return [outMD, decodeError(err)];
-          } catch (err) {
-            return [outMD, err as Error];
+          } catch {
+            return [outMD, new Error(httpRes.data)];
           }
         }
-        if (resSchema) res = this.encoder.decode(await rawRes.arrayBuffer(), resSchema);
+        if (resSchema) rs = this.encoder.decode(httpRes.data, resSchema);
         return [outMD, undefined];
       }
     );
 
-    return [res, err];
+    return [rs, err];
   }
 }
 
@@ -144,14 +113,13 @@ export class GETClient extends Core implements UnaryClient {
     req: RQ | null,
     resSchema: ZodSchema<RS> | null
   ): Promise<[RS | undefined, Error | undefined]> {
-    const cfg = this.requestConfig();
-    cfg.method = 'GET';
-    return await this.execute(
+    const request = this.requestConfig();
+    request.method = 'GET';
+    request.url =
       this.endpoint.child(target).toString() +
-        buildQueryString({ req: req as Record<string, unknown> }),
-      cfg,
-      resSchema
-    );
+      buildQueryString({ request: req as Record<string, unknown> });
+    request.data = null;
+    return await this.execute(request, resSchema);
   }
 }
 
@@ -165,24 +133,30 @@ export class POSTClient extends Core implements UnaryClient {
     req: RQ | null,
     resSchema: ZodSchema<RS> | null
   ): Promise<[RS | undefined, Error | undefined]> {
-    const cfg = this.requestConfig();
-    cfg.method = 'POST';
-    if (req) cfg.body = this.encoder.encode(req);
-    return await this.execute(this.endpoint.child(target).toString(), cfg, resSchema);
+    const url = this.endpoint.child(target).toString();
+    const request = this.requestConfig();
+    request.method = 'POST';
+    request.url = url;
+    if (req) {
+      request.data = this.encoder.encode(req);
+    } else {
+      request.data = null;
+    }
+    return await this.execute(request, resSchema);
   }
 }
 
 export const buildQueryString = ({
-  req,
+  request,
   prefix = '',
 }: {
-  req: Record<string, unknown> | null;
+  request: Record<string, unknown> | null;
   prefix?: string;
 }): string => {
-  if (req === null) return '';
+  if (request === null) return '';
   return (
     '?' +
-    Object.entries(req)
+    Object.entries(request)
       .filter(([, value]) => {
         if (value === undefined || value === null) return false;
         if (Array.isArray(value)) return value.length > 0;

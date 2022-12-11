@@ -27,9 +27,9 @@ func Execute() {
 }
 
 func init() {
-	cobra.OnInitialize(initConfig)
 	configureRootFlags()
 	bindFlags(rootCmd)
+	cobra.OnInitialize(initConfig)
 }
 
 func initConfig() {

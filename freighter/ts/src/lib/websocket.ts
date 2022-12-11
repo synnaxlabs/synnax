@@ -199,7 +199,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
 
   private buildURL(target: string, md: MetaData): string {
     const qs = buildQueryString({
-      req: {
+      request: {
         [CONTENT_TYPE_HEADER_KEY]: this.encoder.contentType,
         ...md.params,
       },

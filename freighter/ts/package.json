@@ -27,6 +27,7 @@
     "node": ">=10"
   },
   "dependencies": {
+    "axios": "^1.2.1",
     "js-convert-case": "^4.2.0",
     "msgpackr": "^1.7.0",
     "ws": "^8.8.1",
