@@ -2,7 +2,7 @@ from typing import Generic, TypeVar, Callable
 
 from synnax.cli.console import Console
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class Context:
@@ -27,7 +27,11 @@ class Flow(Generic[T]):
         root_step = self.steps[root]
         self._run(root_step, req)
 
-    def _run(self, step: Callable[[T, Context], str | None], request: T, ):
+    def _run(
+        self,
+        step: Callable[[T, Context], str | None],
+        request: T,
+    ):
         next_step = step(self.context, request)
         if next_step is not None:
             self._run(self.steps[next_step], request)

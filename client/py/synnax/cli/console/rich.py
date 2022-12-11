@@ -3,8 +3,8 @@ from rich.prompt import Prompt, Confirm, FloatPrompt, IntPrompt
 
 
 class RichConsole:
-    """A rich text implementation of the Console protocol.
-    """
+    """A rich text implementation of the Console protocol."""
+
     info_color: str
     warn_color: str
     error_color: str

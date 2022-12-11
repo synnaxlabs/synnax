@@ -10,6 +10,7 @@ from synnax.transport import Transport
 
 from . import iterator
 
+
 class FramerClient:
     """SegmentClient provides interfaces for reading and writing segmented
     telemetry from a Synnax Cluster. SegmentClient should not be instantiated

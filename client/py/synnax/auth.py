@@ -26,8 +26,9 @@ AUTHORIZATION_HEADER = "Authorization"
 TOKEN_REFRESH_HEADER = "Refresh-Token"
 
 
-def token_middleware(token: Callable[[], str],
-                     set_token: Callable[[str], None]) -> Middleware:
+def token_middleware(
+    token: Callable[[], str], set_token: Callable[[str], None]
+) -> Middleware:
     def mw(md: MetaData, _next: Next):
         md.set(AUTHORIZATION_HEADER, "Bearer " + token())
         out_md, exc = _next(md)
@@ -39,8 +40,9 @@ def token_middleware(token: Callable[[], str],
     return mw
 
 
-def async_token_middleware(token: Callable[[], str],
-                           set_token: Callable[[str], None]) -> Middleware:
+def async_token_middleware(
+    token: Callable[[], str], set_token: Callable[[str], None]
+) -> Middleware:
     async def mw(md: MetaData, _next: AsyncNext):
         md.set(AUTHORIZATION_HEADER, "Bearer " + token())
         out_md, exc = await _next(md)

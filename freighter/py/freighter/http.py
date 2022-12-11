@@ -102,7 +102,6 @@ class _Core(MiddlewareCollector):
             try:
                 http_res = http.request(method=method, url=url, headers=head, body=data)
             except MaxRetryError as e:
-                raise e
                 return out_meta_data, Unreachable(url, e)
             except HTTPError as e:
                 return out_meta_data, e

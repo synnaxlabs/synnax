@@ -241,9 +241,36 @@ Delta uses [Tauri](https://tauri.app/) as its underlying runtime, which uses Web
 Windows and WebKit on MacOS and Linux. While both of these runtimes support TLS, they come
 with a preloaded set of root CAs and do not support turning off certificate verification.
 
-So we just use a public CA ([Let's Encrypt](https://letsencrypt.org/), right? Well, not
-quite. The problem with a CA
+So we just use a public CA like [Let's Encrypt](https://letsencrypt.org/) right? Well, not
+quite. Synnax nodes need to process RPCs from other nodes as well as issue RPCs to them.
+Certificates issued by a public CA are only signed for server side use, and cannot be used
+to authenticate a client. There are ways around this, but they are complex and we don't
+want to force users to jump through hoops just to get started with a secure cluster.
 
+The other option is to install a self-signed CA on the user's machine. This is also not
+ideal, as it means every user would need to go through a complex installation process.
 
+The last option is to switch to an entirely different UI runtime like Electron. This is
+definitely an option, but I'd love to keep using Tauri if possible.
 
+So, in summary, we have a few options:
 
+1. Use a public CA to issue certificates for both server and client use, which means we
+can't use a self-signed CA OR authenticate peer RPCs using mTLS.
+
+2. Install a self-signed CA on the user's machine, which adds extra overhead ot our users
+and makes it more difficult to get started with a secure cluster.
+
+3. Switch to Electron, which requires quite a bit of work and results in a larger binary,
+slower startup time, and higher memory usage.
+
+## 7.2 - The Temporary Solution
+
+There's an [issue](https://github.com/tauri-apps/tauri/issues/4039) tracking the need
+for ignoring certificate verification in Tauri. Until this is resolved, we'll use a
+certificate issued by a public CA and stick to stick to using a single node cluster for
+serving our user's data (as a public CA means we can't authenticate intra cluster RPCs).
+
+Although this sounds like a step backwards, the reality is that most of our users don't
+need multi-node clusters at this point. We'll track the progress of the Tauri issue and
+revisit this decision once it's resolved.

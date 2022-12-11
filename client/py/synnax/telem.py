@@ -295,7 +295,7 @@ class TimeSpan(int):
 
 
 TIME_STAMP_MIN = TimeStamp(0)
-TIME_STAMP_MAX = TimeStamp(2 ** 63 - 1)
+TIME_STAMP_MAX = TimeStamp(2**63 - 1)
 NANOSECOND = TimeSpan(1)
 NANOSECOND_UNITS = "ns"
 MICROSECOND = TimeSpan(1000) * NANOSECOND
@@ -634,12 +634,12 @@ class NumpyArray(ArrayHeader):
         return NumpyArray(
             data_type=arr.data_type,
             time_range=arr.time_range,
-            data=np.frombuffer(arr.data, dtype=arr.data_type.numpy_type)
+            data=np.frombuffer(arr.data, dtype=arr.data_type.numpy_type),
         )
 
     def to_binary(self) -> BinaryArray:
         return BinaryArray(
             data_type=self.data_type,
             time_range=self.time_range,
-            data=self.data.tobytes()
+            data=self.data.tobytes(),
         )

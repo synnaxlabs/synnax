@@ -57,8 +57,7 @@ class BaseReader(Matcher):
         ...
 
     def nsamples(self) -> int:
-        """:returns: the number of samples in the file.
-        """
+        """:returns: the number of samples in the file."""
         ...
 
 

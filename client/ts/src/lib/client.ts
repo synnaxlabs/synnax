@@ -28,6 +28,8 @@ export type SynnaxProps = z.infer<typeof synnaxPropsSchema>;
  *
  * @property channel - Channel client for creating and retrieving channels.
  * @property data - Data client for reading and writing telemetry.
+ * @property connectivity - Client for retrieving connectivity information.
+ * @property ontology - Client for querying the cluster's ontology.
  */
 export default class Synnax {
   private transport: Transport;
@@ -41,9 +43,16 @@ export default class Synnax {
    * @param props.host - Hostname of a node in the cluster.
    * @param props.port - Port of the node in the cluster.
    * @param props.username - Username for authentication. Not required if the
-   *   cluster is insecure.
+   * cluster is insecure.
    * @param props.password - Password for authentication. Not required if the
-   *   cluster is insecure.
+   * cluster is insecure.
+   * @param props.connectivityPollFrequency - Frequency at which to poll the
+   * cluster for connectivity information. Defaults to 5 seconds.
+   * @param props.secure - Whether to connect to the cluster using TLS. The cluster
+   * must be configured to support TLS. Defaults to false.
+   *
+   * A Synnax client must be closed when it is no longer needed. This will stop
+   * the client from polling the cluster for connectivity information.
    */
   constructor({
     host,

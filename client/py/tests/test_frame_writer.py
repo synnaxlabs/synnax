@@ -14,4 +14,3 @@ class TestNumpy:
             writer.commit()
         finally:
             writer.close()
-
