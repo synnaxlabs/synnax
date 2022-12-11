@@ -79,7 +79,7 @@ func start(cmd *cobra.Command) {
 		// Set up the tracing backend.
 		exp := configureObservability(verbose)
 
-		secProvider, err := configureSecurity(logger)
+		secProvider, err := configureSecurity(logger, insecure)
 		if err != nil {
 			return err
 		}
@@ -255,9 +255,10 @@ func configureObservability(verbose bool) alamos.Experiment {
 	return alamos.New(rootExperimentKey, opt)
 }
 
-func configureSecurity(logger *zap.Logger) (security.Provider, error) {
+func configureSecurity(logger *zap.Logger, insecure bool) (security.Provider, error) {
 	return security.NewProvider(security.ProviderConfig{
 		LoaderConfig: buildCertLoaderConfig(logger),
+		Insecure:     config.BoolPointer(insecure),
 	})
 }
 
