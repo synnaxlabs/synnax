@@ -9,7 +9,7 @@ test('URL - child', (t) => {
     protocol: 'http',
     pathPrefix: 'api',
   });
-  t.is(endpoint.child('test').stringify(), 'http://localhost:8080/api/test');
+  t.is(endpoint.child('test').toString(), 'http://localhost:8080/api/test');
 });
 
 test('URL - child with trailing slash', (t) => {
@@ -20,7 +20,7 @@ test('URL - child with trailing slash', (t) => {
     pathPrefix: 'api',
   });
   const child = endpoint.child('test/');
-  t.is(child.stringify(), 'http://localhost:8080/api/test');
+  t.is(child.toString(), 'http://localhost:8080/api/test');
 });
 
 test('URL - replacing protocol', (t) => {
@@ -31,7 +31,7 @@ test('URL - replacing protocol', (t) => {
     pathPrefix: 'api',
   });
   t.is(
-    endpoint.child('test').replace({ protocol: 'https' }).stringify(),
+    endpoint.child('test').replace({ protocol: 'https' }).toString(),
     'https://localhost:8080/api/test'
   );
 });

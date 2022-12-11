@@ -21,7 +21,6 @@ type SecureHTTPBranch struct {
 	// Transports is a list of transports that the Branch will serve.
 	Transports []fhttp.BindableTransport
 	// ContentTypes is a  list of content types that the Branch will serve.
-	ContentTypes []string
 	// internal is the underlying fiber.App instance used to serve requests.
 	internal *fiber.App
 }

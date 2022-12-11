@@ -4,7 +4,6 @@ import (
 	"context"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/security"
-	"github.com/synnaxlabs/x/httputil"
 	"google.golang.org/grpc/credentials"
 	insecureGRPC "google.golang.org/grpc/credentials/insecure"
 	"os"
@@ -218,10 +217,7 @@ func buildServerConfig(
 	logger *zap.Logger,
 ) (cfg server.Config) {
 	cfg.Branches = append(cfg.Branches,
-		&server.SecureHTTPBranch{
-			Transports:   httpTransports,
-			ContentTypes: httputil.SupportedContentTypes(),
-		},
+		&server.SecureHTTPBranch{Transports: httpTransports},
 		&server.GRPCBranch{Transports: grpcTransports},
 		server.NewHTTPRedirectBranch(),
 	)

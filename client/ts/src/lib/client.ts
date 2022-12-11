@@ -18,7 +18,7 @@ export const synnaxPropsSchema = z.object({
   username: z.string().optional(),
   password: z.string().optional(),
   connectivityPollFrequency: z.instanceof(TimeSpan).optional(),
-  secure: z.boolean().optional().default(false),
+  secure: z.boolean().default(false).optional(),
 });
 
 export type SynnaxProps = z.infer<typeof synnaxPropsSchema>;

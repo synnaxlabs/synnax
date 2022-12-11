@@ -140,7 +140,7 @@ CockroachDB uses one port for HTTP and a separate port gRPC and PGWire. The reas
 gRPC behaves differently than most HTTP clients: "where most clients wait for an acknowledgement
 from the server before sending headers, gRPC does not."
 
-# 6 - Design
+# 6 - The Ideal Solution
 
 ## 6.1 - HTTP/HTTPS/gRPC and mTLS over a Single Port
 
@@ -231,3 +231,19 @@ validate that the client was authenticated using mTLS.
 The solution is to create custom transport credentials that inspect the `tls.ConnectionState`
 of the connection handed over by the multiplexer. We can then pass this auth info to the
 middleware, and validate that the client was authenticated using mTLS.
+
+# 7 - The Unfortunate Reality
+
+## 7.1 - The Problem
+
+The fundamental problem with the above solution lies in the Synnax visualization UI, Delta.
+Delta uses [Tauri](https://tauri.app/) as its underlying runtime, which uses WebView2 on
+Windows and WebKit on MacOS and Linux. While both of these runtimes support TLS, they come
+with a preloaded set of root CAs and do not support turning off certificate verification.
+
+So we just use a public CA ([Let's Encrypt](https://letsencrypt.org/), right? Well, not
+quite. The problem with a CA
+
+
+
+

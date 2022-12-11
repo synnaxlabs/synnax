@@ -4,8 +4,10 @@ import (
 	"crypto"
 	"crypto/tls"
 	"crypto/x509"
+	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/x/config"
+	"os"
 )
 
 // TLSProvider provides the node's TLS configuration for services that require it.
@@ -70,7 +72,7 @@ func NewProvider(configs ...ProviderConfig) (Provider, error) {
 		return nil, err
 	}
 	cas, err := l.LoadCAs()
-	if err != nil {
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
 	s := &provider{loader: l, tls: c, certPool: x509.NewCertPool()}

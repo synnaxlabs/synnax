@@ -128,7 +128,7 @@ class WebSocketStream<RQ, RS> implements Stream<RQ, RS> {
   }
 
   private listenForMessages(): void {
-    this.ws.onmessage = (ev: MessageEvent) => {
+    this.ws.onmessage = (ev: MessageEvent<Uint8Array>) => {
       const msg = this.encoder.decode(ev.data, MessageSchema);
 
       if (this.receiveCallbacksQueue.length > 0) {
@@ -205,7 +205,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
       },
       prefix: FREIGHTER_METADATA_PREFIX,
     });
-    return this.baseUrl.child(target).stringify() + qs;
+    return this.baseUrl.child(target).toString() + qs;
   }
 
   private async wrapSocket<RQ, RS>(

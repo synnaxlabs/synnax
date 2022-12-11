@@ -55,7 +55,7 @@ export default class URL {
   }
 
   /** @returns a string representation of the url */
-  stringify(): string {
+  toString(): string {
     return removeTrailingSlash(
       `${this.protocol}://${this.host}:${this.port}/${this.path}`
     );

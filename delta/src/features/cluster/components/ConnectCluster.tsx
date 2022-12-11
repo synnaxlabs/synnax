@@ -39,6 +39,7 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps) => {
   const onSubmit = async (data: FieldValues) => {
     const name = data.name;
     delete data.name;
+    data.secure = true;
     const { clusterKey, state } = await testConnection(data as SynnaxProps);
     if (state.status !== Connectivity.Connected) return setConnState(state);
     dispatch(
@@ -56,7 +57,10 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps) => {
   const handleTestConnection = async () => {
     const ok = await trigger();
     if (!ok) return;
-    const { state } = await testConnection(getValues() as SynnaxProps);
+    const { state } = await testConnection({
+      ...(getValues() as SynnaxProps),
+      secure: true,
+    });
     setConnState(state);
   };
 
@@ -104,9 +108,6 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps) => {
                 helpText={errors.password?.message?.toString()}
                 {...register("password")}
               />
-              <Input.Item>
-                <Switch />
-              </Input.Item>
             </Space>
           </Space>
         </form>
