@@ -99,7 +99,7 @@ for these in the future.
 
 # 4 - Transport Protocols
 
-# 4.1 - HTTP
+# 4.0 - HTTP
 
 Synnax Server uses [Fiber](docs.gofiber.io) as its HTTP server. Fiber implements TLS
 encryption using the standard `*tls.Config` provided by the Go standard library, and accepts
@@ -111,7 +111,7 @@ used for enabling mutual TLS authentication. CA rotation is also supported by pr
 specifying a `VerifyConnection` handler along with a `VerifyPeerCertificate` handler for
 enabling mutual TLS authentication.
 
-# 4.2 - gRPC
+# 4.1 - gRPC
 
 The gRPC TLS implementation is more confusing that its HTTP counterpart. The gRPC server
 can be passed a `*tls.Config` through the options in its credentials package, but it also
@@ -120,13 +120,11 @@ provide a `net.Listener` that wraps a `*tls.Config`, or to provide a `*tls.Confi
 the gRPC server. From reading the gRPC source code, it seems like the former is the
 intended approach.
 
-
-
 # 5 - Existing Solutions
 
-# 5.1 - CockroachDB
+# 5.0 - CockroachDB
 
-# 5.1.0 - `cockroach cert`
+# 5.0.0 - `cockroach cert`
 
 CockroachDB provides a
 [command line tool](https://www.cockroachlabs.com/docs/stable/cockroach-cert.html) for
@@ -134,7 +132,7 @@ generating self-signed CAs, certificates, and keys, which can be used to easily 
 This is a great tool for getting started, and I'd love to incorporate something similar
 into Synnax.
 
-# 5.1.1 - A Tale of Two Ports
+# 5.0.1 - A Tale of Two Ports
 
 CockroachDB uses one port for HTTP and a separate port gRPC and PGWire. The reason is that
 gRPC behaves differently than most HTTP clients: "where most clients wait for an acknowledgement
@@ -142,14 +140,14 @@ from the server before sending headers, gRPC does not."
 
 # 6 - The Ideal Solution
 
-## 6.1 - HTTP/HTTPS/gRPC and mTLS over a Single Port
+## 6.0 - HTTP/HTTPS/gRPC and mTLS over a Single Port
 
 The initial design takes an unorthodox approach to securing HTTP, HTTPS, and gRPC over a
 single port, while incorporating mTLS _only_ for intra-cluster mTLS authentication. The design
 uses several layers of connection multiplexing along with a set of custom gRPC transport
 credentials and per-rpc middleware to achieve this.
 
-### 6.1.0 - Insecure Mode
+### 6.0.0 - Insecure Mode
 
 The server configuration in insecure mode is straightforward:
 
@@ -171,7 +169,7 @@ wonderful fork of [cmux](https://github.com/cockroachdb/cmux)), which matches ag
 It's then the GRPC and HTTP APIs responsibility to handle the request (including any
 authentication).
 
-### 6.1.1 - Secure Mode
+### 6.0.1 - Secure Mode
 
 The server configuration in secure mode is more complicated, and requires a two layer
 multiplex along with some creative custom middleware and transport credentials.
@@ -210,7 +208,7 @@ it's provided, but not require it. Then, our HTTP server can proceed as normal w
 mTLS. We now move the responsibility of validating that the certificate verification
 was performed to the gRPC server. This is a two-step process:
 
-### 6.1.2 - gRPC mTLS
+### 6.0.2 - gRPC mTLS
 
 Go's gRPC implementation allows a caller to inspect the underlying connections authentication
 info by using the `peer.FromContext` function. This function returns a `peer.Peer` struct
@@ -234,7 +232,7 @@ middleware, and validate that the client was authenticated using mTLS.
 
 # 7 - The Unfortunate Reality
 
-## 7.1 - The Problem
+## 7.0 - The Problem
 
 The fundamental problem with the above solution lies in the Synnax visualization UI, Delta.
 Delta uses [Tauri](https://tauri.app/) as its underlying runtime, which uses WebView2 on
@@ -242,9 +240,9 @@ Windows and WebKit on MacOS and Linux. While both of these runtimes support TLS,
 with a preloaded set of root CAs and do not support turning off certificate verification.
 
 So we just use a public CA like [Let's Encrypt](https://letsencrypt.org/) right? Well, not
-quite. Synnax nodes need to process RPCs from other nodes as well as issue RPCs to them.
-Certificates issued by a public CA are only signed for server side use, and cannot be used
-to authenticate a client. There are ways around this, but they are complex and we don't
+quite. Synnax nodes not only need to serve RPCs from other nodes but also __issue__ RPCs
+to them. Certificates issued by a public CA are only signed for server side use, and cannot
+be used to authenticate a client. There are ways around this, but they are complex and we don't
 want to force users to jump through hoops just to get started with a secure cluster.
 
 The other option is to install a self-signed CA on the user's machine. This is also not
@@ -258,13 +256,13 @@ So, in summary, we have a few options:
 1. Use a public CA to issue certificates for both server and client use, which means we
 can't use a self-signed CA OR authenticate peer RPCs using mTLS.
 
-2. Install a self-signed CA on the user's machine, which adds extra overhead ot our users
+2. Install a self-signed CA on the user's machine, which adds extra installation work
 and makes it more difficult to get started with a secure cluster.
 
 3. Switch to Electron, which requires quite a bit of work and results in a larger binary,
 slower startup time, and higher memory usage.
 
-## 7.2 - The Temporary Solution
+## 7.1 - The Temporary Solution
 
 There's an [issue](https://github.com/tauri-apps/tauri/issues/4039) tracking the need
 for ignoring certificate verification in Tauri. Until this is resolved, we'll use a
