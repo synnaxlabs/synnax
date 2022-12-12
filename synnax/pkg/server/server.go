@@ -109,7 +109,6 @@ func New(configs ...Config) (*Server, error) {
 // standard shutdown procedure).
 func (s *Server) Serve() (err error) {
 	s.Logger.Sugar().Debugw("starting server", s.Report().LogArgs()...)
-
 	sCtx, cancel := signal.Background(signal.WithLogger(s.Logger), signal.WithContextKey("server"))
 	s.wg = sCtx
 	defer cancel()
@@ -186,7 +185,7 @@ func (s *Server) startBranches(
 	for i, b := range branches {
 		listeners[i] = mux.Match(b.Routing().Matchers...)
 	}
-	bc := BranchContext{Security: s.Security, Debug: *s.Debug}
+	bc := s.baseBranchContext()
 	for i, b := range branches {
 		b, i := b, i
 		sCtx.Go(func(context.Context) error {
@@ -198,6 +197,7 @@ func (s *Server) startBranches(
 
 func (s *Server) baseBranchContext() BranchContext {
 	return BranchContext{
+		Debug:      *s.Debug,
 		Security:   s.Security,
 		ServerName: s.ListenAddress.HostString(),
 	}

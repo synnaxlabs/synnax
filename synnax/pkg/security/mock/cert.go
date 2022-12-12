@@ -14,8 +14,8 @@ const SmallKeySize = 512
 func GenerateCerts(fs xfs.FS) {
 	f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
 		LoaderConfig: cert.LoaderConfig{FS: fs},
-		KeySize:      SmallKeySize,
-		Hosts:        []address.Address{"synnaxlabs.com"},
+		KeySize:      1024,
+		Hosts:        []address.Address{"localhost:26260"},
 	}))
 	Expect(f.CreateCAPair()).To(Succeed())
 	Expect(f.CreateNodePair()).To(Succeed())
