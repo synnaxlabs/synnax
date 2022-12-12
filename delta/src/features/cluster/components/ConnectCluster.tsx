@@ -1,5 +1,5 @@
-import { Button, Header, Input, Nav, Space, Switch } from "@synnaxlabs/pluto";
-import { AiFillApi } from "react-icons/ai";
+import { Button, getLocation, Header, Input, Nav, Space } from "@synnaxlabs/pluto";
+import { AiFillApi, AiOutlineLoading3Quarters } from "react-icons/ai";
 import { FieldValues, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Connectivity, SynnaxProps, synnaxPropsSchema } from "@synnaxlabs/client";
@@ -57,10 +57,8 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps) => {
   const handleTestConnection = async () => {
     const ok = await trigger();
     if (!ok) return;
-    const { state } = await testConnection({
-      ...(getValues() as SynnaxProps),
-      secure: true,
-    });
+    console.log(getValues().secure);
+    const { state } = await testConnection(getValues() as SynnaxProps);
     setConnState(state);
   };
 
@@ -94,20 +92,24 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps) => {
                 {...register("port")}
               />
             </Space>
+            <Input.Item
+              label="Username"
+              placeholder="Harry"
+              helpText={errors.username?.message?.toString()}
+              {...register("username")}
+            />
             <Space direction="horizontal">
-              <Input.Item
-                label="Username"
-                placeholder="Harry"
-                helpText={errors.username?.message?.toString()}
-                {...register("username")}
-              />
               <Input.Item
                 label="Password"
                 placeholder="Seldon"
                 type="password"
                 helpText={errors.password?.message?.toString()}
+                className="connect-cluster__input__password"
                 {...register("password")}
               />
+              <Input.Item label="Secure" {...register("secure")}>
+                {Input.Switch}
+              </Input.Item>
             </Space>
           </Space>
         </form>

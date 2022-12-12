@@ -8,7 +8,7 @@ import "./Input.css";
 import clsx from "clsx";
 import { ComponentSize } from "@/util";
 
-interface BaseInputProps
+export interface BaseInputProps
   extends Omit<
     DetailedHTMLProps<InputHTMLAttributes<HTMLInputElement>, HTMLInputElement>,
     "size" | "ref"
@@ -25,7 +25,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
       <input
         ref={ref}
         placeholder={placeholder}
-        className={clsx("pluto-input__input", "pluto-input__input--" + size, className)}
+        className={clsx("pluto-input__input", "pluto-input--" + size, className)}
         {...props}
         value={value}
       />
