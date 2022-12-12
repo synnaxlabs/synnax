@@ -11,6 +11,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	securitymock "github.com/synnaxlabs/synnax/pkg/security/mock"
 	"github.com/synnaxlabs/synnax/pkg/user"
 	"go.uber.org/zap"
 )
@@ -34,7 +35,7 @@ func (b *Builder) NewConfig() api.Config {
 		Ontology:      dist.Ontology,
 		Storage:       dist.Storage,
 		User:          &user.Service{DB: dist.Storage.Gorpify(), Ontology: dist.Ontology},
-		Token:         &token.Service{Secret: key, Expiration: 10000 * time.Hour},
+		Token:         &token.Service{KeyProvider: securitymock.KeyProvider{Key: key}, Expiration: 10000 * time.Hour},
 		Authenticator: &auth.KV{DB: dist.Storage.Gorpify()},
 		Enforcer:      access.AllowAll{},
 		Cluster:       dist.Cluster,

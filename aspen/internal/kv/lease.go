@@ -119,7 +119,7 @@ func newLeaseReceiver(cfg Config) source {
 }
 
 func (lr *leaseReceiver) receive(ctx context.Context, br BatchRequest) (types.Nil, error) {
-	lr.Logger.Debugw("received leaseAlloc operation",
+	lr.Logger.Debugw("received lease operation",
 		"Leaseholder", br.Leaseholder,
 		"host", lr.Cluster.HostID(),
 		"size", br.size(),

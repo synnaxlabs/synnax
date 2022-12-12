@@ -12,7 +12,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-var _ = Describe("RetrieveEntity", Ordered, func() {
+var _ = Describe("retrieveEntity", Ordered, func() {
 	var (
 		db      *gorp.DB
 		kv      kv.DB

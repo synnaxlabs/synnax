@@ -12,8 +12,6 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// |||||| WRITER ||||||
-
 var (
 	_ fgrpc.Translator[writer.Request, *fv1.WriterRequest]       = (*writerRequestTranslator)(nil)
 	_ fgrpc.Translator[writer.Response, *fv1.WriterResponse]     = (*writerResponseTranslator)(nil)
@@ -23,6 +21,7 @@ var (
 
 type writerRequestTranslator struct{}
 
+// Backward implements the fgrpc.Translator interface.
 func (w writerRequestTranslator) Backward(req *fv1.WriterRequest) (writer.Request, error) {
 	keys, err := channel.ParseKeys(req.Config.Keys)
 	return writer.Request{
@@ -35,6 +34,7 @@ func (w writerRequestTranslator) Backward(req *fv1.WriterRequest) (writer.Reques
 	}, err
 }
 
+// Forward implements the fgrpc.Translator interface.
 func (w writerRequestTranslator) Forward(req writer.Request) (*fv1.WriterRequest, error) {
 	return &fv1.WriterRequest{
 		Command: int32(req.Command),
@@ -48,6 +48,7 @@ func (w writerRequestTranslator) Forward(req writer.Request) (*fv1.WriterRequest
 
 type writerResponseTranslator struct{}
 
+// Backward implements the fgrpc.Translator interface.
 func (w writerResponseTranslator) Backward(res *fv1.WriterResponse) (writer.Response, error) {
 	return writer.Response{
 		Command: writer.Command(res.Command),
@@ -57,6 +58,7 @@ func (w writerResponseTranslator) Backward(res *fv1.WriterResponse) (writer.Resp
 	}, nil
 }
 
+// Forward implements the fgrpc.Translator interface.
 func (w writerResponseTranslator) Forward(res writer.Response) (*fv1.WriterResponse, error) {
 	return &fv1.WriterResponse{
 		Command: int32(res.Command),
@@ -66,10 +68,9 @@ func (w writerResponseTranslator) Forward(res writer.Response) (*fv1.WriterRespo
 	}, nil
 }
 
-// |||||| ITERATOR ||||||
-
 type iteratorRequestTranslator struct{}
 
+// Backward implements the fgrpc.Translator interface.
 func (w iteratorRequestTranslator) Backward(req *fv1.IteratorRequest) (iterator.Request, error) {
 	keys, err := channel.ParseKeys(req.Keys)
 	return iterator.Request{
@@ -84,6 +85,7 @@ func (w iteratorRequestTranslator) Backward(req *fv1.IteratorRequest) (iterator.
 	}, err
 }
 
+// Forward implements the fgrpc.Translator interface.
 func (w iteratorRequestTranslator) Forward(req iterator.Request) (*fv1.IteratorRequest, error) {
 	return &fv1.IteratorRequest{
 		Command: int32(req.Command),
@@ -99,6 +101,7 @@ func (w iteratorRequestTranslator) Forward(req iterator.Request) (*fv1.IteratorR
 
 type iteratorResponseTranslator struct{}
 
+// Backward implements the fgrpc.Translator interface.
 func (w iteratorResponseTranslator) Backward(res *fv1.IteratorResponse) (iterator.Response, error) {
 	return iterator.Response{
 		Variant: iterator.ResponseVariant(res.Variant),
@@ -111,6 +114,7 @@ func (w iteratorResponseTranslator) Backward(res *fv1.IteratorResponse) (iterato
 	}, nil
 }
 
+// Forward implements the fgrpc.Translator interface.
 func (w iteratorResponseTranslator) Forward(res iterator.Response) (*fv1.IteratorResponse, error) {
 	return &fv1.IteratorResponse{
 		Variant: int32(res.Variant),

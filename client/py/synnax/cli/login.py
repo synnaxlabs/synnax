@@ -23,4 +23,3 @@ def login():
 
 def credentials():
     """Prints the credentials of the currently logged in cluster."""
-

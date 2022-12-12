@@ -7,7 +7,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 )
 
-var _ = Describe("RetrieveEntity", func() {
+var _ = Describe("retrieveEntity", func() {
 	var w ontology.Writer
 	BeforeEach(func() { w = otg.NewWriterUsingTxn(txn) })
 	Describe("Single Clause", func() {

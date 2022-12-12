@@ -21,15 +21,19 @@ type server = fgrpc.UnaryServer[
 	*channelv1.CreateMessage,
 ]
 
+// Transport is a grpc backed implementation of the channel.Transport interface.
 type Transport struct {
 	client *client
 	server *server
 }
 
+// CreateClient implements the channel.Transport interface.
 func (t Transport) CreateClient() channel.CreateTransportClient { return t.client }
 
+// CreateServer implements the channel.Transport interface.
 func (t Transport) CreateServer() channel.CreateTransportServer { return t.server }
 
+// BindTo implements the fgrpc.BindableTransport interface.
 func (t Transport) BindTo(reg grpc.ServiceRegistrar) { t.server.BindTo(reg) }
 
 var (
@@ -40,6 +44,7 @@ var (
 	_ fgrpc.BindableTransport        = (*Transport)(nil)
 )
 
+// New creates a new grpc Transport that opens connections from the given pool.
 func New(pool *fgrpc.Pool) Transport {
 	c := &client{
 		Pool:               pool,

@@ -26,10 +26,11 @@ def prompt_client_options(ctx: Context) -> SynnaxOptions:
     """
     ctx.console.info("Enter your Synnax connection parameters:")
     params = dict()
-    params['host'] = ctx.console.ask("Host", default="localhost")
-    params['port'] = ctx.console.ask_int("Port", default=9090)
-    params['username'] = ctx.console.ask("Username", default="synnax")
-    params['password'] = ctx.console.ask_password("Password")
+    params["host"] = ctx.console.ask("Host", default="localhost")
+    params["port"] = ctx.console.ask_int("Port", default=9090)
+    params["username"] = ctx.console.ask("Username", default="synnax")
+    params["password"] = ctx.console.ask_password("Password")
+    params["secure"] = ctx.console.confirm("Secure connection?", default=False)
     return SynnaxOptions(**params)
 
 

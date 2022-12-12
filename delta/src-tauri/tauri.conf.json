@@ -8,11 +8,13 @@
   },
   "package": {
     "productName": "Synnax",
-    "version": "0.2.1"
+    "version": "0.2.2"
   },
   "tauri": {
     "macOSPrivateApi": true,
-    "allowlist": {},
+    "allowlist": {
+      "all": true
+    },
     "bundle": {
       "active": true,
       "category": "DeveloperTool",
@@ -55,7 +57,7 @@
         "https://raw.githubusercontent.com/synnaxlabs/synnax/main/delta/release-spec.json"
       ],
       "dialog": true,
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEIzNzRCODgxRjYyQ0UwRDYKUldUVzRDejJnYmgwcy90b1VFaldkYmZsN3ZBdmRQSFZmUFN4dmZYU29UdTBUUHpJYmI0Sm9ES3oK"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEM4NDVGQTU1RTMxN0M3MjAKUldRZ3h4ZmpWZnBGeUpLeHNMdlE0aGNUcHZrU3M0REpxMGtJdmN2ZGs0OVBUQ0Nrb3Z5SFdacjEK"
     },
     "windows": [
       {

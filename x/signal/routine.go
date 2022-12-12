@@ -7,7 +7,7 @@ import (
 	"strconv"
 )
 
-type RoutineOption func(r *routine)
+type RoutineOption func(r *routineOptions)
 
 type RoutineInfo struct {
 	// Key is a unique identifier for the routine within the parent context.
@@ -45,16 +45,17 @@ const (
 
 // Defer attaches the provided function f to the routine. The function will be
 // executed on routine exit in LIFO style.
-func Defer(f func()) RoutineOption {
-	return func(r *routine) {
-		r.deferals = append(r.deferals, deferal{key: "", f: f})
+func Defer(f func(), opts ...RoutineOption) RoutineOption {
+	o := newRoutineOptions(opts)
+	return func(r *routineOptions) {
+		r.deferals = append(r.deferals, deferal{key: o.key, f: f})
 	}
 }
 
-func WithKey(key string) RoutineOption { return func(r *routine) { r.key = key } }
+func WithKey(key string) RoutineOption { return func(r *routineOptions) { r.key = key } }
 
 func WithKeyf(format string, args ...interface{}) RoutineOption {
-	return func(r *routine) {
+	return func(r *routineOptions) {
 		r.key = fmt.Sprintf(format, args...)
 	}
 }
@@ -68,7 +69,7 @@ type deferal struct {
 // The default is false. If CancelOnExit or CancelOnExitErr has already been
 // set, CancelOnExit will panic.
 func CancelOnExit() RoutineOption {
-	return func(r *routine) {
+	return func(r *routineOptions) {
 		if r.contextPolicy.cancelOnExit || r.contextPolicy.cancelOnExitErr {
 			panic("[signal] - cannot set cancelOnExit or cancelOnExitErr twice")
 		}
@@ -80,7 +81,7 @@ func CancelOnExit() RoutineOption {
 // with a non-nil error. The default is false. If CancelOnExit or
 // CancelOnExitErr has already been set, CancelOnExitErr will panic.
 func CancelOnExitErr() RoutineOption {
-	return func(r *routine) {
+	return func(r *routineOptions) {
 		if r.contextPolicy.cancelOnExit || r.contextPolicy.cancelOnExitErr {
 			panic("[signal] - cannot set cancelOnExit or cancelOnExitErr twice")
 		}
@@ -88,8 +89,7 @@ func CancelOnExitErr() RoutineOption {
 	}
 }
 
-type routine struct {
-	ctx *core
+type routineOptions struct {
 	// key is a unique identifier for the routine. signal will panic if more
 	// than one routine is started with the same key. If no key is provided
 	// signal will automatically generate a unique key.
@@ -103,6 +103,11 @@ type routine struct {
 		cancelOnExit    bool
 		cancelOnExitErr bool
 	}
+}
+
+type routine struct {
+	ctx *core
+	routineOptions
 	// state represents the current state of the routine
 	state struct {
 		state RoutineState
@@ -196,19 +201,22 @@ func (r *routine) maybeRecover() {
 }
 
 func (r *routine) diagnosticArgs() []interface{} {
-	deferalKeys := make([]string, len(r.deferals))
-	for i, def := range r.deferals {
-		deferalKeys[i] = def.key
-	}
-
-	return []interface{}{
+	opts := []interface{}{
 		"key",
 		r.key,
-		"deferals",
-		deferalKeys,
 		"state",
 		r.state.state,
 	}
+	deferalKeys := make([]string, len(r.deferals))
+	for i, def := range r.deferals {
+		if def.key != "" {
+			deferalKeys[i] = def.key
+		}
+	}
+	if len(deferalKeys) > 0 {
+		opts = append(opts, "deferals", deferalKeys)
+	}
+	return opts
 }
 
 func (r *routine) goRun(f func(context.Context) error) {
@@ -232,12 +240,15 @@ func (r *routine) goRun(f func(context.Context) error) {
 }
 
 func newRoutine(c *core, opts []RoutineOption) *routine {
-	r := &routine{ctx: c}
-	for _, opt := range opts {
-		opt(r)
-	}
+	return &routine{ctx: c, routineOptions: newRoutineOptions(opts)}
+}
 
-	return r
+func newRoutineOptions(opts []RoutineOption) routineOptions {
+	o := routineOptions{}
+	for _, opt := range opts {
+		opt(&o)
+	}
+	return o
 }
 
 const routineFailedFormat = `

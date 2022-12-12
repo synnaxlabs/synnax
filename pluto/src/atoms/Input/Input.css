@@ -10,14 +10,14 @@
   color: var(--pluto-gray-m0);
 }
 
-.pluto-input__input--medium {
+.pluto-input--medium {
   height: 4.5rem;
   font-size: var(--pluto-p-size);
   font-weight: var(--pluto-p-weight);
   line-height: var(--pluto-p-line-height);
 }
 
-.pluto-input__input--small {
+.pluto-input--small {
   height: 4rem;
   font-size: var(--pluto-small-size);
   font-weight: var(--pluto-small-font-weight);

@@ -29,14 +29,17 @@ class ChannelCreator:
         index: str = "",
         is_index: bool = False,
     ) -> ChannelPayload:
-        return self.create_many([ChannelPayload(
-            data_type=data_type,
-            name=name,
-            node_id=node_id,
-            rate=rate,
-            index=index,
-            is_index=is_index,
-        )]
+        return self.create_many(
+            [
+                ChannelPayload(
+                    data_type=data_type,
+                    name=name,
+                    node_id=node_id,
+                    rate=rate,
+                    index=index,
+                    is_index=is_index,
+                )
+            ]
         )[0]
 
     def create_many(self, channels: list[ChannelPayload]) -> list[ChannelPayload]:

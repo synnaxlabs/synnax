@@ -126,20 +126,23 @@ class WebsocketClient(AsyncMiddlewareCollector):
     _encoder: EncoderDecoder
     _max_message_size: int
     _socket: WebsocketStream[RQ, RS] | None
+    _secure: bool = False
 
     def __init__(
             self,
             encoder: EncoderDecoder,
             base_url: URL,
             max_message_size: int = DEFAULT_MAX_SIZE,
+            secure: bool = False,
     ) -> None:
         super(WebsocketClient, self).__init__()
         self._encoder = encoder
-        self._endpoint = base_url.replace(protocol="ws")
+        self._secure = secure
+        self._endpoint = base_url.replace(protocol="ws" if not secure else "wss")
         self._max_message_size = max_message_size
 
     async def stream(
-            self, target: str, req_type: Type[RQ], res_type: Type[RS]
+            self, target: str, req_type: Type[RQ], res_type: Type[RS],
     ) -> AsyncStream[RQ, RS]:
         """Implements the AsyncStreamClient protocol."""
 
@@ -163,8 +166,5 @@ class WebsocketClient(AsyncMiddlewareCollector):
         if exc is not None:
             raise exc
 
-        try:
-            return self._socket
-        finally:
-            self._socket = None
+        return self._socket
 

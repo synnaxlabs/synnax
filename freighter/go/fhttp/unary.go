@@ -3,6 +3,7 @@ package fhttp
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"net/http"
 	"strings"
 
@@ -119,7 +120,11 @@ func parseQueryParams[V any](c *fiber.Ctx, v *V) error {
 }
 
 func parseRequestMD(c *fiber.Ctx, target address.Address) freighter.MD {
-	md := freighter.MD{Protocol: unaryReporter.Protocol, Target: target}
+	md := freighter.MD{
+		Protocol: unaryReporter.Protocol,
+		Target:   target,
+		Sec:      parseSecurityInfo(c),
+	}
 	headers := c.GetReqHeaders()
 	md.Params = make(freighter.Params, len(headers))
 	for k, v := range c.GetReqHeaders() {
@@ -131,6 +136,14 @@ func parseRequestMD(c *fiber.Ctx, target address.Address) freighter.MD {
 		}
 	}
 	return md
+}
+
+func parseSecurityInfo(c *fiber.Ctx) (info freighter.SecurityInfo) {
+	if c.Context().IsTLS() {
+		info.TLS.Used = true
+		info.TLS.ConnectionState = c.Context().Conn().(*tls.Conn).ConnectionState()
+	}
+	return info
 }
 
 func setRequestMD(c *http.Request, md freighter.MD) {

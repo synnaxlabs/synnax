@@ -2,9 +2,16 @@ package schema
 
 import "github.com/google/uuid"
 
+// Field represents a dynamically typed field in a Schema.
+type Field struct {
+	Type FieldType `json:"type" msgpack:"type"`
+}
+
+// FieldType represents the type of a Field in a Schema.
 type FieldType uint8
 
-func (f FieldType) AssertValue(v interface{}) bool {
+// AssertValue asserts that the provided value is of the specified type.
+func (f FieldType) AssertValue(v any) bool {
 	switch f {
 	case String:
 		return assertValueType[string](v)
@@ -73,8 +80,4 @@ type Value interface {
 		uuid.UUID
 }
 
-func assertValueType[V Value](v interface{}) bool { _, ok := v.(V); return ok }
-
-type Field struct {
-	Type FieldType `json:"type" msgpack:"type"`
-}
+func assertValueType[V Value](v any) bool { _, ok := v.(V); return ok }

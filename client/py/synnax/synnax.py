@@ -13,12 +13,13 @@ from .transport import Transport
 
 
 class SynnaxOptions(BaseModel):
-    """Options class for the Synnax client.
-    """
+    """Options class for the Synnax client."""
+
     host: str
     port: int
     username: str = ""
     password: str = ""
+    secure: bool = False
 
 
 class Synnax:
@@ -44,8 +45,9 @@ class Synnax:
         port: int = 0,
         username: str = "",
         password: str = "",
+        secure: bool = False,
     ):
-        self._transport = Transport(URL(host=host, port=port))
+        self._transport = Transport(URL(host=host, port=port), secure)
         if username != "" or password != "":
             auth = AuthenticationClient(
                 self._transport.http.post_client(), username, password

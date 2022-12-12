@@ -2,7 +2,6 @@ package fgrpc
 
 import (
 	"context"
-
 	roacherrors "github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"

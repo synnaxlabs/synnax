@@ -82,7 +82,7 @@ func (c clusterGossipTranslator) Backward(tMsg *aspenv1.ClusterGossip) (gossip.M
 type batchTranslator struct{}
 
 func (bt batchTranslator) Forward(msg kv.BatchRequest) (*aspenv1.BatchRequest, error) {
-	tMsg := &aspenv1.BatchRequest{Sender: uint32(msg.Sender)}
+	tMsg := &aspenv1.BatchRequest{Sender: uint32(msg.Sender), Leaseholder: uint32(msg.Leaseholder)}
 	for _, o := range msg.Operations {
 		tMsg.Operations = append(tMsg.Operations, translateOpForward(o))
 	}
@@ -91,8 +91,9 @@ func (bt batchTranslator) Forward(msg kv.BatchRequest) (*aspenv1.BatchRequest, e
 
 func (bt batchTranslator) Backward(tMsg *aspenv1.BatchRequest) (kv.BatchRequest, error) {
 	msg := kv.BatchRequest{
-		Sender:     node.ID(tMsg.Sender),
-		Operations: make([]kv.Operation, len(tMsg.Operations)),
+		Sender:      node.ID(tMsg.Sender),
+		Leaseholder: node.ID(tMsg.Leaseholder),
+		Operations:  make([]kv.Operation, len(tMsg.Operations)),
 	}
 	for i, o := range tMsg.Operations {
 		msg.Operations[i] = translateOpBackward(o)

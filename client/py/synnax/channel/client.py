@@ -17,8 +17,7 @@ from .retrieve import ChannelRetriever
 
 
 class Channel(ChannelPayload):
-    """Represents a Channel in a Synnax database.
-    """
+    """Represents a Channel in a Synnax database."""
 
     segment_client: FramerClient | None = None
 
@@ -82,7 +81,9 @@ class Channel(ChannelPayload):
 
     def _assert_created(self):
         if not self.segment_client:
-            raise ValidationError("cannot read from a channel that has not been created")
+            raise ValidationError(
+                "cannot read from a channel that has not been created"
+            )
 
     def __hash__(self):
         return hash(self.key)
@@ -109,8 +110,7 @@ class ChannelClient:
         self._creator = creator
 
     def create_many(self, channels: list[Channel]) -> list[Channel]:
-        """Creates all channels in the given list.
-        """
+        """Creates all channels in the given list."""
         return self._sugar(*self._creator.create_many([c._payload() for c in channels]))
 
     def create(
@@ -132,7 +132,16 @@ class ChannelClient:
         what this is, don't worry about it.
         :returns: The created channel.
         """
-        return self._sugar(self._creator.create(name=name, node_id=node_id, rate=rate, data_type=data_type, index=index, is_index=is_index))[0]
+        return self._sugar(
+            self._creator.create(
+                name=name,
+                node_id=node_id,
+                rate=rate,
+                data_type=data_type,
+                index=index,
+                is_index=is_index,
+            )
+        )[0]
 
     def retrieve(self, key: str = None, name: str = None) -> Channel:
         """Retrieves channels with the given keys.
@@ -157,4 +166,6 @@ class ChannelClient:
         return self._sugar(*self._retriever.filter(keys, names, node_id))
 
     def _sugar(self, *channels: ChannelPayload) -> list[Channel]:
-        return [Channel(**c.dict(), segment_client=self._segment_client) for c in channels]
+        return [
+            Channel(**c.dict(), segment_client=self._segment_client) for c in channels
+        ]

@@ -2,8 +2,7 @@ from typing import Protocol
 
 
 class Prompt(Protocol):
-    """A protocol class for an entity that can prompt the user for input.
-    """
+    """A protocol class for an entity that can prompt the user for input."""
 
     def ask(
         self,
@@ -54,8 +53,7 @@ class Prompt(Protocol):
         self,
         question: str,
     ) -> str:
-        """Prompts the user for a password and returns their response.
-        """
+        """Prompts the user for a password and returns their response."""
         ...
 
     def confirm(
@@ -74,8 +72,7 @@ class Prompt(Protocol):
 
 
 class Print(Protocol):
-    """A protocol class for an entity that can print messages to the console.
-    """
+    """A protocol class for an entity that can print messages to the console."""
 
     def info(
         self,
@@ -135,4 +132,5 @@ class Console(Prompt, Print):
     """A protocol class for an entity that can print messages to the console and prompt
     the user for input.
     """
+
     ...

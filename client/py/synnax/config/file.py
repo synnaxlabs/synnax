@@ -5,8 +5,8 @@ CONFIG_DIR_NAME = "./synnax"
 
 
 class ConfigFile:
-    """The global synnax client configuration file.
-    """
+    """The global synnax client configuration file."""
+
     file: pathlib.Path
     config: dict
 
@@ -29,8 +29,7 @@ class ConfigFile:
             self.config = json.load(f)
 
     def save(self):
-        """Saves the config file to disk.
-        """
+        """Saves the config file to disk."""
         self.config_file.parent.mkdir(
             parents=True,
             exist_ok=True,
@@ -39,19 +38,16 @@ class ConfigFile:
             json.dump(self.config, f)
 
     def get(self, key):
-        """Gets a value from the config file.
-        """
+        """Gets a value from the config file."""
         return get_nested(self.config, key)
 
     def set(self, key, value):
-        """Sets a value in the config file.
-        """
+        """Sets a value in the config file."""
         set_nested(self.config, key, value)
         self.save()
 
     def delete(self, key):
-        """Deletes a value from the config file.
-        """
+        """Deletes a value from the config file."""
         del self.config[key]
         self.save()
 

@@ -64,25 +64,38 @@ type API struct {
 	Ontology     *OntologyService
 }
 
+// BindTo binds the API to the provided Transport implementation.
 func (a *API) BindTo(t Transport) {
-	err := errors.Middleware()
-	logger := logMiddleware(a.provider.Logging.logger)
-	tk := tokenMiddleware(a.provider.auth.token)
-	middleware := []freighter.Middleware{logger, err}
+	var (
+		err                = errors.Middleware()
+		logger             = logMiddleware(a.provider.Logging.logger)
+		tk                 = tokenMiddleware(a.provider.auth.token)
+		insecureMiddleware = []freighter.Middleware{logger, err}
+		secureMiddleware   []freighter.Middleware
+	)
+	copy(secureMiddleware, insecureMiddleware)
 	if !a.config.Insecure {
-		middleware = append(middleware, tk)
+		secureMiddleware = append(secureMiddleware, tk)
 	}
 
-	t.AuthRegistration.Use(logger, err)
-	t.AuthLogin.Use(logger, err)
-	t.AuthChangeUsername.Use(middleware...)
-	t.AuthChangePassword.Use(middleware...)
-	t.ChannelCreate.Use(middleware...)
-	t.ChannelRetrieve.Use(middleware...)
-	t.ConnectivityCheck.Use(middleware...)
-	t.FrameWriter.Use(middleware...)
-	t.FrameReader.Use(middleware...)
-	t.OntologyRetrieve.Use(middleware...)
+	freighter.UseOnAll(
+		insecureMiddleware,
+		t.AuthRegistration,
+		t.AuthLogin,
+	)
+
+	freighter.UseOnAll(
+		secureMiddleware,
+		t.AuthChangeUsername,
+		t.AuthChangePassword,
+		t.ChannelCreate,
+		t.ChannelRetrieve,
+		t.ConnectivityCheck,
+		t.FrameWriter,
+		t.FrameReader,
+		t.ConnectivityCheck,
+		t.OntologyRetrieve,
+	)
 
 	t.AuthLogin.BindHandler(typedUnaryWrapper(a.Auth.Login))
 	t.AuthChangeUsername.BindHandler(noResponseWrapper(a.Auth.ChangeUsername))

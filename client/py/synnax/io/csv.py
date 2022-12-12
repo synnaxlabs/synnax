@@ -10,19 +10,20 @@ CSVMatcher = new_extension_matcher(["csv"])
 
 
 class CSVReader(CSVMatcher):
-    """A RowReader implementation for CSV files.
-    """
+    """A RowReader implementation for CSV files."""
+
     reader: TextFileReader
     _path: Path
     _channels: list[ChannelMeta] | None
     _row_count: int | None
     channel_keys: list[str] | None
 
-    def __init__(self,
-                 path: Path,
-                 channel_keys: list[str] = None,
-                 chunk_size: int = None,
-                 ):
+    def __init__(
+        self,
+        path: Path,
+        channel_keys: list[str] = None,
+        chunk_size: int = None,
+    ):
         self._path = path
         self.channel_keys = channel_keys
         self._channels = None
@@ -30,8 +31,10 @@ class CSVReader(CSVMatcher):
 
     def channels(self) -> list[ChannelMeta]:
         if not self._channels:
-            self._channels = [ChannelMeta(name=name, meta_data={}) for name in
-                              pd.read_csv(self._path, nrows=0).columns]
+            self._channels = [
+                ChannelMeta(name=name, meta_data={})
+                for name in pd.read_csv(self._path, nrows=0).columns
+            ]
         return self._channels
 
     def set_chunk_size(self, chunk_size: int):
@@ -58,8 +61,7 @@ class CSVReader(CSVMatcher):
 
 
 def estimate_row_count(path: Path) -> int:
-    """Estimates the number of rows in a CSV file.
-    """
+    """Estimates the number of rows in a CSV file."""
     with open(path, "r") as f:
         f.readline()
         row = f.readline()
@@ -70,8 +72,8 @@ def estimate_row_count(path: Path) -> int:
 
 
 class CSVWriter(CSVMatcher):
-    """A Writer implementation for CSV files.
-    """
+    """A Writer implementation for CSV files."""
+
     _path: Path
     _header: bool
 
@@ -83,7 +85,7 @@ class CSVWriter(CSVMatcher):
         self._header = True
 
     def write(self, df: pd.DataFrame):
-        df.to_csv(self._path, index=False, mode='a', header=self._header)
+        df.to_csv(self._path, index=False, mode="a", header=self._header)
         self._header = False
 
     def path(self) -> Path:

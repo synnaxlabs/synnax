@@ -45,7 +45,7 @@ and running.
 To start a single node, run the following command:
 
 ```bash
-docker run -p 8080:8080 synnaxlabs/synnax --listen-address=localhost:8080 --mem --insecure
+docker run -p 8080:8080 synnaxlabs/synnax --listen=localhost:8080 --mem --insecure
 ```
 
 This will pull the latest version of Synnax from docker hub and start a single node
@@ -54,7 +54,7 @@ with the following parameters:
 `-p 8080:8080` - This maps the port 8080 on your local machine to the port 8080 on the
 docker container. This allows you to access the synnax node from your local machine.
 
-`--listen-address=localhost:8080` - This tells synnax to listen on port 8080 for incoming
+`--listen=localhost:8080` - This tells synnax to listen on port 8080 for incoming
 connections. This is also the address that other nodes will use to connect when starting
 a multi-node cluster.
 

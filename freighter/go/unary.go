@@ -5,7 +5,8 @@ import (
 	"github.com/synnaxlabs/x/address"
 )
 
-// UnaryClient is the client side interface of the Unary transport.
+// UnaryClient is the client side interface of a transport that executes a single
+// request-response cycle against a server.
 type UnaryClient[RQ, RS Payload] interface {
 	Transport
 	// Send sends a request to the target server using the given context. The context
@@ -14,6 +15,8 @@ type UnaryClient[RQ, RS Payload] interface {
 	Send(ctx context.Context, target address.Address, req RQ) (res RS, err error)
 }
 
+// UnaryServer is the server side interface of a transport that executes a single
+// request-response cycle against a client.
 type UnaryServer[RQ, RS Payload] interface {
 	Transport
 	// BindHandler binds a handle that processes a request from a client. The server

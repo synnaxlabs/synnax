@@ -2,8 +2,10 @@ package cmd
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/rsa"
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/security"
+	"google.golang.org/grpc/credentials"
+	insecureGRPC "google.golang.org/grpc/credentials/insecure"
 	"os"
 	"os/signal"
 	"time"
@@ -31,188 +33,144 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 // startCmd represents the start command
 var startCmd = &cobra.Command{
 	Use:   "start",
-	Short: "",
-	Long:  ``,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		logger, err := configureLogging()
+	Short: "Starts a Synnax Node",
+	Long: `
+Starts a Synnax Node using the data directory specified by the --data flag,
+and listening on the address specified by the --listen flag. If --peers
+is specified and no existing data is found, the node will attempt to join the cluster
+formed by its peers.
+	`,
+	Example: `synnax start --listen [host:port] --data /mnt/ssd1 --peers [host:port],[host:port] --insecure`,
+	Args:    cobra.NoArgs,
+	Run:     func(cmd *cobra.Command, _ []string) { start(cmd) },
+}
+
+// start a Synnax node using the configuration specified by the command line flags,
+// environment variables, and configuration files.
+func start(cmd *cobra.Command) {
+	var (
+		insecure = viper.GetBool("insecure")
+		verbose  = viper.GetBool("verbose")
+	)
+
+	logger, err := configureLogging(verbose)
+	if err != nil {
+		zap.S().Fatal(err)
+	}
+
+	interruptC := make(chan os.Signal, 1)
+	signal.Notify(interruptC, os.Interrupt)
+
+	// Any data stored on the node is considered sensitive, so we need to set the
+	// permission mask for all files appropriately.
+	disablePermissionBits()
+
+	sCtx, cancel := xsignal.WithCancel(cmd.Context(), xsignal.WithLogger(logger))
+	defer cancel()
+
+	// Perform the rest of the startup within a separate goroutine so we can properly
+	// handle signal interrupts.
+	sCtx.Go(func(ctx context.Context) error {
+		// Set up the tracing backend.
+		exp := configureObservability(verbose)
+
+		secProvider, err := configureSecurity(logger, insecure)
 		if err != nil {
 			return err
 		}
 
-		sigC := make(chan os.Signal, 1)
-		signal.Notify(sigC, os.Interrupt)
+		// An array to hold the grpcTransports we use for cluster internal communication.
+		grpcTransports := &[]fgrpc.BindableTransport{}
 
-		// any data store on the node is considered sensitive, so we need to set the
-		// permission mask for all files appropriately.
-		disablePermissionBits()
+		grpcPool := configureClientGRPC(secProvider, insecure)
 
-		sCtx, cancel := xsignal.WithCancel(cmd.Context(), xsignal.WithLogger(logger))
-		defer cancel()
+		// Open the distribution layer.
+		storageCfg := buildStorageConfig(exp, logger)
+		distConfig, err := buildDistributionConfig(
+			grpcPool,
+			exp,
+			logger,
+			storageCfg,
+			grpcTransports,
+		)
+		dist, err := distribution.Open(ctx, distConfig)
+		if err != nil {
+			return err
+		}
+		defer func() { err = dist.Close() }()
 
-		// Perform the rest of the startup within a separate goroutine
-		// we can properly handle signal interrupts.
-		sCtx.Go(func(ctx context.Context) (err error) {
-			// SetState up the tracing backend.
-			exp := configureObservability()
+		// Set up our high level services.
+		gorpDB := dist.Storage.Gorpify()
+		userSvc := &user.Service{DB: gorpDB, Ontology: dist.Ontology}
+		tokenSvc := &token.Service{KeyProvider: secProvider, Expiration: 15 * time.Minute}
+		authenticator := &auth.KV{DB: gorpDB}
 
-			// An array to hold the transports we use for cluster internal communication.
-			transports := &[]fgrpc.BindableTransport{}
-
-			// SetState up a pool so we can load balance RPC connections.
-			pool := fgrpc.NewPool(grpc.WithTransportCredentials(insecure.NewCredentials()))
-
-			// AcquireSearcher the distribution layer.
-			storageCfg := newStorageConfig(exp, logger)
-			distConfig, err := newDistributionConfig(
-				pool,
-				exp,
-				logger,
-				storageCfg,
-				transports,
-			)
-			dist, err := distribution.Open(ctx, distConfig)
-			if err != nil {
-				return err
-			}
-			defer func() { err = dist.Close() }()
-
-			// Set up our high level services.
-			gorpDB := dist.Storage.Gorpify()
-			userSvc := &user.Service{DB: gorpDB, Ontology: dist.Ontology}
-			rsaKey, err := rsa.GenerateKey(rand.Reader, 1024)
-			tokenSvc := &token.Service{Secret: rsaKey, Expiration: 15 * time.Minute}
-			authenticator := &auth.KV{DB: gorpDB}
-
-			// Provision the root user.
-			if err := maybeProvisionRootUser(gorpDB, authenticator, userSvc); err != nil {
-				return err
-			}
-
-			// Configure the core API.
-			_api := api.New(api.Config{
-				Logger:        logger,
-				Channel:       dist.Channel,
-				Framer:        dist.Framer,
-				Storage:       dist.Storage,
-				User:          userSvc,
-				Token:         tokenSvc,
-				Authenticator: authenticator,
-				Enforcer:      access.AllowAll{},
-				Insecure:      viper.GetBool("insecure"),
-				Cluster:       dist.Cluster,
-				Ontology:      dist.Ontology,
-			})
-
-			// Configure the HTTP API Transport.
-			r := fhttp.NewRouter(fhttp.RouterConfig{Logger: logger.Sugar()})
-			httpAPITransport := httpapi.New(r)
-			_api.BindTo(httpAPITransport)
-
-			// Configure our servers.
-			grpcBranch := &server.GRPCBranch{Transports: *transports}
-			httpBranch := &server.HTTPBranch{Transports: []fhttp.BindableTransport{r}}
-			serverCfg := server.Config{
-				ListenAddress: address.Address(viper.GetString("listen-address")),
-				Logger:        logger.Named("server"),
-				Branches:      []server.Branch{httpBranch, grpcBranch},
-			}
-			srv := server.New(serverCfg)
-			sCtx.Go(srv.Start, xsignal.WithKey("server"))
-			defer func() { err = errors.CombineErrors(err, srv.Stop()) }()
-			<-ctx.Done()
-			return nil
-		}, xsignal.WithKey("start"))
-
-		select {
-		case <-sigC:
-			logger.Info("received interrupt signal, shutting down")
-			cancel()
-		case <-sCtx.Stopped():
+		// Provision the root user.
+		if err := maybeProvisionRootUser(gorpDB, authenticator, userSvc); err != nil {
+			return err
 		}
 
-		if err := sCtx.Wait(); err != nil && err != context.Canceled {
-			logger.Sugar().Fatalw("server exited with error", "error", err)
+		// Configure the API core.
+		_api := api.New(api.Config{
+			Logger:        logger,
+			Channel:       dist.Channel,
+			Framer:        dist.Framer,
+			Storage:       dist.Storage,
+			User:          userSvc,
+			Token:         tokenSvc,
+			Authenticator: authenticator,
+			Enforcer:      access.AllowAll{},
+			Insecure:      insecure,
+			Cluster:       dist.Cluster,
+			Ontology:      dist.Ontology,
+		})
+
+		// Configure the HTTP API Transport.
+		r := fhttp.NewRouter(fhttp.RouterConfig{Logger: logger.Sugar()})
+		_api.BindTo(httpapi.New(r))
+
+		srv, err := server.New(buildServerConfig(
+			*grpcTransports,
+			[]fhttp.BindableTransport{r},
+			secProvider,
+			logger,
+		))
+		if err != nil {
+			return err
 		}
+		sCtx.Go(func(_ context.Context) error {
+			return srv.Serve()
+		}, xsignal.WithKey("server"))
+		defer srv.Stop()
+		<-ctx.Done()
 		return nil
-	},
+	}, xsignal.WithKey("start"))
+
+	select {
+	case <-interruptC:
+		logger.Info("received interrupt signal, shutting down")
+		cancel()
+	case <-sCtx.Stopped():
+	}
+
+	if err := sCtx.Wait(); err != nil && !errors.Is(err, context.Canceled) {
+		logger.Fatal("shutdown failed", zap.Error(err))
+	}
+	logger.Info("shutdown successful")
 }
 
 func init() {
 	rootCmd.AddCommand(startCmd)
-
-	startCmd.Flags().StringP(
-		"listen-address",
-		"l",
-		"127.0.0.1:9090",
-		`
-			`,
-	)
-
-	startCmd.Flags().StringSliceP(
-		"peer-addresses",
-		"p",
-		nil,
-		`
-			Addresses of additional peers in the cluster.
-		`,
-	)
-
-	startCmd.Flags().StringP(
-		"data",
-		"d",
-		"synnax-data",
-		`
-			Dirname where synnax will store its data.
-		`,
-	)
-
-	startCmd.Flags().BoolP(
-		"mem",
-		"m",
-		false,
-		`
-			Use in-memory storage.
-			`,
-	)
-
-	startCmd.Flags().BoolP(
-		"debug",
-		"v",
-		false,
-		"Enable debug mode.",
-	)
-
-	startCmd.Flags().BoolP(
-		"insecure",
-		"i",
-		false,
-		"Disable TLS and authentication.",
-	)
-
-	startCmd.Flags().String(
-		"username",
-		"synnax",
-		"Username for the admin user.",
-	)
-
-	startCmd.Flags().String(
-		"password",
-		"seldon",
-		"Password for the admin user.",
-	)
-
-	if err := viper.BindPFlags(startCmd.Flags()); err != nil {
-		panic(err)
-	}
+	configureStartFlags()
+	bindFlags(startCmd)
 }
 
-func newStorageConfig(
+func buildStorageConfig(
 	exp alamos.Experiment,
 	logger *zap.Logger,
 ) storage.Config {
@@ -233,7 +191,7 @@ func parsePeerAddresses() ([]address.Address, error) {
 	return peerAddresses, nil
 }
 
-func newDistributionConfig(
+func buildDistributionConfig(
 	pool *fgrpc.Pool,
 	exp alamos.Experiment,
 	logger *zap.Logger,
@@ -244,7 +202,7 @@ func newDistributionConfig(
 	return distribution.Config{
 		Logger:           logger.Named("distrib"),
 		Experiment:       exp,
-		AdvertiseAddress: address.Address(viper.GetString("listen-address")),
+		AdvertiseAddress: address.Address(viper.GetString("listen")),
 		PeerAddresses:    peers,
 		Pool:             pool,
 		Storage:          storage,
@@ -252,11 +210,30 @@ func newDistributionConfig(
 	}, err
 }
 
-func configureLogging() (*zap.Logger, error) {
+func buildServerConfig(
+	grpcTransports []fgrpc.BindableTransport,
+	httpTransports []fhttp.BindableTransport,
+	sec security.Provider,
+	logger *zap.Logger,
+) (cfg server.Config) {
+	cfg.Branches = append(cfg.Branches,
+		&server.SecureHTTPBranch{Transports: httpTransports},
+		&server.GRPCBranch{Transports: grpcTransports},
+		server.NewHTTPRedirectBranch(),
+	)
+	cfg.ListenAddress = address.Address(viper.GetString("listen"))
+	cfg.Logger = logger.Named("server")
+	cfg.Security.TLS = sec.TLS()
+	cfg.Security.Insecure = config.BoolPointer(viper.GetBool("insecure"))
+	return cfg
+}
+
+func configureLogging(verbose bool) (*zap.Logger, error) {
 	var cfg zap.Config
-	if viper.GetBool("debug") {
+	if verbose {
 		cfg = zap.NewDevelopmentConfig()
 		cfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+		cfg.Encoding = "console"
 	} else {
 		cfg = zap.NewProductionConfig()
 		cfg.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
@@ -264,14 +241,11 @@ func configureLogging() (*zap.Logger, error) {
 	return cfg.Build()
 }
 
-var (
-	rootExperimentKey = "experiment"
-)
+var rootExperimentKey = "experiment"
 
-func configureObservability() alamos.Experiment {
-	debug := viper.GetBool("debug")
+func configureObservability(verbose bool) alamos.Experiment {
 	var opt alamos.Option
-	if debug {
+	if verbose {
 		opt = alamos.WithFilters(alamos.LevelFilterAll{})
 	} else {
 		opt = alamos.WithFilters(alamos.LevelFilterThreshold{Level: alamos.Production})
@@ -279,31 +253,47 @@ func configureObservability() alamos.Experiment {
 	return alamos.New(rootExperimentKey, opt)
 }
 
+func configureSecurity(logger *zap.Logger, insecure bool) (security.Provider, error) {
+	return security.NewProvider(security.ProviderConfig{
+		LoaderConfig: buildCertLoaderConfig(logger),
+		Insecure:     config.BoolPointer(insecure),
+		KeySize:      viper.GetInt("key-size"),
+	})
+}
+
 func maybeProvisionRootUser(
 	db *gorp.DB,
 	authSvc auth.Authenticator,
 	userSvc *user.Service,
 ) error {
-	rootUser := viper.GetString("username")
-	rootPass := password.Raw(viper.GetString("password"))
-	exists, err := userSvc.UsernameExists(rootUser)
-	if exists || err != nil {
+	uname := viper.GetString("username")
+	pass := password.Raw(viper.GetString("password"))
+	exists, err := userSvc.UsernameExists(uname)
+	if err != nil || exists {
 		return err
 	}
 	txn := db.BeginTxn()
-	if err := authSvc.NewWriterUsingTxn(txn).Register(auth.InsecureCredentials{
-		Username: rootUser,
-		Password: rootPass,
+	if err = authSvc.NewWriterUsingTxn(txn).Register(auth.InsecureCredentials{
+		Username: uname,
+		Password: pass,
 	}); err != nil {
 		return err
 	}
-	if err := userSvc.NewWriterUsingTxn(txn).Create(&user.User{
-		Username: rootUser,
-	}); err != nil {
+	if err = userSvc.NewWriterUsingTxn(txn).Create(&user.User{Username: uname}); err != nil {
 		return err
 	}
-	if err := txn.Commit(); err != nil {
-		return err
-	}
-	return nil
+	return txn.Commit()
+}
+
+func configureClientGRPC(
+	sec security.Provider,
+	insecure bool,
+) *fgrpc.Pool {
+	return fgrpc.NewPool(
+		grpc.WithTransportCredentials(getClientGRPCTransportCredentials(sec, insecure)),
+	)
+}
+
+func getClientGRPCTransportCredentials(sec security.Provider, insecure bool) credentials.TransportCredentials {
+	return lo.Ternary(insecure, insecureGRPC.NewCredentials(), credentials.NewTLS(sec.TLS()))
 }
