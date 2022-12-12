@@ -11,5 +11,4 @@ export * from "./AutoSize";
 export * from "./Divider";
 export * from "./Tree";
 export * from "./Tabs";
-export * from "./Switch";
 export * from "./Status";

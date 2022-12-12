@@ -9,7 +9,7 @@ import {
 import { Theme, synnaxLight } from "./theme";
 import { applyThemeAsCssVars } from "./css";
 import "./theme.css";
-import { Switch, SwitchProps } from "@/atoms";
+import { Input, InputProps } from "@/atoms";
 
 export interface ThemeProviderProps extends PropsWithChildren<unknown> {
   theme: Theme;
@@ -28,10 +28,7 @@ export interface UseThemeProviderProps {
   defaultTheme?: string;
 }
 
-export const useThemeProvider = ({
-  themes,
-  defaultTheme,
-}: UseThemeProviderProps) => {
+export const useThemeProvider = ({ themes, defaultTheme }: UseThemeProviderProps) => {
   const [selected, setSelected] = useState<string>(
     defaultTheme || Object.keys(themes)[0]
   );
@@ -58,11 +55,7 @@ export const useThemeProvider = ({
 
 export const useThemeContext = () => useContext(ThemeContext);
 
-export const ThemeProvider = ({
-  theme,
-  children,
-  ...props
-}: ThemeProviderProps) => {
+export const ThemeProvider = ({ theme, children, ...props }: ThemeProviderProps) => {
   useEffect(() => {
     applyThemeAsCssVars(document.documentElement, theme);
   }, [theme]);
@@ -73,10 +66,10 @@ export const ThemeProvider = ({
   );
 };
 
-export const ThemeSwitch = ({ onChange, ...props }: SwitchProps) => {
+export const ThemeSwitch = ({ onChange, ...props }: InputProps) => {
   const { toggleTheme } = useContext(ThemeContext);
   return (
-    <Switch
+    <Input.Switch
       onChange={(e) => {
         toggleTheme();
         if (onChange) onChange(e);

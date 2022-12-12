@@ -8,3 +8,7 @@
 .connect-cluster__input__port {
     width: 20rem;
 }
+
+.connect-cluster__input__password {
+  width: 100%;
+}
