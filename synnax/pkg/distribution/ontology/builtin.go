@@ -2,8 +2,11 @@ package ontology
 
 import "github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 
+// BuiltIn is a resource type that is built into the ontology.
 const BuiltIn Type = "builtin"
 
+// Root is the root resource in the ontology. All other resources are reachable by
+// traversing the ontology from the root.
 var Root = ID{Type: BuiltIn, Key: "root"}
 
 type builtinService struct{}

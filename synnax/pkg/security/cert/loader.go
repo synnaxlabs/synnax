@@ -1,0 +1,178 @@
+package cert
+
+import (
+	"crypto"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/pem"
+	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/x/config"
+	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
+	"io"
+	"io/fs"
+	"os"
+)
+
+// LoaderConfig is the configuration for creating a new Loader.
+type LoaderConfig struct {
+	// CertsDir is the directory where the certificates are stored.
+	CertsDir string
+	// CAKeyPath is the path to the CA private key. This is relative to CertsDir.
+	CAKeyPath string
+	// CACertPath is the path to the CA certificate. This is relative to CertsDir.
+	CACertPath string
+	// NodeKeyPath is the path to the node private key. This is relative to CertsDir.
+	NodeKeyPath string
+	// NodeCertPath is the path to the node certificate. This is relative to CertsDir.
+	NodeCertPath string
+	// FS is the filesystem to use.
+	FS xfs.FS
+	// Logger is the witness of it all.
+	Logger *zap.SugaredLogger
+}
+
+var (
+	_ config.Config[LoaderConfig] = LoaderConfig{}
+	// DefaultLoaderConfig is the default configuration for a Loader.
+	DefaultLoaderConfig = LoaderConfig{
+		CertsDir:     "./certs",
+		CAKeyPath:    "ca.key",
+		CACertPath:   "ca.crt",
+		NodeKeyPath:  "node.key",
+		NodeCertPath: "node.crt",
+		FS:           xfs.Default,
+	}
+)
+
+// Override implements Config.
+func (l LoaderConfig) Override(other LoaderConfig) LoaderConfig {
+	l.CertsDir = override.String(l.CertsDir, other.CertsDir)
+	l.CAKeyPath = override.String(l.CAKeyPath, other.CAKeyPath)
+	l.CACertPath = override.String(l.CACertPath, other.CACertPath)
+	l.NodeKeyPath = override.String(l.NodeKeyPath, other.NodeKeyPath)
+	l.NodeCertPath = override.String(l.NodeCertPath, other.NodeCertPath)
+	l.FS = override.Nil(l.FS, other.FS)
+	l.Logger = override.Nil(l.Logger, other.Logger)
+	return l
+}
+
+// Validate implements Config.
+func (l LoaderConfig) Validate() error {
+	v := validate.New("cert.Loader")
+	validate.NotEmptyString(v, "CertsDir", l.CertsDir)
+	validate.NotEmptyString(v, "CAKeyPath", l.CAKeyPath)
+	validate.NotEmptyString(v, "CACertPath", l.CACertPath)
+	validate.NotEmptyString(v, "NodeKeyPath", l.NodeKeyPath)
+	validate.NotEmptyString(v, "NodeCertPath", l.NodeCertPath)
+	validate.NotNil(v, "FS", l.FS)
+	validate.NotNil(v, "Logger", l.Logger)
+	return v.Error()
+}
+
+// Loader is a certificate Loader.
+type Loader struct{ LoaderConfig }
+
+// NewLoader creates a new Loader using the given configuration. Returns an error if the
+// configuration is invalid. If the directory at LoaderConfig.CertsDir does not exist,
+// it is created.
+func NewLoader(configs ...LoaderConfig) (*Loader, error) {
+	cfg, err := config.OverrideAndValidate(DefaultLoaderConfig, configs...)
+	if err != nil {
+		return nil, err
+	}
+	cfg.FS, err = cfg.FS.Sub(cfg.CertsDir)
+	return &Loader{LoaderConfig: cfg}, err
+}
+
+// LoadCAPair loads the CA certificate and its private key. If multiple
+// certificates are found in the CA certificate file, the first one is used.
+func (l *Loader) LoadCAPair() (c *x509.Certificate, k crypto.PrivateKey, err error) {
+	c, k, err = l.loadX509(l.CACertPath, l.CAKeyPath)
+	if errors.Is(err, fs.ErrNotExist) {
+		err = errors.Wrapf(err, "CA certificate not found")
+	}
+	return
+}
+
+// LoadCAs loads all CA certificates from the CA certificate file.
+func (l *Loader) LoadCAs() ([]*x509.Certificate, error) {
+	certBytes, err := l.readAll(l.CACertPath)
+	if err != nil {
+		return nil, err
+	}
+	var (
+		certs []*x509.Certificate
+		block *pem.Block
+	)
+	for len(certBytes) > 0 {
+		block, certBytes = pem.Decode(certBytes)
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return nil, err
+		}
+		certs = append(certs, cert)
+	}
+	return certs, nil
+}
+
+// LoadNodePair loads the node certificate and its private key.
+func (l *Loader) LoadNodePair() (c *x509.Certificate, k crypto.PrivateKey, err error) {
+	c, k, err = l.loadX509(l.NodeCertPath, l.NodeKeyPath)
+	if errors.Is(err, fs.ErrNotExist) {
+		err = errors.Wrapf(err, "node certificate not found")
+	}
+	return
+}
+
+// LoadNodeTLS loads the node TLS certificate.
+func (l *Loader) LoadNodeTLS() (c *tls.Certificate, err error) {
+	c, err = l.loadTLS(l.NodeCertPath, l.NodeKeyPath)
+	if errors.Is(err, fs.ErrNotExist) {
+		err = errors.Wrapf(err, "node certificate not found")
+	}
+	return
+}
+
+func (l *Loader) loadX509(certPath, keyPath string) (*x509.Certificate, crypto.PrivateKey, error) {
+	c, err := l.loadTLS(certPath, keyPath)
+	if err != nil {
+		return nil, nil, err
+	}
+	certParsed, err := x509.ParseCertificate(c.Certificate[0])
+	if err != nil {
+		return nil, nil, err
+	}
+	return certParsed, c.PrivateKey, nil
+}
+
+func (l *Loader) loadTLS(certPath, keyPath string) (*tls.Certificate, error) {
+	certPEM, err := l.readAll(certPath)
+	if err != nil {
+		return nil, err
+	}
+	keyPEM, err := l.readAll(keyPath)
+	if err != nil {
+		return nil, err
+	}
+	c, err := tls.X509KeyPair(certPEM, keyPEM)
+	if err != nil {
+		return nil, err
+	}
+	return &c, err
+}
+
+func (l *Loader) readAll(path string) ([]byte, error) {
+	f, err := l.FS.Open(path, os.O_RDONLY)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := f.Close(); err != nil {
+			l.Logger.Warnf("failed to close file: %v", err)
+		}
+	}()
+	return io.ReadAll(f)
+}

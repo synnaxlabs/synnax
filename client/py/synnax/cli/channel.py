@@ -61,19 +61,20 @@ def select_channel(
 
 
 def prompt_group_channel_names(
-    ctx: Context,
-    options: list[str]
+    ctx: Context, options: list[str]
 ) -> dict[str, list[str]] | None:
     """Prompts the user to group channel names by providing a list of matchers.
 
     :param ctx: The current flow Context.
     :param options: The list of channel names to match against.
     """
-    print("""You can enter 'all' for all channels or a comma-separated list of:
+    print(
+        """You can enter 'all' for all channels or a comma-separated list of:
     1)  names (e.g. 'channel1, channel2, channel3')
     2) Channel indices (e.g. '1, 2, 3')
     3) A pattern to match (e.g. 'channel*, sensor*')
-    """)
+    """
+    )
     res = ctx.console.ask("Channels")
     return group_channel_names(options, res.split(","))
 

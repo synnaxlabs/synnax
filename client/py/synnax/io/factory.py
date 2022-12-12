@@ -12,8 +12,8 @@ WRITERS: list[type[Writer]] = [
 
 
 class IOFactory:
-    """A registry for retrieving readers for different file types.
-    """
+    """A registry for retrieving readers for different file types."""
+
     reader_classes: list[type[RowReader]]
     writer_classes: list[type[Writer]]
 

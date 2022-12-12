@@ -34,8 +34,7 @@ class IngestionCLI:
 
 
 def run_ingestion(ctx: Context, cli: IngestionCLI) -> None:
-    """Runs the ingestion process.
-    """
+    """Runs the ingestion process."""
     if cli.reader.type() == ReaderType.Row:
         engine = RowIngestionEngine(cli.client, cli.reader, cli.db_channels)
     else:
@@ -70,8 +69,7 @@ def initialize_reader(
 
 
 def _connect_client(ctx: Context, cli: IngestionCLI) -> str | None:
-    """Prompts the user to connect to a Synnax client.
-    """
+    """Prompts the user to connect to a Synnax client."""
     opts = load_config_options(ctx)
     if opts is None:
         opts = prompt_client_options(ctx)
@@ -82,8 +80,7 @@ def _connect_client(ctx: Context, cli: IngestionCLI) -> str | None:
 
 
 def ingest_all(ctx: Context, cli: IngestionCLI) -> str | None:
-    """Prompts the user to ingest all channels.
-    """
+    """Prompts the user to ingest all channels."""
     if ctx.console.confirm("Would you like to ingest all channels?", default=True):
         cli.filtered_channels = cli.reader.channels()
         return "validate_channels"
@@ -92,8 +89,7 @@ def ingest_all(ctx: Context, cli: IngestionCLI) -> str | None:
 
 
 def channels_to_ingest(ctx: Context, cli: IngestionCLI) -> str | None:
-    """Prompts the user to select channels to ingest.
-    """
+    """Prompts the user to select channels to ingest."""
     ctx.console.info("Which channels would you like to ingest?")
     channels = cli.reader.channels()
     grouped = prompt_group_channel_names(ctx, [ch.name for ch in channels])
@@ -137,8 +133,7 @@ def create_indexes(
     cli: IngestionCLI,
     options: list[ChannelMeta],
 ) -> list[ChannelMeta]:
-    """Prompts the user to create index channels.
-    """
+    """Prompts the user to create index channels."""
     grouped = prompt_group_channel_names(ctx, [ch.name for ch in options])
     names = [name for v in grouped.values() for name in v]
     for name in names:
@@ -151,8 +146,7 @@ def group_by_idx(
     ctx: Context,
     options: list[ChannelMeta],
 ) -> dict[str, list[ChannelMeta]] | None:
-    """Prompts the user to group channels by their index/rate
-    """
+    """Prompts the user to group channels by their index/rate"""
     if not ctx.console.confirm(
         "Do all non-indexed channels have the same data rate or index?"
     ):
@@ -227,13 +221,15 @@ def create_channels(ctx: Context, cli: IngestionCLI) -> str | None:
                     dt = k
                     break
 
-            to_create.append(Channel(
-                name=channel.name,
-                is_index=False,
-                index=index,
-                rate=rate,
-                data_type=dt
-            ))
+            to_create.append(
+                Channel(
+                    name=channel.name,
+                    is_index=False,
+                    index=index,
+                    rate=rate,
+                    data_type=dt,
+                )
+            )
 
     cli.db_channels.extend(cli.client.channel.create_many(to_create))
 

@@ -206,7 +206,7 @@ class NumpyIterator(CoreIterator):
         """
         merged_frame = BinaryFrame(
             keys=[k for v in self.values for k in v.keys],
-            arrays=[arr for v in self.values for arr in v.arrays]
+            arrays=[arr for v in self.values for arr in v.arrays],
         )
         merged_frame.compact()
         return NumpyFrame.from_binary(merged_frame)

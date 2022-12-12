@@ -27,8 +27,8 @@ import (
 // State represents the current state of the cluster as seen from the host node.
 type State = store.State
 
-// ErrNotFound is returned when a node cannot be found in the cluster.
-var ErrNotFound = errors.New("[cluster] - node not found")
+// NodeNotFound is returned when a node cannot be found in the cluster.
+var NodeNotFound = errors.New("[cluster] - node not found")
 
 // Cluster represents a group of nodes that can exchange their state with each other.
 type Cluster interface {
@@ -168,7 +168,7 @@ func (c *cluster) Nodes() node.Group { return c.Store.PeekState().Nodes }
 func (c *cluster) Node(id node.ID) (node.Node, error) {
 	n, ok := c.Store.GetNode(id)
 	if !ok {
-		return n, ErrNotFound
+		return n, NodeNotFound
 	}
 	return n, nil
 }

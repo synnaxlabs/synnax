@@ -4,6 +4,7 @@ import time
 from typing import Type
 from urllib.parse import urlencode
 
+import urllib3
 from urllib3 import HTTPResponse, PoolManager
 from urllib3.exceptions import HTTPError, MaxRetryError
 
@@ -14,7 +15,8 @@ from .url import URL
 from .transport import MiddlewareCollector
 from .metadata import MetaData
 
-http = PoolManager()
+http = PoolManager(cert_reqs='CERT_NONE')
+urllib3.disable_warnings()
 
 
 class HTTPClientFactory(MiddlewareCollector):
@@ -22,21 +24,24 @@ class HTTPClientFactory(MiddlewareCollector):
 
     :param url: The base URL for the client.
     :param encoder_decoder: The encoder/decoder to use for the client.
+    :param secure: Whether to use HTTPS.
     """
 
     endpoint: URL
     encoder_decoder: EncoderDecoder
+    secure: bool
 
-    def __init__(self, url: URL, encoder_decoder: EncoderDecoder):
+    def __init__(self, url: URL, encoder_decoder: EncoderDecoder, secure: bool = False):
         super().__init__()
         self.endpoint = url
         self.encoder_decoder = encoder_decoder
+        self.secure = secure
 
     def get_client(self) -> GETClient:
         """Creates a GET client for the given request and response types.
         :returns: A GET client for the given request and response types.
         """
-        gc = GETClient(self.endpoint, self.encoder_decoder)
+        gc = GETClient(self.endpoint, self.encoder_decoder, secure=self.secure)
         gc.use(*self._middleware)
         return gc
 
@@ -44,7 +49,7 @@ class HTTPClientFactory(MiddlewareCollector):
         """Creates a POST client for the given request and response types.
         :returns: A POST client for the given request and response types.
         """
-        pc = POSTClient(self.endpoint, self.encoder_decoder)
+        pc = POSTClient(self.endpoint, self.encoder_decoder, secure=self.secure)
         pc.use(*self._middleware)
         return pc
 
@@ -62,9 +67,10 @@ class _Core(MiddlewareCollector):
         self,
         endpoint: URL,
         encoder_decoder: EncoderDecoder,
+        secure: bool = False,
     ):
         super().__init__()
-        self.endpoint = endpoint.replace(protocol="http")
+        self.endpoint = endpoint.replace(protocol="https" if secure else "http")
         self.encoder_decoder = encoder_decoder
         self.res = None
 
@@ -82,10 +88,10 @@ class _Core(MiddlewareCollector):
         request: RQ | None = None,
         res_t: Type[RS] | None = None,
     ) -> tuple[RS | None, Exception | None]:
-        in_meta_data = MetaData(url, "http")
+        in_meta_data = MetaData(url, self.endpoint.protocol)
 
         def finalizer(md: MetaData) -> tuple[MetaData, Exception | None]:
-            out_meta_data = MetaData(url, "http")
+            out_meta_data = MetaData(url, self.endpoint.protocol)
             data = None
             if request is not None:
                 data = self.encoder_decoder.encode(request)

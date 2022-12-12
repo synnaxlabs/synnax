@@ -19,7 +19,7 @@ func (fo *Options) AttachClosables(closables ...Closable) {
 			for _, inlet := range closables {
 				inlet.Close()
 			}
-		}))
+		}, signal.WithKey("close-inlets")))
 	}
 }
 
@@ -49,6 +49,6 @@ func WithClosables(closables ...Closable) Option {
 	return func(fo *Options) { fo.AttachClosables(closables...) }
 }
 
-func Defer(fn func()) Option {
-	return func(fo *Options) { fo.Signal = append(fo.Signal, signal.Defer(fn)) }
+func Defer(fn func(), opts ...signal.RoutineOption) Option {
+	return func(fo *Options) { fo.Signal = append(fo.Signal, signal.Defer(fn, opts...)) }
 }

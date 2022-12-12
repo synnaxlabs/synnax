@@ -512,14 +512,19 @@ version = "0.2.5"
 description = ""
 category = "main"
 optional = false
-python-versions = ">=3.10,<4.0"
+python-versions = "^3.10"
+develop = true
 
 [package.dependencies]
-janus = ">=1.0.0,<2.0.0"
-msgpack = ">=1.0.4,<2.0.0"
-pydantic = ">=1.10.2,<2.0.0"
-urllib3 = ">=1.26.12,<2.0.0"
-websockets = ">=10.3,<11.0"
+janus = "^1.0.0"
+msgpack = "^1.0.4"
+pydantic = "^1.10.2"
+urllib3 = "^1.26.12"
+websockets = "^10.3"
+
+[package.source]
+type = "directory"
+url = "../../freighter/py"
 
 [[package]]
 name = "tomli"
@@ -581,7 +586,7 @@ testing = ["flake8 (<5)", "func-timeout", "jaraco.functools", "jaraco.itertools"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.10"
-content-hash = "a85b8f2eaf4be91be854dee44b91738ad0bfb89fdd774fcd8ecc123d46e9980e"
+content-hash = "a9f19e31f8548904648247bdb2b48ca115a8d8c6983dbc67f3b596cc3758c78b"
 
 [metadata.files]
 attrs = [
@@ -1057,10 +1062,7 @@ six = [
     {file = "six-1.16.0-py2.py3-none-any.whl", hash = "sha256:8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254"},
     {file = "six-1.16.0.tar.gz", hash = "sha256:1e61c37477a1626458e36f7b1d82aa5c9b094fa4802892072e49de9c60c4c926"},
 ]
-synnax-freighter = [
-    {file = "synnax_freighter-0.2.5-py3-none-any.whl", hash = "sha256:c524748b5c0d3ad38656d216c10372cd26a3c7e63f7e82df19b2d8033d82bfe4"},
-    {file = "synnax_freighter-0.2.5.tar.gz", hash = "sha256:c2948749edf24f7755433c759e2c65a37ff4a0720ab0579ab9cf7e085ba86e4e"},
-]
+synnax-freighter = []
 tomli = [
     {file = "tomli-2.0.1-py3-none-any.whl", hash = "sha256:939de3e7a6161af0c887ef91b7d41a53e7c5a1ca976325f429cb46ea9bc30ecc"},
     {file = "tomli-2.0.1.tar.gz", hash = "sha256:de526c12914f0c550d15924c62d72abc48d6fe7364aa87328337a31007fe8a4f"},

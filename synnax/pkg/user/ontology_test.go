@@ -34,7 +34,7 @@ var _ = Describe("Ontology", Ordered, func() {
 			Expect(schema.Fields).To(HaveKey("username"))
 		})
 	})
-	Describe("RetrieveEntity", func() {
+	Describe("retrieveEntity", func() {
 		It("Should retrieve a users schema entity by its key", func() {
 			u := &user.User{Username: "test", Key: userKey}
 			w := svc.NewWriter()

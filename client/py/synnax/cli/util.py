@@ -29,5 +29,7 @@ def convert_timestamp_precision():
             chunk = reader.read()
         except StopIteration:
             break
-        chunk[ch.name] = convert_time_units(chunk[ch.name], curr, desired).astype(np.int64)
+        chunk[ch.name] = convert_time_units(chunk[ch.name], curr, desired).astype(
+            np.int64
+        )
         writer.write(chunk)

@@ -1,6 +1,9 @@
 package freighter
 
-import "github.com/synnaxlabs/x/address"
+import (
+	"crypto/tls"
+	"github.com/synnaxlabs/x/address"
+)
 
 // MD represents the metadata for a request that is passed to Middleware.
 type MD struct {
@@ -8,9 +11,23 @@ type MD struct {
 	Protocol string
 	// Target is the address the request is being sent to.
 	Target address.Address
+	// Sec is the security information for the requests/response connection.
+	Sec SecurityInfo
 	// Params is a set of arbitrary parameters that can be set by client side middleware,
 	// and read by server side middleware.
 	Params Params
+}
+
+// SecurityInfo represents the security information for a request.
+type SecurityInfo struct {
+	// TLS contains the TLS information for the request. If Used is false, the connection
+	// is not protected by TLS, and the ConnectionState is invalid.
+	TLS struct {
+		// Used is set to true if TLS is being used.
+		Used bool
+		// ConnectionState is the TLS connection state.
+		tls.ConnectionState
+	}
 }
 
 // Params is a set of arbitrary parameters that can be set by client side middleware, and

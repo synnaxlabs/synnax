@@ -41,8 +41,9 @@ jobs:
       synnax:
         image: ghcr.io/synnaxlabs/synnax:latest
         env:
-          SYNNAX_LISTEN_ADDRESS: localhost:9090
-          SYNNAX_DEBUG: true
+          SYNNAX_LISTEN: localhost:9090
+          SYNNAX_VERBOSE: true
+          SYNNAX_INSECURE: true
           SYNNAX_MEM: true
 
         credentials:
@@ -79,8 +80,9 @@ jobs:
       synnax:
         image: ghcr.io/synnaxlabs/synnax:latest
         env:
-          SYNNAX_LISTEN_ADDRESS: localhost:9090
-          SYNNAX_DEBUG: true
+          SYNNAX_LISTEN: localhost:9090
+          SYNNAX_VERBOSE: true
+          SYNNAX_INSECURE: true
           SYNNAX_MEM: true
 
         credentials:

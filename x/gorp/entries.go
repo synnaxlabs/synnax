@@ -13,9 +13,9 @@ type Key any
 // stored. Entry must be serializable by the Encodings and Decoder provided to the DB.
 type Entry[K Key] interface {
 	// GorpKey returns a unique key for the entry. gorp.DB will not raise
-	// an error if the key is a duplicate. Key must be serializable by Encodings and Decoder.
+	// an error if the key is a duplicate. Key must be serializable by Encoder and Decoder.
 	GorpKey() K
-	// SetOptions returns a slice of options passed to kv.db.SetState.
+	// SetOptions returns a slice of options passed to kv.db.Set.
 	SetOptions() []interface{}
 }
 

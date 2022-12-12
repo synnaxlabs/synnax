@@ -8,20 +8,21 @@ from synnax import QueryError, Channel
 class TestClient:
     @pytest.fixture(scope="class")
     def two_channels(self, client: synnax.Synnax) -> list[synnax.Channel]:
-        return client.channel.create_many([
-            Channel(
-                name="test",
-                node_id=1,
-                rate=1 * synnax.HZ,
-                data_type=synnax.FLOAT64,
-            ),
-            Channel(
-                name="test",
-                node_id=1,
-                rate=1 * synnax.HZ,
-                data_type=synnax.FLOAT64,
-            )
-        ]
+        return client.channel.create_many(
+            [
+                Channel(
+                    name="test",
+                    node_id=1,
+                    rate=1 * synnax.HZ,
+                    data_type=synnax.FLOAT64,
+                ),
+                Channel(
+                    name="test",
+                    node_id=1,
+                    rate=1 * synnax.HZ,
+                    data_type=synnax.FLOAT64,
+                ),
+            ]
         )
 
     def test_create(self, two_channels: list[synnax.Channel]):

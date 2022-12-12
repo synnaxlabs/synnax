@@ -7,7 +7,7 @@ from rich.progress import (
     TextColumn,
     BarColumn,
     TaskProgressColumn,
-    TimeElapsedColumn
+    TimeElapsedColumn,
 )
 
 from .. import Channel, Synnax
@@ -20,6 +20,7 @@ class RowIngestionEngine:
     """An ingestion engine that reads data from a row-based reader and writes it to a
     Synnax cluster.
     """
+
     client: Synnax
     writer: DataFrameWriter
     reader: RowReader
@@ -50,13 +51,11 @@ class RowIngestionEngine:
         self.reader.set_chunk_size(self.get_chunk_size())
 
     def get_chunk_size(self):
-        """Sum the density of all channels to determine the chunk size.
-        """
+        """Sum the density of all channels to determine the chunk size."""
         return self.mem_limit // sum(ch.density for ch in self.channels)
 
     def run(self):
-        """Run the ingestion engine.
-        """
+        """Run the ingestion engine."""
         try:
             with Progress(
                 BarColumn(),
@@ -73,7 +72,7 @@ class RowIngestionEngine:
                         self._write(chunk)
                         gc.collect()
                         tp = chunk.size / (datetime.now() - t0).total_seconds()
-                        progress.update(task, advance=chunk.size,tp=tp)
+                        progress.update(task, advance=chunk.size, tp=tp)
                     except StopIteration:
                         break
             self.writer.commit()

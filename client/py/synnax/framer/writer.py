@@ -100,8 +100,11 @@ class FrameWriter:
         """
         self.keys = keys
         self.stream = self.client.stream(self._ENDPOINT, _Request, _Response)
-        self.stream.send(_Request(command=_Command.NONE,
-                                  config=_Config(keys=keys, start=TimeStamp(start))))
+        self.stream.send(
+            _Request(
+                command=_Command.NONE, config=_Config(keys=keys, start=TimeStamp(start))
+            )
+        )
         res, exc = self.stream.receive()
         if exc is not None:
             raise exc
@@ -193,13 +196,9 @@ class FrameWriter:
                 )
             )
         elif missing:
-            raise ValidationError(
-                Field("keys", f"frame is missing keys {missing}")
-            )
+            raise ValidationError(Field("keys", f"frame is missing keys {missing}"))
         elif extra:
-            raise ValidationError(
-                Field("keys", f"frame has extra keys {extra}")
-            )
+            raise ValidationError(Field("keys", f"frame has extra keys {extra}"))
 
     def _assert_open(self):
         if self.stream is None:

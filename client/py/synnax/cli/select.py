@@ -18,12 +18,13 @@ def select_from_table(
     allow_none is ignored.
     :returns: The index of the selected row.py or None if nothing was selected.
     """
-    ctx.console.table(columns=["option", *columns], rows=[
-        {"option": str(i), **row} for i, row in enumerate(rows)
-    ])
+    ctx.console.table(
+        columns=["option", *columns],
+        rows=[{"option": str(i), **row} for i, row in enumerate(rows)],
+    )
     choices = [str(i) for i in range(len(rows))]
     if allow_none and default is None:
         default = "None"
         ctx.console.info("Press enter to select nothing.")
     i = ctx.console.ask("Select an option #", choices=choices, default=default)
-    return None if i  == "None" else int(i)
+    return None if i == "None" else int(i)

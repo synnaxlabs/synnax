@@ -6,21 +6,21 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-		"watch": "tsc && vite build --watch",
+    "watch": "tsc && vite build --watch",
     "preview": "vite preview",
     "lint": "TIMING=1 eslint \"src/**/*.ts*\"",
-		"test": "vitest",
-		"cov": "vitest --coverage"
+    "test": "vitest",
+    "cov": "vitest --coverage"
   },
   "devDependencies": {
+    "@synnaxlabs/tsconfig": "*",
     "@vitejs/plugin-react": "^2.2.0",
+    "eslint-config-synnaxlabs": "*",
     "typescript": "^4.6.4",
     "vite": "^3.2.0",
     "vite-plugin-dts": "^1.6.6",
     "vite-tsconfig-paths": "^3.5.2",
-    "vitest": "^0.24.3",
-    "@synnaxlabs/tsconfig": "*",
-    "eslint-config-synnaxlabs": "*"
+    "vitest": "^0.24.3"
   },
   "dependencies": {
     "@reduxjs/toolkit": "^1.8.6",

@@ -1,14 +1,14 @@
-import { createSlice, combineReducers } from '@reduxjs/toolkit';
+import { createSlice, combineReducers } from "@reduxjs/toolkit";
 
 import {
   reducer as driftReducer,
   TauriRuntime,
   configureStore,
-} from '@synnaxlabs/drift';
-import { appWindow } from '@tauri-apps/api/window';
+} from "@synnaxlabs/drift";
+import { appWindow } from "@tauri-apps/api/window";
 
 const counterSlice = createSlice({
-  name: 'counter',
+  name: "counter",
   initialState: {
     value: 0,
   },

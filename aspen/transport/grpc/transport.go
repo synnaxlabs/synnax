@@ -94,10 +94,11 @@ var (
 	_ kv.FeedbackTransportClient         = (*feedbackClient)(nil)
 	_ kv.FeedbackTransportServer         = (*feedbackServer)(nil)
 	_ aspenv1.FeedbackServiceServer      = (*feedbackServer)(nil)
+	_ fgrpc.BindableTransport            = (*transport)(nil)
 )
 
-func New(pool *fgrpc.Pool) *transportImpl {
-	return &transportImpl{
+func New(pool *fgrpc.Pool) *transport {
+	return &transport{
 		pledgeClient: &pledgeClient{
 			Pool:               pool,
 			RequestTranslator:  pledgeTranslator{},
@@ -191,8 +192,8 @@ func New(pool *fgrpc.Pool) *transportImpl {
 	}
 }
 
-// transportImpl implements the aspen.transportImpl interface.
-type transportImpl struct {
+// transport implements the aspen.transport interface.
+type transport struct {
 	pledgeServer   *pledgeServer
 	pledgeClient   *pledgeClient
 	gossipServer   *clusterGossipServer
@@ -205,47 +206,27 @@ type transportImpl struct {
 	feedbackClient *feedbackClient
 }
 
-func (t *transportImpl) PledgeServer() pledge.TransportServer {
-	return t.pledgeServer
-}
+func (t *transport) PledgeServer() pledge.TransportServer { return t.pledgeServer }
 
-func (t *transportImpl) PledgeClient() pledge.TransportClient {
-	return t.pledgeClient
-}
+func (t *transport) PledgeClient() pledge.TransportClient { return t.pledgeClient }
 
-func (t *transportImpl) GossipServer() gossip.TransportServer {
-	return t.gossipServer
-}
+func (t *transport) GossipServer() gossip.TransportServer { return t.gossipServer }
 
-func (t *transportImpl) GossipClient() gossip.TransportClient {
-	return t.gossipClient
-}
+func (t *transport) GossipClient() gossip.TransportClient { return t.gossipClient }
 
-func (t *transportImpl) BatchServer() kv.BatchTransportServer {
-	return t.batchServer
-}
+func (t *transport) BatchServer() kv.BatchTransportServer { return t.batchServer }
 
-func (t *transportImpl) BatchClient() kv.BatchTransportClient {
-	return t.batchClient
-}
+func (t *transport) BatchClient() kv.BatchTransportClient { return t.batchClient }
 
-func (t *transportImpl) LeaseServer() kv.LeaseTransportServer {
-	return t.leaseServer
-}
+func (t *transport) LeaseServer() kv.LeaseTransportServer { return t.leaseServer }
 
-func (t *transportImpl) LeaseClient() kv.LeaseTransportClient {
-	return t.leaseClient
-}
+func (t *transport) LeaseClient() kv.LeaseTransportClient { return t.leaseClient }
 
-func (t *transportImpl) FeedbackServer() kv.FeedbackTransportServer {
-	return t.feedbackServer
-}
+func (t *transport) FeedbackServer() kv.FeedbackTransportServer { return t.feedbackServer }
 
-func (t *transportImpl) FeedbackClient() kv.FeedbackTransportClient {
-	return t.feedbackClient
-}
+func (t *transport) FeedbackClient() kv.FeedbackTransportClient { return t.feedbackClient }
 
-func (t *transportImpl) BindTo(reg grpc.ServiceRegistrar) {
+func (t *transport) BindTo(reg grpc.ServiceRegistrar) {
 	t.pledgeServer.BindTo(reg)
 	t.gossipServer.BindTo(reg)
 	t.batchServer.BindTo(reg)
@@ -253,7 +234,7 @@ func (t *transportImpl) BindTo(reg grpc.ServiceRegistrar) {
 	t.feedbackServer.BindTo(reg)
 }
 
-func (t *transportImpl) Configure(ctx signal.Context, addr address.Address, external bool) error {
+func (t *transport) Configure(ctx signal.Context, addr address.Address, external bool) error {
 	if external {
 		return nil
 	}

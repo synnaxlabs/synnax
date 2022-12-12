@@ -26,22 +26,22 @@ func (r Retrieve[K, E]) Where(filter func(*E) bool) Retrieve[K, E] {
 // WhereKeys queries the DB for Entries with the provided keys. Although more targeted,
 // this lookup is substantially faster than a general Where query. If called in
 // conjunction with Where, the WhereKeys filter will be applied first. Subsequent calls
-// to WhereKeys will append the keys to the existing filter.
+// to WhereKeys will append the keys to the existing set.
 func (r Retrieve[K, E]) WhereKeys(keys ...K) Retrieve[K, E] {
 	setWhereKeys(r, keys...)
 	return r
 }
 
-// Entries binds a slice that the Query will fill results into. Calls to Entry will
-// override All previous calls to Entries or Entry.
+// Entries binds a slice that the Query will fill results into. Repeated calls to Entry
+// or Entries will override all previous calls to Entries or Entry.
 func (r Retrieve[K, E]) Entries(entries *[]E) Retrieve[K, E] {
 	SetEntries[K, E](r, entries)
 	return r
 }
 
-// Entry binds the entry that the Query will fill results into. Calls to Entry will
-// override All previous calls to Entries or Entry. If  multiple results are returned
-// by the query, entry will be set to the last result.
+// Entry binds the entry that the Query will fill results into. Repeated calls to Entry
+// or Entries will override All previous calls to Entries or Entry. If  multiple results
+// are returned by the query, entry will be set to the last result.
 func (r Retrieve[K, E]) Entry(entry *E) Retrieve[K, E] {
 	SetEntry[K, E](r, entry)
 	return r

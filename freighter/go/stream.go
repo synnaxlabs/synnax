@@ -5,6 +5,8 @@ import (
 	"github.com/synnaxlabs/x/address"
 )
 
+// StreamClient is the client side interface of a transport that asynchronously streams
+// a series of requests and responses between a client and server.
 type StreamClient[RQ, RS Payload] interface {
 	Transport
 	// Stream opens a stream to the target server using the given context. If
@@ -14,6 +16,8 @@ type StreamClient[RQ, RS Payload] interface {
 	Stream(ctx context.Context, target address.Address) (ClientStream[RQ, RS], error)
 }
 
+// StreamServer is the server side interface of a transport that asynchronously streams
+// a series of requests and responses between a client and server.
 type StreamServer[RQ, RS Payload] interface {
 	Transport
 	// BindHandler is called by the server to handle a request from the client. If
@@ -36,9 +40,9 @@ type StreamServer[RQ, RS Payload] interface {
 	BindHandler(handler func(ctx context.Context, server ServerStream[RQ, RS]) error)
 }
 
-// ClientStream is the client side interface of Stream freighter. ClientStream
-// differs from ServerStream in that the client has an explicit CloseSend method
-// to let the server know that it is done sending messages.
+// ClientStream is a client side stream. ClientStream differs from ServerStream in that
+// the client has an explicit CloseSend method to let the server know that it is done
+// sending messages.
 type ClientStream[RQ, RS Payload] interface {
 	// StreamReceiver - Receive blocks until a message is received from the
 	// server or the stream is closed.
