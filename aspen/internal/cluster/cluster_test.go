@@ -2,9 +2,6 @@ package cluster_test
 
 import (
 	"context"
-	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/signal"
-	. "github.com/synnaxlabs/x/testutil"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen/internal/cluster"
@@ -12,11 +9,14 @@ import (
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/node"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/signal"
+	. "github.com/synnaxlabs/x/testutil"
 	"go.uber.org/zap"
 	"time"
 )
 
-var _ = Describe("Cluster", func() {
+var _ = Describe("cluster", func() {
 	var (
 		builder    *clustermock.Builder
 		clusterCtx signal.Context

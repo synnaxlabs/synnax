@@ -1,79 +1,73 @@
-import dataclasses
-import json
-from typing import Protocol, Any, TypeVar, runtime_checkable
-from .transport import Payload
+from typing import Protocol, Type, TypeVar
 
 import msgpack
 
+from .transport import P, Payload
+
+
 
 class EncoderDecoder(Protocol):
+    """Protocol for an entity that encodes and decodes values from binary.
+    """
     @staticmethod
     def content_type() -> str:
+        """:returns: the HTTP content type of the encoder"""
         ...
 
     @staticmethod
     def encode(data: Payload) -> bytes:
+        """Encodes the given data into a binary representation.
+        :param data: The data to encode.
+        :returns: The binary representation of the data.
+        """
         ...
 
     @staticmethod
-    def decode(data: bytes, payload: Payload):
+    def decode(data: bytes, pld_t: Type[P]) -> P:
+        """Decodes the given binary into a type checked payload.
+        :param data: THe binary to decode.
+        :param pld_t: The type of the payload to decode into.
+        """
         ...
 
 
-class Msgpack:
+class MsgpackEncoder:
+    """A Msgpack implementation of EncoderDecoder.
+    """
     @staticmethod
     def content_type():
         return "application/msgpack"
 
     @staticmethod
-    def encode(payload: Any) -> bytes:
-        return msgpack.packb(dataclasses.asdict(payload))
+    def encode(payload: Payload) -> bytes:
+        return msgpack.packb(payload.dict())
 
     @staticmethod
-    def decode(data: bytes, payload: Any):
-        parse_payload_dict(msgpack.unpackb(data), payload)
+    def decode(data: bytes, pld_t: Type[P]) -> P:
+        return pld_t.parse_obj(msgpack.unpackb(data))
 
 
-class JSON:
+class JSONEncoder:
+    """A JSON implementation of EncoderDecoder.
+    """
+    STRING_ENCODING = "utf-8"
+
     @staticmethod
     def content_type():
         return "application/json"
 
     @staticmethod
-    def encode(payload: Any) -> bytes:
-        return json.dumps(dataclasses.asdict(payload)).encode()
+    def encode(payload: Payload) -> bytes:
+        return payload.json().encode()
 
     @staticmethod
-    def decode(data: bytes, payload: Any):
-        parse_payload_dict(json.loads(data), payload)
-
-
-def parse_payload_dict(data: dict, payload: Any):
-    if isinstance(payload, Loadable):
-        payload.load(data)
-        return
-
-    is_dict = isinstance(payload, dict)
-    print(payload, is_dict, data)
-    for key, value in data.items():
-        if isinstance(value, dict):
-            sub_payload = payload.get(key) if is_dict else getattr(payload, key)
-            parse_payload_dict(value, sub_payload)
-        elif is_dict:
-            payload[key] = value
-        else:
-            setattr(payload, key, value)
+    def decode(data: bytes, pld_t: Type[P]) -> P:
+        return pld_t.parse_raw(data.decode(JSONEncoder.STRING_ENCODING))
 
 
 ENCODER_DECODERS: list[EncoderDecoder] = [
-    JSON(),
-    Msgpack(),
+    JSONEncoder(),
+    MsgpackEncoder(),
 ]
 
 T = TypeVar("T")
-
-
-@runtime_checkable
-class Loadable(Protocol):
-    def load(self, data: dict):
-        ...

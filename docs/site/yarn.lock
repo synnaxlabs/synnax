@@ -138,15 +138,6 @@
     "@jridgewell/gen-mapping" "^0.1.0"
     "@jridgewell/trace-mapping" "^0.3.9"
 
-"@synnaxlabs/pluto@../../pluto":
-  version "0.0.1"
-  dependencies:
-    d3 "^7.6.1"
-    framer-motion "^6.5.1"
-    react "^18.2.0"
-    react-dom "^18.2.0"
-    uuid "^8.3.2"
-
 "@babel/code-frame@^7.0.0", "@babel/code-frame@^7.10.4", "@babel/code-frame@^7.16.0", "@babel/code-frame@^7.18.6", "@babel/code-frame@^7.8.3":
   version "7.18.6"
   resolved "https://registry.yarnpkg.com/@babel/code-frame/-/code-frame-7.18.6.tgz#3b25d38c89600baa2dcc219edfa88a74eb2c427a"
@@ -1929,6 +1920,15 @@
     "@svgr/core" "^6.3.1"
     "@svgr/plugin-jsx" "^6.3.1"
     "@svgr/plugin-svgo" "^6.3.1"
+
+"@synnaxlabs/pluto@../../pluto":
+  version "0.0.1"
+  dependencies:
+    d3 "^7.6.1"
+    framer-motion "^6.5.1"
+    react "^18.2.0"
+    react-dom "^18.2.0"
+    uuid "^8.3.2"
 
 "@szmarczak/http-timer@^1.1.2":
   version "1.1.2"
@@ -6102,6 +6102,11 @@ prepend-http@^2.0.0:
   version "2.0.0"
   resolved "https://registry.yarnpkg.com/prepend-http/-/prepend-http-2.0.0.tgz#e92434bfa5ea8c19f41cdfd401d741a3c819d897"
   integrity sha512-ravE6m9Atw9Z/jjttRUZ+clIXogdghyZAuWJ3qEzjT+jI/dL1ifAqhZeC5VHzQp1MSt1+jxKkFNemj/iO7tVUA==
+
+prettier@2.7.1:
+  version "2.7.1"
+  resolved "https://registry.yarnpkg.com/prettier/-/prettier-2.7.1.tgz#e235806850d057f97bb08368a4f7d899f7760c64"
+  integrity sha512-ujppO+MkdPqoVINuDFDRLClm7D78qbDt0/NR+wp5FqEZOoTNAjPHWj17QRhu7geIHJfcNhRk1XVQmF8Bp3ye+g==
 
 pretty-error@^4.0.0:
   version "4.0.0"

@@ -157,7 +157,7 @@ func (s MapTargetedSender[M]) Close() error {
 }
 
 type ClientTargetedSender[RQ, RS freighter.Payload] struct {
-	Transport freighter.StreamTransportClient[RQ, RS]
+	Transport freighter.StreamClient[RQ, RS]
 	MapTargetedSender[RQ]
 }
 

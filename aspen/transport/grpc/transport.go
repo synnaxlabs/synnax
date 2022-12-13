@@ -2,14 +2,13 @@ package grpc
 
 import (
 	"context"
-	"github.com/synnaxlabs/freighter/fgrpc"
-	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/kv"
-	"github.com/synnaxlabs/aspen/internal/node"
 	aspenv1 "github.com/synnaxlabs/aspen/transport/grpc/gen/proto/go/v1"
+	"github.com/synnaxlabs/freighter/fgrpc"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/signal"
 	"go/types"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -17,31 +16,61 @@ import (
 )
 
 type (
-	pledgeTransport = fgrpc.UnaryTransport[
-		node.ID,
+	pledgeClient = fgrpc.UnaryClient[
+		pledge.Request,
 		*aspenv1.ClusterPledge,
-		node.ID,
+		pledge.Response,
 		*aspenv1.ClusterPledge,
 	]
-	clusterGossipTransport = fgrpc.UnaryTransport[
+	pledgeServer = fgrpc.UnaryServer[
+		pledge.Request,
+		*aspenv1.ClusterPledge,
+		pledge.Response,
+		*aspenv1.ClusterPledge,
+	]
+	clusterGossipClient = fgrpc.UnaryClient[
 		gossip.Message,
 		*aspenv1.ClusterGossip,
 		gossip.Message,
 		*aspenv1.ClusterGossip,
 	]
-	batchTransport = fgrpc.UnaryTransport[
+	clusterGossipServer = fgrpc.UnaryServer[
+		gossip.Message,
+		*aspenv1.ClusterGossip,
+		gossip.Message,
+		*aspenv1.ClusterGossip,
+	]
+	batchClient = fgrpc.UnaryClient[
 		kv.BatchRequest,
 		*aspenv1.BatchRequest,
 		kv.BatchRequest,
 		*aspenv1.BatchRequest,
 	]
-	leaseTransport = fgrpc.UnaryTransport[
+	batchServer = fgrpc.UnaryServer[
+		kv.BatchRequest,
+		*aspenv1.BatchRequest,
+		kv.BatchRequest,
+		*aspenv1.BatchRequest,
+	]
+	leaseClient = fgrpc.UnaryClient[
 		kv.BatchRequest,
 		*aspenv1.BatchRequest,
 		types.Nil,
 		*emptypb.Empty,
 	]
-	feedbackTransport = fgrpc.UnaryTransport[
+	leaseServer = fgrpc.UnaryServer[
+		kv.BatchRequest,
+		*aspenv1.BatchRequest,
+		types.Nil,
+		*emptypb.Empty,
+	]
+	feedbackClient = fgrpc.UnaryClient[
+		kv.FeedbackMessage,
+		*aspenv1.FeedbackMessage,
+		types.Nil,
+		*emptypb.Empty,
+	]
+	feedbackServer = fgrpc.UnaryServer[
 		kv.FeedbackMessage,
 		*aspenv1.FeedbackMessage,
 		types.Nil,
@@ -50,21 +79,27 @@ type (
 )
 
 var (
-	_ pledge.Transport                   = (*pledgeTransport)(nil)
-	_ aspenv1.PledgeServiceServer        = (*pledgeTransport)(nil)
-	_ gossip.Transport                   = (*clusterGossipTransport)(nil)
-	_ aspenv1.ClusterGossipServiceServer = (*clusterGossipTransport)(nil)
-	_ kv.BatchTransport                  = (*batchTransport)(nil)
-	_ aspenv1.BatchServiceServer         = (*batchTransport)(nil)
-	_ kv.LeaseTransport                  = (*leaseTransport)(nil)
-	_ aspenv1.LeaseServiceServer         = (*leaseTransport)(nil)
-	_ kv.FeedbackTransport               = (*feedbackTransport)(nil)
-	_ aspenv1.FeedbackServiceServer      = (*feedbackTransport)(nil)
+	_ pledge.TransportServer             = (*pledgeServer)(nil)
+	_ pledge.TransportClient             = (*pledgeClient)(nil)
+	_ aspenv1.PledgeServiceServer        = (*pledgeServer)(nil)
+	_ gossip.TransportClient             = (*clusterGossipClient)(nil)
+	_ gossip.TransportServer             = (*clusterGossipServer)(nil)
+	_ aspenv1.ClusterGossipServiceServer = (*clusterGossipServer)(nil)
+	_ kv.BatchTransportClient            = (*batchClient)(nil)
+	_ kv.BatchTransportServer            = (*batchServer)(nil)
+	_ aspenv1.BatchServiceServer         = (*batchServer)(nil)
+	_ kv.LeaseTransportClient            = (*leaseClient)(nil)
+	_ kv.LeaseTransportServer            = (*leaseServer)(nil)
+	_ aspenv1.LeaseServiceServer         = (*leaseServer)(nil)
+	_ kv.FeedbackTransportClient         = (*feedbackClient)(nil)
+	_ kv.FeedbackTransportServer         = (*feedbackServer)(nil)
+	_ aspenv1.FeedbackServiceServer      = (*feedbackServer)(nil)
+	_ fgrpc.BindableTransport            = (*transport)(nil)
 )
 
 func New(pool *fgrpc.Pool) *transport {
 	return &transport{
-		pledge: &pledgeTransport{
+		pledgeClient: &pledgeClient{
 			Pool:               pool,
 			RequestTranslator:  pledgeTranslator{},
 			ResponseTranslator: pledgeTranslator{},
@@ -77,7 +112,12 @@ func New(pool *fgrpc.Pool) *transport {
 			},
 			ServiceDesc: &aspenv1.PledgeService_ServiceDesc,
 		},
-		clusterGossip: &clusterGossipTransport{
+		pledgeServer: &pledgeServer{
+			RequestTranslator:  pledgeTranslator{},
+			ResponseTranslator: pledgeTranslator{},
+			ServiceDesc:        &aspenv1.PledgeService_ServiceDesc,
+		},
+		gossipClient: &clusterGossipClient{
 			Pool:               pool,
 			RequestTranslator:  clusterGossipTranslator{},
 			ResponseTranslator: clusterGossipTranslator{},
@@ -90,7 +130,12 @@ func New(pool *fgrpc.Pool) *transport {
 			},
 			ServiceDesc: &aspenv1.ClusterGossipService_ServiceDesc,
 		},
-		batch: &batchTransport{
+		gossipServer: &clusterGossipServer{
+			RequestTranslator:  clusterGossipTranslator{},
+			ResponseTranslator: clusterGossipTranslator{},
+			ServiceDesc:        &aspenv1.ClusterGossipService_ServiceDesc,
+		},
+		batchClient: &batchClient{
 			Pool:               pool,
 			RequestTranslator:  batchTranslator{},
 			ResponseTranslator: batchTranslator{},
@@ -103,7 +148,12 @@ func New(pool *fgrpc.Pool) *transport {
 			},
 			ServiceDesc: &aspenv1.BatchService_ServiceDesc,
 		},
-		lease: &leaseTransport{
+		batchServer: &batchServer{
+			RequestTranslator:  batchTranslator{},
+			ResponseTranslator: batchTranslator{},
+			ServiceDesc:        &aspenv1.BatchService_ServiceDesc,
+		},
+		leaseClient: &leaseClient{
 			Pool:               pool,
 			RequestTranslator:  batchTranslator{},
 			ResponseTranslator: fgrpc.EmptyTranslator{},
@@ -116,7 +166,12 @@ func New(pool *fgrpc.Pool) *transport {
 			},
 			ServiceDesc: &aspenv1.LeaseService_ServiceDesc,
 		},
-		feedback: &feedbackTransport{
+		leaseServer: &leaseServer{
+			RequestTranslator:  batchTranslator{},
+			ResponseTranslator: fgrpc.EmptyTranslator{},
+			ServiceDesc:        &aspenv1.LeaseService_ServiceDesc,
+		},
+		feedbackClient: &feedbackClient{
 			Pool:               pool,
 			RequestTranslator:  feedbackTranslator{},
 			ResponseTranslator: fgrpc.EmptyTranslator{},
@@ -129,34 +184,54 @@ func New(pool *fgrpc.Pool) *transport {
 			},
 			ServiceDesc: &aspenv1.FeedbackService_ServiceDesc,
 		},
+		feedbackServer: &feedbackServer{
+			RequestTranslator:  feedbackTranslator{},
+			ResponseTranslator: fgrpc.EmptyTranslator{},
+			ServiceDesc:        &aspenv1.FeedbackService_ServiceDesc,
+		},
 	}
 }
 
 // transport implements the aspen.transport interface.
 type transport struct {
-	pledge        *pledgeTransport
-	clusterGossip *clusterGossipTransport
-	batch         *batchTransport
-	lease         *leaseTransport
-	feedback      *feedbackTransport
+	pledgeServer   *pledgeServer
+	pledgeClient   *pledgeClient
+	gossipServer   *clusterGossipServer
+	gossipClient   *clusterGossipClient
+	batchServer    *batchServer
+	batchClient    *batchClient
+	leaseServer    *leaseServer
+	leaseClient    *leaseClient
+	feedbackServer *feedbackServer
+	feedbackClient *feedbackClient
 }
 
-func (t *transport) Pledge() pledge.Transport { return t.pledge }
+func (t *transport) PledgeServer() pledge.TransportServer { return t.pledgeServer }
 
-func (t *transport) Cluster() gossip.Transport { return t.clusterGossip }
+func (t *transport) PledgeClient() pledge.TransportClient { return t.pledgeClient }
 
-func (t *transport) Operations() kv.BatchTransport { return t.batch }
+func (t *transport) GossipServer() gossip.TransportServer { return t.gossipServer }
 
-func (t *transport) Lease() kv.LeaseTransport { return t.lease }
+func (t *transport) GossipClient() gossip.TransportClient { return t.gossipClient }
 
-func (t *transport) Feedback() kv.FeedbackTransport { return t.feedback }
+func (t *transport) BatchServer() kv.BatchTransportServer { return t.batchServer }
+
+func (t *transport) BatchClient() kv.BatchTransportClient { return t.batchClient }
+
+func (t *transport) LeaseServer() kv.LeaseTransportServer { return t.leaseServer }
+
+func (t *transport) LeaseClient() kv.LeaseTransportClient { return t.leaseClient }
+
+func (t *transport) FeedbackServer() kv.FeedbackTransportServer { return t.feedbackServer }
+
+func (t *transport) FeedbackClient() kv.FeedbackTransportClient { return t.feedbackClient }
 
 func (t *transport) BindTo(reg grpc.ServiceRegistrar) {
-	t.pledge.BindTo(reg)
-	t.clusterGossip.BindTo(reg)
-	t.batch.BindTo(reg)
-	t.lease.BindTo(reg)
-	t.feedback.BindTo(reg)
+	t.pledgeServer.BindTo(reg)
+	t.gossipServer.BindTo(reg)
+	t.batchServer.BindTo(reg)
+	t.leaseServer.BindTo(reg)
+	t.feedbackServer.BindTo(reg)
 }
 
 func (t *transport) Configure(ctx signal.Context, addr address.Address, external bool) error {

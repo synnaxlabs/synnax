@@ -2,26 +2,51 @@ package channel
 
 import (
 	"context"
+	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/gen/proto/go/channel/v1"
-	"github.com/synnaxlabs/freighter/fgrpc"
 	"google.golang.org/grpc"
 )
 
-type transport = fgrpc.UnaryTransport[
+type client = fgrpc.UnaryClient[
+	channel.CreateMessage,
+	*channelv1.CreateMessage,
+	channel.CreateMessage,
+	*channelv1.CreateMessage,
+]
+type server = fgrpc.UnaryServer[
 	channel.CreateMessage,
 	*channelv1.CreateMessage,
 	channel.CreateMessage,
 	*channelv1.CreateMessage,
 ]
 
+// Transport is a grpc backed implementation of the channel.Transport interface.
+type Transport struct {
+	client *client
+	server *server
+}
+
+// CreateClient implements the channel.Transport interface.
+func (t Transport) CreateClient() channel.CreateTransportClient { return t.client }
+
+// CreateServer implements the channel.Transport interface.
+func (t Transport) CreateServer() channel.CreateTransportServer { return t.server }
+
+// BindTo implements the fgrpc.BindableTransport interface.
+func (t Transport) BindTo(reg grpc.ServiceRegistrar) { t.server.BindTo(reg) }
+
 var (
-	_ channel.CreateTransport        = (*transport)(nil)
-	_ channelv1.ChannelServiceServer = (*transport)(nil)
+	_ channel.CreateTransportClient  = (*client)(nil)
+	_ channel.CreateTransportServer  = (*server)(nil)
+	_ channelv1.ChannelServiceServer = (*server)(nil)
+	_ channel.Transport              = (*Transport)(nil)
+	_ fgrpc.BindableTransport        = (*Transport)(nil)
 )
 
-func New(pool *fgrpc.Pool) *transport {
-	return &transport{
+// New creates a new grpc Transport that opens connections from the given pool.
+func New(pool *fgrpc.Pool) Transport {
+	c := &client{
 		Pool:               pool,
 		RequestTranslator:  createMessageTranslator{},
 		ResponseTranslator: createMessageTranslator{},
@@ -32,6 +57,11 @@ func New(pool *fgrpc.Pool) *transport {
 		) (*channelv1.CreateMessage, error) {
 			return channelv1.NewChannelServiceClient(conn).Exec(ctx, req)
 		},
-		ServiceDesc: &channelv1.ChannelService_ServiceDesc,
 	}
+	s := &server{
+		RequestTranslator:  createMessageTranslator{},
+		ResponseTranslator: createMessageTranslator{},
+		ServiceDesc:        &channelv1.ChannelService_ServiceDesc,
+	}
+	return Transport{c, s}
 }

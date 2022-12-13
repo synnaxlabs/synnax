@@ -1,20 +1,20 @@
 import test from 'ava';
 
 import {
-  assertErrorType,
   BaseTypedError,
-  decodeError,
-  encodeError,
   EOF,
   FREIGHTER,
-  isTypedError,
   NONE,
-  registerError,
   StreamClosed,
   TypedError,
   UNKNOWN,
   UnknownError,
   Unreachable,
+  assertErrorType,
+  decodeError,
+  encodeError,
+  isTypedError,
+  registerError,
 } from './errors';
 
 class MyCustomError extends BaseTypedError {

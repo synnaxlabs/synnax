@@ -1,25 +1,34 @@
 package token_test
 
 import (
+	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
-	"github.com/synnaxlabs/synnax/pkg/auth/token"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/auth/token"
 	"time"
 )
 
-var _ = Describe("Token", func() {
+type mockKeyService struct {
+	key *rsa.PrivateKey
+}
+
+func (m *mockKeyService) NodePrivate() crypto.PrivateKey {
+	return m.key
+}
+
+var _ = Describe("token", func() {
 	var (
 		svc *token.Service
 	)
 	BeforeEach(func() {
-		k, err := rsa.GenerateKey(rand.Reader, 2048)
+		k, err := rsa.GenerateKey(rand.Reader, 1024)
 		Expect(err).ToNot(HaveOccurred())
 		svc = &token.Service{
-			Secret:     k,
-			Expiration: 5 * time.Second,
+			KeyProvider: &mockKeyService{key: k},
+			Expiration:  5 * time.Second,
 		}
 	})
 	It("Should generate a token for the given issuer", func() {

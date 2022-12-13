@@ -11,7 +11,7 @@ var _ = Describe("Stream", func() {
 	var (
 		addr address.Address = "addr"
 	)
-	Describe("Internal Stream", func() {
+	Describe("internal Stream", func() {
 		Describe("Address", func() {
 			Context("Stream", func() {
 				It("Should set the inlet address properly", func() {
@@ -54,7 +54,7 @@ var _ = Describe("Stream", func() {
 				inlet.Inlet() <- 1
 				Expect(<-ch).To(Equal(1))
 			})
-			It("Should close the wrapped channel", func() {
+			It("Should close the internal channel", func() {
 				inlet.Close()
 			})
 		})

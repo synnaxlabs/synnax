@@ -1,0 +1,43 @@
+import { describe, expect, it } from "vitest";
+import { desugar, sugar } from "./sugar";
+
+describe("sugar", () => {
+	describe("sugar", () => {
+		it("should sugar the provided action correctly", () => {
+			const a = {
+				type: "myReducer/myAction",
+				payload: {},
+			};
+			const v = sugar(a, "1");
+			expect(v).toEqual({
+				type: "DA@1://myReducer/myAction",
+				payload: {},
+			});
+		});
+	});
+	describe("desugar", () => {
+		it("should desugar a sugared action into its components", () => {
+			const a = {
+				type: "DA@1://myReducer/myAction",
+				payload: {},
+			};
+			const { emitted, emitter, action } = desugar(a);
+			expect(emitted).toBe(true);
+			expect(emitter).toBe("1");
+			expect(action).toEqual({
+				type: "myReducer/myAction",
+				payload: {},
+			});
+		});
+		it("should not desugar an action that is not sugared", () => {
+			const a = {
+				type: "myReducer/myAction",
+				payload: {},
+			};
+			const { emitted, emitter, action } = desugar(a);
+			expect(emitted).toBeFalsy();
+			expect(emitter).toBeFalsy();
+			expect(action).toEqual(a);
+		});
+	});
+});

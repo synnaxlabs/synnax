@@ -2,6 +2,8 @@ package mock
 
 import (
 	"context"
+	"github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen"
 	aspentransmock "github.com/synnaxlabs/aspen/transport/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
@@ -12,28 +14,35 @@ import (
 	"github.com/synnaxlabs/x/config"
 )
 
+// CoreBuilder is a utility for provisioning mock distribution cores that
+// form a cluster. To create a new CoreBuilder, call NewCoreBuilder
 type CoreBuilder struct {
+	// Builder is the underlying storage builder.
 	mockstorage.Builder
-	Config      core.Config
-	net         *aspentransmock.Network
-	Cores       map[core.NodeID]core.Core
+	// Config is the configuration used to provision new cores.
+	Config core.Config
+	// Cores contains a map of all cores paired with their respective host ID.
+	Cores map[core.NodeID]core.Core
+	// net is the network for transporting key-value operations.
+	net *aspentransmock.Network
+	// addrFactory generates unique addresses for nodes.
 	addrFactory *address.Factory
 }
 
-func NewCoreBuilder(cfg ...distribution.Config) *CoreBuilder {
-	_cfg, err := config.OverrideAndValidate(distribution.DefaultConfig, append([]distribution.Config{{
-		Storage: storage.Config{
-			MemBacked: config.BoolPointer(true),
-		},
-	}}, cfg...)...)
+// NewCoreBuilder opens a new CoreBuilder that provisions cores using the given
+// configuration.
+func NewCoreBuilder(configs ...distribution.Config) *CoreBuilder {
+	cfg, err := config.OverrideAndValidate(distribution.DefaultConfig, append([]distribution.Config{{
+		Storage: storage.Config{MemBacked: config.BoolPointer(true)},
+	}}, configs...)...)
 	if err != nil {
 		panic(err)
 	}
-	storeBuilder := mockstorage.NewBuilder(_cfg.Storage)
+	storeBuilder := mockstorage.NewBuilder(cfg.Storage)
 	net := aspentransmock.NewNetwork()
 	addrFactory := &address.Factory{Host: "localhost", PortStart: 0}
 	return &CoreBuilder{
-		Config:      _cfg,
+		Config:      cfg,
 		Builder:     *storeBuilder,
 		Cores:       make(map[core.NodeID]core.Core),
 		net:         net,
@@ -41,44 +50,52 @@ func NewCoreBuilder(cfg ...distribution.Config) *CoreBuilder {
 	}
 }
 
-func (c *CoreBuilder) New() core.Core {
-	store := c.Builder.New()
-	trans := c.net.NewTransport()
-	addr := c.addrFactory.Next()
+// New provisions a new core connected to the rest of the nodes in the builder's cluster.
+// Panics if the core cannot be opened.
+func (cb *CoreBuilder) New() core.Core {
+	store := cb.Builder.New()
+	trans := cb.net.NewTransport()
+	addr := cb.addrFactory.Next()
 
-	clusterKV, err := aspen.Open(
+	clusterKV := lo.Must(aspen.Open(
 		context.TODO(),
 		/* dirname */ "",
 		addr,
-		c.peerAddresses(),
+		cb.peerAddresses(),
 		aspen.WithEngine(store.KV),
-		aspen.WithExperiment(c.Config.Experiment),
-		aspen.WithLogger(c.Config.Logger.Named("aspen").Sugar()),
+		aspen.WithExperiment(cb.Config.Experiment),
+		aspen.WithLogger(cb.Config.Logger.Named("aspen").Sugar()),
 		aspen.WithTransport(trans),
 		aspen.WithPropagationConfig(aspen.FastPropagationConfig),
-	)
-	if err != nil {
-		panic(err)
-	}
+	))
 
-	cfg := c.Config
+	cfg := cb.Config
 	cfg.AdvertiseAddress = addr
 
 	store.KV = clusterKV
 
 	_core := distribution.Core{Config: cfg, Cluster: clusterKV, Storage: store}
 
-	c.Cores[_core.Cluster.HostID()] = _core
+	cb.Cores[_core.Cluster.HostID()] = _core
 	return _core
 }
 
-func (c *CoreBuilder) Close() error {
-	return c.Builder.Close()
+// Close shuts down all other nodes in the cluster. It is not safe to call this method
+// while the nodes are still in use.
+func (cb *CoreBuilder) Close() error { return cb.Builder.Close() }
+
+func (cb *CoreBuilder) WaitForTopologyToStabilize() {
+	for _, _c := range cb.Cores {
+		c := _c
+		gomega.Eventually(func() int {
+			return len(c.Cluster.Nodes())
+		}).Should(gomega.Equal(len(cb.Cores)))
+	}
 }
 
-func (c *CoreBuilder) peerAddresses() (peerAddresses []address.Address) {
-	for _, _core := range c.Cores {
-		peerAddresses = append(peerAddresses, _core.Config.AdvertiseAddress)
+func (cb *CoreBuilder) peerAddresses() (addrs []address.Address) {
+	for _, _core := range cb.Cores {
+		addrs = append(addrs, _core.Config.AdvertiseAddress)
 	}
-	return peerAddresses
+	return
 }

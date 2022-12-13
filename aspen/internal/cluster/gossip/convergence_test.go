@@ -3,14 +3,14 @@ package gossip_test
 import (
 	"context"
 	"fmt"
-	"github.com/synnaxlabs/freighter/fmock"
-	"github.com/synnaxlabs/x/alamos"
-	"github.com/synnaxlabs/x/rand"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/store"
 	"github.com/synnaxlabs/aspen/internal/node"
+	"github.com/synnaxlabs/freighter/fmock"
+	"github.com/synnaxlabs/x/alamos"
+	"github.com/synnaxlabs/x/rand"
 	"go.uber.org/zap"
 	"sync"
 )
@@ -62,10 +62,14 @@ var _ = Describe("Convergence", func() {
 			group := make(node.Group)
 			configs := make(map[node.ID]gossip.Config)
 			for i := 1; i <= values.nodeCount; i++ {
-				t := net.RouteUnary("")
-				n := node.Node{ID: node.ID(i), Address: t.Address}
+				server := net.UnaryServer("")
+				n := node.Node{ID: node.ID(i), Address: server.Address}
 				group[n.ID] = n
-				configs[n.ID] = gossip.Config{Transport: t, Logger: logger}
+				configs[n.ID] = gossip.Config{
+					TransportServer: server,
+					TransportClient: net.UnaryClient(),
+					Logger:          logger,
+				}
 			}
 			var (
 				gossips []*gossip.Gossip

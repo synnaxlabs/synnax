@@ -26,22 +26,22 @@ func (r Retrieve[K, E]) Where(filter func(*E) bool) Retrieve[K, E] {
 // WhereKeys queries the DB for Entries with the provided keys. Although more targeted,
 // this lookup is substantially faster than a general Where query. If called in
 // conjunction with Where, the WhereKeys filter will be applied first. Subsequent calls
-// to WhereKeys will append the keys to the existing filter.
+// to WhereKeys will append the keys to the existing set.
 func (r Retrieve[K, E]) WhereKeys(keys ...K) Retrieve[K, E] {
 	setWhereKeys(r, keys...)
 	return r
 }
 
-// Entries binds a slice that the Query will fill results into. Calls to Entry will
-// override All previous calls to Entries or Entry.
+// Entries binds a slice that the Query will fill results into. Repeated calls to Entry
+// or Entries will override all previous calls to Entries or Entry.
 func (r Retrieve[K, E]) Entries(entries *[]E) Retrieve[K, E] {
 	SetEntries[K, E](r, entries)
 	return r
 }
 
-// Entry binds the entry that the Query will fill results into. Calls to Entry will
-// override All previous calls to Entries or Entry. If  multiple results are returned
-// by the query, entry will be set to the last result.
+// Entry binds the entry that the Query will fill results into. Repeated calls to Entry
+// or Entries will override All previous calls to Entries or Entry. If  multiple results
+// are returned by the query, entry will be set to the last result.
 func (r Retrieve[K, E]) Entry(entry *E) Retrieve[K, E] {
 	SetEntry[K, E](r, entry)
 	return r
@@ -147,7 +147,7 @@ func checkExists[K Key, E Entry[K]](q query.Query, reader kv.Reader, opts option
 	if keys, ok := getWhereKeys[K](q); ok {
 		entries := make([]E, 0, len(keys))
 		SetEntries[K, E](q, &entries)
-		if err := keysRetrieve[K, E](q, reader, opts); err != nil && err != query.NotFound {
+		if err := keysRetrieve[K, E](q, reader, opts); err != nil && !errors.Is(err, query.NotFound) {
 			return false, err
 		}
 		return len(entries) == len(keys), nil
@@ -176,14 +176,14 @@ func keysRetrieve[K Key, E Entry[K]](q query.Query, reader kv.Reader, opts optio
 		prefixedKey := append(prefix, key...)
 		b, _err := reader.Get(prefixedKey)
 		if _err != nil {
-			if _err == kv.NotFound {
+			if errors.Is(_err, kv.NotFound) {
 				err = query.NotFound
 			} else {
 				err = _err
 			}
 			continue
 		}
-		if _err = opts.decoder.Decode(b, &entry); err != nil {
+		if _err = opts.decoder.Decode(b, &entry); _err != nil {
 			return _err
 		}
 		if f.exec(entry) {
@@ -199,12 +199,19 @@ func filterRetrieve[K Key, E Entry[K]](q query.Query, reader kv.Reader, opts opt
 		f       = getFilters[K, E](q)
 		entries = GetEntries[K, E](q)
 		iter    = WrapKVIter[E](reader.NewIterator(kv.PrefixIter(typePrefix[K, E](opts))))
+		found   = false
 	)
 	for iter.First(); iter.Valid(); iter.Next() {
+
 		iter.BindValue(v)
+
 		if f.exec(v) {
+			found = true
 			entries.Add(*v)
 		}
+	}
+	if !entries.multiple && !found {
+		return query.NotFound
 	}
 	return iter.Close()
 }

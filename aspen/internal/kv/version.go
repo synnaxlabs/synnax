@@ -2,11 +2,11 @@ package kv
 
 import (
 	"context"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/confluence"
 	kvx "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/version"
-	"github.com/samber/lo"
 )
 
 // |||||| FILTER ||||||
@@ -91,7 +91,7 @@ type versionAssigner struct {
 }
 
 func newVersionAssigner(cfg Config) (segment, error) {
-	c, err := kvx.NewPersistedCounter(cfg.Engine, []byte(versionCounterKey))
+	c, err := kvx.OpenCounter(cfg.Engine, []byte(versionCounterKey))
 	v := &versionAssigner{Config: cfg, counter: c}
 	v.LinearTransform.Transform = v.assign
 	return v, err

@@ -1,44 +1,55 @@
 import pytest
 
-from freighter import Endpoint
-from freighter import http
-from freighter import encoder
-from .interface import Message, Error, message_factory
+from freighter import URL, encoder
+from freighter.http import GETClient, HTTPClientFactory, POSTClient
+from freighter.metadata import MetaData
+from freighter.transport import Next
+
+from .interface import Message
 
 
 @pytest.fixture
-def client(endpoint: Endpoint) -> http.Client:
-    http_endpoint = endpoint.child("http", protocol="http")
-    return http.Client(http_endpoint, encoder.JSON())
-
-
-@pytest.fixture
-def get_client(client: http.Client) -> http.GETClient[Message, Message]:
-    return client.get(Message, message_factory)
-
-
-@pytest.fixture
-def post_client(client: http.Client) -> http.POSTClient[Message, Message]:
-    return client.post(Message, message_factory)
+def http_factory(endpoint: URL) -> HTTPClientFactory:
+    http_endpoint = endpoint.child("unary")
+    return HTTPClientFactory(http_endpoint, encoder.JSONEncoder())
 
 
 class TestGETClient:
-    def test_echo(self, get_client: http.GETClient):
+    @pytest.mark.focus
+    def test_echo(self, http_factory: HTTPClientFactory):
+        """Should echo an incremented ID back to the caller.
         """
-        Should echo an incremented ID back to the caller.
-        """
-        res, err = get_client.send("/echo", Message(1, "hello"))
+        res, err = http_factory.get_client().send("/echo",
+                                                  Message(id=1, message="hello"),
+                                                  Message)
         assert err is None
         assert res.id == 2
         assert res.message == "hello"
 
+    def test_middleware(self, http_factory: HTTPClientFactory):
+        dct = {"called": False}
+
+        def mw(md: MetaData, next: Next) -> Exception | None:
+            md.params["Test"] = "test"
+            dct["called"] = True
+            return next(md)
+
+        client = http_factory.get_client()
+        client.use(mw)
+        res, err = client.send("/middlewareCheck", Message(id=1, message="hello"), Message)
+        assert err is None
+        assert res.id == 2
+        assert res.message == "hello"
+        assert dct["called"]
+
 
 class TestPOSTClient:
-    def test_echo(self, post_client: http.POSTClient):
+    def test_echo(self, http_factory: HTTPClientFactory):
+        """Should echo an incremented ID back to the caller.
         """
-        Should echo an incremented ID back to the caller.
-        """
-        res, err = post_client.send("/echo", Message(1, "hello"))
+        res, err = http_factory.post_client().send("/echo",
+                                                   Message(id=1, message="hello"),
+                                                   Message)
         assert err is None
         assert res.id == 2
         assert res.message == "hello"

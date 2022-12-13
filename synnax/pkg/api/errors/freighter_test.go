@@ -1,16 +1,16 @@
 package errors_test
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/api/errors"
-	"github.com/synnaxlabs/freighter/ferrors"
 	roacherrors "github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter/ferrors"
+	"github.com/synnaxlabs/synnax/pkg/api/errors"
 )
 
 var _ = Describe("Freighter", func() {
 	Describe("Encode + Decode", func() {
-		Context("Validation Err", func() {
+		Context("validation Err", func() {
 			It("Should encode and decode a validation error", func() {
 				err := errors.Validation(errors.Fields{
 					{

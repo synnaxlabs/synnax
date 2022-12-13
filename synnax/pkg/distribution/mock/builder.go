@@ -1,23 +1,24 @@
 package mock
 
 import (
-	"github.com/synnaxlabs/freighter/fmock"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/segment"
-	"github.com/synnaxlabs/synnax/pkg/distribution/segment/iterator"
-	"github.com/synnaxlabs/synnax/pkg/distribution/segment/writer"
-	"go.uber.org/zap"
+	tmock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock"
 )
 
 type Builder struct {
 	mock.CoreBuilder
 	Nodes      []distribution.Distribution
-	writerNet  *fmock.Network[writer.Request, writer.Response]
-	iterNet    *fmock.Network[iterator.Request, iterator.Response]
-	channelNet *fmock.Network[channel.CreateMessage, channel.CreateMessage]
+	writerNet  *tmock.FramerWriterNetwork
+	iterNet    *tmock.FramerIteratorNetwork
+	channelNet *tmock.ChannelNetwork
 }
 
 func NewBuilder(cfg ...distribution.Config) *Builder {
@@ -25,9 +26,9 @@ func NewBuilder(cfg ...distribution.Config) *Builder {
 
 	return &Builder{
 		CoreBuilder: *coreBuilder,
-		writerNet:   fmock.NewNetwork[writer.Request, writer.Response](),
-		iterNet:     fmock.NewNetwork[iterator.Request, iterator.Response](),
-		channelNet:  fmock.NewNetwork[channel.CreateMessage, channel.CreateMessage](),
+		writerNet:   tmock.NewFramerWriterNetwork(),
+		iterNet:     tmock.NewFramerIteratorNetwork(),
+		channelNet:  tmock.NewChannelNetwork(),
 	}
 }
 
@@ -35,36 +36,52 @@ func (b *Builder) New() distribution.Distribution {
 	core := b.CoreBuilder.New()
 	d := distribution.Distribution{Core: core}
 
-	trans := mockSegmentTransport{
-		iterator: b.iterNet.RouteStream(core.Config.AdvertiseAddress, 0),
-		writer:   b.writerNet.RouteStream(core.Config.AdvertiseAddress, 0),
+	trans := mockFramerTransport{
+		iter:   b.iterNet.New(core.Config.AdvertiseAddress, 1),
+		writer: b.writerNet.New(core.Config.AdvertiseAddress, 1),
 	}
 
-	var err error
-	d.Ontology, err = ontology.Open(d.Storage.Gorpify())
-	if err != nil {
-		panic(err)
-	}
-	d.Channel = channel.New(
-		d.Cluster,
-		d.Storage.Gorpify(),
-		d.Storage.TS,
-		b.channelNet.RouteUnary(core.Config.AdvertiseAddress),
-	)
-	d.Segment = segment.New(d.Channel, d.Storage.TS, trans, d.Cluster, zap.NewNop())
+	d.Ontology = lo.Must(ontology.Open(d.Storage.Gorpify()))
 
+	nodeOntologySvc := &dcore.NodeOntologyService{
+		Logger:   d.Config.Logger.Sugar(),
+		Cluster:  d.Cluster,
+		Ontology: d.Ontology,
+	}
+	clusterOntologySvc := &dcore.ClusterOntologyService{Cluster: d.Cluster}
+	d.Ontology.RegisterService(nodeOntologySvc)
+	d.Ontology.RegisterService(clusterOntologySvc)
+	nodeOntologySvc.ListenForChanges()
+
+	d.Channel = lo.Must(channel.New(channel.ServiceConfig{
+		HostResolver: d.Cluster,
+		ClusterDB:    d.Storage.Gorpify(),
+		TSChannel:    d.Storage.TS,
+		Transport:    b.channelNet.New(d.Config.AdvertiseAddress),
+		Ontology:     d.Ontology,
+	}))
+
+	d.Framer = lo.Must(framer.Open(framer.ServiceConfig{
+		ChannelReader: d.Channel,
+		TS:            d.Storage.TS,
+		HostResolver:  d.Cluster,
+		Logger:        d.Core.Config.Logger,
+		Transport:     trans,
+	}))
 	return d
 }
 
-type mockSegmentTransport struct {
-	iterator iterator.Transport
-	writer   writer.Transport
+type mockFramerTransport struct {
+	iter   iterator.Transport
+	writer writer.Transport
 }
 
-func (m mockSegmentTransport) Iterator() iterator.Transport {
-	return m.iterator
+var _ framer.Transport = (*mockFramerTransport)(nil)
+
+func (m mockFramerTransport) Iterator() iterator.Transport {
+	return m.iter
 }
 
-func (m mockSegmentTransport) Writer() writer.Transport {
+func (m mockFramerTransport) Writer() writer.Transport {
 	return m.writer
 }

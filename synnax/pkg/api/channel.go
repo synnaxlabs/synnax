@@ -15,43 +15,36 @@ type Channel struct {
 	Key      string              `json:"key" msgpack:"key"`
 	Name     string              `json:"name" msgpack:"name"`
 	NodeID   distribution.NodeID `json:"node_id" msgpack:"node_id"`
-	Rate     telem.Rate          `json:"rate" msgpack:"rate" validate:"required"`
+	Rate     telem.Rate          `json:"rate" msgpack:"rate"`
 	DataType telem.DataType      `json:"data_type" msgpack:"data_type" validate:"required"`
 	Density  telem.Density       `json:"density" msgpack:"density"`
+	IsIndex  bool                `json:"is_index" msgpack:"is_index"`
+	Index    string              `json:"index" msgpack:"index"`
 }
 
-// ChannelService is the central API for all things channel related.
+// ChannelService is the central API for all things Channel related.
 type ChannelService struct {
-	LoggingProvider
-	ValidationProvider
-	AuthProvider
-	DBProvider
-	Internal *channel.Service
+	loggingProvider
+	validationProvider
+	authProvider
+	dbProvider
+	internal channel.Service
 }
 
 func NewChannelService(p Provider) *ChannelService {
 	return &ChannelService{
-		Internal:           p.Config.Channel,
-		ValidationProvider: p.Validation,
-		AuthProvider:       p.Auth,
-		LoggingProvider:    p.Logging,
-		DBProvider:         p.DB,
+		internal:           p.Config.Channel,
+		validationProvider: p.Validation,
+		authProvider:       p.auth,
+		loggingProvider:    p.Logging,
+		dbProvider:         p.db,
 	}
 }
 
-// ChannelCreateRequest is a request to create a channel in the cluster.
+// ChannelCreateRequest is a request to create a Channel in the cluster.
 type ChannelCreateRequest struct {
-	// Channel is a template for the channel to create.
-	Channel Channel `json:"channel" msgpack:"channel" validate:"required"`
-	// Count is the number of channels to create using the template.
-	Count int `json:"count" msgpack:"count"`
-}
-
-func (c ChannelCreateRequest) applyDefaults() ChannelCreateRequest {
-	if c.Count == 0 {
-		c.Count = 1
-	}
-	return c
+	// Channel is a template for the Channel to create.
+	Channels []Channel `json:"channels" msgpack:"channels" validate:"required,dive"`
 }
 
 // ChannelCreateResponse is the response returned after a set of channels have
@@ -60,51 +53,50 @@ type ChannelCreateResponse struct {
 	Channels []Channel `json:"channels" msgpack:"channels"`
 }
 
-// Create creates a channel based on the parameters given in the request.
+// Create creates a Channel based on the parameters given in the request.
 func (s *ChannelService) Create(
 	ctx context.Context,
 	req ChannelCreateRequest,
 ) (res ChannelCreateResponse, _ errors.Typed) {
-	req = req.applyDefaults()
 	if err := s.Validate(req); err.Occurred() {
 		return res, err
 	}
-	return res, s.DBProvider.WithTxn(func(txn gorp.Txn) errors.Typed {
-		chs, err := s.Internal.NewCreate().
-			WithName(req.Channel.Name).
-			WithNodeID(req.Channel.NodeID).
-			WithRate(req.Channel.Rate).
-			WithDataType(req.Channel.DataType).
-			WithTxn(txn).
-			ExecN(ctx, req.Count)
-		res = ChannelCreateResponse{Channels: translateChannels(chs)}
+	translated, err := translateChannelsBackward(req.Channels)
+	if err != nil {
+		return res, errors.Parse(err)
+	}
+	return res, s.dbProvider.WithTxn(func(txn gorp.Txn) errors.Typed {
+		err := s.internal.CreateManyWithTxn(txn, &translated)
+		res = ChannelCreateResponse{Channels: translateChannelsForward(translated)}
 		return errors.MaybeQuery(err)
 	})
 }
 
-// ChannelRetrieveRequest is a request for retrieving information about a channel
+// ChannelRetrieveRequest is a request for retrieving information about a Channel
 // from the cluster.
 type ChannelRetrieveRequest struct {
-	// Optional parameter that queries a channel by its node ID.
+	// Optional parameter that queries a Channel by its node ID.
 	NodeID distribution.NodeID `query:"node_id"`
-	// Optional parameter that queries a channel by its key.
+	// Optional parameter that queries a Channel by its key.
 	Keys []string `query:"keys"`
+	// Optional parameter that queries a Channel by its name.
+	Names []string `query:"names"`
 }
 
 type ChannelRetrieveResponse struct {
 	Channels []Channel `json:"channels" msgpack:"channels"`
 }
 
-// Retrieve retrieves a channel based on the parameters given in the request. If no
+// Retrieve retrieves a Channel based on the parameters given in the request. If no
 // parameters are specified, retrieves all channels.
 func (s *ChannelService) Retrieve(
 	ctx context.Context,
 	req ChannelRetrieveRequest,
 ) (ChannelRetrieveResponse, errors.Typed) {
 	var resChannels []channel.Channel
-	q := s.Internal.NewRetrieve().Entries(&resChannels)
+	q := s.internal.NewRetrieve().Entries(&resChannels)
 
-	if len(req.Keys) != 0 {
+	if len(req.Keys) > 0 {
 		keys, err := channel.ParseKeys(req.Keys)
 		if err != nil {
 			return ChannelRetrieveResponse{}, errors.Parse(err)
@@ -112,15 +104,19 @@ func (s *ChannelService) Retrieve(
 		q = q.WhereKeys(keys...)
 	}
 
+	if len(req.Names) > 0 {
+		q = q.WhereNames(req.Names...)
+	}
+
 	if req.NodeID != 0 {
 		q = q.WhereNodeID(req.NodeID)
 	}
 
 	err := errors.MaybeQuery(q.Exec(ctx))
-	return ChannelRetrieveResponse{Channels: translateChannels(resChannels)}, err
+	return ChannelRetrieveResponse{Channels: translateChannelsForward(resChannels)}, err
 }
 
-func translateChannels(channels []channel.Channel) []Channel {
+func translateChannelsForward(channels []channel.Channel) []Channel {
 	translated := make([]Channel, len(channels))
 	for i, ch := range channels {
 		translated[i] = Channel{
@@ -129,8 +125,42 @@ func translateChannels(channels []channel.Channel) []Channel {
 			NodeID:   ch.NodeID,
 			Rate:     ch.Rate,
 			DataType: ch.DataType,
-			Density:  ch.Density,
+			IsIndex:  ch.IsIndex,
+			Index:    ch.Index().String(),
+			Density:  ch.DataType.Density(),
 		}
 	}
 	return translated
+}
+
+func translateChannelsBackward(channels []Channel) ([]channel.Channel, error) {
+	translated := make([]channel.Channel, len(channels))
+	for i, ch := range channels {
+		tCH := channel.Channel{
+			Name:     ch.Name,
+			NodeID:   ch.NodeID,
+			Rate:     ch.Rate,
+			DataType: ch.DataType,
+			IsIndex:  ch.IsIndex,
+		}
+		if ch.Key != "" {
+			key, err := channel.ParseKey(ch.Key)
+			if err != nil {
+				return nil, err
+			}
+			tCH.StorageKey = key.LocalKey()
+		}
+		if ch.Index != "" {
+			index, err := channel.ParseKey(ch.Index)
+			if err != nil {
+				return nil, err
+			}
+			tCH.LocalIndex = index.LocalKey()
+		}
+		if ch.IsIndex {
+			tCH.LocalIndex = tCH.StorageKey
+		}
+		translated[i] = tCH
+	}
+	return translated, nil
 }

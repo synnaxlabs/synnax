@@ -1,11 +1,14 @@
 package gossip
 
 import (
-	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/aspen/internal/node"
+	"github.com/synnaxlabs/freighter"
 )
 
-type Transport = freighter.Unary[Message, Message]
+type (
+	TransportServer = freighter.UnaryServer[Message, Message]
+	TransportClient = freighter.UnaryClient[Message, Message]
+)
 
 type Message struct {
 	Digests node.Digests

@@ -57,5 +57,5 @@ func GoTick(
 	opts ...RoutineOption,
 ) {
 	t := time.NewTicker(interval)
-	GoRange(g, t.C, f, append(opts, Defer(t.Stop))...)
+	GoRange(g, t.C, f, append(opts, Defer(t.Stop, WithKey("stopTicker")))...)
 }

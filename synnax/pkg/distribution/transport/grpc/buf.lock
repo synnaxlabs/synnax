@@ -4,4 +4,4 @@ deps:
   - remote: buf.build
     owner: synnaxlabs
     repository: freighter
-    commit: 65dba518db40476cbd77d4abfcae075b
+    commit: 5567266969464f29a5fbf35a0d7477dd

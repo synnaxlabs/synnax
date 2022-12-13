@@ -26,7 +26,7 @@ type ErrorPayload struct {
 	unknownFields protoimpl.UnknownFields
 
 	Type string `protobuf:"bytes,1,opt,name=Type,proto3" json:"Type,omitempty"`
-	Data string `protobuf:"bytes,2,opt,name=Data,proto3" json:"Data,omitempty"`
+	Data string `protobuf:"bytes,2,opt,name=Array,proto3" json:"Array,omitempty"`
 }
 
 func (x *ErrorPayload) Reset() {

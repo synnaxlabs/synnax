@@ -2,13 +2,13 @@ package gossip_test
 
 import (
 	"context"
-	"github.com/synnaxlabs/freighter/fmock"
-	"github.com/synnaxlabs/x/signal"
 	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen/internal/cluster/store"
 	"github.com/synnaxlabs/aspen/internal/node"
+	"github.com/synnaxlabs/freighter/fmock"
+	"github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
 	"time"
 
@@ -26,7 +26,7 @@ var _ = Describe("OperationSender", func() {
 	})
 	Describe("Two Node", func() {
 		var (
-			t1, t2, t3      *fmock.Unary[gossip.Message, gossip.Message]
+			t1, t2, t3      *fmock.UnaryServer[gossip.Message, gossip.Message]
 			nodes, nodesTwo node.Group
 			sOne            store.Store
 			g1              *gossip.Gossip
@@ -34,7 +34,7 @@ var _ = Describe("OperationSender", func() {
 			cancel          context.CancelFunc
 		)
 		BeforeEach(func() {
-			t1, t2, t3 = net.RouteUnary(""), net.RouteUnary(""), net.RouteUnary("")
+			t1, t2, t3 = net.UnaryServer(""), net.UnaryServer(""), net.UnaryServer("")
 			nodes = node.Group{1: {ID: 1, Address: t1.Address}, 2: {ID: 2, Address: t2.Address}}
 			sOne = store.New()
 			sOne.SetState(store.State{Nodes: nodes, HostID: 1})
@@ -45,17 +45,19 @@ var _ = Describe("OperationSender", func() {
 			gossipCtx, cancel = signal.WithCancel(ctx)
 			var err error
 			g1, err = gossip.New(gossip.Config{
-				Store:     sOne,
-				Transport: t1,
-				Logger:    logger,
-				Interval:  5 * time.Millisecond,
+				Store:           sOne,
+				TransportClient: net.UnaryClient(),
+				TransportServer: t1,
+				Logger:          logger,
+				Interval:        5 * time.Millisecond,
 			})
 			Expect(err).ToNot(HaveOccurred())
 			_, err = gossip.New(gossip.Config{
-				Store:     sTwo,
-				Transport: t2,
-				Logger:    logger,
-				Interval:  5 * time.Millisecond,
+				Store:           sTwo,
+				TransportClient: net.UnaryClient(),
+				TransportServer: t2,
+				Logger:          logger,
+				Interval:        5 * time.Millisecond,
 			})
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -81,7 +83,7 @@ var _ = Describe("OperationSender", func() {
 			}).Should(Succeed())
 		})
 		It("Should return an error when an invalid message is received", func() {
-			_, err := t1.Send(context.Background(), t2.Address, gossip.Message{})
+			_, err := net.UnaryClient().Send(context.Background(), t2.Address, gossip.Message{})
 			Expect(err).To(HaveOccurred())
 		})
 	})

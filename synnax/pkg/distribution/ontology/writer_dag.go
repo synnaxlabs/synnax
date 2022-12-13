@@ -1,9 +1,9 @@
 package ontology
 
 import (
+	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
-	"github.com/cockroachdb/errors"
 )
 
 // dagWriter is a key-value backed directed acyclic graph that implements the Writer
@@ -13,7 +13,8 @@ type dagWriter struct {
 	retrieve retrieve
 }
 
-var CyclicDependency = errors.New("[ontology] cyclic dependency")
+// ErrCycle is returned when a cycle is created in the graph.
+var ErrCycle = errors.New("[ontology] - cyclic dependency")
 
 // DefineResource implements the Writer interface.
 func (d dagWriter) DefineResource(tk ID) error {
@@ -37,7 +38,7 @@ func (d dagWriter) DeleteResource(tk ID) error {
 }
 
 // DefineRelationship implements the Writer interface.
-func (d dagWriter) DefineRelationship(from, to ID, t RelationshipType) error {
+func (d dagWriter) DefineRelationship(from ID, t RelationshipType, to ID) error {
 	rel := Relationship{From: from, To: to, Type: t}
 	exists, err := d.checkRelationshipExists(rel)
 	if err != nil || exists {
@@ -51,14 +52,14 @@ func (d dagWriter) DefineRelationship(from, to ID, t RelationshipType) error {
 		return err
 	}
 	if _, exists := descendants[from]; exists {
-		return CyclicDependency
+		return ErrCycle
 	}
 	return gorp.NewCreate[string, Relationship]().Entry(&rel).Exec(d.txn)
 
 }
 
 // DeleteRelationship implements the Writer interface.
-func (d dagWriter) DeleteRelationship(from, to ID, t RelationshipType) error {
+func (d dagWriter) DeleteRelationship(from ID, t RelationshipType, to ID) error {
 	return gorp.NewDelete[string, Relationship]().
 		WhereKeys(Relationship{From: from, To: to, Type: t}.GorpKey()).
 		Exec(d.txn)
@@ -146,7 +147,7 @@ func (d dagWriter) checkRelationshipExists(rel Relationship) (bool, error) {
 		return false, err
 	}
 	if reverseExists {
-		return true, CyclicDependency
+		return true, ErrCycle
 	}
 	return exists, nil
 }

@@ -1,6 +1,8 @@
 package cluster
 
 import (
+	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
+	pledge_ "github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/alamos"
 	"github.com/synnaxlabs/x/binary"
@@ -8,8 +10,6 @@ import (
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
-	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
-	pledge_ "github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"go.uber.org/zap"
 	"time"
 )
@@ -68,7 +68,7 @@ func (cfg Config) Override(other Config) Config {
 func (cfg Config) Validate() error {
 	v := validate.New("cluster")
 	validate.NotEmptyString(v, "HostAddress", cfg.HostAddress)
-	validate.NotNil(v, "Logger", cfg.Logger)
+	validate.NotNil(v, "logger", cfg.Logger)
 	validate.NotNil(v, "EncoderDecoder", cfg.EncoderDecoder)
 	validate.NonZero(v, "StorageFlushInterval", cfg.StorageFlushInterval)
 	validate.NotEmptySlice(v, "StorageKey", cfg.StorageKey)

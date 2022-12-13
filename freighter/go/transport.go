@@ -8,6 +8,8 @@ import (
 var (
 	// Unreachable is returned when a target cannot be reached.
 	Unreachable = errors.New("[freighter] - target unreachable")
+	// SecurityError is returned  when a security error occurs.
+	SecurityError = errors.New("[freighter] - security error")
 )
 
 // Payload represents a piece of data that can be sent over the freighter.
@@ -15,6 +17,7 @@ type Payload = any
 
 type Transport interface {
 	alamos.Reporter
+	Use(...Middleware)
 }
 
 type Reporter struct {

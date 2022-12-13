@@ -15,8 +15,9 @@ message CreateMessage {
 message Channel {
   string name = 1;
   int32 node_id = 2;
-  int32 key = 3;
+  int32 storage_key = 3;
   double rate = 4;
   string data_type = 5;
-  int32 density = 6;
+	int32 storage_index = 6;
+	bool is_index = 7;
 }

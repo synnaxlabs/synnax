@@ -2,7 +2,6 @@ package kv_test
 
 import (
 	"context"
-	"github.com/synnaxlabs/x/signal"
 	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -12,6 +11,7 @@ import (
 	"github.com/synnaxlabs/aspen/internal/kv"
 	"github.com/synnaxlabs/aspen/internal/kv/kvmock"
 	"github.com/synnaxlabs/aspen/internal/node"
+	"github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
 	"time"
 )
@@ -45,7 +45,7 @@ var _ = Describe("txn", func() {
 		Expect(errors.Is(kvCtx.Wait(), context.Canceled)).To(BeTrue())
 	})
 
-	Describe("RouteStream", func() {
+	Describe("StreamServer", func() {
 
 		It("Should open a new txn storeSink without error", func() {
 			kv, err := builder.New(kvCtx, kv.Config{}, cluster.Config{})
@@ -55,9 +55,9 @@ var _ = Describe("txn", func() {
 
 	})
 
-	Describe("Set", func() {
+	Describe("SetNode", func() {
 
-		Describe("Local Leaseholder", func() {
+		Describe("Gateway Leaseholder", func() {
 
 			It("Should commit the operation to storage", func() {
 				kv, err := builder.New(kvCtx, kv.Config{}, cluster.Config{})
@@ -119,7 +119,7 @@ var _ = Describe("txn", func() {
 
 		})
 
-		Describe("Remote Leaseholder", func() {
+		Describe("Peers Leaseholder", func() {
 
 			It("Should commit the operation to storage", func() {
 				kv1, err := builder.New(kvCtx, kv.Config{}, cluster.Config{})
@@ -166,7 +166,7 @@ var _ = Describe("txn", func() {
 
 	Describe("Delete", func() {
 
-		Describe("Local Leaseholder", func() {
+		Describe("Gateway Leaseholder", func() {
 
 			It("Should applyToAndCommit the operation to storage", func() {
 				kv, err := builder.New(kvCtx, kv.Config{}, cluster.Config{})
@@ -184,7 +184,7 @@ var _ = Describe("txn", func() {
 
 		})
 
-		Describe("Remote Leaseholder", func() {
+		Describe("Peers Leaseholder", func() {
 
 			It("Should apply the operation to storage", func() {
 				kv1, err := builder.New(kvCtx, kv.Config{}, cluster.Config{})
@@ -224,7 +224,7 @@ var _ = Describe("txn", func() {
 			}).
 				WithPolling(250 * time.Millisecond).
 				WithTimeout(500 * time.Millisecond).
-				Should(BeElementOf([]int{5, 7}))
+				Should(BeElementOf([]int{5, 6, 7}))
 		})
 
 	})

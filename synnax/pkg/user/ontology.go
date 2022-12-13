@@ -1,9 +1,9 @@
 package user
 
 import (
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
-	"github.com/google/uuid"
 )
 
 const ontologyType ontology.Type = "user"
@@ -36,7 +36,7 @@ func (s *Service) RetrieveEntity(key string) (schema.Entity, error) {
 }
 
 func newEntity(u User) schema.Entity {
-	e := schema.NewEntity(_schema)
+	e := schema.NewEntity(_schema, u.Username)
 	schema.Set[uuid.UUID](e, "key", u.Key)
 	schema.Set[string](e, "username", u.Username)
 	return e

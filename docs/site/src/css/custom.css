@@ -24,7 +24,8 @@
   --ifm-tabs-padding-horizontal: calc(var(--base-size) * 4);
 }
 
-.navbar, .navbar-sidebar__brand{
+.navbar,
+.navbar-sidebar__brand {
   border-bottom: var(--border-width) solid var(--gray-m2);
   background: none;
   padding: 0;
@@ -41,19 +42,17 @@
   margin-right: calc(var(--base-size) * 3);
 }
 
-@media(max-width: 996px) {
+@media (max-width: 996px) {
   .navbar__items {
     flex-direction: row-reverse;
     justify-content: start;
   }
-
 }
 
 .footer {
   border-top: var(--border-width) solid var(--gray-m2);
   background: var(--background);
 }
-
 
 .navbar__logo {
   border-right: var(--border-width) solid var(--gray-m2);

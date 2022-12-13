@@ -1,6 +1,10 @@
 import React, { cloneElement, useEffect } from "react";
 import { useColorMode } from "@docusaurus/theme-common";
-import { applyThemeAsCssVars, synnaxLight, synnaxDark } from "@synnaxlabs/pluto";
+import {
+  applyThemeAsCssVars,
+  synnaxLight,
+  synnaxDark,
+} from "@synnaxlabs/pluto";
 import "@synnaxlabs/pluto/dist/style.css";
 import Logo from "../../../components/Logo/Logo";
 
