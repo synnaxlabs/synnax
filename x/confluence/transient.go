@@ -14,7 +14,7 @@ func (t *TransientProvider) MaybeTransient(err error) error {
 	if err == nil {
 		return nil
 	}
-	if t != nil {
+	if t != nil && t.inlet != nil {
 		t.Transient() <- err
 	}
 	return err

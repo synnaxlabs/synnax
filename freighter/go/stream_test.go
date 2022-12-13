@@ -7,8 +7,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/freighter/fhttp"
 	"github.com/synnaxlabs/freighter/fmock"
-	"github.com/synnaxlabs/freighter/fws"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/httputil"
 	. "github.com/synnaxlabs/x/testutil"
@@ -17,252 +17,282 @@ import (
 	"time"
 )
 
-type sampleRequest struct {
-	ID      int    `json:"id" msgpack:"id"`
-	Message string `json:"message" msgpack:"message"`
-}
-
-type sampleResponse struct {
-	ID      int    `json:"id" msgpack:"id"`
-	Message string `json:"message" msgpack:"message"`
-}
-
 type (
-	sampleTransport    = freighter.StreamTransport[sampleRequest, sampleResponse]
-	sampleServerStream = freighter.ServerStream[sampleRequest, sampleResponse]
+	streamServer = freighter.StreamServer[request, response]
+	streamClient = freighter.StreamClient[request, response]
+	serverStream = freighter.ServerStream[request, response]
 )
 
-type implementation interface {
-	start(host address.Address, logger *zap.SugaredLogger) sampleTransport
+type streamImplementation interface {
+	start(host address.Address, logger *zap.SugaredLogger) (streamServer, streamClient)
 	stop() error
 }
 
-var implementations = []implementation{
-	&wsImplementation{},
-	&mockImplementation{},
+var streamImplementations = []streamImplementation{
+	&httpStreamImplementation{},
+	&mockStreamImplementation{},
 }
 
-var _ = Describe("StreamTransport", Ordered, Serial, func() {
-	for _, impl := range implementations {
-		impl := impl
-		var (
-			addr address.Address
-			t    sampleTransport
-		)
-		BeforeAll(func() {
-			addr = "localhost:8080"
-			l := zap.NewNop()
-			t = impl.start(addr, l.Sugar())
-		})
-		AfterAll(func() {
-			Expect(impl.stop()).ToNot(HaveOccurred())
-		})
-		Describe("Normal Operation", func() {
-
-			It("Should exchange messages between a client and a server", func() {
-				closed := make(chan struct{})
-
-				t.BindHandler(func(ctx context.Context, server sampleServerStream) error {
-					defer GinkgoRecover()
-					defer close(closed)
-					for {
-						req, err := server.Receive()
-						if err != nil {
-							By("Receiving a transport EOF error from the client")
-							Expect(err).To(HaveOccurredAs(freighter.EOF))
-							return err
-						}
-						if err := server.Send(sampleResponse{ID: req.ID + 1, Message: req.Message}); err != nil {
-							return err
-						}
-					}
-				})
-
-				ctx, cancel := context.WithCancel(context.TODO())
-				defer cancel()
-
-				By("Opening the stream to the target without error")
-				client, err := t.Stream(ctx, addr)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Exchanging ten echo messages")
-				for i := 0; i < 10; i++ {
-					Expect(client.Send(sampleRequest{ID: i, Message: "Hello"})).To(Succeed())
-					msg, err := client.Receive()
-					Expect(err).ToNot(HaveOccurred())
-					Expect(msg.ID).To(Equal(i + 1))
-					Expect(msg.Message).To(Equal("Hello"))
-				}
-
-				By("Successfully letting the server know we're done sending messages")
-				Expect(client.CloseSend()).To(Succeed())
-
-				By("Receiving a freighter.EOF error from the server")
-				_, err = client.Receive()
-				Expect(err).To(HaveOccurredAs(freighter.EOF))
-				Eventually(closed).Should(BeClosed())
+var _ = Describe("Stream", Ordered, Serial, func() {
+	Describe("Implementation Tests", func() {
+		for _, impl := range streamImplementations {
+			impl := impl
+			var (
+				addr   address.Address
+				server streamServer
+				client streamClient
+			)
+			BeforeAll(func() {
+				addr = "localhost:8080"
+				l := zap.NewNop()
+				server, client = impl.start(addr, l.Sugar())
 			})
-
-			It("Should allow the server to continue sending messages after CloseSend is called", func() {
-				serverClosed := make(chan struct{})
-				t.BindHandler(func(ctx context.Context, server sampleServerStream) error {
-					defer GinkgoRecover()
-					defer close(serverClosed)
-					_, err := server.Receive()
-					Expect(err).To(HaveOccurredAs(freighter.EOF))
-					Expect(server.Send(sampleResponse{ID: 1, Message: "Hello"})).To(Succeed())
-					return nil
-				})
-				client, err := t.Stream(context.TODO(), addr)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(client.CloseSend()).To(Succeed())
-				msg, err := client.Receive()
-				Expect(err).ToNot(HaveOccurred())
-				Expect(msg.ID).To(Equal(1))
-				Expect(msg.Message).To(Equal("Hello"))
-				_, err = client.Receive()
-				Expect(err).To(HaveOccurredAs(freighter.EOF))
-				Eventually(serverClosed).Should(BeClosed())
+			AfterAll(func() {
+				Expect(impl.stop()).ToNot(HaveOccurred())
 			})
+			Describe("Normal Operation", func() {
 
-		})
-		Describe("Provider Handling", func() {
-			Describe("Server returns a non-nil error", func() {
-				It("Should send the error to the client", func() {
-					serverClosed := make(chan struct{})
-					t.BindHandler(func(ctx context.Context, server sampleServerStream) error {
+				It("Should exchange messages between a client and a server", func() {
+					closed := make(chan struct{})
+
+					server.BindHandler(func(ctx context.Context, server serverStream) error {
 						defer GinkgoRecover()
-						defer close(serverClosed)
-						_, err := server.Receive()
+						defer close(closed)
+						for {
+							req, err := server.Receive()
+							if err != nil {
+								By("Receiving a transport EOF error from the client")
+								Expect(err).To(HaveOccurredAs(freighter.EOF))
+								return err
+							}
+							if err := server.Send(response{ID: req.ID + 1, Message: req.Message}); err != nil {
+								return err
+							}
+						}
+					})
+
+					ctx, cancel := context.WithCancel(context.TODO())
+					defer cancel()
+
+					By("Opening the stream to the target without error")
+					client, err := client.Stream(ctx, addr)
+					Expect(err).ToNot(HaveOccurred())
+
+					By("Exchanging ten echo messages")
+					for i := 0; i < 10; i++ {
+						Expect(client.Send(request{ID: i, Message: "Hello"})).To(Succeed())
+						msg, err := client.Receive()
 						Expect(err).ToNot(HaveOccurred())
-						return errors.New("zero is not allowed!")
-					})
-					client, err := t.Stream(context.TODO(), addr)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(client.Send(sampleRequest{ID: 0, Message: "Hello"})).To(Succeed())
-					_, err = client.Receive()
-					Expect(err).To(HaveOccurredAs(errors.New("zero is not allowed!")))
-					Eventually(serverClosed).Should(BeClosed())
-				})
+						Expect(msg.ID).To(Equal(i + 1))
+						Expect(msg.Message).To(Equal("Hello"))
+					}
 
-				Specify("If the client calls Send, if should return an EOF error", func() {
-					serverClosed := make(chan struct{})
-					t.BindHandler(func(ctx context.Context, server sampleServerStream) error {
-						defer GinkgoRecover()
-						defer close(serverClosed)
-						_, err := server.Receive()
-						if err != nil {
-							Fail(err.Error())
-						}
-						return errors.New("zero is not allowed!")
-					})
-					client, err := t.Stream(context.TODO(), addr)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(client.Send(sampleRequest{ID: 0, Message: "Hello"})).To(Succeed())
+					By("Successfully letting the server know we're done sending messages")
+					Expect(client.CloseSend()).To(Succeed())
+
+					By("Receiving a freighter.EOF error from the server")
 					_, err = client.Receive()
-					Expect(err).To(HaveOccurredAs(errors.New("zero is not allowed!")))
-					err = client.Send(sampleRequest{ID: 0, Message: "Hello"})
 					Expect(err).To(HaveOccurredAs(freighter.EOF))
-					Eventually(serverClosed).Should(BeClosed())
+					Eventually(closed).Should(BeClosed())
 				})
 
-			})
-
-			Describe("Client cancels the context", func() {
-				It("Should propagate the context cancellation to both the server and the client", func() {
+				It("Should allow the server to continue sending messages after CloseSend is called", func() {
 					serverClosed := make(chan struct{})
-					t.BindHandler(func(ctx context.Context, server sampleServerStream) error {
-						defer close(serverClosed)
+					server.BindHandler(func(ctx context.Context, server serverStream) error {
 						defer GinkgoRecover()
+						defer close(serverClosed)
 						_, err := server.Receive()
-						Expect(err).To(Equal(context.Canceled))
+						Expect(err).To(HaveOccurredAs(freighter.EOF))
+						Expect(server.Send(response{ID: 1, Message: "Hello"})).To(Succeed())
 						return nil
 					})
-					ctx, cancel := context.WithCancel(context.TODO())
-					client, err := t.Stream(ctx, addr)
+					client, err := client.Stream(context.TODO(), addr)
 					Expect(err).ToNot(HaveOccurred())
-					cancel()
+					Expect(client.CloseSend()).To(Succeed())
+					msg, err := client.Receive()
+					Expect(err).ToNot(HaveOccurred())
+					Expect(msg.ID).To(Equal(1))
+					Expect(msg.Message).To(Equal("Hello"))
 					_, err = client.Receive()
-					Expect(err).To(HaveOccurredAs(context.Canceled))
+					Expect(err).To(HaveOccurredAs(freighter.EOF))
 					Eventually(serverClosed).Should(BeClosed())
 				})
-			})
 
-			Describe("Client attempts to send a message after calling close send", func() {
-				It("Should return a StreamClosed error", func() {
+			})
+			Describe("Err Handling", func() {
+
+				Describe("Server returns a non-nil error", func() {
+					It("Should send the error to the client", func() {
+						serverClosed := make(chan struct{})
+						server.BindHandler(func(ctx context.Context, server serverStream) error {
+							defer GinkgoRecover()
+							defer close(serverClosed)
+							_, err := server.Receive()
+							Expect(err).ToNot(HaveOccurred())
+							return errors.New("zero is not allowed!")
+						})
+						client, err := client.Stream(context.TODO(), addr)
+						Expect(err).ToNot(HaveOccurred())
+						Expect(client.Send(request{ID: 0, Message: "Hello"})).To(Succeed())
+						_, err = client.Receive()
+						Expect(err).To(HaveOccurredAs(errors.New("zero is not allowed!")))
+						Eventually(serverClosed).Should(BeClosed())
+					})
+
+					Specify("If the client calls Send, if should return an EOF error", func() {
+						serverClosed := make(chan struct{})
+						server.BindHandler(func(ctx context.Context, server serverStream) error {
+							defer GinkgoRecover()
+							defer close(serverClosed)
+							_, err := server.Receive()
+							if err != nil {
+								Fail(err.Error())
+							}
+							return errors.New("zero is not allowed!")
+						})
+						client, err := client.Stream(context.TODO(), addr)
+						Expect(err).ToNot(HaveOccurred())
+						Expect(client.Send(request{ID: 0, Message: "Hello"})).To(Succeed())
+						_, err = client.Receive()
+						Expect(err).To(HaveOccurredAs(errors.New("zero is not allowed!")))
+						err = client.Send(request{ID: 0, Message: "Hello"})
+						Expect(err).To(HaveOccurredAs(freighter.EOF))
+						Eventually(serverClosed).Should(BeClosed())
+					})
+
+				})
+
+				Describe("StreamClient cancels the context", func() {
+					It("Should propagate the context cancellation to both the server and the client", func() {
+						serverClosed := make(chan struct{})
+						server.BindHandler(func(ctx context.Context, server serverStream) error {
+							defer close(serverClosed)
+							defer GinkgoRecover()
+							_, err := server.Receive()
+							Expect(err).To(Equal(context.Canceled))
+							return nil
+						})
+						ctx, cancel := context.WithCancel(context.TODO())
+						client, err := client.Stream(ctx, addr)
+						Expect(err).ToNot(HaveOccurred())
+						cancel()
+						_, err = client.Receive()
+						Expect(err).To(HaveOccurredAs(context.Canceled))
+						Eventually(serverClosed).Should(BeClosed())
+					})
+				})
+
+				Describe("StreamClient attempts to send a message after calling close send", func() {
+					It("Should return a StreamClosed error", func() {
+						serverClosed := make(chan struct{})
+						server.BindHandler(func(ctx context.Context, server serverStream) error {
+							defer close(serverClosed)
+							defer GinkgoRecover()
+							_, err := server.Receive()
+							Expect(err).To(HaveOccurredAs(freighter.EOF))
+							return nil
+						})
+
+						ctx, cancel := context.WithCancel(context.TODO())
+						defer cancel()
+
+						client, err := client.Stream(ctx, addr)
+						Expect(err).ToNot(HaveOccurred())
+						Expect(client.CloseSend()).To(Succeed())
+						err = client.Send(request{ID: 0, Message: "Hello"})
+						Expect(err).To(HaveOccurredAs(freighter.StreamClosed))
+
+						_, err = client.Receive()
+
+						Expect(err).To(HaveOccurredAs(freighter.EOF))
+						Eventually(serverClosed).Should(BeClosed())
+					})
+
+				})
+				Describe("StreamClient attempts to send a message after the server closes", func() {
+					It("Should return a EOF error", func() {
+						serverClosed := make(chan struct{})
+						server.BindHandler(func(ctx context.Context, server serverStream) error {
+							defer close(serverClosed)
+							for i := 0; i < 10; i++ {
+								req, err := server.Receive()
+								Expect(err).ToNot(HaveOccurred())
+								Expect(server.Send(response{
+									ID:      req.ID + i,
+									Message: req.Message,
+								})).To(Succeed())
+							}
+							return nil
+						})
+						ctx, cancel := context.WithCancel(context.TODO())
+						defer cancel()
+						client, err := client.Stream(ctx, addr)
+						Expect(err).ToNot(HaveOccurred())
+						Eventually(func(g Gomega) {
+							g.Expect(client.Send(request{ID: 0, Message: "Hello"})).To(HaveOccurredAs(freighter.EOF))
+						}).WithPolling(10 * time.Millisecond).Should(Succeed())
+						Eventually(serverClosed).Should(BeClosed())
+					})
+				})
+			})
+			Describe("Middleware", func() {
+				It("Should be able to intercept the stream request", func() {
 					serverClosed := make(chan struct{})
-					t.BindHandler(func(ctx context.Context, server sampleServerStream) error {
+					server.BindHandler(func(ctx context.Context, server serverStream) error {
 						defer close(serverClosed)
 						defer GinkgoRecover()
 						_, err := server.Receive()
 						Expect(err).To(HaveOccurredAs(freighter.EOF))
 						return nil
 					})
-
+					c := 0
+					server.Use(freighter.MiddlewareFunc(func(
+						ctx context.Context,
+						md freighter.MD,
+						next freighter.Next,
+					) (freighter.MD, error) {
+						c++
+						oMd, err := next(ctx, md)
+						c++
+						return oMd, err
+					}))
 					ctx, cancel := context.WithCancel(context.TODO())
 					defer cancel()
-
-					client, err := t.Stream(ctx, addr)
+					client, err := client.Stream(ctx, addr)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(client.CloseSend()).To(Succeed())
-					err = client.Send(sampleRequest{ID: 0, Message: "Hello"})
-					Expect(err).To(HaveOccurredAs(freighter.StreamClosed))
-
 					_, err = client.Receive()
-
 					Expect(err).To(HaveOccurredAs(freighter.EOF))
 					Eventually(serverClosed).Should(BeClosed())
+					Expect(c).To(Equal(2))
 				})
-
 			})
+		}
+	})
+	Describe("SenderNopCloser", func() {
+		It("Should implement the freighter.StreamSenderCloser interface", func() {
+			var closer freighter.StreamSenderCloser[int] = freighter.SenderNopCloser[int]{}
+			Expect(closer.CloseSend()).To(Succeed())
 		})
-
-		Describe("Client attempts to send a message after the server closes", func() {
-			It("Should return a EOF error", func() {
-				serverClosed := make(chan struct{})
-				t.BindHandler(func(ctx context.Context, server sampleServerStream) error {
-					defer close(serverClosed)
-					for i := 0; i < 10; i++ {
-						req, err := server.Receive()
-						Expect(err).ToNot(HaveOccurred())
-						Expect(server.Send(sampleResponse{
-							ID:      req.ID + i,
-							Message: req.Message,
-						})).To(Succeed())
-					}
-					return nil
-				})
-				ctx, cancel := context.WithCancel(context.TODO())
-				defer cancel()
-				client, err := t.Stream(ctx, addr)
-				Expect(err).ToNot(HaveOccurred())
-				Eventually(func(g Gomega) {
-					g.Expect(client.Send(sampleRequest{ID: 0, Message: "Hello"})).To(HaveOccurredAs(freighter.EOF))
-				}).WithPolling(10 * time.Millisecond).Should(Succeed())
-				Eventually(serverClosed).Should(BeClosed())
-			})
-		})
-	}
+	})
 })
 
-type wsImplementation struct {
+type httpStreamImplementation struct {
 	app *fiber.App
 }
 
-func (impl *wsImplementation) start(
+func (impl *httpStreamImplementation) start(
 	host address.Address,
 	logger *zap.SugaredLogger,
-) sampleTransport {
+) (streamServer, streamClient) {
 	impl.app = fiber.New(fiber.Config{DisableStartupMessage: true})
-	t := fws.New[sampleRequest, sampleResponse](
-		httputil.MsgPackEncoderDecoder,
-		logger,
-	)
-	t.BindTo(impl.app, "/")
-	// add a simple health check handler
+	router := fhttp.NewRouter(fhttp.RouterConfig{Logger: logger})
+	client := fhttp.NewClientFactory(fhttp.ClientFactoryConfig{EncoderDecoder: httputil.MsgPackEncoderDecoder, Logger: logger})
 	impl.app.Get("/health", func(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusOK)
 	})
+	server := fhttp.StreamServer[request, response](router, "/")
+	router.BindTo(impl.app)
 	go func() {
 		if err := impl.app.Listen(host.PortString()); err != nil {
 			logger.Error(err)
@@ -270,25 +300,24 @@ func (impl *wsImplementation) start(
 	}()
 	Eventually(func(g Gomega) {
 		_, err := http.Get("http://" + host.String() + "/health")
-		Expect(err).ToNot(HaveOccurred())
+		g.Expect(err).ToNot(HaveOccurred())
 	}).WithPolling(1 * time.Millisecond).Should(Succeed())
-	return t
+	return server, fhttp.StreamClient[request, response](client)
 }
 
-func (impl *wsImplementation) stop() error {
+func (impl *httpStreamImplementation) stop() error {
 	return impl.app.Shutdown()
 }
 
-type mockImplementation struct {
-	net *fmock.Network[sampleRequest, sampleResponse]
+type mockStreamImplementation struct {
+	net *fmock.Network[request, response]
 }
 
-func (impl *mockImplementation) start(
+func (impl *mockStreamImplementation) start(
 	host address.Address,
 	logger *zap.SugaredLogger,
-) sampleTransport {
-	impl.net = fmock.NewNetwork[sampleRequest, sampleResponse]()
-	return impl.net.RouteStream(host, 10)
+) (streamServer, streamClient) {
+	return fmock.NewStreamPair[request, response]( /*request buffer */ 11 /* response buffer */, 11)
 }
 
-func (impl *mockImplementation) stop() error { return nil }
+func (impl *mockStreamImplementation) stop() error { return nil }

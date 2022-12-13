@@ -3,7 +3,7 @@ package confluence_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/confluence"
+	. "github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 )
 
@@ -15,7 +15,7 @@ var _ = Describe("Confluence", func() {
 			ctx, cancel := signal.TODO()
 			defer cancel()
 			Expect(func() {
-				confluence.EmptyFlow{}.Flow(ctx)
+				EmptyFlow{}.Flow(ctx)
 			}).ToNot(Panic())
 		})
 

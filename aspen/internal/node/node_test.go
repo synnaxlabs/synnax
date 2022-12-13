@@ -92,7 +92,7 @@ var _ = Describe("Node", func() {
 
 	})
 
-	Describe("Copy", func() {
+	Describe("CopyState", func() {
 
 		It("Should copy a group of nodes", func() {
 			g := node.Group{

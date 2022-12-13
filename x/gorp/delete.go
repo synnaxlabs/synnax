@@ -1,6 +1,7 @@
 package gorp
 
 import (
+	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
 )
@@ -37,14 +38,16 @@ func (d Delete[K, E]) Exec(txn Txn) error {
 type del[K Key, E Entry[K]] struct{ Txn }
 
 func (d *del[K, E]) exec(q query.Query) error {
-	opts := d.Txn.options()
-	var entries []E
-	err := (Retrieve[K, E]{Query: q}).Entries(&entries).Exec(d)
-	if err != nil && err != query.NotFound {
+	var (
+		opts    = d.Txn.options()
+		entries []E
+		err     = (Retrieve[K, E]{Query: q}).Entries(&entries).Exec(d)
+		prefix  = typePrefix[K, E](opts)
+		keys    whereKeys[K]
+	)
+	if err != nil && !errors.Is(err, query.NotFound) {
 		return err
 	}
-	prefix := typePrefix[K, E](opts)
-	var keys whereKeys[K]
 	for _, entry := range entries {
 		keys = append(keys, entry.GorpKey())
 	}
@@ -53,7 +56,7 @@ func (d *del[K, E]) exec(q query.Query) error {
 		return err
 	}
 	for _, key := range byteKeys {
-		if err := d.Delete(append(prefix, key...)); err != nil && err != kv.NotFound {
+		if err = d.Delete(append(prefix, key...)); err != nil && !errors.Is(err, kv.NotFound) {
 			return err
 		}
 	}

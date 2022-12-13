@@ -20,9 +20,9 @@ continuous iteration as Delta's demands evolve.
 
 # 1 - Vocabulary
 
-**Sample** - An arbitrary byte array recorded at a specific point in time.  <br />
+**Sample** - An arbitrary byte array recorded at a specific point in time. <br />
 **Channel** - A collection of samples across a time range. <br />
-**Segment** - A partitioned region of a channel's data.  <br />
+**Segment** - A partitioned region of a channel's data. <br />
 **Regular** (in relation to time-series) - A 'regular' Channel is one whose
 samples are recorded at regular intervals
 (1Hz, 5Hz, 10Hz, etc.) <br />
@@ -180,7 +180,7 @@ density**
 i.e. the number of bytes per sample. For example, a caller could create a new
 channel that accepts `float64` samples by setting the byte density to 8:
 
-```go 
+```go
 // Setting the byte density manually.
 cesiun.NewCreateChannel().
    WithRate(100 * cesium.Hz).
@@ -196,13 +196,13 @@ cesium.NewCreateChannel().
 
 ### 2 - Segments
 
-The implications of these restrictions becomes apparent when designing  **
+The implications of these restrictions becomes apparent when designing **
 segments**. A **segment** is a contiguous run of a channel's data. A segment
 stores the following information:
 
 ```go
 type Segment struct {
-// Start stores a nanosecond precision timestamp of the first sample 
+// Start stores a nanosecond precision timestamp of the first sample
 // in the segment.
 Start int64
 // Data stores a set of regular, contiguous, binary encoded samples.
@@ -215,9 +215,13 @@ the segment. The timestamp of any sample can be calculated with the following
 equation:
 
 <p align="middle">
-<br />
-<img src="https://render.githubusercontent.com/render/math?math=t_{n} = t_{0}%2B\frac{n + D}{S}" height="30px" alt="latex eq" />
-</p> 
+  <br />
+  <img
+    src="https://render.githubusercontent.com/render/math?math=t_{n} = t_{0}%2B\frac{n + D}{S}"
+    height="30px"
+    alt="latex eq"
+  />
+</p>{" "}
 
 Where `D` is the density of the channel in bytes, `S` is the sample rate in Hz,
 and the independent variable `n`
@@ -267,7 +271,7 @@ segment data. Segment data is the actual time-series samples to be stored,
 retrieved, or removed from disk.
 
 Instead of writing a storage engine that can handle both metadata and segment
-data, Cesium proposes an alternative architecture that *extends* an existing
+data, Cesium proposes an alternative architecture that _extends_ an existing
 key-value store. This store handles all metadata, and Cesium uses it to index
 the location of Segments on disk.
 
@@ -324,7 +328,7 @@ execution. A query is often assembled using some sort of ORM styled method
 chaining API, packed into a serializable structure, and passed to a processing
 engine that can execute it.
 
-**Operation**  - Cesium Specific - A set of instructions to perform on the disk.
+**Operation** - Cesium Specific - A set of instructions to perform on the disk.
 This can be reading, writing, etc.
 
 Cesium's query execution model involves a set of individual stages that perform
@@ -336,7 +340,7 @@ queueing, and ultimately disk IO stages.
 A query with the following syntax:
 
 ```go
-// res is a channel that returns read segments along with errors encountered 
+// res is a channel that returns read segments along with errors encountered
 // during execution. err is an error encountered during query assembly.
 res, err := cesium.NewRetrieve().
 WhereChannels(1).
@@ -371,8 +375,11 @@ multiple workers don't access the same file in parallel. This stage is also
 shared with the create query pipe.
 
 <p align="middle">
-<img src="/img/rfc/220517-cesium-segment-storage/retrieve-pipe.png" width="50%" />
-<h6 align="middle">Retrieve Query Pipe</h6>
+  <img
+    src="/img/rfc/220517-cesium-segment-storage/retrieve-pipe.png"
+    width="50%"
+  />
+  <h6 align="middle">Retrieve Query Pipe</h6>
 </p>
 
 ### 2 - Create Query Execution
@@ -408,15 +415,18 @@ for [Retrieve](#retrieve-query-execution). This stage is shared with the
 retrieve query pipe.
 
 <p align="middle">
-<img src="/img/rfc/220517-cesium-segment-storage/create-pipe.png" width="50%" />
-<h6 align="middle">Create Query Pipe</h6>
+  <img
+    src="/img/rfc/220517-cesium-segment-storage/create-pipe.png"
+    width="50%"
+  />
+  <h6 align="middle">Create Query Pipe</h6>
 </p>
 
 ### 3 - Combined Pipe Architecture
 
 <p align="middle">
-<img src="/img/rfc/220517-cesium-segment-storage/pipe.png" width="100%" />
-<h6 align="middle">Combined Cesium Pipe Architecture</h6>
+  <img src="/img/rfc/220517-cesium-segment-storage/pipe.png" width="100%" />
+  <h6 align="middle">Combined Cesium Pipe Architecture</h6>
 </p>
 
 Future iterations may involve inserting stages into the simplex stream between
@@ -455,7 +465,7 @@ columns are samples for a particular channel. The following table is a simple
 representation:
 
 | Timestamp | Channel 1 | Channel 2 | Channel 3 |
-|-----------|-----------|-----------|-----------|
+| --------- | --------- | --------- | --------- |
 | 15:00:00  | 1         | 2         | 3         |
 | 15:00:01  | 4         | 5         | 6         |
 | 15:00:02  | 7         | 8         | 9         |
@@ -470,8 +480,8 @@ sequentially. This is ideal for Delta's use case, as the timestamps of regular
 samples can be compacted, and a caller often requests data for a small number of
 channels at once. The following is a layout of a columnar segment on disk:
 
-| 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
-|---|---|---|---|---|---|---|---|---|
+| 1   | 2   | 3   | 4   | 5   | 6   | 7   | 8   | 9   |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
 
 This representation omits the following metadata:
 
@@ -482,7 +492,7 @@ This representation omits the following metadata:
 An option is to include this metadata along with the segment:
 
 | Key 1 | 15:00:00 | 25Hz | 1   | 2   | 3   | 4   | 5   | 6   | 7   | 8   | 9   |
-|-------|----------|------|-----|-----|-----|-----|-----|-----|-----|-----|-----|
+| ----- | -------- | ---- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 
 Adding this 'header' is the most intuitive way to represent the data, but has
 implications for retrieving it. When searching for the start of a time range,
@@ -507,9 +517,9 @@ using a round-robin style algorithm. When allocating a segment to a file:
 2. If the file has not reached a maximum threshold (arbitrarily set), allocate
    the segment to the file.
 3. If the file has reached a maximum threshold:
-    1. If Cesium hasn't reached a maximum number of file descriptors (again,
-       arbitrarily set), allocate the segment to a new file.
-    2. Otherwise, allocate the segment to the smallest file.
+   1. If Cesium hasn't reached a maximum number of file descriptors (again,
+      arbitrarily set), allocate the segment to a new file.
+   2. Otherwise, allocate the segment to the smallest file.
 
 This process repeats for each segment written. Step 3.2 can be optimized further
 using some weighted combination of the smallest file and the one with the lowest

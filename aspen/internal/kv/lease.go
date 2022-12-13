@@ -70,7 +70,10 @@ func (lp *leaseProxy) _switch(
 	return lp.remoteTo, true, nil
 }
 
-type LeaseTransport = freighter.Unary[BatchRequest, types.Nil]
+type (
+	LeaseTransportClient = freighter.UnaryClient[BatchRequest, types.Nil]
+	LeaseTransportServer = freighter.UnaryServer[BatchRequest, types.Nil]
+)
 
 type leaseSender struct {
 	Config
@@ -96,7 +99,7 @@ func (lf *leaseSender) send(ctx context.Context, br BatchRequest) error {
 		}
 		return err
 	}
-	_, err = lf.Config.LeaseTransport.Send(ctx, addr, br)
+	_, err = lf.Config.LeaseTransportClient.Send(ctx, addr, br)
 	if br.done != nil {
 		br.done(err)
 	}
@@ -111,12 +114,12 @@ type leaseReceiver struct {
 
 func newLeaseReceiver(cfg Config) source {
 	lr := &leaseReceiver{Config: cfg}
-	lr.LeaseTransport.BindHandler(lr.receive)
+	lr.LeaseTransportServer.BindHandler(lr.receive)
 	return lr
 }
 
 func (lr *leaseReceiver) receive(ctx context.Context, br BatchRequest) (types.Nil, error) {
-	lr.Logger.Debugw("received leaseAlloc operation",
+	lr.Logger.Debugw("received lease operation",
 		"Leaseholder", br.Leaseholder,
 		"host", lr.Cluster.HostID(),
 		"size", br.size(),

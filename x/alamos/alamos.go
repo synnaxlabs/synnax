@@ -13,10 +13,10 @@ package alamos
 //
 // SinkTarget add a metric, use one of the metric constructors. Available metrics are:
 //
-// 		- alamos.NewGauge
-//		- alamos.NewSeries
-//		- alamos.NewGaugeDuration
-//		- alamos.NewSeriesDuration
+//   - alamos.NewGauge
+//   - alamos.NewSeries
+//   - alamos.NewGaugeDuration
+//   - alamos.NewSeriesDuration
 //
 // Each metric in an Experiment is uniquely identified by a string key. The experiment-key combination is used to
 // identify the metric in generated reports.
@@ -27,10 +27,10 @@ package alamos
 // throughout an application. If a Metric is registered with an empty (nil) Experiment, all of its behavior will appear
 // to remain the same, but the Metric will not allocate any memory or record any values. For example:
 //
-// 		var exp alamos.Experiment
+//		var exp alamos.Experiment
 //	    // This gauge will appear to behave normally, but will not allocate memory or record values.
 //		g := exp.NewGauge(exp, "bar")
-// 		g.Record(1)
+//		g.Frame(1)
 //
 // The same principle applies for Sub-experiments. If a parent Experiment is empty and Sub is called, the returned
 // Sub-experiment will be empty as well.
@@ -43,7 +43,6 @@ package alamos
 //
 // Only one top-level experiment should be created per application. Sub-experiments should be created to separate
 // individual application concerns.
-//
 type Experiment interface {
 	// Key returns the key of the experiment.
 	Key() string

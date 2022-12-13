@@ -1,7 +1,9 @@
 package grpc
 
 import (
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
+	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/kv"
 	"github.com/synnaxlabs/aspen/internal/node"
 	aspenv1 "github.com/synnaxlabs/aspen/transport/grpc/gen/proto/go/v1"
@@ -11,7 +13,7 @@ import (
 )
 
 var (
-	_ fgrpc.Translator[node.ID, *aspenv1.ClusterPledge]              = pledgeTranslator{}
+	_ fgrpc.Translator[pledge.Request, *aspenv1.ClusterPledge]       = pledgeTranslator{}
 	_ fgrpc.Translator[gossip.Message, *aspenv1.ClusterGossip]       = clusterGossipTranslator{}
 	_ fgrpc.Translator[kv.BatchRequest, *aspenv1.BatchRequest]       = batchTranslator{}
 	_ fgrpc.Translator[kv.FeedbackMessage, *aspenv1.FeedbackMessage] = feedbackTranslator{}
@@ -19,12 +21,16 @@ var (
 
 type pledgeTranslator struct{}
 
-func (p pledgeTranslator) Forward(id node.ID) (*aspenv1.ClusterPledge, error) {
-	return &aspenv1.ClusterPledge{NodeId: uint32(id)}, nil
+func (p pledgeTranslator) Forward(req pledge.Request) (*aspenv1.ClusterPledge, error) {
+	return &aspenv1.ClusterPledge{NodeId: uint32(req.ID), ClusterKey: req.ClusterKey.String()}, nil
 }
 
-func (p pledgeTranslator) Backward(msg *aspenv1.ClusterPledge) (node.ID, error) {
-	return node.ID(msg.NodeId), nil
+func (p pledgeTranslator) Backward(msg *aspenv1.ClusterPledge) (pledge.Request, error) {
+	cKey, err := uuid.Parse(msg.ClusterKey)
+	if err != nil {
+		return pledge.Request{}, err
+	}
+	return pledge.Request{ID: node.ID(msg.NodeId), ClusterKey: cKey}, nil
 }
 
 type clusterGossipTranslator struct{}
@@ -76,7 +82,7 @@ func (c clusterGossipTranslator) Backward(tMsg *aspenv1.ClusterGossip) (gossip.M
 type batchTranslator struct{}
 
 func (bt batchTranslator) Forward(msg kv.BatchRequest) (*aspenv1.BatchRequest, error) {
-	tMsg := &aspenv1.BatchRequest{Sender: uint32(msg.Sender)}
+	tMsg := &aspenv1.BatchRequest{Sender: uint32(msg.Sender), Leaseholder: uint32(msg.Leaseholder)}
 	for _, o := range msg.Operations {
 		tMsg.Operations = append(tMsg.Operations, translateOpForward(o))
 	}
@@ -85,8 +91,9 @@ func (bt batchTranslator) Forward(msg kv.BatchRequest) (*aspenv1.BatchRequest, e
 
 func (bt batchTranslator) Backward(tMsg *aspenv1.BatchRequest) (kv.BatchRequest, error) {
 	msg := kv.BatchRequest{
-		Sender:     node.ID(tMsg.Sender),
-		Operations: make([]kv.Operation, len(tMsg.Operations)),
+		Sender:      node.ID(tMsg.Sender),
+		Leaseholder: node.ID(tMsg.Leaseholder),
+		Operations:  make([]kv.Operation, len(tMsg.Operations)),
 	}
 	for i, o := range tMsg.Operations {
 		msg.Operations[i] = translateOpBackward(o)

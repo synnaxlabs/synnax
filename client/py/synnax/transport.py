@@ -1,20 +1,43 @@
-from freighter import Endpoint, StreamClient, AsyncStreamClient, UnaryClient
 from freighter import (
-    ws,
-    sync,
-    http,
-    encoder,
+    URL,
+    AsyncStreamClient,
+    HTTPClientFactory,
+    JSONEncoder,
+    MsgpackEncoder,
+    StreamClient,
+    SyncStreamClient,
+    WebsocketClient,
+    Middleware,
+    AsyncMiddleware,
 )
 
 
 class Transport:
-    endpoint: Endpoint
+    url: URL
     stream: StreamClient
     stream_async: AsyncStreamClient
-    http: http.Client
+    http: HTTPClientFactory
+    secure: bool
 
-    def __init__(self, endpoint: Endpoint) -> None:
-        self.endpoint = endpoint.child("/api/v1/")
-        self.stream_async = ws.Client(endpoint=self.endpoint, encoder=encoder.Msgpack(), max_message_size=int(5e6))
-        self.stream = sync.StreamClient(self.stream_async)
-        self.http = http.Client(endpoint=self.endpoint, encoder_decoder=encoder.JSON())
+    def __init__(self, url: URL, secure: bool = False) -> None:
+        self.url = url.child("/api/v1/")
+        self.stream_async = WebsocketClient(
+            base_url=self.url,
+            encoder=MsgpackEncoder(),
+            max_message_size=int(5e6),
+            secure=secure,
+        )
+        self.stream = SyncStreamClient(self.stream_async)
+        self.http = HTTPClientFactory(
+            url=self.url,
+            encoder_decoder=JSONEncoder(),
+            secure=secure,
+        )
+
+    def use(self, *middleware: Middleware):
+        self.http.use(*middleware)
+        self.stream.use(*middleware)
+
+    def use_async(self, *middleware: AsyncMiddleware):
+        self.http.use(*middleware)
+        self.stream_async.use(*middleware)

@@ -1,0 +1,14 @@
+.connect-cluster__content {
+    padding: 2rem 3rem;
+}
+.connect-cluster__input__host {
+    flex-grow: 1;
+}
+
+.connect-cluster__input__port {
+    width: 20rem;
+}
+
+.connect-cluster__input__password {
+  width: 100%;
+}

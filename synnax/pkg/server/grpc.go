@@ -1,32 +1,48 @@
 package server
 
 import (
-	"context"
-	"github.com/synnaxlabs/x/signal"
+	"github.com/cockroachdb/cmux"
+	"github.com/synnaxlabs/freighter/fgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"net"
 )
 
-type grpcServer struct {
-	server *grpc.Server
+// GRPCBranch is a Branch that serves gRPC traffic.
+type GRPCBranch struct {
+	// Transports is a list of bindable transports that the Branch will serve.
+	Transports []fgrpc.BindableTransport
+	server     *grpc.Server
 }
 
-func newGRPCServer(cfg Config) *grpcServer {
-	srv := &grpcServer{server: grpc.NewServer(grpc.Creds(insecure.NewCredentials()))}
-	for _, t := range cfg.GrpcAPI.Transports {
-		t.BindTo(srv.server)
+var _ Branch = (*GRPCBranch)(nil)
+
+// Routing implements Branch.
+func (g *GRPCBranch) Routing() BranchRouting {
+	return BranchRouting{
+		Policy:   ServeAlwaysPreferSecure,
+		Matchers: []cmux.Matcher{cmux.Any()},
 	}
-	return srv
 }
 
-func (g grpcServer) start(ctx signal.Context, lis net.Listener) {
-	ctx.Go(func(ctx context.Context) error {
-		if err := g.server.Serve(lis); !isCloseErr(err) {
-			return err
-		}
-		return nil
-	}, signal.WithKey("server.grpc"), signal.CancelOnExit())
+// Key implements Branch.
+func (g *GRPCBranch) Key() string { return "grpc" }
+
+// Serve implements Branch.
+func (g *GRPCBranch) Serve(ctx BranchContext) error {
+	opts := []grpc.ServerOption{g.credentials(ctx)}
+	g.server = grpc.NewServer(opts...)
+	return filterCloserError(g.server.Serve(ctx.Lis))
 }
 
-func (g grpcServer) Stop() error { g.server.Stop(); return nil }
+// Stop implements Branch.
+func (g *GRPCBranch) Stop() { g.server.GracefulStop() }
+
+func (g *GRPCBranch) credentials(ctx BranchContext) grpc.ServerOption {
+	if *ctx.Security.Insecure {
+		return grpc.Creds(insecure.NewCredentials())
+	}
+	// If we're running insecure mode, use mux credentials that pass TLS handshake
+	// information from the TLS multiplexer to the grpc server, which allows
+	// our services that need mTLS to validate against it.
+	return grpc.Creds(fgrpc.NewMuxCredentials(ctx.Logger, ctx.ServerName))
+}

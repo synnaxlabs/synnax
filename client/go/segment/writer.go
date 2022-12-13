@@ -14,7 +14,7 @@ type Writer interface {
 	Close() error
 }
 
-type WriterStream = freighter.ClientStream[api.SegmentWriterRequest, api.SegmentWriterResponse]
+type WriterStream = freighter.ClientStream[api.FrameWriterRequest, api.FrameWriterResponse]
 
 type writer struct {
 	stream WriterStream
@@ -27,7 +27,7 @@ type writer struct {
 
 func NewWriter(stream WriterStream, keys ...string) (Writer, error) {
 	w := &writer{stream: stream}
-	if err := w.stream.Send(api.SegmentWriterRequest{OpenKeys: keys}); err != nil {
+	if err := w.stream.Send(api.FrameWriterRequest{OpenKeys: keys}); err != nil {
 		return nil, err
 	}
 	w.mu.receivedRes = make(chan struct{}, 1)
@@ -47,7 +47,7 @@ func (w *writer) Write(segments []api.Segment) bool {
 	case <-w.mu.receivedRes:
 		return false
 	default:
-		err := w.stream.Send(api.SegmentWriterRequest{Segments: segments})
+		err := w.stream.Send(api.FrameWriterRequest{Segments: segments})
 		w.maybeSetError(err)
 		return err == nil
 	}

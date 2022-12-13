@@ -19,7 +19,7 @@ type Option func(*options)
 
 type options struct {
 	// dirname is the directory where aspen will store its data.
-	// this option is ignored if a custom kv.Config.Engine is set.
+	// this option is ignored if a custom kv.ServiceConfig.Engine is set.
 	dirname string
 	// addr sets the address for the host node.
 	addr address.Address
@@ -33,7 +33,7 @@ type options struct {
 	// key-value engine. If so, aspen will not close the engine when it shuts down.
 	externalKV bool
 	// fs sets the filesystem to be used for storing data. This option is ignored
-	// if a custom kv.Config.Engine is set.
+	// if a custom kv.ServiceConfig.Engine is set.
 	fs vfs.FS
 	// bootstrap is a boolean used to indicate whether to bootstrap a new cluster.
 	bootstrap bool
@@ -125,8 +125,8 @@ func WithPropagationConfig(config PropagationConfig) Option {
 var FastPropagationConfig = PropagationConfig{
 	PledgeRetryInterval:   10 * time.Millisecond,
 	PledgeRetryScale:      1,
-	ClusterGossipInterval: 50 * time.Millisecond,
-	KVGossipInterval:      50 * time.Millisecond,
+	ClusterGossipInterval: 10 * time.Millisecond,
+	KVGossipInterval:      10 * time.Millisecond,
 }
 
 // WithTransport sets a custom network transport.

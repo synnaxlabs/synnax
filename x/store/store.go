@@ -5,7 +5,9 @@
 package store
 
 import (
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/override"
 	"io"
 	"sync"
 )
@@ -17,9 +19,9 @@ type State = any
 type Reader[S State] interface {
 	// CopyState returns a copy of the current state.
 	CopyState() S
-	// ReadState returns a read-only view of the current state.
+	// PeekState returns a read-only view of the current state.
 	// Modifications to the returned state may cause undefined behavior.
-	ReadState() S
+	PeekState() S
 }
 
 // Writer is a writable Store.
@@ -48,7 +50,7 @@ type core[S State] struct {
 // New opens a new Store. copy is a function that copies the state.
 // It's up to the caller to determine the depth of the copy. Store
 // serves as a proxy to the state, so it's important to yield access
-// control to the Store (i.e. only alter the state through StorageKey.SetState calls).
+// control to the Store (i.e. only alter the state through Store.SetState calls).
 func New[S State](copy func(S) S) Store[S] {
 	return &core[S]{copy: copy}
 }
@@ -67,8 +69,8 @@ func (c *core[S]) CopyState() S {
 	return c.copy(c.state)
 }
 
-// ReadState implements Store.
-func (c *core[S]) ReadState() S {
+// PeekState implements Store.
+func (c *core[S]) PeekState() S {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.state
@@ -84,19 +86,51 @@ type Observable[S State] interface {
 }
 
 type observable[S State] struct {
+	ObservableConfig[S]
 	Store[S]
 	observe.Observer[S]
 	mu sync.Mutex
 }
 
-func ObservableWrap[S State](store Store[S]) Observable[S] {
-	return &observable[S]{Store: store, Observer: observe.New[S]()}
+type ObservableConfig[S State] struct {
+	// ShouldNotify is a function that diffs the old and new state and returns
+	// true if subscribers of the state should be notified.
+	ShouldNotify func(prevState S, nextState S) bool
+	// GoNotify is a boolean indicating whether to notify subscribers in a goroutine.
+	GoNotify *bool
 }
 
-// SetState implements StorageKey.CopyState.
+var _ config.Config[ObservableConfig[any]] = ObservableConfig[any]{}
+
+func (o ObservableConfig[S]) Override(
+	other ObservableConfig[S],
+) ObservableConfig[S] {
+	o.ShouldNotify = override.Nil(o.ShouldNotify, other.ShouldNotify)
+	o.GoNotify = override.Nil(o.GoNotify, other.GoNotify)
+	return o
+}
+
+func (o ObservableConfig[S]) Validate() error {
+	return nil
+}
+
+func ObservableWrap[S State](store Store[S], cfgs ...ObservableConfig[S]) Observable[S] {
+	cfg, _ := config.OverrideAndValidate(ObservableConfig[S]{
+		GoNotify: config.BoolPointer(true),
+	}, cfgs...)
+	return &observable[S]{ObservableConfig: cfg, Store: store, Observer: observe.New[S]()}
+}
+
+// SetState implements Store.CopyState.
 func (o *observable[S]) SetState(state S) {
+	if o.ShouldNotify == nil || o.ShouldNotify(o.PeekState(), state) {
+		if *o.ObservableConfig.GoNotify {
+			o.Observer.GoNotify(state)
+		} else {
+			o.Observer.Notify(state)
+		}
+	}
 	o.Store.SetState(state)
-	o.Observer.Notify(state)
 }
 
 // |||||| FLUSHABLE ||||||

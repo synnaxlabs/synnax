@@ -38,13 +38,13 @@ related to several requests or application internal functionality.
 
 These two scopes require wildly different lifecycle management. Request scoped
 GRs must be able to exit when a request is complete, aborted, or an error
-occurs. On the other hand, application scoped GRs *cannot* exit when a fatal
+occurs. On the other hand, application scoped GRs _cannot_ exit when a fatal
 error occurs for a particular request, as other requests in the application may
 still be valid.
 
-I'd like to propose a new definition called a *transient* error. In the case of
+I'd like to propose a new definition called a _transient_ error. In the case of
 a request scoped GR, a transient error is one that may prevent a particular
-value from being processed, but is *not* fatal to the request or application. In
+value from being processed, but is _not_ fatal to the request or application. In
 the application scope, a transient error may be fatal to a request but not to
 the application. Communicating transient errors back to the issuer of a request
 or the observer of the application is essential.

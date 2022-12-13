@@ -24,7 +24,7 @@ var _ = Describe("KV", Ordered, func() {
 	AfterAll(func() {
 		Expect(DB.Close()).To(Succeed())
 	})
-	Describe("Register", func() {
+	Describe("New", func() {
 		It("Should register the credentials in the key-value store", func() {
 			w := authenticator.NewWriter()
 			err := w.Register(creds)

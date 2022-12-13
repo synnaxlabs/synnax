@@ -11,6 +11,8 @@ type Observer[T any] interface {
 	Observable[T]
 	// Notify notifies all subscribers of the Value.
 	Notify(T)
+	// GoNotify starts a goroutine to notify all subscribers of the Value.
+	GoNotify(T)
 }
 
 type base[T any] struct {
@@ -33,3 +35,6 @@ func (b *base[T]) Notify(v T) {
 		handler(v)
 	}
 }
+
+// GoNotify implements the Observer interface.
+func (b *base[T]) GoNotify(v T) { go b.Notify(v) }

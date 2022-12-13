@@ -11,7 +11,7 @@ import (
 	"github.com/synnaxlabs/x/kv/memkv"
 )
 
-var _ = Describe("Enforcer", func() {
+var _ = Describe("enforcer", func() {
 	var (
 		db         *gorp.DB
 		legislator *rbac.Legislator

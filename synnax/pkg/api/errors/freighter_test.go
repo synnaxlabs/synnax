@@ -10,7 +10,7 @@ import (
 
 var _ = Describe("Freighter", func() {
 	Describe("Encode + Decode", func() {
-		Context("Validation Err", func() {
+		Context("validation Err", func() {
 			It("Should encode and decode a validation error", func() {
 				err := errors.Validation(errors.Fields{
 					{

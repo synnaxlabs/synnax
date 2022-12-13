@@ -40,6 +40,10 @@ type Iterator interface {
 	// or equal to the given key. Returns true if such a pair is found and false if
 	// otherwise.
 	SeekGE(key []byte) bool
+	// SetBounds sets the lower and upper bounds for the iterator. Once SetBounds returns,
+	// the caller is free to mutate the provided slices. The iterator will always be
+	// invalidated and must be repositioned with a call to SeekGE, SeekLT, First, or Last.
+	SetBounds(lower, upper []byte)
 	// Error returns any accumulated error.
 	Error() error
 	// Close closes the Iterator and returns any accumulated error.
@@ -57,13 +61,13 @@ func prefixUpperBound(lower []byte) []byte {
 	return nil
 }
 
-// PrefixIter returns IteratorOptions, that when passed to db.NewIterator, will
+// PrefixIter returns IteratorOptions, that when passed to db.NewStreamIterator, will
 // return an Iterator that only iterates over keys with the given prefix.
 func PrefixIter(prefix []byte) IteratorOptions {
 	return IteratorOptions{LowerBound: prefix, UpperBound: prefixUpperBound(prefix)}
 }
 
-// RangeIter returns IteratorOptions, that when passed to db.NewIterator, will
+// RangeIter returns IteratorOptions, that when passed to db.NewStreamIterator, will
 // iterator through the range of keys between start and end.
 func RangeIter(start, end []byte) IteratorOptions {
 	return IteratorOptions{LowerBound: start, UpperBound: end}

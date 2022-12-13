@@ -18,6 +18,11 @@ func (a Address) PortString() string {
 	return ":" + str[1]
 }
 
+func (a Address) HostString() string {
+	str := strings.Split(string(a), ":")
+	return str[0]
+}
+
 type Addressable interface {
 	Address() Address
 }

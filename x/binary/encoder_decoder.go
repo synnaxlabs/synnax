@@ -74,6 +74,13 @@ func (j *JSONEncoderDecoder) DecodeStream(r io.Reader, value interface{}) error 
 	return json.NewDecoder(r).Decode(value)
 }
 
+type JSONIdentEncoderDecoder struct{ JSONEncoderDecoder }
+
+// Encode implements the Encoder interface.
+func (j *JSONIdentEncoderDecoder) Encode(value interface{}) ([]byte, error) {
+	return json.MarshalIndent(value, "", "  ")
+}
+
 // MsgPackEncoderDecoder is a msgpack implementation of EncoderDecoder.
 type MsgPackEncoderDecoder struct{}
 

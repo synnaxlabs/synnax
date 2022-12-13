@@ -4,23 +4,23 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/confluence"
+	. "github.com/synnaxlabs/x/confluence"
 )
 
 var _ = Describe("Stream", func() {
 	var (
 		addr address.Address = "addr"
 	)
-	Describe("Internal Stream", func() {
+	Describe("internal Stream", func() {
 		Describe("Address", func() {
 			Context("Stream", func() {
 				It("Should set the inlet address properly", func() {
-					stream := confluence.NewStream[int](0)
+					stream := NewStream[int](0)
 					stream.SetInletAddress(addr)
 					Expect(stream.InletAddress()).To(Equal(addr))
 				})
 				It("Should set the outlet address properly", func() {
-					stream := confluence.NewStream[int](0)
+					stream := NewStream[int](0)
 					stream.SetOutletAddress(addr)
 					Expect(stream.OutletAddress()).To(Equal(addr))
 				})
@@ -30,7 +30,7 @@ var _ = Describe("Stream", func() {
 		Describe("Outlet", func() {
 			var (
 				ch     = make(chan int, 1)
-				outlet = confluence.NewOutlet(ch)
+				outlet = NewOutlet(ch)
 			)
 			It("Should set the address properly", func() {
 				outlet.SetOutletAddress(addr)
@@ -44,7 +44,7 @@ var _ = Describe("Stream", func() {
 		Describe("Inlet", func() {
 			var (
 				ch    = make(chan int, 1)
-				inlet = confluence.NewInlet(ch)
+				inlet = NewInlet(ch)
 			)
 			It("Should set the address properly", func() {
 				inlet.SetInletAddress(addr)
@@ -54,7 +54,7 @@ var _ = Describe("Stream", func() {
 				inlet.Inlet() <- 1
 				Expect(<-ch).To(Equal(1))
 			})
-			It("Should close the wrapped channel", func() {
+			It("Should close the internal channel", func() {
 				inlet.Close()
 			})
 		})

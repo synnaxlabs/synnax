@@ -5,20 +5,9 @@ import (
 	"github.com/synnaxlabs/x/address"
 )
 
-// StreamTransport is an entity that implements streaming transport of messages between a
-// client and a server. Stream is bidirectional, meaning that both client and server
-// can exchange messages in an asynchronous manner. Unary transport should be
-// preferred over Stream as it is simpler. Stream transport is useful for cases
-// where the client and server/need to exchange many messages over extended
-// periods of time in a non-blocking fashion. The semantics of Stream communication
-// are more complex than Unary, and care should be taken when managing the Stream
-// lifecycle.
-type StreamTransport[RQ, RS Payload] interface {
-	StreamTransportClient[RQ, RS]
-	StreamTransportServer[RQ, RS]
-}
-
-type StreamTransportClient[RQ, RS Payload] interface {
+// StreamClient is the client side interface of a transport that asynchronously streams
+// a series of requests and responses between a client and server.
+type StreamClient[RQ, RS Payload] interface {
 	Transport
 	// Stream opens a stream to the target server using the given context. If
 	// the stream cannot be opened (ex. the server cannot be reached), Stream
@@ -27,7 +16,9 @@ type StreamTransportClient[RQ, RS Payload] interface {
 	Stream(ctx context.Context, target address.Address) (ClientStream[RQ, RS], error)
 }
 
-type StreamTransportServer[RQ, RS Payload] interface {
+// StreamServer is the server side interface of a transport that asynchronously streams
+// a series of requests and responses between a client and server.
+type StreamServer[RQ, RS Payload] interface {
 	Transport
 	// BindHandler is called by the server to handle a request from the client. If
 	// the context is cancelled, the server is expected to discard unprocessed
@@ -49,9 +40,9 @@ type StreamTransportServer[RQ, RS Payload] interface {
 	BindHandler(handler func(ctx context.Context, server ServerStream[RQ, RS]) error)
 }
 
-// ClientStream is the client side interface of Stream freighter. ClientStream
-// differs from ServerStream in that the client has an explicit CloseSend method
-// to let the server know that it is done sending messages.
+// ClientStream is a client side stream. ClientStream differs from ServerStream in that
+// the client has an explicit CloseSend method to let the server know that it is done
+// sending messages.
 type ClientStream[RQ, RS Payload] interface {
 	// StreamReceiver - Receive blocks until a message is received from the
 	// server or the stream is closed.

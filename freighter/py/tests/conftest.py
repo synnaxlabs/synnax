@@ -1,9 +1,8 @@
 import pytest
 
-from freighter import Endpoint
+from freighter import URL
 
 
 @pytest.fixture
-def endpoint() -> Endpoint:
-    return Endpoint("localhost", 8080)
-
+def endpoint() -> URL:
+    return URL("localhost", 8080)

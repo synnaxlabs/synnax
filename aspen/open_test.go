@@ -11,7 +11,7 @@ import (
 	"os"
 )
 
-var _ = Describe("RouteStream", func() {
+var _ = Describe("StreamServer", func() {
 	var (
 		db1    aspen.DB
 		db2    aspen.DB

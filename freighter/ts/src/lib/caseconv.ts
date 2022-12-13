@@ -6,7 +6,10 @@ import {
 const options = {
   recursive: true,
   recursiveInArray: true,
+  keepTypesOnRecursion: [Number, String, Uint8Array],
 };
 
-export const snakeKeys = (entity: unknown) => _snakeKeys(entity, options);
-export const camelKeys = (entity: unknown) => _camelKeys(entity, options);
+export const snakeKeys = (entity: unknown): unknown =>
+  _snakeKeys(entity, options);
+export const camelKeys = (entity: unknown): unknown =>
+  _camelKeys(entity, options);

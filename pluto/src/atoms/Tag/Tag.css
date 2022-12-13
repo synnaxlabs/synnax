@@ -1,0 +1,13 @@
+
+.pluto-tag__close {
+    cursor: pointer;
+}
+
+.pluto-tag {
+    padding: 0rem 1rem;
+    border-radius: var(--pluto-border-radius);
+    user-select: none;
+    width: fit-content;
+		height: 100%;
+		max-height: 5rem;
+}

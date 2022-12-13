@@ -62,9 +62,9 @@ func newCore(
 type core struct {
 	*options
 	context.Context
-	cancel  context.CancelFunc
-	wrapped errgroup.Group
-	mu      struct {
+	cancel   context.CancelFunc
+	internal errgroup.Group
+	mu       struct {
 		sync.RWMutex
 		routines []*routine
 		stopped  chan struct{}

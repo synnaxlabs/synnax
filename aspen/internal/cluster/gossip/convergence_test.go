@@ -62,10 +62,14 @@ var _ = Describe("Convergence", func() {
 			group := make(node.Group)
 			configs := make(map[node.ID]gossip.Config)
 			for i := 1; i <= values.nodeCount; i++ {
-				t := net.RouteUnary("")
-				n := node.Node{ID: node.ID(i), Address: t.Address}
+				server := net.UnaryServer("")
+				n := node.Node{ID: node.ID(i), Address: server.Address}
 				group[n.ID] = n
-				configs[n.ID] = gossip.Config{Transport: t, Logger: logger}
+				configs[n.ID] = gossip.Config{
+					TransportServer: server,
+					TransportClient: net.UnaryClient(),
+					Logger:          logger,
+				}
 			}
 			var (
 				gossips []*gossip.Gossip

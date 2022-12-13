@@ -68,7 +68,7 @@ func (cfg Config) Override(other Config) Config {
 func (cfg Config) Validate() error {
 	v := validate.New("cluster")
 	validate.NotEmptyString(v, "HostAddress", cfg.HostAddress)
-	validate.NotNil(v, "Logger", cfg.Logger)
+	validate.NotNil(v, "logger", cfg.Logger)
 	validate.NotNil(v, "EncoderDecoder", cfg.EncoderDecoder)
 	validate.NonZero(v, "StorageFlushInterval", cfg.StorageFlushInterval)
 	validate.NotEmptySlice(v, "StorageKey", cfg.StorageKey)

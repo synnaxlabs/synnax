@@ -2,8 +2,6 @@ package core
 
 import (
 	"github.com/synnaxlabs/aspen"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"strconv"
 )
 
 type (
@@ -15,9 +13,3 @@ type (
 	Resolver     = aspen.Resolver
 	ClusterState = aspen.ClusterState
 )
-
-const nodeResourceType = "node"
-
-func NodeOntologyID(id NodeID) ontology.ID {
-	return ontology.ID{Type: nodeResourceType, Key: strconv.Itoa(int(id))}
-}

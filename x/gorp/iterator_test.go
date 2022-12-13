@@ -9,7 +9,7 @@ import (
 	"github.com/synnaxlabs/x/kv/memkv"
 )
 
-var _ = Describe("Iterator", func() {
+var _ = Describe("IteratorServer", func() {
 	var (
 		kv   kvx.DB
 		ecdc binary.EncoderDecoder

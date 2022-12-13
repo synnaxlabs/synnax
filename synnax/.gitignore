@@ -12,7 +12,8 @@ build/
 # |||| TEST ARTIFACTS ||||
 
 *.test
-delta-data
+synnax-data
+certs
 
 # |||| INTELLIJ  ||||
 .idea/
@@ -21,4 +22,3 @@ delta-data
 # |||| DARWIN ||||
 
 .DS_Store
-

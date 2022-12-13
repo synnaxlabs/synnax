@@ -5,3 +5,22 @@
 # |||||| DARWIN |||||||
 
 .DS_Store
+
+# |||||| JS ||||||
+
+node_modules
+dist
+coverage
+
+# |||||| RUST ||||||
+
+/target/
+
+# |||||| TURBO REPO ||||||
+
+.turbo/
+.turbo-cache/
+
+# |||||| SYNNAX ||||||
+
+synnax-data/

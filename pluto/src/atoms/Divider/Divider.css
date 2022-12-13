@@ -1,0 +1,13 @@
+.pluto-divider {
+    background-color: var(--pluto-border-color);
+}
+
+.pluto-divider--horizontal {
+    height: var(--pluto-border-width);
+    width: 100%;
+}
+
+.pluto-divider--vertical {
+    width: var(--pluto-border-width);
+    height: 100%;
+}

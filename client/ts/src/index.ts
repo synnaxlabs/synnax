@@ -1,3 +1,20 @@
-export * from './lib/async';
-export * from './lib/hash';
-export * from './lib/number';
+export {
+  default as Synnax,
+  synnaxPropsSchema,
+  SynnaxProps,
+} from './lib/client';
+export * from './lib/telem';
+export {
+  AuthError,
+  ContiguityError,
+  GeneralError,
+  ParseError,
+  QueryError,
+  RouteError,
+  UnexpectedError,
+  ValidationError,
+} from './lib/errors';
+export * from './lib/channel';
+export * from './lib/ontology';
+export * from './lib/connectivity';
+export * from './lib/ontology';
