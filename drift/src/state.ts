@@ -17,7 +17,7 @@ interface DriftState {
   windows: Record<string, Window>;
 }
 
-/** State of a store witha drift slice */
+/** State of a store with a drift slice */
 export interface StoreState {
   drift: DriftState;
 }
