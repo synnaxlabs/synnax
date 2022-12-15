@@ -4,32 +4,20 @@ import { EncoderDecoder } from "./encoder";
 import { EOF, ErrorPayloadSchema, StreamClosed, decodeError } from "./errors";
 import { buildQueryString, CONTENT_TYPE_HEADER_KEY } from "./http";
 import { MetaData, MiddlewareCollector } from "./middleware";
-import { RUNTIME, Runtime } from "./runtime";
+import { RUNTIME } from "./runtime";
 import { Stream, StreamClient } from "./stream";
 import URL from "./url";
 
-const resolveWebSocketConstructor = (): typeof WebSocket => {
-  if (RUNTIME === Runtime.Node) return require("ws");
-  return WebSocket;
-};
-
-enum MessageType {
-  Data = "data",
-  Close = "close",
-}
+const resolveWebSocketConstructor = (): typeof WebSocket =>
+  RUNTIME === "node" ? require("ws") : WebSocket;
 
 const MessageSchema = z.object({
-  type: z.nativeEnum(MessageType),
+  type: z.union([z.literal("data"), z.literal("close")]),
   payload: z.unknown().optional(),
   error: z.optional(ErrorPayloadSchema),
 });
 
 type Message = z.infer<typeof MessageSchema>;
-
-enum CloseCode {
-  Normal = 1000,
-  GoingAway = 1001,
-}
 
 type ReceiveCallbacksQueue = Array<{
   resolve: (msg: Message) => void;
@@ -43,10 +31,9 @@ class WebSocketStream<RQ, RS> implements Stream<RQ, RS> {
   // @ts-expect-error
   private readonly reqSchema: z.ZodSchema<RQ>;
   private readonly resSchema: z.ZodSchema<RS>;
-
   private readonly ws: WebSocket;
-  private server_closed?: Error;
-  private send_closed: boolean;
+  private serverClosed?: Error;
+  private sendClosed: boolean;
   private readonly receiveDataQueue: Message[] = [];
   private readonly receiveCallbacksQueue: ReceiveCallbacksQueue = [];
 
@@ -60,38 +47,27 @@ class WebSocketStream<RQ, RS> implements Stream<RQ, RS> {
     this.reqSchema = reqSchema;
     this.resSchema = resSchema;
     this.ws = ws;
-    this.send_closed = false;
+    this.sendClosed = false;
     this.listenForMessages();
   }
 
   /** Implements the Stream protocol */
   send(req: RQ): Error | undefined {
-    if (this.server_closed != null) return new EOF();
-    if (this.send_closed) throw new StreamClosed();
-
-    this.ws.send(
-      this.encoder.encode({
-        type: MessageType.Data,
-        payload: req,
-        error: undefined,
-      })
-    );
-
+    if (this.serverClosed != null) return new EOF();
+    if (this.sendClosed) throw new StreamClosed();
+    this.ws.send(this.encoder.encode({ type: "data", payload: req }));
     return undefined;
   }
 
   /** Implements the Stream protocol */
   async receive(): Promise<[RS | undefined, Error | undefined]> {
-    if (this.server_closed != null) return [undefined, this.server_closed];
-
+    if (this.serverClosed != null) return [undefined, this.serverClosed];
     const msg = await this.receiveMsg();
-
-    if (msg.type === MessageType.Close) {
+    if (msg.type === "close") {
       if (msg.error == null) throw new Error("Message error must be defined");
-      this.server_closed = decodeError(msg.error);
-      return [undefined, this.server_closed];
+      this.serverClosed = decodeError(msg.error);
+      return [undefined, this.serverClosed];
     }
-
     return [this.resSchema.parse(msg.payload), undefined];
   }
 
@@ -102,28 +78,25 @@ class WebSocketStream<RQ, RS> implements Stream<RQ, RS> {
 
   /** Implements the Stream protocol */
   closeSend(): void {
-    if (this.send_closed || this.server_closed != null) {
-      return undefined;
-    }
-    const msg: Message = { type: MessageType.Close };
+    if (this.sendClosed || this.serverClosed != null) return undefined;
+    const msg: Message = { type: "close" };
     try {
       this.ws.send(this.encoder.encode(msg));
     } finally {
-      this.send_closed = true;
+      this.sendClosed = true;
     }
     return undefined;
   }
 
   private async receiveMsg(): Promise<Message> {
-    if (this.receiveDataQueue.length !== 0) {
+    if (this.receiveDataQueue.length > 0) {
       const msg = this.receiveDataQueue.shift();
       if (msg != null) return msg;
       throw new Error("unexpected undefined message");
     }
-
-    return await new Promise((resolve, reject) => {
-      this.receiveCallbacksQueue.push({ resolve, reject });
-    });
+    return await new Promise((resolve, reject) =>
+      this.receiveCallbacksQueue.push({ resolve, reject })
+    );
   }
 
   private listenForMessages(): void {
@@ -133,23 +106,23 @@ class WebSocketStream<RQ, RS> implements Stream<RQ, RS> {
       if (this.receiveCallbacksQueue.length > 0) {
         const callback = this.receiveCallbacksQueue.shift();
         if (callback != null) callback.resolve(msg);
-        else throw new Error("Unexpected empty callback queue");
-      } else {
-        this.receiveDataQueue.push(msg);
-      }
+        else throw new Error("unexpected empty callback queue");
+      } else this.receiveDataQueue.push(msg);
     };
 
     this.ws.onclose = (ev: CloseEvent) => {
-      if ([CloseCode.Normal, CloseCode.GoingAway].includes(ev.code)) {
-        this.server_closed = new EOF();
-      } else {
-        this.server_closed = new StreamClosed();
-      }
+      this.serverClosed = isNormalClosure(ev) ? new EOF() : new StreamClosed();
     };
   }
 }
 
 export const FREIGHTER_METADATA_PREFIX = "freightermd";
+
+const CloseNormal = 1000;
+const CloseGoingAway = 1001;
+const NormalClosures = [CloseNormal, CloseGoingAway];
+
+const isNormalClosure = (ev: CloseEvent): boolean => NormalClosures.includes(ev.code);
 
 /**
  * WebSocketClient is an implementation of StreamClient that is backed by
@@ -212,12 +185,12 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
     reqSchema: ZodSchema<RQ>,
     resSchema: ZodSchema<RS>
   ): Promise<WebSocketStream<RQ, RS> | Error> {
-    return await new Promise((resolve, reject) => {
+    return await new Promise((resolve) => {
       ws.onopen = () => {
         resolve(new WebSocketStream<RQ, RS>(ws, this.encoder, reqSchema, resSchema));
       };
       // eslint-disable-next-line @typescript-eslint/no-base-to-string
-      ws.onerror = (ev: Event) => reject(new Error(ev.toString()));
+      ws.onerror = (ev: Event) => resolve(new Error(ev.toString()));
     });
   }
 }

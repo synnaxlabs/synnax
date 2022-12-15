@@ -58,7 +58,7 @@ export class MsgpackEncoderDecoder implements EncoderDecoder {
     return pack(snakeKeys(payload));
   }
 
-  decode<P>(data: Uint8Array, schema: ZodSchema<P>): P {
+  decode<P>(data: Uint8Array | ArrayBuffer, schema: ZodSchema<P>): P {
     return schema.parse(camelKeys(unpack(new Uint8Array(data))));
   }
 
@@ -79,13 +79,11 @@ export class JSONEncoderDecoder implements EncoderDecoder {
     return new TextEncoder().encode(json);
   }
 
-  decode<P>(data: Uint8Array, schema: ZodSchema<P>): P {
+  decode<P>(data: Uint8Array | ArrayBuffer, schema: ZodSchema<P>): P {
     return schema.parse(camelKeys(JSON.parse(new TextDecoder().decode(data))));
   }
 
-  static registerCustomType(): void {
-    
-  }
+  static registerCustomType(): void {}
 }
 
 export const ENCODERS: EncoderDecoder[] = [

@@ -20,8 +20,8 @@ const MessageSchema = z.object({
 
 type Message = z.infer<typeof MessageSchema>;
 
-const getClient = factory.getClient();
-const postClient = factory.postClient();
+const getClient = factory.newGET();
+const postClient = factory.newPOST();
 
 describe("http", () => {
   test("post echo", async () => {
@@ -71,7 +71,7 @@ describe("http", () => {
   });
 
   test("middleware", async () => {
-    const client = factory.getClient();
+    const client = factory.newGET();
     client.use(async (md, next) => {
       md.params.Test = "test";
       return await next(md);
