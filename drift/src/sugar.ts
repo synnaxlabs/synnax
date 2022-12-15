@@ -1,16 +1,16 @@
-import { Action, AnyAction } from '@reduxjs/toolkit';
+import type { Action, AnyAction } from "@reduxjs/toolkit";
 
-import { DriftAction } from './state';
+import { DriftAction } from "@/state";
 
-const DRIFT_ACTION_INDICATOR = 'DA@';
-const DRIFT_PREFIX_SPLITTER = '://';
+const DRIFT_ACTION_INDICATOR = "DA@";
+const DRIFT_PREFIX_SPLITTER = "://";
 
-const sugarType = (type: string, emitter: string) =>
+const sugarType = (type: string, emitter: string): string =>
   DRIFT_ACTION_INDICATOR.concat(emitter, DRIFT_PREFIX_SPLITTER, type);
 
 const desugarType = (type: string): [string, string] => {
   const [prefix, embedded] = type.split(DRIFT_PREFIX_SPLITTER);
-  if (!embedded) return [type, ''];
+  if (embedded.length === 0) return [type, ""];
   const [, winKey] = prefix.split(DRIFT_ACTION_INDICATOR);
   return [embedded, winKey];
 };
@@ -21,10 +21,7 @@ const desugarType = (type: string): [string, string] => {
  * @param emitter - The window key to embed.
  * @returns - The sugared action.
  */
-export const sugar = <A extends Action = AnyAction>(
-  action: A,
-  emitter: string
-): A => ({
+export const sugar = <A extends Action = AnyAction>(action: A, emitter: string): A => ({
   ...action,
   type: sugarType(action.type, emitter),
 });
@@ -40,8 +37,12 @@ export const sugar = <A extends Action = AnyAction>(
  */
 export const desugar = <A extends Action = AnyAction>(
   action: A | DriftAction
-) => {
+): {
+  emitted: boolean;
+  emitter: string;
+  action: A | DriftAction;
+} => {
   let emitter: string;
   [action.type, emitter] = desugarType(action.type);
-  return { emitted: emitter !== '', emitter, action };
+  return { emitted: emitter !== "", emitter, action };
 };

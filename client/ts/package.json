@@ -1,11 +1,9 @@
 {
   "name": "@synnaxlabs/client",
+  "private": false,
   "version": "0.2.1",
-  "description": "synnax Client Library",
-  "main": "dist/main/index.js",
-  "typings": "dist/main/index.d.ts",
-  "module": "dist/module/index.js",
-  "repository": "https://github.com/synnaxlabs/synnax",
+  "description": "The Client Library for Synnax",
+  "repository": "https://github.com/synnaxlabs/synnax/tree/main/client/ts",
   "license": "MIT",
   "keywords": [
     "synnax",
@@ -19,12 +17,14 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json && tsc -p tsconfig.module.json",
+    "watch": "tsc -p tsconfig.json -w",
+    "lint": "eslint \"src/**/*.ts*\"",
+    "fix": "eslint \"src/**/*.ts*\" --fix",
     "test": "nyc --silent ava",
-    "cov": "nyc --silent ava -s && nyc report --reporter=lcov && nyc report --reporter-html",
-    "lint": "TIMING=1 eslint \"src/**/*.ts*\""
+    "cov": "nyc --silent ava -s && nyc report --reporter=lcov && nyc report --reporter-html"
   },
   "engines": {
-    "node": ">=10"
+    "node": ">=12.0.0"
   },
   "dependencies": {
     "@synnaxlabs/freighter": "*",
@@ -69,13 +69,13 @@
       "!dist/module/**"
     ]
   },
-  "prettier": {
-    "singleQuote": true
-  },
   "nyc": {
     "extends": "@istanbuljs/nyc-config-typescript",
     "exclude": [
       "**/*.spec.js"
     ]
-  }
+  },
+  "main": "dist/main/index.js",
+  "typings": "dist/main/index.d.ts",
+  "module": "dist/module/index.js"
 }

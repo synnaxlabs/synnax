@@ -1,79 +1,52 @@
 module.exports = {
-	extends: [
-		"eslint:recommended",
-		"plugin:@typescript-eslint/recommended",
-		"plugin:react/recommended",
-		"turbo",
-		"prettier",
-		"plugin:import/typescript",
-		"plugin:react-hooks/recommended",
-		"plugin:jsx-a11y/recommended",
-		"plugin:testing-library/react",
-		"plugin:jest-dom/recommended",
-		"plugin:import/errors",
-		"plugin:import/warnings",
-	],
-  "env": {
-    "browser": true,
-    "amd": true,
-    "node": true
+  env: {
+    browser: true,
+    es2021: true
   },
-	plugins: ["react", "@typescript-eslint"],
-	parser: "@typescript-eslint/parser",
-	parserOptions: {
-		ecmaFeatures: {
-			jsx: true,
-		},
-		ecmaVersion: "latest",
-		sourceType: "module",
-	},
-	settings: {
-		react: {
-			version: "detect",
-		},
-		"import/resolver": {
-			typescript: {},
-		},
-	},
-	rules: {
-		"no-restricted-imports": [
-			"error",
-			{
-				patterns: ["@/features/*/*"],
-			},
-		],
-		"linebreak-style": ["error", "unix"],
-		"react/prop-types": "off",
-
-		"import/order": [
-			"error",
-			{
-				groups: [
-					"builtin",
-					"external",
-					"internal",
-					"parent",
-					"sibling",
-					"index",
-					"object",
-				],
-				"newlines-between": "always",
-				alphabetize: { order: "asc", caseInsensitive: true },
-			},
-		],
-		"import/default": "off",
-		"import/no-named-as-default-member": "off",
-		"import/no-named-as-default": "off",
-
-		"react/react-in-jsx-scope": "off",
-
-		"jsx-a11y/anchor-is-valid": "off",
-
-		"@typescript-eslint/no-unused-vars": ["error"],
-
-		"@typescript-eslint/explicit-function-return-type": ["off"],
-		"@typescript-eslint/explicit-module-boundary-types": ["off"],
-		"@typescript-eslint/no-empty-function": ["off"],
-		"@typescript-eslint/no-explicit-any": ["off"],
-	},
-};
+  extends: [
+    'plugin:react/recommended',
+    'standard-with-typescript',
+    'plugin:import/recommended',
+    "prettier"
+  ],
+  overrides: [
+  ],
+  parserOptions: {
+    ecmaVersion: 'latest',
+    sourceType: 'module'
+  },
+  plugins: [
+    'import',
+    'react'
+  ],
+  rules: {
+    // turn on import order
+    'import/order': ['error', {
+      'groups': ['builtin', 'external', 'internal', 'parent', 'sibling', 'index'],
+      'pathGroups': [
+        {
+          'pattern': 'react',
+          'group': 'external',
+          'position': 'before'
+        }
+      ],
+      'pathGroupsExcludedImportTypes': ['react'],
+      'newlines-between': 'always',
+      'alphabetize': {
+        'order': 'asc',
+        'caseInsensitive': true
+      }
+    }],
+    "import/no-unresolved": [2, { "ignore": ["^@/"], "commonjs": true, "amd": true }],
+  },
+  settings: {
+    "import/resolver": {
+      "node": {
+        "extensions": [".js", ".jsx", ".ts", ".tsx"]
+      }
+    },
+    "react": {
+      "version": "detect",
+    }
+  }
+}

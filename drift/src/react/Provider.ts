@@ -1,8 +1,11 @@
-import { Action, AnyAction, Store } from "@reduxjs/toolkit";
 import { ReactElement, createElement, useEffect, useState } from "react";
-import { Provider as Base, ProviderProps as BaseProps } from "react-redux";
+
+import type { Action, AnyAction, Store } from "@reduxjs/toolkit";
+import { Provider as Base } from "react-redux";
+import type {ProviderProps as BaseProps } from 'react-redux'
 
 import { StoreState } from "@/state";
+
 
 /**
  * Overrides the default react-redux Provider to allow for a promise based
@@ -29,6 +32,6 @@ export const Provider = <S extends StoreState, A extends Action<unknown> = AnyAc
 	useEffect(() => {
 		promise.then((s) => setStore(s)).catch(console.error);
 	}, []);
-	if (!store) return null;
+	if (store == null) return null;
 	return createElement(Base<A>, { ...args, store });
 };
