@@ -1,7 +1,7 @@
-import { addExtension, pack, unpack } from 'msgpackr';
-import { ZodSchema } from 'zod';
+import { addExtension, pack, unpack } from "msgpackr";
+import { ZodSchema } from "zod";
 
-import { camelKeys, snakeKeys } from './caseconv';
+import { camelKeys, snakeKeys } from "./caseconv";
 
 /**
  * CustomTypeEncoder is an interface for a class that needs to transform its
@@ -52,7 +52,7 @@ interface StaticEncoderDecoder {
 
 /** MsgpackEncoderDecoder is a msgpack implementation of EncoderDecoder. */
 export class MsgpackEncoderDecoder implements EncoderDecoder {
-  contentType = 'application/msgpack';
+  contentType = "application/msgpack";
 
   encode(payload: unknown): ArrayBuffer {
     return pack(snakeKeys(payload));
@@ -69,7 +69,7 @@ export class MsgpackEncoderDecoder implements EncoderDecoder {
 
 /** JSONEncoderDecoder is a JSON implementation of EncoderDecoder. */
 export class JSONEncoderDecoder implements EncoderDecoder {
-  contentType = 'application/json';
+  contentType = "application/json";
 
   encode(payload: unknown): ArrayBuffer {
     const json = JSON.stringify(snakeKeys(payload), (_, v) => {

@@ -1,6 +1,6 @@
-import { ZodSchema } from 'zod';
+import { ZodSchema } from "zod";
 
-import { Transport } from './transport';
+import { Transport } from "./transport";
 
 /**
  * Interface for an entity that receives a stream of responses.
@@ -61,9 +61,7 @@ export interface StreamSenderCloser<RQ> extends StreamSender<RQ> {
 /**
  * Interface for a bidirectional stream between a client and a server.
  */
-export interface Stream<RQ, RS>
-  extends StreamSenderCloser<RQ>,
-    StreamReceiver<RS> {}
+export interface Stream<RQ, RS> extends StreamSenderCloser<RQ>, StreamReceiver<RS> {}
 
 /**
  * Interface for a bidirectional stream between a client and a server.

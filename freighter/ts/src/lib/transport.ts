@@ -1,4 +1,4 @@
-import { Middleware } from './middleware';
+import { Middleware } from "./middleware";
 
 /**
  * Transport is a based interface that represents a general transport for
