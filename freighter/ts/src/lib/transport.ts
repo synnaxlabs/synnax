@@ -10,5 +10,5 @@ export interface Transport {
    *
    * @param mw - The middleware to register.
    */
-  use(...mw: Middleware[]): void;
+  use: (...mw: Middleware[]) => void;
 }

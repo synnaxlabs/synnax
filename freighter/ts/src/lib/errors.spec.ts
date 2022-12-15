@@ -1,4 +1,3 @@
-import { encode } from "msgpackr";
 import { describe, expect, test } from "vitest";
 
 import {

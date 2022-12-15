@@ -18,7 +18,7 @@ interface CustomTypeEncoder {
    * @param instance - The instance of the class to transform.
    * @returns The transformed value.
    */
-  write<P>(instance: P): unknown;
+  write: <P>(instance: P) => unknown;
 }
 
 /**
@@ -35,7 +35,7 @@ export interface EncoderDecoder {
    * @param payload - The payload to encode.
    * @returns An ArrayBuffer containing the encoded payload.
    */
-  encode(payload: unknown): ArrayBuffer;
+  encode: (payload: unknown) => ArrayBuffer;
 
   /**
    * Decodes the given binary representation into a type checked payload.
@@ -43,11 +43,11 @@ export interface EncoderDecoder {
    * @param data - The data to decode.
    * @param schema - The schema to decode the data with.
    */
-  decode<P>(data: Uint8Array | ArrayBuffer, schema: ZodSchema<P>): P;
+  decode: <P>(data: Uint8Array | ArrayBuffer, schema: ZodSchema<P>) => P;
 }
 
 interface StaticEncoderDecoder {
-  registerCustomType(encoder: CustomTypeEncoder): void;
+  registerCustomType: (encoder: CustomTypeEncoder) => void;
 }
 
 /** MsgpackEncoderDecoder is a msgpack implementation of EncoderDecoder. */
@@ -84,7 +84,7 @@ export class JSONEncoderDecoder implements EncoderDecoder {
   }
 
   static registerCustomType(): void {
-    return;
+    
   }
 }
 

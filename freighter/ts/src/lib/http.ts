@@ -1,4 +1,5 @@
-import axios, { AxiosRequestConfig, AxiosResponse } from "axios";
+import axios from "axios";
+import type { AxiosRequestConfig, AxiosResponse } from "axios";
 import { ZodSchema } from "zod";
 
 import { EncoderDecoder } from "./encoder";
@@ -51,7 +52,7 @@ class Core extends MiddlewareCollector {
     this.encoder = encoder;
   }
 
-  get headers() {
+  get headers(): Record<string, string> {
     return {
       [CONTENT_TYPE_HEADER_KEY]: this.encoder.contentType,
     };
@@ -70,14 +71,15 @@ class Core extends MiddlewareCollector {
     request: AxiosRequestConfig,
     resSchema: ZodSchema<RS> | null
   ): Promise<[RS | undefined, Error | undefined]> {
-    let rs: RS | undefined = undefined;
+    let rs: RS | undefined;
 
-    if (!request.url) throw new Error("[freighter.http] - expected valid request url");
+    if (request.url == null)
+      throw new Error("[freighter.http] - expected valid request url");
 
     const [, err] = await this.executeMiddleware(
       { target: request.url, protocol: "http", params: {} },
       async (md: MetaData): Promise<[MetaData, Error | undefined]> => {
-        let outMD: MetaData = { ...md, params: {} };
+        const outMD: MetaData = { ...md, params: {} };
         request.headers = { ...request.headers, ...this.headers, ...md.params };
         let httpRes: AxiosResponse;
         try {
@@ -94,7 +96,7 @@ class Core extends MiddlewareCollector {
             return [outMD, new Error(httpRes.data)];
           }
         }
-        if (resSchema) rs = this.encoder.decode(httpRes.data, resSchema);
+        if (resSchema != null) rs = this.encoder.decode(httpRes.data, resSchema);
         return [outMD, undefined];
       }
     );
@@ -137,7 +139,7 @@ export class POSTClient extends Core implements UnaryClient {
     const request = this.requestConfig();
     request.method = "POST";
     request.url = url;
-    if (req) {
+    if (req != null) {
       request.data = this.encoder.encode(req);
     } else {
       request.data = null;
@@ -162,6 +164,7 @@ export const buildQueryString = ({
         if (Array.isArray(value)) return value.length > 0;
         return true;
       })
+      // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
       .map(([key, value]) => `${prefix}${key}=${value}`)
       .join("&")
   );

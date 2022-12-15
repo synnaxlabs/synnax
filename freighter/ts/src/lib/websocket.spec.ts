@@ -93,9 +93,9 @@ describe("websocket", () => {
     const myClient = new WebSocketClient(url, new JSONEncoderDecoder());
     let c = 0;
     myClient.use(async (md, next): Promise<[MetaData, Error | undefined]> => {
-      if (md.params) {
+      if (md.params !== undefined) {
         c++;
-        md.params["Test"] = "test";
+        md.params.Test = "test";
       }
       return await next(md);
     });
