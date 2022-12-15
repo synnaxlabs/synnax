@@ -1,187 +1,179 @@
-import test from 'ava';
+import { describe, expect, test } from "vitest";
 
-import { DataType, Density, Rate, Size, TimeRange, TimeSpan, TimeStamp } from './telem';
+import { DataType, Density, Rate, Size, TimeRange, TimeSpan, TimeStamp } from "./telem";
 
-// |||||| TimeStamp ||||||
+describe("TimeStamp", () => {
+  test("construct", () => {
+    const ts = new TimeStamp(1000);
+    expect(ts.equals(TimeSpan.Microseconds())).toBeTruthy();
+  });
 
-test('TimeStamp - construct', (t) => {
-	const ts = new TimeStamp(1000);
-	t.true(ts.equals(TimeSpan.Microseconds()));
+  test("construct from TimeStamp", () => {
+    const ts = new TimeStamp(TimeSpan.Microseconds(10));
+    expect(ts.equals(TimeSpan.Microseconds(10))).toBeTruthy();
+  });
+
+  test("span", () => {
+    const ts = new TimeStamp(0);
+    expect(ts.span(new TimeStamp(1000)).equals(TimeSpan.Microseconds())).toBeTruthy();
+  });
+
+  test("range", () => {
+    const ts = new TimeStamp(0);
+    expect(
+      ts.range(new TimeStamp(1000)).equals(new TimeRange(ts, TimeSpan.Microseconds()))
+    ).toBeTruthy();
+  });
+
+  test("spanRange", () => {
+    const ts = new TimeStamp(0);
+    expect(
+      ts
+        .spanRange(TimeSpan.Microseconds())
+        .equals(new TimeRange(ts, ts.add(TimeSpan.Microseconds())))
+    ).toBeTruthy();
+  });
+
+  test("isZero", () => {
+    const ts = new TimeStamp(0);
+    expect(ts.isZero()).toBeTruthy();
+  });
+
+  test("after", () => {
+    const ts = new TimeStamp(0);
+    expect(ts.after(new TimeStamp(-1))).toBeTruthy();
+    const ts2 = new TimeStamp(1);
+    expect(ts2.after(new TimeStamp(1))).toBeFalsy();
+  });
+
+  test("before", () => {
+    const ts = new TimeStamp(0);
+    expect(ts.before(new TimeStamp(1))).toBeTruthy();
+    const ts2 = new TimeStamp(1);
+    expect(ts2.before(new TimeStamp(1))).toBeFalsy();
+  });
+
+  test("beforeEq", () => {
+    const ts = new TimeStamp(0);
+    expect(ts.beforeEq(new TimeStamp(1))).toBeTruthy();
+    const ts2 = new TimeStamp(1);
+    expect(ts2.beforeEq(new TimeStamp(1))).toBeTruthy();
+    const ts3 = new TimeStamp(2);
+    expect(ts3.beforeEq(new TimeStamp(1))).toBeFalsy();
+  });
+
+  test("afterEq", () => {
+    const ts = new TimeStamp(0);
+    expect(ts.afterEq(new TimeStamp(-1))).toBeTruthy();
+    const ts2 = new TimeStamp(1);
+    expect(ts2.afterEq(new TimeStamp(1))).toBeTruthy();
+    const ts3 = new TimeStamp(0);
+    expect(ts3.afterEq(new TimeStamp(1))).toBeFalsy();
+  });
+
+  test("add", () => {
+    const ts = new TimeStamp(0);
+    expect(
+      ts.add(TimeSpan.Microseconds()).equals(new TimeStamp(TimeSpan.Microseconds(1)))
+    ).toBeTruthy();
+  });
+
+  test("sub", () => {
+    const ts = new TimeStamp(TimeSpan.Microseconds());
+    expect(ts.sub(TimeSpan.Microseconds()).equals(new TimeStamp(0))).toBeTruthy();
+  });
 });
 
-test('TimeStamp - construct from TimeStamp', (t) => {
-	const ts = new TimeStamp(TimeSpan.Microseconds(10));
-	t.true(ts.equals(TimeSpan.Microseconds(10)));
+describe("TimeSpan", () => {
+  test("construct from static", () => {
+    expect(TimeSpan.Nanoseconds(1).equals(1)).toBeTruthy();
+    expect(TimeSpan.Microseconds(1).equals(1000)).toBeTruthy();
+    expect(TimeSpan.Milliseconds(1).equals(1000000)).toBeTruthy();
+    expect(TimeSpan.Seconds(1).equals(1e9)).toBeTruthy();
+    expect(TimeSpan.Minutes(1).equals(6e10)).toBeTruthy();
+    expect(TimeSpan.Hours(1).equals(36e11)).toBeTruthy();
+  });
+
+  test("seconds", () => {
+    expect(TimeSpan.Seconds(1).seconds()).toEqual(1);
+  });
+
+  test("isZero", () => {
+    expect(TimeSpan.Zero.isZero()).toBeTruthy();
+    expect(TimeSpan.Seconds(1).isZero()).toBeFalsy();
+  });
+
+  test("add", () => {
+    expect(TimeSpan.Seconds(1).add(TimeSpan.Second).equals(2e9)).toBeTruthy();
+  });
+
+  test("sub", () => {
+    expect(TimeSpan.Seconds(1).sub(TimeSpan.Second).isZero()).toBeTruthy();
+  });
 });
 
-test('TimeStamp - span', (t) => {
-	const ts = new TimeStamp(0);
-	t.true(ts.span(new TimeStamp(1000)).equals(TimeSpan.Microseconds()));
+describe("Rate", () => {
+  test("construct", () => expect(new Rate(1).equals(1)).toBeTruthy());
+
+  test("period", () =>
+    expect(new Rate(1).period().equals(TimeSpan.Second)).toBeTruthy());
+
+  test("sampleCount", () =>
+    expect(new Rate(1).sampleCount(TimeSpan.Second)).toEqual(1));
+
+  test("byteCount", () =>
+    expect(new Rate(1).byteCount(TimeSpan.Second, Density.Bit64)).toEqual(8));
+
+  test("span", () =>
+    expect(new Rate(1).span(4).equals(TimeSpan.Seconds(4))).toBeTruthy());
+
+  test("byteSpan", () =>
+    expect(
+      new Rate(1).byteSpan(new Size(32), Density.Bit64).equals(TimeSpan.Seconds(4))
+    ).toBeTruthy());
+
+  test("Hz", () => expect(Rate.Hz(1).equals(1)).toBeTruthy());
+  test("KHz", () => expect(Rate.KHz(1).equals(1e3)).toBeTruthy());
 });
 
-test('TimeStamp - range', (t) => {
-	const ts = new TimeStamp(0);
-	t.true(
-		ts.range(new TimeStamp(1000)).equals(new TimeRange(ts, TimeSpan.Microseconds()))
-	);
+describe("TimeRange", () => {
+  test("construct", () => {
+    const tr = new TimeRange(new TimeStamp(0), new TimeStamp(1000));
+    expect(tr.start.equals(new TimeStamp(0))).toBeTruthy();
+    expect(tr.end.equals(new TimeStamp(1000))).toBeTruthy();
+  });
+
+  test("span", () => {
+    const tr = new TimeRange(new TimeStamp(0), new TimeStamp(1000));
+    expect(tr.span().equals(TimeSpan.Microsecond)).toBeTruthy();
+  });
+
+  test("isValid", () => {
+    const tr = new TimeRange(new TimeStamp(0), new TimeStamp(1000));
+    expect(tr.isValid()).toBeTruthy();
+    const tr2 = new TimeRange(new TimeStamp(1000), new TimeStamp(0));
+    expect(tr2.isValid()).toBeFalsy();
+  });
+
+  test("isZero", () => {
+    const tr = new TimeRange(new TimeStamp(0), new TimeStamp(0));
+    expect(tr.isZero()).toBeTruthy();
+    const tr2 = new TimeRange(new TimeStamp(0), new TimeStamp(1000));
+    expect(tr2.isZero()).toBeFalsy();
+  });
+
+  test("swap", () => {
+    const tr = new TimeRange(new TimeStamp(0), new TimeStamp(1000));
+    expect(
+      tr.swap().equals(new TimeRange(new TimeStamp(1000), new TimeStamp(0)))
+    ).toBeTruthy();
+  });
 });
 
-test('TimeStamp - spanRange', (t) => {
-	const ts = new TimeStamp(0);
-	t.true(
-		ts
-			.spanRange(TimeSpan.Microseconds())
-			.equals(new TimeRange(ts, ts.add(TimeSpan.Microseconds())))
-	);
-});
-
-test('TimeStamp - isZero', (t) => {
-	const ts = new TimeStamp(0);
-	t.true(ts.isZero());
-});
-
-test('TimeStamp - after', (t) => {
-	const ts = new TimeStamp(0);
-	t.true(ts.after(new TimeStamp(-1)));
-	const ts2 = new TimeStamp(1);
-	t.false(ts2.after(new TimeStamp(1)));
-});
-
-test('TimeStamp - before', (t) => {
-	const ts = new TimeStamp(0);
-	t.true(ts.before(new TimeStamp(1)));
-	const ts2 = new TimeStamp(1);
-	t.false(ts2.before(new TimeStamp(1)));
-});
-
-test('TimeStamp - beforeEq', (t) => {
-	const ts = new TimeStamp(0);
-	t.true(ts.beforeEq(new TimeStamp(1)));
-	const ts2 = new TimeStamp(1);
-	t.true(ts2.beforeEq(new TimeStamp(1)));
-	const ts3 = new TimeStamp(2);
-	t.false(ts3.beforeEq(new TimeStamp(1)));
-});
-
-test('TimeStamp - afterEq', (t) => {
-	const ts = new TimeStamp(0);
-	t.true(ts.afterEq(new TimeStamp(-1)));
-	const ts2 = new TimeStamp(1);
-	t.true(ts2.afterEq(new TimeStamp(1)));
-	const ts3 = new TimeStamp(0);
-	t.false(ts3.afterEq(new TimeStamp(1)));
-});
-
-test('TimeStamp - add', (t) => {
-	const ts = new TimeStamp(0);
-	t.true(
-		ts.add(TimeSpan.Microseconds()).equals(new TimeStamp(TimeSpan.Microseconds(1)))
-	);
-});
-
-test('TimeStamp - sub', (t) => {
-	const ts = new TimeStamp(TimeSpan.Microseconds());
-	t.true(ts.sub(TimeSpan.Microseconds()).equals(new TimeStamp(0)));
-});
-
-// |||||| TimeSpan ||||||
-
-test('TimeSpan - construct from static', (t) => {
-	t.true(TimeSpan.Nanoseconds(1).equals(1));
-	t.true(TimeSpan.Microseconds(1).equals(1000));
-	t.true(TimeSpan.Milliseconds(1).equals(1000000));
-	t.true(TimeSpan.Seconds(1).equals(1e9));
-	t.true(TimeSpan.Minutes(1).equals(6e10));
-	t.true(TimeSpan.Hours(1).equals(36e11));
-});
-
-test('TimeSpan - seconds', (t) => {
-	t.is(TimeSpan.Seconds(1).seconds(), 1);
-});
-
-test('TimeSpan - isZero', (t) => {
-	t.true(TimeSpan.Zero.isZero());
-	t.false(TimeSpan.Seconds(1).isZero());
-});
-
-test('TimeSpan - add', (t) => {
-	t.true(TimeSpan.Seconds(1).add(TimeSpan.Second).equals(2e9));
-});
-
-test('TimeSpan - sub', (t) => {
-	t.true(TimeSpan.Seconds(1).sub(TimeSpan.Second).isZero());
-});
-
-// |||||| Rate ||||||
-
-test('Rate - construct', (t) => {
-	t.true(new Rate(1).equals(1));
-});
-
-test('Rate - period', (t) => {
-	t.true(new Rate(1).period().equals(TimeSpan.Second));
-});
-
-test('Rate - sampleCount', (t) => {
-	t.true(new Rate(1).sampleCount(TimeSpan.Second) == 1);
-});
-
-test('Rate - byteCount', (t) => {
-	t.true(new Rate(1).byteCount(TimeSpan.Second, Density.Bit64) == 8);
-});
-
-test('Rate - span', (t) => {
-	t.true(new Rate(1).span(4).equals(TimeSpan.Seconds(4)));
-});
-
-test('Rate - byteSpan', (t) => {
-	t.true(new Rate(1).byteSpan(new Size(32), Density.Bit64).equals(TimeSpan.Seconds(4)));
-});
-
-test('Rate - Hz', (t) => {
-	t.true(Rate.Hz(1).equals(1));
-});
-
-test('Rate - KHz', (t) => {
-	t.true(Rate.KHz(1).equals(1e3));
-});
-
-// |||||| TimeRange ||||||
-
-test('TimeRange - construct', (t) => {
-	const tr = new TimeRange(new TimeStamp(0), new TimeStamp(1000));
-	t.true(tr.start.equals(new TimeStamp(0)));
-	t.true(tr.end.equals(new TimeStamp(1000)));
-});
-
-test('TimeRange - span', (t) => {
-	const tr = new TimeRange(new TimeStamp(0), new TimeStamp(1000));
-	t.true(tr.span().equals(TimeSpan.Microsecond));
-});
-
-test('TimeRange - isValid', (t) => {
-	const tr = new TimeRange(new TimeStamp(0), new TimeStamp(1000));
-	t.true(tr.isValid());
-	const tr2 = new TimeRange(new TimeStamp(1000), new TimeStamp(0));
-	t.false(tr2.isValid());
-});
-
-test('TimeRange - isZero', (t) => {
-	const tr = new TimeRange(new TimeStamp(0), new TimeStamp(0));
-	t.true(tr.isZero());
-	const tr2 = new TimeRange(new TimeStamp(0), new TimeStamp(1000));
-	t.false(tr2.isZero());
-});
-
-test('TimeRange - swap', (t) => {
-	const tr = new TimeRange(new TimeStamp(0), new TimeStamp(1000));
-	t.true(tr.swap().equals(new TimeRange(new TimeStamp(1000), new TimeStamp(0))));
-});
-
-// |||||| DATA TYPE ||||||
-
-test('DataType - json serialization', (t) => {
-	const dt = DataType.Int32;
-	const v = JSON.parse(JSON.stringify({ dt }));
-	t.true(v.dt === 'int32');
+describe("DataType", () => {
+  test("json serialization", () => {
+    const dt = DataType.Int32;
+    const v = JSON.parse(JSON.stringify({ dt }));
+    expect(v.dt === "int32").toBeTruthy();
+  });
 });

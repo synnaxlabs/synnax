@@ -9,7 +9,6 @@
     "synnax",
     "grpc",
     "transport",
-    "client",
     "data acquisition",
     "big data",
     "telemetry",
@@ -18,7 +17,9 @@
   "scripts": {
     "build": "vite build",
     "test": "vitest",
-    "cov": "vitest --coverage"
+    "cov": "vitest --coverage",
+    "lint": "eslint \"src/**/*.ts*\"",
+    "fix": "eslint \"src/**/*.ts*\" --fix"
   },
   "engines": {
     "node": ">=12.0.0"

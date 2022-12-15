@@ -12,7 +12,7 @@ const detectRuntime = (): Runtime => {
     return Runtime.Node;
   }
 
-  if (typeof window === "undefined" && typeof window.document === "undefined") {
+  if (typeof window === "undefined" || typeof window.document === "undefined") {
     console.warn("Freighter unable to safely detect runtime, assuming browser");
   }
 
