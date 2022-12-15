@@ -1,14 +1,8 @@
-import { Action, AnyAction, Dispatch, Middleware } from "@reduxjs/toolkit";
-import { CurriedGetDefaultMiddleware } from "@reduxjs/toolkit/dist/getDefaultMiddleware";
+import type { Action, AnyAction, Dispatch, Middleware } from "@reduxjs/toolkit";
+import type { CurriedGetDefaultMiddleware } from "@reduxjs/toolkit/dist/getDefaultMiddleware";
 
 import { Runtime } from "./runtime";
-import {
-  StoreState,
-  assignKey,
-  executeAction,
-  isDrift,
-  shouldEmit,
-} from "./state";
+import { StoreState, assignKey, executeAction, isDrift, shouldEmit } from "./state";
 import { desugar } from "./sugar";
 
 // eslint-disable-next-line @typescript-eslint/ban-types
@@ -65,7 +59,7 @@ export const configureMiddleware = <
   runtime: Runtime<S, A>
 ): ((def: CurriedGetDefaultMiddleware<S>) => M) => {
   return (def) => {
-    const base = mw ? (typeof mw === "function" ? mw(def) : mw) : def();
+    const base = mw != null ? (typeof mw === "function" ? mw(def) : mw) : def();
     return [...base, middleware<S, A>(runtime)] as unknown as M;
   };
 };

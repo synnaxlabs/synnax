@@ -1,16 +1,37 @@
 {
   "name": "@synnaxlabs/drift",
   "private": false,
-  "version": "0.0.0",
+  "version": "0.1.0",
+  "description": "State synchronization and Redux state synchronization for Tauri Apps",
+  "repository": "https://github.com/synnaxlabs/synnax/tree/main/drift",
   "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "synnax",
+    "tauri",
+    "redux",
+    "react",
+    "electron",
+    "application level state"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "watch": "tsc && vite build --watch",
-    "preview": "vite preview",
-    "lint": "TIMING=1 eslint \"src/**/*.ts*\"",
+    "lint": "eslint \"src/**/*.ts*\"",
+    "fix": "eslint \"src/**/*.ts*\" --fix",
     "test": "vitest",
     "cov": "vitest --coverage"
+  },
+  "engines": {
+    "node": ">=12.0.0"
+  },
+  "dependencies": {
+    "@reduxjs/toolkit": "^1.8.6",
+    "@tauri-apps/api": "^1.1.0",
+    "proxy-memoize": "^1.2.0",
+    "react": "^18.2.0",
+    "react-redux": "^8.0.4"
   },
   "devDependencies": {
     "@synnaxlabs/tsconfig": "*",
@@ -21,13 +42,6 @@
     "vite-plugin-dts": "^1.6.6",
     "vite-tsconfig-paths": "^3.5.2",
     "vitest": "^0.24.3"
-  },
-  "dependencies": {
-    "@reduxjs/toolkit": "^1.8.6",
-    "@tauri-apps/api": "^1.1.0",
-    "proxy-memoize": "^1.2.0",
-    "react": "^18.2.0",
-    "react-redux": "^8.0.4"
   },
   "files": [
     "dist"

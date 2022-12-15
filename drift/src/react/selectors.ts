@@ -1,8 +1,11 @@
-import memoize from 'proxy-memoize';
-import { useCallback } from 'react';
-import { useSelector } from 'react-redux';
+import { useCallback } from "react";
 
-import { StoreState } from '../state';
+import memoize from "proxy-memoize";
+import { useSelector } from "react-redux";
+
+import { StoreState } from "../state";
+
+import { Window, WindowState } from "@/window";
 
 /**
  * Selects the status of the window with the given key.
@@ -11,11 +14,11 @@ import { StoreState } from '../state';
  * If not provided, the status of the current window is selected.
  * @returns The status of the window.
  */
-export const useSelectWindowStatus = (key?: string) =>
+export const useSelectWindowState = (key?: string): WindowState =>
   useSelector(
     useCallback(
       memoize((state: StoreState) => {
-        return state.drift.windows[key || state.drift.key].state;
+        return state.drift.windows[key ?? state.drift.key].state;
       }),
       [key]
     )
@@ -28,12 +31,10 @@ export const useSelectWindowStatus = (key?: string) =>
  * If not provided, the current window is selected.
  * @returns The window.
  */
-export const useSelectWindow = (key?: string) =>
+export const useSelectWindow = (key?: string): Window =>
   useSelector(
     useCallback(
-      memoize(
-        (state: StoreState) => state.drift.windows[key || state.drift.key]
-      ),
+      memoize((state: StoreState) => state.drift.windows[key ?? state.drift.key]),
       [key]
     )
   );
