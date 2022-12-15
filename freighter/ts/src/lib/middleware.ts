@@ -6,11 +6,11 @@
  * @property params - Arbitrary string parameters that can be set by client side
  *   middleware and read by server side middleware.
  */
-export type MetaData = {
+export interface MetaData {
   target: string;
   protocol: string;
   params: Record<string, string>;
-};
+}
 
 /** Next executes the next middleware in the chain. */
 export type Next = (md: MetaData) => Promise<[MetaData, Error | undefined]>;
@@ -51,17 +51,17 @@ export class MiddlewareCollector {
    * @param finalizer - The finalizer to call with the metadata.
    * @returns An error if one was encountered, otherwise undefined.
    */
-  executeMiddleware(
+  async executeMiddleware(
     md: MetaData,
     finalizer: Finalizer
   ): Promise<[MetaData, Error | undefined]> {
     let i = 0;
-    const next = (md: MetaData): Promise<[MetaData, Error | undefined]> => {
-      if (i == this.middleware.length) return finalizer(md);
+    const next = async (md: MetaData): Promise<[MetaData, Error | undefined]> => {
+      if (i === this.middleware.length) return await finalizer(md);
       const _mw = this.middleware[i];
       i++;
-      return _mw(md, next);
+      return await _mw(md, next);
     };
-    return next(md);
+    return await next(md);
   }
 }

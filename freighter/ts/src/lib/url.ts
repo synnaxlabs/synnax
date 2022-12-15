@@ -1,10 +1,10 @@
-type URLProps = {
+interface URLProps {
   host: string;
   port: number;
   protocol?: string;
   pathPrefix?: string;
   params?: string;
-};
+}
 
 /**
  * URL is a simple class for building and extending URLs.
@@ -35,10 +35,10 @@ export default class URL {
    */
   replace(props: Partial<URLProps>): URL {
     return new URL({
-      host: props.host || this.host,
-      port: props.port || this.port,
-      protocol: props.protocol || this.protocol,
-      pathPrefix: props.pathPrefix || this.path,
+      host: props.host ?? this.host,
+      port: props.port ?? this.port,
+      protocol: props.protocol ?? this.protocol,
+      pathPrefix: props.pathPrefix ?? this.path,
     });
   }
 

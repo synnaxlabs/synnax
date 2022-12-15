@@ -73,7 +73,7 @@ describe("http", () => {
   test("middleware", async () => {
     const client = factory.getClient();
     client.use(async (md, next) => {
-      md.params["Test"] = "test";
+      md.params.Test = "test";
       return await next(md);
     });
     const [response, error] = await client.send<Message, Message>(

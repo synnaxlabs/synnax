@@ -23,7 +23,7 @@ type ErrorDecoder = (encoded: string) => Error | undefined;
 type ErrorEncoder = (error: TypedError) => string;
 
 export const isTypedError = (error: unknown): error is TypedError => {
-  if (!error || typeof error !== "object") {
+  if (error == null || typeof error !== "object") {
     return false;
   }
   const typedError = error as TypedError;
@@ -31,20 +31,24 @@ export const isTypedError = (error: unknown): error is TypedError => {
     return false;
   }
   if (!("type" in typedError)) {
-    throw new Error(`Freighter error is missing its type property: ${typedError}`);
+    throw new Error(
+      `Freighter error is missing its type property: ${JSON.stringify(typedError)}`
+    );
   }
   return true;
 };
 
 export const assertErrorType = <T>(type: string, error?: Error): T => {
-  if (!error) {
+  if (error == null) {
     throw new Error(`Expected error of type ${type} but got nothing instead`);
   }
   if (!isTypedError(error)) {
-    throw new Error(`Expected a typed error, got: ${error}`);
+    throw new Error(`Expected a typed error, got: ${error.message}`);
   }
   if (error.type !== type) {
-    throw new Error(`Expected error of type ${type}, got ${error.type}: ${error}`);
+    throw new Error(
+      `Expected error of type ${type}, got ${error.type}: ${error.message}`
+    );
   }
   return error as unknown as T;
 };
@@ -60,32 +64,29 @@ export const ErrorPayloadSchema = z.object({
 
 export type ErrorPayload = z.infer<typeof ErrorPayloadSchema>;
 
-type errorProvider = {
+interface errorProvider {
   encode: ErrorEncoder;
   decode: ErrorDecoder;
-};
+}
 
 class Registry {
-  private readonly entries: { [type: string]: errorProvider };
+  private readonly entries: Record<string, errorProvider>;
 
   constructor() {
     this.entries = {};
   }
 
-  register(_type: string, provider: errorProvider) {
-    if (this.entries[_type]) {
+  register(_type: string, provider: errorProvider): void {
+    if (_type in this.entries) {
       throw new Error(`Error type ${_type} is already registered`);
     }
     this.entries[_type] = provider;
   }
 
   encode(error: unknown): ErrorPayload {
-    if (!error) {
-      return { type: NONE, data: "" };
-    }
-    if (isTypedError(error) && this.entries[error.type]) {
+    if (error == null) return { type: NONE, data: "" };
+    if (isTypedError(error) && this.entries[error.type] !== null)
       return { type: error.type, data: this.entries[error.type].encode(error) };
-    }
     return { type: UNKNOWN, data: JSON.stringify(error) };
   }
 
@@ -99,10 +100,9 @@ class Registry {
     }
 
     const provider = this.entries[payload.type];
-    if (!provider) {
-      return new UnknownError(payload.data);
-    }
-    return provider.decode(payload.data);
+    return provider == null
+      ? new UnknownError(payload.data)
+      : provider.decode(payload.data);
   }
 }
 
@@ -187,7 +187,7 @@ const freighterErrorEncoder: ErrorEncoder = (error: TypedError) => {
   if (error instanceof Unreachable) {
     return "Unreachable";
   }
-  throw new Error(`Unknown error type: ${error}`);
+  throw new Error(`Unknown error type: ${error.type}: ${error.message}`);
 };
 
 const freighterErrorDecoder: ErrorDecoder = (encoded: string) => {
