@@ -27,13 +27,13 @@ export class HTTPClientFactory extends MiddlewareCollector {
     this.secure = secure;
   }
 
-  getClient(): GETClient {
+  newGET(): GETClient {
     const gc = new GETClient(this.endpoint, this.encoder, this.secure);
     gc.use(...this.middleware);
     return gc;
   }
 
-  postClient(): POSTClient {
+  newPOST(): POSTClient {
     const pc = new POSTClient(this.endpoint, this.encoder, this.secure);
     pc.use(...this.middleware);
     return pc;
@@ -139,11 +139,7 @@ export class POSTClient extends Core implements UnaryClient {
     const request = this.requestConfig();
     request.method = "POST";
     request.url = url;
-    if (req != null) {
-      request.data = this.encoder.encode(req);
-    } else {
-      request.data = null;
-    }
+    if (req != null) request.data = this.encoder.encode(req);
     return await this.execute(request, resSchema);
   }
 }

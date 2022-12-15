@@ -23,33 +23,25 @@ type ErrorDecoder = (encoded: string) => Error | undefined;
 type ErrorEncoder = (error: TypedError) => string;
 
 export const isTypedError = (error: unknown): error is TypedError => {
-  if (error == null || typeof error !== "object") {
-    return false;
-  }
+  if (error == null || typeof error !== "object") return false;
   const typedError = error as TypedError;
-  if (typedError.discriminator !== "FreighterError") {
-    return false;
-  }
-  if (!("type" in typedError)) {
+  if (typedError.discriminator !== "FreighterError") return false;
+  if (!("type" in typedError))
     throw new Error(
       `Freighter error is missing its type property: ${JSON.stringify(typedError)}`
     );
-  }
   return true;
 };
 
 export const assertErrorType = <T>(type: string, error?: Error): T => {
-  if (error == null) {
+  if (error == null)
     throw new Error(`Expected error of type ${type} but got nothing instead`);
-  }
-  if (!isTypedError(error)) {
+  if (!isTypedError(error))
     throw new Error(`Expected a typed error, got: ${error.message}`);
-  }
-  if (error.type !== type) {
+  if (error.type !== type)
     throw new Error(
       `Expected error of type ${type}, got ${error.type}: ${error.message}`
     );
-  }
   return error as unknown as T;
 };
 
@@ -91,14 +83,8 @@ class Registry {
   }
 
   decode(payload: ErrorPayload): Error | undefined {
-    if (payload.type === NONE) {
-      return undefined;
-    }
-
-    if (payload.type === UNKNOWN) {
-      return new UnknownError(payload.data);
-    }
-
+    if (payload.type === NONE) return undefined;
+    if (payload.type === UNKNOWN) return new UnknownError(payload.data);
     const provider = this.entries[payload.type];
     return provider == null
       ? new UnknownError(payload.data)
@@ -178,15 +164,9 @@ export class Unreachable extends BaseTypedError implements TypedError {
 }
 
 const freighterErrorEncoder: ErrorEncoder = (error: TypedError) => {
-  if (error instanceof EOF) {
-    return "EOF";
-  }
-  if (error instanceof StreamClosed) {
-    return "StreamClosed";
-  }
-  if (error instanceof Unreachable) {
-    return "Unreachable";
-  }
+  if (error instanceof EOF) return "EOF";
+  if (error instanceof StreamClosed) return "StreamClosed";
+  if (error instanceof Unreachable) return "Unreachable";
   throw new Error(`Unknown error type: ${error.type}: ${error.message}`);
 };
 
