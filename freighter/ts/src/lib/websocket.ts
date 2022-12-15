@@ -1,22 +1,21 @@
-import { ZodSchema, z } from 'zod';
+import { ZodSchema, z } from "zod";
 
-import { EncoderDecoder } from './encoder';
-import { EOF, ErrorPayloadSchema, StreamClosed, decodeError } from './errors';
-import { buildQueryString } from './http';
-import { CONTENT_TYPE_HEADER_KEY } from './http';
-import { MetaData, MiddlewareCollector } from './middleware';
-import { RUNTIME, Runtime } from './runtime';
-import { Stream, StreamClient } from './stream';
-import URL from './url';
+import { EncoderDecoder } from "./encoder";
+import { EOF, ErrorPayloadSchema, StreamClosed, decodeError } from "./errors";
+import { buildQueryString, CONTENT_TYPE_HEADER_KEY } from "./http";
+import { MetaData, MiddlewareCollector } from "./middleware";
+import { RUNTIME, Runtime } from "./runtime";
+import { Stream, StreamClient } from "./stream";
+import URL from "./url";
 
 const resolveWebSocketConstructor = (): typeof WebSocket => {
-  if (RUNTIME == Runtime.Node) return require('ws');
+  if (RUNTIME == Runtime.Node) return require("ws");
   return WebSocket;
 };
 
 enum MessageType {
-  Data = 'data',
-  Close = 'close',
+  Data = "data",
+  Close = "close",
 }
 
 const MessageSchema = z.object({
@@ -88,7 +87,7 @@ class WebSocketStream<RQ, RS> implements Stream<RQ, RS> {
     const msg = await this.receiveMsg();
 
     if (msg.type == MessageType.Close) {
-      if (!msg.error) throw new Error('Message error must be defined');
+      if (!msg.error) throw new Error("Message error must be defined");
       this.server_closed = decodeError(msg.error);
       return [undefined, this.server_closed];
     }
@@ -119,7 +118,7 @@ class WebSocketStream<RQ, RS> implements Stream<RQ, RS> {
     if (this.receiveDataQueue.length !== 0) {
       const msg = this.receiveDataQueue.shift();
       if (msg) return msg;
-      throw new Error('unexpected undefined message');
+      throw new Error("unexpected undefined message");
     }
 
     return new Promise((resolve, reject) => {
@@ -134,7 +133,7 @@ class WebSocketStream<RQ, RS> implements Stream<RQ, RS> {
       if (this.receiveCallbacksQueue.length > 0) {
         const callback = this.receiveCallbacksQueue.shift();
         if (callback) callback.resolve(msg);
-        else throw new Error('Unexpected empty callback queue');
+        else throw new Error("Unexpected empty callback queue");
       } else {
         this.receiveDataQueue.push(msg);
       }
@@ -150,7 +149,7 @@ class WebSocketStream<RQ, RS> implements Stream<RQ, RS> {
   }
 }
 
-export const FREIGHTER_METADATA_PREFIX = 'freightermd';
+export const FREIGHTER_METADATA_PREFIX = "freightermd";
 
 /**
  * WebSocketClient is an implementation of StreamClient that is backed by
@@ -160,16 +159,16 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
   baseUrl: URL;
   encoder: EncoderDecoder;
 
-  static readonly MESSAGE_TYPE = 'arraybuffer';
+  static readonly MESSAGE_TYPE = "arraybuffer";
 
   /**
    * @param encoder - The encoder to use for encoding messages and decoding
    *   responses.
    * @param baseEndpoint - A base url to use as a prefix for all requests.
    */
-  constructor(baseEndpoint: URL, encoder: EncoderDecoder, secure: boolean = false) {
+  constructor(baseEndpoint: URL, encoder: EncoderDecoder, secure = false) {
     super();
-    this.baseUrl = baseEndpoint.replace({ protocol: secure ? 'wss' : 'ws' });
+    this.baseUrl = baseEndpoint.replace({ protocol: secure ? "wss" : "ws" });
     this.encoder = encoder;
   }
 
@@ -182,7 +181,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
     const socketConstructor = resolveWebSocketConstructor();
     let stream: Stream<RQ, RS> | undefined;
     const [, error] = await this.executeMiddleware(
-      { target, protocol: 'websocket', params: {} },
+      { target, protocol: "websocket", params: {} },
       async (md: MetaData): Promise<[MetaData, Error | undefined]> => {
         const ws = new socketConstructor(this.buildURL(target, md));
         const out_md: MetaData = { ...md, params: {} };

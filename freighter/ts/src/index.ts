@@ -1,25 +1,24 @@
-export { WebSocketClient } from './lib/websocket';
+export { WebSocketClient } from "./lib/websocket";
 export {
   MsgpackEncoderDecoder,
   JSONEncoderDecoder,
   registerCustomTypeEncoder,
   ENCODERS,
-} from './lib/encoder';
-export { StreamClient, Stream } from './lib/stream';
-export { UnaryClient } from './lib/unary';
-export { HTTPClientFactory } from './lib/http';
-export { default as URL } from './lib/url';
+} from "./lib/encoder";
+export type { StreamClient, Stream } from "./lib/stream";
+export type { UnaryClient } from "./lib/unary";
+export { HTTPClientFactory } from "./lib/http";
+export { default as URL } from "./lib/url";
+export type { TypedError, ErrorPayload } from "./lib/errors";
 export {
   encodeError,
   decodeError,
   registerError,
   BaseTypedError,
-  TypedError,
-  ErrorPayload,
   ErrorPayloadSchema,
   EOF,
   StreamClosed,
   Unreachable,
-} from './lib/errors';
-export { Middleware, Next, MetaData } from './lib/middleware';
-export { logMiddleware } from './lib/util/log';
+} from "./lib/errors";
+export type { Middleware, Next, MetaData } from "./lib/middleware";
+export { logMiddleware } from "./lib/util/log";

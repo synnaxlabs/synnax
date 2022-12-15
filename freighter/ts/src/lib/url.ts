@@ -21,7 +21,7 @@ export default class URL {
    * @param protocol - The protocol to use for all requests. Defaults to "".
    * @param pathPrefix - A path prefix to use for all requests. Defaults to "".
    */
-  constructor({ host, port, protocol = '', pathPrefix = '' }: URLProps) {
+  constructor({ host, port, protocol = "", pathPrefix = "" }: URLProps) {
     this.protocol = protocol;
     this.host = host;
     this.port = port;
@@ -63,15 +63,15 @@ export default class URL {
 }
 
 /** @returns the paths joined with a single slash */
-const joinPaths = (...paths: string[]): string => paths.map(formatPath).join('');
+const joinPaths = (...paths: string[]): string => paths.map(formatPath).join("");
 
 /** ensures that a path is correctly formatted for joining */
 const formatPath = (path: string): string => {
-  if (!path.endsWith('/')) path += '/';
-  if (path.startsWith('/')) path = path.slice(1);
+  if (!path.endsWith("/")) path += "/";
+  if (path.startsWith("/")) path = path.slice(1);
   return path;
 };
 
 /** removes the trailing slash from a path */
 const removeTrailingSlash = (path: string): string =>
-  path.endsWith('/') ? path.slice(0, -1) : path;
+  path.endsWith("/") ? path.slice(0, -1) : path;

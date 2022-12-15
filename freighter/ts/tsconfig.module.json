@@ -1,9 +1,7 @@
 {
-  "extends": "./tsconfig",
+  "extends": "@synnaxlabs/tsconfig/lib.json",
   "compilerOptions": {
-    "target": "esnext",
-    "outDir": "dist/module",
-    "module": "esnext"
+    "target": "esnext"
   },
   "exclude": ["node_modules/**"]
 }

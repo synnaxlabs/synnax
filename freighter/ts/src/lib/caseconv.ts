@@ -1,7 +1,4 @@
-import {
-  camelKeys as _camelKeys,
-  snakeKeys as _snakeKeys,
-} from 'js-convert-case';
+import { camelKeys as _camelKeys, snakeKeys as _snakeKeys } from "js-convert-case";
 
 const options = {
   recursive: true,
@@ -9,7 +6,5 @@ const options = {
   keepTypesOnRecursion: [Number, String, Uint8Array],
 };
 
-export const snakeKeys = (entity: unknown): unknown =>
-  _snakeKeys(entity, options);
-export const camelKeys = (entity: unknown): unknown =>
-  _camelKeys(entity, options);
+export const snakeKeys = (entity: unknown): unknown => _snakeKeys(entity, options);
+export const camelKeys = (entity: unknown): unknown => _camelKeys(entity, options);

@@ -1,4 +1,4 @@
-import { Middleware } from '../middleware';
+import { Middleware } from "../middleware";
 
 export const logMiddleware = (): Middleware => {
   return async (md, next) => {
