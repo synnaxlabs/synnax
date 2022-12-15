@@ -1,7 +1,7 @@
-import { z } from 'zod';
-import { ChannelPayload } from '../channel/payload';
+import { z } from "zod";
 
-import { DataType, TimeRange, TimeStamp, TypedArray } from '../telem';
+import { ChannelPayload } from "../channel/payload";
+import { DataType, TimeRange, TimeStamp, TypedArray } from "../telem";
 
 export const arrayPayloadSchema = z.object({
   timeRange: z
@@ -19,7 +19,7 @@ export const arrayPayloadSchema = z.object({
     (s) =>
       new Uint8Array(
         atob(s)
-          .split('')
+          .split("")
           .map((c) => c.charCodeAt(0))
       )
   ),
@@ -41,7 +41,7 @@ export const frameFromRecord = (
   return {
     keys: Object.keys(record),
     arrays: channels.map((ch) => {
-      const typedArr = record[ch?.key || ''];
+      const typedArr = record[ch?.key ?? ""];
       return {
         dataType: ch.dataType,
         data: new Uint8Array(typedArr?.buffer),

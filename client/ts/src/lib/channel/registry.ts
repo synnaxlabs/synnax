@@ -2,8 +2,8 @@ import { ChannelPayload } from './payload';
 import Retriever from './retriever';
 
 export default class Registry {
-	private retriever: Retriever;
-	private channels: Map<string, ChannelPayload>;
+	private readonly retriever: Retriever;
+	private readonly channels: Map<string, ChannelPayload>;
 
 	constructor(retriever: Retriever) {
 		this.retriever = retriever;

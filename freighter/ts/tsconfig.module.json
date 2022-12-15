@@ -1,7 +1,0 @@
-{
-  "extends": "@synnaxlabs/tsconfig/lib.json",
-  "compilerOptions": {
-    "target": "esnext"
-  },
-  "exclude": ["node_modules/**"]
-}

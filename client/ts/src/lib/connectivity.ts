@@ -1,13 +1,14 @@
-import { UnaryClient } from '@synnaxlabs/freighter';
-import { z } from 'zod';
-import { TimeSpan } from './telem';
+import type { UnaryClient } from "@synnaxlabs/freighter";
+import { z } from "zod";
+
+import { TimeSpan } from "./telem";
 
 /** Represents the connection state of a client to a synnax cluster. */
 export enum Connectivity {
-  Disconnected = 'Disconnected',
-  Connecting = 'Connecting',
-  Connected = 'Connected',
-  Failed = 'Failed',
+  Disconnected = "Disconnected",
+  Connecting = "Connecting",
+  Connected = "Connected",
+  Failed = "Failed",
 }
 
 const connectivityResponseSchema = z.object({
@@ -16,18 +17,17 @@ const connectivityResponseSchema = z.object({
 
 /** Polls a synnax cluster for connectivity information. */
 export default class ConnectivityClient {
-  private static ENDPOINT = '/connectivity/check';
+  private static readonly ENDPOINT = "/connectivity/check";
   private _status = Connectivity.Disconnected;
   private _error?: Error;
   private _statusMessage?: string;
-  private pollFrequency = TimeSpan.Seconds(30);
-  private client: UnaryClient;
+  private readonly pollFrequency = TimeSpan.Seconds(30);
+  private readonly client: UnaryClient;
   private interval?: NodeJS.Timeout;
-  private onChangeHandlers: ((
-    status: Connectivity,
-    error?: Error,
-    message?: string
-  ) => void)[];
+  private readonly onChangeHandlers: Array<
+    (status: Connectivity, error?: Error, message?: string) => void
+  >;
+
   clusterKey: string | undefined;
 
   /**
@@ -40,20 +40,20 @@ export default class ConnectivityClient {
     this.client = client;
     this.pollFrequency = pollFreq;
     this.onChangeHandlers = [];
-    this.check();
+    void this.check();
     this.startChecking();
   }
 
   /** Stops the connectivity client from polling the cluster for connectivity */
-  stopChecking() {
-    if (this.interval) clearInterval(this.interval);
+  stopChecking(): void {
+    if (this.interval != null) clearInterval(this.interval);
   }
 
   /**
    * Executes a connectivity check and updates the client status and error, as
    * well as calling any registered change handlers.
    */
-  async check() {
+  async check(): Promise<void> {
     const prev = this._status;
     try {
       const [res, err] = await this.client.send(
@@ -61,10 +61,10 @@ export default class ConnectivityClient {
         null,
         connectivityResponseSchema
       );
-      if (!err) {
+      if (err == null) {
         this._status = Connectivity.Connected;
-        this._statusMessage = 'Connected';
-        if (res) this.clusterKey = res.clusterKey;
+        this._statusMessage = "Connected";
+        if (res != null) this.clusterKey = res.clusterKey;
       } else {
         this._status = Connectivity.Failed;
         this._error = err;
@@ -86,30 +86,30 @@ export default class ConnectivityClient {
    * @returns The error that caused the last connectivity check to fail.
    *   Undefined if the last check was successful.
    */
-  error() {
+  error(): Error | undefined {
     return this._error;
   }
 
   /** @returns The current status of the client. */
-  status() {
+  status(): Connectivity {
     return this._status;
   }
 
   /** @returns A status message describing the current connection state */
-  statusMessage() {
+  statusMessage(): string | undefined {
     return this._statusMessage;
   }
 
   /** @param callback - The function to call when the client status changes. */
   onChange(
     callback: (status: Connectivity, error?: Error, message?: string) => void
-  ) {
+  ): void {
     this.onChangeHandlers.push(callback);
   }
 
-  private startChecking() {
+  private startChecking(): void {
     this.interval = setInterval(() => {
-      this.check();
+      void this.check();
     }, this.pollFrequency.milliseconds());
   }
 }

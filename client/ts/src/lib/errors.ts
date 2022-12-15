@@ -21,10 +21,10 @@ enum APIErrorType {
   Route = 'route',
 }
 
-export type Field = {
+export interface Field {
   field: string;
   message: string;
-};
+}
 
 class BaseError extends BaseTypedError {
   constructor(message: string) {

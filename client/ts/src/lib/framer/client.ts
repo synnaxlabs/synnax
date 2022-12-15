@@ -1,14 +1,14 @@
-import Registry from '../channel/registry';
-import { TimeRange, TypedArray, UnparsedTimeStamp } from '../telem';
-import Transport from '../transport';
+import Registry from "../channel/registry";
+import { TimeRange, TypedArray, UnparsedTimeStamp } from "../telem";
+import Transport from "../transport";
 
-import { AUTO_SPAN, TypedIterator } from './iterator';
-import { ArrayPayload } from './payload';
-import { RecordWriter } from './writer';
+import { AUTO_SPAN, TypedIterator } from "./iterator";
+import { ArrayPayload } from "./payload";
+import { RecordWriter } from "./writer";
 
 export default class FrameClient {
-  private transport: Transport;
-  private channels: Registry;
+  private readonly transport: Transport;
+  private readonly channels: Registry;
 
   constructor(transport: Transport, channels: Registry) {
     this.transport = transport;
@@ -61,10 +61,10 @@ export default class FrameClient {
    * data type as the channel.
    * @throws if the channel does not exist.
    */
-  async write(to: string, start: UnparsedTimeStamp, data: TypedArray) {
+  async write(to: string, start: UnparsedTimeStamp, data: TypedArray): Promise<void> {
     const writer = await this.newWriter(start, [to]);
     await writer.write({ [to]: data });
-    if (!(await writer.commit())) throw new Error('Failed to commit.');
+    if (!(await writer.commit())) throw new Error("Failed to commit.");
     await writer.close();
   }
 
@@ -84,8 +84,9 @@ export default class FrameClient {
     end: UnparsedTimeStamp
   ): Promise<TypedArray | undefined> {
     const arr = await this.readArray(from, start, end);
-    if (!arr || !arr.dataType) throw new Error(`Channel ${from} does not exist.`);
-    return new arr.dataType.arrayConstructor(arr.data.buffer);
+    if (arr == null || arr.dataType == null)
+      throw new Error(`Channel ${from} does not exist.`);
+    return new arr.dataType.Array(arr.data.buffer);
   }
 
   /**

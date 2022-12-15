@@ -1,4 +1,4 @@
-import FrameClient from '../framer/client';
+import FrameClient from "../framer/client";
 import {
   DataType,
   Density,
@@ -6,12 +6,11 @@ import {
   TypedArray,
   UnparsedDensity,
   UnparsedTimeStamp,
-} from '../telem';
+} from "../telem";
 
-import ChannelCreator from './creator';
-import { CreateChannelProps } from './creator';
-import { ChannelPayload, channelPayloadSchema } from './payload';
-import ChannelRetriever from './retriever';
+import ChannelCreator, { CreateChannelProps } from "./creator";
+import { ChannelPayload, channelPayloadSchema } from "./payload";
+import ChannelRetriever from "./retriever";
 
 /**
  * Represents a Channel in a Synnax database. It should not be instantiated
@@ -24,12 +23,12 @@ export class Channel {
   constructor({
     dataType,
     rate,
-    name = '',
+    name = "",
     nodeId = 0,
-    key = '',
+    key = "",
     density = 0,
     isIndex = false,
-    index = '',
+    index = "",
     segmentClient,
   }: CreateChannelProps & {
     segmentClient?: FrameClient;
@@ -50,29 +49,29 @@ export class Channel {
   }
 
   private get segmentClient(): FrameClient {
-    if (!this._frameClient) {
-      throw new Error('Cannot read from a channel that has not been created');
+    if (this._frameClient == null) {
+      throw new Error("Cannot read from a channel that has not been created");
     }
     return this._frameClient;
   }
 
   get key(): string {
-    if (!this.payload.key) {
-      throw new Error('Channel key is not set');
+    if (this.payload.key == null) {
+      throw new Error("Channel key is not set");
     }
     return this.payload.key;
   }
 
   get name(): string {
-    if (!this.payload.name) {
-      throw new Error('Channel name is not set');
+    if (this.payload.name == null) {
+      throw new Error("Channel name is not set");
     }
     return this.payload.name;
   }
 
   get nodeId(): number {
     if (this.payload.nodeId === undefined) {
-      throw new Error('Channel nodeId is not set');
+      throw new Error("Channel nodeId is not set");
     }
     return this.payload.nodeId;
   }
@@ -86,8 +85,8 @@ export class Channel {
   }
 
   get density(): Density {
-    if (!this.payload.density) {
-      throw new Error('Channel density is not set');
+    if (this.payload.density == null) {
+      throw new Error("Channel density is not set");
     }
     return this.payload.density;
   }
@@ -112,7 +111,7 @@ export class Channel {
    * @param start - The starting timestamp of the first sample in data.
    * @param data - THe telemetry to write to the channel.
    */
-  async write(start: UnparsedTimeStamp, data: TypedArray) {
+  async write(start: UnparsedTimeStamp, data: TypedArray): Promise<void> {
     return await this.segmentClient.write(this.key, start, data);
   }
 }

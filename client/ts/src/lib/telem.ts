@@ -1,4 +1,4 @@
-import { registerCustomTypeEncoder } from '@synnaxlabs/freighter';
+import { registerCustomTypeEncoder } from "@synnaxlabs/freighter";
 
 const valueOfEncoder = (value: unknown): unknown => value?.valueOf();
 
@@ -310,10 +310,10 @@ export class TimeSpan extends Number {
   static readonly Hour = TimeSpan.Hours(1);
 
   /** The maximum possible value for a TimeSpan. */
-  static readonly Max = new TimeSpan(9223372036854775807);
+  static readonly Max = new TimeSpan(this.MAX_SAFE_INTEGER);
 
   /** The minimum possible value for a TimeSpan. */
-  static readonly Min = new TimeSpan(-922337203685477580);
+  static readonly Min = new TimeSpan(-this.MAX_SAFE_INTEGER);
 
   /** The zero value for a TimeSpan. */
   static readonly Zero = new TimeSpan(0);
@@ -509,14 +509,14 @@ export class TimeRange {
 /** DataType is a string that represents a data type. */
 export class DataType extends String {
   constructor(value: UnparsedDataType) {
-    if (typeof value === 'string') {
+    if (typeof value === "string") {
       super(value);
     } else {
       super(value.valueOf());
     }
   }
 
-  get arrayConstructor(): TypedArrayConstructor {
+  get Array(): TypedArrayConstructor {
     const v = ARRAY_CONSTRUCTORS.get(this.string);
     if (v === undefined) {
       throw new Error(`Unknown data type: ${this.string}`);
@@ -537,7 +537,7 @@ export class DataType extends String {
   }
 
   checkArray(array: TypedArray): boolean {
-    return array.constructor === this.arrayConstructor;
+    return array.constructor === this.Array;
   }
 
   toJSON(): string {
@@ -545,29 +545,29 @@ export class DataType extends String {
   }
 
   /** Represents an Unknown/Invalid DataType. */
-  static readonly Unknown = new DataType('unknown');
+  static readonly Unknown = new DataType("unknown");
   /** Represents a 64-bit floating point value. */
-  static readonly Float64 = new DataType('float64');
+  static readonly Float64 = new DataType("float64");
   /** Represents a 32-bit floating point value. */
-  static readonly Float32 = new DataType('float32');
+  static readonly Float32 = new DataType("float32");
   /** Represents a 64-bit signed integer value. */
-  static readonly Int64 = new DataType('int64');
+  static readonly Int64 = new DataType("int64");
   /** Represents a 32-bit signed integer value. */
-  static readonly Int32 = new DataType('int32');
+  static readonly Int32 = new DataType("int32");
   /** Represents a 16-bit signed integer value. */
-  static readonly Int16 = new DataType('int16');
+  static readonly Int16 = new DataType("int16");
   /** Represents a 8-bit signed integer value. */
-  static readonly Int8 = new DataType('int8');
+  static readonly Int8 = new DataType("int8");
   /** Represents a 64-bit unsigned integer value. */
-  static readonly Uint64 = new DataType('uint64');
+  static readonly Uint64 = new DataType("uint64");
   /** Represents a 32-bit unsigned integer value. */
-  static readonly Uint32 = new DataType('uint32');
+  static readonly Uint32 = new DataType("uint32");
   /** Represents a 16-bit unsigned integer value. */
-  static readonly Uint16 = new DataType('uint16');
+  static readonly Uint16 = new DataType("uint16");
   /** Represents a 8-bit unsigned integer value. */
-  static readonly Uint8 = new DataType('uint8');
+  static readonly Uint8 = new DataType("uint8");
   /** Represents a 64-bit unix epoch. */
-  static readonly TimeStamp = new DataType('timestamp');
+  static readonly TimeStamp = new DataType("timestamp");
 }
 
 export class Size extends Number {

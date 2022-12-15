@@ -16,12 +16,11 @@
     "control systems"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json && tsc -p tsconfig.module.json",
-    "watch": "tsc -p tsconfig.json -w",
+    "build": "vite build",
+    "test": "vitest",
+    "cov": "vitest --coverage",
     "lint": "eslint \"src/**/*.ts*\"",
-    "fix": "eslint \"src/**/*.ts*\" --fix",
-    "test": "nyc --silent ava",
-    "cov": "nyc --silent ava -s && nyc report --reporter=lcov && nyc report --reporter-html"
+    "fix": "eslint \"src/**/*.ts*\" --fix"
   },
   "engines": {
     "node": ">=12.0.0"
@@ -31,22 +30,12 @@
     "zod": "^3.19.1"
   },
   "devDependencies": {
-    "@ava/typescript": "^1.1.1",
-    "@istanbuljs/nyc-config-typescript": "^1.0.1",
-    "ava": "^3.12.1",
-    "codecov": "^3.5.0",
-    "cspell": "^4.1.0",
-    "eslint": "^7.8.0",
-    "gh-pages": "^3.1.0",
-    "npm-run-all": "^4.1.5",
-    "nyc": "^15.1.0",
-    "open-cli": "^6.0.1",
-    "prettier": "^2.1.1",
-    "standard-version": "^9.0.0",
-    "ts-node": "^9.0.0",
-    "typedoc": "^0.19.0",
-    "typescript": "^4.0.2",
-    "eslint-config-synnaxlabs": "*"
+    "@synnaxlabs/tsconfig": "*",
+    "eslint-config-synnaxlabs": "*",
+    "vite": "^4.0.1",
+    "vite-plugin-dts": "^1.7.1",
+    "vite-tsconfig-paths": "^4.0.3",
+    "vitest": "^0.25.8"
   },
   "files": [
     "dist/main",
@@ -75,7 +64,7 @@
       "**/*.spec.js"
     ]
   },
-  "main": "dist/main/index.js",
-  "typings": "dist/main/index.d.ts",
-  "module": "dist/module/index.js"
+  "main": "dist/client.cjs.js",
+  "typings": "dist/index.d.ts",
+  "module": "dist/client.es.js"
 }
