@@ -12,6 +12,14 @@ node_modules
 dist
 coverage
 yarn-error.log
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+dist-ssr
+*.local
 
 # |||||| RUST ||||||
 
@@ -25,3 +33,11 @@ yarn-error.log
 # |||||| SYNNAX ||||||
 
 synnax-data/
+
+# |||||| LOGS ||||||
+
+logs
+
+# |||||| VS CODE ||||||
+
+.vscode/
