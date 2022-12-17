@@ -41,6 +41,7 @@
     "@vitejs/plugin-react": "^2.1.0",
     "eslint": "^8.0.1",
     "eslint-config-synnaxlabs": "*",
+    "stylelint-config-synnaxlabs": "*",
     "prettier": "2.7.1",
     "typescript": "*",
     "vite": "^3.1.0",
