@@ -23,13 +23,13 @@
         },
         "test": {
             "dependsOn": [
-                "build"
+                "^build"
             ],
             "cache": false
         },
         "cov": {
             "dependsOn": [
-                "build"
+                "^build"
             ],
             "cache": false
         }

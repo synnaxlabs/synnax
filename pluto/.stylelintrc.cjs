@@ -1,3 +1,3 @@
 module.exports = {
-  extends: ["stylelint-config-synnaxlabs"],
+    extends: ["stylelint-config-synnaxlabs"],
 };
