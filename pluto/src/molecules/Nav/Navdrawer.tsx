@@ -5,8 +5,8 @@ import clsx from "clsx";
 import { Button, Resize, Space } from "../../atoms";
 import { swapDirection } from "../../util/spatial";
 
-import { Navbar, NavbarProps, useNavbar } from "./Navbara";
-import "./NavDrawer.css";
+import { Navbar, NavbarProps, useNavbar } from "./Navbar";
+import "./Navdrawer.css";
 
 export interface NavDrawerItem {
   key: string;

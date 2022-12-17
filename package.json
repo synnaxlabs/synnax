@@ -25,7 +25,8 @@
         "pluto",
         "drift",
         "configs/ts",
-        "configs/eslint"
+        "configs/eslint",
+        "configs/stylelint"
     ],
     "devDependencies": {
         "turbo": "^1.6.2"

@@ -1,8 +1,9 @@
 import { fireEvent, render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+
 import { Theming } from ".";
 
-const TestThemeContent = () => {
+const TestThemeContent = (): JSX.Element => {
   const { theme } = Theming.useContext();
   return (
     <div>
@@ -12,7 +13,7 @@ const TestThemeContent = () => {
   );
 };
 
-const TestTheme = () => {
+const TestTheme = (): JSX.Element => {
   const a = Theming.useProvider({
     themes: Theming.themes,
     defaultTheme: "synnaxDark",

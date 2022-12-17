@@ -1,12 +1,14 @@
-import { ComponentMeta, ComponentStory } from "@storybook/react";
+import type { ComponentMeta, ComponentStory } from "@storybook/react";
+
 import { AutoSize } from "../../atoms/AutoSize";
+
 import { LinePlot } from "./LinePlot";
 import { Axis, Series } from "./types";
 
-export default {
+const story: ComponentMeta<typeof LinePlot> = {
   title: "Visualization/Line Plot",
   component: LinePlot,
-} as ComponentMeta<typeof LinePlot>;
+};
 
 const basicAxes: Axis[] = [
   {
@@ -67,3 +69,5 @@ export const Basic: ComponentStory<typeof LinePlot> = () => (
     )}
   </AutoSize>
 );
+
+export default story;

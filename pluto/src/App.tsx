@@ -1,3 +1,1 @@
-export default function App() {
-  return <div className="App"></div>;
-}
+export const App = (): JSX.Element => <div className="App"></div>;
