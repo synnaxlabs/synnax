@@ -11,11 +11,12 @@ export const LayoutWindow = (): JSX.Element => {
   const key = appWindow.label;
   const handleClose = useLayoutRemover(key);
   const layout = useSelectLayout(key);
-  const Renderer = useLayoutRenderer(layout?.type);
+  if(layout == null) throw new Error("layout not found");
+  const Renderer = useLayoutRenderer(layout.type);
 
   const renderedContent = <Renderer layoutKey={key} onClose={handleClose} />;
 
-  if (layout.window?.navTop === true) {
+  if (layout?.window?.navTop === true) {
     return (
       <Space direction="vertical" empty style={{ height: "100vh" }}>
         <NavTop />

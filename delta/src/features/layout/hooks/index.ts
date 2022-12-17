@@ -23,7 +23,7 @@ export type LayoutCreator = (props: LayoutCreatorProps) => Layout;
 
 export type LayoutPlacer = (layout: Layout | LayoutCreator) => void;
 
-export type LayoutRemover = (key: string) => void;
+export type LayoutRemover = () => void;
 
 export const useLayoutPlacer = (): LayoutPlacer => {
   const dispatch = useDispatch();
@@ -49,6 +49,7 @@ export const useLayoutPlacer = (): LayoutPlacer => {
 export const useLayoutRemover = (key: string): LayoutRemover => {
   const dispatch = useDispatch();
   const layout = useSelectLayout(key);
+  if (layout == null) throw new Error(`layout with key ${key} does not exist`);
   return () => {
     dispatch(removeLayout(key));
     if (layout.location === "window") dispatch(closeWindow(key));
