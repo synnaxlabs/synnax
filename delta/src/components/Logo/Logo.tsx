@@ -1,18 +1,19 @@
 import React, { cloneElement, HTMLAttributes } from "react";
-// @ts-ignore
-import { ReactComponent as IconGradient } from "./icon-gradient.svg";
-// @ts-ignore
-import { ReactComponent as IconWhite } from "./icon-white.svg";
-// @ts-ignore
-import { ReactComponent as IconBlack } from "./icon-black.svg";
-// @ts-ignore
-import { ReactComponent as TitleWhite } from "./title-white.svg";
-// @ts-ignore
-import { ReactComponent as TitleBlack } from "./title-black.svg";
-// @ts-ignore
-import { ReactComponent as TitleGradient } from "./title-gradient.svg";
 
 import { Theming } from "@synnaxlabs/pluto";
+
+// @ts-expect-error
+import { ReactComponent as IconBlack } from "./icon-black.svg";
+// @ts-expect-error
+import { ReactComponent as IconGradient } from "./icon-gradient.svg";
+// @ts-expect-error
+import { ReactComponent as IconWhite } from "./icon-white.svg";
+// @ts-expect-error
+import { ReactComponent as TitleBlack } from "./title-black.svg";
+// @ts-expect-error
+import { ReactComponent as TitleGradient } from "./title-gradient.svg";
+// @ts-expect-error
+import { ReactComponent as TitleWhite } from "./title-white.svg";
 
 export interface LogoProps
   extends Omit<HTMLAttributes<SVGElement>, "width" | "height"> {
@@ -29,11 +30,7 @@ const types = {
   "title-gradient": <TitleGradient />,
 };
 
-export const Logo = ({
-  variant = "icon",
-  color = "auto",
-  ...props
-}: LogoProps) => {
+export const Logo = ({ variant = "icon", color = "auto", ...props }: LogoProps) => {
   let autoColor = color;
   const { theme } = Theming.useContext();
   if (color == "auto") {
@@ -45,7 +42,7 @@ export const Logo = ({
   }
 
   const type = `${variant}-${autoColor}`;
-  // @ts-ignore
+  // @ts-expect-error
   const icon = types[type] as React.DetailedReactHTMLElement<any, HTMLElement>;
   return cloneElement(icon, props);
 };

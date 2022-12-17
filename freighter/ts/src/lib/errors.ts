@@ -49,10 +49,7 @@ export const UNKNOWN = "unknown";
 export const NONE = "nil";
 export const FREIGHTER = "freighter";
 
-export const ErrorPayloadSchema = z.object({
-  type: z.string(),
-  data: z.string(),
-});
+export const ErrorPayloadSchema = z.object({ type: z.string(), data: z.string() });
 
 export type ErrorPayload = z.infer<typeof ErrorPayloadSchema>;
 

@@ -1,25 +1,23 @@
-export type Series = {
+export interface Series {
   label: string;
   x: string;
   y: string;
   color?: string;
   axis?: string;
-};
+}
 
 type AxisLocation = "top" | "bottom" | "left" | "right";
 
-export type Axis = {
+export interface Axis {
   key: string;
   location?: AxisLocation;
   range?: [number, number];
   label: string;
-};
+}
 
 export type Array = uPlot.TypedArray | number[];
 
-export interface PlotData {
-  [key: string]: Array;
-}
+export type PlotData = Record<string, any[]>;
 
 export interface LinePlotMetadata {
   width: number;

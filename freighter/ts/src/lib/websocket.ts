@@ -1,11 +1,12 @@
 import { ZodSchema, z } from "zod";
 
-import { EncoderDecoder } from "./encoder";
+import type { EncoderDecoder } from "./encoder";
 import { EOF, ErrorPayloadSchema, StreamClosed, decodeError } from "./errors";
 import { buildQueryString, CONTENT_TYPE_HEADER_KEY } from "./http";
-import { MetaData, MiddlewareCollector } from "./middleware";
+import { MiddlewareCollector } from "./middleware";
+import type { MetaData } from "./middleware";
 import { RUNTIME } from "./runtime";
-import { Stream, StreamClient } from "./stream";
+import type { Stream, StreamClient } from "./stream";
 import URL from "./url";
 
 const resolveWebSocketConstructor = (): typeof WebSocket =>
