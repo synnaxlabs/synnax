@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
     "incremental": true,
-    "target": "es2017",
+    "target": "ESNext",
     "moduleResolution": "node",
     "module": "commonjs",
     "declaration": true,
@@ -18,11 +18,9 @@
     "listEmittedFiles": false,
     "listFiles": false,
     "pretty": true,
-    "lib": ["es2017", "dom"],
+    "lib": ["ESNext", "DOM.Iterable", "DOM"],
     "types": ["node"],
     "typeRoots": ["node_modules/@types", "src/types"]
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["node_modules/**"],
-  "compileOnSave": false
+  "exclude": ["node_modules", "dist"]
 }
