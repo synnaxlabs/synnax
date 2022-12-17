@@ -159,11 +159,15 @@ const columnWidths = <E extends ListEntry>(
 };
 
 const longestEntries = <E extends ListEntry>(data: E[]): Record<keyof E, string> => {
+  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
   const longest = {} as Record<keyof E, string>;
   data.forEach((entry: E) => {
-    Object.entries(entry).map(
+    Object.entries(entry).forEach(
       ([key, value]: [keyof E, string | number | undefined]) => {
-        if (typeof value === "string" && value.length > (longest[key]?.length || 0)) {
+        if (
+          typeof value === "string" &&
+          value.length > (longest[key]?.length !== 0 || 0)
+        ) {
           longest[key] = value;
         }
       }
@@ -177,7 +181,7 @@ const sortTransform = <E extends ListEntry>(
   dir: boolean
 ): TypedListTransform<E> => {
   return (data) => {
-    if (data.length == 0) return data;
+    if (data.length === 0) return data;
     const v = data[0][k];
     let sortF = entrySortFunc(typeof v, k);
     if (!dir) sortF = reverseSort(sortF);

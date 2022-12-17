@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
 import { render } from "@testing-library/react";
-import { Button } from ".";
 import { AiOutlineAim } from "react-icons/ai";
+import { describe, expect, it } from "vitest";
+
+import { Button } from ".";
 
 describe("Button", () => {
   describe("Default", () => {

@@ -4,15 +4,15 @@
   "version": "0.0.2",
   "type": "module",
   "scripts": {
-    "dev": "start-storybook -p 6006",
-    "build-storybook": "tsc && build-storybook",
-    "build": "tsc && vite build",
-		"watch": "tsc && vite build --watch",
-    "preview": "vite preview",
+    "build": "tsc --noEmit && vite build",
+    "watch": "tsc --noEmit && vite build --watch",
     "test": "vitest",
 		"cov": "vitest --coverage",
-    "lint": "TIMING=1 eslint \"src/**/*.ts*\"",
-    "fix": "eslint \"src/**/*.ts*\" --fix"
+    "lint": "eslint \"src/**/*.ts*\"",
+    "fix": "eslint \"src/**/*.ts*\" --fix",
+    "dev": "start-storybook -p 6006",
+    "build-storybook": "tsc && build-storybook",
+    "preview": "vite preview"
   },
   "dependencies": {
     "@juggle/resize-observer": "^3.4.0",

@@ -15,14 +15,15 @@
     "control systems"
   ],
   "scripts": {
-    "build": "vite build",
+    "build": "tsc --noEmit && vite build",
+    "watch": "tsc --noEmit && vite build --watch",
     "test": "vitest",
     "cov": "vitest --coverage",
     "lint": "eslint \"src/**/*.ts*\"",
     "fix": "eslint \"src/**/*.ts*\" --fix"
   },
   "engines": {
-    "node": ">=12.0.0"
+    "node": ">=18"
   },
   "dependencies": {
     "axios": "^1.2.1",

@@ -30,10 +30,14 @@ const types = {
   "title-gradient": <TitleGradient />,
 };
 
-export const Logo = ({ variant = "icon", color = "auto", ...props }: LogoProps) => {
+export const Logo = ({
+  variant = "icon",
+  color = "auto",
+  ...props
+}: LogoProps): JSX.Element => {
   let autoColor = color;
   const { theme } = Theming.useContext();
-  if (color == "auto") {
+  if (color === "auto") {
     if (theme.key === "synnax-dark") {
       autoColor = "white";
     } else {
