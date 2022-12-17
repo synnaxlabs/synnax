@@ -3,13 +3,7 @@ import { z } from "zod";
 
 import { TimeSpan } from "./telem";
 
-/** Represents the connection state of a client to a synnax cluster. */
-export enum Connectivity {
-  Disconnected = "Disconnected",
-  Connecting = "Connecting",
-  Connected = "Connected",
-  Failed = "Failed",
-}
+type Connectivity = "disconnected" | "connecting" | "connected" | "failed";
 
 const connectivityResponseSchema = z.object({
   clusterKey: z.string(),
@@ -18,7 +12,7 @@ const connectivityResponseSchema = z.object({
 /** Polls a synnax cluster for connectivity information. */
 export default class ConnectivityClient {
   private static readonly ENDPOINT = "/connectivity/check";
-  private _status = Connectivity.Disconnected;
+  private _status: Connectivity = "disconnected";
   private _error?: Error;
   private _statusMessage?: string;
   private readonly pollFrequency = TimeSpan.Seconds(30);
@@ -61,17 +55,12 @@ export default class ConnectivityClient {
         null,
         connectivityResponseSchema
       );
-      if (err == null) {
-        this._status = Connectivity.Connected;
-        this._statusMessage = "Connected";
-        if (res != null) this.clusterKey = res.clusterKey;
-      } else {
-        this._status = Connectivity.Failed;
-        this._error = err;
-        this._statusMessage = `Connection Failed: ${this._error?.message}`;
-      }
+      if (err != null) throw err;
+      this._status = "connected";
+      this._statusMessage = "Connected";
+      if (res != null) this.clusterKey = res.clusterKey;
     } catch (err) {
-      this._status = Connectivity.Failed;
+      this._status = "failed";
       this._error = err as Error;
       this._statusMessage = `Connection Failed: ${this._error?.message}`;
     }

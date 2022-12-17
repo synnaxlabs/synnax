@@ -4,9 +4,31 @@ export type { HeaderProps } from "./Header";
 type CoreHeaderType = typeof CoreHeader;
 
 interface HeaderType extends CoreHeaderType {
+  /**
+   * Header.Button is a Header component whose text acts as a whose text field acts as a
+   * text button component.
+   *
+   * @param props - The comonent props. The props of this component are identical to
+   * those of Header, except for:
+   * @param props.onClick - Called with a mouse event when the header button is clicked.
+   */
   Button: typeof HeaderButton;
 }
 
+/**
+ * Header renders header text with a bottom border.
+ *
+ * @param props - The component props. All unused props will be passed down to the
+ * {@link Space} containing the header.
+ * @param props.level - The font level for the header. See the {@link Typography.Text}
+ * component for all possible levels. Default is "h1."
+ * @param props.icon - An optional icon to add add before the start of the header text.
+ * @param props.actions - A list of actions to be rendered on the right side ofthe header.
+ * If the action is a JSX element, it will be rendered directly, and if its of type
+ * ButtonIconOnlyProps, a ButtonIconOnly will be rendered using the given props.
+ * @param props.divided - If true, creates a divider between the start icon, header text,
+ * and each action. Default is false.
+ */
 export const Header = CoreHeader as HeaderType;
 
 Header.Button = HeaderButton;
