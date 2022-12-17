@@ -1,12 +1,7 @@
 import { memo } from "react";
 
-import {
-  Mosaic as PlutoMosaic,
-  debounce,
-  Location,
-  Space,
-  Tab,
-} from "@synnaxlabs/pluto";
+import { Mosaic as PlutoMosaic, debounce, Space } from "@synnaxlabs/pluto";
+import type { Location, Tab } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import {

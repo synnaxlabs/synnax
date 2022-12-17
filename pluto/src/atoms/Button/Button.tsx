@@ -37,7 +37,7 @@ export const Button = ({
       {...props}
     >
       <Text.WithIcon
-        color={variant == "filled" ? "var(--pluto-white)" : "var(--pluto-text-color)"}
+        color={variant === "filled" ? "var(--pluto-white)" : "var(--pluto-text-color)"}
         level={ComponentSizeTypographyLevels[size]}
         startIcon={startIcon}
         endIcon={endIcon}

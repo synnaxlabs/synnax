@@ -8,7 +8,9 @@
     "build": "tauri build",
     "dev-vite": "vite",
     "build-vite": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint": "eslint \"src/**/*.ts*\"",
+    "fix": "eslint \"src/**/*.ts*\" --fix"
   },
   "dependencies": {
     "@fontsource/inter": "^4.5.14",

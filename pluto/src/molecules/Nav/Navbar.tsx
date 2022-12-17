@@ -18,10 +18,12 @@ export interface NavbarProps extends HTMLAttributes<HTMLDivElement> {
   withContext?: boolean;
 }
 
-const NavbarContext = React.createContext<{
+export interface NavbarContextValue {
   location?: Location;
   direction?: Direction;
-}>({});
+}
+
+const NavbarContext = React.createContext<NavbarContextValue>({});
 
 export const useNavbar = ({
   location,
@@ -109,7 +111,7 @@ const contentFactory = (pos: Position | ""): ComponentType<NavbarContentProps> =
 
 type CoreNavbarType = typeof CoreNavbar;
 
-const useNavbarContext = () => useContext(NavbarContext);
+const useNavbarContext = (): NavbarContextValue => useContext(NavbarContext);
 
 const NavbarStart = contentFactory("start");
 const NavbarEnd = contentFactory("end");
