@@ -1,6 +1,6 @@
 import { Button as CoreButton } from "./Button";
-export type { ButtonProps } from "./Button";
 import { ButtonIconOnly } from "./ButtonIconOnly";
+export type { ButtonProps } from "./Button";
 export type { ButtonIconOnlyProps } from "./ButtonIconOnly";
 
 type CoreButtonType = typeof CoreButton;

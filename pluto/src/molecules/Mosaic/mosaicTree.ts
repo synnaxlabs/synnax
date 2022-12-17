@@ -1,6 +1,7 @@
+import { MosaicLeaf } from "./types";
+
 import { Tab, Tabs } from "@/atoms";
 import { Direction, Location, Order } from "@/util";
-import { MosaicLeaf } from "./types";
 
 const TabNotFound = new Error("Tab not found");
 const InvalidMosaic = new Error("Invalid Mosaic");
@@ -35,7 +36,7 @@ export const insertMosaicTab = (
   // and we have no tabs in the current node,
   // we can't split the node (because on side would be empty),
   // so we do nothing.
-  if (!node.tabs || node.tabs.length === 0) return root;
+  if (node.tabs == null || node.tabs.length === 0) return root;
 
   const [insertOrder, siblingOrder, dir] = splitArrangement(loc);
   node.direction = dir;
@@ -43,7 +44,7 @@ export const insertMosaicTab = (
   node[insertOrder] = { key: 0, tabs: [tab], selected: tab.tabKey };
   node[siblingOrder] = { key: 0, tabs: node.tabs, selected: node.selected };
 
-  if (!node.first || !node.last) throw InvalidMosaic;
+  if (node.first == null || node.last == null) throw InvalidMosaic;
 
   // Assigning these keeps the tree sorted so we can do ancestor searches.
   node.first.key = node.key * 2;
@@ -64,8 +65,8 @@ const insertAnywhere = (node: MosaicLeaf, tab: Tab): MosaicLeaf => {
     node.selected = tab.tabKey;
     return node;
   }
-  if (node.first) node.first = insertAnywhere(node.first, tab);
-  else if (node.last) node.last = insertAnywhere(node.last, tab);
+  if (node.first != null) node.first = insertAnywhere(node.first, tab);
+  else if (node.last != null) node.last = insertAnywhere(node.last, tab);
   return node;
 };
 
@@ -73,12 +74,9 @@ const insertAnywhere = (node: MosaicLeaf, tab: Tab): MosaicLeaf => {
  * Removes a tab from the tree and performs any necessary garbage collection.
  * @param tabKey - The key of the tab to remove. This tab must exist in the tree.
  */
-export const removeMosaicTab = (
-  root: MosaicLeaf,
-  tabKey: string
-): MosaicLeaf => {
+export const removeMosaicTab = (root: MosaicLeaf, tabKey: string): MosaicLeaf => {
   const [, node] = findMosaicTab(root, tabKey);
-  if (!node) throw TabNotFound;
+  if (node == null) throw TabNotFound;
   node.tabs = node.tabs?.filter((t) => t.tabKey !== tabKey);
   node.selected = Tabs.resetSelection(node.selected, node.tabs);
   return gc(root);
@@ -87,12 +85,9 @@ export const removeMosaicTab = (
 /**
  * Marks the given tab as selected.
  */
-export const selectMosaicTab = (
-  root: MosaicLeaf,
-  tabKey: string
-): MosaicLeaf => {
+export const selectMosaicTab = (root: MosaicLeaf, tabKey: string): MosaicLeaf => {
   const [tab, entry] = findMosaicTab(root, tabKey);
-  if (!tab || !entry) throw TabNotFound;
+  if (tab == null || entry == null) throw TabNotFound;
   entry.selected = tabKey;
   return root;
 };
@@ -110,7 +105,7 @@ export const moveMosaicTab = (
   to: number
 ): MosaicLeaf => {
   const [tab, entry] = findMosaicTab(root, tabKey);
-  if (!tab || !entry) throw TabNotFound;
+  if (tab == null || entry == null) throw TabNotFound;
   const r2 = removeMosaicTab(root, tabKey);
   const r3 = insertMosaicTab(r2, tab, loc, to);
   return r3;
@@ -120,9 +115,9 @@ export const resizeMosaicLeaf = (
   root: MosaicLeaf,
   key: number,
   size: number
-) => {
+): MosaicLeaf => {
   const node = findMosaicLeaf(root, key);
-  if (!node) throw new Error("Node not found");
+  if (node == null) throw new Error("Node not found");
   else node.size = size;
   return root;
 };
@@ -134,7 +129,7 @@ export const resizeMosaicLeaf = (
  */
 const findOrAncestor = (root: MosaicLeaf, key: number): MosaicLeaf => {
   const node = findMosaicLeaf(root, key);
-  if (node) return node;
+  if (node != null) return node;
   return findOrAncestor(root, Math.floor(key / 2));
 };
 
@@ -147,7 +142,7 @@ const gc = (root: MosaicLeaf): MosaicLeaf => {
 };
 
 const _gc = (node: MosaicLeaf): [MosaicLeaf, boolean] => {
-  if (!node.first || !node.last) return [node, false];
+  if (node.first == null || node.last == null) return [node, false];
   if (shouldGc(node.first)) return [liftUp(node.last, true), true];
   if (shouldGc(node.last)) return [liftUp(node.first, false), true];
   let [sGC, eGC] = [false, false];
@@ -163,38 +158,37 @@ const liftUp = (node: MosaicLeaf, isLast: boolean): MosaicLeaf => {
 };
 
 const shouldGc = (node: MosaicLeaf): boolean => {
-  return !node.first && !node.last && (!node.tabs || node.tabs.length === 0);
+  return (
+    node.first == null &&
+    node.last == null &&
+    (node.tabs == null || node.tabs.length === 0)
+  );
 };
 
 const findMosaicTab = (
   node: MosaicLeaf,
   tabKey: string
 ): [Tab | undefined, MosaicLeaf | undefined] => {
-  if (node.tabs) {
+  if (node.tabs != null) {
     const tab = node.tabs.find((t) => t.tabKey === tabKey);
-    if (tab) return [tab, node];
+    if (tab != null) return [tab, node];
   }
-  if (!node.first || !node.last) return [undefined, undefined];
+  if (node.first == null || node.last == null) return [undefined, undefined];
   const [t1Tab, t2Tree] = findMosaicTab(node.first, tabKey);
-  if (t1Tab && t2Tree) return [t1Tab, t2Tree];
+  if (t1Tab != null && t2Tree != null) return [t1Tab, t2Tree];
   const [t2Tab, t2Tree2] = findMosaicTab(node.last, tabKey);
   return [t2Tab, t2Tree2];
 };
 
-const findMosaicLeaf = (
-  node: MosaicLeaf,
-  key: number
-): MosaicLeaf | undefined => {
+const findMosaicLeaf = (node: MosaicLeaf, key: number): MosaicLeaf | undefined => {
   if (node.key === key) return node;
-  if (!node.first || !node.last) return undefined;
+  if (node.first == null || node.last == null) return undefined;
   const n1 = findMosaicLeaf(node.first, key);
-  if (n1) return n1;
+  if (n1 != null) return n1;
   return findMosaicLeaf(node.last, key);
 };
 
-const splitArrangement = (
-  insertPosition: Location
-): [Order, Order, Direction] => {
+const splitArrangement = (insertPosition: Location): [Order, Order, Direction] => {
   switch (insertPosition) {
     case "top":
       return ["first", "last", "vertical"];

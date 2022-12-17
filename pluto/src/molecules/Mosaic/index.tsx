@@ -1,3 +1,4 @@
+import { Mosaic as CoreMosaic } from "./Mosaic";
 import {
   insertMosaicTab,
   moveMosaicTab,
@@ -5,8 +6,6 @@ import {
   resizeMosaicLeaf,
   selectMosaicTab,
 } from "./mosaicTree";
-
-import { Mosaic as CoreMosaic } from "./Mosaic";
 import { useMosaic } from "./useMosaic";
 export * from "./types";
 

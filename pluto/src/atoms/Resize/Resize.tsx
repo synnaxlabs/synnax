@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
+
 import { Location } from "../../util/spatial";
+
 import "./Resize.css";
 import { ResizeCore, ResizeCoreProps } from "./ResizeCore";
 
-export interface ResizePanelProps
-  extends Omit<ResizeCoreProps, "showHandle" | "size"> {
+export interface ResizePanelProps extends Omit<ResizeCoreProps, "showHandle" | "size"> {
   location: Location;
   initialSize?: number;
   minSize?: number;
@@ -19,19 +20,19 @@ export const Resize = ({
   initialSize = 200,
   onResize,
   ...props
-}: ResizePanelProps) => {
+}: ResizePanelProps): JSX.Element => {
   const [size, setSize] = useState<number>(initialSize);
   const [dragging, setDragging] = useState(false);
 
   useEffect(() => {
     if (!dragging) return;
-    const onMouseMove = (e: MouseEvent) => {
+    const onMouseMove = (e: MouseEvent): void => {
       setSize((prevSize: number) => {
         return calcNextSize(e, location, prevSize, minSize, maxSize);
       });
       onResize?.(size);
     };
-    const onMouseUp = () => setDragging(false);
+    const onMouseUp = (): void => setDragging(false);
     document.addEventListener("mousemove", onMouseMove);
     document.addEventListener("mouseup", onMouseUp);
     return () => {
@@ -56,7 +57,7 @@ export const Resize = ({
   );
 };
 
-export const parseMovement = (location: Location, e: MouseEvent) => {
+export const parseMovement = (location: Location, e: MouseEvent): number => {
   switch (location) {
     case "top":
       return e.movementY;
@@ -77,17 +78,13 @@ export const calcNextSize = (
   prevSize: number,
   minSize: number,
   maxSize: number
-) => {
+): number => {
   const movement = parseMovement(location, e);
   if (prevSize + movement < minSize) return minSize;
   if (prevSize + movement > maxSize) return maxSize;
   return prevSize + movement;
 };
 
-export const anyExceedsBounds = (
-  nums: number[],
-  min: number,
-  max: number
-): boolean => {
+export const anyExceedsBounds = (nums: number[], min: number, max: number): boolean => {
   return nums.some((num) => num < min || num > max);
 };

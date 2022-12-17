@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-export const useKeyHeld = (key: string) => {
+export const useKeyHeld = (key: string): boolean => {
   const [held, setHeld] = useState(false);
   useKeyPress({
     key,
@@ -20,9 +20,12 @@ export const useKeyPress = ({
   onRelease?: () => void;
 }): void => {
   useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => e.key == key && onPress();
-    const onKeyUp = (e: KeyboardEvent) =>
-      e.key == key && onRelease && onRelease();
+    const onKeyDown = (e: KeyboardEvent): void => {
+      if (e.key === key) onPress();
+    };
+    const onKeyUp = (e: KeyboardEvent): void => {
+      if (e.key === key) onRelease?.();
+    };
     document.addEventListener("keydown", onKeyDown);
     document.addEventListener("keyup", onKeyUp);
     return () => {
