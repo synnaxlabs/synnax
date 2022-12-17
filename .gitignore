@@ -21,6 +21,8 @@ lerna-debug.log*
 dist-ssr
 *.local
 nyc_output
+*.tsbuildinfo
+*.ts.timestamp-*
 
 # |||||| RUST ||||||
 
