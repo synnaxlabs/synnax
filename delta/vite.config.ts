@@ -15,5 +15,8 @@ export default defineConfig({
     target: ["es2021", "chrome100", "safari13"],
     minify: !process.env.TAURI_DEBUG ? "esbuild" : false,
     sourcemap: !process.env.TAURI_DEBUG,
+    // We don't really care about maintaining a small bundle size right now, as this file
+    // is loaded directly from disc instead of OTN
+    chunkSizeWarningLimit: 10000 /* kbs */,
   },
 });

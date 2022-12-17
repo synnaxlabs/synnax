@@ -62,7 +62,7 @@ describe("websocket", () => {
     expect(response).toBeUndefined();
   });
 
-  test("receive message after close", async (t) => {
+  test("receive message after close", async () => {
     const stream = await client.stream(
       "stream/sendMessageAfterClientClose",
       MessageSchema,

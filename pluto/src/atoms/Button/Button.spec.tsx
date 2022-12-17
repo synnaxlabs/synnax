@@ -12,7 +12,7 @@ describe("Button", () => {
     });
   });
   describe("IconOnly", () => {
-    it("should render a butto with the provided icon", () => {
+    it("should render a button with the provided icon", () => {
       const c = render(
         <Button.IconOnly size="small">
           <AiOutlineAim aria-label="icon" />

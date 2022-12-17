@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 
 import { Synnax } from "@synnaxlabs/client";
 import type { ChannelPayload } from "@synnaxlabs/client";
-import { Select, Space } from "@synnaxlabs/pluto";
+import { Select, Space} from "@synnaxlabs/pluto";
+import type {ListEntry} from "@synnaxlabs/pluto";
 
 import { LinePlotVisualization, SugaredLinePlotVisualization } from "../../types";
 
@@ -71,7 +72,7 @@ export const LinePlotControls = ({
         selected={visualization.ranges.map((range) => range.key)}
         listPosition="top"
         onSelect={handleRangeSelect}
-        options={ranges}
+        options={ranges as unknown as ListEntry[]}
         columns={[
           {
             key: "name",
