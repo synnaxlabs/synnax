@@ -3,7 +3,7 @@ import { MdGrain } from "react-icons/md";
 
 import { Header } from "../../atoms";
 
-import { NavbarProps } from "./Navbar";
+import { NavbarProps } from "./NavBar";
 
 import { Nav } from ".";
 
