@@ -1,5 +1,7 @@
 import { Theme } from "./theme";
 
+import "@fontsource/inter";
+
 export const applyThemeAsCssVars = (element: HTMLElement, theme: Theme): void => {
   // |||| COLORS ||||
 
