@@ -50,28 +50,28 @@ export class Channel {
 
   private get segmentClient(): FrameClient {
     if (this._frameClient == null) {
-      throw new Error("Cannot read from a channel that has not been created");
+      throw new Error("cannot read from a channel that has not been created");
     }
     return this._frameClient;
   }
 
   get key(): string {
     if (this.payload.key == null) {
-      throw new Error("Channel key is not set");
+      throw new Error("channel key is not set");
     }
     return this.payload.key;
   }
 
   get name(): string {
     if (this.payload.name == null) {
-      throw new Error("Channel name is not set");
+      throw new Error("channel name is not set");
     }
     return this.payload.name;
   }
 
   get nodeId(): number {
     if (this.payload.nodeId === undefined) {
-      throw new Error("Channel nodeId is not set");
+      throw new Error("chanel nodeId is not set");
     }
     return this.payload.nodeId;
   }
@@ -86,7 +86,7 @@ export class Channel {
 
   get density(): Density {
     if (this.payload.density == null) {
-      throw new Error("Channel density is not set");
+      throw new Error("channel density is not set");
     }
     return this.payload.density;
   }
