@@ -1,5 +1,7 @@
-import clsx from "clsx";
 import { forwardRef } from "react";
+
+import clsx from "clsx";
+
 import { Input, InputProps } from "./Input";
 import "./InputSwitch.css";
 
@@ -20,3 +22,4 @@ export const InputSwitch = forwardRef<HTMLInputElement, InputProps>(
     );
   }
 );
+InputSwitch.displayName = "InputSwitch";

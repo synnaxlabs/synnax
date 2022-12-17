@@ -1,8 +1,10 @@
 import { ComponentType, useEffect } from "react";
-import { useSearch } from "@/hooks";
-import { Input as DefaultInput, InputProps } from "@/atoms/Input";
+
 import { useListContext } from "./ListContext";
 import { ListEntry } from "./types";
+
+import { Input as DefaultInput, InputProps } from "@/atoms/Input";
+import { useSearch } from "@/hooks";
 import "./ListSearch.css";
 
 export interface ListSearchProps {
@@ -11,7 +13,7 @@ export interface ListSearchProps {
 
 export const ListSearch = <E extends ListEntry>({
   Input = DefaultInput,
-}: ListSearchProps) => {
+}: ListSearchProps): JSX.Element => {
   const [query, setQuery, search] = useSearch<E>();
   const { setTransform } = useListContext<E>();
   useEffect(() => setTransform("search", search), [search]);
@@ -19,7 +21,7 @@ export const ListSearch = <E extends ListEntry>({
     <Input
       value={query}
       onChange={(e) => setQuery(e.target.value)}
-      className="pluto-list__search__input"
+      className="pluto-list-search__input"
     />
   );
 };

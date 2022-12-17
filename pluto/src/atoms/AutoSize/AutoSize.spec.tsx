@@ -1,5 +1,6 @@
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { render } from "@testing-library/react";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+
 import { AutoSize } from ".";
 
 describe("AutoSize", () => {
@@ -40,7 +41,13 @@ describe("AutoSize", () => {
     expect(c.getByText("Hello").style.width).toBe("100px");
   });
   it("should provide a width and height to a child element", async () => {
-    const El = ({ width, height }: { width?: number; height?: number }) => {
+    const El = ({
+      width,
+      height,
+    }: {
+      width?: number;
+      height?: number;
+    }): JSX.Element => {
       return <div style={{ height, width }}>Hello</div>;
     };
     const c = render(

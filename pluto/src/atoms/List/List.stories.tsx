@@ -1,10 +1,11 @@
-import { ComponentMeta, ComponentStory } from "@storybook/react";
+import type { ComponentMeta, ComponentStory } from "@storybook/react";
+
 import { List } from ".";
 
-export default {
+const story: ComponentMeta<typeof List> = {
   title: "Atoms/List",
   component: List,
-} as ComponentMeta<typeof List>;
+};
 
 const dataTypes = [
   "float64",
@@ -22,12 +23,7 @@ const dataTypes = [
   "null",
 ];
 
-const namePrefixes = [
-  "strainGauge",
-  "accelerometer",
-  "gyroscope",
-  "magnetometer",
-];
+const namePrefixes = ["strainGauge", "accelerometer", "gyroscope", "magnetometer"];
 
 const data = Array.from({ length: 400 }, (_, i) => ({
   key: `key-${i}`,
@@ -69,3 +65,5 @@ export const Search: ComponentStory<typeof List> = () => (
     </List.Core.Virtual>
   </List>
 );
+
+export default story;

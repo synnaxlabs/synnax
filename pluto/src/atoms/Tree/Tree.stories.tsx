@@ -1,11 +1,12 @@
-import { ComponentMeta, ComponentStory } from "@storybook/react";
+import type { ComponentMeta, ComponentStory } from "@storybook/react";
 import { AiFillDatabase, AiFillPhone } from "react-icons/ai";
+
 import { Tree, TreeLeaf } from ".";
 
-export default {
+const story: ComponentMeta<typeof Tree> = {
   title: "Atoms/Tree",
   component: Tree,
-} as ComponentMeta<typeof Tree>;
+};
 
 const nodes: TreeLeaf[] = [
   {
@@ -40,3 +41,5 @@ const nodes: TreeLeaf[] = [
 ];
 
 export const Primary: ComponentStory<typeof Tree> = () => <Tree data={nodes} />;
+
+export default story;

@@ -47,6 +47,7 @@
     "chromatic": "^6.7.1",
     "eslint": "^7.32.0 || ^8.2.0",
     "eslint-config-synnaxlabs": "*",
+    "stylelint-config-synnaxlabs": "*",
     "jsdom": "^20.0.1",
     "prettier": "2.7.1",
     "react-icons": "^4.4.0",

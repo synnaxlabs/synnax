@@ -1,61 +1,59 @@
 import { Children, ReactElement, cloneElement } from "react";
-import { Theming } from "@/theming";
-import { Divider } from "@/atoms/Divider";
-import { Space, SpaceProps } from "@/atoms/Space";
+
 import { CoreTextProps, Text } from "./Text";
 import { TypographyLevel } from "./types";
 
+import { Divider } from "@/atoms/Divider";
+import { Space, SpaceProps } from "@/atoms/Space";
+import { Theming } from "@/theming";
+
 export interface TextWithIconProps extends Omit<SpaceProps, "children">, CoreTextProps {
-	startIcon?: ReactElement | ReactElement[];
-	endIcon?: ReactElement | ReactElement[];
-	children?: string | number;
-	divided?: boolean;
+  startIcon?: ReactElement | ReactElement[];
+  endIcon?: ReactElement | ReactElement[];
+  children?: string | number;
+  divided?: boolean;
 }
 
 export const TextWithIcon = ({
-	level = "h1",
-	divided = false,
-	startIcon,
-	endIcon,
-	children,
-	color,
-	...props
-}: TextWithIconProps) => {
-	const endIcons = startIcon && useFormattedIcons(startIcon, level, color);
-	const startIcons = endIcon && useFormattedIcons(endIcon, level, color);
-	return (
-		<Space direction="horizontal" size="small" align="center" {...props}>
-			{endIcons && endIcons.map((i) => i)}
-			{divided && <Divider direction="vertical" />}
-			{children && (
-				<Text color={color} level={level}>
-					{children}
-				</Text>
-			)}
-			{divided && startIcons && <Divider direction="vertical" />}
-			{startIcons && startIcons.map((i) => i)}
-		</Space>
-	);
+  level = "h1",
+  divided = false,
+  startIcon,
+  endIcon,
+  children,
+  color,
+  ...props
+}: TextWithIconProps): JSX.Element => {
+  const endIcons = startIcon != null && useFormattedIcons(startIcon, level, color);
+  const startIcons = endIcon != null && useFormattedIcons(endIcon, level, color);
+  return (
+    <Space direction="horizontal" size="small" align="center" {...props}>
+      {endIcons}
+      {divided && <Divider direction="vertical" />}
+      {children != null && (
+        <Text color={color} level={level}>
+          {children}
+        </Text>
+      )}
+      {divided && startIcons != null && <Divider direction="vertical" />}
+      {startIcons}
+    </Space>
+  );
 };
 
 const useFormattedIcons = (
-	icon: ReactElement | ReactElement[],
-	level: TypographyLevel,
-	color?: string
+  icon: ReactElement | ReactElement[],
+  level: TypographyLevel,
+  color?: string
 ): ReactElement[] => {
-	const { theme } = Theming.useContext();
-	const size = Number(theme.typography[level]?.lineHeight) * theme.sizes.base;
-	color = color || theme.colors.text;
-	return toArray(icon).map((icon) =>
-		cloneElement(icon, {
-			size,
-			color,
-			style: { minWidth: size, ...icon.props.style },
-			...icon.props,
-		})
-	);
-};
-
-const toArray = (children: ReactElement | ReactElement[]): ReactElement[] => {
-	return Children.toArray(children) as ReactElement[];
+  const { theme } = Theming.useContext();
+  const size = Number(theme.typography[level]?.lineHeight) * theme.sizes.base;
+  color ??= theme.colors.text;
+  return (Children.toArray(icon) as ReactElement[]).map((icon) =>
+    cloneElement(icon, {
+      size,
+      color,
+      style: { minWidth: size, ...icon.props.style },
+      ...icon.props,
+    })
+  );
 };

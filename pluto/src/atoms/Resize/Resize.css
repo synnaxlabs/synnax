@@ -2,18 +2,6 @@
     position: relative;
 }
 
-.pluto-resize-panel--vertical > .pluto-resize-panel__handle{
-    width: calc(var(--pluto-border-width) * 5);
-    height: 100%;
-    cursor: col-resize;
-}
-
-.pluto-resize-panel--horizontal > .pluto-resize-panel__handle{
-    height: calc(var(--pluto-border-width) * 5);
-    width: 100%;
-    cursor: row-resize;
-}
-
 .pluto-resize-panel__handle {
     position: absolute
 }
@@ -36,4 +24,16 @@
 .pluto-resize-panel--bottom > .pluto-resize-panel__handle {
     left: 0;
     top: 0;
+}
+
+.pluto-resize-panel--vertical > .pluto-resize-panel__handle{
+    width: calc(var(--pluto-border-width) * 5);
+    height: 100%;
+    cursor: col-resize;
+}
+
+.pluto-resize-panel--horizontal > .pluto-resize-panel__handle{
+    height: calc(var(--pluto-border-width) * 5);
+    width: 100%;
+    cursor: row-resize;
 }

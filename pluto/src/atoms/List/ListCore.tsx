@@ -1,5 +1,7 @@
-import { useVirtualizer } from "@tanstack/react-virtual";
 import { ComponentType, HTMLAttributes, useRef } from "react";
+
+import { useVirtualizer } from "@tanstack/react-virtual";
+
 import { useListContext } from "./ListContext";
 import { ListEntry, ListItemProps } from "./types";
 import "./ListCore.css";
@@ -14,7 +16,7 @@ const ListVirtualCore = <E extends ListEntry>({
   itemHeight,
   children: Children,
   ...props
-}: ListVirtualCoreProps<E>) => {
+}: ListVirtualCoreProps<E>): JSX.Element => {
   const {
     data,
     columnar: { columns },
@@ -30,10 +32,7 @@ const ListVirtualCore = <E extends ListEntry>({
   });
   return (
     <div ref={parentRef} className="pluto-list__container" {...props}>
-      <div
-        className="pluto-list__inner"
-        style={{ height: virtualizer.getTotalSize() }}
-      >
+      <div className="pluto-list__inner" style={{ height: virtualizer.getTotalSize() }}>
         {virtualizer.getVirtualItems().map(({ index, start }) => {
           const entry = data[index];
           return (

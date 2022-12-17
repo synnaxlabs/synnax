@@ -1,8 +1,9 @@
-import { ComponentMeta, ComponentStory } from "@storybook/react";
+import type { ComponentMeta, ComponentStory } from "@storybook/react";
 import { AiOutlineDelete } from "react-icons/ai";
+
 import { Button, ButtonProps } from ".";
 
-export default {
+const story: ComponentMeta<typeof Button> = {
   title: "Atoms/Button",
   component: Button,
   argTypes: {
@@ -11,9 +12,9 @@ export default {
       control: { type: "select" },
     },
   },
-} as ComponentMeta<typeof Button>;
+};
 
-const Template = (args: ButtonProps) => <Button {...args} />;
+const Template = (args: ButtonProps): JSX.Element => <Button {...args} />;
 
 export const Primary: ComponentStory<typeof Button> = Template.bind({});
 Primary.args = {
@@ -22,8 +23,10 @@ Primary.args = {
   children: "Button",
 };
 
-export const Outlined = () => (
+export const Outlined = (): JSX.Element => (
   <Button variant="outlined" endIcon={<AiOutlineDelete />}>
     Button
   </Button>
 );
+
+export default story;

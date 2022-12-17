@@ -1,4 +1,3 @@
-export type { InputProps } from "./Input";
 import { Input as CoreInput } from "./Input";
 import { InputDate } from "./InputDate";
 import { InputHelpText } from "./InputHelpText";
@@ -6,6 +5,7 @@ import { InputItem } from "./InputItem";
 import { InputLabel } from "./InputLabel";
 import { InputSwitch } from "./InputSwitch";
 import { InputTime } from "./InputTime";
+export type { InputProps } from "./Input";
 
 type CoreInputType = typeof CoreInput;
 

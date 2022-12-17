@@ -1,10 +1,7 @@
+import { ForwardedRef, HTMLAttributes, PropsWithChildren, forwardRef } from "react";
+
 import clsx from "clsx";
-import {
-  ForwardedRef,
-  HTMLAttributes,
-  PropsWithChildren,
-  forwardRef,
-} from "react";
+
 import { Direction } from "../../util/spatial";
 import { ComponentSize } from "../../util/types";
 import "./Space.css";
@@ -21,6 +18,8 @@ export type SpaceJustification =
   | "spaceAround"
   | "spaceEvenly";
 
+type FlexDirection = "row" | "column" | "row-reverse" | "column-reverse";
+
 export const SpaceJustifications = [
   "start",
   "center",
@@ -30,8 +29,7 @@ export const SpaceJustifications = [
   "spaceEvenly",
 ] as const;
 
-export interface SpaceProps
-  extends PropsWithChildren<HTMLAttributes<HTMLDivElement>> {
+export interface SpaceProps extends PropsWithChildren<HTMLAttributes<HTMLDivElement>> {
   empty?: boolean;
   size?: ComponentSize | number | null;
   direction?: Direction;
@@ -59,14 +57,10 @@ export const Space = forwardRef(
     ref: ForwardedRef<HTMLDivElement>
   ) => {
     let gap;
-    if (empty) {
-      size = null;
-      gap = 0;
-    } else if (typeof size == "string") {
-      gap = `pluto-space--${size}`;
-    } else {
-      gap = `${size}rem`;
-    }
+    if (empty) [size, gap] = [0, 0];
+    else if (typeof size === "string") gap = `pluto-space--${size}`;
+    else gap = `${size ?? 0}rem`;
+
     style = {
       gap,
       flexDirection: flexDirection(direction, reverse),
@@ -96,12 +90,9 @@ export const Space = forwardRef(
 );
 Space.displayName = "Space";
 
-const flexDirection = (direction: Direction, reverse: boolean) => {
-  if (direction === "horizontal") {
-    return reverse ? "row-reverse" : "row";
-  } else {
-    return reverse ? "column-reverse" : "column";
-  }
+const flexDirection = (direction: Direction, reverse: boolean): FlexDirection => {
+  const base = direction === "horizontal" ? "row" : "column";
+  return reverse ? ((base + "-reverse") as FlexDirection) : base;
 };
 
 const justifications = {
