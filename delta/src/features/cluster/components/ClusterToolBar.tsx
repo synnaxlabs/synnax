@@ -1,10 +1,13 @@
-import { Layout, useLayoutPlacer } from "@/features/layout";
-import { Space, Header, List, Text, ListItemProps, ListEntry } from "@synnaxlabs/pluto";
+import { Space, Header, List, Text } from "@synnaxlabs/pluto";
+import type { ListItemProps, ListEntry } from "@synnaxlabs/pluto";
 import { AiFillDatabase, AiOutlinePlus } from "react-icons/ai";
 import { useDispatch } from "react-redux";
+
 import { useSelectActiveCluster, useSelectClusters } from "../store";
 import { setActiveCluster } from "../store/slice";
 import { Cluster } from "../types";
+
+import { Layout, useLayoutPlacer } from "@/features/layout";
 
 const connectClusterWindowLayout: Layout = {
   key: "connectCluster",
@@ -19,7 +22,7 @@ const connectClusterWindowLayout: Layout = {
   },
 };
 
-const Content = () => {
+const Content = (): JSX.Element => {
   const dispatch = useDispatch();
   const clusters = useSelectClusters();
   const active = useSelectActiveCluster();
@@ -43,10 +46,8 @@ const Content = () => {
       <List
         selectMultiple={false}
         data={Object.values(clusters) as unknown as ListEntry[]}
-        selected={active ? [active?.key] : []}
-        onSelect={(key: string[]) => {
-          dispatch(setActiveCluster(key[0] || null));
-        }}
+        selected={active != null ? [active?.key] : []}
+        onSelect={(key: string[]) => dispatch(setActiveCluster(key[0]))}
       >
         <List.Core.Virtual itemHeight={30}>{ListItem}</List.Core.Virtual>
       </List>
@@ -60,7 +61,7 @@ const ListItem = ({
   selected,
   onSelect,
   ...props
-}: ListItemProps<Omit<Cluster, "props" | "state">>) => {
+}: ListItemProps<Omit<Cluster, "props" | "state">>): JSX.Element => {
   return (
     <Space
       direction="horizontal"

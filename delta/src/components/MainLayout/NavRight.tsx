@@ -1,6 +1,7 @@
 import { Nav } from "@synnaxlabs/pluto";
+
 import { WorkspaceToolBar } from "@/features/workspace";
 
-export const NavRight = () => {
-	return <Nav.Drawer location="right" size={48} items={[WorkspaceToolBar]} />;
-};
+export const NavRight = (): JSX.Element => (
+  <Nav.Drawer location="right" size={48} items={[WorkspaceToolBar]} />
+);

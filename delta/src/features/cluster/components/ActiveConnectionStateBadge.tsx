@@ -1,9 +1,9 @@
 import { useSelectActiveCluster } from "../store";
 import { DEFAULT_CONNECTION_STATE } from "../types";
+
 import { ConnectionStateBadge } from "./ConnectionStateBadge";
 
-export const ActiveConnectionBadge = () => {
+export const ActiveConnectionBadge = (): JSX.Element => {
   const cluster = useSelectActiveCluster();
-  const connState = cluster?.state || DEFAULT_CONNECTION_STATE;
-  return <ConnectionStateBadge state={connState} />;
+  return <ConnectionStateBadge state={cluster?.state ?? DEFAULT_CONNECTION_STATE} />;
 };

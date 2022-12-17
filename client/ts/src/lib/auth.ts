@@ -39,7 +39,7 @@ export default class AuthenticationClient {
   user: UserPayload | undefined;
 
   constructor(factory: HTTPClientFactory, creds: InsecureCredentials) {
-    this.client = factory.postClient();
+    this.client = factory.newPOST();
     this.credentials = creds;
     this.authenticated = false;
     this.authenticate();

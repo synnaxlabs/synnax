@@ -1,15 +1,16 @@
-import { LayoutRendererProps } from "@/features/layout";
-import { TimeStamp } from "@synnaxlabs/client";
 import { Space, Input, Header, Nav, Button } from "@synnaxlabs/pluto";
 import { useForm } from "react-hook-form";
 import { AiFillBoxPlot } from "react-icons/ai";
 import { useDispatch } from "react-redux";
+
 import { addRange } from "../store/slice";
 
-const timeStringToNanoSeconds = (time: string) => {
-  var p = time.split(":"),
-    s = 0,
-    m = 1;
+import { LayoutRendererProps } from "@/features/layout";
+
+const timeStringToNanoseconds = (time: string): number => {
+  const p = time.split(":");
+  let s = 0;
+  let m = 1;
 
   while (p.length > 0) {
     s += m * parseInt(p.pop() as string, 10);
@@ -19,12 +20,15 @@ const timeStringToNanoSeconds = (time: string) => {
   return s * 1000000000;
 };
 
-const dateStringToNanoSeconds = (date: string) => {
+const dateStringToNanoseconds = (date: string): number => {
   const dateObj = new Date(date);
   return dateObj.getTime() * 1000000;
 };
 
-export const DefineRange = ({ layoutKey, onClose }: LayoutRendererProps) => {
+export const DefineRange = ({
+  layoutKey,
+  onClose,
+}: LayoutRendererProps): JSX.Element => {
   const {
     register,
     handleSubmit,
@@ -32,11 +36,11 @@ export const DefineRange = ({ layoutKey, onClose }: LayoutRendererProps) => {
   } = useForm();
   const dispatch = useDispatch();
 
-  const onSubmit = (data: any) => {
-    let start = dateStringToNanoSeconds(data.dateStart);
-    start += timeStringToNanoSeconds(data.timeStart);
-    let end = dateStringToNanoSeconds(data.dateEnd);
-    end += timeStringToNanoSeconds(data.timeEnd);
+  const onSubmit = (data: any): void => {
+    let start = dateStringToNanoseconds(data.dateStart);
+    start += timeStringToNanoseconds(data.timeStart);
+    let end = dateStringToNanoseconds(data.dateEnd);
+    end += timeStringToNanoseconds(data.timeEnd);
     dispatch(
       addRange({
         name: data.name,
@@ -56,7 +60,7 @@ export const DefineRange = ({ layoutKey, onClose }: LayoutRendererProps) => {
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          handleSubmit(onSubmit)(e);
+          void handleSubmit(onSubmit)(e);
         }}
         id="define-range"
       >

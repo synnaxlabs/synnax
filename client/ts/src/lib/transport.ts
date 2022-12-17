@@ -23,11 +23,11 @@ export default class Transport {
   }
 
   getClient(): UnaryClient {
-    return this.httpFactory.getClient();
+    return this.httpFactory.newGET();
   }
 
   postClient(): UnaryClient {
-    return this.httpFactory.postClient();
+    return this.httpFactory.newPOST();
   }
 
   use(...middleware: Middleware[]): void {

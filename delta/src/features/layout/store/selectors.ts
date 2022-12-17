@@ -1,34 +1,40 @@
-import memoize from "proxy-memoize";
 import { useCallback } from "react";
+
+import type { MosaicLeaf, Theme } from "@synnaxlabs/pluto";
+import memoize from "proxy-memoize";
 import { useSelector } from "react-redux";
+
+import { Layout } from "../types";
+
 import { LayoutStoreState } from "./slice";
-import { Theme } from "@synnaxlabs/pluto";
 
-export const useSelectLayoutCore = (state: LayoutStoreState, key: string) =>
-	state.layout.layouts[key];
+export const useSelectLayoutCore = (
+  state: LayoutStoreState,
+  key: string
+): Layout | undefined => state.layout.layouts[key];
 
-export const useSelectLayout = (key: string) =>
-	useSelector(
-		useCallback(
-			memoize((state: LayoutStoreState) => useSelectLayoutCore(state, key)),
-			[key]
-		)
-	);
+export const useSelectLayout = (key: string): Layout | undefined =>
+  useSelector(
+    useCallback(
+      memoize((state: LayoutStoreState) => useSelectLayoutCore(state, key)),
+      [key]
+    )
+  );
 
-export const useSelectMosaic = () =>
-	useSelector(
-		useCallback(
-			memoize((state: LayoutStoreState) => state.layout.mosaic),
-			[]
-		)
-	);
+export const useSelectMosaic = (): MosaicLeaf =>
+  useSelector(
+    useCallback(
+      memoize((state: LayoutStoreState) => state.layout.mosaic),
+      []
+    )
+  );
 
 export const useSelectTheme = (): Theme => {
-	const theme = useSelector(
-		useCallback(
-			memoize((state: LayoutStoreState) => state.layout.themes[state.layout.theme]),
-			[]
-		)
-	);
-	return theme;
+  const theme = useSelector(
+    useCallback(
+      memoize((state: LayoutStoreState) => state.layout.themes[state.layout.theme]),
+      []
+    )
+  );
+  return theme;
 };

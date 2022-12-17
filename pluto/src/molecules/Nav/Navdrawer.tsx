@@ -27,10 +27,11 @@ export const NavDrawer = ({
   initialKey,
   children,
   ...props
-}: NavDrawerProps) => {
+}: NavDrawerProps): JSX.Element => {
   const { direction } = useNavbar(props);
   const [activeKey, setActiveKey] = useState<string | undefined>(initialKey);
-  const onClick = (key: string) => setActiveKey(key === activeKey ? undefined : key);
+  const onClick = (key: string): void =>
+    setActiveKey(key === activeKey ? undefined : key);
   const activeItem = items.find((item) => item.key === activeKey);
   return (
     <Navbar.Context.Provider value={{ direction, location: props.location }}>

@@ -1,7 +1,10 @@
-import { AnyAction } from "@reduxjs/toolkit";
-import { closeWindow, createWindow } from "@synnaxlabs/drift";
 import { Dispatch, useCallback } from "react";
+
+import type { AnyAction } from "@reduxjs/toolkit";
+import { closeWindow, createWindow } from "@synnaxlabs/drift";
+import type { ThemeProviderProps } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
+
 import {
   placeLayout,
   removeLayout,
@@ -10,8 +13,7 @@ import {
   useSelectLayout,
   useSelectTheme,
 } from "../store";
-import { Layout, LayoutWindowProps } from "../types";
-import { ThemeProviderProps } from "@synnaxlabs/pluto";
+import { Layout } from "../types";
 
 export interface LayoutCreatorProps {
   dispatch: Dispatch<AnyAction>;
@@ -21,12 +23,13 @@ export type LayoutCreator = (props: LayoutCreatorProps) => Layout;
 
 export type LayoutPlacer = (layout: Layout | LayoutCreator) => void;
 
-export const useLayoutPlacer = () => {
+export type LayoutRemover = (key: string) => void;
+
+export const useLayoutPlacer = (): LayoutPlacer => {
   const dispatch = useDispatch();
   return useCallback(
     (layout_: Layout | LayoutCreator) => {
-      const layout =
-        typeof layout_ === "function" ? layout_({ dispatch }) : layout_;
+      const layout = typeof layout_ === "function" ? layout_({ dispatch }) : layout_;
       const { key, location, window, title } = layout;
       dispatch(placeLayout(layout));
       if (location === "window")
@@ -43,7 +46,7 @@ export const useLayoutPlacer = () => {
   );
 };
 
-export const useLayoutRemover = (key: string) => {
+export const useLayoutRemover = (key: string): LayoutRemover => {
   const dispatch = useDispatch();
   const layout = useSelectLayout(key);
   return () => {
