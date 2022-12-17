@@ -1,8 +1,8 @@
-import { Navbar } from "./NavBar";
-import { NavDrawer } from "./Navdrawera";
-export type { NavbarProps } from "./NavBar";
-export type { NavDrawerProps } from "./Navdrawera";
-export type { NavDrawerItem } from "./Navdrawera";
+import { Navbar } from "./Navbar";
+import { NavDrawer } from "./Navdrawer";
+export type { NavbarProps } from "./Navbar";
+export type { NavDrawerProps } from "./Navdrawer";
+export type { NavDrawerItem } from "./Navdrawer";
 
 export const Nav = {
   Bar: Navbar,
