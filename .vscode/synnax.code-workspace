@@ -1,0 +1,84 @@
+{
+  "folders": [
+    {
+      "name": "root",
+      "path": ".."
+    },
+    {
+      "name": "aspen",
+      "path": "../aspen"
+    },
+    {
+      "name": "cesium",
+      "path": "../cesium"
+    },
+    {
+      "name": "client/ts",
+      "path": "../client/ts"
+    },
+    {
+      "name": "client/py",
+      "path": "../client/py"
+    },
+    {
+      "name": "client/go",
+      "path": "../client/go"
+    },
+    {
+      "name": "docs/site",
+      "path": "../docs/site"
+    },
+    {
+      "name": "drift",
+      "path": "../drift"
+    },
+    {
+      "name": "freighter/ts",
+      "path": "../freighter/ts"
+    },
+    {
+      "name": "freighter/py",
+      "path": "../freighter/py"
+    },
+    {
+      "name": "freighter/go",
+      "path": "../freighter/go"
+    },
+    {
+      "name": "freighter/integration",
+      "path": "../freighter/integration"
+    },
+    {
+      "name": "synnax-server",
+      "path": "../synnax"
+    },
+    {
+      "name": "pluto",
+      "path": "../pluto"
+    },
+    {
+      "name": "delta",
+      "path": "../delta"
+    },
+    {
+      "name": "x",
+      "path": "../x"
+    },
+    {
+	    "name": "tsconfig",
+	    "path": "../configs/ts"
+    },
+	  {
+        "name": "eslint",
+        "path": "../configs/eslint",
+    },
+    {
+      "name": "stylelint",
+      "path": "../configs/stylelint"
+    }
+  ],
+  "settings": {
+    "editor.formatOnSave": true,
+    "liveServer.settings.multiRootWorkspaceName": "synnax-root"
+  }
+}

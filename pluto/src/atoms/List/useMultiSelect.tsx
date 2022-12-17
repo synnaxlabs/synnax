@@ -2,19 +2,18 @@ import { useEffect, useState } from "react";
 
 import { useKeyHeld } from "@/hooks";
 
-export interface useMultiSelectProps<E extends Record<string, unknown>> {
+export interface useMultiSelectProps<E extends Partial<Record<keyof E, unknown>>> {
   data: E[];
   selected?: string[];
   selectMultiple?: boolean;
   onSelect?: (selected: string[]) => void;
 }
 
-interface KeyedRecord {
+type KeyedRecord<K extends string | number | symbol> = Partial<Record<K, unknown>> & {
   key: string;
-  [key: string]: unknown;
-}
+};
 
-export const useMultiSelect = <E extends KeyedRecord>({
+export const useMultiSelect = <E extends KeyedRecord<keyof E>>({
   data,
   selected: selectedProp,
   selectMultiple = true,

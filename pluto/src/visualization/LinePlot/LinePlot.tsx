@@ -1,4 +1,4 @@
-import { LinePlotCoreComponent, LinePlotCoreProps } from "./LinePlotCore";
+import { LinePlotCore, LinePlotCoreProps } from "./LinePlotCore";
 
 export type LinePlotProps = LinePlotCoreProps;
 

@@ -1,9 +1,11 @@
-import { createSlice, PayloadAction } from "@reduxjs/toolkit";
+import { createSlice } from "@reduxjs/toolkit";
+import type { PayloadAction } from "@reduxjs/toolkit";
+
 import { Visualization } from "../types";
 
-export type VisualizationState = {
+export interface VisualizationState {
   visualizations: Record<string, Visualization>;
-};
+}
 
 export interface VisualizationStoreState {
   visualization: VisualizationState;

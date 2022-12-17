@@ -1,7 +1,8 @@
 import { List, Space } from "@synnaxlabs/pluto";
+
 import { useSelectRanges } from "../store";
 
-export const RangesAccordionEntry = () => {
+export const RangesAccordionEntry = (): JSX.Element => {
   const ranges = useSelectRanges();
   return (
     <Space style={{ height: "100%" }}>

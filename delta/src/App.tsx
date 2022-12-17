@@ -20,7 +20,7 @@ const layoutRenderers = {
   defineRange: DefineRange,
 };
 
-export const App = () => {
+export const App = (): JSX.Element => {
   const theme = useThemeProvider();
   return (
     <LayoutRendererProvider value={layoutRenderers}>

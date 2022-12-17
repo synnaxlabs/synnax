@@ -1,20 +1,21 @@
-import { WindowProps } from "@synnaxlabs/drift";
-import { Component, ComponentProps, ComponentType } from "react";
+import { ComponentType } from "react";
+
+import type { WindowProps } from "@synnaxlabs/drift";
 
 export type LayoutPlacementLocation = "window" | "mosaic";
 
-export type Layout = {
+export interface Layout {
   key: string;
   type: string;
   title: string;
   location: LayoutPlacementLocation;
   window?: LayoutWindowProps;
-};
+}
 
-export type LayoutRendererProps = {
+export interface LayoutRendererProps {
   layoutKey: string;
   onClose: () => void;
-};
+}
 
 export type LayoutRenderer = ComponentType<LayoutRendererProps>;
 

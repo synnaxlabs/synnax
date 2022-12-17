@@ -1,4 +1,6 @@
-import { Synnax, SynnaxProps } from "@synnaxlabs/client";
+import { Synnax } from "@synnaxlabs/client";
+import type { SynnaxProps } from "@synnaxlabs/client";
+
 import { ConnectionState } from "@/features/cluster/types";
 
 export const testConnection = async (

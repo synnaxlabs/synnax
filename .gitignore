@@ -20,6 +20,7 @@ pnpm-debug.log*
 lerna-debug.log*
 dist-ssr
 *.local
+nyc_output
 
 # |||||| RUST ||||||
 
@@ -37,7 +38,3 @@ synnax-data/
 # |||||| LOGS ||||||
 
 logs
-
-# |||||| VS CODE ||||||
-
-.vscode/

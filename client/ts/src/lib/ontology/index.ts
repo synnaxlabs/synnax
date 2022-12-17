@@ -1,9 +1,10 @@
-export { default as OntologyClient } from './client';
-export {
+export { default as OntologyClient } from "./client";
+
+export type {
   OntologyResource,
   OntologySchema,
   OntologySchemaField,
   OntologyResourceType,
-} from './payload';
+} from "./payload";
 
-export { OntologyID, OntologyRoot } from './payload';
+export { OntologyID, OntologyRoot } from "./payload";

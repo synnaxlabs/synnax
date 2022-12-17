@@ -1,8 +1,12 @@
-import { useSelectRanges } from "@/features/workspace";
-import { Synnax, ChannelPayload } from "@synnaxlabs/client";
-import { Select, Space } from "@synnaxlabs/pluto";
 import { useEffect, useState } from "react";
+
+import { Synnax } from "@synnaxlabs/client";
+import type { ChannelPayload } from "@synnaxlabs/client";
+import { Select, Space } from "@synnaxlabs/pluto";
+
 import { LinePlotVisualization, SugaredLinePlotVisualization } from "../../types";
+
+import { useSelectRanges } from "@/features/workspace";
 
 export interface LinePlotControlsProps {
   visualization: SugaredLinePlotVisualization;
@@ -14,24 +18,23 @@ export const LinePlotControls = ({
   visualization,
   onChange,
   client,
-}: LinePlotControlsProps) => {
+}: LinePlotControlsProps): JSX.Element => {
   const ranges = useSelectRanges();
   const { channels } = visualization;
-  const [channelOpts, setChannelOpts] = useState<(ChannelPayload & { key: string })[]>(
-    []
-  );
+  const [channelOpts, setChannelOpts] = useState<
+    Array<ChannelPayload & { key: string }>
+  >([]);
 
   useEffect(() => {
-    const fn = async () => {
+    void (async () => {
       const channels = await client.channel.retrieveAll();
       setChannelOpts(
         channels.map((ch) => ch.payload as ChannelPayload & { key: string })
       );
-    };
-    fn();
+    })();
   }, [client]);
 
-  const handleChannelSelect = (selected: string[]) => {
+  const handleChannelSelect = (selected: string[]): void => {
     onChange({
       ...visualization,
       ranges: visualization.ranges.map((range) => range.key),
@@ -39,7 +42,7 @@ export const LinePlotControls = ({
     });
   };
 
-  const handleRangeSelect = (selected: string[]) => {
+  const handleRangeSelect = (selected: string[]): void => {
     onChange({
       ...visualization,
       ranges: selected,
@@ -52,7 +55,9 @@ export const LinePlotControls = ({
       <Select.Multiple
         selected={channels}
         onSelect={handleChannelSelect}
-        options={channelOpts as unknown as (Record<string, string> & { key: string })[]}
+        options={
+          channelOpts as unknown as Array<Record<string, string> & { key: string }>
+        }
         tagKey="name"
         listPosition="top"
         columns={[

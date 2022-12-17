@@ -1,7 +1,10 @@
-import memoize from "proxy-memoize";
 import { useCallback } from "react";
+
+import memoize from "proxy-memoize";
 import { useSelector } from "react-redux";
+
 import { Cluster } from "../types";
+
 import { ClusterStoreState } from "./slice";
 
 export const useSelectActiveCluster = (): Cluster | undefined =>
@@ -9,7 +12,7 @@ export const useSelectActiveCluster = (): Cluster | undefined =>
     useCallback(
       memoize(
         (state: ClusterStoreState) =>
-          state.cluster.clusters[state.cluster.activeClusterKey || ""]
+          state.cluster.clusters[state.cluster.activeClusterKey ?? ""]
       ),
       []
     )
@@ -23,15 +26,15 @@ export const useSelectActiveClusterKey = (): string | null =>
     )
   );
 
-export const useSelectCluster = (key: string | undefined) =>
+export const useSelectCluster = (key: string | undefined): Cluster =>
   useSelector(
     useCallback(
-      memoize((state: ClusterStoreState) => state.cluster.clusters[key || ""]),
+      memoize((state: ClusterStoreState) => state.cluster.clusters[key ?? ""]),
       [key]
     )
   );
 
-export const useSelectClusters = () => {
+export const useSelectClusters = (): Record<string, Cluster> => {
   return useSelector(
     useCallback(
       memoize((state: ClusterStoreState) => state.cluster.clusters),

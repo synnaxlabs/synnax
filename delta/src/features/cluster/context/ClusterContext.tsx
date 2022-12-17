@@ -1,76 +1,82 @@
+import {
+  createContext,
+  PropsWithChildren,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
+
 import { Synnax, TimeSpan } from "@synnaxlabs/client";
 import {
-	completeProcess,
-	registerProcess,
-	useWindowLifecycle,
+  completeProcess,
+  registerProcess,
+  useWindowLifecycle,
 } from "@synnaxlabs/drift";
-import {
-	createContext,
-	PropsWithChildren,
-	useContext,
-	useEffect,
-	useRef,
-	useState,
-} from "react";
 import { useDispatch } from "react-redux";
+
 import {
-	useSelectActiveCluster,
-	setClusterConnectionState,
-	useSelectActiveClusterKey,
+  useSelectActiveCluster,
+  setClusterConnectionState,
+  useSelectActiveClusterKey,
 } from "../store";
 
 export interface ClusterContextProps extends PropsWithChildren<any> {}
 
-export const ClusterContext = createContext<{
-	client: Synnax | null;
-	trigger: boolean;
-}>({ client: null, trigger: false });
+export interface ClusterContextValue {
+  client: Synnax | null;
+  trigger: boolean;
+}
 
-export const useClusterClient = () => useContext(ClusterContext).client;
+export const ClusterContext = createContext<ClusterContextValue>({
+  client: null,
+  trigger: false,
+});
 
-export const ClusterProvider = ({ children }: ClusterContextProps) => {
-	const [s, setClient] = useState<{
-		client: Synnax | null;
-		trigger: boolean;
-	}>({ client: null, trigger: false });
-	const dispatch = useDispatch();
-	const activeCluster = useSelectActiveCluster();
-	const activeClusterKey = useSelectActiveClusterKey();
+export const useClusterClient = (): Synnax | null => useContext(ClusterContext).client;
 
-	useEffect(() => {
-		if (!activeCluster) return;
+export const ClusterProvider = ({ children }: ClusterContextProps): JSX.Element => {
+  const [s, setClient] = useState<{
+    client: Synnax | null;
+    trigger: boolean;
+  }>({ client: null, trigger: false });
+  const dispatch = useDispatch();
+  const activeCluster = useSelectActiveCluster();
+  const activeClusterKey = useSelectActiveClusterKey();
 
-		const { key, props } = activeCluster;
+  useEffect(() => {
+    if (activeCluster == null) return;
 
-		const c = new Synnax({
-			...props,
-			connectivityPollFrequency: TimeSpan.Seconds(5),
-		});
+    const { key, props } = activeCluster;
 
-		c.connectivity.onChange((status, error, message) => {
-			dispatch(
-				setClusterConnectionState({
-					key,
-					state: { status, message },
-				})
-			);
-		});
+    const c = new Synnax({
+      ...props,
+      connectivityPollFrequency: TimeSpan.Seconds(5),
+    });
 
-		setClient((prev) => ({ client: c, trigger: !prev.trigger }));
+    c.connectivity.onChange((status, error, message) => {
+      dispatch(
+        setClusterConnectionState({
+          key,
+          state: { status, message },
+        })
+      );
+    });
 
-		return () => {
-			if (s.client) s.client.close();
-			setClient({ client: null, trigger: false });
-		};
-	}, [activeClusterKey]);
+    setClient((prev) => ({ client: c, trigger: !prev.trigger }));
 
-	useWindowLifecycle(() => {
-		dispatch(registerProcess());
-		return () => {
-			if (s.client) s.client.close();
-			dispatch(completeProcess());
-		};
-	});
+    return () => {
+      if (s.client != null) s.client.close();
+      setClient({ client: null, trigger: false });
+    };
+  }, [activeClusterKey]);
 
-	return <ClusterContext.Provider value={s}>{children}</ClusterContext.Provider>;
+  useWindowLifecycle(() => {
+    dispatch(registerProcess());
+    return () => {
+      if (s.client != null) s.client.close();
+      dispatch(completeProcess());
+    };
+  });
+
+  return <ClusterContext.Provider value={s}>{children}</ClusterContext.Provider>;
 };

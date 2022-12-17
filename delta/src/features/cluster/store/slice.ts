@@ -1,15 +1,17 @@
-import { createSlice, PayloadAction } from "@reduxjs/toolkit";
+import { createSlice } from "@reduxjs/toolkit";
+import type { PayloadAction } from "@reduxjs/toolkit";
+
 import { Optional } from "../../../util/types";
 import { Cluster, ConnectionState, DEFAULT_CONNECTION_STATE } from "../types";
 
-export type ClusterSliceState = {
+export interface ClusterSliceState {
   activeClusterKey: string | null;
   clusters: Record<string, Cluster>;
-};
+}
 
-export type ClusterStoreState = {
+export interface ClusterStoreState {
   cluster: ClusterSliceState;
-};
+}
 
 const initialState: ClusterSliceState = {
   activeClusterKey: "dev",

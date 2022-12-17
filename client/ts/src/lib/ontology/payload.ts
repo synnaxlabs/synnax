@@ -1,14 +1,16 @@
-import { z } from 'zod';
+import { z } from "zod";
 
-export enum OntologyResourceType {
-  Builtin = 'builtin',
-  Cluster = 'cluster',
-  Channel = 'channel',
-  Node = 'node',
-}
+const ontologyResourceTypeSchema = z.union([
+  z.literal("builtin"),
+  z.literal("cluster"),
+  z.literal("channel"),
+  z.literal("node"),
+]);
+
+export type OntologyResourceType = z.infer<typeof ontologyResourceTypeSchema>;
 
 export const ontologyIdSchema = z.object({
-  type: z.nativeEnum(OntologyResourceType),
+  type: ontologyResourceTypeSchema,
   key: z.string(),
 });
 
@@ -26,15 +28,12 @@ export class OntologyID {
   }
 
   static parseString(str: string): OntologyID {
-    const [type, key] = str.split(':');
+    const [type, key] = str.split(":");
     return new OntologyID(type as OntologyResourceType, key);
   }
 }
 
-export const OntologyRoot = new OntologyID(
-  OntologyResourceType.Builtin,
-  'root'
-);
+export const OntologyRoot = new OntologyID("builtin", "root");
 
 export const ontologySchemaFieldSchema = z.object({
   type: z.number(),
@@ -43,7 +42,7 @@ export const ontologySchemaFieldSchema = z.object({
 export type OntologySchemaField = z.infer<typeof ontologySchemaFieldSchema>;
 
 export const ontologySchemaSchema = z.object({
-  type: z.nativeEnum(OntologyResourceType),
+  type: ontologyResourceTypeSchema,
   fields: z.record(ontologySchemaFieldSchema),
 });
 
