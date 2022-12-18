@@ -18,16 +18,16 @@ jobs:
         uses: dorny/paths-filter@v2
         id: filter
         with:
-        filters: |
-            changed:
-                - "client/py/**"
-                - "freighter/py/**"
-                - "synnax/**"
-                - "cesium/**"
-                - "aspen/**"
-                - "x/**"
-                - "freighter/**"
-                - ".github/workflows/client.test.yaml"
+          filters: |
+              changed:
+                  - "client/py/**"
+                  - "freighter/py/**"
+                  - "synnax/**"
+                  - "cesium/**"
+                  - "aspen/**"
+                  - "x/**"
+                  - "freighter/**"
+                  - ".github/workflows/client.test.yaml"
 
       - name: Set up Python
         if: steps.filter.outputs.changed == 'true'
@@ -79,15 +79,15 @@ jobs:
         uses: dorny/paths-filter@v2
         id: filter
         with:
-        filters: |
-          changed:
-              - "client/ts/**"
-              - "freighter/ts/**"
-              - "synnax/**"
-              - "cesium/**"
-              - "aspen/**"
-              - "x/**"
-              - ".github/workflows/client.test.yaml"
+          filters: |
+            changed:
+                - "client/ts/**"
+                - "freighter/ts/**"
+                - "synnax/**"
+                - "cesium/**"
+                - "aspen/**"
+                - "x/**"
+                - ".github/workflows/client.test.yaml"
 
       - name: Set up Node
         if: steps.filter.outputs.changed == 'true'
