@@ -9,17 +9,6 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func write(db *ranger.DB, rng telem.TimeRange, data []byte) {
-	w := MustSucceed(db.NewWriter(ranger.WriterConfig{
-		Start: rng.Start,
-		End:   rng.End,
-	}))
-	n := MustSucceed(w.Write(data))
-	Expect(n).To(Equal(len(data)))
-	Expect(w.Commit(rng.End)).To(Succeed())
-	Expect(w.Close()).To(Succeed())
-}
-
 var _ = Describe("Iterator Behavior", func() {
 	var db *ranger.DB
 	BeforeEach(func() {
@@ -36,8 +25,8 @@ var _ = Describe("Iterator Behavior", func() {
 	})
 	Describe("SeekFirst + SeekLast", func() {
 		BeforeEach(func() {
-			write(db, (10 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})
-			write(db, (30 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})
+			Expect(ranger.Write(db, (10 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
+			Expect(ranger.Write(db, (30 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
 		})
 		DescribeTable("SeekFirst",
 			func(
@@ -112,14 +101,14 @@ var _ = Describe("Iterator Behavior", func() {
 		)
 	})
 
-	Context("Exhaustion", func() {
+	Describe("Exhaustion", func() {
 		BeforeEach(func() {
-			write(db, (50 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})
-			write(db, (60 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})
-			write(db, (10 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})
-			write(db, (30 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})
+			Expect(ranger.Write(db, (50 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
+			Expect(ranger.Write(db, (60 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
+			Expect(ranger.Write(db, (10 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
+			Expect(ranger.Write(db, (30 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
 		})
-		Context("Next", func() {
+		Context("Forward", func() {
 			It("Should return false when the iterator is exhausted", func() {
 				iter := db.NewIterator(ranger.IteratorConfig{
 					Bounds: (15 * telem.SecondTS).SpanRange(45 * telem.Second),
@@ -133,7 +122,7 @@ var _ = Describe("Iterator Behavior", func() {
 				Expect(iter.Next()).To(BeFalse())
 			})
 		})
-		Context("Prev", func() {
+		Context("Reverse", func() {
 			It("Should return false when the iterator is exhausted", func() {
 				iter := db.NewIterator(ranger.IteratorConfig{
 					Bounds: (15 * telem.SecondTS).SpanRange(45 * telem.Second),
