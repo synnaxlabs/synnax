@@ -12,10 +12,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
-      - uses: actions/checkout@v3
+        uses: actions/checkout@v3
 
       - name: Diff Changes
-      - uses: dorny/paths-filter@v2
+        uses: dorny/paths-filter@v2
         id: filter
         with:
         filters: |
@@ -30,7 +30,7 @@ jobs:
                 - ".github/workflows/client.test.yaml"
 
       - name: Set up Python
-        if: steps.filter.outputs.changed == "true"
+        if: steps.filter.outputs.changed == 'true'
         uses: actions/setup-python@v4
         with:
           python-version: "3.10"
@@ -90,21 +90,21 @@ jobs:
               - ".github/workflows/client.test.yaml"
 
       - name: Set up Node
-        if: steps.filter.outputs.changed == "true"
+        if: steps.filter.outputs.changed == 'true'
         uses: actions/setup-node@v2
         with:
           node-version: "18"
 
       - name: Install Dependencies
-        if: steps.filter.outputs.changed == "true"
+        if: steps.filter.outputs.changed == 'true'
         run: yarn
 
       - name: Test
-        if: steps.filter.outputs.changed == "true"
+        if: steps.filter.outputs.changed == 'true'
         run: yarn cov:client
 
       - name: Upload Coverage
-        if: steps.filter.outputs.changed == "true"
+        if: steps.filter.outputs.changed == 'true'
         uses: codecov/codecov-action@v3
         with:
           directory: ./client/ts
