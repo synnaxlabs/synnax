@@ -21,19 +21,62 @@ var (
 	RangeNotFound = errors.Wrap(query.NotFound, "range not found")
 )
 
-// DB provides a persistent, concurrent store for reading and writing ranges of telemetry.
+// DB provides a persistent, concurrent store for reading and writing ranges of telemetry
+// to and from an underlying file system.
+//
+// A DB provides two types for accessing data:
+//
+//   - Writer allows the caller to write a blob of telemetry occupying a particular time
+//     range.
+//
+//   - Iterator allows the caller ot iterate over the telemetry ranges in a DB in time order,
+//     and provides an io.Reader like interface for accessing the data.
+//
+// A DB is safe for concurrent use, and multiple writers and iterators can access the DB
+// at once.
+//
+// It's important to note that a DB is heavily optimized for large (several megabytes
+// to gigabytes), append only writes. While small, out of order writes are valid, the
+// user will see a heavy performance hit.
+//
+//
+// A DB must be closed after use to avoid leaking any underlying resources/locks.
 type DB struct {
 	idx       *index
 	dataFiles *fileController
 }
 
+// Config is the configuration for opening a DB.
 type Config struct {
-	FS             xfs.FS
-	FileSize       telem.Size
+	// FS is the filesystem that the DB will use to store its data. DB will write to the
+	// root of the filesystem, so this should probably be a subdirectory. DB should have
+	// exclusive access, and it should be empty when the DB is first opened.
+	// [REQUIRED]
+	FS xfs.FS
+	// FileSize is the maximum size of a data file in bytes. When a data file reaches this
+	// size, a new file will be created.
+	// [OPTIONAL] Default: 1GB
+	FileSize telem.Size
+	// MaxDescriptors is the maximum number of file descriptors that the DB will use. A
+	// higher value will allow more concurrent reads and writes. It's important to note
+	// that the exact performance impact of changing this value is still relatively unknown.
+	// [OPTIONAL] Default: 100
 	MaxDescriptors int
-	Logger         *zap.Logger
+	// Logger is the witness of it all.
+	// [OPTIONAL] Default: zap.NewNop()
+	Logger *zap.Logger
 }
 
+var (
+	_ config.Config[Config] = Config{}
+	// DefaultConfig is the default configuration for a DB.
+	DefaultConfig = Config{
+		FileSize:       1 * telem.Gigabyte,
+		MaxDescriptors: 100,
+	}
+)
+
+// Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("ranger")
 	validate.Positive(v, "fileSize", c.FileSize)
@@ -42,6 +85,7 @@ func (c Config) Validate() error {
 	return v.Error()
 }
 
+// Override implements config.Config.
 func (c Config) Override(other Config) Config {
 	c.MaxDescriptors = override.Numeric(c.MaxDescriptors, other.MaxDescriptors)
 	c.FileSize = override.Numeric(c.FileSize, other.FileSize)
@@ -49,13 +93,8 @@ func (c Config) Override(other Config) Config {
 	return c
 }
 
-var DefaultConfig = Config{
-	FileSize:       1 * telem.Gigabyte,
-	MaxDescriptors: 100,
-}
-
-var _ config.Config[Config] = Config{}
-
+// Open opens a DB using a merged view of the provided configurations (where the next
+// configuration overrides the previous).
 func Open(configs ...Config) (*DB, error) {
 	cfg, err := config.OverrideAndValidate(DefaultConfig, configs...)
 	if err != nil {
@@ -80,11 +119,11 @@ func Open(configs ...Config) (*DB, error) {
 	return &DB{idx: idx, dataFiles: controller}, nil
 }
 
-// NewIterator opens a new invalidated Iterator using the given options.
-// A seeking call is required before the iterator can be used.
-func (db *DB) NewIterator(opts IteratorConfig) *Iterator {
+// NewIterator opens a new invalidated Iterator using the given configuration.
+// A seeking call is required before it can be used.
+func (db *DB) NewIterator(cfg IteratorConfig) *Iterator {
 	i := &Iterator{idx: db.idx, readerFactory: db.newReader}
-	i.SetBounds(opts.Bounds)
+	i.SetBounds(cfg.Bounds)
 	return i
 }
 
@@ -100,6 +139,7 @@ func (db *DB) NewWriter(cfg WriterConfig) (*Writer, error) {
 	return &Writer{fileKey: key, internal: internal, idx: db.idx, cfg: cfg}, nil
 }
 
+// Close closes the DB. Close should not be called concurrently with any other DB methods.
 func (db *DB) Close() error {
 	w := errutil.NewCatch(errutil.WithAggregation())
 	w.Exec(db.idx.close)
@@ -113,9 +153,5 @@ func (db *DB) newReader(ptr pointer) (*Reader, error) {
 		return nil, err
 	}
 	reader := xio.PartialReaderAt(internal, int64(ptr.offset), int64(ptr.length))
-	return &Reader{
-		ptr:      ptr,
-		ReaderAt: reader,
-		Closer:   internal,
-	}, nil
+	return &Reader{ptr: ptr, ReaderAt: reader, Closer: internal}, nil
 }

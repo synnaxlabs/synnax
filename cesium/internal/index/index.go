@@ -6,6 +6,8 @@ import (
 )
 
 var (
+	// ErrDiscontinuous is returned if the index has discontinuities across an evaluated
+	// time range.
 	ErrDiscontinuous = errors.New("discontinuous")
 )
 
@@ -13,14 +15,15 @@ var (
 type Index interface {
 	// Distance calculates an approximate distance (number of samples) between the start
 	// and end timestamps of the given time range. If continuous is true, the index
-	// will return an error if it has discontinuities across the time range.
+	// will return an error if the underlying telemetry has discontinuities across the
+	// time range.
 	//
 	// The distance is approximated using a lower and upper bound. The underlying time
 	// series can be viewed as a contiguous slice of timestamps, where each timestamp
 	// exists at a specific index (i.e. slice[x]). The lower bound of the distance is
-	// by finding the index of the timestamp less than or equal to the end timestamp and
+	// the index of the timestamp less than or equal to the end timestamp and
 	// the index of the timestamp greater than or equal to the start timestamp. The upper
-	// bound is calculating using the opposite approach (i.e. finding the index of the
+	// bound is calculated using the opposite approach (i.e. finding the index of the
 	// timestamp greater than or equal to the end timestamp and the index of the timestamp
 	// less than or equal to the start timestamp). Naturally, a time range whose start
 	// timestamp and end timestamps are both known will have an equal lower and upper
