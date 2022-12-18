@@ -1,4 +1,4 @@
-import { Connectivity } from "@synnaxlabs/client";
+import type { Connectivity } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/pluto";
 import type { StatusVariant } from "@synnaxlabs/pluto";
 
@@ -9,10 +9,10 @@ export interface ConnectionStatusProps {
 }
 
 const connectionStatusVariants: Record<Connectivity, StatusVariant> = {
-  [Connectivity.Connected]: "success",
-  [Connectivity.Failed]: "error",
-  [Connectivity.Connecting]: "info",
-  [Connectivity.Disconnected]: "warning",
+  connected: "success",
+  failed: "error",
+  connecting: "info",
+  disconnected: "warning",
 };
 
 export const ConnectionStateBadge = ({

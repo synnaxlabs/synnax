@@ -10,7 +10,7 @@ const sugarType = (type: string, emitter: string): string =>
 
 const desugarType = (type: string): [string, string] => {
   const [prefix, embedded] = type.split(DRIFT_PREFIX_SPLITTER);
-  if (embedded.length === 0) return [type, ""];
+  if (embedded?.length === 0) return [type, ""];
   const [, winKey] = prefix.split(DRIFT_ACTION_INDICATOR);
   return [embedded, winKey];
 };

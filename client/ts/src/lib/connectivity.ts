@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { TimeSpan } from "./telem";
 
-type Connectivity = "disconnected" | "connecting" | "connected" | "failed";
+export type Connectivity = "disconnected" | "connecting" | "connected" | "failed";
 
 const connectivityResponseSchema = z.object({
   clusterKey: z.string(),

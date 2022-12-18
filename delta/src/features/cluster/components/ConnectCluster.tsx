@@ -1,8 +1,8 @@
 import { useState } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Connectivity, synnaxPropsSchema } from "@synnaxlabs/client";
-import type { SynnaxProps } from "@synnaxlabs/client";
+import { synnaxPropsSchema } from "@synnaxlabs/client";
+import type { Connectivity, SynnaxProps } from "@synnaxlabs/client";
 import { Button, Header, Input, Nav, Space } from "@synnaxlabs/pluto";
 import { FieldValues, useForm } from "react-hook-form";
 import { AiFillApi } from "react-icons/ai";
@@ -47,7 +47,7 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps): JSX.Element =>
       delete data.name;
       data.secure = true;
       const { clusterKey, state } = await testConnection(data as SynnaxProps);
-      if (state.status !== Connectivity.Connected) return setConnState(state);
+      if (state.status !== "connected") return setConnState(state);
       dispatch(
         setCluster({
           key: clusterKey as string,
