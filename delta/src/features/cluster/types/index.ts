@@ -1,5 +1,4 @@
-import { Connectivity } from "@synnaxlabs/client";
-import type { SynnaxProps } from "@synnaxlabs/client";
+import type { Connectivity, SynnaxProps } from "@synnaxlabs/client";
 
 export interface Cluster {
   key: string;
@@ -14,6 +13,6 @@ export interface ConnectionState {
 }
 
 export const DEFAULT_CONNECTION_STATE: ConnectionState = {
-  status: Connectivity.Disconnected,
+  status: "disconnected",
   message: "Disconnected",
 };
