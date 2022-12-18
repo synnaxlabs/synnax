@@ -7,17 +7,22 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// WriterConfig is the configuration for opening a writer.
 type WriterConfig struct {
 	// Start marks the starting bound of the range. This starting bound must not
 	// overlap with any existing ranges within the DB.
+	// [REQUIRED]
 	Start telem.TimeStamp
 	// End is an optional parameter that marks the ending bound of the range. Defining this
 	// parameter will allow the writer to write data to the range without needing to
 	// validate each call to Commit. If this parameter is not defined, Commit must
 	// be called with a strictly increasing timestamp.
+	// [OPTIONAL]
 	End telem.TimeStamp
 }
 
+// Range returns the Range occupied by the theoretical range formed by the configuration.
+// If End is not set, assumes the Range has a zero span starting at Start.
 func (w WriterConfig) Range() telem.TimeRange {
 	if w.End.IsZero() {
 		return w.Start.SpanRange(0)
@@ -25,30 +30,38 @@ func (w WriterConfig) Range() telem.TimeRange {
 	return telem.TimeRange{Start: w.Start, End: w.End}
 }
 
-func Write(db *DB, tr telem.TimeRange, b []byte) error {
-	w, err := db.NewWriter(WriterConfig{Start: tr.Start})
+// Write writes the given data to the DB new telemetry range occupying the provided time
+// range. If the time range overlaps with any other ranges in the DB, Write will return
+// an error.
+func Write(db *DB, tr telem.TimeRange, data []byte) error {
+	w, err := db.NewWriter(WriterConfig{Start: tr.Start, End: tr.End})
 	if err != nil {
 		return err
 	}
-	if _, err := w.Write(b); err != nil {
+	if _, err = w.Write(data); err != nil {
 		return err
 	}
-	if err := w.Commit(tr.End); err != nil {
+	if err = w.Commit( /* ignored */ 0); err != nil {
 		return err
 	}
 	return w.Close()
 }
 
 // Writer is used to write a telemetry range to the DB. A Writer is opened using DB.NewWriter
-// using a provided WriterConfig, which defines the starting bound of the range. If no
+// and a provided WriterConfig, which defines the starting bound of the range. If no
 // other range overlaps with the starting bound, the caller can write telemetry data the
-// Writer using an io.Writer interface. Once the caller is done writing telemetry
-// data, they must call Commit and provide the ending bound of the range. If the ending
-// bound of the range overlaps with any other ranges within the DB, Commit will return
-// an error, and the range will not be committed. If the caller explicitly knows the
-// ending bound of the range, they can set the WriterConfig.End parameter to pre-validate
-// the ending bound of the range. If the WriterConfig.End parameter is set, Commit will
-// ignore the provided timestamp and use the WriterConfig.End parameter instead.
+// Writer using an io.Writer interface.
+//
+// Once the caller is done writing telemetry data, they must call Commit and provide the
+// ending bound of the range. If the ending bound of the range overlaps with any other
+// ranges within the DB, Commit will return an error, and the range will not be committed.
+// If the caller explicitly knows the ending bound of the range, they can set the WriterConfig.End
+// parameter to pre-validate the ending bound of the range. If the WriterConfig.End parameter
+// is set, Commit will ignore the provided timestamp and use the WriterConfig.End parameter
+// instead.
+//
+// A Writer is not safe for concurrent use, but it is safe to have multiple writer and
+// iterators open concurrently over the same DB.
 type Writer struct {
 	cfg        WriterConfig
 	prevCommit telem.TimeStamp
@@ -65,7 +78,7 @@ func (w *Writer) Len() int64 { return w.internal.Len() }
 // returns.
 func (w *Writer) Write(p []byte) (n int, err error) { return w.internal.Write(p) }
 
-// Commit commits the range to the DB, making it tryAcquire for reading by other processes.
+// Commit commits the range to the DB, making it available for reading by other processes.
 // If the WriterConfig.End parameter was set, Commit will ignore the provided timestamp
 // and use the WriterConfig.End parameter instead. If the WriterConfig.End parameter was
 // not set, Commit will validate that the provided timestamp is strictly greater than the

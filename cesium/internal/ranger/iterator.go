@@ -4,20 +4,29 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
+// IteratorConfig is the configuration for opening a new iterator.
 type IteratorConfig struct {
 	// Bounds represent the interval of time that the iterator will be able to access.
 	// Any ranges whose Bounds overlap with the iterator's Bounds will be accessible.
+	// A zero span range is valid, but is relatively useless.
+	// [REQUIRED]
 	Bounds telem.TimeRange
 }
 
-func IterRange(tr telem.TimeRange) IteratorConfig {
-	return IteratorConfig{Bounds: tr}
-}
+// IterRange generates an IteratorConfig that iterates over the provided time range.
+func IterRange(tr telem.TimeRange) IteratorConfig { return IteratorConfig{Bounds: tr} }
 
-// Iterator iterates over a DBs telemetry ranges in time order. Iterator does not directly
-// read any telemetry ranges, but instead provides a means to access the ranges themselves.
-// The actual telemetry ranges can be read by calling NewReader. Iterator is not safe for
-// concurrent use, but it is safe to have multiple iterators open over the same DB.
+// Iterator iterates over the telemetry ranges of a DB in time order. Iterator does
+// not read any of the underlying data of a range, but instead provides a means to access
+// it via calls to Iterator.NewReader.
+//
+// Iterator is not safe for concurrent use, but it is safe to have multiple iterators over
+// the same DB.
+//
+// It's important to not that an Iterator does NOT iterator over a snapshot of the DB,
+// and is not isolated from any writes that may be committed during the iterators lifetime.
+// This means that the position of an iterator may shift unexpectedly. There are plans
+// to implement MVCC in the future, but until then you have been warned.
 type Iterator struct {
 	// position stores the current position of the iterator in the idx. NOTE: At the
 	// moment, this position may not hold a consistent reference to the same value
@@ -44,9 +53,7 @@ func (it *Iterator) SetBounds(bounds telem.TimeRange) {
 
 // SeekFirst seeks to the first range in the iterator's bounds. If no such range exists,
 // SeekFirst returns false.
-func (it *Iterator) SeekFirst() bool {
-	return it.SeekGE(it.bounds.Start)
-}
+func (it *Iterator) SeekFirst() bool { return it.SeekGE(it.bounds.Start) }
 
 // SeekLast seeks to the last range in the iterator's bounds. If no such range exists,
 // SeekLast returns false.
@@ -105,6 +112,7 @@ func (it *Iterator) NewReader() (*Reader, error) { return it.readerFactory(it.va
 // Len returns the number of bytes occupied by the telemetry in the current range.
 func (it *Iterator) Len() int64 { return int64(it.value.length) }
 
+// Close closes the iterator.
 func (it *Iterator) Close() error { return nil }
 
 func (it *Iterator) reload() bool {
