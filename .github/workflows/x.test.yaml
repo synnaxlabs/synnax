@@ -11,14 +11,31 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Diff Changes
+        uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            changed:
+              - 'x/**'
+              - '.github/workflows/x.test.yaml'
+
+      - name: Set up Node
+        if: steps.filter.outputs.changed == 'true'
+        uses: actions/setup-go@v3
         with:
           go-version: 1.19
+
       - name: Test
+        if: steps.filter.outputs.changed == 'true'
         run: go test -v --covermode=atomic --coverprofile=coverage.txt ./...
         working-directory: ./x
+
       - name: Upload Coverage
+        if: steps.filter.outputs.changed == 'true'
         uses: codecov/codecov-action@v3
         with:
           directory: ./x

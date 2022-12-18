@@ -1,6 +1,6 @@
 name: "Delta Release"
 on:
-  pull_request:
+  push:
     branches:
       - main
 
@@ -10,23 +10,36 @@ env:
 
 jobs:
   create-release:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-20.04
     outputs:
       release_id: ${{ steps.create-release.outputs.result }}
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Diff Changes
+        uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            changed:
+              - "delta/package.json"
 
       - name: Setup Node
+        if: steps.filter.outputs.changed == 'true'
         uses: actions/setup-node@v3
         with:
           node-version: 18
 
       - name: Get Version
+        if: steps.filter.outputs.changed == 'true'
         run: echo "PACKAGE_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_ENV
         working-directory: ./delta
 
       - name: Create Release
+        if: steps.filter.outputs.changed == 'true'
         id: create-release
         uses: actions/github-script@v6
         with:
@@ -51,26 +64,43 @@ jobs:
 
     runs-on: ${{ matrix.platform }}
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Diff Changes
+        uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            changed:
+              - "delta/**"
+              - "pluto/**"
+              - "client/ts/**"
+              - "freighter/ts/**"
+              - ".github/workflows/delta.release.yaml"
 
       - name: Setup Node
+        if: steps.filter.outputs.changed == 'true'
         uses: actions/setup-node@v3
         with:
           node-version: 18
           cache: "yarn"
 
       - name: Install Rust Stable
+        if: steps.filter.outputs.changed == 'true'
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
 
       - name: Rust Cache
+        if: steps.filter.outputs.changed == 'true'
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: delta/src-tauri -> target
           key: ${{ runner.os }}
 
       - name: Turbo Cache
+        if: steps.filter.outputs.changed == 'true'
         uses: actions/cache@v3
         with:
           path: .turbo-cache
@@ -79,15 +109,17 @@ jobs:
             ${{ runner.os }}-turbo-
 
       - name: Install Dependencies on Ubuntu
-        if: matrix.platform == 'ubuntu-20.04'
+        if: matrix.platform == 'ubuntu-20.04' && steps.filter.outputs.changed == 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev webkit2gtk-4.0 libappindicator3-dev librsvg2-dev patchelf
 
       - name: Install Dependencies and Build
+        if: steps.filter.outputs.changed == 'true'
         run: yarn --prefer-offline && yarn build:delta
 
       - uses: tauri-apps/tauri-action@v0
+        if: steps.filter.outputs.changed == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -95,14 +127,17 @@ jobs:
 
   publish-release:
     runs-on: ubuntu-20.04
+    if: github.ref == 'refs/heads/main' && needs.create-release.outputs.release_id != ''
     needs: [create-release, build-tauri]
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout Repository
+        uses: actions/checkout@v3
         with:
           ref: ${{ github.event.pull_request.head.ref }}
 
       - name: Publish Release
+        if: steps.filter.outputs.changed == 'true'
         id: publish-release
         uses: actions/github-script@v6
         env:
