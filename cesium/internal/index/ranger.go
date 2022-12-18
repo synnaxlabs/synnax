@@ -140,7 +140,7 @@ func (i *Ranger) Stamp(ref telem.TimeStamp, offset int64, continuous bool) (appr
 
 	endOffset := startApprox.Upper + offset
 	gap := iter.Len() / 8
-	if endOffset > iter.Len()/8 {
+	if endOffset >= iter.Len()/8 {
 		for {
 			if !iter.Next() {
 				if continuous {

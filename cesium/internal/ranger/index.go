@@ -55,7 +55,6 @@ func (idx *index) overlap(tr telem.TimeRange) bool {
 	return overlap
 }
 
-// update the pointer with the same start timestamp as p.
 func (idx *index) update(p pointer) error {
 	idx.mu.RLock()
 	if len(idx.mu.pointers) == 0 {

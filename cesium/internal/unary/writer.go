@@ -23,7 +23,7 @@ func Write(db *DB, start telem.TimeStamp, arr telem.Array) error {
 	if err != nil {
 		return err
 	}
-	if err := w.Write(arr); err != nil {
+	if err = w.Write(arr); err != nil {
 		return err
 	}
 	_, err = w.Commit()
@@ -35,7 +35,7 @@ func (w *Writer) Write(arr telem.Array) error {
 	if err := w.validate(arr); err != nil {
 		return err
 	}
-	w.numWritten += int64(arr.Len())
+	w.numWritten += arr.Len()
 	if w.Channel.IsIndex {
 		w.updateHwm(arr)
 	}

@@ -109,11 +109,6 @@ func (i *Iterator) Next(span telem.TimeSpan) (ok bool) {
 
 func (i *Iterator) autoNext() bool {
 	i.view.Start = i.view.End
-	startApprox, err := i.approximateStart()
-	if err != nil {
-		i.err = err
-		return false
-	}
 	endApprox, err := i.idx.Stamp(i.view.Start, i.IteratorConfig.AutoChunkSize, false)
 	if err != nil {
 		i.err = err
@@ -122,19 +117,38 @@ func (i *Iterator) autoNext() bool {
 	if endApprox.Lower.After(i.bounds.End) {
 		return i.Next(i.view.Start.Span(i.bounds.End))
 	}
-
 	i.view.End = endApprox.Lower
-
 	i.reset(i.view.BoundBy(i.bounds))
 
-	startOffset := i.Channel.DataType.Density().Size(startApprox.Upper)
+	nRemaining := i.IteratorConfig.AutoChunkSize
+	for {
+		if !i.internal.Range().OverlapsWith(i.view) {
+			if !i.internal.Next() {
+				return false
+			}
+			continue
+		}
+		startApprox, err := i.approximateStart()
+		if err != nil {
+			i.err = err
+			return false
+		}
+		startOffset := i.Channel.DataType.Density().Size(startApprox.Upper)
+		arr, n, err := i.read(startOffset, i.Channel.DataType.Density().Size(nRemaining))
+		nRead := i.Channel.DataType.Density().SampleCount(telem.Size(n))
+		nRemaining -= arr.Len()
+		if err != nil && !errors.Is(err, io.EOF) {
+			i.err = err
+			return false
+		}
 
-	arr, err := i.read(startOffset, i.Channel.DataType.Density().Size(i.IteratorConfig.AutoChunkSize))
-	if err != nil && !errors.Is(err, io.EOF) {
-		i.err = err
-		return false
+		i.insert(arr)
+
+		if nRead >= nRemaining || !i.internal.Next() {
+			break
+		}
 	}
-	i.insert(arr)
+
 	return i.partiallySatisfied()
 }
 
@@ -190,8 +204,8 @@ func (i *Iterator) accumulate() bool {
 		i.err = err
 		return false
 	}
-	arr, err := i.read(start, size)
-	if err != nil {
+	arr, _, err := i.read(start, size)
+	if err != nil && !errors.Is(err, io.EOF) {
 		i.err = err
 		return false
 	}
@@ -210,7 +224,7 @@ func (i *Iterator) insert(arr telem.Array) {
 	}
 }
 
-func (i *Iterator) read(start telem.Offset, size telem.Size) (arr telem.Array, _ error) {
+func (i *Iterator) read(start telem.Offset, size telem.Size) (arr telem.Array, n int, _ error) {
 	arr.DataType = i.Channel.DataType
 	arr.TimeRange = i.internal.Range().BoundBy(i.view)
 	b := make([]byte, size)
@@ -218,9 +232,9 @@ func (i *Iterator) read(start telem.Offset, size telem.Size) (arr telem.Array, _
 	if err != nil {
 		return
 	}
-	n, err := r.ReadAt(b, int64(start))
-	if err != nil && !errors.Is(err, io.EOF) {
-		return arr, err
+	n, err = r.ReadAt(b, int64(start))
+	if err != nil {
+		return arr, n, err
 	}
 	if n < len(b) {
 		b = b[:n]
@@ -243,6 +257,9 @@ func (i *Iterator) sliceRange() (telem.Offset, telem.Size, error) {
 	return startOffset, size, nil
 }
 
+// approximateStart approximates the number of samples between the start of the current
+// range and the start of the current iterator view. If the start of the current view is
+// before the start of the range, the returned value will be zero.
 func (i *Iterator) approximateStart() (startApprox index.DistanceApproximation, err error) {
 	if i.internal.Range().Start.Before(i.view.Start) {
 		target := i.internal.Range().Start.Range(i.view.Start)
@@ -251,6 +268,10 @@ func (i *Iterator) approximateStart() (startApprox index.DistanceApproximation, 
 	return
 }
 
+// approximateEnd approximates the number of samples between the start of the current
+// range and the end of the current iterator view. If the end of the current view is
+// after the end of the range, the returned value will be the number of samples in the
+// range.
 func (i *Iterator) approximateEnd() (endApprox index.DistanceApproximation, err error) {
 	endApprox = index.Exactly(i.Channel.DataType.Density().SampleCount(telem.Size(i.internal.Len())))
 	if i.internal.Range().End.After(i.view.End) {

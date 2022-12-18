@@ -228,6 +228,12 @@ var _ = Describe("Ranger", func() {
 					index.Between(65*telem.SecondTS+1, telem.TimeStampMax),
 					nil,
 				),
+				Entry("Exactly at End of First Range",
+					5*telem.SecondTS,
+					6,
+					index.Exactly(30*telem.SecondTS),
+					nil,
+				),
 			)
 		})
 	})
