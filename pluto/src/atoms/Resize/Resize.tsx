@@ -27,9 +27,7 @@ export const Resize = ({
   useEffect(() => {
     if (!dragging) return;
     const onMouseMove = (e: MouseEvent): void => {
-      setSize((prevSize: number) => {
-        return calcNextSize(e, location, prevSize, minSize, maxSize);
-      });
+      setSize((p: number) => calcNextSize(e, location, p, minSize, maxSize));
       onResize?.(size);
     };
     const onMouseUp = (): void => setDragging(false);
