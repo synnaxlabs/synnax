@@ -1,6 +1,6 @@
 import type { ComponentMeta, ComponentStory } from "@storybook/react";
 
-import { ListEntry } from "../List/types";
+import { RenderableRecord } from "../List/types";
 
 import { Select, SelectMultipleProps } from ".";
 
@@ -16,7 +16,7 @@ const options = Array.from({ length: 500 }).map((_, i) => ({
   sampleRate: i,
 }));
 
-const MultipleTemplate = <E extends ListEntry>(
+const MultipleTemplate = <E extends RenderableRecord<E>>(
   args: SelectMultipleProps<E>
 ): JSX.Element => <Select.Multiple {...args} />;
 

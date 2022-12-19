@@ -1,7 +1,7 @@
 import { ComponentType, useEffect } from "react";
 
 import { useListContext } from "./ListContext";
-import { ListEntry } from "./types";
+import { RenderableRecord } from "./types";
 
 import { Input as DefaultInput, InputProps } from "@/atoms/Input";
 import { useSearch } from "@/hooks";
@@ -11,7 +11,7 @@ export interface ListSearchProps {
   Input?: ComponentType<InputProps>;
 }
 
-export const ListSearch = <E extends ListEntry>({
+export const ListSearch = <E extends RenderableRecord<E>>({
   Input = DefaultInput,
 }: ListSearchProps): JSX.Element => {
   const [query, setQuery, search] = useSearch<E>();

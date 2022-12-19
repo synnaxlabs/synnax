@@ -4,6 +4,7 @@ import {
   TauriRuntime,
   configureStore,
 } from "@synnaxlabs/drift";
+import { appWindow } from "@tauri-apps/api/window";
 
 import { clusterReducer } from "@/features/cluster";
 import { layoutReducer } from "@/features/layout";
@@ -19,6 +20,6 @@ const reducer = combineReducers({
 });
 
 export const store = configureStore<ReturnType<typeof reducer>>({
-  runtime: new TauriRuntime(),
+  runtime: new TauriRuntime(appWindow),
   reducer,
 });

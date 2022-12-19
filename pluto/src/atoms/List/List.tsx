@@ -1,16 +1,16 @@
 import { PropsWithChildren, useState, useMemo } from "react";
 
 import { ListContextProvider } from "./ListContext";
-import { ListEntry, TypedListColumn, TypedListTransform } from "./types";
+import { RenderableRecord, TypedListColumn, TypedListTransform } from "./types";
 import { useMultiSelect, useMultiSelectProps } from "./useMultiSelect";
 
-export interface ListProps<E extends ListEntry>
+export interface ListProps<E extends RenderableRecord<E>>
   extends PropsWithChildren<unknown>,
     useMultiSelectProps<E> {
   data: E[];
 }
 
-export const List = <E extends ListEntry>({
+export const List = <E extends RenderableRecord<E>>({
   children,
   data,
   selectMultiple = true,

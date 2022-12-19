@@ -4,7 +4,8 @@
   "version": "0.2.2",
   "type": "module",
   "scripts": {
-    "dev": "tauri dev",
+    "dev": "tauri dev & yarn kill",
+    "kill": "zsh ~/Desktop/synnax/delta/scripts/kill-dev.zsh",
     "build": "tauri build",
     "dev-vite": "vite",
     "build-vite": "tsc && vite build",
@@ -43,8 +44,8 @@
     "@vitejs/plugin-react": "^2.1.0",
     "eslint": "^8.0.1",
     "eslint-config-synnaxlabs": "*",
-    "stylelint-config-synnaxlabs": "*",
     "prettier": "2.7.1",
+    "stylelint-config-synnaxlabs": "*",
     "typescript": "*",
     "vite": "^3.1.0",
     "vite-tsconfig-paths": "^3.5.2"
