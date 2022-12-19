@@ -23,19 +23,19 @@ export const TextWithIcon = ({
   color,
   ...props
 }: TextWithIconProps): JSX.Element => {
-  const endIcons = startIcon != null && useFormattedIcons(startIcon, level, color);
-  const startIcons = endIcon != null && useFormattedIcons(endIcon, level, color);
+  const startIcons = startIcon != null && useFormattedIcons(startIcon, level, color);
+  const endIcons = endIcon != null && useFormattedIcons(endIcon, level, color);
   return (
     <Space direction="horizontal" size="small" align="center" {...props}>
-      {endIcons}
-      {divided && <Divider direction="vertical" />}
+      {startIcons}
+      {divided && startIcon != null && <Divider direction="vertical" />}
       {children != null && (
         <Text color={color} level={level}>
           {children}
         </Text>
       )}
-      {divided && startIcons != null && <Divider direction="vertical" />}
-      {startIcons}
+      {divided && endIcon != null && <Divider direction="vertical" />}
+      {endIcons}
     </Space>
   );
 };

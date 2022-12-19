@@ -3,16 +3,16 @@ import { ComponentType, HTMLAttributes, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 import { useListContext } from "./ListContext";
-import { ListEntry, ListItemProps } from "./types";
+import { RenderableRecord, ListItemProps } from "./types";
 import "./ListCore.css";
 
-export interface ListVirtualCoreProps<E extends ListEntry>
+export interface ListVirtualCoreProps<E extends RenderableRecord<E>>
   extends Omit<HTMLAttributes<HTMLDivElement>, "children" | "onSelect"> {
   itemHeight: number;
   children: ComponentType<ListItemProps<E>>;
 }
 
-const ListVirtualCore = <E extends ListEntry>({
+const ListVirtualCore = <E extends RenderableRecord<E>>({
   itemHeight,
   children: Children,
   ...props

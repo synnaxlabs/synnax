@@ -10,6 +10,13 @@ export class TimeStamp extends Number {
   }
 
   /**
+   * @returns A JavaScript Date object representing the TimeStamp.
+   */
+  date(): Date {
+    return new Date(this.milliseconds());
+  }
+
+  /**
    * Checks if the TimeStamp is equal to another TimeStamp.
    *
    * @param other - The other TimeStamp to compare to.
@@ -126,6 +133,13 @@ export class TimeStamp extends Number {
    */
   sub(span: UnparsedTimeSpan): TimeStamp {
     return new TimeStamp(this.valueOf() - span.valueOf());
+  }
+
+  /**
+   * @returns The number of milliseconds since the unix epoch.
+   */
+  milliseconds(): number {
+    return this.valueOf() / TimeStamp.Millisecond.valueOf();
   }
 
   /** The maximum possible value for a timestamp */
@@ -308,6 +322,19 @@ export class TimeSpan extends Number {
 
   /** Represents an hour. */
   static readonly Hour = TimeSpan.Hours(1);
+
+  /**
+   * Creates a TimeSpan representing the given number of days.
+   *
+   * @param value - The number of days.
+   * @returns A TimeSpan representing the given number of days.
+   */
+  static Days(value: UnparsedTimeStamp = 1): TimeSpan {
+    return TimeSpan.Hours(value.valueOf() * 24);
+  }
+
+  /** Represents a day. */
+  static readonly Day = TimeSpan.Days(1);
 
   /** The maximum possible value for a TimeSpan. */
   static readonly Max = new TimeSpan(this.MAX_SAFE_INTEGER);

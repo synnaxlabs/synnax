@@ -15,7 +15,10 @@ export const WithIcon: ComponentStory<typeof Text> = () => (
     startIcon={<AiOutlineDelete />}
     endIcon={<AiFillDatabase />}
     level="h2"
-  />
+    divided
+  >
+    Text
+  </Text.WithIcon>
 );
 
 export const Editable: ComponentStory<typeof Text> = () => (

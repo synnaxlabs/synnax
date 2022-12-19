@@ -1,24 +1,15 @@
-import { List, Space } from "@synnaxlabs/pluto";
+import { TimeSpan, TimeStamp } from "@synnaxlabs/client";
+import { Text, List, Space } from "@synnaxlabs/pluto";
 
 import { useSelectRanges } from "../store";
+import type { Range } from "../store";
 
 export const RangesAccordionEntry = (): JSX.Element => {
   const ranges = useSelectRanges();
   return (
     <Space style={{ height: "100%" }}>
-      <List
-        data={ranges.map((range) => {
-          const start = new Date(range.start / 1000000);
-          const end = new Date(range.end / 1000000);
-          return {
-            key: range.key,
-            name: range.name,
-            start: start.toISOString().substring(0, 16),
-            end: end.toISOString().substring(0, 16),
-          };
-        })}
-      >
-        <List.Column.Header
+      <List data={ranges}>
+        <List.Column.Header<Range>
           columns={[
             {
               key: "name",
@@ -27,10 +18,32 @@ export const RangesAccordionEntry = (): JSX.Element => {
             {
               key: "start",
               label: "Start",
+              render: ({ entry: { start }, style }) => {
+                return (
+                  <Text.DateTime level="p" style={style}>
+                    {new TimeStamp(start).date()}
+                  </Text.DateTime>
+                );
+              },
             },
             {
               key: "end",
               label: "End",
+              render: ({ entry: { start, end }, style }) => {
+                const startTS = new TimeStamp(start);
+                const endTS = new TimeStamp(end);
+                return (
+                  <Text.DateTime
+                    level="p"
+                    style={style}
+                    format={
+                      endTS.sub(startTS) < TimeSpan.Day ? "timeShort" : "dateTimeShort"
+                    }
+                  >
+                    {endTS}
+                  </Text.DateTime>
+                );
+              },
             },
           ]}
         />

@@ -6,11 +6,11 @@ import tsconfigPaths from "vite-tsconfig-paths";
 export default defineConfig({
   clearScreen: false,
   server: {
-    port: 5174,
+    port: 5173,
     strictPort: true,
   },
   envPrefix: ["VITE_", "TAURI_"],
-  plugins: [tsconfigPaths(), react(), svgr()],
+  plugins: [react(), tsconfigPaths(), svgr()],
   build: {
     target: ["es2021", "chrome100", "safari13"],
     minify: !process.env.TAURI_DEBUG ? "esbuild" : false,

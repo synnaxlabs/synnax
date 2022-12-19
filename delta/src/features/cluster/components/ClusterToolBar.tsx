@@ -1,6 +1,7 @@
 import { Space, Header, List, Text } from "@synnaxlabs/pluto";
 import type { ListItemProps, ListEntry } from "@synnaxlabs/pluto";
-import { AiFillDatabase, AiOutlinePlus } from "react-icons/ai";
+import { AiOutlinePlus } from "react-icons/ai";
+import { BsStack } from "react-icons/bs";
 import { useDispatch } from "react-redux";
 
 import { useSelectActiveCluster, useSelectClusters } from "../store";
@@ -8,6 +9,8 @@ import { setActiveCluster } from "../store/slice";
 import { Cluster } from "../types";
 
 import { Layout, useLayoutPlacer } from "@/features/layout";
+
+const ToolBarIcon = BsStack;
 
 const connectClusterWindowLayout: Layout = {
   key: "connectCluster",
@@ -33,7 +36,7 @@ const Content = (): JSX.Element => {
       <Header
         level="h4"
         divided
-        icon={<AiFillDatabase />}
+        icon={<ToolBarIcon />}
         actions={[
           {
             children: <AiOutlinePlus />,
@@ -90,7 +93,7 @@ const ListItem = ({
 export const ClusterToolBar = {
   key: "clusters",
   content: <Content />,
-  icon: <AiFillDatabase />,
+  icon: <ToolBarIcon />,
   minSize: 150,
   maxSize: 500,
   initialSize: 250,

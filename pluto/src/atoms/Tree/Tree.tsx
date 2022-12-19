@@ -9,7 +9,7 @@ import { useMultiSelect, useMultiSelectProps } from "../List/useMultiSelect";
 import { Button, ButtonProps } from "@/atoms/Button";
 
 export interface TreeProps
-  extends useMultiSelectProps<TreeLeaf>,
+  extends useMultiSelectProps<RenderableTreeLeaf>,
     Omit<
       DetailedHTMLProps<HtmlHTMLAttributes<HTMLUListElement>, HTMLUListElement>,
       "onSelect"
@@ -26,7 +26,7 @@ export const Tree = ({
   onExpand,
   ...props
 }: TreeProps): JSX.Element => {
-  const { selected, onSelect } = useMultiSelect<TreeLeaf>({
+  const { selected, onSelect } = useMultiSelect<RenderableTreeLeaf>({
     selectMultiple: false,
     selected: propsSelected,
     onSelect: propsOnSelect,
@@ -57,6 +57,8 @@ export interface TreeLeaf {
   icon?: ReactElement;
   children?: TreeLeaf[];
 }
+
+type RenderableTreeLeaf = Omit<TreeLeaf, "icon" | "children" | "hasChildren">;
 
 interface TreeLeafProps extends Omit<TreeLeaf, "key"> {
   onSelect: (key: string) => void;

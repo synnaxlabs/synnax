@@ -32,13 +32,7 @@ export const Accordion = ({ direction, entries }: AccordionProps): JSX.Element =
   };
 
   return (
-    <Resize.Multiple
-      empty
-      style={{ height: "100%" }}
-      sizes={sizes}
-      setSize={setSize}
-      {...resizeProps}
-    >
+    <Resize.Multiple empty style={{ height: "100%" }} sizes={sizes} {...resizeProps}>
       {entries.map((entry, i) => (
         <AccordionEntryC
           {...entry}

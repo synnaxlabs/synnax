@@ -3,7 +3,7 @@ import { ListColumn } from "./ListColumn";
 import { useListContext } from "./ListContext";
 import { ListCore } from "./ListCore";
 import { ListSearch } from "./ListSearch";
-export type { ListEntry, TypedListColumn, ListItemProps } from "./types";
+export type { RenderableRecord, TypedListColumn, ListItemProps } from "./types";
 
 type BaseListType = typeof BaseList;
 

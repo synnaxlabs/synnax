@@ -95,14 +95,20 @@ impl<R: Runtime> WindowExt for Window<R> {
 
 
 fn main() {
-   tauri::Builder::default()
-      .on_window_event(|event| match event.event() {
+   let app = tauri::Builder::default()
+    .on_window_event(|event| match event.event() {
          tauri::WindowEvent::Focused {..} => {
             event.window().set_transparent_titlebar(true);
 						event.window().position_traffic_lights(15.0, 17.5);
          }
          _ => {}
       })
-      .run(tauri::generate_context!())
+     .build(tauri::generate_context!())
       .expect("error while running tauri application");
+    app.run(|_app_handle, event| match event {
+        tauri::RunEvent::ExitRequested { .. } => {
+        _app_handle.exit(0);
+        }
+        _ => {}
+    });
 }

@@ -1,7 +1,7 @@
 import { PropsWithChildren, useContext, createContext } from "react";
 
 import {
-  ListEntry,
+  RenderableRecord,
   TypedListColumn,
   TypedListTransform,
   UntypedListColumn,
@@ -9,8 +9,8 @@ import {
 } from "./types";
 
 export interface ListContextProps {
-  data: ListEntry[];
-  sourceData: ListEntry[];
+  data: RenderableRecord[];
+  sourceData: RenderableRecord[];
   selected: string[];
   onSelect: (key: string) => void;
   clearSelected: () => void;
@@ -22,7 +22,7 @@ export interface ListContextProps {
   removeTransform: (key: string) => void;
 }
 
-export interface TypedListContextProps<E extends ListEntry> {
+export interface TypedListContextProps<E extends RenderableRecord<E>> {
   columnar: {
     columns: Array<TypedListColumn<E>>;
     setColumns: (
@@ -52,16 +52,18 @@ export const ListContext = createContext<ListContextProps>({
   onSelect: () => undefined,
 });
 
-export const useListContext = <E extends ListEntry>(): TypedListContextProps<E> => {
+export const useListContext = <
+  E extends RenderableRecord<E>
+>(): TypedListContextProps<E> => {
   return useContext(ListContext) as unknown as TypedListContextProps<E>;
 };
 
-export interface ListContextProviderProps<E extends ListEntry>
+export interface ListContextProviderProps<E extends RenderableRecord<E>>
   extends PropsWithChildren<unknown> {
   value: TypedListContextProps<E>;
 }
 
-export const ListContextProvider = <E extends ListEntry>({
+export const ListContextProvider = <E extends RenderableRecord<E>>({
   value,
   children,
 }: ListContextProviderProps<E>): JSX.Element => {

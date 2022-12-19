@@ -12,7 +12,14 @@ export interface WorkspaceStoreState {
 }
 
 export const initialState: WorkspaceState = {
-  ranges: [],
+  ranges: [
+    {
+      key: "range1",
+      name: "Range 1",
+      start: 125261234614689,
+      end: 225261234614699,
+    },
+  ],
 };
 
 type AddRangeAction = PayloadAction<Range>;

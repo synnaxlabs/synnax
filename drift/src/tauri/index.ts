@@ -46,11 +46,11 @@ export class TauriRuntime<S extends StoreState, A extends Action = AnyAction>
   }
 
   create({ key, ...props }: KeyedWindowProps): void {
-    const w = new WebviewWindow(key, {
-      ...props,
-      visible: false,
-    });
-    void w.once(tauriError, console.error);
+    // const w = new WebviewWindow(key, {
+    //   ...props,
+    //   visible: false,
+    // });
+    // void w.once(tauriError, console.error);
   }
 
   emit(event_: Omit<Event<S, A>, "emitter">, to?: string): void {

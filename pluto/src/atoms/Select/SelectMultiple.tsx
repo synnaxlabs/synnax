@@ -9,14 +9,14 @@ import { ListProps } from "../List/List";
 
 import { Button } from "@/atoms/Button";
 import { Input, InputProps } from "@/atoms/Input";
-import { List, ListEntry } from "@/atoms/List";
+import { List, RenderableRecord } from "@/atoms/List";
 import { Space } from "@/atoms/Space";
 import { Tag } from "@/atoms/Tag";
 import { useClickoutside } from "@/hooks";
 
 import "./SelectMultiple.css";
 
-export interface SelectMultipleProps<E extends ListEntry>
+export interface SelectMultipleProps<E extends RenderableRecord<E>>
   extends Omit<ListProps<E>, "data"> {
   options?: E[];
   tagKey?: keyof E;
@@ -24,7 +24,7 @@ export interface SelectMultipleProps<E extends ListEntry>
   listPosition?: "top" | "bottom";
 }
 
-export const SelectMultiple = <E extends ListEntry>({
+export const SelectMultiple = <E extends RenderableRecord<E>>({
   options = [],
   columns = [],
   listPosition = "bottom",
@@ -73,13 +73,13 @@ export const SelectMultiple = <E extends ListEntry>({
   );
 };
 
-interface SelectMultipleInputProps<E extends ListEntry> extends InputProps {
+interface SelectMultipleInputProps<E extends RenderableRecord<E>> extends InputProps {
   focused: boolean;
   onFocus: () => void;
   tagKey: keyof E;
 }
 
-const SelectMultipleInput = <E extends ListEntry>({
+const SelectMultipleInput = <E extends RenderableRecord<E>>({
   value,
   onChange,
   focused,

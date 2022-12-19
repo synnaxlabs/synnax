@@ -50,4 +50,5 @@ export const WorkspaceToolBar = {
   key: "workspace",
   icon: <MdWorkspacesFilled />,
   content: <Content />,
+  initialSize: 350,
 };

@@ -1,13 +1,18 @@
-import { useEffect, useState } from "react";
+import { CSSProperties, useEffect, useState } from "react";
 
 import clsx from "clsx";
 import { AiFillCaretDown, AiFillCaretUp } from "react-icons/ai";
 
-import { getTextWidth } from "../../util/canvas";
+import { measureTextWidth } from "../../util/canvas";
 import { sortFunc } from "../../util/sort";
 
 import { useListContext } from "./ListContext";
-import { ListEntry, ListItemProps, TypedListColumn, TypedListTransform } from "./types";
+import {
+  RenderableRecord,
+  ListItemProps,
+  TypedListColumn,
+  TypedListTransform,
+} from "./types";
 
 import { Space } from "@/atoms/Space";
 import { Text } from "@/atoms/Typography";
@@ -15,13 +20,13 @@ import { useFont } from "@/theming";
 
 import "./ListColumn.css";
 
-type SortState<E extends ListEntry> = [keyof E, boolean];
+type SortState<E extends RenderableRecord<E>> = [keyof E | null, boolean];
 
-export interface ListColumnHeaderProps<E extends ListEntry> {
+export interface ListColumnHeaderProps<E extends RenderableRecord<E>> {
   columns: Array<TypedListColumn<E>>;
 }
 
-const ListColumnHeader = <E extends ListEntry>({
+const ListColumnHeader = <E extends RenderableRecord<E>>({
   columns: initialColumns,
 }: ListColumnHeaderProps<E>): JSX.Element => {
   const {
@@ -32,13 +37,13 @@ const ListColumnHeader = <E extends ListEntry>({
   } = useListContext<E>();
 
   const font = useFont("p");
-  const [sort, setSort] = useState<SortState<E>>(["", false]);
+  const [sort, setSort] = useState<SortState<E>>([null, false]);
 
   const onSort = (k: keyof E): void => {
     const [prevSort, prevDir] = sort;
     if (prevSort === k) {
       if (!prevDir) {
-        setSort(["", false]);
+        setSort([null, false]);
         removeTransform("sort");
       } else {
         setSort([k, !prevDir]);
@@ -82,7 +87,7 @@ const ListColumnHeader = <E extends ListEntry>({
               level="p"
               endIcon={endIcon}
               style={{
-                width: col.width,
+                minWidth: col.width,
                 cursor: "pointer",
                 userSelect: "none",
                 fontWeight: "bold",
@@ -97,7 +102,7 @@ const ListColumnHeader = <E extends ListEntry>({
   );
 };
 
-const ListColumnItem = <E extends ListEntry>({
+const ListColumnItem = <E extends RenderableRecord<E>>({
   entry,
   selected,
   columns,
@@ -119,20 +124,36 @@ const ListColumnItem = <E extends ListEntry>({
       {columns
         .filter(({ visible = true }) => visible)
         .map((col) => (
-          <Text
-            key={col.key as string}
-            level="p"
-            style={{ width: col.width, userSelect: "none", padding: 6 }}
-          >
-            {entry[col.key]}
-          </Text>
+          <ListColumnValue key={col.key as string} entry={entry} col={col} />
         ))}
     </Space>
   );
 };
 
+interface ListColumnValueProps<E extends RenderableRecord<E>> {
+  entry: E;
+  col: TypedListColumn<E>;
+}
+
+const ListColumnValue = <E extends RenderableRecord<E>>({
+  entry,
+  col: { render: Render, width, ...col },
+}: ListColumnValueProps<E>): JSX.Element => {
+  const style: CSSProperties = { width, userSelect: "none", padding: 6 };
+  if (Render != null) return <Render entry={entry} style={style} />;
+  return (
+    <Text
+      key={col.key as string}
+      level="p"
+      style={{ minWidth: width, userSelect: "none", padding: 6 }}
+    >
+      {entry[col.key]}
+    </Text>
+  );
+};
+
 const entrySortFunc =
-  <E extends ListEntry>(type: string, key: keyof E) =>
+  <E extends RenderableRecord<E>>(type: string, key: keyof E) =>
   (a: E, b: E) =>
     sortFunc(type)(a[key], b[key]);
 
@@ -141,7 +162,7 @@ const reverseSort =
   (a: T, b: T) =>
     f(b, a);
 
-const columnWidths = <E extends ListEntry>(
+const columnWidths = <E extends RenderableRecord<E>>(
   columns: Array<TypedListColumn<E>>,
   data: E[],
   font: string,
@@ -149,8 +170,8 @@ const columnWidths = <E extends ListEntry>(
 ): Array<TypedListColumn<E>> => {
   const le = longestEntries(data);
   return columns.map((col) => {
-    const labelWidth = getTextWidth(col.label, font);
-    const entryWidth = getTextWidth(le[col.key], font);
+    const labelWidth = measureTextWidth(col.label, font);
+    const entryWidth = measureTextWidth(le[col.key], font);
     return {
       ...col,
       width: Math.max(labelWidth, entryWidth) + padding,
@@ -158,25 +179,25 @@ const columnWidths = <E extends ListEntry>(
   });
 };
 
-const longestEntries = <E extends ListEntry>(data: E[]): Record<keyof E, string> => {
+const longestEntries = <E extends RenderableRecord<E>>(
+  data: E[]
+): Record<keyof E, string> => {
   // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
   const longest = {} as Record<keyof E, string>;
   data.forEach((entry: E) => {
-    Object.entries(entry).forEach(
-      ([key, value]: [keyof E, string | number | undefined]) => {
-        if (
-          typeof value === "string" &&
-          value.length > (longest[key]?.length !== 0 || 0)
-        ) {
-          longest[key] = value;
-        }
+    Object.entries(entry).forEach(([key, value]) => {
+      if (
+        typeof value === "string" &&
+        value.length > (longest[key as keyof E]?.length !== 0 || 0)
+      ) {
+        longest[key as keyof E] = value;
       }
-    );
+    });
   });
   return longest;
 };
 
-const sortTransform = <E extends ListEntry>(
+const sortTransform = <E extends RenderableRecord<E>>(
   k: keyof E,
   dir: boolean
 ): TypedListTransform<E> => {

@@ -1,19 +1,17 @@
 import { useEffect, useState } from "react";
 
+import { RenderableRecord } from "./types";
+
 import { useKeyHeld } from "@/hooks";
 
-export interface useMultiSelectProps<E extends Partial<Record<keyof E, unknown>>> {
+export interface useMultiSelectProps<E extends RenderableRecord<E>> {
   data: E[];
   selected?: string[];
   selectMultiple?: boolean;
   onSelect?: (selected: string[]) => void;
 }
 
-type KeyedRecord<K extends string | number | symbol> = Partial<Record<K, unknown>> & {
-  key: string;
-};
-
-export const useMultiSelect = <E extends KeyedRecord<keyof E>>({
+export const useMultiSelect = <E extends RenderableRecord<E>>({
   data,
   selected: selectedProp,
   selectMultiple = true,
