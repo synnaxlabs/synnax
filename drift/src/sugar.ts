@@ -10,7 +10,7 @@ const sugarType = (type: string, emitter: string): string =>
 
 const desugarType = (type: string): [string, string] => {
   const [prefix, embedded] = type.split(DRIFT_PREFIX_SPLITTER);
-  if (embedded?.length === 0) return [type, ""];
+  if (embedded == null) return [type, ""];
   const [, winKey] = prefix.split(DRIFT_ACTION_INDICATOR);
   return [embedded, winKey];
 };
@@ -42,7 +42,10 @@ export const desugar = <A extends Action = AnyAction>(
   emitter: string;
   action: A | DriftAction;
 } => {
-  let emitter: string;
-  [action.type, emitter] = desugarType(action.type);
-  return { emitted: emitter !== "", emitter, action };
+  const [type, emitter] = desugarType(action.type);
+  return {
+    emitted: emitter != null && emitter.length > 0,
+    emitter,
+    action: { ...action, type },
+  };
 };
