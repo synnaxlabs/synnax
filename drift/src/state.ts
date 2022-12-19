@@ -81,7 +81,6 @@ const slice = createSlice({
         processCount: 0,
         props: payload as KeyedWindowProps,
       };
-      console.log(state.windows);
     },
     setWindowState: ({ windows }, { payload }: PayloadAction<SetWindowPayload>) => {
       const { key, state } = assertKey<SetWindowPayload>(payload);
@@ -251,8 +250,8 @@ export const executeAction = <S extends StoreState, A extends Action = AnyAction
       // Execute a close request even if we can't find the window in state.
       // This is mainly to deal with redux state being out of sync with the
       // window state.
-      const win = windows[key];
-      if (win.processCount <= 0) runtime.close(key);
+      const win = windows[key] as Window | undefined;
+      if (win == null || win.processCount <= 0) runtime.close(key);
       break;
     }
     case actions.completeProcess.type: {

@@ -4,6 +4,7 @@ import type { CurriedGetDefaultMiddleware } from "@reduxjs/toolkit/dist/getDefau
 import { Runtime } from "./runtime";
 import { StoreState, assignKey, executeAction, isDrift, shouldEmit } from "./state";
 import { desugar } from "./sugar";
+import { validateAction } from "./validate";
 
 // eslint-disable-next-line @typescript-eslint/ban-types
 export type Middlewares<S> = ReadonlyArray<Middleware<{}, S>>;
@@ -25,6 +26,8 @@ export const middleware = <S extends StoreState, A extends Action = AnyAction>(
     (action_) => {
       // eslint-disable-next-line prefer-const
       let { action, emitted, emitter } = desugar(action_);
+
+      validateAction({ action: action_, emitted, emitter });
 
       // The action is recirculating from our own relay.
       if (emitter === runtime.key()) return;
