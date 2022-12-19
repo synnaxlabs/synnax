@@ -30,7 +30,7 @@ export const Mosaic = (props: MosaicProps): JSX.Element | null => {
   const resizeProps = Resize.useMultiple({
     direction,
     onResize: _onResize,
-    itemCount: 2,
+    count: 2,
     initialSizes: size != null ? [size] : undefined,
   });
 

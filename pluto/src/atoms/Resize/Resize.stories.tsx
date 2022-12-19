@@ -23,7 +23,7 @@ Primary.args = {
 };
 
 export const Multiple: ComponentStory<typeof Resize.Multiple> = () => {
-  const props = Resize.useMultiple({ initialSizes: [100, 200], itemCount: 3 });
+  const props = Resize.useMultiple({ initialSizes: [100, 200], count: 3 });
   return (
     <Resize.Multiple
       {...props}

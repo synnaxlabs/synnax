@@ -16,33 +16,28 @@ import { useResize } from "@/hooks";
 import { Dimensions, Direction, getDirectionalSize, getLocation } from "@/util";
 
 export interface UseResizeMultipleProps {
-  itemCount: number;
+  count: number;
   onResize?: (sizes: number[]) => void;
   direction?: Direction;
   initialSizes?: number[];
-  maxSize?: number;
   minSize?: number;
 }
 
 export interface ResizeMultipleProps extends SpaceProps {
   sizes: number[];
-  setDragging: (i: number) => void;
-  setSize: (i: number, diff?: number, size?: number) => void;
+  onDragHandle: (i: number) => void;
 }
 
-export interface UseResizeMultipleReturn {
+export interface UseResizeMultipleReturn extends ResizeMultipleProps {
   direction: Direction;
-  sizes: number[];
-  setDragging: (i: number) => void;
   setSize: (i: number, diff?: number, size?: number) => void;
   ref: ForwardedRef<HTMLDivElement>;
 }
 
 export const useResizeMultiple = ({
-  itemCount,
+  count,
   onResize,
   initialSizes = [],
-  maxSize = Infinity,
   minSize = 100,
   direction = "horizontal",
 }: UseResizeMultipleProps): UseResizeMultipleReturn => {
@@ -60,42 +55,36 @@ export const useResizeMultiple = ({
 
         // If the previous sizes aren't valid, simply distribute the space evenly
         // between all children.
-        if (!validateSizes(itemCount, prevSizes))
-          return Array.from({ length: itemCount }, () => nextPSize / itemCount);
+        if (!validateSizes(count, prevSizes))
+          return Array.from({ length: count }, () => nextPSize / count);
 
-        const sizePercentages = calculatePercentages(itemCount, prevSizes, nextPSize);
+        const sizePercentages = calculatePercentages(count, prevSizes, nextPSize);
         return sizePercentages.map((size) => size * nextPSize);
       }),
-    [direction, itemCount]
+    [direction, count]
   );
 
   useResize({ ref, onResize: handleResize });
 
   const setSize = useCallback(
-    (i: number, diff?: number, size?: number) => {
+    (i: number, diff?: number, targetSize?: number) => {
       setSizes((prevSizes: number[]) => {
         diff = diff ?? 0;
-        if (size !== undefined) diff = size - prevSizes[i];
-
-        let next = prevSizes[i] + diff;
-        const nextSiblingIndex = i + 1 < prevSizes.length ? i + 1 : i - 1;
-        let nextSibling = prevSizes[nextSiblingIndex] - diff;
-        if (next < minSize) {
-          next = minSize;
-          nextSibling = prevSizes[nextSiblingIndex] - (minSize - prevSizes[i]);
-        } else if (nextSibling < minSize) {
-          nextSibling = minSize;
-          next = prevSizes[i] - (minSize - prevSizes[nextSiblingIndex]);
-        }
-
-        return prevSizes.map((size, j) => {
-          if (j === i) return next;
-          if (j === nextSiblingIndex) return nextSibling;
-          return size;
+        if (targetSize !== undefined) diff = targetSize - prevSizes[i];
+        const nextState = resizeWithSibling(prevSizes, i, diff, minSize);
+        if (nextState == null) return prevSizes;
+        const { item, size, sibling, siblingSize } = nextState;
+        const prevTotal = prevSizes.reduce((a, b) => a + b, 0);
+        const nextSizes = prevSizes.map((prev, j) => {
+          if (j === item) return size;
+          if (j === sibling) return siblingSize;
+          return prev;
         });
+        const nextTotal = nextSizes.reduce((a, b) => a + b, 0);
+        return nextSizes.map((s) => (s / nextTotal) * prevTotal);
       });
     },
-    [maxSize, minSize, setSizes]
+    [minSize, setSizes]
   );
 
   useEffect(() => {
@@ -115,7 +104,7 @@ export const useResizeMultiple = ({
     };
   }, [dragging, onResize]);
 
-  return { direction, sizes, setDragging, setSize, ref };
+  return { direction, sizes, onDragHandle: setDragging, setSize, ref };
 };
 
 export const ResizeMultiple = forwardRef(
@@ -124,7 +113,7 @@ export const ResizeMultiple = forwardRef(
       direction = "horizontal",
       children: _children,
       sizes,
-      setDragging,
+      onDragHandle: onDrag,
       ...props
     }: ResizeMultipleProps,
     ref: ForwardedRef<HTMLDivElement>
@@ -144,7 +133,7 @@ export const ResizeMultiple = forwardRef(
         {children.map((child, i) => {
           return (
             <ResizeCore
-              onDragStart={() => setDragging(i)}
+              onDragStart={() => onDrag(i)}
               key={i}
               location={location}
               size={sizes[i]}
@@ -189,4 +178,38 @@ const calculatePercentages = (
     sizes = sizes.map((size) => size / totalSize);
 
   return sizes;
+};
+
+const resizeWithSibling = (
+  prevSizes: number[],
+  item: number,
+  diff: number,
+  minSize: number
+): {
+  item: number;
+  size: number;
+  sibling: number;
+  siblingSize: number;
+} | null => {
+  let next = item;
+
+  // The while loops find a pane we can actually resize.
+  while (next > 0 && prevSizes[next] + diff <= minSize) next--;
+  const nextSize = prevSizes[next] + diff;
+
+  let nextSibling = item + 1;
+  while (nextSibling < prevSizes.length - 1 && prevSizes[nextSibling] - diff <= minSize)
+    nextSibling++;
+  const nextSiblingSize = prevSizes[nextSibling] - diff;
+
+  // This means we can't resize any panes so we return null to indicate that the next
+  // set of sizes should remain the same.
+  if (nextSize < minSize || nextSiblingSize < minSize) return null;
+
+  return {
+    item: next,
+    size: nextSize,
+    sibling: nextSibling,
+    siblingSize: nextSiblingSize,
+  };
 };
