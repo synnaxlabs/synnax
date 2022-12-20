@@ -43,7 +43,7 @@ export interface EncoderDecoder {
    * @param data - The data to decode.
    * @param schema - The schema to decode the data with.
    */
-  decode: <P>(data: Uint8Array | ArrayBuffer, schema: ZodSchema<P>) => P;
+  decode: <P>(data: Uint8Array | ArrayBuffer, schema?: ZodSchema<P>) => P;
 }
 
 interface StaticEncoderDecoder {
@@ -58,8 +58,9 @@ export class MsgpackEncoderDecoder implements EncoderDecoder {
     return pack(snakeKeys(payload));
   }
 
-  decode<P>(data: Uint8Array | ArrayBuffer, schema: ZodSchema<P>): P {
-    return schema.parse(camelKeys(unpack(new Uint8Array(data))));
+  decode<P>(data: Uint8Array | ArrayBuffer, schema?: ZodSchema<P>): P {
+    const unpacked = camelKeys(unpack(new Uint8Array(data)));
+    return schema != null ? schema.parse(unpacked) : (unpacked as P);
   }
 
   static registerCustomType(encoder: CustomTypeEncoder): void {
@@ -79,8 +80,9 @@ export class JSONEncoderDecoder implements EncoderDecoder {
     return new TextEncoder().encode(json);
   }
 
-  decode<P>(data: Uint8Array | ArrayBuffer, schema: ZodSchema<P>): P {
-    return schema.parse(camelKeys(JSON.parse(new TextDecoder().decode(data))));
+  decode<P>(data: Uint8Array | ArrayBuffer, schema?: ZodSchema<P>): P {
+    const unpacked = camelKeys(JSON.parse(new TextDecoder().decode(data)));
+    return schema != null ? schema.parse(unpacked) : (unpacked as P);
   }
 
   static registerCustomType(): void {}

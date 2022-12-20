@@ -1,14 +1,14 @@
 import { TimeSpan, TimeStamp } from "@synnaxlabs/client";
 import { Text, List, Space } from "@synnaxlabs/pluto";
 
-import { useSelectRanges } from "../store";
+import { selectRange, useSelectRanges } from "../store";
 import type { Range } from "../store";
 
 export const RangesAccordionEntry = (): JSX.Element => {
   const ranges = useSelectRanges();
   return (
-    <Space style={{ height: "100%" }}>
-      <List data={ranges}>
+    <Space style={{ height: "100%" }} empty>
+      <List data={ranges} onSelect={([key]) => selectRange(key)} selectMultiple={false}>
         <List.Column.Header<Range>
           columns={[
             {

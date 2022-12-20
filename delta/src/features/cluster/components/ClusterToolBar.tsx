@@ -1,16 +1,15 @@
 import { Space, Header, List, Text } from "@synnaxlabs/pluto";
-import type { ListItemProps, ListEntry } from "@synnaxlabs/pluto";
+import type { ListItemProps, RenderableRecord } from "@synnaxlabs/pluto";
 import { AiOutlinePlus } from "react-icons/ai";
-import { BsStack } from "react-icons/bs";
 import { useDispatch } from "react-redux";
 
 import { useSelectActiveCluster, useSelectClusters } from "../store";
 import { setActiveCluster } from "../store/slice";
 import { Cluster } from "../types";
 
-import { Layout, useLayoutPlacer } from "@/features/layout";
+import { ClusterIcon } from "./Icon";
 
-const ToolBarIcon = BsStack;
+import { Layout, useLayoutPlacer } from "@/features/layout";
 
 const connectClusterWindowLayout: Layout = {
   key: "connectCluster",
@@ -36,7 +35,7 @@ const Content = (): JSX.Element => {
       <Header
         level="h4"
         divided
-        icon={<ToolBarIcon />}
+        icon={<ClusterIcon />}
         actions={[
           {
             children: <AiOutlinePlus />,
@@ -46,11 +45,11 @@ const Content = (): JSX.Element => {
       >
         Clusters
       </Header>
-      <List
+      <List<Omit<Cluster, "state" | "props">>
         selectMultiple={false}
-        data={Object.values(clusters) as unknown as ListEntry[]}
+        data={Object.values(clusters)}
         selected={active != null ? [active?.key] : []}
-        onSelect={(key: string[]) => dispatch(setActiveCluster(key[0]))}
+        onSelect={([key]) => dispatch(setActiveCluster(key))}
       >
         <List.Core.Virtual itemHeight={30}>{ListItem}</List.Core.Virtual>
       </List>
@@ -93,7 +92,7 @@ const ListItem = ({
 export const ClusterToolBar = {
   key: "clusters",
   content: <Content />,
-  icon: <ToolBarIcon />,
+  icon: <ClusterIcon />,
   minSize: 150,
   maxSize: 500,
   initialSize: 250,

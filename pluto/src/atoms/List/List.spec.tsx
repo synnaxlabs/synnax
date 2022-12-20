@@ -44,15 +44,15 @@ const colList = (
   </List>
 );
 
-describe("List", () => {
+describe.only("List", () => {
   beforeAll(() => {
     vi.mock("../../util/canvas.ts", () => ({
-      getTextWidth: () => 0,
+      textWidth: () => 0,
     }));
     Element.prototype.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 100);
   });
   describe("Column", () => {
-    it("should render a column list with the provided items", async () => {
+    it.only("should render a column list with the provided items", async () => {
       const c = render(colList);
       expect(c.getByText("Name")).toBeTruthy();
       expect(c.getByText("Age")).toBeTruthy();

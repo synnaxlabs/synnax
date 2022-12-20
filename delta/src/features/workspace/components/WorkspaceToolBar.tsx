@@ -2,18 +2,18 @@ import { Header, Space, Accordion } from "@synnaxlabs/pluto";
 import { AiOutlinePlus } from "react-icons/ai";
 import { MdWorkspacesFilled } from "react-icons/md";
 
-import { RangesAccordionEntry } from "./RangesAccordionEntry";
+import { RangesAccordionEntry } from "./RangesList";
 
 import { Layout, useLayoutPlacer } from "@/features/layout";
 
-const defineRangeWindowLayout: Layout = {
+const rangeWindowLayout: Layout = {
   key: "defineRange",
   type: "defineRange",
   title: "Define Range",
   location: "window",
   window: {
     resizable: false,
-    height: 325,
+    height: 330,
     width: 550,
     navTop: true,
   },
@@ -36,7 +36,7 @@ const Content = (): JSX.Element => {
             actions: [
               {
                 children: <AiOutlinePlus />,
-                onClick: () => openWindow(defineRangeWindowLayout),
+                onClick: () => openWindow(rangeWindowLayout),
               },
             ],
           },

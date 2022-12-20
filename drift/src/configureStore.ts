@@ -27,8 +27,9 @@ export interface ConfigureStoreOptions<
   S extends StoreState,
   A extends Action = AnyAction,
   M extends Middlewares<S> = Middlewares<S>
-> extends BaseOpts<S, A, M> {
+> extends Omit<BaseOpts<S, A, M>, "preloadedState"> {
   runtime: Runtime<S, A>;
+  preloadedState: PreloadedState<S> | (() => Promise<PreloadedState<S>>);
 }
 
 /**
@@ -58,16 +59,10 @@ export const configureStore = async <
 }: ConfigureStoreOptions<S, A, M>): Promise<Store<S, A | DriftAction>> => {
   // eslint-disable-next-line prefer-const
   let store: Store<S, A | DriftAction> | undefined;
-
-  preloadedState = await new Promise<PreloadedState<S> | undefined>((resolve) => {
-    listen(runtime, () => store, resolve);
-    if (runtime.isMain()) resolve(preloadedState);
-    else runtime.emit({ sendState: true }, MAIN_WINDOW);
-  });
-
+  // eslint-disable-next-line prefer-const
   store = base<S, A, M>({
     ...opts,
-    preloadedState,
+    preloadedState: await receivePreloadedState(runtime, () => store, preloadedState),
     middleware: configureMiddleware(middleware, runtime),
   });
 
@@ -77,4 +72,22 @@ export const configureStore = async <
   runtime.ready();
 
   return store;
+};
+
+const receivePreloadedState = async <
+  S extends StoreState,
+  A extends Action = AnyAction
+>(
+  runtime: Runtime<S, A>,
+  store: () => Store<S, A | DriftAction> | undefined,
+  preloadedState: (() => Promise<PreloadedState<S>>) | PreloadedState<S> | undefined
+): Promise<PreloadedState<S> | undefined> => {
+  return await new Promise<PreloadedState<S> | undefined>((resolve) => {
+    listen(runtime, store, resolve);
+    if (runtime.isMain()) {
+      if (typeof preloadedState === "function")
+        preloadedState().then(resolve).catch(console.error);
+      else resolve(preloadedState);
+    } else runtime.emit({ sendState: true }, MAIN_WINDOW);
+  });
 };

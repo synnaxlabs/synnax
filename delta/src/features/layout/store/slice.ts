@@ -50,6 +50,7 @@ type MoveLayoutMosaicTabAction = PayloadAction<{
 }>;
 type ResizeLayoutMosaicTabAction = PayloadAction<{ key: number; size: number }>;
 type SelectLayoutMosaicTabAction = PayloadAction<{ tabKey: string }>;
+type RenameLayoutMosaicTabAction = PayloadAction<{ tabKey: string; title: string }>;
 
 export const {
   actions: {
@@ -59,6 +60,7 @@ export const {
     moveLayoutMosaicTab,
     selectLayoutMosaicTab,
     resizeLayoutMosaicTab,
+    renameLayoutMosaicTab,
     toggleTheme,
     setTheme,
   },
@@ -121,6 +123,12 @@ export const {
       { payload: { key, size } }: ResizeLayoutMosaicTabAction
     ) => {
       state.mosaic = Mosaic.resizeLeaf(state.mosaic, key, size);
+    },
+    renameLayoutMosaicTab: (
+      state,
+      { payload: { tabKey, title } }: RenameLayoutMosaicTabAction
+    ) => {
+      state.mosaic = Mosaic.renameTab(state.mosaic, tabKey, title);
     },
     setTheme: (state, { payload: key }: SetThemeAction) => {
       state.theme = key;

@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { render, fireEvent } from "@testing-library/react";
 import { AiFillCloseCircle } from "react-icons/ai";
 import { describe, expect, it } from "vitest";
 
@@ -27,6 +27,15 @@ describe("Text", () => {
         </Text.WithIcon>
       );
       expect(c.getByLabelText("close")).toBeTruthy();
+    });
+  });
+  describe("Editable", () => {
+    it("should focus and select the text when double clicked", () => {
+      const c = render(<Text.Editable level="h1">Hello</Text.Editable>);
+      const text = c.getByText("Hello");
+      fireEvent.dblClick(text);
+      expect(document.activeElement).toBe(text);
+      expect(window.getSelection()?.toString()).toBe("Hello");
     });
   });
 });

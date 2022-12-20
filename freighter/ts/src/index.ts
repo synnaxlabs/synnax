@@ -5,6 +5,7 @@ export {
   registerCustomTypeEncoder,
   ENCODERS,
 } from "./lib/encoder";
+export type { EncoderDecoder } from "./lib/encoder";
 export type { StreamClient, Stream } from "./lib/stream";
 export type { UnaryClient } from "./lib/unary";
 export { HTTPClientFactory } from "./lib/http";

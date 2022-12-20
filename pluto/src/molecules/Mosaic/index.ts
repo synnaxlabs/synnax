@@ -5,6 +5,7 @@ import {
   removeMosaicTab,
   resizeMosaicLeaf,
   selectMosaicTab,
+  renameMosaicTab,
 } from "./mosaicTree";
 import { useMosaic } from "./useMosaic";
 export * from "./types";
@@ -18,6 +19,7 @@ export interface MosaicType extends CoreMosaicType {
   selectTab: typeof selectMosaicTab;
   moveTab: typeof moveMosaicTab;
   resizeLeaf: typeof resizeMosaicLeaf;
+  renameTab: typeof renameMosaicTab;
 }
 
 export const Mosaic = CoreMosaic as MosaicType;
@@ -28,3 +30,4 @@ Mosaic.removeTab = removeMosaicTab;
 Mosaic.selectTab = selectMosaicTab;
 Mosaic.moveTab = moveMosaicTab;
 Mosaic.resizeLeaf = resizeMosaicLeaf;
+Mosaic.renameTab = renameMosaicTab;

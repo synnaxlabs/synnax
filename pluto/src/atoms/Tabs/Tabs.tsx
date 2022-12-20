@@ -38,6 +38,14 @@ export const resetTabSelection = (
 ): string | undefined =>
   tabs.find((t) => t.tabKey === selected) != null ? selected : tabs[0]?.tabKey;
 
+export const renameTab = (key: string, title: string, tabs: Tab[]): Tab[] => {
+  title = title.trim();
+  if (title.length === 0) return tabs;
+  const t = tabs.find((t) => t.tabKey === key);
+  if (t == null || t.title === title) return tabs;
+  return tabs.map((t) => (t.tabKey === key ? { ...t, title } : t));
+};
+
 export const useStaticTabs = ({ tabs }: UseStaticTabsProps): TabsProps => {
   const [selected, setSelected] = useState(tabs[0]?.tabKey ?? "");
 
@@ -134,6 +142,7 @@ const TabC = ({
     <Space
       className={clsx(
         "pluto-tabs__tab",
+        onTitleChange == null && "pluto-tabs__tab--uneditable",
         selected === tabKey && "pluto-tabs__tab--selected"
       )}
       draggable
@@ -144,13 +153,7 @@ const TabC = ({
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
     >
-      <Text.Editable
-        level="p"
-        text={title}
-        onChange={(newText: string) => {
-          if (onTitleChange != null) onTitleChange(tabKey, newText);
-        }}
-      />
+      <TabTitle title={title} tabKey={tabKey} onTitleChange={onTitleChange} />
       {onClose != null && (
         <Button.IconOnly
           size="small"
@@ -161,5 +164,23 @@ const TabC = ({
         </Button.IconOnly>
       )}
     </Space>
+  );
+};
+
+interface TabTitleProps {
+  onTitleChange?: (key: string, title: string) => void;
+  title: string;
+  tabKey: string;
+}
+
+const TabTitle = ({ onTitleChange, title, tabKey }: TabTitleProps): JSX.Element => {
+  if (onTitleChange == null) return <Text level="p">{title}</Text>;
+  return (
+    <Text.Editable
+      level="p"
+      onChange={(newText: string) => onTitleChange(tabKey, newText)}
+    >
+      {title}
+    </Text.Editable>
   );
 };

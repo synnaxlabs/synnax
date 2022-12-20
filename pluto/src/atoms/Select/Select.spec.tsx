@@ -50,7 +50,7 @@ const selectMultiple = (
 describe("Select", () => {
   beforeAll(() => {
     vi.mock("../../util/canvas.ts", () => ({
-      getTextWidth: () => 0,
+      textWidth: () => 0,
     }));
     Element.prototype.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 100);
   });

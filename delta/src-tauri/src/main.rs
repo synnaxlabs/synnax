@@ -8,6 +8,7 @@
 extern crate objc;
 
 use tauri::{Runtime, Window};
+mod kv;
 
 pub trait WindowExt {
   fn set_transparent_titlebar(&self, transparent: bool);
@@ -95,7 +96,10 @@ impl<R: Runtime> WindowExt for Window<R> {
 
 
 fn main() {
-   let app = tauri::Builder::default()
+    let db = kv::open().unwrap();
+    tauri::Builder::default()
+        .manage(db)
+        .invoke_handler(tauri::generate_handler![kv::kv_exec])
     .on_window_event(|event| match event.event() {
          tauri::WindowEvent::Focused {..} => {
             event.window().set_transparent_titlebar(true);
@@ -103,12 +107,6 @@ fn main() {
          }
          _ => {}
       })
-     .build(tauri::generate_context!())
+     .run(tauri::generate_context!())
       .expect("error while running tauri application");
-    app.run(|_app_handle, event| match event {
-        tauri::RunEvent::ExitRequested { .. } => {
-        _app_handle.exit(0);
-        }
-        _ => {}
-    });
 }

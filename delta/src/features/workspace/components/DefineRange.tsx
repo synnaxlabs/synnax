@@ -44,7 +44,7 @@ export const DefineRange = ({
     dispatch(
       addRange({
         name: data.name,
-        key: data.name,
+        key: data.name.replace(/\s/g, "").toLowerCase(),
         start,
         end,
       })
@@ -54,7 +54,7 @@ export const DefineRange = ({
 
   return (
     <Space grow>
-      <Header level="h4" icon={<AiFillBoxPlot />}>
+      <Header level="h4" icon={<AiFillBoxPlot />} divided>
         Define a Range
       </Header>
       <form
@@ -64,7 +64,7 @@ export const DefineRange = ({
         }}
         id="define-range"
       >
-        <Space grow style={{ padding: "1rem" }} size="small">
+        <Space grow className="delta-form">
           <Input.Item
             label="Name"
             helpText={errors.name?.message?.toString()}

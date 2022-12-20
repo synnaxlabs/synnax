@@ -28,10 +28,11 @@ export interface ResizeMultipleProps extends SpaceProps {
   onDragHandle: (i: number) => void;
 }
 
-export interface UseResizeMultipleReturn extends ResizeMultipleProps {
-  direction: Direction;
+export interface UseResizeMultipleReturn {
   setSize: (i: number, diff?: number, size?: number) => void;
-  ref: ForwardedRef<HTMLDivElement>;
+  props: ResizeMultipleProps & {
+    ref: ForwardedRef<HTMLDivElement>;
+  };
 }
 
 export const useResizeMultiple = ({
@@ -104,7 +105,7 @@ export const useResizeMultiple = ({
     };
   }, [dragging, onResize]);
 
-  return { direction, sizes, onDragHandle: setDragging, setSize, ref };
+  return { setSize, props: { direction, sizes, onDragHandle: setDragging, ref } };
 };
 
 export const ResizeMultiple = forwardRef(

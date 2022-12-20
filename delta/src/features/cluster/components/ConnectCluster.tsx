@@ -65,7 +65,6 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps): JSX.Element =>
     void (async (): Promise<void> => {
       const ok = await trigger();
       if (!ok) return;
-      console.log(getValues().secure);
       const { state } = await testConnection(getValues() as SynnaxProps);
       setConnState(state);
     })();
@@ -76,7 +75,7 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps): JSX.Element =>
       <Header level="h4" icon={<AiFillApi />} divided>
         Connect a Cluster
       </Header>
-      <Space className="connect-cluster__content" direction="vertical" grow>
+      <Space className="delta-form" direction="vertical" grow>
         <form onSubmit={_handleSubmit} id="connect-cluster">
           <Space direction="vertical">
             <Input.Item

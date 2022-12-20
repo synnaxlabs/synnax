@@ -35,7 +35,8 @@
         "fix:delta": "npx turbo fix --filter delta",
         "fix:freighter": "npx turbo fix --filter freighter",
         "fix:client": "npx turbo fix --filter client",
-        "fix:drift": "npx turbo fix --filter drift"
+        "fix:drift": "npx turbo fix --filter drift",
+        "devtools": "npx turbo devtools --filter delta"
     },
     "workspaces": [
         "freighter/ts",

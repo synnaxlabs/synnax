@@ -20,7 +20,10 @@ export interface AccordionProps {
 }
 
 export const Accordion = ({ direction, entries }: AccordionProps): JSX.Element => {
-  const { setSize, sizes, ...resizeProps } = Resize.useMultiple({
+  const {
+    setSize,
+    props: { sizes, ...resizeProps },
+  } = Resize.useMultiple({
     direction,
     count: entries.length,
     minSize: 28,

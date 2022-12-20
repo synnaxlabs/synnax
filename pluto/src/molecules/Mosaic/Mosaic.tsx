@@ -27,7 +27,7 @@ export const Mosaic = (props: MosaicProps): JSX.Element | null => {
     return null;
   }
 
-  const resizeProps = Resize.useMultiple({
+  const { props: resizeProps } = Resize.useMultiple({
     direction,
     onResize: _onResize,
     count: 2,

@@ -11,3 +11,7 @@ html {
 .pluto-plot__container--synnax-dark .u-select{
     background-color: rgba(255 255 255 10%)  !important;
 }
+
+.delta-form {
+    padding: 1rem 2rem;
+}
