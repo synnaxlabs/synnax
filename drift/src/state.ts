@@ -62,15 +62,14 @@ const assertKey = <T extends MaybeKeyPayload>(pld: MaybeKeyPayload): T & KeyPayl
   return pld as T & KeyPayload;
 };
 
-const SLICE_NAME = "drift";
+export const DRIFT_SLICE_NAME = "drift";
 
 const slice = createSlice({
-  name: SLICE_NAME,
+  name: DRIFT_SLICE_NAME,
   initialState,
   reducers: {
     setWindowKey: (state, action: PayloadAction<SetWindowKeyPayload>) => {
-      const { key } = assertKey<SetWindowKeyPayload>(action.payload);
-      state.key = key;
+      state.key = assertKey<SetWindowKeyPayload>(action.payload).key;
     },
     createWindow: (state, { payload }: PayloadAction<CreateWindowPayload>) => {
       const { key } = payload;
@@ -179,7 +178,7 @@ export const completeProcess = (key?: string): DriftAction =>
  * @returns true if the given action type is a drift action.
  * @param type - The action type to check.
  */
-export const isDrift = (type: string): boolean => type.startsWith(SLICE_NAME);
+export const isDrift = (type: string): boolean => type.startsWith(DRIFT_SLICE_NAME);
 
 /** A list of actions that shouldn't be emitted to other windows. */
 const EXCLUDED_ACTIONS = [actions.setWindowKey.type];
@@ -251,6 +250,7 @@ export const executeAction = <S extends StoreState, A extends Action = AnyAction
       // This is mainly to deal with redux state being out of sync with the
       // window state.
       const win = windows[key] as Window | undefined;
+      console.log(win, key);
       if (win == null || win.processCount <= 0) runtime.close(key);
       break;
     }

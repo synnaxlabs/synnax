@@ -1,8 +1,10 @@
-import { Dispatch, useCallback } from "react";
+import { Dispatch, useCallback, useEffect } from "react";
 
 import type { AnyAction } from "@reduxjs/toolkit";
 import { closeWindow, createWindow } from "@synnaxlabs/drift";
 import type { ThemeProviderProps } from "@synnaxlabs/pluto";
+import { appWindow } from "@tauri-apps/api/window";
+import type { Theme as TauriTheme } from "@tauri-apps/api/window";
 import { useDispatch } from "react-redux";
 
 import {
@@ -59,9 +61,27 @@ export const useLayoutRemover = (key: string): LayoutRemover => {
 export const useThemeProvider = (): ThemeProviderProps => {
   const theme = useSelectTheme();
   const dispatch = useDispatch();
+
+  useEffect(() => {
+    if (appWindow.label !== "main") return;
+    appWindow
+      .theme()
+      .then((theme) => dispatch(setTheme(matchThemeChange({ payload: theme }))))
+      .catch(console.error);
+    const unlisten = appWindow.onThemeChanged((e) => {
+      dispatch(setTheme(matchThemeChange(e)));
+    });
+    return () => {
+      unlisten.then((f) => f()).catch(console.error);
+    };
+  }, []);
+
   return {
     theme,
     setTheme: (key: string) => dispatch(setTheme(key)),
     toggleTheme: () => dispatch(toggleTheme()),
   };
 };
+
+const matchThemeChange = ({ payload: theme }: { payload: TauriTheme | null }): string =>
+  theme === "dark" ? "synnaxDark" : "synnaxLight";

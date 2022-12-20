@@ -41,7 +41,7 @@ const initialTree: MosaicLeaf = {
 };
 
 export const Primary: ComponentStory<typeof Mosaic> = () => {
-  const props = useMosaic({ initialTree });
+  const props = useMosaic({ initialTree, editableTitle: true });
   return <Mosaic {...props} />;
 };
 

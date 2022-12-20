@@ -4,7 +4,8 @@ import type { PayloadAction } from "@reduxjs/toolkit";
 import { Range } from "./types";
 
 export interface WorkspaceState {
-  ranges: Range[];
+  selectedRangeKey: string | null;
+  ranges: Record<string, Range>;
 }
 
 export interface WorkspaceStoreState {
@@ -12,31 +13,30 @@ export interface WorkspaceStoreState {
 }
 
 export const initialState: WorkspaceState = {
-  ranges: [
-    {
-      key: "range1",
-      name: "Range 1",
-      start: 125261234614689,
-      end: 225261234614699,
-    },
-  ],
+  selectedRangeKey: null,
+  ranges: {},
 };
 
 type AddRangeAction = PayloadAction<Range>;
 type RemoveRangeAction = PayloadAction<string>;
+type SelectRangeAction = PayloadAction<string | null>;
 
 export const {
-  actions: { addRange, removeRange },
+  actions: { addRange, removeRange, selectRange },
   reducer: workspaceReducer,
 } = createSlice({
   name: "workspace",
   initialState,
   reducers: {
     addRange: (state, { payload }: AddRangeAction) => {
-      state.ranges.push(payload);
+      state.ranges[payload.key] = payload;
     },
     removeRange: (state, { payload }: RemoveRangeAction) => {
-      state.ranges = state.ranges.filter((range) => range.key !== payload);
+      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+      delete state.ranges[payload];
+    },
+    selectRange: (state, { payload }: SelectRangeAction) => {
+      state.selectedRangeKey = payload;
     },
   },
 });

@@ -23,10 +23,10 @@ const layoutRenderers = {
 export const App = (): JSX.Element => {
   const theme = useThemeProvider();
   return (
-    <LayoutRendererProvider value={layoutRenderers}>
-      <Theming.Provider {...theme}>
+    <Theming.Provider {...theme}>
+      <LayoutRendererProvider value={layoutRenderers}>
         <LayoutWindow />
-      </Theming.Provider>
-    </LayoutRendererProvider>
+      </LayoutRendererProvider>
+    </Theming.Provider>
   );
 };

@@ -42,8 +42,8 @@ const buildPlot = (
       width,
       height,
       padding: [theme.sizes.base, 0, 0, 0],
-      axes: buildAxes(axes, theme),
-      series: buildSeries(series, theme),
+      axes: buildAxes(theme, axes),
+      series: buildSeries(theme, series),
       scales: buildScales(axes),
       legend: {
         show: false,
@@ -76,8 +76,8 @@ const alignData = (data?: PlotData, series?: Series[]): uPlot.AlignedData => {
   );
 };
 
-const buildAxes = (axes: Axis[], theme: Theme): uPlot.Axis[] => {
-  if (axes?.length === 0) return [];
+const buildAxes = (theme: Theme, axes?: Axis[]): uPlot.Axis[] => {
+  if (axes == null || axes.length === 0) return [];
   return axes.map(({ key, label, location = "bottom" }) => {
     return {
       label,
@@ -94,8 +94,8 @@ const buildAxes = (axes: Axis[], theme: Theme): uPlot.Axis[] => {
   });
 };
 
-const buildSeries = (series: Series[], theme: Theme): uPlot.Series[] => {
-  if (series?.length === 0) return [];
+const buildSeries = (theme: Theme, series?: Series[]): uPlot.Series[] => {
+  if (series == null || series.length === 0) return [];
   const s = series.map(({ label, color, axis }, i) => {
     return {
       label,
@@ -106,8 +106,8 @@ const buildSeries = (series: Series[], theme: Theme): uPlot.Series[] => {
   return [{}, ...s];
 };
 
-const buildScales = (axes: Axis[]): uPlot.Scales => {
-  if (axes?.length === 0) return {};
+const buildScales = (axes?: Axis[]): uPlot.Scales => {
+  if (axes == null || axes.length === 0) return {};
   const s = Object.fromEntries(
     axes.map(({ key, range }): [string, uPlot.Scale] => {
       return [

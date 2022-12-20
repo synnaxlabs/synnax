@@ -7,9 +7,9 @@ const TabNotFound = new Error("Tab not found");
 const InvalidMosaic = new Error("Invalid Mosaic");
 
 /**
- * Inserts a tab into a node in the tree. If the given key is not found,
+ * Inserts a tab into a node in the mosaic. If the given key is not found,
  * the tab is inserted into the closest ancestor. This is to deal
- * with tree garbage collection.
+ * with mosaic garbage collection.
  * @param key - The key of the node to insert the tab into.
  * @param tab - The tab to insert.
  * @param loc - The location where the tab was 'dropped' relative to the node.
@@ -46,7 +46,7 @@ export const insertMosaicTab = (
 
   if (node.first == null || node.last == null) throw InvalidMosaic;
 
-  // Assigning these keeps the tree sorted so we can do ancestor searches.
+  // Assigning these keeps the mosaic sorted so we can do ancestor searches.
   node.first.key = node.key * 2;
   node.last.key = node.key * 2 + 1;
 
@@ -56,11 +56,11 @@ export const insertMosaicTab = (
   node.size = undefined;
   node.selected = undefined;
 
-  return root;
+  return shallowCopyLeaf(root);
 };
 
 const insertAnywhere = (node: MosaicLeaf, tab: Tab): MosaicLeaf => {
-  if (node.tabs !== undefined) {
+  if (node.tabs != null) {
     node.tabs.push(tab);
     node.selected = tab.tabKey;
     return node;
@@ -71,32 +71,51 @@ const insertAnywhere = (node: MosaicLeaf, tab: Tab): MosaicLeaf => {
 };
 
 /**
- * Removes a tab from the tree and performs any necessary garbage collection.
- * @param tabKey - The key of the tab to remove. This tab must exist in the tree.
+ * Automatically selects tabs for all nodes in the mosaic if they don't already have a selection.
+ * @param root - The root of the mosaic.
+ * @returns A shallow copy of the root with all nodes having a selection.
+ */
+export const autoSelectTabs = (root: MosaicLeaf): MosaicLeaf => {
+  // recursively iterate through mosaic and call Tabs.resetSelection on each nodes tabs
+  if (root.tabs != null) root.selected = Tabs.resetSelection(root.selected, root.tabs);
+  if (root.first != null) autoSelectTabs(root.first);
+  if (root.last != null) autoSelectTabs(root.last);
+  return shallowCopyLeaf(root);
+};
+
+/**
+ * Removes a tab from the mosaic and performs any necessary garbage collection.
+ * @param root - The root of the mosaic.
+ * @param tabKey - The key of the tab to remove. This tab must exist in the mosaic.
  */
 export const removeMosaicTab = (root: MosaicLeaf, tabKey: string): MosaicLeaf => {
   const [, node] = findMosaicTab(root, tabKey);
   if (node == null) throw TabNotFound;
   node.tabs = node.tabs?.filter((t) => t.tabKey !== tabKey);
   node.selected = Tabs.resetSelection(node.selected, node.tabs);
-  return gc(root);
+  return shallowCopyLeaf(gc(root));
 };
 
 /**
  * Marks the given tab as selected.
+ * @param root - The root of the mosaic.
+ * @param tabKey - The key of the tab to select. This tab must exist in the mosaic.
+ * @returns A shallow copy of the root of the mosaic with the tab selected.
  */
 export const selectMosaicTab = (root: MosaicLeaf, tabKey: string): MosaicLeaf => {
   const [tab, entry] = findMosaicTab(root, tabKey);
   if (tab == null || entry == null) throw TabNotFound;
   entry.selected = tabKey;
-  return root;
+  return shallowCopyLeaf(root);
 };
 
 /**
  * Moves a tab from one node to another.
+ * @param root - The root of the mosaic.
  * @param to - The key of the node to move the tab to.
- * @param tabKey - The key of the tab to move. This tab must exist in the tree.
+ * @param tabKey - The key of the tab to move. This tab must exist in the mosaic.
  * @param loc - The location where the tab was 'dropped' relative to the node.
+ * @returns A shallow copy of the root of the mosaic with the tab moved.
  */
 export const moveMosaicTab = (
   root: MosaicLeaf,
@@ -108,9 +127,17 @@ export const moveMosaicTab = (
   if (tab == null || entry == null) throw TabNotFound;
   const r2 = removeMosaicTab(root, tabKey);
   const r3 = insertMosaicTab(r2, tab, loc, to);
-  return r3;
+  return shallowCopyLeaf(r3);
 };
 
+/**
+ * Resizes the given mosaic leaf.
+ * @param root - The root of the mosaic.
+ * @param key  - The key of the leaf to resize.
+ * @param size - The new size distribution for the leaf. Expressed as either a percentage
+ * or a number of pixels of the first child.
+ * @returns A shallow copy of the root of the mosaic with the leaf resized.
+ */
 export const resizeMosaicLeaf = (
   root: MosaicLeaf,
   key: number,
@@ -123,7 +150,26 @@ export const resizeMosaicLeaf = (
 };
 
 /**
+ * Sets the title of a tab.
+ * @param root - The root of the mosaic.
+ * @param tabKey  - The key of the tab to resize.
+ * @param title - The new title of the tab.
+ * @returns A shallow copy of the root of the mosaic with the tab title changed.
+ */
+export const renameMosaicTab = (
+  root: MosaicLeaf,
+  tabKey: string,
+  title: string
+): MosaicLeaf => {
+  const [, leaf] = findMosaicTab(root, tabKey);
+  if (leaf == null || leaf.tabs == null) throw TabNotFound;
+  leaf.tabs = Tabs.rename(tabKey, title, leaf?.tabs ?? []);
+  return shallowCopyLeaf(root);
+};
+
+/**
  * Finds the node with the given key or its closest ancestor.
+ * @param root - The root of the mosaic.
  * @param key  - The key of the node to find.
  * @returns The node with the given key, or the closest ancestor.
  */
@@ -202,3 +248,5 @@ const splitArrangement = (insertPosition: Location): [Order, Order, Direction] =
       throw new Error("cannot split a center placed tab");
   }
 };
+
+const shallowCopyLeaf = (leaf: MosaicLeaf): MosaicLeaf => ({ ...leaf });

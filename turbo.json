@@ -32,6 +32,9 @@
                 "^build"
             ],
             "cache": false
+        },
+        "devtools": {
+          "cache": false
         }
     }
 }

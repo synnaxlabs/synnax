@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+
 import type { ComponentMeta, ComponentStory } from "@storybook/react";
 import { AiFillDatabase, AiOutlineDelete } from "react-icons/ai";
 
@@ -21,8 +23,16 @@ export const WithIcon: ComponentStory<typeof Text> = () => (
   </Text.WithIcon>
 );
 
-export const Editable: ComponentStory<typeof Text> = () => (
-  <Text.Editable level="h1" text="hello"></Text.Editable>
-);
+export const Editable: ComponentStory<typeof Text> = () => {
+  const [text, setText] = useState("My Text");
+  return (
+    <>
+      <Text.Editable level="h1" onChange={setText}>
+        {text}
+      </Text.Editable>
+      <Text level="h5">{text}</Text>
+    </>
+  );
+};
 
 export default story;

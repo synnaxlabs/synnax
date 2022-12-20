@@ -3,7 +3,7 @@ import { CSSProperties, useEffect, useState } from "react";
 import clsx from "clsx";
 import { AiFillCaretDown, AiFillCaretUp } from "react-icons/ai";
 
-import { measureTextWidth } from "../../util/canvas";
+import { textWidth } from "../../util/canvas";
 import { sortFunc } from "../../util/sort";
 
 import { useListContext } from "./ListContext";
@@ -170,8 +170,8 @@ const columnWidths = <E extends RenderableRecord<E>>(
 ): Array<TypedListColumn<E>> => {
   const le = longestEntries(data);
   return columns.map((col) => {
-    const labelWidth = measureTextWidth(col.label, font);
-    const entryWidth = measureTextWidth(le[col.key], font);
+    const labelWidth = textWidth(col.label, font);
+    const entryWidth = textWidth(le[col.key], font);
     return {
       ...col,
       width: Math.max(labelWidth, entryWidth) + padding,

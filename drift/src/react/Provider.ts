@@ -14,6 +14,7 @@ import { StoreState } from "@/state";
 export interface ProviderProps<S extends StoreState, A extends Action = AnyAction>
 	extends Omit<BaseProps<A>, "store"> {
 	store: Promise<Store<S, A>>;
+  emptyContent?: JSX.Element;
 }
 
 /**
@@ -26,12 +27,13 @@ export interface ProviderProps<S extends StoreState, A extends Action = AnyActio
  */
 export const Provider = <S extends StoreState, A extends Action<unknown> = AnyAction>({
 	store: promise,
-	...args
+  emptyContent,
+	...props
 }: ProviderProps<S, A>): ReactElement | null => {
 	const [store, setStore] = useState<Store<S, A> | null>(null);
 	useEffect(() => {
 		promise.then((s) => setStore(s)).catch(console.error);
 	}, []);
-	if (store == null) return null;
-	return createElement(Base<A>, { ...args, store });
+	if (store == null) return emptyContent ?? null;
+	return createElement(Base<A>, { ...props, store });
 };
