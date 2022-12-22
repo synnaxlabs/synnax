@@ -11,7 +11,7 @@ export const LayoutWindow = (): JSX.Element => {
   const key = appWindow.label;
   const handleClose = useLayoutRemover(key);
   const layout = useSelectLayout(key);
-  if(layout == null) throw new Error("layout not found");
+  if (layout == null) throw new Error("layout not found");
   const Renderer = useLayoutRenderer(layout.type);
 
   const renderedContent = <Renderer layoutKey={key} onClose={handleClose} />;

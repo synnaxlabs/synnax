@@ -2,7 +2,7 @@ import { useState } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { synnaxPropsSchema } from "@synnaxlabs/client";
-import type { Connectivity, SynnaxProps } from "@synnaxlabs/client";
+import type { SynnaxProps } from "@synnaxlabs/client";
 import { Button, Header, Input, Nav, Space } from "@synnaxlabs/pluto";
 import { FieldValues, useForm } from "react-hook-form";
 import { AiFillApi } from "react-icons/ai";
@@ -12,9 +12,9 @@ import { z } from "zod";
 import { setActiveCluster, setCluster } from "../store";
 import { testConnection } from "../util/testConnection";
 
-import { ConnectionStateBadge } from "./ConnectionStateBadge";
+import { ConnectionStateBadge } from "./ClusterBadges";
 
-import { ConnectionState } from "@/features/cluster/types";
+import type { ConnectionState } from "@/features/cluster";
 import { LayoutRendererProps } from "@/features/layout";
 
 import "./ConnectCluster.css";
@@ -23,10 +23,12 @@ const formSchema = synnaxPropsSchema.extend({
   name: z.string().optional(),
 });
 
-export interface ConnectClusterContentProps {
-  clusterKey?: string;
-}
-
+/**
+ * ConnectCluster implements the LayoutRenderer component type to provide a form for
+ * connecting to a cluster.
+ *
+ * @param props - The standard LayoutRendererProps.
+ */
 export const ConnectCluster = ({ onClose }: LayoutRendererProps): JSX.Element => {
   const dispatch = useDispatch();
   const [connState, setConnState] = useState<ConnectionState | null>(null);
@@ -35,36 +37,32 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps): JSX.Element =>
     getValues,
     trigger,
     register,
-    handleSubmit,
+    handleSubmit: _handleSubmit,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(formSchema),
   });
 
-  const _handleSubmit = (data: FieldValues): void => {
-    void handleSubmit(async (): Promise<void> => {
-      const name = data.name;
-      delete data.name;
-      data.secure = true;
-      const { clusterKey, state } = await testConnection(data as SynnaxProps);
-      if (state.status !== "connected") return setConnState(state);
-      dispatch(
-        setCluster({
-          key: clusterKey as string,
-          name,
-          state,
-          props: data as SynnaxProps,
-        })
-      );
-      dispatch(setActiveCluster(clusterKey as string));
-      onClose();
-    })();
-  };
+  const handleSubmit = _handleSubmit(async (_data: FieldValues): Promise<void> => {
+    const { name, ...data } = _data;
+    const { clusterKey, state } = await testConnection(data as SynnaxProps);
+    if (state.status !== "connected") return setConnState(state);
+    dispatch(
+      setCluster({
+        key: clusterKey as string,
+        name,
+        state,
+        props: data as SynnaxProps,
+      })
+    );
+    dispatch(setActiveCluster(clusterKey as string));
+    onClose();
+  });
 
   const handleTestConnection = (): void => {
     void (async (): Promise<void> => {
-      const ok = await trigger();
-      if (!ok) return;
+      const valid = await trigger();
+      if (!valid) return;
       const { state } = await testConnection(getValues() as SynnaxProps);
       setConnState(state);
     })();
@@ -76,7 +74,8 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps): JSX.Element =>
         Connect a Cluster
       </Header>
       <Space className="delta-form" direction="vertical" grow>
-        <form onSubmit={_handleSubmit} id="connect-cluster">
+        {/* eslint-disable-next-line @typescript-eslint/no-misused-promises */}
+        <form onSubmit={handleSubmit} id="connect-cluster">
           <Space direction="vertical">
             <Input.Item
               label="Name"
@@ -88,15 +87,15 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps): JSX.Element =>
                 label="Host"
                 placeholder="localhost"
                 helpText={errors.host?.message?.toString()}
-                className="connect-cluster__input__host"
+                className="delta-connect-cluster__input--host"
                 {...register("host")}
               />
               <Input.Item
                 label="Port"
                 type="number"
-                placeholder="8080"
+                placeholder="9090"
                 helpText={errors.port?.message?.toString()}
-                className="connect-cluster__input__port"
+                className="delta-connect-cluster__input--port"
                 {...register("port")}
               />
             </Space>
@@ -112,7 +111,7 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps): JSX.Element =>
                 placeholder="Seldon"
                 type="password"
                 helpText={errors.password?.message?.toString()}
-                className="connect-cluster__input__password"
+                className="delta-connect-cluster__input--password"
                 {...register("password")}
               />
               <Input.Item label="Secure" {...register("secure")}>
@@ -123,10 +122,10 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps): JSX.Element =>
         </form>
       </Space>
       <Nav.Bar location="bottom" size={48}>
-        <Nav.Bar.Start style={{ padding: "0 2rem" }}>
+        <Nav.Bar.Start className="delta-connect-cluster-footer__left">
           {connState != null && <ConnectionStateBadge state={connState} />}
         </Nav.Bar.Start>
-        <Nav.Bar.End style={{ padding: "1rem" }}>
+        <Nav.Bar.End className="delta-connect-cluster-footer__right">
           <Button variant="text" size="medium" onClick={handleTestConnection}>
             Test Connection
           </Button>

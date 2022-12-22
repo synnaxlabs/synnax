@@ -6,10 +6,10 @@ import { useSelectLayout } from "../store";
 export const LayoutContent = memo(
   ({ layoutKey }: { layoutKey: string }): JSX.Element | null => {
     const p = useSelectLayout(layoutKey);
-    if (p == null) throw new Error("layout not found");
-    if (p.type == null) throw new Error("layout type not found");
+    if (p == null) throw new Error(`layout ${layoutKey} not found`);
+    if (p.type == null) throw new Error("layout has no type");
     const Renderer = useLayoutRenderer(p.type);
-    if (Renderer == null) throw new Error("layout renderer not found");
+    if (Renderer == null) throw new Error(`layout renderer ${p.type} not found`);
     return <Renderer layoutKey={layoutKey} onClose={() => {}} />;
   }
 );

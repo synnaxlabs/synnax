@@ -5,14 +5,14 @@ import { LinePlotVisualization, Visualization } from "../types";
 
 import { VisualizationStoreState } from "./slice";
 
-import { LayoutStoreState, useSelectLayoutCore } from "@/features/layout";
+import { LayoutStoreState, selectLayout } from "@/features/layout";
 import { useSelectRangeFilterCore, WorkspaceStoreState } from "@/features/workspace";
 
 export const useSelectVisualizationCore = (
   state: VisualizationStoreState & LayoutStoreState,
   layoutKey: string
 ): Visualization | undefined => {
-  const layout = useSelectLayoutCore(state, layoutKey);
+  const layout = selectLayout(state, layoutKey);
   if (layout == null) return undefined;
   return state.visualization.visualizations[layout.key];
 };

@@ -1,11 +1,19 @@
-.connect-cluster__input__host {
+.delta-connect-cluster__input--host {
     flex-grow: 1;
 }
 
-.connect-cluster__input__port {
+.delta-connect-cluster__input--port {
     width: 20rem;
 }
 
-.connect-cluster__input__password {
-  width: 100%;
+.delta-connect-cluster__input--password {
+    width: 100%;
+}
+
+.delta-connect-cluster-footer__left {
+    padding: 0 2rem;
+}
+
+.delta-connect-cluster-footer__right {
+    padding: 1rem;
 }

@@ -36,6 +36,7 @@ export const {
       delete state.ranges[payload];
     },
     selectRange: (state, { payload }: SelectRangeAction) => {
+      console.log(payload);
       state.selectedRangeKey = payload;
     },
   },

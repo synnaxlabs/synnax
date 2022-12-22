@@ -71,12 +71,7 @@ const EmptyContent = (): JSX.Element => (
 
 export const LoadingContent = (): JSX.Element => (
   <Space style={{ width: "100%", height: "100%" }} justify="spaceAround" align="center">
-    <Loader
-    // style={{
-    //   height: "10%",
-    //   opacity: 0.5,
-    // }}
-    />
+    <Loader />
   </Space>
 );
 

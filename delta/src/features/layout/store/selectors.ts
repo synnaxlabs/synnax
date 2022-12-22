@@ -8,7 +8,7 @@ import { Layout } from "../types";
 
 import { LayoutStoreState } from "./slice";
 
-export const useSelectLayoutCore = (
+export const selectLayout = (
   state: LayoutStoreState,
   key: string
 ): Layout | undefined => state.layout.layouts[key];
@@ -16,7 +16,7 @@ export const useSelectLayoutCore = (
 export const useSelectLayout = (key: string): Layout | undefined =>
   useSelector(
     useCallback(
-      memoize((state: LayoutStoreState) => useSelectLayoutCore(state, key)),
+      memoize((state: LayoutStoreState) => selectLayout(state, key)),
       [key]
     )
   );
