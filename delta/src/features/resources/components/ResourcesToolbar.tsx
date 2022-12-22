@@ -5,13 +5,13 @@ import type { OntologyResource } from "@synnaxlabs/client";
 import { Tree, Header, Space } from "@synnaxlabs/pluto";
 import type { TreeLeaf } from "@synnaxlabs/pluto";
 import { AiFillFolder } from "react-icons/ai";
-import { useDispatch } from "react-redux";
-import type { Dispatch } from "redux";
+import { useStore } from "react-redux";
 
 import { resourceTypes } from "../resources";
 
 import { useClusterClient } from "@/features/cluster";
 import { useLayoutPlacer } from "@/features/layout";
+import { WorkspaceState } from "@/features/workspace";
 
 const updateTreeEntry = (
   data: TreeLeaf[],
@@ -28,12 +28,9 @@ const updateTreeEntry = (
   });
 };
 
-const convertOntologyResources = (
-  dispatch: Dispatch<any>,
-  resources: OntologyResource[]
-): TreeLeaf[] => {
+const convertOntologyResources = (resources: OntologyResource[]): TreeLeaf[] => {
   return resources.map(({ id, entity: { name } }) => {
-    const { icon, hasChildren } = resourceTypes(dispatch)[id.type];
+    const { icon, hasChildren } = resourceTypes[id.type];
     return {
       key: id.toString(),
       title: name,
@@ -47,14 +44,14 @@ const convertOntologyResources = (
 const ResourcesTree = (): JSX.Element => {
   const client = useClusterClient();
   const [data, setData] = useState<TreeLeaf[]>([]);
-  const dispatch = useDispatch();
+  const store = useStore();
   const placer = useLayoutPlacer();
 
   useEffect(() => {
     if (client == null) return;
     void (async (): Promise<void> => {
       const resources = await client.ontology.retrieveChildren(OntologyRoot);
-      setData(convertOntologyResources(dispatch, resources));
+      setData(convertOntologyResources(resources));
     })();
   }, [client]);
 
@@ -68,8 +65,12 @@ const ResourcesTree = (): JSX.Element => {
         style={{ overflowY: "auto", overflowX: "hidden" }}
         onSelect={([key]: string[]) => {
           const id = OntologyID.parseString(key);
-          const { onSelect } = resourceTypes(placer)[id.type];
-          onSelect?.(id);
+          const { onSelect } = resourceTypes[id.type];
+          onSelect?.({
+            id,
+            placer,
+            workspace: (store.getState() as { workspace: WorkspaceState }).workspace,
+          });
         }}
         onExpand={(key) => {
           if (client == null || key.length === 0) return;
@@ -80,7 +81,7 @@ const ResourcesTree = (): JSX.Element => {
             updateTreeEntry(
               data,
               {
-                children: convertOntologyResources(dispatch, resources),
+                children: convertOntologyResources(resources),
               },
               key
             );
@@ -92,7 +93,7 @@ const ResourcesTree = (): JSX.Element => {
   );
 };
 
-export const ResourcesToolBar = {
+export const ResourcesToolbar = {
   key: "resources",
   icon: <AiFillFolder />,
   content: <ResourcesTree />,

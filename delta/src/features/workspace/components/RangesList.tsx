@@ -1,14 +1,22 @@
 import { TimeSpan, TimeStamp } from "@synnaxlabs/client";
 import { Text, List, Space } from "@synnaxlabs/pluto";
+import { useDispatch } from "react-redux";
 
-import { selectRange, useSelectRanges } from "../store";
+import { selectRange, useSelectRanges, useSelectSelectedRange } from "../store";
 import type { Range } from "../store";
 
 export const RangesAccordionEntry = (): JSX.Element => {
   const ranges = useSelectRanges();
+  const selectedRange = useSelectSelectedRange();
+  const dispatch = useDispatch();
   return (
     <Space style={{ height: "100%" }} empty>
-      <List data={ranges} onSelect={([key]) => selectRange(key)} selectMultiple={false}>
+      <List
+        data={ranges}
+        onSelect={([key]) => dispatch(selectRange(key ?? null))}
+        selected={selectedRange == null ? [] : [selectedRange.key]}
+        selectMultiple={false}
+      >
         <List.Column.Header<Range>
           columns={[
             {
@@ -37,7 +45,7 @@ export const RangesAccordionEntry = (): JSX.Element => {
                     level="p"
                     style={style}
                     format={
-                      endTS.sub(startTS) < TimeSpan.Day ? "timeShort" : "dateTimeShort"
+                      endTS.span(startTS) < TimeSpan.Day ? "timeShort" : "dateTimeShort"
                     }
                   >
                     {endTS}

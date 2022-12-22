@@ -46,7 +46,7 @@ const Content = (): JSX.Element => {
   );
 };
 
-export const WorkspaceToolBar = {
+export const WorkspaceToolbar = {
   key: "workspace",
   icon: <MdWorkspacesFilled />,
   content: <Content />,
