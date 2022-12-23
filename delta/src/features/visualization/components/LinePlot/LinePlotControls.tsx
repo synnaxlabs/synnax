@@ -1,13 +1,13 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { Synnax } from "@synnaxlabs/client";
 import type { ChannelPayload } from "@synnaxlabs/client";
-import { Select, Space} from "@synnaxlabs/pluto";
-import type {ListEntry} from "@synnaxlabs/pluto";
+import { Select, Space } from "@synnaxlabs/pluto";
 
 import { LinePlotVisualization, SugaredLinePlotVisualization } from "../../types";
 
 import { useSelectRanges } from "@/features/workspace";
+import { useAsyncEffect } from "@/hooks";
 
 export interface LinePlotControlsProps {
   visualization: SugaredLinePlotVisualization;
@@ -26,13 +26,11 @@ export const LinePlotControls = ({
     Array<ChannelPayload & { key: string }>
   >([]);
 
-  useEffect(() => {
-    void (async () => {
-      const channels = await client.channel.retrieveAll();
-      setChannelOpts(
-        channels.map((ch) => ch.payload as ChannelPayload & { key: string })
-      );
-    })();
+  useAsyncEffect(async () => {
+    const channels = await client.channel.retrieveAll();
+    setChannelOpts(
+      channels.map((ch) => ch.payload as ChannelPayload & { key: string })
+    );
   }, [client]);
 
   const handleChannelSelect = (selected: string[]): void => {
@@ -72,7 +70,7 @@ export const LinePlotControls = ({
         selected={visualization.ranges.map((range) => range.key)}
         listPosition="top"
         onSelect={handleRangeSelect}
-        options={ranges as unknown as ListEntry[]}
+        options={ranges}
         columns={[
           {
             key: "name",

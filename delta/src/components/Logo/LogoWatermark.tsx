@@ -2,6 +2,8 @@ import { Space } from "@synnaxlabs/pluto";
 
 import { Logo, LogoProps } from "./Logo";
 
+import "./LogoWatermark.css";
+
 /**
  * LogoWatermark displays the Synnax logo as a watermark in the center of the
  * screen.

@@ -17,11 +17,13 @@ export const initialState: VisualizationState = {
 
 type SetVisualizationAction = PayloadAction<Visualization>;
 
+export const VISUALIZATION_SLICE_NAME = "visualization";
+
 export const {
   actions: { setVisualization },
   reducer: visualizationReducer,
 } = createSlice({
-  name: "visualization",
+  name: VISUALIZATION_SLICE_NAME,
   initialState,
   reducers: {
     setVisualization: (state, { payload }: SetVisualizationAction) => {
