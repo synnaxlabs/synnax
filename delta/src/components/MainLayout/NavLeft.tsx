@@ -19,7 +19,7 @@ export const NavLeft = (): JSX.Element => (
     items={[ClusterToolbar, ResourcesToolbar]}
   >
     <Nav.Bar.Start className="delta-main-nav-left__start" bordered>
-      <Logo className="delta-main-layout-nav-left__logo" />
+      <Logo className="delta-main-nav-left__logo" />
     </Nav.Bar.Start>
     <Nav.Bar.End className="delta-main-nav-left__end" bordered>
       <Theming.Switch />

@@ -11,7 +11,7 @@ import {
   placeLayout,
   removeLayout,
   setActiveTheme,
-  toggleTheme,
+  toggleActiveTheme,
   useSelectLayout,
   useSelectTheme,
 } from "../store";
@@ -102,7 +102,7 @@ export const useThemeProvider = (): ThemeProviderProps => {
   return {
     theme,
     setTheme: (key: string) => dispatch(setActiveTheme(key)),
-    toggleTheme: () => dispatch(toggleTheme()),
+    toggleTheme: () => dispatch(toggleActiveTheme()),
   };
 };
 

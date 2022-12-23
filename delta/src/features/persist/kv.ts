@@ -12,7 +12,7 @@ export interface KVReader {
 
 /** A writable key-value store. */
 export interface KVWriter {
-  /** Sets a key-value pair in the store. */
+  /** Sets a key-value pair in the store. The value must be serializable. */
   set: <V>(key: string, value: V) => Promise<void>;
   /** Deletes a key-value pair from the store. */
   delete: (key: string) => Promise<void>;

@@ -65,7 +65,7 @@ export type RemoveLayoutAction = PayloadAction<string>;
 /** Signature for the setTheme action. */
 export type SetActiveTheme = PayloadAction<string>;
 /** Signature for the toggleTheme action. */
-export type ToggleThemeAction = PayloadAction<void>;
+export type ToggleActiveThemeAction = PayloadAction<void>;
 
 type DeleteLayoutMosaicTabAction = PayloadAction<{ tabKey: string }>;
 type MoveLayoutMosaicTabAction = PayloadAction<{
@@ -81,7 +81,7 @@ export const {
   actions: {
     placeLayout,
     removeLayout,
-    toggleTheme,
+    toggleActiveTheme,
     setActiveTheme,
     deleteLayoutMosaicTab,
     moveLayoutMosaicTab,
@@ -155,7 +155,7 @@ export const {
     setActiveTheme: (state, { payload: key }: SetActiveTheme) => {
       state.activeTheme = key;
     },
-    toggleTheme: (state) => {
+    toggleActiveTheme: (state) => {
       const keys = Object.keys(state.themes);
       const index = keys.indexOf(state.activeTheme);
       const next = keys[(index + 1) % keys.length];

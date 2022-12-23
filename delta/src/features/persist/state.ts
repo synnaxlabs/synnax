@@ -7,9 +7,16 @@ import { appWindow } from "@tauri-apps/api/window";
 
 import { KV } from "./kv";
 
-const PERSISTED_STATE_KEY = "persisted_state";
+const PERSISTED_STATE_KEY = "delta-persisted-state";
 
-export const createPreloadedState =
+/**
+ * Returns a function that preloads the state from the given key-value store on the main
+ * window.
+ *
+ * @param db - the key-value store to load the state from.
+ * @returns a redux middleware.
+ */
+export const newPreloadState =
   (db: KV) =>
   async <S extends Record<string, unknown> & { drift: unknown }>(): Promise<
     S | undefined
@@ -17,11 +24,20 @@ export const createPreloadedState =
     if (appWindow.label !== MAIN_WINDOW) return undefined;
     const state = await db.get<S>(PERSISTED_STATE_KEY);
     if (state == null) return undefined;
+    // TODO: (@emilbon99) drift doesn't inspect initial state and fork windows accordinly
+    // so we need to manually set the drift state for now.
     if (DRIFT_SLICE_NAME in state) state.drift = driftInitialState;
     return state;
   };
 
-export const createPersistStateMiddleware =
+/**
+ * Returns a redux middleware that persists the state to the given key-value store on
+ * the main window. NOTE: this key-value store does not encrypt sensitive data! BE CAREFUL!
+ *
+ * @param db - the key-value store to persist to.
+ * @returns a redux middleware.
+ */
+export const newPersistStateMiddleware =
   (db: KV) => (store: any) => (next: any) => (action: any) => {
     const result = next(action);
     if (appWindow.label !== MAIN_WINDOW) return result;
