@@ -19,9 +19,7 @@ import { LayoutRendererProps } from "@/features/layout";
 
 import "./ConnectCluster.css";
 
-const formSchema = synnaxPropsSchema.extend({
-  name: z.string().optional(),
-});
+const formSchema = synnaxPropsSchema.extend({ name: z.string().optional() });
 
 /**
  * ConnectCluster implements the LayoutRenderer component type to provide a form for
@@ -39,9 +37,7 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps): JSX.Element =>
     register,
     handleSubmit: _handleSubmit,
     formState: { errors },
-  } = useForm({
-    resolver: zodResolver(formSchema),
-  });
+  } = useForm({ resolver: zodResolver(formSchema) });
 
   const handleSubmit = _handleSubmit(async (_data: FieldValues): Promise<void> => {
     const { name, ...data } = _data;

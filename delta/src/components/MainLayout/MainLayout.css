@@ -4,11 +4,11 @@
 }
 
 .delta-main-layout__content__container {
-	height: calc(100vh - 36px - 32px);
+    height: calc(100vh - 36px - 32px);
 }
 
 .delta-main-layout__content {
     flex-grow: 1;
     overflow: hidden;
-		height: 100%;
+    height: 100%;
 }

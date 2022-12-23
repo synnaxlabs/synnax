@@ -5,19 +5,40 @@ import type { MosaicLeaf, Location, Theme } from "@synnaxlabs/pluto";
 
 import { Layout } from "../types";
 
+/** The state of the layout slice */
 export interface LayoutState {
-  theme: string;
+  /** The current theme. */
+  activeTheme: string;
+  /**
+   * A record of theme keys to themes. The active theme is guaranteed to be present
+   * in this record. */
   themes: Record<string, Theme>;
+  /**
+   * A record of layout keys to layouts. These represent the properties of all layouts
+   * currently rendered in the mosaic or in external windows.
+   */
   layouts: Record<string, Layout>;
+  /** The root node of the central mosaic. */
   mosaic: MosaicLeaf;
 }
 
+/**
+ * The name of the layout slice in a larger store.
+ * NOTE: This must be the name of the slice in the store, or else all selectors will fail.
+ */
+export const LAYOUT_SLICE_NAME = "layout";
+
+/**
+ * Represents a partial view of a larger store that contains the layout slice. This is
+ * typically used for hooks that accept the entire store state as a parameter but only
+ * need access to the layout slice.
+ */
 export interface LayoutStoreState {
-  layout: LayoutState;
+  [LAYOUT_SLICE_NAME]: LayoutState;
 }
 
 const initialState: LayoutState = {
-  theme: "synnaxDark",
+  activeTheme: "synnaxDark",
   themes: Theming.themes,
   layouts: {
     main: {
@@ -36,10 +57,14 @@ const initialState: LayoutState = {
   },
 };
 
+/** Signature for the placeLayut action. */
 export type PlaceLayoutAction = PayloadAction<Layout>;
+/** Signature for the removeLayout action. */
 export type RemoveLayoutAction = PayloadAction<string>;
 
-export type SetThemeAction = PayloadAction<string>;
+/** Signature for the setTheme action. */
+export type SetActiveTheme = PayloadAction<string>;
+/** Signature for the toggleTheme action. */
 export type ToggleThemeAction = PayloadAction<void>;
 
 type DeleteLayoutMosaicTabAction = PayloadAction<{ tabKey: string }>;
@@ -56,17 +81,17 @@ export const {
   actions: {
     placeLayout,
     removeLayout,
+    toggleTheme,
+    setActiveTheme,
     deleteLayoutMosaicTab,
     moveLayoutMosaicTab,
     selectLayoutMosaicTab,
     resizeLayoutMosaicTab,
     renameLayoutMosaicTab,
-    toggleTheme,
-    setTheme,
   },
   reducer: layoutReducer,
 } = createSlice({
-  name: "layout",
+  name: LAYOUT_SLICE_NAME,
   initialState,
   reducers: {
     placeLayout: (state, { payload: layout }: PlaceLayoutAction) => {
@@ -75,9 +100,8 @@ export const {
       const prev = state.layouts[key];
 
       // If we're moving from a mosaic, remove the tab.
-      if (prev != null && prev.location === "mosaic" && location !== "mosaic") {
+      if (prev != null && prev.location === "mosaic" && location !== "mosaic")
         state.mosaic = Mosaic.removeTab(initialState.mosaic, key);
-      }
 
       // If we're move to a mosaic, insert a tab.
       if (location === "mosaic")
@@ -108,15 +132,13 @@ export const {
       state,
       { payload: { tabKey, key, loc } }: MoveLayoutMosaicTabAction
     ) => {
-      const m = Mosaic.moveTab(state.mosaic, tabKey, loc, key);
-      state.mosaic = m;
+      state.mosaic = Mosaic.moveTab(state.mosaic, tabKey, loc, key);
     },
     selectLayoutMosaicTab: (
       state,
       { payload: { tabKey } }: SelectLayoutMosaicTabAction
     ) => {
-      const mosaic = Mosaic.selectTab(state.mosaic, tabKey);
-      state.mosaic = mosaic;
+      state.mosaic = Mosaic.selectTab(state.mosaic, tabKey);
     },
     resizeLayoutMosaicTab: (
       state,
@@ -130,14 +152,14 @@ export const {
     ) => {
       state.mosaic = Mosaic.renameTab(state.mosaic, tabKey, title);
     },
-    setTheme: (state, { payload: key }: SetThemeAction) => {
-      state.theme = key;
+    setActiveTheme: (state, { payload: key }: SetActiveTheme) => {
+      state.activeTheme = key;
     },
     toggleTheme: (state) => {
       const keys = Object.keys(state.themes);
-      const index = keys.indexOf(state.theme);
+      const index = keys.indexOf(state.activeTheme);
       const next = keys[(index + 1) % keys.length];
-      state.theme = next;
+      state.activeTheme = next;
     },
   },
 });

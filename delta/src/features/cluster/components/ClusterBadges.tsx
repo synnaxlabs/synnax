@@ -2,7 +2,7 @@ import type { Connectivity } from "@synnaxlabs/client";
 import { Text, Status } from "@synnaxlabs/pluto";
 import type { StatusVariant } from "@synnaxlabs/pluto";
 
-import { useSelectActiveCluster } from "../store";
+import { useSelectCluster } from "../store";
 import { ConnectionState, DEFAULT_CONNECTION_STATE } from "../types";
 
 import { ClusterIcon } from "./ClusterIcon";
@@ -31,25 +31,38 @@ export const ConnectionStateBadge = ({
   <Status.Text variant={statusVariants[status]}>{message}</Status.Text>
 );
 
+/* The props for the ClusterBadge component. */
+export interface ClusterBadgeProps {
+  key?: string;
+}
+
 /**
- * Displays the name of the active cluster. It must be placed within a react-redux
- * Provider
+ * Displays the name of the cluster.
+ *
+ * @param props - The props of the component.
+ * @param props.key - The key of the cluster to display. If not provided, the active
+ * cluster will be used.
  */
-export const ActiveClusterBadge = (): JSX.Element => {
-  const cluster = useSelectActiveCluster();
+export const ClusterBadge = ({ key }: ClusterBadgeProps): JSX.Element => {
+  const cluster = useSelectCluster(key);
   return (
     <Text.WithIcon level="p" startIcon={<ClusterIcon />}>
-      {cluster != null ? cluster.name : "No Active Cluster"}
+      {cluster?.name ?? "No Active Cluster"}
     </Text.WithIcon>
   );
 };
 
+/** The props fo the ConnectionBadge component.  */
+type ConnectionBadgeProps = ClusterBadgeProps;
+
 /**
- * Displays the connection state of the active cluster. It must be placed within a
- * react-redux Provider. If no cluster is active, it displays the default connection
- * state provided by @synnaxlabs/client
+ * Displays the connection state of the cluster.
+ *
+ * @param props - The props of the component.
+ * @param props.key - The key of the cluster to display. If not provided, the active
+ * cluster will be used.
  */
-export const ActiveConnectionBadge = (): JSX.Element => {
-  const cluster = useSelectActiveCluster();
+export const ConnectionBadge = ({ key }: ConnectionBadgeProps): JSX.Element => {
+  const cluster = useSelectCluster(key);
   return <ConnectionStateBadge state={cluster?.state ?? DEFAULT_CONNECTION_STATE} />;
 };
