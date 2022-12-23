@@ -1,6 +1,6 @@
 import type { ComponentMeta, ComponentStory } from "@storybook/react";
 
-import { Space, SpaceAlignments, SpaceJustifications, SpaceProps } from ".";
+import { Space, SpaceProps } from ".";
 
 import { Button } from "@/atoms/Button";
 import { ComponentSizes } from "@/util";
@@ -19,11 +19,11 @@ const story: ComponentMeta<typeof Space> = {
     },
     align: {
       control: { type: "select" },
-      options: SpaceAlignments,
+      options: Space.Alignments,
     },
     justify: {
       control: { type: "select" },
-      options: SpaceJustifications,
+      options: Space.Justifications,
     },
   },
 };

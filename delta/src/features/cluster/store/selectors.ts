@@ -9,7 +9,7 @@ import { useMemoSelect } from "@/hooks";
  * @param state - The state of the cluster store.
  */
 export const selectActiveClusterKey = (state: ClusterStoreState): string | null =>
-  state.cluster.activeClusterKey;
+  state.cluster.activeCluster;
 
 /** Selects the key of the active cluster */
 export const useSelectActiveClusterKey = (): string | null =>

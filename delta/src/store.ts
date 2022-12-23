@@ -8,8 +8,8 @@ import {
 import { JSONEncoderDecoder } from "@synnaxlabs/freighter";
 import { appWindow } from "@tauri-apps/api/window";
 
-import { clusterReducer } from "@/features/cluster";
-import { layoutReducer } from "@/features/layout";
+import { clusterReducer, CLUSTER_SLICE_NAME } from "@/features/cluster";
+import { layoutReducer, LAYOUT_SLICE_NAME } from "@/features/layout";
 import {
   TauriKV,
   createPreloadedState,
@@ -22,8 +22,8 @@ const kv = new TauriKV(new JSONEncoderDecoder());
 
 const reducer = combineReducers({
   [DRIFT_SLICE_NAME]: driftReducer,
-  cluster: clusterReducer,
-  layout: layoutReducer,
+  [CLUSTER_SLICE_NAME]: clusterReducer,
+  [LAYOUT_SLICE_NAME]: layoutReducer,
   visualization: visualizationReducer,
   workspace: workspaceReducer,
 });

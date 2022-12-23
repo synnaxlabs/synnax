@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { OntologyID, OntologyRoot } from "@synnaxlabs/client";
 import type { OntologyResource } from "@synnaxlabs/client";
@@ -12,21 +12,18 @@ import { resourceTypes } from "../resources";
 import { useClusterClient } from "@/features/cluster";
 import { useLayoutPlacer } from "@/features/layout";
 import { WorkspaceState } from "@/features/workspace";
+import { useAsyncEffect } from "@/hooks";
 
 const updateTreeEntry = (
   data: TreeLeaf[],
   newEntry: Partial<TreeLeaf>,
   key: string
-): void => {
+): void =>
   data.forEach((entry, i) => {
-    if (entry.key === key) {
-      entry.children = entry.children ?? [];
-      data[i] = { ...entry, ...newEntry };
-    } else if (entry.children != null) {
-      updateTreeEntry(entry.children, newEntry, key);
-    }
+    if (entry.key === key)
+      data[i] = { ...entry, ...newEntry, children: entry.children ?? [] };
+    else if (entry.children != null) updateTreeEntry(entry.children, newEntry, key);
   });
-};
 
 const convertOntologyResources = (resources: OntologyResource[]): TreeLeaf[] => {
   return resources.map(({ id, entity: { name } }) => {
@@ -47,12 +44,10 @@ const ResourcesTree = (): JSX.Element => {
   const store = useStore();
   const placer = useLayoutPlacer();
 
-  useEffect(() => {
+  useAsyncEffect(async () => {
     if (client == null) return;
-    void (async (): Promise<void> => {
-      const resources = await client.ontology.retrieveChildren(OntologyRoot);
-      setData(convertOntologyResources(resources));
-    })();
+    const resources = await client.ontology.retrieveChildren(OntologyRoot);
+    setData(convertOntologyResources(resources));
   }, [client]);
 
   return (

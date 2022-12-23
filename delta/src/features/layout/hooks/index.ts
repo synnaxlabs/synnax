@@ -1,7 +1,7 @@
-import { Dispatch, useCallback, useEffect } from "react";
+import { Dispatch, useCallback } from "react";
 
 import type { AnyAction } from "@reduxjs/toolkit";
-import { closeWindow, createWindow } from "@synnaxlabs/drift";
+import { closeWindow, createWindow, MAIN_WINDOW } from "@synnaxlabs/drift";
 import type { ThemeProviderProps } from "@synnaxlabs/pluto";
 import { appWindow } from "@tauri-apps/api/window";
 import type { Theme as TauriTheme } from "@tauri-apps/api/window";
@@ -10,23 +10,38 @@ import { useDispatch } from "react-redux";
 import {
   placeLayout,
   removeLayout,
-  setTheme,
+  setActiveTheme,
   toggleTheme,
   useSelectLayout,
   useSelectTheme,
 } from "../store";
 import { Layout } from "../types";
 
+import { useAsyncEffect, AsyncDestructor } from "@/hooks";
+
 export interface LayoutCreatorProps {
   dispatch: Dispatch<AnyAction>;
 }
 
+/** A function that creates a layout given a set of utilities. */
 export type LayoutCreator = (props: LayoutCreatorProps) => Layout;
 
+/** A function that places a layout using the given properties or creation func. */
 export type LayoutPlacer = (layout: Layout | LayoutCreator) => void;
 
+/** A function that removes a layout. */
 export type LayoutRemover = () => void;
 
+/**
+ * useLayoutPlacer is a hook that returns a function that allows the caller to place
+ * a layout in the central mosaic or in a window.
+ *
+ * @returns A layout placer function that allows the caller to open a layout using one
+ * of two methods. The first is to pass a layout object with the layout's key, type,
+ * title, location, and window properties. The second is to pass a layout creator function
+ * that accepts a few utilities and returns a layout object. Prefer the first method
+ * when possible, but feel free to use the second method for more dynamic layout creation.
+ */
 export const useLayoutPlacer = (): LayoutPlacer => {
   const dispatch = useDispatch();
   return useCallback(
@@ -48,6 +63,14 @@ export const useLayoutPlacer = (): LayoutPlacer => {
   );
 };
 
+/**
+ * useLayoutRemover is a hook that returns a function that allows the caller to remove
+ * a layout.
+ *
+ * @param key - The key of the layout to remove.
+ * @returns A layout remover function that allows the caller to remove a layout. If
+ * the layout is in a window, the window will also be closed.
+ */
 export const useLayoutRemover = (key: string): LayoutRemover => {
   const dispatch = useDispatch();
   const layout = useSelectLayout(key);
@@ -58,30 +81,41 @@ export const useLayoutRemover = (key: string): LayoutRemover => {
   };
 };
 
+/**
+ * useThemeProvider is a hook that returns the props to pass to a ThemeProvider from
+ * @synnaxlabs/pluto. This hook allows theme management to be centralized in the layout
+ * redux store, and be synchronized across several windows.
+ *
+ * @returns The props to pass to a ThemeProvider from @synnaxlabs/pluto.
+ */
 export const useThemeProvider = (): ThemeProviderProps => {
   const theme = useSelectTheme();
   const dispatch = useDispatch();
 
-  useEffect(() => {
-    if (appWindow.label !== "main") return;
-    appWindow
-      .theme()
-      .then((theme) => dispatch(setTheme(matchThemeChange({ payload: theme }))))
-      .catch(console.error);
-    const unlisten = appWindow.onThemeChanged((e) => {
-      dispatch(setTheme(matchThemeChange(e)));
-    });
-    return () => {
-      unlisten.then((f) => f()).catch(console.error);
-    };
+  useAsyncEffect(async (): AsyncDestructor => {
+    if (appWindow.label !== MAIN_WINDOW) return;
+    await setInitialTheme(dispatch);
+    const cleanup = await synchronizeWithOS(dispatch);
+    return cleanup;
   }, []);
 
   return {
     theme,
-    setTheme: (key: string) => dispatch(setTheme(key)),
+    setTheme: (key: string) => dispatch(setActiveTheme(key)),
     toggleTheme: () => dispatch(toggleTheme()),
   };
 };
 
 const matchThemeChange = ({ payload: theme }: { payload: TauriTheme | null }): string =>
   theme === "dark" ? "synnaxDark" : "synnaxLight";
+
+const synchronizeWithOS = async (dispatch: Dispatch<AnyAction>): AsyncDestructor => {
+  return await appWindow.onThemeChanged((e) =>
+    dispatch(setActiveTheme(matchThemeChange(e)))
+  );
+};
+
+const setInitialTheme = async (dispatch: Dispatch<AnyAction>): Promise<void> => {
+  const t = await appWindow.theme();
+  dispatch(setActiveTheme(matchThemeChange({ payload: t })));
+};

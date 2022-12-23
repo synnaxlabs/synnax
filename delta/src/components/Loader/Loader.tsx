@@ -5,12 +5,6 @@ import * as d3 from "d3";
 
 type point = [number, number];
 
-const calculateDashArray = ({ edgeLength }: { edgeLength: number }): string => {
-  // 6 is the number of sides in a hexagon!
-  // return `${edgeLength * 0.5 * 6} ${edgeLength * (1 - 0.5) * 6}`;
-  return "5";
-};
-
 const HEX_COS = Math.abs(Math.cos((2 * Math.PI) / 3));
 const HEX_SIN = Math.abs(Math.sin((2 * Math.PI) / 3));
 
@@ -40,9 +34,7 @@ const curveFunc = d3
   .x((d) => d[0])
   .y((d) => d[1]);
 
-export interface LoaderProps {}
-
-export const Loader = ({ ...props }: LoaderProps): JSX.Element => {
+export const Loader = (): JSX.Element => {
   const ref = useRef<SVGSVGElement>(null);
   const strokeWidth = 3;
   const { theme } = Theming.useContext();
@@ -77,5 +69,5 @@ export const Loader = ({ ...props }: LoaderProps): JSX.Element => {
     animate();
   }, []);
 
-  return <svg ref={ref} {...props} style={{ height: "15%", width: "15%" }} />;
+  return <svg ref={ref} style={{ height: "15%", width: "15%" }} />;
 };

@@ -4,7 +4,7 @@ import clsx from "clsx";
 import { AiOutlinePlus } from "react-icons/ai";
 import { useDispatch } from "react-redux";
 
-import { useSelectActiveCluster, useSelectClusters } from "../store";
+import { useSelectCluster, useSelectClusters } from "../store";
 import { setActiveCluster } from "../store/slice";
 import { Cluster } from "../types";
 
@@ -30,7 +30,7 @@ const connectClusterWindowLayout: Layout = {
 const Content = (): JSX.Element => {
   const dispatch = useDispatch();
   const data = Object.values(useSelectClusters());
-  const active = useSelectActiveCluster();
+  const active = useSelectCluster();
   const openWindow = useLayoutPlacer();
 
   const selected = active != null ? [active?.key] : [];

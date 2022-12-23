@@ -4,11 +4,12 @@ import type { PayloadAction } from "@reduxjs/toolkit";
 import { Optional } from "../../../util/types";
 import { Cluster, ConnectionState, DEFAULT_CONNECTION_STATE } from "../types";
 
-/** Represents the state of the cluster slice. */
+/** The state of the cluster slice. */
 export interface ClusterSliceState {
   /** The current, active cluster. */
-  activeClusterKey: string | null;
-  /** A record of cluster keys to clusters. The key activeClusterKey is guaranteed
+  activeCluster: string | null;
+  /**
+   * A record of cluster keys to clusters. The active cluster is guaranteed
    * to be present in this record.
    */
   clusters: Record<string, Cluster>;
@@ -20,7 +21,11 @@ export interface ClusterSliceState {
  */
 export const CLUSTER_SLICE_NAME = "cluster";
 
-/** Represents a partial view of a large store that contains the cluster slice. */
+/**
+ * Represents a partial view of a larger store that contains the cluster slice. This is
+ * typically used for hooks that accept the entire store state as a parameter but only
+ * need access to the cluster slice.
+ */
 export interface ClusterStoreState {
   [CLUSTER_SLICE_NAME]: ClusterSliceState;
 }
@@ -38,7 +43,7 @@ const devClusterProps = {
 };
 
 const initialState: ClusterSliceState = {
-  activeClusterKey: "dev",
+  activeCluster: "dev",
   clusters: {
     dev: devClusterProps,
   },
@@ -78,7 +83,7 @@ export const {
    */
   reducer: clusterReducer,
 } = createSlice({
-  name: "cluster",
+  name: CLUSTER_SLICE_NAME,
   initialState,
   reducers: {
     setClusterConnectionState: (
@@ -91,7 +96,7 @@ export const {
       clusters[cluster.key] = { state: DEFAULT_CONNECTION_STATE, ...cluster };
     },
     setActiveCluster: (state, { payload: key }: SetActiveClusterAction) => {
-      state.activeClusterKey = key;
+      state.activeCluster = key;
     },
   },
 });
