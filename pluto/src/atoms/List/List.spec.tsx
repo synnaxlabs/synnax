@@ -44,7 +44,7 @@ const colList = (
   </List>
 );
 
-describe.only("List", () => {
+describe("List", () => {
   beforeAll(() => {
     vi.mock("../../util/canvas.ts", () => ({
       textWidth: () => 0,
@@ -52,7 +52,7 @@ describe.only("List", () => {
     Element.prototype.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 100);
   });
   describe("Column", () => {
-    it.only("should render a column list with the provided items", async () => {
+    it("should render a column list with the provided items", async () => {
       const c = render(colList);
       expect(c.getByText("Name")).toBeTruthy();
       expect(c.getByText("Age")).toBeTruthy();
