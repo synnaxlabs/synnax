@@ -20,4 +20,8 @@ export default defineConfig({
       fileName: (format) => `client.${format}.js`,
     },
   },
+  test: {
+    globals: true,
+    environment: "jsdom",
+  },
 });
