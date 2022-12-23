@@ -1,5 +1,7 @@
 import { TypographyDefinition } from "../atoms/Typography";
 
+import "@fontsource/inter";
+
 type Size = number | string;
 type Color = string;
 

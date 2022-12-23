@@ -1,38 +1,36 @@
-import { PropsWithChildren, useState } from "react";
-import { useMemo } from "react";
+import { PropsWithChildren, useState, useMemo } from "react";
+
 import { ListContextProvider } from "./ListContext";
-import { ListEntry, TypedListColumn, TypedListTransform } from "./types";
+import { RenderableRecord, TypedListColumn, TypedListTransform } from "./types";
 import { useMultiSelect, useMultiSelectProps } from "./useMultiSelect";
 
-export interface ListProps<E extends ListEntry>
+export interface ListProps<E extends RenderableRecord<E>>
   extends PropsWithChildren<unknown>,
     useMultiSelectProps<E> {
   data: E[];
 }
 
-export const List = <E extends ListEntry>({
+export const List = <E extends RenderableRecord<E>>({
   children,
   data,
   selectMultiple = true,
   selected: selectedProp,
   onSelect: onSelectProp,
-}: ListProps<E>) => {
+}: ListProps<E>): JSX.Element => {
   const [transforms, setTransforms] = useState<
     Record<string, TypedListTransform<E> | undefined>
   >({});
-  const [columns, setColumns] = useState<TypedListColumn<E>[]>([]);
+  const [columns, setColumns] = useState<Array<TypedListColumn<E>>>([]);
 
-  const setTransform = (key: string, transform: TypedListTransform<E>) => {
+  const setTransform = (key: string, transform: TypedListTransform<E>): void =>
     setTransforms((transforms) => ({ ...transforms, [key]: transform }));
-  };
 
-  const removeTransform = (key: string) => {
+  const removeTransform = (key: string): void =>
     setTransforms((transforms) => ({ ...transforms, [key]: undefined }));
-  };
 
   const transformedData = useMemo(() => {
     return Object.values(transforms).reduce(
-      (data, transform) => (transform ? transform(data) : data),
+      (data, transform) => (transform != null ? transform(data) : data),
       data
     );
   }, [data, transforms]);
@@ -64,5 +62,3 @@ export const List = <E extends ListEntry>({
     </ListContextProvider>
   );
 };
-
-export default List;

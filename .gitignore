@@ -11,6 +11,18 @@
 node_modules
 dist
 coverage
+yarn-error.log
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+dist-ssr
+*.local
+nyc_output
+*.tsbuildinfo
+*.ts.timestamp-*
 
 # |||||| RUST ||||||
 
@@ -24,3 +36,7 @@ coverage
 # |||||| SYNNAX ||||||
 
 synnax-data/
+
+# |||||| LOGS ||||||
+
+logs

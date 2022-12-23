@@ -1,23 +1,17 @@
-export enum Runtime {
-  Browser = 'browser',
-  Node = 'node',
-}
+type Runtime = "browser" | "node";
 
 const detectRuntime = (): Runtime => {
   if (
-    typeof process !== 'undefined' &&
+    typeof process !== "undefined" &&
     process.versions != null &&
     process.versions.node != null
-  ) {
-    return Runtime.Node;
-  }
+  )
+    return "node";
 
-  if (typeof window !== 'undefined' && typeof window.document !== 'undefined') {
-    return Runtime.Browser;
-  }
+  if (window === undefined || window.document === undefined)
+    console.warn("freighter unable to safely detect runtime, assuming browser");
 
-  console.warn('Freighter unable to safely detect runtime, assuming browser');
-  return Runtime.Browser;
+  return "browser";
 };
 
 export const RUNTIME = detectRuntime();

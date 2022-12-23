@@ -1,0 +1,13 @@
+.pluto-text-editable {
+    cursor: pointer;
+    user-select: text;
+    -webkit-user-select: text;
+}
+
+.pluto-text-editable:focus {
+    box-shadow: 0 0 0 2px var(--pluto-primary-z);
+    border-radius: 2px;
+    outline: none;
+    display: inline-block;
+    cursor: text;
+}

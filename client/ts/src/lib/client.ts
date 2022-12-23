@@ -1,16 +1,16 @@
-import { URL } from '@synnaxlabs/freighter';
-import { z } from 'zod';
+import { URL } from "@synnaxlabs/freighter";
+import { z } from "zod";
 
-import AuthenticationClient from './auth';
-import ChannelCreator from './channel/creator';
-import Registry from './channel/registry';
-import ChannelRetriever from './channel/retriever';
-import ConnectivityClient from './connectivity';
-import FrameClient from './framer/client';
-import { TimeSpan } from './telem';
-import Transport from './transport';
-import OntologyClient from './ontology/client';
-import { ChannelClient } from './channel';
+import AuthenticationClient from "./auth";
+import { ChannelClient } from "./channel";
+import ChannelCreator from "./channel/creator";
+import Registry from "./channel/registry";
+import ChannelRetriever from "./channel/retriever";
+import ConnectivityClient from "./connectivity";
+import FrameClient from "./framer/client";
+import OntologyClient from "./ontology/client";
+import { TimeSpan } from "./telem";
+import Transport from "./transport";
 
 export const synnaxPropsSchema = z.object({
   host: z.string().min(1),
@@ -32,7 +32,7 @@ export type SynnaxProps = z.infer<typeof synnaxPropsSchema>;
  * @property ontology - Client for querying the cluster's ontology.
  */
 export default class Synnax {
-  private transport: Transport;
+  private readonly transport: Transport;
   data: FrameClient;
   channel: ChannelClient;
   auth: AuthenticationClient | undefined;
@@ -63,7 +63,7 @@ export default class Synnax {
     secure,
   }: SynnaxProps) {
     this.transport = new Transport(new URL({ host, port: Number(port) }), secure);
-    if (username && password) {
+    if (username != null && password != null) {
       this.auth = new AuthenticationClient(this.transport.httpFactory, {
         username,
         password,
@@ -82,7 +82,7 @@ export default class Synnax {
     this.ontology = new OntologyClient(this.transport);
   }
 
-  close() {
+  close(): void {
     this.connectivity.stopChecking();
   }
 }

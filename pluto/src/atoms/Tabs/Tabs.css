@@ -2,6 +2,9 @@
     padding: 0.25rem 2rem 0.25rem 3rem;
     margin-bottom: -1px;
     cursor: pointer;
+}
+
+.pluto-tabs__tab--uneditable {
     user-select: none;
 }
 

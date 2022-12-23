@@ -4,19 +4,19 @@ export type WindowState = 'creating' | 'created' | 'closing' | 'closed';
 export const MAIN_WINDOW = 'main';
 
 /** Properties of a window managed by drift  */
-export type Window = {
+export interface Window {
   /** Lifecycle state */
   state: WindowState;
   /** Number of active processes */
   processCount: number;
   /** The props the  was created with */
   props: KeyedWindowProps;
-};
+}
 
 /**
  * The properties to provide when creating a window.
  */
-export type WindowProps = {
+export interface WindowProps {
   /* A unique key for the window. If not provided, a unique key will be generated. */
   key?: string;
   /* The url to load in the window. */
@@ -59,7 +59,7 @@ export type WindowProps = {
   fileDropEnabled?: boolean;
   /* Whether the window is transparent. Runtime specific. */
   transparent?: boolean;
-};
+}
 
 /* WindowProps but with a key */
 export type KeyedWindowProps = Omit<WindowProps, 'key'> & { key: string };

@@ -1,4 +1,4 @@
-import { Middleware } from './middleware';
+import { Middleware } from "./middleware";
 
 /**
  * Transport is a based interface that represents a general transport for
@@ -10,5 +10,5 @@ export interface Transport {
    *
    * @param mw - The middleware to register.
    */
-  use(...mw: Middleware[]): void;
+  use: (...mw: Middleware[]) => void;
 }

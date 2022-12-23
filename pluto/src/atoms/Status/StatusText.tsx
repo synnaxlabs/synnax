@@ -1,5 +1,5 @@
 import { ReactElement } from "react";
-import { Text, TextProps, TypographyLevel } from "../Typography";
+
 import {
   AiFillInfoCircle,
   AiFillWarning,
@@ -7,6 +7,9 @@ import {
   AiOutlineClose,
   AiOutlineWarning,
 } from "react-icons/ai";
+
+import { Text, TextProps, TypographyLevel } from "../Typography";
+
 import { StatusVariant } from "./types";
 
 export interface StatusBadgeProps extends Omit<TextProps, "level"> {
@@ -34,7 +37,7 @@ export const StatusText = ({
   variant = "error",
   level = "p",
   ...props
-}: StatusBadgeProps) => {
+}: StatusBadgeProps): JSX.Element => {
   return (
     <Text.WithIcon
       color={statusVariantColors[variant]}

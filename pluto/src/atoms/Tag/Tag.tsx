@@ -1,10 +1,7 @@
 import { AiOutlineClose } from "react-icons/ai";
+
+import { ComponentSizeTypographyLevels, Text, TextProps } from "@/atoms/Typography";
 import { ComponentSize } from "@/util";
-import {
-  ComponentSizeTypographyLevels,
-  Text,
-  TextProps,
-} from "@/atoms/Typography";
 import "./Tag.css";
 
 export interface TagProps extends Omit<TextProps, "level"> {
@@ -24,17 +21,18 @@ export const Tag = ({
   onClose,
   style,
   ...props
-}: TagProps) => {
-  const closeIcon = onClose && (
-    <AiOutlineClose
-      aria-label="close"
-      className="pluto-tag__close"
-      onClick={(e) => {
-        e.stopPropagation();
-        onClose();
-      }}
-    />
-  );
+}: TagProps): JSX.Element => {
+  const closeIcon =
+    onClose == null ? undefined : (
+      <AiOutlineClose
+        aria-label="close"
+        className="pluto-tag__close"
+        onClick={(e) => {
+          e.stopPropagation();
+          onClose();
+        }}
+      />
+    );
   return (
     <Text.WithIcon
       endIcon={closeIcon}
@@ -43,7 +41,7 @@ export const Tag = ({
       level={ComponentSizeTypographyLevels[size]}
       style={{
         border: `var(--pluto-border-width) solid ${color}`,
-        backgroundColor: variant == "filled" ? color : "transparent",
+        backgroundColor: variant === "filled" ? color : "transparent",
         ...style,
       }}
       {...props}

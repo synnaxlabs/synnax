@@ -1,16 +1,28 @@
 import { Nav, Theming } from "@synnaxlabs/pluto";
-import { Logo } from "@/components";
-import "./NavLeft.css";
-import { ClusterToolBar } from "@/features/cluster";
-import { ResourcesToolBar } from "@/features/resources";
 
-export const NavLeft = () => (
-	<Nav.Drawer location="left" size={48} items={[ClusterToolBar, ResourcesToolBar]}>
-		<Nav.Bar.Start className="delta-main-layout__nav-left__start" bordered>
-			<Logo style={{ width: "100%" }} color="auto" />
-		</Nav.Bar.Start>
-		<Nav.Bar.End className="delta-main-layout__nav-left__end" bordered>
-			<Theming.Switch />
-		</Nav.Bar.End>
-	</Nav.Drawer>
+import { NAV_SIZES } from "./constants";
+
+import { Logo } from "@/components";
+import { ClusterToolbar } from "@/features/cluster";
+import { ResourcesToolbar } from "@/features/resources";
+
+import "./NavLeft.css";
+
+/**
+ * NavLeft is the left navigation drawer for the Delta UI. Try to keep this component
+ * presentational.
+ */
+export const NavLeft = (): JSX.Element => (
+  <Nav.Drawer
+    location="left"
+    size={NAV_SIZES.side}
+    items={[ClusterToolbar, ResourcesToolbar]}
+  >
+    <Nav.Bar.Start className="delta-main-nav-left__start" bordered>
+      <Logo className="delta-main-nav-left__logo" />
+    </Nav.Bar.Start>
+    <Nav.Bar.End className="delta-main-nav-left__end" bordered>
+      <Theming.Switch />
+    </Nav.Bar.End>
+  </Nav.Drawer>
 );

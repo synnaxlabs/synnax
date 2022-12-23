@@ -1,6 +1,6 @@
-import { ZodSchema } from 'zod';
+import { ZodSchema } from "zod";
 
-import { Transport } from './transport';
+import { Transport } from "./transport";
 
 /**
  * Interface for an entity that receives a stream of responses.
@@ -15,12 +15,12 @@ export interface StreamReceiver<RS> {
    *  returns the error the server returned.
    *  @raises Error: if the transport fails.
    */
-  receive(): Promise<[RS | undefined, Error | undefined]>;
+  receive: () => Promise<[RS | undefined, Error | undefined]>;
 
   /**
    * @returns true if the stream has received a response
    */
-  received(): boolean;
+  received: () => boolean;
 }
 
 /**
@@ -38,7 +38,7 @@ export interface StreamSender<RQ> {
   * @raises freighter.StreamClosed: if the client called close_send()
   * @raises Error: if the transport fails.
   */
-  send(req: RQ): Error | undefined;
+  send: (req: RQ) => Error | undefined;
 }
 
 /**
@@ -55,15 +55,13 @@ export interface StreamSenderCloser<RQ> extends StreamSender<RQ> {
   * After calling close_send, the client is responsible for calling receive()
   * to successfully receive the server's acknowledgement.
    */
-  closeSend(): void;
+  closeSend: () => void;
 }
 
 /**
  * Interface for a bidirectional stream between a client and a server.
  */
-export interface Stream<RQ, RS>
-  extends StreamSenderCloser<RQ>,
-    StreamReceiver<RS> {}
+export interface Stream<RQ, RS> extends StreamSenderCloser<RQ>, StreamReceiver<RS> {}
 
 /**
  * Interface for a bidirectional stream between a client and a server.
@@ -80,9 +78,9 @@ export interface StreamClient extends Transport {
    * @param resSchema - The schema for the response type. This is used to
    * validate the response before returning it.
    */
-  stream<RQ, RS>(
+  stream: <RQ, RS>(
     target: string,
     reqSchema: ZodSchema<RQ>,
     resSchema: ZodSchema<RS>
-  ): Promise<Stream<RQ, RS>>;
+  ) => Promise<Stream<RQ, RS>>;
 }

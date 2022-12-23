@@ -1,7 +1,7 @@
-import test from 'ava';
-import { z } from 'zod';
+import { describe, expect, test } from "vitest";
+import { z } from "zod";
 
-import { ENCODERS } from './encoder';
+import { ENCODERS } from "./encoder";
 
 const SampleSchema = z.object({
   channelKey: z.string(),
@@ -9,15 +9,14 @@ const SampleSchema = z.object({
   value: z.unknown(),
 });
 
-ENCODERS.forEach((encoder) => {
-  test(`[encoder] - encoder ${encoder.contentType}`, (t) => {
+describe.each(ENCODERS)("encoder", (e) => {
+  test(`[encoder] - encoder ${e.contentType} should encode correctly`, () => {
     const sample = {
-      channelKey: 'test',
+      channelKey: "test",
       timeStamp: 123,
-      value: new Uint8Array([1, 2, 3]),
+      value: new Array([1, 2, 3]),
     };
-    const encoded = encoder.encode(sample);
-    const decoded = encoder.decode(encoded, SampleSchema);
-    t.deepEqual(decoded, decoded);
+    const encoded = e.encode(sample);
+    expect(e.decode(encoded, SampleSchema)).toEqual(sample);
   });
 });

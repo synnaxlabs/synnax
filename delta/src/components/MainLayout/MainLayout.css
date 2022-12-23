@@ -1,14 +1,9 @@
-.delta-main__container {
-    width: 100vw;
-    height: 100vh;
+.delta-main__middle {
+    height: calc(100vh - 36px - 32px);
 }
 
-.delta-main-layout__content__container {
-	height: calc(100vh - 36px - 32px);
-}
-
-.delta-main-layout__content {
+.delta-main__content {
     flex-grow: 1;
     overflow: hidden;
-		height: 100%;
+    height: 100%;
 }

@@ -1,3 +1,4 @@
+/* stylelint-disable-next-line selector-class-pattern */
 .pluto-line-plot__core--uplot .u-select{
     background-color: var(--pluto-gray-m0-20)
 }

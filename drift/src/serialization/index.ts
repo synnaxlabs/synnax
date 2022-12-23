@@ -1,10 +1,11 @@
-import { StoreState } from "@/state";
-import { Action, AnyAction } from "@reduxjs/toolkit";
+import type { Action, AnyAction } from "@reduxjs/toolkit";
+
 import { Event } from "@/runtime";
+import { StoreState } from "@/state";
 
 export const encode = <S extends StoreState, A extends Action = AnyAction>(
   event: Event<S, A>
-) => JSON.stringify(event);
+): string => JSON.stringify(event);
 export const decode = <S extends StoreState, A extends Action = AnyAction>(
   event: string
-) => JSON.parse(event) as Event<S, A>;
+): Event<S, A> => JSON.parse(event) as Event<S, A>;

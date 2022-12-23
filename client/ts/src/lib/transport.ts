@@ -1,14 +1,12 @@
 import {
   HTTPClientFactory,
   JSONEncoderDecoder,
-  Middleware,
-  StreamClient,
   URL,
-  UnaryClient,
   WebSocketClient,
-} from '@synnaxlabs/freighter';
+} from "@synnaxlabs/freighter";
+import type { Middleware, StreamClient, UnaryClient } from "@synnaxlabs/freighter";
 
-const baseAPIEndpoint = '/api/v1/';
+const baseAPIEndpoint = "/api/v1/";
 
 export default class Transport {
   url: URL;
@@ -25,14 +23,14 @@ export default class Transport {
   }
 
   getClient(): UnaryClient {
-    return this.httpFactory.getClient();
+    return this.httpFactory.newGET();
   }
 
   postClient(): UnaryClient {
-    return this.httpFactory.postClient();
+    return this.httpFactory.newPOST();
   }
 
-  use(...middleware: Middleware[]) {
+  use(...middleware: Middleware[]): void {
     this.httpFactory.use(...middleware);
     this.streamClient.use(...middleware);
   }

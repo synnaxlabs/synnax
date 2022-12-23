@@ -1,14 +1,18 @@
 import { fireEvent, render } from "@testing-library/react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import { Select } from ".";
+
 import { mockBoundingClientRect } from "../../testutil/mocks";
 import { TypedListColumn } from "../List";
 
-const mockColumns: TypedListColumn<{
-  key: string;
-  name: string;
-  age: number;
-}>[] = [
+import { Select } from ".";
+
+const mockColumns: Array<
+  TypedListColumn<{
+    key: string;
+    name: string;
+    age: number;
+  }>
+> = [
   {
     key: "name",
     label: "Name",
@@ -46,14 +50,9 @@ const selectMultiple = (
 describe("Select", () => {
   beforeAll(() => {
     vi.mock("../../util/canvas.ts", () => ({
-      getTextWidth: () => 0,
+      textWidth: () => 0,
     }));
-    Element.prototype.getBoundingClientRect = mockBoundingClientRect(
-      0,
-      0,
-      100,
-      100
-    );
+    Element.prototype.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 100);
   });
   describe("Select.Multiple", () => {
     it("should render a search input", () => {

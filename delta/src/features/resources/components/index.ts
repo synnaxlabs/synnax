@@ -1,1 +1,1 @@
-export * from "./ResourcesToolBar";
+export * from "./ResourcesToolbar";

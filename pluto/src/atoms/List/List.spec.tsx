@@ -1,7 +1,9 @@
-import { beforeAll, describe, expect, it, vi } from "vitest";
 import { fireEvent, render } from "@testing-library/react";
-import { List } from ".";
+import { beforeAll, describe, expect, it, vi } from "vitest";
+
 import { mockBoundingClientRect } from "../../testutil/mocks";
+
+import { List } from ".";
 
 const cols = [
   {
@@ -45,14 +47,9 @@ const colList = (
 describe("List", () => {
   beforeAll(() => {
     vi.mock("../../util/canvas.ts", () => ({
-      getTextWidth: () => 0,
+      textWidth: () => 0,
     }));
-    Element.prototype.getBoundingClientRect = mockBoundingClientRect(
-      0,
-      0,
-      100,
-      100
-    );
+    Element.prototype.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 100);
   });
   describe("Column", () => {
     it("should render a column list with the provided items", async () => {
@@ -67,7 +64,7 @@ describe("List", () => {
       fireEvent.click(c.getByText("John"));
       const selected = await c.findByText("John");
       expect(selected.parentElement?.className).toContain(
-        "pluto-list-col__item__container--selected"
+        "pluto-list-col-item__container--selected"
       );
     });
     it("should allow a user to deselect an item in the list", async () => {
@@ -76,7 +73,7 @@ describe("List", () => {
       fireEvent.click(c.getByText("John"));
       const selected = await c.findByText("John");
       expect(selected.parentElement?.className).not.toContain(
-        "pluto-list-col__item__container--selected"
+        "pluto-list-col-item__container--selected"
       );
     });
     it("should allow a user to select multiple items in the list when holding shift", async () => {
@@ -89,7 +86,7 @@ describe("List", () => {
       expect(selected.length).toBe(3);
       selected.forEach((s) => {
         expect(s.parentElement?.className).toContain(
-          "pluto-list-col__item__container--selected"
+          "pluto-list-col-item__container--selected"
         );
       });
     });
@@ -107,7 +104,7 @@ describe("List", () => {
       expect(selected.length).toBe(3);
       selected.forEach((s) => {
         expect(s.parentElement?.className).not.toContain(
-          "pluto-list-col__item__container--selected"
+          "pluto-list-col-item__container--selected"
         );
       });
     });

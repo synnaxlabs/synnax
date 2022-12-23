@@ -1,6 +1,6 @@
 import { Theme } from "./theme";
 
-export const applyThemeAsCssVars = (element: HTMLElement, theme: Theme) => {
+export const applyThemeAsCssVars = (element: HTMLElement, theme: Theme): void => {
   // |||| COLORS ||||
 
   // || PRIMARY ||
@@ -40,12 +40,7 @@ export const applyThemeAsCssVars = (element: HTMLElement, theme: Theme) => {
   // |||| SIZES ||||
 
   setProperty(element, "--pluto-base-size", theme.sizes.base, "px");
-  setProperty(
-    element,
-    "--pluto-border-radius",
-    theme.sizes.border.radius,
-    "px"
-  );
+  setProperty(element, "--pluto-border-radius", theme.sizes.border.radius, "px");
   setProperty(element, "--pluto-border-width", theme.sizes.border.width, "px");
 
   // |||| TYPOGRAPHY ||||
@@ -55,82 +50,43 @@ export const applyThemeAsCssVars = (element: HTMLElement, theme: Theme) => {
   // || H1 ||
 
   setProperty(element, "--pluto-h1-size", theme.typography.h1.size, "rem");
-  setProperty(
-    element,
-    "--pluto-h1-line-height",
-    theme.typography.h1.lineHeight,
-    "rem"
-  );
+  setProperty(element, "--pluto-h1-line-height", theme.typography.h1.lineHeight, "rem");
   setProperty(element, "--pluto-h1-weight", theme.typography.h1.weight);
 
   // || H2 ||
 
   setProperty(element, "--pluto-h2-size", theme.typography.h2.size, "rem");
-  setProperty(
-    element,
-    "--pluto-h2-line-height",
-    theme.typography.h2.lineHeight,
-    "rem"
-  );
+  setProperty(element, "--pluto-h2-line-height", theme.typography.h2.lineHeight, "rem");
   setProperty(element, "--pluto-h2-weight", theme.typography.h2.weight);
 
   // || H3 ||
 
   setProperty(element, "--pluto-h3-size", theme.typography.h3.size, "rem");
-  setProperty(
-    element,
-    "--pluto-h3-line-height",
-    theme.typography.h3.lineHeight,
-    "rem"
-  );
+  setProperty(element, "--pluto-h3-line-height", theme.typography.h3.lineHeight, "rem");
   setProperty(element, "--pluto-h3-weight", theme.typography.h3.weight);
 
   // || H4 ||
 
   setProperty(element, "--pluto-h4-size", theme.typography.h4.size, "rem");
-  setProperty(
-    element,
-    "--pluto-h4-line-height",
-    theme.typography.h4.lineHeight,
-    "rem"
-  );
+  setProperty(element, "--pluto-h4-line-height", theme.typography.h4.lineHeight, "rem");
   setProperty(element, "--pluto-h4-weight", theme.typography.h4.weight);
 
   // || H5 ||
 
   setProperty(element, "--pluto-h5-size", theme.typography.h5.size, "rem");
-  setProperty(
-    element,
-    "--pluto-h5-line-height",
-    theme.typography.h5.lineHeight,
-    "rem"
-  );
+  setProperty(element, "--pluto-h5-line-height", theme.typography.h5.lineHeight, "rem");
   setProperty(element, "--pluto-h5-weight", theme.typography.h5.weight);
-  setProperty(
-    element,
-    "--pluto-h5-text-transform",
-    theme.typography.h2.textTransform
-  );
+  setProperty(element, "--pluto-h5-text-transform", theme.typography.h2.textTransform);
 
   // || P ||
 
   setProperty(element, "--pluto-p-size", theme.typography.p.size, "rem");
-  setProperty(
-    element,
-    "--pluto-p-line-height",
-    theme.typography.p.lineHeight,
-    "rem"
-  );
+  setProperty(element, "--pluto-p-line-height", theme.typography.p.lineHeight, "rem");
   setProperty(element, "--pluto-p-weight", theme.typography.p.weight);
 
   // || SMALL ||
 
-  setProperty(
-    element,
-    "--pluto-small-size",
-    theme.typography.small.size,
-    "rem"
-  );
+  setProperty(element, "--pluto-small-size", theme.typography.small.size, "rem");
   setProperty(
     element,
     "--pluto-small-line-height",
@@ -145,11 +101,9 @@ const setProperty = (
   property: string,
   value: string | number | null | undefined,
   numberUnit = ""
-) => {
-  if (value === null || value === undefined) return;
-  if (typeof value === "number") {
-    value = `${value}${numberUnit}`;
-  }
+): void => {
+  if (value == null) return;
+  if (typeof value === "number") value = `${value}${numberUnit}`;
   element.style.setProperty(property, String(value));
 };
 
@@ -164,8 +118,8 @@ const setOpacityVariants = (
   element: HTMLElement,
   baseVar: string,
   color: string | number
-) => {
-  Object.entries(opacityVariants).forEach(([key, opacity]) => {
-    setProperty(element, `${baseVar}-${key}`, `${color}${opacity}`);
-  });
+): void => {
+  Object.entries(opacityVariants).forEach(([key, opacity]) =>
+    setProperty(element, `${baseVar}-${key}`, `${color}${opacity}`)
+  );
 };

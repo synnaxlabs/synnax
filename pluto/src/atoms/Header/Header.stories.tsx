@@ -1,11 +1,14 @@
-import { ComponentMeta, ComponentStory } from "@storybook/react";
+import type { ComponentMeta, ComponentStory } from "@storybook/react";
 import { AiOutlinePlus } from "react-icons/ai";
 import { MdGrain } from "react-icons/md";
-import { Header } from ".";
+
 import { TypographyLevels } from "../Typography";
+
 import { HeaderProps } from "./Header";
 
-export default {
+import { Header } from ".";
+
+const story: ComponentMeta<typeof Header> = {
   title: "Atoms/Header",
   component: Header,
   argTypes: {
@@ -17,7 +20,7 @@ export default {
       control: { type: "json" },
     },
   },
-} as ComponentMeta<typeof Header>;
+};
 
 const Template: ComponentStory<typeof Header> = (args: HeaderProps) => (
   <Header {...args} />
@@ -31,3 +34,5 @@ Primary.args = {
   divided: true,
   actions: [{ children: <AiOutlinePlus />, variant: "text" }],
 };
+
+export default story;

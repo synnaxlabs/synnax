@@ -1,5 +1,7 @@
 import { SVGProps, useEffect, useRef, useState } from "react";
+
 import * as d3 from "d3";
+
 import { TypographyLevel } from "../../atoms";
 import { Theming } from "../../theming";
 
@@ -68,20 +70,20 @@ export const HexagonBar = ({
   strokeWidth = 5,
   metrics = [],
   ...props
-}: HexagonBarProps) => {
+}: HexagonBarProps): JSX.Element => {
   const ref = useRef<SVGSVGElement>(null);
   const [numPaths, setNumPaths] = useState<number>(0);
   const { theme } = Theming.useContext();
 
   useEffect(() => {
-    if (!ref.current) return;
+    if (ref.current == null) return;
     const svgEl = d3.select(ref.current);
     svgEl.selectAll("*").remove();
     svgEl.attr("viewBox", "0 0 100 100");
   }, []);
 
   useEffect(() => {
-    if (!ref.current) return;
+    if (ref.current == null) return;
     const svgEl = d3.select(ref.current);
     metrics.forEach((metric, i) => {
       const pathID = `path-${i}`;
@@ -107,6 +109,6 @@ export const HexagonBar = ({
   }, [metrics, strokeWidth]);
 
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
+  // @ts-expect-error
   return <svg ref={ref} {...props} />;
 };

@@ -1,15 +1,15 @@
-import {
+import type {
   Action,
   AnyAction,
   PreloadedState as BasePreloadedState,
   CombinedState,
   PayloadAction,
-  createSlice,
 } from "@reduxjs/toolkit";
-import { NoInfer } from "@reduxjs/toolkit/dist/tsHelpers";
+import { createSlice } from "@reduxjs/toolkit";
+import type { NoInfer } from "@reduxjs/toolkit/dist/tsHelpers";
 
-import { Runtime } from "./runtime";
-import { KeyedWindowProps, Window, WindowProps, WindowState } from "./window";
+import { Runtime } from "@/runtime";
+import { KeyedWindowProps, Window, WindowProps, WindowState } from "@/window";
 
 /** The Slice State */
 interface DriftState {
@@ -26,8 +26,12 @@ export type PreloadedState<S extends StoreState> = BasePreloadedState<
   CombinedState<NoInfer<S>>
 >;
 
-type MaybeKeyPayload = { key?: string };
-type KeyPayload = { key: string };
+interface MaybeKeyPayload {
+  key?: string;
+}
+interface KeyPayload {
+  key: string;
+}
 type CreateWindowPayload = WindowProps;
 type CloseWindowPayload = MaybeKeyPayload;
 type SetWindowKeyPayload = KeyPayload;
@@ -58,26 +62,24 @@ const assertKey = <T extends MaybeKeyPayload>(pld: MaybeKeyPayload): T & KeyPayl
   return pld as T & KeyPayload;
 };
 
-const SLICE_NAME = "drift";
+export const DRIFT_SLICE_NAME = "drift";
 
 const slice = createSlice({
-  name: SLICE_NAME,
+  name: DRIFT_SLICE_NAME,
   initialState,
   reducers: {
     setWindowKey: (state, action: PayloadAction<SetWindowKeyPayload>) => {
-      const { key } = assertKey<SetWindowKeyPayload>(action.payload);
-      state.key = key;
+      state.key = assertKey<SetWindowKeyPayload>(action.payload).key;
     },
     createWindow: (state, { payload }: PayloadAction<CreateWindowPayload>) => {
       const { key } = payload;
       assertKey(payload);
-      if (!key) return;
+      if (key == null) return;
       state.windows[key] = {
         state: "creating",
         processCount: 0,
         props: payload as KeyedWindowProps,
       };
-      console.log(state.windows);
     },
     setWindowState: ({ windows }, { payload }: PayloadAction<SetWindowPayload>) => {
       const { key, state } = assertKey<SetWindowPayload>(payload);
@@ -176,7 +178,7 @@ export const completeProcess = (key?: string): DriftAction =>
  * @returns true if the given action type is a drift action.
  * @param type - The action type to check.
  */
-export const isDrift = (type: string) => type.startsWith(SLICE_NAME);
+export const isDrift = (type: string): boolean => type.startsWith(DRIFT_SLICE_NAME);
 
 /** A list of actions that shouldn't be emitted to other windows. */
 const EXCLUDED_ACTIONS = [actions.setWindowKey.type];
@@ -188,7 +190,7 @@ const EXCLUDED_ACTIONS = [actions.setWindowKey.type];
  * @param type - The action type to check.
  *
  */
-export const shouldEmit = (emitted: boolean, type: string) =>
+export const shouldEmit = (emitted: boolean, type: string): boolean =>
   !emitted && !EXCLUDED_ACTIONS.includes(type);
 
 /**
@@ -200,7 +202,7 @@ export const shouldEmit = (emitted: boolean, type: string) =>
  * @returns true if the window is ready to be closed.
  */
 const readyToClose = (threshold: number, state?: Window): boolean =>
-  !state || (state.processCount <= threshold && state.state === "closing");
+  state == null || (state.processCount <= threshold && state.state === "closing");
 
 /**
  * Conditionally returns a default key for a given action.
@@ -213,8 +215,8 @@ export const assignKey = <S extends StoreState, A extends Action>(
   runtime: Runtime<S, A>,
   { type, payload: { key } }: DriftAction,
   { drift: { windows } }: S
-) => {
-  if (key) return key;
+): string => {
+  if (key != null) return key;
   if (type === actions.createWindow.type)
     return `window-${Object.keys(windows).length + 1}`;
   return runtime.key();
@@ -231,9 +233,9 @@ export const executeAction = <S extends StoreState, A extends Action = AnyAction
   runtime: Runtime<S, A>,
   { type, payload }: DriftAction,
   { drift: { windows } }: S
-) => {
+): void => {
   const { key } = payload;
-  if (!key) throw new Error("[drift] - bug - action doesn't have a key");
+  if (key == null) throw new Error("[drift] - bug - action doesn't have a key");
 
   switch (type) {
     case actions.createWindow.type: {
@@ -247,8 +249,9 @@ export const executeAction = <S extends StoreState, A extends Action = AnyAction
       // Execute a close request even if we can't find the window in state.
       // This is mainly to deal with redux state being out of sync with the
       // window state.
-      const win = windows[key];
-      if (!win || win.processCount <= 0) runtime.close(key);
+      const win = windows[key] as Window | undefined;
+      console.log(win, key);
+      if (win == null || win.processCount <= 0) runtime.close(key);
       break;
     }
     case actions.completeProcess.type: {
@@ -256,8 +259,7 @@ export const executeAction = <S extends StoreState, A extends Action = AnyAction
       // set at 1 because we haven't yet updated the state to include the last
       // closure.
       const win = windows[key];
-      if (!win || (win.processCount <= 1 && win.state === "closing"))
-        runtime.close(key);
+      if (win.processCount <= 1 && win.state === "closing") runtime.close(key);
     }
   }
 };

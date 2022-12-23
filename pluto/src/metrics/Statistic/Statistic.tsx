@@ -1,4 +1,5 @@
 import clsx from "clsx";
+
 import { Space, Text, TypographyLevel } from "@/atoms";
 
 export interface ValueProps {
@@ -14,19 +15,19 @@ export const Statistic = ({
   level = "h4",
   variant = "primary",
   label,
-}: ValueProps) => {
+}: ValueProps): JSX.Element => {
   return (
     <Space empty direction="vertical" align="center" justify="center">
       <Text
         className={clsx(
           "pluto-value__text",
-          variant && `pluto-value__text--${variant}`
+          variant.length > 0 && `pluto-value__text--${variant}`
         )}
         level={level}
       >
         {value}
       </Text>
-      {label && (
+      {label != null && (
         <Text className="pluto-value__label" level="small">
           {label}
         </Text>

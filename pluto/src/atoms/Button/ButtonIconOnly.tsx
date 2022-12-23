@@ -1,10 +1,12 @@
+import { cloneElement, ReactElement } from "react";
+
 import clsx from "clsx";
-import { cloneElement } from "react";
+
 import { BaseButtonProps } from "./Button";
 
+/** The props for the {@link ButtonIconOnly} */
 export interface ButtonIconOnlyProps extends BaseButtonProps {
-  /** The icon to render */
-  children: React.ReactElement;
+  children: ReactElement;
 }
 
 export const ButtonIconOnly = ({
@@ -13,7 +15,7 @@ export const ButtonIconOnly = ({
   variant = "text",
   size = "medium",
   ...props
-}: ButtonIconOnlyProps) => {
+}: ButtonIconOnlyProps): JSX.Element => {
   return (
     <button
       className={clsx(

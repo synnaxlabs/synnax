@@ -1,28 +1,33 @@
-import { Button, getLocation, Header, Input, Nav, Space } from "@synnaxlabs/pluto";
-import { AiFillApi, AiOutlineLoading3Quarters } from "react-icons/ai";
-import { FieldValues, useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Connectivity, SynnaxProps, synnaxPropsSchema } from "@synnaxlabs/client";
-import "./ConnectCluster.css";
 import { useState } from "react";
+
+import { zodResolver } from "@hookform/resolvers/zod";
+import { synnaxPropsSchema } from "@synnaxlabs/client";
+import type { SynnaxProps } from "@synnaxlabs/client";
+import { Button, Header, Input, Nav, Space } from "@synnaxlabs/pluto";
+import { FieldValues, useForm } from "react-hook-form";
+import { AiFillApi } from "react-icons/ai";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
-import { ConnectionState } from "@/features/cluster/types";
+import { setActiveCluster, setCluster } from "../store";
 import { testConnection } from "../util/testConnection";
-import { setActiveCluster, setCluster, useSelectCluster } from "../store";
-import { LayoutRendererProps, useSelectLayout } from "@/features/layout";
-import { ConnectionStateBadge } from "./ConnectionStateBadge";
 
-const formSchema = synnaxPropsSchema.extend({
-  name: z.string().optional(),
-});
+import { ConnectionStateBadge } from "./ClusterBadges";
 
-export interface ConnectClusterContentProps {
-  clusterKey?: string;
-}
+import type { ConnectionState } from "@/features/cluster";
+import { LayoutRendererProps } from "@/features/layout";
 
-export const ConnectCluster = ({ onClose }: LayoutRendererProps) => {
+import "./ConnectCluster.css";
+
+const formSchema = synnaxPropsSchema.extend({ name: z.string().optional() });
+
+/**
+ * ConnectCluster implements the LayoutRenderer component type to provide a form for
+ * connecting to a cluster.
+ *
+ * @param props - The standard LayoutRendererProps.
+ */
+export const ConnectCluster = ({ onClose }: LayoutRendererProps): JSX.Element => {
   const dispatch = useDispatch();
   const [connState, setConnState] = useState<ConnectionState | null>(null);
 
@@ -30,36 +35,33 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps) => {
     getValues,
     trigger,
     register,
-    handleSubmit,
+    handleSubmit: _handleSubmit,
     formState: { errors },
-  } = useForm({
-    resolver: zodResolver(formSchema),
-  });
+  } = useForm({ resolver: zodResolver(formSchema) });
 
-  const onSubmit = async (data: FieldValues) => {
-    const name = data.name;
-    delete data.name;
-    data.secure = true;
+  const handleSubmit = _handleSubmit(async (_data: FieldValues): Promise<void> => {
+    const { name, ...data } = _data;
     const { clusterKey, state } = await testConnection(data as SynnaxProps);
-    if (state.status !== Connectivity.Connected) return setConnState(state);
+    if (state.status !== "connected") return setConnState(state);
     dispatch(
       setCluster({
         key: clusterKey as string,
-        name: name,
-        state: state,
+        name,
+        state,
         props: data as SynnaxProps,
       })
     );
     dispatch(setActiveCluster(clusterKey as string));
     onClose();
-  };
+  });
 
-  const handleTestConnection = async () => {
-    const ok = await trigger();
-    if (!ok) return;
-    console.log(getValues().secure);
-    const { state } = await testConnection(getValues() as SynnaxProps);
-    setConnState(state);
+  const handleTestConnection = (): void => {
+    void (async (): Promise<void> => {
+      const valid = await trigger();
+      if (!valid) return;
+      const { state } = await testConnection(getValues() as SynnaxProps);
+      setConnState(state);
+    })();
   };
 
   return (
@@ -67,8 +69,9 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps) => {
       <Header level="h4" icon={<AiFillApi />} divided>
         Connect a Cluster
       </Header>
-      <Space className="connect-cluster__content" direction="vertical" grow>
-        <form onSubmit={handleSubmit(onSubmit)} id="connect-cluster">
+      <Space className="delta-form" direction="vertical" grow>
+        {/* eslint-disable-next-line @typescript-eslint/no-misused-promises */}
+        <form onSubmit={handleSubmit} id="connect-cluster">
           <Space direction="vertical">
             <Input.Item
               label="Name"
@@ -80,15 +83,15 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps) => {
                 label="Host"
                 placeholder="localhost"
                 helpText={errors.host?.message?.toString()}
-                className="connect-cluster__input__host"
+                className="delta-connect-cluster__input--host"
                 {...register("host")}
               />
               <Input.Item
                 label="Port"
                 type="number"
-                placeholder="8080"
+                placeholder="9090"
                 helpText={errors.port?.message?.toString()}
-                className="connect-cluster__input__port"
+                className="delta-connect-cluster__input--port"
                 {...register("port")}
               />
             </Space>
@@ -104,7 +107,7 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps) => {
                 placeholder="Seldon"
                 type="password"
                 helpText={errors.password?.message?.toString()}
-                className="connect-cluster__input__password"
+                className="delta-connect-cluster__input--password"
                 {...register("password")}
               />
               <Input.Item label="Secure" {...register("secure")}>
@@ -115,10 +118,10 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps) => {
         </form>
       </Space>
       <Nav.Bar location="bottom" size={48}>
-        <Nav.Bar.Start style={{ padding: "0 2rem" }}>
-          {connState && <ConnectionStateBadge state={connState} />}
+        <Nav.Bar.Start className="delta-connect-cluster-footer__left">
+          {connState != null && <ConnectionStateBadge state={connState} />}
         </Nav.Bar.Start>
-        <Nav.Bar.End style={{ padding: "1rem" }}>
+        <Nav.Bar.End className="delta-connect-cluster-footer__right">
           <Button variant="text" size="medium" onClick={handleTestConnection}>
             Test Connection
           </Button>

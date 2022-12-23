@@ -1,11 +1,12 @@
-import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
-import { ZodSchema } from 'zod';
+import axios from "axios";
+import type { AxiosRequestConfig, AxiosResponse } from "axios";
+import { ZodSchema } from "zod";
 
-import { EncoderDecoder } from './encoder';
-import { ErrorPayloadSchema, decodeError } from './errors';
-import { MetaData, MiddlewareCollector } from './middleware';
-import { UnaryClient } from './unary';
-import URL from './url';
+import { EncoderDecoder } from "./encoder";
+import { ErrorPayloadSchema, decodeError } from "./errors";
+import { MetaData, MiddlewareCollector } from "./middleware";
+import { UnaryClient } from "./unary";
+import URL from "./url";
 
 /**
  * HTTPClientFactory provides a POST and GET implementation of the Unary
@@ -26,20 +27,20 @@ export class HTTPClientFactory extends MiddlewareCollector {
     this.secure = secure;
   }
 
-  getClient(): GETClient {
+  newGET(): GETClient {
     const gc = new GETClient(this.endpoint, this.encoder, this.secure);
     gc.use(...this.middleware);
     return gc;
   }
 
-  postClient(): POSTClient {
+  newPOST(): POSTClient {
     const pc = new POSTClient(this.endpoint, this.encoder, this.secure);
     pc.use(...this.middleware);
     return pc;
   }
 }
 
-export const CONTENT_TYPE_HEADER_KEY = 'Content-Type';
+export const CONTENT_TYPE_HEADER_KEY = "Content-Type";
 
 class Core extends MiddlewareCollector {
   endpoint: URL;
@@ -47,11 +48,11 @@ class Core extends MiddlewareCollector {
 
   constructor(endpoint: URL, encoder: EncoderDecoder, secure: boolean = false) {
     super();
-    this.endpoint = endpoint.replace({ protocol: secure ? 'https' : 'http' });
+    this.endpoint = endpoint.replace({ protocol: secure ? "https" : "http" });
     this.encoder = encoder;
   }
 
-  get headers() {
+  get headers(): Record<string, string> {
     return {
       [CONTENT_TYPE_HEADER_KEY]: this.encoder.contentType,
     };
@@ -60,7 +61,7 @@ class Core extends MiddlewareCollector {
   requestConfig(): AxiosRequestConfig {
     return {
       headers: this.headers,
-      responseType: 'arraybuffer',
+      responseType: "arraybuffer",
       withCredentials: false,
       validateStatus: () => true,
     };
@@ -70,14 +71,15 @@ class Core extends MiddlewareCollector {
     request: AxiosRequestConfig,
     resSchema: ZodSchema<RS> | null
   ): Promise<[RS | undefined, Error | undefined]> {
-    let rs: RS | undefined = undefined;
+    let rs: RS | undefined;
 
-    if (!request.url) throw new Error('[freighter.http] - expected valid request url');
+    if (request.url == null)
+      throw new Error("[freighter.http] - expected valid request url");
 
     const [, err] = await this.executeMiddleware(
-      { target: request.url, protocol: 'http', params: {} },
+      { target: request.url, protocol: "http", params: {} },
       async (md: MetaData): Promise<[MetaData, Error | undefined]> => {
-        let outMD: MetaData = { ...md, params: {} };
+        const outMD: MetaData = { ...md, params: {} };
         request.headers = { ...request.headers, ...this.headers, ...md.params };
         let httpRes: AxiosResponse;
         try {
@@ -94,7 +96,7 @@ class Core extends MiddlewareCollector {
             return [outMD, new Error(httpRes.data)];
           }
         }
-        if (resSchema) rs = this.encoder.decode(httpRes.data, resSchema);
+        if (resSchema != null) rs = this.encoder.decode(httpRes.data, resSchema);
         return [outMD, undefined];
       }
     );
@@ -114,7 +116,7 @@ export class GETClient extends Core implements UnaryClient {
     resSchema: ZodSchema<RS> | null
   ): Promise<[RS | undefined, Error | undefined]> {
     const request = this.requestConfig();
-    request.method = 'GET';
+    request.method = "GET";
     request.url =
       this.endpoint.child(target).toString() +
       buildQueryString({ request: req as Record<string, unknown> });
@@ -135,34 +137,31 @@ export class POSTClient extends Core implements UnaryClient {
   ): Promise<[RS | undefined, Error | undefined]> {
     const url = this.endpoint.child(target).toString();
     const request = this.requestConfig();
-    request.method = 'POST';
+    request.method = "POST";
     request.url = url;
-    if (req) {
-      request.data = this.encoder.encode(req);
-    } else {
-      request.data = null;
-    }
+    if (req != null) request.data = this.encoder.encode(req);
     return await this.execute(request, resSchema);
   }
 }
 
 export const buildQueryString = ({
   request,
-  prefix = '',
+  prefix = "",
 }: {
   request: Record<string, unknown> | null;
   prefix?: string;
 }): string => {
-  if (request === null) return '';
+  if (request === null) return "";
   return (
-    '?' +
+    "?" +
     Object.entries(request)
       .filter(([, value]) => {
         if (value === undefined || value === null) return false;
         if (Array.isArray(value)) return value.length > 0;
         return true;
       })
+      // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
       .map(([key, value]) => `${prefix}${key}=${value}`)
-      .join('&')
+      .join("&")
   );
 };

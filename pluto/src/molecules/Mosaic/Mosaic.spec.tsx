@@ -1,9 +1,11 @@
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { Mosaic, MosaicLeaf } from ".";
+
 import { UseMosaicProps, useMosaic } from "./useMosaic";
 
-const TestMosaic = (props: UseMosaicProps) => {
+import { Mosaic, MosaicLeaf } from ".";
+
+const TestMosaic = (props: UseMosaicProps): JSX.Element => {
   const props_ = useMosaic(props);
   return <Mosaic {...props_} />;
 };
@@ -233,7 +235,45 @@ describe("Mosaic", () => {
           },
         });
       });
+      it("should correctly move a tab from the first leaf  of the root node to the second leaf", () => {
+        const tabOne = {
+          tabKey: "1",
+          title: "Tab 1",
+          content: <h1>Tab One Content</h1>,
+        };
+        const tabTwo = {
+          tabKey: "2",
+          title: "Tab 2",
+          content: <h1>Tab Two Content</h1>,
+        };
+        const tabThree = {
+          tabKey: "3",
+          title: "Tab 3",
+          content: <h1>Tab Three Content</h1>,
+        };
+
+        const initialTree: MosaicLeaf = {
+          key: 1,
+          direction: "horizontal",
+          first: {
+            key: 2,
+            tabs: [tabOne],
+          },
+          last: {
+            key: 3,
+            tabs: [tabTwo, tabThree],
+          },
+        };
+        const nextTree = Mosaic.moveTab(initialTree, "1", "center", 2);
+        expect(nextTree).toEqual({
+          key: 1,
+          selected: "1",
+          size: undefined,
+          tabs: [tabTwo, tabThree, tabOne],
+        });
+      });
     });
+
     describe("Mosaic.resizeLeaf", () => {
       it("should resize a leaf", () => {
         const tabOne = {
@@ -296,6 +336,29 @@ describe("Mosaic", () => {
           key: 1,
           tabs: [tabOne, tabTwo],
           selected: "tab2",
+        });
+      });
+    });
+    describe("Mosaic.renameTab", () => {
+      it("should rename a tab", () => {
+        const tabOne = {
+          tabKey: "tab1",
+          title: "Tab 1",
+        };
+        const tabTwo = {
+          tabKey: "tab2",
+          title: "Tab 2",
+        };
+        const tree: MosaicLeaf = {
+          key: 1,
+          tabs: [tabOne, tabTwo],
+          selected: "tab1",
+        };
+        const nextTree = Mosaic.renameTab(tree, "tab1", "New Tab 1");
+        expect(nextTree).toEqual({
+          key: 1,
+          tabs: [{ tabKey: "tab1", title: "New Tab 1" }, tabTwo],
+          selected: "tab1",
         });
       });
     });

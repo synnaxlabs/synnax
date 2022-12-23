@@ -1,8 +1,10 @@
-import { ComponentStory } from "@storybook/react";
-import { Tabs } from ".";
+import type { ComponentMeta, ComponentStory } from "@storybook/react";
+
 import { useStaticTabs } from "./Tabs";
 
-export default {
+import { Tabs } from ".";
+
+const story: ComponentMeta<typeof Tabs> = {
   title: "Atoms/Tabs",
   component: Tabs,
 };
@@ -24,3 +26,5 @@ export const Primary: ComponentStory<typeof Tabs> = () => {
   const props = useStaticTabs({ tabs: exampleTabs });
   return <Tabs {...props}>{({ tab }) => <h2>{tab.tabKey}</h2>}</Tabs>;
 };
+
+export default story;

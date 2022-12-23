@@ -1,11 +1,9 @@
-import { UnaryClient } from '@synnaxlabs/freighter';
-import { z } from 'zod';
-import Transport from '../transport';
-import {
-  OntologyID,
-  OntologyResource,
-  ontologyResourceSchema,
-} from './payload';
+import type { UnaryClient } from "@synnaxlabs/freighter";
+import { z } from "zod";
+
+import Transport from "../transport";
+
+import { OntologyID, OntologyResource, ontologyResourceSchema } from "./payload";
 
 const requestSchema = z.object({
   ids: z.string().array(),
@@ -20,8 +18,8 @@ const responseSchema = z.object({
 });
 
 export default class Retriever {
-  private static ENDPOINT = '/ontology/retrieve';
-  private client: UnaryClient;
+  private static readonly ENDPOINT = "/ontology/retrieve";
+  private readonly client: UnaryClient;
 
   constructor(transport: Transport) {
     this.client = transport.getClient();
@@ -33,7 +31,7 @@ export default class Retriever {
       request,
       responseSchema
     );
-    if (err) throw err;
+    if (err != null) throw err;
     return res?.resources as OntologyResource[];
   }
 
