@@ -1,6 +1,6 @@
 .pluto-mosaic__drag-mask {
     position: absolute;
     pointer-events: none;
-    background-color: rgba(0, 0, 0, 0.5);
+    background-color: rgba(0, 0, 0, 50%);
     z-index: 1;
 }

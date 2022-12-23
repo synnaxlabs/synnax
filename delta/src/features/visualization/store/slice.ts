@@ -1,9 +1,11 @@
-import { createSlice, PayloadAction } from "@reduxjs/toolkit";
+import { createSlice } from "@reduxjs/toolkit";
+import type { PayloadAction } from "@reduxjs/toolkit";
+
 import { Visualization } from "../types";
 
-export type VisualizationState = {
+export interface VisualizationState {
   visualizations: Record<string, Visualization>;
-};
+}
 
 export interface VisualizationStoreState {
   visualization: VisualizationState;
@@ -15,11 +17,13 @@ export const initialState: VisualizationState = {
 
 type SetVisualizationAction = PayloadAction<Visualization>;
 
+export const VISUALIZATION_SLICE_NAME = "visualization";
+
 export const {
   actions: { setVisualization },
   reducer: visualizationReducer,
 } = createSlice({
-  name: "visualization",
+  name: VISUALIZATION_SLICE_NAME,
   initialState,
   reducers: {
     setVisualization: (state, { payload }: SetVisualizationAction) => {

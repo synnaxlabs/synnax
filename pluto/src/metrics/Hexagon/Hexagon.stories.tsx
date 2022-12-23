@@ -1,14 +1,13 @@
-import { HexagonBar } from "./Hexagon";
-import { ComponentMeta, ComponentStory } from "@storybook/react";
+import type { ComponentMeta, ComponentStory } from "@storybook/react";
 
-export default {
+import { HexagonBar } from "./Hexagon";
+
+const story: ComponentMeta<typeof HexagonBar> = {
   title: "Metrics/Hexagon",
   component: HexagonBar,
-} as ComponentMeta<typeof HexagonBar>;
+};
 
-const Template: ComponentStory<typeof HexagonBar> = (args) => (
-  <HexagonBar {...args} />
-);
+const Template: ComponentStory<typeof HexagonBar> = (args) => <HexagonBar {...args} />;
 
 export const Primary = Template.bind({});
 Primary.args = {
@@ -35,3 +34,5 @@ Primary.args = {
     },
   ],
 };
+
+export default story;

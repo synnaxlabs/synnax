@@ -1,16 +1,17 @@
-import { EOF, ErrorPayloadSchema, Stream, StreamClient } from '@synnaxlabs/freighter';
-import { z } from 'zod';
+import { EOF, ErrorPayloadSchema } from "@synnaxlabs/freighter";
+import type { Stream, StreamClient } from "@synnaxlabs/freighter";
+import { z } from "zod";
 
-import Registry from '../channel/registry';
+import Registry from "../channel/registry";
 import {
   TimeRange,
   TimeSpan,
   TimeStamp,
   UnparsedTimeSpan,
   UnparsedTimeStamp,
-} from '../telem';
+} from "../telem";
 
-import { ArrayPayload, FramePayload, framePayloadSchema } from './payload';
+import { ArrayPayload, FramePayload, framePayloadSchema } from "./payload";
 
 export const AUTO_SPAN = new TimeSpan(-1);
 
@@ -61,8 +62,8 @@ type Response = z.infer<typeof ResponseSchema>;
  *  telemetry between two timestamps, see the SegmentClient.read method.
  */
 export class CoreIterator {
-  private static ENDPOINT = '/frame/iterate';
-  private client: StreamClient;
+  private static readonly ENDPOINT = "/frame/iterate";
+  private readonly client: StreamClient;
   private stream: Stream<Request, Response> | undefined;
   private readonly aggregate: boolean = false;
   values: FramePayload[] = [];
@@ -79,12 +80,12 @@ export class CoreIterator {
    * @param tr - The time range to iterate over.
    * @param keys - The keys of the channels to iterate over.
    */
-  async open(tr: TimeRange, keys: string[]) {
+  async open(tr: TimeRange, keys: string[]): Promise<void> {
     this.stream = await this.client.stream(
       CoreIterator.ENDPOINT,
       RequestSchema,
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
+      // @ts-expect-error
       ResponseSchema
     );
     await this.execute({ command: Command.Open, keys, range: tr });
@@ -103,7 +104,7 @@ export class CoreIterator {
    * particular channel or the iterator has accumulated an error.
    */
   async next(span: UnparsedTimeSpan): Promise<boolean> {
-    return this.execute({ command: Command.Next, span: new TimeSpan(span) });
+    return await this.execute({ command: Command.Next, span: new TimeSpan(span) });
   }
 
   /**
@@ -118,7 +119,7 @@ export class CoreIterator {
    * channel or the iterator has accumulated an error.
    */
   async prev(span: UnparsedTimeSpan): Promise<boolean> {
-    return this.execute({ command: Command.Prev, span: new TimeSpan(span) });
+    return await this.execute({ command: Command.Prev, span: new TimeSpan(span) });
   }
 
   /**
@@ -130,7 +131,7 @@ export class CoreIterator {
    * channel or has accumulated an error.
    */
   async seekFirst(): Promise<boolean> {
-    return this.execute({ command: Command.SeekFirst });
+    return await this.execute({ command: Command.SeekFirst });
   }
 
   /** Seeks the iterator to the last segment in the time range, but does not read it.
@@ -141,7 +142,7 @@ export class CoreIterator {
    * channel or has accumulated an error.
    */
   async seekLast(): Promise<boolean> {
-    return this.execute({ command: Command.SeekLast });
+    return await this.execute({ command: Command.SeekLast });
   }
 
   /**
@@ -153,7 +154,7 @@ export class CoreIterator {
    * channel or has accumulated an error.
    */
   async seekLE(stamp: UnparsedTimeStamp): Promise<boolean> {
-    return this.execute({ command: Command.SeekLE, stamp: new TimeStamp(stamp) });
+    return await this.execute({ command: Command.SeekLE, stamp: new TimeStamp(stamp) });
   }
 
   /**
@@ -165,7 +166,7 @@ export class CoreIterator {
    * channel or has accumulated an error.
    */
   async seekGE(stamp: UnparsedTimeStamp): Promise<boolean> {
-    return this.execute({ command: Command.SeekGE, stamp: new TimeStamp(stamp) });
+    return await this.execute({ command: Command.SeekGE, stamp: new TimeStamp(stamp) });
   }
 
   /**
@@ -174,7 +175,7 @@ export class CoreIterator {
    * accumulated an error.
    */
   async valid(): Promise<boolean> {
-    return this.execute({ command: Command.Valid });
+    return await this.execute({ command: Command.Valid });
   }
 
   /**
@@ -182,26 +183,28 @@ export class CoreIterator {
    * should probably be placed in a 'finally' block. If the iterator is not closed,
    * it may leak resources.
    */
-  async close() {
-    if (!this.stream)
-      throw new Error('iterator.open() must be called before any other method');
+  async close(): Promise<void> {
+    if (this.stream == null)
+      throw new Error("iterator.open() must be called before any other method");
     this.stream.closeSend();
     const [, exc] = await this.stream.receive();
-    if (!exc) throw new Error("received unexpected response from core's iterator");
+    if (exc == null)
+      throw new Error("received unexpected response from core's iterator");
     if (!(exc instanceof EOF)) throw exc;
   }
 
   private async execute(request: Request): Promise<boolean> {
-    if (!this.stream)
-      throw new Error('iterator.open() must be called before any other method');
+    if (this.stream == null)
+      throw new Error("iterator.open() must be called before any other method");
     const err = this.stream.send(request);
-    if (err) throw err;
+    if (err != null) throw err;
     if (!this.aggregate) this.values = [];
     for (;;) {
       const [res, err] = await this.stream.receive();
-      if (err || !res) throw err;
-      if (res.variant == ResponseVariant.Ack) return res.ack;
-      if (res.frame) this.values.push(res.frame);
+      // eslint-disable-next-line @typescript-eslint/no-throw-literal
+      if (err != null || res == null) throw err;
+      if (res.variant === ResponseVariant.Ack) return res.ack;
+      if (res.frame != null) this.values.push(res.frame);
     }
   }
 }
@@ -217,9 +220,9 @@ export class TypedIterator extends CoreIterator {
   async value(): Promise<Record<string, ArrayPayload>> {
     const result: Record<string, ArrayPayload> = {};
     this.values.forEach((frame) => {
-      if (!frame.keys) return;
+      if (frame.keys == null) return;
       frame.keys.forEach((key, i) => {
-        if (!frame.arrays) return;
+        if (frame.arrays == null) return;
         const v = frame.arrays[i];
         if (key in result) {
           result[key] = concatTypedArrays(v, result[key]);
@@ -233,11 +236,11 @@ export class TypedIterator extends CoreIterator {
 }
 
 const concatTypedArrays = (a: ArrayPayload, b: ArrayPayload): ArrayPayload => {
-  if (!a.dataType || !b.dataType) {
-    throw new Error('Cannot concat arrays with unknown data type');
+  if (a.dataType == null || b.dataType == null) {
+    throw new Error("Cannot concat arrays with unknown data type");
   }
-  if (a.dataType.valueOf() != b.dataType.valueOf()) {
-    throw new Error('Cannot concat arrays with different data types');
+  if (a.dataType.valueOf() !== b.dataType.valueOf()) {
+    throw new Error("Cannot concat arrays with different data types");
   }
   const c = new Uint8Array(a.data.length + b.data.length);
   c.set(a.data, 0);

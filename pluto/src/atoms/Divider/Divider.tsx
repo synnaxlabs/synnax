@@ -1,12 +1,33 @@
+import { HTMLAttributes, PropsWithChildren } from "react";
+
+import clsx from "clsx";
+
 import { Direction } from "@/util/spatial";
+
 import "./Divider.css";
 
-export interface DividerProps {
+/** The props for the {@link Divider} component. */
+export interface DividerProps
+  extends PropsWithChildren<HTMLAttributes<HTMLDivElement>> {
   direction: Direction;
 }
 
-export const Divider = (props: DividerProps) => {
+/**
+ * Divider renders a vertical or horizontal divided to separate content.
+ *
+ * @param props - The props for the component.
+ * @param props.direction - The directio to render the divider in. Can be "horiztonal"
+ * or "vertical".
+ */
+export const Divider = ({
+  direction,
+  className,
+  ...props
+}: DividerProps): JSX.Element => {
   return (
-    <div className={`pluto-divider pluto-divider--${props.direction}`}></div>
+    <div
+      className={clsx("pluto-divider", `pluto-divider--${direction}`, className)}
+      {...props}
+    ></div>
   );
 };

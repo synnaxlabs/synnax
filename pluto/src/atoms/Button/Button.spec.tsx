@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
 import { render } from "@testing-library/react";
-import { Button } from ".";
 import { AiOutlineAim } from "react-icons/ai";
+import { describe, expect, it } from "vitest";
+
+import { Button } from ".";
 
 describe("Button", () => {
   describe("Default", () => {
@@ -11,7 +12,7 @@ describe("Button", () => {
     });
   });
   describe("IconOnly", () => {
-    it("should render a butto with the provided icon", () => {
+    it("should render a button with the provided icon", () => {
       const c = render(
         <Button.IconOnly size="small">
           <AiOutlineAim aria-label="icon" />

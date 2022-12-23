@@ -1,8 +1,11 @@
-import { Action, AnyAction, Store } from "@reduxjs/toolkit";
 import { ReactElement, createElement, useEffect, useState } from "react";
-import { Provider as Base, ProviderProps as BaseProps } from "react-redux";
+
+import type { Action, AnyAction, Store } from "@reduxjs/toolkit";
+import { Provider as Base } from "react-redux";
+import type {ProviderProps as BaseProps } from 'react-redux'
 
 import { StoreState } from "@/state";
+
 
 /**
  * Overrides the default react-redux Provider to allow for a promise based
@@ -11,6 +14,7 @@ import { StoreState } from "@/state";
 export interface ProviderProps<S extends StoreState, A extends Action = AnyAction>
 	extends Omit<BaseProps<A>, "store"> {
 	store: Promise<Store<S, A>>;
+  emptyContent?: JSX.Element;
 }
 
 /**
@@ -23,12 +27,13 @@ export interface ProviderProps<S extends StoreState, A extends Action = AnyActio
  */
 export const Provider = <S extends StoreState, A extends Action<unknown> = AnyAction>({
 	store: promise,
-	...args
+  emptyContent,
+	...props
 }: ProviderProps<S, A>): ReactElement | null => {
 	const [store, setStore] = useState<Store<S, A> | null>(null);
 	useEffect(() => {
 		promise.then((s) => setStore(s)).catch(console.error);
 	}, []);
-	if (!store) return null;
-	return createElement(Base<A>, { ...args, store });
+	if (store == null) return emptyContent ?? null;
+	return createElement(Base<A>, { ...props, store });
 };

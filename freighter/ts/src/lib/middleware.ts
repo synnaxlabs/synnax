@@ -6,11 +6,11 @@
  * @property params - Arbitrary string parameters that can be set by client side
  *   middleware and read by server side middleware.
  */
-export type MetaData = {
-	target: string;
-	protocol: string;
-	params: Record<string, string>;
-};
+export interface MetaData {
+  target: string;
+  protocol: string;
+  params: Record<string, string>;
+}
 
 /** Next executes the next middleware in the chain. */
 export type Next = (md: MetaData) => Promise<[MetaData, Error | undefined]>;
@@ -20,8 +20,8 @@ export type Next = (md: MetaData) => Promise<[MetaData, Error | undefined]>;
  * parse/attach metadata to a request or alter its behavior.
  */
 export type Middleware = (
-	md: MetaData,
-	next: Next
+  md: MetaData,
+  next: Next
 ) => Promise<[MetaData, Error | undefined]>;
 
 /**
@@ -35,33 +35,33 @@ type Finalizer = (md: MetaData) => Promise<[MetaData, Error | undefined]>;
  * middleware in order to implement the Transport interface.
  */
 export class MiddlewareCollector {
-	middleware: Middleware[] = [];
+  middleware: Middleware[] = [];
 
-	/** Implements the Transport interface */
-	use(...mw: Middleware[]): void {
-		this.middleware.push(...mw);
-	}
+  /** Implements the Transport interface */
+  use(...mw: Middleware[]): void {
+    this.middleware.push(...mw);
+  }
 
-	/**
-	 * Executes middleware in order, passing the the metadata to each middleware
-	 * until the end of the chain is reached. It then calls the finalizer with the
-	 * metadata.
-	 *
-	 * @param md - The metadata to pass to the middleware.
-	 * @param finalizer - The finalizer to call with the metadata.
-	 * @returns An error if one was encountered, otherwise undefined.
-	 */
-	executeMiddleware(
-		md: MetaData,
-		finalizer: Finalizer
-	): Promise<[MetaData, Error | undefined]> {
-		let i = 0;
-		const next = (md: MetaData): Promise<[MetaData, Error | undefined]> => {
-			if (i == this.middleware.length) return finalizer(md);
-			const _mw = this.middleware[i];
-			i++;
-			return _mw(md, next);
-		};
-		return next(md);
-	}
+  /**
+   * Executes middleware in order, passing the the metadata to each middleware
+   * until the end of the chain is reached. It then calls the finalizer with the
+   * metadata.
+   *
+   * @param md - The metadata to pass to the middleware.
+   * @param finalizer - The finalizer to call with the metadata.
+   * @returns An error if one was encountered, otherwise undefined.
+   */
+  async executeMiddleware(
+    md: MetaData,
+    finalizer: Finalizer
+  ): Promise<[MetaData, Error | undefined]> {
+    let i = 0;
+    const next = async (md: MetaData): Promise<[MetaData, Error | undefined]> => {
+      if (i === this.middleware.length) return await finalizer(md);
+      const _mw = this.middleware[i];
+      i++;
+      return await _mw(md, next);
+    };
+    return await next(md);
+  }
 }

@@ -1,7 +1,10 @@
 import { ComponentType, memo, useEffect, useMemo, useRef } from "react";
-import { Axis, LinePlotMetadata, PlotData, Series } from "./types";
+
 import uPlot from "uplot";
+
 import { Theme, Theming } from "../../theming";
+
+import { Axis, LinePlotMetadata, PlotData, Series } from "./types";
 import "uplot/dist/uPlot.min.css";
 import "./LinePlotCore.css";
 
@@ -9,27 +12,25 @@ export interface LinePlotCoreProps extends LinePlotMetadata {
   data: PlotData;
 }
 
-export type LinePlotCore = ComponentType<LinePlotCoreProps>;
+export type LinePlotCoreComponent = ComponentType<LinePlotCoreProps>;
 
-function UPlotLinePlotCore(props: LinePlotCoreProps) {
+const UPlotLinePlotCore = (props: LinePlotCoreProps): JSX.Element => {
   const ref = useRef<HTMLDivElement>(null);
   const { theme } = Theming.useContext();
 
-  const [options, alignedData] = useMemo(
-    () => buildPlot(props, theme),
-    [props, theme]
-  );
+  const [options, alignedData] = useMemo(() => buildPlot(props, theme), [props, theme]);
 
   let plot: uPlot;
   useEffect(() => {
     const plotContainer = ref.current;
-    if (!plotContainer) return;
+    if (plotContainer == null) return;
+    // eslint-disable-next-line new-cap
     plot = new uPlot(options, alignedData, plotContainer);
     return plot.destroy;
   }, [options, alignedData]);
 
   return <div ref={ref} className="pluto-line-plot__core--uplot"></div>;
-}
+};
 
 const buildPlot = (
   { series, data, width, height, axes }: LinePlotCoreProps,
@@ -41,8 +42,8 @@ const buildPlot = (
       width,
       height,
       padding: [theme.sizes.base, 0, 0, 0],
-      axes: buildAxes(axes, theme),
-      series: buildSeries(series, theme),
+      axes: buildAxes(theme, axes),
+      series: buildSeries(theme, series),
       scales: buildScales(axes),
       legend: {
         show: false,
@@ -66,17 +67,17 @@ const locationSides = {
   top: 0,
 };
 
-const alignData = (data: PlotData, series: Series[]): uPlot.AlignedData => {
-  if (!data || !series) return [];
+const alignData = (data?: PlotData, series?: Series[]): uPlot.AlignedData => {
+  if (data == null || series == null) return [];
   return uPlot.join(
     series
-      .filter(({ x, y }) => data[x] && data[y])
+      .filter(({ x, y }) => data[x] != null && data[y] != null)
       .map(({ x, y }) => [data[x], data[y]])
   );
 };
 
-const buildAxes = (axes: Axis[], theme: Theme): uPlot.Axis[] => {
-  if (!axes) return [];
+const buildAxes = (theme: Theme, axes?: Axis[]): uPlot.Axis[] => {
+  if (axes == null || axes.length === 0) return [];
   return axes.map(({ key, label, location = "bottom" }) => {
     return {
       label,
@@ -93,20 +94,20 @@ const buildAxes = (axes: Axis[], theme: Theme): uPlot.Axis[] => {
   });
 };
 
-const buildSeries = (series: Series[], theme: Theme): uPlot.Series[] => {
-  if (!series) return [];
+const buildSeries = (theme: Theme, series?: Series[]): uPlot.Series[] => {
+  if (series == null || series.length === 0) return [];
   const s = series.map(({ label, color, axis }, i) => {
     return {
       label,
-      stroke: color || theme.colors.visualization.palettes.default[i],
+      stroke: color ?? theme.colors.visualization.palettes.default[i],
       scale: axis,
     };
   });
   return [{}, ...s];
 };
 
-const buildScales = (axes: Axis[]): uPlot.Scales => {
-  if (!axes) return {};
+const buildScales = (axes?: Axis[]): uPlot.Scales => {
+  if (axes == null || axes.length === 0) return {};
   const s = Object.fromEntries(
     axes.map(({ key, range }): [string, uPlot.Scale] => {
       return [

@@ -13,9 +13,7 @@ export const Directions = ["horizontal", "vertical"];
 export const Positions = ["start", "center", "end"];
 
 export const getDirection = (location: Location): Direction => {
-  return location === "top" || location === "bottom"
-    ? "horizontal"
-    : "vertical";
+  return location === "top" || location === "bottom" ? "horizontal" : "vertical";
 };
 export const swapDirection = (direction: Direction): Direction => {
   return direction === "horizontal" ? "vertical" : "horizontal";
@@ -44,7 +42,7 @@ export const getDirectionalSize = (
   return direction === "horizontal" ? width : height;
 };
 
-export type Dimensions = {
+export interface Dimensions {
   width: number;
   height: number;
-};
+}

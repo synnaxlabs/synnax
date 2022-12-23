@@ -1,7 +1,7 @@
-import { PropsWithChildren, useContext } from "react";
-import { createContext } from "react";
+import { PropsWithChildren, useContext, createContext } from "react";
+
 import {
-  ListEntry,
+  RenderableRecord,
   TypedListColumn,
   TypedListTransform,
   UntypedListColumn,
@@ -9,26 +9,24 @@ import {
 } from "./types";
 
 export interface ListContextProps {
-  data: ListEntry[];
-  sourceData: ListEntry[];
+  data: RenderableRecord[];
+  sourceData: RenderableRecord[];
   selected: string[];
   onSelect: (key: string) => void;
   clearSelected: () => void;
   columnar: {
     columns: UntypedListColumn[];
-    setColumns: (
-      cbk: (columns: UntypedListColumn) => UntypedListColumn[]
-    ) => void;
+    setColumns: (cbk: (columns: UntypedListColumn) => UntypedListColumn[]) => void;
   };
   setTransform: (key: string, transform: UntypedListTransform) => void;
   removeTransform: (key: string) => void;
 }
 
-export interface TypedListContextProps<E extends ListEntry> {
+export interface TypedListContextProps<E extends RenderableRecord<E>> {
   columnar: {
-    columns: TypedListColumn<E>[];
+    columns: Array<TypedListColumn<E>>;
     setColumns: (
-      cbk: (columns: TypedListColumn<E>[]) => TypedListColumn<E>[]
+      cbk: (columns: Array<TypedListColumn<E>>) => Array<TypedListColumn<E>>
     ) => void;
   };
   data: E[];
@@ -54,19 +52,21 @@ export const ListContext = createContext<ListContextProps>({
   onSelect: () => undefined,
 });
 
-export const useListContext = <E extends ListEntry>() => {
+export const useListContext = <
+  E extends RenderableRecord<E>
+>(): TypedListContextProps<E> => {
   return useContext(ListContext) as unknown as TypedListContextProps<E>;
 };
 
-export interface ListContextProviderProps<E extends ListEntry>
+export interface ListContextProviderProps<E extends RenderableRecord<E>>
   extends PropsWithChildren<unknown> {
   value: TypedListContextProps<E>;
 }
 
-export const ListContextProvider = <E extends ListEntry>({
+export const ListContextProvider = <E extends RenderableRecord<E>>({
   value,
   children,
-}: ListContextProviderProps<E>) => {
+}: ListContextProviderProps<E>): JSX.Element => {
   return (
     <ListContext.Provider value={value as unknown as ListContextProps}>
       {children}

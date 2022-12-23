@@ -1,14 +1,14 @@
-import test from 'ava';
-import { z } from 'zod';
+import { describe, expect, test } from "vitest";
+import { z } from "zod";
 
-import { JSONEncoderDecoder } from './encoder';
-import { HTTPClientFactory } from './http';
-import URL from './url';
+import { JSONEncoderDecoder } from "./encoder";
+import { HTTPClientFactory } from "./http";
+import URL from "./url";
 
 const ENDPOINT = new URL({
-  host: '127.0.0.1',
+  host: "127.0.0.1",
   port: 8080,
-  pathPrefix: 'unary',
+  pathPrefix: "unary",
 });
 
 const factory = new HTTPClientFactory(ENDPOINT, new JSONEncoderDecoder());
@@ -20,66 +20,68 @@ const MessageSchema = z.object({
 
 type Message = z.infer<typeof MessageSchema>;
 
-const getClient = factory.getClient();
-const postClient = factory.postClient();
+const getClient = factory.newGET();
+const postClient = factory.newPOST();
 
-test('[http] - post echo', async (t) => {
-  const [response, error] = await postClient.send<Message, Message>(
-    '/echo',
-    {
-      id: 1,
-      message: 'hello',
-    },
-    MessageSchema
-  );
-  t.is(error, undefined);
-  t.deepEqual(response, { id: 2, message: 'hello' });
-});
-
-test('[http] - get echo', async (t) => {
-  const [response, error] = await getClient.send<Message, Message>(
-    '/echo',
-    {
-      id: 1,
-      message: 'hello',
-    },
-    MessageSchema
-  );
-  t.is(error, undefined);
-  t.deepEqual(response, { id: 2, message: 'hello' });
-});
-
-test('[http] - get not found', async (t) => {
-  const [response, error] = await getClient.send<Message, Message>(
-    '/not-found',
-    {},
-    MessageSchema
-  );
-  t.is(error?.message, 'Cannot GET /unary/not-found');
-  t.is(response, undefined);
-});
-
-test('[http] - post not found', async (t) => {
-  const [response, error] = await postClient.send<Message, Message>(
-    '/not-found',
-    {},
-    MessageSchema
-  );
-  t.is(error?.message, 'Cannot POST /unary/not-found');
-  t.is(response, undefined);
-});
-
-test('[http] - middleware', async (t) => {
-  const client = factory.getClient();
-  client.use(async (md, next) => {
-    md.params['Test'] = 'test';
-    return await next(md);
+describe("http", () => {
+  test("post echo", async () => {
+    const [response, error] = await postClient.send<Message, Message>(
+      "/echo",
+      {
+        id: 1,
+        message: "hello",
+      },
+      MessageSchema
+    );
+    expect(error).toBeUndefined();
+    expect(response).toEqual({ id: 2, message: "hello" });
   });
-  const [response, error] = await client.send<Message, Message>(
-    '/middlewareCheck',
-    {},
-    MessageSchema
-  );
-  t.is(error, undefined);
-  t.is(response?.message, '');
+
+  test("get echo", async () => {
+    const [response, error] = await getClient.send<Message, Message>(
+      "/echo",
+      {
+        id: 1,
+        message: "hello",
+      },
+      MessageSchema
+    );
+    expect(error).toBeUndefined();
+    expect(response).toEqual({ id: 2, message: "hello" });
+  });
+
+  test("get not found", async () => {
+    const [response, error] = await getClient.send<Message, Message>(
+      "/not-found",
+      {},
+      MessageSchema
+    );
+    expect(error?.message).toEqual("Cannot GET /unary/not-found");
+    expect(response).toBeUndefined();
+  });
+
+  test("post not found", async () => {
+    const [response, error] = await postClient.send<Message, Message>(
+      "/not-found",
+      {},
+      MessageSchema
+    );
+    expect(error?.message).toEqual("Cannot POST /unary/not-found");
+    expect(response).toBeUndefined();
+  });
+
+  test("middleware", async () => {
+    const client = factory.newGET();
+    client.use(async (md, next) => {
+      md.params.Test = "test";
+      return await next(md);
+    });
+    const [response, error] = await client.send<Message, Message>(
+      "/middlewareCheck",
+      {},
+      MessageSchema
+    );
+    expect(error).toBeUndefined();
+    expect(response?.message).toEqual("");
+  });
 });

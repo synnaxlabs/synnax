@@ -6,6 +6,7 @@
 
 html {
   --pluto-border: var(--pluto-border-width) solid var(--pluto-border-color);
+
   background-color: var(--pluto-background-color);
   margin: 0;
   height: 100%;

@@ -3,16 +3,37 @@ root = true
 [*]
 charset = utf-8
 end_of_line = lf
-indent_size = 2
+indent_size = 4
+indent_style = space
 insert_final_newline = true
 trim_trailing_whitespace = true
 max_line_length = 88
 
-# 4 space indentation
-[*.{py,java,r,R}]
-indent_style = space
-indent_size = 4
+# |||| GO ||||
 
-[{Makefile,go.mod,go.sum,*.go,.gitmodules}]
+[{go.mod,go.sum,*.go}]
 indent_style = tab
-indent_size = 4
+
+# |||| PYTHON ||||
+# uses defaults
+
+# |||| TYPESCRIPT ||||
+
+[*.{ts,tsx}]
+indent_size = 2
+
+# |||| JSON ||||
+
+[*.json]
+indent_size = 2
+
+# |||| MARKDOWN ||||
+
+[*.{md,mx}]
+max_line_length = 0
+
+# |||| YAML ||||
+
+[*.{yml,yaml}]
+indent_size = 2
+

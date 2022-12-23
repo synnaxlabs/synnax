@@ -1,10 +1,4 @@
 {
   "extends": "@synnaxlabs/tsconfig/vite.json",
-	"compilerOptions": {
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["src/*"]
-    },
-  },
   "include": ["vite.config.ts"]
 }

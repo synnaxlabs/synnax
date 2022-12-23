@@ -1,7 +1,7 @@
-import { addExtension, pack, unpack } from 'msgpackr';
-import { ZodSchema } from 'zod';
+import { addExtension, pack, unpack } from "msgpackr";
+import { ZodSchema } from "zod";
 
-import { camelKeys, snakeKeys } from './caseconv';
+import { camelKeys, snakeKeys } from "./caseconv";
 
 /**
  * CustomTypeEncoder is an interface for a class that needs to transform its
@@ -18,7 +18,7 @@ interface CustomTypeEncoder {
    * @param instance - The instance of the class to transform.
    * @returns The transformed value.
    */
-  write<P>(instance: P): unknown;
+  write: <P>(instance: P) => unknown;
 }
 
 /**
@@ -35,7 +35,7 @@ export interface EncoderDecoder {
    * @param payload - The payload to encode.
    * @returns An ArrayBuffer containing the encoded payload.
    */
-  encode(payload: unknown): ArrayBuffer;
+  encode: (payload: unknown) => ArrayBuffer;
 
   /**
    * Decodes the given binary representation into a type checked payload.
@@ -43,23 +43,24 @@ export interface EncoderDecoder {
    * @param data - The data to decode.
    * @param schema - The schema to decode the data with.
    */
-  decode<P>(data: Uint8Array | ArrayBuffer, schema: ZodSchema<P>): P;
+  decode: <P>(data: Uint8Array | ArrayBuffer, schema?: ZodSchema<P>) => P;
 }
 
 interface StaticEncoderDecoder {
-  registerCustomType(encoder: CustomTypeEncoder): void;
+  registerCustomType: (encoder: CustomTypeEncoder) => void;
 }
 
 /** MsgpackEncoderDecoder is a msgpack implementation of EncoderDecoder. */
 export class MsgpackEncoderDecoder implements EncoderDecoder {
-  contentType = 'application/msgpack';
+  contentType = "application/msgpack";
 
   encode(payload: unknown): ArrayBuffer {
     return pack(snakeKeys(payload));
   }
 
-  decode<P>(data: Uint8Array, schema: ZodSchema<P>): P {
-    return schema.parse(camelKeys(unpack(new Uint8Array(data))));
+  decode<P>(data: Uint8Array | ArrayBuffer, schema?: ZodSchema<P>): P {
+    const unpacked = camelKeys(unpack(new Uint8Array(data)));
+    return schema != null ? schema.parse(unpacked) : (unpacked as P);
   }
 
   static registerCustomType(encoder: CustomTypeEncoder): void {
@@ -69,7 +70,7 @@ export class MsgpackEncoderDecoder implements EncoderDecoder {
 
 /** JSONEncoderDecoder is a JSON implementation of EncoderDecoder. */
 export class JSONEncoderDecoder implements EncoderDecoder {
-  contentType = 'application/json';
+  contentType = "application/json";
 
   encode(payload: unknown): ArrayBuffer {
     const json = JSON.stringify(snakeKeys(payload), (_, v) => {
@@ -79,13 +80,12 @@ export class JSONEncoderDecoder implements EncoderDecoder {
     return new TextEncoder().encode(json);
   }
 
-  decode<P>(data: Uint8Array, schema: ZodSchema<P>): P {
-    return schema.parse(camelKeys(JSON.parse(new TextDecoder().decode(data))));
+  decode<P>(data: Uint8Array | ArrayBuffer, schema?: ZodSchema<P>): P {
+    const unpacked = camelKeys(JSON.parse(new TextDecoder().decode(data)));
+    return schema != null ? schema.parse(unpacked) : (unpacked as P);
   }
 
-  static registerCustomType(): void {
-    return;
-  }
+  static registerCustomType(): void {}
 }
 
 export const ENCODERS: EncoderDecoder[] = [

@@ -4,11 +4,16 @@
   "version": "0.2.2",
   "type": "module",
   "scripts": {
-    "dev": "tauri dev",
+    "dev": "tauri dev & yarn kill",
+    "kill": "zsh ~/Desktop/synnax/delta/scripts/kill-dev.zsh",
     "build": "tauri build",
     "dev-vite": "vite",
     "build-vite": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint": "eslint \"src/**/*.ts*\"",
+    "fix": "eslint \"src/**/*.ts*\" --fix",
+    "devtools": "yarn react-devtools",
+    "react-devtools": "npx react-devtools"
   },
   "dependencies": {
     "@fontsource/inter": "^4.5.14",
@@ -19,6 +24,8 @@
     "@tauri-apps/api": "^1.1.0",
     "antd": "^4.24.2",
     "clsx": "^1.2.1",
+    "d3": "^7.7.0",
+    "framer-motion": "^7.10.3",
     "nanoid": "^4.0.0",
     "proxy-memoize": "^1.2.0",
     "react": "^18.2.0",
@@ -42,6 +49,7 @@
     "eslint": "^8.0.1",
     "eslint-config-synnaxlabs": "*",
     "prettier": "2.7.1",
+    "stylelint-config-synnaxlabs": "*",
     "typescript": "*",
     "vite": "^3.1.0",
     "vite-tsconfig-paths": "^3.5.2"

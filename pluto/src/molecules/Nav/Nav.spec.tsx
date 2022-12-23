@@ -1,7 +1,9 @@
-import { describe, expect, it } from "vitest";
 import { fireEvent, render } from "@testing-library/react";
-import { Nav } from ".";
 import { MdHomeFilled } from "react-icons/md";
+import { describe, expect, it } from "vitest";
+
+import { Nav } from ".";
+
 
 describe("Nav", () => {
   describe("Drawer", () => {

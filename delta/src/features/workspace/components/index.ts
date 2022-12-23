@@ -1,2 +1,2 @@
-export * from "./WorkspaceToolBar";
+export * from "./WorkspaceToolbar";
 export * from "./DefineRange";

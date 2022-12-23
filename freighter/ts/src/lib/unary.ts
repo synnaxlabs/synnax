@@ -1,6 +1,6 @@
-import { ZodSchema } from 'zod';
+import { ZodSchema } from "zod";
 
-import { Transport } from './transport';
+import { Transport } from "./transport";
 
 /**
  * An interface for an entity that implements a simple request-response
@@ -13,9 +13,9 @@ export interface UnaryClient extends Transport {
    * @param req - The request to send.
    * @param resSchema - The schema to validate the response against.
    */
-  send<RQ, RS>(
+  send: <RQ, RS>(
     target: string,
     req: RQ | null,
     resSchema: ZodSchema<RS> | null
-  ): Promise<[RS | undefined, Error | undefined]>;
+  ) => Promise<[RS | undefined, Error | undefined]>;
 }

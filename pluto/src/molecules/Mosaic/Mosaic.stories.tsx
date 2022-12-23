@@ -1,12 +1,14 @@
-import { ComponentMeta, ComponentStory } from "@storybook/react";
-import { Mosaic } from ".";
+import type { ComponentMeta, ComponentStory } from "@storybook/react";
+
 import { MosaicLeaf } from "./types";
 import { useMosaic } from "./useMosaic";
 
-export default {
+import { Mosaic } from ".";
+
+const story: ComponentMeta<typeof Mosaic> = {
   title: "Molecules/Mosaic",
   component: Mosaic,
-} as ComponentMeta<typeof Mosaic>;
+};
 
 const initialTree: MosaicLeaf = {
   key: 0,
@@ -39,6 +41,8 @@ const initialTree: MosaicLeaf = {
 };
 
 export const Primary: ComponentStory<typeof Mosaic> = () => {
-  const props = useMosaic({ initialTree });
+  const props = useMosaic({ initialTree, editableTitle: true });
   return <Mosaic {...props} />;
 };
+
+export default story;

@@ -6,18 +6,20 @@ import {
   useMemo,
   useState,
 } from "react";
-import { Theme, synnaxLight } from "./theme";
+
 import { applyThemeAsCssVars } from "./css";
+import { Theme, synnaxLight } from "./theme";
+
 import "./theme.css";
 import { Input, InputProps } from "@/atoms";
 
-export interface ThemeProviderProps extends PropsWithChildren<unknown> {
+export interface ThemeContextValue {
   theme: Theme;
   toggleTheme: () => void;
   setTheme: (key: string) => void;
 }
 
-const ThemeContext = createContext<ThemeProviderProps>({
+const ThemeContext = createContext<ThemeContextValue>({
   theme: synnaxLight,
   toggleTheme: () => undefined,
   setTheme: () => undefined,
@@ -28,20 +30,19 @@ export interface UseThemeProviderProps {
   defaultTheme?: string;
 }
 
-export const useThemeProvider = ({ themes, defaultTheme }: UseThemeProviderProps) => {
+export const useThemeProvider = ({
+  themes,
+  defaultTheme,
+}: UseThemeProviderProps): ThemeProviderProps => {
   const [selected, setSelected] = useState<string>(
-    defaultTheme || Object.keys(themes)[0]
+    defaultTheme ?? Object.keys(themes)[0]
   );
 
-  const toggleTheme = () => {
+  const toggleTheme = (): void => {
     const keys = Object.keys(themes);
     const index = keys.indexOf(selected);
     const nextIndex = (index + 1) % keys.length;
     setSelected(keys[nextIndex]);
-  };
-
-  const setTheme = (key: string) => {
-    setSelected(key);
   };
 
   const theme = useMemo(() => themes[selected], [selected]);
@@ -49,13 +50,21 @@ export const useThemeProvider = ({ themes, defaultTheme }: UseThemeProviderProps
   return {
     theme,
     toggleTheme,
-    setTheme,
+    setTheme: setSelected,
   };
 };
 
-export const useThemeContext = () => useContext(ThemeContext);
+export const useThemeContext = (): ThemeContextValue => useContext(ThemeContext);
 
-export const ThemeProvider = ({ theme, children, ...props }: ThemeProviderProps) => {
+export interface ThemeProviderProps
+  extends PropsWithChildren<unknown>,
+    ThemeContextValue {}
+
+export const ThemeProvider = ({
+  theme,
+  children,
+  ...props
+}: ThemeProviderProps): JSX.Element => {
   useEffect(() => {
     applyThemeAsCssVars(document.documentElement, theme);
   }, [theme]);
@@ -66,13 +75,13 @@ export const ThemeProvider = ({ theme, children, ...props }: ThemeProviderProps)
   );
 };
 
-export const ThemeSwitch = ({ onChange, ...props }: InputProps) => {
+export const ThemeSwitch = ({ onChange, ...props }: InputProps): JSX.Element => {
   const { toggleTheme } = useContext(ThemeContext);
   return (
     <Input.Switch
       onChange={(e) => {
         toggleTheme();
-        if (onChange) onChange(e);
+        if (onChange != null) onChange(e);
       }}
       {...props}
     />

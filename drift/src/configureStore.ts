@@ -1,21 +1,21 @@
-import {
-	Action,
-	AnyAction,
-	ConfigureStoreOptions as BaseOpts,
-	Store,
-	configureStore as base,
+import type {
+  Action,
+  AnyAction,
+  ConfigureStoreOptions as BaseOpts,
+  Store,
 } from "@reduxjs/toolkit";
+import { configureStore as base } from "@reduxjs/toolkit";
 
 import { listen } from "./listener";
 import { Middlewares, configureMiddleware } from "./middleware";
 import { Runtime } from "./runtime";
 import {
-	DriftAction,
-	PreloadedState,
-	StoreState,
-	closeWindow,
-	setWindowKey,
-	setWindowState,
+  DriftAction,
+  PreloadedState,
+  StoreState,
+  closeWindow,
+  setWindowKey,
+  setWindowState,
 } from "./state";
 import { MAIN_WINDOW } from "./window";
 
@@ -24,11 +24,12 @@ import { MAIN_WINDOW } from "./window";
  * See configureStore for more details.
  */
 export interface ConfigureStoreOptions<
-	S extends StoreState,
-	A extends Action = AnyAction,
-	M extends Middlewares<S> = Middlewares<S>
-> extends BaseOpts<S, A, M> {
-	runtime: Runtime<S, A>;
+  S extends StoreState,
+  A extends Action = AnyAction,
+  M extends Middlewares<S> = Middlewares<S>
+> extends Omit<BaseOpts<S, A, M>, "preloadedState"> {
+  runtime: Runtime<S, A>;
+  preloadedState: PreloadedState<S> | (() => Promise<PreloadedState<S>>);
 }
 
 /**
@@ -47,33 +48,46 @@ export interface ConfigureStoreOptions<
  * and the window is ready for use.
  */
 export const configureStore = async <
-	S extends StoreState,
-	A extends Action = AnyAction,
-	M extends Middlewares<S> = Middlewares<S>
+  S extends StoreState,
+  A extends Action = AnyAction,
+  M extends Middlewares<S> = Middlewares<S>
 >({
-	runtime,
-	preloadedState,
-	middleware,
-	...opts
+  runtime,
+  preloadedState,
+  middleware,
+  ...opts
 }: ConfigureStoreOptions<S, A, M>): Promise<Store<S, A | DriftAction>> => {
-	let store: Store<S, A | DriftAction> | undefined = undefined;
+  // eslint-disable-next-line prefer-const
+  let store: Store<S, A | DriftAction> | undefined;
+  // eslint-disable-next-line prefer-const
+  store = base<S, A, M>({
+    ...opts,
+    preloadedState: await receivePreloadedState(runtime, () => store, preloadedState),
+    middleware: configureMiddleware(middleware, runtime),
+  });
 
-	preloadedState = await new Promise<PreloadedState<S> | undefined>((resolve) => {
-		listen(runtime, () => store, resolve);
-		if (runtime.isMain()) resolve(preloadedState);
-		else runtime.emit({ sendState: true }, MAIN_WINDOW);
-	});
+  store.dispatch(setWindowKey(runtime.key()));
+  store.dispatch(setWindowState("created"));
+  runtime.onCloseRequested(() => store?.dispatch(closeWindow()));
+  runtime.ready();
 
-	store = base<S, A, M>({
-		...opts,
-		preloadedState,
-		middleware: configureMiddleware(middleware, runtime),
-	});
+  return store;
+};
 
-	store.dispatch(setWindowKey(runtime.key()));
-	store.dispatch(setWindowState("created"));
-	runtime.onCloseRequested(() => store?.dispatch(closeWindow()));
-	runtime.ready();
-
-	return store;
+const receivePreloadedState = async <
+  S extends StoreState,
+  A extends Action = AnyAction
+>(
+  runtime: Runtime<S, A>,
+  store: () => Store<S, A | DriftAction> | undefined,
+  preloadedState: (() => Promise<PreloadedState<S>>) | PreloadedState<S> | undefined
+): Promise<PreloadedState<S> | undefined> => {
+  return await new Promise<PreloadedState<S> | undefined>((resolve) => {
+    listen(runtime, store, resolve);
+    if (runtime.isMain()) {
+      if (typeof preloadedState === "function")
+        preloadedState().then(resolve).catch(console.error);
+      else resolve(preloadedState);
+    } else runtime.emit({ sendState: true }, MAIN_WINDOW);
+  });
 };

@@ -1,4 +1,7 @@
 module.exports = {
-  root: true,
-  extends: ["synnaxlabs"],
+    root: true,
+    extends: ["synnaxlabs"],
+    parserOptions: {
+        project: "./tsconfig.json",
+    },
 };

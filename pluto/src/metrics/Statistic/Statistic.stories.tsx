@@ -1,7 +1,8 @@
-import Statistic from "./Statistic";
-import { ComponentMeta, ComponentStory } from "@storybook/react";
+import type { ComponentMeta, ComponentStory } from "@storybook/react";
 
-export default {
+import Statistic from "./Statistic";
+
+const story: ComponentMeta<typeof Statistic> = {
   title: "Metrics/Statistic",
   component: Statistic,
   argTypes: {
@@ -18,11 +19,9 @@ export default {
       },
     },
   },
-} as ComponentMeta<typeof Statistic>;
-
-const Template: ComponentStory<typeof Statistic> = (props) => {
-  return <Statistic {...props} />;
 };
+
+const Template: ComponentStory<typeof Statistic> = (props) => <Statistic {...props} />;
 
 export const Primary = Template.bind({});
 Primary.args = {
@@ -31,3 +30,5 @@ Primary.args = {
   label: "Events",
   variant: "primary",
 };
+
+export default story;

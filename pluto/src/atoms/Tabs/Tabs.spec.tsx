@@ -1,8 +1,9 @@
-import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+
 import { Tabs, TabsProps } from ".";
 
-const StaticTabs = ({ tabs, ...tProps }: TabsProps) => {
+const StaticTabs = ({ tabs, ...tProps }: TabsProps): JSX.Element => {
   const props = Tabs.useStatic({ tabs });
   return <Tabs {...tProps} {...props} />;
 };

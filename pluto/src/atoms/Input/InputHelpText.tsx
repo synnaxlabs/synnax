@@ -1,6 +1,7 @@
 import clsx from "clsx";
-import { Text, TextProps } from "@/atoms/Typography";
+
 import { StatusVariant } from "@/atoms/Status";
+import { Text, TextProps } from "@/atoms/Typography";
 import "./InputHelpText.css";
 
 export interface InputHelpTextProps extends Partial<TextProps> {
@@ -11,7 +12,7 @@ export const InputHelpText = ({
   className,
   variant = "error",
   ...props
-}: InputHelpTextProps) => {
+}: InputHelpTextProps): JSX.Element => {
   return (
     <Text
       className={clsx(

@@ -1,5 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+
 import { Input } from ".";
 
 describe("Input", () => {
@@ -16,9 +17,7 @@ describe("Input", () => {
     expect(onChange).toHaveBeenCalled();
   });
   it("should programatically set the input value when the prop is passed", () => {
-    const c = render(
-      <Input placeholder="Hello" onChange={vi.fn()} value="Hello2" />
-    );
+    const c = render(<Input placeholder="Hello" onChange={vi.fn()} value="Hello2" />);
     expect(c.getByDisplayValue("Hello2")).toBeTruthy();
   });
 });

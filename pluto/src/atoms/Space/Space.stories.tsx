@@ -1,9 +1,11 @@
-import { ComponentMeta, ComponentStory } from "@storybook/react";
-import { ComponentSizes } from "@/util";
-import { Button } from "@/atoms/Button";
-import { Space, SpaceAlignments, SpaceJustifications, SpaceProps } from ".";
+import type { ComponentMeta, ComponentStory } from "@storybook/react";
 
-export default {
+import { Space, SpaceProps } from ".";
+
+import { Button } from "@/atoms/Button";
+import { ComponentSizes } from "@/util";
+
+const story: ComponentMeta<typeof Space> = {
   title: "Atoms/Space",
   component: Space,
   argTypes: {
@@ -17,14 +19,14 @@ export default {
     },
     align: {
       control: { type: "select" },
-      options: SpaceAlignments,
+      options: Space.Alignments,
     },
     justify: {
       control: { type: "select" },
-      options: SpaceJustifications,
+      options: Space.Justifications,
     },
   },
-} as ComponentMeta<typeof Space>;
+};
 
 const Template: ComponentStory<typeof Space> = (args: SpaceProps) => (
   <Space {...args}>
@@ -41,3 +43,5 @@ Basic.args = {
   align: "center",
   justify: "start",
 };
+
+export default story;

@@ -1,4 +1,4 @@
-import test from 'ava';
+import { describe, expect, test } from "vitest";
 
 import {
   BaseTypedError,
@@ -15,11 +15,11 @@ import {
   encodeError,
   isTypedError,
   registerError,
-} from './errors';
+} from "./errors";
 
 class MyCustomError extends BaseTypedError {
   constructor(message: string) {
-    super(message, 'MyCustomError');
+    super(message, "MyCustomError");
   }
 }
 
@@ -31,68 +31,70 @@ const myCustomErrorDecoder = (encoded: string): TypedError => {
   return new MyCustomError(encoded);
 };
 
-test('isTypedError', (t) => {
-  const error = new MyCustomError('test');
-  const fError = isTypedError(error);
-  t.is(fError, true);
-  t.is(error.type, 'MyCustomError');
-});
-
-test('encoding and decoding a custom error through registry', (t) => {
-  registerError({
-    type: 'MyCustomError',
-    encode: myCustomErrorEncoder,
-    decode: myCustomErrorDecoder,
+describe("errors", () => {
+  test("isTypedError", () => {
+    const error = new MyCustomError("test");
+    const fError = isTypedError(error);
+    expect(fError).toBeTruthy();
+    expect(error.type).toEqual("MyCustomError");
   });
-  const error = new MyCustomError('test');
-  const encoded = encodeError(error);
-  t.is(encoded.type, 'MyCustomError');
-  t.is(encoded.data, 'test');
-  const decoded = assertErrorType<MyCustomError>(
-    'MyCustomError',
-    decodeError(encoded)
-  );
-  t.is(decoded.message, 'test');
-});
 
-test('encoding and decoding a null error', (t) => {
-  const encoded = encodeError(null);
-  t.is(encoded.type, NONE);
-  t.is(encoded.data, '');
-  const decoded = decodeError(encoded);
-  t.is(decoded, undefined);
-});
-
-test('encoding and decoding an unrecognized error', (t) => {
-  const error = new Error('test');
-  const encoded = encodeError(error);
-  t.is(encoded.type, UNKNOWN);
-  t.is(encoded.data, '{}');
-  const decoded = decodeError(encoded);
-  t.deepEqual(decoded, new UnknownError('{}'));
-});
-
-test('registering duplicate error should throw', (t) => {
-  registerError({
-    type: 'MyDuplicateError',
-    encode: myCustomErrorEncoder,
-    decode: myCustomErrorDecoder,
-  });
-  t.throws(() => {
+  test("encoding and decoding a custom error through registry", () => {
     registerError({
-      type: 'MyDuplicateError',
+      type: "MyCustomError",
       encode: myCustomErrorEncoder,
       decode: myCustomErrorDecoder,
     });
-  });
-});
-
-test('encoding and decoding freighter errors', (t) => {
-  [new EOF(), new StreamClosed(), new Unreachable()].forEach((error) => {
+    const error = new MyCustomError("test");
     const encoded = encodeError(error);
-    t.is(encoded.type, FREIGHTER);
-    t.is(encoded.data, error.message);
+    expect(encoded.type).toEqual("MyCustomError");
+    expect(encoded.data).toEqual("test");
+    const decoded = assertErrorType<MyCustomError>(
+      "MyCustomError",
+      decodeError(encoded)
+    );
+    expect(decoded.message).toEqual("test");
+  });
+
+  test("encoding and decoding a null error", () => {
+    const encoded = encodeError(null);
+    expect(encoded.type).toEqual(NONE);
+    expect(encoded.data).toEqual("");
     const decoded = decodeError(encoded);
-    t.deepEqual(decoded, error);
+    expect(decoded).toBeUndefined();
+  });
+
+  test("encoding and decoding an unrecognized error", () => {
+    const error = new Error("test");
+    const encoded = encodeError(error);
+    expect(encoded.type).toEqual(UNKNOWN);
+    expect(encoded.data).toEqual("{}");
+    const decoded = decodeError(encoded);
+    expect(decoded).toEqual(new UnknownError("{}"));
+  });
+
+  test("registering duplicate error should throw", () => {
+    registerError({
+      type: "MyDuplicateError",
+      encode: myCustomErrorEncoder,
+      decode: myCustomErrorDecoder,
+    });
+    expect(() => {
+      registerError({
+        type: "MyDuplicateError",
+        encode: myCustomErrorEncoder,
+        decode: myCustomErrorDecoder,
+      });
+    }).toThrow();
+  });
+
+  test("encoding and decoding freighter errors", () => {
+    [new EOF(), new StreamClosed(), new Unreachable()].forEach((error) => {
+      const encoded = encodeError(error);
+      expect(encoded.type).toEqual(FREIGHTER);
+      expect(encoded.data).toEqual(error.message);
+      const decoded = decodeError(encoded);
+      expect(decoded).toEqual(error);
+    });
   });
 });

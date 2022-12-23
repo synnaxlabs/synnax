@@ -2,21 +2,41 @@
     "private": true,
     "scripts": {
         "build": "npx turbo build --cache-dir=./.turbo-cache",
-				"build:pluto": "npx turbo build --filter pluto --cache-dir=./.turbo-cache",
-				"build:delta": "npx turbo build --filter delta --cache-dir=./.turbo-cache",
-        "lint": "npx turbo lint",
-				"watch": "npx turbo watch --parallel",
+        "build:pluto": "npx turbo build --filter pluto --cache-dir=./.turbo-cache",
+        "build:delta": "npx turbo build --filter delta --cache-dir=./.turbo-cache",
+        "build:freighter": "npx turbo build --filter freighter --cache-dir=./.turbo-cache",
+        "build:client": "npx turbo build --filter client --cache-dir=./.turbo-cache",
+        "build:drift": "npx turbo build --filter drift --cache-dir=./.turbo-cache",
+        "watch": "npx turbo watch --parallel",
+        "watch:pluto": "npx turbo watch --filter pluto",
+        "watch:freighter": "npx turbo watch --filter freighter",
+        "watch:client": "npx turbo watch --filter client",
+        "watch:drift": "npx turbo watch --filter drift",
         "dev:pluto": "npx turbo dev --filter pluto",
-				"test:pluto": "npx turbo test --filter pluto",
-				"dev:delta": "npx turbo dev --filter delta",
-				"test:drift": "npx turbo test --filter drift",
-				"test:freighter": "npx turbo test --filter freighter",
-				"test:client": "npx turbo test --filter client",
-				"cov:client": "npx turbo cov --filter client",
-				"cov:pluto": "npx turbo cov --filter pluto",
-				"cov:drift": "npx turbo cov --filter drift",
-				"cov:freighter": "npx turbo cov --filter freighter",
-        "fix": "npx turbo fix"
+        "dev:delta": "npx turbo dev --filter delta",
+        "test": "npx turbo test",
+        "test:pluto": "npx turbo test --filter pluto",
+        "test:drift": "npx turbo test --filter drift",
+        "test:freighter": "npx turbo test --filter freighter",
+        "test:client": "npx turbo test --filter client",
+        "cov": "npx turbo cov",
+        "cov:client": "npx turbo cov --filter client",
+        "cov:pluto": "npx turbo cov --filter pluto",
+        "cov:drift": "npx turbo cov --filter drift",
+        "cov:freighter": "npx turbo cov --filter freighter",
+        "lint": "npx turbo lint",
+        "lint:pluto": "npx turbo lint --filter pluto",
+        "lint:delta": "npx turbo lint --filter delta",
+        "lint:freighter": "npx turbo lint --filter freighter",
+        "lint:client": "npx turbo lint --filter client",
+        "lint:drift": "npx turbo lint --filter drift",
+        "fix": "npx turbo fix",
+        "fix:pluto": "npx turbo fix --filter pluto",
+        "fix:delta": "npx turbo fix --filter delta",
+        "fix:freighter": "npx turbo fix --filter freighter",
+        "fix:client": "npx turbo fix --filter client",
+        "fix:drift": "npx turbo fix --filter drift",
+        "devtools": "npx turbo devtools --filter delta"
     },
     "workspaces": [
         "freighter/ts",
@@ -25,9 +45,13 @@
         "pluto",
         "drift",
         "configs/ts",
-        "configs/eslint"
+        "configs/eslint",
+        "configs/stylelint"
     ],
     "devDependencies": {
         "turbo": "^1.6.2"
+    },
+    "engines": {
+        "node": ">=18"
     }
 }

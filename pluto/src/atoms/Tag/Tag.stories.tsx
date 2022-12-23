@@ -1,12 +1,13 @@
-import { ComponentMeta, ComponentStory } from "@storybook/react";
-import { Tag, TagProps } from ".";
+import type { ComponentMeta, ComponentStory } from "@storybook/react";
 
-export default {
+import { Tag } from ".";
+
+const story: ComponentMeta<typeof Tag> = {
   title: "Atoms/Tag",
   component: Tag,
-} as ComponentMeta<typeof Tag>;
+};
 
-const Template = (props: TagProps) => <Tag {...props} />;
+const Template: ComponentStory<typeof Tag> = (props) => <Tag {...props} />;
 
 export const Primary: ComponentStory<typeof Tag> = Template.bind({});
 Primary.args = {
@@ -15,3 +16,5 @@ Primary.args = {
   variant: "filled",
   size: "medium",
 };
+
+export default story;

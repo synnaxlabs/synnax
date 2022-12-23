@@ -1,4 +1,7 @@
 import { HTMLAttributes, createElement, forwardRef } from "react";
+
+import clsx from "clsx";
+
 import { TypographyLevel } from "./types";
 
 export interface CoreTextProps {
@@ -25,10 +28,12 @@ const typographyLevelTags = {
 };
 
 export const Text = forwardRef(
-  ({ level = "h1", color, ...props }: TextProps, ref) => {
-    props.style = { color, ...props.style };
-    props.className = `pluto-text pluto-text--${level} ${props.className}`;
-    return createElement(typographyLevelTags[level], { ref, ...props });
-  }
+  ({ level = "h1", color, className, style, ...props }: TextProps, ref) =>
+    createElement(typographyLevelTags[level], {
+      ref,
+      style: { color, ...style },
+      className: clsx(`pluto-text pluto-text--${level}`, className),
+      ...props,
+    })
 );
 Text.displayName = "Text";

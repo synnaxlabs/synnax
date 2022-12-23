@@ -1,18 +1,14 @@
-import {
-  EOF,
-  ErrorPayloadSchema,
-  Stream,
-  StreamClient,
-  decodeError,
-} from '@synnaxlabs/freighter';
-import { z } from 'zod';
-import { ChannelPayload } from '../channel';
+/* eslint-disable @typescript-eslint/no-throw-literal */
+import { EOF, ErrorPayloadSchema, decodeError } from "@synnaxlabs/freighter";
+import type { Stream, StreamClient } from "@synnaxlabs/freighter";
+import { z } from "zod";
 
-import ChannelRegistry from '../channel/registry';
-import { GeneralError } from '../errors';
-import { TimeStamp, TypedArray, UnparsedTimeStamp } from '../telem';
+import { ChannelPayload } from "../channel";
+import ChannelRegistry from "../channel/registry";
+import { GeneralError } from "../errors";
+import { TimeStamp, TypedArray, UnparsedTimeStamp } from "../telem";
 
-import { frameFromRecord, FramePayload, framePayloadSchema } from './payload';
+import { frameFromRecord, FramePayload, framePayloadSchema } from "./payload";
 
 enum Command {
   None = 0,
@@ -43,7 +39,7 @@ const responseSchema = z.object({
 type Response = z.infer<typeof responseSchema>;
 
 const NOT_OPEN = new GeneralError(
-  'Writer has not been opened. Please open before calling write() or close().'
+  "Writer has not been opened. Please open before calling write() or close()."
 );
 
 /**
@@ -85,8 +81,8 @@ const NOT_OPEN = new GeneralError(
  * close will throw the error.
  */
 export class FrameWriter {
-  private static ENDPOINT = '/frame/write';
-  private client: StreamClient;
+  private static readonly ENDPOINT = "/frame/write";
+  private readonly client: StreamClient;
   private stream: Stream<Request, Response> | undefined;
 
   constructor(client: StreamClient) {
@@ -102,11 +98,11 @@ export class FrameWriter {
    * @param keys - A list of keys representing the channels the writer will write to. All
    * frames written to the writer must have channel keys in this list.
    */
-  async open(start: UnparsedTimeStamp, keys: string[]) {
+  async open(start: UnparsedTimeStamp, keys: string[]): Promise<void> {
     this.stream = await this.client.stream(
       FrameWriter.ENDPOINT,
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
+      // @ts-expect-error
       requestSchema,
       responseSchema
     );
@@ -115,7 +111,7 @@ export class FrameWriter {
       config: { start: new TimeStamp(start), keys },
     });
     const [, err] = await this.stream.receive();
-    if (err) throw err;
+    if (err != null) throw err;
   }
 
   /**
@@ -133,11 +129,11 @@ export class FrameWriter {
    * should acknowledge the error by calling the error method or closing the writer.
    */
   async write(frame: FramePayload): Promise<boolean> {
-    if (!this.stream) throw NOT_OPEN;
+    if (this.stream == null) throw NOT_OPEN;
     if (this.stream.received()) return false;
 
     const err = this.stream.send({ command: Command.Write, frame });
-    if (err) throw err;
+    if (err != null) throw err;
     return true;
   }
 
@@ -149,17 +145,17 @@ export class FrameWriter {
    * should acknowledge the error by calling the error method or closing the writer.
    * After the caller acknowledges the error, they can attempt to commit again.
    */
-  async commit() {
-    if (!this.stream) throw NOT_OPEN;
+  async commit(): Promise<boolean> {
+    if (this.stream == null) throw NOT_OPEN;
     if (this.stream.received()) return false;
 
     const err = this.stream.send({ command: Command.Commit });
-    if (err) throw err;
+    if (err != null) throw err;
 
     while (true) {
       const [res, err] = await this.stream.receive();
-      if (err) throw err;
-      if (res && res?.command === Command.Commit) {
+      if (err != null) throw err;
+      if (res != null && res?.command === Command.Commit) {
         return res.ack;
       }
     }
@@ -170,16 +166,16 @@ export class FrameWriter {
    * state, allowing the writer to be used again.
    */
   async error(): Promise<Error | undefined> {
-    if (!this.stream) throw NOT_OPEN;
+    if (this.stream == null) throw NOT_OPEN;
 
     const err = this.stream.send({ command: Command.Error });
-    if (err) throw err;
+    if (err != null) throw err;
 
     while (true) {
       const [res, err] = await this.stream.receive();
-      if (err) throw err;
-      if (res && res?.command === Command.Error) {
-        if (res.error) return decodeError(res.error);
+      if (err != null) throw err;
+      if (res != null && res?.command === Command.Error) {
+        if (res.error != null) return decodeError(res.error);
         return undefined;
       }
     }
@@ -190,11 +186,11 @@ export class FrameWriter {
    * A writer MUST be closed after use, and this method should probably be placed
    * in a 'finally' block.
    */
-  async close() {
-    if (!this.stream) throw NOT_OPEN;
+  async close(): Promise<void> {
+    if (this.stream == null) throw NOT_OPEN;
     this.stream.closeSend();
     const [res, err] = await this.stream.receive();
-    if (!err && res?.error) throw decodeError(res.error);
+    if (err == null && res?.error != null) throw decodeError(res.error);
     if (!(err instanceof EOF)) throw err;
   }
 }
@@ -209,8 +205,8 @@ export class FrameWriter {
  * write() method.
  */
 export class RecordWriter {
-  private core: FrameWriter;
-  private registry: ChannelRegistry;
+  private readonly core: FrameWriter;
+  private readonly registry: ChannelRegistry;
   private channels: ChannelPayload[];
 
   constructor(client: StreamClient, registry: ChannelRegistry) {
@@ -227,7 +223,7 @@ export class RecordWriter {
    * @param keys - A list of keys representing the channels the writer will write
    * to.
    */
-  async open(start: UnparsedTimeStamp, keys: string[]) {
+  async open(start: UnparsedTimeStamp, keys: string[]): Promise<void> {
     await this.core.open(start, keys);
     this.channels = await this.registry.getN(...keys);
   }
@@ -248,11 +244,11 @@ export class RecordWriter {
     return await this.core.write(frameFromRecord(this.channels, record));
   }
 
-  async commit() {
+  async commit(): Promise<boolean> {
     return await this.core.commit();
   }
 
-  async error() {
+  async error(): Promise<Error | undefined> {
     return await this.core.error();
   }
 
@@ -263,7 +259,7 @@ export class RecordWriter {
    * the exclusive lock on the channels, preventing any other callers from
    * writing to them. It also might leak resources and threads.
    */
-  async close() {
+  async close(): Promise<void> {
     await this.core.close();
   }
 }

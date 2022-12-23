@@ -1,0 +1,3 @@
+{
+  "extends": "@synnaxlabs/tsconfig/vite.json",
+}

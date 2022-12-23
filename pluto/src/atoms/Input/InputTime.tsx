@@ -1,11 +1,11 @@
 import { forwardRef } from "react";
-import { ComponentSize } from "@/util";
+
 import { InputProps } from "./Input";
 
 export interface InputTimeProps extends InputProps {}
 
 export const InputTime = forwardRef<HTMLInputElement, InputTimeProps>(
-  ({ size, ...props }: InputTimeProps, ref) => {
+  ({ size = "medium", ...props }: InputTimeProps, ref) => {
     return (
       <input
         ref={ref}
@@ -17,3 +17,4 @@ export const InputTime = forwardRef<HTMLInputElement, InputTimeProps>(
     );
   }
 );
+InputTime.displayName = "InputTime";

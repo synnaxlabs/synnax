@@ -1,6 +1,8 @@
-import { Location, getDirection, swapLocation } from "@/util";
-import clsx from "clsx";
 import { DetailedHTMLProps, HTMLAttributes } from "react";
+
+import clsx from "clsx";
+
+import { Location, getDirection, swapLocation } from "@/util";
 
 export interface ResizeCoreProps
   extends DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement> {
@@ -18,7 +20,7 @@ export const ResizeCore = ({
   onDragStart,
   showHandle = true,
   ...props
-}: ResizeCoreProps) => {
+}: ResizeCoreProps): JSX.Element => {
   const direction = getDirection(location);
   const parsedStyle: React.CSSProperties = { ...style, overflow: "hidden" };
   if (direction === "horizontal") {

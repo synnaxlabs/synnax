@@ -4,8 +4,10 @@ import {
   RefAttributes,
   forwardRef,
 } from "react";
+
 import "./Input.css";
 import clsx from "clsx";
+
 import { ComponentSize } from "@/util";
 
 export interface BaseInputProps

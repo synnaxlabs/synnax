@@ -28,7 +28,7 @@
   border-radius: calc(var(--pluto-base-size) * 4);
 }
 
-.pluto-input-switch__slider:before {
+.pluto-input-switch__slider::before {
   position: absolute;
   content: "";
   height: calc(var(--pluto-base-size) * 3);
@@ -44,7 +44,7 @@
   background-color: var(--pluto-primary-m1);
 }
 
-.pluto-input-switch__input:checked + .pluto-input-switch__slider:before {
+.pluto-input-switch__input:checked + .pluto-input-switch__slider::before {
   transform: translateX(calc(var(--pluto-base-size) * 2));
   background-color: var(--pluto-primary-p1);
 }

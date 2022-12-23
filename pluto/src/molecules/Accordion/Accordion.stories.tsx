@@ -1,25 +1,27 @@
-import { ComponentMeta, ComponentStory } from "@storybook/react";
-import { AiFillDatabase, AiFillPhone } from "react-icons/ai";
+import type { ComponentMeta, ComponentStory } from "@storybook/react";
+
 import { Accordion, AccordionEntry } from ".";
 
-export default {
-	title: "Molecules/Accordion",
-	component: Accordion,
-} as ComponentMeta<typeof Accordion>;
+const story: ComponentMeta<typeof Accordion> = {
+  title: "Molecules/Accordion",
+  component: Accordion,
+};
 
 const entries: AccordionEntry[] = [
-	{
-		key: "cluster",
-		title: "Cluster",
-		content: <p>Content</p>,
-	},
-	{
-		key: "Devices",
-		title: "Devices",
-		content: <p>Content</p>,
-	},
+  {
+    key: "cluster",
+    title: "Cluster",
+    content: <p>Content</p>,
+  },
+  {
+    key: "Devices",
+    title: "Devices",
+    content: <p>Content</p>,
+  },
 ];
 
 export const Primary: ComponentStory<typeof Accordion> = () => (
-	<Accordion entries={entries} direction="vertical" />
+  <Accordion entries={entries} direction="vertical" />
 );
+
+export default story;

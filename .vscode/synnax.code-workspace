@@ -1,7 +1,7 @@
 {
   "folders": [
     {
-      "name": "synnax-root",
+      "name": "root",
       "path": ".."
     },
     {
@@ -63,10 +63,26 @@
     {
       "name": "x",
       "path": "../x"
+    },
+    {
+	    "name": "tsconfig",
+	    "path": "../configs/ts"
+    },
+	  {
+        "name": "eslint",
+        "path": "../configs/eslint",
+    },
+    {
+      "name": "stylelint",
+      "path": "../configs/stylelint"
     }
   ],
   "settings": {
     "editor.formatOnSave": true,
-    "liveServer.settings.multiRootWorkspaceName": "synnax-root"
+    "liveServer.settings.multiRootWorkspaceName": "synnax-root",
+    "[css]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode",
+       "editor.formatOnSave": true
+    },
   }
 }

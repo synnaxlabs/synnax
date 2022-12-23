@@ -62,9 +62,9 @@ type AbstractAddressableSource[O Value] struct {
 	Out map[address.Address]Inlet[O]
 }
 
-// OutTo implements the Source interface. Inlets provided must have a valid Inlet.
-// InletAddress. If two inlets are provided with the same address, the last Inlet
-// will override the previous one.
+// OutTo implements the Source interface. Inlets provided must have a valid InletAddress.
+// If two inlets are provided with the same address, the last Inlet will override the
+// previous one.
 func (aas *AbstractAddressableSource[O]) OutTo(inlets ...Inlet[O]) {
 	if aas.Out == nil {
 		aas.Out = make(map[address.Address]Inlet[O])

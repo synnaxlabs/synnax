@@ -1,12 +1,15 @@
-import { Synnax } from "@synnaxlabs/client";
-import {
-  AutoSize,
-  LinePlot as PlutoLinePlot,
-  PlotData,
-  Theming,
-} from "@synnaxlabs/pluto";
 import { useEffect, useRef, useState } from "react";
-import { SugaredLinePlotVisualization, Visualization } from "../../types";
+
+import { Synnax } from "@synnaxlabs/client";
+import { AutoSize, LinePlot as PlutoLinePlot, Theming } from "@synnaxlabs/pluto";
+import type { PlotData } from "@synnaxlabs/pluto";
+
+import {
+  LinePlotVisualization,
+  SugaredLinePlotVisualization,
+  Visualization,
+} from "../../types";
+
 import { LinePlotControls } from "./LinePlotControls";
 import "./LinePlot.css";
 
@@ -17,15 +20,11 @@ export interface LinePlotProps {
   resizeDebounce: number;
 }
 
-function usePrevious<V>(value: V) {
-  // The ref object is a generic container whose current property is mutable ...
-  // ... and can hold any value, similar to an instance property on a class
+function usePrevious<V>(value: V): V | undefined {
   const ref = useRef<V>();
-  // Store current value in ref
   useEffect(() => {
     ref.current = value;
-  }, [value]); // Only re-run if value changes
-  // Return previous value (happens before update in useEffect above)
+  }, [value]);
   return ref.current;
 }
 
@@ -34,7 +33,7 @@ export const LinePlot = ({
   client,
   onChange,
   resizeDebounce,
-}: LinePlotProps) => {
+}: LinePlotProps): JSX.Element => {
   const { axes, series, channels, ranges } = visualization;
   const [data, setData] = useState<PlotData>({});
   const {
@@ -44,25 +43,24 @@ export const LinePlot = ({
 
   useEffect(() => {
     if (
-      prevVisu &&
-      prevVisu.channels.length == visualization.channels.length &&
+      prevVisu != null &&
+      prevVisu.channels.length === visualization.channels.length &&
       prevVisu.ranges.length === visualization.ranges.length
     )
       return;
-    const fn = async () => {
+    void (async () => {
       const nextData: PlotData = {};
-      console.log("HELLO", ranges, channels);
       for (const range of ranges) {
         for (const key of channels) {
           const data = await client.data.read(key, range.start, range.end);
-          nextData[key] = data;
+          if (data != null) nextData[key] = data as unknown as any[];
           if (channels.indexOf(key) === channels.length - 1) {
-            nextData["time"] = Array.from({ length: data?.length || 0 }, (_, i) => i);
+            nextData.time = Array.from({ length: data?.length ?? 0 }, (_, i) => i);
           }
         }
       }
       setData(nextData);
-      onChange({
+      const nextV: LinePlotVisualization = {
         ...visualization,
         ranges: ranges.map((range) => range.key),
         series: channels.map((ch) => ({
@@ -85,9 +83,9 @@ export const LinePlot = ({
           },
         ],
         channels,
-      } as Visualization);
-    };
-    fn();
+      };
+      onChange(nextV);
+    })();
   }, [client, channels, ranges]);
 
   return (

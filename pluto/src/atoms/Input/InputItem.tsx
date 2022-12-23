@@ -1,9 +1,12 @@
 import { ComponentType, forwardRef } from "react";
+
+import clsx from "clsx";
+
 import { Space } from "../Space";
+
 import { BaseInputProps, Input, InputProps } from "./Input";
 import { InputHelpText } from "./InputHelpText";
 import { InputLabel } from "./InputLabel";
-import clsx from "clsx";
 
 export interface InputItemProps extends Omit<InputProps, "children"> {
   label?: string;

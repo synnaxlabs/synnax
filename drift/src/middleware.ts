@@ -1,15 +1,10 @@
-import { Action, AnyAction, Dispatch, Middleware } from "@reduxjs/toolkit";
-import { CurriedGetDefaultMiddleware } from "@reduxjs/toolkit/dist/getDefaultMiddleware";
+import type { Action, AnyAction, Dispatch, Middleware } from "@reduxjs/toolkit";
+import type { CurriedGetDefaultMiddleware } from "@reduxjs/toolkit/dist/getDefaultMiddleware";
 
 import { Runtime } from "./runtime";
-import {
-  StoreState,
-  assignKey,
-  executeAction,
-  isDrift,
-  shouldEmit,
-} from "./state";
+import { StoreState, assignKey, executeAction, isDrift, shouldEmit } from "./state";
 import { desugar } from "./sugar";
+import { validateAction } from "./validate";
 
 // eslint-disable-next-line @typescript-eslint/ban-types
 export type Middlewares<S> = ReadonlyArray<Middleware<{}, S>>;
@@ -23,31 +18,33 @@ export type Middlewares<S> = ReadonlyArray<Middleware<{}, S>>;
  * @param runtime - The runtime of the current application window.
  * @returns a Redux middleware.
  */
-export const middleware = <S extends StoreState, A extends Action = AnyAction>(
-  runtime: Runtime<S, A>
-): Middleware<Record<string, never>, S, Dispatch<A>> => {
-  return ({ getState }) =>
-    (next) =>
-    (action_) => {
-      // eslint-disable-next-line prefer-const
-      let { action, emitted, emitter } = desugar(action_);
+export const middleware =
+  <S extends StoreState, A extends Action = AnyAction>(
+    runtime: Runtime<S, A>
+  ): Middleware<Record<string, never>, S, Dispatch<A>> =>
+  ({ getState }) =>
+  (next) =>
+  (action_) => {
+    // eslint-disable-next-line prefer-const
+    let { action, emitted, emitter } = desugar(action_);
 
-      // The action is recirculating from our own relay.
-      if (emitter === runtime.key()) return;
+    validateAction({ action: action_, emitted, emitter });
 
-      if (isDrift(action.type)) {
-        const state = getState();
-        if (!emitted) action.payload.key = assignKey(runtime, action, state);
-        if (runtime.isMain()) executeAction(runtime, action, state);
-      }
+    // The action is recirculating from our own relay.
+    if (emitter === runtime.key()) return;
 
-      const res = next(action);
+    if (isDrift(action.type)) {
+      const state = getState();
+      if (!emitted) action.payload.key = assignKey(runtime, action, state);
+      if (runtime.isMain()) executeAction(runtime, action, state);
+    }
 
-      if (shouldEmit(emitted, action.type)) runtime.emit({ action });
+    const res = next(action);
 
-      return res;
-    };
-};
+    if (shouldEmit(emitted, action.type)) runtime.emit({ action });
+
+    return res;
+  };
 
 /**
  * Configures the Redux middleware for the curent window's store.
@@ -65,7 +62,7 @@ export const configureMiddleware = <
   runtime: Runtime<S, A>
 ): ((def: CurriedGetDefaultMiddleware<S>) => M) => {
   return (def) => {
-    const base = mw ? (typeof mw === "function" ? mw(def) : mw) : def();
+    const base = mw != null ? (typeof mw === "function" ? mw(def) : mw) : def();
     return [...base, middleware<S, A>(runtime)] as unknown as M;
   };
 };
