@@ -1,4 +1,5 @@
 import { combineReducers } from "@reduxjs/toolkit";
+import type { CurriedGetDefaultMiddleware } from "@reduxjs/toolkit/dist/getDefaultMiddleware";
 import {
   reducer as driftReducer,
   TauriRuntime,
@@ -34,9 +35,8 @@ const reducer = combineReducers({
 export const store = configureStore<ReturnType<typeof reducer>>({
   runtime: new TauriRuntime(appWindow),
   preloadedState: newPreloadState(kv),
-  middleware: (getDefaultMiddleware) => [
-    ...getDefaultMiddleware(),
-    newPersistStateMiddleware(kv),
-  ],
+  middleware: (
+    getDefaultMiddleware: CurriedGetDefaultMiddleware<ReturnType<typeof reducer>>
+  ) => [...getDefaultMiddleware(), newPersistStateMiddleware(kv)],
   reducer,
 });

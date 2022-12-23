@@ -18,33 +18,33 @@ export type Middlewares<S> = ReadonlyArray<Middleware<{}, S>>;
  * @param runtime - The runtime of the current application window.
  * @returns a Redux middleware.
  */
-export const middleware = <S extends StoreState, A extends Action = AnyAction>(
-  runtime: Runtime<S, A>
-): Middleware<Record<string, never>, S, Dispatch<A>> => {
-  return ({ getState }) =>
-    (next) =>
-    (action_) => {
-      // eslint-disable-next-line prefer-const
-      let { action, emitted, emitter } = desugar(action_);
+export const middleware =
+  <S extends StoreState, A extends Action = AnyAction>(
+    runtime: Runtime<S, A>
+  ): Middleware<Record<string, never>, S, Dispatch<A>> =>
+  ({ getState }) =>
+  (next) =>
+  (action_) => {
+    // eslint-disable-next-line prefer-const
+    let { action, emitted, emitter } = desugar(action_);
 
-      validateAction({ action: action_, emitted, emitter });
+    validateAction({ action: action_, emitted, emitter });
 
-      // The action is recirculating from our own relay.
-      if (emitter === runtime.key()) return;
+    // The action is recirculating from our own relay.
+    if (emitter === runtime.key()) return;
 
-      if (isDrift(action.type)) {
-        const state = getState();
-        if (!emitted) action.payload.key = assignKey(runtime, action, state);
-        if (runtime.isMain()) executeAction(runtime, action, state);
-      }
+    if (isDrift(action.type)) {
+      const state = getState();
+      if (!emitted) action.payload.key = assignKey(runtime, action, state);
+      if (runtime.isMain()) executeAction(runtime, action, state);
+    }
 
-      const res = next(action);
+    const res = next(action);
 
-      if (shouldEmit(emitted, action.type)) runtime.emit({ action });
+    if (shouldEmit(emitted, action.type)) runtime.emit({ action });
 
-      return res;
-    };
-};
+    return res;
+  };
 
 /**
  * Configures the Redux middleware for the curent window's store.
