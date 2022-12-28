@@ -2,17 +2,26 @@ import { Dispatch, useCallback } from "react";
 
 import type { AnyAction } from "@reduxjs/toolkit";
 import { closeWindow, createWindow, MAIN_WINDOW } from "@synnaxlabs/drift";
-import type { ThemeProviderProps } from "@synnaxlabs/pluto";
+import type {
+  NavDrawerItem,
+  UseNavDrawerReturn,
+  ThemeProviderProps,
+  NavMenuItem,
+  NavDrawerContent,
+} from "@synnaxlabs/pluto";
 import { appWindow } from "@tauri-apps/api/window";
 import type { Theme as TauriTheme } from "@tauri-apps/api/window";
 import { useDispatch } from "react-redux";
 
 import {
+  NavdrawerLocation,
   placeLayout,
   removeLayout,
   setActiveTheme,
+  setNavdrawerEntryState,
   toggleActiveTheme,
   useSelectLayout,
+  useSelectNavDrawer,
   useSelectTheme,
 } from "../store";
 import { Layout } from "../types";
@@ -118,4 +127,30 @@ const synchronizeWithOS = async (dispatch: Dispatch<AnyAction>): AsyncDestructor
 const setInitialTheme = async (dispatch: Dispatch<AnyAction>): Promise<void> => {
   const t = await appWindow.theme();
   dispatch(setActiveTheme(matchThemeChange({ payload: t })));
+};
+
+export const useNavDrawer = (
+  loc: NavdrawerLocation,
+  items: NavDrawerItem[]
+): UseNavDrawerReturn => {
+  const state = useSelectNavDrawer(loc);
+  const dispatch = useDispatch();
+  let activeItem: NavDrawerContent | undefined;
+  let menuItems: NavMenuItem[] = [];
+  if (state.activeItem != null)
+    activeItem = items.find((item) => item.key === state.activeItem);
+  menuItems = items.filter((item) => state.menuItems.includes(item.key));
+  return {
+    activeItem,
+    menuItems,
+    onSelect: (item: string) =>
+      dispatch(
+        setNavdrawerEntryState({
+          location: loc,
+          state: {
+            activeItem: item === state.activeItem ? null : item,
+          },
+        })
+      ),
+  };
 };

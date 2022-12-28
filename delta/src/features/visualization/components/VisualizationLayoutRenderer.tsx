@@ -8,10 +8,10 @@ import { SugaredLinePlotVisualization, Visualization } from "../types";
 import { LinePlot } from "./LinePlot";
 
 import { useClusterClient } from "@/features/cluster";
-import { LayoutRendererProps } from "@/features/layout";
+import { LayoutRenderer, LayoutRendererProps } from "@/features/layout";
 
-export const VisualizationLayoutRenderer = memo(
-  ({ layoutKey }: LayoutRendererProps) => {
+export const VisualizationLayoutRenderer: LayoutRenderer = {
+  Renderer: memo(({ layoutKey }: LayoutRendererProps) => {
     const vis = useSelectSugaredVisualization(layoutKey);
     const dispatch = useDispatch();
     const client = useClusterClient();
@@ -33,6 +33,6 @@ export const VisualizationLayoutRenderer = memo(
         );
     }
     return <h1>No Visualization Found</h1>;
-  }
-);
-VisualizationLayoutRenderer.displayName = "VisualizationLayoutRenderer";
+  }),
+};
+VisualizationLayoutRenderer.Renderer.displayName = "VisualizationLayoutRenderer";

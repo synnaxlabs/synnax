@@ -17,7 +17,7 @@ export const Statistic = ({
   label,
 }: ValueProps): JSX.Element => {
   return (
-    <Space empty direction="vertical" align="center" justify="center">
+    <Space empty align="center" justify="center">
       <Text
         className={clsx(
           "pluto-value__text",

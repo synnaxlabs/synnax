@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 
 import { Location } from "../../util/spatial";
 
@@ -24,7 +24,7 @@ export const Resize = ({
   const [size, setSize] = useState<number>(initialSize);
   const [dragging, setDragging] = useState(false);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!dragging) return;
     const onMouseMove = (e: MouseEvent): void => {
       setSize((p: number) => calcNextSize(e, location, p, minSize, maxSize));

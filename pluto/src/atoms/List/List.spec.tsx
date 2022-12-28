@@ -3,9 +3,15 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { mockBoundingClientRect } from "../../testutil/mocks";
 
-import { List } from ".";
+import { List, ListColumn } from ".";
 
-const cols = [
+interface SampleRecord {
+  key: string;
+  name: string;
+  age: number;
+}
+
+const cols: Array<ListColumn<SampleRecord>> = [
   {
     key: "name",
     label: "Name",
@@ -17,7 +23,7 @@ const cols = [
     visible: true,
   },
 ];
-const data = [
+const data: SampleRecord[] = [
   {
     key: "1",
     name: "John",

@@ -1,7 +1,7 @@
 import { render } from "@testing-library/react";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
-import { AutoSize } from ".";
+import { Autosize } from ".";
 
 describe("AutoSize", () => {
   beforeAll(() => {
@@ -26,7 +26,7 @@ describe("AutoSize", () => {
   it("should provide a width and height to a child component", async () => {
     const c = render(
       <div style={{ height: 100, width: 100 }}>
-        <AutoSize style={{ height: 100, width: 100 }}>
+        <Autosize style={{ height: 100, width: 100 }}>
           {({ width, height }) => {
             return (
               <div className="hello" style={{ height, width }}>
@@ -34,7 +34,7 @@ describe("AutoSize", () => {
               </div>
             );
           }}
-        </AutoSize>
+        </Autosize>
       </div>
     );
 
@@ -52,9 +52,9 @@ describe("AutoSize", () => {
     };
     const c = render(
       <div style={{ height: 100, width: 100 }}>
-        <AutoSize style={{ height: 100, width: 100 }}>
+        <Autosize style={{ height: 100, width: 100 }}>
           <El />
-        </AutoSize>
+        </Autosize>
       </div>
     );
 

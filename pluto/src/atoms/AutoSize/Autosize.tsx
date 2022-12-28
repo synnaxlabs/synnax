@@ -1,11 +1,17 @@
-import { ComponentType, ReactElement, cloneElement, useRef } from "react";
+import {
+  ComponentType,
+  ReactElement,
+  cloneElement,
+  useRef,
+  FunctionComponent,
+} from "react";
 
 import { useSize } from "@/hooks";
 
 /* AutoSize props is the props for the {@link AutoSize} component. */
-export interface AutoSizeProps
+export interface AutosizeProps
   extends Omit<React.HTMLAttributes<HTMLDivElement>, "children"> {
-  children: ComponentType<{ width: number; height: number }> | ReactElement;
+  children: FunctionComponent<{ width: number; height: number }> | ReactElement;
   debounce?: number;
 }
 
@@ -20,19 +26,17 @@ export interface AutoSizeProps
  * 100ms will mean that only one resize event will be propagated even if the component
  * is resized twice).
  */
-export const AutoSize = ({
-  children: Children,
+export const Autosize = ({
+  children,
   debounce,
   ...props
-}: AutoSizeProps): JSX.Element => {
+}: AutosizeProps): JSX.Element => {
   const ref = useRef<HTMLDivElement>(null);
   const { width, height } = useSize({ ref, debounce });
-  const content: ReactElement =
-    typeof Children === "function" ? (
-      <Children width={width} height={height} />
-    ) : (
-      cloneElement(Children, { width, height })
-    );
+  const content: ReactElement | null =
+    typeof children === "function"
+      ? children({ width, height })
+      : cloneElement(children, { width, height });
   return (
     <div ref={ref} {...props}>
       {content}

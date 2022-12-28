@@ -2,71 +2,76 @@ import { ReactElement, useState } from "react";
 
 import clsx from "clsx";
 
-import { Button, Resize, Space } from "../../atoms";
-import { swapDirection } from "../../util/spatial";
+import { NavbarProps, useNavbar } from "./Navbar";
+import { NavMenuItem } from "./NavMenu";
 
-import { Navbar, NavbarProps, useNavbar } from "./Navbar";
 import "./Navdrawer.css";
 
-export interface NavDrawerItem {
+import { Resize } from "@/atoms";
+import { ResizePanelProps } from "@/atoms/Resize/Resize";
+
+export interface NavDrawerContent {
   key: string;
   content: ReactElement;
-  icon: ReactElement;
   minSize?: number;
   maxSize?: number;
   initialSize?: number;
 }
 
-export interface NavDrawerProps extends NavbarProps {
-  items: NavDrawerItem[];
+export interface NavDrawerItem extends NavDrawerContent, NavMenuItem {}
+
+export interface UseNavDrawerProps {
   initialKey?: string;
+  items: NavDrawerItem[];
 }
 
-export const NavDrawer = ({
-  items = [],
+export interface UseNavDrawerReturn {
+  activeItem?: NavDrawerContent;
+  menuItems?: NavMenuItem[];
+  onSelect?: (key: string) => void;
+}
+
+export interface NavDrawerProps
+  extends Omit<NavbarProps, "onSelect">,
+    UseNavDrawerReturn,
+    Partial<Pick<ResizePanelProps, "onResize">> {}
+
+export const useNavDrawer = ({
+  items,
   initialKey,
-  children,
-  ...props
-}: NavDrawerProps): JSX.Element => {
-  const { direction } = useNavbar(props);
+}: UseNavDrawerProps): UseNavDrawerReturn => {
   const [activeKey, setActiveKey] = useState<string | undefined>(initialKey);
-  const onClick = (key: string): void =>
+  const handleSelect = (key: string): void =>
     setActiveKey(key === activeKey ? undefined : key);
   const activeItem = items.find((item) => item.key === activeKey);
+  return { onSelect: handleSelect, activeItem, menuItems: items };
+};
+
+export const Navdrawer = ({
+  activeItem,
+  menuItems = [],
+  children,
+  onSelect,
+  onResize,
+  ...props
+}: NavDrawerProps): JSX.Element | null => {
+  const { direction } = useNavbar(props);
+  if (activeItem == null) return null;
+  const { content, maxSize, minSize, initialSize } = activeItem;
   return (
-    <Navbar.Context.Provider value={{ direction, location: props.location }}>
-      <Space
-        direction={swapDirection(direction)}
-        empty
-        reverse={props.location === "right" || props.location === "bottom"}
-        className="pluto-navdrawer__container"
-        align="stretch"
-        style={{ height: "100%" }}
-      >
-        <Navbar {...props} withContext={false}>
-          {children}
-          <Navbar.Content className="pluto-navdrawer__menu">
-            {items.map(({ key, icon }) => (
-              <Button.IconOnly key={key} onClick={() => onClick(key)}>
-                {icon}
-              </Button.IconOnly>
-            ))}
-          </Navbar.Content>
-        </Navbar>
-        {activeItem != null && (
-          <Resize
-            className={clsx(
-              "pluto-navdrawer__content",
-              `pluto-navdrawer__content--${direction}`,
-              `pluto-navdrawer__content--${props.location}`
-            )}
-            location={props.location}
-            {...activeItem}
-          >
-            {activeItem.content}
-          </Resize>
-        )}
-      </Space>
-    </Navbar.Context.Provider>
+    <Resize
+      className={clsx(
+        "pluto-navdrawer__content",
+        `pluto-navdrawer__content--${direction}`,
+        `pluto-navdrawer__content--${props.location}`
+      )}
+      onResize={onResize}
+      minSize={minSize}
+      maxSize={maxSize}
+      initialSize={initialSize}
+      {...props}
+    >
+      {content}
+    </Resize>
   );
 };

@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { MosaicLeaf } from "./types";
 
 import { Resize, Tab, Tabs, TabsProps } from "@/atoms";
-import { Location } from "@/util";
+import { Location } from "@/util/spatial";
 import "./Mosaic.css";
 
 export interface MosaicProps extends Omit<TabsProps, "onDrop" | "tabs"> {

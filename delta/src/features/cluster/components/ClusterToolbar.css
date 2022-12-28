@@ -6,6 +6,6 @@
 }
 
 .delta-cluster-toolbar-list__item--selected {
-    background-color: var(--pluto-primary-p1-20);
+    background-color: var(--pluto-primary-z-20);
     border-left: 0.5rem solid var(--pluto-primary-p1);
 }

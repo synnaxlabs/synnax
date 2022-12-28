@@ -1,19 +1,21 @@
 import { forwardRef } from "react";
 
-import { InputProps } from "./Input";
+import { Input } from "./Input";
+import { InputBaseProps } from "./types";
 
-export interface InputDateProps extends InputProps {}
+import { isoStringShortDate, shortDateISOString } from "@/util/time";
+
+export interface InputDateProps extends InputBaseProps<number> {}
 
 export const InputDate = forwardRef<HTMLInputElement, InputDateProps>(
-  ({ size = "medium", ...props }, ref) => {
-    return (
-      <input
-        ref={ref}
-        type="date"
-        className={`pluto-input__input pluto-input--${size}`}
-        {...props}
-      />
-    );
-  }
+  ({ size = "medium", onChange, value, ...props }, ref) => (
+    <Input
+      ref={ref}
+      value={shortDateISOString(value)}
+      onChange={(v) => onChange(isoStringShortDate(v))}
+      type="date"
+      {...props}
+    />
+  )
 );
 InputDate.displayName = "InputDate";

@@ -14,26 +14,33 @@ const story: ComponentMeta<typeof Nav.Bar> = {
 
 const Template = (args: NavbarProps): JSX.Element => <Nav.Bar {...args} />;
 
-export const LeftBar: ComponentStory<typeof Nav.Bar> = Template.bind({});
+export const LeftBar: ComponentStory<typeof Nav.Bar> = Template.bind({
+  children: (
+    <Nav.Bar.Content>
+      <Nav.Menu
+        items={[
+          {
+            key: "1",
+            icon: <MdGrain />,
+          },
+        ]}
+      />
+    </Nav.Bar.Content>
+  ),
+});
 
 export const LeftDrawer: ComponentStory<typeof Nav.Drawer> = () => {
-  return (
-    <Nav.Drawer
-      initialKey="2"
-      location="bottom"
-      items={[
-        {
-          key: "2",
-          icon: <MdGrain />,
-          content: (
-            <Header icon={<MdGrain />} level="p" style={{ color: "white" }} divided>
-              Hello
-            </Header>
-          ),
-        },
-      ]}
-    ></Nav.Drawer>
-  );
+  const props = Nav.useDrawer({
+    initialKey: "2",
+    items: [
+      {
+        key: "2",
+        icon: <MdGrain />,
+        content: <h1>Helllo</h1>,
+      },
+    ],
+  });
+  return <Nav.Drawer location="bottom" {...props} />;
 };
 
 export default story;

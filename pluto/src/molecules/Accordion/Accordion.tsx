@@ -5,7 +5,7 @@ import { AiFillCaretDown, AiFillCaretRight } from "react-icons/ai";
 import { Space } from "../../atoms/Space";
 
 import { ButtonIconOnlyProps, Header, Resize } from "@/atoms";
-import { Direction } from "@/util";
+import { Direction } from "@/util/spatial";
 
 export interface AccordionEntry {
   key: string;
@@ -16,17 +16,20 @@ export interface AccordionEntry {
 
 export interface AccordionProps {
   entries: AccordionEntry[];
-  direction: Direction;
+  direction?: Direction;
 }
 
-export const Accordion = ({ direction, entries }: AccordionProps): JSX.Element => {
+export const Accordion = ({
+  direction = "vertical",
+  entries,
+}: AccordionProps): JSX.Element => {
   const {
     setSize,
     props: { sizes, ...resizeProps },
   } = Resize.useMultiple({
     direction,
     count: entries.length,
-    minSize: 28,
+    minSize: 27,
   });
 
   const onExpand = (index: number): void => {
@@ -52,9 +55,9 @@ export const Accordion = ({ direction, entries }: AccordionProps): JSX.Element =
 
 interface AccordionEntryCProps extends Omit<AccordionEntry, "key"> {
   index: number;
-  direction: Direction;
   size: number;
   onExpand: (i: number) => void;
+  direction: Direction;
 }
 
 const AccordionEntryC = ({
@@ -69,18 +72,21 @@ const AccordionEntryC = ({
   const expanded = size > 28;
   return (
     <Space direction={direction} empty style={{ height: "100%" }}>
-      <Header.Button
+      <Header
         level="p"
-        icon={expanded ? <AiFillCaretDown /> : <AiFillCaretRight />}
-        onClick={() => onExpand(index)}
-        style={{
-          borderRadius: "0px",
-          borderBottom: expanded ? "var(--pluto-border)" : "none",
-        }}
-        actions={actions}
+        style={{ borderBottom: expanded ? "var(--pluto-border)" : "none" }}
       >
-        {title}
-      </Header.Button>
+        <Header.ButtonTitle
+          startIcon={expanded ? <AiFillCaretDown /> : <AiFillCaretRight />}
+          onClick={() => onExpand(index)}
+          style={{
+            borderRadius: "0px",
+          }}
+        >
+          {title}
+        </Header.ButtonTitle>
+        {actions != null && <Header.Actions>{actions}</Header.Actions>}
+      </Header>
       {content}
     </Space>
   );

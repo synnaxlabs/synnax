@@ -1,3 +1,4 @@
+import React from "react";
 import { Theming } from "../src";
 import "./index.css";
 
@@ -13,6 +14,8 @@ export const parameters = {
 
 export const decorators = [
     (Story) => (
-        <Theming.Provider theme={Theming.themes.synnaxDark}>{Story()}</Theming.Provider>
+        <React.StrictMode>
+            <Theming.Provider theme={Theming.themes.synnaxDark}>{Story()}</Theming.Provider>
+        </React.StrictMode>
     ),
 ];

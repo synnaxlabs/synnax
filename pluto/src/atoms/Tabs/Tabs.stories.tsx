@@ -24,7 +24,11 @@ const exampleTabs = [
 
 export const Primary: ComponentStory<typeof Tabs> = () => {
   const props = useStaticTabs({ tabs: exampleTabs });
-  return <Tabs {...props}>{({ tab }) => <h2>{tab.tabKey}</h2>}</Tabs>;
+  return (
+    <Tabs {...props} closable>
+      {({ tab }) => <h2>{tab.tabKey}</h2>}
+    </Tabs>
+  );
 };
 
 export default story;

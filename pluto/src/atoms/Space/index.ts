@@ -6,7 +6,7 @@ import {
   SpaceJustifications,
 } from "./Space";
 import { SpaceCentered } from "./SpaceCentered";
-export type { SpaceProps } from "./Space";
+export type { SpaceProps, SpaceExtensionProps } from "./Space";
 export type { SpaceCenteredProps } from "./SpaceCentered";
 export type { SpaceAlignment, SpaceJustification };
 

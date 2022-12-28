@@ -71,7 +71,7 @@ func (a *API) BindTo(t Transport) {
 		logger             = logMiddleware(a.provider.Logging.logger)
 		tk                 = tokenMiddleware(a.provider.auth.token)
 		insecureMiddleware = []freighter.Middleware{logger, err}
-		secureMiddleware   []freighter.Middleware
+		secureMiddleware   = make([]freighter.Middleware, len(insecureMiddleware))
 	)
 	copy(secureMiddleware, insecureMiddleware)
 	if !a.config.Insecure {

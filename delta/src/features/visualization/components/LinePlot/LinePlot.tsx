@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { Synnax } from "@synnaxlabs/client";
-import { AutoSize, LinePlot as PlutoLinePlot, Theming } from "@synnaxlabs/pluto";
+import { Autosize, LinePlot as PlutoLinePlot, Theming } from "@synnaxlabs/pluto";
 import type { PlotData } from "@synnaxlabs/pluto";
 
 import {
@@ -34,7 +34,7 @@ export const LinePlot = ({
   onChange,
   resizeDebounce,
 }: LinePlotProps): JSX.Element => {
-  const { axes, series, channels, ranges } = visualization;
+  const { axes, series, y1: channels, ranges } = visualization;
   const [data, setData] = useState<PlotData>({});
   const {
     theme: { colors },
@@ -44,7 +44,7 @@ export const LinePlot = ({
   useEffect(() => {
     if (
       prevVisu != null &&
-      prevVisu.channels.length === visualization.channels.length &&
+      prevVisu.y1.length === visualization.y1.length &&
       prevVisu.ranges.length === visualization.ranges.length
     )
       return;
@@ -82,7 +82,7 @@ export const LinePlot = ({
             label: "y",
           },
         ],
-        channels,
+        y1: channels,
       };
       onChange(nextV);
     })();
@@ -90,7 +90,7 @@ export const LinePlot = ({
 
   return (
     <div className="delta-line-plot__container">
-      <AutoSize className="delta-line-plot__plot__container" debounce={resizeDebounce}>
+      <Autosize className="delta-line-plot__plot__container" debounce={resizeDebounce}>
         {({ width, height }) => (
           <PlutoLinePlot
             width={width}
@@ -100,7 +100,7 @@ export const LinePlot = ({
             series={series}
           />
         )}
-      </AutoSize>
+      </Autosize>
       <LinePlotControls
         visualization={visualization}
         onChange={onChange}

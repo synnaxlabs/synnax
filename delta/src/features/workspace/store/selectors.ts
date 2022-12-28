@@ -1,35 +1,63 @@
-import { useCallback } from "react";
-
-import memoize from "proxy-memoize";
-import { useSelector } from "react-redux";
-
 import { WorkspaceStoreState } from "./slice";
 import type { Range } from "./types";
 
-export const useSelectRangeFilterCore = (
-  state: WorkspaceStoreState,
-  keys?: string[]
-): Range[] =>
-  Object.values(state.workspace.ranges).filter(
-    (range) => keys == null || keys.includes(range.key)
-  );
+import { selectByKey, useMemoSelect } from "@/hooks";
 
-export const useSelectSelectedRangeCore = (
-  state: WorkspaceStoreState
-): Range | null => {
-  const { selectedRangeKey, ranges } = state.workspace;
-  return selectedRangeKey != null ? ranges[selectedRangeKey] : null;
+/**
+ * Selects ranges with the given keys. If no keys are provided, all ranges are selected.
+ *
+ * @param state  - The state of the workspace store.
+ * @param keys  - The keys of the ranges to select. If not provided, all ranges are
+ * selected.
+ * @returns The ranges with the given keys.
+ */
+export const selectRanges = (state: WorkspaceStoreState, keys?: string[]): Range[] => {
+  const all = Object.values(state.workspace.ranges);
+  if (keys == null) return all;
+  return all.filter((range) => keys.includes(range.key));
 };
+/**
+ * Selects the key of the active range.
+ *
+ * @param state - The state of the workspace store.
+ * @returns The key of the active range, or null if no range is active.
+ */
+const selectActiveRangeKey = (state: WorkspaceStoreState): string | null =>
+  state.workspace.activeRange;
 
-export const useSelectSelectedRange = (): Range | null =>
-  useSelector(
-    useCallback((state: WorkspaceStoreState) => useSelectSelectedRangeCore(state), [])
-  );
+/**
+ * Selects a range from the workspace store.
+ *
+ * @param state - The state of the workspace store.
+ * @param key - The key of the range to select. If not provided, the active range key
+ * will be used.
+ *
+ * @returns The range with the given key. If no key is provided, the active range is
+ * key is used. If no active range is set, returns null. If the range does not exist,
+ * returns undefined.
+ */
+export const selectRange = (
+  state: WorkspaceStoreState,
+  key?: string | null
+): Range | null | undefined =>
+  selectByKey(state.workspace.ranges, key, selectActiveRangeKey(state));
 
-export const useSelectRanges = (): Range[] =>
-  useSelector(
-    useCallback(
-      memoize((state: WorkspaceStoreState) => useSelectRangeFilterCore(state)),
-      []
-    )
-  );
+/**
+ * Selects a range from the workspace store.
+ *
+ * @returns The range with the given key. If no key is provided, the active range is
+ * key is used. If no active range is set, returns null. If the range does not exist,
+ * returns undefined.
+ */
+export const useSelectRange = (key?: string): Range | null | undefined =>
+  useMemoSelect((state: WorkspaceStoreState) => selectRange(state, key), [key]);
+
+/**
+ * Selects ranges from the workspace store. If no keys are provided, all ranges are
+ * selected.
+ *
+ * @param keys - The keys of the ranges to select. If not provided, all ranges are
+ * @returns The ranges with the given keys.
+ */
+export const useSelectRanges = (keys?: string[]): Range[] =>
+  useMemoSelect((state: WorkspaceStoreState) => selectRanges(state, keys), [keys]);

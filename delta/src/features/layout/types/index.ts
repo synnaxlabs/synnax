@@ -1,5 +1,6 @@
-import { ComponentType } from "react";
+import type { ComponentType } from "react";
 
+import type { Dispatch, AnyAction } from "@reduxjs/toolkit";
 import type { WindowProps } from "@synnaxlabs/drift";
 
 /** The location options for placing a layout */
@@ -37,6 +38,8 @@ export interface Layout {
   window?: LayoutWindowProps;
 }
 
+export type RenderableLayout = Omit<Layout, "window">;
+
 /**
  * The props passed to a LayoutRenderer. Note that these props are minimal and only focus
  * on providing information that either allows the renderer to perform more data selections
@@ -59,11 +62,23 @@ export interface LayoutRendererProps {
   onClose: () => void;
 }
 
+export interface LayoutOnCloseProps {
+  dispatch: Dispatch<AnyAction>;
+  layoutKey: string;
+}
+
+export type CoreLayoutRenderer = ComponentType<LayoutRendererProps>;
+
+export interface SugaredLayoutRenderer {
+  Renderer: CoreLayoutRenderer;
+  onClose?: (props: LayoutOnCloseProps) => void;
+}
+
 /**
  * A React component that renders a layout for a given type. All layouts in state are
  * rendered by a layout renderer of a specific type.
  */
-export type LayoutRenderer = ComponentType<LayoutRendererProps>;
+export type LayoutRenderer = CoreLayoutRenderer | SugaredLayoutRenderer;
 
 /**
  * An extension of the drift window properties to allow for some custom layout tuning.

@@ -9,3 +9,7 @@
 .delta-main-nav-left__logo {
     width: 100%;
 }
+
+.delta-main-nav-bottom__end {
+    padding: 0 2rem;
+}

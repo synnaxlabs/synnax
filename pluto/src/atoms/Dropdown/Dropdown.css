@@ -1,0 +1,34 @@
+.pluto-dropdown__container {
+    position: relative;
+    flex-grow: 1;
+}
+
+.pluto-dropdown__dialog {
+    background-color: var(--pluto-gray-m3);
+    border: var(--pluto-border-width) solid var(--pluto-gray-m1);
+    border-radius: var(--pluto-border-radius);
+    position: absolute;
+    width: 100%;
+    max-height: 360px;
+}
+
+.pluto-dropdown__dialog--hidden {
+    opacity: 0;
+    z-index: -1;
+    pointer-events: none;
+    height: 0;
+}
+
+.pluto-dropdown__dialog--visible {
+    z-index: 10;
+}
+
+.pluto-dropdown__dialog--top {
+    border-radius: var(--pluto-border-radius) var(--pluto-border-radius) 0 0;
+    bottom: calc(4.5rem - 1px);
+}
+
+.pluto-dropdown__dialog--bottom {
+    border-radius: 0 0 var(--pluto-border-radius) var(--pluto-border-radius);
+    top: calc(4.5rem - 1px);
+}

@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import type { ComponentMeta, ComponentStory } from "@storybook/react";
 
 import { List } from ".";
@@ -50,8 +52,8 @@ const columns = [
 export const Column: ComponentStory<typeof List> = () => (
   <List data={data}>
     <List.Column.Header columns={columns} />
-    <List.Core.Virtual itemHeight={30} style={{ height: "80vh" }}>
-      {(props) => <List.Column.Item {...props} />}
+    <List.Core.Virtual itemHeight={List.Column.itemHeight} style={{ height: "80vh" }}>
+      {List.Column.Item}
     </List.Core.Virtual>
   </List>
 );
@@ -60,10 +62,23 @@ export const Search: ComponentStory<typeof List> = () => (
   <List data={data}>
     <List.Search />
     <List.Column.Header columns={columns} />
-    <List.Core.Virtual itemHeight={30} style={{ height: "80vh" }}>
-      {(props) => <List.Column.Item {...props} />}
+    <List.Core.Virtual itemHeight={List.Column.itemHeight} style={{ height: "80vh" }}>
+      {List.Column.Item}
     </List.Core.Virtual>
   </List>
 );
+
+export const Selectable: ComponentStory<typeof List> = () => {
+  const [selected, setSelected] = useState<readonly string[]>([]);
+  return (
+    <List data={data}>
+      <List.Selector value={selected} onChange={setSelected} />
+      <List.Column.Header columns={columns} />
+      <List.Core.Virtual itemHeight={List.Column.itemHeight} style={{ height: "80vh" }}>
+        {List.Column.Item}
+      </List.Core.Virtual>
+    </List>
+  );
+};
 
 export default story;

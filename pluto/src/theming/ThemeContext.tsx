@@ -11,7 +11,8 @@ import { applyThemeAsCssVars } from "./css";
 import { Theme, synnaxLight } from "./theme";
 
 import "./theme.css";
-import { Input, InputProps } from "@/atoms";
+import { Input } from "@/atoms";
+import { InputSwitchProps } from "@/atoms/Input/InputSwitch";
 
 export interface ThemeContextValue {
   theme: Theme;
@@ -75,13 +76,17 @@ export const ThemeProvider = ({
   );
 };
 
-export const ThemeSwitch = ({ onChange, ...props }: InputProps): JSX.Element => {
+export const ThemeSwitch = ({
+  ...props
+}: Omit<InputSwitchProps, "onChange" | "value">): JSX.Element => {
   const { toggleTheme } = useContext(ThemeContext);
+  const [checked, setChecked] = useState(false);
   return (
     <Input.Switch
-      onChange={(e) => {
+      value={checked}
+      onChange={(v) => {
         toggleTheme();
-        if (onChange != null) onChange(e);
+        setChecked(v);
       }}
       {...props}
     />

@@ -15,7 +15,7 @@ export const LayoutWindow = (): JSX.Element => {
   const content = <LayoutContent layoutKey={key} />;
   if (layout?.window?.navTop === true)
     return (
-      <Space direction="vertical" empty className="delta-main">
+      <Space empty className="delta-main">
         <NavTop />
         {content}
       </Space>

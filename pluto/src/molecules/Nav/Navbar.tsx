@@ -9,7 +9,13 @@ import React, {
 import clsx from "clsx";
 
 import { Space } from "@/atoms";
-import { Direction, Location, Position, getDirection, swapLocation } from "@/util";
+import {
+  Direction,
+  Location,
+  Position,
+  getDirection,
+  swapLocation,
+} from "@/util/spatial";
 import "./Navbar.css";
 
 export interface NavbarProps extends HTMLAttributes<HTMLDivElement> {
@@ -34,11 +40,8 @@ export const useNavbar = ({
 } => {
   const style: CSSProperties = {};
   const direction = getDirection(location);
-  if (direction === "horizontal") {
-    style.height = size;
-  } else {
-    style.width = size;
-  }
+  if (direction === "horizontal") style.height = size;
+  else style.width = size;
   return { style, direction };
 };
 
@@ -47,6 +50,8 @@ const CoreNavbar = ({
   size = 60,
   withContext = true,
   children,
+  className,
+  style: propsStyle,
   ...props
 }: NavbarProps): JSX.Element => {
   const { style, direction } = useNavbar({ location, size });
@@ -62,10 +67,11 @@ const CoreNavbar = ({
       className={clsx(
         "pluto-navbar",
         `pluto-bordered--${swapLocation(location)}`,
-        `pluto-navbar--${getDirection(location)}`
+        `pluto-navbar--${getDirection(location)}`,
+        className
       )}
       direction={direction}
-      style={style}
+      style={{ ...style, ...propsStyle }}
       align="center"
       empty
       {...props}

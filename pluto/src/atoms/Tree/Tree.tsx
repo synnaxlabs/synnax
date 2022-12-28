@@ -4,33 +4,36 @@ import clsx from "clsx";
 import { AiFillCaretDown, AiFillCaretRight } from "react-icons/ai";
 
 import "./Tree.css";
-import { useMultiSelect, useMultiSelectProps } from "../List/useMultiSelect";
+import {
+  useSelectMultiple,
+  UseSelectMultipleProps,
+} from "../../hooks/useSelectMultiple";
 
 import { Button, ButtonProps } from "@/atoms/Button";
 
 export interface TreeProps
-  extends useMultiSelectProps<RenderableTreeLeaf>,
+  extends Omit<UseSelectMultipleProps<RenderableTreeLeaf>, "allowMultiple">,
     Omit<
       DetailedHTMLProps<HtmlHTMLAttributes<HTMLUListElement>, HTMLUListElement>,
-      "onSelect"
+      "onChange"
     > {
   data: TreeLeaf[];
-  selected?: string[];
+  value: readonly string[];
   onExpand?: (key: string) => void;
 }
 
 export const Tree = ({
   data,
-  selected: propsSelected,
-  onSelect: propsOnSelect,
+  value,
+  onChange,
   onExpand,
   ...props
 }: TreeProps): JSX.Element => {
-  const { selected, onSelect } = useMultiSelect<RenderableTreeLeaf>({
-    selectMultiple: false,
-    selected: propsSelected,
-    onSelect: propsOnSelect,
+  const { onSelect } = useSelectMultiple<RenderableTreeLeaf>({
+    allowMultiple: false,
     data,
+    value,
+    onChange,
   });
 
   return (
@@ -40,8 +43,8 @@ export const Tree = ({
           {...entry}
           key={entry.key}
           depth={1}
+          selected={value}
           nodeKey={entry.key}
-          selected={selected}
           onSelect={onSelect}
           onExpand={onExpand}
         />
@@ -62,7 +65,7 @@ type RenderableTreeLeaf = Omit<TreeLeaf, "icon" | "children" | "hasChildren">;
 
 interface TreeLeafProps extends Omit<TreeLeaf, "key"> {
   onSelect: (key: string) => void;
-  selected: string[];
+  selected: readonly string[];
   nodeKey: string;
   hasChildren?: boolean;
   onExpand?: (key: string) => void;

@@ -1,27 +1,30 @@
-import { ComponentType, HTMLAttributes, useRef } from "react";
+import { ComponentType, FunctionComponent, HTMLAttributes, useRef } from "react";
 
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 import { useListContext } from "./ListContext";
-import { RenderableRecord, ListItemProps } from "./types";
+import { ListItemProps } from "./types";
+
+import { SelectedRecord } from "@/hooks/useSelectMultiple";
+import { RenderableRecord } from "@/util/record";
+
 import "./ListCore.css";
 
 export interface ListVirtualCoreProps<E extends RenderableRecord<E>>
   extends Omit<HTMLAttributes<HTMLDivElement>, "children" | "onSelect"> {
   itemHeight: number;
-  children: ComponentType<ListItemProps<E>>;
+  children: FunctionComponent<ListItemProps<E>>;
 }
 
 const ListVirtualCore = <E extends RenderableRecord<E>>({
   itemHeight,
-  children: Children,
+  children,
   ...props
 }: ListVirtualCoreProps<E>): JSX.Element => {
   const {
     data,
     columnar: { columns },
-    selected,
-    onSelect,
+    select: { onSelect },
   } = useListContext<E>();
   const parentRef = useRef<HTMLDivElement>(null);
   const virtualizer = useVirtualizer({
@@ -35,20 +38,18 @@ const ListVirtualCore = <E extends RenderableRecord<E>>({
       <div className="pluto-list__inner" style={{ height: virtualizer.getTotalSize() }}>
         {virtualizer.getVirtualItems().map(({ index, start }) => {
           const entry = data[index];
-          return (
-            <Children
-              key={`${entry.key}`}
-              index={index}
-              onSelect={onSelect}
-              entry={entry}
-              columns={columns}
-              selected={selected.includes(entry.key)}
-              style={{
-                transform: `translateY(${start}px)`,
-                position: "absolute",
-              }}
-            />
-          );
+          return children({
+            key: index,
+            index,
+            onSelect,
+            entry,
+            columns,
+            selected: (entry as SelectedRecord<E>)?.selected ?? false,
+            style: {
+              transform: `translateY(${start}px)`,
+              position: "absolute",
+            },
+          });
         })}
       </div>
     </div>

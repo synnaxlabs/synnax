@@ -1,37 +1,44 @@
-import {
-  DetailedHTMLProps,
-  InputHTMLAttributes,
-  RefAttributes,
-  forwardRef,
-} from "react";
+import { forwardRef } from "react";
 
-import "./Input.css";
 import clsx from "clsx";
 
-import { ComponentSize } from "@/util";
+import { InputBaseProps } from "./types";
 
-export interface BaseInputProps
-  extends Omit<
-    DetailedHTMLProps<InputHTMLAttributes<HTMLInputElement>, HTMLInputElement>,
-    "size" | "ref"
-  > {}
+import "./Input.css";
 
-export interface InputProps extends BaseInputProps, RefAttributes<HTMLInputElement> {
-  size?: ComponentSize;
-  name?: string;
+export interface InputProps extends InputBaseProps<string> {
+  selectOnFocus?: boolean;
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ size = "medium", placeholder, value, className, ...props }, ref) => {
-    return (
-      <input
-        ref={ref}
-        placeholder={placeholder}
-        className={clsx("pluto-input__input", "pluto-input--" + size, className)}
-        {...props}
-        value={value}
-      />
-    );
-  }
+  (
+    {
+      size = "medium",
+      value,
+      onChange,
+      className,
+      onFocus,
+      selectOnFocus = false,
+      ...props
+    },
+    ref
+  ) => (
+    <input
+      ref={ref}
+      value={value ?? ""}
+      className={clsx(
+        "pluto-input",
+        `pluto--${size}`,
+        `pluto-input--${size}`,
+        className
+      )}
+      onChange={(e) => onChange(e.target.value)}
+      onFocus={(e) => {
+        if (selectOnFocus) e.target.select();
+        onFocus?.(e);
+      }}
+      {...props}
+    />
+  )
 );
 Input.displayName = "Input";

@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { synnaxPropsSchema } from "@synnaxlabs/client";
 import type { SynnaxProps } from "@synnaxlabs/client";
 import { Button, Header, Input, Nav, Space } from "@synnaxlabs/pluto";
+import type { InputSwitchProps } from "@synnaxlabs/pluto";
 import { FieldValues, useForm } from "react-hook-form";
 import { AiFillApi } from "react-icons/ai";
 import { useDispatch } from "react-redux";
@@ -19,7 +20,7 @@ import { LayoutRendererProps } from "@/features/layout";
 
 import "./ConnectCluster.css";
 
-const formSchema = synnaxPropsSchema.extend({ name: z.string().optional() });
+const formSchema = synnaxPropsSchema.extend({ name: z.string() });
 
 /**
  * ConnectCluster implements the LayoutRenderer component type to provide a form for
@@ -34,9 +35,8 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps): JSX.Element =>
   const {
     getValues,
     trigger,
-    register,
+    control: c,
     handleSubmit: _handleSubmit,
-    formState: { errors },
   } = useForm({ resolver: zodResolver(formSchema) });
 
   const handleSubmit = _handleSubmit(async (_data: FieldValues): Promise<void> => {
@@ -65,54 +65,37 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps): JSX.Element =>
   };
 
   return (
-    <Space direction="vertical" grow>
-      <Header level="h4" icon={<AiFillApi />} divided>
-        Connect a Cluster
+    <Space grow>
+      <Header level="h4" divided>
+        <Header.Title startIcon={<AiFillApi />}>Connect a Cluster</Header.Title>
       </Header>
-      <Space className="delta-form" direction="vertical" grow>
+      <Space className="delta-form" grow>
         {/* eslint-disable-next-line @typescript-eslint/no-misused-promises */}
         <form onSubmit={handleSubmit} id="connect-cluster">
-          <Space direction="vertical">
-            <Input.Item
-              label="Name"
-              placeholder="My Synnax Cluster"
-              {...register("name")}
-            />
+          <Space>
+            <Input.ItemC name="name" placeholder="My Synnax Cluster" control={c} />
             <Space direction="horizontal">
-              <Input.Item
-                label="Host"
-                placeholder="localhost"
-                helpText={errors.host?.message?.toString()}
-                className="delta-connect-cluster__input--host"
-                {...register("host")}
-              />
-              <Input.Item
-                label="Port"
+              <Input.ItemC name="host" placeholder="localhost" control={c} grow />
+              <Input.ItemC
+                name="port"
                 type="number"
                 placeholder="9090"
-                helpText={errors.port?.message?.toString()}
+                control={c}
                 className="delta-connect-cluster__input--port"
-                {...register("port")}
               />
             </Space>
-            <Input.Item
-              label="Username"
-              placeholder="Harry"
-              helpText={errors.username?.message?.toString()}
-              {...register("username")}
-            />
+            <Input.ItemC name="username" placeholder="Harry" control={c} />
             <Space direction="horizontal">
-              <Input.Item
-                label="Password"
+              <Input.ItemC
+                name="password"
                 placeholder="Seldon"
                 type="password"
-                helpText={errors.password?.message?.toString()}
+                control={c}
                 className="delta-connect-cluster__input--password"
-                {...register("password")}
               />
-              <Input.Item label="Secure" {...register("secure")}>
+              <Input.ItemC<boolean, InputSwitchProps> name="secure" control={c}>
                 {Input.Switch}
-              </Input.Item>
+              </Input.ItemC>
             </Space>
           </Space>
         </form>
@@ -122,10 +105,10 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps): JSX.Element =>
           {connState != null && <ConnectionStateBadge state={connState} />}
         </Nav.Bar.Start>
         <Nav.Bar.End className="delta-connect-cluster-footer__right">
-          <Button variant="text" size="medium" onClick={handleTestConnection}>
+          <Button variant="text" onClick={handleTestConnection}>
             Test Connection
           </Button>
-          <Button variant="filled" type="submit" form="connect-cluster">
+          <Button type="submit" form="connect-cluster">
             Done
           </Button>
         </Nav.Bar.End>

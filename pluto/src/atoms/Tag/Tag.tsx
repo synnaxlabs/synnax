@@ -1,7 +1,7 @@
 import { AiOutlineClose } from "react-icons/ai";
 
-import { ComponentSizeTypographyLevels, Text, TextProps } from "@/atoms/Typography";
-import { ComponentSize } from "@/util";
+import { Typography, Text, TextProps } from "@/atoms/Typography";
+import { ComponentSize } from "@/util/component";
 import "./Tag.css";
 
 export interface TagProps extends Omit<TextProps, "level"> {
@@ -38,7 +38,7 @@ export const Tag = ({
       endIcon={closeIcon}
       startIcon={icon}
       className="pluto-tag"
-      level={ComponentSizeTypographyLevels[size]}
+      level={Typography.ComponentSizeLevels[size]}
       style={{
         border: `var(--pluto-border-width) solid ${color}`,
         backgroundColor: variant === "filled" ? color : "transparent",

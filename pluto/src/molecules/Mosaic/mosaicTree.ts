@@ -1,7 +1,7 @@
 import { MosaicLeaf } from "./types";
 
 import { Tab, Tabs } from "@/atoms";
-import { Direction, Location, Order } from "@/util";
+import { Direction, Location, Order } from "@/util/spatial";
 
 const TabNotFound = new Error("Tab not found");
 const InvalidMosaic = new Error("Invalid Mosaic");

@@ -1,9 +1,6 @@
 import { Space } from "@synnaxlabs/pluto";
 
-import { NavBottom } from "./NavBottom";
-import { NavLeft } from "./NavLeft";
-import { NavRight } from "./NavRight";
-import { NavTop } from "./NavTop";
+import { NavBottom, NavDrawer, NavLeft, NavRight, NavTop } from "./Nav";
 
 import { ClusterProvider } from "@/features/cluster";
 import { LayoutMosaic } from "@/features/layout";
@@ -17,11 +14,21 @@ import "./MainLayout.css";
 export const MainLayout = (): JSX.Element => (
   <ClusterProvider>
     <NavTop />
-    <Space direction="horizontal" size="large" className="delta-main__middle" empty>
+    <Space className="delta-main-fixed--vertical" direction="horizontal" empty>
       <NavLeft />
-      <div className="delta-main__content">
-        <LayoutMosaic />
-      </div>
+      <Space
+        className="delta-main-content-drawers delta-main-fixed--vertical delta-main-fixed--horizontal"
+        empty
+      >
+        <Space className="delta-main--driven" direction="horizontal" empty>
+          <NavDrawer location="left" />
+          <div className="delta-main--driven">
+            <LayoutMosaic />
+          </div>
+          <NavDrawer location="right" />
+        </Space>
+        <NavDrawer location="bottom" />
+      </Space>
       <NavRight />
     </Space>
     <NavBottom />

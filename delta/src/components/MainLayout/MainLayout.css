@@ -1,9 +1,22 @@
-.delta-main__middle {
-    height: calc(100vh - 36px - 32px);
+.delta-main-fixed--vertical {
+    height: calc(100vh - 32px - 42px);
 }
 
-.delta-main__content {
+.delta-main-fixed--horizontal {
+    width: calc(100vw - 48px - 48px);
+}
+
+.delta-main--driving {
+    flex-grow: 0;
+    flex-shrink: 0;
+}
+
+.delta-main--driven {
     flex-grow: 1;
+    flex-shrink: 1;
     overflow: hidden;
-    height: 100%;
+}
+
+.delta-main-content-drawers {
+    overflow: hidden;
 }

@@ -2,8 +2,8 @@ import { ForwardedRef, HTMLAttributes, PropsWithChildren, forwardRef } from "rea
 
 import clsx from "clsx";
 
+import { ComponentSize } from "../../util/component";
 import { Direction } from "../../util/spatial";
-import { ComponentSize } from "../../util/types";
 import "./Space.css";
 
 export type SpaceAlignment = "start" | "center" | "end" | "stretch";
@@ -29,7 +29,7 @@ export const SpaceJustifications = [
   "spaceEvenly",
 ] as const;
 
-export interface SpaceProps extends PropsWithChildren<HTMLAttributes<HTMLDivElement>> {
+export interface SpaceExtensionProps {
   empty?: boolean;
   size?: ComponentSize | number | null;
   direction?: Direction;
@@ -38,6 +38,10 @@ export interface SpaceProps extends PropsWithChildren<HTMLAttributes<HTMLDivElem
   align?: SpaceAlignment;
   grow?: boolean | number;
 }
+
+export interface SpaceProps
+  extends PropsWithChildren<HTMLAttributes<HTMLDivElement>>,
+    SpaceExtensionProps {}
 
 export const Space = forwardRef(
   (

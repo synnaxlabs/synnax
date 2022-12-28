@@ -3,27 +3,23 @@ import { CSSProperties, useEffect, useState } from "react";
 import clsx from "clsx";
 import { AiFillCaretDown, AiFillCaretUp } from "react-icons/ai";
 
-import { textWidth } from "../../util/canvas";
-import { sortFunc } from "../../util/sort";
-
 import { useListContext } from "./ListContext";
-import {
-  RenderableRecord,
-  ListItemProps,
-  TypedListColumn,
-  TypedListTransform,
-} from "./types";
+import { ListItemProps, ListColumn as ListColumnT } from "./types";
 
 import { Space } from "@/atoms/Space";
 import { Text } from "@/atoms/Typography";
 import { useFont } from "@/theming";
+import { textWidth } from "@/util/canvas";
+import { RenderableRecord } from "@/util/record";
+import { sortFunc } from "@/util/sort";
+import { ArrayTransform } from "@/util/transform";
 
 import "./ListColumn.css";
 
 type SortState<E extends RenderableRecord<E>> = [keyof E | null, boolean];
 
 export interface ListColumnHeaderProps<E extends RenderableRecord<E>> {
-  columns: Array<TypedListColumn<E>>;
+  columns: Array<ListColumnT<E>>;
 }
 
 const ListColumnHeader = <E extends RenderableRecord<E>>({
@@ -33,7 +29,7 @@ const ListColumnHeader = <E extends RenderableRecord<E>>({
     columnar: { columns, setColumns },
     sourceData,
     setTransform,
-    removeTransform,
+    deleteTransform,
   } = useListContext<E>();
 
   const font = useFont("p");
@@ -44,7 +40,7 @@ const ListColumnHeader = <E extends RenderableRecord<E>>({
     if (prevSort === k) {
       if (!prevDir) {
         setSort([null, false]);
-        removeTransform("sort");
+        deleteTransform("sort");
       } else {
         setSort([k, !prevDir]);
         setTransform("sort", sortTransform(k, !prevDir));
@@ -56,30 +52,23 @@ const ListColumnHeader = <E extends RenderableRecord<E>>({
   };
 
   useEffect(() => {
-    setColumns((columns) => {
-      return columnWidths(
-        columns.length === 0 ? initialColumns : columns,
-        sourceData,
-        font,
-        60
-      );
-    });
+    setColumns((prev) =>
+      columnWidths(prev.length === 0 ? initialColumns : prev, sourceData, font, 60)
+    );
   }, [sourceData, initialColumns]);
 
   return (
     <Space
       direction="horizontal"
       size="medium"
-      className="pluto-list-col__header__container"
+      className="pluto-list-col-header__container"
     >
       {columns
         .filter(({ visible = true }) => visible)
         .map((col) => {
           const [key, dir] = sort;
           let endIcon;
-          if (col.key === key) {
-            endIcon = dir ? <AiFillCaretUp /> : <AiFillCaretDown />;
-          }
+          if (col.key === key) endIcon = dir ? <AiFillCaretUp /> : <AiFillCaretDown />;
           return (
             <Text.WithIcon
               key={col.key as string}
@@ -113,11 +102,12 @@ const ListColumnItem = <E extends RenderableRecord<E>>({
     <Space
       className={clsx(
         "pluto-list-col-item__container",
+        onSelect != null && "pluto-list-col-item__container--selectable",
         selected && "pluto-list-col-item__container--selected"
       )}
       direction="horizontal"
       size="medium"
-      onClick={() => onSelect(entry.key)}
+      onClick={() => onSelect?.(entry.key)}
       align="center"
       {...props}
     >
@@ -132,7 +122,7 @@ const ListColumnItem = <E extends RenderableRecord<E>>({
 
 interface ListColumnValueProps<E extends RenderableRecord<E>> {
   entry: E;
-  col: TypedListColumn<E>;
+  col: ListColumnT<E>;
 }
 
 const ListColumnValue = <E extends RenderableRecord<E>>({
@@ -163,11 +153,11 @@ const reverseSort =
     f(b, a);
 
 const columnWidths = <E extends RenderableRecord<E>>(
-  columns: Array<TypedListColumn<E>>,
+  columns: Array<ListColumnT<E>>,
   data: E[],
   font: string,
   padding = 60
-): Array<TypedListColumn<E>> => {
+): Array<ListColumnT<E>> => {
   const le = longestEntries(data);
   return columns.map((col) => {
     const labelWidth = textWidth(col.label, font);
@@ -200,8 +190,8 @@ const longestEntries = <E extends RenderableRecord<E>>(
 const sortTransform = <E extends RenderableRecord<E>>(
   k: keyof E,
   dir: boolean
-): TypedListTransform<E> => {
-  return (data) => {
+): ArrayTransform<E> => {
+  return (data: E[]) => {
     if (data.length === 0) return data;
     const v = data[0][k];
     let sortF = entrySortFunc(typeof v, k);
@@ -213,4 +203,5 @@ const sortTransform = <E extends RenderableRecord<E>>(
 export const ListColumn = {
   Header: ListColumnHeader,
   Item: ListColumnItem,
+  itemHeight: 30,
 };

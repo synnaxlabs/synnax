@@ -6,6 +6,8 @@ const valueOfEncoder = (value: unknown): unknown => value?.valueOf();
 export class TimeStamp extends Number {
   constructor(value: UnparsedTimeStamp) {
     if (value instanceof Number) super(value.valueOf());
+    else if (value instanceof Date)
+      super(value.getTime() * TimeStamp.Millisecond.valueOf());
     else super(value);
   }
 
@@ -14,6 +16,10 @@ export class TimeStamp extends Number {
    */
   date(): Date {
     return new Date(this.milliseconds());
+  }
+
+  static now(): TimeStamp {
+    return new TimeStamp(new Date());
   }
 
   /**
@@ -641,7 +647,7 @@ export class Size extends Number {
   static readonly Terabyte = Size.Terabytes(1);
 }
 
-export type UnparsedTimeStamp = TimeStamp | TimeSpan | number;
+export type UnparsedTimeStamp = TimeStamp | TimeSpan | number | Date;
 export type UnparsedTimeSpan = TimeSpan | TimeStamp | number;
 export type UnparsedRate = Rate | number;
 export type UnparsedDensity = Density | number;

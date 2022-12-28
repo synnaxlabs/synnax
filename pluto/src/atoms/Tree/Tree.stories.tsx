@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import type { ComponentMeta, ComponentStory } from "@storybook/react";
 import { AiFillDatabase, AiFillPhone } from "react-icons/ai";
 
@@ -40,6 +42,9 @@ const nodes: TreeLeaf[] = [
   },
 ];
 
-export const Primary: ComponentStory<typeof Tree> = () => <Tree data={nodes} />;
+export const Primary: ComponentStory<typeof Tree> = () => {
+  const [value, setValue] = useState<readonly string[]>([]);
+  return <Tree data={nodes} value={value} onChange={setValue} />;
+};
 
 export default story;

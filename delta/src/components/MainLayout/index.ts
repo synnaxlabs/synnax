@@ -1,2 +1,2 @@
 export * from "./MainLayout";
-export * from "./NavTop";
+export * from "./Nav";

@@ -1,7 +1,3 @@
-.delta-connect-cluster__input--host {
-    flex-grow: 1;
-}
-
 .delta-connect-cluster__input--port {
     width: 20rem;
 }

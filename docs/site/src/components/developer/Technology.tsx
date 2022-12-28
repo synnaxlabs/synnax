@@ -12,15 +12,11 @@ export type TechnologyProps = {
 
 export default function Technology(props: TechnologyProps) {
   return (
-    <Space direction="vertical" size="small">
+    <Space size="small">
       <h3>{props.title}</h3>
       <Space direction="horizontal" align="center" size="large">
         <a href={props.imageHref}>
-          <img
-            src={props.imageSrc}
-            alt={props.imageAlt}
-            width={props.imageWidth}
-          />
+          <img src={props.imageSrc} alt={props.imageAlt} width={props.imageWidth} />
         </a>
         <p>{props.text}</p>
       </Space>

@@ -1,9 +1,19 @@
 import { Navbar } from "./Navbar";
-import { NavDrawer } from "./Navdrawer";
+import { Navdrawer, useNavDrawer } from "./Navdrawer";
+import { NavMenu } from "./NavMenu";
 export type { NavbarProps, NavbarContextValue } from "./Navbar";
-export type { NavDrawerProps, NavDrawerItem } from "./Navdrawer";
+export type {
+  NavDrawerProps,
+  NavDrawerContent,
+  UseNavDrawerReturn,
+  UseNavDrawerProps,
+  NavDrawerItem,
+} from "./Navdrawer";
+export type { NavMenuItem } from "./NavMenu";
 
 export const Nav = {
   Bar: Navbar,
-  Drawer: NavDrawer,
+  Drawer: Navdrawer,
+  useDrawer: useNavDrawer,
+  Menu: NavMenu,
 };

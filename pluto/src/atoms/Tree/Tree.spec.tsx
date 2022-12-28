@@ -1,7 +1,14 @@
+import { useState } from "react";
+
 import { fireEvent, render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Tree, TreeLeaf } from ".";
+
+const ControlledTree = ({ data }: { data: TreeLeaf[] }): JSX.Element => {
+  const [value, setValue] = useState<readonly string[]>([]);
+  return <Tree value={value} onChange={setValue} data={data} />;
+};
 
 describe("Tree", () => {
   it("should render a tree", () => {
@@ -19,7 +26,7 @@ describe("Tree", () => {
         ],
       },
     ];
-    const { getByText, queryByText } = render(<Tree data={tree} />);
+    const { getByText, queryByText } = render(<ControlledTree data={tree} />);
     expect(getByText("Test")).toBeTruthy();
     expect(queryByText("Test Child")).toBeFalsy();
   });
@@ -38,7 +45,7 @@ describe("Tree", () => {
         ],
       },
     ];
-    const { getByText } = render(<Tree data={tree} />);
+    const { getByText } = render(<ControlledTree data={tree} />);
     const node = getByText("Test");
     expect(node).toBeTruthy();
     fireEvent.click(node);
