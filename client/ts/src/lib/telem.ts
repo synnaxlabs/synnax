@@ -359,6 +359,10 @@ export class Rate extends Number {
     else super(value);
   }
 
+  toString(): string {
+    return `${this.valueOf()} Hz`;
+  }
+
   /** @returns The number of seconds in the Rate. */
   equals(other: UnparsedRate): boolean {
     return this.valueOf() === new Rate(other).valueOf();

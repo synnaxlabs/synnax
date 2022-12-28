@@ -17,6 +17,7 @@ import { Space } from "@/atoms/Space";
 import { Tag } from "@/atoms/Tag";
 import { visibleCls } from "@/util/css";
 import { RenderableRecord } from "@/util/record";
+import { render } from "@/util/renderable";
 
 import "./SelectMultiple.css";
 
@@ -125,7 +126,7 @@ const SelectMultipleInput = <E extends RenderableRecord<E>>({
                 size="small"
                 variant="outlined"
               >
-                {e[tagKey]}
+                {render(e[tagKey])}
               </Tag>
             );
           })}

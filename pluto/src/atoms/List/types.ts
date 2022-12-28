@@ -1,8 +1,10 @@
-import type { ComponentType, CSSProperties } from "react";
+import type { CSSProperties, FunctionComponent } from "react";
+import React from "react";
 
 import { RenderableRecord } from "@/util/record";
 
-type RenderF<E extends RenderableRecord<E> = RenderableRecord> = ComponentType<{
+type RenderF<E extends RenderableRecord<E> = RenderableRecord> = FunctionComponent<{
+  key: string | number | symbol;
   entry: E;
   style: CSSProperties;
 }>;
