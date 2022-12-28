@@ -11,6 +11,7 @@ import { Text } from "@/atoms/Typography";
 import { useFont } from "@/theming";
 import { textWidth } from "@/util/canvas";
 import { RenderableRecord } from "@/util/record";
+import { render } from "@/util/renderable";
 import { sortFunc } from "@/util/sort";
 import { ArrayTransform } from "@/util/transform";
 
@@ -127,17 +128,17 @@ interface ListColumnValueProps<E extends RenderableRecord<E>> {
 
 const ListColumnValue = <E extends RenderableRecord<E>>({
   entry,
-  col: { render: Render, width, ...col },
-}: ListColumnValueProps<E>): JSX.Element => {
+  col: { width, ...col },
+}: ListColumnValueProps<E>): JSX.Element | null => {
   const style: CSSProperties = { width, userSelect: "none", padding: 6 };
-  if (Render != null) return <Render entry={entry} style={style} />;
+  if (col.render != null) return col.render({ key: col.key, entry, style });
   return (
     <Text
       key={col.key as string}
       level="p"
       style={{ minWidth: width, userSelect: "none", padding: 6 }}
     >
-      {entry[col.key]}
+      {render(entry[col.key])}
     </Text>
   );
 };
