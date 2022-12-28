@@ -7,7 +7,7 @@ export * from "./Resize";
 export * from "./Tag";
 export * from "./List";
 export * from "./Header";
-export * from "./AutoSize";
+export * from "./Autosize";
 export * from "./Divider";
 export * from "./Tree";
 export * from "./Tabs";

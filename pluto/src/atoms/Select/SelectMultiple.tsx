@@ -1,125 +1,127 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import clsx from "clsx";
 import { AiOutlineClose } from "react-icons/ai";
 
 import { Theming } from "../../theming";
-import { TypedListColumn } from "../List";
-import { ListProps } from "../List/List";
+import { Dropdown, DropdownProps } from "../Dropdown";
+import { Group } from "../Group/Group";
+import { ListColumn } from "../List";
+
+import { SelectList } from "./SelectList";
 
 import { Button } from "@/atoms/Button";
-import { Input, InputProps } from "@/atoms/Input";
-import { List, RenderableRecord } from "@/atoms/List";
+import { InputControlProps, Input, InputProps } from "@/atoms/Input";
+import { List } from "@/atoms/List";
 import { Space } from "@/atoms/Space";
 import { Tag } from "@/atoms/Tag";
-import { useClickoutside } from "@/hooks";
+import { visibleCls } from "@/util/css";
+import { RenderableRecord } from "@/util/record";
 
 import "./SelectMultiple.css";
 
 export interface SelectMultipleProps<E extends RenderableRecord<E>>
-  extends Omit<ListProps<E>, "data"> {
-  options?: E[];
+  extends Omit<
+      DropdownProps,
+      "visible" | "setVisible" | "ref" | "children" | "onChange"
+    >,
+    InputControlProps<readonly string[]> {
+  data?: E[];
   tagKey?: keyof E;
-  columns: Array<TypedListColumn<E>>;
-  listPosition?: "top" | "bottom";
+  columns: Array<ListColumn<E>>;
 }
 
 export const SelectMultiple = <E extends RenderableRecord<E>>({
-  options = [],
+  data = [],
   columns = [],
-  listPosition = "bottom",
   tagKey = "key",
+  value,
+  onChange,
   ...props
 }: SelectMultipleProps<E>): JSX.Element => {
-  const [visible, setVisible] = useState(false);
-  const divRef = useRef<HTMLDivElement>(null);
-  useClickoutside(divRef, () => setVisible(false));
+  const { ref, visible, onFocus } = Dropdown.use();
   return (
-    <List data={options} {...props}>
-      <Space
-        className="pluto-select-multiple__container"
-        ref={divRef}
-        empty
-        reverse={listPosition === "top"}
-      >
-        <List.Search
-          Input={({ value, onChange }) => {
-            return (
-              <SelectMultipleInput
-                tagKey={tagKey}
-                value={value}
-                focused={visible}
-                onFocus={() => setVisible(true)}
-                onChange={onChange}
-              />
-            );
-          }}
-        />
-        <Space
-          className={clsx(
-            "pluto-select-multiple__list",
-            `pluto-select-multiple__list--${listPosition}`,
-            `pluto-select-multiple__list--${visible ? "visible" : "hidden"}`
+    <List data={data}>
+      <Dropdown {...props} ref={ref} visible={visible}>
+        <List.Search>
+          {({ onChange }) => (
+            <SelectMultipleInput<E>
+              tagKey={tagKey}
+              selected={value}
+              onChange={onChange}
+              onFocus={onFocus}
+              visible={visible}
+            />
           )}
-          empty
-        >
-          <List.Column.Header columns={columns} />
-          <List.Core.Virtual itemHeight={30}>
-            {(props) => <List.Column.Item {...props} />}
-          </List.Core.Virtual>
-        </Space>
-      </Space>
+        </List.Search>
+        <SelectList value={value} onChange={onChange} columns={columns} allowMultiple />
+      </Dropdown>
     </List>
   );
 };
 
-interface SelectMultipleInputProps<E extends RenderableRecord<E>> extends InputProps {
-  focused: boolean;
-  onFocus: () => void;
+interface SelectMultipleInputProps<E extends RenderableRecord<E>>
+  extends Pick<InputProps, "onChange" | "onFocus"> {
+  selected: readonly string[];
   tagKey: keyof E;
+  visible: boolean;
 }
 
 const SelectMultipleInput = <E extends RenderableRecord<E>>({
-  value,
+  selected,
   onChange,
-  focused,
   onFocus,
+  visible,
   tagKey,
 }: SelectMultipleInputProps<E>): JSX.Element => {
-  const { selected, sourceData, onSelect, clearSelected } = List.useContext<E>();
+  const {
+    sourceData,
+    select: { onSelect, clear },
+  } = List.useContext<E>();
+  const [value, setValue] = useState("");
 
   const { theme } = Theming.useContext();
+
+  const ref = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (visible) ref.current?.focus();
+    else setValue("");
+  });
+
+  const handleChange = (v: string): void => {
+    setValue(v);
+    onChange(v);
+  };
+
   return (
-    <Space
-      direction="horizontal"
-      empty
-      className="pluto-select-multiple__input__container"
-      align="stretch"
-      grow
-    >
+    <Group align="stretch" grow>
       <Input
-        className="pluto-select-multiple__input__input"
+        ref={ref}
+        className={clsx(
+          "pluto-select-multiple__input",
+          `pluto-select__input--${visibleCls(visible)}`
+        )}
         placeholder="Search"
         value={value}
-        onChange={onChange}
-        autoFocus={focused}
+        onChange={handleChange}
         onFocus={onFocus}
       />
       <Space
         direction="horizontal"
-        className="pluto-select-multiple__input__tags"
+        className="pluto-select-multiple__tags"
         align="center"
-        grow={6}
+        grow
       >
         {selected
-          .map((k) => sourceData.find((v) => v.key === k))
+          ?.map((k) => sourceData.find((v) => v.key === k))
           .map((e, i) => {
             if (e == null) return null;
             return (
               <Tag
                 key={e.key}
                 color={theme.colors.visualization.palettes.default[i]}
-                onClose={() => onSelect(e.key)}
+                onClose={() => onSelect?.(e.key)}
                 size="small"
                 variant="outlined"
               >
@@ -129,12 +131,15 @@ const SelectMultipleInput = <E extends RenderableRecord<E>>({
           })}
       </Space>
       <Button.IconOnly
-        className="pluto-select-multiple__input__tags__close"
+        className={clsx(
+          "pluto-select-multiple__clear",
+          `pluto-select-multiple__clear--${visibleCls(visible)}`
+        )}
         variant="outlined"
-        onClick={clearSelected}
+        onClick={clear}
       >
         <AiOutlineClose aria-label="clear" />
       </Button.IconOnly>
-    </Space>
+    </Group>
   );
 };

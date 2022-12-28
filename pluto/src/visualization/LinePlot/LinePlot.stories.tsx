@@ -1,6 +1,6 @@
 import type { ComponentMeta, ComponentStory } from "@storybook/react";
 
-import { AutoSize } from "../../atoms/AutoSize";
+import { Autosize } from "../../atoms/Autosize";
 
 import { LinePlot } from "./LinePlot";
 import { Axis, Series } from "./types";
@@ -57,7 +57,7 @@ const series: Series[] = [
 ];
 
 export const Basic: ComponentStory<typeof LinePlot> = () => (
-  <AutoSize style={{ width: "100%", height: "100%" }} debounce={1}>
+  <Autosize style={{ width: "100%", height: "100%" }} debounce={1}>
     {({ width, height }) => (
       <LinePlot
         width={width}
@@ -67,7 +67,7 @@ export const Basic: ComponentStory<typeof LinePlot> = () => (
         series={series}
       />
     )}
-  </AutoSize>
+  </Autosize>
 );
 
 export default story;

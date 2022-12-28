@@ -44,12 +44,20 @@ export const resourceTypes: Record<string, ResourceType> = {
     icon: <MdSensors />,
     hasChildren: false,
     onSelect: ({ placer, id, workspace }: SelectionContext) => {
-      console.log(workspace.selectedRangeKey);
       placer(
         createVisualization<LinePlotVisualization>({
-          channels: [id.key],
-          ranges:
-            workspace.selectedRangeKey != null ? [workspace.selectedRangeKey] : [],
+          channels: {
+            y1: [id.key],
+            y2: [],
+            y3: [],
+            y4: [],
+            x1: "",
+            x2: "",
+          },
+          ranges: {
+            x1: workspace.activeRange != null ? [workspace.activeRange] : [],
+            x2: [],
+          },
         })
       );
     },

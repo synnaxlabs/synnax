@@ -9,7 +9,7 @@ import "./Divider.css";
 /** The props for the {@link Divider} component. */
 export interface DividerProps
   extends PropsWithChildren<HTMLAttributes<HTMLDivElement>> {
-  direction: Direction;
+  direction?: Direction;
 }
 
 /**
@@ -20,7 +20,7 @@ export interface DividerProps
  * or "vertical".
  */
 export const Divider = ({
-  direction,
+  direction = "vertical",
   className,
   ...props
 }: DividerProps): JSX.Element => {

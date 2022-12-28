@@ -54,10 +54,10 @@ func (b *SecureHTTPBranch) Serve(ctx BranchContext) error {
 func (b *SecureHTTPBranch) Stop() { _ = b.internal.Shutdown() }
 
 func (b *SecureHTTPBranch) maybeRouteDebugUtil(ctx BranchContext) {
-	if ctx.Debug {
-		b.internal.Get("/metrics", monitor.New(monitor.Config{Title: "Synnax Metrics"}))
-		b.internal.Use(pprof.New())
-	}
+	//if ctx.Debug {
+	b.internal.Get("/metrics", monitor.New(monitor.Config{Title: "Synnax Metrics"}))
+	b.internal.Use(pprof.New())
+	//}
 }
 
 func (b *SecureHTTPBranch) routeUI() {

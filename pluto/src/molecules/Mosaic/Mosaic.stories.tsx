@@ -11,10 +11,10 @@ const story: ComponentMeta<typeof Mosaic> = {
 };
 
 const initialTree: MosaicLeaf = {
-  key: 0,
+  key: 1,
   direction: "horizontal",
   first: {
-    key: 1,
+    key: 2,
     tabs: [
       {
         tabKey: "1",
@@ -24,7 +24,7 @@ const initialTree: MosaicLeaf = {
     ],
   },
   last: {
-    key: 2,
+    key: 3,
     tabs: [
       {
         tabKey: "2",

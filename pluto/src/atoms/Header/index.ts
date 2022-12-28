@@ -1,5 +1,7 @@
-import { Header as CoreHeader, HeaderButton } from "./Header";
-export type { HeaderProps } from "./Header";
+import { Header as CoreHeader } from "./Header";
+import { HeaderActions } from "./HeaderActions";
+import { HeaderButtonTitle } from "./HeaderButtonTitle";
+import { HeaderTitle } from "./HeaderTitle";
 
 type CoreHeaderType = typeof CoreHeader;
 
@@ -12,7 +14,9 @@ interface HeaderType extends CoreHeaderType {
    * those of Header, except for:
    * @param props.onClick - Called with a mouse event when the header button is clicked.
    */
-  Button: typeof HeaderButton;
+  ButtonTitle: typeof HeaderButtonTitle;
+  Title: typeof HeaderTitle;
+  Actions: typeof HeaderActions;
 }
 
 /**
@@ -31,4 +35,6 @@ interface HeaderType extends CoreHeaderType {
  */
 export const Header = CoreHeader as HeaderType;
 
-Header.Button = HeaderButton;
+Header.ButtonTitle = HeaderButtonTitle;
+Header.Title = HeaderTitle;
+Header.Actions = HeaderActions;

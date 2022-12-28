@@ -8,7 +8,7 @@ export const applyThemeAsCssVars = (element: HTMLElement, theme: Theme): void =>
   setProperty(element, "--pluto-primary-m1", theme.colors.primary.m1);
   setProperty(element, "--pluto-primary-z", theme.colors.primary.z);
   setProperty(element, "--pluto-primary-p1", theme.colors.primary.p1);
-  setOpacityVariants(element, "--pluto-primary-p1", theme.colors.primary.z);
+  setOpacityVariants(element, "--pluto-primary-z", theme.colors.primary.z);
 
   // || GRAY ||
 

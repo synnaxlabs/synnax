@@ -48,7 +48,7 @@ export const LayoutMosaic = (): JSX.Element => {
       onClose={handleClose}
       onSelect={handleSelect}
       onResize={handleResize}
-      emptyContent={Logo.Watermark}
+      emptyContent={<Logo.Watermark />}
       onTitleChange={handleRename}
     >
       {LayoutMosaicContent}

@@ -1,12 +1,12 @@
 import { Space, Header, List, Text } from "@synnaxlabs/pluto";
-import type { ListItemProps } from "@synnaxlabs/pluto";
+import type { ListItemProps, NavDrawerItem } from "@synnaxlabs/pluto";
 import clsx from "clsx";
 import { AiOutlinePlus } from "react-icons/ai";
 import { useDispatch } from "react-redux";
 
 import { useSelectCluster, useSelectClusters } from "../store";
 import { setActiveCluster } from "../store/slice";
-import { Cluster } from "../types";
+import { RenderableCluster } from "../types";
 
 import { ClusterIcon } from "./ClusterIcon";
 
@@ -48,15 +48,12 @@ const Content = (): JSX.Element => {
 
   return (
     <Space empty>
-      <Header level="h4" divided icon={<ClusterIcon />} actions={actions}>
-        Clusters
+      <Header level="h4" divided>
+        <Header.Title startIcon={<ClusterIcon />}>Clusters</Header.Title>
+        <Header.Actions>{actions}</Header.Actions>
       </Header>
-      <List<Omit<Cluster, "state" | "props">>
-        selectMultiple={false}
-        data={data}
-        selected={selected}
-        onSelect={handleSelect}
-      >
+      <List<RenderableCluster> data={data}>
+        <List.Selector value={selected} onChange={handleSelect} allowMultiple={false} />
         <List.Core.Virtual itemHeight={30}>{ListItem}</List.Core.Virtual>
       </List>
     </Space>
@@ -69,12 +66,12 @@ const ListItem = ({
   selected,
   onSelect,
   ...props
-}: ListItemProps<Omit<Cluster, "props" | "state">>): JSX.Element => (
+}: ListItemProps<RenderableCluster>): JSX.Element => (
   <Space
     direction="horizontal"
     align="center"
     justify="spaceBetween"
-    onDoubleClick={() => onSelect(key)}
+    onDoubleClick={() => onSelect?.(key)}
     className={clsx(
       "delta-cluster-toolbar-list__item",
       selected && "delta-cluster-toolbar-list__item--selected"
@@ -85,11 +82,11 @@ const ListItem = ({
   </Space>
 );
 
-export const ClusterToolbar = {
+export const ClusterToolbar: NavDrawerItem = {
   key: "clusters",
   content: <Content />,
   icon: <ClusterIcon />,
-  minSize: 150,
-  maxSize: 500,
+  minSize: 185,
+  maxSize: 350,
   initialSize: 250,
 };

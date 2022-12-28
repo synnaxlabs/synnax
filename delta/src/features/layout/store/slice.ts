@@ -18,8 +18,31 @@ export interface LayoutState {
    * currently rendered in the mosaic or in external windows.
    */
   layouts: Record<string, Layout>;
-  /** The root node of the central mosaic. */
-  mosaic: MosaicLeaf;
+  mosaic: MosaicState;
+  nav: NavState;
+}
+
+export interface MosaicState {
+  activeTab: string | null;
+  root: MosaicLeaf;
+}
+
+export interface NavState {
+  drawer: NavDrawerState;
+}
+
+export type NavdrawerLocation = "right" | "left" | "bottom";
+
+export interface NavDrawerState {
+  left: NavdrawerEntryState;
+  right: NavdrawerEntryState;
+  bottom: NavdrawerEntryState;
+}
+
+export interface NavdrawerEntryState {
+  activeItem: string | null;
+  menuItems: string[];
+  size: number;
 }
 
 /**
@@ -52,8 +75,30 @@ const initialState: LayoutState = {
     },
   },
   mosaic: {
-    key: 1,
-    tabs: [],
+    activeTab: null,
+    root: {
+      key: 1,
+      tabs: [],
+    },
+  },
+  nav: {
+    drawer: {
+      left: {
+        activeItem: null,
+        menuItems: ["clusters", "resources"],
+        size: 0,
+      },
+      right: {
+        activeItem: null,
+        menuItems: ["workspace"],
+        size: 0,
+      },
+      bottom: {
+        activeItem: null,
+        menuItems: ["visualization"],
+        size: 0,
+      },
+    },
   },
 };
 
@@ -77,6 +122,11 @@ type ResizeLayoutMosaicTabAction = PayloadAction<{ key: number; size: number }>;
 type SelectLayoutMosaicTabAction = PayloadAction<{ tabKey: string }>;
 type RenameLayoutMosaicTabAction = PayloadAction<{ tabKey: string; title: string }>;
 
+type SetNavdrawerEntryState = PayloadAction<{
+  location: NavdrawerLocation;
+  state: Partial<NavdrawerEntryState>;
+}>;
+
 export const {
   actions: {
     placeLayout,
@@ -88,6 +138,7 @@ export const {
     selectLayoutMosaicTab,
     resizeLayoutMosaicTab,
     renameLayoutMosaicTab,
+    setNavdrawerEntryState,
   },
   reducer: layoutReducer,
 } = createSlice({
@@ -101,11 +152,13 @@ export const {
 
       // If we're moving from a mosaic, remove the tab.
       if (prev != null && prev.location === "mosaic" && location !== "mosaic")
-        state.mosaic = Mosaic.removeTab(initialState.mosaic, key);
+        state.mosaic.root = Mosaic.removeTab(state.mosaic.root, key);
 
-      // If we're move to a mosaic, insert a tab.
-      if (location === "mosaic")
-        state.mosaic = Mosaic.insertTab(state.mosaic, { tabKey: key, title });
+      // If we're moving to a mosaic, insert a tab.
+      if (location === "mosaic") {
+        state.mosaic.root = Mosaic.insertTab(state.mosaic.root, { tabKey: key, title });
+        state.mosaic.activeTab = key;
+      }
 
       state.layouts[key] = layout;
     },
@@ -115,7 +168,7 @@ export const {
       const { location } = layout;
 
       if (location === "mosaic")
-        state.mosaic = Mosaic.removeTab(state.mosaic, contentKey);
+        state.mosaic.root = Mosaic.removeTab(state.mosaic.root, contentKey);
 
       // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
       delete state.layouts[contentKey];
@@ -124,7 +177,7 @@ export const {
       state,
       { payload: { tabKey } }: DeleteLayoutMosaicTabAction
     ) => {
-      state.mosaic = Mosaic.removeTab(state.mosaic, tabKey);
+      state.mosaic.root = Mosaic.removeTab(state.mosaic.root, tabKey);
       // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
       delete state.layouts[tabKey];
     },
@@ -132,25 +185,28 @@ export const {
       state,
       { payload: { tabKey, key, loc } }: MoveLayoutMosaicTabAction
     ) => {
-      state.mosaic = Mosaic.moveTab(state.mosaic, tabKey, loc, key);
+      state.mosaic.root = Mosaic.moveTab(state.mosaic.root, tabKey, loc, key);
     },
     selectLayoutMosaicTab: (
       state,
       { payload: { tabKey } }: SelectLayoutMosaicTabAction
     ) => {
-      state.mosaic = Mosaic.selectTab(state.mosaic, tabKey);
+      state.mosaic.root = Mosaic.selectTab(state.mosaic.root, tabKey);
+      state.mosaic.activeTab = tabKey;
     },
     resizeLayoutMosaicTab: (
       state,
       { payload: { key, size } }: ResizeLayoutMosaicTabAction
     ) => {
-      state.mosaic = Mosaic.resizeLeaf(state.mosaic, key, size);
+      state.mosaic.root = Mosaic.resizeLeaf(state.mosaic.root, key, size);
     },
     renameLayoutMosaicTab: (
       state,
       { payload: { tabKey, title } }: RenameLayoutMosaicTabAction
     ) => {
-      state.mosaic = Mosaic.renameTab(state.mosaic, tabKey, title);
+      const layout = state.layouts[tabKey];
+      if (layout != null) layout.title = title;
+      state.mosaic.root = Mosaic.renameTab(state.mosaic.root, tabKey, title);
     },
     setActiveTheme: (state, { payload: key }: SetActiveTheme) => {
       state.activeTheme = key;
@@ -160,6 +216,15 @@ export const {
       const index = keys.indexOf(state.activeTheme);
       const next = keys[(index + 1) % keys.length];
       state.activeTheme = next;
+    },
+    setNavdrawerEntryState: (
+      state,
+      { payload: { location, state: entryState } }: SetNavdrawerEntryState
+    ) => {
+      state.nav.drawer[location] = {
+        ...state.nav.drawer[location],
+        ...entryState,
+      };
     },
   },
 });

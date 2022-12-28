@@ -13,6 +13,9 @@ export interface Cluster {
   state: ConnectionState;
 }
 
+/** A subset of Cluster that satisfies RenderableRecord */
+export type RenderableCluster = Omit<Cluster, "props" | "state">;
+
 /** Represents the current connection state of the client to the cluster */
 export interface ConnectionState {
   /** The connectivity info provided by @synnaxlabs/client */

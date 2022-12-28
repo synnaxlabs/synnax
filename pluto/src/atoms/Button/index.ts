@@ -1,5 +1,6 @@
 import { Button as CoreButton } from "./Button";
 import { ButtonIconOnly } from "./ButtonIconOnly";
+import { ButtonToggle, ButtonToggleIcon } from "./ButtonToggle";
 export type { ButtonProps } from "./Button";
 export type { ButtonIconOnlyProps } from "./ButtonIconOnly";
 
@@ -17,6 +18,8 @@ interface ButtonType extends CoreButtonType {
    * @param props.children - A ReactElement representing the icon to render.
    */
   IconOnly: typeof ButtonIconOnly;
+  Toggle: typeof ButtonToggle;
+  IconOnlyToggle: typeof ButtonToggleIcon;
 }
 
 /**
@@ -36,3 +39,5 @@ interface ButtonType extends CoreButtonType {
 export const Button = CoreButton as ButtonType;
 
 Button.IconOnly = ButtonIconOnly;
+Button.Toggle = ButtonToggle;
+Button.IconOnlyToggle = ButtonToggleIcon;

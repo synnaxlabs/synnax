@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import type { ComponentMeta, ComponentStory } from "@storybook/react";
 import { AiOutlineDelete } from "react-icons/ai";
 
@@ -8,7 +10,7 @@ const story: ComponentMeta<typeof Button> = {
   component: Button,
   argTypes: {
     variant: {
-      options: ["filled", "outlined"],
+      options: ["filled", "outlined", "text"],
       control: { type: "select" },
     },
   },
@@ -28,5 +30,14 @@ export const Outlined = (): JSX.Element => (
     Button
   </Button>
 );
+
+export const Toggle = (): JSX.Element => {
+  const [checked, setChecked] = useState(false);
+  return (
+    <Button.IconOnlyToggle checked={checked} onClick={() => setChecked((c) => !c)}>
+      <AiOutlineDelete />
+    </Button.IconOnlyToggle>
+  );
+};
 
 export default story;

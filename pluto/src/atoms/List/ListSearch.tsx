@@ -1,27 +1,29 @@
-import { ComponentType, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { useListContext } from "./ListContext";
-import { RenderableRecord } from "./types";
 
-import { Input as DefaultInput, InputProps } from "@/atoms/Input";
-import { useSearch } from "@/hooks";
-import "./ListSearch.css";
+import { Input as DefaultInput, InputControlProps, InputProps } from "@/atoms/Input";
+import { useSearch, UseSearchProps } from "@/hooks";
+import { RenderableRecord } from "@/util/record";
 
-export interface ListSearchProps {
-  Input?: ComponentType<InputProps>;
+export interface ListSearchProps<E extends RenderableRecord<E>>
+  extends Omit<InputProps, "children" | "onChange" | "value">,
+    Omit<UseSearchProps<E>, "query"> {
+  children?: (props: InputControlProps<string>) => JSX.Element;
+  debounce?: number;
 }
 
 export const ListSearch = <E extends RenderableRecord<E>>({
-  Input = DefaultInput,
-}: ListSearchProps): JSX.Element => {
-  const [query, setQuery, search] = useSearch<E>();
+  children = (props) => <DefaultInput {...props} />,
+  opts,
+}: ListSearchProps<E>): JSX.Element => {
+  const [value, setValue] = useState("");
+
+  const search = useSearch<E>({ query: value, opts });
   const { setTransform } = useListContext<E>();
   useEffect(() => setTransform("search", search), [search]);
-  return (
-    <Input
-      value={query}
-      onChange={(e) => setQuery(e.target.value)}
-      className="pluto-list-search__input"
-    />
-  );
+
+  const onChange = useCallback((v: any) => setValue(v), []);
+
+  return children({ value, onChange });
 };

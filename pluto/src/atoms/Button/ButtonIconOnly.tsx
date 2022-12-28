@@ -20,7 +20,7 @@ export const ButtonIconOnly = ({
     <button
       className={clsx(
         "pluto-btn pluto-btn-icon",
-        "pluto-btn--" + size,
+        "pluto--" + size,
         "pluto-btn--" + variant,
         className
       )}

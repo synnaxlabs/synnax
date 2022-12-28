@@ -13,7 +13,7 @@ import { ResizeCore } from "./ResizeCore";
 
 import { Space, SpaceProps } from "@/atoms/Space";
 import { useResize } from "@/hooks";
-import { Dimensions, Direction, getDirectionalSize, getLocation } from "@/util";
+import { Dimensions, Direction, getDirectionalSize, getLocation } from "@/util/spatial";
 
 export interface UseResizeMultipleProps {
   count: number;
@@ -75,6 +75,7 @@ export const useResizeMultiple = ({
         const nextState = resizeWithSibling(prevSizes, i, diff, minSize);
         if (nextState == null) return prevSizes;
         const { item, size, sibling, siblingSize } = nextState;
+
         const prevTotal = prevSizes.reduce((a, b) => a + b, 0);
         const nextSizes = prevSizes.map((prev, j) => {
           if (j === item) return size;
@@ -82,7 +83,8 @@ export const useResizeMultiple = ({
           return prev;
         });
         const nextTotal = nextSizes.reduce((a, b) => a + b, 0);
-        return nextSizes.map((s) => (s / nextTotal) * prevTotal);
+        const r = nextSizes.map((s) => (s / nextTotal) * prevTotal);
+        return r;
       });
     },
     [minSize, setSizes]
@@ -198,9 +200,7 @@ const resizeWithSibling = (
   while (next > 0 && prevSizes[next] + diff <= minSize) next--;
   const nextSize = prevSizes[next] + diff;
 
-  let nextSibling = item + 1;
-  while (nextSibling < prevSizes.length - 1 && prevSizes[nextSibling] - diff <= minSize)
-    nextSibling++;
+  const nextSibling = findResizableSibling(next, prevSizes, minSize, diff);
   const nextSiblingSize = prevSizes[nextSibling] - diff;
 
   // This means we can't resize any panes so we return null to indicate that the next
@@ -213,4 +213,36 @@ const resizeWithSibling = (
     sibling: nextSibling,
     siblingSize: nextSiblingSize,
   };
+};
+
+const findResizableSibling = (
+  item: number,
+  sizes: number[],
+  minSize: number,
+  diff: number
+): number => {
+  const f = item === sizes.length - 1 ? findBackward : findForward;
+  return f(item, sizes, minSize, diff);
+};
+
+const findForward = (
+  start: number,
+  sizes: number[],
+  minSize: number,
+  diff: number
+): number => {
+  let i = start + 1;
+  while (i < sizes.length - 1 && sizes[i] - diff <= minSize) i++;
+  return i;
+};
+
+const findBackward = (
+  start: number,
+  sizes: number[],
+  minSize: number,
+  diff: number
+): number => {
+  let i = start - 1;
+  while (i > 0 && sizes[i] + diff <= minSize) i--;
+  return i;
 };

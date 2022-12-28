@@ -1,17 +1,21 @@
 import { forwardRef } from "react";
 
-import { InputProps } from "./Input";
+import { Input } from "./Input";
+import { InputBaseProps } from "./types";
 
-export interface InputTimeProps extends InputProps {}
+import { nanoTimeString, timeStringNano } from "@/util/time";
+
+export interface InputTimeProps extends InputBaseProps<number> {}
 
 export const InputTime = forwardRef<HTMLInputElement, InputTimeProps>(
-  ({ size = "medium", ...props }: InputTimeProps, ref) => {
+  ({ size = "medium", value, onChange, ...props }: InputTimeProps, ref) => {
     return (
-      <input
+      <Input
         ref={ref}
         type="time"
         step="1"
-        className={`pluto-input__input pluto-input--${size}`}
+        value={nanoTimeString(value)}
+        onChange={(value) => value.length > 0 && onChange(timeStringNano(value))}
         {...props}
       />
     );

@@ -1,1 +1,1 @@
-export * from "./AutoSize";
+export * from "./Autosize";

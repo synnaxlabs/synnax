@@ -1,7 +1,15 @@
+import { Select as CoreSelect } from "./Select";
 import { SelectMultiple } from "./SelectMultiple";
 
 export type { SelectMultipleProps } from "./SelectMultiple";
+export type { SelectProps } from "./Select";
 
-export const Select = {
-  Multiple: SelectMultiple,
-};
+type CoreSelectType = typeof CoreSelect;
+
+interface SelectType extends CoreSelectType {
+  Multiple: typeof SelectMultiple;
+}
+
+export const Select = CoreSelect as SelectType;
+
+Select.Multiple = SelectMultiple;

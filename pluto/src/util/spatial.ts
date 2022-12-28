@@ -1,4 +1,8 @@
-export type Location = "top" | "bottom" | "left" | "right" | "center";
+export type Location = VerticalLocation | HorizontalLocation | CenterLocation;
+
+export type VerticalLocation = "top" | "bottom";
+export type HorizontalLocation = "left" | "right";
+export type CenterLocation = "center";
 
 export type Direction = "horizontal" | "vertical";
 
@@ -6,7 +10,7 @@ export type Position = "start" | "center" | "end";
 
 export type Order = "first" | "last";
 
-export const Locations = ["top", "bottom", "left", "right"];
+export const Locations = ["top", "bottom", "left", "right", "center"];
 
 export const Directions = ["horizontal", "vertical"];
 

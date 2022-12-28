@@ -3,7 +3,7 @@ import type { ComponentMeta, ComponentStory } from "@storybook/react";
 import { Space, SpaceProps } from ".";
 
 import { Button } from "@/atoms/Button";
-import { ComponentSizes } from "@/util";
+import { ComponentSizes } from "@/util/component";
 
 const story: ComponentMeta<typeof Space> = {
   title: "Atoms/Space",

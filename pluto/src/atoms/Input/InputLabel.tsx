@@ -2,6 +2,8 @@ import { DetailedHTMLProps, HTMLAttributes } from "react";
 
 import clsx from "clsx";
 
+import "./InputLabel.css";
+
 export interface InputLabelProps
   extends DetailedHTMLProps<HTMLAttributes<HTMLLabelElement>, HTMLLabelElement> {
   label?: string;

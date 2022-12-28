@@ -1,4 +1,4 @@
-import { ComponentSize } from "../../util/types";
+import { ComponentSize } from "../../util/component";
 
 /* Level of typography i.e paragraph and heading */
 export type TypographyLevel = "h1" | "h2" | "h3" | "h4" | "h5" | "p" | "small";

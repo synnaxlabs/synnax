@@ -1,18 +1,20 @@
+import { useState } from "react";
+
 import { fireEvent, render } from "@testing-library/react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { mockBoundingClientRect } from "../../testutil/mocks";
-import { TypedListColumn } from "../List";
+import { ListColumn } from "../List";
 
 import { Select } from ".";
 
-const mockColumns: Array<
-  TypedListColumn<{
-    key: string;
-    name: string;
-    age: number;
-  }>
-> = [
+interface MockRecord {
+  key: string;
+  name: string;
+  age: number;
+}
+
+const mockColumns: Array<ListColumn<MockRecord>> = [
   {
     key: "name",
     label: "Name",
@@ -25,7 +27,7 @@ const mockColumns: Array<
   },
 ];
 
-const mockOptions = [
+const mockOptions: MockRecord[] = [
   {
     key: "1",
     name: "John",
@@ -43,9 +45,18 @@ const mockOptions = [
   },
 ];
 
-const selectMultiple = (
-  <Select.Multiple columns={mockColumns} options={mockOptions} tagKey="name" />
-);
+const SelectMultiple = (): JSX.Element => {
+  const [value, setValue] = useState<readonly string[]>([]);
+  return (
+    <Select.Multiple<MockRecord>
+      columns={mockColumns}
+      data={mockOptions}
+      tagKey="name"
+      value={value}
+      onChange={setValue}
+    />
+  );
+};
 
 describe("Select", () => {
   beforeAll(() => {
@@ -56,30 +67,30 @@ describe("Select", () => {
   });
   describe("Select.Multiple", () => {
     it("should render a search input", () => {
-      const c = render(selectMultiple);
+      const c = render(<SelectMultiple />);
       expect(c.getByPlaceholderText("Search")).toBeTruthy();
     });
     it("should render a list of options when the input area is selected", () => {
-      const c = render(selectMultiple);
+      const c = render(<SelectMultiple />);
       fireEvent.click(c.getByPlaceholderText("Search"));
       expect(c.getByText("John")).toBeTruthy();
     });
     it("should not render a list of options when the input area is not selected", () => {
-      const c = render(selectMultiple);
+      const c = render(<SelectMultiple />);
       const el = c.getByText("John");
       expect(
         el.parentElement?.parentElement?.parentElement?.parentElement?.className
       ).toContain("hidden");
     });
     it("should allow the user to select an item", async () => {
-      const c = render(selectMultiple);
+      const c = render(<SelectMultiple />);
       fireEvent.click(c.getByPlaceholderText("Search"));
       fireEvent.click(c.getByText("John"));
       const j = await c.queryAllByText("John");
       expect(j.length).toBe(2);
     });
     it("should allow the user to remove a selected item", async () => {
-      const c = render(selectMultiple);
+      const c = render(<SelectMultiple />);
       fireEvent.click(c.getByPlaceholderText("Search"));
       fireEvent.click(c.getByText("John"));
       const j = await c.findAllByText("John");
@@ -88,7 +99,7 @@ describe("Select", () => {
       expect(j2.length).toBe(1);
     });
     it("should allow the user to clear all selections", async () => {
-      const c = render(selectMultiple);
+      const c = render(<SelectMultiple />);
       fireEvent.click(c.getByPlaceholderText("Search"));
       fireEvent.click(c.getByText("John"));
       fireEvent.click(c.getByText("James"));

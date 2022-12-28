@@ -250,7 +250,6 @@ export const executeAction = <S extends StoreState, A extends Action = AnyAction
       // This is mainly to deal with redux state being out of sync with the
       // window state.
       const win = windows[key] as Window | undefined;
-      console.log(win, key);
       if (win == null || win.processCount <= 0) runtime.close(key);
       break;
     }

@@ -37,12 +37,6 @@ interface KVRequest {
 
 /** TauriKV communicates with a rust key-value store running on the backend. */
 export class TauriKV implements KV {
-  private readonly ecd: EncoderDecoder;
-
-  constructor(ecd: EncoderDecoder) {
-    this.ecd = ecd;
-  }
-
   async get<V>(key: string): Promise<V | undefined> {
     try {
       return await this.exec({ command: KVCommand.Get, key, value: "" });
@@ -56,7 +50,7 @@ export class TauriKV implements KV {
     return await this.exec({
       command: KVCommand.Set,
       key,
-      value: new TextDecoder().decode(this.ecd.encode(value)),
+      value: JSON.stringify(value),
     });
   }
 
@@ -68,7 +62,6 @@ export class TauriKV implements KV {
     const res: KVResponse = await invoke("kv_exec", { request });
     if (res.error.length > 0) throw new Error(res.error);
     if (res.value.length === 0) return undefined;
-    const buf = new TextEncoder().encode(res.value);
-    return await this.ecd.decode(buf);
+    return JSON.parse(res.value);
   }
 }

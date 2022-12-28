@@ -1,41 +1,24 @@
 import { PropsWithChildren, useContext, createContext } from "react";
 
-import {
-  RenderableRecord,
-  TypedListColumn,
-  TypedListTransform,
-  UntypedListColumn,
-  UntypedListTransform,
-} from "./types";
+import { ListColumn } from "./types";
 
-export interface ListContextProps {
-  data: RenderableRecord[];
-  sourceData: RenderableRecord[];
-  selected: string[];
-  onSelect: (key: string) => void;
-  clearSelected: () => void;
-  columnar: {
-    columns: UntypedListColumn[];
-    setColumns: (cbk: (columns: UntypedListColumn) => UntypedListColumn[]) => void;
-  };
-  setTransform: (key: string, transform: UntypedListTransform) => void;
-  removeTransform: (key: string) => void;
-}
+import { UseTransformsReturn } from "@/hooks/useTransforms";
+import { RenderableRecord } from "@/util/record";
 
-export interface TypedListContextProps<E extends RenderableRecord<E>> {
+export interface ListContextProps<E extends RenderableRecord<E> = RenderableRecord>
+  extends Omit<UseTransformsReturn<E>, "transform"> {
   columnar: {
-    columns: Array<TypedListColumn<E>>;
-    setColumns: (
-      cbk: (columns: Array<TypedListColumn<E>>) => Array<TypedListColumn<E>>
-    ) => void;
+    columns: Array<ListColumn<E>>;
+    setColumns: (cbk: (columns: Array<ListColumn<E>>) => Array<ListColumn<E>>) => void;
   };
   data: E[];
   sourceData: E[];
-  selected: string[];
-  onSelect: (key: string) => void;
-  clearSelected: () => void;
-  setTransform: (key: string, transform: TypedListTransform<E>) => void;
-  removeTransform: (key: string) => void;
+  select: {
+    onSelect?: (key: string) => void;
+    clear?: () => void;
+    setOnSelect: (cbk: (key: string) => void) => void;
+    setClear: (cbk: () => void) => void;
+  };
 }
 
 export const ListContext = createContext<ListContextProps>({
@@ -44,23 +27,26 @@ export const ListContext = createContext<ListContextProps>({
     setColumns: () => undefined,
   },
   sourceData: [],
-  clearSelected: () => undefined,
-  selected: [],
   data: [],
   setTransform: () => undefined,
-  removeTransform: () => undefined,
-  onSelect: () => undefined,
+  deleteTransform: () => undefined,
+  select: {
+    onSelect: undefined,
+    setOnSelect: () => undefined,
+    clear: undefined,
+    setClear: () => undefined,
+  },
 });
 
 export const useListContext = <
   E extends RenderableRecord<E>
->(): TypedListContextProps<E> => {
-  return useContext(ListContext) as unknown as TypedListContextProps<E>;
+>(): ListContextProps<E> => {
+  return useContext(ListContext) as unknown as ListContextProps<E>;
 };
 
 export interface ListContextProviderProps<E extends RenderableRecord<E>>
   extends PropsWithChildren<unknown> {
-  value: TypedListContextProps<E>;
+  value: ListContextProps<E>;
 }
 
 export const ListContextProvider = <E extends RenderableRecord<E>>({

@@ -79,7 +79,6 @@
   ],
   "settings": {
     "editor.formatOnSave": true,
-    "liveServer.settings.multiRootWorkspaceName": "synnax-root",
     "[css]": {
       "editor.defaultFormatter": "esbenp.prettier-vscode",
        "editor.formatOnSave": true

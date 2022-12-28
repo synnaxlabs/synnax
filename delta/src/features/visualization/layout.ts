@@ -8,11 +8,11 @@ import { Layout, LayoutCreator, LayoutCreatorProps } from "@/features/layout";
 export const createVisualization =
   <V extends Visualization>(initial: Partial<V>): LayoutCreator =>
   ({ dispatch }: LayoutCreatorProps): Layout => {
-    const key = initial.layoutKey ?? nanoid();
+    const key = initial.key ?? nanoid();
     dispatch(
       storeCreateVizualization({
         ...initial,
-        layoutKey: key,
+        key,
         variant: "linePlot",
       })
     );
@@ -20,6 +20,6 @@ export const createVisualization =
       key,
       location: "mosaic",
       type: "visualization",
-      title: initial.layoutKey ?? "Plot",
+      title: initial.key ?? "Plot",
     };
   };
