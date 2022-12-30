@@ -15,18 +15,16 @@ export const ButtonIconOnly = ({
   variant = "text",
   size = "medium",
   ...props
-}: ButtonIconOnlyProps): JSX.Element => {
-  return (
-    <button
-      className={clsx(
-        "pluto-btn pluto-btn-icon",
-        "pluto--" + size,
-        "pluto-btn--" + variant,
-        className
-      )}
-      {...props}
-    >
-      {cloneElement(children, { className: "pluto-btn-icon__icon" })}
-    </button>
-  );
-};
+}: ButtonIconOnlyProps): JSX.Element => (
+  <button
+    className={clsx(
+      "pluto-btn pluto-btn-icon",
+      "pluto--" + size,
+      "pluto-btn--" + variant,
+      className
+    )}
+    {...props}
+  >
+    {cloneElement(children, { className: "pluto-btn-icon__icon" })}
+  </button>
+);

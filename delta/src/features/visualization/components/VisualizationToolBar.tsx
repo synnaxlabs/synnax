@@ -82,14 +82,14 @@ const LinePlotChannelControls = (): JSX.Element | null => {
     );
   }, [client]);
 
-  if (vis == null) return null;
-
   const handleChannelChange = useCallback(
     (key: string, value: any): void => {
       dispatch(updateVisualization({ key: vis.key, channels: { [key]: value } }));
     },
     [dispatch]
   );
+
+  if (vis == null) return null;
 
   return (
     <Space style={{ padding: "2rem", maxWidth: "100%" }}>

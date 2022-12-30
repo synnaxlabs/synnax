@@ -1,5 +1,4 @@
-import React, {
-  ComponentType,
+import {
   createContext,
   FunctionComponent,
   ReactElement,

@@ -15,6 +15,7 @@ import {
   newPreloadState,
   newPersistStateMiddleware,
 } from "@/features/persist";
+import { versionReducer, VERSION_SLICE_NAME } from "@/features/version";
 import {
   VISUALIZATION_SLICE_NAME,
   visualizationReducer,
@@ -29,6 +30,7 @@ const reducer = combineReducers({
   [LAYOUT_SLICE_NAME]: layoutReducer,
   [VISUALIZATION_SLICE_NAME]: visualizationReducer,
   [WORKSPACE_SLICE_NAME]: workspaceReducer,
+  [VERSION_SLICE_NAME]: versionReducer,
 });
 
 /**
@@ -39,8 +41,9 @@ export type RootState = ReturnType<typeof reducer>;
 export const store = configureStore<ReturnType<typeof reducer>>({
   runtime: new TauriRuntime(appWindow),
   preloadedState: newPreloadState(kv),
-  middleware: (
-    getDefaultMiddleware: CurriedGetDefaultMiddleware<ReturnType<typeof reducer>>
-  ) => [...getDefaultMiddleware(), newPersistStateMiddleware(kv)],
+  middleware: (def: CurriedGetDefaultMiddleware<ReturnType<typeof reducer>>) => [
+    ...def(),
+    newPersistStateMiddleware(kv),
+  ],
   reducer,
 });

@@ -1,10 +1,4 @@
-import {
-  ComponentType,
-  ReactElement,
-  cloneElement,
-  useRef,
-  FunctionComponent,
-} from "react";
+import { ReactElement, cloneElement, useRef, FunctionComponent } from "react";
 
 import { useSize } from "@/hooks";
 
