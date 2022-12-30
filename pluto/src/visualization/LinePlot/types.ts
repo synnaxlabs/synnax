@@ -19,7 +19,7 @@ export type Array = uPlot.TypedArray | number[];
 
 export type PlotData = Record<string, any[]>;
 
-export interface LinePlotMetadata {
+export interface LinePlotMeta {
   width: number;
   height: number;
   series: Series[];
