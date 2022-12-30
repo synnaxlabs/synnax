@@ -1,50 +1,36 @@
+import { FunctionComponent } from "react";
+
 import clsx from "clsx";
 
 import { Button, ButtonProps } from "./Button";
-import { ButtonIconOnly, ButtonIconOnlyProps } from "./ButtonIconOnly";
+import { ButtonIconOnly } from "./ButtonIconOnly";
 
 import "./ButtonToggle.css";
 
-export interface ButtonToggleProps extends Omit<ButtonProps, "variant"> {
+export interface CoreButtonProps {
   checked: boolean;
 }
 
-export const ButtonToggle = ({
-  checked,
-  className,
-  ...props
-}: ButtonToggleProps): JSX.Element => {
-  return (
-    <Button
-      className={clsx(
-        "pluto-btn-toggle",
-        checked && "pluto-btn-toggle--checked",
-        className
-      )}
-      variant={checked ? "filled" : "outlined"}
-      {...props}
-    />
-  );
-};
+export const buttonToggleFactory =
+  <E extends Pick<ButtonProps, "className" | "variant">>(
+    Base: FunctionComponent<E>
+  ): FunctionComponent<E & CoreButtonProps> =>
+  // eslint-disable-next-line react/display-name
+  (props: E & CoreButtonProps): JSX.Element =>
+    (
+      <Base
+        {...props}
+        className={clsx(
+          "pluto-btn-toggle",
+          props.checked && "pluto-btn-toggle--checked",
+          props.className
+        )}
+        variant={props.checked ? props.variant : "outlined"}
+      />
+    );
 
-export interface ButtonIconToggleProps extends Omit<ButtonIconOnlyProps, "variant"> {
-  checked: boolean;
-}
+export const ButtonToggle = buttonToggleFactory(Button);
+ButtonToggle.displayName = "ButtonToggle";
 
-export const ButtonToggleIcon = ({
-  checked,
-  className,
-  ...props
-}: ButtonIconToggleProps): JSX.Element => {
-  return (
-    <ButtonIconOnly
-      variant={checked ? "filled" : "outlined"}
-      className={clsx(
-        "pluto-btn-toggle",
-        checked && "pluto-btn-toggle--checked",
-        className
-      )}
-      {...props}
-    />
-  );
-};
+export const ButtonToggleIcon = buttonToggleFactory(ButtonIconOnly);
+ButtonToggleIcon.displayName = "ButtonToggleIcon";

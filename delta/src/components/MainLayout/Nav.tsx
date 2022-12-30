@@ -3,11 +3,11 @@ import type { NavDrawerItem } from "@synnaxlabs/pluto";
 import { IoMdSettings } from "react-icons/io";
 
 import { Logo } from "../Logo";
-import { VersionBadge } from "../VersionBadge";
 
 import { ClusterBadge, ClusterToolbar, ConnectionBadge } from "@/features/cluster";
 import { NavdrawerLocation, useNavDrawer } from "@/features/layout";
 import { ResourcesToolbar } from "@/features/resources";
+import { VersionBadge } from "@/features/version";
 import { VisualizationToolBar, WarpModeToggle } from "@/features/visualization";
 import { WorkspaceToolbar } from "@/features/workspace";
 

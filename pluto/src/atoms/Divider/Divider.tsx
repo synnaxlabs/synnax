@@ -28,6 +28,6 @@ export const Divider = ({
     <div
       className={clsx("pluto-divider", `pluto-divider--${direction}`, className)}
       {...props}
-    ></div>
+    />
   );
 };

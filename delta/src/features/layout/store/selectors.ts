@@ -2,12 +2,7 @@ import type { MosaicLeaf, Theme } from "@synnaxlabs/pluto";
 
 import { Layout } from "../types";
 
-import {
-  LayoutStoreState,
-  LAYOUT_SLICE_NAME,
-  NavdrawerEntryState,
-  NavdrawerLocation,
-} from "./slice";
+import { LayoutStoreState, NavdrawerEntryState, NavdrawerLocation } from "./slice";
 
 import { selectByKey, selectByKeys, useMemoSelect } from "@/hooks";
 

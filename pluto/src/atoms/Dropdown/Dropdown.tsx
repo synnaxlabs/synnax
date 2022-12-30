@@ -28,10 +28,10 @@ export interface UseDropdownReturn {
 }
 export const useDropdown = (): UseDropdownReturn => {
   const [visible, setVisible] = useState(false);
-  const dialogRef = useRef<HTMLDivElement>(null);
-  useClickOutside(dialogRef, () => setVisible(false));
+  const ref = useRef<HTMLDivElement>(null);
+  useClickOutside(ref, () => setVisible(false));
   const onFocus = useCallback(() => setVisible(true), []);
-  return { visible, ref: dialogRef, onFocus, setVisible };
+  return { visible, ref, onFocus, setVisible };
 };
 
 export interface DropdownProps
@@ -48,28 +48,26 @@ export const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
   (
     { visible, children, location = "top", ...props }: DropdownProps,
     ref
-  ): JSX.Element => {
-    return (
+  ): JSX.Element => (
+    <Space
+      {...props}
+      ref={ref}
+      className="pluto-dropdown__container"
+      reverse={location === "top"}
+    >
+      {children[0]}
       <Space
-        {...props}
-        ref={ref}
-        className="pluto-dropdown__container"
-        reverse={location === "top"}
+        className={clsx(
+          "pluto-dropdown__dialog",
+          `pluto-dropdown__dialog--${location}`,
+          `pluto-dropdown__dialog--${visibleCls(visible)}`
+        )}
+        empty
       >
-        {children[0]}
-        <Space
-          className={clsx(
-            "pluto-dropdown__dialog",
-            `pluto-dropdown__dialog--${location}`,
-            `pluto-dropdown__dialog--${visibleCls(visible)}`
-          )}
-          empty
-        >
-          {children[1]}
-        </Space>
+        {children[1]}
       </Space>
-    );
-  }
+    </Space>
+  )
 );
 
 Dropdown.displayName = "Dropdown";

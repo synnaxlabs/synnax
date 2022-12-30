@@ -11,6 +11,7 @@ import {
   LayoutWindow,
   useThemeProvider,
 } from "@/features/layout";
+import { useLoadTauriVersion } from "@/features/version";
 import { VisualizationLayoutRenderer } from "@/features/visualization";
 import { DefineRange } from "@/features/workspace";
 import { store } from "@/store";
@@ -27,6 +28,7 @@ const layoutRenderers = {
 
 const MainUnderContext = (): JSX.Element => {
   const theme = useThemeProvider();
+  useLoadTauriVersion();
   return (
     <Theming.Provider {...theme}>
       <LayoutRendererProvider value={layoutRenderers}>

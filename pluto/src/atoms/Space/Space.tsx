@@ -1,4 +1,10 @@
-import { ForwardedRef, HTMLAttributes, PropsWithChildren, forwardRef } from "react";
+import {
+  ForwardedRef,
+  HTMLAttributes,
+  PropsWithChildren,
+  forwardRef,
+  CSSProperties,
+} from "react";
 
 import clsx from "clsx";
 
@@ -6,10 +12,18 @@ import { ComponentSize } from "../../util/component";
 import { Direction } from "../../util/spatial";
 import "./Space.css";
 
+/** The alignments for the cross axis of a space */
 export type SpaceAlignment = "start" | "center" | "end" | "stretch";
 
-export const SpaceAlignments = ["start", "center", "end", "stretch"] as const;
+/** All possible alignments for the cross axis of a space */
+export const SpaceAlignments: readonly SpaceAlignment[] = [
+  "start",
+  "center",
+  "end",
+  "stretch",
+];
 
+/** The justification for the main axis of a space */
 export type SpaceJustification =
   | "start"
   | "center"
@@ -18,16 +32,15 @@ export type SpaceJustification =
   | "spaceAround"
   | "spaceEvenly";
 
-type FlexDirection = "row" | "column" | "row-reverse" | "column-reverse";
-
-export const SpaceJustifications = [
+/** All possible justifications for the main axis of a space */
+export const SpaceJustifications: readonly SpaceJustification[] = [
   "start",
   "center",
   "end",
   "spaceBetween",
   "spaceAround",
   "spaceEvenly",
-] as const;
+];
 
 export interface SpaceExtensionProps {
   empty?: boolean;
@@ -55,15 +68,13 @@ export const Space = forwardRef(
       align,
       className,
       style,
-      children,
       ...props
     }: SpaceProps,
     ref: ForwardedRef<HTMLDivElement>
   ) => {
-    let gap;
+    let gap: number | string | undefined;
     if (empty) [size, gap] = [0, 0];
-    else if (typeof size === "string") gap = `pluto-space--${size}`;
-    else gap = `${size ?? 0}rem`;
+    else if (typeof size === "number") gap = `${size ?? 0}rem`;
 
     style = {
       gap,
@@ -73,26 +84,26 @@ export const Space = forwardRef(
       ...style,
     };
 
-    if (grow !== undefined) style.flexGrow = Number(grow);
+    if (grow != null) style.flexGrow = Number(grow);
 
     return (
       <div
         className={clsx(
           "pluto-space",
-          typeof size === "string" ? "pluto-space--" + size : undefined,
+          typeof size === "string" && `pluto-space--${size}`,
           `pluto-space--${direction}`,
           className
         )}
         ref={ref}
         style={style}
         {...props}
-      >
-        {children}
-      </div>
+      />
     );
   }
 );
 Space.displayName = "Space";
+
+type FlexDirection = CSSProperties["flexDirection"];
 
 const flexDirection = (direction: Direction, reverse: boolean): FlexDirection => {
   const base = direction === "horizontal" ? "row" : "column";
