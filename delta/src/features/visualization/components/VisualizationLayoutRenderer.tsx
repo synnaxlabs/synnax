@@ -2,10 +2,9 @@ import { memo } from "react";
 
 import { useDispatch } from "react-redux";
 
+import { LinePlot } from "../line/LinePlot";
 import { setVisualization, useSelectSugaredVisualization } from "../store";
 import { SugaredLinePlotVisualization, Visualization } from "../types";
-
-import { LinePlot } from "./LinePlot";
 
 import { useClusterClient } from "@/features/cluster";
 import { LayoutRenderer, LayoutRendererProps } from "@/features/layout";

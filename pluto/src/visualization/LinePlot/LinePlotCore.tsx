@@ -4,11 +4,11 @@ import uPlot from "uplot";
 
 import { Theme, Theming } from "../../theming";
 
-import { Axis, LinePlotMetadata, PlotData, Series } from "./types";
+import { Axis, LinePlotMeta, PlotData, Series } from "./types";
 import "uplot/dist/uPlot.min.css";
 import "./LinePlotCore.css";
 
-export interface LinePlotCoreProps extends LinePlotMetadata {
+export interface LinePlotCoreProps extends LinePlotMeta {
   data: PlotData;
 }
 
