@@ -1,3 +1,12 @@
+// Copyright 2022 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 // Package writer exposes the Synnax cluster for framed writes as a monolithic data space.
 // It provides a Writer interface that automatically handles the distribution of writes
 // across the cluster. It also provides a StreamWriter interface that enables the user to

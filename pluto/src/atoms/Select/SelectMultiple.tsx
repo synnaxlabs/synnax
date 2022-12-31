@@ -1,3 +1,12 @@
+// Copyright 2022 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { useEffect, useRef, useState } from "react";
 
 import clsx from "clsx";
@@ -11,7 +20,7 @@ import { ListColumn } from "../List";
 import { SelectList } from "./SelectList";
 
 import { Button } from "@/atoms/Button";
-import { InputControlProps, Input, InputProps } from "@/atoms/Input";
+import { Input, InputControlProps, InputProps } from "@/atoms/Input";
 import { List } from "@/atoms/List";
 import { Space } from "@/atoms/Space";
 import { Tag } from "@/atoms/Tag";

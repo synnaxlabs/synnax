@@ -1,15 +1,24 @@
+// Copyright 2022 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import {
+  CSSProperties,
   ForwardedRef,
+  forwardRef,
   HTMLAttributes,
   PropsWithChildren,
-  forwardRef,
-  CSSProperties,
 } from "react";
 
 import clsx from "clsx";
 
-import { ComponentSize } from "../../util/component";
-import { Direction } from "../../util/spatial";
+import { ComponentSize } from "@/util/component";
+import { Direction } from "@/util/spatial";
 import "./Space.css";
 
 /** The alignments for the cross axis of a space */

@@ -1,10 +1,14 @@
-import { memo } from "react";
+// Copyright 2022 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
 
-import { useDispatch } from "react-redux";
-
-import { useLayoutRenderer } from "../context";
-import { useLayoutRemover } from "../hooks";
-import { useSelectRequiredLayout } from "../store";
+import {useLayoutRenderer} from "../context";
+import {useLayoutRemover} from "../hooks";
 
 /** LayoutContentProps are the props for the LayoutContent component. */
 export interface LayoutContentProps {
@@ -19,7 +23,7 @@ export interface LayoutContentProps {
  * and a renderer for the layout type must be registered in the LayoutContext.
  */
 export const LayoutContent = memo(
-  ({ layoutKey }: LayoutContentProps): JSX.Element | null => {
+  ({layoutKey}: LayoutContentProps): JSX.Element | null => {
     const p = useSelectRequiredLayout(layoutKey);
 
     const _handleClose = useLayoutRemover(layoutKey);
@@ -31,12 +35,12 @@ export const LayoutContent = memo(
 
     const handleClose = (): void => {
       if ("onClose" in renderer && renderer.onClose != null)
-        renderer.onClose({ layoutKey, dispatch });
+        renderer.onClose({layoutKey, dispatch});
       _handleClose();
     };
 
     if (Renderer == null) throw new Error(`layout renderer ${p.type} not found`);
-    return <Renderer layoutKey={layoutKey} onClose={handleClose} />;
+    return <Renderer layoutKey={layoutKey} onClose={handleClose}/>;
   }
 );
 LayoutContent.displayName = "LayoutContent";

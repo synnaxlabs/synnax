@@ -1,7 +1,14 @@
-import type { ComponentType } from "react";
+// Copyright 2022 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
 
-import type { Dispatch, AnyAction } from "@reduxjs/toolkit";
-import type { WindowProps } from "@synnaxlabs/drift";
+import type {ComponentType} from "react";
+import type {WindowProps} from "@synnaxlabs/drift";
 
 /** The location options for placing a layout */
 export type LayoutPlacementLocation = "window" | "mosaic";
