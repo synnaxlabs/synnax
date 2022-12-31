@@ -1,3 +1,12 @@
+// Copyright 2022 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 // Package schema implements a method for defining, creating, and query dynamically typed
 // entities (think dynamically typed structs). It aims to provide as much flexibility as possible
 // while still providing strongly typed getters and setters for the entity fields.

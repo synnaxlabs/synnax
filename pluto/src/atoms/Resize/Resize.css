@@ -1,9 +1,18 @@
+/* Copyright 2022 Synnax Labs, Inc. */
+/* */
+/* Use of this software is governed by the Business Source License included in the file */
+/* licenses/BSL.txt. */
+/* */
+/* As of the Change Date specified in that file, in accordance with the Business Source */
+/* License, use of this software will be governed by the Apache License, Version 2.0, */
+/* included in the file licenses/APL.txt. */
+
 .pluto-resize-panel {
     position: relative;
 }
 
 .pluto-resize-panel__handle {
-    position: absolute
+    position: absolute;
 }
 
 .pluto-resize-panel--left > .pluto-resize-panel__handle {
@@ -26,13 +35,13 @@
     top: 0;
 }
 
-.pluto-resize-panel--vertical > .pluto-resize-panel__handle{
+.pluto-resize-panel--vertical > .pluto-resize-panel__handle {
     width: calc(var(--pluto-border-width) * 5);
     height: 100%;
     cursor: col-resize;
 }
 
-.pluto-resize-panel--horizontal > .pluto-resize-panel__handle{
+.pluto-resize-panel--horizontal > .pluto-resize-panel__handle {
     height: calc(var(--pluto-border-width) * 5);
     width: 100%;
     cursor: row-resize;
