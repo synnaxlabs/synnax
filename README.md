@@ -40,8 +40,8 @@ guidelines.
 
 # How to Contribute
 
-We welcome contributions. Reach out to [Emiliano](mailto:emilbon99@gmail.com)
-(emilbon99@gmail.com) if you'd like to get involved. While you wait for a
+We welcome contributions. Reach out to [Emiliano](mailto:ebonilla@synnaxlabs.com)
+(ebonilla@synnaxlabs.com) if you'd like to get involved. While you wait for a
 response, check out
 the [New Developer Guide](https://docs.synnaxlabs.com/category/developers)
 to get up to speed. Also, feel free to browse through the
@@ -67,6 +67,8 @@ in this monorepo. The following is a list of the services and their purpose:
 - [Client](https://github.com/synnaxlabs/synnax/tree/main/client) - Client
   libraries for synnax available in multiple languages. The implementation for
   each language is a subpackage of the client package.
+- [Delta](https://github.com/synnaxlabs/synnax/tree/main/delta) - Data visualization
+  and cluster management user interface for Windows, macOS, and Linux.
 - [Documentation](https://github.com/synnaxlabs/synnax/tree/main/docs) - The
   technical and user-facing documentation for Synnax. Contains the code for the
   Synnax documentation website, technical RFCs, and additonal media such as
