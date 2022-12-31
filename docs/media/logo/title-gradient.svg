@@ -1,4 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright 2022 Synnax Labs, Inc. -->
+<!-- -->
+<!-- Use of this software is governed by the Business Source License included in the file -->
+<!-- licenses/BSL.txt. -->
+<!-- -->
+<!-- As of the Change Date specified in that file, in accordance with the Business Source -->
+<!-- License, use of this software will be governed by the Apache License, Version 2.0, -->
+<!-- included in the file licenses/APL.txt. -->
+
 <!-- Generator: Adobe Illustrator 24.1.0, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
 <svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
 	 viewBox="0 0 1200 231.7" style="enable-background:new 0 0 1200 231.7;" xml:space="preserve">
@@ -10,7 +19,7 @@
 </style>
 <g id="Layer_2_1_">
 	<g id="Layer_1-2">
-		
+
 			<linearGradient id="SVGID_1_" gradientUnits="userSpaceOnUse" x1="100.6837" y1="136.0478" x2="270.5037" y2="35.0078" gradientTransform="matrix(1 0 0 -1 0 209.89)">
 			<stop  offset="0" style="stop-color:#10007F"/>
 			<stop  offset="1" style="stop-color:#0084E9"/>
