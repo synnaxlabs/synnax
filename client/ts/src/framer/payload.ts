@@ -24,14 +24,15 @@ export const arrayPayloadSchema = z.object({
     .string()
     .transform((s) => new DataType(s))
     .optional(),
-  data: z.string().transform(
-    (s) =>
-      new Uint8Array(
-        atob(s)
-          .split("")
-          .map((c) => c.charCodeAt(0))
-      )
-  ),
+  data: z.string().transform((s) => {
+    const buf = new SharedArrayBuffer(s.length);
+    const view = new Uint8Array(buf);
+    view.set(
+      s.split("").map((c) => c.charCodeAt(0)),
+      0
+    );
+    return buf as ArrayBufferLike;
+  }),
 });
 
 export type ArrayPayload = z.infer<typeof arrayPayloadSchema>;
@@ -53,7 +54,7 @@ export const frameFromRecord = (
       const typedArr = record[ch?.key ?? ""];
       return {
         dataType: ch.dataType,
-        data: new Uint8Array(typedArr?.buffer),
+        data: typedArr.buffer,
       };
     }),
   };
