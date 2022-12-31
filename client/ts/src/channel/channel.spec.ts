@@ -9,7 +9,7 @@
 
 import { test, expect } from "vitest";
 
-import { newClient } from "../../setupspecs";
+import { newClient } from "../setupspecs";
 import { QueryError } from "../errors";
 import { DataType, Rate } from "../telem";
 

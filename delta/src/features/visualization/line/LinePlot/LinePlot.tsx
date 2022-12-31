@@ -13,11 +13,7 @@ import { Synnax } from "@synnaxlabs/client";
 import { Autosize, LinePlot as PlutoLinePlot, Theming } from "@synnaxlabs/pluto";
 import type { PlotData } from "@synnaxlabs/pluto";
 
-import {
-  LinePlotVisualization,
-  SugaredLinePlotVisualization,
-  Visualization,
-} from "../../types";
+import { Visualization } from "../../types";
 
 import { LinePlotControls } from "./LinePlotControls";
 import "./LinePlot.css";

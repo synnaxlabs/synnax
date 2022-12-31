@@ -11,16 +11,17 @@ import { EOF, ErrorPayloadSchema } from "@synnaxlabs/freighter";
 import type { Stream, StreamClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
-import Registry from "../channel/registry";
+import { ArrayPayload, FramePayload, framePayloadSchema } from "./payload";
+
+import Registry from "@/channel/registry";
+import { UnexpectedError } from "@/errors";
 import {
   TimeRange,
   TimeSpan,
   TimeStamp,
   UnparsedTimeSpan,
   UnparsedTimeStamp,
-} from "../telem";
-
-import { ArrayPayload, FramePayload, framePayloadSchema } from "./payload";
+} from "@/telem";
 
 export const AUTO_SPAN = new TimeSpan(-1);
 
@@ -198,7 +199,7 @@ export class CoreIterator {
     this.stream.closeSend();
     const [, exc] = await this.stream.receive();
     if (exc == null)
-      throw new Error("received unexpected response from core's iterator");
+      throw new UnexpectedError("received unexpected response from core's iterator");
     if (!(exc instanceof EOF)) throw exc;
   }
 
@@ -208,10 +209,11 @@ export class CoreIterator {
     const err = this.stream.send(request);
     if (err != null) throw err;
     if (!this.aggregate) this.values = [];
-    for (;;) {
+    while (true) {
       const [res, err] = await this.stream.receive();
-      // eslint-disable-next-line @typescript-eslint/no-throw-literal
-      if (err != null || res == null) throw err;
+      if (err != null) throw err;
+      if (res == null)
+        throw new UnexpectedError("received null response from core's iterator");
       if (res.variant === ResponseVariant.Ack) return res.ack;
       if (res.frame != null) this.values.push(res.frame);
     }
@@ -251,7 +253,7 @@ const concatTypedArrays = (a: ArrayPayload, b: ArrayPayload): ArrayPayload => {
   if (a.dataType.valueOf() !== b.dataType.valueOf()) {
     throw new Error("Cannot concat arrays with different data types");
   }
-  const c = new Uint8Array(a.data.length + b.data.length);
+  const c = new Uint8Array(a.data.byteLength + b.data.byteLength);
   c.set(a.data, 0);
   c.set(b.data, a.data.length);
   return { timeRange: a.timeRange, dataType: a.dataType, data: c };

@@ -20,7 +20,7 @@ export {
   UnexpectedError,
   ValidationError,
 } from "./lib/errors";
-export * from "./lib/channel";
+export * from "./channel";
 export * from "./lib/ontology";
 export * from "./lib/connectivity";
 export * from "./lib/ontology";

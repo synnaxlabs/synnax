@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { EncoderDecoder } from "@synnaxlabs/freighter";
 import { invoke } from "@tauri-apps/api";
 
 /** A read-writable key-value store. */
