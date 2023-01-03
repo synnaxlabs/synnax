@@ -10,7 +10,7 @@
 import { z } from "zod";
 
 import { ChannelPayload } from "../channel/payload";
-import { DataType, TimeRange, TimeStamp, TypedArray } from "../telem";
+import { DataType, TimeRange, TimeStamp, NativeTypedArray } from "../telem";
 
 export const arrayPayloadSchema = z.object({
   timeRange: z
@@ -46,7 +46,7 @@ export type FramePayload = z.infer<typeof framePayloadSchema>;
 
 export const frameFromRecord = (
   channels: ChannelPayload[],
-  record: Record<string, TypedArray>
+  record: Record<string, NativeTypedArray>
 ): FramePayload => {
   return {
     keys: Object.keys(record),

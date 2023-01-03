@@ -7,12 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useLayoutEffect, useState } from "react";
+import { useCallback, useState } from "react";
 
-import { Location } from "../../util/spatial";
+import { ResizeCore, ResizeCoreProps } from "./ResizeCore";
+
+import { useDrag } from "@/hooks/useDrag";
+import { clamp } from "@/util/clamp";
+import { getDirection, Location } from "@/util/spatial";
 
 import "./Resize.css";
-import { ResizeCore, ResizeCoreProps } from "./ResizeCore";
 
 export interface ResizePanelProps extends Omit<ResizeCoreProps, "showHandle" | "size"> {
   location: Location;
@@ -20,6 +23,12 @@ export interface ResizePanelProps extends Omit<ResizeCoreProps, "showHandle" | "
   minSize?: number;
   maxSize?: number;
   onResize?: (size: number) => void;
+}
+
+interface ResizeState {
+  size: number;
+  root: number | null;
+  marker: number | null;
 }
 
 export const Resize = ({
@@ -30,66 +39,60 @@ export const Resize = ({
   onResize,
   ...props
 }: ResizePanelProps): JSX.Element => {
-  const [size, setSize] = useState<number>(initialSize);
-  const [dragging, setDragging] = useState(false);
+  const [size, setSize] = useState<ResizeState>({
+    size: initialSize,
+    root: 0,
+    marker: 0,
+  });
 
-  useLayoutEffect(() => {
-    if (!dragging) return;
-    const onMouseMove = (e: MouseEvent): void => {
-      setSize((p: number) => calcNextSize(e, location, p, minSize, maxSize));
-      onResize?.(size);
-    };
-    const onMouseUp = (): void => setDragging(false);
-    document.addEventListener("mousemove", onMouseMove);
-    document.addEventListener("mouseup", onMouseUp);
-    return () => {
-      document.removeEventListener("mousemove", onMouseMove);
-      document.removeEventListener("mouseup", onMouseUp);
-    };
-  }, [dragging, onResize]);
+  const onMouseMove = useCallback(
+    (e: MouseEvent) => {
+      setSize((prev) => calcNextSize(e, location, prev, minSize, maxSize));
+      onResize?.(size.size);
+    },
+    [onResize, location, minSize, maxSize, size]
+  );
+
+  const dragProps = useDrag({
+    onStart: (e) => {
+      setSize((prev) => ({
+        ...prev,
+        root: getDirection(location) === "vertical" ? e.clientX : e.clientY,
+        marker: prev.size,
+      }));
+    },
+    onMove: onMouseMove,
+    onEnd: () => {
+      setSize((prev) => ({ ...prev, root: null, marker: null }));
+    },
+  });
 
   return (
     <ResizeCore
       draggable
       location={location}
-      size={size}
-      onDragStart={(e) => {
-        setDragging(true);
-        e.preventDefault();
-      }}
-      onDrag={(e) => e.preventDefault()}
-      onDragEnd={(e) => e.preventDefault()}
+      size={size.size}
       {...props}
+      {...dragProps}
     />
   );
-};
-
-export const parseMovement = (location: Location, e: MouseEvent): number => {
-  switch (location) {
-    case "top":
-      return e.movementY;
-    case "bottom":
-      return -e.movementY;
-    case "left":
-      return e.movementX;
-    case "right":
-      return -e.movementX;
-    case "center":
-      return 0;
-  }
 };
 
 export const calcNextSize = (
   e: MouseEvent,
   location: Location,
-  prevSize: number,
+  prev: ResizeState,
   minSize: number,
   maxSize: number
-): number => {
-  const movement = parseMovement(location, e);
-  if (prevSize + movement < minSize) return minSize;
-  if (prevSize + movement > maxSize) return maxSize;
-  return prevSize + movement;
+): ResizeState => {
+  if (prev.root === null || prev.marker === null) return prev;
+  const curr = getDirection(location) === "vertical" ? e.clientX : e.clientY;
+  let mov = curr - prev.root;
+  if (location === "right" || location === "bottom") mov *= -1;
+  return {
+    ...prev,
+    size: clamp(prev.marker + mov, minSize, maxSize),
+  };
 };
 
 export const anyExceedsBounds = (nums: number[], min: number, max: number): boolean => {

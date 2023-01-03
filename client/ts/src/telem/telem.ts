@@ -9,6 +9,8 @@
 
 import { registerCustomTypeEncoder } from "@synnaxlabs/freighter";
 
+import { ValidationError } from "@/errors";
+
 const valueOfEncoder = (value: unknown): unknown => value?.valueOf();
 
 /** Represents a nanosecond precision UTC timestamp. */
@@ -16,19 +18,13 @@ export class TimeStamp extends Number {
   constructor(value: UnparsedTimeStamp) {
     if (value instanceof Number) super(value.valueOf());
     else if (value instanceof Date)
-      super(value.getTime() * TimeStamp.Millisecond.valueOf());
+      super(value.getTime() * TimeStamp.MILLISECOND.valueOf());
     else super(value);
   }
 
-  /**
-   * @returns A JavaScript Date object representing the TimeStamp.
-   */
+  /** @returns A JavaScript Date object representing the TimeStamp. */
   date(): Date {
     return new Date(this.milliseconds());
-  }
-
-  static now(): TimeStamp {
-    return new TimeStamp(new Date());
   }
 
   /**
@@ -49,7 +45,7 @@ export class TimeStamp extends Number {
    *   The span is guaranteed to be positive.
    */
   span(other: UnparsedTimeStamp): TimeSpan {
-    return this.range(other).span();
+    return this.range(other).span;
   }
 
   /**
@@ -80,7 +76,7 @@ export class TimeStamp extends Number {
    *
    * @returns True if the TimeStamp represents the unix epoch, false otherwise.
    */
-  isZero(): boolean {
+  get isZero(): boolean {
     return this.valueOf() === 0;
   }
 
@@ -154,8 +150,57 @@ export class TimeStamp extends Number {
    * @returns The number of milliseconds since the unix epoch.
    */
   milliseconds(): number {
-    return this.valueOf() / TimeStamp.Millisecond.valueOf();
+    return this.valueOf() / TimeStamp.MILLISECOND.valueOf();
   }
+
+  /**
+   * @returns A new TimeStamp representing the current time in UTC. It's important to
+   * note that this TimeStamp is only accurate to the millisecond level (that's the best
+   * JavaScript can do).
+   */
+  static now(): TimeStamp {
+    return new TimeStamp(new Date());
+  }
+
+  /** @returns a new TimeStamp n nanoseconds after the unix epoch */
+  static nanoseconds(value: UnparsedTimeStamp): TimeStamp {
+    return new TimeStamp(value);
+  }
+
+  /* One nanosecond after the unix epoch */
+  static readonly NANOSECOND = TimeStamp.nanoseconds(1);
+
+  /** @returns a new TimeStamp n microseconds after the unix epoch */
+  static microseconds(value: UnparsedTimeStamp): TimeStamp {
+    return TimeStamp.nanoseconds(value.valueOf() * 1000);
+  }
+
+  /** One microsecond after the unix epoch */
+  static readonly MICROSECOND = TimeStamp.microseconds(1);
+
+  /** @returns a new TimeStamp n milliseconds after the unix epoch */
+  static milliseconds(value: UnparsedTimeStamp): TimeStamp {
+    return TimeStamp.microseconds(value.valueOf() * 1000);
+  }
+
+  /** One millisecond after the unix epoch */
+  static readonly MILLISECOND = TimeStamp.milliseconds(1);
+
+  /** @returns a new TimeStamp n seconds after the unix epoch */
+  static seconds(value: UnparsedTimeStamp): TimeStamp {
+    return TimeStamp.milliseconds(value.valueOf() * 1000);
+  }
+
+  /** One second after the unix epoch */
+  static readonly SECOND = TimeStamp.seconds(1);
+
+  /** @returns a new TimeStamp n minutes after the unix epoch */
+  static minutes(value: UnparsedTimeStamp): TimeStamp {
+    return TimeStamp.seconds(value.valueOf() * 60);
+  }
+
+  /** One minute after the unix epoch */
+  static readonly MINUTE = TimeStamp.minutes(1);
 
   /** The maximum possible value for a timestamp */
   static readonly MAX = new TimeStamp(TimeStamp.MAX_SAFE_INTEGER);
@@ -165,46 +210,6 @@ export class TimeStamp extends Number {
 
   /** The unix epoch */
   static readonly ZERO = new TimeStamp(0);
-
-  /* One nanosecond after the unix epoch */
-  static readonly Nanosecond = TimeStamp.Nanoseconds(1);
-
-  /** @returns a new TimeStamp n nanoseconds after the unix epoch */
-  static Nanoseconds(value: UnparsedTimeStamp): TimeStamp {
-    return new TimeStamp(value);
-  }
-
-  /** One microsecond after the unix epoch */
-  static readonly Microsecond = TimeStamp.Microseconds(1);
-
-  /** @returns a new TimeStamp n microseconds after the unix epoch */
-  static Microseconds(value: UnparsedTimeStamp): TimeStamp {
-    return TimeStamp.Nanoseconds(value.valueOf() * 1000);
-  }
-
-  /** One millisecond after the unix epoch */
-  static readonly Millisecond = TimeStamp.Milliseconds(1);
-
-  /** @returns a new TimeStamp n milliseconds after the unix epoch */
-  static Milliseconds(value: UnparsedTimeStamp): TimeStamp {
-    return TimeStamp.Microseconds(value.valueOf() * 1000);
-  }
-
-  /** One second after the unix epoch */
-  static readonly Second = TimeStamp.Seconds(1);
-
-  /** @returns a new TimeStamp n seconds after the unix epoch */
-  static Seconds(value: UnparsedTimeStamp): TimeStamp {
-    return TimeStamp.Milliseconds(value.valueOf() * 1000);
-  }
-
-  /** One minute after the unix epoch */
-  static readonly Minute = TimeStamp.Minutes(1);
-
-  /** @returns a new TimeStamp n minutes after the unix epoch */
-  static Minutes(value: UnparsedTimeStamp): TimeStamp {
-    return TimeStamp.Seconds(value.valueOf() * 60);
-  }
 }
 
 /** TimeSpan represents a nanosecond precision duration. */
@@ -215,13 +220,13 @@ export class TimeSpan extends Number {
   }
 
   /** @returns The number of seconds in the TimeSpan. */
-  seconds(): number {
-    return this.valueOf() / TimeSpan.Seconds(1).valueOf();
+  get seconds(): number {
+    return this.valueOf() / TimeSpan.SECOND.valueOf();
   }
 
   /** @returns The number of milliseconds in the TimeSpan. */
-  milliseconds(): number {
-    return this.valueOf() / TimeSpan.Milliseconds(1).valueOf();
+  get milliseconds(): number {
+    return this.valueOf() / TimeSpan.MILLISECOND.valueOf();
   }
 
   /**
@@ -229,7 +234,7 @@ export class TimeSpan extends Number {
    *
    * @returns True if the TimeSpan represents a zero duration, false otherwise.
    */
-  isZero(): boolean {
+  get isZero(): boolean {
     return this.valueOf() === 0;
   }
 
@@ -266,12 +271,12 @@ export class TimeSpan extends Number {
    * @param value - The number of nanoseconds.
    * @returns A TimeSpan representing the given number of nanoseconds.
    */
-  static Nanoseconds(value: UnparsedTimeSpan = 1): TimeSpan {
+  static nanoseconds(value: UnparsedTimeSpan = 1): TimeSpan {
     return new TimeSpan(value);
   }
 
   /** A nanosecond. */
-  static readonly Nanosecond = TimeSpan.Nanoseconds(1);
+  static readonly NANOSECOND = TimeSpan.nanoseconds(1);
 
   /**
    * Creates a TimeSpan representing the given number of microseconds.
@@ -279,12 +284,12 @@ export class TimeSpan extends Number {
    * @param value - The number of microseconds.
    * @returns A TimeSpan representing the given number of microseconds.
    */
-  static Microseconds(value: UnparsedTimeStamp = 1): TimeSpan {
-    return TimeSpan.Nanoseconds(value.valueOf() * 1000);
+  static microseconds(value: UnparsedTimeStamp = 1): TimeSpan {
+    return TimeSpan.nanoseconds(value.valueOf() * 1000);
   }
 
   /** A microsecond. */
-  static readonly Microsecond = TimeSpan.Microseconds(1);
+  static readonly MICROSECOND = TimeSpan.microseconds(1);
 
   /**
    * Creates a TimeSpan representing the given number of milliseconds.
@@ -292,12 +297,12 @@ export class TimeSpan extends Number {
    * @param value - The number of milliseconds.
    * @returns A TimeSpan representing the given number of milliseconds.
    */
-  static Milliseconds(value: UnparsedTimeStamp = 1): TimeSpan {
-    return TimeSpan.Microseconds(value.valueOf() * 1000);
+  static milliseconds(value: UnparsedTimeStamp = 1): TimeSpan {
+    return TimeSpan.microseconds(value.valueOf() * 1000);
   }
 
   /** A millisecond. */
-  static readonly Millisecond = TimeSpan.Milliseconds(1);
+  static readonly MILLISECOND = TimeSpan.milliseconds(1);
 
   /**
    * Creates a TimeSpan representing the given number of seconds.
@@ -305,12 +310,12 @@ export class TimeSpan extends Number {
    * @param value - The number of seconds.
    * @returns A TimeSpan representing the given number of seconds.
    */
-  static Seconds(value: UnparsedTimeStamp = 1): TimeSpan {
-    return TimeSpan.Milliseconds(value.valueOf() * 1000);
+  static seconds(value: UnparsedTimeStamp = 1): TimeSpan {
+    return TimeSpan.milliseconds(value.valueOf() * 1000);
   }
 
   /** A second. */
-  static readonly Second = TimeSpan.Seconds(1);
+  static readonly SECOND = TimeSpan.seconds(1);
 
   /**
    * Creates a TimeSpan representing the given number of minutes.
@@ -318,12 +323,12 @@ export class TimeSpan extends Number {
    * @param value - The number of minutes.
    * @returns A TimeSpan representing the given number of minutes.
    */
-  static Minutes(value: UnparsedTimeStamp = 1): TimeSpan {
-    return TimeSpan.Seconds(value.valueOf() * 60);
+  static minutes(value: UnparsedTimeStamp = 1): TimeSpan {
+    return TimeSpan.seconds(value.valueOf() * 60);
   }
 
   /** A minute. */
-  static readonly Minute = TimeSpan.Minutes(1);
+  static readonly MINUTE = TimeSpan.minutes(1);
 
   /**
    * Creates a TimeSpan representing the given number of hours.
@@ -331,12 +336,12 @@ export class TimeSpan extends Number {
    * @param value - The number of hours.
    * @returns A TimeSpan representing the given number of hours.
    */
-  static Hours(value: UnparsedTimeStamp = 1): TimeSpan {
-    return TimeSpan.Minutes(value.valueOf() * 60);
+  static hours(value: UnparsedTimeStamp = 1): TimeSpan {
+    return TimeSpan.minutes(value.valueOf() * 60);
   }
 
   /** Represents an hour. */
-  static readonly Hour = TimeSpan.Hours(1);
+  static readonly HOUR = TimeSpan.hours(1);
 
   /**
    * Creates a TimeSpan representing the given number of days.
@@ -344,21 +349,21 @@ export class TimeSpan extends Number {
    * @param value - The number of days.
    * @returns A TimeSpan representing the given number of days.
    */
-  static Days(value: UnparsedTimeStamp = 1): TimeSpan {
-    return TimeSpan.Hours(value.valueOf() * 24);
+  static days(value: UnparsedTimeStamp = 1): TimeSpan {
+    return TimeSpan.hours(value.valueOf() * 24);
   }
 
   /** Represents a day. */
-  static readonly Day = TimeSpan.Days(1);
+  static readonly DAY = TimeSpan.days(1);
 
   /** The maximum possible value for a TimeSpan. */
-  static readonly Max = new TimeSpan(this.MAX_SAFE_INTEGER);
+  static readonly MAX = new TimeSpan(this.MAX_SAFE_INTEGER);
 
   /** The minimum possible value for a TimeSpan. */
-  static readonly Min = new TimeSpan(-this.MAX_SAFE_INTEGER);
+  static readonly MIN = new TimeSpan(-this.MAX_SAFE_INTEGER);
 
   /** The zero value for a TimeSpan. */
-  static readonly Zero = new TimeSpan(0);
+  static readonly ZERO = new TimeSpan(0);
 }
 
 /** Rate represents a data rate in Hz. */
@@ -368,6 +373,7 @@ export class Rate extends Number {
     else super(value);
   }
 
+  /** @returns a pretty string representation of the rate in the format "X Hz". */
   toString(): string {
     return `${this.valueOf()} Hz`;
   }
@@ -382,8 +388,8 @@ export class Rate extends Number {
    *
    * @returns A TimeSpan representing the period of the Rate.
    */
-  period(): TimeSpan {
-    return new TimeSpan(TimeSpan.Seconds(this.valueOf()).valueOf());
+  get period(): TimeSpan {
+    return TimeSpan.seconds(this.valueOf());
   }
 
   /**
@@ -393,7 +399,7 @@ export class Rate extends Number {
    * @returns The number of samples in the given TimeSpan at this rate.
    */
   sampleCount(duration: UnparsedTimeSpan): number {
-    return new TimeSpan(duration).seconds() * this.valueOf();
+    return new TimeSpan(duration).seconds * this.valueOf();
   }
 
   /**
@@ -414,7 +420,7 @@ export class Rate extends Number {
    * @returns A TimeSpan that corresponds to the given number of samples.
    */
   span(sampleCount: number): TimeSpan {
-    return TimeSpan.Seconds(sampleCount / this.valueOf());
+    return TimeSpan.seconds(sampleCount / this.valueOf());
   }
 
   /**
@@ -434,7 +440,7 @@ export class Rate extends Number {
    * @param value - The number of Hz.
    * @returns A Rate representing the given number of Hz.
    */
-  static Hz(value: number): Rate {
+  static hz(value: number): Rate {
     return new Rate(value);
   }
 
@@ -444,8 +450,8 @@ export class Rate extends Number {
    * @param value - The number of kHz.
    * @returns A Rate representing the given number of kHz.
    */
-  static KHz(value: number): Rate {
-    return Rate.Hz(value * 1000);
+  static khz(value: number): Rate {
+    return Rate.hz(value * 1000);
   }
 }
 
@@ -463,16 +469,20 @@ export class Density extends Number {
     else super(value);
   }
 
-  /** Represents an Unknown/Invalid Density. */
-  static readonly Unknown = new Density(0);
-  /** Represents a Density of 64 bits per value. */
-  static readonly Bit64 = new Density(8);
-  /** Represents a Density of 32 bits per value. */
-  static readonly Bit32 = new Density(4);
-  /** Represents a Density of 16 bits per value. */
-  static readonly Bit16 = new Density(2);
-  /** Represents a Density of 8 bits per value. */
-  static readonly Bit8 = new Density(1);
+  /** Unknown/Invalid Density. */
+  static readonly UNKNOWN = new Density(0);
+
+  /** 64 bits per value. */
+  static readonly BIT64 = new Density(8);
+
+  /** 32 bits per value. */
+  static readonly BIT32 = new Density(4);
+
+  /** 16 bits per value. */
+  static readonly BIT16 = new Density(2);
+
+  /** 8 bits per value. */
+  static readonly BIT8 = new Density(1);
 }
 
 /**
@@ -499,7 +509,7 @@ export class TimeRange {
   }
 
   /** @returns The TimeSpan occupied by the TimeRange. */
-  span(): TimeSpan {
+  get span(): TimeSpan {
     return new TimeSpan(this.end.valueOf() - this.start.valueOf());
   }
 
@@ -508,7 +518,7 @@ export class TimeRange {
    *
    * @returns True if the TimeRange is valid.
    */
-  isValid(): boolean {
+  get isValid(): boolean {
     return this.start.valueOf() <= this.end.valueOf();
   }
 
@@ -518,7 +528,7 @@ export class TimeRange {
    * @returns A TimeRange that is valid.
    */
   makeValid(): TimeRange {
-    return this.isValid() ? this : this.swap();
+    return this.isValid ? this : this.swap();
   }
 
   /**
@@ -526,8 +536,8 @@ export class TimeRange {
    *
    * @returns True if the TimeRange has a zero span.
    */
-  isZero(): boolean {
-    return this.span().isZero();
+  get isZero(): boolean {
+    return this.span.isZero;
   }
 
   /**
@@ -549,115 +559,168 @@ export class TimeRange {
     return this.start.equals(other.start) && this.end.equals(other.end);
   }
 
-  static readonly Max = new TimeRange(TimeStamp.MIN, TimeStamp.MAX);
+  /** The maximum possible time range. */
+  static readonly MAX = new TimeRange(TimeStamp.MIN, TimeStamp.MAX);
+
+  /** The minimum possible time range. */
+  static readonly MIN = new TimeRange(TimeStamp.MAX, TimeStamp.MIN);
+
+  /** A zero time range. */
+  static readonly ZERO = new TimeRange(TimeStamp.ZERO, TimeStamp.ZERO);
 }
 
 /** DataType is a string that represents a data type. */
 export class DataType extends String {
   constructor(value: UnparsedDataType) {
-    if (typeof value === "string") {
-      super(value);
-    } else {
-      super(value.valueOf());
-    }
+    super(value.valueOf());
   }
 
-  get Array(): TypedArrayConstructor {
-    const v = ARRAY_CONSTRUCTORS.get(this.string);
-    if (v === undefined) {
-      throw new Error(`Unknown data type: ${this.string}`);
-    }
+  /**
+   * @returns the TypedArray constructor for the DataType.
+   */
+  get Array(): NativeTypedArrayConstructor {
+    const v = ARRAY_CONSTRUCTORS.get(this);
+    if (v == null)
+      throw new ValidationError(
+        `unable to find array constructor for ${this.valueOf()}`
+      );
     return v;
   }
 
-  get string(): string {
+  /** @returns a string representation of the DataType. */
+  toString(): string {
     return this.valueOf();
   }
 
   get density(): Density {
-    const v = DATA_TYPE_DENSITIES.get(this.string);
-    if (v === undefined) {
-      throw new Error(`Unknown data type: ${this.string}`);
-    }
+    const v = DATA_TYPE_DENSITIES.get(this);
+    if (v == null)
+      throw new ValidationError(`unable to find density for ${this.valueOf()}`);
     return v;
   }
 
-  checkArray(array: TypedArray): boolean {
+  /**
+   * Checks whether the given TypedArray is of the same type as the DataType.
+   *
+   * @param array - The TypedArray to check.
+   * @returns True if the TypedArray is of the same type as the DataType.
+   */
+  checkArray(array: NativeTypedArray): boolean {
     return array.constructor === this.Array;
   }
 
   toJSON(): string {
-    return this.string;
+    return this.toString();
   }
 
   /** Represents an Unknown/Invalid DataType. */
   static readonly Unknown = new DataType("unknown");
   /** Represents a 64-bit floating point value. */
-  static readonly Float64 = new DataType("float64");
+  static readonly FLOAT64 = new DataType("float64");
   /** Represents a 32-bit floating point value. */
-  static readonly Float32 = new DataType("float32");
+  static readonly FLOAT32 = new DataType("float32");
   /** Represents a 64-bit signed integer value. */
-  static readonly Int64 = new DataType("int64");
+  static readonly INT64 = new DataType("int64");
   /** Represents a 32-bit signed integer value. */
-  static readonly Int32 = new DataType("int32");
+  static readonly INT32 = new DataType("int32");
   /** Represents a 16-bit signed integer value. */
-  static readonly Int16 = new DataType("int16");
+  static readonly INT16 = new DataType("int16");
   /** Represents a 8-bit signed integer value. */
-  static readonly Int8 = new DataType("int8");
+  static readonly INT8 = new DataType("int8");
   /** Represents a 64-bit unsigned integer value. */
-  static readonly Uint64 = new DataType("uint64");
+  static readonly UINT64 = new DataType("uint64");
   /** Represents a 32-bit unsigned integer value. */
-  static readonly Uint32 = new DataType("uint32");
+  static readonly UINT32 = new DataType("uint32");
   /** Represents a 16-bit unsigned integer value. */
-  static readonly Uint16 = new DataType("uint16");
+  static readonly UINT16 = new DataType("uint16");
   /** Represents a 8-bit unsigned integer value. */
-  static readonly Uint8 = new DataType("uint8");
+  static readonly UINT8 = new DataType("uint8");
   /** Represents a 64-bit unix epoch. */
-  static readonly TimeStamp = new DataType("timestamp");
+  static readonly TIMESTAMP = new DataType("timestamp");
 }
 
+/**
+ * The Size of an elementy in bytes.
+ */
 export class Size extends Number {
   constructor(value: UnparsedSize) {
     super(value.valueOf());
   }
 
+  /** @returns true if the Size is larger than the other size. */
   largerThan(other: Size): boolean {
     return this.valueOf() > other.valueOf();
   }
 
+  /** @returns true if the Size is smaller than the other sisze. */
   smallerThan(other: Size): boolean {
     return this.valueOf() < other.valueOf();
   }
 
-  static Bytes(value: UnparsedSize): Size {
+  /**
+   * Creates a Size from the given number of bytes.
+   *
+   * @param value - The number of bytes.
+   * @returns A Size representing the given number of bytes.
+   */
+  static bytes(value: UnparsedSize = 1): Size {
     return new Size(value);
   }
 
-  static readonly Byte = new Size(1);
+  /** A single byte */
+  static readonly BYTE = new Size(1);
 
-  static Kilobytes(value: UnparsedSize): Size {
-    return Size.Bytes(value.valueOf() * 1e3);
+  /**
+   * Creates a Size from the given number if kilobytes.
+   *
+   * @param value - The number of kilobytes.
+   * @returns A Size representing the given number of kilobytes.
+   */
+  static kilobytes(value: UnparsedSize = 1): Size {
+    return Size.bytes(value.valueOf() * 1e3);
   }
 
-  static readonly Kilobyte = Size.Kilobytes(1);
+  /** A kilobyte */
+  static readonly KILOBYTE = Size.kilobytes(1);
 
-  static Megabytes(value: UnparsedSize): Size {
-    return Size.Kilobytes(value.valueOf() * 1e3);
+  /**
+   * Creates a Size from the given number of megabytes.
+   *
+   * @param value - The number of megabytes.
+   * @returns A Size representing the given number of megabytes.
+   */
+  static megabytes(value: UnparsedSize = 1): Size {
+    return Size.kilobytes(value.valueOf() * 1e3);
   }
 
-  static readonly Megabyte = Size.Megabytes(1);
+  /** A megabyte */
+  static readonly MEGABYTE = Size.megabytes(1);
 
-  static Gigabytes(value: UnparsedSize): Size {
-    return Size.Megabytes(value.valueOf() * 1e3);
+  /**
+   * Creates a Size from the given number of gigabytes.
+   *
+   * @param value - The number of gigabytes.
+   * @returns A Size representing the given number of gigabytes.
+   */
+  static gigabytes(value: UnparsedSize = 1): Size {
+    return Size.megabytes(value.valueOf() * 1e3);
   }
 
-  static readonly Gigabyte = Size.Gigabytes(1);
+  /** A gigabyte */
+  static readonly GIGABYTE = Size.gigabytes(1);
 
-  static Terabytes(value: UnparsedSize): Size {
-    return Size.Gigabytes(value.valueOf() * 1e3);
+  /**
+   * Creates a Size from the given number of terabytes.
+   *
+   * @param value - The number of terabytes.
+   * @returns  A Size representing the given number of terabytes.
+   */
+  static terabytes(value: UnparsedSize): Size {
+    return Size.gigabytes(value.valueOf() * 1e3);
   }
 
-  static readonly Terabyte = Size.Terabytes(1);
+  /** A terabyte. */
+  static readonly TERABYTE = Size.terabytes(1);
 }
 
 export type UnparsedTimeStamp = TimeStamp | TimeSpan | number | Date;
@@ -671,12 +734,12 @@ registerCustomTypeEncoder({ Class: TimeStamp, write: valueOfEncoder });
 registerCustomTypeEncoder({ Class: TimeSpan, write: valueOfEncoder });
 registerCustomTypeEncoder({
   Class: DataType,
-  write: (v: unknown) => (v as DataType).string,
+  write: (v: unknown) => (v as DataType).toString,
 });
 registerCustomTypeEncoder({ Class: Rate, write: valueOfEncoder });
 registerCustomTypeEncoder({ Class: Density, write: valueOfEncoder });
 
-export type TypedArray =
+export type NativeTypedArray =
   | Uint8Array
   | Uint16Array
   | Uint32Array
@@ -688,7 +751,7 @@ export type TypedArray =
   | Int32Array
   | BigInt64Array;
 
-type TypedArrayConstructor =
+type NativeTypedArrayConstructor =
   | Uint8ArrayConstructor
   | Uint16ArrayConstructor
   | Uint32ArrayConstructor
@@ -700,33 +763,33 @@ type TypedArrayConstructor =
   | Int32ArrayConstructor
   | BigInt64ArrayConstructor;
 
-const ARRAY_CONSTRUCTORS: Map<string, TypedArrayConstructor> = new Map<
-  string,
-  TypedArrayConstructor
+const ARRAY_CONSTRUCTORS: Map<DataType, NativeTypedArrayConstructor> = new Map<
+  DataType,
+  NativeTypedArrayConstructor
 >([
-  [DataType.Uint8.string, Uint8Array],
-  [DataType.Uint16.string, Uint16Array],
-  [DataType.Uint32.string, Uint32Array],
-  [DataType.Uint64.string, BigUint64Array],
-  [DataType.Float32.string, Float32Array],
-  [DataType.Float64.string, Float64Array],
-  [DataType.Int8.string, Int8Array],
-  [DataType.Int16.string, Int16Array],
-  [DataType.Int32.string, Int32Array],
-  [DataType.Int64.string, BigInt64Array],
-  [DataType.TimeStamp.string, BigInt64Array],
+  [DataType.UINT8, Uint8Array],
+  [DataType.UINT16, Uint16Array],
+  [DataType.UINT32, Uint32Array],
+  [DataType.UINT64, BigUint64Array],
+  [DataType.FLOAT32, Float32Array],
+  [DataType.FLOAT64, Float64Array],
+  [DataType.INT8, Int8Array],
+  [DataType.INT16, Int16Array],
+  [DataType.INT32, Int32Array],
+  [DataType.INT64, BigInt64Array],
+  [DataType.TIMESTAMP, BigInt64Array],
 ]);
 
-const DATA_TYPE_DENSITIES = new Map<string, Density>([
-  [DataType.Uint8.string, Density.Bit8],
-  [DataType.Uint16.string, Density.Bit16],
-  [DataType.Uint32.string, Density.Bit32],
-  [DataType.Uint64.string, Density.Bit64],
-  [DataType.Float32.string, Density.Bit32],
-  [DataType.Float64.string, Density.Bit64],
-  [DataType.Int8.string, Density.Bit8],
-  [DataType.Int16.string, Density.Bit16],
-  [DataType.Int32.string, Density.Bit32],
-  [DataType.Int64.string, Density.Bit64],
-  [DataType.TimeStamp.string, Density.Bit64],
+const DATA_TYPE_DENSITIES = new Map<DataType, Density>([
+  [DataType.UINT8, Density.BIT8],
+  [DataType.UINT16, Density.BIT16],
+  [DataType.UINT32, Density.BIT32],
+  [DataType.UINT64, Density.BIT64],
+  [DataType.FLOAT32, Density.BIT32],
+  [DataType.FLOAT64, Density.BIT64],
+  [DataType.INT8, Density.BIT8],
+  [DataType.INT16, Density.BIT16],
+  [DataType.INT32, Density.BIT32],
+  [DataType.INT64, Density.BIT64],
+  [DataType.TIMESTAMP, Density.BIT64],
 ]);

@@ -9,8 +9,8 @@
 
 import { describe, expect, test } from "vitest";
 
-import { newClient } from "../../setupspecs";
 import { Channel } from "../channel";
+import { newClient } from "../setupspecs";
 import { DataType, Rate, TimeSpan, TimeStamp } from "../telem";
 import { randomTypedArray } from "../util/telem";
 
@@ -20,8 +20,8 @@ const newChannel = async (): Promise<Channel> => {
   return await client.channel.create({
     name: "test",
     nodeId: 1,
-    rate: Rate.Hz(1),
-    dataType: DataType.Float64,
+    rate: Rate.hz(1),
+    dataType: DataType.FLOAT64,
   });
 };
 
@@ -43,8 +43,8 @@ describe("Writer", () => {
     test("Client - basic write", async () => {
       const ch = await newChannel();
       const data = randomTypedArray(10, ch.dataType);
-      await client.data.write(ch.key, TimeStamp.Seconds(1), data);
-      await client.data.read(ch.key, TimeSpan.Zero, TimeSpan.Seconds(10000000));
+      await client.data.write(ch.key, TimeStamp.seconds(1), data);
+      await client.data.read(ch.key, TimeSpan.ZERO, TimeSpan.seconds(10000000));
       expect(data.length).toEqual(10);
     });
   });

@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import Synnax, { SynnaxProps } from './lib/client';
+import Synnax, { SynnaxProps } from "@/client";
 
-export const HOST = 'localhost';
+export const HOST = "localhost";
 export const PORT = 9090;
 
 export const newClient = (...props: SynnaxProps[]): Synnax => {
@@ -18,8 +18,8 @@ export const newClient = (...props: SynnaxProps[]): Synnax => {
   return new Synnax({
     host: HOST,
     port: PORT,
-    username: 'synnax',
-    password: 'seldon',
+    username: "synnax",
+    password: "seldon",
     ..._props,
   });
 };

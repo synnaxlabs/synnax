@@ -1,6 +1,3 @@
-<<<<<<< HEAD:pluto/src/atoms/AutoSize/Autosize.tsx
-import { ReactElement, cloneElement, useRef, FunctionComponent } from "react";
-=======
 // Copyright 2022 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
@@ -10,8 +7,7 @@ import { ReactElement, cloneElement, useRef, FunctionComponent } from "react";
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ComponentType, ReactElement, cloneElement, useRef } from "react";
->>>>>>> main:pluto/src/atoms/AutoSize/AutoSize.tsx
+import { FunctionComponent, ReactElement, cloneElement, useRef } from "react";
 
 import { useSize } from "@/hooks";
 
@@ -39,11 +35,9 @@ export const Autosize = ({
   ...props
 }: AutosizeProps): JSX.Element => {
   const ref = useRef<HTMLDivElement>(null);
-  const { width, height } = useSize({ ref, debounce });
+  const size = useSize({ ref, debounce });
   const content: ReactElement | null =
-    typeof children === "function"
-      ? children({ width, height })
-      : cloneElement(children, { width, height });
+    typeof children === "function" ? children(size) : cloneElement(children, size);
   return (
     <div ref={ref} {...props}>
       {content}

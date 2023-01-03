@@ -7,16 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useEffect, useRef, useState } from "react";
+import { CSSProperties, useEffect, useState } from "react";
 
 import { Synnax } from "@synnaxlabs/client";
-import { Autosize, LinePlot as PlutoLinePlot, Theming } from "@synnaxlabs/pluto";
-import type { PlotData } from "@synnaxlabs/pluto";
+import { Autosize, useDrag, UseSizeReturn } from "@synnaxlabs/pluto";
 
+import { useRenderer } from "../../components/Canvas";
+import { Box, PointBox } from "../../render/box";
 import { Visualization } from "../../types";
 
-import { LinePlotControls } from "./LinePlotControls";
 import "./LinePlot.css";
+import { sort } from "d3";
 
 export interface LinePlotProps {
   visualization: SugaredLinePlotVisualization;
@@ -25,92 +26,111 @@ export interface LinePlotProps {
   resizeDebounce: number;
 }
 
-function usePrevious<V>(value: V): V | undefined {
-  const ref = useRef<V>();
-  useEffect(() => {
-    ref.current = value;
-  }, [value]);
-  return ref.current;
-}
-
-export const LinePlot = ({
-  visualization,
-  client,
-  onChange,
-  resizeDebounce,
-}: LinePlotProps): JSX.Element => {
-  const { axes, series, y1: channels, ranges } = visualization;
-  const [data, setData] = useState<PlotData>({});
-  const {
-    theme: { colors },
-  } = Theming.useContext();
-  const prevVisu = usePrevious(visualization);
-
-  useEffect(() => {
-    if (
-      prevVisu != null &&
-      prevVisu.y1.length === visualization.y1.length &&
-      prevVisu.ranges.length === visualization.ranges.length
-    )
-      return;
-    void (async () => {
-      const nextData: PlotData = {};
-      for (const range of ranges) {
-        for (const key of channels) {
-          const data = await client.data.read(key, range.start, range.end);
-          if (data != null) nextData[key] = data as unknown as any[];
-          if (channels.indexOf(key) === channels.length - 1) {
-            nextData.time = Array.from({ length: data?.length ?? 0 }, (_, i) => i);
-          }
-        }
-      }
-      setData(nextData);
-      const nextV: LinePlotVisualization = {
-        ...visualization,
-        ranges: ranges.map((range) => range.key),
-        series: channels.map((ch) => ({
-          label: ch,
-          x: "time",
-          y: ch,
-          color: colors.visualization.palettes.default[channels.indexOf(ch)],
-          axis: "y",
-        })),
-        axes: [
-          {
-            key: "x",
-            location: "bottom",
-            label: "x",
-          },
-          {
-            key: "y",
-            location: "left",
-            label: "y",
-          },
-        ],
-        y1: channels,
-      };
-      onChange(nextV);
-    })();
-  }, [client, channels, ranges]);
-
+export const LinePlot = (): JSX.Element => {
   return (
     <div className="delta-line-plot__container">
-      <Autosize className="delta-line-plot__plot__container" debounce={resizeDebounce}>
-        {({ width, height }) => (
-          <PlutoLinePlot
-            width={width}
-            height={height}
-            data={data}
-            axes={axes}
-            series={series}
-          />
+      <Autosize className="delta-line-plot__plot__container" debounce={100}>
+        {({ width, height, left, top }) => (
+          <>
+            <CorePlot width={width} height={height} left={left} top={top} />
+          </>
         )}
       </Autosize>
-      <LinePlotControls
-        visualization={visualization}
-        onChange={onChange}
-        client={client}
-      />
     </div>
+  );
+};
+
+const count = 1e4 * 5;
+const xData = Float32Array.from({ length: count }, (_, i) => i / count);
+const yData = Float32Array.from({ length: count }, (_, i) => {
+  // generate a step function
+  // return Math.sin(i / 500000);
+  const x = i / count;
+  if (x < 0.25) {
+    return 0;
+  } else if (x < 0.5) {
+    return 0.25;
+  } else if (x < 0.75) {
+    return 0.5;
+  } else {
+    return 0.75;
+  }
+});
+
+const sorted = sort(yData);
+const min = sorted[0];
+const max = sorted[sorted.length - 1];
+
+const CorePlot = ({ width, height, left, top }: UseSizeReturn): JSX.Element => {
+  const render = useRenderer();
+
+  useEffect(() => {
+    render({
+      box: {
+        width,
+        height,
+        left,
+        top,
+      },
+      lines: [
+        {
+          x: xData,
+          y: yData,
+          scale: {
+            x: 1,
+            y: 1 / ((max - min) * 1.1),
+          },
+          offset: {
+            x: 0,
+            y: 0.1,
+          },
+          color: [Math.random(), Math.random(), Math.random(), 1],
+        },
+      ],
+    });
+  }, [width, height, left, top]);
+
+  const [zoomMask, setZoomMask] = useState<PointBox | null>(null);
+
+  const onZoomDrag = (e: MouseEvent): void =>
+    setZoomMask((prev) => ({
+      ...(prev ?? { one: { x: e.clientX, y: e.clientY } }),
+      two: {
+        x: e.clientX,
+        y: e.clientY,
+      },
+    }));
+
+  const dragProps = useDrag({
+    onMove: onZoomDrag,
+    onEnd: () => {
+      setZoomMask(null);
+    },
+  });
+
+  const zoomMaskStyle: CSSProperties | null = {
+    position: "fixed",
+    backgroundColor: "rgba(0, 0, 0, 0.2)",
+  };
+
+  if (zoomMask != null) {
+    zoomMaskStyle.width = Math.abs(zoomMask.one.x - zoomMask.two.x);
+    zoomMaskStyle.height = Math.abs(zoomMask.one.y - zoomMask.two.y);
+    zoomMaskStyle.left = Math.min(zoomMask.one.x, zoomMask.two.x);
+    zoomMaskStyle.top = Math.min(zoomMask.one.y, zoomMask.two.y);
+    if (zoomMaskStyle.height < 35) {
+      zoomMaskStyle.height = height;
+      zoomMaskStyle.top = top;
+    } else if (zoomMaskStyle.width < 35) {
+      zoomMaskStyle.width = width;
+      zoomMaskStyle.left = left;
+    }
+  }
+
+  return (
+    <>
+      <div style={{ width, height }} onMouseDown={dragProps.onDragStart} />;
+      {zoomMaskStyle != null && <div style={zoomMaskStyle} />}
+    </>
   );
 };

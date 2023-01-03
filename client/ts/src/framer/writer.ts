@@ -15,7 +15,7 @@ import { z } from "zod";
 import { ChannelPayload } from "../channel";
 import ChannelRegistry from "../channel/registry";
 import { GeneralError } from "../errors";
-import { TimeStamp, TypedArray, UnparsedTimeStamp } from "../telem";
+import { TimeStamp, NativeTypedArray, UnparsedTimeStamp } from "../telem";
 
 import { frameFromRecord, FramePayload, framePayloadSchema } from "./payload";
 
@@ -249,7 +249,7 @@ export class RecordWriter {
    * @returns false if the writer has accumulated an error. In this case,
    * the caller should stop executing requests and close the writer.
    */
-  async write(record: Record<string, TypedArray>): Promise<boolean> {
+  async write(record: Record<string, NativeTypedArray>): Promise<boolean> {
     return await this.core.write(frameFromRecord(this.channels, record));
   }
 

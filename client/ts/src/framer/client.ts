@@ -8,11 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import Registry from "../channel/registry";
-import { TimeRange, TypedArray, UnparsedTimeStamp } from "../telem";
+import { TimeRange, NativeTypedArray, UnparsedTimeStamp, TypedArray } from "../telem";
 import Transport from "../transport";
 
 import { AUTO_SPAN, TypedIterator } from "./iterator";
-import { ArrayPayload } from "./payload";
 import { RecordWriter } from "./writer";
 
 export default class FrameClient {
@@ -70,7 +69,11 @@ export default class FrameClient {
    * data type as the channel.
    * @throws if the channel does not exist.
    */
-  async write(to: string, start: UnparsedTimeStamp, data: TypedArray): Promise<void> {
+  async write(
+    to: string,
+    start: UnparsedTimeStamp,
+    data: NativeTypedArray
+  ): Promise<void> {
     const writer = await this.newWriter(start, [to]);
     await writer.write({ [to]: data });
     if (!(await writer.commit())) throw new Error("Failed to commit.");
@@ -91,11 +94,11 @@ export default class FrameClient {
     from: string,
     start: UnparsedTimeStamp,
     end: UnparsedTimeStamp
-  ): Promise<TypedArray | undefined> {
+  ): Promise<NativeTypedArray | undefined> {
     const arr = await this.readArray(from, start, end);
     if (arr == null || arr.dataType == null)
       throw new Error(`Channel ${from} does not exist.`);
-    return new arr.dataType.Array(arr.data.buffer);
+    return new arr.dataType.Array(arr.data);
   }
 
   /**
@@ -112,15 +115,15 @@ export default class FrameClient {
     from: string,
     start: UnparsedTimeStamp,
     end: UnparsedTimeStamp
-  ): Promise<ArrayPayload | undefined> {
+  ): Promise<TypedArray | undefined> {
     const tr = new TimeRange(start, end);
     const iter = await this.newIterator(tr, [from], /* accumulate */ true);
-    let arr: ArrayPayload | undefined;
+    let arr: TypedArray | undefined;
     try {
       if (await iter.seekFirst()) {
         // eslint-disable-next-line no-empty
         while (await iter.next(AUTO_SPAN)) {}
-        arr = (await iter.value())[from];
+        arr = (await iter.value()).get(from)[0];
       }
     } finally {
       await iter.close();
