@@ -5902,10 +5902,10 @@ d3@^7.6.1:
     d3-transition "3"
     d3-zoom "3"
 
-d3@^7.7.0:
-  version "7.7.0"
-  resolved "https://registry.yarnpkg.com/d3/-/d3-7.7.0.tgz#e7779a74ea7c807b432fdfd8128de062b19c62eb"
-  integrity sha512-VEwHCMgMjD2WBsxeRGUE18RmzxT9Bn7ghDpzvTEvkLSBAKgTMydJjouZTjspgQfRHpPt/PB3EHWBa6SSyFQq4g==
+d3@^7.8.0:
+  version "7.8.0"
+  resolved "https://registry.yarnpkg.com/d3/-/d3-7.8.0.tgz#c9441f0ea9266b1003a97c2ffd53e79e9e14b1fc"
+  integrity sha512-a5rNemRadWkEfqnY5NsD4RdCP9vn8EIJ4I5Rl14U0uKH1SXqcNmk/h9aGaAF1O98lz6L9M0IeUcuPa9GUYbI5A==
   dependencies:
     d3-array "3"
     d3-axis "3"
@@ -7633,6 +7633,11 @@ github-slugger@^1.0.0:
   version "1.5.0"
   resolved "https://registry.yarnpkg.com/github-slugger/-/github-slugger-1.5.0.tgz#17891bbc73232051474d68bd867a34625c955f7d"
   integrity sha512-wIh+gKBI9Nshz2o46B0B3f5k/W+WI9ZAv6y5Dn5WJ5SK1t0TnDimB4WE5rmTD05ZAIn8HALCZVmCsvj0w0v0lw==
+
+gl-matrix@^3.4.3:
+  version "3.4.3"
+  resolved "https://registry.yarnpkg.com/gl-matrix/-/gl-matrix-3.4.3.tgz#fc1191e8320009fd4d20e9339595c6041ddc22c9"
+  integrity sha512-wcCp8vu8FT22BnvKVPjXa/ICBWRq/zjFfdofZy1WSpQZpphblv12/bOQLBC1rMM7SGOFS9ltVmKOHil5+Ml7gA==
 
 glob-parent@^3.1.0:
   version "3.1.0"

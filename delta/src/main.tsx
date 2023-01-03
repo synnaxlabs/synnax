@@ -13,6 +13,8 @@ import { Provider as DriftProvider } from "@synnaxlabs/drift";
 import { Theming } from "@synnaxlabs/pluto";
 import ReactDOM from "react-dom/client";
 
+import { Plot } from "./Plot";
+
 import { MainLayout } from "@/components";
 import { ConnectCluster } from "@/features/cluster";
 import {

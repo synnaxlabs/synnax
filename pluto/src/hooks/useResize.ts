@@ -20,9 +20,16 @@ interface BaseSizeProps {
   debounce?: number;
 }
 
+export interface OnResizeProps {
+  width: number;
+  height: number;
+  top: number;
+  left: number;
+}
+
 export interface UseResizeProps extends BaseSizeProps {
   /** Called when the size of the element changes. */
-  onResize: (size: { width: number; height: number }) => void;
+  onResize: (size: OnResizeProps) => void;
 }
 
 /**
@@ -36,8 +43,8 @@ export const useResize = ({ ref, onResize, debounce = 0 }: UseResizeProps): void
     const el = ref.current;
     if (el == null) return;
     const f = debounceF<(el: Element) => void>((el: Element) => {
-      const { width, height } = el.getBoundingClientRect();
-      onResize({ width, height });
+      const { width, height, top, left } = el.getBoundingClientRect();
+      onResize({ width, height, top, left });
     }, debounce);
     f(el);
     const resizeObserver = new ResizeObserver(([entry]) => f(entry.target));
@@ -48,13 +55,20 @@ export const useResize = ({ ref, onResize, debounce = 0 }: UseResizeProps): void
 
 export type UseSizeProps = BaseSizeProps;
 
+export type UseSizeReturn = OnResizeProps;
+
 /**
  * useSize tracks the size of an element and returns it.
  * @param props - Props for the hook. See useSizeProps.
  * @returns The width and height of the element.
  */
-export const useSize = (props: UseSizeProps): { width: number; height: number } => {
-  const [size, onResize] = useState({ width: 0, height: 0 });
+export const useSize = (props: UseSizeProps): UseSizeReturn => {
+  const [size, onResize] = useState<OnResizeProps>({
+    width: 0,
+    height: 0,
+    top: 0,
+    left: 0,
+  });
   useResize({ onResize, ...props });
   return size;
 };

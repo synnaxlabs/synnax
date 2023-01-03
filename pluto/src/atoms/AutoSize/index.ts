@@ -1,6 +1,3 @@
-<<<<<<< HEAD
-export * from "./Autosize";
-=======
 // Copyright 2022 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
@@ -10,5 +7,4 @@ export * from "./Autosize";
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "./AutoSize";
->>>>>>> main
+export * from "./Autosize";

@@ -64,7 +64,7 @@ export const ClusterProvider = ({ children }: ClusterProviderProps): JSX.Element
 
     const client = new Synnax({
       ...props,
-      connectivityPollFrequency: TimeSpan.Seconds(5),
+      connectivityPollFrequency: TimeSpan.seconds(5),
     });
 
     client.connectivity.onChange((status, _, message) =>

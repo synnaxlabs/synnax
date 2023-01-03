@@ -12,7 +12,7 @@ import {
   DataType,
   Density,
   Rate,
-  TypedArray,
+  NativeTypedArray,
   UnparsedDensity,
   UnparsedTimeStamp,
 } from "../telem";
@@ -110,7 +110,7 @@ export class Channel {
   async read(
     start: UnparsedTimeStamp,
     end: UnparsedTimeStamp
-  ): Promise<TypedArray | undefined> {
+  ): Promise<NativeTypedArray | undefined> {
     return await this.segmentClient.read(this.key, start, end);
   }
 
@@ -120,7 +120,7 @@ export class Channel {
    * @param start - The starting timestamp of the first sample in data.
    * @param data - THe telemetry to write to the channel.
    */
-  async write(start: UnparsedTimeStamp, data: TypedArray): Promise<void> {
+  async write(start: UnparsedTimeStamp, data: NativeTypedArray): Promise<void> {
     return await this.segmentClient.write(this.key, start, data);
   }
 }

@@ -24,7 +24,7 @@ export default class ConnectivityClient {
   private _status: Connectivity = "disconnected";
   private _error?: Error;
   private _statusMessage?: string;
-  private readonly pollFrequency = TimeSpan.Seconds(30);
+  private readonly pollFrequency = TimeSpan.seconds(30);
   private readonly client: UnaryClient;
   private interval?: NodeJS.Timeout;
   private readonly onChangeHandlers: Array<
@@ -38,7 +38,7 @@ export default class ConnectivityClient {
    * @param pollFreq - The frequency at which to poll the cluster for
    *   connectivity information.
    */
-  constructor(client: UnaryClient, pollFreq: TimeSpan = TimeSpan.Seconds(30)) {
+  constructor(client: UnaryClient, pollFreq: TimeSpan = TimeSpan.seconds(30)) {
     this._error = undefined;
     this.client = client;
     this.pollFrequency = pollFreq;
@@ -108,6 +108,6 @@ export default class ConnectivityClient {
   private startChecking(): void {
     this.interval = setInterval(() => {
       void this.check();
-    }, this.pollFrequency.milliseconds());
+    }, this.pollFrequency.milliseconds);
   }
 }

@@ -51,7 +51,14 @@ module.exports = {
                 },
             },
         ],
-        "import/no-unresolved": [2, { ignore: ["^@/"], commonjs: true, amd: true }],
+        "import/no-unresolved": [
+            2,
+            {
+                ignore: ["^@/"],
+                commonjs: true,
+                amd: true,
+            },
+        ],
         "react/react-in-jsx-scope": "off",
         "import/no-default-export": "error",
     },

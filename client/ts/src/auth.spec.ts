@@ -10,10 +10,9 @@
 import { URL } from "@synnaxlabs/freighter";
 import { describe, expect, test } from "vitest";
 
-import { HOST, PORT } from "../setupspecs";
-
 import AuthenticationClient from "./auth";
 import { AuthError } from "./errors";
+import { HOST, PORT } from "./setupspecs";
 import Transport from "./transport";
 
 describe("auth", () => {

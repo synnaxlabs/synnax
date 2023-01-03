@@ -11,14 +11,17 @@ import { EOF, ErrorPayloadSchema } from "@synnaxlabs/freighter";
 import type { Stream, StreamClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
-import { ArrayPayload, FramePayload, framePayloadSchema } from "./payload";
+import { Frame } from "./frame";
+import { FramePayload, framePayloadSchema } from "./payload";
 
 import Registry from "@/channel/registry";
 import { UnexpectedError } from "@/errors";
 import {
+  DataType,
   TimeRange,
   TimeSpan,
   TimeStamp,
+  TypedArray,
   UnparsedTimeSpan,
   UnparsedTimeStamp,
 } from "@/telem";
@@ -228,33 +231,20 @@ export class TypedIterator extends CoreIterator {
     this.channels = channels;
   }
 
-  async value(): Promise<Record<string, ArrayPayload>> {
-    const result: Record<string, ArrayPayload> = {};
+  async value(): Promise<Frame> {
+    const result: Frame = new Frame([], []);
     this.values.forEach((frame) => {
-      if (frame.keys == null) return;
+      if (frame.keys == null || frame.arrays == null) return;
       frame.keys.forEach((key, i) => {
         if (frame.arrays == null) return;
-        const v = frame.arrays[i];
-        if (key in result) {
-          result[key] = concatTypedArrays(v, result[key]);
-        } else {
-          result[key] = v;
-        }
+        const array = frame.arrays[i];
+        if (array == null) return;
+        result.add(
+          key,
+          new TypedArray(array.dataType as DataType, array.data, array.timeRange)
+        );
       });
     });
     return result;
   }
 }
-
-const concatTypedArrays = (a: ArrayPayload, b: ArrayPayload): ArrayPayload => {
-  if (a.dataType == null || b.dataType == null) {
-    throw new Error("Cannot concat arrays with unknown data type");
-  }
-  if (a.dataType.valueOf() !== b.dataType.valueOf()) {
-    throw new Error("Cannot concat arrays with different data types");
-  }
-  const c = new Uint8Array(a.data.byteLength + b.data.byteLength);
-  c.set(a.data, 0);
-  c.set(b.data, a.data.length);
-  return { timeRange: a.timeRange, dataType: a.dataType, data: c };
-};
