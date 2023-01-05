@@ -26,14 +26,14 @@ export interface SelectProps<E extends RenderableRecord<E>>
     InputControlProps<string> {
   data?: E[];
   tagKey?: keyof E;
-  columns: Array<ListColumn<E>>;
+  columns?: Array<ListColumn<E>>;
 }
 
 export const Select = <E extends RenderableRecord<E>>({
   value,
   onChange,
-  columns,
   tagKey = "key",
+  columns = [],
   data = [],
   location,
 }: SelectProps<E>): JSX.Element => {
