@@ -12,7 +12,7 @@ import type { ComponentMeta, ComponentStory } from "@storybook/react";
 import { Tag } from ".";
 
 const story: ComponentMeta<typeof Tag> = {
-  title: "Atoms/Tag",
+  title: "Core/Tag",
   component: Tag,
 };
 

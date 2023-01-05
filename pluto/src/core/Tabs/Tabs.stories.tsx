@@ -14,7 +14,7 @@ import { useStaticTabs } from "./Tabs";
 import { Tabs } from ".";
 
 const story: ComponentMeta<typeof Tabs> = {
-  title: "Atoms/Tabs",
+  title: "Core/Tabs",
   component: Tabs,
 };
 

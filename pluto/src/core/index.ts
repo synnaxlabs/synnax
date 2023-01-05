@@ -12,6 +12,7 @@ export * from "./Pack";
 export * from "./Resize";
 export * from "./Select";
 export * from "./Space";
+export * from "./Status";
 export * from "./Tabs";
 export * from "./Tree";
 export * from "./Typography";

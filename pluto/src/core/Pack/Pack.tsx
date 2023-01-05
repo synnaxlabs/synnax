@@ -55,6 +55,7 @@ export const Pack = ({
       direction={direction}
       className={clsx(`pluto-pack--${direction}`, className)}
       {...props}
+      empty
     >
       {reactElementToArray(arr).map((child, index) =>
         cloneElement(child, {

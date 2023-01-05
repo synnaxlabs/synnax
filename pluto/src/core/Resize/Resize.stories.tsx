@@ -14,7 +14,7 @@ import { ResizeProps } from "./Resize";
 import { Resize } from ".";
 
 const story: ComponentMeta<typeof Resize> = {
-  title: "Atoms/Resize",
+  title: "Core/Resize",
   component: Resize,
 };
 

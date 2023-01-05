@@ -15,7 +15,7 @@ import { AiOutlineDelete } from "react-icons/ai";
 import { Button, ButtonProps } from ".";
 
 const story: ComponentMeta<typeof Button> = {
-  title: "Atoms/Button",
+  title: "Core/Button",
   component: Button,
   argTypes: {
     variant: {
