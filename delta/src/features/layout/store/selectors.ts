@@ -1,4 +1,4 @@
-// Copyright 2022 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -25,9 +25,7 @@ import { selectByKey, selectByKeys, useMemoSelect } from "@/hooks";
 export const selectLayout = (
   state: LayoutStoreState,
   key: string
-): Layout | undefined => {
-  return state.layout.layouts[key];
-};
+): Layout | undefined => state.layout.layouts[key];
 
 /**
  * Selects a layout from the store by key.

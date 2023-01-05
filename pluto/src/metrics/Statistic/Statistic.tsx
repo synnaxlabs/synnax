@@ -1,4 +1,4 @@
-// Copyright 2022 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,7 +9,7 @@
 
 import clsx from "clsx";
 
-import { Space, Text, TypographyLevel } from "@/atoms";
+import { Space, Text, TypographyLevel } from "@/core";
 
 export interface ValueProps {
   value: number;
@@ -44,5 +44,3 @@ export const Statistic = ({
     </Space>
   );
 };
-
-export default Statistic;

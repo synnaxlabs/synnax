@@ -1,7 +1,7 @@
 # 9 - Encrypting Cluster Communications
 
 **Feature Name** - Encrypting Cluster Communications <br />
-**Status** - Proposed <br />
+**Status** - Complete <br />
 **Start Date** - 2022-12-05 <br />
 **Authors** - emilbon99 <br />
 
@@ -96,7 +96,6 @@ Hashicorp Vault and central secret stores such as AWS Secrets Manager are common
 production environments. The initial design should be flexible enough to enable support
 for these in the future.
 
-
 # 4 - Transport Protocols
 
 # 4.0 - HTTP
@@ -152,15 +151,12 @@ credentials and per-rpc middleware to achieve this.
 The server configuration in insecure mode is straightforward:
 
 <p align="middle">
-  <img
-    src="/img/rfc/9-221205-encryption/mux-insecure.png"
-    width="50%"
-  />
-  <h6 align="middle">Retrieve Query Pipe</h6>
+    <img src="/img/rfc/9-221205-encryption/mux-insecure.png" width="50%" />
+    <h6 align="middle">Retrieve Query Pipe</h6>
 </p>
 
 1. The incoming connection is passed to a root multiplexer (provided by Cockroach Labs
-wonderful fork of [cmux](https://github.com/cockroachdb/cmux)), which matches against:
+   wonderful fork of [cmux](https://github.com/cockroachdb/cmux)), which matches against:
 
 2. HTTP/1.1 requests, which are passed to the HTTP server.
 
@@ -175,22 +171,19 @@ The server configuration in secure mode is more complicated, and requires a two 
 multiplex along with some creative custom middleware and transport credentials.
 
 <p align="middle">
-  <img
-    src="/img/rfc/9-221205-encryption/mux-secure.png"
-    width="50%"
-  />
-  <h6 align="middle">Retrieve Query Pipe</h6>
+    <img src="/img/rfc/9-221205-encryption/mux-secure.png" width="50%" />
+    <h6 align="middle">Retrieve Query Pipe</h6>
 </p>
 
 1. Just like in insecure mode, the incoming connection is passed to a root multiplexer,
-which matches against:
+   which matches against:
 
 2. HTTP/1.1 requests, which are passed to an insecure HTTP server that redirects all
-requests to HTTPS.
+   requests to HTTPS.
 
 3. All other requests are passed to a second multiplexer which performs the TLS handshake
-using [`tls.NewListener`](https://golang.org/pkg/crypto/tls/#NewListener). After the
-handshake completes, the same matching process as in insecure mode is performed:
+   using [`tls.NewListener`](https://golang.org/pkg/crypto/tls/#NewListener). After the
+   handshake completes, the same matching process as in insecure mode is performed:
 
 4. HTTP/1.1 requests, which are passed to the HTTP server.
 
@@ -217,7 +210,7 @@ contents of this field in per RPC middleware to ensure that the client was authe
 using mTLS.
 
 This auth info is populated by the `TransportCredentials` passed to the gRPC server on initialization. When running
-a standalone gRPC server in secure mode, we would typically use  `credentials.NewTLS`
+a standalone gRPC server in secure mode, we would typically use `credentials.NewTLS`
 option that generates this auth info for us.
 
 However, our multiplexed server performs the TLS handshake before passing the connection
@@ -240,7 +233,7 @@ Windows and WebKit on MacOS and Linux. While both of these runtimes support TLS,
 with a preloaded set of root CAs and do not support turning off certificate verification.
 
 So we just use a public CA like [Let's Encrypt](https://letsencrypt.org/) right? Well, not
-quite. Synnax nodes not only need to serve RPCs from other nodes but also __issue__ RPCs
+quite. Synnax nodes not only need to serve RPCs from other nodes but also **issue** RPCs
 to them. Certificates issued by a public CA are only signed for server side use, and cannot
 be used to authenticate a client. There are ways around this, but they are complex and we don't
 want to force users to jump through hoops just to get started with a secure cluster.
@@ -254,13 +247,13 @@ definitely an option, but I'd love to keep using Tauri if possible.
 So, in summary, we have a few options:
 
 1. Use a public CA to issue certificates for both server and client use, which means we
-can't use a self-signed CA OR authenticate peer RPCs using mTLS.
+   can't use a self-signed CA OR authenticate peer RPCs using mTLS.
 
 2. Install a self-signed CA on the user's machine, which adds extra installation work
-and makes it more difficult to get started with a secure cluster.
+   and makes it more difficult to get started with a secure cluster.
 
 3. Switch to Electron, which requires quite a bit of work and results in a larger binary,
-slower startup time, and higher memory usage.
+   slower startup time, and higher memory usage.
 
 ## 7.1 - The Temporary Solution
 

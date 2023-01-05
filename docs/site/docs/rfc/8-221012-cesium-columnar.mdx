@@ -1,7 +1,7 @@
 # 8 - Columnar Storage for Irregular Data
 
 **Feature Name** - Cesium - Columnar Storage for Irregular Data <br />
-**Status** - Draft <br />
+**Status** - Complete <br />
 **Start Date** - 2022-10-12 <br />
 **Authors** - emilbon99 <br />
 
@@ -59,7 +59,7 @@ and we're writing ten values to disk starting at timestamp 10 seconds. The data 
 resemble the following:
 
 | Root Index | Time Stamp | Value |
-|------------|------------|-------|
+| ---------- | ---------- | ----- |
 | 100        | 10s        | 0     |
 | 101        | 10.1s      | 1     |
 | 102        | 10.2s      | 2     |
@@ -75,7 +75,7 @@ If we were to write another five sample segment starting at timestamp 11.5s, the
 would be appended as follows:
 
 | Root Index | Time Stamp | Value |
-|------------|------------|-------|
+| ---------- | ---------- | ----- |
 | 100        | 10s        | 0     |
 | 101        | 10.1s      | 1     |
 | 102        | 10.2s      | 2     |
@@ -106,7 +106,7 @@ As an example, let's say we have a timestamp and temperature sensor channel that
 at timestamp 10s:
 
 | Root Index  | Time Stamp | Temperature |
-|-------------|------------|-------------|
+| ----------- | ---------- | ----------- |
 | 10000000000 | 10s        | 0           |
 | 10000000001 | 13s        | 1           |
 | 10000000002 | 14s        | 2           |
@@ -172,4 +172,3 @@ three channel types, because no lookup is required to resolve timestamps.
 ### 3.3.2 - Rate Segment Validation
 
 1. Cannot overlap with other segments.
-

@@ -1,7 +1,7 @@
 # 3 - Delta - Segment Distribution
 
 **Feature Name**: Delta - Segment Distribution <br />
-**Status**: Proposed <br />
+**Status**: Complete <br />
 **Start Date**: 2022-06-04 <br />
 
 # 0 - Summary
@@ -161,11 +161,11 @@ information stays consistent (this is particularly relevant
 for [channels](#Channels)).
 
 <p align="middle">
-  <img
-    src="/img/rfc/220604-segment-distribution/distributed-storage-high-level.png"
-    width="80%"
-  />
-  <h5 align="middle">(Very) High Level Distributed Storage Architecture</h5>
+    <img
+        src="/img/rfc/220604-segment-distribution/distributed-storage-high-level.png"
+        width="80%"
+    />
+    <h5 align="middle">(Very) High Level Distributed Storage Architecture</h5>
 </p>
 
 ### 1 - Aspen
@@ -293,19 +293,19 @@ amount of memory, cpu, and network bandwidth used.
 Internally, the `segment.Iterator` implementation has the following structure:
 
 <p align="middle">
-  <img
-    src="/img/rfc/220604-segment-distribution/segment-iterator-gateway.png"
-    width="60%"
-  />
-  <h5 align="middle">Segment Iterator - Gateway Node </h5>
+    <img
+        src="/img/rfc/220604-segment-distribution/segment-iterator-gateway.png"
+        width="60%"
+    />
+    <h5 align="middle">Segment Iterator - Gateway Node </h5>
 </p>
 
 <p align="middle">
-  <img
-    src="/img/rfc/220604-segment-distribution/segment-iterator-peer.png"
-    width="40%"
-  />
-  <h5 align="middle">Segment Iterator - Peer Node </h5>
+    <img
+        src="/img/rfc/220604-segment-distribution/segment-iterator-peer.png"
+        width="40%"
+    />
+    <h5 align="middle">Segment Iterator - Peer Node </h5>
 </p>
 
 ### 2 - Opening an Iterator
@@ -419,19 +419,19 @@ that allows them to write segments to disk.
 Internally, the `segment.Writer` implementation has the following structure:
 
 <p align="middle">
-  <img
-    src="/img/rfc/220604-segment-distribution/segment-writer-gateway.png"
-    width="60%"
-  />
-  <h5 align="middle">Segment Writer - Gateway Node </h5>
+    <img
+        src="/img/rfc/220604-segment-distribution/segment-writer-gateway.png"
+        width="60%"
+    />
+    <h5 align="middle">Segment Writer - Gateway Node </h5>
 </p>
 
 <p align="middle">
-  <img
-    src="/img/rfc/220604-segment-distribution/segment-writer-peer.png"
-    width="40%"
-  />
-  <h5 align="middle">Segment Writer - Peer Node </h5>
+    <img
+        src="/img/rfc/220604-segment-distribution/segment-writer-peer.png"
+        width="40%"
+    />
+    <h5 align="middle">Segment Writer - Peer Node </h5>
 </p>
 
 ### 1 - Opening a Writer

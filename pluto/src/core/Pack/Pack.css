@@ -1,0 +1,48 @@
+/*
+ * Copyright 2023 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.pluto-pack__item {
+    border: var(--pluto-border-width) solid var(--pluto-gray-m1);
+}
+
+.pluto-pack--horizontal > .pluto-pack__first {
+    border-radius: var(--pluto-border-radius) 0 0 var(--pluto-border-radius) !important;
+}
+
+.pluto-pack--vertical > .pluto-pack__first {
+    border-radius: var(--pluto-border-radius) var(--pluto-border-radius) 0 0 !important;
+}
+
+.pluto-pack--horizontal > .pluto-pack__last {
+    border-radius: 0 var(--pluto-border-radius) var(--pluto-border-radius) 0 !important;
+}
+
+.pluto-pack--vertical > .pluto-pack__last {
+    border-radius: 0 0 var(--pluto-border-radius) var(--pluto-border-radius) !important;
+}
+
+.pluto-pack__only {
+    border-radius: var(--pluto-border-radius);
+}
+
+.pluto-pack__middle {
+    border-radius: 0;
+}
+
+.pluto-pack--horizontal .pluto-pack__middle,
+.pluto-pack--horizontal .pluto-pack__last {
+    margin-left: -1px !important;
+}
+
+.pluto-pack--vertical .pluto-pack__middle,
+.pluto-pack--vertical .pluto-pack__last {
+    margin-top: -1px !important;
+}

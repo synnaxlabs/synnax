@@ -1,3 +1,12 @@
+// Copyright 2023 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 const maybePad = (num: number, count = 2): string => {
   const s = num.toString();
   return s.length >= count ? s : "0".repeat(count - s.length) + s;

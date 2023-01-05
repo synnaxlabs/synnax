@@ -1,34 +1,49 @@
 import { ValidationError } from "..";
 
-import { TimeRange, TypedArray } from "@/telem";
+import { TimeRange, TypedArray, Frame as CoreFrame } from "@/telem";
+import { unique } from "@/util/unique";
 
-export class Frame {
+export class Frame extends CoreFrame {
   private readonly keys: string[];
-  private readonly arrays: TypedArray[];
 
-  constructor(keys: string[], arrays: TypedArray[]) {
+  constructor(keys: string[], arrays: TypedArray[] = []) {
+    super(arrays);
     this.keys = keys;
-    this.arrays = arrays;
     this.validate();
   }
 
   /** @returns true if only one TypedArray exists for each key. */
-  get unique(): boolean {
-    return this.keys.every((key, i) => this.keys.indexOf(key) === i);
+  get vertical(): boolean {
+    return unique(this.keys).length === this.arrays.length;
   }
 
-  /** @returns true if the time range and length of each array is equal. */
-  get even(): boolean {
+  get horizontal(): boolean {
+    return unique(this.keys).length === 1;
+  }
+
+  /** @returns true if the frame is square i.e. the minimum and maximum timestamps of each
+   * key are the same. */
+  get square(): boolean {
     this.validate();
-    if (this.arrays.length === 0) return true;
-    const first = this.arrays[0];
-    return this.arrays.every(
-      (a) => a.timeRange.equals(first.timeRange) && a.length === first.length
+    if (this.arrays.length <= 1) return true;
+
+    const groups = this.groupByKey();
+    const first = groups[0];
+    const base = new TimeRange(
+      first[0].timeRange.start,
+      first[first.length - 1].timeRange.end
+    );
+
+    return Object.values(groups).every((group) =>
+      new TimeRange(
+        group[0].timeRange.start,
+        group[group.length - 1].timeRange.end
+      ).equals(base)
     );
   }
 
   /**
-   * @returns the widest possible timerange occupied by the frame. If the frame
+   * @returns the widest possible timerange occupied by the frame.
    */
   get timeRange(): TimeRange {
     this.validate();
@@ -39,14 +54,25 @@ export class Frame {
     return new TimeRange(start, end);
   }
 
+  private groupByKey(): Record<string, TypedArray[]> {
+    return this.keys.reduce<Record<string, TypedArray[]>>((acc, key, i) => {
+      const curr = acc[key];
+      if (curr == null) acc[key] = [this.arrays[i]];
+      curr.push(this.arrays[i]);
+      curr.sort((a, b) => a.timeRange.start.valueOf() - b.timeRange.start.valueOf());
+      return acc;
+    }, {});
+  }
+
   validate(): void {
     if (this.keys.length !== this.arrays.length)
       throw new ValidationError("keys and arrays must be the same length");
   }
 
   /**
-   * @returns all typed arrays matching the given key. If the frame is unique,
-   * this will return an array of length 1.
+   * @returns all typed arrays matching the given key. If the frame is vertical,
+   * this will return an array of length 1. If the frame is horiztonal, returns all
+   * arrays in the frame.
    */
   get(key: string): TypedArray[] {
     return this.arrays.filter((_, i) => this.keys[i] === key);
