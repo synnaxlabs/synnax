@@ -1,4 +1,4 @@
-// Copyright 2022 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,10 +9,10 @@
 
 import type { ComponentMeta, ComponentStory } from "@storybook/react";
 
-import { Autosize } from "../../atoms/Autosize";
-
 import { LinePlot } from "./LinePlot";
 import { Axis, Series } from "./types";
+
+import { Autosize } from "@/core/Autosize";
 
 const story: ComponentMeta<typeof LinePlot> = {
   title: "Visualization/Line Plot",
@@ -79,4 +79,5 @@ export const Basic: ComponentStory<typeof LinePlot> = () => (
   </Autosize>
 );
 
+// eslint-disable-next-line import/no-default-export
 export default story;

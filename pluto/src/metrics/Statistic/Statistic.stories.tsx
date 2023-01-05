@@ -1,4 +1,4 @@
-// Copyright 2022 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,7 +9,7 @@
 
 import type { ComponentMeta, ComponentStory } from "@storybook/react";
 
-import Statistic from "./Statistic";
+import { Statistic } from ".";
 
 const story: ComponentMeta<typeof Statistic> = {
   title: "Metrics/Statistic",
@@ -40,4 +40,5 @@ Primary.args = {
   variant: "primary",
 };
 
+// eslint-disable-next-line import/no-default-export
 export default story;

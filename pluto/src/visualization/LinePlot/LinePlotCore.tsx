@@ -1,4 +1,4 @@
-// Copyright 2022 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,11 +10,12 @@
 import { ComponentType, memo, useEffect, useMemo, useRef } from "react";
 
 import uPlot from "uplot";
+import "uplot/dist/uPlot.min.css";
 
 import { Theme, Theming } from "../../theming";
 
 import { Axis, LinePlotMeta, PlotData, Series } from "./types";
-import "uplot/dist/uPlot.min.css";
+
 import "./LinePlotCore.css";
 
 export interface LinePlotCoreProps extends LinePlotMeta {

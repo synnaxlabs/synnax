@@ -469,6 +469,14 @@ export class Density extends Number {
     else super(value);
   }
 
+  sampleCount(size: Size): number {
+    return size.valueOf() / this.valueOf();
+  }
+
+  size(sampleCount: number): Size {
+    return new Size(sampleCount * this.valueOf());
+  }
+
   /** Unknown/Invalid Density. */
   static readonly UNKNOWN = new Density(0);
 

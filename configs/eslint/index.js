@@ -1,4 +1,4 @@
-// Copyright 2022 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -42,6 +42,12 @@ module.exports = {
                         group: "external",
                         position: "before",
                     },
+                    {
+                        pattern: "{.,..}/**/*.+(css|sass|less|scss|pcss|styl)",
+                        patternOptions: { matchBase: true },
+                        group: "unknown",
+                        position: "after",
+                    },
                 ],
                 pathGroupsExcludedImportTypes: ["react"],
                 "newlines-between": "always",
@@ -49,6 +55,7 @@ module.exports = {
                     order: "asc",
                     caseInsensitive: true,
                 },
+                warnOnUnassignedImports: true,
             },
         ],
         "import/no-unresolved": [
@@ -60,7 +67,7 @@ module.exports = {
             },
         ],
         "react/react-in-jsx-scope": "off",
-        "import/no-default-export": "error",
+        "import/no-default-export": "warn",
     },
     settings: {
         "import/resolver": {

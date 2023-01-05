@@ -1,4 +1,4 @@
-// Copyright 2022 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TypographyDefinition } from "../atoms/Typography";
-
 import "@fontsource/inter";
+
+import { TypographySpec } from "@/core/Typography";
 
 type Size = number | string;
 type Color = string;
@@ -59,13 +59,13 @@ export interface Theme {
   };
   typography: {
     family: string;
-    h1: TypographyDefinition;
-    h2: TypographyDefinition;
-    h3: TypographyDefinition;
-    h4: TypographyDefinition;
-    h5: TypographyDefinition;
-    p: TypographyDefinition;
-    small: TypographyDefinition;
+    h1: TypographySpec;
+    h2: TypographySpec;
+    h3: TypographySpec;
+    h4: TypographySpec;
+    h5: TypographySpec;
+    p: TypographySpec;
+    small: TypographySpec;
   };
 }
 

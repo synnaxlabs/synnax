@@ -1,4 +1,4 @@
-// Copyright 2022 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package Store exposes a simple copy-on-read Store for managing cluster state.
+// Package store exposes a simple copy-on-read Store for managing cluster state.
 // SinkTarget create a new Store, call store.New().
 package store
 

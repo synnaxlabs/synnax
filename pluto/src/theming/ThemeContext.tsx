@@ -1,4 +1,4 @@
-// Copyright 2022 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -19,9 +19,10 @@ import {
 import { applyThemeAsCssVars } from "./css";
 import { Theme, synnaxLight } from "./theme";
 
+import { Input } from "@/core/Input";
+import { InputSwitchProps } from "@/core/Input/InputSwitch";
+
 import "./theme.css";
-import { Input } from "@/atoms";
-import { InputSwitchProps } from "@/atoms/Input/InputSwitch";
 
 export interface ThemeContextValue {
   theme: Theme;

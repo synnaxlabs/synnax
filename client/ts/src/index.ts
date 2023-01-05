@@ -37,7 +37,8 @@ export {
   UnexpectedError,
   ValidationError,
 } from "@/errors";
-export * from "./channel";
+export * from "@/channel";
 export * from "@/ontology";
 export * from "@/connectivity";
 export * from "@/ontology";
+export type { Frame } from "@/framer";

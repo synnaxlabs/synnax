@@ -1,0 +1,119 @@
+# 10 - Telemetry Frame Specification and Flight Protocol
+
+**Feature Name**: Telemetry Frame Specification and Flight Protocol <br />
+**Start Date** - 2023-01-04 <br />
+**Authors** - emilbon99 <br />
+
+# 0 - Summary
+
+# 1 - Vocabulary
+
+**Sample** - An arbitrary byte array recorded at a specific point in time. <br />
+**Channel** - A name collection of samples across a time range. <br />
+**Density** - The number of bytes per sample. <br />
+**(Sample/Data) Rate** - The number of samples per second. <br />
+
+# 2 - Array Specification
+
+## 2.1 - Motivation
+
+Most storage engines focus their architectures on the most efficient path for reading and writing
+single samples and/or batches of samples. Synnax doesn't even consider the single sample case.
+Instead, the fundamental unit of data transfer is an array.
+
+Synnax's array extends the classical definition. It contains is data as a collection of
+ordered samples. This representation, however, leaves a desire for additional identifying
+meta-data useful to the database or caller: What sensor does this belong to?
+What is the data type? When was this recorded? How do I align this with other data?
+
+## 2.1 - Attaching Meta-Data
+
+The naive approach to adding meta-data is an array header, which contains a
+time range, channel key, data type, etc. The problem with this approach lies in maintaining
+architectural boundaries between different layers of Synnax. Let's say we were to add a
+header field named `key` to the array. What should its data type be? Cesium considers all
+channel keys to have a string type, while the distribution layer assigns channel keys
+as byte arrays containing identifying information about the channel's lease. Should
+we set the key type to `distribution.ChannelKey`? If we do so, our cesium code must be
+aware of distribution layer semantics, which is a violation of architectural boundaries.
+Our other option would be to define different array types for each layer, and convert
+between them. This isn't very dry, and doing complex type conversions whenever we want
+to move telemetry between layers is not optimal.
+
+Perhaps the better approach is to define a common array whose meta-data can be shared
+across layers, and then move our meta-data somewhere else. This is the approach taken
+by Apache Arrow's [Record](https://pkg.go.dev/github.com/apache/arrow/go/arrow@v0.0.0-20211112161151-bc219186db40/array#Record).
+Instead of storing meta-data in the array itself, arrow moves it to a separate `Schema`
+type which contains identifying information such as the column name (comparable to Synnax's
+channel key) outside the array definition itself.
+
+This solution is nice in terms of maintaining a clean architecture, but it also loosens
+the connection between data and meta-data. Now we need a supplementary data structure
+(like apache arrow's `Record`) that holds information correlating arrays with their meta-data.
+
+The next question to answer is: Should we move all meta-data to a separate data structure,
+or should we only move some of it? My answer: some. Some array information is effectively
+universal, and will never be layer independent. This includes the data type, density, time
+range, and (maybe?) alignment information.
+
+In summary, the approach is **to attach universal meta-data to the array itself, and move
+layer-specific meta-data to a separate data structure**.
+
+## 2.2 - Array Properties
+
+Arrays have specific properties they must uphold in order to be usable and meaningful
+within a time-series context:
+
+1. Channel-tied - Arrays should contain samples for one and only one channel.
+2. Continuous - For an array containing samples for a time range x, the samples in the
+   array must represent all values in the channel for that time range.
+3. Time-ordered - Relatively obvious.
+4. Strongly typed - All data in the array is of the same data type, and the data type
+has a fixed density. There are no plans to support variable data types.
+
+## 2.2 - Array Definition
+
+```go
+package telem
+
+type Array struct {
+	// TimeRange is an optional parameter that can be set by the database in order to
+	// let the caller know what time range this array occupies.
+	TimeRange TimeRange
+	// DataType is the data type for the array. Has a fixed density.
+	DataType  DataType
+	// Data is the telemetry for the array. Each sample is encoded according to a format
+	// specified in DataType.
+	Data []byte
+}
+```
+
+## 2.3 - Array Terminology
+
+
+## 2.1
+
+# 3 - Frame Specification
+
+## 3.0 - Motivation
+
+## 3.1 - General Design and Properties
+
+## 3.1.0 - Alignment
+
+## 3.2 - Specification
+
+## 3.3 - Frame Variants
+
+### 3.3.0 - Weakly Aligned
+
+### 3.3.1 - Strongly Aligned
+
+### 3.3.0 - Horizontal Frames
+
+# Useful for reads.
+
+### 3.3.1 - Vertical Frames
+
+
+# 4 - Flight Protocol(s)

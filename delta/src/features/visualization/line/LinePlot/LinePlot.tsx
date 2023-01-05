@@ -1,4 +1,4 @@
-// Copyright 2022 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -13,7 +13,7 @@ import { Synnax } from "@synnaxlabs/client";
 import { Autosize, useDrag, UseSizeReturn } from "@synnaxlabs/pluto";
 
 import { useRenderer } from "../../components/Canvas";
-import { Box, PointBox } from "../../render/box";
+import { CSSBox, PointBox } from "../../types/spatial";
 import { Visualization } from "../../types";
 
 import "./LinePlot.css";

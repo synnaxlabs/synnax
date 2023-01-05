@@ -1,4 +1,4 @@
-import { DataType, TimeRange, NativeTypedArray, UnparsedDataType } from "./telem";
+import { DataType, TimeRange, NativeTypedArray, UnparsedDataType, Size } from "./telem";
 
 import { ValidationError } from "@/errors";
 
@@ -36,7 +36,11 @@ export class TypedArray {
     return this._timeRange;
   }
 
+  get size(): Size {
+    return new Size(this.data.byteLength);
+  }
+
   get length(): number {
-    return this.data.length;
+    return this.dataType.density.sampleCount(this.size);
   }
 }

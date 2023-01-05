@@ -1,4 +1,4 @@
-// Copyright 2022 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,14 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { StrictMode as SM } from "react";
+import { StrictMode } from "react";
 
 import { createRoot } from "react-dom/client";
 
 import { App } from "./App";
 
-createRoot(document.getElementById("root") as HTMLElement).render(
-  <SM>
+const root = document.getElementById("root") as HTMLElement;
+createRoot(root).render(
+  <StrictMode>
     <App />
-  </SM>
+  </StrictMode>
 );
