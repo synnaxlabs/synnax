@@ -9,7 +9,7 @@
 
 import { MosaicLeaf } from "./types";
 
-import { Tab, Tabs } from "@/atoms";
+import { Tab, Tabs } from "@/core/Tabs";
 import { Direction, Location, Order } from "@/util/spatial";
 
 const TabNotFound = new Error("Tab not found");
