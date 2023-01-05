@@ -15,7 +15,7 @@ import { TimeStamp } from "@synnaxlabs/client";
 import { Input } from ".";
 
 const story: ComponentMeta<typeof Input> = {
-  title: "Atoms/Input",
+  title: "Core/Input",
   component: Input,
 };
 

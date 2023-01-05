@@ -15,7 +15,7 @@ import { AiFillDatabase, AiFillPhone } from "react-icons/ai";
 import { Tree, TreeLeaf } from ".";
 
 const story: ComponentMeta<typeof Tree> = {
-  title: "Atoms/Tree",
+  title: "Core/Tree",
   component: Tree,
 };
 

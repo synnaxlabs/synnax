@@ -49,12 +49,13 @@ export const SelectMultiple = <E extends RenderableRecord<E>>({
   tagKey = "key",
   value,
   onChange,
+  location,
   ...props
 }: SelectMultipleProps<E>): JSX.Element => {
   const { ref, visible, onFocus } = Dropdown.use();
   return (
     <List data={data}>
-      <Dropdown ref={ref} visible={visible}>
+      <Dropdown ref={ref} visible={visible} location={location}>
         <List.Search>
           {({ onChange }) => (
             <SelectMultipleInput<E>

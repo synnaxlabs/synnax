@@ -16,7 +16,7 @@ import { ListColumn } from "@/core/List";
 import { RenderableRecord } from "@/util/record";
 
 const story: ComponentMeta<typeof Select.Multiple> = {
-  title: "Atoms/Select",
+  title: "Core/Select",
   component: Select.Multiple,
 };
 

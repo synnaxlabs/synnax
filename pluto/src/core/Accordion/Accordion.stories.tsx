@@ -12,7 +12,7 @@ import type { ComponentMeta, ComponentStory } from "@storybook/react";
 import { Accordion, AccordionEntry } from ".";
 
 const story: ComponentMeta<typeof Accordion> = {
-  title: "Molecules/Accordion",
+  title: "Core/Accordion",
   component: Accordion,
 };
 

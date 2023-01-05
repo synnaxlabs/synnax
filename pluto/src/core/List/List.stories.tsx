@@ -14,7 +14,7 @@ import type { ComponentMeta, ComponentStory } from "@storybook/react";
 import { List } from ".";
 
 const story: ComponentMeta<typeof List> = {
-  title: "Atoms/List",
+  title: "Core/List",
   component: List,
 };
 

@@ -15,7 +15,7 @@ import { AiFillDatabase, AiOutlineDelete } from "react-icons/ai";
 import { Text } from ".";
 
 const story: ComponentMeta<typeof Text> = {
-  title: "Atoms/Text",
+  title: "Core/Text",
   component: Text,
 };
 

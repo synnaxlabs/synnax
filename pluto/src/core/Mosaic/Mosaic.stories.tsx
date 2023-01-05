@@ -15,7 +15,7 @@ import { useMosaic } from "./useMosaic";
 import { Mosaic } from ".";
 
 const story: ComponentMeta<typeof Mosaic> = {
-  title: "Molecules/Mosaic",
+  title: "Core/Mosaic",
   component: Mosaic,
 };
 

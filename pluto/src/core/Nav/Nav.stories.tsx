@@ -15,7 +15,7 @@ import { NavbarProps } from "./Navbar";
 import { Nav } from ".";
 
 const story: ComponentMeta<typeof Nav.Bar> = {
-  title: "Molecules/Nav",
+  title: "Core/Nav",
   component: Nav.Bar,
 };
 
