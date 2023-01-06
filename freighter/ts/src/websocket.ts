@@ -37,8 +37,6 @@ type ReceiveCallbacksQueue = Array<{
 /** WebSocketStream is an implementation of Stream that is backed by a websocket. */
 class WebSocketStream<RQ, RS> implements Stream<RQ, RS> {
   private readonly encoder: EncoderDecoder;
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-expect-error
   private readonly reqSchema: z.ZodSchema<RQ>;
   private readonly resSchema: z.ZodSchema<RS>;
   private readonly ws: WebSocket;
