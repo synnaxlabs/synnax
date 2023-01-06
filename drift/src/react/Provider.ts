@@ -9,20 +9,25 @@
 
 import { ReactElement, createElement, useEffect, useState } from "react";
 
-import type { Action, AnyAction, Store } from "@reduxjs/toolkit";
+import type { Action, AnyAction, EnhancedStore } from "@reduxjs/toolkit";
 import { Provider as Base } from "react-redux";
-import type {ProviderProps as BaseProps } from 'react-redux'
+import type { ProviderProps as BaseProps } from "react-redux";
 
+import { Enhancers } from "@/configureStore";
+import { Middlewares } from "@/middleware";
 import { StoreState } from "@/state";
-
 
 /**
  * Overrides the default react-redux Provider to allow for a promise based
  * store.
  */
-export interface ProviderProps<S extends StoreState, A extends Action = AnyAction>
-	extends Omit<BaseProps<A>, "store"> {
-	store: Promise<Store<S, A>>;
+export interface ProviderProps<
+  S extends StoreState,
+  A extends Action = AnyAction,
+  M extends Middlewares<S> = Middlewares<S>,
+  E extends Enhancers = Enhancers
+> extends Omit<BaseProps<A, S>, "store"> {
+  store: Promise<EnhancedStore<S, A, M, E>>;
   emptyContent?: JSX.Element;
 }
 
@@ -34,15 +39,20 @@ export interface ProviderProps<S extends StoreState, A extends Action = AnyActio
  * @param props - The props to pass to the Provider.
  * @param props.store - A promise that resolves to the store.
  */
-export const Provider = <S extends StoreState, A extends Action<unknown> = AnyAction>({
-	store: promise,
+export const Provider = <
+  S extends StoreState,
+  A extends Action<unknown> = AnyAction,
+  M extends Middlewares<S> = Middlewares<S>,
+  E extends Enhancers = Enhancers
+>({
+  store: promise,
   emptyContent,
-	...props
-}: ProviderProps<S, A>): ReactElement | null => {
-	const [store, setStore] = useState<Store<S, A> | null>(null);
-	useEffect(() => {
-		promise.then((s) => setStore(s)).catch(console.error);
-	}, []);
-	if (store == null) return emptyContent ?? null;
-	return createElement(Base<A>, { ...props, store });
+  ...props
+}: ProviderProps<S, A, M, E>): ReactElement | null => {
+  const [store, setStore] = useState<EnhancedStore<S, A, M, E> | null>(null);
+  useEffect(() => {
+    promise.then((s) => setStore(s)).catch(console.error);
+  }, []);
+  if (store == null) return emptyContent ?? null;
+  return createElement(Base<A, S>, { ...props, store });
 };

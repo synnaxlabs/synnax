@@ -1,0 +1,34 @@
+{
+  "name": "@synnaxlabs/vite-plugin",
+  "version": "0.0.1",
+  "type": "module",
+  "description": "Vite plugin for Synnax Labs",
+  "scripts": {
+    "build": "tsc"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "import": "./dist/index.js"
+    }
+  },
+  "peerDependencies": {
+    "typescript": "*",
+    "vite": "^4.0.4"
+  },
+  "dependencies": {
+    "vite-plugin-dts": "1.7.1"
+  },
+  "devDependencies": {
+    "vite": "^4.0.4",
+    "typescript": "^4.9.4",
+    "vite-plugin-dts": "1.7.1",
+    "eslint-config-synnaxlabs": "*",
+    "vite-tsconfig-paths": "^4.0.0",
+    "@synnaxlabs/tsconfig": "*"
+  },
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts"
+}

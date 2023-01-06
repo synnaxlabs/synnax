@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { BaseTypedError, registerError } from '@synnaxlabs/freighter';
-import { z } from 'zod';
+import { BaseTypedError, registerError } from "@synnaxlabs/freighter";
+import { z } from "zod";
 
-const _FREIGHTER_EXCEPTION_TYPE = 'synnax.api.errors';
+const _FREIGHTER_EXCEPTION_TYPE = "synnax.api.errors";
 
 const APIErrorPayloadSchema = z.object({
   type: z.string(),
@@ -20,14 +20,14 @@ const APIErrorPayloadSchema = z.object({
 type APIErrorPayload = z.infer<typeof APIErrorPayloadSchema>;
 
 enum APIErrorType {
-  General = 'general',
-  Nil = 'nil',
-  Parse = 'parse',
-  Auth = 'auth',
-  Unexpected = 'unexpected',
-  Validation = 'validation',
-  Query = 'query',
-  Route = 'route',
+  General = "general",
+  Nil = "nil",
+  Parse = "parse",
+  Auth = "auth",
+  Unexpected = "unexpected",
+  Validation = "validation",
+  Query = "query",
+  Route = "route",
 }
 
 export interface Field {
@@ -48,14 +48,12 @@ export class ValidationError extends BaseError {
   fields: Field[];
 
   constructor(fieldsOrMessage: string | Field[] | Field) {
-    if (typeof fieldsOrMessage === 'string') {
+    if (typeof fieldsOrMessage === "string") {
       super(fieldsOrMessage);
       this.fields = [];
     } else if (Array.isArray(fieldsOrMessage)) {
       super(
-        fieldsOrMessage
-          .map((field) => `${field.field}: ${field.message}`)
-          .join('\n')
+        fieldsOrMessage.map((field) => `${field.field}: ${field.message}`).join("\n")
       );
       this.fields = fieldsOrMessage;
     } else {
@@ -136,7 +134,15 @@ const decode = (encoded: string): Error | undefined => {
 };
 
 const encode = (): string => {
-  throw new Error('Not implemented');
+  throw new Error("Not implemented");
 };
 
 registerError({ type: _FREIGHTER_EXCEPTION_TYPE, encode, decode });
+
+export const validateKeyInObject = (
+  key: string,
+  value: unknown,
+  message: string = "must be provided"
+): void => {
+  if (value == null) throw new ValidationError({ field: key, message });
+};

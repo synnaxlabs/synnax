@@ -40,7 +40,7 @@ export interface UseNavDrawerReturn {
 }
 
 export interface NavDrawerProps
-  extends Omit<NavbarProps, "onSelect">,
+  extends Omit<NavbarProps, "onSelect" | "onResize">,
     UseNavDrawerReturn,
     Partial<Pick<ResizeProps, "onResize">> {}
 

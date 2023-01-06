@@ -7,12 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Renderer } from "../render/renderer";
-import { calculateBottomOffset, Box } from "../types/spatial";
+import { RendererRegistry } from "../render/registry";
+import { RenderingContext } from "../render/renderer";
+import { ScissoredRenderer } from "../render/scissored/scissor";
+import { TelemetryClient } from "../telem/client";
+import { calculateBottomOffset, Box, XY, CSSBox } from "../types/spatial";
 
 export interface RenderRequest {
   box: Box;
-  renderer: Renderer;
+  renderer: string;
+  request: any;
 }
 
 const DPR = window.devicePixelRatio ?? 1;
@@ -20,53 +24,75 @@ const DPR = window.devicePixelRatio ?? 1;
 export class RenderingEngine {
   private readonly canvas: HTMLCanvasElement;
   private readonly gl: WebGLRenderingContext;
+  private readonly registry: RendererRegistry;
+  private readonly client: TelemetryClient;
 
-  constructor(canvas: HTMLCanvasElement) {
+  constructor(
+    canvas: HTMLCanvasElement,
+    gl: WebGLRenderingContext,
+    registry: RendererRegistry,
+    client: TelemetryClient
+  ) {
     this.canvas = canvas;
-    this.gl = this.canvas.getContext("webgl", {
-      preserveDrawingBuffer: true,
-    }) as WebGLRenderingContext;
+    this.gl = gl;
+    this.registry = registry;
+    this.client = client;
+    this.registry.compile(gl);
   }
 
-  render(req: RenderRequest): void {
+  async render(req: RenderRequest): Promise<void> {
     this.refreshCanvas();
-    const scale = this.rootScale(req.box);
-    const offset = this.rootOffset(req.box);
 
-    req.lines.forEach((l) => this.renderLine(l, scale, offset));
-    this.gl.disable(this.gl.SCISSOR_TEST);
+    const [offset, clipOffset] = this.rootOffset(req.box);
+
+    const ctx: RenderingContext = {
+      gl: this.gl,
+      rootScaleClip: this.rootScale(req.box),
+      rootOffsetClip: clipOffset,
+      rootOffsetPx: offset,
+      client: this.client,
+      dpr: DPR,
+      aspect: this.canvas.width / this.canvas.height,
+    };
+
+    const scissored = new ScissoredRenderer(
+      this.registry.get(req.renderer),
+      req.box,
+      true,
+      {
+        x: 24,
+        y: 48,
+      }
+    );
+
+    await scissored.render(ctx, req.request);
   }
 
-  private relativeOffset(box: CSSBox): XY {
-    const rect = this.canvas.getBoundingClientRect();
-    const relLeft = box.left - rect.left;
-    const bot = calculateBottomOffset(rect, box);
+  private relativeOffset(box: Box): XY {
+    const canvas = this.canvasBox();
+    const relLeft = box.left - canvas.left;
+    const bot = calculateBottomOffset(canvas, box);
     return { y: bot, x: relLeft };
   }
 
-  private renderLine(
-    line: Omit<Line, "rootScale" | "rootOffset">,
-    rootScale: XY,
-    rootOffset: XY
-  ): void {
-    this.line.render({
-      ...line,
-      rootScale,
-      rootOffset,
-    });
-  }
-
-  private rootScale(box: CSSBox): XY {
-    const rect = this.canvas.getBoundingClientRect();
+  private rootScale(box: Box): XY {
+    const rect = this.canvasBox();
     const x = box.width / rect.width;
     const y = box.height / rect.height;
     return { x, y };
   }
 
-  private rootOffset(box: CSSBox): XY {
-    const rect = this.canvas.getBoundingClientRect();
+  private rootOffset(box: Box): [XY, XY] {
+    const { width, height } = this.canvasBox();
     const { x, y } = this.relativeOffset(box);
-    return { x: x / rect.width, y: y / rect.height };
+    return [
+      { x, y },
+      { x: x / width, y: y / height },
+    ];
+  }
+
+  private canvasBox(): Box {
+    return CSSBox.fromDomRect(this.canvas.getBoundingClientRect());
   }
 
   private refreshCanvas(): void {

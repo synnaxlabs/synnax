@@ -31,22 +31,17 @@
     "js-convert-case": "^4.2.0",
     "msgpackr": "^1.7.0",
     "ws": "^8.8.1",
-    "zod": "^3.19.1"
+    "zod": "3.19.1"
   },
   "devDependencies": {
     "@synnaxlabs/tsconfig": "*",
+    "@synnaxlabs/vite-plugin": "*",
     "eslint-config-synnaxlabs": "*",
-    "typescript": "^4.0.2",
-    "vite": "^4.0.1",
-    "vite-plugin-dts": "^1.7.1",
-    "vite-tsconfig-paths": "^4.0.3",
-    "vitest": "^0.25.8"
+    "typescript": "^4.9.4",
+    "vite": "^4.0.4",
+    "vitest": "^0.26.3"
   },
-  "exports": {
-    ".": {
-      "import": "./dist/freighter.es.js",
-      "require": "./dist/freighter.cjs.js",
-      "types": "./dist/freighter.es.d.ts"
-    }
-  }
+  "main": "dist/freighter.cjs.js",
+  "module": "dist/freighter.es.js",
+  "types": "dist/index.d.ts"
 }

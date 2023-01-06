@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { TelemetryClient } from "../telem/client";
 import { XY } from "../types/spatial";
 
 import { Compiler } from "./compiler";
@@ -44,6 +45,7 @@ export interface RenderingContext {
   rootOffsetPx: XY;
   dpr: number;
   aspect: number;
+  client: TelemetryClient;
 }
 
 /**
@@ -51,9 +53,9 @@ export interface RenderingContext {
  * state relating to specific entities, but should instead rely on the request properties
  * to determine how to render it.
  */
-export interface Renderer extends Compiler {
+export interface Renderer<R> extends Compiler {
   /** Type is a unique type for the renderer. */
   type: string;
   /** Renders the given entity under the RenderingContext.  */
-  render: <R>(ctx: RenderingContext, req: R) => void;
+  render: (ctx: RenderingContext, req: R) => Promise<void>;
 }

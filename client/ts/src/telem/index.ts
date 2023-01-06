@@ -1,3 +1,2 @@
-export * from "./telem";
 export * from "./array";
-export * from "./frame";
+export * from "./telem";

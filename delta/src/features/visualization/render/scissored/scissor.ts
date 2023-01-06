@@ -61,8 +61,8 @@ export class ScissoredRenderer implements Renderer {
     const { width, height } = this.box;
     const { x: ox, y: oy } = this.overscan;
     ctx.gl.scissor(
-      x * ctx.dpr,
-      y * ctx.dpr,
+      (x - ox / 2) * ctx.dpr,
+      (y - ox / 2) * ctx.dpr,
       (width + ox) * ctx.dpr,
       (height + oy) * ctx.dpr
     );

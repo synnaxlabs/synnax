@@ -17,7 +17,7 @@ import { Location } from "@/util/spatial";
 
 import "./Mosaic.css";
 
-export interface MosaicProps extends Omit<TabsProps, "onDrop" | "tabs"> {
+export interface MosaicProps extends Omit<TabsProps, "onDrop" | "tabs" | "onResize"> {
   onDrop: (key: number, tabKey: string, loc: Location) => void;
   onResize: (key: number, size: number) => void;
   root: MosaicLeaf;
@@ -62,7 +62,13 @@ export const Mosaic = (props: MosaicProps): JSX.Element | null => {
   );
 };
 
-const MosaicTabLeaf = ({ root: node, onDrop, ...props }: MosaicProps): JSX.Element => {
+export interface MosicaTabLeafProps extends Omit<MosaicProps, "onResize"> {}
+
+const MosaicTabLeaf = ({
+  root: node,
+  onDrop,
+  ...props
+}: MosicaTabLeafProps): JSX.Element => {
   const { key, tabs } = node as Omit<MosaicLeaf, "tabs"> & { tabs: Tab[] };
 
   const [dragMask, setDragMask] = useState<Location | null>(null);

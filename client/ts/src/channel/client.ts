@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import FrameClient from "../framer/client";
 import {
   DataType,
   Density,
@@ -20,6 +19,8 @@ import {
 import ChannelCreator, { CreateChannelProps } from "./creator";
 import { ChannelPayload, channelPayloadSchema } from "./payload";
 import ChannelRetriever from "./retriever";
+
+import { FrameClient } from "@/framer";
 
 /**
  * Represents a Channel in a Synnax database. It should not be instantiated

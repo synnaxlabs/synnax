@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import axios from "axios";
-import type { AxiosRequestConfig, AxiosResponse } from "axios";
+import type { AxiosRequestConfig, AxiosResponse, RawAxiosRequestHeaders } from "axios";
 import { ZodSchema } from "zod";
 
 import { EncoderDecoder } from "./encoder";
@@ -61,7 +61,7 @@ class Core extends MiddlewareCollector {
     this.encoder = encoder;
   }
 
-  get headers(): Record<string, string> {
+  get headers(): RawAxiosRequestHeaders {
     return {
       [CONTENT_TYPE_HEADER_KEY]: this.encoder.contentType,
     };
@@ -89,7 +89,11 @@ class Core extends MiddlewareCollector {
       { target: request.url, protocol: "http", params: {} },
       async (md: MetaData): Promise<[MetaData, Error | undefined]> => {
         const outMD: MetaData = { ...md, params: {} };
-        request.headers = { ...request.headers, ...this.headers, ...md.params };
+        request.headers = {
+          ...(request.headers as RawAxiosRequestHeaders),
+          ...this.headers,
+          ...md.params,
+        };
         let httpRes: AxiosResponse;
         try {
           httpRes = await axios.request(request);

@@ -1,1 +1,2 @@
-export type { Frame } from "./frame";
+export { Frame } from "./frame";
+export { FrameClient } from "./client";

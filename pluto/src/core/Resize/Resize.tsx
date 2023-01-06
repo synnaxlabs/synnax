@@ -17,7 +17,8 @@ import { getDirection, Location } from "@/util/spatial";
 
 import "./Resize.css";
 
-export interface ResizeProps extends Omit<ResizeCoreProps, "showHandle" | "size"> {
+export interface ResizeProps
+  extends Omit<ResizeCoreProps, "showHandle" | "size" | "onResize"> {
   location: Location;
   initialSize?: number;
   minSize?: number;

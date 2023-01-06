@@ -7,6 +7,7 @@
         "build:freighter": "npx turbo build --filter freighter --cache-dir=./.turbo-cache",
         "build:client": "npx turbo build --filter client --cache-dir=./.turbo-cache",
         "build:drift": "npx turbo build --filter drift --cache-dir=./.turbo-cache",
+        "build:vite-plugin": "npx turbo build --filter vite-plugin --cache-dir=./.turbo-cache",
         "watch": "npx turbo watch --parallel",
         "watch:pluto": "npx turbo watch --filter pluto",
         "watch:freighter": "npx turbo watch --filter freighter",
@@ -46,7 +47,8 @@
         "drift",
         "configs/ts",
         "configs/eslint",
-        "configs/stylelint"
+        "configs/stylelint",
+        "configs/vite"
     ],
     "devDependencies": {
         "turbo": "^1.6.2"

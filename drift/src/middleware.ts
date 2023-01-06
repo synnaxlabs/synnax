@@ -10,12 +10,12 @@
 import type { Action, AnyAction, Dispatch, Middleware } from "@reduxjs/toolkit";
 import type { CurriedGetDefaultMiddleware } from "@reduxjs/toolkit/dist/getDefaultMiddleware";
 
-import { Runtime } from "./runtime";
 import { StoreState, assignKey, executeAction, isDrift, shouldEmit } from "./state";
 import { desugar } from "./sugar";
 import { validateAction } from "./validate";
 
-// eslint-disable-next-line @typescript-eslint/ban-types
+import { Runtime } from "@/runtime";
+
 export type Middlewares<S> = ReadonlyArray<Middleware<{}, S>>;
 
 /**

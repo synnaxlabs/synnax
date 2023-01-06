@@ -7,17 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Frame } from "@synnaxlabs/client";
-
-import { Range } from "@/features/workspace";
-
-export class FrameCache {
-  entries: Record<string, Record<string, Frame>>;
-
-  retrieve(req: RetrieveRequest): Frame {}
-}
-
-export interface RetrieveRequest {
-  ranges: Range;
-  key: string;
-}
+module.exports = {
+    root: true,
+    extends: ["synnaxlabs"],
+    parserOptions: {
+        project: "./tsconfig.json",
+    },
+};

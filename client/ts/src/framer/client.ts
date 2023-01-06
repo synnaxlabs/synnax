@@ -7,14 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { QueryError } from "..";
 import Registry from "../channel/registry";
-import { TimeRange, NativeTypedArray, UnparsedTimeStamp, TypedArray } from "../telem";
+import { TimeRange, NativeTypedArray, UnparsedTimeStamp, TelemArray } from "../telem";
 import Transport from "../transport";
 
-import { AUTO_SPAN, TypedIterator } from "./iterator";
-import { RecordWriter } from "./writer";
+import { Frame } from "./frame";
+import { AUTO_SPAN, FrameIterator } from "./iterator";
+import { FrameWriter } from "./writer";
 
-export default class FrameClient {
+export class FrameClient {
   private readonly transport: Transport;
   private readonly channels: Registry;
 
@@ -36,14 +38,10 @@ export default class FrameClient {
     tr: TimeRange,
     keys: string[],
     aggregate: boolean
-  ): Promise<TypedIterator> {
-    const iter = new TypedIterator(
-      this.transport.streamClient,
-      this.channels,
-      aggregate
-    );
-    await iter.open(tr, keys);
-    return iter;
+  ): Promise<FrameIterator> {
+    const i = new FrameIterator(this.transport.streamClient, aggregate);
+    await i.open(tr, keys);
+    return i;
   }
 
   /**
@@ -54,10 +52,10 @@ export default class FrameClient {
    * for more information.
    * @returns a new {@link RecordWriter}.
    */
-  async newWriter(start: UnparsedTimeStamp, keys: string[]): Promise<RecordWriter> {
-    const writer = new RecordWriter(this.transport.streamClient, this.channels);
-    await writer.open(start, keys);
-    return writer;
+  async newWriter(start: UnparsedTimeStamp, keys: string[]): Promise<FrameWriter> {
+    const w = new FrameWriter(this.transport.streamClient);
+    await w.open(start, keys);
+    return w;
   }
 
   /**
@@ -74,10 +72,15 @@ export default class FrameClient {
     start: UnparsedTimeStamp,
     data: NativeTypedArray
   ): Promise<void> {
-    const writer = await this.newWriter(start, [to]);
-    await writer.write({ [to]: data });
-    if (!(await writer.commit())) throw new Error("Failed to commit.");
-    await writer.close();
+    const f = new Frame();
+    f.pushA(to, TelemArray.fromNative(data));
+    const w = await this.newWriter(start, [to]);
+    try {
+      await w.write(f);
+      if (!(await w.commit())) throw new Error("failed to commit");
+    } catch {
+      await w.close();
+    }
   }
 
   /**
@@ -93,12 +96,10 @@ export default class FrameClient {
   async read(
     from: string,
     start: UnparsedTimeStamp,
-    end: UnparsedTimeStamp
-  ): Promise<NativeTypedArray | undefined> {
-    const arr = await this.readArray(from, start, end);
-    if (arr == null || arr.dataType == null)
-      throw new Error(`Channel ${from} does not exist.`);
-    return new arr.dataType.Array(arr.data);
+    end: UnparsedTimeStamp,
+    throwOnEmpty = true
+  ): Promise<NativeTypedArray> {
+    return (await this.readArray(from, start, end, throwOnEmpty)).data;
   }
 
   /**
@@ -114,20 +115,26 @@ export default class FrameClient {
   async readArray(
     from: string,
     start: UnparsedTimeStamp,
-    end: UnparsedTimeStamp
-  ): Promise<TypedArray | undefined> {
+    end: UnparsedTimeStamp,
+    throwOnEmpty = true
+  ): Promise<TelemArray> {
     const tr = new TimeRange(start, end);
-    const iter = await this.newIterator(tr, [from], /* accumulate */ true);
-    let arr: TypedArray | undefined;
+    const frame = await this.readFrame(tr, [from]);
+    const arrs = frame.getA(from);
+    if (arrs.length === 0 && throwOnEmpty)
+      throw new QueryError(
+        `no telemetry found for channel ${from} between ${tr.toString()}`
+      );
+    return arrs[0];
+  }
+
+  async readFrame(tr: TimeRange, keys: string[]): Promise<Frame> {
+    const i = await this.newIterator(tr, keys, /* accumulate */ true);
     try {
-      if (await iter.seekFirst()) {
-        // eslint-disable-next-line no-empty
-        while (await iter.next(AUTO_SPAN)) {}
-        arr = (await iter.value()).get(from)[0];
-      }
+      if (await i.seekFirst()) while (await i.next(AUTO_SPAN));
     } finally {
-      await iter.close();
+      await i.close();
     }
-    return arr;
+    return i.value;
   }
 }
