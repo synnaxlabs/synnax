@@ -31,28 +31,30 @@ describe("Iterator", () => {
     const writer = await client.data.newWriter(TimeStamp.SECOND, [ch.key]);
     const data = randomTypedArray(25, ch.dataType);
     try {
-      await writer.write({ [ch.key]: data });
-      await writer.write({ [ch.key]: data });
-      await writer.write({ [ch.key]: data });
-    } finally {
+      await writer.writeArray(ch.key, data);
+      await writer.writeArray(ch.key, data);
+      await writer.writeArray(ch.key, data);
       await writer.commit();
+    } finally {
       await writer.close();
     }
-    const iterator = await client.data.newIterator(
+
+    const iter = await client.data.newIterator(
       new TimeRange(TimeSpan.ZERO, TimeSpan.seconds(4)),
       [ch.key],
       false
     );
+
     try {
-      expect(await iterator.seekFirst()).toBeTruthy();
+      expect(await iter.seekFirst()).toBeTruthy();
       let c = 0;
-      while (await iterator.next(TimeSpan.seconds(1))) {
+      while (await iter.next(TimeSpan.seconds(1))) {
         c++;
-        expect((await iterator.value()).get(ch.key)).toHaveLength(25 * 8);
+        expect(iter.value.getA(ch.key)).toHaveLength(25);
       }
       expect(c).toEqual(3);
     } finally {
-      await iterator.close();
+      await iter.close();
     }
   });
 });

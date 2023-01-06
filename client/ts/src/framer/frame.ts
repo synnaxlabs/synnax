@@ -1,72 +1,58 @@
-import { ValidationError } from "..";
+import { arrayFromPayload, FramePayload } from "./payload";
 
-import { TimeRange, TypedArray, Frame as CoreFrame } from "@/telem";
-import { unique } from "@/util/unique";
+import { TimeRange, TelemArray, Size } from "@/telem";
 
-export class Frame extends CoreFrame {
-  private readonly keys: string[];
+export class Frame {
+  private readonly _entries: Record<string, TelemArray[]>;
 
-  constructor(keys: string[], arrays: TypedArray[] = []) {
-    super(arrays);
-    this.keys = keys;
-    this.validate();
+  constructor() {
+    this._entries = {};
   }
 
-  /** @returns true if only one TypedArray exists for each key. */
+  static fromPayload(fp: FramePayload): Frame {
+    const f = new Frame();
+    fp.keys.forEach((key, i) => f.pushA(key, arrayFromPayload(fp.arrays[i])));
+    return f;
+  }
+
+  toPayload(): FramePayload {
+    return {
+      arrays: this.arrays,
+      keys: this.keys,
+    };
+  }
+
   get vertical(): boolean {
-    return unique(this.keys).length === this.arrays.length;
+    return Object.values(this._entries).every((v) => v.length === 1);
   }
 
   get horizontal(): boolean {
-    return unique(this.keys).length === 1;
+    return Object.keys(this._entries).length === 1;
   }
 
-  /** @returns true if the frame is square i.e. the minimum and maximum timestamps of each
-   * key are the same. */
-  get square(): boolean {
-    this.validate();
-    if (this.arrays.length <= 1) return true;
+  get weaklyAligned(): boolean {
+    if (this.keys.length <= 1) return true;
+    const timeRanges = this.timeRanges();
+    return timeRanges.every((tr) => tr.equals(timeRanges[0]));
+  }
 
-    const groups = this.groupByKey();
-    const first = groups[0];
-    const base = new TimeRange(
-      first[0].timeRange.start,
-      first[first.length - 1].timeRange.end
+  timeRange(key?: string): TimeRange {
+    if (key == null) {
+      if (this.keys.length === 0) return TimeRange.ZERO;
+      const start = Math.min(...this.arrays.map((a) => a.timeRange.start.valueOf()));
+      const end = Math.max(...this.arrays.map((a) => a.timeRange.end.valueOf()));
+      return new TimeRange(start, end);
+    }
+    const group = this.getA(key);
+    if (group == null) return TimeRange.ZERO;
+    return new TimeRange(
+      group[0].timeRange.start,
+      group[group.length - 1].timeRange.end
     );
-
-    return Object.values(groups).every((group) =>
-      new TimeRange(
-        group[0].timeRange.start,
-        group[group.length - 1].timeRange.end
-      ).equals(base)
-    );
   }
 
-  /**
-   * @returns the widest possible timerange occupied by the frame.
-   */
-  get timeRange(): TimeRange {
-    this.validate();
-    if (this.keys.length === 0) return TimeRange.ZERO;
-    // find the minimum start time and maximum end time
-    const start = Math.min(...this.arrays.map((a) => a.timeRange.start.valueOf()));
-    const end = Math.max(...this.arrays.map((a) => a.timeRange.end.valueOf()));
-    return new TimeRange(start, end);
-  }
-
-  private groupByKey(): Record<string, TypedArray[]> {
-    return this.keys.reduce<Record<string, TypedArray[]>>((acc, key, i) => {
-      const curr = acc[key];
-      if (curr == null) acc[key] = [this.arrays[i]];
-      curr.push(this.arrays[i]);
-      curr.sort((a, b) => a.timeRange.start.valueOf() - b.timeRange.start.valueOf());
-      return acc;
-    }, {});
-  }
-
-  validate(): void {
-    if (this.keys.length !== this.arrays.length)
-      throw new ValidationError("keys and arrays must be the same length");
+  timeRanges(): TimeRange[] {
+    return this.keys.map((key) => this.timeRange(key));
   }
 
   /**
@@ -74,13 +60,46 @@ export class Frame extends CoreFrame {
    * this will return an array of length 1. If the frame is horiztonal, returns all
    * arrays in the frame.
    */
-  get(key: string): TypedArray[] {
-    return this.arrays.filter((_, i) => this.keys[i] === key);
+  getA(key: string): TelemArray[] {
+    return this._entries[key] ?? [];
   }
 
-  add(key: string, v: TypedArray): void {
-    this.keys.push(key);
-    this.arrays.push(v);
+  /**
+   * @returns a new frame containing only the typed arrays matching the given keys.
+   * @param keys - the keys to filter by.
+   */
+  getF(keys: string[]): Frame {
+    const frame = new Frame();
+    for (const key of keys) {
+      frame._entries[key] = this._entries[key];
+    }
+    return frame;
+  }
+
+  /**
+   *
+   * @param key - the key to filter by.
+   */
+  pushA(key: string, ...v: TelemArray[]): void {
+    this._entries[key] = (this._entries[key] ?? []).concat(v);
+  }
+
+  overrideA(key: string, ...v: TelemArray[]): void {
+    this._entries[key] = v;
+  }
+
+  pushF(frame: Frame): Frame {
+    for (const [key, arrays] of frame.entries) {
+      this._entries[key] = (this._entries[key] ?? []).concat(arrays);
+    }
+    return this;
+  }
+
+  overrideF(frame: Frame): Frame {
+    for (const [key, arrays] of frame.entries) {
+      this._entries[key] = arrays;
+    }
+    return this;
   }
 
   /**
@@ -91,5 +110,35 @@ export class Frame extends CoreFrame {
    */
   has(key: string): boolean {
     return this.keys.includes(key);
+  }
+
+  get keys(): string[] {
+    return Object.keys(this._entries);
+  }
+
+  get entries(): Array<[string, TelemArray[]]> {
+    return Object.entries(this._entries);
+  }
+
+  get arrays(): TelemArray[] {
+    return Object.values(this._entries).flat();
+  }
+
+  map(fn: (v: TelemArray, k: string, i: number) => TelemArray): Frame {
+    const frame = new Frame();
+    for (const [key, arrays] of this.entries) {
+      frame._entries[key] = arrays.map((v, i) => fn(v, key, i));
+    }
+    return frame;
+  }
+
+  filter(fn: (v: TelemArray, k: string, i: number) => boolean): Frame {
+    const f = new Frame();
+    for (const [k, a] of this.entries) f._entries[k] = a.filter((v, i) => fn(v, k, i));
+    return f;
+  }
+
+  size(): Size {
+    return new Size(this.arrays.reduce((acc, v) => acc.add(v.size), Size.ZERO));
   }
 }

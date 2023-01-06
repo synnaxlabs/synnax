@@ -9,6 +9,8 @@
 
 import { z } from "zod";
 
+export const HELLO = "hello";
+
 export interface TypedError extends Error {
   discriminator: "FreighterError";
   /**
@@ -116,9 +118,7 @@ export const registerError = ({
   type: string;
   encode: ErrorEncoder;
   decode: ErrorDecoder;
-}): void => {
-  REGISTRY.register(type, { encode, decode });
-};
+}): void => REGISTRY.register(type, { encode, decode });
 
 /**
  * Encodes an error into a payload that can be sent between a freighter server

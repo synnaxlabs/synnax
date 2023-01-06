@@ -16,10 +16,11 @@ import ChannelCreator from "./channel/creator";
 import Registry from "./channel/registry";
 import ChannelRetriever from "./channel/retriever";
 import ConnectivityClient from "./connectivity";
-import FrameClient from "./framer/client";
 import OntologyClient from "./ontology/client";
 import { TimeSpan } from "./telem";
 import Transport from "./transport";
+
+import { FrameClient } from "@/framer";
 
 export const synnaxPropsSchema = z.object({
   host: z.string().min(1),
@@ -40,6 +41,7 @@ export type SynnaxProps = z.infer<typeof synnaxPropsSchema>;
  * @property connectivity - Client for retrieving connectivity information.
  * @property ontology - Client for querying the cluster's ontology.
  */
+// eslint-disable-next-line import/no-default-export
 export default class Synnax {
   private readonly transport: Transport;
   data: FrameClient;

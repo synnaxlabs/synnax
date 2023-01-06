@@ -9,7 +9,7 @@
 
 import { memo, useCallback, useEffect, useState } from "react";
 
-import type { Channel, ChannelPayload } from "@synnaxlabs/client";
+import { Channel } from "@synnaxlabs/client";
 import { Input, Space, Header, Tabs, Select } from "@synnaxlabs/pluto";
 import type { SelectMultipleProps, SelectProps } from "@synnaxlabs/pluto";
 import { HiChartBar } from "react-icons/hi";
@@ -86,9 +86,7 @@ const LinePlotChannelControls = (): JSX.Element | null => {
   useAsyncEffect(async () => {
     if (client == null) return;
     const channels = await client.channel.retrieveAll();
-    setChannelOpts(
-      channels.map((ch) => ch.payload as ChannelPayload & { key: string })
-    );
+    setChannelOpts(channels.map((ch) => ch.payload));
   }, [client]);
 
   const handleChannelChange = useCallback(

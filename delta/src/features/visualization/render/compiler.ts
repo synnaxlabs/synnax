@@ -35,10 +35,10 @@ export class StaticCompiler implements Compiler {
 
   compile(gl: WebGLRenderingContext): void {
     this._program = gl.createProgram();
+    this.compiled = true;
     this.compileShader(gl, this.vertShader, gl.VERTEX_SHADER);
     this.compileShader(gl, this.fragShader, gl.FRAGMENT_SHADER);
     gl.linkProgram(this._program as WebGLProgram);
-    this.compiled = true;
   }
 
   compileShader(gl: WebGLRenderingContext, shader: string, type: number): void {

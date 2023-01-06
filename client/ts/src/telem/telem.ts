@@ -13,7 +13,12 @@ import { ValidationError } from "@/errors";
 
 const valueOfEncoder = (value: unknown): unknown => value?.valueOf();
 
-/** Represents a nanosecond precision UTC timestamp. */
+/**
+ * Represents a UTC timestamp. Synnax uses a nanosecond precision int64 timestamp.
+ * JavaScript stores all numbers as 64-bit floating point numbers, so we expect a
+ * expect a precision drop from nanoseconds to quarter microseconds when communicating
+ * with the server. If this is a problem, please file an issue with the Synnax team.
+ */
 export class TimeStamp extends Number {
   constructor(value: UnparsedTimeStamp) {
     if (value instanceof Number) super(value.valueOf());
@@ -151,6 +156,10 @@ export class TimeStamp extends Number {
    */
   milliseconds(): number {
     return this.valueOf() / TimeStamp.MILLISECOND.valueOf();
+  }
+
+  toString(): string {
+    return this.date().toISOString();
   }
 
   /**
@@ -567,6 +576,10 @@ export class TimeRange {
     return this.start.equals(other.start) && this.end.equals(other.end);
   }
 
+  toString(): string {
+    return `${this.start.toString()} - ${this.end.toString()}`;
+  }
+
   /** The maximum possible time range. */
   static readonly MAX = new TimeRange(TimeStamp.MIN, TimeStamp.MAX);
 
@@ -580,6 +593,13 @@ export class TimeRange {
 /** DataType is a string that represents a data type. */
 export class DataType extends String {
   constructor(value: UnparsedDataType) {
+    if (value instanceof Function) {
+      const t = ARRAY_CONSTRUCTOR_DATA_TYPES.get(value.name);
+      if (t != null) {
+        super(t.valueOf());
+        return;
+      }
+    }
     super(value.valueOf());
   }
 
@@ -587,12 +607,16 @@ export class DataType extends String {
    * @returns the TypedArray constructor for the DataType.
    */
   get Array(): NativeTypedArrayConstructor {
-    const v = ARRAY_CONSTRUCTORS.get(this);
+    const v = DATA_TYPE_ARRAY_CONSTRUCTORS.get(this.toString());
     if (v == null)
       throw new ValidationError(
         `unable to find array constructor for ${this.valueOf()}`
       );
     return v;
+  }
+
+  equals(other: DataType): boolean {
+    return this.valueOf() === other.valueOf();
   }
 
   /** @returns a string representation of the DataType. */
@@ -601,7 +625,7 @@ export class DataType extends String {
   }
 
   get density(): Density {
-    const v = DATA_TYPE_DENSITIES.get(this);
+    const v = DATA_TYPE_DENSITIES.get(this.toString());
     if (v == null)
       throw new ValidationError(`unable to find density for ${this.valueOf()}`);
     return v;
@@ -663,6 +687,10 @@ export class Size extends Number {
   /** @returns true if the Size is smaller than the other sisze. */
   smallerThan(other: Size): boolean {
     return this.valueOf() < other.valueOf();
+  }
+
+  add(other: Size): Size {
+    return Size.bytes(this.valueOf() + other.valueOf());
   }
 
   /**
@@ -729,13 +757,15 @@ export class Size extends Number {
 
   /** A terabyte. */
   static readonly TERABYTE = Size.terabytes(1);
+
+  static readonly ZERO = new Size(0);
 }
 
 export type UnparsedTimeStamp = TimeStamp | TimeSpan | number | Date;
 export type UnparsedTimeSpan = TimeSpan | TimeStamp | number;
 export type UnparsedRate = Rate | number;
 export type UnparsedDensity = Density | number;
-export type UnparsedDataType = DataType | string;
+export type UnparsedDataType = DataType | string | NativeTypedArray;
 export type UnparsedSize = Size | number;
 
 registerCustomTypeEncoder({ Class: TimeStamp, write: valueOfEncoder });
@@ -771,33 +801,65 @@ type NativeTypedArrayConstructor =
   | Int32ArrayConstructor
   | BigInt64ArrayConstructor;
 
-const ARRAY_CONSTRUCTORS: Map<DataType, NativeTypedArrayConstructor> = new Map<
-  DataType,
+const DATA_TYPE_ARRAY_CONSTRUCTORS: Map<string, NativeTypedArrayConstructor> = new Map<
+  string,
   NativeTypedArrayConstructor
 >([
-  [DataType.UINT8, Uint8Array],
-  [DataType.UINT16, Uint16Array],
-  [DataType.UINT32, Uint32Array],
-  [DataType.UINT64, BigUint64Array],
-  [DataType.FLOAT32, Float32Array],
-  [DataType.FLOAT64, Float64Array],
-  [DataType.INT8, Int8Array],
-  [DataType.INT16, Int16Array],
-  [DataType.INT32, Int32Array],
-  [DataType.INT64, BigInt64Array],
-  [DataType.TIMESTAMP, BigInt64Array],
+  [DataType.UINT8.toString(), Uint8Array],
+  [DataType.UINT16.toString(), Uint16Array],
+  [DataType.UINT32.toString(), Uint32Array],
+  [DataType.UINT64.toString(), BigUint64Array],
+  [DataType.FLOAT32.toString(), Float32Array],
+  [DataType.FLOAT64.toString(), Float64Array],
+  [DataType.INT8.toString(), Int8Array],
+  [DataType.INT16.toString(), Int16Array],
+  [DataType.INT32.toString(), Int32Array],
+  [DataType.INT64.toString(), BigInt64Array],
+  [DataType.TIMESTAMP.toString(), BigInt64Array],
 ]);
 
-const DATA_TYPE_DENSITIES = new Map<DataType, Density>([
-  [DataType.UINT8, Density.BIT8],
-  [DataType.UINT16, Density.BIT16],
-  [DataType.UINT32, Density.BIT32],
-  [DataType.UINT64, Density.BIT64],
-  [DataType.FLOAT32, Density.BIT32],
-  [DataType.FLOAT64, Density.BIT64],
-  [DataType.INT8, Density.BIT8],
-  [DataType.INT16, Density.BIT16],
-  [DataType.INT32, Density.BIT32],
-  [DataType.INT64, Density.BIT64],
-  [DataType.TIMESTAMP, Density.BIT64],
+const ARRAY_CONSTRUCTOR_DATA_TYPES: Map<string, DataType> = new Map<string, DataType>([
+  [Uint8Array.name, DataType.UINT8],
+  [Uint16Array.name, DataType.UINT16],
+  [Uint32Array.name, DataType.UINT32],
+  [BigUint64Array.name, DataType.UINT64],
+  [Float32Array.name, DataType.FLOAT32],
+  [Float64Array.name, DataType.FLOAT64],
+  [Int8Array.name, DataType.INT8],
+  [Int16Array.name, DataType.INT16],
+  [Int32Array.name, DataType.INT32],
+  [BigInt64Array.name, DataType.INT64],
 ]);
+
+const DATA_TYPE_DENSITIES = new Map<string, Density>([
+  [DataType.UINT8.toString(), Density.BIT8],
+  [DataType.UINT16.toString(), Density.BIT16],
+  [DataType.UINT32.toString(), Density.BIT32],
+  [DataType.UINT64.toString(), Density.BIT64],
+  [DataType.FLOAT32.toString(), Density.BIT32],
+  [DataType.FLOAT64.toString(), Density.BIT64],
+  [DataType.INT8.toString(), Density.BIT8],
+  [DataType.INT16.toString(), Density.BIT16],
+  [DataType.INT32.toString(), Density.BIT32],
+  [DataType.INT64.toString(), Density.BIT64],
+  [DataType.TIMESTAMP.toString(), Density.BIT64],
+]);
+
+type TelemValue = number | bigint;
+
+const BIG_INT_TYPES = [DataType.INT64, DataType.UINT64, DataType.TIMESTAMP];
+
+export const convertDataType = (
+  source: DataType,
+  target: DataType,
+  value: TelemValue,
+  offset: number | bigint = 0
+): TelemValue => {
+  if (source.equals(target)) return value;
+  let [fromBigInt, toBigInt] = [false, false];
+  if (BIG_INT_TYPES.some((v) => v.equals(source))) fromBigInt = true;
+  if (BIG_INT_TYPES.some((v) => v.equals(target))) toBigInt = true;
+  if (fromBigInt && !toBigInt) return Number(value) + Number(offset);
+  if (!fromBigInt && toBigInt) return BigInt(value) + BigInt(offset);
+  return value;
+};

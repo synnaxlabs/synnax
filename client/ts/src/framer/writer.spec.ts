@@ -26,12 +26,12 @@ const newChannel = async (): Promise<Channel> => {
 };
 
 describe("Writer", () => {
-  describe("TypedWriter", () => {
+  describe("Writer", () => {
     test("basic write", async () => {
       const ch = await newChannel();
       const writer = await client.data.newWriter(0, [ch.key]);
       try {
-        await writer.write({ [ch.key]: randomTypedArray(10, ch.dataType) });
+        await writer.writeArray(ch.key, randomTypedArray(10, ch.dataType));
         await writer.commit();
       } finally {
         await writer.close();

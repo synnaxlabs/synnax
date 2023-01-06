@@ -2,6 +2,7 @@
   "name": "@synnaxlabs/client",
   "private": false,
   "version": "0.2.1",
+  "type": "module",
   "description": "The Client Library for Synnax",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/client/ts",
   "license": "MIT",
@@ -16,7 +17,7 @@
     "control systems"
   ],
   "scripts": {
-    "build": "tsc --noEmit && vite build",
+    "build": "vite build",
     "watch": "tsc --noEmit && vite build --watch",
     "test": "vitest",
     "cov": "vitest --coverage",
@@ -28,44 +29,19 @@
   },
   "dependencies": {
     "@synnaxlabs/freighter": "*",
-    "zod": "^3.19.1"
+    "zod": "3.19.1"
   },
   "devDependencies": {
     "@synnaxlabs/tsconfig": "*",
     "eslint-config-synnaxlabs": "*",
-    "vite": "^4.0.1",
-    "vite-plugin-dts": "^1.7.1",
-    "vite-tsconfig-paths": "^4.0.3",
-    "vitest": "^0.25.8"
+    "@synnaxlabs/vite-plugin": "*",
+    "vite": "^4.0.4",
+    "vitest": "^0.26.3"
   },
   "files": [
-    "dist/main",
-    "dist/module",
-    "!**/*.spec.*",
-    "!**/*.json",
-    "CHANGELOG.md",
-    "LICENSE",
-    "README.md"
+    "dist"
   ],
-  "ava": {
-    "failFast": true,
-    "timeout": "60s",
-    "typescript": {
-      "rewritePaths": {
-        "src/": "dist/main/"
-      }
-    },
-    "files": [
-      "!dist/module/**"
-    ]
-  },
-  "nyc": {
-    "extends": "@istanbuljs/nyc-config-typescript",
-    "exclude": [
-      "**/*.spec.js"
-    ]
-  },
   "main": "dist/client.cjs.js",
-  "typings": "dist/index.d.ts",
-  "module": "dist/client.es.js"
+  "module": "dist/client.es.js",
+  "types": "dist/index.d.ts"
 }

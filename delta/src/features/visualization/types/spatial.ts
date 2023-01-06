@@ -43,6 +43,10 @@ export class CSSBox implements Box {
     this._top = top;
   }
 
+  static fromDomRect(rect: DOMRect): CSSBox {
+    return new CSSBox(rect.width, rect.height, rect.left, rect.top);
+  }
+
   get width(): number {
     return this._width;
   }
@@ -115,5 +119,5 @@ export class PointBox {
   }
 }
 
-export const calculateBottomOffset = (parent: CSSBox, child: CSSBox): number =>
+export const calculateBottomOffset = (parent: Box, child: Box): number =>
   parent.height - (child.top - parent.top) - child.height;

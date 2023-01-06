@@ -36,6 +36,7 @@
     "@storybook/react": "^6.5.9",
     "@synnaxlabs/client": "*",
     "@synnaxlabs/tsconfig": "*",
+    "@synnaxlabs/vite-plugin": "*",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^14.4.3",
     "@types/d3": "^7.4.0",
@@ -53,16 +54,14 @@
     "prettier": "2.7.1",
     "react-icons": "^4.4.0",
     "stylelint-config-synnaxlabs": "*",
-    "typescript": "^4.6.4",
-    "vite": "^3.0.0",
-    "vite-plugin-dts": "^1.4.0",
-    "vite-tsconfig-paths": "^3.5.2",
-    "vitest": "^0.23.4"
+    "typescript": "^4.9.4",
+    "vite": "^4.0.4",
+    "vitest": "^0.26.3"
   },
   "files": [
     "dist"
   ],
-  "main": "./dist/pluto.umd.js",
+  "main": "./dist/pluto.cjs.js",
   "module": "./dist/pluto.es.js",
   "types": "./dist/index.d.ts",
   "publishConfig": {

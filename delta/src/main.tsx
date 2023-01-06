@@ -11,9 +11,8 @@ import { StrictMode } from "react";
 
 import { Provider as DriftProvider } from "@synnaxlabs/drift";
 import { Theming } from "@synnaxlabs/pluto";
+import "@synnaxlabs/pluto/dist/style.css";
 import ReactDOM from "react-dom/client";
-
-import { Plot } from "./Plot";
 
 import { MainLayout } from "@/components";
 import { ConnectCluster } from "@/features/cluster";
@@ -27,7 +26,6 @@ import { VisualizationLayoutRenderer } from "@/features/visualization";
 import { DefineRange } from "@/features/workspace";
 import { store } from "@/store";
 
-import "@synnaxlabs/pluto/dist/style.css";
 import "./index.css";
 
 const layoutRenderers = {

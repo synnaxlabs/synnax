@@ -35,9 +35,10 @@ export type PreloadedState<S extends StoreState> = BasePreloadedState<
   CombinedState<NoInfer<S>>
 >;
 
-interface MaybeKeyPayload {
-  key?: string;
-}
+// Disabling consistent type definitions here because 'empty' interfaces can't be named,
+// which raises an error on build.
+// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
+type MaybeKeyPayload = { key?: string };
 interface KeyPayload {
   key: string;
 }
@@ -190,7 +191,7 @@ export const completeProcess = (key?: string): DriftAction =>
 export const isDrift = (type: string): boolean => type.startsWith(DRIFT_SLICE_NAME);
 
 /** A list of actions that shouldn't be emitted to other windows. */
-const EXCLUDED_ACTIONS = [actions.setWindowKey.type];
+const EXCLUDED_ACTIONS: readonly string[] = [actions.setWindowKey.type];
 
 /**
  * @returns true if the action with the given type should be emitted to other

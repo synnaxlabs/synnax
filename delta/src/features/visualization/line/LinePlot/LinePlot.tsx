@@ -13,11 +13,13 @@ import { Synnax } from "@synnaxlabs/client";
 import { Autosize, useDrag, UseSizeReturn } from "@synnaxlabs/pluto";
 
 import { useRenderer } from "../../components/Canvas";
-import { CSSBox, PointBox } from "../../types/spatial";
 import { Visualization } from "../../types";
+import { CSSBox, PointBox } from "../../types/spatial";
+import { SugaredLinePlotVisualization } from "../types";
 
 import "./LinePlot.css";
-import { sort } from "d3";
+
+import { useAsyncEffect } from "@/hooks";
 
 export interface LinePlotProps {
   visualization: SugaredLinePlotVisualization;
@@ -31,9 +33,7 @@ export const LinePlot = (): JSX.Element => {
     <div className="delta-line-plot__container">
       <Autosize className="delta-line-plot__plot__container" debounce={100}>
         {({ width, height, left, top }) => (
-          <>
-            <CorePlot width={width} height={height} left={left} top={top} />
-          </>
+          <CorePlot width={width} height={height} left={left} top={top} />
         )}
       </Autosize>
     </div>
@@ -57,36 +57,41 @@ const yData = Float32Array.from({ length: count }, (_, i) => {
   }
 });
 
-const sorted = sort(yData);
+const sorted = yData.sort();
 const min = sorted[0];
 const max = sorted[sorted.length - 1];
 
 const CorePlot = ({ width, height, left, top }: UseSizeReturn): JSX.Element => {
   const render = useRenderer();
 
-  useEffect(() => {
-    render({
-      box: {
-        width,
-        height,
-        left,
-        top,
-      },
-      lines: [
-        {
-          x: xData,
-          y: yData,
-          scale: {
-            x: 1,
-            y: 1 / ((max - min) * 1.1),
-          },
-          offset: {
-            x: 0,
-            y: 0.1,
-          },
-          color: [Math.random(), Math.random(), Math.random(), 1],
+  useAsyncEffect(async () => {
+    await render({
+      box: new CSSBox(width, height, left, top),
+      renderer: "line",
+      request: {
+        range: {
+          name: "Hotfire 01",
+          key: "hotfire_01",
+          start: 1669915476000000000,
+          end: 1670693076000000000,
         },
-      ],
+        lines: [
+          {
+            offset: {
+              x: 0,
+              y: 0,
+            },
+            scale: {
+              x: 1,
+              y: 1,
+            },
+            color: [1, 0, 0, 1],
+            strokeWidth: 2,
+            xKey: "1-1",
+            yKey: "1-321",
+          },
+        ],
+      },
     });
   }, [width, height, left, top]);
 

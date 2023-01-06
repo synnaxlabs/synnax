@@ -12,12 +12,11 @@ import { EOF, ErrorPayloadSchema, decodeError } from "@synnaxlabs/freighter";
 import type { Stream, StreamClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
-import { ChannelPayload } from "../channel";
-import ChannelRegistry from "../channel/registry";
 import { GeneralError } from "../errors";
-import { TimeStamp, NativeTypedArray, UnparsedTimeStamp } from "../telem";
+import { NativeTypedArray, TelemArray, TimeStamp, UnparsedTimeStamp } from "../telem";
 
-import { frameFromRecord, FramePayload, framePayloadSchema } from "./payload";
+import { Frame } from "./frame";
+import { framePayloadSchema } from "./payload";
 
 enum Command {
   None = 0,
@@ -137,13 +136,19 @@ export class FrameWriter {
    * @returns false if the writer has accumulated an error. In this case, the caller
    * should acknowledge the error by calling the error method or closing the writer.
    */
-  async write(frame: FramePayload): Promise<boolean> {
+  async write(frame: Frame): Promise<boolean> {
     if (this.stream == null) throw NOT_OPEN;
     if (this.stream.received()) return false;
 
-    const err = this.stream.send({ command: Command.Write, frame });
+    const err = this.stream.send({ command: Command.Write, frame: frame.toPayload() });
     if (err != null) throw err;
     return true;
+  }
+
+  async writeArray(key: string, data: NativeTypedArray): Promise<boolean> {
+    const f = new Frame();
+    f.pushA(key, TelemArray.fromNative(data));
+    return await this.write(f);
   }
 
   /**
@@ -164,9 +169,8 @@ export class FrameWriter {
     while (true) {
       const [res, err] = await this.stream.receive();
       if (err != null) throw err;
-      if (res != null && res?.command === Command.Commit) {
-        return res.ack;
-      }
+      if (res != null && res?.command === Command.Commit) return res.ack;
+      this.warnUnexpectedResponse(res);
     }
   }
 
@@ -183,10 +187,9 @@ export class FrameWriter {
     while (true) {
       const [res, err] = await this.stream.receive();
       if (err != null) throw err;
-      if (res != null && res?.command === Command.Error) {
-        if (res.error != null) return decodeError(res.error);
-        return undefined;
-      }
+      if (res != null && res?.command === Command.Error && res.error != null)
+        return decodeError(res.error);
+      this.warnUnexpectedResponse(res);
     }
   }
 
@@ -202,73 +205,9 @@ export class FrameWriter {
     if (err == null && res?.error != null) throw decodeError(res.error);
     if (!(err instanceof EOF)) throw err;
   }
-}
 
-/**
- * TypedWriter is used to write telemetry to a set of channels in time-order. It
- * should not be instantiated directly, but rather through a {@link SegmentClient}.
- *
- * Using a writer is ideal when writing large volumes of data (such as recording
- * telemetry from a sensor), but it is relatively complex and challenging to use.
- * If you're looking to write a contiguous block of telemetry, see the {@link SegmentClient}
- * write() method.
- */
-export class RecordWriter {
-  private readonly core: FrameWriter;
-  private readonly registry: ChannelRegistry;
-  private channels: ChannelPayload[];
-
-  constructor(client: StreamClient, registry: ChannelRegistry) {
-    this.core = new FrameWriter(client);
-    this.registry = registry;
-    this.channels = [];
-  }
-
-  /**
-   * Opens the writer, acquiring an exclusive lock on the given channels for
-   * the duration of the writer's lifetime. open must be called before any other
-   * writer methods.
-   *
-   * @param keys - A list of keys representing the channels the writer will write
-   * to.
-   */
-  async open(start: UnparsedTimeStamp, keys: string[]): Promise<void> {
-    await this.core.open(start, keys);
-    this.channels = await this.registry.getN(...keys);
-  }
-
-  /**
-   * Writes the given telemetry to the database.
-   *
-   * @param to - They key of the channel to write to. This must be in the set of
-   * keys this writer was opened with.
-   * @param start - The start time of the telemetry. This must be equal to
-   * the end of the previous segment written to the channel (unless it's the first
-   * write to that channel).
-   * @param data - The telemetry to write. This must be a valid type for the channel.
-   * @returns false if the writer has accumulated an error. In this case,
-   * the caller should stop executing requests and close the writer.
-   */
-  async write(record: Record<string, NativeTypedArray>): Promise<boolean> {
-    return await this.core.write(frameFromRecord(this.channels, record));
-  }
-
-  async commit(): Promise<boolean> {
-    return await this.core.commit();
-  }
-
-  async error(): Promise<Error | undefined> {
-    return await this.core.error();
-  }
-
-  /**
-   * Closes the writer, raising any accumulated error encountered during operation.
-   * A writer MUST be closed after use, and this method should probably be placed
-   * in a 'finally' block. If the writer is not closed, the database will not release
-   * the exclusive lock on the channels, preventing any other callers from
-   * writing to them. It also might leak resources and threads.
-   */
-  async close(): Promise<void> {
-    await this.core.close();
+  private warnUnexpectedResponse(res?: Response): void {
+    if (res == null) console.warn("writer received unexpected null response");
+    console.warn("writer received unexpected response", res);
   }
 }

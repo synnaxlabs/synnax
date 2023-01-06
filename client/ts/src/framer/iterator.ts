@@ -12,16 +12,13 @@ import type { Stream, StreamClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
 import { Frame } from "./frame";
-import { FramePayload, framePayloadSchema } from "./payload";
+import { framePayloadSchema } from "./payload";
 
-import Registry from "@/channel/registry";
-import { UnexpectedError } from "@/errors";
+import { GeneralError, UnexpectedError } from "@/errors";
 import {
-  DataType,
   TimeRange,
   TimeSpan,
   TimeStamp,
-  TypedArray,
   UnparsedTimeSpan,
   UnparsedTimeStamp,
 } from "@/telem";
@@ -45,6 +42,10 @@ enum ResponseVariant {
   Ack = 1,
   Data = 2,
 }
+
+const NOT_OPEN = new GeneralError(
+  "iterator.open() must be called before any other method"
+);
 
 const RequestSchema = z.object({
   command: z.nativeEnum(Command),
@@ -74,16 +75,17 @@ type Response = z.infer<typeof ResponseSchema>;
  * is relatively complex and difficult to use. If you're looking to retrieve
  *  telemetry between two timestamps, see the SegmentClient.read method.
  */
-export class CoreIterator {
+export class FrameIterator {
   private static readonly ENDPOINT = "/frame/iterate";
   private readonly client: StreamClient;
   private stream: Stream<Request, Response> | undefined;
   private readonly aggregate: boolean = false;
-  values: FramePayload[] = [];
+  value: Frame;
 
   constructor(client: StreamClient, aggregate = false) {
     this.client = client;
     this.aggregate = aggregate;
+    this.value = new Frame();
   }
 
   /**
@@ -95,14 +97,14 @@ export class CoreIterator {
    */
   async open(tr: TimeRange, keys: string[]): Promise<void> {
     this.stream = await this.client.stream(
-      CoreIterator.ENDPOINT,
+      FrameIterator.ENDPOINT,
       RequestSchema,
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-expect-error
       ResponseSchema
     );
     await this.execute({ command: Command.Open, keys, range: tr });
-    this.values = [];
+    this.value = new Frame();
   }
 
   /**
@@ -197,54 +199,30 @@ export class CoreIterator {
    * it may leak resources.
    */
   async close(): Promise<void> {
-    if (this.stream == null)
-      throw new Error("iterator.open() must be called before any other method");
+    if (this.stream == null) throw NOT_OPEN;
     this.stream.closeSend();
     const [, exc] = await this.stream.receive();
     if (exc == null)
-      throw new UnexpectedError("received unexpected response from core's iterator");
+      throw new UnexpectedError("received null response on iterator closure");
     if (!(exc instanceof EOF)) throw exc;
   }
 
+  private resetValue(): void {
+    if (this.value == null || !this.aggregate) this.value = new Frame();
+  }
+
   private async execute(request: Request): Promise<boolean> {
-    if (this.stream == null)
-      throw new Error("iterator.open() must be called before any other method");
+    this.resetValue();
+    if (this.stream == null) throw NOT_OPEN;
     const err = this.stream.send(request);
     if (err != null) throw err;
-    if (!this.aggregate) this.values = [];
     while (true) {
       const [res, err] = await this.stream.receive();
       if (err != null) throw err;
       if (res == null)
-        throw new UnexpectedError("received null response from core's iterator");
+        throw new UnexpectedError("received null response from iterator");
       if (res.variant === ResponseVariant.Ack) return res.ack;
-      if (res.frame != null) this.values.push(res.frame);
+      if (res.frame != null) this.value.pushF(Frame.fromPayload(res.frame));
     }
-  }
-}
-
-export class TypedIterator extends CoreIterator {
-  channels: Registry;
-
-  constructor(client: StreamClient, channels: Registry, aggregate = false) {
-    super(client, aggregate);
-    this.channels = channels;
-  }
-
-  async value(): Promise<Frame> {
-    const result: Frame = new Frame([], []);
-    this.values.forEach((frame) => {
-      if (frame.keys == null || frame.arrays == null) return;
-      frame.keys.forEach((key, i) => {
-        if (frame.arrays == null) return;
-        const array = frame.arrays[i];
-        if (array == null) return;
-        result.add(
-          key,
-          new TypedArray(array.dataType as DataType, array.data, array.timeRange)
-        );
-      });
-    });
-    return result;
   }
 }

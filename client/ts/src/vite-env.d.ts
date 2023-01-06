@@ -7,9 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/hooks/useClickOutside";
-export * from "@/hooks/useDrag";
-export * from "@/hooks/useKeys";
-export * from "@/hooks/useResize";
-export * from "@/hooks/useSearch";
-export * from "@/hooks/useTransforms";
+// eslint-disable-next-line @typescript-eslint/triple-slash-reference
+/// <reference types="vite/client" />
