@@ -2,6 +2,7 @@
   "name": "@synnaxlabs/freighter",
   "private": false,
   "version": "0.2.0",
+  "type": "module",
   "description": "a modular transport abstraction",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/freighter/ts",
   "license": "MIT",
@@ -41,16 +42,11 @@
     "vite-tsconfig-paths": "^4.0.3",
     "vitest": "^0.25.8"
   },
-  "files": [
-    "dist/main",
-    "dist/module",
-    "!**/*.spec.*",
-    "!**/*.json",
-    "CHANGELOG.md",
-    "LICENSE",
-    "README.md"
-  ],
-  "main": "dist/freighter.cjs.js",
-  "typings": "dist/index.d.ts",
-  "module": "dist/freighter.es.js"
+  "exports": {
+    ".": {
+      "import": "./dist/freighter.es.js",
+      "require": "./dist/freighter.cjs.js",
+      "types": "./dist/freighter.es.d.ts"
+    }
+  }
 }

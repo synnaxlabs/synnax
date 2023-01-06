@@ -7,19 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export { WebSocketClient } from "./lib/websocket";
+export { WebSocketClient } from "./websocket";
 export {
   MsgpackEncoderDecoder,
   JSONEncoderDecoder,
   registerCustomTypeEncoder,
   ENCODERS,
-} from "./lib/encoder";
-export type { EncoderDecoder } from "./lib/encoder";
-export type { StreamClient, Stream } from "./lib/stream";
-export type { UnaryClient } from "./lib/unary";
-export { HTTPClientFactory } from "./lib/http";
-export { default as URL } from "./lib/url";
-export type { TypedError, ErrorPayload } from "./lib/errors";
+} from "./encoder";
+export type { EncoderDecoder } from "./encoder";
+export type { StreamClient, Stream } from "./stream";
+export type { UnaryClient } from "./unary";
+export { HTTPClientFactory } from "./http";
+export { default as URL } from "./url";
+export type { TypedError, ErrorPayload } from "./errors";
 export {
   encodeError,
   decodeError,
@@ -29,6 +29,6 @@ export {
   EOF,
   StreamClosed,
   Unreachable,
-} from "./lib/errors";
-export type { Middleware, Next, MetaData } from "./lib/middleware";
-export { logMiddleware } from "./lib/util/log";
+} from "./errors";
+export type { Middleware, Next, MetaData } from "./middleware";
+export { logMiddleware } from "./util/log";
