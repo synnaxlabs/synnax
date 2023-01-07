@@ -1,23 +1,32 @@
-import { arrayFromPayload, FramePayload } from "./payload";
+import { ValidationError } from "..";
 
-import { TimeRange, TelemArray, Size } from "@/telem";
+import { arrayFromPayload, arrayToPayload, FramePayload } from "./payload";
+
+import { Size, TArray, TimeRange } from "@/telem";
 
 export class Frame {
-  private readonly _entries: Record<string, TelemArray[]>;
+  private readonly _entries: Record<string, TArray[]>;
 
-  constructor() {
+  constructor(
+    data: FramePayload | Record<string, TArray[]> | TArray[] = [],
+    keys: string[] = []
+  ) {
     this._entries = {};
-  }
-
-  static fromPayload(fp: FramePayload): Frame {
-    const f = new Frame();
-    fp.keys.forEach((key, i) => f.pushA(key, arrayFromPayload(fp.arrays[i])));
-    return f;
+    if (Array.isArray(data)) {
+      if (keys.length !== data.length)
+        throw new ValidationError("keys and data must be the same length");
+      data.forEach((d, i) => this.pushA(keys[i], d));
+    } else if ("keys" in data) {
+      const v = data as FramePayload;
+      v.keys.forEach((key, i) => this.pushA(key, arrayFromPayload(v.arrays[i])));
+    } else {
+      this._entries = data;
+    }
   }
 
   toPayload(): FramePayload {
     return {
-      arrays: this.arrays,
+      arrays: this.arrays.map((a) => arrayToPayload(a)),
       keys: this.keys,
     };
   }
@@ -60,7 +69,7 @@ export class Frame {
    * this will return an array of length 1. If the frame is horiztonal, returns all
    * arrays in the frame.
    */
-  getA(key: string): TelemArray[] {
+  getA(key: string): TArray[] {
     return this._entries[key] ?? [];
   }
 
@@ -80,11 +89,11 @@ export class Frame {
    *
    * @param key - the key to filter by.
    */
-  pushA(key: string, ...v: TelemArray[]): void {
+  pushA(key: string, ...v: TArray[]): void {
     this._entries[key] = (this._entries[key] ?? []).concat(v);
   }
 
-  overrideA(key: string, ...v: TelemArray[]): void {
+  overrideA(key: string, ...v: TArray[]): void {
     this._entries[key] = v;
   }
 
@@ -116,29 +125,32 @@ export class Frame {
     return Object.keys(this._entries);
   }
 
-  get entries(): Array<[string, TelemArray[]]> {
+  get entries(): Array<[string, TArray[]]> {
     return Object.entries(this._entries);
   }
 
-  get arrays(): TelemArray[] {
+  get arrays(): TArray[] {
     return Object.values(this._entries).flat();
   }
 
-  map(fn: (v: TelemArray, k: string, i: number) => TelemArray): Frame {
+  map(fn: (k: string, arr: TArray, i: number) => TArray): Frame {
     const frame = new Frame();
-    for (const [key, arrays] of this.entries) {
-      frame._entries[key] = arrays.map((v, i) => fn(v, key, i));
+    for (const [k, a] of this.entries) {
+      frame._entries[k] = a.map((arr, i) => fn(k, arr, i));
     }
     return frame;
   }
 
-  filter(fn: (v: TelemArray, k: string, i: number) => boolean): Frame {
+  filter(fn: (k: string, arr: TArray, i: number) => boolean): Frame {
     const f = new Frame();
-    for (const [k, a] of this.entries) f._entries[k] = a.filter((v, i) => fn(v, k, i));
+    for (const [k, a] of this.entries) {
+      const filtered = a.filter((arr, i) => fn(k, arr, i));
+      if (filtered.length > 0) f._entries[k] = filtered;
+    }
     return f;
   }
 
-  size(): Size {
+  get size(): Size {
     return new Size(this.arrays.reduce((acc, v) => acc.add(v.size), Size.ZERO));
   }
 }

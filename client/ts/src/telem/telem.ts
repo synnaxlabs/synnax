@@ -478,7 +478,7 @@ export class Density extends Number {
     else super(value);
   }
 
-  sampleCount(size: Size): number {
+  length(size: Size): number {
     return size.valueOf() / this.valueOf();
   }
 
@@ -593,14 +593,18 @@ export class TimeRange {
 /** DataType is a string that represents a data type. */
 export class DataType extends String {
   constructor(value: UnparsedDataType) {
-    if (value instanceof Function) {
-      const t = ARRAY_CONSTRUCTOR_DATA_TYPES.get(value.name);
+    if (value instanceof DataType || typeof value === "string") {
+      super(value.valueOf());
+      return;
+    } else {
+      const t = ARRAY_CONSTRUCTOR_DATA_TYPES.get(value.constructor.name);
       if (t != null) {
         super(t.valueOf());
         return;
       }
     }
-    super(value.valueOf());
+    super(DataType.UNKNOWN.valueOf());
+    throw new ValidationError(`unable to find data type for ${value.toString()}`);
   }
 
   /**
@@ -646,7 +650,7 @@ export class DataType extends String {
   }
 
   /** Represents an Unknown/Invalid DataType. */
-  static readonly Unknown = new DataType("unknown");
+  static readonly UNKNOWN = new DataType("unknown");
   /** Represents a 64-bit floating point value. */
   static readonly FLOAT64 = new DataType("float64");
   /** Represents a 32-bit floating point value. */

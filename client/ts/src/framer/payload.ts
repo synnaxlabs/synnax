@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 
-import { DataType, TimeRange, TimeStamp, TelemArray } from "../telem";
+import { DataType, TArray, TimeRange, TimeStamp } from "../telem";
 
 export const arrayPayloadSchema = z.object({
   timeRange: z
@@ -32,7 +32,15 @@ export const framePayloadSchema = z.object({
 
 export type FramePayload = z.infer<typeof framePayloadSchema>;
 
-export const arrayFromPayload = (payload: ArrayPayload): TelemArray => {
+export const arrayFromPayload = (payload: ArrayPayload): TArray => {
   const { dataType, data } = payload;
-  return new TelemArray(dataType, data);
+  return new TArray(data, dataType);
+};
+
+export const arrayToPayload = (array: TArray): ArrayPayload => {
+  return {
+    timeRange: array._timeRange,
+    dataType: array.dataType,
+    data: array.buffer,
+  };
 };

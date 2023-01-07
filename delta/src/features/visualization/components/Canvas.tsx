@@ -14,7 +14,6 @@ import { UnexpectedError } from "@synnaxlabs/client";
 import { RenderingEngine, RenderRequest } from "../engine/engine";
 import { RENDERER_REGISTRY } from "../render/registry";
 import { TelemetryClient } from "../telem/client";
-import { FrameCache } from "../telem/frameCache";
 import { WebGLBufferCache } from "../telem/glCache";
 import { FrameRetriever } from "../telem/retriever";
 
@@ -55,11 +54,7 @@ export const Canvas = ({ children }: CanvasProps): JSX.Element => {
       e,
       gl,
       RENDERER_REGISTRY,
-      new TelemetryClient(
-        new WebGLBufferCache(gl),
-        new FrameCache(),
-        new FrameRetriever(client)
-      )
+      new TelemetryClient(new WebGLBufferCache(gl), new FrameRetriever(client))
     );
   };
 

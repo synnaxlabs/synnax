@@ -14,7 +14,7 @@ export class FrameRetriever {
     console.log(range.start, range.end);
     const tr = new TimeRange(range.start, range.end);
     console.log(tr.toString());
-    return this.client.data.readFrame(tr, keys);
+    return await this.client.data.readFrame(tr, keys);
   }
 }
 

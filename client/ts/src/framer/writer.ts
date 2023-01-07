@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 /* eslint-disable @typescript-eslint/no-throw-literal */
-import { EOF, ErrorPayloadSchema, decodeError } from "@synnaxlabs/freighter";
 import type { Stream, StreamClient } from "@synnaxlabs/freighter";
+import { decodeError, EOF, ErrorPayloadSchema } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
 import { GeneralError } from "../errors";
-import { NativeTypedArray, TelemArray, TimeStamp, UnparsedTimeStamp } from "../telem";
+import { NativeTypedArray, TArray, TimeStamp, UnparsedTimeStamp } from "../telem";
 
 import { Frame } from "./frame";
 import { framePayloadSchema } from "./payload";
@@ -147,7 +147,7 @@ export class FrameWriter {
 
   async writeArray(key: string, data: NativeTypedArray): Promise<boolean> {
     const f = new Frame();
-    f.pushA(key, TelemArray.fromNative(data));
+    f.pushA(key, TArray.fromNative(data));
     return await this.write(f);
   }
 
