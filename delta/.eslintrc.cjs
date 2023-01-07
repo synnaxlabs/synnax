@@ -11,7 +11,7 @@ module.exports = {
     root: true,
     extends: ["synnaxlabs"],
     parserOptions: {
-        project: "./tsconfig.json",
+        project: ["./tsconfig.json", "./tsconfig.vite.json"],
     },
     rules: {
         "no-restricted-imports": [

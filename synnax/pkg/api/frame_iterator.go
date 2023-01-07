@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/sirupsen/logrus"
 )
 
 type (
@@ -112,6 +113,7 @@ func (s *FrameService) openIterator(ctx context.Context, srv FrameIteratorStream
 	if _err.Occurred() {
 		return nil, _err
 	}
+	logrus.Info(bounds)
 	iter, err := s.Internal.NewStreamIterator(ctx, framer.IteratorConfig{Bounds: bounds, Keys: keys})
 	if err != nil {
 		return nil, errors.Query(err)

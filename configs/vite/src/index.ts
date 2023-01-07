@@ -20,7 +20,6 @@ export const tsConfigPaths = ({ name }: Options): Plugin => {
     config: async (config) => {
       const tsconfigPath = path.resolve(config.root ?? ".", "tsconfig.json");
       const { baseUrl, paths } = await readConfig(tsconfigPath);
-      console.log(baseUrl, paths);
       if (baseUrl == null || paths == null) return config;
       const aliasOptions: Alias[] = Object.entries(paths).map(
         ([alias, replacement]) => ({

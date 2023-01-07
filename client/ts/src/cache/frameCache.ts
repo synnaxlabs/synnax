@@ -8,11 +8,8 @@ export class FrameCache {
     this._cache = {};
   }
 
-  size(): Size {
-    return Object.values(this._cache).reduce(
-      (acc, fr) => acc.add(fr.size()),
-      Size.ZERO
-    );
+  get size(): Size {
+    return Object.values(this._cache).reduce((acc, fr) => acc.add(fr.size), Size.ZERO);
   }
 
   get(tr: TimeRange, ...keys: string[]): FrameCacheResult {

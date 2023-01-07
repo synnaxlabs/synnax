@@ -9,7 +9,7 @@
 
 import { QueryError } from "..";
 import Registry from "../channel/registry";
-import { TimeRange, NativeTypedArray, UnparsedTimeStamp, TelemArray } from "../telem";
+import { NativeTypedArray, TArray, TimeRange, UnparsedTimeStamp } from "../telem";
 import Transport from "../transport";
 
 import { Frame } from "./frame";
@@ -73,7 +73,7 @@ export class FrameClient {
     data: NativeTypedArray
   ): Promise<void> {
     const f = new Frame();
-    f.pushA(to, TelemArray.fromNative(data));
+    f.pushA(to, new TArray(data));
     const w = await this.newWriter(start, [to]);
     try {
       await w.write(f);
@@ -117,7 +117,7 @@ export class FrameClient {
     start: UnparsedTimeStamp,
     end: UnparsedTimeStamp,
     throwOnEmpty = true
-  ): Promise<TelemArray> {
+  ): Promise<TArray> {
     const tr = new TimeRange(start, end);
     const frame = await this.readFrame(tr, [from]);
     const arrs = frame.getA(from);

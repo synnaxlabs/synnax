@@ -27,7 +27,7 @@ export {
   DataType,
   Density,
   Rate,
-  TelemArray,
+  TArray as TelemArray,
   TimeRange,
   TimeSpan,
   TimeStamp,

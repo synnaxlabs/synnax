@@ -139,7 +139,7 @@ const encode = (): string => {
 
 registerError({ type: _FREIGHTER_EXCEPTION_TYPE, encode, decode });
 
-export const validateKeyInObject = (
+export const validateFieldNotNull = (
   key: string,
   value: unknown,
   message: string = "must be provided"
