@@ -7,10 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Box, XY } from "@synnaxlabs/pluto";
+
 import { TelemetryClient } from "../telem/client";
-import { XY } from "../types/spatial";
 
 import { Compiler } from "./compiler";
+import { LineRenderer, LINE_RENDERER_TYPE } from "./line";
+
+export type RenderingUnits = "px" | "decimal";
 
 /**
  * Context provided to a renderer that contains all necessary tools and information for
@@ -39,13 +43,20 @@ import { Compiler } from "./compiler";
  */
 export interface RenderingContext {
   /* The WebGL context. */
-  gl: WebGLRenderingContext;
-  rootScaleClip: XY;
-  rootOffsetClip: XY;
-  rootOffsetPx: XY;
-  dpr: number;
-  aspect: number;
-  client: TelemetryClient;
+  readonly gl: WebGLRenderingContext;
+  scale: (box: Box) => XY;
+  offset: (box: Box, units: RenderingUnits) => XY;
+  scissor: <R>(
+    wrapped: Renderer<R>,
+    box: Box,
+    clear?: boolean,
+    overscan?: XY
+  ) => Renderer<R>;
+  refreshCanvas: () => void;
+  readonly dpr: number;
+  readonly aspect: number;
+  readonly client: TelemetryClient;
+  readonly registry: RendererRegistry;
 }
 
 /**
@@ -59,3 +70,27 @@ export interface Renderer<R> extends Compiler {
   /** Renders the given entity under the RenderingContext.  */
   render: (ctx: RenderingContext, req: R) => Promise<void>;
 }
+
+export class RendererRegistry {
+  private readonly renderers: Record<string, Renderer<any>> = {};
+
+  register<R>(renderer: Renderer<R>): void {
+    this.renderers[renderer.type] = renderer;
+  }
+
+  get<R>(type: string): Renderer<R> {
+    return this.renderers[type] as Renderer<R>;
+  }
+
+  compile(gl: WebGLRenderingContext): void {
+    Object.values(this.renderers).forEach((r) => r.compile(gl));
+  }
+}
+
+export type DefaultRenderers = typeof LINE_RENDERER_TYPE;
+
+export const newDefaultRendererRegistry = (): RendererRegistry => {
+  const registry = new RendererRegistry();
+  registry.register(new LineRenderer());
+  return registry;
+};

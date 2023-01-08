@@ -18,7 +18,7 @@ import {
 import clsx from "clsx";
 
 import { ComponentSize } from "@/util/component";
-import { Direction } from "@/util/spatial";
+import { Direction } from "@/spatial";
 
 import "./Space.css";
 

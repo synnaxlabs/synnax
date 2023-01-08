@@ -9,11 +9,15 @@ import {
 
 import { validateFieldNotNull, ValidationError } from "@/errors";
 
+export type SampleValue = number | bigint;
+
 /** A strongly typed array of telemetry samples. */
 export class TArray {
   readonly dataType: DataType;
   private readonly _data: ArrayBufferLike;
   readonly _timeRange?: TimeRange;
+  private _min?: SampleValue;
+  private _max?: SampleValue;
 
   constructor(
     data: ArrayBufferLike | NativeTypedArray,
@@ -73,12 +77,64 @@ export class TArray {
    * WARNING: This method is expensive and copies the entire underlying array. There
    * also may be untimely precision issues when converting between data types.
    */
-  convert(target: DataType, offset: number | bigint = 0): TArray {
+  convert(target: DataType, offset: SampleValue = 0): TArray {
     if (this.dataType.equals(target)) return this;
     const data = new target.Array(this.length);
     for (let i = 0; i < this.length; i++) {
       data[i] = convertDataType(this.dataType, target, this.data[i], offset);
     }
-    return new TArray(data.buffer, target, this._timeRange);
+    const n = new TArray(data.buffer, target, this._timeRange);
+    if (this._max != null) n._max = sampleAdd(this._max, offset);
+    if (this._min != null) n._min = sampleAdd(this._min, offset);
+    return n;
+  }
+
+  get max(): number | bigint {
+    if (this._max == null) {
+      if (this.dataType.equals(DataType.TIMESTAMP)) {
+        this._max = this.data[this.data.length - 1];
+      } else if (this.dataType.usesBigInt) {
+        const d = this.data as BigInt64Array;
+        this._max = d.reduce((a, b) => (a > b ? a : b));
+      } else {
+        const d = this.data as Float64Array;
+        this._max = d.reduce((a, b) => (a > b ? a : b));
+      }
+    }
+    return this._max;
+  }
+
+  get min(): number | bigint {
+    if (this._min == null) {
+      if (this.dataType.equals(DataType.TIMESTAMP)) {
+        this._min = this.data[0];
+      } else if (this.dataType.usesBigInt) {
+        const d = this.data as BigInt64Array;
+        this._min = d.reduce((a, b) => (a < b ? a : b));
+      } else {
+        const d = this.data as Float64Array;
+        this._min = d.reduce((a, b) => (a < b ? a : b));
+      }
+    }
+    return this._min;
+  }
+
+  enrich(): void {
+    let _ = this.max;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _ = this.min;
+  }
+
+  get range(): number | bigint {
+    return sampleAdd(this.max, -this.min);
   }
 }
+
+const sampleAdd = (a: SampleValue, b: SampleValue): SampleValue => {
+  if (typeof a === "bigint" && typeof b === "bigint") return a + b;
+  else if (typeof a === "number" && typeof b === "number") return a + b;
+  console.warn(
+    "adding a number and a bigint is dangerous. we'll let you convert for now, but you should fix this."
+  );
+  return Number(a) + Number(b);
+};

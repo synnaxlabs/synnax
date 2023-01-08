@@ -24,7 +24,7 @@ import clsx from "clsx";
 import { Space, SpaceProps } from "@/core/Space";
 import { useClickOutside } from "@/hooks";
 import { visibleCls } from "@/util/css";
-import { VerticalLocation } from "@/util/spatial";
+import { VerticalLocation } from "@/spatial";
 
 import "./Dropdown.css";
 

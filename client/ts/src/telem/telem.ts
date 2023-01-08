@@ -597,7 +597,7 @@ export class DataType extends String {
       super(value.valueOf());
       return;
     } else {
-      const t = ARRAY_CONSTRUCTOR_DATA_TYPES.get(value.constructor.name);
+      const t = DataType.ARRAY_CONSTRUCTOR_DATA_TYPES.get(value.constructor.name);
       if (t != null) {
         super(t.valueOf());
         return;
@@ -611,7 +611,7 @@ export class DataType extends String {
    * @returns the TypedArray constructor for the DataType.
    */
   get Array(): NativeTypedArrayConstructor {
-    const v = DATA_TYPE_ARRAY_CONSTRUCTORS.get(this.toString());
+    const v = DataType.ARRAY_CONSTRUCTORS.get(this.toString());
     if (v == null)
       throw new ValidationError(
         `unable to find array constructor for ${this.valueOf()}`
@@ -629,7 +629,7 @@ export class DataType extends String {
   }
 
   get density(): Density {
-    const v = DATA_TYPE_DENSITIES.get(this.toString());
+    const v = DataType.DENSITIES.get(this.toString());
     if (v == null)
       throw new ValidationError(`unable to find density for ${this.valueOf()}`);
     return v;
@@ -647,6 +647,10 @@ export class DataType extends String {
 
   toJSON(): string {
     return this.toString();
+  }
+
+  get usesBigInt(): boolean {
+    return DataType.BIG_INT_TYPES.some((t) => t.equals(this));
   }
 
   /** Represents an Unknown/Invalid DataType. */
@@ -673,6 +677,53 @@ export class DataType extends String {
   static readonly UINT8 = new DataType("uint8");
   /** Represents a 64-bit unix epoch. */
   static readonly TIMESTAMP = new DataType("timestamp");
+
+  static readonly ARRAY_CONSTRUCTORS: Map<string, NativeTypedArrayConstructor> =
+    new Map<string, NativeTypedArrayConstructor>([
+      [DataType.UINT8.toString(), Uint8Array],
+      [DataType.UINT16.toString(), Uint16Array],
+      [DataType.UINT32.toString(), Uint32Array],
+      [DataType.UINT64.toString(), BigUint64Array],
+      [DataType.FLOAT32.toString(), Float32Array],
+      [DataType.FLOAT64.toString(), Float64Array],
+      [DataType.INT8.toString(), Int8Array],
+      [DataType.INT16.toString(), Int16Array],
+      [DataType.INT32.toString(), Int32Array],
+      [DataType.INT64.toString(), BigInt64Array],
+      [DataType.TIMESTAMP.toString(), BigInt64Array],
+    ]);
+
+  static readonly ARRAY_CONSTRUCTOR_DATA_TYPES: Map<string, DataType> = new Map<
+    string,
+    DataType
+  >([
+    [Uint8Array.name, DataType.UINT8],
+    [Uint16Array.name, DataType.UINT16],
+    [Uint32Array.name, DataType.UINT32],
+    [BigUint64Array.name, DataType.UINT64],
+    [Float32Array.name, DataType.FLOAT32],
+    [Float64Array.name, DataType.FLOAT64],
+    [Int8Array.name, DataType.INT8],
+    [Int16Array.name, DataType.INT16],
+    [Int32Array.name, DataType.INT32],
+    [BigInt64Array.name, DataType.INT64],
+  ]);
+
+  static readonly DENSITIES = new Map<string, Density>([
+    [DataType.UINT8.toString(), Density.BIT8],
+    [DataType.UINT16.toString(), Density.BIT16],
+    [DataType.UINT32.toString(), Density.BIT32],
+    [DataType.UINT64.toString(), Density.BIT64],
+    [DataType.FLOAT32.toString(), Density.BIT32],
+    [DataType.FLOAT64.toString(), Density.BIT64],
+    [DataType.INT8.toString(), Density.BIT8],
+    [DataType.INT16.toString(), Density.BIT16],
+    [DataType.INT32.toString(), Density.BIT32],
+    [DataType.INT64.toString(), Density.BIT64],
+    [DataType.TIMESTAMP.toString(), Density.BIT64],
+  ]);
+
+  static readonly BIG_INT_TYPES = [DataType.INT64, DataType.UINT64, DataType.TIMESTAMP];
 }
 
 /**
@@ -804,54 +855,7 @@ type NativeTypedArrayConstructor =
   | Int16ArrayConstructor
   | Int32ArrayConstructor
   | BigInt64ArrayConstructor;
-
-const DATA_TYPE_ARRAY_CONSTRUCTORS: Map<string, NativeTypedArrayConstructor> = new Map<
-  string,
-  NativeTypedArrayConstructor
->([
-  [DataType.UINT8.toString(), Uint8Array],
-  [DataType.UINT16.toString(), Uint16Array],
-  [DataType.UINT32.toString(), Uint32Array],
-  [DataType.UINT64.toString(), BigUint64Array],
-  [DataType.FLOAT32.toString(), Float32Array],
-  [DataType.FLOAT64.toString(), Float64Array],
-  [DataType.INT8.toString(), Int8Array],
-  [DataType.INT16.toString(), Int16Array],
-  [DataType.INT32.toString(), Int32Array],
-  [DataType.INT64.toString(), BigInt64Array],
-  [DataType.TIMESTAMP.toString(), BigInt64Array],
-]);
-
-const ARRAY_CONSTRUCTOR_DATA_TYPES: Map<string, DataType> = new Map<string, DataType>([
-  [Uint8Array.name, DataType.UINT8],
-  [Uint16Array.name, DataType.UINT16],
-  [Uint32Array.name, DataType.UINT32],
-  [BigUint64Array.name, DataType.UINT64],
-  [Float32Array.name, DataType.FLOAT32],
-  [Float64Array.name, DataType.FLOAT64],
-  [Int8Array.name, DataType.INT8],
-  [Int16Array.name, DataType.INT16],
-  [Int32Array.name, DataType.INT32],
-  [BigInt64Array.name, DataType.INT64],
-]);
-
-const DATA_TYPE_DENSITIES = new Map<string, Density>([
-  [DataType.UINT8.toString(), Density.BIT8],
-  [DataType.UINT16.toString(), Density.BIT16],
-  [DataType.UINT32.toString(), Density.BIT32],
-  [DataType.UINT64.toString(), Density.BIT64],
-  [DataType.FLOAT32.toString(), Density.BIT32],
-  [DataType.FLOAT64.toString(), Density.BIT64],
-  [DataType.INT8.toString(), Density.BIT8],
-  [DataType.INT16.toString(), Density.BIT16],
-  [DataType.INT32.toString(), Density.BIT32],
-  [DataType.INT64.toString(), Density.BIT64],
-  [DataType.TIMESTAMP.toString(), Density.BIT64],
-]);
-
 type TelemValue = number | bigint;
-
-const BIG_INT_TYPES = [DataType.INT64, DataType.UINT64, DataType.TIMESTAMP];
 
 export const convertDataType = (
   source: DataType,
@@ -860,10 +864,7 @@ export const convertDataType = (
   offset: number | bigint = 0
 ): TelemValue => {
   if (source.equals(target)) return value;
-  let [fromBigInt, toBigInt] = [false, false];
-  if (BIG_INT_TYPES.some((v) => v.equals(source))) fromBigInt = true;
-  if (BIG_INT_TYPES.some((v) => v.equals(target))) toBigInt = true;
-  if (fromBigInt && !toBigInt) return Number(value) + Number(offset);
-  if (!fromBigInt && toBigInt) return BigInt(value) + BigInt(offset);
+  if (source.usesBigInt && !target.usesBigInt) return Number(value) + Number(offset);
+  if (!source.usesBigInt && target.usesBigInt) return BigInt(value) + BigInt(offset);
   return value;
 };

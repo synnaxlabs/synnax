@@ -7,18 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ComponentSizeTypographyLevels } from "@synnaxlabs/pluto/dist/core/Typography/types";
+import { Box, RGBATuple, XY } from "@synnaxlabs/pluto";
 
 import { errorUnsupported } from "../../errors";
-import { RGBATuple, XY } from "../../types/spatial";
 import { StaticCompiler } from "../compiler";
-import { RenderingContext } from "../renderer";
+import { Renderer, RenderingContext } from "../render";
 
 import fragShader from "./frag.glsl?raw";
 import vertShader from "./vert.glsl?raw";
 
 import { Range } from "@/features/workspace";
-import { unique } from "@/util/unique";
 
 const shaderVars = {
   x: "a_x",
@@ -46,15 +44,21 @@ const THICKNESS_DIVISOR = 12000;
 const ANGLE_INSTANCED_ARRAYS_FEATURE = "ANGLE_instanced_arrays";
 
 export interface LineRenderRequest {
+  box: Box;
   range: Range;
   lines: Line[];
 }
 
-export class LineRenderer extends StaticCompiler {
+export const LINE_RENDERER_TYPE = "line";
+
+export class LineRenderer
+  extends StaticCompiler
+  implements Renderer<LineRenderRequest>
+{
   private translationBuffer: WebGLBuffer | null;
   private _extension: ANGLE_instanced_arrays | null;
 
-  readonly type: string = "line";
+  type: string = LINE_RENDERER_TYPE;
 
   constructor() {
     super(vertShader, fragShader);
@@ -75,17 +79,19 @@ export class LineRenderer extends StaticCompiler {
   }
 
   async render(ctx: RenderingContext, req: LineRenderRequest): Promise<void> {
-    this.use(ctx.gl);
+    ctx.refreshCanvas();
     const { gl } = ctx;
+    this.use(gl);
 
     const { range, lines } = req;
 
-    const keys = unique(lines.flatMap((line) => [line.xKey, line.yKey]));
+    const xKeys = lines.map((line) => line.xKey);
+    const yKeys = lines.map((line) => line.yKey);
 
-    const f = await ctx.client.getFrame({ range, keys });
+    const f = await ctx.client.getFrame({ range, keys: [...xKeys, ...yKeys] });
 
     req.lines.forEach((line) => {
-      this.applyOffset(ctx, line);
+      this.applyOffset(ctx, req.box, line);
       this.applyColor(ctx, line);
       const instances = this.applyThickness(ctx, line);
       const xEntry = f.find((e) => e.key === line.xKey);
@@ -102,28 +108,16 @@ export class LineRenderer extends StaticCompiler {
       }
 
       yEntry.arrays.forEach((y, i) => {
-        const xArray = xEntry.arrays[i];
-        const [xMax, xMin] = [Math.max(...xArray.data), Math.min(...xArray.data)] as [
-          number,
-          number
-        ];
-        const [yMax, yMin] = [Math.max(...y.data), Math.min(...y.data)] as [
-          number,
-          number
-        ];
-        line.scale.x = 1 / (xMax - xMin);
-        line.scale.y = 1 / (yMax - yMin);
-        line.offset.y = -yMin * line.scale.y;
-        line.offset.x = -xMin * line.scale.x;
+        const x = xEntry.arrays[i];
+        line.scale.x = 1 / Number(x.range);
+        line.scale.y = 1 / Number(y.range);
+        line.offset.y = -Number(y.min) * line.scale.y;
+        line.offset.x = -Number(x.min) * line.scale.x;
         const xBuffer = xEntry.glBuffers[i];
         this.bindBuffer(gl, "x", xBuffer);
         const yBuffer = yEntry.glBuffers[i];
         this.bindBuffer(gl, "y", yBuffer);
-
-        this.applyScale(ctx, line);
-
-        console.log(xArray.data);
-
+        this.applyScale(ctx, req.box, line);
         this.extension.drawArraysInstancedANGLE(gl.LINE_STRIP, 0, y.length, instances);
       });
     });
@@ -145,7 +139,6 @@ export class LineRenderer extends StaticCompiler {
     const { strokeWidth } = req;
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.translationBuffer);
-    console.log(strokeWidth);
     const translationBuffer = newTranslationBuffer(aspect, strokeWidth);
     gl.bufferData(gl.ARRAY_BUFFER, translationBuffer, gl.STATIC_DRAW);
 
@@ -159,22 +152,24 @@ export class LineRenderer extends StaticCompiler {
     return numInstances;
   }
 
-  private applyScale(ctx: RenderingContext, line: Line): void {
+  private applyScale(ctx: RenderingContext, box: Box, line: Line): void {
     const { program: prog } = this;
-    const { gl, rootScaleClip } = ctx;
+    const { gl } = ctx;
+    const rootScale = ctx.scale(box);
     const { scale } = line;
-    const rootScale = gl.getUniformLocation(prog, shaderVars.rootScale);
-    gl.uniform2fv(rootScale, [rootScaleClip.x, rootScaleClip.y]);
+    const rootScaleLoc = gl.getUniformLocation(prog, shaderVars.rootScale);
+    gl.uniform2fv(rootScaleLoc, [rootScale.x, rootScale.y]);
     const s2 = gl.getUniformLocation(prog, shaderVars.scale);
     gl.uniform2fv(s2, [scale.x, scale.y]);
   }
 
-  private applyOffset(ctx: RenderingContext, line: Line): void {
+  private applyOffset(ctx: RenderingContext, box: Box, line: Line): void {
     const { program: prog } = this;
-    const { gl, rootOffsetClip } = ctx;
+    const { gl } = ctx;
+    const rootOffset = ctx.offset(box, "decimal");
     const { offset } = line;
     const o1 = gl.getUniformLocation(prog, shaderVars.offsetRoot);
-    gl.uniform2fv(o1, [rootOffsetClip.x, rootOffsetClip.y]);
+    gl.uniform2fv(o1, [rootOffset.x, rootOffset.y]);
     const o2 = gl.getUniformLocation(prog, shaderVars.offset);
     gl.uniform2fv(o2, [offset.x, offset.y]);
   }

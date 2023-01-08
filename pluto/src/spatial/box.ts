@@ -1,34 +1,11 @@
-// Copyright 2023 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
+import { Dimensions, XY, ZERO_XY } from "./core";
 
-export interface Box {
-  width: number;
-  height: number;
+export interface Box extends Dimensions {
   left: number;
   top: number;
   topLeft: XY;
   bottomRight: XY;
 }
-
-/** A generic 2D point, scale, or offset. */
-export interface XY {
-  x: number;
-  y: number;
-}
-
-export const ZERO_XY: XY = { x: 0, y: 0 };
-
-/**
- * Represents a color in RGBA format. RGBA tuples can have any value range (0-255, 0-1, etc.)
- * and should be normalized by any {@link Renderer} that uses them.
- */
-export type RGBATuple = [number, number, number, number];
 
 export class CSSBox implements Box {
   private readonly _width: number;
@@ -36,15 +13,23 @@ export class CSSBox implements Box {
   private readonly _left: number;
   private readonly _top: number;
 
-  constructor(width: number, height: number, left: number, top: number) {
+  constructor(
+    width: number | DOMRect,
+    height: number = 0,
+    left: number = 0,
+    top: number = 0
+  ) {
+    if (width instanceof DOMRect) {
+      this._width = width.width;
+      this._height = width.height;
+      this._left = width.left;
+      this._top = width.top;
+      return;
+    }
     this._width = width;
     this._height = height;
     this._left = left;
     this._top = top;
-  }
-
-  static fromDomRect(rect: DOMRect): CSSBox {
-    return new CSSBox(rect.width, rect.height, rect.left, rect.top);
   }
 
   get width(): number {
@@ -121,3 +106,12 @@ export class PointBox {
 
 export const calculateBottomOffset = (parent: Box, child: Box): number =>
   parent.height - (child.top - parent.top) - child.height;
+
+export const ZERO_BOX: Box = {
+  width: 0,
+  height: 0,
+  left: 0,
+  top: 0,
+  topLeft: ZERO_XY,
+  bottomRight: ZERO_XY,
+};

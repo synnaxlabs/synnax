@@ -11,19 +11,18 @@ import {
   DRIFT_SLICE_NAME,
   MAIN_WINDOW,
   initialState as driftInitialState,
+  DriftStoreState,
 } from "@synnaxlabs/drift";
 import { getVersion } from "@tauri-apps/api/app";
 import { appWindow } from "@tauri-apps/api/window";
 
-import { VersionState } from "../version";
+import { VersionStoreState } from "../version";
 
 import { KV } from "./kv";
 
 const PERSISTED_STATE_KEY = "delta-persisted-state";
 
-export interface RequiredState extends VersionState {
-  drift: unknown;
-}
+export interface RequiredState extends VersionStoreState, DriftStoreState {}
 
 /**
  * Returns a function that preloads the state from the given key-value store on the main
@@ -62,6 +61,7 @@ export const newPersistStateMiddleware =
 const reconcileVersions = async <S extends RequiredState>(
   state: S
 ): Promise<S | undefined> => {
-  if (state.version !== (await getVersion())) return;
-  return state;
+  const storedVersion = state.version.version;
+  const tauriVersion = await getVersion();
+  return storedVersion === tauriVersion ? state : undefined;
 };

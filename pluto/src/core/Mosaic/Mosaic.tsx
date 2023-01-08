@@ -13,7 +13,7 @@ import { MosaicLeaf } from "./types";
 
 import { Resize } from "@/core/Resize";
 import { Tab, Tabs, TabsProps } from "@/core/Tabs";
-import { Location } from "@/util/spatial";
+import { Location } from "@/spatial";
 
 import "./Mosaic.css";
 

@@ -11,7 +11,7 @@ import { HTMLAttributes, PropsWithChildren } from "react";
 
 import clsx from "clsx";
 
-import { Direction } from "@/util/spatial";
+import { Direction } from "@/spatial";
 
 import "./Divider.css";
 

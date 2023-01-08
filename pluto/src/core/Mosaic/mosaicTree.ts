@@ -10,7 +10,7 @@
 import { MosaicLeaf } from "./types";
 
 import { Tab, Tabs } from "@/core/Tabs";
-import { Direction, Location, Order } from "@/util/spatial";
+import { Direction, Location, Order } from "@/spatial";
 
 const TabNotFound = new Error("Tab not found");
 const InvalidMosaic = new Error("Invalid Mosaic");

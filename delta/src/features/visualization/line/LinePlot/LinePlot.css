@@ -31,8 +31,9 @@
     padding: 2rem;
 }
 
-.delta-line-plot__plot__container {
+.delta-line-plot__plot {
     cursor: crosshair;
     height: 100%;
+    width: 100%;
     overflow: hidden;
 }

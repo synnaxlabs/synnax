@@ -7,11 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { LinePlotMetadata } from "@synnaxlabs/pluto";
+import type { LinePlotMeta } from "@synnaxlabs/pluto";
 
 import { Visualization } from "../types";
 
-export interface LinePlotVisualization extends Visualization, LinePlotMetadata {
+import { Range } from "@/features/workspace";
+
+export interface LinePlotV extends Visualization, LinePlotMeta {
   channels: {
     y1: readonly string[];
     y2: readonly string[];
@@ -26,10 +28,13 @@ export interface LinePlotVisualization extends Visualization, LinePlotMetadata {
   };
 }
 
-export interface SugaredLinePlotVisualization
-  extends Omit<LinePlotVisualization, "ranges"> {
+export interface LinePlotVS extends Omit<LinePlotV, "ranges"> {
   ranges: {
     x1: Range[];
     x2: Range[];
   };
 }
+
+export type YAxisKey = "y1" | "y2" | "y3" | "y4";
+export type XAxisKey = "x1" | "x2";
+export type AxisKey = YAxisKey | XAxisKey;

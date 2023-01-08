@@ -20,9 +20,10 @@ export class FrameCache {
     return { frame: filtered, missing: keys.filter((key) => !filtered.has(key)) };
   }
 
-  set(tr: TimeRange, fr: Frame): void {
+  overrideF(tr: TimeRange, fr: Frame): void {
     const v = this._cache[this.key(tr)];
-    this._cache[this.key(tr)] = v.overrideF(fr);
+    if (v == null) this._cache[this.key(tr)] = fr;
+    else this._cache[this.key(tr)] = v.overrideF(fr);
   }
 
   private key(tr: TimeRange): string {

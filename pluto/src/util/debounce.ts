@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { useCallback } from "react";
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 export const debounce = <F extends (...args: any[]) => void>(
   func: F,
   waitFor: number
@@ -25,3 +28,9 @@ export const debounce = <F extends (...args: any[]) => void>(
 
   return debounced as F;
 };
+
+export const useDebouncedCallback = <F extends (...args: any[]) => void>(
+  func: F,
+  waitFor: number,
+  deps: React.DependencyList
+): F => useCallback(debounce(func, waitFor), [waitFor, ...deps]);

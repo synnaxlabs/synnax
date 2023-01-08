@@ -10,6 +10,6 @@
 export * from "@/hooks/useClickOutside";
 export * from "@/hooks/useDrag";
 export * from "@/hooks/useKeys";
-export * from "@/hooks/useResize";
+export * from "@/spatial/hooks";
 export * from "@/hooks/useSearch";
 export * from "@/hooks/useTransforms";

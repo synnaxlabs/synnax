@@ -11,9 +11,7 @@ export class FrameRetriever {
 
   async get(req: FrameRetrieverRequest): Promise<Frame> {
     const { range, keys } = req;
-    console.log(range.start, range.end);
     const tr = new TimeRange(range.start, range.end);
-    console.log(tr.toString());
     return await this.client.data.readFrame(tr, keys);
   }
 }

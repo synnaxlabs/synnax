@@ -12,8 +12,8 @@ import { useCallback, useState } from "react";
 import { ResizeCore, ResizeCoreProps } from "./ResizeCore";
 
 import { useDrag } from "@/hooks/useDrag";
+import { getDirection, Location } from "@/spatial";
 import { clamp } from "@/util/clamp";
-import { getDirection, Location } from "@/util/spatial";
 
 import "./Resize.css";
 

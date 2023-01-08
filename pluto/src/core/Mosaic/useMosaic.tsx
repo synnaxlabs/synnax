@@ -19,7 +19,7 @@ import {
 } from "./mosaicTree";
 import { MosaicLeaf } from "./types";
 
-import { Location } from "@/util/spatial";
+import { Location } from "@/spatial";
 
 export interface UseMosaicProps {
   editableTitle?: boolean;

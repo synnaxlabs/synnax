@@ -18,13 +18,7 @@ import React, {
 import clsx from "clsx";
 
 import { Space } from "@/core/Space";
-import {
-  Direction,
-  Location,
-  Position,
-  getDirection,
-  swapLocation,
-} from "@/util/spatial";
+import { Direction, Location, Position, getDirection, swapLocation } from "@/spatial";
 
 import "./Navbar.css";
 

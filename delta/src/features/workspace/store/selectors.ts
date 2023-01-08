@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {WorkspaceStoreState} from "./slice";
-import type {Range} from "./types";
+import { WorkspaceStoreState } from "./slice";
+import type { Range } from "./types";
 
-import {selectByKey, useMemoSelect} from "@/hooks";
+import { selectByKey, useMemoSelect } from "@/hooks";
 
 /**
  * Selects ranges with the given keys. If no keys are provided, all ranges are selected.
@@ -20,7 +20,10 @@ import {selectByKey, useMemoSelect} from "@/hooks";
  * selected.
  * @returns The ranges with the given keys.
  */
-export const selectRanges = (state: WorkspaceStoreState, keys?: string[]): Range[] => {
+export const selectRanges = (
+  state: WorkspaceStoreState,
+  keys?: string[] | readonly string[]
+): Range[] => {
   const all = Object.values(state.workspace.ranges);
   if (keys == null) return all;
   return all.filter((range) => keys.includes(range.key));

@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { LinePlotVisualization, Visualization } from "../types";
+import { LinePlotV } from "../line/types";
+import { Visualization } from "../types";
 
 import { VisualizationStoreState } from "./slice";
 
-import { LayoutStoreState, LAYOUT_SLICE_NAME, selectLayouts } from "@/features/layout";
+import { LayoutStoreState, selectLayouts } from "@/features/layout";
 import { selectRanges, WorkspaceStoreState } from "@/features/workspace";
 import { selectByKey, selectByKeys, useMemoSelect } from "@/hooks";
 
@@ -66,14 +67,8 @@ export const useSelectSugaredVisualization = <V extends Visualization>(
       if (vis == null) return undefined;
       switch (vis.variant) {
         case "linePlot": {
-          const x1Ranges = selectRanges(
-            state,
-            (vis as LinePlotVisualization).ranges.x1
-          );
-          const x2Ranges = selectRanges(
-            state,
-            (vis as LinePlotVisualization).ranges.x2
-          );
+          const x1Ranges = selectRanges(state, (vis as LinePlotV).ranges.x1);
+          const x2Ranges = selectRanges(state, (vis as LinePlotV).ranges.x2);
           return { ...vis, ranges: { x1: x1Ranges, x2: x2Ranges } };
         }
       }

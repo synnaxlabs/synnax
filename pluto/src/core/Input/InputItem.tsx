@@ -24,7 +24,7 @@ import {
   SpaceJustification,
 } from "@/core/Space";
 import { camelToTitle } from "@/util/case";
-import { Direction } from "@/util/spatial";
+import { Direction } from "@/spatial";
 
 import "./InputItem.css";
 

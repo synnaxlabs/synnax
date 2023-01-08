@@ -15,7 +15,7 @@ import { ButtonIconOnlyProps } from "@/core/Button";
 import { Header } from "@/core/Header";
 import { Resize } from "@/core/Resize";
 import { Space } from "@/core/Space";
-import { Direction } from "@/util/spatial";
+import { Direction } from "@/spatial";
 
 export interface AccordionEntry {
   key: string;
