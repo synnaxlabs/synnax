@@ -1,4 +1,4 @@
-import { ValidationError } from "..";
+import { TelemArray, UnexpectedError, ValidationError } from "..";
 
 import { arrayFromPayload, arrayToPayload, FramePayload } from "./payload";
 
@@ -8,8 +8,8 @@ export class Frame {
   private readonly _entries: Record<string, TArray[]>;
 
   constructor(
-    data: FramePayload | Record<string, TArray[]> | TArray[] = [],
-    keys: string[] = []
+    data: FramePayload | Record<string, TArray[]> | TArray[] | TArray = [],
+    keys: string | string[] = []
   ) {
     this._entries = {};
     if (Array.isArray(data)) {
@@ -18,7 +18,13 @@ export class Frame {
       data.forEach((d, i) => this.pushA(keys[i], d));
     } else if ("keys" in data) {
       const v = data as FramePayload;
-      v.keys.forEach((key, i) => this.pushA(key, arrayFromPayload(v.arrays[i])));
+      if (v.arrays == null || v.keys == null || v.keys.length !== v.arrays.length)
+        throw new ValidationError("arrays and keys must be defined");
+      v.keys.forEach((key, i) =>
+        this.pushA(key, arrayFromPayload((v.arrays as TelemArray[])[i]))
+      );
+    } else if (data instanceof TArray) {
+      this.pushA(keys as string, data);
     } else {
       this._entries = data;
     }
@@ -31,18 +37,17 @@ export class Frame {
     };
   }
 
-  get vertical(): boolean {
+  get isVertical(): boolean {
     return Object.values(this._entries).every((v) => v.length === 1);
   }
 
-  get horizontal(): boolean {
+  get isHorizontal(): boolean {
     return Object.keys(this._entries).length === 1;
   }
 
-  get weaklyAligned(): boolean {
+  get isWeaklyAligned(): boolean {
     if (this.keys.length <= 1) return true;
-    const timeRanges = this.timeRanges();
-    return timeRanges.every((tr) => tr.equals(timeRanges[0]));
+    return this.timeRanges.every((tr) => tr.equals(this.timeRanges[0]));
   }
 
   timeRange(key?: string): TimeRange {
@@ -60,7 +65,7 @@ export class Frame {
     );
   }
 
-  timeRanges(): TimeRange[] {
+  get timeRanges(): TimeRange[] {
     return this.keys.map((key) => this.timeRange(key));
   }
 
@@ -80,7 +85,9 @@ export class Frame {
   getF(keys: string[]): Frame {
     const frame = new Frame();
     for (const key of keys) {
-      frame._entries[key] = this._entries[key];
+      const e = this._entries[key];
+      if (e == null) continue;
+      frame._entries[key] = e;
     }
     return frame;
   }
@@ -144,6 +151,7 @@ export class Frame {
   filter(fn: (k: string, arr: TArray, i: number) => boolean): Frame {
     const f = new Frame();
     for (const [k, a] of this.entries) {
+      if (a == null) throw new UnexpectedError(`a is null for key ${k}`);
       const filtered = a.filter((arr, i) => fn(k, arr, i));
       if (filtered.length > 0) f._entries[k] = filtered;
     }

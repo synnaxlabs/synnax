@@ -29,7 +29,7 @@ export class WebGLBufferCache {
 
   get(range: string, channel: string): WebGLBuffer[] | undefined {
     const rng = this.entries[range];
-    if (range == null) return undefined;
+    if (rng == null) return undefined;
     const entry = rng[channel];
     if (entry == null) return undefined;
     return entry.buffers;

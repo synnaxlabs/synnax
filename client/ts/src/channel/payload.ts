@@ -27,3 +27,9 @@ export const channelPayloadSchema = z.object({
 });
 
 export type ChannelPayload = z.infer<typeof channelPayloadSchema>;
+
+export const keyedChannelPayloadSchema = channelPayloadSchema.extend({
+  key: z.string(),
+});
+
+export type KeyedChannelPayload = z.infer<typeof keyedChannelPayloadSchema>;

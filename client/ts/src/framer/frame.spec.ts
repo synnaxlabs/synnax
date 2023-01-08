@@ -51,7 +51,7 @@ describe("Frame", () => {
           new TArray(new Float32Array([1, 2, 3])),
         ],
       });
-      expect(f.vertical).toEqual(false);
+      expect(f.isVertical).toEqual(false);
     });
   });
 
@@ -61,7 +61,7 @@ describe("Frame", () => {
         a: [new TArray(new Float32Array([1, 2, 3]))],
         b: [new TArray(new Float32Array([1, 2, 3]))],
       });
-      expect(f.horizontal).toEqual(false);
+      expect(f.isHorizontal).toEqual(false);
     });
   });
 
@@ -75,7 +75,7 @@ describe("Frame", () => {
           new TArray(new Float32Array([1, 2, 3]), undefined, new TimeRange(500, 50000)),
         ],
       });
-      expect(f.weaklyAligned).toEqual(true);
+      expect(f.isWeaklyAligned).toEqual(true);
     });
 
     it("should return false if any key has a different timerange", () => {
@@ -87,7 +87,7 @@ describe("Frame", () => {
           new TArray(new Float32Array([1, 2, 3]), undefined, new TimeRange(500, 50001)),
         ],
       });
-      expect(f.weaklyAligned).toEqual(false);
+      expect(f.isWeaklyAligned).toEqual(false);
     });
   });
 

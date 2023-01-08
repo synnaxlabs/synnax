@@ -18,6 +18,7 @@ export {
   initialState,
   DRIFT_SLICE_NAME,
 } from "@/state";
+export type { StoreState as DriftStoreState } from "@/state";
 export type { WindowProps, WindowState, Window } from "@/window";
 export { MAIN_WINDOW } from "@/window";
 export { Provider, useWindowLifecycle } from "@/react";

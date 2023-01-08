@@ -9,7 +9,7 @@
 
 import { FunctionComponent, ReactElement, cloneElement, useRef } from "react";
 
-import { useSize } from "@/hooks";
+import { useBox } from "@/hooks";
 
 /* AutoSize props is the props for the {@link AutoSize} component. */
 export interface AutosizeProps
@@ -35,7 +35,7 @@ export const Autosize = ({
   ...props
 }: AutosizeProps): JSX.Element => {
   const ref = useRef<HTMLDivElement>(null);
-  const size = useSize({ ref, debounce });
+  const size = useBox({ ref, debounce });
   const content: ReactElement | null =
     typeof children === "function" ? children(size) : cloneElement(children, size);
   return (

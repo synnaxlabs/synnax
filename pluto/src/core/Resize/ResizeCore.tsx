@@ -11,7 +11,7 @@ import { DetailedHTMLProps, HTMLAttributes } from "react";
 
 import clsx from "clsx";
 
-import { Location, getDirection, swapLocation } from "@/util/spatial";
+import { Location, getDirection, swapLocation } from "@/spatial";
 
 export interface ResizeCoreProps
   extends DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement> {

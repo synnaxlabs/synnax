@@ -1,4 +1,4 @@
-import { TelemArray } from "@synnaxlabs/client";
+import { TelemArray, FrameCache, TimeRange, DataType } from "@synnaxlabs/client";
 
 import { WebGLBufferCache } from "./glCache";
 import { FrameRetriever } from "./retriever";
@@ -8,34 +8,52 @@ import { Range } from "@/features/workspace";
 export class TelemetryClient {
   private readonly glCache: WebGLBufferCache;
   private readonly frameRetriever: FrameRetriever;
+  private readonly frameCache: FrameCache;
 
-  constructor(glCache: WebGLBufferCache, frameRetriever: FrameRetriever) {
+  constructor(
+    glCache: WebGLBufferCache,
+    frameRetriever: FrameRetriever,
+    frameCache: FrameCache
+  ) {
+    this.frameCache = frameCache;
     this.glCache = glCache;
     this.frameRetriever = frameRetriever;
   }
 
   async getFrame(req: TelemetryClientRequest): Promise<TelemetryClientEntry[]> {
-    // let { frame, missing } = this.frameCache.get({
-    //   range: req.range.key,
-    //   keys: req.keys,
-    // });
-    // if (missing.length > 0) {
-    const frame = await this.frameRetriever.get({
-      range: req.range,
-      keys: req.keys,
+    const tr = new TimeRange(req.range.start, req.range.end);
+    let { frame, missing } = this.frameCache.get(
+      new TimeRange(req.range.start, req.range.end),
+      ...req.keys
+    );
+    if (missing.length > 0)
+      frame = await this.frameRetriever.get({
+        range: req.range,
+        keys: req.keys,
+      });
+
+    frame = frame.map((_, a) => {
+      let offset: bigint | number = 0;
+      if (a.dataType.equals(DataType.TIMESTAMP))
+        offset = BigInt(-a.timeRange.start.valueOf());
+      a.enrich();
+      return a.convert(DataType.FLOAT32, offset);
     });
-    // this.frameCache.set({ range: req.range.key, frame: retrieved });
+
+    this.frameCache.overrideF(tr, frame);
     const entries: TelemetryClientEntry[] = [];
-    frame?.entries.forEach(([key, value]) => {
+
+    frame?.entries.forEach(([key, arrays]) => {
       let glBuffers = this.glCache.get(req.range.key, key);
-      if (glBuffers == null) glBuffers = this.glCache.set(req.range.key, key, value);
+      if (glBuffers == null) glBuffers = this.glCache.set(req.range.key, key, arrays);
       entries.push({
         range: req.range,
         key,
         glBuffers,
-        arrays: value,
+        arrays,
       });
     });
+
     return entries;
   }
 }

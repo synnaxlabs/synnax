@@ -7,22 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Box, RGBATuple, XY, ZERO_XY } from "../../types/spatial";
-import { Renderer, RenderingContext } from "../renderer";
+import { Box, RGBATuple, XY, ZERO_XY } from "@synnaxlabs/pluto";
+
+import { Renderer, RenderingContext } from "../render";
 
 const CLEAR_COLOR: RGBATuple = [0, 0, 0, 0];
 
-/**
- *
- */
-export class ScissoredRenderer implements Renderer {
-  readonly wrapped: Renderer;
+export class ScissoredRenderer<R> implements Renderer<R> {
+  readonly wrapped: Renderer<R>;
   private readonly box: Box;
   private readonly clear: boolean;
   private readonly overscan: XY;
 
   constructor(
-    wrapped: Renderer,
+    wrapped: Renderer<R>,
     box: Box,
     clear: boolean = true,
     overscan: XY = ZERO_XY
@@ -41,11 +39,11 @@ export class ScissoredRenderer implements Renderer {
     this.wrapped.compile(gl);
   }
 
-  render<R>(ctx: RenderingContext, req: R): void {
+  async render(ctx: RenderingContext, req: R): Promise<void> {
     ctx.gl.enable(ctx.gl.SCISSOR_TEST);
     this.scissor(ctx);
     this.maybeClear(ctx);
-    this.wrapped.render(ctx, req);
+    await this.wrapped.render(ctx, req);
     ctx.gl.disable(ctx.gl.SCISSOR_TEST);
   }
 
@@ -57,7 +55,7 @@ export class ScissoredRenderer implements Renderer {
   }
 
   private scissor(ctx: RenderingContext): void {
-    const { x, y } = ctx.rootOffsetPx;
+    const { x, y } = ctx.offset(this.box, "px");
     const { width, height } = this.box;
     const { x: ox, y: oy } = this.overscan;
     ctx.gl.scissor(

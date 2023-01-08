@@ -66,6 +66,7 @@ module.exports = {
                 amd: true,
             },
         ],
+        "import/named": "off",
         "react/react-in-jsx-scope": "off",
         "import/no-default-export": "warn",
     },

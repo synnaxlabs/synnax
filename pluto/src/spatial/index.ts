@@ -7,15 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Tab } from "@/core/Tabs";
-import { Direction } from "@/spatial";
-
-export interface MosaicLeaf {
-  key: number;
-  tabs?: Tab[];
-  direction?: Direction;
-  first?: MosaicLeaf;
-  last?: MosaicLeaf;
-  selected?: string;
-  size?: number;
-}
+export * from "./core";
+export * from "./box";
+export * from "./hooks";

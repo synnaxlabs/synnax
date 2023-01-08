@@ -7,21 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { memo, useCallback, useEffect, useState } from "react";
+import { memo, useCallback, useState } from "react";
 
-import { Channel } from "@synnaxlabs/client";
+import { Channel, KeyedChannelPayload } from "@synnaxlabs/client";
 import { Input, Space, Header, Tabs, Select } from "@synnaxlabs/pluto";
 import type { SelectMultipleProps, SelectProps } from "@synnaxlabs/pluto";
 import { HiChartBar } from "react-icons/hi";
-import { useDispatch } from "react-redux";
 
-import {
-  setVisualization,
-  updateVisualization,
-  useSelectSugaredVisualization,
-  useSelectVisualization,
-} from "../store";
-import { LinePlotVisualization } from "../types";
+import { useUpdateVisualization } from "../hooks";
+import { AxisKey, LinePlotVS, XAxisKey, YAxisKey } from "../line/types";
+import { useSelectSugaredVisualization } from "../store";
 
 import { useClusterClient } from "@/features/cluster";
 import { Range, useSelectRanges } from "@/features/workspace";
@@ -73,27 +68,39 @@ export const VisualizationToolBar = {
 const LinePlotChannelControls = (): JSX.Element | null => {
   const client = useClusterClient();
 
-  const vis = useSelectSugaredVisualization<LinePlotVisualization>();
+  const vis = useSelectSugaredVisualization<LinePlotVS>();
 
   const ranges = useSelectRanges();
 
-  const dispatch = useDispatch();
+  const updateV = useUpdateVisualization(vis?.key ?? "");
 
-  const [channels, setChannelOpts] = useState<Array<ChannelPayload & { key: string }>>(
-    []
-  );
+  const [channels, setChannelOpts] = useState<KeyedChannelPayload[]>([]);
 
   useAsyncEffect(async () => {
     if (client == null) return;
     const channels = await client.channel.retrieveAll();
-    setChannelOpts(channels.map((ch) => ch.payload));
+    setChannelOpts(channels.map((c) => c.payload as KeyedChannelPayload));
   }, [client]);
 
-  const handleChannelChange = useCallback(
-    (key: string, value: any): void => {
-      dispatch(updateVisualization({ key: vis.key, channels: { [key]: value } }));
+  const handleYSelect = useCallback(
+    (key: YAxisKey, value: readonly string[]): void => {
+      updateV({ channels: { [key]: value } });
     },
-    [dispatch]
+    [updateV]
+  );
+
+  const handleXSelect = useCallback(
+    (key: XAxisKey, value: string): void => {
+      updateV({ channels: { [key]: value } });
+    },
+    [updateV]
+  );
+
+  const handleRangeSelect = useCallback(
+    (key: AxisKey, value: readonly string[]): void => {
+      updateV({ ranges: { [key]: value } });
+    },
+    [updateV]
   );
 
   if (vis == null) return null;
@@ -101,76 +108,44 @@ const LinePlotChannelControls = (): JSX.Element | null => {
   return (
     <Space style={{ padding: "2rem", maxWidth: "100%" }}>
       <YAxisSelect
-        number={1}
+        axis={"y1"}
         data={channels}
-        onChange={handleChannelChange}
+        onChange={handleYSelect}
         value={vis.channels.y1}
-      />
-      {/* <YAxisSelect
-        number={2}
-        data={channels}
-        onChange={handleChannelChange}
-        value={vis.channels.y2}
-      />
-      <YAxisSelect
-        number={3}
-        data={channels}
-        onChange={handleChannelChange}
-        value={vis.channels.y3}
-      />
-      <YAxisSelect
-        number={4}
-        data={channels}
-        onChange={handleChannelChange}
-        value={vis.channels.y4}
       />
       <Space direction="horizontal" grow>
         <XAxisSelect
-          number={1}
+          axis={"x1"}
           data={channels}
-          onChange={handleChannelChange}
+          onChange={handleXSelect}
           value={vis.channels.x1}
         />
         <RangeSelect
-          number={1}
+          axis={"x1"}
           data={ranges}
-          onChange={handleChannelChange}
-          value={vis.ranges.x1}
+          onChange={handleRangeSelect}
+          value={vis.ranges.x1.map((v) => v.key)}
         />
       </Space>
-      <Space direction="horizontal" grow>
-        <XAxisSelect
-          number={2}
-          data={channels}
-          onChange={handleChannelChange}
-          value={vis.channels.x2}
-        />
-        <RangeSelect
-          number={2}
-          data={ranges}
-          onChange={handleChannelChange}
-          value={vis.ranges.x2}
-        />
-      </Space> */}
     </Space>
   );
 };
 
 interface YAxisSelectProps {
-  number: number;
-  data: ChannelPayload[];
-  onChange: (key: string, v: readonly string[]) => void;
+  axis: YAxisKey;
+  data: Channel[];
+  onChange: (key: YAxisKey, v: readonly string[]) => void;
   value: readonly string[];
 }
 
 const YAxisSelect = memo(
-  ({ number, data, onChange, value }: YAxisSelectProps): JSX.Element => (
-    <Input.Item<readonly string[], SelectMultipleProps<ChannelPayload>>
+  ({ axis, data, onChange, value }: YAxisSelectProps): JSX.Element => (
+    <Input.Item<readonly string[], SelectMultipleProps<Channel>>
       direction="horizontal"
-      label={`Y${number}:`}
+      label={`${axis}:`}
       data={data}
       tagKey="name"
-      onChange={(v) => onChange(`y${number}`, v)}
+      onChange={(v) => onChange(axis, v)}
       value={value}
       style={{ width: "100%" }}
       columns={[
@@ -187,20 +162,20 @@ const YAxisSelect = memo(
 YAxisSelect.displayName = "YAxisSelect";
 
 interface XAxisSelectProps {
-  number: number;
-  data: ChannelPayload[];
-  onChange: (key: string, v: string) => void;
+  axis: XAxisKey;
+  data: Channel[];
+  onChange: (key: XAxisKey, v: string) => void;
   value: string;
 }
 
 const XAxisSelect = memo(
-  ({ number, data, onChange, value }: XAxisSelectProps): JSX.Element => (
-    <Input.Item<string, SelectProps<ChannelPayload>>
+  ({ axis, data, onChange, value }: XAxisSelectProps): JSX.Element => (
+    <Input.Item<string, SelectProps<Channel>>
       direction="horizontal"
       tagKey="name"
-      label={`X${number}:`}
+      label={`${axis}:`}
       data={data}
-      onChange={(v) => onChange(`x${number}`, v)}
+      onChange={(v) => onChange(axis, v)}
       grow
       value={value}
       columns={[
@@ -217,20 +192,20 @@ const XAxisSelect = memo(
 XAxisSelect.displayName = "XAxisSelect";
 
 interface RangeSelectProps {
-  number: number;
+  axis: XAxisKey;
   data: Range[];
-  onChange: (key: string, v: readonly string[]) => void;
+  onChange: (key: XAxisKey, v: readonly string[]) => void;
   value: readonly string[];
 }
 
 const RangeSelect = memo(
-  ({ number, data, onChange, value }: RangeSelectProps): JSX.Element => (
+  ({ axis, data, onChange, value }: RangeSelectProps): JSX.Element => (
     <Input.Item<readonly string[], SelectMultipleProps<Range>>
       direction="horizontal"
       tagKey="name"
-      label={`X${number} Ranges:`}
+      label={`${axis} Ranges:`}
       data={data}
-      onChange={(v: readonly string[]) => onChange(`range${number}`, v)}
+      onChange={(v: readonly string[]) => onChange(axis, v)}
       grow
       value={value}
       columns={[

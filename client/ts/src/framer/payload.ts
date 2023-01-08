@@ -20,21 +20,28 @@ export const arrayPayloadSchema = z.object({
     .transform((o) => new TimeRange(o.start, o.end))
     .optional(),
   dataType: z.string().transform((s) => new DataType(s)),
-  data: z.string().transform((s) => Buffer.from(s, "base64").buffer),
+  data: z.string().transform(
+    (s) =>
+      new Uint8Array(
+        atob(s)
+          .split("")
+          .map((c) => c.charCodeAt(0))
+      ).buffer
+  ),
 });
 
 export type ArrayPayload = z.infer<typeof arrayPayloadSchema>;
 
 export const framePayloadSchema = z.object({
-  keys: z.string().array().default([]),
-  arrays: arrayPayloadSchema.array().default([]),
+  keys: z.string().array().nullable().default([]),
+  arrays: arrayPayloadSchema.array().nullable().default([]),
 });
 
 export type FramePayload = z.infer<typeof framePayloadSchema>;
 
 export const arrayFromPayload = (payload: ArrayPayload): TArray => {
-  const { dataType, data } = payload;
-  return new TArray(data, dataType);
+  const { dataType, data, timeRange } = payload;
+  return new TArray(data, dataType, timeRange);
 };
 
 export const arrayToPayload = (array: TArray): ArrayPayload => {

@@ -146,9 +146,7 @@ export class FrameWriter {
   }
 
   async writeArray(key: string, data: NativeTypedArray): Promise<boolean> {
-    const f = new Frame();
-    f.pushA(key, TArray.fromNative(data));
-    return await this.write(f);
+    return await this.write(new Frame(new TArray(data), key));
   }
 
   /**

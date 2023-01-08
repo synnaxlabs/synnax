@@ -23,7 +23,7 @@ import { ResizeCore } from "./ResizeCore";
 
 import { Space, SpaceProps } from "@/core/Space";
 import { useResize } from "@/hooks";
-import { Dimensions, Direction, getDirectionalSize, getLocation } from "@/util/spatial";
+import { Box, Direction, getDirectionalSize, getLocation } from "@/spatial";
 
 export interface UseResizeMultipleProps {
   count: number;
@@ -66,10 +66,10 @@ export const useResizeMultiple = ({
   const ref = useRef<HTMLDivElement>(null);
 
   const handleResize = useCallback(
-    (dims: Dimensions) =>
+    (box: Box) =>
       setSizes(({ sizes: prev, ...rest }) => {
         const f = (): number[] => {
-          const nextPSize = getDirectionalSize(direction, dims);
+          const nextPSize = getDirectionalSize(direction, box);
           const prevPSize = prev.reduce((a, b) => a + b, 0);
           if (nextPSize === prevPSize || nextPSize === 0) return prev;
 
@@ -86,7 +86,7 @@ export const useResizeMultiple = ({
     [direction, count]
   );
 
-  useResize({ ref, onResize: handleResize });
+  useResize({ ref, onResize: handleResize, triggers: [direction] });
 
   const setSize = useCallback(
     (i: number, e?: MouseEvent, targetSize?: number) => {
@@ -113,8 +113,7 @@ export const useResizeMultiple = ({
             return prev;
           });
           const nextTotal = nextSizes.reduce((a, b) => a + b, 0);
-          const r = nextSizes.map((s) => (s / nextTotal) * prevTotal);
-          return r;
+          return nextSizes.map((s) => (s / nextTotal) * prevTotal);
         };
         const nextSizes = f();
         if (nextSizes == null) return { sizes: prev, ...rest };

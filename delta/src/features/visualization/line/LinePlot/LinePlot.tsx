@@ -7,135 +7,124 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { CSSProperties, useEffect, useState } from "react";
+import { useCallback, useRef } from "react";
 
-import { Synnax } from "@synnaxlabs/client";
-import { Autosize, useDrag, UseSizeReturn } from "@synnaxlabs/pluto";
+import { CSSBox, useResize, ZERO_XY, ONE_XY } from "@synnaxlabs/pluto";
 
-import { useRenderer } from "../../components/Canvas";
-import { Visualization } from "../../types";
-import { CSSBox, PointBox } from "../../types/spatial";
-import { SugaredLinePlotVisualization } from "../types";
-
-import "./LinePlot.css";
+import { useRenderingContext } from "../../components/Canvas";
+import { Line, LineRenderRequest } from "../../render/line";
+import { RenderingContext } from "../../render/render";
+import { LinePlotVS } from "../types";
 
 import { useAsyncEffect } from "@/hooks";
 
+import "./LinePlot.css";
+
 export interface LinePlotProps {
-  visualization: SugaredLinePlotVisualization;
-  onChange: (vis: Visualization) => void;
-  client: Synnax;
+  vis: LinePlotVS;
+  onChange: (vis: LinePlotVS) => void;
   resizeDebounce: number;
 }
 
-export const LinePlot = (): JSX.Element => {
+export const LinePlot = ({
+  vis,
+  onChange,
+  resizeDebounce,
+}: LinePlotProps): JSX.Element => {
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  const ctx = useRenderingContext();
+
+  const render = useCallback(
+    async (ctx: RenderingContext, vis: LinePlotVS, el: HTMLDivElement | null) => {
+      if (el == null) return;
+      if (vis.channels.y1.length === 0 || vis.ranges.x1.length === 0) return;
+
+      const base = ctx.registry.get<LineRenderRequest>("line");
+      const box = new CSSBox(el.getBoundingClientRect());
+      const renderer = ctx.scissor(base, box, true, { x: 25, y: 49 });
+
+      const lines = vis.channels.y1.map(
+        (v): Line => ({
+          offset: ZERO_XY,
+          xKey: vis.channels.x1,
+          yKey: v,
+          scale: ONE_XY,
+          color: [1, 1, 1, 1],
+          strokeWidth: 2,
+        })
+      );
+
+      await renderer.render(ctx, { box, range: vis.ranges.x1[0], lines });
+    },
+    []
+  );
+
+  useAsyncEffect(async () => {
+    if (ctx == null || ref.current == null) return;
+    await render(ctx, vis, ref.current);
+  }, [vis, ctx]);
+
+  useResize({
+    ref,
+    debounce: resizeDebounce,
+    onResize: (box) => {
+      if (ctx == null) return null;
+      void render(ctx, vis, ref.current).catch(console.error);
+    },
+  });
+
   return (
     <div className="delta-line-plot__container">
-      <Autosize className="delta-line-plot__plot__container" debounce={100}>
-        {({ width, height, left, top }) => (
-          <CorePlot width={width} height={height} left={left} top={top} />
-        )}
-      </Autosize>
+      <div ref={ref} className="delta-line-plot__plot" />
     </div>
   );
 };
 
-const count = 1e4 * 5;
-const xData = Float32Array.from({ length: count }, (_, i) => i / count);
-const yData = Float32Array.from({ length: count }, (_, i) => {
-  // generate a step function
-  // return Math.sin(i / 500000);
-  const x = i / count;
-  if (x < 0.25) {
-    return 0;
-  } else if (x < 0.5) {
-    return 0.25;
-  } else if (x < 0.75) {
-    return 0.5;
-  } else {
-    return 0.75;
-  }
-});
+// const CorePlot = ({ width, height, left, top }: UseSizeReturn): JSX.Element => {
+//   const render = useRenderingContext();
 
-const sorted = yData.sort();
-const min = sorted[0];
-const max = sorted[sorted.length - 1];
+//   const [zoomMask, setZoomMask] = useState<PointBox | null>(null);
 
-const CorePlot = ({ width, height, left, top }: UseSizeReturn): JSX.Element => {
-  const render = useRenderer();
+//   const onZoomDrag = (e: MouseEvent): void =>
+//     setZoomMask((prev) => ({
+//       ...(prev ?? { one: { x: e.clientX, y: e.clientY } }),
+//       two: {
+//         x: e.clientX,
+//         y: e.clientY,
+//       },
+//     }));
 
-  useAsyncEffect(async () => {
-    await render({
-      box: new CSSBox(width, height, left, top),
-      renderer: "line",
-      request: {
-        range: {
-          name: "Hotfire 01",
-          key: "hotfire_01",
-          start: 1669915476000000000,
-          end: 1670693076000000000,
-        },
-        lines: [
-          {
-            offset: {
-              x: 0,
-              y: 0,
-            },
-            scale: {
-              x: 1,
-              y: 1,
-            },
-            color: [1, 0, 0, 1],
-            strokeWidth: 2,
-            xKey: "1-1",
-            yKey: "1-321",
-          },
-        ],
-      },
-    });
-  }, [width, height, left, top]);
+//   const dragProps = useDrag({
+//     onMove: onZoomDrag,
+//     onEnd: () => {
+//       setZoomMask(null);
+//     },
+//   });
 
-  const [zoomMask, setZoomMask] = useState<PointBox | null>(null);
+//   const zoomMaskStyle: CSSProperties | null = {
+//     position: "fixed",
+//     backgroundColor: "rgba(0, 0, 0, 0.2)",
+//   };
 
-  const onZoomDrag = (e: MouseEvent): void =>
-    setZoomMask((prev) => ({
-      ...(prev ?? { one: { x: e.clientX, y: e.clientY } }),
-      two: {
-        x: e.clientX,
-        y: e.clientY,
-      },
-    }));
+//   if (zoomMask != null) {
+//     zoomMaskStyle.width = Math.abs(zoomMask.one.x - zoomMask.two.x);
+//     zoomMaskStyle.height = Math.abs(zoomMask.one.y - zoomMask.two.y);
+//     zoomMaskStyle.left = Math.min(zoomMask.one.x, zoomMask.two.x);
+//     zoomMaskStyle.top = Math.min(zoomMask.one.y, zoomMask.two.y);
+//     if (zoomMaskStyle.height < 35) {
+//       zoomMaskStyle.height = height;
+//       zoomMaskStyle.top = top;
+//     } else if (zoomMaskStyle.width < 35) {
+//       zoomMaskStyle.width = width;
+//       zoomMaskStyle.left = left;
+//     }
+//   }
 
-  const dragProps = useDrag({
-    onMove: onZoomDrag,
-    onEnd: () => {
-      setZoomMask(null);
-    },
-  });
-
-  const zoomMaskStyle: CSSProperties | null = {
-    position: "fixed",
-    backgroundColor: "rgba(0, 0, 0, 0.2)",
-  };
-
-  if (zoomMask != null) {
-    zoomMaskStyle.width = Math.abs(zoomMask.one.x - zoomMask.two.x);
-    zoomMaskStyle.height = Math.abs(zoomMask.one.y - zoomMask.two.y);
-    zoomMaskStyle.left = Math.min(zoomMask.one.x, zoomMask.two.x);
-    zoomMaskStyle.top = Math.min(zoomMask.one.y, zoomMask.two.y);
-    if (zoomMaskStyle.height < 35) {
-      zoomMaskStyle.height = height;
-      zoomMaskStyle.top = top;
-    } else if (zoomMaskStyle.width < 35) {
-      zoomMaskStyle.width = width;
-      zoomMaskStyle.left = left;
-    }
-  }
-
-  return (
-    <>
-      <div style={{ width, height }} onMouseDown={dragProps.onDragStart} />;
-      {zoomMaskStyle != null && <div style={zoomMaskStyle} />}
-    </>
-  );
-};
+//   return (
+//     <>
+//       <div style={{ width, height }} onMouseDown={dragProps.onDragStart} />;
+//       {zoomMaskStyle != null && <div style={zoomMaskStyle} />}
+//     </>
+//   );
+// };

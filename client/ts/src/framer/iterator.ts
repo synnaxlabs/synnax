@@ -222,7 +222,7 @@ export class FrameIterator {
       if (res == null)
         throw new UnexpectedError("received null response from iterator");
       if (res.variant === ResponseVariant.Ack) return res.ack;
-      if (res.frame != null) this.value.pushF(Frame.fromPayload(res.frame));
+      if (res.frame != null) this.value.pushF(new Frame(res.frame));
     }
   }
 }

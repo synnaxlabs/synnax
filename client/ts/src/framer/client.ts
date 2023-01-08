@@ -52,7 +52,7 @@ export class FrameClient {
    * for more information.
    * @returns a new {@link RecordWriter}.
    */
-  async newWriter(start: UnparsedTimeStamp, keys: string[]): Promise<FrameWriter> {
+  async newWriter(start: UnparsedTimeStamp, ...keys: string[]): Promise<FrameWriter> {
     const w = new FrameWriter(this.transport.streamClient);
     await w.open(start, keys);
     return w;
@@ -74,7 +74,7 @@ export class FrameClient {
   ): Promise<void> {
     const f = new Frame();
     f.pushA(to, new TArray(data));
-    const w = await this.newWriter(start, [to]);
+    const w = await this.newWriter(start, to);
     try {
       await w.write(f);
       if (!(await w.commit())) throw new Error("failed to commit");

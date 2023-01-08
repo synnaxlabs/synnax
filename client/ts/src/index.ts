@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/cache";
 export * from "@/channel";
 export { default as Synnax, synnaxPropsSchema } from "@/client";
 export type { SynnaxProps } from "@/client";

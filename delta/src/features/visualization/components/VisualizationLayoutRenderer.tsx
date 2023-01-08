@@ -9,21 +9,21 @@
 
 import { memo } from "react";
 
+import { UnexpectedError } from "@synnaxlabs/client";
 import { useDispatch } from "react-redux";
 
 import { LinePlot } from "../line/LinePlot";
+import { LinePlotVS } from "../line/types";
 import { setVisualization, useSelectSugaredVisualization } from "../store";
-import { SugaredLinePlotVisualization, Visualization } from "../types";
+import { Visualization } from "../types";
 
-import { useClusterClient } from "@/features/cluster";
 import { LayoutRenderer, LayoutRendererProps } from "@/features/layout";
 
 export const VisualizationLayoutRenderer: LayoutRenderer = {
   Renderer: memo(({ layoutKey }: LayoutRendererProps) => {
     const vis = useSelectSugaredVisualization(layoutKey);
+    if (vis == null) throw new UnexpectedError(`Visualization not found: ${layoutKey}`);
     const dispatch = useDispatch();
-    const client = useClusterClient();
-    if (vis == null || client == null) return <h1>No Client</h1>;
 
     const onChange = (vis: Visualization): void => {
       dispatch(setVisualization(vis));
@@ -32,12 +32,7 @@ export const VisualizationLayoutRenderer: LayoutRenderer = {
     switch (vis.variant) {
       case "linePlot":
         return (
-          <LinePlot
-            visualization={vis as SugaredLinePlotVisualization}
-            client={client}
-            onChange={onChange}
-            resizeDebounce={100}
-          />
+          <LinePlot vis={vis as LinePlotVS} onChange={onChange} resizeDebounce={100} />
         );
     }
     return <h1>No Visualization Found</h1>;

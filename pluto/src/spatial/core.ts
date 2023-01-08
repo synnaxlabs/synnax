@@ -1,12 +1,3 @@
-// Copyright 2023 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
-
 export type Location = VerticalLocation | HorizontalLocation | CenterLocation;
 
 export type VerticalLocation = "top" | "bottom";
@@ -22,6 +13,8 @@ export type Order = "first" | "last";
 export const Locations = ["top", "bottom", "left", "right", "center"];
 
 export const Directions = ["horizontal", "vertical"];
+
+export const isDirection = (v: string): boolean => Directions.includes(v as Direction);
 
 export const Positions = ["start", "center", "end"];
 
@@ -50,7 +43,7 @@ export const swapLocation = (location: Location): Location => {
 };
 export const getDirectionalSize = (
   direction: Direction,
-  { width, height }: { width: number; height: number }
+  { width, height }: Dimensions
 ): number => {
   return direction === "horizontal" ? width : height;
 };
@@ -59,3 +52,12 @@ export interface Dimensions {
   width: number;
   height: number;
 }
+
+/** A generic 2D point, scale, or offset. */
+export interface XY {
+  x: number;
+  y: number;
+}
+
+export const ZERO_XY: XY = { x: 0, y: 0 };
+export const ONE_XY: XY = { x: 1, y: 1 };

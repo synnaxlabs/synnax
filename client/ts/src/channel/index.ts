@@ -8,5 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export { Channel, default as ChannelClient } from "./client";
-export { channelPayloadSchema } from "./payload";
-export type { ChannelPayload } from "./payload";
+export { channelPayloadSchema, keyedChannelPayloadSchema } from "./payload";
+export type { ChannelPayload, KeyedChannelPayload } from "./payload";
