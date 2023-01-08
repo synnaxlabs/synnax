@@ -7,13 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { LinePlotMeta } from "@synnaxlabs/pluto";
-
 import { Visualization } from "../types";
 
 import { Range } from "@/features/workspace";
 
-export interface LinePlotV extends Visualization, LinePlotMeta {
+export interface LinePlotV extends Visualization {
   channels: {
     y1: readonly string[];
     y2: readonly string[];

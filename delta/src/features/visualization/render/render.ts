@@ -13,6 +13,7 @@ import { TelemetryClient } from "../telem/client";
 
 import { Compiler } from "./compiler";
 import { LineRenderer, LINE_RENDERER_TYPE } from "./line";
+import { ScissoredRenderer } from "./scissor";
 
 export type RenderingUnits = "px" | "decimal";
 
@@ -46,12 +47,6 @@ export interface RenderingContext {
   readonly gl: WebGLRenderingContext;
   scale: (box: Box) => XY;
   offset: (box: Box, units: RenderingUnits) => XY;
-  scissor: <R>(
-    wrapped: Renderer<R>,
-    box: Box,
-    clear?: boolean,
-    overscan?: XY
-  ) => Renderer<R>;
   refreshCanvas: () => void;
   readonly dpr: number;
   readonly aspect: number;
@@ -91,6 +86,6 @@ export type DefaultRenderers = typeof LINE_RENDERER_TYPE;
 
 export const newDefaultRendererRegistry = (): RendererRegistry => {
   const registry = new RendererRegistry();
-  registry.register(new LineRenderer());
+  registry.register(new ScissoredRenderer(new LineRenderer(), true, { x: 24, y: 48 }));
   return registry;
 };

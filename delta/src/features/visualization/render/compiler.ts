@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
+import { RGBATuple, XY } from "@synnaxlabs/pluto";
+
 import { errorCompile, ERROR_BAD_SHADER, ERROR_NOT_COMPILED } from "../errors";
 
 export interface Compiler {
@@ -61,5 +64,19 @@ export class StaticCompiler implements Compiler {
 
   use(gl: WebGLRenderingContext): void {
     gl.useProgram(this.program);
+  }
+
+  uniformXY(gl: WebGLRenderingContext, name: string, value: XY): void {
+    gl.uniform2fv(this.getUniformLoc(gl, name), [value.x, value.y]);
+  }
+
+  uniformColor(gl: WebGLRenderingContext, name: string, value: RGBATuple): void {
+    gl.uniform4fv(this.getUniformLoc(gl, name), value);
+  }
+
+  private getUniformLoc(gl: WebGLRenderingContext, name: string): WebGLUniformLocation {
+    const loc = gl.getUniformLocation(this.program, name);
+    if (loc == null) throw new UnexpectedError(`unexpected missing uniform ${name}`);
+    return loc;
   }
 }

@@ -16,9 +16,9 @@ import {
   useState,
 } from "react";
 
-import { FrameCache, UnexpectedError, ValidationError } from "@synnaxlabs/client";
+import { FrameCache, UnexpectedError } from "@synnaxlabs/client";
 
-import { CanvasRenderingContext } from "../render/canvasContext";
+import { CanvasRenderingContext } from "../render/context";
 import { newDefaultRendererRegistry, RenderingContext } from "../render/render";
 import { TelemetryClient } from "../telem/client";
 import { WebGLBufferCache } from "../telem/glCache";

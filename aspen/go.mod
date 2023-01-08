@@ -47,4 +47,15 @@ require (
 	golang.org/x/text v0.3.7 // indirect
 	google.golang.org/genproto v0.0.0-20210624195500-8bfb893ecb84 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+<!--
+  - Copyright 2023 Synnax Labs, Inc.
+  -
+  - Use of this software is governed by the Business Source License included in the file
+  - licenses/BSL.txt.
+  -
+  - As of the Change Date specified in that file, in accordance with the Business Source
+  - License, use of this software will be governed by the Apache License, Version 2.0,
+  - included in the file licenses/APL.txt.
+  -->
+
 )
