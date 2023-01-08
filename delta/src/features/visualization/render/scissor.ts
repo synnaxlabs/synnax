@@ -7,26 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Box, RGBATuple, XY, ZERO_XY } from "@synnaxlabs/pluto";
+import { Box, RGBATuple, Transform, XY, ZERO_XY } from "@synnaxlabs/pluto";
 
-import { Renderer, RenderingContext } from "../render";
+import { Renderer, RenderingContext } from "./render";
 
 const CLEAR_COLOR: RGBATuple = [0, 0, 0, 0];
 
-export class ScissoredRenderer<R> implements Renderer<R> {
+export interface ScissoredRenderRequest {
+  box: Box;
+  scissor?: Transform;
+}
+
+export class ScissoredRenderer<R extends ScissoredRenderRequest>
+  implements Renderer<R>
+{
   readonly wrapped: Renderer<R>;
-  private readonly box: Box;
   private readonly clear: boolean;
   private readonly overscan: XY;
 
-  constructor(
-    wrapped: Renderer<R>,
-    box: Box,
-    clear: boolean = true,
-    overscan: XY = ZERO_XY
-  ) {
+  constructor(wrapped: Renderer<R>, clear: boolean = true, overscan: XY = ZERO_XY) {
     this.wrapped = wrapped;
-    this.box = box;
     this.clear = clear;
     this.overscan = overscan;
   }
@@ -41,10 +41,18 @@ export class ScissoredRenderer<R> implements Renderer<R> {
 
   async render(ctx: RenderingContext, req: R): Promise<void> {
     ctx.gl.enable(ctx.gl.SCISSOR_TEST);
-    this.scissor(ctx);
+    this.scissor(ctx, req.box);
     this.maybeClear(ctx);
+    req.scissor = this.calculateTransform(ctx, req.box);
     await this.wrapped.render(ctx, req);
     ctx.gl.disable(ctx.gl.SCISSOR_TEST);
+  }
+
+  private calculateTransform(
+    ctx: RenderingContext,
+    box: Box
+  ): { offset: XY; scale: XY } {
+    return { scale: ctx.scale(box), offset: ctx.offset(box, "decimal") };
   }
 
   private maybeClear(ctx: RenderingContext): void {
@@ -54,9 +62,9 @@ export class ScissoredRenderer<R> implements Renderer<R> {
     }
   }
 
-  private scissor(ctx: RenderingContext): void {
-    const { x, y } = ctx.offset(this.box, "px");
-    const { width, height } = this.box;
+  private scissor(ctx: RenderingContext, box: Box): void {
+    const { x, y } = ctx.offset(box, "px");
+    const { width, height } = box;
     const { x: ox, y: oy } = this.overscan;
     ctx.gl.scissor(
       (x - ox / 2) * ctx.dpr,

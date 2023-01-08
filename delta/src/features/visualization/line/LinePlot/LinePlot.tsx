@@ -9,10 +9,10 @@
 
 import { useCallback, useRef } from "react";
 
-import { CSSBox, useResize, ZERO_XY, ONE_XY } from "@synnaxlabs/pluto";
+import { CSSBox, useResize } from "@synnaxlabs/pluto";
 
 import { useRenderingContext } from "../../components/Canvas";
-import { Line, LineRenderRequest } from "../../render/line";
+import { LineRenderRequest } from "../../render/line";
 import { RenderingContext } from "../../render/render";
 import { LinePlotVS } from "../types";
 
@@ -38,23 +38,15 @@ export const LinePlot = ({
   const render = useCallback(
     async (ctx: RenderingContext, vis: LinePlotVS, el: HTMLDivElement | null) => {
       if (el == null) return;
-      if (vis.channels.y1.length === 0 || vis.ranges.x1.length === 0) return;
+      if (
+        vis.channels.y1.length === 0 ||
+        vis.ranges.x1.length === 0 ||
+        vis.channels.x1 === ""
+      )
+        return;
 
-      const base = ctx.registry.get<LineRenderRequest>("line");
       const box = new CSSBox(el.getBoundingClientRect());
-      const renderer = ctx.scissor(base, box, true, { x: 25, y: 49 });
-
-      const lines = vis.channels.y1.map(
-        (v): Line => ({
-          offset: ZERO_XY,
-          xKey: vis.channels.x1,
-          yKey: v,
-          scale: ONE_XY,
-          color: [1, 1, 1, 1],
-          strokeWidth: 2,
-        })
-      );
-
+      const renderer = ctx.registry.get<LineRenderRequest>("line");
       await renderer.render(ctx, { box, range: vis.ranges.x1[0], lines });
     },
     []
@@ -68,8 +60,8 @@ export const LinePlot = ({
   useResize({
     ref,
     debounce: resizeDebounce,
-    onResize: (box) => {
-      if (ctx == null) return null;
+    onResize: (): void => {
+      if (ctx == null) return;
       void render(ctx, vis, ref.current).catch(console.error);
     },
   });

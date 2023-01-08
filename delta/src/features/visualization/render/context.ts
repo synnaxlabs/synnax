@@ -12,7 +12,7 @@ import { Box, calculateBottomOffset, CSSBox, XY, ZERO_XY } from "@synnaxlabs/plu
 import { TelemetryClient } from "../telem/client";
 
 import { Renderer, RendererRegistry, RenderingContext, RenderingUnits } from "./render";
-import { ScissoredRenderer } from "./scissored/scissor";
+import { ScissoredRenderer } from "./scissor";
 
 export interface RenderRequest {
   box: Box;
@@ -48,15 +48,6 @@ export class CanvasRenderingContext implements RenderingContext {
 
   get dpr(): number {
     return DPR;
-  }
-
-  scissor<R>(
-    wrapped: Renderer<R>,
-    box: Box,
-    clear: boolean = true,
-    overscan: XY = ZERO_XY
-  ): Renderer<R> {
-    return new ScissoredRenderer(wrapped, box, clear, overscan);
   }
 
   scale(box: Box): XY {

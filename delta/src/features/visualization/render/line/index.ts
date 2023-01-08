@@ -7,50 +7,71 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Box, RGBATuple, XY } from "@synnaxlabs/pluto";
+import { RGBATuple, Transform, XY } from "@synnaxlabs/pluto";
 
 import { errorUnsupported } from "../../errors";
 import { StaticCompiler } from "../compiler";
 import { Renderer, RenderingContext } from "../render";
+import { ScissoredRenderRequest } from "../scissor";
 
+// eslint-disable-next-line import/no-unresolved
 import fragShader from "./frag.glsl?raw";
+// eslint-disable-next-line import/no-unresolved
 import vertShader from "./vert.glsl?raw";
 
-import { Range } from "@/features/workspace";
-
 const shaderVars = {
-  x: "a_x",
-  y: "a_y",
-  rootScale: "u_scale_root",
+  scissor: {
+    scale: "u_scale_scissor",
+    offset: "u_offset_scissor",
+  },
   scale: "u_scale",
-  offsetRoot: "u_offset_root",
   offset: "u_offset",
   color: "u_color",
   aspect: "u_aspect",
   mod: "a_mod",
   translate: "a_translate",
+  x: "a_x",
+  y: "a_y",
 };
 
+/** A line requested for rendering. */
 export interface Line {
+  /** The offset of the line in decimal. */
   offset: XY;
+  /** The scale of the line. */
   scale: XY;
+  /** The color for the line. */
   color: RGBATuple;
+  /** The stroke width for the line */
   strokeWidth: number;
-  xKey: string;
-  yKey: string;
+  /**
+   * The number of points in the line. Generally, the lengths of the x and y buffers
+   * should be equal to this number.
+   */
+  length: number;
+  /**
+   * The buffer containing the X coordinates for the line. This buffer should be managed
+   * by the same WebGL canvas as provided in the rendering context.
+   */
+  x: WebGLBuffer;
+  /**
+   * The buffer containing the Y coordinates for the line. This buffer should be managed
+   * by the same WebGL canvas as provided in the rendering context.
+   */
+  y: WebGLBuffer;
 }
 
+/** Just makes sure that the lines we draw to make stuff thick are really close together. */
 const THICKNESS_DIVISOR = 12000;
 const ANGLE_INSTANCED_ARRAYS_FEATURE = "ANGLE_instanced_arrays";
 
-export interface LineRenderRequest {
-  box: Box;
-  range: Range;
+export interface LineRenderRequest extends ScissoredRenderRequest {
   lines: Line[];
 }
 
 export const LINE_RENDERER_TYPE = "line";
 
+/* Draws lines with variable stroke width onto the canvas. */
 export class LineRenderer
   extends StaticCompiler
   implements Renderer<LineRenderRequest>
@@ -82,48 +103,19 @@ export class LineRenderer
     ctx.refreshCanvas();
     const { gl } = ctx;
     this.use(gl);
-
-    const { range, lines } = req;
-
-    const xKeys = lines.map((line) => line.xKey);
-    const yKeys = lines.map((line) => line.yKey);
-
-    const f = await ctx.client.getFrame({ range, keys: [...xKeys, ...yKeys] });
-
-    req.lines.forEach((line) => {
-      this.applyOffset(ctx, req.box, line);
-      this.applyColor(ctx, line);
-      const instances = this.applyThickness(ctx, line);
-      const xEntry = f.find((e) => e.key === line.xKey);
-      const yEntry = f.find((e) => e.key === line.yKey);
-      if (xEntry == null || yEntry == null) {
-        console.warn(`missing x or y array for line ${line.xKey} ${line.yKey}`);
-        return;
-      }
-      if (xEntry.arrays.length !== yEntry.arrays.length) {
-        console.warn(
-          `x and y arrays are not the same length for line ${line.xKey} ${line.yKey}`
-        );
-        return;
-      }
-
-      yEntry.arrays.forEach((y, i) => {
-        const x = xEntry.arrays[i];
-        line.scale.x = 1 / Number(x.range);
-        line.scale.y = 1 / Number(y.range);
-        line.offset.y = -Number(y.min) * line.scale.y;
-        line.offset.x = -Number(x.min) * line.scale.x;
-        const xBuffer = xEntry.glBuffers[i];
-        this.bindBuffer(gl, "x", xBuffer);
-        const yBuffer = yEntry.glBuffers[i];
-        this.bindBuffer(gl, "y", yBuffer);
-        this.applyScale(ctx, req.box, line);
-        this.extension.drawArraysInstancedANGLE(gl.LINE_STRIP, 0, y.length, instances);
-      });
+    if (req.scissor != null) this.applyScissor(ctx, req.scissor);
+    req.lines.forEach((l) => {
+      this.bindAttrBuffer(gl, "x", l.x);
+      this.bindAttrBuffer(gl, "y", l.y);
+      this.uniformColor(gl, shaderVars.color, l.color);
+      this.uniformXY(gl, shaderVars.scale, l.scale);
+      this.uniformXY(gl, shaderVars.offset, l.offset);
+      const numInstances = this.attrStrokeWidth(ctx, l.strokeWidth);
+      this.extension.drawArraysInstancedANGLE(gl.LINE_STRIP, 0, l.length, numInstances);
     });
   }
 
-  private bindBuffer(
+  private bindAttrBuffer(
     gl: WebGLRenderingContext,
     dim: "x" | "y",
     buffer: WebGLBuffer
@@ -134,9 +126,15 @@ export class LineRenderer
     gl.enableVertexAttribArray(n);
   }
 
-  private applyThickness(ctx: RenderingContext, req: Line): number {
+  /**
+   * We apply stroke width by drawing the line multiple times, each time with a slight
+   * transformation. This is done as simply as possible. We draw the "centered" line
+   * and then four more lines: one to the left, one to the right, one above, and one
+   * below. This is done by using the `ANGLE_instanced_arrays` extension. We can repeat
+   * this process to make the line thicker.
+   */
+  private attrStrokeWidth(ctx: RenderingContext, strokeWidth: number): number {
     const { gl, aspect } = ctx;
-    const { strokeWidth } = req;
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.translationBuffer);
     const translationBuffer = newTranslationBuffer(aspect, strokeWidth);
@@ -152,34 +150,9 @@ export class LineRenderer
     return numInstances;
   }
 
-  private applyScale(ctx: RenderingContext, box: Box, line: Line): void {
-    const { program: prog } = this;
-    const { gl } = ctx;
-    const rootScale = ctx.scale(box);
-    const { scale } = line;
-    const rootScaleLoc = gl.getUniformLocation(prog, shaderVars.rootScale);
-    gl.uniform2fv(rootScaleLoc, [rootScale.x, rootScale.y]);
-    const s2 = gl.getUniformLocation(prog, shaderVars.scale);
-    gl.uniform2fv(s2, [scale.x, scale.y]);
-  }
-
-  private applyOffset(ctx: RenderingContext, box: Box, line: Line): void {
-    const { program: prog } = this;
-    const { gl } = ctx;
-    const rootOffset = ctx.offset(box, "decimal");
-    const { offset } = line;
-    const o1 = gl.getUniformLocation(prog, shaderVars.offsetRoot);
-    gl.uniform2fv(o1, [rootOffset.x, rootOffset.y]);
-    const o2 = gl.getUniformLocation(prog, shaderVars.offset);
-    gl.uniform2fv(o2, [offset.x, offset.y]);
-  }
-
-  private applyColor(ctx: RenderingContext, line: Line): void {
-    const { program: prog } = this;
-    const { gl } = ctx;
-    const { color } = line;
-    const colorLoc = gl.getUniformLocation(prog, shaderVars.color);
-    gl.uniform4fv(colorLoc, color);
+  private applyScissor(ctx: RenderingContext, scissor: Transform): void {
+    this.uniformXY(ctx.gl, shaderVars.scissor.scale, scissor.scale);
+    this.uniformXY(ctx.gl, shaderVars.scissor.offset, scissor.offset);
   }
 }
 
@@ -194,8 +167,8 @@ const newDirectionBuffer = (aspect: number): Float32Array =>
   // prettier-ignore
   new Float32Array([
     0, 0, // center
-    0, 1 * aspect,  // top
-    0, -1 * aspect,  // bottom
+    0, aspect,  // top
+    0, -aspect,  // bottom
     1, 0, // right
     -1, 0, // left
   ]);
@@ -205,59 +178,3 @@ const copyBuffer = (buf: Float32Array, times: number): Float32Array => {
   for (let i = 0; i < times; i++) newBuf.set(buf, i * buf.length);
   return newBuf;
 };
-
-export class BufferControl {
-  private readonly gl: WebGLRenderingContext;
-  private readonly entries: Record<string, BufferControlEntry> = {};
-
-  constructor(gl: WebGLRenderingContext) {
-    this.gl = gl;
-  }
-
-  set(key: string, data: Float32Array): void {
-    this.delete(key);
-    this.entries[key] = new BufferControlEntry(data);
-  }
-
-  delete(key: string): void {
-    const existing = this.entries[key];
-    if (existing == null) return;
-    // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-    delete this.entries[key];
-  }
-
-  use(key: string): void {
-    this.entries[key].use(this.gl);
-  }
-
-  createBuffer(data: Float32Array): BufferControlEntry {
-    return new BufferControlEntry(data);
-  }
-}
-
-export class BufferControlEntry {
-  private readonly data: Float32Array;
-  private gl: WebGLBuffer | null;
-  private buffered: boolean = false;
-
-  constructor(data: Float32Array) {
-    this.gl = null;
-    this.data = data;
-  }
-
-  use(gl: WebGLRenderingContext): void {
-    this.maybeBuffer(gl);
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.gl);
-  }
-
-  delete(gl: WebGLRenderingContext): void {
-    gl.deleteBuffer(this.gl);
-  }
-
-  private maybeBuffer(gl: WebGLRenderingContext): void {
-    if (this.buffered) return;
-    this.gl = gl.createBuffer() as WebGLBuffer;
-    gl.bufferData(gl.ARRAY_BUFFER, this.data, gl.STATIC_DRAW);
-    this.buffered = true;
-  }
-}

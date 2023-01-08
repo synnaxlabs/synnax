@@ -40,4 +40,15 @@ require (
 	go.uber.org/multierr v1.8.0 // indirect
 	golang.org/x/exp v0.0.0-20220303212507-bbda1eaf7a17 // indirect
 	golang.org/x/sys v0.0.0-20220715151400-c0bba94af5f8 // indirect
+<!--
+  - Copyright 2023 Synnax Labs, Inc.
+  -
+  - Use of this software is governed by the Business Source License included in the file
+  - licenses/BSL.txt.
+  -
+  - As of the Change Date specified in that file, in accordance with the Business Source
+  - License, use of this software will be governed by the Apache License, Version 2.0,
+  - included in the file licenses/APL.txt.
+  -->
+
 )
