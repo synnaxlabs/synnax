@@ -9,3 +9,4 @@
 
 export * from "./WorkspaceToolbar";
 export * from "./DefineRange";
+export * from "./SelectRange";

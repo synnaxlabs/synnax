@@ -16,7 +16,7 @@ import { MdOutlineDeviceHub, MdSensors } from "react-icons/md";
 
 import { ClusterIcon } from "@/features/cluster";
 import { LayoutPlacer } from "@/features/layout";
-import { LinePlotVisualization, createVisualization } from "@/features/visualization";
+import { LinePlotVisualization, createVisualization } from "@/features/vis";
 import { WorkspaceState } from "@/features/workspace";
 
 export interface SelectionContext {

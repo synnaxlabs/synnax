@@ -17,7 +17,7 @@ import { ClusterBadge, ClusterToolbar, ConnectionBadge } from "@/features/cluste
 import { NavdrawerLocation, useNavDrawer } from "@/features/layout";
 import { ResourcesToolbar } from "@/features/resources";
 import { VersionBadge } from "@/features/version";
-import { VisualizationToolBar, WarpModeToggle } from "@/features/visualization";
+import { VisualizationToolBar, WarpModeToggle } from "@/features/vis";
 import { WorkspaceToolbar } from "@/features/workspace";
 
 import "./Nav.css";

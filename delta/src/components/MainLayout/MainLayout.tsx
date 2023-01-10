@@ -13,7 +13,7 @@ import { NavBottom, NavDrawer, NavLeft, NavRight, NavTop } from "./Nav";
 
 import { ClusterProvider } from "@/features/cluster";
 import { LayoutMosaic } from "@/features/layout";
-import { Canvas } from "@/features/visualization/components/Canvas";
+import { VisCanvas } from "@/features/vis";
 
 import "./MainLayout.css";
 
@@ -33,9 +33,9 @@ export const MainLayout = (): JSX.Element => (
         <Space className="delta-main--driven" direction="horizontal" empty>
           <NavDrawer location="left" />
           <div className="delta-main--driven" style={{ position: "relative" }}>
-            <Canvas>
+            <VisCanvas>
               <LayoutMosaic />
-            </Canvas>
+            </VisCanvas>
           </div>
           <NavDrawer location="right" />
         </Space>
