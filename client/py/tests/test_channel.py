@@ -18,7 +18,7 @@ import numpy as np
 import pytest
 
 import synnax
-from synnax import QueryError, Channel
+from synnax import Channel, QueryError
 
 
 class TestClient:

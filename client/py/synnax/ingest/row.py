@@ -19,17 +19,17 @@ from datetime import datetime
 
 from pandas import DataFrame
 from rich.progress import (
-    Progress,
-    TextColumn,
     BarColumn,
+    Progress,
     TaskProgressColumn,
+    TextColumn,
     TimeElapsedColumn,
 )
 
 from .. import Channel, Synnax
-from ..telem import MEGABYTE, TimeStamp
-from ..io import RowReader
 from ..framer import DataFrameWriter
+from ..io import RowReader
+from ..telem import MEGABYTE, TimeStamp
 
 
 class RowIngestionEngine:

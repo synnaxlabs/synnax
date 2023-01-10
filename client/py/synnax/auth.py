@@ -15,14 +15,15 @@
 #  included in the file licenses/APL.txt.
 
 from typing import Callable
+
 from freighter import (
-    UnaryClient,
-    Payload,
-    MetaData,
-    Next,
-    Middleware,
     AsyncMiddleware,
     AsyncNext,
+    MetaData,
+    Middleware,
+    Next,
+    Payload,
+    UnaryClient,
 )
 
 from synnax.user.payload import UserPayload
@@ -43,10 +44,10 @@ TOKEN_REFRESH_HEADER = "Refresh-Token"
 
 
 def token_middleware(
-    token: Callable[[], str], set_token: Callable[[str], None]
+    token_provider: Callable[[], str], set_token: Callable[[str], None]
 ) -> Middleware:
     def mw(md: MetaData, _next: Next):
-        md.set(AUTHORIZATION_HEADER, "Bearer " + token())
+        md.set(AUTHORIZATION_HEADER, "Bearer " + token_provider())
         out_md, exc = _next(md)
         if TOKEN_REFRESH_HEADER in out_md.params:
             tk = out_md.retrieve(TOKEN_REFRESH_HEADER)
@@ -57,10 +58,10 @@ def token_middleware(
 
 
 def async_token_middleware(
-    token: Callable[[], str], set_token: Callable[[str], None]
+    token_provider: Callable[[], str], set_token: Callable[[str], None]
 ) -> Middleware:
     async def mw(md: MetaData, _next: AsyncNext):
-        md.set(AUTHORIZATION_HEADER, "Bearer " + token())
+        md.set(AUTHORIZATION_HEADER, "Bearer " + token_provider())
         out_md, exc = await _next(md)
         if TOKEN_REFRESH_HEADER in out_md:
             token = out_md.retrieve(TOKEN_REFRESH_HEADER)

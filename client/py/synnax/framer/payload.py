@@ -18,9 +18,9 @@ from __future__ import annotations
 
 from freighter import Payload
 from pandas import DataFrame
-from synnax.channel.payload import ChannelPayload
 
-from synnax.telem import NumpyArray, BinaryArray, TimeRange
+from synnax.channel.payload import ChannelPayload
+from synnax.telem import BinaryArray, NumpyArray, TimeRange
 
 
 class FrameHeader(Payload):

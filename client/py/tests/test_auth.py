@@ -15,7 +15,8 @@
 #  included in the file licenses/APL.txt.
 
 import pytest
-from synnax import Synnax, AuthError
+
+from synnax import AuthError, Synnax
 from synnax.exceptions import ValidationError
 
 

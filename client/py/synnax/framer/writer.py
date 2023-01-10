@@ -25,10 +25,10 @@ from freighter import (
     decode_exception,
 )
 from pandas import DataFrame
-from synnax.channel.payload import ChannelPayload
 
+from synnax.channel.payload import ChannelPayload
 from synnax.channel.registry import ChannelRegistry
-from synnax.exceptions import ValidationError, Field, GeneralError
+from synnax.exceptions import Field, GeneralError, ValidationError
 from synnax.telem import TimeStamp, UnparsedTimeStamp
 
 from .payload import BinaryFrame, pandas_to_frame

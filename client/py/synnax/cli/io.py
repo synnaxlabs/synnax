@@ -14,11 +14,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from .flow import Context
-
 from pathlib import Path
 
 from ..io import IOFactory, RowReader
+from .flow import Context
 
 io_factory = IOFactory()
 

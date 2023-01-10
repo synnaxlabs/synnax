@@ -16,8 +16,7 @@
 
 from freighter import HTTPClientFactory, Payload, UnaryClient
 
-from synnax.telem import DATA_TYPE_UNKNOWN, Rate, UnparsedDataType, UnparsedRate
-
+from ..telem import DATA_TYPE_UNKNOWN, Rate, UnparsedDataType, UnparsedRate
 from .payload import ChannelPayload
 
 

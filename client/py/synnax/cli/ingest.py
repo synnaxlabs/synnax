@@ -13,26 +13,43 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
+from pathlib import Path
+
+import click
 
 import synnax
-from .channel import (
-    maybe_select_channel,
-    channel_name_table,
-    Channel,
-)
-from .connect import connect_client, prompt_client_options, load_config_options
+
+from .. import Synnax
+from ..cli.console.channel import prompt_group_channel_names
+from ..ingest.row import RowIngestionEngine
+from ..io import ChannelMeta, IOFactory, ReaderType, RowReader
+from ..telem import TIMESTAMP, Rate
+from .channel import Channel, channel_name_table, maybe_select_channel
+from .connect import connect_client
 from .console.rich import RichConsole
+from .flow import Context, Flow
 from .io import prompt_file
 from .telem import prompt_data_type_select
-from .. import Synnax
-from .flow import Context, Flow
-from ..ingest.row import RowIngestionEngine
-from ..io import RowReader, ReaderType, IOFactory, ChannelMeta
-from ..telem import INT64, Rate, TIMESTAMP
-from ..cli.console.channel import prompt_group_channel_names
+
+
+@click.command()
+@click.argument("path", type=click.Path(exists=True), required=False, default=None)
+def ingest(path: str | None):
+    if path is not None:
+        path = Path(path)
+    flow = Flow(Context(console=RichConsole()))
+    flow.add("initialize_reader", initialize_reader)
+    flow.add("connect_client", _connect_client)
+    flow.add("ingest_all", ingest_all)
+    flow.add("channels_to_ingest", channels_to_ingest)
+    flow.add("validate_channels", validate_channels)
+    flow.add("create_channels", create_channels)
+    flow.add("ingest", run_ingestion)
+    flow.run(IngestionCLI(IOFactory(), path), "initialize_reader")
 
 
 class IngestionCLI:
+    path: Path | None = None
     factory: IOFactory
     reader: RowReader | None
     client: Synnax | None
@@ -40,7 +57,8 @@ class IngestionCLI:
     not_found: list[ChannelMeta] | None
     db_channels: list[synnax.Channel] | None
 
-    def __init__(self, factory: IOFactory):
+    def __init__(self, factory: IOFactory, path: Path | None):
+        self.path = path
         self.factory = factory
         self.reader = None
         self.client = None
@@ -59,39 +77,23 @@ def run_ingestion(ctx: Context, cli: IngestionCLI) -> None:
     engine.run()
 
 
-def ingestion():
-    flow = Flow(Context(console=RichConsole()))
-    flow.add("initialize_reader", initialize_reader)
-    flow.add("connect_client", _connect_client)
-    flow.add("ingest_all", ingest_all)
-    flow.add("channels_to_ingest", channels_to_ingest)
-    flow.add("validate_channels", validate_channels)
-    flow.add("create_channels", create_channels)
-    flow.add("ingest", run_ingestion)
-    flow.run(IngestionCLI(synnax.io.IOFactory()), "initialize_reader")
-
-
 def initialize_reader(
     ctx: Context,
     cli: IngestionCLI,
 ) -> str | None:
     ctx.console.info("Welcome to the Synnax ingestion CLI! Let's get started.")
-    ctx.console.info("Please select a file to ingest.")
-    path = prompt_file(ctx)
-    if path is None:
+    if cli.path is None:
+        ctx.console.info("Please select a file to ingest.")
+        cli.path = prompt_file(ctx)
+    if cli.path is None:
         return None
-    cli.reader = cli.factory.new_reader(path)
+    cli.reader = cli.factory.new_reader(cli.path)
     return "connect_client"
 
 
 def _connect_client(ctx: Context, cli: IngestionCLI) -> str | None:
     """Prompts the user to connect to a Synnax client."""
-    opts = load_config_options(ctx)
-    if opts is None:
-        opts = prompt_client_options(ctx)
-    else:
-        ctx.console.info("Using saved credentials.")
-    cli.client = connect_client(ctx, opts)
+    cli.client = connect_client(ctx)
     return "ingest_all" if cli.client else None
 
 

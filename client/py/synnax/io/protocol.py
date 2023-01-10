@@ -15,8 +15,8 @@
 #  included in the file licenses/APL.txt.
 
 from enum import Enum
-from typing import Protocol
 from pathlib import Path
+from typing import Protocol
 
 from pandas import DataFrame
 

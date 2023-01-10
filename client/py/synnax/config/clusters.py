@@ -15,10 +15,10 @@
 #  included in the file licenses/APL.txt.
 
 import keyring
-from .file import ConfigFile
 from pydantic import BaseModel
 
-from synnax import SynnaxOptions
+from ..options import SynnaxOptions
+from .file import ConfigFile
 
 
 class ClusterConfig(BaseModel):
