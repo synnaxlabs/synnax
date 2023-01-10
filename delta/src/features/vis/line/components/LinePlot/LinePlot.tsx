@@ -13,7 +13,7 @@ import { TArray, SampleValue, TimeStamp } from "@synnaxlabs/client";
 import { CSSBox, hexToRGBA, useResize, useMergedRef, Box } from "@synnaxlabs/pluto";
 import * as d3 from "d3";
 
-import { useCanvasContext } from "../../components/Canvas";
+import { useVisCanvas } from "../../components/VisCanvas";
 import { LineRenderRequest } from "../../gl/line";
 import { RenderingContext } from "../../gl/render";
 import { EnhancedLinePlotVS, LinePlotVS } from "../types";
@@ -36,7 +36,7 @@ export const LinePlot = ({
 }: LinePlotProps): JSX.Element => {
   const ref = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
-  const ctx = useCanvasContext();
+  const ctx = useVisCanvas();
 
   const theme = useSelectTheme();
 

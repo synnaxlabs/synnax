@@ -25,34 +25,35 @@ import { WebGLBufferCache } from "../telem/glCache";
 
 import { useClusterClient } from "@/features/cluster";
 
-export interface CanvasContextValue {
+import "./Canvas.css";
+
+export interface VisCanvasContextValue {
   ctx: RenderingContext | null;
 }
 
-const CanvasContext = createContext<CanvasContextValue | null>(null);
+const VisCanvasContext = createContext<VisCanvasContextValue | null>(null);
 
-export const useCanvasContext = (): RenderingContext | null => {
-  const ctx = useContext(CanvasContext);
+export const useVisCanvas = (): RenderingContext | null => {
+  const ctx = useContext(VisCanvasContext);
   if (ctx == null) return null;
   return ctx.ctx;
 };
 
-export interface CanvasProps extends PropsWithChildren<any> {}
+export interface VisCanvasProps extends PropsWithChildren<any> {}
 
-export const Canvas = ({ children }: CanvasProps): JSX.Element => {
+export const VisCanvas = ({ children }: VisCanvasProps): JSX.Element => {
   const [ctx, setCtx] = useState<RenderingContext | null>(null);
   const ref = useRef<HTMLCanvasElement | null>(null);
   const glRef = useRef<WebGLRenderingContext | null>(null);
 
   const client = useClusterClient();
 
-  useEffect(() => refProxy(ref.current), [client]);
+  useEffect(() => callbackRef(ref.current), [client]);
 
-  const refProxy = (e: HTMLCanvasElement | null): void => {
+  const callbackRef = (e: HTMLCanvasElement | null): void => {
     if (client == null || e == null || ctx !== null) return;
-    if (glRef.current === null) {
+    if (glRef.current === null)
       glRef.current = e.getContext("webgl", { preserveDrawingBuffer: true });
-    }
     const gl = glRef.current;
     if (gl == null) throw new UnexpectedError("failed to initialize WebGL context");
     const reg = newDefaultRendererRegistry();
@@ -68,16 +69,9 @@ export const Canvas = ({ children }: CanvasProps): JSX.Element => {
   };
 
   return (
-    <CanvasContext.Provider value={{ ctx }}>
-      <canvas
-        ref={refProxy}
-        style={{
-          position: "absolute",
-          width: "100%",
-          height: "100%",
-        }}
-      />
+    <VisCanvasContext.Provider value={{ ctx }}>
+      <canvas ref={callbackRef} className="delta-visualization__canvas" />
       {children}
-    </CanvasContext.Provider>
+    </VisCanvasContext.Provider>
   );
 };

@@ -87,8 +87,9 @@ const removeTrailingSlash = (path: string): string =>
 
 /**
  * Builds a query string from a record.
- * @param record - The record to build the query string from.
- * @returns
+ * @param record - The record to build the query string from. If the record is null,
+ * an empty string is returned.
+ * @returns the query string.
  */
 export const buildQueryString = (
   request: Record<string, unknown>,

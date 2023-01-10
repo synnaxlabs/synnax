@@ -25,10 +25,7 @@ import {
   newPersistStateMiddleware,
 } from "@/features/persist";
 import { versionReducer, VERSION_SLICE_NAME } from "@/features/version";
-import {
-  VISUALIZATION_SLICE_NAME,
-  visualizationReducer,
-} from "@/features/visualization";
+import { VISUALIZATION_SLICE_NAME, visualizationReducer } from "@/features/vis";
 import { workspaceReducer, WORKSPACE_SLICE_NAME } from "@/features/workspace";
 
 const kv = new TauriKV();

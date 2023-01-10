@@ -22,7 +22,7 @@ import {
   useThemeProvider,
 } from "@/features/layout";
 import { useLoadTauriVersion } from "@/features/version";
-import { VisualizationLayoutRenderer } from "@/features/visualization";
+import { VisualizationLayoutRenderer } from "@/features/vis";
 import { DefineRange } from "@/features/workspace";
 import { store } from "@/store";
 

@@ -11,3 +11,9 @@ export interface Visualization {
   variant: string;
   key: string;
 }
+
+export type YAxisKey = "y1" | "y2" | "y3" | "y4";
+export type XAxisKey = "x1";
+export type AxisKey = YAxisKey | XAxisKey;
+
+export const axisLabel = (key: AxisKey): string => key.toUpperCase();

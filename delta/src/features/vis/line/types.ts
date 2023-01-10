@@ -33,10 +33,6 @@ export interface LinePlotVS extends Omit<LinePlotV, "ranges"> {
   };
 }
 
-export type YAxisKey = "y1" | "y2" | "y3" | "y4";
-export type XAxisKey = "x1";
-export type AxisKey = YAxisKey | XAxisKey;
-
 export class EnhancedLinePlotVS {
   vs: LinePlotVS;
 

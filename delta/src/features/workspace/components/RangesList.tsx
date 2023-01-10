@@ -8,11 +8,46 @@
 // included in the file licenses/APL.txt.
 
 import { TimeSpan, TimeStamp } from "@synnaxlabs/client";
-import { Text, List } from "@synnaxlabs/pluto";
+import { Text, List, ListColumn } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { setActiveRange, useSelectRanges, useSelectRange } from "../store";
 import type { Range } from "../store";
+
+export const rangeListColumns: Array<ListColumn<Range>> = [
+  {
+    key: "name",
+    label: "Name",
+  },
+  {
+    key: "start",
+    label: "Start",
+    render: ({ entry: { start }, style }) => {
+      return (
+        <Text.DateTime level="p" style={style}>
+          {start}
+        </Text.DateTime>
+      );
+    },
+  },
+  {
+    key: "end",
+    label: "End",
+    render: ({ entry: { start, end }, style }) => {
+      const startTS = new TimeStamp(start);
+      const endTS = new TimeStamp(end);
+      return (
+        <Text.DateTime
+          level="p"
+          style={style}
+          format={endTS.span(startTS) < TimeSpan.Day ? "shortTime" : "shortDateTime"}
+        >
+          {endTS.valueOf()}
+        </Text.DateTime>
+      );
+    },
+  },
+];
 
 export const RangesList = (): JSX.Element => {
   const ranges = useSelectRanges();
@@ -25,44 +60,7 @@ export const RangesList = (): JSX.Element => {
         onChange={([key]: readonly string[]) => dispatch(setActiveRange(key ?? null))}
         allowMultiple={false}
       />
-      <List.Column.Header<Range>
-        columns={[
-          {
-            key: "name",
-            label: "Name",
-          },
-          {
-            key: "start",
-            label: "Start",
-            render: ({ entry: { start }, style }) => {
-              return (
-                <Text.DateTime level="p" style={style}>
-                  {start}
-                </Text.DateTime>
-              );
-            },
-          },
-          {
-            key: "end",
-            label: "End",
-            render: ({ entry: { start, end }, style }) => {
-              const startTS = new TimeStamp(start);
-              const endTS = new TimeStamp(end);
-              return (
-                <Text.DateTime
-                  level="p"
-                  style={style}
-                  format={
-                    endTS.span(startTS) < TimeSpan.Day ? "shortTime" : "shortDateTime"
-                  }
-                >
-                  {endTS.valueOf()}
-                </Text.DateTime>
-              );
-            },
-          },
-        ]}
-      />
+      <List.Column.Header columns={rangeListColumns} />
       <List.Core.Virtual itemHeight={30} style={{ height: "100%" }}>
         {List.Column.Item}
       </List.Core.Virtual>
