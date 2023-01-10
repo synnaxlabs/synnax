@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import clsx from "clsx";
+
 import { useHeaderContext } from "./Header";
 
 import { Button, ButtonProps } from "@/core/Button";
@@ -18,7 +20,6 @@ export const HeaderButtonTitle = ({
   children = "",
   className,
   onClick,
-  style,
   ...props
 }: HeaderButtonProps): JSX.Element => {
   const { level } = useHeaderContext();
@@ -26,8 +27,8 @@ export const HeaderButtonTitle = ({
     <Button
       variant="text"
       size={Typography.LevelComponentSizes[level]}
-      style={{ flexGrow: 1, ...style }}
       onClick={onClick}
+      className={clsx("pluto-header-button-title", className)}
       {...props}
     >
       {children}

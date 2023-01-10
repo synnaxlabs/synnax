@@ -12,18 +12,20 @@ import {
   ForwardedRef,
   forwardRef,
   useCallback,
-  useEffect,
-  useRef,
   useState,
   DragEvent as RDragEvent,
   MouseEvent as RMouseEvent,
+  RefObject,
+  useEffect,
 } from "react";
+
+import { UnexpectedError } from "@synnaxlabs/client";
+import clsx from "clsx";
 
 import { ResizeCore } from "./ResizeCore";
 
 import { Space, SpaceProps } from "@/core/Space";
-import { useResize } from "@/hooks";
-import { Box, Direction, getDirectionalSize, getLocation } from "@/spatial";
+import { Box, Direction, getDirectionalSize, getLocation, useResize } from "@/spatial";
 
 export interface UseResizeMultipleProps {
   count: number;
@@ -34,21 +36,22 @@ export interface UseResizeMultipleProps {
 }
 
 export interface ResizeMultipleProps extends SpaceProps {
-  sizes: number[];
+  sizeDistribution: number[];
+  parentSize: number;
   onDragHandle: (e: RDragEvent | RMouseEvent, i: number) => void;
 }
 
 export interface UseResizeMultipleReturn {
-  setSize: (i: number, diff?: MouseEvent, size?: number) => void;
+  setSize: (i: number, size?: number) => void;
   props: ResizeMultipleProps & {
-    ref: ForwardedRef<HTMLDivElement>;
+    ref: RefObject<HTMLDivElement>;
   };
 }
 
 interface ResizeMultipleState {
-  sizes: number[];
+  sizeDistribution: number[];
+  parentSize: number | null;
   root: number | null;
-  dragging: number | null;
 }
 
 export const useResizeMultiple = ({
@@ -58,107 +61,58 @@ export const useResizeMultiple = ({
   minSize = 100,
   direction = "horizontal",
 }: UseResizeMultipleProps): UseResizeMultipleReturn => {
-  const [sizes, setSizes] = useState<ResizeMultipleState>({
-    sizes: initialSizes,
+  const [state, setState] = useState<ResizeMultipleState>({
+    sizeDistribution: calculateInitialSizeDistribution(initialSizes, count),
+    parentSize: null,
     root: null,
-    dragging: null,
   });
-  const ref = useRef<HTMLDivElement>(null);
 
-  const handleResize = useCallback(
-    (box: Box) =>
-      setSizes(({ sizes: prev, ...rest }) => {
-        const f = (): number[] => {
-          const nextPSize = getDirectionalSize(direction, box);
-          const prevPSize = prev.reduce((a, b) => a + b, 0);
-          if (nextPSize === prevPSize || nextPSize === 0) return prev;
+  const _handleResize = useCallback(
+    (dragging: number, clientPos?: number, targetSize?: number) => {
+      setState((prev) => handleResize(prev, dragging, minSize, clientPos, targetSize));
+    },
+    [minSize, setState]
+  );
 
-          // If the previous sizes aren't valid, simply distribute the space evenly
-          // between all children.
-          if (!validateSizes(count, prev))
-            return Array.from({ length: count }, () => nextPSize / count);
+  useEffect(
+    () => onResize?.(state.sizeDistribution),
+    [state.sizeDistribution, onResize]
+  );
 
-          const sizePercentages = calculatePercentages(count, prev, nextPSize);
-          return sizePercentages.map((size) => size * nextPSize);
-        };
-        return { sizes: f(), ...rest };
-      }),
+  const handleDragHandle = useCallback(
+    (e: RDragEvent | RMouseEvent, dragging: number): void => {
+      const dim = direction === "horizontal" ? "clientX" : "clientY";
+      const handleMouseMove = (e: MouseEvent): void => _handleResize(dragging, e[dim]);
+      const handleMouseUp = (): void => {
+        setState((prev) => ({ ...prev, root: null }));
+        document.removeEventListener("mousemove", handleMouseMove);
+      };
+      setState((prev) => ({ ...prev, root: e[dim] }));
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp, { once: true });
+    },
+    [setState, direction, handleResize]
+  );
+
+  const setSize = useCallback(
+    (i: number, size?: number) => _handleResize(i, undefined, size),
+    [handleResize]
+  );
+
+  const _handleParentResize = useCallback(
+    (box: Box) => setState((prev) => handleParentResize(prev, box, direction, count)),
     [direction, count]
   );
 
-  useResize({ ref, onResize: handleResize, triggers: [direction] });
-
-  const setSize = useCallback(
-    (i: number, e?: MouseEvent, targetSize?: number) => {
-      setSizes(({ sizes: prev, ...rest }) => {
-        let diff: number;
-        if (targetSize !== undefined) diff = targetSize - prev[i];
-        else if (e != null) {
-          if (rest.root === null) return { sizes: prev, ...rest };
-          const curr = direction === "horizontal" ? e.clientX : e.clientY;
-          diff = curr - rest.root;
-        } else {
-          throw new Error("Must provide either a MouseEvent or a targetSize");
-        }
-
-        const f = (): number[] | null => {
-          const nextState = resizeWithSibling(prev, i, diff, minSize);
-          if (nextState == null) return null;
-          const { item, size, sibling, siblingSize } = nextState;
-
-          const prevTotal = prev.reduce((a, b) => a + b, 0);
-          const nextSizes = prev.map((prev, j) => {
-            if (j === item) return size;
-            if (j === sibling) return siblingSize;
-            return prev;
-          });
-          const nextTotal = nextSizes.reduce((a, b) => a + b, 0);
-          return nextSizes.map((s) => (s / nextTotal) * prevTotal);
-        };
-        const nextSizes = f();
-        if (nextSizes == null) return { sizes: prev, ...rest };
-        const nxtRoot = direction === "horizontal" ? e?.clientX : e?.clientY;
-        return { sizes: nextSizes, ...rest, root: nxtRoot as number };
-      });
-    },
-    [minSize, setSizes, direction]
-  );
-
-  useEffect(() => {
-    if (sizes.dragging === null) return;
-    const onMouseMove = (e: MouseEvent): void => {
-      if (sizes.dragging == null) return;
-      setSize(sizes.dragging, e);
-      onResize?.(sizes.sizes);
-    };
-    const onMouseUp = (): void => {
-      setSizes(({ sizes }) => ({ sizes, root: null, marker: null, dragging: null }));
-    };
-    document.addEventListener("mousemove", onMouseMove);
-    document.addEventListener("mouseup", onMouseUp);
-    return () => {
-      document.removeEventListener("mousemove", onMouseMove);
-      document.removeEventListener("mouseup", onMouseUp);
-    };
-  }, [sizes.dragging, onResize]);
+  const ref = useResize<HTMLDivElement>(_handleParentResize, { triggers: [direction] });
 
   return {
     setSize,
     props: {
       direction,
-      sizes: sizes.sizes,
-      onDragHandle: (e, i) => {
-        setSizes(({ sizes }) => {
-          const root = direction === "horizontal" ? e.clientX : e.clientY;
-          const marker = sizes[i];
-          return {
-            sizes,
-            root,
-            marker,
-            dragging: i,
-          };
-        });
-      },
+      sizeDistribution: state.sizeDistribution,
+      parentSize: state.parentSize ?? 0,
+      onDragHandle: handleDragHandle,
       ref,
     },
   };
@@ -169,8 +123,10 @@ export const ResizeMultiple = forwardRef(
     {
       direction = "horizontal",
       children: _children,
-      sizes,
+      sizeDistribution,
       onDragHandle: onDrag,
+      className,
+      parentSize,
       ...props
     }: ResizeMultipleProps,
     ref: ForwardedRef<HTMLDivElement>
@@ -181,56 +137,123 @@ export const ResizeMultiple = forwardRef(
     return (
       <Space
         ref={ref}
-        className="pluto-multi-resizable__container"
         direction={direction}
+        className={clsx("pluto-resize-multiple", className)}
         empty
         grow
         {...props}
       >
-        {children.map((child, i) => {
-          return (
-            <ResizeCore
-              onDragStart={(e) => onDrag(e, i)}
-              key={i}
-              location={location}
-              size={sizes[i]}
-              showHandle={i !== children.length - 1}
-            >
-              {child}
-            </ResizeCore>
-          );
-        })}
+        {children.map((child, i) => (
+          <ResizeCore
+            onDragStart={(e) => onDrag(e, i)}
+            key={i}
+            location={location}
+            size={sizeDistribution[i] * parentSize}
+            showHandle={i !== children.length - 1}
+          >
+            {child}
+          </ResizeCore>
+        ))}
       </Space>
     );
   }
 );
 ResizeMultiple.displayName = "ResizeMultiple";
 
-const validateSizes = (numChildren: number, sizes: number[]): boolean =>
-  sizes.length >= numChildren - 1;
+export const calculateInitialSizeDistribution = (
+  initial: number[],
+  count: number
+): number[] => {
+  const total = initial.reduce((a, b) => a + b, 0);
+  const gap = count - initial.length;
+  if (gap <= 0) {
+    return initial.slice(0, count).map((v) => v / total);
+  }
+  if (initial.every((v) => v <= 1)) {
+    const remaining = 1 - total;
+    return [...initial, ...Array(gap).fill(remaining / gap)];
+  }
+  return initial.map(() => 1 / count);
+};
 
-const calculatePercentages = (
-  numChildren: number,
+export const handleResize = (
+  prev: ResizeMultipleState,
+  dragging: number,
+  minSize: number,
+  clientPos?: number,
+  targetSize?: number
+): ResizeMultipleState => {
+  if (prev.parentSize === null) return prev;
+  const diffPercentage = calculateDiffPercentage(prev, dragging, clientPos, targetSize);
+  const [sizeDistribution, changed] = resizeWithSibling(
+    prev.parentSize,
+    prev.sizeDistribution,
+    dragging,
+    diffPercentage,
+    minSize / prev.parentSize
+  );
+  const root = changed ? clientPos ?? null : prev.root;
+  return { ...prev, sizeDistribution, root };
+};
+
+export const handleParentResize = (
+  prev: ResizeMultipleState,
+  box: Box,
+  direction: Direction,
+  count: number
+): ResizeMultipleState => {
+  const nextParentSize = getDirectionalSize(direction, box);
+  if (prev.parentSize === nextParentSize) return prev;
+  if (prev.parentSize == null && prev.sizeDistribution.length !== count)
+    return {
+      ...prev,
+      parentSize: nextParentSize,
+      sizeDistribution: Array.from({ length: count }, (_, i) => 1 / count),
+    };
+  const nextSizes = distribute(prev.sizeDistribution, nextParentSize, count);
+  return { ...prev, parentSize: nextParentSize, sizeDistribution: nextSizes };
+};
+
+export const calculateDiffPercentage = (
+  prev: ResizeMultipleState,
+  dragging: number,
+  clientPos?: number,
+  targetSize?: number
+): number => {
+  if (prev.parentSize === null)
+    throw new UnexpectedError("parent size is null during handle drag");
+  let diff: number;
+  // If the caller provided a target size, prefer that.
+  if (targetSize != null) {
+    // If the target size is a pixel value, convert it to a percentage.
+    if (targetSize > 1) targetSize = targetSize / prev.parentSize;
+    diff = targetSize - prev.sizeDistribution[dragging];
+  } else if (clientPos != null) {
+    if (prev.root === null)
+      throw new UnexpectedError("resize root is null during handle drag");
+    diff = (clientPos - prev.root) / prev.parentSize;
+  } else throw new Error("must provide either a MouseEvent or a targetSize");
+  return diff;
+};
+
+export const distribute = (
   sizes: number[],
-  parentSize: number
+  parentSize: number,
+  count: number
 ): number[] => {
   const arePercentages = sizes.every((size) => size <= 1);
   if (!arePercentages) sizes = sizes.map((size) => size / parentSize);
 
-  let totalSize = sizes.reduce((a, b) => a + b, 0);
+  const totalSize = sizes.reduce((a, b) => a + b, 0);
 
   // If we have fewer sizes than children, we need to approximate the
   // remaining sizes.
-  if (sizes.length < numChildren) {
+  if (sizes.length < count) {
     const diff = 1 - totalSize;
-    const remaining = numChildren - sizes.length;
+    const remaining = count - sizes.length;
     sizes = sizes.concat(Array.from({ length: remaining }, () => diff / remaining));
   }
 
-  totalSize = sizes.reduce((a, b) => a + b, 0);
-
-  // If our total size is not equal to 1, we need to scale our sizes. Explicitly do a
-  // tolerance check to avoid floating point errors.
   if (totalSize < 0.99 || totalSize > 1.01)
     sizes = sizes.map((size) => size / totalSize);
 
@@ -238,35 +261,33 @@ const calculatePercentages = (
 };
 
 const resizeWithSibling = (
-  prevSizes: number[],
+  parentSize: number,
+  prevDistribution: number[],
   item: number,
   diff: number,
   minSize: number
-): {
-  item: number;
-  size: number;
-  sibling: number;
-  siblingSize: number;
-} | null => {
+): [number[], boolean] => {
   let next = item;
 
   // The while loops find a pane we can actually resize.
-  while (next > 0 && prevSizes[next] + diff <= minSize) next--;
-  const nextSize = prevSizes[next] + diff;
+  while (next > 0 && prevDistribution[next] + diff <= minSize) next--;
+  const nextSize = prevDistribution[next] + diff;
 
-  const nextSibling = findResizableSibling(next, prevSizes, minSize, diff);
-  const nextSiblingSize = prevSizes[nextSibling] - diff;
-
+  const nextSibling = findResizableSibling(next, prevDistribution, minSize, diff);
+  const nextSiblingSize = prevDistribution[nextSibling] - diff;
   // This means we can't resize any panes so we return null to indicate that the next
   // set of sizes should remain the same.
-  if (nextSize < minSize || nextSiblingSize < minSize) return null;
+  if (nextSize <= minSize || nextSiblingSize <= minSize)
+    return [prevDistribution, false];
 
-  return {
-    item: next,
-    size: nextSize,
-    sibling: nextSibling,
-    siblingSize: nextSiblingSize,
-  };
+  return [
+    prevDistribution.map((p, i) => {
+      if (i === next) return nextSize;
+      if (i === nextSibling) return nextSiblingSize;
+      return p;
+    }),
+    true,
+  ];
 };
 
 const findResizableSibling = (
@@ -297,6 +318,6 @@ const findBackward = (
   diff: number
 ): number => {
   let i = start - 1;
-  while (i > 0 && sizes[i] + diff <= minSize) i--;
+  while (i > 0 && sizes[i] - diff <= minSize) i--;
   return i;
 };

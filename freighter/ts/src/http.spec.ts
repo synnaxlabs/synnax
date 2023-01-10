@@ -10,9 +10,9 @@
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
 
-import { JSONEncoderDecoder } from "./encoder";
-import { HTTPClientFactory } from "./http";
-import URL from "./url";
+import { JSONEncoderDecoder } from "@/encoder";
+import { HTTPClientFactory } from "@/http";
+import { URL } from "@/url";
 
 const ENDPOINT = new URL({
   host: "127.0.0.1",

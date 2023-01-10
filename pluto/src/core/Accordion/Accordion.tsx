@@ -9,6 +9,7 @@
 
 import { ReactElement } from "react";
 
+import clsx from "clsx";
 import { AiFillCaretDown, AiFillCaretRight } from "react-icons/ai";
 
 import { ButtonIconOnlyProps } from "@/core/Button";
@@ -16,6 +17,8 @@ import { Header } from "@/core/Header";
 import { Resize } from "@/core/Resize";
 import { Space } from "@/core/Space";
 import { Direction } from "@/spatial";
+
+import "./Accordion.css";
 
 export interface AccordionEntry {
   key: string;
@@ -35,7 +38,7 @@ export const Accordion = ({
 }: AccordionProps): JSX.Element => {
   const {
     setSize,
-    props: { sizes, ...resizeProps },
+    props: { sizeDistribution: sizes, ...resizeProps },
   } = Resize.useMultiple({
     direction,
     count: entries.length,
@@ -43,12 +46,17 @@ export const Accordion = ({
   });
 
   const onExpand = (index: number): void => {
-    if (sizes[index] < 40) setSize(index, undefined, 200);
-    else setSize(index, undefined, 28);
+    if (sizes[index] < 40) setSize(index, 200);
+    else setSize(index, 28);
   };
 
   return (
-    <Resize.Multiple empty style={{ height: "100%" }} sizes={sizes} {...resizeProps}>
+    <Resize.Multiple
+      empty
+      style={{ height: "100%" }}
+      sizeDistribution={sizes}
+      {...resizeProps}
+    >
       {entries.map((entry, i) => (
         <AccordionEntryC
           {...entry}
@@ -84,14 +92,14 @@ const AccordionEntryC = ({
     <Space direction={direction} empty style={{ height: "100%" }}>
       <Header
         level="p"
-        style={{ borderBottom: expanded ? "var(--pluto-border)" : "none" }}
+        className={clsx(
+          "pluto-accordion__header",
+          `pluto-accordion__header--${expanded ? "expanded" : "contracted"}`
+        )}
       >
         <Header.ButtonTitle
           startIcon={expanded ? <AiFillCaretDown /> : <AiFillCaretRight />}
           onClick={() => onExpand(index)}
-          style={{
-            borderRadius: "0px",
-          }}
         >
           {title}
         </Header.ButtonTitle>

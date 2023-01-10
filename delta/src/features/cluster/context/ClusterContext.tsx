@@ -74,7 +74,7 @@ export const ClusterProvider = ({ children }: ClusterProviderProps): JSX.Element
     setState({ client });
 
     return () => {
-      if (state.client != null) state.client.close();
+      client.close();
       setState({ client: null });
     };
   }, [activeClusterKey]);

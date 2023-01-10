@@ -9,7 +9,7 @@
 
 import { ZodSchema } from "zod";
 
-import { Transport } from "./transport";
+import { Transport } from "@/transport";
 
 /**
  * Interface for an entity that receives a stream of responses.

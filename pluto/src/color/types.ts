@@ -9,19 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-header .pluto-text {
-    padding: 1rem;
-}
-
-.pluto-header__actions {
-    padding: 0 1rem;
-}
-
-.pluto-header__text {
-    padding: 0 1rem;
-}
-
-.pluto-header-button-title {
-    border-radius: 0;
-    flex-grow: 1;
-}
+/**
+ * Represents a color in RGBA format. RGBA tuples can have any value range (0-255, 0-1, etc.).
+ */
+export type RGBATuple = [number, number, number, number];

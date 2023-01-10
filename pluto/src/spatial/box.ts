@@ -11,11 +11,31 @@
 
 import { Dimensions, XY, ZERO_XY } from "./core";
 
+/** A sized rectangle positioned in space. Usually represents a DOM element. */
 export interface Box extends Dimensions {
+  /** The x coordinate of the left edge. */
   left: number;
+  /** The y coordinate of the top edge. */
   top: number;
+  /** Coordinate of the top left corner. */
   topLeft: XY;
+  /** Coordinate of the bottom right corner. */
   bottomRight: XY;
+  /**
+   * Returns a new box translated by the given coordinates. Positive x moves to the
+   * right. Positive y moves downward.
+   */
+  translate: (v: XY) => Box;
+  /***
+   * Resizes the box by the given coordinates. Positive x increases the width.
+   * Positive y increases the height.
+   */
+  resize: (v: XY) => Box;
+  /**
+   * Scales the box by the given coordinates i.e. multiplies the width and height by
+   * the given values.
+   */
+  scale: (v: XY) => Box;
 }
 
 export class CSSBox implements Box {
@@ -72,9 +92,21 @@ export class CSSBox implements Box {
       y: this.top + this.height,
     };
   }
+
+  translate(v: XY): Box {
+    return new CSSBox(this.width, this.height, this.left + v.x, this.top + v.y);
+  }
+
+  resize(v: XY): Box {
+    return new CSSBox(this.width - v.x, this.height - v.y, this.left, this.top);
+  }
+
+  scale(v: XY): Box {
+    return new CSSBox(this.width * v.x, this.height * v.y, this.left, this.top);
+  }
 }
 
-export class PointBox {
+export class PointBox implements Box {
   private readonly _one: XY;
   private readonly _two: XY;
 
@@ -113,16 +145,32 @@ export class PointBox {
       y: compare(this._one.y, this._two.y),
     };
   }
+
+  translate(v: XY): Box {
+    return new PointBox(
+      { x: this._one.x + v.x, y: this._one.y + v.y },
+      { x: this._two.x + v.x, y: this._two.y + v.y }
+    );
+  }
+
+  resize(v: XY): Box {
+    return new PointBox(
+      { x: this._one.x + v.x, y: this._one.y + v.y },
+      { x: this._two.x - v.x, y: this._two.y - v.y }
+    );
+  }
+
+  scale(v: XY): Box {
+    return new PointBox(
+      { x: this._one.x * v.x, y: this._one.y * v.y },
+      { x: this._two.x * v.x, y: this._two.y * v.y }
+    );
+  }
 }
 
 export const calculateBottomOffset = (parent: Box, child: Box): number =>
   parent.height - (child.top - parent.top) - child.height;
 
-export const ZERO_BOX: Box = {
-  width: 0,
-  height: 0,
-  left: 0,
-  top: 0,
-  topLeft: ZERO_XY,
-  bottomRight: ZERO_XY,
-};
+export const ZERO_BOX: Box = new PointBox(ZERO_XY, ZERO_XY);
+
+export type BoxHandle = (box: Box) => void;

@@ -15,6 +15,7 @@ export default defineConfig({
   plugins: [lib({ name: "pluto" }), react()],
   build: {
     sourcemap: true,
+    minify: false,
     rollupOptions: {
       external: ["react", "react-dom"],
       output: {

@@ -19,6 +19,7 @@ export default defineConfig({
     react(),
   ],
   build: {
+    minify: false,
     rollupOptions: {
       external: [
         "react",

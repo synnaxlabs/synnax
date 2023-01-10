@@ -63,7 +63,7 @@ export interface Renderer<R> extends Compiler {
   /** Type is a unique type for the renderer. */
   type: string;
   /** Renders the given entity under the RenderingContext.  */
-  render: (ctx: RenderingContext, req: R) => Promise<void>;
+  render: (ctx: RenderingContext, req: R) => void;
 }
 
 export class RendererRegistry {
@@ -86,6 +86,8 @@ export type DefaultRenderers = typeof LINE_RENDERER_TYPE;
 
 export const newDefaultRendererRegistry = (): RendererRegistry => {
   const registry = new RendererRegistry();
-  registry.register(new ScissoredRenderer(new LineRenderer(), true, { x: 24, y: 48 }));
+  registry.register(
+    new ScissoredRenderer(new LineRenderer(), true, { x: 24 + 50, y: 48 + 50 })
+  );
   return registry;
 };

@@ -9,4 +9,4 @@
 
 export * from "./core";
 export * from "./box";
-export * from "./hooks";
+export * from "./useSize";

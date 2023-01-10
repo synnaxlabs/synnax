@@ -9,7 +9,7 @@
 
 import { describe, expect, test } from "vitest";
 
-import URL from "./url";
+import { URL } from "@/url";
 
 describe("URL", () => {
   test("URL - child", () => {

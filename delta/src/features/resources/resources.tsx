@@ -61,11 +61,9 @@ export const resourceTypes: Record<string, ResourceType> = {
             y3: [],
             y4: [],
             x1: "",
-            x2: "",
           },
           ranges: {
             x1: workspace.activeRange != null ? [workspace.activeRange] : [],
-            x2: [],
           },
         })
       );

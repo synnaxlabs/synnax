@@ -12,7 +12,7 @@ import { memo } from "react";
 import { UnexpectedError } from "@synnaxlabs/client";
 import { useDispatch } from "react-redux";
 
-import { LinePlot } from "../line/LinePlot";
+import { LinePlot } from "../line/components";
 import { LinePlotVS } from "../line/types";
 import { setVisualization, useSelectSugaredVisualization } from "../store";
 import { Visualization } from "../types";

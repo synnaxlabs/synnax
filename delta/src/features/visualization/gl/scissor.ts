@@ -40,11 +40,12 @@ export class ScissoredRenderer<R extends ScissoredRenderRequest>
   }
 
   async render(ctx: RenderingContext, req: R): Promise<void> {
+    ctx.refreshCanvas();
     ctx.gl.enable(ctx.gl.SCISSOR_TEST);
     this.scissor(ctx, req.box);
     this.maybeClear(ctx);
     req.scissor = this.calculateTransform(ctx, req.box);
-    await this.wrapped.render(ctx, req);
+    this.wrapped.render(ctx, req);
     ctx.gl.disable(ctx.gl.SCISSOR_TEST);
   }
 

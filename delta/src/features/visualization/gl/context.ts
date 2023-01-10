@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Box, calculateBottomOffset, CSSBox, XY, ZERO_XY } from "@synnaxlabs/pluto";
+import { Box, calculateBottomOffset, CSSBox, XY } from "@synnaxlabs/pluto";
 
 import { TelemetryClient } from "../telem/client";
 
-import { Renderer, RendererRegistry, RenderingContext, RenderingUnits } from "./render";
-import { ScissoredRenderer } from "./scissor";
+import { RendererRegistry, RenderingContext, RenderingUnits } from "./render";
 
 export interface RenderRequest {
   box: Box;
@@ -69,7 +68,10 @@ export class CanvasRenderingContext implements RenderingContext {
   }
 
   private normalizeDims(dims: XY): XY {
-    return { x: dims.x / this.canvas.width, y: dims.y / this.canvas.height };
+    return {
+      x: (dims.x * DPR) / this.canvas.width,
+      y: (dims.y * DPR) / this.canvas.height,
+    };
   }
 
   private get canvasBox(): Box {

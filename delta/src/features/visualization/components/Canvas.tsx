@@ -18,11 +18,10 @@ import {
 
 import { FrameCache, UnexpectedError } from "@synnaxlabs/client";
 
-import { CanvasRenderingContext } from "../render/context";
-import { newDefaultRendererRegistry, RenderingContext } from "../render/render";
+import { CanvasRenderingContext } from "../gl/context";
+import { newDefaultRendererRegistry, RenderingContext } from "../gl/render";
 import { TelemetryClient } from "../telem/client";
 import { WebGLBufferCache } from "../telem/glCache";
-import { FrameRetriever } from "../telem/retriever";
 
 import { useClusterClient } from "@/features/cluster";
 
@@ -32,7 +31,7 @@ export interface CanvasContextValue {
 
 const CanvasContext = createContext<CanvasContextValue | null>(null);
 
-export const useRenderingContext = (): RenderingContext | null => {
+export const useCanvasContext = (): RenderingContext | null => {
   const ctx = useContext(CanvasContext);
   if (ctx == null) return null;
   return ctx.ctx;
@@ -62,11 +61,7 @@ export const Canvas = ({ children }: CanvasProps): JSX.Element => {
         e,
         gl,
         reg,
-        new TelemetryClient(
-          new WebGLBufferCache(gl),
-          new FrameRetriever(client),
-          new FrameCache()
-        )
+        new TelemetryClient(new WebGLBufferCache(gl), client, new FrameCache())
       )
     );
     ref.current = e;

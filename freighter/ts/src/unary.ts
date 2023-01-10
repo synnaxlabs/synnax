@@ -9,7 +9,7 @@
 
 import { ZodSchema } from "zod";
 
-import { Transport } from "./transport";
+import { Transport } from "@/transport";
 
 /**
  * An interface for an entity that implements a simple request-response
