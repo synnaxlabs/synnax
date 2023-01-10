@@ -48,7 +48,7 @@ pycparser = "*"
 name = "click"
 version = "8.1.3"
 description = "Composable command line interface toolkit"
-category = "dev"
+category = "main"
 optional = false
 python-versions = ">=3.7"
 
@@ -59,7 +59,7 @@ colorama = {version = "*", markers = "platform_system == \"Windows\""}
 name = "colorama"
 version = "0.4.6"
 description = "Cross-platform colored terminal text."
-category = "dev"
+category = "main"
 optional = false
 python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,!=3.6.*,>=2.7"
 
@@ -508,23 +508,18 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*"
 
 [[package]]
 name = "synnax-freighter"
-version = "0.2.5"
+version = "0.2.6"
 description = ""
 category = "main"
 optional = false
-python-versions = "^3.10"
-develop = true
+python-versions = ">=3.10,<4.0"
 
 [package.dependencies]
-janus = "^1.0.0"
-msgpack = "^1.0.4"
-pydantic = "^1.10.2"
-urllib3 = "^1.26.12"
-websockets = "^10.3"
-
-[package.source]
-type = "directory"
-url = "../../freighter/py"
+janus = ">=1.0.0,<2.0.0"
+msgpack = ">=1.0.4,<2.0.0"
+pydantic = ">=1.10.2,<2.0.0"
+urllib3 = ">=1.26.12,<2.0.0"
+websockets = ">=10.3,<11.0"
 
 [[package]]
 name = "tomli"
@@ -586,7 +581,7 @@ testing = ["flake8 (<5)", "func-timeout", "jaraco.functools", "jaraco.itertools"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.10"
-content-hash = "a9f19e31f8548904648247bdb2b48ca115a8d8c6983dbc67f3b596cc3758c78b"
+content-hash = "efd9edb712a821619c561dccf46db42f1f426db59dfb8a551b47a8fe28c98483"
 
 [metadata.files]
 attrs = [
@@ -1062,7 +1057,10 @@ six = [
     {file = "six-1.16.0-py2.py3-none-any.whl", hash = "sha256:8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254"},
     {file = "six-1.16.0.tar.gz", hash = "sha256:1e61c37477a1626458e36f7b1d82aa5c9b094fa4802892072e49de9c60c4c926"},
 ]
-synnax-freighter = []
+synnax-freighter = [
+    {file = "synnax_freighter-0.2.6-py3-none-any.whl", hash = "sha256:2c3f2abd03c9ada3206e9158f42074c4758f0f022a835a604a659ef691212cd6"},
+    {file = "synnax_freighter-0.2.6.tar.gz", hash = "sha256:25bd6e3b67c173710920f46eb9baa9c1a5677f2cf4fae8815fd54d3941e3317c"},
+]
 tomli = [
     {file = "tomli-2.0.1-py3-none-any.whl", hash = "sha256:939de3e7a6161af0c887ef91b7d41a53e7c5a1ca976325f429cb46ea9bc30ecc"},
     {file = "tomli-2.0.1.tar.gz", hash = "sha256:de526c12914f0c550d15924c62d72abc48d6fe7364aa87328337a31007fe8a4f"},

@@ -15,16 +15,17 @@
 #  included in the file licenses/APL.txt.
 
 from numpy import ndarray
-from synnax.exceptions import ValidationError
+from rich.pretty import Pretty
 
+from synnax.exceptions import ValidationError
 from synnax.framer import FramerClient
 from synnax.telem import (
     DATA_TYPE_UNKNOWN,
     Rate,
     UnparsedDataType,
+    UnparsedDensity,
     UnparsedRate,
     UnparsedTimeStamp,
-    UnparsedDensity,
 )
 
 from .create import ChannelCreator
@@ -106,6 +107,12 @@ class Channel(ChannelPayload):
 
     def __eq__(self, other):
         return self.key == other.key
+
+    def __str__(self):
+        base = f"{self.name} ({self.data_type})"
+        if self.rate != 0:
+            base += f" @ {self.rate}Hz"
+        return base
 
 
 class ChannelClient:

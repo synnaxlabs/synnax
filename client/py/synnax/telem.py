@@ -16,13 +16,12 @@
 
 from __future__ import annotations
 
-from freighter import Payload
-
 from datetime import datetime, timedelta, timezone, tzinfo
 from typing import Union, get_args
 
 import numpy as np
 import pandas as pd
+from freighter import Payload
 from pydantic import BaseModel
 
 from .exceptions import ContiguityError

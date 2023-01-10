@@ -14,16 +14,18 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import click
 import numpy as np
 
+from ..telem import convert_time_units
 from .console import RichConsole
 from .flow import Context
-from .io import prompt_new_reader, io_factory
+from .io import io_factory, prompt_new_reader
 from .telem import prompt_time_units_select
-from ..telem import convert_time_units
 
 
-def convert_timestamp_precision():
+@click.command()
+def tsconvert():
     ctx = Context(console=RichConsole())
     reader = prompt_new_reader(ctx)
     c = ctx.console.ask("Which channel would you like to convert?")

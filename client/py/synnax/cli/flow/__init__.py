@@ -14,7 +14,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Generic, TypeVar, Callable
+from typing import Callable, Generic, TypeVar
 
 from synnax.cli.console import Console
 

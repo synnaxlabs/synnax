@@ -16,15 +16,15 @@
 
 from freighter import (
     URL,
+    AsyncMiddleware,
     AsyncStreamClient,
     HTTPClientFactory,
     JSONEncoder,
+    Middleware,
     MsgpackEncoder,
     StreamClient,
     SyncStreamClient,
     WebsocketClient,
-    Middleware,
-    AsyncMiddleware,
 )
 
 

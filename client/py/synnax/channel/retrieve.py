@@ -15,12 +15,13 @@
 #  included in the file licenses/APL.txt.
 
 from __future__ import annotations
+
 import typing
 
 from freighter import HTTPClientFactory, Payload, UnaryClient
 
+from ..exceptions import QueryError, ValidationError
 from .payload import ChannelPayload
-from ..exceptions import ValidationError, QueryError
 
 
 class _Request(Payload):

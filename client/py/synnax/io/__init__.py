@@ -15,5 +15,5 @@
 #  included in the file licenses/APL.txt.
 
 from .factory import IOFactory
-from .protocol import ColumnReader, RowReader, ReaderType
 from .meta import ChannelMeta
+from .protocol import ColumnReader, ReaderType, RowReader

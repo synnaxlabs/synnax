@@ -15,7 +15,7 @@
 #  included in the file licenses/APL.txt.
 
 from rich import print
-from rich.prompt import Prompt, Confirm, FloatPrompt, IntPrompt
+from rich.prompt import Confirm, FloatPrompt, IntPrompt, Prompt
 
 
 class RichConsole:

@@ -17,6 +17,7 @@
 import pathlib
 
 import pytest
+
 from synnax.io import IOFactory
 
 factory = IOFactory()

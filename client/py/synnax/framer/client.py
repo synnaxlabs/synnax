@@ -16,15 +16,15 @@
 
 import numpy as np
 import pandas as pd
-from synnax import telem
 
+from synnax import telem
 from synnax.channel.registry import ChannelRegistry
-from .iterator import NumpyIterator, AUTO_SPAN
-from .writer import DataFrameWriter
-from synnax.telem import TimeRange, UnparsedTimeStamp, NumpyArray
+from synnax.telem import NumpyArray, TimeRange, UnparsedTimeStamp
 from synnax.transport import Transport
 
 from . import iterator
+from .iterator import AUTO_SPAN, NumpyIterator
+from .writer import DataFrameWriter
 
 
 class FramerClient:

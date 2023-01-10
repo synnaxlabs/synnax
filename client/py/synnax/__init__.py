@@ -17,18 +17,19 @@ __version__ = "0.1.0"
 #  included in the file licenses/APL.txt.
 
 from .channel import Channel
-from .synnax import Synnax, SynnaxOptions
 from .exceptions import (
     AuthError,
     ContiguityError,
+    Field,
     GeneralError,
     ParseError,
     QueryError,
     RouteError,
     UnexpectedError,
     ValidationError,
-    Field,
 )
+from .options import SynnaxOptions
+from .synnax import Synnax
 from .telem import (
     BIT8,
     BIT16,

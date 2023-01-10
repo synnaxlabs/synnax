@@ -14,9 +14,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from .protocol import RowReader, Writer, Matcher
-from .csv import CSVReader, CSVWriter
 from pathlib import Path
+
+from .csv import CSVReader, CSVWriter
+from .protocol import Matcher, RowReader, Writer
 
 READERS: list[type[RowReader]] = [
     CSVReader,
