@@ -99,7 +99,7 @@ export class LineRenderer
     this.translationBuffer = gl.createBuffer() as WebGLBuffer;
   }
 
-  async render(ctx: RenderingContext, req: LineRenderRequest): Promise<void> {
+  render(ctx: RenderingContext, req: LineRenderRequest): void {
     ctx.refreshCanvas();
     const { gl } = ctx;
     this.use(gl);
@@ -156,10 +156,12 @@ export class LineRenderer
   }
 }
 
-const newTranslationBuffer = (aspect: number, strokeWidth: number): Float32Array =>
-  copyBuffer(newDirectionBuffer(aspect), Math.ceil(strokeWidth) - 1).map(
+const newTranslationBuffer = (aspect: number, strokeWidth: number): Float32Array => {
+  if (strokeWidth <= 1) return new Float32Array([0, 0]);
+  return copyBuffer(newDirectionBuffer(aspect), Math.ceil(strokeWidth) - 1).map(
     (v, i) => Math.floor(i / DIRECTION_COUNT) * (1 / (THICKNESS_DIVISOR * aspect)) * v
   );
+};
 
 const DIRECTION_COUNT = 5;
 

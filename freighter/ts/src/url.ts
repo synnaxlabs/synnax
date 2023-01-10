@@ -18,7 +18,7 @@ interface URLProps {
 /**
  * URL is a simple class for building and extending URLs.
  */
-export default class URL {
+export class URL {
   protocol: string;
   host: string;
   port: number;
@@ -84,3 +84,27 @@ const formatPath = (path: string): string => {
 /** removes the trailing slash from a path */
 const removeTrailingSlash = (path: string): string =>
   path.endsWith("/") ? path.slice(0, -1) : path;
+
+/**
+ * Builds a query string from a record.
+ * @param record - The record to build the query string from.
+ * @returns
+ */
+export const buildQueryString = (
+  request: Record<string, unknown>,
+  prefix: string = ""
+): string => {
+  if (request === null) return "";
+  return (
+    "?" +
+    Object.entries(request)
+      .filter(([, value]) => {
+        if (value === undefined || value === null) return false;
+        if (Array.isArray(value)) return value.length > 0;
+        return true;
+      })
+      // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+      .map(([key, value]) => `${prefix}${key}=${value}`)
+      .join("&")
+  );
+};

@@ -10,7 +10,7 @@
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
 
-import { ENCODERS } from "./encoder";
+import { ENCODERS } from "@/encoder";
 
 const SampleSchema = z.object({
   channelKey: z.string(),

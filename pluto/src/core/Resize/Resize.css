@@ -48,3 +48,7 @@
     width: 100%;
     cursor: row-resize;
 }
+
+.pluto-resize-multiple {
+    height: 100%;
+}

@@ -142,7 +142,7 @@ const YAxisSelect = memo(
   ({ axis, data, onChange, value }: YAxisSelectProps): JSX.Element => (
     <Input.Item<readonly string[], SelectMultipleProps<Channel>>
       direction="horizontal"
-      label={`${axis}:`}
+      label={`${axis.toUpperCase()}:`}
       data={data}
       tagKey="name"
       onChange={(v) => onChange(axis, v)}
@@ -173,7 +173,7 @@ const XAxisSelect = memo(
     <Input.Item<string, SelectProps<Channel>>
       direction="horizontal"
       tagKey="name"
-      label={`${axis}:`}
+      label={`${axis.toUpperCase()}:`}
       data={data}
       onChange={(v) => onChange(axis, v)}
       grow
@@ -203,7 +203,7 @@ const RangeSelect = memo(
     <Input.Item<readonly string[], SelectMultipleProps<Range>>
       direction="horizontal"
       tagKey="name"
-      label={`${axis} Ranges:`}
+      label={`${axis.toUpperCase()} Ranges:`}
       data={data}
       onChange={(v: readonly string[]) => onChange(axis, v)}
       grow

@@ -1,0 +1,11 @@
+.pluto-accordion__header {
+    background: var(--pluto-background);
+}
+
+.pluto-accordion__header--expanded {
+    border-bottom: var(--pluto-border);
+}
+
+.pluto-accordion__header--contracted {
+    border-bottom: none;
+}

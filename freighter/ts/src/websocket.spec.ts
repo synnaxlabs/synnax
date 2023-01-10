@@ -10,11 +10,11 @@
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
 
-import { JSONEncoderDecoder } from "./encoder";
-import { BaseTypedError, EOF, TypedError, registerError } from "./errors";
-import { MetaData } from "./middleware";
-import URL from "./url";
-import { WebSocketClient } from "./websocket";
+import { JSONEncoderDecoder } from "@/encoder";
+import { BaseTypedError, EOF, TypedError, registerError } from "@/errors";
+import { MetaData } from "@/middleware";
+import { URL } from "@/url";
+import { WebSocketClient } from "@/websocket";
 
 const url = new URL({
   host: "127.0.0.1",

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TelemArray, UnexpectedError } from "@synnaxlabs/client";
+import { TArray, UnexpectedError } from "@synnaxlabs/client";
 
 export interface WebGLBufferController {
   createBuffer: () => WebGLBuffer | null;
@@ -35,7 +35,7 @@ export class WebGLBufferCache {
     return entry.buffers;
   }
 
-  set(rangeKey: string, channelKey: string, arrays: TelemArray[]): WebGLBuffer[] {
+  set(rangeKey: string, channelKey: string, arrays: TArray[]): WebGLBuffer[] {
     const range = this.entries[rangeKey];
     if (range == null) {
       this.entries[rangeKey] = {};

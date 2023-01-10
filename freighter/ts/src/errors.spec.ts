@@ -24,7 +24,7 @@ import {
   encodeError,
   isTypedError,
   registerError,
-} from "./errors";
+} from "@/errors";
 
 class MyCustomError extends BaseTypedError {
   constructor(message: string) {

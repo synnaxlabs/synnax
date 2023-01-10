@@ -68,8 +68,7 @@ export const useSelectSugaredVisualization = <V extends Visualization>(
       switch (vis.variant) {
         case "linePlot": {
           const x1Ranges = selectRanges(state, (vis as LinePlotV).ranges.x1);
-          const x2Ranges = selectRanges(state, (vis as LinePlotV).ranges.x2);
-          return { ...vis, ranges: { x1: x1Ranges, x2: x2Ranges } };
+          return { ...vis, ranges: { x1: x1Ranges } };
         }
       }
       return undefined;

@@ -17,8 +17,8 @@ import { ListItemProps, ListColumn as ListColumnT } from "./types";
 
 import { Space } from "@/core/Space";
 import { Text } from "@/core/Typography";
+import { textWidth } from "@/core/Typography/textWidth";
 import { useFont } from "@/theming";
-import { textWidth } from "@/util/canvas";
 import { RenderableRecord } from "@/util/record";
 import { render } from "@/util/renderable";
 import { sortFunc } from "@/util/sort";

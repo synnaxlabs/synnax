@@ -10,7 +10,7 @@
 import { addExtension, pack, unpack } from "msgpackr";
 import { ZodSchema } from "zod";
 
-import { camelKeys, snakeKeys } from "./caseconv";
+import { camelKeys, snakeKeys } from "@/caseconv";
 
 /**
  * CustomTypeEncoder is an interface for a class that needs to transform its
