@@ -11,8 +11,8 @@ import { HTTPClientFactory } from "@synnaxlabs/freighter";
 import type { Middleware, UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
-import { AuthError } from "./errors";
-import { UserPayload, UserPayloadSchema } from "./user/payload";
+import { AuthError } from "@/errors";
+import { UserPayload, userPayloadSchema } from "@/user";
 
 export const tokenMiddleware = (token: () => Promise<string>): Middleware => {
   return async (md, next) => {
@@ -33,12 +33,12 @@ export type InsecureCredentials = z.infer<typeof InsecureCredentialsSchema>;
 
 export const TokenResponseSchema = z.object({
   token: z.string(),
-  user: UserPayloadSchema,
+  user: userPayloadSchema,
 });
 
 export type TokenResponse = z.infer<typeof TokenResponseSchema>;
 
-export default class AuthenticationClient {
+export class AuthenticationClient {
   private static readonly ENDPOINT = "/auth/login";
   private token: string | undefined;
   private readonly client: UnaryClient;

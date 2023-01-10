@@ -10,13 +10,17 @@
 import type { UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
-import { UnparsedDataType, UnparsedRate } from "../telem";
-import Transport from "../transport";
+import {
+  ChannelPayload,
+  channelPayloadSchema,
+  unkeyedChannelPayloadSchema,
+} from "./payload";
 
-import { ChannelPayload, channelPayloadSchema } from "./payload";
+import { UnparsedDataType, UnparsedRate } from "@/telem";
+import { Transport } from "@/transport";
 
 const RequestSchema = z.object({
-  channels: channelPayloadSchema.array(),
+  channels: unkeyedChannelPayloadSchema.array(),
 });
 
 type Request = z.infer<typeof RequestSchema>;
@@ -36,7 +40,7 @@ export interface CreateChannelProps {
   isIndex?: boolean;
 }
 
-export default class Creator {
+export class ChannelCreator {
   private static readonly ENDPOINT = "/channel/create";
   private readonly client: UnaryClient;
 
@@ -55,7 +59,7 @@ export default class Creator {
 
   private async execute(request: Request): Promise<Response> {
     const [res, err] = await this.client.send(
-      Creator.ENDPOINT,
+      ChannelCreator.ENDPOINT,
       request,
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-expect-error

@@ -9,12 +9,12 @@
 
 import { z } from "zod";
 
-import { DataType, Density, Rate } from "../telem";
+import { DataType, Density, Rate } from "@/telem";
 
 export const channelPayloadSchema = z.object({
+  key: z.string(),
   rate: z.number().transform((n) => new Rate(n)),
   dataType: z.string().transform((s) => new DataType(s)),
-  key: z.string().default("").optional(),
   name: z.string().default("").optional(),
   nodeId: z.number().default(0).optional(),
   density: z
@@ -28,8 +28,8 @@ export const channelPayloadSchema = z.object({
 
 export type ChannelPayload = z.infer<typeof channelPayloadSchema>;
 
-export const keyedChannelPayloadSchema = channelPayloadSchema.extend({
-  key: z.string(),
+export const unkeyedChannelPayloadSchema = channelPayloadSchema.extend({
+  key: z.string().optional().default(""),
 });
 
-export type KeyedChannelPayload = z.infer<typeof keyedChannelPayloadSchema>;
+export type UnkeyedChannelPayload = z.infer<typeof unkeyedChannelPayloadSchema>;

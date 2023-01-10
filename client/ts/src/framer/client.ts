@@ -7,22 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { QueryError } from "..";
-import Registry from "../channel/registry";
-import { NativeTypedArray, TArray, TimeRange, UnparsedTimeStamp } from "../telem";
-import Transport from "../transport";
-
 import { Frame } from "./frame";
 import { AUTO_SPAN, FrameIterator } from "./iterator";
 import { FrameWriter } from "./writer";
 
+import { QueryError } from "@/errors";
+import { NativeTypedArray, TArray, TimeRange, UnparsedTimeStamp } from "@/telem";
+import { Transport } from "@/transport";
+
 export class FrameClient {
   private readonly transport: Transport;
-  private readonly channels: Registry;
 
-  constructor(transport: Transport, channels: Registry) {
+  constructor(transport: Transport) {
     this.transport = transport;
-    this.channels = channels;
   }
 
   /**

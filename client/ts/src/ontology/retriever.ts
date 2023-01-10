@@ -10,9 +10,9 @@
 import type { UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
-import Transport from "../transport";
-
 import { OntologyID, OntologyResource, ontologyResourceSchema } from "./payload";
+
+import { Transport } from "@/transport";
 
 const requestSchema = z.object({
   ids: z.string().array(),
@@ -26,7 +26,7 @@ const responseSchema = z.object({
   resources: ontologyResourceSchema.array(),
 });
 
-export default class Retriever {
+export class OntologyRetriever {
   private static readonly ENDPOINT = "/ontology/retrieve";
   private readonly client: UnaryClient;
 
@@ -36,7 +36,7 @@ export default class Retriever {
 
   async execute(request: Request): Promise<OntologyResource[]> {
     const [res, err] = await this.client.send(
-      Retriever.ENDPOINT,
+      OntologyRetriever.ENDPOINT,
       request,
       responseSchema
     );

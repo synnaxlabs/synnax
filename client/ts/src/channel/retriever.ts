@@ -10,10 +10,10 @@
 import type { UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
-import { ValidationError } from "../errors";
-import Transport from "../transport";
-
 import { ChannelPayload, channelPayloadSchema } from "./payload";
+
+import { ValidationError } from "@/errors";
+import { Transport } from "@/transport";
 
 const requestSchema = z.object({
   keys: z.string().array().optional(),
@@ -27,7 +27,7 @@ const responseSchema = z.object({
   channels: channelPayloadSchema.array(),
 });
 
-export default class Retriever {
+export class ChannelRetriever {
   private static readonly ENDPOINT = "/channel/retrieve";
   private readonly client: UnaryClient;
 
@@ -37,7 +37,7 @@ export default class Retriever {
 
   private async execute(request: Request): Promise<ChannelPayload[]> {
     const [res, err] = await this.client.send(
-      Retriever.ENDPOINT,
+      ChannelRetriever.ENDPOINT,
       request,
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-expect-error

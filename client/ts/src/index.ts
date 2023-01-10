@@ -28,7 +28,7 @@ export {
   DataType,
   Density,
   Rate,
-  TArray as TelemArray,
+  TArray,
   TimeRange,
   TimeSpan,
   TimeStamp,
@@ -41,4 +41,5 @@ export type {
   UnparsedSize,
   UnparsedTimeSpan,
   UnparsedTimeStamp,
+  SampleValue,
 } from "@/telem";
