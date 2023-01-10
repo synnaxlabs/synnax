@@ -10,17 +10,13 @@
 import { URL } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
-import AuthenticationClient from "./auth";
-import { ChannelClient } from "./channel";
-import ChannelCreator from "./channel/creator";
-import Registry from "./channel/registry";
-import ChannelRetriever from "./channel/retriever";
-import ConnectivityClient from "./connectivity";
-import OntologyClient from "./ontology/client";
-import { TimeSpan } from "./telem";
-import Transport from "./transport";
-
+import { AuthenticationClient } from "@/auth";
+import { ChannelClient } from "@/channel";
+import { ConnectivityClient } from "@/connectivity";
 import { FrameClient } from "@/framer";
+import { OntologyClient } from "@/ontology";
+import { TimeSpan } from "@/telem";
+import { Transport } from "@/transport";
 
 export const synnaxPropsSchema = z.object({
   host: z.string().min(1),
@@ -81,11 +77,8 @@ export default class Synnax {
       });
       this.transport.use(this.auth.middleware());
     }
-    const chRetriever = new ChannelRetriever(this.transport);
-    const chCreator = new ChannelCreator(this.transport);
-    const chRegistry = new Registry(chRetriever);
-    this.data = new FrameClient(this.transport, chRegistry);
-    this.channel = new ChannelClient(this.data, chRetriever, chCreator);
+    this.data = new FrameClient(this.transport);
+    this.channel = new ChannelClient(this.data, this.transport);
     this.connectivity = new ConnectivityClient(
       this.transport.getClient(),
       connectivityPollFrequency

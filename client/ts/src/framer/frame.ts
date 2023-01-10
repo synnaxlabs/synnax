@@ -9,10 +9,9 @@
  * included in the file licenses/APL.txt.
  */
 
-import { TelemArray, UnexpectedError, ValidationError } from "..";
-
 import { arrayFromPayload, arrayToPayload, FramePayload } from "./payload";
 
+import { UnexpectedError, ValidationError } from "@/errors";
 import { Size, TArray, TimeRange } from "@/telem";
 
 export class Frame {
@@ -32,7 +31,7 @@ export class Frame {
       if (v.arrays == null || v.keys == null || v.keys.length !== v.arrays.length)
         throw new ValidationError("arrays and keys must be defined");
       v.keys.forEach((key, i) =>
-        this.pushA(key, arrayFromPayload((v.arrays as TelemArray[])[i]))
+        this.pushA(key, arrayFromPayload((v.arrays as TArray[])[i]))
       );
     } else if (data instanceof TArray) {
       this.pushA(keys as string, data);

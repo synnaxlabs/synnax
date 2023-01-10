@@ -16,11 +16,12 @@ import {
   UnparsedTimeStamp,
 } from "../telem";
 
-import ChannelCreator, { CreateChannelProps } from "./creator";
+import { ChannelCreator, CreateChannelProps } from "./creator";
 import { ChannelPayload, channelPayloadSchema } from "./payload";
-import ChannelRetriever from "./retriever";
+import { ChannelRetriever } from "./retriever";
 
 import { FrameClient } from "@/framer";
+import { Transport } from "@/transport";
 
 /**
  * Represents a Channel in a Synnax database. It should not be instantiated
@@ -130,19 +131,15 @@ export class Channel {
  * The core client class for executing channel operations against a Synnax
  * cluster.
  */
-export default class ChannelClient {
+export class ChannelClient {
   private readonly segmentClient: FrameClient;
   private readonly retriever: ChannelRetriever;
   private readonly creator: ChannelCreator;
 
-  constructor(
-    segmentClient: FrameClient,
-    retriever: ChannelRetriever,
-    creator: ChannelCreator
-  ) {
+  constructor(segmentClient: FrameClient, transport: Transport) {
     this.segmentClient = segmentClient;
-    this.retriever = retriever;
-    this.creator = creator;
+    this.retriever = new ChannelRetriever(transport);
+    this.creator = new ChannelCreator(transport);
   }
 
   /**

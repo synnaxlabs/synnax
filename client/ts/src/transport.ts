@@ -17,7 +17,7 @@ import type { Middleware, StreamClient, UnaryClient } from "@synnaxlabs/freighte
 
 const baseAPIEndpoint = "/api/v1/";
 
-export default class Transport {
+export class Transport {
   url: URL;
   httpFactory: HTTPClientFactory;
   streamClient: StreamClient;

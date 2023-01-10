@@ -10,7 +10,7 @@
 import type { UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
-import { TimeSpan } from "./telem";
+import { TimeSpan } from "@/telem";
 
 export type Connectivity = "disconnected" | "connecting" | "connected" | "failed";
 
@@ -19,7 +19,8 @@ const connectivityResponseSchema = z.object({
 });
 
 /** Polls a synnax cluster for connectivity information. */
-export default class ConnectivityClient {
+export class ConnectivityClient {
+  private readonly id: string;
   private static readonly ENDPOINT = "/connectivity/check";
   private _status: Connectivity = "disconnected";
   private _error?: Error;
@@ -39,6 +40,7 @@ export default class ConnectivityClient {
    *   connectivity information.
    */
   constructor(client: UnaryClient, pollFreq: TimeSpan = TimeSpan.seconds(30)) {
+    this.id = Math.random().toString(36).substring(7);
     this._error = undefined;
     this.client = client;
     this.pollFrequency = pollFreq;

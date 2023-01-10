@@ -12,11 +12,11 @@ import type { Stream, StreamClient } from "@synnaxlabs/freighter";
 import { decodeError, EOF, ErrorPayloadSchema } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
-import { GeneralError } from "../errors";
-import { NativeTypedArray, TArray, TimeStamp, UnparsedTimeStamp } from "../telem";
-
 import { Frame } from "./frame";
 import { framePayloadSchema } from "./payload";
+
+import { GeneralError } from "@/errors";
+import { NativeTypedArray, TArray, TimeStamp, UnparsedTimeStamp } from "@/telem";
 
 enum Command {
   None = 0,

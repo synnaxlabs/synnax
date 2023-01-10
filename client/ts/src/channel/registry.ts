@@ -7,42 +7,42 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ChannelPayload } from './payload';
-import Retriever from './retriever';
+import { ChannelPayload } from "./payload";
+import { ChannelRetriever } from "./retriever";
 
-export default class Registry {
-	private readonly retriever: Retriever;
-	private readonly channels: Map<string, ChannelPayload>;
+export class ChannelRegistry {
+  private readonly retriever: ChannelRetriever;
+  private readonly channels: Map<string, ChannelPayload>;
 
-	constructor(retriever: Retriever) {
-		this.retriever = retriever;
-		this.channels = new Map();
-	}
+  constructor(retriever: ChannelRetriever) {
+    this.retriever = retriever;
+    this.channels = new Map();
+  }
 
-	async get(key: string): Promise<ChannelPayload> {
-		let channel = this.channels.get(key);
-		if (channel === undefined) {
-			channel = await this.retriever.retrieve({ key });
-			this.channels.set(key, channel);
-		}
-		return channel;
-	}
+  async get(key: string): Promise<ChannelPayload> {
+    let channel = this.channels.get(key);
+    if (channel === undefined) {
+      channel = await this.retriever.retrieve({ key });
+      this.channels.set(key, channel);
+    }
+    return channel;
+  }
 
-	async getN(...keys: string[]): Promise<ChannelPayload[]> {
-		const results: ChannelPayload[] = [];
-		const retrieveKeys: string[] = [];
-		keys.forEach((key) => {
-			const channel = this.channels.get(key);
-			if (channel === undefined) retrieveKeys.push(key);
-			else results.push(channel);
-		});
-		if (retrieveKeys.length > 0) {
-			const channels = await this.retriever.filter({ keys: retrieveKeys });
-			channels.forEach((channel) => {
-				this.channels.set(channel.key as string, channel);
-				results.push(channel);
-			});
-		}
-		return results;
-	}
+  async getN(...keys: string[]): Promise<ChannelPayload[]> {
+    const results: ChannelPayload[] = [];
+    const retrieveKeys: string[] = [];
+    keys.forEach((key) => {
+      const channel = this.channels.get(key);
+      if (channel === undefined) retrieveKeys.push(key);
+      else results.push(channel);
+    });
+    if (retrieveKeys.length > 0) {
+      const channels = await this.retriever.filter({ keys: retrieveKeys });
+      channels.forEach((channel) => {
+        this.channels.set(channel.key, channel);
+        results.push(channel);
+      });
+    }
+    return results;
+  }
 }
