@@ -10,6 +10,7 @@
 import { Text as CoreText } from "./Text";
 import { TextDateTime } from "./TextDateTime";
 import { TextEditable } from "./TextEditable";
+import { TextLink } from "./TextLink";
 import { TextWithIcon } from "./TextWithIcon";
 import {
   ComponentSizeTypographyLevels,
@@ -20,6 +21,7 @@ import {
 export type { CoreTextProps, TextProps } from "./Text";
 export type { Size, TypographySpec, TypographyLevel } from "./types";
 export type { TextWithIconProps } from "./TextWithIcon";
+export type { TextLinkProps } from "./TextLink";
 
 type CoreTextType = typeof CoreText;
 
@@ -27,6 +29,7 @@ interface TextType extends CoreTextType {
   WithIcon: typeof TextWithIcon;
   Editable: typeof TextEditable;
   DateTime: typeof TextDateTime;
+  Link: typeof TextLink;
 }
 
 export const Text = CoreText as TextType;
@@ -34,6 +37,7 @@ export const Text = CoreText as TextType;
 Text.WithIcon = TextWithIcon;
 Text.Editable = TextEditable;
 Text.DateTime = TextDateTime;
+Text.Link = TextLink;
 
 export const Typography = {
   ComponentSizeLevels: ComponentSizeTypographyLevels,

@@ -13,10 +13,10 @@ import { TArray, SampleValue, TimeStamp } from "@synnaxlabs/client";
 import { CSSBox, hexToRGBA, useResize, useMergedRef, Box } from "@synnaxlabs/pluto";
 import * as d3 from "d3";
 
-import { useVisCanvas } from "../../components/VisCanvas";
-import { LineRenderRequest } from "../../gl/line";
-import { RenderingContext } from "../../gl/render";
-import { EnhancedLinePlotVS, LinePlotVS } from "../types";
+import { useVisCanvas } from "../../../components/VisCanvas";
+import { LineRenderRequest } from "../../../gl/line";
+import { RenderingContext } from "../../../gl/render";
+import { EnhancedLinePlotVS, LineSVis } from "../../types";
 
 import { useSelectTheme } from "@/features/layout";
 import { useAsyncEffect } from "@/hooks";
@@ -24,8 +24,8 @@ import { useAsyncEffect } from "@/hooks";
 import "./LinePlot.css";
 
 export interface LinePlotProps {
-  vis: LinePlotVS;
-  onChange: (vis: LinePlotVS) => void;
+  vis: LineSVis;
+  onChange: (vis: LineSVis) => void;
   resizeDebounce: number;
 }
 
@@ -41,7 +41,7 @@ export const LinePlot = ({
   const theme = useSelectTheme();
 
   const render = useCallback(
-    async (ctx: RenderingContext, vis: LinePlotVS, box: Box) => {
+    async (ctx: RenderingContext, vis: LineSVis, box: Box) => {
       const oldBox = box;
       box = box.resize({ x: 50, y: 50 }).translate({ x: 25, y: 10 });
       const r = ctx.registry.get<LineRenderRequest>("line");

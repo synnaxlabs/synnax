@@ -60,6 +60,7 @@ export interface SpaceExtensionProps {
   justify?: SpaceJustification;
   align?: SpaceAlignment;
   grow?: boolean | number;
+  wrap?: boolean;
 }
 
 export interface SpaceProps
@@ -77,6 +78,7 @@ export const Space = forwardRef(
       grow,
       align,
       className,
+      wrap = false,
       style,
       ...props
     }: SpaceProps,
@@ -91,6 +93,7 @@ export const Space = forwardRef(
       flexDirection: flexDirection(direction, reverse),
       justifyContent: justifications[justify],
       alignItems: align,
+      flexWrap: wrap ? "wrap" : "nowrap",
       ...style,
     };
 

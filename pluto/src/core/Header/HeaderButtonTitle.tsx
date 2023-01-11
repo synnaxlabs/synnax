@@ -14,14 +14,14 @@ import { useHeaderContext } from "./Header";
 import { Button, ButtonProps } from "@/core/Button";
 import { Typography } from "@/core/Typography";
 
-export interface HeaderButtonProps extends Omit<ButtonProps, "variant" | "size"> {}
+export interface HeaderButtonTitleProps extends Omit<ButtonProps, "variant" | "size"> {}
 
 export const HeaderButtonTitle = ({
   children = "",
   className,
   onClick,
   ...props
-}: HeaderButtonProps): JSX.Element => {
+}: HeaderButtonTitleProps): JSX.Element => {
   const { level } = useHeaderContext();
   return (
     <Button

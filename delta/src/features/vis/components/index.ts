@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export { VisualizationLayoutRenderer } from "./VisLayoutRenderer";
-export { VisToolbar } from "./VisToolbar";
+export { VisLayoutRenderer } from "./VisLayoutRenderer";
+export * from "./VisToolbar";
 export * from "./WarpMode";
 export * from "./VisCanvas";
 export * from "./select";
+export * from "./VisCreateButton";

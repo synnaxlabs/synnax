@@ -9,14 +9,15 @@
 
 import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
+import { DeepPartial } from "react-hook-form";
 
-import { Visualization } from "../types";
+import { Vis } from "../types";
 
 import { mergeDeep } from "@/util/merge";
 
 export interface VisualizationState {
   warpMode: boolean;
-  visualizations: Record<string, Visualization>;
+  visualizations: Record<string, Vis>;
 }
 
 export interface VisualizationStoreState {
@@ -28,25 +29,23 @@ export const initialState: VisualizationState = {
   visualizations: {},
 };
 
-type SetVisualizationAction = PayloadAction<Visualization>;
-type UpdateVisualizationAction = PayloadAction<
-  Omit<Partial<Visualization>, "key"> & { key: string }
->;
+type SetVisAction = PayloadAction<Vis>;
+type UpdateVisAction = PayloadAction<Omit<DeepPartial<Vis>, "key"> & { key: string }>;
 type SetWarpModeAction = PayloadAction<boolean | undefined>;
 
 export const VISUALIZATION_SLICE_NAME = "visualization";
 
 export const {
-  actions: { setVisualization, setWarpMode, updateVisualization },
+  actions: { setVis, setWarpMode, updateVis },
   reducer: visualizationReducer,
 } = createSlice({
   name: VISUALIZATION_SLICE_NAME,
   initialState,
   reducers: {
-    setVisualization: (state, { payload }: SetVisualizationAction) => {
+    setVis: (state, { payload }: SetVisAction) => {
       state.visualizations[payload.key] = payload;
     },
-    updateVisualization: (state, { payload }: UpdateVisualizationAction) => {
+    updateVis: (state, { payload }: UpdateVisAction) => {
       const vis = state.visualizations[payload.key];
       if (vis == null) throw new Error(`visualization ${payload.key} does not exist`);
       const res = mergeDeep(vis, payload);

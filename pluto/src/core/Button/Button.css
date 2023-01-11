@@ -15,12 +15,6 @@
     margin: 0;
 }
 
-.pluto-btn,
-.pluto-btn * {
-    transition: 0.15s ease-in-out;
-    margin: 0;
-}
-
 .pluto-btn {
     cursor: pointer;
     border-radius: var(--pluto-border-radius);

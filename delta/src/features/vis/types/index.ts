@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export interface Visualization {
+import { DeepPartial } from "react-hook-form";
+
+export interface Vis {
   variant: string;
   key: string;
 }
@@ -17,3 +19,8 @@ export type XAxisKey = "x1";
 export type AxisKey = YAxisKey | XAxisKey;
 
 export const axisLabel = (key: AxisKey): string => key.toUpperCase();
+
+export interface ControlledVisProps<V extends Vis, SV extends Vis = V> {
+  vis: SV;
+  setVis: (vis: DeepPartial<V>) => void;
+}

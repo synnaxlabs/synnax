@@ -27,7 +27,7 @@ export interface TypographySpec {
 export const ComponentSizeTypographyLevels: Record<ComponentSize, TypographyLevel> = {
   small: "small",
   medium: "p",
-  large: "h1",
+  large: "h4",
 };
 
 export const TypographyLevelComponentSizes: Record<TypographyLevel, ComponentSize> = {

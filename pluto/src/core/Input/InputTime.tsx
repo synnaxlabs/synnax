@@ -9,10 +9,10 @@
 
 import { forwardRef } from "react";
 
+import { TimeStamp } from "@synnaxlabs/client";
+
 import { Input } from "./Input";
 import { InputBaseProps } from "./types";
-
-import { nanoTimeString, timeStringNano } from "@/util/time";
 
 export interface InputTimeProps extends InputBaseProps<number> {}
 
@@ -23,8 +23,10 @@ export const InputTime = forwardRef<HTMLInputElement, InputTimeProps>(
         ref={ref}
         type="time"
         step="1"
-        value={nanoTimeString(value)}
-        onChange={(value) => value.length > 0 && onChange(timeStringNano(value))}
+        value={new TimeStamp(value, "UTC").fString("time", "local")}
+        onChange={(value) =>
+          value.length > 0 && onChange(new TimeStamp(value, "local").valueOf())
+        }
         {...props}
       />
     );

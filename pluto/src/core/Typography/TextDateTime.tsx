@@ -7,21 +7,39 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { forwardRef } from "react";
+
+import {
+  TimeStampStringFormat,
+  TimeStamp,
+  UnparsedTimeStamp,
+  TZInfo,
+} from "@synnaxlabs/client";
+
 import { Text } from "./Text";
 import type { TextProps } from "./Text";
 
-import { timeStringFormatters, TimeStringFormatter } from "@/util/time";
-
-export interface TextDateTimeProps extends Omit<TextProps, "children"> {
-  children: number;
-  format?: TimeStringFormatter;
+export interface TextDateTimeProps extends Omit<TextProps, "children" | "ref"> {
+  children: UnparsedTimeStamp;
+  format?: TimeStampStringFormat;
+  suppliedTZ?: TZInfo;
+  displayTZ?: TZInfo;
 }
 
-export const TextDateTime = ({
-  format = "shortDateTime",
-  children,
-  ...props
-}: TextDateTimeProps): JSX.Element => {
-  const formatter = timeStringFormatters[format];
-  return <Text {...props}>{formatter(children)}</Text>;
-};
+export const TextDateTime = forwardRef<HTMLParagraphElement, TextDateTimeProps>(
+  (
+    {
+      format = "dateTime",
+      suppliedTZ = "UTC",
+      displayTZ = "local",
+      children,
+      ...props
+    },
+    ref
+  ): JSX.Element => (
+    <Text ref={ref} {...props}>
+      {new TimeStamp(children, suppliedTZ).fString(format, displayTZ)}
+    </Text>
+  )
+);
+TextDateTime.displayName = "TextDateTime";

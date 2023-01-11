@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, Divider, Nav, Theming } from "@synnaxlabs/pluto";
+import { Divider, Nav, Theming } from "@synnaxlabs/pluto";
 import type { NavDrawerItem } from "@synnaxlabs/pluto";
-import { IoMdSettings } from "react-icons/io";
 
 import { Logo } from "../Logo";
 
@@ -17,7 +16,7 @@ import { ClusterBadge, ClusterToolbar, ConnectionBadge } from "@/features/cluste
 import { NavdrawerLocation, useNavDrawer } from "@/features/layout";
 import { ResourcesToolbar } from "@/features/resources";
 import { VersionBadge } from "@/features/version";
-import { VisualizationToolBar, WarpModeToggle } from "@/features/vis";
+import { VisToolbar, WarpModeToggle } from "@/features/vis";
 import { WorkspaceToolbar } from "@/features/workspace";
 
 import "./Nav.css";
@@ -32,7 +31,7 @@ export const NAV_DRAWERS: NavDrawerItem[] = [
   ClusterToolbar,
   ResourcesToolbar,
   WorkspaceToolbar,
-  VisualizationToolBar,
+  VisToolbar,
 ];
 
 /**

@@ -13,29 +13,29 @@ import { UnexpectedError } from "@synnaxlabs/client";
 import { useDispatch } from "react-redux";
 
 import { LinePlot } from "../line/components/LinePlot";
-import { LinePlotVS } from "../line/types";
-import { setVisualization, useSelectSugaredVisualization } from "../store";
-import { Visualization } from "../types";
+import { LineSVis } from "../line/types";
+import { setVis, useSelectSVis } from "../store";
+import { Vis } from "../types";
 
 import { LayoutRenderer, LayoutRendererProps } from "@/features/layout";
 
-export const VisualizationLayoutRenderer: LayoutRenderer = {
+export const VisLayoutRenderer: LayoutRenderer = {
   Renderer: memo(({ layoutKey }: LayoutRendererProps) => {
-    const vis = useSelectSugaredVisualization(layoutKey);
+    const vis = useSelectSVis(layoutKey);
     if (vis == null) throw new UnexpectedError(`Visualization not found: ${layoutKey}`);
     const dispatch = useDispatch();
 
-    const onChange = (vis: Visualization): void => {
-      dispatch(setVisualization(vis));
+    const onChange = (vis: Vis): void => {
+      dispatch(setVis(vis));
     };
 
     switch (vis.variant) {
       case "linePlot":
         return (
-          <LinePlot vis={vis as LinePlotVS} onChange={onChange} resizeDebounce={100} />
+          <LinePlot vis={vis as LineSVis} onChange={onChange} resizeDebounce={100} />
         );
     }
     return <h1>No Visualization Found</h1>;
   }),
 };
-VisualizationLayoutRenderer.Renderer.displayName = "VisualizationLayoutRenderer";
+VisLayoutRenderer.Renderer.displayName = "VisualizationLayoutRenderer";

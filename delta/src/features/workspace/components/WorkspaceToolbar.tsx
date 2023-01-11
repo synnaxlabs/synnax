@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Header, Space, Accordion } from "@synnaxlabs/pluto";
+import { Space, Accordion } from "@synnaxlabs/pluto";
 import type { NavDrawerItem } from "@synnaxlabs/pluto";
 import { AiOutlinePlus } from "react-icons/ai";
 import { MdWorkspacesFilled } from "react-icons/md";
@@ -15,6 +15,7 @@ import { MdWorkspacesFilled } from "react-icons/md";
 import { LayoutList } from "./LayoutList";
 import { RangesList } from "./RangesList";
 
+import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout, useLayoutPlacer } from "@/features/layout";
 
 const rangeWindowLayout: Layout = {
@@ -34,9 +35,9 @@ const Content = (): JSX.Element => {
   const openWindow = useLayoutPlacer();
   return (
     <Space empty style={{ height: "100%" }}>
-      <Header level="h4" divided>
-        <Header.Title startIcon={<MdWorkspacesFilled />}>Workspace</Header.Title>
-      </Header>
+      <ToolbarHeader>
+        <ToolbarTitle icon={<MdWorkspacesFilled />}>Workspace</ToolbarTitle>
+      </ToolbarHeader>
       <Accordion
         direction="vertical"
         entries={[

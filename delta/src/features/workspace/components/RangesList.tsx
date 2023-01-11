@@ -22,13 +22,11 @@ export const rangeListColumns: Array<ListColumn<Range>> = [
   {
     key: "start",
     label: "Start",
-    render: ({ entry: { start }, style }) => {
-      return (
-        <Text.DateTime level="p" style={style}>
-          {start}
-        </Text.DateTime>
-      );
-    },
+    render: ({ entry: { start }, style }) => (
+      <Text.DateTime level="p" style={style}>
+        {start}
+      </Text.DateTime>
+    ),
   },
   {
     key: "end",
@@ -40,9 +38,9 @@ export const rangeListColumns: Array<ListColumn<Range>> = [
         <Text.DateTime
           level="p"
           style={style}
-          format={endTS.span(startTS) < TimeSpan.Day ? "shortTime" : "shortDateTime"}
+          format={endTS.span(startTS) < TimeSpan.DAY ? "time" : "dateTime"}
         >
-          {endTS.valueOf()}
+          {endTS}
         </Text.DateTime>
       );
     },

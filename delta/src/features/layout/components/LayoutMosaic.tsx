@@ -9,7 +9,7 @@
 
 import { useCallback } from "react";
 
-import type { Location, Tab } from "@synnaxlabs/pluto";
+import type { Location } from "@synnaxlabs/pluto";
 import { Mosaic as PlutoMosaic, useDebouncedCallback } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
@@ -69,8 +69,6 @@ export const LayoutMosaic = (): JSX.Element => {
     [dispatch]
   );
 
-  console.log(mosaic);
-
   return (
     <PlutoMosaic
       root={mosaic}
@@ -81,11 +79,7 @@ export const LayoutMosaic = (): JSX.Element => {
       emptyContent={emptyContent}
       onTitleChange={handleRename}
     >
-      {LayoutMosaicContent}
+      {({ tab }) => <LayoutContent layoutKey={tab.tabKey} />}
     </PlutoMosaic>
   );
 };
-
-const LayoutMosaicContent = ({ tab }: { tab: Tab }): JSX.Element => (
-  <LayoutContent layoutKey={tab.tabKey} />
-);

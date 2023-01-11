@@ -62,11 +62,13 @@
     "windows": [
       {
         "fullscreen": false,
-        "height": 600,
+        "height": 810,
         "resizable": true,
         "title": "Synnax",
-        "width": 800,
-        "fileDropEnabled": false
+        "width": 1080,
+        "fileDropEnabled": false,
+        "minWidth": 625,
+        "minHeight": 375
       }
     ]
   }

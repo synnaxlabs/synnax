@@ -13,6 +13,9 @@ import { HeaderButtonTitle } from "./HeaderButtonTitle";
 import { HeaderTitle } from "./HeaderTitle";
 
 export type { HeaderProps } from "./Header";
+export type { HeaderTitleProps } from "./HeaderTitle";
+export type { HeaderButtonTitleProps } from "./HeaderButtonTitle";
+export type { HeaderActionsProps } from "./HeaderActions";
 
 type CoreHeaderType = typeof CoreHeader;
 

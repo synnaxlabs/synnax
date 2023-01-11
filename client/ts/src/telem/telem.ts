@@ -13,6 +13,22 @@ import { ValidationError } from "@/errors";
 
 const valueOfEncoder = (value: unknown): unknown => value?.valueOf();
 
+export type TZInfo = "UTC" | "local";
+
+export type TimeStampStringFormat =
+  | "ISO"
+  | "ISODate"
+  | "ISOTime"
+  | "time"
+  | "preciseTime"
+  | "date"
+  | "shortDate"
+  | "dateTime";
+
+const timeF = (time: number, pad = 2): string => time.toString().padStart(pad, "0");
+
+export type DateComponents = [number?, number?, number?];
+
 /**
  * Represents a UTC timestamp. Synnax uses a nanosecond precision int64 timestamp.
  * JavaScript stores all numbers as 64-bit floating point numbers, so we expect a
@@ -20,11 +36,108 @@ const valueOfEncoder = (value: unknown): unknown => value?.valueOf();
  * with the server. If this is a problem, please file an issue with the Synnax team.
  */
 export class TimeStamp extends Number {
-  constructor(value: UnparsedTimeStamp) {
-    if (value instanceof Number) super(value.valueOf());
-    else if (value instanceof Date)
-      super(value.getTime() * TimeStamp.MILLISECOND.valueOf());
-    else super(value);
+  constructor(value: UnparsedTimeStamp, tzInfo: TZInfo = "UTC") {
+    if (value instanceof Date) super(value.getTime() * TimeStamp.MILLISECOND.valueOf());
+    else if (typeof value === "string")
+      super(TimeStamp.parseDateTimeString(value, tzInfo).valueOf());
+    else if (Array.isArray(value)) super(TimeStamp.parseDate(value));
+    else {
+      let offset = 0;
+      if (value instanceof Number) value = value.valueOf();
+      if (tzInfo === "local") offset = TimeStamp.utcOffset.valueOf();
+      super(value + offset);
+    }
+  }
+
+  private static parseDate([year = 1970, month = 1, day = 1]: DateComponents): number {
+    const date = new Date(year, month - 1, day, 0, 0, 0, 0);
+    return new TimeStamp(
+      date.getTime() * TimeStamp.MILLISECOND.valueOf() - TimeStamp.utcOffset.valueOf()
+    ).valueOf();
+  }
+
+  private static parseTimeString(time: string, tzInfo: TZInfo = "UTC"): number {
+    const [hours, minutes, mbeSeconds] = time.split(":");
+    let seconds = "00";
+    let milliseconds: string | undefined = "00";
+    if (mbeSeconds != null) [seconds, milliseconds] = mbeSeconds.split(".");
+    let base = TimeStamp.hours(parseInt(hours ?? "00", 10))
+      .add(TimeStamp.minutes(parseInt(minutes ?? "00", 10)))
+      .add(TimeStamp.seconds(parseInt(seconds ?? "00", 10)))
+      .add(TimeStamp.milliseconds(parseInt(milliseconds ?? "00", 10)));
+    if (tzInfo === "local") base = base.add(TimeStamp.utcOffset);
+    return base.valueOf();
+  }
+
+  private static parseDateTimeString(str: string, tzInfo: TZInfo = "UTC"): number {
+    if (!str.includes("/") && !str.includes("-"))
+      return TimeStamp.parseTimeString(str, tzInfo);
+    const d = new Date(str);
+    if (!str.includes(":")) {
+      tzInfo = "UTC";
+      d.setUTCHours(0, 0, 0, 0);
+    }
+    return new TimeStamp(
+      d.getTime() * TimeStamp.MILLISECOND.valueOf(),
+      tzInfo
+    ).valueOf();
+  }
+
+  fString(format: TimeStampStringFormat = "ISO", tzInfo: TZInfo = "UTC"): string {
+    switch (format) {
+      case "ISODate":
+        return this.toISOString(tzInfo).slice(0, 10);
+      case "ISOTime":
+        return this.toISOString(tzInfo).slice(11, 23);
+      case "time":
+        return this.timeString(false, tzInfo);
+      case "preciseTime":
+        return this.timeString(true, tzInfo);
+      case "date":
+        return this.dateString(tzInfo);
+      case "dateTime":
+        return `${this.dateString(tzInfo)} ${this.timeString(false, tzInfo)}`;
+      default:
+        return this.toISOString(tzInfo);
+    }
+  }
+
+  private toISOString(tzInfo: TZInfo = "UTC"): string {
+    if (tzInfo === "UTC") return this.date().toISOString();
+    return this.sub(TimeStamp.utcOffset).date().toISOString();
+  }
+
+  private timeString(milliseconds: boolean = false, tzInfo: TZInfo = "UTC"): string {
+    const date = this.date();
+    let h, m, s, ms;
+    if (tzInfo === "local")
+      [h, m, s, ms] = [
+        date.getHours(),
+        date.getMinutes(),
+        date.getSeconds(),
+        date.getMilliseconds(),
+      ];
+    else
+      [h, m, s, ms] = [
+        date.getUTCHours(),
+        date.getUTCMinutes(),
+        date.getUTCSeconds(),
+        date.getMilliseconds(),
+      ];
+    let base = `${timeF(h)}:${timeF(m)}:${timeF(s)}`;
+    if (milliseconds) base += `.${timeF(ms, 3)}`;
+    return base;
+  }
+
+  private dateString(tzInfo: TZInfo = "UTC"): string {
+    const date = this.date();
+    const month = date.toLocaleString("default", { month: "short" });
+    const day = date.toLocaleString("default", { day: "numeric" });
+    return `${month} ${day}`;
+  }
+
+  static get utcOffset(): TimeSpan {
+    return new TimeSpan(new Date().getTimezoneOffset() * TimeStamp.MINUTE.valueOf());
   }
 
   /** @returns A JavaScript Date object representing the TimeStamp. */
@@ -172,7 +285,7 @@ export class TimeStamp extends Number {
   }
 
   /** @returns a new TimeStamp n nanoseconds after the unix epoch */
-  static nanoseconds(value: UnparsedTimeStamp): TimeStamp {
+  static nanoseconds(value: number): TimeStamp {
     return new TimeStamp(value);
   }
 
@@ -180,36 +293,49 @@ export class TimeStamp extends Number {
   static readonly NANOSECOND = TimeStamp.nanoseconds(1);
 
   /** @returns a new TimeStamp n microseconds after the unix epoch */
-  static microseconds(value: UnparsedTimeStamp): TimeStamp {
-    return TimeStamp.nanoseconds(value.valueOf() * 1000);
+  static microseconds(value: number): TimeStamp {
+    return TimeStamp.nanoseconds(value * 1000);
   }
 
   /** One microsecond after the unix epoch */
   static readonly MICROSECOND = TimeStamp.microseconds(1);
 
   /** @returns a new TimeStamp n milliseconds after the unix epoch */
-  static milliseconds(value: UnparsedTimeStamp): TimeStamp {
-    return TimeStamp.microseconds(value.valueOf() * 1000);
+  static milliseconds(value: number): TimeStamp {
+    return TimeStamp.microseconds(value * 1000);
   }
 
   /** One millisecond after the unix epoch */
   static readonly MILLISECOND = TimeStamp.milliseconds(1);
 
   /** @returns a new TimeStamp n seconds after the unix epoch */
-  static seconds(value: UnparsedTimeStamp): TimeStamp {
-    return TimeStamp.milliseconds(value.valueOf() * 1000);
+  static seconds(value: number): TimeStamp {
+    return TimeStamp.milliseconds(value * 1000);
   }
 
   /** One second after the unix epoch */
   static readonly SECOND = TimeStamp.seconds(1);
 
   /** @returns a new TimeStamp n minutes after the unix epoch */
-  static minutes(value: UnparsedTimeStamp): TimeStamp {
-    return TimeStamp.seconds(value.valueOf() * 60);
+  static minutes(value: number): TimeStamp {
+    return TimeStamp.seconds(value * 60);
   }
 
   /** One minute after the unix epoch */
   static readonly MINUTE = TimeStamp.minutes(1);
+
+  /** @returns a new TimeStamp n hours after the unix epoch */
+  static hours(value: number): TimeStamp {
+    return TimeStamp.minutes(value * 60);
+  }
+
+  /** One hour after the unix epoch */
+  static readonly HOUR = TimeStamp.hours(1);
+
+  /** @returns a new TimeStamp n days after the unix epoch */
+  static days(value: number): TimeStamp {
+    return TimeStamp.hours(value * 24);
+  }
 
   /** The maximum possible value for a timestamp */
   static readonly MAX = new TimeStamp(TimeStamp.MAX_SAFE_INTEGER);
@@ -280,7 +406,7 @@ export class TimeSpan extends Number {
    * @param value - The number of nanoseconds.
    * @returns A TimeSpan representing the given number of nanoseconds.
    */
-  static nanoseconds(value: UnparsedTimeSpan = 1): TimeSpan {
+  static nanoseconds(value: number = 1): TimeSpan {
     return new TimeSpan(value);
   }
 
@@ -293,8 +419,8 @@ export class TimeSpan extends Number {
    * @param value - The number of microseconds.
    * @returns A TimeSpan representing the given number of microseconds.
    */
-  static microseconds(value: UnparsedTimeStamp = 1): TimeSpan {
-    return TimeSpan.nanoseconds(value.valueOf() * 1000);
+  static microseconds(value: number = 1): TimeSpan {
+    return TimeSpan.nanoseconds(value * 1000);
   }
 
   /** A microsecond. */
@@ -306,8 +432,8 @@ export class TimeSpan extends Number {
    * @param value - The number of milliseconds.
    * @returns A TimeSpan representing the given number of milliseconds.
    */
-  static milliseconds(value: UnparsedTimeStamp = 1): TimeSpan {
-    return TimeSpan.microseconds(value.valueOf() * 1000);
+  static milliseconds(value: number = 1): TimeSpan {
+    return TimeSpan.microseconds(value * 1000);
   }
 
   /** A millisecond. */
@@ -319,8 +445,8 @@ export class TimeSpan extends Number {
    * @param value - The number of seconds.
    * @returns A TimeSpan representing the given number of seconds.
    */
-  static seconds(value: UnparsedTimeStamp = 1): TimeSpan {
-    return TimeSpan.milliseconds(value.valueOf() * 1000);
+  static seconds(value: number = 1): TimeSpan {
+    return TimeSpan.milliseconds(value * 1000);
   }
 
   /** A second. */
@@ -332,7 +458,7 @@ export class TimeSpan extends Number {
    * @param value - The number of minutes.
    * @returns A TimeSpan representing the given number of minutes.
    */
-  static minutes(value: UnparsedTimeStamp = 1): TimeSpan {
+  static minutes(value: number): TimeSpan {
     return TimeSpan.seconds(value.valueOf() * 60);
   }
 
@@ -345,8 +471,8 @@ export class TimeSpan extends Number {
    * @param value - The number of hours.
    * @returns A TimeSpan representing the given number of hours.
    */
-  static hours(value: UnparsedTimeStamp = 1): TimeSpan {
-    return TimeSpan.minutes(value.valueOf() * 60);
+  static hours(value: number): TimeSpan {
+    return TimeSpan.minutes(value * 60);
   }
 
   /** Represents an hour. */
@@ -358,8 +484,8 @@ export class TimeSpan extends Number {
    * @param value - The number of days.
    * @returns A TimeSpan representing the given number of days.
    */
-  static days(value: UnparsedTimeStamp = 1): TimeSpan {
-    return TimeSpan.hours(value.valueOf() * 24);
+  static days(value: number): TimeSpan {
+    return TimeSpan.hours(value * 24);
   }
 
   /** Represents a day. */
@@ -816,7 +942,13 @@ export class Size extends Number {
   static readonly ZERO = new Size(0);
 }
 
-export type UnparsedTimeStamp = TimeStamp | TimeSpan | number | Date;
+export type UnparsedTimeStamp =
+  | TimeStamp
+  | TimeSpan
+  | number
+  | Date
+  | string
+  | DateComponents;
 export type UnparsedTimeSpan = TimeSpan | TimeStamp | number;
 export type UnparsedRate = Rate | number;
 export type UnparsedDensity = Density | number;

@@ -12,12 +12,13 @@ import { useState } from "react";
 import { OntologyID, OntologyRoot } from "@synnaxlabs/client";
 import type { OntologyResource } from "@synnaxlabs/client";
 import type { TreeLeaf, NavDrawerItem } from "@synnaxlabs/pluto";
-import { Tree, Header, Space } from "@synnaxlabs/pluto";
+import { Tree, Space } from "@synnaxlabs/pluto";
 import { AiFillFolder } from "react-icons/ai";
 import { useStore } from "react-redux";
 
 import { resourceTypes } from "../resources";
 
+import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { useClusterClient } from "@/features/cluster";
 import { useLayoutPlacer } from "@/features/layout";
 import { WorkspaceState } from "@/features/workspace";
@@ -65,9 +66,9 @@ const ResourcesTree = (): JSX.Element => {
 
   return (
     <Space empty style={{ height: "100%" }}>
-      <Header level="h4" divided>
-        <Header.Title startIcon={<AiFillFolder />}>Resources</Header.Title>
-      </Header>
+      <ToolbarHeader>
+        <ToolbarTitle icon={<AiFillFolder />}>Resources</ToolbarTitle>
+      </ToolbarHeader>
       <Tree
         data={data}
         style={{ overflowY: "auto", overflowX: "hidden", height: "100%" }}

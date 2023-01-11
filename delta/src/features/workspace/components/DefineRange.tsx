@@ -35,7 +35,8 @@ export const DefineRange = ({
 
   const onSubmit = (data: any): void => {
     const start = data.startDate + data.startTime;
-    const end = data.startDate + data.startTime;
+    const end = data.endDate + data.endTime;
+    console.log({ start, end });
 
     dispatch(
       addRange({
@@ -45,7 +46,7 @@ export const DefineRange = ({
         key: data.name.replace(/\s/g, "").toLowerCase(),
       })
     );
-    onClose();
+    // onClose();
   };
 
   return (
@@ -63,7 +64,7 @@ export const DefineRange = ({
         <Space grow className="delta-form">
           <Input.ItemC control={control} name="name" />
           <Space direction="horizontal">
-            <Input.ItemC<string, InputDateProps>
+            <Input.ItemC<number, InputDateProps>
               name="startDate"
               control={control}
               grow

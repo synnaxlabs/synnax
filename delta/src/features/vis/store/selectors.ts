@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { LinePlotV } from "../line/types";
-import { Visualization } from "../types";
+import { LineVis } from "../line/types";
+import { Vis } from "../types";
 
 import { VisualizationStoreState } from "./slice";
 
@@ -24,10 +24,10 @@ import { selectByKey, selectByKeys, useMemoSelect } from "@/hooks";
  * @returns The visualization with the given key, or undefined if the visualization
  * does not exist.
  */
-export const selectVisualization = (
+export const selectVis = (
   state: VisualizationStoreState & LayoutStoreState,
   layoutKey?: string
-): Visualization | undefined | null =>
+): Vis | undefined | null =>
   selectByKey(
     state.visualization.visualizations,
     layoutKey,
@@ -41,12 +41,9 @@ export const selectVisualization = (
  * @returns The visualization with the given key, or undefined if the visualization
  * does not exist.
  */
-export const useSelectVisualization = (
-  layoutKey?: string
-): Visualization | null | undefined =>
+export const useSelectVis = (layoutKey?: string): Vis | null | undefined =>
   useMemoSelect(
-    (state: VisualizationStoreState & LayoutStoreState) =>
-      selectVisualization(state, layoutKey),
+    (state: VisualizationStoreState & LayoutStoreState) => selectVis(state, layoutKey),
     [layoutKey]
   );
 
@@ -58,16 +55,14 @@ export const useSelectVisualization = (
  * @returns The visualization with the given key, or undefined if the visualization
  * does not exist.
  */
-export const useSelectSugaredVisualization = <V extends Visualization>(
-  layoutKey?: string
-): V | undefined =>
+export const useSelectSVis = <V extends Vis>(layoutKey?: string): V | undefined =>
   useMemoSelect(
     (state: VisualizationStoreState & LayoutStoreState & WorkspaceStoreState) => {
-      const vis = selectVisualization(state, layoutKey);
+      const vis = selectVis(state, layoutKey);
       if (vis == null) return undefined;
       switch (vis.variant) {
         case "linePlot": {
-          const x1Ranges = selectRanges(state, (vis as LinePlotV).ranges.x1);
+          const x1Ranges = selectRanges(state, (vis as LineVis).ranges.x1);
           return { ...vis, ranges: { x1: x1Ranges } };
         }
       }
@@ -76,10 +71,10 @@ export const useSelectSugaredVisualization = <V extends Visualization>(
     [layoutKey]
   ) as V | undefined;
 
-export const selectVisualizations = (
+export const selectMultipleVis = (
   state: VisualizationStoreState & LayoutStoreState,
   layoutKeys?: string[]
-): Visualization[] =>
+): Vis[] =>
   selectByKeys(
     state.visualization.visualizations,
     selectLayouts(state, layoutKeys).map((layout) => layout.key)

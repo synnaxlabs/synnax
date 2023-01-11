@@ -4,34 +4,29 @@ import { Space } from "@synnaxlabs/pluto";
 
 import { SelectAxisInputItem, SelectMultipleAxesInputItem } from "../../../components";
 import { AxisKey } from "../../../types";
-import { LinePlotV, LinePlotVS } from "../../types";
+
+import { ControlledLineVisProps } from "./types";
 
 import { useSelectRanges, SelectMultipleRangesInputItem } from "@/features/workspace";
-import { DeepPartial } from "@/util/types";
-
-export interface LinePlotDataControlsProps {
-  vis: LinePlotVS;
-  onChange: (vis: DeepPartial<LinePlotV>) => void;
-}
 
 export const LinePlotDataControls = ({
   vis,
-  onChange,
-}: LinePlotDataControlsProps): JSX.Element | null => {
+  setVis,
+}: ControlledLineVisProps): JSX.Element | null => {
   const ranges = useSelectRanges();
 
   const handleChannelSelect = useCallback(
     (key: AxisKey, value: readonly string[] | string): void => {
-      onChange({ channels: { [key]: value } });
+      setVis({ channels: { [key]: value } });
     },
-    [onChange]
+    [setVis]
   );
 
   const handleRangeSelect = useCallback(
     (value: readonly string[]): void => {
-      onChange({ ranges: { x1: value } });
+      setVis({ ranges: { x1: value } });
     },
-    [onChange]
+    [setVis]
   );
 
   return (

@@ -9,3 +9,4 @@
 
 export * from "./LayoutMosaic";
 export * from "./LayoutWindow";
+export * from "./GetStarted";
