@@ -12,6 +12,8 @@ import { useState } from "react";
 import type { ComponentMeta } from "@storybook/react";
 import { TimeStamp } from "@synnaxlabs/client";
 
+import { Text } from "../Typography";
+
 import { Input } from ".";
 
 const story: ComponentMeta<typeof Input> = {
@@ -26,12 +28,27 @@ export const Basic = (): JSX.Element => {
 
 export const Time = (): JSX.Element => {
   const [value, setValue] = useState(TimeStamp.now().valueOf());
-  return <Input.Time value={value} onChange={setValue} />;
+  return (
+    <>
+      <Input.Time value={value} onChange={setValue} />;
+      <Text.DateTime level="h1" format="dateTime">
+        {value}
+      </Text.DateTime>
+    </>
+  );
 };
 
 export const Date = (): JSX.Element => {
   const [value, setValue] = useState(TimeStamp.now().valueOf());
-  return <Input.Date value={value} onChange={setValue} />;
+  console.log(value);
+  return (
+    <>
+      <Input.Date value={value} onChange={setValue} />;
+      <Text.DateTime level="h1" format="dateTime">
+        {value}
+      </Text.DateTime>
+    </>
+  );
 };
 
 // eslint-disable-next-line import/no-default-export

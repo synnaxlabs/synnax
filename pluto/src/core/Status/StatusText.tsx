@@ -21,7 +21,7 @@ import { StatusVariant } from "./types";
 
 import { Text, TextProps, TypographyLevel } from "@/core/Typography";
 
-export interface StatusBadgeProps extends Omit<TextProps, "level"> {
+export interface StatusBadgeProps extends Omit<TextProps, "level" | "wrap"> {
   level?: TypographyLevel;
   variant: StatusVariant;
 }

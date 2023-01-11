@@ -18,14 +18,14 @@ import {
 
 import { FrameCache, UnexpectedError } from "@synnaxlabs/client";
 
-import { CanvasRenderingContext } from "../gl/context";
-import { newDefaultRendererRegistry, RenderingContext } from "../gl/render";
-import { TelemetryClient } from "../telem/client";
-import { WebGLBufferCache } from "../telem/glCache";
+import { CanvasRenderingContext } from "../../gl/context";
+import { newDefaultRendererRegistry, RenderingContext } from "../../gl/render";
+import { TelemetryClient } from "../../telem/client";
+import { WebGLBufferCache } from "../../telem/glCache";
 
 import { useClusterClient } from "@/features/cluster";
 
-import "./Canvas.css";
+import "./VisCanvas.css";
 
 export interface VisCanvasContextValue {
   ctx: RenderingContext | null;

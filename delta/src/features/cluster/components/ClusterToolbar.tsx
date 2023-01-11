@@ -19,6 +19,7 @@ import { RenderableCluster } from "../types";
 
 import { ClusterIcon } from "./ClusterIcon";
 
+import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout, useLayoutPlacer } from "@/features/layout";
 
 import "./ClusterToolbar.css";
@@ -51,16 +52,16 @@ const Content = (): JSX.Element => {
     },
   ];
 
-  const handleSelect = ([key]: string[]): void => {
+  const handleSelect = ([key]: readonly string[]): void => {
     dispatch(setActiveCluster(key ?? null));
   };
 
   return (
     <Space empty>
-      <Header level="h4" divided>
-        <Header.Title startIcon={<ClusterIcon />}>Clusters</Header.Title>
+      <ToolbarHeader>
+        <ToolbarTitle icon={<ClusterIcon />}>Clusters</ToolbarTitle>
         <Header.Actions>{actions}</Header.Actions>
-      </Header>
+      </ToolbarHeader>
       <List<RenderableCluster> data={data}>
         <List.Selector value={selected} onChange={handleSelect} allowMultiple={false} />
         <List.Core.Virtual itemHeight={30}>{ListItem}</List.Core.Virtual>

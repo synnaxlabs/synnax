@@ -7,60 +7,44 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { memo, useCallback, useState } from "react";
+import { Space, Text } from "@synnaxlabs/pluto";
 
-import { Channel, KeyedChannelPayload } from "@synnaxlabs/client";
-import { Input, Space, Header, Tabs, Select } from "@synnaxlabs/pluto";
-import type { SelectMultipleProps, SelectProps } from "@synnaxlabs/pluto";
-import { HiChartBar } from "react-icons/hi";
+import { useControlledVis } from "../../hooks";
+import { LinePlotToolBar } from "../../line/components/controls/LinePlotToolbar";
+import { ControlledLineVisProps } from "../../line/components/controls/types";
+import { Vis } from "../../types";
+import { VisCreateButton } from "../VisCreateButton";
 
-import { useUpdateVisualization } from "../../hooks";
-import { AxisKey, LinePlotVS, XAxisKey, YAxisKey } from "../../line/types";
-import { useSelectSugaredVisualization } from "../../store";
+import { VisIcon, VisToolbarTitle } from "./VisToolbarTitle";
 
-import { useClusterClient } from "@/features/cluster";
-import { Range, useSelectRanges } from "@/features/workspace";
-import { useAsyncEffect } from "@/hooks";
+import { ToolbarHeader } from "@/components";
 
-const VisualizationIcon = HiChartBar;
+const NoVisContent = (): JSX.Element => (
+  <Space justify="spaceBetween" style={{ height: "100%" }}>
+    <ToolbarHeader>
+      <VisToolbarTitle />
+    </ToolbarHeader>
+    <Space.Centered>
+      <Text level="h4">No Active Visualization</Text>
+      <VisCreateButton />
+    </Space.Centered>
+  </Space>
+);
 
 const Content = (): JSX.Element => {
-  const props = Tabs.useStatic({
-    tabs: [
-      {
-        tabKey: "channels",
-        title: "Channels",
-        content: <LinePlotChannelControls />,
-      },
-      {
-        tabKey: "annotations",
-        title: "Annotations",
-        content: <h1>Annotations</h1>,
-      },
-      {
-        tabKey: "styles",
-        title: "Styles",
-        content: <h1>Styles</h1>,
-      },
-    ],
-  });
-  return (
-    <Space>
-      <Tabs.Provider value={props}>
-        <Header level="h4" divided>
-          <Header.Title startIcon={<VisualizationIcon />}>Visualization</Header.Title>
-          <Tabs.Selector style={{ borderBottom: "none" }} />
-        </Header>
-        <Tabs.Content />
-      </Tabs.Provider>
-    </Space>
-  );
+  const controlled = useControlledVis<Vis>();
+  if (controlled == null) return <NoVisContent />;
+
+  switch (controlled.vis.variant) {
+    default:
+      return <LinePlotToolBar {...(controlled as ControlledLineVisProps)} />;
+  }
 };
 
-export const VisualizationToolBar = {
+export const VisToolbar = {
   key: "visualization",
   content: <Content />,
-  icon: <VisualizationIcon />,
+  icon: <VisIcon />,
   minSize: 150,
   maxSize: 500,
 };

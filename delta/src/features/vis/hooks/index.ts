@@ -11,19 +11,24 @@
 
 import { useCallback } from "react";
 
+import { DeepPartial } from "react-hook-form";
 import { useDispatch } from "react-redux";
 
-import { updateVisualization as uv } from "../store";
-import { Visualization } from "../types";
+import { updateVis, useSelectSVis } from "../store";
+import { ControlledVisProps, Vis } from "../types";
 
-export const useUpdateVisualization = (
-  key: string
-): (<V extends Visualization>(v: V) => void) => {
-  const d = useDispatch();
-  return useCallback(
-    <V extends Visualization>(v: V): void => {
-      d(uv({ ...v, key }));
-    },
-    [d, key]
+export const useControlledVis = <V extends Vis, SV extends Vis = V>(
+  key?: string
+): ControlledVisProps<V, SV> | undefined => {
+  const dispatch = useDispatch();
+  const sv = useSelectSVis<SV>(key);
+  const onChange = useCallback(
+    (vis: DeepPartial<V>) => dispatch(updateVis(vis as V)),
+    [dispatch]
   );
+  if (sv == null) return undefined;
+  return {
+    vis: sv,
+    setVis: onChange,
+  };
 };

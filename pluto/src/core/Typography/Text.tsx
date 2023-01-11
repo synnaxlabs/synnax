@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { HTMLAttributes, createElement, forwardRef } from "react";
+import { createElement, forwardRef, HTMLProps } from "react";
 
 import clsx from "clsx";
 
@@ -24,7 +24,7 @@ export interface CoreTextProps {
 
 export interface TextProps
   extends CoreTextProps,
-    Omit<HTMLAttributes<HTMLParagraphElement>, "children"> {}
+    Omit<HTMLProps<HTMLParagraphElement>, "children" | "ref"> {}
 
 const typographyLevelTags = {
   h1: "h1",

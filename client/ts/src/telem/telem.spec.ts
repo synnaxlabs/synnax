@@ -22,6 +22,49 @@ describe("TimeStamp", () => {
     expect(ts.equals(TimeSpan.microseconds(10))).toBeTruthy();
   });
 
+  test("construct from local TimeZone", () => {
+    const ts = new TimeStamp(TimeSpan.microseconds(10), "local");
+    expect(ts.equals(TimeSpan.microseconds(10).add(TimeStamp.utcOffset))).toBeTruthy();
+  });
+
+  test("construct from time string", () => {
+    const ts = new TimeStamp("12:30", "UTC");
+    expect(ts.date().getUTCHours()).toEqual(12);
+    expect(ts.equals(TimeSpan.hours(12).add(TimeSpan.minutes(30)))).toBeTruthy();
+    const ts2 = new TimeStamp("12:30:00.22");
+    expect(
+      ts2.equals(
+        TimeSpan.hours(12).add(TimeSpan.minutes(30).add(TimeSpan.milliseconds(22)))
+      )
+    ).toBeTruthy();
+    const ts3 = new TimeStamp("12:30:00.22", "local");
+    expect(
+      ts3.equals(
+        TimeSpan.hours(17).add(TimeSpan.minutes(30).add(TimeSpan.milliseconds(22)))
+      )
+    ).toBeTruthy();
+  });
+
+  test("construct from date", () => {
+    const ts = new TimeStamp([2021, 1, 1], "UTC");
+    expect(ts.date().getUTCFullYear()).toEqual(2021);
+    expect(ts.date().getUTCMonth()).toEqual(0);
+    expect(ts.date().getUTCDate()).toEqual(1);
+    expect(ts.date().getUTCHours()).toEqual(0);
+    expect(ts.date().getUTCMinutes()).toEqual(0);
+  });
+
+  test("construct from date time string", () => {
+    const ts = new TimeStamp("2021-01-01T00:00:00.000Z", "UTC");
+    expect(ts.date().getUTCFullYear()).toEqual(2021);
+    expect(ts.date().getUTCHours()).toEqual(0);
+    const ts2 = new TimeStamp("2021-01-01", "local");
+    console.log(ts2.date().toISOString());
+    expect(ts2.date().getUTCFullYear()).toEqual(2021);
+    expect(ts2.date().getUTCHours()).toEqual(0);
+    expect(ts2.date().getUTCMinutes()).toEqual(0);
+  });
+
   test("span", () => {
     const ts = new TimeStamp(0);
     expect(ts.span(new TimeStamp(1000)).equals(TimeSpan.microseconds())).toBeTruthy();
@@ -90,6 +133,20 @@ describe("TimeStamp", () => {
   test("sub", () => {
     const ts = new TimeStamp(TimeSpan.microseconds());
     expect(ts.sub(TimeSpan.microseconds()).equals(new TimeStamp(0))).toBeTruthy();
+  });
+
+  test("stringification", () => {
+    const ts = new TimeStamp([2022, 12, 15], "UTC")
+      .add(TimeSpan.hours(12))
+      .add(TimeSpan.minutes(20))
+      .add(TimeSpan.milliseconds(12));
+    expect(ts.fString("ISO", "UTC")).toEqual("2022-12-15T12:20:00.012Z");
+    expect(ts.fString("time", "UTC")).toEqual("12:20:00");
+    expect(ts.fString("date", "UTC")).toEqual("Dec 15");
+    if (!TimeStamp.utcOffset.equals(0)) {
+      expect(ts.fString("ISO", "local")).not.toEqual("2022-12-15T12:20:00.012Z");
+      expect(ts.fString("time", "local")).not.toEqual("12:20:00");
+    }
   });
 });
 

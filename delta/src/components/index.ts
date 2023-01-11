@@ -11,3 +11,4 @@ export * from "./Logo";
 export * from "./MainLayout";
 export * from "./Loader";
 export * from "./Select";
+export * from "./Toolbar";

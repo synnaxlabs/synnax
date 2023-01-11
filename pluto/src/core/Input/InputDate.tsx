@@ -9,10 +9,10 @@
 
 import { forwardRef } from "react";
 
+import { TimeStamp } from "@synnaxlabs/client";
+
 import { Input } from "./Input";
 import { InputBaseProps } from "./types";
-
-import { isoStringShortDate, shortDateISOString } from "@/util/time";
 
 export interface InputDateProps extends InputBaseProps<number> {}
 
@@ -20,8 +20,11 @@ export const InputDate = forwardRef<HTMLInputElement, InputDateProps>(
   ({ size = "medium", onChange, value, ...props }, ref) => (
     <Input
       ref={ref}
-      value={shortDateISOString(value)}
-      onChange={(v) => onChange(isoStringShortDate(v))}
+      value={new TimeStamp(value, "UTC").fString("ISODate", "UTC")}
+      onChange={(v) => {
+        if (v.length === 0) return;
+        onChange(new TimeStamp(v, "local").valueOf());
+      }}
       type="date"
       {...props}
     />

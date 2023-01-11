@@ -1,0 +1,10 @@
+.delta-get-started {
+    padding: 10% 2rem;
+    margin-bottom: 20%;
+}
+
+.delta-get-started__logo {
+    width: 75%;
+    max-width: 600px;
+    min-height: 112px;
+}

@@ -18,7 +18,7 @@ import { Typography, TypographyLevel } from "@/core/Typography";
 
 export type HeaderAction = ButtonIconOnlyProps | ReactElement;
 
-interface HeaderActionsProps {
+export interface HeaderActionsProps {
   children: Array<ButtonIconOnlyProps | ReactElement>;
 }
 

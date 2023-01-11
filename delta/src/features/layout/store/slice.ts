@@ -164,7 +164,7 @@ export const {
         state.mosaic.root = Mosaic.removeTab(state.mosaic.root, key);
 
       // If we're moving to a mosaic, insert a tab.
-      if (location === "mosaic") {
+      if (prev?.location !== "mosaic" && location === "mosaic") {
         state.mosaic.root = Mosaic.insertTab(state.mosaic.root, { tabKey: key, title });
         state.mosaic.activeTab = key;
       }
