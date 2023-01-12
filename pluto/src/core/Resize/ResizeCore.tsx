@@ -11,7 +11,7 @@ import { DetailedHTMLProps, HTMLAttributes } from "react";
 
 import clsx from "clsx";
 
-import { Location, getDirection, swapLocation } from "@/spatial";
+import { Location, directionFromLocation, swapLocation } from "@/spatial";
 
 export interface ResizeCoreProps
   extends DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement> {
@@ -30,7 +30,7 @@ export const ResizeCore = ({
   showHandle = true,
   ...props
 }: ResizeCoreProps): JSX.Element => {
-  const direction = getDirection(location);
+  const direction = directionFromLocation(location);
   const parsedStyle: React.CSSProperties = { ...style };
   if (direction === "horizontal") parsedStyle.height = size;
   else parsedStyle.width = size;

@@ -4,7 +4,8 @@
 }
 
 .delta-get-started__logo {
-    width: 75%;
+    width: 60%;
     max-width: 600px;
+    min-width: 250px;
     min-height: 112px;
 }

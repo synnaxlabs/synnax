@@ -25,7 +25,13 @@ import clsx from "clsx";
 import { ResizeCore } from "./ResizeCore";
 
 import { Space, SpaceProps } from "@/core/Space";
-import { Box, Direction, getDirectionalSize, getLocation, useResize } from "@/spatial";
+import {
+  Box,
+  Direction,
+  getDirectionalSize,
+  locationFromDirection,
+  useResize,
+} from "@/spatial";
 
 export interface UseResizeMultipleProps {
   count: number;
@@ -100,8 +106,9 @@ export const useResizeMultiple = ({
   );
 
   const _handleParentResize = useCallback(
-    (box: Box) => setState((prev) => handleParentResize(prev, box, direction, count)),
-    [direction, count]
+    (box: Box) =>
+      setState((prev) => handleParentResize(prev, box, direction, count, minSize)),
+    [direction, count, minSize]
   );
 
   const ref = useResize<HTMLDivElement>(_handleParentResize, { triggers: [direction] });
@@ -132,7 +139,7 @@ export const ResizeMultiple = forwardRef(
     ref: ForwardedRef<HTMLDivElement>
   ) => {
     const children = Children.toArray(_children);
-    const location = getLocation(direction);
+    const location = locationFromDirection(direction);
 
     return (
       <Space
@@ -186,7 +193,6 @@ export const handleResize = (
   if (prev.parentSize === null) return prev;
   const diffPercentage = calculateDiffPercentage(prev, dragging, clientPos, targetSize);
   const [sizeDistribution, changed] = resizeWithSibling(
-    prev.parentSize,
     prev.sizeDistribution,
     dragging,
     diffPercentage,
@@ -200,7 +206,8 @@ export const handleParentResize = (
   prev: ResizeMultipleState,
   box: Box,
   direction: Direction,
-  count: number
+  count: number,
+  minSize: number
 ): ResizeMultipleState => {
   const nextParentSize = getDirectionalSize(direction, box);
   if (prev.parentSize === nextParentSize) return prev;
@@ -210,7 +217,8 @@ export const handleParentResize = (
       parentSize: nextParentSize,
       sizeDistribution: Array.from({ length: count }, (_, i) => 1 / count),
     };
-  const nextSizes = distribute(prev.sizeDistribution, nextParentSize, count);
+  prev = { ...prev, parentSize: nextParentSize };
+  const nextSizes = distribute(prev, count, minSize);
   return { ...prev, parentSize: nextParentSize, sizeDistribution: nextSizes };
 };
 
@@ -237,47 +245,57 @@ export const calculateDiffPercentage = (
 };
 
 export const distribute = (
-  sizes: number[],
-  parentSize: number,
-  count: number
+  _state: ResizeMultipleState,
+  count: number,
+  minSize: number
 ): number[] => {
-  const arePercentages = sizes.every((size) => size <= 1);
-  if (!arePercentages) sizes = sizes.map((size) => size / parentSize);
+  if (_state.parentSize === null)
+    throw new UnexpectedError("parent size is null during distribute");
+  const { parentSize, sizeDistribution: state } = _state;
+  let nextState = [...state];
+  const arePercentages = nextState.every((size) => size <= 1);
+  if (!arePercentages) nextState = nextState.map((size) => size / parentSize);
 
-  const totalSize = sizes.reduce((a, b) => a + b, 0);
+  const totalSize = nextState.reduce((a, b) => a + b, 0);
 
   // If we have fewer sizes than children, we need to approximate the
   // remaining sizes.
-  if (sizes.length < count) {
+  if (nextState.length < count) {
     const diff = 1 - totalSize;
-    const remaining = count - sizes.length;
-    sizes = sizes.concat(Array.from({ length: remaining }, () => diff / remaining));
+    const remaining = count - nextState.length;
+    nextState = nextState.concat(
+      Array.from({ length: remaining }, () => diff / remaining)
+    );
   }
 
   if (totalSize < 0.99 || totalSize > 1.01)
-    sizes = sizes.map((size) => size / totalSize);
+    nextState = nextState.map((size) => size / totalSize);
 
-  return sizes;
+  return nextState;
 };
 
 const resizeWithSibling = (
-  parentSize: number,
   prevDistribution: number[],
   item: number,
   diff: number,
-  minSize: number
+  minSizePercent: number
 ): [number[], boolean] => {
   let next = item;
 
   // The while loops find a pane we can actually resize.
-  while (next > 0 && prevDistribution[next] + diff <= minSize) next--;
+  while (next > 0 && prevDistribution[next] + diff <= minSizePercent) next--;
   const nextSize = prevDistribution[next] + diff;
 
-  const nextSibling = findResizableSibling(next, prevDistribution, minSize, diff);
+  const nextSibling = findResizableSibling(
+    next,
+    prevDistribution,
+    minSizePercent,
+    diff
+  );
   const nextSiblingSize = prevDistribution[nextSibling] - diff;
   // This means we can't resize any panes so we return null to indicate that the next
   // set of sizes should remain the same.
-  if (nextSize <= minSize || nextSiblingSize <= minSize)
+  if (nextSize < minSizePercent || nextSiblingSize < minSizePercent)
     return [prevDistribution, false];
 
   return [

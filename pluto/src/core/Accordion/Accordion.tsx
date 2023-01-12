@@ -38,7 +38,7 @@ export const Accordion = ({
 }: AccordionProps): JSX.Element => {
   const {
     setSize,
-    props: { sizeDistribution: sizes, ...resizeProps },
+    props: { sizeDistribution: sizes, parentSize, ...resizeProps },
   } = Resize.useMultiple({
     direction,
     count: entries.length,
@@ -46,15 +46,16 @@ export const Accordion = ({
   });
 
   const onExpand = (index: number): void => {
-    if (sizes[index] < 40) setSize(index, 200);
+    if (sizes[index] < 40 / parentSize) setSize(index, 200);
     else setSize(index, 28);
   };
 
   return (
     <Resize.Multiple
       empty
-      style={{ height: "100%" }}
+      style={{ height: "100%", overflow: "hidden" }}
       sizeDistribution={sizes}
+      parentSize={parentSize}
       {...resizeProps}
     >
       {entries.map((entry, i) => (
@@ -64,7 +65,7 @@ export const Accordion = ({
           direction={direction}
           onExpand={onExpand}
           index={i}
-          size={sizes[i]}
+          size={sizes[i] * parentSize}
         />
       ))}
     </Resize.Multiple>
@@ -87,7 +88,7 @@ const AccordionEntryC = ({
   onExpand,
   size,
 }: AccordionEntryCProps): JSX.Element => {
-  const expanded = size > 28;
+  const expanded = size > 30;
   return (
     <Space direction={direction} empty style={{ height: "100%" }}>
       <Header
@@ -96,6 +97,7 @@ const AccordionEntryC = ({
           "pluto-accordion__header",
           `pluto-accordion__header--${expanded ? "expanded" : "contracted"}`
         )}
+        empty
       >
         <Header.ButtonTitle
           startIcon={expanded ? <AiFillCaretDown /> : <AiFillCaretRight />}

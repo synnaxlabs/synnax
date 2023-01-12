@@ -177,13 +177,13 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
   }
 
   private buildURL(target: string, md: MetaData): string {
-    const qs = buildQueryString({
-      request: {
+    const qs = buildQueryString(
+      {
         [CONTENT_TYPE_HEADER_KEY]: this.encoder.contentType,
         ...md.params,
       },
-      prefix: FREIGHTER_METADATA_PREFIX,
-    });
+      FREIGHTER_METADATA_PREFIX
+    );
     return this.baseUrl.child(target).toString() + qs;
   }
 

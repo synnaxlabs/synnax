@@ -13,20 +13,25 @@ import { useControlledVis } from "../../hooks";
 import { LinePlotToolBar } from "../../line/components/controls/LinePlotToolbar";
 import { ControlledLineVisProps } from "../../line/components/controls/types";
 import { Vis } from "../../types";
-import { VisCreateButton } from "../VisCreateButton";
 
 import { VisIcon, VisToolbarTitle } from "./VisToolbarTitle";
 
 import { ToolbarHeader } from "@/components";
 
 const NoVisContent = (): JSX.Element => (
-  <Space justify="spaceBetween" style={{ height: "100%" }}>
+  <Space justify="spaceBetween" style={{ height: "100%" }} empty>
     <ToolbarHeader>
       <VisToolbarTitle />
     </ToolbarHeader>
     <Space.Centered>
-      <Text level="h4">No Active Visualization</Text>
-      <VisCreateButton />
+      <Space direction="horizontal" align="center" size="small">
+        <Text level="h4" style={{ color: "var(--pluto-gray-m0)" }}>
+          No Active Visualization. Select a Tab or
+        </Text>
+        <Text.Link level="h4" onClick={console.log}>
+          Create a New One
+        </Text.Link>
+      </Space>
     </Space.Centered>
   </Space>
 );
@@ -45,6 +50,6 @@ export const VisToolbar = {
   key: "visualization",
   content: <Content />,
   icon: <VisIcon />,
-  minSize: 150,
+  minSize: 125,
   maxSize: 500,
 };

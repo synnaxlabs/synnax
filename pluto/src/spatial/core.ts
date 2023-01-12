@@ -9,35 +9,35 @@
  * included in the file licenses/APL.txt.
  */
 
-export type Location = VerticalLocation | HorizontalLocation | CenterLocation;
+export const Positions = ["start", "center", "end"];
+export type Position = typeof Positions[number];
 
-export type VerticalLocation = "top" | "bottom";
-export type HorizontalLocation = "left" | "right";
+export const Orders = ["first", "last"] as const;
+export type Order = typeof Orders[number];
+
+export const VerticalLocations = ["top", "bottom"] as const;
+export type VerticalLocation = typeof VerticalLocations[number];
+export const HorizontalLocations = ["left", "right"] as const;
+export type HorizontalLocation = typeof HorizontalLocations[number];
 export type CenterLocation = "center";
 
-export type Direction = "horizontal" | "vertical";
+export const Locations = [
+  ...VerticalLocations,
+  ...HorizontalLocations,
+  "center",
+] as const;
+export type Location = typeof Locations[number];
 
-export type Position = "start" | "center" | "end";
-
-export type Order = "first" | "last";
-
-export const Locations = ["top", "bottom", "left", "right", "center"];
-
-export const Directions = ["horizontal", "vertical"];
-
+export const Directions = ["horizontal", "vertical"] as const;
+export type Direction = typeof Directions[number];
 export const isDirection = (v: string): boolean => Directions.includes(v as Direction);
 
-export const Positions = ["start", "center", "end"];
-
-export const getDirection = (location: Location): Direction => {
-  return location === "top" || location === "bottom" ? "horizontal" : "vertical";
-};
-export const swapDirection = (direction: Direction): Direction => {
-  return direction === "horizontal" ? "vertical" : "horizontal";
-};
-export const getLocation = (direction: Direction): Location => {
-  return direction === "horizontal" ? "left" : "top";
-};
+export const directionFromLocation = (location: Location): Direction =>
+  VerticalLocations.includes(location as VerticalLocation) ? "horizontal" : "vertical";
+export const swapDirection = (direction: Direction): Direction =>
+  direction === "horizontal" ? "vertical" : "horizontal";
+export const locationFromDirection = (direction: Direction): Location =>
+  direction === "horizontal" ? "left" : "top";
 export const swapLocation = (location: Location): Location => {
   switch (location) {
     case "top":
@@ -55,9 +55,7 @@ export const swapLocation = (location: Location): Location => {
 export const getDirectionalSize = (
   direction: Direction,
   { width, height }: Dimensions
-): number => {
-  return direction === "horizontal" ? width : height;
-};
+): number => (direction === "horizontal" ? width : height);
 
 export interface Dimensions {
   width: number;

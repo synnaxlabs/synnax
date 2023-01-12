@@ -9,9 +9,10 @@
 
 import { ComponentSize } from "@/util/component";
 
+export const TypographyLevels = ["h1", "h2", "h3", "h4", "h5", "p", "small"] as const;
+
 /* Level of typography i.e paragraph and heading */
-export type TypographyLevel = "h1" | "h2" | "h3" | "h4" | "h5" | "p" | "small";
-export const TypographyLevels = ["h1", "h2", "h3", "h4", "h5", "p", "small"];
+export type TypographyLevel = typeof TypographyLevels[number];
 
 export type Size = number | string;
 

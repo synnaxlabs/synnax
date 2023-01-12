@@ -47,7 +47,6 @@ export const {
     },
     updateVis: (state, { payload }: UpdateVisAction) => {
       const vis = state.visualizations[payload.key];
-      if (vis == null) throw new Error(`visualization ${payload.key} does not exist`);
       const res = mergeDeep(vis, payload);
       state.visualizations[payload.key] = res;
     },

@@ -7,16 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Space } from "@synnaxlabs/pluto";
+import { Nav, Space } from "@synnaxlabs/pluto";
 import { appWindow } from "@tauri-apps/api/window";
 
 import { useSelectLayout } from "../store";
 
 import { LayoutContent } from "./LayoutContent";
 
-import { NavTop } from "@/components";
+import { NAV_SIZES } from "@/components";
 
 import "./LayoutWindow.css";
+
+export const NavTop = (): JSX.Element => (
+  <Nav.Bar data-tauri-drag-region location="top" size={NAV_SIZES.top} />
+);
 
 export const LayoutWindow = (): JSX.Element => {
   const { label: key } = appWindow;

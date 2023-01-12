@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { ResizeCore, ResizeCoreProps } from "./ResizeCore";
 
 import { useDrag } from "@/hooks/useDrag";
-import { getDirection, Location } from "@/spatial";
+import { directionFromLocation, Location } from "@/spatial";
 import { clamp } from "@/util/clamp";
 
 import "./Resize.css";
@@ -54,11 +54,15 @@ export const Resize = ({
     [onResize, location, minSize, maxSize, size]
   );
 
+  useEffect(() => {
+    setSize((prev) => ({ ...prev, size: clamp(prev.size, minSize, maxSize) }));
+  }, [minSize, maxSize]);
+
   const dragProps = useDrag({
     onStart: (e) => {
       setSize((prev) => ({
         ...prev,
-        root: getDirection(location) === "vertical" ? e.clientX : e.clientY,
+        root: directionFromLocation(location) === "vertical" ? e.clientX : e.clientY,
         marker: prev.size,
       }));
     },
@@ -87,7 +91,7 @@ export const calcNextSize = (
   maxSize: number
 ): ResizeState => {
   if (prev.root === null || prev.marker === null) return prev;
-  const curr = getDirection(location) === "vertical" ? e.clientX : e.clientY;
+  const curr = directionFromLocation(location) === "vertical" ? e.clientX : e.clientY;
   let mov = curr - prev.root;
   if (location === "right" || location === "bottom") mov *= -1;
   return {

@@ -29,7 +29,11 @@ export interface SelectMultipleRangesInputItemProps
 export const SelectMultipleRangesInputItem = (
   props: SelectMultipleRangesInputItemProps
 ): JSX.Element => (
-  <Input.Item<readonly string[], SelectMultipleRangesProps> label="Ranges:" {...props}>
+  <Input.Item<readonly string[], SelectMultipleRangesProps>
+    direction="horizontal"
+    label="Ranges:"
+    {...props}
+  >
     {SelectMultipleRanges}
   </Input.Item>
 );
