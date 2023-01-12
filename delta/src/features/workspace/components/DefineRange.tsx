@@ -33,20 +33,33 @@ export const DefineRange = ({
   });
   const dispatch = useDispatch();
 
-  const onSubmit = (data: any): void => {
-    const start = data.startDate + data.startTime;
-    const end = data.endDate + data.endTime;
-    console.log({ start, end });
+  interface DefineRangeFormProps {
+    name: string;
+    startDate: number;
+    startTime: number;
+    endDate: number;
+    endTime: number;
+  }
+
+  const onSubmit = ({
+    name,
+    startDate,
+    startTime,
+    endDate,
+    endTime,
+  }: DefineRangeFormProps): void => {
+    const start = startDate + startTime;
+    const end = endDate + endTime;
 
     dispatch(
       addRange({
-        name: data.name,
+        name,
         start,
         end,
-        key: data.name.replace(/\s/g, "").toLowerCase(),
+        key: name.replace(/\s/g, "").toLowerCase(),
       })
     );
-    // onClose();
+    onClose();
   };
 
   return (

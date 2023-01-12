@@ -51,7 +51,7 @@ export interface NavDrawerState {
 export interface NavdrawerEntryState {
   activeItem: string | null;
   menuItems: string[];
-  size: number;
+  size?: number;
 }
 
 /**
@@ -95,17 +95,14 @@ const initialState: LayoutState = {
       left: {
         activeItem: null,
         menuItems: ["clusters", "resources"],
-        size: 0,
       },
       right: {
         activeItem: null,
         menuItems: ["workspace"],
-        size: 0,
       },
       bottom: {
         activeItem: null,
         menuItems: ["visualization"],
-        size: 0,
       },
     },
   },

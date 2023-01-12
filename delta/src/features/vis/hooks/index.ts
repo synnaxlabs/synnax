@@ -23,8 +23,11 @@ export const useControlledVis = <V extends Vis, SV extends Vis = V>(
   const dispatch = useDispatch();
   const sv = useSelectSVis<SV>(key);
   const onChange = useCallback(
-    (vis: DeepPartial<V>) => dispatch(updateVis(vis as V)),
-    [dispatch]
+    (vis: DeepPartial<V>) => {
+      if (sv?.key == null) return;
+      dispatch(updateVis({ ...vis, key: sv?.key }));
+    },
+    [dispatch, sv?.key]
   );
   if (sv == null) return undefined;
   return {

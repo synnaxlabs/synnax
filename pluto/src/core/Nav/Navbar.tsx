@@ -18,7 +18,13 @@ import React, {
 import clsx from "clsx";
 
 import { Space } from "@/core/Space";
-import { Direction, Location, Position, getDirection, swapLocation } from "@/spatial";
+import {
+  Direction,
+  Location,
+  Position,
+  directionFromLocation,
+  swapLocation,
+} from "@/spatial";
 
 import "./Navbar.css";
 
@@ -43,7 +49,7 @@ export const useNavbar = ({
   direction: Direction;
 } => {
   const style: CSSProperties = {};
-  const direction = getDirection(location);
+  const direction = directionFromLocation(location);
   if (direction === "horizontal") style.height = size;
   else style.width = size;
   return { style, direction };
@@ -71,7 +77,7 @@ const CoreNavbar = ({
       className={clsx(
         "pluto-navbar",
         `pluto-bordered--${swapLocation(location)}`,
-        `pluto-navbar--${getDirection(location)}`,
+        `pluto-navbar--${directionFromLocation(location)}`,
         className
       )}
       direction={direction}

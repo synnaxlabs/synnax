@@ -10,13 +10,14 @@
 import { Dispatch, useCallback } from "react";
 
 import type { AnyAction } from "@reduxjs/toolkit";
+import { Size } from "@synnaxlabs/client/dist/telem";
 import { closeWindow, createWindow, MAIN_WINDOW } from "@synnaxlabs/drift";
-import type {
+import {
   NavDrawerItem,
-  UseNavDrawerReturn,
   ThemeProviderProps,
   NavMenuItem,
   NavDrawerContent,
+  useDebouncedCallback,
 } from "@synnaxlabs/pluto";
 import { appWindow } from "@tauri-apps/api/window";
 import type { Theme as TauriTheme } from "@tauri-apps/api/window";
@@ -138,6 +139,13 @@ const setInitialTheme = async (dispatch: Dispatch<AnyAction>): Promise<void> => 
   dispatch(setActiveTheme(matchThemeChange({ payload: t })));
 };
 
+export interface UseNavDrawerReturn {
+  activeItem: NavDrawerContent | undefined;
+  menuItems: NavMenuItem[];
+  onSelect: (item: string) => void;
+  onResize: (size: number) => void;
+}
+
 export const useNavDrawer = (
   loc: NavdrawerLocation,
   items: NavDrawerItem[]
@@ -149,6 +157,18 @@ export const useNavDrawer = (
   if (state.activeItem != null)
     activeItem = items.find((item) => item.key === state.activeItem);
   menuItems = items.filter((item) => state.menuItems.includes(item.key));
+
+  const onResize = useDebouncedCallback(
+    (size) => {
+      console.log(size);
+      dispatch(setNavdrawerEntryState({ location: loc, state: { size } }));
+    },
+    100,
+    [dispatch]
+  );
+
+  if (activeItem != null) activeItem.initialSize = state.size;
+
   return {
     activeItem,
     menuItems,
@@ -161,5 +181,6 @@ export const useNavDrawer = (
           },
         })
       ),
+    onResize,
   };
 };

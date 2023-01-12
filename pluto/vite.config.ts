@@ -17,7 +17,7 @@ export default defineConfig({
     sourcemap: true,
     minify: false,
     rollupOptions: {
-      external: ["react", "react-dom"],
+      external: ["react", "react-dom", "react-hook-form"],
       output: {
         globals: {
           react: "React",

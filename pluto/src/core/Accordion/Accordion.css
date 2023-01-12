@@ -1,5 +1,5 @@
 .pluto-accordion__header {
-    background: var(--pluto-background);
+    background: var(--pluto-background-color);
 }
 
 .pluto-accordion__header--expanded {

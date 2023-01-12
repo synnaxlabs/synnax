@@ -11,7 +11,7 @@ import { List } from "@synnaxlabs/pluto";
 
 import { RenderableLayout, useSelectLayouts } from "@/features/layout";
 
-export const LayoutList = (): JSX.Element => {
+export const VisList = (): JSX.Element => {
   const layouts = useSelectLayouts().filter(
     (layout) => layout.type === "visualization"
   );

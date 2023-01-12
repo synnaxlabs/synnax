@@ -15,6 +15,7 @@ import { NavbarProps, useNavbar } from "./Navbar";
 import { NavMenuItem } from "./NavMenu";
 
 import { Resize, ResizeProps } from "@/core/Resize";
+import { clamp } from "@/util/clamp";
 
 import "./Navdrawer.css";
 
@@ -65,7 +66,9 @@ export const Navdrawer = ({
 }: NavDrawerProps): JSX.Element | null => {
   const { direction } = useNavbar(props);
   if (activeItem == null) return null;
-  const { content, maxSize, minSize, initialSize } = activeItem;
+  const { content, maxSize, minSize } = activeItem;
+  let { initialSize } = activeItem;
+  if (initialSize != null) initialSize = clamp(initialSize, minSize, maxSize);
   return (
     <Resize
       className={clsx(

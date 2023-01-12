@@ -115,12 +115,13 @@ export interface NavDrawerProps {
 }
 
 export const NavDrawer = ({ location }: NavDrawerProps): JSX.Element => {
-  const { activeItem } = useNavDrawer(location, NAV_DRAWERS);
+  const { activeItem, onResize } = useNavDrawer(location, NAV_DRAWERS);
   return (
     <Nav.Drawer
       location={location}
       activeItem={activeItem}
       style={{ flexShrink: 0, flexGrow: 0 }}
+      onResize={onResize}
     />
   );
 };

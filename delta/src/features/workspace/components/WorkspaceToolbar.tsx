@@ -12,8 +12,8 @@ import type { NavDrawerItem } from "@synnaxlabs/pluto";
 import { AiOutlinePlus } from "react-icons/ai";
 import { MdWorkspacesFilled } from "react-icons/md";
 
-import { LayoutList } from "./LayoutList";
 import { RangesList } from "./RangesList";
+import { VisList } from "./VisList";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout, useLayoutPlacer } from "@/features/layout";
@@ -25,7 +25,7 @@ const rangeWindowLayout: Layout = {
   location: "window",
   window: {
     resizable: false,
-    height: 335,
+    height: 340,
     width: 550,
     navTop: true,
   },
@@ -53,9 +53,9 @@ const Content = (): JSX.Element => {
             ],
           },
           {
-            key: "layouts",
-            title: "Layouts",
-            content: <LayoutList />,
+            key: "visualizations",
+            title: "Visualizations",
+            content: <VisList />,
           },
         ]}
       />
