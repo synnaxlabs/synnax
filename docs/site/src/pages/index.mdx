@@ -5,20 +5,28 @@ sidebar_label: Get Started
 title: ""
 ---
 
-import Tabs from "@theme/Tabs";
-import TabItem from "@theme/TabItem";
-import Logo from "../src/components/Logo/Logo";
-import { Space } from "@synnaxlabs/pluto";
 
-<Space
-  direction="horizontal"
-  align="center"
-  size="large"
-  justify="center"
-  style={{ margin: "50px 0" }}
->
-  <Logo variant="title" style={{ width: "50%" }} />
-</Space>
+import {Logo} from "../Logo"
+import {Space} from "@synnaxlabs/pluto"
+
+[//]: # (<Space)
+
+[//]: # (    client:only="react")
+
+[//]: # (    direction="horizontal")
+
+[//]: # (    align="center")
+
+[//]: # (    size="large")
+
+[//]: # (    justify="center")
+
+[//]: # (    style={{margin: "50px 0"}})
+
+[//]: # (>)
+ <Logo variant="title" style={{width: "50%"}}/>
+
+[//]: # (</Space>)
 
 # Get Started
 
@@ -32,11 +40,6 @@ If you're interested in contributing to Synnax, check out the [New Developer Gui
 and read through our [Technical RFCs](../category/technical-rfcs).
 
 ## Starting a Single Node Cluster
-
-```mdx-code-block
-<Tabs>
-<TabItem value="docker" label="Docker">
-```
 
 The easiest way to get started with synnax is by pulling the docker image and running it
 locally. To do this, you'll need [Docker](https://docs.docker.com/get-docker/) installed
@@ -63,11 +66,6 @@ purposes.
 
 `--insecure` - Tells the node to run without authenticating or encrypting requests. This
 is useful for development and testing purposes, but should not be used in production.
-
-```mdx-code-block
-</TabItem>
-</Tabs>
-```
 
 ## Connecting to the Node
 

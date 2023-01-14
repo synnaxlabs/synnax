@@ -33,13 +33,13 @@
     "react-redux": "^8.0.4"
   },
   "devDependencies": {
-    "@synnaxlabs/tsconfig": "*",
-    "@vitejs/plugin-react": "^2.2.0",
-    "eslint-config-synnaxlabs": "*",
+    "@synnaxlabs/tsconfig": "workspace:*",
+    "@synnaxlabs/vite-plugin": "workspace:*",
+    "@vitejs/plugin-react": "^3.0.1",
+    "eslint-config-synnaxlabs": "workspace:*",
     "typescript": "^4.9.4",
     "vite": "^4.0.3",
     "vite-plugin-lib": "^1.0.1",
-    "@synnaxlabs/vite-plugin": "*",
     "vitest": "^0.26.2"
   },
   "files": [

@@ -1,0 +1,11 @@
+packages:
+  - "freighter/ts"
+  - "client/ts"
+  - "delta"
+  - "pluto"
+  - "drift"
+  - "configs/ts"
+  - "configs/eslint"
+  - "configs/stylelint"
+  - "configs/vite"
+  - "docs/site"

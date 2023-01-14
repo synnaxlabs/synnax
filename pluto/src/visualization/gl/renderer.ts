@@ -20,8 +20,6 @@ export interface GLRenderer<R> extends Compiler {
   render: (ctx: GLContext, req: R) => void;
 }
 
-const DPR = window.devicePixelRatio ?? 1;
-
 export class GLContext {
   readonly gl: WebGLRenderingContext;
   readonly registry: GLRendererRegistry;
@@ -42,7 +40,7 @@ export class GLContext {
   }
 
   get dpr(): number {
-    return DPR;
+    return  window.devicePixelRatio ?? 1;
   }
 
   scale(box: Box): XY {
@@ -65,8 +63,8 @@ export class GLContext {
 
   private normalizeDims(dims: XY): XY {
     return {
-      x: (dims.x * DPR) / this.canvas.width,
-      y: (dims.y * DPR) / this.canvas.height,
+      x: (dims.x * this.dpr) / this.canvas.width,
+      y: (dims.y * this.dpr) / this.canvas.height,
     };
   }
 
@@ -90,7 +88,7 @@ export class GLContext {
     const { canvas } = this;
     const { clientWidth: dw, clientHeight: dh, width: w, height: h } = canvas;
     const needResize = w !== dw || h !== dh;
-    if (needResize) [canvas.width, canvas.height] = [dw * DPR, dh * DPR];
+    if (needResize) [canvas.width, canvas.height] = [dw * this.dpr, dh * this.dpr];
     return needResize;
   }
 }

@@ -43,7 +43,7 @@ optional = false
 python-versions = ">=3.7"
 
 [package.dependencies]
-colorama = {version = "*", markers = "platform_system == \"Windows\""}
+colorama = {version = "workspace:*", markers = "platform_system == \"Windows\""}
 
 [[package]]
 name = "colorama"
@@ -62,7 +62,7 @@ optional = false
 python-versions = ">=3.7"
 
 [package.dependencies]
-tomli = {version = "*", optional = true, markers = "python_full_version <= \"3.11.0a6\" and extra == \"toml\""}
+tomli = {version = "workspace:*", optional = true, markers = "python_full_version <= \"3.11.0a6\" and extra == \"toml\""}
 
 [package.extras]
 toml = ["tomli"]
@@ -84,7 +84,7 @@ version = "1.1.1"
 description = "iniconfig: brain-dead simple config-ini parsing"
 category = "dev"
 optional = false
-python-versions = "*"
+python-versions = "workspace:*"
 
 [[package]]
 name = "isort"
@@ -117,7 +117,7 @@ version = "1.0.4"
 description = "MessagePack serializer"
 category = "main"
 optional = false
-python-versions = "*"
+python-versions = "workspace:*"
 
 [[package]]
 name = "mypy"
@@ -143,7 +143,7 @@ version = "0.4.3"
 description = "Experimental type system extensions for programs checked with the mypy typechecker."
 category = "dev"
 optional = false
-python-versions = "*"
+python-versions = "workspace:*"
 
 [[package]]
 name = "packaging"
@@ -224,10 +224,10 @@ python-versions = ">=3.7"
 
 [package.dependencies]
 attrs = ">=19.2.0"
-colorama = {version = "*", markers = "sys_platform == \"win32\""}
+colorama = {version = "workspace:*", markers = "sys_platform == \"win32\""}
 exceptiongroup = {version = ">=1.0.0rc8", markers = "python_version < \"3.11\""}
-iniconfig = "*"
-packaging = "*"
+iniconfig = "workspace:*"
+packaging = "workspace:*"
 pluggy = ">=0.12,<2.0"
 tomli = {version = ">=1.0.0", markers = "python_version < \"3.11\""}
 

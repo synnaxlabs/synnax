@@ -39,17 +39,6 @@
         "fix:drift": "npx turbo fix --filter drift",
         "devtools": "npx turbo devtools --filter delta"
     },
-    "workspaces": [
-        "freighter/ts",
-        "client/ts",
-        "delta",
-        "pluto",
-        "drift",
-        "configs/ts",
-        "configs/eslint",
-        "configs/stylelint",
-        "configs/vite"
-    ],
     "devDependencies": {
         "turbo": "^1.6.2"
     },
