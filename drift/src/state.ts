@@ -21,7 +21,7 @@ import { Runtime } from "@/runtime";
 import { KeyedWindowProps, Window, WindowProps, WindowState } from "@/window";
 
 /** The Slice State */
-interface DriftState {
+export interface DriftState {
   key: string;
   windows: Record<string, Window>;
 }

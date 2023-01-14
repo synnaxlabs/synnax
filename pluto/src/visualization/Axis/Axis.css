@@ -1,0 +1,10 @@
+.pluto-axis text {
+    font-family: var(--pluto-font-family);
+    font-size: var(--pluto-tiny-size);
+    fill: var(--pluto-gray-p1);
+}
+
+.pluto-axis line {
+    stroke: var(--pluto-gray-m2);
+    stroke-width: 1px;
+}

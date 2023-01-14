@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ChannelPayload } from "@synnaxlabs/client";
 import { Space } from "@synnaxlabs/pluto";
 
-import { SelectAxisInputItem, SelectMultipleAxesInputItem } from "../../../components";
+import { SelectAxisInputItem, SelectMultipleAxesInputItem } from "../..";
 import { AxisKey } from "../../../types";
 
 import { ControlledLineVisProps } from "./types";
@@ -28,22 +28,20 @@ export const LinePlotChannelControls = ({
     setChannels(ch.map((ch) => ch.payload));
   }, [client]);
 
-  const handleChannelSelect = useCallback(
-    (key: AxisKey, value: readonly string[] | string): void => {
-      setVis({ channels: { [key]: value } });
-    },
-    [setVis]
-  );
+  const handleChannelSelect = (
+    key: AxisKey,
+    value: readonly string[] | string
+  ): void => {
+    console.log("key", setVis.key);
+    setVis({ channels: { [key]: value } });
+  };
 
-  const handleRangeSelect = useCallback(
-    (value: readonly string[]): void => {
-      setVis({ ranges: { x1: value } });
-    },
-    [setVis]
-  );
+  const handleRangeSelect = (value: readonly string[]): void => {
+    setVis({ ranges: { x1: value } });
+  };
 
   return (
-    <Space style={{ padding: "2rem", maxWidth: "100%" }}>
+    <Space style={{ padding: "2rem", width: "100%" }}>
       <SelectMultipleAxesInputItem
         axis={"y1"}
         onChange={handleChannelSelect}
@@ -51,19 +49,20 @@ export const LinePlotChannelControls = ({
         data={channels}
         grow
       />
-      <Space direction="horizontal" grow>
+      <Space direction="horizontal" grow wrap>
+        <SelectMultipleRangesInputItem
+          data={ranges}
+          onChange={handleRangeSelect}
+          value={vis.ranges.x1.map((v) => v.key)}
+          grow
+        />
+
         <SelectAxisInputItem
           axis={"x1"}
           onChange={handleChannelSelect}
           value={vis.channels.x1}
           data={channels}
           style={{ width: "25%" }}
-        />
-        <SelectMultipleRangesInputItem
-          data={ranges}
-          onChange={handleRangeSelect}
-          value={vis.ranges.x1.map((v) => v.key)}
-          style={{ width: "75%" }}
         />
       </Space>
     </Space>

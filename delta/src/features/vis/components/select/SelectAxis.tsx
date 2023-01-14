@@ -28,7 +28,7 @@ export const SelectMultipleAxesInputItem = ({
   <Input.Item<readonly string[], SelectMultipleChannelsProps>
     direction="horizontal"
     label={axisLabel(axis) + ":"}
-    onChange={useCallback((v) => onChange(axis, v), [])}
+    onChange={useCallback((v) => onChange(axis, v), [onChange, axis])}
     tagKey="name"
     {...props}
   >
@@ -50,7 +50,7 @@ export const SelectAxisInputItem = ({
   <Input.Item<string, SelectChannelProps>
     direction="horizontal"
     label={axisLabel(axis) + ":"}
-    onChange={useCallback((v) => onChange(axis, v), [axis])}
+    onChange={useCallback((v) => onChange(axis, v), [axis, onChange])}
     tagKey="name"
     {...props}
   >

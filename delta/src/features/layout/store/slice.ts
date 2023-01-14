@@ -145,6 +145,7 @@ export const {
     resizeLayoutMosaicTab,
     renameLayoutMosaicTab,
     setNavdrawerEntryState,
+    maybeCreateGetStartedTab,
   },
   reducer: layoutReducer,
 } = createSlice({
@@ -230,6 +231,19 @@ export const {
       state.nav.drawer[location] = {
         ...state.nav.drawer[location],
         ...entryState,
+      };
+    },
+    maybeCreateGetStartedTab: (state) => {
+      if (Object.values(state.layouts).length > 1) return;
+      state.mosaic.root = Mosaic.insertTab(state.mosaic.root, {
+        tabKey: "getStarted",
+        title: "Get Started",
+      });
+      state.layouts.getStarted = {
+        title: "Get Started",
+        key: "getStarted",
+        location: "mosaic",
+        type: "getStarted",
       };
     },
   },

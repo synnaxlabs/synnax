@@ -66,6 +66,7 @@ export interface Theme {
     h5: TypographySpec;
     p: TypographySpec;
     small: TypographySpec;
+    tiny: TypographySpec;
   };
 }
 
@@ -163,6 +164,11 @@ const synnaxBase: Theme = {
       size: 2,
       weight: 300,
       lineHeight: 2 + 1 / 3,
+    },
+    tiny: {
+      size: 1.5,
+      weight: 300,
+      lineHeight: 1.5 + 1 / 3,
     },
   },
 };

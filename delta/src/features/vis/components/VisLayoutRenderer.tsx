@@ -12,10 +12,11 @@ import { memo } from "react";
 import { UnexpectedError } from "@synnaxlabs/client";
 import { useDispatch } from "react-redux";
 
-import { LinePlot } from "../line/components/LinePlot";
-import { LineSVis } from "../line/types";
 import { setVis, useSelectSVis } from "../store";
 import { Vis } from "../types";
+
+import { LinePlot } from "./line/LinePlot";
+import { LineSVis } from "./line/types";
 
 import { LayoutRenderer, LayoutRendererProps } from "@/features/layout";
 

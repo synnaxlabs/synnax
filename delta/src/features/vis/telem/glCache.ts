@@ -9,7 +9,7 @@
 
 import { TArray, UnexpectedError } from "@synnaxlabs/client";
 
-export interface WebGLBufferController {
+export interface GLBufferController {
   createBuffer: () => WebGLBuffer | null;
   bindBuffer: (target: number, buffer: WebGLBuffer | null) => void;
   bufferData: (target: number, size: ArrayBufferLike, usage: number) => void;
@@ -18,11 +18,11 @@ export interface WebGLBufferController {
   STATIC_DRAW: number;
 }
 
-export class WebGLBufferCache {
-  gl: WebGLBufferController;
+export class GLBufferCache {
+  gl: GLBufferController;
   entries: Record<string, Record<string, CacheEntry>>;
 
-  constructor(gl: WebGLBufferController) {
+  constructor(gl: GLBufferController) {
     this.gl = gl;
     this.entries = {};
   }

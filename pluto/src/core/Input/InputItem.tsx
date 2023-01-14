@@ -23,8 +23,8 @@ import {
   SpaceExtensionProps,
   SpaceJustification,
 } from "@/core/Space";
-import { camelToTitle } from "@/util/case";
 import { Direction } from "@/spatial";
+import { camelToTitle } from "@/util/case";
 
 import "./InputItem.css";
 

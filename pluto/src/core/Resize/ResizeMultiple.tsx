@@ -210,7 +210,6 @@ export const handleParentResize = (
   minSize: number
 ): ResizeMultipleState => {
   const nextParentSize = getDirectionalSize(direction, box);
-  if (prev.parentSize === nextParentSize) return prev;
   if (prev.parentSize == null && prev.sizeDistribution.length !== count)
     return {
       ...prev,

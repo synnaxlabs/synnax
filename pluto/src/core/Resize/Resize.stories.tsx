@@ -33,8 +33,7 @@ Primary.args = {
 
 export const Multiple: ComponentStory<typeof Resize.Multiple> = () => {
   const { props } = Resize.useMultiple({
-    count: 2,
-    initialSizes: [0.25],
+    count: 3,
   });
   return (
     <Resize.Multiple
@@ -43,6 +42,7 @@ export const Multiple: ComponentStory<typeof Resize.Multiple> = () => {
     >
       <h1>Hello From One</h1>
       <h1>Hello From Two</h1>
+      <h1>Hello From Three</h1>
     </Resize.Multiple>
   );
 };

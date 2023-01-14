@@ -10,8 +10,8 @@
 import { Space, Text } from "@synnaxlabs/pluto";
 
 import { useControlledVis } from "../../hooks";
-import { LinePlotToolBar } from "../../line/components/controls/LinePlotToolbar";
-import { ControlledLineVisProps } from "../../line/components/controls/types";
+import { LinePlotToolBar } from "../line/controls/LinePlotToolbar";
+import { ControlledLineVisProps } from "../line/controls/types";
 import { Vis } from "../../types";
 
 import { VisIcon, VisToolbarTitle } from "./VisToolbarTitle";
@@ -42,7 +42,7 @@ const Content = (): JSX.Element => {
 
   switch (controlled.vis.variant) {
     default:
-      return <LinePlotToolBar {...(controlled as ControlledLineVisProps)} />;
+      return <LinePlotToolBar {...(controlled as unknown as ControlledLineVisProps)} />;
   }
 };
 
@@ -51,5 +51,5 @@ export const VisToolbar = {
   content: <Content />,
   icon: <VisIcon />,
   minSize: 125,
-  maxSize: 500,
+  maxSize: 250,
 };

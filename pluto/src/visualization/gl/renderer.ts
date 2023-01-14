@@ -1,0 +1,96 @@
+import { UnexpectedError } from "@synnaxlabs/client";
+
+import { Compiler } from "./compiler";
+import { GLRendererRegistry } from "./registry";
+import { ScissoredGLRenderer, ScissoredRenderRequest } from "./scissor";
+import { RenderingUnits } from "./types";
+
+import { Box, calculateBottomOffset, CSSBox, XY } from "@/spatial";
+
+/**
+ * A renderer for a specific type of entity. A renderer should not maintain any internal
+
+ * state relating to specific entities, but should instead rely on the request properties
+ * to determine how to render it.
+ */
+export interface GLRenderer<R> extends Compiler {
+  /** Type is a unique type for the renderer. */
+  type: string;
+  /** Renders the given entity under the RenderingContext.  */
+  render: (ctx: GLContext, req: R) => void;
+}
+
+const DPR = window.devicePixelRatio ?? 1;
+
+export class GLContext {
+  readonly gl: WebGLRenderingContext;
+  readonly registry: GLRendererRegistry;
+  private readonly canvas: HTMLCanvasElement;
+
+  constructor(canvas: HTMLCanvasElement, registry: GLRendererRegistry) {
+    this.canvas = canvas;
+    const gl = canvas.getContext("webgl", { preserveDrawingBuffer: true });
+    if (gl == null) throw new UnexpectedError("Could not get WebGL context");
+    this.gl = gl;
+    this.registry = registry;
+    this.registry.compile(this.gl);
+  }
+
+  get aspect(): number {
+    const b = this.canvasBox;
+    return b.width / b.height;
+  }
+
+  get dpr(): number {
+    return DPR;
+  }
+
+  scale(box: Box): XY {
+    const c = this.canvasBox;
+    return { x: box.width / c.width, y: box.height / c.height };
+  }
+
+  private offsetPx(box: Box): XY {
+    const c = this.canvasBox;
+    const relLeft = box.left - c.left;
+    const bot = calculateBottomOffset(c, box);
+    return { y: bot, x: relLeft };
+  }
+
+  offset(box: Box, units: RenderingUnits = "decimal"): XY {
+    const dims = this.offsetPx(box);
+    if (units === "decimal") return this.normalizeDims(dims);
+    return dims;
+  }
+
+  private normalizeDims(dims: XY): XY {
+    return {
+      x: (dims.x * DPR) / this.canvas.width,
+      y: (dims.y * DPR) / this.canvas.height,
+    };
+  }
+
+  scissor<R extends ScissoredRenderRequest>(
+    wrap: GLRenderer<R>,
+    overscan?: XY
+  ): ScissoredGLRenderer<R> {
+    return new ScissoredGLRenderer<R>(wrap, overscan);
+  }
+
+  private get canvasBox(): Box {
+    return new CSSBox(this.canvas.getBoundingClientRect());
+  }
+
+  refreshCanvas(): void {
+    if (this.maybeResetDisplaySize())
+      this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+  }
+
+  private maybeResetDisplaySize(): boolean {
+    const { canvas } = this;
+    const { clientWidth: dw, clientHeight: dh, width: w, height: h } = canvas;
+    const needResize = w !== dw || h !== dh;
+    if (needResize) [canvas.width, canvas.height] = [dw * DPR, dh * DPR];
+    return needResize;
+  }
+}

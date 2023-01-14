@@ -18,16 +18,16 @@ import {
   Frame,
 } from "@synnaxlabs/client";
 
-import { WebGLBufferCache } from "./glCache";
+import { GLBufferCache } from "./glCache";
 
 import { Range } from "@/features/workspace";
 
 export class TelemetryClient {
-  private readonly glCache: WebGLBufferCache;
+  private readonly glCache: GLBufferCache;
   private readonly client: Synnax;
   private readonly frameCache: FrameCache;
 
-  constructor(glCache: WebGLBufferCache, client: Synnax, frameCache: FrameCache) {
+  constructor(glCache: GLBufferCache, client: Synnax, frameCache: FrameCache) {
     this.frameCache = frameCache;
     this.glCache = glCache;
     this.client = client;

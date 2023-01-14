@@ -11,12 +11,15 @@ import { ReactElement } from "react";
 
 import { OntologyID } from "@synnaxlabs/client";
 import type { OntologyResourceType } from "@synnaxlabs/client";
+import { ONE_XY, ZERO_XY } from "@synnaxlabs/pluto";
 import { AiFillDatabase } from "react-icons/ai";
 import { MdOutlineDeviceHub, MdSensors } from "react-icons/md";
 
+import { LineVis } from "../vis/components/line/types";
+
 import { ClusterIcon } from "@/features/cluster";
 import { LayoutPlacer } from "@/features/layout";
-import { LinePlotVisualization, createVisualization } from "@/features/vis";
+import { createVisualization } from "@/features/vis";
 import { WorkspaceState } from "@/features/workspace";
 
 export interface SelectionContext {
@@ -54,17 +57,19 @@ export const resourceTypes: Record<string, ResourceType> = {
     hasChildren: false,
     onSelect: ({ placer, id, workspace }: SelectionContext) => {
       placer(
-        createVisualization<LinePlotVisualization>({
+        createVisualization<LineVis>({
           channels: {
             y1: [id.key],
             y2: [],
             y3: [],
             y4: [],
-            x1: "",
+            x1: undefined,
           },
           ranges: {
             x1: workspace.activeRange != null ? [workspace.activeRange] : [],
           },
+          zoom: ONE_XY,
+          pan: ZERO_XY,
         })
       );
     },

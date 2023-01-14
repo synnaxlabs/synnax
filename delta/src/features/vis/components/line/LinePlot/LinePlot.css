@@ -9,7 +9,22 @@
  * included in the file licenses/APL.txt.
  */
 
-/* stylelint-disable-next-line selector-class-pattern */
-.pluto-line-plot__core--uplot .u-select {
-    background-color: var(--pluto-gray-m0-20);
+.delta-line-plot__container {
+    position: relative;
+    overflow: hidden;
+    height: 100%;
+    width: 100%;
+}
+
+.delta-line-plot__plot {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+}
+
+.delta-line-plot__svg {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
 }
