@@ -22,7 +22,7 @@ import {
   LayoutWindow,
   useThemeProvider,
   GetStarted,
-  useLayoutPlacer,
+  maybeCreateGetStartedTab,
 } from "@/features/layout";
 import { useLoadTauriVersion } from "@/features/version";
 import { VisLayoutRenderer } from "@/features/vis";
@@ -41,15 +41,12 @@ const layoutRenderers = {
 
 const MainUnderContext = (): JSX.Element => {
   const theme = useThemeProvider();
-  const p = useLayoutPlacer();
   useLoadTauriVersion();
+
+  const d = useDispatch();
+
   useEffect(() => {
-    p({
-      title: "Get Started",
-      key: "getStarted",
-      location: "mosaic",
-      type: "getStarted",
-    });
+    d(maybeCreateGetStartedTab());
   }, []);
   return (
     <Theming.Provider {...theme}>

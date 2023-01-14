@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { XY } from "@synnaxlabs/pluto";
+
 import { Vis } from "../types";
 
 import { Range } from "@/features/workspace";
@@ -22,6 +24,8 @@ export interface LineVis extends Vis {
   ranges: {
     x1: readonly string[];
   };
+  zoom: XY;
+  pan: XY;
 }
 
 export interface LineSVis extends Omit<LineVis, "ranges"> {

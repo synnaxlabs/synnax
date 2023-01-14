@@ -7,17 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { RGBATuple, Transform, XY } from "@synnaxlabs/pluto";
-
-import { errorUnsupported } from "../../errors";
 import { StaticCompiler } from "../compiler";
-import { Renderer, RenderingContext } from "../render";
+import { errorUnsupported } from "../errors";
+import { GLContext, GLRenderer } from "../renderer";
 import { ScissoredRenderRequest } from "../scissor";
 
 // eslint-disable-next-line import/no-unresolved
 import fragShader from "./frag.glsl?raw";
 // eslint-disable-next-line import/no-unresolved
 import vertShader from "./vert.glsl?raw";
+
+import { RGBATuple } from "@/color";
+import { Transform, XY } from "@/spatial";
 
 const shaderVars = {
   scissor: {
@@ -35,7 +36,7 @@ const shaderVars = {
 };
 
 /** A line requested for rendering. */
-export interface Line {
+export interface GLLine {
   /** The offset of the line in decimal. */
   offset: XY;
   /** The scale of the line. */
@@ -66,15 +67,15 @@ const THICKNESS_DIVISOR = 12000;
 const ANGLE_INSTANCED_ARRAYS_FEATURE = "ANGLE_instanced_arrays";
 
 export interface LineRenderRequest extends ScissoredRenderRequest {
-  lines: Line[];
+  lines: GLLine[];
 }
 
 export const LINE_RENDERER_TYPE = "line";
 
 /* Draws lines with variable stroke width onto the canvas. */
-export class LineRenderer
+export class GLLineRenderer
   extends StaticCompiler
-  implements Renderer<LineRenderRequest>
+  implements GLRenderer<LineRenderRequest>
 {
   private translationBuffer: WebGLBuffer | null;
   private _extension: ANGLE_instanced_arrays | null;
@@ -99,7 +100,7 @@ export class LineRenderer
     this.translationBuffer = gl.createBuffer() as WebGLBuffer;
   }
 
-  render(ctx: RenderingContext, req: LineRenderRequest): void {
+  render(ctx: GLContext, req: LineRenderRequest): void {
     ctx.refreshCanvas();
     const { gl } = ctx;
     this.use(gl);
@@ -133,7 +134,7 @@ export class LineRenderer
    * below. This is done by using the `ANGLE_instanced_arrays` extension. We can repeat
    * this process to make the line thicker.
    */
-  private attrStrokeWidth(ctx: RenderingContext, strokeWidth: number): number {
+  private attrStrokeWidth(ctx: GLContext, strokeWidth: number): number {
     const { gl, aspect } = ctx;
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.translationBuffer);
@@ -150,7 +151,7 @@ export class LineRenderer
     return numInstances;
   }
 
-  private applyScissor(ctx: RenderingContext, scissor: Transform): void {
+  private applyScissor(ctx: GLContext, scissor: Transform): void {
     this.uniformXY(ctx.gl, shaderVars.scissor.scale, scissor.scale);
     this.uniformXY(ctx.gl, shaderVars.scissor.offset, scissor.offset);
   }

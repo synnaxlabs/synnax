@@ -42,7 +42,7 @@ export interface ConfigureStoreOptions<
   E extends Enhancers = [StoreEnhancer]
 > extends Omit<BaseOpts<S, A, M, E>, "preloadedState"> {
   runtime: Runtime<S, A>;
-  preloadedState: PreloadedState<S> | (() => Promise<PreloadedState<S>>);
+  preloadedState?: PreloadedState<S> | (() => Promise<PreloadedState<S> | undefined>);
 }
 
 /**
@@ -94,7 +94,10 @@ const receivePreloadedState = async <
 >(
   runtime: Runtime<S, A>,
   store: () => EnhancedStore<S, A | DriftAction> | undefined,
-  preloadedState: (() => Promise<PreloadedState<S>>) | PreloadedState<S> | undefined
+  preloadedState:
+    | (() => Promise<PreloadedState<S> | undefined>)
+    | PreloadedState<S>
+    | undefined
 ): Promise<PreloadedState<S> | undefined> => {
   return await new Promise<PreloadedState<S> | undefined>((resolve) => {
     listen(runtime, store, resolve);

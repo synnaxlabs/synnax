@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { InputControlProps } from "@/core/Input";
-import { useKeyHeld } from "@/hooks";
+import { useKeysHeld } from "@/hooks";
 import { KeyedRecord } from "@/util/record";
 import { ArrayTransform } from "@/util/transform";
 
@@ -29,6 +29,8 @@ export interface UseSelectMultipleReturn<E extends KeyedRecord<E>> {
   onSelect: (key: string) => void;
   clear: () => void;
 }
+
+const shiftKeys = ["Shift"];
 
 /**
  * Implements generic multiple selection over a collection of keyed records. The hook
@@ -55,7 +57,7 @@ export const useSelectMultiple = <E extends KeyedRecord<E>>({
   onChange,
 }: UseSelectMultipleProps<E>): UseSelectMultipleReturn<E> => {
   const [shiftValue, setShiftValue] = useState<string | undefined>(undefined);
-  const shift = useKeyHeld("Shift");
+  const { any: shift } = useKeysHeld(shiftKeys);
 
   useEffect(() => {
     if (!shift) setShiftValue(undefined);

@@ -103,6 +103,17 @@ export const applyThemeAsCssVars = (element: HTMLElement, theme: Theme): void =>
     "rem"
   );
   setProperty(element, "--pluto-small-weight", theme.typography.small.weight);
+
+  //  || TINY ||
+
+  setProperty(element, "--pluto-tiny-size", theme.typography.tiny.size, "rem");
+  setProperty(
+    element,
+    "--pluto-tiny-line-height",
+    theme.typography.tiny.lineHeight,
+    "rem"
+  );
+  setProperty(element, "--pluto-tiny-weight", theme.typography.tiny.weight);
 };
 
 const setProperty = (

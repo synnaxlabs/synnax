@@ -29,6 +29,7 @@ export interface Tab extends TabMeta {
 
 export interface UseStaticTabsProps {
   tabs: Tab[];
+  content?: FunctionComponent<{ tab: Tab }>;
 }
 
 export const resetTabSelection = (
@@ -45,18 +46,20 @@ export const renameTab = (key: string, title: string, tabs: Tab[]): Tab[] => {
   return tabs.map((t) => (t.tabKey === key ? { ...t, title } : t));
 };
 
-export const useStaticTabs = ({ tabs }: UseStaticTabsProps): TabsProps => {
+export const useStaticTabs = ({ tabs, content }: UseStaticTabsProps): TabsProps => {
   const [selected, setSelected] = useState(tabs[0]?.tabKey ?? "");
 
   return {
     tabs,
     selected,
+    content,
     onSelect: setSelected,
   };
 };
 
 export interface TabsContextValue {
   tabs: Tab[];
+  content?: FunctionComponent<{ tab: Tab }>;
   children?: FunctionComponent<{ tab: Tab }>;
   emptyContent?: ReactElement | null;
   selected?: string;
@@ -73,7 +76,7 @@ export const TabsContext = createContext<TabsContextValue>({ tabs: [] });
 export const useTabsContext = (): TabsContextValue => useContext(TabsContext);
 
 export const Tabs = ({
-  children,
+  content,
   onSelect,
   emptyContent = null,
   selected,
@@ -83,13 +86,14 @@ export const Tabs = ({
   onTabDragStart,
   onTabDragEnd,
   onTitleChange,
+  children,
   ...props
 }: TabsProps): JSX.Element => (
   <Space empty {...props}>
     <TabsContext.Provider
       value={{
         tabs,
-        children,
+        content: children ?? content,
         onSelect,
         emptyContent,
         selected,
@@ -107,7 +111,7 @@ export const Tabs = ({
 );
 
 export const TabsContent = (): JSX.Element | null => {
-  const { tabs, selected, children, emptyContent } = useTabsContext();
+  const { tabs, selected, content: children, emptyContent } = useTabsContext();
   let content: JSX.Element | string | null = null;
   const selectedTab = tabs.find((tab) => tab.tabKey === selected);
   if (selectedTab != null) {

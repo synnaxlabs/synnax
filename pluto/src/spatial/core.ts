@@ -21,11 +21,13 @@ export const HorizontalLocations = ["left", "right"] as const;
 export type HorizontalLocation = typeof HorizontalLocations[number];
 export type CenterLocation = "center";
 
-export const Locations = [
-  ...VerticalLocations,
-  ...HorizontalLocations,
-  "center",
-] as const;
+export const Corners = ["topLeft", "topRight", "bottomLeft", "bottomRight"] as const;
+export type Corner = typeof Corners[number];
+
+export const Outerlocations = [...VerticalLocations, ...HorizontalLocations] as const;
+export type OuterLocation = typeof Outerlocations[number];
+
+export const Locations = [...Outerlocations, "center"] as const;
 export type Location = typeof Locations[number];
 
 export const Directions = ["horizontal", "vertical"] as const;
@@ -75,3 +77,4 @@ export interface Transform {
 
 export const ZERO_XY: XY = { x: 0, y: 0 };
 export const ONE_XY: XY = { x: 1, y: 1 };
+export const INFINITE_XY: XY = { x: Infinity, y: Infinity };

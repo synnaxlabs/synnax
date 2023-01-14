@@ -92,7 +92,11 @@ const SelectInput = <E extends RenderableRecord<E>>({
 
   // Runs to set the value of the input to the item selected from the list.
   useEffect(() => {
-    if (selected == null || selected.length === 0 || visible) return;
+    if (visible) return;
+    if (selected == null || selected.length === 0) {
+      setValue("");
+      return;
+    }
     const e = data.find(({ key }) => key === selected);
     const v = e?.[tagKey] ?? selected;
     setValue?.(v as string);

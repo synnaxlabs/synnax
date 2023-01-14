@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Box, RGBATuple, Transform, XY, ZERO_XY } from "@synnaxlabs/pluto";
+import { GLRenderer, GLContext } from "./renderer";
 
-import { Renderer, RenderingContext } from "./render";
+import { RGBATuple } from "@/color";
+import { Box, XY, Transform, ZERO_XY } from "@/spatial";
 
 const CLEAR_COLOR: RGBATuple = [0, 0, 0, 0];
 
@@ -18,17 +19,15 @@ export interface ScissoredRenderRequest {
   scissor?: Transform;
 }
 
-export class ScissoredRenderer<R extends ScissoredRenderRequest>
-  implements Renderer<R>
+export class ScissoredGLRenderer<R extends ScissoredRenderRequest>
+  implements GLRenderer<R>
 {
-  readonly wrapped: Renderer<R>;
-  private readonly clear: boolean;
+  readonly wrapped: GLRenderer<R>;
   private readonly overscan: XY;
 
-  constructor(wrapped: Renderer<R>, clear: boolean = true, overscan: XY = ZERO_XY) {
-    this.wrapped = wrapped;
-    this.clear = clear;
+  constructor(wrapped: GLRenderer<R>, overscan: XY = ZERO_XY) {
     this.overscan = overscan;
+    this.wrapped = wrapped;
   }
 
   get type(): string {
@@ -39,31 +38,28 @@ export class ScissoredRenderer<R extends ScissoredRenderRequest>
     this.wrapped.compile(gl);
   }
 
-  async render(ctx: RenderingContext, req: R): Promise<void> {
+  render(ctx: GLContext, req: R): void {
     ctx.refreshCanvas();
     ctx.gl.enable(ctx.gl.SCISSOR_TEST);
     this.scissor(ctx, req.box);
-    this.maybeClear(ctx);
     req.scissor = this.calculateTransform(ctx, req.box);
     this.wrapped.render(ctx, req);
     ctx.gl.disable(ctx.gl.SCISSOR_TEST);
   }
 
-  private calculateTransform(
-    ctx: RenderingContext,
-    box: Box
-  ): { offset: XY; scale: XY } {
+  private calculateTransform(ctx: GLContext, box: Box): { offset: XY; scale: XY } {
     return { scale: ctx.scale(box), offset: ctx.offset(box, "decimal") };
   }
 
-  private maybeClear(ctx: RenderingContext): void {
-    if (this.clear) {
-      ctx.gl.clearColor(...CLEAR_COLOR);
-      ctx.gl.clear(ctx.gl.COLOR_BUFFER_BIT);
-    }
+  clear(ctx: GLContext, box: Box): void {
+    ctx.gl.enable(ctx.gl.SCISSOR_TEST);
+    this.scissor(ctx, box);
+    ctx.gl.clearColor(...CLEAR_COLOR);
+    ctx.gl.clear(ctx.gl.COLOR_BUFFER_BIT);
+    ctx.gl.disable(ctx.gl.SCISSOR_TEST);
   }
 
-  private scissor(ctx: RenderingContext, box: Box): void {
+  private scissor(ctx: GLContext, box: Box): void {
     const { x, y } = ctx.offset(box, "px");
     const { width, height } = box;
     const { x: ox, y: oy } = this.overscan;

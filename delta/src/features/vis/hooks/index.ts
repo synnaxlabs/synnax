@@ -21,17 +21,13 @@ export const useControlledVis = <V extends Vis, SV extends Vis = V>(
   key?: string
 ): ControlledVisProps<V, SV> | undefined => {
   const dispatch = useDispatch();
-  const sv = useSelectSVis<SV>(key);
-  const onChange = useCallback(
-    (vis: DeepPartial<V>) => {
-      if (sv?.key == null) return;
-      dispatch(updateVis({ ...vis, key: sv?.key }));
+  const vis = useSelectSVis<SV>(key);
+  const setVis = useCallback(
+    (_vis: DeepPartial<V>): void => {
+      if (_vis == null || vis == null) return;
+      dispatch(updateVis({ ..._vis, key: vis.key }));
     },
-    [dispatch, sv?.key]
+    [dispatch, vis]
   );
-  if (sv == null) return undefined;
-  return {
-    vis: sv,
-    setVis: onChange,
-  };
+  return vis == null ? undefined : { vis, setVis };
 };
