@@ -34,9 +34,10 @@
     "zod": "3.19.1"
   },
   "devDependencies": {
-    "@synnaxlabs/tsconfig": "*",
-    "@synnaxlabs/vite-plugin": "*",
-    "eslint-config-synnaxlabs": "*",
+    "@synnaxlabs/tsconfig": "workspace:*",
+    "@synnaxlabs/vite-plugin": "workspace:*",
+    "@types/node": "^18.11.18",
+    "eslint-config-synnaxlabs": "workspace:*",
     "typescript": "^4.9.4",
     "vite": "^4.0.4",
     "vitest": "^0.26.3"

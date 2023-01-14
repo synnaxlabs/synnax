@@ -8,5 +8,5 @@
 // included in the file licenses/APL.txt.
 
 module.exports = {
-  presets: [require.resolve("@docusaurus/core/lib/babel/preset")],
+    extends: ["stylelint-config-synnaxlabs"],
 };

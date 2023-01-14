@@ -52,7 +52,7 @@ func (b *SecureHTTPBranch) Serve(ctx BranchContext) error {
 	b.internal = fiber.New(b.getConfig(ctx))
 	b.maybeRouteDebugUtil(ctx)
 	b.routeUI()
-	b.internal.Use(cors.New(cors.Config{AllowOrigins: "*"}))
+	b.internal.Use(cors.New(cors.Config{AllowOrigins: "workspace:*"}))
 	for _, t := range b.Transports {
 		t.BindTo(b.internal)
 	}

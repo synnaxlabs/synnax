@@ -87,7 +87,7 @@ export const HexagonBar = ({
   useEffect(() => {
     if (ref.current == null) return;
     const svgEl = d3.select(ref.current);
-    svgEl.selectAll("*").remove();
+    svgEl.selectAll("workspace:*").remove();
     svgEl.attr("viewBox", "0 0 100 100");
   }, []);
 

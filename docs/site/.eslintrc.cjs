@@ -7,15 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { StrictMode } from "react";
-
-import { createRoot } from "react-dom/client";
-
-import { App } from "./App";
-
-const root = document.getElementById("root") as HTMLElement;
-createRoot(root).render(
-  <StrictMode>
-    <App />
-  </StrictMode>
-);
+module.exports = {
+    root: true,
+    extends: ["synnaxlabs"],
+    parserOptions: {
+        project: "./tsconfig.json",
+    },
+};

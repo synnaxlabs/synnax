@@ -1,49 +1,27 @@
 {
-  "name": "@synnaxlabs/documentation-site",
-  "version": "0.0.0",
+  "name": "@example/minimal",
+  "type": "module",
+  "version": "0.0.1",
   "private": true,
-  "homepage": "https://docs.synnaxlabs.com",
   "scripts": {
-    "docusaurus": "docusaurus",
-    "dev": "docusaurus start",
-    "build": "docusaurus build",
-    "swizzle": "docusaurus swizzle",
-    "deploy": "docusaurus deploy",
-    "clear": "docusaurus clear",
-    "serve": "docusaurus serve",
-    "write-translations": "docusaurus write-translations",
-    "write-heading-ids": "docusaurus write-heading-ids",
-    "typecheck": "tsc"
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro"
   },
   "dependencies": {
-    "@docusaurus/core": "2.1.0",
-    "@docusaurus/preset-classic": "2.1.0",
-    "@mdx-js/react": "^1.6.22",
-    "@synnaxlabs/pluto": "../../pluto",
-    "clsx": "^1.2.1",
-    "prism-react-renderer": "^1.3.5",
-    "react": "^17.0.2",
-    "react-dom": "^17.0.2"
+    "@astrojs/mdx": "^0.14.0",
+    "@astrojs/react": "^1.2.2",
+    "astro": "^1.9.0",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "@synnaxlabs/pluto": "workspace:*"
   },
   "devDependencies": {
-    "@docusaurus/module-type-aliases": "2.1.0",
-    "@tsconfig/docusaurus": "^1.0.5",
-    "prettier": "2.7.1",
-    "typescript": "^4.9.4"
-  },
-  "browserslist": {
-    "production": [
-      ">0.5%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
-  },
-  "engines": {
-    "node": ">=18"
+    "@types/react": "^18.0.21",
+    "@types/react-dom": "^18.0.6",
+    "@synnaxlabs/tsconfig": "workspace:*",
+    "eslint-config-synnaxlabs": "workspace:*"
   }
 }

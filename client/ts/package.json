@@ -28,13 +28,14 @@
     "node": ">=18"
   },
   "dependencies": {
-    "@synnaxlabs/freighter": "*",
+    "@synnaxlabs/freighter": "workspace:*",
     "zod": "3.19.1"
   },
   "devDependencies": {
-    "@synnaxlabs/tsconfig": "*",
-    "eslint-config-synnaxlabs": "*",
-    "@synnaxlabs/vite-plugin": "*",
+    "@synnaxlabs/tsconfig": "workspace:*",
+    "@synnaxlabs/vite-plugin": "workspace:*",
+    "@types/node": "^18.11.18",
+    "eslint-config-synnaxlabs": "workspace:*",
     "vite": "^4.0.4",
     "vitest": "^0.26.3"
   },
