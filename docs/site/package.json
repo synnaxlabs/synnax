@@ -17,8 +17,7 @@
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "@synnaxlabs/pluto": "workspace:*",
-    "@synnaxlabs/client": "workspace:*",
-    "@synnaxlabs/test": "workspace:*"
+    "@synnaxlabs/client": "workspace:*"
   },
   "devDependencies": {
     "@types/react": "^18.0.21",
