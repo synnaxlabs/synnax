@@ -6,11 +6,11 @@ import { Space } from "@synnaxlabs/pluto";
 import { SelectAxisInputItem, SelectMultipleAxesInputItem } from "../..";
 import { AxisKey } from "../../../types";
 
-import { ControlledLineVisProps } from "./types";
-
 import { useClusterClient } from "@/features/cluster";
 import { useSelectRanges, SelectMultipleRangesInputItem } from "@/features/workspace";
 import { useAsyncEffect } from "@/hooks";
+
+import { ControlledLineVisProps } from "./types";
 
 export const LinePlotChannelControls = ({
   vis,
@@ -32,7 +32,6 @@ export const LinePlotChannelControls = ({
     key: AxisKey,
     value: readonly string[] | string
   ): void => {
-    console.log("key", setVis.key);
     setVis({ channels: { [key]: value } });
   };
 

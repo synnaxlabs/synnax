@@ -59,7 +59,6 @@ describe("TimeStamp", () => {
     expect(ts.date().getUTCFullYear()).toEqual(2021);
     expect(ts.date().getUTCHours()).toEqual(0);
     const ts2 = new TimeStamp("2021-01-01", "local");
-    console.log(ts2.date().toISOString());
     expect(ts2.date().getUTCFullYear()).toEqual(2021);
     expect(ts2.date().getUTCHours()).toEqual(0);
     expect(ts2.date().getUTCMinutes()).toEqual(0);

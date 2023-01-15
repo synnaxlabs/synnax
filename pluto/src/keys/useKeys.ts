@@ -72,7 +72,6 @@ export const useKeyPress = ({
 }): void =>
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent): void => {
-      console.log(e.key);
       if (keys == null || keys.includes(e.key)) onPress(e.key);
     };
     const onKeyUp = (e: KeyboardEvent): void => {

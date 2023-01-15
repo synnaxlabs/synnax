@@ -44,8 +44,6 @@ export const tsConfigPaths = ({ name }: Options): Plugin => {
         })
       );
       const existingAlias = transformExistingAlias(config.resolve?.alias);
-      console.log("BUILD");
-      console.log(config.build);
       return {
         ...config,
         resolve: {
