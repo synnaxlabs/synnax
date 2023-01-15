@@ -7,14 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Children, ReactElement, cloneElement } from "react";
+import { Children, ReactElement } from "react";
 
-import { CoreTextProps, Text } from "./Text";
-import { TypographyLevel } from "./types";
+import clsx from "clsx";
 
 import { Divider } from "@/core/Divider";
+
+import { CoreTextProps, Text } from "./Text";
+
 import { Space, SpaceProps } from "@/core/Space";
-import { Theming } from "@/theming";
+
+import "./TextWithIcon.css";
 
 export interface TextWithIconProps extends Omit<SpaceProps, "children">, CoreTextProps {
   startIcon?: ReactElement | ReactElement[];
@@ -30,12 +33,19 @@ export const TextWithIcon = ({
   endIcon,
   children,
   color,
+  className,
   ...props
 }: TextWithIconProps): JSX.Element => {
-  const startIcons = startIcon != null && useFormattedIcons(startIcon, level, color);
-  const endIcons = endIcon != null && useFormattedIcons(endIcon, level, color);
+  const startIcons = startIcon != null && Children.toArray(startIcon);
+  const endIcons = endIcon != null && Children.toArray(endIcon);
   return (
-    <Space direction="horizontal" size="small" align="center" {...props}>
+    <Space
+      className={clsx("pluto-text-icon", `pluto-text-icon-${level}`, className)}
+      direction="horizontal"
+      size="small"
+      align="center"
+      {...props}
+    >
       {startIcons}
       {divided && startIcon != null && <Divider direction="vertical" />}
       {children != null && (
@@ -46,23 +56,5 @@ export const TextWithIcon = ({
       {divided && endIcon != null && <Divider direction="vertical" />}
       {endIcons}
     </Space>
-  );
-};
-
-const useFormattedIcons = (
-  icon: ReactElement | ReactElement[],
-  level: TypographyLevel,
-  color?: string
-): ReactElement[] => {
-  const { theme } = Theming.useContext();
-  const size = Number(theme.typography[level]?.lineHeight) * theme.sizes.base;
-  color ??= theme.colors.text;
-  return (Children.toArray(icon) as ReactElement[]).map((icon) =>
-    cloneElement(icon, {
-      size,
-      color,
-      style: { minWidth: size, ...icon.props.style },
-      ...icon.props,
-    })
   );
 };
