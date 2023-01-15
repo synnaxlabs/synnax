@@ -49,6 +49,7 @@ export interface Theme {
     black: Color;
     background: Color;
     text: Color;
+    logo: Color;
   };
   sizes: {
     base: number;
@@ -115,6 +116,7 @@ const synnaxBase: Theme = {
         ],
       },
     },
+    logo: "url(#linear-gradient)",
     white,
     black,
     background: white,
@@ -195,6 +197,7 @@ export const synnaxDark = {
       p2: synnaxBase.colors.gray.m2,
       p3: synnaxBase.colors.gray.m3,
     },
+    logo: "var(--pluto-text-color)",
     border: synnaxBase.colors.gray.p1,
     background: synnaxBase.colors.black,
     text: synnaxBase.colors.white,

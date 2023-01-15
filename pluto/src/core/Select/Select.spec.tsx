@@ -26,12 +26,12 @@ interface MockRecord {
 const mockColumns: Array<ListColumn<MockRecord>> = [
   {
     key: "name",
-    label: "Name",
+    name: "Name",
     visible: true,
   },
   {
     key: "age",
-    label: "Age",
+    name: "Age",
     visible: true,
   },
 ];

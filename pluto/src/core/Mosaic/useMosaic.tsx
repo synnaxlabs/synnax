@@ -22,7 +22,7 @@ import { MosaicLeaf } from "./types";
 import { Location } from "@/spatial";
 
 export interface UseMosaicProps {
-  editableTitle?: boolean;
+  allowRename?: boolean;
   initialTree: MosaicLeaf;
 }
 
@@ -32,11 +32,11 @@ export interface UseMosaicReturn {
   onClose: (tabKey: string) => void;
   onSelect: (tabKey: string) => void;
   onResize: (key: number, sizes: number) => void;
-  onTitleChange?: (tabKey: string, title: string) => void;
+  onRename?: (tabKey: string, name: string) => void;
 }
 
 export const useMosaic = ({
-  editableTitle = false,
+  allowRename = false,
   initialTree,
 }: UseMosaicProps): UseMosaicReturn => {
   const [root, setRoot] = useState(initialTree);
@@ -45,26 +45,27 @@ export const useMosaic = ({
     setRoot(autoSelectTabs(initialTree));
   }, [initialTree]);
 
-  const onDrop = (key: number, tabKey: string, loc: Location): void =>
+  const handleDrop = (key: number, tabKey: string, loc: Location): void =>
     setRoot((r) => moveMosaicTab(r, tabKey, loc, key));
 
-  const onClose = (tabKey: string): void => setRoot((r) => removeMosaicTab(r, tabKey));
+  const handleClose = (tabKey: string): void =>
+    setRoot((r) => removeMosaicTab(r, tabKey));
 
-  const onSelect = (tabKey: string): void => setRoot((r) => selectMosaicTab(r, tabKey));
+  const handleSelect = (tabKey: string): void =>
+    setRoot((r) => selectMosaicTab(r, tabKey));
 
-  const onResize = (key: number, size: number): void =>
+  const handleResized = (key: number, size: number): void =>
     setRoot((r) => resizeMosaicLeaf(r, key, size));
 
-  const onTitleChange = (tabKey: string, title: string): void => {
+  const handleRename = (tabKey: string, title: string): void =>
     setRoot((r) => renameMosaicTab(r, tabKey, title));
-  };
 
   return {
     root,
-    onDrop,
-    onClose,
-    onSelect,
-    onResize,
-    onTitleChange: editableTitle ? onTitleChange : undefined,
+    onDrop: handleDrop,
+    onClose: handleClose,
+    onSelect: handleSelect,
+    onResize: handleResized,
+    onRename: allowRename ? handleRename : undefined,
   };
 };

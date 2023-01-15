@@ -12,103 +12,109 @@ import { DetailedHTMLProps, HtmlHTMLAttributes, ReactElement, useState } from "r
 import clsx from "clsx";
 import { AiFillCaretDown, AiFillCaretRight } from "react-icons/ai";
 
-import { Button, ButtonProps } from "@/core/Button";
-import { useSelectMultiple, UseSelectMultipleProps } from "@/hooks/useSelectMultiple";
+import { Button } from "@/core/Button";
+
+import { InputControlProps } from "../Input";
+
+import { RenderableRecord } from "@/util/record";
+import { RenderProp } from "@/util/renderable";
 
 import "./Tree.css";
 
-export interface TreeProps
-  extends Omit<UseSelectMultipleProps<RenderableTreeLeaf>, "allowMultiple">,
+export interface TreeProps<E extends RenderableRecord<E> = RenderableRecord>
+  extends InputControlProps<readonly string[], string>,
     Omit<
       DetailedHTMLProps<HtmlHTMLAttributes<HTMLUListElement>, HTMLUListElement>,
-      "onChange"
+      "children" | "onChange"
     > {
-  data: TreeLeaf[];
-  value: readonly string[];
+  data: Array<TreeLeaf<E>>;
   onExpand?: (key: string) => void;
+  children?: RenderProp<TreeLeafCProps<E>>;
 }
 
-export const Tree = ({
+export const Tree = <E extends RenderableRecord<E> = RenderableRecord>({
   data,
-  value,
+  value = [],
   onChange,
   onExpand,
+  children = TreeLeafC<E>,
   ...props
-}: TreeProps): JSX.Element => {
-  const { onSelect } = useSelectMultiple<RenderableTreeLeaf>({
-    allowMultiple: false,
-    data,
-    value,
-    onChange,
-  });
-
+}: TreeProps<E>): JSX.Element => {
   return (
     <ul className={clsx("pluto-tree__list pluto-tree__container")} {...props}>
       {data.map((entry) => (
-        <TreeLeafC
+        <TreeLeafParent
           {...entry}
           key={entry.key}
           depth={1}
           selected={value}
           nodeKey={entry.key}
-          onSelect={onSelect}
+          onSelect={onChange}
           onExpand={onExpand}
+          render={children}
         />
       ))}
     </ul>
   );
 };
 
-export interface TreeLeaf {
-  key: string;
-  title: string;
+export type TreeLeaf<E extends RenderableRecord<E> = RenderableRecord> = {
   hasChildren?: boolean;
   icon?: ReactElement;
-  children?: TreeLeaf[];
-}
+  children?: Array<TreeLeaf<E>>;
+} & RenderableTreeLeaf<E>;
 
-type RenderableTreeLeaf = Omit<TreeLeaf, "icon" | "children" | "hasChildren">;
+type RenderableTreeLeaf<E extends RenderableRecord<E> = RenderableRecord> = {
+  key: string;
+  name: string;
+} & Omit<E, "name" | "key">;
 
-interface TreeLeafProps extends Omit<TreeLeaf, "key"> {
-  onSelect: (key: string) => void;
+type TreeLeafProps<E extends RenderableRecord<E>> = TreeLeaf<E> & {
   selected: readonly string[];
   nodeKey: string;
   hasChildren?: boolean;
-  onExpand?: (key: string) => void;
   depth: number;
-}
+  onExpand?: (key: string) => void;
+  onSelect?: (key: string) => void;
+  render: RenderProp<TreeLeafCProps<E>>;
+};
 
-const TreeLeafC = ({
+const TreeLeafParent = <E extends RenderableRecord>({
   nodeKey,
-  title,
+  name,
   icon,
   onSelect,
   selected,
   children = [],
-  hasChildren,
+  hasChildren = false,
   onExpand,
   depth,
-}: TreeLeafProps): JSX.Element => {
+  render,
+  ...rest
+}: TreeLeafProps<E>): JSX.Element => {
   const [expanded, setExpanded] = useState(false);
+  const handleExpand = (key: string): void => {
+    onExpand?.(key);
+    setExpanded(!expanded);
+  };
   return (
     <li className="tree-node__container">
-      <TreeNodeButton
-        style={{ paddingLeft: `${depth * 2}rem` }}
-        selected={selected.includes(nodeKey)}
-        title={title}
-        icon={icon}
-        expanded={expanded}
-        showExpandIcon={children.length > 0 || hasChildren}
-        onClick={() => {
-          onExpand?.(nodeKey);
-          setExpanded(!expanded);
-          onSelect(nodeKey);
-        }}
-      />
+      {render({
+        nodeKey,
+        style: { paddingLeft: `${depth * 2}rem` },
+        selected: selected.includes(nodeKey),
+        name,
+        icon,
+        expanded,
+        hasChildren: children.length > 0 || hasChildren,
+        onExpand: handleExpand,
+        onSelect,
+        ...rest,
+      } as const as TreeLeafCProps<E>)}
       {expanded && children.length > 0 && (
         <ul className="pluto-tree__list">
           {children.map((child) => (
-            <TreeLeafC
+            <TreeLeafParent
               {...child}
               key={child.key}
               nodeKey={child.key}
@@ -116,6 +122,7 @@ const TreeLeafC = ({
               depth={depth + 1}
               selected={selected}
               onExpand={onExpand}
+              render={render}
             />
           ))}
         </ul>
@@ -124,25 +131,41 @@ const TreeLeafC = ({
   );
 };
 
-export interface TreeNodeButtonProps extends Omit<ButtonProps, "children" | "level"> {
-  title: string;
+type TreeLeafCProps<E extends RenderableRecord<E> = RenderableRecord> = Omit<
+  RenderableTreeLeaf<E>,
+  "key"
+> & {
+  nodeKey: string;
+  name: string;
   expanded: boolean;
   selected: boolean;
-  showExpandIcon?: boolean;
+  hasChildren: boolean;
   icon?: ReactElement;
-}
+  style: React.CSSProperties;
+  onExpand: (key: string) => void;
+  onSelect?: (key: string) => void;
+};
 
-const TreeNodeButton = ({
-  title,
+const TreeLeafC = <E extends RenderableRecord<E>>({
+  name,
   icon,
+  nodeKey,
   selected,
   expanded,
-  showExpandIcon = true,
+  hasChildren = true,
+  onSelect,
+  onExpand,
   ...props
-}: TreeNodeButtonProps): JSX.Element => {
+}: TreeLeafCProps<E>): JSX.Element => {
   const icons: ReactElement[] = [];
-  if (showExpandIcon) icons.push(expanded ? <AiFillCaretDown /> : <AiFillCaretRight />);
+  if (hasChildren) icons.push(expanded ? <AiFillCaretDown /> : <AiFillCaretRight />);
   if (icon != null) icons.push(icon);
+
+  const handleClick = (): void => {
+    onSelect?.(nodeKey);
+    onExpand(nodeKey);
+  };
+
   return (
     <Button
       variant="text"
@@ -151,9 +174,10 @@ const TreeNodeButton = ({
         selected && "pluto-tree__node__button--selected"
       )}
       startIcon={icons}
+      onClick={handleClick}
       {...props}
     >
-      {title}
+      {name}
     </Button>
   );
 };

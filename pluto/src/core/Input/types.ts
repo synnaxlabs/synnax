@@ -13,9 +13,12 @@ import { ComponentSize } from "@/util/component";
 
 export type InputValue = boolean | string | number | readonly string[];
 
-export interface InputControlProps<T extends InputValue = InputValue> {
-  value: T;
-  onChange: (value: T) => void;
+export interface InputControlProps<
+  I extends InputValue = InputValue,
+  O extends InputValue = I
+> {
+  value: I;
+  onChange: (value: O) => void;
 }
 
 type HTMLInputProps = Omit<
@@ -23,8 +26,10 @@ type HTMLInputProps = Omit<
   "ref" | "size" | "onChange" | "value" | "children"
 >;
 
-export interface InputBaseProps<T extends InputValue = InputValue>
-  extends HTMLInputProps,
-    InputControlProps<T> {
+export interface InputBaseProps<
+  I extends InputValue = InputValue,
+  O extends InputValue = I
+> extends HTMLInputProps,
+    InputControlProps<I, O> {
   size?: ComponentSize;
 }

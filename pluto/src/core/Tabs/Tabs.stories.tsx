@@ -21,12 +21,12 @@ const story: ComponentMeta<typeof Tabs> = {
 const exampleTabs = [
   {
     tabKey: "tab1",
-    title: "Tab 1",
+    name: "Tab 1",
     content: <h1>Tab 1 contents</h1>,
   },
   {
     tabKey: "tab2",
-    title: "Tab 2",
+    name: "Tab 2",
     content: <h1>Tab 2 contents</h1>,
   },
 ];

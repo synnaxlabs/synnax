@@ -7,17 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import React, {
-  createContext,
-  FunctionComponent,
-  ReactElement,
-  useContext,
-  useState,
-} from "react";
+import React, { createContext, ReactElement, useContext, useState } from "react";
 
 import { TabMeta, TabsSelector } from "./TabsSelector";
 
 import { Space, SpaceProps } from "@/core/Space";
+import { RenderProp } from "@/util/renderable";
 
 export interface TabsProps
   extends Omit<SpaceProps, "children" | "onSelect">,
@@ -27,9 +22,11 @@ export interface Tab extends TabMeta {
   content?: JSX.Element;
 }
 
+export type TabRenderProp = RenderProp<{ tab: Tab }>;
+
 export interface UseStaticTabsProps {
   tabs: Tab[];
-  content?: FunctionComponent<{ tab: Tab }>;
+  content?: TabRenderProp;
 }
 
 export const resetTabSelection = (
@@ -42,8 +39,8 @@ export const renameTab = (key: string, title: string, tabs: Tab[]): Tab[] => {
   title = title.trim();
   if (title.length === 0) return tabs;
   const t = tabs.find((t) => t.tabKey === key);
-  if (t == null || t.title === title) return tabs;
-  return tabs.map((t) => (t.tabKey === key ? { ...t, title } : t));
+  if (t == null || t.name === title) return tabs;
+  return tabs.map((t) => (t.tabKey === key ? { ...t, name: title } : t));
 };
 
 export const useStaticTabs = ({ tabs, content }: UseStaticTabsProps): TabsProps => {
@@ -59,8 +56,8 @@ export const useStaticTabs = ({ tabs, content }: UseStaticTabsProps): TabsProps 
 
 export interface TabsContextValue {
   tabs: Tab[];
-  content?: FunctionComponent<{ tab: Tab }>;
-  children?: FunctionComponent<{ tab: Tab }>;
+  content?: TabRenderProp;
+  children?: TabRenderProp;
   emptyContent?: ReactElement | null;
   selected?: string;
   closable?: boolean;
@@ -68,7 +65,7 @@ export interface TabsContextValue {
   onClose?: (key: string) => void;
   onTabDragStart?: (e: React.DragEvent<HTMLDivElement>, tab: TabMeta) => void;
   onTabDragEnd?: (e: React.DragEvent<HTMLDivElement>, tab: TabMeta) => void;
-  onTitleChange?: (key: string, title: string) => void;
+  onRename?: (key: string, title: string) => void;
 }
 
 export const TabsContext = createContext<TabsContextValue>({ tabs: [] });
@@ -85,7 +82,7 @@ export const Tabs = ({
   onClose,
   onTabDragStart,
   onTabDragEnd,
-  onTitleChange,
+  onRename,
   children,
   ...props
 }: TabsProps): JSX.Element => (
@@ -101,7 +98,7 @@ export const Tabs = ({
         onClose,
         onTabDragStart,
         onTabDragEnd,
-        onTitleChange,
+        onRename,
       }}
     >
       <TabsSelector />

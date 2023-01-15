@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { CSSProperties, FunctionComponent } from "react";
+import type { CSSProperties } from "react";
 import React from "react";
 
 import { RenderableRecord } from "@/util/record";
+import { RenderProp } from "@/util/renderable";
 
-type RenderF<E extends RenderableRecord<E> = RenderableRecord> = FunctionComponent<{
+type RenderF<E extends RenderableRecord<E> = RenderableRecord> = RenderProp<{
   key: string | number | symbol;
   entry: E;
   style: CSSProperties;
@@ -21,7 +22,7 @@ type RenderF<E extends RenderableRecord<E> = RenderableRecord> = FunctionCompone
 export interface ListColumn<E extends RenderableRecord<E> = RenderableRecord> {
   key: keyof E;
   render?: RenderF<E>;
-  label: string;
+  name: string;
   visible?: boolean;
   width?: number;
 }

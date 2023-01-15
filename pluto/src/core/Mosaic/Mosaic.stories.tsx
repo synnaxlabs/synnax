@@ -15,7 +15,6 @@ import { Mosaic } from ".";
 
 import { useMosaic } from "./useMosaic";
 
-
 const story: ComponentMeta<typeof Mosaic> = {
   title: "Core/Mosaic",
   component: Mosaic,
@@ -29,7 +28,7 @@ const initialTree: MosaicLeaf = {
     tabs: [
       {
         tabKey: "1",
-        title: "Tab 1",
+        name: "Tab 1",
         content: <h1>Tab One Content</h1>,
       },
     ],
@@ -39,12 +38,12 @@ const initialTree: MosaicLeaf = {
     tabs: [
       {
         tabKey: "2",
-        title: "Tab 2",
+        name: "Tab 2",
         content: <h1>Tab Two Content</h1>,
       },
       {
         tabKey: "3",
-        title: "Tab 3",
+        name: "Tab 3",
         content: <h1>Tab Three Content</h1>,
       },
     ],
@@ -52,7 +51,7 @@ const initialTree: MosaicLeaf = {
 };
 
 export const Primary: ComponentStory<typeof Mosaic> = () => {
-  const props = useMosaic({ initialTree, editableTitle: true });
+  const props = useMosaic({ initialTree, allowRename: true });
   return <Mosaic {...props} />;
 };
 

@@ -20,4 +20,4 @@ export type RenderableRecord<
   E extends Record<string, RenderableValue> = Record<string, RenderableValue>
 > = {
   key: string;
-} & Partial<Record<keyof E, RenderableValue>>;
+} & Partial<Omit<Record<keyof E, RenderableValue>, "key">>;

@@ -162,17 +162,17 @@ export const resizeMosaicLeaf = (
  * Sets the title of a tab.
  * @param root - The root of the mosaic.
  * @param tabKey  - The key of the tab to resize.
- * @param title - The new title of the tab.
+ * @param name - The new title of the tab.
  * @returns A shallow copy of the root of the mosaic with the tab title changed.
  */
 export const renameMosaicTab = (
   root: MosaicLeaf,
   tabKey: string,
-  title: string
+  name: string
 ): MosaicLeaf => {
   const [, leaf] = findMosaicTab(root, tabKey);
   if (leaf == null || leaf.tabs == null) throw TabNotFound;
-  leaf.tabs = Tabs.rename(tabKey, title, leaf?.tabs ?? []);
+  leaf.tabs = Tabs.rename(tabKey, name, leaf?.tabs ?? []);
   return shallowCopyLeaf(root);
 };
 

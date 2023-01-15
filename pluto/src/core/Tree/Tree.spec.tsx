@@ -23,12 +23,12 @@ describe("Tree", () => {
   it("should render a tree", () => {
     const tree: TreeLeaf[] = [
       {
-        title: "Test",
+        name: "Test",
         key: "test",
         hasChildren: true,
         children: [
           {
-            title: "Test Child",
+            name: "Test Child",
             key: "test-child",
             hasChildren: false,
           },
@@ -42,12 +42,12 @@ describe("Tree", () => {
   it("should expand a tree node when a user clicks on it", () => {
     const tree: TreeLeaf[] = [
       {
-        title: "Test",
+        name: "Test",
         key: "test",
         hasChildren: true,
         children: [
           {
-            title: "Test Child",
+            name: "Test Child",
             key: "test-child",
             hasChildren: false,
           },

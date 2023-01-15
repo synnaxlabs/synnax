@@ -85,7 +85,8 @@ h6 {
 }
 
 p,
-label {
+label,
+code {
     font-size: var(--pluto-p-size);
     line-height: var(--pluto-p-line-height);
     font-weight: var(--pluto-p-weight);

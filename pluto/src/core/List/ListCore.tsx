@@ -7,24 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { FunctionComponent, HTMLAttributes, useRef } from "react";
+import { HTMLAttributes, useRef } from "react";
 
 import { useVirtualizer } from "@tanstack/react-virtual";
 
+import { SelectedRecord } from "@/hooks/useSelectMultiple";
+
 import { useListContext } from "./ListContext";
 
-import { SelectedRecord } from "@/hooks/useSelectMultiple";
+import { RenderableRecord } from "@/util/record";
 
 import { ListItemProps } from "./types";
 
-import { RenderableRecord } from "@/util/record";
+import { RenderProp } from "@/util/renderable";
 
 import "./ListCore.css";
 
 export interface ListVirtualCoreProps<E extends RenderableRecord<E>>
   extends Omit<HTMLAttributes<HTMLDivElement>, "children" | "onSelect"> {
   itemHeight: number;
-  children: FunctionComponent<ListItemProps<E>>;
+  children: RenderProp<ListItemProps<E>>;
 }
 
 const ListVirtualCore = <E extends RenderableRecord<E>>({

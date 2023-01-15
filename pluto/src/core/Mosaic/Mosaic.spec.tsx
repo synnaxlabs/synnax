@@ -14,7 +14,6 @@ import { Mosaic, MosaicLeaf } from ".";
 
 import { UseMosaicProps, useMosaic } from "./useMosaic";
 
-
 const TestMosaic = (props: UseMosaicProps): JSX.Element => {
   const props_ = useMosaic(props);
   return <Mosaic {...props_} />;
@@ -26,7 +25,7 @@ describe("Mosaic", () => {
       it("should insert a tab into the center of an empty tree", () => {
         const tab = {
           tabKey: "tab1",
-          title: "Tab 1",
+          name: "Tab 1",
         };
         const tree = Mosaic.insertTab({ key: 1, tabs: [] }, tab, "center", 1);
         expect(tree).toEqual({
@@ -38,7 +37,7 @@ describe("Mosaic", () => {
       it("shouldn't split an empty tree with one tab", () => {
         const tab = {
           tabKey: "tab1",
-          title: "Tab 1",
+          name: "Tab 1",
         };
         const tree = Mosaic.insertTab({ key: 1, tabs: [] }, tab, "right", 1);
         expect(tree).toEqual({
@@ -49,11 +48,11 @@ describe("Mosaic", () => {
       it("should split a tree with one tab", () => {
         const tabOne = {
           tabKey: "tab1",
-          title: "Tab 1",
+          name: "Tab 1",
         };
         const tabTwo = {
           tabKey: "tab2",
-          title: "Tab 2",
+          name: "Tab 2",
         };
 
         const tree = {
@@ -81,15 +80,15 @@ describe("Mosaic", () => {
       it("should insert a tab into the center of a valid leaf when no key or location is provided", () => {
         const tabOne = {
           tabKey: "tab1",
-          title: "Tab 1",
+          name: "Tab 1",
         };
         const tabTwo = {
           tabKey: "tab2",
-          title: "Tab 2",
+          name: "Tab 2",
         };
         const tabThree = {
           tabKey: "tab3",
-          title: "Tab 3",
+          name: "Tab 3",
         };
         const tree: MosaicLeaf = {
           key: 1,
@@ -126,15 +125,15 @@ describe("Mosaic", () => {
       it("should remove a tab from the center of a tree", () => {
         const tabOne = {
           tabKey: "tab1",
-          title: "Tab 1",
+          name: "Tab 1",
         };
         const tabTwo = {
           tabKey: "tab2",
-          title: "Tab 2",
+          name: "Tab 2",
         };
         const tabThree = {
           tabKey: "tab3",
-          title: "Tab 3",
+          name: "Tab 3",
         };
         const tree: MosaicLeaf = {
           key: 1,
@@ -169,15 +168,15 @@ describe("Mosaic", () => {
       it("should remove a tab from the the side of a tree and garbage collect", () => {
         const tabOne = {
           tabKey: "tab1",
-          title: "Tab 1",
+          name: "Tab 1",
         };
         const tabTwo = {
           tabKey: "tab2",
-          title: "Tab 2",
+          name: "Tab 2",
         };
         const tabThree = {
           tabKey: "tab3",
-          title: "Tab 3",
+          name: "Tab 3",
         };
         const tree: MosaicLeaf = {
           key: 1,
@@ -205,15 +204,15 @@ describe("Mosaic", () => {
       it("should move a tab from one side of a leaf to another", () => {
         const tabOne = {
           tabKey: "tab1",
-          title: "Tab 1",
+          name: "Tab 1",
         };
         const tabTwo = {
           tabKey: "tab2",
-          title: "Tab 2",
+          name: "Tab 2",
         };
         const tabThree = {
           tabKey: "tab3",
-          title: "Tab 3",
+          name: "Tab 3",
         };
         const tree: MosaicLeaf = {
           key: 1,
@@ -248,17 +247,17 @@ describe("Mosaic", () => {
       it("should correctly move a tab from the first leaf  of the root node to the second leaf", () => {
         const tabOne = {
           tabKey: "1",
-          title: "Tab 1",
+          name: "Tab 1",
           content: <h1>Tab One Content</h1>,
         };
         const tabTwo = {
           tabKey: "2",
-          title: "Tab 2",
+          name: "Tab 2",
           content: <h1>Tab Two Content</h1>,
         };
         const tabThree = {
           tabKey: "3",
-          title: "Tab 3",
+          name: "Tab 3",
           content: <h1>Tab Three Content</h1>,
         };
 
@@ -288,11 +287,11 @@ describe("Mosaic", () => {
       it("should resize a leaf", () => {
         const tabOne = {
           tabKey: "tab1",
-          title: "Tab 1",
+          name: "Tab 1",
         };
         const tabTwo = {
           tabKey: "tab2",
-          title: "Tab 2",
+          name: "Tab 2",
         };
         const tree: MosaicLeaf = {
           key: 1,
@@ -330,11 +329,11 @@ describe("Mosaic", () => {
       it("should select a tab", () => {
         const tabOne = {
           tabKey: "tab1",
-          title: "Tab 1",
+          name: "Tab 1",
         };
         const tabTwo = {
           tabKey: "tab2",
-          title: "Tab 2",
+          name: "Tab 2",
         };
         const tree: MosaicLeaf = {
           key: 1,
@@ -353,11 +352,11 @@ describe("Mosaic", () => {
       it("should rename a tab", () => {
         const tabOne = {
           tabKey: "tab1",
-          title: "Tab 1",
+          name: "Tab 1",
         };
         const tabTwo = {
           tabKey: "tab2",
-          title: "Tab 2",
+          name: "Tab 2",
         };
         const tree: MosaicLeaf = {
           key: 1,
@@ -367,7 +366,7 @@ describe("Mosaic", () => {
         const nextTree = Mosaic.renameTab(tree, "tab1", "New Tab 1");
         expect(nextTree).toEqual({
           key: 1,
-          tabs: [{ tabKey: "tab1", title: "New Tab 1" }, tabTwo],
+          tabs: [{ tabKey: "tab1", name: "New Tab 1" }, tabTwo],
           selected: "tab1",
         });
       });
@@ -377,22 +376,22 @@ describe("Mosaic", () => {
     it("should render a mosaic correctly", () => {
       const tabOne = {
         tabKey: "tab1",
-        title: "Tab 1",
+        name: "Tab 1",
         content: <div>Tab 1 Content</div>,
       };
       const tabTwo = {
         tabKey: "tab2",
-        title: "Tab 2",
+        name: "Tab 2",
         content: <div>Tab 2 Content</div>,
       };
       const tabThree = {
         tabKey: "tab3",
-        title: "Tab 3",
+        name: "Tab 3",
         content: <div>Tab 3 Content</div>,
       };
       const tabFour = {
         tabKey: "tab4",
-        title: "Tab 4",
+        name: "Tab 4",
         content: <div>Tab 4 Content</div>,
       };
 

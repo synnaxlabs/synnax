@@ -37,17 +37,17 @@ interface SampleRecord {
 const sampleColumns: Array<ListColumn<SampleRecord>> = [
   {
     key: "name",
-    label: "Name",
+    name: "Name",
     visible: true,
   },
   {
     key: "dataType",
-    label: "Data Type",
+    name: "Data Type",
     visible: true,
   },
   {
     key: "sampleRate",
-    label: "Sample Rate",
+    name: "Sample Rate",
     visible: true,
   },
 ];
