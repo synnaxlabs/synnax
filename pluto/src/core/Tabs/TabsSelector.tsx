@@ -10,10 +10,12 @@
 import clsx from "clsx";
 import { AiOutlineClose } from "react-icons/ai";
 
-import { useTabsContext } from "./Tabs";
 
 import { Button } from "@/core/Button";
 import { Space, SpaceProps } from "@/core/Space";
+
+import { useTabsContext } from "./Tabs";
+
 import { Text } from "@/core/Typography";
 
 import "./TabsSelector.css";

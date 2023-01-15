@@ -12,9 +12,11 @@ import { ReactElement, useState } from "react";
 import clsx from "clsx";
 
 import { NavbarProps, useNavbar } from "./Navbar";
-import { NavMenuItem } from "./NavMenu";
 
 import { Resize, ResizeProps } from "@/core/Resize";
+
+import { NavMenuItem } from "./NavMenu";
+
 import { clamp } from "@/util/clamp";
 
 import "./Navdrawer.css";

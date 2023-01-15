@@ -9,7 +9,7 @@
 
 import { SVGProps, useEffect, useRef, useState } from "react";
 
-import * as d3 from "d3";
+import { select, line, curveLinear, easeLinear } from "d3";
 
 import { TypographyLevel } from "@/core";
 import { Theming } from "@/theming";
@@ -69,9 +69,8 @@ const calculatePoints = ({
   ].map(([x, y]) => [x + center[0], y + center[1]]);
 };
 
-const curveFunc = d3
-  .line()
-  .curve(d3.curveLinear)
+const curveFunc = line()
+  .curve(curveLinear)
   .x((d) => d[0])
   .y((d) => d[1]);
 
@@ -86,14 +85,14 @@ export const HexagonBar = ({
 
   useEffect(() => {
     if (ref.current == null) return;
-    const svgEl = d3.select(ref.current);
+    const svgEl = select(ref.current);
     svgEl.selectAll("workspace:*").remove();
     svgEl.attr("viewBox", "0 0 100 100");
   }, []);
 
   useEffect(() => {
     if (ref.current == null) return;
-    const svgEl = d3.select(ref.current);
+    const svgEl = select(ref.current);
     metrics.forEach((metric, i) => {
       const pathID = `path-${i}`;
       const path: d3.Selection<SVGPathElement, unknown, null, undefined> =
@@ -107,7 +106,7 @@ export const HexagonBar = ({
         .attr("d", curveFunc(calculatePoints({ edgeLength, center: [50, 50] })))
         .transition()
         .duration(1000)
-        .ease(d3.easeLinear)
+        .ease(easeLinear)
         .attr(`stroke-dasharray`, calculateDashArray({ edgeLength, metric }));
     });
     svgEl

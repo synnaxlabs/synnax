@@ -10,9 +10,10 @@
 import type { ComponentMeta, ComponentStory } from "@storybook/react";
 import { MdGrain } from "react-icons/md";
 
+import { Nav } from ".";
+
 import { NavbarProps } from "./Navbar";
 
-import { Nav } from ".";
 
 const story: ComponentMeta<typeof Nav.Bar> = {
   title: "Core/Nav",

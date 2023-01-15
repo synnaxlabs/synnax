@@ -12,9 +12,11 @@ import { FunctionComponent, HTMLAttributes, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 import { useListContext } from "./ListContext";
-import { ListItemProps } from "./types";
 
 import { SelectedRecord } from "@/hooks/useSelectMultiple";
+
+import { ListItemProps } from "./types";
+
 import { RenderableRecord } from "@/util/record";
 
 import "./ListCore.css";
