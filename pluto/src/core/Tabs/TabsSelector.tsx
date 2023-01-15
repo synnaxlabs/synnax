@@ -10,7 +10,6 @@
 import clsx from "clsx";
 import { AiOutlineClose } from "react-icons/ai";
 
-
 import { Button } from "@/core/Button";
 import { Space, SpaceProps } from "@/core/Space";
 
@@ -22,7 +21,7 @@ import "./TabsSelector.css";
 
 export interface TabMeta {
   tabKey: string;
-  title: string;
+  name: string;
   closable?: boolean;
 }
 
@@ -40,7 +39,7 @@ export const TabsSelector = ({
     closable,
     onTabDragEnd,
     onTabDragStart,
-    onTitleChange,
+    onRename,
   } = useTabsContext();
   return tabs.length > 0 ? (
     <Space
@@ -59,7 +58,7 @@ export const TabsSelector = ({
           onClose={onClose}
           onTabDragStart={onTabDragStart}
           onTabDragEnd={onTabDragEnd}
-          onTitleChange={onTitleChange}
+          onRename={onRename}
           closable={tab.closable ?? closable}
           {...tab}
         />
@@ -73,17 +72,17 @@ const TabC = ({
   onSelect,
   onClose,
   tabKey,
-  title,
+  name,
   onTabDragStart,
   onTabDragEnd,
-  onTitleChange,
+  onRename,
   closable,
 }: TabSelectorButtonProps): JSX.Element => {
   const onDragStart = (e: React.DragEvent<HTMLDivElement>): void =>
-    onTabDragStart?.(e, { tabKey, title });
+    onTabDragStart?.(e, { tabKey, name });
 
   const onDragEnd = (e: React.DragEvent<HTMLDivElement>): void =>
-    onTabDragEnd?.(e, { tabKey, title });
+    onTabDragEnd?.(e, { tabKey, name });
 
   const _onClose = (e: React.MouseEvent<HTMLButtonElement>): void => {
     e.stopPropagation();
@@ -96,7 +95,7 @@ const TabC = ({
     <Space
       className={clsx(
         "pluto-tabs-selector__button",
-        onTitleChange == null && "pluto-tabs-selector__button--uneditable",
+        onRename == null && "pluto-tabs-selector__button--uneditable",
         selected === tabKey && "pluto-tabs-selector__button--selected",
         closable === true && "pluto-tabs-selector__button--closable"
       )}
@@ -108,7 +107,7 @@ const TabC = ({
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
     >
-      <TabTitle title={title} tabKey={tabKey} onTitleChange={onTitleChange} />
+      <TabName name={name} tabKey={tabKey} onRename={onRename} />
       {onClose != null && (
         <Button.IconOnly
           size="small"
@@ -128,23 +127,20 @@ export interface TabSelectorButtonProps extends TabMeta {
   onTabDragEnd?: (e: React.DragEvent<HTMLDivElement>, tab: TabMeta) => void;
   onSelect?: (key: string) => void;
   onClose?: (key: string) => void;
-  onTitleChange?: (key: string, title: string) => void;
+  onRename?: (key: string, name: string) => void;
 }
 
-interface TabTitleProps {
-  onTitleChange?: (key: string, title: string) => void;
-  title: string;
+interface TabnameProps {
+  onRename?: (key: string, name: string) => void;
+  name: string;
   tabKey: string;
 }
 
-const TabTitle = ({ onTitleChange, title, tabKey }: TabTitleProps): JSX.Element => {
-  if (onTitleChange == null) return <Text level="p">{title}</Text>;
+const TabName = ({ onRename, name, tabKey }: TabnameProps): JSX.Element => {
+  if (onRename == null) return <Text level="p">{name}</Text>;
   return (
-    <Text.Editable
-      level="p"
-      onChange={(newText: string) => onTitleChange(tabKey, newText)}
-    >
-      {title}
+    <Text.Editable level="p" onChange={(newText: string) => onRename(tabKey, newText)}>
+      {name}
     </Text.Editable>
   );
 };

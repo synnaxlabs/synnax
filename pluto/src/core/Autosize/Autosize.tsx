@@ -7,14 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { FunctionComponent, ReactElement, cloneElement } from "react";
+import { ReactElement, cloneElement } from "react";
 
 import { useSize } from "@/hooks";
+import { Box } from "@/spatial";
+import { RenderProp } from "@/util/renderable";
 
 /* AutoSize props is the props for the {@link AutoSize} component. */
 export interface AutosizeProps
   extends Omit<React.HTMLAttributes<HTMLDivElement>, "children"> {
-  children: FunctionComponent<{ width: number; height: number }> | ReactElement;
+  children: RenderProp<Box> | ReactElement;
   debounce?: number;
 }
 
@@ -34,9 +36,9 @@ export const Autosize = ({
   debounce,
   ...props
 }: AutosizeProps): JSX.Element => {
-  const [size, ref] = useSize<HTMLDivElement>({ debounce });
+  const [box, ref] = useSize<HTMLDivElement>({ debounce });
   const content: ReactElement | null =
-    typeof children === "function" ? children(size) : cloneElement(children, size);
+    typeof children === "function" ? children(box) : cloneElement(children, box);
   return (
     <div ref={ref} {...props}>
       {content}

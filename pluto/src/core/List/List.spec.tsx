@@ -23,12 +23,12 @@ interface SampleRecord {
 const cols: Array<ListColumn<SampleRecord>> = [
   {
     key: "name",
-    label: "Name",
+    name: "Name",
     visible: true,
   },
   {
     key: "age",
-    label: "Age",
+    name: "Age",
     visible: true,
   },
 ];

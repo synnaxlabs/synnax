@@ -12,7 +12,6 @@ import { CSSProperties, useEffect, useState } from "react";
 import clsx from "clsx";
 import { AiFillCaretDown, AiFillCaretUp } from "react-icons/ai";
 
-
 import { Space } from "@/core/Space";
 import { Text } from "@/core/Typography";
 import { textWidth } from "@/core/Typography/textWidth";
@@ -96,7 +95,7 @@ const ListColumnHeader = <E extends RenderableRecord<E>>({
               }}
               onClick={() => onSort(col.key)}
             >
-              {col.label}
+              {col.name}
             </Text.WithIcon>
           );
         })}
@@ -173,7 +172,7 @@ const columnWidths = <E extends RenderableRecord<E>>(
 ): Array<ListColumnT<E>> => {
   const le = longestEntries(data);
   return columns.map((col) => {
-    const labelWidth = textWidth(col.label, font);
+    const labelWidth = textWidth(col.name, font);
     const entryWidth = textWidth(le[col.key], font);
     return {
       ...col,

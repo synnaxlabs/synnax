@@ -32,6 +32,10 @@ export const applyThemeAsCssVars = (element: HTMLElement, theme: Theme): void =>
   setProperty(element, "--pluto-gray-p2", theme.colors.gray.p2);
   setProperty(element, "--pluto-gray-p3", theme.colors.gray.p3);
 
+  // || LOGO ||
+
+  setProperty(element, "--pluto-logo-color", theme.colors.logo);
+
   // || ERROR ||
 
   setProperty(element, "--pluto-error-m1", theme.colors.error.m1);

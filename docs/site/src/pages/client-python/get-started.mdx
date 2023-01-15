@@ -2,6 +2,8 @@
 sidebar_position: 1
 ---
 
+import "../hello.astro";
+
 # Get Started
 
 Synnax offers a Python client for communicating with a cluster.
@@ -66,7 +68,7 @@ ch.write(start, data)
 ```
 
 <details>
-<summary> <strong>In case you'd like a recap, here's the entire code block.</strong> </summary>
+<summary> <h4>In case you'd like a recap, here's the entire code block.</h4> </summary>
 
 ```python
 import synnax
@@ -110,7 +112,7 @@ res_data = ch.read(start, end)
 This returns a `numpy.ndarray` of the data that was read from the channel.
 
 <details>
-<summary> <strong>And here it is all in one simple script.</strong> </summary>
+<summary> <h4>And here it is all in one simple script.</h4> </summary>
 
 ```python
   import synnax

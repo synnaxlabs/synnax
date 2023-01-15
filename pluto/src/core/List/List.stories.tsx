@@ -46,15 +46,15 @@ const data = Array.from({ length: 400 }, (_, i) => ({
 const columns = [
   {
     key: "name",
-    label: "Name",
+    name: "Name",
   },
   {
     key: "dataType",
-    label: "Data Type",
+    name: "Data Type",
   },
   {
     key: "rate",
-    label: "Rate",
+    name: "Rate",
   },
 ];
 

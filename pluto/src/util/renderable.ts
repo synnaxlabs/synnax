@@ -20,3 +20,5 @@ export const render = (value: RenderableValue): string | number | undefined => {
   if (value.toString === undefined) throw new Error("invalid renderer");
   return value.toString();
 };
+
+export type RenderProp<P> = (props: P) => JSX.Element | null;

@@ -20,16 +20,16 @@ const StaticTabs = ({ tabs, ...tProps }: TabsProps): JSX.Element => {
 describe("Tabs", () => {
   it("should render the first tabs content by default", () => {
     const tabs = [
-      { tabKey: "tab1", title: "Tab 1", content: <span>Tab 1 Content</span> },
-      { tabKey: "tab2", title: "Tab 2", content: <span>Tab 2 Content</span> },
+      { tabKey: "tab1", name: "Tab 1", content: <span>Tab 1 Content</span> },
+      { tabKey: "tab2", name: "Tab 2", content: <span>Tab 2 Content</span> },
     ];
     const { getByText } = render(<StaticTabs tabs={tabs} />);
     expect(getByText("Tab 1 Content")).toBeTruthy();
   });
   it("should switch the selected tab when clicked", () => {
     const tabs = [
-      { tabKey: "tab1", title: "Tab 1", content: <span>Tab 1 Content</span> },
-      { tabKey: "tab2", title: "Tab 2", content: <span>Tab 2 Content</span> },
+      { tabKey: "tab1", name: "Tab 1", content: <span>Tab 1 Content</span> },
+      { tabKey: "tab2", name: "Tab 2", content: <span>Tab 2 Content</span> },
     ];
     const { getByText } = render(<StaticTabs tabs={tabs} />);
     expect(getByText("Tab 1 Content")).toBeTruthy();
@@ -45,8 +45,8 @@ describe("Tabs", () => {
   });
   it("should render tabs using a render function if provided", () => {
     const { getByText } = render(
-      <StaticTabs tabs={[{ tabKey: "tab1", title: "Tab 1" }]}>
-        {({ tab }) => <h1>{tab.title} Content</h1>}
+      <StaticTabs tabs={[{ tabKey: "tab1", name: "Tab 1" }]}>
+        {({ tab }) => <h1>{tab.name} Content</h1>}
       </StaticTabs>
     );
     expect(getByText("Tab 1 Content")).toBeTruthy();
@@ -55,8 +55,8 @@ describe("Tabs", () => {
     const onTabDragStart = vi.fn();
     const onTabDragEnd = vi.fn();
     const tabs: Tab[] = [
-      { tabKey: "tab1", title: "Tab 1", content: <span>Tab 1 Content</span> },
-      { tabKey: "tab2", title: "Tab 2", content: <span>Tab 2 Content</span> },
+      { tabKey: "tab1", name: "Tab 1", content: <span>Tab 1 Content</span> },
+      { tabKey: "tab2", name: "Tab 2", content: <span>Tab 2 Content</span> },
     ];
     const { getByText } = render(
       <StaticTabs
@@ -74,7 +74,7 @@ describe("Tabs", () => {
   it("should render a close button if an onClose prop is passed", () => {
     const onClose = vi.fn();
     const tabs = [
-      { tabKey: "tab1", title: "Tab 1", content: <span>Tab 1 Content</span> },
+      { tabKey: "tab1", name: "Tab 1", content: <span>Tab 1 Content</span> },
     ];
     const { getByText, getByLabelText } = render(
       <StaticTabs tabs={tabs} onClose={onClose} />
