@@ -17,8 +17,8 @@
 package errors
 
 import (
-	"github.com/synnaxlabs/x/query"
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/x/query"
 )
 
 // Nil is a typed representation of a nil error.

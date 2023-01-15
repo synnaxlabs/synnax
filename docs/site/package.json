@@ -1,5 +1,5 @@
 {
-  "name": "@example/minimal",
+  "name": "@synnaxlabs/docs",
   "type": "module",
   "version": "0.0.1",
   "private": true,
@@ -16,12 +16,15 @@
     "astro": "^1.9.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
-    "@synnaxlabs/pluto": "workspace:*"
+    "@synnaxlabs/pluto": "workspace:*",
+    "@synnaxlabs/client": "workspace:*",
+    "@synnaxlabs/test": "workspace:*"
   },
   "devDependencies": {
     "@types/react": "^18.0.21",
     "@types/react-dom": "^18.0.6",
     "@synnaxlabs/tsconfig": "workspace:*",
-    "eslint-config-synnaxlabs": "workspace:*"
+    "eslint-config-synnaxlabs": "workspace:*",
+    "typescript": "^4.9.4"
   }
 }

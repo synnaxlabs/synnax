@@ -18,7 +18,6 @@ import { camelKeys, snakeKeys } from "@/caseconv";
  */
 interface CustomTypeEncoder {
   /** The Class the custom encoder is set for */
-  // eslint-disable-next-line @typescript-eslint/ban-types
   Class: Function;
 
   /**

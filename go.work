@@ -3,9 +3,8 @@ go 1.19
 use (
 	./aspen
 	./cesium
-	./client/go
 	./freighter/go
 	./freighter/integration
 	./synnax
-	./x
+	./x/go
 )

@@ -1,7 +1,8 @@
 import { ComponentMeta } from "@storybook/react";
-import { TimeStamp } from "@synnaxlabs/client";
 
 import { Axis } from "./Axis";
+
+import { TimeStamp } from "@synnaxlabs/x";
 
 const story: ComponentMeta<typeof Axis> = {
   title: "Visualization/Axis",

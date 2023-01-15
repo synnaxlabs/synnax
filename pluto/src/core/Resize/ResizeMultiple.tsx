@@ -19,7 +19,6 @@ import {
   useEffect,
 } from "react";
 
-import { UnexpectedError } from "@synnaxlabs/client";
 import clsx from "clsx";
 
 import { ResizeCore } from "./ResizeCore";
@@ -228,7 +227,7 @@ export const calculateDiffPercentage = (
   targetSize?: number
 ): number => {
   if (prev.parentSize === null)
-    throw new UnexpectedError("parent size is null during handle drag");
+    throw new Error("parent size is null during handle drag");
   let diff: number;
   // If the caller provided a target size, prefer that.
   if (targetSize != null) {
@@ -236,8 +235,7 @@ export const calculateDiffPercentage = (
     if (targetSize > 1) targetSize = targetSize / prev.parentSize;
     diff = targetSize - prev.sizeDistribution[dragging];
   } else if (clientPos != null) {
-    if (prev.root === null)
-      throw new UnexpectedError("resize root is null during handle drag");
+    if (prev.root === null) throw new Error("resize root is null during handle drag");
     diff = (clientPos - prev.root) / prev.parentSize;
   } else throw new Error("must provide either a MouseEvent or a targetSize");
   return diff;
@@ -249,7 +247,7 @@ export const distribute = (
   minSize: number
 ): number[] => {
   if (_state.parentSize === null)
-    throw new UnexpectedError("parent size is null during distribute");
+    throw new Error("parent size is null during distribute");
   const { parentSize, sizeDistribution: state } = _state;
   let nextState = [...state];
   const arePercentages = nextState.every((size) => size <= 1);

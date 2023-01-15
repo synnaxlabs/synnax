@@ -1,0 +1,26 @@
+{
+  "name": "@synnaxlabs/test",
+  "type": "module",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "build": "vite build"
+  },
+  "dependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.0.21",
+    "@types/react-dom": "^18.0.6",
+    "@synnaxlabs/tsconfig": "workspace:*",
+    "eslint-config-synnaxlabs": "workspace:*",
+    "@synnaxlabs/vite-plugin": "workspace:*",
+    "@vitejs/plugin-react": "^3.0.1",
+    "typescript": "^4.9.4",
+    "vite": "^4.0.4"
+  },
+  "main": "./dist/test.cjs.js",
+  "module": "./dist/pluto.es.js",
+  "types": "./dist/index.d.ts"
+}

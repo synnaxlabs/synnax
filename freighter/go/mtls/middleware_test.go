@@ -13,11 +13,8 @@ import (
 	"context"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/mtls"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Middleware", func() {

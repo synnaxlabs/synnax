@@ -7,12 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { registerCustomTypeEncoder } from "@synnaxlabs/freighter";
-
-import { ValidationError } from "@/errors";
-
-const valueOfEncoder = (value: unknown): unknown => value?.valueOf();
-
 export type TZInfo = "UTC" | "local";
 
 export type TimeStampStringFormat =
@@ -730,7 +724,7 @@ export class DataType extends String {
       }
     }
     super(DataType.UNKNOWN.valueOf());
-    throw new ValidationError(`unable to find data type for ${value.toString()}`);
+    throw new Error(`unable to find data type for ${value.toString()}`);
   }
 
   /**
@@ -739,9 +733,7 @@ export class DataType extends String {
   get Array(): NativeTypedArrayConstructor {
     const v = DataType.ARRAY_CONSTRUCTORS.get(this.toString());
     if (v == null)
-      throw new ValidationError(
-        `unable to find array constructor for ${this.valueOf()}`
-      );
+      throw new Error(`unable to find array constructor for ${this.valueOf()}`);
     return v;
   }
 
@@ -756,8 +748,7 @@ export class DataType extends String {
 
   get density(): Density {
     const v = DataType.DENSITIES.get(this.toString());
-    if (v == null)
-      throw new ValidationError(`unable to find density for ${this.valueOf()}`);
+    if (v == null) throw new Error(`unable to find density for ${this.valueOf()}`);
     return v;
   }
 
@@ -954,15 +945,6 @@ export type UnparsedRate = Rate | number;
 export type UnparsedDensity = Density | number;
 export type UnparsedDataType = DataType | string | NativeTypedArray;
 export type UnparsedSize = Size | number;
-
-registerCustomTypeEncoder({ Class: TimeStamp, write: valueOfEncoder });
-registerCustomTypeEncoder({ Class: TimeSpan, write: valueOfEncoder });
-registerCustomTypeEncoder({
-  Class: DataType,
-  write: (v: unknown) => (v as DataType).toString,
-});
-registerCustomTypeEncoder({ Class: Rate, write: valueOfEncoder });
-registerCustomTypeEncoder({ Class: Density, write: valueOfEncoder });
 
 export type NativeTypedArray =
   | Uint8Array

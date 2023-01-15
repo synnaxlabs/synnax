@@ -10,7 +10,7 @@
 import type { UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
-import { TimeSpan } from "@/telem";
+import { TimeSpan } from "@synnaxlabs/x";
 
 export type Connectivity = "disconnected" | "connecting" | "connected" | "failed";
 

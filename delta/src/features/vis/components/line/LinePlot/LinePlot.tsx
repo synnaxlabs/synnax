@@ -26,11 +26,13 @@ import {
   useZoomPan,
 } from "@synnaxlabs/pluto";
 
-import { useTelemetryClient } from "../../../telem/TelemetryContext";
-import { LineSVis } from "../types";
-
 import { useSelectTheme } from "@/features/layout";
+
+import { useTelemetryClient } from "../../@synnaxlabs/x/TelemetryContext";
+
 import { useAsyncEffect } from "@/hooks";
+
+import { LineSVis } from "../types";
 
 import "./LinePlot.css";
 

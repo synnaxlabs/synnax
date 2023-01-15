@@ -11,10 +11,7 @@ package ferrors_test
 
 import (
 	"github.com/cockroachdb/errors"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter/ferrors"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 const (

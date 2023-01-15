@@ -10,11 +10,11 @@
 package kv
 
 import (
+	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/confluence"
 	kvx "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/version"
-	"github.com/synnaxlabs/aspen/internal/node"
 )
 
 type Variant uint32

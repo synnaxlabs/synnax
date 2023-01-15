@@ -10,7 +10,6 @@
 package fhttp
 
 import (
-	"github.com/gofiber/fiber/v2"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/httputil"
 )

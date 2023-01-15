@@ -9,3 +9,5 @@ packages:
   - "configs/stylelint"
   - "configs/vite"
   - "docs/site"
+  - "docs/test"
+  - "x/ts"

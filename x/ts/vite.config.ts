@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2022 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,12 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package delta
+import { lib } from "@synnaxlabs/vite-plugin";
+import { defineConfig } from "vite";
 
-import "github.com/synnaxlabs/x/address"
-
-type Config struct {
-	Endpoint address.Address
-	Username string
-	Password string
-}
+export default defineConfig({
+  plugins: [lib({ name: "x" })],
+  build: {
+    sourcemap: true,
+    minify: false,
+  },
+  test: {
+    globals: true,
+    environment: "jsdom",
+  },
+});

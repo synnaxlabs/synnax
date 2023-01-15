@@ -9,10 +9,11 @@
  * included in the file licenses/APL.txt.
  */
 
+import { Size, TArray, TimeRange } from "@synnaxlabs/x";
+
 import { arrayFromPayload, arrayToPayload, FramePayload } from "./payload";
 
 import { UnexpectedError, ValidationError } from "@/errors";
-import { Size, TArray, TimeRange } from "@/telem";
 
 export class Frame {
   private readonly _entries: Record<string, TArray[]>;

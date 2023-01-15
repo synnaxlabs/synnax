@@ -18,7 +18,6 @@ import (
 
 	roacherrors "github.com/cockroachdb/errors"
 	ws "github.com/fasthttp/websocket"
-	"github.com/gofiber/fiber/v2"
 	fiberws "github.com/gofiber/websocket/v2"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/ferrors"

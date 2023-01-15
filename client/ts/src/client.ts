@@ -15,7 +15,7 @@ import { ChannelClient } from "@/channel";
 import { ConnectivityClient } from "@/connectivity";
 import { FrameClient } from "@/framer";
 import { OntologyClient } from "@/ontology";
-import { TimeSpan } from "@/telem";
+import { TimeSpan } from "@synnaxlabs/x";
 import { Transport } from "@/transport";
 
 export const synnaxPropsSchema = z.object({

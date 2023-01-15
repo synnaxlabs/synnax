@@ -18,9 +18,13 @@ import {
   UnparsedDataType,
 } from "./telem";
 
-import { validateFieldNotNull, ValidationError } from "@/errors";
-
 export type SampleValue = number | bigint;
+
+const validateFieldNotNull = (name: string, field: unknown): void => {
+  if (field == null) {
+    throw new Error(`field ${name} is null`);
+  }
+};
 
 /** A strongly typed array of telemetry samples. */
 export class TArray {
@@ -44,7 +48,7 @@ export class TArray {
     } else if (dataType != null) {
       this.dataType = new DataType(dataType);
     } else {
-      throw new ValidationError(
+      throw new Error(
         "must provide a data type when constructing a TArray from a buffer"
       );
     }

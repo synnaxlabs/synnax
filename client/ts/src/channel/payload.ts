@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 
-import { DataType, Density, Rate } from "@/telem";
+import { DataType, Density, Rate } from "@synnaxlabs/x";
 
 export const channelPayloadSchema = z.object({
   key: z.string(),

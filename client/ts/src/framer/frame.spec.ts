@@ -13,7 +13,7 @@ import { describe, expect, it, test } from "vitest";
 
 import { Frame } from "..";
 
-import { DataType, TArray, TimeRange } from "@/telem";
+import { DataType, TArray, TimeRange } from "@synnaxlabs/x";
 
 describe("Frame", () => {
   describe("construction", () => {

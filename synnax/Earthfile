@@ -1,6 +1,5 @@
 VERSION 0.6
-FROM golang:1.19-alpine3.16
-RUN apk add build-base
+FROM golang:1.19-bullseye
 WORKDIR /synnax
 
 deps:
@@ -20,8 +19,9 @@ build:
     FROM +deps
     COPY . .
     ARG noui=false
+    RUN go env
     IF [ "$noui" = "true" ]
-        RUN go build -tags noui -o build/synnax main.go
+        RUN go build -tags noui -o build/synnax .
     ELSE
         RUN go build -o build/synnax main.go
     END

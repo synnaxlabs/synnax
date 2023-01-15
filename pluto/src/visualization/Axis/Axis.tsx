@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 
-import { TimeStamp } from "@synnaxlabs/client";
 import clsx from "clsx";
 import * as d3 from "d3";
 
@@ -9,6 +8,8 @@ import { fRotate, fTranslate, locationRotations } from "../util/svg";
 import { OuterLocation, XY, ZERO_XY } from "@/spatial";
 
 import "./Axis.css";
+
+import { TimeStamp } from "@synnaxlabs/x";
 
 export type AxisType = "linear" | "time";
 

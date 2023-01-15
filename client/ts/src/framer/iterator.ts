@@ -21,7 +21,7 @@ import {
   TimeStamp,
   UnparsedTimeSpan,
   UnparsedTimeStamp,
-} from "@/telem";
+} from "@synnaxlabs/x";
 
 export const AUTO_SPAN = new TimeSpan(-1);
 

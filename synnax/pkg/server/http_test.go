@@ -11,12 +11,9 @@ package server_test
 
 import (
 	"context"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter/fhttp"
 	"github.com/synnaxlabs/synnax/pkg/server"
 	"github.com/synnaxlabs/x/config"
-	. "github.com/synnaxlabs/x/testutil"
 	"go.uber.org/zap"
 	"net/http"
 	"sync"

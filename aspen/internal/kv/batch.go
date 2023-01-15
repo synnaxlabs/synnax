@@ -10,10 +10,10 @@
 package kv
 
 import (
-	"github.com/synnaxlabs/x/binary"
-	kvx "github.com/synnaxlabs/x/kv"
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/aspen/internal/node"
+	"github.com/synnaxlabs/x/binary"
+	kvx "github.com/synnaxlabs/x/kv"
 	"sync"
 )
 

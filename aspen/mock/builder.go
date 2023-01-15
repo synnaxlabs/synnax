@@ -11,9 +11,9 @@ package mock
 
 import (
 	"context"
+	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errutil"
-	"github.com/synnaxlabs/aspen"
 	"os"
 	"path/filepath"
 	"strconv"

@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 
-import { DataType, TArray, TimeRange, TimeStamp } from "@/telem";
+import { DataType, TArray, TimeRange, TimeStamp } from "@synnaxlabs/x";
 
 export const arrayPayloadSchema = z.object({
   timeRange: z

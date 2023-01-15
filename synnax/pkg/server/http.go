@@ -12,7 +12,6 @@ package server
 import (
 	"bytes"
 	"github.com/cockroachdb/cmux"
-	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/filesystem"
 	"github.com/gofiber/fiber/v2/middleware/monitor"
@@ -52,7 +51,7 @@ func (b *SecureHTTPBranch) Serve(ctx BranchContext) error {
 	b.internal = fiber.New(b.getConfig(ctx))
 	b.maybeRouteDebugUtil(ctx)
 	b.routeUI()
-	b.internal.Use(cors.New(cors.Config{AllowOrigins: "workspace:*"}))
+	b.internal.Use(cors.New(cors.Config{AllowOrigins: "*"}))
 	for _, t := range b.Transports {
 		t.BindTo(b.internal)
 	}
@@ -63,10 +62,11 @@ func (b *SecureHTTPBranch) Serve(ctx BranchContext) error {
 func (b *SecureHTTPBranch) Stop() { _ = b.internal.Shutdown() }
 
 func (b *SecureHTTPBranch) maybeRouteDebugUtil(ctx BranchContext) {
-	//if ctx.Debug {
+	if !ctx.Debug {
+		return
+	}
 	b.internal.Get("/metrics", monitor.New(monitor.Config{Title: "Synnax Metrics"}))
 	b.internal.Use(pprof.New())
-	//}
 }
 
 func (b *SecureHTTPBranch) routeUI() {

@@ -8,7 +8,6 @@ require (
 	github.com/onsi/ginkgo/v2 v2.1.4
 	github.com/onsi/gomega v1.19.0
 	github.com/samber/lo v1.27.0
-	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/afero v1.8.2
 	github.com/vmihailenco/msgpack/v5 v5.3.5
 	go.uber.org/zap v1.21.0
@@ -37,15 +36,4 @@ require (
 	golang.org/x/sys v0.0.0-20220715151400-c0bba94af5f8 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-<!--
-  - Copyright 2023 Synnax Labs, Inc.
-  -
-  - Use of this software is governed by the Business Source License included in the file
-  - licenses/BSL.txt.
-  -
-  - As of the Change Date specified in that file, in accordance with the Business Source
-  - License, use of this software will be governed by the Apache License, Version 2.0,
-  - included in the file licenses/APL.txt.
-  -->
-
 )

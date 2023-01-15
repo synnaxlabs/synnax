@@ -14,13 +14,15 @@ import {
   NativeTypedArray,
   UnparsedDensity,
   UnparsedTimeStamp,
-} from "../telem";
+} from "@synnaxlabs/x";
 
 import { ChannelCreator, CreateChannelProps } from "./creator";
 import { ChannelPayload, channelPayloadSchema } from "./payload";
-import { ChannelRetriever } from "./retriever";
 
 import { FrameClient } from "@/framer";
+
+import { ChannelRetriever } from "./retriever";
+
 import { Transport } from "@/transport";
 
 /**

@@ -10,8 +10,8 @@
 package node
 
 import (
-	"github.com/synnaxlabs/x/address"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/address"
 )
 
 type Group map[ID]Node

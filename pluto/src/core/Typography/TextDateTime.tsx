@@ -9,15 +9,15 @@
 
 import { forwardRef } from "react";
 
+import { Text } from "./Text";
+import type { TextProps } from "./Text";
+
 import {
   TimeStampStringFormat,
   TimeStamp,
   UnparsedTimeStamp,
   TZInfo,
-} from "@synnaxlabs/client";
-
-import { Text } from "./Text";
-import type { TextProps } from "./Text";
+} from "@synnaxlabs/x";
 
 export interface TextDateTimeProps extends Omit<TextProps, "children" | "ref"> {
   children: UnparsedTimeStamp;

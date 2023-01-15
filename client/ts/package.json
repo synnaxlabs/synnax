@@ -5,7 +5,6 @@
   "type": "module",
   "description": "The Client Library for Synnax",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/client/ts",
-  "license": "MIT",
   "keywords": [
     "synnax",
     "grpc",
@@ -24,11 +23,9 @@
     "lint": "eslint \"src/**/*.ts*\"",
     "fix": "eslint \"src/**/*.ts*\" --fix"
   },
-  "engines": {
-    "node": ">=18"
-  },
   "dependencies": {
     "@synnaxlabs/freighter": "workspace:*",
+    "@synnaxlabs/x": "workspace:*",
     "zod": "3.19.1"
   },
   "devDependencies": {
@@ -37,11 +34,8 @@
     "@types/node": "^18.11.18",
     "eslint-config-synnaxlabs": "workspace:*",
     "vite": "^4.0.4",
-    "vitest": "^0.26.3"
+    "vitest": "^0.27.1"
   },
-  "files": [
-    "dist"
-  ],
   "main": "dist/client.cjs.js",
   "module": "dist/client.es.js",
   "types": "dist/index.d.ts"
