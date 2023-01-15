@@ -10,9 +10,11 @@
 import type { ComponentMeta, ComponentStory } from "@storybook/react";
 
 import { MosaicLeaf } from "./types";
-import { useMosaic } from "./useMosaic";
 
 import { Mosaic } from ".";
+
+import { useMosaic } from "./useMosaic";
+
 
 const story: ComponentMeta<typeof Mosaic> = {
   title: "Core/Mosaic",

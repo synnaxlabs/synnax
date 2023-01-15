@@ -1,8 +1,7 @@
 import { ComponentMeta } from "@storybook/react";
+import { TimeStamp } from "@synnaxlabs/x";
 
 import { Axis } from "./Axis";
-
-import { TimeStamp } from "@synnaxlabs/x";
 
 const story: ComponentMeta<typeof Axis> = {
   title: "Visualization/Axis",
@@ -38,4 +37,5 @@ export const Basic = (): JSX.Element => (
   </svg>
 );
 
+// eslint-disable-next-line import/no-default-export
 export default story;

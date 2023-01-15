@@ -12,13 +12,13 @@ import { errorUnsupported } from "../errors";
 import { GLContext, GLRenderer } from "../renderer";
 import { ScissoredRenderRequest } from "../scissor";
 
+import { RGBATuple } from "@/color";
+import { Transform, XY } from "@/spatial";
+
 // eslint-disable-next-line import/no-unresolved
 import fragShader from "./frag.glsl?raw";
 // eslint-disable-next-line import/no-unresolved
 import vertShader from "./vert.glsl?raw";
-
-import { RGBATuple } from "@/color";
-import { Transform, XY } from "@/spatial";
 
 const shaderVars = {
   scissor: {

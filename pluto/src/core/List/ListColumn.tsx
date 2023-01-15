@@ -12,8 +12,6 @@ import { CSSProperties, useEffect, useState } from "react";
 import clsx from "clsx";
 import { AiFillCaretDown, AiFillCaretUp } from "react-icons/ai";
 
-import { useListContext } from "./ListContext";
-import { ListItemProps, ListColumn as ListColumnT } from "./types";
 
 import { Space } from "@/core/Space";
 import { Text } from "@/core/Typography";
@@ -22,7 +20,12 @@ import { useFont } from "@/theming";
 import { RenderableRecord } from "@/util/record";
 import { render } from "@/util/renderable";
 import { sortFunc } from "@/util/sort";
+
+import { useListContext } from "./ListContext";
+
 import { ArrayTransform } from "@/util/transform";
+
+import { ListItemProps, ListColumn as ListColumnT } from "./types";
 
 import "./ListColumn.css";
 

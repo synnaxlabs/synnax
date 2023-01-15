@@ -9,23 +9,30 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import clsx from "clsx";
-import { AiOutlineClose } from "react-icons/ai";
 
-import { Theming } from "../../theming";
 
-import { SelectList } from "./SelectList";
 
 import { Button } from "@/core/Button";
+
+import clsx from "clsx";
+
 import { Dropdown, DropdownProps } from "@/core/Dropdown";
+
+import { AiOutlineClose } from "react-icons/ai";
+
 import { Input, InputControlProps, InputProps } from "@/core/Input";
 import { ListColumn, List } from "@/core/List";
 import { Pack, PackProps } from "@/core/Pack";
 import { Space } from "@/core/Space";
 import { Tag } from "@/core/Tag";
+
+import { Theming } from "../../theming";
+
 import { visibleCls } from "@/util/css";
 import { RenderableRecord } from "@/util/record";
 import { render } from "@/util/renderable";
+
+import { SelectList } from "./SelectList";
 
 import "./SelectMultiple.css";
 

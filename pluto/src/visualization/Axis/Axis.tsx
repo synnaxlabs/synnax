@@ -1,15 +1,14 @@
 import { useMemo } from "react";
 
+import { TimeStamp } from "@synnaxlabs/x";
 import clsx from "clsx";
-import * as d3 from "d3";
+import { scaleLinear, scaleTime } from "d3";
 
 import { fRotate, fTranslate, locationRotations } from "../util/svg";
 
 import { OuterLocation, XY, ZERO_XY } from "@/spatial";
 
 import "./Axis.css";
-
-import { TimeStamp } from "@synnaxlabs/x";
 
 export type AxisType = "linear" | "time";
 
@@ -102,9 +101,9 @@ type Scale =
 const initD3Scale = (type: AxisType, domain: [number, number]): Scale => {
   switch (type) {
     case "time":
-      return d3.scaleTime().domain(domain.map((v) => new TimeStamp(v).date()));
+      return scaleTime().domain(domain.map((v) => new TimeStamp(v).date()));
     default:
-      return d3.scaleLinear().domain(domain);
+      return scaleLinear().domain(domain);
   }
 };
 
