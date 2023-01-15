@@ -10,10 +10,10 @@
 package user
 
 import (
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
-	"github.com/google/uuid"
 )
 
 type Service struct {

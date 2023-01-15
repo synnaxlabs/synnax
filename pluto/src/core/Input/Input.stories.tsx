@@ -10,11 +10,12 @@
 import { useState } from "react";
 
 import type { ComponentMeta } from "@storybook/react";
-import { TimeStamp } from "@synnaxlabs/client";
 
 import { Text } from "../Typography";
 
 import { Input } from ".";
+
+import { TimeStamp } from "@synnaxlabs/x";
 
 const story: ComponentMeta<typeof Input> = {
   title: "Core/Input",

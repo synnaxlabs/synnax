@@ -1,5 +1,3 @@
-import { UnexpectedError } from "@synnaxlabs/client";
-
 import { errorCompile, ERROR_BAD_SHADER, ERROR_NOT_COMPILED } from "./errors";
 
 import { RGBATuple } from "@/color";
@@ -69,7 +67,7 @@ export class StaticCompiler implements Compiler {
 
   private getUniformLoc(gl: WebGLRenderingContext, name: string): WebGLUniformLocation {
     const loc = gl.getUniformLocation(this.program, name);
-    if (loc == null) throw new UnexpectedError(`unexpected missing uniform ${name}`);
+    if (loc == null) throw new Error(`unexpected missing uniform ${name}`);
     return loc;
   }
 }

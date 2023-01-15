@@ -1,11 +1,10 @@
-import { UnexpectedError } from "@synnaxlabs/client";
-
 import { Compiler } from "./compiler";
 import { GLRendererRegistry } from "./registry";
 import { ScissoredGLRenderer, ScissoredRenderRequest } from "./scissor";
-import { RenderingUnits } from "./types";
 
 import { Box, calculateBottomOffset, CSSBox, XY } from "@/spatial";
+
+import { RenderingUnits } from "./types";
 
 /**
  * A renderer for a specific type of entity. A renderer should not maintain any internal
@@ -28,7 +27,7 @@ export class GLContext {
   constructor(canvas: HTMLCanvasElement, registry: GLRendererRegistry) {
     this.canvas = canvas;
     const gl = canvas.getContext("webgl", { preserveDrawingBuffer: true });
-    if (gl == null) throw new UnexpectedError("Could not get WebGL context");
+    if (gl == null) throw new Error("Could not get WebGL context");
     this.gl = gl;
     this.registry = registry;
     this.registry.compile(this.gl);
@@ -40,7 +39,7 @@ export class GLContext {
   }
 
   get dpr(): number {
-    return  window.devicePixelRatio ?? 1;
+    return window.devicePixelRatio ?? 1;
   }
 
   scale(box: Box): XY {

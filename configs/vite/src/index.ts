@@ -11,6 +11,7 @@
 
 import { readFile } from "fs/promises";
 import path from "path";
+
 import type { CompilerOptions } from "typescript";
 import ts from "typescript";
 import type { Alias, AliasOptions, Plugin } from "vite";
@@ -43,6 +44,8 @@ export const tsConfigPaths = ({ name }: Options): Plugin => {
         })
       );
       const existingAlias = transformExistingAlias(config.resolve?.alias);
+      console.log("BUILD");
+      console.log(config.build);
       return {
         ...config,
         resolve: {

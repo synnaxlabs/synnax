@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { DataType, Rate } from "@synnaxlabs/x";
 import { test, expect } from "vitest";
 
 import { QueryError } from "../errors";
 import { newClient } from "../setupspecs";
-import { DataType, Rate } from "../telem";
 
 const client = newClient();
 

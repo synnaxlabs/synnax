@@ -23,9 +23,7 @@
     "fuse.js": "^6.6.2",
     "proxy-memoize": "^1.2.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-hook-form": "^7.41.1",
-    "uplot": "^1.6.22"
+    "react-dom": "^18.2.0"
   },
   "devDependencies": {
     "@babel/core": "^7.18.9",
@@ -45,7 +43,6 @@
     "@storybook/core-common": "^6.5.15",
     "@storybook/preview-web": "^6.5.15",
     "@storybook/react": "^6.5.15",
-    "@synnaxlabs/client": "workspace:*",
     "@synnaxlabs/tsconfig": "workspace:*",
     "@synnaxlabs/vite-plugin": "workspace:*",
     "@testing-library/react": "^13.4.0",

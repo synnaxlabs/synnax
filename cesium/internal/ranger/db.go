@@ -48,7 +48,6 @@ var (
 // to gigabytes), append only writes. While small, out of order writes are valid, the
 // user will see a heavy performance hit.
 //
-//
 // A DB must be closed after use to avoid leaking any underlying resources/locks.
 type DB struct {
 	idx       *index

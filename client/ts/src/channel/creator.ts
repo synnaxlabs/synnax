@@ -16,7 +16,7 @@ import {
   unkeyedChannelPayloadSchema,
 } from "./payload";
 
-import { UnparsedDataType, UnparsedRate } from "@/telem";
+import { UnparsedDataType, UnparsedRate } from "@synnaxlabs/x";
 import { Transport } from "@/transport";
 
 const RequestSchema = z.object({

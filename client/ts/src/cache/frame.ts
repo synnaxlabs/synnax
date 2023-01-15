@@ -10,7 +10,7 @@
  */
 
 import { Frame } from "@/framer";
-import { Size, TimeRange } from "@/telem";
+import { Size, TimeRange } from "@synnaxlabs/x";
 
 export class FrameCache {
   private readonly _cache: Record<string, Frame>;

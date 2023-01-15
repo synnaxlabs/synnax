@@ -11,14 +11,11 @@ package iterator_test
 
 import (
 	"context"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	tmock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock"
-	. "github.com/synnaxlabs/x/testutil"
 	"go.uber.org/zap"
 	"testing"
 )

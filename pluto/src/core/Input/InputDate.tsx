@@ -9,10 +9,10 @@
 
 import { forwardRef } from "react";
 
-import { TimeStamp } from "@synnaxlabs/client";
-
 import { Input } from "./Input";
 import { InputBaseProps } from "./types";
+
+import { TimeStamp } from "@synnaxlabs/x";
 
 export interface InputDateProps extends InputBaseProps<number> {}
 

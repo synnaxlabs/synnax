@@ -10,12 +10,6 @@
 import { forwardRef, FunctionComponent, Ref } from "react";
 
 import clsx from "clsx";
-import { useController, UseControllerProps } from "react-hook-form";
-
-import { Input } from "./Input";
-import { InputHelpText } from "./InputHelpText";
-import { InputLabel } from "./InputLabel";
-import { InputBaseProps, InputControlProps, InputValue } from "./types";
 
 import {
   Space,
@@ -23,8 +17,14 @@ import {
   SpaceExtensionProps,
   SpaceJustification,
 } from "@/core/Space";
+
+import { Input } from "./Input";
+
 import { Direction } from "@/spatial";
-import { camelToTitle } from "@/util/case";
+
+import { InputHelpText } from "./InputHelpText";
+import { InputLabel } from "./InputLabel";
+import { InputBaseProps, InputControlProps, InputValue } from "./types";
 
 import "./InputItem.css";
 
@@ -99,10 +99,10 @@ const maybeDefaultJustify = (
   return direction === "vertical" ? "start" : "center";
 };
 
-export type InputItemControlledProps<
-  T extends InputValue = string | number,
-  P extends InputControlProps<T> = InputBaseProps<T>
-> = Omit<P, "onChange" | "value"> & InputItemExtensionProps<T, P> & UseControllerProps;
+// export type InputItemControlledProps<
+//   T extends InputValue = string | number,
+//   P extends InputControlProps<T> = InputBaseProps<T>
+// > = Omit<P, "onChange" | "value"> & InputItemExtensionProps<T, P> & UseControllerProps;
 
 export const InputItem = forwardRef(CoreInputItem) as <
   T extends InputValue = string | number,
@@ -113,34 +113,34 @@ export const InputItem = forwardRef(CoreInputItem) as <
 // @ts-expect-error
 InputItem.displayName = "InputItem";
 
-export const InputItemControlled = <
-  T extends InputValue = string | number,
-  P extends InputControlProps<T> = InputBaseProps<T>
->({
-  name,
-  rules,
-  control,
-  shouldUnregister,
-  defaultValue,
-  label,
-  ...props
-}: InputItemControlledProps<T, P>): JSX.Element => {
-  const { field, fieldState } = useController({
-    control,
-    rules,
-    name,
-    shouldUnregister,
-  });
-  if (label == null) label = camelToTitle(name);
-  return (
-    /** @ts-expect-error */
-    <InputItem
-      ref={field.ref}
-      label={label}
-      value={field.value}
-      onChange={field.onChange}
-      helpText={fieldState.error?.message}
-      {...(props as unknown as Omit<InputItemProps<T, P>, "onChange" | "value">)}
-    />
-  );
-};
+// export const InputItemControlled = <
+//   T extends InputValue = string | number,
+//   P extends InputControlProps<T> = InputBaseProps<T>
+// >({
+//   name,
+//   rules,
+//   control,
+//   shouldUnregister,
+//   defaultValue,
+//   label,
+//   ...props
+// }: InputItemControlledProps<T, P>): JSX.Element => {
+//   const { field, fieldState } = useController({
+//     control,
+//     rules,
+//     name,
+//     shouldUnregister,
+//   });
+//   if (label == null) label = camelToTitle(name);
+//   return (
+//     /** @ts-expect-error */
+//     <InputItem
+//       ref={field.ref}
+//       label={label}
+//       value={field.value}
+//       onChange={field.onChange}
+//       helpText={fieldState.error?.message}
+//       {...(props as unknown as Omit<InputItemProps<T, P>, "onChange" | "value">)}
+//     />
+//   );
+// };

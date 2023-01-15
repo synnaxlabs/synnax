@@ -16,7 +16,7 @@ import { Frame } from "./frame";
 import { framePayloadSchema } from "./payload";
 
 import { GeneralError } from "@/errors";
-import { NativeTypedArray, TArray, TimeStamp, UnparsedTimeStamp } from "@/telem";
+import { NativeTypedArray, TArray, TimeStamp, UnparsedTimeStamp } from "@synnaxlabs/x";
 
 enum Command {
   None = 0,

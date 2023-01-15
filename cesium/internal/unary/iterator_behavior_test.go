@@ -11,13 +11,10 @@ package unary_test
 
 import (
 	"github.com/apache/arrow/go/v10/arrow/memory"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
-	. "github.com/synnaxlabs/x/testutil"
 	"go.uber.org/zap"
 )
 

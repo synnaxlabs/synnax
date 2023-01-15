@@ -11,8 +11,6 @@ package cluster_test
 
 import (
 	"context"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
@@ -23,7 +21,6 @@ import (
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/signal"
-	. "github.com/synnaxlabs/x/testutil"
 	"go.uber.org/zap"
 	"time"
 )

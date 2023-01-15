@@ -12,7 +12,7 @@ import { AUTO_SPAN, FrameIterator } from "./iterator";
 import { FrameWriter } from "./writer";
 
 import { QueryError } from "@/errors";
-import { NativeTypedArray, TArray, TimeRange, UnparsedTimeStamp } from "@/telem";
+import { NativeTypedArray, TArray, TimeRange, UnparsedTimeStamp } from "@synnaxlabs/x";
 import { Transport } from "@/transport";
 
 export class FrameClient {

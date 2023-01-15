@@ -5,28 +5,19 @@ sidebar_label: Get Started
 title: ""
 ---
 
+import "./hello.astro";
+import "@synnaxlabs/pluto/dist/style.css";
 
-import {Logo} from "../Logo"
-import {Space} from "@synnaxlabs/pluto"
+import { Logo } from "../Logo";
+import { Select } from "@synnaxlabs/pluto";
 
-[//]: # (<Space)
-
-[//]: # (    client:only="react")
-
-[//]: # (    direction="horizontal")
-
-[//]: # (    align="center")
-
-[//]: # (    size="large")
-
-[//]: # (    justify="center")
-
-[//]: # (    style={{margin: "50px 0"}})
-
-[//]: # (>)
- <Logo variant="title" style={{width: "50%"}}/>
-
-[//]: # (</Space>)
+<Logo variant="title" style={{ width: "50%" }} />
+<Select
+    client:only="react"
+    columns={[{ label: "Name", key: "name" }]}
+    data={[{ name: "My Dog" }]}
+    tagKey="name"
+/>
 
 # Get Started
 
