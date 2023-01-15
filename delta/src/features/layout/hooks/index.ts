@@ -23,6 +23,8 @@ import { appWindow } from "@tauri-apps/api/window";
 import type { Theme as TauriTheme } from "@tauri-apps/api/window";
 import { useDispatch } from "react-redux";
 
+import { useAsyncEffect, AsyncDestructor } from "@/hooks";
+
 import {
   NavdrawerLocation,
   placeLayout,
@@ -35,8 +37,6 @@ import {
   useSelectTheme,
 } from "../store";
 import { Layout } from "../types";
-
-import { useAsyncEffect, AsyncDestructor } from "@/hooks";
 
 export interface LayoutCreatorProps {
   dispatch: Dispatch<AnyAction>;
@@ -160,7 +160,6 @@ export const useNavDrawer = (
 
   const onResize = useDebouncedCallback(
     (size) => {
-      console.log(size);
       dispatch(setNavdrawerEntryState({ location: loc, state: { size } }));
     },
     100,

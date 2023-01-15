@@ -17,14 +17,15 @@
   "dependencies": {
     "@fontsource/inter": "^4.5.14",
     "@juggle/resize-observer": "^3.4.0",
-    "@tanstack/react-virtual": "^3.0.0-beta.18",
     "@synnaxlabs/x": "workspace:*",
+    "@tanstack/react-virtual": "^3.0.0-beta.18",
     "clsx": "^1.2.1",
     "d3": "^7.6.1",
     "fuse.js": "^6.6.2",
     "proxy-memoize": "^1.2.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "react-hook-form": "^7.41.0"
   },
   "devDependencies": {
     "@babel/core": "^7.18.9",

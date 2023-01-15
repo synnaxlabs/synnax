@@ -300,6 +300,7 @@ importers:
       proxy-memoize: ^1.2.0
       react: ^18.2.0
       react-dom: ^18.2.0
+      react-hook-form: ^7.41.0
       react-icons: ^4.4.0
       stylelint-config-synnaxlabs: workspace:*
       typescript: ^4.9.4
@@ -316,6 +317,7 @@ importers:
       proxy-memoize: 1.2.0
       react: 18.2.0
       react-dom: 18.2.0_react@18.2.0
+      react-hook-form: 7.42.0_react@18.2.0
     devDependencies:
       '@babel/core': 7.20.12
       '@storybook/addon-actions': 6.5.15_biqbaboplfbrettd7655fr4n2y
