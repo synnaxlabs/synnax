@@ -11,7 +11,7 @@ import { ReactElement, cloneElement } from "react";
 
 import { useSize } from "@/hooks";
 import { Box } from "@/spatial";
-import { RenderProp } from "@/util/renderable";
+import { RenderProp } from "@/util/renderProp";
 
 /* AutoSize props is the props for the {@link AutoSize} component. */
 export interface AutosizeProps

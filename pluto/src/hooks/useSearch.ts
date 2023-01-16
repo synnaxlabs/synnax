@@ -9,10 +9,10 @@
 
 import { useCallback } from "react";
 
+import { UnknownRecord } from "@synnaxlabs/x";
 import Fuse from "fuse.js";
 import memoize from "proxy-memoize";
 
-import { UnknownRecord } from "@/util/record";
 import { ArrayTransform } from "@/util/transform";
 
 export interface UseSearchProps<E extends UnknownRecord<E>> {

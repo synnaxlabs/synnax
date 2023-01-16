@@ -9,32 +9,27 @@
 
 import { useEffect, useRef, useState } from "react";
 
-
-
+import { convertRenderV, RenderableRecord } from "@synnaxlabs/x";
+import clsx from "clsx";
 
 import { Button } from "@/core/Button";
 
-import clsx from "clsx";
-
-import { Dropdown, DropdownProps } from "@/core/Dropdown";
-
 import { AiOutlineClose } from "react-icons/ai";
 
+import { Dropdown, DropdownProps } from "@/core/Dropdown";
 import { Input, InputControlProps, InputProps } from "@/core/Input";
 import { ListColumn, List } from "@/core/List";
 import { Pack, PackProps } from "@/core/Pack";
 import { Space } from "@/core/Space";
-import { Tag } from "@/core/Tag";
 
 import { Theming } from "../../theming";
 
+import { Tag } from "@/core/Tag";
 import { visibleCls } from "@/util/css";
-import { RenderableRecord } from "@/util/record";
-import { render } from "@/util/renderable";
-
-import { SelectList } from "./SelectList";
 
 import "./SelectMultiple.css";
+
+import { SelectList } from "./SelectList";
 
 type SelectMultipleInputGroupProps = Omit<
   PackProps,
@@ -148,7 +143,7 @@ const SelectMultipleInput = <E extends RenderableRecord<E>>({
                 size="small"
                 variant="outlined"
               >
-                {render(e[tagKey])}
+                {convertRenderV(e[tagKey])}
               </Tag>
             );
           })}

@@ -23,7 +23,7 @@ import { camelToTitle } from "@/util/case";
 
 import { Input } from "./Input";
 
-import { RenderProp } from "@/util/renderable";
+import { RenderProp } from "@/util/renderProp";
 
 import { InputHelpText } from "./InputHelpText";
 

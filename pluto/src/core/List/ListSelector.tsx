@@ -9,10 +9,11 @@
 
 import { useEffect } from "react";
 
+import { RenderableRecord } from "@synnaxlabs/x";
+
 import { useListContext } from "./ListContext";
 
 import { useSelectMultiple, UseSelectMultipleProps } from "@/hooks/useSelectMultiple";
-import { RenderableRecord } from "@/util/record";
 
 export interface ListSelectorProps<E extends RenderableRecord<E>>
   extends Omit<UseSelectMultipleProps<E>, "data"> {}

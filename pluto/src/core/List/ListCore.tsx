@@ -9,17 +9,16 @@
 
 import { HTMLAttributes, useRef } from "react";
 
+import { RenderableRecord } from "@synnaxlabs/x";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 import { SelectedRecord } from "@/hooks/useSelectMultiple";
 
 import { useListContext } from "./ListContext";
 
-import { RenderableRecord } from "@/util/record";
+import { RenderProp } from "@/util/renderProp";
 
 import { ListItemProps } from "./types";
-
-import { RenderProp } from "@/util/renderable";
 
 import "./ListCore.css";
 

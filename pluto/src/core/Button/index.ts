@@ -9,9 +9,11 @@
 
 import { Button as CoreButton } from "./Button";
 import { ButtonIconOnly } from "./ButtonIconOnly";
+import { ButtonLink } from "./ButtonLink";
 import { ButtonToggle, ButtonToggleIcon } from "./ButtonToggle";
 export type { ButtonProps } from "./Button";
 export type { ButtonIconOnlyProps } from "./ButtonIconOnly";
+export type { ButtonLinkProps } from "./ButtonLink";
 
 type CoreButtonType = typeof CoreButton;
 
@@ -29,6 +31,7 @@ interface ButtonType extends CoreButtonType {
   IconOnly: typeof ButtonIconOnly;
   Toggle: typeof ButtonToggle;
   IconOnlyToggle: typeof ButtonToggleIcon;
+  Link: typeof ButtonLink;
 }
 
 /**
@@ -50,3 +53,4 @@ export const Button = CoreButton as ButtonType;
 Button.IconOnly = ButtonIconOnly;
 Button.Toggle = ButtonToggle;
 Button.IconOnlyToggle = ButtonToggleIcon;
+Button.Link = ButtonLink;

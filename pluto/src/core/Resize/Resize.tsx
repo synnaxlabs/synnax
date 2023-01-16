@@ -9,11 +9,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { clamp } from "@synnaxlabs/x";
+
 import { ResizeCore, ResizeCoreProps } from "./ResizeCore";
 
 import { useDrag } from "@/hooks/useDrag";
 import { directionFromLocation, Location } from "@/spatial";
-import { clamp } from "@/util/clamp";
 
 import "./Resize.css";
 

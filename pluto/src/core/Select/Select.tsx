@@ -9,8 +9,8 @@
 
 import { FocusEventHandler, useEffect, useState } from "react";
 
+import { RenderableRecord } from "@synnaxlabs/x";
 import clsx from "clsx";
-
 
 import { Dropdown, DropdownProps } from "@/core/Dropdown";
 import { InputControlProps, Input, InputProps } from "@/core/Input";
@@ -19,7 +19,6 @@ import { List, ListColumn } from "@/core/List";
 import { SelectList } from "./SelectList";
 
 import { visibleCls } from "@/util/css";
-import { RenderableRecord } from "@/util/record";
 
 import "./Select.css";
 

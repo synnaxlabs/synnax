@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { applyThemeAsCssVars } from "./css";
+import { convertThemeToCSSVars } from "./cssVars";
 import { synnaxDark, synnaxLight } from "./theme";
 import {
   ThemeProvider,
@@ -25,5 +25,5 @@ export const Theming = {
   useContext: useThemeContext,
   useProvider: useThemeProvider,
   themes: { synnaxDark, synnaxLight },
-  apply: applyThemeAsCssVars,
+  toCSSVars: convertThemeToCSSVars,
 };

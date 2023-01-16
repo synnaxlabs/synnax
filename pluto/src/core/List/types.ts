@@ -10,8 +10,9 @@
 import type { CSSProperties } from "react";
 import React from "react";
 
-import { RenderableRecord } from "@/util/record";
-import { RenderProp } from "@/util/renderable";
+import { RenderableRecord } from "@synnaxlabs/x";
+
+import { RenderProp } from "@/util/renderProp";
 
 type RenderF<E extends RenderableRecord<E> = RenderableRecord> = RenderProp<{
   key: string | number | symbol;

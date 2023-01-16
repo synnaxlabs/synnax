@@ -11,8 +11,8 @@ import "@fontsource/inter";
 
 import { TypographySpec } from "@/core/Typography";
 
-type Size = number | string;
-type Color = string;
+export type Size = number | string;
+export type Color = string;
 
 export interface Theme {
   name: string;

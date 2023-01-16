@@ -9,11 +9,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { RenderableRecord } from "@synnaxlabs/x";
+
 import { useListContext } from "./ListContext";
 
 import { Input as DefaultInput, InputControlProps, InputProps } from "@/core/Input";
 import { useSearch, UseSearchProps } from "@/hooks";
-import { RenderableRecord } from "@/util/record";
 
 export interface ListSearchProps<E extends RenderableRecord<E>>
   extends Omit<InputProps, "children" | "onChange" | "value">,

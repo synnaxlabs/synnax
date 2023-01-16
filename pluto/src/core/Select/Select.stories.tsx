@@ -9,11 +9,11 @@
 
 import { useState } from "@storybook/addons";
 import type { ComponentMeta, ComponentStory } from "@storybook/react";
+import { RenderableRecord } from "@synnaxlabs/x";
 
 import { Select, SelectMultipleProps } from ".";
 
 import { ListColumn } from "@/core/List";
-import { RenderableRecord } from "@/util/record";
 
 const story: ComponentMeta<typeof Select.Multiple> = {
   title: "Core/Select",

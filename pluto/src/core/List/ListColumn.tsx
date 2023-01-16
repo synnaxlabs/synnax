@@ -9,6 +9,7 @@
 
 import { CSSProperties, useEffect, useState } from "react";
 
+import { createSortF, convertRenderV, RenderableRecord } from "@synnaxlabs/x";
 import clsx from "clsx";
 import { AiFillCaretDown, AiFillCaretUp } from "react-icons/ai";
 
@@ -16,17 +17,13 @@ import { Space } from "@/core/Space";
 import { Text } from "@/core/Typography";
 import { textWidth } from "@/core/Typography/textWidth";
 import { useFont } from "@/theming";
-import { RenderableRecord } from "@/util/record";
-import { render } from "@/util/renderable";
-import { sortFunc } from "@/util/sort";
+import { ArrayTransform } from "@/util/transform";
 
 import { useListContext } from "./ListContext";
 
-import { ArrayTransform } from "@/util/transform";
+import "./ListColumn.css";
 
 import { ListItemProps, ListColumn as ListColumnT } from "./types";
-
-import "./ListColumn.css";
 
 type SortState<E extends RenderableRecord<E>> = [keyof E | null, boolean];
 
@@ -149,7 +146,7 @@ const ListColumnValue = <E extends RenderableRecord<E>>({
       level="p"
       style={{ minWidth: width, userSelect: "none", padding: 6 }}
     >
-      {render(entry[col.key])}
+      {convertRenderV(entry[col.key])}
     </Text>
   );
 };
@@ -157,7 +154,7 @@ const ListColumnValue = <E extends RenderableRecord<E>>({
 const entrySortFunc =
   <E extends RenderableRecord<E>>(type: string, key: keyof E) =>
   (a: E, b: E) =>
-    sortFunc(type)(a[key], b[key]);
+    createSortF(type)(a[key], b[key]);
 
 const reverseSort =
   <T,>(f: (a: T, b: T) => number) =>

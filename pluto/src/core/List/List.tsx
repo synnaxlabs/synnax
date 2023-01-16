@@ -9,11 +9,12 @@
 
 import { PropsWithChildren, useMemo, useState } from "react";
 
+import { RenderableRecord } from "@synnaxlabs/x";
+
 import { ListContextProvider } from "./ListContext";
 import { ListColumn } from "./types";
 
 import { useTransforms } from "@/hooks";
-import { RenderableRecord } from "@/util/record";
 
 export interface ListProps<E extends RenderableRecord<E>>
   extends PropsWithChildren<unknown> {

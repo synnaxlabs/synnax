@@ -16,10 +16,14 @@ import {
   useState,
 } from "react";
 
-import { applyThemeAsCssVars } from "./css";
-import { Theme, synnaxLight } from "./theme";
+import { applyCSSVars } from "@synnaxlabs/x";
+
+import { convertThemeToCSSVars } from "./cssVars";
 
 import { Input } from "@/core/Input";
+
+import { Theme, synnaxLight } from "./theme";
+
 import { InputSwitchProps } from "@/core/Input/InputSwitch";
 
 import "./theme.css";
@@ -76,9 +80,10 @@ export const ThemeProvider = ({
   children,
   ...props
 }: ThemeProviderProps): JSX.Element => {
-  useEffect(() => {
-    applyThemeAsCssVars(document.documentElement, theme);
-  }, [theme]);
+  useEffect(
+    () => applyCSSVars(document.documentElement, convertThemeToCSSVars(theme)),
+    [theme]
+  );
   return (
     <ThemeContext.Provider value={{ theme, ...props }}>
       {children}

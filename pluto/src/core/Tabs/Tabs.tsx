@@ -12,7 +12,7 @@ import React, { createContext, ReactElement, useContext, useState } from "react"
 import { TabMeta, TabsSelector } from "./TabsSelector";
 
 import { Space, SpaceProps } from "@/core/Space";
-import { RenderProp } from "@/util/renderable";
+import { RenderProp } from "@/util/renderProp";
 
 export interface TabsProps
   extends Omit<SpaceProps, "children" | "onSelect">,
