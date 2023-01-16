@@ -11,6 +11,9 @@ package pledge_test
 
 import (
 	"context"
+	"sync"
+	"time"
+
 	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -21,8 +24,6 @@ import (
 	"github.com/synnaxlabs/x/address"
 	. "github.com/synnaxlabs/x/testutil"
 	"go.uber.org/zap"
-	"sync"
-	"time"
 )
 
 func baseConfig(n *fmock.Network[pledge.Request, pledge.Response], logger *zap.SugaredLogger) pledge.Config {
@@ -65,8 +66,8 @@ func provisionCandidates(
 		Expect(pledge.Arbitrate(cfg, pledge.Config{
 			Candidates: candidates(i),
 		})).To(Succeed())
-		id := node.ID(i)
-		nodes[id] = node.Node{ID: node.ID(i), Address: addr, State: nodeState(i)}
+		id := node.Key(i)
+		nodes[id] = node.Node{Key: node.Key(i), Address: addr, State: nodeState(i)}
 	}
 	return nodes
 }
@@ -106,7 +107,7 @@ var _ = Describe("PledgeServer", func() {
 					Candidates: func() node.Group { return node.Group{} },
 				}, pledge.BlazingFastConfig)
 				Expect(err).To(HaveOccurredAs(context.DeadlineExceeded))
-				Expect(res.ID).To(Equal(node.ID(0)))
+				Expect(res.ID).To(Equal(node.Key(0)))
 				for i, entry := range net.Entries {
 					Expect(entry.Target).To(Equal(peers[i%4]))
 				}
@@ -131,7 +132,7 @@ var _ = Describe("PledgeServer", func() {
 					Candidates: candidates,
 				}, pledge.BlazingFastConfig)
 				Expect(err).To(BeNil())
-				Expect(res.ID).To(Equal(node.ID(10)))
+				Expect(res.ID).To(Equal(node.Key(10)))
 			})
 		})
 		Context("Responsible is Missing UniqueNodeIDs", func() {
@@ -141,8 +142,8 @@ var _ = Describe("PledgeServer", func() {
 					candidates = func(i int) func() node.Group {
 						return func() node.Group {
 							if i == 0 {
-								return nodes.Where(func(id node.ID, _ node.Node) bool {
-									return !lo.Contains([]node.ID{8, 9, 10}, id)
+								return nodes.Where(func(id node.Key, _ node.Node) bool {
+									return !lo.Contains([]node.Key{8, 9, 10}, id)
 								})
 							}
 							return nodes
@@ -161,7 +162,7 @@ var _ = Describe("PledgeServer", func() {
 					pledge.BlazingFastConfig,
 				)
 				Expect(err).To(BeNil())
-				Expect(res.ID).To(Equal(node.ID(10)))
+				Expect(res.ID).To(Equal(node.Key(10)))
 			})
 		})
 		Context("One juror are aware of a new node", func() {
@@ -171,7 +172,7 @@ var _ = Describe("PledgeServer", func() {
 					allCandidates   = func() node.Group { return nodes }
 					extraCandidates = func() node.Group {
 						n := nodes.Copy()
-						n[10] = node.Node{ID: 10, Address: "localhost:10", State: node.StateHealthy}
+						n[10] = node.Node{Key: 10, Address: "localhost:10", State: node.StateHealthy}
 						return n
 					}
 					net = fmock.NewNetwork[pledge.Request, pledge.Response]()
@@ -191,7 +192,7 @@ var _ = Describe("PledgeServer", func() {
 					pledge.BlazingFastConfig,
 				)
 				Expect(err).To(BeNil())
-				Expect(res.ID).To(BeNumerically(">=", node.ID(11)))
+				Expect(res.ID).To(BeNumerically(">=", node.Key(11)))
 			})
 		})
 		Context("Too Few Healthy UniqueNodeIDs To Form a Quorum", func() {
@@ -231,7 +232,7 @@ var _ = Describe("PledgeServer", func() {
 					Candidates: allCandidates(nodes),
 				})
 				Expect(err).To(HaveOccurredAs(context.Canceled))
-				Expect(res.ID).To(Equal(node.ID(0)))
+				Expect(res.ID).To(Equal(node.Key(0)))
 			})
 		})
 
@@ -252,7 +253,7 @@ var _ = Describe("PledgeServer", func() {
 				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 				defer cancel()
 				var wg sync.WaitGroup
-				ids := make([]node.ID, numPledges)
+				ids := make([]node.Key, numPledges)
 				for i := 0; i < numPledges; i++ {
 					wg.Add(1)
 					go func(i int) {
@@ -272,7 +273,7 @@ var _ = Describe("PledgeServer", func() {
 						ids[i] = res.ID
 						mu.Lock()
 						defer mu.Unlock()
-						nodes[res.ID] = node.Node{ID: res.ID, Address: addr, State: node.StateHealthy}
+						nodes[res.ID] = node.Node{Key: res.ID, Address: addr, State: node.StateHealthy}
 					}(i)
 				}
 				wg.Wait()

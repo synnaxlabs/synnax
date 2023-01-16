@@ -79,7 +79,7 @@ var _ = Describe("Join", func() {
 					},
 				)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(clusterOne.Host().ID).To(Equal(node.ID(1)))
+				Expect(clusterOne.Host().Key).To(Equal(node.Key(1)))
 
 				By("Pledging a new node to the cluster")
 				gossipT2 := gossipNet.UnaryServer("")
@@ -104,7 +104,7 @@ var _ = Describe("Join", func() {
 					},
 				)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(clusterTwo.Host().ID).To(Equal(node.ID(2)))
+				Expect(clusterTwo.Host().Key).To(Equal(node.Key(2)))
 				By("Converging cluster state through gossip")
 				Eventually(clusterOne.Nodes).Should(HaveLen(2))
 				Eventually(clusterTwo.Nodes).Should(HaveLen(2))
@@ -138,7 +138,7 @@ var _ = Describe("Join", func() {
 					},
 				)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(clusterOne.Host().ID).To(Equal(node.ID(1)))
+				Expect(clusterOne.Host().Key).To(Equal(node.Key(1)))
 
 				sCtxTwo, cancelTwo := signal.TODO()
 				kvDB := memkv.New()
@@ -167,13 +167,13 @@ var _ = Describe("Join", func() {
 				}
 				clusterTwo, err := cluster.Join(sCtxTwo, clusterTwoConfig)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(clusterTwo.Host().ID).To(Equal(node.ID(2)))
+				Expect(clusterTwo.Host().Key).To(Equal(node.Key(2)))
 				cancelTwo()
 				Expect(sCtxTwo.Wait()).To(HaveOccurredAs(context.Canceled))
 
 				clusterTwoAgain, err := cluster.Join(clusterCtx, clusterTwoConfig)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(clusterTwoAgain.Host().ID).To(Equal(node.ID(2)))
+				Expect(clusterTwoAgain.Host().Key).To(Equal(node.Key(2)))
 				Expect(clusterTwoAgain.Nodes()).To(HaveLen(2))
 
 				shutdown()
