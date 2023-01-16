@@ -9,6 +9,7 @@
 
 import { ReactElement, useState } from "react";
 
+import { clamp } from "@synnaxlabs/x";
 import clsx from "clsx";
 
 import { NavbarProps, useNavbar } from "./Navbar";
@@ -16,8 +17,6 @@ import { NavbarProps, useNavbar } from "./Navbar";
 import { Resize, ResizeProps } from "@/core/Resize";
 
 import { NavMenuItem } from "./NavMenu";
-
-import { clamp } from "@/util/clamp";
 
 import "./Navdrawer.css";
 

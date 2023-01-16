@@ -1,0 +1,74 @@
+---
+import { TOC } from "@/components/TableOfContents";
+import { toc } from "@/pages/toc";
+import "@synnaxlabs/pluto/dist/style.css";
+import { applyTheme, getBaseThemeCSSVars} from "@/util/theme";
+const vars = getBaseThemeCSSVars();
+---
+
+<html style={vars}>
+    <header class="pluto-bordered--bottom">
+        <h1>Hello</h1>
+    </header>
+    <section>
+        <nav class="pluto-bordered--right">
+            <TOC client:only="react" data={toc} currentPage={Astro.url.pathname} />
+        </nav>
+        <article>
+            <slot />
+        </article>
+    </section>
+</html>
+
+<script>
+import { startThemeDriver } from "@/util/theme";
+startThemeDriver();
+</script>
+
+<style is:global>
+    p {
+        white-space: normal !important;
+    }
+    @media (prefers-color-scheme: dark) {
+        html {
+            --pluto-background-color: #121212;
+            --pluto-text-color: #FFFFFF;
+        }
+    }
+</style>
+
+<style>
+    body {
+        display: flex;
+        flex-direction: column;
+    }
+
+    section {
+        flex-grow: 1;
+        display: flex;
+    }
+
+    nav {
+        float: left;
+        height: 100%;
+        width: 20%;
+    }
+
+    article {
+        float: left;
+        padding: 20px;
+        height: 300px;
+        flex-grow: 1;
+    }
+
+    @media (max-width: 600px) {
+        nav,
+        article {
+            width: 100%;
+            height: auto;
+        }
+        nav {
+            border-bottom: var(--pluto-border);
+        }
+    }
+</style>

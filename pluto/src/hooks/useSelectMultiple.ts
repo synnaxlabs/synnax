@@ -9,9 +9,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { KeyedRecord } from "@synnaxlabs/x";
+
 import { InputControlProps } from "@/core/Input";
 import { useKeysHeld } from "@/hooks";
-import { KeyedRecord } from "@/util/record";
 import { ArrayTransform } from "@/util/transform";
 
 export type SelectedRecord<E extends KeyedRecord<E>> = E & {

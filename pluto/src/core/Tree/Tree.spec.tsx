@@ -16,7 +16,13 @@ import { Tree, TreeLeaf } from ".";
 
 const ControlledTree = ({ data }: { data: TreeLeaf[] }): JSX.Element => {
   const [value, setValue] = useState<readonly string[]>([]);
-  return <Tree value={value} onChange={setValue} data={data} />;
+  return (
+    <Tree
+      value={value}
+      onChange={(key) => setValue((prev) => [...prev, key])}
+      data={data}
+    />
+  );
 };
 
 describe("Tree", () => {

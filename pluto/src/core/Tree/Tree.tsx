@@ -9,20 +9,19 @@
 
 import { DetailedHTMLProps, HtmlHTMLAttributes, ReactElement, useState } from "react";
 
+import { RenderableRecord } from "@synnaxlabs/x";
 import clsx from "clsx";
 import { AiFillCaretDown, AiFillCaretRight } from "react-icons/ai";
 
-import { Button } from "@/core/Button";
-
 import { InputControlProps } from "../Input";
 
-import { RenderableRecord } from "@/util/record";
-import { RenderProp } from "@/util/renderable";
+import { Button } from "@/core/Button";
+import { RenderProp } from "@/util/renderProp";
 
 import "./Tree.css";
 
 export interface TreeProps<E extends RenderableRecord<E> = RenderableRecord>
-  extends InputControlProps<readonly string[], string>,
+  extends Partial<InputControlProps<readonly string[], string>>,
     Omit<
       DetailedHTMLProps<HtmlHTMLAttributes<HTMLUListElement>, HTMLUListElement>,
       "children" | "onChange"
@@ -37,7 +36,7 @@ export const Tree = <E extends RenderableRecord<E> = RenderableRecord>({
   value = [],
   onChange,
   onExpand,
-  children = TreeLeafC<E>,
+  children = ButtonLeaf,
   ...props
 }: TreeProps<E>): JSX.Element => {
   return (
@@ -62,6 +61,7 @@ export type TreeLeaf<E extends RenderableRecord<E> = RenderableRecord> = {
   hasChildren?: boolean;
   icon?: ReactElement;
   children?: Array<TreeLeaf<E>>;
+  url?: string;
 } & RenderableTreeLeaf<E>;
 
 type RenderableTreeLeaf<E extends RenderableRecord<E> = RenderableRecord> = {
@@ -92,7 +92,7 @@ const TreeLeafParent = <E extends RenderableRecord>({
   render,
   ...rest
 }: TreeLeafProps<E>): JSX.Element => {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(recursiveSelected(children, selected));
   const handleExpand = (key: string): void => {
     onExpand?.(key);
     setExpanded(!expanded);
@@ -141,12 +141,13 @@ type TreeLeafCProps<E extends RenderableRecord<E> = RenderableRecord> = Omit<
   selected: boolean;
   hasChildren: boolean;
   icon?: ReactElement;
+  url?: string;
   style: React.CSSProperties;
   onExpand: (key: string) => void;
   onSelect?: (key: string) => void;
 };
 
-const TreeLeafC = <E extends RenderableRecord<E>>({
+export const ButtonLeaf = <E extends RenderableRecord<E>>({
   name,
   icon,
   nodeKey,
@@ -155,6 +156,7 @@ const TreeLeafC = <E extends RenderableRecord<E>>({
   hasChildren = true,
   onSelect,
   onExpand,
+  url,
   ...props
 }: TreeLeafCProps<E>): JSX.Element => {
   const icons: ReactElement[] = [];
@@ -166,8 +168,11 @@ const TreeLeafC = <E extends RenderableRecord<E>>({
     onExpand(nodeKey);
   };
 
+  const _Button = url != null ? Button.Link : Button;
+
   return (
-    <Button
+    <_Button
+      href={url}
       variant="text"
       className={clsx(
         "pluto-tree__node__button",
@@ -178,6 +183,15 @@ const TreeLeafC = <E extends RenderableRecord<E>>({
       {...props}
     >
       {name}
-    </Button>
+    </_Button>
   );
+};
+
+const recursiveSelected = (data: TreeLeaf[], selected: readonly string[]): boolean => {
+  for (const entry of data) {
+    if (selected.includes(entry.key)) return true;
+    if (entry.children != null && recursiveSelected(entry.children, selected))
+      return true;
+  }
+  return false;
 };

@@ -10,12 +10,12 @@
 import { RefObject, useEffect, useRef, useState } from "react";
 
 import { ResizeObserver } from "@juggle/resize-observer";
+import { debounce as debounceF } from "@synnaxlabs/x";
 
 import { Box, BoxHandle, CSSBox, ZERO_BOX } from "./box";
 import { Direction, isDirection } from "./core";
 
 import { useMemoCompare } from "@/hooks";
-import { debounce as debounceF } from "@/util/debounce";
 
 /** A list of events that can trigger a resize. */
 export type Trigger = "moveX" | "moveY" | "resizeX" | "resizeY";

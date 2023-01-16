@@ -9,10 +9,11 @@
 
 import { PropsWithChildren, useContext, createContext } from "react";
 
+import { RenderableRecord } from "@synnaxlabs/x";
+
 import { ListColumn } from "./types";
 
 import { UseTransformsReturn } from "@/hooks/useTransforms";
-import { RenderableRecord } from "@/util/record";
 
 export interface ListContextProps<E extends RenderableRecord<E> = RenderableRecord>
   extends Omit<UseTransformsReturn<E>, "transform"> {

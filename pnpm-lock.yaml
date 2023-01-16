@@ -95,6 +95,7 @@ importers:
       '@synnaxlabs/drift': workspace:*
       '@synnaxlabs/pluto': workspace:*
       '@synnaxlabs/tsconfig': workspace:*
+      '@synnaxlabs/x': workspace:*
       '@tauri-apps/api': ^1.1.0
       '@tauri-apps/cli': ^1.1.1
       '@types/react': ^18.0.17
@@ -131,6 +132,7 @@ importers:
       '@synnaxlabs/client': link:../client/ts
       '@synnaxlabs/drift': link:../drift
       '@synnaxlabs/pluto': link:../pluto
+      '@synnaxlabs/x': link:../x/ts
       '@tauri-apps/api': 1.2.0
       clsx: 1.2.1
       d3: 7.8.1
@@ -170,6 +172,7 @@ importers:
       '@synnaxlabs/client': workspace:*
       '@synnaxlabs/pluto': workspace:*
       '@synnaxlabs/tsconfig': workspace:*
+      '@synnaxlabs/x': workspace:*
       '@types/react': ^18.0.21
       '@types/react-dom': ^18.0.6
       astro: ^1.9.0
@@ -183,6 +186,7 @@ importers:
       '@astrojs/react': 1.2.2_ie75ejlwqy5zh3tldgt7pftwcu
       '@synnaxlabs/client': link:../../client/ts
       '@synnaxlabs/pluto': link:../../pluto
+      '@synnaxlabs/x': link:../../x/ts
       astro: 1.9.2
       clsx: 1.2.1
       react: 18.2.0

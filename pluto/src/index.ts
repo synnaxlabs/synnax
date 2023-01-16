@@ -14,8 +14,6 @@ export * from "@/spatial";
 export * from "@/color";
 export * from "@/util/component";
 export * from "@/util/debounce";
-export * from "@/util/record";
-export * from "@/util/sort";
 export * from "@/util/toArray";
 export * from "@/util/transform";
 export * from "@/visualization";

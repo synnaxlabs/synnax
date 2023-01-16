@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { RenderableRecord } from "@synnaxlabs/x";
+
 import { List, ListColumnHeaderProps, ListSelectorProps } from "@/core/List";
-import { RenderableRecord } from "@/util/record";
 
 export interface SelectListProps<E extends RenderableRecord<E>>
   extends ListSelectorProps<E>,
