@@ -65,15 +65,15 @@ func ParseKey(s string) (k Key, err error) {
 	if len(split) != 2 {
 		return k, errors.New("[channel] - invalid key format")
 	}
-	nodeID, err := strconv.Atoi(split[0])
+	nodeKey, err := strconv.Atoi(split[0])
 	if err != nil {
-		return k, errors.Wrapf(err, "[channel] - key - invalid node id")
+		return k, errors.Wrapf(err, "[channel] - key - invalid node key")
 	}
 	cesiumKey, err := strconv.Atoi(split[1])
 	if err != nil {
 		return k, errors.Wrapf(err, "[channel] - invalid cesium key")
 	}
-	return NewKey(aspen.NodeID(nodeID), storage.ChannelKey(cesiumKey)), nil
+	return NewKey(aspen.NodeKey(nodeKey), storage.ChannelKey(cesiumKey)), nil
 }
 
 func MustParseKey(s string) Key {

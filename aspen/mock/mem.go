@@ -10,9 +10,10 @@
 package mock
 
 import (
+	"time"
+
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/aspen/transport/mock"
-	"time"
 )
 
 func NewMemBuilder(defaultOpts ...aspen.Option) *Builder {
@@ -28,7 +29,7 @@ func NewMemBuilder(defaultOpts ...aspen.Option) *Builder {
 			aspen.MemBacked(),
 			aspen.WithPropagationConfig(propConfig),
 		}, defaultOpts...),
-		Nodes:     make(map[aspen.NodeID]NodeInfo),
+		Nodes:     make(map[aspen.NodeKey]NodeInfo),
 		memBacked: true,
 	}
 }
