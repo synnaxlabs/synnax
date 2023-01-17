@@ -1,5 +1,6 @@
 ---
-sidebar_position: 4
+title: ARchitecture
+layout: ../layouts/MainLayout.astro
 ---
 
 # Architecture
@@ -152,13 +153,13 @@ unaware, and relies on the distribution layer to route requests to the appropria
 
 A few examples of services in this layer include:
 
-- **Channel Service** - Responsible for creating, updating, and deleting channels. Channels
-  are the primary unit of organization in Synnax, and are used to group telemetry streams
-  into logical units.
-- **Segment Service** - Responsible for writing and reading chunks of telemetry, called
-  **segments** to and from disk.
-- **User, Authentication, and Authorization Service** - Responsible for managing users,
-  permissions, and authentication tokens.
+-   **Channel Service** - Responsible for creating, updating, and deleting channels. Channels
+    are the primary unit of organization in Synnax, and are used to group telemetry streams
+    into logical units.
+-   **Segment Service** - Responsible for writing and reading chunks of telemetry, called
+    **segments** to and from disk.
+-   **User, Authentication, and Authorization Service** - Responsible for managing users,
+    permissions, and authentication tokens.
 
 ### API Layer
 

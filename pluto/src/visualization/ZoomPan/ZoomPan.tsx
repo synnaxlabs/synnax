@@ -1,112 +1,162 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  CSSProperties,
+  forwardRef,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
-import { useDrag, UseDragReturn, useKeysHeld } from "@/hooks";
-import { KeyboardKey } from "@/keys";
-import { Box, CSSBox, PointBox, XY, ZERO_BOX, ZERO_XY } from "@/spatial";
+import { useCursorDrag, UseCursorDragStart } from "@/hooks";
+import { KeyboardKey, useKeyMode } from "@/keys";
+import {
+  Box,
+  Dimensions,
+  Direction,
+  INFINITE_XY,
+  ONE_XY,
+  XY,
+  ZERO_BOX,
+  ZERO_XY,
+} from "@/spatial";
 
 export interface UseZoomPanProps {
   allowZoom?: boolean;
   allowPan?: boolean;
-  panHotkey?: KeyboardKey | null;
-  zoomHotkey?: KeyboardKey | null;
-  onChange?: (zoom: Box, pan: XY) => void;
+  panHotkey?: KeyboardKey | "";
+  zoomHotkey?: KeyboardKey | "";
+  onChange?: (box: Box) => void;
   threshold?: XY;
+  minZoom?: XY;
+  maxZoom?: XY;
+  resetOnDoubleClick?: boolean;
 }
 
-export interface UseZoomPanReturn extends UseDragReturn {
-  zoom: Box;
-  threshold: XY;
+export interface UseZoomPanReturn {
+  maskStyle: CSSProperties;
+  containerStyle: CSSProperties;
   mode: Mode | null;
+  onDragStart: UseCursorDragStart;
+  onDoubleClick: () => void;
+  ref: React.RefObject<HTMLDivElement>;
 }
 
-type ModeCheck = [Mode, KeyboardKey | null, boolean];
-
-type Mode = "zoom" | "pan";
-
-interface UseZoomPanState {
-  pan: XY;
-  zoom: Box;
-  root: XY | null;
-}
+type Mode = "zoom" | "pan" | null;
 
 export const useZoomPan = ({
+  onChange,
   allowZoom = true,
   allowPan = true,
   panHotkey = "Control",
-  zoomHotkey = null,
+  zoomHotkey = "",
   threshold = ZERO_XY,
-  onChange,
+  minZoom = ZERO_XY,
+  maxZoom = INFINITE_XY,
+  resetOnDoubleClick = true,
 }: UseZoomPanProps): UseZoomPanReturn => {
-  const [state, setState] = useState<UseZoomPanState>({
-    pan: ZERO_XY,
-    zoom: ZERO_BOX,
-    root: null,
-  });
+  const [maskBox, setMaskBox] = useState<Box>(ZERO_BOX);
+  const state = useRef<Box>(new Box(ZERO_XY, ONE_XY));
+  const canvasRef = useRef<HTMLDivElement>(null);
 
-  const { keys } = useKeysHeld(
-    useMemo(
-      () => [panHotkey, zoomHotkey].filter((key) => key != null) as KeyboardKey[],
-      [panHotkey, zoomHotkey]
-    )
+  const defaultMode = useMemo(() => {
+    if (allowZoom && zoomHotkey === "") return "zoom";
+    if (allowPan && panHotkey === "") return "pan";
+    return null;
+  }, [allowZoom, allowPan, zoomHotkey, panHotkey]);
+
+  const mode = useKeyMode<Mode>(
+    [
+      [zoomHotkey, "zoom"],
+      [panHotkey, "pan"],
+    ],
+    defaultMode
   );
 
-  const mode: Mode | null = useMemo(
-    () =>
-      (
-        [
-          ["zoom", zoomHotkey, allowZoom],
-          ["pan", panHotkey, allowPan],
-        ] as ModeCheck[]
-      )
-        .sort(([, a], [, b]) => {
-          if (a == null && b != null) return 1;
-          if (a != null && b == null) return -1;
-          return 0;
-        })
-        .find(([, key, allowed], i) => {
-          if (key == null) return allowed;
-          return keys.includes(key) && allowed;
-        })?.[0] ?? null,
-    [keys]
-  );
-
-  useEffect(() => {
-    onChange?.(state.zoom, state.pan);
-  }, [state]);
+  const handleDoubleClick = useCallback(() => {
+    if (canvasRef.current == null || !resetOnDoubleClick) return;
+    state.current = new Box(ZERO_XY, ONE_XY);
+    onChange?.(state.current);
+  }, [onChange]);
 
   const handleMove = useCallback(
-    (e: MouseEvent): void => {
-      if (mode == null) return;
-      if (mode === "zoom")
-        setState((prev) => {
-          const point = { x: e.clientX, y: e.clientY };
-          return {
-            ...prev,
-            zoom: new PointBox(prev.root ?? point, point),
-            root: prev.root ?? point,
-          };
-        });
-      else if (mode === "pan") {
-        setState((prev) => ({
-          ...prev,
-          pan: {
-            x: prev.pan.x + e.movementX,
-            y: prev.pan.y + e.movementY,
-          },
-        }));
+    (box: Box, key: KeyboardKey): void => {
+      if (mode == null || canvasRef.current == null) return;
+      const canvas = new Box(canvasRef.current.getBoundingClientRect());
+      const clamped = box.clampBy(canvas);
+      if ((mode === "zoom" && key !== panHotkey) || key === zoomHotkey)
+        setMaskBox(clamped);
+      else if (mode === "pan" || key === panHotkey) {
+        const next = state.current.translateBySignedDims(
+          clamped.toDecimal(canvas).scaleByDims(state.current)
+        );
+        onChange?.(next);
       }
     },
-    [mode, setState]
+    [mode, setMaskBox]
   );
 
   const handleEnd = useCallback(
-    () => setState((prev) => ({ ...prev, zoom: ZERO_BOX, root: null })),
-    [setState]
+    (box: Box, key: KeyboardKey) => {
+      if (canvasRef.current == null) return;
+      const canvas = new Box(canvasRef.current.getBoundingClientRect());
+      const decimal = box.clampBy(canvas).toDecimal(canvas);
+      if (mode === "pan" || key === panHotkey) {
+        state.current = state.current.translateBySignedDims(
+          decimal.scaleByDims(state.current)
+        );
+        onChange?.(state.current);
+        return;
+      }
+      const fullSize = fullSizeDirection(threshold, box);
+      let correctedBox: Box = decimal;
+      if (fullSize === "x") correctedBox = new Box(0, decimal.top, 1, decimal.height);
+      else if (fullSize === "y")
+        correctedBox = new Box(decimal.left, 0, decimal.width, 1);
+      const nextBox = correctedBox.scaleByDims(state.current).translate(state.current);
+      setMaskBox(ZERO_BOX);
+      if (nextBox.width < minZoom.x || nextBox.height < minZoom.y) return;
+      if (nextBox.width > maxZoom.x || nextBox.height > maxZoom.y) return;
+      state.current = nextBox;
+      onChange?.(nextBox);
+    },
+    [mode, setMaskBox]
   );
 
-  const dragProps = useDrag({ onMove: handleMove, onEnd: handleEnd });
+  const onDragStart = useCursorDrag({ onMove: handleMove, onEnd: handleEnd });
 
-  return { zoom: state.zoom, threshold, mode, ...dragProps };
+  const maskStyle: React.CSSProperties = {
+    position: "relative",
+    width: maskBox.width,
+    height: maskBox.height,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  };
+
+  if (canvasRef.current != null) {
+    const canvas = new Box(canvasRef.current.getBoundingClientRect());
+    maskStyle.top = maskBox.top - canvas.top;
+    maskStyle.left = maskBox.left - canvas.left;
+    const fullSize = fullSizeDirection(threshold, maskBox);
+    if (fullSize === "y") {
+      maskStyle.height = "100%";
+      maskStyle.top = 0;
+    } else if (fullSize === "x") {
+      maskStyle.width = "100%";
+      maskStyle.left = 0;
+    }
+  }
+
+  const containerStyle: React.CSSProperties = {
+    cursor: mode === "zoom" ? "crosshair" : "grab",
+  };
+
+  return {
+    maskStyle,
+    mode,
+    onDragStart,
+    ref: canvasRef,
+    containerStyle,
+    onDoubleClick: handleDoubleClick,
+  };
 };
 
 type DivProps = React.DetailedHTMLProps<
@@ -115,45 +165,28 @@ type DivProps = React.DetailedHTMLProps<
 >;
 
 export interface ZoomPanProps
-  extends UseZoomPanReturn,
-    Omit<DivProps, "onDragStart" | "onDragEnd" | "onDrag"> {}
+  extends Omit<UseZoomPanReturn, "ref">,
+    Omit<DivProps, "onDragStart" | "onDragEnd" | "onDrag" | "ref" | "onDoubleClick"> {}
 
-export const ZoomPanMask = ({
-  zoom,
-  threshold,
-  onDragStart,
-  mode,
-  style,
-  ...props
-}: ZoomPanProps): JSX.Element | null => {
-  const ref = useRef<HTMLDivElement>(null);
-  const zoomStyle: React.CSSProperties = {
-    position: "relative",
-    width: zoom.width,
-    height: zoom.height,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-  };
-  const zoomContainerStyle: React.CSSProperties = {
-    cursor: mode === "zoom" ? "crosshair" : "grab",
-    ...style,
-  };
-  if (ref.current != null) {
-    const dBox = new CSSBox(ref.current.getBoundingClientRect());
-    zoomStyle.top = zoom.top - dBox.top;
-    zoomStyle.left = zoom.left - dBox.left;
-    const widthThreshold = zoom.width <= threshold.y;
-    const heightThreshold = zoom.height <= threshold.x;
-    if (heightThreshold) {
-      zoomStyle.height = "100%";
-      zoomStyle.top = 0;
-    } else if (widthThreshold) {
-      zoomStyle.width = "100%";
-      zoomStyle.left = 0;
-    }
-  }
-  return (
-    <div ref={ref} onMouseDown={onDragStart} style={zoomContainerStyle} {...props}>
-      <div style={zoomStyle} />
+export const ZoomPanMask = forwardRef<HTMLDivElement, ZoomPanProps>(
+  (
+    { maskStyle, onDragStart, mode, style, containerStyle, ...props },
+    ref
+  ): JSX.Element | null => (
+    <div
+      ref={ref}
+      onMouseDown={onDragStart}
+      style={{ ...containerStyle, ...style }}
+      {...props}
+    >
+      <div style={maskStyle} />
     </div>
-  );
+  )
+);
+ZoomPanMask.displayName = "ZoomPanMask";
+
+const fullSizeDirection = (threshold: XY, dims: Dimensions): Direction | null => {
+  if (dims.height <= threshold.y) return "y";
+  if (dims.width <= threshold.x) return "x";
+  return null;
 };

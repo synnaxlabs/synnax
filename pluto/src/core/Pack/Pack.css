@@ -13,19 +13,19 @@
     border: var(--pluto-border-width) solid var(--pluto-gray-m1);
 }
 
-.pluto-pack--horizontal > .pluto-pack__first {
+.pluto-pack--x > .pluto-pack__first {
     border-radius: var(--pluto-border-radius) 0 0 var(--pluto-border-radius) !important;
 }
 
-.pluto-pack--vertical > .pluto-pack__first {
+.pluto-pack--y > .pluto-pack__first {
     border-radius: var(--pluto-border-radius) var(--pluto-border-radius) 0 0 !important;
 }
 
-.pluto-pack--horizontal > .pluto-pack__last {
+.pluto-pack--x > .pluto-pack__last {
     border-radius: 0 var(--pluto-border-radius) var(--pluto-border-radius) 0 !important;
 }
 
-.pluto-pack--vertical > .pluto-pack__last {
+.pluto-pack--y > .pluto-pack__last {
     border-radius: 0 0 var(--pluto-border-radius) var(--pluto-border-radius) !important;
 }
 
@@ -37,12 +37,12 @@
     border-radius: 0;
 }
 
-.pluto-pack--horizontal .pluto-pack__middle,
-.pluto-pack--horizontal .pluto-pack__last {
+.pluto-pack--x .pluto-pack__middle,
+.pluto-pack--x .pluto-pack__last {
     margin-left: -1px !important;
 }
 
-.pluto-pack--vertical .pluto-pack__middle,
-.pluto-pack--vertical .pluto-pack__last {
+.pluto-pack--y .pluto-pack__middle,
+.pluto-pack--y .pluto-pack__last {
     margin-top: -1px !important;
 }

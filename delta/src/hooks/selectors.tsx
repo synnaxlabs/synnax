@@ -9,7 +9,7 @@
 
 import { useCallback } from "react";
 
-import type { KeyedRecord } from "@synnaxlabs/pluto";
+import type { KeyedRecord } from "@synnaxlabs/x";
 import memoize from "proxy-memoize";
 import { useSelector } from "react-redux";
 

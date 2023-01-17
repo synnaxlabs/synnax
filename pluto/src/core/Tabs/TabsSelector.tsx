@@ -44,7 +44,7 @@ export const TabsSelector = ({
   return tabs.length > 0 ? (
     <Space
       className={clsx("pluto-tabs-selector", className)}
-      direction="horizontal"
+      direction="x"
       align="center"
       justify="start"
       empty
@@ -100,7 +100,7 @@ const TabC = ({
         closable === true && "pluto-tabs-selector__button--closable"
       )}
       draggable
-      direction="horizontal"
+      direction="x"
       justify="center"
       align="center"
       onClick={_onSelect}

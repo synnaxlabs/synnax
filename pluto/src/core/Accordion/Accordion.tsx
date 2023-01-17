@@ -33,7 +33,7 @@ export interface AccordionProps {
 }
 
 export const Accordion = ({
-  direction = "vertical",
+  direction = "y",
   entries,
 }: AccordionProps): JSX.Element => {
   const {

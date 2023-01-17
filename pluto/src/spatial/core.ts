@@ -9,38 +9,43 @@
  * included in the file licenses/APL.txt.
  */
 
-export const Positions = ["start", "center", "end"];
-export type Position = typeof Positions[number];
+export const POSITIONS = ["start", "center", "end"];
+export type Position = typeof POSITIONS[number];
 
-export const Orders = ["first", "last"] as const;
-export type Order = typeof Orders[number];
+export const ORDERS = ["first", "last"] as const;
+export type Order = typeof ORDERS[number];
 
-export const VerticalLocations = ["top", "bottom"] as const;
-export type VerticalLocation = typeof VerticalLocations[number];
-export const HorizontalLocations = ["left", "right"] as const;
-export type HorizontalLocation = typeof HorizontalLocations[number];
+export const Y_LOCATIONS = ["top", "bottom"] as const;
+export type XLocation = typeof Y_LOCATIONS[number];
+export const X_LOCATIONS = ["left", "right"] as const;
+export type YLocation = typeof X_LOCATIONS[number];
 export type CenterLocation = "center";
 
-export const Corners = ["topLeft", "topRight", "bottomLeft", "bottomRight"] as const;
-export type Corner = typeof Corners[number];
+export const CORNERS = ["topLeft", "topRight", "bottomLeft", "bottomRight"] as const;
+export type Corner = typeof CORNERS[number];
 
-export const Outerlocations = [...VerticalLocations, ...HorizontalLocations] as const;
-export type OuterLocation = typeof Outerlocations[number];
+export const OUTER_LOCATIONS = [...Y_LOCATIONS, ...X_LOCATIONS] as const;
+export type OuterLocation = typeof OUTER_LOCATIONS[number];
 
-export const Locations = [...Outerlocations, "center"] as const;
-export type Location = typeof Locations[number];
+export const LOCATIONS = [...OUTER_LOCATIONS, "center"] as const;
+export type Location = typeof LOCATIONS[number];
 
-export const Directions = ["horizontal", "vertical"] as const;
-export type Direction = typeof Directions[number];
-export const isDirection = (v: string): boolean => Directions.includes(v as Direction);
+export const DIRECTIONS = ["x", "y"] as const;
+export type Direction = typeof DIRECTIONS[number];
+export const isDirection = (v: string): boolean => DIRECTIONS.includes(v as Direction);
 
-export const directionFromLocation = (location: Location): Direction =>
-  VerticalLocations.includes(location as VerticalLocation) ? "horizontal" : "vertical";
-export const swapDirection = (direction: Direction): Direction =>
-  direction === "horizontal" ? "vertical" : "horizontal";
-export const locationFromDirection = (direction: Direction): Location =>
-  direction === "horizontal" ? "left" : "top";
-export const swapLocation = (location: Location): Location => {
+export const dirFromLoc = (location: Location | Direction): Direction => {
+  if (isDirection(location)) return location as Direction;
+  return Y_LOCATIONS.includes(location as XLocation) ? "x" : "y";
+};
+
+export const swapDir = (direction: Direction): Direction =>
+  direction === "x" ? "y" : "x";
+
+export const locFromDir = (direction: Direction): Location =>
+  direction === "x" ? "left" : "top";
+
+export const swapLoc = (location: Location): Location => {
   switch (location) {
     case "top":
       return "bottom";
@@ -54,20 +59,17 @@ export const swapLocation = (location: Location): Location => {
       return "center";
   }
 };
-export const getDirectionalSize = (
-  direction: Direction,
-  { width, height }: Dimensions
-): number => (direction === "horizontal" ? width : height);
+
+/** A generic 2D point, scale, or offset. */
+export interface XY extends Record<Direction, number> {}
+
+export const ZERO_XY: XY = { x: 0, y: 0 };
+export const ONE_XY: XY = { x: 1, y: 1 };
+export const INFINITE_XY: XY = { x: Infinity, y: Infinity };
 
 export interface Dimensions {
   width: number;
   height: number;
-}
-
-/** A generic 2D point, scale, or offset. */
-export interface XY {
-  x: number;
-  y: number;
 }
 
 export interface Transform {
@@ -75,6 +77,20 @@ export interface Transform {
   scale: XY;
 }
 
-export const ZERO_XY: XY = { x: 0, y: 0 };
-export const ONE_XY: XY = { x: 1, y: 1 };
-export const INFINITE_XY: XY = { x: Infinity, y: Infinity };
+export interface ClientXY {
+  clientX: number;
+  clientY: number;
+}
+
+export const toXY = (pt: XY | ClientXY | Dimensions): XY => {
+  if ("x" in pt) return pt;
+  if ("width" in pt) return { x: pt.width, y: pt.height };
+  return { x: pt.clientX, y: pt.clientY };
+};
+
+export const locDim = (
+  location: Location | Direction,
+  point: XY | Dimensions
+): number => toXY(point)[dirFromLoc(location)];
+
+export type ClientXYF = (e: ClientXY) => void;

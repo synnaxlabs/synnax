@@ -1,74 +1,121 @@
 ---
-import { TOC } from "@/components/TableOfContents";
-import { toc } from "@/pages/toc";
+import { PageNav } from "@/components/PageNav";
+import { pages } from "@/pages/nav";
 import "@synnaxlabs/pluto/dist/style.css";
-import { applyTheme, getBaseThemeCSSVars} from "@/util/theme";
-const vars = getBaseThemeCSSVars();
+import { Theming } from "@synnaxlabs/pluto";
+import { DEFAULT_THEME } from "@/util/theme";
+import { Logo } from "@/components/Logo";
+const vars = Theming.toCSSVars(DEFAULT_THEME);
+import { TableOfContents } from "@/components/TableOfContents";
+const { headings } = Astro.props as Props;
 ---
 
 <html style={vars}>
     <header class="pluto-bordered--bottom">
-        <h1>Hello</h1>
+        <div class="header-content">
+            <Logo style={{ height: "6.5rem" }} />
+        </div>
     </header>
     <section>
-        <nav class="pluto-bordered--right">
-            <TOC client:only="react" data={toc} currentPage={Astro.url.pathname} />
+        <nav class="pluto-bordered--right pluto-bordered--bottom">
+            <PageNav
+                client:only="react"
+                data={pages}
+                currentPage={Astro.url.pathname}
+            />
         </nav>
         <article>
             <slot />
         </article>
     </section>
-</html>
 
-<script>
-import { startThemeDriver } from "@/util/theme";
-startThemeDriver();
-</script>
+    <script>
+        import { startThemeDriver } from "@/util/theme";
+        startThemeDriver();
+    </script>
 
-<style is:global>
-    p {
-        white-space: normal !important;
-    }
-    @media (prefers-color-scheme: dark) {
-        html {
-            --pluto-background-color: #121212;
-            --pluto-text-color: #FFFFFF;
+    <style is:global>
+        article p {
+            margin: 3rem 0;
         }
-    }
-</style>
 
-<style>
-    body {
-        display: flex;
-        flex-direction: column;
-    }
+        * {
+            white-space: normal !important;
+        }
 
-    section {
-        flex-grow: 1;
-        display: flex;
-    }
+        li {
+            font-size: var(--pluto-p-size);
+        }
 
-    nav {
-        float: left;
-        height: 100%;
-        width: 20%;
-    }
+        .astro-code {
+            padding: 3rem;
+            border-radius: var(--pluto-border-radius);
+            margin: 3rem 1rem;
+        }
 
-    article {
-        float: left;
-        padding: 20px;
-        height: 300px;
-        flex-grow: 1;
-    }
+        @media (prefers-color-scheme: dark) {
+            html {
+                --pluto-background-color: #121212;
+                --pluto-text-color: #ffffff;
+            }
+        }
+    </style>
 
-    @media (max-width: 600px) {
-        nav,
-        article {
+    <style>
+        :root {
+            --max-width: 1440px;
+        }
+
+        header {
+            display: flex;
+            justify-content: center;
+            flex-basis: 10rem;
+            flex-grow: 1;
+            flex-shrink: 0;
             width: 100%;
-            height: auto;
         }
+
+        .header-content {
+            width: 100%;
+            max-width: var(--max-width);
+            display: flex;
+            align-items: center;
+            padding: 0 5rem;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        @media (max-width: 1440px) {
+            body {
+                align-items: unset;
+            }
+        }
+
+        section {
+            max-width: var(--max-width);
+            display: flex;
+            flex-wrap: wrap;
+            flex-grow: 99999;
+            flex-basis: 0;
+        }
+
         nav {
-            border-bottom: var(--pluto-border);
+            padding: 20px 0px;
+            flex-basis: 280px;
+            flex-grow: 1;
         }
-    }
-</style>
+
+        article {
+            flex-basis: 0;
+            flex-grow: 9999;
+            min-inline-size: 60%;
+            padding: 5rem;
+        }
+    </style>
+
+
+</html>

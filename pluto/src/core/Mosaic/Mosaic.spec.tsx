@@ -64,7 +64,7 @@ describe("Mosaic", () => {
 
         expect(nextTree).toEqual({
           key: 1,
-          direction: "horizontal",
+          direction: "x",
           first: {
             key: 2,
             tabs: [tabOne],
@@ -92,7 +92,7 @@ describe("Mosaic", () => {
         };
         const tree: MosaicLeaf = {
           key: 1,
-          direction: "horizontal",
+          direction: "x",
           first: {
             key: 2,
             tabs: [tabOne],
@@ -107,7 +107,7 @@ describe("Mosaic", () => {
         const nextTree = Mosaic.insertTab(tree, tabThree);
         expect(nextTree).toEqual({
           key: 1,
-          direction: "horizontal",
+          direction: "x",
           first: {
             key: 2,
             tabs: [tabOne, tabThree],
@@ -137,7 +137,7 @@ describe("Mosaic", () => {
         };
         const tree: MosaicLeaf = {
           key: 1,
-          direction: "horizontal",
+          direction: "x",
           first: {
             key: 2,
             tabs: [tabOne],
@@ -152,7 +152,7 @@ describe("Mosaic", () => {
         const nextTree = Mosaic.removeTab(tree, "tab2");
         expect(nextTree).toEqual({
           key: 1,
-          direction: "horizontal",
+          direction: "x",
           first: {
             key: 2,
             tabs: [tabOne],
@@ -180,7 +180,7 @@ describe("Mosaic", () => {
         };
         const tree: MosaicLeaf = {
           key: 1,
-          direction: "horizontal",
+          direction: "x",
           first: {
             key: 2,
             tabs: [tabOne],
@@ -216,7 +216,7 @@ describe("Mosaic", () => {
         };
         const tree: MosaicLeaf = {
           key: 1,
-          direction: "horizontal",
+          direction: "x",
           first: {
             key: 2,
             tabs: [tabOne],
@@ -231,7 +231,7 @@ describe("Mosaic", () => {
         const nextTree = Mosaic.moveTab(tree, "tab2", "center", 2);
         expect(nextTree).toEqual({
           key: 1,
-          direction: "horizontal",
+          direction: "x",
           first: {
             key: 2,
             tabs: [tabOne, tabTwo],
@@ -263,7 +263,7 @@ describe("Mosaic", () => {
 
         const initialTree: MosaicLeaf = {
           key: 1,
-          direction: "horizontal",
+          direction: "x",
           first: {
             key: 2,
             tabs: [tabOne],
@@ -295,7 +295,7 @@ describe("Mosaic", () => {
         };
         const tree: MosaicLeaf = {
           key: 1,
-          direction: "horizontal",
+          direction: "x",
           first: {
             key: 2,
             tabs: [tabOne],
@@ -310,7 +310,7 @@ describe("Mosaic", () => {
         const nextTree = Mosaic.resizeLeaf(tree, 2, 100);
         expect(nextTree).toEqual({
           key: 1,
-          direction: "horizontal",
+          direction: "x",
           first: {
             key: 2,
             tabs: [tabOne],
@@ -399,7 +399,7 @@ describe("Mosaic", () => {
         key: 1,
         first: {
           key: 2,
-          direction: "horizontal",
+          direction: "x",
           first: {
             key: 4,
             tabs: [tabOne],
@@ -413,7 +413,7 @@ describe("Mosaic", () => {
         },
         last: {
           key: 3,
-          direction: "horizontal",
+          direction: "x",
           first: {
             key: 6,
             tabs: [tabThree],

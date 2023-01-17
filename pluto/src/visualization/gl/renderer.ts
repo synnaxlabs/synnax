@@ -2,7 +2,7 @@ import { Compiler } from "./compiler";
 import { GLRendererRegistry } from "./registry";
 import { ScissoredGLRenderer, ScissoredRenderRequest } from "./scissor";
 
-import { Box, calculateBottomOffset, CSSBox, XY } from "@/spatial";
+import { Box, calculateBottomOffset, XY } from "@/spatial";
 
 import { RenderingUnits } from "./types";
 
@@ -75,7 +75,7 @@ export class GLContext {
   }
 
   private get canvasBox(): Box {
-    return new CSSBox(this.canvas.getBoundingClientRect());
+    return new Box(this.canvas.getBoundingClientRect());
   }
 
   refreshCanvas(): void {

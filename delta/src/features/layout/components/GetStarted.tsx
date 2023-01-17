@@ -11,7 +11,7 @@ export const GetStarted = (): JSX.Element => {
     <Space.Centered className="delta-get-started" align="center" size={6}>
       <Logo variant="title" className="delta-get-started__logo" />
       <Text level="h1">Get Started</Text>
-      <Space direction="horizontal" size="large" justify="center" wrap>
+      <Space direction="x" size="large" justify="center" wrap>
         <Button startIcon={<ClusterIcon />} size="large">
           Connect a Cluster
         </Button>

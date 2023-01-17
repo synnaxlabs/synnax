@@ -24,13 +24,16 @@ export const SelectRange = (props: SelectRangeProps): JSX.Element => (
 );
 
 export interface SelectMultipleRangesInputItemProps
-  extends Omit<InputItemProps<readonly string[], SelectMultipleRangesProps>, "label"> {}
+  extends Omit<
+    InputItemProps<readonly string[], readonly string[], SelectMultipleRangesProps>,
+    "label"
+  > {}
 
 export const SelectMultipleRangesInputItem = (
   props: SelectMultipleRangesInputItemProps
 ): JSX.Element => (
-  <Input.Item<readonly string[], SelectMultipleRangesProps>
-    direction="horizontal"
+  <Input.Item<readonly string[], readonly string[], SelectMultipleRangesProps>
+    direction="x"
     label="Ranges:"
     {...props}
   >
@@ -39,10 +42,10 @@ export const SelectMultipleRangesInputItem = (
 );
 
 export interface SelectRangeInputItemProps
-  extends Omit<InputItemProps<string, SelectRangeProps>, "label"> {}
+  extends Omit<InputItemProps<string, string, SelectRangeProps>, "label"> {}
 
 export const SelectRangeInputItem = (props: SelectRangeInputItemProps): JSX.Element => (
-  <Input.Item<string, SelectRangeProps> label="Range:" {...props}>
+  <Input.Item<string, string, SelectRangeProps> label="Range:" {...props}>
     {SelectRange}
   </Input.Item>
 );

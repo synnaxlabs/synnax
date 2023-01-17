@@ -25,12 +25,7 @@ export interface HeaderActionsProps {
 export const HeaderActions = ({ children }: HeaderActionsProps): JSX.Element => {
   const { level, divided } = useHeaderContext();
   return (
-    <Space
-      direction="horizontal"
-      size="small"
-      align="center"
-      className="pluto-header__actions"
-    >
+    <Space direction="x" size="small" align="center" className="pluto-header__actions">
       {children?.map((action, i) => (
         <HeaderActionC key={i} index={i} level={level} divided={divided}>
           {action}

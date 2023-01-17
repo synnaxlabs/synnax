@@ -24,7 +24,12 @@ export {
 } from "@/errors";
 export { Frame } from "@/framer";
 export { OntologyID, OntologyRoot } from "@/ontology";
-export type { OntologyResource, OntologySchema, OntologySchemaField } from "@/ontology";
+export type {
+  OntologyResource,
+  OntologySchema,
+  OntologySchemaField,
+  OntologyResourceType,
+} from "@/ontology";
 export {
   DataType,
   Density,

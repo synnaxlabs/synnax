@@ -9,11 +9,11 @@
  * included in the file licenses/APL.txt.
  */
 
-.delta-main-fixed--vertical {
+.delta-main-fixed--y {
     height: calc(100vh - 32px - 42px);
 }
 
-.delta-main-fixed--horizontal {
+.delta-main-fixed--x {
     width: calc(100vw - 48px - 48px);
 }
 

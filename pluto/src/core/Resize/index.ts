@@ -58,7 +58,7 @@ Resize.Multiple = ResizeMultiple;
  * is not provided (or is shorter than the expected length), the (remaining) panels will
  * be evenly distributed across the container.
  * @param props.direction - The direction in which the panels should be draggable. This should
- * be Default: "horizontal"
+ * be Default: "x"
  * @param props.minSize - The smallest size the panels can be resized to. Defaults to 100.
  *
  * @returns The props that should be passed to {@link Resize.Multiple} along with a few

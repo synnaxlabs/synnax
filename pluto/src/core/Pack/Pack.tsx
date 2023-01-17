@@ -38,7 +38,7 @@ export interface PackProps extends Omit<SpaceProps, "children" | "empty"> {
  * @param props.children - The children to pack together. These must satisfy the
  * {@link PackChildProps} interface.
  * @param props.direction - The direction to pack the children in. Defaults to
- * "horizontal".
+ * "x".
  * @param props.size - The size to set on the children. Any sizes already set on the
  * children will be overridden. Defaults to "medium".
  */
@@ -46,7 +46,7 @@ export const Pack = ({
   children,
   size = "medium",
   className,
-  direction = "horizontal",
+  direction = "x",
   ...props
 }: PackProps): JSX.Element => {
   const arr = reactElementToArray(children);

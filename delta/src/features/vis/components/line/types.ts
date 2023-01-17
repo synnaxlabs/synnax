@@ -9,7 +9,7 @@
 
 import { XY } from "@synnaxlabs/pluto";
 
-import { Vis } from "../types";
+import { Vis } from "../../types";
 
 import { Range } from "@/features/workspace";
 

@@ -20,7 +20,7 @@ const story: ComponentMeta<typeof Space> = {
   argTypes: {
     direction: {
       control: { type: "select" },
-      options: ["horizontal", "vertical"],
+      options: ["x", "y"],
     },
     size: {
       control: { type: "select" },
@@ -47,7 +47,7 @@ const Template: ComponentStory<typeof Space> = (args: SpaceProps) => (
 
 export const Basic = Template.bind({});
 Basic.args = {
-  direction: "horizontal",
+  direction: "x",
   size: "medium",
   align: "center",
   justify: "start",

@@ -24,7 +24,7 @@ const NoVisContent = (): JSX.Element => (
       <VisToolbarTitle />
     </ToolbarHeader>
     <Space.Centered>
-      <Space direction="horizontal" align="center" size="small">
+      <Space direction="x" align="center" size="small">
         <Text level="h4" style={{ color: "var(--pluto-gray-m0)" }}>
           No Active Visualization. Select a Tab or
         </Text>

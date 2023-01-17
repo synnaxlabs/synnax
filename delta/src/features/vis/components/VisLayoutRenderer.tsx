@@ -15,10 +15,10 @@ import { useDispatch } from "react-redux";
 import { setVis, useSelectSVis } from "../store";
 import { Vis } from "../types";
 
+import { LayoutRenderer, LayoutRendererProps } from "@/features/layout";
+
 import { LinePlot } from "./line/LinePlot";
 import { LineSVis } from "./line/types";
-
-import { LayoutRenderer, LayoutRendererProps } from "@/features/layout";
 
 export const VisLayoutRenderer: LayoutRenderer = {
   Renderer: memo(({ layoutKey }: LayoutRendererProps) => {

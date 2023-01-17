@@ -28,6 +28,8 @@ export const Primary: ComponentStory<typeof Resize> = Template.bind({});
 Primary.args = {
   style: {
     height: "100%",
+    minWidth: 200,
+    maxWidth: 500,
   },
 };
 

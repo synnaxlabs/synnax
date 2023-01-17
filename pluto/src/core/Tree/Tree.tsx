@@ -39,13 +39,15 @@ export const Tree = <E extends RenderableRecord<E> = RenderableRecord>({
   children = ButtonLeaf,
   ...props
 }: TreeProps<E>): JSX.Element => {
+  const _nextSiblingsHaveChildren = nextSiblingsHaveChildren(data);
   return (
     <ul className={clsx("pluto-tree__list pluto-tree__container")} {...props}>
       {data.map((entry) => (
         <TreeLeafParent
           {...entry}
           key={entry.key}
-          depth={1}
+          prevPaddingLeft={-1.5}
+          siblingsHaveChildren={_nextSiblingsHaveChildren}
           selected={value}
           nodeKey={entry.key}
           onSelect={onChange}
@@ -73,10 +75,11 @@ type TreeLeafProps<E extends RenderableRecord<E>> = TreeLeaf<E> & {
   selected: readonly string[];
   nodeKey: string;
   hasChildren?: boolean;
-  depth: number;
+  prevPaddingLeft: number;
   onExpand?: (key: string) => void;
   onSelect?: (key: string) => void;
   render: RenderProp<TreeLeafCProps<E>>;
+  siblingsHaveChildren: boolean;
 };
 
 const TreeLeafParent = <E extends RenderableRecord>({
@@ -88,8 +91,9 @@ const TreeLeafParent = <E extends RenderableRecord>({
   children = [],
   hasChildren = false,
   onExpand,
-  depth,
+  prevPaddingLeft,
   render,
+  siblingsHaveChildren,
   ...rest
 }: TreeLeafProps<E>): JSX.Element => {
   const [expanded, setExpanded] = useState(recursiveSelected(children, selected));
@@ -97,16 +101,22 @@ const TreeLeafParent = <E extends RenderableRecord>({
     onExpand?.(key);
     setExpanded(!expanded);
   };
+  hasChildren = children.length > 0 || hasChildren;
+  let paddingLeft = prevPaddingLeft + 3.5;
+  if (!hasChildren && siblingsHaveChildren) paddingLeft += 3;
+  const _nextSiblingsHaveChildren = nextSiblingsHaveChildren(children);
   return (
     <li className="tree-node__container">
       {render({
         nodeKey,
-        style: { paddingLeft: `${depth * 2}rem` },
+        style: {
+          paddingLeft: `${paddingLeft}rem`,
+        },
         selected: selected.includes(nodeKey),
         name,
         icon,
         expanded,
-        hasChildren: children.length > 0 || hasChildren,
+        hasChildren,
         onExpand: handleExpand,
         onSelect,
         ...rest,
@@ -118,8 +128,9 @@ const TreeLeafParent = <E extends RenderableRecord>({
               {...child}
               key={child.key}
               nodeKey={child.key}
+              siblingsHaveChildren={_nextSiblingsHaveChildren}
               onSelect={onSelect}
-              depth={depth + 1}
+              prevPaddingLeft={paddingLeft}
               selected={selected}
               onExpand={onExpand}
               render={render}
@@ -175,11 +186,12 @@ export const ButtonLeaf = <E extends RenderableRecord<E>>({
       href={url}
       variant="text"
       className={clsx(
-        "pluto-tree__node__button",
-        selected && "pluto-tree__node__button--selected"
+        "pluto-tree-leaf__button",
+        selected && "pluto-tree-leaf__button--selected"
       )}
       startIcon={icons}
       onClick={handleClick}
+      size="small"
       {...props}
     >
       {name}
@@ -195,3 +207,10 @@ const recursiveSelected = (data: TreeLeaf[], selected: readonly string[]): boole
   }
   return false;
 };
+
+const nextSiblingsHaveChildren = (data: TreeLeaf[]): boolean =>
+  data.some(
+    (child) =>
+      child.hasChildren === true ||
+      (child.children != null && child.children.length > 0)
+  );

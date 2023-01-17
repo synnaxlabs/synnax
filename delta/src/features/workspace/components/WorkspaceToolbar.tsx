@@ -39,7 +39,7 @@ const Content = (): JSX.Element => {
         <ToolbarTitle icon={<MdWorkspacesFilled />}>Workspace</ToolbarTitle>
       </ToolbarHeader>
       <Accordion
-        direction="vertical"
+        direction="y"
         entries={[
           {
             key: "ranges",

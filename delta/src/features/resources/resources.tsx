@@ -15,11 +15,12 @@ import { ONE_XY, ZERO_XY } from "@synnaxlabs/pluto";
 import { AiFillDatabase } from "react-icons/ai";
 import { MdOutlineDeviceHub, MdSensors } from "react-icons/md";
 
-import { LineVis } from "../vis/components/line/types";
-
 import { ClusterIcon } from "@/features/cluster";
 import { LayoutPlacer } from "@/features/layout";
 import { createVisualization } from "@/features/vis";
+
+import { LineVis } from "../vis/components/line/types";
+
 import { WorkspaceState } from "@/features/workspace";
 
 export interface SelectionContext {
@@ -63,7 +64,7 @@ export const resourceTypes: Record<string, ResourceType> = {
             y2: [],
             y3: [],
             y4: [],
-            x1: undefined,
+            x1: "",
           },
           ranges: {
             x1: workspace.activeRange != null ? [workspace.activeRange] : [],

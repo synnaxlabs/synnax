@@ -7,14 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { clamp } from "@synnaxlabs/x";
 
+import { useCursorDrag } from "@/hooks/useCursorDrag";
+
 import { ResizeCore, ResizeCoreProps } from "./ResizeCore";
 
-import { useDrag } from "@/hooks/useDrag";
-import { directionFromLocation, Location } from "@/spatial";
+import { Box, dirFromLoc, Location, swapDir } from "@/spatial";
 
 import "./Resize.css";
 
@@ -27,12 +28,6 @@ export interface ResizeProps
   onResize?: (size: number) => void;
 }
 
-interface ResizeState {
-  size: number;
-  root: number | null;
-  marker: number | null;
-}
-
 export const Resize = ({
   location = "left",
   minSize = 100,
@@ -41,35 +36,32 @@ export const Resize = ({
   onResize,
   ...props
 }: ResizeProps): JSX.Element => {
-  const [size, setSize] = useState<ResizeState>({
-    size: initialSize,
-    root: 0,
-    marker: 0,
-  });
+  const [size, setSize] = useState(clamp(initialSize, minSize, maxSize));
+  const marker = useRef<number | null>(null);
+  const swappedDir = swapDir(dirFromLoc(location));
 
   const onMouseMove = useCallback(
-    (e: MouseEvent) => {
-      setSize((prev) => calcNextSize(e, location, prev, minSize, maxSize));
-      onResize?.(size.size);
+    (box: Box) => {
+      if (marker.current === null) marker.current = size;
+      const nextSize = clamp(
+        marker.current + box.dim(swappedDir, true),
+        minSize,
+        maxSize
+      );
+      setSize(nextSize);
+      onResize?.(nextSize);
     },
     [onResize, location, minSize, maxSize, size]
   );
 
   useEffect(() => {
-    setSize((prev) => ({ ...prev, size: clamp(prev.size, minSize, maxSize) }));
+    setSize((prev) => clamp(prev, minSize, maxSize));
   }, [minSize, maxSize]);
 
-  const dragProps = useDrag({
-    onStart: (e) => {
-      setSize((prev) => ({
-        ...prev,
-        root: directionFromLocation(location) === "vertical" ? e.clientX : e.clientY,
-        marker: prev.size,
-      }));
-    },
+  const handleDragStart = useCursorDrag({
     onMove: onMouseMove,
     onEnd: () => {
-      setSize((prev) => ({ ...prev, root: null, marker: null }));
+      marker.current = null;
     },
   });
 
@@ -77,30 +69,9 @@ export const Resize = ({
     <ResizeCore
       draggable
       location={location}
-      size={size.size}
+      size={size}
+      onDragStart={handleDragStart}
       {...props}
-      {...dragProps}
     />
   );
-};
-
-export const calcNextSize = (
-  e: MouseEvent,
-  location: Location,
-  prev: ResizeState,
-  minSize: number,
-  maxSize: number
-): ResizeState => {
-  if (prev.root === null || prev.marker === null) return prev;
-  const curr = directionFromLocation(location) === "vertical" ? e.clientX : e.clientY;
-  let mov = curr - prev.root;
-  if (location === "right" || location === "bottom") mov *= -1;
-  return {
-    ...prev,
-    size: clamp(prev.marker + mov, minSize, maxSize),
-  };
-};
-
-export const anyExceedsBounds = (nums: number[], min: number, max: number): boolean => {
-  return nums.some((num) => num < min || num > max);
 };

@@ -74,7 +74,7 @@ export const Space = forwardRef(
       size = "medium",
       justify = "start",
       reverse = false,
-      direction = "vertical",
+      direction = "y",
       grow,
       align,
       className,
@@ -119,7 +119,7 @@ Space.displayName = "Space";
 type FlexDirection = CSSProperties["flexDirection"];
 
 const flexDirection = (direction: Direction, reverse: boolean): FlexDirection => {
-  const base = direction === "horizontal" ? "row" : "column";
+  const base = direction === "x" ? "row" : "column";
   return reverse ? ((base + "-reverse") as FlexDirection) : base;
 };
 

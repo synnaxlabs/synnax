@@ -67,11 +67,7 @@ const ListColumnHeader = <E extends RenderableRecord<E>>({
   }, [sourceData, initialColumns]);
 
   return (
-    <Space
-      direction="horizontal"
-      size="medium"
-      className="pluto-list-col-header__container"
-    >
+    <Space direction="x" size="medium" className="pluto-list-col-header__container">
       {columns
         .filter(({ visible = true }) => visible)
         .map((col) => {
@@ -114,7 +110,7 @@ const ListColumnItem = <E extends RenderableRecord<E>>({
         onSelect != null && "pluto-list-col-item__container--selectable",
         selected && "pluto-list-col-item__container--selected"
       )}
-      direction="horizontal"
+      direction="x"
       size="medium"
       onClick={() => onSelect?.(entry.key)}
       align="center"

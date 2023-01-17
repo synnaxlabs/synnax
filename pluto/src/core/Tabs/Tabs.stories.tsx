@@ -35,7 +35,7 @@ export const Primary: ComponentStory<typeof Tabs> = () => {
   const props = useStaticTabs({ tabs: exampleTabs });
   return (
     <Tabs {...props} closable>
-      {({ tab }) => <h2>{tab.tabKey}</h2>}
+      {(tab) => <h2>{tab.tabKey}</h2>}
     </Tabs>
   );
 };

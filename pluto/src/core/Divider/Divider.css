@@ -14,10 +14,10 @@
     align-self: stretch;
 }
 
-.pluto-divider--horizontal {
+.pluto-divider--x {
     height: var(--pluto-border-width);
 }
 
-.pluto-divider--vertical {
+.pluto-divider--y {
     width: var(--pluto-border-width);
 }

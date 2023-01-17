@@ -12,9 +12,9 @@ import { appWindow } from "@tauri-apps/api/window";
 
 import { useSelectLayout } from "../store";
 
-import { LayoutContent } from "./LayoutContent";
-
 import { NAV_SIZES } from "@/components";
+
+import { LayoutContent } from "./LayoutContent";
 
 import "./LayoutWindow.css";
 

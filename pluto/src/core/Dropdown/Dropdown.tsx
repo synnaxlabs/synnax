@@ -23,7 +23,7 @@ import clsx from "clsx";
 
 import { Space, SpaceProps } from "@/core/Space";
 import { useClickOutside } from "@/hooks";
-import { VerticalLocation } from "@/spatial";
+import { XLocation } from "@/spatial";
 import { visibleCls } from "@/util/css";
 
 import "./Dropdown.css";
@@ -45,7 +45,7 @@ export const useDropdown = (): UseDropdownReturn => {
 export interface DropdownProps
   extends Omit<UseDropdownReturn, "onFocus" | "setVisible">,
     Omit<SpaceProps, "ref" | "reverse" | "size" | "empty"> {
-  location?: VerticalLocation;
+  location?: XLocation;
   children: [
     ReactElement<{ onFocus: FocusEventHandler; autoFocus: boolean }>,
     JSX.Element

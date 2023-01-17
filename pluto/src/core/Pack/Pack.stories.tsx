@@ -19,7 +19,7 @@ const story: ComponentMeta<typeof Pack> = {
   argTypes: {
     direction: {
       control: { type: "select" },
-      options: ["horizontal", "vertical"],
+      options: ["x", "y"],
     },
   },
 };

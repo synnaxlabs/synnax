@@ -178,6 +178,7 @@ importers:
       astro: ^1.9.0
       clsx: ^1.2.1
       eslint-config-synnaxlabs: workspace:*
+      html-escaper: ^3.0.3
       react: ^18.0.0
       react-dom: ^18.0.0
       typescript: ^4.9.4
@@ -189,6 +190,7 @@ importers:
       '@synnaxlabs/x': link:../../x/ts
       astro: 1.9.2
       clsx: 1.2.1
+      html-escaper: 3.0.3
       react: 18.2.0
       react-dom: 18.2.0_react@18.2.0
     devDependencies:
