@@ -10,7 +10,6 @@
 import { Dispatch, useCallback } from "react";
 
 import type { AnyAction } from "@reduxjs/toolkit";
-import { Size } from "@synnaxlabs/client/dist/telem";
 import { closeWindow, createWindow, MAIN_WINDOW } from "@synnaxlabs/drift";
 import {
   NavDrawerItem,

@@ -63,7 +63,7 @@ const CoreInputItem = <
     label,
     helpText,
     children = Input as unknown as RenderProp<P>,
-    direction = "vertical",
+    direction = "y",
     size = "small",
     empty,
     style,
@@ -99,7 +99,7 @@ const maybeDefaultAlignment = (
   direction?: Direction
 ): SpaceAlignment => {
   if (align != null) return align;
-  return direction === "vertical" ? "stretch" : "center";
+  return direction === "y" ? "stretch" : "center";
 };
 
 const maybeDefaultJustify = (
@@ -107,7 +107,7 @@ const maybeDefaultJustify = (
   direction?: Direction
 ): SpaceJustification => {
   if (justify != null) return justify;
-  return direction === "vertical" ? "start" : "center";
+  return direction === "y" ? "start" : "center";
 };
 
 export type InputItemControlledProps<

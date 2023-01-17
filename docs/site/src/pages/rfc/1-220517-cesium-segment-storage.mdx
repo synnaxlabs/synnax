@@ -1,3 +1,8 @@
+---
+title: Cesium - Channel Storage Engine
+layout: ../../layouts/MainLayout.astro
+---
+
 # 1 - Cesium - Channel Segment Storage Engine
 
 **Feature Name** - Channel Segment Storage Engine <br />
@@ -13,10 +18,8 @@ focus on interface as opposed to implementation details; a key goal is to define
 a sustainable API that can serve as a clear boundary between Delta and an
 underlying storage engine.
 
-:::info
 This design is by no means complete, and is intended to be a starting point for
 continuous iteration as Delta's demands evolve.
-:::
 
 # 1 - Vocabulary
 
@@ -33,7 +36,7 @@ assumed to contain an additional 64 bit timestamp. Write throughput can also be
 expressed in terms of a frequency (1Hz, 5Hz, 25 KHz, 1MHz, etc.) <br />
 **DAQ** - Data Acquisition Computer. <br />
 **Channel Cardinality** - The number of unique channel keys for a set of
-segments in a file.
+---segments in a file.
 
 This RFC expands on these definitions by asserting specific properties of a
 Channel, Segment, and Sample. These properties are omitted from the above
@@ -215,13 +218,13 @@ the segment. The timestamp of any sample can be calculated with the following
 equation:
 
 <p align="middle">
-  <br />
-  <img
-    src="https://render.githubusercontent.com/render/math?math=t_{n} = t_{0}%2B\frac{n + D}{S}"
-    height="30px"
-    alt="latex eq"
-  />
-</p>{" "}
+    <br />
+    <img
+        src="https://render.githubusercontent.com/render/math?math=t_{n} = t_{0}%2B\frac{n + D}{S}"
+        height="30px"
+        alt="latex eq"
+    />
+</p>
 
 Where `D` is the density of the channel in bytes, `S` is the sample rate in Hz,
 and the independent variable `n`
@@ -375,11 +378,8 @@ multiple workers don't access the same file in parallel. This stage is also
 shared with the create query pipe.
 
 <p align="middle">
-  <img
-    src="/img/rfc/220517-cesium-segment-storage/retrieve-pipe.png"
-    width="50%"
-  />
-  <h6 align="middle">Retrieve Query Pipe</h6>
+    <img src="/img/rfc/220517-cesium-segment-storage/retrieve-pipe.png" width="50%" />
+    <h6 align="middle">Retrieve Query Pipe</h6>
 </p>
 
 ### 2 - Create Query Execution
@@ -415,18 +415,15 @@ for [Retrieve](#retrieve-query-execution). This stage is shared with the
 retrieve query pipe.
 
 <p align="middle">
-  <img
-    src="/img/rfc/220517-cesium-segment-storage/create-pipe.png"
-    width="50%"
-  />
-  <h6 align="middle">Create Query Pipe</h6>
+    <img src="/img/rfc/220517-cesium-segment-storage/create-pipe.png" width="50%" />
+    <h6 align="middle">Create Query Pipe</h6>
 </p>
 
 ### 3 - Combined Pipe Architecture
 
 <p align="middle">
-  <img src="/img/rfc/220517-cesium-segment-storage/pipe.png" width="100%" />
-  <h6 align="middle">Combined Cesium Pipe Architecture</h6>
+    <img src="/img/rfc/220517-cesium-segment-storage/pipe.png" width="100%" />
+    <h6 align="middle">Combined Cesium Pipe Architecture</h6>
 </p>
 
 Future iterations may involve inserting stages into the simplex stream between
@@ -517,9 +514,9 @@ using a round-robin style algorithm. When allocating a segment to a file:
 2. If the file has not reached a maximum threshold (arbitrarily set), allocate
    the segment to the file.
 3. If the file has reached a maximum threshold:
-   1. If Cesium hasn't reached a maximum number of file descriptors (again,
-      arbitrarily set), allocate the segment to a new file.
-   2. Otherwise, allocate the segment to the smallest file.
+    1. If Cesium hasn't reached a maximum number of file descriptors (again,
+       arbitrarily set), allocate the segment to a new file.
+    2. Otherwise, allocate the segment to the smallest file.
 
 This process repeats for each segment written. Step 3.2 can be optimized further
 using some weighted combination of the smallest file and the one with the lowest

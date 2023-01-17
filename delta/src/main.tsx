@@ -12,11 +12,15 @@ import { StrictMode, useEffect } from "react";
 import { Provider as DriftProvider } from "@synnaxlabs/drift";
 import { Theming } from "@synnaxlabs/pluto";
 import "@synnaxlabs/pluto/dist/style.css";
-import ReactDOM from "react-dom/client";
-import { useDispatch } from "react-redux";
 
 import { MainLayout } from "@/components";
+
+import ReactDOM from "react-dom/client";
+
 import { ConnectCluster } from "@/features/cluster";
+
+import { useDispatch } from "react-redux";
+
 import {
   LayoutRendererProvider,
   LayoutWindow,

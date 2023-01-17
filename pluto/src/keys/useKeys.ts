@@ -9,6 +9,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { useMemoCompare } from "..";
+
+import { mouseDownToKey } from "./mouse";
 import { KeyboardKey } from "./types";
 
 export interface UseKeyHeldReturn {
@@ -24,6 +27,17 @@ export const useKeysHeld = (keys: KeyboardKey[]): UseKeyHeldReturn => {
     all: false,
   });
 
+  const memoKeys = useMemoCompare(
+    () => keys,
+    ([a], [b]) => {
+      if (a === b) return true;
+      if (a == null || b == null) return false;
+      const equal = a.every((k, i) => b[i] === k);
+      return equal;
+    },
+    [keys]
+  );
+
   const handlePress = useCallback(
     (key: KeyboardKey) =>
       setHeld((prev) => {
@@ -35,7 +49,7 @@ export const useKeysHeld = (keys: KeyboardKey[]): UseKeyHeldReturn => {
           all: nextKeys.length === keys.length,
         };
       }),
-    [keys]
+    [memoKeys]
   );
 
   const handleRelease = useCallback(
@@ -49,17 +63,21 @@ export const useKeysHeld = (keys: KeyboardKey[]): UseKeyHeldReturn => {
           all: nextKeys.length === keys.length,
         };
       }),
-    [keys]
+    [memoKeys]
   );
 
   useKeyPress({
-    keys,
+    keys: memoKeys,
     onPress: handlePress,
     onRelease: handleRelease,
   });
   if (keys == null) return { keys: [], any: true, all: true };
   return held;
 };
+
+export interface KeyPressEvent {
+  key: KeyboardKey;
+}
 
 export const useKeyPress = ({
   keys,
@@ -69,18 +87,31 @@ export const useKeyPress = ({
   keys: KeyboardKey[] | null;
   onPress: (key: KeyboardKey) => void;
   onRelease?: (key: KeyboardKey) => void;
-}): void =>
+}): void => {
   useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent): void => {
+    const onKeyDown = (e: KeyPressEvent): void => {
       if (keys == null || keys.includes(e.key)) onPress(e.key);
     };
-    const onKeyUp = (e: KeyboardEvent): void => {
+    const onKeyUp = (e: KeyPressEvent): void => {
       if (keys == null || keys.includes(e.key)) onRelease?.(e.key);
     };
-    window.addEventListener("keydown", onKeyDown, true);
-    window.addEventListener("keyup", onKeyUp, true);
+    const onMouseDown = (e: MouseEvent): void => {
+      const key = mouseDownToKey(e);
+      onKeyDown({ key });
+    };
+    const onMouseUp = (e: MouseEvent): void => {
+      const key = mouseDownToKey(e);
+      onKeyUp({ key });
+    };
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("mousedown", onMouseDown);
+    window.addEventListener("mouseup", onMouseUp);
     return () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("mousedown", onMouseDown);
+      window.removeEventListener("mouseup", onMouseUp);
     };
   }, [keys, onPress, onRelease]);
+};

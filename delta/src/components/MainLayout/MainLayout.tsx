@@ -9,9 +9,10 @@
 
 import { Space } from "@synnaxlabs/pluto";
 
+import { ClusterProvider } from "@/features/cluster";
+
 import { NavBottom, NavDrawer, NavLeft, NavRight, NavTop } from "./Nav";
 
-import { ClusterProvider } from "@/features/cluster";
 import { LayoutMosaic } from "@/features/layout";
 import { VisCanvas } from "@/features/vis";
 
@@ -24,13 +25,13 @@ import "./MainLayout.css";
 export const MainLayout = (): JSX.Element => (
   <ClusterProvider>
     <NavTop />
-    <Space className="delta-main-fixed--vertical" direction="horizontal" empty>
+    <Space className="delta-main-fixed--y" direction="x" empty>
       <NavLeft />
       <Space
-        className="delta-main-content-drawers delta-main-fixed--vertical delta-main-fixed--horizontal"
+        className="delta-main-content-drawers delta-main-fixed--y delta-main-fixed--x"
         empty
       >
-        <Space className="delta-main--driven" direction="horizontal" empty>
+        <Space className="delta-main--driven" direction="x" empty>
           <NavDrawer location="left" />
           <div className="delta-main--driven" style={{ position: "relative" }}>
             <VisCanvas>

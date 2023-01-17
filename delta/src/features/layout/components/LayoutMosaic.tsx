@@ -22,9 +22,9 @@ import {
   renameLayoutMosaicTab,
 } from "../store";
 
-import { LayoutContent } from "./LayoutContent";
-
 import { Logo } from "@/components";
+
+import { LayoutContent } from "./LayoutContent";
 
 const emptyContent = <Logo.Watermark />;
 

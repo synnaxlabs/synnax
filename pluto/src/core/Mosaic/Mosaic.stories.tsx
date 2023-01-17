@@ -22,7 +22,7 @@ const story: ComponentMeta<typeof Mosaic> = {
 
 const initialTree: MosaicLeaf = {
   key: 1,
-  direction: "horizontal",
+  direction: "x",
   first: {
     key: 2,
     tabs: [

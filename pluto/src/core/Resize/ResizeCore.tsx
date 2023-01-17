@@ -11,7 +11,7 @@ import { DetailedHTMLProps, HTMLAttributes } from "react";
 
 import clsx from "clsx";
 
-import { Location, directionFromLocation, swapLocation } from "@/spatial";
+import { Location, dirFromLoc, swapLoc } from "@/spatial";
 
 export interface ResizeCoreProps
   extends DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement> {
@@ -30,9 +30,9 @@ export const ResizeCore = ({
   showHandle = true,
   ...props
 }: ResizeCoreProps): JSX.Element => {
-  const direction = directionFromLocation(location);
+  const direction = dirFromLoc(location);
   const parsedStyle: React.CSSProperties = { ...style };
-  if (direction === "horizontal") parsedStyle.height = size;
+  if (direction === "x") parsedStyle.height = size;
   else parsedStyle.width = size;
   return (
     <div
@@ -40,7 +40,7 @@ export const ResizeCore = ({
         "pluto-resize-panel",
         `pluto-resize-panel--${location}`,
         `pluto-resize-panel--${direction}`,
-        showHandle && `pluto-bordered--${swapLocation(location)}`,
+        showHandle && `pluto-bordered--${swapLoc(location)}`,
         className
       )}
       style={parsedStyle}

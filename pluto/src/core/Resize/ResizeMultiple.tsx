@@ -24,13 +24,7 @@ import clsx from "clsx";
 import { ResizeCore } from "./ResizeCore";
 
 import { Space, SpaceProps } from "@/core/Space";
-import {
-  Box,
-  Direction,
-  getDirectionalSize,
-  locationFromDirection,
-  useResize,
-} from "@/spatial";
+import { Box, Direction, locDim, locFromDir, useResize } from "@/spatial";
 
 export interface UseResizeMultipleProps {
   count: number;
@@ -64,7 +58,7 @@ export const useResizeMultiple = ({
   onResize,
   initialSizes = [],
   minSize = 100,
-  direction = "horizontal",
+  direction = "x",
 }: UseResizeMultipleProps): UseResizeMultipleReturn => {
   const [state, setState] = useState<ResizeMultipleState>({
     sizeDistribution: calculateInitialSizeDistribution(initialSizes, count),
@@ -86,7 +80,7 @@ export const useResizeMultiple = ({
 
   const handleDragHandle = useCallback(
     (e: RDragEvent | RMouseEvent, dragging: number): void => {
-      const dim = direction === "horizontal" ? "clientX" : "clientY";
+      const dim = direction === "x" ? "clientX" : "clientY";
       const handleMouseMove = (e: MouseEvent): void => _handleResize(dragging, e[dim]);
       const handleMouseUp = (): void => {
         setState((prev) => ({ ...prev, root: null }));
@@ -127,7 +121,7 @@ export const useResizeMultiple = ({
 export const ResizeMultiple = forwardRef(
   (
     {
-      direction = "horizontal",
+      direction = "x",
       children: _children,
       sizeDistribution,
       onDragHandle: onDrag,
@@ -138,7 +132,7 @@ export const ResizeMultiple = forwardRef(
     ref: ForwardedRef<HTMLDivElement>
   ) => {
     const children = Children.toArray(_children);
-    const location = locationFromDirection(direction);
+    const location = locFromDir(direction);
 
     return (
       <Space
@@ -208,7 +202,7 @@ export const handleParentResize = (
   count: number,
   minSize: number
 ): ResizeMultipleState => {
-  const nextParentSize = getDirectionalSize(direction, box);
+  const nextParentSize = locDim(direction, box);
   if (prev.parentSize == null && prev.sizeDistribution.length !== count)
     return {
       ...prev,

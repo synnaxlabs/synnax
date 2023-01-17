@@ -11,7 +11,7 @@ import { PropsWithChildren } from "react";
 
 import { GLCanvas } from "@synnaxlabs/pluto";
 
-import { TelemetryProvider } from "../@synnaxlabs/x/TelemetryContext";
+import { TelemetryProvider } from "../../telem/TelemetryContext";
 
 import "./VisCanvas.css";
 

@@ -11,7 +11,6 @@ import { useCallback, useRef, useState } from "react";
 
 import { TArray, SampleValue } from "@synnaxlabs/client";
 import {
-  CSSBox,
   hexToRGBA,
   useResize,
   useMergedRef,
@@ -26,18 +25,14 @@ import {
   useZoomPan,
 } from "@synnaxlabs/pluto";
 
-import { useSelectTheme } from "@/features/layout";
-
-import { useTelemetryClient } from "../../@synnaxlabs/x/TelemetryContext";
-
-import { useAsyncEffect } from "@/hooks";
-
 import { LineSVis } from "../types";
+
+import { useSelectTheme } from "@/features/layout";
+import { useAsyncEffect } from "@/hooks";
 
 import "./LinePlot.css";
 
-import { P } from "@tauri-apps/api/event-2a9960e7";
-import { preview } from "vite";
+import { useTelemetryClient } from "@/features/vis/telem/TelemetryContext";
 
 export interface LinePlotProps {
   vis: LineSVis;
@@ -135,7 +130,7 @@ export const LinePlot = ({
 
   useAsyncEffect(async () => {
     if (ref.current == null) return;
-    await updateRenderingPackage(vis, new CSSBox(ref.current.getBoundingClientRect()));
+    await updateRenderingPackage(vis, new Box(ref.current.getBoundingClientRect()));
   }, [vis, client]);
 
   const handleResize = useCallback(
@@ -152,7 +147,7 @@ export const LinePlot = ({
   const zoomPanProps = useZoomPan({
     threshold: { x: 50, y: 50 },
     zoomHotkey: "Shift",
-    panHotkey: null,
+    panHotkey: "",
     onChange: (zoom: Box, pan: Box) => {
       console.log(pan);
       onChange({

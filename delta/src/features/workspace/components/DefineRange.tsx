@@ -14,9 +14,9 @@ import { useForm } from "react-hook-form";
 import { AiFillBoxPlot } from "react-icons/ai";
 import { useDispatch } from "react-redux";
 
-import { addRange } from "../store/slice";
-
 import { LayoutRendererProps } from "@/features/layout";
+
+import { addRange } from "../store/slice";
 
 export const DefineRange = ({
   layoutKey,
@@ -76,15 +76,15 @@ export const DefineRange = ({
       >
         <Space grow className="delta-form">
           <Input.ItemC control={control} name="name" />
-          <Space direction="horizontal">
-            <Input.ItemC<number, InputDateProps>
+          <Space direction="x">
+            <Input.ItemC<number, number, InputDateProps>
               name="startDate"
               control={control}
               grow
             >
               {Input.Date}
             </Input.ItemC>
-            <Input.ItemC<number, InputTimeProps>
+            <Input.ItemC<number, number, InputTimeProps>
               name="startTime"
               control={control}
               grow
@@ -92,11 +92,19 @@ export const DefineRange = ({
               {Input.Time}
             </Input.ItemC>
           </Space>
-          <Space direction="horizontal">
-            <Input.ItemC<number, InputDateProps> name="endDate" control={control} grow>
+          <Space direction="x">
+            <Input.ItemC<number, number, InputDateProps>
+              name="endDate"
+              control={control}
+              grow
+            >
               {Input.Date}
             </Input.ItemC>
-            <Input.ItemC<number, InputTimeProps> name="endTime" control={control} grow>
+            <Input.ItemC<number, number, InputTimeProps>
+              name="endTime"
+              control={control}
+              grow
+            >
               {Input.Time}
             </Input.ItemC>
           </Space>

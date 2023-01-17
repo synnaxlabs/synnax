@@ -75,7 +75,7 @@ describe("Nav", () => {
       expect(rendered.getByLabelText("space")).toBeTruthy();
       expect(
         rendered.getByLabelText("space").parentElement?.parentElement?.className
-      ).toContain("horizontal");
+      ).toContain("x");
     });
   });
 });

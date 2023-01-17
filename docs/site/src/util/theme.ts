@@ -1,9 +1,41 @@
 import { Theme, Theming } from "@synnaxlabs/pluto";
 import { applyCSSVars } from "@synnaxlabs/x";
 
-const themeAlternates: Record<string, Theme> = {
-  [Theming.themes.synnaxDark.key]: Theming.themes.synnaxLight,
-  [Theming.themes.synnaxLight.key]: Theming.themes.synnaxDark,
+const modifyTheme = (theme: Theme): Theme => {
+  const m = { ...theme };
+  m.sizes.base = 7;
+  m.typography.p.lineHeight = 3.5;
+  m.typography.h1 = {
+    ...m.typography.h1,
+    lineHeight: 8,
+    size: 7,
+  };
+  return m;
+};
+
+const DARK = modifyTheme(Theming.themes.synnaxDark);
+const LIGHT = modifyTheme(Theming.themes.synnaxLight);
+
+export const DEFAULT_THEME = Theming.themes.synnaxLight;
+
+export const startThemeDriver = (): void => {
+  applyTheme(getPreferredTheme());
+  listenForThemeChanges();
+};
+
+export const toggleTheme = (): void => {
+  const theme = THEME_ALTERNATES[localStorage.getItem("theme") ?? "synnaxLight"];
+  applyTheme(theme);
+};
+
+export const getCurrentTheme = (): Theme => {
+  const theme = localStorage.getItem("theme") ?? "synnaxLight";
+  return Theming.themes[theme as keyof typeof Theming.themes];
+};
+
+const THEME_ALTERNATES: Record<string, Theme> = {
+  [DARK.key]: LIGHT,
+  [LIGHT.key]: DARK,
 };
 
 const applyTheme = (theme: Theme): void => {
@@ -11,11 +43,10 @@ const applyTheme = (theme: Theme): void => {
   localStorage.setItem("theme", theme.key);
 };
 
-const prefersDarkTheme = (): boolean => {
-  return window.matchMedia("(prefers-color-scheme: dark)").matches;
-};
+const prefersDarkTheme = (): boolean =>
+  window.matchMedia("(prefers-color-scheme: dark)").matches;
 
-const getDefaultTheme = (): Theme =>
+const getPreferredTheme = (): Theme =>
   prefersDarkTheme() ? Theming.themes.synnaxDark : Theming.themes.synnaxLight;
 
 const listenForThemeChanges = (): void => {
@@ -28,21 +59,3 @@ const listenForThemeChanges = (): void => {
       applyTheme(theme);
     });
 };
-
-export const startThemeDriver = (): void => {
-  applyTheme(getDefaultTheme());
-  listenForThemeChanges();
-};
-
-export const toggleTheme = (): void => {
-  const theme = themeAlternates[localStorage.getItem("theme") ?? "synnaxLight"];
-  applyTheme(theme);
-};
-
-export const getCurrentTheme = (): Theme => {
-  const theme = localStorage.getItem("theme") ?? "synnaxLight";
-  return Theming.themes[theme as keyof typeof Theming.themes];
-};
-
-export const getBaseThemeCSSVars = (): Record<string, string | number | undefined> =>
-  Theming.toCSSVars(Theming.themes.synnaxLight);

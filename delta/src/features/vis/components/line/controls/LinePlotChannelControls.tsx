@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 
 import { ChannelPayload } from "@synnaxlabs/client";
 import { Space } from "@synnaxlabs/pluto";
@@ -28,16 +28,11 @@ export const LinePlotChannelControls = ({
     setChannels(ch.map((ch) => ch.payload));
   }, [client]);
 
-  const handleChannelSelect = (
-    key: AxisKey,
-    value: readonly string[] | string
-  ): void => {
+  const handleChannelSelect = (key: AxisKey, value: readonly string[] | string): void =>
     setVis({ channels: { [key]: value } });
-  };
 
-  const handleRangeSelect = (value: readonly string[]): void => {
+  const handleRangeSelect = (value: readonly string[]): void =>
     setVis({ ranges: { x1: value } });
-  };
 
   return (
     <Space style={{ padding: "2rem", width: "100%" }}>
@@ -48,7 +43,7 @@ export const LinePlotChannelControls = ({
         data={channels}
         grow
       />
-      <Space direction="horizontal" grow wrap>
+      <Space direction="x" grow wrap>
         <SelectMultipleRangesInputItem
           data={ranges}
           onChange={handleRangeSelect}

@@ -21,7 +21,7 @@ export const VisList = (): JSX.Element => {
         columns={[
           {
             key: "title",
-            label: "Title",
+            name: "Title",
           },
         ]}
       />

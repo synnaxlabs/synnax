@@ -12,7 +12,7 @@ import { RefObject, useEffect, useRef, useState } from "react";
 import { ResizeObserver } from "@juggle/resize-observer";
 import { debounce as debounceF } from "@synnaxlabs/x";
 
-import { Box, BoxHandle, CSSBox, ZERO_BOX } from "./box";
+import { Box, BoxF, ZERO_BOX } from "./box";
 import { Direction, isDirection } from "./core";
 
 import { useMemoCompare } from "@/hooks";
@@ -38,7 +38,7 @@ export interface UseResizeOpts {
  * @returns a ref callback to attach to the desire element.
  */
 export const useResize = <E extends HTMLElement>(
-  onResize: BoxHandle,
+  onResize: BoxF,
   { triggers = [], debounce = 0 }: UseResizeOpts
 ): RefObject<E> => {
   const prev = useRef<Box>(ZERO_BOX);
@@ -53,7 +53,7 @@ export const useResize = <E extends HTMLElement>(
     if (el == null) return;
     prev.current = ZERO_BOX;
     const deb = debounceF(() => {
-      const next = new CSSBox(el.getBoundingClientRect());
+      const next = new Box(el.getBoundingClientRect());
       if (shouldResize(memoTriggers, prev.current, next)) onResize(next);
       prev.current = next;
     }, debounce);
@@ -86,7 +86,7 @@ const normalizeTriggers = (triggers: Array<Direction | Trigger>): Trigger[] =>
   triggers
     .map((t): Trigger | Trigger[] => {
       if (isDirection(t))
-        return t === "horizontal" ? ["moveX", "resizeX"] : ["moveY", "resizeY"];
+        return t === "x" ? ["moveX", "resizeX"] : ["moveY", "resizeY"];
       return t as Trigger;
     })
     .flat();

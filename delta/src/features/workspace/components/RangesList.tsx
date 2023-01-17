@@ -17,11 +17,11 @@ import type { Range } from "../store";
 export const rangeListColumns: Array<ListColumn<Range>> = [
   {
     key: "name",
-    label: "Name",
+    name: "Name",
   },
   {
     key: "start",
-    label: "Start",
+    name: "Start",
     render: ({ entry: { start }, style }) => (
       <Text.DateTime level="p" style={style}>
         {start}
@@ -30,7 +30,7 @@ export const rangeListColumns: Array<ListColumn<Range>> = [
   },
   {
     key: "end",
-    label: "End",
+    name: "End",
     render: ({ entry: { start, end }, style }) => {
       const startTS = new TimeStamp(start);
       const endTS = new TimeStamp(end);

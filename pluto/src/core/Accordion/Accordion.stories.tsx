@@ -30,7 +30,7 @@ const entries: AccordionEntry[] = [
 ];
 
 export const Primary: ComponentStory<typeof Accordion> = () => (
-  <Accordion entries={entries} direction="vertical" />
+  <Accordion entries={entries} direction="y" />
 );
 
 // eslint-disable-next-line import/no-default-export

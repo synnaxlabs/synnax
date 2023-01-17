@@ -41,19 +41,19 @@ export const TextWithIcon = ({
   return (
     <Space
       className={clsx("pluto-text-icon", `pluto-text-icon-${level}`, className)}
-      direction="horizontal"
+      direction="x"
       size="small"
       align="center"
       {...props}
     >
       {startIcons}
-      {divided && startIcon != null && <Divider direction="vertical" />}
+      {divided && startIcon != null && <Divider direction="y" />}
       {children != null && (
         <Text color={color} level={level}>
           {children}
         </Text>
       )}
-      {divided && endIcon != null && <Divider direction="vertical" />}
+      {divided && endIcon != null && <Divider direction="y" />}
       {endIcons}
     </Space>
   );

@@ -246,13 +246,13 @@ const findMosaicLeaf = (node: MosaicLeaf, key: number): MosaicLeaf | undefined =
 const splitArrangement = (insertPosition: Location): [Order, Order, Direction] => {
   switch (insertPosition) {
     case "top":
-      return ["first", "last", "vertical"];
+      return ["first", "last", "y"];
     case "left":
-      return ["first", "last", "horizontal"];
+      return ["first", "last", "x"];
     case "bottom":
-      return ["last", "first", "vertical"];
+      return ["last", "first", "y"];
     case "right":
-      return ["last", "first", "horizontal"];
+      return ["last", "first", "x"];
     case "center":
       throw new Error("cannot split a center placed tab");
   }

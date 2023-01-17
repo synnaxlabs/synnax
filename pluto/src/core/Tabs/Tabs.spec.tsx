@@ -46,7 +46,7 @@ describe("Tabs", () => {
   it("should render tabs using a render function if provided", () => {
     const { getByText } = render(
       <StaticTabs tabs={[{ tabKey: "tab1", name: "Tab 1" }]}>
-        {({ tab }) => <h1>{tab.name} Content</h1>}
+        {(tab) => <h1>{tab.name} Content</h1>}
       </StaticTabs>
     );
     expect(getByText("Tab 1 Content")).toBeTruthy();

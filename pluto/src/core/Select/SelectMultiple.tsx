@@ -125,12 +125,7 @@ const SelectMultipleInput = <E extends RenderableRecord<E>>({
         onChange={handleChange}
         onFocus={onFocus}
       />
-      <Space
-        direction="horizontal"
-        className="pluto-select-multiple__tags"
-        align="center"
-        grow
-      >
+      <Space direction="x" className="pluto-select-multiple__tags" align="center" grow>
         {selected
           ?.map((k) => sourceData.find((v) => v.key === k))
           .map((e, i) => {

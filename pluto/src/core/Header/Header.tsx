@@ -43,7 +43,7 @@ export const Header = ({
   return (
     <HeaderContext.Provider value={{ level, divided }}>
       <Space
-        direction="horizontal"
+        direction="x"
         justify="spaceBetween"
         className={clsx(`pluto-header pluto-bordered--bottom`, className)}
         {...props}

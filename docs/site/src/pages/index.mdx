@@ -6,15 +6,11 @@ layout: ../layouts/MainLayout.astro
 import "@synnaxlabs/pluto/dist/style.css";
 
 import { Logo } from "@/components/Logo";
-import { Select } from "@synnaxlabs/pluto";
+import { Select, Space } from "@synnaxlabs/pluto";
 
-<Logo variant="icon" style={{ width: "5%" }} />
-<Select
-    client:only="react"
-    columns={[{ label: "Name", key: "name" }]}
-    data={[{ name: "My Dog" }]}
-    tagKey="name"
-/>
+<Space direction="x" justify="center" style={{ padding: "25px 0 " }}>
+    <Logo variant="tittle" style={{ width: "50%" }} />
+</Space>
 
 # Get Started
 
@@ -42,7 +38,7 @@ docker run -p 8080:8080 synnaxlabs/synnax --listen=localhost:8080 --mem --insecu
 This will pull the latest version of Synnax from docker hub and start a single node
 with the following parameters:
 
-`-p 8080:8080` - This maps the port 8080 on your local machine to the port 8080 on the
+`bash -p 8080:8080` - This maps the port 8080 on your local machine to the port 8080 on the
 docker container. This allows you to access the synnax node from your local machine.
 
 `--listen=localhost:8080` - This tells synnax to listen on port 8080 for incoming

@@ -21,10 +21,6 @@
       "path": "../client/py"
     },
     {
-      "name": "client/go",
-      "path": "../client/go"
-    },
-    {
       "name": "docs/site",
       "path": "../docs/site"
     },
@@ -65,12 +61,12 @@
       "path": "../x"
     },
     {
-	    "name": "tsconfig",
-	    "path": "../configs/ts"
+      "name": "tsconfig",
+      "path": "../configs/ts"
     },
-	  {
-        "name": "eslint",
-        "path": "../configs/eslint",
+    {
+      "name": "eslint",
+      "path": "../configs/eslint"
     },
     {
       "name": "stylelint",

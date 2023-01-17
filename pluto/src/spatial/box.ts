@@ -9,182 +9,164 @@
  * included in the file licenses/APL.txt.
  */
 
-import { Dimensions, OuterLocation, Corner, XY, ZERO_XY } from "./core";
+import {
+  Dimensions,
+  OuterLocation,
+  Corner,
+  XY,
+  ZERO_XY,
+  Direction,
+  toXY,
+} from "./core";
 
-/** A sized rectangle positioned in space. Usually represents a DOM element. */
-export interface Box extends Dimensions {
-  readonly left: number;
-  readonly top: number;
-  readonly right: number;
-  readonly bottom: number;
-  loc: (loc: OuterLocation) => number;
-  corner: (corner: Corner) => XY;
-  readonly topLeft: XY;
-  readonly topRight: XY;
-  readonly bottomLeft: XY;
-  readonly bottomRight: XY;
-  readonly isZero: boolean;
-  /*
-   * Returns a new box translated by the given coordinates. Positive x moves to the
-   * right. Positive y moves downward.
-   */
-  translate: (v: XY) => Box;
-  /***
-   * Resizes the box by the given coordinates. Positive x increases the width.
-   * Positive y increases the height.
-   */
-  resize: (v: XY) => Box;
-  /**
-   * Scales the box by the given coordinates i.e. multiplies the width and height by
-   * the given values.
-   */
-  scale: (v: XY) => Box;
+export interface BoxDomRect {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
 }
 
-export class CSSBox implements Box {
-  readonly height: number;
-  readonly width: number;
-  readonly left: number;
-  readonly top: number;
+export class Box {
+  private readonly one: XY;
+  private readonly two: XY;
 
   constructor(
-    widthOrRect: number | DOMRect,
-    height: number = 0,
-    left: number = 0,
-    top: number = 0
+    leftRectOrPoint: number | BoxDomRect | XY,
+    topPointWidthOrDims?: number | XY | Dimensions,
+    widthOrHeight: number = 0,
+    height: number = 0
   ) {
-    if (widthOrRect instanceof DOMRect) {
-      this.height = widthOrRect.height;
-      this.width = widthOrRect.width;
-      this.left = widthOrRect.left;
-      this.top = widthOrRect.top;
-      return;
-    }
-    this.height = height;
-    this.width = widthOrRect;
-    this.left = left;
-    this.top = top;
-  }
-
-  corner(corner: "topLeft" | "topRight" | "bottomLeft" | "bottomRight"): XY {
-    switch (corner) {
-      case "topLeft":
-        return { x: this.loc("left"), y: this.loc("top") };
-      case "topRight":
-        return { x: this.loc("right"), y: this.loc("top") };
-      case "bottomLeft":
-        return { x: this.loc("left"), y: this.loc("bottom") };
-      case "bottomRight":
-        return { x: this.loc("right"), y: this.loc("bottom") };
+    if (typeof leftRectOrPoint === "object" && "left" in leftRectOrPoint) {
+      this.one = { x: leftRectOrPoint.left, y: leftRectOrPoint.top };
+      this.two = { x: leftRectOrPoint.right, y: leftRectOrPoint.bottom };
+    } else if (typeof leftRectOrPoint === "object") {
+      this.one = leftRectOrPoint;
+      if (topPointWidthOrDims != null) {
+        if (typeof topPointWidthOrDims !== "object")
+          this.two = {
+            x: this.one.x + topPointWidthOrDims,
+            y: this.one.y + widthOrHeight,
+          };
+        else this.two = toXY(topPointWidthOrDims);
+      } else this.two = { x: this.one.x + widthOrHeight, y: this.one.y + height };
+    } else {
+      this.one = { x: leftRectOrPoint, y: topPointWidthOrDims as number };
+      this.two = { x: this.one.x + widthOrHeight, y: this.one.y + height };
     }
   }
 
-  loc(loc: OuterLocation): number {
-    switch (loc) {
-      case "top":
-        return this.top;
-      case "bottom":
-        return this.top + this.height;
-      case "left":
-        return this.left;
-      case "right":
-        return this.left + this.width;
+  clampBy(parent: Box): Box {
+    const topLeft = {
+      x: Math.max(parent.left, Math.min(parent.right, this.left)),
+      y: Math.max(parent.top, Math.min(parent.bottom, this.top)),
+    };
+    const bottomRight = {
+      x: Math.max(parent.left, Math.min(parent.right, this.right)),
+      y: Math.max(parent.top, Math.min(parent.bottom, this.bottom)),
+    };
+    const negativeWidth = this.signedWidth < 0;
+    const negativeHeight = this.signedHeight < 0;
+    return new Box(
+      {
+        x: negativeWidth ? bottomRight.x : topLeft.x,
+        y: negativeHeight ? bottomRight.y : topLeft.y,
+      },
+      {
+        x: negativeWidth ? topLeft.x : bottomRight.x,
+        y: negativeHeight ? topLeft.y : bottomRight.y,
+      }
+    );
+  }
+
+  contains(box: Box | XY): boolean {
+    if ("signedWidth" in box) {
+      return (
+        box.left >= this.left &&
+        box.right <= this.right &&
+        box.top >= this.top &&
+        box.bottom <= this.bottom
+      );
     }
+    return (
+      box.x >= this.left &&
+      box.x <= this.right &&
+      box.y >= this.top &&
+      box.y <= this.bottom
+    );
   }
 
-  get topLeft(): XY {
-    return this.corner("topLeft");
+  toDecimal(parent: Box): Box {
+    const topLeft = {
+      x: (this.left - parent.left) / parent.width,
+      y: (this.top - parent.top) / parent.height,
+    };
+    const bottomRight = {
+      x: (this.right - parent.left) / parent.width,
+      y: (this.bottom - parent.top) / parent.height,
+    };
+    const negativeWidth = this.signedWidth < 0;
+    const negativeHeight = this.signedHeight < 0;
+    return new Box(
+      {
+        x: negativeWidth ? bottomRight.x : topLeft.x,
+        y: negativeHeight ? bottomRight.y : topLeft.y,
+      },
+      {
+        x: negativeWidth ? topLeft.x : bottomRight.x,
+        y: negativeHeight ? topLeft.y : bottomRight.y,
+      }
+    );
   }
 
-  get topRight(): XY {
-    return this.corner("topRight");
-  }
-
-  get bottomLeft(): XY {
-    return this.corner("bottomLeft");
-  }
-
-  get bottomRight(): XY {
-    return this.corner("bottomRight");
-  }
-
-  get right(): number {
-    return this.loc("right");
-  }
-
-  get bottom(): number {
-    return this.loc("bottom");
-  }
-
-  translate(v: XY): Box {
-    return new CSSBox(this.width, this.height, this.left + v.x, this.top + v.y);
-  }
-
-  resize(v: XY): Box {
-    return new CSSBox(this.width - v.x, this.height - v.y, this.left, this.top);
-  }
-
-  scale(v: XY): Box {
-    return new CSSBox(this.width * v.x, this.height * v.y, this.left, this.top);
-  }
-
-  get isZero(): boolean {
-    return this.width === 0 && this.height === 0;
-  }
-}
-
-export class PointBox implements Box {
-  private readonly _one: XY;
-  private readonly _two: XY;
-
-  constructor(one: XY, two: XY) {
-    this._one = { x: Math.min(one.x, two.x), y: Math.min(one.y, two.y) };
-    this._two = { x: Math.max(one.x, two.x), y: Math.max(one.y, two.y) };
-  }
-
-  get isZero(): boolean {
-    return this._one.x === this._two.x && this._one.y === this._two.y;
+  dim(dir: Direction, signed: boolean = false): number {
+    const dim: number = dir === "y" ? this.signedHeight : this.signedWidth;
+    return signed ? dim : Math.abs(dim);
   }
 
   corner(corner: Corner): XY {
     switch (corner) {
       case "topLeft":
-        return this._one;
-      case "topRight":
-        return { x: this._two.x, y: this._one.y };
-      case "bottomLeft":
-        return { x: this._one.x, y: this._two.y };
+        return { x: this.left, y: this.top };
       case "bottomRight":
-        return this._two;
+        return { x: this.right, y: this.bottom };
+      case "topRight":
+        return { x: this.right, y: this.top };
+      case "bottomLeft":
+        return { x: this.left, y: this.bottom };
     }
   }
 
   loc(loc: OuterLocation): number {
     switch (loc) {
       case "top":
-        return this._one.y;
+        return Math.min(this.one.y, this.two.y);
       case "bottom":
-        return this._two.y;
+        return Math.max(this.one.y, this.two.y);
       case "left":
-        return this._one.x;
+        return Math.min(this.one.x, this.two.x);
       case "right":
-        return this._two.x;
+        return Math.max(this.one.x, this.two.x);
     }
   }
 
+  get isZero(): boolean {
+    return this.one.x === this.two.x && this.one.y === this.two.y;
+  }
+
   get width(): number {
-    return this.loc("right") - this.loc("left");
+    return this.dim("x");
   }
 
   get height(): number {
-    return this.loc("bottom") - this.loc("top");
+    return this.dim("y");
   }
 
-  value(compare: (...v: number[]) => number): XY {
-    return {
-      x: compare(this._one.x, this._two.x),
-      y: compare(this._one.y, this._two.y),
-    };
+  get signedWidth(): number {
+    return this.two.x - this.one.x;
+  }
+
+  get signedHeight(): number {
+    return this.two.y - this.one.y;
   }
 
   get topLeft(): XY {
@@ -219,31 +201,63 @@ export class PointBox implements Box {
     return this.loc("top");
   }
 
+  get x(): number {
+    return this.left;
+  }
+
+  get y(): number {
+    return this.top;
+  }
+
   translate(v: XY): Box {
-    return new PointBox(
-      { x: this._one.x + v.x, y: this._one.y + v.y },
-      { x: this._two.x + v.x, y: this._two.y + v.y }
+    return new Box(
+      { x: this.one.x + v.x, y: this.one.y + v.y },
+      { x: this.two.x + v.x, y: this.two.y + v.y }
     );
+  }
+
+  translateBySignedDims(box: Box): Box {
+    return this.translate({ x: box.signedWidth, y: box.signedHeight });
   }
 
   resize(v: XY): Box {
-    return new PointBox(
-      { x: this._one.x + v.x, y: this._one.y + v.y },
-      { x: this._two.x - v.x, y: this._two.y - v.y }
-    );
+    const bottomRight = this.bottomRight;
+    return new Box(this.topLeft, {
+      x: bottomRight.x - v.x,
+      y: bottomRight.y - v.y,
+    });
+  }
+
+  scaleDims(v: XY): Box {
+    const topLeft = this.topLeft;
+    return new Box(this.topLeft, {
+      x: topLeft.x + this.width * v.x,
+      y: topLeft.y + this.height * v.y,
+    });
   }
 
   scale(v: XY): Box {
-    return new PointBox(
-      { x: this._one.x * v.x, y: this._one.y * v.y },
-      { x: this._two.x * v.x, y: this._two.y * v.y }
+    return new Box(
+      { x: this.one.x * v.x, y: this.one.y * v.y },
+      { x: this.two.x * v.x, y: this.two.y * v.y }
     );
+  }
+
+  scaleByDims(v: Dimensions): Box {
+    return new Box(
+      { x: this.one.x * v.width, y: this.one.y * v.height },
+      { x: this.two.x * v.width, y: this.two.y * v.height }
+    );
+  }
+
+  copy(): Box {
+    return new Box(this.one, this.two);
   }
 }
 
 export const calculateBottomOffset = (parent: Box, child: Box): number =>
   parent.height - (child.top - parent.top) - child.height;
 
-export const ZERO_BOX: Box = new PointBox(ZERO_XY, ZERO_XY);
+export const ZERO_BOX: Box = new Box(ZERO_XY, ZERO_XY);
 
-export type BoxHandle = (box: Box) => void;
+export type BoxF = (box: Box) => void;

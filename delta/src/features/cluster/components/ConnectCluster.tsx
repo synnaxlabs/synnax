@@ -83,7 +83,7 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps): JSX.Element =>
         <form onSubmit={handleSubmit} id="connect-cluster">
           <Space>
             <Input.ItemC name="name" placeholder="My Synnax Cluster" control={c} />
-            <Space direction="horizontal">
+            <Space direction="x">
               <Input.ItemC name="host" placeholder="localhost" control={c} grow />
               <Input.ItemC
                 name="port"
@@ -94,7 +94,7 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps): JSX.Element =>
               />
             </Space>
             <Input.ItemC name="username" placeholder="Harry" control={c} />
-            <Space direction="horizontal">
+            <Space direction="x">
               <Input.ItemC
                 name="password"
                 placeholder="Seldon"

@@ -22,7 +22,7 @@ export interface Tab extends TabMeta {
   content?: JSX.Element;
 }
 
-export type TabRenderProp = RenderProp<{ tab: Tab }>;
+export type TabRenderProp = RenderProp<Tab>;
 
 export interface UseStaticTabsProps {
   tabs: Tab[];
@@ -112,7 +112,7 @@ export const TabsContent = (): JSX.Element | null => {
   let content: JSX.Element | string | null = null;
   const selectedTab = tabs.find((tab) => tab.tabKey === selected);
   if (selectedTab != null) {
-    if (children != null) content = children({ tab: selectedTab });
+    if (children != null) content = children(selectedTab);
     else if (selectedTab.content != null) content = selectedTab.content;
   } else if (emptyContent != null) content = emptyContent;
   return content;

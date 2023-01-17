@@ -1,6 +1,6 @@
-import { TOCLeaf } from "@/components/TableOfContents";
+import { PageNavLeaf } from "@/components/PageNav";
 
-export const pythonClientTOC: TOCLeaf = {
+export const pythonClientNav: PageNavLeaf = {
   key: "python-client",
   name: "Python Client",
   children: [

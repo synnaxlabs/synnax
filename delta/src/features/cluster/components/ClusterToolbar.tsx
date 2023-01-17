@@ -78,7 +78,7 @@ const ListItem = ({
   ...props
 }: ListItemProps<RenderableCluster>): JSX.Element => (
   <Space
-    direction="horizontal"
+    direction="x"
     align="center"
     justify="spaceBetween"
     onDoubleClick={() => onSelect?.(key)}

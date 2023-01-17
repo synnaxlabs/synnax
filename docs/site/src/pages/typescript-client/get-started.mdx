@@ -1,5 +1,6 @@
 ---
-sidebar_position: 1
+title: "Python Client - Get Started"
+layout: ../../layouts/MainLayout.astro
 ---
 
 # Get Started
@@ -55,11 +56,11 @@ port of a reachable node in the cluster:
 
 ```ts
 const {
-  Synnax,
-  // ... a few extra imports we'll use later
-  TimeSpan,
-  DataType,
-  Rate,
+    Synnax,
+    // ... a few extra imports we'll use later
+    TimeSpan,
+    DataType,
+    Rate,
 } = require("@synnaxlabs/client");
 
 const client = new Synnax({ host: "localhost", port: 8080 });
@@ -79,14 +80,14 @@ channel, we use the `.channel.create()` method:
 
 ```ts
 const channel = await client.channel.create({
-  // A useful name for the channel. This is mostly for human consumption.
-  name: "my-temperature-sensor",
-  //  This defines the data rate for the channel. This is the number of samples per
-  // second that will be stored.
-  rate: Rate.Hz(1),
-  // This defines the data type for the channel. All data written to the channel must be
-  // of this type.
-  type: DataType.Float64,
+    // A useful name for the channel. This is mostly for human consumption.
+    name: "my-temperature-sensor",
+    //  This defines the data rate for the channel. This is the number of samples per
+    // second that will be stored.
+    rate: Rate.Hz(1),
+    // This defines the data type for the channel. All data written to the channel must be
+    // of this type.
+    type: DataType.Float64,
 });
 ```
 
@@ -108,13 +109,13 @@ const { Synnax, TimeSpan, DataType, Rate } = require("@synnaxlabs/client");
 const client = new Synnax({ host: "localhost", port: 8080 });
 
 async function main() {
-  const channel = await client.channel.create({
-    name: "my-temperature-sensor",
-    rate: Rate.Hz(1),
-    type: DataType.Float64,
-  });
+    const channel = await client.channel.create({
+        name: "my-temperature-sensor",
+        rate: Rate.Hz(1),
+        type: DataType.Float64,
+    });
 
-  await channel.write(0, new Float64Array([1, 2, 3, 4, 5, 6, 7, 8]));
+    await channel.write(0, new Float64Array([1, 2, 3, 4, 5, 6, 7, 8]));
 }
 main();
 ```
@@ -143,15 +144,15 @@ const { Synnax, TimeSpan, DataType, Rate } = require("@synnaxlabs/client");
 const client = new Synnax({ host: "localhost", port: 8080 });
 
 async function main() {
-  const channel = await client.channel.create({
-    name: "my-temperature-sensor",
-    rate: Rate.Hz(1),
-    type: DataType.Float64,
-  });
+    const channel = await client.channel.create({
+        name: "my-temperature-sensor",
+        rate: Rate.Hz(1),
+        type: DataType.Float64,
+    });
 
-  await channel.write(0, new Float64Array([1, 2, 3, 4, 5, 6, 7, 8]));
+    await channel.write(0, new Float64Array([1, 2, 3, 4, 5, 6, 7, 8]));
 
-  const data = await channel.read(0, TimeSpan.Seconds(8));
+    const data = await channel.read(0, TimeSpan.Seconds(8));
 }
 ```
 

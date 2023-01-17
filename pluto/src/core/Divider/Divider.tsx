@@ -26,10 +26,10 @@ export interface DividerProps
  *
  * @param props - The props for the component.
  * @param props.direction - The directio to render the divider in. Can be "horiztonal"
- * or "vertical".
+ * or "y".
  */
 export const Divider = ({
-  direction = "vertical",
+  direction = "y",
   className,
   ...props
 }: DividerProps): JSX.Element => {

@@ -13,7 +13,7 @@ import {
 
 export interface SelectMultipleAxesInputItemProps
   extends Omit<
-    InputItemProps<readonly string[], SelectMultipleChannelsProps>,
+    InputItemProps<readonly string[], readonly string[], SelectMultipleChannelsProps>,
     "onChange" | "label"
   > {
   axis: AxisKey;
@@ -25,8 +25,8 @@ export const SelectMultipleAxesInputItem = ({
   onChange,
   ...props
 }: SelectMultipleAxesInputItemProps): JSX.Element => (
-  <Input.Item<readonly string[], SelectMultipleChannelsProps>
-    direction="horizontal"
+  <Input.Item<readonly string[], readonly string[], SelectMultipleChannelsProps>
+    direction="x"
     label={axisLabel(axis) + ":"}
     onChange={useCallback((v) => onChange(axis, v), [onChange, axis])}
     tagKey="name"
@@ -37,7 +37,10 @@ export const SelectMultipleAxesInputItem = ({
 );
 
 export interface SelectAxisInputItemProps
-  extends Omit<InputItemProps<string, SelectChannelProps>, "onChange" | "label"> {
+  extends Omit<
+    InputItemProps<string, string, SelectChannelProps>,
+    "onChange" | "label"
+  > {
   axis: AxisKey;
   onChange: (key: AxisKey, v: string) => void;
 }
@@ -47,8 +50,8 @@ export const SelectAxisInputItem = ({
   onChange,
   ...props
 }: SelectAxisInputItemProps): JSX.Element => (
-  <Input.Item<string, SelectChannelProps>
-    direction="horizontal"
+  <Input.Item<string, string, SelectChannelProps>
+    direction="x"
     label={axisLabel(axis) + ":"}
     onChange={useCallback((v) => onChange(axis, v), [axis, onChange])}
     tagKey="name"
