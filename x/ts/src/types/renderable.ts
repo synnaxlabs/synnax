@@ -7,9 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-interface Stringer {
-  toString: () => string | number | undefined;
-}
+import { Stringer } from "./primitive";
 
 export type PureRenderableValue = string | number | undefined;
 export type RenderableValue = PureRenderableValue | Stringer;

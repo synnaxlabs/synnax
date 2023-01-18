@@ -24,3 +24,11 @@
 .delta-main-nav-bottom__end {
     padding: 0 2rem;
 }
+
+.delta-main-nav-drawer--y {
+    overflow-x: hidden;
+}
+
+.delta-main-nav-drawer {
+    flex: 0 0 auto;
+}

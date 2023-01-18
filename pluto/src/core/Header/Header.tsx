@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Children, createContext, ReactNode, useContext } from "react";
+import { createContext, ReactNode, useContext } from "react";
 
 import clsx from "clsx";
 
 import { Space, SpaceProps } from "@/core/Space";
 import { TypographyLevel } from "@/core/Typography";
 
-export interface HeaderProps extends Omit<SpaceProps, "children"> {
+export interface HeaderProps extends Omit<SpaceProps, "children" | "el"> {
   level?: TypographyLevel;
   divided?: boolean;
   children: ReactNode | [ReactNode, ReactNode];
@@ -38,19 +38,16 @@ export const Header = ({
   level = "h1",
   divided = false,
   ...props
-}: HeaderProps): JSX.Element => {
-  const _children = Children.toArray(children) as JSX.Element[];
-  return (
-    <HeaderContext.Provider value={{ level, divided }}>
-      <Space
-        direction="x"
-        justify="spaceBetween"
-        className={clsx(`pluto-header pluto-bordered--bottom`, className)}
-        {...props}
-      >
-        {_children[0]}
-        {_children.length > 1 && _children[1]}
-      </Space>
-    </HeaderContext.Provider>
-  );
-};
+}: HeaderProps): JSX.Element => (
+  <HeaderContext.Provider value={{ level, divided }}>
+    <Space
+      el="header"
+      direction="x"
+      justify="spaceBetween"
+      className={clsx(`pluto-header pluto-bordered--bottom`, className)}
+      {...props}
+    >
+      {children}
+    </Space>
+  </HeaderContext.Provider>
+);

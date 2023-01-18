@@ -23,16 +23,17 @@ import {
   Axis,
   ZoomPanMask,
   useZoomPan,
+  ZERO_XY,
+  ONE_XY,
 } from "@synnaxlabs/pluto";
 
+import { useTelemetryClient } from "../../../telem/TelemetryContext";
 import { LineSVis } from "../types";
 
 import { useSelectTheme } from "@/features/layout";
 import { useAsyncEffect } from "@/hooks";
 
 import "./LinePlot.css";
-
-import { useTelemetryClient } from "@/features/vis/telem/TelemetryContext";
 
 export interface LinePlotProps {
   vis: LineSVis;
@@ -59,23 +60,23 @@ export const LinePlot = ({
     lines: [],
     glBox: ZERO_BOX,
   });
+  const [zoom, setZoom] = useState<Box>(new Box(ZERO_XY, ONE_XY));
 
   const updateRenderingPackage = useCallback(
-    async (vis: LineSVis, box: Box): Promise<void> => {
+    async (vis: LineSVis, box: Box, zoom: Box): Promise<void> => {
       if (client == null) return;
       const data = await fetchData(vis, client);
 
       const y1Data = data.filter(({ key }) => vis.channels.y1.includes(key));
       const y1Range = calcRange(y1Data, 0.01);
-      const y1Scale = 1 / (y1Range[1] - y1Range[0]);
+      const y1Scale = 1 / (y1Range[1] - y1Range[0]) / zoom.height;
       const y1Offset = -y1Range[0] * y1Scale;
 
       const xData = data.filter(({ key }) => key === vis.channels.x1);
       if (xData.length === 0) return;
       const x1Range = calcRange(xData, 0);
-      const x1Scale = 1 / (x1Range[1] - x1Range[0]);
+      const x1Scale = 1 / (x1Range[1] - x1Range[0]) / zoom.width;
       const xOffset = -x1Range[0] * x1Scale;
-      console.log(xOffset, y1Offset);
 
       const glBox = box.translate({ x: 20, y: 20 }).resize({ x: 40, y: 40 });
 
@@ -91,8 +92,8 @@ export const LinePlot = ({
           y: y1Scale,
         },
         offset: {
-          x: xOffset + vis.pan.x / glBox.width,
-          y: y1Offset - vis.pan.y / glBox.height,
+          x: xOffset - zoom.x / zoom.width,
+          y: y1Offset - (1 - zoom.y - zoom.height) / zoom.height,
         },
         y: glBuffers[0],
         x: xData[0].glBuffers[0],
@@ -104,7 +105,10 @@ export const LinePlot = ({
         axes: [
           {
             location: "bottom",
-            range: x1Range,
+            range: [
+              x1Range[0] + (x1Range[1] - x1Range[0]) * zoom.x,
+              x1Range[1] - (x1Range[1] - x1Range[0]) * (1 - zoom.x - zoom.width),
+            ],
             type: "time",
             position: { y: box.height - 20, x: 20 },
             size: box.width - 40,
@@ -114,7 +118,10 @@ export const LinePlot = ({
           },
           {
             location: "left",
-            range: y1Range,
+            range: [
+              y1Range[0] + (y1Range[1] - y1Range[0]) * (1 - zoom.y - zoom.height),
+              y1Range[1] - (y1Range[1] - y1Range[0]) * zoom.y,
+            ],
             position: { y: 20, x: 20 },
             height: box.width - 40,
             size: box.height - 40,
@@ -130,46 +137,45 @@ export const LinePlot = ({
 
   useAsyncEffect(async () => {
     if (ref.current == null) return;
-    await updateRenderingPackage(vis, new Box(ref.current.getBoundingClientRect()));
-  }, [vis, client]);
+    await updateRenderingPackage(
+      vis,
+      new Box(ref.current.getBoundingClientRect()),
+      zoom
+    );
+  }, [vis, zoom, client]);
 
   const handleResize = useCallback(
     (box: Box): void => {
-      void updateRenderingPackage(vis, box);
+      void updateRenderingPackage(vis, box, zoom);
     },
-    [vis, client]
+    [vis, zoom, client]
   );
+
+  const zoomPanProps = useZoomPan({
+    onChange: setZoom,
+    panHotkey: "Shift",
+    threshold: { x: 30, y: 30 },
+    minZoom: { x: 0.02, y: 0.02 },
+  });
 
   const resizeRef = useResize(handleResize, { debounce: 100 });
 
   const mergedRef = useMergedRef(ref, resizeRef);
 
-  const zoomPanProps = useZoomPan({
-    threshold: { x: 50, y: 50 },
-    zoomHotkey: "Shift",
-    panHotkey: "",
-    onChange: (zoom: Box, pan: Box) => {
-      console.log(pan);
-      onChange({
-        ...vis,
-        ranges: {},
-        pan,
-      });
-    },
-  });
-
   return (
     <div className="delta-line-plot__container">
       <div className="delta-line-plot__plot" ref={mergedRef}>
-        <GLLines lines={pkg.lines} box={pkg.glBox} />
         <ZoomPanMask
           style={{
             position: "absolute",
-            width: "100%",
-            height: "100%",
+            top: 20,
+            left: 20,
+            width: pkg.glBox.width,
+            height: pkg.glBox.height,
           }}
           {...zoomPanProps}
         />
+        <GLLines lines={pkg.lines} box={pkg.glBox} />
         <svg className="delta-line-plot__svg">
           {pkg.axes.map((axis, i) => (
             <Axis key={i} {...axis} />

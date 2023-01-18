@@ -19,12 +19,12 @@ const story: ComponentMeta<typeof Accordion> = {
 const entries: AccordionEntry[] = [
   {
     key: "cluster",
-    title: "Cluster",
+    name: "Cluster",
     content: <p>Content</p>,
   },
   {
     key: "Devices",
-    title: "Devices",
+    name: "Devices",
     content: <p>Content</p>,
   },
 ];

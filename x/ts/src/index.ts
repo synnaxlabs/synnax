@@ -1,4 +1,5 @@
 export * from "@/telem";
+export * from "@/types/primitive";
 export * from "@/types/record";
 export * from "@/types/renderable";
 export * from "@/types/optional";
@@ -7,4 +8,4 @@ export * from "@/deep";
 export * from "@/css";
 export * from "@/debounce";
 export * from "@/clamp";
-export * from "@/sort";
+export * from "@/compare";

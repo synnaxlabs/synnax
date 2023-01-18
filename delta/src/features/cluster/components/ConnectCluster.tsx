@@ -17,17 +17,19 @@ import type { InputSwitchProps } from "@synnaxlabs/pluto";
 import { FieldValues, useForm } from "react-hook-form";
 import { AiFillApi } from "react-icons/ai";
 import { useDispatch } from "react-redux";
+
+import type { ConnectionState } from "@/features/cluster";
+
 import { z } from "zod";
+
+import { LayoutRendererProps } from "@/features/layout";
+
+import "./ConnectCluster.css";
 
 import { setActiveCluster, setCluster } from "../store";
 import { testConnection } from "../util/testConnection";
 
 import { ConnectionStateBadge } from "./ClusterBadges";
-
-import type { ConnectionState } from "@/features/cluster";
-import { LayoutRendererProps } from "@/features/layout";
-
-import "./ConnectCluster.css";
 
 const formSchema = synnaxPropsSchema.extend({ name: z.string() });
 
@@ -102,7 +104,10 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps): JSX.Element =>
                 control={c}
                 className="delta-connect-cluster__input--password"
               />
-              <Input.ItemC<boolean, InputSwitchProps> name="secure" control={c}>
+              <Input.ItemC<boolean, boolean, InputSwitchProps>
+                name="secure"
+                control={c}
+              >
                 {Input.Switch}
               </Input.ItemC>
             </Space>

@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/hooks/useClickOutside";
-export * from "@/hooks/useCursorDrag";
+export * from "@/spatial/useCursorDrag";
 export * from "@/keys/useKeys";
 export * from "@/spatial/useSize";
 export * from "@/hooks/useSearch";
 export * from "@/hooks/useTransforms";
-export * from "@/hooks/useMemoCompare";
+export * from "@/memo/useMemoCompare";
 export * from "@/hooks/useMergedRef";

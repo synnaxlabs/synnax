@@ -41,9 +41,7 @@ export const useMosaic = ({
 }: UseMosaicProps): UseMosaicReturn => {
   const [root, setRoot] = useState(initialTree);
 
-  useEffect(() => {
-    setRoot(autoSelectTabs(initialTree));
-  }, [initialTree]);
+  useEffect(() => setRoot(autoSelectTabs(initialTree)), [initialTree]);
 
   const handleDrop = (key: number, tabKey: string, loc: Location): void =>
     setRoot((r) => moveMosaicTab(r, tabKey, loc, key));

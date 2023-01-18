@@ -10,11 +10,13 @@
  */
 
 .pluto-resize-panel {
+    --resize-panel-handle-size: calc(var(--pluto-border-width) * 5);
     position: relative;
 }
 
 .pluto-resize-panel__handle {
     position: absolute;
+    z-index: 10;
 }
 
 .pluto-resize-panel--left > .pluto-resize-panel__handle {
@@ -37,18 +39,14 @@
     top: 0;
 }
 
-.pluto-resize-panel--y > .pluto-resize-panel__handle {
-    width: calc(var(--pluto-border-width) * 5);
+.pluto-resize-panel--x > .pluto-resize-panel__handle {
+    width: var(--resize-panel-handle-size);
     height: 100%;
     cursor: col-resize;
 }
 
-.pluto-resize-panel--x > .pluto-resize-panel__handle {
-    height: calc(var(--pluto-border-width) * 5);
+.pluto-resize-panel--y > .pluto-resize-panel__handle {
+    height: var(--resize-panel-handle-size);
     width: 100%;
     cursor: row-resize;
-}
-
-.pluto-resize-multiple {
-    height: 100%;
 }

@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ButtonHTMLAttributes, ReactElement } from "react";
+import { ReactElement } from "react";
 
 import clsx from "clsx";
 
+import { SpaceProps } from "@/core/Space";
 import { Typography, Text } from "@/core/Typography";
 import { ComponentSize } from "@/util/component";
 
@@ -20,7 +21,7 @@ import "./Button.css";
 export type ButtonVariant = "filled" | "outlined" | "text";
 
 /** The base props accepted by all button types in this directory. */
-export interface BaseButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+export interface BaseButtonProps extends SpaceProps<HTMLButtonElement> {
   variant?: ButtonVariant;
   size?: ComponentSize;
 }
@@ -41,17 +42,15 @@ export const Button = ({
   children,
   ...props
 }: ButtonProps): JSX.Element => (
-  <button
+  <Text.WithIcon<HTMLButtonElement>
+    el="button"
     className={clsx("pluto--" + size, "pluto-btn", "pluto-btn--" + variant, className)}
+    color={variant === "filled" ? "var(--pluto-white)" : "var(--pluto-text-color)"}
+    level={Typography.ComponentSizeLevels[size]}
+    startIcon={startIcon}
+    endIcon={endIcon}
     {...props}
   >
-    <Text.WithIcon
-      color={variant === "filled" ? "var(--pluto-white)" : "var(--pluto-text-color)"}
-      level={Typography.ComponentSizeLevels[size]}
-      startIcon={startIcon}
-      endIcon={endIcon}
-    >
-      {children}
-    </Text.WithIcon>
-  </button>
+    {children}
+  </Text.WithIcon>
 );

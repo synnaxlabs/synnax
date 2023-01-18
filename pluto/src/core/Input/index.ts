@@ -42,4 +42,5 @@ Input.Date = InputDate;
 Input.Label = InputLabel;
 Input.HelpText = InputHelpText;
 Input.Item = InputItem;
+Input.ItemC = InputItemControlled;
 Input.Switch = InputSwitch;

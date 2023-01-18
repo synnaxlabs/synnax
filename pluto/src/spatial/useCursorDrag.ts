@@ -9,9 +9,11 @@
 
 import { useCallback } from "react";
 
+import { Box } from "./box";
+import { ClientXY, toXY, XY } from "./core";
+
 import { KeyboardKey } from "@/keys";
 import { mouseDownToKey } from "@/keys/mouse";
-import { Box, ClientXY, toXY, XY } from "@/spatial";
 
 export interface UseCursorDragProps {
   onStart?: (loc: XY, mouseKey: KeyboardKey) => void;
@@ -19,7 +21,9 @@ export interface UseCursorDragProps {
   onEnd?: (box: Box, mouseKey: KeyboardKey) => void;
 }
 
-export type UseCursorDragStart = (e: ClientXY & { button: number }) => void;
+export type UseCursorDragStart = (
+  e: ClientXY & { button: number; preventDefault: () => void }
+) => void;
 
 export const useCursorDrag = ({
   onMove,
@@ -28,6 +32,7 @@ export const useCursorDrag = ({
 }: UseCursorDragProps): UseCursorDragStart =>
   useCallback(
     (e) => {
+      e.preventDefault();
       const startLoc = toXY(e);
       const mouseKey = mouseDownToKey(e);
       onStart?.(startLoc, mouseKey);

@@ -28,12 +28,12 @@ export interface Layout {
    */
   type: string;
   /**
-   * The title of the layout. This is either the window or tab title. NOTE: If the layout
+   * The name of the layout. This is either the window or tab name. NOTE: If the layout
    * is placed within a mosaic, this property is duplicated in the 'Tab' array of the
    * mosaic node. Ideally we'll change this in the future, but it's not worth it at
    * this point.
    */
-  title: string;
+  name: string;
   /**
    * Location defines the placement location of the layout. If the location is 'mosaic',
    * the layout will be placed in the central mosaic. If the location is 'window', the

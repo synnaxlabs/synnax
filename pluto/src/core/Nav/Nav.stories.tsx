@@ -12,18 +12,23 @@ import { MdGrain } from "react-icons/md";
 
 import { Nav } from ".";
 
-import { NavbarProps } from "./Navbar";
-
-
 const story: ComponentMeta<typeof Nav.Bar> = {
   title: "Core/Nav",
   component: Nav.Bar,
 };
 
-const Template = (args: NavbarProps): JSX.Element => <Nav.Bar {...args} />;
-
-export const LeftBar: ComponentStory<typeof Nav.Bar> = Template.bind({
-  children: (
+export const LeftBar: ComponentStory<typeof Nav.Bar> = () => (
+  <Nav.Bar>
+    <Nav.Bar.Start>
+      <Nav.Menu
+        items={[
+          {
+            key: "1",
+            icon: <MdGrain />,
+          },
+        ]}
+      />
+    </Nav.Bar.Start>
     <Nav.Bar.Content>
       <Nav.Menu
         items={[
@@ -34,8 +39,18 @@ export const LeftBar: ComponentStory<typeof Nav.Bar> = Template.bind({
         ]}
       />
     </Nav.Bar.Content>
-  ),
-});
+    <Nav.Bar.End>
+      <Nav.Menu
+        items={[
+          {
+            key: "1",
+            icon: <MdGrain />,
+          },
+        ]}
+      />
+    </Nav.Bar.End>
+  </Nav.Bar>
+);
 
 export const LeftDrawer: ComponentStory<typeof Nav.Drawer> = () => {
   const props = Nav.useDrawer({
@@ -45,10 +60,13 @@ export const LeftDrawer: ComponentStory<typeof Nav.Drawer> = () => {
         key: "2",
         icon: <MdGrain />,
         content: <h1>Helllo</h1>,
+        initialSize: 200,
       },
     ],
   });
-  return <Nav.Drawer location="bottom" {...props} />;
+  return (
+    <Nav.Drawer location="bottom" {...props} style={{ position: "fixed", bottom: 0 }} />
+  );
 };
 
 // eslint-disable-next-line import/no-default-export

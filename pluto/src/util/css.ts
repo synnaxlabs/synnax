@@ -9,3 +9,6 @@
 
 export const visibleCls = (visible?: boolean): string =>
   visible === true ? "visible" : "hidden";
+
+export const expandedCls = (expanded?: boolean): string =>
+  expanded === true ? "expanded" : "collapsed";

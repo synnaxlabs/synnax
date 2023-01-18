@@ -34,9 +34,9 @@ export const DIRECTIONS = ["x", "y"] as const;
 export type Direction = typeof DIRECTIONS[number];
 export const isDirection = (v: string): boolean => DIRECTIONS.includes(v as Direction);
 
-export const dirFromLoc = (location: Location | Direction): Direction => {
+export const locToDir = (location: Location | Direction): Direction => {
   if (isDirection(location)) return location as Direction;
-  return Y_LOCATIONS.includes(location as XLocation) ? "x" : "y";
+  return Y_LOCATIONS.includes(location as XLocation) ? "y" : "x";
 };
 
 export const swapDir = (direction: Direction): Direction =>
@@ -67,6 +67,11 @@ export const ZERO_XY: XY = { x: 0, y: 0 };
 export const ONE_XY: XY = { x: 1, y: 1 };
 export const INFINITE_XY: XY = { x: Infinity, y: Infinity };
 
+export interface SignedDimensions {
+  signedWidth: number;
+  signedHeight: number;
+}
+
 export interface Dimensions {
   width: number;
   height: number;
@@ -91,6 +96,9 @@ export const toXY = (pt: XY | ClientXY | Dimensions): XY => {
 export const locDim = (
   location: Location | Direction,
   point: XY | Dimensions
-): number => toXY(point)[dirFromLoc(location)];
+): number => toXY(point)[locToDir(location)];
 
 export type ClientXYF = (e: ClientXY) => void;
+
+export const dirToDim = (direction: Direction): "width" | "height" =>
+  direction === "x" ? "width" : "height";

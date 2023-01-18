@@ -31,8 +31,6 @@ export interface UseSelectMultipleReturn<E extends KeyedRecord<E>> {
   clear: () => void;
 }
 
-const shiftKeys = ["Shift"];
-
 /**
  * Implements generic multiple selection over a collection of keyed records. The hook
  * does not maintain internal selection state, but instead relies on the `value` and
@@ -58,7 +56,7 @@ export const useSelectMultiple = <E extends KeyedRecord<E>>({
   onChange,
 }: UseSelectMultipleProps<E>): UseSelectMultipleReturn<E> => {
   const [shiftValue, setShiftValue] = useState<string | undefined>(undefined);
-  const { any: shift } = useKeysHeld(shiftKeys);
+  const { any: shift } = useKeysHeld("Shift");
 
   useEffect(() => {
     if (!shift) setShiftValue(undefined);

@@ -1,11 +1,14 @@
+.pluto-accordion {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+}
+
 .pluto-accordion__header {
+    position: relative;
     background: var(--pluto-background-color);
 }
 
-.pluto-accordion__header--expanded {
-    border-bottom: var(--pluto-border);
-}
-
-.pluto-accordion__header--contracted {
-    border-bottom: none;
+.pluto-accordion__header--collapsed {
+    border-bottom: none !important;
 }

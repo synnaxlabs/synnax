@@ -57,9 +57,9 @@ export const Pack = ({
       {...props}
       empty
     >
-      {reactElementToArray(arr).map((child, index) =>
+      {arr.map((child, index) =>
         cloneElement(child, {
-          // using index as key is safe here because the children are unlikely to change
+          // Using index as key is safe here because the children are unlikely to change
           // order.
           key: index,
           className: clsx(

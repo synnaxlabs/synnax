@@ -1,7 +1,7 @@
 .pluto-axis text {
     font-family: var(--pluto-font-family);
     font-size: var(--pluto-tiny-size);
-    fill: var(--pluto-gray-p1);
+    fill: var(--pluto-gray-p2);
 }
 
 .pluto-axis line {

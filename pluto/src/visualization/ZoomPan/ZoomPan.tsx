@@ -65,10 +65,10 @@ export const useZoomPan = ({
   }, [allowZoom, allowPan, zoomHotkey, panHotkey]);
 
   const mode = useKeyMode<Mode>(
-    [
+    new Map([
       [zoomHotkey, "zoom"],
       [panHotkey, "pan"],
-    ],
+    ]),
     defaultMode
   );
 
@@ -86,9 +86,11 @@ export const useZoomPan = ({
       if ((mode === "zoom" && key !== panHotkey) || key === zoomHotkey)
         setMaskBox(clamped);
       else if (mode === "pan" || key === panHotkey) {
-        const next = state.current.translateBySignedDims(
-          clamped.toDecimal(canvas).scaleByDims(state.current)
-        );
+        const scaledBox = clamped.toDecimal(canvas).scaleByDims(state.current);
+        const next = state.current.translateBySignedDims({
+          signedWidth: -scaledBox.signedWidth,
+          signedHeight: -scaledBox.signedHeight,
+        });
         onChange?.(next);
       }
     },
@@ -101,9 +103,11 @@ export const useZoomPan = ({
       const canvas = new Box(canvasRef.current.getBoundingClientRect());
       const decimal = box.clampBy(canvas).toDecimal(canvas);
       if (mode === "pan" || key === panHotkey) {
-        state.current = state.current.translateBySignedDims(
-          decimal.scaleByDims(state.current)
-        );
+        const scaledBox = decimal.scaleByDims(state.current);
+        state.current = state.current.translateBySignedDims({
+          signedWidth: -scaledBox.signedWidth,
+          signedHeight: -scaledBox.signedHeight,
+        });
         onChange?.(state.current);
         return;
       }
