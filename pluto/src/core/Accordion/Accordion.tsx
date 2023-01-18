@@ -28,7 +28,10 @@ export interface AccordionEntry {
 }
 
 export interface AccordionProps
-  extends Omit<ResizeMultipleProps, "sizeDistribution" | "parentSize"> {
+  extends Omit<
+    ResizeMultipleProps,
+    "sizeDistribution" | "parentSize" | "onDragHandle"
+  > {
   entries: AccordionEntry[];
   direction?: Direction;
 }

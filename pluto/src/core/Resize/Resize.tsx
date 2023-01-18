@@ -32,13 +32,13 @@ export interface ResizeProps
 const COLLAPSED_SIZE = 0;
 
 export const Resize = ({
+  onCollapse,
+  onResize,
   location = "left",
   minSize = 100,
   maxSize = Infinity,
   initialSize = 200,
   collapseThreshold = Infinity,
-  onCollapse,
-  onResize,
   ...props
 }: ResizeProps): JSX.Element => {
   const [size, setSize] = useState(clamp(initialSize, minSize, maxSize));

@@ -13,8 +13,6 @@ import {
   forwardRef,
   useCallback,
   useState,
-  DragEvent as RDragEvent,
-  MouseEvent as RMouseEvent,
   RefObject,
   useEffect,
 } from "react";
@@ -24,7 +22,7 @@ import clsx from "clsx";
 import { ResizeCore } from "./ResizeCore";
 
 import { Space, SpaceProps } from "@/core/Space";
-import { Box, Direction, locDim, locFromDir, useResize } from "@/spatial";
+import { Box, ClientXY, Direction, locDim, locFromDir, useResize } from "@/spatial";
 
 export interface UseResizeMultipleProps {
   count: number;
@@ -37,8 +35,10 @@ export interface UseResizeMultipleProps {
 export interface ResizeMultipleProps extends SpaceProps {
   sizeDistribution: number[];
   parentSize: number;
-  onDragHandle: (e: RDragEvent | RMouseEvent, i: number) => void;
+  onDragHandle: (e: ResizeStartEvent, i: number) => void;
 }
+
+export type ResizeStartEvent = ClientXY & { preventDefault: () => void };
 
 export interface UseResizeMultipleReturn {
   setSize: (i: number, size?: number) => void;
@@ -57,8 +57,8 @@ interface ResizeMultipleState {
 }
 
 export const useResizeMultiple = ({
-  count,
   onResize,
+  count,
   initialSizes = [],
   minSize = 100,
   direction = "x",
@@ -82,7 +82,7 @@ export const useResizeMultiple = ({
   );
 
   const handleDragHandle = useCallback(
-    (e: RDragEvent | RMouseEvent, dragging: number): void => {
+    (e: ResizeStartEvent, dragging: number): void => {
       e.preventDefault();
       const dim = direction === "x" ? "clientX" : "clientY";
       const handleMouseMove = (e: MouseEvent): void => _handleResize(dragging, e[dim]);
@@ -170,9 +170,7 @@ export const calculateInitialSizeDistribution = (
 ): number[] => {
   const total = initial.reduce((a, b) => a + b, 0);
   const gap = count - initial.length;
-  if (gap <= 0) {
-    return initial.slice(0, count).map((v) => v / total);
-  }
+  if (gap <= 0) return initial.slice(0, count).map((v) => v / total);
   if (initial.every((v) => v <= 1)) {
     const remaining = 1 - total;
     return [...initial, ...Array(gap).fill(remaining / gap)];

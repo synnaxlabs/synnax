@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Divider, Nav, Theming, dirFromLoc } from "@synnaxlabs/pluto";
+import { Divider, locToDir, Nav, Theming } from "@synnaxlabs/pluto";
 import type { NavDrawerItem } from "@synnaxlabs/pluto";
 import clsx from "clsx";
 
@@ -123,7 +123,7 @@ export const NavDrawer = ({ location, ...props }: NavDrawerProps): JSX.Element =
       location={location}
       className={clsx(
         "delta-main-nav-drawer",
-        `delta-main-nav-drawer--${dirFromLoc(location)}`
+        `delta-main-nav-drawer--${locToDir(location)}`
       )}
       activeItem={activeItem}
       onResize={onResize}

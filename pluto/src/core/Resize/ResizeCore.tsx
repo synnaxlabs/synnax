@@ -12,6 +12,7 @@ import { DetailedHTMLProps, HTMLAttributes } from "react";
 import clsx from "clsx";
 
 import { Location, locToDir, swapLoc, dirToDim } from "@/spatial";
+import { preventDefault } from "@/util/event";
 
 export interface ResizeCoreProps
   extends DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement> {
@@ -20,8 +21,6 @@ export interface ResizeCoreProps
   onDragStart: (e: React.DragEvent<HTMLDivElement>) => void;
   showHandle?: boolean;
 }
-
-const preventDefault = (e: React.DragEvent<HTMLDivElement>): void => e.preventDefault();
 
 export const ResizeCore = ({
   location,
