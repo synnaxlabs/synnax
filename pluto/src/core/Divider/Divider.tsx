@@ -25,18 +25,15 @@ export interface DividerProps
  * Divider renders a vertical or horizontal divided to separate content.
  *
  * @param props - The props for the component.
- * @param props.direction - The directio to render the divider in. Can be "horiztonal"
- * or "y".
+ * @param props.direction - The direction to render the divider in.
  */
 export const Divider = ({
   direction = "y",
   className,
   ...props
-}: DividerProps): JSX.Element => {
-  return (
-    <div
-      className={clsx("pluto-divider", `pluto-divider--${direction}`, className)}
-      {...props}
-    />
-  );
-};
+}: DividerProps): JSX.Element => (
+  <div
+    className={clsx("pluto-divider", `pluto-divider--${direction}`, className)}
+    {...props}
+  />
+);

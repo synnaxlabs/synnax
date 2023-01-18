@@ -7,12 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback, useEffect, useState } from "react";
+import { RefObject, useCallback, useRef } from "react";
 
 import { KeyedRecord } from "@synnaxlabs/x";
 
 import { InputControlProps } from "@/core/Input";
+
+import { useRefState } from "./useRefState";
+
 import { useKeysHeld } from "@/hooks";
+import { KeyboardKey } from "@/keys";
 import { ArrayTransform } from "@/util/transform";
 
 export type SelectedRecord<E extends KeyedRecord<E>> = E & {
@@ -30,6 +34,9 @@ export interface UseSelectMultipleReturn<E extends KeyedRecord<E>> {
   onSelect: (key: string) => void;
   clear: () => void;
 }
+
+const shiftHeld = (ref: RefObject<KeyboardKey[]>): boolean =>
+  ref.current?.includes("Shift") ?? false;
 
 /**
  * Implements generic multiple selection over a collection of keyed records. The hook
@@ -55,19 +62,18 @@ export const useSelectMultiple = <E extends KeyedRecord<E>>({
   allowMultiple = true,
   onChange,
 }: UseSelectMultipleProps<E>): UseSelectMultipleReturn<E> => {
-  const [shiftValue, setShiftValue] = useState<string | undefined>(undefined);
-  const { any: shift } = useKeysHeld("Shift");
-
-  useEffect(() => {
-    if (!shift) setShiftValue(undefined);
-  }, [shift]);
+  const shiftValueRef = useRef<string | null>(null);
+  const [ref, setCurrentRef] = useRefState<KeyboardKey[]>([]);
+  useKeysHeld(setCurrentRef, "Shift");
 
   const handleSelect = useCallback(
     (key: string): void => {
       let nextSelected: readonly string[] = [];
+      const shift = shiftHeld(ref);
+      const shiftValue = shiftValueRef.current;
       if (!allowMultiple) {
         nextSelected = value.includes(key) ? [] : [key];
-      } else if (shift && shiftValue !== undefined) {
+      } else if (shift && shiftValue !== null) {
         // We might select in reverse order, so we need to sort the indexes.
         const [start, end] = [
           data.findIndex((v) => v.key === key),
@@ -79,16 +85,16 @@ export const useSelectMultiple = <E extends KeyedRecord<E>>({
         if (nextKeys.slice(1, nextKeys.length - 1).every((k) => value.includes(k)))
           nextSelected = value.filter((k) => !nextKeys.includes(k));
         else nextSelected = [...value, ...nextKeys];
-        setShiftValue(undefined);
+        shiftValueRef.current = null;
       } else {
-        if (shift) setShiftValue(key);
+        if (shift) shiftValueRef.current = key;
         if (value.includes(key)) nextSelected = value.filter((k) => k !== key);
         else nextSelected = [...value, key];
       }
       nextSelected = [...new Set(nextSelected)];
       onChange(nextSelected);
     },
-    [onChange, value, data, shift, shiftValue, allowMultiple]
+    [onChange, value, data, allowMultiple]
   );
 
   const clear = useCallback((): void => onChange([]), [onChange]);

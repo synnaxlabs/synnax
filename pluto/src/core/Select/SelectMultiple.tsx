@@ -31,7 +31,7 @@ import "./SelectMultiple.css";
 
 import { SelectList } from "./SelectList";
 
-type SelectMultipleInputGroupProps = Omit<
+type SelectMultipleInputPackProps = Omit<
   PackProps,
   "onChange" | "onFocus" | "children"
 >;
@@ -39,7 +39,7 @@ type SelectMultipleInputGroupProps = Omit<
 export interface SelectMultipleProps<E extends RenderableRecord<E>>
   extends Pick<DropdownProps, "location">,
     InputControlProps<readonly string[]>,
-    SelectMultipleInputGroupProps {
+    SelectMultipleInputPackProps {
   data?: E[];
   columns?: Array<ListColumn<E>>;
   tagKey?: keyof E;
@@ -54,7 +54,7 @@ export const SelectMultiple = <E extends RenderableRecord<E>>({
   tagKey = "key",
   ...props
 }: SelectMultipleProps<E>): JSX.Element => {
-  const { ref, visible, onFocus } = Dropdown.use();
+  const { ref, visible, open } = Dropdown.use();
   return (
     <List data={data}>
       <Dropdown ref={ref} visible={visible} location={location}>
@@ -64,7 +64,7 @@ export const SelectMultiple = <E extends RenderableRecord<E>>({
               tagKey={tagKey}
               selected={value}
               onChange={onChange}
-              onFocus={onFocus}
+              onFocus={open}
               visible={visible}
               {...props}
             />
@@ -78,7 +78,7 @@ export const SelectMultiple = <E extends RenderableRecord<E>>({
 
 interface SelectMultipleInputProps<E extends RenderableRecord<E>>
   extends Pick<InputProps, "onChange" | "onFocus">,
-    SelectMultipleInputGroupProps {
+    SelectMultipleInputPackProps {
   selected: readonly string[];
   tagKey: keyof E;
   visible: boolean;
