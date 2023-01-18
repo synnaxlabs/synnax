@@ -31,12 +31,12 @@ export interface SelectProps<E extends RenderableRecord<E>>
 }
 
 export const Select = <E extends RenderableRecord<E>>({
-  value,
   onChange,
+  value,
+  location,
   tagKey = "key",
   columns = [],
   data = [],
-  location,
 }: SelectProps<E>): JSX.Element => {
   const { ref, visible, onFocus, setVisible } = Dropdown.use();
 

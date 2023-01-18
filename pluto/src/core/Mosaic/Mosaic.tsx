@@ -9,11 +9,13 @@
 
 import React, { useState, memo, useCallback } from "react";
 
+import { Resize } from "@/core/Resize";
+
 import { MosaicLeaf } from "./types";
 
-import { Resize } from "@/core/Resize";
 import { Tab, Tabs, TabsProps } from "@/core/Tabs";
 import { Location } from "@/spatial";
+import { preventDefault } from "@/util/event";
 
 import "./Mosaic.css";
 
@@ -31,18 +33,10 @@ export const Mosaic = memo((props: MosaicProps): JSX.Element | null => {
     ...childProps
   } = tabsProps;
 
-  if (tabs !== undefined)
-    return <MosaicTabLeaf emptyContent={emptyContent} {...tabsProps} />;
-
   const _onResize = useCallback(
     (sizes: number[]): void => onResize(key, sizes[0]),
     [onResize]
   );
-
-  if (first == null || last == null) {
-    console.warn("Mosaic tree is malformed");
-    return null;
-  }
 
   const { props: resizeProps } = Resize.useMultiple({
     direction,
@@ -50,6 +44,14 @@ export const Mosaic = memo((props: MosaicProps): JSX.Element | null => {
     count: 2,
     initialSizes: size != null ? [size] : undefined,
   });
+
+  if (tabs !== undefined)
+    return <MosaicTabLeaf emptyContent={emptyContent} {...tabsProps} />;
+
+  if (first == null || last == null) {
+    console.warn("Mosaic tree is malformed");
+    return null;
+  }
 
   return (
     <Resize.Multiple align="stretch" className="pluto-mosaic__resize" {...resizeProps}>
@@ -62,6 +64,10 @@ Mosaic.displayName = "Mosaic";
 
 export interface MosicaTabLeafProps extends Omit<MosaicProps, "onResize"> {}
 
+/** Checks whether the tab can actually be dropped in this location or not */
+const validDrop = (tabs: Tab[], currentlyDragging: string | null): boolean =>
+  tabs.filter((t) => t.tabKey !== currentlyDragging).length > 0;
+
 const MosaicTabLeaf = memo(
   ({ root: node, onDrop, ...props }: MosicaTabLeafProps): JSX.Element => {
     const { key, tabs } = node as Omit<MosaicLeaf, "tabs"> & { tabs: Tab[] };
@@ -69,12 +75,11 @@ const MosaicTabLeaf = memo(
     const [dragMask, setDragMask] = useState<Location | null>(null);
     const [currentlyDragging, setCurrentlyDragging] = useState<string | null>(null);
 
-    const _onDrop = (e: React.DragEvent<HTMLDivElement>): void => {
+    const handleDrop = (e: React.DragEvent<HTMLDivElement>): void => {
       e.preventDefault();
-      const validDrop = tabs.filter((t) => t.tabKey !== currentlyDragging).length > 0;
-      if (currentlyDragging != null) setCurrentlyDragging(null);
-      if (dragMask != null) setDragMask(null);
-      if (!validDrop) return;
+      setCurrentlyDragging(null);
+      setDragMask(null);
+      if (!validDrop(tabs, currentlyDragging)) return;
       onDrop(
         key,
         e.dataTransfer.getData("tabKey"),
@@ -82,22 +87,26 @@ const MosaicTabLeaf = memo(
       );
     };
 
-    const onDragOver = (e: React.DragEvent<HTMLDivElement>): void => {
+    const handleDragOver = (e: React.DragEvent<HTMLDivElement>): void => {
       e.preventDefault();
       e.stopPropagation();
       const loc = insertLocation(getDragLocationPercents(e));
       // get the tab data, get a boolean value checking whether the length of the tabs
-      // in node would be zero if the tab was removed
-      const validDrop = tabs.filter((t) => t.tabKey !== currentlyDragging).length > 0;
-      if (loc !== dragMask && validDrop) setDragMask(loc);
+      // in node would be zero if the tab was removed.
+      if (loc !== dragMask && validDrop(tabs, currentlyDragging)) setDragMask(loc);
     };
 
-    const onDragLeave = (): void => {
-      if (dragMask != null) setDragMask(null);
+    const handleDragLeave = (): void => setDragMask(null);
+
+    const handleTabDragStart = (
+      e: React.DragEvent<HTMLDivElement>,
+      { tabKey }: Tab
+    ): void => {
+      e.dataTransfer.setData("tabKey", tabKey);
+      setCurrentlyDragging(tabKey);
     };
 
-    const onDragEnter = (e: React.DragEvent<HTMLDivElement>): void =>
-      e.preventDefault();
+    const handleTabDragEnd = (): void => setCurrentlyDragging(null);
 
     return (
       <div style={{ position: "relative", height: "100%" }}>
@@ -105,16 +114,13 @@ const MosaicTabLeaf = memo(
           style={{ height: "100%" }}
           tabs={tabs}
           {...props}
-          onDrop={_onDrop}
-          onDragOver={onDragOver}
-          onDragLeave={onDragLeave}
-          onDragEnter={onDragEnter}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDragEnter={preventDefault}
           selected={node.selected}
-          onTabDragStart={(e, tabEntry) => {
-            e.dataTransfer.setData("tabKey", tabEntry.tabKey);
-            setCurrentlyDragging(tabEntry.tabKey);
-          }}
-          onTabDragEnd={() => setCurrentlyDragging(null)}
+          onTabDragStart={handleTabDragStart}
+          onTabDragEnd={handleTabDragEnd}
         />
         {dragMask != null && (
           <div

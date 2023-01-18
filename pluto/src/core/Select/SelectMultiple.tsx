@@ -46,12 +46,12 @@ export interface SelectMultipleProps<E extends RenderableRecord<E>>
 }
 
 export const SelectMultiple = <E extends RenderableRecord<E>>({
+  onChange,
+  value,
+  location,
   data = [],
   columns = [],
   tagKey = "key",
-  value,
-  onChange,
-  location,
   ...props
 }: SelectMultipleProps<E>): JSX.Element => {
   const { ref, visible, onFocus } = Dropdown.use();

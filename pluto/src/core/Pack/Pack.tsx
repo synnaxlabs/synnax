@@ -44,8 +44,8 @@ export interface PackProps extends Omit<SpaceProps, "children" | "empty"> {
  */
 export const Pack = ({
   children,
-  size = "medium",
   className,
+  size = "medium",
   direction = "x",
   ...props
 }: PackProps): JSX.Element => {

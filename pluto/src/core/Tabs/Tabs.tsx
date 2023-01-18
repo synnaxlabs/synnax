@@ -14,10 +14,6 @@ import { TabMeta, TabsSelector } from "./TabsSelector";
 import { Space, SpaceProps } from "@/core/Space";
 import { RenderProp } from "@/util/renderProp";
 
-export interface TabsProps
-  extends Omit<SpaceProps, "children" | "onSelect">,
-    TabsContextValue {}
-
 export interface Tab extends TabMeta {
   content?: JSX.Element;
 }
@@ -56,17 +52,21 @@ export const useStaticTabs = ({ tabs, content }: UseStaticTabsProps): TabsProps 
 
 export interface TabsContextValue {
   tabs: Tab[];
+  emptyContent?: ReactElement | null;
+  closable?: boolean;
+  selected?: string;
+  onSelect?: (key: string) => void;
   content?: TabRenderProp;
   children?: TabRenderProp;
-  emptyContent?: ReactElement | null;
-  selected?: string;
-  closable?: boolean;
-  onSelect?: (key: string) => void;
   onClose?: (key: string) => void;
   onTabDragStart?: (e: React.DragEvent<HTMLDivElement>, tab: TabMeta) => void;
   onTabDragEnd?: (e: React.DragEvent<HTMLDivElement>, tab: TabMeta) => void;
   onRename?: (key: string, title: string) => void;
 }
+
+export interface TabsProps
+  extends Omit<SpaceProps, "children" | "onSelect">,
+    TabsContextValue {}
 
 export const TabsContext = createContext<TabsContextValue>({ tabs: [] });
 
@@ -75,7 +75,6 @@ export const useTabsContext = (): TabsContextValue => useContext(TabsContext);
 export const Tabs = ({
   content,
   onSelect,
-  emptyContent = null,
   selected,
   closable,
   tabs,
@@ -84,17 +83,18 @@ export const Tabs = ({
   onTabDragEnd,
   onRename,
   children,
+  emptyContent,
   ...props
 }: TabsProps): JSX.Element => (
   <Space empty {...props}>
     <TabsContext.Provider
       value={{
         tabs,
-        content: children ?? content,
-        onSelect,
         emptyContent,
         selected,
         closable,
+        content: children ?? content,
+        onSelect,
         onClose,
         onTabDragStart,
         onTabDragEnd,
