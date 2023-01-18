@@ -62,7 +62,7 @@ export const useSelectMultiple = <E extends KeyedRecord<E>>({
     if (!shift) setShiftValue(undefined);
   }, [shift]);
 
-  const handleChange = useCallback(
+  const handleSelect = useCallback(
     (key: string): void => {
       let nextSelected: readonly string[] = [];
       if (!allowMultiple) {
@@ -99,5 +99,5 @@ export const useSelectMultiple = <E extends KeyedRecord<E>>({
     [value]
   );
 
-  return { onSelect: handleChange, clear, transform };
+  return { onSelect: handleSelect, clear, transform };
 };

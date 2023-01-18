@@ -13,7 +13,7 @@ import { Box } from "./box";
 import { ClientXY, toXY, XY } from "./core";
 
 import { KeyboardKey } from "@/keys";
-import { mouseDownToKey } from "@/keys/mouse";
+import { mouseButtonKey } from "@/keys/mouse";
 
 export interface UseCursorDragProps {
   onStart?: (loc: XY, mouseKey: KeyboardKey) => void;
@@ -34,7 +34,7 @@ export const useCursorDrag = ({
     (e) => {
       e.preventDefault();
       const startLoc = toXY(e);
-      const mouseKey = mouseDownToKey(e);
+      const mouseKey = mouseButtonKey(e);
       onStart?.(startLoc, mouseKey);
       const handleMove = (e: ClientXY): void => {
         const next = toXY(e);
