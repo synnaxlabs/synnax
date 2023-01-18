@@ -7,14 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useState } from "react";
+import { ReactElement, useCallback, useState } from "react";
 
-import { clamp } from "@synnaxlabs/x";
 import clsx from "clsx";
 
-import { NavbarProps, useNavbar } from "./Navbar";
-
 import { Resize, ResizeProps } from "@/core/Resize";
+
+import { NavbarProps } from "./Navbar";
+
+import { locToDir } from "@/spatial";
 
 import { NavMenuItem } from "./NavMenu";
 
@@ -44,7 +45,7 @@ export interface UseNavDrawerReturn {
 export interface NavDrawerProps
   extends Omit<NavbarProps, "onSelect" | "onResize">,
     UseNavDrawerReturn,
-    Partial<Pick<ResizeProps, "onResize">> {}
+    Partial<Pick<ResizeProps, "onResize" | "collapseThreshold">> {}
 
 export const useNavDrawer = ({
   items,
@@ -54,33 +55,28 @@ export const useNavDrawer = ({
   const handleSelect = (key: string): void =>
     setActiveKey(key === activeKey ? undefined : key);
   const activeItem = items.find((item) => item.key === activeKey);
-  return { onSelect: handleSelect, activeItem, menuItems: items };
+  return { onSelect: handleSelect, activeItem };
 };
 
 export const Navdrawer = ({
   activeItem,
-  menuItems = [],
   children,
   onSelect,
-  onResize,
+  location = "left",
+  collapseThreshold = 0.65,
   ...props
 }: NavDrawerProps): JSX.Element | null => {
-  const { direction } = useNavbar(props);
   if (activeItem == null) return null;
-  const { content, maxSize, minSize } = activeItem;
-  let { initialSize } = activeItem;
-  if (initialSize != null) initialSize = clamp(initialSize, minSize, maxSize);
+  const dir = locToDir(location);
+  const { key, content, ...rest } = activeItem;
+  const handleCollapse = useCallback(() => onSelect?.(key), [onSelect, key]);
   return (
     <Resize
-      className={clsx(
-        "pluto-navdrawer__content",
-        `pluto-navdrawer__content--${direction}`,
-        `pluto-navdrawer__content--${props.location}`
-      )}
-      onResize={onResize}
-      minSize={minSize}
-      maxSize={maxSize}
-      initialSize={initialSize}
+      className={clsx("pluto-navdrawer__content", `pluto-navdrawer__content--${dir}`)}
+      collapseThreshold={collapseThreshold}
+      onCollapse={handleCollapse}
+      location={location}
+      {...rest}
       {...props}
     >
       {content}

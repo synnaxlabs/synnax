@@ -74,7 +74,7 @@ const initialState: LayoutState = {
   themes: Theming.themes,
   layouts: {
     main: {
-      title: "Main",
+      name: "Main",
       key: "main",
       type: "main",
       location: "window",
@@ -112,7 +112,6 @@ const initialState: LayoutState = {
 export type PlaceLayoutAction = PayloadAction<Layout>;
 /** Signature for the removeLayout action. */
 export type RemoveLayoutAction = PayloadAction<string>;
-
 /** Signature for the setTheme action. */
 export type SetActiveTheme = PayloadAction<string>;
 /** Signature for the toggleTheme action. */
@@ -126,7 +125,7 @@ type MoveLayoutMosaicTabAction = PayloadAction<{
 }>;
 type ResizeLayoutMosaicTabAction = PayloadAction<{ key: number; size: number }>;
 type SelectLayoutMosaicTabAction = PayloadAction<{ tabKey: string }>;
-type RenameLayoutMosaicTabAction = PayloadAction<{ tabKey: string; title: string }>;
+type RenameLayoutMosaicTabAction = PayloadAction<{ tabKey: string; name: string }>;
 
 type SetNavdrawerEntryState = PayloadAction<{
   location: NavdrawerLocation;
@@ -153,7 +152,7 @@ export const {
   initialState,
   reducers: {
     placeLayout: (state, { payload: layout }: PlaceLayoutAction) => {
-      const { key, location, title } = layout;
+      const { key, location, name } = layout;
 
       const prev = state.layouts[key];
 
@@ -163,7 +162,7 @@ export const {
 
       // If we're moving to a mosaic, insert a tab.
       if (prev?.location !== "mosaic" && location === "mosaic") {
-        state.mosaic.root = Mosaic.insertTab(state.mosaic.root, { tabKey: key, title });
+        state.mosaic.root = Mosaic.insertTab(state.mosaic.root, { tabKey: key, name });
         state.mosaic.activeTab = key;
       }
 
@@ -209,11 +208,11 @@ export const {
     },
     renameLayoutMosaicTab: (
       state,
-      { payload: { tabKey, title } }: RenameLayoutMosaicTabAction
+      { payload: { tabKey, name } }: RenameLayoutMosaicTabAction
     ) => {
       const layout = state.layouts[tabKey];
-      if (layout != null) layout.title = title;
-      state.mosaic.root = Mosaic.renameTab(state.mosaic.root, tabKey, title);
+      if (layout != null) layout.name = name;
+      state.mosaic.root = Mosaic.renameTab(state.mosaic.root, tabKey, name);
     },
     setActiveTheme: (state, { payload: key }: SetActiveTheme) => {
       state.activeTheme = key;
@@ -234,13 +233,17 @@ export const {
       };
     },
     maybeCreateGetStartedTab: (state) => {
-      if (Object.values(state.layouts).length > 1) return;
+      if (
+        Object.values(state.layouts).filter(({ location }) => location === "mosaic")
+          .length !== 0
+      )
+        return;
       state.mosaic.root = Mosaic.insertTab(state.mosaic.root, {
         tabKey: "getStarted",
-        title: "Get Started",
+        name: "Get Started",
       });
       state.layouts.getStarted = {
-        title: "Get Started",
+        name: "Get Started",
         key: "getStarted",
         location: "mosaic",
         type: "getStarted",

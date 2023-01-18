@@ -12,10 +12,12 @@ import {
   ForwardedRef,
   forwardRef,
   HTMLAttributes,
-  PropsWithChildren,
+  DetailedHTMLProps,
 } from "react";
 
 import clsx from "clsx";
+
+import { Generic } from "../Generic";
 
 import { Direction } from "@/spatial";
 import { ComponentSize } from "@/util/component";
@@ -52,6 +54,11 @@ export const SpaceJustifications: readonly SpaceJustification[] = [
   "spaceEvenly",
 ];
 
+export type SpaceHTMLElement = Pick<
+  JSX.IntrinsicElements,
+  "div" | "header" | "nav" | "section" | "article" | "aside" | "footer" | "button"
+>;
+
 export interface SpaceExtensionProps {
   empty?: boolean;
   size?: ComponentSize | number | null;
@@ -61,60 +68,65 @@ export interface SpaceExtensionProps {
   align?: SpaceAlignment;
   grow?: boolean | number;
   wrap?: boolean;
+  el?: keyof SpaceHTMLElement;
 }
 
-export interface SpaceProps
-  extends PropsWithChildren<HTMLAttributes<HTMLDivElement>>,
-    SpaceExtensionProps {}
+export interface SpaceProps<E extends HTMLElement = HTMLDivElement>
+  extends SpaceExtensionProps,
+    Omit<DetailedHTMLProps<HTMLAttributes<E>, E>, "ref"> {}
 
-export const Space = forwardRef(
-  (
-    {
-      empty = false,
-      size = "medium",
-      justify = "start",
-      reverse = false,
-      direction = "y",
-      grow,
-      align,
-      className,
-      wrap = false,
-      style,
-      ...props
-    }: SpaceProps,
-    ref: ForwardedRef<HTMLDivElement>
-  ) => {
-    let gap: number | string | undefined;
-    if (empty) [size, gap] = [0, 0];
-    else if (typeof size === "number") gap = `${size ?? 0}rem`;
+const CoreSpace = <E extends HTMLElement = HTMLDivElement>(
+  {
+    style,
+    align,
+    className,
+    grow,
+    empty = false,
+    size = "medium",
+    justify = "start",
+    reverse = false,
+    direction = "y",
+    wrap = false,
+    el = "div",
+    ...props
+  }: SpaceProps<E>,
+  ref: ForwardedRef<E>
+): JSX.Element => {
+  let gap: number | string | undefined;
+  if (empty) [size, gap] = [0, 0];
+  else if (typeof size === "number") gap = `${size}rem`;
 
-    style = {
-      gap,
-      flexDirection: flexDirection(direction, reverse),
-      justifyContent: justifications[justify],
-      alignItems: align,
-      flexWrap: wrap ? "wrap" : "nowrap",
-      ...style,
-    };
+  style = {
+    gap,
+    flexDirection: flexDirection(direction, reverse),
+    justifyContent: justifications[justify],
+    alignItems: align,
+    flexWrap: wrap ? "wrap" : "nowrap",
+    ...style,
+  };
 
-    if (grow != null) style.flexGrow = Number(grow);
+  if (grow != null) style.flexGrow = Number(grow);
 
-    return (
-      <div
-        className={clsx(
-          "pluto-space",
-          typeof size === "string" && `pluto-space--${size}`,
-          `pluto-space--${direction}`,
-          className
-        )}
-        ref={ref}
-        style={style}
-        {...props}
-      />
-    );
-  }
-);
-Space.displayName = "Space";
+  return (
+    <Generic<E>
+      el={el}
+      ref={ref}
+      className={clsx(
+        "pluto-space",
+        typeof size === "string" && `pluto-space--${size}`,
+        `pluto-space--${direction}`,
+        className
+      )}
+      style={style}
+      {...props}
+    />
+  );
+};
+CoreSpace.displayName = "Space";
+
+export const Space = forwardRef(CoreSpace) as <E extends HTMLElement = HTMLDivElement>(
+  props: SpaceProps<E> & { ref?: ForwardedRef<E> }
+) => JSX.Element;
 
 type FlexDirection = CSSProperties["flexDirection"];
 

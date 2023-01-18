@@ -10,7 +10,7 @@
 import { Navbar } from "./Navbar";
 import { Navdrawer, useNavDrawer } from "./Navdrawer";
 import { NavMenu } from "./NavMenu";
-export type { NavbarProps, NavbarContextValue } from "./Navbar";
+export type { NavbarProps } from "./Navbar";
 export type {
   NavDrawerProps,
   NavDrawerContent,

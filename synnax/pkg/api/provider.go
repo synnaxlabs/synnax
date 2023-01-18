@@ -10,6 +10,7 @@
 package api
 
 import (
+	"github.com/go-playground/validator/v10"
 	"github.com/synnaxlabs/synnax/pkg/access"
 	errors "github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/auth"

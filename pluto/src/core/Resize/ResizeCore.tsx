@@ -11,14 +11,17 @@ import { DetailedHTMLProps, HTMLAttributes } from "react";
 
 import clsx from "clsx";
 
-import { Location, dirFromLoc, swapLoc } from "@/spatial";
+import { Location, locToDir, swapLoc, dirToDim } from "@/spatial";
 
 export interface ResizeCoreProps
   extends DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement> {
   location: Location;
   size: number;
+  onDragStart: (e: React.DragEvent<HTMLDivElement>) => void;
   showHandle?: boolean;
 }
+
+const preventDefault = (e: React.DragEvent<HTMLDivElement>): void => e.preventDefault();
 
 export const ResizeCore = ({
   location,
@@ -30,20 +33,20 @@ export const ResizeCore = ({
   showHandle = true,
   ...props
 }: ResizeCoreProps): JSX.Element => {
-  const direction = dirFromLoc(location);
-  const parsedStyle: React.CSSProperties = { ...style };
-  if (direction === "x") parsedStyle.height = size;
-  else parsedStyle.width = size;
+  const dir = locToDir(location);
   return (
     <div
       className={clsx(
         "pluto-resize-panel",
         `pluto-resize-panel--${location}`,
-        `pluto-resize-panel--${direction}`,
+        `pluto-resize-panel--${dir}`,
         showHandle && `pluto-bordered--${swapLoc(location)}`,
         className
       )}
-      style={parsedStyle}
+      style={{
+        [dirToDim(dir)]: size,
+        ...style,
+      }}
       {...props}
     >
       {children}
@@ -51,14 +54,10 @@ export const ResizeCore = ({
         <div
           draggable
           className="pluto-resize-panel__handle"
-          data-testid="resize-handle"
-          onDragStart={(e) => {
-            e.preventDefault();
-            onDragStart?.(e);
-          }}
-          onDrag={(e) => e.preventDefault()}
-          onDragEnd={(e) => e.preventDefault()}
-        ></div>
+          onDragStart={onDragStart}
+          onDrag={preventDefault}
+          onDragEnd={preventDefault}
+        />
       )}
     </div>
   );

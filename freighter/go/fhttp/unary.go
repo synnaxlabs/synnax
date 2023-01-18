@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"github.com/gofiber/fiber/v2"
 	"net/http"
 	"strings"
 

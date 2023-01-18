@@ -29,6 +29,6 @@ export const createVisualization =
       key,
       location: "mosaic",
       type: "visualization",
-      title: initial.key ?? "Plot",
+      name: initial.key ?? "Plot",
     };
   };

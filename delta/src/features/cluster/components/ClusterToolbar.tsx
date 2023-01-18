@@ -13,21 +13,22 @@ import clsx from "clsx";
 import { AiOutlinePlus } from "react-icons/ai";
 import { useDispatch } from "react-redux";
 
+import { ToolbarHeader, ToolbarTitle } from "@/components";
+import { Layout, useLayoutPlacer } from "@/features/layout";
+
 import { useSelectCluster, useSelectClusters } from "../store";
+
+import "./ClusterToolbar.css";
+
 import { setActiveCluster } from "../store/slice";
 import { RenderableCluster } from "../types";
 
 import { ClusterIcon } from "./ClusterIcon";
 
-import { ToolbarHeader, ToolbarTitle } from "@/components";
-import { Layout, useLayoutPlacer } from "@/features/layout";
-
-import "./ClusterToolbar.css";
-
 const connectClusterWindowLayout: Layout = {
   key: "connectCluster",
   type: "connectCluster",
-  title: "Connect a Cluster",
+  name: "Connect a Cluster",
   location: "window",
   window: {
     resizable: false,

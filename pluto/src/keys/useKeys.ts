@@ -9,9 +9,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { useMemoCompare } from "..";
+import { compareArrayDeps, useMemoCompare } from "..";
 
-import { mouseDownToKey } from "./mouse";
+import { mouseDownToKey as mouseClickAsKey } from "./mouse";
 import { KeyboardKey } from "./types";
 
 export interface UseKeyHeldReturn {
@@ -20,59 +20,32 @@ export interface UseKeyHeldReturn {
   all: boolean;
 }
 
-export const useKeysHeld = (keys: KeyboardKey[]): UseKeyHeldReturn => {
-  const [held, setHeld] = useState<UseKeyHeldReturn>({
-    keys: [],
-    any: false,
-    all: false,
-  });
+export const useKeysHeld = (..._keys: KeyboardKey[]): UseKeyHeldReturn => {
+  const [state, setState] = useState<KeyboardKey[]>([]);
 
-  const memoKeys = useMemoCompare(
-    () => keys,
-    ([a], [b]) => {
-      if (a === b) return true;
-      if (a == null || b == null) return false;
-      const equal = a.every((k, i) => b[i] === k);
-      return equal;
-    },
+  const keys = useMemoCompare(() => _keys, compareArrayDeps, [_keys] as const);
+
+  const handlePress = useCallback(
+    (key: KeyboardKey) => setState((prev) => [...prev, key]),
     [keys]
   );
 
-  const handlePress = useCallback(
-    (key: KeyboardKey) =>
-      setHeld((prev) => {
-        if (keys == null) return prev;
-        const nextKeys = [...prev.keys, key];
-        return {
-          keys: nextKeys,
-          any: true,
-          all: nextKeys.length === keys.length,
-        };
-      }),
-    [memoKeys]
-  );
-
   const handleRelease = useCallback(
-    (key: KeyboardKey) =>
-      setHeld((prev) => {
-        if (keys == null) return prev;
-        const nextKeys = prev.keys.filter((k) => k !== key);
-        return {
-          keys: nextKeys,
-          any: nextKeys.length > 0,
-          all: nextKeys.length === keys.length,
-        };
-      }),
-    [memoKeys]
+    (key: KeyboardKey) => setState((prev) => prev.filter((k) => k !== key)),
+    [keys]
   );
 
   useKeyPress({
-    keys: memoKeys,
+    keys,
     onPress: handlePress,
     onRelease: handleRelease,
   });
-  if (keys == null) return { keys: [], any: true, all: true };
-  return held;
+
+  return {
+    keys: state,
+    any: state.length > 0,
+    all: state.length === _keys.length,
+  };
 };
 
 export interface KeyPressEvent {
@@ -95,14 +68,8 @@ export const useKeyPress = ({
     const onKeyUp = (e: KeyPressEvent): void => {
       if (keys == null || keys.includes(e.key)) onRelease?.(e.key);
     };
-    const onMouseDown = (e: MouseEvent): void => {
-      const key = mouseDownToKey(e);
-      onKeyDown({ key });
-    };
-    const onMouseUp = (e: MouseEvent): void => {
-      const key = mouseDownToKey(e);
-      onKeyUp({ key });
-    };
+    const onMouseDown = (e: MouseEvent): void => onKeyDown({ key: mouseClickAsKey(e) });
+    const onMouseUp = (e: MouseEvent): void => onKeyUp({ key: mouseClickAsKey(e) });
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
     window.addEventListener("mousedown", onMouseDown);

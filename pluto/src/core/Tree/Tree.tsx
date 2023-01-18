@@ -13,9 +13,11 @@ import { RenderableRecord } from "@synnaxlabs/x";
 import clsx from "clsx";
 import { AiFillCaretDown, AiFillCaretRight } from "react-icons/ai";
 
+import { Button } from "@/core/Button";
+
 import { InputControlProps } from "../Input";
 
-import { Button } from "@/core/Button";
+import { ComponentSize } from "@/util/component";
 import { RenderProp } from "@/util/renderProp";
 
 import "./Tree.css";
@@ -29,6 +31,7 @@ export interface TreeProps<E extends RenderableRecord<E> = RenderableRecord>
   data: Array<TreeLeaf<E>>;
   onExpand?: (key: string) => void;
   children?: RenderProp<TreeLeafCProps<E>>;
+  size?: ComponentSize;
 }
 
 export const Tree = <E extends RenderableRecord<E> = RenderableRecord>({
@@ -37,6 +40,7 @@ export const Tree = <E extends RenderableRecord<E> = RenderableRecord>({
   onChange,
   onExpand,
   children = ButtonLeaf,
+  size,
   ...props
 }: TreeProps<E>): JSX.Element => {
   const _nextSiblingsHaveChildren = nextSiblingsHaveChildren(data);
@@ -53,6 +57,7 @@ export const Tree = <E extends RenderableRecord<E> = RenderableRecord>({
           onSelect={onChange}
           onExpand={onExpand}
           render={children}
+          size={size}
         />
       ))}
     </ul>
@@ -80,6 +85,7 @@ type TreeLeafProps<E extends RenderableRecord<E>> = TreeLeaf<E> & {
   onSelect?: (key: string) => void;
   render: RenderProp<TreeLeafCProps<E>>;
   siblingsHaveChildren: boolean;
+  size?: ComponentSize;
 };
 
 const TreeLeafParent = <E extends RenderableRecord>({
@@ -94,6 +100,7 @@ const TreeLeafParent = <E extends RenderableRecord>({
   prevPaddingLeft,
   render,
   siblingsHaveChildren,
+  size,
   ...rest
 }: TreeLeafProps<E>): JSX.Element => {
   const [expanded, setExpanded] = useState(recursiveSelected(children, selected));
@@ -119,6 +126,7 @@ const TreeLeafParent = <E extends RenderableRecord>({
         hasChildren,
         onExpand: handleExpand,
         onSelect,
+        size,
         ...rest,
       } as const as TreeLeafCProps<E>)}
       {expanded && children.length > 0 && (
@@ -191,7 +199,6 @@ export const ButtonLeaf = <E extends RenderableRecord<E>>({
       )}
       startIcon={icons}
       onClick={handleClick}
-      size="small"
       {...props}
     >
       {name}

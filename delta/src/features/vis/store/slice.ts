@@ -9,11 +9,10 @@
 
 import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
+import { Deep } from "@synnaxlabs/x";
 import { DeepPartial } from "react-hook-form";
 
 import { Vis } from "../types";
-
-import { mergeDeep } from "@/util/merge";
 
 export interface VisualizationState {
   warpMode: boolean;
@@ -47,7 +46,7 @@ export const {
     },
     updateVis: (state, { payload }: UpdateVisAction) => {
       const vis = state.visualizations[payload.key];
-      const res = mergeDeep(vis, payload);
+      const res = Deep.merge(vis, payload);
       state.visualizations[payload.key] = res;
     },
     setWarpMode: (state, { payload }: SetWarpModeAction) => {

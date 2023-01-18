@@ -12,6 +12,7 @@ package server
 import (
 	"bytes"
 	"github.com/cockroachdb/cmux"
+	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/filesystem"
 	"github.com/gofiber/fiber/v2/middleware/monitor"

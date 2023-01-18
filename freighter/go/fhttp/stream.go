@@ -11,6 +11,7 @@ package fhttp
 
 import (
 	"context"
+	"github.com/gofiber/fiber/v2"
 	"go/types"
 	"io"
 	"net/http"

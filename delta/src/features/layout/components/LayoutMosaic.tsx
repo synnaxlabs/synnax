@@ -55,8 +55,8 @@ export const LayoutMosaic = (): JSX.Element => {
   );
 
   const handleRename = useCallback(
-    (tabKey: string, title: string): void => {
-      dispatch(renameLayoutMosaicTab({ tabKey, title }));
+    (tabKey: string, name: string): void => {
+      dispatch(renameLayoutMosaicTab({ tabKey, name }));
     },
     [dispatch]
   );
@@ -77,9 +77,9 @@ export const LayoutMosaic = (): JSX.Element => {
       onSelect={handleSelect}
       onResize={handleResize}
       emptyContent={emptyContent}
-      onTitleChange={handleRename}
+      onRename={handleRename}
     >
-      {({ tab }) => <LayoutContent layoutKey={tab.tabKey} />}
+      {(tab) => <LayoutContent layoutKey={tab.tabKey} />}
     </PlutoMosaic>
   );
 };

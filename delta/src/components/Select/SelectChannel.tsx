@@ -14,22 +14,22 @@ import type { ListColumn, SelectMultipleProps, SelectProps } from "@synnaxlabs/p
 const channelColumns: Array<ListColumn<ChannelPayload>> = [
   {
     key: "name",
-    label: "Name",
+    name: "Name",
   },
 ];
 
 const verboseChannelColumns: Array<ListColumn<ChannelPayload>> = [
   {
     key: "name",
-    label: "Name",
+    name: "Name",
   },
   {
     key: "rate",
-    label: "Rate",
+    name: "Rate",
   },
   {
     key: "dataType",
-    label: "Data Type",
+    name: "Data Type",
   },
 ];
 

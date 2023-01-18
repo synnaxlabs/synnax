@@ -15,7 +15,7 @@ import { debounce as debounceF } from "@synnaxlabs/x";
 import { Box, BoxF, ZERO_BOX } from "./box";
 import { Direction, isDirection } from "./core";
 
-import { useMemoCompare } from "@/hooks";
+import { compareArrayDeps, useMemoCompare } from "@/hooks";
 
 /** A list of events that can trigger a resize. */
 export type Trigger = "moveX" | "moveY" | "resizeX" | "resizeY";
@@ -39,14 +39,14 @@ export interface UseResizeOpts {
  */
 export const useResize = <E extends HTMLElement>(
   onResize: BoxF,
-  { triggers = [], debounce = 0 }: UseResizeOpts
+  { triggers: _triggers = [], debounce = 0 }: UseResizeOpts
 ): RefObject<E> => {
   const prev = useRef<Box>(ZERO_BOX);
   const ref = useRef<E | null>(null);
-  const memoTriggers = useMemoCompare(
-    () => normalizeTriggers(triggers),
-    ([a], [b]) => a.length === b.length && a.every((t, i) => t === b[i]),
-    [triggers]
+  const triggers = useMemoCompare(
+    () => normalizeTriggers(_triggers),
+    compareArrayDeps,
+    [_triggers] as const
   );
   useEffect(() => {
     const el = ref.current;
@@ -54,13 +54,13 @@ export const useResize = <E extends HTMLElement>(
     prev.current = ZERO_BOX;
     const deb = debounceF(() => {
       const next = new Box(el.getBoundingClientRect());
-      if (shouldResize(memoTriggers, prev.current, next)) onResize(next);
+      if (shouldResize(triggers, prev.current, next)) onResize(next);
       prev.current = next;
     }, debounce);
     const obs = new ResizeObserver(deb);
     obs.observe(el);
     return () => obs.disconnect();
-  }, [memoTriggers, onResize, debounce]);
+  }, [triggers, onResize, debounce]);
   return ref;
 };
 

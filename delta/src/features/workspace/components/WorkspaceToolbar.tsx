@@ -12,16 +12,16 @@ import type { NavDrawerItem } from "@synnaxlabs/pluto";
 import { AiOutlinePlus } from "react-icons/ai";
 import { MdWorkspacesFilled } from "react-icons/md";
 
-import { RangesList } from "./RangesList";
-import { VisList } from "./VisList";
-
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout, useLayoutPlacer } from "@/features/layout";
+
+import { RangesList } from "./RangesList";
+import { VisList } from "./VisList";
 
 const rangeWindowLayout: Layout = {
   key: "defineRange",
   type: "defineRange",
-  title: "Define Range",
+  name: "Define Range",
   location: "window",
   window: {
     resizable: false,
@@ -43,7 +43,7 @@ const Content = (): JSX.Element => {
         entries={[
           {
             key: "ranges",
-            title: "Ranges",
+            name: "Ranges",
             content: <RangesList />,
             actions: [
               {
@@ -54,7 +54,7 @@ const Content = (): JSX.Element => {
           },
           {
             key: "visualizations",
-            title: "Visualizations",
+            name: "Visualizations",
             content: <VisList />,
           },
         ]}

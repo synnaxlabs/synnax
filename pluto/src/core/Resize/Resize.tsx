@@ -11,58 +11,86 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { clamp } from "@synnaxlabs/x";
 
-import { useCursorDrag } from "@/hooks/useCursorDrag";
-
 import { ResizeCore, ResizeCoreProps } from "./ResizeCore";
 
-import { Box, dirFromLoc, Location, swapDir } from "@/spatial";
+import { Box, locToDir, Location } from "@/spatial";
+import { useCursorDrag } from "@/spatial/useCursorDrag";
 
 import "./Resize.css";
 
 export interface ResizeProps
-  extends Omit<ResizeCoreProps, "showHandle" | "size" | "onResize"> {
+  extends Omit<ResizeCoreProps, "showHandle" | "size" | "onResize" | "onDragStart"> {
   location: Location;
   initialSize?: number;
   minSize?: number;
   maxSize?: number;
   onResize?: (size: number) => void;
+  collapseThreshold?: number;
+  onCollapse?: () => void;
 }
+
+const COLLAPSED_SIZE = 0;
 
 export const Resize = ({
   location = "left",
   minSize = 100,
   maxSize = Infinity,
   initialSize = 200,
+  collapseThreshold = Infinity,
+  onCollapse,
   onResize,
   ...props
 }: ResizeProps): JSX.Element => {
   const [size, setSize] = useState(clamp(initialSize, minSize, maxSize));
   const marker = useRef<number | null>(null);
-  const swappedDir = swapDir(dirFromLoc(location));
 
-  const onMouseMove = useCallback(
+  const calcNextSize = useCallback(
     (box: Box) => {
-      if (marker.current === null) marker.current = size;
-      const nextSize = clamp(
-        marker.current + box.dim(swappedDir, true),
-        minSize,
-        maxSize
-      );
+      if (marker.current === null) return 0;
+      const dir = locToDir(location);
+      const dim =
+        box.dim(dir, true) * (1 - 2 * Number(["bottom", "right"].includes(location)));
+      const rawNextSize = marker.current + dim;
+      const nextSize = clamp(rawNextSize, minSize, maxSize);
+      if ((nextSize - rawNextSize) / minSize > collapseThreshold) return COLLAPSED_SIZE;
+      return nextSize;
+    },
+    [location, minSize, maxSize, collapseThreshold]
+  );
+
+  const handleMove = useCallback(
+    (box: Box) => {
+      const nextSize = calcNextSize(box);
       setSize(nextSize);
       onResize?.(nextSize);
     },
-    [onResize, location, minSize, maxSize, size]
+    [onResize, calcNextSize]
   );
 
-  useEffect(() => {
-    setSize((prev) => clamp(prev, minSize, maxSize));
-  }, [minSize, maxSize]);
+  const handleStart = useCallback(
+    () =>
+      setSize((prev) => {
+        marker.current = prev;
+        return prev;
+      }),
+    [setSize]
+  );
+
+  const handleEnd = useCallback(
+    (box: Box) => calcNextSize(box) === COLLAPSED_SIZE && onCollapse?.(),
+    [onCollapse, calcNextSize]
+  );
+
+  useEffect((): void => {
+    const nextSize = clamp(initialSize, minSize, maxSize);
+    marker.current = nextSize;
+    setSize(nextSize);
+  }, [initialSize, minSize, maxSize]);
 
   const handleDragStart = useCursorDrag({
-    onMove: onMouseMove,
-    onEnd: () => {
-      marker.current = null;
-    },
+    onMove: handleMove,
+    onStart: handleStart,
+    onEnd: handleEnd,
   });
 
   return (

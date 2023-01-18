@@ -7,16 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Divider, Nav, Theming } from "@synnaxlabs/pluto";
+import { Divider, Nav, Theming, dirFromLoc } from "@synnaxlabs/pluto";
 import type { NavDrawerItem } from "@synnaxlabs/pluto";
-
-import { Logo } from "../Logo";
+import clsx from "clsx";
 
 import { ClusterBadge, ClusterToolbar, ConnectionBadge } from "@/features/cluster";
 import { NavdrawerLocation, useNavDrawer } from "@/features/layout";
 import { ResourcesToolbar } from "@/features/resources";
 import { VersionBadge } from "@/features/version";
 import { VisToolbar, WarpModeToggle } from "@/features/vis";
+
+import { Logo } from "../Logo";
+
 import { WorkspaceToolbar } from "@/features/workspace";
 
 import "./Nav.css";
@@ -114,14 +116,19 @@ export interface NavDrawerProps {
   location: NavdrawerLocation;
 }
 
-export const NavDrawer = ({ location }: NavDrawerProps): JSX.Element => {
-  const { activeItem, onResize } = useNavDrawer(location, NAV_DRAWERS);
+export const NavDrawer = ({ location, ...props }: NavDrawerProps): JSX.Element => {
+  const { activeItem, onResize, onSelect } = useNavDrawer(location, NAV_DRAWERS);
   return (
     <Nav.Drawer
       location={location}
+      className={clsx(
+        "delta-main-nav-drawer",
+        `delta-main-nav-drawer--${dirFromLoc(location)}`
+      )}
       activeItem={activeItem}
-      style={{ flexShrink: 0, flexGrow: 0 }}
       onResize={onResize}
+      onSelect={onSelect}
+      {...props}
     />
   );
 };

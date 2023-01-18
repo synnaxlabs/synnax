@@ -42,7 +42,10 @@ export interface ResizeMultipleProps extends SpaceProps {
 
 export interface UseResizeMultipleReturn {
   setSize: (i: number, size?: number) => void;
-  props: ResizeMultipleProps & {
+  props: Pick<
+    ResizeMultipleProps,
+    "sizeDistribution" | "parentSize" | "onDragHandle" | "direction"
+  > & {
     ref: RefObject<HTMLDivElement>;
   };
 }
@@ -80,6 +83,7 @@ export const useResizeMultiple = ({
 
   const handleDragHandle = useCallback(
     (e: RDragEvent | RMouseEvent, dragging: number): void => {
+      e.preventDefault();
       const dim = direction === "x" ? "clientX" : "clientY";
       const handleMouseMove = (e: MouseEvent): void => _handleResize(dragging, e[dim]);
       const handleMouseUp = (): void => {
@@ -202,7 +206,7 @@ export const handleParentResize = (
   count: number,
   minSize: number
 ): ResizeMultipleState => {
-  const nextParentSize = locDim(direction, box);
+  const nextParentSize = locDim(direction, box.dims);
   if (prev.parentSize == null && prev.sizeDistribution.length !== count)
     return {
       ...prev,

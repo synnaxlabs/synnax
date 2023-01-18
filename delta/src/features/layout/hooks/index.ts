@@ -65,7 +65,7 @@ export const useLayoutPlacer = (): LayoutPlacer => {
   return useCallback(
     (layout_: Layout | LayoutCreator) => {
       const layout = typeof layout_ === "function" ? layout_({ dispatch }) : layout_;
-      const { key, location, window, title } = layout;
+      const { key, location, window, name: title } = layout;
       dispatch(placeLayout(layout));
       if (location === "window")
         dispatch(

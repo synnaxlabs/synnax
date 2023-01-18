@@ -9,7 +9,11 @@
 
 import { CSSProperties, useEffect, useState } from "react";
 
-import { createSortF, convertRenderV, RenderableRecord } from "@synnaxlabs/x";
+import {
+  objectValueCompareFactory,
+  convertRenderV,
+  RenderableRecord,
+} from "@synnaxlabs/x";
 import clsx from "clsx";
 import { AiFillCaretDown, AiFillCaretUp } from "react-icons/ai";
 
@@ -147,16 +151,6 @@ const ListColumnValue = <E extends RenderableRecord<E>>({
   );
 };
 
-const entrySortFunc =
-  <E extends RenderableRecord<E>>(type: string, key: keyof E) =>
-  (a: E, b: E) =>
-    createSortF(type)(a[key], b[key]);
-
-const reverseSort =
-  <T,>(f: (a: T, b: T) => number) =>
-  (a: T, b: T) =>
-    f(b, a);
-
 const columnWidths = <E extends RenderableRecord<E>>(
   columns: Array<ListColumnT<E>>,
   data: E[],
@@ -192,18 +186,12 @@ const longestEntries = <E extends RenderableRecord<E>>(
   return longest;
 };
 
-const sortTransform = <E extends RenderableRecord<E>>(
-  k: keyof E,
-  dir: boolean
-): ArrayTransform<E> => {
-  return (data: E[]) => {
+const sortTransform =
+  <E extends RenderableRecord<E>>(k: keyof E, dir: boolean): ArrayTransform<E> =>
+  (data: E[]) => {
     if (data.length === 0) return data;
-    const v = data[0][k];
-    let sortF = entrySortFunc(typeof v, k);
-    if (!dir) sortF = reverseSort(sortF);
-    return [...data].sort(sortF);
+    return [...data].sort(objectValueCompareFactory(k, data[0], !dir));
   };
-};
 
 export const ListColumn = {
   Header: ListColumnHeader,

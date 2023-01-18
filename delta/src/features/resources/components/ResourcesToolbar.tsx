@@ -75,9 +75,10 @@ const ResourcesTree = (): JSX.Element => {
         data={data}
         style={{ overflowY: "auto", overflowX: "hidden", height: "100%" }}
         value={selected}
-        onChange={([key]) => {
+        onChange={(key) => {
           if (key == null) return;
           const id = OntologyID.parseString(key);
+          console.log(key);
           const { onSelect } = resourceTypes[id.type];
           onSelect?.({
             id,

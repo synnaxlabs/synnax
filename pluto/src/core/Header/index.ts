@@ -34,7 +34,7 @@ interface HeaderType extends CoreHeaderType {
 }
 
 /**
- * Header renders header text with a bottom border.
+ * Header is the container for a m
  *
  * @param props - The component props. All unused props will be passed down to the
  * {@link Space} containing the header.

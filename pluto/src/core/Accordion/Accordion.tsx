@@ -14,20 +14,21 @@ import { AiFillCaretDown, AiFillCaretRight } from "react-icons/ai";
 
 import { ButtonIconOnlyProps } from "@/core/Button";
 import { Header } from "@/core/Header";
-import { Resize } from "@/core/Resize";
-import { Space } from "@/core/Space";
+import { Resize, ResizeMultipleProps } from "@/core/Resize";
 import { Direction } from "@/spatial";
+import { expandedCls } from "@/util/css";
 
 import "./Accordion.css";
 
 export interface AccordionEntry {
   key: string;
-  title: string;
+  name: string;
   content: ReactElement;
   actions?: Array<ButtonIconOnlyProps | ReactElement>;
 }
 
-export interface AccordionProps {
+export interface AccordionProps
+  extends Omit<ResizeMultipleProps, "sizeDistribution" | "parentSize"> {
   entries: AccordionEntry[];
   direction?: Direction;
 }
@@ -42,7 +43,7 @@ export const Accordion = ({
   } = Resize.useMultiple({
     direction,
     count: entries.length,
-    minSize: 27,
+    minSize: 28,
   });
 
   const onExpand = (index: number): void => {
@@ -53,7 +54,7 @@ export const Accordion = ({
   return (
     <Resize.Multiple
       empty
-      style={{ height: "100%", overflow: "hidden" }}
+      className="pluto-accordion"
       sizeDistribution={sizes}
       parentSize={parentSize}
       {...resizeProps}
@@ -62,10 +63,10 @@ export const Accordion = ({
         <AccordionEntryC
           {...entry}
           key={entry.key}
+          index={i}
           direction={direction}
           onExpand={onExpand}
-          index={i}
-          size={sizes[i] * parentSize}
+          expanded={sizes[i] * parentSize > 32}
         />
       ))}
     </Resize.Multiple>
@@ -74,40 +75,37 @@ export const Accordion = ({
 
 interface AccordionEntryCProps extends Omit<AccordionEntry, "key"> {
   index: number;
-  size: number;
+  expanded: boolean;
   onExpand: (i: number) => void;
   direction: Direction;
 }
 
 const AccordionEntryC = ({
   index,
-  title,
+  name,
   content,
   direction,
   actions,
+  expanded,
   onExpand,
-  size,
-}: AccordionEntryCProps): JSX.Element => {
-  const expanded = size > 30;
-  return (
-    <Space direction={direction} empty style={{ height: "100%" }}>
-      <Header
-        level="p"
-        className={clsx(
-          "pluto-accordion__header",
-          `pluto-accordion__header--${expanded ? "expanded" : "contracted"}`
-        )}
-        empty
+}: AccordionEntryCProps): JSX.Element => (
+  <>
+    <Header
+      level="p"
+      className={clsx(
+        "pluto-accordion__header",
+        `pluto-accordion__header--${expandedCls(expanded)}`
+      )}
+      empty
+    >
+      <Header.ButtonTitle
+        startIcon={expanded ? <AiFillCaretDown /> : <AiFillCaretRight />}
+        onClick={() => onExpand(index)}
       >
-        <Header.ButtonTitle
-          startIcon={expanded ? <AiFillCaretDown /> : <AiFillCaretRight />}
-          onClick={() => onExpand(index)}
-        >
-          {title}
-        </Header.ButtonTitle>
-        {actions != null && <Header.Actions>{actions}</Header.Actions>}
-      </Header>
-      {content}
-    </Space>
-  );
-};
+        {name}
+      </Header.ButtonTitle>
+      {actions != null && <Header.Actions>{actions}</Header.Actions>}
+    </Header>
+    {content}
+  </>
+);

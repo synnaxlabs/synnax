@@ -17,6 +17,7 @@ import {
   ZERO_XY,
   Direction,
   toXY,
+  SignedDimensions,
 } from "./core";
 
 export interface BoxDomRect {
@@ -118,6 +119,10 @@ export class Box {
     );
   }
 
+  get dims(): Dimensions {
+    return { width: this.width, height: this.height };
+  }
+
   dim(dir: Direction, signed: boolean = false): number {
     const dim: number = dir === "y" ? this.signedHeight : this.signedWidth;
     return signed ? dim : Math.abs(dim);
@@ -216,8 +221,8 @@ export class Box {
     );
   }
 
-  translateBySignedDims(box: Box): Box {
-    return this.translate({ x: box.signedWidth, y: box.signedHeight });
+  translateBySignedDims(dims: SignedDimensions): Box {
+    return this.translate({ x: dims.signedWidth, y: dims.signedHeight });
   }
 
   resize(v: XY): Box {

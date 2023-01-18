@@ -164,13 +164,13 @@ const synnaxBase: Theme = {
     },
     small: {
       size: 2,
-      weight: 300,
+      weight: "regular",
       lineHeight: 2 + 1 / 3,
     },
     tiny: {
-      size: 1.5,
+      size: 1.75,
       weight: 300,
-      lineHeight: 1.5 + 1 / 3,
+      lineHeight: 2,
     },
   },
 };
