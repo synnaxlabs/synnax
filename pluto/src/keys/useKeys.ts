@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/explicit-function-return-type */
 // Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
@@ -11,7 +12,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { compareArrayDeps, useMemoCompare } from "..";
 
-import { mouseDownToKey as mouseClickAsKey } from "./mouse";
+import { mouseButtonKey } from "./mouse";
 import { KeyboardKey } from "./types";
 
 export interface UseKeyHeldReturn {
@@ -48,7 +49,7 @@ export const useKeysHeld = (..._keys: KeyboardKey[]): UseKeyHeldReturn => {
   };
 };
 
-export interface KeyPressEvent {
+interface KeyPressEvent {
   key: KeyboardKey;
 }
 
@@ -57,19 +58,15 @@ export const useKeyPress = ({
   onPress,
   onRelease,
 }: {
-  keys: KeyboardKey[] | null;
-  onPress: (key: KeyboardKey) => void;
+  keys: KeyboardKey[];
+  onPress?: (key: KeyboardKey) => void;
   onRelease?: (key: KeyboardKey) => void;
 }): void => {
   useEffect(() => {
-    const onKeyDown = (e: KeyPressEvent): void => {
-      if (keys == null || keys.includes(e.key)) onPress(e.key);
-    };
-    const onKeyUp = (e: KeyPressEvent): void => {
-      if (keys == null || keys.includes(e.key)) onRelease?.(e.key);
-    };
-    const onMouseDown = (e: MouseEvent): void => onKeyDown({ key: mouseClickAsKey(e) });
-    const onMouseUp = (e: MouseEvent): void => onKeyUp({ key: mouseClickAsKey(e) });
+    const onKeyDown = (e: KeyPressEvent) => keys.includes(e.key) && onPress?.(e.key);
+    const onKeyUp = (e: KeyPressEvent) => keys.includes(e.key) && onRelease?.(e.key);
+    const onMouseDown = (e: MouseEvent) => onKeyDown({ key: mouseButtonKey(e) });
+    const onMouseUp = (e: MouseEvent) => onKeyUp({ key: mouseButtonKey(e) });
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
     window.addEventListener("mousedown", onMouseDown);

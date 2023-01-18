@@ -4,7 +4,7 @@ export const MOUSE_WHEEL_CLICK = "Wheel";
 export const MOUSE_LEFT_CLCIK = "Left";
 export const MOUSE_RIGHT_CLICK = "Right";
 
-export const mouseDownToKey = (e: { button: number }): KeyboardKey => {
+export const mouseButtonKey = (e: { button: number }): KeyboardKey => {
   switch (e.button) {
     case 0:
       return MOUSE_LEFT_CLCIK;
