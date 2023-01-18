@@ -7,15 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  FocusEventHandler,
-  forwardRef,
-  ReactElement,
-  RefObject,
-  useCallback,
-  useRef,
-  useState,
-} from "react";
+import { forwardRef, RefObject, useCallback, useRef, useState } from "react";
 
 import clsx from "clsx";
 
@@ -51,10 +43,7 @@ export interface DropdownProps
   extends Pick<UseDropdownReturn, "visible">,
     Omit<SpaceProps, "ref" | "reverse" | "size" | "empty"> {
   location?: YLocation;
-  children: [
-    ReactElement<{ onFocus: FocusEventHandler; autoFocus: boolean }>,
-    JSX.Element
-  ];
+  children: [JSX.Element, JSX.Element];
 }
 
 export const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
