@@ -8,12 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import {
-  Dispatch,
   FocusEventHandler,
   forwardRef,
   ReactElement,
   RefObject,
-  SetStateAction,
   useCallback,
   useRef,
   useState,
@@ -23,29 +21,36 @@ import clsx from "clsx";
 
 import { Space, SpaceProps } from "@/core/Space";
 import { useClickOutside } from "@/hooks";
-import { XLocation } from "@/spatial";
+import { YLocation } from "@/spatial";
 import { visibleCls } from "@/util/css";
 
 import "./Dropdown.css";
 
 export interface UseDropdownReturn {
   visible: boolean;
-  setVisible: Dispatch<SetStateAction<boolean>>;
+  close: () => void;
+  open: () => void;
+  toggle: (vis?: boolean) => void;
   ref: RefObject<HTMLDivElement>;
-  onFocus: FocusEventHandler;
 }
-export const useDropdown = (): UseDropdownReturn => {
-  const [visible, setVisible] = useState(false);
+
+export const useDropdown = (initialVisible: boolean = false): UseDropdownReturn => {
+  const [visible, setVisible] = useState(initialVisible);
   const ref = useRef<HTMLDivElement>(null);
-  useClickOutside(ref, () => setVisible(false));
-  const onFocus = useCallback(() => setVisible(true), []);
-  return { visible, ref, onFocus, setVisible };
+  const toggle = useCallback(
+    (vis?: boolean) => setVisible(vis ?? !visible),
+    [setVisible]
+  );
+  const open = useCallback(() => toggle(true), [toggle]);
+  const close = useCallback(() => toggle(false), [toggle]);
+  useClickOutside(ref, close);
+  return { visible, ref, open, close, toggle };
 };
 
 export interface DropdownProps
-  extends Omit<UseDropdownReturn, "onFocus" | "setVisible">,
+  extends Pick<UseDropdownReturn, "visible">,
     Omit<SpaceProps, "ref" | "reverse" | "size" | "empty"> {
-  location?: XLocation;
+  location?: YLocation;
   children: [
     ReactElement<{ onFocus: FocusEventHandler; autoFocus: boolean }>,
     JSX.Element

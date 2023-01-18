@@ -56,7 +56,15 @@ export const SpaceJustifications: readonly SpaceJustification[] = [
 
 export type SpaceHTMLElement = Pick<
   JSX.IntrinsicElements,
-  "div" | "header" | "nav" | "section" | "article" | "aside" | "footer" | "button"
+  | "div"
+  | "header"
+  | "nav"
+  | "section"
+  | "article"
+  | "aside"
+  | "footer"
+  | "button"
+  | "dialog"
 >;
 
 export interface SpaceExtensionProps {

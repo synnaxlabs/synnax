@@ -38,11 +38,11 @@ export const Select = <E extends RenderableRecord<E>>({
   columns = [],
   data = [],
 }: SelectProps<E>): JSX.Element => {
-  const { ref, visible, onFocus, setVisible } = Dropdown.use();
+  const { ref, visible, open, close } = Dropdown.use();
 
   const handleChange = ([key]: readonly string[]): void => {
     onChange(key);
-    setVisible(false);
+    close();
   };
 
   return (
@@ -54,7 +54,7 @@ export const Select = <E extends RenderableRecord<E>>({
               data={data}
               selected={value}
               tagKey={tagKey}
-              onFocus={onFocus}
+              onFocus={open}
               visible={visible}
               {...props}
             />

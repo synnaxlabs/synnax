@@ -10,7 +10,6 @@
  */
 
 export * from "@/core/Accordion";
-export * from "@/core/Autosize";
 export * from "@/core/Button";
 export * from "@/core/Divider";
 export * from "@/core/Dropdown";

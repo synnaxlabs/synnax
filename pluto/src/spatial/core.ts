@@ -16,9 +16,9 @@ export const ORDERS = ["first", "last"] as const;
 export type Order = typeof ORDERS[number];
 
 export const Y_LOCATIONS = ["top", "bottom"] as const;
-export type XLocation = typeof Y_LOCATIONS[number];
+export type YLocation = typeof Y_LOCATIONS[number];
 export const X_LOCATIONS = ["left", "right"] as const;
-export type YLocation = typeof X_LOCATIONS[number];
+export type XLocation = typeof X_LOCATIONS[number];
 export type CenterLocation = "center";
 
 export const CORNERS = ["topLeft", "topRight", "bottomLeft", "bottomRight"] as const;
@@ -34,9 +34,9 @@ export const DIRECTIONS = ["x", "y"] as const;
 export type Direction = typeof DIRECTIONS[number];
 export const isDirection = (v: string): boolean => DIRECTIONS.includes(v as Direction);
 
-export const locToDir = (location: Location | Direction): Direction => {
-  if (isDirection(location)) return location as Direction;
-  return Y_LOCATIONS.includes(location as XLocation) ? "y" : "x";
+export const locToDir = (loc: Location | Direction): Direction => {
+  if (isDirection(loc)) return loc as Direction;
+  return Y_LOCATIONS.includes(loc as YLocation) ? "y" : "x";
 };
 
 export const swapDir = (direction: Direction): Direction =>
@@ -45,20 +45,15 @@ export const swapDir = (direction: Direction): Direction =>
 export const locFromDir = (direction: Direction): Location =>
   direction === "x" ? "left" : "top";
 
-export const swapLoc = (location: Location): Location => {
-  switch (location) {
-    case "top":
-      return "bottom";
-    case "bottom":
-      return "top";
-    case "left":
-      return "right";
-    case "right":
-      return "left";
-    case "center":
-      return "center";
-  }
-};
+const SWAPPED_LOCS = {
+  top: "bottom",
+  bottom: "top",
+  left: "right",
+  right: "left",
+  center: "center",
+} as const;
+
+export const swapLoc = (location: Location): Location => SWAPPED_LOCS[location];
 
 /** A generic 2D point, scale, or offset. */
 export interface XY extends Record<Direction, number> {}

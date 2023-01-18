@@ -16,7 +16,7 @@ const story: ComponentMeta<typeof Accordion> = {
   component: Accordion,
 };
 
-const entries: AccordionEntry[] = [
+const data: AccordionEntry[] = [
   {
     key: "cluster",
     name: "Cluster",
@@ -30,7 +30,7 @@ const entries: AccordionEntry[] = [
 ];
 
 export const Primary: ComponentStory<typeof Accordion> = () => (
-  <Accordion entries={entries} direction="y" />
+  <Accordion data={data} />
 );
 
 // eslint-disable-next-line import/no-default-export

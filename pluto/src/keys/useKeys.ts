@@ -8,31 +8,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect } from "react";
 
 import { compareArrayDeps, useMemoCompare } from "..";
 
 import { mouseButtonKey } from "./mouse";
 import { KeyboardKey } from "./types";
 
-export interface UseKeyHeldReturn {
-  keys: KeyboardKey[];
-  any: boolean;
-  all: boolean;
-}
+import { PseudoSetState } from "@/hooks/useRefState";
 
-export const useKeysHeld = (..._keys: KeyboardKey[]): UseKeyHeldReturn => {
-  const [state, setState] = useState<KeyboardKey[]>([]);
-
+export const useKeysHeld = (
+  onChange: PseudoSetState<KeyboardKey[]>,
+  ..._keys: KeyboardKey[]
+): void => {
   const keys = useMemoCompare(() => _keys, compareArrayDeps, [_keys] as const);
 
   const handlePress = useCallback(
-    (key: KeyboardKey) => setState((prev) => [...prev, key]),
+    (key: KeyboardKey) => onChange((prev) => [...prev, key]),
     [keys]
   );
 
   const handleRelease = useCallback(
-    (key: KeyboardKey) => setState((prev) => prev.filter((k) => k !== key)),
+    (key: KeyboardKey) => onChange((prev) => prev.filter((k) => k !== key)),
     [keys]
   );
 
@@ -41,12 +38,6 @@ export const useKeysHeld = (..._keys: KeyboardKey[]): UseKeyHeldReturn => {
     onPress: handlePress,
     onRelease: handleRelease,
   });
-
-  return {
-    keys: state,
-    any: state.length > 0,
-    all: state.length === _keys.length,
-  };
 };
 
 interface KeyPressEvent {

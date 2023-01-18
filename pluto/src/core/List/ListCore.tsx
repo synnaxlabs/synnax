@@ -13,11 +13,9 @@ import { RenderableRecord } from "@synnaxlabs/x";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 import { SelectedRecord } from "@/hooks/useSelectMultiple";
-
-import { useListContext } from "./ListContext";
-
 import { RenderProp } from "@/util/renderProp";
 
+import { useListContext } from "./ListContext";
 import { ListItemProps } from "./types";
 
 import "./ListCore.css";
@@ -26,13 +24,16 @@ export interface ListVirtualCoreProps<E extends RenderableRecord<E>>
   extends Omit<HTMLAttributes<HTMLDivElement>, "children" | "onSelect"> {
   itemHeight: number;
   children: RenderProp<ListItemProps<E>>;
+  overscan?: number;
 }
 
 const ListVirtualCore = <E extends RenderableRecord<E>>({
   itemHeight,
   children,
+  overscan = 5,
   ...props
 }: ListVirtualCoreProps<E>): JSX.Element => {
+  if (itemHeight <= 0) throw new Error("itemHeight must be greater than 0");
   const {
     data,
     columnar: { columns },
@@ -43,7 +44,7 @@ const ListVirtualCore = <E extends RenderableRecord<E>>({
     count: data.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => itemHeight,
-    overscan: Math.floor(data.length / 10),
+    overscan,
   });
   return (
     <div ref={parentRef} className="pluto-list__container" {...props}>
