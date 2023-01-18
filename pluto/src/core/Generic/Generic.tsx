@@ -4,7 +4,6 @@ import {
   ForwardedRef,
   forwardRef,
   HtmlHTMLAttributes,
-  Ref,
 } from "react";
 
 export type GenericElementKey<P extends keyof JSX.IntrinsicElements = any> = keyof Pick<
