@@ -18,6 +18,7 @@ import {
 } from "react";
 
 import clsx from "clsx";
+import { AiOutlineConsoleSql } from "react-icons/ai";
 
 import { ResizeCore } from "./ResizeCore";
 
