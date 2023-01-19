@@ -45,7 +45,7 @@ export const useStaticTabs = ({ tabs, content }: UseStaticTabsProps): TabsProps 
   return {
     tabs,
     selected,
-    content,
+    children: content,
     onSelect: setSelected,
   };
 };
@@ -73,7 +73,7 @@ export const TabsContext = createContext<TabsContextValue>({ tabs: [] });
 export const useTabsContext = (): TabsContextValue => useContext(TabsContext);
 
 export const Tabs = ({
-  content,
+  children: content,
   onSelect,
   selected,
   closable,

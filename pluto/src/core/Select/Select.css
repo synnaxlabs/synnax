@@ -10,6 +10,6 @@
  */
 
 /* When the input is visible, it's borders should be on top of the dropdown dialog. */
-.pluto-select__input--visible {
+.pluto-select__input.pluto--visible {
     z-index: 12;
 }

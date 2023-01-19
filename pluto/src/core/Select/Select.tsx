@@ -115,7 +115,7 @@ const SelectInput = <E extends RenderableRecord<E>>({
 
   return (
     <Input
-      className={clsx(`pluto-select__input--${visibleCls(visible)}`, className)}
+      className={clsx("pluto-select__input", visibleCls(visible), className)}
       value={value}
       onChange={handleChange}
       onFocus={handleFocus}

@@ -88,14 +88,14 @@
     align-items: center;
 }
 
-.pluto--medium .pluto-btn-icon__icon {
+.pluto--medium > svg {
     font-size: 3rem;
 }
 
-.pluto--small .pluto-btn-icon__icon {
+.pluto--small > svg {
     font-size: 2.5rem;
 }
 
-.pluto--large .pluto-btn-icon__icon {
+.pluto--large > svg {
     font-size: 4rem;
 }
