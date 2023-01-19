@@ -79,7 +79,7 @@ export const Accordion = ({ data, ...props }: AccordionProps): JSX.Element => {
   const onExpand = (index: number): void => {
     if (sizes[index] < EXPAND_THRESHOLD / parentSize)
       setSize(index, data[index].initialSize ?? DEFAULT_EXPAND_SIZE);
-    else setSize(index, MIN_SIZE);
+    else setSize(index, MIN_SIZE + 1);
   };
 
   return (
