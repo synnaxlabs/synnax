@@ -15,6 +15,9 @@
 
 html {
     --pluto-border: var(--pluto-border-width) solid var(--pluto-border-color);
+    --pluto-height-large: 5rem;
+    --pluto-height-medium: 4.5rem;
+    --pluto--height-small: 4rem;
 
     background-color: var(--pluto-background-color);
     margin: 0;
@@ -108,7 +111,7 @@ li {
     border-radius: var(--pluto-border-radius);
 }
 
-.pluto-bordered--all {
+.pluto-bordered {
     border: var(--pluto-border);
 }
 
@@ -129,13 +132,13 @@ li {
 }
 
 .pluto--large {
-    height: 5rem;
+    height: var(--pluto-height-large);
 }
 
 .pluto--medium {
-    height: 4.5rem;
+    height: var(--pluto-height-medium);
 }
 
 .pluto--small {
-    height: 4rem;
+    height: var(--pluto--height-small);
 }

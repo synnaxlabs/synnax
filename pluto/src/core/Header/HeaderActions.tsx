@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { cloneElement, Fragment, isValidElement, ReactElement } from "react";
+import { Fragment, isValidElement, ReactElement } from "react";
 
 import { useHeaderContext } from "./Header";
 
@@ -49,7 +49,7 @@ const HeaderActionC = ({
   divided,
 }: HeaderActionCProps): JSX.Element => {
   const content = isValidElement(children) ? (
-    cloneElement(children, { key: children.key })
+    children
   ) : (
     <Button.IconOnly
       onClick={(e) => {

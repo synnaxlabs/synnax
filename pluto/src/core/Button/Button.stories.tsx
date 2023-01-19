@@ -49,5 +49,11 @@ export const Toggle = (): JSX.Element => {
   );
 };
 
+export const IconOnly = (): JSX.Element => (
+  <Button.IconOnly>
+    <AiOutlineDelete />
+  </Button.IconOnly>
+);
+
 // eslint-disable-next-line import/no-default-export
 export default story;

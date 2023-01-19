@@ -59,14 +59,14 @@ export const SelectMultiple = <E extends RenderableRecord<E>>({
     <List data={data}>
       <Dropdown ref={ref} visible={visible} location={location}>
         <List.Search>
-          {({ onChange }) => (
+          {({ onChange, value: _, ...props }) => (
             <SelectMultipleInput<E>
-              tagKey={tagKey}
-              selected={value}
               onChange={onChange}
               onFocus={open}
-              visible={visible}
               {...props}
+              tagKey={tagKey}
+              selected={value}
+              visible={visible}
             />
           )}
         </List.Search>
@@ -112,13 +112,16 @@ const SelectMultipleInput = <E extends RenderableRecord<E>>({
     onChange(v);
   };
 
+  console.log(props.className);
+
   return (
     <Pack align="stretch" {...props} grow>
       <Input
         ref={ref}
         className={clsx(
           "pluto-select-multiple__input",
-          `pluto-select__input--${visibleCls(visible)}`
+          "pluto-select__input",
+          visibleCls(visible)
         )}
         placeholder="Search"
         value={value}

@@ -9,6 +9,6 @@
     background: var(--pluto-background-color);
 }
 
-.pluto-accordion__header--collapsed {
+.pluto-accordion__header.pluto--collapsed {
     border-bottom: none !important;
 }

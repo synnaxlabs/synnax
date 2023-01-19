@@ -123,10 +123,7 @@ const AccordionEntryC = ({
   <>
     <Header
       level="p"
-      className={clsx(
-        "pluto-accordion__header",
-        `pluto-accordion__header--${expandedCls(expanded)}`
-      )}
+      className={clsx("pluto-accordion__header", expandedCls(expanded))}
       empty
     >
       <Header.ButtonTitle

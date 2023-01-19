@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export const visibleCls = (visible?: boolean): string =>
-  visible === true ? "visible" : "hidden";
+  visible === true ? "pluto--visible" : "pluto--hidden";
 
 export const expandedCls = (expanded?: boolean): string =>
-  expanded === true ? "expanded" : "collapsed";
+  expanded === true ? "pluto--expanded" : "pluto--collapsed";

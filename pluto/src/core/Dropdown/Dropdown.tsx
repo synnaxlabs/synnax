@@ -12,6 +12,9 @@ import { forwardRef, RefObject, useCallback, useRef, useState } from "react";
 import clsx from "clsx";
 
 import { Space, SpaceProps } from "@/core/Space";
+
+import { Pack } from "../Pack";
+
 import { useClickOutside } from "@/hooks";
 import { YLocation } from "@/spatial";
 import { visibleCls } from "@/util/css";
@@ -44,32 +47,52 @@ export interface DropdownProps
     Omit<SpaceProps, "ref" | "reverse" | "size" | "empty"> {
   location?: YLocation;
   children: [JSX.Element, JSX.Element];
+  keepMounted?: boolean;
 }
 
+/**
+ * A controlled dropdown component that wraps its parent. For the simplest case, use
+ * the {@link useDropdown} hook (more behavioral details explained there).
+ *
+ * @param props The props for the dropdown component. Unused props are passed to the
+ * parent elment.
+ *
+ * @param props.visible Whether the dropdown is visible or not. This is a controlled
+ *
+ * @param props.children
+ *
+ */
 export const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
   (
-    { visible, children, location = "top", ...props }: DropdownProps,
+    {
+      visible,
+      children,
+      location = "top",
+      keepMounted = true,
+      ...props
+    }: DropdownProps,
     ref
   ): JSX.Element => (
-    <Space
+    <Pack
       {...props}
       ref={ref}
       className="pluto-dropdown__container"
       reverse={location === "top"}
-      empty
+      direction="y"
     >
       {children[0]}
       <Space
         className={clsx(
+          "pluto-bordered",
           "pluto-dropdown__dialog",
           `pluto-dropdown__dialog--${location}`,
-          `pluto-dropdown__dialog--${visibleCls(visible)}`
+          visibleCls(visible)
         )}
         empty
       >
         {children[1]}
       </Space>
-    </Space>
+    </Pack>
   )
 );
 

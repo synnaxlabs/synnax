@@ -24,7 +24,7 @@ const story: ComponentMeta<typeof Pack> = {
   },
 };
 
-const Template: ComponentStory<typeof Pack> = (args) => (
+export const Basic: ComponentStory<typeof Pack> = (args) => (
   <Pack {...args}>
     <Button variant="text">Button 1</Button>
     <Button variant="text">Button 1</Button>
@@ -32,7 +32,22 @@ const Template: ComponentStory<typeof Pack> = (args) => (
   </Pack>
 );
 
-export const Basic = Template.bind({});
+export const Nested: ComponentStory<typeof Pack> = (args) => (
+  <Pack direction="y">
+    <Pack {...args}>
+      <Button variant="text">Button 1</Button>
+      <Button variant="text">Button 1</Button>
+    </Pack>
+    <Pack>
+      <Button variant="text">Button 1</Button>
+      <Button variant="text">Button 1</Button>
+    </Pack>
+    <Pack>
+      <Button variant="text">Button 1</Button>
+      <Button variant="text">Button 1</Button>
+    </Pack>
+  </Pack>
+);
 
 // eslint-disable-next-line import/no-default-export
 export default story;
