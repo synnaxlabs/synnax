@@ -19,7 +19,7 @@ import { AiOutlineClose } from "react-icons/ai";
 import { Dropdown, DropdownProps } from "@/core/Dropdown";
 import { Input, InputControlProps, InputProps } from "@/core/Input";
 import { ListColumn, List } from "@/core/List";
-import { Pack, PackProps } from "@/core/Pack";
+import { Pack } from "@/core/Pack";
 import { Space } from "@/core/Space";
 
 import { Theming } from "../../theming";
@@ -31,15 +31,9 @@ import "./SelectMultiple.css";
 
 import { SelectList } from "./SelectList";
 
-type SelectMultipleInputPackProps = Omit<
-  PackProps,
-  "onChange" | "onFocus" | "children"
->;
-
 export interface SelectMultipleProps<E extends RenderableRecord<E>>
-  extends Pick<DropdownProps, "location">,
-    InputControlProps<readonly string[]>,
-    SelectMultipleInputPackProps {
+  extends Omit<DropdownProps, "visible" | "onChange">,
+    InputControlProps<readonly string[]> {
   data?: E[];
   columns?: Array<ListColumn<E>>;
   tagKey?: keyof E;
@@ -57,15 +51,15 @@ export const SelectMultiple = <E extends RenderableRecord<E>>({
   const { ref, visible, open } = Dropdown.use();
   return (
     <List data={data}>
-      <Dropdown ref={ref} visible={visible} location={location}>
+      <Dropdown ref={ref} visible={visible} location={location} {...props}>
         <List.Search>
-          {({ onChange, value: _, ...props }) => (
+          {({ onChange, value: searchV }) => (
             <SelectMultipleInput<E>
               onChange={onChange}
-              onFocus={open}
-              {...props}
-              tagKey={tagKey}
+              value={searchV}
               selected={value}
+              onFocus={open}
+              tagKey={tagKey}
               visible={visible}
             />
           )}
@@ -77,8 +71,7 @@ export const SelectMultiple = <E extends RenderableRecord<E>>({
 };
 
 interface SelectMultipleInputProps<E extends RenderableRecord<E>>
-  extends Pick<InputProps, "onChange" | "onFocus">,
-    SelectMultipleInputPackProps {
+  extends Pick<InputProps, "onChange" | "onFocus" | "value"> {
   selected: readonly string[];
   tagKey: keyof E;
   visible: boolean;

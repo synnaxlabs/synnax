@@ -24,27 +24,35 @@ const story: ComponentMeta<typeof Pack> = {
   },
 };
 
-export const Basic: ComponentStory<typeof Pack> = (args) => (
-  <Pack {...args}>
+export const Horizontal: ComponentStory<typeof Pack> = (args) => (
+  <Pack {...args} reverse>
     <Button variant="text">Button 1</Button>
+    <Button variant="text">Button 2</Button>
+    <Button variant="text">Button 3</Button>
+  </Pack>
+);
+
+export const Vertical: ComponentStory<typeof Pack> = (args) => (
+  <Pack {...args} direction="y">
     <Button variant="text">Button 1</Button>
-    <Button variant="text">Button 1</Button>
+    <Button variant="text">Button 2</Button>
+    <Button variant="text">Button 3</Button>
   </Pack>
 );
 
 export const Nested: ComponentStory<typeof Pack> = (args) => (
   <Pack direction="y">
     <Pack {...args}>
-      <Button variant="text">Button 1</Button>
-      <Button variant="text">Button 1</Button>
+      <Button variant="text">Button</Button>
+      <Button variant="text">Button</Button>
     </Pack>
     <Pack>
-      <Button variant="text">Button 1</Button>
-      <Button variant="text">Button 1</Button>
+      <Button variant="text">Button</Button>
+      <Button variant="text">Button</Button>
     </Pack>
     <Pack>
-      <Button variant="text">Button 1</Button>
-      <Button variant="text">Button 1</Button>
+      <Button variant="text">Button</Button>
+      <Button variant="text">Button</Button>
     </Pack>
   </Pack>
 );

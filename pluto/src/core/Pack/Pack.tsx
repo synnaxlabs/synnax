@@ -43,16 +43,25 @@ export interface PackProps<E extends HTMLElement = HTMLDivElement>
  * children will be overridden. Defaults to "medium".
  */
 const CorePack = <E extends HTMLElement = HTMLDivElement>(
-  { children, className, size = "medium", direction = "x", ...props }: PackProps<E>,
+  {
+    children,
+    className,
+    size = "medium",
+    reverse = false,
+    direction = "x",
+    ...props
+  }: PackProps<E>,
   ref: ForwardedRef<E>
 ): JSX.Element => (
   <Space<E>
     ref={ref}
     direction={direction}
+    reverse={reverse}
     className={clsx(
       "pluto-pack",
       `pluto-pack--${direction}`,
       `pluto-pack--${size}`,
+      reverse && "pluto-pack--reverse",
       className
     )}
     {...props}

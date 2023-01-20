@@ -56,7 +56,18 @@ const MultipleTemplate = <E extends RenderableRecord<E>>(
   args: Omit<SelectMultipleProps<E>, "value" | "onChange">
 ): JSX.Element => {
   const [value, setValue] = useState<readonly string[]>([]);
-  return <Select.Multiple {...args} value={value} onChange={setValue} />;
+  return (
+    <>
+      <Select.Multiple
+        style={{ position: "absolute", top: "50vh", width: "80%" }}
+        {...args}
+        value={value}
+        location="top"
+        onChange={setValue}
+      />
+      <Select.Multiple {...args} value={value} onChange={setValue} />
+    </>
+  );
 };
 
 export const Multiple: ComponentStory<typeof Select.Multiple<SampleRecord>> =

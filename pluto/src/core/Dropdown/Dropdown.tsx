@@ -17,7 +17,7 @@ import { Pack } from "../Pack";
 
 import { useClickOutside } from "@/hooks";
 import { YLocation } from "@/spatial";
-import { visibleCls } from "@/util/css";
+import { locationCls, visibleCls } from "@/util/css";
 
 import "./Dropdown.css";
 
@@ -67,7 +67,7 @@ export const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
     {
       visible,
       children,
-      location = "top",
+      location = "bottom",
       keepMounted = true,
       ...props
     }: DropdownProps,
@@ -77,15 +77,15 @@ export const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
       {...props}
       ref={ref}
       className="pluto-dropdown__container"
-      reverse={location === "top"}
       direction="y"
+      reverse={location === "top"}
     >
       {children[0]}
       <Space
         className={clsx(
           "pluto-bordered",
           "pluto-dropdown__dialog",
-          `pluto-dropdown__dialog--${location}`,
+          locationCls(location),
           visibleCls(visible)
         )}
         empty
