@@ -13,10 +13,6 @@
     border: var(--pluto-border-width) solid var(--pluto-gray-m1);
 }
 
-.pluto-pack > input {
-    z-index: 1;
-}
-
 .pluto-pack {
     --t: var(--pluto-border-radius) var(--pluto-border-radius) 0 0;
     --b: 0 0 var(--pluto-border-radius) var(--pluto-border-radius);
@@ -127,8 +123,6 @@
 .pluto-pack--y > .pluto-pack--x:last-child:not(:only-child) > *:only-child {
     border-radius: var(--pluto-pack--y-last-x-only);
 }
-
-/* |||| PACK SIZING |||| */
 
 .pluto-pack--x.pluto-pack--small > * {
     height: var(--pluto-height-small);

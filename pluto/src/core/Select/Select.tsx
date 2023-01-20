@@ -10,17 +10,13 @@
 import { FocusEventHandler, useEffect, useState } from "react";
 
 import { RenderableRecord } from "@synnaxlabs/x";
-import clsx from "clsx";
 
 import { Dropdown, DropdownProps } from "@/core/Dropdown";
-import { InputControlProps, Input, InputProps } from "@/core/Input";
-import { List, ListColumn } from "@/core/List";
 
 import { SelectList } from "./SelectList";
 
-import { visibleCls } from "@/util/css";
-
-import "./Select.css";
+import { InputControlProps, Input, InputProps } from "@/core/Input";
+import { List, ListColumn } from "@/core/List";
 
 export interface SelectProps<E extends RenderableRecord<E>>
   extends Pick<DropdownProps, "location">,
@@ -49,14 +45,14 @@ export const Select = <E extends RenderableRecord<E>>({
     <List data={data}>
       <Dropdown location={location} ref={ref} visible={visible}>
         <List.Search>
-          {(props: InputProps) => (
+          {({ onChange }: InputProps) => (
             <SelectInput
               data={data}
               selected={value}
               tagKey={tagKey}
               onFocus={open}
               visible={visible}
-              {...props}
+              onChange={onChange}
             />
           )}
         </List.Search>
@@ -71,7 +67,8 @@ export const Select = <E extends RenderableRecord<E>>({
   );
 };
 
-export interface SelectInputProps<E extends RenderableRecord<E>> extends InputProps {
+export interface SelectInputProps<E extends RenderableRecord<E>>
+  extends Omit<InputProps, "value"> {
   tagKey: keyof E;
   selected: string;
   visible: boolean;
@@ -83,43 +80,39 @@ const SelectInput = <E extends RenderableRecord<E>>({
   tagKey,
   selected,
   visible,
-  className,
-  value: propsValue,
-  onChange: propsOnChange,
-  onFocus: propsOnFocus,
+  onChange,
+  onFocus,
   ...props
 }: SelectInputProps<E>): JSX.Element => {
+  // We maintain our own value state for two reasons:
+  //
+  //  1. So we can avoid executing a search when the user selects an item and hides the
+  //     dropdown.
+  //  2. So that we can display the previous search results when the user focuses on the
+  //       while still being able to clear the input value for searching.
+  //
   const [value, setValue] = useState("");
 
   // Runs to set the value of the input to the item selected from the list.
   useEffect(() => {
     if (visible) return;
-    if (selected == null || selected.length === 0) {
-      setValue("");
-      return;
-    }
+    if (selected == null || selected.length === 0) return setValue("");
     const e = data.find(({ key }) => key === selected);
     const v = e?.[tagKey] ?? selected;
     setValue?.(v as string);
   }, [selected, data, visible, tagKey]);
 
   const handleChange = (v: string): void => {
-    propsOnChange?.(v);
+    onChange?.(v);
     setValue(v);
   };
 
   const handleFocus: FocusEventHandler<HTMLInputElement> = (e) => {
     setValue("");
-    propsOnFocus?.(e);
+    onFocus?.(e);
   };
 
   return (
-    <Input
-      className={clsx("pluto-select__input", visibleCls(visible), className)}
-      value={value}
-      onChange={handleChange}
-      onFocus={handleFocus}
-      {...props}
-    />
+    <Input value={value} onChange={handleChange} onFocus={handleFocus} {...props} />
   );
 };

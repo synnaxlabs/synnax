@@ -18,6 +18,10 @@
     margin: 0;
 }
 
+.pluto-input:focus {
+    z-index: 12;
+}
+
 .pluto-input::placeholder {
     color: var(--pluto-gray-m0);
 }
