@@ -64,11 +64,11 @@
     --pluto-pack--y-last-x-only: var(--t);
 }
 
-.pluto-pack > *:not(:first-child):not(:last-child) {
+.pluto-pack > *:not(:first-child):not(:last-child):not(:has(+ .pluto--hidden)) {
     border-radius: var(--pluto-pack--middle);
 }
 
-.pluto-pack > *:first-child:not(:only-child) {
+.pluto-pack > *:first-child:not(:only-child):not(:has(+ .pluto--hidden)) {
     border-radius: var(--pluto-pack--first);
 }
 
