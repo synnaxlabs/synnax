@@ -19,7 +19,7 @@
 .pluto-list__container {
     height: 100%;
     width: 100%;
-    overflow: auto;
+    overflow-y: auto;
     user-select: none;
     -webkit-user-select: none;
 }

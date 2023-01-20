@@ -154,6 +154,7 @@ export const LinePlot = ({
   const zoomPanProps = useZoomPan({
     onChange: setZoom,
     panHotkey: "Shift",
+    allowPan: false,
     threshold: { x: 30, y: 30 },
     minZoom: { x: 0.02, y: 0.02 },
   });

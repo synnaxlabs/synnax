@@ -29,6 +29,7 @@ export interface LayoutState {
   layouts: Record<string, Layout>;
   mosaic: MosaicState;
   nav: NavState;
+  alreadyCheckedGetStarted: boolean;
 }
 
 export interface MosaicState {
@@ -233,9 +234,12 @@ export const {
       };
     },
     maybeCreateGetStartedTab: (state) => {
+      const checkedGetStarted = state.alreadyCheckedGetStarted;
+      state.alreadyCheckedGetStarted = true;
       if (
         Object.values(state.layouts).filter(({ location }) => location === "mosaic")
-          .length !== 0
+          .length !== 0 ||
+        checkedGetStarted
       )
         return;
       state.mosaic.root = Mosaic.insertTab(state.mosaic.root, {
