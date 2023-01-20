@@ -26,13 +26,13 @@ type leaseProxy struct {
 }
 
 func newLeaseProxy(cfg ServiceConfig) (*leaseProxy, error) {
-	c, err := openCounter(cfg.HostResolver.HostKey(), cfg.ClusterDB)
+	c, err := openCounter(cfg.HostResolver.HostID(), cfg.ClusterDB)
 	if err != nil {
 		return nil, err
 	}
 	p := &leaseProxy{
 		ServiceConfig: cfg,
-		router:        proxy.NewBatchFactory[Channel](cfg.HostResolver.HostKey()),
+		router:        proxy.NewBatchFactory[Channel](cfg.HostResolver.HostID()),
 		counter:       c,
 	}
 	p.Transport.CreateServer().BindHandler(p.handle)
@@ -52,7 +52,7 @@ func (lp *leaseProxy) create(ctx context.Context, txn gorp.Txn, _channels *[]Cha
 	channels := *_channels
 	for i := range channels {
 		if channels[i].NodeID == 0 {
-			channels[i].NodeID = lp.HostResolver.HostKey()
+			channels[i].NodeID = lp.HostResolver.HostID()
 		}
 	}
 	batch := lp.router.Batch(channels)

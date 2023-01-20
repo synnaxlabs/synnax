@@ -10,24 +10,24 @@
 package node
 
 import (
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/address"
+	"github.com/samber/lo"
 )
 
-type Group map[Key]Node
+type Group map[ID]Node
 
 func (n Group) WhereState(state State) Group {
-	return n.Where(func(_ Key, n Node) bool { return n.State == state })
+	return n.Where(func(_ ID, n Node) bool { return n.State == state })
 }
-func (n Group) WhereNot(keys ...Key) Group {
-	return n.Where(func(key Key, _ Node) bool { return lo.Count(keys, key) == 0 })
+func (n Group) WhereNot(ids ...ID) Group {
+	return n.Where(func(id ID, _ Node) bool { return lo.Count(ids, id) == 0 })
 }
 
 func (n Group) WhereActive() Group {
-	return n.Where(func(_ Key, n Node) bool { return n.State != StateLeft })
+	return n.Where(func(_ ID, n Node) bool { return n.State != StateLeft })
 }
 
-func (n Group) Where(cond func(Key, Node) bool) Group { return lo.PickBy(n, cond) }
+func (n Group) Where(cond func(ID, Node) bool) Group { return lo.PickBy(n, cond) }
 
 func (n Group) Addresses() (addresses []address.Address) {
 	for _, v := range n {
@@ -38,10 +38,10 @@ func (n Group) Addresses() (addresses []address.Address) {
 
 func (n Group) Digests() Digests {
 	dig := make(Digests, len(n))
-	for key, node := range n {
-		dig[key] = node.Digest()
+	for id, node := range n {
+		dig[id] = node.Digest()
 	}
 	return dig
 }
 
-func (n Group) Copy() Group { return lo.PickBy(n, func(_ Key, _ Node) bool { return true }) }
+func (n Group) Copy() Group { return lo.PickBy(n, func(_ ID, _ Node) bool { return true }) }

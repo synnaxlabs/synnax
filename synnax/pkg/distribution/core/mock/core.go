@@ -85,7 +85,7 @@ func (cb *CoreBuilder) New() core.Core {
 
 	_core := distribution.Core{Config: cfg, Cluster: clusterKV, Storage: store}
 
-	cb.Cores[_core.Cluster.HostKey()] = _core
+	cb.Cores[_core.Cluster.HostID()] = _core
 	return _core
 }
 

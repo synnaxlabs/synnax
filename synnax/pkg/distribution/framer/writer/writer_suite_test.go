@@ -65,7 +65,7 @@ func provision(n int, logger *zap.Logger) (*mock.CoreBuilder, map[core.NodeID]se
 			Transport:     writerNet.New(c.Config.AdvertiseAddress /*buffer*/, 10),
 			Logger:        logger,
 		}))
-		services[c.Cluster.HostKey()] = container
+		services[c.Cluster.HostID()] = container
 	}
 	builder.WaitForTopologyToStabilize()
 	return builder, services
