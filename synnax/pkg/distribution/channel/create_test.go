@@ -37,7 +37,7 @@ var _ = Describe("Create", Ordered, func() {
 	})
 	Context("Single channel", func() {
 		var (
-			channelLeaseNodeID aspen.NodeKey
+			channelLeaseNodeID aspen.NodeID
 			ch                 channel.Channel
 		)
 		JustBeforeEach(func() {
@@ -54,7 +54,7 @@ var _ = Describe("Create", Ordered, func() {
 		Context("Node is local", func() {
 			BeforeEach(func() { channelLeaseNodeID = 1 })
 			It("Should create the channel without error", func() {
-				Expect(ch.Key().NodeID()).To(Equal(aspen.NodeKey(1)))
+				Expect(ch.Key().NodeID()).To(Equal(aspen.NodeID(1)))
 				Expect(ch.Key().LocalKey()).To(Equal(storage.ChannelKey(1)))
 			})
 			It("Should create the channel in the cesium gorpDB", func() {
@@ -70,7 +70,7 @@ var _ = Describe("Create", Ordered, func() {
 		Context("Node is remote", func() {
 			BeforeEach(func() { channelLeaseNodeID = 2 })
 			It("Should create the channel without error", func() {
-				Expect(ch.Key().NodeID()).To(Equal(aspen.NodeKey(2)))
+				Expect(ch.Key().NodeID()).To(Equal(aspen.NodeID(2)))
 				Expect(ch.Key().LocalKey()).To(Equal(storage.ChannelKey(1)))
 			})
 			It("Should create the channel in the cesium gorpDB", func() {
@@ -97,7 +97,7 @@ var _ = Describe("Create", Ordered, func() {
 					}
 					err := services[1].Create(ch2)
 					Expect(err).To(BeNil())
-					Expect(ch2.Key().NodeID()).To(Equal(aspen.NodeKey(1)))
+					Expect(ch2.Key().NodeID()).To(Equal(aspen.NodeID(1)))
 					Expect(ch2.Key().LocalKey()).To(Equal(storage.ChannelKey(3)))
 				})
 		})

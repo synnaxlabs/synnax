@@ -11,9 +11,9 @@ package mock
 
 import (
 	"context"
-	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errutil"
+	"github.com/synnaxlabs/aspen"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -24,10 +24,10 @@ type Builder struct {
 	DataDir         string
 	DefaultOptions  []aspen.Option
 	peerAddresses   []address.Address
-	TmpDirs         map[aspen.NodeKey]string
+	TmpDirs         map[aspen.NodeID]string
 	tmpDir          string
 	_addressFactory *address.Factory
-	Nodes           map[aspen.NodeKey]NodeInfo
+	Nodes           map[aspen.NodeID]NodeInfo
 	memBacked       bool
 }
 
@@ -65,7 +65,7 @@ func (b *Builder) New(opts ...aspen.Option) (aspen.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	b.Nodes[db.HostKey()] = NodeInfo{
+	b.Nodes[db.HostID()] = NodeInfo{
 		Addr: addr,
 		Dir:  dir,
 		DB:   db,

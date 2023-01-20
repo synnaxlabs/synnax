@@ -30,11 +30,11 @@ type Store interface {
 	// SetNode sets a node in state.
 	SetNode(node.Node)
 	// GetNode returns a node from state. Returns false if the node is not found.
-	GetNode(node.Key) (node.Node, bool)
+	GetNode(node.ID) (node.Node, bool)
 	// Merge merges a node.Group into State.Nodes by selecting nodes from group with heartbeats
 	// that are either not in State or are older than in State.
 	Merge(group node.Group)
-	// Valid returns true if the Store is valid i.e. State.HostKey has been set.
+	// Valid returns true if the Store is valid i.e. State.HostID has been set.
 	Valid() bool
 	// GetHost returns the host node of the Store.
 	GetHost() node.Node
@@ -43,7 +43,7 @@ type Store interface {
 }
 
 func _copy(s State) State {
-	return State{Nodes: s.Nodes.Copy(), HostKey: s.HostKey, ClusterKey: s.ClusterKey}
+	return State{Nodes: s.Nodes.Copy(), HostID: s.HostID, ClusterKey: s.ClusterKey}
 }
 
 // shouldNotify decides whether we should notify observers
@@ -59,14 +59,14 @@ func shouldNotify(prevState, nextState State) bool {
 	if prevState.ClusterKey != nextState.ClusterKey {
 		return false
 	}
-	if nextState.HostKey == 0 {
+	if nextState.HostID == 0 {
 		return false
 	}
 	if len(prevState.Nodes) != len(nextState.Nodes) {
 		return true
 	}
-	for key, n := range nextState.Nodes {
-		pn, ok := prevState.Nodes[key]
+	for id, n := range nextState.Nodes {
+		pn, ok := prevState.Nodes[id]
 		if !ok || pn.State != n.State {
 			return true
 		}
@@ -89,7 +89,7 @@ func New() Store {
 // State is the current state of the cluster as viewed from the host.
 type State struct {
 	ClusterKey uuid.UUID
-	HostKey    node.Key
+	HostID     node.ID
 	Nodes      node.Group
 }
 
@@ -108,29 +108,29 @@ func (c *core) SetClusterKey(key uuid.UUID) {
 }
 
 // GetNode implements Store.
-func (c *core) GetNode(key node.Key) (node.Node, bool) {
-	n, ok := c.Observable.PeekState().Nodes[key]
+func (c *core) GetNode(id node.ID) (node.Node, bool) {
+	n, ok := c.Observable.PeekState().Nodes[id]
 	return n, ok
 }
 
 // GetHost implements Store.
 func (c *core) GetHost() node.Node {
-	n, _ := c.GetNode(c.Observable.PeekState().HostKey)
+	n, _ := c.GetNode(c.Observable.PeekState().HostID)
 	return n
 }
 
 // SetHost implements Store.
 func (c *core) SetHost(n node.Node) {
 	snap := c.Observable.CopyState()
-	snap.Nodes[n.Key] = n
-	snap.HostKey = n.Key
+	snap.Nodes[n.ID] = n
+	snap.HostID = n.ID
 	c.Observable.SetState(snap)
 }
 
 // SetNode implements Store.
 func (c *core) SetNode(n node.Node) {
 	snap := c.Observable.CopyState()
-	snap.Nodes[n.Key] = n
+	snap.Nodes[n.ID] = n
 	c.Observable.SetState(snap)
 }
 
@@ -138,13 +138,13 @@ func (c *core) SetNode(n node.Node) {
 func (c *core) Merge(other node.Group) {
 	snap := c.Observable.CopyState()
 	for _, n := range other {
-		in, ok := snap.Nodes[n.Key]
+		in, ok := snap.Nodes[n.ID]
 		if !ok || n.Heartbeat.OlderThan(in.Heartbeat) {
-			snap.Nodes[n.Key] = n
+			snap.Nodes[n.ID] = n
 		}
 	}
 	c.Observable.SetState(snap)
 }
 
 // Valid implements Store.
-func (c *core) Valid() bool { return c.GetHost().Key != 0 }
+func (c *core) Valid() bool { return c.GetHost().ID != 0 }

@@ -24,7 +24,7 @@ import (
 
 type (
 	Request struct {
-		ID         node.Key
+		ID         node.ID
 		ClusterKey uuid.UUID
 	}
 	Response        = Request
