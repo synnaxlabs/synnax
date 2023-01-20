@@ -15,7 +15,7 @@ import (
 
 type (
 	Node         = aspen.Node
-	NodeID       = aspen.NodeKey
+	NodeID       = aspen.NodeID
 	NodeState    = aspen.NodeState
 	Cluster      = aspen.Cluster
 	HostResolver = aspen.HostResolver

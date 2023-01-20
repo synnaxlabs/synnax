@@ -10,27 +10,26 @@
 package node
 
 import (
-	"strconv"
-
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/version"
+	"strconv"
 )
 
-type Key uint32
+type ID uint32
 
-func (k Key) Parse(str string) (Key, error) {
-	key, err := strconv.Atoi(str)
-	return Key(key), err
+func (i ID) Parse(str string) (ID, error) {
+	id, err := strconv.Atoi(str)
+	return ID(id), err
 }
 
 type Node struct {
-	Key       Key
+	ID        ID
 	Address   address.Address
 	State     State
 	Heartbeat version.Heartbeat
 }
 
-func (n Node) Digest() Digest { return Digest{Key: n.Key, Heartbeat: n.Heartbeat} }
+func (n Node) Digest() Digest { return Digest{ID: n.ID, Heartbeat: n.Heartbeat} }
 
 type State uint32
 
@@ -42,8 +41,8 @@ const (
 )
 
 type Digest struct {
-	Key       Key
+	ID        ID
 	Heartbeat version.Heartbeat
 }
 
-type Digests map[Key]Digest
+type Digests map[ID]Digest

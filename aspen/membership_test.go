@@ -47,7 +47,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Assigning a valid ID of 1")
-			Expect(db.HostKey()).To(Equal(aspen.NodeKey(1)))
+			Expect(db.HostID()).To(Equal(aspen.NodeID(1)))
 
 			By("Adding itself to the node list")
 			Expect(db.Nodes()).To(HaveLen(1))
@@ -74,7 +74,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Assigning a valid ID of 1")
-			Expect(db.HostKey()).To(Equal(aspen.NodeKey(1)))
+			Expect(db.HostID()).To(Equal(aspen.NodeID(1)))
 		})
 
 		It("Should correctly join a node that is already looking for peers", func() {
@@ -99,7 +99,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Assigning a unique ID of 2")
-				Expect(db.HostKey()).To(Equal(aspen.NodeKey(2)))
+				Expect(db.HostID()).To(Equal(aspen.NodeID(2)))
 			}()
 			db, err := aspen.Open(
 				context.TODO(),
@@ -115,7 +115,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Assigning a unique ID of 1")
-			Expect(db.HostKey()).To(Equal(aspen.NodeKey(1)))
+			Expect(db.HostID()).To(Equal(aspen.NodeID(1)))
 			wg.Wait()
 
 			By("Safely closing the database")
@@ -132,7 +132,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 			wg.Add(numNodes)
 			var (
 				addresses = address.NewLocalFactory(22546).NextN(numNodes)
-				keys      = make([]aspen.NodeKey, numNodes)
+				ids       = make([]aspen.NodeID, numNodes)
 				dbs       = make([]aspen.DB, numNodes)
 			)
 			for i := 0; i < numNodes; i++ {
@@ -149,7 +149,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 						addresses,
 						opts...,
 					)
-					keys[i] = db.HostKey()
+					ids[i] = db.HostID()
 					dbs[i] = db
 					By("Joining the node to the cluster without error")
 					Expect(err).ToNot(HaveOccurred())
@@ -158,7 +158,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 			wg.Wait()
 
 			By("Assigning a unique ID to each node")
-			Expect(len(lo.Uniq(keys))).To(Equal(len(keys)))
+			Expect(len(lo.Uniq(ids))).To(Equal(len(ids)))
 
 			By("Safely closing the database")
 			for _, db := range dbs {
@@ -184,7 +184,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 							aspen.WithLogger(logger),
 							aspen.WithPropagationConfig(propConfig),
 						},
-						Nodes: make(map[aspen.NodeKey]mock.NodeInfo),
+						Nodes: make(map[aspen.NodeID]mock.NodeInfo),
 					}
 					defer func() {
 						Expect(builder.Cleanup()).To(Succeed())
@@ -214,7 +214,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					By("Assigning the correct ID")
-					Expect(db.HostKey()).To(Equal(aspen.NodeKey(2)))
+					Expect(db.HostID()).To(Equal(aspen.NodeID(2)))
 
 					By("Incrementing the heartbeat generation")
 					Expect(db.Host().Heartbeat.Generation).To(Equal(uint32(1)))
