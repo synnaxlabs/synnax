@@ -47,13 +47,13 @@ export const InputNumber = forwardRef<HTMLInputElement, InputNumberProps>(
     const input = (
       <Input
         ref={ref}
-        value={value ?? ""}
-        onChange={(v: string | number) => {
+        type="number"
+        value={String(value) ?? ""}
+        onChange={(v: string) => {
           if (v === "") return onChange(null);
           onChange(Number(v));
         }}
         selectOnFocus={selectOnFocus}
-        type="number"
         {...props}
       />
     );
@@ -79,6 +79,7 @@ export const DragButton = ({
   ...props
 }: DragButtonProps): JSX.Element => (
   <Button.IconOnly
+    variant="outlined"
     className={clsx(
       "pluto-input-number__drag-button",
       directionCls(direction),

@@ -22,6 +22,11 @@
     font-family: var(--pluto-font-family);
 }
 
+.pluto-btn:active,
+.pluto-btn:hover {
+    z-index: 12;
+}
+
 /* |||| FILLED |||| */
 
 .pluto-btn--filled {

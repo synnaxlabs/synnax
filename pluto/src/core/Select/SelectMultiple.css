@@ -9,20 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-/* */
-
-/* Use of this software is governed by the Business Source License included in the file */
-
-/* licenses/BSL.txt. */
-
-/* */
-
-/* As of the Change Date specified in that file, in accordance with the Business Source */
-
-/* License, use of this software will be governed by the Apache License, Version 2.0, */
-
-/* included in the file licenses/APL.txt. */
-
 .pluto-select-multiple__input {
     width: 20%;
     flex-shrink: 0;
@@ -39,10 +25,5 @@
 }
 
 .pluto-select-multiple__clear {
-    background: var(--pluto-background-color);
-}
-
-.pluto-select-multiple__clear--visible {
-    z-index: 11;
     background: var(--pluto-background-color);
 }

@@ -105,8 +105,6 @@ const SelectMultipleInput = <E extends RenderableRecord<E>>({
     onChange(v);
   };
 
-  console.log(props.className);
-
   return (
     <Pack align="stretch" {...props} grow>
       <Input
@@ -140,10 +138,7 @@ const SelectMultipleInput = <E extends RenderableRecord<E>>({
           })}
       </Space>
       <Button.IconOnly
-        className={clsx(
-          "pluto-select-multiple__clear",
-          `pluto-select-multiple__clear--${visibleCls(visible)}`
-        )}
+        className="pluto-select-multiple__clear"
         variant="outlined"
         onClick={clear}
       >
