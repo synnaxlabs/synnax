@@ -13,6 +13,10 @@
     border: var(--pluto-border-width) solid var(--pluto-gray-m1);
 }
 
+.pluto-pack > input {
+    z-index: 1;
+}
+
 .pluto-pack > *:not(:first-child):not(:last-child) {
     border-radius: 0;
 }

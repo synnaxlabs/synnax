@@ -8,9 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import type { UnaryClient } from "@synnaxlabs/freighter";
-import { z } from "zod";
-
 import { TimeSpan } from "@synnaxlabs/x";
+import { z } from "zod";
 
 export type Connectivity = "disconnected" | "connecting" | "connected" | "failed";
 

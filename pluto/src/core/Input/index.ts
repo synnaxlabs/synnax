@@ -12,6 +12,7 @@ import { InputDate } from "./InputDate";
 import { InputHelpText } from "./InputHelpText";
 import { InputItem, InputItemControlled } from "./InputItem";
 import { InputLabel } from "./InputLabel";
+import { InputNumber } from "./InputNumber";
 import { InputSwitch } from "./InputSwitch";
 import { InputTime } from "./InputTime";
 export type { InputControlProps, InputBaseProps } from "./types";
@@ -28,10 +29,11 @@ type CoreInputType = typeof CoreInput;
 interface InputType extends CoreInputType {
   Time: typeof InputTime;
   Date: typeof InputDate;
+  Switch: typeof InputSwitch;
+  Number: typeof InputNumber;
   Label: typeof InputLabel;
   HelpText: typeof InputHelpText;
   Item: typeof InputItem;
-  Switch: typeof InputSwitch;
   ItemC: typeof InputItemControlled;
 }
 
@@ -44,3 +46,4 @@ Input.HelpText = InputHelpText;
 Input.Item = InputItem;
 Input.ItemC = InputItemControlled;
 Input.Switch = InputSwitch;
+Input.Number = InputNumber;

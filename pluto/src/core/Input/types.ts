@@ -11,7 +11,7 @@ import { DetailedHTMLProps, InputHTMLAttributes } from "react";
 
 import { ComponentSize } from "@/util/component";
 
-export type InputValue = boolean | string | number | readonly string[];
+export type InputValue = boolean | string | number | readonly string[] | null;
 
 export interface InputControlProps<
   I extends InputValue = InputValue,

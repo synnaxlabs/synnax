@@ -10,9 +10,10 @@
 import { LineVis } from "../line/types";
 import { Vis } from "../types";
 
+import { LayoutStoreState, selectLayouts } from "@/features/layout";
+
 import { VisualizationStoreState } from "./slice";
 
-import { LayoutStoreState, selectLayouts } from "@/features/layout";
 import { selectRanges, WorkspaceStoreState } from "@/features/workspace";
 import { selectByKey, selectByKeys, useMemoSelect } from "@/hooks";
 

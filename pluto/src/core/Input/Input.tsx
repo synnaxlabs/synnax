@@ -15,7 +15,7 @@ import { InputBaseProps } from "./types";
 
 import "./Input.css";
 
-export interface InputProps extends InputBaseProps<string> {
+export interface InputProps extends InputBaseProps<string | number> {
   selectOnFocus?: boolean;
 }
 

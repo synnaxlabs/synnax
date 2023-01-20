@@ -1,0 +1,15 @@
+.pluto-input-number__drag-button.pluto--x {
+    cursor: col-resize;
+}
+
+.pluto-input-number__drag-button.pluto--y {
+    cursor: row-resize;
+}
+
+.pluto-input-number__drag-button > svg {
+    fill: var(--pluto-gray-p1);
+}
+
+.pluto-input-number__drag-button.pluto--x > svg {
+    transform: rotate(90deg);
+}

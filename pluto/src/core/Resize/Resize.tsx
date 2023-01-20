@@ -82,10 +82,12 @@ export const Resize = ({
   );
 
   useEffect((): void => {
-    const nextSize = clamp(initialSize, minSize, maxSize);
-    marker.current = nextSize;
-    setSize(nextSize);
-  }, [initialSize, minSize, maxSize]);
+    setSize((prev) => {
+      const nextSize = clamp(prev, minSize, maxSize);
+      marker.current = nextSize;
+      return nextSize;
+    });
+  }, [minSize, maxSize]);
 
   const handleDragStart = useCursorDrag({
     onMove: handleMove,

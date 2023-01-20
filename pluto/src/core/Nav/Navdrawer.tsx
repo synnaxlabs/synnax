@@ -64,6 +64,8 @@ export const Navdrawer = ({
   onSelect,
   location = "left",
   collapseThreshold = 0.65,
+  className,
+
   ...props
 }: NavDrawerProps): JSX.Element | null => {
   if (activeItem == null) return null;
@@ -72,7 +74,11 @@ export const Navdrawer = ({
   const handleCollapse = useCallback(() => onSelect?.(key), [onSelect, key]);
   return (
     <Resize
-      className={clsx("pluto-navdrawer__content", `pluto-navdrawer__content--${dir}`)}
+      className={clsx(
+        "pluto-navdrawer__content",
+        `pluto-navdrawer__content--${dir}`,
+        className
+      )}
       collapseThreshold={collapseThreshold}
       onCollapse={handleCollapse}
       location={location}

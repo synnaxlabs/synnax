@@ -51,5 +51,10 @@ export const Date = (): JSX.Element => {
   );
 };
 
+export const Number = (): JSX.Element => {
+  const [value, setValue] = useState(0);
+  return <Input.Number value={value} onChange={setValue} />;
+};
+
 // eslint-disable-next-line import/no-default-export
 export default story;
