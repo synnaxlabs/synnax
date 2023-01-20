@@ -20,19 +20,23 @@ import {
   SignedDimensions,
 } from "./core";
 
-export interface BoxDomRect {
+export interface DOMRect {
   left: number;
   top: number;
   right: number;
   bottom: number;
 }
 
+/**
+ * A rectangle in 2D space. It most often defines a bounding box for a DOM element in
+ * pixel space, but can also have dimensions in clip space or decimal space.
+ */
 export class Box {
   private readonly one: XY;
   private readonly two: XY;
 
   constructor(
-    leftRectOrPoint: number | BoxDomRect | XY,
+    leftRectOrPoint: number | DOMRect | XY,
     topPointWidthOrDims?: number | XY | Dimensions,
     widthOrHeight: number = 0,
     height: number = 0
