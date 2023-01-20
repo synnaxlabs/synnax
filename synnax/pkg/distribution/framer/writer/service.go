@@ -158,8 +158,8 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamWriter, erro
 	}
 
 	var (
-		hostKey            = s.HostResolver.HostKey()
-		batch              = proxy.NewBatchFactory[channel.Key](hostKey).Batch(cfg.Keys)
+		hostID             = s.HostResolver.HostID()
+		batch              = proxy.NewBatchFactory[channel.Key](hostID).Batch(cfg.Keys)
 		pipe               = plumber.New()
 		needPeerRouting    = len(batch.Peers) > 0
 		needGatewayRouting = len(batch.Gateway) > 0
@@ -204,7 +204,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamWriter, erro
 		plumber.SetSegment[Request, Request](
 			pipe,
 			peerGatewaySwitchAddr,
-			newPeerGatewaySwitch(hostKey),
+			newPeerGatewaySwitch(hostID),
 		)
 		plumber.MultiRouter[Request]{
 			SourceTargets: []address.Address{peerGatewaySwitchAddr},

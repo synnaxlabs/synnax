@@ -148,7 +148,7 @@ func arbitrate(cfg Config) error {
 type responsible struct {
 	Config
 	candidateSnapshot node.Group
-	_proposedID       node.Key
+	_proposedID       node.ID
 }
 
 func (r *responsible) propose(ctx context.Context) (res Response, err error) {
@@ -212,16 +212,16 @@ func (r *responsible) buildQuorum() (node.Group, error) {
 	return xrand.SubMap(healthy, size), nil
 }
 
-func (r *responsible) idToPropose() node.Key {
+func (r *responsible) idToPropose() node.ID {
 	if r._proposedID == 0 {
-		r._proposedID = highestNodeKey(r.candidateSnapshot) + 1
+		r._proposedID = highestNodeID(r.candidateSnapshot) + 1
 	} else {
 		r._proposedID++
 	}
 	return r._proposedID
 }
 
-func (r *responsible) consultQuorum(ctx context.Context, id node.Key, quorum node.Group) error {
+func (r *responsible) consultQuorum(ctx context.Context, id node.ID, quorum node.Group) error {
 	reqCtx, cancel := context.WithTimeout(ctx, r.RequestTimeout)
 	defer cancel()
 	wg := errgroup.Group{}
@@ -248,7 +248,7 @@ func (r *responsible) consultQuorum(ctx context.Context, id node.Key, quorum nod
 type juror struct {
 	Config
 	mu        sync.Mutex
-	approvals []node.Key
+	approvals []node.ID
 }
 
 func (j *juror) verdict(ctx context.Context, req Request) (err error) {
@@ -264,7 +264,7 @@ func (j *juror) verdict(ctx context.Context, req Request) (err error) {
 			return proposalRejected
 		}
 	}
-	if req.ID <= highestNodeKey(j.Candidates()) {
+	if req.ID <= highestNodeID(j.Candidates()) {
 		j.Logger.Warnw("juror rejected proposal. id out of range", "id", req.ID)
 		return proposalRejected
 	}
@@ -273,7 +273,7 @@ func (j *juror) verdict(ctx context.Context, req Request) (err error) {
 	return nil
 }
 
-func highestNodeKey(candidates node.Group) node.Key { return lo.Max(lo.Keys(candidates)) }
+func highestNodeID(candidates node.Group) node.ID { return lo.Max(lo.Keys(candidates)) }
 
 func introduceRandomJitter(retryInterval time.Duration) {
 	// sleep for a random percentage of the retry interval, somewhere between

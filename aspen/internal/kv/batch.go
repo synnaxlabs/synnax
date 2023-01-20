@@ -10,12 +10,11 @@
 package kv
 
 import (
-	"sync"
-
-	"github.com/cockroachdb/errors"
-	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/binary"
 	kvx "github.com/synnaxlabs/x/kv"
+	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/aspen/internal/node"
+	"sync"
 )
 
 type batch struct {
@@ -63,7 +62,7 @@ func (b *batch) applyOp(op Operation) error {
 }
 
 func (b *batch) toRequests() ([]BatchRequest, error) {
-	dm := make(map[node.Key]BatchRequest)
+	dm := make(map[node.ID]BatchRequest)
 	for _, dig := range b.digests {
 		op := dig.Operation()
 		if op.Variant == Set {
@@ -105,8 +104,8 @@ func (b *batch) free() error {
 }
 
 type BatchRequest struct {
-	Leaseholder node.Key
-	Sender      node.Key
+	Leaseholder node.ID
+	Sender      node.ID
 	Operations  []Operation
 	done        func(err error)
 }
@@ -148,12 +147,12 @@ func (bd BatchRequest) commitTo(bw kvx.BatchWriter) error {
 	return err
 }
 
-func validateLeaseOption(maybeLease []interface{}) (node.Key, error) {
+func validateLeaseOption(maybeLease []interface{}) (node.ID, error) {
 	lease := DefaultLeaseholder
 	if len(maybeLease) == 1 {
-		l, ok := maybeLease[0].(node.Key)
+		l, ok := maybeLease[0].(node.ID)
 		if !ok {
-			return 0, errors.New("[aspen] - Leaseholder option must be of type node.Key")
+			return 0, errors.New("[aspen] - Leaseholder option must be of type node.ID")
 		}
 		lease = l
 	}

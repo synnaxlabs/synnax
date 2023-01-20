@@ -62,7 +62,7 @@ func provision(n int, logger *zap.Logger) (*mock.CoreBuilder, map[core.NodeID]se
 			Transport:     iterNet.New(c.Config.AdvertiseAddress),
 			Logger:        logger,
 		}))
-		services[c.Cluster.HostKey()] = cont
+		services[c.Cluster.HostID()] = cont
 	}
 	return builder, services
 }

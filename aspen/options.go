@@ -10,8 +10,6 @@
 package aspen
 
 import (
-	"time"
-
 	"github.com/cockroachdb/pebble/vfs"
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/kv"
@@ -23,6 +21,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"time"
 )
 
 type Option func(*options)
@@ -70,7 +69,7 @@ func (o *options) Report() alamos.Report {
 	}
 }
 
-// Bootstrap tells aspen to bootstrap a new cluster. This option automatically assigns the host node and NodeKey of 1.
+// Bootstrap tells aspen to bootstrap a new cluster. This option automatically assigns the host node and NodeID of 1.
 func Bootstrap() Option { return func(o *options) { o.bootstrap = true } }
 
 // WithLogger sets the logger for aspen.

@@ -22,7 +22,7 @@ import (
 
 var ErrLeaseNotTransferable = errors.New("[kv] - cannot transfer leaseAlloc")
 
-const DefaultLeaseholder node.Key = 0
+const DefaultLeaseholder node.ID = 0
 
 type leaseAllocator struct{ Config }
 
@@ -41,7 +41,7 @@ func (la *leaseAllocator) allocate(op Operation) (Operation, error) {
 		if op.Leaseholder == DefaultLeaseholder {
 			// If we can't find the Leaseholder, and the op doesn't have a Leaseholder assigned,
 			// we assign the leaseAlloc to the cluster host.
-			op.Leaseholder = la.Cluster.HostKey()
+			op.Leaseholder = la.Cluster.HostID()
 		}
 		// If we can't find the Leaseholder, and the op has a Leaseholder assigned,
 		// that means it's a new key, so we let it choose its own leaseAlloc.
@@ -51,7 +51,7 @@ func (la *leaseAllocator) allocate(op Operation) (Operation, error) {
 	return op, nil
 }
 
-func (la *leaseAllocator) getLease(key []byte) (node.Key, error) {
+func (la *leaseAllocator) getLease(key []byte) (node.ID, error) {
 	digest, err := getDigestFromKV(la.Engine, key)
 	return digest.Leaseholder, err
 }
@@ -73,7 +73,7 @@ func (lp *leaseProxy) _switch(
 	ctx context.Context,
 	b BatchRequest,
 ) (address.Address, bool, error) {
-	if b.Leaseholder == lp.Cluster.HostKey() {
+	if b.Leaseholder == lp.Cluster.HostID() {
 		return lp.localTo, true, nil
 	}
 	return lp.remoteTo, true, nil
@@ -97,7 +97,7 @@ func newLeaseSender(cfg Config) sink {
 
 func (lf *leaseSender) send(ctx context.Context, br BatchRequest) error {
 	lf.Logger.Debugw("sending leased BatchRequest",
-		"host", lf.Cluster.HostKey(),
+		"host", lf.Cluster.HostID(),
 		"Leaseholder", br.Leaseholder,
 		"numOps", len(br.Operations),
 	)
@@ -130,7 +130,7 @@ func newLeaseReceiver(cfg Config) source {
 func (lr *leaseReceiver) receive(ctx context.Context, br BatchRequest) (types.Nil, error) {
 	lr.Logger.Debugw("received lease operation",
 		"Leaseholder", br.Leaseholder,
-		"host", lr.Cluster.HostKey(),
+		"host", lr.Cluster.HostID(),
 		"size", br.size(),
 	)
 	bc := batchCoordinator{}

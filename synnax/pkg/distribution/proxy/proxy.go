@@ -16,7 +16,7 @@ import (
 )
 
 type Entry interface {
-	Lease() aspen.NodeKey
+	Lease() aspen.NodeID
 }
 
 type BatchFactory[E Entry] interface {
@@ -24,7 +24,7 @@ type BatchFactory[E Entry] interface {
 }
 
 type batchFactory[E Entry] struct {
-	host aspen.NodeKey
+	host aspen.NodeID
 }
 
 type Batch[E Entry] struct {
@@ -32,7 +32,7 @@ type Batch[E Entry] struct {
 	Peers   map[core.NodeID][]E
 }
 
-func NewBatchFactory[E Entry](host aspen.NodeKey) BatchFactory[E] { return batchFactory[E]{host} }
+func NewBatchFactory[E Entry](host aspen.NodeID) BatchFactory[E] { return batchFactory[E]{host} }
 
 func (p batchFactory[E]) Batch(entries []E) Batch[E] {
 	b := Batch[E]{Peers: make(map[core.NodeID][]E)}

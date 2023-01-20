@@ -44,13 +44,13 @@ var _ = Describe("OperationSender", func() {
 		)
 		BeforeEach(func() {
 			t1, t2, t3 = net.UnaryServer(""), net.UnaryServer(""), net.UnaryServer("")
-			nodes = node.Group{1: {Key: 1, Address: t1.Address}, 2: {Key: 2, Address: t2.Address}}
+			nodes = node.Group{1: {ID: 1, Address: t1.Address}, 2: {ID: 2, Address: t2.Address}}
 			sOne = store.New()
-			sOne.SetState(store.State{Nodes: nodes, HostKey: 1})
+			sOne.SetState(store.State{Nodes: nodes, HostID: 1})
 			nodesTwo = nodes.Copy()
-			nodesTwo[3] = node.Node{Key: 3, Address: t3.Address, State: node.StateDead}
+			nodesTwo[3] = node.Node{ID: 3, Address: t3.Address, State: node.StateDead}
 			sTwo := store.New()
-			sTwo.SetState(store.State{Nodes: nodesTwo, HostKey: 2})
+			sTwo.SetState(store.State{Nodes: nodesTwo, HostID: 2})
 			gossipCtx, cancel = signal.WithCancel(ctx)
 			var err error
 			g1, err = gossip.New(gossip.Config{
