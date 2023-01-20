@@ -23,7 +23,7 @@ type Builder struct {
 	Configs     []cluster.Config
 	GossipNet   *fmock.Network[gossip.Message, gossip.Message]
 	PledgeNet   *fmock.Network[pledge.Request, pledge.Response]
-	ClusterAPIs map[node.ID]cluster.Cluster
+	ClusterAPIs map[node.Key]cluster.Cluster
 }
 
 func NewBuilder(cfgs ...cluster.Config) *Builder {
@@ -31,7 +31,7 @@ func NewBuilder(cfgs ...cluster.Config) *Builder {
 		Configs:     cfgs,
 		GossipNet:   fmock.NewNetwork[gossip.Message, gossip.Message](),
 		PledgeNet:   fmock.NewNetwork[pledge.Request, pledge.Response](),
-		ClusterAPIs: make(map[node.ID]cluster.Cluster),
+		ClusterAPIs: make(map[node.Key]cluster.Cluster),
 	}
 }
 
@@ -52,7 +52,7 @@ func (b *Builder) New(ctx signal.Context, cfgs ...cluster.Config) (cluster.Clust
 	if err != nil {
 		return nil, err
 	}
-	b.ClusterAPIs[clust.Host().ID] = clust
+	b.ClusterAPIs[clust.Host().Key] = clust
 	return clust, err
 }
 

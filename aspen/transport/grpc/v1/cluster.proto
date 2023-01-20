@@ -7,7 +7,7 @@ service ClusterGossipService {
 }
 
 message Node {
-  uint32 id = 1;
+  uint32 key = 1;
   string address = 2;
   uint32 state = 3;
   Heartbeat heartbeat = 4;
@@ -34,5 +34,5 @@ service PledgeService {
 
 message ClusterPledge {
   string cluster_key = 1;
-  uint32 node_id = 2;
+  uint32 node_key = 2;
 }
