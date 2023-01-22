@@ -73,6 +73,7 @@ export interface LayoutStoreState {
 const initialState: LayoutState = {
   activeTheme: "synnaxDark",
   themes: Theming.themes,
+  alreadyCheckedGetStarted: false,
   layouts: {
     main: {
       name: "Main",
@@ -234,24 +235,24 @@ export const {
       };
     },
     maybeCreateGetStartedTab: (state) => {
-      const checkedGetStarted = state.alreadyCheckedGetStarted;
+      // const checkedGetStarted = state.alreadyCheckedGetStarted;
       state.alreadyCheckedGetStarted = true;
-      if (
-        Object.values(state.layouts).filter(({ location }) => location === "mosaic")
-          .length !== 0 ||
-        checkedGetStarted
-      )
-        return;
-      state.mosaic.root = Mosaic.insertTab(state.mosaic.root, {
-        tabKey: "getStarted",
-        name: "Get Started",
-      });
-      state.layouts.getStarted = {
-        name: "Get Started",
-        key: "getStarted",
-        location: "mosaic",
-        type: "getStarted",
-      };
+      // if (
+      //   Object.values(state.layouts).filter(({ location }) => location === "mosaic")
+      //     .length !== 0 ||
+      //   checkedGetStarted
+      // )
+      //   return;
+      // state.mosaic.root = Mosaic.insertTab(state.mosaic.root, {
+      //   tabKey: "getStarted",
+      //   name: "Get Started",
+      // });
+      // state.layouts.getStarted = {
+      //   name: "Get Started",
+      //   key: "getStarted",
+      //   location: "mosaic",
+      //   type: "getStarted",
+      // };
     },
   },
 });

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { LineVis } from "../line/types";
+import { LineVis } from "../components/line/types";
 import { Vis } from "../types";
 
 import { LayoutStoreState, selectLayouts } from "@/features/layout";

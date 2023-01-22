@@ -79,12 +79,16 @@ jobs:
               - "freighter/ts/**"
               - ".github/workflows/delta.release.yaml"
 
+      - name: Set up pnpm
+        if: steps.filter.outputs.changed == 'true'
+        uses: pnpm/action-setup@v2
+
       - name: Setup Node
         if: steps.filter.outputs.changed == 'true'
         uses: actions/setup-node@v3
         with:
           node-version: 18
-          cache: "yarn"
+          cache: "pnpm"
 
       - name: Install Rust Stable
         if: steps.filter.outputs.changed == 'true'
@@ -116,7 +120,7 @@ jobs:
 
       - name: Install Dependencies and Build
         if: steps.filter.outputs.changed == 'true'
-        run: yarn --prefer-offline && yarn build:delta
+        run: pnpm installl && pnpm build:delta
 
       - uses: tauri-apps/tauri-action@v0
         if: steps.filter.outputs.changed == 'true'

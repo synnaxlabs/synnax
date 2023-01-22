@@ -12,3 +12,7 @@
 .pluto-accordion__header.pluto--collapsed {
     border-bottom: none !important;
 }
+
+.pluto-accordion > div {
+    overflow-y: hidden;
+}

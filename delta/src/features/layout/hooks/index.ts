@@ -17,6 +17,7 @@ import {
   NavMenuItem,
   NavDrawerContent,
   useDebouncedCallback,
+  Theme,
 } from "@synnaxlabs/pluto";
 import { appWindow } from "@tauri-apps/api/window";
 import type { Theme as TauriTheme } from "@tauri-apps/api/window";
@@ -118,7 +119,7 @@ export const useThemeProvider = (): ThemeProviderProps => {
   }, []);
 
   return {
-    theme,
+    theme: theme as Theme,
     setTheme: (key: string) => dispatch(setActiveTheme(key)),
     toggleTheme: () => dispatch(toggleActiveTheme()),
   };

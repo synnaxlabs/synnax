@@ -5,8 +5,8 @@ on:
       - main
   push:
     paths:
-      - 'x/**'
-      - '.github/workflows/x.test.yaml'
+      - "x/**"
+      - ".github/workflows/x.test.yaml"
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -20,7 +20,7 @@ jobs:
         with:
           filters: |
             changed:
-              - 'x/**'
+              - 'x/go/**'
               - '.github/workflows/x.test.yaml'
 
       - name: Set up Node
@@ -32,13 +32,13 @@ jobs:
       - name: Test
         if: steps.filter.outputs.changed == 'true'
         run: go test -v --covermode=atomic --coverprofile=coverage.txt ./...
-        working-directory: ./x
+        working-directory: ./x/go
 
       - name: Upload Coverage
         if: steps.filter.outputs.changed == 'true'
         uses: codecov/codecov-action@v3
         with:
-          directory: ./x
+          directory: ./x/go
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
-          flags: x
+          flags: gox

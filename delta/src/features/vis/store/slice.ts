@@ -24,7 +24,7 @@ export interface VisualizationStoreState {
 }
 
 export const initialState: VisualizationState = {
-  warpMode: true,
+  warpMode: false,
   visualizations: {},
 };
 

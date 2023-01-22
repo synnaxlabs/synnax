@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, createElement, useEffect, useState } from "react";
+import { ReactElement, useEffect, useState } from "react";
 
 import type { Action, AnyAction, EnhancedStore } from "@reduxjs/toolkit";
 import { Provider as Base } from "react-redux";
@@ -47,12 +47,12 @@ export const Provider = <
 >({
   store: promise,
   emptyContent,
-  ...props
+  children,
 }: ProviderProps<S, A, M, E>): ReactElement | null => {
   const [store, setStore] = useState<EnhancedStore<S, A, M, E> | null>(null);
   useEffect(() => {
     promise.then((s) => setStore(s)).catch(console.error);
   }, []);
   if (store == null) return emptyContent ?? null;
-  return createElement(Base<A, S>, { ...props, store });
+  return <Base<A, S> store={store}> {children}</Base>;
 };

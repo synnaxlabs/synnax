@@ -28,6 +28,7 @@ import {
   DECIMAL_BOX,
 } from "@synnaxlabs/pluto";
 
+import { TelemetryClient, TelemetryClientResponse } from "../../../telem/client";
 import { useTelemetryClient } from "../../../telem/TelemetryContext";
 
 import { useSelectTheme } from "@/features/layout";
@@ -37,8 +38,6 @@ import { LineSVis } from "../types";
 import { useAsyncEffect } from "@/hooks";
 
 import "./LinePlot.css";
-
-import { TelemetryClient, TelemetryClientResponse } from "@/features/vis/telem/client";
 
 export interface LinePlotProps {
   vis: LineSVis;
@@ -94,7 +93,7 @@ export const LinePlot = ({
 
       const lines = y1Data.map(({ key, glBuffers, arrays }, i) => ({
         color: [
-          ...hexToRGBA(theme?.colors.visualization.palettes.default[i])
+          ...hexToRGBA(theme?.colors.visualization.palettes.default[i] as string)
             .slice(0, 3)
             .map((c) => c / 255),
           1,
@@ -143,12 +142,8 @@ export const LinePlot = ({
 
   useAsyncEffect(async () => {
     if (ref.current == null) return;
-    await updateRenderingPackage(
-      vis,
-      new Box(ref.current.getBoundingClientRect()),
-      zoom
-    );
-  }, [vis, zoom, client]);
+    await updateRenderingPackage(vis, new Box(ref.current), zoom);
+  }, [vis, client]);
 
   const handleResize = useCallback(
     (box: Box): void => {

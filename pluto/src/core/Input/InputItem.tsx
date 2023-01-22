@@ -10,14 +10,14 @@
 import { forwardRef, Ref } from "react";
 
 import clsx from "clsx";
-import { UseControllerProps, useController } from "react-hook-form";
-
 import {
-  Space,
-  SpaceAlignment,
-  SpaceExtensionProps,
-  SpaceJustification,
-} from "@/core/Space";
+  UseControllerProps,
+  useController,
+  FieldValues,
+  FieldPath,
+} from "react-hook-form";
+
+import { Space, SpaceAlignment, SpaceExtensionProps } from "@/core/Space";
 import { Direction } from "@/spatial";
 import { camelToTitle } from "@/util/case";
 
@@ -105,10 +105,12 @@ const maybeDefaultAlignment = (
 export type InputItemControlledProps<
   I extends InputValue = string | number,
   O extends InputValue = I,
-  P extends InputControlProps<I, O> = InputBaseProps<I, O>
+  P extends InputControlProps<I, O> = InputBaseProps<I, O>,
+  F extends FieldValues = FieldValues,
+  TName extends FieldPath<F> = FieldPath<F>
 > = Omit<P, "onChange" | "value"> &
   InputItemExtensionProps<I, O, P> &
-  UseControllerProps;
+  UseControllerProps<F, TName>;
 
 export const InputItem = forwardRef(CoreInputItem) as <
   I extends InputValue = string | number,
@@ -123,7 +125,9 @@ InputItem.displayName = "InputItem";
 export const InputItemControlled = <
   I extends InputValue = string | number,
   O extends InputValue = I,
-  P extends InputControlProps<I, O> = InputBaseProps<I, O>
+  P extends InputControlProps<I, O> = InputBaseProps<I, O>,
+  F extends FieldValues = FieldValues,
+  TName extends FieldPath<F> = FieldPath<F>
 >({
   name,
   rules,
@@ -132,8 +136,8 @@ export const InputItemControlled = <
   defaultValue,
   label,
   ...props
-}: InputItemControlledProps<I, O, P>): JSX.Element => {
-  const { field, fieldState } = useController({
+}: InputItemControlledProps<I, O, P, F, TName>): JSX.Element => {
+  const { field, fieldState } = useController<F, TName>({
     control,
     rules,
     name,

@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@reduxjs/toolkit": "^1.8.6",
-    "@synnaxlabs/drift": "../../",
+    "@synnaxlabs/drift": "workspace:*",
     "@tauri-apps/api": "^1.1.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

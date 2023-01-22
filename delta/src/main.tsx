@@ -7,20 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { StrictMode, useEffect } from "react";
+import { StrictMode, useEffect, useState } from "react";
 
-import { Provider as DriftProvider } from "@synnaxlabs/drift";
 import { Theming } from "@synnaxlabs/pluto";
 import "@synnaxlabs/pluto/dist/style.css";
+import ReactDOM from "react-dom/client";
 
 import { MainLayout } from "@/components";
 
-import ReactDOM from "react-dom/client";
+import { Provider, useDispatch } from "react-redux";
 
 import { ConnectCluster } from "@/features/cluster";
-
-import { useDispatch } from "react-redux";
-
 import {
   LayoutRendererProvider,
   LayoutWindow,
@@ -31,7 +28,8 @@ import {
 import { useLoadTauriVersion } from "@/features/version";
 import { VisLayoutRenderer } from "@/features/vis";
 import { DefineRange } from "@/features/workspace";
-import { store } from "@/store";
+
+import { store as promise } from "./store";
 
 import "./index.css";
 
@@ -44,11 +42,9 @@ const layoutRenderers = {
 };
 
 const MainUnderContext = (): JSX.Element => {
+  const d = useDispatch();
   const theme = useThemeProvider();
   useLoadTauriVersion();
-
-  const d = useDispatch();
-
   useEffect(() => {
     d(maybeCreateGetStartedTab());
   }, []);
@@ -61,12 +57,19 @@ const MainUnderContext = (): JSX.Element => {
   );
 };
 
-const Main = (): JSX.Element => (
-  <StrictMode>
-    <DriftProvider store={store}>
-      <MainUnderContext />
-    </DriftProvider>
-  </StrictMode>
-);
+const Main = (): JSX.Element | null => {
+  const [store, setStore] = useState<any | null>(null);
+  useEffect(() => {
+    promise.then((s) => setStore(s)).catch(console.error);
+  }, []);
+  if (store == null) return null;
+  return (
+    <StrictMode>
+      <Provider store={store}>
+        <MainUnderContext />
+      </Provider>
+    </StrictMode>
+  );
+};
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(<Main />);

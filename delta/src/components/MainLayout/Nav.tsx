@@ -42,9 +42,7 @@ export const NAV_DRAWERS: NavDrawerItem[] = [
  */
 export const NavTop = (): JSX.Element => (
   <Nav.Bar data-tauri-drag-region location="top" size={NAV_SIZES.top}>
-    <Nav.Bar.End style={{ padding: "0 2rem" }}>
-      <WarpModeToggle />
-    </Nav.Bar.End>
+    <Nav.Bar.End style={{ padding: "0 2rem" }}></Nav.Bar.End>
   </Nav.Bar>
 );
 

@@ -8,9 +8,7 @@ import { ControlledLineVisProps } from "./types";
 import { ToolbarHeader } from "@/components";
 
 export const LinePlotToolBar = (props: ControlledLineVisProps): JSX.Element => {
-  console.log(props);
   const content = ({ tabKey }: Tab): JSX.Element => {
-    console.log(tabKey);
     switch (tabKey) {
       default:
         return <LinePlotChannelControls {...props} />;
