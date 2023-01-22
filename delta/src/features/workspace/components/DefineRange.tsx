@@ -22,9 +22,10 @@ export const DefineRange = ({
   layoutKey,
   onClose,
 }: LayoutRendererProps): JSX.Element => {
-  const now = TimeStamp.now();
+  const now = TimeStamp.now().valueOf();
   const { control, handleSubmit } = useForm({
     defaultValues: {
+      name: "",
       startDate: now,
       startTime: now,
       endDate: now,
@@ -77,14 +78,14 @@ export const DefineRange = ({
         <Space grow className="delta-form">
           <Input.ItemC control={control} name="name" />
           <Space direction="x">
-            <Input.ItemC<number, number, InputDateProps>
+            <Input.ItemC<number, number, InputDateProps, DefineRangeFormProps>
               name="startDate"
               control={control}
               grow
             >
               {Input.Date}
             </Input.ItemC>
-            <Input.ItemC<number, number, InputTimeProps>
+            <Input.ItemC<number, number, InputTimeProps, DefineRangeFormProps>
               name="startTime"
               control={control}
               grow
@@ -93,14 +94,14 @@ export const DefineRange = ({
             </Input.ItemC>
           </Space>
           <Space direction="x">
-            <Input.ItemC<number, number, InputDateProps>
+            <Input.ItemC<number, number, InputDateProps, DefineRangeFormProps>
               name="endDate"
               control={control}
               grow
             >
               {Input.Date}
             </Input.ItemC>
-            <Input.ItemC<number, number, InputTimeProps>
+            <Input.ItemC<number, number, InputTimeProps, DefineRangeFormProps>
               name="endTime"
               control={control}
               grow

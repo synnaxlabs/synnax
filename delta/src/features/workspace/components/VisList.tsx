@@ -25,7 +25,10 @@ export const VisList = (): JSX.Element => {
           },
         ]}
       />
-      <List.Core.Virtual itemHeight={30} style={{ height: "100%" }}>
+      <List.Core.Virtual
+        itemHeight={30}
+        style={{ height: "100%", overflowX: "hidden" }}
+      >
         {List.Column.Item}
       </List.Core.Virtual>
     </List>

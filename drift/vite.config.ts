@@ -21,13 +21,7 @@ export default defineConfig({
   build: {
     minify: false,
     rollupOptions: {
-      external: [
-        "react",
-        "react-dom",
-        "react-redux",
-        "@reduxjs/toolkit",
-        "proxy-memoize",
-      ],
+      external: ["react", "react-dom", "react-redux", "@reduxjs/toolkit"],
       output: {
         globals: {
           react: "React",

@@ -32,13 +32,13 @@ export const MainLayout = (): JSX.Element => (
         empty
       >
         <Space className="delta-main--driven" direction="x" empty>
-          <NavDrawer location="left" className="delta-main-nav-drawer--y" />
+          <NavDrawer location="left" />
           <div className="delta-main--driven" style={{ position: "relative" }}>
             <VisCanvas>
               <LayoutMosaic />
             </VisCanvas>
           </div>
-          <NavDrawer location="right" className="delta-main-nav-drawer--y" />
+          <NavDrawer location="right" />
         </Space>
         <NavDrawer location="bottom" />
       </Space>

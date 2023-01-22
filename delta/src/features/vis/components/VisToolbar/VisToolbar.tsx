@@ -10,13 +10,13 @@
 import { Space, Text } from "@synnaxlabs/pluto";
 
 import { useControlledVis } from "../../hooks";
+import { Vis } from "../../types";
 import { LinePlotToolBar } from "../line/controls/LinePlotToolbar";
 import { ControlledLineVisProps } from "../line/controls/types";
-import { Vis } from "../../types";
-
-import { VisIcon, VisToolbarTitle } from "./VisToolbarTitle";
 
 import { ToolbarHeader } from "@/components";
+
+import { VisIcon, VisToolbarTitle } from "./VisToolbarTitle";
 
 const NoVisContent = (): JSX.Element => (
   <Space justify="spaceBetween" style={{ height: "100%" }} empty>
@@ -26,11 +26,11 @@ const NoVisContent = (): JSX.Element => (
     <Space.Centered>
       <Space direction="x" align="center" size="small">
         <Text level="h4" style={{ color: "var(--pluto-gray-m0)" }}>
-          No Active Visualization. Select a Tab or
+          No active visualization. Select a tab or create a new one.
         </Text>
-        <Text.Link level="h4" onClick={console.log}>
+        {/* <Text.Link level="h4" onClick={console.log}>
           Create a New One
-        </Text.Link>
+        </Text.Link> */}
       </Space>
     </Space.Centered>
   </Space>

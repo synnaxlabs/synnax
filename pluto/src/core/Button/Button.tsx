@@ -21,7 +21,7 @@ import "./Button.css";
 export type ButtonVariant = "filled" | "outlined" | "text";
 
 /** The base props accepted by all button types in this directory. */
-export interface BaseButtonProps extends SpaceProps<HTMLButtonElement> {
+export interface BaseButtonProps extends Omit<SpaceProps<"button">, "el"> {
   variant?: ButtonVariant;
   size?: ComponentSize;
 }
@@ -42,7 +42,7 @@ export const Button = ({
   children,
   ...props
 }: ButtonProps): JSX.Element => (
-  <Text.WithIcon<HTMLButtonElement>
+  <Text.WithIcon
     el="button"
     className={clsx("pluto--" + size, "pluto-btn", "pluto-btn--" + variant, className)}
     color={variant === "filled" ? "var(--pluto-white)" : "var(--pluto-text-color)"}

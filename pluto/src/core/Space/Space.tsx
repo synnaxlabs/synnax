@@ -7,17 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  CSSProperties,
-  ForwardedRef,
-  forwardRef,
-  HTMLAttributes,
-  DetailedHTMLProps,
-} from "react";
+import { CSSProperties, ForwardedRef, forwardRef } from "react";
 
 import clsx from "clsx";
 
-import { Generic } from "../Generic";
+import { Generic, GenericProps } from "../Generic";
 
 import { Direction } from "@/spatial";
 import { ComponentSize } from "@/util/component";
@@ -54,8 +48,7 @@ export const SpaceJustifications: readonly SpaceJustification[] = [
   "spaceEvenly",
 ];
 
-export type SpaceHTMLElement = Pick<
-  JSX.IntrinsicElements,
+export type SpaceElementType =
   | "div"
   | "header"
   | "nav"
@@ -64,8 +57,7 @@ export type SpaceHTMLElement = Pick<
   | "aside"
   | "footer"
   | "button"
-  | "dialog"
->;
+  | "dialog";
 
 export interface SpaceExtensionProps {
   empty?: boolean;
@@ -76,14 +68,16 @@ export interface SpaceExtensionProps {
   align?: SpaceAlignment;
   grow?: boolean | number;
   wrap?: boolean;
-  el?: keyof SpaceHTMLElement;
+  el?: SpaceElementType;
 }
 
-export interface SpaceProps<E extends HTMLElement = HTMLDivElement>
-  extends SpaceExtensionProps,
-    Omit<DetailedHTMLProps<HTMLAttributes<E>, E>, "ref"> {}
+export type SpaceProps<E extends SpaceElementType = "div"> = Omit<
+  GenericProps<E>,
+  "el"
+> &
+  SpaceExtensionProps;
 
-const CoreSpace = <E extends HTMLElement = HTMLDivElement>(
+const CoreSpace = <E extends SpaceElementType = "div">(
   {
     style,
     align,
@@ -95,10 +89,10 @@ const CoreSpace = <E extends HTMLElement = HTMLDivElement>(
     reverse = false,
     direction = "y",
     wrap = false,
-    el = "div",
+    el = "div" as E,
     ...props
   }: SpaceProps<E>,
-  ref: ForwardedRef<E>
+  ref: ForwardedRef<JSX.IntrinsicElements[E]>
 ): JSX.Element => {
   let gap: number | string | undefined;
   if (empty) [size, gap] = [0, 0];
@@ -116,6 +110,7 @@ const CoreSpace = <E extends HTMLElement = HTMLDivElement>(
   if (grow != null) style.flexGrow = Number(grow);
 
   return (
+    // @ts-expect-error
     <Generic<E>
       el={el}
       ref={ref}
@@ -132,8 +127,8 @@ const CoreSpace = <E extends HTMLElement = HTMLDivElement>(
 };
 CoreSpace.displayName = "Space";
 
-export const Space = forwardRef(CoreSpace) as <E extends HTMLElement = HTMLDivElement>(
-  props: SpaceProps<E> & { ref?: ForwardedRef<E> }
+export const Space = forwardRef(CoreSpace) as <E extends SpaceElementType = "div">(
+  props: SpaceProps<E>
 ) => JSX.Element;
 
 type FlexDirection = CSSProperties["flexDirection"];

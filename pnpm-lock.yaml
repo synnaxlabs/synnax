@@ -124,7 +124,7 @@ importers:
       vite: ^4.0.4
       vite-plugin-svgr: ^2.2.1
       vite-tsconfig-paths: ^4.0.3
-      zod: ^3.19.1
+      zod: 3.19.1
     dependencies:
       '@fontsource/inter': 4.5.14
       '@hookform/resolvers': 2.9.10_react-hook-form@7.42.0
@@ -149,7 +149,7 @@ importers:
       uplot: 1.6.23
       uuid: 9.0.0
       vite-plugin-svgr: 2.4.0_vite@4.0.4
-      zod: 3.20.2
+      zod: 3.19.1
     devDependencies:
       '@synnaxlabs/tsconfig': link:../configs/ts
       '@tauri-apps/cli': 1.2.2
@@ -232,6 +232,37 @@ importers:
       vite: 4.0.4
       vite-plugin-lib: 1.2.0_gl4qsmwzp7wy5uclz4tx77gbli
       vitest: 0.26.3
+
+  drift/examples/tauri:
+    specifiers:
+      '@reduxjs/toolkit': ^1.8.6
+      '@synnaxlabs/drift': workspace:*
+      '@tauri-apps/api': ^1.1.0
+      '@tauri-apps/cli': ^1.1.1
+      '@types/react': ^18.0.17
+      '@types/react-dom': ^18.0.6
+      '@vitejs/plugin-react': ^2.1.0
+      react: ^18.2.0
+      react-dom: ^18.2.0
+      react-redux: ^8.0.4
+      typescript: ^4.9.4
+      vite: ^4.0.4
+      vite-tsconfig-paths: ^4.0.3
+    dependencies:
+      '@reduxjs/toolkit': 1.9.1_k4ae6lp43ej6mezo3ztvx6pykq
+      '@synnaxlabs/drift': link:../..
+      '@tauri-apps/api': 1.2.0
+      react: 18.2.0
+      react-dom: 18.2.0_react@18.2.0
+      react-redux: 8.0.5_ie75ejlwqy5zh3tldgt7pftwcu
+    devDependencies:
+      '@tauri-apps/cli': 1.2.2
+      '@types/react': 18.0.26
+      '@types/react-dom': 18.0.10
+      '@vitejs/plugin-react': 2.2.0_vite@4.0.4
+      typescript: 4.9.4
+      vite: 4.0.4
+      vite-tsconfig-paths: 4.0.3_gl4qsmwzp7wy5uclz4tx77gbli
 
   freighter/ts:
     specifiers:

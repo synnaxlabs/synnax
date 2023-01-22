@@ -11,7 +11,7 @@ import { ForwardedRef, forwardRef, ReactElement } from "react";
 
 import clsx from "clsx";
 
-import { Space, SpaceProps } from "@/core/Space";
+import { Space, SpaceElementType, SpaceProps } from "@/core/Space";
 import { ComponentSize } from "@/util/component";
 
 import "./Pack.css";
@@ -22,11 +22,12 @@ export interface PackChildProps {
   size: ComponentSize;
 }
 
-export interface PackProps<E extends HTMLElement = HTMLDivElement>
-  extends Omit<SpaceProps<E>, "children" | "empty"> {
+export type PackProps<E extends SpaceElementType = "div"> = Omit<
+  SpaceProps<E>,
+  "children" | "empty"
+> & {
   children: ReactElement<PackChildProps> | Array<ReactElement<PackChildProps>>;
-  size?: ComponentSize;
-}
+};
 
 /**
  * Packs elements together, setting their size and styling the borders between them so
@@ -42,7 +43,7 @@ export interface PackProps<E extends HTMLElement = HTMLDivElement>
  * @param props.size - The size to set on the children. Any sizes already set on the
  * children will be overridden. Defaults to "medium".
  */
-const CorePack = <E extends HTMLElement = HTMLDivElement>(
+const CorePack = <E extends SpaceElementType = "div">(
   {
     children,
     className,
@@ -51,8 +52,10 @@ const CorePack = <E extends HTMLElement = HTMLDivElement>(
     direction = "x",
     ...props
   }: PackProps<E>,
-  ref: ForwardedRef<E>
+  // select the correct type for the ref
+  ref: ForwardedRef<JSX.IntrinsicElements[E]>
 ): JSX.Element => (
+  // @ts-expect-error
   <Space<E>
     ref={ref}
     direction={direction}
@@ -71,6 +74,6 @@ const CorePack = <E extends HTMLElement = HTMLDivElement>(
   </Space>
 );
 
-export const Pack = forwardRef(CorePack) as <E extends HTMLElement = HTMLDivElement>(
-  props: PackProps<E> & { ref?: ForwardedRef<E> }
+export const Pack = forwardRef(CorePack) as <E extends SpaceElementType = "div">(
+  props: PackProps<E>
 ) => JSX.Element;

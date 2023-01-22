@@ -10,3 +10,4 @@ packages:
   - "configs/vite"
   - "docs/site"
   - "x/ts"
+  - "drift/examples/tauri"

@@ -3,5 +3,5 @@
   "compilerOptions": {
     "baseUrl": ".",
   },
-  "include": ["src/**/*", "../pluto/src/visualization/gl/line", "../pluto/src/visualization/gl/scissor.ts", "../pluto/src/visualization/ZoomPanMask"],
+  "include": ["src/**/*"],
 }

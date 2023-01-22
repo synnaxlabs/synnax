@@ -22,7 +22,8 @@ export default defineConfig({
   plugins: [react(), tsconfigPaths(), svgr()],
   build: {
     target: ["es2021", "chrome100", "safari13"],
-    minify: !process.env.TAURI_DEBUG ? "esbuild" : false,
+    // minify: !process.env.TAURI_DEBUG ? "esbuild" : false,
+    minify: false,
     sourcemap: false,
     // We don't really care about maintaining a small bundle size right now, as this file
     // is loaded directly from disc instead of OTN

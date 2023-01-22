@@ -78,7 +78,6 @@ const ResourcesTree = (): JSX.Element => {
         onChange={(key) => {
           if (key == null) return;
           const id = OntologyID.parseString(key);
-          console.log(key);
           const { onSelect } = resourceTypes[id.type];
           onSelect?.({
             id,

@@ -1,26 +1,22 @@
 import {
+  ComponentPropsWithRef,
   createElement,
-  DetailedHTMLProps,
+  ElementType,
   ForwardedRef,
   forwardRef,
-  HtmlHTMLAttributes,
 } from "react";
 
-export type GenericElementKey<P extends keyof JSX.IntrinsicElements = any> = keyof Pick<
-  JSX.IntrinsicElements,
-  P
->;
+export type JSXElementType = keyof JSX.IntrinsicElements;
 
-export interface GenericProps<E extends HTMLElement = HTMLElement>
-  extends DetailedHTMLProps<HtmlHTMLAttributes<E>, E> {
-  el: GenericElementKey;
-}
-
-const GenericCore = <E extends HTMLElement = HTMLElement>(
-  { el = "h1", children, ...props }: GenericProps<E>,
-  ref: ForwardedRef<E>
+const GenericCore = <E extends JSXElementType>(
+  { el, children, ...props }: GenericProps<E>,
+  ref: ForwardedRef<JSX.IntrinsicElements[E]>
 ): JSX.Element => createElement(el, { ref, ...props }, children);
 
-export const Generic = forwardRef(GenericCore) as <E extends HTMLElement = HTMLElement>(
-  props: GenericProps<E> & { ref?: ForwardedRef<E> }
+export type GenericProps<E extends ElementType> = ComponentPropsWithRef<E> & {
+  el: E;
+};
+
+export const Generic = forwardRef(GenericCore) as <E extends JSXElementType>(
+  props: GenericProps<E>
 ) => JSX.Element;

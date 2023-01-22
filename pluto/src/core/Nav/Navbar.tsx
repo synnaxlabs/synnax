@@ -16,8 +16,7 @@ import { Location, Position, swapLoc, swapDir, locToDir, dirToDim } from "@/spat
 
 import "./Navbar.css";
 
-export interface NavbarProps
-  extends Omit<SpaceProps<HTMLDivElement>, "direction" | "size"> {
+export interface NavbarProps extends Omit<SpaceProps, "direction" | "size" | "ref"> {
   location?: Location;
   size?: string | number;
 }
@@ -54,7 +53,7 @@ const CoreNavbar = ({
   );
 };
 
-export interface NavbarContentProps extends SpaceProps<HTMLDivElement> {
+export interface NavbarContentProps extends Omit<SpaceProps<"div">, "ref"> {
   bordered?: boolean;
   className?: string;
 }

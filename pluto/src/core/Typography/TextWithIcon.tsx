@@ -15,20 +15,22 @@ import { Divider } from "@/core/Divider";
 
 import { CoreTextProps, Text } from "./Text";
 
-import { Space, SpaceProps } from "@/core/Space";
+import { Space, SpaceProps, SpaceElementType } from "@/core/Space";
 
 import "./TextWithIcon.css";
 
-export interface TextWithIconProps<E extends HTMLElement = HTMLDivElement>
-  extends Omit<SpaceProps<E>, "children">,
-    CoreTextProps {
-  startIcon?: ReactElement | ReactElement[];
-  endIcon?: ReactElement | ReactElement[];
-  children?: string | number;
-  divided?: boolean;
-}
+export type TextWithIconProps<E extends SpaceElementType = "div"> = Omit<
+  SpaceProps<E>,
+  "children"
+> &
+  CoreTextProps & {
+    startIcon?: ReactElement | ReactElement[];
+    endIcon?: ReactElement | ReactElement[];
+    children?: string | number;
+    divided?: boolean;
+  };
 
-export const TextWithIcon = <E extends HTMLElement = HTMLDivElement>({
+export const TextWithIcon = <E extends SpaceElementType = "div">({
   level = "h1",
   divided = false,
   startIcon,
@@ -41,6 +43,7 @@ export const TextWithIcon = <E extends HTMLElement = HTMLDivElement>({
   const startIcons = startIcon != null && formatIcons(startIcon, color);
   const endIcons = endIcon != null && formatIcons(endIcon, color);
   return (
+    // @ts-expect-error
     <Space<E>
       className={clsx("pluto-text-icon", `pluto-text-icon--${level}`, className)}
       direction="x"

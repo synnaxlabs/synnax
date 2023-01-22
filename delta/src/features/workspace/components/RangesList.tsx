@@ -52,16 +52,21 @@ export const RangesList = (): JSX.Element => {
   const selectedRange = useSelectRange();
   const dispatch = useDispatch();
   return (
-    <List data={ranges}>
-      <List.Selector
-        value={selectedRange == null ? [] : [selectedRange.key]}
-        onChange={([key]: readonly string[]) => dispatch(setActiveRange(key ?? null))}
-        allowMultiple={false}
-      />
-      <List.Column.Header columns={rangeListColumns} />
-      <List.Core.Virtual itemHeight={30} style={{ height: "100%" }}>
-        {List.Column.Item}
-      </List.Core.Virtual>
-    </List>
+    <div style={{ flexGrow: 1 }}>
+      <List data={ranges}>
+        <List.Selector
+          value={selectedRange == null ? [] : [selectedRange.key]}
+          onChange={([key]: readonly string[]) => dispatch(setActiveRange(key ?? null))}
+          allowMultiple={false}
+        />
+        <List.Column.Header columns={rangeListColumns} />
+        <List.Core.Virtual
+          itemHeight={30}
+          style={{ height: "100%", overflowX: "hidden" }}
+        >
+          {List.Column.Item}
+        </List.Core.Virtual>
+      </List>
+    </div>
   );
 };
