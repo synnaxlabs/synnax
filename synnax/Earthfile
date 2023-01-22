@@ -7,7 +7,7 @@ deps:
     IF [ "$noui" = "false" ]
         COPY ./pkg/ui+build/* ./pkg/ui
     END
-    COPY ../x/go+source/* /x
+    COPY ../x/go+source/* /x/go
     COPY ../cesium+source/* /cesium
     COPY ../aspen+source/* /aspen
     COPY ../freighter/go+source/* /freighter/go
