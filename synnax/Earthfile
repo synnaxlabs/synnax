@@ -11,7 +11,6 @@ deps:
     COPY ../cesium+source/* /cesium
     COPY ../aspen+source/* /aspen
     COPY ../freighter/go+source/* /freighter/go
-    COPY ../client/go+source/* /client/go
     COPY go.mod go.sum ./
     RUN go mod download
 
