@@ -9,11 +9,10 @@
  * included in the file licenses/APL.txt.
  */
 
+import { DataType, TArray, TimeRange } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
 import { Frame } from "..";
-
-import { DataType, TArray, TimeRange } from "@synnaxlabs/x";
 
 describe("Frame", () => {
   describe("construction", () => {
@@ -182,6 +181,7 @@ describe("Frame", () => {
       });
       const pld = f.toPayload();
       expect(pld.keys).toEqual(["a", "b"]);
+      console.log(pld.arrays[0].data);
       expect(pld.arrays[0].data.byteLength).toEqual(12);
     });
   });

@@ -28,7 +28,7 @@ const newChannel = async (): Promise<Channel> => {
 describe("Iterator", () => {
   test("basic iteration", async () => {
     const ch = await newChannel();
-    const writer = await client.data.newWriter(TimeStamp.SECOND, [ch.key]);
+    const writer = await client.data.newWriter(TimeStamp.SECOND, ch.key);
     const data = randomTypedArray(25, ch.dataType);
     try {
       await writer.writeArray(ch.key, data);
@@ -50,7 +50,7 @@ describe("Iterator", () => {
       let c = 0;
       while (await iter.next(TimeSpan.seconds(1))) {
         c++;
-        expect(iter.value.getA(ch.key)).toHaveLength(25);
+        expect(iter.value.getA(ch.key)[0]).toHaveLength(25);
       }
       expect(c).toEqual(3);
     } finally {
