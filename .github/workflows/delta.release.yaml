@@ -82,6 +82,8 @@ jobs:
       - name: Set up pnpm
         if: steps.filter.outputs.changed == 'true'
         uses: pnpm/action-setup@v2
+        with:
+          version: 7
 
       - name: Setup Node
         if: steps.filter.outputs.changed == 'true'
