@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-type Runtime = "browser" | "node";
+export type Runtime = "browser" | "node";
 
-const detectRuntime = (): Runtime => {
+export const detectRuntime = (): Runtime => {
   if (
     typeof process !== "undefined" &&
     process.versions != null &&
@@ -18,7 +18,7 @@ const detectRuntime = (): Runtime => {
     return "node";
 
   if (window === undefined || window.document === undefined)
-    console.warn("freighter unable to safely detect runtime, assuming browser");
+    console.warn("unable to safely detect runtime, assuming browser");
 
   return "browser";
 };

@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { useState } from "react";
+
 import { fireEvent, render } from "@testing-library/react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -50,14 +52,18 @@ const data: SampleRecord[] = [
   },
 ];
 
-const colList = (
-  <List data={data}>
-    <List.Column.Header columns={cols} />
-    <List.Core.Virtual itemHeight={30}>
-      {(props) => <List.Column.Item {...props} />}
-    </List.Core.Virtual>
-  </List>
-);
+const TestList = (): JSX.Element => {
+  const [selected, setSelected] = useState<readonly string[]>([]);
+  return (
+    <List data={data}>
+      <List.Selector value={selected} onChange={setSelected} />
+      <List.Column.Header columns={cols} />
+      <List.Core.Virtual itemHeight={30}>
+        {(props) => <List.Column.Item {...props} />}
+      </List.Core.Virtual>
+    </List>
+  );
+};
 
 describe("List", () => {
   beforeAll(() => {
@@ -68,14 +74,14 @@ describe("List", () => {
   });
   describe("Column", () => {
     it("should render a column list with the provided items", async () => {
-      const c = render(colList);
+      const c = render(<TestList />);
       expect(c.getByText("Name")).toBeTruthy();
       expect(c.getByText("Age")).toBeTruthy();
       expect(c.getByText("John")).toBeTruthy();
       expect(await c.findByText("Jane")).toBeTruthy();
     });
     it("should allow a user to select an item in the list", async () => {
-      const c = render(colList);
+      const c = render(<TestList />);
       fireEvent.click(c.getByText("John"));
       const selected = await c.findByText("John");
       expect(selected.parentElement?.className).toContain(
@@ -83,7 +89,7 @@ describe("List", () => {
       );
     });
     it("should allow a user to deselect an item in the list", async () => {
-      const c = render(colList);
+      const c = render(<TestList />);
       fireEvent.click(c.getByText("John"));
       fireEvent.click(c.getByText("John"));
       const selected = await c.findByText("John");
@@ -92,7 +98,7 @@ describe("List", () => {
       );
     });
     it("should allow a user to select multiple items in the list when holding shift", async () => {
-      const c = render(colList);
+      const c = render(<TestList />);
       fireEvent.keyDown(document.body, { key: "Shift" });
       fireEvent.click(c.getByText("John"));
       fireEvent.click(c.getByText("Jack"));
@@ -106,7 +112,7 @@ describe("List", () => {
       });
     });
     it("should allow a user to deselect multiple items in the list when holding shift", () => {
-      const c = render(colList);
+      const c = render(<TestList />);
       fireEvent.keyDown(document.body, { key: "Shift" });
       fireEvent.click(c.getByText("John"));
       fireEvent.click(c.getByText("Jack"));
@@ -124,7 +130,7 @@ describe("List", () => {
       });
     });
     it("should allow a user to sort the column by name", () => {
-      const c = render(colList);
+      const c = render(<TestList />);
       fireEvent.click(c.getByText("Name"));
       const jack = c.getByText("Jack");
       expect(jack.parentElement?.nextSibling?.textContent).toBe("Jane20");
