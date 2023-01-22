@@ -7,15 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { RUNTIME } from "@synnaxlabs/x";
+
 let canvas: HTMLCanvasElement | null = null;
 
 const getCanvas = (): HTMLCanvasElement => {
-  if (canvas == null)
-    canvas = document.createElement("canvas");
+  if (canvas == null) canvas = document.createElement("canvas");
   return canvas;
-}
+};
 
 export const textWidth = (text: string, font: string): number => {
+  if (RUNTIME === "node") return 0;
   const context = getCanvas().getContext("2d") as CanvasRenderingContext2D;
   context.font = font;
   const metrics = context.measureText(text);

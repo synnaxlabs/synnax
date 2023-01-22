@@ -11,8 +11,8 @@ import { useCallback } from "react";
 
 import { UnknownRecord } from "@synnaxlabs/x";
 import Fuse from "fuse.js";
-import memoize from "proxy-memoize";
 
+import { proxyMemo } from "@/memo";
 import { ArrayTransform } from "@/util/transform";
 
 export interface UseSearchProps<E extends UnknownRecord<E>> {
@@ -29,7 +29,7 @@ export const useSearch = <E extends UnknownRecord<E>>({
   opts,
 }: UseSearchProps<E>): ArrayTransform<E> => {
   return useCallback(
-    memoize((data: E[]) => {
+    proxyMemo((data: E[]) => {
       if (data?.length === 0 || query.length === 0) return data;
       const fuse = new Fuse(data, {
         keys: Object.keys(data[0]),

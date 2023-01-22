@@ -10,12 +10,11 @@
 
 import { useCallback, useEffect } from "react";
 
-import { compareArrayDeps, useMemoCompare } from "..";
-
 import { mouseButtonKey } from "./mouse";
 import { KeyboardKey } from "./types";
 
 import { PseudoSetState } from "@/hooks/useStateRef";
+import { compareArrayDeps, useMemoCompare } from "@/memo";
 
 export const useKeysHeld = (
   onChange: PseudoSetState<KeyboardKey[]>,
