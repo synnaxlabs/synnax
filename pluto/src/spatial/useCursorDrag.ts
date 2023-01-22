@@ -25,8 +25,6 @@ export type UseCursorDragStart = (
   e: ClientXY & { button: number; preventDefault: () => void }
 ) => void;
 
-// const isMousingIntoWindow = (e: MouseEvent): boolean => e.relatedTarget !== null;
-
 export const useCursorDrag = ({
   onMove,
   onStart,

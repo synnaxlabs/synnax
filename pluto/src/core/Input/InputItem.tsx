@@ -78,7 +78,7 @@ const CoreInputItem = <
   if (typeof children === "object") children = children.render;
   return (
     <Space
-      justify={maybeDefaultJustify(justify, direction)}
+      justify={justify}
       align={maybeDefaultAlignment(align, direction)}
       empty={empty}
       grow={grow}
@@ -88,7 +88,7 @@ const CoreInputItem = <
       style={style}
     >
       <InputLabel>{label}</InputLabel>
-      {children({ ref, ...(props as unknown as P) })}
+      {children({ ref, grow, ...(props as unknown as P) })}
       <InputHelpText>{helpText}</InputHelpText>
     </Space>
   );
@@ -100,14 +100,6 @@ const maybeDefaultAlignment = (
 ): SpaceAlignment => {
   if (align != null) return align;
   return direction === "y" ? "stretch" : "center";
-};
-
-const maybeDefaultJustify = (
-  justify?: SpaceJustification,
-  direction?: Direction
-): SpaceJustification => {
-  if (justify != null) return justify;
-  return direction === "y" ? "start" : "center";
 };
 
 export type InputItemControlledProps<

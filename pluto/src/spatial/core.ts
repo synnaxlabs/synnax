@@ -32,10 +32,11 @@ export type Location = typeof LOCATIONS[number];
 
 export const DIRECTIONS = ["x", "y"] as const;
 export type Direction = typeof DIRECTIONS[number];
-export const isDirection = (v: string): boolean => DIRECTIONS.includes(v as Direction);
+export const isDirection = (v: string): v is Direction =>
+  DIRECTIONS.includes(v as Direction);
 
 export const locToDir = (loc: Location | Direction): Direction => {
-  if (isDirection(loc)) return loc as Direction;
+  if (isDirection(loc)) return loc;
   return Y_LOCATIONS.includes(loc as YLocation) ? "y" : "x";
 };
 
@@ -59,6 +60,7 @@ export const swapLoc = (location: Location): Location => SWAPPED_LOCS[location];
 export interface XY extends Record<Direction, number> {}
 
 export const ZERO_XY: XY = { x: 0, y: 0 };
+export const ZERO_DIMS: Dimensions = { width: 0, height: 0 };
 export const ONE_XY: XY = { x: 1, y: 1 };
 export const INFINITE_XY: XY = { x: Infinity, y: Infinity };
 
@@ -82,10 +84,11 @@ export interface ClientXY {
   clientY: number;
 }
 
-export const toXY = (pt: XY | ClientXY | Dimensions): XY => {
-  if ("x" in pt) return pt;
+export const toXY = (pt: XY | ClientXY | Dimensions | SignedDimensions): XY => {
+  if ("clientX" in pt) return { x: pt.clientX, y: pt.clientY };
   if ("width" in pt) return { x: pt.width, y: pt.height };
-  return { x: pt.clientX, y: pt.clientY };
+  if ("signedWidth" in pt) return { x: pt.signedWidth, y: pt.signedHeight };
+  return { x: pt.x, y: pt.y };
 };
 
 export const locDim = (
@@ -97,3 +100,49 @@ export type ClientXYF = (e: ClientXY) => void;
 
 export const dirToDim = (direction: Direction): "width" | "height" =>
   direction === "x" ? "width" : "height";
+
+export interface Bound {
+  lower: number;
+  upper: number;
+}
+
+export const ZERO_BOUND = { lower: 0, upper: 0 };
+export const INFINITE_BOUND = { lower: -Infinity, upper: Infinity };
+export const DECIMAL_BOUND = { lower: 0, upper: 1 };
+export const CLIP_BOUND = { lower: -1, upper: 1 };
+
+export const isBound = (v: any): v is Bound =>
+  typeof v === "object" && "lower" in v && "upper" in v;
+
+export const makeValidBound = (bound: Bound): Bound =>
+  bound.lower > bound.upper ? { lower: bound.upper, upper: bound.lower } : bound;
+
+export const bound = (v1: number | Bound, v2?: number): Bound => {
+  if (isBound(v1)) return makeValidBound(v1);
+  if (typeof v1 === "number") {
+    if (v2 != null) return { lower: v1, upper: v2 };
+    return { lower: 0, upper: v1 };
+  }
+  throw new Error("Invalid bound");
+};
+
+export const inBounds = (v: number, bound: Bound): boolean =>
+  v >= bound.lower && v <= bound.upper;
+
+export const dimInBounds = (dim: number, bound: Bound): boolean =>
+  bound.upper - bound.lower >= dim;
+
+export const isZeroBound = (bound: Bound): boolean =>
+  bound.lower === 0 && bound.upper === 0;
+
+export const DECIMAL_COORD_ROOT: Corner = "bottomLeft";
+
+export const cornerLocations = (corner: Corner): [XLocation, YLocation] =>
+  CORNER_LOCATIONS[corner];
+
+const CORNER_LOCATIONS: Record<Corner, [XLocation, YLocation]> = {
+  topLeft: ["left", "top"],
+  topRight: ["right", "top"],
+  bottomLeft: ["left", "bottom"],
+  bottomRight: ["right", "bottom"],
+};

@@ -13,7 +13,7 @@ import { KeyedRecord } from "@synnaxlabs/x";
 
 import { InputControlProps } from "@/core/Input";
 
-import { useRefState } from "./useRefState";
+import { useStateRef } from "./useStateRef";
 
 import { useKeysHeld } from "@/hooks";
 import { KeyboardKey } from "@/keys";
@@ -63,7 +63,7 @@ export const useSelectMultiple = <E extends KeyedRecord<E>>({
   onChange,
 }: UseSelectMultipleProps<E>): UseSelectMultipleReturn<E> => {
   const shiftValueRef = useRef<string | null>(null);
-  const [ref, setCurrentRef] = useRefState<KeyboardKey[]>([]);
+  const [ref, setCurrentRef] = useStateRef<KeyboardKey[]>([]);
   useKeysHeld(setCurrentRef, "Shift");
 
   const handleSelect = useCallback(

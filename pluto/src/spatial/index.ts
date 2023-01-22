@@ -10,3 +10,4 @@
 export * from "./core";
 export * from "./box";
 export * from "./useSize";
+export * from "./scale";

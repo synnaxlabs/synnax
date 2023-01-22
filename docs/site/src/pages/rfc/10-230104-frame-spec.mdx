@@ -11,6 +11,15 @@ layout: ../../layouts/MainLayout.astro
 
 # 0 - Summary
 
+The primitive unit of data transfer in Synnax is an array, which contains a collection of
+ordered samples for a channel. Moving telemetry across the cluster and to/from clients
+using a primitive binary array leaves a lot to be desired. How do we identify the channel
+the array belongs to? What is its data type? How do we align it with other arrays?
+
+In this RFC I propose an architecture for wrapping primitive arrays with identifying
+meta-data and organizing them into 'frames' of aligned arrays that streamline the telemetry
+transfer process.
+
 # 1 - Vocabulary
 
 **Sample** - An arbitrary byte array recorded at a specific point in time. <br />
@@ -20,20 +29,61 @@ layout: ../../layouts/MainLayout.astro
 
 # 2 - Array Specification
 
-## 2.1 - Motivation
+The current version of Synnax uses a `Segment` type to represent telemetry.
+A segment contains a binary data array, a channel key, and a time range. This
+format has started to show its limitations. The most obvious issue is that the data type
+of the array is unknown. The idea was to find the data type by performing a lookup
+on a channel in the aim of removing a few bytes from the segment header. In reality, this
+most likely has a negligible impact on performance, as segments typically contain many
+thousands of samples or more. On the other hand, the lookups required to find the data
+type of a segment do end up beign a performance bottleneck for short lived reads.
 
-Most storage engines focus their architectures on the most efficient path for reading and writing
-single samples and/or batches of samples. Synnax doesn't even consider the single sample case.
-Instead, the fundamental unit of data transfer is an array.
+The lack of a data type field is just a few of the many overlooked issues with the current
+segment format. The new `Array` type aims to restructure and improve the segment format.
 
-Synnax's array extends the classical definition. It contains is data as a collection of
-ordered samples. This representation, however, leaves a desire for additional identifying
-meta-data useful to the database or caller: What sensor does this belong to?
-What is the data type? When was this recorded? How do I align this with other data?
+## 2.0 - Array Data
 
-## 2.1 - Attaching Meta-Data
+The properties of data stored in an array are simple:
 
-The naive approach to adding meta-data is an array header, which contains a
+1. Channel-tied - Arrays should contain samples for one and only one channel.
+2. Continuous - For an array containing samples for a time range x, the samples in the
+   array must represent all values in the channel for that time range.
+3. Time-ordered - Relatively obvious.
+4. Strongly typed - All data in the array is of the same data type, and the data type
+   has a fixed density. There are no plans to support variable data types.
+
+All values are encoded in little-endian byte order, with floating point values following
+the IEEE 754 standard.
+
+### 2.0.1 - A warning on null and boolean values
+
+I haven't placed extensive though into how nulls or boolean values should be handled.
+The current demands for Synnax don't require these features, and they seem to be an easy
+addition later on.
+
+## 2.1 - Metadata Fields
+
+This section defines the fields that will be correlated with an `Array`. The actual method
+for attaching this information is challening, and is discussed in detail in the next section.
+
+### 2.1.0 - Channel Key
+
+The key for the channel the array belongs to. The telemetry in an array must belong to
+one and only one channel.
+
+### 2.1.1 - Time Range
+
+On optioanl time range representing the span of time the array occupies. If provided,
+the time range must represent all values in the channel for that time range i.e. it must
+be continuous.
+
+### 2.1.2 - Data Type
+
+A string representing the data type of the array. All data types have a fixed density.
+
+## 2.2 - Attaching Meta-Data
+
+The naive approach to adding meta-data is an array header, which contains the
 time range, channel key, data type, etc. The problem with this approach lies in maintaining
 architectural boundaries between different layers of Synnax. Let's say we were to add a
 header field named `key` to the array. What should its data type be? Cesium considers all
@@ -64,19 +114,7 @@ range, and (maybe?) alignment information.
 In summary, the approach is **to attach universal meta-data to the array itself, and move
 layer-specific meta-data to a separate data structure**.
 
-## 2.2 - Array Properties
-
-Arrays have specific properties they must uphold in order to be usable and meaningful
-within a time-series context:
-
-1. Channel-tied - Arrays should contain samples for one and only one channel.
-2. Continuous - For an array containing samples for a time range x, the samples in the
-   array must represent all values in the channel for that time range.
-3. Time-ordered - Relatively obvious.
-4. Strongly typed - All data in the array is of the same data type, and the data type
-   has a fixed density. There are no plans to support variable data types.
-
-## 2.2 - Array Definition
+## 2.3 - Array Definition in Go
 
 ```go
 package telem

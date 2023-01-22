@@ -52,7 +52,7 @@ export const Date = (): JSX.Element => {
 };
 
 export const Number = (): JSX.Element => {
-  const [value, setValue] = useState(0);
+  const [value, setValue] = useState<number>(0);
   return <Input.Number value={value} onChange={setValue} />;
 };
 

@@ -19,7 +19,7 @@ import { InputControlProps, Input, InputProps } from "@/core/Input";
 import { List, ListColumn } from "@/core/List";
 
 export interface SelectProps<E extends RenderableRecord<E>>
-  extends Pick<DropdownProps, "location">,
+  extends Omit<DropdownProps, "onChange" | "visible" | "children">,
     InputControlProps<string> {
   data?: E[];
   tagKey?: keyof E;
@@ -29,10 +29,10 @@ export interface SelectProps<E extends RenderableRecord<E>>
 export const Select = <E extends RenderableRecord<E>>({
   onChange,
   value,
-  location,
   tagKey = "key",
   columns = [],
   data = [],
+  ...props
 }: SelectProps<E>): JSX.Element => {
   const { ref, visible, open, close } = Dropdown.use();
 
@@ -43,7 +43,7 @@ export const Select = <E extends RenderableRecord<E>>({
 
   return (
     <List data={data}>
-      <Dropdown location={location} ref={ref} visible={visible}>
+      <Dropdown ref={ref} visible={visible} {...props}>
         <List.Search>
           {({ onChange }: InputProps) => (
             <SelectInput

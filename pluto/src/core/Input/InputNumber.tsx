@@ -17,7 +17,7 @@ import "./InputNumber.css";
 import { Input } from "./Input";
 import { InputBaseProps } from "./types";
 
-export interface InputNumberProps extends Omit<InputBaseProps<number | null>, "type"> {
+export interface InputNumberProps extends Omit<InputBaseProps<number>, "type"> {
   showDragHandle?: boolean;
   dragDirection?: Direction;
   dragScale?: number;
@@ -50,7 +50,7 @@ export const InputNumber = forwardRef<HTMLInputElement, InputNumberProps>(
         type="number"
         value={String(value) ?? ""}
         onChange={(v: string) => {
-          if (v === "") return onChange(null);
+          if (v === "") return onChange(NaN);
           onChange(Number(v));
         }}
         selectOnFocus={selectOnFocus}

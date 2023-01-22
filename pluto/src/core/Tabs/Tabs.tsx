@@ -39,13 +39,16 @@ export const renameTab = (key: string, title: string, tabs: Tab[]): Tab[] => {
   return tabs.map((t) => (t.tabKey === key ? { ...t, name: title } : t));
 };
 
-export const useStaticTabs = ({ tabs, content }: UseStaticTabsProps): TabsProps => {
+export const useStaticTabs = ({
+  tabs,
+  content,
+}: UseStaticTabsProps): TabsContextValue => {
   const [selected, setSelected] = useState(tabs[0]?.tabKey ?? "");
 
   return {
     tabs,
     selected,
-    children: content,
+    content,
     onSelect: setSelected,
   };
 };
@@ -57,7 +60,6 @@ export interface TabsContextValue {
   selected?: string;
   onSelect?: (key: string) => void;
   content?: TabRenderProp;
-  children?: TabRenderProp;
   onClose?: (key: string) => void;
   onTabDragStart?: (e: React.DragEvent<HTMLDivElement>, tab: TabMeta) => void;
   onTabDragEnd?: (e: React.DragEvent<HTMLDivElement>, tab: TabMeta) => void;
@@ -66,14 +68,17 @@ export interface TabsContextValue {
 
 export interface TabsProps
   extends Omit<SpaceProps, "children" | "onSelect">,
-    TabsContextValue {}
+    TabsContextValue {
+  children?: TabRenderProp;
+}
 
 export const TabsContext = createContext<TabsContextValue>({ tabs: [] });
 
 export const useTabsContext = (): TabsContextValue => useContext(TabsContext);
 
 export const Tabs = ({
-  children: content,
+  content,
+  children,
   onSelect,
   selected,
   closable,
@@ -82,7 +87,6 @@ export const Tabs = ({
   onTabDragStart,
   onTabDragEnd,
   onRename,
-  children,
   emptyContent,
   ...props
 }: TabsProps): JSX.Element => (
@@ -108,11 +112,11 @@ export const Tabs = ({
 );
 
 export const TabsContent = (): JSX.Element | null => {
-  const { tabs, selected, content: children, emptyContent } = useTabsContext();
+  const { tabs, selected, content: renderProp, emptyContent } = useTabsContext();
   let content: JSX.Element | string | null = null;
   const selectedTab = tabs.find((tab) => tab.tabKey === selected);
   if (selectedTab != null) {
-    if (children != null) content = children(selectedTab);
+    if (renderProp != null) content = renderProp(selectedTab);
     else if (selectedTab.content != null) content = selectedTab.content;
   } else if (emptyContent != null) content = emptyContent;
   return content;

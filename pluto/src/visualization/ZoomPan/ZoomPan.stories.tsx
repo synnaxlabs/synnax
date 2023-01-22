@@ -4,7 +4,8 @@ import { ComponentMeta } from "@storybook/react";
 
 import { useZoomPan, ZoomPanMask } from "./ZoomPan";
 
-import { ONE_XY, Box, ZERO_XY } from "@/spatial";
+import { Box, DECIMAL_BOX } from "@/spatial";
+import { BoxScale } from "@/spatial/scale";
 
 const story: ComponentMeta<typeof ZoomPanMask> = {
   title: "Visualization/ZoomPan",
@@ -12,12 +13,12 @@ const story: ComponentMeta<typeof ZoomPanMask> = {
 };
 
 export const Basic = (): JSX.Element => {
-  const [box, setBox] = useState<Box>(new Box(ZERO_XY, ONE_XY));
+  const [box, setBox] = useState<Box>(DECIMAL_BOX);
   const props = useZoomPan({
-    threshold: { x: 35, y: 35 },
+    threshold: { width: 35, height: 35 },
     onChange: setBox,
-    panHotkey: "",
-    zoomHotkey: "Shift",
+    panHotkey: "Shift",
+    zoomHotkey: "",
     minZoom: { x: 0.01, y: 0.01 },
     maxZoom: { x: 2, y: 2 },
   });
@@ -43,6 +44,10 @@ export const Basic = (): JSX.Element => {
 export default story;
 
 const ZoomMiniMap = ({ box }: { box: Box }): JSX.Element => {
+  const scaled = BoxScale.scale(DECIMAL_BOX)
+    .scale(new Box(0, 0, 400, 400))
+    .box(box)
+    .reRoot("topLeft");
   return (
     <div
       style={{
@@ -57,10 +62,10 @@ const ZoomMiniMap = ({ box }: { box: Box }): JSX.Element => {
       <div
         style={{
           position: "relative",
-          top: box.top * 400,
-          left: box.left * 400,
-          width: box.width * 400,
-          height: box.height * 400,
+          top: scaled.top,
+          left: scaled.left,
+          width: scaled.width,
+          height: scaled.height,
           border: "1px solid blue",
         }}
       />
