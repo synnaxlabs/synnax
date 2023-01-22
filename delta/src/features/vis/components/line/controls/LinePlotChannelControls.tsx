@@ -41,6 +41,7 @@ export const LinePlotChannelControls = ({
         onChange={handleChannelSelect}
         value={vis.channels.y1}
         data={channels}
+        location="top"
         grow
       />
       <Space direction="x" grow wrap>
@@ -48,6 +49,7 @@ export const LinePlotChannelControls = ({
           data={ranges}
           onChange={handleRangeSelect}
           value={vis.ranges.x1.map((v) => v.key)}
+          location="top"
           grow
         />
 
@@ -55,8 +57,9 @@ export const LinePlotChannelControls = ({
           axis={"x1"}
           onChange={handleChannelSelect}
           value={vis.channels.x1}
+          location="top"
           data={channels}
-          style={{ width: "25%" }}
+          grow
         />
       </Space>
     </Space>

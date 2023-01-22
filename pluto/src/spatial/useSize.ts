@@ -53,7 +53,7 @@ export const useResize = <E extends HTMLElement>(
     if (el == null) return;
     prev.current = ZERO_BOX;
     const deb = debounceF(() => {
-      const next = new Box(el.getBoundingClientRect());
+      const next = new Box(el);
       if (shouldResize(triggers, prev.current, next)) onResize(next);
       prev.current = next;
     }, debounce);
@@ -87,7 +87,7 @@ const normalizeTriggers = (triggers: Array<Direction | Trigger>): Trigger[] =>
     .map((t): Trigger | Trigger[] => {
       if (isDirection(t))
         return t === "x" ? ["moveX", "resizeX"] : ["moveY", "resizeY"];
-      return t as Trigger;
+      return t;
     })
     .flat();
 

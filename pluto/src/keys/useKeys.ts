@@ -15,7 +15,7 @@ import { compareArrayDeps, useMemoCompare } from "..";
 import { mouseButtonKey } from "./mouse";
 import { KeyboardKey } from "./types";
 
-import { PseudoSetState } from "@/hooks/useRefState";
+import { PseudoSetState } from "@/hooks/useStateRef";
 
 export const useKeysHeld = (
   onChange: PseudoSetState<KeyboardKey[]>,

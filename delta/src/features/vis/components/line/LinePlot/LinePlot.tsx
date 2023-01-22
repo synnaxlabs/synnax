@@ -23,17 +23,22 @@ import {
   Axis,
   ZoomPanMask,
   useZoomPan,
-  ZERO_XY,
-  ONE_XY,
+  Scale,
+  Bound,
+  DECIMAL_BOX,
 } from "@synnaxlabs/pluto";
 
 import { useTelemetryClient } from "../../../telem/TelemetryContext";
-import { LineSVis } from "../types";
 
 import { useSelectTheme } from "@/features/layout";
+
+import { LineSVis } from "../types";
+
 import { useAsyncEffect } from "@/hooks";
 
 import "./LinePlot.css";
+
+import { TelemetryClient, TelemetryClientResponse } from "@/features/vis/telem/client";
 
 export interface LinePlotProps {
   vis: LineSVis;
@@ -60,7 +65,7 @@ export const LinePlot = ({
     lines: [],
     glBox: ZERO_BOX,
   });
-  const [zoom, setZoom] = useState<Box>(new Box(ZERO_XY, ONE_XY));
+  const [zoom, setZoom] = useState<Box>(DECIMAL_BOX);
 
   const updateRenderingPackage = useCallback(
     async (vis: LineSVis, box: Box, zoom: Box): Promise<void> => {
@@ -68,17 +73,24 @@ export const LinePlot = ({
       const data = await fetchData(vis, client);
 
       const y1Data = data.filter(({ key }) => vis.channels.y1.includes(key));
-      const y1Range = calcRange(y1Data, 0.01);
-      const y1Scale = 1 / (y1Range[1] - y1Range[0]) / zoom.height;
-      const y1Offset = -y1Range[0] * y1Scale;
+      const y1Scale = Scale.scale(calcBound(y1Data, 0.01))
+        .scale(1)
+        .translate(-zoom.bottom)
+        .magnify(1 / zoom.height);
 
       const xData = data.filter(({ key }) => key === vis.channels.x1);
       if (xData.length === 0) return;
-      const x1Range = calcRange(xData, 0);
-      const x1Scale = 1 / (x1Range[1] - x1Range[0]) / zoom.width;
-      const xOffset = -x1Range[0] * x1Scale;
 
-      const glBox = box.translate({ x: 20, y: 20 }).resize({ x: 40, y: 40 });
+      const x1Scale = Scale.scale(calcBound(xData, 0))
+        .scale(1)
+        .translate(-zoom.left)
+        .magnify(1 / zoom.width);
+
+      const glBox = new Box(
+        { x: box.left + 20, y: box.top + 20 },
+        box.width - 40,
+        box.height - 40
+      );
 
       const lines = y1Data.map(({ key, glBuffers, arrays }, i) => ({
         color: [
@@ -88,12 +100,12 @@ export const LinePlot = ({
           1,
         ] as RGBATuple,
         scale: {
-          x: x1Scale,
-          y: y1Scale,
+          x: x1Scale.dim(1),
+          y: y1Scale.dim(1),
         },
         offset: {
-          x: xOffset - zoom.x / zoom.width,
-          y: y1Offset - (1 - zoom.y - zoom.height) / zoom.height,
+          x: x1Scale.pos(0),
+          y: y1Scale.pos(0),
         },
         y: glBuffers[0],
         x: xData[0].glBuffers[0],
@@ -105,10 +117,7 @@ export const LinePlot = ({
         axes: [
           {
             location: "bottom",
-            range: [
-              x1Range[0] + (x1Range[1] - x1Range[0]) * zoom.x,
-              x1Range[1] - (x1Range[1] - x1Range[0]) * (1 - zoom.x - zoom.width),
-            ],
+            scale: x1Scale,
             type: "time",
             position: { y: box.height - 20, x: 20 },
             size: box.width - 40,
@@ -118,10 +127,7 @@ export const LinePlot = ({
           },
           {
             location: "left",
-            range: [
-              y1Range[0] + (y1Range[1] - y1Range[0]) * (1 - zoom.y - zoom.height),
-              y1Range[1] - (y1Range[1] - y1Range[0]) * zoom.y,
-            ],
+            scale: y1Scale,
             position: { y: 20, x: 20 },
             height: box.width - 40,
             size: box.height - 40,
@@ -153,9 +159,9 @@ export const LinePlot = ({
 
   const zoomPanProps = useZoomPan({
     onChange: setZoom,
-    panHotkey: "Shift",
+    panHotkey: "hift",
     allowPan: false,
-    threshold: { x: 30, y: 30 },
+    threshold: { width: 30, height: 30 },
     minZoom: { x: 0.02, y: 0.02 },
   });
 
@@ -196,23 +202,20 @@ const fetchData = async (
   return await client.retrieve({ keys, ranges });
 };
 
-const calcRange = (
-  data: TelemetryClientResponse[],
-  padding: number
-): [number, number] => {
+const calcBound = (data: TelemetryClientResponse[], padding: number): Bound => {
   const arrays = data.flatMap(({ arrays }) => arrays);
-  const max = Number(
+  const upper = Number(
     arrays.reduce(
       (acc: SampleValue, arr: TArray) => (arr.max > acc ? arr.max : acc),
       -Infinity
     )
   );
-  const min = Number(
+  const lower = Number(
     arrays.reduce(
       (acc: SampleValue, arr: TArray) => (arr.min < acc ? arr.min : acc),
       Infinity
     )
   );
-  const _padding = (max - min) * padding;
-  return [min - _padding, max + _padding];
+  const _padding = (upper - lower) * padding;
+  return { lower: lower - _padding, upper: upper + _padding };
 };

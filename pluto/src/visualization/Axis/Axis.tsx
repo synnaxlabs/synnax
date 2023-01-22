@@ -2,18 +2,17 @@ import { useMemo } from "react";
 
 import { TimeStamp } from "@synnaxlabs/x";
 import clsx from "clsx";
-import { scaleLinear, scaleTime } from "d3";
 
 import { fRotate, fTranslate, locationRotations } from "../util/svg";
 
-import { OuterLocation, XY, ZERO_XY } from "@/spatial";
+import { OuterLocation, XY, ZERO_XY, Scale } from "@/spatial";
 
 import "./Axis.css";
 
 export type AxisType = "linear" | "time";
 
 export interface AxisProps {
-  range: [number, number];
+  scale: Scale;
   size: number;
   location?: OuterLocation;
   position?: XY;
@@ -27,7 +26,7 @@ const calcTickCount = (size: number, pixelsPerTick: number): number =>
   Math.floor(size / pixelsPerTick);
 
 export const Axis = ({
-  range,
+  scale,
   size,
   position = ZERO_XY,
   location = "left",
@@ -37,40 +36,44 @@ export const Axis = ({
   height = 0,
 }: AxisProps): JSX.Element => {
   const ticks: TickProps[] = useMemo(() => {
-    const scale = initD3Scale(type, range).range(calcD3Range(location, size)) as Scale;
+    let pxScale = scale.scale(size).reverse();
+    if (["right", "bottom"].includes(location)) pxScale = pxScale.invert();
     const tickCount = calcTickCount(size, pixelsPerTick);
-    return scale
-      .ticks(tickCount)
-      .map((value) => ({ value, offset: scale(value), location, showGrid, height }));
-  }, [location, range, size, type]);
+    const tickScale = Scale.scale(tickCount).scale(size);
+    return Array.from({ length: tickCount }, (_, i) => {
+      const offset = tickScale.pos(i);
+      const value = pxScale.pos(offset);
+      return { value: Math.floor(value), offset, location, showGrid, height, type };
+    });
+  }, [location, scale, size, type]);
 
   const transform = calcGroupTransform(location, position, size);
 
   return (
     <g transform={transform} className="pluto-axis">
       <line x2={size} />
-      {ticks.map((props) => (
-        // eslint-disable-next-line react/prop-types
-        <Tick key={props.value.valueOf()} {...props} />
+      {ticks.map((props: TickProps) => (
+        <Tick key={props.offset} {...props} />
       ))}
     </g>
   );
 };
 
 interface TickProps {
-  value: number | Date;
+  value: number;
   offset: number;
   location: OuterLocation;
   showGrid: boolean;
   height: number;
+  type: AxisType;
 }
 
 const tickYOffset = 4;
 
-const Tick = ({ value, offset, showGrid, height }: TickProps): JSX.Element => (
+const Tick = ({ value, offset, showGrid, height, type }: TickProps): JSX.Element => (
   <g transform={fTranslate({ x: offset, y: -tickYOffset })}>
-    {!showGrid ? <line y2={tickYOffset} /> : <line y2={height} />}
-    {value instanceof Date ? (
+    {!showGrid ? <line y2={tickYOffset} /> : <line y2={height + tickYOffset} />}
+    {type === "time" ? (
       <DateTickText value={value} />
     ) : (
       <NumberTickText value={value} />
@@ -78,8 +81,11 @@ const Tick = ({ value, offset, showGrid, height }: TickProps): JSX.Element => (
   </g>
 );
 
-const DateTickText = ({ value }: { value: Date }): JSX.Element => {
-  let formatted: string = `:${value.getSeconds().toString().padEnd(2, "0")}`;
+const DateTickText = ({ value: _value }: { value: number }): JSX.Element => {
+  const value = new TimeStamp(_value).date();
+  let formatted: string = `:${value.getSeconds()}`;
+  // reverse the string
+
   // If we're on the minute, show the hour and minute in military time
   if (value.getSeconds() === 0)
     formatted = `${value.getHours()}:${value.getMinutes().toString().padStart(2, "0")}`;
@@ -93,26 +99,6 @@ const NumberTickText = ({ value }: { value: number }): JSX.Element => (
 
 const calcTickTextTranslate = (value: string): string =>
   clsx(fTranslate({ x: value.length * 3, y: -tickYOffset * 2.5 }), fRotate(180));
-
-type Scale =
-  | d3.ScaleLinear<number, number, never>
-  | d3.ScaleTime<number, number, never>;
-
-const initD3Scale = (type: AxisType, domain: [number, number]): Scale => {
-  switch (type) {
-    case "time":
-      return scaleTime().domain(domain.map((v) => new TimeStamp(v).date()));
-    default:
-      return scaleLinear().domain(domain);
-  }
-};
-
-const calcD3Range = (location: OuterLocation, size: number): [number, number] => {
-  const base: [number, number] = [0, size];
-  const reverse = ["bottom", "right"].includes(location);
-  if (reverse) base.reverse();
-  return base;
-};
 
 const calcGroupTransform = (
   location: OuterLocation,

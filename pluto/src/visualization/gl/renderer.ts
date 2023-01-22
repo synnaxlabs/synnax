@@ -2,7 +2,7 @@ import { Compiler } from "./compiler";
 import { GLRendererRegistry } from "./registry";
 import { ScissoredGLRenderer, ScissoredRenderRequest } from "./scissor";
 
-import { Box, calculateBottomOffset, XY } from "@/spatial";
+import { Box, XY } from "@/spatial";
 
 import { RenderingUnits } from "./types";
 
@@ -50,8 +50,8 @@ export class GLContext {
   private offsetPx(box: Box): XY {
     const c = this.canvasBox;
     const relLeft = box.left - c.left;
-    const bot = calculateBottomOffset(c, box);
-    return { y: bot, x: relLeft };
+    const bottom = c.bottom - box.bottom;
+    return { y: bottom, x: relLeft };
   }
 
   offset(box: Box, units: RenderingUnits = "decimal"): XY {
@@ -75,7 +75,7 @@ export class GLContext {
   }
 
   private get canvasBox(): Box {
-    return new Box(this.canvas.getBoundingClientRect());
+    return new Box(this.canvas);
   }
 
   refreshCanvas(): void {

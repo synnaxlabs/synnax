@@ -8,17 +8,21 @@ import {
 } from "react";
 
 import { useCursorDrag, UseCursorDragStart } from "@/hooks";
+import { useStateRef } from "@/hooks/useStateRef";
 import { KeyboardKey, useKeyMode } from "@/keys";
 import {
   Box,
   Dimensions,
-  Direction,
   INFINITE_XY,
-  ONE_XY,
+  DECIMAL_BOX,
   XY,
   ZERO_BOX,
+  ZERO_DIMS,
   ZERO_XY,
 } from "@/spatial";
+import { BoxScale } from "@/spatial/scale";
+
+import "./ZoomPan.css";
 
 export interface UseZoomPanProps {
   allowZoom?: boolean;
@@ -26,7 +30,7 @@ export interface UseZoomPanProps {
   panHotkey?: KeyboardKey | "";
   zoomHotkey?: KeyboardKey | "";
   onChange?: (box: Box) => void;
-  threshold?: XY;
+  threshold?: Dimensions;
   minZoom?: XY;
   maxZoom?: XY;
   resetOnDoubleClick?: boolean;
@@ -49,13 +53,13 @@ export const useZoomPan = ({
   allowPan = true,
   panHotkey = "Control",
   zoomHotkey = "",
-  threshold = ZERO_XY,
+  threshold = ZERO_DIMS,
   minZoom = ZERO_XY,
   maxZoom = INFINITE_XY,
   resetOnDoubleClick = true,
 }: UseZoomPanProps): UseZoomPanReturn => {
   const [maskBox, setMaskBox] = useState<Box>(ZERO_BOX);
-  const state = useRef<Box>(new Box(ZERO_XY, ONE_XY));
+  const [stateRef, setStateRef] = useStateRef<Box>(DECIMAL_BOX);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   const defaultMode = useMemo(() => {
@@ -73,88 +77,64 @@ export const useZoomPan = ({
   );
 
   const handleDoubleClick = useCallback(() => {
-    if (canvasRef.current == null || !resetOnDoubleClick) return;
-    state.current = new Box(ZERO_XY, ONE_XY);
-    onChange?.(state.current);
-  }, [onChange]);
+    if (!resetOnDoubleClick) return;
+    setStateRef(DECIMAL_BOX);
+    onChange?.(DECIMAL_BOX);
+  }, [onChange, setStateRef]);
 
   const handleMove = useCallback(
     (box: Box, key: KeyboardKey): void => {
       if (mode == null || canvasRef.current == null) return;
-      const canvas = new Box(canvasRef.current.getBoundingClientRect());
-      const clamped = box.clampBy(canvas);
-      if ((mode === "zoom" && key !== panHotkey) || key === zoomHotkey)
-        setMaskBox(clamped);
-      else if (mode === "pan" || key === panHotkey) {
-        const scaledBox = clamped.toDecimal(canvas).scaleByDims(state.current);
-        const next = state.current.translateBySignedDims({
-          signedWidth: -scaledBox.signedWidth,
-          signedHeight: -scaledBox.signedHeight,
-        });
-        onChange?.(next);
-      }
+      const canvas = new Box(canvasRef.current);
+      if (mode === "zoom" || key === zoomHotkey) {
+        setMaskBox(
+          BoxScale.scale(canvas)
+            .clamp(canvas)
+            .translate({
+              x: -canvas.left,
+              y: -canvas.top,
+            })
+            .box(fullSize(threshold, box, canvas))
+        );
+      } else if (mode === "pan" || key === panHotkey)
+        onChange?.(handlePan(box, stateRef.current, canvas));
     },
     [mode, setMaskBox]
+  );
+
+  const handleZoom = useCallback(
+    (box: Box, prev: Box, canvas: Box) =>
+      scale(prev, canvas).box(fullSize(threshold, box, canvas)),
+    [threshold]
   );
 
   const handleEnd = useCallback(
     (box: Box, key: KeyboardKey) => {
       if (canvasRef.current == null) return;
-      const canvas = new Box(canvasRef.current.getBoundingClientRect());
-      const decimal = box.clampBy(canvas).toDecimal(canvas);
-      if (mode === "pan" || key === panHotkey) {
-        const scaledBox = decimal.scaleByDims(state.current);
-        state.current = state.current.translateBySignedDims({
-          signedWidth: -scaledBox.signedWidth,
-          signedHeight: -scaledBox.signedHeight,
-        });
-        onChange?.(state.current);
-        return;
-      }
-      const fullSize = fullSizeDirection(threshold, box);
-      let correctedBox: Box = decimal;
-      if (fullSize === "x") correctedBox = new Box(0, decimal.top, 1, decimal.height);
-      else if (fullSize === "y")
-        correctedBox = new Box(decimal.left, 0, decimal.width, 1);
-      const nextBox = correctedBox.scaleByDims(state.current).translate(state.current);
-      setMaskBox(ZERO_BOX);
-      if (nextBox.width < minZoom.x || nextBox.height < minZoom.y) return;
-      if (nextBox.width > maxZoom.x || nextBox.height > maxZoom.y) return;
-      state.current = nextBox;
-      onChange?.(nextBox);
+      const canvas = new Box(canvasRef.current);
+      setStateRef((prev) => {
+        let next: Box | null = null;
+        if (mode === "pan" || key === panHotkey) next = handlePan(box, prev, canvas);
+        else if (mode === "zoom") next = handleZoom(box, prev, canvas);
+        setMaskBox(ZERO_BOX);
+        if (next == null) return prev;
+        if (next.width < minZoom.x || next.height < minZoom.y) return prev;
+        if (next.width > maxZoom.x || next.height > maxZoom.y) return prev;
+        onChange?.(next);
+        return next;
+      });
     },
     [mode, setMaskBox]
   );
 
   const onDragStart = useCursorDrag({ onMove: handleMove, onEnd: handleEnd });
 
-  const maskStyle: React.CSSProperties = {
-    position: "relative",
-    width: maskBox.width,
-    height: maskBox.height,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-  };
-
-  if (canvasRef.current != null) {
-    const canvas = new Box(canvasRef.current.getBoundingClientRect());
-    maskStyle.top = maskBox.top - canvas.top;
-    maskStyle.left = maskBox.left - canvas.left;
-    const fullSize = fullSizeDirection(threshold, maskBox);
-    if (fullSize === "y") {
-      maskStyle.height = "100%";
-      maskStyle.top = 0;
-    } else if (fullSize === "x") {
-      maskStyle.width = "100%";
-      maskStyle.left = 0;
-    }
-  }
-
   const containerStyle: React.CSSProperties = {
     cursor: mode === "zoom" ? "crosshair" : "grab",
   };
 
   return {
-    maskStyle,
+    maskStyle: maskBox.css,
     mode,
     onDragStart,
     ref: canvasRef,
@@ -174,7 +154,7 @@ export interface ZoomPanProps
 
 export const ZoomPanMask = forwardRef<HTMLDivElement, ZoomPanProps>(
   (
-    { maskStyle, onDragStart, mode, style, containerStyle, ...props },
+    { maskStyle, onDragStart, mode, style, containerStyle, className, ...props },
     ref
   ): JSX.Element | null => (
     <div
@@ -183,14 +163,24 @@ export const ZoomPanMask = forwardRef<HTMLDivElement, ZoomPanProps>(
       style={{ ...containerStyle, ...style }}
       {...props}
     >
-      <div style={maskStyle} />
+      <div style={maskStyle} className="pluto-zoom-pan-mask" />
     </div>
   )
 );
 ZoomPanMask.displayName = "ZoomPanMask";
 
-const fullSizeDirection = (threshold: XY, dims: Dimensions): Direction | null => {
-  if (dims.height <= threshold.y) return "y";
-  if (dims.width <= threshold.x) return "x";
-  return null;
+const scale = (prev: Box, canvas: Box): BoxScale =>
+  BoxScale.scale(canvas).clamp(canvas).scale(prev);
+
+const handlePan = (box: Box, prev: Box, canvas: Box): Box => {
+  const scaled = scale(prev, canvas).box(box).signedDims;
+  return BoxScale.translate(scaled).box(prev);
+};
+
+const fullSize = (threshold: Dimensions, box: Box, parent: Box): Box => {
+  if (box.height <= threshold.height)
+    return new Box(box.left, parent.top, box.width, parent.height);
+  if (box.width <= threshold.width)
+    return new Box(parent.left, box.top, parent.width, box.height);
+  return box;
 };

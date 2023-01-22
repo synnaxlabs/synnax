@@ -1,7 +1,9 @@
 import { ComponentMeta } from "@storybook/react";
-import { TimeStamp } from "@synnaxlabs/x";
+import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 
 import { Axis } from "./Axis";
+
+import { Scale } from "@/spatial";
 
 const story: ComponentMeta<typeof Axis> = {
   title: "Visualization/Axis",
@@ -14,25 +16,31 @@ const end = start.add(TimeStamp.seconds(120));
 export const Basic = (): JSX.Element => (
   <svg width="100%" height="100%" style={{ width: "100%", height: "100%" }}>
     <Axis
-      range={[0, 1000]}
+      scale={Scale.scale(0, 100)}
       type="linear"
       size={800}
       position={{ x: 50, y: 30 }}
       location="left"
+      pixelsPerTick={30}
+      showGrid
+      height={800}
     />
     <Axis
-      range={[0, 200]}
+      scale={Scale.scale(0, 200)}
       type="linear"
       size={800}
       position={{ x: 20, y: 30 }}
       location="left"
     />
     <Axis
-      range={[start.valueOf(), end.valueOf()]}
+      scale={Scale.scale(start.valueOf(), end.valueOf())}
       type="time"
       size={800}
-      position={{ x: 60, y: 850 }}
+      position={{ x: 50, y: 830 }}
       location="bottom"
+      showGrid
+      pixelsPerTick={40}
+      height={800}
     />
   </svg>
 );

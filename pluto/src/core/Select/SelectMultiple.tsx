@@ -32,7 +32,7 @@ import "./SelectMultiple.css";
 import { SelectList } from "./SelectList";
 
 export interface SelectMultipleProps<E extends RenderableRecord<E>>
-  extends Omit<DropdownProps, "visible" | "onChange">,
+  extends Omit<DropdownProps, "visible" | "onChange" | "children">,
     InputControlProps<readonly string[]> {
   data?: E[];
   columns?: Array<ListColumn<E>>;

@@ -20,8 +20,8 @@ export const VisList = (): JSX.Element => {
       <List.Column.Header<RenderableLayout>
         columns={[
           {
-            key: "title",
-            name: "Title",
+            key: "name",
+            name: "Name",
           },
         ]}
       />
