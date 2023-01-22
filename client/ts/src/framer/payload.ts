@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
-
 import { DataType, TArray, TimeRange, TimeStamp } from "@synnaxlabs/x";
+import { z } from "zod";
 
 export const arrayPayloadSchema = z.object({
   timeRange: z
@@ -48,6 +47,6 @@ export const arrayToPayload = (array: TArray): ArrayPayload => {
   return {
     timeRange: array._timeRange,
     dataType: array.dataType,
-    data: array.buffer,
+    data: new Uint8Array(array.data.buffer),
   };
 };
