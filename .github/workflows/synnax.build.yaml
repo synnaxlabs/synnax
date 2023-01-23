@@ -44,7 +44,7 @@ jobs:
 
       - name: Build Image and Push to Github Container Registry
         if: steps.filter.outputs.changed == 'true'
-        run: earthly --push +docker
+        run: earthly --push +docker -noui=true
         working-directory: ./synnax
 
       - name: Rename Image

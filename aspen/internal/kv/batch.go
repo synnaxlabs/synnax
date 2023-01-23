@@ -1,4 +1,4 @@
-// Copyright 2022 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,10 +10,10 @@
 package kv
 
 import (
-	"github.com/synnaxlabs/x/binary"
-	kvx "github.com/synnaxlabs/x/kv"
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/aspen/internal/node"
+	"github.com/synnaxlabs/x/binary"
+	kvx "github.com/synnaxlabs/x/kv"
 	"sync"
 )
 

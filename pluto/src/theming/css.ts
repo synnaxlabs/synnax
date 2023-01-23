@@ -1,4 +1,4 @@
-// Copyright 2022 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,128 +7,67 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Theme } from "./theme";
+import { createOpacityVariants, unitProperty } from "@synnaxlabs/x";
 
-export const applyThemeAsCssVars = (element: HTMLElement, theme: Theme): void => {
-  // |||| COLORS ||||
+import { Color, Size, Theme } from "./theme";
 
-  // || PRIMARY ||
+const OPACITIES = [80, 60, 40, 20] as const;
 
-  setProperty(element, "--pluto-primary-m1", theme.colors.primary.m1);
-  setProperty(element, "--pluto-primary-z", theme.colors.primary.z);
-  setProperty(element, "--pluto-primary-p1", theme.colors.primary.p1);
-  setOpacityVariants(element, "--pluto-primary-p1", theme.colors.primary.z);
-
-  // || GRAY ||
-
-  setProperty(element, "--pluto-gray-m3", theme.colors.gray.m3);
-  setProperty(element, "--pluto-gray-m2", theme.colors.gray.m2);
-  setProperty(element, "--pluto-gray-m1", theme.colors.gray.m1);
-  setProperty(element, "--pluto-gray-m0", theme.colors.gray.m0);
-  setOpacityVariants(element, "--pluto-gray-m0", theme.colors.gray.m0);
-  setOpacityVariants(element, "--pluto-gray-p0", theme.colors.gray.m0);
-  setProperty(element, "--pluto-gray-p0", theme.colors.gray.p0);
-  setProperty(element, "--pluto-gray-p1", theme.colors.gray.p1);
-  setProperty(element, "--pluto-gray-p2", theme.colors.gray.p2);
-  setProperty(element, "--pluto-gray-p3", theme.colors.gray.p3);
-
-  // || ERROR ||
-
-  setProperty(element, "--pluto-error-m1", theme.colors.error.m1);
-  setProperty(element, "--pluto-error-z", theme.colors.error.z);
-  setProperty(element, "--pluto-error-p1", theme.colors.error.p1);
-
-  // || WHITE, BLACK, BACKGROUND, TEXT ||
-
-  setProperty(element, "--pluto-white", theme.colors.white);
-  setProperty(element, "--pluto-black", theme.colors.black);
-  setProperty(element, "--pluto-background-color", theme.colors.background);
-  setProperty(element, "--pluto-text-color", theme.colors.text);
-  setProperty(element, "--pluto-border-color", theme.colors.border);
-
-  // |||| SIZES ||||
-
-  setProperty(element, "--pluto-base-size", theme.sizes.base, "px");
-  setProperty(element, "--pluto-border-radius", theme.sizes.border.radius, "px");
-  setProperty(element, "--pluto-border-width", theme.sizes.border.width, "px");
-
-  // |||| TYPOGRAPHY ||||
-
-  setProperty(element, "--pluto-font-family", theme.typography.family);
-
-  // || H1 ||
-
-  setProperty(element, "--pluto-h1-size", theme.typography.h1.size, "rem");
-  setProperty(element, "--pluto-h1-line-height", theme.typography.h1.lineHeight, "rem");
-  setProperty(element, "--pluto-h1-weight", theme.typography.h1.weight);
-
-  // || H2 ||
-
-  setProperty(element, "--pluto-h2-size", theme.typography.h2.size, "rem");
-  setProperty(element, "--pluto-h2-line-height", theme.typography.h2.lineHeight, "rem");
-  setProperty(element, "--pluto-h2-weight", theme.typography.h2.weight);
-
-  // || H3 ||
-
-  setProperty(element, "--pluto-h3-size", theme.typography.h3.size, "rem");
-  setProperty(element, "--pluto-h3-line-height", theme.typography.h3.lineHeight, "rem");
-  setProperty(element, "--pluto-h3-weight", theme.typography.h3.weight);
-
-  // || H4 ||
-
-  setProperty(element, "--pluto-h4-size", theme.typography.h4.size, "rem");
-  setProperty(element, "--pluto-h4-line-height", theme.typography.h4.lineHeight, "rem");
-  setProperty(element, "--pluto-h4-weight", theme.typography.h4.weight);
-
-  // || H5 ||
-
-  setProperty(element, "--pluto-h5-size", theme.typography.h5.size, "rem");
-  setProperty(element, "--pluto-h5-line-height", theme.typography.h5.lineHeight, "rem");
-  setProperty(element, "--pluto-h5-weight", theme.typography.h5.weight);
-  setProperty(element, "--pluto-h5-text-transform", theme.typography.h2.textTransform);
-
-  // || P ||
-
-  setProperty(element, "--pluto-p-size", theme.typography.p.size, "rem");
-  setProperty(element, "--pluto-p-line-height", theme.typography.p.lineHeight, "rem");
-  setProperty(element, "--pluto-p-weight", theme.typography.p.weight);
-
-  // || SMALL ||
-
-  setProperty(element, "--pluto-small-size", theme.typography.small.size, "rem");
-  setProperty(
-    element,
-    "--pluto-small-line-height",
-    theme.typography.small.lineHeight,
-    "rem"
-  );
-  setProperty(element, "--pluto-small-weight", theme.typography.small.weight);
-};
-
-const setProperty = (
-  element: HTMLElement,
-  property: string,
-  value: string | number | null | undefined,
-  numberUnit = ""
-): void => {
-  if (value == null) return;
-  if (typeof value === "number") value = `${value}${numberUnit}`;
-  element.style.setProperty(property, String(value));
-};
-
-const opacityVariants = {
-  "80": "CC",
-  "60": "99",
-  "40": "66",
-  "20": "33",
-};
-
-const setOpacityVariants = (
-  element: HTMLElement,
-  baseVar: string,
-  color: string | number
-): void => {
-  Object.entries(opacityVariants).forEach(([key, opacity]) =>
-    setProperty(element, `${baseVar}-${key}`, `${color}${opacity}`)
-  );
-};
+export const convertThemeToCSSVars = (
+  theme: Theme
+): Record<string, Size | Color | undefined> => ({
+  "--pluto-theme-name": theme.name,
+  "--pluto-theme-key": theme.key,
+  "--pluto-primary-m1": theme.colors.primary.m1,
+  "--pluto-primary-z": theme.colors.primary.z,
+  "--pluto-primary-p1": theme.colors.primary.p1,
+  ...createOpacityVariants("--pluto-primary-z", theme.colors.primary.z, OPACITIES),
+  "--pluto-gray-m3": theme.colors.gray.m3,
+  "--pluto-gray-m2": theme.colors.gray.m2,
+  "--pluto-gray-m1": theme.colors.gray.m1,
+  "--pluto-gray-m0": theme.colors.gray.m0,
+  ...createOpacityVariants("--pluto-gray-m0", theme.colors.gray.m0, OPACITIES),
+  "--pluto-gray-p0": theme.colors.gray.p0,
+  ...createOpacityVariants("--pluto-gray-p0", theme.colors.gray.p0, OPACITIES),
+  "--pluto-gray-p1": theme.colors.gray.p1,
+  "--pluto-gray-p2": theme.colors.gray.p2,
+  "--pluto-gray-p3": theme.colors.gray.p3,
+  "--pluto-logo-color": theme.colors.logo,
+  "--pluto-error-m1": theme.colors.error.m1,
+  "--pluto-error-z": theme.colors.error.z,
+  "--pluto-error-p1": theme.colors.error.p1,
+  "--pluto-white": theme.colors.white,
+  "--pluto-black": theme.colors.black,
+  "--pluto-background-color": theme.colors.background,
+  "--pluto-text-color": theme.colors.text,
+  "--pluto-border-color": theme.colors.border,
+  "--pluto-base-size": unitProperty(theme.sizes.base, "px"),
+  "--pluto-border-radius": unitProperty(theme.sizes.border.radius, "px"),
+  "--pluto-border-width": unitProperty(theme.sizes.border.width, "px"),
+  "--pluto-font-family": theme.typography.family,
+  "--pluto-h1-size": unitProperty(theme.typography.h1.size, "rem"),
+  "--pluto-h1-weight": theme.typography.h1.weight,
+  "--pluto-h1-line-height": unitProperty(theme.typography.h1.lineHeight, "rem"),
+  "--pluto-h2-size": unitProperty(theme.typography.h2.size, "rem"),
+  "--pluto-h2-weight": theme.typography.h2.weight,
+  "--pluto-h2-line-height": unitProperty(theme.typography.h2.lineHeight, "rem"),
+  "--pluto-h3-size": unitProperty(theme.typography.h3.size, "rem"),
+  "--pluto-h3-weight": theme.typography.h3.weight,
+  "--pluto-h3-line-height": unitProperty(theme.typography.h3.lineHeight, "rem"),
+  "--pluto-h4-size": unitProperty(theme.typography.h4.size, "rem"),
+  "--pluto-h4-weight": theme.typography.h4.weight,
+  "--pluto-h4-line-height": unitProperty(theme.typography.h4.lineHeight, "rem"),
+  "--pluto-h5-size": unitProperty(theme.typography.h5.size, "rem"),
+  "--pluto-h5-weight": theme.typography.h5.weight,
+  "--pluto-h5-line-height": unitProperty(theme.typography.h5.lineHeight, "rem"),
+  "--pluto-h5-text-transform": theme.typography.h5.textTransform,
+  "--pluto-p-size": unitProperty(theme.typography.p.size, "rem"),
+  "--pluto-p-weight": theme.typography.p.weight,
+  "--pluto-p-line-height": unitProperty(theme.typography.p.lineHeight, "rem"),
+  "--pluto-small-size": unitProperty(theme.typography.small.size, "rem"),
+  "--pluto-small-weight": theme.typography.small.weight,
+  "--pluto-small-line-height": unitProperty(theme.typography.small.lineHeight, "rem"),
+  "--pluto-tiny-size": unitProperty(theme.typography.tiny.size, "rem"),
+  "--pluto-tiny-weight": theme.typography.tiny.weight,
+  "--pluto-tiny-line-height": unitProperty(theme.typography.tiny.lineHeight, "rem"),
+});

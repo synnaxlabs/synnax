@@ -1,0 +1,49 @@
+/*
+ * Copyright 2023 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.pluto-input {
+    border-radius: var(--pluto-border-radius);
+    border: var(--pluto-border-width) solid var(--pluto-border-color);
+    background: none;
+    color: var(--pluto-text-color);
+    padding: 0 2rem;
+    margin: 0;
+}
+
+.pluto-input:focus {
+    z-index: 12;
+}
+
+.pluto-input::placeholder {
+    color: var(--pluto-gray-m0);
+}
+
+.pluto-input--medium {
+    font-size: var(--pluto-p-size);
+    font-weight: var(--pluto-p-weight);
+    line-height: var(--pluto-p-line-height);
+}
+
+.pluto-input--small {
+    font-size: var(--pluto-small-size);
+    font-weight: var(--pluto-small-font-weight);
+    line-height: var(--pluto-small-line-height);
+}
+
+.pluto-input:focus {
+    outline: none;
+    border-color: var(--pluto-primary-z);
+}
+
+input[type="number"]::-webkit-inner-spin-button {
+    /* stylelint-disable-next-line property-no-vendor-prefix */
+    -webkit-appearance: none;
+}

@@ -1,4 +1,4 @@
-// Copyright 2022 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,3 +9,4 @@
 
 export * from "./WorkspaceToolbar";
 export * from "./DefineRange";
+export * from "./SelectRange";

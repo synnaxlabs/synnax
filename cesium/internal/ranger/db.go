@@ -1,4 +1,4 @@
-// Copyright 2022 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -47,7 +47,6 @@ var (
 // It's important to note that a DB is heavily optimized for large (several megabytes
 // to gigabytes), append only writes. While small, out of order writes are valid, the
 // user will see a heavy performance hit.
-//
 //
 // A DB must be closed after use to avoid leaking any underlying resources/locks.
 type DB struct {

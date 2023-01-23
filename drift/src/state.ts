@@ -1,4 +1,4 @@
-// Copyright 2022 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -21,7 +21,7 @@ import { Runtime } from "@/runtime";
 import { KeyedWindowProps, Window, WindowProps, WindowState } from "@/window";
 
 /** The Slice State */
-interface DriftState {
+export interface DriftState {
   key: string;
   windows: Record<string, Window>;
 }
@@ -35,9 +35,10 @@ export type PreloadedState<S extends StoreState> = BasePreloadedState<
   CombinedState<NoInfer<S>>
 >;
 
-interface MaybeKeyPayload {
-  key?: string;
-}
+// Disabling consistent type definitions here because 'empty' interfaces can't be named,
+// which raises an error on build.
+// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
+type MaybeKeyPayload = { key?: string };
 interface KeyPayload {
   key: string;
 }
@@ -190,7 +191,7 @@ export const completeProcess = (key?: string): DriftAction =>
 export const isDrift = (type: string): boolean => type.startsWith(DRIFT_SLICE_NAME);
 
 /** A list of actions that shouldn't be emitted to other windows. */
-const EXCLUDED_ACTIONS = [actions.setWindowKey.type];
+const EXCLUDED_ACTIONS: readonly string[] = [actions.setWindowKey.type];
 
 /**
  * @returns true if the action with the given type should be emitted to other
@@ -259,7 +260,6 @@ export const executeAction = <S extends StoreState, A extends Action = AnyAction
       // This is mainly to deal with redux state being out of sync with the
       // window state.
       const win = windows[key] as Window | undefined;
-      console.log(win, key);
       if (win == null || win.processCount <= 0) runtime.close(key);
       break;
     }

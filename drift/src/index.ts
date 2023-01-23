@@ -1,4 +1,4 @@
-// Copyright 2022 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -18,6 +18,7 @@ export {
   initialState,
   DRIFT_SLICE_NAME,
 } from "@/state";
+export type { StoreState as DriftStoreState, DriftState } from "@/state";
 export type { WindowProps, WindowState, Window } from "@/window";
 export { MAIN_WINDOW } from "@/window";
 export { Provider, useWindowLifecycle } from "@/react";

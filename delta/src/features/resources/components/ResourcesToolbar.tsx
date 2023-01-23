@@ -1,4 +1,4 @@
-// Copyright 2022 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,17 +11,20 @@ import { useState } from "react";
 
 import { OntologyID, OntologyRoot } from "@synnaxlabs/client";
 import type { OntologyResource } from "@synnaxlabs/client";
-import { Tree, Header, Space } from "@synnaxlabs/pluto";
-import type { TreeLeaf } from "@synnaxlabs/pluto";
+import type { TreeLeaf, NavDrawerItem } from "@synnaxlabs/pluto";
+import { Tree, Space } from "@synnaxlabs/pluto";
 import { AiFillFolder } from "react-icons/ai";
-import { useStore } from "react-redux";
 
-import { resourceTypes } from "../resources";
+import { ToolbarHeader, ToolbarTitle } from "@/components";
+
+import { useStore } from "react-redux";
 
 import { useClusterClient } from "@/features/cluster";
 import { useLayoutPlacer } from "@/features/layout";
 import { WorkspaceState } from "@/features/workspace";
 import { useAsyncEffect } from "@/hooks";
+
+import { resourceTypes } from "../resources";
 
 const updateTreeEntry = (
   data: TreeLeaf[],
@@ -29,9 +32,12 @@ const updateTreeEntry = (
   key: string
 ): void =>
   data.forEach((entry, i) => {
-    if (entry.key === key)
-      data[i] = { ...entry, ...newEntry, children: entry.children ?? [] };
-    else if (entry.children != null) updateTreeEntry(entry.children, newEntry, key);
+    if (entry.key === key) {
+      entry.children = entry.children ?? [];
+      data[i] = { ...entry, ...newEntry };
+    } else if (entry.children != null) {
+      updateTreeEntry(entry.children, newEntry, key);
+    }
   });
 
 const convertOntologyResources = (resources: OntologyResource[]): TreeLeaf[] => {
@@ -39,7 +45,7 @@ const convertOntologyResources = (resources: OntologyResource[]): TreeLeaf[] => 
     const { icon, hasChildren } = resourceTypes[id.type];
     return {
       key: id.toString(),
-      title: name,
+      name,
       icon,
       hasChildren,
       children: [],
@@ -49,6 +55,7 @@ const convertOntologyResources = (resources: OntologyResource[]): TreeLeaf[] => 
 
 const ResourcesTree = (): JSX.Element => {
   const client = useClusterClient();
+  const [selected, setSelected] = useState<readonly string[]>([]);
   const [data, setData] = useState<TreeLeaf[]>([]);
   const store = useStore();
   const placer = useLayoutPlacer();
@@ -61,13 +68,15 @@ const ResourcesTree = (): JSX.Element => {
 
   return (
     <Space empty style={{ height: "100%" }}>
-      <Header level="h4" divided icon={<AiFillFolder />}>
-        Resources
-      </Header>
+      <ToolbarHeader>
+        <ToolbarTitle icon={<AiFillFolder />}>Resources</ToolbarTitle>
+      </ToolbarHeader>
       <Tree
         data={data}
-        style={{ overflowY: "auto", overflowX: "hidden" }}
-        onSelect={([key]: string[]) => {
+        style={{ overflowY: "auto", overflowX: "hidden", height: "100%" }}
+        value={selected}
+        onChange={(key) => {
+          if (key == null) return;
           const id = OntologyID.parseString(key);
           const { onSelect } = resourceTypes[id.type];
           onSelect?.({
@@ -75,6 +84,7 @@ const ResourcesTree = (): JSX.Element => {
             placer,
             workspace: (store.getState() as { workspace: WorkspaceState }).workspace,
           });
+          setSelected([key]);
         }}
         onExpand={(key) => {
           if (client == null || key.length === 0) return;
@@ -97,8 +107,11 @@ const ResourcesTree = (): JSX.Element => {
   );
 };
 
-export const ResourcesToolbar = {
+export const ResourcesToolbar: NavDrawerItem = {
   key: "resources",
   icon: <AiFillFolder />,
   content: <ResourcesTree />,
+  initialSize: 350,
+  minSize: 250,
+  maxSize: 650,
 };

@@ -1,4 +1,4 @@
-// Copyright 2022 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,37 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { defineConfig } from "vite";
-import path from "node:path";
+import { lib } from "@synnaxlabs/vite-plugin";
 import react from "@vitejs/plugin-react";
-import dts from "vite-plugin-dts";
-import tsConfigPaths from "vite-tsconfig-paths";
+import { defineConfig } from "vite";
 
-// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
-    tsConfigPaths(),
-    react(),
-    dts({
-      insertTypesEntry: true,
+    lib({
+      name: "drift",
     }),
+    react(),
   ],
   build: {
-    sourcemap: true,
-    lib: {
-      entry: path.resolve(__dirname, "src/index.ts"),
-      name: "drift",
-      formats: ["cjs", "es"],
-      fileName: (format) => `drift.${format}.js`,
-    },
+    minify: false,
     rollupOptions: {
-      external: [
-        "react",
-        "react-dom",
-        "react-redux",
-        "@reduxjs/toolkit",
-        "proxy-memoize",
-      ],
+      external: ["react", "react-dom", "react-redux", "@reduxjs/toolkit"],
       output: {
         globals: {
           react: "React",

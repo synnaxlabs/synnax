@@ -1,4 +1,4 @@
-// Copyright 2022 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,12 +11,18 @@ import {
   DRIFT_SLICE_NAME,
   MAIN_WINDOW,
   initialState as driftInitialState,
+  DriftStoreState,
 } from "@synnaxlabs/drift";
+import { getVersion } from "@tauri-apps/api/app";
 import { appWindow } from "@tauri-apps/api/window";
+
+import { VersionStoreState } from "../version";
 
 import { KV } from "./kv";
 
 const PERSISTED_STATE_KEY = "delta-persisted-state";
+
+export interface RequiredState extends VersionStoreState, DriftStoreState {}
 
 /**
  * Returns a function that preloads the state from the given key-value store on the main
@@ -27,16 +33,14 @@ const PERSISTED_STATE_KEY = "delta-persisted-state";
  */
 export const newPreloadState =
   (db: KV) =>
-  async <S extends Record<string, unknown> & { drift: unknown }>(): Promise<
-    S | undefined
-  > => {
+  async <S extends RequiredState>(): Promise<S | undefined> => {
     if (appWindow.label !== MAIN_WINDOW) return undefined;
     const state = await db.get<S>(PERSISTED_STATE_KEY);
     if (state == null) return undefined;
     // TODO: (@emilbon99) drift doesn't inspect initial state and fork windows accordinly
     // so we need to manually set the drift state for now.
     if (DRIFT_SLICE_NAME in state) state.drift = driftInitialState;
-    return state;
+    return await reconcileVersions(state);
   };
 
 /**
@@ -53,3 +57,11 @@ export const newPersistStateMiddleware =
     void db.set(PERSISTED_STATE_KEY, store.getState());
     return result;
   };
+
+const reconcileVersions = async <S extends RequiredState>(
+  state: S
+): Promise<S | undefined> => {
+  const storedVersion = state.version.version;
+  const tauriVersion = await getVersion();
+  return storedVersion === tauriVersion ? state : undefined;
+};

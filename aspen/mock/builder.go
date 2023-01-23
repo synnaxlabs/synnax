@@ -1,4 +1,4 @@
-// Copyright 2022 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,9 +11,9 @@ package mock
 
 import (
 	"context"
+	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errutil"
-	"github.com/synnaxlabs/aspen"
 	"os"
 	"path/filepath"
 	"strconv"

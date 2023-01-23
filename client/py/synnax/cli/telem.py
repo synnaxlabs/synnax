@@ -1,4 +1,11 @@
-#  Copyright 2022 Synnax Labs, Inc.
+#  Copyright 2023 Synnax Labs, Inc.
+#
+#  Use of this software is governed by the Business Source License included in the file
+#  licenses/BSL.txt.
+#
+#  As of the Change Date specified in that file, in accordance with the Business Source
+#  License, use of this software will be governed by the Apache License, Version 2.0,
+#  included in the file licenses/APL.txt.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -7,8 +14,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from ..telem import DATA_TYPES, TIME_UNITS, DataType
 from .channel import select_from_table
-from ..telem import DATA_TYPES, DataType, TIME_UNITS
 from .flow import Context
 
 
@@ -21,7 +28,7 @@ def prompt_data_type_select(ctx: Context, allow_none: bool = False) -> DataType 
     """
     i = select_from_table(
         ctx,
-        ["option", "data_type"],
+        ["data_type"],
         [{"data_type": name.string()} for name in DATA_TYPES],
         allow_none=allow_none,
     )

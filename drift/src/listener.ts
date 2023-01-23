@@ -1,4 +1,4 @@
-// Copyright 2022 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -36,7 +36,7 @@ export const listen = <S extends StoreState, A extends Action = AnyAction>(
   communicator: Communicator<S, A>,
   getStore: () => (StoreStateGetter<S> & StoreDispatch<A>) | undefined,
   resolve: (value: PreloadedState<S>) => void
-): void => {
+): void =>
   communicator.subscribe(({ action, emitter, state, sendState }) => {
     const s = getStore();
     if (s == null) return state != null && resolve(state);
@@ -47,4 +47,3 @@ export const listen = <S extends StoreState, A extends Action = AnyAction>(
     if (sendState === true && communicator.isMain())
       communicator.emit({ state: s.getState() as PreloadedState<S> }, emitter);
   });
-};

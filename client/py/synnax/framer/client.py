@@ -1,4 +1,11 @@
-#  Copyright 2022 Synnax Labs, Inc.
+#  Copyright 2023 Synnax Labs, Inc.
+#
+#  Use of this software is governed by the Business Source License included in the file
+#  licenses/BSL.txt.
+#
+#  As of the Change Date specified in that file, in accordance with the Business Source
+#  License, use of this software will be governed by the Apache License, Version 2.0,
+#  included in the file licenses/APL.txt.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -9,15 +16,15 @@
 
 import numpy as np
 import pandas as pd
-from synnax import telem
 
+from synnax import telem
 from synnax.channel.registry import ChannelRegistry
-from .iterator import NumpyIterator, AUTO_SPAN
-from .writer import DataFrameWriter
-from synnax.telem import TimeRange, UnparsedTimeStamp, NumpyArray
+from synnax.telem import NumpyArray, TimeRange, UnparsedTimeStamp
 from synnax.transport import Transport
 
 from . import iterator
+from .iterator import AUTO_SPAN, NumpyIterator
+from .writer import DataFrameWriter
 
 
 class FramerClient:

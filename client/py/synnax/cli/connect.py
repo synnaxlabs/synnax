@@ -1,4 +1,11 @@
-#  Copyright 2022 Synnax Labs, Inc.
+#  Copyright 2023 Synnax Labs, Inc.
+#
+#  Use of this software is governed by the Business Source License included in the file
+#  licenses/BSL.txt.
+#
+#  As of the Change Date specified in that file, in accordance with the Business Source
+#  License, use of this software will be governed by the Apache License, Version 2.0,
+#  included in the file licenses/APL.txt.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -12,19 +19,9 @@ from pathlib import Path
 
 from freighter.exceptions import Unreachable
 
-from .. import Synnax, AuthError, SynnaxOptions
+from .. import AuthError, Synnax, SynnaxOptions
+from ..config import ClustersConfig, ConfigFile, load_options
 from .flow import Context
-from ..config import ConfigFile, ClustersConfig
-
-
-def load_config_options(ctx: Context) -> SynnaxOptions:
-    """Loads the connection parameters from a configuration file.
-
-    :param ctx: The context of the current flow.
-    :return: The options to connect to a Synnax server.
-    """
-    cfg = ClustersConfig(ConfigFile(Path(os.path.expanduser("~/.synnax"))))
-    return cfg.get().options
 
 
 def prompt_client_options(ctx: Context) -> SynnaxOptions:
@@ -43,7 +40,22 @@ def prompt_client_options(ctx: Context) -> SynnaxOptions:
     return SynnaxOptions(**params)
 
 
-def connect_client(ctx: Context, opts: SynnaxOptions) -> Synnax | None:
+def connect_client(ctx: Context) -> Synnax | None:
+    """Connects to a Synnax server. Prompts the user for the connection parameters if
+    no configuration file exists.
+
+    :param ctx: The context of the current flow.
+    :return: The connected Synnax client, or None if the connection failed.
+    """
+    opts = load_options()
+    if opts is None:
+        opts = prompt_client_options(ctx)
+    else:
+        ctx.console.info("Using saved credentials.")
+    return connect_from_options(ctx, opts)
+
+
+def connect_from_options(ctx: Context, opts: SynnaxOptions) -> Synnax | None:
     """Connects to a Synnax server. Prints user-friendly messages to the console if
     the connection fails.
 

@@ -1,4 +1,4 @@
-// Copyright 2022 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -24,7 +24,7 @@ type Frame struct {
 
 func (f Frame) Keys() channel.Keys { return f.keys }
 
-func (f Frame) Unary() bool { return len(f.keys.Unique()) == len(f.Arrays) }
+func (f Frame) Vertical() bool { return len(f.keys.Unique()) == len(f.Arrays) }
 
 func (f Frame) SplitByNodeID() map[core.NodeID]Frame {
 	frames := make(map[core.NodeID]Frame)

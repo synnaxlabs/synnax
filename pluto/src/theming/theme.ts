@@ -1,4 +1,4 @@
-// Copyright 2022 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TypographyDefinition } from "../atoms/Typography";
-
 import "@fontsource/inter";
 
-type Size = number | string;
-type Color = string;
+import { TypographySpec } from "@/core/Typography";
+
+export type Size = number | string;
+export type Color = string;
 
 export interface Theme {
   name: string;
@@ -49,6 +49,7 @@ export interface Theme {
     black: Color;
     background: Color;
     text: Color;
+    logo: Color;
   };
   sizes: {
     base: number;
@@ -59,13 +60,14 @@ export interface Theme {
   };
   typography: {
     family: string;
-    h1: TypographyDefinition;
-    h2: TypographyDefinition;
-    h3: TypographyDefinition;
-    h4: TypographyDefinition;
-    h5: TypographyDefinition;
-    p: TypographyDefinition;
-    small: TypographyDefinition;
+    h1: TypographySpec;
+    h2: TypographySpec;
+    h3: TypographySpec;
+    h4: TypographySpec;
+    h5: TypographySpec;
+    p: TypographySpec;
+    small: TypographySpec;
+    tiny: TypographySpec;
   };
 }
 
@@ -114,6 +116,7 @@ const synnaxBase: Theme = {
         ],
       },
     },
+    logo: "url(#linear-gradient)",
     white,
     black,
     background: white,
@@ -161,8 +164,13 @@ const synnaxBase: Theme = {
     },
     small: {
       size: 2,
-      weight: 300,
+      weight: "regular",
       lineHeight: 2 + 1 / 3,
+    },
+    tiny: {
+      size: 1.75,
+      weight: 300,
+      lineHeight: 2,
     },
   },
 };
@@ -189,6 +197,7 @@ export const synnaxDark = {
       p2: synnaxBase.colors.gray.m2,
       p3: synnaxBase.colors.gray.m3,
     },
+    logo: "var(--pluto-text-color)",
     border: synnaxBase.colors.gray.p1,
     background: synnaxBase.colors.black,
     text: synnaxBase.colors.white,

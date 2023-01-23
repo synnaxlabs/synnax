@@ -1,0 +1,61 @@
+/*
+ * Copyright 2023 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.pluto-input-switch__track {
+    position: relative;
+    display: inline-block;
+    width: calc(var(--pluto-base-size) * 5);
+    height: calc(var(--pluto-base-size) * 2);
+}
+
+.pluto-input-switch__container {
+    display: flex;
+    align-items: center;
+}
+
+.pluto-input-switch__input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.pluto-input-switch__slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--pluto-gray-m2);
+    transition: 0.15s;
+    border-radius: calc(var(--pluto-base-size) * 4);
+}
+
+.pluto-input-switch__slider::before {
+    position: absolute;
+    content: "";
+    height: calc(var(--pluto-base-size) * 3);
+    width: calc(var(--pluto-base-size) * 3);
+    left: 0;
+    bottom: -3px;
+    background-color: var(--pluto-gray-m1);
+    transition: 0.15s;
+    border-radius: 50%;
+}
+
+.pluto-input-switch__input:checked + .pluto-input-switch__slider {
+    background-color: var(--pluto-primary-m1);
+}
+
+.pluto-input-switch__input:checked + .pluto-input-switch__slider::before {
+    transform: translateX(calc(var(--pluto-base-size) * 2));
+    background-color: var(--pluto-primary-p1);
+}

@@ -1,4 +1,4 @@
-// Copyright 2022 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,12 +11,16 @@ import { ReactElement } from "react";
 
 import { OntologyID } from "@synnaxlabs/client";
 import type { OntologyResourceType } from "@synnaxlabs/client";
+import { ONE_XY, ZERO_XY } from "@synnaxlabs/pluto";
 import { AiFillDatabase } from "react-icons/ai";
 import { MdOutlineDeviceHub, MdSensors } from "react-icons/md";
 
 import { ClusterIcon } from "@/features/cluster";
 import { LayoutPlacer } from "@/features/layout";
-import { LinePlotVisualization, createVisualization } from "@/features/visualization";
+import { createVisualization } from "@/features/vis";
+
+import { LineVis } from "../vis/components/line/types";
+
 import { WorkspaceState } from "@/features/workspace";
 
 export interface SelectionContext {
@@ -53,12 +57,20 @@ export const resourceTypes: Record<string, ResourceType> = {
     icon: <MdSensors />,
     hasChildren: false,
     onSelect: ({ placer, id, workspace }: SelectionContext) => {
-      console.log(workspace.selectedRangeKey);
       placer(
-        createVisualization<LinePlotVisualization>({
-          channels: [id.key],
-          ranges:
-            workspace.selectedRangeKey != null ? [workspace.selectedRangeKey] : [],
+        createVisualization<LineVis>({
+          channels: {
+            y1: [id.key],
+            y2: [],
+            y3: [],
+            y4: [],
+            x1: "",
+          },
+          ranges: {
+            x1: workspace.activeRange != null ? [workspace.activeRange] : [],
+          },
+          zoom: ONE_XY,
+          pan: ZERO_XY,
         })
       );
     },

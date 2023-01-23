@@ -1,4 +1,11 @@
-#  Copyright 2022 Synnax Labs, Inc.
+#  Copyright 2023 Synnax Labs, Inc.
+#
+#  Use of this software is governed by the Business Source License included in the file
+#  licenses/BSL.txt.
+#
+#  As of the Change Date specified in that file, in accordance with the Business Source
+#  License, use of this software will be governed by the Apache License, Version 2.0,
+#  included in the file licenses/APL.txt.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -8,16 +15,17 @@
 #  included in the file licenses/APL.txt.
 
 from numpy import ndarray
-from synnax.exceptions import ValidationError
+from rich.pretty import Pretty
 
+from synnax.exceptions import ValidationError
 from synnax.framer import FramerClient
 from synnax.telem import (
     DATA_TYPE_UNKNOWN,
     Rate,
     UnparsedDataType,
+    UnparsedDensity,
     UnparsedRate,
     UnparsedTimeStamp,
-    UnparsedDensity,
 )
 
 from .create import ChannelCreator
@@ -99,6 +107,12 @@ class Channel(ChannelPayload):
 
     def __eq__(self, other):
         return self.key == other.key
+
+    def __str__(self):
+        base = f"{self.name} ({self.data_type})"
+        if self.rate != 0:
+            base += f" @ {self.rate}Hz"
+        return base
 
 
 class ChannelClient:

@@ -1,14 +1,14 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/schema.json",
   "build": {
-    "beforeBuildCommand": "yarn build-vite",
-    "beforeDevCommand": "yarn dev-vite",
+    "beforeBuildCommand": "pnpm build-vite",
+    "beforeDevCommand": "pnpm dev-vite",
     "devPath": "http://localhost:5173",
     "distDir": "../dist"
   },
   "package": {
     "productName": "Synnax",
-    "version": "0.2.2"
+    "version": "0.3.0"
   },
   "tauri": {
     "macOSPrivateApi": true,
@@ -62,11 +62,13 @@
     "windows": [
       {
         "fullscreen": false,
-        "height": 600,
+        "height": 810,
         "resizable": true,
         "title": "Synnax",
-        "width": 800,
-        "fileDropEnabled": false
+        "width": 1080,
+        "fileDropEnabled": false,
+        "minWidth": 625,
+        "minHeight": 375
       }
     ]
   }

@@ -1,4 +1,4 @@
-// Copyright 2022 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,55 +7,57 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Space, Input, Header, Nav, Button } from "@synnaxlabs/pluto";
+import { TimeStamp } from "@synnaxlabs/client";
+import type { InputDateProps, InputTimeProps } from "@synnaxlabs/pluto";
+import { Button, Header, Input, Nav, Space } from "@synnaxlabs/pluto";
 import { useForm } from "react-hook-form";
 import { AiFillBoxPlot } from "react-icons/ai";
 import { useDispatch } from "react-redux";
 
-import { addRange } from "../store/slice";
-
 import { LayoutRendererProps } from "@/features/layout";
 
-const timeStringToNanoseconds = (time: string): number => {
-  const p = time.split(":");
-  let s = 0;
-  let m = 1;
-
-  while (p.length > 0) {
-    s += m * parseInt(p.pop() as string, 10);
-    m *= 60;
-  }
-
-  return s * 1000000000;
-};
-
-const dateStringToNanoseconds = (date: string): number => {
-  const dateObj = new Date(date);
-  return dateObj.getTime() * 1000000;
-};
+import { addRange } from "../store/slice";
 
 export const DefineRange = ({
   layoutKey,
   onClose,
 }: LayoutRendererProps): JSX.Element => {
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm();
+  const now = TimeStamp.now().valueOf();
+  const { control, handleSubmit } = useForm({
+    defaultValues: {
+      name: "",
+      startDate: now,
+      startTime: now,
+      endDate: now,
+      endTime: now,
+    },
+  });
   const dispatch = useDispatch();
 
-  const onSubmit = (data: any): void => {
-    let start = dateStringToNanoseconds(data.dateStart);
-    start += timeStringToNanoseconds(data.timeStart);
-    let end = dateStringToNanoseconds(data.dateEnd);
-    end += timeStringToNanoseconds(data.timeEnd);
+  interface DefineRangeFormProps {
+    name: string;
+    startDate: number;
+    startTime: number;
+    endDate: number;
+    endTime: number;
+  }
+
+  const onSubmit = ({
+    name,
+    startDate,
+    startTime,
+    endDate,
+    endTime,
+  }: DefineRangeFormProps): void => {
+    const start = startDate + startTime;
+    const end = endDate + endTime;
+
     dispatch(
       addRange({
-        name: data.name,
-        key: data.name.replace(/\s/g, "").toLowerCase(),
+        name,
         start,
         end,
+        key: name.replace(/\s/g, "").toLowerCase(),
       })
     );
     onClose();
@@ -63,8 +65,8 @@ export const DefineRange = ({
 
   return (
     <Space grow>
-      <Header level="h4" icon={<AiFillBoxPlot />} divided>
-        Define a Range
+      <Header level="h4" divided>
+        <Header.Title startIcon={<AiFillBoxPlot />}>Define a Range</Header.Title>
       </Header>
       <form
         onSubmit={(e) => {
@@ -74,50 +76,38 @@ export const DefineRange = ({
         id="define-range"
       >
         <Space grow className="delta-form">
-          <Input.Item
-            label="Name"
-            helpText={errors.name?.message?.toString()}
-            {...register("name")}
-          />
-          <Space direction="horizontal">
-            <Input.Item
-              label="Start Date"
-              size="medium"
-              helpText={errors.dateStart?.message?.toString()}
-              {...register("dateStart", { required: true })}
-              style={{ flexGrow: "1" }}
+          <Input.ItemC control={control} name="name" />
+          <Space direction="x">
+            <Input.ItemC<number, number, InputDateProps, DefineRangeFormProps>
+              name="startDate"
+              control={control}
+              grow
             >
               {Input.Date}
-            </Input.Item>
-            <Input.Item
-              label="Start Time"
-              size="medium"
-              helpText={errors.timeStart?.message?.toString()}
-              {...register("timeStart", { required: true })}
-              style={{ flexGrow: "1" }}
+            </Input.ItemC>
+            <Input.ItemC<number, number, InputTimeProps, DefineRangeFormProps>
+              name="startTime"
+              control={control}
+              grow
             >
               {Input.Time}
-            </Input.Item>
+            </Input.ItemC>
           </Space>
-          <Space direction="horizontal">
-            <Input.Item
-              label="End Date"
-              size="medium"
-              helpText={errors.dateEnd?.message?.toString()}
-              {...register("dateEnd", { required: true })}
-              style={{ flexGrow: "1" }}
+          <Space direction="x">
+            <Input.ItemC<number, number, InputDateProps, DefineRangeFormProps>
+              name="endDate"
+              control={control}
+              grow
             >
               {Input.Date}
-            </Input.Item>
-            <Input.Item
-              label="End Time"
-              size="medium"
-              helpText={errors.timeEnd?.message?.toString()}
-              {...register("timeEnd", { required: true })}
-              style={{ flexGrow: "1" }}
+            </Input.ItemC>
+            <Input.ItemC<number, number, InputTimeProps, DefineRangeFormProps>
+              name="endTime"
+              control={control}
+              grow
             >
               {Input.Time}
-            </Input.Item>
+            </Input.ItemC>
           </Space>
         </Space>
       </form>

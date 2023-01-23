@@ -25,6 +25,12 @@ jobs:
               - "drift/**"
               - ".github/workflows/drift.test.yaml"
 
+      - name: Set up pnpm
+        if: steps.filter.outputs.changed == 'true'
+        uses: pnpm/action-setup@v2
+        with:
+          version: 7
+
       - name: Set up Node
         if: steps.filter.outputs.changed == 'true'
         uses: actions/setup-node@v3
@@ -33,11 +39,11 @@ jobs:
 
       - name: Install Dependencies
         if: steps.filter.outputs.changed == 'true'
-        run: yarn
+        run: pnpm install
 
       - name: Test
         if: steps.filter.outputs.changed == 'true'
-        run: yarn cov:drift
+        run: pnpm cov:drift
 
       - name: Upload Coverage
         if: steps.filter.outputs.changed == 'true'
