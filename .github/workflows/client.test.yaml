@@ -103,7 +103,7 @@ jobs:
 
       - name: Install Dependencies
         if: steps.filter.outputs.changed == 'true'
-        run: pnpm
+        run: pnpm i
 
       - name: Test
         if: steps.filter.outputs.changed == 'true'
