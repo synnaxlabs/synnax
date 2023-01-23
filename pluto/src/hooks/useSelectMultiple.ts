@@ -11,7 +11,7 @@ import { RefObject, useCallback, useRef } from "react";
 
 import { KeyedRecord } from "@synnaxlabs/x";
 
-import { InputControlProps } from "@/core/Input";
+import { InputControl } from "@/core/Input";
 
 import { useStateRef } from "./useStateRef";
 
@@ -24,7 +24,7 @@ export type SelectedRecord<E extends KeyedRecord<E>> = E & {
 };
 
 export interface UseSelectMultipleProps<E extends KeyedRecord<E>>
-  extends InputControlProps<readonly string[]> {
+  extends InputControl<readonly string[]> {
   data: E[];
   allowMultiple?: boolean;
 }

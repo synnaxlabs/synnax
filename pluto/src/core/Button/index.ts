@@ -19,7 +19,7 @@ type CoreButtonType = typeof CoreButton;
 
 interface ButtonType extends CoreButtonType {
   /**
-   * Button.IconOnly is a button that only renders an icon without any text.
+   * Button.IconOnly a button that only renders an icon without any text.
    *
    * @param props - Props for the component, which are passed down to the underlying
    * element.
@@ -29,8 +29,41 @@ interface ButtonType extends CoreButtonType {
    * @param props.children - A ReactElement representing the icon to render.
    */
   IconOnly: typeof ButtonIconOnly;
+  /**
+   * Button.Toggle renders a button that can be toggled on and off. It implements the
+   * InputControlProps interface, so it can be used as an input control in a form.
+   *
+   * @param props - Props for the component. Identical to the props for the Button
+   * component, excluding 'variant', and  adding the following:
+   * @param props.value - The boolean value of the button. If true, the button will be
+   * rendered as "filled". If false, it will be rendered as "outlined".
+   * @param props.onChange - A callback function that will be called when the button is
+   * toggled. The callback will be passed the new value of the button.
+   */
   Toggle: typeof ButtonToggle;
+  /**
+   * Button.IconOnlyToggle renders a button that can be toggled on and off, and only
+   * renders an icon. It implements the InputControlProps interface, so it can be used
+   *  as an input control in a form.
+   *
+   * @param props - Props for the component. Identical to the props for the Button.IconOnly
+   * component, excluding 'variant', and  adding the following:
+   * @param props.value - The boolean value of the button. If true, the button will be
+   * rendered as "filled". If false, it will be rendered as "outlined".
+   * @param props.onChange - A callback function that will be called when the button is
+   * toggled. The callback will be passed the new value of the button.
+   *
+   */
   IconOnlyToggle: typeof ButtonToggleIcon;
+  /**
+   * Button.Link renders a button that looks like a link and redirects to the given href
+   * when clicked.
+   *
+   * @param props - Props for the component. Identical to the props for the Button component,
+   * excluding 'variant', and  adding the following:
+   * @param props.href - The URL to redirect to when the button is clicked.
+   * @param props.target - The target of the link. Defaults to "_self".
+   */
   Link: typeof ButtonLink;
 }
 

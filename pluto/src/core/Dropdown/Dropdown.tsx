@@ -21,12 +21,13 @@ import { locationCls, visibleCls } from "@/util/css";
 
 import "./Dropdown.css";
 
+/** Return type for the {@link useDropdown} hook. */
 export interface UseDropdownReturn {
   visible: boolean;
+  ref: RefObject<HTMLDivElement>;
   close: () => void;
   open: () => void;
   toggle: (vis?: boolean) => void;
-  ref: RefObject<HTMLDivElement>;
 }
 
 export const useDropdown = (initialVisible: boolean = false): UseDropdownReturn => {
@@ -42,6 +43,7 @@ export const useDropdown = (initialVisible: boolean = false): UseDropdownReturn 
   return { visible, ref, open, close, toggle };
 };
 
+/** Props for the {@link Dropdown} component. */
 export interface DropdownProps
   extends Pick<UseDropdownReturn, "visible">,
     Omit<SpaceProps, "ref" | "reverse" | "size" | "empty"> {
@@ -50,18 +52,6 @@ export interface DropdownProps
   keepMounted?: boolean;
 }
 
-/**
- * A controlled dropdown component that wraps its parent. For the simplest case, use
- * the {@link useDropdown} hook (more behavioral details explained there).
- *
- * @param props The props for the dropdown component. Unused props are passed to the
- * parent elment.
- *
- * @param props.visible Whether the dropdown is visible or not. This is a controlled
- *
- * @param props.children
- *
- */
 export const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
   (
     {

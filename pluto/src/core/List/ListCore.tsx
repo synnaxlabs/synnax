@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { HTMLAttributes, useRef } from "react";
+import { ComponentPropsWithoutRef, useRef } from "react";
 
 import { RenderableRecord } from "@synnaxlabs/x";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -21,7 +21,7 @@ import { ListItemProps } from "./types";
 import "./ListCore.css";
 
 export interface ListVirtualCoreProps<E extends RenderableRecord<E>>
-  extends Omit<HTMLAttributes<HTMLDivElement>, "children" | "onSelect"> {
+  extends Omit<ComponentPropsWithoutRef<"div">, "children"> {
   itemHeight: number;
   children: RenderProp<ListItemProps<E>>;
   overscan?: number;
@@ -70,5 +70,18 @@ const ListVirtualCore = <E extends RenderableRecord<E>>({
 };
 
 export const ListCore = {
+  /**
+   * A virtualized list core.
+   *
+   * @param props - Props for the virtualized list core. All props not defined below
+   * are passed to the underlying div element wrapping the list.
+   * @param props.itemHeight - The height of each item in the list.
+   * @param props.overscan - The number of extra items to render during virtualization.
+   * This improves scroll performance, but also adds extra DOM elements, so make sure
+   * to set this to a reasonable value.
+   * @param props.children - A render props that renders each item in the list. It should
+   * implement the {@link ListItemProps} interface. The virtualizer will pass all props
+   * satisfying this interface to the render props.
+   */
   Virtual: ListVirtualCore,
 };

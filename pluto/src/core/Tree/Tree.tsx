@@ -15,7 +15,7 @@ import { AiFillCaretDown, AiFillCaretRight } from "react-icons/ai";
 
 import { Button } from "@/core/Button";
 
-import { InputControlProps } from "../Input";
+import { InputControl } from "../Input";
 
 import { ComponentSize } from "@/util/component";
 import { RenderProp } from "@/util/renderProp";
@@ -23,7 +23,7 @@ import { RenderProp } from "@/util/renderProp";
 import "./Tree.css";
 
 export interface TreeProps<E extends RenderableRecord<E> = RenderableRecord>
-  extends Partial<InputControlProps<readonly string[], string>>,
+  extends Partial<InputControl<readonly string[], string>>,
     Omit<
       DetailedHTMLProps<HtmlHTMLAttributes<HTMLUListElement>, HTMLUListElement>,
       "children" | "onChange"

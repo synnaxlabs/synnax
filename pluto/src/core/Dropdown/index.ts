@@ -13,9 +13,35 @@ export type { DropdownProps } from "./Dropdown";
 type CoreDropdownType = typeof CoreDropdown;
 
 interface DropdownType extends CoreDropdownType {
+  /**
+   * Implements basic dropdown behavior, and should be preferred when using the {@link Dropdown}
+   * component. Opens the dropdown whenever the 'open' function is called, and closes it whenever
+   * the 'close' function is called OR the user clicks outside of the dropdown parent wrapped,
+   * which includes the dropdown trigger (often a button or input).
+   *
+   * @param initialVisible - Whether the dropdown should be visible on mount.
+   * @returns visible - Whether the dropdown is visible.
+   * @returns ref - The ref to the dropdown parent.
+   * @returns close - A function to close the dropdown.
+   * @returns open - A function to open the dropdown.
+   * @returns toggle - A function to toggle the dropdown.
+   *
+   */
   use: typeof useDropdown;
 }
 
+/**
+ * A controlled dropdown component that wraps its parent. For the simplest case, use
+ * the {@link useDropdown} hook (more behavioral details explained there).
+ *
+ * @param props The props for the dropdown component. Unused props are passed to the
+ * parent elment.
+ *
+ * @param props.visible Whether the dropdown is visible or not. This is a controlled
+ *
+ * @param props.children
+ *
+ */
 export const Dropdown = CoreDropdown as DropdownType;
 
 Dropdown.use = useDropdown;

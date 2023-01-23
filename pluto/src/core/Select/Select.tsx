@@ -15,12 +15,12 @@ import { Dropdown, DropdownProps } from "@/core/Dropdown";
 
 import { SelectList } from "./SelectList";
 
-import { InputControlProps, Input, InputProps } from "@/core/Input";
+import { InputControl, Input, InputProps } from "@/core/Input";
 import { List, ListColumn } from "@/core/List";
 
 export interface SelectProps<E extends RenderableRecord<E>>
   extends Omit<DropdownProps, "onChange" | "visible" | "children">,
-    InputControlProps<string> {
+    InputControl<string> {
   data?: E[];
   tagKey?: keyof E;
   columns?: Array<ListColumn<E>>;

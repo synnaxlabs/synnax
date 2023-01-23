@@ -37,8 +37,6 @@ export const Button = ({
   size = "medium",
   variant = "filled",
   className,
-  startIcon,
-  endIcon,
   children,
   ...props
 }: ButtonProps): JSX.Element => (
@@ -47,8 +45,6 @@ export const Button = ({
     className={clsx("pluto--" + size, "pluto-btn", "pluto-btn--" + variant, className)}
     color={variant === "filled" ? "var(--pluto-white)" : "var(--pluto-text-color)"}
     level={Typography.ComponentSizeLevels[size]}
-    startIcon={startIcon}
-    endIcon={endIcon}
     {...props}
   >
     {children}
