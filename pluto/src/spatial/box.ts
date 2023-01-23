@@ -131,33 +131,32 @@ export class Box implements Stringer {
       return;
     }
 
-    if ("x" in first) {
-      this.one = first;
-      if (second == null) {
-        this.two = { x: this.one.x + width, y: this.one.y + height };
-      } else if (typeof second === "number")
-        this.two = {
-          x: this.one.x + second,
-          y: this.one.y + width,
-        };
-      else if ("width" in second)
-        this.two = {
-          x: this.one.x + second.width,
-          y: this.one.y + second.height,
-        };
-      else if ("signedWidth" in second)
-        this.two = {
-          x: this.one.x + second.signedWidth,
-          y: this.one.y + second.signedHeight,
-        };
-      else this.two = second;
+    if ("getBoundingClientRect" in first) first = first.getBoundingClientRect();
+    if ("left" in first) {
+      this.one = { x: first.left, y: first.top };
+      this.two = { x: first.right, y: first.bottom };
       return;
     }
 
-    if ("getBoundingClientRect" in first) first = first.getBoundingClientRect();
-
-    this.one = { x: first.left, y: first.top };
-    this.two = { x: first.right, y: first.bottom };
+    this.one = first;
+    if (second == null) {
+      this.two = { x: this.one.x + width, y: this.one.y + height };
+    } else if (typeof second === "number")
+      this.two = {
+        x: this.one.x + second,
+        y: this.one.y + width,
+      };
+    else if ("width" in second)
+      this.two = {
+        x: this.one.x + second.width,
+        y: this.one.y + second.height,
+      };
+    else if ("signedWidth" in second)
+      this.two = {
+        x: this.one.x + second.signedWidth,
+        y: this.one.y + second.signedHeight,
+      };
+    else this.two = second;
   }
 
   contains(box: Box | XY): boolean {

@@ -7,9 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { RefObject, useEffect, useRef, useState } from "react";
+import {
+  RefCallback,
+  RefObject,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
-import { ResizeObserver } from "@juggle/resize-observer";
 import { debounce as debounceF } from "@synnaxlabs/x";
 
 import { Box, BoxF, ZERO_BOX } from "./box";
@@ -40,28 +46,46 @@ export interface UseResizeOpts {
 export const useResize = <E extends HTMLElement>(
   onResize: BoxF,
   { triggers: _triggers = [], debounce = 0 }: UseResizeOpts
-): RefObject<E> => {
+): RefCallback<E> => {
   const prev = useRef<Box>(ZERO_BOX);
   const ref = useRef<E | null>(null);
+  const obs = useRef<ResizeObserver | null>(null);
   const triggers = useMemoCompare(
     () => normalizeTriggers(_triggers),
     compareArrayDeps,
     [_triggers] as const
   );
+
+  const startObserving = useCallback(
+    (el: HTMLElement) => {
+      if (obs.current != null) obs.current.disconnect();
+      prev.current = ZERO_BOX;
+      const deb = debounceF(() => {
+        const next = new Box(el.getBoundingClientRect());
+        if (shouldResize(triggers, prev.current, next)) {
+          onResize(next);
+          prev.current = next;
+        }
+      }, debounce);
+      obs.current = new ResizeObserver(deb);
+      obs.current.observe(el);
+    },
+    [triggers, onResize, debounce]
+  );
+
   useEffect(() => {
-    const el = ref.current;
-    if (el == null) return;
-    prev.current = ZERO_BOX;
-    const deb = debounceF(() => {
-      const next = new Box(el);
-      if (shouldResize(triggers, prev.current, next)) onResize(next);
-      prev.current = next;
-    }, debounce);
-    const obs = new ResizeObserver(deb);
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, [triggers, onResize, debounce]);
-  return ref;
+    console.log("EFFECT");
+    if (ref.current != null) startObserving(ref.current);
+    return () => obs.current?.disconnect();
+  }, [startObserving]);
+
+  return useCallback(
+    (el: E | null) => {
+      ref.current = el;
+      if (el != null) startObserving(el);
+    },
+    [startObserving]
+  );
 };
 
 export type UseSizeOpts = UseResizeOpts;
@@ -76,7 +100,7 @@ export type UseSizeOpts = UseResizeOpts;
  */
 export const useSize = <E extends HTMLElement>(
   opts: UseSizeOpts
-): [Box, RefObject<E>] => {
+): [Box, RefCallback<E>] => {
   const [size, onResize] = useState<Box>(ZERO_BOX);
   const ref = useResize<E>(onResize, opts);
   return [size, ref];

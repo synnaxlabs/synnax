@@ -112,6 +112,7 @@ const CoreSpace = <E extends SpaceElementType = "div">(
   return (
     // @ts-expect-error
     <Generic<E>
+      {...props}
       el={el}
       ref={ref}
       className={clsx(
@@ -121,7 +122,6 @@ const CoreSpace = <E extends SpaceElementType = "div">(
         className
       )}
       style={style}
-      {...props}
     />
   );
 };
