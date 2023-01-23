@@ -1,4 +1,4 @@
-// Copyright 2022 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -63,10 +63,11 @@ func (b *SecureHTTPBranch) Serve(ctx BranchContext) error {
 func (b *SecureHTTPBranch) Stop() { _ = b.internal.Shutdown() }
 
 func (b *SecureHTTPBranch) maybeRouteDebugUtil(ctx BranchContext) {
-	if ctx.Debug {
-		b.internal.Get("/metrics", monitor.New(monitor.Config{Title: "Synnax Metrics"}))
-		b.internal.Use(pprof.New())
+	if !ctx.Debug {
+		return
 	}
+	b.internal.Get("/metrics", monitor.New(monitor.Config{Title: "Synnax Metrics"}))
+	b.internal.Use(pprof.New())
 }
 
 func (b *SecureHTTPBranch) routeUI() {

@@ -1,0 +1,34 @@
+{
+  "name": "@synnaxlabs/x",
+  "private": false,
+  "version": "0.0.1",
+  "type": "module",
+  "description": "Common Utilities for Synnax Labs",
+  "repository": "https://github.com/synnaxlabs/synnax/tree/main/x/go",
+  "keywords": [
+    "synnax",
+    "utilities",
+    "data acquisition",
+    "big data",
+    "telemetry",
+    "control syustems"
+  ],
+  "scripts": {
+    "build": "vite build",
+    "test": "vitest",
+    "cov": "vitest --coverage",
+    "lint": "eslint \"src/**/*.ts*\"",
+    "fix": "eslint \"src/**/*.ts*\" --fix"
+  },
+  "devDependencies": {
+    "@synnaxlabs/tsconfig": "workspace:*",
+    "@synnaxlabs/vite-plugin": "workspace:*",
+    "@types/node": "^18.11.18",
+    "eslint-config-synnaxlabs": "workspace:*",
+    "vite": "^4.0.4",
+    "vitest": "^0.27.1"
+  },
+  "main": "dist/x.cjs.js",
+  "module": "dist/x.es.js",
+  "types": "dist/index.d.ts"
+}

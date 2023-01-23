@@ -1,4 +1,4 @@
-// Copyright 2022 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -80,7 +80,7 @@ func (a *API) BindTo(t Transport) {
 		logger             = logMiddleware(a.provider.Logging.logger)
 		tk                 = tokenMiddleware(a.provider.auth.token)
 		insecureMiddleware = []freighter.Middleware{logger, err}
-		secureMiddleware   []freighter.Middleware
+		secureMiddleware   = make([]freighter.Middleware, len(insecureMiddleware))
 	)
 	copy(secureMiddleware, insecureMiddleware)
 	if !a.config.Insecure {

@@ -1,4 +1,4 @@
-// Copyright 2022 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,22 +11,32 @@ import { Dispatch, useCallback } from "react";
 
 import type { AnyAction } from "@reduxjs/toolkit";
 import { closeWindow, createWindow, MAIN_WINDOW } from "@synnaxlabs/drift";
-import type { ThemeProviderProps } from "@synnaxlabs/pluto";
+import {
+  NavDrawerItem,
+  ThemeProviderProps,
+  NavMenuItem,
+  NavDrawerContent,
+  useDebouncedCallback,
+  Theme,
+} from "@synnaxlabs/pluto";
 import { appWindow } from "@tauri-apps/api/window";
 import type { Theme as TauriTheme } from "@tauri-apps/api/window";
 import { useDispatch } from "react-redux";
 
+import { useAsyncEffect, AsyncDestructor } from "@/hooks";
+
 import {
+  NavdrawerLocation,
   placeLayout,
   removeLayout,
   setActiveTheme,
+  setNavdrawerEntryState,
   toggleActiveTheme,
   useSelectLayout,
+  useSelectNavDrawer,
   useSelectTheme,
 } from "../store";
 import { Layout } from "../types";
-
-import { useAsyncEffect, AsyncDestructor } from "@/hooks";
 
 export interface LayoutCreatorProps {
   dispatch: Dispatch<AnyAction>;
@@ -56,7 +66,7 @@ export const useLayoutPlacer = (): LayoutPlacer => {
   return useCallback(
     (layout_: Layout | LayoutCreator) => {
       const layout = typeof layout_ === "function" ? layout_({ dispatch }) : layout_;
-      const { key, location, window, title } = layout;
+      const { key, location, window, name: title } = layout;
       dispatch(placeLayout(layout));
       if (location === "window")
         dispatch(
@@ -109,7 +119,7 @@ export const useThemeProvider = (): ThemeProviderProps => {
   }, []);
 
   return {
-    theme,
+    theme: theme as Theme,
     setTheme: (key: string) => dispatch(setActiveTheme(key)),
     toggleTheme: () => dispatch(toggleActiveTheme()),
   };
@@ -127,4 +137,49 @@ const synchronizeWithOS = async (dispatch: Dispatch<AnyAction>): AsyncDestructor
 const setInitialTheme = async (dispatch: Dispatch<AnyAction>): Promise<void> => {
   const t = await appWindow.theme();
   dispatch(setActiveTheme(matchThemeChange({ payload: t })));
+};
+
+export interface UseNavDrawerReturn {
+  activeItem: NavDrawerContent | undefined;
+  menuItems: NavMenuItem[];
+  onSelect: (item: string) => void;
+  onResize: (size: number) => void;
+}
+
+export const useNavDrawer = (
+  loc: NavdrawerLocation,
+  items: NavDrawerItem[]
+): UseNavDrawerReturn => {
+  const state = useSelectNavDrawer(loc);
+  const dispatch = useDispatch();
+  let activeItem: NavDrawerContent | undefined;
+  let menuItems: NavMenuItem[] = [];
+  if (state.activeItem != null)
+    activeItem = items.find((item) => item.key === state.activeItem);
+  menuItems = items.filter((item) => state.menuItems.includes(item.key));
+
+  const onResize = useDebouncedCallback(
+    (size) => {
+      dispatch(setNavdrawerEntryState({ location: loc, state: { size } }));
+    },
+    100,
+    [dispatch]
+  );
+
+  if (activeItem != null) activeItem.initialSize = state.size;
+
+  return {
+    activeItem,
+    menuItems,
+    onSelect: (item: string) =>
+      dispatch(
+        setNavdrawerEntryState({
+          location: loc,
+          state: {
+            activeItem: item === state.activeItem ? null : item,
+          },
+        })
+      ),
+    onResize,
+  };
 };

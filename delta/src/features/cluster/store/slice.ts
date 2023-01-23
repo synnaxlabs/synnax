@@ -1,4 +1,4 @@
-// Copyright 2022 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,8 +9,8 @@
 
 import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
+import { Optional } from "@synnaxlabs/x";
 
-import { Optional } from "../../../util/types";
 import { Cluster, ConnectionState, DEFAULT_CONNECTION_STATE } from "../types";
 
 /** The state of the cluster slice. */
@@ -52,9 +52,9 @@ const devClusterProps = {
 };
 
 const initialState: ClusterSliceState = {
-  activeCluster: "dev",
+  activeCluster: null,
   clusters: {
-    dev: devClusterProps,
+    // dev: devClusterProps,
   },
 };
 

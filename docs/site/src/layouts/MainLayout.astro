@@ -1,0 +1,121 @@
+---
+import { PageNav } from "@/components/PageNav";
+import { pages } from "@/pages/nav";
+import "@synnaxlabs/pluto/dist/style.css";
+import { Theming } from "@synnaxlabs/pluto";
+import { DEFAULT_THEME } from "@/util/theme";
+import { Logo } from "@/components/Logo";
+const vars = Theming.toCSSVars(DEFAULT_THEME);
+import { TableOfContents } from "@/components/TableOfContents";
+const { headings } = Astro.props as Props;
+---
+
+<html style={vars}>
+    <header class="pluto-bordered--bottom">
+        <div class="header-content">
+            <Logo style={{ height: "6.5rem" }} />
+        </div>
+    </header>
+    <section>
+        <nav class="pluto-bordered--right pluto-bordered--bottom">
+            <PageNav
+                client:only="react"
+                data={pages}
+                currentPage={Astro.url.pathname}
+            />
+        </nav>
+        <article>
+            <slot />
+        </article>
+    </section>
+
+    <script>
+        import { startThemeDriver } from "@/util/theme";
+        startThemeDriver();
+    </script>
+
+    <style is:global>
+        article p {
+            margin: 3rem 0;
+        }
+
+        * {
+            white-space: normal !important;
+        }
+
+        li {
+            font-size: var(--pluto-p-size);
+        }
+
+        .astro-code {
+            padding: 3rem;
+            border-radius: var(--pluto-border-radius);
+            margin: 3rem 1rem;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            html {
+                --pluto-background-color: #121212;
+                --pluto-text-color: #ffffff;
+            }
+        }
+    </style>
+
+    <style>
+        :root {
+            --max-width: 1440px;
+        }
+
+        header {
+            display: flex;
+            justify-content: center;
+            flex-basis: 10rem;
+            flex-grow: 1;
+            flex-shrink: 0;
+            width: 100%;
+        }
+
+        .header-content {
+            width: 100%;
+            max-width: var(--max-width);
+            display: flex;
+            align-items: center;
+            padding: 0 5rem;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        @media (max-width: 1440px) {
+            body {
+                align-items: unset;
+            }
+        }
+
+        section {
+            max-width: var(--max-width);
+            display: flex;
+            flex-wrap: wrap;
+            flex-grow: 99999;
+            flex-basis: 0;
+        }
+
+        nav {
+            padding: 20px 0px;
+            flex-basis: 280px;
+            flex-grow: 1;
+        }
+
+        article {
+            flex-basis: 0;
+            flex-grow: 9999;
+            min-inline-size: 60%;
+            padding: 5rem;
+        }
+    </style>
+
+
+</html>

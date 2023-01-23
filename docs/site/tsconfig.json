@@ -1,7 +1,10 @@
 {
-  // This file is not used in compilation. It is here just for a nice editor experience.
-  "extends": "@synnaxlabs/tsconfig/react.json",
+  "extends": "@synnaxlabs/tsconfig/base.json",
   "compilerOptions": {
-    "baseUrl": "."
-  }
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    }
+  },
+  "include": ["src/**/*"]
 }

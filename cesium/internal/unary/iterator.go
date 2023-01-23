@@ -1,4 +1,4 @@
-// Copyright 2022 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -233,22 +233,21 @@ func (i *Iterator) insert(arr telem.Array) {
 	}
 }
 
-func (i *Iterator) read(start telem.Offset, size telem.Size) (arr telem.Array, n int, _ error) {
+func (i *Iterator) read(start telem.Offset, size telem.Size) (arr telem.Array, n int, err error) {
 	arr.DataType = i.Channel.DataType
 	arr.TimeRange = i.internal.Range().BoundBy(i.view)
-	b := make([]byte, size)
+	arr.Data = make([]byte, size)
 	r, err := i.internal.NewReader()
 	if err != nil {
 		return
 	}
-	n, err = r.ReadAt(b, int64(start))
-	if err != nil {
-		return arr, n, err
+	n, err = r.ReadAt(arr.Data, int64(start))
+	if err != nil && !errors.Is(err, io.EOF) {
+		return
 	}
-	if n < len(b) {
-		b = b[:n]
+	if n < len(arr.Data) {
+		arr.Data = arr.Data[:n]
 	}
-	arr.Data = b
 	return
 }
 

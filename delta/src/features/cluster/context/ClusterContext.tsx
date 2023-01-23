@@ -1,4 +1,4 @@
-// Copyright 2022 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -64,7 +64,7 @@ export const ClusterProvider = ({ children }: ClusterProviderProps): JSX.Element
 
     const client = new Synnax({
       ...props,
-      connectivityPollFrequency: TimeSpan.Seconds(5),
+      connectivityPollFrequency: TimeSpan.seconds(5),
     });
 
     client.connectivity.onChange((status, _, message) =>
@@ -74,18 +74,18 @@ export const ClusterProvider = ({ children }: ClusterProviderProps): JSX.Element
     setState({ client });
 
     return () => {
-      if (state.client != null) state.client.close();
+      client.close();
       setState({ client: null });
     };
   }, [activeClusterKey]);
 
-  useWindowLifecycle(() => {
-    dispatch(registerProcess());
-    return () => {
-      if (state.client != null) state.client.close();
-      dispatch(completeProcess());
-    };
-  });
+  // useWindowLifecycle(() => {
+  //   dispatch(registerProcess());
+  //   return () => {
+  //     if (state.client != null) state.client.close();
+  //     dispatch(completeProcess());
+  //   };
+  // });
 
   return <ClusterContext.Provider value={state}>{children}</ClusterContext.Provider>;
 };

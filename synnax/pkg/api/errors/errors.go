@@ -1,4 +1,4 @@
-// Copyright 2022 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -17,8 +17,8 @@
 package errors
 
 import (
-	"github.com/synnaxlabs/x/query"
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/x/query"
 )
 
 // Nil is a typed representation of a nil error.

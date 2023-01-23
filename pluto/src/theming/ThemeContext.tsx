@@ -1,4 +1,4 @@
-// Copyright 2022 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -16,11 +16,17 @@ import {
   useState,
 } from "react";
 
-import { applyThemeAsCssVars } from "./css";
+import { applyCSSVars } from "@synnaxlabs/x";
+
+import { convertThemeToCSSVars } from "./css";
+
+import { Input } from "@/core/Input";
+
 import { Theme, synnaxLight } from "./theme";
 
+import { InputSwitchProps } from "@/core/Input/InputSwitch";
+
 import "./theme.css";
-import { Input, InputProps } from "@/atoms";
 
 export interface ThemeContextValue {
   theme: Theme;
@@ -74,9 +80,10 @@ export const ThemeProvider = ({
   children,
   ...props
 }: ThemeProviderProps): JSX.Element => {
-  useEffect(() => {
-    applyThemeAsCssVars(document.documentElement, theme);
-  }, [theme]);
+  useEffect(
+    () => applyCSSVars(document.documentElement, convertThemeToCSSVars(theme)),
+    [theme]
+  );
   return (
     <ThemeContext.Provider value={{ theme, ...props }}>
       {children}
@@ -84,13 +91,17 @@ export const ThemeProvider = ({
   );
 };
 
-export const ThemeSwitch = ({ onChange, ...props }: InputProps): JSX.Element => {
+export const ThemeSwitch = ({
+  ...props
+}: Omit<InputSwitchProps, "onChange" | "value">): JSX.Element => {
   const { toggleTheme } = useContext(ThemeContext);
+  const [checked, setChecked] = useState(false);
   return (
     <Input.Switch
-      onChange={(e) => {
+      value={checked}
+      onChange={(v) => {
         toggleTheme();
-        if (onChange != null) onChange(e);
+        setChecked(v);
       }}
       {...props}
     />

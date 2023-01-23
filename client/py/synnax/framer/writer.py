@@ -1,4 +1,11 @@
-#  Copyright 2022 Synnax Labs, Inc.
+#  Copyright 2023 Synnax Labs, Inc.
+#
+#  Use of this software is governed by the Business Source License included in the file
+#  licenses/BSL.txt.
+#
+#  As of the Change Date specified in that file, in accordance with the Business Source
+#  License, use of this software will be governed by the Apache License, Version 2.0,
+#  included in the file licenses/APL.txt.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -18,10 +25,10 @@ from freighter import (
     decode_exception,
 )
 from pandas import DataFrame
-from synnax.channel.payload import ChannelPayload
 
+from synnax.channel.payload import ChannelPayload
 from synnax.channel.registry import ChannelRegistry
-from synnax.exceptions import ValidationError, Field, GeneralError
+from synnax.exceptions import Field, GeneralError, ValidationError
 from synnax.telem import TimeStamp, UnparsedTimeStamp
 
 from .payload import BinaryFrame, pandas_to_frame

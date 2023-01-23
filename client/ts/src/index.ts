@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export { default as Synnax, synnaxPropsSchema } from "./lib/client";
-export type { SynnaxProps } from "./lib/client";
-export * from "./lib/telem";
+export * from "@/cache";
+export * from "@/channel";
+export { default as Synnax, synnaxPropsSchema } from "@/client";
+export type { SynnaxProps } from "@/client";
+export * from "@/connectivity";
 export {
   AuthError,
   ContiguityError,
@@ -19,8 +21,33 @@ export {
   RouteError,
   UnexpectedError,
   ValidationError,
-} from "./lib/errors";
-export * from "./lib/channel";
-export * from "./lib/ontology";
-export * from "./lib/connectivity";
-export * from "./lib/ontology";
+} from "@/errors";
+export { Frame } from "@/framer";
+export { OntologyID, OntologyRoot } from "@/ontology";
+export type {
+  OntologyResource,
+  OntologySchema,
+  OntologySchemaField,
+  OntologyResourceType,
+} from "@/ontology";
+export {
+  DataType,
+  Density,
+  Rate,
+  TArray,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
+export type {
+  NativeTypedArray,
+  UnparsedDataType,
+  UnparsedDensity,
+  UnparsedRate,
+  UnparsedSize,
+  UnparsedTimeSpan,
+  UnparsedTimeStamp,
+  SampleValue,
+  TimeStampStringFormat,
+  TZInfo,
+} from "@synnaxlabs/x";

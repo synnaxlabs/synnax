@@ -1,4 +1,4 @@
-// Copyright 2022 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -21,6 +21,9 @@ export interface Cluster {
   /** The current connections state of the client to the cluster */
   state: ConnectionState;
 }
+
+/** A subset of Cluster that satisfies RenderableRecord */
+export type RenderableCluster = Omit<Cluster, "props" | "state">;
 
 /** Represents the current connection state of the client to the cluster */
 export interface ConnectionState {

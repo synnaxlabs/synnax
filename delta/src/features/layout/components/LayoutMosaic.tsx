@@ -1,4 +1,4 @@
-// Copyright 2022 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Mosaic as PlutoMosaic, debounce } from "@synnaxlabs/pluto";
-import type { Location, Tab } from "@synnaxlabs/pluto";
+import { useCallback } from "react";
+
+import type { Location } from "@synnaxlabs/pluto";
+import { Mosaic as PlutoMosaic, useDebouncedCallback } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import {
@@ -20,34 +22,51 @@ import {
   renameLayoutMosaicTab,
 } from "../store";
 
+import { Logo } from "@/components";
+
 import { LayoutContent } from "./LayoutContent";
 
-import { Logo } from "@/components";
+const emptyContent = <Logo.Watermark />;
 
 /** LayoutMosaic renders the central layout mosaic of the application. */
 export const LayoutMosaic = (): JSX.Element => {
   const dispatch = useDispatch();
   const mosaic = useSelectMosaic();
 
-  const handleDrop = (key: number, tabKey: string, loc: Location): void => {
-    dispatch(moveLayoutMosaicTab({ key, tabKey, loc }));
-  };
+  const handleDrop = useCallback(
+    (key: number, tabKey: string, loc: Location): void => {
+      dispatch(moveLayoutMosaicTab({ key, tabKey, loc }));
+    },
+    [dispatch]
+  );
 
-  const handleClose = (tabKey: string): void => {
-    dispatch(deleteLayoutMosaicTab({ tabKey }));
-  };
+  const handleClose = useCallback(
+    (tabKey: string): void => {
+      dispatch(deleteLayoutMosaicTab({ tabKey }));
+    },
+    [dispatch]
+  );
 
-  const handleSelect = (tabKey: string): void => {
-    dispatch(selectLayoutMosaicTab({ tabKey }));
-  };
+  const handleSelect = useCallback(
+    (tabKey: string): void => {
+      dispatch(selectLayoutMosaicTab({ tabKey }));
+    },
+    [dispatch]
+  );
 
-  const handleRename = (tabKey: string, title: string): void => {
-    dispatch(renameLayoutMosaicTab({ tabKey, title }));
-  };
+  const handleRename = useCallback(
+    (tabKey: string, name: string): void => {
+      dispatch(renameLayoutMosaicTab({ tabKey, name }));
+    },
+    [dispatch]
+  );
 
-  const handleResize = debounce(
-    (key: number, size: number) => dispatch(resizeLayoutMosaicTab({ key, size })),
-    0
+  const handleResize = useDebouncedCallback(
+    (key: number, size: number) => {
+      dispatch(resizeLayoutMosaicTab({ key, size }));
+    },
+    100,
+    [dispatch]
   );
 
   return (
@@ -57,14 +76,10 @@ export const LayoutMosaic = (): JSX.Element => {
       onClose={handleClose}
       onSelect={handleSelect}
       onResize={handleResize}
-      emptyContent={Logo.Watermark}
-      onTitleChange={handleRename}
+      emptyContent={emptyContent}
+      onRename={handleRename}
     >
-      {LayoutMosaicContent}
+      {(tab) => <LayoutContent layoutKey={tab.tabKey} />}
     </PlutoMosaic>
   );
 };
-
-const LayoutMosaicContent = ({ tab }: { tab: Tab }): JSX.Element => (
-  <LayoutContent layoutKey={tab.tabKey} />
-);

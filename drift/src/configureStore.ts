@@ -1,4 +1,4 @@
-// Copyright 2022 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,7 +11,8 @@ import type {
   Action,
   AnyAction,
   ConfigureStoreOptions as BaseOpts,
-  Store,
+  EnhancedStore,
+  StoreEnhancer,
 } from "@reduxjs/toolkit";
 import { configureStore as base } from "@reduxjs/toolkit";
 
@@ -28,6 +29,8 @@ import {
 } from "./state";
 import { MAIN_WINDOW } from "./window";
 
+export type Enhancers = readonly StoreEnhancer[];
+
 /**
  * Extends the default configureStore options to add a runtime argument.
  * See configureStore for more details.
@@ -35,10 +38,11 @@ import { MAIN_WINDOW } from "./window";
 export interface ConfigureStoreOptions<
   S extends StoreState,
   A extends Action = AnyAction,
-  M extends Middlewares<S> = Middlewares<S>
-> extends Omit<BaseOpts<S, A, M>, "preloadedState"> {
+  M extends Middlewares<S> = Middlewares<S>,
+  E extends Enhancers = [StoreEnhancer]
+> extends Omit<BaseOpts<S, A, M, E>, "preloadedState"> {
   runtime: Runtime<S, A>;
-  preloadedState: PreloadedState<S> | (() => Promise<PreloadedState<S>>);
+  preloadedState?: PreloadedState<S> | (() => Promise<PreloadedState<S> | undefined>);
 }
 
 /**
@@ -59,17 +63,18 @@ export interface ConfigureStoreOptions<
 export const configureStore = async <
   S extends StoreState,
   A extends Action = AnyAction,
-  M extends Middlewares<S> = Middlewares<S>
+  M extends Middlewares<S> = Middlewares<S>,
+  E extends Enhancers = [StoreEnhancer]
 >({
   runtime,
   preloadedState,
   middleware,
   ...opts
-}: ConfigureStoreOptions<S, A, M>): Promise<Store<S, A | DriftAction>> => {
+}: ConfigureStoreOptions<S, A, M, E>): Promise<EnhancedStore<S, A | DriftAction>> => {
   // eslint-disable-next-line prefer-const
-  let store: Store<S, A | DriftAction> | undefined;
+  let store: EnhancedStore<S, A | DriftAction> | undefined;
   // eslint-disable-next-line prefer-const
-  store = base<S, A, M>({
+  store = base<S, A, M, E>({
     ...opts,
     preloadedState: await receivePreloadedState(runtime, () => store, preloadedState),
     middleware: configureMiddleware(middleware, runtime),
@@ -88,8 +93,11 @@ const receivePreloadedState = async <
   A extends Action = AnyAction
 >(
   runtime: Runtime<S, A>,
-  store: () => Store<S, A | DriftAction> | undefined,
-  preloadedState: (() => Promise<PreloadedState<S>>) | PreloadedState<S> | undefined
+  store: () => EnhancedStore<S, A | DriftAction> | undefined,
+  preloadedState:
+    | (() => Promise<PreloadedState<S> | undefined>)
+    | PreloadedState<S>
+    | undefined
 ): Promise<PreloadedState<S> | undefined> => {
   return await new Promise<PreloadedState<S> | undefined>((resolve) => {
     listen(runtime, store, resolve);

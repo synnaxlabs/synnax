@@ -26,26 +26,27 @@
     "node": ">=18"
   },
   "dependencies": {
-    "@reduxjs/toolkit": "^1.8.6",
+    "@reduxjs/toolkit": "^1.9.1",
     "@tauri-apps/api": "^1.1.0",
     "proxy-memoize": "^1.2.0",
     "react": "^18.2.0",
     "react-redux": "^8.0.4"
   },
   "devDependencies": {
-    "@synnaxlabs/tsconfig": "*",
-    "@vitejs/plugin-react": "^2.2.0",
-    "eslint-config-synnaxlabs": "*",
-    "typescript": "^4.6.4",
-    "vite": "^3.2.0",
-    "vite-plugin-dts": "^1.6.6",
-    "vite-tsconfig-paths": "^3.5.2",
-    "vitest": "^0.24.3"
+    "@synnaxlabs/tsconfig": "workspace:*",
+    "@synnaxlabs/vite-plugin": "workspace:*",
+    "@types/react": "^18.0.26",
+    "@vitejs/plugin-react": "^3.0.1",
+    "eslint-config-synnaxlabs": "workspace:*",
+    "typescript": "^4.9.4",
+    "vite": "^4.0.3",
+    "vite-plugin-lib": "^1.0.1",
+    "vitest": "^0.26.2"
   },
   "files": [
     "dist"
   ],
-  "main": "./dist/drift.umd.js",
+  "main": "./dist/drift.cjs.js",
   "module": "./dist/drift.es.js",
   "types": "./dist/index.d.ts"
 }

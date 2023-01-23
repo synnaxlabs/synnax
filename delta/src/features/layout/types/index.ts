@@ -1,4 +1,4 @@
-// Copyright 2022 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ComponentType } from "react";
+import type { ComponentType } from "react";
 
+import { Dispatch, AnyAction } from "@reduxjs/toolkit";
 import type { WindowProps } from "@synnaxlabs/drift";
 
 /** The location options for placing a layout */
@@ -27,12 +28,12 @@ export interface Layout {
    */
   type: string;
   /**
-   * The title of the layout. This is either the window or tab title. NOTE: If the layout
+   * The name of the layout. This is either the window or tab name. NOTE: If the layout
    * is placed within a mosaic, this property is duplicated in the 'Tab' array of the
    * mosaic node. Ideally we'll change this in the future, but it's not worth it at
    * this point.
    */
-  title: string;
+  name: string;
   /**
    * Location defines the placement location of the layout. If the location is 'mosaic',
    * the layout will be placed in the central mosaic. If the location is 'window', the
@@ -45,6 +46,8 @@ export interface Layout {
    */
   window?: LayoutWindowProps;
 }
+
+export type RenderableLayout = Omit<Layout, "window">;
 
 /**
  * The props passed to a LayoutRenderer. Note that these props are minimal and only focus
@@ -68,11 +71,23 @@ export interface LayoutRendererProps {
   onClose: () => void;
 }
 
+export interface LayoutOnCloseProps {
+  dispatch: Dispatch<AnyAction>;
+  layoutKey: string;
+}
+
+export type CoreLayoutRenderer = ComponentType<LayoutRendererProps>;
+
+export interface SugaredLayoutRenderer {
+  Renderer: CoreLayoutRenderer;
+  onClose?: (props: LayoutOnCloseProps) => void;
+}
+
 /**
  * A React component that renders a layout for a given type. All layouts in state are
  * rendered by a layout renderer of a specific type.
  */
-export type LayoutRenderer = ComponentType<LayoutRendererProps>;
+export type LayoutRenderer = CoreLayoutRenderer | SugaredLayoutRenderer;
 
 /**
  * An extension of the drift window properties to allow for some custom layout tuning.

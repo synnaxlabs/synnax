@@ -1,4 +1,4 @@
-// Copyright 2022 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -27,8 +27,32 @@ export interface LayoutState {
    * currently rendered in the mosaic or in external windows.
    */
   layouts: Record<string, Layout>;
-  /** The root node of the central mosaic. */
-  mosaic: MosaicLeaf;
+  mosaic: MosaicState;
+  nav: NavState;
+  alreadyCheckedGetStarted: boolean;
+}
+
+export interface MosaicState {
+  activeTab: string | null;
+  root: MosaicLeaf;
+}
+
+export interface NavState {
+  drawer: NavDrawerState;
+}
+
+export type NavdrawerLocation = "right" | "left" | "bottom";
+
+export interface NavDrawerState {
+  left: NavdrawerEntryState;
+  right: NavdrawerEntryState;
+  bottom: NavdrawerEntryState;
+}
+
+export interface NavdrawerEntryState {
+  activeItem: string | null;
+  menuItems: string[];
+  size?: number;
 }
 
 /**
@@ -49,9 +73,10 @@ export interface LayoutStoreState {
 const initialState: LayoutState = {
   activeTheme: "synnaxDark",
   themes: Theming.themes,
+  alreadyCheckedGetStarted: false,
   layouts: {
     main: {
-      title: "Main",
+      name: "Main",
       key: "main",
       type: "main",
       location: "window",
@@ -61,8 +86,27 @@ const initialState: LayoutState = {
     },
   },
   mosaic: {
-    key: 1,
-    tabs: [],
+    activeTab: null,
+    root: {
+      key: 1,
+      tabs: [],
+    },
+  },
+  nav: {
+    drawer: {
+      left: {
+        activeItem: null,
+        menuItems: ["clusters", "resources"],
+      },
+      right: {
+        activeItem: null,
+        menuItems: ["workspace"],
+      },
+      bottom: {
+        activeItem: null,
+        menuItems: ["visualization"],
+      },
+    },
   },
 };
 
@@ -70,7 +114,6 @@ const initialState: LayoutState = {
 export type PlaceLayoutAction = PayloadAction<Layout>;
 /** Signature for the removeLayout action. */
 export type RemoveLayoutAction = PayloadAction<string>;
-
 /** Signature for the setTheme action. */
 export type SetActiveTheme = PayloadAction<string>;
 /** Signature for the toggleTheme action. */
@@ -84,7 +127,12 @@ type MoveLayoutMosaicTabAction = PayloadAction<{
 }>;
 type ResizeLayoutMosaicTabAction = PayloadAction<{ key: number; size: number }>;
 type SelectLayoutMosaicTabAction = PayloadAction<{ tabKey: string }>;
-type RenameLayoutMosaicTabAction = PayloadAction<{ tabKey: string; title: string }>;
+type RenameLayoutMosaicTabAction = PayloadAction<{ tabKey: string; name: string }>;
+
+type SetNavdrawerEntryState = PayloadAction<{
+  location: NavdrawerLocation;
+  state: Partial<NavdrawerEntryState>;
+}>;
 
 export const {
   actions: {
@@ -97,6 +145,8 @@ export const {
     selectLayoutMosaicTab,
     resizeLayoutMosaicTab,
     renameLayoutMosaicTab,
+    setNavdrawerEntryState,
+    maybeCreateGetStartedTab,
   },
   reducer: layoutReducer,
 } = createSlice({
@@ -104,17 +154,19 @@ export const {
   initialState,
   reducers: {
     placeLayout: (state, { payload: layout }: PlaceLayoutAction) => {
-      const { key, location, title } = layout;
+      const { key, location, name } = layout;
 
       const prev = state.layouts[key];
 
       // If we're moving from a mosaic, remove the tab.
       if (prev != null && prev.location === "mosaic" && location !== "mosaic")
-        state.mosaic = Mosaic.removeTab(initialState.mosaic, key);
+        state.mosaic.root = Mosaic.removeTab(state.mosaic.root, key);
 
-      // If we're move to a mosaic, insert a tab.
-      if (location === "mosaic")
-        state.mosaic = Mosaic.insertTab(state.mosaic, { tabKey: key, title });
+      // If we're moving to a mosaic, insert a tab.
+      if (prev?.location !== "mosaic" && location === "mosaic") {
+        state.mosaic.root = Mosaic.insertTab(state.mosaic.root, { tabKey: key, name });
+        state.mosaic.activeTab = key;
+      }
 
       state.layouts[key] = layout;
     },
@@ -124,7 +176,7 @@ export const {
       const { location } = layout;
 
       if (location === "mosaic")
-        state.mosaic = Mosaic.removeTab(state.mosaic, contentKey);
+        state.mosaic.root = Mosaic.removeTab(state.mosaic.root, contentKey);
 
       // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
       delete state.layouts[contentKey];
@@ -133,7 +185,7 @@ export const {
       state,
       { payload: { tabKey } }: DeleteLayoutMosaicTabAction
     ) => {
-      state.mosaic = Mosaic.removeTab(state.mosaic, tabKey);
+      state.mosaic.root = Mosaic.removeTab(state.mosaic.root, tabKey);
       // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
       delete state.layouts[tabKey];
     },
@@ -141,25 +193,28 @@ export const {
       state,
       { payload: { tabKey, key, loc } }: MoveLayoutMosaicTabAction
     ) => {
-      state.mosaic = Mosaic.moveTab(state.mosaic, tabKey, loc, key);
+      state.mosaic.root = Mosaic.moveTab(state.mosaic.root, tabKey, loc, key);
     },
     selectLayoutMosaicTab: (
       state,
       { payload: { tabKey } }: SelectLayoutMosaicTabAction
     ) => {
-      state.mosaic = Mosaic.selectTab(state.mosaic, tabKey);
+      state.mosaic.root = Mosaic.selectTab(state.mosaic.root, tabKey);
+      state.mosaic.activeTab = tabKey;
     },
     resizeLayoutMosaicTab: (
       state,
       { payload: { key, size } }: ResizeLayoutMosaicTabAction
     ) => {
-      state.mosaic = Mosaic.resizeLeaf(state.mosaic, key, size);
+      state.mosaic.root = Mosaic.resizeLeaf(state.mosaic.root, key, size);
     },
     renameLayoutMosaicTab: (
       state,
-      { payload: { tabKey, title } }: RenameLayoutMosaicTabAction
+      { payload: { tabKey, name } }: RenameLayoutMosaicTabAction
     ) => {
-      state.mosaic = Mosaic.renameTab(state.mosaic, tabKey, title);
+      const layout = state.layouts[tabKey];
+      if (layout != null) layout.name = name;
+      state.mosaic.root = Mosaic.renameTab(state.mosaic.root, tabKey, name);
     },
     setActiveTheme: (state, { payload: key }: SetActiveTheme) => {
       state.activeTheme = key;
@@ -169,6 +224,35 @@ export const {
       const index = keys.indexOf(state.activeTheme);
       const next = keys[(index + 1) % keys.length];
       state.activeTheme = next;
+    },
+    setNavdrawerEntryState: (
+      state,
+      { payload: { location, state: entryState } }: SetNavdrawerEntryState
+    ) => {
+      state.nav.drawer[location] = {
+        ...state.nav.drawer[location],
+        ...entryState,
+      };
+    },
+    maybeCreateGetStartedTab: (state) => {
+      // const checkedGetStarted = state.alreadyCheckedGetStarted;
+      state.alreadyCheckedGetStarted = true;
+      // if (
+      //   Object.values(state.layouts).filter(({ location }) => location === "mosaic")
+      //     .length !== 0 ||
+      //   checkedGetStarted
+      // )
+      //   return;
+      // state.mosaic.root = Mosaic.insertTab(state.mosaic.root, {
+      //   tabKey: "getStarted",
+      //   name: "Get Started",
+      // });
+      // state.layouts.getStarted = {
+      //   name: "Get Started",
+      //   key: "getStarted",
+      //   location: "mosaic",
+      //   type: "getStarted",
+      // };
     },
   },
 });

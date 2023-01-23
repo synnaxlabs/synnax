@@ -1,4 +1,4 @@
-// Copyright 2022 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -192,7 +192,7 @@ func (r *responsible) propose(ctx context.Context) (res Response, err error) {
 
 		r.Logger.Debugw("quorum accepted pledge", "id", res.ID)
 
-		// If no candidate return an error, it means we reached a quorum approval,
+		// If no candidate returned an error, it means we reached a quorum approval,
 		// and we can safely return the new ID to the caller.
 		return res, nil
 	}

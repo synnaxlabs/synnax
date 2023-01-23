@@ -4,15 +4,13 @@ go 1.19
 
 replace (
 	github.com/synnaxlabs/freighter => ../go
-	github.com/synnaxlabs/x => ../../x
+	github.com/synnaxlabs/x => ../../x/go
 )
 
 require (
-	github.com/synnaxlabs/freighter v0.0.0-00010101000000-000000000000
-	github.com/synnaxlabs/x v0.0.0-20220801122519-e4a5e96a532d
 	github.com/cockroachdb/errors v1.9.0
 	github.com/gofiber/fiber/v2 v2.36.0
-	github.com/sirupsen/logrus v1.9.0
+	github.com/synnaxlabs/freighter v0.0.0-00010101000000-000000000000
 	go.uber.org/zap v1.22.0
 )
 
@@ -31,6 +29,7 @@ require (
 	github.com/rogpeppe/go-internal v1.8.1 // indirect
 	github.com/samber/lo v1.27.0 // indirect
 	github.com/savsgio/gotils v0.0.0-20211223103454-d0aaa54c5899 // indirect
+	github.com/synnaxlabs/x v0.0.0-20220801122519-e4a5e96a532d // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.38.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect
@@ -39,5 +38,5 @@ require (
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
 	golang.org/x/exp v0.0.0-20220303212507-bbda1eaf7a17 // indirect
-	golang.org/x/sys v0.0.0-20220715151400-c0bba94af5f8 // indirect
+	golang.org/x/sys v0.4.0 // indirect
 )

@@ -1,4 +1,4 @@
-// Copyright 2022 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,16 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Space } from "@synnaxlabs/pluto";
+import { Nav, Space } from "@synnaxlabs/pluto";
 import { appWindow } from "@tauri-apps/api/window";
 
 import { useSelectLayout } from "../store";
 
+import { NAV_SIZES } from "@/components";
+
 import { LayoutContent } from "./LayoutContent";
 
-import { NavTop } from "@/components";
-
 import "./LayoutWindow.css";
+
+export const NavTop = (): JSX.Element => (
+  <Nav.Bar data-tauri-drag-region location="top" size={NAV_SIZES.top} />
+);
 
 export const LayoutWindow = (): JSX.Element => {
   const { label: key } = appWindow;
@@ -24,7 +28,7 @@ export const LayoutWindow = (): JSX.Element => {
   const content = <LayoutContent layoutKey={key} />;
   if (layout?.window?.navTop === true)
     return (
-      <Space direction="vertical" empty className="delta-main">
+      <Space empty className="delta-main">
         <NavTop />
         {content}
       </Space>
