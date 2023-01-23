@@ -101,7 +101,8 @@ const calcGroupTransform = (
   position: XY,
   size: number
 ): string => {
-  if (location === "left") position.y += size;
-  else if (location === "bottom") position.x += size;
-  return clsx(fTranslate(position), fRotate(locationRotations[location]));
+  const adjustedPosition = { ...position };
+  if (location === "left") adjustedPosition.y += size;
+  else if (location === "bottom") adjustedPosition.x += size;
+  return clsx(fTranslate(adjustedPosition), fRotate(locationRotations[location]));
 };
