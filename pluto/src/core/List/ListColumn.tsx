@@ -35,6 +35,8 @@ export interface ListColumnHeaderProps<E extends RenderableRecord<E>> {
   columns: Array<ListColumnT<E>>;
 }
 
+const SORT_TRANSFORM = "sort";
+
 const ListColumnHeader = <E extends RenderableRecord<E>>({
   columns: initialColumns,
 }: ListColumnHeaderProps<E>): JSX.Element => {
@@ -53,14 +55,14 @@ const ListColumnHeader = <E extends RenderableRecord<E>>({
     if (prevSort === k) {
       if (!prevDir) {
         setSort([null, false]);
-        deleteTransform("sort");
+        deleteTransform(SORT_TRANSFORM);
       } else {
         setSort([k, !prevDir]);
-        setTransform("sort", sortTransform(k, !prevDir));
+        setTransform(SORT_TRANSFORM, sortTransform(k, !prevDir));
       }
     } else {
       setSort([k, true]);
-      setTransform("sort", sortTransform(k, true));
+      setTransform(SORT_TRANSFORM, sortTransform(k, true));
     }
   };
 
@@ -74,25 +76,21 @@ const ListColumnHeader = <E extends RenderableRecord<E>>({
     <Space direction="x" size="medium" className="pluto-list-col-header__container">
       {columns
         .filter(({ visible = true }) => visible)
-        .map((col) => {
-          const [key, dir] = sort;
+        .map(({ key, width, name }) => {
+          const [sortKey, dir] = sort;
           let endIcon;
-          if (col.key === key) endIcon = dir ? <AiFillCaretUp /> : <AiFillCaretDown />;
+          if (key === sortKey) endIcon = dir ? <AiFillCaretUp /> : <AiFillCaretDown />;
           return (
             <Text.WithIcon
-              key={col.key as string}
+              className="pluto-list-col-header__item"
+              key={key.toString()}
               justify="spaceBetween"
               level="p"
               endIcon={endIcon}
-              style={{
-                minWidth: col.width,
-                cursor: "pointer",
-                userSelect: "none",
-                fontWeight: "bold",
-              }}
-              onClick={() => onSort(col.key)}
+              style={{ minWidth: width }}
+              onClick={() => onSort(key)}
             >
-              {col.name}
+              {name}
             </Text.WithIcon>
           );
         })}
