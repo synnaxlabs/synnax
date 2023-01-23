@@ -9,10 +9,8 @@
 
 import { GLRenderer, GLContext } from "./renderer";
 
-import { RGBATuple } from "@/color";
+import { ZERO_COLOR } from "@/color";
 import { Box, XY, Transform, ZERO_XY } from "@/spatial";
-
-const CLEAR_COLOR: RGBATuple = [0, 0, 0, 0];
 
 export interface ScissoredRenderRequest {
   box: Box;
@@ -54,7 +52,7 @@ export class ScissoredGLRenderer<R extends ScissoredRenderRequest>
   clear(ctx: GLContext, box: Box): void {
     ctx.gl.enable(ctx.gl.SCISSOR_TEST);
     this.scissor(ctx, box);
-    ctx.gl.clearColor(...CLEAR_COLOR);
+    ctx.gl.clearColor(...ZERO_COLOR);
     ctx.gl.clear(ctx.gl.COLOR_BUFFER_BIT);
     ctx.gl.disable(ctx.gl.SCISSOR_TEST);
   }

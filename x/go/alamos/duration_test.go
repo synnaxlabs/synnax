@@ -13,7 +13,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/alamos"
-	"github.com/synnaxlabs/x/telem"
 	"time"
 )
 
@@ -24,7 +23,7 @@ var _ = Describe("Duration", func() {
 			dur := alamos.NewGaugeDuration(exp, alamos.Debug, "test")
 			sw := dur.Stopwatch()
 			sw.Start()
-			Expect(sw.Elapsed()).To(BeNumerically(">", telem.TimeStamp(0)))
+			Expect(sw.Elapsed()).To(BeNumerically(">", time.Duration(0)))
 			sw.Stop()
 		})
 	})
