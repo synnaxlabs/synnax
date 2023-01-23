@@ -35,3 +35,9 @@
     padding: 1rem 2rem;
     border-bottom: var(--pluto-border-width) solid var(--pluto-border-color);
 }
+
+.pluto-list-col-header__item {
+    cursor: pointer;
+    user-select: none;
+    font-weight: bold;
+}
