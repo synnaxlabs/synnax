@@ -15,6 +15,7 @@ import {
   useState,
   RefObject,
   useEffect,
+  RefCallback,
 } from "react";
 
 import clsx from "clsx";
@@ -46,7 +47,7 @@ export interface UseResizeMultipleReturn {
     ResizeMultipleProps,
     "sizeDistribution" | "parentSize" | "onDragHandle" | "direction"
   > & {
-    ref: RefObject<HTMLDivElement>;
+    ref: RefCallback<HTMLDivElement>;
   };
 }
 
@@ -140,12 +141,12 @@ export const ResizeMultiple = forwardRef(
 
     return (
       <Space
+        {...props}
         ref={ref}
         direction={direction}
         className={clsx("pluto-resize-multiple", className)}
         empty
         grow
-        {...props}
       >
         {children.map((child, i) => (
           <ResizeCore

@@ -11,7 +11,7 @@ export type JSXElementType = keyof JSX.IntrinsicElements;
 const GenericCore = <E extends JSXElementType>(
   { el, children, ...props }: GenericProps<E>,
   ref: ForwardedRef<JSX.IntrinsicElements[E]>
-): JSX.Element => createElement(el, { ref, ...props }, children);
+): JSX.Element => createElement(el, { ...props, ref }, children);
 
 export type GenericProps<E extends ElementType> = ComponentPropsWithRef<E> & {
   el: E;
