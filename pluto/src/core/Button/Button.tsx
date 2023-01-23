@@ -21,7 +21,7 @@ import "./Button.css";
 export type ButtonVariant = "filled" | "outlined" | "text";
 
 /** The base props accepted by all button types in this directory. */
-export interface BaseButtonProps extends Omit<SpaceProps<"button">, "el"> {
+export interface BaseButtonProps extends Omit<SpaceProps<"button">, "el" | "value"> {
   variant?: ButtonVariant;
   size?: ComponentSize;
 }

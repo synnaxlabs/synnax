@@ -37,8 +37,9 @@ interface RenderComponent<P> {
 }
 
 interface InputItemExtensionProps<
-  V extends InputValue,
-  P extends InputControl<V> = InputControl<V>
+  I extends InputValue,
+  O extends InputValue = I,
+  P extends InputControl<I, O> = InputControl<I, O>
 > extends SpaceExtensionProps {
   label?: string;
   helpText?: string;
@@ -48,13 +49,15 @@ interface InputItemExtensionProps<
 }
 
 export type InputItemProps<
-  V extends InputValue,
-  P extends InputControl<V> = InputControl<V>
-> = P & InputItemExtensionProps<V, P>;
+  I extends InputValue,
+  O extends InputValue = I,
+  P extends InputControl<I, O> = InputControl<I, O>
+> = P & InputItemExtensionProps<I, O, P>;
 
 const CoreInputItem = <
-  V extends InputValue = string | number,
-  P extends InputControl<V> = InputBaseProps<V>
+  I extends InputValue = string | number,
+  O extends InputValue = I,
+  P extends InputControl<I, O> = InputBaseProps<I, O>
 >(
   {
     label,
@@ -69,8 +72,8 @@ const CoreInputItem = <
     align,
     grow,
     ...props
-  }: InputItemProps<V, P>,
-  ref: Ref<any>
+  }: InputItemProps<I, O, P>,
+  ref: Ref<HTMLInputElement>
 ): JSX.Element => {
   if (typeof children === "object") children = children.render;
   return (
@@ -100,26 +103,29 @@ const maybeDefaultAlignment = (
 };
 
 export type InputItemControlledProps<
-  V extends InputValue = string | number,
-  P extends InputControl<V> = InputBaseProps<V>,
+  I extends InputValue = string | number,
+  O extends InputValue = I,
+  P extends InputControl<I, O> = InputBaseProps<I, O>,
   F extends FieldValues = FieldValues,
   TName extends FieldPath<F> = FieldPath<F>
 > = Omit<P, "onChange" | "value"> &
-  InputItemExtensionProps<V, P> &
+  InputItemExtensionProps<I, O, P> &
   UseControllerProps<F, TName>;
 
 export const InputItem = forwardRef(CoreInputItem) as <
-  V extends InputValue = string | number,
-  P extends InputControl<V> = InputBaseProps<V>
+  I extends InputValue = string | number,
+  O extends InputValue = I,
+  P extends InputControl<I, O> = InputBaseProps<I, O>
 >(
-  props: InputItemProps<V, P> & { ref?: Ref<HTMLInputElement> }
+  props: InputItemProps<I, O, P> & { ref?: Ref<HTMLInputElement> }
 ) => JSX.Element;
 // @ts-expect-error
 InputItem.displayName = "InputItem";
 
 export const InputItemControlled = <
-  V extends InputValue = string | number,
-  P extends InputControl<V> = InputBaseProps<V>,
+  I extends InputValue = string | number,
+  O extends InputValue = I,
+  P extends InputControl<I, O> = InputBaseProps<I, O>,
   F extends FieldValues = FieldValues,
   TName extends FieldPath<F> = FieldPath<F>
 >({
@@ -130,7 +136,7 @@ export const InputItemControlled = <
   defaultValue,
   label,
   ...props
-}: InputItemControlledProps<V, P, F, TName>): JSX.Element => {
+}: InputItemControlledProps<I, O, P, F, TName>): JSX.Element => {
   const { field, fieldState } = useController<F, TName>({
     control,
     rules,
@@ -140,13 +146,13 @@ export const InputItemControlled = <
   if (label == null) label = camelToTitle(name);
   return (
     // @ts-expect-error
-    <InputItem<V, P>
+    <InputItem<I, P>
       ref={field.ref}
       label={label}
       value={field.value}
       onChange={field.onChange}
       helpText={fieldState.error?.message}
-      {...(props as unknown as Omit<InputItemProps<V, P>, "onChange" | "value">)}
+      {...(props as unknown as Omit<InputItemProps<I, P>, "onChange" | "value">)}
     />
   );
 };

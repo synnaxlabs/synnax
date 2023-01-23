@@ -28,6 +28,7 @@ export const buttonToggleFactory =
     (
       <Base
         {...props}
+        checked={props.value}
         className={clsx(
           "pluto-btn-toggle",
           props.value && "pluto-btn-toggle--checked",
