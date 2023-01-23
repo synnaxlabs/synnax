@@ -13,26 +13,26 @@ import { RenderableRecord } from "@synnaxlabs/x";
 
 import { useListContext } from "./ListContext";
 
-import { Input as DefaultInput, InputControlProps, InputProps } from "@/core/Input";
+import { Input as DefaultInput, InputControl } from "@/core/Input";
 import { useSearch, UseSearchProps } from "@/hooks";
+import { RenderProp } from "@/util/renderProp";
 
 export interface ListSearchProps<E extends RenderableRecord<E>>
-  extends Omit<InputProps, "children" | "onChange" | "value">,
-    Omit<UseSearchProps<E>, "query"> {
-  children?: (props: InputControlProps<string>) => JSX.Element;
-  debounce?: number;
+  extends Omit<UseSearchProps<E>, "query"> {
+  children?: RenderProp<InputControl<string>>;
 }
 
 export const ListSearch = <E extends RenderableRecord<E>>({
   children = (props) => <DefaultInput {...props} />,
   opts,
-}: ListSearchProps<E>): JSX.Element => {
+}: ListSearchProps<E>): JSX.Element | null => {
   const [value, setValue] = useState("");
 
   const search = useSearch<E>({ query: value, opts });
-  const { setTransform } = useListContext<E>();
-  useEffect(() => setTransform("search", search), [search]);
 
+  const { setTransform } = useListContext<E>();
+
+  useEffect(() => setTransform("search", search), [search]);
   const onChange = useCallback((v: any) => setValue(v), []);
 
   return children({ value, onChange });

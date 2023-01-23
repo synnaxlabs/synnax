@@ -15,7 +15,7 @@ import { InputLabel } from "./InputLabel";
 import { InputNumber } from "./InputNumber";
 import { InputSwitch } from "./InputSwitch";
 import { InputTime } from "./InputTime";
-export type { InputControlProps, InputBaseProps } from "./types";
+export type { InputControl, InputBaseProps } from "./types";
 export type { InputItemProps, InputItemControlledProps } from "./InputItem";
 export type { InputProps } from "./Input";
 export type { InputDateProps } from "./InputDate";

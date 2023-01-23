@@ -17,7 +17,7 @@ import { Button } from "@/core/Button";
 import { AiOutlineClose } from "react-icons/ai";
 
 import { Dropdown, DropdownProps } from "@/core/Dropdown";
-import { Input, InputControlProps, InputProps } from "@/core/Input";
+import { Input, InputControl, InputProps } from "@/core/Input";
 import { ListColumn, List } from "@/core/List";
 import { Pack } from "@/core/Pack";
 import { Space } from "@/core/Space";
@@ -33,7 +33,7 @@ import { SelectList } from "./SelectList";
 
 export interface SelectMultipleProps<E extends RenderableRecord<E>>
   extends Omit<DropdownProps, "visible" | "onChange" | "children">,
-    InputControlProps<readonly string[]> {
+    InputControl<readonly string[]> {
   data?: E[];
   columns?: Array<ListColumn<E>>;
   tagKey?: keyof E;

@@ -21,15 +21,30 @@ type CoreHeaderType = typeof CoreHeader;
 
 interface HeaderType extends CoreHeaderType {
   /**
-   * Header.Button is a Header component whose text acts as a whose text field acts as a
-   * text button component.
+   * Header.ButtonTitle renders a clickable header title.
    *
-   * @param props - The comonent props. The props of this component are identical to
-   * those of Header, except for:
-   * @param props.onClick - Called with a mouse event when the header button is clicked.
+   * @param props - The comonent props. The props for this component are identical
+   * to {@link Button}, except the variant is always 'outlined' and that the component size
+   * is automatically inferred from the 'level' prop passsed to the parent {@link Header}
+   * component.
    */
   ButtonTitle: typeof HeaderButtonTitle;
+  /**
+   * Renders the title for the hdear component.
+   *
+   * @param props - The component props. The props for this component are identical
+   * to the {@link Typography.TextWithIcon} component, except that the 'level', and
+   * 'divider' props are inherited from the parent {@link Header} component.
+   */
   Title: typeof HeaderTitle;
+  /**
+   * Custom actions to render on the right side of the header.
+   *
+   * @param children - The actions to render. If the action is of type
+   * {@link ButtonIconOnlyProps}, a correectly sized {@link ButtonIconOnly} is rendered
+   * using the given props. If the action is a JSX element, it is renderered directly.
+   * It's a good idea to prefer the latter in almost all cases for simplicity.
+   */
   Actions: typeof HeaderActions;
 }
 

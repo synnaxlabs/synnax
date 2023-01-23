@@ -12,29 +12,28 @@ import { FunctionComponent } from "react";
 import clsx from "clsx";
 
 import { Button, ButtonProps } from "./Button";
+
+import { InputControl } from "@/core/Input";
+
 import { ButtonIconOnly } from "./ButtonIconOnly";
 
 import "./ButtonToggle.css";
 
-export interface CoreButtonProps {
-  checked: boolean;
-}
-
 export const buttonToggleFactory =
   <E extends Pick<ButtonProps, "className" | "variant">>(
     Base: FunctionComponent<E>
-  ): FunctionComponent<E & CoreButtonProps> =>
+  ): FunctionComponent<E & InputControl<boolean>> =>
   // eslint-disable-next-line react/display-name
-  (props: E & CoreButtonProps): JSX.Element =>
+  (props) =>
     (
       <Base
         {...props}
         className={clsx(
           "pluto-btn-toggle",
-          props.checked && "pluto-btn-toggle--checked",
+          props.value && "pluto-btn-toggle--checked",
           props.className
         )}
-        variant={props.checked ? props.variant : "outlined"}
+        variant={props.value ? props.variant : "outlined"}
       />
     );
 

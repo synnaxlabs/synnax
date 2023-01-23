@@ -172,10 +172,8 @@ ZoomPanMask.displayName = "ZoomPanMask";
 const scale = (prev: Box, canvas: Box): BoxScale =>
   BoxScale.scale(canvas).clamp(canvas).scale(prev);
 
-const handlePan = (box: Box, prev: Box, canvas: Box): Box => {
-  const scaled = scale(prev, canvas).box(box).signedDims;
-  return BoxScale.translate(scaled).box(prev);
-};
+const handlePan = (box: Box, prev: Box, canvas: Box): Box =>
+  BoxScale.translate(scale(prev, canvas).box(box).signedDims).box(prev);
 
 const fullSize = (threshold: Dimensions, box: Box, parent: Box): Box => {
   if (box.height <= threshold.height)

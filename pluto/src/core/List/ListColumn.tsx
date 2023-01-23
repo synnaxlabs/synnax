@@ -194,7 +194,20 @@ const sortTransform =
   };
 
 export const ListColumn = {
+  /**
+   * The header for a column list.
+   *
+   * @param columns - The columns to render. See {@link ListColumnT}.
+   */
   Header: ListColumnHeader,
+  /**
+   * The item to use for a column list. This should be used as the child render prop
+   * in a list render implmentation e.g. {@link List.Core.Virtual}.
+   *
+   * @param props - implements the {@link ListItemProps} interface. All these props
+   * should be provided by the list render implementation.
+   */
   Item: ListColumnItem,
+  /** The default height of a column list item. */
   itemHeight: 30,
 };

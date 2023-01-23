@@ -21,10 +21,19 @@ type RenderF<E extends RenderableRecord<E> = RenderableRecord> = RenderProp<{
 }>;
 
 export interface ListColumn<E extends RenderableRecord<E> = RenderableRecord> {
+  /** The key of the object to render. */
   key: keyof E;
+  /** A custom render function for each item in the colummn. */
   render?: RenderF<E>;
+  /** The name/title of the column. */
   name: string;
+  /** Whether the column is visible by default. */
   visible?: boolean;
+  /**
+   * The width of the column in pixels. Used to structure the list as a table.
+   * If not provided, the column will be sized to fit the content. This should
+   * always be specified when the render function is provided.
+   */
   width?: number;
 }
 

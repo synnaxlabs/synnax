@@ -17,6 +17,13 @@ export type GenericProps<E extends ElementType> = ComponentPropsWithRef<E> & {
   el: E;
 };
 
+/**
+ * Generic renders a component with the given element type .
+ *
+ * @param props - Props for the generic component. All props not defined below are passed to
+ * the underlying element.
+ * @param props.el - The element type to render.
+ */
 export const Generic = forwardRef(GenericCore) as <E extends JSXElementType>(
   props: GenericProps<E>
 ) => JSX.Element;

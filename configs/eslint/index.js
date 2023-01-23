@@ -69,6 +69,7 @@ module.exports = {
         "import/named": "off",
         "react/react-in-jsx-scope": "off",
         "import/no-default-export": "warn",
+        "react/prop-types": "off",
     },
     settings: {
         "import/resolver": {
