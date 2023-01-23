@@ -14,5 +14,5 @@
 }
 
 .pluto-accordion > div {
-    overflow-y: hidden;
+    overflow: hidden;
 }
