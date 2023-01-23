@@ -41,9 +41,9 @@ export const Outlined = (): JSX.Element => (
 );
 
 export const Toggle = (): JSX.Element => {
-  const [checked, setChecked] = useState(false);
+  const [value, setValue] = useState(false);
   return (
-    <Button.IconOnlyToggle checked={checked} onClick={() => setChecked((c) => !c)}>
+    <Button.IconOnlyToggle value={value} onChange={() => setValue((c) => !c)}>
       <AiOutlineDelete />
     </Button.IconOnlyToggle>
   );
