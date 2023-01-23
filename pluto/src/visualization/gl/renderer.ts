@@ -85,9 +85,9 @@ export class GLContext {
 
   private maybeResetDisplaySize(): boolean {
     const { canvas } = this;
-    const { clientWidth: dw, clientHeight: dh, width: w, height: h } = canvas;
-    const needResize = w !== dw || h !== dh;
-    if (needResize) [canvas.width, canvas.height] = [dw * this.dpr, dh * this.dpr];
+    const { clientWidth: cw, clientHeight: ch, width: w, height: h } = this.canvas;
+    const needResize = w !== cw || h !== ch;
+    if (needResize) [canvas.width, canvas.height] = [cw * this.dpr, ch * this.dpr];
     return needResize;
   }
 }

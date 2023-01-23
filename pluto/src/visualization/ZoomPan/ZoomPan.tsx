@@ -86,7 +86,7 @@ export const useZoomPan = ({
     (box: Box, key: KeyboardKey): void => {
       if (mode == null || canvasRef.current == null) return;
       const canvas = new Box(canvasRef.current);
-      if (mode === "zoom" || key === zoomHotkey) {
+      if (mode === "zoom" || key === zoomHotkey)
         setMaskBox(
           BoxScale.scale(canvas)
             .clamp(canvas)
@@ -96,7 +96,7 @@ export const useZoomPan = ({
             })
             .box(fullSize(threshold, box, canvas))
         );
-      } else if (mode === "pan" || key === panHotkey)
+      else if (mode === "pan" || key === panHotkey)
         onChange?.(handlePan(box, stateRef.current, canvas));
     },
     [mode, setMaskBox]

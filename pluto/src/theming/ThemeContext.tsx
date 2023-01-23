@@ -18,7 +18,7 @@ import {
 
 import { applyCSSVars } from "@synnaxlabs/x";
 
-import { convertThemeToCSSVars } from "./cssVars";
+import { convertThemeToCSSVars } from "./css";
 
 import { Input } from "@/core/Input";
 

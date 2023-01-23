@@ -47,10 +47,8 @@ export const Axis = ({
     });
   }, [location, scale, size, type]);
 
-  const transform = calcGroupTransform(location, position, size);
-
   return (
-    <g transform={transform} className="pluto-axis">
+    <g transform={calcGroupTransform(location, position, size)} className="pluto-axis">
       <line x2={size} />
       {ticks.map((props: TickProps) => (
         <Tick key={props.offset} {...props} />
@@ -84,8 +82,6 @@ const Tick = ({ value, offset, showGrid, height, type }: TickProps): JSX.Element
 const DateTickText = ({ value: _value }: { value: number }): JSX.Element => {
   const value = new TimeStamp(_value).date();
   let formatted: string = `:${value.getSeconds()}`;
-  // reverse the string
-
   // If we're on the minute, show the hour and minute in military time
   if (value.getSeconds() === 0)
     formatted = `${value.getHours()}:${value.getMinutes().toString().padStart(2, "0")}`;
@@ -105,9 +101,7 @@ const calcGroupTransform = (
   position: XY,
   size: number
 ): string => {
-  const rotation = locationRotations[location];
-  const adjustedPosition = { ...position };
-  if (location === "left") adjustedPosition.y += size;
-  else if (location === "bottom") adjustedPosition.x += size;
-  return clsx(fTranslate(adjustedPosition), fRotate(rotation));
+  if (location === "left") position.y += size;
+  else if (location === "bottom") position.x += size;
+  return clsx(fTranslate(position), fRotate(locationRotations[location]));
 };
