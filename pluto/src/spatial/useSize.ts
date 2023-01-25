@@ -7,14 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  RefCallback,
-  RefObject,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { RefCallback, useCallback, useEffect, useRef, useState } from "react";
 
 import { debounce as debounceF } from "@synnaxlabs/x";
 
@@ -74,7 +67,6 @@ export const useResize = <E extends HTMLElement>(
   );
 
   useEffect(() => {
-    console.log("EFFECT");
     if (ref.current != null) startObserving(ref.current);
     return () => obs.current?.disconnect();
   }, [startObserving]);

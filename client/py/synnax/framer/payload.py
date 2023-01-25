@@ -90,14 +90,22 @@ class NumpyFrame(FrameHeader):
 
 
 def pandas_to_frame(channels: list[ChannelPayload], df: DataFrame) -> NumpyFrame:
-    return NumpyFrame(
-        keys=[ch.key for ch in channels],
-        arrays=[
-            NumpyArray(
-                time_range=TimeRange(0, 0),
-                data=df[ch.key].to_numpy(),
-                data_type=ch.data_type,
+    keys = []
+    arrays = []
+    for column in df.columns:
+        ch = [ch for ch in channels if ch.name == column or ch.key == column]
+        if len(ch) > 0:
+            ch = ch[0]
+            keys.append(ch.key)
+            arrays.append(
+                NumpyArray(
+                    time_range=TimeRange(0, 0),
+                    data=df[column].to_numpy(),
+                    data_type=ch.data_type,
+                )
             )
-            for ch in channels
-        ],
+
+    return NumpyFrame(
+        keys=keys,
+        arrays=arrays
     )

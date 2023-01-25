@@ -7,25 +7,36 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { forwardRef } from "react";
+import { forwardRef, useEffect } from "react";
 
-import { TimeStamp } from "@synnaxlabs/x";
+import { TimeStamp, TZInfo } from "@synnaxlabs/x";
 
 import { Input } from "./Input";
 import { InputBaseProps } from "./types";
 
-export interface InputTimeProps extends InputBaseProps<number> {}
+export interface InputTimeProps extends InputBaseProps<number> {
+  tzInfo?: TZInfo;
+}
 
 export const InputTime = forwardRef<HTMLInputElement, InputTimeProps>(
-  ({ size = "medium", value, onChange, ...props }: InputTimeProps, ref) => {
+  (
+    { size = "medium", value, tzInfo = "local", onChange, ...props }: InputTimeProps,
+    ref
+  ) => {
+    const ts = new TimeStamp(value, "UTC");
+    useEffect(() => {
+      if (!ts.after(TimeStamp.DAY)) return;
+      const tsV = ts.remainder(TimeStamp.DAY);
+      onChange(tsV.valueOf());
+    });
     return (
       <Input
         ref={ref}
         type="time"
         step="1"
-        value={new TimeStamp(value, "UTC").fString("time", "local")}
+        value={ts.fString("time", tzInfo)}
         onChange={(value) =>
-          value.length > 0 && onChange(new TimeStamp(value, "local").valueOf())
+          value.length > 0 && onChange(new TimeStamp(value, tzInfo).valueOf())
         }
         {...props}
       />
