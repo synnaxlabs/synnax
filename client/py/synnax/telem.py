@@ -65,6 +65,8 @@ class TimeStamp(int):
             value = int(pd.Timestamp(value).asm8.view(np.int64))
         elif isinstance(value, np.int64):
             value = int(value)
+        elif isinstance(value, np.float64):
+            value = int(value)
         elif isinstance(value, int):
             return super().__new__(cls, int(value))
         else:

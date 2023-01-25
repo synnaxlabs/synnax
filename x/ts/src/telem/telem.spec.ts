@@ -147,6 +147,28 @@ describe("TimeStamp", () => {
       expect(ts.fString("time", "local")).not.toEqual("12:20:00");
     }
   });
+  describe("remainder", () => {
+    test("day", () => {
+      const expectedRemainder = TimeStamp.hours(12)
+        .add(TimeSpan.minutes(20))
+        .add(TimeSpan.milliseconds(12));
+      const ts = new TimeStamp([2022, 12, 15])
+        .add(TimeStamp.hours(12))
+        .add(TimeSpan.minutes(20))
+        .add(TimeSpan.milliseconds(12));
+      const remainder = ts.remainder(TimeStamp.DAY);
+      expect(remainder.equals(expectedRemainder)).toBeTruthy();
+    });
+    test("second", () => {
+      const expectedRemainder = TimeSpan.milliseconds(12);
+      const ts = new TimeStamp([2022, 12, 15])
+        .add(TimeStamp.hours(12))
+        .add(TimeSpan.minutes(20))
+        .add(TimeSpan.milliseconds(12));
+      const remainder = ts.remainder(TimeSpan.seconds());
+      expect(remainder.equals(expectedRemainder)).toBeTruthy();
+    });
+  });
 });
 
 describe("TimeSpan", () => {

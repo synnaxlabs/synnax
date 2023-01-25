@@ -25,9 +25,29 @@ export type DateComponents = [number?, number?, number?];
 
 /**
  * Represents a UTC timestamp. Synnax uses a nanosecond precision int64 timestamp.
- * JavaScript stores all numbers as 64-bit floating point numbers, so we expect a
+ *
+ * DISCLAIMER: JavaScript stores all numbers as 64-bit floating point numbers, so we expect a
  * expect a precision drop from nanoseconds to quarter microseconds when communicating
  * with the server. If this is a problem, please file an issue with the Synnax team.
+ * Caveat emptor.
+ *
+ * @param value - The timestamp value to parse. This can be any of the following:
+ *
+ * 1. A number representing the number of milliseconds since the Unix epoch.
+ * 2. A javascript Date object.
+ * 3. An array of numbers satisfying the DateComponents type, where the first element is the
+ *   year, the second is the month, and the third is the day. To increaase resolution
+ *   when using this method, use the add method. It's important to note that this initializes
+ *   a timestamp at midnight UTC, regardless of the timezone specified.
+ * 4. An ISO compliant date or date time string. The time zone component is ignored.
+ *
+ * @param tzInfo - The timezone to use when parsing the timestamp. This can be either "UTC" or
+ * "local". This parameter is ignored if the value is a Date object or a DateComponents array.
+ *
+ * @example ts = new TimeStamp(1 * TimeSpan.HOUR) // 1 hour after the Unix epoch
+ * @example ts = new TimeStamp([2021, 1, 1]) // 1/1/2021 at midnight UTC
+ * @example ts = new TimeStamp([2021, 1, 1]).add(1 * TimeSpan.HOUR) // 1/1/2021 at 1am UTC
+ * @example ts = new TimeStamp("2021-01-01T12:30:00Z") // 1/1/2021 at 12:30pm UTC
  */
 export class TimeStamp extends Number {
   constructor(value: UnparsedTimeStamp, tzInfo: TZInfo = "UTC") {
@@ -270,6 +290,37 @@ export class TimeStamp extends Number {
   }
 
   /**
+   * @returns A new TimeStamp that is the remainder of the TimeStamp divided by the
+   * given span. This is useful in cases where you want only part of a TimeStamp's value
+   * i.e. the hours, minutes, seconds, milliseconds, microseconds, and nanoseconds but
+   * not the days, years, etc.
+   *
+   * @param span - The TimeSpan to divide by. Must be an even TimeSpan or TimeStamp. Even
+   * means it must be a day, hour, minute, second, millisecond, or microsecond, etc.
+   *
+   * @example TimeStamp.now().remainder(TimeStamp.DAY) // => TimeStamp representing the current time of day
+   */
+  remainder(span: TimeSpan | TimeStamp): TimeStamp {
+    const ts = new TimeStamp(span);
+    if (
+      ![
+        TimeStamp.DAY,
+        TimeStamp.HOUR,
+        TimeStamp.MINUTE,
+        TimeStamp.SECOND,
+        TimeStamp.MILLISECOND,
+        TimeStamp.MICROSECOND,
+        TimeSpan.NANOSECOND,
+      ].some((s) => s.equals(ts))
+    ) {
+      throw new Error(
+        "Invalid argument for remainder. Must be an even TimeSpan or Timestamp"
+      );
+    }
+    return new TimeStamp(this.valueOf() % ts.valueOf());
+  }
+
+  /**
    * @returns A new TimeStamp representing the current time in UTC. It's important to
    * note that this TimeStamp is only accurate to the millisecond level (that's the best
    * JavaScript can do).
@@ -330,6 +381,9 @@ export class TimeStamp extends Number {
   static days(value: number): TimeStamp {
     return TimeStamp.hours(value * 24);
   }
+
+  /** One day after the unix epoch */
+  static readonly DAY = TimeStamp.days(1);
 
   /** The maximum possible value for a timestamp */
   static readonly MAX = new TimeStamp(TimeStamp.MAX_SAFE_INTEGER);
