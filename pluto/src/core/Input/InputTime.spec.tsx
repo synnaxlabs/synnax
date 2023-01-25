@@ -16,17 +16,18 @@ import { Input } from ".";
 describe("Input.Time", () => {
   it("should allow the user to input a time", () => {
     const handleChange = vi.fn();
-    const c = render(<Input.Time value={0} onChange={handleChange} />);
-    fireEvent.change(c.getByDisplayValue("19:00:00"), {
-      target: { value: "12:00:00" },
+    const c = render(<Input.Time value={0} onChange={handleChange} tzInfo="UTC" />);
+    fireEvent.change(c.getByDisplayValue("00:00:00"), {
+      target: { value: "15:00:00" },
     });
-    expect(handleChange).toHaveBeenCalledWith(TimeStamp.hours(17).valueOf());
+    expect(handleChange).toHaveBeenCalledWith(TimeStamp.hours(15).valueOf());
   });
   it("Should normalize an initial TimeStamp", () => {
     const ts = new TimeStamp([2022, 12, 22]).add(TimeStamp.hours(12));
     const handleChange = vi.fn();
-    const c = render(<Input.Time value={ts.valueOf()} onChange={handleChange} />);
-    fireEvent.change(c.getByDisplayValue("07:00:00"));
+    const c = render(
+      <Input.Time value={ts.valueOf()} onChange={handleChange} tzInfo="UTC" />
+    );
     expect(handleChange).toHaveBeenCalledWith(TimeStamp.hours(12).valueOf());
   });
 });

@@ -9,15 +9,20 @@
 
 import { forwardRef, useEffect } from "react";
 
-import { TimeStamp } from "@synnaxlabs/x";
+import { TimeStamp, TZInfo } from "@synnaxlabs/x";
 
 import { Input } from "./Input";
 import { InputBaseProps } from "./types";
 
-export interface InputTimeProps extends InputBaseProps<number> {}
+export interface InputTimeProps extends InputBaseProps<number> {
+  tzInfo?: TZInfo;
+}
 
 export const InputTime = forwardRef<HTMLInputElement, InputTimeProps>(
-  ({ size = "medium", value, onChange, ...props }: InputTimeProps, ref) => {
+  (
+    { size = "medium", value, tzInfo = "local", onChange, ...props }: InputTimeProps,
+    ref
+  ) => {
     const ts = new TimeStamp(value, "UTC");
     useEffect(() => {
       if (!ts.after(TimeStamp.DAY)) return;
@@ -29,9 +34,9 @@ export const InputTime = forwardRef<HTMLInputElement, InputTimeProps>(
         ref={ref}
         type="time"
         step="1"
-        value={ts.fString("time", "local")}
+        value={ts.fString("time", tzInfo)}
         onChange={(value) =>
-          value.length > 0 && onChange(new TimeStamp(value, "local").valueOf())
+          value.length > 0 && onChange(new TimeStamp(value, tzInfo).valueOf())
         }
         {...props}
       />
