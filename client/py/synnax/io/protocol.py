@@ -6,13 +6,6 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
-#
-#  Use of this software is governed by the Business Source License included in the file
-#  licenses/BSL.txt.
-#
-#  As of the Change Date specified in that file, in accordance with the Business Source
-#  License, use of this software will be governed by the Apache License, Version 2.0,
-#  included in the file licenses/APL.txt.
 
 from enum import Enum
 from pathlib import Path
@@ -42,8 +35,17 @@ class Matcher(Protocol):
         """:returns: whether the reader can read the file at the given path."""
         ...
 
+class BaseFile(Matcher, Protocol):
+    def path(self) -> Path:
+        """:returns: the path to the file."""
+        ...
 
-class BaseReader(Matcher):
+    def close(self):
+        """Closes the file."""
+        ...
+    
+
+class BaseReader(BaseFile, Protocol):
     """The base reader protocol that all other reader protocols must implement.
 
     :param path: The path to the file to read.
@@ -54,8 +56,8 @@ class BaseReader(Matcher):
     def __init__(
         self,
         path: Path,
-        keys: list[str] = None,
-        chunk_size: int = None,
+        keys: list[str] | None = None,
+        chunk_size: int | None = None,
     ):
         ...
 
@@ -76,8 +78,12 @@ class BaseReader(Matcher):
         """:returns: the number of samples in the file."""
         ...
 
+    def seek_first(self):
+        """Resets the reader to the beginning of the file. Preserves all settings."""
+        ...
 
-class RowReader(BaseReader):
+
+class RowReader(BaseReader, Protocol):
     """Row readers implement a strategy that reads a file row.py by row.py. Because Synnax
     is optimized for ingesting data in a columnar format, Row readers should
     only be used when files cannot be read using a :class:`ColumnReader` strategy (e.g.
@@ -85,7 +91,10 @@ class RowReader(BaseReader):
     """
 
     def set_chunk_size(self, chunk_size: int):
-        """Set the chunk size for the reader."""
+        """Set the chunk size for the reader. It's generally unsafe to assume the reader
+        position after calling set_chunk_size, so it's recommended to call reset
+        afterwards.
+        """
         ...
 
     def read(self) -> DataFrame:
@@ -95,7 +104,7 @@ class RowReader(BaseReader):
         ...
 
 
-class ColumnReader(BaseReader):
+class ColumnReader(BaseReader, Protocol):
     """Column readers implement a strategy that reads a file column by column. Synnax
     is optimized for ingesting data in a columnar format, so Column readers should
     be used whenever possible.
@@ -108,7 +117,7 @@ class ColumnReader(BaseReader):
         ...
 
 
-class Writer(Matcher):
+class Writer(BaseFile, Protocol):
     def __init__(
         self,
         path: Path,
@@ -123,3 +132,4 @@ class Writer(Matcher):
 
     def path(self) -> Path:
         """:returns: the path to the file."""
+        ...
