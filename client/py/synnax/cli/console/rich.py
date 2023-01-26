@@ -6,20 +6,17 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
-#
-#  Use of this software is governed by the Business Source License included in the file
-#  licenses/BSL.txt.
-#
-#  As of the Change Date specified in that file, in accordance with the Business Source
-#  License, use of this software will be governed by the Apache License, Version 2.0,
-#  included in the file licenses/APL.txt.
 
 from rich import print
 from rich.prompt import Confirm, FloatPrompt, IntPrompt, Prompt
 
+from synnax.cli.console.protocol import Console
+
+SYNNAX_PRIMARY_Z = "#3774D0"
+
 
 class RichConsole:
-    """A rich text implementation of the Console protocol."""
+    """A Console implementation using Rich."""
 
     info_color: str
     warn_color: str
@@ -28,7 +25,7 @@ class RichConsole:
 
     def __init__(
         self,
-        info_color: str = "#3774D0",
+        info_color: str = SYNNAX_PRIMARY_Z,
         warn_color: str = "yellow",
         error_color: str = "red",
         success_color: str = "green",
@@ -37,6 +34,9 @@ class RichConsole:
         self.warn_color = warn_color
         self.error_color = error_color
         self.success_color = success_color
+
+    def _(self) -> Console:
+        return self
 
     def info(self, message: str) -> None:
         print(f"[{self.info_color}]{message}[/]")
@@ -53,9 +53,9 @@ class RichConsole:
     def ask(
         self,
         question: str,
-        choices: list[str] = None,
-        default: str = None,
-    ) -> str:
+        choices: list[str] | None = None,
+        default: str | None = None,
+    ) -> str | None:
         return Prompt.ask(
             question,
             choices=choices,
@@ -65,8 +65,8 @@ class RichConsole:
     def ask_int(
         self,
         question: str,
-        default: int = None,
-    ) -> int:
+        default: int | None = None,
+    ) -> int | None:
         return IntPrompt.ask(
             question,
             default=default,
@@ -75,8 +75,8 @@ class RichConsole:
     def ask_float(
         self,
         question: str,
-        default: float = None,
-    ) -> float:
+        default: float | None = None,
+    ) -> float | None:
         return FloatPrompt.ask(
             question,
             default=default,
@@ -94,7 +94,7 @@ class RichConsole:
     def confirm(
         self,
         question: str,
-        default: bool = None,
+        default: bool = True,
     ) -> bool:
         return Confirm.ask(
             question,

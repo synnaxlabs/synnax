@@ -28,7 +28,7 @@ from .telem import prompt_time_units_select
 def tsconvert():
     ctx = Context(console=RichConsole())
     reader = prompt_new_reader(ctx)
-    c = ctx.console.ask("Which channel would you like to convert?")
+    c = ctx.console.prompt("Which channel would you like to convert?")
     channels = reader.channels()
     ch = next((ch for ch in channels if ch.name == c), None)
     if ch is None:
@@ -39,7 +39,7 @@ def tsconvert():
     curr = prompt_time_units_select(ctx)
     ctx.console.info("What is the desired precision?")
     desired = prompt_time_units_select(ctx)
-    path = ctx.console.ask("Where would you like to save the converted data?")
+    path = ctx.console.prompt("Where would you like to save the converted data?")
     writer = io_factory.new_writer(reader.path().parent / path)
     reader.set_chunk_size(25000)
     while True:

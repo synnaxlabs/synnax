@@ -6,37 +6,33 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
-#
-#  Use of this software is governed by the Business Source License included in the file
-#  licenses/BSL.txt.
-#
-#  As of the Change Date specified in that file, in accordance with the Business Source
-#  License, use of this software will be governed by the Apache License, Version 2.0,
-#  included in the file licenses/APL.txt.
 from pathlib import Path
 
 import click
 
-import synnax
+from synnax import Synnax
+from synnax.cli.connect import connect_client
+from synnax.cli.channel import (
+    prompt_group_channel_names,
+    channel_name_table,
+    maybe_select_channel,
+)
+from synnax.ingest.row import RowIngestionEngine
+from synnax.io import ChannelMeta, IOFactory, ReaderType, RowReader
+from synnax.telem import TIMESTAMP, Rate
+from synnax.channel import Channel
+from synnax.cli.console.rich import RichConsole
+from synnax.cli.flow import Context, Flow
+from synnax.cli.io import prompt_file
+from synnax.cli.telem import prompt_data_type_select
 
-from .. import Synnax
-from ..cli.console.channel import prompt_group_channel_names
-from ..ingest.row import RowIngestionEngine
-from ..io import ChannelMeta, IOFactory, ReaderType, RowReader
-from ..telem import TIMESTAMP, Rate
-from .channel import Channel, channel_name_table, maybe_select_channel
-from .connect import connect_client
-from .console.rich import RichConsole
-from .flow import Context, Flow
-from .io import prompt_file
-from .telem import prompt_data_type_select
+# A shorthand grouping to represent all values in a set.
+GROUP_ALL = "__all__"
 
 
 @click.command()
 @click.argument("path", type=click.Path(exists=True), required=False, default=None)
-def ingest(path: str | None):
-    if path is not None:
-        path = Path(path)
+def ingest(_path: str | None):
     flow = Flow(Context(console=RichConsole()))
     flow.add("initialize_reader", initialize_reader)
     flow.add("connect_client", _connect_client)
@@ -45,6 +41,7 @@ def ingest(path: str | None):
     flow.add("validate_channels", validate_channels)
     flow.add("create_channels", create_channels)
     flow.add("ingest", run_ingestion)
+    path = None if _path is None else Path(_path)
     flow.run(IngestionCLI(IOFactory(), path), "initialize_reader")
 
 
@@ -55,7 +52,7 @@ class IngestionCLI:
     client: Synnax | None
     filtered_channels: list[ChannelMeta] | None
     not_found: list[ChannelMeta] | None
-    db_channels: list[synnax.Channel] | None
+    db_channels: list[Channel] | None
 
     def __init__(self, factory: IOFactory, path: Path | None):
         self.path = path
@@ -69,6 +66,9 @@ class IngestionCLI:
 
 def run_ingestion(ctx: Context, cli: IngestionCLI) -> None:
     """Runs the ingestion process."""
+    assert cli.reader is not None
+    assert cli.db_channels is not None
+    assert cli.client is not None
     if cli.reader.type() == ReaderType.Row:
         engine = RowIngestionEngine(cli.client, cli.reader, cli.db_channels)
     else:
@@ -99,6 +99,7 @@ def _connect_client(ctx: Context, cli: IngestionCLI) -> str | None:
 
 def ingest_all(ctx: Context, cli: IngestionCLI) -> str | None:
     """Prompts the user to ingest all channels."""
+    assert cli.reader is not None
     if ctx.console.confirm("Would you like to ingest all channels?", default=True):
         cli.filtered_channels = cli.reader.channels()
         return "validate_channels"
@@ -108,6 +109,7 @@ def ingest_all(ctx: Context, cli: IngestionCLI) -> str | None:
 
 def channels_to_ingest(ctx: Context, cli: IngestionCLI) -> str | None:
     """Prompts the user to select channels to ingest."""
+    assert cli.reader is not None
     ctx.console.info("Which channels would you like to ingest?")
     channels = cli.reader.channels()
     grouped = prompt_group_channel_names(ctx, [ch.name for ch in channels])
@@ -122,6 +124,8 @@ def validate_channels(ctx: Context, cli: IngestionCLI) -> str | None:
     """Validates that all channels in the file exist in the database. If not, prompts
     the user to create them.
     """
+    assert cli.filtered_channels is not None
+    assert cli.client is not None
     ctx.console.info("Validating channels in file...")
     cli.not_found = []
     cli.db_channels = []
@@ -152,7 +156,11 @@ def create_indexes(
     options: list[ChannelMeta],
 ) -> list[ChannelMeta]:
     """Prompts the user to create index channels."""
+    assert cli.client is not None
+    assert cli.db_channels is not None
     grouped = prompt_group_channel_names(ctx, [ch.name for ch in options])
+    if grouped is None:
+        return options
     names = [name for v in grouped.values() for name in v]
     for name in names:
         ch = cli.client.channel.create(name=name, is_index=True, data_type=TIMESTAMP)
@@ -160,92 +168,108 @@ def create_indexes(
     return [ch for ch in options if ch.name not in names]
 
 
-def group_by_idx(
+def assign_dt(
     ctx: Context,
-    options: list[ChannelMeta],
+    cli: IngestionCLI,
 ) -> dict[str, list[ChannelMeta]] | None:
-    """Prompts the user to group channels by their index/rate"""
+    assert cli.not_found is not None
+
+    grouped = {GROUP_ALL: cli.db_channels}
+    if not ctx.console.confirm("Do all channels have the same data type?"):
+        if not ctx.console.confirm("Can you group channels by data type?"):
+            grouped = {v.name: [v] for v in cli.not_found}
+        grouped = prompt_group_channel_names(ctx, [ch.name for ch in cli.not_found])
+        if grouped is None or len(grouped) == 0:
+            return None
+        grouped = {
+            k: [ch for ch in cli.not_found if ch.name in v] for k, v in grouped.items()
+        }
+
+    assigned = {}
+    for key, group in grouped.items():
+        if key != GROUP_ALL:
+            ctx.console.info(f"Assigning data type to {key}")
+        dt = prompt_data_type_select(ctx)
+        assigned[dt] = group
+
+    return assigned
+
+
+def assign_idx(
+    ctx: Context,
+    cli: IngestionCLI,
+) -> dict[Rate | str, list[ChannelMeta]] | None:
+    """Prompts the user to assign an index/rate to the channels in the given
+    group"""
+    assert cli.client is not None
+    assert cli.not_found is not None
+    client = cli.client
+
+    grouped = {GROUP_ALL: cli.not_found}
     if not ctx.console.confirm(
         "Do all non-indexed channels have the same data rate or index?"
     ):
         if not ctx.console.confirm("Can you group channels by data rate or index?"):
-            return {v.name: v for v in options}
-        grouped = prompt_group_channel_names(ctx, [ch.name for ch in options])
+            grouped = {v.name: [v] for v in cli.not_found}
+        grouped = prompt_group_channel_names(ctx, [ch.name for ch in cli.not_found])
         if grouped is None or len(grouped) == 0:
             return None
-        return {k: v for k, v in grouped.items()}
-    return {"__all__": options}
+        grouped = {
+            k: [ch for ch in cli.not_found if ch.name in v] for k, v in grouped.items()
+        }
+
+    def assign_to_group(key: str, group: list[ChannelMeta]):
+        if key != GROUP_ALL:
+            ctx.console.info(f"Assigning data rate or index to {key}")
+        _choice = ctx.console.ask("Enter the name of an index or a data rate")
+        assert _choice is not None
+        if _choice.replace(".", "").isdigit():
+            return Rate(float(_choice))
+        else:
+            # If the user entered a string, we have an index channel, and we
+            # need to make sure that the string is a valid index.
+            res = client.channel.filter(names=[_choice])
+            idx = maybe_select_channel(ctx, res, _choice)
+            if not idx:
+                ctx.console.warn(f"Index channel with key {_choice} not found")
+                if ctx.console.confirm("Try again?"):
+                    return assign_to_group(key, group)
+                return None
+            return idx.key
+
+    assigned: dict[Rate | str, list[ChannelMeta]] = dict()
+    for key, group in grouped.items():
+        idx = assign_to_group(key, group)
+        if idx is None:
+            return None
+        assigned[idx] = group
+
+    return assigned
 
 
 def create_channels(ctx: Context, cli: IngestionCLI) -> str | None:
+    assert cli.not_found is not None
+    assert cli.client is not None
+    assert cli.db_channels is not None
+
     if ctx.console.confirm("Are any channels indexed (e.g. timestamps)?"):
         cli.not_found = create_indexes(ctx, cli, cli.not_found)
 
-    idx_grouped = group_by_idx(ctx, cli.not_found)
-    if idx_grouped is None:
+    idx_grouped, dt_grouped = assign_idx(ctx, cli), assign_dt(ctx, cli)
+    if idx_grouped is None or dt_grouped is None:
         return None
 
-    assigned_dr_idx = {}
-    for key, group in idx_grouped.items():
-        if key != "__all__":
-            ctx.console.info(f"Assigning data rate or index to {key}")
-        _choice = ctx.console.ask("Enter the name of an index or a data rate")
-        if _choice.replace(".", "").isdigit():
-            assigned_dr_idx[Rate(float(_choice))] = group
-        else:
-            # if the user entered a string, we have an index channel, and we
-            #  need to make sure that the string is a valid index. Look first
-            # in not_found then try to query
-            res = cli.client.channel.filter(names=[_choice])
-            idx = maybe_select_channel(ctx, res, _choice)
-            if not idx:
-                ctx.console.ask(f"No channel found for index {_choice}")
-                return None
-            assigned_dr_idx[idx.key] = group
-
-    dt_grouped = {}
-    if not ctx.console.confirm("Do all of these channels have the same data type?"):
-        if ctx.console.confirm("Can you group them by data type?"):
-            grouped = prompt_group_channel_names(ctx, [ch.name for ch in cli.not_found])
-            if grouped is None or len(grouped) == 0:
-                return None
-            dt_grouped = {k: v for k, v in grouped.items()}
-        else:
-            dt_grouped = {v: v for v in cli.not_found}
-    else:
-        dt_grouped["__all__"] = cli.not_found
-
-    assigned_dts = {}
-    for key, group in dt_grouped.items():
-        if key != "__all__":
-            ctx.console.info(f"Assigning data type to {key}")
-        dt = prompt_data_type_select(ctx)
-        assigned_dts[dt] = group
-
     to_create = []
-    for rate_or_index, channels in assigned_dr_idx.items():
-        # if the rate_or_index is a string, it is an index channel
-        index = ""
-        rate: Rate = Rate(0)
-        if isinstance(rate_or_index, Rate):
-            rate = rate_or_index
-        else:
-            index = rate_or_index
-
-        for channel in channels:
-            dt = None
-            for k, v in assigned_dts.items():
-                if channel in v:
-                    dt = k
-                    break
-
+    for rate_or_index, channels in idx_grouped.items():
+        is_rate = isinstance(rate_or_index, Rate)
+        for ch in channels:
             to_create.append(
                 Channel(
-                    name=channel.name,
+                    name=ch.name,
                     is_index=False,
-                    index=index,
-                    rate=rate,
-                    data_type=dt,
+                    index="" if is_rate else rate_or_index,
+                    rate=rate_or_index if is_rate else 0,
+                    data_type=[dt for dt, chs in dt_grouped.items() if ch in chs][0],
                 )
             )
 
