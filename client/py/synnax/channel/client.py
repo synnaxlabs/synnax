@@ -22,6 +22,7 @@ from synnax.framer import FramerClient
 from synnax.telem import (
     DATA_TYPE_UNKNOWN,
     Rate,
+    Density,
     UnparsedDataType,
     UnparsedDensity,
     UnparsedRate,
@@ -48,18 +49,18 @@ class Channel(ChannelPayload):
         name: str = "",
         node_id: int = 0,
         key: str = "",
-        density: UnparsedDensity = 0,
         is_index: bool = False,
         index: str = "",
-        segment_client: FramerClient = None,
+        density: UnparsedDensity = 0,
+        segment_client: FramerClient | None = None,
     ):
         super().__init__(
             data_type=data_type,
-            rate=rate,
+            rate=Rate(rate),
             name=name,
             node_id=node_id,
             key=key,
-            density=density,
+            density=Density(density),
             is_index=is_index,
             index=index,
         )

@@ -6,25 +6,19 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
-#
-#  Use of this software is governed by the Business Source License included in the file
-#  licenses/BSL.txt.
-#
-#  As of the Change Date specified in that file, in accordance with the Business Source
-#  License, use of this software will be governed by the Apache License, Version 2.0,
-#  included in the file licenses/APL.txt.
 
-from .flow import Context
+from synnax.cli.flow import Context
+from typing import Any
 
 
 def select_from_table(
     ctx: Context,
     columns: list[str],
-    rows: list[dict[str, any]],
+    rows: list[dict[str, Any]],
     allow_none: bool = False,
-    default: int = None,
+    default: int | None = None,
 ) -> int | None:
-    """Prompts the user to select a row.py from a table.
+    """Prompts the user to select a row from a table.
 
     :param ctx: The current flow Context.
     :param columns: The columns of the table.
@@ -40,7 +34,6 @@ def select_from_table(
     )
     choices = [str(i) for i in range(len(rows))]
     if allow_none and default is None:
-        default = "None"
         ctx.console.info("Press enter to select nothing.")
-    i = ctx.console.ask("Select an option #", choices=choices, default=default)
+    i = ctx.console.prompt("Select an option #", choices=choices, default=str(default))
     return None if i == "None" else int(i)

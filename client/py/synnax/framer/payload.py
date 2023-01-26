@@ -105,7 +105,4 @@ def pandas_to_frame(channels: list[ChannelPayload], df: DataFrame) -> NumpyFrame
                 )
             )
 
-    return NumpyFrame(
-        keys=keys,
-        arrays=arrays
-    )
+    return NumpyFrame(keys=keys, arrays=arrays)

@@ -26,7 +26,7 @@ def prompt_file(ctx: Context) -> Path | None:
     """
     Prompts the user for a file path.
     """
-    fp = Path(ctx.console.ask("File path"))
+    fp = Path(ctx.console.prompt("File path"))
     if not fp.exists():
         ctx.console.error(f"File does not exist: {fp}")
         return None

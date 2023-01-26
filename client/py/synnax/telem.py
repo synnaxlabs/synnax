@@ -6,18 +6,11 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
-#
-#  Use of this software is governed by the Business Source License included in the file
-#  licenses/BSL.txt.
-#
-#  As of the Change Date specified in that file, in accordance with the Business Source
-#  License, use of this software will be governed by the Apache License, Version 2.0,
-#  included in the file licenses/APL.txt.
 
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone, tzinfo
-from typing import Union, get_args
+from typing import TypeAlias, Union, get_args
 
 import numpy as np
 import pandas as pd
@@ -595,7 +588,7 @@ DATA_TYPES = [
     UINT8,
 ]
 
-UnparsedTimeStamp = Union[
+UnparsedTimeStamp: TypeAlias = Union[
     int,
     TimeStamp,
     TimeSpan,
@@ -604,16 +597,14 @@ UnparsedTimeStamp = Union[
     np.datetime64,
     np.int64,
 ]
-UnparsedTimeSpan = Union[
-    int,
-    TimeSpan,
-    TimeStamp,
+UnparsedTimeSpan: TypeAlias = Union[
+    int | TimeSpan | TimeStamp,
     timedelta,
     np.timedelta64,
 ]
-UnparsedRate = Union[int, float, TimeSpan, Rate]
-UnparsedDensity = Density | int
-UnparsedDataType = (*np.ScalarType, DataType, str)
+UnparsedRate: TypeAlias = int | float | TimeSpan | Rate
+UnparsedDensity: TypeAlias = Density | int
+UnparsedDataType: TypeAlias = (*np.ScalarType, DataType, str)
 
 DATA_TYPE_TO_NUMPY: dict[str, np.ScalarType] = {
     FLOAT64: np.float64,

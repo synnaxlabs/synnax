@@ -6,13 +6,6 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
-#
-#  Use of this software is governed by the Business Source License included in the file
-#  licenses/BSL.txt.
-#
-#  As of the Change Date specified in that file, in accordance with the Business Source
-#  License, use of this software will be governed by the Apache License, Version 2.0,
-#  included in the file licenses/APL.txt.
 
 from typing import Protocol
 
@@ -23,9 +16,9 @@ class Prompt(Protocol):
     def ask(
         self,
         question: str,
-        choices: list[str] = None,
-        default: str = None,
-    ) -> str:
+        choices: list[str] | None = None,
+        default: str | None = None,
+    ) -> str | None:
         """Asks the user a question and returns their response.
 
         :param question: The question to ask the user.
@@ -42,8 +35,8 @@ class Prompt(Protocol):
     def ask_int(
         self,
         question: str,
-        default: int = None,
-    ) -> int:
+        default: int | None = None,
+    ) -> int | None:
         """Asks the user a question and returns their response as an integer.
 
         :param question: The question to ask the user.
@@ -54,8 +47,8 @@ class Prompt(Protocol):
     def ask_float(
         self,
         question: str,
-        default: float = None,
-    ) -> float:
+        default: float | None = None,
+    ) -> float | None:
         """Asks the user a question and returns their response as a float.
 
         :param question: The question to ask the user.
@@ -75,7 +68,7 @@ class Prompt(Protocol):
     def confirm(
         self,
         question: str,
-        default: bool = None,
+        default: bool = True,
     ) -> bool:
         """Asks the user to confirm the given question.
 
@@ -144,7 +137,7 @@ class Print(Protocol):
         ...
 
 
-class Console(Prompt, Print):
+class Console(Prompt, Print, Protocol):
     """A protocol class for an entity that can print messages to the console and prompt
     the user for input.
     """
