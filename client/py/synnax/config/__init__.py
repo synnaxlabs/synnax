@@ -18,6 +18,7 @@ from synnax.config.file import ConfigFile
 
 CONFIG_FILE_PATH = Path(os.path.expanduser("~/.synnax"))
 
+
 def load_options() -> SynnaxOptions | None:
     """Loads the connection parameters from a configuration file.
     :return: The options to connect to a Synnax server.
