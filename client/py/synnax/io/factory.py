@@ -36,8 +36,8 @@ class IOFactory:
 
     def __init__(
         self,
-        readers: list[type[RowReader]] = None,
-        writers: list[type[Writer]] = None,
+        readers: list[type[RowReader]] | None = None,
+        writers: list[type[Writer]] | None = None,
     ):
         self.reader_classes = readers or READERS
         self.writer_classes = writers or WRITERS

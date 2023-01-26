@@ -6,13 +6,6 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
-#
-#  Use of this software is governed by the Business Source License included in the file
-#  licenses/BSL.txt.
-#
-#  As of the Change Date specified in that file, in accordance with the Business Source
-#  License, use of this software will be governed by the Apache License, Version 2.0,
-#  included in the file licenses/APL.txt.
 
 from pathlib import Path
 
@@ -20,7 +13,7 @@ import pandas as pd
 from pandas.io.parsers import TextFileReader
 
 from synnax.io.matcher import new_extension_matcher
-from synnax.io.protocol import ChannelMeta, ReaderType
+from synnax.io.protocol import ChannelMeta, ReaderType, RowReader
 
 CSVMatcher = new_extension_matcher(["csv"])
 
@@ -28,22 +21,32 @@ CSVMatcher = new_extension_matcher(["csv"])
 class CSVReader(CSVMatcher):
     """A RowReader implementation for CSV files."""
 
-    reader: TextFileReader
+    channel_keys: list[str] | None
+    chunk_size: int
+    _reader: TextFileReader
     _path: Path
     _channels: list[ChannelMeta] | None
     _row_count: int | None
-    channel_keys: list[str] | None
 
     def __init__(
         self,
         path: Path,
-        channel_keys: list[str] = None,
-        chunk_size: int = None,
+        channel_keys: list[str] | None = None,
+        chunk_size: int = int(1e6),
     ):
         self._path = path
         self.channel_keys = channel_keys
         self._channels = None
         self._row_count = None
+        self.chunk_size = chunk_size
+
+    def seek_first(self):
+        self.close()
+        self._reader = pd.read_csv(
+            self._path,
+            chunksize=self.chunk_size,
+            usecols=self.channel_keys,
+        )
 
     def channels(self) -> list[ChannelMeta]:
         if not self._channels:
@@ -54,11 +57,7 @@ class CSVReader(CSVMatcher):
         return self._channels
 
     def set_chunk_size(self, chunk_size: int):
-        self.reader = pd.read_csv(
-            self._path,
-            chunksize=chunk_size,
-            usecols=self.channel_keys,
-        )
+        self.chunk_size = chunk_size
 
     def read(self) -> pd.DataFrame:
         return next(self.reader)
@@ -74,6 +73,16 @@ class CSVReader(CSVMatcher):
         if not self._row_count:
             self._row_count = estimate_row_count(self._path)
         return self._row_count * len(self.channels())
+
+    @property
+    def reader(self) -> TextFileReader:
+        if self._reader is None:
+            self.seek_first()
+        return self._reader
+
+    def close(self):
+        if self._reader:
+            self._reader.close()
 
 
 def estimate_row_count(path: Path) -> int:
