@@ -35,6 +35,7 @@ class Matcher(Protocol):
         """:returns: whether the reader can read the file at the given path."""
         ...
 
+
 class BaseFile(Matcher, Protocol):
     def path(self) -> Path:
         """:returns: the path to the file."""
@@ -43,7 +44,7 @@ class BaseFile(Matcher, Protocol):
     def close(self):
         """Closes the file."""
         ...
-    
+
 
 class BaseReader(BaseFile, Protocol):
     """The base reader protocol that all other reader protocols must implement.
