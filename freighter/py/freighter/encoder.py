@@ -21,10 +21,9 @@ import msgpack
 from .transport import P, Payload
 
 
-
 class EncoderDecoder(Protocol):
-    """Protocol for an entity that encodes and decodes values from binary.
-    """
+    """Protocol for an entity that encodes and decodes values from binary."""
+
     @staticmethod
     def content_type() -> str:
         """:returns: the HTTP content type of the encoder"""
@@ -48,8 +47,8 @@ class EncoderDecoder(Protocol):
 
 
 class MsgpackEncoder:
-    """A Msgpack implementation of EncoderDecoder.
-    """
+    """A Msgpack implementation of EncoderDecoder."""
+
     @staticmethod
     def content_type():
         return "application/msgpack"
@@ -64,8 +63,8 @@ class MsgpackEncoder:
 
 
 class JSONEncoder:
-    """A JSON implementation of EncoderDecoder.
-    """
+    """A JSON implementation of EncoderDecoder."""
+
     STRING_ENCODING = "utf-8"
 
     @staticmethod

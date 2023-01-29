@@ -31,7 +31,7 @@ GROUP_ALL = "__all__"
 
 
 @click.command()
-@click.argument("path", type=click.Path(exists=True), required=False, default=None)
+@click.argument("_path", type=click.Path(exists=True), required=False, default=None)
 def ingest(_path: str | None):
     flow = Flow(Context(console=RichConsole()))
     flow.add("initialize_reader", initialize_reader)
@@ -39,8 +39,8 @@ def ingest(_path: str | None):
     flow.add("ingest_all", ingest_all)
     flow.add("channels_to_ingest", channels_to_ingest)
     flow.add("validate_channels_exist", validate_channels_exist)
-    flow.add("validate_data_types")
-    flow.add("validate_start_time")
+    flow.add("validate_data_types", validate_data_types)
+    flow.add("validate_start_time", validate_start_time)
     flow.add("create_channels", create_channels)
     flow.add("ingest", run_ingestion)
     path = None if _path is None else Path(_path)
@@ -55,6 +55,7 @@ class IngestionCLI:
     filtered_channels: list[ChannelMeta] | None
     not_found: list[ChannelMeta] | None
     db_channels: list[Channel] | None
+    start: TimeStamp | None = None
 
     def __init__(self, factory: IOFactory, path: Path | None):
         self.path = path
@@ -71,8 +72,9 @@ def run_ingestion(ctx: Context, cli: IngestionCLI) -> None:
     assert cli.reader is not None
     assert cli.db_channels is not None
     assert cli.client is not None
+    assert cli.start is not None
     if cli.reader.type() == ReaderType.Row:
-        engine = RowIngestionEngine(cli.client, cli.reader, cli.db_channels)
+        engine = RowIngestionEngine(cli.client, cli.reader, cli.db_channels, cli.start)
     else:
         raise NotImplementedError("Only row ingestion is supported at this time.")
     ctx.console.info("Starting ingestion process...")
@@ -141,10 +143,13 @@ def validate_data_types(ctx: Context, cli: IngestionCLI) -> str | None:
 
         samples_type, ch_type = samples.to_numpy().dtype, ch.data_type.numpy_type
         if samples.to_numpy().dtype != ch.data_type.numpy_type:
-            ctx.console.warn(
+            ctx.console.error(
                 f"""Unexpected data type for channel {ch.name}.  First sample is of
                     type {samples_type}, but channel  has  data type{ch_type}"""
             )
+            return None
+
+    return "validate_start_time"
 
 
 def validate_channels_exist(ctx: Context, cli: IngestionCLI) -> str | None:
@@ -175,29 +180,38 @@ def validate_channels_exist(ctx: Context, cli: IngestionCLI) -> str | None:
             return None
         return "create_channels"
 
+    return "validate_data_types"
 
-def validate_start_timestamp(ctx: Context, cli: IngestionCLI) -> str | None:
+
+def validate_start_time(ctx: Context, cli: IngestionCLI) -> str | None:
     """Reads the starting timestamp of the file and prompts the user to confirm that it
     is correct. This is mainly a sanity check to make sure the timestamps are properly
     formatted."""
     assert cli.db_channels is not None
     assert cli.reader is not None
     _idx = [ch for ch in cli.db_channels if ch.is_index]
-    start: TimeStamp | None = None
     if len(_idx) == 0:
         # If there is no index, it means all channels are rate based or we've already
         # written the index data. In either case, we need to prompt the user to enter
         # the start timestamp.
-        ctx.console.ask_int(
+        _start = ctx.console.ask_int(
             """Please enter the start timestamp of the file as a
                             nanosecond UTC integer. If you'd like a converter,
                             use https://www.epochconverter.com/""",
-            default=TimeStamp(),
+            default=TimeStamp.now(),
         )
+        assert _start is not None
+        cli.start = TimeStamp(_start)
+    else:
+        idx = _idx[0]
+        cli.reader.set_chunk_size(1)
+        cli.reader.seek_first()
+        first = cli.reader.read()
+        cli.start = TimeStamp(first[idx.name].to_numpy()[0])
 
-    cli.reader.set_chunk_size(1)
-    cli.reader.seek_first()
-    first = cli.reader.read()
+    ctx.console.info(f"Identified start timestamp for file as {cli.start}.")
+    if not ctx.console.confirm("Is this correct?"):
+        return None
 
     return "ingest"
 
@@ -327,4 +341,4 @@ def create_channels(ctx: Context, cli: IngestionCLI) -> str | None:
 
     cli.db_channels.extend(cli.client.channel.create_many(to_create))
 
-    return "ingest"
+    return "validate_data_types"

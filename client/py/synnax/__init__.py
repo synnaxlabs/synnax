@@ -64,6 +64,4 @@ from .telem import (
     UnparsedRate,
     UnparsedTimeSpan,
     UnparsedTimeStamp,
-    now,
-    since,
 )

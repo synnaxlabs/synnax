@@ -192,11 +192,6 @@ class TimeStamp(int):
         return NotImplemented
 
 
-def since(t: TimeStamp) -> TimeSpan:
-    """Returns the amount of time between the given timestamp and the current time."""
-    return now().span(t)
-
-
 class TimeSpan(int):
     """TimeSpan represents a 64 bit nanosecond-precision duration. The TimeSpan constructor
     accepts a variety of different types and will attempt to convert them to a TimeSpan.
