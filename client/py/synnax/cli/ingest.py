@@ -19,7 +19,7 @@ from synnax.cli.channel import (
 )
 from synnax.ingest.row import RowIngestionEngine
 from synnax.io import ChannelMeta, IOFactory, ReaderType, RowReader
-from synnax.telem import TIMESTAMP, Rate
+from synnax.telem import TIMESTAMP, Rate, TimeStamp
 from synnax.channel import Channel
 from synnax.cli.console.rich import RichConsole
 from synnax.cli.flow import Context, Flow
@@ -38,7 +38,9 @@ def ingest(_path: str | None):
     flow.add("connect_client", _connect_client)
     flow.add("ingest_all", ingest_all)
     flow.add("channels_to_ingest", channels_to_ingest)
-    flow.add("validate_channels", validate_channels)
+    flow.add("validate_channels_exist", validate_channels_exist)
+    flow.add("validate_data_types")
+    flow.add("validate_start_time")
     flow.add("create_channels", create_channels)
     flow.add("ingest", run_ingestion)
     path = None if _path is None else Path(_path)
@@ -102,7 +104,7 @@ def ingest_all(ctx: Context, cli: IngestionCLI) -> str | None:
     assert cli.reader is not None
     if ctx.console.confirm("Would you like to ingest all channels?", default=True):
         cli.filtered_channels = cli.reader.channels()
-        return "validate_channels"
+        return "validate_channels_exist"
     else:
         return "channels_to_ingest"
 
@@ -117,16 +119,42 @@ def channels_to_ingest(ctx: Context, cli: IngestionCLI) -> str | None:
         return None
     all_names = [v for l in grouped.values() for v in l]
     cli.filtered_channels = [ch for ch in channels if ch.name in all_names]
-    return "validate_channels"
+    return "validate_channels_exist"
 
 
-def validate_channels(ctx: Context, cli: IngestionCLI) -> str | None:
+def validate_data_types(ctx: Context, cli: IngestionCLI) -> str | None:
+    """Does an optimistic check on the first sample of each channel.  This isn't error
+    prone, but checking every sample in a large file would be too slow.
+    """
+    assert cli.db_channels is not None
+    assert cli.reader is not None
+
+    cli.reader.set_chunk_size(1)
+    cli.reader.seek_first()
+
+    first = cli.reader.read()
+
+    for ch in cli.db_channels:
+        samples = first[ch.name]
+        if len(samples) == 0:
+            ctx.console.warn(f"Channel {ch.name} has no samples")
+
+        samples_type, ch_type = samples.to_numpy().dtype, ch.data_type.numpy_type
+        if samples.to_numpy().dtype != ch.data_type.numpy_type:
+            ctx.console.warn(
+                f"""Unexpected data type for channel {ch.name}.  First sample is of
+                    type {samples_type}, but channel  has  data type{ch_type}"""
+            )
+
+
+def validate_channels_exist(ctx: Context, cli: IngestionCLI) -> str | None:
     """Validates that all channels in the file exist in the database. If not, prompts
     the user to create them.
     """
     assert cli.filtered_channels is not None
     assert cli.client is not None
-    ctx.console.info("Validating channels in file...")
+
+    ctx.console.info("Validating that channels exist...")
     cli.not_found = []
     cli.db_channels = []
     for channel in cli.filtered_channels:
@@ -146,6 +174,30 @@ def validate_channels(ctx: Context, cli: IngestionCLI) -> str | None:
         if not ctx.console.confirm("Would you like to create them?"):
             return None
         return "create_channels"
+
+
+def validate_start_timestamp(ctx: Context, cli: IngestionCLI) -> str | None:
+    """Reads the starting timestamp of the file and prompts the user to confirm that it
+    is correct. This is mainly a sanity check to make sure the timestamps are properly
+    formatted."""
+    assert cli.db_channels is not None
+    assert cli.reader is not None
+    _idx = [ch for ch in cli.db_channels if ch.is_index]
+    start: TimeStamp | None = None
+    if len(_idx) == 0:
+        # If there is no index, it means all channels are rate based or we've already
+        # written the index data. In either case, we need to prompt the user to enter
+        # the start timestamp.
+        ctx.console.ask_int(
+            """Please enter the start timestamp of the file as a
+                            nanosecond UTC integer. If you'd like a converter,
+                            use https://www.epochconverter.com/""",
+            default=TimeStamp(),
+        )
+
+    cli.reader.set_chunk_size(1)
+    cli.reader.seek_first()
+    first = cli.reader.read()
 
     return "ingest"
 
