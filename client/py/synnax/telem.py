@@ -43,7 +43,6 @@ class TimeStamp(int):
     def __new__(cls, value: UnparsedTimeStamp, *args, **kwargs):
         if isinstance(value, TimeStamp):
             return value
-
         if isinstance(value, TimeSpan):
             value = int(value)
         elif isinstance(value, pd.Timestamp):
@@ -56,16 +55,14 @@ class TimeStamp(int):
         elif isinstance(value, np.datetime64):
             # Assume the datetime64 is in UTC
             value = int(pd.Timestamp(value).asm8.view(np.int64))
-        elif isinstance(value, np.int64):
-            value = int(value)
-        elif isinstance(value, np.float64):
+        elif isinstance(value, np.int64) or isinstance(value, np.float64):
             value = int(value)
         elif isinstance(value, int):
             return super().__new__(cls, int(value))
         else:
             raise TypeError(f"Cannot convert {type(value)} to TimeStamp")
 
-        return super().__new__(cls, value)
+        return super().__new__(cls, value, *args, **kwargs)
 
     def __init__(self, value: UnparsedTimeStamp, *args, **kwargs):
         pass
@@ -77,6 +74,16 @@ class TimeStamp(int):
     @classmethod
     def validate(cls, v):
         return cls(v)
+
+    @classmethod
+    def now(cls) -> TimeStamp:
+        """:returns : the current time as a TimeStamp."""
+        return TimeStamp(datetime.now())
+
+    @classmethod
+    def since(cls, ts: UnparsedTimeStamp) -> TimeSpan:
+        """: returns the amount of time elapsed since the given TimeStamp."""
+        return TimeStamp.now().span(ts)
 
     def span(self, other: UnparsedTimeStamp) -> TimeSpan:
         """Returns the TimeSpan between two timestamps. This span is guaranteed to be
@@ -183,11 +190,6 @@ class TimeStamp(int):
         if isinstance(rhs, get_args(UnparsedTimeStamp)):
             return super().__eq__(TimeStamp(rhs))
         return NotImplemented
-
-
-def now() -> TimeStamp:
-    """Returns the current time as a TimeStamp."""
-    return TimeStamp(datetime.now())
 
 
 def since(t: TimeStamp) -> TimeSpan:
@@ -546,15 +548,12 @@ class DataType(str):
         field_schema.update(type="string")
 
     @property
-    def numpy_type(self, _raise: bool = False) -> np.ScalarType | None:
+    def numpy_type(self) -> np.ScalarType | None:
         """Converts a built-in DataType to a numpy type Scalar Type
         :param _raise: If True, raises a TypeError if the DataType is not a numpy type.
         :return: The numpy type
         """
-        npt = DATA_TYPE_TO_NUMPY.get(self, None)
-        if npt is None and _raise:
-            raise TypeError(f"Cannot convert {self} to numpy type")
-        return npt
+        return DATA_TYPE_TO_NUMPY.get(self, None)
 
     def __repr__(self):
         return f"DataType({super(DataType, self).__repr__()})"

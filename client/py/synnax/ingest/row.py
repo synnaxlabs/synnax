@@ -40,6 +40,7 @@ class RowIngestionEngine:
         client: Synnax,
         reader: RowReader,
         channels: list[Channel],
+        start: TimeStamp,
         soft_mem_limit: int = 10 * MEGABYTE,
     ):
         self.channels = channels
@@ -50,13 +51,10 @@ class RowIngestionEngine:
         self.mem_limit = soft_mem_limit
         self.reader = reader
         self.client = client
-        self.reader.set_chunk_size(1)
-        df = self.reader.read()
-        self.writer = self.client.data.new_writer(
-            start=TimeStamp(df[list(self.idx_grouped.keys())[0].name][0]),
-            keys=[ch.key for ch in channels],
-        )
         self.reader.set_chunk_size(self.get_chunk_size())
+        self.writer = self.client.data.new_writer(
+            start=start, keys=[ch.key for ch in channels]
+        )
 
     def get_chunk_size(self):
         """Sum the density of all channels to determine the chunk size."""
@@ -64,6 +62,7 @@ class RowIngestionEngine:
 
     def run(self):
         """Run the ingestion engine."""
+        self.reader.seek_first()
         try:
             with Progress(
                 BarColumn(),
@@ -84,6 +83,7 @@ class RowIngestionEngine:
                         break
             self.writer.commit()
         finally:
+            self.reader.close()
             self.writer.close()
 
     def _write(self, df: DataFrame):

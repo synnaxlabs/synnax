@@ -80,7 +80,7 @@ class BaseReader(BaseFile, Protocol):
         ...
 
     def seek_first(self):
-        """Resets the reader to the beginning of the file. Preserves all settings."""
+        """Seeks the reader to the first  sampele in the file."""
         ...
 
 
