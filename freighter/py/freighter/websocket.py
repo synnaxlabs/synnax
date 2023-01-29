@@ -55,10 +55,10 @@ class WebsocketStream(Generic[RQ, RS]):
     res_msg_t: Type[_Message[RS]]
 
     def __init__(
-            self,
-            encoder: EncoderDecoder,
-            ws: WebSocketClientProtocol,
-            res_t: Type[RS],
+        self,
+        encoder: EncoderDecoder,
+        ws: WebSocketClientProtocol,
+        res_t: Type[RS],
     ):
         self.encoder = encoder
         self.internal = ws
@@ -126,7 +126,7 @@ class WebsocketStream(Generic[RQ, RS]):
         await self.internal.close()
 
 
-DEFAULT_MAX_SIZE = 2 ** 20
+DEFAULT_MAX_SIZE = 2**20
 
 
 class WebsocketClient(AsyncMiddlewareCollector):
@@ -145,11 +145,11 @@ class WebsocketClient(AsyncMiddlewareCollector):
     _secure: bool = False
 
     def __init__(
-            self,
-            encoder: EncoderDecoder,
-            base_url: URL,
-            max_message_size: int = DEFAULT_MAX_SIZE,
-            secure: bool = False,
+        self,
+        encoder: EncoderDecoder,
+        base_url: URL,
+        max_message_size: int = DEFAULT_MAX_SIZE,
+        secure: bool = False,
     ) -> None:
         super(WebsocketClient, self).__init__()
         self._encoder = encoder
@@ -158,7 +158,10 @@ class WebsocketClient(AsyncMiddlewareCollector):
         self._max_message_size = max_message_size
 
     async def stream(
-            self, target: str, req_type: Type[RQ], res_type: Type[RS],
+        self,
+        target: str,
+        req_type: Type[RQ],
+        res_type: Type[RS],
     ) -> AsyncStream[RQ, RS]:
         """Implements the AsyncStreamClient protocol."""
 
@@ -183,4 +186,3 @@ class WebsocketClient(AsyncMiddlewareCollector):
             raise exc
 
         return self._socket
-

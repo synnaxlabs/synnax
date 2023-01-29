@@ -152,6 +152,7 @@ class Unreachable(Exception):
         self.base = base
         super().__init__(f"Target {target} unreachable")
 
+
 _EXCEPTIONS = [
     Unreachable,
     StreamClosed,

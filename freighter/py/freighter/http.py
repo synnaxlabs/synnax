@@ -31,7 +31,7 @@ from .url import URL
 from .transport import MiddlewareCollector
 from .metadata import MetaData
 
-http = PoolManager(cert_reqs='CERT_NONE')
+http = PoolManager(cert_reqs="CERT_NONE")
 urllib3.disable_warnings()
 
 

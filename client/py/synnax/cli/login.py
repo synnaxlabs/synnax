@@ -35,7 +35,6 @@ def login():
     connect_from_options(ctx, options)
     cfg = ClustersConfig(ConfigFile(Path(os.path.expanduser("~/.synnax"))))
     cfg.set(ClusterConfig(options=options))
-    cfg.get()
 
 
 def credentials():

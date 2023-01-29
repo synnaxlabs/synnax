@@ -12,7 +12,7 @@ from pathlib import Path
 
 from synnax.exceptions import ValidationError
 from synnax.options import SynnaxOptions
-from synnax.config.clusters import ClustersConfig
+from synnax.config.clusters import ClustersConfig, ClusterConfig
 from synnax.config.file import ConfigFile
 
 
