@@ -12,21 +12,20 @@ import contextlib
 from asyncio import events
 from threading import Thread
 from typing import AsyncIterator, Generic, Optional, Type
-from xmlrpc.client import boolean
 from freighter.exceptions import StreamClosed
 
 from freighter.metadata import MetaData
 from freighter.util.asyncio import cancel_all_tasks
 from janus import Queue
 
-from .stream import (
+from freighter.transport import RQ, RS, P, MiddlewareCollector, AsyncNext
+from freighter.stream import (
     AsyncStreamClient,
     AsyncStreamReceiver,
     AsyncStreamSenderCloser,
     AsyncStream,
 )
-from .transport import RQ, RS, P, MiddlewareCollector, AsyncNext
-from .util.threading import Notification
+from freighter.util.threading import Notification
 
 class _Receiver(Generic[RS]):
     _internal: AsyncStreamReceiver[RS]
@@ -67,7 +66,7 @@ async def process(queue: Queue, _: Type[P]) -> AsyncIterator[tuple[P | None, boo
 
 class _SenderCloser(Generic[RQ]):
     _internal: AsyncStreamSenderCloser[RQ]
-    _requests: Queue[tuple[RQ | None, boolean]]
+    _requests: Queue[tuple[RQ | None, bool]]
     _exc: Notification[Exception]
     _req_t: Type[RQ]
 
@@ -219,7 +218,6 @@ class SyncStream(Thread, Generic[RQ, RS]):
         exc = self._open_exception.read(block=True)
         if exc is not None:
             raise exc
-        self._open_exception = None
 
 
 class SyncStreamClient(MiddlewareCollector):
