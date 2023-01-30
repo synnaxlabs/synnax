@@ -59,6 +59,7 @@ class MsgpackEncoder:
 
     @staticmethod
     def decode(data: bytes, pld_t: Type[P]) -> P:
+        print(msgpack.unpackb(data))
         return pld_t.parse_obj(msgpack.unpackb(data))
 
 

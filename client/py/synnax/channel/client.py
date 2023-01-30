@@ -47,7 +47,6 @@ class Channel(ChannelPayload):
         density: UnparsedDensity = 0,
         frame_client: FramerClient | None = None,
     ):
-        self.__frame_client = frame_client
         super().__init__(
             data_type=DataType(data_type),
             rate=Rate(rate),
@@ -58,6 +57,7 @@ class Channel(ChannelPayload):
             is_index=is_index,
             index=index,
         )
+        self.__frame_client = frame_client
 
     def _payload(self) -> ChannelPayload:
         return ChannelPayload(
@@ -92,9 +92,9 @@ class Channel(ChannelPayload):
 
     @property
     def _frame_client(self) -> FramerClient:
-        if not self.__frame_client:
+        if self.__frame_client is None:
             raise ValidationError(
-                "cannot read from a channel that has not been created"
+                "Cannot read from a channel that has not been created."
             )
         return self.__frame_client
 
@@ -114,17 +114,17 @@ class Channel(ChannelPayload):
 class ChannelClient:
     """The core client class for executing channel operations against a Synnax cluster."""
 
-    _segment_client: FramerClient
+    _frame_client: FramerClient
     _retriever: ChannelRetriever
     _creator: ChannelCreator
 
     def __init__(
         self,
-        segment_client: FramerClient,
+        frame_client: FramerClient,
         retriever: ChannelRetriever,
         creator: ChannelCreator,
     ):
-        self._segment_client = segment_client
+        self._frame_client = frame_client
         self._retriever = retriever
         self._creator = creator
 
@@ -186,5 +186,5 @@ class ChannelClient:
 
     def _sugar(self, *channels: ChannelPayload) -> list[Channel]:
         return [
-            Channel(**c.dict(), frame_client=self._segment_client) for c in channels
+            Channel(**c.dict(), frame_client=self._frame_client) for c in channels
         ]

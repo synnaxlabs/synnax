@@ -36,6 +36,7 @@ class Notification(Generic[T]):
         return self._event.is_set()
 
     def read(self, block: bool = False) -> T | None:
+        print(self.received())
         if block:
             self._event.wait()
         return self.value
