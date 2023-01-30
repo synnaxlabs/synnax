@@ -32,10 +32,17 @@ def login():
     """
     ctx = Context(console=RichConsole())
     options = prompt_client_options(ctx)
-    connect_from_options(ctx, options)
+    synnax = connect_from_options(ctx, options)
+    if synnax is None:
+        return
     cfg = ClustersConfig(ConfigFile(Path(os.path.expanduser("~/.synnax"))))
     cfg.set(ClusterConfig(options=options))
+    ctx.console.info(SUCCESSFUL_LOGIN)
 
+SUCCESSFUL_LOGIN = """Saved credentials. You can now use the Synnax CLI
+without having to log in. To connect the cluster in a Python shell, use the following:
 
-def credentials():
-    """Prints the credentials of the currently logged in cluster."""
+from synnax import Synnax
+client = Synnax()
+"""
+

@@ -36,6 +36,7 @@ class Prompt(Protocol):
         self,
         question: str,
         default: int | None = None,
+        required: bool = False,
     ) -> int | None:
         """Asks the user a question and returns their response as an integer.
 
@@ -48,6 +49,7 @@ class Prompt(Protocol):
         self,
         question: str,
         default: float | None = None,
+        required: bool = False,
     ) -> float | None:
         """Asks the user a question and returns their response as a float.
 
@@ -61,6 +63,7 @@ class Prompt(Protocol):
     def ask_password(
         self,
         question: str,
+        required: bool = False,
     ) -> str:
         """Prompts the user for a password and returns their response."""
         ...
