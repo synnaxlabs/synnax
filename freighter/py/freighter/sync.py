@@ -6,13 +6,6 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
-#
-#  Use of this software is governed by the Business Source License included in the file
-#  licenses/BSL.txt.
-#
-#  As of the Change Date specified in that file, in accordance with the Business Source
-#  License, use of this software will be governed by the Apache License, Version 2.0,
-#  included in the file licenses/APL.txt.
 
 import asyncio
 import contextlib
@@ -20,6 +13,7 @@ from asyncio import events
 from threading import Thread
 from typing import AsyncIterator, Generic, Optional, Type
 from xmlrpc.client import boolean
+from freighter.exceptions import StreamClosed
 
 from freighter.metadata import MetaData
 from freighter.util.asyncio import cancel_all_tasks
@@ -33,16 +27,6 @@ from .stream import (
 )
 from .transport import RQ, RS, P, MiddlewareCollector, AsyncNext
 from .util.threading import Notification
-
-
-@contextlib.asynccontextmanager
-async def process(queue: Queue) -> AsyncIterator[P]:
-    pld = await queue.async_q.get()
-    try:
-        yield pld
-    finally:
-        queue.async_q.task_done()
-
 
 class _Receiver(Generic[RS]):
     _internal: AsyncStreamReceiver[RS]
@@ -60,89 +44,76 @@ class _Receiver(Generic[RS]):
     def receive(self) -> tuple[RS | None, Exception | None]:
         if self._exc is not None:
             return None, self._exc
-
         res, self._exc = self._responses.sync_q.get()
         return res, self._exc
 
     async def run(self):
-        try:
-            while True:
+        while True:
+            try:
                 pld, exc = await self._internal.receive()
-                await self._responses.async_q.put((pld, exc))
-                if exc is not None:
-                    return
-        except Exception as e:
-            await self._responses.async_q.put((None, e))
-            raise e
-
+            except Exception as e:
+                pld, exc = None, e
+            await self._responses.async_q.put((pld, exc))
+            if exc is not None:
+                return
+            
+@contextlib.asynccontextmanager
+async def process(queue: Queue, _: Type[P]) -> AsyncIterator[tuple[P | None, bool]]:
+    pld = await queue.async_q.get()
+    try:
+        yield pld
+    finally:
+        queue.async_q.task_done()
 
 class _SenderCloser(Generic[RQ]):
     _internal: AsyncStreamSenderCloser[RQ]
-    _requests: Queue[Optional[RQ]]
-    _exit: Notification[bool]
-    _exception: Notification[tuple[Exception, bool]]
+    _requests: Queue[tuple[RQ | None, boolean]]
+    _exc: Notification[Exception]
+    _req_t: Type[RQ]
 
-    def __init__(self, internal: AsyncStreamSenderCloser[RQ]):
+    def __init__(self, internal: AsyncStreamSenderCloser[RQ], req_t: Type[RQ]):
         self._internal = internal
         self._requests = Queue()
-        self._exception = Notification()
+        self._exc = Notification()
         self._exit = Notification()
+        self._req_t = req_t
 
     def send(self, pld: RQ) -> Exception | None:
-        if self._exception.received():
-            return self._handle_exception()
+        if self._exc.received():
+            exc = self._exc.read()
+            if isinstance(exc, StreamClosed):
+                raise exc
+            return exc
 
-        self._requests.sync_q.put(pld)
-        self._requests.sync_q.join()
-        return None
-
-    def cancel(self):
-        if self._exception.received():
-            return self._handle_exception()
-
-        self._requests.sync_q.put(None)
-        self._exit.notify(False)
-        exc, fatal = self._exception.read(block=True)
-        assert not fatal and exc is None
+        self._requests.sync_q.put((pld, False))
+        return self._requests.sync_q.join()
 
     def close_send(self) -> Exception | None:
-        if self._exception.received():
-            return self._handle_exception()
-        self._requests.sync_q.put(None)
-        self._exit.notify(True)
-        return self._handle_exception(block=True)
+        block = False
+        if not self._exc.received():
+            block = True
+            self._requests.sync_q.put((None, True))
+        return self._gate_stream_closed(self._exc.read(block))
 
-    def _handle_exception(self, block: boolean = False) -> Exception | None:
-        exc, fatal = self._exception.read(block=block)
-        if fatal:
-            raise exc
-        return exc
+    def _gate_stream_closed(self, exc: Exception | None) -> None | Exception:
+        return exc if not isinstance(exc, StreamClosed) else None
 
-    async def run(self):
-        try:
-            while True:
-                async with process(self._requests) as pld:
-                    if await self._maybe_exit(pld):
-                        return
+    async def run(self) -> None:
+        while True:
+            async with process(self._requests, self._req_t) as req:
+                pld, exit = req
+                if exit:
+                    exc = await self._internal.close_send()
+                    if exc is None:
+                        exc = StreamClosed()
+                    return self._exc.notify(exc)
+                try:
+                    assert pld is not None
                     exc = await self._internal.send(pld)
-                    if exc is not None:
-                        self._exception.notify((exc, False))
-                        return
-
-        except Exception as e:
-            self._exception.notify((e, True))
-            raise e
-
-    async def _maybe_exit(self, pld: RQ | None) -> bool:
-        if not self._exit.received() or pld is not None:
-            return False
-        exc: Exception | None = None
-        graceful = self._exit.read()
-        if graceful:
-            exc = await self._internal.close_send()
-        self._exception.notify((exc, False))
-        return True
-
+                except Exception as e:
+                    exc = e
+                if exc is not None:
+                    return self._exc.notify(exc)
 
 class SyncStream(Thread, Generic[RQ, RS]):
     """An implementation of the Stream protocol that wraps an AsyncStreamClient
@@ -151,7 +122,7 @@ class SyncStream(Thread, Generic[RQ, RS]):
 
     _client: AsyncStreamClient
     _target: str
-    _open_exception: Optional[Notification[Optional[Exception]]]
+    _open_exception: Notification[Optional[Exception]]
     _receiver: _Receiver[RS]
     _sender: _SenderCloser[RQ]
     _response_factory: Type[RS]
@@ -214,8 +185,8 @@ class SyncStream(Thread, Generic[RQ, RS]):
         """Implement the Stream protocol."""
         res, exc = self._receiver.receive()
         if exc is not None:
-            self._sender.cancel()
-        return res, exc
+            self._sender.close_send()
+        return res, exc 
 
     def send(self, pld: RQ) -> Exception | None:
         """Implement the Stream protocol."""
@@ -238,8 +209,9 @@ class SyncStream(Thread, Generic[RQ, RS]):
             return out_md, e
 
     async def _run(self):
+        assert self._internal is not None
         self._receiver = _Receiver(self._internal)
-        self._sender = _SenderCloser(self._internal)
+        self._sender = _SenderCloser(self._internal, self._request_type)
         self._open_exception.notify(None)
         await asyncio.gather(self._receiver.run(), self._sender.run())
 

@@ -51,12 +51,15 @@ class ValidationError(Exception):
             self.fields = [fieldsOrMessage]
             super(ValidationError, self).__init__(fieldsOrMessage.message)
         elif isinstance(fieldsOrMessage, str):
+            self.fields = list()
             super(ValidationError, self).__init__(fieldsOrMessage)
         else:
             self.fields = [Field(f["field"], f["message"]) for f in fieldsOrMessage]
             super(ValidationError, self).__init__(self.__str__())
 
     def __str__(self):
+        if len(self.fields) == 0:
+            return super().__str__()
         return "\n".join([f"{f.field}: {f.message}" for f in self.fields])
 
 
