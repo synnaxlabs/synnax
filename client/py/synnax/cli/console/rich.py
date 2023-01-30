@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from typing import Any
+
 from rich import print
 from rich.prompt import Confirm, FloatPrompt, IntPrompt, Prompt
 
@@ -55,41 +57,57 @@ class RichConsole:
         question: str,
         choices: list[str] | None = None,
         default: str | None = None,
+        required: bool = False,
     ) -> str | None:
-        return Prompt.ask(
+        res = Prompt.ask(
             question,
             choices=choices,
             default=default,
         )
+        if self._check_required(required, res):
+            return self.ask(question, choices, default, required)
+        return res
 
     def ask_int(
         self,
         question: str,
         default: int | None = None,
+        required: bool = False,
     ) -> int | None:
-        return IntPrompt.ask(
+        res = IntPrompt.ask(
             question,
             default=default,
         )
+        if self._check_required(required, res):
+            return self.ask_int(question, default, required)
+        return res
 
     def ask_float(
         self,
         question: str,
         default: float | None = None,
+        required: bool = False,
     ) -> float | None:
-        return FloatPrompt.ask(
+        res = FloatPrompt.ask(
             question,
             default=default,
         )
+        if self._check_required(required, res):
+            return self.ask_float(question, default, required)
+        return res
 
     def ask_password(
         self,
         question: str,
+        required: bool = False,
     ) -> str:
-        return Prompt.ask(
+        res = Prompt.ask(
             question,
             password=True,
         )
+        if self._check_required(required, res):
+            return self.ask_password(question, required)
+        return res
 
     def confirm(
         self,
@@ -116,3 +134,12 @@ class RichConsole:
             table.add_row(*[row[column] for column in columns])
 
         print(table)
+
+    def _warn_required(self) -> None:
+        self.warn("This is a required field.")
+    
+    def _check_required(self, required: bool, res: Any | None) -> bool:
+        if (res is None or res == "") and required:
+            self._warn_required()
+            return True
+        return False
