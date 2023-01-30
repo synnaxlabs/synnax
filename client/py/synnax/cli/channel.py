@@ -68,7 +68,7 @@ def select_channel(
         ctx,
         columns=["name", "key", "data_type", "index", "rate", "node_id"],
         rows=[{k: f"{v}" for k, v in c.dict().items()} for c in channels],
-        allow_none=allow_none,
+        required=allow_none,
         default=_default,
     )
     return channels[i] if i is not None else None
@@ -129,7 +129,7 @@ def group_channel_names(
         else:
             found = False
             for channel in options:
-                if fnmatch.fnmatch(entry, channel):
+                if fnmatch.fnmatch(channel, entry) or channel == entry:
                     channels.append(channel)
                     found = True
             if not found:

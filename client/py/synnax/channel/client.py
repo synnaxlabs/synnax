@@ -6,38 +6,31 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
-#
-#  Use of this software is governed by the Business Source License included in the file
-#  licenses/BSL.txt.
-#
-#  As of the Change Date specified in that file, in accordance with the Business Source
-#  License, use of this software will be governed by the Apache License, Version 2.0,
-#  included in the file licenses/APL.txt.
 
 from numpy import ndarray
-from rich.pretty import Pretty
+from pydantic import PrivateAttr
 
 from synnax.exceptions import ValidationError
 from synnax.framer import FramerClient
 from synnax.telem import (
-    DATA_TYPE_UNKNOWN,
     Rate,
     Density,
     UnparsedDataType,
     UnparsedDensity,
     UnparsedRate,
     UnparsedTimeStamp,
+    DataType,
 )
 
-from .create import ChannelCreator
-from .payload import ChannelPayload
-from .retrieve import ChannelRetriever
+from synnax.channel.create import ChannelCreator
+from synnax.channel.payload import ChannelPayload
+from synnax.channel.retrieve import ChannelRetriever
 
 
 class Channel(ChannelPayload):
     """Represents a Channel in a Synnax database."""
 
-    segment_client: FramerClient | None = None
+    __frame_client: FramerClient | None = PrivateAttr(None)
 
     class Config:
         arbitrary_types_allowed = True
@@ -52,10 +45,11 @@ class Channel(ChannelPayload):
         is_index: bool = False,
         index: str = "",
         density: UnparsedDensity = 0,
-        segment_client: FramerClient | None = None,
+        frame_client: FramerClient | None = None,
     ):
+        self.__frame_client = frame_client
         super().__init__(
-            data_type=data_type,
+            data_type=DataType(data_type),
             rate=Rate(rate),
             name=name,
             node_id=node_id,
@@ -64,7 +58,6 @@ class Channel(ChannelPayload):
             is_index=is_index,
             index=index,
         )
-        self.segment_client = segment_client
 
     def _payload(self) -> ChannelPayload:
         return ChannelPayload(
@@ -86,7 +79,7 @@ class Channel(ChannelPayload):
         :returns: A numpy array containing the retrieved telemetry from the database.
         :raises ContiguityError: If the telemetry between start and end is non-contiguous.
         """
-        return self.segment_client.read(self.key, start, end).data
+        return self._frame_client.read(self.key, start, end).data
 
     def write(self, start: UnparsedTimeStamp, data: ndarray):
         """Writes telemetry to the channel starting at the given timestamp.
@@ -95,13 +88,15 @@ class Channel(ChannelPayload):
         :param data: The telemetry to write to the channel.
         :returns: None.
         """
-        self.segment_client.write(self.key, start, data)
+        self._frame_client.write(self.key, start, data)
 
-    def _assert_created(self):
-        if not self.segment_client:
+    @property
+    def _frame_client(self) -> FramerClient:
+        if not self.__frame_client:
             raise ValidationError(
                 "cannot read from a channel that has not been created"
             )
+        return self.__frame_client
 
     def __hash__(self):
         return hash(self.key)
@@ -139,10 +134,10 @@ class ChannelClient:
 
     def create(
         self,
+        data_type: UnparsedDataType,
         name: str = "",
         node_id: int = 0,
         rate: UnparsedRate = Rate(0),
-        data_type: UnparsedDataType = DATA_TYPE_UNKNOWN,
         index: str = "",
         is_index: bool = False,
     ) -> Channel:
@@ -167,7 +162,7 @@ class ChannelClient:
             )
         )[0]
 
-    def retrieve(self, key: str = None, name: str = None) -> Channel:
+    def retrieve(self, key: str | None = None, name: str | None = None) -> Channel:
         """Retrieves channels with the given keys.
 
         :param keys: The list of keys to retrieve channels for.
@@ -178,9 +173,9 @@ class ChannelClient:
 
     def filter(
         self,
-        keys: list[str] = None,
-        names: list[str] = None,
-        node_id: int = None,
+        keys: list[str] | None = None,
+        names: list[str] | None = None,
+        node_id: int | None = None,
     ) -> list[Channel]:
         """Filters channels using the given parameters.
 
@@ -191,5 +186,5 @@ class ChannelClient:
 
     def _sugar(self, *channels: ChannelPayload) -> list[Channel]:
         return [
-            Channel(**c.dict(), segment_client=self._segment_client) for c in channels
+            Channel(**c.dict(), frame_client=self._segment_client) for c in channels
         ]

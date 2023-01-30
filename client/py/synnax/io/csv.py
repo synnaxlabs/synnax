@@ -12,10 +12,13 @@ from pathlib import Path
 import pandas as pd
 from pandas.io.parsers import TextFileReader
 
+from synnax.telem import Size
 from synnax.io.matcher import new_extension_matcher
-from synnax.io.protocol import ChannelMeta, ReaderType, RowReader
+from synnax.io.protocol import ChannelMeta, ReaderType, RowReader, Writer
 
-CSVMatcher = new_extension_matcher(["csv"])
+
+class CSVMatcher(new_extension_matcher(["csv"])):  # type: ignore
+    ...
 
 
 class CSVReader(CSVMatcher):
@@ -23,22 +26,29 @@ class CSVReader(CSVMatcher):
 
     channel_keys: list[str] | None
     chunk_size: int
-    _reader: TextFileReader
+    _reader: TextFileReader | None
     _path: Path
     _channels: list[ChannelMeta] | None
     _row_count: int | None
 
+    # Doing a protocol implementation check here because
+    # it's hard for pyright to handle factories that retun
+    # protocol classes.
+    def _(self) -> RowReader:
+        return self
+
     def __init__(
         self,
         path: Path,
-        channel_keys: list[str] | None = None,
-        chunk_size: int = int(1e6),
+        keys: list[str] | None = None,
+        chunk_size: int | None = None,
     ):
         self._path = path
-        self.channel_keys = channel_keys
+        self.channel_keys = keys
         self._channels = None
         self._row_count = None
-        self.chunk_size = chunk_size
+        self._reader = None
+        self.chunk_size = chunk_size or 10 * Size.MEGABYTE
 
     def seek_first(self):
         self.close()
@@ -78,11 +88,13 @@ class CSVReader(CSVMatcher):
     def reader(self) -> TextFileReader:
         if self._reader is None:
             self.seek_first()
+        assert self._reader is not None
         return self._reader
 
     def close(self):
-        if self._reader:
+        if self._reader is not None:
             self._reader.close()
+        self._reader = None
 
 
 def estimate_row_count(path: Path) -> int:
@@ -109,9 +121,18 @@ class CSVWriter(CSVMatcher):
         self._path = path
         self._header = True
 
+    # Doing a protocol implementation check here because
+    # it's hard for pyright to handle factories that retun
+    # protocol classes.
+    def _(self) -> Writer:
+        return self
+
     def write(self, df: pd.DataFrame):
         df.to_csv(self._path, index=False, mode="a", header=self._header)
         self._header = False
 
     def path(self) -> Path:
         return self._path
+
+    def close(self):
+        pass

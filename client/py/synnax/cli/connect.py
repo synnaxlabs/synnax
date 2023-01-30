@@ -23,11 +23,11 @@ def prompt_client_options(ctx: Context) -> SynnaxOptions:
     :return: The options to connect to a Synnax server.
     """
     ctx.console.info("Enter your Synnax connection parameters:")
-    host=ctx.console.ask("Host", default="localhost")
-    port=ctx.console.ask_int("Port", default=9090)
-    username=ctx.console.ask("Username")
-    password=ctx.console.ask_password("Password", required=username is not None)
-    secure=ctx.console.confirm("Secure connection?", default=False)
+    host = ctx.console.ask("Host", default="localhost")
+    port = ctx.console.ask_int("Port", default=9090)
+    username = ctx.console.ask("Username")
+    password = ctx.console.ask_password("Password", required=username is not None)
+    secure = ctx.console.confirm("Secure connection?", default=False)
     assert host is not None
     assert port is not None
     assert username is not None
@@ -38,6 +38,7 @@ def prompt_client_options(ctx: Context) -> SynnaxOptions:
         password=password,
         secure=secure,
     )
+
 
 def connect_client(ctx: Context) -> Synnax | None:
     """Connects to a Synnax server. Prompts the user for the connection parameters if

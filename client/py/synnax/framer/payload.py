@@ -17,11 +17,11 @@ from synnax.telem import BinaryArray, NumpyArray, TimeRange
 
 
 class FrameHeader(Payload):
-    keys: list[str] | None
+    keys: list[str]
 
 
 class BinaryFrame(FrameHeader):
-    arrays: list[BinaryArray] | None
+    arrays: list[BinaryArray]
 
     def compact(self):
         # compact together arrays that have the same key
@@ -58,7 +58,7 @@ class BinaryFrame(FrameHeader):
 
 
 class NumpyFrame(FrameHeader):
-    arrays: list[NumpyArray] | None
+    arrays: list[NumpyArray]
 
     class Config:
         arbitrary_types_allowed = True

@@ -18,10 +18,10 @@ from rich.progress import (
     TimeElapsedColumn,
 )
 
-from .. import Channel, Synnax
-from ..framer import DataFrameWriter
-from ..io import RowReader
-from ..telem import MEGABYTE, TimeStamp
+from synnax import Channel, Synnax
+from synnax.framer import DataFrameWriter
+from synnax.io import RowReader
+from synnax.telem import Size, TimeStamp
 
 
 class RowIngestionEngine:
@@ -41,7 +41,7 @@ class RowIngestionEngine:
         reader: RowReader,
         channels: list[Channel],
         start: TimeStamp,
-        soft_mem_limit: int = 10 * MEGABYTE,
+        soft_mem_limit: int = 10 * Size.MEGABYTE,
     ):
         self.channels = channels
         self.idx_grouped = {ch: list() for ch in channels if ch.is_index}
@@ -90,5 +90,5 @@ class RowIngestionEngine:
         for channel in self.channels:
             if channel.name in df.columns:
                 df.rename(columns={channel.name: channel.key}, inplace=True)
-                df[channel.key] = df[channel.key].astype(channel.data_type.numpy_type)
+                df[channel.key] = df[channel.key].astype(channel.data_type.np)
         self.writer.write(df)
