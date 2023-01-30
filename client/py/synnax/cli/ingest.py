@@ -9,6 +9,7 @@
 from pathlib import Path
 
 import click
+import numpy as np
 
 from synnax import Synnax
 from synnax.cli.connect import connect_client
@@ -17,9 +18,10 @@ from synnax.cli.channel import (
     channel_name_table,
     maybe_select_channel,
 )
+from synnax.cli.select import select_simple
 from synnax.ingest.row import RowIngestionEngine
 from synnax.io import ChannelMeta, IOFactory, ReaderType, RowReader
-from synnax.telem import TIMESTAMP, Rate, TimeStamp
+from synnax.telem import DataType, Rate, TimeStamp
 from synnax.channel import Channel
 from synnax.cli.console.rich import RichConsole
 from synnax.cli.flow import Context, Flow
@@ -129,27 +131,44 @@ def validate_data_types(ctx: Context, cli: IngestionCLI) -> str | None:
     prone, but checking every sample in a large file would be too slow.
     """
     assert cli.db_channels is not None
+    d_types = read_data_types(ctx, cli)
+
+    for ch in cli.db_channels:
+        samples_type = d_types[ch.name].np
+        ch_type = ch.data_type.np
+        if not np.can_cast(samples_type, ch_type):
+            ctx.console.error(
+                f"""Unable to cast file data type {samples_type} 
+                for channel {ch.name} to data type {ch_type}"""
+            )
+            return
+        elif samples_type != ch_type:
+            ctx.console.warn(
+                f"""Channel {ch.name} has data type {ch_type} but the file data type is
+                {samples_type}. Synnax can cast between them safely, but you have been
+                warned."""
+            )
+
+    return "validate_start_time"
+
+
+def read_data_types(ctx: Context, cli: IngestionCLI) -> dict[str, DataType]:
     assert cli.reader is not None
+    assert cli.filtered_channels is not None
 
     cli.reader.set_chunk_size(1)
     cli.reader.seek_first()
 
     first = cli.reader.read()
 
-    for ch in cli.db_channels:
+    data_types = {}
+    for ch in cli.filtered_channels:
         samples = first[ch.name]
         if len(samples) == 0:
             ctx.console.warn(f"Channel {ch.name} has no samples")
-
-        samples_type, ch_type = samples.to_numpy().dtype, ch.data_type.numpy_type
-        if samples.to_numpy().dtype != ch.data_type.numpy_type:
-            ctx.console.error(
-                f"""Unexpected data type for channel {ch.name}.  First sample is of
-                    type {samples_type}, but channel  has  data type{ch_type}"""
-            )
-            return None
-
-    return "validate_start_time"
+            continue
+        data_types[ch.name] = DataType(samples.to_numpy().dtype)
+    return data_types
 
 
 def validate_channels_exist(ctx: Context, cli: IngestionCLI) -> str | None:
@@ -229,7 +248,9 @@ def create_indexes(
         return options
     names = [name for v in grouped.values() for name in v]
     for name in names:
-        ch = cli.client.channel.create(name=name, is_index=True, data_type=TIMESTAMP)
+        ch = cli.client.channel.create(
+            name=name, is_index=True, data_type=DataType.TIMESTAMP
+        )
         cli.db_channels.append(ch)
     return [ch for ch in options if ch.name not in names]
 
@@ -237,27 +258,43 @@ def create_indexes(
 def assign_dt(
     ctx: Context,
     cli: IngestionCLI,
-) -> dict[str, list[ChannelMeta]] | None:
+) -> dict[DataType, list[ChannelMeta]] | None:
     assert cli.not_found is not None
 
     grouped = {GROUP_ALL: cli.db_channels}
-    if not ctx.console.confirm("Do all channels have the same data type?"):
-        if not ctx.console.confirm("Can you group channels by data type?"):
-            grouped = {v.name: [v] for v in cli.not_found}
-        grouped = prompt_group_channel_names(ctx, [ch.name for ch in cli.not_found])
-        if grouped is None or len(grouped) == 0:
+    assigned = {}
+    opt = select_simple(
+        ctx,
+        [
+            "Guess data types from file",
+            "Assign the same data type to all channels (excluding indexes)",
+            "Group channels by data type",
+        ],
+        default=0,
+        required=True,
+    )
+    if opt == 0:
+        data_types = read_data_types(ctx, cli)
+        assigned = {}
+        for ch in cli.not_found:
+            dt = data_types[ch.name]
+            if dt not in assigned:
+                assigned[dt] = [ch]
+            else:
+                assigned[dt].append(ch)
+        return assigned
+    elif opt == 2:
+        groups = prompt_group_channel_names(ctx, [ch.name for ch in cli.not_found])
+        if groups is None or len(groups) == 0:
             return None
         grouped = {
-            k: [ch for ch in cli.not_found if ch.name in v] for k, v in grouped.items()
+            k: [ch for ch in cli.not_found if ch.name in v] for k, v in groups.items()
         }
-
-    assigned = {}
     for key, group in grouped.items():
         if key != GROUP_ALL:
             ctx.console.info(f"Assigning data type to {key}")
         dt = prompt_data_type_select(ctx)
         assigned[dt] = group
-
     return assigned
 
 

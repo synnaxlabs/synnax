@@ -15,8 +15,8 @@ def select_from_table(
     ctx: Context,
     columns: list[str],
     rows: list[dict[str, Any]],
-    allow_none: bool = False,
     default: int | None = None,
+    required: bool = True,
 ) -> int | None:
     """Prompts the user to select a row from a table.
 
@@ -32,8 +32,30 @@ def select_from_table(
         columns=["option", *columns],
         rows=[{"option": str(i), **row} for i, row in enumerate(rows)],
     )
-    choices = [str(i) for i in range(len(rows))]
-    if allow_none and default is None:
+    if required and default is None:
         ctx.console.info("Press enter to select nothing.")
-    i = ctx.console.prompt("Select an option #", choices=choices, default=str(default))
-    return None if i == "None" else int(i)
+    i = ctx.console.ask_int("Select an option #", bound=(0, len(rows)), default=default)
+    return None if i == "None" else i
+
+
+def select_simple(
+    ctx: Context,
+    choices: list[str],
+    default: int | None = None,
+    required: bool = True,
+) -> int | None:
+    """Prompts the user to select a choice from the given choices.
+
+    :param ctx: The current flow Context.
+    :param choices: The choices to select from.
+    :param default: The default option to select. If a default is provided,
+    allow_none is ignored.
+    :returns: The index of the selected choice or None if nothing was selected.
+    """
+    return select_from_table(
+        ctx,
+        ["choice"],
+        [{"choice": choice} for choice in choices],
+        default,
+        required,
+    )

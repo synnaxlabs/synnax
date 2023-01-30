@@ -71,15 +71,17 @@ class RichConsole:
     def ask_int(
         self,
         question: str,
+        bound: tuple[int, int] | None = None,
         default: int | None = None,
         required: bool = False,
     ) -> int | None:
         res = IntPrompt.ask(
             question,
             default=default,
+            choices=[str(i) for i in range(*bound)] if range else None,
         )
         if self._check_required(required, res):
-            return self.ask_int(question, default, required)
+            return self.ask_int(question, bound, default, required)
         return res
 
     def ask_float(
@@ -137,7 +139,7 @@ class RichConsole:
 
     def _warn_required(self) -> None:
         self.warn("This is a required field.")
-    
+
     def _check_required(self, required: bool, res: Any | None) -> bool:
         if (res is None or res == "") and required:
             self._warn_required()

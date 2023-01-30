@@ -6,13 +6,6 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
-#
-#  Use of this software is governed by the Business Source License included in the file
-#  licenses/BSL.txt.
-#
-#  As of the Change Date specified in that file, in accordance with the Business Source
-#  License, use of this software will be governed by the Apache License, Version 2.0,
-#  included in the file licenses/APL.txt.
 
 import click
 import numpy as np
@@ -28,7 +21,9 @@ from .telem import prompt_time_units_select
 def tsconvert():
     ctx = Context(console=RichConsole())
     reader = prompt_new_reader(ctx)
-    c = ctx.console.prompt("Which channel would you like to convert?")
+    if reader is None:
+        return
+    c = ctx.console.ask("Which channel would you like to convert?")
     channels = reader.channels()
     ch = next((ch for ch in channels if ch.name == c), None)
     if ch is None:
@@ -37,9 +32,14 @@ def tsconvert():
 
     ctx.console.info("What is the current precision?")
     curr = prompt_time_units_select(ctx)
+    assert curr is not None
     ctx.console.info("What is the desired precision?")
     desired = prompt_time_units_select(ctx)
-    path = ctx.console.prompt("Where would you like to save the converted data?")
+    assert desired is not None
+    path = ctx.console.ask(
+        "Where would you like to save the converted data?", required=True
+    )
+    assert path is not None
     writer = io_factory.new_writer(reader.path().parent / path)
     reader.set_chunk_size(25000)
     while True:

@@ -9,8 +9,8 @@
 
 from pathlib import Path
 
-from .csv import CSVReader, CSVWriter
-from .protocol import Matcher, RowReader, Writer
+from synnax.io.csv import CSVReader, CSVWriter
+from synnax.io.protocol import RowReader, Writer
 
 READERS: list[type[RowReader]] = [
     CSVReader,

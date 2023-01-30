@@ -18,6 +18,7 @@ class Prompt(Protocol):
         question: str,
         choices: list[str] | None = None,
         default: str | None = None,
+        required: bool = False,
     ) -> str | None:
         """Asks the user a question and returns their response.
 
@@ -35,6 +36,7 @@ class Prompt(Protocol):
     def ask_int(
         self,
         question: str,
+        bound: tuple[int, int] | None = None,
         default: int | None = None,
         required: bool = False,
     ) -> int | None:
