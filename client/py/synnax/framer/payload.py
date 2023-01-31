@@ -18,15 +18,16 @@ from synnax.telem import BinaryArray, NumpyArray, TimeRange
 
 
 class FrameHeader(Payload):
-    keys: list[str] 
-     
+    keys: list[str]
+
     def __init__(self, keys: list[str] | None = None, **kwargs):
         # This is a workaround to allow for a None value to be
         # passed to the keys field, but still have required
-        # type hinting. 
+        # type hinting.
         if keys is None:
             keys = list()
         super().__init__(keys=keys, **kwargs)
+
 
 class BinaryFrame(FrameHeader):
     arrays: list[BinaryArray] = Field(default_factory=list)
@@ -34,7 +35,7 @@ class BinaryFrame(FrameHeader):
     def __init__(self, arrays: list[BinaryArray] | None = None, **kwargs):
         # This is a workaround to allow for a None value to be
         # passed to the arrays field, but still have required
-        # type hinting. 
+        # type hinting.
         if arrays is None:
             arrays = list()
         super().__init__(arrays=arrays, **kwargs)
