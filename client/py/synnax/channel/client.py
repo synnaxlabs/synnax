@@ -185,6 +185,4 @@ class ChannelClient:
         return self._sugar(*self._retriever.filter(keys, names, node_id))
 
     def _sugar(self, *channels: ChannelPayload) -> list[Channel]:
-        return [
-            Channel(**c.dict(), frame_client=self._frame_client) for c in channels
-        ]
+        return [Channel(**c.dict(), frame_client=self._frame_client) for c in channels]

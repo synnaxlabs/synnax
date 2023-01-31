@@ -27,6 +27,7 @@ from freighter.stream import (
 )
 from freighter.util.threading import Notification
 
+
 class _Receiver(Generic[RS]):
     _internal: AsyncStreamReceiver[RS]
     _responses: Queue[tuple[RS | None, Exception | None]]
@@ -55,7 +56,8 @@ class _Receiver(Generic[RS]):
             await self._responses.async_q.put((pld, exc))
             if exc is not None:
                 return
-            
+
+
 @contextlib.asynccontextmanager
 async def process(queue: Queue, _: Type[P]) -> AsyncIterator[tuple[P | None, bool]]:
     pld = await queue.async_q.get()
@@ -63,6 +65,7 @@ async def process(queue: Queue, _: Type[P]) -> AsyncIterator[tuple[P | None, boo
         yield pld
     finally:
         queue.async_q.task_done()
+
 
 class _SenderCloser(Generic[RQ]):
     _internal: AsyncStreamSenderCloser[RQ]
@@ -113,6 +116,7 @@ class _SenderCloser(Generic[RQ]):
                     exc = e
                 if exc is not None:
                     return self._exc.notify(exc)
+
 
 class SyncStream(Thread, Generic[RQ, RS]):
     """An implementation of the Stream protocol that wraps an AsyncStreamClient
@@ -185,7 +189,7 @@ class SyncStream(Thread, Generic[RQ, RS]):
         res, exc = self._receiver.receive()
         if exc is not None:
             self._sender.close_send()
-        return res, exc 
+        return res, exc
 
     def send(self, pld: RQ) -> Exception | None:
         """Implement the Stream protocol."""

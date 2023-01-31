@@ -78,7 +78,7 @@ class RichConsole:
         res = IntPrompt.ask(
             question,
             default=default,
-            choices=[str(i) for i in range(*bound)] if range else None,
+            choices=[str(i) for i in range(*bound)] if bound else None,
         )
         if self._check_required(required, res):
             return self.ask_int(question, bound, default, required)
