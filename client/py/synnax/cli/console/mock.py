@@ -14,6 +14,7 @@ from synnax.cli.console.protocol import Print, Prompt
 
 Response = str | int | float | bool | None
 
+
 class Entry(BaseModel):
     message: str | None = None
     columns: list[str] | None = None
@@ -23,9 +24,10 @@ class Entry(BaseModel):
     response: Response = None
     required: bool | None = None
 
+
 class Output(BaseModel):
     entries: list[Entry]
-    
+
     def __init__(self, entries: list[Entry] | None):
         self.entries = entries or list()
 
@@ -36,9 +38,11 @@ class Output(BaseModel):
     def write(self, f: TextIO):
         f.write(self.json())
 
+
 class MockPrint(Print):
     """A mock implementation of the Print protocol for testing purposes."""
-    output: Output 
+
+    output: Output
 
     def __init__(self, output: Output):
         """
@@ -63,9 +67,11 @@ class MockPrint(Print):
 
     def table(self, columns: list, rows: list):
         self.output.append(Entry(columns=columns, rows=rows))
-            
+
+
 class MockPrompt(Prompt):
     """A mock implementation of the Prompt protocol for testing purposes."""
+
     output: Output
     responses: list
 
@@ -82,40 +88,38 @@ class MockPrompt(Prompt):
         return self
 
     def ask(
-        self, 
-        question: str, 
-        choices: list[str] | None = None, 
-        default: str | None = None, 
-        required: bool = False
+        self,
+        question: str,
+        choices: list[str] | None = None,
+        default: str | None = None,
+        required: bool = False,
     ):
-        e = Entry(message=question, choices=choices, default=default,required=required)
+        e = Entry(message=question, choices=choices, default=default, required=required)
         e.response = self.responses.pop(0) or default
         if type(e.response) != str:
             raise TypeError("Unexpected response type for ask. It should be a string.")
         return e.response
 
     def ask_int(
-        self, 
-        question: str, 
-        default: int | None = None,
-        required: bool = False
+        self, question: str, default: int | None = None, required: bool = False
     ):
         e = Entry(message=question, default=default, required=required)
         e.response = self.responses.pop(0) or default
         if type(e.response) != int:
-            raise TypeError("Unexpected response type for ask_int. It should be an integer.")
+            raise TypeError(
+                "Unexpected response type for ask_int. It should be an integer."
+            )
         return default
 
     def ask_float(
-        self, 
-        question: str, 
-        default: float | None = None,
-        required: bool = False
+        self, question: str, default: float | None = None, required: bool = False
     ):
         e = Entry(message=question, default=default, required=required)
         e.response = self.responses.pop(0) or default
         if type(e.response) != float:
-            raise TypeError("Unexpected response type for ask_float. It should be a float.")
+            raise TypeError(
+                "Unexpected response type for ask_float. It should be a float."
+            )
         return e.response
 
     def ask_password(self, message: str, required: bool):
@@ -124,15 +128,20 @@ class MockPrompt(Prompt):
         if e.response is None:
             raise ValueError("Password cannot be empty.")
         elif type(e.response) != str:
-            raise TypeError("Unexpected response type for ask_password. It should be a string.")
+            raise TypeError(
+                "Unexpected response type for ask_password. It should be a string."
+            )
         return e.response
 
     def confirm(self, message: str, default: bool = True):
         e = Entry(message=message, default=default)
         e.response = self.responses.pop(0) or default
         if type(e.response) != bool:
-            raise TypeError("Unexpected response type for confirm. It should be a boolean.")
+            raise TypeError(
+                "Unexpected response type for confirm. It should be a boolean."
+            )
         return e.response
+
 
 class MockConsole(MockPrint, MockPrompt):
     """A mock implementation of the Console protocol for testing purposes."""

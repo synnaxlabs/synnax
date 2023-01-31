@@ -29,13 +29,17 @@ def prompt_data_type_select(ctx: Context, required: bool = True) -> DataType | N
     return DataType.ALL[i] if i is not None else None
 
 
-def prompt_time_units_select(ctx: Context, required: bool = True) -> str | None:
+def ask_time_units_select(
+    ctx: Context, required: bool = True, question: str | None = None
+) -> str | None:
     """Prompts the user to select a time unit from a list of all available time
     units.
 
     :param ctx: The current flow Context.
     :param allow_none: Whether to allow the user to select None.
     """
+    if question is not None:
+        ctx.console.ask(question)
     opts = list(TimeSpan.UNITS.keys())
     i = select_from_table(
         ctx,

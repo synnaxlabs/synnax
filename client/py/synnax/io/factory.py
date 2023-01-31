@@ -24,16 +24,16 @@ WRITERS: list[type[Writer]] = [
 class IOFactory:
     """A registry for retrieving readers for different file types."""
 
-    reader_classes: list[type[RowReader]]
-    writer_classes: list[type[Writer]]
+    reader: list[type[RowReader]]
+    writers: list[type[Writer]]
 
     def __init__(
         self,
-        readers: list[type[RowReader]] | None = None,
-        writers: list[type[Writer]] | None = None,
+        readers: list[type[RowReader]] = READERS,
+        writers: list[type[Writer]] = WRITERS,
     ):
-        self.reader_classes = readers or READERS
-        self.writer_classes = writers or WRITERS
+        self.reader = readers 
+        self.writers = writers
 
     def new_reader(self, path: Path) -> RowReader:
         if not path.exists():
@@ -42,7 +42,7 @@ class IOFactory:
         if not path.is_file():
             raise IsADirectoryError(f"Path is a directory: {path}")
 
-        for _Reader in self.reader_classes:
+        for _Reader in self.reader:
             if _Reader.match(path):
                 return _Reader(path)
 
@@ -55,7 +55,7 @@ class IOFactory:
         if not path.parent.is_dir():
             raise IsADirectoryError(f"Path is a directory: {path}")
 
-        for _Writer in self.writer_classes:
+        for _Writer in self.writers:
             if _Writer.match(path):
                 return _Writer(path)
 
@@ -63,6 +63,8 @@ class IOFactory:
 
     def extensions(self) -> list[str]:
         extensions = set()
-        for reader in self.reader_classes:
+        for reader in self.reader:
             extensions.update(reader.extensions())
         return list(extensions)
+
+IO_FACTORY = IOFactory()

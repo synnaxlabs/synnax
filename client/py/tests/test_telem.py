@@ -18,6 +18,8 @@ from synnax import (
     TimeStamp,
     TimeSpan,
     Density,
+    DataType,
+    UnparsedDataType,
     UnparsedTimeStamp,
     TimeRange,
     ContiguityError,
@@ -335,3 +337,26 @@ class TestRate:
         """Should raise a contiguity error if the size is not a multiple of the density"""
         with pytest.raises(ContiguityError):
             Rate(1.0).size_span(Size(41), Density.BIT64)
+
+
+class TestDataType:
+    @pytest.mark.parametrize(
+        "unparsed, expected",
+        [
+            (np.int8, DataType.INT8),
+            (np.int16, DataType.INT16),
+            ("int32", DataType.INT32),
+            ("int64", DataType.INT64),
+        ],
+    )
+    def test_init(self, unparsed: UnparsedDataType, expected: DataType):
+        assert DataType(unparsed) == expected
+
+    def test_invalid_init(self):
+        """Should raise an exception if the data type is invalid"""
+        with pytest.raises(TypeError):
+            DataType(1.23)  # type: ignore
+
+    def test_string(self):
+        """Should return the string representation of the data type"""
+        assert str(DataType.INT8) == "int8"

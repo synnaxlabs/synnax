@@ -7,6 +7,16 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from .factory import IO_FACTORY
-from .meta import ChannelMeta
-from .protocol import ColumnReader, ReaderType, RowReader, BaseReader
+from typing import TypeVar, Any, Callable
+
+V = TypeVar("V")
+
+
+def if_none(
+    value: V | None,
+    func: Callable[[Any], V],
+    *args: Any,
+    **kwargs: Any,
+) -> V:
+    """If value is None, return the result of calling func with args."""
+    return func(*args, **kwargs) if value is None else value

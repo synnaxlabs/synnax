@@ -9,7 +9,7 @@
 
 from enum import Enum
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, Iterator
 
 from pandas import DataFrame
 
@@ -101,6 +101,13 @@ class RowReader(BaseReader, Protocol):
     def read(self) -> DataFrame:
         """Read returns a dataframe with chunk size * number of columns samples. The
         returned dataframe is guaranteed to contain a column for all channels in the file.
+        """
+        ...
+
+    def __iter__(self) -> Iterator[DataFrame]:
+        """Iterates over the file, returning a dataframe with chunk size * number of
+        columns samples. The returned dataframe is guaranteed to contain a column for all
+        channels in the file.
         """
         ...
 

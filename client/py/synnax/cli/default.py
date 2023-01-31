@@ -7,6 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from .factory import IO_FACTORY
-from .meta import ChannelMeta
-from .protocol import ColumnReader, ReaderType, RowReader, BaseReader
+from synnax.cli.flow import Context
+from synnax.cli.console import RichConsole
+
+
+def context() -> Context:
+    """Returns a new Context."""
+    return Context(console=RichConsole())
