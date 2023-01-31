@@ -361,7 +361,13 @@ def convert_time_units(data: np.ndarray, _from: str, to: str):
     """
     if _from == to:
         return data
-    return data * TimeSpan.UNITS[_from] / TimeSpan.UNITS[to]
+    f = TimeSpan.UNITS.get(_from, None)
+    if f is None:
+        raise ValueError(f"Invalid input time unit {_from}")
+    t = TimeSpan.UNITS.get(to, None)
+    if t is None:
+        raise ValueError(f"Invalid output time unit {to}")
+    return data * f / t
 
 
 class Rate(float):
@@ -605,10 +611,6 @@ class DataType(str):
         if npt is None:
             raise TypeError(f"Cannot convert {self} to numpy type")
         return npt
-
-    def can_cast(self, other: UnparsedDataType) -> bool:
-        """:return: True if this DataType can be cast to the other DataType"""
-        return np.can_cast(self.np, DataType(other).np, casting="safe")
 
     def __repr__(self):
         return f"DataType({super().__repr__()})"

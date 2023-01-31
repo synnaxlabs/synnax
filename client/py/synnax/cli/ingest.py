@@ -20,7 +20,7 @@ from synnax.cli.channel import (
 )
 from synnax.cli.select import select_simple
 from synnax.ingest.row import RowIngestionEngine
-from synnax.io import ChannelMeta, IOFactory, ReaderType, RowReader
+from synnax.io import ChannelMeta, ReaderType, RowReader, IO_FACTORY
 from synnax.telem import DataType, Rate, TimeStamp
 from synnax.channel import Channel
 from synnax.cli.console.rich import RichConsole
@@ -46,7 +46,7 @@ def ingest(_path: str | None):
     flow.add("create_channels", create_channels)
     flow.add("ingest", run_ingestion)
     path = None if _path is None else Path(_path)
-    flow.run(IngestionCLI(IOFactory(), path), "initialize_reader")
+    flow.run(IngestionCLI(IO_FACTORY, path), "initialize_reader")
 
 
 class IngestionCLI:

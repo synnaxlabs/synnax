@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from typing import Iterator
+
 from pathlib import Path
 
 import pandas as pd
@@ -71,6 +73,9 @@ class CSVReader(CSVMatcher):
 
     def read(self) -> pd.DataFrame:
         return next(self.reader)
+
+    def __iter__(self) -> Iterator[pd.DataFrame]:
+        return self.reader.__iter__()
 
     @classmethod
     def type(cls) -> ReaderType:
