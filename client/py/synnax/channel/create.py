@@ -6,17 +6,10 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
-#
-#  Use of this software is governed by the Business Source License included in the file
-#  licenses/BSL.txt.
-#
-#  As of the Change Date specified in that file, in accordance with the Business Source
-#  License, use of this software will be governed by the Apache License, Version 2.0,
-#  included in the file licenses/APL.txt.
 
 from freighter import HTTPClientFactory, Payload, UnaryClient
 
-from ..telem import DATA_TYPE_UNKNOWN, Rate, UnparsedDataType, UnparsedRate
+from ..telem import Rate, UnparsedDataType, UnparsedRate, DataType
 from .payload import ChannelPayload
 
 
@@ -37,20 +30,20 @@ class ChannelCreator:
 
     def create(
         self,
+        data_type: UnparsedDataType,
         name: str = "",
         node_id: int = 0,
         rate: UnparsedRate = Rate(0),
-        data_type: UnparsedDataType = DATA_TYPE_UNKNOWN,
         index: str = "",
         is_index: bool = False,
     ) -> ChannelPayload:
         return self.create_many(
             [
                 ChannelPayload(
-                    data_type=data_type,
+                    data_type=DataType(data_type),
                     name=name,
                     node_id=node_id,
-                    rate=rate,
+                    rate=Rate(rate),
                     index=index,
                     is_index=is_index,
                 )

@@ -6,13 +6,6 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
-#
-#  Use of this software is governed by the Business Source License included in the file
-#  licenses/BSL.txt.
-#
-#  As of the Change Date specified in that file, in accordance with the Business Source
-#  License, use of this software will be governed by the Apache License, Version 2.0,
-#  included in the file licenses/APL.txt.
 
 import fnmatch
 
@@ -26,8 +19,8 @@ def channel_name_table(
     names: list[str],
 ):
     ctx.console.table(
-        columns=["option", "name"],
-        rows=[{"option": f"{i + 1}", "name": name} for i, name in enumerate(names)],
+        columns=["name"],
+        rows=[{"name": name} for i, name in enumerate(names)],
     )
 
 
@@ -38,6 +31,8 @@ def maybe_select_channel(
 ) -> Channel | None:
     """Asks the user to select a channel if there are multiple channels available.
 
+    :param ctx: The current flow context.
+    :param channes:  The list of channels to prompt frome.
     :returns: The selected channel or None if there are no channels.
     """
     if len(channels) == 0:
@@ -53,7 +48,7 @@ def maybe_select_channel(
 def select_channel(
     ctx: Context,
     channels: list[Channel],
-    default: str = None,
+    default: str | None = None,
     allow_none: bool = False,
 ) -> Channel | None:
     """Prompts the user to select a channel from a list of channels.
@@ -63,17 +58,20 @@ def select_channel(
     :param default: The default channel to select.
     :param allow_none: Whether to allow the user to select None.
     """
+
     try:
         _default = [c.key for c in channels].index(default) if default else None
-    except ValueError:
-        _default = None
-    return select_from_table(
+    except ValueError as e:
+        raise ValueError(f"Invalid default channel: {default}") from e
+
+    i = select_from_table(
         ctx,
-        columns=["option", "name", "key", "data_type", "index", "rate", "node_id"],
+        columns=["name", "key", "data_type", "index", "rate", "node_id"],
         rows=[{k: f"{v}" for k, v in c.dict().items()} for c in channels],
-        allow_none=allow_none,
+        required=allow_none,
         default=_default,
     )
+    return channels[i] if i is not None else None
 
 
 def prompt_group_channel_names(
@@ -84,15 +82,22 @@ def prompt_group_channel_names(
     :param ctx: The current flow Context.
     :param options: The list of channel names to match against.
     """
-    print(
+    ctx.console.info(
         """You can enter 'all' for all channels or a comma-separated list of:
-    1)  names (e.g. 'channel1, channel2, channel3')
+    1) Names (e.g. 'channel1, channel2, channel3')
     2) Channel indices (e.g. '1, 2, 3')
     3) A pattern to match (e.g. 'channel*, sensor*')
     """
     )
     res = ctx.console.ask("Channels")
-    return group_channel_names(options, res.split(","))
+    if res is None:
+        if ctx.console.confirm(
+            "No valid pattern provided. Would you like to try again?"
+        ):
+            return prompt_group_channel_names(ctx, options)
+        return None
+
+    return group_channel_names(ctx, options, res.split(","))
 
 
 def group_channel_names(
@@ -124,7 +129,7 @@ def group_channel_names(
         else:
             found = False
             for channel in options:
-                if fnmatch.fnmatch(entry, channel):
+                if fnmatch.fnmatch(channel, entry) or channel == entry:
                     channels.append(channel)
                     found = True
             if not found:

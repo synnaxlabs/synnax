@@ -6,19 +6,12 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
-#
-#  Use of this software is governed by the Business Source License included in the file
-#  licenses/BSL.txt.
-#
-#  As of the Change Date specified in that file, in accordance with the Business Source
-#  License, use of this software will be governed by the Apache License, Version 2.0,
-#  included in the file licenses/APL.txt.
 
 import keyring
 from pydantic import BaseModel
 
-from ..options import SynnaxOptions
-from .file import ConfigFile
+from synnax.options import SynnaxOptions
+from synnax.config.file import ConfigFile
 
 
 class ClusterConfig(BaseModel):
@@ -33,9 +26,12 @@ class ClustersConfig:
 
     def get(self, key: str = "default") -> ClusterConfig | None:
         c = self.internal.get(f"clusters.{key}")
-        if c is not None:
-            c["options"]["password"] = keyring.get_password("synnax", key)
-        return ClusterConfig(**c)
+        if c is None:
+            return
+        opts = c["options"]
+        pwd = keyring.get_password("synnax", key)
+        pwd = "" if pwd is None else pwd
+        return ClusterConfig(options=SynnaxOptions(**opts, password=pwd))
 
     def set(self, c: ClusterConfig, key: str = "default"):
         p = c.dict()

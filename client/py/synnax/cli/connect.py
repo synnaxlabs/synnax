@@ -6,22 +6,14 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
-#
-#  Use of this software is governed by the Business Source License included in the file
-#  licenses/BSL.txt.
-#
-#  As of the Change Date specified in that file, in accordance with the Business Source
-#  License, use of this software will be governed by the Apache License, Version 2.0,
-#  included in the file licenses/APL.txt.
-
-import os
-from pathlib import Path
 
 from freighter.exceptions import Unreachable
 
-from .. import AuthError, Synnax, SynnaxOptions
-from ..config import ClustersConfig, ConfigFile, load_options
-from .flow import Context
+from synnax import Synnax
+from synnax.options import SynnaxOptions
+from synnax.exceptions import AuthError
+from synnax.config import load_options
+from synnax.cli.flow import Context
 
 
 def prompt_client_options(ctx: Context) -> SynnaxOptions:
@@ -31,13 +23,21 @@ def prompt_client_options(ctx: Context) -> SynnaxOptions:
     :return: The options to connect to a Synnax server.
     """
     ctx.console.info("Enter your Synnax connection parameters:")
-    params = dict()
-    params["host"] = ctx.console.ask("Host", default="localhost")
-    params["port"] = ctx.console.ask_int("Port", default=9090)
-    params["username"] = ctx.console.ask("Username", default="synnax")
-    params["password"] = ctx.console.ask_password("Password")
-    params["secure"] = ctx.console.confirm("Secure connection?", default=False)
-    return SynnaxOptions(**params)
+    host = ctx.console.ask("Host", default="localhost")
+    port = ctx.console.ask_int("Port", default=9090)
+    username = ctx.console.ask("Username")
+    password = ctx.console.ask_password("Password", required=username is not None)
+    secure = ctx.console.confirm("Secure connection?", default=False)
+    assert host is not None
+    assert port is not None
+    assert username is not None
+    return SynnaxOptions(
+        host=host,
+        port=port,
+        username=username,
+        password=password,
+        secure=secure,
+    )
 
 
 def connect_client(ctx: Context) -> Synnax | None:

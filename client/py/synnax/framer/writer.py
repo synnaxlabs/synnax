@@ -6,13 +6,6 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
-#
-#  Use of this software is governed by the Business Source License included in the file
-#  licenses/BSL.txt.
-#
-#  As of the Change Date specified in that file, in accordance with the Business Source
-#  License, use of this software will be governed by the Apache License, Version 2.0,
-#  included in the file licenses/APL.txt.
 
 from enum import Enum
 
@@ -48,8 +41,8 @@ class _Config(Payload):
 
 class _Request(Payload):
     command: _Command
-    config: _Config = None
-    frame: BinaryFrame = None
+    config: _Config | None = None
+    frame: BinaryFrame | None = None
 
 
 class _Response(Payload):
@@ -98,8 +91,8 @@ class FrameWriter:
     """
 
     _ENDPOINT = "/frame/write"
+    __stream: Stream[_Request, _Response] | None
     client: StreamClient
-    stream: Stream[_Request, _Response] | None
     keys: list[str]
 
     def __init__(self, client: StreamClient) -> None:
@@ -115,15 +108,21 @@ class FrameWriter:
         this list.
         """
         self.keys = keys
-        self.stream = self.client.stream(self._ENDPOINT, _Request, _Response)
-        self.stream.send(
+        self.__stream = self.client.stream(self._ENDPOINT, _Request, _Response)
+        self._stream.send(
             _Request(
                 command=_Command.NONE, config=_Config(keys=keys, start=TimeStamp(start))
             )
         )
-        res, exc = self.stream.receive()
+        _, exc = self._stream.receive()
         if exc is not None:
             raise exc
+
+    @property
+    def _stream(self) -> Stream[_Request, _Response]:
+        self._assert_open()
+        assert self.__stream is not None
+        return self.__stream
 
     def write(self, frame: BinaryFrame) -> bool:
         """Writes the given frame to the database. The provided frame must:
@@ -140,12 +139,11 @@ class FrameWriter:
         the caller should acknowledge the error by calling the error method or closing
         the writer.
         """
-        self._assert_open()
-        if self.stream.received():
+        if self._stream.received():
             return False
 
         self._check_keys(frame)
-        err = self.stream.send(_Request(command=_Command.WRITE, frame=frame))
+        err = self._stream.send(_Request(command=_Command.WRITE, frame=frame))
         if err is not None:
             raise err
         return True
@@ -159,32 +157,34 @@ class FrameWriter:
         After the error is acknowledged, the caller can attempt to commit again.
         """
         self._assert_open()
-        if self.stream.received():
+        if self._stream.received():
             return False
-        err = self.stream.send(_Request(command=_Command.COMMIT))
+        err = self._stream.send(_Request(command=_Command.COMMIT))
         if err is not None:
             raise err
 
         while True:
-            res, err = self.stream.receive()
+            res, err = self._stream.receive()
             if err is not None:
                 raise err
+            assert res is not None
             if res.command == _Command.COMMIT:
                 return res.ack
 
-    def error(self) -> Exception:
+    def error(self) -> Exception | None:
         """
         :returns: The exception that the writer has accumulated, if any. If the writer
         has not accumulated an error, this method will return None. This method will
         clear the writer's error state, allowing the writer to be used again.
         """
         self._assert_open()
-        self.stream.send(_Request(command=_Command.ERROR, open_keys=[], segments=[]))
+        self._stream.send(_Request(command=_Command.ERROR))
 
         while True:
-            res, err = self.stream.receive()
+            res, err = self._stream.receive()
             if err is not None:
                 raise err
+            assert res is not None
             if res.command == _Command.ERROR:
                 return decode_exception(res.error)
 
@@ -193,12 +193,12 @@ class FrameWriter:
         A writer MUST be closed after use, and this method should probably be placed in
         a 'finally' block.
         """
-        self._assert_open()
-        self.stream.close_send()
-        res, err = self.stream.receive()
+        self._stream.close_send()
+        res, err = self._stream.receive()
         if err is None:
+            assert res is not None
             err = decode_exception(res.error)
-        if not isinstance(err, EOF):
+        if err is not None and not isinstance(err, EOF):
             raise err
 
     def _check_keys(self, frame: BinaryFrame):
@@ -217,7 +217,7 @@ class FrameWriter:
             raise ValidationError(Field("keys", f"frame has extra keys {extra}"))
 
     def _assert_open(self):
-        if self.stream is None:
+        if self.__stream is None:
             raise GeneralError(
                 "Writer is not open. Please open before calling write() or close()."
             )

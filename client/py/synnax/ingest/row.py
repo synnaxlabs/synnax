@@ -6,15 +6,7 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
-#
-#  Use of this software is governed by the Business Source License included in the file
-#  licenses/BSL.txt.
-#
-#  As of the Change Date specified in that file, in accordance with the Business Source
-#  License, use of this software will be governed by the Apache License, Version 2.0,
-#  included in the file licenses/APL.txt.
 
-import gc
 from datetime import datetime
 
 from pandas import DataFrame
@@ -26,10 +18,10 @@ from rich.progress import (
     TimeElapsedColumn,
 )
 
-from .. import Channel, Synnax
-from ..framer import DataFrameWriter
-from ..io import RowReader
-from ..telem import MEGABYTE, TimeStamp
+from synnax import Channel, Synnax
+from synnax.framer import DataFrameWriter
+from synnax.io import RowReader
+from synnax.telem import Size, TimeStamp
 
 
 class RowIngestionEngine:
@@ -48,7 +40,8 @@ class RowIngestionEngine:
         client: Synnax,
         reader: RowReader,
         channels: list[Channel],
-        soft_mem_limit: int = 10 * MEGABYTE,
+        start: TimeStamp,
+        soft_mem_limit: int = 10 * Size.MEGABYTE,
     ):
         self.channels = channels
         self.idx_grouped = {ch: list() for ch in channels if ch.is_index}
@@ -58,13 +51,10 @@ class RowIngestionEngine:
         self.mem_limit = soft_mem_limit
         self.reader = reader
         self.client = client
-        self.reader.set_chunk_size(1)
-        df = self.reader.read()
-        self.writer = self.client.data.new_writer(
-            start=TimeStamp(df[list(self.idx_grouped.keys())[0].name][0]),
-            keys=[ch.key for ch in channels],
-        )
         self.reader.set_chunk_size(self.get_chunk_size())
+        self.writer = self.client.data.new_writer(
+            start=start, keys=[ch.key for ch in channels]
+        )
 
     def get_chunk_size(self):
         """Sum the density of all channels to determine the chunk size."""
@@ -72,6 +62,7 @@ class RowIngestionEngine:
 
     def run(self):
         """Run the ingestion engine."""
+        self.reader.seek_first()
         try:
             with Progress(
                 BarColumn(),
@@ -86,18 +77,18 @@ class RowIngestionEngine:
                         t0 = datetime.now()
                         chunk = self.reader.read()
                         self._write(chunk)
-                        gc.collect()
                         tp = chunk.size / (datetime.now() - t0).total_seconds()
                         progress.update(task, advance=chunk.size, tp=tp)
                     except StopIteration:
                         break
             self.writer.commit()
         finally:
+            self.reader.close()
             self.writer.close()
 
     def _write(self, df: DataFrame):
         for channel in self.channels:
             if channel.name in df.columns:
                 df.rename(columns={channel.name: channel.key}, inplace=True)
-                df[channel.key] = df[channel.key].astype(channel.data_type.numpy_type)
+                df[channel.key] = df[channel.key].astype(channel.data_type.np)
         self.writer.write(df)

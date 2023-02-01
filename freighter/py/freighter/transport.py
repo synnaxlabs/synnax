@@ -52,7 +52,7 @@ class Transport(Protocol):
 class AsyncTransport(Protocol):
     """Base class for all asyncio.py transport protocols."""
 
-    def use(self, *middleware: Middleware) -> None:
+    def use(self, *middleware: AsyncMiddleware) -> None:
         """
         Adds middleware(s) to the transport.
         :param middleware: the middleware(s) to add

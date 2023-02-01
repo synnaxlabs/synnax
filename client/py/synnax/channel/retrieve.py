@@ -6,13 +6,6 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
-#
-#  Use of this software is governed by the Business Source License included in the file
-#  licenses/BSL.txt.
-#
-#  As of the Change Date specified in that file, in accordance with the Business Source
-#  License, use of this software will be governed by the Apache License, Version 2.0,
-#  included in the file licenses/APL.txt.
 
 from __future__ import annotations
 
@@ -41,7 +34,9 @@ class ChannelRetriever:
     def __init__(self, client: HTTPClientFactory):
         self.client = client.get_client()
 
-    def retrieve(self, key: str = None, name: str = None) -> ChannelPayload:
+    def retrieve(
+        self, key: str | None = None, name: str | None = None
+    ) -> ChannelPayload:
         req = _Request()
         if key is None and name is None:
             raise ValidationError("Must specify a key or name")
@@ -58,15 +53,16 @@ class ChannelRetriever:
 
     def filter(
         self,
-        keys: list[str] = None,
-        names: list[str] = None,
-        node_id: int = None,
+        keys: list[str] | None = None,
+        names: list[str] | None = None,
+        node_id: int | None = None,
     ) -> list[ChannelPayload]:
-        return self._execute(_Request(keys=keys, names=names))
+        return self._execute(_Request(keys=keys, names=names, node_id=node_id))
 
     def _execute(self, req: _Request) -> list[ChannelPayload]:
         res, exc = self.client.send(self._ENDPOINT, req, _Response)
         if exc is not None:
             raise exc
         assert res is not None
+        assert res.channels is not None
         return res.channels

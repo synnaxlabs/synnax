@@ -6,14 +6,7 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
-#
-#  Use of this software is governed by the Business Source License included in the file
-#  licenses/BSL.txt.
-#
-#  As of the Change Date specified in that file, in accordance with the Business Source
-#  License, use of this software will be governed by the Apache License, Version 2.0,
-#  included in the file licenses/APL.txt.
 
-from .factory import IOFactory
+from .factory import IO_FACTORY
 from .meta import ChannelMeta
-from .protocol import ColumnReader, ReaderType, RowReader
+from .protocol import ColumnReader, ReaderType, RowReader, BaseReader
