@@ -24,8 +24,8 @@ from pandas import DataFrame
 from synnax.channel.payload import ChannelPayload
 from synnax.channel.retrieve import ChannelRetriever
 from synnax.exceptions import Field, GeneralError, ValidationError
-from synnax.telem import TimeStamp, UnparsedTimeStamp, NumpyArray
-from synnax.framer.payload import BinaryFrame, NumpyFrame
+from synnax.telem import TimeSpan, TimeStamp, UnparsedTimeStamp, NumpyArray
+from synnax.framer.payload import BinaryFrame, NPFrame
 from synnax.framer.mode import FramingMode, open_framing_mode
 
 
@@ -49,7 +49,7 @@ class _Request(Payload):
 
 class _Response(Payload):
     command: _Command
-    eck: bool
+    ack: bool
     error: ExceptionPayload
 
 
@@ -266,7 +266,7 @@ class DataFrameWriter(FrameWriter):
         super(DataFrameWriter, self).write(self._convert(frame))
 
     def _convert(self, df: DataFrame) -> BinaryFrame:
-        np_fr = NumpyFrame()
+        np_fr = NPFrame()
         for col in df.columns:
             ch = self._retrieve(col)
             np_fr.keys.append(ch.key)
@@ -307,3 +307,51 @@ class DataFrameWriter(FrameWriter):
                     set strict=True when constructing the writer."""
                 )
         return arr.astype(ch_dt)
+
+class BufferedDataFrameWriter:
+    """BufferedDataFrameWriter extends the DataFrameWriter protocol by buffering
+    writes to the underlying stream. This can improve performance by reducing the
+    number of round trips to the server.
+    """
+
+    size_threshold: int
+    time_threshold: TimeSpan
+    last_flush: TimeStamp
+    _wrapped: DataFrameWriter
+    _buf: DataFrame
+
+    def __init__(
+        self,
+        wrapped: DataFrameWriter,
+        size_threshold: int = int(1e6),
+        time_threshold: TimeSpan = TimeSpan.MAX,
+    ) -> None:
+        self._wrapped = wrapped
+        self._buf = DataFrame()
+        self.last_flush = TimeStamp.now()
+        self.size_threshold = size_threshold
+        self.time_threshold = time_threshold
+
+    def write(self, frame: DataFrame):
+        self._buf = self._buf.append(frame, ignore_index=True)
+        if self._exceeds_any:
+            self._flush()
+
+    def close(self):
+        self._flush()
+        self._wrapped.close()
+
+    @property
+    def _exceeds_any(self) -> bool:
+        return (
+            len(self._buf) * len(self._buf.columns) >= self.size_threshold
+            or TimeStamp.since(self.last_flush) >= self.time_threshold
+        )
+
+    def _flush(self):
+        self._wrapped.write(self._buf)
+        self._wrapped.commit()
+        self.last_flush = TimeStamp.now()
+        self._buf = DataFrame()
+
+
