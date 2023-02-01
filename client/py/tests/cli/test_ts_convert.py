@@ -16,10 +16,12 @@ from synnax.io import IO_FACTORY
 
 DATA_DIR = Path(__file__).parent / "testdata"
 
+
 @pytest.fixture
 def remove_testdata():
     yield
     (DATA_DIR / "tsconvert_out.csv").unlink()
+
 
 class TestTSConvert:
     @pytest.mark.focus

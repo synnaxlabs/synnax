@@ -13,6 +13,7 @@ from synnax.io import IO_FACTORY, RowReader
 from synnax.cli.flow import Context
 from synnax.cli.args import if_none
 
+
 def prompt_file(ctx: Context) -> Path | None:
     """Prompts the user for a file path."""
     _fp = ctx.console.ask("File path")

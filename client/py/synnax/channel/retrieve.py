@@ -8,13 +8,12 @@
 #  included in the file licenses/APL.txt.
 
 from __future__ import annotations
-
-import typing
+from typing import Protocol
 
 from freighter import HTTPClientFactory, Payload, UnaryClient
 
-from ..exceptions import QueryError, ValidationError
-from .payload import ChannelPayload
+from synnax.exceptions import QueryError
+from synnax.channel.payload import ChannelPayload
 
 
 class _Request(Payload):
@@ -26,30 +25,43 @@ class _Request(Payload):
 class _Response(Payload):
     channels: list[ChannelPayload] | None = []
 
+class ChannelRetriever(Protocol):
+    def retrieve(
+        self, key: str | None = None, name: str | None = None
+    ) -> ChannelPayload | None:
+        ...
 
-class ChannelRetriever:
+    def filter(
+        self, keys: list[str] | None = None, names: list[str] | None = None, node_id: int | None = None
+    ) -> list[ChannelPayload]:
+        ...
+
+
+
+class ClusterChannelRetriever:
     _ENDPOINT = "/channel/retrieve"
     client: UnaryClient
 
     def __init__(self, client: HTTPClientFactory):
         self.client = client.get_client()
+    
+    def _(self) -> ChannelRetriever:
+        return self
 
     def retrieve(
         self, key: str | None = None, name: str | None = None
-    ) -> ChannelPayload:
+    ) -> ChannelPayload | None:
         req = _Request()
-        if key is None and name is None:
-            raise ValidationError("Must specify a key or name")
         if key is not None:
             req.keys = [key]
         if name is not None:
             req.names = [name]
         res = self._execute(req)
+        if len(res) == 1:
+            return res[0]
         if len(res) == 0:
-            raise QueryError("channel not found")
-        elif len(res) > 1:
-            raise QueryError("multiple channels found")
-        return res[0]
+            return None
+        raise QueryError("multiple channels found")
 
     def filter(
         self,
@@ -66,3 +78,59 @@ class ChannelRetriever:
         assert res is not None
         assert res.channels is not None
         return res.channels
+
+class CacheChannelRetriever:
+    retriever: ChannelRetriever
+    channels: dict[str, ChannelPayload]
+    names_to_keys: dict[str, str]
+
+    def __init__(self, retriever: ChannelRetriever) -> None:
+        self.channels = dict()
+        self.names_to_keys = dict()
+        self.retriever = retriever
+    
+    def _(self) -> ChannelRetriever:
+        return self
+
+    def retrieve(self, key: str | None = None, name: str | None = None) -> ChannelPayload | None:
+        if key is None:
+            if name is None:
+                return None
+            key = self.names_to_keys.get(name, None)
+            if key is None:
+                return None
+        record = self.channels.get(key, None)
+        if record is None:
+            record = self.retriever.retrieve(key=key)
+            if record is None:
+                return None
+            self.channels[key] = record
+        return record
+
+    def filter(
+        self,
+        keys: list[str] | None = None,
+        names: list[str] | None = None,
+        node_id: int | None = None,
+    ) -> list[ChannelPayload]:
+        # TODO: Bypassing the cache on these filters for now. We need to revisit
+        # this when node_id becomes a more relevant filter.
+        if node_id is not None:
+            return self.retriever.filter(keys=keys, names=names, node_id=node_id)
+        results = list()
+        retrieve_keys = list()
+        keys = keys or list()
+        if names is not None:
+            for name in names:
+                key = self.names_to_keys.get(name, None)
+                if key is not None:
+                    keys.append(key)
+        for key in keys:
+            channel = self.channels.get(key, None)
+            if channel is None:
+                retrieve_keys.append(key)
+            else:
+                results.append(channel)
+        if retrieve_keys:
+            results.extend(self.retriever.filter(keys=retrieve_keys))
+        return results

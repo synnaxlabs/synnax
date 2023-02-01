@@ -32,7 +32,7 @@ class IOFactory:
         readers: list[type[RowReader]] = READERS,
         writers: list[type[Writer]] = WRITERS,
     ):
-        self.reader = readers 
+        self.reader = readers
         self.writers = writers
 
     def new_reader(self, path: Path) -> RowReader:
@@ -66,5 +66,6 @@ class IOFactory:
         for reader in self.reader:
             extensions.update(reader.extensions())
         return list(extensions)
+
 
 IO_FACTORY = IOFactory()
