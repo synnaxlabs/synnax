@@ -37,6 +37,7 @@ def tsconvert(
 ) -> None:
     pure_tsconvert(path, out, channel, input, output)
 
+
 def pure_tsconvert(
     path: Path | str | None,
     out: Path | str | None,

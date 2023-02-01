@@ -28,7 +28,7 @@ from .payload import BinaryFrame, pandas_to_frame
 
 
 class _Command(int, Enum):
-    NONE = 0
+    OPEN = 0
     WRITE = 1
     COMMIT = 2
     ERROR = 3
@@ -111,7 +111,7 @@ class FrameWriter:
         self.__stream = self.client.stream(self._ENDPOINT, _Request, _Response)
         self._stream.send(
             _Request(
-                command=_Command.NONE, config=_Config(keys=keys, start=TimeStamp(start))
+                command=_Command.OPEN, config=_Config(keys=keys, start=TimeStamp(start))
             )
         )
         _, exc = self._stream.receive()
@@ -229,7 +229,6 @@ class DataFrameWriter(FrameWriter):
     """
 
     registry: ChannelRegistry
-    channels: list[ChannelPayload]
 
     def __init__(
         self,
@@ -240,13 +239,18 @@ class DataFrameWriter(FrameWriter):
         self.registry = registry
         self.channels = []
 
-    def open(self, start: UnparsedTimeStamp, keys: list[str]):
+    def open(
+        self, 
+        start: UnparsedTimeStamp, 
+        keys: list[str] | None = None,
+        names: list[str] | None = None,
+    ):
         """Opens the writer, acquiring an exclusive lock on the given
         channels for the duration of the writer's lifetime. open must be called before
         any other writer methods.
         """
-        super(DataFrameWriter, self).open(start, keys)
-        self.channels = self.registry.get_n(keys)
+        channels = self.registry.filter(keys=keys, names=names)
+        super(DataFrameWriter, self).open(start, [ch.key for ch in channels])
 
     def write(self, frame: DataFrame):
         super(DataFrameWriter, self).write(

@@ -10,7 +10,7 @@
 from numpy import ndarray
 from pydantic import PrivateAttr
 
-from synnax.exceptions import ValidationError
+from synnax.exceptions import ValidationError, QueryError
 from synnax.framer import FramerClient
 from synnax.telem import (
     Rate,
@@ -169,7 +169,16 @@ class ChannelClient:
         :raises QueryError: If any of the channels can't be found.
         :returns: A list of retrieved Channels.
         """
-        return self._sugar(self._retriever.retrieve(key, name))[0]
+        ch = self._retriever.retrieve(key, name)
+        if ch is None:
+            if key is not None:
+                raise QueryError(f"Channel with key {key} not found.")
+            elif name is not None:
+                raise QueryError(f"Channel with name {name} not found.")
+            else:
+                raise QueryError("Channel not found.")
+        
+        return self._sugar(ch)[0]
 
     def filter(
         self,
