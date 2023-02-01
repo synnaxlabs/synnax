@@ -25,6 +25,7 @@ class _Request(Payload):
 class _Response(Payload):
     channels: list[ChannelPayload] | None = []
 
+
 class ChannelRetriever(Protocol):
     def retrieve(
         self, key: str | None = None, name: str | None = None
@@ -32,10 +33,12 @@ class ChannelRetriever(Protocol):
         ...
 
     def filter(
-        self, keys: list[str] | None = None, names: list[str] | None = None, node_id: int | None = None
+        self,
+        keys: list[str] | None = None,
+        names: list[str] | None = None,
+        node_id: int | None = None,
     ) -> list[ChannelPayload]:
         ...
-
 
 
 class ClusterChannelRetriever:
@@ -44,7 +47,7 @@ class ClusterChannelRetriever:
 
     def __init__(self, client: HTTPClientFactory):
         self.client = client.get_client()
-    
+
     def _(self) -> ChannelRetriever:
         return self
 
@@ -79,6 +82,7 @@ class ClusterChannelRetriever:
         assert res.channels is not None
         return res.channels
 
+
 class CacheChannelRetriever:
     retriever: ChannelRetriever
     channels: dict[str, ChannelPayload]
@@ -88,11 +92,13 @@ class CacheChannelRetriever:
         self.channels = dict()
         self.names_to_keys = dict()
         self.retriever = retriever
-    
+
     def _(self) -> ChannelRetriever:
         return self
 
-    def retrieve(self, key: str | None = None, name: str | None = None) -> ChannelPayload | None:
+    def retrieve(
+        self, key: str | None = None, name: str | None = None
+    ) -> ChannelPayload | None:
         if key is None:
             if name is None:
                 return None

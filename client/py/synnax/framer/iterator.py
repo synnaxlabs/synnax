@@ -11,11 +11,13 @@ from enum import Enum
 
 from freighter import EOF, ExceptionPayload, Payload, Stream, StreamClient
 
-from synnax.channel.registry import ChannelRegistry
-from synnax.exceptions import UnexpectedError
-from synnax.telem import TimeRange, TimeSpan, TimeStamp
+from pandas import DataFrame
 
-from .payload import BinaryFrame, NumpyFrame
+from synnax.exceptions import UnexpectedError, GeneralError
+from synnax.framer.mode import FramingMode, open_framing_mode
+from synnax.telem import TimeRange, TimeSpan, TimeStamp
+from synnax.framer.payload import BinaryFrame, NumpyFrame
+from synnax.channel.retrieve import ChannelRetriever
 
 AUTO_SPAN = TimeSpan(-1)
 
@@ -65,25 +67,25 @@ class CoreIterator:
 
     _ENDPOINT = "/frame/iterate"
 
-    client: StreamClient
-    stream: Stream[_Request, _Response]
-    values: list[BinaryFrame]
     aggregate: bool
+    _client: StreamClient
+    _stream: Stream[_Request, _Response]
+    _value: BinaryFrame
 
     def __init__(self, client: StreamClient, aggregate: bool = False) -> None:
-        self.client = client
+        self._client = client
         self.aggregate = aggregate
 
-    def open(self, keys: list[str], tr: TimeRange):
+    def open(self, tr: TimeRange, keys: list[str]):
         """Opens the iterator, configuring it to iterate over the telemetry in the
         channels with the given keys within the provided time range.
 
         :param keys: The keys of the channels to iterate over.
         :param tr: The time range to iterate over.
         """
-        self.stream = self.client.stream(self._ENDPOINT, _Request, _Response)
+        self._stream = self._client.stream(self._ENDPOINT, _Request, _Response)
         self._exec(command=_Command.OPEN, range=tr, keys=keys)
-        self.values = []
+        self._value = BinaryFrame()
 
     def next(self, span: TimeSpan) -> bool:
         """Reads the next time span of telemetry for each channel in the iterator.
@@ -163,10 +165,10 @@ class CoreIterator:
         should probably be placed in a 'finally' block. If the iterator is not closed, it make
         leak resources and threads.
         """
-        exc = self.stream.close_send()
+        exc = self._stream.close_send()
         if exc is not None:
             raise exc
-        _, exc = self.stream.receive()
+        _, exc = self._stream.receive()
         if exc is None:
             raise UnexpectedError(
                 """Unexpected missing close acknowledgement from server.
@@ -175,20 +177,24 @@ class CoreIterator:
         elif not isinstance(exc, EOF):
             raise exc
 
+    @property
+    def value(self) -> BinaryFrame:
+        return self._value.compact()
+
     def _exec(self, **kwargs) -> bool:
-        exc = self.stream.send(_Request(**kwargs))
+        exc = self._stream.send(_Request(**kwargs))
         if exc is not None:
             raise exc
         if not self.aggregate:
-            self.values = []
+            self._value = BinaryFrame()
         while True:
-            r, exc = self.stream.receive()
+            r, exc = self._stream.receive()
             if exc is not None:
                 raise exc
             assert r is not None
             if r.variant == _ResponseVariant.ACK:
                 return r.ack
-            self.values.append(r.frame)
+            self._value.append_frame(r.frame)
 
 
 class NumpyIterator(CoreIterator):
@@ -200,19 +206,27 @@ class NumpyIterator(CoreIterator):
     between two timestamps, see the segment Client read method instead.
     """
 
-    channels: ChannelRegistry
+    _channels: ChannelRetriever
+    _mode: FramingMode
 
     def __init__(
         self,
         transport: StreamClient,
-        channels: ChannelRegistry,
+        channels: ChannelRetriever,
         aggregate: bool = False,
     ):
         super().__init__(transport, aggregate)
-        self.channels = channels
+        self._channels = channels
 
-    def open(self, keys: list[str], tr: TimeRange) -> None:
-        super().open(keys, tr)
+    def open(
+        self,
+        tr: TimeRange,
+        keys: list[str] | None = None,
+        names: list[str] | None = None,
+    ):
+        self._mode = open_framing_mode(keys, names)
+        channels = self._channels.filter(keys, names)
+        super().open(tr, [ch.key for ch in channels])
 
     @property
     def value(self) -> NumpyFrame:
@@ -220,9 +234,19 @@ class NumpyIterator(CoreIterator):
         :returns: The current iterator value as a dictionary whose keys are channels
         and values are segments containing telemetry at the current iterator position.
         """
-        merged_frame = BinaryFrame(
-            keys=[k for v in self.values for k in v.keys],
-            arrays=[arr for v in self.values for arr in v.arrays],
-        )
-        merged_frame.compact()
-        return NumpyFrame.from_binary(merged_frame)
+        v = super().value
+        v.keys = self._value_keys(v)
+        return NumpyFrame.from_binary(v).to_dataframe()
+
+    def _value_keys(self, fr: BinaryFrame) -> list[str]:
+        keys = [k for v in fr for k in v]
+        if self._mode == FramingMode.KEYS:
+           return keys
+        if self._mode == FramingMode.NAMES:
+            # We can safely ignore the none case here because we've already
+            # checked that all channels can be retrieved.
+            return [self._channels.retrieve(k).name for k in keys] # type: ignore
+        raise GeneralError("Must call open() before attempting to access iterator value.")
+        
+
+        

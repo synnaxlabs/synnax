@@ -696,7 +696,7 @@ DataType._FROM_NUMPY = {v: k for k, v in DataType._TO_NUMPY.items()}
 
 
 class ArrayHeader(Payload):
-    time_range: TimeRange | None
+    time_range: TimeRange | None = None
     data_type: DataType
 
 

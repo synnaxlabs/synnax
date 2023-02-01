@@ -177,7 +177,7 @@ class ChannelClient:
                 raise QueryError(f"Channel with name {name} not found.")
             else:
                 raise QueryError("Channel not found.")
-        
+
         return self._sugar(ch)[0]
 
     def filter(
