@@ -6,29 +6,39 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
-#
-#  Use of this software is governed by the Business Source License included in the file
-#  licenses/BSL.txt.
-#
-#  As of the Change Date specified in that file, in accordance with the Business Source
-#  License, use of this software will be governed by the Apache License, Version 2.0,
-#  included in the file licenses/APL.txt.
 
 from __future__ import annotations
 
 from freighter import Payload
 from pandas import DataFrame
+from pydantic import Field
 
 from synnax.channel.payload import ChannelPayload
 from synnax.telem import BinaryArray, NumpyArray, TimeRange
 
 
 class FrameHeader(Payload):
-    keys: list[str] | None
+    keys: list[str]
+
+    def __init__(self, keys: list[str] | None = None, **kwargs):
+        # This is a workaround to allow for a None value to be
+        # passed to the keys field, but still have required
+        # type hinting.
+        if keys is None:
+            keys = list()
+        super().__init__(keys=keys, **kwargs)
 
 
 class BinaryFrame(FrameHeader):
-    arrays: list[BinaryArray] | None
+    arrays: list[BinaryArray] = Field(default_factory=list)
+
+    def __init__(self, arrays: list[BinaryArray] | None = None, **kwargs):
+        # This is a workaround to allow for a None value to be
+        # passed to the arrays field, but still have required
+        # type hinting.
+        if arrays is None:
+            arrays = list()
+        super().__init__(arrays=arrays, **kwargs)
 
     def compact(self):
         # compact together arrays that have the same key
@@ -65,7 +75,7 @@ class BinaryFrame(FrameHeader):
 
 
 class NumpyFrame(FrameHeader):
-    arrays: list[NumpyArray] | None
+    arrays: list[NumpyArray]
 
     class Config:
         arbitrary_types_allowed = True
@@ -105,7 +115,4 @@ def pandas_to_frame(channels: list[ChannelPayload], df: DataFrame) -> NumpyFrame
                 )
             )
 
-    return NumpyFrame(
-        keys=keys,
-        arrays=arrays
-    )
+    return NumpyFrame(keys=keys, arrays=arrays)

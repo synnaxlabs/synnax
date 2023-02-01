@@ -6,13 +6,6 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
-#
-#  Use of this software is governed by the Business Source License included in the file
-#  licenses/BSL.txt.
-#
-#  As of the Change Date specified in that file, in accordance with the Business Source
-#  License, use of this software will be governed by the Apache License, Version 2.0,
-#  included in the file licenses/APL.txt.
 
 from typing import Protocol, Type, TypeVar
 
@@ -21,10 +14,9 @@ import msgpack
 from .transport import P, Payload
 
 
-
 class EncoderDecoder(Protocol):
-    """Protocol for an entity that encodes and decodes values from binary.
-    """
+    """Protocol for an entity that encodes and decodes values from binary."""
+
     @staticmethod
     def content_type() -> str:
         """:returns: the HTTP content type of the encoder"""
@@ -48,8 +40,8 @@ class EncoderDecoder(Protocol):
 
 
 class MsgpackEncoder:
-    """A Msgpack implementation of EncoderDecoder.
-    """
+    """A Msgpack implementation of EncoderDecoder."""
+
     @staticmethod
     def content_type():
         return "application/msgpack"
@@ -64,8 +56,8 @@ class MsgpackEncoder:
 
 
 class JSONEncoder:
-    """A JSON implementation of EncoderDecoder.
-    """
+    """A JSON implementation of EncoderDecoder."""
+
     STRING_ENCODING = "utf-8"
 
     @staticmethod

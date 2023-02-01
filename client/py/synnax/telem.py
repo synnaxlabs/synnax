@@ -6,23 +6,17 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
-#
-#  Use of this software is governed by the Business Source License included in the file
-#  licenses/BSL.txt.
-#
-#  As of the Change Date specified in that file, in accordance with the Business Source
-#  License, use of this software will be governed by the Apache License, Version 2.0,
-#  included in the file licenses/APL.txt.
 
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone, tzinfo
-from typing import Union, get_args
+from typing import TypeAlias, Union, get_args, no_type_check
+from numpy.typing import DTypeLike
 
 import numpy as np
 import pandas as pd
 from freighter import Payload
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from .exceptions import ContiguityError
 
@@ -50,29 +44,28 @@ class TimeStamp(int):
     def __new__(cls, value: UnparsedTimeStamp, *args, **kwargs):
         if isinstance(value, TimeStamp):
             return value
-
         if isinstance(value, TimeSpan):
             value = int(value)
         elif isinstance(value, pd.Timestamp):
             # Convert the timestamp to a timezone aware datetime
-            value = int(float(SECOND) * value.to_pydatetime().astimezone().timestamp())
+            value = int(
+                float(TimeSpan.SECOND) * value.to_pydatetime().astimezone().timestamp()
+            )
         elif isinstance(value, datetime):
-            value = int(float(SECOND) * value.timestamp())
+            value = int(float(TimeSpan.SECOND) * value.timestamp())
         elif isinstance(value, timedelta):
-            value = int(float(SECOND) * value.total_seconds())
+            value = int(float(TimeSpan.SECOND) * value.total_seconds())
         elif isinstance(value, np.datetime64):
             # Assume the datetime64 is in UTC
             value = int(pd.Timestamp(value).asm8.view(np.int64))
-        elif isinstance(value, np.int64):
-            value = int(value)
-        elif isinstance(value, np.float64):
+        elif isinstance(value, np.int64) or isinstance(value, np.float64):
             value = int(value)
         elif isinstance(value, int):
             return super().__new__(cls, int(value))
         else:
             raise TypeError(f"Cannot convert {type(value)} to TimeStamp")
 
-        return super().__new__(cls, value)
+        return super().__new__(cls, value, *args, **kwargs)
 
     def __init__(self, value: UnparsedTimeStamp, *args, **kwargs):
         pass
@@ -84,6 +77,16 @@ class TimeStamp(int):
     @classmethod
     def validate(cls, v):
         return cls(v)
+
+    @classmethod
+    def now(cls) -> TimeStamp:
+        """:returns : the current time as a TimeStamp."""
+        return TimeStamp(datetime.now())
+
+    @classmethod
+    def since(cls, ts: UnparsedTimeStamp) -> TimeSpan:
+        """: returns the amount of time elapsed since the given TimeStamp."""
+        return TimeStamp.now().span(ts)
 
     def span(self, other: UnparsedTimeStamp) -> TimeSpan:
         """Returns the TimeSpan between two timestamps. This span is guaranteed to be
@@ -99,7 +102,7 @@ class TimeStamp(int):
         :return: a datetime object
         """
         return (
-            datetime.utcfromtimestamp(self / SECOND)
+            datetime.utcfromtimestamp(self / TimeSpan.SECOND)
             .replace(tzinfo=timezone.utc)
             .astimezone(tzinfo)
         )
@@ -191,15 +194,11 @@ class TimeStamp(int):
             return super().__eq__(TimeStamp(rhs))
         return NotImplemented
 
+    def __str__(self) -> str:
+        return self.datetime().isoformat()
 
-def now() -> TimeStamp:
-    """Returns the current time as a TimeStamp."""
-    return TimeStamp(datetime.now())
-
-
-def since(t: TimeStamp) -> TimeSpan:
-    """Returns the amount of time between the given timestamp and the current time."""
-    return now().span(t)
+    MIN: TimeStamp
+    MAX: TimeStamp
 
 
 class TimeSpan(int):
@@ -223,11 +222,11 @@ class TimeSpan(int):
             return value
 
         if isinstance(value, timedelta):
-            value = int(float(SECOND) * value.total_seconds())
+            value = int(float(TimeSpan.SECOND) * value.total_seconds())
         elif isinstance(value, pd.Timedelta):
-            value = int(float(SECOND) * value.total_seconds())
+            value = int(float(TimeSpan.SECOND) * value.total_seconds())
         elif isinstance(value, np.timedelta64):
-            value = int(float(SECOND) * pd.Timedelta(value).total_seconds())
+            value = int(float(TimeSpan.SECOND) * pd.Timedelta(value).total_seconds())
         elif isinstance(value, np.int64):
             value = int(value)
         else:
@@ -259,7 +258,7 @@ class TimeSpan(int):
         """Returns the TimeSpan represented as a number of seconds.
         :return: a number of seconds
         """
-        return float(self / SECOND)
+        return float(self / TimeSpan.SECOND)
 
     def is_zero(self) -> bool:
         """Returns true if the TimeSpan is zero.
@@ -310,31 +309,47 @@ class TimeSpan(int):
             return NotImplemented
         return super().__eq__(TimeSpan(other))
 
+    NANOSECOND: TimeSpan
+    NANOSECOND_UNITS: str
+    MICROSECOND: TimeSpan
+    MICROSECOND_UNITS: str
+    MILLISECOND: TimeSpan
+    MILLISECOND_UNITS: str
+    SECOND: TimeSpan
+    SECOND_UNITS: str
+    MINUTE: TimeSpan
+    MINUTE_UNITS: str
+    HOUR: TimeSpan
+    HOUR_UNITS: str
+    DAY: TimeSpan
+    DAY_UNITS: str
+    MAX: TimeSpan
+    UNITS: dict[str, TimeSpan]
 
-TIME_STAMP_MIN = TimeStamp(0)
-TIME_STAMP_MAX = TimeStamp(2**63 - 1)
-NANOSECOND = TimeSpan(1)
-NANOSECOND_UNITS = "ns"
-MICROSECOND = TimeSpan(1000) * NANOSECOND
-MICROSECOND_UNITS = "us"
-MILLISECOND = TimeSpan(1000) * MICROSECOND
-MILLISECOND_UNITS = "ms"
-SECOND = TimeSpan(1000) * MILLISECOND
-SECOND_UNITS = "s"
-MINUTE = TimeSpan(60) * SECOND
-MINUTE_UNITS = "m"
-HOUR = TimeSpan(60) * MINUTE
-HOUR_UNITS = "h"
-TIME_SPAN_MAX = TimeSpan(0xFFFFFFFFFFFFFFFF)
 
-TIME_UNITS = {
-    NANOSECOND_UNITS: NANOSECOND,
-    MICROSECOND_UNITS: MICROSECOND,
-    MILLISECOND_UNITS: MILLISECOND,
-    SECOND_UNITS: SECOND,
-    MINUTE_UNITS: MINUTE,
-    HOUR_UNITS: HOUR,
+TimeSpan.NANOSECOND = TimeSpan(1)
+TimeSpan.NANOSECOND_UNITS = "ns"
+TimeSpan.MICROSECOND = TimeSpan(1000) * TimeSpan.NANOSECOND
+TimeSpan.MICROSECOND_UNITS = "us"
+TimeSpan.MILLISECOND = TimeSpan(1000) * TimeSpan.MICROSECOND
+TimeSpan.MILLISECOND_UNITS = "ms"
+TimeSpan.SECOND = TimeSpan(1000) * TimeSpan.MILLISECOND
+TimeSpan.SECOND_UNITS = "s"
+TimeSpan.MINUTE = TimeSpan(60) * TimeSpan.SECOND
+TimeSpan.MINUTE_UNITS = "m"
+TimeSpan.HOUR = TimeSpan(60) * TimeSpan.MINUTE
+TimeSpan.HOUR_UNITS = "h"
+TimeSpan.MAX = TimeSpan(0xFFFFFFFFFFFFFFFF)
+TimeSpan.UNITS = {
+    TimeSpan.NANOSECOND_UNITS: TimeSpan.NANOSECOND,
+    TimeSpan.MICROSECOND_UNITS: TimeSpan.MICROSECOND,
+    TimeSpan.MILLISECOND_UNITS: TimeSpan.MILLISECOND,
+    TimeSpan.SECOND_UNITS: TimeSpan.SECOND,
+    TimeSpan.MINUTE_UNITS: TimeSpan.MINUTE,
+    TimeSpan.HOUR_UNITS: TimeSpan.HOUR,
 }
+TimeStamp.MIN = TimeStamp(0)
+TimeStamp.MAX = TimeStamp(2**63 - 1)
 
 
 def convert_time_units(data: np.ndarray, _from: str, to: str):
@@ -346,7 +361,13 @@ def convert_time_units(data: np.ndarray, _from: str, to: str):
     """
     if _from == to:
         return data
-    return data * TIME_UNITS[_from] / TIME_UNITS[to]
+    f = TimeSpan.UNITS.get(_from, None)
+    if f is None:
+        raise ValueError(f"Invalid input time unit {_from}")
+    t = TimeSpan.UNITS.get(to, None)
+    if t is None:
+        raise ValueError(f"Invalid output time unit {to}")
+    return data * f / t
 
 
 class Rate(float):
@@ -378,7 +399,7 @@ class Rate(float):
 
     def period(self) -> TimeSpan:
         """Returns the period of the rate as a TimeSpan"""
-        return TimeSpan(int(1 / self * float(SECOND)))
+        return TimeSpan(int(1 / self * float(TimeSpan.SECOND)))
 
     def sample_count(self, time_span: UnparsedTimeSpan) -> int:
         """Returns the number of samples in the given TimeSpan at this rate"""
@@ -407,10 +428,17 @@ class Rate(float):
     def __repr__(self):
         return f"Rate({super().__repr__()} Hz)"
 
+    def __mul__(self, other: UnparsedRate) -> Rate:
+        return Rate(super().__mul__(Rate(other)))
 
-HZ = Rate(1)
-KHZ = Rate(1000) * HZ
-MHZ = Rate(1000) * KHZ
+    HZ: Rate
+    KHZ: Rate
+    MHZ: Rate
+
+
+Rate.HZ = Rate(1)
+Rate.KHZ = Rate(1000) * Rate.HZ
+Rate.MHZ = Rate(1000) * Rate.KHZ
 
 
 class TimeRange(BaseModel):
@@ -477,6 +505,17 @@ class TimeRange(BaseModel):
     def __str__(self):
         return str(self.start) + " - " + str(self.end)
 
+    # Assigning these values to None prevents pydantic
+    # from throwing a nasty missing attribute error.
+    MAX: TimeRange = None  # type: ignore
+    MIN: TimeRange = None  # type: ignore
+    ZERO: TimeRange = None  # type: ignore
+
+
+TimeRange.MAX = TimeRange(TimeStamp.MIN, TimeStamp.MAX)
+TimeRange.MIN = TimeRange(TimeStamp.MAX, TimeStamp.MIN)
+TimeRange.ZERO = TimeRange(0, 0)
+
 
 class Density(int):
     def __new__(cls, value: UnparsedDensity):
@@ -500,23 +539,37 @@ class Density(int):
     def __repr__(self):
         return f"Density({super().__repr__()})"
 
+    UNKNOWN: Density
+    BIT64: Density
+    BIT32: Density
+    BIT16: Density
+    BIT8: Density
+
+
+Density.UNKNOWN = Density(0)
+Density.BIT64 = Density(8)
+Density.BIT32 = Density(4)
+Density.BIT16 = Density(2)
+Density.BIT8 = Density(1)
+
 
 class Size(int):
     def __str__(self):
         return super(Size, self).__str__() + "B"
 
+    def __mul__(self, other: UnparsedSize):
+        return Size(super(Size, self).__mul__(Size(other)))
 
-BYTE = Size(1)
-KILOBYTE = Size(1024) * BYTE
-MEGABYTE = Size(1024) * KILOBYTE
-GIGABYTE = Size(1024) * MEGABYTE
+    BYTE: Size
+    KILOBYTE: Size
+    MEGABYTE: Size
+    GIGABYTE: Size
 
-TIME_RANGE_MAX = TimeRange(TIME_STAMP_MIN, TIME_STAMP_MAX)
-DENSITY_UNKNOWN = Density(0)
-BIT64 = Density(8)
-BIT32 = Density(4)
-BIT16 = Density(2)
-BIT8 = Density(1)
+
+Size.BYTE = Size(1)
+Size.KILOBYTE = Size(1024) * Size.BYTE
+Size.MEGABYTE = Size(1024) * Size.KILOBYTE
+Size.GIGABYTE = Size(1024) * Size.MEGABYTE
 
 
 class DataType(str):
@@ -527,14 +580,10 @@ class DataType(str):
             return value
         if isinstance(value, str):
             return super().__new__(cls, value)
-        try:
-            if issubclass(value, np.ScalarType):
-                value = NUMPY_TO_DATA_TYPE.get(value, None)
-                if value is None:
-                    raise TypeError(f"Cannot convert {value} to DataType")
+        if np.issctype(value):
+            value = DataType._FROM_NUMPY.get(np.dtype(value), None)
+            if value is not None:
                 return value
-        except TypeError:
-            pass
         raise TypeError(f"Cannot convert {type(value)} to DataType")
 
     def __init__(self, value: UnparsedDataType):
@@ -553,49 +602,65 @@ class DataType(str):
         field_schema.update(type="string")
 
     @property
-    def numpy_type(self, _raise: bool = False) -> np.ScalarType | None:
+    def np(self) -> np.dtype:
         """Converts a built-in DataType to a numpy type Scalar Type
         :param _raise: If True, raises a TypeError if the DataType is not a numpy type.
         :return: The numpy type
         """
-        npt = DATA_TYPE_TO_NUMPY.get(self, None)
-        if npt is None and _raise:
+        npt = self._TO_NUMPY.get(self, None)
+        if npt is None:
             raise TypeError(f"Cannot convert {self} to numpy type")
         return npt
 
     def __repr__(self):
-        return f"DataType({super(DataType, self).__repr__()})"
+        return f"DataType({super().__repr__()})"
 
     def string(self):
         return str(self)
 
+    UNKNOWN: DataType
+    TIMESTAMP: DataType
+    FLOAT64: DataType
+    FLOAT32: DataType
+    INT64: DataType
+    INT32: DataType
+    INT16: DataType
+    INT8: DataType
+    UINT64: DataType
+    UINT32: DataType
+    UINT16: DataType
+    UINT8: DataType
+    ALL: tuple[DataType, ...]
+    _TO_NUMPY: dict[DataType, np.dtype]
+    _FROM_NUMPY: dict[np.dtype, DataType]
 
-DATA_TYPE_UNKNOWN = DataType("")
-TIMESTAMP = DataType("timestamp")
-FLOAT64 = DataType("float64")
-FLOAT32 = DataType("float32")
-INT64 = DataType("int64")
-INT32 = DataType("int32")
-INT16 = DataType("int16")
-INT8 = DataType("int8")
-UINT64 = DataType("uint64")
-UINT32 = DataType("uint32")
-UINT16 = DataType("uint16")
-UINT8 = DataType("uint8")
-DATA_TYPES = [
-    FLOAT64,
-    FLOAT32,
-    INT64,
-    INT32,
-    INT16,
-    INT8,
-    UINT64,
-    UINT32,
-    UINT16,
-    UINT8,
-]
 
-UnparsedTimeStamp = Union[
+DataType.UNKNOWN = DataType("")
+DataType.TIMESTAMP = DataType("timestamp")
+DataType.FLOAT64 = DataType("float64")
+DataType.FLOAT32 = DataType("float32")
+DataType.INT64 = DataType("int64")
+DataType.INT32 = DataType("int32")
+DataType.INT16 = DataType("int16")
+DataType.INT8 = DataType("int8")
+DataType.UINT64 = DataType("uint64")
+DataType.UINT32 = DataType("uint32")
+DataType.UINT16 = DataType("uint16")
+DataType.UINT8 = DataType("uint8")
+DataType.ALL = (
+    DataType.FLOAT64,
+    DataType.FLOAT32,
+    DataType.INT64,
+    DataType.INT32,
+    DataType.INT16,
+    DataType.INT8,
+    DataType.UINT64,
+    DataType.UINT32,
+    DataType.UINT16,
+    DataType.UINT8,
+)
+
+UnparsedTimeStamp: TypeAlias = Union[
     int,
     TimeStamp,
     TimeSpan,
@@ -604,31 +669,30 @@ UnparsedTimeStamp = Union[
     np.datetime64,
     np.int64,
 ]
-UnparsedTimeSpan = Union[
-    int,
-    TimeSpan,
-    TimeStamp,
+UnparsedTimeSpan: TypeAlias = Union[
+    int | TimeSpan | TimeStamp,
     timedelta,
     np.timedelta64,
 ]
-UnparsedRate = Union[int, float, TimeSpan, Rate]
-UnparsedDensity = Density | int
-UnparsedDataType = (*np.ScalarType, DataType, str)
+UnparsedRate: TypeAlias = int | float | TimeSpan | Rate
+UnparsedDensity: TypeAlias = Density | int
+UnparsedDataType: TypeAlias = DTypeLike | DataType | str
+UnparsedSize: TypeAlias = int | Size
 
-DATA_TYPE_TO_NUMPY: dict[str, np.ScalarType] = {
-    FLOAT64: np.float64,
-    FLOAT32: np.float32,
-    INT64: np.int64,
-    INT32: np.int32,
-    INT16: np.int16,
-    INT8: np.int8,
-    UINT64: np.uint64,
-    UINT32: np.uint32,
-    UINT16: np.uint16,
-    UINT8: np.uint8,
-    TIMESTAMP: np.int64,
+DataType._TO_NUMPY = {
+    DataType.FLOAT64: np.dtype(np.float64),
+    DataType.FLOAT32: np.dtype(np.float32),
+    DataType.TIMESTAMP: np.dtype(np.int64),
+    DataType.INT64: np.dtype(np.int64),
+    DataType.INT32: np.dtype(np.int32),
+    DataType.INT16: np.dtype(np.int16),
+    DataType.INT8: np.dtype(np.int8),
+    DataType.UINT64: np.dtype(np.uint64),
+    DataType.UINT32: np.dtype(np.uint32),
+    DataType.UINT16: np.dtype(np.uint16),
+    DataType.UINT8: np.dtype(np.uint8),
 }
-NUMPY_TO_DATA_TYPE = {v: k for k, v in DATA_TYPE_TO_NUMPY.items()}
+DataType._FROM_NUMPY = {v: k for k, v in DataType._TO_NUMPY.items()}
 
 
 class ArrayHeader(Payload):
@@ -651,7 +715,7 @@ class NumpyArray(ArrayHeader):
         return NumpyArray(
             data_type=arr.data_type,
             time_range=arr.time_range,
-            data=np.frombuffer(arr.data, dtype=arr.data_type.numpy_type),
+            data=np.frombuffer(arr.data, dtype=arr.data_type.np),
         )
 
     def to_binary(self) -> BinaryArray:

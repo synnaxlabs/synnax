@@ -6,13 +6,6 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
-#
-#  Use of this software is governed by the Business Source License included in the file
-#  licenses/BSL.txt.
-#
-#  As of the Change Date specified in that file, in accordance with the Business Source
-#  License, use of this software will be governed by the Apache License, Version 2.0,
-#  included in the file licenses/APL.txt.
 
 import numpy as np
 import pandas as pd
@@ -101,7 +94,7 @@ class FramerClient:
         :returns: A numpy array containing the retrieved telemetry.
         :raises ContiguityError: If the telemetry between start and end is non-contiguous.
         """
-        return self.read_array(from_, start, end)
+        return self.read_array(from_, start, end).data
 
     def read_array(
         self, from_: str, start: UnparsedTimeStamp, end: UnparsedTimeStamp

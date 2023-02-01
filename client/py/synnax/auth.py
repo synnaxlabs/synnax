@@ -6,13 +6,6 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
-#
-#  Use of this software is governed by the Business Source License included in the file
-#  licenses/BSL.txt.
-#
-#  As of the Change Date specified in that file, in accordance with the Business Source
-#  License, use of this software will be governed by the Apache License, Version 2.0,
-#  included in the file licenses/APL.txt.
 
 from typing import Callable
 
@@ -49,9 +42,7 @@ def token_middleware(
     def mw(md: MetaData, _next: Next):
         md.set(AUTHORIZATION_HEADER, "Bearer " + token_provider())
         out_md, exc = _next(md)
-        if TOKEN_REFRESH_HEADER in out_md.params:
-            tk = out_md.retrieve(TOKEN_REFRESH_HEADER)
-            set_token(tk)
+        maybe_refresh_token(out_md, set_token)
         return out_md, exc
 
     return mw
@@ -59,16 +50,23 @@ def token_middleware(
 
 def async_token_middleware(
     token_provider: Callable[[], str], set_token: Callable[[str], None]
-) -> Middleware:
+) -> AsyncMiddleware:
     async def mw(md: MetaData, _next: AsyncNext):
         md.set(AUTHORIZATION_HEADER, "Bearer " + token_provider())
         out_md, exc = await _next(md)
-        if TOKEN_REFRESH_HEADER in out_md:
-            token = out_md.retrieve(TOKEN_REFRESH_HEADER)
-            set_token(token)
+        maybe_refresh_token(out_md, set_token)
         return out_md, exc
 
     return mw
+
+
+def maybe_refresh_token(
+    md: MetaData,
+    set_token: Callable[[str], None],
+) -> None:
+    refresh = md.get(TOKEN_REFRESH_HEADER)
+    if refresh is not None:
+        set_token(refresh)
 
 
 class AuthenticationClient:
@@ -98,6 +96,7 @@ class AuthenticationClient:
         )
         if exc is not None:
             raise exc
+        assert res is not None
         self.token = res.token
         self.user = res.user
 

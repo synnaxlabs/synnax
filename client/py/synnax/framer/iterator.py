@@ -6,19 +6,13 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
-#
-#  Use of this software is governed by the Business Source License included in the file
-#  licenses/BSL.txt.
-#
-#  As of the Change Date specified in that file, in accordance with the Business Source
-#  License, use of this software will be governed by the Apache License, Version 2.0,
-#  included in the file licenses/APL.txt.
 
 from enum import Enum
 
 from freighter import EOF, ExceptionPayload, Payload, Stream, StreamClient
 
 from synnax.channel.registry import ChannelRegistry
+from synnax.exceptions import UnexpectedError
 from synnax.telem import TimeRange, TimeSpan, TimeStamp
 
 from .payload import BinaryFrame, NumpyFrame
@@ -54,10 +48,10 @@ class _Request(Payload):
 
 class _Response(Payload):
     variant: _ResponseVariant
+    command: _Command
     ack: bool
-    command: _Command | None = None
-    error: ExceptionPayload | None = None
-    frame: BinaryFrame | None = None
+    error: ExceptionPayload
+    frame: BinaryFrame
 
 
 class CoreIterator:
@@ -172,8 +166,13 @@ class CoreIterator:
         exc = self.stream.close_send()
         if exc is not None:
             raise exc
-        pld, exc = self.stream.receive()
-        if not isinstance(exc, EOF):
+        _, exc = self.stream.receive()
+        if exc is None:
+            raise UnexpectedError(
+                """Unexpected missing close acknowledgement from server.
+                Please report this issue to the Synnax team."""
+            )
+        elif not isinstance(exc, EOF):
             raise exc
 
     def _exec(self, **kwargs) -> bool:
@@ -186,6 +185,7 @@ class CoreIterator:
             r, exc = self.stream.receive()
             if exc is not None:
                 raise exc
+            assert r is not None
             if r.variant == _ResponseVariant.ACK:
                 return r.ack
             self.values.append(r.frame)

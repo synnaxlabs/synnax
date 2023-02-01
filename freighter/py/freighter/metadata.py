@@ -6,16 +6,9 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
-#
-#  Use of this software is governed by the Business Source License included in the file
-#  licenses/BSL.txt.
-#
-#  As of the Change Date specified in that file, in accordance with the Business Source
-#  License, use of this software will be governed by the Apache License, Version 2.0,
-#  included in the file licenses/APL.txt.
 
 from dataclasses import dataclass
-from typing import MutableMapping
+from typing import MutableMapping, Any
 
 
 @dataclass
@@ -44,5 +37,5 @@ class MetaData:
     def set(self, key: str, value: str) -> None:
         self.params[key] = value
 
-    def get(self, key: str) -> str:
-        return self.params[key]
+    def get(self, key: str, default: Any = None) -> Any:
+        return self.params.get(key, default)

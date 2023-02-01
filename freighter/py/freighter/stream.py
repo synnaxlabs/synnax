@@ -154,7 +154,7 @@ class AsyncStreamClient(AsyncTransport):
     """
 
     async def stream(
-            self, target: str, req_t: Type[RQ], res_t: Type[RS]
+        self, target: str, req_t: Type[RQ], res_t: Type[RS]
     ) -> AsyncStream[RQ, RS]:
         """Dials the target and returns a stream that can be used to issue requests
         and receive responses.

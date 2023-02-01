@@ -33,11 +33,10 @@ def http_factory(endpoint: URL) -> HTTPClientFactory:
 class TestGETClient:
     @pytest.mark.focus
     def test_echo(self, http_factory: HTTPClientFactory):
-        """Should echo an incremented ID back to the caller.
-        """
-        res, err = http_factory.get_client().send("/echo",
-                                                  Message(id=1, message="hello"),
-                                                  Message)
+        """Should echo an incremented ID back to the caller."""
+        res, err = http_factory.get_client().send(
+            "/echo", Message(id=1, message="hello"), Message
+        )
         assert err is None
         assert res.id == 2
         assert res.message == "hello"
@@ -52,7 +51,9 @@ class TestGETClient:
 
         client = http_factory.get_client()
         client.use(mw)
-        res, err = client.send("/middlewareCheck", Message(id=1, message="hello"), Message)
+        res, err = client.send(
+            "/middlewareCheck", Message(id=1, message="hello"), Message
+        )
         assert err is None
         assert res.id == 2
         assert res.message == "hello"
@@ -61,11 +62,10 @@ class TestGETClient:
 
 class TestPOSTClient:
     def test_echo(self, http_factory: HTTPClientFactory):
-        """Should echo an incremented ID back to the caller.
-        """
-        res, err = http_factory.post_client().send("/echo",
-                                                   Message(id=1, message="hello"),
-                                                   Message)
+        """Should echo an incremented ID back to the caller."""
+        res, err = http_factory.post_client().send(
+            "/echo", Message(id=1, message="hello"), Message
+        )
         assert err is None
         assert res.id == 2
         assert res.message == "hello"

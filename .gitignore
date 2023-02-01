@@ -1,12 +1,12 @@
-# |||||| INTELLIJ ||||||
+# |||| INTELLIJ ||||
 
 .idea/
 
-# |||||| DARWIN |||||||
+# |||| DARWIN ||||
 
 .DS_Store
 
-# |||||| JS ||||||
+# |||| JS ||||
 
 node_modules
 dist
@@ -24,19 +24,19 @@ nyc_output
 *.tsbuildinfo
 *.ts.timestamp-*
 
-# |||||| RUST ||||||
+# |||| RUST ||||
 
 /target/
 
-# |||||| TURBO REPO ||||||
+# |||| TURBO REPO ||||
 
 .turbo/
 .turbo-cache/
 
-# |||||| SYNNAX ||||||
-
-synnax-data/
-
-# |||||| LOGS ||||||
+# |||| LOGS ||||
 
 logs
+
+# |||| WORK ||||    
+
+work

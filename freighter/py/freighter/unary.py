@@ -25,10 +25,10 @@ class UnaryClient(Transport):
     """
 
     def send(
-            self,
-            target: str,
-            req: RQ,
-            res_t: Type[RS],
+        self,
+        target: str,
+        req: RQ,
+        res_t: Type[RS],
     ) -> tuple[RS | None, Exception | None]:
         """
         Sends a request to the target server and waits until a response is
@@ -48,11 +48,12 @@ class AsyncUnaryClient(AsyncTransport):
     """Protocol for an entity that implements a simple asynchronous request-response transport
     between two entities.
     """
+
     async def send(
-            self,
-            target: str,
-            req: RQ,
-            res_t: Type[RS],
+        self,
+        target: str,
+        req: RQ,
+        res_t: Type[RS],
     ) -> tuple[RS | None, Exception | None]:
         """
         Sends a request to the target server and waits until a response is

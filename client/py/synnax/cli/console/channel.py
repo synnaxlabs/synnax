@@ -32,7 +32,8 @@ def prompt_group_channel_names(
     4) A combination of the above (e.g. '1, 2, channel3, my_dog*')
     """
     )
-    res = ctx.console.ask("channels")
+    res = ctx.console.ask("channels", required=True)
+    assert res is not None
     return group_channel_names(ctx, channels, res.split(","))
 
 

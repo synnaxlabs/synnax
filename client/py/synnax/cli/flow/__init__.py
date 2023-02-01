@@ -36,7 +36,7 @@ class Flow(Generic[T]):
         self.steps = {}
         self.context = ctx
 
-    def add(self, name: str, step: T):
+    def add(self, name: str, step: Callable[[Context, T], str | None]):
         self.steps[name] = step
 
     def run(self, req: T, root: str):
@@ -45,7 +45,7 @@ class Flow(Generic[T]):
 
     def _run(
         self,
-        step: Callable[[T, Context], str | None],
+        step: Callable[[Context, T], str | None],
         request: T,
     ):
         next_step = step(self.context, request)
