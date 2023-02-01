@@ -14,18 +14,25 @@ import pytest
 from synnax.cli.ts_convert import pure_tsconvert
 from synnax.io import IO_FACTORY
 
+DATA_DIR = Path(__file__).parent / "testdata"
+
+@pytest.fixture
+def remove_testdata():
+    yield
+    (DATA_DIR / "tsconvert_out.csv").unlink()
+
 class TestTSConvert:
     @pytest.mark.focus
-    def test_tsconvert(self):
+    def test_tsconvert(self, remove_testdata):
         pure_tsconvert(
-            path="./testdata/tsconvert.csv",
-            out="./testdata/tsconvert_out.csv",
+            path=DATA_DIR / "tsconvert.csv",
+            out=DATA_DIR / "tsconvert_out.csv",
             channel="Time",
             input="s",
             output="ns",
         )
-        f = IO_FACTORY.new_reader(Path("./testdata/tsconvert_out.csv"))
+        f = IO_FACTORY.new_reader(DATA_DIR / "tsconvert_out.csv")
         f.set_chunk_size(1)
         f.seek_first()
         df = f.read()
-        assert df["Time"][0] == 123e7
+        assert df["Time"][0] == int(123e9)

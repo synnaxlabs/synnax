@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from pathlib import Path
+
 import click
 import numpy as np
 
@@ -36,8 +38,8 @@ def tsconvert(
     pure_tsconvert(path, out, channel, input, output)
 
 def pure_tsconvert(
-    path: str | None,
-    out: str | None,
+    path: Path | str | None,
+    out: Path | str | None,
     channel: str | None,
     input: str | None,
     output: str | None,
