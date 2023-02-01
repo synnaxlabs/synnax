@@ -1,6 +1,3 @@
-# Created by https://www.toptal.com/developers/gitignore/api/python
-# Edit at https://www.toptal.com/developers/gitignore?templates=python
-
 ### Intellij ###
 .idea
 
@@ -162,4 +159,3 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
-*.csv
