@@ -12,8 +12,7 @@ from freighter import URL
 from synnax.auth import AuthenticationClient
 from synnax.channel import ChannelClient
 from synnax.channel.create import ChannelCreator
-from synnax.channel.registry import ChannelRegistry
-from synnax.channel.retrieve import ChannelRetriever
+from synnax.channel.retrieve import ClusterChannelRetriever, CacheChannelRetriever
 from synnax.config import try_load_options_if_none_provided
 from synnax.framer import FramerClient
 from synnax.transport import Transport
@@ -52,8 +51,9 @@ class Synnax:
             )
             auth.authenticate()
             self._transport.use(*auth.middleware())
-        ch_retriever = ChannelRetriever(self._transport.http)
+        ch_retriever = CacheChannelRetriever(
+            ClusterChannelRetriever(self._transport.http)
+        )
         ch_creator = ChannelCreator(self._transport.http)
-        ch_registry = ChannelRegistry(ch_retriever)
-        self.data = FramerClient(self._transport, ch_registry)
+        self.data = FramerClient(self._transport, ch_retriever)
         self.channel = ChannelClient(self.data, ch_retriever, ch_creator)

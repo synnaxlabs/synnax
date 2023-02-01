@@ -8,7 +8,9 @@
 #  included in the file licenses/APL.txt.
 
 from enum import Enum
+from warnings import warn
 
+from numpy import can_cast as np_can_cast, ndarray
 from freighter import (
     EOF,
     ExceptionPayload,
@@ -20,11 +22,11 @@ from freighter import (
 from pandas import DataFrame
 
 from synnax.channel.payload import ChannelPayload
-from synnax.channel.registry import ChannelRegistry
+from synnax.channel.retrieve import ChannelRetriever
 from synnax.exceptions import Field, GeneralError, ValidationError
-from synnax.telem import TimeStamp, UnparsedTimeStamp
-
-from .payload import BinaryFrame, pandas_to_frame
+from synnax.telem import TimeStamp, UnparsedTimeStamp, NumpyArray
+from synnax.framer.payload import BinaryFrame, NumpyFrame
+from synnax.framer.mode import FramingMode, open_framing_mode
 
 
 class _Command(int, Enum):
@@ -47,7 +49,7 @@ class _Request(Payload):
 
 class _Response(Payload):
     command: _Command
-    ack: bool
+    eck: bool
     error: ExceptionPayload
 
 
@@ -228,20 +230,27 @@ class DataFrameWriter(FrameWriter):
     pandas DataFrames.
     """
 
-    registry: ChannelRegistry
+    _channels: ChannelRetriever
+    _mode: FramingMode
+    _strict: bool
+    _suppress_warnings: bool
 
     def __init__(
         self,
         client: StreamClient,
-        registry: ChannelRegistry,
+        channels: ChannelRetriever,
+        strict: bool = False,
+        suppress_warnings: bool = False,
     ) -> None:
         super().__init__(client)
-        self.registry = registry
-        self.channels = []
+        self._channels = channels
+        self._mode = FramingMode.UNOPENED
+        self._strict = strict
+        self._suppress_warnings = suppress_warnings
 
     def open(
-        self, 
-        start: UnparsedTimeStamp, 
+        self,
+        start: UnparsedTimeStamp,
         keys: list[str] | None = None,
         names: list[str] | None = None,
     ):
@@ -249,10 +258,52 @@ class DataFrameWriter(FrameWriter):
         channels for the duration of the writer's lifetime. open must be called before
         any other writer methods.
         """
-        channels = self.registry.filter(keys=keys, names=names)
+        self._mode = open_framing_mode(keys, names)
+        channels = self._channels.filter(keys=keys, names=names)
         super(DataFrameWriter, self).open(start, [ch.key for ch in channels])
 
     def write(self, frame: DataFrame):
-        super(DataFrameWriter, self).write(
-            pandas_to_frame(self.channels, frame).to_binary(),
-        )
+        super(DataFrameWriter, self).write(self._convert(frame))
+
+    def _convert(self, df: DataFrame) -> BinaryFrame:
+        np_fr = NumpyFrame()
+        for col in df.columns:
+            ch = self._retrieve(col)
+            np_fr.keys.append(ch.key)
+            np_data = self._prep_arr(df[col].to_numpy(), ch, col)
+            np_fr.arrays.append(NumpyArray(data=np_data, data_type=ch.data_type))
+        return np_fr.to_binary()
+
+    def _retrieve(self, key_or_name: str) -> ChannelPayload:
+        if self._mode == FramingMode.UNOPENED:
+            raise GeneralError(
+                "Writer is not open. Please open before calling write() or close()."
+            )
+        ch = self._channels.retrieve(**{self._mode.value: [key_or_name]})
+        if ch is None:
+            raise ValidationError(
+                Field(
+                    key_or_name,
+                    f"{key_or_name} is not a valid channel key or name",
+                )
+            )
+        return ch
+
+    def _prep_arr(self, arr: ndarray, ch: ChannelPayload, col: str):
+        ch_dt = ch.data_type.np
+        if arr.dtype != ch_dt:
+            if self._strict or not np_can_cast(arr.dtype, ch_dt):
+                raise ValidationError(
+                    Field(
+                        col,
+                        f"""column {col} has type {arr.dtype} but channel {ch.key} expects type {ch_dt}""",
+                    )
+                )
+            elif not self._suppress_warnings:
+                warn(
+                    f"""column {col} has type {arr.dtype} but channel {ch.key} expects type {ch_dt}. 
+                    We can safely convert between the two, but this can cause performance degradations and is not recccomended. 
+                    To suppress this warning, set suppress_warnings=True when constructing the writer. To raise an error instead,
+                    set strict=True when constructing the writer."""
+                )
+        return arr.astype(ch_dt)
