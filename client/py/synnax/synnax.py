@@ -12,13 +12,13 @@ from freighter import URL
 from synnax.auth import AuthenticationClient
 from synnax.channel import ChannelClient
 from synnax.channel.create import ChannelCreator
-from synnax.channel.retrieve import ClusterChannelRetriever, CacheChannelRetriever
+from synnax.channel.retrieve import ClusterChannelRetriever, CachedChannelRetriever
 from synnax.config import try_load_options_if_none_provided
-from synnax.framer import FramerClient
+from synnax.framer import FrameClient
 from synnax.transport import Transport
 
 
-class Synnax:
+class Synnax(FrameClient):
     """Client to perform operations against a Synnax cluster. If no credentials are provided
     in the options, the client will attempt to load them from the configuration file (
     ~/.synnax/config.json) or from environment variables.
@@ -32,8 +32,7 @@ class Synnax:
     """
 
     _transport: Transport
-    channel: ChannelClient
-    data: FramerClient
+    channels: ChannelClient
 
     def __init__(
         self,
@@ -47,13 +46,15 @@ class Synnax:
         self._transport = Transport(URL(host=opts.host, port=opts.port), opts.secure)
         if username != "" or password != "":
             auth = AuthenticationClient(
-                self._transport.http.post_client(), opts.username, opts.password
+                self._transport.http.post_client(), 
+                opts.username, 
+                opts.password
             )
             auth.authenticate()
             self._transport.use(*auth.middleware())
-        ch_retriever = CacheChannelRetriever(
+        ch_retriever = CachedChannelRetriever(
             ClusterChannelRetriever(self._transport.http)
         )
         ch_creator = ChannelCreator(self._transport.http)
-        self.data = FramerClient(self._transport, ch_retriever)
-        self.channel = ChannelClient(self.data, ch_retriever, ch_creator)
+        super().__init__(self._transport, ch_retriever)
+        self.channels = ChannelClient(self, ch_retriever, ch_creator)
