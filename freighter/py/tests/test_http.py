@@ -44,7 +44,7 @@ class TestGETClient:
     def test_middleware(self, http_factory: HTTPClientFactory):
         dct = {"called": False}
 
-        def mw(md: MetaData, next: Next) -> Exception | None:
+        def mw(md: MetaData, next: Next) -> tuple[MetaData, Exception | None]:
             md.params["Test"] = "test"
             dct["called"] = True
             return next(md)
