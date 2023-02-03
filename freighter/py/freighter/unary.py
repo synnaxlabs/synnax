@@ -6,20 +6,13 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
-#
-#  Use of this software is governed by the Business Source License included in the file
-#  licenses/BSL.txt.
-#
-#  As of the Change Date specified in that file, in accordance with the Business Source
-#  License, use of this software will be governed by the Apache License, Version 2.0,
-#  included in the file licenses/APL.txt.
 
 from typing import Protocol, Type
 
 from .transport import RQ, RS, Transport, AsyncTransport
 
 
-class UnaryClient(Transport):
+class UnaryClient(Transport, Protocol):
     """Protocol for an entity that implements a simple request-response transport
     between two entities.
     """
@@ -44,7 +37,7 @@ class UnaryClient(Transport):
         ...
 
 
-class AsyncUnaryClient(AsyncTransport):
+class AsyncUnaryClient(AsyncTransport, Protocol):
     """Protocol for an entity that implements a simple asynchronous request-response transport
     between two entities.
     """
