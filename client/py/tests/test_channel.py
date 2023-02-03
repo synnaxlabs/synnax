@@ -16,7 +16,7 @@ import synnax as sy
 class TestClient:
     @pytest.fixture(scope="class")
     def two_channels(self, client: sy.Synnax) -> list[sy.Channel]:
-        return client.channel.create_many(
+        return client.channels.create_many(
             [
                 sy.Channel(
                     name="test",
