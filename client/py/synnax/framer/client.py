@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import numpy as np
+from numpy import ndarray
 import pandas as pd
 
 from synnax.channel.retrieve import ChannelRetriever
@@ -46,15 +46,15 @@ class FrameClient:
         for more.
         :returns: A NumpyWriter that can be used to write telemetry to the given channels.
         """
-        npw = DataFrameWriter(
+        w = DataFrameWriter(
             client=self._transport.stream,
             channels=self._channels,
             strict=strict,
             suppress_warnings=suppress_warnings,
             skip_invalid=skip_invalid,
         )
-        npw.open(start, keys, names)
-        return npw
+        w.open(start, keys, names)
+        return w
 
     def new_iterator(
         self,
@@ -83,7 +83,7 @@ class FrameClient:
     def write(
         self,
         start: UnparsedTimeStamp,
-        data: np.ndarray,
+        data: ndarray,
         key: str | None = None,
         name: str | None = None,
         strict: bool = False,
@@ -114,7 +114,7 @@ class FrameClient:
         end: UnparsedTimeStamp,
         key: str | None = None,
         name: str | None = None,
-    ) -> tuple[np.ndarray, TimeRange]:
+    ) -> tuple[ndarray, TimeRange]:
         """Reads telemetry from the channel between the two timestamps.
 
         :param from_: THe key of the channel to read from.

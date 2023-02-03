@@ -15,24 +15,33 @@ from synnax.channel.create import ChannelCreator
 from synnax.channel.retrieve import ClusterChannelRetriever, CacheChannelRetriever
 from synnax.config import try_load_options_if_none_provided
 from synnax.framer import FrameClient
+from synnax.options import SynnaxOptions
 from synnax.transport import Transport
 
 
 class Synnax(FrameClient):
-    """Client to perform operations against a Synnax cluster. If no credentials are provided
-    in the options, the client will attempt to load them from the configuration file (
-    ~/.synnax/config.json) or from environment variables.
+    """Client to perform operations against a Synnax cluster. 
 
-    :param host: Hostname of a Synnax server.
-    :param port: Port of a Synnax server.
-    :param username: Username to authenticate with. Not required if the Synnax cluster
-    is running in insecure mode.
-    :param password: Password to authenticate with. Not required if the Synnax cluster
-    is running in insecure mode.
+    If using the client for data analysis/personal use, the easiest way to connect
+    is to use the ``synnax login`` command, which will prompt and securely store your 
+    credentials. The client can then be initialized without parameters.
+
+    After running the synnax login command::
+        client = Synnax()
+
+    Without running the synnax login command::
+        client = Synnax(
+            host="synnax.example.com",
+            port=9090,
+            username="synnax",
+            password="seldon",
+            secure=True,
+        )
     """
 
-    _transport: Transport
     channels: ChannelClient
+
+    _transport: Transport
 
     def __init__(
         self,
@@ -42,14 +51,23 @@ class Synnax(FrameClient):
         password: str = "",
         secure: bool = False,
     ):
+        """Creates a new client. Connection parameters can be provided as arguments, or,
+        if none are provided, the client will attempt to load them from the Synnax
+        configuration file (~/.synnax/config.json) as well as credentials stored in the 
+        operating system's keychain.
+
+        If using the client for data analysis/personal use, the easiest way to connect
+        is to use the `synnax login` command, which will prompt and securely store your 
+        credentials. The client can then be initialized without parameters.
+
+        :param host: Hostname of a node in the Synnax cluster.
+        :param port: Port of the node.
+        :param username: Username to authenticate with. 
+        :param password: Password to authenticate with.
+        :param secure: Whether to use TLS when connnecting to the cluster.
+        """
         opts = try_load_options_if_none_provided(host, port, username, password, secure)
-        self._transport = Transport(URL(host=opts.host, port=opts.port), opts.secure)
-        if username != "" or password != "":
-            auth = AuthenticationClient(
-                self._transport.http.post_client(), opts.username, opts.password
-            )
-            auth.authenticate()
-            self._transport.use(*auth.middleware())
+        self._transport = self._configure_transport(opts)
         ch_retriever = CacheChannelRetriever(
             ClusterChannelRetriever(self._transport.http)
         )
@@ -61,4 +79,19 @@ class Synnax(FrameClient):
         """Shuts down the client and closes all connections. All open iterators or
         writers must be closed before calling this method.
         """
+        # No-op for now, we'll definitely add cleanup logic in the future, so it's
+        # good to have this API defined.
         ...
+
+    def _configure_transport(self, opts: SynnaxOptions) -> Transport:
+        t = Transport(URL(host=opts.host, port=opts.port), opts.secure)
+        if opts.username != "" or opts.password != "":
+            auth = AuthenticationClient(
+                transport=t.http.post_client(), 
+                username=opts.username, 
+                password=opts.password,
+            )
+            auth.authenticate()
+            t.use(*auth.middleware())
+        return t
+

@@ -10,7 +10,7 @@
 from enum import Enum
 from warnings import warn
 
-from pandas import DataFrame
+from pandas import DataFrame, concat as pd_concat
 from numpy import can_cast as np_can_cast, ndarray
 from freighter import (
     EOF,
@@ -114,10 +114,11 @@ class FrameWriter:
         """
         self.keys = keys
         self.__stream = self.client.stream(self._ENDPOINT, _Request, _Response)
-        self._stream.send(_Request(
-            command=_Command.OPEN, 
-            config=_Config(keys=keys, start=TimeStamp(start))
-        ))
+        self._stream.send(
+            _Request(
+                command=_Command.OPEN, config=_Config(keys=keys, start=TimeStamp(start))
+            )
+        )
         _, exc = self._stream.receive()
         if exc is not None:
             raise exc
@@ -274,18 +275,20 @@ class DataFrameWriter(FrameWriter, io.DataFrameWriter):
         np_fr = NumpyFrame()
         for col in df.columns:
             ch = self._retrieve(col)
+            if ch is None:
+                continue
             np_fr.keys.append(ch.key)
             np_data = self._prep_arr(df[col].to_numpy(), ch, col)
             np_fr.arrays.append(NumpyArray(data=np_data, data_type=ch.data_type))
         return np_fr.to_binary()
 
-    def _retrieve(self, key_or_name: str) -> ChannelPayload:
+    def _retrieve(self, key_or_name: str) -> ChannelPayload | None:
         if self._mode == FramingMode.UNOPENED:
             raise GeneralError(
                 "Writer is not open. Please open before calling write() or close()."
             )
         ch = self._channels.retrieve(**{self._mode.value: key_or_name})
-        if ch is None:
+        if ch is None and self._strict:
             raise ValidationError(
                 Field(
                     key_or_name,
@@ -308,15 +311,15 @@ class DataFrameWriter(FrameWriter, io.DataFrameWriter):
                     )
                 elif not self._suppress_warnings:
                     warn(
-                        f"""column {col} has type {arr.dtype} but channel {ch.key} expects type {ch_dt}. 
-                        We can't safely convert between the two, and skip_invalid is set to True, so we're 
+                        f"""column {col} has type {arr.dtype} but channel {ch.key} expects type {ch_dt}.
+                        We can't safely convert between the two, and skip_invalid is set to True, so we're
                         dropping this column. To suppress this warning, set suppress_warnings=True when constructing the writer.
                         """
                     )
             elif not self._suppress_warnings:
                 warn(
-                    f"""column {col} has type {arr.dtype} but channel {ch.key} expects type {ch_dt}. 
-                    We can safely convert between the two, but this can cause performance degradations and is not recccomended. 
+                    f"""column {col} has type {arr.dtype} but channel {ch.key} expects type {ch_dt}.
+                    We can safely convert between the two, but this can cause performance degradations and is not recccomended.
                     To suppress this warning, set suppress_warnings=True when constructing the writer. To raise an error instead,
                     set strict=True when constructing the writer."""
                 )
@@ -348,7 +351,7 @@ class BufferedDataFrameWriter(io.DataFrameWriter):
         self.time_threshold = time_threshold
 
     def write(self, frame: DataFrame):
-        self._buf = self._buf.append(frame, ignore_index=True)
+        self._buf = pd_concat([self._buf, frame], ignore_index=True)
         if self._exceeds_any:
             self._flush()
 
@@ -364,6 +367,7 @@ class BufferedDataFrameWriter(io.DataFrameWriter):
         )
 
     def _flush(self):
+        print(len(self._buf))
         self._wrapped.write(self._buf)
         self._wrapped.commit()
         self.last_flush = TimeStamp.now()

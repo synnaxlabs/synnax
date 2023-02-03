@@ -86,7 +86,7 @@ func (b *SecureHTTPBranch) routeUI() {
 
 var baseFiberConfig = fiber.Config{
 	DisableStartupMessage: true,
-	ReadBufferSize:        int(10 * telem.Kilobyte),
+	ReadBufferSize:        int(100 * telem.Kilobyte),
 	ReadTimeout:           500 * time.Millisecond,
 }
 
