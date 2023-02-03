@@ -23,7 +23,7 @@ import synnax
 
 class TestNumpy:
     def test_basic_write(self, channel: synnax.Channel, client: synnax.Synnax):
-        writer = client.data.new_writer(0, [channel.key])
+        writer = client.new_writer(start=0, keys=[channel.key])
         try:
             data = np.random.rand(10).astype(np.float64)
             writer.write(pd.DataFrame({channel.key: data}))

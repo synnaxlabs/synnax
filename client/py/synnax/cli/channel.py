@@ -114,6 +114,7 @@ def group_channel_names(
     - An index of a channel (e.g. '1')
     - A pattern to match (e.g. 'channel*')
     """
+    print(matchers, "Time" in options)
     grouped = {}
     for entry in matchers:
         entry = entry.strip()

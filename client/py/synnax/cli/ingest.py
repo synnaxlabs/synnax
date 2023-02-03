@@ -20,7 +20,7 @@ from synnax.cli.channel import (
 )
 from synnax.cli.select import select_simple
 from synnax.ingest.row import RowIngestionEngine
-from synnax.io import ChannelMeta, ReaderType, RowReader, IO_FACTORY
+from synnax.io import ChannelMeta, ReaderType, RowFileReader, IO_FACTORY, IOFactory
 from synnax.telem import DataType, Rate, TimeStamp
 from synnax.channel import Channel
 from synnax.cli.console.rich import RichConsole
@@ -52,7 +52,7 @@ def ingest(_path: str | None):
 class IngestionCLI:
     path: Path | None = None
     factory: IOFactory
-    reader: RowReader | None
+    reader: RowFileReader | None
     client: Synnax | None
     filtered_channels: list[ChannelMeta] | None
     not_found: list[ChannelMeta] | None
@@ -184,7 +184,7 @@ def validate_channels_exist(ctx: Context, cli: IngestionCLI) -> str | None:
     for channel in cli.filtered_channels:
         ch = maybe_select_channel(
             ctx,
-            cli.client.channel.filter(names=[channel.name]),
+            cli.client.channels.filter(names=[channel.name]),
             channel.name,
         )
         if ch is None:
@@ -248,7 +248,7 @@ def create_indexes(
         return options
     names = [name for v in grouped.values() for name in v]
     for name in names:
-        ch = cli.client.channel.create(
+        ch = cli.client.channels.create(
             name=name, is_index=True, data_type=DataType.TIMESTAMP
         )
         cli.db_channels.append(ch)
@@ -331,7 +331,8 @@ def assign_idx(
         else:
             # If the user entered a string, we have an index channel, and we
             # need to make sure that the string is a valid index.
-            res = client.channel.filter(names=[_choice])
+            res = client.channels.filter(names=[_choice])
+            print(res, _choice)
             idx = maybe_select_channel(ctx, res, _choice)
             if not idx:
                 ctx.console.warn(f"Index channel with key {_choice} not found")
@@ -376,6 +377,6 @@ def create_channels(ctx: Context, cli: IngestionCLI) -> str | None:
                 )
             )
 
-    cli.db_channels.extend(cli.client.channel.create_many(to_create))
+    cli.db_channels.extend(cli.client.channels.create_many(to_create))
 
     return "validate_data_types"

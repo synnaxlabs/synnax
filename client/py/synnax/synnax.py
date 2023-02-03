@@ -12,7 +12,7 @@ from freighter import URL
 from synnax.auth import AuthenticationClient
 from synnax.channel import ChannelClient
 from synnax.channel.create import ChannelCreator
-from synnax.channel.retrieve import ClusterChannelRetriever, CachedChannelRetriever
+from synnax.channel.retrieve import ClusterChannelRetriever, CacheChannelRetriever
 from synnax.config import try_load_options_if_none_provided
 from synnax.framer import FrameClient
 from synnax.transport import Transport
@@ -46,15 +46,19 @@ class Synnax(FrameClient):
         self._transport = Transport(URL(host=opts.host, port=opts.port), opts.secure)
         if username != "" or password != "":
             auth = AuthenticationClient(
-                self._transport.http.post_client(), 
-                opts.username, 
-                opts.password
+                self._transport.http.post_client(), opts.username, opts.password
             )
             auth.authenticate()
             self._transport.use(*auth.middleware())
-        ch_retriever = CachedChannelRetriever(
+        ch_retriever = CacheChannelRetriever(
             ClusterChannelRetriever(self._transport.http)
         )
         ch_creator = ChannelCreator(self._transport.http)
         super().__init__(self._transport, ch_retriever)
         self.channels = ChannelClient(self, ch_retriever, ch_creator)
+
+    def close(self):
+        """Shuts down the client and closes all connections. All open iterators or
+        writers must be closed before calling this method.
+        """
+        ...

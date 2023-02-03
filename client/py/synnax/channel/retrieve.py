@@ -125,18 +125,23 @@ class CacheChannelRetriever:
             return self.retriever.filter(keys=keys, names=names, node_id=node_id)
         results = list()
         retrieve_keys = list()
+        retrieve_names = list()
         keys = keys or list()
         if names is not None:
             for name in names:
                 key = self.names_to_keys.get(name, None)
                 if key is not None:
                     keys.append(key)
+                else:
+                    retrieve_names.append(name)
         for key in keys:
             channel = self.channels.get(key, None)
             if channel is None:
                 retrieve_keys.append(key)
             else:
                 results.append(channel)
-        if retrieve_keys:
-            results.extend(self.retriever.filter(keys=retrieve_keys))
+        if len(retrieve_keys) > 0 or len(retrieve_names) > 0:
+            results.extend(
+                self.retriever.filter(names=retrieve_names, keys=retrieve_keys)
+            )
         return results
