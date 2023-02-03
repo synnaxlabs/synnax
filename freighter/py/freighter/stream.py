@@ -6,13 +6,6 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
-#
-#  Use of this software is governed by the Business Source License included in the file
-#  licenses/BSL.txt.
-#
-#  As of the Change Date specified in that file, in accordance with the Business Source
-#  License, use of this software will be governed by the Apache License, Version 2.0,
-#  included in the file licenses/APL.txt.
 
 from typing import Protocol, Type
 
@@ -148,7 +141,7 @@ class Stream(StreamSenderCloser[RQ], StreamReceiver[RS], Protocol):
     ...
 
 
-class AsyncStreamClient(AsyncTransport):
+class AsyncStreamClient(AsyncTransport, Protocol):
     """Protocol for an entity that asynchronously sends and receives a stream of
     requests and responses from a server.
     """
@@ -170,7 +163,7 @@ class AsyncStreamClient(AsyncTransport):
         ...
 
 
-class StreamClient(Transport):
+class StreamClient(Transport, Protocol):
     """Protocol for an entity that synchronously sends and receives a stream of requests and
     responses from a server.
     """
