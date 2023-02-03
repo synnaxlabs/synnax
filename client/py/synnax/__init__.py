@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-__version__ = "0.1.0"
+__version__ = "0.2.14"
 
 from .channel import Channel
 from .exceptions import (
@@ -21,6 +21,7 @@ from .exceptions import (
     UnexpectedError,
     ValidationError,
 )
+from freighter.exceptions import Unreachable
 from .options import SynnaxOptions
 from .synnax import Synnax
 from .telem import (
@@ -36,4 +37,13 @@ from .telem import (
     UnparsedRate,
     UnparsedTimeSpan,
     UnparsedTimeStamp,
+    NumpyArray,
+    BinaryArray,
+)
+from .framer import (
+    BinaryFrame,
+    NumpyFrame,
+    BufferedDataFrameWriter,
+    DataFrameWriter,
+    FrameWriter,
 )

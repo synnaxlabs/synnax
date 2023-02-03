@@ -10,6 +10,7 @@
 from enum import Enum
 from warnings import warn
 
+from pandas import DataFrame
 from numpy import can_cast as np_can_cast, ndarray
 from freighter import (
     EOF,
@@ -19,13 +20,13 @@ from freighter import (
     StreamClient,
     decode_exception,
 )
-from pandas import DataFrame
 
+from synnax import io
 from synnax.channel.payload import ChannelPayload
 from synnax.channel.retrieve import ChannelRetriever
 from synnax.exceptions import Field, GeneralError, ValidationError
 from synnax.telem import TimeSpan, TimeStamp, UnparsedTimeStamp, NumpyArray
-from synnax.framer.payload import BinaryFrame, NPFrame
+from synnax.framer.payload import BinaryFrame, NumpyFrame
 from synnax.framer.mode import FramingMode, open_framing_mode
 
 
@@ -93,7 +94,9 @@ class FrameWriter:
     """
 
     _ENDPOINT = "/frame/write"
+
     __stream: Stream[_Request, _Response] | None
+
     client: StreamClient
     keys: list[str]
 
@@ -111,11 +114,10 @@ class FrameWriter:
         """
         self.keys = keys
         self.__stream = self.client.stream(self._ENDPOINT, _Request, _Response)
-        self._stream.send(
-            _Request(
-                command=_Command.OPEN, config=_Config(keys=keys, start=TimeStamp(start))
-            )
-        )
+        self._stream.send(_Request(
+            command=_Command.OPEN, 
+            config=_Config(keys=keys, start=TimeStamp(start))
+        ))
         _, exc = self._stream.receive()
         if exc is not None:
             raise exc
@@ -225,7 +227,7 @@ class FrameWriter:
             )
 
 
-class DataFrameWriter(FrameWriter):
+class DataFrameWriter(FrameWriter, io.DataFrameWriter):
     """DataFrameWriter extends the FrameWriter protocol by allowing the caller to Write
     pandas DataFrames.
     """
@@ -234,6 +236,7 @@ class DataFrameWriter(FrameWriter):
     _mode: FramingMode
     _strict: bool
     _suppress_warnings: bool
+    _skip_invalid: bool
 
     def __init__(
         self,
@@ -241,12 +244,14 @@ class DataFrameWriter(FrameWriter):
         channels: ChannelRetriever,
         strict: bool = False,
         suppress_warnings: bool = False,
+        skip_invalid: bool = False,
     ) -> None:
         super().__init__(client)
         self._channels = channels
         self._mode = FramingMode.UNOPENED
         self._strict = strict
         self._suppress_warnings = suppress_warnings
+        self._skip_invalid = skip_invalid
 
     def open(
         self,
@@ -266,7 +271,7 @@ class DataFrameWriter(FrameWriter):
         super(DataFrameWriter, self).write(self._convert(frame))
 
     def _convert(self, df: DataFrame) -> BinaryFrame:
-        np_fr = NPFrame()
+        np_fr = NumpyFrame()
         for col in df.columns:
             ch = self._retrieve(col)
             np_fr.keys.append(ch.key)
@@ -279,7 +284,7 @@ class DataFrameWriter(FrameWriter):
             raise GeneralError(
                 "Writer is not open. Please open before calling write() or close()."
             )
-        ch = self._channels.retrieve(**{self._mode.value: [key_or_name]})
+        ch = self._channels.retrieve(**{self._mode.value: key_or_name})
         if ch is None:
             raise ValidationError(
                 Field(
@@ -292,13 +297,22 @@ class DataFrameWriter(FrameWriter):
     def _prep_arr(self, arr: ndarray, ch: ChannelPayload, col: str):
         ch_dt = ch.data_type.np
         if arr.dtype != ch_dt:
-            if self._strict or not np_can_cast(arr.dtype, ch_dt):
-                raise ValidationError(
-                    Field(
-                        col,
-                        f"""column {col} has type {arr.dtype} but channel {ch.key} expects type {ch_dt}""",
+            can_cast = np_can_cast(arr.dtype, ch_dt)
+            if not np_can_cast(arr.dtype, ch_dt):
+                if self._strict or not self._skip_invalid:
+                    raise ValidationError(
+                        Field(
+                            col,
+                            f"""column {col} has type {arr.dtype} but channel {ch.key} expects type {ch_dt}""",
+                        )
                     )
-                )
+                elif not self._suppress_warnings:
+                    warn(
+                        f"""column {col} has type {arr.dtype} but channel {ch.key} expects type {ch_dt}. 
+                        We can't safely convert between the two, and skip_invalid is set to True, so we're 
+                        dropping this column. To suppress this warning, set suppress_warnings=True when constructing the writer.
+                        """
+                    )
             elif not self._suppress_warnings:
                 warn(
                     f"""column {col} has type {arr.dtype} but channel {ch.key} expects type {ch_dt}. 
@@ -308,7 +322,8 @@ class DataFrameWriter(FrameWriter):
                 )
         return arr.astype(ch_dt)
 
-class BufferedDataFrameWriter:
+
+class BufferedDataFrameWriter(io.DataFrameWriter):
     """BufferedDataFrameWriter extends the DataFrameWriter protocol by buffering
     writes to the underlying stream. This can improve performance by reducing the
     number of round trips to the server.
@@ -353,5 +368,3 @@ class BufferedDataFrameWriter:
         self._wrapped.commit()
         self.last_flush = TimeStamp.now()
         self._buf = DataFrame()
-
-

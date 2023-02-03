@@ -225,7 +225,7 @@ class NumpyIterator(CoreIterator):
         names: list[str] | None = None,
     ):
         self._mode = open_framing_mode(keys, names)
-        channels = self._channels.filter(keys, names)
+        channels = self._channels.filter(keys=keys, names=names)
         super().open(tr, [ch.key for ch in channels])
 
     @property
@@ -236,17 +236,16 @@ class NumpyIterator(CoreIterator):
         """
         v = super().value
         v.keys = self._value_keys(v)
-        return NumpyFrame.from_binary(v).to_dataframe()
+        return NumpyFrame.from_binary(v)
 
     def _value_keys(self, fr: BinaryFrame) -> list[str]:
         keys = [k for v in fr for k in v]
-        if self._mode == FramingMode.KEYS:
-           return keys
-        if self._mode == FramingMode.NAMES:
+        if self._mode == FramingMode.KEY:
+            return keys
+        if self._mode == FramingMode.NAME:
             # We can safely ignore the none case here because we've already
             # checked that all channels can be retrieved.
-            return [self._channels.retrieve(k).name for k in keys] # type: ignore
-        raise GeneralError("Must call open() before attempting to access iterator value.")
-        
-
-        
+            return [self._channels.retrieve(k).name for k in keys]  # type: ignore
+        raise GeneralError(
+            "Must call open() before attempting to access iterator value."
+        )

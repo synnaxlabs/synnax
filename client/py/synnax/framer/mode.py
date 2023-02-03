@@ -11,10 +11,12 @@ from enum import Enum
 
 from synnax.exceptions import ValidationError
 
+
 class FramingMode(Enum):
-    KEYS = "keys"
-    NAMES = "names"
+    KEY = "key"
+    NAME = "name"
     UNOPENED = "unopened"
+
 
 def open_framing_mode(
     keys: list[str] | None = None,
@@ -26,4 +28,4 @@ def open_framing_mode(
         )
     elif keys is None and names is None:
         raise ValidationError("keys or names must be specified when calling open()")
-    return FramingMode.KEYS if keys is not None else FramingMode.NAMES
+    return FramingMode.KEY if keys is not None else FramingMode.NAME

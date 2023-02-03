@@ -16,7 +16,7 @@ from pandas.io.parsers import TextFileReader
 
 from synnax.telem import Size
 from synnax.io.matcher import new_extension_matcher
-from synnax.io.protocol import ChannelMeta, ReaderType, RowReader, Writer
+from synnax.io.protocol import ChannelMeta, ReaderType, RowFileReader, FileWriter
 
 
 class CSVMatcher(new_extension_matcher(["csv"])):  # type: ignore
@@ -36,7 +36,7 @@ class CSVReader(CSVMatcher):
     # Doing a protocol implementation check here because
     # it's hard for pyright to handle factories that retun
     # protocol classes.
-    def _(self) -> RowReader:
+    def _(self) -> RowFileReader:
         return self
 
     def __init__(
@@ -129,7 +129,7 @@ class CSVWriter(CSVMatcher):
     # Doing a protocol implementation check here because
     # it's hard for pyright to handle factories that retun
     # protocol classes.
-    def _(self) -> Writer:
+    def _(self) -> FileWriter:
         return self
 
     def write(self, df: pd.DataFrame):

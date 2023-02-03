@@ -17,7 +17,7 @@ from synnax.framer.iterator import AUTO_SPAN, NumpyIterator
 from synnax.framer.writer import DataFrameWriter
 
 
-class FramerClient:
+class FrameClient:
     """SegmentClient provides interfaces for reading and writing segmented
     telemetry from a Synnax Cluster. SegmentClient should not be instantiated
     directly, but rather used through the synnax.Synnax class.
@@ -37,6 +37,7 @@ class FramerClient:
         names: list[str] | None = None,
         strict: bool = False,
         suppress_warnings: bool = False,
+        skip_invalid: bool = False,
     ) -> DataFrameWriter:
         """Opens a new writer on the given channels.
 
@@ -46,10 +47,11 @@ class FramerClient:
         :returns: A NumpyWriter that can be used to write telemetry to the given channels.
         """
         npw = DataFrameWriter(
-            client=self._transport.stream, 
+            client=self._transport.stream,
             channels=self._channels,
             strict=strict,
             suppress_warnings=suppress_warnings,
+            skip_invalid=skip_invalid,
         )
         npw.open(start, keys, names)
         return npw
@@ -58,7 +60,7 @@ class FramerClient:
         self,
         tr: TimeRange,
         keys: list[str] | None = None,
-        names: list[str] | None = None, 
+        names: list[str] | None = None,
         aggregate: bool = False,
     ) -> NumpyIterator:
         """Opens a new iterator over the given channels within the provided time range.
@@ -79,8 +81,8 @@ class FramerClient:
         return npi
 
     def write(
-        self, 
-        start: UnparsedTimeStamp, 
+        self,
+        start: UnparsedTimeStamp,
         data: np.ndarray,
         key: str | None = None,
         name: str | None = None,
@@ -95,8 +97,8 @@ class FramerClient:
         """
         to = key if key else name
         w = self.new_writer(
-            start=start, 
-            keys=[key] if key else None, 
+            start=start,
+            keys=[key] if key else None,
             names=[name] if name else None,
             strict=strict,
         )
@@ -107,8 +109,8 @@ class FramerClient:
             w.close()
 
     def read(
-        self, 
-        start: UnparsedTimeStamp, 
+        self,
+        start: UnparsedTimeStamp,
         end: UnparsedTimeStamp,
         key: str | None = None,
         name: str | None = None,
@@ -126,8 +128,8 @@ class FramerClient:
         return arr.data, arr.time_range
 
     def read_array(
-        self, 
-        start: UnparsedTimeStamp, 
+        self,
+        start: UnparsedTimeStamp,
         end: UnparsedTimeStamp,
         key: str | None = None,
         name: str | None = None,
@@ -142,8 +144,8 @@ class FramerClient:
         """
         from_ = key if key else name
         i = self.new_iterator(
-            tr=TimeRange(start, end), 
-            aggregate=True, 
+            tr=TimeRange(start, end),
+            aggregate=True,
             keys=[key] if key else None,
             names=[name] if name else None,
         )

@@ -11,7 +11,7 @@ from numpy import ndarray
 from pydantic import PrivateAttr
 
 from synnax.exceptions import ValidationError, QueryError
-from synnax.framer import FramerClient
+from synnax.framer import FrameClient
 from synnax.telem import (
     Rate,
     Density,
@@ -30,7 +30,7 @@ from synnax.channel.retrieve import ChannelRetriever
 class Channel(ChannelPayload):
     """Represents a Channel in a Synnax database."""
 
-    __frame_client: FramerClient | None = PrivateAttr(None)
+    __frame_client: FrameClient | None = PrivateAttr(None)
 
     class Config:
         arbitrary_types_allowed = True
@@ -45,7 +45,7 @@ class Channel(ChannelPayload):
         is_index: bool = False,
         index: str = "",
         density: UnparsedDensity = 0,
-        frame_client: FramerClient | None = None,
+        frame_client: FrameClient | None = None,
     ):
         super().__init__(
             data_type=DataType(data_type),
@@ -91,7 +91,7 @@ class Channel(ChannelPayload):
         self._frame_client.write(self.key, start, data)
 
     @property
-    def _frame_client(self) -> FramerClient:
+    def _frame_client(self) -> FrameClient:
         if self.__frame_client is None:
             raise ValidationError(
                 "Cannot read from a channel that has not been created."
@@ -114,13 +114,13 @@ class Channel(ChannelPayload):
 class ChannelClient:
     """The core client class for executing channel operations against a Synnax cluster."""
 
-    _frame_client: FramerClient
+    _frame_client: FrameClient
     _retriever: ChannelRetriever
     _creator: ChannelCreator
 
     def __init__(
         self,
-        frame_client: FramerClient,
+        frame_client: FrameClient,
         retriever: ChannelRetriever,
         creator: ChannelCreator,
     ):
@@ -191,7 +191,9 @@ class ChannelClient:
         :param kwargs: The parameters to filter channels by.
         :returns: A list of channels that match the given parameters.
         """
-        return self._sugar(*self._retriever.filter(keys, names, node_id))
+        return self._sugar(
+            *self._retriever.filter(keys=keys, names=names, node_id=node_id)
+        )
 
     def _sugar(self, *channels: ChannelPayload) -> list[Channel]:
         return [Channel(**c.dict(), frame_client=self._frame_client) for c in channels]
