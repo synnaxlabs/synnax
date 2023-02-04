@@ -6,17 +6,9 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
-#
-#  Use of this software is governed by the Business Source License included in the file
-#  licenses/BSL.txt.
-#
-#  As of the Change Date specified in that file, in accordance with the Business Source
-#  License, use of this software will be governed by the Apache License, Version 2.0,
-#  included in the file licenses/APL.txt.
 
 from __future__ import annotations
 
-import time
 from typing import Type
 from urllib.parse import urlencode
 
@@ -24,12 +16,13 @@ import urllib3
 from urllib3 import HTTPResponse, PoolManager
 from urllib3.exceptions import HTTPError, MaxRetryError
 
-from .encoder import EncoderDecoder
-from .exceptions import ExceptionPayload, decode_exception, Unreachable
-from .transport import RQ, RS, Payload
-from .url import URL
-from .transport import MiddlewareCollector
-from .metadata import MetaData
+from freighter.unary import UnaryClient
+from freighter.encoder import EncoderDecoder
+from freighter.exceptions import ExceptionPayload, decode_exception, Unreachable
+from freighter.transport import RQ, RS
+from freighter.url import URL
+from freighter.transport import MiddlewareCollector
+from freighter.metadata import MetaData
 
 http = PoolManager(cert_reqs="CERT_NONE")
 urllib3.disable_warnings()
@@ -143,11 +136,15 @@ class GETClient(_Core):
     not be instantiated directly, but through the HTTPClientFactory.
     """
 
+    def _(self) -> UnaryClient:
+        return self
+
     def send(
         self, target: str, req: RQ, res_t: Type[RS]
     ) -> tuple[RS | None, Exception | None]:
         """Implements the UnaryClient protocol."""
         return self.request("GET", self._build_url(target, req), None, res_t)
+
 
     def client_post(self) -> POSTClient:
         """Creates a POST client for the same endpoint and request and response types.
@@ -177,6 +174,9 @@ class POSTClient(_Core):
     """Implementation of the UnaryClient protocol backed by HTTP POST requests. it should
     not be instantiated directly, but through the HTTPClientFactory.
     """
+
+    def _(self) -> UnaryClient:
+        return self
 
     def send(
         self, target: str, req: RQ, res_t: Type[RS]

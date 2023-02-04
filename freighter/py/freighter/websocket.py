@@ -6,15 +6,7 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
-#
-#  Use of this software is governed by the Business Source License included in the file
-#  licenses/BSL.txt.
-#
-#  As of the Change Date specified in that file, in accordance with the Business Source
-#  License, use of this software will be governed by the Apache License, Version 2.0,
-#  included in the file licenses/APL.txt.
 
-import asyncio
 from typing import Generic, Type
 
 from freighter.metadata import MetaData
@@ -22,11 +14,11 @@ from pydantic import BaseModel
 from websockets.exceptions import ConnectionClosedOK
 from websockets import connect, WebSocketClientProtocol
 
-from . import AsyncStream
-from .encoder import EncoderDecoder
-from .exceptions import EOF, ExceptionPayload, StreamClosed, decode_exception
-from .transport import RQ, RS, P, AsyncMiddlewareCollector
-from .url import URL
+from freighter.stream import AsyncStream, AsyncStreamClient
+from freighter.encoder import EncoderDecoder
+from freighter.exceptions import EOF, ExceptionPayload, StreamClosed, decode_exception
+from freighter.transport import RQ, RS, P, AsyncMiddlewareCollector
+from freighter.url import URL
 
 _DATA_MESSAGE = "data"
 _CLOSE_MESSAGE = "close"
@@ -65,6 +57,9 @@ class WebsocketStream(Generic[RQ, RS]):
         self.send_closed = False
         self.server_closed = None
         self.res_msg_t = _new_res_msg_t(res_t)
+
+    def _(self) -> AsyncStream[RQ, RS]:
+        return self
 
     async def receive(self) -> tuple[RS | None, Exception | None]:
         """Implements the AsyncStream protocol."""
@@ -156,6 +151,9 @@ class WebsocketClient(AsyncMiddlewareCollector):
         self._secure = secure
         self._endpoint = base_url.replace(protocol="ws" if not secure else "wss")
         self._max_message_size = max_message_size
+
+    def _(self) -> AsyncStreamClient:
+        return self
 
     async def stream(
         self,
