@@ -233,11 +233,12 @@ class DataFrameWriter(FrameWriter, io.DataFrameWriter):
     pandas DataFrames.
     """
 
-    _channels: ChannelRetriever
+    _channel_retriever: ChannelRetriever
     _mode: FramingMode
     _strict: bool
     _suppress_warnings: bool
     _skip_invalid: bool
+    _channels: list[ChannelPayload]
 
     def __init__(
         self,
@@ -245,14 +246,12 @@ class DataFrameWriter(FrameWriter, io.DataFrameWriter):
         channels: ChannelRetriever,
         strict: bool = False,
         suppress_warnings: bool = False,
-        skip_invalid: bool = False,
     ) -> None:
         super().__init__(client)
-        self._channels = channels
+        self._channel_retriever = channels
         self._mode = FramingMode.UNOPENED
         self._strict = strict
         self._suppress_warnings = suppress_warnings
-        self._skip_invalid = skip_invalid
 
     def open(
         self,
@@ -265,57 +264,47 @@ class DataFrameWriter(FrameWriter, io.DataFrameWriter):
         any other writer methods.
         """
         self._mode = open_framing_mode(keys, names)
-        channels = self._channels.retrieve(keys=keys, names=names)
-        super(DataFrameWriter, self).open(start, [ch.key for ch in channels])
+        self._channels = self._channel_retriever.retrieve(keys=keys, names=names)
+        super(DataFrameWriter, self).open(start, [ch.key for ch in self._channels])
 
     def write(self, frame: DataFrame):
         super(DataFrameWriter, self).write(self._convert(frame))
 
     def _convert(self, df: DataFrame) -> BinaryFrame:
         np_fr = NumpyFrame()
-        for col in df.columns:
-            ch = self._retrieve(col)
-            if ch is None:
-                continue
+        for ch in self._channels:
+            col, arr = df[getattr(ch, self._mode.value)]
             np_fr.keys.append(ch.key)
-            np_data = self._prep_arr(df[col].to_numpy(), ch, col)
-            np_fr.arrays.append(NumpyArray(data=np_data, data_type=ch.data_type))
+            np_data = self._prep_arr(arr, ch, col)
+            np_fr.append(NumpyArray(data=np_data, data_type=ch.data_type))
         return np_fr.to_binary()
 
-    def _retrieve(self, key_or_name: str) -> ChannelPayload | None:
+    def _retrieve(self, ch: ChannelPayload, df: DataFrame) -> tuple[str, ndarray]:
         if self._mode == FramingMode.UNOPENED:
             raise GeneralError(
                 "Writer is not open. Please open before calling write() or close()."
             )
-        ch = self._channels.retrieve(**{self._mode.value: key_or_name})
-        if ch is None and self._strict:
+        key_or_name = getattr(ch, self._mode.value)
+        v = df.get(key_or_name, None)
+        if v is None:
             raise ValidationError(
                 Field(
                     key_or_name,
-                    f"{key_or_name} is not a valid channel key or name",
+                    f"frame is missing {self._mode.value} {key_or_name}",
                 )
             )
-        return ch
-
+        return key_or_name, v
+                
     def _prep_arr(self, arr: ndarray, ch: ChannelPayload, col: str):
         ch_dt = ch.data_type.np
         if arr.dtype != ch_dt:
-            can_cast = np_can_cast(arr.dtype, ch_dt)
             if not np_can_cast(arr.dtype, ch_dt):
-                if self._strict or not self._skip_invalid:
-                    raise ValidationError(
-                        Field(
-                            col,
-                            f"""column {col} has type {arr.dtype} but channel {ch.key} expects type {ch_dt}""",
-                        )
+                raise ValidationError(
+                    Field(
+                        col,
+                        f"""column {col} has type {arr.dtype} but channel {ch.key} expects type {ch_dt}""",
                     )
-                elif not self._suppress_warnings:
-                    warn(
-                        f"""column {col} has type {arr.dtype} but channel {ch.key} expects type {ch_dt}.
-                        We can't safely convert between the two, and skip_invalid is set to True, so we're
-                        dropping this column. To suppress this warning, set suppress_warnings=True when constructing the writer.
-                        """
-                    )
+                )
             elif not self._suppress_warnings:
                 warn(
                     f"""column {col} has type {arr.dtype} but channel {ch.key} expects type {ch_dt}.
