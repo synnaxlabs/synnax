@@ -265,7 +265,7 @@ class DataFrameWriter(FrameWriter, io.DataFrameWriter):
         any other writer methods.
         """
         self._mode = open_framing_mode(keys, names)
-        channels = self._channels.filter(keys=keys, names=names)
+        channels = self._channels.retrieve(keys=keys, names=names)
         super(DataFrameWriter, self).open(start, [ch.key for ch in channels])
 
     def write(self, frame: DataFrame):

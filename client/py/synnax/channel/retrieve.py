@@ -8,7 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 from __future__ import annotations
-from typing import Literal, Protocol, overload
+from typing import Protocol, overload
+from typing_extensions import Literal
 
 from freighter import HTTPClientFactory, Payload, UnaryClient
 
@@ -35,15 +36,15 @@ class ChannelRetriever(Protocol):
         names: str | None = None,
     ) -> ChannelPayload | None:
         ...
-
+    
     @overload
     def retrieve(
         self,
         keys: list[str] | None = None,
         names: list[str] | None = None,
         node_id: int | None = None,
-        include_not_found: Literal[True] | None = True,
-    ) -> tuple[list[ChannelPayload], list[str]]:
+        include_not_found: Literal[False] | None = None,
+    ) -> list[ChannelPayload]:
         ...
 
     @overload
@@ -52,7 +53,8 @@ class ChannelRetriever(Protocol):
         keys: list[str] | None = None,
         names: list[str] | None = None,
         node_id: int | None = None,
-    ) -> list[ChannelPayload]:
+        include_not_found: Literal[True] | None = None,
+    ) -> tuple[list[ChannelPayload], list[str]]:
         ...
 
     @overload
@@ -61,7 +63,7 @@ class ChannelRetriever(Protocol):
         keys: str | list[str] | None = None,
         names: str | list[str] | None = None,
         node_id: int | None = None,
-        include_not_found: Literal[True] | None = None,
+        include_not_found: bool = False,
     ) -> list[ChannelPayload] | tuple[list[ChannelPayload], list[str]] | ChannelPayload | None:
         ...
 
@@ -80,7 +82,7 @@ class ClusterChannelRetriever:
         keys: str | list[str] | None = None,
         names: str | list[str] | None = None,
         node_id: int | None = None,
-        include_not_found: Literal[True] | None = None,
+        include_not_found: bool | None = False,
     ) -> tuple[list[ChannelPayload], list[str]] | list[ChannelPayload] | ChannelPayload | None:
         single_key = isinstance(keys, str)
         single_name = isinstance(names, str)

@@ -37,7 +37,7 @@ def _new_res_msg_t(res_t: Type[RS]) -> Type[_Message[RS]]:
     return _ResMsg
 
 
-class WebsocketStream(Generic[RQ, RS]):
+class WebsocketStream(AsyncStream[RQ, RS]):
     """An implementation of AsyncStream that is backed by a websocket."""
 
     encoder: EncoderDecoder
@@ -57,9 +57,6 @@ class WebsocketStream(Generic[RQ, RS]):
         self.send_closed = False
         self.server_closed = None
         self.res_msg_t = _new_res_msg_t(res_t)
-
-    def _(self) -> AsyncStream[RQ, RS]:
-        return self
 
     async def receive(self) -> tuple[RS | None, Exception | None]:
         """Implements the AsyncStream protocol."""
@@ -136,7 +133,6 @@ class WebsocketClient(AsyncMiddlewareCollector):
     _endpoint: URL
     _encoder: EncoderDecoder
     _max_message_size: int
-    _socket: WebsocketStream[RQ, RS] | None
     _secure: bool = False
 
     def __init__(
@@ -158,14 +154,16 @@ class WebsocketClient(AsyncMiddlewareCollector):
     async def stream(
         self,
         target: str,
-        req_type: Type[RQ],
-        res_type: Type[RS],
+        req_t: Type[RQ],
+        res_t: Type[RS],
     ) -> AsyncStream[RQ, RS]:
         """Implements the AsyncStreamClient protocol."""
 
         headers = {"Content-Type": self._encoder.content_type()}
+        socket: WebsocketStream[RQ, RS] | None = None
 
         async def finalizer(md: MetaData) -> tuple[MetaData, Exception | None]:
+            nonlocal socket
             out_meta_data = MetaData(target, "websocket")
             headers.update(md.params)
             try:
@@ -174,7 +172,7 @@ class WebsocketClient(AsyncMiddlewareCollector):
                     extra_headers=headers,
                     max_size=self._max_message_size,
                 )
-                self._socket = WebsocketStream[RQ, RS](self._encoder, ws, res_type)
+                socket = WebsocketStream[RQ, RS](self._encoder, ws, res_t)
             except Exception as e:
                 return out_meta_data, e
             return out_meta_data, None
@@ -182,5 +180,6 @@ class WebsocketClient(AsyncMiddlewareCollector):
         _, exc = await self.exec(MetaData(target, "websocket"), finalizer)
         if exc is not None:
             raise exc
-
-        return self._socket
+            
+        assert socket is not None
+        return socket

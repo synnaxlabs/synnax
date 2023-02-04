@@ -225,7 +225,7 @@ class NumpyIterator(CoreIterator):
         names: list[str] | None = None,
     ):
         self._mode = open_framing_mode(keys, names)
-        channels = self._channels.filter(keys=keys, names=names)
+        channels = self._channels.retrieve(keys=keys, names=names, node_id=None)
         super().open(tr, [ch.key for ch in channels])
 
     @property

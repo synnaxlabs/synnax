@@ -11,7 +11,7 @@ import asyncio
 import contextlib
 from asyncio import events
 from threading import Thread
-from typing import AsyncIterator, Generic, Optional, Type
+from typing import AsyncIterator, Optional, Type
 from freighter.exceptions import StreamClosed
 
 from freighter.metadata import MetaData
@@ -25,12 +25,14 @@ from freighter.stream import (
     AsyncStreamSenderCloser,
     AsyncStream,
     Stream,
-    StreamClient
+    StreamClient,
+    StreamReceiver,
+    StreamSender
 )
 from freighter.util.threading import Notification
 
 
-class _Receiver(Generic[RS]):
+class _Receiver(StreamReceiver[RS]):
     _internal: AsyncStreamReceiver[RS]
     _responses: Queue[tuple[RS | None, Exception | None]]
     _exc: Exception | None
@@ -69,7 +71,7 @@ async def process(queue: Queue, _: Type[P]) -> AsyncIterator[tuple[P | None, boo
         queue.async_q.task_done()
 
 
-class _SenderCloser(Generic[RQ]):
+class _SenderCloser(StreamSender[RQ]):
     _internal: AsyncStreamSenderCloser[RQ]
     _requests: Queue[tuple[RQ | None, bool]]
     _exc: Notification[Exception]
@@ -119,7 +121,7 @@ class _SenderCloser(Generic[RQ]):
                     return self._exc.notify(exc)
 
 
-class SyncStream(Thread, Generic[RQ, RS]):
+class SyncStream(Thread, Stream[RQ, RS]):
     """An implementation of the Stream protocol that wraps an AsyncStreamClient
     and exposes a synchronous interface.
     """
@@ -153,9 +155,6 @@ class SyncStream(Thread, Generic[RQ, RS]):
         self._client.use(self._mw)
         self.start()
         self._ack_open()
-
-    def _(self) -> Stream[RQ, RS]:
-        return self
 
     async def _mw(self, md: MetaData, _next: AsyncNext):
         md.params.update(self._in_md.params)
@@ -244,6 +243,6 @@ class SyncStreamClient(MiddlewareCollector):
 
     def stream(
         self, target: str, req_t: Type[RQ], res_t: Type[RS]
-    ) -> SyncStream[RQ, RS]:
+    ) -> Stream[RQ, RS]:
         """Implement the StreamClient protocol."""
         return SyncStream[RQ, RS](self.internal, target, req_t, res_t, self)

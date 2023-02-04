@@ -184,7 +184,7 @@ def validate_channels_exist(ctx: Context, cli: IngestionCLI) -> str | None:
     for channel in cli.filtered_channels:
         ch = maybe_select_channel(
             ctx,
-            cli.client.channels.filter(names=[channel.name]),
+            cli.client.channels.retrieve(names=[channel.name]),
             channel.name,
         )
         if ch is None:
@@ -331,8 +331,7 @@ def assign_idx(
         else:
             # If the user entered a string, we have an index channel, and we
             # need to make sure that the string is a valid index.
-            res = client.channels.filter(names=[_choice])
-            print(res, _choice)
+            res = client.channels.retrieve(names=[_choice])
             idx = maybe_select_channel(ctx, res, _choice)
             if not idx:
                 ctx.console.warn(f"Index channel with key {_choice} not found")
@@ -377,6 +376,6 @@ def create_channels(ctx: Context, cli: IngestionCLI) -> str | None:
                 )
             )
 
-    cli.db_channels.extend(cli.client.channels.create_many(to_create))
+    cli.db_channels.extend(cli.client.channels.create(to_create))
 
     return "validate_data_types"

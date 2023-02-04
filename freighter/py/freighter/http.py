@@ -98,8 +98,10 @@ class _Core(MiddlewareCollector):
         res_t: Type[RS] | None = None,
     ) -> tuple[RS | None, Exception | None]:
         in_meta_data = MetaData(url, self.endpoint.protocol)
+        resp: RS | None = None
 
         def finalizer(md: MetaData) -> tuple[MetaData, Exception | None]:
+            nonlocal resp
             out_meta_data = MetaData(url, self.endpoint.protocol)
             data = None
             if request is not None:
@@ -124,11 +126,11 @@ class _Core(MiddlewareCollector):
             if http_res.data is None:
                 return out_meta_data, None
 
-            self.res = self.encoder_decoder.decode(http_res.data, res_t)
+            resp = self.encoder_decoder.decode(http_res.data, res_t)
             return out_meta_data, None
 
         _, exc = self.exec(in_meta_data, finalizer)
-        return self.res, exc
+        return resp, exc
 
 
 class GETClient(_Core):
