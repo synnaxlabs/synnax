@@ -20,10 +20,10 @@ from synnax.transport import Transport
 
 
 class Synnax(FrameClient):
-    """Client to perform operations against a Synnax cluster. 
+    """Client to perform operations against a Synnax cluster.
 
     If using the client for data analysis/personal use, the easiest way to connect
-    is to use the ``synnax login`` command, which will prompt and securely store your 
+    is to use the ``synnax login`` command, which will prompt and securely store your
     credentials. The client can then be initialized without parameters.
 
     After running the synnax login command::
@@ -53,16 +53,16 @@ class Synnax(FrameClient):
     ):
         """Creates a new client. Connection parameters can be provided as arguments, or,
         if none are provided, the client will attempt to load them from the Synnax
-        configuration file (~/.synnax/config.json) as well as credentials stored in the 
+        configuration file (~/.synnax/config.json) as well as credentials stored in the
         operating system's keychain.
 
         If using the client for data analysis/personal use, the easiest way to connect
-        is to use the `synnax login` command, which will prompt and securely store your 
+        is to use the `synnax login` command, which will prompt and securely store your
         credentials. The client can then be initialized without parameters.
 
         :param host: Hostname of a node in the Synnax cluster.
         :param port: Port of the node.
-        :param username: Username to authenticate with. 
+        :param username: Username to authenticate with.
         :param password: Password to authenticate with.
         :param secure: Whether to use TLS when connnecting to the cluster.
         """
@@ -87,11 +87,10 @@ class Synnax(FrameClient):
         t = Transport(URL(host=opts.host, port=opts.port), opts.secure)
         if opts.username != "" or opts.password != "":
             auth = AuthenticationClient(
-                transport=t.http.post_client(), 
-                username=opts.username, 
+                transport=t.http.post_client(),
+                username=opts.username,
                 password=opts.password,
             )
             auth.authenticate()
             t.use(*auth.middleware())
         return t
-

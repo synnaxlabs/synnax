@@ -74,9 +74,8 @@ class Channel(ChannelPayload):
         )
 
     def read(
-            self, 
-            start: UnparsedTimeStamp, 
-            end: UnparsedTimeStamp) -> tuple[ndarray, TimeRange]:
+        self, start: UnparsedTimeStamp, end: UnparsedTimeStamp
+    ) -> tuple[ndarray, TimeRange]:
         """Reads telemetry from the channel between the two timestamps.
 
         :param start: The starting timestamp of the range to read from.
@@ -85,7 +84,7 @@ class Channel(ChannelPayload):
         :raises ContiguityError: If the telemetry between start and end is non-contiguous.
         """
         return self._frame_client.read(start, end, key=self.key)
- 
+
     def write(self, start: UnparsedTimeStamp, data: ndarray):
         """Writes telemetry to the channel starting at the given timestamp.
 
@@ -133,7 +132,6 @@ class ChannelClient:
         self._retriever = retriever
         self._creator = creator
 
-
     @overload
     def create(
         self,
@@ -176,14 +174,16 @@ class ChannelClient:
         is_index: bool = False,
     ) -> Channel | list[Channel]:
         if channels is None:
-            _channels = [ChannelPayload(
-                name=name,
-                node_id=node_id,
-                rate=Rate(rate),
-                data_type=DataType(data_type),
-                index=index,
-                is_index=is_index,
-            )]
+            _channels = [
+                ChannelPayload(
+                    name=name,
+                    node_id=node_id,
+                    rate=Rate(rate),
+                    data_type=DataType(data_type),
+                    index=index,
+                    is_index=is_index,
+                )
+            ]
         elif isinstance(channels, Channel):
             _channels = [channels._payload()]
         else:
@@ -196,7 +196,13 @@ class ChannelClient:
         ...
 
     @overload
-    def retrieve(self, keys: list[str] | None = None, names: list[str] | None = None, node_id: int | None = None) -> list[Channel]:
+    def retrieve(
+        self,
+        keys: list[str] | None = None,
+        names: list[str] | None = None,
+        node_id: int | None = None,
+        include_not_found: Literal[False] = False,
+    ) -> list[Channel]:
         ...
 
     @overload
@@ -209,18 +215,21 @@ class ChannelClient:
     ) -> tuple[list[Channel], list[str]]:
         ...
 
-
     def retrieve(
         self,
         keys: str | list[str] | None = None,
         names: str | list[str] | None = None,
         node_id: int | None = None,
-        include_not_found: Literal[True] = True,
+        include_not_found: bool = False,
     ) -> Channel | list[Channel] | tuple[list[Channel], list[str]]:
-        res = self._retriever.retrieve(keys=keys, names=names, node_id=node_id, include_not_found=include_not_found)
+        res = self._retriever.retrieve(
+            keys=keys, names=names, node_id=node_id, include_not_found=include_not_found
+        )
         if res is None:
             raise QueryError("No channels found.")
-        if include_not_found:
+        if isinstance(res, ChannelPayload):
+            return self._sugar([res])[0]
+        if isinstance(res, tuple):
             return self._sugar(res[0]), res[1]
         return self._sugar(res)
 
