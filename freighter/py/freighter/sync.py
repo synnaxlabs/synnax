@@ -24,6 +24,8 @@ from freighter.stream import (
     AsyncStreamReceiver,
     AsyncStreamSenderCloser,
     AsyncStream,
+    Stream,
+    StreamClient
 )
 from freighter.util.threading import Notification
 
@@ -77,7 +79,6 @@ class _SenderCloser(Generic[RQ]):
         self._internal = internal
         self._requests = Queue()
         self._exc = Notification()
-        self._exit = Notification()
         self._req_t = req_t
 
     def send(self, pld: RQ) -> Exception | None:
@@ -152,6 +153,9 @@ class SyncStream(Thread, Generic[RQ, RS]):
         self._client.use(self._mw)
         self.start()
         self._ack_open()
+
+    def _(self) -> Stream[RQ, RS]:
+        return self
 
     async def _mw(self, md: MetaData, _next: AsyncNext):
         md.params.update(self._in_md.params)
@@ -234,6 +238,9 @@ class SyncStreamClient(MiddlewareCollector):
     def __init__(self, internal: AsyncStreamClient) -> None:
         super().__init__()
         self.internal = internal
+
+    def _(self) -> StreamClient:
+        return self
 
     def stream(
         self, target: str, req_t: Type[RQ], res_t: Type[RS]
