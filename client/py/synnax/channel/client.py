@@ -179,8 +179,8 @@ class ChannelClient:
             _channels = [ChannelPayload(
                 name=name,
                 node_id=node_id,
-                rate=rate,
-                data_type=data_type,
+                rate=Rate(rate),
+                data_type=DataType(data_type),
                 index=index,
                 is_index=is_index,
             )]
@@ -222,7 +222,7 @@ class ChannelClient:
             raise QueryError("No channels found.")
         if include_not_found:
             return self._sugar(res[0]), res[1]
-        return res
+        return self._sugar(res)
 
     def _sugar(self, channels: list[ChannelPayload]) -> list[Channel]:
         return [Channel(**c.dict(), frame_client=self._frame_client) for c in channels]
