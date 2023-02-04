@@ -117,7 +117,7 @@ class _Core(MiddlewareCollector):
             except HTTPError as e:
                 return out_meta_data, e
 
-            out_meta_data.params = http_res.headers
+            out_meta_data.params = dict(http_res.headers)
 
             if http_res.status < 200 or http_res.status >= 300:
                 err = self.encoder_decoder.decode(http_res.data, ExceptionPayload)
