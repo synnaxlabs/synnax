@@ -48,7 +48,7 @@ class MsgpackEncoder(EncoderDecoder):
 
     @staticmethod
     def encode(payload: Payload) -> bytes:
-        return msgpack.packb(payload.dict()) # type: ignore
+        return msgpack.packb(payload.dict())  # type: ignore
 
     @staticmethod
     def decode(data: bytes, pld_t: Type[P]) -> P:

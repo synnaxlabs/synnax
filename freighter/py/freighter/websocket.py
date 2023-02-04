@@ -180,6 +180,6 @@ class WebsocketClient(AsyncMiddlewareCollector):
         _, exc = await self.exec(MetaData(target, "websocket"), finalizer)
         if exc is not None:
             raise exc
-            
+
         assert socket is not None
         return socket

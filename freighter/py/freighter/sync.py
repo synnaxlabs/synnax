@@ -27,7 +27,7 @@ from freighter.stream import (
     Stream,
     StreamClient,
     StreamReceiver,
-    StreamSender
+    StreamSender,
 )
 from freighter.util.threading import Notification
 
@@ -241,8 +241,6 @@ class SyncStreamClient(MiddlewareCollector):
     def _(self) -> StreamClient:
         return self
 
-    def stream(
-        self, target: str, req_t: Type[RQ], res_t: Type[RS]
-    ) -> Stream[RQ, RS]:
+    def stream(self, target: str, req_t: Type[RQ], res_t: Type[RS]) -> Stream[RQ, RS]:
         """Implement the StreamClient protocol."""
         return SyncStream[RQ, RS](self.internal, target, req_t, res_t, self)

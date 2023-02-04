@@ -147,7 +147,6 @@ class GETClient(_Core):
         """Implements the UnaryClient protocol."""
         return self.request("GET", self._build_url(target, req), None, res_t)
 
-
     def client_post(self) -> POSTClient:
         """Creates a POST client for the same endpoint and request and response types.
 

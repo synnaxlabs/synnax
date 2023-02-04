@@ -31,19 +31,19 @@ class _Response(Payload):
 class ChannelRetriever(Protocol):
     @overload
     def retrieve(
-        self, 
-        keys: str | None = None, 
+        self,
+        keys: str | None = None,
         names: str | None = None,
     ) -> ChannelPayload | None:
         ...
-    
+
     @overload
     def retrieve(
         self,
         keys: list[str] | None = None,
         names: list[str] | None = None,
         node_id: int | None = None,
-        include_not_found: Literal[False] | None = None,
+        include_not_found: Literal[False] = False,
     ) -> list[ChannelPayload]:
         ...
 
@@ -53,7 +53,7 @@ class ChannelRetriever(Protocol):
         keys: list[str] | None = None,
         names: list[str] | None = None,
         node_id: int | None = None,
-        include_not_found: Literal[True] | None = None,
+        include_not_found: Literal[True] = True,
     ) -> tuple[list[ChannelPayload], list[str]]:
         ...
 
@@ -64,8 +64,11 @@ class ChannelRetriever(Protocol):
         names: str | list[str] | None = None,
         node_id: int | None = None,
         include_not_found: bool = False,
-    ) -> list[ChannelPayload] | tuple[list[ChannelPayload], list[str]] | ChannelPayload | None:
+    ) -> list[ChannelPayload] | tuple[
+        list[ChannelPayload], list[str]
+    ] | ChannelPayload | None:
         ...
+
 
 class ClusterChannelRetriever:
     _ENDPOINT = "/channel/retrieve"
@@ -83,7 +86,9 @@ class ClusterChannelRetriever:
         names: str | list[str] | None = None,
         node_id: int | None = None,
         include_not_found: bool | None = False,
-    ) -> tuple[list[ChannelPayload], list[str]] | list[ChannelPayload] | ChannelPayload | None:
+    ) -> tuple[list[ChannelPayload], list[str]] | list[
+        ChannelPayload
+    ] | ChannelPayload | None:
         single_key = isinstance(keys, str)
         single_name = isinstance(names, str)
         req = _Request(
@@ -103,7 +108,8 @@ class ClusterChannelRetriever:
             if len(res.channels) == 0:
                 return None
             raise QueryError("multiple channels found")
-        return res.channels 
+        return res.channels
+
 
 class CacheChannelRetriever:
     retriever: ChannelRetriever
@@ -124,11 +130,12 @@ class CacheChannelRetriever:
         names: str | list[str] | None = None,
         node_id: int | None = None,
         include_not_found: Literal[True] | None = None,
-    ) -> tuple[list[ChannelPayload], list[str]] | list[ChannelPayload] | ChannelPayload | None:
+    ) -> tuple[list[ChannelPayload], list[str]] | list[
+        ChannelPayload
+    ] | ChannelPayload | None:
         if node_id is not None:
             return self.retriever.retrieve(
-                node_id=node_id, 
-                include_not_found=include_not_found
+                node_id=node_id, include_not_found=include_not_found
             )
 
         keys, single_key = self._normalize(keys)
@@ -176,4 +183,4 @@ class CacheChannelRetriever:
             return [], False
         if isinstance(keys, str):
             return [keys], True
-        return keys, False  
+        return keys, False
