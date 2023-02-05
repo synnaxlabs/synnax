@@ -39,7 +39,11 @@ def ingest(path_: str | None):
     return pure_ingest(path_)
 
 
-def pure_ingest(path_: Path | str | None, client: Synnax | None = None, ctx: Context = default.context()) -> None:
+def pure_ingest(
+    path_: Path | str | None,
+    client: Synnax | None = None,
+    ctx: Context = default.context(),
+) -> None:
     flow = Flow(ctx)
     flow.add("initialize_reader", initialize_reader)
     flow.add("connect_client", _connect_client)
@@ -51,7 +55,7 @@ def pure_ingest(path_: Path | str | None, client: Synnax | None = None, ctx: Con
     flow.add("create_channels", create_channels)
     flow.add("ingest", run_ingestion)
     path = None if path_ is None else Path(path_)
-    flow.run(IngestionCLI(IO_FACTORY, path, client), "initialize_reader")       
+    flow.run(IngestionCLI(IO_FACTORY, path, client), "initialize_reader")
 
 
 class IngestionCLI:
@@ -105,7 +109,7 @@ def initialize_reader(
 def _connect_client(ctx: Context, cli: IngestionCLI) -> str | None:
     """Prompts the user to connect to a Synnax client."""
     if cli.client is None:
-        cli.client = connect_client(ctx) 
+        cli.client = connect_client(ctx)
     return "ingest_all" if cli.client else None
 
 

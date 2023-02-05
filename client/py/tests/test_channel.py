@@ -24,7 +24,7 @@ class TestClient:
                     data_type=sy.DataType.FLOAT64,
                 ),
                 sy.Channel(
-                    name="test",
+                    name="test2",
                     node_id=1,
                     rate=1 * sy.Rate.HZ,
                     data_type=sy.DataType.FLOAT64,
@@ -35,7 +35,7 @@ class TestClient:
     def test_create(self, two_channels: list[sy.Channel]):
         assert len(two_channels) == 2
         for channel in two_channels:
-            assert channel.name == "test"
+            assert channel.name.startswith("test")
             assert channel.key != ""
 
     def test_retrieve_by_key(
@@ -64,7 +64,7 @@ class TestClient:
     def test_retrieve_by_name(
         self, two_channels: list[sy.Channel], client: sy.Synnax
     ) -> None:
-        res_channels = client.channels.retrieve(names=["test"])
+        res_channels = client.channels.retrieve(names=["test", "test2"])
         assert len(res_channels) >= 2
         for channel in res_channels:
-            assert channel.name == "test"
+            assert channel.name in ["test", "test2"]
