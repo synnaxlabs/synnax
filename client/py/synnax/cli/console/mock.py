@@ -101,7 +101,11 @@ class MockPrompt:
         return e.response
 
     def ask_int(
-            self, question: str, bound: tuple[int,int] | None = None, default: int | None = None, required: bool = False
+        self,
+        question: str,
+        bound: tuple[int, int] | None = None,
+        default: int | None = None,
+        required: bool = False,
     ):
         e = Entry(message=question, default=default, required=required)
         e.response = self.responses.pop(0) or default
@@ -134,6 +138,7 @@ class MockPrompt:
             raise unexpected_type_error("confirm", question, bool, e.response)
         return e.response
 
+
 def unexpected_type_error(
     method: str,
     question: str,
@@ -148,7 +153,6 @@ def unexpected_type_error(
         Actual response: {actual}
         """
     )
-
 
 
 class MockConsole(MockPrint, MockPrompt):

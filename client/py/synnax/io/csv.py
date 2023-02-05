@@ -12,24 +12,21 @@ from typing import Iterator
 from pathlib import Path
 
 import pandas as pd
-from pandas._libs.hashtable import mode
 from pandas.io.parsers import TextFileReader
 from synnax.exceptions import ValidationError
 
-from synnax.telem import Size
 from synnax.io.matcher import new_extension_matcher
 from synnax.io.protocol import ChannelMeta, ReaderType, RowFileReader, FileWriter
 
-
-class CSVMatcher(new_extension_matcher(["csv"])):  # type: ignore
-    ...
+CSVMatcher = new_extension_matcher(["csv"])
 
 
-class CSVReader(CSVMatcher):
+class CSVReader(CSVMatcher): # type: ignore
     """A RowReader implementation for CSV files."""
 
     channel_keys: list[str] | None
     chunk_size: int
+
     __reader: TextFileReader | None
     _path: Path
     _channels: list[ChannelMeta] | None
@@ -51,12 +48,12 @@ class CSVReader(CSVMatcher):
     ):
         self._path = path
         self.channel_keys = keys
+        self.chunk_size = chunk_size or int(5e5)
         self._channels = None
         self._row_count = None
         self._skip_rows = 0
         self._calculated_skip_rows = False
         self.__reader = None
-        self.chunk_size = chunk_size or 10 * Size.MEGABYTE
 
     def seek_first(self):
         self.close()
@@ -64,7 +61,7 @@ class CSVReader(CSVMatcher):
             self._path,
             chunksize=self.chunk_size,
             usecols=self.channel_keys,
-            skiprows=self._get_skip_rows(),
+            header=[0, self._get_skip_rows()],
         )
 
     def _get_skip_rows(self) -> int:
@@ -80,7 +77,7 @@ class CSVReader(CSVMatcher):
 
         while not self._calculated_skip_rows:
             try:
-                df = r.read()
+                df = next(r)
             except StopIteration:
                 raise ValidationError("No valid data found in CSV file")
 
@@ -141,10 +138,10 @@ def estimate_row_count(path: Path) -> int:
         row_size = len(row.encode("utf-8"))
 
     file_size = path.stat().st_size
-    return file_size // row_size
+    return (file_size // row_size) - 1
 
 
-class CSVWriter(CSVMatcher):
+class CSVWriter(CSVMatcher): # type: ignore
     """A Writer implementation for CSV files."""
 
     _path: Path

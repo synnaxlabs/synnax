@@ -39,4 +39,4 @@ class TestTSConvert:
         f.set_chunk_size(1)
         f.seek_first()
         df = f.read()
-        assert df["Time"][0] == int(123e9)
+        assert df["Time"].to_numpy()[0] == int(123e9)
