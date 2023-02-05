@@ -117,5 +117,9 @@ class NumpyFrame(FrameHeader):
             keys=self.keys, arrays=[arr.to_binary() for arr in self.arrays]
         )
 
+    def append(self, key: str, array: NumpyArray) -> None:
+        self.keys.append(key)
+        self.arrays.append(array)
+
     def __getitem__(self, key: str) -> NumpyArray:
         return self.arrays[self.keys.index(key)]

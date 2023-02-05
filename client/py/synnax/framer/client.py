@@ -37,7 +37,6 @@ class FrameClient:
         names: list[str] | None = None,
         strict: bool = False,
         suppress_warnings: bool = False,
-        skip_invalid: bool = False,
     ) -> DataFrameWriter:
         """Opens a new writer on the given channels.
 
@@ -51,7 +50,6 @@ class FrameClient:
             channels=self._channels,
             strict=strict,
             suppress_warnings=suppress_warnings,
-            skip_invalid=skip_invalid,
         )
         w.open(start, keys, names)
         return w

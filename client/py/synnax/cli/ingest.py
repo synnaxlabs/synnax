@@ -6,6 +6,7 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
+
 from pathlib import Path
 
 import click
@@ -23,19 +24,23 @@ from synnax.ingest.row import RowIngestionEngine
 from synnax.io import ChannelMeta, ReaderType, RowFileReader, IO_FACTORY, IOFactory
 from synnax.telem import DataType, Rate, TimeStamp
 from synnax.channel import Channel
-from synnax.cli.console.rich import RichConsole
 from synnax.cli.flow import Context, Flow
 from synnax.cli.io import prompt_file
 from synnax.cli.telem import prompt_data_type_select
+from synnax.cli import default
 
 # A shorthand grouping to represent all values in a set.
 GROUP_ALL = "__all__"
 
 
 @click.command()
-@click.argument("_path", type=click.Path(exists=True), required=False, default=None)
-def ingest(_path: str | None):
-    flow = Flow(Context(console=RichConsole()))
+@click.argument("path_", type=click.Path(exists=True), required=False, default=None)
+def ingest(path_: str | None):
+    return pure_ingest(path_)
+
+
+def pure_ingest(path_: Path | str | None, client: Synnax | None = None, ctx: Context = default.context()) -> None:
+    flow = Flow(ctx)
     flow.add("initialize_reader", initialize_reader)
     flow.add("connect_client", _connect_client)
     flow.add("ingest_all", ingest_all)
@@ -45,8 +50,8 @@ def ingest(_path: str | None):
     flow.add("validate_start_time", validate_start_time)
     flow.add("create_channels", create_channels)
     flow.add("ingest", run_ingestion)
-    path = None if _path is None else Path(_path)
-    flow.run(IngestionCLI(IO_FACTORY, path), "initialize_reader")
+    path = None if path_ is None else Path(path_)
+    flow.run(IngestionCLI(IO_FACTORY, path, client), "initialize_reader")       
 
 
 class IngestionCLI:
@@ -59,11 +64,11 @@ class IngestionCLI:
     db_channels: list[Channel] | None
     start: TimeStamp | None = None
 
-    def __init__(self, factory: IOFactory, path: Path | None):
+    def __init__(self, factory: IOFactory, path: Path | None, client: Synnax | None):
         self.path = path
         self.factory = factory
         self.reader = None
-        self.client = None
+        self.client = client
         self.filtered_channels = None
         self.not_found = None
         self.db_channels = None
@@ -99,7 +104,8 @@ def initialize_reader(
 
 def _connect_client(ctx: Context, cli: IngestionCLI) -> str | None:
     """Prompts the user to connect to a Synnax client."""
-    cli.client = connect_client(ctx)
+    if cli.client is None:
+        cli.client = connect_client(ctx) 
     return "ingest_all" if cli.client else None
 
 

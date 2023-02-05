@@ -273,10 +273,9 @@ class DataFrameWriter(FrameWriter, io.DataFrameWriter):
     def _convert(self, df: DataFrame) -> BinaryFrame:
         np_fr = NumpyFrame()
         for ch in self._channels:
-            col, arr = df[getattr(ch, self._mode.value)]
-            np_fr.keys.append(ch.key)
+            col, arr = self._retrieve(ch, df)
             np_data = self._prep_arr(arr, ch, col)
-            np_fr.append(NumpyArray(data=np_data, data_type=ch.data_type))
+            np_fr.append(ch.key, NumpyArray(data=np_data, data_type=ch.data_type))
         return np_fr.to_binary()
 
     def _retrieve(self, ch: ChannelPayload, df: DataFrame) -> tuple[str, ndarray]:
@@ -293,8 +292,8 @@ class DataFrameWriter(FrameWriter, io.DataFrameWriter):
                     f"frame is missing {self._mode.value} {key_or_name}",
                 )
             )
-        return key_or_name, v
-                
+        return key_or_name, v.to_numpy()
+
     def _prep_arr(self, arr: ndarray, ch: ChannelPayload, col: str):
         ch_dt = ch.data_type.np
         if arr.dtype != ch_dt:
@@ -339,6 +338,9 @@ class BufferedDataFrameWriter(io.DataFrameWriter):
         self.size_threshold = size_threshold
         self.time_threshold = time_threshold
 
+    def _(self) -> io.DataFrameWriter:
+        return self
+
     def write(self, frame: DataFrame):
         self._buf = pd_concat([self._buf, frame], ignore_index=True)
         if self._exceeds_any:
@@ -356,7 +358,6 @@ class BufferedDataFrameWriter(io.DataFrameWriter):
         )
 
     def _flush(self):
-        print(len(self._buf))
         self._wrapped.write(self._buf)
         self._wrapped.commit()
         self.last_flush = TimeStamp.now()
