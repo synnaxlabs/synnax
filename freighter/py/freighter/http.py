@@ -13,7 +13,7 @@ from typing import Type
 from urllib.parse import urlencode
 
 import urllib3
-from urllib3 import HTTPResponse, PoolManager
+from urllib3 import HTTPResponse, PoolManager, Timeout, Retry
 from urllib3.exceptions import HTTPError, MaxRetryError
 
 from freighter.unary import UnaryClient
@@ -24,7 +24,15 @@ from freighter.url import URL
 from freighter.transport import MiddlewareCollector
 from freighter.metadata import MetaData
 
-http = PoolManager(cert_reqs="CERT_NONE")
+t = Timeout(connect=3.0, read=7.0)
+r = Retry(
+    connect=3, 
+    read=3, 
+    redirect=3, 
+    status=3, 
+    status_forcelist=[500, 502, 503, 504],
+)
+http_pool = PoolManager(cert_reqs="CERT_NONE", timeout=t, retries=r)
 urllib3.disable_warnings()
 
 
@@ -111,7 +119,7 @@ class _Core(MiddlewareCollector):
 
             http_res: HTTPResponse
             try:
-                http_res = http.request(method=method, url=url, headers=head, body=data)
+                http_res = http_pool.request(method=method, url=url, headers=head, body=data)
             except MaxRetryError as e:
                 return out_meta_data, Unreachable(url, e)
             except HTTPError as e:

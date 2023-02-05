@@ -106,13 +106,13 @@ class _SenderCloser(StreamSender[RQ]):
     async def run(self) -> None:
         while True:
             async with process(self._requests, self._req_t) as req:
-                pld, exit = req
-                if exit:
-                    exc = await self._internal.close_send()
-                    if exc is None:
-                        exc = StreamClosed()
-                    return self._exc.notify(exc)
                 try:
+                    pld, exit = req
+                    if exit:
+                        exc = await self._internal.close_send()
+                        if exc is None:
+                            exc = StreamClosed()
+                        return self._exc.notify(exc)
                     assert pld is not None
                     exc = await self._internal.send(pld)
                 except Exception as e:

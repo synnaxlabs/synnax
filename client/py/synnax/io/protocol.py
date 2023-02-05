@@ -138,7 +138,7 @@ class DataFrameWriter(Closer, Protocol):
     such as a Synnax cluster.
     """
 
-    def write(self, df: DataFrame):
+    def write(self, df: DataFrame) -> None | bool:
         """Writes the given dataframe to the buffer."""
         ...
 

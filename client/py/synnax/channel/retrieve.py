@@ -85,7 +85,7 @@ class ClusterChannelRetriever:
         keys: str | list[str] | None = None,
         names: str | list[str] | None = None,
         node_id: int | None = None,
-        include_not_found: bool | None = False,
+        include_not_found: bool = False,
     ) -> tuple[list[ChannelPayload], list[str]] | list[
         ChannelPayload
     ] | ChannelPayload | None:
@@ -129,7 +129,7 @@ class CacheChannelRetriever:
         keys: str | list[str] | None = None,
         names: str | list[str] | None = None,
         node_id: int | None = None,
-        include_not_found: Literal[True] | None = None,
+        include_not_found: bool = False,
     ) -> tuple[list[ChannelPayload], list[str]] | list[
         ChannelPayload
     ] | ChannelPayload | None:
@@ -144,39 +144,39 @@ class CacheChannelRetriever:
         names_to_retrieve = list()
         results = list()
 
-        if names is not None:
-            for name in names:
-                key = self.names_to_keys.get(name, None)
-                if key is not None:
-                    keys.append(key)
-                else:
-                    names_to_retrieve.append(name)
+        for name in names:
+            key = self.names_to_keys.get(name, None)
+            if key is not None:
+                keys.append(key)
+            else:
+                names_to_retrieve.append(name)
 
-        if keys is not None:
-            for key in keys:
-                channel = self.channels.get(key, None)
-                if channel is None:
-                    keys_to_retrieve.append(key)
-                else:
-                    results.append(channel)
+        for key in keys:
+            channel = self.channels.get(key, None)
+            if channel is None:
+                keys_to_retrieve.append(key)
+            else:
+                results.append(channel)
 
         if len(keys_to_retrieve) == 0 and len(names_to_retrieve) == 0:
             return results
 
-        retrieved = self.retriever.retrieve(
+        retrieved, not_found = self.retriever.retrieve(
             keys=keys_to_retrieve,
             names=names_to_retrieve,
-            include_not_found=include_not_found,
+            include_not_found=True,
         )
 
-        for channel in retrieved[0]:
+        for channel in retrieved:
             self.channels[channel.key] = channel
             self.names_to_keys[channel.name] = channel.key
             results.append(channel)
 
         if include_not_found:
-            return results, retrieved[1]
-        return results[0] if single_key or single_name else results
+            return results, not_found
+        if single_key or single_name:
+            return None if len(results) == 0 else results[0]
+        return results
 
     def _normalize(self, keys: list[str] | str | None) -> tuple[list[str], bool]:
         if keys is None:

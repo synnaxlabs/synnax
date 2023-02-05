@@ -12,7 +12,7 @@ from typing import Generic, Type
 from freighter.metadata import MetaData
 from pydantic import BaseModel
 from websockets.exceptions import ConnectionClosedOK
-from websockets import connect, WebSocketClientProtocol
+from websockets.client import connect, WebSocketClientProtocol
 
 from freighter.stream import AsyncStream, AsyncStreamClient
 from freighter.encoder import EncoderDecoder
@@ -23,7 +23,6 @@ from freighter.url import URL
 _DATA_MESSAGE = "data"
 _CLOSE_MESSAGE = "close"
 
-
 class _Message(Generic[P], BaseModel):
     type: str
     payload: P | None
@@ -31,7 +30,7 @@ class _Message(Generic[P], BaseModel):
 
 
 def _new_res_msg_t(res_t: Type[RS]) -> Type[_Message[RS]]:
-    class _ResMsg(_Message[RS]):
+    class _ResMsg(_Message[RS]): 
         payload: res_t | None
 
     return _ResMsg
@@ -119,7 +118,6 @@ class WebsocketStream(AsyncStream[RQ, RS]):
 
 
 DEFAULT_MAX_SIZE = 2**20
-
 
 class WebsocketClient(AsyncMiddlewareCollector):
     """An implementation of AsyncStreamClient that is backed by a websocket
