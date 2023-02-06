@@ -10,14 +10,15 @@
 import numpy as np
 import pandas as pd
 
-import synnax
+from synnax import Channel, Synnax
 
 
 class TestNumpy:
-    def test_basic_write(self, channel: synnax.Channel, client: synnax.Synnax):
+    def test_basic_write(self, channel: Channel, client: Synnax):
         writer = client.new_writer(start=0, keys=[channel.key])
         try:
             data = np.random.rand(10).astype(np.float64)
+            writer.write(pd.DataFrame({channel.key: data}))
             writer.write(pd.DataFrame({channel.key: data}))
             writer.commit()
         finally:

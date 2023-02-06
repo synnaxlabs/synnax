@@ -7,16 +7,21 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from pydantic import BaseModel
 from synnax.cli.flow import Context
-from typing import Any
+from typing import TypeVar
+ 
+V = TypeVar("V", BaseModel, str, int, float)
 
 
 def select_from_table(
     ctx: Context,
     columns: list[str],
-    rows: list[dict[str, Any]],
+    rows: list[V],
     default: int | None = None,
-    required: bool = True,
+    *,
+    arg: V | None = None,
+    arg_name: str | None = None,
 ) -> int | None:
     """Prompts the user to select a row from a table.
 
@@ -28,13 +33,14 @@ def select_from_table(
     allow_none is ignored.
     :returns: The index of the selected row.py or None if nothing was selected.
     """
-    ctx.console.table(
-        columns=["option", *columns],
-        rows=[{"option": str(i), **row} for i, row in enumerate(rows)],
-    )
-    if required and default is None:
-        ctx.console.info("Press enter to select nothing.")
-    i = ctx.console.ask_int("Select an option #", bound=(0, len(rows)), default=default)
+    _rows = list()
+    for row in rows:
+        if isinstance(row, BaseModel):
+            _rows.append(row.dict())
+        else:
+            _rows.append(BaseModel(**{columns[0]: row}))
+    ctx.console.table(columns=["option", *columns],rows=_rows)
+    i = ctx.console.ask_int("Select an option #", bound=(0, len(rows)))
     return None if i == "None" else i
 
 

@@ -18,7 +18,6 @@ class Prompt(Protocol):
         question: str,
         choices: list[str] | None = None,
         default: str | None = None,
-        required: bool = False,
     ) -> str | None:
         """Asks the user a question and returns their response.
 
@@ -38,7 +37,6 @@ class Prompt(Protocol):
         question: str,
         bound: tuple[int, int] | None = None,
         default: int | None = None,
-        required: bool = False,
     ) -> int | None:
         """Asks the user a question and returns their response as an integer.
 
@@ -51,7 +49,6 @@ class Prompt(Protocol):
         self,
         question: str,
         default: float | None = None,
-        required: bool = False,
     ) -> float | None:
         """Asks the user a question and returns their response as a float.
 
@@ -65,8 +62,8 @@ class Prompt(Protocol):
     def ask_password(
         self,
         question: str,
-        required: bool = False,
-    ) -> str:
+        default: str | None = None,
+    ) -> str | None:
         """Prompts the user for a password and returns their response."""
         ...
 

@@ -29,11 +29,11 @@ class TestTSConvert:
     @pytest.mark.usefixtures("remove_testdata")
     def test_tsconvert(self):
         pure_tsconvert(
-            path=DATA_DIR / "tsconvert.csv",
-            out=DATA_DIR / "tsconvert_out.csv",
-            channel="Time",
-            input="s",
-            output="ns",
+            input_path=DATA_DIR / "tsconvert.csv",
+            output_path=DATA_DIR / "tsconvert_out.csv",
+            input_channel="Time",
+            input_precision="s",
+            output_precision="ns",
         )
         f = IO_FACTORY.new_reader(DATA_DIR / "tsconvert_out.csv")
         f.set_chunk_size(1)
