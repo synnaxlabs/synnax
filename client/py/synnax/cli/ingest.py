@@ -35,6 +35,7 @@ GROUP_ALL = "__all__"
 
 @click.command()
 @click.argument("path_", type=click.Path(exists=True), required=False, default=None)
+@click.option("--prompt/--no-prompt")
 def ingest(path_: str | None):
     return pure_ingest(path_)
 

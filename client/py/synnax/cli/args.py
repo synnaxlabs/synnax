@@ -7,16 +7,12 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TypeVar, Any, Callable
+from typing import Concatenate, ParamSpec, TypeVar, Callable
 
+P = ParamSpec("P")
 V = TypeVar("V")
 
 
-def if_none(
-    value: V | None,
-    func: Callable[[Any], V],
-    *args: Any,
-    **kwargs: Any,
-) -> V:
-    """If value is None, return the result of calling func with args."""
-    return func(*args, **kwargs) if value is None else value
+
+
+

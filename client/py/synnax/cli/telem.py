@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 
+from typing import overload, Literal
 from synnax.telem import DataType, TimeSpan
 from synnax.cli.channel import select_from_table
 from synnax.cli.flow import Context
@@ -28,9 +29,13 @@ def prompt_data_type_select(ctx: Context, required: bool = True) -> DataType | N
     )
     return DataType.ALL[i] if i is not None else None
 
-
 def ask_time_units_select(
-    ctx: Context, required: bool = True, question: str | None = None
+    ctx: Context, 
+    question: str | None = None, 
+    value: str | None = None, 
+    required: bool = True,
+    arg: str | None = None,
+    arg_name: str | None = None,
 ) -> str | None:
     """Prompts the user to select a time unit from a list of all available time
     units.
@@ -38,8 +43,10 @@ def ask_time_units_select(
     :param ctx: The current flow Context.
     :param allow_none: Whether to allow the user to select None.
     """
+    if value is not None:
+        return value
     if question is not None:
-        ctx.console.ask(question)
+        ctx.console.info(question)
     opts = list(TimeSpan.UNITS.keys())
     i = select_from_table(
         ctx,

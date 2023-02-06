@@ -16,16 +16,16 @@
 
 from typing import Callable, Generic, TypeVar
 
-from synnax.cli.console import Console
+from synnax.cli.console import Console, SugaredConsole  
 
 T = TypeVar("T")
 
 
 class Context:
-    console: Console
+    console: SugaredConsole
 
-    def __init__(self, console: Console):
-        self.console = console
+    def __init__(self, console: Console, enabled: bool = True):
+        self.console = SugaredConsole(prompt=console, print=console, enabled=enabled)
 
 
 class Flow(Generic[T]):

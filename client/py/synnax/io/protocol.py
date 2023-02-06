@@ -13,7 +13,7 @@ from typing import Protocol, Iterator
 
 from pandas import DataFrame
 
-from .meta import ChannelMeta
+from synnax.io.meta import ChannelMeta
 
 
 class ReaderType(Enum):
