@@ -21,7 +21,7 @@ from synnax.io.protocol import ChannelMeta, ReaderType, RowFileReader, FileWrite
 CSVMatcher = new_extension_matcher(["csv"])
 
 
-class CSVReader(CSVMatcher): # type: ignore
+class CSVReader(CSVMatcher):  # type: ignore
     """A RowReader implementation for CSV files."""
 
     channel_keys: list[str] | None
@@ -141,7 +141,7 @@ def estimate_row_count(path: Path) -> int:
     return (file_size // row_size) - 1
 
 
-class CSVWriter(CSVMatcher): # type: ignore
+class CSVWriter(CSVMatcher):  # type: ignore
     """A Writer implementation for CSV files."""
 
     _path: Path

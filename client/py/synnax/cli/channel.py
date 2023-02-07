@@ -11,7 +11,6 @@ import fnmatch
 
 from synnax import Channel
 from synnax.cli.flow import Context
-from synnax.cli.select import select_from_table
 
 
 def channel_name_table(
@@ -49,7 +48,6 @@ def select_channel(
     ctx: Context,
     channels: list[Channel],
     default: str | None = None,
-    allow_none: bool = False,
 ) -> Channel | None:
     """Prompts the user to select a channel from a list of channels.
 
@@ -64,12 +62,10 @@ def select_channel(
     except ValueError as e:
         raise ValueError(f"Invalid default channel: {default}") from e
 
-    i = select_from_table(
-        ctx,
+    ctx.console.select(
         columns=["name", "key", "data_type", "index", "rate", "node_id"],
-        rows=[{k: f"{v}" for k, v in c.dict().items()} for c in channels],
-        required=allow_none,
-        default=_default,
+        key="name",
+        rows=[c.dict() for c in channels],
     )
     return channels[i] if i is not None else None
 
@@ -89,15 +85,7 @@ def prompt_group_channel_names(
     3) A pattern to match (e.g. 'channel*, sensor*')
     """
     )
-    res = ctx.console.ask("Channels")
-    if res is None:
-        if ctx.console.confirm(
-            "No valid pattern provided. Would you like to try again?"
-        ):
-            return prompt_group_channel_names(ctx, options)
-        return None
-
-    return group_channel_names(ctx, options, res.split(","))
+    return group_channel_names(ctx, options, ctx.console.ask("channels").split(","))
 
 
 def group_channel_names(
@@ -122,19 +110,17 @@ def group_channel_names(
             index = int(entry)
             if index < 0 or index >= len(options):
                 ctx.console.error(f"Invalid channel index: {index}[/]")
-                if not ctx.console.confirm("Skip?"):
+                if not ctx.console.ask("Continue?", bool, default=True):
                     return None
                 continue
             channels.append(options[index])
         else:
-            found = False
             for channel in options:
                 if fnmatch.fnmatch(channel, entry) or channel == entry:
                     channels.append(channel)
-                    found = True
-            if not found:
+            if len(channels) == 0:
                 ctx.console.error(f"[red]No channels found matching {entry}[/]")
-                if not ctx.console.confirm("Skip?"):
+                if not ctx.console.ask("Continue?", bool, default=True):
                     return None
         grouped[entry] = channels
 

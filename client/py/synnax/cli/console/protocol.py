@@ -7,7 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Protocol
+from typing import Protocol, TypeVar
+
+R = TypeVar("R", str, int, float, bool, None)
 
 
 class Prompt(Protocol):
@@ -16,9 +18,11 @@ class Prompt(Protocol):
     def ask(
         self,
         question: str,
-        choices: list[str] | None = None,
-        default: str | None = None,
-    ) -> str | None:
+        type_: type[R] = str,
+        choices: list[R] | None = None,
+        default: R | None = None,
+        password: bool = False,
+    ) -> R | None:
         """Asks the user a question and returns their response.
 
         :param question: The question to ask the user.
@@ -29,55 +33,6 @@ class Prompt(Protocol):
         response. If provided, the user can press enter to select the default
         value.
         :return: The user's response.
-        """
-        ...
-
-    def ask_int(
-        self,
-        question: str,
-        bound: tuple[int, int] | None = None,
-        default: int | None = None,
-    ) -> int | None:
-        """Asks the user a question and returns their response as an integer.
-
-        :param question: The question to ask the user.
-        :param default: A default value to use if the user does not provide a
-        """
-        ...
-
-    def ask_float(
-        self,
-        question: str,
-        default: float | None = None,
-    ) -> float | None:
-        """Asks the user a question and returns their response as a float.
-
-        :param question: The question to ask the user.
-        :param default: A default value to use if the user does not provide a response.
-        If provided, the user can press enter to select the default value.
-        :return: A float value.
-        """
-        ...
-
-    def ask_password(
-        self,
-        question: str,
-        default: str | None = None,
-    ) -> str | None:
-        """Prompts the user for a password and returns their response."""
-        ...
-
-    def confirm(
-        self,
-        question: str,
-        default: bool = True,
-    ) -> bool:
-        """Asks the user to confirm the given question.
-
-        :param question: The question to ask the user.
-        :param default: A default value to use if the user does not provide a response.
-        If provided, the user can press enter to select the default value.
-        :return: True if the user confirms the question, False otherwise.
         """
         ...
 

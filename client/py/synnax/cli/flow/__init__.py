@@ -16,7 +16,7 @@
 
 from typing import Callable, Generic, TypeVar
 
-from synnax.cli.console import Console, SugaredConsole  
+from synnax.cli.console import Console, SugaredConsole
 
 T = TypeVar("T")
 
