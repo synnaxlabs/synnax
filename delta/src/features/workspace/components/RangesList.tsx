@@ -8,11 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { TimeSpan, TimeStamp } from "@synnaxlabs/client";
-import { Text, List, ListColumn } from "@synnaxlabs/pluto";
+import { Text, List, ListColumn, Menu, Divider } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { setActiveRange, useSelectRanges, useSelectRange } from "../store";
 import type { Range } from "../store";
+import { Icon } from "@/components/Icon";
 
 export const rangeListColumns: Array<ListColumn<Range>> = [
   {
@@ -53,20 +54,36 @@ export const RangesList = (): JSX.Element => {
   const dispatch = useDispatch();
   return (
     <div style={{ flexGrow: 1 }}>
-      <List data={ranges}>
-        <List.Selector
-          value={selectedRange == null ? [] : [selectedRange.key]}
-          onChange={([key]: readonly string[]) => dispatch(setActiveRange(key ?? null))}
-          allowMultiple={false}
-        />
-        <List.Column.Header columns={rangeListColumns} />
-        <List.Core.Virtual
-          itemHeight={30}
-          style={{ height: "100%", overflowX: "hidden" }}
-        >
-          {List.Column.Item}
-        </List.Core.Virtual>
-      </List>
+      <Menu.Context menu={(props) => <RangesContextMenu />}>
+        <List data={ranges}>
+          <List.Selector
+            value={selectedRange == null ? [] : [selectedRange.key]}
+            onChange={([key]: readonly string[]) => dispatch(setActiveRange(key ?? null))}
+            allowMultiple={false}
+          />
+          <List.Column.Header columns={rangeListColumns} />
+          <List.Core.Virtual
+            itemHeight={30}
+            style={{ height: "100%", overflowX: "hidden" }}
+          >
+            {List.Column.Item}
+          </List.Core.Virtual>
+        </List>
+      </Menu.Context>
     </div>
   );
 };
+
+export const RangesContextMenu = (): JSX.Element => {
+  return (
+    <Menu>
+      <Menu.Item startIcon={<Icon.Edit />} size="small">Edit Range</Menu.Item>
+      <Menu.Item startIcon={<Icon.Delete />} size="small">Remove Range</Menu.Item>
+      <Menu.Item startIcon={<Icon.Create />} size="small">Create Range</Menu.Item>
+      <Divider direction="x" />
+      <Menu.Item startIcon={<Icon.Refresh />} size="small">Hard Reload</Menu.Item>
+    </Menu>
+  )
+}
+    
+

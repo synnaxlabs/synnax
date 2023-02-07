@@ -10,6 +10,7 @@
  */
 
 import { Size, TimeRange } from "@synnaxlabs/x";
+
 import { Frame } from "@/framer";
 
 export class FrameCache {

@@ -12,6 +12,8 @@ import { useState } from "react";
 import type { ComponentMeta, ComponentStory } from "@storybook/react";
 
 import { List } from ".";
+import { Menu } from "../Menu";
+ 
 
 const story: ComponentMeta<typeof List> = {
   title: "Core/List",
@@ -80,13 +82,31 @@ export const Search: ComponentStory<typeof List> = () => (
 export const Selectable: ComponentStory<typeof List> = () => {
   const [selected, setSelected] = useState<readonly string[]>([]);
   return (
-    <List data={data}>
-      <List.Selector value={selected} onChange={setSelected} />
-      <List.Column.Header columns={columns} />
-      <List.Core.Virtual itemHeight={List.Column.itemHeight} style={{ height: "80vh" }}>
-        {List.Column.Item}
-      </List.Core.Virtual>
-    </List>
+    <Menu.Context
+        menu={({ keys }) => {
+          const handleClick = (key: string) => {
+            if (key === "reload") {
+              // reload the page
+              window.location.reload();
+            }
+          };
+              
+          return (
+            <Menu onClick={handleClick}>
+              <Menu.Item itemKey="copy" size="small">Copy</Menu.Item>
+              <Menu.Item itemKey="reload" size="small">Reload</Menu.Item>
+            </Menu>
+          )
+        }}
+    >
+      <List data={data}>
+        <List.Selector value={selected} onChange={setSelected} />
+        <List.Column.Header columns={columns} />
+        <List.Core.Virtual itemHeight={List.Column.itemHeight} style={{ height: "80vh" }}>
+          {List.Column.Item}
+        </List.Core.Virtual>
+      </List>
+    </Menu.Context>
   );
 };
 

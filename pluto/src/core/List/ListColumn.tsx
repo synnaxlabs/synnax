@@ -103,18 +103,24 @@ const ListColumnItem = <E extends RenderableRecord<E>>({
   selected,
   columns,
   onSelect,
+  index,
   ...props
 }: ListItemProps<E>): JSX.Element => {
+  const handleSelect = (): void => onSelect?.(entry.key);
   return (
     <Space
+      id={entry.key.toString()}
       className={clsx(
+        "pluto-context-target",
         "pluto-list-col-item__container",
         onSelect != null && "pluto-list-col-item__container--selectable",
-        selected && "pluto-list-col-item__container--selected"
+        selected && "pluto-list-col-item__container--selected",
+        selected && "pluto-context-selected"
       )}
       direction="x"
       size="medium"
-      onClick={() => onSelect?.(entry.key)}
+      onClick={handleSelect}
+      onContextMenu={handleSelect}
       align="center"
       {...props}
     >

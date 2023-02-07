@@ -34,6 +34,7 @@ export const TelemetryProvider = ({
 
   useEffect(() => {
     if (clusterClient == null || glCtx == null) return;
+    console.log("EFFECT")
     setClient(
       new TelemetryClient(new GLBufferCache(glCtx.gl), clusterClient, new FrameCache())
     );
