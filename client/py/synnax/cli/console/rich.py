@@ -49,7 +49,7 @@ class RichConsole:
 
     def success(self, message: str) -> None:
         print(f"[{self.success_color}]{message}[/]")
-            
+
     def table(
         self,
         columns: list[str],
@@ -69,30 +69,39 @@ class RichConsole:
     def ask(
         self,
         question: str,
-        type_: type[R] = str,
+        type_: type[R] | None = None,
         choices: list[R] | None = None,
         default: R | None = None,
         password: bool = False,
     ) -> R | None:
+        if type_ is None:
+            if default is not None:
+                type_ = type(default) # type: ignore
+            elif choices is not None and len(choices) > 0:
+                type_ = type(choices[0])
+            else:
+                type_ = str # type: ignore
         if type_ == bool:
             return Confirm.ask(
                 question,
                 default=default,
-            ) # type: ignore
+                show_default=True,
+                show_choices=True,
+            )  # type: ignore
         if type_ == int:
             return IntPrompt.ask(
                 question,
                 default=default,
-                choices=choices, # type: ignore
-            ) # type: ignore
+                choices=[str(choice) for choice in choices],  # type: ignore
+            )  # type: ignore
         if type_ == float:
             return FloatPrompt.ask(
                 question,
                 default=default,
-            ) # type: ignore
+            )  # type: ignore
         return Prompt.ask(
             question,
-            choices=choices, # type: ignore
+            choices=choices,  # type: ignore
             default=default,
-            password=password,  
-        ) # type: ignore
+            password=password,
+        )  # type: ignore

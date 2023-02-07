@@ -34,7 +34,6 @@ GROUP_ALL = "__all__"
 
 @click.command()
 @click.argument("path_", type=click.Path(exists=True), required=False, default=None)
-@click.option("--prompt/--no-prompt")
 def ingest(path_: str | None):
     return pure_ingest(path_)
 
@@ -171,6 +170,8 @@ def read_data_types(ctx: Context, cli: IngestionCLI) -> dict[str, DataType]:
 
     first = cli.reader.read()
 
+    print(first)
+
     data_types = {}
     for ch in cli.filtered_channels:
         samples = first[ch.name]
@@ -235,6 +236,7 @@ def validate_start_time(ctx: Context, cli: IngestionCLI) -> str | None:
         cli.reader.set_chunk_size(1)
         cli.reader.seek_first()
         first = cli.reader.read()
+        print(first["gse.packet_type (ul)"].to_numpy())
         cli.start = TimeStamp(first[idx.name].to_numpy()[0])
 
     ctx.console.info(f"Identified start timestamp for file as {cli.start}.")
@@ -266,7 +268,7 @@ def create_indexes(
 DATA_TYPE_OPTIONS = [
     "Guess data types from file",
     "Assign the same data type to all channels (excluding indexes)",
-    "Group channels by data type"
+    "Group channels by data type",
 ]
 
 
@@ -278,8 +280,9 @@ def assign_data_type(
 
     grouped = {GROUP_ALL: cli.db_channels}
     assigned = {}
-    opt = ctx.console.select(
-        DATA_TYPE_OPTIONS,
+    ctx.console.info("Please select an option for assigning data types:")
+    opt, _ = ctx.console.select(
+        rows=DATA_TYPE_OPTIONS,
         default=DATA_TYPE_OPTIONS[0],
     )
     if opt == DATA_TYPE_OPTIONS[0]:
@@ -319,7 +322,7 @@ def assign_index_or_rate(
 
     grouped = {GROUP_ALL: cli.not_found}
     if not ctx.console.ask(
-        "Do all non-indexed channels have the same data rate or index?", default=True
+        "Do all non-indexed channels have the same data rate or index?", bool, default=True
     ):
         if not ctx.console.ask(
             "Can you group channels by data rate or index?", default=True

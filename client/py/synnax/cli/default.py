@@ -11,6 +11,6 @@ from synnax.cli.flow import Context
 from synnax.cli.console import RichConsole
 
 
-def context(prompt: bool = True) -> Context:
+def context(prompt_enabled: bool = True) -> Context:
     """Returns a new Context."""
-    return Context(console=RichConsole(prompt=prompt))
+    return Context(console=RichConsole(), prompt_enabled=prompt_enabled)
