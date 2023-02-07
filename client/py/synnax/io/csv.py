@@ -61,10 +61,11 @@ class CSVReader(CSVMatcher):  # type: ignore
             self._path,
             chunksize=self.chunk_size,
             usecols=self.channel_keys,
-            header=[0, self._get_skip_rows()],
+            header=0,
+            skiprows=self._get_skip_rows(),
         )
 
-    def _get_skip_rows(self) -> int:
+    def _get_skip_rows(self) -> int | tuple[int, int]:
         if self._calculated_skip_rows:
             return self._skip_rows
 
@@ -88,11 +89,14 @@ class CSVReader(CSVMatcher):  # type: ignore
                 self._calculated_skip_rows = True
 
         r.close()
+        if self._skip_rows > 0:
+            return 1, self._skip_rows
         return self._skip_rows
 
     def channels(self) -> list[ChannelMeta]:
         if not self._channels:
             cols = pd.read_csv(self._path, nrows=0).columns
+            print(cols)
             self._channels = [ChannelMeta(name=name, meta_data=dict()) for name in cols]
         return self._channels
 

@@ -18,7 +18,7 @@ class Prompt(Protocol):
     def ask(
         self,
         question: str,
-        type_: type[R] = str,
+        type_: type[R] | None = None,
         choices: list[R] | None = None,
         default: R | None = None,
         password: bool = False,
