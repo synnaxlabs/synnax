@@ -20,58 +20,63 @@ from synnax.cli.telem import ask_time_units_select
 from synnax.cli import default
 
 OUTPUT_PATH_ARG = "--output-path"
-INPUT_PATH_ARG = "--input-path"
+OUTPUT_PATH_ARG_SHORT = "-o"
 INPUT_CHANNEL_ARG = "--input-channel"
+INPUT_CHANNEL_ARG_SHORT = "-ic"
 OUTPUT_CHANNEL_ARG = "--output-channel"
+OUTPUT_CHANNEL_ARG_SHORT = "-oc"
 INPUT_PRECISION_ARG = "--input-precision"
+INPUT_PRECISION_ARG_SHORT = "-ip"
 OUTPUT_PRECISION_ARG = "--output-precision"
+OUTPUT_PRECISION_ARG_SHORT = "-op"
+
 
 @click.command()
 @click.argument(
-    "input_path", 
-    required=False, 
+    "input_path",
+    required=False,
 )
 @click.option(
-    "-o",
-    "--output-path",
-    "output_path", 
+    OUTPUT_PATH_ARG,
+    OUTPUT_PATH_ARG_SHORT,
+    "output_path",
     required=False,
     help="The path to save the converted file",
 )
 @click.option(
-    "-ip", 
-    "--input-precision",
-    "input_precision", 
+    INPUT_PRECISION_ARG,
+    INPUT_PRECISION_ARG_SHORT,
+    "input_precision",
     required=False,
     help="The current precision of the time units",
 )
 @click.option(
-    "-op", 
-    "--output-precision",
-    "output_precision", 
+    OUTPUT_PRECISION_ARG,
+    OUTPUT_PRECISION_ARG_SHORT,
+    "output_precision",
     required=False,
     help="The desired precision of the time units",
 )
 @click.option(
-    "-ic", 
-    "--input-channel",
-    "input_channel", 
+    INPUT_CHANNEL_ARG,
+    INPUT_CHANNEL_ARG_SHORT,
+    "input_channel",
     required=False,
     help="The channel to convert",
 )
 @click.option(
-    "-oc", 
-    "--output-channel",
-    "output_channel", 
+    OUTPUT_CHANNEL_ARG,
+    OUTPUT_CHANNEL_ARG_SHORT,
+    "output_channel",
     required=False,
-    help="The name of the output channel",
+    help="The name of the output channel. Defaults to the name of the input channel.",
 )
 @click.option(
     "-p",
     "--prompt/--no-prompt",
     "prompt",
     help="Prompt the user for missing information",
-    default=True
+    default=True,
 )
 def tsconvert(
     input_path: str | None,
@@ -121,9 +126,8 @@ def pure_tsconvert(
     )
 
     input_precision = ask_time_units_select(
-        ctx, 
+        ctx,
         question="What is the current precision?",
-        value=input_precision,
         arg_name=INPUT_PRECISION_ARG,
         arg=input_precision,
     )
@@ -131,26 +135,36 @@ def pure_tsconvert(
     output_precision = ask_time_units_select(
         ctx,
         question="What is the desired precision?",
-        value=output_precision
+        arg_name=OUTPUT_PRECISION_ARG,
+        arg=output_precision,
     )
 
     output_channel = ctx.console.ask(
         "What would you like to name the output channel?",
         default=input_channel,
+        arg=output_channel,
+        arg_name=OUTPUT_CHANNEL_ARG,
     )
 
-    output_path = Path(ctx.console.ask(
-        "Where would you like to save the converted data?",
-        if_none=str(output_path) if output_path is not None else None,
-        default=str(input_path.parent / f"{input_path.stem}_converted{input_path.suffix}"),
-    ))
+    output_path = Path(
+        ctx.console.ask(
+            "Where would you like to save the converted data?",
+            default=str(
+                input_path.parent / f"{input_path.stem}_converted{input_path.suffix}"
+            ),
+            arg=str(output_path),
+            arg_name=OUTPUT_PATH_ARG,
+        )
+    )
 
     writer = IO_FACTORY.new_writer(output_path)
 
     reader.seek_first()
 
     for chunk in reader:
-        converted = convert_time_units(chunk[input_channel], input_precision, output_precision)
+        converted = convert_time_units(
+            chunk[input_channel], input_precision, output_precision
+        )
         chunk[output_channel] = converted
         writer.write(chunk)
 

@@ -24,6 +24,7 @@ VALID_FILE_CHANNELS = [
     "strainGauge22",
 ]
 
+
 @pytest.mark.parametrize("ext", IO_FACTORY.extensions())
 class TestRowFileReaders:
     @pytest.fixture
@@ -58,4 +59,3 @@ class TestRowFileReaders:
             assert len(d) == 1
             count += 1
         assert count == 4
-

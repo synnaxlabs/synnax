@@ -7,22 +7,21 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, TextIO
+from typing import Any, Generic, TextIO, Type
 from pydantic import BaseModel
 
-from synnax.cli.console.protocol import Print, Prompt
-
-Response = str | int | float | bool | None
+from synnax.cli.console.protocol import Print, Prompt, R
 
 
-class Entry(BaseModel):
+class Entry(BaseModel, Generic[R]):
     message: str | None = None
     columns: list[str] | None = None
     rows: list[dict] | None = None
-    choices: list[str] | None = None
-    default: Response = None
-    response: Response = None
-    required: bool | None = None
+    choices: list[R] | None = None
+    default: R | None = None
+    response: R | None = None
+    type_: Type[R] | None = None
+    password: bool | None = None
 
 
 class Output(BaseModel):
@@ -90,69 +89,29 @@ class MockPrompt:
     def ask(
         self,
         question: str,
-        choices: list[str] | None = None,
-        default: str | None = None,
-        required: bool = False,
+        type_: Type[R] = str,
+        choices: list[R] | None = None,
+        default: R | None = None,
+        password: bool = False,
     ):
-        e = Entry(message=question, choices=choices, default=default, required=required)
+        e = Entry[R](
+            message=question,
+            choices=choices,
+            default=default,
+            type_=type_,  # type: ignore
+            password=password,
+        )
         e.response = self.responses.pop(0) or default
-        if type(e.response) != str:
-            raise unexpected_type_error("ask", question, str, e.response)
+        if type(e.response) != type_:
+            raise TypeError(
+                f"""
+                Mock Prompt: Invalid response type
+                Question: {question}
+                Expected type: {type_}
+                Actual response: {e.response}
+                """
+            )
         return e.response
-
-    def ask_int(
-        self,
-        question: str,
-        bound: tuple[int, int] | None = None,
-        default: int | None = None,
-        required: bool = False,
-    ):
-        e = Entry(message=question, default=default, required=required)
-        e.response = self.responses.pop(0) or default
-        if type(e.response) != int:
-            raise unexpected_type_error("ask_int", question, int, e.response)
-        return default
-
-    def ask_float(
-        self, question: str, default: float | None = None, required: bool = False
-    ):
-        e = Entry(message=question, default=default, required=required)
-        e.response = self.responses.pop(0) or default
-        if type(e.response) != float:
-            raise unexpected_type_error("ask_float", question, float, e.response)
-        return e.response
-
-    def ask_password(self, question: str, required: bool = False):
-        e = Entry(message=question, required=required)
-        e.response = self.responses.pop(0)
-        if e.response is None:
-            raise ValueError("Password cannot be empty.")
-        elif type(e.response) != str:
-            raise unexpected_type_error("ask_password", question, str, e.response)
-        return e.response
-
-    def confirm(self, question: str, default: bool = True):
-        e = Entry(message=question, default=default)
-        e.response = self.responses.pop(0) or default
-        if type(e.response) != bool:
-            raise unexpected_type_error("confirm", question, bool, e.response)
-        return e.response
-
-
-def unexpected_type_error(
-    method: str,
-    question: str,
-    expected: type,
-    actual: Any,
-) -> TypeError:
-    return TypeError(
-        f"""
-        Unexpected response type returned for {method}:
-        Question: {question}
-        Expected type: {expected}
-        Actual response: {actual}
-        """
-    )
 
 
 class MockConsole(MockPrint, MockPrompt):

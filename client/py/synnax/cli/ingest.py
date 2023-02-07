@@ -19,14 +19,13 @@ from synnax.cli.channel import (
     channel_name_table,
     maybe_select_channel,
 )
-from synnax.cli.select import select_simple
 from synnax.ingest.row import RowIngestionEngine
 from synnax.io import ChannelMeta, ReaderType, RowFileReader, IO_FACTORY, IOFactory
 from synnax.telem import DataType, Rate, TimeStamp
 from synnax.channel import Channel
 from synnax.cli.flow import Context, Flow
 from synnax.cli.io import prompt_file
-from synnax.cli.telem import prompt_data_type_select
+from synnax.cli.telem import select_data_type
 from synnax.cli import default
 
 # A shorthand grouping to represent all values in a set.
@@ -117,7 +116,7 @@ def _connect_client(ctx: Context, cli: IngestionCLI) -> str | None:
 def ingest_all(ctx: Context, cli: IngestionCLI) -> str | None:
     """Prompts the user to ingest all channels."""
     assert cli.reader is not None
-    if ctx.console.confirm("Would you like to ingest all channels?", default=True):
+    if ctx.console.ask("Would you like to ingest all channels?", default=True):
         cli.filtered_channels = cli.reader.channels()
         return "validate_channels_exist"
     else:
@@ -206,7 +205,7 @@ def validate_channels_exist(ctx: Context, cli: IngestionCLI) -> str | None:
     if len(cli.not_found) > 0:
         ctx.console.info("The following channels were not found in the database:")
         channel_name_table(ctx, [ch.name for ch in cli.not_found])
-        if not ctx.console.confirm("Would you like to create them?"):
+        if not ctx.console.ask("Would you like to create them?", default=True):
             return None
         return "create_channels"
 
@@ -224,13 +223,12 @@ def validate_start_time(ctx: Context, cli: IngestionCLI) -> str | None:
         # If there is no index, it means all channels are rate based or we've already
         # written the index data. In either case, we need to prompt the user to enter
         # the start timestamp.
-        _start = ctx.console.ask_int(
+        _start = ctx.console.ask(
             """Please enter the start timestamp of the file as a
-                            nanosecond UTC integer. If you'd like a converter,
-                            use https://www.epochconverter.com/""",
+            nanosecond UTC integer. If you'd like a converter,
+            use https://www.epochconverter.com/""",
             default=TimeStamp.now(),
         )
-        assert _start is not None
         cli.start = TimeStamp(_start)
     else:
         idx = _idx[0]
@@ -240,9 +238,8 @@ def validate_start_time(ctx: Context, cli: IngestionCLI) -> str | None:
         cli.start = TimeStamp(first[idx.name].to_numpy()[0])
 
     ctx.console.info(f"Identified start timestamp for file as {cli.start}.")
-    if not ctx.console.confirm("Is this correct?"):
+    if not ctx.console.ask("Is this correct?", default=True):
         return None
-
     return "ingest"
 
 
@@ -266,7 +263,14 @@ def create_indexes(
     return [ch for ch in options if ch.name not in names]
 
 
-def assign_dt(
+DATA_TYPE_OPTIONS = [
+    "Guess data types from file",
+    "Assign the same data type to all channels (excluding indexes)",
+    "Group channels by data type"
+]
+
+
+def assign_data_type(
     ctx: Context,
     cli: IngestionCLI,
 ) -> dict[DataType, list[ChannelMeta]] | None:
@@ -274,17 +278,11 @@ def assign_dt(
 
     grouped = {GROUP_ALL: cli.db_channels}
     assigned = {}
-    opt = select_simple(
-        ctx,
-        [
-            "Guess data types from file",
-            "Assign the same data type to all channels (excluding indexes)",
-            "Group channels by data type",
-        ],
-        default=0,
-        required=True,
+    opt = ctx.console.select(
+        DATA_TYPE_OPTIONS,
+        default=DATA_TYPE_OPTIONS[0],
     )
-    if opt == 0:
+    if opt == DATA_TYPE_OPTIONS[0]:
         data_types = read_data_types(ctx, cli)
         assigned = {}
         for ch in cli.not_found:
@@ -294,7 +292,7 @@ def assign_dt(
             else:
                 assigned[dt].append(ch)
         return assigned
-    elif opt == 2:
+    elif opt == DATA_TYPE_OPTIONS[2]:
         groups = prompt_group_channel_names(ctx, [ch.name for ch in cli.not_found])
         if groups is None or len(groups) == 0:
             return None
@@ -304,12 +302,12 @@ def assign_dt(
     for key, group in grouped.items():
         if key != GROUP_ALL:
             ctx.console.info(f"Assigning data type to {key}")
-        dt = prompt_data_type_select(ctx)
+        dt = select_data_type(ctx)
         assigned[dt] = group
     return assigned
 
 
-def assign_idx(
+def assign_index_or_rate(
     ctx: Context,
     cli: IngestionCLI,
 ) -> dict[Rate | str, list[ChannelMeta]] | None:
@@ -320,10 +318,12 @@ def assign_idx(
     client = cli.client
 
     grouped = {GROUP_ALL: cli.not_found}
-    if not ctx.console.confirm(
-        "Do all non-indexed channels have the same data rate or index?"
+    if not ctx.console.ask(
+        "Do all non-indexed channels have the same data rate or index?", default=True
     ):
-        if not ctx.console.confirm("Can you group channels by data rate or index?"):
+        if not ctx.console.ask(
+            "Can you group channels by data rate or index?", default=True
+        ):
             grouped = {v.name: [v] for v in cli.not_found}
         grouped = prompt_group_channel_names(ctx, [ch.name for ch in cli.not_found])
         if grouped is None or len(grouped) == 0:
@@ -346,7 +346,7 @@ def assign_idx(
             idx = maybe_select_channel(ctx, res, _choice)
             if not idx:
                 ctx.console.warn(f"Index channel with key {_choice} not found")
-                if ctx.console.confirm("Try again?"):
+                if ctx.console.ask("Try again?", default=True):
                     return assign_to_group(key, group)
                 return None
             return idx.key
@@ -366,10 +366,10 @@ def create_channels(ctx: Context, cli: IngestionCLI) -> str | None:
     assert cli.client is not None
     assert cli.db_channels is not None
 
-    if ctx.console.confirm("Are any channels indexed (e.g. timestamps)?"):
+    if ctx.console.ask("Are any channels indexed (e.g. timestamps)?", default=True):
         cli.not_found = create_indexes(ctx, cli, cli.not_found)
 
-    idx_grouped, dt_grouped = assign_idx(ctx, cli), assign_dt(ctx, cli)
+    idx_grouped, dt_grouped = assign_index_or_rate(ctx, cli), assign_data_type(ctx, cli)
     if idx_grouped is None or dt_grouped is None:
         return None
 
