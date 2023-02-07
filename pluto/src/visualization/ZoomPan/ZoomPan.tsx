@@ -96,16 +96,20 @@ export const useZoomPan = ({
             })
             .box(fullSize(threshold, box, canvas))
         );
-      else if (mode === "pan" || key === panHotkey)
+      else if (mode === "pan" || key === panHotkey) {
+        console.log("ON CHANGE") 
         onChange?.(handlePan(box, stateRef.current, canvas));
+      }
     },
     [mode, setMaskBox]
   );
 
   const handleZoom = useCallback(
-    (box: Box, prev: Box, canvas: Box) =>
-      scale(prev, canvas).box(fullSize(threshold, box, canvas)),
-    [threshold]
+    (box: Box, prev: Box, canvas: Box) => {
+      console.log(box.width, box.height)
+      if (box.width < 5 && box.height < 5) return prev;
+      return scale(prev, canvas).box(fullSize(threshold, box, canvas))
+    }, [threshold]
   );
 
   const handleEnd = useCallback(
@@ -172,8 +176,11 @@ ZoomPanMask.displayName = "ZoomPanMask";
 const scale = (prev: Box, canvas: Box): BoxScale =>
   BoxScale.scale(canvas).clamp(canvas).scale(prev);
 
-const handlePan = (box: Box, prev: Box, canvas: Box): Box =>
-  BoxScale.translate(scale(prev, canvas).box(box).signedDims).box(prev);
+const handlePan = (box: Box, prev: Box, canvas: Box): Box => {
+  let dims = scale(prev, canvas).box(box).signedDims;
+  dims = { signedWidth: -dims.signedWidth, signedHeight: -dims.signedHeight };
+  return BoxScale.translate(dims).box(prev);
+}
 
 const fullSize = (threshold: Dimensions, box: Box, parent: Box): Box => {
   if (box.height <= threshold.height)

@@ -21,6 +21,7 @@ import {
 import { GLBufferCache } from "./glCache";
 
 import { Range } from "@/features/workspace";
+import { w } from "@tauri-apps/api/event-2a9960e7";
 
 export class TelemetryClient {
   private readonly glCache: GLBufferCache;
@@ -49,14 +50,14 @@ export class TelemetryClient {
     return frame.entries.map(([key, arrays]) => ({
       range,
       key,
-      glBuffers: this.getAndUpdateGLCache(range, key, arrays),
       arrays,
+      ...this.getAndUpdateGLCache(range, key, arrays)
     }));
   }
 
   private async readRemote(tr: TimeRange, keys: string[]): Promise<Frame> {
-    let frame = await this.client.data.readFrame(tr, keys);
-    frame = this.enrichAndConvert(frame);
+    const frame = await this.client.data.readFrame(tr, keys);
+    this.enrich(frame);
     this.frameCache.overrideF(tr, frame);
     return frame;
   }
@@ -65,20 +66,22 @@ export class TelemetryClient {
     range: Range,
     key: string,
     arrays: TArray[]
-  ): WebGLBuffer[] {
+  ): {glBuffers: WebGLBuffer[], glOffsets: Array<number | bigint>} {
     let glBuffers = this.glCache.get(range.key, key);
+    let glOffsets: Array<number | bigint> = [];
+    arrays = arrays.map((a) => {
+      let offset: bigint | number = 0;
+      if (a.dataType.equals(DataType.TIMESTAMP)) 
+        offset = Number(-a.timeRange.start.valueOf())
+      glOffsets.push(offset);
+      return a.convert(DataType.FLOAT32, offset)
+    });
     if (glBuffers == null) glBuffers = this.glCache.set(range.key, key, arrays);
-    return glBuffers;
+    return  {glBuffers, glOffsets};
   }
 
-  private enrichAndConvert(f: Frame): Frame {
-    return f.map((_, a) => {
-      let offset: bigint | number = 0;
-      if (a.dataType.equals(DataType.TIMESTAMP))
-        offset = Number(-a.timeRange.start.valueOf());
-      a.enrich();
-      return a.convert(DataType.FLOAT32, offset);
-    });
+  private enrich(f: Frame): void {
+    f.arrays.forEach((a) => a.enrich());
   }
 }
 
@@ -91,5 +94,6 @@ export interface TelemetryClientResponse {
   range: Range;
   key: string;
   glBuffers: WebGLBuffer[];
+  glOffsets: Array<number | bigint>;
   arrays: TArray[];
 }

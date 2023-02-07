@@ -52,12 +52,15 @@ export const useResize = <E extends HTMLElement>(
   const startObserving = useCallback(
     (el: HTMLElement) => {
       if (obs.current != null) obs.current.disconnect();
-      prev.current = ZERO_BOX;
+      console.log("TRIGGER 1")
+      if (prev.current == null)
+        prev.current = ZERO_BOX;
       const deb = debounceF(() => {
         const next = new Box(el.getBoundingClientRect());
         if (shouldResize(triggers, prev.current, next)) {
-          onResize(next);
+          console.log("TRIGGER")
           prev.current = next;
+          onResize(next);
         }
       }, debounce);
       obs.current = new ResizeObserver(deb);
@@ -113,6 +116,7 @@ const shouldResize = (
   next: Box
 ): boolean => {
   if (triggers.length === 0)
+    console.log("TRIGGER 2", prev, next)
     return (
       prev.width !== next.width ||
       prev.height !== next.height ||

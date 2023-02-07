@@ -21,6 +21,7 @@ from synnax.cli.channel import (
 from synnax.cli.select import select_simple
 from synnax.ingest.row import RowIngestionEngine
 from synnax.io import ChannelMeta, ReaderType, RowReader, IO_FACTORY
+from synnax.io.factory import IOFactory
 from synnax.telem import DataType, Rate, TimeStamp
 from synnax.channel import Channel
 from synnax.cli.console.rich import RichConsole

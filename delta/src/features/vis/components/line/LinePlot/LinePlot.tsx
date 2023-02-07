@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 
 import { TArray, SampleValue } from "@synnaxlabs/client";
 import {
   hexToRGBA,
   useResize,
-  useMergedRef,
   Box,
   AxisProps,
   GLLine,
@@ -56,7 +55,6 @@ export const LinePlot = ({
   onChange,
   resizeDebounce,
 }: LinePlotProps): JSX.Element => {
-  const ref = useRef<HTMLDivElement>(null);
   const theme = useSelectTheme();
   const client = useTelemetryClient();
   const [pkg, setPkg] = useState<RenderingPackage>({
@@ -65,22 +63,27 @@ export const LinePlot = ({
     glBox: ZERO_BOX,
   });
   const [zoom, setZoom] = useState<Box>(DECIMAL_BOX);
+  const [box, setBox] = useState<Box>(ZERO_BOX);
 
   const updateRenderingPackage = useCallback(
     async (vis: LineSVis, box: Box, zoom: Box): Promise<void> => {
+      console.log("Updating rendering package");
       if (client == null) return;
       const data = await fetchData(vis, client);
 
       const y1Data = data.filter(({ key }) => vis.channels.y1.includes(key));
-      const y1Scale = Scale.scale(calcBound(y1Data, 0.01))
+      const y1GlBound = calcGLBound(y1Data, 0.01);
+      const y1GLScale = Scale.scale(y1GlBound)
         .scale(1)
         .translate(-zoom.bottom)
         .magnify(1 / zoom.height);
 
+      
+      
       const xData = data.filter(({ key }) => key === vis.channels.x1);
       if (xData.length === 0) return;
 
-      const x1Scale = Scale.scale(calcBound(xData, 0))
+      const x1GLScale = Scale.scale(calcGLBound(xData, 0))
         .scale(1)
         .translate(-zoom.left)
         .magnify(1 / zoom.width);
@@ -91,26 +94,40 @@ export const LinePlot = ({
         box.height - 40
       );
 
-      const lines = y1Data.map(({ key, glBuffers, arrays }, i) => ({
-        color: [
+      const lines = y1Data.map(({ key, glBuffers, glOffsets, arrays }, i) => {
+        return {
+          color: [
           ...hexToRGBA(theme?.colors.visualization.palettes.default[i] as string)
             .slice(0, 3)
             .map((c) => c / 255),
           1,
         ] as RGBATuple,
         scale: {
-          x: x1Scale.dim(1),
-          y: y1Scale.dim(1),
+          x: x1GLScale.dim(1),
+          y: y1GLScale.dim(1),
         },
         offset: {
-          x: x1Scale.pos(0),
-          y: y1Scale.pos(0),
+          x: x1GLScale.pos(0),
+          y: y1GLScale.pos(0),
         },
         y: glBuffers[0],
         x: xData[0].glBuffers[0],
         strokeWidth: 3,
         length: arrays[0].length,
-      }));
+      }
+      });
+      
+      const y1Bound = calcBound(y1Data, 0.01)
+      const y1Scale = Scale.scale(y1Bound)
+        .scale(1)
+        .translate(-zoom.bottom)
+        .magnify(1 / zoom.height);
+
+      const xBound = calcBound(xData, 0)
+      const x1Scale = Scale.scale(xBound)
+        .scale(1)
+        .translate(-zoom.left)
+        .magnify(1 / zoom.width);
 
       setPkg({
         axes: [
@@ -141,32 +158,26 @@ export const LinePlot = ({
   );
 
   useAsyncEffect(async () => {
-    if (ref.current == null) return;
-    await updateRenderingPackage(vis, new Box(ref.current), zoom);
-  }, [vis, client]);
-
-  const handleResize = useCallback(
-    (box: Box): void => {
-      void updateRenderingPackage(vis, box, zoom);
-    },
-    [vis, zoom, client]
-  );
+    await updateRenderingPackage(vis, box, zoom);
+  }, [vis,box, zoom,client]);
 
   const zoomPanProps = useZoomPan({
     onChange: setZoom,
-    panHotkey: "hift",
-    allowPan: false,
+    panHotkey: "Shift",
+    allowPan: true,
     threshold: { width: 30, height: 30 },
-    minZoom: { x: 0.02, y: 0.02 },
   });
+
+  const handleResize = useCallback(
+    (box: Box) => setBox(box),
+    [setBox]
+  );
 
   const resizeRef = useResize(handleResize, { debounce: 100 });
 
-  const mergedRef = useMergedRef(ref, resizeRef);
-
   return (
     <div className="delta-line-plot__container">
-      <div className="delta-line-plot__plot" ref={mergedRef}>
+      <div className="delta-line-plot__plot" ref={resizeRef}>
         <ZoomPanMask
           style={{
             position: "absolute",
@@ -197,20 +208,54 @@ const fetchData = async (
   return await client.retrieve({ keys, ranges });
 };
 
-const calcBound = (data: TelemetryClientResponse[], padding: number): Bound => {
-  const arrays = data.flatMap(({ arrays }) => arrays);
+const calcGLBound = (data: TelemetryClientResponse[], padding: number): Bound => {
+  const arrays = data.flatMap(({ arrays, glOffsets }) => arrays.map((arr, i) => [arr, glOffsets[i]] as [TArray, number]));
   const upper = Number(
     arrays.reduce(
-      (acc: SampleValue, arr: TArray) => (arr.max > acc ? arr.max : acc),
+      (acc: SampleValue, [arr, glOffset]: [TArray, number]) => {
+        let max = arr.max;
+        console.log(max, glOffset);
+        if(glOffset !== 0) {
+          max = BigInt(arr.max) + BigInt(glOffset);
+          console.log(max)
+        }
+        return max > acc ? max : acc;
+      },
       -Infinity
     )
   );
   const lower = Number(
     arrays.reduce(
-      (acc: SampleValue, arr: TArray) => (arr.min < acc ? arr.min : acc),
+      (acc: SampleValue,  [arr, glOffset]: [TArray, number]) => {
+        let min = arr.min;
+        if(glOffset !== 0) {
+          min = BigInt(arr.min) + BigInt(glOffset);
+        }
+        return min < acc ? min : acc;
+      },
       Infinity
     )
   );
   const _padding = (upper - lower) * padding;
   return { lower: lower - _padding, upper: upper + _padding };
 };
+
+// calcBound is the same as calcGLBound but without glOffset
+const calcBound = (data: TelemetryClientResponse[], padding: number): Bound => {
+  const arrays = data.flatMap(({ arrays }) => arrays);
+  const upper = Number(
+    arrays.reduce(
+      (acc: SampleValue, arr) => (arr.max > acc ? arr.max : acc),
+      -Infinity
+    )
+  );
+  const lower = Number(
+    arrays.reduce(
+      (acc: SampleValue, arr) => (arr.min < acc ? arr.min : acc),
+      Infinity
+    )
+  );
+  const _padding = (upper - lower) * padding;
+  return { lower: lower - _padding, upper: upper + _padding };
+}
+

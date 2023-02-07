@@ -19,6 +19,7 @@ export interface ResizeCoreProps
   location: Location;
   size: number;
   onDragStart: (e: React.DragEvent<HTMLDivElement>) => void;
+  sizeUnits?: "px" | "%";
   showHandle?: boolean;
 }
 
@@ -29,6 +30,7 @@ export const ResizeCore = ({
   className,
   children,
   onDragStart,
+  sizeUnits = "px",
   showHandle = true,
   ...props
 }: ResizeCoreProps): JSX.Element => {
@@ -43,7 +45,7 @@ export const ResizeCore = ({
         className
       )}
       style={{
-        [dirToDim(dir)]: size,
+        [dirToDim(dir)]: `${size}${sizeUnits}`,
         ...style,
       }}
       {...props}

@@ -26,3 +26,4 @@ export * from "@/core/Status";
 export * from "@/core/Tabs";
 export * from "@/core/Tree";
 export * from "@/core/Typography";
+export * from "@/core/Menu";

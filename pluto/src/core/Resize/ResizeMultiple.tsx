@@ -13,9 +13,9 @@ import {
   forwardRef,
   useCallback,
   useState,
-  RefObject,
   useEffect,
-  RefCallback,
+  useRef,
+  RefObject,
 } from "react";
 
 import clsx from "clsx";
@@ -23,7 +23,9 @@ import clsx from "clsx";
 import { ResizeCore } from "./ResizeCore";
 
 import { Space, SpaceProps } from "@/core/Space";
-import { Box, ClientXY, Direction, locDim, locFromDir, useResize } from "@/spatial";
+import { Box, ClientXY, Direction, locFromDir } from "@/spatial";
+
+import "./ResizeMultiple.css";
 
 export interface UseResizeMultipleProps {
   count: number;
@@ -35,7 +37,6 @@ export interface UseResizeMultipleProps {
 
 export interface ResizeMultipleProps extends SpaceProps {
   sizeDistribution: number[];
-  parentSize: number;
   onDragHandle: (e: ResizeStartEvent, i: number) => void;
 }
 
@@ -45,15 +46,14 @@ export interface UseResizeMultipleReturn {
   setSize: (i: number, size?: number) => void;
   props: Pick<
     ResizeMultipleProps,
-    "sizeDistribution" | "parentSize" | "onDragHandle" | "direction"
+    "sizeDistribution" | "onDragHandle" | "direction"
   > & {
-    ref: RefCallback<HTMLDivElement>;
-  };
+    ref: RefObject<HTMLDivElement>; 
+  }
 }
 
 interface ResizeMultipleState {
   sizeDistribution: number[];
-  parentSize: number | null;
   root: number | null;
 }
 
@@ -64,15 +64,25 @@ export const useResizeMultiple = ({
   minSize = 100,
   direction = "x",
 }: UseResizeMultipleProps): UseResizeMultipleReturn => {
+  const ref = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<ResizeMultipleState>({
     sizeDistribution: calculateInitialSizeDistribution(initialSizes, count),
-    parentSize: null,
     root: null,
   });
 
   const _handleResize = useCallback(
     (dragging: number, clientPos?: number, targetSize?: number) => {
-      setState((prev) => handleResize(prev, dragging, minSize, clientPos, targetSize));
+      if (ref.current == null) return
+      const parentSize = new Box(ref.current).dim(direction);
+      setState((prev) => 
+        handleResize(
+        prev, 
+        parentSize,
+        dragging, 
+        minSize, 
+        clientPos, 
+        targetSize,
+      ))
     },
     [minSize, setState]
   );
@@ -103,22 +113,13 @@ export const useResizeMultiple = ({
     [handleResize]
   );
 
-  const _handleParentResize = useCallback(
-    (box: Box) =>
-      setState((prev) => handleParentResize(prev, box, direction, count, minSize)),
-    [direction, count, minSize]
-  );
-
-  const ref = useResize<HTMLDivElement>(_handleParentResize, { triggers: [direction] });
-
   return {
     setSize,
     props: {
       direction,
       sizeDistribution: state.sizeDistribution,
-      parentSize: state.parentSize ?? 0,
       onDragHandle: handleDragHandle,
-      ref,
+      ref
     },
   };
 };
@@ -131,7 +132,6 @@ export const ResizeMultiple = forwardRef(
       sizeDistribution,
       onDragHandle: onDrag,
       className,
-      parentSize,
       ...props
     }: ResizeMultipleProps,
     ref: ForwardedRef<HTMLDivElement>
@@ -153,7 +153,8 @@ export const ResizeMultiple = forwardRef(
             onDragStart={(e) => onDrag(e, i)}
             key={i}
             location={location}
-            size={sizeDistribution[i] * parentSize}
+            size={sizeDistribution[i]*100}
+            sizeUnits="%"
             showHandle={i !== children.length - 1}
           >
             {child}
@@ -181,71 +182,50 @@ export const calculateInitialSizeDistribution = (
 
 export const handleResize = (
   prev: ResizeMultipleState,
+  parentSize: number,
   dragging: number,
   minSize: number,
   clientPos?: number,
   targetSize?: number
 ): ResizeMultipleState => {
-  if (prev.parentSize === null) return prev;
-  const diffPercentage = calculateDiffPercentage(prev, dragging, clientPos, targetSize);
+  const diffPercentage = calculateDiffPercentage(prev, parentSize, dragging, clientPos, targetSize);
   const [sizeDistribution, changed] = resizeWithSibling(
     prev.sizeDistribution,
     dragging,
     diffPercentage,
-    minSize / prev.parentSize
+    minSize / parentSize
   );
   const root = changed ? clientPos ?? null : prev.root;
   return { ...prev, sizeDistribution, root };
 };
 
-export const handleParentResize = (
-  prev: ResizeMultipleState,
-  box: Box,
-  direction: Direction,
-  count: number,
-  minSize: number
-): ResizeMultipleState => {
-  const nextParentSize = locDim(direction, box.dims);
-  if (prev.parentSize == null && prev.sizeDistribution.length !== count)
-    return {
-      ...prev,
-      parentSize: nextParentSize,
-      sizeDistribution: Array.from({ length: count }, (_, i) => 1 / count),
-    };
-  prev = { ...prev, parentSize: nextParentSize };
-  const nextSizes = distribute(prev, count, minSize);
-  return { ...prev, parentSize: nextParentSize, sizeDistribution: nextSizes };
-};
-
 export const calculateDiffPercentage = (
   prev: ResizeMultipleState,
+  parentSize: number,
   dragging: number,
   clientPos?: number,
   targetSize?: number
 ): number => {
-  if (prev.parentSize === null)
-    throw new Error("parent size is null during handle drag");
   let diff: number;
   // If the caller provided a target size, prefer that.
   if (targetSize != null) {
     // If the target size is a pixel value, convert it to a percentage.
-    if (targetSize > 1) targetSize = targetSize / prev.parentSize;
+    if (targetSize > 1) targetSize = targetSize / parentSize;
     diff = targetSize - prev.sizeDistribution[dragging];
   } else if (clientPos != null) {
     if (prev.root === null) throw new Error("resize root is null during handle drag");
-    diff = (clientPos - prev.root) / prev.parentSize;
+    diff = (clientPos - prev.root) / parentSize;
   } else throw new Error("must provide either a MouseEvent or a targetSize");
   return diff;
 };
 
 export const distribute = (
   _state: ResizeMultipleState,
+  parentSize: number,
   count: number,
   minSize: number
 ): number[] => {
-  if (_state.parentSize === null)
-    throw new Error("parent size is null during distribute");
-  const { parentSize, sizeDistribution: state } = _state;
+  const { sizeDistribution: state } = _state;
   let nextState = [...state];
   const arePercentages = nextState.every((size) => size <= 1);
   if (!arePercentages) nextState = nextState.map((size) => size / parentSize);
