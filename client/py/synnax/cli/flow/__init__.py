@@ -6,26 +6,21 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
-#
-#  Use of this software is governed by the Business Source License included in the file
-#  licenses/BSL.txt.
-#
-#  As of the Change Date specified in that file, in accordance with the Business Source
-#  License, use of this software will be governed by the Apache License, Version 2.0,
-#  included in the file licenses/APL.txt.
 
 from typing import Callable, Generic, TypeVar
 
-from synnax.cli.console import Console
+from synnax.cli.console import Console, SugaredConsole
 
 T = TypeVar("T")
 
 
 class Context:
-    console: Console
+    console: SugaredConsole
 
-    def __init__(self, console: Console):
-        self.console = console
+    def __init__(self, console: Console, prompt_enabled: bool = True):
+        self.console = SugaredConsole(
+            prompt=console, print=console, enabled=prompt_enabled
+        )
 
 
 class Flow(Generic[T]):

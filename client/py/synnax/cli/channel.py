@@ -10,8 +10,8 @@
 import fnmatch
 
 from synnax import Channel
+from synnax.cli.console.sugared import AskKwargs
 from synnax.cli.flow import Context
-from synnax.cli.select import select_from_table
 
 
 def channel_name_table(
@@ -28,6 +28,7 @@ def maybe_select_channel(
     ctx: Context,
     channels: list[Channel],
     param: str,
+    **kwargs: AskKwargs[str],
 ) -> Channel | None:
     """Asks the user to select a channel if there are multiple channels available.
 
@@ -39,17 +40,14 @@ def maybe_select_channel(
         return None
     if len(channels) > 1:
         ctx.console.error(f"Multiple channels found for {param}!")
-        selected = select_channel(ctx, channels, allow_none=True)
-        if not selected:
-            return None
+        return select_channel(ctx, channels, **kwargs)
     return channels[0]
 
 
 def select_channel(
     ctx: Context,
     channels: list[Channel],
-    default: str | None = None,
-    allow_none: bool = False,
+    **kwargs: AskKwargs[str],
 ) -> Channel | None:
     """Prompts the user to select a channel from a list of channels.
 
@@ -58,20 +56,13 @@ def select_channel(
     :param default: The default channel to select.
     :param allow_none: Whether to allow the user to select None.
     """
-
-    try:
-        _default = [c.key for c in channels].index(default) if default else None
-    except ValueError as e:
-        raise ValueError(f"Invalid default channel: {default}") from e
-
-    i = select_from_table(
-        ctx,
+    _, i = ctx.console.select(
+        type_=str,
         columns=["name", "key", "data_type", "index", "rate", "node_id"],
-        rows=[{k: f"{v}" for k, v in c.dict().items()} for c in channels],
-        required=allow_none,
-        default=_default,
+        rows=[c.dict() for c in channels],
+        **kwargs,
     )
-    return channels[i] if i is not None else None
+    return channels[i]
 
 
 def prompt_group_channel_names(
@@ -89,15 +80,7 @@ def prompt_group_channel_names(
     3) A pattern to match (e.g. 'channel*, sensor*')
     """
     )
-    res = ctx.console.ask("Channels")
-    if res is None:
-        if ctx.console.confirm(
-            "No valid pattern provided. Would you like to try again?"
-        ):
-            return prompt_group_channel_names(ctx, options)
-        return None
-
-    return group_channel_names(ctx, options, res.split(","))
+    return group_channel_names(ctx, options, ctx.console.ask("channels").split(","))
 
 
 def group_channel_names(
@@ -122,19 +105,17 @@ def group_channel_names(
             index = int(entry)
             if index < 0 or index >= len(options):
                 ctx.console.error(f"Invalid channel index: {index}[/]")
-                if not ctx.console.confirm("Skip?"):
+                if not ctx.console.ask("Continue?", bool, default=True):
                     return None
                 continue
             channels.append(options[index])
         else:
-            found = False
             for channel in options:
                 if fnmatch.fnmatch(channel, entry) or channel == entry:
                     channels.append(channel)
-                    found = True
-            if not found:
+            if len(channels) == 0:
                 ctx.console.error(f"[red]No channels found matching {entry}[/]")
-                if not ctx.console.confirm("Skip?"):
+                if not ctx.console.ask("Continue?", bool, default=True):
                     return None
         grouped[entry] = channels
 

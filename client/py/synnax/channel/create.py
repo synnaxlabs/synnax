@@ -9,8 +9,8 @@
 
 from freighter import HTTPClientFactory, Payload, UnaryClient
 
-from ..telem import Rate, UnparsedDataType, UnparsedRate, DataType
-from .payload import ChannelPayload
+from synnax.telem import Rate, UnparsedDataType, UnparsedRate, DataType
+from synnax.channel.payload import ChannelPayload
 
 
 class _Request(Payload):
@@ -30,27 +30,8 @@ class ChannelCreator:
 
     def create(
         self,
-        data_type: UnparsedDataType,
-        name: str = "",
-        node_id: int = 0,
-        rate: UnparsedRate = Rate(0),
-        index: str = "",
-        is_index: bool = False,
-    ) -> ChannelPayload:
-        return self.create_many(
-            [
-                ChannelPayload(
-                    data_type=DataType(data_type),
-                    name=name,
-                    node_id=node_id,
-                    rate=Rate(rate),
-                    index=index,
-                    is_index=is_index,
-                )
-            ]
-        )[0]
-
-    def create_many(self, channels: list[ChannelPayload]) -> list[ChannelPayload]:
+        channels: list[ChannelPayload],
+    ) -> list[ChannelPayload]:
         req = _Request(channels=channels)
         res, exc = self.client.send(self._ENDPOINT, req, _Response)
         if exc is not None:

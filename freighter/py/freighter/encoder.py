@@ -39,7 +39,7 @@ class EncoderDecoder(Protocol):
         ...
 
 
-class MsgpackEncoder:
+class MsgpackEncoder(EncoderDecoder):
     """A Msgpack implementation of EncoderDecoder."""
 
     @staticmethod
@@ -48,14 +48,14 @@ class MsgpackEncoder:
 
     @staticmethod
     def encode(payload: Payload) -> bytes:
-        return msgpack.packb(payload.dict())
+        return msgpack.packb(payload.dict())  # type: ignore
 
     @staticmethod
     def decode(data: bytes, pld_t: Type[P]) -> P:
         return pld_t.parse_obj(msgpack.unpackb(data))
 
 
-class JSONEncoder:
+class JSONEncoder(EncoderDecoder):
     """A JSON implementation of EncoderDecoder."""
 
     STRING_ENCODING = "utf-8"

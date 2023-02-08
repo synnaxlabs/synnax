@@ -91,26 +91,31 @@ export const LinePlot = ({
         box.height - 40
       );
 
-      const lines = y1Data.map(({ key, glBuffers, arrays }, i) => ({
-        color: [
-          ...hexToRGBA(theme?.colors.visualization.palettes.default[i] as string)
-            .slice(0, 3)
-            .map((c) => c / 255),
-          1,
-        ] as RGBATuple,
-        scale: {
-          x: x1Scale.dim(1),
-          y: y1Scale.dim(1),
-        },
-        offset: {
-          x: x1Scale.pos(0),
-          y: y1Scale.pos(0),
-        },
-        y: glBuffers[0],
-        x: xData[0].glBuffers[0],
-        strokeWidth: 3,
-        length: arrays[0].length,
-      }));
+      const lines = y1Data
+        .map(({ key, glBuffers, arrays }, i) => {
+          console.log(arrays.length);
+          return arrays.map((arr, j) => ({
+            color: [
+              ...hexToRGBA(theme?.colors.visualization.palettes.default[i] as string)
+                .slice(0, 3)
+                .map((c) => c / 255),
+              1,
+            ] as RGBATuple,
+            scale: {
+              x: x1Scale.dim(1),
+              y: y1Scale.dim(1),
+            },
+            offset: {
+              x: x1Scale.pos(0),
+              y: y1Scale.pos(0),
+            },
+            y: glBuffers[j],
+            x: xData[0].glBuffers[j],
+            strokeWidth: 3,
+            length: arr.length,
+          }));
+        })
+        .flat();
 
       setPkg({
         axes: [

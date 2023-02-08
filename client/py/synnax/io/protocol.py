@@ -13,7 +13,7 @@ from typing import Protocol, Iterator
 
 from pandas import DataFrame
 
-from .meta import ChannelMeta
+from synnax.io.meta import ChannelMeta
 
 
 class ReaderType(Enum):
@@ -36,17 +36,24 @@ class Matcher(Protocol):
         ...
 
 
-class BaseFile(Matcher, Protocol):
+class Closer(Protocol):
+    """Closer is a closable buffer"""
+
+    def close(self):
+        """Closes the buffer."""
+        ...
+
+
+class File(Matcher, Closer, Protocol):
+    """File is the base protocol for all file protocols. It's used to provide common
+    information and utilities for all file protocols."""
+
     def path(self) -> Path:
         """:returns: the path to the file."""
         ...
 
-    def close(self):
-        """Closes the file."""
-        ...
 
-
-class BaseReader(BaseFile, Protocol):
+class BaseReader(File, Protocol):
     """The base reader protocol that all other reader protocols must implement.
 
     :param path: The path to the file to read.
@@ -84,7 +91,7 @@ class BaseReader(BaseFile, Protocol):
         ...
 
 
-class RowReader(BaseReader, Protocol):
+class RowFileReader(BaseReader, Protocol):
     """Row readers implement a strategy that reads a file row.py by row.py. Because Synnax
     is optimized for ingesting data in a columnar format, Row readers should
     only be used when files cannot be read using a :class:`ColumnReader` strategy (e.g.
@@ -112,7 +119,7 @@ class RowReader(BaseReader, Protocol):
         ...
 
 
-class ColumnReader(BaseReader, Protocol):
+class ColumnFileReader(BaseReader, Protocol):
     """Column readers implement a strategy that reads a file column by column. Synnax
     is optimized for ingesting data in a columnar format, so Column readers should
     be used whenever possible.
@@ -125,19 +132,26 @@ class ColumnReader(BaseReader, Protocol):
         ...
 
 
-class Writer(BaseFile, Protocol):
+class DataFrameWriter(Closer, Protocol):
+    """A protocol for writing dataframes to a buffer. This protocol is kept separate
+    from file protocols because it's also possible to write dataframes to other sources,
+    such as a Synnax cluster.
+    """
+
+    def write(self, df: DataFrame) -> None | bool:
+        """Writes the given dataframe to the buffer."""
+        ...
+
+
+class FileWriter(File, DataFrameWriter, Protocol):
+    """A file protocol for writing dataframes"""
+
     def __init__(
         self,
         path: Path,
     ):
-        ...
+        """Creates a new file writer.
 
-    def write(self, df: DataFrame):
-        """Writes the given dataframe to the file. If the file already contains data,
-        the new frame is appended to the existing data.
+        :param path: The path to the file to write.
         """
-        ...
-
-    def path(self) -> Path:
-        """:returns: the path to the file."""
         ...

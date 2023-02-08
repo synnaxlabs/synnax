@@ -13,7 +13,6 @@ from freighter import Payload
 from pandas import DataFrame
 from pydantic import Field
 
-from synnax.channel.payload import ChannelPayload
 from synnax.telem import BinaryArray, NumpyArray, TimeRange
 
 
@@ -32,19 +31,23 @@ class FrameHeader(Payload):
 class BinaryFrame(FrameHeader):
     arrays: list[BinaryArray] = Field(default_factory=list)
 
-    def __init__(self, arrays: list[BinaryArray] | None = None, **kwargs):
+    def __init__(
+        self,
+        arrays: list[BinaryArray] | None = None,
+        keys: list[str] | None = None,
+    ):
         # This is a workaround to allow for a None value to be
         # passed to the arrays field, but still have required
         # type hinting.
         if arrays is None:
             arrays = list()
-        super().__init__(arrays=arrays, **kwargs)
+        super().__init__(arrays=arrays, keys=keys)
 
-    def compact(self):
+    def compact(self) -> BinaryFrame:
         # compact together arrays that have the same key
 
         if self.arrays is None:
-            return
+            return self
 
         keys = self.keys
         unique_keys = list(set(keys))
@@ -72,6 +75,15 @@ class BinaryFrame(FrameHeader):
 
         self.arrays = next_arrays
         self.keys = unique_keys
+        return self
+
+    def append_arr(self, key: str, array: BinaryArray) -> None:
+        self.keys.append(key)
+        self.arrays.append(array)
+
+    def append_frame(self, frame: BinaryFrame) -> None:
+        self.keys.extend(frame.keys)
+        self.arrays.extend(frame.arrays)
 
 
 class NumpyFrame(FrameHeader):
@@ -79,6 +91,16 @@ class NumpyFrame(FrameHeader):
 
     class Config:
         arbitrary_types_allowed = True
+
+    def __init__(
+        self, arrays: list[NumpyArray] | None = None, keys: list[str] | None = None
+    ):
+        # This is a workaround to allow for a None value to be
+        # passed to the arrays field, but still have required
+        # type hinting.
+        if arrays is None:
+            arrays = list()
+        super().__init__(arrays=arrays, keys=keys)
 
     @classmethod
     def from_binary(cls, frame: BinaryFrame) -> NumpyFrame:
@@ -95,24 +117,9 @@ class NumpyFrame(FrameHeader):
             keys=self.keys, arrays=[arr.to_binary() for arr in self.arrays]
         )
 
+    def append(self, key: str, array: NumpyArray) -> None:
+        self.keys.append(key)
+        self.arrays.append(array)
+
     def __getitem__(self, key: str) -> NumpyArray:
         return self.arrays[self.keys.index(key)]
-
-
-def pandas_to_frame(channels: list[ChannelPayload], df: DataFrame) -> NumpyFrame:
-    keys = []
-    arrays = []
-    for column in df.columns:
-        ch = [ch for ch in channels if ch.name == column or ch.key == column]
-        if len(ch) > 0:
-            ch = ch[0]
-            keys.append(ch.key)
-            arrays.append(
-                NumpyArray(
-                    time_range=TimeRange(0, 0),
-                    data=df[column].to_numpy(),
-                    data_type=ch.data_type,
-                )
-            )
-
-    return NumpyFrame(keys=keys, arrays=arrays)
