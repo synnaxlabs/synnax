@@ -7,29 +7,29 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TextIO
+from typing import Generic, TextIO, Type
 from pydantic import BaseModel
 
-from synnax.cli.console.protocol import Print, Prompt
+from synnax.cli.console.protocol import Console, Print, Prompt, R, assign_default_ask_type
+from synnax.cli.console.rich import RichConsole
 
-Response = str | int | float | bool | None
 
-
-class Entry(BaseModel):
+class Entry(BaseModel, Generic[R]):
     message: str | None = None
     columns: list[str] | None = None
     rows: list[dict] | None = None
-    choices: list[str] | None = None
-    default: Response = None
-    response: Response = None
-    required: bool | None = None
+    choices: list[R] | None = None
+    default: R | None = None
+    response: R | None = None
+    type_: Type[R] | None = None
+    password: bool | None = None
 
 
 class Output(BaseModel):
     entries: list[Entry]
 
-    def __init__(self, entries: list[Entry] | None):
-        self.entries = entries or list()
+    def __init__(self, entries: list[Entry] | None = None):
+        super().__init__(entries=entries or list())
 
     def append(self, entry: Entry):
         assert self.entries is not None
@@ -39,37 +39,50 @@ class Output(BaseModel):
         f.write(self.json())
 
 
-class MockPrint(Print):
+class MockPrint:
     """A mock implementation of the Print protocol for testing purposes."""
 
     output: Output
+    verbose: Console | None
 
-    def __init__(self, output: Output):
+    def __init__(self, output: Output, verbose: bool = False):
         """
         :param output: The output list to append entries to.
         """
         self.output = output
+        self.verbose = None if not verbose else RichConsole()
 
     def _(self) -> Print:
         return self
 
     def info(self, message: str):
         self.output.append(Entry(message=message))
+        if self.verbose is not None:
+            self.verbose.info(message)
 
     def error(self, message: str):
         self.output.append(Entry(message=message))
+        if self.verbose is not None:
+            self.verbose.error(message)
+
 
     def warn(self, message: str):
         self.output.append(Entry(message=message))
+        if self.verbose is not None:
+            self.verbose.warn(message)
 
     def success(self, message: str):
         self.output.append(Entry(message=message))
+        if self.verbose is not None:
+            self.verbose.success(message)
 
     def table(self, columns: list, rows: list):
         self.output.append(Entry(columns=columns, rows=rows))
+        if self.verbose is not None:
+            self.verbose.table(columns, rows)
 
 
-class MockPrompt(Prompt):
+class MockPrompt:
     """A mock implementation of the Prompt protocol for testing purposes."""
 
     output: Output
@@ -90,55 +103,27 @@ class MockPrompt(Prompt):
     def ask(
         self,
         question: str,
-        choices: list[str] | None = None,
-        default: str | None = None,
-        required: bool = False,
-    ):
-        e = Entry(message=question, choices=choices, default=default, required=required)
+        type_: type[R] | None = None,
+        choices: list[R] | None = None,
+        default: R | None = None,
+        password: bool = False,
+    ) -> R | None:
+        e = Entry(
+            message=question,
+            choices=choices,
+            default=default,
+            type_=assign_default_ask_type(type_, choices, default),
+            password=password,
+        )
         e.response = self.responses.pop(0) or default
-        if type(e.response) != str:
-            raise TypeError("Unexpected response type for ask. It should be a string.")
-        return e.response
-
-    def ask_int(
-        self, question: str, default: int | None = None, required: bool = False
-    ):
-        e = Entry(message=question, default=default, required=required)
-        e.response = self.responses.pop(0) or default
-        if type(e.response) != int:
+        if type(e.response) != e.type_:
             raise TypeError(
-                "Unexpected response type for ask_int. It should be an integer."
-            )
-        return default
-
-    def ask_float(
-        self, question: str, default: float | None = None, required: bool = False
-    ):
-        e = Entry(message=question, default=default, required=required)
-        e.response = self.responses.pop(0) or default
-        if type(e.response) != float:
-            raise TypeError(
-                "Unexpected response type for ask_float. It should be a float."
-            )
-        return e.response
-
-    def ask_password(self, message: str, required: bool):
-        e = Entry(message=message, required=required)
-        e.response = self.responses.pop(0)
-        if e.response is None:
-            raise ValueError("Password cannot be empty.")
-        elif type(e.response) != str:
-            raise TypeError(
-                "Unexpected response type for ask_password. It should be a string."
-            )
-        return e.response
-
-    def confirm(self, message: str, default: bool = True):
-        e = Entry(message=message, default=default)
-        e.response = self.responses.pop(0) or default
-        if type(e.response) != bool:
-            raise TypeError(
-                "Unexpected response type for confirm. It should be a boolean."
+                f"""
+                Mock Prompt: Invalid response type
+                Question: {question}
+                Expected type: {type_}
+                Actual response: {e.response}
+                """
             )
         return e.response
 
@@ -146,11 +131,11 @@ class MockPrompt(Prompt):
 class MockConsole(MockPrint, MockPrompt):
     """A mock implementation of the Console protocol for testing purposes."""
 
-    def __init__(self, output: Output, responses: list):
+    def __init__(self, output: Output = Output(), responses: list | None = None, verbose: bool = False):
         """
         :param output: The output list to append entries to.
         :param responses: A list of responses to return in order. These responses
         must be valid for the type of prompt being used.
         """
-        self.output = output
-        self.responses = responses
+        MockPrint.__init__(self, output, verbose)
+        MockPrompt.__init__(self, output, responses or list())

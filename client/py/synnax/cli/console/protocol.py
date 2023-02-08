@@ -7,7 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Protocol
+from typing import Protocol, TypeVar
+
+R = TypeVar("R", str, int, float, bool, None)
 
 
 class Prompt(Protocol):
@@ -16,10 +18,11 @@ class Prompt(Protocol):
     def ask(
         self,
         question: str,
-        choices: list[str] | None = None,
-        default: str | None = None,
-        required: bool = False,
-    ) -> str | None:
+        type_: type[R] | None = None,
+        choices: list[R] | None = None,
+        default: R | None = None,
+        password: bool = False,
+    ) -> R | None:
         """Asks the user a question and returns their response.
 
         :param question: The question to ask the user.
@@ -30,57 +33,6 @@ class Prompt(Protocol):
         response. If provided, the user can press enter to select the default
         value.
         :return: The user's response.
-        """
-        ...
-
-    def ask_int(
-        self,
-        question: str,
-        bound: tuple[int, int] | None = None,
-        default: int | None = None,
-        required: bool = False,
-    ) -> int | None:
-        """Asks the user a question and returns their response as an integer.
-
-        :param question: The question to ask the user.
-        :param default: A default value to use if the user does not provide a
-        """
-        ...
-
-    def ask_float(
-        self,
-        question: str,
-        default: float | None = None,
-        required: bool = False,
-    ) -> float | None:
-        """Asks the user a question and returns their response as a float.
-
-        :param question: The question to ask the user.
-        :param default: A default value to use if the user does not provide a response.
-        If provided, the user can press enter to select the default value.
-        :return: A float value.
-        """
-        ...
-
-    def ask_password(
-        self,
-        question: str,
-        required: bool = False,
-    ) -> str:
-        """Prompts the user for a password and returns their response."""
-        ...
-
-    def confirm(
-        self,
-        question: str,
-        default: bool = True,
-    ) -> bool:
-        """Asks the user to confirm the given question.
-
-        :param question: The question to ask the user.
-        :param default: A default value to use if the user does not provide a response.
-        If provided, the user can press enter to select the default value.
-        :return: True if the user confirms the question, False otherwise.
         """
         ...
 
@@ -146,5 +98,24 @@ class Console(Prompt, Print, Protocol):
     """A protocol class for an entity that can print messages to the console and prompt
     the user for input.
     """
-
     ...
+
+
+def assign_default_ask_type(
+    type_: type[R] | None, choices: list[R] | None, default: R | None
+) -> type[R]:
+    """Assigns a default type to the ask function.
+
+    :param type_: The type to assign.
+    :param default: The default value.
+    :param choices: The list of choices.
+    :return: The type.
+    """
+    if type_ is None:
+        if choices is not None:
+            type_ = type(choices[0])
+        elif default is not None:
+            type_ = type(default) # type: ignore
+        else:
+            type_ = str  # type: ignore
+    return type_  # type: ignore
