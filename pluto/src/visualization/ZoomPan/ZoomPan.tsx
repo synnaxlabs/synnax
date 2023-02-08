@@ -97,7 +97,6 @@ export const useZoomPan = ({
             .box(fullSize(threshold, box, canvas))
         );
       else if (mode === "pan" || key === panHotkey) {
-        console.log("ON CHANGE") 
         onChange?.(handlePan(box, stateRef.current, canvas));
       }
     },
@@ -106,14 +105,15 @@ export const useZoomPan = ({
 
   const handleZoom = useCallback(
     (box: Box, prev: Box, canvas: Box) => {
-      console.log(box.width, box.height)
       if (box.width < 5 && box.height < 5) return prev;
-      return scale(prev, canvas).box(fullSize(threshold, box, canvas))
-    }, [threshold]
+      return scale(prev, canvas).box(fullSize(threshold, box, canvas));
+    },
+    [threshold]
   );
 
   const handleEnd = useCallback(
     (box: Box, key: KeyboardKey) => {
+      console.log(key);
       if (canvasRef.current == null) return;
       const canvas = new Box(canvasRef.current);
       setStateRef((prev) => {
@@ -180,7 +180,7 @@ const handlePan = (box: Box, prev: Box, canvas: Box): Box => {
   let dims = scale(prev, canvas).box(box).signedDims;
   dims = { signedWidth: -dims.signedWidth, signedHeight: -dims.signedHeight };
   return BoxScale.translate(dims).box(prev);
-}
+};
 
 const fullSize = (threshold: Dimensions, box: Box, parent: Box): Box => {
   if (box.height <= threshold.height)

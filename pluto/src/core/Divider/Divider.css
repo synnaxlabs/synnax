@@ -21,3 +21,12 @@
 .pluto-divider--y {
     width: var(--pluto-border-width);
 }
+
+.pluto-divider--x.pluto-divider--padded {
+    margin: 0.5rem 0;
+}
+
+.pluto-divider--y.pluto-divider--padded {
+    margin: 0 0.5rem;
+}
+

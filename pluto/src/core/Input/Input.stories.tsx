@@ -40,7 +40,6 @@ export const Time = (): JSX.Element => {
 
 export const Date = (): JSX.Element => {
   const [value, setValue] = useState(TimeStamp.now().valueOf());
-  console.log(value);
   return (
     <>
       <Input.Date value={value} onChange={setValue} />;

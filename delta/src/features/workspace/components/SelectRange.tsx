@@ -14,13 +14,13 @@ export interface SelectMultipleRangesProps
   extends Omit<SelectMultipleProps<Range>, "columns"> {}
 
 export const SelectMultipleRanges = (props: SelectMultipleRangesProps): JSX.Element => (
-  <Select.Multiple columns={rangeListColumns} {...props} />
+  <Select.Multiple columns={rangeListColumns} tagKey="name" {...props} />
 );
 
 export interface SelectRangeProps extends Omit<SelectProps<Range>, "columns"> {}
 
 export const SelectRange = (props: SelectRangeProps): JSX.Element => (
-  <Select columns={rangeListColumns} {...props} />
+  <Select columns={rangeListColumns} {...props} tagKey="name" />
 );
 
 export interface SelectMultipleRangesInputItemProps

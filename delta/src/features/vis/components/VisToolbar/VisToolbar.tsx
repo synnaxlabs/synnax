@@ -28,9 +28,6 @@ const NoVisContent = (): JSX.Element => (
         <Text level="h4" style={{ color: "var(--pluto-gray-m0)" }}>
           No active visualization. Select a tab or create a new one.
         </Text>
-        {/* <Text.Link level="h4" onClick={console.log}>
-          Create a New One
-        </Text.Link> */}
       </Space>
     </Space.Centered>
   </Space>

@@ -38,10 +38,9 @@ export const ResizeCore = ({
   return (
     <div
       className={clsx(
-        "pluto-resize-panel",
-        `pluto-resize-panel--${location}`,
-        `pluto-resize-panel--${dir}`,
-        showHandle && `pluto-bordered--${swapLoc(location)}`,
+        "pluto-resize",
+        `pluto-resize--${location}`,
+        `pluto-resize--${dir}`,
         className
       )}
       style={{
@@ -54,7 +53,10 @@ export const ResizeCore = ({
       {showHandle && (
         <div
           draggable
-          className="pluto-resize-panel__handle"
+          className={clsx(
+            "pluto-resize__handle",
+            showHandle && `pluto-bordered--${swapLoc(location)}`
+          )}
           onDragStart={onDragStart}
           onDrag={preventDefault}
           onDragEnd={preventDefault}

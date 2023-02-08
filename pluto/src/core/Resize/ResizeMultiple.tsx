@@ -48,8 +48,8 @@ export interface UseResizeMultipleReturn {
     ResizeMultipleProps,
     "sizeDistribution" | "onDragHandle" | "direction"
   > & {
-    ref: RefObject<HTMLDivElement>; 
-  }
+    ref: RefObject<HTMLDivElement>;
+  };
 }
 
 interface ResizeMultipleState {
@@ -72,19 +72,13 @@ export const useResizeMultiple = ({
 
   const _handleResize = useCallback(
     (dragging: number, clientPos?: number, targetSize?: number) => {
-      if (ref.current == null) return
+      if (ref.current == null) return;
       const parentSize = new Box(ref.current).dim(direction);
-      setState((prev) => 
-        handleResize(
-        prev, 
-        parentSize,
-        dragging, 
-        minSize, 
-        clientPos, 
-        targetSize,
-      ))
+      setState((prev) =>
+        handleResize(prev, parentSize, dragging, minSize, clientPos, targetSize)
+      );
     },
-    [minSize, setState]
+    [minSize, setState, direction]
   );
 
   useEffect(
@@ -119,7 +113,7 @@ export const useResizeMultiple = ({
       direction,
       sizeDistribution: state.sizeDistribution,
       onDragHandle: handleDragHandle,
-      ref
+      ref,
     },
   };
 };
@@ -153,7 +147,7 @@ export const ResizeMultiple = forwardRef(
             onDragStart={(e) => onDrag(e, i)}
             key={i}
             location={location}
-            size={sizeDistribution[i]*100}
+            size={sizeDistribution[i] * 100}
             sizeUnits="%"
             showHandle={i !== children.length - 1}
           >
@@ -188,7 +182,13 @@ export const handleResize = (
   clientPos?: number,
   targetSize?: number
 ): ResizeMultipleState => {
-  const diffPercentage = calculateDiffPercentage(prev, parentSize, dragging, clientPos, targetSize);
+  const diffPercentage = calculateDiffPercentage(
+    prev,
+    parentSize,
+    dragging,
+    clientPos,
+    targetSize
+  );
   const [sizeDistribution, changed] = resizeWithSibling(
     prev.sizeDistribution,
     dragging,

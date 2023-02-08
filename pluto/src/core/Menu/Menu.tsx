@@ -9,7 +9,8 @@
 
 import clsx from "clsx";
 import { createContext, PropsWithChildren, useContext } from "react";
-import { Button, ButtonProps } from "../Button";
+import { Button, ButtonProps } from "@/core/Button";
+import { Space } from "@/core/Space";
 
 interface CoreMenuContextProps {
   onClick: (key: string) => void;
@@ -29,23 +30,27 @@ export const Menu = ({ children, onClick }: MenuProps): JSX.Element => {
   };
   return (
     <CoreMenuContext.Provider value={{ onClick: handleClick }}>
-        <div className="pluto-menu">
+        <Space className="pluto-menu" direction="y" empty>
           {children}
-        </div>
+        </Space>
     </CoreMenuContext.Provider>
   );
 }
 
-export interface MenuItemProps extends Omit<ButtonProps, 'onClick'> {
+export interface MenuItemProps extends ButtonProps {
   itemKey: string;
 }
 
-export const MenuItem = ({ itemKey, className, ...props }: MenuItemProps): JSX.Element => {
-  const { onClick } = useCoreMenuContext()
+export const MenuItem = ({ itemKey, className, onClick, ...props }: MenuItemProps): JSX.Element => {
+  const { onClick: ctxOnClick } = useCoreMenuContext()
+  const handleClick: ButtonProps["onClick"] = (e) => {
+    ctxOnClick(itemKey);
+    onClick?.(e);
+  };
   return (
     <Button 
       {...props} 
-      onClick={() => onClick?.(itemKey)} 
+      onClick={handleClick}
       variant="text" 
       className={clsx('pluto-menu-item', className)}
     />

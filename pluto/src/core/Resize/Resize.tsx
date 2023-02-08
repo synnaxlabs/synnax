@@ -10,13 +10,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { clamp } from "@synnaxlabs/x";
-
-import { ResizeCore, ResizeCoreProps } from "./ResizeCore";
+import { clsx } from "clsx";
 
 import { Box, locToDir, Location } from "@/spatial";
 import { useCursorDrag } from "@/spatial/useCursorDrag";
 
+import { ResizeCore, ResizeCoreProps } from "./ResizeCore";
+
 import "./Resize.css";
+
+import { expandedCls } from "@/util/css";
 
 export interface ResizeProps
   extends Omit<ResizeCoreProps, "showHandle" | "size" | "onResize" | "onDragStart"> {
@@ -29,7 +32,7 @@ export interface ResizeProps
   onCollapse?: () => void;
 }
 
-const COLLAPSED_SIZE = 0;
+const COLLAPSED_SIZE = 2;
 
 export const Resize = ({
   onCollapse,
@@ -39,6 +42,7 @@ export const Resize = ({
   maxSize = Infinity,
   initialSize = 200,
   collapseThreshold = Infinity,
+  className,
   ...props
 }: ResizeProps): JSX.Element => {
   const [size, setSize] = useState(clamp(initialSize, minSize, maxSize));
@@ -101,6 +105,7 @@ export const Resize = ({
       location={location}
       size={size}
       onDragStart={handleDragStart}
+      className={clsx(className, expandedCls(size !== COLLAPSED_SIZE))}
       {...props}
     />
   );

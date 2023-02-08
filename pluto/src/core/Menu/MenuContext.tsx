@@ -45,6 +45,7 @@ export const MenuContext = ({ children, menu }: MenuContextProps): JSX.Element =
     // Traverse the parent of the element until we find one
     // with the class 'pluto-context-target'
     e.preventDefault();
+    e.stopPropagation();
     let target = e.target as HTMLElement;
     while (target != null && !target.classList.contains('pluto-context-target')) {
       // if we reach the top of the tree, we're done
@@ -60,6 +61,10 @@ export const MenuContext = ({ children, menu }: MenuContextProps): JSX.Element =
     setMenuState({open: true, keys, ...toXY(e) });
   }
 
+  const handleMenuClick = (): void => {
+    setMenuState(INITIAL_STATE);
+  }
+
   useClickOutside(menuRef, () => setMenuState(INITIAL_STATE));
 
   return (
@@ -69,7 +74,12 @@ export const MenuContext = ({ children, menu }: MenuContextProps): JSX.Element =
     >
         {children}
         {menuState.open && 
-        <div className="pluto-menu-context pluto-bordered" ref={menuRef} style={{ left: menuState.x, top: menuState.y }}>
+        <div 
+          className="pluto-menu-context pluto-bordered" 
+          ref={menuRef} 
+          style={{ left: menuState.x, top: menuState.y }}
+          onClick={handleMenuClick}
+        >
           {menu?.({ keys: menuState.keys })}
         </div>}
     </div>

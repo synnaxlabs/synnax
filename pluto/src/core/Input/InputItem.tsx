@@ -17,13 +17,15 @@ import {
   FieldPath,
 } from "react-hook-form";
 
+import { Pack } from "@/core/Pack";
 import { Space, SpaceAlignment, SpaceExtensionProps } from "@/core/Space";
 import { Direction } from "@/spatial";
 import { camelToTitle } from "@/util/case";
+import { RenderProp } from "@/util/renderProp";
 
 import { Input } from "./Input";
 
-import { RenderProp } from "@/util/renderProp";
+import { toArray } from "@/util/toArray";
 
 import { InputHelpText } from "./InputHelpText";
 
@@ -42,8 +44,12 @@ interface InputItemExtensionProps<
   P extends InputControl<I, O> = InputControl<I, O>
 > extends SpaceExtensionProps {
   label?: string;
+  showLabel?: boolean;
   helpText?: string;
-  children?: RenderProp<P> | RenderComponent<P>;
+  children?:
+    | RenderProp<P>
+    | RenderComponent<P>
+    | Array<RenderProp<P> | RenderComponent<P>>;
   className?: string;
   style?: React.CSSProperties;
 }
@@ -71,11 +77,30 @@ const CoreInputItem = <
     justify,
     align,
     grow,
+    showLabel = true,
     ...props
   }: InputItemProps<I, O, P>,
   ref: Ref<HTMLInputElement>
 ): JSX.Element => {
-  if (typeof children === "object") children = children.render;
+  const children_ = toArray(children).map((c) =>
+    typeof c === "object" ? c.render : c
+  );
+
+  let content: JSX.Element | null;
+  if (children_.length === 1) {
+    content = children_[0]({ ref, grow, ...(props as unknown as P) });
+  } else {
+    content = (
+      <Pack direction={direction}>
+        {
+          children_
+            .map((c) => c({ ref, grow, ...(props as unknown as P) }))
+            .filter((c) => c != null) as JSX.Element[]
+        }
+      </Pack>
+    )   
+  }
+
   return (
     <Space
       justify={justify}
@@ -87,8 +112,8 @@ const CoreInputItem = <
       direction={direction}
       style={style}
     >
-      <InputLabel>{label}</InputLabel>
-      {children({ ref, grow, ...(props as unknown as P) })}
+      {showLabel && <InputLabel>{label}</InputLabel>}
+      {content}
       <InputHelpText>{helpText}</InputHelpText>
     </Space>
   );

@@ -67,7 +67,6 @@ export const LinePlot = ({
 
   const updateRenderingPackage = useCallback(
     async (vis: LineSVis, box: Box, zoom: Box): Promise<void> => {
-      console.log("Updating rendering package");
       if (client == null) return;
       const data = await fetchData(vis, client);
 
@@ -78,8 +77,6 @@ export const LinePlot = ({
         .translate(-zoom.bottom)
         .magnify(1 / zoom.height);
 
-      
-      
       const xData = data.filter(({ key }) => key === vis.channels.x1);
       if (xData.length === 0) return;
 
@@ -97,37 +94,37 @@ export const LinePlot = ({
       const lines = y1Data.map(({ key, glBuffers, glOffsets, arrays }, i) => {
         return {
           color: [
-          ...hexToRGBA(theme?.colors.visualization.palettes.default[i] as string)
-            .slice(0, 3)
-            .map((c) => c / 255),
-          1,
-        ] as RGBATuple,
-        scale: {
-          x: x1GLScale.dim(1),
-          y: y1GLScale.dim(1),
-        },
-        offset: {
-          x: x1GLScale.pos(0),
-          y: y1GLScale.pos(0),
-        },
-        y: glBuffers[0],
-        x: xData[0].glBuffers[0],
-        strokeWidth: 3,
-        length: arrays[0].length,
-      }
+            ...hexToRGBA(theme?.colors.visualization.palettes.default[i] as string)
+              .slice(0, 3)
+              .map((c) => c / 255),
+            1,
+          ] as RGBATuple,
+          scale: {
+            x: x1GLScale.dim(1),
+            y: y1GLScale.dim(1),
+          },
+          offset: {
+            x: x1GLScale.pos(0),
+            y: y1GLScale.pos(0),
+          },
+          y: glBuffers[0],
+          x: xData[0].glBuffers[0],
+          strokeWidth: 3,
+          length: arrays[0].length,
+        };
       });
-      
-      const y1Bound = calcBound(y1Data, 0.01)
+
+      const y1Bound = calcBound(y1Data, 0.01);
       const y1Scale = Scale.scale(y1Bound)
         .scale(1)
         .translate(-zoom.bottom)
         .magnify(1 / zoom.height);
 
-      const xBound = calcBound(xData, 0)
+      const xBound = calcBound(xData, 0);
       const x1Scale = Scale.scale(xBound)
         .scale(1)
         .translate(-zoom.left)
-        .magnify(1 / zoom.width);
+        .magnify(1 / zoom.width)
 
       setPkg({
         axes: [
@@ -147,6 +144,7 @@ export const LinePlot = ({
             position: { y: 20, x: 20 },
             height: box.width - 40,
             size: box.height - 40,
+            pixelsPerTick: 40,
             showGrid: true,
           },
         ],
@@ -159,7 +157,7 @@ export const LinePlot = ({
 
   useAsyncEffect(async () => {
     await updateRenderingPackage(vis, box, zoom);
-  }, [vis,box, zoom,client]);
+  }, [vis, box, zoom, client]);
 
   const zoomPanProps = useZoomPan({
     onChange: setZoom,
@@ -168,10 +166,7 @@ export const LinePlot = ({
     threshold: { width: 30, height: 30 },
   });
 
-  const handleResize = useCallback(
-    (box: Box) => setBox(box),
-    [setBox]
-  );
+  const handleResize = useCallback((box: Box) => setBox(box), [setBox]);
 
   const resizeRef = useResize(handleResize, { debounce: 100 });
 
@@ -209,32 +204,26 @@ const fetchData = async (
 };
 
 const calcGLBound = (data: TelemetryClientResponse[], padding: number): Bound => {
-  const arrays = data.flatMap(({ arrays, glOffsets }) => arrays.map((arr, i) => [arr, glOffsets[i]] as [TArray, number]));
+  const arrays = data.flatMap(({ arrays, glOffsets }) =>
+    arrays.map((arr, i) => [arr, glOffsets[i]] as [TArray, number])
+  );
   const upper = Number(
-    arrays.reduce(
-      (acc: SampleValue, [arr, glOffset]: [TArray, number]) => {
-        let max = arr.max;
-        console.log(max, glOffset);
-        if(glOffset !== 0) {
-          max = BigInt(arr.max) + BigInt(glOffset);
-          console.log(max)
-        }
-        return max > acc ? max : acc;
-      },
-      -Infinity
-    )
+    arrays.reduce((acc: SampleValue, [arr, glOffset]: [TArray, number]) => {
+      let max = arr.max;
+      if (glOffset !== 0) {
+        max = BigInt(arr.max) + BigInt(glOffset);
+      }
+      return max > acc ? max : acc;
+    }, -Infinity)
   );
   const lower = Number(
-    arrays.reduce(
-      (acc: SampleValue,  [arr, glOffset]: [TArray, number]) => {
-        let min = arr.min;
-        if(glOffset !== 0) {
-          min = BigInt(arr.min) + BigInt(glOffset);
-        }
-        return min < acc ? min : acc;
-      },
-      Infinity
-    )
+    arrays.reduce((acc: SampleValue, [arr, glOffset]: [TArray, number]) => {
+      let min = arr.min;
+      if (glOffset !== 0) {
+        min = BigInt(arr.min) + BigInt(glOffset);
+      }
+      return min < acc ? min : acc;
+    }, Infinity)
   );
   const _padding = (upper - lower) * padding;
   return { lower: lower - _padding, upper: upper + _padding };
@@ -243,19 +232,16 @@ const calcGLBound = (data: TelemetryClientResponse[], padding: number): Bound =>
 // calcBound is the same as calcGLBound but without glOffset
 const calcBound = (data: TelemetryClientResponse[], padding: number): Bound => {
   const arrays = data.flatMap(({ arrays }) => arrays);
-  const upper = Number(
-    arrays.reduce(
-      (acc: SampleValue, arr) => (arr.max > acc ? arr.max : acc),
-      -Infinity
-    )
+  let upper = Number(
+    arrays.reduce((acc: SampleValue, arr) => (arr.max > acc ? arr.max : acc), -Infinity)
   );
-  const lower = Number(
-    arrays.reduce(
-      (acc: SampleValue, arr) => (arr.min < acc ? arr.min : acc),
-      Infinity
-    )
+  let lower = Number(
+    arrays.reduce((acc: SampleValue, arr) => (arr.min < acc ? arr.min : acc), Infinity)
   );
+  if (upper - lower === 0) {
+    upper += 1;
+    lower -= 1;
+  }
   const _padding = (upper - lower) * padding;
   return { lower: lower - _padding, upper: upper + _padding };
-}
-
+};

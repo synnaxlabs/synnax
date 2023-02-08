@@ -2,6 +2,7 @@ import { useMemo } from "react";
 
 import { TimeStamp } from "@synnaxlabs/x";
 import clsx from "clsx";
+import { scaleLinear, scaleTime } from "d3";
 
 import { fRotate, fTranslate, locationRotations } from "../util/svg";
 
@@ -22,8 +23,64 @@ export interface AxisProps {
   height?: number;
 }
 
-const calcTickCount = (size: number, pixelsPerTick: number): number =>
-  Math.floor(size / pixelsPerTick);
+const timeTicks = (
+  size: number,
+  location: OuterLocation,
+  scale: Scale,
+  showGrid: boolean,
+  height: number,
+  count: number
+): TickProps[] => {
+  let range = [0, size];
+  if (["bottom", "right"].includes(location)) range = range.reverse();
+  const d3Scale = scaleTime()
+    .domain([new TimeStamp(scale.pos(0)).date(), new TimeStamp(scale.pos(size)).date()])
+    .range(range)
+  const ticks = d3Scale.ticks(count); 
+  return ticks.map((v) => {
+    const value = new TimeStamp(v).valueOf();
+    return {
+      value: new TimeStamp(value).valueOf(),
+      offset: d3Scale(v),
+      location,
+      showGrid,
+      height,
+      type: "time",
+    };
+  });
+};
+
+const linearTicks = (
+  size: number,
+  location: OuterLocation,
+  scale: Scale,
+  showGrid: boolean,
+  height: number,
+  count: number
+): TickProps[] => {
+  let range = [0, size];
+  const domain = [scale.pos(0), scale.pos(size)];
+  if (["bottom", "right"].includes(location)) range = range.reverse();
+  const tickScale = scaleLinear()
+    .domain(domain)
+    .range(range)
+  const ticks = tickScale.ticks(count);
+  return ticks.map((v) => {
+    return {
+      value: v,
+      offset: tickScale(v),
+      location,
+      showGrid,
+      height,
+      type: "linear",
+    };
+  });
+};
+
+const calcTickCount = (size: number, pixelsPerTick: number): number => {
+  const tickCount = Math.floor(size / pixelsPerTick);
+  return tickCount > 0 ? tickCount : 1;
+};
 
 export const Axis = ({
   scale,
@@ -36,17 +93,17 @@ export const Axis = ({
   height = 0,
 }: AxisProps): JSX.Element => {
   const ticks: TickProps[] = useMemo(() => {
-    let pxScale = scale.scale(size).reverse();
-    if (["right", "bottom"].includes(location)) pxScale = pxScale.invert();
-    const tickCount = calcTickCount(size, pixelsPerTick);
-    const tickScale = Scale.scale(tickCount).scale(size);
-    return Array.from({ length: tickCount }, (_, i) => {
-      const offset = tickScale.pos(i);
-      const value = pxScale.pos(offset);
-      return { value: Math.floor(value), offset, location, showGrid, height, type };
-    });
-  }, [location, scale, size, type]);
-
+    const f = type === "time" ? timeTicks : linearTicks;
+    const pxScale = scale.scale(size).reverse();
+    return f(
+      size,
+      location,
+      pxScale,
+      showGrid,
+      height,
+      calcTickCount(size, pixelsPerTick)
+    );
+  }, [size, location, scale, showGrid, height, type]);
   return (
     <g transform={calcGroupTransform(location, position, size)} className="pluto-axis">
       <line x2={size} />
@@ -81,9 +138,19 @@ const Tick = ({ value, offset, showGrid, height, type }: TickProps): JSX.Element
 
 const DateTickText = ({ value: _value }: { value: number }): JSX.Element => {
   const value = new TimeStamp(_value).date();
+  // remove trailing 0s
+
   let formatted: string = `:${value.getSeconds()}`;
+  const ms = value.getMilliseconds();
+  if (ms !== 0) {
+    const millisecondString = Math.round(value.getMilliseconds())
+      .toString()
+      .padStart(3, "0")
+      .replace(/0+$/, "");
+    formatted += `.${millisecondString}`;
+  }
   // If we're on the minute, show the hour and minute in military time
-  if (value.getSeconds() === 0)
+  if (value.getSeconds() === 0 && value.getMilliseconds() === 0)
     formatted = `${value.getHours()}:${value.getMinutes().toString().padStart(2, "0")}`;
 
   return <text transform={calcTickTextTranslate(formatted)}>{formatted}</text>;
