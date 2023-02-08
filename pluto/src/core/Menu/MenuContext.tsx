@@ -6,9 +6,14 @@
 // As of the Change Date specified in that file, in accordance with the Business Source
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
-//
 
-import { MouseEventHandler, PropsWithChildren, useRef, useState } from "react";
+import {
+  MouseEventHandler,
+  PropsWithChildren,
+  RefObject,
+  useRef,
+  useState,
+} from "react";
 
 import { unique } from "@synnaxlabs/x";
 
@@ -22,9 +27,10 @@ export interface MenuContextProps extends PropsWithChildren {
   menu?: RenderProp<MenuContextMenuProps>;
 }
 
-interface MenuState extends XY {
+interface MenuState {
   open: boolean;
   keys: string[];
+  xy: XY;
 }
 
 export interface MenuContextMenuProps {
@@ -34,54 +40,82 @@ export interface MenuContextMenuProps {
 const INITIAL_STATE: MenuState = {
   open: false,
   keys: [],
-  ...ZERO_XY
+  xy: ZERO_XY,
+};
+
+const CONTEXT_SELECTED = "pluto-context-selected";
+const CONTEXT_TARGET = "pluto-context-target";
+const MENU_CONTEXT_CONTAINER = "pluto-menu-context__container";
+
+const findTarget = (target: HTMLElement): HTMLElement => {
+  let candidate = target;
+  while (candidate != null && !candidate.classList.contains(CONTEXT_TARGET)) {
+    if (candidate.classList.contains(MENU_CONTEXT_CONTAINER)) return target;
+    candidate = target.parentElement as HTMLElement;
+  }
+  return candidate;
+};
+
+const findSelected = (target_: HTMLElement): HTMLElement[] => {
+  const target = findTarget(target_);
+  const selected = (target.parentElement?.querySelectorAll(`.${CONTEXT_SELECTED}`) ??
+    []) as HTMLElement[];
+  return [target, ...Array.from(selected)];
 };
 
 export const MenuContext = ({ children, menu }: MenuContextProps): JSX.Element => {
-  const menuRef = useRef<HTMLDivElement>(null);
-  const [menuState, setMenuState] = useState<MenuState>(INITIAL_STATE);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const [{ keys, xy, open }, setMenuState] = useState<MenuState>(INITIAL_STATE);
 
   const handleContextMenu: MouseEventHandler<HTMLDivElement> = (e) => {
-    // Traverse the parent of the element until we find one
-    // with the class 'pluto-context-target'
     e.preventDefault();
     e.stopPropagation();
-    let target = e.target as HTMLElement;
-    while (target != null && !target.classList.contains('pluto-context-target')) {
-      // if we reach the top of the tree, we're done
-      if (target.classList.contains('pluto-menu-context__container')) {
-        target = e.target as HTMLElement;
-        break;
-      } 
-      target = target.parentElement as HTMLElement;
+    const selected = findSelected(e.target as HTMLElement);
+    const keys = unique(selected.map((el) => el.id));
+    setMenuState({ open: true, keys, xy: toXY(e) });
+  };
+
+  const hideMenu = (): void => setMenuState(INITIAL_STATE);
+
+  useClickOutside(menuRef, hideMenu);
+
+  const refCallback = (el: HTMLDivElement): void => {
+    menuRef.current = el;
+    if (el == null) return;
+    if (open) {
+      const [_xy, changed] = positionContextMenu(el, xy);
+      if (changed) setMenuState({ open: true, keys, xy: _xy });
     }
-
-    const selected = target.parentElement?.querySelectorAll('.pluto-context-selected') ?? [];
-    const keys = unique([target.id, ...Array.from(selected).map((el) => el.id)]);
-    setMenuState({open: true, keys, ...toXY(e) });
-  }
-
-  const handleMenuClick = (): void => {
-    setMenuState(INITIAL_STATE);
-  }
-
-  useClickOutside(menuRef, () => setMenuState(INITIAL_STATE));
+  };
 
   return (
-    <div 
-        className="pluto-menu-context__container" 
-        onContextMenu={handleContextMenu} 
-    >
-        {children}
-        {menuState.open && 
-        <div 
-          className="pluto-menu-context pluto-bordered" 
-          ref={menuRef} 
-          style={{ left: menuState.x, top: menuState.y }}
-          onClick={handleMenuClick}
+    <div className={MENU_CONTEXT_CONTAINER} onContextMenu={handleContextMenu}>
+      {children}
+      {open && (
+        <div
+          className="pluto-menu-context pluto-bordered"
+          ref={refCallback}
+          style={{ left: xy.x, top: xy.y }}
+          onClick={hideMenu}
         >
-          {menu?.({ keys: menuState.keys })}
-        </div>}
+          {menu?.({ keys })}
+        </div>
+      )}
     </div>
   );
+};
+
+const positionContextMenu = (el: HTMLDivElement, xy: XY): [XY, boolean] => {
+  const { width, height } = el.getBoundingClientRect();
+  const { innerWidth, innerHeight } = window;
+  let changed = false;
+  if (xy.x + width > innerWidth) {
+    xy.x -= width;
+    changed = true;
+  }
+  if (xy.y + height > innerHeight) {
+    xy.y -= height;
+    changed = true;
+  }
+  return [xy, changed];
 };

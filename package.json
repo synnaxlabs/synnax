@@ -42,7 +42,7 @@
         "devtools": "npx turbo devtools --filter delta"
     },
     "devDependencies": {
-        "turbo": "^1.6.2"
+        "turbo": "^1.7.4"
     },
     "engines": {
         "node": ">=18"
