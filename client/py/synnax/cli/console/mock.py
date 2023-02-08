@@ -7,10 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Generic, TextIO, Type
+from typing import Generic, TextIO, Type
 from pydantic import BaseModel
 
-from synnax.cli.console.protocol import Print, Prompt, R
+from synnax.cli.console.protocol import Console, Print, Prompt, R, assign_default_ask_type
+from synnax.cli.console.rich import RichConsole
 
 
 class Entry(BaseModel, Generic[R]):
@@ -42,30 +43,43 @@ class MockPrint:
     """A mock implementation of the Print protocol for testing purposes."""
 
     output: Output
+    verbose: Console | None
 
-    def __init__(self, output: Output):
+    def __init__(self, output: Output, verbose: bool = False):
         """
         :param output: The output list to append entries to.
         """
         self.output = output
+        self.verbose = None if not verbose else RichConsole()
 
     def _(self) -> Print:
         return self
 
     def info(self, message: str):
         self.output.append(Entry(message=message))
+        if self.verbose is not None:
+            self.verbose.info(message)
 
     def error(self, message: str):
         self.output.append(Entry(message=message))
+        if self.verbose is not None:
+            self.verbose.error(message)
+
 
     def warn(self, message: str):
         self.output.append(Entry(message=message))
+        if self.verbose is not None:
+            self.verbose.warn(message)
 
     def success(self, message: str):
         self.output.append(Entry(message=message))
+        if self.verbose is not None:
+            self.verbose.success(message)
 
     def table(self, columns: list, rows: list):
         self.output.append(Entry(columns=columns, rows=rows))
+        if self.verbose is not None:
+            self.verbose.table(columns, rows)
 
 
 class MockPrompt:
@@ -89,20 +103,20 @@ class MockPrompt:
     def ask(
         self,
         question: str,
-        type_: Type[R] = str,
+        type_: type[R] | None = None,
         choices: list[R] | None = None,
         default: R | None = None,
         password: bool = False,
-    ):
-        e = Entry[R](
+    ) -> R | None:
+        e = Entry(
             message=question,
             choices=choices,
             default=default,
-            type_=type_,  # type: ignore
+            type_=assign_default_ask_type(type_, choices, default),
             password=password,
         )
         e.response = self.responses.pop(0) or default
-        if type(e.response) != type_:
+        if type(e.response) != e.type_:
             raise TypeError(
                 f"""
                 Mock Prompt: Invalid response type
@@ -117,11 +131,11 @@ class MockPrompt:
 class MockConsole(MockPrint, MockPrompt):
     """A mock implementation of the Console protocol for testing purposes."""
 
-    def __init__(self, output: Output = Output(), responses: list | None = None):
+    def __init__(self, output: Output = Output(), responses: list | None = None, verbose: bool = False):
         """
         :param output: The output list to append entries to.
         :param responses: A list of responses to return in order. These responses
         must be valid for the type of prompt being used.
         """
-        self.output = output
-        self.responses = responses or list()
+        MockPrint.__init__(self, output, verbose)
+        MockPrompt.__init__(self, output, responses or list())

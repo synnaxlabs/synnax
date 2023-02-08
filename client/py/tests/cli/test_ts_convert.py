@@ -8,6 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 import pytest
+from synnax.cli.console.mock import MockConsole
+from synnax.cli.flow import Context
 
 from synnax.cli.ts_convert import pure_tsconvert
 from synnax.io import IO_FACTORY
@@ -29,9 +31,11 @@ class TestTSConvert:
     @pytest.mark.usefixtures("remove_testdata")
     def test_tsconvert(self):
         pure_tsconvert(
+            ctx=Context(console=MockConsole(), prompt_enabled=False),
             input_path=DATA_DIR / "tsconvert.csv",
             output_path=DATA_DIR / "tsconvert_out.csv",
             input_channel="Time",
+            output_channel="Time",
             input_precision="s",
             output_precision="ns",
         )

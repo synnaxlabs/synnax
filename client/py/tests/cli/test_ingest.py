@@ -9,25 +9,32 @@
 
 import pytest
 
-
 from synnax.cli.ingest import pure_ingest
 from synnax.cli.console import MockConsole
+from synnax.exceptions import QueryError
 from synnax.synnax import Synnax
 from synnax.cli.flow import Context
 
 from .data import DATA_DIR
 
 
+@pytest.mark.cli
 class TestIngest:
     def test_valid_ingest(self, client: Synnax):
+        try:
+            ch = client.channels.retrieve(name="ingest-valid-idx")
+        except QueryError:
+            ch = None
+        if ch is not None:
+            pytest.skip("Channel already exists")
         c = MockConsole(
             responses=[
                 True,  # Ingest all channels?
                 True,  # Channels not found, create them?
                 True,  # Are any channels indexed?
-                "ingest-valid-1",  # Index channel
+                "ingest-valid-idx",  # Index channel
                 True,  # Do all non-indexed channels have the same data rate?
-                "ingest-valid-1",  # Enter the name of the data rate or index?,
+                "ingest-valid-idx",  # Enter the name of the data rate or index?,
                 0,  # Guess data types from file.
                 True,  # Is the starting timestamp correct?
             ]
