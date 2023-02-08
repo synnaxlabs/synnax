@@ -7,12 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any
-
 from rich import print
 from rich.prompt import Confirm, FloatPrompt, IntPrompt, Prompt
 
-from synnax.cli.console.protocol import Console
+from synnax.cli.console.protocol import Console, R
 
 SYNNAX_PRIMARY_Z = "#3774D0"
 
@@ -52,75 +50,6 @@ class RichConsole:
     def success(self, message: str) -> None:
         print(f"[{self.success_color}]{message}[/]")
 
-    def ask(
-        self,
-        question: str,
-        choices: list[str] | None = None,
-        default: str | None = None,
-        required: bool = False,
-    ) -> str | None:
-        res = Prompt.ask(
-            question,
-            choices=choices,
-            default=default,
-        )
-        if self._check_required(required, res):
-            return self.ask(question, choices, default, required)
-        return res
-
-    def ask_int(
-        self,
-        question: str,
-        bound: tuple[int, int] | None = None,
-        default: int | None = None,
-        required: bool = False,
-    ) -> int | None:
-        res = IntPrompt.ask(
-            question,
-            default=default,
-            choices=[str(i) for i in range(*bound)] if bound else None,
-        )
-        if self._check_required(required, res):
-            return self.ask_int(question, bound, default, required)
-        return res
-
-    def ask_float(
-        self,
-        question: str,
-        default: float | None = None,
-        required: bool = False,
-    ) -> float | None:
-        res = FloatPrompt.ask(
-            question,
-            default=default,
-        )
-        if self._check_required(required, res):
-            return self.ask_float(question, default, required)
-        return res
-
-    def ask_password(
-        self,
-        question: str,
-        required: bool = False,
-    ) -> str:
-        res = Prompt.ask(
-            question,
-            password=True,
-        )
-        if self._check_required(required, res):
-            return self.ask_password(question, required)
-        return res
-
-    def confirm(
-        self,
-        question: str,
-        default: bool = True,
-    ) -> bool:
-        return Confirm.ask(
-            question,
-            default=default,
-        )
-
     def table(
         self,
         columns: list[str],
@@ -137,11 +66,42 @@ class RichConsole:
 
         print(table)
 
-    def _warn_required(self) -> None:
-        self.warn("This is a required field.")
-
-    def _check_required(self, required: bool, res: Any | None) -> bool:
-        if (res is None or res == "") and required:
-            self._warn_required()
-            return True
-        return False
+    def ask(
+        self,
+        question: str,
+        type_: type[R] | None = None,
+        choices: list[R] | None = None,
+        default: R | None = None,
+        password: bool = False,
+    ) -> R | None:
+        if type_ is None:
+            if default is not None:
+                type_ = type(default)  # type: ignore
+            elif choices is not None and len(choices) > 0:
+                type_ = type(choices[0])
+            else:
+                type_ = str  # type: ignore
+        if type_ == bool:
+            return Confirm.ask(
+                question,
+                default=default,
+                show_default=True,
+                show_choices=True,
+            )  # type: ignore
+        if type_ == int:
+            return IntPrompt.ask(
+                question,
+                default=default,
+                choices=[str(choice) for choice in choices],  # type: ignore
+            )  # type: ignore
+        if type_ == float:
+            return FloatPrompt.ask(
+                question,
+                default=default,
+            )  # type: ignore
+        return Prompt.ask(
+            question,
+            choices=choices,  # type: ignore
+            default=default,
+            password=password,
+        )  # type: ignore

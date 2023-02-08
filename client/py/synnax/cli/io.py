@@ -9,9 +9,9 @@
 
 from pathlib import Path
 
-from synnax.io import IO_FACTORY, RowReader
+from synnax.io import IO_FACTORY, RowFileReader
 from synnax.cli.flow import Context
-from synnax.cli.args import if_none
+
 
 def prompt_file(ctx: Context) -> Path | None:
     """Prompts the user for a file path."""
@@ -28,9 +28,12 @@ def prompt_file(ctx: Context) -> Path | None:
     return fp
 
 
-def prompt_new_reader(ctx: Context, path: Path | str | None) -> RowReader | None:
+def prompt_new_reader(
+    ctx: Context, path: Path | str | None = None
+) -> RowFileReader | None:
     """Prompts the user for a file path and returns a new reader for that file."""
-    path = if_none(path, prompt_file, ctx)
+    if path is None:
+        path = prompt_file(ctx)
     if path is None:
         return None
     return IO_FACTORY.new_reader(path if isinstance(path, Path) else Path(path))

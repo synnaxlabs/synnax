@@ -367,7 +367,12 @@ def convert_time_units(data: np.ndarray, _from: str, to: str):
     t = TimeSpan.UNITS.get(to, None)
     if t is None:
         raise ValueError(f"Invalid output time unit {to}")
-    return data * f / t
+    converted = data * f / t
+    if to == TimeSpan.SECOND_UNITS:
+        return converted.astype(np.float64)
+    if to == TimeSpan.NANOSECOND_UNITS:
+        return converted.astype(np.int64)
+    return converted
 
 
 class Rate(float):
@@ -696,7 +701,7 @@ DataType._FROM_NUMPY = {v: k for k, v in DataType._TO_NUMPY.items()}
 
 
 class ArrayHeader(Payload):
-    time_range: TimeRange | None
+    time_range: TimeRange | None = None
     data_type: DataType
 
 

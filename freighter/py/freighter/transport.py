@@ -18,7 +18,7 @@ from pydantic import BaseModel
 
 Payload: TypeAlias = BaseModel
 
-RS = TypeVar("RS", bound=Payload, covariant=True)
+RS = TypeVar("RS", bound=Payload, contravariant=True)
 """Represents a general response payload.
 """
 

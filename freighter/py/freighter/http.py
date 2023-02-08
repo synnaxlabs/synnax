@@ -13,7 +13,7 @@ from typing import Type
 from urllib.parse import urlencode
 
 import urllib3
-from urllib3 import HTTPResponse, PoolManager
+from urllib3 import HTTPResponse, PoolManager, Timeout, Retry
 from urllib3.exceptions import HTTPError, MaxRetryError
 
 from freighter.unary import UnaryClient
@@ -24,7 +24,15 @@ from freighter.url import URL
 from freighter.transport import MiddlewareCollector
 from freighter.metadata import MetaData
 
-http = PoolManager(cert_reqs="CERT_NONE")
+t = Timeout(connect=3.0, read=7.0)
+r = Retry(
+    connect=3, 
+    read=3, 
+    redirect=3, 
+    status=3, 
+    status_forcelist=[500, 502, 503, 504],
+)
+http_pool = PoolManager(cert_reqs="CERT_NONE", timeout=t, retries=r)
 urllib3.disable_warnings()
 
 
@@ -98,8 +106,10 @@ class _Core(MiddlewareCollector):
         res_t: Type[RS] | None = None,
     ) -> tuple[RS | None, Exception | None]:
         in_meta_data = MetaData(url, self.endpoint.protocol)
+        resp: RS | None = None
 
         def finalizer(md: MetaData) -> tuple[MetaData, Exception | None]:
+            nonlocal resp
             out_meta_data = MetaData(url, self.endpoint.protocol)
             data = None
             if request is not None:
@@ -109,13 +119,13 @@ class _Core(MiddlewareCollector):
 
             http_res: HTTPResponse
             try:
-                http_res = http.request(method=method, url=url, headers=head, body=data)
+                http_res = http_pool.request(method=method, url=url, headers=head, body=data)
             except MaxRetryError as e:
                 return out_meta_data, Unreachable(url, e)
             except HTTPError as e:
                 return out_meta_data, e
 
-            out_meta_data.params = http_res.headers
+            out_meta_data.params = dict(http_res.headers)
 
             if http_res.status < 200 or http_res.status >= 300:
                 err = self.encoder_decoder.decode(http_res.data, ExceptionPayload)
@@ -124,11 +134,11 @@ class _Core(MiddlewareCollector):
             if http_res.data is None:
                 return out_meta_data, None
 
-            self.res = self.encoder_decoder.decode(http_res.data, res_t)
+            resp = self.encoder_decoder.decode(http_res.data, res_t)
             return out_meta_data, None
 
         _, exc = self.exec(in_meta_data, finalizer)
-        return self.res, exc
+        return resp, exc
 
 
 class GETClient(_Core):
@@ -144,7 +154,6 @@ class GETClient(_Core):
     ) -> tuple[RS | None, Exception | None]:
         """Implements the UnaryClient protocol."""
         return self.request("GET", self._build_url(target, req), None, res_t)
-
 
     def client_post(self) -> POSTClient:
         """Creates a POST client for the same endpoint and request and response types.
@@ -162,10 +171,11 @@ class GETClient(_Core):
         raw_dct = req.dict()
         parsed_dct = dict()
         for key, val in raw_dct.items():
-            if val is not None:
-                parsed_dct[key] = val
             if type(val) is list:
-                parsed_dct[key] = ",".join(val)
+                if len(val) > 0:
+                    parsed_dct[key] = ",".join(val)
+            elif val is not None:
+                parsed_dct[key] = val
         return urlencode(parsed_dct)
 
 

@@ -22,7 +22,7 @@ type Synchronizer struct {
 
 func (s *Synchronizer) Sync(seqNum int, ack bool) (_ack bool, _seqNum int, fulfilled bool) {
 	if seqNum != s.SeqNum {
-		panic(fmt.Sprintf("[distribution.framer.core] - received out of order response: %d, expected: %d", seqNum, s.SeqNum))
+		fmt.Printf("[distribution.framer.core] - received out of order response: %d, expected: %d", seqNum, s.SeqNum)
 	}
 	if s.Counter == 0 {
 		s.ack = true

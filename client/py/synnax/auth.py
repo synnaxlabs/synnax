@@ -64,7 +64,7 @@ def maybe_refresh_token(
     md: MetaData,
     set_token: Callable[[str], None],
 ) -> None:
-    refresh = md.get(TOKEN_REFRESH_HEADER)
+    refresh = md.get(TOKEN_REFRESH_HEADER, None)
     if refresh is not None:
         set_token(refresh)
 

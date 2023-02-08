@@ -7,6 +7,13 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from .factory import IO_FACTORY
+from .factory import IO_FACTORY, IOFactory
 from .meta import ChannelMeta
-from .protocol import ColumnReader, ReaderType, RowReader, BaseReader
+from .protocol import (
+    ColumnFileReader,
+    ReaderType,
+    RowFileReader,
+    BaseReader,
+    DataFrameWriter,
+    FileWriter,
+)

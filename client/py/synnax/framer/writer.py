@@ -8,7 +8,10 @@
 #  included in the file licenses/APL.txt.
 
 from enum import Enum
+from warnings import warn
 
+from pandas import DataFrame, concat as pd_concat
+from numpy import can_cast as np_can_cast, ndarray
 from freighter import (
     EOF,
     ExceptionPayload,
@@ -17,18 +20,18 @@ from freighter import (
     StreamClient,
     decode_exception,
 )
-from pandas import DataFrame
 
+from synnax import io
 from synnax.channel.payload import ChannelPayload
-from synnax.channel.registry import ChannelRegistry
+from synnax.channel.retrieve import ChannelRetriever
 from synnax.exceptions import Field, GeneralError, ValidationError
-from synnax.telem import TimeStamp, UnparsedTimeStamp
-
-from .payload import BinaryFrame, pandas_to_frame
+from synnax.telem import TimeSpan, TimeStamp, UnparsedTimeStamp, NumpyArray
+from synnax.framer.payload import BinaryFrame, NumpyFrame
+from synnax.framer.mode import FramingMode, open_framing_mode
 
 
 class _Command(int, Enum):
-    NONE = 0
+    OPEN = 0
     WRITE = 1
     COMMIT = 2
     ERROR = 3
@@ -91,7 +94,9 @@ class FrameWriter:
     """
 
     _ENDPOINT = "/frame/write"
+
     __stream: Stream[_Request, _Response] | None
+
     client: StreamClient
     keys: list[str]
 
@@ -111,7 +116,7 @@ class FrameWriter:
         self.__stream = self.client.stream(self._ENDPOINT, _Request, _Response)
         self._stream.send(
             _Request(
-                command=_Command.NONE, config=_Config(keys=keys, start=TimeStamp(start))
+                command=_Command.OPEN, config=_Config(keys=keys, start=TimeStamp(start))
             )
         )
         _, exc = self._stream.receive()
@@ -223,32 +228,137 @@ class FrameWriter:
             )
 
 
-class DataFrameWriter(FrameWriter):
+class DataFrameWriter(FrameWriter, io.DataFrameWriter):
     """DataFrameWriter extends the FrameWriter protocol by allowing the caller to Write
     pandas DataFrames.
     """
 
-    registry: ChannelRegistry
-    channels: list[ChannelPayload]
+    _channel_retriever: ChannelRetriever
+    _mode: FramingMode
+    _strict: bool
+    _suppress_warnings: bool
+    _skip_invalid: bool
+    _channels: list[ChannelPayload]
 
     def __init__(
         self,
         client: StreamClient,
-        registry: ChannelRegistry,
+        channels: ChannelRetriever,
+        strict: bool = False,
+        suppress_warnings: bool = False,
     ) -> None:
         super().__init__(client)
-        self.registry = registry
-        self.channels = []
+        self._channel_retriever = channels
+        self._mode = FramingMode.UNOPENED
+        self._strict = strict
+        self._suppress_warnings = suppress_warnings
 
-    def open(self, start: UnparsedTimeStamp, keys: list[str]):
+    def open(
+        self,
+        start: UnparsedTimeStamp,
+        keys: list[str] | None = None,
+        names: list[str] | None = None,
+    ):
         """Opens the writer, acquiring an exclusive lock on the given
         channels for the duration of the writer's lifetime. open must be called before
         any other writer methods.
         """
-        super(DataFrameWriter, self).open(start, keys)
-        self.channels = self.registry.get_n(keys)
+        self._mode = open_framing_mode(keys, names)
+        self._channels = self._channel_retriever.retrieve(keys=keys, names=names)
+        super(DataFrameWriter, self).open(start, [ch.key for ch in self._channels])
 
     def write(self, frame: DataFrame):
-        super(DataFrameWriter, self).write(
-            pandas_to_frame(self.channels, frame).to_binary(),
+        super(DataFrameWriter, self).write(self._convert(frame))
+
+    def _convert(self, df: DataFrame) -> BinaryFrame:
+        np_fr = NumpyFrame()
+        for ch in self._channels:
+            col, arr = self._retrieve(ch, df)
+            np_data = self._prep_arr(arr, ch, col)
+            np_fr.append(ch.key, NumpyArray(data=np_data, data_type=ch.data_type))
+        return np_fr.to_binary()
+
+    def _retrieve(self, ch: ChannelPayload, df: DataFrame) -> tuple[str, ndarray]:
+        if self._mode == FramingMode.UNOPENED:
+            raise GeneralError(
+                "Writer is not open. Please open before calling write() or close()."
+            )
+        key_or_name = getattr(ch, self._mode.value)
+        v = df.get(key_or_name, None)
+        if v is None:
+            raise ValidationError(
+                Field(
+                    key_or_name,
+                    f"frame is missing {self._mode.value} {key_or_name}",
+                )
+            )
+        return key_or_name, v.to_numpy()
+
+    def _prep_arr(self, arr: ndarray, ch: ChannelPayload, col: str):
+        ch_dt = ch.data_type.np
+        if arr.dtype != ch_dt:
+            if not np_can_cast(arr.dtype, ch_dt):
+                raise ValidationError(
+                    Field(
+                        col,
+                        f"""column {col} has type {arr.dtype} but channel {ch.key} expects type {ch_dt}""",
+                    )
+                )
+            elif not self._suppress_warnings:
+                warn(
+                    f"""column {col} has type {arr.dtype} but channel {ch.key} expects type {ch_dt}.
+                    We can safely convert between the two, but this can cause performance degradations and is not recccomended.
+                    To suppress this warning, set suppress_warnings=True when constructing the writer. To raise an error instead,
+                    set strict=True when constructing the writer."""
+                )
+        return arr.astype(ch_dt)
+
+
+class BufferedDataFrameWriter(io.DataFrameWriter):
+    """BufferedDataFrameWriter extends the DataFrameWriter protocol by buffering
+    writes to the underlying stream. This can improve performance by reducing the
+    number of round trips to the server.
+    """
+
+    size_threshold: int
+    time_threshold: TimeSpan
+    last_flush: TimeStamp
+    _wrapped: DataFrameWriter
+    _buf: DataFrame
+
+    def __init__(
+        self,
+        wrapped: DataFrameWriter,
+        size_threshold: int = int(1e6),
+        time_threshold: TimeSpan = TimeSpan.MAX,
+    ) -> None:
+        self._wrapped = wrapped
+        self._buf = DataFrame()
+        self.last_flush = TimeStamp.now()
+        self.size_threshold = size_threshold
+        self.time_threshold = time_threshold
+
+    def _(self) -> io.DataFrameWriter:
+        return self
+
+    def write(self, frame: DataFrame):
+        self._buf = pd_concat([self._buf, frame], ignore_index=True)
+        if self._exceeds_any:
+            self._flush()
+
+    def close(self):
+        self._flush()
+        self._wrapped.close()
+
+    @property
+    def _exceeds_any(self) -> bool:
+        return (
+            len(self._buf) * len(self._buf.columns) >= self.size_threshold
+            or TimeStamp.since(self.last_flush) >= self.time_threshold
         )
+
+    def _flush(self):
+        self._wrapped.write(self._buf)
+        self._wrapped.commit()
+        self.last_flush = TimeStamp.now()
+        self._buf = DataFrame()

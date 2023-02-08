@@ -10,13 +10,13 @@
 from pathlib import Path
 
 from synnax.io.csv import CSVReader, CSVWriter
-from synnax.io.protocol import RowReader, Writer
+from synnax.io.protocol import RowFileReader, FileWriter
 
-READERS: list[type[RowReader]] = [
+READERS: list[type[RowFileReader]] = [
     CSVReader,
 ]
 
-WRITERS: list[type[Writer]] = [
+WRITERS: list[type[FileWriter]] = [
     CSVWriter,
 ]
 
@@ -24,18 +24,18 @@ WRITERS: list[type[Writer]] = [
 class IOFactory:
     """A registry for retrieving readers for different file types."""
 
-    reader: list[type[RowReader]]
-    writers: list[type[Writer]]
+    reader: list[type[RowFileReader]]
+    writers: list[type[FileWriter]]
 
     def __init__(
         self,
-        readers: list[type[RowReader]] = READERS,
-        writers: list[type[Writer]] = WRITERS,
+        readers: list[type[RowFileReader]] = READERS,
+        writers: list[type[FileWriter]] = WRITERS,
     ):
-        self.reader = readers 
+        self.reader = readers
         self.writers = writers
 
-    def new_reader(self, path: Path) -> RowReader:
+    def new_reader(self, path: Path) -> RowFileReader:
         if not path.exists():
             raise FileNotFoundError(f"File not found: {path}")
 
@@ -48,7 +48,7 @@ class IOFactory:
 
         raise NotImplementedError(f"File type not supported: {path}")
 
-    def new_writer(self, path: Path) -> Writer:
+    def new_writer(self, path: Path) -> FileWriter:
         if not path.parent.exists():
             raise FileNotFoundError(f"File not found: {path}")
 
@@ -66,5 +66,6 @@ class IOFactory:
         for reader in self.reader:
             extensions.update(reader.extensions())
         return list(extensions)
+
 
 IO_FACTORY = IOFactory()
