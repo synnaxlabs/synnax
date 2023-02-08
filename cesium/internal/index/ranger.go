@@ -11,6 +11,7 @@ package index
 
 import (
 	"github.com/synnaxlabs/cesium/internal/ranger"
+	"github.com/synnaxlabs/x/logutil"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 	"io"
@@ -37,7 +38,7 @@ func (i *Ranger) Distance(tr telem.TimeRange, continuous bool) (approx DistanceA
 			zap.Bool("continuous", continuous),
 			zap.Stringer("startApprox", startApprox),
 			zap.Stringer("endApprox", endApprox),
-			zap.Error(err),
+			logutil.DebugError(err),
 		)
 	}()
 
@@ -75,7 +76,7 @@ func (i *Ranger) Distance(tr telem.TimeRange, continuous bool) (approx DistanceA
 	}
 
 	l := r.Len() / 8
-	startToFirstEnd := Between[int64](l-startApprox.Upper, l-startApprox.Lower)
+	startToFirstEnd := Between(l-startApprox.Upper, l-startApprox.Lower)
 	var gap int64 = 0
 
 	for {
@@ -120,7 +121,7 @@ func (i *Ranger) Stamp(ref telem.TimeStamp, offset int64, continuous bool) (appr
 			zap.Stringer("ref", ref),
 			zap.Int64("offset", offset),
 			zap.Stringer("approx", approx),
-			zap.Error(err),
+			logutil.DebugError(err),
 		)
 	}()
 
@@ -196,7 +197,7 @@ func (i *Ranger) search(ts telem.TimeStamp, r *ranger.Reader) (DistanceApproxima
 			return Exactly[int64](0), err
 		}
 		if midTs == ts {
-			return Exactly[int64](mid), nil
+			return Exactly(mid), nil
 		} else if midTs < ts {
 			start = mid + 1
 		} else {

@@ -14,6 +14,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/ranger"
+	"github.com/synnaxlabs/x/logutil"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 	"io"
@@ -44,44 +45,36 @@ func (i *Iterator) Value() core.Frame { return i.frame }
 
 func (i *Iterator) View() telem.TimeRange { return i.view }
 
-func (i *Iterator) SeekFirst() (ok bool) {
+func (i *Iterator) SeekFirst() bool {
 	i.log("unary seek first")
-	defer func() {
-		i.log("unary seek first done", zap.Bool("ok", ok))
-	}()
-	ok = i.internal.SeekFirst()
+	ok := i.internal.SeekFirst()
 	i.seekReset(i.internal.Range().Start)
+	i.log("unary seek first done", zap.Bool("ok", ok))
 	return ok
 }
 
-func (i *Iterator) SeekLast() (ok bool) {
+func (i *Iterator) SeekLast() bool {
 	i.log("unary seek first")
-	defer func() {
-		i.log("unary seek first done", zap.Bool("ok", ok))
-	}()
-	ok = i.internal.SeekLast()
+	ok := i.internal.SeekLast()
 	i.seekReset(i.internal.Range().End)
-	return
+	i.log("unary seek first done", zap.Bool("ok", ok))
+	return ok
 }
 
-func (i *Iterator) SeekLE(ts telem.TimeStamp) (ok bool) {
+func (i *Iterator) SeekLE(ts telem.TimeStamp) bool {
 	i.log("unary seek le", zap.Stringer("ts", ts))
-	defer func() {
-		i.log("unary seek le done", zap.Bool("ok", ok))
-	}()
 	i.seekReset(ts)
-	ok = i.internal.SeekLE(ts)
-	return
+	ok := i.internal.SeekLE(ts)
+	i.log("unary seek le done", zap.Bool("ok", ok))
+	return ok
 }
 
-func (i *Iterator) SeekGE(ts telem.TimeStamp) (ok bool) {
+func (i *Iterator) SeekGE(ts telem.TimeStamp) bool {
 	i.log("unary seek ge", zap.Stringer("ts", ts))
-	defer func() {
-		i.log("unary seek ge done", zap.Stringer("ts", ts))
-	}()
 	i.seekReset(ts)
-	ok = i.internal.SeekGE(ts)
-	return
+	ok := i.internal.SeekGE(ts)
+	i.log("unary seek ge done", zap.Stringer("ts", ts))
+	return ok
 }
 
 func (i *Iterator) Next(span telem.TimeSpan) (ok bool) {
@@ -319,7 +312,7 @@ func (i *Iterator) log(msg string, fields ...zap.Field) {
 		fields,
 		zap.String("channel", i.Channel.Key),
 		zap.Stringer("view", i.view),
-		zap.Error(i.err),
+		logutil.DebugError(i.err),
 	)
 	i.logger.Debug(msg, fields...)
 }
