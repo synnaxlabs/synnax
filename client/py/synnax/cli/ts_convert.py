@@ -146,14 +146,16 @@ def pure_tsconvert(
         arg_name=OUTPUT_CHANNEL_ARG,
     )
 
-    output_path = Path(ctx.console.ask(
+    output_path = Path(
+        ctx.console.ask(
             "Where would you like to save the converted data?",
             default=str(
                 input_path.parent / f"{input_path.stem}_converted{input_path.suffix}"
             ),
             arg=str(output_path) if output_path is not None else None,
             arg_name=OUTPUT_PATH_ARG,
-        ))
+        )
+    )
 
     writer = IO_FACTORY.new_writer(output_path)
 

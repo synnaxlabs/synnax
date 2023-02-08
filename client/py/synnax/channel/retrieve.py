@@ -32,14 +32,16 @@ class ChannelRetriever(Protocol):
     @overload
     def retrieve(
         self,
-        keys: str | None = None,
-        names: str | None = None,
+        *,
+        key: str | None = None,
+        name: str | None = None,
     ) -> ChannelPayload | None:
         ...
 
     @overload
     def retrieve(
         self,
+        *,
         keys: list[str] | None = None,
         names: list[str] | None = None,
         node_id: int | None = None,
@@ -50,6 +52,7 @@ class ChannelRetriever(Protocol):
     @overload
     def retrieve(
         self,
+        *,
         keys: list[str] | None = None,
         names: list[str] | None = None,
         node_id: int | None = None,
@@ -60,8 +63,11 @@ class ChannelRetriever(Protocol):
     @overload
     def retrieve(
         self,
-        keys: str | list[str] | None = None,
-        names: str | list[str] | None = None,
+        *,
+        key: str | None = None,
+        name: str | None = None,
+        keys: list[str] | None = None,
+        names: list[str] | None = None,
         node_id: int | None = None,
         include_not_found: bool = False,
     ) -> list[ChannelPayload] | tuple[
@@ -82,18 +88,20 @@ class ClusterChannelRetriever:
 
     def retrieve(
         self,
-        keys: str | list[str] | None = None,
-        names: str | list[str] | None = None,
+        key: str | None = None,
+        name: str | None = None,
+        keys: list[str] | None = None,
+        names: list[str] | None = None,
         node_id: int | None = None,
         include_not_found: bool = False,
     ) -> tuple[list[ChannelPayload], list[str]] | list[
         ChannelPayload
     ] | ChannelPayload | None:
-        single_key = isinstance(keys, str)
-        single_name = isinstance(names, str)
+        single_key = key is not None
+        single_name = name is not None
         req = _Request(
-            keys=[keys] if single_key else keys,
-            names=[names] if single_name else names,
+            keys=[key] if single_key else keys,
+            names=[name] if single_name else names,
             node_id=node_id,
         )
         res, exc = self.client.send(self._ENDPOINT, req, _Response)
@@ -126,8 +134,10 @@ class CacheChannelRetriever:
 
     def retrieve(
         self,
-        keys: str | list[str] | None = None,
-        names: str | list[str] | None = None,
+        key: str | None = None,
+        name: str | None = None,
+        keys: list[str] | None = None,
+        names: list[str] | None = None,
         node_id: int | None = None,
         include_not_found: bool = False,
     ) -> tuple[list[ChannelPayload], list[str]] | list[
@@ -138,14 +148,15 @@ class CacheChannelRetriever:
                 node_id=node_id, include_not_found=include_not_found
             )
 
-        keys, single_key = self._normalize(keys)
-        names, single_name = self._normalize(names)
+        keys, single_key = self._normalize(key, keys)
+        names, single_name = self._normalize(name,names)
         keys_to_retrieve = list()
         names_to_retrieve = list()
         results = list()
-
+        
         for name in names:
             key = self.names_to_keys.get(name, None)
+            print(key)
             if key is not None:
                 keys.append(key)
             else:
@@ -178,9 +189,9 @@ class CacheChannelRetriever:
             return None if len(results) == 0 else results[0]
         return results
 
-    def _normalize(self, keys: list[str] | str | None) -> tuple[list[str], bool]:
+    def _normalize(self, key: str | None, keys: list[str] | None) -> tuple[list[str], bool]:
+        if key is not None:
+            return [key], True
         if keys is None:
             return [], False
-        if isinstance(keys, str):
-            return [keys], True
         return keys, False

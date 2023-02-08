@@ -76,11 +76,11 @@ class RichConsole:
     ) -> R | None:
         if type_ is None:
             if default is not None:
-                type_ = type(default) # type: ignore
+                type_ = type(default)  # type: ignore
             elif choices is not None and len(choices) > 0:
                 type_ = type(choices[0])
             else:
-                type_ = str # type: ignore
+                type_ = str  # type: ignore
         if type_ == bool:
             return Confirm.ask(
                 question,

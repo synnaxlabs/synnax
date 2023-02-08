@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from pathlib import Path
+from typing import Any
 
 import click
 import numpy as np
@@ -134,6 +135,12 @@ def channels_to_ingest(ctx: Context, cli: IngestionCLI) -> str | None:
     cli.filtered_channels = [ch for ch in channels if ch.name in all_names]
     return "validate_channels_exist"
 
+def cannot_cast_error(ctx: Context, actual: Any, ch: Channel) -> None:
+    ctx.console.error(
+        f"""Unable to cast column data type {actual}
+for {ch.name} to channel data type {ch.data_type.np}"""
+    )
+
 
 def validate_data_types(ctx: Context, cli: IngestionCLI) -> str | None:
     """Does an optimistic check on the first sample of each channel.  This isn't error
@@ -146,11 +153,7 @@ def validate_data_types(ctx: Context, cli: IngestionCLI) -> str | None:
         samples_type = d_types[ch.name].np
         ch_type = ch.data_type.np
         if not np.can_cast(samples_type, ch_type):
-            ctx.console.error(
-                f"""Unable to cast file data type {samples_type} 
-                for channel {ch.name} to data type {ch_type}"""
-            )
-            return
+            return cannot_cast_error(ctx, samples_type, ch)
         elif samples_type != ch_type:
             ctx.console.warn(
                 f"""Channel {ch.name} has data type {ch_type} but the file data type is
@@ -169,8 +172,6 @@ def read_data_types(ctx: Context, cli: IngestionCLI) -> dict[str, DataType]:
     cli.reader.seek_first()
 
     first = cli.reader.read()
-
-    print(first)
 
     data_types = {}
     for ch in cli.filtered_channels:
@@ -236,7 +237,6 @@ def validate_start_time(ctx: Context, cli: IngestionCLI) -> str | None:
         cli.reader.set_chunk_size(1)
         cli.reader.seek_first()
         first = cli.reader.read()
-        print(first["gse.packet_type (ul)"].to_numpy())
         cli.start = TimeStamp(first[idx.name].to_numpy()[0])
 
     ctx.console.info(f"Identified start timestamp for file as {cli.start}.")
@@ -322,7 +322,9 @@ def assign_index_or_rate(
 
     grouped = {GROUP_ALL: cli.not_found}
     if not ctx.console.ask(
-        "Do all non-indexed channels have the same data rate or index?", bool, default=True
+        "Do all non-indexed channels have the same data rate or index?",
+        bool,
+        default=True,
     ):
         if not ctx.console.ask(
             "Can you group channels by data rate or index?", default=True

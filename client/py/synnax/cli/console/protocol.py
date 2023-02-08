@@ -98,5 +98,24 @@ class Console(Prompt, Print, Protocol):
     """A protocol class for an entity that can print messages to the console and prompt
     the user for input.
     """
-
     ...
+
+
+def assign_default_ask_type(
+    type_: type[R] | None, choices: list[R] | None, default: R | None
+) -> type[R]:
+    """Assigns a default type to the ask function.
+
+    :param type_: The type to assign.
+    :param default: The default value.
+    :param choices: The list of choices.
+    :return: The type.
+    """
+    if type_ is None:
+        if choices is not None:
+            type_ = type(choices[0])
+        elif default is not None:
+            type_ = type(default) # type: ignore
+        else:
+            type_ = str  # type: ignore
+    return type_  # type: ignore
