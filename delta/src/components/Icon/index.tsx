@@ -7,14 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { AiFillDelete, AiOutlinePlus } from "react-icons/ai";
-import { MdEdit } from "react-icons/md";
-import { IoCopySharp } from "react-icons/io5";
+import { AiFillDelete, AiOutlineMinus, AiOutlinePlus } from "react-icons/ai";
 import { IoMdRefresh } from "react-icons/io";
+import { IoCopySharp} from "react-icons/io5";
+import { MdEdit } from "react-icons/md";
 
 export const Icon = {
   Edit: MdEdit,
-  Create: AiOutlinePlus,
+  Add: AiOutlinePlus,
+  Subtract: AiOutlineMinus,
   Copy: IoCopySharp,
   Refresh: IoMdRefresh,
   Delete: AiFillDelete,
