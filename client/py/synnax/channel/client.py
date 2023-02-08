@@ -7,14 +7,16 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from typing import overload, Literal
 from numpy import ndarray
 from pydantic import PrivateAttr
 
-from synnax.exceptions import ValidationError
-from synnax.framer import FramerClient
+from synnax.exceptions import ValidationError, QueryError
+from synnax.framer import FrameClient
 from synnax.telem import (
     Rate,
     Density,
+    TimeRange,
     UnparsedDataType,
     UnparsedDensity,
     UnparsedRate,
@@ -30,7 +32,7 @@ from synnax.channel.retrieve import ChannelRetriever
 class Channel(ChannelPayload):
     """Represents a Channel in a Synnax database."""
 
-    __frame_client: FramerClient | None = PrivateAttr(None)
+    __frame_client: FrameClient | None = PrivateAttr(None)
 
     class Config:
         arbitrary_types_allowed = True
@@ -45,7 +47,7 @@ class Channel(ChannelPayload):
         is_index: bool = False,
         index: str = "",
         density: UnparsedDensity = 0,
-        frame_client: FramerClient | None = None,
+        frame_client: FrameClient | None = None,
     ):
         super().__init__(
             data_type=DataType(data_type),
@@ -71,7 +73,9 @@ class Channel(ChannelPayload):
             is_index=self.is_index,
         )
 
-    def read(self, start: UnparsedTimeStamp, end: UnparsedTimeStamp) -> ndarray:
+    def read(
+        self, start: UnparsedTimeStamp, end: UnparsedTimeStamp
+    ) -> tuple[ndarray, TimeRange]:
         """Reads telemetry from the channel between the two timestamps.
 
         :param start: The starting timestamp of the range to read from.
@@ -79,7 +83,7 @@ class Channel(ChannelPayload):
         :returns: A numpy array containing the retrieved telemetry from the database.
         :raises ContiguityError: If the telemetry between start and end is non-contiguous.
         """
-        return self._frame_client.read(self.key, start, end).data
+        return self._frame_client.read(start, end, key=self.key)
 
     def write(self, start: UnparsedTimeStamp, data: ndarray):
         """Writes telemetry to the channel starting at the given timestamp.
@@ -88,10 +92,10 @@ class Channel(ChannelPayload):
         :param data: The telemetry to write to the channel.
         :returns: None.
         """
-        self._frame_client.write(self.key, start, data)
+        self._frame_client.write(start, data, key=self.key)
 
     @property
-    def _frame_client(self) -> FramerClient:
+    def _frame_client(self) -> FrameClient:
         if self.__frame_client is None:
             raise ValidationError(
                 "Cannot read from a channel that has not been created."
@@ -114,13 +118,13 @@ class Channel(ChannelPayload):
 class ChannelClient:
     """The core client class for executing channel operations against a Synnax cluster."""
 
-    _frame_client: FramerClient
+    _frame_client: FrameClient
     _retriever: ChannelRetriever
     _creator: ChannelCreator
 
     def __init__(
         self,
-        frame_client: FramerClient,
+        frame_client: FrameClient,
         retriever: ChannelRetriever,
         creator: ChannelCreator,
     ):
@@ -128,13 +132,11 @@ class ChannelClient:
         self._retriever = retriever
         self._creator = creator
 
-    def create_many(self, channels: list[Channel]) -> list[Channel]:
-        """Creates all channels in the given list."""
-        return self._sugar(*self._creator.create_many([c._payload() for c in channels]))
-
+    @overload
     def create(
         self,
-        data_type: UnparsedDataType,
+        channels: None = None,
+        data_type: UnparsedDataType = DataType.UNKNOWN,
         name: str = "",
         node_id: int = 0,
         rate: UnparsedRate = Rate(0),
@@ -151,38 +153,98 @@ class ChannelClient:
         what this is, don't worry about it.
         :returns: The created channel.
         """
-        return self._sugar(
-            self._creator.create(
-                name=name,
-                node_id=node_id,
-                rate=rate,
-                data_type=data_type,
-                index=index,
-                is_index=is_index,
-            )
-        )[0]
+        ...
 
-    def retrieve(self, key: str | None = None, name: str | None = None) -> Channel:
-        """Retrieves channels with the given keys.
+    @overload
+    def create(self, channels: Channel) -> Channel:
+        ...
 
-        :param keys: The list of keys to retrieve channels for.
-        :raises QueryError: If any of the channels can't be found.
-        :returns: A list of retrieved Channels.
-        """
-        return self._sugar(self._retriever.retrieve(key, name))[0]
+    @overload
+    def create(self, channels: list[Channel]) -> list[Channel]:
+        ...
 
-    def filter(
+    def create(
         self,
+        channels: Channel | list[Channel] | None = None,
+        data_type: UnparsedDataType = DataType.UNKNOWN,
+        name: str = "",
+        node_id: int = 0,
+        rate: UnparsedRate = Rate(0),
+        index: str = "",
+        is_index: bool = False,
+    ) -> Channel | list[Channel]:
+        if channels is None:
+            _channels = [
+                ChannelPayload(
+                    name=name,
+                    node_id=node_id,
+                    rate=Rate(rate),
+                    data_type=DataType(data_type),
+                    index=index,
+                    is_index=is_index,
+                )
+            ]
+        elif isinstance(channels, Channel):
+            _channels = [channels._payload()]
+        else:
+            _channels = [c._payload() for c in channels]
+        created = self._sugar(self._creator.create(_channels))
+        return created if isinstance(channels, list) else created[0]
+
+    @overload
+    def retrieve(self, key: str | None = None, name: str | None = None) -> Channel:
+        ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
         keys: list[str] | None = None,
         names: list[str] | None = None,
         node_id: int | None = None,
+        include_not_found: Literal[False] = False,
     ) -> list[Channel]:
-        """Filters channels using the given parameters.
+        ...
 
-        :param kwargs: The parameters to filter channels by.
-        :returns: A list of channels that match the given parameters.
-        """
-        return self._sugar(*self._retriever.filter(keys, names, node_id))
+    @overload
+    def retrieve(
+        self,
+        *,
+        keys: list[str] | None = None,
+        names: list[str] | None = None,
+        node_id: int | None = None,
+        include_not_found: Literal[True] = True,
+    ) -> tuple[list[Channel], list[str]]:
+        ...
 
-    def _sugar(self, *channels: ChannelPayload) -> list[Channel]:
+    def retrieve(
+        self,
+        key: str | None = None,
+        name: str | None = None,
+        keys: list[str] | None = None,
+        names: list[str] | None = None,
+        node_id: int | None = None,
+        include_not_found: bool = False,
+    ) -> Channel | list[Channel] | tuple[list[Channel], list[str]]:
+        res = self._retriever.retrieve(
+            key=key,
+            name=name,
+            keys=keys, 
+            names=names, 
+            node_id=node_id, 
+            include_not_found=include_not_found,
+        )
+        if res is None:
+            if key is not None:
+                raise QueryError(f"Channel with key {key} not found.")
+            if name is not None:
+                raise QueryError(f"Channel with name {name} not found.")
+            raise QueryError("No channels found.")
+        if isinstance(res, ChannelPayload):
+            return self._sugar([res])[0]
+        if isinstance(res, tuple):
+            return self._sugar(res[0]), res[1]
+        return self._sugar(res)
+
+    def _sugar(self, channels: list[ChannelPayload]) -> list[Channel]:
         return [Channel(**c.dict(), frame_client=self._frame_client) for c in channels]

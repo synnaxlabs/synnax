@@ -20,7 +20,7 @@ from rich.progress import (
 
 from synnax import Channel, Synnax
 from synnax.framer import DataFrameWriter
-from synnax.io import RowReader
+from synnax.io import RowFileReader
 from synnax.telem import Size, TimeStamp
 
 
@@ -31,14 +31,14 @@ class RowIngestionEngine:
 
     client: Synnax
     writer: DataFrameWriter
-    reader: RowReader
+    reader: RowFileReader
     channels: list[Channel]
     idx_grouped: dict[Channel, list[Channel]]
 
     def __init__(
         self,
         client: Synnax,
-        reader: RowReader,
+        reader: RowFileReader,
         channels: list[Channel],
         start: TimeStamp,
         soft_mem_limit: int = 10 * Size.MEGABYTE,
@@ -52,7 +52,7 @@ class RowIngestionEngine:
         self.reader = reader
         self.client = client
         self.reader.set_chunk_size(self.get_chunk_size())
-        self.writer = self.client.data.new_writer(
+        self.writer = self.client.new_writer(
             start=start, keys=[ch.key for ch in channels]
         )
 

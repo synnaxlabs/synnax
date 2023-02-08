@@ -13,30 +13,31 @@ from pathlib import Path
 
 import pandas as pd
 from pandas.io.parsers import TextFileReader
+from synnax.exceptions import ValidationError
 
-from synnax.telem import Size
 from synnax.io.matcher import new_extension_matcher
-from synnax.io.protocol import ChannelMeta, ReaderType, RowReader, Writer
+from synnax.io.protocol import ChannelMeta, ReaderType, RowFileReader, FileWriter
+
+CSVMatcher = new_extension_matcher(["csv"])
 
 
-class CSVMatcher(new_extension_matcher(["csv"])):  # type: ignore
-    ...
-
-
-class CSVReader(CSVMatcher):
+class CSVReader(CSVMatcher):  # type: ignore
     """A RowReader implementation for CSV files."""
 
     channel_keys: list[str] | None
     chunk_size: int
-    _reader: TextFileReader | None
+
+    __reader: TextFileReader | None
     _path: Path
     _channels: list[ChannelMeta] | None
     _row_count: int | None
+    _calculated_skip_rows: bool
+    _skip_rows: int
 
     # Doing a protocol implementation check here because
     # it's hard for pyright to handle factories that retun
     # protocol classes.
-    def _(self) -> RowReader:
+    def _(self) -> RowFileReader:
         return self
 
     def __init__(
@@ -47,35 +48,65 @@ class CSVReader(CSVMatcher):
     ):
         self._path = path
         self.channel_keys = keys
+        self.chunk_size = chunk_size or int(5e5)
         self._channels = None
         self._row_count = None
-        self._reader = None
-        self.chunk_size = chunk_size or 10 * Size.MEGABYTE
+        self._skip_rows = 0
+        self._calculated_skip_rows = False
+        self.__reader = None
 
     def seek_first(self):
         self.close()
-        self._reader = pd.read_csv(
+        self.__reader = pd.read_csv(
             self._path,
             chunksize=self.chunk_size,
             usecols=self.channel_keys,
+            header=0,
+            skiprows=self._get_skip_rows(),
         )
+
+    def _get_skip_rows(self) -> int | tuple[int, int]:
+        if self._calculated_skip_rows:
+            return self._skip_rows
+
+        r = pd.read_csv(
+            self._path,
+            chunksize=1,
+            usecols=self.channel_keys,
+        )
+        self._skip_rows = 0
+
+        while not self._calculated_skip_rows:
+            try:
+                df = next(r)
+            except StopIteration:
+                raise ValidationError("No valid data found in CSV file")
+
+            # check if the first value is a string
+            if isinstance(df.iloc[0, 0], str):
+                self._skip_rows += 1
+            else:
+                self._calculated_skip_rows = True
+
+        r.close()
+        if self._skip_rows > 0:
+            return 1, self._skip_rows
+        return self._skip_rows
 
     def channels(self) -> list[ChannelMeta]:
         if not self._channels:
-            self._channels = [
-                ChannelMeta(name=name, meta_data={})
-                for name in pd.read_csv(self._path, nrows=0).columns
-            ]
+            cols = pd.read_csv(self._path, nrows=0).columns
+            self._channels = [ChannelMeta(name=name, meta_data=dict()) for name in cols]
         return self._channels
 
     def set_chunk_size(self, chunk_size: int):
         self.chunk_size = chunk_size
 
     def read(self) -> pd.DataFrame:
-        return next(self.reader)
+        return next(self._reader)
 
     def __iter__(self) -> Iterator[pd.DataFrame]:
-        return self.reader.__iter__()
+        return self._reader.__iter__()
 
     @classmethod
     def type(cls) -> ReaderType:
@@ -90,16 +121,16 @@ class CSVReader(CSVMatcher):
         return self._row_count * len(self.channels())
 
     @property
-    def reader(self) -> TextFileReader:
-        if self._reader is None:
+    def _reader(self) -> TextFileReader:
+        if self.__reader is None:
             self.seek_first()
-        assert self._reader is not None
-        return self._reader
+        assert self.__reader is not None
+        return self.__reader
 
     def close(self):
-        if self._reader is not None:
-            self._reader.close()
-        self._reader = None
+        if self.__reader is not None:
+            self.__reader.close()
+        self.__reader = None
 
 
 def estimate_row_count(path: Path) -> int:
@@ -110,10 +141,10 @@ def estimate_row_count(path: Path) -> int:
         row_size = len(row.encode("utf-8"))
 
     file_size = path.stat().st_size
-    return file_size // row_size
+    return (file_size // row_size) - 1
 
 
-class CSVWriter(CSVMatcher):
+class CSVWriter(CSVMatcher):  # type: ignore
     """A Writer implementation for CSV files."""
 
     _path: Path
@@ -129,7 +160,7 @@ class CSVWriter(CSVMatcher):
     # Doing a protocol implementation check here because
     # it's hard for pyright to handle factories that retun
     # protocol classes.
-    def _(self) -> Writer:
+    def _(self) -> FileWriter:
         return self
 
     def write(self, df: pd.DataFrame):

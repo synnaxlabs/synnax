@@ -48,5 +48,4 @@ class Transport:
         self.stream.use(*middleware)
 
     def use_async(self, *middleware: AsyncMiddleware):
-        self.http.use(*middleware)
         self.stream_async.use(*middleware)

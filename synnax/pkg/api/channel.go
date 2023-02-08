@@ -11,6 +11,8 @@ package api
 
 import (
 	"context"
+
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -92,8 +94,13 @@ type ChannelRetrieveRequest struct {
 	Names []string `query:"names"`
 }
 
+// ChannelRetrieveResponse is the response for a ChannelRetrieveRequest.
 type ChannelRetrieveResponse struct {
+	// Channels is a slice of Channels matching the request.
 	Channels []Channel `json:"channels" msgpack:"channels"`
+	// NotFound is a slice of strings matching the keys or names of Channels that
+	// were not found.
+	NotFound []string  `json:"not_found" msgpack:"not_found"`
 }
 
 // Retrieve retrieves a Channel based on the parameters given in the request. If no
@@ -102,18 +109,24 @@ func (s *ChannelService) Retrieve(
 	ctx context.Context,
 	req ChannelRetrieveRequest,
 ) (ChannelRetrieveResponse, errors.Typed) {
-	var resChannels []channel.Channel
-	q := s.internal.NewRetrieve().Entries(&resChannels)
+	var (
+		resChannels []channel.Channel
+		parsedKeys  channel.Keys
+		notFound channel.Keys
+		q = s.internal.NewRetrieve().Entries(&resChannels)
+		hasKeys = len(req.Keys) > 0
+		hasNames = len(req.Names) > 0
+	)
 
-	if len(req.Keys) > 0 {
-		keys, err := channel.ParseKeys(req.Keys)
-		if err != nil {
+	if hasKeys {
+		var err error
+		if parsedKeys, err = channel.ParseKeys(req.Keys); err != nil {
 			return ChannelRetrieveResponse{}, errors.Parse(err)
 		}
-		q = q.WhereKeys(keys...)
+		q = q.WhereKeys(parsedKeys...)
 	}
 
-	if len(req.Names) > 0 {
+	if hasNames {
 		q = q.WhereNames(req.Names...)
 	}
 
@@ -122,7 +135,17 @@ func (s *ChannelService) Retrieve(
 	}
 
 	err := errors.MaybeQuery(q.Exec(ctx))
-	return ChannelRetrieveResponse{Channels: translateChannelsForward(resChannels)}, err
+
+	if hasKeys {
+		notFound, _ = lo.Difference(parsedKeys, channel.KeysFromChannels(resChannels))
+	}
+
+	if hasNames {
+		_notFound, _ := lo.Difference(notFound, channel.KeysFromChannels(resChannels))
+		notFound = append(notFound, _notFound...)
+	}
+
+	return ChannelRetrieveResponse{Channels: translateChannelsForward(resChannels), NotFound: notFound.Strings()}, err
 }
 
 func translateChannelsForward(channels []channel.Channel) []Channel {
