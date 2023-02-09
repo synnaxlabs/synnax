@@ -9,10 +9,27 @@
  * included in the file licenses/APL.txt.
  */
 
-import { Size, TimeRange } from "@synnaxlabs/x";
+import { Size, TimeRange, KV } from "@synnaxlabs/x";
+
 import { Frame } from "@/framer";
 
-export class FrameCache {
+export interface FrameCacheRequest {
+  tr: TimeRange;
+  keys: string[];
+}
+
+export interface FrameCacheResponse {
+  frame: Frame;
+  missing: string[];
+}
+
+export class FrameCache implements KV<
+  FrameCacheRequest,
+  FrameCacheResponse,
+  TimeRange,
+  Frame,
+  FrameCacheRequest
+> {
   private readonly _cache: Record<string, Frame>;
 
   constructor() {
@@ -23,7 +40,7 @@ export class FrameCache {
     return Object.values(this._cache).reduce((acc, fr) => acc.add(fr.size), Size.ZERO);
   }
 
-  get(tr: TimeRange, ...keys: string[]): FrameCacheResult {
+  get({ tr, keys }: FrameCacheRequest): FrameCacheResponse {
     const strKey = tr.toString();
     const fr = this._cache[strKey];
     if (fr == null) return { frame: new Frame(), missing: keys };
@@ -31,18 +48,18 @@ export class FrameCache {
     return { frame: filtered, missing: keys.filter((key) => !filtered.has(key)) };
   }
 
-  overrideF(tr: TimeRange, fr: Frame): void {
-    const v = this._cache[this.key(tr)];
-    if (v == null) this._cache[this.key(tr)] = fr;
-    else this._cache[this.key(tr)] = v.overrideF(fr);
+  set(tr: TimeRange, fr: Frame): void {
+    const strKey = tr.toString();
+    const v = this._cache[strKey];
+    if (v == null) this._cache[strKey] = fr;
+    else this._cache[strKey] = v.overrideF(fr);
   }
 
-  private key(tr: TimeRange): string {
-    return tr.toString();
+  delete({ tr, keys }: FrameCacheRequest): void {
+    const strKey = tr.toString();
+    const fr = this._cache[strKey];
+    if (fr == null) return;
+    this._cache[strKey] = fr.filter((k) => !keys.includes(k));
   }
 }
 
-export interface FrameCacheResult {
-  frame: Frame;
-  missing: string[];
-}

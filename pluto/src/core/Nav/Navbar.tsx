@@ -25,7 +25,7 @@ const NavbarContext = createContext<Location>("left");
 
 const CoreNavbar = ({
   location = "left",
-  size = 60,
+  size = "9rem",
   className,
   style,
   ...props
@@ -60,8 +60,8 @@ export interface NavbarContentProps extends Omit<SpaceProps<"div">, "ref"> {
 
 const contentFactory =
   (pos: Position | ""): FunctionComponent<NavbarContentProps> =>
-  // eslint-disable-next-line react/display-name
-  ({ bordered = true, className, ...props }: NavbarContentProps): JSX.Element =>
+    // eslint-disable-next-line react/display-name
+    ({ bordered = true, className, ...props }: NavbarContentProps): JSX.Element =>
     (
       <Space
         className={clsx(

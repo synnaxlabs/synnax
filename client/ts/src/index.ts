@@ -34,7 +34,7 @@ export {
   DataType,
   Density,
   Rate,
-  TArray,
+  LazyArray,
   TimeRange,
   TimeSpan,
   TimeStamp,

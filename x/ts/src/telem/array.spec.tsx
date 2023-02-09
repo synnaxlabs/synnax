@@ -11,34 +11,34 @@ import { describe, expect, test } from "vitest";
 
 import { ValidationError } from "..";
 
-import { TArray } from "./array";
+import { LazyArray } from "./array";
 import { DataType, TimeRange } from "./telem";
 
-describe("TArray", () => {
+describe("LazyArray", () => {
   describe("construct", () => {
     test("valid from native", () => {
-      const a = new TArray(new Float32Array([1, 2, 3]));
+      const a = new LazyArray(new Float32Array([1, 2, 3]));
       expect(a.dataType.toString()).toBe(DataType.FLOAT32.toString());
-      const b = new TArray(new BigInt64Array([BigInt(1)]));
+      const b = new LazyArray(new BigInt64Array([BigInt(1)]));
       expect(b.dataType.toString()).toBe(DataType.INT64.toString());
-      const c = new TArray(new BigInt64Array([BigInt(1)]), DataType.TIMESTAMP);
+      const c = new LazyArray(new BigInt64Array([BigInt(1)]), DataType.TIMESTAMP);
       expect(c.dataType.toString()).toBe(DataType.TIMESTAMP.toString());
     });
 
     test("from buffer without data type provided", () => {
       expect(() => {
         // eslint-disable-next-line no-new
-        new TArray(new ArrayBuffer(4));
+        new LazyArray(new ArrayBuffer(4));
       }).toThrow(ValidationError);
     });
 
     test("from buffer with data type provided", () => {
-      const a = new TArray(new ArrayBuffer(4), DataType.FLOAT32);
+      const a = new LazyArray(new ArrayBuffer(4), DataType.FLOAT32);
       expect(a.dataType.toString()).toBe(DataType.FLOAT32.toString());
     });
 
     test("with time range", () => {
-      const a = new TArray(
+      const a = new LazyArray(
         new Float32Array([1, 2, 3]),
         DataType.FLOAT32,
         new TimeRange(1, 2)
@@ -49,21 +49,21 @@ describe("TArray", () => {
 
   describe("convert", () => {
     test("from float64 to float32", () => {
-      const a = new TArray(new Float64Array([1, 2, 3]), DataType.FLOAT64);
+      const a = new LazyArray(new Float64Array([1, 2, 3]), DataType.FLOAT64);
       const b = a.convert(DataType.FLOAT32);
       expect(b.dataType.toString()).toBe(DataType.FLOAT32.toString());
       expect(b.data).toEqual(new Float32Array([1, 2, 3]));
     });
 
     test("from int64 to int32", () => {
-      const a = new TArray(new BigInt64Array([BigInt(1), BigInt(2), BigInt(3)]));
+      const a = new LazyArray(new BigInt64Array([BigInt(1), BigInt(2), BigInt(3)]));
       const b = a.convert(DataType.INT32);
       expect(b.dataType.toString()).toBe(DataType.INT32.toString());
       expect(b.data).toEqual(new Int32Array([1, 2, 3]));
     });
 
     test("from float32 to int64", () => {
-      const a = new TArray(new Float32Array([1, 2, 3]), DataType.FLOAT32);
+      const a = new LazyArray(new Float32Array([1, 2, 3]), DataType.FLOAT32);
       const b = a.convert(DataType.INT64);
       expect(b.dataType.toString()).toBe(DataType.INT64.toString());
       expect(b.data).toEqual(new BigInt64Array([BigInt(1), BigInt(2), BigInt(3)]));

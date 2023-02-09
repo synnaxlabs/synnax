@@ -9,23 +9,6 @@
 
 import { invoke } from "@tauri-apps/api";
 
-/** A read-writable key-value store. */
-export interface KV extends KVReader, KVWriter {}
-
-/** A readable key-value store. */
-export interface KVReader {
-  /** Get returns the value for a given key. */
-  get: <V>(key: string) => Promise<V | undefined>;
-}
-
-/** A writable key-value store. */
-export interface KVWriter {
-  /** Sets a key-value pair in the store. The value must be serializable. */
-  set: <V>(key: string, value: V) => Promise<void>;
-  /** Deletes a key-value pair from the store. */
-  delete: (key: string) => Promise<void>;
-}
-
 enum KVCommand {
   Get = "get",
   Set = "set",

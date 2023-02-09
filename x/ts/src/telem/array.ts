@@ -26,9 +26,13 @@ const validateFieldNotNull = (name: string, field: unknown): void => {
   }
 };
 
-/** A strongly typed array of telemetry samples. */
-export class TArray {
+/**
+ * A strongly typed array of telemetry samples backed
+ * by an underlying binary buffer
+ */
+export class LazyArray {
   readonly dataType: DataType;
+  readonly offset: SampleValue;
   private readonly _data: ArrayBufferLike;
   readonly _timeRange?: TimeRange;
   private _min?: SampleValue;
@@ -37,7 +41,8 @@ export class TArray {
   constructor(
     data: ArrayBufferLike | NativeTypedArray,
     dataType?: UnparsedDataType,
-    timeRange?: TimeRange
+    timeRange?: TimeRange,
+    offset?: SampleValue
   ) {
     if (
       dataType == null &&
@@ -49,9 +54,10 @@ export class TArray {
       this.dataType = new DataType(dataType);
     } else {
       throw new Error(
-        "must provide a data type when constructing a TArray from a buffer"
+        "must provide a data type when constructing a LazyArray from a buffer"
       );
     }
+    this.offset = offset ?? 0;
     this._data = data;
     this._timeRange = timeRange;
   }
@@ -92,15 +98,15 @@ export class TArray {
    * WARNING: This method is expensive and copies the entire underlying array. There
    * also may be untimely precision issues when converting between data types.
    */
-  convert(target: DataType, offset: SampleValue = 0): TArray {
+  convert(target: DataType, offset: SampleValue = 0): LazyArray {
     if (this.dataType.equals(target)) return this;
     const data = new target.Array(this.length);
     for (let i = 0; i < this.length; i++) {
       data[i] = convertDataType(this.dataType, target, this.data[i], offset);
     }
-    const n = new TArray(data.buffer, target, this._timeRange);
-    if (this._max != null) n._max = sampleAdd(this._max, offset);
-    if (this._min != null) n._min = sampleAdd(this._min, offset);
+    const n = new LazyArray(data.buffer, target, this._timeRange, offset);
+    if (this._max != null) n._max = addSamples(this._max, offset);
+    if (this._min != null) n._min = addSamples(this._min, offset);
     return n;
   }
 
@@ -116,7 +122,7 @@ export class TArray {
         this._max = d.reduce((a, b) => (a > b ? a : b));
       }
     }
-    return this._max;
+    return addSamples(this._max, this.offset);
   }
 
   get min(): number | bigint {
@@ -131,7 +137,7 @@ export class TArray {
         this._min = d.reduce((a, b) => (a < b ? a : b));
       }
     }
-    return this._min;
+    return addSamples(this._min, this.offset);
   }
 
   enrich(): void {
@@ -141,11 +147,11 @@ export class TArray {
   }
 
   get range(): number | bigint {
-    return sampleAdd(this.max, -this.min);
+    return addSamples(this.max, -this.min);
   }
 }
 
-const sampleAdd = (a: SampleValue, b: SampleValue): SampleValue => {
+export const addSamples = (a: SampleValue, b: SampleValue): SampleValue => {
   if (typeof a === "bigint" && typeof b === "bigint") return a + b;
   else if (typeof a === "number" && typeof b === "number") return a + b;
   console.warn(

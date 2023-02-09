@@ -19,6 +19,7 @@ export interface UseCursorDragProps {
   onStart?: (loc: XY, mouseKey: KeyboardKey) => void;
   onMove?: (box: Box, mouseKey: KeyboardKey) => void;
   onEnd?: (box: Box, mouseKey: KeyboardKey) => void;
+  preventDefault?: boolean;
 }
 
 export type UseCursorDragStart = (
@@ -29,10 +30,11 @@ export const useCursorDrag = ({
   onMove,
   onStart,
   onEnd,
+  preventDefault = true,
 }: UseCursorDragProps): UseCursorDragStart =>
   useCallback(
     (e) => {
-      e.preventDefault();
+      if (preventDefault) e.preventDefault();
       const startLoc = toXY(e);
       const mouseKey = mouseButtonKey(e);
       onStart?.(startLoc, mouseKey);
@@ -48,5 +50,5 @@ export const useCursorDrag = ({
       };
       window.addEventListener("mouseup", handleUp, { once: true });
     },
-    [onMove, onStart, onEnd]
+    [onMove, onStart, onEnd, preventDefault]
   );

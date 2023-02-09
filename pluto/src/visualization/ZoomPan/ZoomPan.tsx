@@ -23,6 +23,7 @@ import {
 import { BoxScale } from "@/spatial/scale";
 
 import "./ZoomPan.css";
+import clsx from "clsx";
 
 export interface UseZoomPanProps {
   allowZoom?: boolean;
@@ -131,7 +132,7 @@ export const useZoomPan = ({
     [mode, setMaskBox]
   );
 
-  const onDragStart = useCursorDrag({ onMove: handleMove, onEnd: handleEnd });
+  const onDragStart = useCursorDrag({ onMove: handleMove, onEnd: handleEnd, preventDefault: false });
 
   const containerStyle: React.CSSProperties = {
     cursor: mode === "zoom" ? "crosshair" : "grab",
@@ -154,7 +155,7 @@ type DivProps = React.DetailedHTMLProps<
 
 export interface ZoomPanProps
   extends Omit<UseZoomPanReturn, "ref">,
-    Omit<DivProps, "onDragStart" | "onDragEnd" | "onDrag" | "ref" | "onDoubleClick"> {}
+  Omit<DivProps, "onDragStart" | "onDragEnd" | "onDrag" | "ref" | "onDoubleClick"> { }
 
 export const ZoomPanMask = forwardRef<HTMLDivElement, ZoomPanProps>(
   (
@@ -165,6 +166,7 @@ export const ZoomPanMask = forwardRef<HTMLDivElement, ZoomPanProps>(
       ref={ref}
       onMouseDown={onDragStart}
       style={{ ...containerStyle, ...style }}
+      className={clsx("pluto-no-select", className)}
       {...props}
     >
       <div style={maskStyle} className="pluto-zoom-pan-mask" />

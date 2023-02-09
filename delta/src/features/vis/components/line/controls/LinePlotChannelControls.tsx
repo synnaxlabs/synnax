@@ -44,6 +44,14 @@ export const LinePlotChannelControls = ({
         location="top"
         grow
       />
+      <SelectMultipleAxesInputItem
+        axis={"y2"}
+        onChange={handleChannelSelect}
+        value={vis.channels.y2}
+        data={channels}
+        location="top"
+        grow
+      />
       <Space direction="x" grow wrap>
         <SelectMultipleRangesInputItem
           data={ranges}

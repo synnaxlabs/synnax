@@ -14,9 +14,18 @@ export interface Vis {
   key: string;
 }
 
-export type YAxisKey = "y1" | "y2" | "y3" | "y4";
-export type XAxisKey = "x1";
-export type AxisKey = YAxisKey | XAxisKey;
+export const Y_AXIS_KEYS = ["y1", "y2", "y3", "y4"] as const;
+export type YAxisKey = typeof Y_AXIS_KEYS[number];
+export type MultiYAxisRecord = Record<YAxisKey, readonly string[]>;
+export type YAxisRecord = Record<YAxisKey, string>;
+
+export const X_AXIS_KEYS = ["x1", "x2"] as const;
+export type XAxisKey = typeof X_AXIS_KEYS[number];
+export type MultiXAxisRecord = Record<XAxisKey, readonly string[]>;
+export type XAxisRecord = Record<XAxisKey, string>;
+
+export const AXIS_KEYS = [...Y_AXIS_KEYS, ...X_AXIS_KEYS] as const;
+export type AxisKey = typeof AXIS_KEYS[number];
 
 export const axisLabel = (key: AxisKey): string => key.toUpperCase();
 

@@ -51,7 +51,7 @@ const findTarget = (target: HTMLElement): HTMLElement => {
   let candidate = target;
   while (candidate != null && !candidate.classList.contains(CONTEXT_TARGET)) {
     if (candidate.classList.contains(MENU_CONTEXT_CONTAINER)) return target;
-    candidate = target.parentElement as HTMLElement;
+    candidate = candidate.parentElement as HTMLElement;
   }
   return candidate;
 };

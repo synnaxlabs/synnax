@@ -26,10 +26,10 @@ from freighter.metadata import MetaData
 
 t = Timeout(connect=3.0, read=7.0)
 r = Retry(
-    connect=3, 
-    read=3, 
-    redirect=3, 
-    status=3, 
+    connect=3,
+    read=3,
+    redirect=3,
+    status=3,
     status_forcelist=[500, 502, 503, 504],
 )
 http_pool = PoolManager(cert_reqs="CERT_NONE", timeout=t, retries=r)
