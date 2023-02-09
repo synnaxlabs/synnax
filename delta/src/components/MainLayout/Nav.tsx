@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Divider, locToDir, Nav, Theming } from "@synnaxlabs/pluto";
+import { Divider, locToDir, Nav, Theming, Button } from "@synnaxlabs/pluto";
 import type { NavDrawerItem } from "@synnaxlabs/pluto";
 import clsx from "clsx";
 
@@ -24,9 +24,9 @@ import { WorkspaceToolbar } from "@/features/workspace";
 import "./Nav.css";
 
 export const NAV_SIZES = {
-  side: 48,
-  top: 42,
-  bottom: 32,
+  side: "8rem",
+  top: "7rem",
+  bottom: "4.5rem",
 };
 
 export const NAV_DRAWERS: NavDrawerItem[] = [

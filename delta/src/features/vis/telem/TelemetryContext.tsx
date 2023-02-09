@@ -7,10 +7,9 @@ import {
 } from "react";
 
 import { FrameCache } from "@synnaxlabs/client";
-import { useGLContext } from "@synnaxlabs/pluto";
+import { GLDemandCache, useGLContext } from "@synnaxlabs/pluto";
 
 import { TelemetryClient } from "./client";
-import { GLBufferCache } from "./glCache";
 
 import { useClusterClient } from "@/features/cluster";
 
@@ -20,7 +19,7 @@ export interface TelemetryContextValue {
 
 const Context = createContext<TelemetryContextValue | null>(null);
 
-export interface TelemetryProviderProps extends PropsWithChildren {}
+export interface TelemetryProviderProps extends PropsWithChildren { }
 
 export const useTelemetryClient = (): TelemetryClient | null =>
   useContext(Context)?.client ?? null;
@@ -35,7 +34,7 @@ export const TelemetryProvider = ({
   useEffect(() => {
     if (clusterClient == null || glCtx == null) return;
     setClient(
-      new TelemetryClient(new GLBufferCache(glCtx.gl), clusterClient, new FrameCache())
+      new TelemetryClient(new GLDemandCache(glCtx.gl), clusterClient, new FrameCache())
     );
   }, [clusterClient, glCtx]);
 

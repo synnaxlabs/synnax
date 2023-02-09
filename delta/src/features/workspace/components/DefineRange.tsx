@@ -77,10 +77,10 @@ export const DefineRange = ({
     const start = startDate + startTime;
     const end = endDate + endTime;
     name = name.trim();
-    if(name.length === 0) name = range?.name as string;
+    if (name.length === 0) name = range?.name as string;
     const key = range?.key ?? name.replace(/\s/g, "").toLowerCase();
     // remove leading and trailing whitespace
-    
+
     dispatch(addRange({ name, start, end, key }));
     onClose();
   };
@@ -160,12 +160,12 @@ const TimeModifierRow = ({
 }: TimeModifierRowProps): JSX.Element => {
   const onClickFactory =
     (span?: TimeSpan): ButtonProps["onChange"] =>
-    (e) => {
-      e.preventDefault();
-      if (span == null) return onChange(TimeStamp.now().valueOf());
-      value = op === "add" ? value + span.valueOf() : value - span.valueOf();
-      onChange(value);
-    };
+      (e) => {
+        e.preventDefault();
+        if (span == null) return onChange(TimeStamp.now().valueOf());
+        value = op === "add" ? value + span.valueOf() : value - span.valueOf();
+        onChange(value);
+      };
   const icon = op === "add" ? <Icon.Add /> : <Icon.Subtract />;
   return (
     <Pack direction="x" size="medium" grow>
@@ -189,7 +189,7 @@ const TimeModifierRow = ({
       </Button>
       <Button
         variant="outlined"
-        onClick={onClickFactory(TimeSpan.minutes(15))}
+        onClick={onClickFactory(TimeSpan.minutes(1))}
         startIcon={icon}
         justify="center"
         grow
@@ -201,7 +201,7 @@ const TimeModifierRow = ({
         onClick={onClickFactory()}
         justify="center"
         grow
-      > 
+      >
         Now
       </Button>
     </Pack>

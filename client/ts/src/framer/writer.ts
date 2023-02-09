@@ -10,13 +10,18 @@
 /* eslint-disable @typescript-eslint/no-throw-literal */
 import type { Stream, StreamClient } from "@synnaxlabs/freighter";
 import { decodeError, EOF, ErrorPayloadSchema } from "@synnaxlabs/freighter";
+import {
+  NativeTypedArray,
+  LazyArray,
+  TimeStamp,
+  UnparsedTimeStamp,
+} from "@synnaxlabs/x";
 import { z } from "zod";
+
+import { GeneralError } from "@/errors";
 
 import { Frame } from "./frame";
 import { framePayloadSchema } from "./payload";
-
-import { GeneralError } from "@/errors";
-import { NativeTypedArray, TArray, TimeStamp, UnparsedTimeStamp } from "@synnaxlabs/x";
 
 enum Command {
   None = 0,
@@ -146,7 +151,7 @@ export class FrameWriter {
   }
 
   async writeArray(key: string, data: NativeTypedArray): Promise<boolean> {
-    return await this.write(new Frame(new TArray(data), key));
+    return await this.write(new Frame(new LazyArray(data), key));
   }
 
   /**

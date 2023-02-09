@@ -9,17 +9,17 @@
  * included in the file licenses/APL.txt.
  */
 
-import { Size, TArray, TimeRange } from "@synnaxlabs/x";
+import { Size, LazyArray, TimeRange } from "@synnaxlabs/x";
 
 import { arrayFromPayload, arrayToPayload, FramePayload } from "./payload";
 
 import { UnexpectedError, ValidationError } from "@/errors";
 
 export class Frame {
-  private readonly _entries: Record<string, TArray[]>;
+  private readonly _entries: Record<string, LazyArray[]>;
 
   constructor(
-    data: FramePayload | Record<string, TArray[]> | TArray[] | TArray = [],
+    data: FramePayload | Record<string, LazyArray[]> | LazyArray[] | LazyArray = [],
     keys: string | string[] = []
   ) {
     this._entries = {};
@@ -32,9 +32,9 @@ export class Frame {
       if (v.arrays == null || v.keys == null || v.keys.length !== v.arrays.length)
         throw new ValidationError("arrays and keys must be defined");
       v.keys.forEach((key, i) =>
-        this.pushA(key, arrayFromPayload((v.arrays as TArray[])[i]))
+        this.pushA(key, arrayFromPayload((v.arrays as LazyArray[])[i]))
       );
-    } else if (data instanceof TArray) {
+    } else if (data instanceof LazyArray) {
       this.pushA(keys as string, data);
     } else {
       this._entries = data;
@@ -85,7 +85,7 @@ export class Frame {
    * this will return an array of length 1. If the frame is horiztonal, returns all
    * arrays in the frame.
    */
-  getA(key: string): TArray[] {
+  getA(key: string): LazyArray[] {
     return this._entries[key] ?? [];
   }
 
@@ -107,26 +107,44 @@ export class Frame {
    *
    * @param key - the key to filter by.
    */
-  pushA(key: string, ...v: TArray[]): void {
+  pushA(key: string, ...v: LazyArray[]): void {
     this._entries[key] = (this._entries[key] ?? []).concat(v);
   }
 
-  overrideA(key: string, ...v: TArray[]): void {
-    this._entries[key] = v;
+  /**
+  * @returns a shallow copy of this frame with the given key overridden with the
+  * provided typed arrays.
+  */
+  overrideA(key: string, ...v: LazyArray[]): Frame {
+    const next = this.shallowCopy();
+    next._entries[key] = v;
+    return next;
   }
 
-  pushF(frame: Frame): Frame {
+  /**
+  * @returns a shallow copy of this frame containing all typed arrays in the current frame and the
+  * provided frame.
+  */
+  concatF(frame: Frame): Frame {
+    const next = this.shallowCopy();
     for (const [key, arrays] of frame.entries) {
-      this._entries[key] = (this._entries[key] ?? []).concat(arrays);
+      next._entries[key] = (next._entries[key] ?? []).concat(arrays);
     }
-    return this;
+    return next;
   }
 
+  /**
+  * @returns a shallow copy of the frame with the provided frame's entries
+  * overriding the current frame's entries i.e. all typed arrays in the
+  * provided frame will replace the current frame's typed arrays with the
+  * same key.
+  */
   overrideF(frame: Frame): Frame {
+    const next = this.shallowCopy();
     for (const [key, arrays] of frame.entries) {
-      this._entries[key] = arrays;
+      next._entries[key] = arrays;
     }
-    return this;
+    return next;
   }
 
   /**
@@ -143,15 +161,15 @@ export class Frame {
     return Object.keys(this._entries);
   }
 
-  get entries(): Array<[string, TArray[]]> {
+  get entries(): Array<[string, LazyArray[]]> {
     return Object.entries(this._entries);
   }
 
-  get arrays(): TArray[] {
+  get arrays(): LazyArray[] {
     return Object.values(this._entries).flat();
   }
 
-  map(fn: (k: string, arr: TArray, i: number) => TArray): Frame {
+  map(fn: (k: string, arr: LazyArray, i: number) => LazyArray): Frame {
     const frame = new Frame();
     for (const [k, a] of this.entries) {
       frame._entries[k] = a.map((arr, i) => fn(k, arr, i));
@@ -159,7 +177,7 @@ export class Frame {
     return frame;
   }
 
-  filter(fn: (k: string, arr: TArray, i: number) => boolean): Frame {
+  filter(fn: (k: string, arr: LazyArray, i: number) => boolean): Frame {
     const f = new Frame();
     for (const [k, a] of this.entries) {
       if (a == null) throw new UnexpectedError(`a is null for key ${k}`);
@@ -171,5 +189,13 @@ export class Frame {
 
   get size(): Size {
     return new Size(this.arrays.reduce((acc, v) => acc.add(v.size), Size.ZERO));
+  }
+
+  shallowCopy(): Frame {
+    const fr = new Frame()
+    for (const [k, a] of this.entries) {
+      fr._entries[k] = a.slice();
+    }
+    return fr;
   }
 }

@@ -15,9 +15,9 @@ import { NavBottom, NavDrawer, NavLeft, NavRight, NavTop } from "./Nav";
 
 import { LayoutMosaic } from "@/features/layout";
 import { VisCanvas } from "@/features/vis";
+import { Menu } from "../Menu";
 
 import "./MainLayout.css";
-import { Menu } from "../Menu";
 
 /**
  * The center of it all. This is the main layout for the Delta UI. Try to keep this

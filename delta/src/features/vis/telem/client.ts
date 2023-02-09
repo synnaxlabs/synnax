@@ -10,25 +10,28 @@
  */
 
 import {
-  TArray,
+  LazyArray,
   FrameCache,
   TimeRange,
   DataType,
   Synnax,
   Frame,
 } from "@synnaxlabs/client";
-
-import { GLBufferCache } from "./glCache";
+import { GLDemandCache, GLDemandCacheEntry } from "@synnaxlabs/pluto";
 
 import { Range } from "@/features/workspace";
-import { w } from "@tauri-apps/api/event-2a9960e7";
+
+interface GLCacheKey {
+  rangeKey: string;
+  key: string;
+}
 
 export class TelemetryClient {
-  private readonly glCache: GLBufferCache;
+  private readonly glCache: GLDemandCache<GLCacheKey>;
   private readonly client: Synnax;
   private readonly frameCache: FrameCache;
 
-  constructor(glCache: GLBufferCache, client: Synnax, frameCache: FrameCache) {
+  constructor(glCache: GLDemandCache<GLCacheKey>, client: Synnax, frameCache: FrameCache) {
     this.frameCache = frameCache;
     this.glCache = glCache;
     this.client = client;
@@ -40,48 +43,40 @@ export class TelemetryClient {
     return e;
   }
 
-  private async retrieveOne(
-    range: Range,
-    keys: string[]
-  ): Promise<TelemetryClientResponse[]> {
+  private async retrieveOne(range: Range, keys: string[]): Promise<TelemetryClientResponse[]> {
     const tr = new TimeRange(range.start, range.end);
-    let { frame, missing } = this.frameCache.get(tr, ...keys);
-    if (missing.length > 0) frame = frame.overrideF(await this.readRemote(tr, missing));
-    return frame.entries.map(([key, arrays]) => ({
-      range,
-      key,
-      arrays,
-      ...this.getAndUpdateGLCache(range, key, arrays)
-    }));
+    let { frame, missing } = this.frameCache.get({ tr, keys });
+    if (missing.length > 0) {
+      const remote = this.enrichAndConvertF(await this.readRemote(tr, missing));
+      this.frameCache.set(tr, remote);
+      this.updateGLCache(range.key, remote);
+      frame = frame.overrideF(remote);
+    }
+    return frame.entries.map(([key, arrays]) => {
+      const buffers = this.glCache.get(`${range.key}-${key}`);
+      if (buffers == null) throw new Error("GLCache is missing buffers");
+      return { range, key, arrays, buffers };
+    })
   }
 
   private async readRemote(tr: TimeRange, keys: string[]): Promise<Frame> {
     const frame = await this.client.data.readFrame(tr, keys);
-    this.enrich(frame);
-    this.frameCache.overrideF(tr, frame);
     return frame;
   }
 
-  private getAndUpdateGLCache(
-    range: Range,
-    key: string,
-    arrays: TArray[]
-  ): {glBuffers: WebGLBuffer[], glOffsets: Array<number | bigint>} {
-    let glBuffers = this.glCache.get(range.key, key);
-    let glOffsets: Array<number | bigint> = [];
-    arrays = arrays.map((a) => {
+  private enrichAndConvertF(frame: Frame): Frame {
+    return frame.map((_, a) => {
       let offset: bigint | number = 0;
-      if (a.dataType.equals(DataType.TIMESTAMP)) 
-        offset = Number(-a.timeRange.start.valueOf())
-      glOffsets.push(offset);
-      return a.convert(DataType.FLOAT32, offset)
+      if (a.dataType.equals(DataType.TIMESTAMP))
+        offset = Number(-a.timeRange.start.valueOf());
+      a = a.convert(DataType.FLOAT32, offset);
+      a.enrich();
+      return a;
     });
-    if (glBuffers == null) glBuffers = this.glCache.set(range.key, key, arrays);
-    return  {glBuffers, glOffsets};
   }
 
-  private enrich(f: Frame): void {
-    f.arrays.forEach((a) => a.enrich());
+  private updateGLCache(rangeKey: string, frame: Frame): void {
+    frame.entries.forEach(([key, arrays]) => this.glCache.set(`${rangeKey}-${key}`, arrays));
   }
 }
 
@@ -93,7 +88,6 @@ export interface TelemetryClientRequest {
 export interface TelemetryClientResponse {
   range: Range;
   key: string;
-  glBuffers: WebGLBuffer[];
-  glOffsets: Array<number | bigint>;
-  arrays: TArray[];
+  buffers: GLDemandCacheEntry<GLCacheKey>;
+  arrays: LazyArray[];
 }

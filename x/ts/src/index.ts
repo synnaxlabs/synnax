@@ -11,3 +11,5 @@ export * from "@/clamp";
 export * from "@/compare";
 export * from "@/runtime";
 export * from "@/unique";
+export * from "@/kv";
+export * from "@/cache";

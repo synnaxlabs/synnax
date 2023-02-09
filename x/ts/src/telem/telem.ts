@@ -906,18 +906,23 @@ export class Size extends Number {
   }
 
   /** @returns true if the Size is larger than the other size. */
-  largerThan(other: Size): boolean {
+  largerThan(other: UnparsedSize): boolean {
     return this.valueOf() > other.valueOf();
   }
 
   /** @returns true if the Size is smaller than the other sisze. */
-  smallerThan(other: Size): boolean {
+  smallerThan(other: UnparsedSize): boolean {
     return this.valueOf() < other.valueOf();
   }
 
-  add(other: Size): Size {
+  add(other: UnparsedSize): Size {
     return Size.bytes(this.valueOf() + other.valueOf());
   }
+
+  sub(other: UnparsedSize): Size {
+    return Size.bytes(this.valueOf() - other.valueOf());
+  }
+
 
   /**
    * Creates a Size from the given number of bytes.
