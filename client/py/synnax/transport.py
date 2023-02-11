@@ -7,11 +7,13 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from urllib3 import Timeout, Retry
+
 from freighter import (
     URL,
     AsyncMiddleware,
     AsyncStreamClient,
-    HTTPClientFactory,
+    HTTPClientPool,
     JSONEncoder,
     Middleware,
     MsgpackEncoder,
@@ -20,27 +22,42 @@ from freighter import (
     WebsocketClient,
 )
 
+from synnax.telem import TimeSpan
 
 class Transport:
     url: URL
     stream: StreamClient
     stream_async: AsyncStreamClient
-    http: HTTPClientFactory
+    http: HTTPClientPool
     secure: bool
 
-    def __init__(self, url: URL, secure: bool = False) -> None:
+    def __init__(
+        self,
+        url: URL,
+        secure: bool = False,
+        open_timeout: TimeSpan = TimeSpan.SECOND * 5,
+        read_timeout: TimeSpan = TimeSpan.SECOND * 5,
+        keep_alive: TimeSpan = TimeSpan.SECOND * 30,
+        max_retries: int = 3,
+    ) -> None:
         self.url = url.child("/api/v1/")
         self.stream_async = WebsocketClient(
             base_url=self.url,
             encoder=MsgpackEncoder(),
             max_message_size=int(5e6),
             secure=secure,
+            open_timeout=open_timeout.seconds(),
+            ping_interval=keep_alive.seconds(),
+            close_timeout=read_timeout.seconds(),
+            ping_timeout=read_timeout.seconds(),
         )
         self.stream = SyncStreamClient(self.stream_async)
-        self.http = HTTPClientFactory(
+        self.http = HTTPClientPool(
             url=self.url,
             encoder_decoder=JSONEncoder(),
             secure=secure,
+            timeout=Timeout(connect=open_timeout.seconds(), read=read_timeout.seconds()),
+            retries=Retry(total=max_retries),
         )
 
     def use(self, *middleware: Middleware):
