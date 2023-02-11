@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import Protocol, overload
 from typing_extensions import Literal
 
-from freighter import HTTPClientFactory, Payload, UnaryClient
+from freighter import HTTPClientPool, Payload, UnaryClient
 
 from synnax.exceptions import QueryError
 from synnax.channel.payload import ChannelPayload
@@ -80,7 +80,7 @@ class ClusterChannelRetriever:
     _ENDPOINT = "/channel/retrieve"
     client: UnaryClient
 
-    def __init__(self, client: HTTPClientFactory):
+    def __init__(self, client: HTTPClientPool):
         self.client = client.get_client()
 
     def _(self) -> ChannelRetriever:
@@ -153,7 +153,7 @@ class CacheChannelRetriever:
         keys_to_retrieve = list()
         names_to_retrieve = list()
         results = list()
-        
+
         for name in names:
             key = self.names_to_keys.get(name, None)
             print(key)

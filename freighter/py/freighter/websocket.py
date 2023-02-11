@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Generic, Type
+from typing import Generic, Type, Any
 
 from freighter.metadata import MetaData
 from pydantic import BaseModel
@@ -23,6 +23,7 @@ from freighter.url import URL
 _DATA_MESSAGE = "data"
 _CLOSE_MESSAGE = "close"
 
+
 class _Message(Generic[P], BaseModel):
     type: str
     payload: P | None
@@ -30,7 +31,7 @@ class _Message(Generic[P], BaseModel):
 
 
 def _new_res_msg_t(res_t: Type[RS]) -> Type[_Message[RS]]:
-    class _ResMsg(_Message[RS]): 
+    class _ResMsg(_Message[RS]):
         payload: res_t | None
 
     return _ResMsg
@@ -119,19 +120,15 @@ class WebsocketStream(AsyncStream[RQ, RS]):
 
 DEFAULT_MAX_SIZE = 2**20
 
-class WebsocketClient(AsyncMiddlewareCollector):
-    """An implementation of AsyncStreamClient that is backed by a websocket
 
-    :param encoder: The encoder to use for this client.
-    :param base_url: A base url to use as a prefix for all requests.
-    :param max_message_size: The maximum size of a message to receive. Defaults to
-    DEFAULT_MAX_SIZE.
-    """
+class WebsocketClient(AsyncMiddlewareCollector):
+    """An implementation of AsyncStreamClient that is backed by a websocket"""
 
     _endpoint: URL
     _encoder: EncoderDecoder
     _max_message_size: int
     _secure: bool = False
+    _kwargs: dict[str, Any]
 
     def __init__(
         self,
@@ -139,12 +136,21 @@ class WebsocketClient(AsyncMiddlewareCollector):
         base_url: URL,
         max_message_size: int = DEFAULT_MAX_SIZE,
         secure: bool = False,
+        **kwargs,
     ) -> None:
+        """
+        :param encoder: The encoder to use for this client.
+        :param base_url: A base url to use as a prefix for all requests.
+        :param max_message_size: The maximum size of a message to receive. Defaults to
+        DEFAULT_MAX_SIZE.
+        :param secure: Whether to use TLS encryption on the connection or not.
+        """
         super(WebsocketClient, self).__init__()
         self._encoder = encoder
         self._secure = secure
         self._endpoint = base_url.replace(protocol="ws" if not secure else "wss")
         self._max_message_size = max_message_size
+        self._kwargs = kwargs
 
     def _(self) -> AsyncStreamClient:
         return self
@@ -169,7 +175,9 @@ class WebsocketClient(AsyncMiddlewareCollector):
                     self._endpoint.child(target).stringify(),
                     extra_headers=headers,
                     max_size=self._max_message_size,
+                    **self._kwargs,
                 )
+
                 socket = WebsocketStream[RQ, RS](self._encoder, ws, res_t)
             except Exception as e:
                 return out_meta_data, e
