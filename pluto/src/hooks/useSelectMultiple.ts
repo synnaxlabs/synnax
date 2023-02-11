@@ -15,9 +15,9 @@ import { InputControl } from "@/core/Input";
 
 import { useStateRef } from "./useStateRef";
 
-import { useKeysHeld } from "@/hooks";
-import { KeyboardKey } from "@/keys";
 import { ArrayTransform } from "@/util/transform";
+import { useTriggerHeld } from "@/triggers/TriggersContext";
+import { Triggers } from "..";
 
 export type SelectedRecord<E extends KeyedRecord<E>> = E & {
   selected?: true;
@@ -35,7 +35,7 @@ export interface UseSelectMultipleReturn<E extends KeyedRecord<E>> {
   clear: () => void;
 }
 
-const shiftHeld = (ref: RefObject<KeyboardKey[]>): boolean =>
+const shiftHeld = (ref: RefObject<string[]>): boolean =>
   ref.current?.includes("Shift") ?? false;
 
 /**
@@ -63,17 +63,15 @@ export const useSelectMultiple = <E extends KeyedRecord<E>>({
   onChange,
 }: UseSelectMultipleProps<E>): UseSelectMultipleReturn<E> => {
   const shiftValueRef = useRef<string | null>(null);
-  const [ref, setCurrentRef] = useStateRef<KeyboardKey[]>([]);
-  useKeysHeld(setCurrentRef, "Shift");
+  const shift = Triggers.use([["Shift", null]]);
 
   const handleSelect = useCallback(
     (key: string): void => {
       let nextSelected: readonly string[] = [];
-      const shift = shiftHeld(ref);
       const shiftValue = shiftValueRef.current;
       if (!allowMultiple) {
         nextSelected = value.includes(key) ? [] : [key];
-      } else if (shift && shiftValue !== null) {
+      } else if (shift.current.held && shiftValue !== null) {
         // We might select in reverse order, so we need to sort the indexes.
         const [start, end] = [
           data.findIndex((v) => v.key === key),
@@ -87,7 +85,7 @@ export const useSelectMultiple = <E extends KeyedRecord<E>>({
         else nextSelected = [...value, ...nextKeys];
         shiftValueRef.current = null;
       } else {
-        if (shift) shiftValueRef.current = key;
+        if (shift.current.held) shiftValueRef.current = key;
         if (value.includes(key)) nextSelected = value.filter((k) => k !== key);
         else nextSelected = [...value, key];
       }

@@ -9,8 +9,9 @@
 
 import { AiFillDelete, AiOutlineMinus, AiOutlinePlus } from "react-icons/ai";
 import { IoMdRefresh } from "react-icons/io";
-import { IoCopySharp} from "react-icons/io5";
+import { IoCopySharp, IoTime } from "react-icons/io5";
 import { MdEdit } from "react-icons/md";
+import { SiPython, SiTypescript } from "react-icons/si";
 
 export const Icon = {
   Edit: MdEdit,
@@ -19,5 +20,7 @@ export const Icon = {
   Copy: IoCopySharp,
   Refresh: IoMdRefresh,
   Delete: AiFillDelete,
-}
-
+  Python: SiPython,
+  Typescript: SiTypescript,
+  Time: IoTime,
+};

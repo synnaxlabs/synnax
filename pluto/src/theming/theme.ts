@@ -74,7 +74,7 @@ export interface Theme {
 const white: Color = "#FFFFFF";
 const black: Color = "#171716";
 const fontFamily = "Inter, sans-serif";
-const baseSize: Size = 6;
+const baseSize: Size = 4;
 
 const synnaxBase: Theme = {
   key: "synnax-base",

@@ -17,11 +17,11 @@ import { Direction, isDirection } from "./core";
 import { compareArrayDeps, useMemoCompare } from "@/hooks";
 
 /** A list of events that can trigger a resize. */
-export type Trigger = "moveX" | "moveY" | "resizeX" | "resizeY";
+export type DirectionTrigger = "moveX" | "moveY" | "resizeX" | "resizeY";
 
 export interface UseResizeOpts {
   /** A list of triggers that should cause the callback to be called. */
-  triggers?: Array<Trigger | Direction>;
+  triggers?: Array<DirectionTrigger | Direction>;
   /**  Debounce the resize event by this many milliseconds.
   Useful for preventing expensive renders until rezizing has stopped. */
   debounce?: number;
@@ -98,9 +98,11 @@ export const useSize = <E extends HTMLElement>(
   return [size, ref];
 };
 
-const normalizeTriggers = (triggers: Array<Direction | Trigger>): Trigger[] =>
+const normalizeTriggers = (
+  triggers: Array<Direction | DirectionTrigger>
+): DirectionTrigger[] =>
   triggers
-    .map((t): Trigger | Trigger[] => {
+    .map((t): DirectionTrigger | DirectionTrigger[] => {
       if (isDirection(t))
         return t === "x" ? ["moveX", "resizeX"] : ["moveY", "resizeY"];
       return t;
@@ -108,7 +110,7 @@ const normalizeTriggers = (triggers: Array<Direction | Trigger>): Trigger[] =>
     .flat();
 
 const shouldResize = (
-  triggers: Array<Trigger | Direction>,
+  triggers: Array<DirectionTrigger | Direction>,
   prev: Box,
   next: Box
 ): boolean => {

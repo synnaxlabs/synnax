@@ -69,6 +69,8 @@ export const RangesList = ({
   onSelect,
   onRemove,
 }: RangesListProps): JSX.Element => {
+  const contextMenProps = PMenu.useContextMenu();
+
   const RangesContextMenu = ({ keys }: MenuContextItemProps): JSX.Element => {
     const handleClick = (key: string): void => {
       switch (key) {
@@ -99,7 +101,7 @@ export const RangesList = ({
 
   return (
     <div style={{ flexGrow: 1 }}>
-      <PMenu.Context menu={(props) => <RangesContextMenu {...props} />}>
+      <PMenu.ContextMenu menu={(props) => <RangesContextMenu {...props} />} {...contextMenProps}>
         <List data={ranges}>
           <List.Selector
             value={selectedRange == null ? [] : [selectedRange.key]}
@@ -114,7 +116,7 @@ export const RangesList = ({
             {List.Column.Item}
           </List.Core.Virtual>
         </List>
-      </PMenu.Context>
+      </PMenu.ContextMenu>
     </div>
   );
 };

@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useState, useTransition } from "react";
 
-import { SampleValue } from "@synnaxlabs/client";
+import { SampleValue, TimeSpan, TimeStamp } from "@synnaxlabs/client";
 import {
   hexToRGBA,
   useResize,
@@ -20,28 +20,34 @@ import {
   GLLines,
   RGBATuple,
   Axis,
-  ZoomPanMask,
-  useZoomPan,
+  ZoomPanSelectMask,
+  UseViewportHandler,
   Scale,
   Bound,
   DECIMAL_BOX,
   Theme,
   Space,
   Typography,
+  Menu as PMenu,
+  useViewport,
+  ZERO_BOUND,
 } from "@synnaxlabs/pluto";
-import { addSamples } from "@synnaxlabs/x";
+import { addSamples, TimeRange } from "@synnaxlabs/x";
 
 import { useSelectTheme } from "@/features/layout";
 import { AxisKey, X_AXIS_KEYS, YAxisKey, Y_AXIS_KEYS } from "@/features/vis/types";
 
 import { TelemetryClient, TelemetryClientResponse } from "../../../telem/client";
+import { useTelemetryClient } from "../../../telem/TelemetryContext";
+
+import { LineSVis } from "../types";
 
 import { useAsyncEffect } from "@/hooks";
 
-import { useTelemetryClient } from "../../../telem/TelemetryContext";
-import { LineSVis } from "../types";
-
 import "./LinePlot.css";
+import { Icon } from "@/components/Icon";
+import { Menu } from "@/components";
+import { Divider } from "@synnaxlabs/pluto";
 
 export interface LinePlotProps {
   vis: LineSVis;
@@ -53,6 +59,7 @@ interface RenderingState {
   axes: AxisProps[];
   lines: GLLine[];
   glBox: Box;
+  xBound: Bound;
 }
 
 interface DataState {
@@ -77,10 +84,12 @@ export const LinePlot = ({
     axes: [],
     lines: [],
     glBox: ZERO_BOX,
+    xBound: ZERO_BOUND,
   });
   const [box, setBox] = useState<Box>(ZERO_BOX);
 
   const [zoom, setZoom] = useState<Box>(DECIMAL_BOX);
+  const [selection, setSelection] = useState<Box | null>(null);
   const [, startDraw] = useTransition();
 
   const valid = isValid(vis);
@@ -96,17 +105,29 @@ export const LinePlot = ({
   }, [vis, client]);
 
   useEffect(() => {
-    if (data == null) return setPkg({ axes: [], lines: [], glBox: ZERO_BOX });
+    if (data == null)
+      return setPkg({ axes: [], lines: [], glBox: ZERO_BOX, xBound: ZERO_BOUND });
     const lines = buildGLLines(data.data, zoom, theme);
-    const [axes, glBox] = buildAxes(data.data, zoom, box);
-    startDraw(() => setPkg({ lines, axes, glBox }));
+    const [xBound, axes, glBox] = buildAxes(data.data, zoom, box);
+    startDraw(() => setPkg({ lines, axes, glBox, xBound }));
   }, [zoom, theme, box, data]);
 
-  const zoomPanProps = useZoomPan({
-    onChange: setZoom,
-    panHotkey: "Shift",
-    allowPan: true,
-    threshold: { width: 30, height: 30 },
+  const menuProps = PMenu.useContextMenu();
+
+  const handleZoomPanSelect: UseViewportHandler = useCallback(
+    ({ box, mode, cursor }) => {
+      if (mode === "select") {
+        setSelection(box);
+        return menuProps.open(cursor);
+      }
+      setSelection(null);
+      setZoom(box);
+    },
+    []
+  );
+
+  const zoomPanSelectProps = useViewport({
+    onChange: handleZoomPanSelect,
   });
 
   const handleResize = useCallback((box: Box) => setBox(box), [setBox]);
@@ -151,10 +172,76 @@ export const LinePlot = ({
       </Space.Centered>
     );
 
+  const ContextMenu = () => {
+    const getTimeRange = (): TimeRange => {
+      if (selection == null) throw new Error("Selection is null");
+      const scale = Scale.scale(pkg.xBound)
+        .scale(1)
+        .translate(-selection.left)
+        .magnify(1 / selection.width)
+        .reverse();
+      return new TimeRange(scale.pos(0), scale.pos(1));
+    };
+
+    return (
+      <PMenu size="large">
+        {selection !== null && (
+          <>
+            <PMenu.Item
+              size="small"
+              itemKey="copyPython"
+              startIcon={<Icon.Python />}
+              onClick={() => {
+                const tr = getTimeRange();
+                const code = `synnax.TimeRange(${tr.start}, ${tr.end})`;
+                navigator.clipboard.writeText(code);
+              }}
+            >
+              Copy Time Range as Python
+            </PMenu.Item>
+            <PMenu.Item
+              size="small"
+              itemKey="copyTS"
+              startIcon={<Icon.Typescript />}
+              onClick={() => {
+                const tr = getTimeRange();
+                const code = `new TimeRange(${tr.start}, ${tr.end})`;
+                navigator.clipboard.writeText(code);
+              }}
+            >
+              Copy Time Range as TypeScript
+            </PMenu.Item>
+            <PMenu.Item
+              size="small"
+              itemKey="copyTS"
+              startIcon={<Icon.Time />}
+              onClick={() => {
+                const tr = getTimeRange();
+                const code = `${tr.start.fString("ISO", "local")} ${tr.end.fString(
+                  "ISO",
+                  "local"
+                )}`;
+                navigator.clipboard.writeText(code);
+              }}
+            >
+              Copy Time Range as ISO
+            </PMenu.Item>
+            <Divider direction="x" padded />
+          </>
+        )}
+        <Menu.Item.HardReload />
+      </PMenu>
+    );
+  };
+
   return (
-    <div className="delta-line-plot__container">
+    <PMenu.ContextMenu
+      className="delta-line-plot__container"
+      {...menuProps}
+      menu={() => <ContextMenu />}
+    >
       <div className="delta-line-plot__plot" ref={resizeRef}>
-        <ZoomPanMask
+        <ZoomPanSelectMask
           style={{
             position: "absolute",
             top: 10,
@@ -162,7 +249,7 @@ export const LinePlot = ({
             width: pkg.glBox.width,
             height: pkg.glBox.height,
           }}
-          {...zoomPanProps}
+          {...zoomPanSelectProps}
         />
         <GLLines lines={pkg.lines} box={pkg.glBox} />
         <svg className="delta-line-plot__svg">
@@ -171,7 +258,7 @@ export const LinePlot = ({
           ))}
         </svg>
       </div>
-    </div>
+    </PMenu.ContextMenu>
   );
 };
 
@@ -194,8 +281,8 @@ const fetchData = async (
   const ranges = Object.values(vis.ranges).flat();
   const entries = await client.retrieve({ keys, ranges });
   const data: LineVisData = { ...ZERO_DATA };
-  Object.values(vis.ranges).forEach((ranges) => {
-    ranges.forEach((range) => {
+  Object.values(vis.ranges).forEach((ranges) =>
+    ranges.forEach((range) =>
       Object.entries(vis.channels).forEach(([axis, channelKeys]) => {
         if (!Array.isArray(channelKeys)) channelKeys = [channelKeys as string];
         data[axis as AxisKey] = data[axis as AxisKey].concat(
@@ -203,9 +290,9 @@ const fetchData = async (
             ({ key, range: r }) => channelKeys.includes(key) && r === range
           )
         );
-      });
-    });
-  });
+      })
+    )
+  );
   return data;
 };
 
@@ -241,14 +328,14 @@ const buildGLLines = (data: LineVisData, zoom: Box, theme: Theme): GLLine[] => {
   X_AXIS_KEYS.forEach((key) => {
     const xData = data[key];
     if (xData.length === 0) return;
-    const xBound = calcBound(xData, 0, false);
+    const xBound = calcBound(xData, 0, true);
     const xScale = Scale.scale(xBound)
       .scale(1)
       .translate(-zoom.left)
       .magnify(1 / zoom.width);
     Y_AXIS_KEYS.forEach((key) => {
       const yData = data[key];
-      const yBound = calcBound(yData, 0.01, false);
+      const yBound = calcBound(yData, 0.01, true);
       const yScale = Scale.scale(yBound)
         .scale(1)
         .translate(-zoom.bottom)
@@ -279,10 +366,14 @@ const buildGLLines = (data: LineVisData, zoom: Box, theme: Theme): GLLine[] => {
   return lines;
 };
 
-const AXIS_WIDTH = 20;
-const BASE_AXIS_PADDING = 10;
+const AXIS_WIDTH = 15;
+const BASE_AXIS_PADDING = 12.5;
 
-const buildAxes = (data: LineVisData, zoom: Box, box: Box): [AxisProps[], Box] => {
+const buildAxes = (
+  data: LineVisData,
+  zoom: Box,
+  box: Box
+): [Bound, AxisProps[], Box] => {
   const axes: AxisProps[] = [];
   const leftYAxisWidth =
     ["y1", "y3"].filter((key) => data[key as YAxisKey].length > 0).length * AXIS_WIDTH +
@@ -293,12 +384,13 @@ const buildAxes = (data: LineVisData, zoom: Box, box: Box): [AxisProps[], Box] =
   const topXAxisHeight = (data.x2.length > 0 ? 1 : 0) * AXIS_WIDTH + BASE_AXIS_PADDING;
   const bottomXAxisHeight =
     (data.x1.length > 0 ? 1 : 0) * AXIS_WIDTH + BASE_AXIS_PADDING;
+  let xBound: Bound;
   X_AXIS_KEYS.forEach((key, i) => {
     const res = data[key];
     if (res.length === 0) return;
     const location = key === "x1" ? "bottom" : "top";
-    const bound = calcBound(res, 0, true);
-    const scale = Scale.scale(bound)
+    xBound = calcBound(res, 0, false);
+    const xScale = Scale.scale(xBound)
       .scale(1)
       .translate(-zoom.left)
       .magnify(1 / zoom.width);
@@ -312,7 +404,7 @@ const buildAxes = (data: LineVisData, zoom: Box, box: Box): [AxisProps[], Box] =
       size: box.width - leftYAxisWidth - rightYAxisWidth,
       pixelsPerTick: 40,
       showGrid: i === 0,
-      scale,
+      scale: xScale,
       height: box.height - topXAxisHeight - bottomXAxisHeight,
       type: "time",
     });
@@ -322,7 +414,7 @@ const buildAxes = (data: LineVisData, zoom: Box, box: Box): [AxisProps[], Box] =
     const res = data[key];
     if (res.length === 0) return;
     const location = ["y1", "y3"].includes(key) ? "left" : "right";
-    const bound = calcBound(res, 0.01, true);
+    const bound = calcBound(res, 0.01, false);
     const scale = Scale.scale(bound)
       .scale(1)
       .translate(-zoom.bottom)
@@ -345,6 +437,7 @@ const buildAxes = (data: LineVisData, zoom: Box, box: Box): [AxisProps[], Box] =
   });
 
   return [
+    xBound,
     axes,
     new Box(
       { x: box.left + leftYAxisWidth, y: box.top + topXAxisHeight },

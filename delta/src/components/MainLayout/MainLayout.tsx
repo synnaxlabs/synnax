@@ -24,31 +24,29 @@ import "./MainLayout.css";
  * component as simple, presentational, and navigatable as possible.
  */
 export const MainLayout = (): JSX.Element => (
-  <PMenu.Context menu={() => <DefaultContextMenu />}>
-    <ClusterProvider>
-      <NavTop />
-      <Space className="delta-main-fixed--y" direction="x" empty>
-        <NavLeft />
-        <Space
-          className="delta-main-content-drawers delta-main-fixed--y delta-main-fixed--x"
-          empty
-        >
-          <Space className="delta-main--driven" direction="x" empty>
-            <NavDrawer location="left" />
-            <div className="delta-main--driven" style={{ position: "relative" }}>
-              <VisCanvas>
-                <LayoutMosaic />
-              </VisCanvas>
-            </div>
-            <NavDrawer location="right" />
-          </Space>
-          <NavDrawer location="bottom" />
+  <ClusterProvider>
+    <NavTop />
+    <Space className="delta-main-fixed--y" direction="x" empty>
+      <NavLeft />
+      <Space
+        className="delta-main-content-drawers delta-main-fixed--y delta-main-fixed--x"
+        empty
+      >
+        <Space className="delta-main--driven" direction="x" empty>
+          <NavDrawer location="left" />
+          <main className="delta-main--driven" style={{ position: "relative" }}>
+            <VisCanvas>
+              <LayoutMosaic />
+            </VisCanvas>
+          </main>
+          <NavDrawer location="right" />
         </Space>
-        <NavRight />
+        <NavDrawer location="bottom" />
       </Space>
-      <NavBottom />
-    </ClusterProvider>
-  </PMenu.Context>
+      <NavRight />
+    </Space>
+    <NavBottom />
+  </ClusterProvider>
 );
 
 export const DefaultContextMenu = () => (

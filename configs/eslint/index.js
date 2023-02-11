@@ -23,7 +23,7 @@ module.exports = {
         ecmaVersion: "latest",
         sourceType: "module",
     },
-    plugins: ["import", "react"],
+    plugins: ["import", "react", "prettier"],
     rules: {
         "import/order": [
             "error",
@@ -70,6 +70,7 @@ module.exports = {
         "react/react-in-jsx-scope": "off",
         "import/no-default-export": "warn",
         "react/prop-types": "off",
+        "prettier/prettier": "error",
     },
     settings: {
         "import/resolver": {

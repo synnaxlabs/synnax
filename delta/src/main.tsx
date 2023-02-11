@@ -9,7 +9,7 @@
 
 import { StrictMode, useEffect, useState } from "react";
 
-import { Theming } from "@synnaxlabs/pluto";
+import { Theming, Triggers } from "@synnaxlabs/pluto";
 import "@synnaxlabs/pluto/dist/style.css";
 import ReactDOM from "react-dom/client";
 
@@ -50,9 +50,11 @@ const MainUnderContext = (): JSX.Element => {
   }, []);
   return (
     <Theming.Provider {...theme}>
-      <LayoutRendererProvider value={layoutRenderers}>
-        <LayoutWindow />
-      </LayoutRendererProvider>
+      <Triggers.Provider>
+        <LayoutRendererProvider value={layoutRenderers}>
+          <LayoutWindow />
+        </LayoutRendererProvider>
+      </Triggers.Provider>
     </Theming.Provider>
   );
 };

@@ -11,7 +11,7 @@ import { ReactElement } from "react";
 
 import clsx from "clsx";
 
-import { SpaceProps } from "@/core/Space";
+import { SpaceProps, SpaceExtensionProps } from "@/core/Space";
 import { Typography, Text } from "@/core/Typography";
 import { ComponentSize } from "@/util/component";
 
@@ -31,6 +31,7 @@ export interface ButtonProps extends BaseButtonProps {
   children?: string | number;
   startIcon?: ReactElement | ReactElement[];
   endIcon?: ReactElement | ReactElement[];
+  iconSpacing?: SpaceProps["size"];
 }
 
 export const Button = ({
@@ -38,6 +39,7 @@ export const Button = ({
   variant = "filled",
   className,
   children,
+  iconSpacing = "medium",
   ...props
 }: ButtonProps): JSX.Element => (
   <Text.WithIcon
@@ -45,6 +47,7 @@ export const Button = ({
     className={clsx("pluto--" + size, "pluto-btn", "pluto-btn--" + variant, className)}
     color={variant === "filled" ? "var(--pluto-white)" : "var(--pluto-text-color)"}
     level={Typography.ComponentSizeLevels[size]}
+    size={iconSpacing}
     {...props}
   >
     {children}

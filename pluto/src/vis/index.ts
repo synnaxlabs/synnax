@@ -9,4 +9,4 @@
 
 export * from "./gl";
 export * from "./Axis";
-export * from "./ZoomPan";
+export * from "./ZoomPanSelect";

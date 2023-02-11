@@ -1,6 +1,6 @@
 import { describe, it, expect, test } from "vitest";
 
-import { Box, DECIMAL_BOX as DECIMAL_BOX } from "./box";
+import { Box, DECIMAL_BOX } from "./box";
 import { Scale, BoxScale } from "./scale";
 
 type ScaleSpec = [name: string, scale: Scale, i: number, o: number];
