@@ -17,7 +17,7 @@
 import pytest
 
 from freighter import URL, encoder
-from freighter.http import GETClient, HTTPClientFactory, POSTClient
+from freighter.http import GETClient, HTTPClientPool, POSTClient
 from freighter.metadata import MetaData
 from freighter.transport import Next
 
@@ -25,14 +25,14 @@ from .interface import Message
 
 
 @pytest.fixture
-def http_factory(endpoint: URL) -> HTTPClientFactory:
+def http_factory(endpoint: URL) -> HTTPClientPool:
     http_endpoint = endpoint.child("unary")
-    return HTTPClientFactory(http_endpoint, encoder.JSONEncoder())
+    return HTTPClientPool(http_endpoint, encoder.JSONEncoder())
 
 
 class TestGETClient:
     @pytest.mark.focus
-    def test_echo(self, http_factory: HTTPClientFactory):
+    def test_echo(self, http_factory: HTTPClientPool):
         """Should echo an incremented ID back to the caller."""
         res, err = http_factory.get_client().send(
             "/echo", Message(id=1, message="hello"), Message
@@ -41,7 +41,7 @@ class TestGETClient:
         assert res.id == 2
         assert res.message == "hello"
 
-    def test_middleware(self, http_factory: HTTPClientFactory):
+    def test_middleware(self, http_factory: HTTPClientPool):
         dct = {"called": False}
 
         def mw(md: MetaData, next: Next) -> tuple[MetaData, Exception | None]:
@@ -61,7 +61,7 @@ class TestGETClient:
 
 
 class TestPOSTClient:
-    def test_echo(self, http_factory: HTTPClientFactory):
+    def test_echo(self, http_factory: HTTPClientPool):
         """Should echo an incremented ID back to the caller."""
         res, err = http_factory.post_client().send(
             "/echo", Message(id=1, message="hello"), Message

@@ -13,60 +13,57 @@ from typing import Type
 from urllib.parse import urlencode
 
 import urllib3
-from urllib3 import HTTPResponse, PoolManager, Timeout, Retry
+from urllib3 import HTTPResponse, PoolManager
 from urllib3.exceptions import HTTPError, MaxRetryError
 
-from freighter.unary import UnaryClient
-from freighter.encoder import EncoderDecoder
-from freighter.exceptions import ExceptionPayload, decode_exception, Unreachable
-from freighter.transport import RQ, RS
-from freighter.url import URL
-from freighter.transport import MiddlewareCollector
-from freighter.metadata import MetaData
-
-t = Timeout(connect=3.0, read=7.0)
-r = Retry(
-    connect=3, 
-    read=3, 
-    redirect=3, 
-    status=3, 
-    status_forcelist=[500, 502, 503, 504],
-)
-http_pool = PoolManager(cert_reqs="CERT_NONE", timeout=t, retries=r)
-urllib3.disable_warnings()
+from .encoder import EncoderDecoder
+from .exceptions import ExceptionPayload, decode_exception, Unreachable
+from .transport import RQ, RS
+from .url import URL
+from .transport import MiddlewareCollector
+from .metadata import MetaData
 
 
-class HTTPClientFactory(MiddlewareCollector):
-    """HTTPClientFactory provides a POST and GET implementation of the UnaryClient protocol.
-
-    :param url: The base URL for the client.
-    :param encoder_decoder: The encoder/decoder to use for the client.
-    :param secure: Whether to use HTTPS.
+class HTTPClientPool(MiddlewareCollector):
+    """HTTPClientFactory provides a factory for creating POST and GET implementation of
+    the UnaryClient protocol.
     """
 
+    pool: PoolManager
     endpoint: URL
     encoder_decoder: EncoderDecoder
     secure: bool
 
-    def __init__(self, url: URL, encoder_decoder: EncoderDecoder, secure: bool = False):
+    def __init__(
+        self, url: URL, encoder_decoder: EncoderDecoder, secure: bool = False, **kwargs
+    ):
+        """
+        :param url: The base URL for the client.
+        :param encoder_decoder: The encoder/decoder to use for the client.
+        :param secure: Whether to use HTTPS.
+        """
         super().__init__()
         self.endpoint = url
         self.encoder_decoder = encoder_decoder
         self.secure = secure
+        self.pool = PoolManager(cert_reqs="CERT_NONE", **kwargs)
+        urllib3.disable_warnings()
 
     def get_client(self) -> GETClient:
         """Creates a GET client for the given request and response types.
         :returns: A GET client for the given request and response types.
         """
-        gc = GETClient(self.endpoint, self.encoder_decoder, secure=self.secure)
+        gc = GETClient(
+            self.endpoint, self.encoder_decoder, self.pool, secure=self.secure
+        )
         gc.use(*self._middleware)
         return gc
 
     def post_client(self) -> POSTClient:
-        """Creates a POST client for the given request and response types.
-        :returns: A POST client for the given request and response types.
-        """
-        pc = POSTClient(self.endpoint, self.encoder_decoder, secure=self.secure)
+        """:returns: A POST client for the given request and response types."""
+        pc = POSTClient(
+            self.endpoint, self.encoder_decoder, self.pool, secure=self.secure
+        )
         pc.use(*self._middleware)
         return pc
 
@@ -76,6 +73,7 @@ class _Core(MiddlewareCollector):
     _ERROR_ENCODING_HEADER_VALUE = "freighter"
     _CONTENT_TYPE_HEADER_KEY = "Content-Type"
 
+    pool: PoolManager
     endpoint: URL
     encoder_decoder: EncoderDecoder
     res: RS | None
@@ -84,12 +82,14 @@ class _Core(MiddlewareCollector):
         self,
         endpoint: URL,
         encoder_decoder: EncoderDecoder,
+        pool: PoolManager,
         secure: bool = False,
     ):
         super().__init__()
         self.endpoint = endpoint.replace(protocol="https" if secure else "http")
         self.encoder_decoder = encoder_decoder
         self.res = None
+        self.pool = pool
 
     @property
     def headers(self) -> dict[str, str]:
@@ -106,10 +106,8 @@ class _Core(MiddlewareCollector):
         res_t: Type[RS] | None = None,
     ) -> tuple[RS | None, Exception | None]:
         in_meta_data = MetaData(url, self.endpoint.protocol)
-        resp: RS | None = None
 
         def finalizer(md: MetaData) -> tuple[MetaData, Exception | None]:
-            nonlocal resp
             out_meta_data = MetaData(url, self.endpoint.protocol)
             data = None
             if request is not None:
@@ -119,13 +117,15 @@ class _Core(MiddlewareCollector):
 
             http_res: HTTPResponse
             try:
-                http_res = http_pool.request(method=method, url=url, headers=head, body=data)
+                http_res = self.pool.request(
+                    method=method, url=url, headers=head, body=data
+                )
             except MaxRetryError as e:
                 return out_meta_data, Unreachable(url, e)
             except HTTPError as e:
                 return out_meta_data, e
 
-            out_meta_data.params = dict(http_res.headers)
+            out_meta_data.params = http_res.headers
 
             if http_res.status < 200 or http_res.status >= 300:
                 err = self.encoder_decoder.decode(http_res.data, ExceptionPayload)
@@ -134,20 +134,17 @@ class _Core(MiddlewareCollector):
             if http_res.data is None:
                 return out_meta_data, None
 
-            resp = self.encoder_decoder.decode(http_res.data, res_t)
+            self.res = self.encoder_decoder.decode(http_res.data, res_t)
             return out_meta_data, None
 
         _, exc = self.exec(in_meta_data, finalizer)
-        return resp, exc
+        return self.res, exc
 
 
 class GETClient(_Core):
     """Implementation of the UnaryClient protocol backed by HTTP GET requests. It should
     not be instantiated directly, but through the HTTPClientFactory.
     """
-
-    def _(self) -> UnaryClient:
-        return self
 
     def send(
         self, target: str, req: RQ, res_t: Type[RS]
@@ -183,9 +180,6 @@ class POSTClient(_Core):
     """Implementation of the UnaryClient protocol backed by HTTP POST requests. it should
     not be instantiated directly, but through the HTTPClientFactory.
     """
-
-    def _(self) -> UnaryClient:
-        return self
 
     def send(
         self, target: str, req: RQ, res_t: Type[RS]
