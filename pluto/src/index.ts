@@ -16,5 +16,5 @@ export * from "@/util/component";
 export * from "@/util/debounce";
 export * from "@/util/toArray";
 export * from "@/util/transform";
-export * from "@/visualization";
-export * from "@/keys";
+export * from "@/vis";
+export * from "@/triggers";

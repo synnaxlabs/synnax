@@ -5,8 +5,6 @@ import { TiArrowUnsorted } from "react-icons/ti";
 
 import { Button, ButtonProps } from "../Button";
 
-import { useCursorDrag } from "@/hooks";
-
 import { Pack } from "../Pack";
 
 import { Box, Direction, dirToDim } from "@/spatial";
@@ -16,6 +14,7 @@ import "./InputNumber.css";
 
 import { Input } from "./Input";
 import { InputBaseProps } from "./types";
+import { useCursorDrag } from "@/spatial/useCursorDrag";
 
 export interface InputNumberProps extends Omit<InputBaseProps<number>, "type"> {
   showDragHandle?: boolean;

@@ -12,14 +12,13 @@ import { useCallback } from "react";
 import { Box } from "./box";
 import { ClientXY, toXY, XY } from "./core";
 
-import { KeyboardKey } from "@/keys";
-import { mouseButtonKey } from "@/keys/mouse";
+import { Key } from "@/triggers";
+import { mouseButtonKey } from "@/triggers/mouse";
 
 export interface UseCursorDragProps {
-  onStart?: (loc: XY, mouseKey: KeyboardKey) => void;
-  onMove?: (box: Box, mouseKey: KeyboardKey) => void;
-  onEnd?: (box: Box, mouseKey: KeyboardKey) => void;
-  preventDefault?: boolean;
+  onStart?: (loc: XY, mouseKey: Key) => void;
+  onMove?: (box: Box, mouseKey: Key) => void;
+  onEnd?: (box: Box, mouseKey: Key) => void;
 }
 
 export type UseCursorDragStart = (
@@ -30,11 +29,10 @@ export const useCursorDrag = ({
   onMove,
   onStart,
   onEnd,
-  preventDefault = true,
 }: UseCursorDragProps): UseCursorDragStart =>
   useCallback(
     (e) => {
-      if (preventDefault) e.preventDefault();
+      e.preventDefault();
       const startLoc = toXY(e);
       const mouseKey = mouseButtonKey(e);
       onStart?.(startLoc, mouseKey);
@@ -50,5 +48,5 @@ export const useCursorDrag = ({
       };
       window.addEventListener("mouseup", handleUp, { once: true });
     },
-    [onMove, onStart, onEnd, preventDefault]
+    [onMove, onStart, onEnd]
   );

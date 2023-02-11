@@ -106,10 +106,19 @@ export interface Bound {
   upper: number;
 }
 
+export interface XYBound {
+  x: Bound;
+  y: Bound;
+}
+
 export const ZERO_BOUND = { lower: 0, upper: 0 };
 export const INFINITE_BOUND = { lower: -Infinity, upper: Infinity };
 export const DECIMAL_BOUND = { lower: 0, upper: 1 };
 export const CLIP_BOUND = { lower: -1, upper: 1 };
+export const ZERO_XY_BOUND = { x: ZERO_BOUND, y: ZERO_BOUND };
+export const INFINITE_XY_BOUND = { x: INFINITE_BOUND, y: INFINITE_BOUND };
+export const DECIMAL_XY_BOUND = { x: DECIMAL_BOUND, y: DECIMAL_BOUND };
+export const CLIP_XY_BOUND = { x: CLIP_BOUND, y: CLIP_BOUND };
 
 export const isBound = (v: any): v is Bound =>
   typeof v === "object" && "lower" in v && "upper" in v;

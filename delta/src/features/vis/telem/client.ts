@@ -20,6 +20,7 @@ import {
 import { GLDemandCache, GLDemandCacheEntry } from "@synnaxlabs/pluto";
 
 import { Range } from "@/features/workspace";
+import { E } from "@tauri-apps/api/path-e12e0e34";
 
 interface GLCacheKey {
   rangeKey: string;
@@ -31,7 +32,11 @@ export class TelemetryClient {
   private readonly client: Synnax;
   private readonly frameCache: FrameCache;
 
-  constructor(glCache: GLDemandCache<GLCacheKey>, client: Synnax, frameCache: FrameCache) {
+  constructor(
+    glCache: GLDemandCache<GLCacheKey>,
+    client: Synnax,
+    frameCache: FrameCache
+  ) {
     this.frameCache = frameCache;
     this.glCache = glCache;
     this.client = client;
@@ -43,7 +48,10 @@ export class TelemetryClient {
     return e;
   }
 
-  private async retrieveOne(range: Range, keys: string[]): Promise<TelemetryClientResponse[]> {
+  private async retrieveOne(
+    range: Range,
+    keys: string[]
+  ): Promise<TelemetryClientResponse[]> {
     const tr = new TimeRange(range.start, range.end);
     let { frame, missing } = this.frameCache.get({ tr, keys });
     if (missing.length > 0) {
@@ -56,7 +64,7 @@ export class TelemetryClient {
       const buffers = this.glCache.get(`${range.key}-${key}`);
       if (buffers == null) throw new Error("GLCache is missing buffers");
       return { range, key, arrays, buffers };
-    })
+    });
   }
 
   private async readRemote(tr: TimeRange, keys: string[]): Promise<Frame> {
@@ -66,17 +74,26 @@ export class TelemetryClient {
 
   private enrichAndConvertF(frame: Frame): Frame {
     return frame.map((_, a) => {
-      let offset: bigint | number = 0;
-      if (a.dataType.equals(DataType.TIMESTAMP))
-        offset = Number(-a.timeRange.start.valueOf());
-      a = a.convert(DataType.FLOAT32, offset);
       a.enrich();
+      if (a.dataType.equals(DataType.TIMESTAMP)) {
+        a.offset = BigInt(-a.timeRange.start.valueOf());
+      }
       return a;
     });
   }
 
   private updateGLCache(rangeKey: string, frame: Frame): void {
-    frame.entries.forEach(([key, arrays]) => this.glCache.set(`${rangeKey}-${key}`, arrays));
+    frame.entries.forEach(([key, arrays]) =>
+      this.glCache.set(
+        `${rangeKey}-${key}`,
+        arrays.map((a) => {
+          let offset: bigint | number = 0;
+          if (a.dataType.equals(DataType.TIMESTAMP))
+            offset = BigInt(-a.timeRange.start.valueOf());
+          return a.convert(DataType.FLOAT32, offset);
+        })
+      )
+    );
   }
 }
 

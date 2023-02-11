@@ -32,7 +32,7 @@ const validateFieldNotNull = (name: string, field: unknown): void => {
  */
 export class LazyArray {
   readonly dataType: DataType;
-  readonly offset: SampleValue;
+  offset: SampleValue;
   private readonly _data: ArrayBufferLike;
   readonly _timeRange?: TimeRange;
   private _min?: SampleValue;

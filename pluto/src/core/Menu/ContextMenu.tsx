@@ -8,8 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import {
+  ComponentPropsWithoutRef,
+  ComponentPropsWithRef,
   ForwardedRef,
   forwardRef,
+  HTMLProps,
   PropsWithChildren,
   RefCallback,
   useRef,
@@ -23,6 +26,7 @@ import { ClientXY, toXY, XY, ZERO_XY } from "@/spatial";
 import { RenderProp } from "@/util/renderProp";
 
 import "./ContextMenu.css";
+import clsx from "clsx";
 
 export interface ContextMenuState {
   visible: boolean;
@@ -45,7 +49,7 @@ export interface UseContextMenuReturn extends ContextMenuState {
   visible: boolean;
   close: () => void;
   open: ContextMenuOpen;
-  refCallback: RefCallback<HTMLDivElement>;
+  ref: RefCallback<HTMLDivElement>;
 }
 
 const INITIAL_STATE: ContextMenuState = {
@@ -78,13 +82,13 @@ export const useContextMenu = (): UseContextMenuReturn => {
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [state, setMenuState] = useState<ContextMenuState>(INITIAL_STATE);
 
-  const handleOpen: ContextMenuOpen = (e, keys = []) => {
+  const handleOpen: ContextMenuOpen = (e, keys) => {
     const xy = toXY(e);
     if ("preventDefault" in e) {
       e.preventDefault();
       e.stopPropagation();
       keys = keys ?? unique(findSelected(e.target as HTMLElement).map((el) => el.id));
-    }
+    } else keys = [];
     setMenuState({ visible: true, keys, xy });
   };
 
@@ -100,7 +104,9 @@ export const useContextMenu = (): UseContextMenuReturn => {
     });
   };
 
-  const hideMenu = (): void => setMenuState(INITIAL_STATE);
+  const hideMenu = (): void => {
+    setMenuState(INITIAL_STATE);
+  };
 
   useClickOutside(menuRef, hideMenu);
 
@@ -108,7 +114,7 @@ export const useContextMenu = (): UseContextMenuReturn => {
     ...state,
     close: hideMenu,
     open: handleOpen,
-    refCallback,
+    ref: refCallback,
   };
 };
 
@@ -116,16 +122,32 @@ export interface ContextMenuMenuProps {
   keys: string[];
 }
 
-export interface ContextMenuProps extends UseContextMenuReturn, PropsWithChildren {
+export interface ContextMenuProps
+  extends UseContextMenuReturn,
+    ComponentPropsWithoutRef<"div"> {
   menu?: RenderProp<ContextMenuMenuProps>;
 }
 
 const ContextMenuCore = (
-  { children, menu, visible, open, close, xy, keys }: ContextMenuProps,
+  {
+    children,
+    menu,
+    visible,
+    open,
+    close,
+    xy,
+    keys,
+    className,
+    ...props
+  }: ContextMenuProps,
   ref: ForwardedRef<HTMLDivElement>
 ): JSX.Element => {
   return (
-    <div className={MENU_CONTEXT_CONTAINER} onContextMenu={open}>
+    <div
+      className={clsx(MENU_CONTEXT_CONTAINER, className)}
+      onContextMenu={open}
+      {...props}
+    >
       {children}
       {visible && (
         <div
@@ -142,6 +164,7 @@ const ContextMenuCore = (
 };
 
 export const ContextMenu = forwardRef(ContextMenuCore);
+ContextMenu.displayName = "ContextMenu";
 
 const positionContextMenu = (el: HTMLDivElement, xy: XY): [XY, boolean] => {
   const { width, height } = el.getBoundingClientRect();

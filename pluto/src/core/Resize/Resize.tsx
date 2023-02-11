@@ -13,13 +13,13 @@ import { clamp } from "@synnaxlabs/x";
 import { clsx } from "clsx";
 
 import { Box, locToDir, Location } from "@/spatial";
-import { useCursorDrag } from "@/spatial/useCursorDrag";
 
 import { ResizeCore, ResizeCoreProps } from "./ResizeCore";
 
 import "./Resize.css";
 
 import { expandedCls } from "@/util/css";
+import { useCursorDrag } from "@/spatial/useCursorDrag";
 
 export interface ResizeProps
   extends Omit<ResizeCoreProps, "showHandle" | "size" | "onResize" | "onDragStart"> {

@@ -3,10 +3,9 @@
     z-index: 1000;
     background: var(--pluto-gray-m3);
     border-radius: var(--pluto-border-radius);
-    padding: 0.5rem 0;
+    padding: 1rem;
 }
 
 .pluto-menu-context > .pluto-menu > .pluto-menu-item {
-    border-radius: 0;
     width: 100%;
 }

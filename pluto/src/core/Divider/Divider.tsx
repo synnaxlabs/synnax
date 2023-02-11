@@ -34,6 +34,7 @@ export const Divider = ({
   padded = false,
   ...props
 }: DividerProps): JSX.Element => (
+
   <div
     className={clsx("pluto-divider", `pluto-divider--${direction}`, padded && "pluto-divider--padded", className)}
     {...props}

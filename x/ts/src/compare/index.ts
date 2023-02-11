@@ -1,8 +1,9 @@
 import { Primitive, isStringer, PrimitiveRecord } from "@/types/primitive";
 
-type CompareF<T> = (a: T, b: T) => number;
+export type CompareF<T> = (a: T, b: T) => number;
 
-type PrimitiveCompareF<T extends Primitive> = CompareF<T>;
+
+export type PrimitiveCompareF<T extends Primitive> = CompareF<T>;
 
 export const primitiveCompareFactory = <T extends Primitive>(
   v: T,

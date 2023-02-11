@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import React from "react";
-import { Theming } from "../src";
+import { Theming, Triggers } from "../src";
 import "./index.css";
 
 export const parameters = {
@@ -25,7 +25,9 @@ export const decorators = [
     (Story) => (
         <React.StrictMode>
             <Theming.Provider theme={Theming.themes.synnaxDark}>
-                {Story()}
+                <Triggers.Provider>
+                    {Story()}
+                </Triggers.Provider>
             </Theming.Provider>
         </React.StrictMode>
     ),

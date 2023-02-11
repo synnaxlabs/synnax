@@ -2,29 +2,25 @@ import { useState } from "react";
 
 import { ComponentMeta } from "@storybook/react";
 
-import { useZoomPanSelect, ZoomPanMask } from "./ZoomPanSelect";
+import { useViewport, ZoomPanSelectMask } from "./ZoomPanSelect";
 
 import { Box, DECIMAL_BOX } from "@/spatial";
 import { BoxScale } from "@/spatial/scale";
+import { Triggers } from "@/triggers";
 
-const story: ComponentMeta<typeof ZoomPanMask> = {
+const story: ComponentMeta<typeof ZoomPanSelectMask> = {
   title: "Visualization/ZoomPan",
-  component: ZoomPanMask,
+  component: ZoomPanSelectMask,
 };
 
-export const Basic = (): JSX.Element => {
+const Basic_ = (): JSX.Element => {
   const [box, setBox] = useState<Box>(DECIMAL_BOX);
-  const props = useZoomPanSelect({
-    threshold: { width: 35, height: 35 },
+  const props = useViewport({
     onChange: ({ box: newBox }) => setBox(newBox),
-    panHotkey: "Shift",
-    zoomHotkey: "",
-    minZoom: { x: 0.01, y: 0.01 },
-    maxZoom: { x: 2, y: 2 },
   });
   return (
     <>
-      <ZoomPanMask
+      <ZoomPanSelectMask
         {...props}
         style={{
           position: "relative",
@@ -37,6 +33,14 @@ export const Basic = (): JSX.Element => {
       />
       <ZoomMiniMap box={box} />
     </>
+  );
+};
+
+export const Basic = (): JSX.Element => {
+  return (
+    <Triggers.Provider>
+      <Basic_ />
+    </Triggers.Provider>
   );
 };
 
