@@ -9,7 +9,6 @@
 
 from freighter import HTTPClientPool, Payload, UnaryClient
 
-from synnax.telem import Rate, UnparsedDataType, UnparsedRate, DataType
 from synnax.channel.payload import ChannelPayload
 
 
