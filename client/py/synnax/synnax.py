@@ -96,10 +96,10 @@ class Synnax(FrameClient):
     def _configure_transport(
         self,
         opts: SynnaxOptions,
-        open_timeout: TimeSpan = TimeSpan(seconds=5),
-        read_timeout: TimeSpan = TimeSpan(seconds=5),
-        keep_alive: TimeSpan = TimeSpan(seconds=30),
-        max_retries: int = 3,
+        open_timeout: TimeSpan,
+        read_timeout: TimeSpan,
+        keep_alive: TimeSpan,
+        max_retries: int,
     ) -> Transport:
         t = Transport(
             url=URL(host=opts.host, port=opts.port),
