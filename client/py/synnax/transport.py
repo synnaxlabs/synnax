@@ -57,7 +57,7 @@ class Transport:
             encoder_decoder=JSONEncoder(),
             secure=secure,
             timeout=Timeout(connect=open_timeout.seconds(), read=read_timeout.seconds()),
-            Retry=Retry(total=max_retries),
+            retry=Retry(total=max_retries),
         )
 
     def use(self, *middleware: Middleware):
