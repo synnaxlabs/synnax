@@ -168,10 +168,11 @@ class GETClient(_Core):
         raw_dct = req.dict()
         parsed_dct = dict()
         for key, val in raw_dct.items():
-            if val is not None:
-                parsed_dct[key] = val
             if type(val) is list:
-                parsed_dct[key] = ",".join(val)
+                if len(val) > 0:
+                    parsed_dct[key] = ",".join(val)
+            elif val is not None:
+                parsed_dct[key] = val
         return urlencode(parsed_dct)
 
 
