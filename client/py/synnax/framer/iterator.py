@@ -235,11 +235,10 @@ class NumpyIterator(CoreIterator):
         and values are segments containing telemetry at the current iterator position.
         """
         v = super().value
-        v.keys = self._value_keys(v)
+        v.keys = self._value_keys(v.keys)
         return NumpyFrame.from_binary(v)
 
-    def _value_keys(self, fr: BinaryFrame) -> list[str]:
-        keys = [k for v in fr for k in v]
+    def _value_keys(self, keys: list[str]) -> list[str]:
         if self._mode == FramingMode.KEY:
             return keys
         if self._mode == FramingMode.NAME:

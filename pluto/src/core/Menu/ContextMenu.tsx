@@ -8,9 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import {
-  MouseEventHandler,
+  ForwardedRef,
+  forwardRef,
   PropsWithChildren,
-  RefObject,
+  RefCallback,
   useRef,
   useState,
 } from "react";
@@ -18,27 +19,37 @@ import {
 import { unique } from "@synnaxlabs/x";
 
 import { useClickOutside } from "@/hooks";
-import { toXY, XY, ZERO_XY } from "@/spatial";
+import { ClientXY, toXY, XY, ZERO_XY } from "@/spatial";
 import { RenderProp } from "@/util/renderProp";
 
-import "./MenuContext.css";
+import "./ContextMenu.css";
 
-export interface MenuContextProps extends PropsWithChildren {
-  menu?: RenderProp<MenuContextMenuProps>;
-}
-
-interface MenuState {
-  open: boolean;
+export interface ContextMenuState {
+  visible: boolean;
   keys: string[];
   xy: XY;
 }
 
-export interface MenuContextMenuProps {
-  keys: string[];
+export type ContextMenuEvent = ClientXY & {
+  preventDefault: () => void;
+  stopPropagation: () => void;
+  target: Element;
+};
+
+export type ContextMenuOpen = (
+  pos: XY | ClientXY | ContextMenuEvent,
+  keys?: string[]
+) => void;
+
+export interface UseContextMenuReturn extends ContextMenuState {
+  visible: boolean;
+  close: () => void;
+  open: ContextMenuOpen;
+  refCallback: RefCallback<HTMLDivElement>;
 }
 
-const INITIAL_STATE: MenuState = {
-  open: false,
+const INITIAL_STATE: ContextMenuState = {
+  visible: false,
   keys: [],
   xy: ZERO_XY,
 };
@@ -63,40 +74,65 @@ const findSelected = (target_: HTMLElement): HTMLElement[] => {
   return [target, ...Array.from(selected)];
 };
 
-export const MenuContext = ({ children, menu }: MenuContextProps): JSX.Element => {
+export const useContextMenu = (): UseContextMenuReturn => {
   const menuRef = useRef<HTMLDivElement | null>(null);
-  const [{ keys, xy, open }, setMenuState] = useState<MenuState>(INITIAL_STATE);
+  const [state, setMenuState] = useState<ContextMenuState>(INITIAL_STATE);
 
-  const handleContextMenu: MouseEventHandler<HTMLDivElement> = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const selected = findSelected(e.target as HTMLElement);
-    const keys = unique(selected.map((el) => el.id));
-    setMenuState({ open: true, keys, xy: toXY(e) });
+  const handleOpen: ContextMenuOpen = (e, keys = []) => {
+    const xy = toXY(e);
+    if ("preventDefault" in e) {
+      e.preventDefault();
+      e.stopPropagation();
+      keys = keys ?? unique(findSelected(e.target as HTMLElement).map((el) => el.id));
+    }
+    setMenuState({ visible: true, keys, xy });
+  };
+
+  const refCallback = (el: HTMLDivElement): void => {
+    menuRef.current = el;
+    if (el == null) return;
+    setMenuState((prev) => {
+      if (prev.visible) {
+        const [_xy, changed] = positionContextMenu(el, prev.xy);
+        if (changed) return { ...prev, xy: _xy };
+      }
+      return prev;
+    });
   };
 
   const hideMenu = (): void => setMenuState(INITIAL_STATE);
 
   useClickOutside(menuRef, hideMenu);
 
-  const refCallback = (el: HTMLDivElement): void => {
-    menuRef.current = el;
-    if (el == null) return;
-    if (open) {
-      const [_xy, changed] = positionContextMenu(el, xy);
-      if (changed) setMenuState({ open: true, keys, xy: _xy });
-    }
+  return {
+    ...state,
+    close: hideMenu,
+    open: handleOpen,
+    refCallback,
   };
+};
 
+export interface ContextMenuMenuProps {
+  keys: string[];
+}
+
+export interface ContextMenuProps extends UseContextMenuReturn, PropsWithChildren {
+  menu?: RenderProp<ContextMenuMenuProps>;
+}
+
+const ContextMenuCore = (
+  { children, menu, visible, open, close, xy, keys }: ContextMenuProps,
+  ref: ForwardedRef<HTMLDivElement>
+): JSX.Element => {
   return (
-    <div className={MENU_CONTEXT_CONTAINER} onContextMenu={handleContextMenu}>
+    <div className={MENU_CONTEXT_CONTAINER} onContextMenu={open}>
       {children}
-      {open && (
+      {visible && (
         <div
           className="pluto-menu-context pluto-bordered"
-          ref={refCallback}
+          ref={ref}
           style={{ left: xy.x, top: xy.y }}
-          onClick={hideMenu}
+          onClick={close}
         >
           {menu?.({ keys })}
         </div>
@@ -104,6 +140,8 @@ export const MenuContext = ({ children, menu }: MenuContextProps): JSX.Element =
     </div>
   );
 };
+
+export const ContextMenu = forwardRef(ContextMenuCore);
 
 const positionContextMenu = (el: HTMLDivElement, xy: XY): [XY, boolean] => {
   const { width, height } = el.getBoundingClientRect();

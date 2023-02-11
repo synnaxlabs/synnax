@@ -36,11 +36,14 @@ class BinaryFrame(FrameHeader):
         arrays: list[BinaryArray] | None = None,
         keys: list[str] | None = None,
     ):
+        print(keys)
         # This is a workaround to allow for a None value to be
         # passed to the arrays field, but still have required
         # type hinting.
         if arrays is None:
             arrays = list()
+        if keys is None:
+            keys = list()
         super().__init__(arrays=arrays, keys=keys)
 
     def compact(self) -> BinaryFrame:

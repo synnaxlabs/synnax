@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 
 import { SampleValue } from "@synnaxlabs/client";
 import {
@@ -26,6 +26,8 @@ import {
   Bound,
   DECIMAL_BOX,
   Theme,
+  Space,
+  Typography,
 } from "@synnaxlabs/pluto";
 import { addSamples } from "@synnaxlabs/x";
 
@@ -39,11 +41,7 @@ import { useAsyncEffect } from "@/hooks";
 import { useTelemetryClient } from "../../../telem/TelemetryContext";
 import { LineSVis } from "../types";
 
-
-
 import "./LinePlot.css";
-import { Space } from "@synnaxlabs/pluto";
-import { Typography } from "@synnaxlabs/pluto";
 
 export interface LinePlotProps {
   vis: LineSVis;
@@ -51,11 +49,21 @@ export interface LinePlotProps {
   resizeDebounce: number;
 }
 
-interface RenderingPackage {
+interface RenderingState {
   axes: AxisProps[];
   lines: GLLine[];
   glBox: Box;
 }
+
+interface DataState {
+  data: LineVisData;
+  error: Error | null;
+}
+
+const initialDataState = (): DataState => ({
+  data: { ...ZERO_DATA },
+  error: null,
+});
 
 export const LinePlot = ({
   vis,
@@ -64,12 +72,13 @@ export const LinePlot = ({
 }: LinePlotProps): JSX.Element => {
   const theme = useSelectTheme();
   const client = useTelemetryClient();
-  const [data, setData] = useState<LineVisData | null>(null);
-  const [pkg, setPkg] = useState<RenderingPackage>({
+  const [data, setData] = useState<DataState>(initialDataState());
+  const [pkg, setPkg] = useState<RenderingState>({
     axes: [],
     lines: [],
     glBox: ZERO_BOX,
-  }); const [box, setBox] = useState<Box>(ZERO_BOX);
+  });
+  const [box, setBox] = useState<Box>(ZERO_BOX);
 
   const [zoom, setZoom] = useState<Box>(DECIMAL_BOX);
   const [, startDraw] = useTransition();
@@ -77,15 +86,20 @@ export const LinePlot = ({
   const valid = isValid(vis);
 
   useAsyncEffect(async () => {
-    if (client == null || !valid) return setData(null)
-    setData(await fetchData(vis, client))
+    if (client == null || !valid) return setData(initialDataState());
+    try {
+      const data = await fetchData(vis, client);
+      setData({ data, error: null });
+    } catch (error) {
+      setData({ data: { ...ZERO_DATA }, error: error as Error });
+    }
   }, [vis, client]);
 
   useEffect(() => {
     if (data == null) return setPkg({ axes: [], lines: [], glBox: ZERO_BOX });
-    const lines = buildGLLines(data, zoom, theme);
-    const [axes, glBox] = buildAxes(data, zoom, box);
-    startDraw(() => setPkg({ lines, axes, glBox }))
+    const lines = buildGLLines(data.data, zoom, theme);
+    const [axes, glBox] = buildAxes(data.data, zoom, box);
+    startDraw(() => setPkg({ lines, axes, glBox }));
   }, [zoom, theme, box, data]);
 
   const zoomPanProps = useZoomPan({
@@ -99,9 +113,43 @@ export const LinePlot = ({
 
   const resizeRef = useResize(handleResize, { debounce: 100 });
 
-  if (valid && data == null) return <Space.Centered><Typography.Text level="h4" color="var(--pluto-gray-m0)">Loading...</Typography.Text></Space.Centered>;
-  if (!valid) return <Space.Centered><Typography.Text level="h4" color="var(--pluto-gray-m0)">Invalid Visualization</Typography.Text></Space.Centered>;
-  if (valid && Object.values(data).flat().length === 0) return <Space.Centered><Typography.Text level="h4" color="var(--pluto-gray-m0)">No Data Found</Typography.Text></Space.Centered>;
+  if (data.error != null)
+    return (
+      <Space.Centered>
+        <Typography.Text
+          level="h4"
+          color="var(--pluto-error-z)"
+          wrap
+          style={{ padding: "2rem" }}
+        >
+          {data.error.message}
+        </Typography.Text>
+      </Space.Centered>
+    );
+  if (valid && data == null)
+    return (
+      <Space.Centered>
+        <Typography.Text level="h4" color="var(--pluto-gray-m0)">
+          Loading...
+        </Typography.Text>
+      </Space.Centered>
+    );
+  if (!valid)
+    return (
+      <Space.Centered>
+        <Typography.Text level="h4" color="var(--pluto-gray-m0)">
+          Invalid Visualization
+        </Typography.Text>
+      </Space.Centered>
+    );
+  if (valid && Object.values(data).flat().length === 0)
+    return (
+      <Space.Centered>
+        <Typography.Text level="h4" color="var(--pluto-gray-m0)">
+          No Data Found
+        </Typography.Text>
+      </Space.Centered>
+    );
 
   return (
     <div className="delta-line-plot__container">
@@ -119,7 +167,8 @@ export const LinePlot = ({
         <GLLines lines={pkg.lines} box={pkg.glBox} />
         <svg className="delta-line-plot__svg">
           {pkg.axes.map((axis, i) => (
-            <Axis key={i} {...axis} />))}
+            <Axis key={i} {...axis} />
+          ))}
         </svg>
       </div>
     </div>
@@ -133,31 +182,40 @@ const ZERO_DATA: LineVisData = {
   y4: [],
   x1: [],
   x2: [],
-}
+};
 
 const fetchData = async (
   vis: LineSVis,
   client: TelemetryClient
 ): Promise<LineVisData> => {
-  const keys = Object.values(vis.channels).flat().filter((key) => key.length > 0);
+  const keys = Object.values(vis.channels)
+    .flat()
+    .filter((key) => key.length > 0);
   const ranges = Object.values(vis.ranges).flat();
   const entries = await client.retrieve({ keys, ranges });
-  const data: LineVisData = { ...ZERO_DATA }
+  const data: LineVisData = { ...ZERO_DATA };
   Object.values(vis.ranges).forEach((ranges) => {
     ranges.forEach((range) => {
       Object.entries(vis.channels).forEach(([axis, channelKeys]) => {
         if (!Array.isArray(channelKeys)) channelKeys = [channelKeys as string];
-        data[axis as AxisKey] = data[axis as AxisKey].concat(entries.filter(({ key, range: r }) => channelKeys.includes(key) && r === range));
-      })
-    })
-  })
-  return data
+        data[axis as AxisKey] = data[axis as AxisKey].concat(
+          entries.filter(
+            ({ key, range: r }) => channelKeys.includes(key) && r === range
+          )
+        );
+      });
+    });
+  });
+  return data;
 };
 
+type LineVisData = Record<AxisKey, TelemetryClientResponse[]>;
 
-type LineVisData = Record<AxisKey, TelemetryClientResponse[]>
-
-const calcBound = (data: TelemetryClientResponse[], padding: number, includeOffset: boolean): Bound => {
+const calcBound = (
+  data: TelemetryClientResponse[],
+  padding: number,
+  includeOffset: boolean
+): Bound => {
   const arrays = data.flatMap(({ arrays }) => arrays);
   const upper = Number(
     arrays.reduce((acc: SampleValue, arr) => {
@@ -184,11 +242,17 @@ const buildGLLines = (data: LineVisData, zoom: Box, theme: Theme): GLLine[] => {
     const xData = data[key];
     if (xData.length === 0) return;
     const xBound = calcBound(xData, 0, false);
-    const xScale = Scale.scale(xBound).scale(1).translate(-zoom.left).magnify(1 / zoom.width);
+    const xScale = Scale.scale(xBound)
+      .scale(1)
+      .translate(-zoom.left)
+      .magnify(1 / zoom.width);
     Y_AXIS_KEYS.forEach((key) => {
       const yData = data[key];
       const yBound = calcBound(yData, 0.01, false);
-      const yScale = Scale.scale(yBound).scale(1).translate(-zoom.bottom).magnify(1 / zoom.height);
+      const yScale = Scale.scale(yBound)
+        .scale(1)
+        .translate(-zoom.bottom)
+        .magnify(1 / zoom.height);
       const scale = { x: xScale.dim(1), y: yScale.dim(1) };
       const offset = { x: xScale.pos(0), y: yScale.pos(0) };
       yData.forEach((yRes, i) => {
@@ -207,30 +271,41 @@ const buildGLLines = (data: LineVisData, zoom: Box, theme: Theme): GLLine[] => {
             x: xRes.buffers.value[j].buf,
             strokeWidth: 3,
             length: yArr.length,
-          })
-        })
+          });
+        });
       });
-    })
-  })
+    });
+  });
   return lines;
-}
+};
 
 const AXIS_WIDTH = 20;
 const BASE_AXIS_PADDING = 10;
 
 const buildAxes = (data: LineVisData, zoom: Box, box: Box): [AxisProps[], Box] => {
   const axes: AxisProps[] = [];
-  const leftYAxisWidth = (["y1", "y3"].filter((key) => data[key as YAxisKey].length > 0).length) * AXIS_WIDTH + BASE_AXIS_PADDING;
-  const rightYAxisWidth = (["y2", "y4"].filter((key) => data[key as YAxisKey].length > 0).length) * AXIS_WIDTH + BASE_AXIS_PADDING;
+  const leftYAxisWidth =
+    ["y1", "y3"].filter((key) => data[key as YAxisKey].length > 0).length * AXIS_WIDTH +
+    BASE_AXIS_PADDING;
+  const rightYAxisWidth =
+    ["y2", "y4"].filter((key) => data[key as YAxisKey].length > 0).length * AXIS_WIDTH +
+    BASE_AXIS_PADDING;
   const topXAxisHeight = (data.x2.length > 0 ? 1 : 0) * AXIS_WIDTH + BASE_AXIS_PADDING;
-  const bottomXAxisHeight = (data.x1.length > 0 ? 1 : 0) * AXIS_WIDTH + BASE_AXIS_PADDING;
+  const bottomXAxisHeight =
+    (data.x1.length > 0 ? 1 : 0) * AXIS_WIDTH + BASE_AXIS_PADDING;
   X_AXIS_KEYS.forEach((key, i) => {
     const res = data[key];
     if (res.length === 0) return;
     const location = key === "x1" ? "bottom" : "top";
     const bound = calcBound(res, 0, true);
-    const scale = Scale.scale(bound).scale(1).translate(-zoom.left).magnify(1 / zoom.width);
-    const y = location === "top" ? BASE_AXIS_PADDING : box.height - BASE_AXIS_PADDING - AXIS_WIDTH;
+    const scale = Scale.scale(bound)
+      .scale(1)
+      .translate(-zoom.left)
+      .magnify(1 / zoom.width);
+    const y =
+      location === "top"
+        ? BASE_AXIS_PADDING
+        : box.height - BASE_AXIS_PADDING - AXIS_WIDTH;
     axes.push({
       location,
       position: { y, x: leftYAxisWidth },
@@ -240,41 +315,57 @@ const buildAxes = (data: LineVisData, zoom: Box, box: Box): [AxisProps[], Box] =
       scale,
       height: box.height - topXAxisHeight - bottomXAxisHeight,
       type: "time",
-    })
-  })
+    });
+  });
 
   Y_AXIS_KEYS.forEach((key, i) => {
     const res = data[key];
     if (res.length === 0) return;
     const location = ["y1", "y3"].includes(key) ? "left" : "right";
     const bound = calcBound(res, 0.01, true);
-    const scale = Scale.scale(bound).scale(1).translate(-zoom.bottom).magnify(1 / zoom.height);
+    const scale = Scale.scale(bound)
+      .scale(1)
+      .translate(-zoom.bottom)
+      .magnify(1 / zoom.height);
     axes.push({
       location,
-      position: { x: location === "left" ? BASE_AXIS_PADDING + AXIS_WIDTH : box.width - AXIS_WIDTH - BASE_AXIS_PADDING, y: topXAxisHeight },
+      position: {
+        x:
+          location === "left"
+            ? BASE_AXIS_PADDING + AXIS_WIDTH
+            : box.width - AXIS_WIDTH - BASE_AXIS_PADDING,
+        y: topXAxisHeight,
+      },
       size: box.height - topXAxisHeight - bottomXAxisHeight,
       pixelsPerTick: 40,
       showGrid: key === "y1",
       height: box.width - leftYAxisWidth - rightYAxisWidth,
       scale,
-    })
-  })
+    });
+  });
 
-  return [axes, new Box({ x: box.left + leftYAxisWidth, y: box.top + topXAxisHeight }, box.width - leftYAxisWidth - rightYAxisWidth, box.height - topXAxisHeight - bottomXAxisHeight)];
-}
+  return [
+    axes,
+    new Box(
+      { x: box.left + leftYAxisWidth, y: box.top + topXAxisHeight },
+      box.width - leftYAxisWidth - rightYAxisWidth,
+      box.height - topXAxisHeight - bottomXAxisHeight
+    ),
+  ];
+};
 
 const isValid = (vis: LineSVis): boolean => {
   const hasRanges = X_AXIS_KEYS.some((key) => {
     const v = vis.ranges[key];
     return v?.length > 0;
-  })
+  });
   const hasXAxis = X_AXIS_KEYS.some((key) => {
     const v = vis.channels[key];
     return v != null && v.length > 0;
-  })
+  });
   const hasYAxis = Y_AXIS_KEYS.some((key) => {
     const v = vis.channels[key];
     return v?.length > 0;
-  })
+  });
   return hasRanges && hasXAxis && hasYAxis;
-}
+};
