@@ -2,7 +2,7 @@ import { useState } from "react";
 
 import { ComponentMeta } from "@storybook/react";
 
-import { useZoomPan, ZoomPanMask } from "./ZoomPan";
+import { useZoomPanSelect, ZoomPanMask } from "./ZoomPanSelect";
 
 import { Box, DECIMAL_BOX } from "@/spatial";
 import { BoxScale } from "@/spatial/scale";
@@ -14,9 +14,9 @@ const story: ComponentMeta<typeof ZoomPanMask> = {
 
 export const Basic = (): JSX.Element => {
   const [box, setBox] = useState<Box>(DECIMAL_BOX);
-  const props = useZoomPan({
+  const props = useZoomPanSelect({
     threshold: { width: 35, height: 35 },
-    onChange: setBox,
+    onChange: ({ box: newBox }) => setBox(newBox),
     panHotkey: "Shift",
     zoomHotkey: "",
     minZoom: { x: 0.01, y: 0.01 },

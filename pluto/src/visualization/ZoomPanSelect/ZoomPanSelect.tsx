@@ -7,6 +7,8 @@ import {
   useState,
 } from "react";
 
+import clsx from "clsx";
+
 import { useCursorDrag, UseCursorDragStart } from "@/hooks";
 import { useStateRef } from "@/hooks/useStateRef";
 import { KeyboardKey, useKeyMode } from "@/keys";
@@ -23,21 +25,32 @@ import {
 import { BoxScale } from "@/spatial/scale";
 
 import "./ZoomPan.css";
-import clsx from "clsx";
 
-export interface UseZoomPanProps {
+type ZoomPanSelectHandler = ({
+  box,
+  mode,
+  end,
+}: {
+  box: Box;
+  mode: Mode;
+  end: boolean;
+}) => void;
+
+export interface UseZoomPanSelectProps {
   allowZoom?: boolean;
   allowPan?: boolean;
+  allowSelect?: boolean;
   panHotkey?: KeyboardKey | "";
   zoomHotkey?: KeyboardKey | "";
-  onChange?: (box: Box) => void;
+  selectHotkey?: KeyboardKey | "";
+  onChange?: ZoomPanSelectHandler;
   threshold?: Dimensions;
   minZoom?: XY;
   maxZoom?: XY;
   resetOnDoubleClick?: boolean;
 }
 
-export interface UseZoomPanReturn {
+export interface UseZoomPanSelectReturn {
   maskStyle: CSSProperties;
   containerStyle: CSSProperties;
   mode: Mode | null;
@@ -46,19 +59,23 @@ export interface UseZoomPanReturn {
   ref: React.RefObject<HTMLDivElement>;
 }
 
-type Mode = "zoom" | "pan" | null;
+export const MODES = ["zoom", "pan", "select", null] as const;
+type Mode = typeof MODES[number];
+export const MASK_MODES = ["zoom", "select"] as const;
 
-export const useZoomPan = ({
+export const useZoomPanSelect = ({
   onChange,
   allowZoom = true,
   allowPan = true,
-  panHotkey = "Control",
+  allowSelect = true,
+  panHotkey = "Shift",
   zoomHotkey = "",
+  selectHotkey = "Alt",
   threshold = ZERO_DIMS,
   minZoom = ZERO_XY,
   maxZoom = INFINITE_XY,
   resetOnDoubleClick = true,
-}: UseZoomPanProps): UseZoomPanReturn => {
+}: UseZoomPanSelectProps): UseZoomPanSelectReturn => {
   const [maskBox, setMaskBox] = useState<Box>(ZERO_BOX);
   const [stateRef, setStateRef] = useStateRef<Box>(DECIMAL_BOX);
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -66,6 +83,7 @@ export const useZoomPan = ({
   const defaultMode = useMemo(() => {
     if (allowZoom && zoomHotkey === "") return "zoom";
     if (allowPan && panHotkey === "") return "pan";
+    if (allowSelect && selectHotkey === "") return "select";
     return null;
   }, [allowZoom, allowPan, zoomHotkey, panHotkey]);
 
@@ -73,6 +91,7 @@ export const useZoomPan = ({
     new Map([
       [zoomHotkey, "zoom"],
       [panHotkey, "pan"],
+      [selectHotkey, "select"],
     ]),
     defaultMode
   );
@@ -80,14 +99,17 @@ export const useZoomPan = ({
   const handleDoubleClick = useCallback(() => {
     if (!resetOnDoubleClick) return;
     setStateRef(DECIMAL_BOX);
-    onChange?.(DECIMAL_BOX);
+    onChange?.({ box: DECIMAL_BOX, mode: "zoom", end: true });
   }, [onChange, setStateRef]);
 
   const handleMove = useCallback(
     (box: Box, key: KeyboardKey): void => {
       if (mode == null || canvasRef.current == null) return;
       const canvas = new Box(canvasRef.current);
-      if (mode === "zoom" || key === zoomHotkey)
+      if (
+        MASK_MODES.includes(mode as "zoom" | "select") ||
+        [zoomHotkey, panHotkey].includes(key)
+      ) {
         setMaskBox(
           BoxScale.scale(canvas)
             .clamp(canvas)
@@ -97,8 +119,12 @@ export const useZoomPan = ({
             })
             .box(fullSize(threshold, box, canvas))
         );
-      else if (mode === "pan" || key === panHotkey) {
-        onChange?.(handlePan(box, stateRef.current, canvas));
+      } else if (mode === "pan" || key === panHotkey) {
+        onChange?.({
+          box: handlePan(box, stateRef.current, canvas),
+          mode: "pan",
+          end: false,
+        });
       }
     },
     [mode, setMaskBox]
@@ -125,17 +151,21 @@ export const useZoomPan = ({
         if (next == null) return prev;
         if (next.width < minZoom.x || next.height < minZoom.y) return prev;
         if (next.width > maxZoom.x || next.height > maxZoom.y) return prev;
-        onChange?.(next);
+        onChange?.({ box: next, mode, end: true });
         return next;
       });
     },
     [mode, setMaskBox]
   );
 
-  const onDragStart = useCursorDrag({ onMove: handleMove, onEnd: handleEnd, preventDefault: false });
+  const onDragStart = useCursorDrag({
+    onMove: handleMove,
+    onEnd: handleEnd,
+    preventDefault: false,
+  });
 
   const containerStyle: React.CSSProperties = {
-    cursor: mode === "zoom" ? "crosshair" : "grab",
+    cursor: mode === "pan" ? "grab" : "crosshair",
   };
 
   return {
@@ -154,8 +184,8 @@ type DivProps = React.DetailedHTMLProps<
 >;
 
 export interface ZoomPanProps
-  extends Omit<UseZoomPanReturn, "ref">,
-  Omit<DivProps, "onDragStart" | "onDragEnd" | "onDrag" | "ref" | "onDoubleClick"> { }
+  extends Omit<UseZoomPanSelectReturn, "ref">,
+    Omit<DivProps, "onDragStart" | "onDragEnd" | "onDrag" | "ref" | "onDoubleClick"> {}
 
 export const ZoomPanMask = forwardRef<HTMLDivElement, ZoomPanProps>(
   (

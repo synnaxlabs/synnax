@@ -7,9 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+
+
 import { Text as CoreText } from "./Text";
 import { TextDateTime } from "./TextDateTime";
 import { TextEditable } from "./TextEditable";
+
+import "./Typography.css";
+
 import { TextLink } from "./TextLink";
 import { TextWithIcon } from "./TextWithIcon";
 import {
@@ -18,10 +23,12 @@ import {
   TypographyLevels,
 } from "./types";
 
+
 export type { CoreTextProps, TextProps } from "./Text";
 export type { Size, TypographySpec, TypographyLevel } from "./types";
 export type { TextWithIconProps } from "./TextWithIcon";
 export type { TextLinkProps } from "./TextLink";
+
 
 type CoreTextType = typeof CoreText;
 
