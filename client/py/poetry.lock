@@ -480,7 +480,7 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*"
 
 [[package]]
 name = "synnax-freighter"
-version = "0.2.12"
+version = "0.2.13"
 description = ""
 category = "main"
 optional = false
@@ -545,7 +545,7 @@ testing = ["flake8 (<5)", "func-timeout", "jaraco.functools", "jaraco.itertools"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.11"
-content-hash = "13265ebf54b0e835a6ca4399520c37e970912a6594036db55bf613695c83e70c"
+content-hash = "2432b08d81585595b7b765f03fa3f3d641e64d6b8728664f3a7323901292b3d5"
 
 [metadata.files]
 attrs = [
@@ -1003,8 +1003,8 @@ six = [
     {file = "six-1.16.0.tar.gz", hash = "sha256:1e61c37477a1626458e36f7b1d82aa5c9b094fa4802892072e49de9c60c4c926"},
 ]
 synnax-freighter = [
-    {file = "synnax_freighter-0.2.12-py3-none-any.whl", hash = "sha256:0075dac00f3947eefc0a13f9e7803caea1bfd05400db077815392d337c4b8e2f"},
-    {file = "synnax_freighter-0.2.12.tar.gz", hash = "sha256:b3c3b39f971048d69b59c18fca661de2007a88dfd279969cfed537cc30a15ea1"},
+    {file = "synnax_freighter-0.2.13-py3-none-any.whl", hash = "sha256:f1737ebd39615dcab0ffd48d3c23cb3960c7958ea33d20aec717de9dbcb53ad0"},
+    {file = "synnax_freighter-0.2.13.tar.gz", hash = "sha256:5c38365758d968486930e4552a6e69e05251e67d85af1bcce85ef722ce740097"},
 ]
 typing-extensions = [
     {file = "typing_extensions-4.4.0-py3-none-any.whl", hash = "sha256:16fa4864408f655d35ec496218b85f79b3437c829e93320c7c9215ccfd92489e"},
