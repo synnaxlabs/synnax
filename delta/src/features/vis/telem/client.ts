@@ -18,23 +18,13 @@ import {
 import { GLDemandCache, GLDemandCacheEntry } from "@synnaxlabs/pluto";
 
 import { Range } from "@/features/workspace";
-import { E } from "@tauri-apps/api/path-e12e0e34";
-
-interface GLCacheKey {
-  rangeKey: string;
-  key: string;
-}
 
 export class TelemetryClient {
-  private readonly glCache: GLDemandCache<GLCacheKey>;
+  private readonly glCache: GLDemandCache;
   private readonly client: Synnax;
   private readonly frameCache: FrameCache;
 
-  constructor(
-    glCache: GLDemandCache<GLCacheKey>,
-    client: Synnax,
-    frameCache: FrameCache
-  ) {
+  constructor(glCache: GLDemandCache, client: Synnax, frameCache: FrameCache) {
     this.frameCache = frameCache;
     this.glCache = glCache;
     this.client = client;
@@ -65,19 +55,18 @@ export class TelemetryClient {
     if (missing.length > 0) {
       const remote = this.enrichAndConvertF(await this.readRemote(tr, missing));
       this.frameCache.set(tr, remote);
-      this.updateGLCache(range.key, remote);
+      this.updateGLCache(range, remote);
       frame = frame.overrideF(remote);
     }
     return frame.entries.map(([key, arrays]) => {
-      const buffers = this.glCache.get(`${range.key}-${key}`);
+      const buffers = this.glCache.get(this.glCacheKey(range, key));
       if (buffers == null) throw new Error("GLCache is missing buffers");
       return { range, key, arrays, buffers };
     });
   }
 
   private async readRemote(tr: TimeRange, keys: string[]): Promise<Frame> {
-    const frame = await this.client.data.readFrame(tr, keys);
-    return frame;
+    return await this.client.data.readFrame(tr, keys);
   }
 
   private enrichAndConvertF(frame: Frame): Frame {
@@ -90,10 +79,10 @@ export class TelemetryClient {
     });
   }
 
-  private updateGLCache(rangeKey: string, frame: Frame): void {
+  private updateGLCache(range: Range, frame: Frame): void {
     frame.entries.forEach(([key, arrays]) =>
       this.glCache.set(
-        `${rangeKey}-${key}`,
+        this.glCacheKey(range, key),
         arrays.map((a) => {
           let offset: bigint | number = 0;
           if (a.dataType.equals(DataType.TIMESTAMP))
@@ -102,6 +91,10 @@ export class TelemetryClient {
         })
       )
     );
+  }
+
+  private glCacheKey(range: Range, key: string): string {
+    return `${range.key}-${key}`;
   }
 }
 
@@ -114,6 +107,6 @@ export interface TelemetryClientRequest {
 export interface TelemetryClientResponse {
   range: Range;
   key: string;
-  buffers: GLDemandCacheEntry<GLCacheKey>;
+  buffers: GLDemandCacheEntry;
   arrays: LazyArray[];
 }

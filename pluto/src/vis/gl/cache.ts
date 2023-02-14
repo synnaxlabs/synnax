@@ -10,10 +10,10 @@
 import { LazyArray, DemandCache, DemandCacheEntry, Size, KV } from "@synnaxlabs/x";
 
 /**
-* GLBufferController is an interface for controlling the creation and buffering of
-* WebGLBuffers. It is used by GLDemandCache to create and manage WebGLBuffers.
-* It is implemented by WebGLRenderingContext.
-*/
+ * GLBufferController is an interface for controlling the creation and buffering of
+ * WebGLBuffers. It is used by GLDemandCache to create and manage WebGLBuffers.
+ * It is implemented by WebGLRenderingContext.
+ */
 export interface GLBufferController {
   createBuffer: () => WebGLBuffer | null;
   bindBuffer: (target: number, buffer: WebGLBuffer | null) => void;
@@ -38,7 +38,9 @@ export type GLDemandCacheEntry = DemandCacheEntry<string, WebGLBuffer[]>;
  * the memory limit, it's essential that the caller calls `release` on the returned
  * DemandCacheEntry when the buffers are no longer needed.
  */
-export class GLDemandCache implements KV<string, GLDemandCacheEntry, string, LazyArray[]> {
+export class GLDemandCache
+  implements KV<string, GLDemandCacheEntry, string, LazyArray[]>
+{
   private readonly gl: GLBufferController;
   private readonly internal: DemandCache<string, GLCacheBuffer[]>;
   softLimit: Size = Size.megabytes(500);
@@ -46,18 +48,24 @@ export class GLDemandCache implements KV<string, GLDemandCacheEntry, string, Laz
 
   constructor(gl: GLBufferController) {
     this.gl = gl;
-    this.internal = new DemandCache()
+    this.internal = new DemandCache();
   }
 
-  get(key: string): DemandCacheEntry<string, WebGLBuffer[]> | null {
+  get(key: string): GLDemandCacheEntry | null {
+    this.gc();
     return this.internal.get(key);
   }
 
   set(key: string, arrays: LazyArray[]): void {
-    this.internal.set(key, arrays.map((a) => this.createBuffer(a)));
+    this.gc();
+    this.internal.set(
+      key,
+      arrays.map((a) => this.createBuffer(a))
+    );
   }
 
   delete(key: string): void {
+    this.gc();
     const entries = this.internal.get(key);
     if (entries == null) return;
     entries.value.forEach((buf) => {
@@ -79,7 +87,9 @@ export class GLDemandCache implements KV<string, GLDemandCacheEntry, string, Laz
     if (buf == null) throw new Error("failed to create buffer");
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, buf);
     this.gl.bufferData(this.gl.ARRAY_BUFFER, arr.data.buffer, this.gl.STATIC_DRAW);
-    const size = new Size(this.gl.getBufferParameter(this.gl.ARRAY_BUFFER, this.gl.BUFFER_SIZE));
+    const size = new Size(
+      this.gl.getBufferParameter(this.gl.ARRAY_BUFFER, this.gl.BUFFER_SIZE)
+    );
     this.size = this.size.add(size);
     return { buf, size };
   }

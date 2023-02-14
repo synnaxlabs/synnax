@@ -30,12 +30,11 @@ export const initialState: VisualizationState = {
 
 type SetVisAction = PayloadAction<Vis>;
 type UpdateVisAction = PayloadAction<Omit<DeepPartial<Vis>, "key"> & { key: string }>;
-type SetWarpModeAction = PayloadAction<boolean | undefined>;
 
 export const VISUALIZATION_SLICE_NAME = "visualization";
 
 export const {
-  actions: { setVis, setWarpMode, updateVis },
+  actions: { setVis, updateVis },
   reducer: visualizationReducer,
 } = createSlice({
   name: VISUALIZATION_SLICE_NAME,
@@ -48,9 +47,6 @@ export const {
       const vis = state.visualizations[payload.key];
       const res = Deep.merge(vis, payload);
       state.visualizations[payload.key] = res;
-    },
-    setWarpMode: (state, { payload }: SetWarpModeAction) => {
-      state.warpMode = payload ?? !state.warpMode;
     },
   },
 });

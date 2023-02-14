@@ -54,6 +54,7 @@ export const DefineRange = ({
     };
   } else {
     defaultValues = {
+      name: "",
       startDate: now,
       startTime: now,
       endDate: now,
@@ -129,11 +130,10 @@ export const DefineRange = ({
             <Input.ItemC<number, number, InputTimeProps, DefineRangeFormProps>
               name="endTime"
               control={control}
-              op="add"
               grow
             >
               {Input.Time}
-              {TimeModifierRow}
+              {(props) => <TimeModifierRow op="add" {...props} />}
             </Input.ItemC>
           </Space>
         </Space>
@@ -150,7 +150,7 @@ export const DefineRange = ({
 };
 
 interface TimeModifierRowProps extends InputControl<number> {
-  op: "add" | "subtract";
+  op?: "add" | "subtract";
 }
 
 const TimeModifierRow = ({
@@ -160,12 +160,12 @@ const TimeModifierRow = ({
 }: TimeModifierRowProps): JSX.Element => {
   const onClickFactory =
     (span?: TimeSpan): ButtonProps["onChange"] =>
-      (e) => {
-        e.preventDefault();
-        if (span == null) return onChange(TimeStamp.now().valueOf());
-        value = op === "add" ? value + span.valueOf() : value - span.valueOf();
-        onChange(value);
-      };
+    (e) => {
+      e.preventDefault();
+      if (span == null) return onChange(TimeStamp.now().valueOf());
+      value = op === "add" ? value + span.valueOf() : value - span.valueOf();
+      onChange(value);
+    };
   const icon = op === "add" ? <Icon.Add /> : <Icon.Subtract />;
   return (
     <Pack direction="x" size="medium" grow>
@@ -196,12 +196,7 @@ const TimeModifierRow = ({
       >
         Minute
       </Button>
-      <Button
-        variant="outlined"
-        onClick={onClickFactory()}
-        justify="center"
-        grow
-      >
+      <Button variant="outlined" onClick={onClickFactory()} justify="center" grow>
         Now
       </Button>
     </Pack>

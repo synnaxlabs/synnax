@@ -10,7 +10,11 @@
 import { ContextMenu, useContextMenu } from "./ContextMenu";
 import { Menu as CoreMenu } from "./Menu";
 import { MenuItem, MenuItemIcon } from "./MenuItem";
-export type { ContextMenuProps, UseContextMenuReturn } from "./ContextMenu";
+export type {
+  ContextMenuProps,
+  UseContextMenuReturn,
+  ContextMenuMenuProps,
+} from "./ContextMenu";
 export type { MenuProps } from "./Menu";
 export type { MenuItemProps, MenuItemIconProps } from "./MenuItem";
 

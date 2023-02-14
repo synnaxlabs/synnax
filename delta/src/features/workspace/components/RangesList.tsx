@@ -7,19 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { AnyAction, Dispatch } from "@reduxjs/toolkit";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/client";
-import { Text, List, ListColumn, Menu as PMenu, Divider } from "@synnaxlabs/pluto";
-import type { MenuContextItemProps } from "@synnaxlabs/pluto";
-import { useDispatch } from "react-redux";
-
-import { Menu } from "@/components";
-
-import { setActiveRange, useSelectRanges, useSelectRange, addRange } from "../store";
-
-import { Icon } from "@/components/Icon";
+import {
+  Text,
+  List,
+  ListColumn,
+  Menu as PMenu,
+  Divider,
+  ContextMenuMenuProps,
+} from "@synnaxlabs/pluto";
 
 import type { Range } from "../store";
+
+import { Menu } from "@/components";
+import { Icon } from "@/components/Icon";
 
 export const rangeListColumns: Array<ListColumn<Range>> = [
   {
@@ -71,7 +72,7 @@ export const RangesList = ({
 }: RangesListProps): JSX.Element => {
   const contextMenProps = PMenu.useContextMenu();
 
-  const RangesContextMenu = ({ keys }: MenuContextItemProps): JSX.Element => {
+  const RangesContextMenu = ({ keys }: ContextMenuMenuProps): JSX.Element => {
     const handleClick = (key: string): void => {
       switch (key) {
         case "create":
@@ -83,7 +84,7 @@ export const RangesList = ({
       }
     };
     return (
-      <PMenu onClick={handleClick}>
+      <PMenu onChange={handleClick}>
         <PMenu.Item startIcon={<Icon.Edit />} size="small" itemKey="edit">
           Edit Range
         </PMenu.Item>
@@ -101,7 +102,10 @@ export const RangesList = ({
 
   return (
     <div style={{ flexGrow: 1 }}>
-      <PMenu.ContextMenu menu={(props) => <RangesContextMenu {...props} />} {...contextMenProps}>
+      <PMenu.ContextMenu
+        menu={(props) => <RangesContextMenu {...props} />}
+        {...contextMenProps}
+      >
         <List data={ranges}>
           <List.Selector
             value={selectedRange == null ? [] : [selectedRange.key]}

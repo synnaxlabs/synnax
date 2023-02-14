@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export interface KV<K = string, V = string, WK = K, WV = V, D = K> extends KVReader<K, V>, KVWriter<WK, WV>, KVDeleter<D> { }
+export interface KV<K = string, V = string, WK = K, WV = V, D = K>
+  extends KVReader<K, V>,
+    KVWriter<WK, WV>,
+    KVDeleter<D> {}
 
 export interface KVReader<K = string, V = string> {
   /** @returns the value for a given key, or null if the key is not present. */
@@ -25,10 +28,13 @@ export interface KVDeleter<K = string> {
 }
 
 /** A read-writable key-value store. */
-export interface AsyncKV<K = string, V = string, WK = K, WV = V, D = K> extends AsyncKVReader<V, K>, AsyncKVWriter<WV, WK>, AsyncKVDeleter<D> { }
+export interface AsyncKV<K = string, V = string, WK = K, WV = V, D = K>
+  extends AsyncKVReader<K, V>,
+    AsyncKVWriter<WK, WV>,
+    AsyncKVDeleter<D> {}
 
 /** A readable key-value store. */
-export interface AsyncKVReader<V, K = string> {
+export interface AsyncKVReader<K = string, V = string> {
   /** Get the value for a given key. */
   get: (key: K) => Promise<V | null>;
 }
