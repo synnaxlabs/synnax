@@ -129,7 +129,7 @@ const AccordionEntryC = ({
   if(parent.current != null) {
       const parentSize = new Box(parent.current).dim(DIRECTION);
      expanded = size * parentSize > COLLAPSED_THRESHOLD;
-  } 
+  }
     return (
     <>
       <Header

@@ -98,7 +98,7 @@ const CoreInputItem = <
             .filter((c) => c != null) as JSX.Element[]
         }
       </Pack>
-    )   
+    )
   }
 
   return (
