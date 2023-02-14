@@ -923,7 +923,6 @@ export class Size extends Number {
     return Size.bytes(this.valueOf() - other.valueOf());
   }
 
-
   /**
    * Creates a Size from the given number of bytes.
    *

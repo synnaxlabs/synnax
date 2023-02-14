@@ -8,15 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { Space, Accordion } from "@synnaxlabs/pluto";
-import type { NavDrawerItem } from "@synnaxlabs/pluto";
 import { AiOutlinePlus } from "react-icons/ai";
 import { MdWorkspacesFilled } from "react-icons/md";
 import { useDispatch } from "react-redux";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
-import { Layout, useLayoutPlacer } from "@/features/layout";
 
 import { removeRange, setActiveRange, useSelectRange, useSelectRanges } from "../store";
+
+import { Layout, NavDrawerItem, useLayoutPlacer } from "@/features/layout";
 
 import { RangesList } from "./RangesList";
 import { VisList } from "./VisList";

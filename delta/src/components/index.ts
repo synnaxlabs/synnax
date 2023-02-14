@@ -13,3 +13,4 @@ export * from "./Select";
 export * from "./Toolbar";
 export * from "./Logo";
 export * from "./Menu";
+export * from "./Icon";

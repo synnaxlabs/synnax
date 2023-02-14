@@ -33,8 +33,8 @@ export const WarpModeToggle = (): JSX.Element => {
   };
 
   return (
-    <Button.IconOnlyToggle value={checked} onChange={handleClick}>
+    <Button.IconToggle value={checked} onChange={handleClick}>
       <HiLightningBolt />
-    </Button.IconOnlyToggle>
+    </Button.IconToggle>
   );
 };

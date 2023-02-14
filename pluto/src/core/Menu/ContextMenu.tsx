@@ -9,42 +9,42 @@
 
 import {
   ComponentPropsWithoutRef,
-  ComponentPropsWithRef,
   ForwardedRef,
   forwardRef,
-  HTMLProps,
-  PropsWithChildren,
   RefCallback,
   useRef,
   useState,
 } from "react";
 
 import { unique } from "@synnaxlabs/x";
+import clsx from "clsx";
 
 import { useClickOutside } from "@/hooks";
-import { ClientXY, toXY, XY, ZERO_XY } from "@/spatial";
+import { ClientXY, toXY, XY, ZERO_XY, positionSoVisible } from "@/spatial";
 import { RenderProp } from "@/util/renderProp";
 
 import "./ContextMenu.css";
-import clsx from "clsx";
 
-export interface ContextMenuState {
+interface ContextMenuState {
   visible: boolean;
   keys: string[];
   xy: XY;
 }
 
+/** Supported event types for triggering a context menu. */
 export type ContextMenuEvent = ClientXY & {
   preventDefault: () => void;
   stopPropagation: () => void;
   target: Element;
 };
 
+/** Opens the context menu. See {@link Menu.useContextMenu} for more details. */
 export type ContextMenuOpen = (
   pos: XY | ClientXY | ContextMenuEvent,
   keys?: string[]
 ) => void;
 
+/** Return value for the {@Menu.useContextMenu} hook. */
 export interface UseContextMenuReturn extends ContextMenuState {
   visible: boolean;
   close: () => void;
@@ -78,6 +78,7 @@ const findSelected = (target_: HTMLElement): HTMLElement[] => {
   return [target, ...Array.from(selected)];
 };
 
+/** Should not be imported directly. Use {@link Menu.useContextMenu} instead. */
 export const useContextMenu = (): UseContextMenuReturn => {
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [state, setMenuState] = useState<ContextMenuState>(INITIAL_STATE);
@@ -86,6 +87,7 @@ export const useContextMenu = (): UseContextMenuReturn => {
     const xy = toXY(e);
     if ("preventDefault" in e) {
       e.preventDefault();
+      // Prevent parent context menus from opening.
       e.stopPropagation();
       keys = keys ?? unique(findSelected(e.target as HTMLElement).map((el) => el.id));
     } else keys = [];
@@ -97,16 +99,17 @@ export const useContextMenu = (): UseContextMenuReturn => {
     if (el == null) return;
     setMenuState((prev) => {
       if (prev.visible) {
-        const [_xy, changed] = positionContextMenu(el, prev.xy);
-        if (changed) return { ...prev, xy: _xy };
+        const [repositioned, changed] = positionSoVisible(
+          el,
+          window.document.documentElement
+        );
+        if (changed) return { ...prev, xy: repositioned.topLeft };
       }
       return prev;
     });
   };
 
-  const hideMenu = (): void => {
-    setMenuState(INITIAL_STATE);
-  };
+  const hideMenu = (): void => setMenuState(INITIAL_STATE);
 
   useClickOutside(menuRef, hideMenu);
 
@@ -165,18 +168,3 @@ const ContextMenuCore = (
 
 export const ContextMenu = forwardRef(ContextMenuCore);
 ContextMenu.displayName = "ContextMenu";
-
-const positionContextMenu = (el: HTMLDivElement, xy: XY): [XY, boolean] => {
-  const { width, height } = el.getBoundingClientRect();
-  const { innerWidth, innerHeight } = window;
-  let changed = false;
-  if (xy.x + width > innerWidth) {
-    xy.x -= width;
-    changed = true;
-  }
-  if (xy.y + height > innerHeight) {
-    xy.y -= height;
-    changed = true;
-  }
-  return [xy, changed];
-};

@@ -13,18 +13,18 @@ import clsx from "clsx";
 
 import { BaseButtonProps } from "./Button";
 
-/** The props for the {@link ButtonIconOnly} */
-export interface ButtonIconOnlyProps extends BaseButtonProps {
+/** The props for the {@link ButtonIcon} */
+export interface ButtonIconProps extends BaseButtonProps {
   children: ReactElement;
 }
 
-export const ButtonIconOnly = ({
+export const ButtonIcon = ({
   children,
   className,
   variant = "text",
   size = "medium",
   ...props
-}: ButtonIconOnlyProps): JSX.Element => (
+}: ButtonIconProps): JSX.Element => (
   <button
     className={clsx(
       "pluto-btn pluto-btn-icon",

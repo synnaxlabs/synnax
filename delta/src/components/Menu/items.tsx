@@ -9,20 +9,21 @@
 
 import { Menu } from "@synnaxlabs/pluto";
 import type { MenuItemProps } from "@synnaxlabs/pluto";
+
 import { Icon } from "../Icon";
 
-const HardReload = (props: MenuItemProps) => (
-    <Menu.Item 
-      onClick={() => window.location.reload()}
-      startIcon={<Icon.Refresh />}
-      size="small"
-      {...props}
-    >
-      Hard Reload
-    </Menu.Item>
+const HardReload = (props: Omit<MenuItemProps, "itemKey">): JSX.Element => (
+  <Menu.Item
+    onClick={() => window.location.reload()}
+    startIcon={<Icon.Refresh />}
+    size="small"
+    itemKey="hardReload"
+    {...props}
+  >
+    Hard Reload
+  </Menu.Item>
 );
 
 export const Item = {
   HardReload,
-}
-
+};

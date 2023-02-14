@@ -23,9 +23,9 @@ describe("Button", () => {
   describe("IconOnly", () => {
     it("should render a button with the provided icon", () => {
       const c = render(
-        <Button.IconOnly size="small">
+        <Button.Icon size="small">
           <AiOutlineAim aria-label="icon" />
-        </Button.IconOnly>
+        </Button.Icon>
       );
       expect(c.getByLabelText("icon")).toBeTruthy();
     });

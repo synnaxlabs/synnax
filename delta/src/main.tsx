@@ -46,6 +46,7 @@ const MainUnderContext = (): JSX.Element => {
   const theme = useThemeProvider();
   useLoadTauriVersion();
   useEffect(() => {
+    document.documentElement.style.setProperty("--pluto-base-size", "6px");
     d(maybeCreateGetStartedTab());
   }, []);
   return (

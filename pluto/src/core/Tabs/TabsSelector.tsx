@@ -109,13 +109,13 @@ const TabC = ({
     >
       <TabName name={name} tabKey={tabKey} onRename={onRename} />
       {onClose != null && (
-        <Button.IconOnly
+        <Button.Icon
           size="small"
           onClick={_onClose}
           style={{ height: "3rem", padding: "1rem 0.25rem" }}
         >
           <AiOutlineClose aria-label="pluto-tabs__close" />
-        </Button.IconOnly>
+        </Button.Icon>
       )}
     </Space>
   );

@@ -40,7 +40,6 @@ interface DropdownType extends CoreDropdownType {
  * @param props.visible Whether the dropdown is visible or not. This is a controlled
  *
  * @param props.children
- *
  */
 export const Dropdown = CoreDropdown as DropdownType;
 

@@ -15,6 +15,7 @@ import { LinePlotToolBar } from "../line/controls/LinePlotToolbar";
 import { ControlledLineVisProps } from "../line/controls/types";
 
 import { ToolbarHeader } from "@/components";
+import { NavDrawerItem } from "@/features/layout";
 
 import { VisIcon, VisToolbarTitle } from "./VisToolbarTitle";
 
@@ -43,7 +44,7 @@ const Content = (): JSX.Element => {
   }
 };
 
-export const VisToolbar = {
+export const VisToolbar: NavDrawerItem = {
   key: "visualization",
   content: <Content />,
   icon: <VisIcon />,

@@ -9,13 +9,14 @@
 
 import { Space, Menu as PMenu } from "@synnaxlabs/pluto";
 
+import { Menu } from "../Menu";
+
 import { ClusterProvider } from "@/features/cluster";
+import { LayoutMosaic } from "@/features/layout";
 
 import { NavBottom, NavDrawer, NavLeft, NavRight, NavTop } from "./Nav";
 
-import { LayoutMosaic } from "@/features/layout";
 import { VisCanvas } from "@/features/vis";
-import { Menu } from "../Menu";
 
 import "./MainLayout.css";
 
@@ -49,7 +50,7 @@ export const MainLayout = (): JSX.Element => (
   </ClusterProvider>
 );
 
-export const DefaultContextMenu = () => (
+export const DefaultContextMenu = (): JSX.Element => (
   <PMenu>
     <Menu.Item.HardReload />
   </PMenu>

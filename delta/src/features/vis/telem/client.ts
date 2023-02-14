@@ -44,16 +44,26 @@ export class TelemetryClient {
 
   async retrieve(req: TelemetryClientRequest): Promise<TelemetryClientResponse[]> {
     const e: TelemetryClientResponse[] = [];
-    for (const r of req.ranges) e.push(...(await this.retrieveOne(r, req.keys)));
+    for (const r of req.ranges)
+      e.push(...(await this.retrieveOne(r, req.keys, req.bypassCache)));
     return e;
   }
 
   private async retrieveOne(
     range: Range,
-    keys: string[]
+    keys: string[],
+    bypassCache: boolean = false
   ): Promise<TelemetryClientResponse[]> {
     const tr = new TimeRange(range.start, range.end);
-    let { frame, missing } = this.frameCache.get({ tr, keys });
+    let frame: Frame = new Frame();
+    let missing: string[] = [];
+    if (bypassCache) {
+      missing = keys;
+    } else {
+      const res = this.frameCache.get({ tr, keys });
+      frame = res.frame;
+      missing = res.missing;
+    }
     if (missing.length > 0) {
       const remote = this.enrichAndConvertF(await this.readRemote(tr, missing));
       this.frameCache.set(tr, remote);
@@ -98,6 +108,7 @@ export class TelemetryClient {
 }
 
 export interface TelemetryClientRequest {
+  bypassCache: boolean;
   ranges: Range[];
   keys: string[];
 }

@@ -304,3 +304,29 @@ export type BoxF = (box: Box) => void;
 
 export const ZERO_BOX: Box = new Box(ZERO_XY, ZERO_XY);
 export const DECIMAL_BOX = new Box(0, 0, 1, 1, "bottomLeft");
+
+/**
+ * Reposition a box so that it is visible within a given bound.
+ *
+ * @param target The box to reposition - Only works if the root is topLeft
+ * @param bound The box to reposition within - Only works if the root is topLeft
+ *
+ * @returns the repsoitioned box and a boolean indicating if the box was repositioned
+ * or not.
+ */
+export const positionSoVisible = (
+  target: HTMLElement | Box,
+  bound: HTMLElement | Box
+): [Box, boolean] => {
+  if (target instanceof HTMLElement) target = new Box(target);
+  if (bound instanceof HTMLElement) bound = new Box(bound);
+  if (bound.contains(target)) return [target, false];
+  let nextPos: XY;
+  if (target.right > bound.width)
+    nextPos = {
+      x: target.x - target.width,
+      y: target.y,
+    };
+  else nextPos = { x: target.x, y: target.y - target.height };
+  return [new Box(nextPos, target.dims), true];
+};
