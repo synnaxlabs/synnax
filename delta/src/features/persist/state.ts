@@ -7,18 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Middleware } from "@reduxjs/toolkit";
 import {
   DRIFT_SLICE_NAME,
   MAIN_WINDOW,
   initialState as driftInitialState,
   DriftStoreState,
 } from "@synnaxlabs/drift";
+import { AsyncKV } from "@synnaxlabs/x";
 import { getVersion } from "@tauri-apps/api/app";
 import { appWindow } from "@tauri-apps/api/window";
 
 import { VersionStoreState } from "../version";
-
-import { KV } from "./kv";
 
 const PERSISTED_STATE_KEY = "delta-persisted-state";
 
@@ -32,12 +32,12 @@ export interface RequiredState extends VersionStoreState, DriftStoreState {}
  * @returns a redux middleware.
  */
 export const newPreloadState =
-  (db: KV) =>
-  async <S extends RequiredState>(): Promise<S | undefined> => {
+  <S extends RequiredState>(db: AsyncKV<string, S>) =>
+  async (): Promise<S | undefined> => {
     if (appWindow.label !== MAIN_WINDOW) return undefined;
-    const state = await db.get<S>(PERSISTED_STATE_KEY);
+    const state = await db.get(PERSISTED_STATE_KEY);
     if (state == null) return undefined;
-    // TODO: (@emilbon99) drift doesn't inspect initial state and fork windows accordinly
+    // TODO: (@emilbon99) drift doesn't inspect initial state and fork windows accordingly
     // so we need to manually set the drift state for now.
     if (DRIFT_SLICE_NAME in state) state.drift = driftInitialState;
     return await reconcileVersions(state);
@@ -51,7 +51,10 @@ export const newPreloadState =
  * @returns a redux middleware.
  */
 export const newPersistStateMiddleware =
-  (db: KV) => (store: any) => (next: any) => (action: any) => {
+  <S>(db: AsyncKV<string, S>): Middleware<{}, S> =>
+  (store) =>
+  (next) =>
+  (action) => {
     const result = next(action);
     if (appWindow.label !== MAIN_WINDOW) return result;
     void db.set(PERSISTED_STATE_KEY, store.getState());

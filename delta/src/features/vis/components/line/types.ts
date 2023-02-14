@@ -9,7 +9,13 @@
 
 import { XY } from "@synnaxlabs/pluto";
 
-import { MultiXAxisRecord, MultiYAxisRecord, Vis, XAxisKey, XAxisRecord } from "../../types";
+import {
+  MultiXAxisRecord,
+  MultiYAxisRecord,
+  Vis,
+  XAxisKey,
+  XAxisRecord,
+} from "../../types";
 
 import { Range } from "@/features/workspace";
 
@@ -22,30 +28,4 @@ export interface LineVis extends Vis {
 
 export interface LineSVis extends Omit<LineVis, "ranges"> {
   ranges: Record<XAxisKey, Range[]>;
-}
-
-export class EnhancedLinePlotVS {
-  vs: LineSVis;
-
-  constructor(vs: LineSVis) {
-    this.vs = vs;
-  }
-
-  get ranges(): Range[] {
-    return this.vs.ranges.x1;
-  }
-
-  get keys(): string[] {
-    const { xChannels, yChannels } = this.vs;
-    const channels = { ...xChannels, ...yChannels };
-    return Object.values(channels)
-      .flat()
-      .filter((key) => key.length > 0);
-  }
-}
-
-export interface Line {
-  y: string;
-  x: string;
-  color: string;
 }

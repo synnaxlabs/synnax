@@ -349,13 +349,13 @@ const buildGLLines = (data: LineVisData, zoom: Box, theme: Theme): GLLine[] => {
             color: [
               ...hexToRGBA(theme.colors.visualization.palettes.default[i])
                 .slice(0, 3)
-                .map((c) => c / 255),
+                .map((c: number) => c / 255),
               1,
             ] as RGBATuple,
             scale,
             offset,
-            y: yRes.buffers.value[j].buf,
-            x: xRes.buffers.value[j].buf,
+            y: yRes.buffers.value[j],
+            x: xRes.buffers.value[j],
             strokeWidth: 3,
             length: yArr.length,
           });
@@ -388,7 +388,7 @@ const buildAxes = (
   const bottomXAxisHeight =
     (data.x1.length > 0 ? 1 : 0) * AXIS_WIDTH + BASE_AXIS_PADDING;
 
-  let xBound: Bound;
+  let xBound = ZERO_BOUND;
   X_AXIS_KEYS.forEach((key, i) => {
     const res = data[key];
     if (res.length === 0) return;
@@ -414,7 +414,7 @@ const buildAxes = (
     });
   });
 
-  Y_AXIS_KEYS.forEach((key, i) => {
+  Y_AXIS_KEYS.forEach((key) => {
     const res = data[key];
     if (res.length === 0) return;
     const location = ["y1", "y3"].includes(key) ? "left" : "right";

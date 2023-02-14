@@ -14,7 +14,7 @@ import { Optional } from "@synnaxlabs/x";
 import { Cluster, ConnectionState, DEFAULT_CONNECTION_STATE } from "../types";
 
 /** The state of the cluster slice. */
-export interface ClusterSliceState {
+export interface ClusterState {
   /** The current, active cluster. */
   activeCluster: string | null;
   /**
@@ -36,7 +36,7 @@ export const CLUSTER_SLICE_NAME = "cluster";
  * need access to the cluster slice.
  */
 export interface ClusterStoreState {
-  [CLUSTER_SLICE_NAME]: ClusterSliceState;
+  [CLUSTER_SLICE_NAME]: ClusterState;
 }
 
 const devClusterProps = {
@@ -51,7 +51,7 @@ const devClusterProps = {
   state: DEFAULT_CONNECTION_STATE,
 };
 
-const initialState: ClusterSliceState = {
+const initialState: ClusterState = {
   activeCluster: null,
   clusters: {
     // dev: devClusterProps,
