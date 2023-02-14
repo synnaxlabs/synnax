@@ -1,5 +1,9 @@
 import { clamp } from "@/clamp";
 
+export const addOpacityToHex = (color: string, opacity: number): string =>
+  `${color}${hexOpacities[clamp(opacity, 0, 100) as Opacity]}`;
+
+
 export const createOpacityVariants = (
   prefix: string,
   value: string,
@@ -8,7 +12,7 @@ export const createOpacityVariants = (
   Object.fromEntries(
     opacities.map((opacity) => [
       `${prefix}-${opacity}`,
-      `${value}${hexOpacities[clamp(opacity, 0, 100) as Opacity]}`,
+      addOpacityToHex(value, opacity),
     ])
   );
 

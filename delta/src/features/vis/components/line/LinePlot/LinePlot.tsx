@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useState, useTransition } from "react";
 
-import { SampleValue, TimeSpan, TimeStamp } from "@synnaxlabs/client";
+import { SampleValue } from "@synnaxlabs/client";
 import {
   hexToRGBA,
   useResize,
@@ -31,23 +31,23 @@ import {
   Menu as PMenu,
   useViewport,
   ZERO_BOUND,
+  Divider,
 } from "@synnaxlabs/pluto";
 import { addSamples, TimeRange } from "@synnaxlabs/x";
 
+import { Menu, Icon } from "@/components";
 import { useSelectTheme } from "@/features/layout";
-import { AxisKey, X_AXIS_KEYS, YAxisKey, Y_AXIS_KEYS } from "@/features/vis/types";
 
+import { AxisKey, X_AXIS_KEYS, YAxisKey, Y_AXIS_KEYS } from "../../../../vis/types";
 import { TelemetryClient, TelemetryClientResponse } from "../../../telem/client";
-import { useTelemetryClient } from "../../../telem/TelemetryContext";
-
-import { LineSVis } from "../types";
 
 import { useAsyncEffect } from "@/hooks";
 
+import { useTelemetryClient } from "../../../telem/TelemetryContext";
+
 import "./LinePlot.css";
-import { Icon } from "@/components/Icon";
-import { Menu } from "@/components";
-import { Divider } from "@synnaxlabs/pluto";
+
+import { LineSVis } from "../types";
 
 export interface LinePlotProps {
   vis: LineSVis;
@@ -105,6 +105,7 @@ export const LinePlot = ({
   }, [vis, client]);
 
   useEffect(() => {
+    if (theme == null) return;
     if (data == null)
       return setPkg({ axes: [], lines: [], glBox: ZERO_BOX, xBound: ZERO_BOUND });
     const lines = buildGLLines(data.data, zoom, theme);
@@ -172,7 +173,7 @@ export const LinePlot = ({
       </Space.Centered>
     );
 
-  const ContextMenu = () => {
+  const ContextMenu = (): JSX.Element => {
     const getTimeRange = (): TimeRange => {
       if (selection == null) throw new Error("Selection is null");
       const scale = Scale.scale(pkg.xBound)
@@ -193,8 +194,8 @@ export const LinePlot = ({
               startIcon={<Icon.Python />}
               onClick={() => {
                 const tr = getTimeRange();
-                const code = `synnax.TimeRange(${tr.start}, ${tr.end})`;
-                navigator.clipboard.writeText(code);
+                const code = `synnax.TimeRange(${tr.start.valueOf()}, ${tr.end.valueOf()})`;
+                void navigator.clipboard.writeText(code);
               }}
             >
               Copy Time Range as Python
@@ -202,11 +203,10 @@ export const LinePlot = ({
             <PMenu.Item
               size="small"
               itemKey="copyTS"
-              startIcon={<Icon.Typescript />}
               onClick={() => {
                 const tr = getTimeRange();
-                const code = `new TimeRange(${tr.start}, ${tr.end})`;
-                navigator.clipboard.writeText(code);
+                const code = `new TimeRange(${tr.start.valueOf()}, ${tr.end.valueOf()})`;
+                void navigator.clipboard.writeText(code);
               }}
             >
               Copy Time Range as TypeScript
@@ -221,7 +221,7 @@ export const LinePlot = ({
                   "ISO",
                   "local"
                 )}`;
-                navigator.clipboard.writeText(code);
+                void navigator.clipboard.writeText(code);
               }}
             >
               Copy Time Range as ISO
@@ -279,7 +279,7 @@ const fetchData = async (
     .flat()
     .filter((key) => key.length > 0);
   const ranges = Object.values(vis.ranges).flat();
-  const entries = await client.retrieve({ keys, ranges });
+  const entries = await client.retrieve({ keys, ranges, bypassCache: true });
   const data: LineVisData = { ...ZERO_DATA };
   Object.values(vis.ranges).forEach((ranges) =>
     ranges.forEach((range) =>
@@ -375,15 +375,19 @@ const buildAxes = (
   box: Box
 ): [Bound, AxisProps[], Box] => {
   const axes: AxisProps[] = [];
+
   const leftYAxisWidth =
     ["y1", "y3"].filter((key) => data[key as YAxisKey].length > 0).length * AXIS_WIDTH +
     BASE_AXIS_PADDING;
+
   const rightYAxisWidth =
     ["y2", "y4"].filter((key) => data[key as YAxisKey].length > 0).length * AXIS_WIDTH +
     BASE_AXIS_PADDING;
+
   const topXAxisHeight = (data.x2.length > 0 ? 1 : 0) * AXIS_WIDTH + BASE_AXIS_PADDING;
   const bottomXAxisHeight =
     (data.x1.length > 0 ? 1 : 0) * AXIS_WIDTH + BASE_AXIS_PADDING;
+
   let xBound: Bound;
   X_AXIS_KEYS.forEach((key, i) => {
     const res = data[key];

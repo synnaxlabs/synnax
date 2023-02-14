@@ -11,7 +11,7 @@ import { useState } from "react";
 
 import { OntologyID, OntologyRoot } from "@synnaxlabs/client";
 import type { OntologyResource } from "@synnaxlabs/client";
-import type { TreeLeaf, NavDrawerItem } from "@synnaxlabs/pluto";
+import type { TreeLeaf } from "@synnaxlabs/pluto";
 import { Tree, Space } from "@synnaxlabs/pluto";
 import { AiFillFolder } from "react-icons/ai";
 
@@ -20,7 +20,7 @@ import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { useStore } from "react-redux";
 
 import { useClusterClient } from "@/features/cluster";
-import { useLayoutPlacer } from "@/features/layout";
+import { NavDrawerItem, useLayoutPlacer } from "@/features/layout";
 import { WorkspaceState } from "@/features/workspace";
 import { useAsyncEffect } from "@/hooks";
 

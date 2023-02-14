@@ -12,7 +12,7 @@ import { ReactElement, RefObject } from "react";
 import clsx from "clsx";
 import { AiFillCaretDown, AiFillCaretRight } from "react-icons/ai";
 
-import { ButtonIconOnlyProps } from "@/core/Button";
+import { ButtonIconProps } from "@/core/Button";
 import { Header } from "@/core/Header";
 import { Resize, ResizeMultipleProps } from "@/core/Resize";
 import { Box, Direction } from "@/spatial";
@@ -37,7 +37,7 @@ export interface AccordionEntry {
    * A list of actions to display in the entry's header. See the {@link Header.Actions}
    * component for more details.
    */
-  actions?: Array<ButtonIconOnlyProps | ReactElement>;
+  actions?: Array<ButtonIconProps | ReactElement>;
 }
 
 /** The props for the {@link Accordion} component. */

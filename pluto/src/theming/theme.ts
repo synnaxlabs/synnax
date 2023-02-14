@@ -9,6 +9,8 @@
 
 import "@fontsource/inter";
 
+import { addOpacityToHex } from "@synnaxlabs/x";
+
 import { TypographySpec } from "@/core/Typography";
 
 export type Size = number | string;
@@ -74,7 +76,7 @@ export interface Theme {
 const white: Color = "#FFFFFF";
 const black: Color = "#171716";
 const fontFamily = "Inter, sans-serif";
-const baseSize: Size = 4;
+const baseSize: Size = 6;
 
 const synnaxBase: Theme = {
   key: "synnax-base",
@@ -200,6 +202,6 @@ export const synnaxDark = {
     logo: "var(--pluto-text-color)",
     border: synnaxBase.colors.gray.p1,
     background: synnaxBase.colors.black,
-    text: synnaxBase.colors.white,
+    text: addOpacityToHex(synnaxBase.colors.white, 80),
   },
 };

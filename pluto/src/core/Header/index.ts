@@ -41,7 +41,7 @@ interface HeaderType extends CoreHeaderType {
    * Custom actions to render on the right side of the header.
    *
    * @param children - The actions to render. If the action is of type
-   * {@link ButtonIconOnlyProps}, a correectly sized {@link ButtonIconOnly} is rendered
+   * {@link ButtonIconProps}, a correectly sized {@link ButtonIconOnly} is rendered
    * using the given props. If the action is a JSX element, it is renderered directly.
    * It's a good idea to prefer the latter in almost all cases for simplicity.
    */
@@ -58,7 +58,7 @@ interface HeaderType extends CoreHeaderType {
  * @param props.icon - An optional icon to add add before the start of the header text.
  * @param props.actions - A list of actions to be rendered on the right side ofthe header.
  * If the action is a JSX element, it will be rendered directly, and if its of type
- * ButtonIconOnlyProps, a ButtonIconOnly will be rendered using the given props.
+ * ButtonIconProps, a ButtonIconOnly will be rendered using the given props.
  * @param props.divided - If true, creates a divider between the start icon, header text,
  * and each action. Default is false.
  */

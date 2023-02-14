@@ -7,61 +7,34 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createContext, PropsWithChildren, useContext } from "react";
+import { createContext, useContext } from "react";
 
-import clsx from "clsx";
+import { InputControl } from "@/core/Input";
+import { Space, SpaceProps } from "@/core/Space";
 
-import { Button, ButtonProps } from "@/core/Button";
-import { Space } from "@/core/Space";
-
-interface CoreMenuContextProps {
+interface MenuContextValue {
   onClick: (key: string) => void;
+  selected: string;
 }
 
-export const CoreMenuContext = createContext<CoreMenuContextProps>({
+export const MenuContext = createContext<MenuContextValue>({
   onClick: () => {},
+  selected: "",
 });
 
-export interface MenuProps extends PropsWithChildren {
-  onClick?: (key: string) => void;
-}
+export interface MenuProps
+  extends Omit<SpaceProps, "onChange">,
+    Partial<InputControl<string>> {}
 
-const useCoreMenuContext = (): CoreMenuContextProps => useContext(CoreMenuContext);
+export const useMenuContext = (): MenuContextValue => useContext(MenuContext);
 
-export const Menu = ({ children, onClick }: MenuProps): JSX.Element => {
-  const handleClick = (key: string): void => {
-    onClick?.(key);
-  };
+export const Menu = ({ children, onChange, value = "" }: MenuProps): JSX.Element => {
+  const handleClick: MenuProps["onChange"] = (key) => onChange?.(key);
   return (
-    <CoreMenuContext.Provider value={{ onClick: handleClick }}>
+    <MenuContext.Provider value={{ onClick: handleClick, selected: value }}>
       <Space className="pluto-menu" direction="y" empty>
         {children}
       </Space>
-    </CoreMenuContext.Provider>
-  );
-};
-
-export interface MenuItemProps extends ButtonProps {
-  itemKey: string;
-}
-
-export const MenuItem = ({
-  itemKey,
-  className,
-  onClick,
-  ...props
-}: MenuItemProps): JSX.Element => {
-  const { onClick: ctxOnClick } = useCoreMenuContext();
-  const handleClick: ButtonProps["onClick"] = (e) => {
-    ctxOnClick(itemKey);
-    onClick?.(e);
-  };
-  return (
-    <Button
-      {...props}
-      onClick={handleClick}
-      variant="text"
-      className={clsx("pluto-menu-item", className)}
-    />
+    </MenuContext.Provider>
   );
 };

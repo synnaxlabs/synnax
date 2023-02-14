@@ -137,13 +137,13 @@ const SelectMultipleInput = <E extends RenderableRecord<E>>({
             );
           })}
       </Space>
-      <Button.IconOnly
+      <Button.Icon
         className="pluto-select-multiple__clear"
         variant="outlined"
         onClick={clear}
       >
         <AiOutlineClose aria-label="clear" />
-      </Button.IconOnly>
+      </Button.Icon>
     </Pack>
   );
 };

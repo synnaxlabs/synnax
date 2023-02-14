@@ -3,7 +3,7 @@ import { applyCSSVars } from "@synnaxlabs/x";
 
 const modifyTheme = (theme: Theme): Theme => {
   const m = { ...theme };
-  m.sizes.base = 6;
+  m.sizes.base = 6.5;
   m.typography.p.lineHeight = 3.5;
   m.typography.h1 = {
     ...m.typography.h1,

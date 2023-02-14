@@ -77,7 +77,7 @@ export const DragButton = ({
   className,
   ...props
 }: DragButtonProps): JSX.Element => (
-  <Button.IconOnly
+  <Button.Icon
     variant="outlined"
     className={clsx(
       "pluto-input-number__drag-button",
@@ -87,5 +87,5 @@ export const DragButton = ({
     {...props}
   >
     <TiArrowUnsorted />
-  </Button.IconOnly>
+  </Button.Icon>
 );

@@ -3,8 +3,8 @@
 }
 
 .pluto-text-icon--h1 > svg {
-    width: var(--pluto-h1-line-height);
-    min-width: var(--pluto-h1-line-height);
+    width: calc(var(--pluto-h1-line-height) * 0.9);
+    min-width: calc(var(--pluto-h1-line-height) * 0.9);
     height: var(--pluto-h1-line-height);
 }
 
@@ -33,9 +33,9 @@
 }
 
 .pluto-text-icon--p > svg {
-    width: var(--pluto-p-line-height);
-    min-width: var(--pluto-p-line-height);
-    height: var(--pluto-p-line-height);
+    width: var(--pluto-p-size);
+    min-width: var(--pluto-p-size);
+    height: var(--pluto-p-size);
 }
 
 .pluto-text-icon--small > svg {
