@@ -21,7 +21,7 @@ export const InputDate = forwardRef<HTMLInputElement, InputDateProps>(
     const ts = new TimeStamp(value, "UTC");
     useEffect(() => {
       const rem = ts.remainder(TimeStamp.DAY);
-      if (ts.remainder(TimeStamp.DAY).after(0)) 
+      if (ts.remainder(TimeStamp.DAY).after(0))
         onChange(ts.sub(rem).valueOf());
     })
     return (
