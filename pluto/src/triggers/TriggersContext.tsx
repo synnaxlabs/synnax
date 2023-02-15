@@ -59,7 +59,7 @@ export const useTrigger = (
 
   useEffect(
     () =>
-      listen((e: TriggerEvent) => {
+      listen((e) => {
         if (bound != null) {
           if (bound.current == null) return;
           if (

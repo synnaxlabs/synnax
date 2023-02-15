@@ -16,6 +16,8 @@ import { mockBoundingClientRect } from "../../testutil/dom";
 
 import { List, ListColumn } from ".";
 
+import { Triggers } from "@/triggers";
+
 interface SampleRecord {
   key: string;
   name: string;
@@ -55,13 +57,15 @@ const data: SampleRecord[] = [
 const TestList = (): JSX.Element => {
   const [selected, setSelected] = useState<readonly string[]>([]);
   return (
-    <List data={data}>
-      <List.Selector value={selected} onChange={setSelected} />
-      <List.Column.Header columns={cols} />
-      <List.Core.Virtual itemHeight={30}>
-        {(props) => <List.Column.Item {...props} />}
-      </List.Core.Virtual>
-    </List>
+    <Triggers.Provider>
+      <List data={data}>
+        <List.Selector value={selected} onChange={setSelected} />
+        <List.Column.Header columns={cols} />
+        <List.Core.Virtual itemHeight={30}>
+          {(props) => <List.Column.Item {...props} />}
+        </List.Core.Virtual>
+      </List>
+    </Triggers.Provider>
   );
 };
 

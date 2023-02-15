@@ -14,11 +14,11 @@ import { RenderableRecord } from "@synnaxlabs/x";
 import { useListContext } from "./ListContext";
 
 import { Input as DefaultInput, InputControl } from "@/core/Input";
-import { useSearchFactory, UseSearchFactoryProps } from "@/hooks";
+import { useSearchTransform, UseSearchTransformProps } from "@/hooks";
 import { RenderProp } from "@/util/renderProp";
 
 export interface ListSearchProps<E extends RenderableRecord<E>>
-  extends Omit<UseSearchFactoryProps<E>, "query"> {
+  extends Omit<UseSearchTransformProps<E>, "query"> {
   children?: RenderProp<InputControl<string>>;
 }
 
@@ -28,7 +28,7 @@ export const ListSearch = <E extends RenderableRecord<E>>({
 }: ListSearchProps<E>): JSX.Element | null => {
   const [value, setValue] = useState("");
 
-  const search = useSearchFactory<E>({ query: value, opts });
+  const search = useSearchTransform<E>({ query: value, opts });
 
   const { setTransform } = useListContext<E>();
 
