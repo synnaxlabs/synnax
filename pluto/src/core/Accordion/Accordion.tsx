@@ -15,8 +15,8 @@ import { AiFillCaretDown, AiFillCaretRight } from "react-icons/ai";
 import { ButtonIconProps } from "@/core/Button";
 import { Header } from "@/core/Header";
 import { Resize, ResizeMultipleProps } from "@/core/Resize";
+import { expandedCls } from "@/css";
 import { Box, Direction } from "@/spatial";
-import { expandedCls } from "@/util/css";
 
 import "./Accordion.css";
 

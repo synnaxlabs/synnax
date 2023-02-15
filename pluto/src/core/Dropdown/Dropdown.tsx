@@ -15,9 +15,9 @@ import { Space, SpaceProps } from "@/core/Space";
 
 import { Pack } from "../Pack";
 
+import { locationCls, visibleCls } from "@/css";
 import { useClickOutside } from "@/hooks";
 import { YLocation } from "@/spatial";
-import { locationCls, visibleCls } from "@/util/css";
 
 import "./Dropdown.css";
 

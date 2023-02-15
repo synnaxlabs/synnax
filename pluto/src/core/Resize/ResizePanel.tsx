@@ -14,7 +14,7 @@ import clsx from "clsx";
 import { Location, locToDir, swapLoc, dirToDim } from "@/spatial";
 import { preventDefault } from "@/util/event";
 
-export interface ResizeCoreProps
+export interface ResizePanelProps
   extends DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement> {
   location: Location;
   size: number;
@@ -23,7 +23,7 @@ export interface ResizeCoreProps
   showHandle?: boolean;
 }
 
-export const ResizeCore = ({
+export const ResizePanel = ({
   location,
   style = {},
   size,
@@ -33,7 +33,7 @@ export const ResizeCore = ({
   sizeUnits = "px",
   showHandle = true,
   ...props
-}: ResizeCoreProps): JSX.Element => {
+}: ResizePanelProps): JSX.Element => {
   const dir = locToDir(location);
   return (
     <div

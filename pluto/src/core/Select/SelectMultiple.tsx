@@ -25,7 +25,7 @@ import { Space } from "@/core/Space";
 import { Theming } from "../../theming";
 
 import { Tag } from "@/core/Tag";
-import { visibleCls } from "@/util/css";
+import { visibleCls } from "@/css";
 
 import "./SelectMultiple.css";
 
