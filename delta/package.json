@@ -1,7 +1,7 @@
 {
   "name": "@synnaxlabs/delta",
   "private": true,
-  "version": "0.3.4",
+  "version": "0.4.0",
   "type": "module",
   "scripts": {
     "dev": "tauri dev & pnpm kill",
@@ -38,15 +38,16 @@
   },
   "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:*",
-    "eslint-config-synnaxlabs": "workspace:*",
-    "stylelint-config-synnaxlabs": "workspace:*",
     "@tauri-apps/cli": "^1.1.1",
     "@types/react": "^18.0.17",
     "@types/react-dom": "^18.0.6",
     "@types/uuid": "^8.3.4",
     "@vitejs/plugin-react": "^3.0.1",
     "eslint": "^8.0.1",
+    "eslint-config-synnaxlabs": "workspace:*",
+    "eslint-plugin-prettier": "^4.2.1",
     "prettier": "2.7.1",
+    "stylelint-config-synnaxlabs": "workspace:*",
     "typescript": "^4.9.4",
     "vite": "^4.0.4",
     "vite-tsconfig-paths": "^4.0.3"

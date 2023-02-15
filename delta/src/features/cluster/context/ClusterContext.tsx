@@ -79,13 +79,13 @@ export const ClusterProvider = ({ children }: ClusterProviderProps): JSX.Element
     };
   }, [activeClusterKey]);
 
-  // useWindowLifecycle(() => {
-  //   dispatch(registerProcess());
-  //   return () => {
-  //     if (state.client != null) state.client.close();
-  //     dispatch(completeProcess());
-  //   };
-  // });
+  useWindowLifecycle(() => {
+    dispatch(registerProcess());
+    return () => {
+      if (state.client != null) state.client.close();
+      dispatch(completeProcess());
+    };
+  });
 
   return <ClusterContext.Provider value={state}>{children}</ClusterContext.Provider>;
 };

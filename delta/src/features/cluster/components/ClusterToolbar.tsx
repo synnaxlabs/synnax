@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { Space, Header, List, Text } from "@synnaxlabs/pluto";
-import type { ListItemProps, NavDrawerItem } from "@synnaxlabs/pluto";
+import type { ListItemProps } from "@synnaxlabs/pluto";
 import clsx from "clsx";
 import { AiOutlinePlus } from "react-icons/ai";
 import { useDispatch } from "react-redux";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
-import { Layout, useLayoutPlacer } from "@/features/layout";
+import { Layout, useLayoutPlacer, NavDrawerItem } from "@/features/layout";
 
 import { useSelectCluster, useSelectClusters } from "../store";
 

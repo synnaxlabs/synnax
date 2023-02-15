@@ -1,4 +1,4 @@
-// Copyright 2022 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,12 +9,6 @@
 
 import { EOF, ErrorPayloadSchema } from "@synnaxlabs/freighter";
 import type { Stream, StreamClient } from "@synnaxlabs/freighter";
-import { z } from "zod";
-
-import { Frame } from "./frame";
-import { framePayloadSchema } from "./payload";
-
-import { GeneralError, UnexpectedError } from "@/errors";
 import {
   TimeRange,
   TimeSpan,
@@ -22,6 +16,12 @@ import {
   UnparsedTimeSpan,
   UnparsedTimeStamp,
 } from "@synnaxlabs/x";
+import { z } from "zod";
+
+import { GeneralError, UnexpectedError } from "@/errors";
+
+import { Frame } from "./frame";
+import { framePayloadSchema } from "./payload";
 
 export const AUTO_SPAN = new TimeSpan(-1);
 
@@ -222,7 +222,7 @@ export class FrameIterator {
       if (res == null)
         throw new UnexpectedError("received null response from iterator");
       if (res.variant === ResponseVariant.Ack) return res.ack;
-      if (res.frame != null) this.value.pushF(new Frame(res.frame));
+      if (res.frame != null) this.value = this.value.concatF(new Frame(res.frame));
     }
   }
 }

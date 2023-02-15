@@ -1,3 +1,12 @@
+// Copyright 2023 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import {
   createContext,
   PropsWithChildren,
@@ -7,10 +16,9 @@ import {
 } from "react";
 
 import { FrameCache } from "@synnaxlabs/client";
-import { useGLContext } from "@synnaxlabs/pluto";
+import { GLDemandCache, useGLContext } from "@synnaxlabs/pluto";
 
 import { TelemetryClient } from "./client";
-import { GLBufferCache } from "./glCache";
 
 import { useClusterClient } from "@/features/cluster";
 
@@ -35,7 +43,7 @@ export const TelemetryProvider = ({
   useEffect(() => {
     if (clusterClient == null || glCtx == null) return;
     setClient(
-      new TelemetryClient(new GLBufferCache(glCtx.gl), clusterClient, new FrameCache())
+      new TelemetryClient(new GLDemandCache(glCtx.gl), clusterClient, new FrameCache())
     );
   }, [clusterClient, glCtx]);
 

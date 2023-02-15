@@ -12,9 +12,10 @@ import type { CurriedGetDefaultMiddleware } from "@reduxjs/toolkit/dist/getDefau
 
 import { StoreState, assignKey, executeAction, isDrift, shouldEmit } from "./state";
 import { desugar } from "./sugar";
-import { validateAction } from "./validate";
 
 import { Runtime } from "@/runtime";
+
+import { validateAction } from "./validate";
 
 export type Middlewares<S> = ReadonlyArray<Middleware<{}, S>>;
 

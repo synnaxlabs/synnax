@@ -10,16 +10,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { clamp } from "@synnaxlabs/x";
+import { clsx } from "clsx";
 
-import { ResizeCore, ResizeCoreProps } from "./ResizeCore";
-
+import { expandedCls } from "@/css";
 import { Box, locToDir, Location } from "@/spatial";
 import { useCursorDrag } from "@/spatial/useCursorDrag";
 
+import { ResizePanel, ResizePanelProps } from "./ResizePanel";
+
 import "./Resize.css";
 
+/** Props for the {@link Resize} component. */
 export interface ResizeProps
-  extends Omit<ResizeCoreProps, "showHandle" | "size" | "onResize" | "onDragStart"> {
+  extends Omit<ResizePanelProps, "showHandle" | "size" | "onResize" | "onDragStart"> {
   location: Location;
   initialSize?: number;
   minSize?: number;
@@ -29,7 +32,7 @@ export interface ResizeProps
   onCollapse?: () => void;
 }
 
-const COLLAPSED_SIZE = 0;
+const COLLAPSED_SIZE = 2;
 
 export const Resize = ({
   onCollapse,
@@ -39,6 +42,7 @@ export const Resize = ({
   maxSize = Infinity,
   initialSize = 200,
   collapseThreshold = Infinity,
+  className,
   ...props
 }: ResizeProps): JSX.Element => {
   const [size, setSize] = useState(clamp(initialSize, minSize, maxSize));
@@ -81,13 +85,15 @@ export const Resize = ({
     [onCollapse, calcNextSize]
   );
 
-  useEffect((): void => {
-    setSize((prev) => {
-      const nextSize = clamp(prev, minSize, maxSize);
-      marker.current = nextSize;
-      return nextSize;
-    });
-  }, [minSize, maxSize]);
+  useEffect(
+    () =>
+      setSize((prev) => {
+        const nextSize = clamp(prev, minSize, maxSize);
+        marker.current = nextSize;
+        return nextSize;
+      }),
+    [minSize, maxSize]
+  );
 
   const handleDragStart = useCursorDrag({
     onMove: handleMove,
@@ -96,11 +102,12 @@ export const Resize = ({
   });
 
   return (
-    <ResizeCore
+    <ResizePanel
       draggable
       location={location}
       size={size}
       onDragStart={handleDragStart}
+      className={clsx(className, expandedCls(size !== COLLAPSED_SIZE))}
       {...props}
     />
   );

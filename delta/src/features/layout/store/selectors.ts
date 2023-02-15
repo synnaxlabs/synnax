@@ -11,9 +11,23 @@ import type { MosaicLeaf, Theme } from "@synnaxlabs/pluto";
 
 import { Layout } from "../types";
 
-import { LayoutStoreState, NavdrawerEntryState, NavdrawerLocation } from "./slice";
+import {
+  LayoutState,
+  LayoutStoreState,
+  LAYOUT_SLICE_NAME,
+  NavdrawerEntryState,
+  NavdrawerLocation,
+} from "./slice";
 
 import { selectByKey, selectByKeys, useMemoSelect } from "@/hooks";
+
+/**
+ * Selects the layout state.
+ * @param state - The state of the layout store.
+ * @returns The layout state.
+ */
+export const selectLayoutState = (state: LayoutStoreState): LayoutState =>
+  state[LAYOUT_SLICE_NAME];
 
 /**
  * Selects a layout from the store by key.
@@ -25,7 +39,7 @@ import { selectByKey, selectByKeys, useMemoSelect } from "@/hooks";
 export const selectLayout = (
   state: LayoutStoreState,
   key: string
-): Layout | undefined => state.layout.layouts[key];
+): Layout | undefined => selectLayoutState(state).layouts[key];
 
 /**
  * Selects a layout from the store by key.
@@ -49,7 +63,7 @@ export const useSelectRequiredLayout = (key: string): Layout => {
  * @returns The central layout mosaic.
  */
 export const selectMosaic = (state: LayoutStoreState): MosaicLeaf =>
-  state.layout.mosaic.root;
+  selectLayoutState(state).mosaic.root;
 
 /**
  * Selects the central layout mosaic from the store.
@@ -64,7 +78,7 @@ export const useSelectMosaic = (): MosaicLeaf => useMemoSelect(selectMosaic, [])
  * @param state - The store state.
  */
 export const selectActiveThemeKey = (state: LayoutStoreState): string =>
-  state.layout.activeTheme;
+  selectLayoutState(state).activeTheme;
 
 /**
  * Selects the current theme from the store.
@@ -76,7 +90,7 @@ export const selectTheme = (
   state: LayoutStoreState,
   key?: string
 ): Theme | null | undefined =>
-  selectByKey(state.layout.themes, key, selectActiveThemeKey(state));
+  selectByKey(selectLayoutState(state).themes, key, selectActiveThemeKey(state));
 
 /**
  * Selects the current theme from the store.
@@ -96,7 +110,7 @@ export const useSelectTheme = (key?: string): Theme | null | undefined =>
  * @returns The layouts with the given keys.
  */
 export const selectLayouts = (state: LayoutStoreState, keys?: string[]): Layout[] =>
-  selectByKeys(state.layout.layouts, keys);
+  selectByKeys(selectLayoutState(state).layouts, keys);
 
 /**
  * Selects layouts from the store by a set of keys. If no keys are provided, all layouts

@@ -136,6 +136,7 @@ class ChannelClient:
     def create(
         self,
         channels: None = None,
+        *,
         data_type: UnparsedDataType = DataType.UNKNOWN,
         name: str = "",
         node_id: int = 0,
@@ -143,16 +144,7 @@ class ChannelClient:
         index: str = "",
         is_index: bool = False,
     ) -> Channel:
-        """Creates a channel using the given template.
-
-        :param name: The name of the channel to create.
-        :param rate: The sample rate of the channel in Hz.
-        :param data_type: The data type of the channel. Can be any type in
-        UnparsedDataType, such as np.float64 or np.int64,
-        :param node_id: The node that holds the lease on the channel. If you don't know
-        what this is, don't worry about it.
-        :returns: The created channel.
-        """
+        """Doc string 2"""
         ...
 
     @overload
@@ -166,6 +158,7 @@ class ChannelClient:
     def create(
         self,
         channels: Channel | list[Channel] | None = None,
+        *,
         data_type: UnparsedDataType = DataType.UNKNOWN,
         name: str = "",
         node_id: int = 0,
@@ -173,6 +166,7 @@ class ChannelClient:
         index: str = "",
         is_index: bool = False,
     ) -> Channel | list[Channel]:
+        """Doc string"""
         if channels is None:
             _channels = [
                 ChannelPayload(

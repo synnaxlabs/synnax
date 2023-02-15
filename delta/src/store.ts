@@ -27,7 +27,7 @@ import { versionReducer, VERSION_SLICE_NAME } from "@/features/version";
 import { VISUALIZATION_SLICE_NAME, visualizationReducer } from "@/features/vis";
 import { workspaceReducer, WORKSPACE_SLICE_NAME } from "@/features/workspace";
 
-const kv = new TauriKV();
+const kv = new TauriKV<RootState>();
 
 const reducer = combineReducers({
   [DRIFT_SLICE_NAME]: driftReducer,

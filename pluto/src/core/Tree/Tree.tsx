@@ -109,8 +109,8 @@ const TreeLeafParent = <E extends RenderableRecord>({
     setExpanded(!expanded);
   };
   hasChildren = children.length > 0 || hasChildren;
-  let paddingLeft = prevPaddingLeft + 3.5;
-  if (!hasChildren && siblingsHaveChildren) paddingLeft += 3;
+  let paddingLeft = prevPaddingLeft + 2.5;
+  if (!hasChildren && siblingsHaveChildren) paddingLeft += 3.25;
   const _nextSiblingsHaveChildren = nextSiblingsHaveChildren(children);
   return (
     <li className="tree-node__container">
@@ -199,6 +199,7 @@ export const ButtonLeaf = <E extends RenderableRecord<E>>({
       )}
       startIcon={icons}
       onClick={handleClick}
+      iconSpacing="small"
       {...props}
     >
       {name}

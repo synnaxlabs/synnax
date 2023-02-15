@@ -80,8 +80,3 @@ export const selectMultipleVis = (
     state.visualization.visualizations,
     selectLayouts(state, layoutKeys).map((layout) => layout.key)
   );
-
-export const selectWarpMode = (state: VisualizationStoreState): boolean =>
-  state.visualization.warpMode;
-
-export const useSelectWarpMode = (): boolean => useMemoSelect(selectWarpMode, []);
