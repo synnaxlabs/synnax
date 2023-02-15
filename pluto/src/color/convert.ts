@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { RGBATuple } from "./types";
+import { RGBATuple } from "./core";
 
 const invalidHexError = (hex: string): Error => new Error(`Invalid hex color: ${hex}`);
 

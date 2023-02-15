@@ -15,7 +15,8 @@ import Fuse from "fuse.js";
 import { proxyMemo } from "@/memo";
 import { ArrayTransform } from "@/util/transform";
 
-export interface UseSearchProps<E extends UnknownRecord<E>> {
+/** Props for the {@link useSearchFactory} hook. */
+export interface UseSearchFactoryProps<E extends UnknownRecord<E>> {
   query: string;
   opts?: Fuse.IFuseOptions<E>;
 }
@@ -24,11 +25,23 @@ const defaultOpts: Fuse.IFuseOptions<UnknownRecord<UnknownRecord>> = {
   threshold: 0.3,
 };
 
-export const useSearch = <E extends UnknownRecord<E>>({
+/**
+ * @returns a function that can be used to search an array of objects in memory.
+ *
+ * Can be used in conjunction with `useTransform` to add search functionality
+ * alongside other transforms.
+ *
+ * Uses fuse.js under the hood.
+ *
+ * @param query - The query to search for.
+ * @param opts - The options to pass to the Fuse.js search. See the Fuse.js
+ * documentation for more information on these options.
+ */
+export const useSearchFactory = <E extends UnknownRecord<E>>({
   query,
   opts,
-}: UseSearchProps<E>): ArrayTransform<E> => {
-  return useCallback(
+}: UseSearchFactoryProps<E>): ArrayTransform<E> =>
+  useCallback(
     proxyMemo((data: E[]) => {
       if (data?.length === 0 || query.length === 0) return data;
       const fuse = new Fuse(data, {
@@ -40,4 +53,3 @@ export const useSearch = <E extends UnknownRecord<E>>({
     }),
     [query]
   );
-};
