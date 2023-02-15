@@ -12,13 +12,13 @@ import { useCallback } from "react";
 import { Box } from "./box";
 import { ClientXY, toXY, XY } from "./core";
 
-import { KeyboardKey } from "@/keys";
-import { mouseButtonKey } from "@/keys/mouse";
+import { Key } from "@/triggers";
+import { mouseButtonKey } from "@/triggers/mouse";
 
 export interface UseCursorDragProps {
-  onStart?: (loc: XY, mouseKey: KeyboardKey) => void;
-  onMove?: (box: Box, mouseKey: KeyboardKey) => void;
-  onEnd?: (box: Box, mouseKey: KeyboardKey) => void;
+  onStart?: (loc: XY, mouseKey: Key) => void;
+  onMove?: (box: Box, mouseKey: Key) => void;
+  onEnd?: (box: Box, mouseKey: Key) => void;
 }
 
 export type UseCursorDragStart = (

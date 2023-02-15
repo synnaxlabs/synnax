@@ -7,10 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { WorkspaceStoreState } from "./slice";
+import { WorkspaceState, WorkspaceStoreState, WORKSPACE_SLICE_NAME } from "./slice";
 import type { Range } from "./types";
 
 import { selectByKey, useMemoSelect } from "@/hooks";
+
+/**
+ * Selects the workspace state.
+ * @param state - The state of the workspace store.
+ * @returns The workspace state.
+ */
+const selectWorkSpaceState = (state: WorkspaceStoreState): WorkspaceState =>
+  state[WORKSPACE_SLICE_NAME];
 
 /**
  * Selects ranges with the given keys. If no keys are provided, all ranges are selected.
@@ -24,7 +32,7 @@ export const selectRanges = (
   state: WorkspaceStoreState,
   keys?: string[] | readonly string[]
 ): Range[] => {
-  const all = Object.values(state.workspace.ranges);
+  const all = Object.values(selectWorkSpaceState(state).ranges);
   if (keys == null) return all;
   return all.filter((range) => keys.includes(range.key));
 };
@@ -35,7 +43,7 @@ export const selectRanges = (
  * @returns The key of the active range, or null if no range is active.
  */
 const selectActiveRangeKey = (state: WorkspaceStoreState): string | null =>
-  state.workspace.activeRange;
+  selectWorkSpaceState(state).activeRange;
 
 /**
  * Selects a range from the workspace store.
@@ -52,7 +60,7 @@ export const selectRange = (
   state: WorkspaceStoreState,
   key?: string | null
 ): Range | null | undefined =>
-  selectByKey(state.workspace.ranges, key, selectActiveRangeKey(state));
+  selectByKey(selectWorkSpaceState(state).ranges, key, selectActiveRangeKey(state));
 
 /**
  * Selects a range from the workspace store.

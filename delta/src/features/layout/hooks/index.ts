@@ -12,10 +12,8 @@ import { Dispatch, useCallback } from "react";
 import type { AnyAction } from "@reduxjs/toolkit";
 import { closeWindow, createWindow, MAIN_WINDOW } from "@synnaxlabs/drift";
 import {
-  NavDrawerItem,
+  NavDrawerItem as PNavDrawerItem,
   ThemeProviderProps,
-  NavMenuItem,
-  NavDrawerContent,
   useDebouncedCallback,
   Theme,
 } from "@synnaxlabs/pluto";
@@ -139,8 +137,15 @@ const setInitialTheme = async (dispatch: Dispatch<AnyAction>): Promise<void> => 
   dispatch(setActiveTheme(matchThemeChange({ payload: t })));
 };
 
+export interface NavMenuItem {
+  key: string;
+  icon: JSX.Element;
+}
+
+export interface NavDrawerItem extends PNavDrawerItem, NavMenuItem {}
+
 export interface UseNavDrawerReturn {
-  activeItem: NavDrawerContent | undefined;
+  activeItem: NavDrawerItem | undefined;
   menuItems: NavMenuItem[];
   onSelect: (item: string) => void;
   onResize: (size: number) => void;
@@ -152,7 +157,7 @@ export const useNavDrawer = (
 ): UseNavDrawerReturn => {
   const state = useSelectNavDrawer(loc);
   const dispatch = useDispatch();
-  let activeItem: NavDrawerContent | undefined;
+  let activeItem: NavDrawerItem | undefined;
   let menuItems: NavMenuItem[] = [];
   if (state.activeItem != null)
     activeItem = items.find((item) => item.key === state.activeItem);
@@ -171,12 +176,12 @@ export const useNavDrawer = (
   return {
     activeItem,
     menuItems,
-    onSelect: (item: string) =>
+    onSelect: (key: string) =>
       dispatch(
         setNavdrawerEntryState({
           location: loc,
           state: {
-            activeItem: item === state.activeItem ? null : item,
+            activeItem: key === state.activeItem ? null : key,
           },
         })
       ),

@@ -12,6 +12,8 @@ import { MdGrain } from "react-icons/md";
 
 import { Nav } from ".";
 
+import { Menu } from "@/core/Menu";
+
 const story: ComponentMeta<typeof Nav.Bar> = {
   title: "Core/Nav",
   component: Nav.Bar,
@@ -20,34 +22,25 @@ const story: ComponentMeta<typeof Nav.Bar> = {
 export const LeftBar: ComponentStory<typeof Nav.Bar> = () => (
   <Nav.Bar>
     <Nav.Bar.Start>
-      <Nav.Menu
-        items={[
-          {
-            key: "1",
-            icon: <MdGrain />,
-          },
-        ]}
-      />
+      <Menu>
+        <Menu.ItemIcon itemKey="1">
+          <MdGrain />
+        </Menu.ItemIcon>
+      </Menu>
     </Nav.Bar.Start>
     <Nav.Bar.Content>
-      <Nav.Menu
-        items={[
-          {
-            key: "1",
-            icon: <MdGrain />,
-          },
-        ]}
-      />
+      <Menu>
+        <Menu.ItemIcon itemKey="1">
+          <MdGrain />
+        </Menu.ItemIcon>
+      </Menu>
     </Nav.Bar.Content>
     <Nav.Bar.End>
-      <Nav.Menu
-        items={[
-          {
-            key: "1",
-            icon: <MdGrain />,
-          },
-        ]}
-      />
+      <Menu>
+        <Menu.ItemIcon itemKey="1">
+          <MdGrain />
+        </Menu.ItemIcon>
+      </Menu>
     </Nav.Bar.End>
   </Nav.Bar>
 );
@@ -58,8 +51,7 @@ export const LeftDrawer: ComponentStory<typeof Nav.Drawer> = () => {
     items: [
       {
         key: "2",
-        icon: <MdGrain />,
-        content: <h1>Helllo</h1>,
+        content: <h1>Hello</h1>,
         initialSize: 200,
       },
     ],

@@ -11,15 +11,15 @@ import { Fragment, isValidElement, ReactElement } from "react";
 
 import { useHeaderContext } from "./Header";
 
-import { Button, ButtonIconOnlyProps } from "@/core/Button";
+import { Button, ButtonIconProps } from "@/core/Button";
 import { Divider } from "@/core/Divider";
 import { Space } from "@/core/Space";
 import { Typography, TypographyLevel } from "@/core/Typography";
 
-export type HeaderAction = ButtonIconOnlyProps | ReactElement;
+export type HeaderAction = ButtonIconProps | ReactElement;
 
 export interface HeaderActionsProps {
-  children: Array<ButtonIconOnlyProps | ReactElement>;
+  children: Array<ButtonIconProps | ReactElement>;
 }
 
 export const HeaderActions = ({ children }: HeaderActionsProps): JSX.Element => {
@@ -38,7 +38,7 @@ export const HeaderActions = ({ children }: HeaderActionsProps): JSX.Element => 
 interface HeaderActionCProps {
   index: number;
   level: TypographyLevel;
-  children: ReactElement | ButtonIconOnlyProps;
+  children: ReactElement | ButtonIconProps;
   divided: boolean;
 }
 
@@ -51,7 +51,7 @@ const HeaderActionC = ({
   const content = isValidElement(children) ? (
     children
   ) : (
-    <Button.IconOnly
+    <Button.Icon
       onClick={(e) => {
         e.stopPropagation();
         e.preventDefault();
@@ -62,7 +62,7 @@ const HeaderActionC = ({
       {...children}
     >
       {children.children}
-    </Button.IconOnly>
+    </Button.Icon>
   );
   return (
     <Fragment key={index}>

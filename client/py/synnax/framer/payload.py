@@ -41,6 +41,8 @@ class BinaryFrame(FrameHeader):
         # type hinting.
         if arrays is None:
             arrays = list()
+        if keys is None:
+            keys = list()
         super().__init__(arrays=arrays, keys=keys)
 
     def compact(self) -> BinaryFrame:

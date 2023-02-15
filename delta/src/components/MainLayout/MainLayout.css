@@ -10,11 +10,11 @@
  */
 
 .delta-main-fixed--y {
-    height: calc(100vh - 32px - 42px);
+    height: calc(100vh - 4.5rem - 7rem);
 }
 
 .delta-main-fixed--x {
-    width: calc(100vw - 48px - 48px);
+    width: calc(100vw - 8rem - 8rem);
 }
 
 .delta-main--driving {

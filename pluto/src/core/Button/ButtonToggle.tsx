@@ -15,11 +15,11 @@ import { Button, ButtonProps } from "./Button";
 
 import { InputControl } from "@/core/Input";
 
-import { ButtonIconOnly } from "./ButtonIconOnly";
+import { ButtonIcon } from "./ButtonIcon";
 
 import "./ButtonToggle.css";
 
-export const buttonToggleFactory =
+const buttonToggleFactory =
   <E extends Pick<ButtonProps, "className" | "variant">>(
     Base: FunctionComponent<E>
   ): FunctionComponent<E & InputControl<boolean>> =>
@@ -41,5 +41,5 @@ export const buttonToggleFactory =
 export const ButtonToggle = buttonToggleFactory(Button);
 ButtonToggle.displayName = "ButtonToggle";
 
-export const ButtonToggleIcon = buttonToggleFactory(ButtonIconOnly);
+export const ButtonToggleIcon = buttonToggleFactory(ButtonIcon);
 ButtonToggleIcon.displayName = "ButtonToggleIcon";

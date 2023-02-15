@@ -10,7 +10,7 @@
  */
 
 .pluto-tabs-selector__button {
-    padding: 0.25rem 2rem;
+    padding: 0 2rem;
     margin-bottom: -1px;
     cursor: pointer;
 }
@@ -30,5 +30,5 @@
 .pluto-tabs-selector {
     border-bottom: 1px solid var(--pluto-gray-m2);
     background: var(--pluto-background-color);
-    z-index: 10;
+    z-index: 7;
 }

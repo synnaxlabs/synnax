@@ -1,4 +1,4 @@
-// Copyright 2022 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,12 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import {
+  NativeTypedArray,
+  LazyArray,
+  TimeRange,
+  UnparsedTimeStamp,
+} from "@synnaxlabs/x";
+
 import { Frame } from "./frame";
 import { AUTO_SPAN, FrameIterator } from "./iterator";
-import { FrameWriter } from "./writer";
 
 import { QueryError } from "@/errors";
-import { NativeTypedArray, TArray, TimeRange, UnparsedTimeStamp } from "@synnaxlabs/x";
+
+import { FrameWriter } from "./writer";
+
 import { Transport } from "@/transport";
 
 export class FrameClient {
@@ -70,7 +78,7 @@ export class FrameClient {
     data: NativeTypedArray
   ): Promise<void> {
     const f = new Frame();
-    f.pushA(to, new TArray(data));
+    f.pushA(to, new LazyArray(data));
     const w = await this.newWriter(start, to);
     try {
       await w.write(f);
@@ -114,7 +122,7 @@ export class FrameClient {
     start: UnparsedTimeStamp,
     end: UnparsedTimeStamp,
     throwOnEmpty = true
-  ): Promise<TArray> {
+  ): Promise<LazyArray> {
     const tr = new TimeRange(start, end);
     const frame = await this.readFrame(tr, [from]);
     const arrs = frame.getA(from);

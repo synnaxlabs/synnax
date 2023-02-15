@@ -9,16 +9,24 @@
 
 import { Cluster } from "../types";
 
-import { ClusterStoreState } from "./slice";
+import { ClusterState, ClusterStoreState, CLUSTER_SLICE_NAME } from "./slice";
 
 import { selectByKey, selectByKeys, useMemoSelect } from "@/hooks";
+
+/**
+ * Selects the cluster state.
+ * @param state - The state of the cluster store.
+ * @returns The cluster state.
+ */
+export const selectClusterState = (state: ClusterStoreState): ClusterState =>
+  state[CLUSTER_SLICE_NAME];
 
 /**
  * Selects the key of the active cluster.
  * @param state - The state of the cluster store.
  */
 export const selectActiveClusterKey = (state: ClusterStoreState): string | null =>
-  state.cluster.activeCluster;
+  selectClusterState(state).activeCluster;
 
 /** Selects the key of the active cluster */
 export const useSelectActiveClusterKey = (): string | null =>
@@ -35,7 +43,7 @@ export const selectCluster = (
   state: ClusterStoreState,
   key?: string | null
 ): Cluster | null | undefined =>
-  selectByKey(state.cluster.clusters, key, selectActiveClusterKey(state));
+  selectByKey(selectClusterState(state).clusters, key, selectActiveClusterKey(state));
 
 /**
  * Selects a cluster from the cluster store.
