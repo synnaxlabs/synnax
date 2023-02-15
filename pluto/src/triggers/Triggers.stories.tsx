@@ -11,8 +11,6 @@ import { ComponentMeta } from "@storybook/react";
 
 import { Triggers } from ".";
 
-import { List } from "@/core/List/List";
-
 const story: ComponentMeta<typeof Triggers.Provider> = {
   title: "Triggers/Triggers",
   component: Triggers.Provider,
@@ -34,11 +32,12 @@ const Child = (): JSX.Element => {
   ]);
   return (
     <div>
-      {triggers.map((trigger) => (
-        <h1>{Array.isArray(trigger) ? trigger.join(" + ") : trigger}</h1>
+      {triggers.map((trigger, i) => (
+        <h1 key={i}>{Array.isArray(trigger) ? trigger.join(" + ") : trigger}</h1>
       ))}
     </div>
   );
 };
 
+// eslint-disable-next-line import/no-default-export
 export default story;
