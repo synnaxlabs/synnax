@@ -83,7 +83,7 @@ export const NavLeft = (): JSX.Element => {
       <Nav.Bar.Start className="delta-main-nav-left__start" bordered>
         <Logo className="delta-main-nav-left__logo" />
       </Nav.Bar.Start>
-      <Nav.Bar.Content>
+      <Nav.Bar.Content className="delta-main-nav__content" size="small">
         <NavMenu onChange={onSelect}>{menuItems}</NavMenu>
       </Nav.Bar.Content>
       <Nav.Bar.End className="delta-main-nav-left__end" bordered>
@@ -105,11 +105,11 @@ export const NavRight = (): JSX.Element | null => {
   );
   return (
     <Nav.Bar location="right" size={NAV_SIZES.side}>
-      <Nav.Bar.Content>
+      <Nav.Bar.Content className="delta-main-nav__content" size="small">
         <NavMenu onChange={onSelect}>{menuItems}</NavMenu>
       </Nav.Bar.Content>
       {bottomMenuItems.length > 0 && (
-        <Nav.Bar.End>
+        <Nav.Bar.End className="delta-main-nav__content">
           <NavMenu onChange={onBottomSelect}>{bottomMenuItems}</NavMenu>
         </Nav.Bar.End>
       )}
