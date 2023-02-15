@@ -48,6 +48,7 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps): JSX.Element =>
     trigger,
     control: c,
     handleSubmit: _handleSubmit,
+    // @ts-expect-error
   } = useForm({ resolver: zodResolver(formSchema) });
 
   const handleSubmit = _handleSubmit(async (_data: FieldValues): Promise<void> => {

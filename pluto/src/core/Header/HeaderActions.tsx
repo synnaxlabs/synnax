@@ -9,24 +9,26 @@
 
 import { Fragment, isValidElement, ReactElement } from "react";
 
+import { Button, ButtonIconProps } from "@/core/Button";
+
 import { useHeaderContext } from "./Header";
 
-import { Button, ButtonIconProps } from "@/core/Button";
 import { Divider } from "@/core/Divider";
 import { Space } from "@/core/Space";
 import { Typography, TypographyLevel } from "@/core/Typography";
+import { toArray } from "@/util/toArray";
 
 export type HeaderAction = ButtonIconProps | ReactElement;
 
 export interface HeaderActionsProps {
-  children: Array<ButtonIconProps | ReactElement>;
+  children?: HeaderAction | HeaderAction[];
 }
 
-export const HeaderActions = ({ children }: HeaderActionsProps): JSX.Element => {
+export const HeaderActions = ({ children = [] }: HeaderActionsProps): JSX.Element => {
   const { level, divided } = useHeaderContext();
   return (
     <Space direction="x" size="small" align="center" className="pluto-header__actions">
-      {children?.map((action, i) => (
+      {toArray(children).map((action, i) => (
         <HeaderActionC key={i} index={i} level={level} divided={divided}>
           {action}
         </HeaderActionC>
