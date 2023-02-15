@@ -9,8 +9,16 @@
 
 import { MutableRefObject, useCallback, useRef } from "react";
 
+/** A function that mimics the behavior of a setState function from a usetState hook. */
 export type PseudoSetState<T> = (value: T | ((prev: T) => T)) => void;
 
+/**
+ * A hook that returns a ref and a pseudo-setState function to mimic the
+ * behavior of useState but with a ref instead of state.
+ *
+ * @param initialValue - The initial value of the ref.
+ * @returns a tuple containing the ref and the pseudo-setState function.
+ */
 export const useStateRef = <T extends object>(
   initialValue: T
 ): [MutableRefObject<T>, PseudoSetState<T>] => {

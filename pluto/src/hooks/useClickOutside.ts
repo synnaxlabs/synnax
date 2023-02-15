@@ -9,6 +9,13 @@
 
 import { RefObject, useCallback, useEffect } from "react";
 
+/**
+ * A hooks that calls the provided callback when a click event occurs outside of the
+ * provided ref.
+ * @param ref - The ref to check for clicks outside of.
+ * @param onClickOutside - The callback to call when a click event occurs outside of the
+ * provided ref.
+ */
 export const useClickOutside = (
   ref: RefObject<HTMLElement>,
   onClickOutside: () => void
