@@ -14,12 +14,12 @@ import { TiArrowUnsorted } from "react-icons/ti";
 
 import { Button, ButtonProps } from "../Button";
 
+import { directionCls } from "@/css";
 import { Box, Direction, dirToDim } from "@/spatial";
 
 import { Pack } from "../Pack";
 
 import { useCursorDrag } from "@/spatial/useCursorDrag";
-import { directionCls } from "@/util/css";
 
 import "./InputNumber.css";
 

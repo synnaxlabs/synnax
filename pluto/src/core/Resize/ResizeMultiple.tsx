@@ -20,13 +20,22 @@ import {
 
 import clsx from "clsx";
 
-import { ResizeCore } from "./ResizeCore";
+import { ResizePanel } from "./ResizePanel";
 
 import { Space, SpaceProps } from "@/core/Space";
 import { Box, ClientXY, Direction, locFromDir } from "@/spatial";
 
 import "./ResizeMultiple.css";
 
+/** Props for the {@link Resize.Multiple} component. */
+export interface ResizeMultipleProps extends SpaceProps {
+  sizeDistribution: number[];
+  onDragHandle: (e: ResizeStartEvent, i: number) => void;
+}
+
+export type ResizeStartEvent = ClientXY & { preventDefault: () => void };
+
+/** Props for the {@link Resize.useMultiple} hook. */
 export interface UseResizeMultipleProps {
   count: number;
   onResize?: (sizes: number[]) => void;
@@ -35,13 +44,7 @@ export interface UseResizeMultipleProps {
   minSize?: number;
 }
 
-export interface ResizeMultipleProps extends SpaceProps {
-  sizeDistribution: number[];
-  onDragHandle: (e: ResizeStartEvent, i: number) => void;
-}
-
-export type ResizeStartEvent = ClientXY & { preventDefault: () => void };
-
+/** Return value of the {@link Resize.useMultiple} hook. */
 export interface UseResizeMultipleReturn {
   setSize: (i: number, size?: number) => void;
   props: Pick<
@@ -143,7 +146,7 @@ export const ResizeMultiple = forwardRef(
         grow
       >
         {children.map((child, i) => (
-          <ResizeCore
+          <ResizePanel
             onDragStart={(e) => onDrag(e, i)}
             key={i}
             location={location}
@@ -152,7 +155,7 @@ export const ResizeMultiple = forwardRef(
             showHandle={i !== children.length - 1}
           >
             {child}
-          </ResizeCore>
+          </ResizePanel>
         ))}
       </Space>
     );
@@ -160,7 +163,7 @@ export const ResizeMultiple = forwardRef(
 );
 ResizeMultiple.displayName = "ResizeMultiple";
 
-export const calculateInitialSizeDistribution = (
+const calculateInitialSizeDistribution = (
   initial: number[],
   count: number
 ): number[] => {
@@ -174,7 +177,7 @@ export const calculateInitialSizeDistribution = (
   return initial.map(() => 1 / count);
 };
 
-export const handleResize = (
+const handleResize = (
   prev: ResizeMultipleState,
   parentSize: number,
   dragging: number,
@@ -217,35 +220,6 @@ export const calculateDiffPercentage = (
     diff = (clientPos - prev.root) / parentSize;
   } else throw new Error("must provide either a MouseEvent or a targetSize");
   return diff;
-};
-
-export const distribute = (
-  _state: ResizeMultipleState,
-  parentSize: number,
-  count: number,
-  minSize: number
-): number[] => {
-  const { sizeDistribution: state } = _state;
-  let nextState = [...state];
-  const arePercentages = nextState.every((size) => size <= 1);
-  if (!arePercentages) nextState = nextState.map((size) => size / parentSize);
-
-  const totalSize = nextState.reduce((a, b) => a + b, 0);
-
-  // If we have fewer sizes than children, we need to approximate the
-  // remaining sizes.
-  if (nextState.length < count) {
-    const diff = 1 - totalSize;
-    const remaining = count - nextState.length;
-    nextState = nextState.concat(
-      Array.from({ length: remaining }, () => diff / remaining)
-    );
-  }
-
-  if (totalSize < 0.99 || totalSize > 1.01)
-    nextState = nextState.map((size) => size / totalSize);
-
-  return nextState;
 };
 
 const resizeWithSibling = (

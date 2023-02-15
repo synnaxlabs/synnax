@@ -10,3 +10,4 @@
 export * from "./units";
 export * from "./vars";
 export * from "./color";
+export * from "./classes";
