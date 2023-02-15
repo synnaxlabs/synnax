@@ -36,3 +36,7 @@
 .delta-main-nav-drawer {
     flex: 0 0 auto;
 }
+
+.delta-main-nav__content {
+    padding: 2rem 0;
+}

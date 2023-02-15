@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createContext, useContext } from "react";
+import { createContext, PropsWithChildren, useContext } from "react";
 
 import { InputControl } from "@/core/Input";
-import { Space, SpaceProps } from "@/core/Space";
 
 interface MenuContextValue {
   onClick: (key: string) => void;
@@ -22,9 +21,7 @@ export const MenuContext = createContext<MenuContextValue>({
   selected: "",
 });
 
-export interface MenuProps
-  extends Omit<SpaceProps, "onChange">,
-    Partial<InputControl<string>> {}
+export interface MenuProps extends Partial<InputControl<string>>, PropsWithChildren {}
 
 export const useMenuContext = (): MenuContextValue => useContext(MenuContext);
 
@@ -32,9 +29,7 @@ export const Menu = ({ children, onChange, value = "" }: MenuProps): JSX.Element
   const handleClick: MenuProps["onChange"] = (key) => onChange?.(key);
   return (
     <MenuContext.Provider value={{ onClick: handleClick, selected: value }}>
-      <Space className="pluto-menu" direction="y" empty>
-        {children}
-      </Space>
+      {children}
     </MenuContext.Provider>
   );
 };
