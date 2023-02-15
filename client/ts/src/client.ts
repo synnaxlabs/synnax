@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { URL } from "@synnaxlabs/freighter";
+import { TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { AuthenticationClient } from "@/auth";
@@ -15,7 +16,6 @@ import { ChannelClient } from "@/channel";
 import { ConnectivityClient } from "@/connectivity";
 import { FrameClient } from "@/framer";
 import { OntologyClient } from "@/ontology";
-import { TimeSpan } from "@synnaxlabs/x";
 import { Transport } from "@/transport";
 
 export const synnaxPropsSchema = z.object({

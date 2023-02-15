@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { List } from "@/core/List/List";
 import { ComponentMeta } from "@storybook/react";
+
 import { Triggers } from ".";
+
+import { List } from "@/core/List/List";
 
 const story: ComponentMeta<typeof Triggers.Provider> = {
   title: "Triggers/Triggers",

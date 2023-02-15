@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import React, { RefObject, useCallback, useRef } from "react";
+import { RefObject, useCallback, useRef } from "react";
 
 import { Box } from "../spatial/box";
 import { ClientXY, toXY, XY, ZERO_XY } from "../spatial/core";
@@ -36,7 +36,7 @@ export const useTriggerDrag = ({
     ["MouseRight", null],
   ],
   bound,
-}: UseCursorDragProps) => {
+}: UseCursorDragProps): void => {
   const triggerRef = useRef<TriggerEvent | null>(null);
   const startLoc = useRef<XY>(ZERO_XY);
   const onMove = useCallback((e: ClientXY & { buttons: number }) => {

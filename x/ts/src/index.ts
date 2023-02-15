@@ -14,7 +14,6 @@ export * from "@/types/renderable";
 export * from "@/types/optional";
 export * from "@/types/deepPartial";
 export * from "@/deep";
-export * from "@/css";
 export * from "@/debounce";
 export * from "@/clamp";
 export * from "@/compare";

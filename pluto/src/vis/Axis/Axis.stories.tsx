@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ComponentMeta } from "@storybook/react";
-import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { TimeStamp } from "@synnaxlabs/x";
 
 import { Axis } from "./Axis";
 

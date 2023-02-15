@@ -20,7 +20,7 @@ export class DemandCache<K, V> implements KV<K, DemandCacheEntry<K, V>, K, V> {
     const entry = this.entries.get(key);
     if (entry == null) return null;
     entry.acquire();
-    return entry
+    return entry;
   }
 
   set(key: K, value: V): void {
@@ -47,10 +47,7 @@ export class DemandCacheEntry<K, V> {
   public readonly value: V;
   public demand: number = 0;
 
-  constructor(
-    key: K,
-    value: V,
-  ) {
+  constructor(key: K, value: V) {
     this.key = key;
     this.value = value;
   }

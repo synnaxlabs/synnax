@@ -44,7 +44,7 @@ const timeTicks = (
   if (["bottom", "right"].includes(location)) range = range.reverse();
   const d3Scale = scaleTime()
     .domain([new TimeStamp(scale.pos(0)).date(), new TimeStamp(scale.pos(size)).date()])
-    .range(range)
+    .range(range);
   const ticks = d3Scale.ticks(count);
   return ticks.map((v) => {
     const value = new TimeStamp(v).valueOf();
@@ -70,9 +70,7 @@ const linearTicks = (
   let range = [0, size];
   const domain = [scale.pos(0), scale.pos(size)];
   if (["bottom", "right"].includes(location)) range = range.reverse();
-  const tickScale = scaleLinear()
-    .domain(domain)
-    .range(range)
+  const tickScale = scaleLinear().domain(domain).range(range);
   const ticks = tickScale.ticks(count);
   return ticks.map((v) => {
     return {

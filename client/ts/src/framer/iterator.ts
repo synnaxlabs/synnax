@@ -9,12 +9,6 @@
 
 import { EOF, ErrorPayloadSchema } from "@synnaxlabs/freighter";
 import type { Stream, StreamClient } from "@synnaxlabs/freighter";
-import { z } from "zod";
-
-import { Frame } from "./frame";
-import { framePayloadSchema } from "./payload";
-
-import { GeneralError, UnexpectedError } from "@/errors";
 import {
   TimeRange,
   TimeSpan,
@@ -22,6 +16,12 @@ import {
   UnparsedTimeSpan,
   UnparsedTimeStamp,
 } from "@synnaxlabs/x";
+import { z } from "zod";
+
+import { GeneralError, UnexpectedError } from "@/errors";
+
+import { Frame } from "./frame";
+import { framePayloadSchema } from "./payload";
 
 export const AUTO_SPAN = new TimeSpan(-1);
 

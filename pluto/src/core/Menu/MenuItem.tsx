@@ -7,9 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import clsx from "clsx";
 import { FunctionComponent } from "react";
+
+import clsx from "clsx";
+
 import { Button, ButtonIconProps, ButtonProps } from "../Button";
+
 import { useMenuContext } from "./Menu";
 
 import "./MenuItem.css";

@@ -26,7 +26,7 @@ export interface CoreTextProps {
 
 export interface TextProps
   extends CoreTextProps,
-  Omit<HTMLProps<HTMLParagraphElement>, "children" | "ref" | "wrap"> { }
+    Omit<HTMLProps<HTMLParagraphElement>, "children" | "ref" | "wrap"> {}
 
 const typographyLevelTags = {
   h1: "h1",
@@ -43,7 +43,11 @@ export const Text = forwardRef(
     createElement(typographyLevelTags[level], {
       ref,
       style: { color, ...style },
-      className: clsx(`pluto-text pluto-text--${level}`, wrap && 'pluto-text--wrap', className),
+      className: clsx(
+        `pluto-text pluto-text--${level}`,
+        wrap && "pluto-text--wrap",
+        className
+      ),
       ...props,
     })
 );

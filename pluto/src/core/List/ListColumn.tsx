@@ -9,11 +9,7 @@
 
 import { CSSProperties, useEffect, useState } from "react";
 
-import {
-  objectValueCompareFactory,
-  convertRenderV,
-  RenderableRecord,
-} from "@synnaxlabs/x";
+import { newObjectFieldCompare, convertRenderV, RenderableRecord } from "@synnaxlabs/x";
 import clsx from "clsx";
 import { AiFillCaretDown, AiFillCaretUp } from "react-icons/ai";
 
@@ -194,7 +190,7 @@ const sortTransform =
   <E extends RenderableRecord<E>>(k: keyof E, dir: boolean): ArrayTransform<E> =>
   (data: E[]) => {
     if (data.length === 0) return data;
-    return [...data].sort(objectValueCompareFactory(k, data[0], !dir));
+    return [...data].sort(newObjectFieldCompare(k, data[0], !dir));
   };
 
 export const ListColumn = {

@@ -77,7 +77,7 @@ export const Accordion = ({ data, ...props }: AccordionProps): JSX.Element => {
   });
 
   const onExpand = (index: number): void => {
-    if(ref.current == null) return;
+    if (ref.current == null) return;
     const parentSize = new Box(ref.current).dim(DIRECTION);
     if (sizes[index] < EXPAND_THRESHOLD / parentSize)
       setSize(index, data[index].initialSize ?? DEFAULT_EXPAND_SIZE);
@@ -125,12 +125,12 @@ const AccordionEntryC = ({
   parent,
   onExpand,
 }: AccordionEntryCProps): JSX.Element => {
-  let expanded = true
-  if(parent.current != null) {
-      const parentSize = new Box(parent.current).dim(DIRECTION);
-     expanded = size * parentSize > COLLAPSED_THRESHOLD;
+  let expanded = true;
+  if (parent.current != null) {
+    const parentSize = new Box(parent.current).dim(DIRECTION);
+    expanded = size * parentSize > COLLAPSED_THRESHOLD;
   }
-    return (
+  return (
     <>
       <Header
         level="p"
@@ -147,5 +147,5 @@ const AccordionEntryC = ({
       </Header>
       {content}
     </>
-  )
+  );
 };

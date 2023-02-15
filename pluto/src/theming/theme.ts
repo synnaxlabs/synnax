@@ -9,8 +9,7 @@
 
 import "@fontsource/inter";
 
-import { addOpacityToHex } from "@synnaxlabs/x";
-
+import { addOpacityToHex } from "@/color";
 import { TypographySpec } from "@/core/Typography";
 
 export type Size = number | string;
@@ -122,7 +121,7 @@ const synnaxBase: Theme = {
     white,
     black,
     background: white,
-    text: black,
+    text: addOpacityToHex(black, 80),
   },
   sizes: {
     base: baseSize,

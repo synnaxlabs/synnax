@@ -11,25 +11,25 @@ import { useState } from "react";
 
 import { ComponentMeta } from "@storybook/react";
 
-import { useViewport, ZoomPanSelectMask } from "./ZoomPanSelect";
+import { Viewport } from ".";
 
 import { Box, DECIMAL_BOX } from "@/spatial";
 import { BoxScale } from "@/spatial/scale";
 import { Triggers } from "@/triggers";
 
-const story: ComponentMeta<typeof ZoomPanSelectMask> = {
+const story: ComponentMeta<typeof Viewport.Mask> = {
   title: "Visualization/ZoomPan",
-  component: ZoomPanSelectMask,
+  component: Viewport.Mask,
 };
 
 const Basic_ = (): JSX.Element => {
   const [box, setBox] = useState<Box>(DECIMAL_BOX);
-  const props = useViewport({
+  const props = Viewport.use({
     onChange: ({ box: newBox }) => setBox(newBox),
   });
   return (
     <>
-      <ZoomPanSelectMask
+      <Viewport.Mask
         {...props}
         style={{
           position: "relative",

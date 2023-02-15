@@ -11,13 +11,14 @@ import { RefObject, useCallback, useRef } from "react";
 
 import { KeyedRecord } from "@synnaxlabs/x";
 
+import { Triggers } from "..";
+
 import { InputControl } from "@/core/Input";
 
 import { useStateRef } from "./useStateRef";
 
-import { ArrayTransform } from "@/util/transform";
 import { useTriggerHeld } from "@/triggers/TriggersContext";
-import { Triggers } from "..";
+import { ArrayTransform } from "@/util/transform";
 
 export type SelectedRecord<E extends KeyedRecord<E>> = E & {
   selected?: true;

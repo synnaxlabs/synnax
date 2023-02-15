@@ -1,31 +1,22 @@
-// Copyright 2023 Synnax Labs, Inc.
+// copyright 2023 synnax labs, inc.
 //
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
+// use of this software is governed by the business source license included in the file
+// licenses/bsl.txt.
 //
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
+// as of the change date specified in that file, in accordance with the business source
+// license, use of this software will be governed by the apache license, version 2.0,
+// included in the file licenses/apl.txt.
 
-import {
-  CSSProperties,
-  forwardRef,
-  useCallback,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useRef, useState } from "react";
 
-import clsx from "clsx";
+import { comparePrimitiveArrays } from "@synnaxlabs/x";
 
 import { useMemoCompare } from "@/hooks";
 import { useStateRef } from "@/hooks/useStateRef";
-import { Stage, Trigger, TriggerDragCallback, Triggers } from "@/triggers";
 import { Box, Dimensions, DECIMAL_BOX, XY, ZERO_BOX } from "@/spatial";
 import { BoxScale } from "@/spatial/scale";
-
-import { comparePrimitiveArrays } from "@synnaxlabs/x";
-import "./ZoomPanSelect.css";
+import { Stage, Trigger, TriggerDragCallback, Triggers } from "@/triggers";
+import { useTriggerHeld } from "@/triggers/TriggersContext";
 
 export interface UseViewportEvent {
   box: Box;
@@ -52,8 +43,8 @@ export interface UseViewportProps {
 }
 
 export interface UseViewportReturn {
+  mode: Mode;
   maskBox: Box;
-  maskStyle: CSSProperties;
   ref: React.RefObject<HTMLDivElement>;
 }
 
@@ -71,7 +62,7 @@ const DEFAULT_TRIGGER_CONFIG: UseViewportTriggers = {
 const compareTriggerConfigs = (
   [a]: [UseViewportTriggers | undefined],
   [b]: [UseViewportTriggers | undefined]
-) => {
+): boolean => {
   if (a == null && b == null) return true;
   if (a == null || b == null) return false;
   return Object.entries(a).every(([key, value]) =>
@@ -97,6 +88,8 @@ export const useViewport = ({
     compareTriggerConfigs,
     [initialTriggers]
   );
+
+  const { triggers } = useTriggerHeld(Object.values(triggerConfig).flat());
 
   const handleDrag = useCallback<TriggerDragCallback>(
     ({ box, triggers, stage, cursor }): void => {
@@ -168,33 +161,10 @@ export const useViewport = ({
 
   return {
     maskBox,
-    maskStyle: maskBox.css,
+    mode: determineMode(triggerConfig, triggers, defaultMode),
     ref: canvasRef,
   };
 };
-
-type DivProps = React.DetailedHTMLProps<
-  React.HTMLAttributes<HTMLDivElement>,
-  HTMLDivElement
->;
-
-export interface ZoomPanProps
-  extends Omit<UseViewportReturn, "ref">,
-    Omit<DivProps, "onDragStart" | "onDragEnd" | "onDrag" | "ref" | "onDoubleClick"> {}
-
-export const ZoomPanSelectMask = forwardRef<HTMLDivElement, ZoomPanProps>(
-  ({ maskStyle, style, className, ...props }, ref): JSX.Element | null => (
-    <div
-      ref={ref}
-      style={{ ...style }}
-      className={clsx("pluto-no-select", className)}
-      {...props}
-    >
-      <div style={maskStyle} className="pluto-zoom-pan-mask" />
-    </div>
-  )
-);
-ZoomPanSelectMask.displayName = "ZoomPanMask";
 
 const scale = (prev: Box, canvas: Box): BoxScale =>
   BoxScale.scale(canvas).clamp(canvas).scale(prev);
@@ -218,10 +188,10 @@ const determineMode = (
   triggers: Trigger[],
   defaultMode: Mode
 ): Mode => {
-  if (config.zoom && Triggers.match(config.zoom, triggers)) return "zoom";
-  if (config.pan && Triggers.match(config.pan, triggers)) return "pan";
-  if (config.select && Triggers.match(config.select, triggers)) return "select";
-  if (config.zoomReset && Triggers.match(config.zoomReset, triggers))
+  if (config.zoom != null && Triggers.match(config.zoom, triggers)) return "zoom";
+  if (config.pan != null && Triggers.match(config.pan, triggers)) return "pan";
+  if (config.select != null && Triggers.match(config.select, triggers)) return "select";
+  if (config.zoomReset != null && Triggers.match(config.zoomReset, triggers))
     return "zoomReset";
   return defaultMode;
 };

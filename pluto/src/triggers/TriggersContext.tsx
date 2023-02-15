@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { comparePrimitiveArrays } from "@synnaxlabs/x";
 import {
   createContext,
   useContext,
@@ -17,11 +16,14 @@ import {
   PropsWithChildren,
   useState,
   RefObject,
-  Ref,
   MutableRefObject,
 } from "react";
-import { Box, toXY, XY, ZERO_XY } from "..";
+
+import { comparePrimitiveArrays } from "@synnaxlabs/x";
+
 import { Key, Modifier, Stage, Trigger } from "./types";
+
+import { toXY, XY, ZERO_XY } from "@/spatial";
 
 export interface TriggerEvent {
   target: HTMLElement;
@@ -110,13 +112,13 @@ export const TriggersProvider = ({
 
   const handleKeyDown = useCallback((e: KeyboardEvent | MouseEvent): void => {
     const trigger = parseEvent(e);
-    if (curr.current != null && comparePrimitiveArrays(curr.current, trigger) == 0)
+    if (curr.current != null && comparePrimitiveArrays(curr.current, trigger) === 0)
       return;
     curr.current = trigger;
-    registry.current.forEach((triggers, callback) => {
-      const matches = triggers.filter((t) => comparePrimitiveArrays(t, trigger) == 0);
+    registry.current.forEach((triggers, f) => {
+      const matches = triggers.filter((t) => comparePrimitiveArrays(t, trigger) === 0);
       if (matches.length > 0)
-        callback({
+        f({
           target: e.target as HTMLElement,
           triggers: matches,
           stage: "start",
@@ -128,12 +130,12 @@ export const TriggersProvider = ({
   const handleKeyUp = useCallback((e: KeyboardEvent | MouseEvent): void => {
     const trigger = parseEvent(e);
     const checkTrigger = curr.current ?? trigger;
-    registry.current.forEach((triggers, callback) => {
+    registry.current.forEach((triggers, f) => {
       const matches = triggers.filter(
-        (t) => comparePrimitiveArrays(t, checkTrigger) == 0
+        (t) => comparePrimitiveArrays(t, checkTrigger) === 0
       );
       if (matches.length > 0)
-        callback({
+        f({
           target: e.target as HTMLElement,
           triggers: matches,
           stage: "end",
@@ -142,19 +144,19 @@ export const TriggersProvider = ({
     });
     if (curr.current == null) return;
     curr.current =
-      comparePrimitiveArrays(curr.current, trigger) == 0 ? null : curr.current;
+      comparePrimitiveArrays(curr.current, trigger) === 0 ? null : curr.current;
   }, []);
 
   const handleDoubleClick = useCallback((e: MouseEvent): void => {
     const trigger = parseEvent(e);
     trigger[0] = "MouseDouble";
     curr.current = null;
-    registry.current.forEach((triggers, callback) => {
+    registry.current.forEach((triggers, f) => {
       const matches = triggers.filter(
-        (t) => comparePrimitiveArrays(t, trigger) == 0 || t[1] == trigger[0]
+        (t) => comparePrimitiveArrays(t, trigger) === 0 || t[1] === trigger[0]
       );
       if (matches.length > 0)
-        callback({
+        f({
           target: e.target as HTMLElement,
           triggers: matches,
           stage: "end",

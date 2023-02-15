@@ -299,7 +299,6 @@ export class Box implements Stringer {
 }
 
 export type BoxF = (box: Box) => void;
-
 export const ZERO_BOX: Box = new Box(ZERO_XY, ZERO_XY);
 export const DECIMAL_BOX = new Box(0, 0, 1, 1, "bottomLeft");
 

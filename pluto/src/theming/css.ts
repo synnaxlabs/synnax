@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createOpacityVariants, unitProperty } from "@synnaxlabs/x";
-
 import { Color, Size, Theme } from "./theme";
 
-const OPACITIES = [80, 60, 40, 20] as const;
+import { Opacity } from "@/color";
+import { createHexOpacityVariants, unitProperty } from "@/css";
+
+const OPACITIES: readonly Opacity[] = [80, 60, 40, 20];
 
 export const convertThemeToCSSVars = (
   theme: Theme
@@ -21,14 +22,14 @@ export const convertThemeToCSSVars = (
   "--pluto-primary-m1": theme.colors.primary.m1,
   "--pluto-primary-z": theme.colors.primary.z,
   "--pluto-primary-p1": theme.colors.primary.p1,
-  ...createOpacityVariants("--pluto-primary-z", theme.colors.primary.z, OPACITIES),
+  ...createHexOpacityVariants("--pluto-primary-z", theme.colors.primary.z, OPACITIES),
   "--pluto-gray-m3": theme.colors.gray.m3,
   "--pluto-gray-m2": theme.colors.gray.m2,
   "--pluto-gray-m1": theme.colors.gray.m1,
   "--pluto-gray-m0": theme.colors.gray.m0,
-  ...createOpacityVariants("--pluto-gray-m0", theme.colors.gray.m0, OPACITIES),
+  ...createHexOpacityVariants("--pluto-gray-m0", theme.colors.gray.m0, OPACITIES),
   "--pluto-gray-p0": theme.colors.gray.p0,
-  ...createOpacityVariants("--pluto-gray-p0", theme.colors.gray.p0, OPACITIES),
+  ...createHexOpacityVariants("--pluto-gray-p0", theme.colors.gray.p0, OPACITIES),
   "--pluto-gray-p1": theme.colors.gray.p1,
   "--pluto-gray-p2": theme.colors.gray.p2,
   "--pluto-gray-p3": theme.colors.gray.p3,
