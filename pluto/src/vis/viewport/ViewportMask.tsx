@@ -39,4 +39,3 @@ export const ViewportMask = forwardRef<HTMLDivElement, ViewportMaskProps>(
   )
 );
 ViewportMask.displayName = "ZoomPanMask";
-

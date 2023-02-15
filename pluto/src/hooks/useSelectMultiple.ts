@@ -7,17 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { RefObject, useCallback, useRef } from "react";
+import { useCallback, useRef } from "react";
 
 import { KeyedRecord } from "@synnaxlabs/x";
 
 import { Triggers } from "..";
 
 import { InputControl } from "@/core/Input";
-
-import { useStateRef } from "./useStateRef";
-
-import { useTriggerHeld } from "@/triggers/TriggersContext";
 import { ArrayTransform } from "@/util/transform";
 
 export type SelectedRecord<E extends KeyedRecord<E>> = E & {
@@ -35,9 +31,6 @@ export interface UseSelectMultipleReturn<E extends KeyedRecord<E>> {
   onSelect: (key: string) => void;
   clear: () => void;
 }
-
-const shiftHeld = (ref: RefObject<string[]>): boolean =>
-  ref.current?.includes("Shift") ?? false;
 
 /**
  * Implements generic multiple selection over a collection of keyed records. The hook
