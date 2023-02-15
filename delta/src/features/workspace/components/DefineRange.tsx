@@ -64,6 +64,8 @@ export const DefineRange = ({
 
   const { control, handleSubmit } = useForm({
     defaultValues,
+
+    // @ts-expect-error
     resolver: zodResolver(formSchema),
   });
   const dispatch = useDispatch();
