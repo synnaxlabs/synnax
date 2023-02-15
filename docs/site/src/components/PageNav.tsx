@@ -10,13 +10,14 @@
 import { Tree } from "@synnaxlabs/pluto";
 import type { TreeLeaf } from "@synnaxlabs/pluto";
 
+import { pages } from "@/pages/nav";
+
 export type PageNavLeaf = TreeLeaf;
 
 export interface TOCProps {
-  data: PageNavLeaf[];
   currentPage: string;
 }
 
-export const PageNav = ({ data, currentPage }: TOCProps): JSX.Element => (
-  <Tree data={data} value={[currentPage]} />
+export const PageNav = ({ currentPage }: TOCProps): JSX.Element => (
+  <Tree data={pages} value={[currentPage]} />
 );

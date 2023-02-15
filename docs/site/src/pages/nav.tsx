@@ -7,33 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { createElement } from "react";
+
+import { HiLightningBolt } from "react-icons/hi";
+
 import { PageNavLeaf } from "@/components/PageNav";
+
+import { deployNav } from "./deploy/nav";
+
 import { pythonClientNav } from "@/pages/python-client/nav";
 import { rfcNav } from "@/pages/rfc/nav";
 import { typescriptClientNav } from "@/pages/typescript-client/nav";
 
-export const pages: PageNavLeaf[] = [
+export const pages = [
   {
     name: "Get Started",
     key: "/",
     url: "/",
+    icon: createElement(HiLightningBolt),
   },
-  {
-    name: "Concepts",
-    key: "/concepts",
-    url: "/concepts",
-  },
-  {
-    key: "/faq",
-    url: "/faq",
-    name: "FAQ",
-  },
-  {
-    name: "Architecture",
-    key: "/architecture",
-    url: "/architecture",
-  },
-  pythonClientNav,
-  typescriptClientNav,
-  rfcNav,
+  deployNav,
 ];
