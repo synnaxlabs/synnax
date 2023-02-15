@@ -110,9 +110,9 @@ export class Frame {
   }
 
   /**
-  * @returns a shallow copy of this frame with the given key overridden with the
-  * provided typed arrays.
-  */
+   * @returns a shallow copy of this frame with the given key overridden with the
+   * provided typed arrays.
+   */
   overrideA(key: string, ...v: LazyArray[]): Frame {
     const next = this.shallowCopy();
     next._entries[key] = v;
@@ -120,9 +120,9 @@ export class Frame {
   }
 
   /**
-  * @returns a shallow copy of this frame containing all typed arrays in the current frame and the
-  * provided frame.
-  */
+   * @returns a shallow copy of this frame containing all typed arrays in the current frame and the
+   * provided frame.
+   */
   concatF(frame: Frame): Frame {
     const next = this.shallowCopy();
     for (const [key, arrays] of frame.entries) {
@@ -132,11 +132,11 @@ export class Frame {
   }
 
   /**
-  * @returns a shallow copy of the frame with the provided frame's entries
-  * overriding the current frame's entries i.e. all typed arrays in the
-  * provided frame will replace the current frame's typed arrays with the
-  * same key.
-  */
+   * @returns a shallow copy of the frame with the provided frame's entries
+   * overriding the current frame's entries i.e. all typed arrays in the
+   * provided frame will replace the current frame's typed arrays with the
+   * same key.
+   */
   overrideF(frame: Frame): Frame {
     const next = this.shallowCopy();
     for (const [key, arrays] of frame.entries) {
@@ -190,7 +190,7 @@ export class Frame {
   }
 
   shallowCopy(): Frame {
-    const fr = new Frame()
+    const fr = new Frame();
     for (const [k, a] of this.entries) {
       fr._entries[k] = a.slice();
     }

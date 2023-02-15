@@ -22,7 +22,7 @@ const deepMerge = <T extends UnknownRecord<T>>(
   if (isObject(base) && isObject(source)) {
     for (const key in source) {
       if (isObject(source[key])) {
-        // @ts-ignore
+        // @ts-expect-error
         if (key in base) deepMerge(base[key], source[key]);
         else Object.assign(base, { [key]: {} });
       } else {

@@ -11,22 +11,35 @@ import { Primitive, isStringer, PrimitiveRecord } from "@/types/primitive";
 
 export type CompareF<T> = (a: T, b: T) => number;
 
-
 export type PrimitiveCompareF<T extends Primitive> = CompareF<T>;
 
-export const primitiveCompareFactory = <T extends Primitive>(
+/**
+ * Creates the appropriate compare function for sorting the given
+ * primitive type.
+ *
+ * @param v The primitive value to create a compare function for.
+ * This is used to determine the type of comparison to perform.
+ * @param reverse Whether to reverse the sort order.
+ */
+export const newPrimitiveCompare = <T extends Primitive>(
   v: T,
   reverse: boolean = false
 ): PrimitiveCompareF<T> => {
   const t = isStringer(v) ? "stringer" : typeof v;
   let f: CompareF<T>;
   switch (t) {
-    case "string" || "stringer":
+    case "string":
+      f = (a: T, b: T) => (a as string).localeCompare(b as string);
+      break;
+    case "stringer":
       f = (a: T, b: T) =>
         (a as string).toString().localeCompare((b as string).toString());
       break;
-    case "number" || "bigint":
+    case "number":
       f = (a: T, b: T) => (a as number) - (b as number);
+      break;
+    case "bigint":
+      f = (a: T, b: T) => Number((a as bigint) - (b as bigint));
       break;
     case "boolean":
       f = (a: T, b: T) => Number(a) - Number(b);
@@ -38,6 +51,30 @@ export const primitiveCompareFactory = <T extends Primitive>(
   return reverse ? reverseCompare(f) : f;
 };
 
+/**
+ * Creates a compare function that compares the field of the given object.
+ *
+ * @param key The key of the field to compare.
+ * @param value The object to compare the field of. This is used to determine the type of
+ * comparison to perform.
+ * @param reverse Whether to reverse the sort order.
+ */
+export const newObjectFieldCompare = <T extends PrimitiveRecord>(
+  key: keyof T,
+  value: T,
+  reverse: boolean = false
+): CompareF<T> => {
+  const f = newPrimitiveCompare(value[key], reverse);
+  return (a: T, b: T) => f(a[key], b[key]);
+};
+
+/**
+ * Compares the two primitive arrays.
+ * @param a The first array to compare.
+ * @param b The second array to compare.
+ * @returns The array with the greater length if the array lengths are not equal. If the
+ * arrays are the same length, returns 0 if all elements are equal, otherwise returns -1.
+ */
 export const comparePrimitiveArrays = <T extends Primitive>(
   a: readonly T[] | T[],
   b: readonly T[] | T[]
@@ -46,16 +83,8 @@ export const comparePrimitiveArrays = <T extends Primitive>(
   return a.every((v, i) => v === b[i]) ? 0 : -1;
 };
 
+/** @returns the reverse of the given compare function. */
 export const reverseCompare =
   <T>(f: CompareF<T>): CompareF<T> =>
   (a: T, b: T) =>
     f(b, a);
-
-export const objectValueCompareFactory = <T extends PrimitiveRecord>(
-  key: keyof T,
-  value: T,
-  reverse: boolean = false
-): CompareF<T> => {
-  const f = primitiveCompareFactory(value[key], reverse);
-  return (a: T, b: T) => f(a[key], b[key]);
-};

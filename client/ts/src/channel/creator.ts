@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import type { UnaryClient } from "@synnaxlabs/freighter";
+import { UnparsedDataType, UnparsedRate } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -16,7 +17,6 @@ import {
   unkeyedChannelPayloadSchema,
 } from "./payload";
 
-import { UnparsedDataType, UnparsedRate } from "@synnaxlabs/x";
 import { Transport } from "@/transport";
 
 const RequestSchema = z.object({

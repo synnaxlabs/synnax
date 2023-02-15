@@ -22,4 +22,4 @@ export const posititonSoVisible = (target: HTMLElement, xy: XY): [XY, boolean] =
     changed = true;
   }
   return [xy, changed];
-}
+};

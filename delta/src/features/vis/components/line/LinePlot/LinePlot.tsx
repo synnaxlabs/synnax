@@ -20,7 +20,7 @@ import {
   GLLines,
   RGBATuple,
   Axis,
-  ZoomPanSelectMask,
+  Viewport,
   UseViewportHandler,
   Scale,
   Bound,
@@ -29,7 +29,6 @@ import {
   Space,
   Typography,
   Menu as PMenu,
-  useViewport,
   ZERO_BOUND,
   Divider,
 } from "@synnaxlabs/pluto";
@@ -127,7 +126,7 @@ export const LinePlot = ({
     []
   );
 
-  const zoomPanSelectProps = useViewport({
+  const zoomPanSelectProps = Viewport.use({
     onChange: handleZoomPanSelect,
   });
 
@@ -241,7 +240,7 @@ export const LinePlot = ({
       menu={() => <ContextMenu />}
     >
       <div className="delta-line-plot__plot" ref={resizeRef}>
-        <ZoomPanSelectMask
+        <Viewport.Mask
           style={{
             position: "absolute",
             top: 10,

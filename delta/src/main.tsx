@@ -29,9 +29,9 @@ import { useLoadTauriVersion } from "@/features/version";
 import { VisLayoutRenderer } from "@/features/vis";
 import { DefineRange } from "@/features/workspace";
 
-import { store as promise } from "./store";
-
 import "./index.css";
+
+import { store as promise } from "./store";
 
 const layoutRenderers = {
   main: MainLayout,

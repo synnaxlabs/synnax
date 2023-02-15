@@ -21,13 +21,10 @@ export interface FrameCacheResponse {
   missing: string[];
 }
 
-export class FrameCache implements KV<
-  FrameCacheRequest,
-  FrameCacheResponse,
-  TimeRange,
-  Frame,
-  FrameCacheRequest
-> {
+export class FrameCache
+  implements
+    KV<FrameCacheRequest, FrameCacheResponse, TimeRange, Frame, FrameCacheRequest>
+{
   private readonly _cache: Record<string, Frame>;
 
   constructor() {
@@ -60,4 +57,3 @@ export class FrameCache implements KV<
     this._cache[strKey] = fr.filter((k) => !keys.includes(k));
   }
 }
-
