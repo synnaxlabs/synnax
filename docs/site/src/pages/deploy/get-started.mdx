@@ -1,0 +1,117 @@
+---
+title: "Deploy | Get Started"
+layout: ../../layouts/MainLayout.astro
+---
+
+# Start a Single Node
+
+## Using Docker
+
+The simplest way to start a single node cluster is by using the `synnaxlabs/synnax` Docker image,
+simply run:
+
+```bash
+docker run -p 9090:9090 synnaxlabs/synnax --listen-address=localhost:9090 --mem --insecure
+```
+
+This will pull the latest version of Synnax from Docker Hub and start a single node cluster with
+the following parameters:
+
+`-p 9090:9090` - This maps port 9090 on the host to port 9090 in the container. This allows
+access to the Synnax node from the host machine.
+
+`--listen-address=localhost:9090` - This sets the address that the node will listen on. This
+is the reachable adress of the node, and is also the address that other nodes will use to
+connect when deploying a multi-node cluster.
+
+`--mem` - Tells the node to store all data in memory, which is useful for learning and
+development.
+
+`--insecure` - Tells the node to run without TLS.
+
+## Linux
+
+To start a single node cluster on Linux, first download the latest Synnax binary
+by running:
+
+```bash
+curl -LO
+```
+
+Then, remove any previous installations and move the binary to `/usr/local/synnax/bin`:
+
+```bash
+rm -rf /usr/local/synnax && mv synnax /usr/local/synnax/bin
+```
+
+Next, add `/usr/local/synnax/bin` to your `PATH`:
+
+```bash
+export PATH=$PATH:/usr/local/synnax/bin
+```
+
+Finally, start the node:
+
+```bash
+synnax start --listen-address=localhost:9090 --mem --insecure
+```
+
+This will start a single node cluster with the following parameters:
+
+`--listen-address=localhost:9090` - This sets the address that the node will listen on. This
+is the reachable adress of the node, and is also the address that other nodes will use to
+connect when deploying a multi-node cluster.
+
+`--mem` - Tells the node to store all data in memory, which is useful for learning and
+development.
+
+`--insecure` - Tells the node to run without TLS.
+
+## macOS
+
+To start a single node cluster on macOS, first download the latest Synnax binary
+by running:
+
+```bash
+curl -LO
+```
+
+Then, remove any previous installations and move the binary to `/usr/local/synnax/bin`:
+
+```bash
+rm -rf /usr/local/synnax && mv synnax /usr/local/synnax/bin
+```
+
+Next, add `/usr/local/synnax/bin` to your `PATH`:
+
+```bash
+export PATH=$PATH:/usr/local/synnax/bin
+```
+
+Finally, start the node:
+
+```bash
+synnax start --listen-address=localhost:9090 --mem --insecure
+```
+
+This will start a single node cluster with the following parameters:
+
+`--listen-address=localhost:9090` - This sets the address that the node will listen on. This
+is the reachable adress of the node, and is also the address that other nodes will use to
+connect when deploying a multi-node cluster.
+
+`--mem` - Tells the node to store all data in memory, which is useful for learning and
+development.
+
+`--insecure` - Tells the node to run without TLS.
+
+## Windows
+
+Unfortunately, Synnax does not support Windows yet. If you are interested in running Synnax on
+Windows, let us know here. For now, we recommend using Docker or WSL along with the
+instructions for Linux.
+
+# Next Steps
+
+Now that you have a single node cluster running, you need to configure channels and
+acquire data.

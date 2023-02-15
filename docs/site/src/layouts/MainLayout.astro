@@ -1,13 +1,10 @@
 ---
 import { PageNav } from "@/components/PageNav";
-import { pages } from "@/pages/nav";
 import "@synnaxlabs/pluto/dist/style.css";
 import { Theming } from "@synnaxlabs/pluto";
 import { DEFAULT_THEME } from "@/util/theme";
 import { Logo } from "@/components/Logo";
 const vars = Theming.toCSSVars(DEFAULT_THEME);
-import { TableOfContents } from "@/components/TableOfContents";
-const { headings } = Astro.props as Props;
 ---
 
 <html style={vars}>
@@ -18,11 +15,7 @@ const { headings } = Astro.props as Props;
     </header>
     <section>
         <nav class="pluto-bordered--right pluto-bordered--bottom">
-            <PageNav
-                client:only="react"
-                data={pages}
-                currentPage={Astro.url.pathname}
-            />
+            <PageNav client:only="react" currentPage={Astro.url.pathname} />
         </nav>
         <article>
             <slot />
@@ -39,7 +32,13 @@ const { headings } = Astro.props as Props;
             margin: 3rem 0;
         }
 
-        h1,h2,h3,h4,h5,h6,p {
+        h1,
+        h2,
+        h3,
+        h4,
+        h5,
+        h6,
+        p {
             white-space: normal !important;
         }
 
