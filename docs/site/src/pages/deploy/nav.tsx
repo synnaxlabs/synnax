@@ -17,8 +17,8 @@ export const deployNav: PageNavLeaf = {
   icon: <BsStack />,
   children: [
     {
-      key: "deploy/started",
-      url: "deploy/get-started",
+      key: "/deploy/get-started",
+      url: "/deploy/get-started",
       name: "Get Started",
     },
   ],

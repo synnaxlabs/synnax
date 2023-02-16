@@ -1,16 +1,35 @@
 ---
-title: "Deploy | Get Started"
-layout: ../../layouts/MainLayout.astro
+layout: "@/layouts/MainLayout.astro"
 ---
 
-# Start a Single Node
+import { Header } from "@synnaxlabs/pluto";
+import { Tabs } from "@/components/Tabs";
+import { FaLinux, FaApple, FaDocker, FaWindows } from "react-icons/fa";
 
+<Header>
+    <Header.Title>Start a Single Node Cluster</Header.Title>
+</Header>
+
+This page will walk you through starting a single node cluster for testing, learning, or
+development. To get started, select your operating system below.
+
+<Tabs
+    client:only="react"
+    tabs={[
+        { name: "Docker", tabKey: "docker"},
+        { name: "Linux", tabKey: "linux" },
+        { name: "MacOS", tabKey: "macos" },
+        { name: "Windows", tabKey: "windows" },
+    ]}
+>
+<FaDocker slot="docker-icon" />
+<Fragment slot="docker">
 ## Using Docker
 
 The simplest way to start a single node cluster is by using the `synnaxlabs/synnax` Docker image,
 simply run:
 
-```bash
+```cmd
 docker run -p 9090:9090 synnaxlabs/synnax --listen-address=localhost:9090 --mem --insecure
 ```
 
@@ -29,30 +48,33 @@ development.
 
 `--insecure` - Tells the node to run without TLS.
 
-## Linux
+</Fragment>
+<FaLinux slot="linux-icon" />
+<Fragment slot="linux">
+## Using Linux
 
 To start a single node cluster on Linux, first download the latest Synnax binary
 by running:
 
-```bash
+```cmd
 curl -LO
 ```
 
 Then, remove any previous installations and move the binary to `/usr/local/synnax/bin`:
 
-```bash
+```cmd
 rm -rf /usr/local/synnax && mv synnax /usr/local/synnax/bin
 ```
 
 Next, add `/usr/local/synnax/bin` to your `PATH`:
 
-```bash
+```cmd
 export PATH=$PATH:/usr/local/synnax/bin
 ```
 
 Finally, start the node:
 
-```bash
+```cmd
 synnax start --listen-address=localhost:9090 --mem --insecure
 ```
 
@@ -67,7 +89,10 @@ development.
 
 `--insecure` - Tells the node to run without TLS.
 
-## macOS
+</Fragment>
+<FaApple slot="macos-icon" />
+<Fragment slot="macos">
+## Using MacOS
 
 To start a single node cluster on macOS, first download the latest Synnax binary
 by running:
@@ -105,13 +130,15 @@ development.
 
 `--insecure` - Tells the node to run without TLS.
 
-## Windows
+</Fragment>
+<FaWindows slot="windows-icon" />
+<Fragment slot="windows">
+
+## Using Windows
 
 Unfortunately, Synnax does not support Windows yet. If you are interested in running Synnax on
 Windows, let us know here. For now, we recommend using Docker or WSL along with the
 instructions for Linux.
 
-# Next Steps
-
-Now that you have a single node cluster running, you need to configure channels and
-acquire data.
+</Fragment>
+</Tabs>

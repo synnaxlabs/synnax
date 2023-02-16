@@ -11,13 +11,11 @@ import { createElement } from "react";
 
 import { HiLightningBolt } from "react-icons/hi";
 
-import { PageNavLeaf } from "@/components/PageNav";
-
+import { acquireNav } from "./acquire/nav";
+import { analyzeNav } from "./analyze/nav";
 import { deployNav } from "./deploy/nav";
-
-import { pythonClientNav } from "@/pages/python-client/nav";
-import { rfcNav } from "@/pages/rfc/nav";
-import { typescriptClientNav } from "@/pages/typescript-client/nav";
+import { rfcNav } from "./rfc/nav";
+import { visualizeNav } from "./visualize/nav";
 
 export const pages = [
   {
@@ -27,4 +25,8 @@ export const pages = [
     icon: createElement(HiLightningBolt),
   },
   deployNav,
+  acquireNav,
+  analyzeNav,
+  visualizeNav,
+  rfcNav,
 ];
