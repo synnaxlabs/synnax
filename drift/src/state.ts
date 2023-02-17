@@ -18,7 +18,13 @@ import { createSlice } from "@reduxjs/toolkit";
 import type { NoInfer } from "@reduxjs/toolkit/dist/tsHelpers";
 
 import { Runtime } from "@/runtime";
-import { KeyedWindowProps, Window, WindowProps, WindowState } from "@/window";
+import {
+  KeyedWindowProps,
+  MAIN_WINDOW,
+  Window,
+  WindowProps,
+  WindowState,
+} from "@/window";
 
 /** The Slice State */
 export interface DriftState {
