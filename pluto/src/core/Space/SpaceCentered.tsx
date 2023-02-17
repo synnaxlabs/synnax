@@ -13,13 +13,18 @@ import { Space, SpaceProps } from "./Space";
 
 import "./SpaceCentered.css";
 
-export interface SpaceCenteredProps extends Omit<SpaceProps, "justify" | "align"> {}
+export type SpaceCenteredProps = SpaceProps;
 
-export const SpaceCentered = ({ className, ...props }: SpaceProps): JSX.Element => (
+export const SpaceCentered = ({
+  className,
+  justify = "center",
+  align = "center",
+  ...props
+}: SpaceProps): JSX.Element => (
   <Space
-    {...props}
-    justify="center"
-    align="center"
+    justify={justify}
+    align={align}
     className={clsx("pluto-space-centered", className)}
+    {...props}
   />
 );
