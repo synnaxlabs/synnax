@@ -23,7 +23,7 @@ export const TableOfContents = ({
 }: {
   headings: MarkdownHeading[];
 }): JSX.Element => {
-  const toc = useRef<HTMLUListElement | null>();
+  const toc = useRef<HTMLDivElement | null>();
   const onThisPageID = "on-this-page-heading";
   const itemOffsets = useRef<ItemOffset[]>([]);
   const [currentID, setCurrentID] = useState("");
@@ -85,7 +85,7 @@ export const TableOfContents = ({
       <Header id={onThisPageID} className="heading">
         <Header.Title level="h3">On this page</Header.Title>
       </Header>
-      <div ref={toc} empty>
+      <div ref={toc}>
         <Menu selected={currentID}>
           {headings
             .filter(({ depth }) => depth > 1 && depth < 3)
