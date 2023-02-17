@@ -7,42 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ForwardedRef, forwardRef, ReactElement } from "react";
+import { ForwardedRef, forwardRef } from "react";
 
 import clsx from "clsx";
 
 import { Space, SpaceElementType, SpaceProps } from "@/core/Space";
-import { ComponentSize } from "@/util/component";
 
 import "./Pack.css";
 
-export interface PackChildProps {
-  key: number;
-  className: string;
-  size: ComponentSize;
-}
-
+/** Props for the {@link Pack} component. */
 export type PackProps<E extends SpaceElementType = "div"> = Omit<
   SpaceProps<E>,
-  "children" | "empty"
-> & {
-  children: ReactElement<PackChildProps> | Array<ReactElement<PackChildProps>>;
-};
+  "empty"
+>;
 
-/**
- * Packs elements together, setting their size and styling the borders between them so
- * that they appear as a single element. This is useful for buttons that represent a
- * selection state, for example.
- *
- * @param props - The props for the pack. Any extra props will be passed to the
- * underlying Space component.
- * @param props.children - The children to pack together. These must satisfy the
- * {@link PackChildProps} interface.
- * @param props.direction - The direction to pack the children in. Defaults to
- * "x".
- * @param props.size - The size to set on the children. Any sizes already set on the
- * children will be overridden. Defaults to "medium".
- */
 const CorePack = <E extends SpaceElementType = "div">(
   {
     children,
@@ -74,6 +52,22 @@ const CorePack = <E extends SpaceElementType = "div">(
   </Space>
 );
 
+/**
+ * Packs elements together, setting their size and styling the borders between them so
+ * that they appear as a single element. This is useful for buttons that represent a
+ * selection state, for example.
+ *
+ * @param props - The props for the pack. Any extra props will be passed to the
+ * underlying Space component.
+ * @param props.children - The children to pack together. These must satisfy the
+ * {@link PackChildProps} interface.
+ * @param props.direction - The direction to pack the children in. Defaults to
+ * "x".
+ * @param props.size - The size to set on the children. Any sizes already set on the
+ * children will be overridden. Defaults to "medium".
+ * @param props.el  - The element type to use as the root element for the Pack.
+ * Defaults to "div".
+ */
 export const Pack = forwardRef(CorePack) as <E extends SpaceElementType = "div">(
   props: PackProps<E>
 ) => JSX.Element;
