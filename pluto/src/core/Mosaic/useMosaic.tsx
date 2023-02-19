@@ -12,22 +12,22 @@ import { useEffect, useState } from "react";
 import {
   moveMosaicTab,
   removeMosaicTab,
-  resizeMosaicLeaf,
+  resizeMosaicNode,
   selectMosaicTab,
   renameMosaicTab,
   autoSelectTabs,
 } from "./mosaicTree";
-import { MosaicLeaf } from "./types";
+import { MosaicNode } from "./types";
 
 import { Location } from "@/spatial";
 
 export interface UseMosaicProps {
   allowRename?: boolean;
-  initialTree: MosaicLeaf;
+  initialTree: MosaicNode;
 }
 
 export interface UseMosaicReturn {
-  root: MosaicLeaf;
+  root: MosaicNode;
   onDrop: (key: number, tabKey: string, loc: Location) => void;
   onClose: (tabKey: string) => void;
   onSelect: (tabKey: string) => void;
@@ -53,7 +53,7 @@ export const useMosaic = ({
     setRoot((r) => selectMosaicTab(r, tabKey));
 
   const handleResized = (key: number, size: number): void =>
-    setRoot((r) => resizeMosaicLeaf(r, key, size));
+    setRoot((r) => resizeMosaicNode(r, key, size));
 
   const handleRename = (tabKey: string, title: string): void =>
     setRoot((r) => renameMosaicTab(r, tabKey, title));

@@ -87,14 +87,14 @@
 
 .pluto-btn-icon {
     color: var(--pluto-text-color);
-    padding: 0 1rem;
+    padding: 1rem;
     display: flex;
     justify-content: center;
     align-items: center;
 }
 
 .pluto--medium > svg {
-    font-size: 3rem;
+    font-size: 3.25rem;
 }
 
 .pluto--small > svg {

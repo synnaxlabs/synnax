@@ -17,11 +17,9 @@ import { NavbarProps } from "./Navbar";
 
 import { locToDir } from "@/spatial";
 
-import { NavMenuItem } from "./NavMenu";
-
 import "./Navdrawer.css";
 
-export interface NavDrawerContent {
+export interface NavDrawerItem {
   key: string;
   content: ReactElement;
   minSize?: number;
@@ -29,16 +27,13 @@ export interface NavDrawerContent {
   initialSize?: number;
 }
 
-export interface NavDrawerItem extends NavDrawerContent, NavMenuItem {}
-
 export interface UseNavDrawerProps {
   initialKey?: string;
   items: NavDrawerItem[];
 }
 
 export interface UseNavDrawerReturn {
-  activeItem?: NavDrawerContent;
-  menuItems?: NavMenuItem[];
+  activeItem?: NavDrawerItem;
   onSelect?: (key: string) => void;
 }
 
@@ -65,7 +60,6 @@ export const Navdrawer = ({
   location = "left",
   collapseThreshold = 0.65,
   className,
-
   ...props
 }: NavDrawerProps): JSX.Element | null => {
   if (activeItem == null) return null;

@@ -7,16 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { ReactElement, RefObject } from "react";
 
 import clsx from "clsx";
 import { AiFillCaretDown, AiFillCaretRight } from "react-icons/ai";
 
-import { ButtonIconOnlyProps } from "@/core/Button";
+import { ButtonIconProps } from "@/core/Button";
 import { Header } from "@/core/Header";
 import { Resize, ResizeMultipleProps } from "@/core/Resize";
-import { Direction } from "@/spatial";
-import { expandedCls } from "@/util/css";
+import { expandedCls } from "@/css";
+import { Box, Direction } from "@/spatial";
 
 import "./Accordion.css";
 
@@ -37,7 +37,7 @@ export interface AccordionEntry {
    * A list of actions to display in the entry's header. See the {@link Header.Actions}
    * component for more details.
    */
-  actions?: Array<ButtonIconOnlyProps | ReactElement>;
+  actions?: Array<ButtonIconProps | ReactElement>;
 }
 
 /** The props for the {@link Accordion} component. */
@@ -69,7 +69,7 @@ const DEFAULT_EXPAND_SIZE = 0.5;
 export const Accordion = ({ data, ...props }: AccordionProps): JSX.Element => {
   const {
     setSize,
-    props: { sizeDistribution: sizes, parentSize, ...resizeProps },
+    props: { sizeDistribution: sizes, ref, ...resizeProps },
   } = Resize.useMultiple({
     direction: DIRECTION,
     count: data.length,
@@ -77,6 +77,8 @@ export const Accordion = ({ data, ...props }: AccordionProps): JSX.Element => {
   });
 
   const onExpand = (index: number): void => {
+    if (ref.current == null) return;
+    const parentSize = new Box(ref.current).dim(DIRECTION);
     if (sizes[index] < EXPAND_THRESHOLD / parentSize)
       setSize(index, data[index].initialSize ?? DEFAULT_EXPAND_SIZE);
     else setSize(index, MIN_SIZE + 1);
@@ -87,7 +89,7 @@ export const Accordion = ({ data, ...props }: AccordionProps): JSX.Element => {
       empty
       className="pluto-accordion"
       sizeDistribution={sizes}
-      parentSize={parentSize}
+      ref={ref}
       {...props}
       {...resizeProps}
     >
@@ -98,7 +100,8 @@ export const Accordion = ({ data, ...props }: AccordionProps): JSX.Element => {
           index={i}
           direction={DIRECTION}
           onExpand={onExpand}
-          expanded={sizes[i] * parentSize > COLLAPSED_THRESHOLD}
+          parent={ref}
+          size={sizes[i]}
         />
       ))}
     </Resize.Multiple>
@@ -107,7 +110,8 @@ export const Accordion = ({ data, ...props }: AccordionProps): JSX.Element => {
 
 interface AccordionEntryCProps extends Omit<AccordionEntry, "key"> {
   index: number;
-  expanded: boolean;
+  size: number;
+  parent: RefObject<HTMLDivElement>;
   onExpand: (i: number) => void;
   direction: Direction;
 }
@@ -117,23 +121,31 @@ const AccordionEntryC = ({
   name,
   content,
   actions,
-  expanded,
+  size,
+  parent,
   onExpand,
-}: AccordionEntryCProps): JSX.Element => (
-  <>
-    <Header
-      level="p"
-      className={clsx("pluto-accordion__header", expandedCls(expanded))}
-      empty
-    >
-      <Header.ButtonTitle
-        startIcon={expanded ? <AiFillCaretDown /> : <AiFillCaretRight />}
-        onClick={() => onExpand(index)}
+}: AccordionEntryCProps): JSX.Element => {
+  let expanded = true;
+  if (parent.current != null) {
+    const parentSize = new Box(parent.current).dim(DIRECTION);
+    expanded = size * parentSize > COLLAPSED_THRESHOLD;
+  }
+  return (
+    <>
+      <Header
+        level="p"
+        className={clsx("pluto-accordion__header", expandedCls(expanded))}
+        empty
       >
-        {name}
-      </Header.ButtonTitle>
-      {actions != null && <Header.Actions>{actions}</Header.Actions>}
-    </Header>
-    {content}
-  </>
-);
+        <Header.ButtonTitle
+          startIcon={expanded ? <AiFillCaretDown /> : <AiFillCaretRight />}
+          onClick={() => onExpand(index)}
+        >
+          {name}
+        </Header.ButtonTitle>
+        {actions != null && <Header.Actions>{actions}</Header.Actions>}
+      </Header>
+      {content}
+    </>
+  );
+};

@@ -8,18 +8,18 @@
 // included in the file licenses/APL.txt.
 
 import { Button as CoreButton } from "./Button";
-import { ButtonIconOnly } from "./ButtonIconOnly";
+import { ButtonIcon } from "./ButtonIcon";
 import { ButtonLink } from "./ButtonLink";
 import { ButtonToggle, ButtonToggleIcon } from "./ButtonToggle";
 export type { ButtonProps } from "./Button";
-export type { ButtonIconOnlyProps } from "./ButtonIconOnly";
+export type { ButtonIconProps } from "./ButtonIcon";
 export type { ButtonLinkProps } from "./ButtonLink";
 
 type CoreButtonType = typeof CoreButton;
 
 interface ButtonType extends CoreButtonType {
   /**
-   * Button.IconOnly a button that only renders an icon without any text.
+   * Button.Icon a button that only renders an icon without any text.
    *
    * @param props - Props for the component, which are passed down to the underlying
    * element.
@@ -28,7 +28,7 @@ interface ButtonType extends CoreButtonType {
    * "outlined", and "text".
    * @param props.children - A ReactElement representing the icon to render.
    */
-  IconOnly: typeof ButtonIconOnly;
+  Icon: typeof ButtonIcon;
   /**
    * Button.Toggle renders a button that can be toggled on and off. It implements the
    * InputControlProps interface, so it can be used as an input control in a form.
@@ -42,19 +42,18 @@ interface ButtonType extends CoreButtonType {
    */
   Toggle: typeof ButtonToggle;
   /**
-   * Button.IconOnlyToggle renders a button that can be toggled on and off, and only
+   * Button.IconToggle renders a button that can be toggled on and off, and only
    * renders an icon. It implements the InputControlProps interface, so it can be used
    *  as an input control in a form.
    *
-   * @param props - Props for the component. Identical to the props for the Button.IconOnly
+   * @param props - Props for the component. Identical to the props for the Button.Icon
    * component, excluding 'variant', and  adding the following:
    * @param props.value - The boolean value of the button. If true, the button will be
    * rendered as "filled". If false, it will be rendered as "outlined".
    * @param props.onChange - A callback function that will be called when the button is
    * toggled. The callback will be passed the new value of the button.
-   *
    */
-  IconOnlyToggle: typeof ButtonToggleIcon;
+  ToggleIcon: typeof ButtonToggleIcon;
   /**
    * Button.Link renders a button that looks like a link and redirects to the given href
    * when clicked.
@@ -83,7 +82,7 @@ interface ButtonType extends CoreButtonType {
  */
 export const Button = CoreButton as ButtonType;
 
-Button.IconOnly = ButtonIconOnly;
+Button.Icon = ButtonIcon;
 Button.Toggle = ButtonToggle;
-Button.IconOnlyToggle = ButtonToggleIcon;
+Button.ToggleIcon = ButtonToggleIcon;
 Button.Link = ButtonLink;

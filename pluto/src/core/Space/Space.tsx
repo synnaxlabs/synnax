@@ -61,7 +61,7 @@ export type SpaceElementType =
 
 export interface SpaceExtensionProps {
   empty?: boolean;
-  size?: ComponentSize | number | null;
+  size?: ComponentSize | number;
   direction?: Direction;
   reverse?: boolean;
   justify?: SpaceJustification;

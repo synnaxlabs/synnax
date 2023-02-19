@@ -1,0 +1,74 @@
+/*
+ * Copyright 2023 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+label,
+li {
+    font-family: var(--pluto-font-family);
+    color: var(--pluto-text-color);
+    margin: 0;
+    white-space: nowrap;
+}
+
+h1 {
+    font-size: var(--pluto-h1-size);
+    line-height: var(--pluto-h1-line-height);
+    font-weight: var(--pluto-h1-weight);
+}
+
+h2 {
+    font-size: var(--pluto-h2-size);
+    line-height: var(--pluto-h2-line-height);
+    font-weight: var(--pluto-h2-weight);
+}
+
+h3 {
+    font-size: var(--pluto-h3-size);
+    line-height: var(--pluto-h3-line-height);
+    font-weight: var(--pluto-h3-weight);
+}
+
+h4 {
+    font-size: var(--pluto-h4-size);
+    line-height: var(--pluto-h4-line-height);
+    font-weight: var(--pluto-h4-weight);
+}
+
+h5 {
+    font-size: var(--pluto-h5-size);
+    line-height: var(--pluto-h5-line-height);
+    font-weight: var(--pluto-h5-weight);
+}
+
+h6 {
+    font-size: var(--pluto-small-size);
+    line-height: var(--pluto-small-line-height);
+    font-weight: var(--pluto-small-weight);
+}
+
+p,
+label,
+code,
+li {
+    font-size: var(--pluto-p-size);
+    line-height: var(--pluto-p-line-height);
+    font-weight: var(--pluto-p-weight);
+}
+
+.pluto-text--wrap {
+    white-space: normal;
+}

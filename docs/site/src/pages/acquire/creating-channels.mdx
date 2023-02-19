@@ -1,0 +1,134 @@
+---
+layout: "@/layouts/MainLayout.astro"
+---
+
+import { SiTypescript, SiPython, SiGnubash } from "react-icons/si";
+
+import { Header } from "@synnaxlabs/pluto";
+import { Tabs } from "@/components/Tabs";
+
+<Header>
+    <Header.Title>Creating Channels</Header.Title>
+</Header>
+
+This page shows you how to create channels within a Synnax cluster. Channels can be created
+using the Synnax CLI, Delta UI, or any ofthe Synnax client libraries. If you're not familiar
+with channels and their purpose, please read the INSERT HERE page first.
+
+## Channel Parameters
+
+1. **Name** - A human readable name for the channel. It doesn't have to be unique, but
+   it probably should be.
+2. **Data Type** - The data type of the channel. All samples in a channel must have the
+   same data type. If the channel is an index channel, it's data type must be a timestamp.
+3. **Rate** - The fixed rate at which samples are recorded. If this parameter is specified
+   i.e.it is greater than 0, then the channel will be a fixed rate channel. Only one of
+   the Rate, Index, or Is Index parameters can be specified.
+4. **Index** - The key of the channel whose timestamp values will be used to index the
+   created channel. If this parameter is specified, then the channel will be an indexed
+   channel. Only one of the Rate, Index, or Is Index parameters can be specified.
+5. **Is Index** - A flag that indicates whether the values in a channel are indexed i.e.
+   the channel's values are time-ordered values and can be used to lookup the samples
+   in another channel. Channels with this flag set to true are considered index channels
+   and must have a data type of timestamp. Only one of the Rate, Index, or Is Index
+   parameters can be specified.
+
+## Choosing the Correct Parameters
+
+Use the following process if you're unsure which parameters to use when creating a channel:
+
+### Choose a Data Type
+
+What type of samples does the channel need to store? It's generally a good practice
+to use the data type that accurately represents the sample while occupying the least
+amount of space. For example, a temperature sensor that records values from -100 to
+100 degrees Celsius can use a `float32` data type. On the other hand, a state machine
+flag that has 5 possible states can use a `uint8` data type.
+
+### Fixed Rate vs. Indexed vs. Index Channels
+
+**Does the channel emit samples at regular intervals?** Certain types of sensors and
+data acquisition systems can record samples at well-bounded intervals. If your
+need for timestamp resolution falls within the precision of the sampling interval,
+we recommend using a fixed rate channel. Fixed rate channels are far more efficient
+to write to and query from than indexed channels. If you still need to preserve the
+exact timestamp of each sample, you can always used a separatd fixed rate Channel to
+store the timestamps.
+
+If your data is not sampled at regular intervals, or you need to query the data at
+exact timestamps, your should use an indexed channel. Indexed channels are more
+complex, but allow for exact correlation between the timestamp of a sample
+and the sample value itself. If you're creating an indexed channel, you'll also need to
+create it's corresponding index channel. The index channel will store the timestamps
+of the samples in the indexed channel.
+
+**INSERT PRACTICAL EXAMPLE HERE**
+
+## Creating a Channel
+
+Now that you've chosen the correct parameters for your channel, you can create it using
+any of the following methods:
+
+<Tabs
+    client:only="react"
+    tabs={[
+        { name: "Python", tabKey: "python" },
+        { name: "TypeScript", tabKey: "typescript" },
+        { name: "CLI", tabKey: "cli" },
+    ]}
+>
+<SiPython slot="python-icon"/>
+<Fragment slot="python">
+
+## Using Python
+
+### Creating a Single, Fixed Rate Channel
+
+```python
+import synnax as sy
+
+client = sy.Synnax()
+
+# Create a fixed rate channel that stores 32-bit floats
+my_precise_tc = client.channels.create(
+    name="my-precise-tc"
+    data_type=sy.DataType.FLOAT32,
+    rate=100 * sy.Rate.HZ,
+)
+```
+
+### Creating an Indexed Channels and it's Index
+
+```python
+import synnax as sy
+
+client = sy.Synnax()
+
+# Create a time channel to store the timestamps of our indexed channel
+time_index_channel = client.channels.create(
+    name="time",
+    data_type=sy.DataType.TIMESTAMP,
+    is_index=True,
+)
+
+# Create an indexed channel that stores 32-bit floats
+my_precise_tc = client.channels.create(
+    name="my-precise-tc"
+    data_type=sy.DataType.FLOAT32,
+    index=time_index_channel.key,
+)
+```
+
+</Fragment>
+
+<SiTypescript slot="typescript-icon" />
+<Fragment slot="typescript">
+
+## Using TypeScript
+
+</Fragment>
+
+<SiGnubash slot="cli-icon" />
+<Fragment slot="cli"></Fragment>
+
+</Tabs>

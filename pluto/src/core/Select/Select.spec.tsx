@@ -16,6 +16,7 @@ import { Select } from ".";
 
 import { ListColumn } from "@/core/List";
 import { mockBoundingClientRect } from "@/testutil/dom";
+import { Triggers } from "@/triggers";
 
 interface MockRecord {
   key: string;
@@ -57,13 +58,15 @@ const mockOptions: MockRecord[] = [
 const SelectMultiple = (): JSX.Element => {
   const [value, setValue] = useState<readonly string[]>([]);
   return (
-    <Select.Multiple<MockRecord>
-      columns={mockColumns}
-      data={mockOptions}
-      tagKey="name"
-      value={value}
-      onChange={setValue}
-    />
+    <Triggers.Provider>
+      <Select.Multiple<MockRecord>
+        columns={mockColumns}
+        data={mockOptions}
+        tagKey="name"
+        value={value}
+        onChange={setValue}
+      />
+    </Triggers.Provider>
   );
 };
 
@@ -95,7 +98,7 @@ describe("Select", () => {
       const c = render(<SelectMultiple />);
       fireEvent.click(c.getByPlaceholderText("Search"));
       fireEvent.click(c.getByText("John"));
-      const j = await c.queryAllByText("John");
+      const j = c.queryAllByText("John");
       expect(j.length).toBe(2);
     });
     it("should allow the user to remove a selected item", async () => {
@@ -104,7 +107,7 @@ describe("Select", () => {
       fireEvent.click(c.getByText("John"));
       const j = await c.findAllByText("John");
       fireEvent.click(j[0].nextSibling as HTMLElement);
-      const j2 = await c.queryAllByText("John");
+      const j2 = c.queryAllByText("John");
       expect(j2.length).toBe(1);
     });
     it("should allow the user to clear all selections", async () => {
@@ -114,9 +117,9 @@ describe("Select", () => {
       fireEvent.click(c.getByText("James"));
       fireEvent.click(c.getByText("Javier"));
       fireEvent.click(c.getByLabelText("clear"));
-      const j = await c.queryAllByText("John");
-      const j2 = await c.queryAllByText("James");
-      const j3 = await c.queryAllByText("Javier");
+      const j = c.queryAllByText("John");
+      const j2 = c.queryAllByText("James");
+      const j3 = c.queryAllByText("Javier");
       expect(j.length).toBe(1);
       expect(j2.length).toBe(1);
       expect(j3.length).toBe(1);

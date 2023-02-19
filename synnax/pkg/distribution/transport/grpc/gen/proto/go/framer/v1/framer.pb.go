@@ -148,7 +148,7 @@ func (x *Frame) GetKeys() []string {
 	return nil
 }
 
-func (x *Frame) GetArrays() []*Array {
+func (x *Frame) GeLazyArrays() []*Array {
 	if x != nil {
 		return x.Arrays
 	}

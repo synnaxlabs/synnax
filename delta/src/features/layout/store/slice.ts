@@ -10,7 +10,7 @@
 import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
 import { Mosaic, Theming } from "@synnaxlabs/pluto";
-import type { MosaicLeaf, Location, Theme } from "@synnaxlabs/pluto";
+import type { MosaicNode, Location, Theme } from "@synnaxlabs/pluto";
 
 import { Layout } from "../types";
 
@@ -34,7 +34,7 @@ export interface LayoutState {
 
 export interface MosaicState {
   activeTab: string | null;
-  root: MosaicLeaf;
+  root: MosaicNode;
 }
 
 export interface NavState {
@@ -206,7 +206,7 @@ export const {
       state,
       { payload: { key, size } }: ResizeLayoutMosaicTabAction
     ) => {
-      state.mosaic.root = Mosaic.resizeLeaf(state.mosaic.root, key, size);
+      state.mosaic.root = Mosaic.resizeNode(state.mosaic.root, key, size);
     },
     renameLayoutMosaicTab: (
       state,

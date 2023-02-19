@@ -7,13 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Space } from "@synnaxlabs/pluto";
+import { Space, Menu as PMenu } from "@synnaxlabs/pluto";
+
+import { Menu } from "../Menu";
 
 import { ClusterProvider } from "@/features/cluster";
+import { LayoutMosaic } from "@/features/layout";
 
 import { NavBottom, NavDrawer, NavLeft, NavRight, NavTop } from "./Nav";
 
-import { LayoutMosaic } from "@/features/layout";
 import { VisCanvas } from "@/features/vis";
 
 import "./MainLayout.css";
@@ -33,11 +35,11 @@ export const MainLayout = (): JSX.Element => (
       >
         <Space className="delta-main--driven" direction="x" empty>
           <NavDrawer location="left" />
-          <div className="delta-main--driven" style={{ position: "relative" }}>
+          <main className="delta-main--driven" style={{ position: "relative" }}>
             <VisCanvas>
               <LayoutMosaic />
             </VisCanvas>
-          </div>
+          </main>
           <NavDrawer location="right" />
         </Space>
         <NavDrawer location="bottom" />
@@ -46,4 +48,10 @@ export const MainLayout = (): JSX.Element => (
     </Space>
     <NavBottom />
   </ClusterProvider>
+);
+
+export const DefaultContextMenu = (): JSX.Element => (
+  <PMenu>
+    <Menu.Item.HardReload />
+  </PMenu>
 );

@@ -25,7 +25,7 @@ import { Space } from "@/core/Space";
 import { Theming } from "../../theming";
 
 import { Tag } from "@/core/Tag";
-import { visibleCls } from "@/util/css";
+import { visibleCls } from "@/css";
 
 import "./SelectMultiple.css";
 
@@ -137,13 +137,13 @@ const SelectMultipleInput = <E extends RenderableRecord<E>>({
             );
           })}
       </Space>
-      <Button.IconOnly
+      <Button.Icon
         className="pluto-select-multiple__clear"
         variant="outlined"
         onClick={clear}
       >
         <AiOutlineClose aria-label="clear" />
-      </Button.IconOnly>
+      </Button.Icon>
     </Pack>
   );
 };

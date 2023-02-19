@@ -167,7 +167,6 @@ class CacheChannelRetriever:
 
         for name in names:
             key = self.names_to_keys.get(name, None)
-            print(key)
             if key is not None:
                 keys.append(key)
             else:

@@ -15,6 +15,7 @@ import { LinePlotToolBar } from "../line/controls/LinePlotToolbar";
 import { ControlledLineVisProps } from "../line/controls/types";
 
 import { ToolbarHeader } from "@/components";
+import { NavDrawerItem } from "@/features/layout";
 
 import { VisIcon, VisToolbarTitle } from "./VisToolbarTitle";
 
@@ -28,9 +29,6 @@ const NoVisContent = (): JSX.Element => (
         <Text level="h4" style={{ color: "var(--pluto-gray-m0)" }}>
           No active visualization. Select a tab or create a new one.
         </Text>
-        {/* <Text.Link level="h4" onClick={console.log}>
-          Create a New One
-        </Text.Link> */}
       </Space>
     </Space.Centered>
   </Space>
@@ -46,7 +44,7 @@ const Content = (): JSX.Element => {
   }
 };
 
-export const VisToolbar = {
+export const VisToolbar: NavDrawerItem = {
   key: "visualization",
   content: <Content />,
   icon: <VisIcon />,

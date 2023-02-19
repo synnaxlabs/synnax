@@ -13,7 +13,6 @@ import { Event, Runtime } from "@/runtime";
 import { StoreState } from "@/state";
 import { KeyedWindowProps } from "@/window";
 
-
 export class MockRuntime<S extends StoreState, A extends Action = AnyAction>
   implements Runtime<S, A>
 {

@@ -1,3 +1,12 @@
+// Copyright 2023 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { forwardRef, useCallback } from "react";
 
 import clsx from "clsx";
@@ -5,12 +14,12 @@ import { TiArrowUnsorted } from "react-icons/ti";
 
 import { Button, ButtonProps } from "../Button";
 
-import { useCursorDrag } from "@/hooks";
+import { directionCls } from "@/css";
+import { Box, Direction, dirToDim } from "@/spatial";
 
 import { Pack } from "../Pack";
 
-import { Box, Direction, dirToDim } from "@/spatial";
-import { directionCls } from "@/util/css";
+import { useCursorDrag } from "@/spatial/useCursorDrag";
 
 import "./InputNumber.css";
 
@@ -78,7 +87,7 @@ export const DragButton = ({
   className,
   ...props
 }: DragButtonProps): JSX.Element => (
-  <Button.IconOnly
+  <Button.Icon
     variant="outlined"
     className={clsx(
       "pluto-input-number__drag-button",
@@ -88,5 +97,5 @@ export const DragButton = ({
     {...props}
   >
     <TiArrowUnsorted />
-  </Button.IconOnly>
+  </Button.Icon>
 );

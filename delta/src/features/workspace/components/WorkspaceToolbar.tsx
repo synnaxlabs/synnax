@@ -8,12 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { Space, Accordion } from "@synnaxlabs/pluto";
-import type { NavDrawerItem } from "@synnaxlabs/pluto";
 import { AiOutlinePlus } from "react-icons/ai";
 import { MdWorkspacesFilled } from "react-icons/md";
+import { useDispatch } from "react-redux";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
-import { Layout, useLayoutPlacer } from "@/features/layout";
+
+import { removeRange, setActiveRange, useSelectRange, useSelectRanges } from "../store";
+
+import { Layout, NavDrawerItem, useLayoutPlacer } from "@/features/layout";
 
 import { RangesList } from "./RangesList";
 import { VisList } from "./VisList";
@@ -25,14 +28,33 @@ const rangeWindowLayout: Layout = {
   location: "window",
   window: {
     resizable: false,
-    height: 340,
-    width: 550,
+    height: 400,
+    width: 600,
     navTop: true,
   },
 };
 
 const Content = (): JSX.Element => {
   const openWindow = useLayoutPlacer();
+  const dispatch = useDispatch();
+  const ranges = useSelectRanges();
+  const selectedRange = useSelectRange();
+
+  const handleAddOrEditRange = (key?: string): void => {
+    openWindow({
+      ...rangeWindowLayout,
+      key: key ?? rangeWindowLayout.key,
+    });
+  };
+
+  const handleRemoveRange = (key: string): void => {
+    dispatch(removeRange(key));
+  };
+
+  const handleSelectRange = (key: string): void => {
+    dispatch(setActiveRange(key));
+  };
+
   return (
     <Space empty style={{ height: "100%" }}>
       <ToolbarHeader>
@@ -43,11 +65,19 @@ const Content = (): JSX.Element => {
           {
             key: "ranges",
             name: "Ranges",
-            content: <RangesList />,
+            content: (
+              <RangesList
+                ranges={ranges}
+                selectedRange={selectedRange}
+                onRemove={handleRemoveRange}
+                onSelect={handleSelectRange}
+                onAddOrEdit={handleAddOrEditRange}
+              />
+            ),
             actions: [
               {
                 children: <AiOutlinePlus />,
-                onClick: () => openWindow(rangeWindowLayout),
+                onClick: () => handleAddOrEditRange(),
               },
             ],
           },

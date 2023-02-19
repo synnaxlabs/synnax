@@ -25,9 +25,7 @@ describe("Input.Time", () => {
   it("Should normalize an initial TimeStamp", () => {
     const ts = new TimeStamp([2022, 12, 22]).add(TimeStamp.hours(12));
     const handleChange = vi.fn();
-    const c = render(
-      <Input.Time value={ts.valueOf()} onChange={handleChange} tzInfo="UTC" />
-    );
+    render(<Input.Time value={ts.valueOf()} onChange={handleChange} tzInfo="UTC" />);
     expect(handleChange).toHaveBeenCalledWith(TimeStamp.hours(12).valueOf());
   });
 });
