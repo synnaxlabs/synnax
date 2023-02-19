@@ -1,3 +1,12 @@
+// Copyright 2023 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import {
   InputItemProps,
   Select,
@@ -14,13 +23,13 @@ export interface SelectMultipleRangesProps
   extends Omit<SelectMultipleProps<Range>, "columns"> {}
 
 export const SelectMultipleRanges = (props: SelectMultipleRangesProps): JSX.Element => (
-  <Select.Multiple columns={rangeListColumns} {...props} />
+  <Select.Multiple columns={rangeListColumns} tagKey="name" {...props} />
 );
 
 export interface SelectRangeProps extends Omit<SelectProps<Range>, "columns"> {}
 
 export const SelectRange = (props: SelectRangeProps): JSX.Element => (
-  <Select columns={rangeListColumns} {...props} />
+  <Select columns={rangeListColumns} {...props} tagKey="name" />
 );
 
 export interface SelectMultipleRangesInputItemProps

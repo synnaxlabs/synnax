@@ -1,0 +1,109 @@
+---
+layout: "@/layouts/MainLayout.astro"
+---
+
+import { Header } from "@synnaxlabs/pluto";
+
+<Header>
+    <Header.Title>Channels</Header.Title>
+</Header>
+
+This page will walk you through what channels are, their important properties, and how to
+use them when structuring your cluster.
+
+If you’re looking for a practical guide on creating or retrieving channels via the CLI,
+UI, or Client Libraries, look here.
+
+## What is a Channel?
+
+A **Channel** is a logical collection of samples emitted by or representing the values of
+a single source. Practically, a channel holds the values of a sensor such as a thermocouple
+or pressure transducer. It can also hold post-processed results, such as the noise-filtered
+signal of another channel.
+
+### Fixed Rate
+
+The simplest channel has a fixed rate, which assumes that its samples are spaced apart
+at regular intervals (such as 10Hz or 25KHz). It’s best to use these types of channels when
+data is arriving at a rate where the deviation in sample regularity is small enough to be
+insignificant to your needs.
+
+In a sensor data scenario, the sampling rate precision of modern data acquisition devices
+is within several microseconds. If you’re measuring the water level of a tank at 100Hz across several hours, those microsecond deviations are probably insignificant to your analysis. In these cases, it’s best to store the samples in a fixed rate, 100Hz channel.
+
+When executing a write on a fixed rate channel, you’re required to provide the starting
+timestamp for the first sample, and all subsequent samples under the same transaction are
+assumed to have timestamps following the equation:
+
+**Add equations and a table example here**
+
+#### Gaps in Data
+
+It’s unreasonable to assume that all the samples in a fixed rate channel will be regularly
+spaced. For a cyclist who only rides on the weekends, it doesn’t make sense to store zero
+values for their speed at every point when they aren’t on a bike. However, when they’re riding,
+data is still recorded by the GPS at a consistent 10Hz. To account for this, a fixed-rate
+channel tolerates extended gaps between periods of fixed-rate telemetry.
+
+In theory, a fixed rate channel could consider every sample as its own, independent period
+of time with an arbitrary gap in between. This is very inefficient, and in this case,
+you should use a variable rate, indexed channel instead. Fixed-rate channels are only
+beneficial in cases where periods of regular sampling contain at least two orders of
+magnitude more samples than the number of gaps in a channel’s data. Practically, this
+means that periods of regularity should contain at least several hundred samples, if not
+well into the thousands or millions.
+
+#### Preserving Original Timestamp Data
+
+In some cases, a sample rate is regular enough to warrant a fixed rate channel, but you’d
+still like to preserve the timestamp data for edge scenarios where it may be required. In
+this case, simply create another channel with the same sample rate to hold the timestamps.
+You can then query the precise timestamps along with the channel’s data as needed.
+
+#### Avoiding Tolerance Stack Up
+
+One of the main concerns our users have when working with fixed rate channels is tolerance
+stack up. If a fixed-rate, 25Hz channel actually receives writes at a rate of 25.001Hz,
+after 2,000 samples, the recorded timestamp of the channel is 2 seconds earlier than
+its actual time of recording.
+
+If you’re concerned about this, we recommend regularly separating long-lived writes to
+within a tolerable value. The separate writes will have their own starting timestamps,
+which will account for any issues with tolerance stack-up.
+
+### Variable Rate - Index and Indexed Channels
+
+If your data is sampled at a variable rate, you’ll probably need an **index-indexed**
+channel pair.
+
+An **index** channel is a special channel whose samples are indexed for very fast lookups.
+The values in an index channel must be time-ordered (i.e. some sort of timestamp). This
+channel can then be used to index another channel, called the **indexed** channel.
+‘Index’ in this scenario means that the samples in the index channel can be used as the
+timestamps for the samples in the indexed channel.
+
+#### Index Channels are Expensive
+
+Efficiently doing point and range lookups on hundreds of millions if not billions of
+data points requires maintaining expensive data structures and executing many I/O
+operations. When possible, try to share the same index channel between many indexed channels.
+
+In a data acquisition scenario, this typically means generating timestamps for each DAQ
+and using them as the index for all other channels/sensors plugged into the device.
+
+If you find that your use case requires many different channels, all of which sample at
+different rates, Synnax might not be the right solution for you.
+
+## Channel Fields
+
+### Data Type
+
+#### Custom Data Types
+
+### Rate
+
+### Index
+
+### Is Index
+
+### Lease

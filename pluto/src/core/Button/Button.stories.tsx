@@ -43,16 +43,16 @@ export const Outlined = (): JSX.Element => (
 export const Toggle = (): JSX.Element => {
   const [value, setValue] = useState(false);
   return (
-    <Button.IconOnlyToggle value={value} onChange={() => setValue((c) => !c)}>
+    <Button.ToggleIcon value={value} onChange={() => setValue((c) => !c)}>
       <AiOutlineDelete />
-    </Button.IconOnlyToggle>
+    </Button.ToggleIcon>
   );
 };
 
 export const IconOnly = (): JSX.Element => (
-  <Button.IconOnly>
+  <Button.Icon>
     <AiOutlineDelete />
-  </Button.IconOnly>
+  </Button.Icon>
 );
 
 // eslint-disable-next-line import/no-default-export

@@ -25,10 +25,18 @@
     padding: 0 2rem;
 }
 
+.delta-main-nav-bottom__start {
+    padding: 0 3rem;
+}
+
 .delta-main-nav-drawer--x {
     overflow-x: hidden;
 }
 
 .delta-main-nav-drawer {
     flex: 0 0 auto;
+}
+
+.delta-main-nav__content {
+    padding: 2rem 0;
 }

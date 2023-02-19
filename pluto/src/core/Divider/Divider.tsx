@@ -19,6 +19,7 @@ import "./Divider.css";
 export interface DividerProps
   extends PropsWithChildren<HTMLAttributes<HTMLDivElement>> {
   direction?: Direction;
+  padded?: boolean;
 }
 
 /**
@@ -30,10 +31,16 @@ export interface DividerProps
 export const Divider = ({
   direction = "y",
   className,
+  padded = false,
   ...props
 }: DividerProps): JSX.Element => (
   <div
-    className={clsx("pluto-divider", `pluto-divider--${direction}`, className)}
+    className={clsx(
+      "pluto-divider",
+      `pluto-divider--${direction}`,
+      padded && "pluto-divider--padded",
+      className
+    )}
     {...props}
   />
 );

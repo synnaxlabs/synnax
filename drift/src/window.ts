@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 /** Represents the state of a window in it's lifecycle  */
-export type WindowState = 'creating' | 'created' | 'closing' | 'closed';
+export type WindowState = "creating" | "created" | "closing" | "closed";
 
-export const MAIN_WINDOW = 'main';
+export const MAIN_WINDOW = "main";
 
 /** Properties of a window managed by drift  */
 export interface Window {
@@ -71,4 +71,4 @@ export interface WindowProps {
 }
 
 /* WindowProps but with a key */
-export type KeyedWindowProps = Omit<WindowProps, 'key'> & { key: string };
+export type KeyedWindowProps = Omit<WindowProps, "key"> & { key: string };

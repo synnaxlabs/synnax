@@ -9,7 +9,6 @@
 
 export { VisLayoutRenderer } from "./VisLayoutRenderer";
 export * from "./VisToolbar";
-export * from "./WarpMode";
 export * from "./VisCanvas";
 export * from "./select";
 export * from "./VisCreateButton";

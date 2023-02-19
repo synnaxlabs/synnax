@@ -9,7 +9,7 @@
 
 import type { ComponentMeta, ComponentStory } from "@storybook/react";
 
-import { MosaicLeaf } from "./types";
+import { MosaicNode } from "./types";
 
 import { Mosaic } from ".";
 
@@ -20,7 +20,7 @@ const story: ComponentMeta<typeof Mosaic> = {
   component: Mosaic,
 };
 
-const initialTree: MosaicLeaf = {
+const initialTree: MosaicNode = {
   key: 1,
   direction: "x",
   first: {

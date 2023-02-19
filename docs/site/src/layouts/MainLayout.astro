@@ -1,13 +1,13 @@
 ---
 import { PageNav } from "@/components/PageNav";
-import { pages } from "@/pages/nav";
 import "@synnaxlabs/pluto/dist/style.css";
 import { Theming } from "@synnaxlabs/pluto";
 import { DEFAULT_THEME } from "@/util/theme";
 import { Logo } from "@/components/Logo";
-const vars = Theming.toCSSVars(DEFAULT_THEME);
 import { TableOfContents } from "@/components/TableOfContents";
-const { headings } = Astro.props as Props;
+const vars = Theming.toCSSVars(DEFAULT_THEME);
+const { headings } = Astro.props;
+console.log(headings);
 ---
 
 <html style={vars}>
@@ -18,15 +18,14 @@ const { headings } = Astro.props as Props;
     </header>
     <section>
         <nav class="pluto-bordered--right pluto-bordered--bottom">
-            <PageNav
-                client:only="react"
-                data={pages}
-                currentPage={Astro.url.pathname}
-            />
+            <PageNav client:only="react" currentPage={Astro.url.pathname} />
         </nav>
         <article>
             <slot />
         </article>
+        <nav class="pluto-bordered--left">
+            <TableOfContents client:only="react" headings={headings} />
+        </nav>
     </section>
 
     <script>
@@ -35,11 +34,22 @@ const { headings } = Astro.props as Props;
     </script>
 
     <style is:global>
-        article p {
+        article p:not(.pluto-tabs-selector__button p) {
             margin: 3rem 0;
         }
 
-        * {
+        .pluto-tabs-selector__button p {
+            margin: 1rem 0;
+        }
+
+        h1,
+        h2,
+        h3,
+        h4,
+        h5,
+        h6,
+        p,
+        li {
             white-space: normal !important;
         }
 
@@ -51,6 +61,15 @@ const { headings } = Astro.props as Props;
             padding: 3rem;
             border-radius: var(--pluto-border-radius);
             margin: 3rem 1rem;
+            overflow-x: auto !important;
+            overflow-y: visible !important;
+        }
+
+        code {
+            background: #0d1117;
+            color: rgba(255, 255, 255, 0.9);
+            padding: 0.25rem 1rem;
+            border-radius: var(--pluto-border-radius);
         }
 
         @media (prefers-color-scheme: dark) {
@@ -98,22 +117,22 @@ const { headings } = Astro.props as Props;
         section {
             max-width: var(--max-width);
             display: flex;
-            flex-wrap: wrap;
-            flex-grow: 99999;
+            flex-wrap: nowrap;
+            flex-grow: 9999;
             flex-basis: 0;
+            height: calc(100% - 10rem);
         }
 
         nav {
             padding: 20px 0px;
-            flex-basis: 280px;
-            flex-grow: 1;
+            flex-basis: 240px;
         }
 
         article {
             flex-basis: 0;
             flex-grow: 9999;
-            min-inline-size: 60%;
             padding: 5rem;
+            overflow-y: auto;
         }
     </style>
 

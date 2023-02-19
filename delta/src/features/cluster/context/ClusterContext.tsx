@@ -16,11 +16,6 @@ import {
 } from "react";
 
 import { Synnax, TimeSpan } from "@synnaxlabs/client";
-import {
-  completeProcess,
-  registerProcess,
-  useWindowLifecycle,
-} from "@synnaxlabs/drift";
 import { useDispatch } from "react-redux";
 
 import {
@@ -78,14 +73,6 @@ export const ClusterProvider = ({ children }: ClusterProviderProps): JSX.Element
       setState({ client: null });
     };
   }, [activeClusterKey]);
-
-  // useWindowLifecycle(() => {
-  //   dispatch(registerProcess());
-  //   return () => {
-  //     if (state.client != null) state.client.close();
-  //     dispatch(completeProcess());
-  //   };
-  // });
 
   return <ClusterContext.Provider value={state}>{children}</ClusterContext.Provider>;
 };

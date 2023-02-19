@@ -7,36 +7,32 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { RefObject, useCallback, useRef } from "react";
+import { useCallback, useRef } from "react";
 
 import { KeyedRecord } from "@synnaxlabs/x";
 
+import { Triggers } from "..";
+
 import { InputControl } from "@/core/Input";
-
-import { useStateRef } from "./useStateRef";
-
-import { useKeysHeld } from "@/hooks";
-import { KeyboardKey } from "@/keys";
 import { ArrayTransform } from "@/util/transform";
 
 export type SelectedRecord<E extends KeyedRecord<E>> = E & {
   selected?: true;
 };
 
+/** Props for the {@link useSelectMultiple} hook. */
 export interface UseSelectMultipleProps<E extends KeyedRecord<E>>
   extends InputControl<readonly string[]> {
   data: E[];
   allowMultiple?: boolean;
 }
 
+/** Return value for the {@link useSelectMultiple} hook. */
 export interface UseSelectMultipleReturn<E extends KeyedRecord<E>> {
   transform: ArrayTransform<E, SelectedRecord<E>>;
   onSelect: (key: string) => void;
   clear: () => void;
 }
-
-const shiftHeld = (ref: RefObject<KeyboardKey[]>): boolean =>
-  ref.current?.includes("Shift") ?? false;
 
 /**
  * Implements generic multiple selection over a collection of keyed records. The hook
@@ -48,6 +44,8 @@ const shiftHeld = (ref: RefObject<KeyboardKey[]>): boolean =>
  * The hook also supports shift-selection of a range. This means that the data passed in
  * must be in the same order/cardinality as the data that is displayed.
  *
+ * It's important to note that the hook implements the InputControl interface, which
+ *  means that it can be used as a controlled input in a form.
  *
  * @param props - The props for the hook.
  * @param props.data - The data to select from.
@@ -55,6 +53,11 @@ const shiftHeld = (ref: RefObject<KeyboardKey[]>): boolean =>
  * @param props.onChange - The callback to invoke when the selection state changes.
  * @param props.allowMultiple - Whether to allow multiple selections.
  *
+ * @returns transform - A transform that can be used to add a `selected` property to
+ * each record in the data.
+ * @returns onSelect - A callback that can be used to select a record. This should
+ * probably be passed to the `onClick` corresponding to each record.
+ * @returns clear - A callback that can be used to clear the selection.
  */
 export const useSelectMultiple = <E extends KeyedRecord<E>>({
   data = [],
@@ -63,17 +66,15 @@ export const useSelectMultiple = <E extends KeyedRecord<E>>({
   onChange,
 }: UseSelectMultipleProps<E>): UseSelectMultipleReturn<E> => {
   const shiftValueRef = useRef<string | null>(null);
-  const [ref, setCurrentRef] = useStateRef<KeyboardKey[]>([]);
-  useKeysHeld(setCurrentRef, "Shift");
+  const shift = Triggers.use([["Shift", null]]);
 
   const handleSelect = useCallback(
     (key: string): void => {
       let nextSelected: readonly string[] = [];
-      const shift = shiftHeld(ref);
       const shiftValue = shiftValueRef.current;
       if (!allowMultiple) {
         nextSelected = value.includes(key) ? [] : [key];
-      } else if (shift && shiftValue !== null) {
+      } else if (shift.current.held && shiftValue !== null) {
         // We might select in reverse order, so we need to sort the indexes.
         const [start, end] = [
           data.findIndex((v) => v.key === key),
@@ -87,7 +88,7 @@ export const useSelectMultiple = <E extends KeyedRecord<E>>({
         else nextSelected = [...value, ...nextKeys];
         shiftValueRef.current = null;
       } else {
-        if (shift) shiftValueRef.current = key;
+        if (shift.current.held) shiftValueRef.current = key;
         if (value.includes(key)) nextSelected = value.filter((k) => k !== key);
         else nextSelected = [...value, key];
       }

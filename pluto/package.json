@@ -20,6 +20,7 @@
     "@synnaxlabs/x": "workspace:*",
     "@tanstack/react-virtual": "^3.0.0-beta.18",
     "clsx": "^1.2.1",
+    "d3": "^7.8.2",
     "fuse.js": "^6.6.2",
     "proxy-memoize": "^1.2.0",
     "react": "^18.2.0",
@@ -73,9 +74,6 @@
   "main": "./dist/pluto.cjs.js",
   "module": "./dist/pluto.es.js",
   "types": "./dist/index.d.ts",
-  "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
-  },
   "readme": "ERROR: No README data found!",
   "_id": "@synnaxlabs/pluto@0.0.1",
   "repository": {

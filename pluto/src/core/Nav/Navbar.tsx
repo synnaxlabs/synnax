@@ -25,7 +25,7 @@ const NavbarContext = createContext<Location>("left");
 
 const CoreNavbar = ({
   location = "left",
-  size = 60,
+  size = "9rem",
   className,
   style,
   ...props

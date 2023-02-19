@@ -152,9 +152,9 @@ func tranFrmBwd(frame framer.Frame) *fv1.Frame {
 }
 
 func tranArrayFwd(arrays []*fv1.Array) []telem.Array {
-	tArrays := make([]telem.Array, len(arrays))
+	LazyArrays := make([]telem.Array, len(arrays))
 	for i, arr := range arrays {
-		tArrays[i] = telem.Array{
+		LazyArrays[i] = telem.Array{
 			DataType: telem.DataType(arr.DataType),
 			TimeRange: telem.TimeRange{
 				Start: telem.TimeStamp(arr.Range.Start),
@@ -163,13 +163,13 @@ func tranArrayFwd(arrays []*fv1.Array) []telem.Array {
 			Data: arr.Data,
 		}
 	}
-	return tArrays
+	return LazyArrays
 }
 
 func tranArrBwd(arrays []telem.Array) []*fv1.Array {
-	tArrays := make([]*fv1.Array, len(arrays))
+	LazyArrays := make([]*fv1.Array, len(arrays))
 	for i, arr := range arrays {
-		tArrays[i] = &fv1.Array{
+		LazyArrays[i] = &fv1.Array{
 			DataType: string(arr.DataType),
 			Range: &fv1.TimeRange{
 				Start: int64(arr.TimeRange.Start),
@@ -178,5 +178,5 @@ func tranArrBwd(arrays []telem.Array) []*fv1.Array {
 			Data: arr.Data,
 		}
 	}
-	return tArrays
+	return LazyArrays
 }

@@ -23,6 +23,7 @@ export interface TabMeta {
   tabKey: string;
   name: string;
   closable?: boolean;
+  icon?: JSX.Element;
 }
 
 export interface TabsSelectorProps extends Omit<SpaceProps, "children"> {}
@@ -77,6 +78,7 @@ const TabC = ({
   onTabDragEnd,
   onRename,
   closable,
+  icon,
 }: TabSelectorButtonProps): JSX.Element => {
   const onDragStart = (e: React.DragEvent<HTMLDivElement>): void =>
     onTabDragStart?.(e, { tabKey, name });
@@ -107,15 +109,15 @@ const TabC = ({
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
     >
-      <TabName name={name} tabKey={tabKey} onRename={onRename} />
+      <TabName name={name} tabKey={tabKey} onRename={onRename} icon={icon} />
       {onClose != null && (
-        <Button.IconOnly
+        <Button.Icon
           size="small"
           onClick={_onClose}
           style={{ height: "3rem", padding: "1rem 0.25rem" }}
         >
           <AiOutlineClose aria-label="pluto-tabs__close" />
-        </Button.IconOnly>
+        </Button.Icon>
       )}
     </Space>
   );
@@ -134,10 +136,19 @@ interface TabnameProps {
   onRename?: (key: string, name: string) => void;
   name: string;
   tabKey: string;
+  icon?: JSX.Element;
 }
 
-const TabName = ({ onRename, name, tabKey }: TabnameProps): JSX.Element => {
-  if (onRename == null) return <Text level="p">{name}</Text>;
+const TabName = ({ onRename, name, tabKey, icon }: TabnameProps): JSX.Element => {
+  if (onRename == null) {
+    if (icon != null)
+      return (
+        <Text.WithIcon startIcon={icon} level="p">
+          {name}
+        </Text.WithIcon>
+      );
+    return <Text level="p">{name}</Text>;
+  }
   return (
     <Text.Editable level="p" onChange={(newText: string) => onRename(tabKey, newText)}>
       {name}

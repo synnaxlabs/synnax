@@ -7,26 +7,37 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Divider, locToDir, Nav, Theming } from "@synnaxlabs/pluto";
-import type { NavDrawerItem } from "@synnaxlabs/pluto";
+import {
+  Divider,
+  locToDir,
+  Nav,
+  Theming,
+  Menu as PMenu,
+  MenuProps as PMenuProps,
+} from "@synnaxlabs/pluto";
 import clsx from "clsx";
 
 import { ClusterBadge, ClusterToolbar, ConnectionBadge } from "@/features/cluster";
-import { NavdrawerLocation, useNavDrawer } from "@/features/layout";
+import {
+  NavDrawerItem,
+  NavdrawerLocation,
+  useNavDrawer,
+  NavMenuItem,
+} from "@/features/layout";
 import { ResourcesToolbar } from "@/features/resources";
 import { VersionBadge } from "@/features/version";
-import { VisToolbar, WarpModeToggle } from "@/features/vis";
 
 import { Logo } from "../Logo";
 
+import { VisToolbar } from "@/features/vis";
 import { WorkspaceToolbar } from "@/features/workspace";
 
 import "./Nav.css";
 
 export const NAV_SIZES = {
-  side: 48,
-  top: 42,
-  bottom: 32,
+  side: "8rem",
+  top: "7rem",
+  bottom: "4.5rem",
 };
 
 export const NAV_DRAWERS: NavDrawerItem[] = [
@@ -46,6 +57,21 @@ export const NavTop = (): JSX.Element => (
   </Nav.Bar>
 );
 
+export const NavMenu = ({
+  children,
+  ...props
+}: {
+  children: NavMenuItem[];
+} & Omit<PMenuProps, "children">): JSX.Element => (
+  <PMenu {...props}>
+    {children.map((item) => (
+      <PMenu.ItemIcon key={item.key} itemKey={item.key}>
+        {item.icon}
+      </PMenu.ItemIcon>
+    ))}
+  </PMenu>
+);
+
 /**
  * NavLeft is the left navigation drawer for the Delta UI. Try to keep this component
  * presentational.
@@ -57,8 +83,8 @@ export const NavLeft = (): JSX.Element => {
       <Nav.Bar.Start className="delta-main-nav-left__start" bordered>
         <Logo className="delta-main-nav-left__logo" />
       </Nav.Bar.Start>
-      <Nav.Bar.Content>
-        <Nav.Menu onSelect={onSelect} items={menuItems} />
+      <Nav.Bar.Content className="delta-main-nav__content" size="small">
+        <NavMenu onChange={onSelect}>{menuItems}</NavMenu>
       </Nav.Bar.Content>
       <Nav.Bar.End className="delta-main-nav-left__end" bordered>
         <Theming.Switch />
@@ -79,12 +105,12 @@ export const NavRight = (): JSX.Element | null => {
   );
   return (
     <Nav.Bar location="right" size={NAV_SIZES.side}>
-      <Nav.Bar.Content>
-        <Nav.Menu items={menuItems} onSelect={onSelect} />
+      <Nav.Bar.Content className="delta-main-nav__content" size="small">
+        <NavMenu onChange={onSelect}>{menuItems}</NavMenu>
       </Nav.Bar.Content>
       {bottomMenuItems.length > 0 && (
-        <Nav.Bar.End>
-          <Nav.Menu items={bottomMenuItems} onSelect={onBottomSelect} />
+        <Nav.Bar.End className="delta-main-nav__content">
+          <NavMenu onChange={onBottomSelect}>{bottomMenuItems}</NavMenu>
         </Nav.Bar.End>
       )}
     </Nav.Bar>

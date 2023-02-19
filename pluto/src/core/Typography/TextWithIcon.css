@@ -1,50 +1,61 @@
-.pluto-text-icon > svg {
+/*
+ * Copyright 2023 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.pluto-text-icon svg {
     fill: var(--pluto-text-color);
 }
 
-.pluto-text-icon--h1 > svg {
-    width: var(--pluto-h1-line-height);
-    min-width: var(--pluto-h1-line-height);
+.pluto-text-icon--h1 svg {
+    width: calc(var(--pluto-h1-line-height) * 0.9);
+    min-width: calc(var(--pluto-h1-line-height) * 0.9);
     height: var(--pluto-h1-line-height);
 }
 
-.pluto-text-icon--h2 > svg {
+.pluto-text-icon--h2 svg {
     width: var(--pluto-h2-line-height);
     min-width: var(--pluto-h2-line-height);
     height: var(--pluto-h2-line-height);
 }
 
-.pluto-text-icon--h3 > svg {
+.pluto-text-icon--h3 svg {
     width: var(--pluto-h3-line-height);
     min-width: var(--pluto-h3-line-height);
     height: var(--pluto-h3-line-height);
 }
 
-.pluto-text-icon--h4 > svg {
+.pluto-text-icon--h4 svg {
     width: var(--pluto-h4-line-height);
     min-width: var(--pluto-h4-line-height);
     height: var(--pluto-h4-line-height);
 }
 
-.pluto-text-icon--h5 > svg {
+.pluto-text-icon--h5 svg {
     width: var(--pluto-h5-line-height);
     min-width: var(--pluto-h5-line-height);
     height: var(--pluto-h5-line-height);
 }
 
-.pluto-text-icon--p > svg {
-    width: var(--pluto-p-line-height);
-    min-width: var(--pluto-p-line-height);
-    height: var(--pluto-p-line-height);
+.pluto-text-icon--p svg {
+    width: var(--pluto-p-size);
+    min-width: var(--pluto-p-size);
+    height: var(--pluto-p-size);
 }
 
-.pluto-text-icon--small > svg {
+.pluto-text-icon--small svg {
     width: var(--pluto-small-line-height);
     min-width: var(--pluto-small-line-height);
     height: var(--pluto-small-line-height);
 }
 
-.pluto-text-icon--small > svg {
+.pluto-text-icon--small svg {
     width: var(--pluto-tiny-line-height);
     min-width: var(--pluto-tiny-line-height);
     height: var(--pluto-tiny-line-height);

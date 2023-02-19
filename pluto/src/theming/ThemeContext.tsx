@@ -16,8 +16,6 @@ import {
   useState,
 } from "react";
 
-import { applyCSSVars } from "@synnaxlabs/x";
-
 import { convertThemeToCSSVars } from "./css";
 
 import { Input } from "@/core/Input";
@@ -25,6 +23,7 @@ import { Input } from "@/core/Input";
 import { Theme, synnaxLight } from "./theme";
 
 import { InputSwitchProps } from "@/core/Input/InputSwitch";
+import { applyCSSVars } from "@/css";
 
 import "./theme.css";
 
