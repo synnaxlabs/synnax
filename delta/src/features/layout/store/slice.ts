@@ -206,7 +206,7 @@ export const {
       state,
       { payload: { key, size } }: ResizeLayoutMosaicTabAction
     ) => {
-      state.mosaic.root = Mosaic.resizeLeaf(state.mosaic.root, key, size);
+      state.mosaic.root = Mosaic.resizeNode(state.mosaic.root, key, size);
     },
     renameLayoutMosaicTab: (
       state,

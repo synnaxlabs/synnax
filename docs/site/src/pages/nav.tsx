@@ -13,8 +13,8 @@ import { HiLightningBolt } from "react-icons/hi";
 
 import { acquireNav } from "./acquire/nav";
 import { analyzeNav } from "./analyze/nav";
+import { conceptsNav } from "./concepts/nav";
 import { deployNav } from "./deploy/nav";
-import { rfcNav } from "./rfc/nav";
 import { visualizeNav } from "./visualize/nav";
 
 export const pages = [
@@ -24,9 +24,10 @@ export const pages = [
     url: "/",
     icon: createElement(HiLightningBolt),
   },
+  conceptsNav,
   deployNav,
   acquireNav,
   analyzeNav,
   visualizeNav,
-  rfcNav,
+  // rfcNav,
 ];

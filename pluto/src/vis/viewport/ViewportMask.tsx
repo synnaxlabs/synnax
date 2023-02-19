@@ -13,6 +13,8 @@ import clsx from "clsx";
 
 import { UseViewportReturn } from "./useViewPort";
 
+import "./ViewportMask.css";
+
 type DivProps = React.DetailedHTMLProps<
   React.HTMLAttributes<HTMLDivElement>,
   HTMLDivElement
@@ -33,7 +35,7 @@ export const ViewportMask = forwardRef<HTMLDivElement, ViewportMaskProps>(
           height: maskBox.height,
           cursor: mode === "pan" ? "grabbing" : "crosshair",
         }}
-        className="pluto-zoom-pan-mask"
+        className="pluto-viewport-mask"
       />
     </div>
   )
