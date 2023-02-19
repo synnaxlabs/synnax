@@ -12,5 +12,10 @@ export const acquireNav: PageNavLeaf = {
       url: "/acquire/get-started",
       name: "Get Started",
     },
+    {
+      key: "/acquire/creating-channels",
+      url: "/acquire/creating-channels",
+      name: "Creating Channels",
+    },
   ],
 };

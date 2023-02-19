@@ -90,8 +90,16 @@ export const LinePlot = ({
   const [zoom, setZoom] = useState<Box>(DECIMAL_BOX);
   const [selection, setSelection] = useState<Box | null>(null);
   const [, startDraw] = useTransition();
+  const [tick, setTick] = useState(0);
 
   const valid = isValid(vis);
+
+  useEffect(() => {
+    const i = setInterval(() => {
+      setTick((t) => t + 1);
+    }, 2000);
+    return () => clearInterval(i);
+  }, []);
 
   useAsyncEffect(async () => {
     if (client == null || !valid) return setData(initialDataState());
@@ -101,7 +109,7 @@ export const LinePlot = ({
     } catch (error) {
       setData({ data: { ...ZERO_DATA }, error: error as Error });
     }
-  }, [vis, client]);
+  }, [vis, tick, client]);
 
   useEffect(() => {
     if (theme == null) return;
@@ -345,16 +353,11 @@ const buildGLLines = (data: LineVisData, zoom: Box, theme: Theme): GLLine[] => {
         const xRes = xData[0];
         yRes.arrays.forEach((yArr, j) => {
           lines.push({
-            color: [
-              ...hexToRGBA(theme.colors.visualization.palettes.default[i])
-                .slice(0, 3)
-                .map((c: number) => c / 255),
-              1,
-            ] as RGBATuple,
+            color: hexToRGBA(theme.colors.visualization.palettes.default[i], 1, 255),
             scale,
             offset,
-            y: yRes.buffers.value[j],
-            x: xRes.buffers.value[j],
+            y: yRes.buffers.value[j].buf,
+            x: xRes.buffers.value[j].buf,
             strokeWidth: 3,
             length: yArr.length,
           });
