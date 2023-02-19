@@ -47,3 +47,8 @@ ignore_missing_imports = true
 [tool.poetry.scripts]
 synnax= "synnax.cli.synnax:synnax"
 
+[tool.pytest.ini_options]
+markers = [
+    "channel: marks tests as involving channels",
+]
+
