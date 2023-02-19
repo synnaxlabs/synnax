@@ -29,6 +29,8 @@ class _Response(Payload):
 
 
 class ChannelRetriever(Protocol):
+    """Protocol for retrieving channel paylods from the cluster."""
+
     @overload
     def retrieve(
         self,
@@ -70,9 +72,12 @@ class ChannelRetriever(Protocol):
         names: list[str] | None = None,
         node_id: int | None = None,
         include_not_found: bool = False,
-    ) -> list[ChannelPayload] | tuple[
-        list[ChannelPayload], list[str]
-    ] | ChannelPayload | None:
+    ) -> (
+        list[ChannelPayload]
+        | tuple[list[ChannelPayload], list[str]]
+        | ChannelPayload
+        | None
+    ):
         ...
 
 
@@ -94,9 +99,12 @@ class ClusterChannelRetriever:
         names: list[str] | None = None,
         node_id: int | None = None,
         include_not_found: bool = False,
-    ) -> tuple[list[ChannelPayload], list[str]] | list[
-        ChannelPayload
-    ] | ChannelPayload | None:
+    ) -> (
+        tuple[list[ChannelPayload], list[str]]
+        | list[ChannelPayload]
+        | ChannelPayload
+        | None
+    ):
         single_key = key is not None
         single_name = name is not None
         req = _Request(
@@ -140,16 +148,19 @@ class CacheChannelRetriever:
         names: list[str] | None = None,
         node_id: int | None = None,
         include_not_found: bool = False,
-    ) -> tuple[list[ChannelPayload], list[str]] | list[
-        ChannelPayload
-    ] | ChannelPayload | None:
+    ) -> (
+        tuple[list[ChannelPayload], list[str]]
+        | list[ChannelPayload]
+        | ChannelPayload
+        | None
+    ):
         if node_id is not None:
             return self.retriever.retrieve(
                 node_id=node_id, include_not_found=include_not_found
             )
 
         keys, single_key = self._normalize(key, keys)
-        names, single_name = self._normalize(name,names)
+        names, single_name = self._normalize(name, names)
         keys_to_retrieve = list()
         names_to_retrieve = list()
         results = list()
@@ -189,7 +200,9 @@ class CacheChannelRetriever:
             return None if len(results) == 0 else results[0]
         return results
 
-    def _normalize(self, key: str | None, keys: list[str] | None) -> tuple[list[str], bool]:
+    def _normalize(
+        self, key: str | None, keys: list[str] | None
+    ) -> tuple[list[str], bool]:
         if key is not None:
             return [key], True
         if keys is None:
