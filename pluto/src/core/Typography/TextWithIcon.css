@@ -14,15 +14,15 @@
 }
 
 .pluto-text-icon--h1 svg {
-    width: calc(var(--pluto-h1-line-height) * 0.9);
-    min-width: calc(var(--pluto-h1-line-height) * 0.9);
-    height: var(--pluto-h1-line-height);
+    width: var(--pluto-h1-size);
+    min-width: var(--pluto-h1-size);
+    height: var(--pluto-h1-size);
 }
 
 .pluto-text-icon--h2 svg {
-    width: var(--pluto-h2-line-height);
-    min-width: var(--pluto-h2-line-height);
-    height: var(--pluto-h2-line-height);
+    width: var(--pluto-h2-size);
+    min-width: var(--pluto-h2-size);
+    height: var(--pluto-h2-size);
 }
 
 .pluto-text-icon--h3 svg {

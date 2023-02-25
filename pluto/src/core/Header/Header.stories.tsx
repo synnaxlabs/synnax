@@ -7,9 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/hooks/useClickOutside";
-export * from "@/hooks/useSearch";
-export * from "@/hooks/useTransforms";
-export * from "@/memo/useMemoCompare";
-export * from "@/hooks/useOS";
-export * from "@/hooks/useAsyncEffect";
+import { ComponentMeta } from "@storybook/react";
+
+import { Header } from ".";
+
+const story: ComponentMeta<typeof Header> = {
+  title: "Core/Header",
+  component: Header,
+};
+
+// eslint-disable-next-line import/no-default-export
+export default story;

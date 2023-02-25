@@ -1,0 +1,45 @@
+---
+title: "Log In"
+layout: "@/layouts/MainLayout.astro"
+---
+
+import { Header } from "@synnaxlabs/pluto";
+
+<Header>
+    <Header.Title>Get Started</Header.Title>
+</Header>
+
+This page assumes you've already:
+
+-   Started a cluster.
+-   Installed Python 3.10 or later.
+
+## Installation
+
+To install the Synnax CLI, run the following command:
+
+```cmd
+pip install synnax
+```
+
+To verify that the installation was successful, run the following command:
+
+```cmd
+synnax --version
+```
+
+## Interactive Login
+
+To log in interactively, run the following command:
+
+```cmd
+synnax login
+```
+
+## Login with a Single Command
+
+To log in with a single command, run the following command:
+
+```cmd
+synnax login --host <host> --port <port> --username <username> --password <password> --secure/--insecure
+```

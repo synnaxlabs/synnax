@@ -134,7 +134,7 @@ export const LinePlot = ({
     []
   );
 
-  const zoomPanSelectProps = Viewport.use({
+  const viewportProps = Viewport.use({
     onChange: handleZoomPanSelect,
   });
 
@@ -182,6 +182,7 @@ export const LinePlot = ({
 
   const ContextMenu = (): JSX.Element => {
     const getTimeRange = (): TimeRange => {
+      console.log("TR");
       if (selection == null) throw new Error("Selection is null");
       const scale = Scale.scale(pkg.xBound)
         .scale(1)
@@ -256,7 +257,7 @@ export const LinePlot = ({
             width: pkg.glBox.width,
             height: pkg.glBox.height,
           }}
-          {...zoomPanSelectProps}
+          {...viewportProps}
         />
         <GLLines lines={pkg.lines} box={pkg.glBox} />
         <svg className="delta-line-plot__svg">

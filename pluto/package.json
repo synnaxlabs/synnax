@@ -66,6 +66,7 @@
     "stylelint-config-synnaxlabs": "workspace:*",
     "typescript": "^4.9.4",
     "vite": "^4.0.4",
+    "vite-tsconfig-paths": "^4.0.5",
     "vitest": "^0.26.3"
   },
   "files": [

@@ -7,7 +7,6 @@ import { Logo } from "@/components/Logo";
 import { TableOfContents } from "@/components/TableOfContents";
 const vars = Theming.toCSSVars(DEFAULT_THEME);
 const { headings } = Astro.props;
-console.log(headings);
 ---
 
 <html style={vars}>
@@ -23,7 +22,7 @@ console.log(headings);
         <article>
             <slot />
         </article>
-        <nav class="pluto-bordered--left">
+        <nav class="toc pluto-bordered--left">
             <TableOfContents client:only="react" headings={headings} />
         </nav>
     </section>
@@ -34,20 +33,37 @@ console.log(headings);
     </script>
 
     <style is:global>
-        article p:not(.pluto-tabs-selector__button p) {
-            margin: 3rem 0;
+        .pluto-tabs-selector__button p {
+            margin: 0;
+        }
+
+        header h1,
+        header h2,
+        header p {
+            margin: 0 !important;
+        }
+
+        article h1,
+        article h2,
+        article h3,
+        article h4,
+        article h5,
+        article h6,
+        article p,
+        article table {
+            margin: 2.5rem 0;
+        }
+
+        code:not(.astro-code code) {
+            padding: 0.25rem 1rem;
+            background-color: var(--pluto-gray-m2);
+            color: var(--pluto-text-color);
         }
 
         .pluto-tabs-selector__button p {
             margin: 1rem 0;
         }
 
-        h1,
-        h2,
-        h3,
-        h4,
-        h5,
-        h6,
         p,
         li {
             white-space: normal !important;
@@ -60,7 +76,7 @@ console.log(headings);
         .astro-code {
             padding: 3rem;
             border-radius: var(--pluto-border-radius);
-            margin: 3rem 1rem;
+            margin: 2rem 1rem;
             overflow-x: auto !important;
             overflow-y: visible !important;
         }
@@ -68,7 +84,6 @@ console.log(headings);
         code {
             background: #0d1117;
             color: rgba(255, 255, 255, 0.9);
-            padding: 0.25rem 1rem;
             border-radius: var(--pluto-border-radius);
         }
 
@@ -77,6 +92,29 @@ console.log(headings);
                 --pluto-background-color: #121212;
                 --pluto-text-color: #ffffff;
             }
+        }
+        table > :not(caption) > * {
+            border-width: 1px 0;
+            border-color: var(--pluto-border-color);
+            border-style: solid;
+        }
+
+        table > :not(caption) > * > * {
+            border-width: 0 1px;
+            border-color: var(--pluto-border-color);
+            border-style: solid;
+            padding: 0.75rem 1.25rem;
+        }
+
+        table th {
+            text-align: start;
+        }
+
+        table {
+            width: 100%;
+            border-spacing: 0;
+            background-color: transparent;
+            border-collapse: collapse;
         }
     </style>
 
@@ -111,6 +149,16 @@ console.log(headings);
         @media (max-width: 1440px) {
             body {
                 align-items: unset;
+            }
+        }
+        @media (max-width: 1100px) {
+            .toc {
+                display: none;
+            }
+        }
+        @media (min-width: 1440px) {
+            section {
+                width: var(--max-width);
             }
         }
 
