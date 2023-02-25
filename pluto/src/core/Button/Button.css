@@ -30,9 +30,13 @@
 /* |||| FILLED |||| */
 
 .pluto-btn--filled {
-    color: var(--pluto-white);
     background-color: var(--pluto-primary-z);
     border: var(--pluto-border-width) solid var(--pluto-primary-z);
+}
+
+.pluto-btn--filled * {
+    color: var(--pluto-white);
+    fill: var(--pluto-white);
 }
 
 .pluto-btn--filled:hover {

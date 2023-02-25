@@ -45,9 +45,8 @@ export const Button = ({
   <Text.WithIcon
     el="button"
     className={clsx("pluto--" + size, "pluto-btn", "pluto-btn--" + variant, className)}
-    color={variant === "filled" ? "var(--pluto-white)" : "var(--pluto-text-color)"}
     level={Typography.ComponentSizeLevels[size]}
-    size={iconSpacing ?? size}
+    size={iconSpacing}
     {...props}
   >
     {children}

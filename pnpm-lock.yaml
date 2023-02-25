@@ -355,6 +355,7 @@ importers:
       stylelint-config-synnaxlabs: workspace:*
       typescript: ^4.9.4
       vite: ^4.0.4
+      vite-tsconfig-paths: ^4.0.5
       vitest: ^0.26.3
     dependencies:
       '@fontsource/inter': 4.5.14
@@ -407,6 +408,7 @@ importers:
       stylelint-config-synnaxlabs: link:../configs/stylelint
       typescript: 4.9.4
       vite: 4.0.4
+      vite-tsconfig-paths: 4.0.5_typescript@4.9.4
       vitest: 0.26.3_dqdgb7kmrwjzw7obuvi3phyqmu
 
   x/ts:
@@ -16759,6 +16761,17 @@ packages:
       globrex: 0.1.2
       tsconfck: 2.0.2_typescript@4.9.4
       vite: 4.0.4
+    transitivePeerDependencies:
+      - supports-color
+      - typescript
+    dev: true
+
+  /vite-tsconfig-paths/4.0.5_typescript@4.9.4:
+    resolution: {integrity: sha512-/L/eHwySFYjwxoYt1WRJniuK/jPv+WGwgRGBYx3leciR5wBeqntQpUE6Js6+TJemChc+ter7fDBKieyEWDx4yQ==}
+    dependencies:
+      debug: 4.3.4
+      globrex: 0.1.2
+      tsconfck: 2.0.2_typescript@4.9.4
     transitivePeerDependencies:
       - supports-color
       - typescript

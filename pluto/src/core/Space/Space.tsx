@@ -139,7 +139,7 @@ const flexDirection = (direction: Direction, reverse: boolean): FlexDirection =>
 };
 
 const justifications = {
-  start: "flex-sart",
+  start: "flex-start",
   center: "center",
   end: "flex-end",
   spaceBetween: "space-between",

@@ -1,0 +1,131 @@
+---
+layout: "@/layouts/MainLayout.astro"
+---
+
+import ClientTabs from "@/components/ClientTabs/ClientTabs.astro";
+
+import { SiTypescript, SiPython } from "react-icons/si";
+
+import { Header } from "@synnaxlabs/pluto";
+import { Tabs } from "@/components/tabs";
+
+<Header>
+    <Header.Title>Retrieving Channels</Header.Title>
+</Header>
+
+## Prerequisites
+
+This page assumes you’ve already:
+
+1. Started a Synnax cluster.
+2. Familiarized yourself with channels, domains, arrays, and frames.
+3. Know how to create channels in a cluster.
+
+<ClientTabs>
+<Fragment slot="python">
+### Retrieving a Single Channel
+
+Retrieving a single channel is easy.
+
+```python
+# By name
+my_precise_tc = client.channels.retrieve("my-precise-tc")
+# By key
+my_precise_tc = client.channels.retrieve("1-1")
+```
+
+### Retrieving Multiple Channels
+
+Retrieving multiple channels is also simple. All of the following queries return
+the same channels.
+
+```python
+# By name
+channels = client.channels.retrieve(["sensor-one", "sensor-three"])
+# Also by name
+channels = client.channels.retrieve("sensor-one", "sensor-three")
+# By key
+channels = client.channels.retrieve("1-1", "2-12")
+# By key and name
+channels = client.channels.retrieve("sensor-one", "2-12"),
+```
+
+Unlike retrieving a single channel, retrieving several channels will not raise a
+`QueryError` when no or multiple channels are found for a given parameter. If no results
+match, the method will return an empty list. Sometimes its useful to know which channel’s
+weren’t found. To receive a list of parameters without a matching channel, set the
+`include_not_found` argument to `True`.
+
+```python
+# Note that this returns a tuple
+channels, not_found = client.channels.retrieve(
+    ["sensor-one", "sensor-three", "does-not-exist"],
+    include_not_found=True,
+)
+print(len(channels)) # 2
+print(not_found) # ["does-not-exist"]
+```
+
+</Fragment>
+<Fragment slot="typescript">
+
+### Retrieving a Single Channel
+
+Retrieving a single channel is easy.
+
+```typescript
+// By name
+let myPreciseTC = client.channels.retrieve({ name: "my-precise-tc" });
+// Also by name
+myPreciseTC = client.channels.retrieve("my-precise-tc");
+
+console.log(myPreciseTC.key); // 1-1
+
+// By key
+myPreciseTC = client.channels.retrieve({ key: "1-1" });
+// Also by key
+myPreciseTC = client.channels.retrieve("1-1");
+```
+
+If the channel is not found or multiple channels match the query parameters, the client
+will raise a `synnax.QueryError`.
+
+### Retrieving Multiple Channels
+
+Retrieving multiple channels is also simple. All of the following queries return the same channels.
+
+```typescript
+// By name
+let channels = client.channels.retrieve({ names: ["sensor-one", "sensor-two"] });
+// Also by name
+channels = client.channels.retrieve("sensor-one", "sensor-two");
+
+console.log(channels.map((c) => c.key)); // ["1-1", "2-12"]
+
+// By key
+channels = client.channels.retrieve({ keys: ["1-1", "2-12"] });
+// By key and name
+channels = client.channels.retrieve({ names: ["sensor-one"], keys: ["2-12"] });
+// Also by key and name
+channels = client.channels.retrieve("sensor-one", "2-12");
+```
+
+Unlike retrieving a single channel, retrieving several channels will not raise a query
+error when no or multiple channels are found for a given parameter. If no results match,
+the method will return an empty list. Sometimes its useful to know which channel’s weren’t
+found. To receive a list of parameters without a matching channel, set the `includeNotFound`
+argument to `true`.
+
+```typescript
+const [channels, notFound] = client.channels.retrieve({
+    names: ["sensor-one", "sensor-three", "does-not-exist"],
+    includeNotFound: true,
+});
+
+console.log(channels.length); // 2
+console.log(notFound); // ["does-not-exist"]
+```
+
+</Fragment>
+
+</ClientTabs>

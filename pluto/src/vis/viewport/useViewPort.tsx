@@ -89,8 +89,6 @@ export const useViewport = ({
     [initialTriggers]
   );
 
-  const { triggers } = useTriggerHeld(Object.values(triggerConfig).flat());
-
   const handleDrag = useCallback<TriggerDragCallback>(
     ({ box, triggers, stage, cursor }): void => {
       if (canvasRef.current == null) return;
@@ -161,8 +159,8 @@ export const useViewport = ({
 
   return {
     maskBox,
-    mode: determineMode(triggerConfig, triggers, defaultMode),
     ref: canvasRef,
+    mode: "zoom",
   };
 };
 
