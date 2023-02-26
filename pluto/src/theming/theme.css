@@ -72,15 +72,15 @@ body {
 }
 
 .pluto--large {
-    min-height: var(--pluto-height-large);
+    height: var(--pluto-height-large);
 }
 
 .pluto--medium {
-    min-height: var(--pluto-height-medium);
+    height: var(--pluto-height-medium);
 }
 
 .pluto--small {
-    min-height: var(--pluto--height-small);
+    height: var(--pluto--height-small);
 }
 
 .pluto-no-select {
@@ -88,5 +88,3 @@ body {
     -ms-user-select: none;
     user-select: none;
 }
-
-

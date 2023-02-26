@@ -23,19 +23,24 @@ This page assumes you’ve already:
 
 ## Channel Parameters
 
-Channels have a few important parameters that need to be set when creating them. The following list summarizes each one. If you’d like deeper descriptions on each, see here.
+Channels have a few important parameters that need to be set when creating them. The
+following list summarizes each one. If you’d like deeper descriptions on each, see here.
 
-1. **Name** - A human readable name for the channel. We reccomend keeping channel names unique, although this isn’t a strict requirement by the database.
+1. **Name** - A human readable name for the channel. We reccomend keeping channel names
+   unique, although this isn’t a strict requirement by the database.
 2. **Data Type** - The data type of the channel. All samples in a channel must have the
    same data type. If the channel is an index channel, it's data type must be a timestamp.
-3. **Rate** - The fixed rate at which samples are recorded. If this parameter is specified and index and is index are not, the channel is considered a fixed rate channel.
+3. **Rate** - The fixed rate at which samples are recorded. If this parameter is specified
+   and index and is index are not, the channel is considered a fixed rate channel.
 4. **Index** - The key of the channel whose timestamp values will be used to index the
    created channel. If this parameter is specified, then the channel will be an indexed
-   channel. If this parameter is specified, the channel is considered an indexed channel, and Is Index should not be set to true.
+   channel. If this parameter is specified, the channel is considered an indexed channel,
+   and Is Index should not be set to true.
 5. **Is Index** - A flag that indicates whether the values in a channel are indexed i.e.
    the channel's values are time-ordered and can be used to lookup the samples
    in another channel. Channels with this flag set to true are considered index channels
-   and must have a data type of timestamp. If this parameter is set to true, the channel is considered an index and ‘index’ should not be specified.
+   and must have a data type of timestamp. If this parameter is set to true, the channel
+   is considered an index and ‘index’ should not be specified.
 
 ## Creating a Channel
 
@@ -60,7 +65,8 @@ my_precise_tc = client.channels.create(
 
 ### Creating an Indexed Channel and it's Index
 
-Creating variable rate channels requires us to create first create an index channel to store timestamps and then create our data channel.
+Creating variable rate channels requires us to create first create an index channel to
+store timestamps and then create our data channel.
 
 ```python
 # Create a time channel to store the timestamps of our indexed channel
@@ -162,7 +168,9 @@ const myPreciseTC = client.channels.create({
 
 ### Creating Multiple Channels
 
-We can also create multiple channels by passing an array to the `create` method. The important thing to keep in mind is that we need to create index channels before creating their indexes.
+We can also create multiple channels by passing an array to the `create` method. The
+important thing to keep in mind is that we need to create index channels before creating
+their indexes.
 
 ```typescript
 import { Synnax, DataType, Rate, Channel } from "@synnaxlabs/client";

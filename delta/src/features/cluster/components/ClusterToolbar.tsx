@@ -13,7 +13,7 @@ import clsx from "clsx";
 import { AiOutlinePlus } from "react-icons/ai";
 import { useDispatch } from "react-redux";
 
-import { ToolbarHeader, ToolbarTitle } from "@/components";
+import { Icon, ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout, useLayoutPlacer, NavDrawerItem } from "@/features/layout";
 
 import { useSelectCluster, useSelectClusters } from "../store";
@@ -48,7 +48,7 @@ const Content = (): JSX.Element => {
 
   const actions = [
     {
-      children: <AiOutlinePlus />,
+      children: <Icon.Add />,
       onClick: () => openWindow(connectClusterWindowLayout),
     },
   ];

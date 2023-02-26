@@ -9,11 +9,11 @@
 
 import { StrictMode, useEffect, useState } from "react";
 
-import { Theming, Triggers } from "@synnaxlabs/pluto";
+import { Theming, Triggers, Menu as PMenu } from "@synnaxlabs/pluto";
 import "@synnaxlabs/pluto/dist/style.css";
 import ReactDOM from "react-dom/client";
 
-import { MainLayout } from "@/components";
+import { MainLayout, Menu } from "@/components";
 
 import { Provider, useDispatch } from "react-redux";
 
@@ -41,6 +41,12 @@ const layoutRenderers = {
   getStarted: GetStarted,
 };
 
+export const DefaultContextMenu = (): JSX.Element => (
+  <PMenu>
+    <Menu.Item.HardReload />
+  </PMenu>
+);
+
 const MainUnderContext = (): JSX.Element => {
   const d = useDispatch();
   const theme = useThemeProvider();
@@ -48,12 +54,15 @@ const MainUnderContext = (): JSX.Element => {
   useEffect(() => {
     d(maybeCreateGetStartedTab());
   }, []);
+  const menuProps = PMenu.useContextMenu();
   return (
     <Theming.Provider {...theme}>
       <Triggers.Provider>
-        <LayoutRendererProvider value={layoutRenderers}>
-          <LayoutWindow />
-        </LayoutRendererProvider>
+        <PMenu.ContextMenu menu={() => <DefaultContextMenu />} {...menuProps}>
+          <LayoutRendererProvider value={layoutRenderers}>
+            <LayoutWindow />
+          </LayoutRendererProvider>
+        </PMenu.ContextMenu>
       </Triggers.Provider>
     </Theming.Provider>
   );
