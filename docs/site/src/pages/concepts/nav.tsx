@@ -18,9 +18,9 @@ export const conceptsNav: PageNavLeaf = {
       name: "Channels",
     },
     {
-      key: "/concepts/domains",
-      url: "/concepts/domains",
-      name: "Domains",
+      key: "/concepts/writing-domains",
+      url: "/concepts/writing-domains",
+      name: "Writing Domains",
     },
     {
       key: "/concepts/frames",

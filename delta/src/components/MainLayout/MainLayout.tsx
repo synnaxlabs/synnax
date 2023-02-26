@@ -49,9 +49,3 @@ export const MainLayout = (): JSX.Element => (
     <NavBottom />
   </ClusterProvider>
 );
-
-export const DefaultContextMenu = (): JSX.Element => (
-  <PMenu>
-    <Menu.Item.HardReload />
-  </PMenu>
-);

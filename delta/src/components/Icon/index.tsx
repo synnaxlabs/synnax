@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { AiFillDelete, AiOutlineMinus, AiOutlinePlus } from "react-icons/ai";
+import { HiOutlinePlus } from "react-icons/hi";
 import { IoMdRefresh } from "react-icons/io";
 import { IoCopySharp, IoTime } from "react-icons/io5";
 import { MdEdit } from "react-icons/md";
@@ -15,7 +16,7 @@ import { SiPython, SiTypescript } from "react-icons/si";
 
 export const Icon = {
   Edit: MdEdit,
-  Add: AiOutlinePlus,
+  Add: HiOutlinePlus,
   Subtract: AiOutlineMinus,
   Copy: IoCopySharp,
   Refresh: IoMdRefresh,

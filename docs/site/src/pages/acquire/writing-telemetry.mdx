@@ -66,9 +66,9 @@ This writes will create a new domain with:
 
 ### The Simplest Write - Variable Rate
 
-Writing telemetry to a variable rate channel is slightly more complicated. First, we
-need to create two channels: an index channel to store timestamps and another to store
-thermocouple values.
+Writing telemetry to a variable rate channel is slightly more complicated. We need to
+create two channels: an index channel to store timestamps and another to store thermocouple
+values.
 
 ```python
 import numpy as np
@@ -102,8 +102,7 @@ timestamps = np.linspace(
     dtype=np.int64,
 )
 
-# Introduce a litle bit of random noise to illustrate irregularly spaced #
-# timestamps
+# Introduce a litle bit of random noise to illustrate irregularly spaced timestamps
 variability = np.random.randint(
     5 * TimeSpan.MILLISECOND,
     100 * TimeSpan.MILLISECOND,
@@ -117,9 +116,9 @@ tc_data = np.random.rand(n_samples)
 ```
 
 When we write our data, keep in mind that we need to write timestamp data followed by
-sensor data. Synnax ensures that we to write data to our index before we’re allowed to
-write to the channels indexed by it. If we do the opposite, the database will let us know t
-hat our index is discontinuous at the point we’re writing to it. So, first timestamps,
+sensor data. Synnax ensures that we write data to our index before we’re allowed to
+write to the channels indexed by it. If we do the opposite, the database will let us know
+that our index is discontinuous at the point we’re writing to it. So, first timestamps,
 then values.
 
 ```python
@@ -163,7 +162,7 @@ Purpose built for live telemetry, Synnax provides a ‘writer’ entity for writ
 volumes of data over an extended period of time. Using long writes allows you to write
 many frames of telemetry to a single domain.
 
-### Live Writing Several Frames to an Index Channel and its Index
+### Writing Several Frames to an Index Channel and its Index
 
 We’ll refactor, except this time we’ll use a writer and pass several frames to it.
 

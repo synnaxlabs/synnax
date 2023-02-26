@@ -1,2 +1,40 @@
 ---
-title: 
+title: "@/layouts/MainLayout.astro"
+---
+
+import { Header } from "@synnaxlabs/pluto";
+
+<Header>
+    <Header.Title>Ingesting Files</Header.Title>
+</Header>
+
+This page will walk you through the process for loading data from a file into a cluster
+using the Synnax CLI.
+
+## Prerequisites
+
+This page assumes you've already:
+
+1. Started a Synnax cluster.
+2. Familiarized yourself with channels and domains.
+3. Installed the Synnax CLI.
+
+## Parser Types
+
+## Ingesting a File Interactively
+
+### Step 1 - Specify a File
+
+```cmd
+synnax ingest data.csv
+```
+
+### Step 2 - Selecting Channels to Ingest
+
+### Step 3 - Create Nonexistent Channels
+
+### Step 4 - Set Start Timestamp
+
+### Step 5 - Ingest
+
+## Ingest a File Using Flags

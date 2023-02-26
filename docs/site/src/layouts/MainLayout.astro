@@ -9,6 +9,15 @@ const vars = Theming.toCSSVars(DEFAULT_THEME);
 const { headings } = Astro.props;
 ---
 
+<script>
+    const urlSearchParams = new URLSearchParams(window.location.search);
+    const params = Object.fromEntries(urlSearchParams.entries());
+    const noHeader = params.noHeader ?? false;
+    if (noHeader) {
+        document.querySelector("header").style.display = "none";
+    }
+</script>
+
 <html style={vars}>
     <header class="pluto-bordered--bottom">
         <div class="header-content">
