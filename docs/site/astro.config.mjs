@@ -24,4 +24,5 @@ export default defineConfig({
             theme: "github-dark",
         },
     },
+    site: "https://docs.synnaxlabs.com",
 });
