@@ -9,6 +9,7 @@
 
 import { useCallback } from "react";
 
+import { Logo } from "@synnaxlabs/media";
 import type { Location } from "@synnaxlabs/pluto";
 import { Mosaic as PlutoMosaic, useDebouncedCallback } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
@@ -21,8 +22,6 @@ import {
   resizeLayoutMosaicTab,
   renameLayoutMosaicTab,
 } from "../store";
-
-import { Logo } from "@/components";
 
 import { LayoutContent } from "./LayoutContent";
 

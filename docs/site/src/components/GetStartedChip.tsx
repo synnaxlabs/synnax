@@ -1,5 +1,5 @@
-import { Text, Header, HeaderProps, Space } from "@synnaxlabs/pluto";
-import { IoMdArrowDropright } from "react-icons/io";
+import { Icon } from "@synnaxlabs/media";
+import { Text, Header, Space } from "@synnaxlabs/pluto";
 
 export interface GetStartedChipProps {
   title: string;
@@ -37,7 +37,7 @@ export const GetStartedChip = ({
           level="h4"
           color="var(--pluto-primary-p1)"
           style={{ whiteSpace: "nowrap !important" }}
-          endIcon={<IoMdArrowDropright />}
+          endIcon={<Icon.Caret.Right />}
           empty
         >
           Read More

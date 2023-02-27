@@ -9,13 +9,7 @@
 
 import { ReactElement } from "react";
 
-import {
-  AiFillInfoCircle,
-  AiFillWarning,
-  AiOutlineCheck,
-  AiOutlineClose,
-  AiOutlineWarning,
-} from "react-icons/ai";
+import { Icon } from "@synnaxlabs/media";
 
 import { StatusVariant } from "./types";
 
@@ -27,11 +21,11 @@ export interface StatusBadgeProps extends Omit<TextProps, "level" | "wrap"> {
 }
 
 const statusVariantIcons: Record<StatusVariant, ReactElement> = {
-  info: <AiFillInfoCircle />,
-  warning: <AiFillWarning />,
-  error: <AiOutlineClose />,
-  success: <AiOutlineCheck />,
-  loading: <AiOutlineWarning />,
+  info: <Icon.Info />,
+  warning: <Icon.Warning />,
+  error: <Icon.Close />,
+  success: <Icon.Check />,
+  loading: <Icon.Warning />,
 };
 
 const statusVariantColors: Record<StatusVariant, string> = {

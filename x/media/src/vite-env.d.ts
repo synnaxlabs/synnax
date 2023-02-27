@@ -7,12 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Logo as CoreLogo } from "./Logo";
-
-type CoreLogoType = typeof CoreLogo;
-
-export interface LogoType extends CoreLogoType {
-}
-
-export const Logo = CoreLogo as LogoType;
-
+// eslint-disable-next-line @typescript-eslint/triple-slash-reference
+/// <reference types="vite/client" />

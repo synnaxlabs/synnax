@@ -1,11 +1,11 @@
-import { FaStream } from "react-icons/fa";
+import { Icon } from "@synnaxlabs/media";
 
 import { PageNavLeaf } from "@/components/PageNav";
 
 export const acquireNav: PageNavLeaf = {
   key: "acquire",
   name: "Acquire",
-  icon: <FaStream />,
+  icon: <Icon.Acquire />,
   children: [
     {
       key: "/acquire/get-started",

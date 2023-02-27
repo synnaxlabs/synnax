@@ -1,7 +1,7 @@
 import { useState } from "react";
 
+import { Icon } from "@synnaxlabs/media";
 import { Button, ButtonLinkProps, OS, useOS, useAsyncEffect } from "@synnaxlabs/pluto";
-import { HiDownload } from "react-icons/hi";
 
 export interface OSDownloadButtonEntry {
   os: OS;
@@ -24,7 +24,7 @@ export const OSDownloadButton = ({
   if (entry == null) entry = entries[0];
   const { href } = entry;
   return (
-    <Button.Link href={href} startIcon={<HiDownload />} {...props}>
+    <Button.Link href={href} startIcon={<Icon.Download />} {...props}>
       Download {name} for {os}
     </Button.Link>
   );

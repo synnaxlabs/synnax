@@ -9,9 +9,9 @@
 
 import { CSSProperties, useEffect, useState } from "react";
 
+import { Icon } from "@synnaxlabs/media";
 import { newObjectFieldCompare, convertRenderV, RenderableRecord } from "@synnaxlabs/x";
 import clsx from "clsx";
-import { AiFillCaretDown, AiFillCaretUp } from "react-icons/ai";
 
 import { Space } from "@/core/Space";
 import { Text } from "@/core/Typography";
@@ -75,7 +75,7 @@ const ListColumnHeader = <E extends RenderableRecord<E>>({
         .map(({ key, width, name }) => {
           const [sortKey, dir] = sort;
           let endIcon;
-          if (key === sortKey) endIcon = dir ? <AiFillCaretUp /> : <AiFillCaretDown />;
+          if (key === sortKey) endIcon = dir ? <Icon.Caret.Up /> : <Icon.Caret.Down />;
           return (
             <Text.WithIcon
               className="pluto-list-col-header__item"

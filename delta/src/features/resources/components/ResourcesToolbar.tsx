@@ -11,9 +11,9 @@ import { useState } from "react";
 
 import { OntologyID, OntologyRoot } from "@synnaxlabs/client";
 import type { OntologyResource } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/media";
 import type { TreeLeaf } from "@synnaxlabs/pluto";
 import { Tree, Space } from "@synnaxlabs/pluto";
-import { AiFillFolder } from "react-icons/ai";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 
@@ -109,7 +109,7 @@ const ResourcesTree = (): JSX.Element => {
 
 export const ResourcesToolbar: NavDrawerItem = {
   key: "resources",
-  icon: <AiFillFolder />,
+  icon: <Icon.Resources />,
   content: <ResourcesTree />,
   initialSize: 350,
   minSize: 250,

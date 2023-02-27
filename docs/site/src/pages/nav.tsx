@@ -7,9 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createElement } from "react";
-
-import { HiLightningBolt } from "react-icons/hi";
+import { Icon } from "@synnaxlabs/media";
 
 import { acquireNav } from "./acquire/nav";
 import { analyzeNav } from "./analyze/nav";
@@ -23,7 +21,7 @@ export const pages = [
     name: "Get Started",
     key: "/",
     url: "/",
-    icon: createElement(HiLightningBolt),
+    icon: <Icon.Bolt />,
   },
   conceptsNav,
   deployNav,

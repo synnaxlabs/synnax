@@ -7,10 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { BsStack } from "react-icons/bs";
-
-/**
- * A component alias representing the cluster icon. Prefer this over importing the
- * icon directly.
- */
-export const ClusterIcon = BsStack;
+export * from "@/Icon";
+export * from "@/Logo";
