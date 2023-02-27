@@ -17,18 +17,18 @@ jobs:
         with:
           path: /docs/site
 
-    deploy:
-      needs: build
-      runs-on: ubuntu-latest
-      environment:
-        name: github-pages
-        url: ${{ steps.deployment.outputs.page_url }}
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
 
-      steps:
-        - name: Deploy to GitHub Pages
-          id: deploymnt
-          uses: actions/deploy-pages@v1
-          with:
-            github_token: ${{ secrets.GITHUB_TOKEN }}
-            publish_dir: ./docs/site/build
-            cname: docs.synnaxlabs.com
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deploymnt
+        uses: actions/deploy-pages@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs/site/build
+          cname: docs.synnaxlabs.com
