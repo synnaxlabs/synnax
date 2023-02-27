@@ -108,6 +108,7 @@ importers:
       '@reduxjs/toolkit': ^1.9.1
       '@synnaxlabs/client': workspace:*
       '@synnaxlabs/drift': workspace:*
+      '@synnaxlabs/media': workspace:*
       '@synnaxlabs/pluto': workspace:*
       '@synnaxlabs/tsconfig': workspace:*
       '@synnaxlabs/x': workspace:*
@@ -142,6 +143,7 @@ importers:
       '@reduxjs/toolkit': 1.9.1_k4ae6lp43ej6mezo3ztvx6pykq
       '@synnaxlabs/client': link:../client/ts
       '@synnaxlabs/drift': link:../drift
+      '@synnaxlabs/media': link:../x/media
       '@synnaxlabs/pluto': link:../pluto
       '@synnaxlabs/x': link:../x/ts
       '@tauri-apps/api': 1.2.0
@@ -177,6 +179,7 @@ importers:
       '@astrojs/mdx': ^0.14.0
       '@astrojs/react': ^1.2.2
       '@synnaxlabs/client': workspace:*
+      '@synnaxlabs/media': workspace:*
       '@synnaxlabs/pluto': workspace:*
       '@synnaxlabs/tsconfig': workspace:*
       '@synnaxlabs/x': workspace:*
@@ -188,12 +191,12 @@ importers:
       html-escaper: ^3.0.3
       react: ^18.0.0
       react-dom: ^18.0.0
-      react-icons: ^4.4.0
       typescript: ^4.9.4
     dependencies:
       '@astrojs/mdx': 0.14.0
       '@astrojs/react': 1.2.2_ie75ejlwqy5zh3tldgt7pftwcu
       '@synnaxlabs/client': link:../../client/ts
+      '@synnaxlabs/media': link:../../x/media
       '@synnaxlabs/pluto': link:../../pluto
       '@synnaxlabs/x': link:../../x/ts
       astro: 1.9.2
@@ -201,7 +204,6 @@ importers:
       html-escaper: 3.0.3
       react: 18.2.0
       react-dom: 18.2.0_react@18.2.0
-      react-icons: 4.7.1_react@18.2.0
     devDependencies:
       '@synnaxlabs/tsconfig': link:../../configs/ts
       '@types/react': 18.0.26
@@ -325,6 +327,7 @@ importers:
       '@storybook/core-common': ^6.5.15
       '@storybook/preview-web': ^6.5.15
       '@storybook/react': ^6.5.15
+      '@synnaxlabs/media': workspace:*
       '@synnaxlabs/tsconfig': workspace:*
       '@synnaxlabs/vite-plugin': workspace:*
       '@synnaxlabs/x': workspace:*
@@ -360,6 +363,7 @@ importers:
     dependencies:
       '@fontsource/inter': 4.5.14
       '@juggle/resize-observer': 3.4.0
+      '@synnaxlabs/media': link:../x/media
       '@synnaxlabs/x': link:../x/ts
       '@tanstack/react-virtual': 3.0.0-beta.36_react@18.2.0
       clsx: 1.2.1
@@ -410,6 +414,37 @@ importers:
       vite: 4.0.4
       vite-tsconfig-paths: 4.0.5_typescript@4.9.4
       vitest: 0.26.3_dqdgb7kmrwjzw7obuvi3phyqmu
+
+  x/media:
+    specifiers:
+      '@synnaxlabs/tsconfig': workspace:*
+      '@synnaxlabs/vite-plugin': workspace:*
+      '@synnaxlabs/x': workspace:*
+      '@types/node': ^18.11.18
+      '@types/react': ^18.0.28
+      '@vitejs/plugin-react': ^3.1.0
+      clsx: ^1.2.1
+      eslint-config-synnaxlabs: workspace:*
+      react: ^18.2.0
+      react-dom: ^18.2.0
+      react-icons: ^4.4.0
+      vite: ^4.1.0
+      vitest: ^0.27.1
+    dependencies:
+      '@synnaxlabs/x': link:../ts
+      '@types/react': 18.0.28
+      clsx: 1.2.1
+      react: 18.2.0
+      react-dom: 18.2.0_react@18.2.0
+      react-icons: 4.7.1_react@18.2.0
+    devDependencies:
+      '@synnaxlabs/tsconfig': link:../../configs/ts
+      '@synnaxlabs/vite-plugin': link:../../configs/vite
+      '@types/node': 18.11.18
+      '@vitejs/plugin-react': 3.1.0_vite@4.1.4
+      eslint-config-synnaxlabs: link:../../configs/eslint
+      vite: 4.1.4_@types+node@18.11.18
+      vitest: 0.27.1
 
   x/ts:
     specifiers:
@@ -4986,6 +5021,14 @@ packages:
       '@types/scheduler': 0.16.2
       csstype: 3.1.1
 
+  /@types/react/18.0.28:
+    resolution: {integrity: sha512-RD0ivG1kEztNBdoAK7lekI9M+azSnitIn85h4iOiaLjaTrMjzslhaqCGaI4IyCJ1RljWiLCEu4jyrLLgqxBTew==}
+    dependencies:
+      '@types/prop-types': 15.7.5
+      '@types/scheduler': 0.16.2
+      csstype: 3.1.1
+    dev: false
+
   /@types/resolve/1.20.2:
     resolution: {integrity: sha512-60BCwRFOZCQhDncwQdxxeOEEkbc5dIMccYLwbxsS4TUNeVECQ/pBJ0j09mrHOl/JJvpRPGwO9SvE4nR2Nb/a4Q==}
     dev: false
@@ -5270,6 +5313,22 @@ packages:
       magic-string: 0.27.0
       react-refresh: 0.14.0
       vite: 4.0.4
+    transitivePeerDependencies:
+      - supports-color
+    dev: true
+
+  /@vitejs/plugin-react/3.1.0_vite@4.1.4:
+    resolution: {integrity: sha512-AfgcRL8ZBhAlc3BFdigClmTUMISmmzHn7sB2h9U1odvc5U/MjWXsAaz18b/WoppUTDBzxOJwo2VdClfUcItu9g==}
+    engines: {node: ^14.18.0 || >=16.0.0}
+    peerDependencies:
+      vite: ^4.1.0-beta.0
+    dependencies:
+      '@babel/core': 7.20.12
+      '@babel/plugin-transform-react-jsx-self': 7.18.6_@babel+core@7.20.12
+      '@babel/plugin-transform-react-jsx-source': 7.19.6_@babel+core@7.20.12
+      magic-string: 0.27.0
+      react-refresh: 0.14.0
+      vite: 4.1.4_@types+node@18.11.18
     transitivePeerDependencies:
       - supports-color
     dev: true
@@ -14720,6 +14779,14 @@ packages:
     optionalDependencies:
       fsevents: 2.3.2
 
+  /rollup/3.17.3:
+    resolution: {integrity: sha512-p5LaCXiiOL/wrOkj8djsIDFmyU9ysUxcyW+EKRLHb6TKldJzXpImjcRSR+vgo09DBdofGcOoLOsRyxxG2n5/qQ==}
+    engines: {node: '>=14.18.0', npm: '>=8.0.0'}
+    hasBin: true
+    optionalDependencies:
+      fsevents: 2.3.2
+    dev: true
+
   /rsvp/4.8.5:
     resolution: {integrity: sha512-nfMOlASu9OnRJo1mbEk2cz0D56a1MBNrJ7orjRZQG10XDyuvwksKbuXNp6qa+kbn839HwjwhBzhFmdsaEAfauA==}
     engines: {node: 6.* || >= 7.*}
@@ -16694,7 +16761,7 @@ packages:
       picocolors: 1.0.0
       source-map: 0.6.1
       source-map-support: 0.5.21
-      vite: 4.0.4_@types+node@18.11.18
+      vite: 4.1.4_@types+node@18.11.18
     transitivePeerDependencies:
       - '@types/node'
       - less
@@ -16910,6 +16977,40 @@ packages:
       fsevents: 2.3.2
     dev: true
 
+  /vite/4.1.4_@types+node@18.11.18:
+    resolution: {integrity: sha512-3knk/HsbSTKEin43zHu7jTwYWv81f8kgAL99G5NWBcA1LKvtvcVAC4JjBH1arBunO9kQka+1oGbrMKOjk4ZrBg==}
+    engines: {node: ^14.18.0 || >=16.0.0}
+    hasBin: true
+    peerDependencies:
+      '@types/node': '>= 14'
+      less: '*'
+      sass: '*'
+      stylus: '*'
+      sugarss: '*'
+      terser: ^5.4.0
+    peerDependenciesMeta:
+      '@types/node':
+        optional: true
+      less:
+        optional: true
+      sass:
+        optional: true
+      stylus:
+        optional: true
+      sugarss:
+        optional: true
+      terser:
+        optional: true
+    dependencies:
+      '@types/node': 18.11.18
+      esbuild: 0.16.17
+      postcss: 8.4.21
+      resolve: 1.22.1
+      rollup: 3.17.3
+    optionalDependencies:
+      fsevents: 2.3.2
+    dev: true
+
   /vitefu/0.2.4_vite@3.2.5:
     resolution: {integrity: sha512-fanAXjSaf9xXtOOeno8wZXIhgia+CZury481LsDaV++lSvcU2R9Ch2bPh3PYFyoHW+w9LqAeYRISVQjUIew14g==}
     peerDependencies:
@@ -17096,7 +17197,7 @@ packages:
       tinybench: 2.3.1
       tinypool: 0.3.0
       tinyspy: 1.0.2
-      vite: 4.0.4_@types+node@18.11.18
+      vite: 4.1.4_@types+node@18.11.18
       vite-node: 0.27.1_@types+node@18.11.18
       why-is-node-running: 2.2.2
     transitivePeerDependencies:

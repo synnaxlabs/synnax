@@ -3,11 +3,7 @@ title: "Get Started"
 layout: ../layouts/MainLayout.astro
 ---
 
-import { BsStack } from "react-icons/bs";
-import { FaStream, FaBezierCurve } from "react-icons/fa";
-import { HiChartBar } from "react-icons/hi";
-import { IoBookSharp } from "react-icons/io5";
-import { BsLightbulbFill } from "react-icons/bs";
+import { Icon } from "@synnaxlabs/media";
 
 import { Header, Space } from "@synnaxlabs/pluto";
 
@@ -23,14 +19,14 @@ import { GetStartedChip } from "@/components/GetStartedChip";
     href="/deploy/get-started"
     description="Start a single node cluster for learning."
 >
-    <BsStack slot="icon" />
+    <Icon.Cluster slot="icon" />
 </GetStartedChip>
 <GetStartedChip
     title="Learn the Fundamentals"
     href="/concepts/overview"
     description="Learn the fundamentals of Synnax and how to use it."
 >
-    <BsLightbulbFill slot="icon" />
+    <Icon.Concepts slot="icon" />
 </GetStartedChip>
 <GetStartedChip
     title="Acquire Data"
@@ -38,7 +34,7 @@ import { GetStartedChip } from "@/components/GetStartedChip";
     description="Configure channels and read data from a file, or write directly to a cluster
     using your programming language of choice."
 >
-    <FaStream slot="icon" />
+    <Icon.Acquire slot="icon" />
 </GetStartedChip>
 
 <GetStartedChip
@@ -46,7 +42,7 @@ import { GetStartedChip } from "@/components/GetStartedChip";
     href="/analyze/get-started"
     description="Retrieve, analyze, and post-process relevant data."
 >
-    <FaBezierCurve slot="icon" />
+    <Icon.Analyze slot="icon" />
 </GetStartedChip>
 
 <GetStartedChip
@@ -55,7 +51,7 @@ import { GetStartedChip } from "@/components/GetStartedChip";
     explore a cluster's telemetry."
     href="/visualize/get-started"
 >
-    <HiChartBar slot="icon" />
+    <Icon.Visualize slot="icon" />
 </GetStartedChip>
 
 <GetStartedChip
@@ -63,6 +59,6 @@ import { GetStartedChip } from "@/components/GetStartedChip";
     href="/reference/overview"
     description="Learn more about the Synnax CLI, Client Libraries, API, and User Interface."
 >
-    <IoBookSharp slot="icon" />
+    <Icon.Reference slot="icon" />
 </GetStartedChip>
 </Space>

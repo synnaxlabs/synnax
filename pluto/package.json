@@ -18,6 +18,7 @@
     "@fontsource/inter": "^4.5.14",
     "@juggle/resize-observer": "^3.4.0",
     "@synnaxlabs/x": "workspace:*",
+    "@synnaxlabs/media": "workspace:*",
     "@tanstack/react-virtual": "^3.0.0-beta.18",
     "clsx": "^1.2.1",
     "d3": "^7.8.2",

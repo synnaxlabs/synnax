@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Logo } from "@synnaxlabs/media";
 import {
   Divider,
   locToDir,
@@ -26,9 +27,6 @@ import {
 } from "@/features/layout";
 import { ResourcesToolbar } from "@/features/resources";
 import { VersionBadge } from "@/features/version";
-
-import { Logo } from "../Logo";
-
 import { VisToolbar } from "@/features/vis";
 import { WorkspaceToolbar } from "@/features/workspace";
 

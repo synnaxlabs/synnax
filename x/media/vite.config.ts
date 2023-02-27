@@ -12,23 +12,22 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
 export default defineConfig({
-  plugins: [lib({ name: "pluto" }), react()],
+  plugins: [lib({ name: "media" }), react()],
   build: {
     sourcemap: true,
     minify: false,
     rollupOptions: {
-      external: ["react", "react-dom", "react-hook-form"],
+      external: ["react", "react-dom"],
       output: {
         globals: {
           react: "React",
           "react-dom": "ReactDOM",
         },
       },
-    },
+    }
   },
-  test: { 
-    globals: true, 
-    environment: "jsdom", 
-    setupFiles: ["src/mock/setuptests.ts"],
+  test: {
+    globals: true,
+    environment: "jsdom",
   },
 });

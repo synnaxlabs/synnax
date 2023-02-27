@@ -23,6 +23,7 @@
     "@synnaxlabs/drift": "workspace:*",
     "@synnaxlabs/pluto": "workspace:*",
     "@synnaxlabs/x": "workspace:*",
+    "@synnaxlabs/media": "workspace:*",
     "@tauri-apps/api": "^1.1.0",
     "clsx": "^1.2.1",
     "nanoid": "^4.0.0",

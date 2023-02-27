@@ -1,11 +1,11 @@
-import { HiChartBar } from "react-icons/hi";
+import { Icon } from "@synnaxlabs/media";
 
 import { PageNavLeaf } from "@/components/PageNav";
 
 export const visualizeNav: PageNavLeaf = {
   key: "visualize",
   name: "Visualize",
-  icon: <HiChartBar />,
+  icon: <Icon.Visualize />,
   children: [
     {
       key: "/visualize/get-started",

@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Icon } from "@synnaxlabs/media";
 import clsx from "clsx";
-import { AiOutlineClose } from "react-icons/ai";
 
 import { Button } from "@/core/Button";
 import { Space, SpaceProps } from "@/core/Space";
@@ -116,7 +116,7 @@ const TabC = ({
           onClick={_onClose}
           style={{ height: "3rem", padding: "1rem 0.25rem" }}
         >
-          <AiOutlineClose aria-label="pluto-tabs__close" />
+          <Icon.Close aria-label="pluto-tabs__close" />
         </Button.Icon>
       )}
     </Space>

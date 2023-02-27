@@ -1,11 +1,11 @@
-import { FaBezierCurve } from "react-icons/fa";
+import { Icon } from "@synnaxlabs/media";
 
 import { PageNavLeaf } from "@/components/PageNav";
 
 export const analyzeNav: PageNavLeaf = {
   key: "analyze",
   name: "Analyze",
-  icon: <FaBezierCurve />,
+  icon: <Icon.Analyze />,
   children: [
     {
       key: "/analyze/get-started",

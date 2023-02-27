@@ -9,6 +9,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/media";
 import type {
   InputDateProps,
   InputTimeProps,
@@ -17,11 +18,9 @@ import type {
 } from "@synnaxlabs/pluto";
 import { Button, Header, Input, Nav, Space, Pack } from "@synnaxlabs/pluto";
 import { useForm } from "react-hook-form";
-import { AiFillBoxPlot } from "react-icons/ai";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
-import { Icon } from "@/components/Icon";
 import { LayoutRendererProps } from "@/features/layout";
 
 import { useSelectRange } from "../store";
@@ -91,7 +90,7 @@ export const DefineRange = ({
   return (
     <Space grow>
       <Header level="h4" divided>
-        <Header.Title startIcon={<AiFillBoxPlot />}>Define a Range</Header.Title>
+        <Header.Title startIcon={<Icon.Range />}>Define a Range</Header.Title>
       </Header>
       <form
         onSubmit={(e) => {

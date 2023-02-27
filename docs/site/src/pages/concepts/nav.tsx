@@ -1,11 +1,11 @@
-import { BsLightbulbFill } from "react-icons/bs";
+import { Icon } from "@synnaxlabs/media";
 
 import { PageNavLeaf } from "@/components/PageNav";
 
 export const conceptsNav: PageNavLeaf = {
   key: "concepts",
   name: "Concepts",
-  icon: <BsLightbulbFill />,
+  icon: <Icon.Concepts />,
   children: [
     {
       key: "/concepts/overview",

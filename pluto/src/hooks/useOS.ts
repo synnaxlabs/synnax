@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 
-export const OperatingSystems = ["MacOS", "Windows", "Linux"] as const;
-export type OS = typeof OperatingSystems[number];
+import { OS } from "@synnaxlabs/x";
 
 export const useOS = (): OS | null => {
   const [os, setOS] = useState<OS | null>(null);

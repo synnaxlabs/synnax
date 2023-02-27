@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Icon, Logo } from "@synnaxlabs/media";
 import { Text, Button, Space } from "@synnaxlabs/pluto";
 
-import { Logo } from "@/components";
-import { ClusterIcon } from "@/features/cluster";
 import { VisCreateButton } from "@/features/vis";
 
 import "./GetStarted.css";
@@ -21,7 +20,7 @@ export const GetStarted = (): JSX.Element => {
       <Logo variant="title" className="delta-get-started__logo" />
       <Text level="h1">Get Started</Text>
       <Space direction="x" size="large" justify="center" wrap>
-        <Button startIcon={<ClusterIcon />} size="large">
+        <Button startIcon={<Icon.Cluster />} size="large">
           Connect a Cluster
         </Button>
         <VisCreateButton size="large" />

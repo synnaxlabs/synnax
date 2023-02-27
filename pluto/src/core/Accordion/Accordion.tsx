@@ -9,8 +9,8 @@
 
 import { ReactElement, RefObject } from "react";
 
+import { Icon } from "@synnaxlabs/media";
 import clsx from "clsx";
-import { AiFillCaretDown, AiFillCaretRight } from "react-icons/ai";
 
 import { ButtonIconProps } from "@/core/Button";
 import { Header } from "@/core/Header";
@@ -138,7 +138,7 @@ const AccordionEntryC = ({
         empty
       >
         <Header.ButtonTitle
-          startIcon={expanded ? <AiFillCaretDown /> : <AiFillCaretRight />}
+          startIcon={expanded ? <Icon.Caret.Down /> : <Icon.Caret.Right />}
           onClick={() => onExpand(index)}
         >
           {name}

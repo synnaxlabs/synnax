@@ -9,12 +9,12 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { Icon } from "@synnaxlabs/media";
 import { convertRenderV, RenderableRecord } from "@synnaxlabs/x";
-import clsx from "clsx";
 
 import { Button } from "@/core/Button";
 
-import { AiOutlineClose } from "react-icons/ai";
+import clsx from "clsx";
 
 import { Dropdown, DropdownProps } from "@/core/Dropdown";
 import { Input, InputControl, InputProps } from "@/core/Input";
@@ -142,7 +142,7 @@ const SelectMultipleInput = <E extends RenderableRecord<E>>({
         variant="outlined"
         onClick={clear}
       >
-        <AiOutlineClose aria-label="clear" />
+        <Icon.Close aria-label="clear" />
       </Button.Icon>
     </Pack>
   );

@@ -1,16 +1,16 @@
+import { Icon } from "@synnaxlabs/media";
 import { Tabs } from "@synnaxlabs/pluto";
-import { SiTypescript, SiPython } from "react-icons/si";
 
 const TABS = [
   {
     tabKey: "python",
     name: "Python",
-    icon: <SiPython />,
+    icon: <Icon.Python />,
   },
   {
     tabKey: "typescript",
     name: "Typescript",
-    icon: <SiTypescript />,
+    icon: <Icon.Typescript />,
   },
 ];
 

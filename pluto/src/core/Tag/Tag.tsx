@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { AiOutlineClose } from "react-icons/ai";
+import { Icon } from "@synnaxlabs/media";
 
 import { Typography, Text, TextProps } from "@/core/Typography";
 import { ComponentSize } from "@/util/component";
@@ -34,7 +34,7 @@ export const Tag = ({
 }: TagProps): JSX.Element => {
   const closeIcon =
     onClose == null ? undefined : (
-      <AiOutlineClose
+      <Icon.Close
         aria-label="close"
         className="pluto-tag__close"
         onClick={(e) => {

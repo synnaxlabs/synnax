@@ -11,11 +11,9 @@ import { ReactElement } from "react";
 
 import { OntologyID } from "@synnaxlabs/client";
 import type { OntologyResourceType } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/media";
 import { ONE_XY, ZERO_XY } from "@synnaxlabs/pluto";
-import { AiFillDatabase } from "react-icons/ai";
-import { MdOutlineDeviceHub, MdSensors } from "react-icons/md";
 
-import { ClusterIcon } from "@/features/cluster";
 import { LayoutPlacer } from "@/features/layout";
 import { createVisualization } from "@/features/vis";
 
@@ -39,22 +37,22 @@ export interface ResourceType {
 export const resourceTypes: Record<string, ResourceType> = {
   builtin: {
     type: "builtin",
-    icon: <AiFillDatabase />,
+    icon: <Icon.Cluster />,
     hasChildren: true,
   },
   cluster: {
     type: "cluster",
-    icon: <ClusterIcon />,
+    icon: <Icon.Cluster />,
     hasChildren: true,
   },
   node: {
     type: "node",
-    icon: <MdOutlineDeviceHub />,
+    icon: <Icon.Node />,
     hasChildren: true,
   },
   channel: {
     type: "channel",
-    icon: <MdSensors />,
+    icon: <Icon.Channel />,
     hasChildren: false,
     onSelect: ({ placer, id, workspace }: SelectionContext) => {
       placer(

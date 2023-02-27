@@ -9,7 +9,10 @@
  * included in the file licenses/APL.txt.
  */
 
-.delta-logo-watermark {
-    height: 10vh;
-    opacity: 0.5;
-}
+module.exports = {
+    root: true,
+    extends: ["synnaxlabs"],
+    parserOptions: {
+        project: "./tsconfig.json",
+    },
+};

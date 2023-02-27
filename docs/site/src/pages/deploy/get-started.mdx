@@ -4,7 +4,7 @@ layout: "@/layouts/MainLayout.astro"
 
 import { Header } from "@synnaxlabs/pluto";
 import { Tabs } from "@/components/Tabs";
-import { FaLinux, FaApple, FaDocker, FaWindows } from "react-icons/fa";
+import { Icon } from "@synnaxlabs/media";
 
 <Header>
     <Header.Title>Start a Single Node Cluster</Header.Title>
@@ -22,7 +22,7 @@ development. To get started, select your operating system below.
         { name: "Windows", tabKey: "windows" },
     ]}
 >
-<FaDocker slot="docker-icon" />
+<Icon.OS.Docker slot="docker-icon" />
 <Fragment slot="docker">
 ## Using Docker
 
@@ -49,7 +49,7 @@ development.
 `--insecure` - Tells the node to run without TLS.
 
 </Fragment>
-<FaLinux slot="linux-icon" />
+<Icon.OS.Linux slot="linux-icon" />
 <Fragment slot="linux">
 ## Using Linux
 
@@ -90,7 +90,7 @@ development.
 `--insecure` - Tells the node to run without TLS.
 
 </Fragment>
-<FaApple slot="macos-icon" />
+<Icon.OS.MacOS slot="macos-icon" />
 <Fragment slot="macos">
 ## Using MacOS
 
@@ -131,7 +131,7 @@ development.
 `--insecure` - Tells the node to run without TLS.
 
 </Fragment>
-<FaWindows slot="windows-icon" />
+<Icon.OS.Windows slot="windows-icon" />
 <Fragment slot="windows">
 
 ## Using Windows

@@ -13,6 +13,7 @@ export * from "@/types/record";
 export * from "@/types/renderable";
 export * from "@/types/optional";
 export * from "@/types/deepPartial";
+export * from "@/types/runtime";
 export * from "@/deep";
 export * from "@/debounce";
 export * from "@/clamp";

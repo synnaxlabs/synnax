@@ -9,9 +9,9 @@
 
 import { DetailedHTMLProps, HtmlHTMLAttributes, ReactElement, useState } from "react";
 
+import { Icon } from "@synnaxlabs/media";
 import { RenderableRecord } from "@synnaxlabs/x";
 import clsx from "clsx";
-import { AiFillCaretDown, AiFillCaretRight } from "react-icons/ai";
 
 import { Button } from "@/core/Button";
 
@@ -179,7 +179,7 @@ export const ButtonLeaf = <E extends RenderableRecord<E>>({
   ...props
 }: TreeLeafCProps<E>): JSX.Element => {
   const icons: ReactElement[] = [];
-  if (hasChildren) icons.push(expanded ? <AiFillCaretDown /> : <AiFillCaretRight />);
+  if (hasChildren) icons.push(expanded ? <Icon.Caret.Down /> : <Icon.Caret.Right />);
   if (icon != null) icons.push(icon);
 
   const handleClick = (): void => {
