@@ -109,7 +109,7 @@ export const LinePlot = ({
     } catch (error) {
       setData({ data: { ...ZERO_DATA }, error: error as Error });
     }
-  }, [vis, client]);
+  }, [vis, tick, client]);
 
   useEffect(() => {
     if (theme == null) return;
