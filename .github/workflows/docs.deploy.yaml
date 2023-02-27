@@ -13,7 +13,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Install and Build
-        uses: withastro/action@v0
+        uses: withastro/action@main
         with:
           path: ./docs/site
           resolve-dep-from-path: false
