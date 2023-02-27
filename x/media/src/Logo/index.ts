@@ -8,10 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { Logo as CoreLogo } from "./Logo";
+import { LogoWatermark } from "./LogoWatermark";
 export type { LogoProps } from "./Logo";
 
 type CoreLogoType = typeof CoreLogo;
 
-export interface LogoType extends CoreLogoType {}
+export interface LogoType extends CoreLogoType {
+  Watermark: typeof LogoWatermark;
+}
 
 export const Logo = CoreLogo as LogoType;
+
+Logo.Watermark = LogoWatermark;
