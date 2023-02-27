@@ -19,6 +19,7 @@ jobs:
           filters: |
             changed:
               - 'x/ts/**'
+              - 'x/meta/**'
               - 'pluto/**'
               - 'docs/site/**'
               - '.github/workflows/docs.deploy.yaml'
