@@ -9,6 +9,7 @@
         "build:drift": "npx turbo build --filter drift --cache-dir=./.turbo-cache",
         "build:vite-plugin": "npx turbo build --filter vite-plugin --cache-dir=./.turbo-cache",
         "build:x": "npx turbo build --filter x --cache-dir=./.turbo-cache",
+        "build:docs": "npx turbo build --filter docs --cache-dir=./.turbo-cache",
         "watch": "npx turbo watch --parallel",
         "watch:pluto": "npx turbo watch --filter pluto",
         "watch:freighter": "npx turbo watch --filter freighter",
