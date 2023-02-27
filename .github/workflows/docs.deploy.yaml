@@ -49,7 +49,7 @@ jobs:
         if: steps.filter.outputs.changed == 'true'
         uses: actions/upload-pages-artifact@v1
         with:
-          path: docs/site
+          path: docs/site/dist
 
   deploy:
     needs: build
