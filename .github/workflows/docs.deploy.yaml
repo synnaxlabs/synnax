@@ -16,6 +16,7 @@ jobs:
         uses: withastro/action@v0
         with:
           path: ./docs/site
+          resolve-dep-from-path: false
 
   deploy:
     needs: build
