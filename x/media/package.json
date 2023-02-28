@@ -15,6 +15,7 @@
   ],
   "scripts": {
     "build": "vite build",
+    "watch": "vite build --watch",
     "test": "vitest",
     "cov": "vitest --coverage",
     "lint": "eslint \"src/**/*.ts*\"",

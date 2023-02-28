@@ -1,6 +1,7 @@
 ---
 import { PageNav } from "@/components/PageNav";
 import "@synnaxlabs/pluto/dist/style.css";
+import "@synnaxlabs/media/dist/style.css";
 import { Theming } from "@synnaxlabs/pluto";
 import { DEFAULT_THEME } from "@/util/theme";
 import { Logo } from "@synnaxlabs/media";
@@ -19,19 +20,22 @@ const { headings } = Astro.props;
 </script>
 
 <html style={vars}>
+    <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    </head>
     <header class="pluto-bordered--bottom">
         <div class="header-content">
             <Logo style={{ height: "6.5rem" }} />
         </div>
     </header>
     <section>
-        <nav class="pluto-bordered--right pluto-bordered--bottom">
+        <nav class="docs-nav">
             <PageNav client:only="react" currentPage={Astro.url.pathname} />
         </nav>
         <article>
             <slot />
         </article>
-        <nav class="toc pluto-bordered--left">
+        <nav class="docs-toc pluto-bordered--left">
             <TableOfContents client:only="react" headings={headings} />
         </nav>
     </section>
@@ -59,8 +63,15 @@ const { headings } = Astro.props;
         article h5,
         article h6,
         article p,
-        article table {
+        article table,
+        article video {
             margin: 2.5rem 0;
+        }
+
+        article video {
+            width: 100%;
+            border-radius: 1rem !important;
+            border: var(--pluto-border);
         }
 
         code:not(.astro-code code) {
@@ -71,11 +82,6 @@ const { headings } = Astro.props;
 
         .pluto-tabs-selector__button p {
             margin: 1rem 0;
-        }
-
-        p,
-        li {
-            white-space: normal !important;
         }
 
         li {
@@ -102,6 +108,7 @@ const { headings } = Astro.props;
                 --pluto-text-color: #ffffff;
             }
         }
+
         table > :not(caption) > * {
             border-width: 1px 0;
             border-color: var(--pluto-border-color);
@@ -124,6 +131,7 @@ const { headings } = Astro.props;
             border-spacing: 0;
             background-color: transparent;
             border-collapse: collapse;
+            overflow-x: auto;
         }
     </style>
 
@@ -155,24 +163,39 @@ const { headings } = Astro.props;
             align-items: center;
         }
 
-        @media (max-width: 1440px) {
+        @media (width < 1440px) {
             body {
                 align-items: unset;
             }
         }
-        @media (max-width: 1100px) {
-            .toc {
+
+        @media (width < 1100px) {
+            .docs-toc {
                 display: none;
             }
         }
-        @media (min-width: 1440px) {
+
+        @media (width > 1440px) {
             section {
                 width: var(--max-width);
             }
         }
 
+        .docs-nav {
+            border-right: var(--pluto-border);
+        }
+
+        @media (width < 600px) {
+            section {
+                flex-direction: column;
+            }
+            .docs-nav {
+                border-bottom: var(--pluto-border);
+                border-right: none;
+            }
+        }
+
         section {
-            max-width: var(--max-width);
             display: flex;
             flex-wrap: nowrap;
             flex-grow: 9999;
@@ -183,6 +206,7 @@ const { headings } = Astro.props;
         nav {
             padding: 20px 0px;
             flex-basis: 240px;
+            overflow-y: auto;
         }
 
         article {
@@ -190,6 +214,10 @@ const { headings } = Astro.props;
             flex-grow: 9999;
             padding: 5rem;
             overflow-y: auto;
+        }
+
+        .ytp-chrome {
+            display: none;
         }
     </style>
 

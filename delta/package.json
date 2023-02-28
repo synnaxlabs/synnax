@@ -21,9 +21,9 @@
     "@reduxjs/toolkit": "^1.9.1",
     "@synnaxlabs/client": "workspace:*",
     "@synnaxlabs/drift": "workspace:*",
+    "@synnaxlabs/media": "workspace:*",
     "@synnaxlabs/pluto": "workspace:*",
     "@synnaxlabs/x": "workspace:*",
-    "@synnaxlabs/media": "workspace:*",
     "@tauri-apps/api": "^1.1.0",
     "clsx": "^1.2.1",
     "nanoid": "^4.0.0",
@@ -50,7 +50,7 @@
     "prettier": "2.7.1",
     "stylelint-config-synnaxlabs": "workspace:*",
     "typescript": "^4.9.4",
-    "vite": "^4.0.4",
+    "vite": "^4.1.0",
     "vite-tsconfig-paths": "^4.0.3"
   }
 }

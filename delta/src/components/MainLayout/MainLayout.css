@@ -10,7 +10,7 @@
  */
 
 .delta-main-fixed--y {
-    height: calc(100vh - 4.5rem - 7rem);
+    height: calc(100vh - 4.5rem - 6rem);
 }
 
 .delta-main-fixed--x {

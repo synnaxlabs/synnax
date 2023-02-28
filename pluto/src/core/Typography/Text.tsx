@@ -20,8 +20,6 @@ export interface CoreTextProps {
   children?: string | number;
   /* The color of the text */
   color?: string;
-  /* Wrap */
-  wrap?: boolean;
 }
 
 export interface TextProps
@@ -39,15 +37,11 @@ const typographyLevelTags = {
 };
 
 export const Text = forwardRef(
-  ({ level = "h1", color, className, style, wrap = false, ...props }: TextProps, ref) =>
+  ({ level = "h1", color, className, style, ...props }: TextProps, ref) =>
     createElement(typographyLevelTags[level], {
       ref,
       style: { color, ...style },
-      className: clsx(
-        `pluto-text pluto-text--${level}`,
-        wrap && "pluto-text--wrap",
-        className
-      ),
+      className: clsx(`pluto-text pluto-text--${level}`, className),
       ...props,
     })
 );

@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useState, useTransition } from "react";
 
 import { SampleValue } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/media";
 import {
   hexToRGBA,
   useResize,
@@ -18,7 +19,6 @@ import {
   GLLine,
   ZERO_BOX,
   GLLines,
-  RGBATuple,
   Axis,
   Viewport,
   UseViewportHandler,
@@ -34,14 +34,14 @@ import {
 } from "@synnaxlabs/pluto";
 import { addSamples, TimeRange } from "@synnaxlabs/x";
 
-import { Menu, Icon } from "@/components";
+import { Menu } from "@/components";
 import { useSelectTheme } from "@/features/layout";
 
 import { AxisKey, X_AXIS_KEYS, YAxisKey, Y_AXIS_KEYS } from "../../../../vis/types";
-import { TelemetryClient, TelemetryClientResponse } from "../../../telem/client";
 
 import { useAsyncEffect } from "@/hooks";
 
+import { TelemetryClient, TelemetryClientResponse } from "../../../telem/client";
 import { useTelemetryClient } from "../../../telem/TelemetryContext";
 
 import "./LinePlot.css";
@@ -148,7 +148,6 @@ export const LinePlot = ({
         <Typography.Text
           level="h4"
           color="var(--pluto-error-z)"
-          wrap
           style={{ padding: "2rem" }}
         >
           {data.error.message}

@@ -23,7 +23,6 @@ td {
     font-family: var(--pluto-font-family);
     color: var(--pluto-text-color);
     margin: 0;
-    white-space: nowrap;
 }
 
 h1 {
@@ -55,8 +54,7 @@ th {
     font-size: var(--pluto-h5-size);
     line-height: var(--pluto-h5-line-height);
     font-weight: var(--pluto-h5-weight);
-    text-transform: uppercase;
-    -webkit-font-smoothing: antialiased;
+    text-transform: var(--pluto-h5-text-transform);
 }
 
 h6 {
@@ -73,8 +71,4 @@ td {
     font-size: var(--pluto-p-size);
     line-height: var(--pluto-p-line-height);
     font-weight: var(--pluto-p-weight);
-}
-
-.pluto-text--wrap {
-    white-space: normal;
 }

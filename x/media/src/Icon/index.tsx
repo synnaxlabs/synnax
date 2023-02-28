@@ -10,6 +10,10 @@
 import { OS } from "@synnaxlabs/x";
 import {
   AiFillBoxPlot,
+  AiFillCaretDown,
+  AiFillCaretLeft,
+  AiFillCaretRight,
+  AiFillCaretUp,
   AiFillDelete,
   AiFillFolder,
   AiFillInfoCircle,
@@ -27,12 +31,7 @@ import {
   FaStream,
   FaWindows,
 } from "react-icons/fa";
-import {
-  HiChartBar,
-  HiDownload,
-  HiOutlineLightningBolt,
-  HiOutlinePlus,
-} from "react-icons/hi";
+import { HiChartBar, HiDownload, HiLightningBolt, HiOutlinePlus } from "react-icons/hi";
 import {
   IoMdArrowDropdown,
   IoMdArrowDropleft,
@@ -76,13 +75,13 @@ export const Icon = {
   Visualize: HiChartBar,
   Cluster: BsStack,
   Caret: {
-    Right: IoMdArrowDropright,
-    Left: IoMdArrowDropleft,
-    Up: IoMdArrowDropup,
-    Down: IoMdArrowDropdown,
+    Right: AiFillCaretRight,
+    Left: AiFillCaretLeft,
+    Up: AiFillCaretUp,
+    Down: AiFillCaretDown,
   },
   Reference: IoBookSharp,
-  Bolt: HiOutlineLightningBolt,
+  Bolt: HiLightningBolt,
   Download: HiDownload,
   Range: AiFillBoxPlot,
   Node: MdOutlineDeviceHub,

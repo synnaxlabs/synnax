@@ -34,7 +34,7 @@ import "./Nav.css";
 
 export const NAV_SIZES = {
   side: "8rem",
-  top: "7rem",
+  top: "6rem",
   bottom: "4.5rem",
 };
 
@@ -81,12 +81,9 @@ export const NavLeft = (): JSX.Element => {
       <Nav.Bar.Start className="delta-main-nav-left__start" bordered>
         <Logo className="delta-main-nav-left__logo" />
       </Nav.Bar.Start>
-      <Nav.Bar.Content className="delta-main-nav__content" size="small">
+      <Nav.Bar.Content className="delta-main-nav__content">
         <NavMenu onChange={onSelect}>{menuItems}</NavMenu>
       </Nav.Bar.Content>
-      <Nav.Bar.End className="delta-main-nav-left__end" bordered>
-        <Theming.Switch />
-      </Nav.Bar.End>
     </Nav.Bar>
   );
 };
