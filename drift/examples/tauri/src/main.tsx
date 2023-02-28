@@ -7,26 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import React, { useEffect, useState } from "react";
-import ReactDOM from "react-dom/client";
-import { Provider } from "react-redux";
+import React from "react";
+
+import { Provider } from "@synnaxlabs/drift";
+import ReactDOM from "react-dom";
+
 import App from "./App";
+
 import "./index.css";
+
 import promise from "./store";
 
-const Main = () => {
-  const [store, setStore] = useState<any | null>(null);
-  useEffect(() => {
-    promise.then((s) => setStore(s)).catch(console.error);
-  }, []);
-  if (store == null) return null;
+const Main = (): JSX.Element => {
   return (
     <React.StrictMode>
-      <Provider store={store}>
+      <Provider store={promise}>
         <App />
       </Provider>
     </React.StrictMode>
   );
 };
 
-ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(<Main />);
+ReactDOM.render(<Main />, document.getElementById("root"));

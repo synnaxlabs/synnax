@@ -34,19 +34,16 @@ import {
 } from "@synnaxlabs/pluto";
 import { addSamples, TimeRange } from "@synnaxlabs/x";
 
-import { Menu } from "@/components";
-import { useSelectTheme } from "@/features/layout";
-
 import { AxisKey, X_AXIS_KEYS, YAxisKey, Y_AXIS_KEYS } from "../../../../vis/types";
-
-import { useAsyncEffect } from "@/hooks";
-
 import { TelemetryClient, TelemetryClientResponse } from "../../../telem/client";
 import { useTelemetryClient } from "../../../telem/TelemetryContext";
+import { LineSVis } from "../types";
+
+import { Menu } from "@/components";
+import { useSelectTheme } from "@/features/layout";
+import { useAsyncEffect } from "@/hooks";
 
 import "./LinePlot.css";
-
-import { LineSVis } from "../types";
 
 export interface LinePlotProps {
   vis: LineSVis;
@@ -192,7 +189,7 @@ export const LinePlot = ({
     };
 
     return (
-      <PMenu size="large">
+      <PMenu>
         {selection !== null && (
           <>
             <PMenu.Item
