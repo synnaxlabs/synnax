@@ -612,10 +612,14 @@ class DataType(str):
         :param _raise: If True, raises a TypeError if the DataType is not a numpy type.
         :return: The numpy type
         """
-        npt = self._TO_NUMPY.get(self, None)
+        npt = DataType._TO_NUMPY.get(self, None)
         if npt is None:
             raise TypeError(f"Cannot convert {self} to numpy type")
         return npt
+
+    @property
+    def density(self) -> Density:
+        return DataType._DENSITIES.get(self, Density.UNKNOWN)
 
     def __repr__(self):
         return f"DataType({super().__repr__()})"
@@ -638,6 +642,7 @@ class DataType(str):
     ALL: tuple[DataType, ...]
     _TO_NUMPY: dict[DataType, np.dtype]
     _FROM_NUMPY: dict[np.dtype, DataType]
+    _DENSITIES: dict[DataType, Density]
 
 
 DataType.UNKNOWN = DataType("")
@@ -698,6 +703,19 @@ DataType._TO_NUMPY = {
     DataType.UINT8: np.dtype(np.uint8),
 }
 DataType._FROM_NUMPY = {v: k for k, v in DataType._TO_NUMPY.items()}
+DataType._DENSITIES = {
+    DataType.FLOAT64: Density.BIT64,
+    DataType.FLOAT32: Density.BIT32,
+    DataType.TIMESTAMP: Density.BIT64,
+    DataType.INT64: Density.BIT64,
+    DataType.INT32: Density.BIT32,
+    DataType.INT16: Density.BIT16,
+    DataType.INT8: Density.BIT8,
+    DataType.UINT64: Density.BIT64,
+    DataType.UINT32: Density.BIT32,
+    DataType.UINT16: Density.BIT16,
+    DataType.UINT8: Density.BIT8,
+}
 
 
 class ArrayHeader(Payload):

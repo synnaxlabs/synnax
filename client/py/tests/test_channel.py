@@ -39,17 +39,17 @@ class TestChannelClient:
             sy.Channel(
                 name="test",
                 rate=1 * sy.Rate.HZ,
-                data_type=sy.DataType.FLOAT64,
+                data_type=sy.DataType.INT64,
             )
         )
-        input = np.array([1, 2, 3, 4, 5])
+        input = np.array([1, 2, 3, 4, 5], dtype=np.int64)
         start = 1 * sy.TimeSpan.SECOND
         channel.write(start, input)
-        data, tr = channel.read(start, (start + input) * sy.TimeSpan.SECOND)
+        data, tr = channel.read(start, (start + len(input)) * sy.TimeSpan.SECOND)
         assert len(input) == len(data)
         assert input[0] == data[0]
         assert tr.start == start
-        assert tr.end == (start + len(input) - 1) * sy.TimeSpan.SECOND + 1
+        assert tr.end == start + (len(input) - 1) * sy.TimeSpan.SECOND + 1
 
     @pytest.mark.channel
     def test_create_list(self, two_channels: list[sy.Channel]):
@@ -87,39 +87,28 @@ class TestChannelClient:
         assert channel.data_type == sy.DataType.FLOAT64
         assert channel.rate == 1 * sy.Rate.HZ
 
-    @pytest.mark.parametrize(
-        "ch",
-        [
-            sy.Channel(
-                name="test",
-                data_type=sy.DataType.FLOAT64,
-            ),
-            sy.Channel(
-                name="test",
-                rate=1 * sy.Rate.HZ,
-            ),
-        ],
-    )
     @pytest.mark.channel
-    def test_create_no_rate_or_index(self, client: sy.Synnax, ch: sy.Channel):
-        """Should create a single valid channel"""
-        with pytest.raises(sy.ValidationError):
-            client.channels.create(ch)
+    def test_create_invalid_nptype(self, client: sy.Synnax):
+        """Should throw a Validation Error when passing invalid numpy data type"""
+        with pytest.raises(TypeError):
+            client.channels.create(data_type=np.csingle)
 
     @pytest.mark.channel
     def test_retrieve_by_key(
         self, two_channels: list[sy.Channel], client: sy.Synnax
     ) -> None:
+        """Should retrieve channels using a list of keys"""
         res_channels = client.channels.retrieve(
             keys=[channel.key for channel in two_channels]
         )
         assert len(res_channels) == 2
         for i, channel in enumerate(res_channels):
             assert two_channels[i].key == channel.key
-            assert isinstance(two_channels[i].density, sy.Density)
+            assert isinstance(two_channels[i].data_type.density, sy.Density)
 
     @pytest.mark.channel
     def test_retrieve_by_key_not_found(self, client: sy.Synnax):
+        """Should raise QueryError when key not found"""
         with pytest.raises(sy.QueryError):
             client.channels.retrieve(key="1-100000")
 
@@ -127,16 +116,45 @@ class TestChannelClient:
     def test_retrieve_by_node_id(
         self, two_channels: list[sy.Channel], client: sy.Synnax
     ) -> None:
+        """Should retrieve channels using node_id"""
         res_channels = client.channels.retrieve(node_id=1)
         assert len(res_channels) >= 2
         for channel in res_channels:
             assert channel.node_id == 1
 
     @pytest.mark.channel
-    def test_retrieve_by_name(
+    def test_retrieve_by_list_of_names(
         self, two_channels: list[sy.Channel], client: sy.Synnax
     ) -> None:
+        """Should retrieve channels using list of names"""
         res_channels = client.channels.retrieve(names=["test", "test2"])
         assert len(res_channels) >= 2
         for channel in res_channels:
             assert channel.name in ["test", "test2"]
+
+    # test retrieve by single name
+    @pytest.mark.channel
+    def test_retrieve_by_single_name(
+        self, channel: sy.Channel, client: sy.Synnax
+    ) -> None:
+        """Should retrieve channel using a name string"""
+        res_channel = client.channels.retrieve(name="test")
+        assert res_channel[0].name == "test"
+
+    @pytest.mark.channel
+    def test_retrieve_list_not_found(self, client: sy.Synnax):
+        """Should retrieve an empty list when can't find channels"""
+        fake_names = ["fake1", "fake2", "fake3"]
+        results = client.channels.retrieve(names=fake_names)
+        assert len(results) == 0
+
+    @pytest.mark.channel
+    def test_retrieve_include_not_found_true(self, client: sy.Synnax):
+        """Should return list of unfound channels when include_not_found is true"""
+        fake_names = ["test", "test2", "fake3"]
+        res_channels, not_found = client.channels.retrieve(
+            names=fake_names, include_not_found=True
+        )
+        assert len(res_channels) == 2
+        print(type(not_found))
+        assert len(not_found) == 3

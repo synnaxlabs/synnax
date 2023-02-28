@@ -58,7 +58,7 @@ class RowIngestionEngine:
 
     def get_chunk_size(self):
         """Sum the density of all channels to determine the chunk size."""
-        return self.mem_limit // sum(ch.density for ch in self.channels)
+        return self.mem_limit // sum(ch.data_type.density for ch in self.channels)
 
     def run(self):
         """Run the ingestion engine."""
