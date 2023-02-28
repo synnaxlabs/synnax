@@ -7,24 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Space, Menu as PMenu } from "@synnaxlabs/pluto";
-
-import { Menu } from "../Menu";
-
-import { ClusterProvider } from "@/features/cluster";
-import { LayoutMosaic } from "@/features/layout";
+import { Space } from "@synnaxlabs/pluto";
 
 import { NavBottom, NavDrawer, NavLeft, NavRight, NavTop } from "./Nav";
 
+import { ClusterProvider } from "@/features/cluster";
+import { LayoutMosaic } from "@/features/layout";
 import { VisCanvas } from "@/features/vis";
 
-import "./MainLayout.css";
+import "./LayoutMain.css";
 
 /**
  * The center of it all. This is the main layout for the Delta UI. Try to keep this
  * component as simple, presentational, and navigatable as possible.
  */
-export const MainLayout = (): JSX.Element => (
+export const LayoutMain = (): JSX.Element => (
   <ClusterProvider>
     <NavTop />
     <Space className="delta-main-fixed--y" direction="x" empty>

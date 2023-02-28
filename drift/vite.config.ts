@@ -8,31 +8,22 @@
 // included in the file licenses/APL.txt.
 
 import { lib } from "@synnaxlabs/vite-plugin";
-import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
 export default defineConfig({
-  plugins: [
-    lib({
-      name: "drift",
-    }),
-    react(),
-  ],
+  plugins: [lib({ name: "drift" })],
   build: {
     minify: false,
     rollupOptions: {
-      external: ["react", "react-dom", "react-redux", "@reduxjs/toolkit"],
+      external: ["react", "react-redux", "@reduxjs/toolkit"],
       output: {
         globals: {
           react: "React",
-          "react-dom": "ReactDOM",
-          "react-redux": "ReactRedux",
-          "@reduxjs/toolkit": "ReduxToolkit",
-          "proxy-memoize": "ProxyMemoize",
         },
       },
     },
   },
+  // @ts-ignore
   test: {
     globals: true,
     environment: "jsdom",

@@ -17,19 +17,17 @@ import type { InputSwitchProps } from "@synnaxlabs/pluto";
 import { FieldValues, useForm } from "react-hook-form";
 import { AiFillApi } from "react-icons/ai";
 import { useDispatch } from "react-redux";
-
-import type { ConnectionState } from "@/features/cluster";
-
 import { z } from "zod";
-
-import { LayoutRendererProps } from "@/features/layout";
-
-import "./ConnectCluster.css";
 
 import { setActiveCluster, setCluster } from "../store";
 import { testConnection } from "../util/testConnection";
 
 import { ConnectionStateBadge } from "./ClusterBadges";
+
+import type { ConnectionState } from "@/features/cluster";
+import { LayoutRendererProps } from "@/features/layout";
+
+import "./ConnectCluster.css";
 
 const formSchema = synnaxPropsSchema.extend({ name: z.string() });
 
@@ -48,7 +46,6 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps): JSX.Element =>
     trigger,
     control: c,
     handleSubmit: _handleSubmit,
-    // @ts-expect-error
   } = useForm({ resolver: zodResolver(formSchema) });
 
   const handleSubmit = _handleSubmit(async (_data: FieldValues): Promise<void> => {

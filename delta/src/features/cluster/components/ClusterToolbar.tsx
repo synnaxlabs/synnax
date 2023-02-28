@@ -13,15 +13,14 @@ import type { ListItemProps } from "@synnaxlabs/pluto";
 import clsx from "clsx";
 import { useDispatch } from "react-redux";
 
+import { useSelectCluster, useSelectClusters } from "../store";
+import { setActiveCluster } from "../store/slice";
+import { RenderableCluster } from "../types";
+
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout, useLayoutPlacer, NavDrawerItem } from "@/features/layout";
 
-import { useSelectCluster, useSelectClusters } from "../store";
-
 import "./ClusterToolbar.css";
-
-import { setActiveCluster } from "../store/slice";
-import { RenderableCluster } from "../types";
 
 const connectClusterWindowLayout: Layout = {
   key: "connectCluster",

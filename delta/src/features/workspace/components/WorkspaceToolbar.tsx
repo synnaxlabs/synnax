@@ -13,11 +13,11 @@ import { useDispatch } from "react-redux";
 
 import { removeRange, setActiveRange, useSelectRange, useSelectRanges } from "../store";
 
-import { ToolbarHeader, ToolbarTitle } from "@/components";
-import { Layout, NavDrawerItem, useLayoutPlacer } from "@/features/layout";
-
 import { RangesList } from "./RangesList";
 import { VisList } from "./VisList";
+
+import { ToolbarHeader, ToolbarTitle } from "@/components";
+import { Layout, NavDrawerItem, useLayoutPlacer } from "@/features/layout";
 
 const rangeWindowLayout: Layout = {
   key: "defineRange",

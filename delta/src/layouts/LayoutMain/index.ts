@@ -7,8 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export const NAV_SIZES = {
-  side: 48,
-  top: 36,
-  bottom: 32,
-};
+export * from "./LayoutMain";
+export * from "./constants";

@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useEffect, useState } from "react";
+import { ReactElement, useEffect, useState, createElement } from "react";
 
 import type { Action, AnyAction, EnhancedStore } from "@reduxjs/toolkit";
-import { Provider as Base } from "react-redux";
+import { Provider } from "react-redux";
 import type { ProviderProps as BaseProps } from "react-redux";
 
 import { Enhancers } from "@/configureStore";
@@ -39,7 +39,7 @@ export interface ProviderProps<
  * @param props - The props to pass to the Provider.
  * @param props.store - A promise that resolves to the store.
  */
-export const Provider = <
+export const DriftProvider = <
   S extends StoreState,
   A extends Action<unknown> = AnyAction,
   M extends Middlewares<S> = Middlewares<S>,
@@ -53,6 +53,7 @@ export const Provider = <
   useEffect(() => {
     promise.then((s) => setStore(s)).catch(console.error);
   }, []);
-  if (store == null) return emptyContent ?? null;
-  return <Base<A, S> store={store}> {children}</Base>;
+  if (store == null) return null;
+  // @ts-expect-error
+  return createElement(Provider<A, S>, { store }, children);
 };

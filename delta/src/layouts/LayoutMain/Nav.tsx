@@ -12,11 +12,12 @@ import {
   Divider,
   locToDir,
   Nav,
-  Theming,
   Menu as PMenu,
   MenuProps as PMenuProps,
 } from "@synnaxlabs/pluto";
 import clsx from "clsx";
+
+import { NAV_SIZES } from "./constants";
 
 import { ClusterBadge, ClusterToolbar, ConnectionBadge } from "@/features/cluster";
 import {
@@ -32,17 +33,11 @@ import { WorkspaceToolbar } from "@/features/workspace";
 
 import "./Nav.css";
 
-export const NAV_SIZES = {
-  side: "8rem",
-  top: "6rem",
-  bottom: "4.5rem",
-};
-
 export const NAV_DRAWERS: NavDrawerItem[] = [
-  ClusterToolbar,
   ResourcesToolbar,
   WorkspaceToolbar,
   VisToolbar,
+  ClusterToolbar,
 ];
 
 /**

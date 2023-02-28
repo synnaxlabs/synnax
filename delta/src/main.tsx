@@ -7,17 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { StrictMode, useEffect, useState } from "react";
+import { StrictMode, useEffect } from "react";
 
+import { Provider } from "@synnaxlabs/drift";
+import "@synnaxlabs/media/dist/style.css";
 import { Theming, Triggers, Menu as PMenu } from "@synnaxlabs/pluto";
 import "@synnaxlabs/pluto/dist/style.css";
-import "@synnaxlabs/media/dist/style.css";
 import ReactDOM from "react-dom/client";
+import { useDispatch } from "react-redux";
 
-import { MainLayout, Menu } from "@/components";
+import { LayoutMain } from "./layouts/LayoutMain";
+import { store as promise } from "./store";
 
-import { Provider, useDispatch } from "react-redux";
-
+import { Menu } from "@/components";
 import { ConnectCluster } from "@/features/cluster";
 import {
   LayoutRendererProvider,
@@ -32,10 +34,8 @@ import { DefineRange } from "@/features/workspace";
 
 import "./index.css";
 
-import { store as promise } from "./store";
-
 const layoutRenderers = {
-  main: MainLayout,
+  main: LayoutMain,
   connectCluster: ConnectCluster,
   visualization: VisLayoutRenderer,
   defineRange: DefineRange,
@@ -70,14 +70,9 @@ const MainUnderContext = (): JSX.Element => {
 };
 
 const Main = (): JSX.Element | null => {
-  const [store, setStore] = useState<any | null>(null);
-  useEffect(() => {
-    promise.then((s) => setStore(s)).catch(console.error);
-  }, []);
-  if (store == null) return null;
   return (
     <StrictMode>
-      <Provider store={store}>
+      <Provider store={promise}>
         <MainUnderContext />
       </Provider>
     </StrictMode>

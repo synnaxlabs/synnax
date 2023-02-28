@@ -21,10 +21,10 @@ import { useForm } from "react-hook-form";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
-import { LayoutRendererProps } from "@/features/layout";
-
 import { useSelectRange } from "../store";
 import { addRange } from "../store/slice";
+
+import { LayoutRendererProps } from "@/features/layout";
 
 const formSchema = z.object({
   name: z.string(),
@@ -63,8 +63,6 @@ export const DefineRange = ({
 
   const { control, handleSubmit } = useForm({
     defaultValues,
-
-    // @ts-expect-error
     resolver: zodResolver(formSchema),
   });
   const dispatch = useDispatch();

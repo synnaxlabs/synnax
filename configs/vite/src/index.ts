@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { readFile } from "fs/promises";
+import { promises as fs } from "fs";
 import path from "path";
 
 import type { CompilerOptions } from "typescript";
@@ -79,7 +79,7 @@ const transformExistingAlias = (alias: AliasOptions | undefined): Alias[] => {
 
 const readConfig = async (configPath: string): Promise<CompilerOptions> => {
   try {
-    const configFileText = await readFile(configPath, { encoding: "utf-8" });
+    const configFileText = await fs.readFile(configPath, { encoding: "utf-8" });
     const { config } = parseConfigFileTextToJson(configPath, configFileText);
     const { options } = parseJsonConfigFileContent(
       config,

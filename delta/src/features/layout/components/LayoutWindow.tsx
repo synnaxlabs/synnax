@@ -12,14 +12,12 @@ import { appWindow } from "@tauri-apps/api/window";
 
 import { useSelectLayout } from "../store";
 
-import { NAV_SIZES } from "@/components";
-
 import { LayoutContent } from "./LayoutContent";
 
 import "./LayoutWindow.css";
 
 export const NavTop = (): JSX.Element => (
-  <Nav.Bar data-tauri-drag-region location="top" size={NAV_SIZES.top} />
+  <Nav.Bar data-tauri-drag-region location="top" />
 );
 
 export const LayoutWindow = (): JSX.Element => {
