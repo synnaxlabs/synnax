@@ -26,13 +26,15 @@ export const Logo = ({
   ...props
 }: LogoProps): JSX.Element => {
   const logo = variant === "icon" ? icon : title;
-  return cloneElement(logo, { className: clsx(`synnax-logo--${color}`), ...props });
+  return cloneElement(logo, {
+    className: clsx(`synnax-logo--${color}`, className),
+    ...props,
+  });
 };
 
 const icon = (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 189.34">
     <defs>
-      <style></style>
       <linearGradient
         id="linear-gradient"
         x1="-2.63"

@@ -156,7 +156,6 @@ const synnaxBase: Theme = {
       size: 2.25,
       weight: "bold",
       lineHeight: 2.5,
-      textTransform: "uppercase",
     },
     p: {
       size: 2.25,

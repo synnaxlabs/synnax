@@ -16,6 +16,7 @@
         "watch:freighter": "npx turbo watch --filter freighter",
         "watch:client": "npx turbo watch --filter client",
         "watch:drift": "npx turbo watch --filter drift",
+        "watch:media": "npx turbo watch --filter media",
         "dev:pluto": "npx turbo dev --filter pluto",
         "dev:delta": "npx turbo dev --filter delta",
         "dev:docs": "npx turbo dev --filter docs",

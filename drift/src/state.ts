@@ -18,13 +18,7 @@ import { createSlice } from "@reduxjs/toolkit";
 import type { NoInfer } from "@reduxjs/toolkit/dist/tsHelpers";
 
 import { Runtime } from "@/runtime";
-import {
-  KeyedWindowProps,
-  MAIN_WINDOW,
-  Window,
-  WindowProps,
-  WindowState,
-} from "@/window";
+import { KeyedWindowProps, Window, WindowProps, WindowState } from "@/window";
 
 /** The Slice State */
 export interface DriftState {
@@ -51,11 +45,12 @@ interface KeyPayload {
 type CreateWindowPayload = WindowProps;
 type CloseWindowPayload = MaybeKeyPayload;
 type SetWindowKeyPayload = KeyPayload;
-type SetWindowPayload = MaybeKeyPayload & { state: WindowState };
+type SetWindowStatePayload = MaybeKeyPayload & { state: WindowState };
+type SetWindowPropsPayload = KeyPayload & Partial<WindowProps>;
 
 /** Type representing all possible actions that are drift related. */
 export type DriftAction = PayloadAction<
-  CreateWindowPayload | CloseWindowPayload | SetWindowPayload | MaybeKeyPayload
+  CreateWindowPayload | CloseWindowPayload | SetWindowStatePayload | MaybeKeyPayload
 >;
 
 export const initialState: DriftState = {
@@ -97,9 +92,19 @@ const slice = createSlice({
         props: payload as KeyedWindowProps,
       };
     },
-    setWindowState: ({ windows }, { payload }: PayloadAction<SetWindowPayload>) => {
-      const { key, state } = assertKey<SetWindowPayload>(payload);
+    setWindowState: (
+      { windows },
+      { payload }: PayloadAction<SetWindowStatePayload>
+    ) => {
+      const { key, state } = assertKey<SetWindowStatePayload>(payload);
       windows[key].state = state;
+    },
+    setWindowProps: (
+      { windows },
+      { payload }: PayloadAction<SetWindowPropsPayload>
+    ) => {
+      const { key, ...props } = assertKey<SetWindowPropsPayload>(payload);
+      windows[key].props = { ...windows[key].props, ...props };
     },
     closeWindow: ({ windows }, { payload }: PayloadAction<CloseWindowPayload>) => {
       const { key } = assertKey<CloseWindowPayload>(payload);

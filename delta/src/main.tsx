@@ -11,6 +11,7 @@ import { StrictMode, useEffect, useState } from "react";
 
 import { Theming, Triggers, Menu as PMenu } from "@synnaxlabs/pluto";
 import "@synnaxlabs/pluto/dist/style.css";
+import "@synnaxlabs/media/dist/style.css";
 import ReactDOM from "react-dom/client";
 
 import { MainLayout, Menu } from "@/components";

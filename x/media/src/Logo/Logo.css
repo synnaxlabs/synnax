@@ -11,6 +11,7 @@
 
 .synnax-logo--auto {
     --logo-color: var(--pluto-logo-color, #ffffff);
+    --text-color: var(--pluto-text-color, #ffffff);
 }
 
 .synnax-logo--auto path {
@@ -19,6 +20,6 @@
 
 .synnax-logo--auto text {
     font-size: 252px;
-    fill: var(--logo-color);
+    fill: var(--text-color);
     font-family: Roboto-Regular, Roboto, sans-serif;
 }

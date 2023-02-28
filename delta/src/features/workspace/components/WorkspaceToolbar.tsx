@@ -92,7 +92,7 @@ const Content = (): JSX.Element => {
 
 export const WorkspaceToolbar: NavDrawerItem = {
   key: "workspace",
-  icon: <MdWorkspacesFilled />,
+  icon: <Icon.Workspace />,
   content: <Content />,
   initialSize: 350,
   minSize: 250,

@@ -16,6 +16,11 @@
     cursor: pointer;
 }
 
+.delta-cluster-toolbar-list__item:hover:not(.delta-cluster-toolbar-list__item--selected) {
+    background-color: var(--pluto-gray-m2);
+    transition: 0.1s ease-in-out;
+}
+
 .delta-cluster-toolbar-list__item--selected {
     background-color: var(--pluto-primary-z-20);
     border-left: 0.5rem solid var(--pluto-primary-p1);

@@ -69,7 +69,7 @@ const ResourcesTree = (): JSX.Element => {
   return (
     <Space empty style={{ height: "100%" }}>
       <ToolbarHeader>
-        <ToolbarTitle icon={<AiFillFolder />}>Resources</ToolbarTitle>
+        <ToolbarTitle icon={<Icon.Resources />}>Resources</ToolbarTitle>
       </ToolbarHeader>
       <Tree
         data={data}
