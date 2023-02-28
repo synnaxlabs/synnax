@@ -128,14 +128,14 @@ class ClusterChannelRetriever:
 
 
 class CacheChannelRetriever:
-    retriever: ChannelRetriever
+    _retriever: ChannelRetriever
     channels: dict[str, ChannelPayload]
     names_to_keys: dict[str, str]
 
     def __init__(self, retriever: ChannelRetriever) -> None:
         self.channels = dict()
         self.names_to_keys = dict()
-        self.retriever = retriever
+        self._retriever = retriever
 
     def _(self) -> ChannelRetriever:
         return self
@@ -155,7 +155,7 @@ class CacheChannelRetriever:
         | None
     ):
         if node_id is not None:
-            return self.retriever.retrieve(
+            return self._retriever.retrieve(
                 node_id=node_id, include_not_found=include_not_found
             )
 
@@ -182,7 +182,7 @@ class CacheChannelRetriever:
         if len(keys_to_retrieve) == 0 and len(names_to_retrieve) == 0:
             return results
 
-        retrieved, not_found = self.retriever.retrieve(
+        retrieved, not_found = self._retriever.retrieve(
             keys=keys_to_retrieve,
             names=names_to_retrieve,
             include_not_found=True,
