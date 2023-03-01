@@ -186,6 +186,7 @@ importers:
       '@types/react-dom': ^18.0.6
       astro: ^1.9.0
       astro-embed: ^0.2.1
+      astro-seo: ^0.7.1
       clsx: ^1.2.1
       eslint-config-synnaxlabs: workspace:*
       html-escaper: ^3.0.3
@@ -201,6 +202,7 @@ importers:
       '@synnaxlabs/x': link:../../x/ts
       astro: 1.9.2
       astro-embed: 0.2.1_astro@1.9.2
+      astro-seo: 0.7.1
       clsx: 1.2.1
       html-escaper: 3.0.3
       react: 18.2.0
@@ -6210,6 +6212,10 @@ packages:
       astro: 1.9.2
     transitivePeerDependencies:
       - encoding
+    dev: false
+
+  /astro-seo/0.7.1:
+    resolution: {integrity: sha512-8Yo1nQrl2iB5zj+VUAHrvGIck8bZ4WAmXQgJOeF9FuAZGQD5qK6DtSZaRbpBXsFfZYHA6tE8pjs3btHhLbC1zQ==}
     dev: false
 
   /astro/1.9.2:
