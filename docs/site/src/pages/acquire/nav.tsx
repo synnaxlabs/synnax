@@ -13,8 +13,8 @@ export const acquireNav: PageNavLeaf = {
       name: "Get Started",
     },
     {
-      key: "/acquire/creating-channels",
-      url: "/acquire/creating-channels",
+      key: "/acquire/create-channels",
+      url: "/acquire/create-channels",
       name: "Create Channels",
     },
     {

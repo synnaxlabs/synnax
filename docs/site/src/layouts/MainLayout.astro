@@ -6,8 +6,12 @@ import { Theming } from "@synnaxlabs/pluto";
 import { DEFAULT_THEME } from "@/util/theme";
 import { Logo } from "@synnaxlabs/media";
 import { TableOfContents } from "@/components/TableOfContents";
+import { SEO } from "astro-seo";
 const vars = Theming.toCSSVars(DEFAULT_THEME);
-const { headings } = Astro.props;
+const {
+    headings,
+    frontmatter: { title, description },
+} = Astro.props;
 ---
 
 <script>
@@ -21,7 +25,26 @@ const { headings } = Astro.props;
 
 <html style={vars}>
     <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <SEO
+            title={title}
+            titleTemplate="%s | Synnax"
+            titleDefault="Synnax"
+            description={description}
+            extend={{
+                link: [
+                    {
+                        rel: "icon",
+                        href: "/favicon.svg",
+                    },
+                ],
+                meta: [
+                    {
+                        name: "viewport",
+                        content: "width=device-width, initial-scale=1.0",
+                    },
+                ],
+            }}
+        />
     </head>
     <header class="pluto-bordered--bottom">
         <div class="header-content">
@@ -221,6 +244,4 @@ const { headings } = Astro.props;
             display: none;
         }
     </style>
-
-
 </html>
