@@ -13,7 +13,7 @@ import { RGBATuple } from "@/color";
 import { XY } from "@/spatial";
 
 export interface Compiler {
-  /** Compiles and links the compile to the given context.  */
+  /** Compiles and links the program to the given context.  */
   compile: (gl: WebGLRenderingContext) => void;
 }
 

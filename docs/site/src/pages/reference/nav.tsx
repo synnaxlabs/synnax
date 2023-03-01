@@ -10,6 +10,7 @@
 import { Icon } from "@synnaxlabs/media";
 
 import { clientCLINav } from "./client-cli/nav";
+import { serverCLINav } from "./server-cli/nav";
 
 import { PageNavLeaf } from "@/components/PageNav";
 
@@ -17,5 +18,5 @@ export const referenceNav: PageNavLeaf = {
   key: "reference",
   name: "Reference",
   icon: <Icon.Reference />,
-  children: [clientCLINav],
+  children: [clientCLINav, serverCLINav],
 };

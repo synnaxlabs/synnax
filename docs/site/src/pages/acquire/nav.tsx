@@ -15,12 +15,12 @@ export const acquireNav: PageNavLeaf = {
     {
       key: "/acquire/creating-channels",
       url: "/acquire/creating-channels",
-      name: "Creating Channels",
+      name: "Create Channels",
     },
     {
-      key: "/acquire/writing-telemetry",
-      url: "/acquire/writing-telemetry",
-      name: "Writing Telemetry",
+      key: "/acquire/write-telemetry",
+      url: "/acquire/write-telemetry",
+      name: "Write Telemetry",
     },
   ],
 };

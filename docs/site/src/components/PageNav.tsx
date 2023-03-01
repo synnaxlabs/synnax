@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Tree } from "@synnaxlabs/pluto";
-import type { TreeLeaf } from "@synnaxlabs/pluto";
+import { Tree, TreeLeaf } from "@synnaxlabs/pluto";
 
 import { pages } from "@/pages/nav";
 

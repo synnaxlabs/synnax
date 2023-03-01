@@ -5,16 +5,16 @@ layout: "@/layouts/MainLayout.astro"
 import { Header } from "@synnaxlabs/pluto";
 
 <Header>
-    <Header.Title>Writing Domains</Header.Title>
+    <Header.Title>Write Domains</Header.Title>
 </Header>
 
-This page walks you through what Domains are, and how they apply when writing data to
-a cluster.
+This page walks you through the lifecycle of a write to a cluster, and how domains are
+used as units of transaction control.
 
 ## What is a Domain?
 
 Domains represent regions of continuously written samples in a Channel. Domains have a
-time range where the start is the timestamp of the first sample in the domain, and the
+time range whose start is the timestamp of the first sample in the domain, and the
 end is the timestamp of the last sample.
 
 ## Transactions
@@ -55,7 +55,7 @@ You can read more about frame alignment here.
 These frames are assumed to be continuous by the database. To illustrate this, imagine
 we write the following frame:
 
-| Time                | my-precise-tc | strain-gauge-01 | pressure-transducer-05 |
+| time                | my-precise-tc | strain-gauge-01 | pressure-transducer-05 |
 | ------------------- | ------------- | --------------- | ---------------------- |
 | 1677433720770863800 | 19.20         | 350.78          | 19.22                  |
 | 1677433720970863400 | 19.20         | 350.78          | 19.22                  |
@@ -64,7 +64,7 @@ we write the following frame:
 After this write, our domain looks exactly like our first frame. Then we write the
 next frame:
 
-| Time                | my-precise-tc | strain-gauge-01 | pressure-transducer-05 |
+| time                | my-precise-tc | strain-gauge-01 | pressure-transducer-05 |
 | ------------------- | ------------- | --------------- | ---------------------- |
 | 1677433721470863800 | 19.20         | 350.78          | 19.22                  |
 | 1677433721870863400 | 19.20         | 350.78          | 19.22                  |
@@ -72,7 +72,7 @@ next frame:
 
 Now, our domain looks like this:
 
-| Time                | my-precise-tc | strain-gauge-01 | pressure-transducer-05 |
+| time                | my-precise-tc | strain-gauge-01 | pressure-transducer-05 |
 | ------------------- | ------------- | --------------- | ---------------------- |
 | 1677433720770863800 | 19.20         | 350.78          | 19.22                  |
 | 1677433720970863400 | 19.20         | 350.78          | 19.22                  |

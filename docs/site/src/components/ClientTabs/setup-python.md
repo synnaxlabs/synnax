@@ -1,7 +1,8 @@
 ### Setup
 
 Before starting, make sure you've instantiated a `Synnax` client. If you've [logged in
-via the CLI](/reference/client-cli/get-started), you can use the `Synnax` client without any arguments.
+via the CLI](/reference/client-cli/get-started), there's no need to provide any
+arguments.
 
 ```python
 import synnax as sy
