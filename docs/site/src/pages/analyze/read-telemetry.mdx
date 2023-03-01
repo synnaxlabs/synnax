@@ -8,7 +8,7 @@ import { Header } from "@synnaxlabs/pluto";
 import { Tabs } from "@/components/Tabs";
 
 <Header>
-    <Header.Title>Reading Telemetry</Header.Title>
+    <Header.Title>Read Telemetry</Header.Title>
 </Header>
 
 Writing and reading telemetry from a cluster is simple. Synnax supports both single
@@ -22,6 +22,8 @@ This page assumes you’ve already:
 -   Started a cluster.
 -   Familiarized yourself with channels, domains, arrays, and frames.
 
+If you'd like a formal introduction to how ranges and reads work in Synnax, look here.
+
 <ClientTabs>
 <Fragment slot="python">
 
@@ -33,7 +35,7 @@ range to the `read` method on the client.
 ```python
 from datetime import datetime
 
-channel = client.channels.retrieve(name="my-precise-tc")
+channel = client.channels.retrieve("my-precise-tc")
 
 start = datetime.datetime("2023-2-12 12:30:00")
 end = datetime.datetime("2023-2-12 14:30:00")
@@ -46,15 +48,10 @@ data, tr = channel.read(start, end)
 Reading from multiple channels is just as easy.
 
 ```python
-from datetime import datetime
-
-start = datetime.datetime("2023-2-12 12:30:00")
-end = datetime.datetime("2023-2-12 14:30:00")
-
 df = client.read_frame(
     start,
     end,
-    names=["my-precise-tc", "time"]
+    ["my-precise-tc", "time"]
 ).as_df()
 ```
 
@@ -69,17 +66,7 @@ We can create a new iterator by providing the channels we want to read along wit
 range.
 
 ```python
-from datetime import datetime
-
-start = datetime.datetime("2023-2-12 12:30:00")
-end = datetime.datetime("2023-2-12 14:30:00")
-time_range = sy.TimeRange(start, end)
-
-iter = client.new_iteratort(
-    time_range,
-    names=["my-precise-tc", "time"],
-    chunk_size=100,
-)
+iter = client.new_iterator(start, end, "my-precise-tc", "time", chunk_size=100)
 ```
 
 This opens an iterator configured to read 100 samples at a time. We can iterate through
@@ -100,7 +87,7 @@ finally:
     i.close()
 ```
 
-It’s important to close a reader after you’re done with it, so we reccomend wrapping it’s
+It’s important to close an iterator after you’re done with it, so we reccommend wrapping it’s
 usage in a try-except clause with a call to `close` in the finally block.
 
 </Fragment>
@@ -112,7 +99,7 @@ Reading from a channel is easy. Simply retrieve the channel and provide a time r
 the `read` method on the client:
 
 ```typescript
-const channel = client.channels.retrieve({ name: "my-precise-tc" });
+const channel = client.channels.retrieve("my-precise-tc");
 
 const start = new Date("2023-2-12 12:30:00");
 const end = new Date("2023-2-12 14:30:00");
@@ -125,11 +112,7 @@ const [data, tr] = channel.read(start, end);
 Reading from multiple channels is just as easy.
 
 ```typescript
-const frame = client.read_frame({
-    start: new Date("2023-2-12 12:30:00"),
-    end: new Date("2023-2-12 14:30:00"),
-    names: ["my-precise-tc", "time"],
-});
+const frame = client.read_frame(start, end, "my-precise-tc", "time");
 
 const tcData = frame.retrieve("my-precise-tc");
 const timeData = frame.retrieve("time");
@@ -137,8 +120,8 @@ const timeData = frame.retrieve("time");
 
 ### Reading Large Amounts of Telemetry
 
-Single and multi-channel reads will probably cover must of your needs. In some cases its
-necessary to process quantities of data that can’t fit in memory. This is where iterators
+Single and multi-channel reads will probably cover must of your needs, although in some cases
+it's necessary to process quantities of data that can’t fit in memory. This is where iterators
 come into play. An iterator can efficiently traverse a time range with hundreds of billions
 of samples. You can read conceptually about iterators here.
 
@@ -146,19 +129,13 @@ We can create a new iterator by providing the channels we want to read along wit
 range.
 
 ```typescript
-const start = new Date("2023-2-12 12:30:00");
-const end = new Date("2023-2-12 14:30:00");
-const timeRange = new TimeRange(start, end);
-
-const iter = client.new_iterator({
-    timeRange,
-    names: ["my-precise-tc", "time"],
+const iter = client.new_iterator(start, end, "my-precise-tc", "time", {
     chunkSize: 100,
 });
 ```
 
 This opens an iterator configured to read 100 samples at a time. We can iterate through
-each ‘chunk’ of samples easily.
+each frame of samples easily.
 
 ```typescript
 try {
@@ -175,7 +152,7 @@ try {
 }
 ```
 
-It’s important to close a reader after you’re done with it, so we reccomend wrapping
+It’s important to close an iterator after you’re done with it, so we reccommend wrapping
 it’s usage in a try-except clause with a call to `close` in the finally block.
 
 </Fragment>

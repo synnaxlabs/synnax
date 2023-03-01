@@ -13,14 +13,14 @@ export const analyzeNav: PageNavLeaf = {
       name: "Get Started",
     },
     {
-      key: "/analyze/retrieving-channels",
-      url: "/analyze/retrieving-channels",
-      name: "Retrieving Channels",
+      key: "/analyze/retrieve-channels",
+      url: "/analyze/retrieve-channels",
+      name: "Retrieve Channels",
     },
     {
-      key: "/analyze/reading-telemetry",
-      url: "/analyze/reading-telemetry",
-      name: "Reading Telemetry",
+      key: "/analyze/read-telemetry",
+      url: "/analyze/read-telemetry",
+      name: "Read Telemetry",
     },
   ],
 };

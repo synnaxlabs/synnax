@@ -18,19 +18,19 @@ export const conceptsNav: PageNavLeaf = {
       name: "Channels",
     },
     {
-      key: "/concepts/writing-domains",
-      url: "/concepts/writing-domains",
-      name: "Writing Domains",
-    },
-    {
       key: "/concepts/frames",
       url: "/concepts/frames",
       name: "Frames",
     },
     {
-      key: "/concepts/ranges",
-      url: "/concepts/ranges",
-      name: "Ranges",
+      key: "/concepts/write-domains",
+      url: "/concepts/write-domains",
+      name: "Write Domains",
+    },
+    {
+      key: "/concepts/read-ranges",
+      url: "/concepts/read-ranges",
+      name: "Read Ranges",
     },
     {
       key: "/concepts/clusters-and-nodes",

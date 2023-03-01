@@ -8,11 +8,11 @@ import { Header } from "@synnaxlabs/pluto";
 import { Tabs } from "@/components/Tabs";
 
 <Header>
-    <Header.Title>Creating Channels</Header.Title>
+    <Header.Title>Create Channels</Header.Title>
 </Header>
 
 This page shows you how to create channels within a Synnax cluster. Channels can be created
-using the Synnax CLI, Delta UI, or any ofthe Synnax client libraries.
+using the Synnax CLI, Delta UI, or any of-the Synnax client libraries.
 
 ## Prerequisites
 
@@ -26,7 +26,7 @@ This page assumes you’ve already:
 Channels have a few important parameters that need to be set when creating them. The
 following list summarizes each one. If you’d like deeper descriptions on each, see here.
 
-1. **Name** - A human readable name for the channel. We reccomend keeping channel names
+1. **Name** - A human-readable name for the channel. We recommend keeping channel names
    unique, although this isn’t a strict requirement by the database.
 2. **Data Type** - The data type of the channel. All samples in a channel must have the
    same data type. If the channel is an index channel, it's data type must be a timestamp.
@@ -145,7 +145,7 @@ const myPreciseTC = client.channels.create({
 
 ### Creating an Indexed Channel and it’s Index
 
-Createing variable rate channels requires us to first create an indx channel to store
+Creating variable rate channels requires us to first create an index channel to store
 timestamps and then create our data channel.
 
 ```typescript
