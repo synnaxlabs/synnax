@@ -17,7 +17,7 @@ import { LayoutContent } from "./LayoutContent";
 import "./LayoutWindow.css";
 
 export const NavTop = (): JSX.Element => (
-  <Nav.Bar data-tauri-drag-region location="top" />
+  <Nav.Bar data-tauri-drag-region location="top" size="6rem" />
 );
 
 export const LayoutWindow = (): JSX.Element => {

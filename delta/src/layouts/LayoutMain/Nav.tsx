@@ -34,10 +34,10 @@ import { WorkspaceToolbar } from "@/features/workspace";
 import "./Nav.css";
 
 export const NAV_DRAWERS: NavDrawerItem[] = [
+  ClusterToolbar,
   ResourcesToolbar,
   WorkspaceToolbar,
   VisToolbar,
-  ClusterToolbar,
 ];
 
 /**

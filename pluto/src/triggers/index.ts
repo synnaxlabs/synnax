@@ -17,6 +17,7 @@ import { useTriggerDrag } from "./useTriggerDrag";
 export type { Trigger, Modifier, Key, Stage } from "./types";
 export type { TriggerEvent, TriggerCallback } from "./TriggersContext";
 export type { TriggerDragEvent, TriggerDragCallback } from "./useTriggerDrag";
+export { mouseButtonKey } from "./mouse";
 
 export const Triggers = {
   Provider: TriggersProvider,

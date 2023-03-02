@@ -5,16 +5,21 @@ import { OS } from "@synnaxlabs/x";
 export const useOS = (): OS | null => {
   const [os, setOS] = useState<OS | null>(null);
   useEffect(() => {
-    console.log("EH");
-    const userAgent = window.navigator.userAgent.toLowerCase();
-    console.log(userAgent);
-    if (userAgent.includes("mac")) {
-      setOS("MacOS");
-    } else if (userAgent.includes("win")) {
-      setOS("Windows");
-    } else if (userAgent.includes("linux")) {
-      setOS("Linux");
-    }
+    const os = getOS();
+    setOS(os);
   }, []);
   return os;
+};
+
+export const getOS = (): OS | null => {
+  if (typeof window === "undefined") return null;
+  const userAgent = window.navigator.userAgent.toLowerCase();
+  if (userAgent.includes("mac")) {
+    return "MacOS";
+  } else if (userAgent.includes("win")) {
+    return "Windows";
+  } else if (userAgent.includes("linux")) {
+    return "Linux";
+  }
+  return null;
 };
