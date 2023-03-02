@@ -82,7 +82,10 @@ export interface ClientXY {
   clientY: number;
 }
 
-export const toXY = (pt: XY | ClientXY | Dimensions | SignedDimensions): XY => {
+export const toXY = (
+  pt: number | XY | ClientXY | Dimensions | SignedDimensions
+): XY => {
+  if (typeof pt === "number") return { x: pt, y: pt };
   if ("clientX" in pt) return { x: pt.clientX, y: pt.clientY };
   if ("width" in pt) return { x: pt.width, y: pt.height };
   if ("signedWidth" in pt) return { x: pt.signedWidth, y: pt.signedHeight };

@@ -7,8 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "./core";
-export * from "./box";
-export * from "./useSize";
-export * from "./scale";
-export * from "./useCursorDrag";
+import { DependencyList, useCallback } from "react";
+
+import { debounce } from "@synnaxlabs/x";
+
+export const useDebouncedCallback = <F extends (...args: any[]) => void>(
+  func: F,
+  waitFor: number,
+  deps: DependencyList
+): F => useCallback(debounce(func, waitFor), [waitFor, ...deps]);

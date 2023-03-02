@@ -9,6 +9,10 @@
  * included in the file licenses/APL.txt.
  */
 
+.pluto-input-number__drag-button {
+    cursor: move;
+}
+
 .pluto-input-number__drag-button.pluto--x {
     cursor: col-resize;
 }
@@ -17,8 +21,9 @@
     cursor: row-resize;
 }
 
-.pluto-input-number__drag-button > svg {
+.pluto-input-number__drag-button > svg > * {
     fill: var(--pluto-gray-p1);
+    stroke: var(--pluto-gray-p1);
 }
 
 .pluto-input-number__drag-button.pluto--x > svg {

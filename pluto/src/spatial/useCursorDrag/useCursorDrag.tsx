@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback } from "react";
+import { RefObject, useCallback } from "react";
 
-import { Box } from "./box";
-import { ClientXY, toXY, XY } from "./core";
-
+import { useAsyncEffect } from "@/hooks/useAsyncEffect";
+import { useStateRef } from "@/hooks/useStateRef";
+import { Box, ClientXY, toXY, XY, ZERO_XY } from "@/spatial";
 import { Key } from "@/triggers";
 import { mouseButtonKey } from "@/triggers/mouse";
 

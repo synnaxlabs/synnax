@@ -65,6 +65,7 @@ export const DefineRange = ({
     defaultValues,
     resolver: zodResolver(formSchema),
   });
+
   const dispatch = useDispatch();
 
   const onSubmit = ({
@@ -199,5 +200,19 @@ const TimeModifierRow = ({
         Now
       </Button>
     </Pack>
+  );
+};
+
+export interface DateModifierRowProps extends InputControl<number> {}
+
+const DateModifierRow = ({ onChange }: DateModifierRowProps) => {
+  return (
+    <Button
+      variant="outlined"
+      onClick={onChange(TimeStamp.now().valueOf())}
+      justify="center"
+    >
+      Today
+    </Button>
   );
 };

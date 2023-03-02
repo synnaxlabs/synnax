@@ -7,8 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "./core";
-export * from "./box";
-export * from "./useSize";
-export * from "./scale";
-export * from "./useCursorDrag";
+import { useVirtualCursorDragWebKit } from "./useVirtualCursorDragWebKit";
+import { useVirtualCursorDragWebView } from "./useVirtualCursorDragWebView";
+
+import { getOS } from "@/hooks";
+
+const OS = getOS();
+
+export const useVirtualCursorDrag = OS === "Windows" ? useVirtualCursorDragWebView : useVirtualCursorDragWebKit;
