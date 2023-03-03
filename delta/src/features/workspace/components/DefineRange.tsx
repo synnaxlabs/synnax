@@ -204,15 +204,3 @@ const TimeModifierRow = ({
 };
 
 export interface DateModifierRowProps extends InputControl<number> {}
-
-const DateModifierRow = ({ onChange }: DateModifierRowProps) => {
-  return (
-    <Button
-      variant="outlined"
-      onClick={onChange(TimeStamp.now().valueOf())}
-      justify="center"
-    >
-      Today
-    </Button>
-  );
-};

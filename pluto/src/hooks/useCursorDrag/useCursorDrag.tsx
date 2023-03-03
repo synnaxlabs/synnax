@@ -9,9 +9,10 @@
 
 import { RefObject, useCallback } from "react";
 
+import { Box, ClientXY, toXY, XY, ZERO_XY } from "@synnaxlabs/x";
+
 import { useAsyncEffect } from "@/hooks/useAsyncEffect";
 import { useStateRef } from "@/hooks/useStateRef";
-import { Box, ClientXY, toXY, XY, ZERO_XY } from "@/spatial";
 import { Key } from "@/triggers";
 import { mouseButtonKey } from "@/triggers/mouse";
 

@@ -18,6 +18,7 @@ import {
   AiFillFolder,
   AiFillInfoCircle,
   AiFillWarning,
+  AiOutlineBorder,
   AiOutlineCheck,
   AiOutlineClose,
   AiOutlineMinus,
@@ -32,13 +33,7 @@ import {
   FaWindows,
 } from "react-icons/fa";
 import { HiChartBar, HiDownload, HiLightningBolt, HiOutlinePlus } from "react-icons/hi";
-import {
-  IoMdArrowDropdown,
-  IoMdArrowDropleft,
-  IoMdArrowDropright,
-  IoMdArrowDropup,
-  IoMdRefresh,
-} from "react-icons/io";
+import { IoMdRefresh } from "react-icons/io";
 import { IoBookSharp, IoCopySharp, IoTime } from "react-icons/io5";
 import {
   MdEdit,
@@ -89,4 +84,5 @@ export const Icon = {
   Resources: AiFillFolder,
   Workspace: MdWorkspacesFilled,
   OS: IconOS,
+  Box: AiOutlineBorder,
 };

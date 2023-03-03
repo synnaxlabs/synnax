@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Tab } from "@/core/Tabs";
-import { Direction } from "@/spatial";
+import { Direction } from "@synnaxlabs/x";
 
 /**
  * Represents the data for a node in the Mosaic binary tree. Nodes can be either leaf

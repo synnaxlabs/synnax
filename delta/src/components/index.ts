@@ -10,3 +10,4 @@
 export * from "./Select";
 export * from "./Toolbar";
 export * from "./Menu";
+export * from "./Controls";

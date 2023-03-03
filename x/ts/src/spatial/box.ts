@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Stringer } from "@synnaxlabs/x";
-
 import {
   Dimensions,
   OuterLocation,
@@ -21,6 +19,8 @@ import {
   XLocation,
   Bound,
 } from "./core";
+
+import { Stringer } from "@/types/primitive";
 
 /** represents a partial JS DOMRect */
 export interface DOMRect {

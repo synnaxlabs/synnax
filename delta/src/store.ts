@@ -42,6 +42,7 @@ const reducer = combineReducers({
 export type RootState = ReturnType<typeof reducer>;
 
 export const store = configureStore<ReturnType<typeof reducer>>({
+  debug: true,
   runtime: new TauriRuntime(appWindow),
   preloadedState: preloadState(kv),
   middleware: (def) => [...def(), newPersistStateMiddleware(kv)],

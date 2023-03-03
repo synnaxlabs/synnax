@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { XY } from "@synnaxlabs/x";
+
 import { errorCompile, ERROR_BAD_SHADER, ERROR_NOT_COMPILED } from "./errors";
 
 import { RGBATuple } from "@/color";
-import { XY } from "@/spatial";
 
 export interface Compiler {
   /** Compiles and links the program to the given context.  */

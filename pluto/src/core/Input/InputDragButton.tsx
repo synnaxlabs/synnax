@@ -9,6 +9,7 @@
 
 import { useCallback, useMemo, useRef } from "react";
 
+import { Box, Direction, toXY, XY } from "@synnaxlabs/x";
 import clsx from "clsx";
 import { GrDrag } from "react-icons/gr";
 
@@ -16,8 +17,7 @@ import { InputControl } from "./types";
 
 import { Button, ButtonIconProps } from "@/core/Button";
 import { directionCls } from "@/css";
-import { Box, Direction, toXY, XY } from "@/spatial";
-import { useVirtualCursorDrag } from "@/spatial/useCursorDrag";
+import { useVirtualCursorDrag } from "@/hooks/useCursorDrag";
 
 export interface InputDragButtonExtensionProps {
   direction?: Direction;
@@ -65,8 +65,14 @@ export const InputDragButton = ({
         let value = vRef.current.prev;
         vRef.current.dragging = true;
         const { x, y } = normalDragThreshold;
-        if (box.width > x) value += (box.signedWidth - x) * normalDragScale.x;
-        if (box.height > y) value += (box.signedHeight - y) * normalDragScale.y;
+        if (box.width > x) {
+          const offset = box.signedWidth < 0 ? x : -x;
+          value += (box.signedWidth + offset) * normalDragScale.x;
+        }
+        if (box.height > y) {
+          const offset = box.signedHeight < 0 ? y : -y;
+          value += (box.signedHeight + offset) * normalDragScale.y;
+        }
         vRef.current.curr = value;
         onChange(value);
       },

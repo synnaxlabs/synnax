@@ -16,11 +16,10 @@ import {
   useState,
 } from "react";
 
-import { unique } from "@synnaxlabs/x";
+import { unique, ClientXY, toXY, XY, ZERO_XY, positionSoVisible } from "@synnaxlabs/x";
 import clsx from "clsx";
 
 import { useClickOutside } from "@/hooks";
-import { ClientXY, toXY, XY, ZERO_XY, positionSoVisible } from "@/spatial";
 import { RenderProp } from "@/util/renderProp";
 
 import "./ContextMenu.css";

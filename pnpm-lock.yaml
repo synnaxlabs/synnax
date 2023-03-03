@@ -153,7 +153,7 @@ importers:
       react-dom: 18.2.0_react@18.2.0
       react-hook-form: 7.43.2_react@18.2.0
       react-icons: 4.7.1_react@18.2.0
-      react-redux: 8.0.5_pmekkgnqduwlme35zpnqhenc34
+      react-redux: 8.0.5_3xleytyzprlgycb2ded54tx72i
       react-router-dom: 6.8.2_biqbaboplfbrettd7655fr4n2y
       vite-plugin-svgr: 2.4.0_vite@4.1.4
       zod: 3.19.1
@@ -219,6 +219,7 @@ importers:
       '@reduxjs/toolkit': ^1.9.3
       '@synnaxlabs/tsconfig': workspace:*
       '@synnaxlabs/vite-plugin': workspace:*
+      '@synnaxlabs/x': workspace:*
       '@tauri-apps/api': ^1.1.0
       '@types/react': ^18.0.26
       eslint-config-synnaxlabs: workspace:*
@@ -235,6 +236,7 @@ importers:
       '@reduxjs/toolkit': 1.9.3_k4ae6lp43ej6mezo3ztvx6pykq
       '@synnaxlabs/tsconfig': link:../configs/ts
       '@synnaxlabs/vite-plugin': link:../configs/vite
+      '@synnaxlabs/x': link:../x/ts
       '@tauri-apps/api': 1.2.0
       '@types/react': 18.0.28
       eslint-config-synnaxlabs: link:../configs/eslint
@@ -2919,7 +2921,7 @@ packages:
     dependencies:
       immer: 9.0.19
       react: 18.2.0
-      react-redux: 8.0.5_pmekkgnqduwlme35zpnqhenc34
+      react-redux: 8.0.5_3xleytyzprlgycb2ded54tx72i
       redux: 4.2.1
       redux-thunk: 2.4.2_redux@4.2.1
       reselect: 4.1.7
@@ -14180,6 +14182,38 @@ packages:
     resolution: {integrity: sha512-alTKsjEL0dKH/ru1Iyn7vliS2QRcBp9zZPGoWxUOvRGWPUYgjo+V01is7p04It6KhgrzhJGnIj9GgX8W4bZoCQ==}
     dev: true
 
+  /react-redux/8.0.5_3xleytyzprlgycb2ded54tx72i:
+    resolution: {integrity: sha512-Q2f6fCKxPFpkXt1qNRZdEDLlScsDWyrgSj0mliK59qU6W5gvBiKkdMEG2lJzhd1rCctf0hb6EtePPLZ2e0m1uw==}
+    peerDependencies:
+      '@types/react': ^16.8 || ^17.0 || ^18.0
+      '@types/react-dom': ^16.8 || ^17.0 || ^18.0
+      react: ^16.8 || ^17.0 || ^18.0
+      react-dom: ^16.8 || ^17.0 || ^18.0
+      react-native: '>=0.59'
+      redux: ^4
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      '@types/react-dom':
+        optional: true
+      react-dom:
+        optional: true
+      react-native:
+        optional: true
+      redux:
+        optional: true
+    dependencies:
+      '@babel/runtime': 7.21.0
+      '@types/hoist-non-react-statics': 3.3.1
+      '@types/react': 18.0.28
+      '@types/react-dom': 18.0.11
+      '@types/use-sync-external-store': 0.0.3
+      hoist-non-react-statics: 3.3.2
+      react: 18.2.0
+      react-dom: 18.2.0_react@18.2.0
+      react-is: 18.2.0
+      use-sync-external-store: 1.2.0_react@18.2.0
+
   /react-redux/8.0.5_pmekkgnqduwlme35zpnqhenc34:
     resolution: {integrity: sha512-Q2f6fCKxPFpkXt1qNRZdEDLlScsDWyrgSj0mliK59qU6W5gvBiKkdMEG2lJzhd1rCctf0hb6EtePPLZ2e0m1uw==}
     peerDependencies:
@@ -14209,6 +14243,7 @@ packages:
       react: 18.2.0
       react-is: 18.2.0
       use-sync-external-store: 1.2.0_react@18.2.0
+    dev: true
 
   /react-refresh/0.11.0:
     resolution: {integrity: sha512-F27qZr8uUqwhWZboondsPx8tnC3Ct3SxZA3V5WyEvujRyyNv0VYPhoBg1gZ8/MV5tubQp76Trw8lTv9hzRBa+A==}

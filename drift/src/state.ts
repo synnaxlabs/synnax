@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Dispatch } from "react";
+
 import type {
   Action,
   AnyAction,
@@ -16,14 +18,17 @@ import type {
 } from "@reduxjs/toolkit";
 import { createSlice } from "@reduxjs/toolkit";
 import type { NoInfer } from "@reduxjs/toolkit/dist/tsHelpers";
+import { XY, Dimensions } from "@synnaxlabs/x";
+
+import { log } from "./debug";
 
 import { Runtime } from "@/runtime";
-import { KeyedWindowProps, Window, WindowProps, WindowState } from "@/window";
+import { KeyedWindowProps, WindowState, WindowProps, WindowStage } from "@/window";
 
 /** The Slice State */
 export interface DriftState {
   key: string;
-  windows: Record<string, Window>;
+  windows: Record<string, WindowState>;
 }
 
 /** State of a store with a drift slice */
@@ -39,29 +44,55 @@ export type PreloadedState<S extends StoreState> = BasePreloadedState<
 // which raises an error on build.
 // eslint-disable-next-line @typescript-eslint/consistent-type-definitions
 type MaybeKeyPayload = { key?: string };
-interface KeyPayload {
+export interface KeyPayload {
   key: string;
+}
+export interface MaybeBooleanPayload {
+  value?: boolean;
 }
 type CreateWindowPayload = WindowProps;
 type CloseWindowPayload = MaybeKeyPayload;
+type SetWindowClosedPayload = MaybeKeyPayload;
+
+type FocusWindowPayload = MaybeKeyPayload;
+
+type SetWindowMinimizedPayload = MaybeKeyPayload & MaybeBooleanPayload;
+type SetWindowMaximizedPayload = MaybeKeyPayload & MaybeBooleanPayload;
+type SetWindowVisiblePayload = MaybeKeyPayload & MaybeBooleanPayload;
+type SetWindowFullScreenPayload = MaybeKeyPayload & MaybeBooleanPayload;
+type CenterWindowPayload = MaybeKeyPayload;
+type SetWindowPositionPayload = MaybeKeyPayload & XY;
+type SetWindowSizePayload = MaybeKeyPayload & Dimensions;
+type SetWindowMinSizePayload = MaybeKeyPayload & Dimensions;
+type SetWindowMaxSizePayload = MaybeKeyPayload & Dimensions;
+type SetWindowResizablePayload = MaybeKeyPayload & { resizable: boolean };
+type SetWindowSkipTaskbarPayload = MaybeKeyPayload & { skipTaskbar: boolean };
+type SetWindowAlwaysOnTopPayload = MaybeKeyPayload & { alwaysOnTop: boolean };
+type SetWindowTitlePayload = MaybeKeyPayload & { title: string };
+
 type SetWindowKeyPayload = KeyPayload;
-type SetWindowStatePayload = MaybeKeyPayload & { state: WindowState };
-type SetWindowPropsPayload = KeyPayload & Partial<WindowProps>;
+type SetWindowStatePayload = MaybeKeyPayload & { stage: WindowStage };
+type SetWindowPropsPayload = MaybeKeyPayload & Partial<WindowProps>;
+type SetWindowErrorPaylod = MaybeKeyPayload & { message: string };
 
 /** Type representing all possible actions that are drift related. */
 export type DriftAction = PayloadAction<
-  CreateWindowPayload | CloseWindowPayload | SetWindowStatePayload | MaybeKeyPayload
+  | CreateWindowPayload
+  | CloseWindowPayload
+  | SetWindowStatePayload
+  | MaybeKeyPayload
+  | SetWindowPropsPayload
+  | SetWindowErrorPaylod
+  | SetWindowKeyPayload
 >;
 
 export const initialState: DriftState = {
   key: "main",
   windows: {
     main: {
+      key: "main",
       processCount: 0,
-      state: "created",
-      props: {
-        key: "main",
-      },
+      stage: "created",
     },
   },
 };
@@ -87,113 +118,84 @@ const slice = createSlice({
       assertKey(payload);
       if (key == null) return;
       state.windows[key] = {
-        state: "creating",
+        stage: "creating",
         processCount: 0,
-        props: payload as KeyedWindowProps,
+        ...(payload as KeyedWindowProps),
       };
     },
-    setWindowState: (
-      { windows },
-      { payload }: PayloadAction<SetWindowStatePayload>
-    ) => {
-      const { key, state } = assertKey<SetWindowStatePayload>(payload);
-      windows[key].state = state;
+    setWindowStage: (state, { payload }: PayloadAction<SetWindowStatePayload>) => {
+      const { key, stage } = assertKey<SetWindowStatePayload>(payload);
+      state.windows[key].stage = stage;
     },
-    setWindowProps: (
-      { windows },
-      { payload }: PayloadAction<SetWindowPropsPayload>
-    ) => {
+    setWindowProps: (state, { payload }: PayloadAction<SetWindowPropsPayload>) => {
       const { key, ...props } = assertKey<SetWindowPropsPayload>(payload);
-      windows[key].props = { ...windows[key].props, ...props };
+      state.windows[key] = { ...state.windows[key], ...props };
     },
-    closeWindow: ({ windows }, { payload }: PayloadAction<CloseWindowPayload>) => {
+    closeWindow: (state, { payload }: PayloadAction<CloseWindowPayload>) => {
       const { key } = assertKey<CloseWindowPayload>(payload);
-      windows[key].state = "closing";
-      if (readyToClose(0, windows[key])) {
-        windows[key].state = "closed";
-      }
+      state.windows[key].stage = "closing";
     },
-    registerProcess: ({ windows }, { payload }: PayloadAction<MaybeKeyPayload>) => {
+    setWindowClosed: (state, { payload }: PayloadAction<SetWindowClosedPayload>) => {
+      const { key } = assertKey<SetWindowClosedPayload>(payload);
+      state.windows[key].stage = "closed";
+    },
+    registerProcess: (state, { payload }: PayloadAction<MaybeKeyPayload>) => {
       const { key } = assertKey<MaybeKeyPayload>(payload);
-      windows[key].processCount += 1;
+      state.windows[key].processCount += 1;
     },
-    completeProcess: ({ windows }, { payload }: PayloadAction<MaybeKeyPayload>) => {
+    completeProcess: (state, { payload }: PayloadAction<MaybeKeyPayload>) => {
       const { key } = assertKey<MaybeKeyPayload>(payload);
-      const win = windows[key];
-      win.processCount -= 1;
-      // If the window is closing and there are no more processes, mark it
-      // as closed.
-      if (readyToClose(0, win)) win.state = "closed";
+      state.windows[key].processCount -= 1;
     },
+    setWindowError: (state, { payload }: PayloadAction<SetWindowErrorPaylod>) => {
+      const { key, message } = assertKey<SetWindowErrorPaylod>(payload);
+      state.windows[key].error = message;
+    },
+    focusWindow: (_s, _a: PayloadAction<FocusWindowPayload>) => {},
+    setWindowMinimized: (_s, _a: PayloadAction<SetWindowMinimizedPayload>) => {},
+    setWindowMaximized: (_s, _a: PayloadAction<SetWindowMaximizedPayload>) => {},
+    setWindowVisible: (_s, _a: PayloadAction<SetWindowVisiblePayload>) => {},
+    setWindowFullscreen: (_s, _a: PayloadAction<SetWindowFullScreenPayload>) => {},
+    centerWindow: (_s, _a: PayloadAction<CenterWindowPayload>) => {},
+    setWindowPosition: (_s, _a: PayloadAction<SetWindowPositionPayload>) => {},
+    setWindowSize: (_s, _a: PayloadAction<SetWindowSizePayload>) => {},
+    setWindowMinSize: (_s, _a: PayloadAction<SetWindowMinSizePayload>) => {},
+    setWindowMaxSize: (_s, _a: PayloadAction<SetWindowMaxSizePayload>) => {},
+    setWindowResizable: (_s, _a: PayloadAction<SetWindowResizablePayload>) => {},
+    setWindowSkipTaskbar: (_s, _a: PayloadAction<SetWindowSkipTaskbarPayload>) => {},
+    setWindowAlwaysOnTop: (_s, _a: PayloadAction<SetWindowAlwaysOnTopPayload>) => {},
+    setWindowTitle: (_s, _a: PayloadAction<SetWindowTitlePayload>) => {},
   },
 });
 
-export const { reducer } = slice;
-
-const { actions } = slice;
-
-/**
- * Creates a new window with the given properties. Is a no-op if the window
- * already exists.
- *
- * @param props - The properties of the window to create.
- *
- * @returns an action that can be dispatched.
- */
-export const createWindow = (props: WindowProps): DriftAction =>
-  actions.createWindow(props);
-
-/**
- * Sets the state of the window with the given key.
- *
- * @param state - The state to set.
- * @param key - The key of the window to set the status of.
- * If not provided, the status of the current window is set.
- * @returns an action that can be dispatched.
- */
-export const setWindowState = (state: WindowState, key?: string): DriftAction =>
-  actions.setWindowState({ state, key });
-
-/**
- * Closes the window with the given key.
- *
- * @param key - The key of the window to close.
- * If not provided, the current window is closed.
- * @returns an action that can be dispatched.
- */
-export const closeWindow = (key?: string): DriftAction => actions.closeWindow({ key });
-
-/**
- * Sets the key of the current window.
- *
- * @param key - The key of the window to set as the current window.
- * @returns  an action that can be dispatched.
- */
-export const setWindowKey = (key: string): DriftAction => actions.setWindowKey({ key });
-
-/**
- * Registers a process that is running in the window with the given key.
- * The window will not be closed until the process is completed. This means
- * that completeProcess must be called for the window to be closed. This is
- * useful for shutting down processes gracefully.
- *
- * @param key - The key of the window to register the process in.
- * If not provided, the current window is used.
- * @returns an action that can be dispatched.
- */
-export const registerProcess = (key?: string): DriftAction =>
-  actions.registerProcess({ key });
-
-/**
- * Completes a process that was registered in the window with the given key.
- * Should only be called after registerProcess.
- *
- * @param key - The key of the window to complete the process in.
- * If not provided, the current window is used.
- * @returns an action that can be dispatched.
- */
-export const completeProcess = (key?: string): DriftAction =>
-  actions.completeProcess({ key });
+export const {
+  reducer,
+  actions: {
+    setWindowKey,
+    createWindow,
+    setWindowStage,
+    setWindowProps,
+    closeWindow,
+    setWindowClosed,
+    registerProcess,
+    completeProcess,
+    setWindowError,
+    focusWindow,
+    setWindowMinimized,
+    setWindowMaximized,
+    setWindowVisible,
+    setWindowFullscreen,
+    centerWindow,
+    setWindowPosition,
+    setWindowSize,
+    setWindowMinSize,
+    setWindowMaxSize,
+    setWindowResizable,
+    setWindowSkipTaskbar,
+    setWindowAlwaysOnTop,
+    setWindowTitle,
+  },
+} = slice;
 
 /**
  * @returns true if the given action type is a drift action.
@@ -202,7 +204,7 @@ export const completeProcess = (key?: string): DriftAction =>
 export const isDrift = (type: string): boolean => type.startsWith(DRIFT_SLICE_NAME);
 
 /** A list of actions that shouldn't be emitted to other windows. */
-const EXCLUDED_ACTIONS: readonly string[] = [actions.setWindowKey.type];
+const EXCLUDED_ACTIONS: readonly string[] = [setWindowKey.type];
 
 /**
  * @returns true if the action with the given type should be emitted to other
@@ -213,17 +215,6 @@ const EXCLUDED_ACTIONS: readonly string[] = [actions.setWindowKey.type];
  */
 export const shouldEmit = (emitted: boolean, type: string): boolean =>
   !emitted && !EXCLUDED_ACTIONS.includes(type);
-
-/**
- * Evaluates whether a window is ready to be closed.
- *
- * @param threshold - The maximum number of processes that can be running
- * before the window is considered ready to close.
- * @param state - The current state of the window.
- * @returns true if the window is ready to be closed.
- */
-const readyToClose = (threshold: number, state?: Window): boolean =>
-  state == null || (state.processCount <= threshold && state.state === "closing");
 
 /**
  * Conditionally returns a default key for a given action.
@@ -238,8 +229,7 @@ export const assignKey = <S extends StoreState, A extends Action>(
   { drift: { windows } }: S
 ): string => {
   if (key != null) return key;
-  if (type === actions.createWindow.type)
-    return `window-${Object.keys(windows).length + 1}`;
+  if (type === createWindow.type) return `window-${Object.keys(windows).length + 1}`;
   return runtime.key();
 };
 
@@ -250,36 +240,153 @@ export const assignKey = <S extends StoreState, A extends Action>(
  * @param action - The action to execute.
  * @param state - The current state of the store.
  */
-export const executeAction = <S extends StoreState, A extends Action = AnyAction>(
+export const processAction = <S extends StoreState, A extends Action = AnyAction>(
   runtime: Runtime<S, A>,
   { type, payload }: DriftAction,
-  { drift: { windows } }: S
+  { drift: { windows } }: S,
+  dispatch: Dispatch<A | DriftAction>,
+  debug: boolean = false
 ): void => {
   const { key } = payload;
   if (key == null) throw new Error("[drift] - bug - action doesn't have a key");
 
+  if (type === createWindow.type) {
+    if (!runtime.isMain()) return;
+    // If we've already created a window with this key, focus it.
+    const existing = windows[key];
+    const shouldCreate = existing == null || existing.stage === "closed";
+    log(debug, "createWindow", { key, shouldCreate });
+    if (shouldCreate) runtime.create(payload as KeyedWindowProps);
+    else runExec(runtime.focus(), dispatch, setWindowProps({ key, focus: true }));
+    return;
+  }
+
+  const win = windows[key];
+  if (win == null)
+    return console.error(`[drift] - window with key ${key} doesn't exist`);
+
   switch (type) {
-    case actions.createWindow.type: {
-      // If we've already created a window with this key, focus it.
-      if (!runtime.exists(key)) runtime.create(payload as KeyedWindowProps);
-      else runtime.focus(key);
-      break;
-    }
-    case actions.closeWindow.type: {
+    case closeWindow.type: {
+      if (!runtime.isMain()) return;
       // If no processes are running, close the window immediately.
       // Execute a close request even if we can't find the window in state.
       // This is mainly to deal with redux state being out of sync with the
       // window state.
-      const win = windows[key] as Window | undefined;
-      if (win == null || win.processCount <= 0) runtime.close(key);
-      break;
+      log(debug, "closeWindow", { key, win });
+      if (win == null || win.processCount <= 0)
+        runExec(runtime.close(key), dispatch, setWindowClosed({ key }));
+      return;
     }
-    case actions.completeProcess.type: {
+    case completeProcess.type: {
+      if (!runtime.isMain()) return;
       // If no processes are running, close the window. Threshold
       // set at 1 because we haven't yet updated the state to include the last
       // closure.
       const win = windows[key];
-      if (win.processCount <= 1 && win.state === "closing") runtime.close(key);
+      if (win.processCount <= 1 && win.stage === "closing")
+        runExec(runtime.close(key), dispatch, setWindowClosed({ key }));
+      return;
     }
   }
+
+  if (runtime.key() !== key) return;
+
+  switch (type) {
+    case focusWindow.type: {
+      log(debug, "focusWindow", { key });
+      runExec(runtime.focus(), dispatch, setWindowProps({ key, focus: true }));
+      break;
+    }
+    case setWindowFullscreen.type: {
+      const { value } = payload as SetWindowFullScreenPayload;
+      const fullscreen = value ?? !(win.fullscreen ?? false);
+      log(debug, "fullscreenWindow", { key, fullscreen });
+      runExec(
+        runtime.setFullscreen(fullscreen),
+        dispatch,
+        setWindowProps({ key, fullscreen })
+      );
+      break;
+    }
+    case setWindowMinimized.type: {
+      const { value } = payload as SetWindowMinimizedPayload;
+      const minimized = value ?? !(win.visible ?? false);
+      log(debug, "minimizeWindow", { key, minimized });
+      runExec(
+        runtime.setMinimized(minimized),
+        dispatch,
+        setWindowProps({ key, visible: minimized })
+      );
+      break;
+    }
+    case setWindowMaximized.type: {
+      const { value } = payload as SetWindowMaximizedPayload;
+      const maximized = value ?? !(win.maximized ?? false);
+      log(debug, "maximizeWindow", { key, maximized });
+      runExec(
+        runtime.setMaximized(maximized),
+        dispatch,
+        setWindowProps({ key, maximized })
+      );
+      break;
+    }
+    case setWindowVisible.type: {
+      const { value } = payload as SetWindowVisiblePayload;
+      const visible = value ?? !(win.visible ?? false);
+      log(debug, "showWindow", { key, visible });
+      runExec(runtime.setVisible(visible), dispatch, setWindowProps({ key, visible }));
+      break;
+    }
+    case setWindowPosition.type: {
+      const pos = payload as SetWindowPositionPayload;
+      log(debug, "setWindowPosition", { key, ...pos });
+      runExec(runtime.setPosition(pos), dispatch, setWindowProps({ key, ...pos }));
+      break;
+    }
+    case setWindowSize.type: {
+      const dims = payload as SetWindowSizePayload;
+      log(debug, "setWindowSize", { key, ...dims });
+      runExec(runtime.setSize(dims), dispatch, setWindowProps({ key, ...dims }));
+      break;
+    }
+    case setWindowMinSize.type: {
+      const dims = payload as SetWindowMinSizePayload;
+      log(debug, "setWindowMinSize", { key, ...dims });
+      runExec(
+        runtime.setMinSize(dims),
+        dispatch,
+        setWindowProps({ key, minWidth: dims.width, minHeight: dims.height })
+      );
+      break;
+    }
+    case setWindowMaxSize.type: {
+      const dims = payload as SetWindowMaxSizePayload;
+      log(debug, "setWindowMaxSize", { key, ...dims });
+      runExec(
+        runtime.setMaxSize(dims),
+        dispatch,
+        setWindowProps({ key, maxWidth: dims.width, maxHeight: dims.height })
+      );
+      break;
+    }
+    case setWindowTitle.type: {
+      const { title } = payload as SetWindowTitlePayload;
+      log(debug, "setWindowTitle", { key, title });
+      runExec(runtime.setTitle(title), dispatch, setWindowProps({ key, title }));
+      break;
+    }
+    case centerWindow.type: {
+      log(debug, "centerWindow", { key });
+      runExec(runtime.center(), dispatch, setWindowProps({ key, center: true }));
+      break;
+    }
+  }
+};
+
+export const runExec = (
+  result: Promise<void>,
+  dispatch: Dispatch<DriftAction>,
+  success: DriftAction
+): void => {
+  result.then(() => dispatch(success)).catch((e) => dispatch(setWindowError(e)));
 };

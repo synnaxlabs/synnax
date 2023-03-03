@@ -9,11 +9,11 @@
 
 import { CSSProperties, ForwardedRef, forwardRef } from "react";
 
+import { Direction } from "@synnaxlabs/x";
 import clsx from "clsx";
 
 import { Generic, GenericProps } from "../Generic";
 
-import { Direction } from "@/spatial";
 import { ComponentSize } from "@/util/component";
 
 import "./Space.css";

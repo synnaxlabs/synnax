@@ -9,15 +9,14 @@
 
 import { forwardRef, RefObject, useCallback, useRef, useState } from "react";
 
+import { YLocation } from "@synnaxlabs/x";
 import clsx from "clsx";
-
-import { Space, SpaceProps } from "@/core/Space";
 
 import { Pack } from "../Pack";
 
+import { Space, SpaceProps } from "@/core/Space";
 import { locationCls, visibleCls } from "@/css";
 import { useClickOutside } from "@/hooks";
-import { YLocation } from "@/spatial";
 
 import "./Dropdown.css";
 

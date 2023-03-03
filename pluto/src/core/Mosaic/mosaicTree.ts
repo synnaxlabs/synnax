@@ -10,7 +10,7 @@
 import { MosaicNode } from "./types";
 
 import { Tab, Tabs } from "@/core/Tabs";
-import { Direction, Location, Order } from "@/spatial";
+import { Direction, Location, Order } from "@synnaxlabs/x";
 
 const TabNotFound = new Error("Tab not found");
 const InvalidMosaic = new Error("Invalid Mosaic");

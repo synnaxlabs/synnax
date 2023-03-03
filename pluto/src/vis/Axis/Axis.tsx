@@ -9,13 +9,11 @@
 
 import { useMemo } from "react";
 
-import { TimeStamp } from "@synnaxlabs/x";
+import { TimeStamp, OuterLocation, XY, ZERO_XY, Scale } from "@synnaxlabs/x";
 import clsx from "clsx";
 import { scaleLinear, scaleTime } from "d3";
 
 import { fRotate, fTranslate, locationRotations } from "../util/svg";
-
-import { OuterLocation, XY, ZERO_XY, Scale } from "@/spatial";
 
 import "./Axis.css";
 

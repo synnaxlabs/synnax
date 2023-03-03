@@ -9,10 +9,14 @@
 
 import { RefCallback, useCallback, useEffect, useRef, useState } from "react";
 
-import { debounce as debounceF } from "@synnaxlabs/x";
-
-import { Box, BoxF, ZERO_BOX } from "./box";
-import { Direction, isDirection } from "./core";
+import {
+  debounce as debounceF,
+  Box,
+  BoxF,
+  ZERO_BOX,
+  Direction,
+  isDirection,
+} from "@synnaxlabs/x";
 
 import { compareArrayDeps, useMemoCompare } from "@/hooks";
 

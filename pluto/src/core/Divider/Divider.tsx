@@ -9,9 +9,8 @@
 
 import { HTMLAttributes, PropsWithChildren } from "react";
 
+import { Direction } from "@synnaxlabs/x";
 import clsx from "clsx";
-
-import { Direction } from "@/spatial";
 
 import "./Divider.css";
 

@@ -7,18 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Transform, XY } from "@synnaxlabs/x";
+
 import { StaticCompiler } from "../compiler";
 import { errorUnsupported } from "../errors";
 import { GLContext, GLRenderer } from "../renderer";
 import { ScissoredRenderRequest } from "../scissor";
 
-import { RGBATuple } from "@/color";
-import { Transform, XY } from "@/spatial";
-
 // eslint-disable-next-line import/no-unresolved
 import fragShader from "./frag.glsl?raw";
 // eslint-disable-next-line import/no-unresolved
 import vertShader from "./vert.glsl?raw";
+
+import { RGBATuple } from "@/color";
 
 const shaderVars = {
   scissor: {

@@ -9,10 +9,17 @@
 
 import { createContext, FunctionComponent, useContext } from "react";
 
+import {
+  Location,
+  Position,
+  swapLoc,
+  swapDir,
+  locToDir,
+  dirToDim,
+} from "@synnaxlabs/x";
 import clsx from "clsx";
 
 import { Space, SpaceProps } from "@/core/Space";
-import { Location, Position, swapLoc, swapDir, locToDir, dirToDim } from "@/spatial";
 
 import "./Navbar.css";
 
