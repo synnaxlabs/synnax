@@ -9,13 +9,12 @@
 
 import { ReactElement, useCallback, useState } from "react";
 
+import { locToDir } from "@synnaxlabs/x";
 import clsx from "clsx";
-
-import { Resize, ResizeProps } from "@/core/Resize";
 
 import { NavbarProps } from "./Navbar";
 
-import { locToDir } from "@/spatial";
+import { Resize, ResizeProps } from "@/core/Resize";
 
 import "./Navdrawer.css";
 

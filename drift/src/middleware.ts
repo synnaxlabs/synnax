@@ -10,12 +10,19 @@
 import type { Action, AnyAction, Dispatch, Middleware } from "@reduxjs/toolkit";
 import type { CurriedGetDefaultMiddleware } from "@reduxjs/toolkit/dist/getDefaultMiddleware";
 
-import { StoreState, assignKey, executeAction, isDrift, shouldEmit } from "./state";
+import { log } from "./debug";
+import {
+  StoreState,
+  assignKey,
+  processAction,
+  isDrift,
+  shouldEmit,
+  DriftAction,
+} from "./state";
 import { desugar } from "./sugar";
+import { validateAction } from "./validate";
 
 import { Runtime } from "@/runtime";
-
-import { validateAction } from "./validate";
 
 export type Middlewares<S> = ReadonlyArray<Middleware<{}, S>>;
 
@@ -30,9 +37,10 @@ export type Middlewares<S> = ReadonlyArray<Middleware<{}, S>>;
  */
 export const middleware =
   <S extends StoreState, A extends Action = AnyAction>(
-    runtime: Runtime<S, A>
-  ): Middleware<Record<string, never>, S, Dispatch<A>> =>
-  ({ getState }) =>
+    runtime: Runtime<S, A>,
+    debug?: boolean
+  ): Middleware<Record<string, never>, S, Dispatch<A | DriftAction>> =>
+  ({ getState, dispatch }) =>
   (next) =>
   (action_) => {
     // eslint-disable-next-line prefer-const
@@ -40,13 +48,20 @@ export const middleware =
 
     validateAction({ action: action_, emitted, emitter });
 
+    log(debug, "[drift] - middleware", {
+      action,
+      emitted,
+      emitter,
+      window: runtime.key(),
+    });
+
     // The action is recirculating from our own relay.
     if (emitter === runtime.key()) return;
 
     if (isDrift(action.type)) {
       const state = getState();
       if (!emitted) action.payload.key = assignKey(runtime, action, state);
-      if (runtime.isMain()) executeAction(runtime, action, state);
+      processAction(runtime, action, state, dispatch, debug);
     }
 
     const res = next(action);
@@ -69,10 +84,11 @@ export const configureMiddleware = <
   M extends Middlewares<S> = Middlewares<S>
 >(
   mw: M | ((def: CurriedGetDefaultMiddleware<S>) => M) | undefined,
-  runtime: Runtime<S, A>
+  runtime: Runtime<S, A>,
+  debug: boolean = false
 ): ((def: CurriedGetDefaultMiddleware<S>) => M) => {
   return (def) => {
     const base = mw != null ? (typeof mw === "function" ? mw(def) : mw) : def();
-    return [...base, middleware<S, A>(runtime)] as unknown as M;
+    return [...base, middleware<S, A>(runtime, debug)] as unknown as M;
   };
 };

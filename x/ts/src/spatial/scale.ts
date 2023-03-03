@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { clamp } from "@synnaxlabs/x";
-
 import { Box } from "./box";
 import {
   bound,
@@ -20,6 +18,8 @@ import {
   toXY,
   XY,
 } from "./core";
+
+import { clamp } from "@/clamp";
 
 export type ScaleBound = "domain" | "range";
 
@@ -47,7 +47,7 @@ const curriedTranslate =
 
 const curriedMagnify =
   (magnify: number): Operation =>
-  (currScale, type, v, reverse) =>
+  (currScale, _type, v, reverse) =>
     [currScale, reverse ? v / magnify : v * magnify];
 
 const curriedScale =

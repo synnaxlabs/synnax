@@ -10,7 +10,8 @@
 import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
 import { Mosaic, Theming } from "@synnaxlabs/pluto";
-import type { MosaicNode, Location, Theme } from "@synnaxlabs/pluto";
+import type { MosaicNode, Theme } from "@synnaxlabs/pluto";
+import { Location } from "@synnaxlabs/x";
 
 import { Layout } from "../types";
 

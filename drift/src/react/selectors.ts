@@ -14,7 +14,7 @@ import { useSelector } from "react-redux";
 
 import { StoreState } from "../state";
 
-import { Window, WindowState } from "@/window";
+import { WindowState, WindowStage } from "@/window";
 
 /**
  * Selects the status of the window with the given key.
@@ -23,11 +23,11 @@ import { Window, WindowState } from "@/window";
  * If not provided, the status of the current window is selected.
  * @returns The status of the window.
  */
-export const useSelectWindowState = (key?: string): WindowState =>
+export const useSelectWindowState = (key?: string): WindowStage =>
   useSelector(
     useCallback(
       memoize((state: StoreState) => {
-        return state.drift.windows[key ?? state.drift.key].state;
+        return state.drift.windows[key ?? state.drift.key].stage;
       }),
       [key]
     )
@@ -40,7 +40,7 @@ export const useSelectWindowState = (key?: string): WindowState =>
  * If not provided, the current window is selected.
  * @returns The window.
  */
-export const useSelectWindow = (key?: string): Window =>
+export const useSelectWindow = (key?: string): WindowState =>
   useSelector(
     useCallback(
       memoize((state: StoreState) => state.drift.windows[key ?? state.drift.key]),

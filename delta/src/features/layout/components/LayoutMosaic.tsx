@@ -10,8 +10,8 @@
 import { useCallback } from "react";
 
 import { Logo } from "@synnaxlabs/media";
-import type { Location } from "@synnaxlabs/pluto";
 import { Mosaic as PlutoMosaic, useDebouncedCallback } from "@synnaxlabs/pluto";
+import type { Location } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 
 import {

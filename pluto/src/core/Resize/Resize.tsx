@@ -9,16 +9,16 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { clamp } from "@synnaxlabs/x";
+import { clamp, Box, locToDir, Location } from "@synnaxlabs/x";
 import { clsx } from "clsx";
-
-import { expandedCls } from "@/css";
-import { Box, locToDir, Location } from "@/spatial";
-import { useCursorDrag } from "@/spatial/useCursorDrag";
 
 import { ResizePanel, ResizePanelProps } from "./ResizePanel";
 
+import { expandedCls } from "@/css";
+
 import "./Resize.css";
+
+import { useCursorDrag } from "@/hooks/useCursorDrag";
 
 /** Props for the {@link Resize} component. */
 export interface ResizeProps

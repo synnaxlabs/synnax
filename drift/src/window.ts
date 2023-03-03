@@ -8,18 +8,17 @@
 // included in the file licenses/APL.txt.
 
 /** Represents the state of a window in it's lifecycle  */
-export type WindowState = "creating" | "created" | "closing" | "closed";
+export type WindowStage = "creating" | "created" | "closing" | "closed";
 
 export const MAIN_WINDOW = "main";
 
-/** Properties of a window managed by drift  */
-export interface Window {
-  /** Lifecycle state */
-  state: WindowState;
+/** State of a window managed by drift  */
+export interface WindowState extends KeyedWindowProps {
+  /** Lifecycle stage */
+  stage: WindowStage;
   /** Number of active processes */
   processCount: number;
-  /** The props the  was created with */
-  props: KeyedWindowProps;
+  error?: string;
 }
 
 /**

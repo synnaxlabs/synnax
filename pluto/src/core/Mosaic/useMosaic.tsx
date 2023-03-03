@@ -19,7 +19,7 @@ import {
 } from "./mosaicTree";
 import { MosaicNode } from "./types";
 
-import { Location } from "@/spatial";
+import { Location } from "@synnaxlabs/x";
 
 export interface UseMosaicProps {
   allowRename?: boolean;

@@ -13,13 +13,29 @@ export {
   reducer,
   createWindow,
   closeWindow,
+  setWindowMinimized,
+  setWindowMaximized,
+  setWindowFullscreen,
+  setWindowVisible,
+  setWindowPosition,
+  setWindowSize,
+  setWindowAlwaysOnTop,
+  setWindowMinSize,
+  setWindowMaxSize,
+  setWindowResizable,
+  setWindowTitle,
+  setWindowSkipTaskbar,
   registerProcess,
   completeProcess,
   initialState,
   DRIFT_SLICE_NAME,
 } from "@/state";
 export type { StoreState as DriftStoreState, DriftState } from "@/state";
-export type { WindowProps, WindowState, Window } from "@/window";
+export type {
+  WindowProps,
+  WindowStage as WindowState,
+  WindowState as Window,
+} from "@/window";
 export { MAIN_WINDOW } from "@/window";
-export { Provider, useWindowLifecycle } from "@/react";
+export { Provider, useWindowLifecycle, useSelectWindow } from "@/react";
 export { TauriRuntime } from "@/tauri";

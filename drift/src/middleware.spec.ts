@@ -13,7 +13,7 @@ import { describe, expect, it, vi } from "vitest";
 import { configureMiddleware, middleware } from "./middleware";
 import { MockRuntime } from "./mock/runtime";
 
-import { closeWindow, initialState, setWindowState } from "@/state";
+import { initialState, setWindowStage } from "@/state";
 
 const state = {
   drift: initialState,
@@ -66,7 +66,7 @@ describe("middleware", () => {
         const runtime = new MockRuntime(false);
         const mw = middleware(runtime)(store);
         const next = vi.fn();
-        mw(next)(setWindowState("created"));
+        mw(next)(setWindowStage({ stage: "created" }));
         expect(next).toHaveBeenCalledWith({
           type: "drift/setWindowState",
           payload: {
@@ -94,32 +94,6 @@ describe("middleware", () => {
             state: "created",
           },
         });
-      });
-    });
-    describe("action execution", () => {
-      it("should call executeAction if the runtime is main", () => {
-        const store = { getState: () => state, dispatch: vi.fn() };
-        const runtime = new MockRuntime(true);
-        const mw = middleware(runtime)(store);
-        const next = vi.fn();
-        mw(next)(closeWindow("test"));
-        expect(runtime.hasClosed.includes("test")).toBe(true);
-      });
-      it("should not call executeAction if the runtime is not main", () => {
-        const store = { getState: () => state, dispatch: vi.fn() };
-        const runtime = new MockRuntime(false);
-        const mw = middleware(runtime)(store);
-        const next = vi.fn();
-        mw(next)(closeWindow("test"));
-        expect(runtime.hasClosed.includes("test")).toBe(false);
-      });
-      it("should not call executeAction if the action is not a drift action", () => {
-        const store = { getState: () => state, dispatch: vi.fn() };
-        const runtime = new MockRuntime(true);
-        const mw = middleware(runtime)(store);
-        const next = vi.fn();
-        mw(next)({ type: "test" });
-        expect(runtime.hasClosed.includes("test")).toBe(false);
       });
     });
   });

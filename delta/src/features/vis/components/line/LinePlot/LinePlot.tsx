@@ -13,26 +13,29 @@ import { SampleValue } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   hexToRGBA,
-  useResize,
-  Box,
   AxisProps,
   GLLine,
-  ZERO_BOX,
   GLLines,
   Axis,
   Viewport,
   UseViewportHandler,
-  Scale,
-  Bound,
-  DECIMAL_BOX,
   Theme,
   Space,
   Typography,
   Menu as PMenu,
-  ZERO_BOUND,
   Divider,
+  useResize,
 } from "@synnaxlabs/pluto";
-import { addSamples, TimeRange } from "@synnaxlabs/x";
+import {
+  addSamples,
+  Bound,
+  Box,
+  DECIMAL_BOX,
+  Scale,
+  TimeRange,
+  ZERO_BOUND,
+  ZERO_BOX,
+} from "@synnaxlabs/x";
 
 import { AxisKey, X_AXIS_KEYS, YAxisKey, Y_AXIS_KEYS } from "../../../../vis/types";
 import { TelemetryClient, TelemetryClientResponse } from "../../../telem/client";
@@ -106,7 +109,7 @@ export const LinePlot = ({
     } catch (error) {
       setData({ data: { ...ZERO_DATA }, error: error as Error });
     }
-  }, [vis, tick, client]);
+  }, [vis, client]);
 
   useEffect(() => {
     if (theme == null) return;
@@ -202,18 +205,19 @@ export const LinePlot = ({
                 void navigator.clipboard.writeText(code);
               }}
             >
-              Copy Time Range as Python
+              Copy Range as Python
             </PMenu.Item>
             <PMenu.Item
               size="small"
               itemKey="copyTS"
+              startIcon={<Icon.Typescript />}
               onClick={() => {
                 const tr = getTimeRange();
                 const code = `new TimeRange(${tr.start.valueOf()}, ${tr.end.valueOf()})`;
                 void navigator.clipboard.writeText(code);
               }}
             >
-              Copy Time Range as TypeScript
+              Copy Range as TypeScript
             </PMenu.Item>
             <PMenu.Item
               size="small"
@@ -228,7 +232,7 @@ export const LinePlot = ({
                 void navigator.clipboard.writeText(code);
               }}
             >
-              Copy Time Range as ISO
+              Copy Range as ISO
             </PMenu.Item>
             <Divider direction="x" padded />
           </>

@@ -1,0 +1,67 @@
+/*
+ * Copyright 2023 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.pluto-macos-controls:hover:not(:disabled) svg {
+    display: block;
+}
+
+.pluto-macos-control {
+    border-radius: 50%;
+    height: 12px;
+    width: 12px;
+    border-width: 1px;
+    border-style: solid;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+}
+
+.pluto-macos-controls--blurred .pluto-macos-control {
+    background-color: var(--pluto-gray-m2);
+    border-color: var(--pluto-gray-m2);
+}
+
+.pluto-macos-control svg {
+    width: 80%;
+    height: 80%;
+    display: none;
+}
+
+.pluto-macos-control:disabled {
+    border: none
+}
+
+.pluto-macos-control--close,.pluto-macos-control--close:hover {
+    border-color: #df4744;
+    background-color: #fc5753;
+}
+
+.pluto-macos-control--minimize,.pluto-macos-control--minimize:hover {
+    border-color: #de9f34;
+    background-color: #fdbc40;
+}
+
+.pluto-macos-control--maximize,.pluto-macos-control--maximize:hover {
+    border-color: #27aa35;
+    background-color: #36c84b;
+}
+
+.pluto-macos-control--disabled {
+    background-color: var(--pluto-gray-m2);
+    border-color: var(--pluto-gray-m2);
+}
+
+.pluto-macos-control:active {
+    /* add a white filter */
+    filter: brightness(1.4);
+}

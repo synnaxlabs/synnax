@@ -10,11 +10,10 @@
 import { useState } from "react";
 
 import { ComponentMeta } from "@storybook/react";
+import { Box, DECIMAL_BOX, BoxScale } from "@synnaxlabs/x";
 
 import { Viewport } from ".";
 
-import { Box, DECIMAL_BOX } from "@/spatial";
-import { BoxScale } from "@/spatial/scale";
 import { Triggers } from "@/triggers";
 
 const story: ComponentMeta<typeof Viewport.Mask> = {

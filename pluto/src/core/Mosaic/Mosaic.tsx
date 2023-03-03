@@ -9,12 +9,12 @@
 
 import React, { useState, memo, useCallback } from "react";
 
-import { Resize } from "@/core/Resize";
+import { Location } from "@synnaxlabs/x";
 
 import { MosaicNode } from "./types";
 
+import { Resize } from "@/core/Resize";
 import { Tab, Tabs, TabsProps } from "@/core/Tabs";
-import { Location } from "@/spatial";
 import { preventDefault } from "@/util/event";
 
 import "./Mosaic.css";

@@ -10,13 +10,13 @@
 import { ReactElement, RefObject } from "react";
 
 import { Icon } from "@synnaxlabs/media";
+import { Box, Direction } from "@synnaxlabs/x";
 import clsx from "clsx";
 
 import { ButtonIconProps } from "@/core/Button";
 import { Header } from "@/core/Header";
 import { Resize, ResizeMultipleProps } from "@/core/Resize";
 import { expandedCls } from "@/css";
-import { Box, Direction } from "@/spatial";
 
 import "./Accordion.css";
 

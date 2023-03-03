@@ -9,8 +9,7 @@
 
 import { RefObject, useCallback, useRef } from "react";
 
-import { Box } from "../spatial/box";
-import { ClientXY, toXY, XY, ZERO_XY } from "../spatial/core";
+import { Box, ClientXY, toXY, XY, ZERO_XY } from "@synnaxlabs/x";
 
 import { TriggerCallback, TriggerEvent, useTrigger } from "./TriggersContext";
 import { Trigger } from "./types";

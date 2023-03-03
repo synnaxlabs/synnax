@@ -2,16 +2,11 @@ import { useEffect, useState } from "react";
 
 import { OS } from "@synnaxlabs/x";
 
-export const useOS = (): OS | null => {
-  const [os, setOS] = useState<OS | null>(null);
-  useEffect(() => {
-    const os = getOS();
-    setOS(os);
-  }, []);
-  return os;
-};
+export const useOS = (force?: OS, default_: OS | null = null): OS | null =>
+  getOS(force, default_);
 
-export const getOS = (): OS | null => {
+export const getOS = (force?: OS, default_: OS | null = null): OS | null => {
+  if (force != null) return force;
   if (typeof window === "undefined") return null;
   const userAgent = window.navigator.userAgent.toLowerCase();
   if (userAgent.includes("mac")) {
@@ -21,5 +16,5 @@ export const getOS = (): OS | null => {
   } else if (userAgent.includes("linux")) {
     return "Linux";
   }
-  return null;
+  return default_;
 };

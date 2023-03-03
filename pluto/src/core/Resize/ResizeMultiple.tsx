@@ -18,12 +18,12 @@ import {
   RefObject,
 } from "react";
 
+import { Box, ClientXY, Direction, locFromDir } from "@synnaxlabs/x";
 import clsx from "clsx";
 
 import { ResizePanel } from "./ResizePanel";
 
 import { Space, SpaceProps } from "@/core/Space";
-import { Box, ClientXY, Direction, locFromDir } from "@/spatial";
 
 import "./ResizeMultiple.css";
 

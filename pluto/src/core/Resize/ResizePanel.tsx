@@ -9,9 +9,9 @@
 
 import { DetailedHTMLProps, HTMLAttributes } from "react";
 
+import { Location, locToDir, swapLoc, dirToDim } from "@synnaxlabs/x";
 import clsx from "clsx";
 
-import { Location, locToDir, swapLoc, dirToDim } from "@/spatial";
 import { preventDefault } from "@/util/event";
 
 export interface ResizePanelProps

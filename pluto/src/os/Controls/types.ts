@@ -7,16 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Location, XY } from "@synnaxlabs/x";
+import { OS } from "@synnaxlabs/x";
 
-export const fTranslate = (v: XY): string => `translate(${v.x}, ${v.y})`;
+import { SpaceProps } from "@/core";
 
-export const fRotate = (v: number): string => `rotate(${v})`;
+export type ControlVariant = "close" | "minimize" | "maximize";
 
-export const locationRotations: Record<Location, number> = {
-  bottom: 180,
-  top: 0,
-  left: -90,
-  right: 90,
-  center: 0,
-};
+export interface OSControlsProps extends SpaceProps {
+  forceOS?: OS;
+  disabled?: ControlVariant[];
+  focused?: boolean;
+  onMinimize?: () => void;
+  onMaximize?: () => void;
+  onFullscreen?: () => void;
+  onClose?: () => void;
+}

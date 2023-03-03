@@ -10,15 +10,16 @@
 import { Logo } from "@synnaxlabs/media";
 import {
   Divider,
-  locToDir,
   Nav,
   Menu as PMenu,
   MenuProps as PMenuProps,
 } from "@synnaxlabs/pluto";
+import { locToDir } from "@synnaxlabs/x";
 import clsx from "clsx";
 
 import { NAV_SIZES } from "./constants";
 
+import { Controls } from "@/components";
 import { ClusterBadge, ClusterToolbar, ConnectionBadge } from "@/features/cluster";
 import {
   NavDrawerItem,
@@ -46,7 +47,12 @@ export const NAV_DRAWERS: NavDrawerItem[] = [
  */
 export const NavTop = (): JSX.Element => (
   <Nav.Bar data-tauri-drag-region location="top" size={NAV_SIZES.top}>
-    <Nav.Bar.End style={{ padding: "0 2rem" }}></Nav.Bar.End>
+    <Nav.Bar.Start className="delta-main-nav-top__start">
+      <Controls className="delta-controls--macos" visibleIfOS="MacOS" />
+    </Nav.Bar.Start>
+    <Nav.Bar.End>
+      <Controls className="delta-controls--windows" visibleIfOS="Windows" />
+    </Nav.Bar.End>
   </Nav.Bar>
 );
 

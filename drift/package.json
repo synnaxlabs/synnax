@@ -38,6 +38,7 @@
     "@reduxjs/toolkit": "^1.9.3",
     "@synnaxlabs/tsconfig": "workspace:*",
     "@synnaxlabs/vite-plugin": "workspace:*",
+    "@synnaxlabs/x": "workspace:*",
     "@tauri-apps/api": "^1.1.0",
     "@types/react": "^18.0.26",
     "eslint-config-synnaxlabs": "workspace:*",

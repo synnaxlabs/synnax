@@ -19,11 +19,9 @@ import {
   MutableRefObject,
 } from "react";
 
-import { comparePrimitiveArrays } from "@synnaxlabs/x";
+import { comparePrimitiveArrays, toXY, XY, ZERO_XY } from "@synnaxlabs/x";
 
 import { Key, Modifier, Stage, Trigger } from "./types";
-
-import { toXY, XY, ZERO_XY } from "@/spatial";
 
 export interface TriggerEvent {
   target: HTMLElement;

@@ -9,6 +9,7 @@
 
 import { forwardRef, Ref } from "react";
 
+import { Direction } from "@synnaxlabs/x";
 import clsx from "clsx";
 import {
   UseControllerProps,
@@ -17,22 +18,18 @@ import {
   FieldPath,
 } from "react-hook-form";
 
-import { Pack } from "@/core/Pack";
-import { Space, SpaceAlignment, SpaceExtensionProps } from "@/core/Space";
-import { Direction } from "@/spatial";
-import { camelToTitle } from "@/util/case";
-import { RenderProp } from "@/util/renderProp";
-
 import { Input } from "./Input";
-
-import { toArray } from "@/util/toArray";
-
 import { InputHelpText } from "./InputHelpText";
-
-import "./InputItem.css";
-
 import { InputLabel } from "./InputLabel";
 import { InputBaseProps, InputControl, InputValue } from "./types";
+
+import { Pack } from "@/core/Pack";
+import { Space, SpaceAlignment, SpaceExtensionProps } from "@/core/Space";
+import { camelToTitle } from "@/util/case";
+import { RenderProp } from "@/util/renderProp";
+import { toArray } from "@/util/toArray";
+
+import "./InputItem.css";
 
 interface RenderComponent<P> {
   render: RenderProp<P>;

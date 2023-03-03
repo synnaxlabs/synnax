@@ -22,3 +22,4 @@ export * from "@/runtime";
 export * from "@/unique";
 export * from "@/kv";
 export * from "@/cache";
+export * from "@/spatial";

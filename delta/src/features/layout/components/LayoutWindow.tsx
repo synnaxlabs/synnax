@@ -14,10 +14,19 @@ import { useSelectLayout } from "../store";
 
 import { LayoutContent } from "./LayoutContent";
 
+import { Controls } from "@/components";
+
 import "./LayoutWindow.css";
 
 export const NavTop = (): JSX.Element => (
-  <Nav.Bar data-tauri-drag-region location="top" size="6rem" />
+  <Nav.Bar data-tauri-drag-region location="top" size={"6rem"}>
+    <Nav.Bar.Start className="delta-main-nav-top__start">
+      <Controls className="delta-macos-controls" visibleIfOS="MacOS" />
+    </Nav.Bar.Start>
+    <Nav.Bar.End style={{ padding: "0 2rem" }}>
+      <Controls className="delta-windows-controls" visibleIfOS="Windows" />
+    </Nav.Bar.End>
+  </Nav.Bar>
 );
 
 export const LayoutWindow = (): JSX.Element => {

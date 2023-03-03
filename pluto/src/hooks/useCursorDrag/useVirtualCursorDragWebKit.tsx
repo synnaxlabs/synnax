@@ -9,10 +9,11 @@
 
 import { useEffect } from "react";
 
+import { XY, ZERO_XY, toXY, Box } from "@synnaxlabs/x";
+
 import { UseVirtualCursorDragProps } from "./types";
 
 import { useStateRef } from "@/hooks/useStateRef";
-import { XY, ZERO_XY, toXY, Box } from "@/spatial";
 import { Key } from "@/triggers";
 import { mouseButtonKey } from "@/triggers/mouse";
 
