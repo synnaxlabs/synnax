@@ -10,16 +10,16 @@
 import { Header as CoreHeader } from "./Header";
 import { HeaderActions } from "./HeaderActions";
 import { HeaderButtonTitle } from "./HeaderButtonTitle";
-import { HeaderTitle as CoreTitle } from "./HeaderTitle";
+import { HeaderTitle as CoreHeaderTitle } from "./HeaderTitle";
 
 export type { HeaderProps } from "./Header";
 export type { HeaderTitleProps } from "./HeaderTitle";
 export type { HeaderButtonTitleProps } from "./HeaderButtonTitle";
 export type { HeaderActionsProps } from "./HeaderActions";
 
-type CoreTitleType = typeof CoreTitle;
+type CoreHeaderTitleType = typeof CoreHeaderTitle;
 
-export interface HeaderTitleType extends CoreTitleType {
+export interface HeaderTitleType extends CoreHeaderTitleType {
   /**
    * Header.Title.Button renders a clickable header title.
    *
@@ -31,7 +31,7 @@ export interface HeaderTitleType extends CoreTitleType {
   Button: typeof HeaderButtonTitle;
 }
 
-export const HeaderTitle = CoreTitle as HeaderTitleType;
+export const HeaderTitle = CoreHeaderTitle as HeaderTitleType;
 
 HeaderTitle.Button = HeaderButtonTitle;
 
@@ -73,6 +73,5 @@ interface HeaderType extends CoreHeaderType {
  */
 export const Header = CoreHeader as HeaderType;
 
-Header.ButtonTitle = HeaderButtonTitle;
 Header.Title = HeaderTitle;
 Header.Actions = HeaderActions;

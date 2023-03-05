@@ -16,11 +16,10 @@ import { Dropdown } from ".";
 import { Button } from "@/core/Button";
 
 const TestDropdown = (): JSX.Element => {
-  const props = Dropdown.use();
-  const { toggle } = props;
+  const { toggle, visible } = Dropdown.use();
 
   return (
-    <Dropdown {...props}>
+    <Dropdown visible={visible}>
       <Button onClick={() => toggle()}>Toggle</Button>
       <p>Content</p>
     </Dropdown>

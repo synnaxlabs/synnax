@@ -27,7 +27,7 @@ export const hexToRGBA = (
   if (!validateHex(hex)) throw invalidHexError(hex);
   hex = stripHash(hex);
   return normalizeRGBA(
-    [p(hex, 0), p(hex, 2), p(hex, 4), hex.length === 9 ? p(hex, 7) / 255 : alpha],
+    [p(hex, 0), p(hex, 2), p(hex, 4), hex.length === 8 ? p(hex, 6) / 255 : alpha],
     normalize
   );
 };
@@ -57,7 +57,7 @@ const p = (s: string, n: number): number => parseInt(s.slice(n, n + 2), 16);
  * @param t - The RGBA tuple to normalize.
  * @returns The normalized RGBA tuple.
  */
-export const normalizeRGBA = (t: RGBATuple, divisor: number): RGBATuple => [
+export const normalizeRGBA = (t: RGBATuple, divisor: number = 255): RGBATuple => [
   t[0] / divisor,
   t[1] / divisor,
   t[2] / divisor,
@@ -74,6 +74,7 @@ export const normalizeRGBA = (t: RGBATuple, divisor: number): RGBATuple => [
  * @returns The hex color with the opacity added.
  */
 export const addOpacityToHex = (hex: string, opacity: Opacity): string => {
+  if (!validateHex(hex)) throw invalidHexError(hex);
   hex = stripHash(hex);
   if (!validateSixCharHex(hex)) {
     hex = hex.slice(0, 6);
