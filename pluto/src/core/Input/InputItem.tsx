@@ -10,7 +10,6 @@
 import { forwardRef, Ref } from "react";
 
 import { Direction } from "@synnaxlabs/x";
-import clsx from "clsx";
 import {
   UseControllerProps,
   useController,
@@ -25,6 +24,7 @@ import { InputBaseProps, InputControl, InputValue } from "./types";
 
 import { Pack } from "@/core/Pack";
 import { Space, SpaceAlignment, SpaceExtensionProps } from "@/core/Space";
+import { CSS } from "@/css";
 import { camelToTitle } from "@/util/case";
 import { RenderProp } from "@/util/renderProp";
 import { toArray } from "@/util/toArray";
@@ -105,7 +105,7 @@ const CoreInputItem = <
       empty={empty}
       grow={grow}
       size={size}
-      className={clsx("pluto-input-item", className)}
+      className={CSS(CSS.B("input-item"), className)}
       direction={direction}
       style={style}
     >

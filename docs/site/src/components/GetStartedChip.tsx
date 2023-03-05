@@ -32,13 +32,14 @@ export const GetStartedChip = ({
     >
       <Header
         level="h2"
-        className="pluto-bordered"
+        className="pluto--bordered"
         style={{
           padding: "1rem 2rem",
           borderRadius: "var(--pluto-border-radius)",
         }}
+        wrap
       >
-        <Space empty>
+        <Space empty style={{ minWidth: 100, flex: "1 1 100px" }}>
           <Header.Title startIcon={icon}>{title}</Header.Title>
           <Header.Title level="p">{description}</Header.Title>
         </Space>

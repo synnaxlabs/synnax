@@ -26,13 +26,13 @@
     color: var(--pluto-gray-m0);
 }
 
-.pluto-input--medium {
+.pluto-input.pluto--medium {
     font-size: var(--pluto-p-size);
     font-weight: var(--pluto-p-weight);
     line-height: var(--pluto-p-line-height);
 }
 
-.pluto-input--small {
+.pluto-input.pluto--small {
     font-size: var(--pluto-small-size);
     font-weight: var(--pluto-small-font-weight);
     line-height: var(--pluto-small-line-height);

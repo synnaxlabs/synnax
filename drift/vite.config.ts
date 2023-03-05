@@ -13,7 +13,7 @@ import { defineConfig } from "vite";
 export default defineConfig({
   plugins: [lib({ name: "drift" })],
   build: {
-    minify: false,
+    minify: true,
     rollupOptions: {
       external: ["react", "react-redux", "@reduxjs/toolkit"],
       output: {

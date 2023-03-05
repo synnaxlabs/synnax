@@ -20,6 +20,8 @@ import { InputBaseProps } from "./types";
 
 import "./InputDate.css";
 
+import { CSS } from "@/css";
+
 export interface InputDateProps
   extends InputBaseProps<number>,
     InputDragButtonExtensionProps {
@@ -56,7 +58,7 @@ export const InputDate = forwardRef<HTMLInputElement, InputDateProps>(
       <Input
         ref={ref}
         value={new TimeStamp(value, "UTC").fString("ISODate", "UTC")}
-        className={clsx("pluto-input-date", className)}
+        className={CSS(CSS.B("input-date"), className)}
         onChange={handleChange}
         type="date"
         {...props}

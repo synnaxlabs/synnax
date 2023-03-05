@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { URL } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
 
 import { JSONEncoderDecoder } from "@/encoder";
 import { HTTPClientFactory } from "@/http";
-import { URL } from "@/url";
 
 const ENDPOINT = new URL({
   host: "127.0.0.1",

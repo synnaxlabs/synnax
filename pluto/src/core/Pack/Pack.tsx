@@ -9,9 +9,8 @@
 
 import { ForwardedRef, forwardRef } from "react";
 
-import clsx from "clsx";
-
 import { Space, SpaceElementType, SpaceProps } from "@/core/Space";
+import { CSS } from "@/css";
 
 import "./Pack.css";
 
@@ -38,11 +37,11 @@ const CorePack = <E extends SpaceElementType = "div">(
     ref={ref}
     direction={direction}
     reverse={reverse}
-    className={clsx(
-      "pluto-pack",
-      `pluto-pack--${direction}`,
-      `pluto-pack--${size}`,
-      reverse && "pluto-pack--reverse",
+    className={CSS(
+      CSS.B("pack"),
+      CSS.dir(direction),
+      typeof size !== "number" && CSS.BM("pack", size),
+      reverse && CSS.BM("pack", "reverse"),
       className
     )}
     {...props}

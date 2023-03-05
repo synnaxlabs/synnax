@@ -10,9 +10,6 @@
 import { Text as CoreText } from "./Text";
 import { TextDateTime } from "./TextDateTime";
 import { TextEditable } from "./TextEditable";
-
-import "./Typography.css";
-
 import { TextLink } from "./TextLink";
 import { TextWithIcon } from "./TextWithIcon";
 import {
@@ -20,6 +17,8 @@ import {
   TypographyLevelComponentSizes,
   TypographyLevels,
 } from "./types";
+
+import "./Typography.css";
 
 export type { CoreTextProps, TextProps } from "./Text";
 export type { Size, TypographySpec, TypographyLevel } from "./types";

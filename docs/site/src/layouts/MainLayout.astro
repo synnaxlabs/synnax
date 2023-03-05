@@ -3,24 +3,50 @@ import { PageNav } from "@/components/PageNav";
 import "@synnaxlabs/pluto/dist/style.css";
 import "@synnaxlabs/media/dist/style.css";
 import { Theming } from "@synnaxlabs/pluto";
-import { DEFAULT_THEME } from "@/util/theme";
+import { DARK, LIGHT } from "@/util/theme";
 import { Logo } from "@synnaxlabs/media";
 import { TableOfContents } from "@/components/TableOfContents";
 import { SEO } from "astro-seo";
-const vars = Theming.toCSSVars(DEFAULT_THEME);
 const {
     headings,
-    frontmatter: { title, description },
+    frontmatter: { title, heading, description },
 } = Astro.props;
+
+const url = Astro.request.url;
+if (url.includes("noHeader")) {
+    Astro.cookies.set("noHeader", "true");
+}
+if (url.includes("theme")) {
+    const theme = url.split("theme=")[1].split("&")[0];
+    console.log(theme);
+    Astro.cookies.set("theme", theme);
+}
+
+const noHeader = Astro.cookies.get("noHeader");
+let vars: Record<string, any> = {};
+if (noHeader.value == "true") {
+    vars["--docs-header-display"] = "none";
+}
+const theme = Astro.cookies.get("theme");
+vars = { ...vars, ...Theming.toCSSVars(theme.value === "dark" ? DARK : LIGHT) };
 ---
 
 <script>
-    const urlSearchParams = new URLSearchParams(window.location.search);
-    const params = Object.fromEntries(urlSearchParams.entries());
-    const noHeader = params.noHeader ?? false;
-    if (noHeader) {
-        document.querySelector("header").style.display = "none";
-    }
+    const updateHref = () => {
+        const url = window.location.href;
+        const path = url
+            .replace(window.location.origin, "")
+            .split("?")[0]
+            .split("#")[0];
+        const maybeHeading = url.split("#");
+        let heading = "";
+        if (maybeHeading.length > 1) {
+            heading = maybeHeading[1].split("&")[0];
+        }
+        window.parent.postMessage({ path, heading }, "*");
+    };
+    window.addEventListener("popstate", updateHref);
+    updateHref();
 </script>
 
 <html style={vars}>
@@ -46,19 +72,25 @@ const {
             }}
         />
     </head>
-    <header class="pluto-bordered--bottom">
+    <header
+        class="pluto--bordered-bottom"
+        style={{
+            display: vars["--docs-header-display"],
+        }}
+    >
         <div class="header-content">
             <Logo style={{ height: "6.5rem" }} />
         </div>
     </header>
     <section>
         <nav class="docs-nav">
-            <PageNav client:only="react" currentPage={Astro.url.pathname} />
+            <PageNav client:idle currentPage={Astro.url.pathname} />
         </nav>
         <article>
+            <h1 class="pluto--bordered-bottom">{heading ?? title}</h1>
             <slot />
         </article>
-        <nav class="docs-toc pluto-bordered--left">
+        <nav class="docs-toc pluto--bordered-left">
             <TableOfContents client:only="react" headings={headings} />
         </nav>
     </section>
@@ -161,7 +193,11 @@ const {
 
     <style>
         :root {
-            --max-width: 1440px;
+            --max-width: 1600px;
+        }
+
+        h1 {
+            padding-bottom: 1rem;
         }
 
         header {
@@ -187,19 +223,19 @@ const {
             align-items: center;
         }
 
-        @media (width < 1440px) {
+        @media (max-width: 1600px) {
             body {
                 align-items: unset;
             }
         }
 
-        @media (width < 1100px) {
+        @media (max-width: 1100px) {
             .docs-toc {
                 display: none;
             }
         }
 
-        @media (width > 1440px) {
+        @media (min-width: 1600px) {
             section {
                 width: var(--max-width);
             }
@@ -209,7 +245,7 @@ const {
             border-right: var(--pluto-border);
         }
 
-        @media (width < 600px) {
+        @media (max-width: 600px) {
             section {
                 flex-direction: column;
             }

@@ -7,27 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon, Logo } from "@synnaxlabs/media";
-import { Text, Button, Space } from "@synnaxlabs/pluto";
+import { Logo } from "@synnaxlabs/media";
+import { Text, Space } from "@synnaxlabs/pluto";
 
-import { VisCreateButton } from "@/features/vis";
+import { ConnectClusterButton } from "@/features/cluster";
+import { ReadTheDocsButton } from "@/features/docs";
+import { CreateVisButton } from "@/features/vis";
 
 import "./GetStarted.css";
 
-export const GetStarted = (): JSX.Element => {
-  return (
-    <Space.Centered className="delta-get-started" align="center" size={6}>
-      <Logo variant="title" className="delta-get-started__logo" />
-      <Text level="h1">Get Started</Text>
-      <Space direction="x" size="large" justify="center" wrap>
-        <Button startIcon={<Icon.Cluster />} size="large">
-          Connect a Cluster
-        </Button>
-        <VisCreateButton size="large" />
-      </Space>
-      <Text.Link href="https://docs.synnaxlabs.com" target="_blank" level="h4">
-        Read the Documentation
-      </Text.Link>
-    </Space.Centered>
-  );
-};
+export const GetStarted = (): JSX.Element => (
+  <Space.Centered className="delta-get-started" align="center" size={6}>
+    <Logo variant="title" className="delta-get-started__logo" />
+    <Text level="h1">Get Started</Text>
+    <Space direction="x" size="large" justify="center" wrap>
+      <ConnectClusterButton />
+      <CreateVisButton />
+    </Space>
+    <ReadTheDocsButton />
+  </Space.Centered>
+);

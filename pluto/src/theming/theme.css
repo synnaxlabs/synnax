@@ -51,24 +51,44 @@ body {
     border-radius: var(--pluto-border-radius);
 }
 
-.pluto-bordered {
+.pluto--sharp {
+    border-radius: 0;
+}
+
+.pluto--bordered {
     border: var(--pluto-border);
 }
 
-.pluto-bordered--right {
+.pluto--bordered-right {
     border-right: var(--pluto-border);
 }
 
-.pluto-bordered--left {
+.pluto--bordered-left {
     border-left: var(--pluto-border);
 }
 
-.pluto-bordered--top {
+.pluto--bordered-top {
     border-top: var(--pluto-border);
 }
 
-.pluto-bordered--bottom {
+.pluto--bordered-bottom {
     border-bottom: var(--pluto-border);
+}
+
+.pluto--x > .pluto--bordered-start {
+    border-right: var(--pluto-border);
+}
+
+.pluto--x > .pluto--bordered-end {
+    border-left: var(--pluto-border);
+}
+
+.pluto--y > .pluto--bordered-start {
+    border-bottom: var(--pluto-border);
+}
+
+.pluto--y > .pluto--bordered-end {
+    border-top: var(--pluto-border);
 }
 
 .pluto--large {
@@ -83,7 +103,7 @@ body {
     height: var(--pluto--height-small);
 }
 
-.pluto-no-select {
+.pluto--no-select {
     -webkit-user-select: none;
     -ms-user-select: none;
     user-select: none;

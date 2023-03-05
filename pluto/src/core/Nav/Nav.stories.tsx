@@ -23,23 +23,23 @@ export const LeftBar: ComponentStory<typeof Nav.Bar> = () => (
   <Nav.Bar>
     <Nav.Bar.Start>
       <Menu>
-        <Menu.ItemIcon itemKey="1">
+        <Menu.Item.Icon itemKey="1">
           <MdGrain />
-        </Menu.ItemIcon>
+        </Menu.Item.Icon>
       </Menu>
     </Nav.Bar.Start>
     <Nav.Bar.Content>
       <Menu>
-        <Menu.ItemIcon itemKey="1">
+        <Menu.Item.Icon itemKey="1">
           <MdGrain />
-        </Menu.ItemIcon>
+        </Menu.Item.Icon>
       </Menu>
     </Nav.Bar.Content>
     <Nav.Bar.End>
       <Menu>
-        <Menu.ItemIcon itemKey="1">
+        <Menu.Item.Icon itemKey="1">
           <MdGrain />
-        </Menu.ItemIcon>
+        </Menu.Item.Icon>
       </Menu>
     </Nav.Bar.End>
   </Nav.Bar>

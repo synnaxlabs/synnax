@@ -9,23 +9,25 @@
 
 import { forwardRef } from "react";
 
-import clsx from "clsx";
-
 import { InputBaseProps } from "./types";
+
+import { CSS } from "@/css";
 
 import "./InputSwitch.css";
 
 export interface InputSwitchProps extends InputBaseProps<boolean> {}
+
+const CLS = "input-switch";
 
 export const InputSwitch = forwardRef<HTMLInputElement, InputSwitchProps>(
   (
     { className, value, onChange, size = "medium", ...props }: InputSwitchProps,
     ref
   ) => (
-    <div className={clsx("pluto-input-switch__container", `pluto--${size}`)}>
-      <label className={clsx("pluto-input-switch__track", className)}>
+    <div className={CSS(CSS.BE(CLS, "container"), CSS.size(size))}>
+      <label className={CSS(CSS.BE(CLS, "track"), className)}>
         <input
-          className="pluto-input-switch__input"
+          className={CSS.BE(CLS, "input")}
           type="checkbox"
           ref={ref}
           checked={value}

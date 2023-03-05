@@ -21,5 +21,10 @@ export const deployNav: PageNavLeaf = {
       url: "/deploy/get-started",
       name: "Get Started",
     },
+    {
+      key: "/deploy/multi-node",
+      url: "/deploy/multi-node",
+      name: "Multi-Node",
+    },
   ],
 };

@@ -13,6 +13,8 @@ import clsx from "clsx";
 
 import { BaseButtonProps } from "./Button";
 
+import { CSS } from "@/css";
+
 /** The props for the {@link ButtonIcon} */
 export interface ButtonIconProps extends BaseButtonProps {
   children: ReactElement;
@@ -20,15 +22,17 @@ export interface ButtonIconProps extends BaseButtonProps {
 
 export const ButtonIcon = forwardRef<HTMLButtonElement, ButtonIconProps>(
   (
-    { children, className, variant = "text", size = "medium", ...props },
+    { children, className, variant = "text", size = "medium", sharp = false, ...props },
     ref
   ): JSX.Element => (
     <button
       ref={ref}
       className={clsx(
-        "pluto-btn pluto-btn-icon",
-        "pluto--" + size,
-        "pluto-btn--" + variant,
+        CSS.B("btn"),
+        CSS.B("btn-icon"),
+        CSS.size(size),
+        CSS.sharp(sharp),
+        CSS.BM("btn", variant),
         className
       )}
       {...props}

@@ -29,6 +29,5 @@ export { HTTPClientFactory } from "@/http";
 export type { MetaData, Middleware, Next } from "@/middleware";
 export type { Stream, StreamClient } from "@/stream";
 export type { UnaryClient } from "@/unary";
-export { URL } from "@/url";
 export { logMiddleware } from "@/util/log";
 export { WebSocketClient } from "@/websocket";

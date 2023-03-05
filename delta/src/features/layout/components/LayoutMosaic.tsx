@@ -14,6 +14,7 @@ import { Mosaic as PlutoMosaic, useDebouncedCallback } from "@synnaxlabs/pluto";
 import type { Location } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 
+import { useLayoutPlacer } from "../hooks";
 import {
   useSelectMosaic,
   moveLayoutMosaicTab,
@@ -25,12 +26,15 @@ import {
 
 import { LayoutContent } from "./LayoutContent";
 
+import { createLineVis } from "@/features/vis/components/line/types";
+
 const emptyContent = <Logo.Watermark />;
 
 /** LayoutMosaic renders the central layout mosaic of the application. */
 export const LayoutMosaic = (): JSX.Element => {
   const dispatch = useDispatch();
   const mosaic = useSelectMosaic();
+  const placer = useLayoutPlacer();
 
   const handleDrop = useCallback(
     (key: number, tabKey: string, loc: Location): void => {
@@ -68,6 +72,10 @@ export const LayoutMosaic = (): JSX.Element => {
     [dispatch]
   );
 
+  const handleCreate = useCallback(() => {
+    placer(createLineVis({}));
+  }, [placer]);
+
   return (
     <PlutoMosaic
       root={mosaic}
@@ -77,6 +85,8 @@ export const LayoutMosaic = (): JSX.Element => {
       onResize={handleResize}
       emptyContent={emptyContent}
       onRename={handleRename}
+      onCreate={handleCreate}
+      size="small"
     >
       {(tab) => <LayoutContent layoutKey={tab.tabKey} />}
     </PlutoMosaic>

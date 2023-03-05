@@ -11,12 +11,11 @@ import { ReactElement, RefObject } from "react";
 
 import { Icon } from "@synnaxlabs/media";
 import { Box, Direction } from "@synnaxlabs/x";
-import clsx from "clsx";
 
 import { ButtonIconProps } from "@/core/Button";
 import { Header } from "@/core/Header";
 import { Resize, ResizeMultipleProps } from "@/core/Resize";
-import { expandedCls } from "@/css";
+import { CSS } from "@/css";
 
 import "./Accordion.css";
 
@@ -87,7 +86,7 @@ export const Accordion = ({ data, ...props }: AccordionProps): JSX.Element => {
   return (
     <Resize.Multiple
       empty
-      className="pluto-accordion"
+      className={CSS.B("accordion")}
       sizeDistribution={sizes}
       ref={ref}
       {...props}
@@ -134,7 +133,7 @@ const AccordionEntryC = ({
     <>
       <Header
         level="p"
-        className={clsx("pluto-accordion__header", expandedCls(expanded))}
+        className={CSS(CSS.BE("accordion", "header"), CSS.expanded(expanded))}
         empty
       >
         <Header.ButtonTitle

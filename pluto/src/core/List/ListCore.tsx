@@ -12,13 +12,15 @@ import { ComponentPropsWithoutRef, useRef } from "react";
 import { RenderableRecord } from "@synnaxlabs/x";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
-import { SelectedRecord } from "@/hooks/useSelectMultiple";
-import { RenderProp } from "@/util/renderProp";
-
 import { useListContext } from "./ListContext";
 import { ListItemProps } from "./types";
 
+import { SelectedRecord } from "@/hooks/useSelectMultiple";
+import { RenderProp } from "@/util/renderProp";
+
 import "./ListCore.css";
+
+import { CSS } from "@/css";
 
 export interface ListVirtualCoreProps<E extends RenderableRecord<E>>
   extends Omit<ComponentPropsWithoutRef<"div">, "children"> {
@@ -47,8 +49,8 @@ const ListVirtualCore = <E extends RenderableRecord<E>>({
     overscan,
   });
   return (
-    <div ref={parentRef} className="pluto-list__container" {...props}>
-      <div className="pluto-list__inner" style={{ height: virtualizer.getTotalSize() }}>
+    <div ref={parentRef} className={CSS.BE("list", "container")} {...props}>
+      <div style={{ height: virtualizer.getTotalSize() }}>
         {virtualizer.getVirtualItems().map(({ index, start }) => {
           const entry = data[index];
           return children({

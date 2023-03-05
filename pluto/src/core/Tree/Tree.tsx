@@ -11,16 +11,15 @@ import { DetailedHTMLProps, HtmlHTMLAttributes, ReactElement, useState } from "r
 
 import { Icon } from "@synnaxlabs/media";
 import { RenderableRecord } from "@synnaxlabs/x";
-import clsx from "clsx";
 
 import { Button } from "@/core/Button";
-
-import { InputControl } from "../Input";
-
+import { InputControl } from "@/core/Input";
 import { ComponentSize } from "@/util/component";
 import { RenderProp } from "@/util/renderProp";
 
 import "./Tree.css";
+
+import { CSS } from "@/css";
 
 export interface TreeProps<E extends RenderableRecord<E> = RenderableRecord>
   extends Partial<InputControl<readonly string[], string>>,
@@ -45,7 +44,7 @@ export const Tree = <E extends RenderableRecord<E> = RenderableRecord>({
 }: TreeProps<E>): JSX.Element => {
   const _nextSiblingsHaveChildren = nextSiblingsHaveChildren(data);
   return (
-    <ul className={clsx("pluto-tree__list pluto-tree__container")} {...props}>
+    <ul className={CSS(CSS.BE("tree", "list"), CSS.BE("tree", "container"))} {...props}>
       {data.map((entry) => (
         <TreeLeafParent
           {...entry}
@@ -113,7 +112,7 @@ const TreeLeafParent = <E extends RenderableRecord>({
   if (!hasChildren && siblingsHaveChildren) paddingLeft += 3.25;
   const _nextSiblingsHaveChildren = nextSiblingsHaveChildren(children);
   return (
-    <li className="tree-node__container">
+    <li className={CSS.BE("tree-node", "container")}>
       {render({
         nodeKey,
         style: {
@@ -130,7 +129,7 @@ const TreeLeafParent = <E extends RenderableRecord>({
         ...rest,
       } as const as TreeLeafCProps<E>)}
       {expanded && children.length > 0 && (
-        <ul className="pluto-tree__list">
+        <ul className={CSS.BE("tree", "list")}>
           {children.map((child) => (
             <TreeLeafParent
               {...child}
@@ -193,10 +192,7 @@ export const ButtonLeaf = <E extends RenderableRecord<E>>({
     <_Button
       href={url}
       variant="text"
-      className={clsx(
-        "pluto-tree-leaf__button",
-        selected && "pluto-tree-leaf__button--selected"
-      )}
+      className={CSS(CSS.BE("tree-leaf", "button"), CSS.selected(selected))}
       startIcon={icons}
       onClick={handleClick}
       iconSpacing="small"

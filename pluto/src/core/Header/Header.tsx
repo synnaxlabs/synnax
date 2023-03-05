@@ -9,10 +9,9 @@
 
 import { createContext, ReactNode, useContext } from "react";
 
-import clsx from "clsx";
-
 import { Space, SpaceProps } from "@/core/Space";
 import { TypographyLevel } from "@/core/Typography";
+import { CSS } from "@/css";
 
 export interface HeaderProps extends Omit<SpaceProps, "children" | "el"> {
   level?: TypographyLevel;
@@ -44,7 +43,12 @@ export const Header = ({
       el="header"
       direction="x"
       justify="spaceBetween"
-      className={clsx(`pluto-header pluto-bordered--bottom`, className)}
+      className={CSS(
+        CSS.B("header"),
+        CSS.bordered("bottom"),
+        divided && CSS.BM("header", "divided"),
+        className
+      )}
       {...props}
     >
       {children}

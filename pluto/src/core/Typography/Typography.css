@@ -14,7 +14,7 @@ h2,
 h3,
 h4,
 h5,
-h6,
+small,
 p,
 label,
 li,
@@ -59,7 +59,7 @@ th {
     text-transform: var(--pluto-h5-text-transform);
 }
 
-h6 {
+small {
     font-size: var(--pluto-small-size);
     line-height: var(--pluto-small-line-height);
     font-weight: var(--pluto-small-weight);

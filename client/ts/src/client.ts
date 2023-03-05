@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { URL } from "@synnaxlabs/freighter";
-import { TimeSpan } from "@synnaxlabs/x";
+import { TimeSpan, URL } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { AuthenticationClient } from "@/auth";

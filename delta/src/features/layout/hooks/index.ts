@@ -26,7 +26,8 @@ import {
   placeLayout,
   removeLayout,
   setActiveTheme,
-  setNavdrawerEntryState,
+  resizeNavdrawer,
+  setNavdrawerVisible,
   toggleActiveTheme,
   useSelectLayout,
   useSelectNavDrawer,
@@ -165,7 +166,7 @@ export const useNavDrawer = (
 
   const onResize = useDebouncedCallback(
     (size) => {
-      dispatch(setNavdrawerEntryState({ location: loc, state: { size } }));
+      dispatch(resizeNavdrawer({ location: loc, size }));
     },
     100,
     [dispatch]
@@ -176,15 +177,7 @@ export const useNavDrawer = (
   return {
     activeItem,
     menuItems,
-    onSelect: (key: string) =>
-      dispatch(
-        setNavdrawerEntryState({
-          location: loc,
-          state: {
-            activeItem: key === state.activeItem ? null : key,
-          },
-        })
-      ),
+    onSelect: (key: string) => dispatch(setNavdrawerVisible({ key })),
     onResize,
   };
 };

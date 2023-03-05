@@ -43,5 +43,8 @@
 .pluto-list-col-header__item {
     cursor: pointer;
     user-select: none;
-    font-weight: bold;
+}
+
+.pluto-list-col-header__item * {
+    font-weight: 600;
 }

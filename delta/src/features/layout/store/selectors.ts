@@ -125,7 +125,7 @@ export const useSelectLayouts = (keys?: string[]): Layout[] =>
 export const selectNavDrawer = (
   state: LayoutStoreState,
   loc: NavdrawerLocation
-): NavdrawerEntryState => state.layout.nav.drawer[loc];
+): NavdrawerEntryState => state.layout.nav.drawers[loc];
 
 export const useSelectNavDrawer = (loc: NavdrawerLocation): NavdrawerEntryState =>
   useMemoSelect((state: LayoutStoreState) => selectNavDrawer(state, loc), [loc]);

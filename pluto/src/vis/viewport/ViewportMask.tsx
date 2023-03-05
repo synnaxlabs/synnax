@@ -9,9 +9,9 @@
 
 import { forwardRef } from "react";
 
-import clsx from "clsx";
-
 import { UseViewportReturn } from "./useViewPort";
+
+import { CSS } from "@/css";
 
 import "./ViewportMask.css";
 
@@ -26,7 +26,7 @@ export interface ViewportMaskProps
 
 export const ViewportMask = forwardRef<HTMLDivElement, ViewportMaskProps>(
   ({ className, mode, maskBox, ...props }, ref): JSX.Element | null => (
-    <div ref={ref} className={clsx("pluto-no-select", className)} {...props}>
+    <div ref={ref} className={CSS(CSS.noSelect, className)} {...props}>
       <div
         style={{
           top: maskBox.y,
@@ -35,7 +35,7 @@ export const ViewportMask = forwardRef<HTMLDivElement, ViewportMaskProps>(
           height: maskBox.height,
           cursor: mode === "pan" ? "grabbing" : "crosshair",
         }}
-        className="pluto-viewport-mask"
+        className={CSS.B("viewport-mask")}
       />
     </div>
   )

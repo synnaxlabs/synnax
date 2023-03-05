@@ -11,31 +11,36 @@ import { useLayoutEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 
 import { CoreTextProps, Text } from "./Text";
+import { TypographyLevel } from "./types";
+
+import { CSS } from "@/css";
 
 import "./TextEditable.css";
 
-export interface TextEditableProps extends CoreTextProps {
+export interface TextEditableProps<L extends TypographyLevel = "h1">
+  extends CoreTextProps<L> {
   /* The handler to call when the text changes */
   onChange?: (newText: string) => void;
 }
 
 const NOMINAL_EXIT_KEYS = ["Escape", "Enter"];
 
-export const TextEditable = ({
+export const TextEditable = <L extends TypographyLevel = "h1">({
   onChange,
   children,
   ...props
-}: TextEditableProps): JSX.Element => {
+}: TextEditableProps<L>): JSX.Element => {
   const [editable, setEditable] = useState(false);
-  const ref = useRef<HTMLParagraphElement>(null);
+  const ref = useRef<HTMLElement>(null);
 
   const handleDoubleClick = (): void => setEditable(true);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLParagraphElement>): void => {
     if (!editable || !NOMINAL_EXIT_KEYS.includes(e.key) || ref.current == null) return;
+    const el = ref.current;
     setEditable(false);
-    onChange?.(ref.current.innerText);
-    ref.current.blur();
+    onChange?.(el.innerText);
+    el.blur();
   };
 
   useLayoutEffect(() => {
@@ -55,15 +60,18 @@ export const TextEditable = ({
   });
 
   return (
-    <Text
+    // @ts-expect-error
+    <Text<L>
       ref={ref}
-      className="pluto-text-editable"
+      className={CSS.BM("text", "editable")}
       onBlur={() => setEditable(false)}
       onKeyDown={handleKeyDown}
       onDoubleClick={handleDoubleClick}
       contentEditable={editable}
       suppressContentEditableWarning
       {...props}
-    />
+    >
+      {children}
+    </Text>
   );
 };

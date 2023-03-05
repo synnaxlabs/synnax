@@ -9,13 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-list__inner {
-    width: 100%;
-    position: relative;
-    user-select: none;
-    -webkit-user-select: none;
-}
-
 .pluto-list__container {
     height: 100%;
     width: 100%;
@@ -23,3 +16,12 @@
     user-select: none;
     -webkit-user-select: none;
 }
+
+.pluto-list__container > div {
+    width: 100%;
+    position: relative;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+

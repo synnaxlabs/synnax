@@ -64,9 +64,9 @@ export const NavMenu = ({
 } & Omit<PMenuProps, "children">): JSX.Element => (
   <PMenu {...props}>
     {children.map((item) => (
-      <PMenu.ItemIcon key={item.key} itemKey={item.key}>
+      <PMenu.Item.Icon key={item.key} itemKey={item.key}>
         {item.icon}
-      </PMenu.ItemIcon>
+      </PMenu.Item.Icon>
     ))}
   </PMenu>
 );
@@ -105,7 +105,7 @@ export const NavRight = (): JSX.Element | null => {
         <NavMenu onChange={onSelect}>{menuItems}</NavMenu>
       </Nav.Bar.Content>
       {bottomMenuItems.length > 0 && (
-        <Nav.Bar.End className="delta-main-nav__content">
+        <Nav.Bar.End className="delta-main-nav__content" bordered>
           <NavMenu onChange={onBottomSelect}>{bottomMenuItems}</NavMenu>
         </Nav.Bar.End>
       )}
@@ -120,8 +120,7 @@ export const NavRight = (): JSX.Element | null => {
 export const NavBottom = (): JSX.Element => {
   return (
     <Nav.Bar location="bottom" size={NAV_SIZES.bottom}>
-      <Nav.Bar.End className="delta-main-nav-bottom__end">
-        <Divider />
+      <Nav.Bar.End className="delta-main-nav-bottom__end" bordered>
         <VersionBadge />
         <Divider />
         <ClusterBadge />

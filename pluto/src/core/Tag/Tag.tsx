@@ -9,7 +9,9 @@
 
 import { Icon } from "@synnaxlabs/media";
 
+import { Button } from "@/core/Button";
 import { Typography, Text, TextProps } from "@/core/Typography";
+import { CSS } from "@/css";
 import { ComponentSize } from "@/util/component";
 
 import "./Tag.css";
@@ -34,20 +36,21 @@ export const Tag = ({
 }: TagProps): JSX.Element => {
   const closeIcon =
     onClose == null ? undefined : (
-      <Icon.Close
+      <Button.Icon
         aria-label="close"
-        className="pluto-tag__close"
         onClick={(e) => {
           e.stopPropagation();
           onClose();
         }}
-      />
+      >
+        <Icon.Close />
+      </Button.Icon>
     );
   return (
     <Text.WithIcon
       endIcon={closeIcon}
       startIcon={icon}
-      className="pluto-tag"
+      className={CSS.B("tag")}
       level={Typography.ComponentSizeLevels[size]}
       style={{
         border: `var(--pluto-border-width) solid ${color}`,
