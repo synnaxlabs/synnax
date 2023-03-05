@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/telem";
-export * from "@/types/primitive";
-export * from "@/types/record";
-export * from "@/types/renderable";
-export * from "@/types/optional";
-export * from "@/types/deepPartial";
-export * from "@/types/runtime";
+export * from "@/primitive";
+export * from "@/record";
+export * from "@/renderable";
+export * from "@/optional";
+export * from "@/identity";
+export * from "@/runtime";
 export * from "@/deep";
 export * from "@/debounce";
 export * from "@/clamp";
@@ -23,3 +23,4 @@ export * from "@/unique";
 export * from "@/kv";
 export * from "@/cache";
 export * from "@/spatial";
+export * from "@/url";

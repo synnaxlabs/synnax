@@ -84,6 +84,21 @@ export type DriftAction = PayloadAction<
   | SetWindowPropsPayload
   | SetWindowErrorPaylod
   | SetWindowKeyPayload
+  | SetWindowClosedPayload
+  | SetWindowMinimizedPayload
+  | SetWindowMaximizedPayload
+  | SetWindowVisiblePayload
+  | SetWindowFullScreenPayload
+  | CenterWindowPayload
+  | SetWindowPositionPayload
+  | SetWindowSizePayload
+  | SetWindowMinSizePayload
+  | SetWindowMaxSizePayload
+  | SetWindowResizablePayload
+  | SetWindowSkipTaskbarPayload
+  | SetWindowAlwaysOnTopPayload
+  | SetWindowTitlePayload
+  | FocusWindowPayload
 >;
 
 export const initialState: DriftState = {
@@ -116,7 +131,7 @@ const slice = createSlice({
     createWindow: (state, { payload }: PayloadAction<CreateWindowPayload>) => {
       const { key } = payload;
       assertKey(payload);
-      if (key == null) return;
+      if (key == null || key in state.windows) return;
       state.windows[key] = {
         stage: "creating",
         processCount: 0,
@@ -257,7 +272,7 @@ export const processAction = <S extends StoreState, A extends Action = AnyAction
     const shouldCreate = existing == null || existing.stage === "closed";
     log(debug, "createWindow", { key, shouldCreate });
     if (shouldCreate) runtime.create(payload as KeyedWindowProps);
-    else runExec(runtime.focus(), dispatch, setWindowProps({ key, focus: true }));
+    else dispatch(focusWindow({ key }));
     return;
   }
 

@@ -10,10 +10,10 @@
 import { CSSProperties, ForwardedRef, forwardRef } from "react";
 
 import { Direction } from "@synnaxlabs/x";
-import clsx from "clsx";
 
 import { Generic, GenericProps } from "../Generic";
 
+import { CSS } from "@/css";
 import { ComponentSize } from "@/util/component";
 
 import "./Space.css";
@@ -112,16 +112,16 @@ const CoreSpace = <E extends SpaceElementType = "div">(
   return (
     // @ts-expect-error
     <Generic<E>
-      {...props}
       el={el}
       ref={ref}
-      className={clsx(
-        "pluto-space",
-        typeof size === "string" && `pluto-space--${size}`,
-        `pluto-space--${direction}`,
+      className={CSS(
+        CSS.B("space"),
+        CSS.dir(direction),
+        typeof size === "string" && CSS.BM("space", size),
         className
       )}
       style={style}
+      {...props}
     />
   );
 };

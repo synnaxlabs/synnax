@@ -20,6 +20,7 @@ import { VisList } from "./VisList";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout, NavDrawerItem, useLayoutPlacer } from "@/features/layout";
+import { createLineVis } from "@/features/vis/components/line/types";
 
 const rangeWindowLayout: Layout = {
   key: "defineRange",
@@ -35,13 +36,13 @@ const rangeWindowLayout: Layout = {
 };
 
 const Content = (): JSX.Element => {
-  const openWindow = useLayoutPlacer();
+  const newLayout = useLayoutPlacer();
   const dispatch = useDispatch();
   const ranges = useSelectRanges();
   const selectedRange = useSelectRange();
 
   const handleAddOrEditRange = (key?: string): void => {
-    openWindow({
+    newLayout({
       ...rangeWindowLayout,
       key: key ?? rangeWindowLayout.key,
     });
@@ -53,6 +54,10 @@ const Content = (): JSX.Element => {
 
   const handleSelectRange = (key: string): void => {
     dispatch(setActiveRange(key));
+  };
+
+  const handleCreateVis = (): void => {
+    newLayout(createLineVis({}));
   };
 
   return (
@@ -78,6 +83,7 @@ const Content = (): JSX.Element => {
               {
                 children: <Icon.Add />,
                 onClick: () => handleAddOrEditRange(),
+                sharp: true,
               },
             ],
           },
@@ -85,6 +91,12 @@ const Content = (): JSX.Element => {
             key: "visualizations",
             name: "Visualizations",
             content: <VisList />,
+            actions: [
+              {
+                children: <Icon.Add />,
+                onClick: () => handleCreateVis(),
+              },
+            ],
           },
         ]}
       />

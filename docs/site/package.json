@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@astrojs/mdx": "^0.14.0",
+    "@astrojs/node": "^5.0.4",
     "@astrojs/react": "^1.2.2",
     "@synnaxlabs/client": "workspace:*",
     "@synnaxlabs/media": "workspace:*",

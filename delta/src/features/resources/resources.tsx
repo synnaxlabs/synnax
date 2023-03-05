@@ -14,10 +14,10 @@ import type { OntologyResourceType } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { ONE_XY, ZERO_XY } from "@synnaxlabs/x";
 
-import { LineVis } from "../vis/components/line/types";
+import { createLineVis, LineVis } from "../vis/components/line/types";
 
 import { LayoutPlacer } from "@/features/layout";
-import { createVisualization } from "@/features/vis";
+import { createVis } from "@/features/vis";
 import { WorkspaceState } from "@/features/workspace";
 
 export interface SelectionContext {
@@ -55,21 +55,13 @@ export const resourceTypes: Record<string, ResourceType> = {
     hasChildren: false,
     onSelect: ({ placer, id, workspace }: SelectionContext) => {
       placer(
-        createVisualization<LineVis>({
+        createLineVis({
           channels: {
             y1: [id.key],
-            y2: [],
-            y3: [],
-            y4: [],
-            x1: "",
-            x2: "",
           },
           ranges: {
             x1: workspace.activeRange != null ? [workspace.activeRange] : [],
-            x2: [],
           },
-          zoom: ONE_XY,
-          pan: ZERO_XY,
         })
       );
     },

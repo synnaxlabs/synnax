@@ -168,6 +168,7 @@ export const TriggersProvider = ({
     window.addEventListener("keyup", handleKeyUp);
     window.addEventListener("mousedown", handleKeyDown);
     window.addEventListener("mouseup", handleKeyUp);
+    window.addEventListener("drop", handleKeyUp);
     window.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("dblclick", handleDoubleClick);
     return () => {

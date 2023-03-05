@@ -10,7 +10,6 @@
 import { forwardRef, useCallback, useEffect } from "react";
 
 import { TimeSpan, TimeStamp, TZInfo } from "@synnaxlabs/x";
-import clsx from "clsx";
 
 import { Pack } from "../Pack";
 
@@ -18,6 +17,8 @@ import { Input } from "./Input";
 import { InputDragButton, InputDragButtonExtensionProps } from "./InputDragButton";
 import { InputNumberProps } from "./InputNumber";
 import { InputBaseProps } from "./types";
+
+import { CSS } from "@/css";
 
 import "./InputTime.css";
 
@@ -69,7 +70,7 @@ export const InputTime = forwardRef<HTMLInputElement, InputTimeProps>(
     const input = (
       <Input
         ref={ref}
-        className={clsx("pluto-input-time", className)}
+        className={CSS(CSS.B("input-time"), className)}
         type="time"
         step="1"
         value={ts.fString("time", tzInfo)}

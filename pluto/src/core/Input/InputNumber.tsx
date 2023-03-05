@@ -15,8 +15,6 @@ import { Input } from "./Input";
 import { InputDragButton, InputDragButtonExtensionProps } from "./InputDragButton";
 import { InputBaseProps } from "./types";
 
-import "./InputNumber.css";
-
 export interface InputNumberProps
   extends Omit<InputBaseProps<number>, "type">,
     InputDragButtonExtensionProps {

@@ -12,17 +12,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { clamp, Box, locToDir, Location } from "@synnaxlabs/x";
 import { clsx } from "clsx";
 
-import { ResizePanel, ResizePanelProps } from "./ResizePanel";
+import { ResizeCore, ResizeCoreProps } from "./ResizeCore";
 
-import { expandedCls } from "@/css";
+import { CSS } from "@/css";
+import { useCursorDrag } from "@/hooks/useCursorDrag";
 
 import "./Resize.css";
 
-import { useCursorDrag } from "@/hooks/useCursorDrag";
-
 /** Props for the {@link Resize} component. */
 export interface ResizeProps
-  extends Omit<ResizePanelProps, "showHandle" | "size" | "onResize" | "onDragStart"> {
+  extends Omit<ResizeCoreProps, "showHandle" | "size" | "onResize" | "onDragStart"> {
   location: Location;
   initialSize?: number;
   minSize?: number;
@@ -102,12 +101,12 @@ export const Resize = ({
   });
 
   return (
-    <ResizePanel
+    <ResizeCore
       draggable
       location={location}
       size={size}
       onDragStart={handleDragStart}
-      className={clsx(className, expandedCls(size !== COLLAPSED_SIZE))}
+      className={clsx(className, CSS.expanded(size !== COLLAPSED_SIZE))}
       {...props}
     />
   );

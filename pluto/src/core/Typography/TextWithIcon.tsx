@@ -9,29 +9,31 @@
 
 import { Children, cloneElement, ReactElement } from "react";
 
-import clsx from "clsx";
+import { CoreTextProps, Text } from "./Text";
+import { TypographyLevel } from "./types";
 
 import { Divider } from "@/core/Divider";
-
-import { CoreTextProps, Text } from "./Text";
-
 import { Space, SpaceProps, SpaceElementType } from "@/core/Space";
+import { CSS } from "@/css";
 
 import "./TextWithIcon.css";
 
-export type TextWithIconProps<E extends SpaceElementType = "div"> = Omit<
-  SpaceProps<E>,
-  "children"
-> &
-  CoreTextProps & {
+export type TextWithIconProps<
+  E extends SpaceElementType = "div",
+  L extends TypographyLevel = "h1"
+> = Omit<SpaceProps<E>, "children"> &
+  CoreTextProps<L> & {
     startIcon?: ReactElement | ReactElement[];
     endIcon?: ReactElement | ReactElement[];
     children?: string | number;
     divided?: boolean;
   };
 
-export const TextWithIcon = <E extends SpaceElementType = "div">({
-  level = "h1",
+export const TextWithIcon = <
+  E extends SpaceElementType = "div",
+  L extends TypographyLevel = "h1"
+>({
+  level = "h1" as L,
   divided = false,
   startIcon,
   endIcon,
@@ -39,13 +41,13 @@ export const TextWithIcon = <E extends SpaceElementType = "div">({
   color,
   className,
   ...props
-}: TextWithIconProps<E>): JSX.Element => {
+}: TextWithIconProps<E, L>): JSX.Element => {
   const startIcons = startIcon != null && formatIcons(startIcon, color);
   const endIcons = endIcon != null && formatIcons(endIcon, color);
   return (
     // @ts-expect-error
     <Space<E>
-      className={clsx("pluto-text-icon", `pluto-text-icon--${level}`, className)}
+      className={CSS(CSS.B("text-icon"), CSS.BM("text-icon", level), className)}
       direction="x"
       size="small"
       align="center"
@@ -54,7 +56,8 @@ export const TextWithIcon = <E extends SpaceElementType = "div">({
       {startIcons}
       {divided && startIcon != null && <Divider direction="y" />}
       {children != null && (
-        <Text color={color} level={level}>
+        // @ts-expect-error
+        <Text<L> color={color} level={level}>
           {children}
         </Text>
       )}

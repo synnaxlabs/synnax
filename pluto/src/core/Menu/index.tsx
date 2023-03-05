@@ -9,7 +9,7 @@
 
 import { ContextMenu, useContextMenu } from "./ContextMenu";
 import { Menu as CoreMenu } from "./Menu";
-import { MenuItem, MenuItemIcon } from "./MenuItem";
+import { MenuItem } from "./MenuItem";
 export type {
   ContextMenuProps,
   UseContextMenuReturn,
@@ -76,15 +76,6 @@ export interface MenuType extends CoreMenuType {
    * is passed to the onChange callback of the Menu.
    */
   Item: typeof MenuItem;
-  /**
-   * Menu.ItemIcon renders a menu item with only an icon.
-   *
-   * @param props - Props for the component. Identical props to those of Button.Icon except
-   * for the ones listed below.
-   * @param props.itemKey - The key of the item. This is used to identify the item and
-   *   is passed to the onChange callback of the Menu.
-   */
-  ItemIcon: typeof MenuItemIcon;
 }
 
 /**
@@ -102,4 +93,3 @@ export const Menu = CoreMenu as MenuType;
 Menu.ContextMenu = ContextMenu;
 Menu.useContextMenu = useContextMenu;
 Menu.Item = MenuItem;
-Menu.ItemIcon = MenuItemIcon;

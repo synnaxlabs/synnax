@@ -17,7 +17,12 @@ import {
 import { appWindow } from "@tauri-apps/api/window";
 
 import { clusterReducer, CLUSTER_SLICE_NAME } from "@/features/cluster";
-import { layoutReducer, LAYOUT_SLICE_NAME } from "@/features/layout";
+import { docsReducer, DOCS_SLICE_NAME } from "@/features/docs";
+import {
+  layoutReducer,
+  LAYOUT_PERSIST_EXCLUDE,
+  LAYOUT_SLICE_NAME,
+} from "@/features/layout";
 import {
   TauriKV,
   newPreloadState as preloadState,
@@ -27,7 +32,9 @@ import { versionReducer, VERSION_SLICE_NAME } from "@/features/version";
 import { VISUALIZATION_SLICE_NAME, visualizationReducer } from "@/features/vis";
 import { workspaceReducer, WORKSPACE_SLICE_NAME } from "@/features/workspace";
 
-const kv = new TauriKV<RootState>();
+const db = new TauriKV<RootState>();
+
+const PERSIST_EXCLUDE = [DRIFT_SLICE_NAME, ...LAYOUT_PERSIST_EXCLUDE];
 
 const reducer = combineReducers({
   [DRIFT_SLICE_NAME]: driftReducer,
@@ -36,15 +43,19 @@ const reducer = combineReducers({
   [VISUALIZATION_SLICE_NAME]: visualizationReducer,
   [WORKSPACE_SLICE_NAME]: workspaceReducer,
   [VERSION_SLICE_NAME]: versionReducer,
+  [DOCS_SLICE_NAME]: docsReducer,
 });
 
 /** The root state of the application.   */
 export type RootState = ReturnType<typeof reducer>;
 
 export const store = configureStore<ReturnType<typeof reducer>>({
-  debug: true,
+  debug: false,
   runtime: new TauriRuntime(appWindow),
-  preloadedState: preloadState(kv),
-  middleware: (def) => [...def(), newPersistStateMiddleware(kv)],
+  preloadedState: preloadState(db),
+  middleware: (def) => [
+    ...def(),
+    newPersistStateMiddleware({ db, exclude: PERSIST_EXCLUDE }),
+  ],
   reducer,
 });

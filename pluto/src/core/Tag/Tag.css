@@ -9,10 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-tag__close {
-    cursor: pointer;
-}
-
 .pluto-tag {
     padding: 0rem 1rem;
     border-radius: var(--pluto-border-radius);

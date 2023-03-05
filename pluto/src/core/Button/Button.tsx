@@ -9,10 +9,9 @@
 
 import { ReactElement } from "react";
 
-import clsx from "clsx";
-
 import { SpaceProps } from "@/core/Space";
 import { Typography, Text } from "@/core/Typography";
+import { CSS } from "@/css";
 import { ComponentSize } from "@/util/component";
 
 import "./Button.css";
@@ -24,6 +23,7 @@ export type ButtonVariant = "filled" | "outlined" | "text";
 export interface BaseButtonProps extends Omit<SpaceProps<"button">, "el" | "value"> {
   variant?: ButtonVariant;
   size?: ComponentSize;
+  sharp?: boolean;
 }
 
 /** The props for the {@link Button} component. */
@@ -40,11 +40,18 @@ export const Button = ({
   className,
   children,
   iconSpacing,
+  sharp = false,
   ...props
 }: ButtonProps): JSX.Element => (
   <Text.WithIcon
     el="button"
-    className={clsx("pluto--" + size, "pluto-btn", "pluto-btn--" + variant, className)}
+    className={CSS(
+      CSS.B("btn"),
+      CSS.size(size),
+      CSS.sharp(sharp),
+      CSS.BM("btn", variant),
+      className
+    )}
     level={Typography.ComponentSizeLevels[size]}
     size={iconSpacing}
     {...props}

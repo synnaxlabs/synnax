@@ -8,8 +8,13 @@
 // included in the file licenses/APL.txt.
 //
 
-import { Bound, Direction, inBounds } from "@synnaxlabs/pluto";
-import { convertRenderV, RenderableRecord } from "@synnaxlabs/x";
+import {
+  convertRenderV,
+  RenderableRecord,
+  Bound,
+  Direction,
+  inBounds,
+} from "@synnaxlabs/x";
 
 export interface TableColumn<E extends RenderableRecord<E>> {
   key: keyof E;

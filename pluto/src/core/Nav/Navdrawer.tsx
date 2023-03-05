@@ -10,11 +10,11 @@
 import { ReactElement, useCallback, useState } from "react";
 
 import { locToDir } from "@synnaxlabs/x";
-import clsx from "clsx";
 
 import { NavbarProps } from "./Navbar";
 
 import { Resize, ResizeProps } from "@/core/Resize";
+import { CSS } from "@/css";
 
 import "./Navdrawer.css";
 
@@ -67,11 +67,7 @@ export const Navdrawer = ({
   const handleCollapse = useCallback(() => onSelect?.(key), [onSelect, key]);
   return (
     <Resize
-      className={clsx(
-        "pluto-navdrawer__content",
-        `pluto-navdrawer__content--${dir}`,
-        className
-      )}
+      className={CSS(CSS.BE("navdrawer", "content"), CSS.dir(dir), className)}
       collapseThreshold={collapseThreshold}
       onCollapse={handleCollapse}
       location={location}

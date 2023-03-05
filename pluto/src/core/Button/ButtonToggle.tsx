@@ -9,13 +9,11 @@
 
 import { FunctionComponent } from "react";
 
-import clsx from "clsx";
-
 import { Button, ButtonProps } from "./Button";
+import { ButtonIcon } from "./ButtonIcon";
 
 import { InputControl } from "@/core/Input";
-
-import { ButtonIcon } from "./ButtonIcon";
+import { CSS } from "@/css";
 
 import "./ButtonToggle.css";
 
@@ -29,9 +27,9 @@ const buttonToggleFactory =
       <Base
         {...props}
         checked={props.value}
-        className={clsx(
-          "pluto-btn-toggle",
-          props.value && "pluto-btn-toggle--checked",
+        className={CSS(
+          CSS.B("btn-toggle"),
+          props.value && CSS.BM("btn-toggle", "checked"),
           props.className
         )}
         variant={props.value ? props.variant : "outlined"}

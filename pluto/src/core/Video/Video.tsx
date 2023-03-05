@@ -1,6 +1,6 @@
 import { ComponentPropsWithoutRef } from "react";
 
-import clsx from "clsx";
+import { CSS } from "@/css";
 
 import "./Video.css";
 
@@ -9,7 +9,7 @@ export interface VideoProps extends ComponentPropsWithoutRef<"video"> {
 }
 
 export const Video = ({ href, className, ...props }: VideoProps): JSX.Element => (
-  <video className={clsx("pluto-video", className)} {...props}>
+  <video className={CSS(CSS.B("video"), className)} {...props}>
     <source src={href} type="video/mp4" />
   </video>
 );

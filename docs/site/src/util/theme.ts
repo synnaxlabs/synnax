@@ -21,8 +21,8 @@ const modifyTheme = (theme: Theme): Theme => {
   return m;
 };
 
-const DARK = modifyTheme(Theming.themes.synnaxDark);
-const LIGHT = modifyTheme(Theming.themes.synnaxLight);
+export const DARK = modifyTheme(Theming.themes.synnaxDark);
+export const LIGHT = modifyTheme(Theming.themes.synnaxLight);
 
 export const DEFAULT_THEME = Theming.themes.synnaxLight;
 

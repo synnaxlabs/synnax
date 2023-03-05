@@ -9,7 +9,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { Space, Typography, Header, Menu } from "@synnaxlabs/pluto";
+import { Space, Header, Menu } from "@synnaxlabs/pluto";
 import { MarkdownHeading } from "astro";
 import { unescape } from "html-escaper";
 
@@ -86,20 +86,22 @@ export const TableOfContents = ({
         <Header.Title level="h3">On this page</Header.Title>
       </Header>
       <div ref={toc}>
-        <Menu selected={currentID}>
+        <Menu value={currentID}>
           {headings
             .filter(({ depth }) => depth > 1 && depth < 3)
             .map((heading) => (
-              <Typography.Text.Link
+              <Menu.Item.Link
                 href={`#${heading.slug}`}
                 level="p"
                 key={heading.slug}
+                itemKey={heading.slug}
+                id={heading.slug}
                 className={`header-link depth-${heading.depth} ${
                   currentID === heading.slug ? "current-header-link" : ""
                 }`.trim()}
               >
                 {unescape(heading.text)}
-              </Typography.Text.Link>
+              </Menu.Item.Link>
             ))}
         </Menu>
       </div>

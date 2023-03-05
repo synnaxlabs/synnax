@@ -10,11 +10,11 @@
 import { DetailedHTMLProps, HTMLAttributes } from "react";
 
 import { Location, locToDir, swapLoc, dirToDim } from "@synnaxlabs/x";
-import clsx from "clsx";
 
+import { CSS } from "@/css";
 import { preventDefault } from "@/util/event";
 
-export interface ResizePanelProps
+export interface ResizeCoreProps
   extends DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement> {
   location: Location;
   size: number;
@@ -23,7 +23,7 @@ export interface ResizePanelProps
   showHandle?: boolean;
 }
 
-export const ResizePanel = ({
+export const ResizeCore = ({
   location,
   style = {},
   size,
@@ -33,30 +33,19 @@ export const ResizePanel = ({
   sizeUnits = "px",
   showHandle = true,
   ...props
-}: ResizePanelProps): JSX.Element => {
+}: ResizeCoreProps): JSX.Element => {
   const dir = locToDir(location);
   return (
     <div
-      className={clsx(
-        "pluto-resize",
-        `pluto-resize--${location}`,
-        `pluto-resize--${dir}`,
-        className
-      )}
-      style={{
-        [dirToDim(dir)]: `${size}${sizeUnits}`,
-        ...style,
-      }}
+      className={CSS(CSS.B("resize"), CSS.loc(location), CSS.dir(dir), className)}
+      style={{ [dirToDim(dir)]: `${size}${sizeUnits}`, ...style }}
       {...props}
     >
       {children}
       {showHandle && (
         <div
           draggable
-          className={clsx(
-            "pluto-resize__handle",
-            showHandle && `pluto-bordered--${swapLoc(location)}`
-          )}
+          className={CSS(CSS.BE("resize", "handle"), CSS.bordered(swapLoc(location)))}
           onDragStart={onDragStart}
           onDrag={preventDefault}
           onDragEnd={preventDefault}

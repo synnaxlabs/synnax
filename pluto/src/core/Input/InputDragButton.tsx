@@ -10,14 +10,15 @@
 import { useCallback, useMemo, useRef } from "react";
 
 import { Box, Direction, toXY, XY } from "@synnaxlabs/x";
-import clsx from "clsx";
 import { GrDrag } from "react-icons/gr";
 
 import { InputControl } from "./types";
 
 import { Button, ButtonIconProps } from "@/core/Button";
-import { directionCls } from "@/css";
+import { CSS } from "@/css";
 import { useVirtualCursorDrag } from "@/hooks/useCursorDrag";
+
+import "./InputDragButton.css";
 
 export interface InputDragButtonExtensionProps {
   direction?: Direction;
@@ -88,11 +89,7 @@ export const InputDragButton = ({
     <Button.Icon
       ref={elRef}
       variant="outlined"
-      className={clsx(
-        "pluto-input-number__drag-button",
-        direction != null && directionCls(direction),
-        className
-      )}
+      className={CSS(CSS.BE("input", "drag-btn"), CSS.dir(direction), className)}
       onDoubleClick={() => onChange(vRef.current.prev)}
       {...props}
     >

@@ -36,7 +36,7 @@ const icon = (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 189.34">
     <defs>
       <linearGradient
-        id="linear-gradient"
+        id="synnalinear-gradient"
         x1="-2.63"
         y1="56.85"
         x2="167.19"

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { URL, buildQueryString } from "@synnaxlabs/x";
 import axios from "axios";
 import type { AxiosRequestConfig, AxiosResponse, RawAxiosRequestHeaders } from "axios";
 import { ZodSchema } from "zod";
@@ -15,7 +16,6 @@ import { EncoderDecoder } from "@/encoder";
 import { ErrorPayloadSchema, decodeError } from "@/errors";
 import { MetaData, MiddlewareCollector } from "@/middleware";
 import { UnaryClient } from "@/unary";
-import { URL, buildQueryString } from "@/url";
 
 /**
  * HTTPClientFactory provides a POST and GET implementation of the Unary

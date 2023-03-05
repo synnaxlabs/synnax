@@ -8,13 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { Middleware } from "@reduxjs/toolkit";
-import {
-  DRIFT_SLICE_NAME,
-  MAIN_WINDOW,
-  initialState as driftInitialState,
-  DriftStoreState,
-} from "@synnaxlabs/drift";
-import { AsyncKV } from "@synnaxlabs/x";
+import { MAIN_WINDOW } from "@synnaxlabs/drift";
+import { AsyncKV, Deep, UnknownRecord, DeepKey } from "@synnaxlabs/x";
 import { getVersion } from "@tauri-apps/api/app";
 import { appWindow } from "@tauri-apps/api/window";
 
@@ -22,7 +17,7 @@ import { VersionStoreState } from "../version";
 
 const PERSISTED_STATE_KEY = "delta-persisted-state";
 
-export interface RequiredState extends VersionStoreState, DriftStoreState {}
+export interface RequiredState extends VersionStoreState {}
 
 /**
  * Returns a function that preloads the state from the given key-value store on the main
@@ -37,11 +32,15 @@ export const newPreloadState =
     if (appWindow.label !== MAIN_WINDOW) return undefined;
     const state = await db.get(PERSISTED_STATE_KEY);
     if (state == null) return undefined;
-    // TODO: (@emilbon99) drift doesn't inspect initial state and fork windows accordingly
-    // so we need to manually set the drift state for now.
-    if (DRIFT_SLICE_NAME in state) state.drift = driftInitialState;
     return await reconcileVersions(state);
   };
+
+export interface PersistStateMiddlewareConfig<S extends UnknownRecord<S>> {
+  /** The key-value store to persist to. */
+  db: AsyncKV<string, S>;
+  /** The keys to exclude from persistence. */
+  exclude?: Array<DeepKey<S>>;
+}
 
 /**
  * Returns a redux middleware that persists the state to the given key-value store on
@@ -51,13 +50,14 @@ export const newPreloadState =
  * @returns a redux middleware.
  */
 export const newPersistStateMiddleware =
-  <S>(db: AsyncKV<string, S>): Middleware<{}, S> =>
+  <S>({ db, exclude = [] }: PersistStateMiddlewareConfig<S>): Middleware<{}, S> =>
   (store) =>
   (next) =>
   (action) => {
     const result = next(action);
     if (appWindow.label !== MAIN_WINDOW) return result;
-    void db.set(PERSISTED_STATE_KEY, store.getState());
+    const state = Deep.delete(JSON.parse(JSON.stringify(store.getState())), ...exclude);
+    void db.set(PERSISTED_STATE_KEY, state);
     return result;
   };
 

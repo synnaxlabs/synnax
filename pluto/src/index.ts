@@ -15,6 +15,7 @@ export * from "@/util/component";
 export * from "@/util/toArray";
 export * from "@/util/transform";
 export * from "@/util/debounce";
+export * from "@/util/renderProp";
 export * from "@/vis";
 export * from "@/triggers";
 export * from "@/memo";

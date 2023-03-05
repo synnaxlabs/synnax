@@ -14,7 +14,7 @@ import { Vis } from "./types";
 
 import { Layout, LayoutCreator, LayoutCreatorProps } from "@/features/layout";
 
-export const createVisualization =
+export const createVis =
   <V extends Vis>(initial: Partial<V>): LayoutCreator =>
   ({ dispatch }: LayoutCreatorProps): Layout => {
     const key = initial.key ?? nanoid();

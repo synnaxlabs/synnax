@@ -15,6 +15,7 @@ import { MosaicNode } from "./types";
 
 import { Resize } from "@/core/Resize";
 import { Tab, Tabs, TabsProps } from "@/core/Tabs";
+import { CSS } from "@/css";
 import { preventDefault } from "@/util/event";
 
 import "./Mosaic.css";
@@ -55,7 +56,11 @@ export const Mosaic = memo((props: MosaicProps): JSX.Element | null => {
   }
 
   return (
-    <Resize.Multiple align="stretch" className="pluto-mosaic__resize" {...resizeProps}>
+    <Resize.Multiple
+      align="stretch"
+      className={CSS.BE("mosaic", "resize")}
+      {...resizeProps}
+    >
       <Mosaic key={first.key} {...childProps} root={first} onResize={onResize} />
       <Mosaic key={last.key} {...childProps} root={last} onResize={onResize} />
     </Resize.Multiple>
@@ -99,7 +104,7 @@ const MosaicTabLeaf = memo(
 
     const handleDragLeave = (): void => setDragMask(null);
 
-    const handleTabDragStart = (
+    const handleDragStart = (
       e: React.DragEvent<HTMLDivElement>,
       { tabKey }: Tab
     ): void => {
@@ -107,27 +112,23 @@ const MosaicTabLeaf = memo(
       setCurrentlyDragging(tabKey);
     };
 
-    const handleTabDragEnd = (): void => setCurrentlyDragging(null);
+    const handleDragEnd = (): void => setCurrentlyDragging(null);
 
     return (
-      <div style={{ position: "relative", height: "100%" }}>
+      <div className={CSS.BE("mosaic", "leaf")}>
         <Tabs
-          style={{ height: "100%" }}
           tabs={tabs}
           onDrop={handleDrop}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDragEnter={preventDefault}
           selected={node.selected}
-          onTabDragStart={handleTabDragStart}
-          onTabDragEnd={handleTabDragEnd}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
           {...props}
         />
         {dragMask != null && (
-          <div
-            className="pluto-mosaic__drag-mask"
-            style={dragMaskStyle[dragMask]}
-          ></div>
+          <div className={CSS.BE("mosaic", "mask")} style={maskStyle[dragMask]} />
         )}
       </div>
     );
@@ -136,7 +137,7 @@ const MosaicTabLeaf = memo(
 
 MosaicTabLeaf.displayName = "MosaicTabLeaf";
 
-const dragMaskStyle: Record<
+const maskStyle: Record<
   Location,
   { left: string; top: string; width: string; height: string }
 > = {

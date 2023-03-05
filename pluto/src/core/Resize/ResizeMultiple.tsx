@@ -19,11 +19,11 @@ import {
 } from "react";
 
 import { Box, ClientXY, Direction, locFromDir } from "@synnaxlabs/x";
-import clsx from "clsx";
 
-import { ResizePanel } from "./ResizePanel";
+import { ResizeCore } from "./ResizeCore";
 
 import { Space, SpaceProps } from "@/core/Space";
+import { CSS } from "@/css";
 
 import "./ResizeMultiple.css";
 
@@ -141,12 +141,12 @@ export const ResizeMultiple = forwardRef(
         {...props}
         ref={ref}
         direction={direction}
-        className={clsx("pluto-resize-multiple", className)}
+        className={CSS(CSS.B("resize-multiple"), className)}
         empty
         grow
       >
         {children.map((child, i) => (
-          <ResizePanel
+          <ResizeCore
             onDragStart={(e) => onDrag(e, i)}
             key={i}
             location={location}
@@ -155,7 +155,7 @@ export const ResizeMultiple = forwardRef(
             showHandle={i !== children.length - 1}
           >
             {child}
-          </ResizePanel>
+          </ResizeCore>
         ))}
       </Space>
     );

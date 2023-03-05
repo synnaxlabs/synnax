@@ -9,11 +9,11 @@
 
 import { FunctionComponent } from "react";
 
-import clsx from "clsx";
-
 import { Button, ButtonIconProps, ButtonProps } from "../Button";
 
 import { useMenuContext } from "./Menu";
+
+import { CSS } from "@/css";
 
 import "./MenuItem.css";
 
@@ -35,11 +35,7 @@ const menuItemFactory =
         {...props}
         onClick={handleClick}
         variant="text"
-        className={clsx(
-          "pluto-menu-item",
-          _selected && "pluto-menu-item--selected",
-          className
-        )}
+        className={CSS(CSS.B("menu-item"), CSS.selected(_selected), className)}
       />
     );
   };
@@ -47,9 +43,25 @@ const menuItemFactory =
 export interface MenuItemProps extends ButtonProps {
   itemKey: string;
 }
-export const MenuItem = menuItemFactory(Button);
+export const CoreMenuItem = menuItemFactory(Button);
 
 export interface MenuItemIconProps extends ButtonIconProps {
   itemKey: string;
 }
-export const MenuItemIcon = menuItemFactory(Button.Icon);
+const MenuItemIcon = menuItemFactory(Button.Icon);
+
+const MenuItemLink = menuItemFactory(Button.Link);
+export interface MenuItemLinkProps extends ButtonProps {
+  itemKey: string;
+}
+
+type CoreMenuItemType = typeof CoreMenuItem;
+
+export interface MenuItemType extends CoreMenuItemType {
+  Icon: typeof MenuItemIcon;
+  Link: typeof MenuItemLink;
+}
+
+export const MenuItem = CoreMenuItem as MenuItemType;
+MenuItem.Icon = MenuItemIcon;
+MenuItem.Link = MenuItemLink;

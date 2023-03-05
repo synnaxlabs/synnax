@@ -17,23 +17,14 @@ import { useSelectCluster, useSelectClusters } from "../store";
 import { setActiveCluster } from "../store/slice";
 import { RenderableCluster } from "../types";
 
+import { connectClusterWindowLayout } from "./ConnectCluster";
+
 import { ToolbarHeader, ToolbarTitle } from "@/components";
-import { Layout, useLayoutPlacer, NavDrawerItem } from "@/features/layout";
+import { useLayoutPlacer, NavDrawerItem } from "@/features/layout";
 
 import "./ClusterToolbar.css";
 
-const connectClusterWindowLayout: Layout = {
-  key: "connectCluster",
-  type: "connectCluster",
-  name: "Connect a Cluster",
-  location: "window",
-  window: {
-    resizable: false,
-    height: 430,
-    width: 650,
-    navTop: true,
-  },
-};
+import { CSS } from "@/css";
 
 const Content = (): JSX.Element => {
   const dispatch = useDispatch();
@@ -80,9 +71,9 @@ const ListItem = ({
     align="center"
     justify="spaceBetween"
     onDoubleClick={() => onSelect?.(key)}
-    className={clsx(
-      "delta-cluster-toolbar-list__item",
-      selected && "delta-cluster-toolbar-list__item--selected"
+    className={CSS(
+      CSS.BE("cluster-toolbar-list", "item"),
+      selected && CSS.M("selected")
     )}
     {...props}
   >

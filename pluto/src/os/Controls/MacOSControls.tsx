@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import clsx from "clsx";
-
 import { OSControlsProps } from "./types";
 
 import { Button, ButtonIconProps, Space } from "@/core";
+import { CSS } from "@/css";
 
 import "./MacOSControls.css";
 
@@ -86,30 +85,30 @@ export const MacOSControls = ({
   <Space
     size={1.5}
     direction="x"
-    className={clsx(
-      "pluto-macos-controls",
-      !focused && "pluto-macos-controls--blurred",
+    className={CSS(
+      CSS.B("macos-controls"),
+      !focused && CSS.BM("macos-controls", "blurred"),
       className
     )}
     {...props}
   >
     <TrafficLight
       onClick={onClose}
-      className="pluto-macos-control--close"
+      className={CSS.BM("macos-control", "close")}
       disabled={disabled?.includes("close")}
     >
       {Icon.Close}
     </TrafficLight>
     <TrafficLight
       onClick={onMinimize}
-      className="pluto-macos-control--minimize"
+      className={CSS.BM("macos-control", "minimize")}
       disabled={disabled?.includes("minimize")}
     >
       {Icon.Minimize}
     </TrafficLight>
     <TrafficLight
       onClick={onFullscreen}
-      className="pluto-macos-control--maximize"
+      className={CSS.BM("macos-control", "maximize")}
       disabled={disabled?.includes("maximize")}
     >
       {Icon.Maximize}
@@ -120,5 +119,5 @@ export const MacOSControls = ({
 interface MacOSTrafficLightProps extends ButtonIconProps {}
 
 const TrafficLight = ({ className, ...props }: MacOSTrafficLightProps): JSX.Element => (
-  <Button.Icon className={clsx("pluto-macos-control", className)} {...props} />
+  <Button.Icon className={CSS(CSS.B("macos-control"), className)} {...props} />
 );

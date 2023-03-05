@@ -11,19 +11,20 @@ import { CSSProperties, useEffect, useState } from "react";
 
 import { Icon } from "@synnaxlabs/media";
 import { newObjectFieldCompare, convertRenderV, RenderableRecord } from "@synnaxlabs/x";
-import clsx from "clsx";
+
+import { CONTEXT_SELECTED, CONTEXT_TARGET } from "../Menu/ContextMenu";
+
+import { useListContext } from "./ListContext";
+import { ListItemProps, ListColumn as ListColumnT } from "./types";
 
 import { Space } from "@/core/Space";
 import { Text } from "@/core/Typography";
 import { textWidth } from "@/core/Typography/textWidth";
+import { CSS } from "@/css";
 import { useFont } from "@/theming";
 import { ArrayTransform } from "@/util/transform";
 
-import { useListContext } from "./ListContext";
-
 import "./ListColumn.css";
-
-import { ListItemProps, ListColumn as ListColumnT } from "./types";
 
 type SortState<E extends RenderableRecord<E>> = [keyof E | null, boolean];
 
@@ -69,7 +70,11 @@ const ListColumnHeader = <E extends RenderableRecord<E>>({
   }, [sourceData, initialColumns]);
 
   return (
-    <Space direction="x" size="medium" className="pluto-list-col-header__container">
+    <Space
+      direction="x"
+      size="medium"
+      className={CSS.BE("list-col-header", "container")}
+    >
       {columns
         .filter(({ visible = true }) => visible)
         .map(({ key, width, name }) => {
@@ -78,7 +83,7 @@ const ListColumnHeader = <E extends RenderableRecord<E>>({
           if (key === sortKey) endIcon = dir ? <Icon.Caret.Up /> : <Icon.Caret.Down />;
           return (
             <Text.WithIcon
-              className="pluto-list-col-header__item"
+              className={CSS.BE("list-col-header", "item")}
               key={key.toString()}
               justify="spaceBetween"
               level="p"
@@ -106,12 +111,12 @@ const ListColumnItem = <E extends RenderableRecord<E>>({
   return (
     <Space
       id={entry.key.toString()}
-      className={clsx(
-        "pluto-context-target",
-        "pluto-list-col-item__container",
-        onSelect != null && "pluto-list-col-item__container--selectable",
-        selected && "pluto-list-col-item__container--selected",
-        selected && "pluto-context-selected"
+      className={CSS(
+        CONTEXT_TARGET,
+        CSS.BE("list-col-item", "container"),
+        onSelect != null && CSS.BEM("list-col-item", "container", "selectable"),
+        selected && CSS.BEM("list-col-item", "container", "selected"),
+        selected && CONTEXT_SELECTED
       )}
       direction="x"
       size="medium"

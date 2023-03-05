@@ -12,6 +12,7 @@ import { Icon } from "@synnaxlabs/media";
 import { OSControlsProps } from "./types";
 
 import { Button, ButtonIconProps, Pack } from "@/core";
+import { CSS } from "@/css";
 
 import "./WindowsControls.css";
 
@@ -31,7 +32,10 @@ export const WindowsControls = ({
       <WindowsControlButton onClick={onMaximize}>
         <Icon.Box />
       </WindowsControlButton>
-      <WindowsControlButton onClick={onClose} className="pluto-windows-control--close">
+      <WindowsControlButton
+        onClick={onClose}
+        className={CSS.BM("windows-control", "close")}
+      >
         <Icon.Close />
       </WindowsControlButton>
     </Pack>

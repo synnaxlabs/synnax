@@ -9,9 +9,9 @@
 
 import { forwardRef } from "react";
 
-import clsx from "clsx";
-
 import { InputBaseProps } from "./types";
+
+import { CSS } from "@/css";
 
 import "./Input.css";
 
@@ -35,12 +35,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     <input
       ref={ref}
       value={value ?? ""}
-      className={clsx(
-        "pluto-input",
-        `pluto--${size}`,
-        `pluto-input--${size}`,
-        className
-      )}
+      className={CSS(CSS.B("input"), CSS.size(size), className)}
       onChange={(e) => onChange(e.target.value)}
       onFocus={(e) => {
         if (selectOnFocus) e.target.select();

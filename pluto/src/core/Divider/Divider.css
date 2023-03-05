@@ -14,19 +14,19 @@
     align-self: stretch;
 }
 
-.pluto-divider--x {
+.pluto-divider.pluto--x {
     height: var(--pluto-border-width);
-}
+ }
 
-.pluto-divider--y {
+.pluto-divider.pluto--y {
     width: var(--pluto-border-width);
 }
 
-.pluto-divider--x.pluto-divider--padded {
+.pluto-divider--padded.pluto--x {
     margin: 0.5rem 0;
 }
 
-.pluto-divider--y.pluto-divider--padded {
+.pluto-divider--padded.pluto--y {
     margin: 0 0.5rem;
 }
 

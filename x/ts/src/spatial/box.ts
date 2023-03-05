@@ -20,7 +20,7 @@ import {
   Bound,
 } from "./core";
 
-import { Stringer } from "@/types/primitive";
+import { Stringer } from "@/primitive";
 
 /** represents a partial JS DOMRect */
 export interface DOMRect {
