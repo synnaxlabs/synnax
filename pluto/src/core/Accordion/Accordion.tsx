@@ -56,7 +56,7 @@ const DEFAULT_EXPAND_SIZE = 0.5;
 
 /**
  * A resizable accordion component, whose entries can be expanded and collapsed. This
- * component is intentionally constrained in its interface in order to provide stylistic
+ * component is intentionally opinionated in its interface in order to provide stylistic
  * consistency and simplicity. If you need more control, look at building a custom
  * accordion component using {@link Resize.Multiple}.
  *
@@ -129,6 +129,11 @@ const AccordionEntryC = ({
     const parentSize = new Box(parent.current).dim(DIRECTION);
     expanded = size * parentSize > COLLAPSED_THRESHOLD;
   }
+  const icon = expanded ? (
+    <Icon.Caret.Down aria-label="contract" />
+  ) : (
+    <Icon.Caret.Right aria-label="expand" />
+  );
   return (
     <>
       <Header
@@ -136,10 +141,7 @@ const AccordionEntryC = ({
         className={CSS(CSS.BE("accordion", "header"), CSS.expanded(expanded))}
         empty
       >
-        <Header.ButtonTitle
-          startIcon={expanded ? <Icon.Caret.Down /> : <Icon.Caret.Right />}
-          onClick={() => onExpand(index)}
-        >
+        <Header.ButtonTitle startIcon={icon} onClick={() => onExpand(index)}>
           {name}
         </Header.ButtonTitle>
         {actions != null && <Header.Actions>{actions}</Header.Actions>}

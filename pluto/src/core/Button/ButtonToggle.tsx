@@ -27,6 +27,7 @@ const buttonToggleFactory =
       <Base
         {...props}
         checked={props.value}
+        onClick={() => props.onChange(!props.value)}
         className={CSS(
           CSS.B("btn-toggle"),
           props.value && CSS.BM("btn-toggle", "checked"),

@@ -10,12 +10,10 @@
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Mosaic, MosaicNode } from ".";
-
-import { UseMosaicProps, useMosaic } from "./useMosaic";
+import { Mosaic, MosaicNode, UseMosaicProps } from ".";
 
 const TestMosaic = (props: UseMosaicProps): JSX.Element => {
-  const props_ = useMosaic(props);
+  const props_ = Mosaic.use(props);
   return <Mosaic {...props_} />;
 };
 

@@ -39,7 +39,7 @@ export const LinePlotToolBar = (props: ControlledLineVisProps): JSX.Element => {
       <Tabs.Provider value={tabProps}>
         <ToolbarHeader>
           <VisToolbarTitle />
-          <Tabs.Selector style={{ borderBottom: "none" }} />
+          <Tabs.Selector style={{ borderBottom: "none" }} size="large" />
         </ToolbarHeader>
         <Tabs.Content />
       </Tabs.Provider>

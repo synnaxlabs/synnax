@@ -64,7 +64,7 @@ export const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
     <Pack
       {...props}
       ref={ref}
-      className={CSS.B("dropdown__container")}
+      className={CSS.B("dropdown")}
       direction="y"
       reverse={location === "top"}
     >
@@ -72,10 +72,11 @@ export const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
       <Space
         className={CSS(
           CSS.bordered(),
-          CSS.B("dropdown__dialog"),
+          CSS.BE("dropdown", "dialog"),
           CSS.loc(location),
           CSS.visible(visible)
         )}
+        role="dialog"
         empty
       >
         {children[1]}
