@@ -18,6 +18,7 @@ import {
   autoSelectTabs,
 } from "./mosaicTree";
 import { useMosaic } from "./useMosaic";
+export type { UseMosaicProps, UseMosaicReturn } from "./useMosaic";
 export * from "./types";
 
 type CoreMosaicType = typeof CoreMosaic;

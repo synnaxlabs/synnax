@@ -10,27 +10,36 @@
 import { Header as CoreHeader } from "./Header";
 import { HeaderActions } from "./HeaderActions";
 import { HeaderButtonTitle } from "./HeaderButtonTitle";
-import { HeaderTitle } from "./HeaderTitle";
+import { HeaderTitle as CoreTitle } from "./HeaderTitle";
 
 export type { HeaderProps } from "./Header";
 export type { HeaderTitleProps } from "./HeaderTitle";
 export type { HeaderButtonTitleProps } from "./HeaderButtonTitle";
 export type { HeaderActionsProps } from "./HeaderActions";
 
-type CoreHeaderType = typeof CoreHeader;
+type CoreTitleType = typeof CoreTitle;
 
-interface HeaderType extends CoreHeaderType {
+export interface HeaderTitleType extends CoreTitleType {
   /**
-   * Header.ButtonTitle renders a clickable header title.
+   * Header.Title.Button renders a clickable header title.
    *
    * @param props - The comonent props. The props for this component are identical
    * to {@link Button}, except the variant is always 'outlined' and that the component size
    * is automatically inferred from the 'level' prop passsed to the parent {@link Header}
    * component.
    */
-  ButtonTitle: typeof HeaderButtonTitle;
+  Button: typeof HeaderButtonTitle;
+}
+
+export const HeaderTitle = CoreTitle as HeaderTitleType;
+
+HeaderTitle.Button = HeaderButtonTitle;
+
+type CoreHeaderType = typeof CoreHeader;
+
+interface HeaderType extends CoreHeaderType {
   /**
-   * Renders the title for the hdear component.
+   * Renders the title for the header component.
    *
    * @param props - The component props. The props for this component are identical
    * to the {@link Typography.TextWithIcon} component, except that the 'level', and

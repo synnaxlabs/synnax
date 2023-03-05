@@ -17,9 +17,10 @@
   "dependencies": {
     "@fontsource/inter": "^4.5.14",
     "@juggle/resize-observer": "^3.4.0",
-    "@synnaxlabs/x": "workspace:*",
     "@synnaxlabs/media": "workspace:*",
+    "@synnaxlabs/x": "workspace:*",
     "@tanstack/react-virtual": "^3.0.0-beta.18",
+    "@testing-library/dom": ">=7.21.4",
     "clsx": "^1.2.1",
     "d3": "^7.8.2",
     "fuse.js": "^6.6.2",
