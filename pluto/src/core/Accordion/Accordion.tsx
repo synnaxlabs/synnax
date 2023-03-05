@@ -141,9 +141,9 @@ const AccordionEntryC = ({
         className={CSS(CSS.BE("accordion", "header"), CSS.expanded(expanded))}
         empty
       >
-        <Header.ButtonTitle startIcon={icon} onClick={() => onExpand(index)}>
+        <Header.Title.Button startIcon={icon} onClick={() => onExpand(index)}>
           {name}
-        </Header.ButtonTitle>
+        </Header.Title.Button>
         {actions != null && <Header.Actions>{actions}</Header.Actions>}
       </Header>
       {content}
