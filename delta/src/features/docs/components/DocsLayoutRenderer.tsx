@@ -13,23 +13,33 @@ import { Theming, Triggers } from "@synnaxlabs/pluto";
 import { URL, buildQueryString } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 
-import { setDocsLocation } from "../store";
-import { useSelectDocsLocation } from "../store/selectors";
-
 import { CSS } from "@/css";
+import { useSelectDocsLocation } from "@/features/docs/hooks";
+import { setDocsLocation } from "@/features/docs/store";
 import { LayoutRenderer } from "@/features/layout";
 
 import "./DocsLayoutRenderer.css";
 
-const DOCS_HOST = new URL({ host: "localhost", port: 3000, protocol: "http" });
+const DOCS_HOST = new URL({
+  host: "docs.synnaxlabs.com",
+  port: 443,
+  protocol: "https",
+});
 
+/**
+ * Renders a layout that loads the documentation site in an iframe. Updates the docs
+ * redux store to preserve the location when re-opening the docs.
+ */
 export const DocsLayoutRenderer: LayoutRenderer = memo(() => {
+  // Iframes prevent drop interactions on the mosaic, so we need to listen for
+  // the mouse being held down and add a class the docs that adds a mask over the frame
+  // to allow for drop interactions.
   const hover = Triggers.useHeld([["MouseLeft", null]]);
 
   const { theme } = Theming.useContext();
 
   const { path } = useSelectDocsLocation();
-  const [url, setUrl] = useState<URL | null>(null);
+  const [url, setURL] = useState<URL | null>(null);
 
   const dispatch = useDispatch();
 
@@ -47,12 +57,9 @@ export const DocsLayoutRenderer: LayoutRenderer = memo(() => {
       noHeader: true,
       theme: theme.key.includes("dark") ? "dark" : "light",
     };
-    const url = DOCS_HOST.child(path).child(buildQueryString(queryParams));
-    setUrl(url);
+    setURL(DOCS_HOST.child(path).child(buildQueryString(queryParams)));
     window.addEventListener("message", handleFrameMessage);
-    return () => {
-      window.removeEventListener("message", handleFrameMessage);
-    };
+    return () => window.removeEventListener("message", handleFrameMessage);
   }, []);
 
   if (url === null) return null;

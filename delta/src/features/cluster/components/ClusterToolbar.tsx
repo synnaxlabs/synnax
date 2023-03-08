@@ -10,7 +10,6 @@
 import { Icon } from "@synnaxlabs/media";
 import { Space, Header, List, Text } from "@synnaxlabs/pluto";
 import type { ListItemProps } from "@synnaxlabs/pluto";
-import clsx from "clsx";
 import { useDispatch } from "react-redux";
 
 import { useSelectCluster, useSelectClusters } from "../store";
@@ -20,11 +19,10 @@ import { RenderableCluster } from "../types";
 import { connectClusterWindowLayout } from "./ConnectCluster";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
+import { CSS } from "@/css";
 import { useLayoutPlacer, NavDrawerItem } from "@/features/layout";
 
 import "./ClusterToolbar.css";
-
-import { CSS } from "@/css";
 
 const Content = (): JSX.Element => {
   const dispatch = useDispatch();

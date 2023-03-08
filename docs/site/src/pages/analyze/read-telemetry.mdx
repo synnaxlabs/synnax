@@ -65,13 +65,6 @@ range. The following code creates an iterator that will read 100 samples at a ti
 and reads each frame.
 
 ```python
-iter = client.new_iterator(start, end, "my-precise-tc", "time", chunk_size=100)
-```
-
-This opens an iterator configured to read 100 samples at a time. We can iterate through
-each ‘chunk’ of samples easily.
-
-```python
 with client.new_iterator(start, end, "my-precise-tc", "time", chunk_size=100) as i:
     for frame in iter:
         # Do something with the current frame

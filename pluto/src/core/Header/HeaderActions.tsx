@@ -9,6 +9,8 @@
 
 import { Fragment, isValidElement, ReactElement } from "react";
 
+import { toArray } from "@synnaxlabs/x";
+
 import { useHeaderContext } from "./Header";
 
 import { Button, ButtonIconProps } from "@/core/Button";
@@ -16,7 +18,6 @@ import { Divider } from "@/core/Divider";
 import { Space } from "@/core/Space";
 import { Typography, TypographyLevel } from "@/core/Typography";
 import { CSS } from "@/css";
-import { toArray } from "@/util/toArray";
 
 export type HeaderAction = ButtonIconProps | ReactElement;
 

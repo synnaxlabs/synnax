@@ -203,7 +203,7 @@ describe("Frame", () => {
       });
       const pld = f.toPayload();
       expect(pld.keys).toEqual(["a", "b"]);
-      expect(pld.arrays[0].data.byteLength).toEqual(12);
+      expect(pld.arrays?.[0].data.byteLength).toEqual(12);
     });
   });
 });

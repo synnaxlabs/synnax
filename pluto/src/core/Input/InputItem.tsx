@@ -9,7 +9,7 @@
 
 import { forwardRef, Ref } from "react";
 
-import { Direction } from "@synnaxlabs/x";
+import { Direction, toArray } from "@synnaxlabs/x";
 import {
   UseControllerProps,
   useController,
@@ -27,7 +27,6 @@ import { Space, SpaceAlignment, SpaceExtensionProps } from "@/core/Space";
 import { CSS } from "@/css";
 import { camelToTitle } from "@/util/case";
 import { RenderProp } from "@/util/renderProp";
-import { toArray } from "@/util/toArray";
 
 import "./InputItem.css";
 

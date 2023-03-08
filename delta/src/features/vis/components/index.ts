@@ -11,5 +11,4 @@ export { VisLayoutRenderer } from "./VisLayoutRenderer";
 export * from "./VisToolbar";
 export * from "./VisCanvas";
 export * from "./select";
-export * from "./CreateVisButton";
 export * from "./line";

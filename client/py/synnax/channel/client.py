@@ -91,7 +91,7 @@ class Channel(ChannelPayload):
         the timestamp of the first sample in the array.
         :raises ContiguityError: If the telemetry between start and end is non-contiguous.
         """
-        return self._frame_client.read(start, end, key=self.key)
+        return self._frame_client.read(start, end, self.key)
 
     def write(self, start: UnparsedTimeStamp, data: ndarray):
         """Writes telemetry to the channel starting at the given timestamp.
@@ -100,7 +100,7 @@ class Channel(ChannelPayload):
         :param data: The telemetry to write to the channel.
         :returns: None.
         """
-        self._frame_client.write(start, data, key=self.key)
+        self._frame_client.write(start, data, self.key)
 
     @property
     def _frame_client(self) -> FrameClient:

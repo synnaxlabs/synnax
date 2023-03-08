@@ -35,7 +35,7 @@ test("Channel - retrieve by key", async () => {
     rate: Rate.hz(1),
     dataType: DataType.FLOAT32,
   });
-  const retrieved = await client.channel.retrieve({ key: channel.key });
+  const retrieved = await client.channel.retrieve(channel.key);
   expect(retrieved.name).toEqual("test");
   expect(retrieved.nodeId).toEqual(1);
   expect(retrieved.rate).toEqual(Rate.hz(1));
@@ -43,19 +43,13 @@ test("Channel - retrieve by key", async () => {
 });
 
 test("Channel - retrieve by key - not found", async () => {
-  await expect(async () => {
-    await client.channel.retrieve({ key: "1-1000" });
-  }).rejects.toThrow(QueryError);
-});
-
-test("Channel - retrieve by node id", async () => {
-  const retrieved = await client.channel.filter({ nodeId: 1 });
-  expect(retrieved.length).toBeGreaterThan(0);
-  retrieved.forEach((ch) => expect(ch.nodeId).toEqual(1));
+  await expect(async () => await client.channel.retrieve("1-1000")).rejects.toThrow(
+    QueryError
+  );
 });
 
 test("Channel - retrieve by name", async () => {
-  const retrieved = await client.channel.filter({ names: ["test"] });
+  const retrieved = await client.channel.retrieve(["test"]);
   expect(retrieved.length).toBeGreaterThan(0);
   retrieved.forEach((ch) => expect(ch.name).toEqual("test"));
 });

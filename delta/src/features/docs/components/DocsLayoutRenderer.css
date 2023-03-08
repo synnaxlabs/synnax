@@ -20,6 +20,7 @@
     border: none;
 }
 
+/** This masks the iframe so drop operations in the mosaic work. */
 .delta-docs.delta--hover:after {
     content: "";
     display: block;

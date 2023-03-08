@@ -10,4 +10,3 @@
 export * from "./ConnectCluster";
 export * from "./ClusterBadges";
 export * from "./ClusterToolbar";
-export * from "./ConnectClusterButton";

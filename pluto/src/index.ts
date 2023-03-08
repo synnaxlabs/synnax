@@ -13,7 +13,6 @@ export * from "@/hooks";
 export * from "@/theming";
 export * from "@/color";
 export * from "@/util/component";
-export * from "@/util/toArray";
 export * from "@/util/transform";
 export * from "@/util/debounce";
 export * from "@/util/renderProp";

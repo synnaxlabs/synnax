@@ -7,25 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Logo } from "@synnaxlabs/media";
+import { Icon, Logo } from "@synnaxlabs/media";
 import {
   Divider,
   Nav,
   Menu as PMenu,
   MenuProps as PMenuProps,
+  Button,
 } from "@synnaxlabs/pluto";
 import { locToDir } from "@synnaxlabs/x";
-import clsx from "clsx";
 
 import { NAV_SIZES } from "./constants";
 
 import { Controls } from "@/components";
+import { CSS } from "@/css";
 import { ClusterBadge, ClusterToolbar, ConnectionBadge } from "@/features/cluster";
+import { createDocsLayout } from "@/features/docs";
 import {
   NavDrawerItem,
   NavdrawerLocation,
   useNavDrawer,
   NavMenuItem,
+  useLayoutPlacer,
 } from "@/features/layout";
 import { ResourcesToolbar } from "@/features/resources";
 import { VersionBadge } from "@/features/version";
@@ -45,16 +48,25 @@ export const NAV_DRAWERS: NavDrawerItem[] = [
  * NavTop is the top navigation bar for the Delta UI. Try to keep this component
  * presentational.
  */
-export const NavTop = (): JSX.Element => (
-  <Nav.Bar data-tauri-drag-region location="top" size={NAV_SIZES.top}>
-    <Nav.Bar.Start className="delta-main-nav-top__start">
-      <Controls className="delta-controls--macos" visibleIfOS="MacOS" />
-    </Nav.Bar.Start>
-    <Nav.Bar.End>
-      <Controls className="delta-controls--windows" visibleIfOS="Windows" />
-    </Nav.Bar.End>
-  </Nav.Bar>
-);
+export const NavTop = (): JSX.Element => {
+  const placer = useLayoutPlacer();
+
+  const handleDocs = (): void => placer(createDocsLayout());
+
+  return (
+    <Nav.Bar data-tauri-drag-region location="top" size={NAV_SIZES.top}>
+      <Nav.Bar.Start className="delta-main-nav-top__start">
+        <Controls className="delta-controls--macos" visibleIfOS="MacOS" />
+      </Nav.Bar.Start>
+      <Nav.Bar.End className="delta-main-nav-top__end">
+        <Button.Icon size="small" onClick={handleDocs}>
+          <Icon.QuestionMark />
+        </Button.Icon>
+        <Controls className="delta-controls--windows" visibleIfOS="Windows" />
+      </Nav.Bar.End>
+    </Nav.Bar>
+  );
+};
 
 export const NavMenu = ({
   children,
@@ -140,9 +152,9 @@ export const NavDrawer = ({ location, ...props }: NavDrawerProps): JSX.Element =
   return (
     <Nav.Drawer
       location={location}
-      className={clsx(
-        "delta-main-nav-drawer",
-        `delta-main-nav-drawer--${locToDir(location)}`
+      className={CSS(
+        CSS.B("main-nav-drawer"),
+        CSS.BM("main-nav-drawer", locToDir(location))
       )}
       activeItem={activeItem}
       onResize={onResize}
