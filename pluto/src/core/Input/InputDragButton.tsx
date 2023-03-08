@@ -28,7 +28,10 @@ export interface InputDragButtonExtensionProps {
 }
 
 export interface InputDragButtonProps
-  extends Omit<ButtonIconProps, "direction" | "onChange" | "onDragStart" | "children">,
+  extends Omit<
+      ButtonIconProps,
+      "direction" | "onChange" | "onDragStart" | "children" | "value"
+    >,
     InputControl<number>,
     InputDragButtonExtensionProps {}
 

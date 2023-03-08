@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ONE_XY, XY, ZERO_XY, DeepPartial, Deep } from "@synnaxlabs/x";
+import { ONE_XY, XY, ZERO_XY, Deep, DeepPartial } from "@synnaxlabs/x";
 
 import { createVis } from "../../layout";
 import {
@@ -18,7 +18,7 @@ import {
   XAxisRecord,
 } from "../../types";
 
-import { LayoutCreator } from "@/features/layout";
+import { Layout, LayoutCreator } from "@/features/layout";
 import { Range } from "@/features/workspace";
 
 export interface LineVis extends Vis {
@@ -50,5 +50,9 @@ export const ZERO_LINE_VIS: Omit<LineVis, "key"> = {
   pan: ZERO_XY,
 };
 
-export const createLineVis = (initial: DeepPartial<LineVis>): LayoutCreator =>
-  createVis<LineVis>(Deep.merge(ZERO_LINE_VIS, initial));
+export const createLineVis = (
+  initial: DeepPartial<LineVis> & Omit<Layout, "type">
+): LayoutCreator =>
+  createVis<LineVis>(
+    Deep.merge({ ...ZERO_LINE_VIS }, initial) as LineVis & Omit<Layout, "type">
+  );

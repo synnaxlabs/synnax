@@ -33,9 +33,7 @@ export const NavTop = (): JSX.Element => (
 export const LayoutWindow = (): JSX.Element => {
   const { label } = appWindow;
   const key = useSelectWindowKey(label);
-  console.log(key);
-
-  const layout = useSelectLayout(key);
+  const layout = useSelectLayout(key ?? "");
   if (key == null) return <h1>{label}</h1>;
   const content = <LayoutContent layoutKey={key} />;
   if (layout?.window?.navTop === true)

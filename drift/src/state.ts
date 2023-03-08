@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Dispatch } from "react";
-
 import {
   PreloadedState as BasePreloadedState,
   CombinedState,
@@ -17,26 +15,9 @@ import {
   nanoid,
 } from "@reduxjs/toolkit";
 import type { NoInfer } from "@reduxjs/toolkit/dist/tsHelpers";
-import {
-  XY,
-  Dimensions,
-  positionInCenter,
-  Box,
-  ZERO_XY,
-  toXYEqual,
-  Deep,
-} from "@synnaxlabs/x";
+import { XY, Dimensions, positionInCenter, Box, ZERO_XY, Deep } from "@synnaxlabs/x";
 
-import { log } from "./debug";
-
-import { Manager, Properties, MainChecker } from "@/runtime";
-import {
-  LabeledWindowProps,
-  WindowState,
-  WindowProps,
-  WindowStage,
-  MAIN_WINDOW,
-} from "@/window";
+import { WindowState, WindowProps, WindowStage, MAIN_WINDOW } from "@/window";
 
 /** The Slice State */
 export interface DriftState {
@@ -78,27 +59,27 @@ export interface SizePayload {
   size: Dimensions;
 }
 
-type CreateWindowPayload = WindowProps & { prerenderLabel?: string };
-type CloseWindowPayload = MaybeKeyPayload;
-type SetWindowClosedPayload = MaybeKeyPayload;
-type FocusWindowPayload = MaybeKeyPayload;
-type SetWindowMinimizedPayload = MaybeKeyPayload & MaybeBooleanPayload;
-type SetWindowMaximizedPayload = MaybeKeyPayload & MaybeBooleanPayload;
-type SetWindowVisiblePayload = MaybeKeyPayload & MaybeBooleanPayload;
-type SetWindowFullScreenPayload = MaybeKeyPayload & MaybeBooleanPayload;
-type CenterWindowPayload = MaybeKeyPayload;
-type SetWindowPositionPayload = MaybeKeyPayload & { position: XY };
-type SetWindowSizePayload = MaybeKeyPayload & SizePayload;
-type SetWindowMinSizePayload = MaybeKeyPayload & SizePayload;
-type SetWindowMaxSizePayload = MaybeKeyPayload & SizePayload;
-type SetWindowResizablePayload = MaybeKeyPayload & MaybeBooleanPayload;
-type SetWindowSkipTaskbarPayload = MaybeKeyPayload & MaybeBooleanPayload;
-type SetWindowAlwaysOnTopPayload = MaybeKeyPayload & MaybeBooleanPayload;
-type SetWindowTitlePayload = MaybeKeyPayload & { title: string };
-type SetWindowLabelPayload = LabelPayload;
-type SetWindowStatePayload = MaybeKeyPayload & { stage: WindowStage };
-type SetWindowPropsPayload = LabelPayload & Partial<WindowProps>;
-type SetWindowErrorPaylod = KeyPayload & { message: string };
+export type CreateWindowPayload = WindowProps & { prerenderLabel?: string };
+export type CloseWindowPayload = MaybeKeyPayload;
+export type SetWindowClosedPayload = MaybeKeyPayload;
+export type FocusWindowPayload = MaybeKeyPayload;
+export type SetWindowMinimizedPayload = MaybeKeyPayload & MaybeBooleanPayload;
+export type SetWindowMaximizedPayload = MaybeKeyPayload & MaybeBooleanPayload;
+export type SetWindowVisiblePayload = MaybeKeyPayload & MaybeBooleanPayload;
+export type SetWindowFullScreenPayload = MaybeKeyPayload & MaybeBooleanPayload;
+export type CenterWindowPayload = MaybeKeyPayload;
+export type SetWindowPositionPayload = MaybeKeyPayload & { position: XY };
+export type SetWindowSizePayload = MaybeKeyPayload & SizePayload;
+export type SetWindowMinSizePayload = MaybeKeyPayload & SizePayload;
+export type SetWindowMaxSizePayload = MaybeKeyPayload & SizePayload;
+export type SetWindowResizablePayload = MaybeKeyPayload & MaybeBooleanPayload;
+export type SetWindowSkipTaskbarPayload = MaybeKeyPayload & MaybeBooleanPayload;
+export type SetWindowAlwaysOnTopPayload = MaybeKeyPayload & MaybeBooleanPayload;
+export type SetWindowTitlePayload = MaybeKeyPayload & { title: string };
+export type SetWindowLabelPayload = LabelPayload;
+export type SetWindowStatePayload = MaybeKeyPayload & { stage: WindowStage };
+export type SetWindowPropsPayload = LabelPayload & Partial<WindowProps>;
+export type SetWindowErrorPaylod = KeyPayload & { message: string };
 
 /** Type representing all possible actions that are drift related. */
 export type DriftPayload =
@@ -239,8 +220,6 @@ const slice = createSlice({
           new Box(mainWin.position, mainWin.size)
         ).topLeft;
 
-      console.log(a.payload.position, mainWin.position, mainWin.size);
-
       const { prerenderLabel, ...payload } = a.payload;
 
       if (prerender != null) {
@@ -296,7 +275,11 @@ const slice = createSlice({
     setWindowError: (s: DriftState, a: PayloadAction<SetWindowErrorPaylod>) => {
       s.windows[a.payload.key].error = a.payload.message;
     },
-    focusWindow: assertLabel<FocusWindowPayload>(incrementCounter("focusCount")),
+    focusWindow: assertLabel<FocusWindowPayload>((s, a) => {
+      const win = s.windows[a.payload.label];
+      if (win?.visible !== true) s.windows[a.payload.label].visible = true;
+      incrementCounter("focusCount")(s, a);
+    }),
     setWindowMinimized: assignBool("minimized"),
     setWindowMaximized: assignBool("maximized"),
     setWindowVisible: assignBool("visible", true),
@@ -321,10 +304,20 @@ const slice = createSlice({
       s.windows[a.payload.label].title = a.payload.title;
     }),
     setWindowProps: (s: DriftState, a: PayloadAction<SetWindowPropsPayload>) => {
-      const win = s.windows[a.payload.label];
-      // @ts-expect-error
-      const deepPartialEqual = Deep.partialEqual(win, a.payload);
-      if (!deepPartialEqual) s.windows[a.payload.label] = { ...win, ...a.payload };
+      const prev = s.windows[a.payload.label];
+      const next = a.payload;
+      const deepPartialEqual = Deep.partialEqual(prev, a.payload);
+      // If the window has shifted or the size is no longer the same and fullscreen is
+      // true, set fullscreen to false.
+      if (
+        prev.fullscreen === true &&
+        prev.size != null &&
+        next.size != null &&
+        (next.size.width < prev.size.width || next.size.height < prev.size.height)
+      )
+        a.payload.fullscreen = false;
+
+      if (!deepPartialEqual) s.windows[a.payload.label] = { ...prev, ...a.payload };
     },
   },
 });
@@ -376,101 +369,3 @@ const EXCLUDED_ACTIONS: readonly string[] = [setWindowLabel.type];
  */
 export const shouldEmit = (emitted: boolean, type: string): boolean =>
   !emitted && !EXCLUDED_ACTIONS.includes(type);
-
-const purgeWinStateToProps = (
-  window: WindowState & { prerenderLabel?: string }
-): LabeledWindowProps => {
-  const {
-    centerCount,
-    processCount,
-    focusCount,
-    stage,
-    key,
-    prerenderLabel,
-    reserved,
-    ...rest
-  } = window;
-  return rest;
-};
-
-export const sync = (
-  prev: DriftState,
-  next: DriftState,
-  runtime: Manager & MainChecker & Properties,
-  dispatch: Dispatch<DriftAction>,
-  debug: boolean
-): void => {
-  log(debug, "sync", prev, next);
-
-  const removed = Object.keys(prev.windows).filter((label) => !(label in next.windows));
-  const added = Object.keys(next.windows).filter((label) => !(label in prev.windows));
-  const isMain = runtime.isMain();
-  if (isMain && removed.length > 0)
-    removed.forEach((label) => {
-      log(debug, "sync", "closing", label);
-      if (label === MAIN_WINDOW)
-        // close all other windows
-        Object.keys(next.windows)
-          .filter((l) => l !== MAIN_WINDOW)
-          .forEach((l) => dispatch(closeWindow({ key: l })));
-      void runtime.close(label);
-    });
-  if (isMain && added.length > 0)
-    added.forEach((key) => {
-      log(debug, "sync", "creating", key);
-      runtime.create(purgeWinStateToProps(next.windows[key]));
-    });
-
-  const prevWin = prev.windows[runtime.label()];
-  const nextWin = next.windows[runtime.label()];
-  if (prevWin == null || nextWin == null) return;
-
-  const changes: Array<[string, Promise<void>]> = [];
-
-  if (nextWin.title != null && nextWin.title !== prevWin.title)
-    changes.push(["title", runtime.setTitle(nextWin.title)]);
-
-  if (nextWin.visible != null && nextWin.visible !== prevWin.visible)
-    changes.push(["visible", runtime.setVisible(nextWin.visible)]);
-
-  if (nextWin.skipTaskbar != null && nextWin.skipTaskbar !== prevWin.skipTaskbar)
-    changes.push(["skipTaskbar", runtime.setSkipTaskbar(nextWin.skipTaskbar)]);
-
-  if (nextWin.maximized != null && nextWin.maximized !== prevWin.maximized)
-    changes.push(["maximized", runtime.setMaximized(nextWin.maximized)]);
-
-  if (nextWin.fullscreen != null && nextWin.fullscreen !== prevWin.fullscreen)
-    changes.push(["fullscreen", runtime.setFullscreen(nextWin.fullscreen)]);
-
-  if (nextWin.centerCount !== prevWin.centerCount)
-    changes.push(["center", runtime.center()]);
-
-  if (nextWin.minimized != null && nextWin.minimized !== prevWin.minimized)
-    changes.push(["minimized", runtime.setMinimized(nextWin.minimized)]);
-
-  if (nextWin.minSize != null && !toXYEqual(nextWin.minSize, prevWin.minSize))
-    changes.push(["minSize", runtime.setMinSize(nextWin.minSize)]);
-
-  if (nextWin.maxSize != null && !toXYEqual(nextWin.maxSize, prevWin.maxSize))
-    changes.push(["maxSize", runtime.setMinSize(nextWin.maxSize)]);
-
-  if (nextWin.size != null && !toXYEqual(nextWin.size, prevWin.size))
-    changes.push(["size", runtime.setSize(nextWin.size)]);
-
-  if (nextWin.position != null && !toXYEqual(nextWin.position, prevWin.position))
-    changes.push(["position", runtime.setPosition(nextWin.position)]);
-
-  if (nextWin.focusCount !== prevWin.focusCount)
-    changes.push(["focus", runtime.focus()]);
-
-  if (nextWin.resizable != null && nextWin.resizable !== prevWin.resizable)
-    changes.push(["resizable", runtime.setResizable(nextWin.resizable)]);
-
-  if (nextWin.alwaysOnTop != null && nextWin.alwaysOnTop !== prevWin.alwaysOnTop)
-    changes.push(["alwaysOnTop", runtime.setAlwaysOnTop(nextWin.alwaysOnTop)]);
-
-  changes.forEach(([name, change]) => {
-    log(debug, "sync", "changing", name);
-    void change.catch((e) => dispatch(setWindowError(e)));
-  });
-};

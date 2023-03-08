@@ -117,7 +117,7 @@ const synnaxBase: Theme = {
         ],
       },
     },
-    logo: "url(#linear-gradient)",
+    logo: "url(#synnax-linear-gradient)",
     white,
     black,
     background: white,

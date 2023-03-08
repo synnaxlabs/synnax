@@ -72,7 +72,7 @@ export interface Properties {
    * Calls the provided function with the current window is closing.
    */
   onCloseRequested: (cb: () => void) => void;
-  listWindowLabels: () => string[];
+  listLabels: () => string[];
 }
 
 /**

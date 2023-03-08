@@ -12,14 +12,15 @@ import { DetailedHTMLProps, HtmlHTMLAttributes, ReactElement, useState } from "r
 import { Icon } from "@synnaxlabs/media";
 import { RenderableRecord } from "@synnaxlabs/x";
 
-import { Button } from "@/core/Button";
+import { Button, ButtonLinkProps } from "@/core/Button";
 import { InputControl } from "@/core/Input";
+import { CSS } from "@/css";
 import { ComponentSize } from "@/util/component";
 import { RenderProp } from "@/util/renderProp";
 
 import "./Tree.css";
 
-import { CSS } from "@/css";
+import { BaseButtonProps, ButtonProps } from "../Button/Button";
 
 export interface TreeProps<E extends RenderableRecord<E> = RenderableRecord>
   extends Partial<InputControl<readonly string[], string>>,
@@ -186,20 +187,22 @@ export const ButtonLeaf = <E extends RenderableRecord<E>>({
     onExpand(nodeKey);
   };
 
-  const _Button = url != null ? Button.Link : Button;
+  const baseProps: ButtonLinkProps | ButtonProps = {
+    variant: "text",
+    onClick: handleClick,
+    className: CSS(CSS.BE("tree-leaf", "button"), CSS.selected(selected)),
+    startIcon: icons,
+    iconSpacing: "small",
+    noWrap: true,
+    ...props,
+  };
 
-  return (
-    <_Button
-      href={url}
-      variant="text"
-      className={CSS(CSS.BE("tree-leaf", "button"), CSS.selected(selected))}
-      startIcon={icons}
-      onClick={handleClick}
-      iconSpacing="small"
-      {...props}
-    >
+  return url != null ? (
+    <Button.Link href={url} {...baseProps}>
       {name}
-    </_Button>
+    </Button.Link>
+  ) : (
+    <Button {...baseProps}>{name}</Button>
   );
 };
 

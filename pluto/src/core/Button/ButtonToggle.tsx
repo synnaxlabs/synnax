@@ -20,20 +20,18 @@ import "./ButtonToggle.css";
 const buttonToggleFactory =
   <E extends Pick<ButtonProps, "className" | "variant">>(
     Base: FunctionComponent<E>
-  ): FunctionComponent<E & InputControl<boolean>> =>
+  ): FunctionComponent<Omit<E, "value"> & InputControl<boolean>> =>
   // eslint-disable-next-line react/display-name
-  (props) =>
+  ({ value, ...props }) =>
     (
+      // @ts-expect-error
       <Base
         {...props}
-        checked={props.value}
-        onClick={() => props.onChange(!props.value)}
-        className={CSS(
-          CSS.B("btn-toggle"),
-          props.value && CSS.BM("btn-toggle", "checked"),
-          props.className
-        )}
-        variant={props.value ? props.variant : "outlined"}
+        checked={value}
+        onClick={() => props.onChange(!value)}
+        className={CSS(CSS.B("btn-toggle"), props.className)}
+        ariaChecked={value}
+        variant={value ? props.variant : "outlined"}
       />
     );
 

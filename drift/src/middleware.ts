@@ -10,21 +10,20 @@
 import { Action, AnyAction, Dispatch, Middleware } from "@reduxjs/toolkit";
 import type { CurriedGetDefaultMiddleware } from "@reduxjs/toolkit/dist/getDefaultMiddleware";
 
-import { log } from "./debug";
+import { log } from "@/debug";
+import { Runtime } from "@/runtime";
 import {
   StoreState,
   isDriftAction,
   shouldEmit,
   DriftAction,
-  sync,
   assignLabel,
   DriftState,
   setWindowProps,
-} from "./state";
-import { desugar } from "./sugar";
-import { validateAction } from "./validate";
-
-import { Runtime } from "@/runtime";
+} from "@/state";
+import { desugar } from "@/sugar";
+import { sync } from "@/sync";
+import { validateAction } from "@/validate";
 
 export type Middlewares<S> = ReadonlyArray<Middleware<{}, S>>;
 

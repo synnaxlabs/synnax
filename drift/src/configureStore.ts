@@ -27,6 +27,7 @@ import {
   setWindowStage,
   closeWindow,
 } from "./state";
+import { syncInitial } from "./sync";
 import { MAIN_WINDOW } from "./window";
 
 export type Enhancers = readonly StoreEnhancer[];
@@ -82,9 +83,11 @@ export const configureStore = async <
     middleware: configureMiddleware(middleware, runtime, debug),
   });
 
+  syncInitial(store.getState().drift, store.dispatch, runtime, debug);
   store.dispatch(setWindowLabel({ label: runtime.label() }));
-  store.dispatch(setWindowStage({ stage: "created" }));
+  store.dispatch(setWindowStage({ stage: "created", key: runtime.label() }));
   runtime.onCloseRequested(() => store?.dispatch(closeWindow({})));
+  if (runtime.isMain()) void runtime.setVisible(true);
 
   return store;
 };

@@ -16,7 +16,6 @@ import {
   appWindow,
   LogicalPosition,
   LogicalSize,
-  WindowManager,
   getAll,
 } from "@tauri-apps/api/window";
 
@@ -212,11 +211,13 @@ interface HandlerEntry {
 const newEventHandlers = (): HandlerEntry[] => [
   {
     key: TauriEventKey.WINDOW_RESIZED,
-    debounce: 500,
+    debounce: 200,
     handler: async (ev) => {
       const window = WebviewWindow.getByLabel(ev.windowLabel);
-      const position = await window?.innerPosition();
-      const size = await window?.innerSize();
+      const scaleFactor = await window?.scaleFactor();
+      if (scaleFactor == null) return null;
+      const position = (await window?.innerPosition())?.toLogical(scaleFactor);
+      const size = (await window?.innerSize())?.toLogical(scaleFactor);
       const maximized = await window?.isMaximized();
       const visible = await window?.isVisible();
       return setWindowProps({
@@ -232,16 +233,21 @@ const newEventHandlers = (): HandlerEntry[] => [
   },
   {
     key: TauriEventKey.WINDOW_MOVED,
-    debounce: 1000,
+    debounce: 200,
     handler: async (ev) => {
       const window = WebviewWindow.getByLabel(ev.windowLabel);
-      const position = await window?.innerPosition();
-      // wait 5000 ms
+      const scaleFactor = await window?.scaleFactor();
+      if (scaleFactor == null) return null;
+      const position = (await window?.innerPosition())?.toLogical(scaleFactor);
       const fullscreen = await window?.isFullscreen();
+      const size = (await window?.innerSize())?.toLogical(scaleFactor);
+      const visible = await window?.isVisible();
       return setWindowProps({
         label: ev.windowLabel,
         position: { x: position?.x ?? 0, y: position?.y ?? 0 },
         fullscreen,
+        size: { width: size?.width ?? 0, height: size?.height ?? 0 },
+        visible,
       });
     },
   },

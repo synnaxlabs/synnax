@@ -15,10 +15,18 @@ export default defineConfig({
   build: {
     minify: true,
     rollupOptions: {
-      external: ["react", "react-redux", "@reduxjs/toolkit"],
+      external: [
+        "react",
+        "react-dom",
+        "react-redux",
+        "@reduxjs/toolkit",
+        "proxy-memoize",
+        "@tauri-apps/api",
+      ],
       output: {
         globals: {
-          react: "React",
+          react: "react",
+          "react-dom": "ReactDOM",
         },
       },
     },

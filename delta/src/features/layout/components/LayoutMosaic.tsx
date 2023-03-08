@@ -11,6 +11,7 @@ import { useCallback } from "react";
 
 import { Logo } from "@synnaxlabs/media";
 import { Mosaic as PlutoMosaic, useDebouncedCallback } from "@synnaxlabs/pluto";
+import { MosaicProps } from "@synnaxlabs/pluto/dist/core/Mosaic/Mosaic";
 import type { Location } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 
@@ -64,17 +65,26 @@ export const LayoutMosaic = (): JSX.Element => {
     [dispatch]
   );
 
-  const handleResize = useDebouncedCallback(
-    (key: number, size: number) => {
+  const handleResize: MosaicProps["onResize"] = useDebouncedCallback(
+    (key, size) => {
       dispatch(resizeLayoutMosaicTab({ key, size }));
     },
     100,
     [dispatch]
   );
 
-  const handleCreate = useCallback(() => {
-    placer(createLineVis({}));
-  }, [placer]);
+  const handleCreate: MosaicProps["onCreate"] = useCallback(
+    (mosaicKey) => {
+      placer(
+        createLineVis({
+          tab: {
+            mosaicKey,
+          },
+        })
+      );
+    },
+    [placer]
+  );
 
   return (
     <PlutoMosaic

@@ -9,13 +9,13 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-btn-toggle--checked {
+.pluto-btn-toggle[aria-checked="true"] {
     color: var(--pluto-white);
     background-color: var(--pluto-primary-z-60);
     border: var(--pluto-border-width) solid var(--pluto-primary-z-80);
 }
 
-.pluto-btn-toggle--checked:hover {
+.pluto-btn-toggle[artia-checked="true"]:hover {
     background-color: var(--pluto-primary-z-80);
     border-color: var(--pluto-primary-z-80);
 }
