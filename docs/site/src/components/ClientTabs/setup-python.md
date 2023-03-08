@@ -1,6 +1,6 @@
 ### Setup
 
-Before starting, make sure you've instantiated a `Synnax` client. If you've [logged in
+Start by instantiating a `Synnax` client. If you've [logged in
 via the CLI](/reference/client-cli/get-started), there's no need to provide any
 arguments.
 

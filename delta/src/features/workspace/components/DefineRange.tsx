@@ -202,5 +202,3 @@ const TimeModifierRow = ({
     </Pack>
   );
 };
-
-export interface DateModifierRowProps extends InputControl<number> {}

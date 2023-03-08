@@ -21,9 +21,9 @@ end is the timestamp of the last sample.
 
 Write transactions to a cluster allocate a new domain for each channel involved. Unlike
 most databases, transactions in Synnax can last several hours and contain billions
-of samples.`
+of samples.
 
-The transaction lifecycle is controlled by a `writer`. To begin a transaction, a caller
+The transaction lifecycle is controlled by a writer. To begin a transaction, a caller
 opens a new writer and then begins writing telemetry frames using a file like interface.
 After they're done writing, the user commits the write to the database, making it available
 for reading. Synnax transactions are unique in that they can be committed **multiple**
@@ -49,8 +49,8 @@ Using this information, the database validates the following:
 
 After all validation checks pass, the transaction enters the write phase. During this
 period, a user can write continuous frames of telemetry to the domain. These frames must
-be vertical i.e. all channels must have a single array specified, and number of samples.
-You can read more about frame alignment here.
+be vertical i.e. all channels must have a single array specified, and all arrays must have
+the same number of samples. You can read more about frame alignment here.
 
 These frames are assumed to be continuous by the database. To illustrate this, imagine
 we write the following frame:

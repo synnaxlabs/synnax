@@ -8,10 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { deepDelete } from "@/deep/delete";
+import { deepEqual, deepPartialEqual } from "@/deep/equal";
 import { deepMerge } from "@/deep/merge";
 export type { DeepKey } from "@/deep/key";
+export type { DeepPartial } from "@/deep/partial";
 
 export const Deep = {
   merge: deepMerge,
   delete: deepDelete,
+  equal: deepEqual,
+  partialEqual: deepPartialEqual,
 };

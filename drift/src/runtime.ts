@@ -11,7 +11,7 @@ import type { Action, AnyAction } from "@reduxjs/toolkit";
 import { Dimensions, XY } from "@synnaxlabs/x";
 
 import { PreloadedState, StoreState } from "@/state";
-import { KeyedWindowProps } from "@/window";
+import { LabeledWindowProps } from "@/window";
 
 /**
  * An event emitted by drift to communicate state changes.
@@ -67,11 +67,12 @@ export interface Properties {
   /**
    * @returns the key of the window.
    */
-  key: () => string;
+  label: () => string;
   /**
    * Calls the provided function with the current window is closing.
    */
   onCloseRequested: (cb: () => void) => void;
+  listWindowLabels: () => string[];
 }
 
 /**
@@ -82,7 +83,7 @@ export interface Manager {
    * Creates a new window with the given properties. The window should not be shown
    * until the ready() method is called.
    */
-  create: (props: KeyedWindowProps) => void;
+  create: (props: LabeledWindowProps) => void;
   /**
    * Closes the window with the given key.
    */

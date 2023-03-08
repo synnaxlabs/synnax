@@ -12,26 +12,9 @@ import { useCallback } from "react";
 import memoize from "proxy-memoize";
 import { useSelector } from "react-redux";
 
-import { StoreState } from "../state";
-
-import { WindowState, WindowStage } from "@/window";
-
-/**
- * Selects the status of the window with the given key.
- *
- * @param key - The key of the window to select the status of.
- * If not provided, the status of the current window is selected.
- * @returns The status of the window.
- */
-export const useSelectWindowState = (key?: string): WindowStage =>
-  useSelector(
-    useCallback(
-      memoize((state: StoreState) => {
-        return state.drift.windows[key ?? state.drift.key].stage;
-      }),
-      [key]
-    )
-  );
+import { selectWindow, selectWindowKey } from "@/selectors";
+import { StoreState } from "@/state";
+import { WindowState } from "@/window";
 
 /**
  * Selects the window with the given key.
@@ -40,10 +23,18 @@ export const useSelectWindowState = (key?: string): WindowStage =>
  * If not provided, the current window is selected.
  * @returns The window.
  */
-export const useSelectWindow = (key?: string): WindowState =>
+export const useSelectWindow = (key?: string): WindowState | null =>
   useSelector(
     useCallback(
-      memoize((state: StoreState) => state.drift.windows[key ?? state.drift.key]),
+      memoize((state: StoreState) => selectWindow(state, key)),
       [key]
+    )
+  );
+
+export const useSelectWindowKey = (label: string): string | null =>
+  useSelector(
+    useCallback(
+      memoize((state: StoreState) => selectWindowKey(state, label)),
+      [label]
     )
   );

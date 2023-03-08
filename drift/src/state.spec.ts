@@ -9,30 +9,36 @@
 
 import { describe, expect, it } from "vitest";
 
+import { selectWindow } from "./selectors";
 import {
   closeWindow,
   completeProcess,
   createWindow,
+  DriftAction,
+  DriftState,
   initialState,
   reducer,
   registerProcess,
-  setWindowKey,
+  setWindowLabel,
   setWindowStage,
 } from "./state";
+
+const reduce = (initialState: DriftState, ...actions: DriftAction[]): DriftState =>
+  actions.reduce((state, action) => reducer(state, action), initialState);
 
 describe("state", () => {
   describe("slice", () => {
     describe("setWindowKey", () => {
       it("sets the key", () => {
-        const key = "key";
-        const state = reducer(initialState, setWindowKey({ key }));
-        expect(state.key).toBe(key);
+        const label = "key";
+        const state = reduce(initialState, setWindowLabel({ label }));
+        expect(state.label).toBe(label);
       });
     });
     describe("createWindow", () => {
       it("should add a widnow to state", () => {
         const key = "key";
-        const state = reducer(initialState, createWindow({ key }));
+        const state = reduce(initialState, createWindow({ key }));
         const win = state.windows[key];
         expect(win).toBeDefined();
         expect(win?.stage).toBe("creating");
@@ -42,8 +48,9 @@ describe("state", () => {
     describe("setWindowState", () => {
       it("should set the state of a window", () => {
         const key = "key";
-        const state = reducer(
-          reducer(initialState, createWindow({ key })),
+        const state = reduce(
+          initialState,
+          createWindow({ key }),
           setWindowStage({ stage: "closed", key })
         );
         const win = state.windows[key];
@@ -52,25 +59,36 @@ describe("state", () => {
       });
     });
     describe("closeWindow", () => {
-      it("should set the state of a window to closing", () => {
+      it("should set the state of the window to closing", () => {
         const key = "key";
-        const state = reducer(
-          reducer(initialState, createWindow({ key })),
-          closeWindow({ key })
-        );
+        const state = reduce(initialState, createWindow({ key }), closeWindow({ key }));
         const win = state.windows[key];
         expect(win).toBeDefined();
-        expect(win?.stage).toBe("closed");
+        expect(win?.stage).toBe("closing");
+      });
+    });
+    describe("setWindowStage", () => {
+      it("should set the window stage", () => {
+        const key = "key";
+        const state = reduce(
+          initialState,
+          createWindow({ key }),
+          closeWindow({ key }),
+          setWindowStage({ stage: "closed", key })
+        );
+        const win = selectWindow({ drift: state }, key);
+        expect(win).toBeDefined();
       });
     });
     describe("registerProcess", () => {
       it("should increment the process count", () => {
         const key = "key";
-        const state = reducer(
-          reducer(initialState, createWindow({ key })),
+        const state = reduce(
+          initialState,
+          createWindow({ key }),
           registerProcess({ key })
         );
-        const win = state.windows[key];
+        const win = selectWindow({ drift: state }, key);
         expect(win).toBeDefined();
         expect(win?.processCount).toBe(1);
       });
@@ -78,34 +96,16 @@ describe("state", () => {
     describe("completeProcess", () => {
       it("should decrement the process count", () => {
         const key = "key";
-        const preState = reducer(
-          reducer(
-            reducer(initialState, createWindow({ key })),
-            registerProcess({ key })
-          ),
+        const preState = reduce(
+          initialState,
+          createWindow({ key }),
+          registerProcess({ key }),
           registerProcess({ key })
         );
         const state = reducer(preState, completeProcess({ key }));
-        const win = state.windows[key];
+        const win = selectWindow({ drift: state }, key);
         expect(win).toBeDefined();
         expect(win?.processCount).toBe(1);
-      });
-      it("should close the window if the process count is 0", () => {
-        const key = "key";
-        const preState = reducer(
-          reducer(
-            reducer(initialState, createWindow({ key })),
-            registerProcess({ key })
-          ),
-          registerProcess({ key })
-        );
-        const state = reducer(
-          reducer(reducer(preState, closeWindow({ key })), completeProcess({ key })),
-          completeProcess({ key })
-        );
-        const win = state.windows[key];
-        expect(win).toBeDefined();
-        expect(win?.stage).toBe("closed");
       });
     });
   });

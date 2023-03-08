@@ -327,3 +327,21 @@ export const positionSoVisible = (
   else nextPos = { x: target.x, y: target.y - target.height };
   return [new Box(nextPos, target.dims), true];
 };
+
+/**
+ * Reposition a box so that it is centered within a given bound.
+ *
+ * @param target The box to reposition - Only works if the root is topLeft
+ * @param bound The box to reposition within - Only works if the root is topLeft
+ * @returns the repsoitioned box
+ */
+export const positionInCenter = (
+  target: HTMLElement | Box,
+  bound: HTMLElement | Box
+): Box => {
+  if (target instanceof HTMLElement) target = new Box(target);
+  if (bound instanceof HTMLElement) bound = new Box(bound);
+  const x = bound.x + (bound.width - target.width) / 2;
+  const y = bound.y + (bound.height - target.height) / 2;
+  return new Box({ x, y }, target.dims);
+};

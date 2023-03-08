@@ -7,10 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useState } from "react";
-
 import { Icon } from "@synnaxlabs/media";
-import { Space, Accordion, Input } from "@synnaxlabs/pluto";
+import { Space, Accordion } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { removeRange, setActiveRange, useSelectRange, useSelectRanges } from "../store";
@@ -20,7 +18,7 @@ import { VisList } from "./VisList";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout, NavDrawerItem, useLayoutPlacer } from "@/features/layout";
-import { createLineVis } from "@/features/vis/components/line/types";
+import { createLineVis } from "@/features/vis";
 
 const rangeWindowLayout: Layout = {
   key: "defineRange",
@@ -29,8 +27,7 @@ const rangeWindowLayout: Layout = {
   location: "window",
   window: {
     resizable: false,
-    height: 400,
-    width: 600,
+    size: { height: 400, width: 600 },
     navTop: true,
   },
 };

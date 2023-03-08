@@ -7,18 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { XY, Dimensions } from "@synnaxlabs/x";
+
 /** Represents the state of a window in it's lifecycle  */
 export type WindowStage = "creating" | "created" | "closing" | "closed";
 
 export const MAIN_WINDOW = "main";
 
 /** State of a window managed by drift  */
-export interface WindowState extends KeyedWindowProps {
+export interface WindowState extends LabeledWindowProps {
+  key: string;
   /** Lifecycle stage */
   stage: WindowStage;
   /** Number of active processes */
   processCount: number;
+  reserved: boolean;
   error?: string;
+  focusCount: number;
+  centerCount: number;
 }
 
 /**
@@ -26,29 +32,23 @@ export interface WindowState extends KeyedWindowProps {
  */
 export interface WindowProps {
   /* A unique key for the window. If not provided, a unique key will be generated. */
-  key?: string;
+  key: string;
+  /** A custom runtime label for the window. */
+  label?: string;
   /* The url to load in the window. */
   url?: string;
   /* The title of the window. */
   title?: string;
   /* Whether the window should be centered on the screen. */
   center?: boolean;
-  /* X position of the window. */
-  x?: number;
-  /* Y position of the window. */
-  y?: number;
-  /* Width of the window. */
-  width?: number;
-  /* Height of the window. */
-  height?: number;
-  /* The minimum width of the window. */
-  minWidth?: number;
-  /* The minimum height of the window. */
-  minHeight?: number;
-  /* The maximum width of the window. */
-  maxWidth?: number;
-  /* The maximum height of the window. */
-  maxHeight?: number;
+  /* The x and y coordinates of the window. */
+  position?: XY;
+  /* The dimensions of the window. */
+  size?: Dimensions;
+  /* The minimum dimensions of the window. */
+  minSize?: Dimensions;
+  /* The maximum dimensions of the window. */
+  maxSize?: Dimensions;
   /* Whether the window should be resizable. */
   resizable?: boolean;
   /* Whether the window is fullscreen. */
@@ -59,6 +59,7 @@ export interface WindowProps {
   maximized?: boolean;
   /* Whether the window is visible. */
   visible?: boolean;
+  minimized?: boolean;
   /* Decorations. Runtime specific. */
   decorations?: boolean;
   /* Whether to add the window to the task bar or not. Runtime specific. */
@@ -67,7 +68,11 @@ export interface WindowProps {
   fileDropEnabled?: boolean;
   /* Whether the window is transparent. Runtime specific. */
   transparent?: boolean;
+  alwaysOnTop?: boolean;
 }
 
 /* WindowProps but with a key */
-export type KeyedWindowProps = Omit<WindowProps, "key"> & { key: string };
+export type LabeledWindowProps = Omit<WindowProps, "label" | "key"> & {
+  label: string;
+  key?: string;
+};

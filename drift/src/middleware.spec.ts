@@ -12,8 +12,19 @@ import { describe, expect, it, vi } from "vitest";
 
 import { configureMiddleware, middleware } from "./middleware";
 import { MockRuntime } from "./mock/runtime";
+import { WindowProps } from "./window";
 
-import { initialState, setWindowStage } from "@/state";
+import {
+  initialState,
+  setWindowStage,
+  focusWindow,
+  DriftAction,
+  centerWindow,
+  setWindowFullscreen,
+  setWindowMaximized,
+  setWindowPosition,
+  setWindowMinSize,
+} from "@/state";
 
 const state = {
   drift: initialState,
@@ -68,10 +79,10 @@ describe("middleware", () => {
         const next = vi.fn();
         mw(next)(setWindowStage({ stage: "created" }));
         expect(next).toHaveBeenCalledWith({
-          type: "drift/setWindowState",
+          type: "drift/setWindowStage",
           payload: {
             key: "mock",
-            state: "created",
+            stage: "created",
           },
         });
       });
@@ -81,17 +92,17 @@ describe("middleware", () => {
         const mw = middleware(runtime)(store);
         const next = vi.fn();
         mw(next)({
-          type: "DA@test://drift/setWindowState",
+          type: "DA@test://drift/setWindowStage",
           payload: {
             key: "mock",
-            state: "created",
+            stage: "created",
           },
         });
         expect(next).toHaveBeenCalledWith({
-          type: "drift/setWindowState",
+          type: "drift/setWindowStage",
           payload: {
             key: "mock",
-            state: "created",
+            stage: "created",
           },
         });
       });
@@ -114,5 +125,54 @@ describe("middleware", () => {
       mw([] as unknown as CurriedGetDefaultMiddleware<unknown>);
       expect(curry).toHaveBeenCalled();
     });
+  });
+  describe("applying actions to the window runtime", () => {
+    const TESTS: Array<{
+      action: DriftAction;
+      prop: keyof WindowProps;
+      value: unknown;
+    }> = [
+      {
+        action: focusWindow({}),
+        prop: "focus",
+        value: true,
+      },
+      {
+        action: centerWindow({}),
+        prop: "center",
+        value: true,
+      },
+      {
+        action: setWindowMaximized({ value: true }),
+        prop: "maximized",
+        value: true,
+      },
+      {
+        action: setWindowFullscreen({}),
+        prop: "fullscreen",
+        value: true,
+      },
+      {
+        action: setWindowPosition({ position: { x: 0, y: 0 } }),
+        prop: "position",
+        value: 0,
+      },
+      {
+        action: setWindowMinSize({ size: { width: 0, height: 0 } }),
+        prop: "minSize",
+        value: 0,
+      },
+    ];
+    TESTS.forEach(({ action, value, prop }) =>
+      it(`should apply ${action.type} to the window runtime`, async () => {
+        const runtime = new MockRuntime(true, { key: "main" });
+        const store = { getState: () => state, dispatch: vi.fn() };
+        const mw = middleware(runtime)(store);
+        const next = vi.fn();
+        mw(next)(action);
+        expect(next).toHaveBeenCalledWith(action);
+        expect(runtime.props[prop]).toBe(value);
+      })
+    );
   });
 });

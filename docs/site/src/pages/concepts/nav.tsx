@@ -13,14 +13,19 @@ export const conceptsNav: PageNavLeaf = {
       name: "Overview",
     },
     {
+      key: "/concepts/clusters-and-nodes",
+      url: "/concepts/clusters-and-nodes",
+      name: "Clusters and Nodes",
+    },
+    {
       key: "/concepts/channels",
       url: "/concepts/channels",
       name: "Channels",
     },
     {
-      key: "/concepts/frames",
-      url: "/concepts/frames",
-      name: "Frames",
+      key: "/concepts/arrays-and-frames",
+      url: "/concepts/arrays-and-frames",
+      name: "Arrays and Frames",
     },
     {
       key: "/concepts/write-domains",
@@ -31,11 +36,6 @@ export const conceptsNav: PageNavLeaf = {
       key: "/concepts/read-ranges",
       url: "/concepts/read-ranges",
       name: "Read Ranges",
-    },
-    {
-      key: "/concepts/clusters-and-nodes",
-      url: "/concepts/clusters-and-nodes",
-      name: "Clusters and Nodes",
     },
   ],
 };

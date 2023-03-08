@@ -12,36 +12,35 @@ import { Dimensions, XY } from "@synnaxlabs/x";
 
 import { Event, Runtime } from "@/runtime";
 import { StoreState } from "@/state";
-import { KeyedWindowProps, WindowProps } from "@/window";
+import { LabeledWindowProps, WindowProps } from "@/window";
 
 export class MockRuntime<S extends StoreState, A extends Action = AnyAction>
   implements Runtime<S, A>
 {
   _isMain = false;
-  _key = "mock";
   markedReady = false;
   hasClosed: string[] = [];
   emissions: Array<Event<S, A>> = [];
-  hasCreated: KeyedWindowProps[] = [];
+  hasCreated: LabeledWindowProps[] = [];
   subscribeCallback: (event: Event<S, A>) => void = () => {};
   requestClosure: () => void = () => {};
-  props: WindowProps;
+  props: LabeledWindowProps;
 
-  constructor(isMain: boolean) {
+  constructor(isMain: boolean, initialProps: WindowProps = { key: "mock" }) {
     this._isMain = isMain;
-    this.props = {};
+    this.props = { label: "mock", ...initialProps };
   }
 
   isMain(): boolean {
     return this._isMain;
   }
 
-  key(): string {
-    return this._key;
+  label(): string {
+    return this.props.label;
   }
 
   emit(event: Omit<Event<S, A>, "emitter">, to?: string): void {
-    this.emissions.push({ ...event, emitter: this.key() });
+    this.emissions.push({ ...event, emitter: this.label() });
   }
 
   subscribe(lis: (event: Event<S, A>) => void): void {
@@ -54,7 +53,7 @@ export class MockRuntime<S extends StoreState, A extends Action = AnyAction>
 
   // |||||| MANAGER IMPLEMENTATION ||||||
 
-  create(props: KeyedWindowProps): void {
+  create(props: LabeledWindowProps): void {
     this.hasCreated.push(props);
   }
 
@@ -82,8 +81,8 @@ export class MockRuntime<S extends StoreState, A extends Action = AnyAction>
     return await Promise.resolve();
   }
 
-  async setFullscreen(value?: boolean): Promise<void> {
-    this.props.fullscreen = value ?? !(this.props.fullscreen ?? false);
+  async setFullscreen(value: boolean): Promise<void> {
+    this.props.fullscreen = value;
     return await Promise.resolve();
   }
 
@@ -93,40 +92,37 @@ export class MockRuntime<S extends StoreState, A extends Action = AnyAction>
   }
 
   async setPosition(xy: XY): Promise<void> {
-    this.props.x = xy.x;
-    this.props.y = xy.y;
+    this.props.position = xy;
     return await Promise.resolve();
   }
 
   async setSize(dims: Dimensions): Promise<void> {
-    this.props.width = dims.width;
-    this.props.height = dims.height;
+    this.props.size = dims;
     return await Promise.resolve();
   }
 
   async setMinSize(dims: Dimensions): Promise<void> {
-    this.props.minWidth = dims.width;
-    this.props.minHeight = dims.height;
+    this.props.minSize = dims;
     return await Promise.resolve();
   }
 
   async setMaxSize(dims: Dimensions): Promise<void> {
-    this.props.maxWidth = dims.width;
-    this.props.maxHeight = dims.height;
+    this.props.minSize = dims;
     return await Promise.resolve();
   }
 
-  async setResizable(value?: boolean): Promise<void> {
-    this.props.resizable = value ?? !(this.props.resizable ?? false);
+  async setResizable(value: boolean): Promise<void> {
+    this.props.resizable = value;
     return await Promise.resolve();
   }
 
-  async setSkipTaskbar(value?: boolean): Promise<void> {
-    this.props.skipTaskbar = value ?? !(this.props.skipTaskbar ?? false);
+  async setSkipTaskbar(value: boolean): Promise<void> {
+    this.props.skipTaskbar = value;
     return await Promise.resolve();
   }
 
-  async setAlwaysOnTop(_value?: boolean): Promise<void> {
+  async setAlwaysOnTop(value: boolean): Promise<void> {
+    this.props.alwaysOnTop = value;
     return await Promise.resolve();
   }
 

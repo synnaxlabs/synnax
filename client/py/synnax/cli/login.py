@@ -40,7 +40,7 @@ def login():
     ctx.console.info(SUCCESSFUL_LOGIN)
 
 
-SUCCESSFUL_LOGIN = """Saved credentials. You can now use the Synnax CLI
+SUCCESSFUL_LOGIN = """Saved credentials. You can now use the Synnax Client
 without having to log in. To connect the cluster in a Python shell, use the following:
 
 from synnax import Synnax
