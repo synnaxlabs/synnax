@@ -52,9 +52,7 @@ class RowIngestionEngine:
         self.reader = reader
         self.client = client
         self.reader.set_chunk_size(self.get_chunk_size())
-        self.writer = self.client.new_writer(
-            start=start, keys=[ch.key for ch in channels]
-        )
+        self.writer = self.client.new_writer(start, [ch.key for ch in channels])
 
     def get_chunk_size(self):
         """Sum the density of all channels to determine the chunk size."""

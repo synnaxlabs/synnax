@@ -92,7 +92,7 @@ class RichConsole:
             return IntPrompt.ask(
                 question,
                 default=default,
-                choices=[str(choice) for choice in choices] if choices else None, # type: ignore
+                choices=[str(choice) for choice in choices] if choices else None,  # type: ignore
             )  # type: ignore
         if type_ == float:
             return FloatPrompt.ask(

@@ -99,7 +99,7 @@ class TestChannelClient:
     ) -> None:
         """Should retrieve channels using a list of keys"""
         res_channels = client.channels.retrieve(
-            keys=[channel.key for channel in two_channels]
+            [channel.key for channel in two_channels]
         )
         assert len(res_channels) == 2
         for i, channel in enumerate(res_channels):
@@ -110,42 +110,31 @@ class TestChannelClient:
     def test_retrieve_by_key_not_found(self, client: sy.Synnax):
         """Should raise QueryError when key not found"""
         with pytest.raises(sy.QueryError):
-            client.channels.retrieve(key="1-100000")
-
-    @pytest.mark.channel
-    def test_retrieve_by_node_id(
-        self, two_channels: list[sy.Channel], client: sy.Synnax
-    ) -> None:
-        """Should retrieve channels using node_id"""
-        res_channels = client.channels.retrieve(node_id=1)
-        assert len(res_channels) >= 2
-        for channel in res_channels:
-            assert channel.node_id == 1
+            client.channels.retrieve("1-100000")
 
     @pytest.mark.channel
     def test_retrieve_by_list_of_names(
         self, two_channels: list[sy.Channel], client: sy.Synnax
     ) -> None:
         """Should retrieve channels using list of names"""
-        res_channels = client.channels.retrieve(names=["test", "test2"])
+        res_channels = client.channels.retrieve(["test", "test2"])
         assert len(res_channels) >= 2
         for channel in res_channels:
             assert channel.name in ["test", "test2"]
 
-    # test retrieve by single name
     @pytest.mark.channel
     def test_retrieve_by_single_name(
         self, channel: sy.Channel, client: sy.Synnax
     ) -> None:
         """Should retrieve channel using a name string"""
-        res_channel = client.channels.retrieve(name="test")
-        assert res_channel[0].name == "test"
+        res_channel = client.channels.retrieve("test")
+        assert res_channel.name == "test"
 
     @pytest.mark.channel
     def test_retrieve_list_not_found(self, client: sy.Synnax):
         """Should retrieve an empty list when can't find channels"""
         fake_names = ["fake1", "fake2", "fake3"]
-        results = client.channels.retrieve(names=fake_names)
+        results = client.channels.retrieve(fake_names)
         assert len(results) == 0
 
     @pytest.mark.channel
@@ -153,7 +142,7 @@ class TestChannelClient:
         """Should return list of unfound channels when include_not_found is true"""
         fake_names = ["test", "test2", "fake3"]
         res_channels, not_found = client.channels.retrieve(
-            names=fake_names, include_not_found=True
+            fake_names, include_not_found=True
         )
         assert len(res_channels) == 2
         print(type(not_found))

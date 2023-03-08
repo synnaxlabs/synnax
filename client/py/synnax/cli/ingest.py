@@ -135,6 +135,7 @@ def channels_to_ingest(ctx: Context, cli: IngestionCLI) -> str | None:
     cli.filtered_channels = [ch for ch in channels if ch.name in all_names]
     return "validate_channels_exist"
 
+
 def cannot_cast_error(ctx: Context, actual: Any, ch: Channel) -> None:
     ctx.console.error(
         f"""Unable to cast column data type {actual}
@@ -196,7 +197,7 @@ def validate_channels_exist(ctx: Context, cli: IngestionCLI) -> str | None:
     for channel in cli.filtered_channels:
         ch = maybe_select_channel(
             ctx,
-            cli.client.channels.retrieve(names=[channel.name]),
+            cli.client.channels.retrieve([channel.name]),
             channel.name,
         )
         if ch is None:
@@ -347,7 +348,7 @@ def assign_index_or_rate(
         else:
             # If the user entered a string, we have an index channel, and we
             # need to make sure that the string is a valid index.
-            res = client.channels.retrieve(names=[_choice])
+            res = client.channels.retrieve([_choice])
             idx = maybe_select_channel(ctx, res, _choice)
             if not idx:
                 ctx.console.warn(f"Index channel with key {_choice} not found")

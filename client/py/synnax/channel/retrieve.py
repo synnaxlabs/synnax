@@ -18,9 +18,8 @@ from synnax.channel.payload import ChannelPayload
 
 
 class _Request(Payload):
-    keys: list[str] | None = None
+    keys_or_names: list[str] | None = None
     node_id: int | None = None
-    names: list[str] | None = None
 
 
 class _Response(Payload):
@@ -34,18 +33,14 @@ class ChannelRetriever(Protocol):
     @overload
     def retrieve(
         self,
-        *,
-        key: str | None = None,
-        name: str | None = None,
+        key_or_name: str,
     ) -> ChannelPayload | None:
         ...
 
     @overload
     def retrieve(
         self,
-        *,
-        keys: list[str] | None = None,
-        names: list[str] | None = None,
+        *keys_or_names: str | list[str],
         node_id: int | None = None,
         include_not_found: Literal[False] = False,
     ) -> list[ChannelPayload]:
@@ -54,9 +49,7 @@ class ChannelRetriever(Protocol):
     @overload
     def retrieve(
         self,
-        *,
-        keys: list[str] | None = None,
-        names: list[str] | None = None,
+        *keys_or_names: str | list[str],
         node_id: int | None = None,
         include_not_found: Literal[True] = True,
     ) -> tuple[list[ChannelPayload], list[str]]:
@@ -65,16 +58,13 @@ class ChannelRetriever(Protocol):
     @overload
     def retrieve(
         self,
-        *,
-        key: str | None = None,
-        name: str | None = None,
-        keys: list[str] | None = None,
-        names: list[str] | None = None,
+        key_or_name: str | list[str],
+        *keys_or_names: str | list[str],
         node_id: int | None = None,
         include_not_found: bool = False,
     ) -> (
-        list[ChannelPayload]
-        | tuple[list[ChannelPayload], list[str]]
+        tuple[list[ChannelPayload], list[str]]
+        | list[ChannelPayload]
         | ChannelPayload
         | None
     ):
@@ -93,10 +83,8 @@ class ClusterChannelRetriever:
 
     def retrieve(
         self,
-        key: str | None = None,
-        name: str | None = None,
-        keys: list[str] | None = None,
-        names: list[str] | None = None,
+        key_or_name: str | list[str],
+        *keys_or_names: str | list[str],
         node_id: int | None = None,
         include_not_found: bool = False,
     ) -> (
@@ -105,20 +93,17 @@ class ClusterChannelRetriever:
         | ChannelPayload
         | None
     ):
-        single_key = key is not None
-        single_name = name is not None
-        req = _Request(
-            keys=[key] if single_key else keys,
-            names=[name] if single_name else names,
-            node_id=node_id,
-        )
+        single = is_single(key_or_name, keys_or_names)
+        flat = flatten(key_or_name, keys_or_names)
+
+        req = _Request(keys_or_names=flat, node_id=node_id)
         res, exc = self.client.send(self._ENDPOINT, req, _Response)
         if exc is not None:
             raise exc
         assert res is not None
         if include_not_found is True:
             return res.channels, res.not_found
-        if single_key or single_name:
+        if single:
             if len(res.channels) == 1:
                 return res.channels[0]
             if len(res.channels) == 0:
@@ -142,10 +127,8 @@ class CacheChannelRetriever:
 
     def retrieve(
         self,
-        key: str | None = None,
-        name: str | None = None,
-        keys: list[str] | None = None,
-        names: list[str] | None = None,
+        key_or_name: str | list[str],
+        *keys_or_names: str | list[str],
         node_id: int | None = None,
         include_not_found: bool = False,
     ) -> (
@@ -156,35 +139,31 @@ class CacheChannelRetriever:
     ):
         if node_id is not None:
             return self._retriever.retrieve(
-                node_id=node_id, include_not_found=include_not_found
+                key_or_name,
+                *keys_or_names,
+                node_id=node_id,
+                include_not_found=include_not_found,
             )
 
-        keys, single_key = self._normalize(key, keys)
-        names, single_name = self._normalize(name, names)
-        keys_to_retrieve = list()
-        names_to_retrieve = list()
+        single = len(keys_or_names) == 1 and isinstance(keys_or_names[0], str)
+        flat = flatten(key_or_name, keys_or_names)
+
         results = list()
+        to_retrieve = list()
 
-        for name in names:
-            key = self.names_to_keys.get(name, None)
-            if key is not None:
-                keys.append(key)
-            else:
-                names_to_retrieve.append(name)
-
-        for key in keys:
+        for entry in flat:
+            key = self.names_to_keys.get(entry, entry)
             channel = self.channels.get(key, None)
             if channel is None:
-                keys_to_retrieve.append(key)
+                to_retrieve.append(key)
             else:
                 results.append(channel)
 
-        if len(keys_to_retrieve) == 0 and len(names_to_retrieve) == 0:
+        if len(to_retrieve) == 0:
             return results
 
         retrieved, not_found = self._retriever.retrieve(
-            keys=keys_to_retrieve,
-            names=names_to_retrieve,
+            to_retrieve,
             include_not_found=True,
         )
 
@@ -195,15 +174,26 @@ class CacheChannelRetriever:
 
         if include_not_found:
             return results, not_found
-        if single_key or single_name:
+        if single:
             return None if len(results) == 0 else results[0]
         return results
 
-    def _normalize(
-        self, key: str | None, keys: list[str] | None
-    ) -> tuple[list[str], bool]:
-        if key is not None:
-            return [key], True
-        if keys is None:
-            return [], False
-        return keys, False
+
+def flatten(
+    key_or_name: str | list[str], keys_or_names: tuple[str | list[str]]
+) -> list[str]:
+    """Flatten a list of keys or names."""
+    _keys_or_names = [key_or_name] if isinstance(key_or_name, str) else key_or_name
+    for keys_or_name in keys_or_names:
+        if isinstance(keys_or_name, str):
+            _keys_or_names.append(keys_or_name)
+        else:
+            _keys_or_names.extend(keys_or_name)
+    return _keys_or_names
+
+
+def is_single(
+    key_or_name: str | list[str], keys_or_names: tuple[str | list[str]]
+) -> bool:
+    """Determine if a list of keys or names is a single key or name."""
+    return isinstance(key_or_name, str) & len(keys_or_names) == 0
