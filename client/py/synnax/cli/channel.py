@@ -18,9 +18,14 @@ def channel_name_table(
     ctx: Context,
     names: list[str],
 ):
+    """Creates a table containing names of the channels.
+
+    :param ctx: The current flow context.
+    :param names: The names of the channels.
+    """
     ctx.console.table(
         columns=["name"],
-        rows=[{"name": name} for i, name in enumerate(names)],
+        rows=[{"name": name} for name in names],
     )
 
 
@@ -33,7 +38,7 @@ def maybe_select_channel(
     """Asks the user to select a channel if there are multiple channels available.
 
     :param ctx: The current flow context.
-    :param channes:  The list of channels to prompt frome.
+    :param channels:  The list of channels to prompt from.
     :returns: The selected channel or None if there are no channels.
     """
     if len(channels) == 0:
@@ -55,6 +60,7 @@ def select_channel(
     :param channels: The list of channels to select from.
     :param default: The default channel to select.
     :param allow_none: Whether to allow the user to select None.
+    :returns: The selected channel or None if there are no channels.
     """
     _, i = ctx.console.select(
         type_=str,
@@ -72,6 +78,7 @@ def prompt_group_channel_names(
 
     :param ctx: The current flow Context.
     :param options: The list of channel names to match against.
+    :param options: The grouped dict. See "group_channel_names() for reference."
     """
     ctx.console.info(
         """You can enter 'all' for all channels or a comma-separated list of:
@@ -96,6 +103,7 @@ def group_channel_names(
     - A name of a channel (e.g. 'channel1')
     - An index of a channel (e.g. '1')
     - A pattern to match (e.g. 'channel*')
+    :returns: A dict containing groups of channels organized by name, index, pattern.
     """
     grouped = {}
     for entry in matchers:
