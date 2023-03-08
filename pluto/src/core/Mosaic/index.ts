@@ -19,6 +19,7 @@ import {
 } from "./mosaicTree";
 import { useMosaic } from "./useMosaic";
 export type { UseMosaicProps, UseMosaicReturn } from "./useMosaic";
+export type { MosaicProps } from "./Mosaic";
 export * from "./types";
 
 type CoreMosaicType = typeof CoreMosaic;

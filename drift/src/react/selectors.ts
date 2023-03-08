@@ -9,7 +9,7 @@
 
 import { useCallback } from "react";
 
-import memoize from "proxy-memoize";
+import { memoize } from "proxy-memoize";
 import { useSelector } from "react-redux";
 
 import { selectWindow, selectWindowKey } from "@/selectors";

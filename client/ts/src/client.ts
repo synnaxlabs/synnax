@@ -40,7 +40,7 @@ export type SynnaxProps = z.infer<typeof synnaxPropsSchema>;
 export default class Synnax {
   private readonly transport: Transport;
   data: FrameClient;
-  channel: ChannelClient;
+  channels: ChannelClient;
   auth: AuthenticationClient | undefined;
   connectivity: ConnectivityClient;
   ontology: OntologyClient;
@@ -77,7 +77,7 @@ export default class Synnax {
       this.transport.use(this.auth.middleware());
     }
     this.data = new FrameClient(this.transport);
-    this.channel = new ChannelClient(this.data, this.transport);
+    this.channels = new ChannelClient(this.data, this.transport);
     this.connectivity = new ConnectivityClient(
       this.transport.getClient(),
       connectivityPollFrequency
