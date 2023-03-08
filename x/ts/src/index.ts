@@ -24,3 +24,4 @@ export * from "@/kv";
 export * from "@/cache";
 export * from "@/spatial";
 export * from "@/url";
+export * from "@/toArray";

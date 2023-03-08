@@ -51,7 +51,7 @@ export const ZERO_LINE_VIS: Omit<LineVis, "key"> = {
 };
 
 export const createLineVis = (
-  initial: DeepPartial<LineVis> & Omit<Layout, "type">
+  initial: DeepPartial<LineVis> & Omit<Partial<Layout>, "type">
 ): LayoutCreator =>
   createVis<LineVis>(
     Deep.merge({ ...ZERO_LINE_VIS }, initial) as LineVis & Omit<Layout, "type">

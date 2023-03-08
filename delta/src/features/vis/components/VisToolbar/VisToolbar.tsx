@@ -14,10 +14,10 @@ import { Vis } from "../../types";
 import { LinePlotToolBar } from "../line/controls/LinePlotToolbar";
 import { ControlledLineVisProps } from "../line/controls/types";
 
+import { VisIcon, VisToolbarTitle } from "./VisToolbarTitle";
+
 import { ToolbarHeader } from "@/components";
 import { NavDrawerItem } from "@/features/layout";
-
-import { VisIcon, VisToolbarTitle } from "./VisToolbarTitle";
 
 const NoVisContent = (): JSX.Element => (
   <Space justify="spaceBetween" style={{ height: "100%" }} empty>

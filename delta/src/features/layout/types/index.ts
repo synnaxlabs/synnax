@@ -14,8 +14,6 @@ import type { WindowProps } from "@synnaxlabs/drift";
 import { Tab } from "@synnaxlabs/pluto";
 import { Location } from "@synnaxlabs/x";
 
-import { NavTopProps } from "../components";
-
 /** The location options for placing a layout */
 export type LayoutPlacementLocation = "window" | "mosaic";
 
@@ -78,7 +76,6 @@ export interface LayoutRendererProps {
    * layout is in the mosaic, onClose will remove the layout from the mosaic.
    */
   onClose: () => void;
-  NavTop: React.FC<NavTopProps>;
 }
 
 export interface LayoutOnCloseProps {
@@ -116,6 +113,6 @@ export type LayoutWindowProps = Omit<WindowProps, "key" | "url"> & {
  * Tab interface for the Tabs component. This does not apply to window layoputs.
  */
 export interface LayoutTabProps extends Pick<Tab, "closable" | "editable"> {
-  location: Location;
+  location?: Location;
   mosaicKey?: number;
 }

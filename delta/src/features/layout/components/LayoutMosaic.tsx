@@ -11,7 +11,7 @@ import { useCallback } from "react";
 
 import { Logo } from "@synnaxlabs/media";
 import { Mosaic as PlutoMosaic, useDebouncedCallback } from "@synnaxlabs/pluto";
-import { MosaicProps } from "@synnaxlabs/pluto/dist/core/Mosaic/Mosaic";
+import type { MosaicProps } from "@synnaxlabs/pluto";
 import type { Location } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 

@@ -24,12 +24,14 @@ importers:
       '@synnaxlabs/x': workspace:*
       '@types/node': ^18.11.18
       eslint-config-synnaxlabs: workspace:*
+      typescript: ^4.9.4
       vite: ^4.0.4
       vitest: ^0.27.1
       zod: 3.19.1
     dependencies:
       '@synnaxlabs/freighter': link:../../freighter/ts
       '@synnaxlabs/x': link:../../x/ts
+      typescript: 4.9.5
       zod: 3.19.1
     devDependencies:
       '@synnaxlabs/tsconfig': link:../../configs/ts
@@ -87,7 +89,6 @@ importers:
     specifiers:
       '@synnaxlabs/tsconfig': workspace:*
       eslint-config-synnaxlabs: workspace:*
-      rollup-plugin-node-externals: ^5.1.2
       typescript: ^4.9.4
       vite: ^4.1.4
       vite-plugin-dts: 1.7.1
@@ -95,16 +96,15 @@ importers:
     devDependencies:
       '@synnaxlabs/tsconfig': link:../ts
       eslint-config-synnaxlabs: link:../eslint
-      rollup-plugin-node-externals: 5.1.2
       typescript: 4.9.5
-      vite: 4.1.4_@types+node@18.14.6
+      vite: 4.1.4
       vite-plugin-dts: 1.7.1_vite@4.1.4
       vite-tsconfig-paths: 4.0.5_typescript@4.9.5
 
   delta:
     specifiers:
-      '@fontsource/inter': ^4.5.14
-      '@hookform/resolvers': ^2.9.9
+      '@fontsource/inter': ^4.5.15
+      '@hookform/resolvers': ^2.9.11
       '@reduxjs/toolkit': ^1.9.3
       '@synnaxlabs/client': workspace:*
       '@synnaxlabs/drift': workspace:*
@@ -112,28 +112,27 @@ importers:
       '@synnaxlabs/pluto': workspace:*
       '@synnaxlabs/tsconfig': workspace:*
       '@synnaxlabs/x': workspace:*
-      '@tauri-apps/api': ^1.1.0
-      '@tauri-apps/cli': ^1.1.1
-      '@types/react': ^18.0.17
-      '@types/react-dom': ^18.0.6
-      '@vitejs/plugin-react': ^3.0.1
-      clsx: ^1.2.1
-      eslint: ^8.0.1
+      '@tauri-apps/api': ^1.2.0
+      '@tauri-apps/cli': ^1.2.3
+      '@types/react': ^18.0.28
+      '@types/react-dom': ^18.0.11
+      '@vitejs/plugin-react': ^3.1.0
+      eslint: ^8.35.0
       eslint-config-synnaxlabs: workspace:*
       eslint-plugin-prettier: ^4.2.1
-      nanoid: ^4.0.0
+      nanoid: ^4.0.1
       prettier: 2.7.1
-      proxy-memoize: ^1.2.0
+      proxy-memoize: ^2.0.2
       react: ^18.2.0
       react-dom: ^18.2.0
-      react-hook-form: ^7.41.0
-      react-icons: ^4.4.0
+      react-hook-form: ^7.43.5
+      react-icons: ^4.8.0
       react-redux: ^8.0.5
       stylelint-config-synnaxlabs: workspace:*
-      typescript: ^4.9.4
-      vite: ^4.1.0
-      vite-plugin-svgr: ^2.2.1
-      vite-tsconfig-paths: ^4.0.3
+      typescript: ^4.9.5
+      vite: ^4.1.4
+      vite-plugin-svgr: ^2.4.0
+      vite-tsconfig-paths: ^4.0.5
       zod: 3.19.1
     dependencies:
       '@fontsource/inter': 4.5.15
@@ -145,9 +144,8 @@ importers:
       '@synnaxlabs/pluto': link:../pluto
       '@synnaxlabs/x': link:../x/ts
       '@tauri-apps/api': 1.2.0
-      clsx: 1.2.1
       nanoid: 4.0.1
-      proxy-memoize: 1.2.0
+      proxy-memoize: 2.0.2
       react: 18.2.0
       react-dom: 18.2.0_react@18.2.0
       react-hook-form: 7.43.5_react@18.2.0
@@ -222,7 +220,7 @@ importers:
       '@tauri-apps/api': ^1.1.0
       '@types/react': ^18.0.26
       eslint-config-synnaxlabs: workspace:*
-      proxy-memoize: ^1.2.0
+      proxy-memoize: ^2.0.2
       react: ^18.2.0
       react-dom: ^18.2.0
       react-redux: ^8.0.5
@@ -238,7 +236,7 @@ importers:
       '@tauri-apps/api': 1.2.0
       '@types/react': 18.0.28
       eslint-config-synnaxlabs: link:../configs/eslint
-      proxy-memoize: 1.2.0
+      proxy-memoize: 2.0.2
       react: 18.2.0
       react-dom: 18.2.0_react@18.2.0
       react-redux: 8.0.5_3xleytyzprlgycb2ded54tx72i
@@ -13874,6 +13872,10 @@ packages:
 
   /proxy-compare/2.3.0:
     resolution: {integrity: sha512-c3L2CcAi7f7pvlD0D7xsF+2CQIW8C3HaYx2Pfgq8eA4HAl3GAH6/dVYsyBbYF/0XJs2ziGLrzmz5fmzPm6A0pQ==}
+    dev: false
+
+  /proxy-compare/2.4.0:
+    resolution: {integrity: sha512-FD8KmQUQD6Mfpd0hywCOzcon/dbkFP8XBd9F1ycbKtvVsfv6TsFUKJ2eC0Iz2y+KzlkdT1Z8SY6ZSgm07zOyqg==}
 
   /proxy-from-env/1.1.0:
     resolution: {integrity: sha512-D+zkORCbA9f1tdWRK0RaCR3GPv50cMxcrz4X8k5LTSUD1Dkw47mKJEZQNunItRTkWwgtaUSo1RVFRIG9ZXiFYg==}
@@ -13883,6 +13885,12 @@ packages:
     resolution: {integrity: sha512-0heYEZb4yMfhdduz8T+BPJOCKGukc81WRJaYF0k6ZsJz/NkPLhGFqe6OLdiZURr5kC1byps5wdqLN6DC2tYAFw==}
     dependencies:
       proxy-compare: 2.3.0
+    dev: false
+
+  /proxy-memoize/2.0.2:
+    resolution: {integrity: sha512-g0nfJQ048mAGixyBt2urDN7vLaYMm+wlhju35kNrxEuJ49UjQsyMpr4qA9O5iR2xuGmzVDa3xH5tHds1t8vR7w==}
+    dependencies:
+      proxy-compare: 2.4.0
 
   /prr/1.0.1:
     resolution: {integrity: sha512-yPw4Sng1gWghHQWj0B3ZggWUm4qVbPwPFcRG8KyxiU7J2OHFSoEHKS+EZ3fv5l1t9CyCiop6l/ZYeWbrgoQejw==}
@@ -14693,13 +14701,6 @@ packages:
   /robust-predicates/3.0.1:
     resolution: {integrity: sha512-ndEIpszUHiG4HtDsQLeIuMvRsDnn8c8rYStabochtUeCvfuvNptb5TUbVD68LRAILPX7p9nqQGh4xJgn3EHS/g==}
     dev: false
-
-  /rollup-plugin-node-externals/5.1.2:
-    resolution: {integrity: sha512-M32v8yPeVT0dYOYHfd6SNyl0X1xskB15jYFlwUPzIIVpLQ200KVlilbFsoNMUho4SnQuT7Di3s/aLm79bnP48w==}
-    engines: {node: '>=14.0.0'}
-    peerDependencies:
-      rollup: ^2.60.0 || ^3.0.0
-    dev: true
 
   /rollup/2.79.1:
     resolution: {integrity: sha512-uKxbd0IhMZOhjAiD5oAFp7BqvkA4Dv47qpOCtaNvng4HBwdbWtdOh8f5nZNuk2rp51PMGk3bzfWu5oayNEuYnw==}
@@ -16759,7 +16760,7 @@ packages:
       fs-extra: 10.1.0
       kolorist: 1.7.0
       ts-morph: 16.0.0
-      vite: 4.1.4_@types+node@18.14.6
+      vite: 4.1.4
     transitivePeerDependencies:
       - '@types/node'
       - rollup
@@ -16861,6 +16862,39 @@ packages:
       rollup: 2.79.1
     optionalDependencies:
       fsevents: 2.3.2
+
+  /vite/4.1.4:
+    resolution: {integrity: sha512-3knk/HsbSTKEin43zHu7jTwYWv81f8kgAL99G5NWBcA1LKvtvcVAC4JjBH1arBunO9kQka+1oGbrMKOjk4ZrBg==}
+    engines: {node: ^14.18.0 || >=16.0.0}
+    hasBin: true
+    peerDependencies:
+      '@types/node': '>= 14'
+      less: '*'
+      sass: '*'
+      stylus: '*'
+      sugarss: '*'
+      terser: ^5.4.0
+    peerDependenciesMeta:
+      '@types/node':
+        optional: true
+      less:
+        optional: true
+      sass:
+        optional: true
+      stylus:
+        optional: true
+      sugarss:
+        optional: true
+      terser:
+        optional: true
+    dependencies:
+      esbuild: 0.16.17
+      postcss: 8.4.21
+      resolve: 1.22.1
+      rollup: 3.18.0
+    optionalDependencies:
+      fsevents: 2.3.2
+    dev: true
 
   /vite/4.1.4_@types+node@18.14.6:
     resolution: {integrity: sha512-3knk/HsbSTKEin43zHu7jTwYWv81f8kgAL99G5NWBcA1LKvtvcVAC4JjBH1arBunO9kQka+1oGbrMKOjk4ZrBg==}
