@@ -41,7 +41,7 @@ import {
   MdSensors,
   MdWorkspacesFilled,
 } from "react-icons/md";
-import { SiPython, SiTypescript } from "react-icons/si";
+import { SiNpm, SiPnpm, SiPython, SiTypescript, SiYarn } from "react-icons/si";
 
 const IconOS: Record<OS, React.ComponentType> = {
   Linux: FaLinux,
@@ -61,8 +61,6 @@ export const Icon = {
   Check: AiOutlineCheck,
   Refresh: IoMdRefresh,
   Delete: AiFillDelete,
-  Python: SiPython,
-  Typescript: SiTypescript,
   Time: IoTime,
   Acquire: FaStream,
   Analyze: FaBezierCurve,
@@ -85,4 +83,9 @@ export const Icon = {
   Workspace: MdWorkspacesFilled,
   OS: IconOS,
   Box: AiOutlineBorder,
+  Python: SiPython,
+  Typescript: SiTypescript,
+  NPM: SiNpm,
+  PNPM: SiPnpm,
+  Yarn: SiYarn,
 };

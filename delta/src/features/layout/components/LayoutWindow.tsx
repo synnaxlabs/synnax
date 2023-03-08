@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { useSelectWindowKey } from "@synnaxlabs/drift";
 import { Nav, Space } from "@synnaxlabs/pluto";
 import { appWindow } from "@tauri-apps/api/window";
 
@@ -30,8 +31,12 @@ export const NavTop = (): JSX.Element => (
 );
 
 export const LayoutWindow = (): JSX.Element => {
-  const { label: key } = appWindow;
+  const { label } = appWindow;
+  const key = useSelectWindowKey(label);
+  console.log(key);
+
   const layout = useSelectLayout(key);
+  if (key == null) return <h1>{label}</h1>;
   const content = <LayoutContent layoutKey={key} />;
   if (layout?.window?.navTop === true)
     return (

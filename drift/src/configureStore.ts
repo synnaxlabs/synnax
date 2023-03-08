@@ -23,12 +23,9 @@ import {
   DriftAction,
   PreloadedState,
   StoreState,
-  closeWindow,
-  setWindowKey,
+  setWindowLabel,
   setWindowStage,
-  setWindowProps,
-  runExec,
-  setWindowVisible,
+  closeWindow,
 } from "./state";
 import { MAIN_WINDOW } from "./window";
 
@@ -85,9 +82,8 @@ export const configureStore = async <
     middleware: configureMiddleware(middleware, runtime, debug),
   });
 
-  store.dispatch(setWindowKey({ key: runtime.key() }));
+  store.dispatch(setWindowLabel({ label: runtime.label() }));
   store.dispatch(setWindowStage({ stage: "created" }));
-  store.dispatch(setWindowVisible({ value: true }));
   runtime.onCloseRequested(() => store?.dispatch(closeWindow({})));
 
   return store;

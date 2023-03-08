@@ -7,17 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { Action, AnyAction, Dispatch, Middleware } from "@reduxjs/toolkit";
+import { Action, AnyAction, Dispatch, Middleware } from "@reduxjs/toolkit";
 import type { CurriedGetDefaultMiddleware } from "@reduxjs/toolkit/dist/getDefaultMiddleware";
 
 import { log } from "./debug";
 import {
   StoreState,
-  assignKey,
-  processAction,
-  isDrift,
+  isDriftAction,
   shouldEmit,
   DriftAction,
+  sync,
+  assignLabel,
+  DriftState,
+  setWindowProps,
 } from "./state";
 import { desugar } from "./sugar";
 import { validateAction } from "./validate";
@@ -38,7 +40,7 @@ export type Middlewares<S> = ReadonlyArray<Middleware<{}, S>>;
 export const middleware =
   <S extends StoreState, A extends Action = AnyAction>(
     runtime: Runtime<S, A>,
-    debug?: boolean
+    debug: boolean = false
   ): Middleware<Record<string, never>, S, Dispatch<A | DriftAction>> =>
   ({ getState, dispatch }) =>
   (next) =>
@@ -52,21 +54,30 @@ export const middleware =
       action,
       emitted,
       emitter,
-      window: runtime.key(),
+      window: runtime.label(),
     });
 
     // The action is recirculating from our own relay.
-    if (emitter === runtime.key()) return;
+    if (emitter === runtime.label()) return;
 
-    if (isDrift(action.type)) {
-      const state = getState();
-      if (!emitted) action.payload.key = assignKey(runtime, action, state);
-      processAction(runtime, action, state, dispatch, debug);
+    const isDrift = isDriftAction(action.type);
+
+    // If the runtime is updating its own props, no need to sync.
+    const shouldSync = isDrift && action.type !== setWindowProps.type;
+
+    let prevS: DriftState | null = null;
+    if (isDrift) {
+      prevS = getState().drift;
+      action = assignLabel(action, prevS);
     }
 
     const res = next(action);
 
+    const nextS = shouldSync ? getState().drift : null;
+
     if (shouldEmit(emitted, action.type)) runtime.emit({ action });
+
+    if (prevS !== null && nextS !== null) sync(prevS, nextS, runtime, dispatch, debug);
 
     return res;
   };

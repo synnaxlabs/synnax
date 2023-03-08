@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, test, expect } from "vitest";
+import { describe, test, expect, it } from "vitest";
 
-import { Box } from "./box";
+import { Box, positionInCenter } from "./box";
 
 describe("Box", () => {
   describe("construction", () => {
@@ -47,6 +47,17 @@ describe("Box", () => {
       expect(b.topRight).toEqual({ x: 10, y: 0 });
       expect(b.bottomLeft).toEqual({ x: 0, y: 10 });
       expect(b.bottomRight).toEqual({ x: 10, y: 10 });
+    });
+  });
+  describe("positionInCenterOf", () => {
+    it("should position the box in the center of the other box", () => {
+      let b = new Box(0, 0, 10, 10);
+      const b2 = new Box(0, 0, 20, 20);
+      b = positionInCenter(b, b2);
+      expect(b.topLeft).toEqual({ x: 5, y: 5 });
+      expect(b.topRight).toEqual({ x: 15, y: 5 });
+      expect(b.bottomLeft).toEqual({ x: 5, y: 15 });
+      expect(b.bottomRight).toEqual({ x: 15, y: 15 });
     });
   });
 });

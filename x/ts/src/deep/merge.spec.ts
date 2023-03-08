@@ -13,7 +13,7 @@ import { Deep } from "@/deep";
 
 interface TestRecord {
   a: number;
-  b: {
+  b?: {
     c?: number;
     d?: number;
   };
@@ -37,6 +37,24 @@ describe("deepMerge", () => {
       a: 3,
       b: {
         c: 2,
+        d: 4,
+      },
+    };
+    expect(Deep.merge(a, b)).toEqual(c);
+  });
+  it.only("Should set a value even when its parent is undefined", () => {
+    const a: TestRecord = {
+      a: 1,
+    };
+    const b: TestRecord = {
+      a: 3,
+      b: {
+        d: 4,
+      },
+    };
+    const c: TestRecord = {
+      a: 3,
+      b: {
         d: 4,
       },
     };

@@ -2,11 +2,12 @@
 import { ClientTabs } from "./ClientTabs";
 import SetupPython from "./setup-python.md";
 import SetupTypescript from "./setup-typescript.md";
+const { includeSetup = true } = Astro.props;
 ---
 
 <ClientTabs client:idle>
-    <SetupPython slot="setup-python" />
-    <SetupTypescript slot="setup-typescript" />
+    {includeSetup && <SetupPython slot="setup-python" />}
+    {includeSetup && <SetupTypescript slot="setup-typescript" />}
     <Fragment slot="python">
         <slot name="python" />
     </Fragment>

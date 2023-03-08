@@ -39,8 +39,7 @@ export const connectClusterWindowLayout: Layout = {
   location: "window",
   window: {
     resizable: false,
-    height: 430,
-    width: 650,
+    size: { height: 430, width: 650 },
     navTop: true,
   },
 };
@@ -51,9 +50,7 @@ export const connectClusterWindowLayout: Layout = {
  *
  * @param props - The standard LayoutRendererProps.
  */
-export const ConnectCluster = ({
-  onClose,
-}: LayoutRendererProps): JSX.Element => {
+export const ConnectCluster = ({ onClose }: LayoutRendererProps): JSX.Element => {
   const dispatch = useDispatch();
   const [connState, setConnState] = useState<ConnectionState | null>(null);
 

@@ -13,8 +13,6 @@ Synnax inherits a hybrid pedigree from hardware data acquisition systems and clo
 horizontally scalable databases. We’re focused on keeping the system simple, and these
 pages will introduce you to the core concepts needed to work effectively with a Synnax cluster.
 
-If you’re looking for an introduction to Synnax's internal architecture, look here.
-
 ## Distribution Components
 
 ### Nodes
@@ -46,7 +44,7 @@ from our cyclicts’s speedometer are reported as `float32` values in kilometers
 
 ### Channels
 
-A channel is a logical collection of samples emitted by or representing the values of a
+A [channel](/concepts/channels) is a logical collection of samples emitted by or representing the values of a
 single source. We can store the speedometer readings across all the cyclists’s rides in
 a single channel titled “speed-gps”. We can also create channels that store post-processed
 results or simulated values. For example, we can record target speeds for each ride in a
@@ -57,7 +55,7 @@ data type, they can be contained in a channel.
 
 ### Domains
 
-Domains are continuous, non-overlapping time-partitions of a channel’s data. When writing
+[Domains](/concepts/write-domains) are continuous, non-overlapping time-partitions of a channel’s data. When writing
 to a channel, a user must first define the starting timestamp of a new domain. After
 doing so, they are free to write chunks of telemetry. Once finished, they commit the
 domain with an ending timestamp to atomically persist it to the channel. If the domain
@@ -69,11 +67,11 @@ finished. Over the course of three rides, we’ll create a domain for each ride 
 
 ### Ranges
 
-A range is a user defined region of a channel's data. Unlike domains, ranges are purely
-for categorization and do not affect the structure of a channel's data. Ranges can be
-subsections of a domain or span multiple domains. They can also overlap with or contain
-other ranges. Ranges are typically used to indicate important events or categorize large
-periods of time.
+A [range](/concepts/read-ranges) (short for "time range"), is a user defined region of a channel's data. Unlike
+domains, ranges are purely for categorization and do not affect the structure of a channel's
+data. Ranges can be subsections of a domain or span multiple domains. They can also overlap
+with or contain other ranges. Ranges are typically used to indicate important events or
+categorize large periods of time.
 
 After each ride, we can identify periods of interest, such as hills or descents, and define
 ranges to mark them as relevant for analysis. If our cyclist is training for a century race,
@@ -81,7 +79,7 @@ we can also wrap all of their rides in a ‘century training’ range to keep th
 
 ### Arrays
 
-While domains and ranges virtually separate areas of related data, arrays are used to hold
+While domains and ranges virtually separate areas of related data, [arrays](/concepts/arrays-and-frames) are used to hold
 the actual samples. Arrays are strongly typed and hold their values in time-order. When
 writing data to the cluster, a user must provide a frame (see below) containing an array
 of samples for each channel they wish to write to. When reading data, they receive a frame
@@ -93,10 +91,10 @@ the cluster will have one specified.
 
 ### Frames
 
-A frame is a collection of related arrays. It's comparable to a pandas `DataFrame` in
-Python or a `data.frame` in R. It is a table like structure, where each column holds a
-one or more arrays. They're the fundamental unit of data transfer within a
-cluster, and are used for reads, writes, and internal replication.
+A [frame](/concepts/arrays-and-frames) is a collection of related arrays. These arrays
+forrm a table like structure comparable to a pandas `DataFrame` in Python or a `data.frame`
+in R. Each column holds a one or more arrays. They're the fundamental unit of data transfer
+within a cluster, and are used for reads, writes, and internal replication.
 
 ## Synnax as a Spreadsheet
 

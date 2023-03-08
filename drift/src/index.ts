@@ -37,5 +37,10 @@ export type {
   WindowState as Window,
 } from "@/window";
 export { MAIN_WINDOW } from "@/window";
-export { Provider, useWindowLifecycle, useSelectWindow } from "@/react";
+export {
+  Provider,
+  useWindowLifecycle,
+  useSelectWindow,
+  useSelectWindowKey,
+} from "@/react";
 export { TauriRuntime } from "@/tauri";

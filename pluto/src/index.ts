@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import * as css from "@/css";
-
+export * from "@/css";
 export * from "@/core";
 export * from "@/hooks";
 export * from "@/theming";
@@ -22,9 +21,3 @@ export * from "@/vis";
 export * from "@/triggers";
 export * from "@/memo";
 export * from "@/os";
-
-// We want to allow CSS to be imported internally from @/css,
-// but we don't want to export it to the outside world.
-const { CSS, ...cssExports } = css;
-
-export { cssExports };

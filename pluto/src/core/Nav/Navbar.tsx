@@ -65,13 +65,13 @@ export interface NavbarContentProps extends Omit<SpaceProps<"div">, "ref"> {
 const contentFactory =
   (pos: Position | ""): FunctionComponent<NavbarContentProps> =>
   // eslint-disable-next-line react/display-name
-  ({ bordered = true, className, ...props }: NavbarContentProps): JSX.Element =>
+  ({ bordered = false, className, ...props }: NavbarContentProps): JSX.Element =>
     (
       <Space
         className={CSS(
           CSS.BE("navbar", "content"),
           CSS.pos(pos),
-          CSS.bordered(pos),
+          bordered && CSS.bordered(pos),
           className
         )}
         align="center"

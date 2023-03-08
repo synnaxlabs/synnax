@@ -17,7 +17,7 @@
   "scripts": {
     "build": "tsc --noEmit && vite build",
     "watch": "tsc --noEmit && vite build --watch",
-    "test": "vitest",
+    "test": "vitest --ui",
     "cov": "vitest --coverage",
     "lint": "eslint \"src/**/*.ts*\"",
     "fix": "eslint \"src/**/*.ts*\" --fix"

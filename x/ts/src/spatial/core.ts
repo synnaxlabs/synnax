@@ -82,14 +82,21 @@ export interface ClientXY {
   clientY: number;
 }
 
-export const toXY = (
-  pt: number | XY | ClientXY | Dimensions | SignedDimensions
-): XY => {
+export type UnparsedXY = number | XY | ClientXY | Dimensions | SignedDimensions;
+
+export const toXY = (pt: UnparsedXY): XY => {
   if (typeof pt === "number") return { x: pt, y: pt };
   if ("clientX" in pt) return { x: pt.clientX, y: pt.clientY };
   if ("width" in pt) return { x: pt.width, y: pt.height };
   if ("signedWidth" in pt) return { x: pt.signedWidth, y: pt.signedHeight };
   return { x: pt.x, y: pt.y };
+};
+
+export const toXYEqual = (one?: UnparsedXY, two?: UnparsedXY): boolean => {
+  if (one == null || two == null) return one == null && two == null;
+  const oneXY = toXY(one);
+  const twoXY = toXY(two);
+  return oneXY.x === twoXY.x && oneXY.y === twoXY.y;
 };
 
 export const locDim = (
