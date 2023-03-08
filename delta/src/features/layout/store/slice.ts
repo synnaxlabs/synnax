@@ -71,20 +71,22 @@ export interface LayoutStoreState {
   [LAYOUT_SLICE_NAME]: LayoutState;
 }
 
+export const MAIN_LAYOUT: Layout = {
+  name: "Main",
+  key: "main",
+  type: "main",
+  location: "window",
+  window: {
+    navTop: false,
+  },
+};
+
 const INITIAL_STATE: LayoutState = {
   activeTheme: "synnaxDark",
   themes: Theming.themes,
   alreadyCheckedGetStarted: false,
   layouts: {
-    main: {
-      name: "Main",
-      key: "main",
-      type: "main",
-      location: "window",
-      window: {
-        navTop: false,
-      },
-    },
+    main: MAIN_LAYOUT,
   },
   mosaic: {
     activeTab: null,
@@ -184,11 +186,16 @@ export const {
 
       // If we're moving to a mosaic, insert a tab.
       if (prev?.location !== "mosaic" && location === "mosaic") {
-        state.mosaic.root = Mosaic.insertTab(state.mosaic.root, {
-          tabKey: key,
-          name,
-          ...tab,
-        });
+        state.mosaic.root = Mosaic.insertTab(
+          state.mosaic.root,
+          {
+            tabKey: key,
+            name,
+            ...tab,
+          },
+          tab?.location,
+          tab?.mosaicKey
+        );
         state.mosaic.activeTab = key;
       }
 

@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { ComponentPropsWithoutRef, ReactElement } from "react";
 
 import { SpaceProps } from "@/core/Space";
-import { Typography, Text } from "@/core/Typography";
+import { Typography, Text, TextWithIconProps } from "@/core/Typography";
 import { CSS } from "@/css";
 import { ComponentSize } from "@/util/component";
 
@@ -19,15 +19,21 @@ import "./Button.css";
 /** The variant of button */
 export type ButtonVariant = "filled" | "outlined" | "text";
 
-/** The base props accepted by all button types in this directory. */
-export interface BaseButtonProps extends Omit<SpaceProps<"button">, "el" | "value"> {
+export interface ButtonExtensionProps {
   variant?: ButtonVariant;
   size?: ComponentSize;
   sharp?: boolean;
 }
 
+/** The base props accepted by all button types in this directory. */
+export interface BaseButtonProps
+  extends ComponentPropsWithoutRef<"button">,
+    ButtonExtensionProps {}
+
 /** The props for the {@link Button} component. */
-export interface ButtonProps extends BaseButtonProps {
+export interface ButtonProps
+  extends Omit<TextWithIconProps<"button">, "size" | "level">,
+    ButtonExtensionProps {
   children?: string | number;
   startIcon?: ReactElement | ReactElement[];
   endIcon?: ReactElement | ReactElement[];

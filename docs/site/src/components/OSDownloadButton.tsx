@@ -65,17 +65,13 @@ const JSON_URL =
   "https://raw.githubusercontent.com/synnaxlabs/synnax/main/delta/release-spec.json";
 
 export const DeltaDownloadButton = () => {
-  console.log("Hello");
   const [updateFile, setUpdateFile] = useState<UpdateFile | null>(null);
 
   useAsyncEffect(async () => {
     const response = await fetch(JSON_URL);
     const updateFile = await response.json();
-    console.log(updateFile);
     setUpdateFile(updateFile);
   }, []);
-
-  console.log(updateFile);
 
   if (updateFile == null) return null;
   return (

@@ -51,6 +51,10 @@ export class MockRuntime<S extends StoreState, A extends Action = AnyAction>
     this.requestClosure = cb;
   }
 
+  listLabels(): string[] {
+    return [];
+  }
+
   // |||||| MANAGER IMPLEMENTATION ||||||
 
   create(props: LabeledWindowProps): void {

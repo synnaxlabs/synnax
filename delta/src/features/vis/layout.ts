@@ -15,20 +15,23 @@ import { Vis } from "./types";
 import { Layout, LayoutCreator, LayoutCreatorProps } from "@/features/layout";
 
 export const createVis =
-  <V extends Vis>(initial: Partial<V>): LayoutCreator =>
+  <V extends Vis>(initial: Partial<V> & Omit<Layout, "type">): LayoutCreator =>
   ({ dispatch }: LayoutCreatorProps): Layout => {
+    const { name, location, window, tab, ...rest } = initial;
     const key = initial.key ?? nanoid();
     dispatch(
       storeCreateVizualization({
-        ...initial,
+        ...rest,
         key,
         variant: "linePlot",
       })
     );
     return {
       key,
-      location: "mosaic",
+      location: location ?? "mosaic",
       type: "visualization",
-      name: initial.key ?? "Plot",
+      name: initial.name ?? "Plot",
+      window,
+      tab,
     };
   };

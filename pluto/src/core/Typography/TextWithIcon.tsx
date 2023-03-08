@@ -27,6 +27,7 @@ export type TextWithIconProps<
     endIcon?: ReactElement | ReactElement[];
     children?: string | number;
     divided?: boolean;
+    noWrap?: boolean;
   };
 
 export const TextWithIcon = <
@@ -40,6 +41,7 @@ export const TextWithIcon = <
   children,
   color,
   className,
+  noWrap = false,
   ...props
 }: TextWithIconProps<E, L>): JSX.Element => {
   const startIcons = startIcon != null && formatIcons(startIcon, color);
@@ -47,7 +49,12 @@ export const TextWithIcon = <
   return (
     // @ts-expect-error
     <Space<E>
-      className={CSS(CSS.B("text-icon"), CSS.BM("text-icon", level), className)}
+      className={CSS(
+        CSS.B("text-icon"),
+        CSS.BM("text-icon", level),
+        CSS.noWrap(noWrap),
+        className
+      )}
       direction="x"
       size="small"
       align="center"

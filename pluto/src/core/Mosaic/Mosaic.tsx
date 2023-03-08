@@ -21,10 +21,12 @@ import { preventDefault } from "@/util/event";
 import "./Mosaic.css";
 
 /** Props for the {@link Mosaic} component */
-export interface MosaicProps extends Omit<TabsProps, "onDrop" | "tabs" | "onResize"> {
+export interface MosaicProps
+  extends Omit<TabsProps, "onDrop" | "tabs" | "onResize" | "onCreate"> {
   root: MosaicNode;
   onDrop: (key: number, tabKey: string, loc: Location) => void;
   onResize: (key: number, size: number) => void;
+  onCreate?: (key: number) => void;
 }
 
 export const Mosaic = memo((props: MosaicProps): JSX.Element | null => {
@@ -75,7 +77,7 @@ const validDrop = (tabs: Tab[], currentlyDragging: string | null): boolean =>
   tabs.filter((t) => t.tabKey !== currentlyDragging).length > 0;
 
 const MosaicTabLeaf = memo(
-  ({ root: node, onDrop, ...props }: MosaicTabLeafProps): JSX.Element => {
+  ({ root: node, onDrop, onCreate, ...props }: MosaicTabLeafProps): JSX.Element => {
     const { key, tabs } = node as Omit<MosaicNode, "tabs"> & { tabs: Tab[] };
 
     const [dragMask, setDragMask] = useState<Location | null>(null);
@@ -114,6 +116,8 @@ const MosaicTabLeaf = memo(
 
     const handleDragEnd = (): void => setCurrentlyDragging(null);
 
+    const handleCreate = (): void => onCreate?.(key);
+
     return (
       <div className={CSS.BE("mosaic", "leaf")}>
         <Tabs
@@ -125,6 +129,7 @@ const MosaicTabLeaf = memo(
           selected={node.selected}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
+          onCreate={handleCreate}
           {...props}
         />
         {dragMask != null && (

@@ -55,6 +55,10 @@ body {
     border-radius: 0;
 }
 
+.pluto--no-wrap {
+    white-space: nowrap;
+}
+
 .pluto--bordered {
     border: var(--pluto-border);
 }

@@ -12,6 +12,7 @@ import type { ComponentType } from "react";
 import { Dispatch, AnyAction } from "@reduxjs/toolkit";
 import type { WindowProps } from "@synnaxlabs/drift";
 import { Tab } from "@synnaxlabs/pluto";
+import { Location } from "@synnaxlabs/x";
 
 import { NavTopProps } from "../components";
 
@@ -114,4 +115,7 @@ export type LayoutWindowProps = Omit<WindowProps, "key" | "url"> & {
  * The props passed to a LayoutTab. This is a subset of the properties of the
  * Tab interface for the Tabs component. This does not apply to window layoputs.
  */
-export type LayoutTabProps = Pick<Tab, "closable" | "editable">;
+export interface LayoutTabProps extends Pick<Tab, "closable" | "editable"> {
+  location: Location;
+  mosaicKey?: number;
+}

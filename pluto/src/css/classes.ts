@@ -24,6 +24,7 @@ export interface CSSType extends BEM {
   bordered: (location?: Location | Position | boolean) => string | false;
   noSelect: string;
   selected: (selected: boolean) => string | false;
+  noWrap: (noWrap: boolean) => string | false;
 }
 
 const newCSS = (prefix: string): CSSType => {
@@ -39,8 +40,9 @@ const newCSS = (prefix: string): CSSType => {
     if (typeof location === "boolean") return location && CSS.M("bordered");
     return location != null ? CSS.M("bordered-" + location) : CSS.M("bordered");
   };
-  CSS.noSelect = CSS.M("no-select");
   CSS.selected = (selected) => selected && CSS.M("selected");
+  CSS.noSelect = CSS.M("no-select");
+  CSS.noWrap = (noWrap) => noWrap && CSS.M("no-wrap");
   return CSS;
 };
 

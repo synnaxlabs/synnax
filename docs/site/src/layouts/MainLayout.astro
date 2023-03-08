@@ -18,7 +18,6 @@ if (url.includes("noHeader")) {
 }
 if (url.includes("theme")) {
     const theme = url.split("theme=")[1].split("&")[0];
-    console.log(theme);
     Astro.cookies.set("theme", theme);
 }
 
