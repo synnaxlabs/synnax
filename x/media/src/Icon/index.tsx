@@ -38,6 +38,7 @@ import { IoBookSharp, IoCopySharp, IoTime } from "react-icons/io5";
 import {
   MdEdit,
   MdOutlineDeviceHub,
+  MdQuestionMark,
   MdSensors,
   MdWorkspacesFilled,
 } from "react-icons/md";
@@ -88,4 +89,5 @@ export const Icon = {
   NPM: SiNpm,
   PNPM: SiPnpm,
   Yarn: SiYarn,
+  QuestionMark: MdQuestionMark,
 };

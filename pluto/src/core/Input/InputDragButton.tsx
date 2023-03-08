@@ -94,6 +94,7 @@ export const InputDragButton = ({
       variant="outlined"
       className={CSS(CSS.BE("input", "drag-btn"), CSS.dir(direction), className)}
       onDoubleClick={() => onChange(vRef.current.prev)}
+      onClick={(e) => e.preventDefault()}
       {...props}
     >
       <GrDrag />

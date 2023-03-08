@@ -13,8 +13,7 @@ import clsx from "clsx";
 
 import "./Logo.css";
 
-export interface LogoProps
-  extends Omit<HTMLAttributes<SVGElement>, "width" | "height"> {
+export interface LogoProps extends HTMLAttributes<SVGElement> {
   variant?: "icon" | "title";
   color?: "white" | "black" | "gradient" | "auto";
 }

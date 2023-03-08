@@ -16,7 +16,7 @@ import { newClient } from "../setupspecs";
 const client = newClient();
 
 test("Channel - create", async () => {
-  const channel = await client.channel.create({
+  const channel = await client.channels.create({
     name: "test",
     nodeId: 1,
     rate: Rate.hz(1),
@@ -29,13 +29,13 @@ test("Channel - create", async () => {
 });
 
 test("Channel - retrieve by key", async () => {
-  const channel = await client.channel.create({
+  const channel = await client.channels.create({
     name: "test",
     nodeId: 1,
     rate: Rate.hz(1),
     dataType: DataType.FLOAT32,
   });
-  const retrieved = await client.channel.retrieve(channel.key);
+  const retrieved = await client.channels.retrieve(channel.key);
   expect(retrieved.name).toEqual("test");
   expect(retrieved.nodeId).toEqual(1);
   expect(retrieved.rate).toEqual(Rate.hz(1));
@@ -43,13 +43,13 @@ test("Channel - retrieve by key", async () => {
 });
 
 test("Channel - retrieve by key - not found", async () => {
-  await expect(async () => await client.channel.retrieve("1-1000")).rejects.toThrow(
+  await expect(async () => await client.channels.retrieve("1-1000")).rejects.toThrow(
     QueryError
   );
 });
 
 test("Channel - retrieve by name", async () => {
-  const retrieved = await client.channel.retrieve(["test"]);
+  const retrieved = await client.channels.retrieve(["test"]);
   expect(retrieved.length).toBeGreaterThan(0);
   retrieved.forEach((ch) => expect(ch.name).toEqual("test"));
 });
