@@ -230,15 +230,14 @@ class ChannelClient:
         return created if isinstance(channels, list) else created[0]
 
     @overload
-    def retrieve(self, key: str | None = None, name: str | None = None) -> Channel:
+    def retrieve(self, key_or_name: str) -> Channel:
         ...
 
     @overload
     def retrieve(
         self,
-        *,
-        keys: list[str] | None = None,
-        names: list[str] | None = None,
+        key_or_name: str | list[str],
+        *keys_or_names: str | list[str],
         node_id: int | None = None,
         include_not_found: Literal[False] = False,
     ) -> list[Channel]:
@@ -247,9 +246,8 @@ class ChannelClient:
     @overload
     def retrieve(
         self,
-        *,
-        keys: list[str] | None = None,
-        names: list[str] | None = None,
+        key_or_name: str | list[str],
+        *keys_or_names: str | list[str],
         node_id: int | None = None,
         include_not_found: Literal[True] = True,
     ) -> tuple[list[Channel], list[str]]:
@@ -257,11 +255,8 @@ class ChannelClient:
 
     def retrieve(
         self,
-        *,
-        key: str | None = None,
-        name: str | None = None,
-        keys: list[str] | None = None,
-        names: list[str] | None = None,
+        key_or_name: str | list[str],
+        *keys_or_names: str | list[str],
         node_id: int | None = None,
         include_not_found: bool = False,
     ) -> Channel | list[Channel] | tuple[list[Channel], list[str]]:
@@ -292,19 +287,13 @@ class ChannelClient:
         not found.
         """
         res = self._retriever.retrieve(
-            key=key,
-            name=name,
-            keys=keys,
-            names=names,
+            key_or_name,
+            *keys_or_names,
             node_id=node_id,
             include_not_found=include_not_found,
         )
         if res is None:
-            if key is not None:
-                raise QueryError(f"Channel with key {key} not found.")
-            if name is not None:
-                raise QueryError(f"Channel with name {name} not found.")
-            raise QueryError("No channels found.")
+            raise QueryError(f"Channel matching key or name {key_or_name} not found.")
         if isinstance(res, ChannelPayload):
             return self._sugar([res])[0]
         if isinstance(res, tuple):

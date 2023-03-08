@@ -61,7 +61,8 @@ come into play. An iterator can efficiently traverse a time range with hundreds 
 of samples. You can read conceptually about iterators here.
 
 We can create a new iterator by providing the channels we want to read along with a time
-range.
+range. The following code creates an iterator that will read 100 samples at a time
+and reads each frame.
 
 ```python
 iter = client.new_iterator(start, end, "my-precise-tc", "time", chunk_size=100)
@@ -71,18 +72,9 @@ This opens an iterator configured to read 100 samples at a time. We can iterate 
 each ‘chunk’ of samples easily.
 
 ```python
-try:
-    # Seeks to the first sample in the iterator
-    if !iter.seek_first():
-        print("Iterator has no data")
-        return
-
-    # Continue reading samples until we've exhausted the iterator
-    while iter.next():
-        frame = i.value()
+with client.new_iterator(start, end, "my-precise-tc", "time", chunk_size=100) as i:
+    for frame in iter:
         # Do something with the current frame
-finally:
-    i.close()
 ```
 
 It’s important to close an iterator after you’re done with it, so we reccommend wrapping it’s

@@ -79,17 +79,10 @@ var _ = Describe("ChannelReader", Ordered, func() {
 		})
 		It("Should retrieve a Channel by its key", func() {
 			res, err := svc.Retrieve(context.TODO(), api.ChannelRetrieveRequest{
-				Keys: []string{"1-1"},
+				KeysOrNames: []string{"1-1"},
 			})
 			Expect(err).To(Equal(errors.Nil))
 			Expect(res.Channels).To(HaveLen(1))
-		})
-		It("Should return an error if the key can't be parsed", func() {
-			res, err := svc.Retrieve(context.TODO(), api.ChannelRetrieveRequest{
-				Keys: []string{"1-1-1"},
-			})
-			Expect(err).To(Equal(errors.Parse(roacherrors.New("[channel] - invalid key format"))))
-			Expect(res.Channels).To(HaveLen(0))
 		})
 		It("Should retrieve channels by their node ID", func() {
 			res, err := svc.Retrieve(context.TODO(), api.ChannelRetrieveRequest{
@@ -100,7 +93,7 @@ var _ = Describe("ChannelReader", Ordered, func() {
 		})
 		It("Should retrieve channels by their name", func() {
 			res, err := svc.Retrieve(context.TODO(), api.ChannelRetrieveRequest{
-				Names: []string{"test"},
+				KeysOrNames: []string{"test"},
 			})
 			Expect(err).To(Equal(errors.Nil))
 			Expect(res.Channels).To(HaveLen(1))

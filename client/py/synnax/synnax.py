@@ -19,6 +19,7 @@ from synnax.options import SynnaxOptions
 from synnax.transport import Transport
 from synnax.telem import TimeSpan
 
+
 class Synnax(FrameClient):
     """Client to perform operations against a Synnax cluster.
 
