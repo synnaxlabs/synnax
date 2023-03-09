@@ -349,6 +349,7 @@ export const {
     setWindowSkipTaskbar,
     setWindowAlwaysOnTop,
     setWindowTitle,
+    setWindowDecorations,
   },
 } = slice;
 

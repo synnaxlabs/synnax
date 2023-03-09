@@ -28,6 +28,7 @@ export {
   registerProcess,
   completeProcess,
   initialState,
+  setWindowDecorations,
   DRIFT_SLICE_NAME,
 } from "@/state";
 export type { StoreState as DriftStoreState, DriftState } from "@/state";

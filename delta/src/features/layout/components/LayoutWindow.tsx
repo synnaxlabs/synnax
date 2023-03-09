@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useSelectWindowKey } from "@synnaxlabs/drift";
+import { useSelectWindow, setWindowDecorations } from "@synnaxlabs/drift";
 import { Nav, Space } from "@synnaxlabs/pluto";
 import { appWindow } from "@tauri-apps/api/window";
 
@@ -23,6 +23,7 @@ import { useEffect } from "react";
 
 import "./LayoutWindow.css"
 import { Logo } from "@synnaxlabs/media";
+import { useDispatch } from "react-redux";
 
 export const NavTop = (): JSX.Element => {
   const os = useOS();
@@ -39,14 +40,18 @@ export const NavTop = (): JSX.Element => {
 
 export const LayoutWindow = (): JSX.Element => {
   const { label } = appWindow;
-  const key = useSelectWindowKey(label);
-  const layout = useSelectLayout(key ?? "");
+  const win = useSelectWindow(label);
+  const layout = useSelectLayout(win?.key ?? "");
   const os = useOS();
-  if (key == null) return <h1>{label}</h1>;
+  const dispatch = useDispatch()
+  if (win?.key == null) return <h1>{label}</h1>;
   useEffect(() => {
-    if(os === "Windows") applyWindowsBorders();
+    if(os === "Windows") {
+      applyWindowsBorders();
+      dispatch(setWindowDecorations({ value: false }))
+    }
   }, [os])
-  const content = <LayoutContent layoutKey={key} />;
+  const content = <LayoutContent layoutKey={win?.key} />;
   return (
     <Space empty className={CSS(CSS.B("main"), CSS.BM("main", os))}>
       {layout?.window?.navTop === true && <NavTop />}
