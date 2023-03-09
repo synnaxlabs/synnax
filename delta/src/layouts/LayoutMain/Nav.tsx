@@ -14,6 +14,7 @@ import {
   Menu as PMenu,
   MenuProps as PMenuProps,
   Button,
+  useOS,
 } from "@synnaxlabs/pluto";
 import { locToDir } from "@synnaxlabs/x";
 
@@ -36,7 +37,6 @@ import { VisToolbar } from "@/features/vis";
 import { WorkspaceToolbar } from "@/features/workspace";
 
 import "./Nav.css";
-import { useOS } from "@synnaxlabs/pluto";
 
 export const NAV_DRAWERS: NavDrawerItem[] = [
   ClusterToolbar,
@@ -59,7 +59,7 @@ export const NavTop = (): JSX.Element => {
     <Nav.Bar data-tauri-drag-region location="top" size={NAV_SIZES.top}>
       <Nav.Bar.Start className="delta-main-nav-top__start">
         <Controls className="delta-controls--macos" visibleIfOS="MacOS" />
-        { os === "Windows" && <Logo className="delta-main-nav-top__logo" />}
+        {os === "Windows" && <Logo className="delta-main-nav-top__logo" />}
       </Nav.Bar.Start>
       <Nav.Bar.End className="delta-main-nav-top__end">
         <Button.Icon size="small" onClick={handleDocs}>
@@ -95,9 +95,11 @@ export const NavLeft = (): JSX.Element => {
   const os = useOS();
   return (
     <Nav.Bar location="left" size={NAV_SIZES.side}>
-      { os != "Windows" && <Nav.Bar.Start className="delta-main-nav-left__start" bordered>
-        <Logo className="delta-main-nav-left__logo" />
-      </Nav.Bar.Start>}
+      {os != "Windows" && (
+        <Nav.Bar.Start className="delta-main-nav-left__start" bordered>
+          <Logo className="delta-main-nav-left__logo" />
+        </Nav.Bar.Start>
+      )}
       <Nav.Bar.Content className="delta-main-nav__content">
         <NavMenu onChange={onSelect}>{menuItems}</NavMenu>
       </Nav.Bar.Content>
