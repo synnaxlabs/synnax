@@ -80,6 +80,7 @@ export type SetWindowLabelPayload = LabelPayload;
 export type SetWindowStatePayload = MaybeKeyPayload & { stage: WindowStage };
 export type SetWindowPropsPayload = LabelPayload & Partial<WindowProps>;
 export type SetWindowErrorPaylod = KeyPayload & { message: string };
+export type SetWindowDecorationsPayload = KeyPayload & BooleanPayload;
 
 /** Type representing all possible actions that are drift related. */
 export type DriftPayload =
@@ -303,6 +304,7 @@ const slice = createSlice({
     setWindowTitle: assertLabel<SetWindowTitlePayload>((s, a) => {
       s.windows[a.payload.label].title = a.payload.title;
     }),
+    setWindowDecorations: assignBool("decorations"),
     setWindowProps: (s: DriftState, a: PayloadAction<SetWindowPropsPayload>) => {
       const prev = s.windows[a.payload.label];
       const next = a.payload;

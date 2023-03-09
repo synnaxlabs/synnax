@@ -199,6 +199,10 @@ export class TauriRuntime<S extends StoreState, A extends Action = AnyAction>
   async setTitle(title: string): Promise<void> {
     return await this.win.setTitle(title);
   }
+
+  async setDecorations(value: boolean): Promise<void> {
+    return await this.win.setDecorations(value);
+  }
 }
 
 interface HandlerEntry {

@@ -36,6 +36,7 @@ import {
 import { Layout } from "../types";
 
 import { useAsyncEffect, AsyncDestructor } from "@/hooks";
+import { useOS } from "@synnaxlabs/pluto";
 
 export interface LayoutCreatorProps {
   dispatch: Dispatch<AnyAction>;
@@ -62,6 +63,7 @@ export type LayoutRemover = () => void;
  */
 export const useLayoutPlacer = (): LayoutPlacer => {
   const dispatch = useDispatch();
+  const os = useOS();
   return useCallback(
     (layout_: Layout | LayoutCreator) => {
       const layout = typeof layout_ === "function" ? layout_({ dispatch }) : layout_;
@@ -70,7 +72,7 @@ export const useLayoutPlacer = (): LayoutPlacer => {
       if (location === "window")
         dispatch(
           createWindow({
-            ...{ ...window, navTop: undefined },
+            ...{ ...window, navTop: undefined, decorations: os !== "Windows" },
             url: "/",
             key,
             title,

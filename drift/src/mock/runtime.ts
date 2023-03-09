@@ -139,4 +139,9 @@ export class MockRuntime<S extends StoreState, A extends Action = AnyAction>
     this.props.visible = true;
     return await Promise.resolve();
   }
+
+  async setDecorations(value: boolean): Promise<void> {
+    this.props.decorations = value;
+    return await Promise.resolve();
+  }
 }
