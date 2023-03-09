@@ -130,6 +130,9 @@ export const syncCurrent = (
   if (nextWin.resizable != null && nextWin.resizable !== prevWin.resizable)
     changes.push(["resizable", runtime.setResizable(nextWin.resizable)]);
 
+  if (nextWin.decorations != null && nextWin.decorations !== prevWin.decorations)
+    changes.push(["decorations", runtime.setDecorations(nextWin.decorations)]);
+
   if (nextWin.alwaysOnTop != null && nextWin.alwaysOnTop !== prevWin.alwaysOnTop)
     changes.push(["alwaysOnTop", runtime.setAlwaysOnTop(nextWin.alwaysOnTop)]);
 

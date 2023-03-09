@@ -104,6 +104,7 @@ export interface Manager {
   setResizable: (value: boolean) => Promise<void>;
   setSkipTaskbar: (value: boolean) => Promise<void>;
   setAlwaysOnTop: (value: boolean) => Promise<void>;
+  setDecorations: (value: boolean) => Promise<void>;
   setTitle: (title: string) => Promise<void>;
 }
 

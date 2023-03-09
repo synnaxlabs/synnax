@@ -10,11 +10,11 @@
  */
 
 .delta-main-fixed--y {
-    height: calc(100vh - 4.5rem - 6rem);
+    height: calc(100vh - 4.5rem - 6rem - var(--os-border-offset, 0px));
 }
 
 .delta-main-fixed--x {
-    width: calc(100vw - 8rem - 8rem);
+    width: calc(100vw - 8rem - 8rem - var(--os-border-offset, 0px));
 }
 
 .delta-main--driving {
@@ -31,3 +31,4 @@
 .delta-main-content-drawers {
     overflow: hidden;
 }
+

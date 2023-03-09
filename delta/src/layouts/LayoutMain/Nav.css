@@ -10,11 +10,7 @@
  */
 
 .delta-main-nav-top__start {
-    padding: 0 2rem;
-}
-
-.delta-main-nav-top__end {
-    padding: 0 2rem;
+    padding: 1rem 2rem;
 }
 
 .delta-main-nav-left__start {
@@ -25,9 +21,6 @@
     padding: 2rem 1rem;
 }
 
-.delta-main-nav-left__logo {
-    width: 100%;
-}
 
 .delta-main-nav-bottom__end {
     padding: 0 2rem;
@@ -49,18 +42,6 @@
     padding: 2.5rem 0;
 }
 
-.delta-controls--windows button {
-    height: 100% !important;
-    border-radius: 0 !important;
-    border-bottom: none;
-    border-top: none;
-    padding: 1.5rem;
-}
 
-.delta-controls--windows button:last-child {
-    border-right: none;
-}
 
-.delta-controls--windows {
-    height: 100%;
-}
+

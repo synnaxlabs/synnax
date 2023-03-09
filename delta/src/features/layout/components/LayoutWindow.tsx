@@ -17,31 +17,49 @@ import { LayoutContent } from "./LayoutContent";
 
 import { Controls } from "@/components";
 
-import "./LayoutWindow.css";
+import { useOS, applyCSSVars } from "@synnaxlabs/pluto";
+import { CSS } from "@/css";
+import { useEffect } from "react";
 
-export const NavTop = (): JSX.Element => (
-  <Nav.Bar data-tauri-drag-region location="top" size={"6rem"}>
+import "./LayoutWindow.css"
+import { Logo } from "@synnaxlabs/media";
+
+export const NavTop = (): JSX.Element => {
+  const os = useOS();
+  return (<Nav.Bar data-tauri-drag-region location="top" size={"6rem"}>
     <Nav.Bar.Start className="delta-main-nav-top__start">
-      <Controls className="delta-macos-controls" visibleIfOS="MacOS" />
+      <Controls className="delta-controls--macos" visibleIfOS="MacOS" />
+        { os === "Windows" && <Logo className="delta-main-nav-top__logo" />}
     </Nav.Bar.Start>
-    <Nav.Bar.End style={{ padding: "0 2rem" }}>
-      <Controls className="delta-windows-controls" visibleIfOS="Windows" />
+    <Nav.Bar.End>
+      <Controls className="delta-controls--windows" visibleIfOS="Windows" />
     </Nav.Bar.End>
-  </Nav.Bar>
-);
+  </Nav.Bar>)
+};
 
 export const LayoutWindow = (): JSX.Element => {
   const { label } = appWindow;
   const key = useSelectWindowKey(label);
   const layout = useSelectLayout(key ?? "");
+  const os = useOS();
   if (key == null) return <h1>{label}</h1>;
+  useEffect(() => {
+    if(os === "Windows") applyWindowsBorders();
+  }, [os])
   const content = <LayoutContent layoutKey={key} />;
-  if (layout?.window?.navTop === true)
-    return (
-      <Space empty className="delta-main">
-        <NavTop />
-        {content}
-      </Space>
-    );
-  return content;
+  return (
+    <Space empty className={CSS(CSS.B("main"), CSS.BM("main", os))}>
+      {layout?.window?.navTop === true && <NavTop />}
+      {content}
+    </Space>
+  );
 };
+
+const applyWindowsBorders = () => {
+    window.document.documentElement.style.boxSizing = "border-box";
+    window.document.documentElement.style.border = "var(--pluto-border)";
+    window.document.documentElement.style.borderRadius = "var(--pluto-border-radius)";
+    applyCSSVars(window.document.documentElement, {
+      "--os-border-offset": "2px",
+    }) 
+}
