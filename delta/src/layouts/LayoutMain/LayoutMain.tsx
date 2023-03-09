@@ -19,7 +19,6 @@ import { LayoutMosaic, maybeCreateGetStartedTab } from "@/features/layout";
 import { VisCanvas } from "@/features/vis";
 
 import "./LayoutMain.css";
-import { useOS } from "@synnaxlabs/pluto";
 /**
  * The center of it all. This is the main layout for the Delta UI. Try to keep this
  * component as simple, presentational, and navigatable as possible.

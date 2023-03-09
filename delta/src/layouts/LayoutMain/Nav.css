@@ -13,6 +13,10 @@
     padding: 1rem 2rem;
 }
 
+.delta-main:not(.delta-main--windows) .delta-main-nav-top__end {
+    padding: 0 2rem;
+}
+
 .delta-main-nav-left__start {
     padding: 2rem 1rem;
 }
@@ -20,7 +24,6 @@
 .delta-main-nav-left__end {
     padding: 2rem 1rem;
 }
-
 
 .delta-main-nav-bottom__end {
     padding: 0 2rem;
@@ -41,7 +44,3 @@
 .delta-main-nav__content {
     padding: 2.5rem 0;
 }
-
-
-
-
