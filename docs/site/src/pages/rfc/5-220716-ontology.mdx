@@ -158,9 +158,9 @@ package ontology
 // node, etc).
 type Type string
 
-// ID is a cluster-unique identifier for the resource, regardless of its type (this
-// is why it's called an ID, and not just a key).
-type ID struct {
+// Key is a cluster-unique identifier for the resource, regardless of its type (this
+// is why it's called an Key, and not just a key).
+type Key struct {
 	// Key is a unique identifier for a resource within its Type (i.e. unique to all
 	// channels).
 	Key string
@@ -169,8 +169,8 @@ type ID struct {
 }
 
 type Resource struct {
-	//  The ID for the resource.
-	ID ID
+	//  The Key for the resource.
+	Key Key
 	// Additional fields that aren't important to define right now...
 }
 ```
@@ -184,8 +184,8 @@ package ontology
 type RelationshipType string
 
 type Relationship struct {
-	From ID
-	To   ID
+	From Key
+	To   Key
 	// Distinguishes different classes of relationships, such as parent-child, accessor
 	// -accessed, etc.
 	Type RelationshipType
@@ -207,8 +207,8 @@ The MVP interface for a service is decidedly simple:
 package ontology
 
 type Service interface {
-	// Retrieve returns data for the resource with the given ID.
-	Retrieve(ID) (interface{}, error)
+	// Retrieve returns data for the resource with the given Key.
+	Retrieve(Key) (interface{}, error)
 }
 ```
 
@@ -239,8 +239,8 @@ and most abstracted way to represent the payload is:
 package ontology
 
 type Resource struct {
-	ID ID
-	// Data can hold a struct, map, slice, etc. that represents the concrete resource ID
+	Key Key
+	// Data can hold a struct, map, slice, etc. that represents the concrete resource Key
 	// refers to.
 	Data interface{}
 }
@@ -253,7 +253,7 @@ This approach is general and loosely coupled, but poses problems when the caller
 wants to parse the data. This can be illustrated when attempting to implement an
 ABAC authorization system. When defining a policy, how do we extract specific
 attributes from the resource? For example, we may allow or deny access to a
-channel depending on its `Channel.NodeID` field. The only way to access this
+channel depending on its `Channel.NodeKey` field. The only way to access this
 field is through reflection, which I'd like to avoid.
 
 ### 2 - String-Value Maps
@@ -267,10 +267,10 @@ package ontology
 type Data map[string]interface{}
 
 type Service interface {
-	Retrieve(ID) (Data, error)
+	Retrieve(Key) (Data, error)
 }
 type Resource struct {
-	ID   ID
+	Key   Key
 	Data Data
 }
 ```
@@ -286,11 +286,11 @@ func Enforce(resource Resource) error {
 	if resource.Type != "channel" {
 		return errors.New("access DENIED")
 	}
-	nodeID, ok := resource.Data["nodeID"]
+	nodeKey, ok := resource.Data["nodeKey"]
 	if !ok {
 		return errors.New("probably a bug")
 	}
-	if nodeID != 42 {
+	if nodeKey != 42 {
 		return errors.New("access DENIED")
 	}
 	return nil

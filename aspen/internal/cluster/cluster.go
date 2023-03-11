@@ -48,8 +48,8 @@ type Cluster interface {
 	// Nodes returns a node.Group of all nodes in the cluster. The returned map
 	// is not safe to modify. To modify, use node.Group.CopyState().
 	Nodes() node.Group
-	// Node returns the member Node with the given ID.
-	Node(id node.ID) (node.Node, error)
+	// Node returns the member Node with the given Key.
+	Node(id node.Key) (node.Node, error)
 	// Observable returns can be used to monitor changes to the cluster state. Be careful not to modify the
 	// contents of the returned State.
 	observe.Observable[State]
@@ -59,15 +59,15 @@ type Cluster interface {
 
 // Resolver is used to resolve a reachable address for a node in the cluster.
 type Resolver interface {
-	// Resolve resolves the address of a node with the given ID.
-	Resolve(id node.ID) (address.Address, error)
+	// Resolve resolves the address of a node with the given Key.
+	Resolve(id node.Key) (address.Address, error)
 }
 
 type Host interface {
 	// Host returns the host Node (i.e. the node that Host is called on).
 	Host() node.Node
-	// HostID returns the ID of the host node.
-	HostID() node.ID
+	// HostKey returns the Key of the host node.
+	HostKey() node.Key
 }
 
 type HostResolver interface {
@@ -107,7 +107,7 @@ func Join(ctx signal.Context, cfgs ...Config) (Cluster, error) {
 		if err != nil {
 			return nil, err
 		}
-		c.Store.SetHost(node.Node{ID: pledgeRes.ID, Address: c.cfg.HostAddress})
+		c.Store.SetHost(node.Node{Key: pledgeRes.Key, Address: c.cfg.HostAddress})
 		c.Store.SetClusterKey(pledgeRes.ClusterKey)
 		// operationSender initial cluster state, so we can contact it for
 		// information on other nodes instead of peers.
@@ -119,7 +119,7 @@ func Join(ctx signal.Context, cfgs ...Config) (Cluster, error) {
 	} else if !c.Store.Valid() && len(c.cfg.Pledge.Peers) == 0 {
 		// If our store isn't valid, and we haven't received peers, assume we're
 		// bootstrapping a new cluster.
-		c.Store.SetHost(node.Node{ID: 1, Address: c.cfg.HostAddress})
+		c.Store.SetHost(node.Node{Key: 1, Address: c.cfg.HostAddress})
 		c.SetClusterKey(uuid.New())
 		c.cfg.Logger.Infow(
 			"no peers provided, bootstrapping new cluster",
@@ -167,14 +167,14 @@ func (c *cluster) Key() uuid.UUID {
 // Host implements the Cluster interface.
 func (c *cluster) Host() node.Node { return c.Store.GetHost() }
 
-// HostID implements the Cluster interface.
-func (c *cluster) HostID() node.ID { return c.Store.PeekState().HostID }
+// HostKey implements the Cluster interface.
+func (c *cluster) HostKey() node.Key { return c.Store.PeekState().HostKey }
 
 // Nodes implements the Cluster interface.
 func (c *cluster) Nodes() node.Group { return c.Store.PeekState().Nodes }
 
 // Node implements the Cluster interface.
-func (c *cluster) Node(id node.ID) (node.Node, error) {
+func (c *cluster) Node(id node.Key) (node.Node, error) {
 	n, ok := c.Store.GetNode(id)
 	if !ok {
 		return n, NodeNotFound
@@ -183,7 +183,7 @@ func (c *cluster) Node(id node.ID) (node.Node, error) {
 }
 
 // Resolve implements the Cluster interface.
-func (c *cluster) Resolve(id node.ID) (address.Address, error) {
+func (c *cluster) Resolve(id node.Key) (address.Address, error) {
 	n, err := c.Node(id)
 	return n.Address, err
 }

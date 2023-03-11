@@ -29,15 +29,15 @@ import (
 type Key [6]byte
 
 // NewKey generates a new Key from the provided components.
-func NewKey(nodeID core.NodeID, localKey storage.ChannelKey) (key Key) {
-	binary.LittleEndian.PutUint32(key[0:4], uint32(nodeID))
+func NewKey(nodeKey core.NodeKey, localKey storage.ChannelKey) (key Key) {
+	binary.LittleEndian.PutUint32(key[0:4], uint32(nodeKey))
 	binary.LittleEndian.PutUint16(key[4:6], uint16(localKey))
 	return key
 }
 
-// NodeID returns the id of the node embedded in the key. This node is the leaseholder
+// NodeKey returns the id of the node embedded in the key. This node is the leaseholder
 // node for the Channel.
-func (c Key) NodeID() core.NodeID { return core.NodeID(binary.LittleEndian.Uint32(c[0:4])) }
+func (c Key) NodeKey() core.NodeKey { return core.NodeKey(binary.LittleEndian.Uint32(c[0:4])) }
 
 // LocalKey returns a unique identifier for the Channel within the leaseholder node's
 // storage.TS db. This value is NOT guaranteed to be unique across the entire cluster.
@@ -46,16 +46,16 @@ func (c Key) LocalKey() storage.ChannelKey {
 }
 
 // Lease implements the proxy.Entry interface.
-func (c Key) Lease() core.NodeID { return c.NodeID() }
+func (c Key) Lease() core.NodeKey { return c.NodeKey() }
 
 func (c Key) Bytes() []byte { return c[:] }
 
 const strKeySep = "-"
 
-// String returns the Key as a string in the format of "NodeID-CesiumKey", so
-// a channel with a NodeID of 1 and a CesiumKey of 2 would return "1-2".
+// String returns the Key as a string in the format of "NodeKey-CesiumKey", so
+// a channel with a NodeKey of 1 and a CesiumKey of 2 would return "1-2".
 func (c Key) String() string {
-	return strconv.Itoa(int(c.NodeID())) + strKeySep + strconv.Itoa(int(c.LocalKey()))
+	return strconv.Itoa(int(c.NodeKey())) + strKeySep + strconv.Itoa(int(c.LocalKey()))
 }
 
 // ParseKey parses a string representation of a Key into a Key. The key must be in
@@ -65,7 +65,7 @@ func ParseKey(s string) (k Key, err error) {
 	if len(split) != 2 {
 		return k, errors.New("[channel] - invalid key format")
 	}
-	nodeID, err := strconv.Atoi(split[0])
+	NodeKey, err := strconv.Atoi(split[0])
 	if err != nil {
 		return k, errors.Wrapf(err, "[channel] - key - invalid node id")
 	}
@@ -73,7 +73,7 @@ func ParseKey(s string) (k Key, err error) {
 	if err != nil {
 		return k, errors.Wrapf(err, "[channel] - invalid cesium key")
 	}
-	return NewKey(aspen.NodeID(nodeID), storage.ChannelKey(cesiumKey)), nil
+	return NewKey(aspen.NodeKey(NodeKey), storage.ChannelKey(cesiumKey)), nil
 }
 
 func MustParseKey(s string) Key {
@@ -117,12 +117,12 @@ func (k Keys) StorageKeys() []storage.ChannelKey {
 	return keys
 }
 
-// UniqueNodeIDs returns a slice of all UNIQUE node IDs for the given keys.
-func (k Keys) UniqueNodeIDs() (ids []core.NodeID) {
+// UniqueNodeKeys returns a slice of all UNIQUE node Keys for the given keys.
+func (k Keys) UniqueNodeKeys() (keys []core.NodeKey) {
 	for _, key := range k {
-		ids = append(ids, key.NodeID())
+		keys = append(keys, key.NodeKey())
 	}
-	return lo.Uniq(ids)
+	return lo.Uniq(keys)
 }
 
 // Strings returns the keys as a slice of strings.
@@ -161,8 +161,8 @@ type Channel struct {
 	// Name is a human-readable name for the channel. This name does not have to be
 	// unique.
 	Name string `json:"name" msgpack:"name"`
-	// NodeID is the leaseholder node for the channel.
-	NodeID core.NodeID `json:"node_id" msgpack:"node_id"`
+	// NodeKey is the leaseholder node for the channel.
+	NodeKey core.NodeKey `json:"node_id" msgpack:"node_id"`
 	// DataType is the data type for the channel.
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 	// IsIndex is set to true if the channel is an index channel. LocalIndex channels must
@@ -182,10 +182,10 @@ type Channel struct {
 }
 
 // Key returns the key for the Channel.
-func (c Channel) Key() Key { return NewKey(c.NodeID, c.StorageKey) }
+func (c Channel) Key() Key { return NewKey(c.NodeKey, c.StorageKey) }
 
 // Index returns the key for the Channel's index channel.
-func (c Channel) Index() Key { return NewKey(c.NodeID, c.LocalIndex) }
+func (c Channel) Index() Key { return NewKey(c.NodeKey, c.LocalIndex) }
 
 // GorpKey implements the gorp.Entry interface.
 func (c Channel) GorpKey() Key { return c.Key() }
@@ -196,7 +196,7 @@ func (c Channel) GorpKey() Key { return c.Key() }
 func (c Channel) SetOptions() []interface{} { return []interface{}{c.Lease()} }
 
 // Lease implements the proxy.UnaryServer interface.
-func (c Channel) Lease() core.NodeID { return c.NodeID }
+func (c Channel) Lease() core.NodeKey { return c.NodeKey }
 
 func (c Channel) Storage() storage.Channel {
 	s := storage.Channel{

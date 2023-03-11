@@ -183,7 +183,7 @@ cluster:
 addr, err := aspenDB.Resolve(1)
 ```
 
-This query returns the address of the node with an ID of `1`. The DL uses this
+This query returns the address of the node with an Key of `1`. The DL uses this
 to determine the location of a channel's lease and its corresponding segment
 data.
 
@@ -236,7 +236,7 @@ consistent, and time-ordered values. Channels have a few important fields:
 4. Key - A unique identifier for the channel across the entire cluster. This key
    is automatically assigned and cannot be changed. See [Keys](#Keys)
    for more information on how this value is selected.
-5. Node ID - The ID of the node that owns the channel. This node is known as the
+5. Node Key - The Key of the node that owns the channel. This node is known as the
    leaseholder, and is the only node that can write _new_ channel data to disk.
    The leaseholder is typically kept in proximity (physically) to the source
    generating the channel's data (e.g. a sensor).
@@ -261,11 +261,11 @@ For more information on channel's and segments, see the
 A key is a byte array that uniquely identifies a channel across the entire
 cluster. This key is composed of two parts.
 
-1. The ID of the leaseholder node for the channel.
+1. The Key of the leaseholder node for the channel.
 2. An auto-incrementing counter for the Cesium DB on the leaseholder node where
    channel data is written to.
 
-Together, these two elements guarantee uniqueness. By keeping the node ID in the
+Together, these two elements guarantee uniqueness. By keeping the node Key in the
 key, we can also avoid needing to make a key-value lookup when resolving the
 location of the channel's leaseholder.
 

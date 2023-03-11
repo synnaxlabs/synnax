@@ -173,7 +173,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamWriter, erro
 	plumber.SetSegment[Response, Response](
 		pipe,
 		synchronizerAddr,
-		newSynchronizer(len(cfg.Keys.UniqueNodeIDs()), v.signal),
+		newSynchronizer(len(cfg.Keys.UniqueNodeKeys()), v.signal),
 	)
 
 	if needPeerRouting {

@@ -37,11 +37,11 @@ var _ = Describe("Builder", func() {
 				Name:     "SG_01",
 				DataType: telem.Float64T,
 				Rate:     25 * telem.Hz,
-				NodeID:   1,
+				NodeKey:  1,
 			}
 
 			Expect(coreOne.Channel.Create(&ch)).To(Succeed())
-			Expect(ch.Key().NodeID()).To(Equal(distribution.NodeID(1)))
+			Expect(ch.Key().NodeKey()).To(Equal(distribution.NodeID(1)))
 
 			Eventually(func(g Gomega) {
 				var resCH channel.Channel

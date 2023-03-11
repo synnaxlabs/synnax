@@ -114,7 +114,7 @@ type iteratorResponseTranslator struct{}
 func (w iteratorResponseTranslator) Backward(res *fv1.IteratorResponse) (iterator.Response, error) {
 	return iterator.Response{
 		Variant: iterator.ResponseVariant(res.Variant),
-		NodeID:  dcore.NodeID(res.NodeId),
+		NodeID:  dcore.NodeKey(res.NodeId),
 		Ack:     res.Ack,
 		SeqNum:  int(res.Counter),
 		Command: iterator.Command(res.Command),

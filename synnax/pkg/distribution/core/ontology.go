@@ -25,7 +25,7 @@ const (
 
 // NodeOntologyID returns a unique identifier for a Node to use within a resource
 // Ontology.
-func NodeOntologyID(id NodeID) ontology.ID {
+func NodeOntologyID(id NodeKey) ontology.ID {
 	return ontology.ID{Type: nodeOntologyType, Key: strconv.Itoa(int(id))}
 }
 
@@ -79,11 +79,11 @@ func (s *NodeOntologyService) update(state ClusterState) {
 		s.Logger.Errorf("failed to define HostResolver relationship: %v", err)
 	}
 	for _, n := range state.Nodes {
-		nodeID := NodeOntologyID(n.ID)
-		if err := w.DefineResource(NodeOntologyID(n.ID)); err != nil {
+		nodeKey := NodeOntologyID(n.Key)
+		if err := w.DefineResource(NodeOntologyID(n.Key)); err != nil {
 			s.Logger.Errorf("failed to define node resource: %v", err)
 		}
-		if err := w.DefineRelationship(clusterID, ontology.ParentOf, nodeID); err != nil {
+		if err := w.DefineRelationship(clusterID, ontology.ParentOf, nodeKey); err != nil {
 			s.Logger.Errorf("failed to define HostResolver relationship: %v", err)
 		}
 	}
@@ -98,13 +98,13 @@ func (s *NodeOntologyService) RetrieveEntity(key string) (schema.Entity, error) 
 	if err != nil {
 		return schema.Entity{}, err
 	}
-	n, err := s.Cluster.Node(NodeID(id))
+	n, err := s.Cluster.Node(NodeKey(id))
 	return newNodeEntity(n), err
 }
 
 func newNodeEntity(n Node) schema.Entity {
-	e := schema.NewEntity(_nodeSchema, fmt.Sprintf("Node %v", n.ID))
-	schema.Set(e, "id", uint32(n.ID))
+	e := schema.NewEntity(_nodeSchema, fmt.Sprintf("Node %v", n.Key))
+	schema.Set(e, "id", uint32(n.Key))
 	schema.Set(e, "address", n.Address.String())
 	schema.Set(e, "state", uint32(n.State))
 	return e
