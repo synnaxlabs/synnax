@@ -51,14 +51,14 @@ func (lp *leaseProxy) handle(ctx context.Context, msg CreateMessage) (CreateMess
 func (lp *leaseProxy) create(ctx context.Context, txn gorp.Txn, _channels *[]Channel) error {
 	channels := *_channels
 	for i := range channels {
-		if channels[i].NodeID == 0 {
-			channels[i].NodeID = lp.HostResolver.HostID()
+		if channels[i].NodeKey == 0 {
+			channels[i].NodeKey = lp.HostResolver.HostID()
 		}
 	}
 	batch := lp.router.Batch(channels)
 	oChannels := make([]Channel, 0, len(channels))
-	for nodeID, entries := range batch.Peers {
-		remoteChannels, err := lp.createRemote(ctx, nodeID, entries)
+	for nodeKey, entries := range batch.Peers {
+		remoteChannels, err := lp.createRemote(ctx, nodeKey, entries)
 		if err != nil {
 			return err
 		}
@@ -116,7 +116,7 @@ func (lp *leaseProxy) maybeSetResources(
 			if err := w.DefineResource(rtk); err != nil {
 				return err
 			}
-			if err := w.DefineRelationship(core.NodeOntologyID(ch.NodeID), ontology.ParentOf, rtk); err != nil {
+			if err := w.DefineRelationship(core.NodeOntologyID(ch.NodeKey), ontology.ParentOf, rtk); err != nil {
 				return err
 			}
 		}
@@ -124,7 +124,7 @@ func (lp *leaseProxy) maybeSetResources(
 	return nil
 }
 
-func (lp *leaseProxy) createRemote(ctx context.Context, target core.NodeID, channels []Channel) ([]Channel, error) {
+func (lp *leaseProxy) createRemote(ctx context.Context, target core.NodeKey, channels []Channel) ([]Channel, error) {
 	addr, err := lp.HostResolver.Resolve(target)
 	if err != nil {
 		return nil, err

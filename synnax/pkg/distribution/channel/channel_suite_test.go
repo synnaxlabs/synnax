@@ -35,9 +35,9 @@ func TestChannel(t *testing.T) {
 	RunSpecs(t, "channel Suite")
 }
 
-func provisionServices(logger *zap.Logger) (*mock.CoreBuilder, map[core.NodeID]channel.Service) {
+func provisionServices(logger *zap.Logger) (*mock.CoreBuilder, map[core.NodeKey]channel.Service) {
 	var (
-		services = make(map[aspen.NodeID]channel.Service)
+		services = make(map[aspen.NodeKey]channel.Service)
 		net      = tmock.NewChannelNetwork()
 		builder  = mock.NewCoreBuilder(distribution.Config{
 			Logger:  logger,

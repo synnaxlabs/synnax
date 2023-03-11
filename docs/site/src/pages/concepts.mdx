@@ -58,7 +58,7 @@ result. Channels have a few important properties:
    custom data types. See the [Data Types](#data-types) section for more information.
 4. Key - A unique identifier for the channel that is used across the entire cluster. This
    key is automatically assigned and uniquely identifies the channel across the entire cluster.
-5. Node ID - This is the ID of the node that holds the lease on the channel. This node
+5. Node Key - This is the Key of the node that holds the lease on the channel. This node
    is known as the leaseholder, and is the only node that can write _new_ channel data to disk.
    The leaseholder is typically kept in proximity (physically) to the source generating the
    channel's data (e.g. a sensor).

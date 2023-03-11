@@ -29,7 +29,7 @@ type (
 	Resolver     = cluster.Resolver
 	HostResolver = cluster.HostResolver
 	Node         = node.Node
-	NodeID       = node.ID
+	NodeKey       = node.Key
 	Address      = address.Address
 	NodeState    = node.State
 	ClusterState = cluster.State

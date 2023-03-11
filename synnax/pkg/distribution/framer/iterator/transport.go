@@ -68,7 +68,7 @@ type Response struct {
 	// Frame is only relevant for DataResponse. It is the data returned by the iterator.
 	Frame core.Frame
 	// NodeID is the node ID where the remote iterator lives.
-	NodeID dcore.NodeID
+	NodeID dcore.NodeKey
 	// Ack is only relevant for variant AckResponse. Is true if the iterator successfully
 	// executed the request.
 	Ack bool

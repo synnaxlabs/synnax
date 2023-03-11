@@ -25,7 +25,7 @@ import (
 type Channel struct {
 	Key      string              `json:"key" msgpack:"key"`
 	Name     string              `json:"name" msgpack:"name"`
-	NodeID   distribution.NodeID `json:"node_id" msgpack:"node_id"`
+	NodeKey   distribution.NodeKey `json:"node_key" msgpack:"node_key"`
 	Rate     telem.Rate          `json:"rate" msgpack:"rate"`
 	DataType telem.DataType      `json:"data_type" msgpack:"data_type" validate:"required"`
 	Density  telem.Density       `json:"density" msgpack:"density"`
@@ -87,7 +87,7 @@ func (s *ChannelService) Create(
 // from the cluster.
 type ChannelRetrieveRequest struct {
 	// Optional parameter that queries a Channel by its node ID.
-	NodeID distribution.NodeID `query:"node_id"`
+	NodeKey distribution.NodeKey `query:"node_key"`
 	// Optional parameter that queries a Channel by its key.
 	Keys []string `query:"keys"`
 	// Optional parameter that queries a Channel by its name.
@@ -130,8 +130,8 @@ func (s *ChannelService) Retrieve(
 		q = q.WhereNames(req.Names...)
 	}
 
-	if req.NodeID != 0 {
-		q = q.WhereNodeID(req.NodeID)
+	if req.NodeKey != 0 {
+		q = q.WhereNodeKey(req.NodeKey)
 	}
 
 	err := errors.MaybeQuery(q.Exec(ctx))
@@ -154,7 +154,7 @@ func translateChannelsForward(channels []channel.Channel) []Channel {
 		translated[i] = Channel{
 			Key:      ch.Key().String(),
 			Name:     ch.Name,
-			NodeID:   ch.NodeID,
+			NodeKey:   ch.NodeKey,
 			Rate:     ch.Rate,
 			DataType: ch.DataType,
 			IsIndex:  ch.IsIndex,
@@ -170,7 +170,7 @@ func translateChannelsBackward(channels []Channel) ([]channel.Channel, error) {
 	for i, ch := range channels {
 		tCH := channel.Channel{
 			Name:     ch.Name,
-			NodeID:   ch.NodeID,
+			NodeKey:  ch.NodeKey,
 			Rate:     ch.Rate,
 			DataType: ch.DataType,
 			IsIndex:  ch.IsIndex,

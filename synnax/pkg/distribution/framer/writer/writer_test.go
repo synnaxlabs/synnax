@@ -194,7 +194,7 @@ func peerOnlyScenario() scenario {
 	builder, services := provision(4, zap.NewNop())
 	svc := services[1]
 	for i, ch := range channels {
-		ch.NodeID = dcore.NodeID(i + 2)
+		ch.NodeKey = dcore.NodeKey(i + 2)
 		channels[i] = ch
 	}
 	Expect(svc.channel.CreateMany(&channels)).To(Succeed())
@@ -218,7 +218,7 @@ func mixedScenario() scenario {
 	builder, services := provision(3, zap.NewNop())
 	svc := services[1]
 	for i, ch := range channels {
-		ch.NodeID = dcore.NodeID(i + 1)
+		ch.NodeKey = dcore.NodeKey(i + 1)
 		channels[i] = ch
 	}
 	Expect(svc.channel.CreateMany(&channels)).To(Succeed())

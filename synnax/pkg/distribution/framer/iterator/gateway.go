@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage"
 )
 
-func newStorageResponseTranslator(host dcore.NodeID) func(ctx context.Context, in storage.TSIteratorResponse) (Response, bool, error) {
+func newStorageResponseTranslator(host dcore.NodeKey) func(ctx context.Context, in storage.TSIteratorResponse) (Response, bool, error) {
 	return func(ctx context.Context, res storage.TSIteratorResponse) (Response, bool, error) {
 		return Response{
 			Ack:     res.Ack,
