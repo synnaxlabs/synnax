@@ -1,0 +1,272 @@
+---
+title: Encryption
+layout: "@/layouts/MainLayout.astro"
+---
+
+# 9 - Encrypting Cluster Communications
+
+**Feature Name** - Encrypting Cluster Communications <br />
+**Status** - Complete <br />
+**Start Date** - 2022-12-05 <br />
+**Authors** - emilbon99 <br />
+
+# 0 - Summary
+
+In this RFC I propose an architecture for encrypting both intra cluster and client facing
+communication. As Synnax uses a variety of transport protocols, with the aim of supporting
+new protocols in the future, we need a solution that is as transport agnostic as possible.
+Although out of scope for this RFC, we also need to consider encryption as a mechanism for
+authentication between members of the cluster.
+
+This RFC starts off with a summary of the different properties we need from an encryption
+mechanism, and then goes on to discuss the different protocols Synnax uses (any may use
+in the future) and how they implement encryption. This is followed by an analysis of
+the ways existing distributed systems implement encryption (CockroachDB, etcd, Consul,
+etc.), how they compare to the Synnax use case, and what useful characteristics we can
+adopt. Finally, this RFC proposes a baseline design and implementation for encrypting
+cluster communications.
+
+# 1 - Vocabulary
+
+**Node** - A machine in the cluster. <br />
+**Cluster** - A group of nodes that can communicate with each other. <br />
+**Gateway** - The node that receives incoming client requests, and forwards them to the
+appropriate node. <br />
+**Peer** - A node that receives requests from a gateway, and executes them. <br />
+
+# 2 - Motivation
+
+The motivation here is relatively straightforward, although the impetus for implementing
+encryption at this stage is not. Encryption was not an initial requirement for the MVP
+version of Synnax, but there are a few key reasons why we need to implement it now.
+Primarily, the data flowing through the cluster can be sensitive and ITAR controlled,
+meaning potential information leaks are a serious concern. Second, and more practically,
+the Windows build of the current user interface doesn't allow for making unencrypted HTTP
+requests, which means our Windows users can't use the Synnax UI. This is most of our potential
+customers, so we need to fix this issue ASAP.
+
+# 3 - Requirements
+
+# 3.0 - Transport Agnostic
+
+Synnax currently uses HTTP and gRPC for communication, with the possibility of using
+protocols like WebRTC in the future. We need an encryption design that can easily expand
+to support new protocols, and doesn't require extensive changes to the existing codebase.
+
+# 3.1 - Easy to Configure
+
+Configuring encryption for distributed compute clusters is notoriously, tedious, complex
+and difficult. We should aim to minimize the difficulty of provisioning the appropriate
+security mechanisms and credentials to enable encryption.
+
+# 3.3 - Implementing Security Best Practices
+
+We should implement encryption in a way that follows best practices for securing
+distributed systems.
+
+# 3.4 - Support for Insecure Mode
+
+It should be possible to run a cluster in insecure mode without encryption. This is to
+allow for easier development and testing, and to allow for the possibility of running
+a secure cluster by using other mechanisms (e.g. a VPN).
+
+# 3.5 - A Tale of One Port
+
+Simplicity is king, and right now we're able to support both HTTP and gRPC on the same port.
+We should aim to keep it that way.
+
+# 3.6 - (Eventually) Authentication
+
+Although out of scope for this RFC, using encryption keys as a mechanism for authentication
+is a must for running in tightly controlled production scenarios. The initial design
+should be set up to allow for this in the future.
+
+# 3.7 - (Eventually) Encryption at Rest
+
+Encryption is largely focused on the transport layer, but applications that can hold
+particularly sensitive data (such as Synnax) should eventually support encryption at rest.
+This means that are encryption providers need to extend beyond the transport areas of the codebase,
+and allow other services to access them.
+
+# 3.8 - (Eventually) Key Rotation
+
+Certificate rotation is common, if not essential for secure systems. Unfortunately, key
+rotation compounds the complexity of configuring a security system. The initial design
+of Synnax's encryption system should keep eventual certificate rotation in mind.
+
+# 3.9 - (Eventually) Support for Key Distribution Centers and Central Secret Stores
+
+Although not a requirement for the initial design, key distribution centers such as
+Hashicorp Vault and central secret stores such as AWS Secrets Manager are common in
+production environments. The initial design should be flexible enough to enable support
+for these in the future.
+
+# 4 - Transport Protocols
+
+# 4.0 - HTTP
+
+Synnax Server uses [Fiber](docs.gofiber.io) as its HTTP server. Fiber implements TLS
+encryption using the standard `*tls.Config` provided by the Go standard library, and accepts
+a `net.Listener` as its input. This means we can provide any secured `net.Listener` to
+Fiber, and it will use it to serve HTTP(S) requests. In terms of key rotation, `*tls.Config`
+supports certificate rotation by providing a `GetCertificate` function, which can be used
+to dynamically provide a certificate based on the client's SNI. The same method can be
+used for enabling mutual TLS authentication. CA rotation is also supported by providing
+specifying a `VerifyConnection` handler along with a `VerifyPeerCertificate` handler for
+enabling mutual TLS authentication.
+
+# 4.1 - gRPC
+
+The gRPC TLS implementation is more confusing that its HTTP counterpart. The gRPC server
+can be passed a `*tls.Config` through the options in its credentials package, but it also
+accepts a `net.Listener` as its input. It's unclear whether the optimal approach is to
+provide a `net.Listener` that wraps a `*tls.Config`, or to provide a `*tls.Config` to
+the gRPC server. From reading the gRPC source code, it seems like the former is the
+intended approach.
+
+# 5 - Existing Solutions
+
+# 5.0 - CockroachDB
+
+# 5.0.0 - `cockroach cert`
+
+CockroachDB provides a
+[command line tool](https://www.cockroachlabs.com/docs/stable/cockroach-cert.html) for
+generating self-signed CAs, certificates, and keys, which can be used to easily secure a cluster.
+This is a great tool for getting started, and I'd love to incorporate something similar
+into Synnax.
+
+# 5.0.1 - A Tale of Two Ports
+
+CockroachDB uses one port for HTTP and a separate port gRPC and PGWire. The reason is that
+gRPC behaves differently than most HTTP clients: "where most clients wait for an acknowledgement
+from the server before sending headers, gRPC does not."
+
+# 6 - The Ideal Solution
+
+## 6.0 - HTTP/HTTPS/gRPC and mTLS over a Single Port
+
+The initial design takes an unorthodox approach to securing HTTP, HTTPS, and gRPC over a
+single port, while incorporating mTLS _only_ for intra-cluster mTLS authentication. The design
+uses several layers of connection multiplexing along with a set of custom gRPC transport
+credentials and per-rpc middleware to achieve this.
+
+### 6.0.0 - Insecure Mode
+
+The server configuration in insecure mode is straightforward:
+
+<p align="middle">
+    <img src="/img/rfc/9-221205-encryption/mux-insecure.png" width="50%" />
+    <h6 align="middle">Retrieve Query Pipe</h6>
+</p>
+
+1. The incoming connection is passed to a root multiplexer (provided by Cockroach Labs
+   wonderful fork of [cmux](https://github.com/cockroachdb/cmux)), which matches against:
+
+2. HTTP/1.1 requests, which are passed to the HTTP server.
+
+3. All other requests, which are passed to the gRPC server.
+
+It's then the GRPC and HTTP APIs responsibility to handle the request (including any
+authentication).
+
+### 6.0.1 - Secure Mode
+
+The server configuration in secure mode is more complicated, and requires a two layer
+multiplex along with some creative custom middleware and transport credentials.
+
+<p align="middle">
+    <img src="/img/rfc/9-221205-encryption/mux-secure.png" width="50%" />
+    <h6 align="middle">Retrieve Query Pipe</h6>
+</p>
+
+1. Just like in insecure mode, the incoming connection is passed to a root multiplexer,
+   which matches against:
+
+2. HTTP/1.1 requests, which are passed to an insecure HTTP server that redirects all
+   requests to HTTPS.
+
+3. All other requests are passed to a second multiplexer which performs the TLS handshake
+   using [`tls.NewListener`](https://golang.org/pkg/crypto/tls/#NewListener). After the
+   handshake completes, the same matching process as in insecure mode is performed:
+
+4. HTTP/1.1 requests, which are passed to the HTTP server.
+
+5. All other requests, which are passed to the gRPC server.
+
+While a bit complex, this is all fine and dandy. The problem comes when we want to implement
+mTLS authentication for intra cluster RPCs. We want consumers of the Synnax API to be able
+to interact with a secure cluster using password and token based authentication. If we
+configure our TLS in the secure multiplexer to require and verify client certificates, we
+end up enabling mTLS for gRPC, but not all HTTP requests also need to use mTLS. This means
+that we need to be able to selectively enable mTLS for gRPC, but not for HTTP.
+
+The trick here lies in allowing the TLS multiplexer to verify the client certificate _if_
+it's provided, but not require it. Then, our HTTP server can proceed as normal without
+mTLS. We now move the responsibility of validating that the certificate verification
+was performed to the gRPC server. This is a two-step process:
+
+### 6.0.2 - gRPC mTLS
+
+Go's gRPC implementation allows a caller to inspect the underlying connections authentication
+info by using the `peer.FromContext` function. This function returns a `peer.Peer` struct
+with an `AuthInfo` field that contains the authentication info. We can inspect the
+contents of this field in per RPC middleware to ensure that the client was authenticated
+using mTLS.
+
+This auth info is populated by the `TransportCredentials` passed to the gRPC server on initialization. When running
+a standalone gRPC server in secure mode, we would typically use `credentials.NewTLS`
+option that generates this auth info for us.
+
+However, our multiplexed server performs the TLS handshake before passing the connection
+to the gRPC server. This means that we don't pass any secure transport credentials to the
+server, and would instead use `insecure.NewCredentials` to disable authentication. The
+issue is that now our middleware won't receive any auth info, and we won't be able to
+validate that the client was authenticated using mTLS.
+
+The solution is to create custom transport credentials that inspect the `tls.ConnectionState`
+of the connection handed over by the multiplexer. We can then pass this auth info to the
+middleware, and validate that the client was authenticated using mTLS.
+
+# 7 - The Unfortunate Reality
+
+## 7.0 - The Problem
+
+The fundamental problem with the above solution lies in the Synnax visualization UI, Delta.
+Delta uses [Tauri](https://tauri.app/) as its underlying runtime, which uses WebView2 on
+Windows and WebKit on MacOS and Linux. While both of these runtimes support TLS, they come
+with a preloaded set of root CAs and do not support turning off certificate verification.
+
+So we just use a public CA like [Let's Encrypt](https://letsencrypt.org/) right? Well, not
+quite. Synnax nodes not only need to serve RPCs from other nodes but also **issue** RPCs
+to them. Certificates issued by a public CA are only signed for server side use, and cannot
+be used to authenticate a client. There are ways around this, but they are complex and we don't
+want to force users to jump through hoops just to get started with a secure cluster.
+
+The other option is to install a self-signed CA on the user's machine. This is also not
+ideal, as it means every user would need to go through a complex installation process.
+
+The last option is to switch to an entirely different UI runtime like Electron. This is
+definitely an option, but I'd love to keep using Tauri if possible.
+
+So, in summary, we have a few options:
+
+1. Use a public CA to issue certificates for both server and client use, which means we
+   can't use a self-signed CA OR authenticate peer RPCs using mTLS.
+
+2. Install a self-signed CA on the user's machine, which adds extra installation work
+   and makes it more difficult to get started with a secure cluster.
+
+3. Switch to Electron, which requires quite a bit of work and results in a larger binary,
+   slower startup time, and higher memory usage.
+
+## 7.1 - The Temporary Solution
+
+There's an [issue](https://github.com/tauri-apps/tauri/issues/4039) tracking the need
+for ignoring certificate verification in Tauri. Until this is resolved, we'll use a
+certificate issued by a public CA and stick to stick to using a single node cluster for
+serving our user's data (as a public CA means we can't authenticate intra cluster RPCs).
+
+Although this sounds like a step backwards, the reality is that most of our users don't
+need multi-node clusters at this point. We'll track the progress of the Tauri issue and
+revisit this decision once it's resolved.
