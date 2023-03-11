@@ -11,12 +11,14 @@
 
 import mdx from "@astrojs/mdx";
 import react from "@astrojs/react";
+import vercel from "@astrojs/vercel/serverless";
 import { defineConfig } from "astro/config";
 
-// https://astro.build/config
+// eslint-disable-next-line import/no-default-export
 export default defineConfig({
     integrations: [react(), mdx()],
     output: "server",
+    adapter: vercel(),
     markdown: {
         shikiConfig: {
             theme: "github-dark",
