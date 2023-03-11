@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/sirupsen/logrus"
 )
 
 // Channel is an API-friendly version of the channel.Channel type. It is simplified for
@@ -132,6 +133,7 @@ func (s *ChannelService) Retrieve(
 	}
 
 	err := errors.MaybeQuery(q.Exec(ctx))
+
 
 	if hasKeys {
 		notFound, _ = lo.Difference(

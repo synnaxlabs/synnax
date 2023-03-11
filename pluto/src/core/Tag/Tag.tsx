@@ -16,6 +16,8 @@ import { ComponentSize } from "@/util/component";
 
 import "./Tag.css";
 
+import { TypographyLevelComponentSizes } from "../Typography/types";
+
 export interface TagProps extends Omit<TextProps, "level" | "size" | "wrap"> {
   icon?: React.ReactElement;
   onClose?: () => void;
@@ -38,6 +40,7 @@ export const Tag = ({
     onClose == null ? undefined : (
       <Button.Icon
         aria-label="close"
+        size={size}
         onClick={(e) => {
           e.stopPropagation();
           onClose();

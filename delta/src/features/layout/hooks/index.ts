@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Dispatch, useCallback } from "react";
+import { Dispatch, useCallback, useState } from "react";
 
 import type { AnyAction } from "@reduxjs/toolkit";
 import { closeWindow, createWindow, MAIN_WINDOW } from "@synnaxlabs/drift";
@@ -16,6 +16,8 @@ import {
   ThemeProviderProps,
   useDebouncedCallback,
   Theme,
+  useOS,
+  Theming,
 } from "@synnaxlabs/pluto";
 import { appWindow } from "@tauri-apps/api/window";
 import type { Theme as TauriTheme } from "@tauri-apps/api/window";
@@ -36,7 +38,6 @@ import {
 import { Layout } from "../types";
 
 import { useAsyncEffect, AsyncDestructor } from "@/hooks";
-import { useOS } from "@synnaxlabs/pluto";
 
 export interface LayoutCreatorProps {
   dispatch: Dispatch<AnyAction>;
@@ -126,8 +127,30 @@ export const useThemeProvider = (): ThemeProviderProps => {
   };
 };
 
-const matchThemeChange = ({ payload: theme }: { payload: TauriTheme | null }): string =>
-  theme === "dark" ? "synnaxDark" : "synnaxLight";
+export const useErrorThemeProvider = (): ThemeProviderProps => {
+  const [theme, setTheme] = useState<Theme | null>(Theming.themes.synnaxLight);
+  useAsyncEffect(async () => {
+    const theme = matchThemeChange({ payload: await appWindow.theme() });
+    setTheme(Theming.themes[theme]);
+  }, []);
+  return {
+    theme: theme as Theme,
+    setTheme: (key: string) =>
+      setTheme(Theming.themes[key as keyof typeof Theming.themes]),
+    toggleTheme: () =>
+      setTheme((t) =>
+        t === Theming.themes.synnaxLight
+          ? Theming.themes.synnaxDark
+          : Theming.themes.synnaxLight
+      ),
+  };
+};
+
+const matchThemeChange = ({
+  payload: theme,
+}: {
+  payload: TauriTheme | null;
+}): keyof typeof Theming.themes => (theme === "dark" ? "synnaxDark" : "synnaxLight");
 
 const synchronizeWithOS = async (dispatch: Dispatch<AnyAction>): AsyncDestructor => {
   return await appWindow.onThemeChanged((e) =>

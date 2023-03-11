@@ -33,6 +33,7 @@ import {
   DECIMAL_BOX,
   Scale,
   TimeRange,
+  TimeStamp,
   ZERO_BOUND,
   ZERO_BOX,
 } from "@synnaxlabs/x";
@@ -94,7 +95,11 @@ export const LinePlot = ({
 
   const valid = isValid(vis);
 
+  const now = TimeStamp.now();
+  const isLive = false;
+
   useEffect(() => {
+    if (!isLive) return;
     const i = setInterval(() => {
       setTick((t) => t + 1);
     }, 2000);
@@ -104,12 +109,12 @@ export const LinePlot = ({
   useAsyncEffect(async () => {
     if (client == null || !valid) return setData(initialDataState());
     try {
-      const data = await fetchData(vis, client);
+      const data = await fetchData(vis, client, isLive);
       setData({ data, error: null });
     } catch (error) {
-      setData({ data: { ...ZERO_DATA }, error: error as Error });
+      setData({ ...initialDataState(), error: error as Error });
     }
-  }, [vis, client]);
+  }, [vis, tick, client]);
 
   useEffect(() => {
     if (theme == null) return;
@@ -281,13 +286,18 @@ const ZERO_DATA: LineVisData = {
 
 const fetchData = async (
   vis: LineSVis,
-  client: TelemetryClient
+  client: TelemetryClient,
+  isLive: boolean
 ): Promise<LineVisData> => {
   const keys = Object.values(vis.channels)
     .flat()
     .filter((key) => key.length > 0);
   const ranges = Object.values(vis.ranges).flat();
-  const entries = await client.retrieve({ keys, ranges, bypassCache: true });
+  const entries = await client.retrieve({
+    keys,
+    ranges,
+    bypassCache: isLive,
+  });
   const data: LineVisData = { ...ZERO_DATA };
   Object.values(vis.ranges).forEach((ranges) =>
     ranges.forEach((range) =>

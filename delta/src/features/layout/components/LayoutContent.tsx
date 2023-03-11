@@ -39,8 +39,7 @@ export const LayoutContent = memo(
     const Renderer = "Renderer" in renderer ? renderer.Renderer : renderer;
 
     const handleClose = (): void => {
-      if ("onClose" in renderer && renderer.onClose != null)
-        renderer.onClose({ layoutKey, dispatch });
+      if ("onClose" in renderer) renderer.onClose?.({ layoutKey, dispatch });
       _handleClose();
     };
 

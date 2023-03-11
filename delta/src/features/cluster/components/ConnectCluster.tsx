@@ -95,7 +95,12 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps): JSX.Element =>
         {/* eslint-disable-next-line @typescript-eslint/no-misused-promises */}
         <form onSubmit={handleSubmit} id="connect-cluster">
           <Space>
-            <Input.ItemC name="name" placeholder="My Synnax Cluster" control={c} />
+            <Input.ItemC
+              name="name"
+              placeholder="My Synnax Cluster"
+              control={c}
+              autoFocus
+            />
             <Space direction="x">
               <Input.ItemC name="host" placeholder="localhost" control={c} grow />
               <Input.ItemC

@@ -12,7 +12,7 @@ import { memo } from "react";
 import { UnexpectedError } from "@synnaxlabs/client";
 import { useDispatch } from "react-redux";
 
-import { setVis, useSelectSVis } from "../store";
+import { removeVis, setVis, useSelectSVis } from "../store";
 import { Vis } from "../types";
 
 import { LinePlot } from "./line/LinePlot";
@@ -38,5 +38,8 @@ export const VisLayoutRenderer: LayoutRenderer = {
     }
     return <h1>No Visualization Found</h1>;
   }),
+  onClose: ({ dispatch, layoutKey }) => {
+    dispatch(removeVis(layoutKey));
+  },
 };
 VisLayoutRenderer.Renderer.displayName = "VisualizationLayoutRenderer";

@@ -20,6 +20,7 @@ import {
   assignLabel,
   DriftState,
   setWindowProps,
+  setWindowError,
 } from "@/state";
 import { desugar } from "@/sugar";
 import { sync } from "@/sync";
@@ -47,13 +48,15 @@ export const middleware =
     // eslint-disable-next-line prefer-const
     let { action, emitted, emitter } = desugar(action_);
 
+    const label = runtime.label();
+
     validateAction({ action: action_, emitted, emitter });
 
     log(debug, "[drift] - middleware", {
       action,
       emitted,
       emitter,
-      window: runtime.label(),
+      host: label,
     });
 
     // The action is recirculating from our own relay.
@@ -74,9 +77,25 @@ export const middleware =
 
     const nextS = shouldSync ? getState().drift : null;
 
-    if (shouldEmit(emitted, action.type)) runtime.emit({ action });
+    const shouldEmit_ = shouldEmit(emitted, action.type);
 
-    if (prevS !== null && nextS !== null) sync(prevS, nextS, runtime, dispatch, debug);
+    // Wrap everything in an async closure eto ensure that we synchronize before
+    // before emitting to other windows.
+    void (async (): Promise<void> => {
+      try {
+        if (prevS !== null && nextS !== null) await sync(prevS, nextS, runtime, debug);
+        if (shouldEmit_) await runtime.emit({ action });
+      } catch (err) {
+        log(debug, "[drift] - middleware", {
+          error: err,
+          action,
+          emitted,
+          emitter,
+          host: label,
+        });
+        dispatch(setWindowError({ key: label, message: (err as Error).message }));
+      }
+    })();
 
     return res;
   };

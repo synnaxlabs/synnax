@@ -68,24 +68,45 @@ impl<R: Runtime> WindowExt for Window<R> {
     }
 }
 
+#[derive(Clone, serde::Serialize)]
+struct Payload {
+    message: String,
+}
+
 fn main() {
-    let db = kv::open().unwrap();
-    tauri::Builder::default()
-        .manage(db)
-        .invoke_handler(tauri::generate_handler![kv::kv_exec])
-    .on_window_event(|event| match event.event() {
+    let mut builder = tauri::Builder::default();
+    let mut db_err: String = "".to_string();
+    match kv::open() {
+        Ok(db) => builder = builder.manage(db).invoke_handler(tauri::generate_handler![kv::kv_exec]),
+        Err(e) => db_err = e,
+    };
+    builder
+    .on_window_event(move |event| match event.event() {
          tauri::WindowEvent::Focused {..} => {
             event.window().set_transparent_titlebar(true);
          },
+        tauri::WindowEvent::ThemeChanged {..} => {
+            event.window().set_transparent_titlebar(true);
+         }
          tauri::WindowEvent::Resized(size) => {
             let monitor = event.window().current_monitor().unwrap().unwrap();
             let screen = monitor.size();
             if size != screen {
                 event.window().set_transparent_titlebar(true);
-            }
+            } 
          },
-         _ => {}
+         _ => (),
       })
+    .on_page_load(move |window, _| {
+        window.set_transparent_titlebar(true);
+        if window.label() != "main" { return };
+        let db_err_ = db_err.clone();
+        let win = window.clone();
+        window.listen("kv_open_req", move |_| {
+            let db_err__ = db_err_.clone(); 
+            win.emit("kv_open_res", Some(Payload { message: db_err__ })).unwrap();
+        });
+    })
      .run(tauri::generate_context!())
       .expect("error while running tauri application");
 }

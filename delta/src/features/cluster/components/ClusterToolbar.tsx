@@ -12,14 +12,15 @@ import { Space, Header, List, Text } from "@synnaxlabs/pluto";
 import type { ListItemProps } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
-import { useSelectCluster, useSelectClusters } from "../store";
-import { setActiveCluster } from "../store/slice";
-import { RenderableCluster } from "../types";
-
-import { connectClusterWindowLayout } from "./ConnectCluster";
-
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { CSS } from "@/css";
+import { connectClusterWindowLayout } from "@/features/cluster/components/ConnectCluster";
+import {
+  setActiveCluster,
+  useSelectCluster,
+  useSelectClusters,
+} from "@/features/cluster/store";
+import { RenderableCluster } from "@/features/cluster/types";
 import { useLayoutPlacer, NavDrawerItem } from "@/features/layout";
 
 import "./ClusterToolbar.css";
@@ -79,6 +80,7 @@ const ListItem = ({
   </Space>
 );
 
+/** Configuration and content for the cluster nav drawer toolbar. */
 export const ClusterToolbar: NavDrawerItem = {
   key: "clusters",
   content: <Content />,

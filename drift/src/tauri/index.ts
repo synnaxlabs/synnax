@@ -22,10 +22,11 @@ import {
 import { Event, Runtime } from "@/runtime";
 import { decode, encode } from "@/serialization";
 import { setWindowProps, StoreState } from "@/state";
-import { LabeledWindowProps, MAIN_WINDOW } from "@/window";
+import { MAIN_WINDOW, WindowProps } from "@/window";
 
 const actionEvent = "drift://action";
 const tauriError = "tauri://error";
+const tauriCreated = "tauri://created";
 const notFound = (key: string): Error => new Error(`Window not found: ${key}`);
 
 /**
@@ -58,15 +59,12 @@ export class TauriRuntime<S extends StoreState, A extends Action = AnyAction>
     Object.values(this.unsubscribe).forEach((f) => f?.());
   }
 
-  emit(event_: Omit<Event<S, A>, "emitter">, to?: string): void {
+  async emit(event_: Omit<Event<S, A>, "emitter">, to?: string): Promise<void> {
     const event = encode({ ...event_, emitter: this.label() });
-    if (to != null) {
-      const win = WebviewWindow.getByLabel(to);
-      if (win == null) throw notFound(to);
-      void win.emit(actionEvent, event);
-    } else {
-      void emit(actionEvent, event);
-    }
+    if (to == null) return await emit(actionEvent, event);
+    const win = WebviewWindow.getByLabel(to);
+    if (win == null) throw notFound(to);
+    await win.emit(actionEvent, event);
   }
 
   subscribe(lis: (action: Event<S, A>) => void): void {
@@ -115,7 +113,7 @@ export class TauriRuntime<S extends StoreState, A extends Action = AnyAction>
 
   // |||||| MANAGER IMPLEMENTATION ||||||
 
-  create({ label, ...props }: LabeledWindowProps): void {
+  async create(label: string, props: Omit<WindowProps, "key">): Promise<void> {
     const { size, minSize, maxSize, position, ...rest } = props;
     const w = new WebviewWindow(label, {
       x: position?.x,
@@ -128,7 +126,10 @@ export class TauriRuntime<S extends StoreState, A extends Action = AnyAction>
       maxHeight: maxSize?.height,
       ...rest,
     });
-    void w.once(tauriError, console.error);
+    return await new Promise<void>((resolve, reject) => {
+      void w.once(tauriError, (e) => reject(e.payload));
+      void w.once(tauriCreated, () => resolve());
+    });
   }
 
   async close(key: string): Promise<void> {
@@ -183,6 +184,7 @@ export class TauriRuntime<S extends StoreState, A extends Action = AnyAction>
   async setResizable(value: boolean): Promise<void> {
     if (TauriEventKey.WINDOW_RESIZED in this.unsubscribe && !value) {
       void this.unsubscribe[TauriEventKey.WINDOW_RESIZED]?.();
+      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
       delete this.unsubscribe[TauriEventKey.WINDOW_RESIZED];
     }
     return await this.win.setResizable(value);

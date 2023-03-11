@@ -9,6 +9,8 @@
 
 import { AsyncKV } from "@synnaxlabs/x";
 import { invoke } from "@tauri-apps/api";
+import { Event, listen, once } from "@tauri-apps/api/event";
+import { appWindow } from "@tauri-apps/api/window";
 
 enum KVCommand {
   Get = "get",
@@ -27,11 +29,38 @@ interface KVRequest {
   value: string;
 }
 
+interface KVOpenResult {
+  message: string;
+}
+
+export const multipleWindowsOpen = new Error("[persist] - windows open");
+
 /**
  * TauriKV an implementation of AsyncKV that communicates with a rust key-value
  * store running on the backend.
  */
 export class TauriKV<V> implements AsyncKV<string, V> {
+  isOpen: boolean;
+
+  constructor() {
+    this.isOpen = false;
+  }
+
+  async openAck(): Promise<void> {
+    if (this.isOpen) return;
+    return await new Promise((resolve, reject) => {
+      void (async () => {
+        await appWindow.listen("kv_open_res", (event: Event<KVOpenResult>) => {
+          const { message } = event.payload;
+          if (message !== "") reject(multipleWindowsOpen);
+          this.isOpen = true;
+          resolve();
+        });
+        await appWindow.emit("kv_open_req");
+      })();
+    });
+  }
+
   async get(key: string): Promise<V | null> {
     try {
       return await this.exec({ command: KVCommand.Get, key, value: "" });

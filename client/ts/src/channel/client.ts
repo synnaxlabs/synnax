@@ -149,7 +149,7 @@ export class ChannelClient {
   ): Promise<Channel | Channel[]> {
     const single = channels.length === 1 && !Array.isArray(channels[0]);
     const res = this.sugar(await this.creator.create(...channels));
-    return single ? res : toArray(res);
+    return single ? res[0] : res;
   }
 
   async retrieve(keyOrName: string): Promise<Channel>;

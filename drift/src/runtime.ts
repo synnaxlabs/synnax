@@ -11,7 +11,7 @@ import type { Action, AnyAction } from "@reduxjs/toolkit";
 import { Dimensions, XY } from "@synnaxlabs/x";
 
 import { PreloadedState, StoreState } from "@/state";
-import { LabeledWindowProps } from "@/window";
+import { WindowProps } from "@/window";
 
 /**
  * An event emitted by drift to communicate state changes.
@@ -33,7 +33,7 @@ export interface Sender<S extends StoreState, A extends Action = AnyAction> {
    * @param event - The event to emit.
    * @param to - If set, the event will only be emitted to the window with the given key.
    */
-  emit: (event: Omit<Event<S, A>, "emitter">, to?: string) => void;
+  emit: (event: Omit<Event<S, A>, "emitter">, to?: string) => Promise<void>;
 }
 
 export interface Receiver<S extends StoreState, A extends Action = AnyAction> {
@@ -83,7 +83,7 @@ export interface Manager {
    * Creates a new window with the given properties. The window should not be shown
    * until the ready() method is called.
    */
-  create: (props: LabeledWindowProps) => void;
+  create: (label: string, props: Omit<WindowProps, "key">) => Promise<void>;
   /**
    * Closes the window with the given key.
    */

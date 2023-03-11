@@ -30,5 +30,8 @@
   },
   "main": "dist/x.cjs.js",
   "module": "dist/x.es.js",
-  "types": "dist/index.d.ts"
+  "types": "dist/index.d.ts",
+  "dependencies": {
+    "js-convert-case": "^4.2.0"
+  }
 }

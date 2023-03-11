@@ -17,7 +17,14 @@ import {
 import type { NoInfer } from "@reduxjs/toolkit/dist/tsHelpers";
 import { XY, Dimensions, positionInCenter, Box, ZERO_XY, Deep } from "@synnaxlabs/x";
 
-import { WindowState, WindowProps, WindowStage, MAIN_WINDOW } from "@/window";
+import {
+  WindowState,
+  WindowProps,
+  WindowStage,
+  MAIN_WINDOW,
+  INITIAL_WINDOW_STATE,
+  INITIAL_PRERENDER_WINDOW_STATE,
+} from "@/window";
 
 /** The Slice State */
 export interface DriftState {
@@ -59,7 +66,10 @@ export interface SizePayload {
   size: Dimensions;
 }
 
-export type CreateWindowPayload = WindowProps & { prerenderLabel?: string };
+export type CreateWindowPayload = WindowProps & {
+  label?: string;
+  prerenderLabel?: string;
+};
 export type CloseWindowPayload = MaybeKeyPayload;
 export type SetWindowClosedPayload = MaybeKeyPayload;
 export type FocusWindowPayload = MaybeKeyPayload;
@@ -111,24 +121,19 @@ export type DriftPayload =
 export type DriftAction = PayloadAction<DriftPayload>;
 
 export const initialState: DriftState = {
-  label: "main",
+  label: MAIN_WINDOW,
   windows: {
     main: {
-      key: "main",
-      label: "main",
+      ...INITIAL_WINDOW_STATE,
+      key: MAIN_WINDOW,
       reserved: true,
-      stage: "created",
-      processCount: 0,
-      focusCount: 0,
-      centerCount: 0,
-      visible: true,
     },
   },
   labelKeys: {
-    main: "main",
+    main: MAIN_WINDOW,
   },
   keyLabels: {
-    main: "main",
+    main: MAIN_WINDOW,
   },
 };
 
@@ -195,13 +200,18 @@ const slice = createSlice({
   reducers: {
     setWindowLabel: (s: DriftState, a: PayloadAction<SetWindowLabelPayload>) => {
       s.label = a.payload.label;
+      if (s.label !== MAIN_WINDOW) return;
+      const prerenderLabel = nanoid();
+      s.windows[prerenderLabel] = INITIAL_PRERENDER_WINDOW_STATE;
     },
-    createWindow: (s: DriftState, a: PayloadAction<CreateWindowPayload>) => {
-      if (a.payload.label == null) throw new Error("label is required");
+    createWindow: (s: DriftState, { payload }: PayloadAction<CreateWindowPayload>) => {
+      const { key, label, prerenderLabel } = payload;
+      if (label == null || prerenderLabel == null)
+        throw new Error("[drift] - bug - missing label and prerender label");
 
-      // if the window already exists, just focus it
-      if (a.payload.key in s.keyLabels) {
-        const label = s.keyLabels[a.payload.key];
+      // If the window already exists, just focus it
+      if (key in s.keyLabels) {
+        const label = s.keyLabels[payload.key];
         s.windows[label].visible = true;
         s.windows[label].focusCount += 1;
         return;
@@ -209,63 +219,48 @@ const slice = createSlice({
 
       const mainWin = s.windows.main;
 
-      const prerender = Object.values(s.windows).find((w) => !w.reserved);
+      // If the user hasn't explicitly specified a position, we'll center it in the main
+      // window for the nicest experience.
+      payload = maybePositionInCenter(payload, mainWin);
 
-      if (
-        mainWin.position != null &&
-        mainWin.size != null &&
-        a.payload.position == null
-      )
-        a.payload.position = positionInCenter(
-          new Box(ZERO_XY, a.payload.size ?? ZERO_XY),
-          new Box(mainWin.position, mainWin.size)
-        ).topLeft;
+      const [availableLabel, available] = Object.entries(s.windows).find(
+        ([, w]) => !w.reserved
+      ) ?? [null, null];
 
-      const { prerenderLabel, ...payload } = a.payload;
-
-      if (prerender != null) {
-        s.windows[prerender.label] = {
-          ...prerender,
+      // If we have an available prerendered window,
+      // use it.
+      if (availableLabel != null) {
+        s.windows[availableLabel] = {
+          ...available,
           visible: true,
           reserved: true,
           ...payload,
-          label: prerender.label,
         };
-        s.labelKeys[prerender.label] = a.payload.key;
-        s.keyLabels[a.payload.key] = prerender.label;
+        s.labelKeys[availableLabel] = payload.key;
+        s.keyLabels[payload.key] = availableLabel;
       } else {
-        s.windows[a.payload.label] = {
+        // If we don't, just create the window directly.
+        s.windows[label] = {
+          ...INITIAL_WINDOW_STATE,
           ...payload,
-          label: a.payload.label,
-          stage: "creating",
           reserved: true,
-          processCount: 0,
-          focusCount: 0,
-          centerCount: 0,
         };
-        s.labelKeys[a.payload.label] = a.payload.key;
-        s.keyLabels[a.payload.key] = a.payload.label;
+        s.labelKeys[label] = key;
+        s.keyLabels[key] = label;
       }
-      s.windows[prerenderLabel as string] = {
-        key: "__prerender__",
-        label: prerenderLabel as string,
-        stage: "creating",
-        visible: false,
-        reserved: false,
-        processCount: 0,
-        focusCount: 0,
-        centerCount: 0,
-      };
+
+      // Always prerender a window, regardless of above.
+      s.windows[prerenderLabel] = INITIAL_PRERENDER_WINDOW_STATE;
     },
     setWindowStage: assertLabel<SetWindowStatePayload>((s, a) => {
       s.windows[a.payload.label].stage = a.payload.stage;
     }),
-    closeWindow: assertLabel<CloseWindowPayload>((s, a) => {
-      const win = s.windows[a.payload.label];
+    closeWindow: assertLabel<CloseWindowPayload>((s, { payload: { label } }) => {
+      const win = s.windows[label];
       // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-      delete s.windows[a.payload.label];
+      delete s.windows[label];
       // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-      delete s.labelKeys[win.label];
+      delete s.labelKeys[label];
       // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
       delete s.keyLabels[win.key];
     }),
@@ -372,3 +367,15 @@ const EXCLUDED_ACTIONS: readonly string[] = [setWindowLabel.type];
  */
 export const shouldEmit = (emitted: boolean, type: string): boolean =>
   !emitted && !EXCLUDED_ACTIONS.includes(type);
+
+const maybePositionInCenter = (
+  pld: CreateWindowPayload,
+  mainWin: WindowState
+): CreateWindowPayload => {
+  if (mainWin.position != null && mainWin.size != null && pld.position == null)
+    pld.position = positionInCenter(
+      new Box(ZERO_XY, pld.size ?? ZERO_XY),
+      new Box(mainWin.position, mainWin.size)
+    ).topLeft;
+  return pld;
+};

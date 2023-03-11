@@ -23,29 +23,27 @@ export const WindowsControls = ({
   // no-op on windows
   onFullscreen: _,
   ...props
-}: OSControlsProps): JSX.Element => {
-  return (
-    <Pack {...props}>
-      <WindowsControlButton onClick={onMinimize}>
-        <Icon.Subtract />
-      </WindowsControlButton>
-      <WindowsControlButton onClick={onMaximize}>
-        <Icon.Box />
-      </WindowsControlButton>
-      <WindowsControlButton
-        onClick={onClose}
-        className={CSS.BM("windows-control", "close")}
-      >
-        <Icon.Close />
-      </WindowsControlButton>
-    </Pack>
-  );
-};
+}: OSControlsProps): JSX.Element => (
+  <Pack {...props}>
+    <WindowsControlButton onClick={onMinimize}>
+      <Icon.Subtract />
+    </WindowsControlButton>
+    <WindowsControlButton onClick={onMaximize}>
+      <Icon.Box />
+    </WindowsControlButton>
+    <WindowsControlButton
+      onClick={onClose}
+      className={CSS.BM("windows-control", "close")}
+    >
+      <Icon.Close />
+    </WindowsControlButton>
+  </Pack>
+);
 
 interface WindowsControlButtonProps extends ButtonIconProps {
   disabled?: boolean;
 }
 
 const WindowsControlButton = (props: WindowsControlButtonProps): JSX.Element => (
-  <Button.Icon {...props} />
+  <Button.Icon tabIndex={-1} {...props} />
 );

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { URL, buildQueryString } from "@synnaxlabs/x";
+import { URL, buildQueryString, Case } from "@synnaxlabs/x";
 import axios from "axios";
 import type { AxiosRequestConfig, AxiosResponse, RawAxiosRequestHeaders } from "axios";
 import { ZodSchema } from "zod";
@@ -132,7 +132,7 @@ export class GETClient extends Core implements UnaryClient {
     request.method = "GET";
     request.url =
       this.endpoint.child(target).toString() +
-      buildQueryString(req as Record<string, unknown>);
+      buildQueryString(Case.toSnake(req as Record<string, unknown>));
     request.data = null;
     return await this.execute(request, resSchema);
   }

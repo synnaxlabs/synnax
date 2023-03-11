@@ -13,19 +13,45 @@ import { XY, Dimensions } from "@synnaxlabs/x";
 export type WindowStage = "creating" | "created" | "closing" | "closed";
 
 export const MAIN_WINDOW = "main";
+export const PRERENDER_WINDOW = "prerender";
 
-/** State of a window managed by drift  */
-export interface WindowState extends LabeledWindowProps {
-  key: string;
+export interface WindowStateExtensionProps {
   /** Lifecycle stage */
   stage: WindowStage;
   /** Number of active processes */
   processCount: number;
+  /**
+   * Whether the window has been reserved for use. If this value is false,
+   * the window is a pre-forked window that is not currently in use.
+   */
   reserved: boolean;
+  /**
+   * If something went wrong while making changes to the window, the error
+   * will be stored here.
+   */
   error?: string;
+  /** Incremented to focus the window */
   focusCount: number;
+  /** Incremented to center the window */
   centerCount: number;
 }
+
+export const INITIAL_WINDOW_STATE: WindowStateExtensionProps = {
+  stage: "creating",
+  processCount: 0,
+  reserved: false,
+  focusCount: 0,
+  centerCount: 0,
+};
+
+export const INITIAL_PRERENDER_WINDOW_STATE: WindowState = {
+  ...INITIAL_WINDOW_STATE,
+  key: PRERENDER_WINDOW,
+  visible: false,
+};
+
+/** State of a window managed by drift  */
+export interface WindowState extends WindowProps, WindowStateExtensionProps {}
 
 /**
  * The properties to provide when creating a window.
@@ -33,8 +59,6 @@ export interface WindowState extends LabeledWindowProps {
 export interface WindowProps {
   /* A unique key for the window. If not provided, a unique key will be generated. */
   key: string;
-  /** A custom runtime label for the window. */
-  label?: string;
   /* The url to load in the window. */
   url?: string;
   /* The title of the window. */
@@ -59,6 +83,7 @@ export interface WindowProps {
   maximized?: boolean;
   /* Whether the window is visible. */
   visible?: boolean;
+  /* Whether the window is minimized. */
   minimized?: boolean;
   /* Decorations. Runtime specific. */
   decorations?: boolean;
@@ -68,11 +93,6 @@ export interface WindowProps {
   fileDropEnabled?: boolean;
   /* Whether the window is transparent. Runtime specific. */
   transparent?: boolean;
+  /* Whether the window is always on top. Runtime specific. */
   alwaysOnTop?: boolean;
 }
-
-/* WindowProps but with a key */
-export type LabeledWindowProps = Omit<WindowProps, "label" | "key"> & {
-  label: string;
-  key?: string;
-};

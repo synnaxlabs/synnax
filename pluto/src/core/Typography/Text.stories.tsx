@@ -36,9 +36,7 @@ export const Editable: ComponentStory<typeof Text> = () => {
   const [text, setText] = useState("My Text");
   return (
     <>
-      <Text.Editable level="h1" onChange={setText}>
-        {text}
-      </Text.Editable>
+      <Text.Editable level="h1" onChange={setText} value={text} />
       <Text level="h5">{text}</Text>
     </>
   );

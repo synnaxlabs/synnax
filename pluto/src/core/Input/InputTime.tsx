@@ -49,31 +49,38 @@ export const InputTime = forwardRef<HTMLInputElement, InputTimeProps>(
     ref
   ) => {
     const ts = new TimeStamp(value, "UTC");
+
     useEffect(() => {
-      if (!ts.after(TimeStamp.DAY.add(TimeStamp.utcOffset))) return;
-      const tsV = new TimeStamp(value, "UTC").remainder(TimeStamp.DAY);
-      onChange(tsV.valueOf());
+      // We want to check for remainder overflow in LOCAL time.
+      const local = ts.sub(TimeStamp.utcOffset);
+      // All good.
+      if (!local.after(TimeStamp.DAY)) return;
+      // Chop off the extra time.
+      const tsV = local.remainder(TimeStamp.DAY);
+      // We have a correcly zeroed timestamp in local, now
+      // add back the UTC offset to get the UTC timestamp.
+      onChange(new TimeStamp(tsV, "local").valueOf());
     });
 
     const handleChange = useCallback(
       (value: number | string) => {
-        if (typeof value === "number") {
-          const ts = new TimeStamp(value, "UTC");
-          onChange(ts.valueOf());
-        } else if (value.length > 0) {
-          onChange(new TimeStamp(value, tzInfo).valueOf());
-        }
+        let ts: TimeStamp;
+        if (typeof value === "number") ts = new TimeStamp(value, "UTC");
+        else if (value.length === 0) return;
+        else ts = new TimeStamp(value, "local");
+        onChange(ts.valueOf());
       },
       [onChange, tzInfo]
     );
 
+    const inputValue = ts.fString("time", tzInfo);
     const input = (
       <Input
         ref={ref}
+        value={inputValue}
         className={CSS(CSS.B("input-time"), className)}
         type="time"
         step="1"
-        value={ts.fString("time", tzInfo)}
         onChange={handleChange as InputBaseProps["onChange"]}
         {...props}
       />
