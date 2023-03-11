@@ -40,7 +40,9 @@ describe("TimeStamp", () => {
     const ts3 = new TimeStamp("12:30:00.22", "local");
     expect(
       ts3.equals(
-        TimeSpan.hours(17).add(TimeSpan.minutes(30).add(TimeSpan.milliseconds(22)))
+        TimeSpan.hours(12)
+          .add(TimeSpan.minutes(30).add(TimeSpan.milliseconds(22)))
+          .add(TimeStamp.utcOffset)
       )
     ).toBeTruthy();
   });
