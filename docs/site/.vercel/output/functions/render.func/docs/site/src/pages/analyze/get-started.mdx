@@ -1,0 +1,73 @@
+---
+layout: "@/layouts/MainLayout.astro"
+title: "Analyze"
+---
+
+import ClientTabs from "@/components/ClientTabs/ClientTabs.astro";
+
+<ClientTabs includeSetup={false}>
+<Fragment slot="python">
+
+### Install the Python Client
+
+The `synnax` client requires Python 3.9 or higher, and can be installed using PyPi.
+
+```bash
+pip install synnax
+```
+
+### Login to Synnax
+
+Before reading or writing data, you need to login to a Synnax cluster. To interactively
+login, simply run:
+
+```
+synnax login
+```
+
+If successful, you should see the following output:
+
+```
+Connection successful!
+Saved credentials. You can now use the Synnax Client without having to log in. To connect
+the cluster in a Python shell, use the following:
+
+from synnax import Synnax
+client = Synnax()
+```
+
+### Read and Plot Data
+
+You're now free to read and write data. Take the following example,
+where we read data from a temperature sensor and plot it.
+
+```python
+from datetime import datetime
+
+import synnax as sy
+import matplotlib.pyplot as plt
+
+# Instantiate a client
+client = sy.Synnax()
+
+# Retrieve a channel containing temperature sensor data and a channel containing
+# the timestamps for the readings.
+temperature_sensor = client.channels.retrieve("my-temperature-sensor")
+time = client.channels.retrieve("time")
+
+# Define the start and end times for the data we want to retrieve.
+start, end = datetime(2021, 1, 1), datetime(2021, 1, 2)
+
+# Read the data from the channels.
+temperatures = temperature_sensor.read(start, end)
+times = time.read(start, end)
+
+# Plot the data.
+plt.plot(times, temperatures)
+plt.show()
+```
+
+</Fragment>
+<Fragment slot="typescript">
+</Fragment>
+</ClientTabs>

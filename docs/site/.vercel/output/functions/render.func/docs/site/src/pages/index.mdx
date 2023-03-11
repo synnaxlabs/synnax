@@ -1,0 +1,61 @@
+---
+title: "Get Started"
+layout: ../layouts/MainLayout.astro
+---
+
+import { Icon } from "@synnaxlabs/media";
+
+import { Header, Space, Divider } from "@synnaxlabs/pluto";
+
+import { GetStartedChip } from "@/components/GetStartedChip";
+
+<Space>
+
+<GetStartedChip
+    title="Start a Cluster"
+    href="/deploy/get-started"
+    description="Start a single node cluster for learning."
+>
+    <Icon.Cluster slot="icon" />
+</GetStartedChip>
+<GetStartedChip
+    title="Learn the Fundamentals"
+    href="/concepts/overview"
+    description="Learn the fundamentals of Synnax and how to use it."
+>
+    <Icon.Concepts slot="icon" />
+</GetStartedChip>
+<GetStartedChip
+    title="Acquire Data"
+    href="/acquire/get-started"
+    description="Configure channels and read data from a file, or write directly to a cluster
+    using your programming language of choice."
+>
+    <Icon.Acquire slot="icon" />
+</GetStartedChip>
+
+<GetStartedChip
+    title="Perform Analysis"
+    href="/analyze/get-started"
+    description="Retrieve, analyze, and post-process relevant data."
+>
+    <Icon.Analyze slot="icon" />
+</GetStartedChip>
+
+<GetStartedChip
+    title="Create Visualizations"
+    description="Use the Synnax UI to visualize and
+    explore a cluster's telemetry."
+    href="/visualize/get-started"
+>
+    <Icon.Visualize slot="icon" />
+</GetStartedChip>
+
+<GetStartedChip
+    title="Browse the Reference"
+    href="/reference/overview"
+    description="Learn more about the Synnax CLI, Client Libraries, API, and User Interface."
+>
+    <Icon.Reference slot="icon" />
+</GetStartedChip>
+</Space>

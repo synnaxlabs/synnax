@@ -1,0 +1,1 @@
+import{Z as r}from"./pluto.es.a1d242b9.js";import{j as e}from"./jsx-runtime.109e40f8.js";import"./index.f1bc5ebf.js";const a=({tabs:i,...o})=>{i=i.map(t=>({...t,icon:o[`${t.tabKey}-icon`]}));const s=r.useStatic({tabs:i});return e.jsx(r,{...s,children:t=>e.jsx("div",{children:o[t.tabKey]})})};export{a as Tabs};
