@@ -7,6 +7,7 @@ on:
     paths:
       - "pluto/**"
       - ".github/workflows/pluto.test.yaml"
+  workflow_dispatch:
 jobs:
   test:
     name: "Run Tests"

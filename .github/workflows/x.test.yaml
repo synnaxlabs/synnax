@@ -7,8 +7,9 @@ on:
     paths:
       - "x/**"
       - ".github/workflows/x.test.yaml"
+  workflow_dispatch:
 jobs:
-  test:
+  test-go:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
