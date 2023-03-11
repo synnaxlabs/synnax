@@ -47,7 +47,7 @@
         "devtools": "npx turbo devtools --filter delta"
     },
     "devDependencies": {
-        "eslint": "^8.36.0",
+        "eslint": "^8.35.0",
         "eslint-plugin-prettier": "^4.2.1",
         "eslint_d": "^12.2.1",
         "prettier": "2.7.1",
