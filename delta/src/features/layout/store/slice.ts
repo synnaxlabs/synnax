@@ -10,7 +10,8 @@
 import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
 import { Mosaic, Theming } from "@synnaxlabs/pluto";
-import type { MosaicLeaf, Location, Theme } from "@synnaxlabs/pluto";
+import type { MosaicNode, Theme } from "@synnaxlabs/pluto";
+import { DeepKey, Location } from "@synnaxlabs/x";
 
 import { Layout } from "../types";
 
@@ -34,11 +35,11 @@ export interface LayoutState {
 
 export interface MosaicState {
   activeTab: string | null;
-  root: MosaicLeaf;
+  root: MosaicNode;
 }
 
 export interface NavState {
-  drawer: NavDrawerState;
+  drawers: NavDrawerState;
 }
 
 export type NavdrawerLocation = "right" | "left" | "bottom";
@@ -70,20 +71,22 @@ export interface LayoutStoreState {
   [LAYOUT_SLICE_NAME]: LayoutState;
 }
 
-const initialState: LayoutState = {
+export const MAIN_LAYOUT: Layout = {
+  name: "Main",
+  key: "main",
+  type: "main",
+  location: "window",
+  window: {
+    navTop: false,
+  },
+};
+
+const INITIAL_STATE: LayoutState = {
   activeTheme: "synnaxDark",
   themes: Theming.themes,
   alreadyCheckedGetStarted: false,
   layouts: {
-    main: {
-      name: "Main",
-      key: "main",
-      type: "main",
-      location: "window",
-      window: {
-        navTop: false,
-      },
-    },
+    main: MAIN_LAYOUT,
   },
   mosaic: {
     activeTab: null,
@@ -93,7 +96,7 @@ const initialState: LayoutState = {
     },
   },
   nav: {
-    drawer: {
+    drawers: {
       left: {
         activeItem: null,
         menuItems: ["clusters", "resources"],
@@ -110,29 +113,47 @@ const initialState: LayoutState = {
   },
 };
 
-/** Signature for the placeLayut action. */
-export type PlaceLayoutAction = PayloadAction<Layout>;
-/** Signature for the removeLayout action. */
-export type RemoveLayoutAction = PayloadAction<string>;
-/** Signature for the setTheme action. */
-export type SetActiveTheme = PayloadAction<string>;
-/** Signature for the toggleTheme action. */
-export type ToggleActiveThemeAction = PayloadAction<void>;
+export const LAYOUT_PERSIST_EXCLUDE = ["alreadyCheckedGetStarted"].map(
+  (key) => `${LAYOUT_SLICE_NAME}.${key}`
+) as Array<DeepKey<LayoutStoreState>>;
 
-type DeleteLayoutMosaicTabAction = PayloadAction<{ tabKey: string }>;
-type MoveLayoutMosaicTabAction = PayloadAction<{
+/** Signature for the placeLayut action. */
+export type PlaceLayoutPayload = Layout;
+/** Signature for the removeLayout action. */
+export type RemoveLayoutPayload = string;
+/** Signature for the setTheme action. */
+export type SetActiveThemePayload = string;
+
+interface DeleteLayoutMosaicTabPayload {
+  tabKey: string;
+}
+interface MoveLayoutMosaicTabPayload {
   tabKey: string;
   key: number;
   loc: Location;
-}>;
-type ResizeLayoutMosaicTabAction = PayloadAction<{ key: number; size: number }>;
-type SelectLayoutMosaicTabAction = PayloadAction<{ tabKey: string }>;
-type RenameLayoutMosaicTabAction = PayloadAction<{ tabKey: string; name: string }>;
+}
+interface ResizeLayoutMosaicTabPaylod {
+  key: number;
+  size: number;
+}
+interface SelectLayoutMosaicTabPayload {
+  tabKey: string;
+}
+interface RenameLayoutMosaicTabPayload {
+  tabKey: string;
+  name: string;
+}
 
-type SetNavdrawerEntryState = PayloadAction<{
+interface ResizeNavdrawerPayload {
   location: NavdrawerLocation;
-  state: Partial<NavdrawerEntryState>;
-}>;
+  size: number;
+}
+
+interface SetNavdrawerVisiblePayload {
+  key?: string;
+  location?: NavdrawerLocation;
+  value?: boolean;
+}
 
 export const {
   actions: {
@@ -140,21 +161,21 @@ export const {
     removeLayout,
     toggleActiveTheme,
     setActiveTheme,
-    deleteLayoutMosaicTab,
     moveLayoutMosaicTab,
     selectLayoutMosaicTab,
     resizeLayoutMosaicTab,
     renameLayoutMosaicTab,
-    setNavdrawerEntryState,
+    resizeNavdrawer,
+    setNavdrawerVisible,
     maybeCreateGetStartedTab,
   },
   reducer: layoutReducer,
 } = createSlice({
   name: LAYOUT_SLICE_NAME,
-  initialState,
+  initialState: INITIAL_STATE,
   reducers: {
-    placeLayout: (state, { payload: layout }: PlaceLayoutAction) => {
-      const { key, location, name } = layout;
+    placeLayout: (state, { payload: layout }: PayloadAction<PlaceLayoutPayload>) => {
+      const { key, location, name, tab } = layout;
 
       const prev = state.layouts[key];
 
@@ -164,59 +185,78 @@ export const {
 
       // If we're moving to a mosaic, insert a tab.
       if (prev?.location !== "mosaic" && location === "mosaic") {
-        state.mosaic.root = Mosaic.insertTab(state.mosaic.root, { tabKey: key, name });
+        state.mosaic.root = Mosaic.insertTab(
+          state.mosaic.root,
+          {
+            tabKey: key,
+            name,
+            ...tab,
+          },
+          tab?.location,
+          tab?.mosaicKey
+        );
         state.mosaic.activeTab = key;
+      }
+
+      // If the tab already exists and its in the mosaic, make it the active tab
+      // and select it. Also rename it.
+      if (prev?.location === "mosaic" && location === "mosaic") {
+        state.mosaic.activeTab = key;
+        state.mosaic.root = Mosaic.renameTab(
+          Mosaic.selectTab(state.mosaic.root, key),
+          key,
+          name
+        );
       }
 
       state.layouts[key] = layout;
     },
-    removeLayout: (state, { payload: contentKey }: RemoveLayoutAction) => {
+    removeLayout: (
+      state,
+      { payload: contentKey }: PayloadAction<RemoveLayoutPayload>
+    ) => {
       const layout = state.layouts[contentKey];
       if (layout == null) return;
       const { location } = layout;
 
-      if (location === "mosaic")
-        state.mosaic.root = Mosaic.removeTab(state.mosaic.root, contentKey);
+      if (location === "mosaic") {
+        [state.mosaic.root, state.mosaic.activeTab] = Mosaic.removeTab(
+          state.mosaic.root,
+          contentKey
+        );
+      }
 
       // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
       delete state.layouts[contentKey];
     },
-    deleteLayoutMosaicTab: (
-      state,
-      { payload: { tabKey } }: DeleteLayoutMosaicTabAction
-    ) => {
-      state.mosaic.root = Mosaic.removeTab(state.mosaic.root, tabKey);
-      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-      delete state.layouts[tabKey];
-    },
     moveLayoutMosaicTab: (
       state,
-      { payload: { tabKey, key, loc } }: MoveLayoutMosaicTabAction
+      { payload: { tabKey, key, loc } }: PayloadAction<MoveLayoutMosaicTabPayload>
     ) => {
-      state.mosaic.root = Mosaic.moveTab(state.mosaic.root, tabKey, loc, key);
+      [state.mosaic.root] = Mosaic.moveTab(state.mosaic.root, tabKey, loc, key);
     },
     selectLayoutMosaicTab: (
       state,
-      { payload: { tabKey } }: SelectLayoutMosaicTabAction
+      { payload: { tabKey } }: PayloadAction<SelectLayoutMosaicTabPayload>
     ) => {
       state.mosaic.root = Mosaic.selectTab(state.mosaic.root, tabKey);
       state.mosaic.activeTab = tabKey;
     },
     resizeLayoutMosaicTab: (
       state,
-      { payload: { key, size } }: ResizeLayoutMosaicTabAction
+      { payload: { key, size } }: PayloadAction<ResizeLayoutMosaicTabPaylod>
     ) => {
-      state.mosaic.root = Mosaic.resizeLeaf(state.mosaic.root, key, size);
+      state.mosaic.root = Mosaic.resizeNode(state.mosaic.root, key, size);
     },
     renameLayoutMosaicTab: (
       state,
-      { payload: { tabKey, name } }: RenameLayoutMosaicTabAction
+      { payload: { tabKey, name } }: PayloadAction<RenameLayoutMosaicTabPayload>
     ) => {
       const layout = state.layouts[tabKey];
       if (layout != null) layout.name = name;
       state.mosaic.root = Mosaic.renameTab(state.mosaic.root, tabKey, name);
     },
-    setActiveTheme: (state, { payload: key }: SetActiveTheme) => {
+    setActiveTheme: (state, { payload: key }: PayloadAction<SetActiveThemePayload>) => {
       state.activeTheme = key;
     },
     toggleActiveTheme: (state) => {
@@ -225,34 +265,53 @@ export const {
       const next = keys[(index + 1) % keys.length];
       state.activeTheme = next;
     },
-    setNavdrawerEntryState: (
+    resizeNavdrawer: (
       state,
-      { payload: { location, state: entryState } }: SetNavdrawerEntryState
+      { payload: { location, size } }: PayloadAction<ResizeNavdrawerPayload>
     ) => {
-      state.nav.drawer[location] = {
-        ...state.nav.drawer[location],
-        ...entryState,
-      };
+      state.nav.drawers[location].size = size;
+    },
+    setNavdrawerVisible: (
+      state,
+      { payload: { key, location, value } }: PayloadAction<SetNavdrawerVisiblePayload>
+    ) => {
+      if (key != null) {
+        Object.values(state.nav.drawers).forEach((drawer) => {
+          if (drawer.menuItems.includes(key)) {
+            drawer.activeItem = value ?? drawer.activeItem !== key ? key : null;
+          }
+        });
+      } else if (location != null) {
+        const drawer = state.nav.drawers[location];
+        if (value === true && drawer.activeItem == null)
+          drawer.activeItem = drawer.menuItems[0];
+        else if (value === false) drawer.activeItem = null;
+        else if (drawer.activeItem == null) drawer.activeItem = drawer.menuItems[0];
+        else drawer.activeItem = null;
+      } else {
+        throw new Error("setNavdrawerVisible requires either a key or location");
+      }
     },
     maybeCreateGetStartedTab: (state) => {
-      // const checkedGetStarted = state.alreadyCheckedGetStarted;
+      const checkedGetStarted = state.alreadyCheckedGetStarted;
       state.alreadyCheckedGetStarted = true;
-      // if (
-      //   Object.values(state.layouts).filter(({ location }) => location === "mosaic")
-      //     .length !== 0 ||
-      //   checkedGetStarted
-      // )
-      //   return;
-      // state.mosaic.root = Mosaic.insertTab(state.mosaic.root, {
-      //   tabKey: "getStarted",
-      //   name: "Get Started",
-      // });
-      // state.layouts.getStarted = {
-      //   name: "Get Started",
-      //   key: "getStarted",
-      //   location: "mosaic",
-      //   type: "getStarted",
-      // };
+      if (
+        Object.values(state.layouts).filter(({ location }) => location === "mosaic")
+          .length !== 0 ||
+        checkedGetStarted
+      )
+        return;
+      state.mosaic.root = Mosaic.insertTab(state.mosaic.root, {
+        tabKey: "getStarted",
+        name: "Get Started",
+        editable: false,
+      });
+      state.layouts.getStarted = {
+        name: "Get Started",
+        key: "getStarted",
+        location: "mosaic",
+        type: "getStarted",
+      };
     },
   },
 });

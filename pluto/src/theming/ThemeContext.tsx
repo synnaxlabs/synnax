@@ -17,11 +17,9 @@ import {
 } from "react";
 
 import { convertThemeToCSSVars } from "./css";
-
-import { Input } from "@/core/Input";
-
 import { Theme, synnaxLight } from "./theme";
 
+import { Input } from "@/core/Input";
 import { InputSwitchProps } from "@/core/Input/InputSwitch";
 import { applyCSSVars } from "@/css";
 

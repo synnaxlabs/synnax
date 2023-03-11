@@ -25,3 +25,4 @@ export * from "@/core/Tabs";
 export * from "@/core/Tree";
 export * from "@/core/Typography";
 export * from "@/core/Menu";
+export * from "@/core/Video";

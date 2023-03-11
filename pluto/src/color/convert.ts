@@ -19,10 +19,17 @@ const invalidHexError = (hex: string): Error => new Error(`Invalid hex color: ${
  * @param hex - The hex color to convert. Must be be between 6 and 8 characters long
  * (excluding the `#`).
  */
-export const hexToRGBA = (hex: string, alpha: number = 1): RGBATuple => {
+export const hexToRGBA = (
+  hex: string,
+  alpha: number = 1,
+  normalize: number = 1
+): RGBATuple => {
   if (!validateHex(hex)) throw invalidHexError(hex);
   hex = stripHash(hex);
-  return [p(hex, 1), p(hex, 3), p(hex, 5), hex.length === 9 ? p(hex, 7) / 255 : alpha];
+  return normalizeRGBA(
+    [p(hex, 0), p(hex, 2), p(hex, 4), hex.length === 8 ? p(hex, 6) / 255 : alpha],
+    normalize
+  );
 };
 
 /**
@@ -45,17 +52,15 @@ const stripHash = (hex: string): string => (hex.startsWith("#") ? hex.slice(1) :
 
 const p = (s: string, n: number): number => parseInt(s.slice(n, n + 2), 16);
 
-const BIT_8 = 255;
-
 /**
  * Normalizes an 8 bit RGBA tuple to values between 0 and 1.
  * @param t - The RGBA tuple to normalize.
  * @returns The normalized RGBA tuple.
  */
-export const normalize8BitRGBA = (t: RGBATuple): RGBATuple => [
-  t[0] / BIT_8,
-  t[1] / BIT_8,
-  t[2] / BIT_8,
+export const normalizeRGBA = (t: RGBATuple, divisor: number = 255): RGBATuple => [
+  t[0] / divisor,
+  t[1] / divisor,
+  t[2] / divisor,
   t[3],
 ];
 
@@ -69,6 +74,7 @@ export const normalize8BitRGBA = (t: RGBATuple): RGBATuple => [
  * @returns The hex color with the opacity added.
  */
 export const addOpacityToHex = (hex: string, opacity: Opacity): string => {
+  if (!validateHex(hex)) throw invalidHexError(hex);
   hex = stripHash(hex);
   if (!validateSixCharHex(hex)) {
     hex = hex.slice(0, 6);

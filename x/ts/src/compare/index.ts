@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Primitive, isStringer, PrimitiveRecord } from "@/types/primitive";
+import { Primitive, isStringer, PrimitiveRecord } from "@/primitive";
 
 export type CompareF<T> = (a: T, b: T) => number;
 

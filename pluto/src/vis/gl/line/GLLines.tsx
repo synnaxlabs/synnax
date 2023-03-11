@@ -9,11 +9,11 @@
 
 import { useEffect } from "react";
 
+import { Box, XY } from "@synnaxlabs/x";
+
 import { useGLContext } from "../GLCanvas/GLCanvas";
 
 import { GLLine, LineRenderRequest } from "./renderer";
-
-import { Box, XY } from "@/spatial";
 
 export interface GLLinesProps {
   box: Box;

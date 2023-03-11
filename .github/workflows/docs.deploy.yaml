@@ -1,11 +1,9 @@
 name: Deploy Documentation Site
 on:
   push:
-    branches:
-      - main
     paths:
-      - 'docs/site/**'
-      - '.github/workflows/docs.deploy.yaml'
+      - "docs/site/**"
+      - ".github/workflows/docs.deploy.yaml"
 jobs:
   build:
     name: Build Documentation Site
@@ -14,26 +12,53 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      - name: Login To Docker
-        uses: docker/login-action@v2
+      - name: Diff Changes
+        uses: dorny/paths-filter@v2
+        id: filter
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          filters: |
+            changed:
+              - 'x/ts/**'
+              - 'x/meta/**'
+              - 'pluto/**'
+              - 'docs/site/**'
+              - '.github/workflows/docs.deploy.yaml'
 
-      - name: Download latest earthly
-        run: "sudo /bin/sh -c 'wget https://github.com/earthly/earthly/releases/download/v0.6.22/earthly-linux-amd64 -O /usr/local/bin/earthly && chmod +x /usr/local/bin/earthly'"
+      - name: Set up pnpm
+        if: steps.filter.outputs.changed == 'true'
+        uses: pnpm/action-setup@v2
+        with:
+          version: 7
 
-      - name: Build Site
-        run: earthly +build
-        working-directory: ./docs/site
+      - name: Set up Node
+        if: steps.filter.outputs.changed == 'true'
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: pnpm
 
+      - name: Install Dependencies
+        if: steps.filter.outputs.changed == 'true'
+        run: pnpm i
+
+      - name: Build Documentation Site
+        if: steps.filter.outputs.changed == 'true'
+        run: pnpm build:docs
+
+      - name: Upload Pages Artifact
+        if: steps.filter.outputs.changed == 'true'
+        uses: actions/upload-pages-artifact@v1
+        with:
+          path: docs/site/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./docs/site/build
-          cname: docs.synnaxlabs.com
-          user_name: github-actions[bot]
-          user_email: 41898282+github-actions[bot]@users.noreply.github.com
-
+        id: deployment
+        uses: actions/deploy-pages@v1

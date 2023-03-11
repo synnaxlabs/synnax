@@ -9,6 +9,3 @@
 
 export const camelToTitle = (str: string): string =>
   str.replace(/([A-Z])/g, " $1").replace(/^./, (str) => str.toUpperCase());
-
-export const camelToKebab = (str: string): string =>
-  str.replace(/([a-z0-9]|(?=[A-Z]))([A-Z])/g, "$1-$2").toLowerCase();

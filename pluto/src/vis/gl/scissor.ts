@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Box, XY, Transform, ZERO_XY } from "@synnaxlabs/x";
+
 import { GLRenderer, GLContext } from "./renderer";
 
 import { ZERO_COLOR } from "@/color";
-import { Box, XY, Transform, ZERO_XY } from "@/spatial";
 
 export interface ScissoredRenderRequest {
   box: Box;

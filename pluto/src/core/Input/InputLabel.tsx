@@ -9,7 +9,7 @@
 
 import { DetailedHTMLProps, HTMLAttributes } from "react";
 
-import clsx from "clsx";
+import { CSS } from "@/css";
 
 import "./InputLabel.css";
 
@@ -18,6 +18,6 @@ export interface InputLabelProps
   label?: string;
 }
 
-export const InputLabel = (props: InputLabelProps): JSX.Element => {
-  return <label className={clsx("pluto-input-label", props.className)} {...props} />;
+export const InputLabel = ({ className, ...props }: InputLabelProps): JSX.Element => {
+  return <label className={CSS(CSS.B("input-label"), className)} {...props} />;
 };

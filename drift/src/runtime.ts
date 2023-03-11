@@ -8,9 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import type { Action, AnyAction } from "@reduxjs/toolkit";
+import { Dimensions, XY } from "@synnaxlabs/x";
 
 import { PreloadedState, StoreState } from "@/state";
-import { KeyedWindowProps } from "@/window";
+import { WindowProps } from "@/window";
 
 /**
  * An event emitted by drift to communicate state changes.
@@ -32,7 +33,7 @@ export interface Sender<S extends StoreState, A extends Action = AnyAction> {
    * @param event - The event to emit.
    * @param to - If set, the event will only be emitted to the window with the given key.
    */
-  emit: (event: Omit<Event<S, A>, "emitter">, to?: string) => void;
+  emit: (event: Omit<Event<S, A>, "emitter">, to?: string) => Promise<void>;
 }
 
 export interface Receiver<S extends StoreState, A extends Action = AnyAction> {
@@ -66,16 +67,12 @@ export interface Properties {
   /**
    * @returns the key of the window.
    */
-  key: () => string;
-  /**
-   * Ready is called by drift when the current window has received state from the main
-   * window and is ready to be shown.
-   */
-  ready: () => void;
+  label: () => string;
   /**
    * Calls the provided function with the current window is closing.
    */
   onCloseRequested: (cb: () => void) => void;
+  listLabels: () => string[];
 }
 
 /**
@@ -86,19 +83,29 @@ export interface Manager {
    * Creates a new window with the given properties. The window should not be shown
    * until the ready() method is called.
    */
-  create: (props: KeyedWindowProps) => void;
+  create: (label: string, props: Omit<WindowProps, "key">) => Promise<void>;
   /**
    * Closes the window with the given key.
    */
-  close: (key: string) => void;
+  close: (key: string) => Promise<void>;
   /**
    * Focuses the window with the given key.
    */
-  focus: (key: string) => void;
-  /**
-   * Checks if the window with the given key exists.
-   */
-  exists: (key: string) => boolean;
+  focus: () => Promise<void>;
+  setMinimized: (value: boolean) => Promise<void>;
+  setMaximized: (value: boolean) => Promise<void>;
+  setVisible: (value: boolean) => Promise<void>;
+  setFullscreen: (value: boolean) => Promise<void>;
+  center: () => Promise<void>;
+  setPosition: (xy: XY) => Promise<void>;
+  setSize: (dims: Dimensions) => Promise<void>;
+  setMinSize: (dims: Dimensions) => Promise<void>;
+  setMaxSize: (dimss: Dimensions) => Promise<void>;
+  setResizable: (value: boolean) => Promise<void>;
+  setSkipTaskbar: (value: boolean) => Promise<void>;
+  setAlwaysOnTop: (value: boolean) => Promise<void>;
+  setDecorations: (value: boolean) => Promise<void>;
+  setTitle: (title: string) => Promise<void>;
 }
 
 /**

@@ -117,11 +117,11 @@ const synnaxBase: Theme = {
         ],
       },
     },
-    logo: "url(#linear-gradient)",
+    logo: "url(#synnax-linear-gradient)",
     white,
     black,
     background: white,
-    text: addOpacityToHex(black, 80),
+    text: addOpacityToHex(black, 85),
   },
   sizes: {
     base: baseSize,
@@ -153,10 +153,9 @@ const synnaxBase: Theme = {
       lineHeight: 3.25,
     },
     h5: {
-      size: 2.5,
-      weight: "medium",
-      lineHeight: 2.75,
-      textTransform: "uppercase",
+      size: 2.25,
+      weight: "bold",
+      lineHeight: 2.5,
     },
     p: {
       size: 2.25,
@@ -201,6 +200,6 @@ export const synnaxDark = {
     logo: "var(--pluto-text-color)",
     border: synnaxBase.colors.gray.p1,
     background: synnaxBase.colors.black,
-    text: addOpacityToHex(synnaxBase.colors.white, 80),
+    text: addOpacityToHex(synnaxBase.colors.white, 90),
   },
 };

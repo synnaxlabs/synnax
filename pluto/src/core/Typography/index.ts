@@ -10,9 +10,6 @@
 import { Text as CoreText } from "./Text";
 import { TextDateTime } from "./TextDateTime";
 import { TextEditable } from "./TextEditable";
-
-import "./Typography.css";
-
 import { TextLink } from "./TextLink";
 import { TextWithIcon } from "./TextWithIcon";
 import {
@@ -20,6 +17,8 @@ import {
   TypographyLevelComponentSizes,
   TypographyLevels,
 } from "./types";
+
+import "./Typography.css";
 
 export type { CoreTextProps, TextProps } from "./Text";
 export type { Size, TypographySpec, TypographyLevel } from "./types";
@@ -42,9 +41,16 @@ Text.Editable = TextEditable;
 Text.DateTime = TextDateTime;
 Text.Link = TextLink;
 
+/** Holds typography related components and constants. */
 export const Typography = {
+  /** A map of component sizes to typography levels that are similar in size. */
   ComponentSizeLevels: ComponentSizeTypographyLevels,
+  /** A map of typography levels to component sizes that are similar in size. */
   LevelComponentSizes: TypographyLevelComponentSizes,
+  /** A list of all typography levels. */
   Levels: TypographyLevels,
+  /**
+   * Renders text of a given typography level.
+   */
   Text,
 };

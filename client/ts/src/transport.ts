@@ -10,10 +10,10 @@
 import {
   HTTPClientFactory,
   JSONEncoderDecoder,
-  URL,
   WebSocketClient,
 } from "@synnaxlabs/freighter";
 import type { Middleware, StreamClient, UnaryClient } from "@synnaxlabs/freighter";
+import { URL } from "@synnaxlabs/x";
 
 const baseAPIEndpoint = "/api/v1/";
 

@@ -23,10 +23,11 @@ import {
   DriftAction,
   PreloadedState,
   StoreState,
+  setWindowLabel,
+  setWindowStage,
   closeWindow,
-  setWindowKey,
-  setWindowState,
 } from "./state";
+import { syncInitial } from "./sync";
 import { MAIN_WINDOW } from "./window";
 
 export type Enhancers = readonly StoreEnhancer[];
@@ -42,6 +43,7 @@ export interface ConfigureStoreOptions<
   E extends Enhancers = [StoreEnhancer]
 > extends Omit<BaseOpts<S, A, M, E>, "preloadedState"> {
   runtime: Runtime<S, A>;
+  debug?: boolean;
   preloadedState?: PreloadedState<S> | (() => Promise<PreloadedState<S> | undefined>);
 }
 
@@ -69,6 +71,7 @@ export const configureStore = async <
   runtime,
   preloadedState,
   middleware,
+  debug = false,
   ...opts
 }: ConfigureStoreOptions<S, A, M, E>): Promise<EnhancedStore<S, A | DriftAction>> => {
   // eslint-disable-next-line prefer-const
@@ -77,13 +80,14 @@ export const configureStore = async <
   store = base<S, A, M, E>({
     ...opts,
     preloadedState: await receivePreloadedState(runtime, () => store, preloadedState),
-    middleware: configureMiddleware(middleware, runtime),
+    middleware: configureMiddleware(middleware, runtime, debug),
   });
 
-  store.dispatch(setWindowKey(runtime.key()));
-  store.dispatch(setWindowState("created"));
-  runtime.onCloseRequested(() => store?.dispatch(closeWindow()));
-  runtime.ready();
+  await syncInitial(store.getState().drift, runtime, debug);
+  store.dispatch(setWindowLabel({ label: runtime.label() }));
+  store.dispatch(setWindowStage({ stage: "created" }));
+  runtime.onCloseRequested(() => store?.dispatch(closeWindow({})));
+  if (runtime.isMain()) void runtime.setVisible(true);
 
   return store;
 };

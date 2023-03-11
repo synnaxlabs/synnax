@@ -10,4 +10,5 @@ packages:
   - "configs/vite"
   - "docs/site"
   - "x/ts"
+  - "x/media"
   - "drift/examples/tauri"

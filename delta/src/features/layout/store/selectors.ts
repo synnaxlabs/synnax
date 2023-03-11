@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { MosaicLeaf, Theme } from "@synnaxlabs/pluto";
+import type { MosaicNode, Theme } from "@synnaxlabs/pluto";
 
 import { Layout } from "../types";
 
@@ -62,7 +62,7 @@ export const useSelectRequiredLayout = (key: string): Layout => {
  * @param state - The store state.
  * @returns The central layout mosaic.
  */
-export const selectMosaic = (state: LayoutStoreState): MosaicLeaf =>
+export const selectMosaic = (state: LayoutStoreState): MosaicNode =>
   selectLayoutState(state).mosaic.root;
 
 /**
@@ -70,7 +70,7 @@ export const selectMosaic = (state: LayoutStoreState): MosaicLeaf =>
  *
  * @returns The central layout mosaic.
  */
-export const useSelectMosaic = (): MosaicLeaf => useMemoSelect(selectMosaic, []);
+export const useSelectMosaic = (): MosaicNode => useMemoSelect(selectMosaic, []);
 
 /**
  * Selects the active theme key from the store.
@@ -125,7 +125,13 @@ export const useSelectLayouts = (keys?: string[]): Layout[] =>
 export const selectNavDrawer = (
   state: LayoutStoreState,
   loc: NavdrawerLocation
-): NavdrawerEntryState => state.layout.nav.drawer[loc];
+): NavdrawerEntryState => state.layout.nav.drawers[loc];
 
 export const useSelectNavDrawer = (loc: NavdrawerLocation): NavdrawerEntryState =>
   useMemoSelect((state: LayoutStoreState) => selectNavDrawer(state, loc), [loc]);
+
+export const selectActiveMosaicTabKey = (state: LayoutStoreState): string | null =>
+  selectLayoutState(state).mosaic.activeTab;
+
+export const useSelectActiveMosaicTabKey = (): string | null =>
+  useMemoSelect(selectActiveMosaicTabKey, []);

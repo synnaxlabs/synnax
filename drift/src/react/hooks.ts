@@ -9,7 +9,7 @@
 
 import { EffectCallback, useEffect, useRef } from "react";
 
-import { useSelectWindowState } from "./selectors";
+import { useSelectWindow } from "./selectors";
 
 /**
  * A hook that allows a user to tap into the lifecycle of a window.
@@ -22,17 +22,19 @@ import { useSelectWindowState } from "./selectors";
  * If not provided, the current window is used.
  */
 export const useWindowLifecycle = (cb: EffectCallback, key?: string): void => {
-  const status = useSelectWindowState(key);
+  const win = useSelectWindow(key);
+  if (win == null) return;
+  const { stage } = win;
   const destructor = useRef<(() => void) | null>(null);
 
   useEffect(() => {
-    if (status === "created" && destructor.current == null) {
+    if (stage === "created" && destructor.current == null) {
       const c = cb();
       if (c != null) destructor.current = c;
     }
-    if (status === "closing" && destructor.current != null) {
+    if (stage === "closing" && destructor.current != null) {
       destructor.current();
       destructor.current = null;
     }
-  }, [status, destructor]);
+  }, [stage, destructor]);
 };

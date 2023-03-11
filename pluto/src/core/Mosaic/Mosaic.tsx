@@ -9,20 +9,24 @@
 
 import React, { useState, memo, useCallback } from "react";
 
+import { Location } from "@synnaxlabs/x";
+
+import { MosaicNode } from "./types";
+
 import { Resize } from "@/core/Resize";
-
-import { MosaicLeaf } from "./types";
-
 import { Tab, Tabs, TabsProps } from "@/core/Tabs";
-import { Location } from "@/spatial";
+import { CSS } from "@/css";
 import { preventDefault } from "@/util/event";
 
 import "./Mosaic.css";
 
-export interface MosaicProps extends Omit<TabsProps, "onDrop" | "tabs" | "onResize"> {
+/** Props for the {@link Mosaic} component */
+export interface MosaicProps
+  extends Omit<TabsProps, "onDrop" | "tabs" | "onResize" | "onCreate"> {
+  root: MosaicNode;
   onDrop: (key: number, tabKey: string, loc: Location) => void;
   onResize: (key: number, size: number) => void;
-  root: MosaicLeaf;
+  onCreate?: (key: number) => void;
 }
 
 export const Mosaic = memo((props: MosaicProps): JSX.Element | null => {
@@ -54,7 +58,11 @@ export const Mosaic = memo((props: MosaicProps): JSX.Element | null => {
   }
 
   return (
-    <Resize.Multiple align="stretch" className="pluto-mosaic__resize" {...resizeProps}>
+    <Resize.Multiple
+      align="stretch"
+      className={CSS.BE("mosaic", "resize")}
+      {...resizeProps}
+    >
       <Mosaic key={first.key} {...childProps} root={first} onResize={onResize} />
       <Mosaic key={last.key} {...childProps} root={last} onResize={onResize} />
     </Resize.Multiple>
@@ -62,15 +70,15 @@ export const Mosaic = memo((props: MosaicProps): JSX.Element | null => {
 });
 Mosaic.displayName = "Mosaic";
 
-export interface MosicaTabLeafProps extends Omit<MosaicProps, "onResize"> {}
+interface MosaicTabLeafProps extends Omit<MosaicProps, "onResize"> {}
 
 /** Checks whether the tab can actually be dropped in this location or not */
 const validDrop = (tabs: Tab[], currentlyDragging: string | null): boolean =>
   tabs.filter((t) => t.tabKey !== currentlyDragging).length > 0;
 
 const MosaicTabLeaf = memo(
-  ({ root: node, onDrop, ...props }: MosicaTabLeafProps): JSX.Element => {
-    const { key, tabs } = node as Omit<MosaicLeaf, "tabs"> & { tabs: Tab[] };
+  ({ root: node, onDrop, onCreate, ...props }: MosaicTabLeafProps): JSX.Element => {
+    const { key, tabs } = node as Omit<MosaicNode, "tabs"> & { tabs: Tab[] };
 
     const [dragMask, setDragMask] = useState<Location | null>(null);
     const [currentlyDragging, setCurrentlyDragging] = useState<string | null>(null);
@@ -98,7 +106,7 @@ const MosaicTabLeaf = memo(
 
     const handleDragLeave = (): void => setDragMask(null);
 
-    const handleTabDragStart = (
+    const handleDragStart = (
       e: React.DragEvent<HTMLDivElement>,
       { tabKey }: Tab
     ): void => {
@@ -106,27 +114,26 @@ const MosaicTabLeaf = memo(
       setCurrentlyDragging(tabKey);
     };
 
-    const handleTabDragEnd = (): void => setCurrentlyDragging(null);
+    const handleDragEnd = (): void => setCurrentlyDragging(null);
+
+    const handleCreate = (): void => onCreate?.(key);
 
     return (
-      <div style={{ position: "relative", height: "100%" }}>
+      <div className={CSS.BE("mosaic", "leaf")}>
         <Tabs
-          style={{ height: "100%" }}
           tabs={tabs}
-          {...props}
           onDrop={handleDrop}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDragEnter={preventDefault}
           selected={node.selected}
-          onTabDragStart={handleTabDragStart}
-          onTabDragEnd={handleTabDragEnd}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onCreate={handleCreate}
+          {...props}
         />
         {dragMask != null && (
-          <div
-            className="pluto-mosaic__drag-mask"
-            style={dragMaskStyle[dragMask]}
-          ></div>
+          <div className={CSS.BE("mosaic", "mask")} style={maskStyle[dragMask]} />
         )}
       </div>
     );
@@ -135,7 +142,7 @@ const MosaicTabLeaf = memo(
 
 MosaicTabLeaf.displayName = "MosaicTabLeaf";
 
-const dragMaskStyle: Record<
+const maskStyle: Record<
   Location,
   { left: string; top: string; width: string; height: string }
 > = {

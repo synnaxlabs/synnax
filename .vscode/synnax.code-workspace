@@ -57,8 +57,16 @@
       "path": "../delta"
     },
     {
-      "name": "x",
-      "path": "../x"
+      "name": "x/go",
+      "path": "../x/go"
+    },
+    {
+      "name": "x/ts",
+      "path": "../x/ts"
+    },
+    {
+      "name": "x/media",
+      "path": "../x/media"
     },
     {
       "name": "tsconfig",

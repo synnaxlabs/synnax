@@ -19,11 +19,9 @@ import {
   MutableRefObject,
 } from "react";
 
-import { comparePrimitiveArrays } from "@synnaxlabs/x";
+import { comparePrimitiveArrays, toXY, XY, ZERO_XY } from "@synnaxlabs/x";
 
 import { Key, Modifier, Stage, Trigger } from "./types";
-
-import { toXY, XY, ZERO_XY } from "@/spatial";
 
 export interface TriggerEvent {
   target: HTMLElement;
@@ -170,6 +168,7 @@ export const TriggersProvider = ({
     window.addEventListener("keyup", handleKeyUp);
     window.addEventListener("mousedown", handleKeyDown);
     window.addEventListener("mouseup", handleKeyUp);
+    window.addEventListener("drop", handleKeyUp);
     window.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("dblclick", handleDoubleClick);
     return () => {

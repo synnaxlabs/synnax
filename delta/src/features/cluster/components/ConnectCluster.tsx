@@ -17,21 +17,32 @@ import type { InputSwitchProps } from "@synnaxlabs/pluto";
 import { FieldValues, useForm } from "react-hook-form";
 import { AiFillApi } from "react-icons/ai";
 import { useDispatch } from "react-redux";
-
-import type { ConnectionState } from "@/features/cluster";
-
 import { z } from "zod";
-
-import { LayoutRendererProps } from "@/features/layout";
-
-import "./ConnectCluster.css";
 
 import { setActiveCluster, setCluster } from "../store";
 import { testConnection } from "../util/testConnection";
 
 import { ConnectionStateBadge } from "./ClusterBadges";
 
+import { CSS } from "@/css";
+import type { ConnectionState } from "@/features/cluster";
+import { Layout, LayoutRendererProps } from "@/features/layout";
+
+import "./ConnectCluster.css";
+
 const formSchema = synnaxPropsSchema.extend({ name: z.string() });
+
+export const connectClusterWindowLayout: Layout = {
+  key: "connectCluster",
+  type: "connectCluster",
+  name: "Connect a Cluster",
+  location: "window",
+  window: {
+    resizable: false,
+    size: { height: 430, width: 650 },
+    navTop: true,
+  },
+};
 
 /**
  * ConnectCluster implements the LayoutRenderer component type to provide a form for
@@ -48,7 +59,6 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps): JSX.Element =>
     trigger,
     control: c,
     handleSubmit: _handleSubmit,
-    // @ts-expect-error
   } = useForm({ resolver: zodResolver(formSchema) });
 
   const handleSubmit = _handleSubmit(async (_data: FieldValues): Promise<void> => {
@@ -77,7 +87,7 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps): JSX.Element =>
   };
 
   return (
-    <Space grow>
+    <Space grow className={CSS.B("connect-cluster")}>
       <Header level="h4" divided>
         <Header.Title startIcon={<AiFillApi />}>Connect a Cluster</Header.Title>
       </Header>
@@ -85,7 +95,12 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps): JSX.Element =>
         {/* eslint-disable-next-line @typescript-eslint/no-misused-promises */}
         <form onSubmit={handleSubmit} id="connect-cluster">
           <Space>
-            <Input.ItemC name="name" placeholder="My Synnax Cluster" control={c} />
+            <Input.ItemC
+              name="name"
+              placeholder="My Synnax Cluster"
+              control={c}
+              autoFocus
+            />
             <Space direction="x">
               <Input.ItemC name="host" placeholder="localhost" control={c} grow />
               <Input.ItemC
@@ -93,7 +108,7 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps): JSX.Element =>
                 type="number"
                 placeholder="9090"
                 control={c}
-                className="delta-connect-cluster__input--port"
+                className={CSS.BE("input", "port")}
               />
             </Space>
             <Input.ItemC name="username" placeholder="Harry" control={c} />
@@ -103,7 +118,7 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps): JSX.Element =>
                 placeholder="Seldon"
                 type="password"
                 control={c}
-                className="delta-connect-cluster__input--password"
+                className={CSS.BE("input", "password")}
               />
               <Input.ItemC<boolean, boolean, InputSwitchProps>
                 name="secure"
@@ -116,10 +131,10 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps): JSX.Element =>
         </form>
       </Space>
       <Nav.Bar location="bottom" size={48}>
-        <Nav.Bar.Start className="delta-connect-cluster-footer__left">
+        <Nav.Bar.Start className={CSS.BE("footer", "start")}>
           {connState != null && <ConnectionStateBadge state={connState} />}
         </Nav.Bar.Start>
-        <Nav.Bar.End className="delta-connect-cluster-footer__right">
+        <Nav.Bar.End className={CSS.BE("footer", "end")}>
           <Button variant="text" onClick={handleTestConnection}>
             Test Connection
           </Button>

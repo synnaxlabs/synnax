@@ -12,6 +12,8 @@ import React, { createContext, ReactElement, useContext, useState } from "react"
 import { TabMeta, TabsSelector } from "./TabsSelector";
 
 import { Space, SpaceProps } from "@/core/Space";
+import { CSS } from "@/css";
+import { ComponentSize } from "@/util/component";
 import { RenderProp } from "@/util/renderProp";
 
 export interface Tab extends TabMeta {
@@ -61,15 +63,20 @@ export interface TabsContextValue {
   onSelect?: (key: string) => void;
   content?: TabRenderProp;
   onClose?: (key: string) => void;
-  onTabDragStart?: (e: React.DragEvent<HTMLDivElement>, tab: TabMeta) => void;
-  onTabDragEnd?: (e: React.DragEvent<HTMLDivElement>, tab: TabMeta) => void;
+  onDragStart?: (e: React.DragEvent<HTMLDivElement>, tab: TabMeta) => void;
+  onDragEnd?: (e: React.DragEvent<HTMLDivElement>, tab: TabMeta) => void;
   onRename?: (key: string, title: string) => void;
+  onCreate?: () => void;
 }
 
 export interface TabsProps
-  extends Omit<SpaceProps, "children" | "onSelect">,
+  extends Omit<
+      SpaceProps,
+      "children" | "onSelect" | "size" | "onDragStart" | "onDragEnd"
+    >,
     TabsContextValue {
   children?: TabRenderProp;
+  size?: ComponentSize;
 }
 
 export const TabsContext = createContext<TabsContextValue>({ tabs: [] });
@@ -84,13 +91,16 @@ export const Tabs = ({
   closable,
   tabs,
   onClose,
-  onTabDragStart,
-  onTabDragEnd,
+  onDragStart,
+  onDragEnd,
+  onCreate,
   onRename,
   emptyContent,
+  className,
+  size = "medium",
   ...props
 }: TabsProps): JSX.Element => (
-  <Space empty {...props}>
+  <Space empty className={CSS(CSS.B("tabs"), className)} {...props}>
     <TabsContext.Provider
       value={{
         tabs,
@@ -100,12 +110,13 @@ export const Tabs = ({
         content: children ?? content,
         onSelect,
         onClose,
-        onTabDragStart,
-        onTabDragEnd,
+        onDragStart,
+        onDragEnd,
         onRename,
+        onCreate,
       }}
     >
-      <TabsSelector />
+      <TabsSelector size={size} />
       <TabsContent />
     </TabsContext.Provider>
   </Space>

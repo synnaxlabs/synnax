@@ -10,12 +10,10 @@
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Mosaic, MosaicLeaf } from ".";
-
-import { UseMosaicProps, useMosaic } from "./useMosaic";
+import { Mosaic, MosaicNode, UseMosaicProps } from ".";
 
 const TestMosaic = (props: UseMosaicProps): JSX.Element => {
-  const props_ = useMosaic(props);
+  const props_ = Mosaic.use(props);
   return <Mosaic {...props_} />;
 };
 
@@ -90,7 +88,7 @@ describe("Mosaic", () => {
           tabKey: "tab3",
           name: "Tab 3",
         };
-        const tree: MosaicLeaf = {
+        const tree: MosaicNode = {
           key: 1,
           direction: "x",
           first: {
@@ -135,7 +133,7 @@ describe("Mosaic", () => {
           tabKey: "tab3",
           name: "Tab 3",
         };
-        const tree: MosaicLeaf = {
+        const tree: MosaicNode = {
           key: 1,
           direction: "x",
           first: {
@@ -149,7 +147,7 @@ describe("Mosaic", () => {
             selected: "tab2",
           },
         };
-        const nextTree = Mosaic.removeTab(tree, "tab2");
+        const [nextTree] = Mosaic.removeTab(tree, "tab2");
         expect(nextTree).toEqual({
           key: 1,
           direction: "x",
@@ -178,7 +176,7 @@ describe("Mosaic", () => {
           tabKey: "tab3",
           name: "Tab 3",
         };
-        const tree: MosaicLeaf = {
+        const tree: MosaicNode = {
           key: 1,
           direction: "x",
           first: {
@@ -192,7 +190,7 @@ describe("Mosaic", () => {
             selected: "tab2",
           },
         };
-        const nextTree = Mosaic.removeTab(tree, "tab1");
+        const [nextTree] = Mosaic.removeTab(tree, "tab1");
         expect(nextTree).toEqual({
           key: 1,
           tabs: [tabTwo, tabThree],
@@ -214,7 +212,7 @@ describe("Mosaic", () => {
           tabKey: "tab3",
           name: "Tab 3",
         };
-        const tree: MosaicLeaf = {
+        const tree: MosaicNode = {
           key: 1,
           direction: "x",
           first: {
@@ -228,7 +226,7 @@ describe("Mosaic", () => {
             selected: "tab2",
           },
         };
-        const nextTree = Mosaic.moveTab(tree, "tab2", "center", 2);
+        const [nextTree] = Mosaic.moveTab(tree, "tab2", "center", 2);
         expect(nextTree).toEqual({
           key: 1,
           direction: "x",
@@ -261,7 +259,7 @@ describe("Mosaic", () => {
           content: <h1>Tab Three Content</h1>,
         };
 
-        const initialTree: MosaicLeaf = {
+        const initialTree: MosaicNode = {
           key: 1,
           direction: "x",
           first: {
@@ -273,7 +271,7 @@ describe("Mosaic", () => {
             tabs: [tabTwo, tabThree],
           },
         };
-        const nextTree = Mosaic.moveTab(initialTree, "1", "center", 2);
+        const [nextTree] = Mosaic.moveTab(initialTree, "1", "center", 2);
         expect(nextTree).toEqual({
           key: 1,
           selected: "1",
@@ -293,7 +291,7 @@ describe("Mosaic", () => {
           tabKey: "tab2",
           name: "Tab 2",
         };
-        const tree: MosaicLeaf = {
+        const tree: MosaicNode = {
           key: 1,
           direction: "x",
           first: {
@@ -307,7 +305,7 @@ describe("Mosaic", () => {
             selected: "tab2",
           },
         };
-        const nextTree = Mosaic.resizeLeaf(tree, 2, 100);
+        const nextTree = Mosaic.resizeNode(tree, 2, 100);
         expect(nextTree).toEqual({
           key: 1,
           direction: "x",
@@ -335,7 +333,7 @@ describe("Mosaic", () => {
           tabKey: "tab2",
           name: "Tab 2",
         };
-        const tree: MosaicLeaf = {
+        const tree: MosaicNode = {
           key: 1,
           tabs: [tabOne, tabTwo],
           selected: "tab1",
@@ -358,7 +356,7 @@ describe("Mosaic", () => {
           tabKey: "tab2",
           name: "Tab 2",
         };
-        const tree: MosaicLeaf = {
+        const tree: MosaicNode = {
           key: 1,
           tabs: [tabOne, tabTwo],
           selected: "tab1",
@@ -395,7 +393,7 @@ describe("Mosaic", () => {
         content: <div>Tab 4 Content</div>,
       };
 
-      const initialTree: MosaicLeaf = {
+      const initialTree: MosaicNode = {
         key: 1,
         first: {
           key: 2,

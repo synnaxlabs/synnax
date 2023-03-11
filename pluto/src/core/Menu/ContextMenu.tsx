@@ -16,11 +16,10 @@ import {
   useState,
 } from "react";
 
-import { unique } from "@synnaxlabs/x";
-import clsx from "clsx";
+import { unique, ClientXY, toXY, XY, ZERO_XY, positionSoVisible } from "@synnaxlabs/x";
 
+import { CSS } from "@/css";
 import { useClickOutside } from "@/hooks";
-import { ClientXY, toXY, XY, ZERO_XY, positionSoVisible } from "@/spatial";
 import { RenderProp } from "@/util/renderProp";
 
 import "./ContextMenu.css";
@@ -58,14 +57,14 @@ const INITIAL_STATE: ContextMenuState = {
   xy: ZERO_XY,
 };
 
-const CONTEXT_SELECTED = "pluto-context-selected";
-const CONTEXT_TARGET = "pluto-context-target";
-const MENU_CONTEXT_CONTAINER = "pluto-menu-context__container";
+export const CONTEXT_SELECTED = CSS.BM("context", "selected");
+export const CONTEXT_TARGET = CSS.BE("context", "target");
+const CONTEXT_MENU_CONTAINER = CSS.BE("menu-context", "container");
 
 const findTarget = (target: HTMLElement): HTMLElement => {
   let candidate = target;
   while (candidate != null && !candidate.classList.contains(CONTEXT_TARGET)) {
-    if (candidate.classList.contains(MENU_CONTEXT_CONTAINER)) return target;
+    if (candidate.classList.contains(CONTEXT_MENU_CONTAINER)) return target;
     candidate = candidate.parentElement as HTMLElement;
   }
   return candidate;
@@ -147,14 +146,14 @@ const ContextMenuCore = (
 ): JSX.Element => {
   return (
     <div
-      className={clsx(MENU_CONTEXT_CONTAINER, className)}
+      className={CSS(CONTEXT_MENU_CONTAINER, className)}
       onContextMenu={open}
       {...props}
     >
       {children}
       {visible && (
         <div
-          className="pluto-menu-context pluto-bordered"
+          className={CSS(CSS.B("menu-context"), CSS.bordered())}
           ref={ref}
           style={{ left: xy.x, top: xy.y }}
           onClick={close}

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { TimeSpan, TimeStamp } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/media";
 import {
   Text,
   List,
@@ -20,7 +21,6 @@ import {
 import type { Range } from "../store";
 
 import { Menu } from "@/components";
-import { Icon } from "@/components/Icon";
 
 export const rangeListColumns: Array<ListColumn<Range>> = [
   {

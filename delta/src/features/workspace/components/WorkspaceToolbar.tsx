@@ -7,19 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Icon } from "@synnaxlabs/media";
 import { Space, Accordion } from "@synnaxlabs/pluto";
-import { AiOutlinePlus } from "react-icons/ai";
-import { MdWorkspacesFilled } from "react-icons/md";
 import { useDispatch } from "react-redux";
-
-import { ToolbarHeader, ToolbarTitle } from "@/components";
 
 import { removeRange, setActiveRange, useSelectRange, useSelectRanges } from "../store";
 
-import { Layout, NavDrawerItem, useLayoutPlacer } from "@/features/layout";
-
 import { RangesList } from "./RangesList";
 import { VisList } from "./VisList";
+
+import { ToolbarHeader, ToolbarTitle } from "@/components";
+import {
+  Layout,
+  NavDrawerItem,
+  setNavdrawerVisible,
+  useLayoutPlacer,
+} from "@/features/layout";
+import { createLineVis, VisToolbar } from "@/features/vis";
 
 const rangeWindowLayout: Layout = {
   key: "defineRange",
@@ -28,20 +32,19 @@ const rangeWindowLayout: Layout = {
   location: "window",
   window: {
     resizable: false,
-    height: 400,
-    width: 600,
+    size: { height: 400, width: 600 },
     navTop: true,
   },
 };
 
 const Content = (): JSX.Element => {
-  const openWindow = useLayoutPlacer();
+  const newLayout = useLayoutPlacer();
   const dispatch = useDispatch();
   const ranges = useSelectRanges();
   const selectedRange = useSelectRange();
 
   const handleAddOrEditRange = (key?: string): void => {
-    openWindow({
+    newLayout({
       ...rangeWindowLayout,
       key: key ?? rangeWindowLayout.key,
     });
@@ -55,10 +58,15 @@ const Content = (): JSX.Element => {
     dispatch(setActiveRange(key));
   };
 
+  const handleCreateVis = (): void => {
+    newLayout(createLineVis({}));
+    dispatch(setNavdrawerVisible({ key: VisToolbar.Key, value: true }));
+  };
+
   return (
     <Space empty style={{ height: "100%" }}>
       <ToolbarHeader>
-        <ToolbarTitle icon={<MdWorkspacesFilled />}>Workspace</ToolbarTitle>
+        <ToolbarTitle icon={<Icon.Workspace />}>Workspace</ToolbarTitle>
       </ToolbarHeader>
       <Accordion
         data={[
@@ -76,8 +84,9 @@ const Content = (): JSX.Element => {
             ),
             actions: [
               {
-                children: <AiOutlinePlus />,
+                children: <Icon.Add />,
                 onClick: () => handleAddOrEditRange(),
+                sharp: true,
               },
             ],
           },
@@ -85,6 +94,12 @@ const Content = (): JSX.Element => {
             key: "visualizations",
             name: "Visualizations",
             content: <VisList />,
+            actions: [
+              {
+                children: <Icon.Add />,
+                onClick: () => handleCreateVis(),
+              },
+            ],
           },
         ]}
       />
@@ -94,7 +109,7 @@ const Content = (): JSX.Element => {
 
 export const WorkspaceToolbar: NavDrawerItem = {
   key: "workspace",
-  icon: <MdWorkspacesFilled />,
+  icon: <Icon.Workspace />,
   content: <Content />,
   initialSize: 350,
   minSize: 250,

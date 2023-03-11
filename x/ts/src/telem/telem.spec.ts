@@ -14,7 +14,7 @@ import { DataType, Density, Rate, Size, TimeRange, TimeSpan, TimeStamp } from "@
 describe("TimeStamp", () => {
   test("construct", () => {
     const ts = new TimeStamp(1000);
-    expect(ts.equals(TimeSpan.microseconds())).toBeTruthy();
+    expect(ts.equals(TimeSpan.MICROSECOND)).toBeTruthy();
   });
 
   test("construct from TimeStamp", () => {
@@ -40,7 +40,9 @@ describe("TimeStamp", () => {
     const ts3 = new TimeStamp("12:30:00.22", "local");
     expect(
       ts3.equals(
-        TimeSpan.hours(17).add(TimeSpan.minutes(30).add(TimeSpan.milliseconds(22)))
+        TimeSpan.hours(12)
+          .add(TimeSpan.minutes(30).add(TimeSpan.milliseconds(22)))
+          .add(TimeStamp.utcOffset)
       )
     ).toBeTruthy();
   });
@@ -60,7 +62,9 @@ describe("TimeStamp", () => {
     expect(ts.date().getUTCHours()).toEqual(0);
     const ts2 = new TimeStamp("2021-01-01", "local");
     expect(ts2.date().getUTCFullYear()).toEqual(2021);
-    expect(ts2.date().getUTCHours()).toEqual(0);
+    expect(ts2.date().getUTCHours()).toEqual(
+      TimeStamp.utcOffset.valueOf() / TimeStamp.HOUR.valueOf()
+    );
     expect(ts2.date().getUTCMinutes()).toEqual(0);
   });
 

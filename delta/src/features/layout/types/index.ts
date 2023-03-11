@@ -11,6 +11,8 @@ import type { ComponentType } from "react";
 
 import { Dispatch, AnyAction } from "@reduxjs/toolkit";
 import type { WindowProps } from "@synnaxlabs/drift";
+import { Tab } from "@synnaxlabs/pluto";
+import { Location } from "@synnaxlabs/x";
 
 /** The location options for placing a layout */
 export type LayoutPlacementLocation = "window" | "mosaic";
@@ -45,6 +47,11 @@ export interface Layout {
    * location is 'mosaic', this property is ignored.
    */
   window?: LayoutWindowProps;
+  /**
+   * Properties used when the layout is placed in a tab. If the location is 'window',
+   * these properties are ignored.
+   */
+  tab?: LayoutTabProps;
 }
 
 export type RenderableLayout = Omit<Layout, "window">;
@@ -100,3 +107,12 @@ export type LayoutWindowProps = Omit<WindowProps, "key" | "url"> & {
    */
   navTop?: boolean;
 };
+
+/**
+ * The props passed to a LayoutTab. This is a subset of the properties of the
+ * Tab interface for the Tabs component. This does not apply to window layoputs.
+ */
+export interface LayoutTabProps extends Pick<Tab, "closable" | "editable"> {
+  location?: Location;
+  mosaicKey?: number;
+}

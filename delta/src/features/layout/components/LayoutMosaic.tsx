@@ -9,22 +9,25 @@
 
 import { useCallback } from "react";
 
-import type { Location } from "@synnaxlabs/pluto";
+import { Logo } from "@synnaxlabs/media";
 import { Mosaic as PlutoMosaic, useDebouncedCallback } from "@synnaxlabs/pluto";
+import type { MosaicProps } from "@synnaxlabs/pluto";
+import type { Location } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 
+import { useLayoutPlacer } from "../hooks";
 import {
   useSelectMosaic,
   moveLayoutMosaicTab,
-  deleteLayoutMosaicTab,
   selectLayoutMosaicTab,
   resizeLayoutMosaicTab,
   renameLayoutMosaicTab,
+  removeLayout,
 } from "../store";
 
-import { Logo } from "@/components";
-
 import { LayoutContent } from "./LayoutContent";
+
+import { createLineVis } from "@/features/vis/components/line/types";
 
 const emptyContent = <Logo.Watermark />;
 
@@ -32,6 +35,7 @@ const emptyContent = <Logo.Watermark />;
 export const LayoutMosaic = (): JSX.Element => {
   const dispatch = useDispatch();
   const mosaic = useSelectMosaic();
+  const placer = useLayoutPlacer();
 
   const handleDrop = useCallback(
     (key: number, tabKey: string, loc: Location): void => {
@@ -42,7 +46,7 @@ export const LayoutMosaic = (): JSX.Element => {
 
   const handleClose = useCallback(
     (tabKey: string): void => {
-      dispatch(deleteLayoutMosaicTab({ tabKey }));
+      dispatch(removeLayout(tabKey));
     },
     [dispatch]
   );
@@ -62,11 +66,18 @@ export const LayoutMosaic = (): JSX.Element => {
   );
 
   const handleResize = useDebouncedCallback(
-    (key: number, size: number) => {
+    (key, size) => {
       dispatch(resizeLayoutMosaicTab({ key, size }));
     },
     100,
     [dispatch]
+  );
+
+  const handleCreate = useCallback(
+    (mosaicKey: number) => {
+      placer(createLineVis({ tab: { mosaicKey } }));
+    },
+    [placer]
   );
 
   return (
@@ -78,6 +89,8 @@ export const LayoutMosaic = (): JSX.Element => {
       onResize={handleResize}
       emptyContent={emptyContent}
       onRename={handleRename}
+      onCreate={handleCreate}
+      size="small"
     >
       {(tab) => <LayoutContent layoutKey={tab.tabKey} />}
     </PlutoMosaic>

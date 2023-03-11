@@ -1,0 +1,46 @@
+/*
+ * Copyright 2023 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.delta-main-nav-top__start {
+    padding: 1rem 2rem;
+}
+
+.delta-main:not(.delta-main--windows) .delta-main-nav-top__end {
+    padding: 0 2rem;
+}
+
+.delta-main-nav-left__start {
+    padding: 2rem 1rem;
+}
+
+.delta-main-nav-left__end {
+    padding: 2rem 1rem;
+}
+
+.delta-main-nav-bottom__end {
+    padding: 0 2rem;
+}
+
+.delta-main-nav-bottom__start {
+    padding: 0 3rem;
+}
+
+.delta-main-nav-drawer--x {
+    overflow-x: hidden;
+}
+
+.delta-main-nav-drawer {
+    flex: 0 0 auto;
+}
+
+.delta-main-nav__content {
+    padding: 2.5rem 0;
+}

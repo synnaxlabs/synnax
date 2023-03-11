@@ -9,14 +9,13 @@
 
 import { ReactElement, RefObject } from "react";
 
-import clsx from "clsx";
-import { AiFillCaretDown, AiFillCaretRight } from "react-icons/ai";
+import { Icon } from "@synnaxlabs/media";
+import { Box, Direction } from "@synnaxlabs/x";
 
 import { ButtonIconProps } from "@/core/Button";
 import { Header } from "@/core/Header";
 import { Resize, ResizeMultipleProps } from "@/core/Resize";
-import { expandedCls } from "@/css";
-import { Box, Direction } from "@/spatial";
+import { CSS } from "@/css";
 
 import "./Accordion.css";
 
@@ -57,7 +56,7 @@ const DEFAULT_EXPAND_SIZE = 0.5;
 
 /**
  * A resizable accordion component, whose entries can be expanded and collapsed. This
- * component is intentionally constrained in its interface in order to provide stylistic
+ * component is intentionally opinionated in its interface in order to provide stylistic
  * consistency and simplicity. If you need more control, look at building a custom
  * accordion component using {@link Resize.Multiple}.
  *
@@ -87,7 +86,7 @@ export const Accordion = ({ data, ...props }: AccordionProps): JSX.Element => {
   return (
     <Resize.Multiple
       empty
-      className="pluto-accordion"
+      className={CSS.B("accordion")}
       sizeDistribution={sizes}
       ref={ref}
       {...props}
@@ -130,19 +129,21 @@ const AccordionEntryC = ({
     const parentSize = new Box(parent.current).dim(DIRECTION);
     expanded = size * parentSize > COLLAPSED_THRESHOLD;
   }
+  const icon = expanded ? (
+    <Icon.Caret.Down aria-label="contract" />
+  ) : (
+    <Icon.Caret.Right aria-label="expand" />
+  );
   return (
     <>
       <Header
         level="p"
-        className={clsx("pluto-accordion__header", expandedCls(expanded))}
+        className={CSS(CSS.BE("accordion", "header"), CSS.expanded(expanded))}
         empty
       >
-        <Header.ButtonTitle
-          startIcon={expanded ? <AiFillCaretDown /> : <AiFillCaretRight />}
-          onClick={() => onExpand(index)}
-        >
+        <Header.Title.Button startIcon={icon} onClick={() => onExpand(index)}>
           {name}
-        </Header.ButtonTitle>
+        </Header.Title.Button>
         {actions != null && <Header.Actions>{actions}</Header.Actions>}
       </Header>
       {content}
