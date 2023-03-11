@@ -11,7 +11,7 @@ import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
 import { Mosaic, Theming } from "@synnaxlabs/pluto";
 import type { MosaicNode, Theme } from "@synnaxlabs/pluto";
-import { Location } from "@synnaxlabs/x";
+import { DeepKey, Location } from "@synnaxlabs/x";
 
 import { Layout } from "../types";
 
@@ -115,7 +115,7 @@ const INITIAL_STATE: LayoutState = {
 
 export const LAYOUT_PERSIST_EXCLUDE = ["alreadyCheckedGetStarted"].map(
   (key) => `${LAYOUT_SLICE_NAME}.${key}`
-);
+) as Array<DeepKey<LayoutStoreState>>;
 
 /** Signature for the placeLayut action. */
 export type PlaceLayoutPayload = Layout;
@@ -161,7 +161,6 @@ export const {
     removeLayout,
     toggleActiveTheme,
     setActiveTheme,
-    deleteLayoutMosaicTab,
     moveLayoutMosaicTab,
     selectLayoutMosaicTab,
     resizeLayoutMosaicTab,
@@ -220,25 +219,21 @@ export const {
       if (layout == null) return;
       const { location } = layout;
 
-      if (location === "mosaic")
-        state.mosaic.root = Mosaic.removeTab(state.mosaic.root, contentKey);
+      if (location === "mosaic") {
+        [state.mosaic.root, state.mosaic.activeTab] = Mosaic.removeTab(
+          state.mosaic.root,
+          contentKey
+        );
+      }
 
       // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
       delete state.layouts[contentKey];
-    },
-    deleteLayoutMosaicTab: (
-      state,
-      { payload: { tabKey } }: PayloadAction<DeleteLayoutMosaicTabPayload>
-    ) => {
-      state.mosaic.root = Mosaic.removeTab(state.mosaic.root, tabKey);
-      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-      delete state.layouts[tabKey];
     },
     moveLayoutMosaicTab: (
       state,
       { payload: { tabKey, key, loc } }: PayloadAction<MoveLayoutMosaicTabPayload>
     ) => {
-      state.mosaic.root = Mosaic.moveTab(state.mosaic.root, tabKey, loc, key);
+      [state.mosaic.root] = Mosaic.moveTab(state.mosaic.root, tabKey, loc, key);
     },
     selectLayoutMosaicTab: (
       state,

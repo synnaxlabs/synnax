@@ -12,23 +12,25 @@ import { Dimensions, XY } from "@synnaxlabs/x";
 
 import { Event, Runtime } from "@/runtime";
 import { StoreState } from "@/state";
-import { LabeledWindowProps, WindowProps } from "@/window";
+import { WindowProps } from "@/window";
 
 export class MockRuntime<S extends StoreState, A extends Action = AnyAction>
   implements Runtime<S, A>
 {
   _isMain = false;
+  _label = "mock";
   markedReady = false;
   hasClosed: string[] = [];
   emissions: Array<Event<S, A>> = [];
-  hasCreated: LabeledWindowProps[] = [];
+  hasCreated: Record<string, Omit<WindowProps, "key">> = {};
   subscribeCallback: (event: Event<S, A>) => void = () => {};
   requestClosure: () => void = () => {};
-  props: LabeledWindowProps;
+  props: WindowProps;
 
   constructor(isMain: boolean, initialProps: WindowProps = { key: "mock" }) {
     this._isMain = isMain;
-    this.props = { label: "mock", ...initialProps };
+    this.props = { ...initialProps };
+    this._label = initialProps.key;
   }
 
   isMain(): boolean {
@@ -36,11 +38,12 @@ export class MockRuntime<S extends StoreState, A extends Action = AnyAction>
   }
 
   label(): string {
-    return this.props.label;
+    return this._label;
   }
 
-  emit(event: Omit<Event<S, A>, "emitter">, to?: string): void {
+  async emit(event: Omit<Event<S, A>, "emitter">, to?: string): Promise<void> {
     this.emissions.push({ ...event, emitter: this.label() });
+    return await Promise.resolve();
   }
 
   subscribe(lis: (event: Event<S, A>) => void): void {
@@ -57,8 +60,9 @@ export class MockRuntime<S extends StoreState, A extends Action = AnyAction>
 
   // |||||| MANAGER IMPLEMENTATION ||||||
 
-  create(props: LabeledWindowProps): void {
-    this.hasCreated.push(props);
+  async create(label: string, props: Omit<WindowProps, "key">): Promise<void> {
+    this.hasCreated[label] = props;
+    return await Promise.resolve();
   }
 
   async close(key: string): Promise<void> {
@@ -111,7 +115,7 @@ export class MockRuntime<S extends StoreState, A extends Action = AnyAction>
   }
 
   async setMaxSize(dims: Dimensions): Promise<void> {
-    this.props.minSize = dims;
+    this.props.maxSize = dims;
     return await Promise.resolve();
   }
 

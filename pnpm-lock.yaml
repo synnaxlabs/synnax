@@ -453,8 +453,11 @@ importers:
       '@synnaxlabs/vite-plugin': workspace:*
       '@types/node': ^18.11.18
       eslint-config-synnaxlabs: workspace:*
+      js-convert-case: ^4.2.0
       vite: ^4.0.4
       vitest: ^0.27.1
+    dependencies:
+      js-convert-case: 4.2.0
     devDependencies:
       '@synnaxlabs/tsconfig': link:../../configs/ts
       '@synnaxlabs/vite-plugin': link:../../configs/vite

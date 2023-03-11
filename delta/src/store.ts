@@ -14,6 +14,7 @@ import {
   configureStore,
   DRIFT_SLICE_NAME,
 } from "@synnaxlabs/drift";
+import { DeepKey } from "@synnaxlabs/x";
 import { appWindow } from "@tauri-apps/api/window";
 
 import { clusterReducer, CLUSTER_SLICE_NAME } from "@/features/cluster";
@@ -23,18 +24,15 @@ import {
   LAYOUT_PERSIST_EXCLUDE,
   LAYOUT_SLICE_NAME,
 } from "@/features/layout";
-import {
-  TauriKV,
-  newPreloadState as preloadState,
-  newPersistStateMiddleware,
-} from "@/features/persist";
+import { openPersist } from "@/features/persist";
 import { versionReducer, VERSION_SLICE_NAME } from "@/features/version";
 import { VISUALIZATION_SLICE_NAME, visualizationReducer } from "@/features/vis";
 import { workspaceReducer, WORKSPACE_SLICE_NAME } from "@/features/workspace";
 
-const db = new TauriKV<RootState>();
-
-const PERSIST_EXCLUDE = [DRIFT_SLICE_NAME, ...LAYOUT_PERSIST_EXCLUDE];
+const PERSIST_EXCLUDE: Array<DeepKey<RootState>> = [
+  DRIFT_SLICE_NAME,
+  ...LAYOUT_PERSIST_EXCLUDE,
+];
 
 const reducer = combineReducers({
   [DRIFT_SLICE_NAME]: driftReducer,
@@ -49,12 +47,16 @@ const reducer = combineReducers({
 /** The root state of the application.   */
 export type RootState = ReturnType<typeof reducer>;
 
-export const store = configureStore<ReturnType<typeof reducer>>({
-  runtime: new TauriRuntime(appWindow),
-  preloadedState: preloadState(db),
-  middleware: (def) => [
-    ...def(),
-    newPersistStateMiddleware({ db, exclude: PERSIST_EXCLUDE }),
-  ],
-  reducer,
-});
+export type Store = Awaited<ReturnType<typeof configureStore<RootState>>>;
+
+export const newStore = async (): Promise<Store> => {
+  const [preloadedState, persistMiddleware] = await openPersist<RootState>({
+    exclude: PERSIST_EXCLUDE,
+  });
+  return await configureStore({
+    runtime: new TauriRuntime(appWindow),
+    preloadedState,
+    middleware: (def) => [...def(), persistMiddleware],
+    reducer,
+  });
+};

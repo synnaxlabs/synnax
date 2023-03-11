@@ -10,24 +10,26 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 
-import { CoreTextProps, Text } from "./Text";
+import { InputControl } from "../Input";
+
+import { Text, TextProps } from "./Text";
 import { TypographyLevel } from "./types";
 
 import { CSS } from "@/css";
 
 import "./TextEditable.css";
 
-export interface TextEditableProps<L extends TypographyLevel = "h1">
-  extends CoreTextProps<L> {
-  /* The handler to call when the text changes */
-  onChange?: (newText: string) => void;
-}
+export type TextEditableProps<L extends TypographyLevel = "h1"> = Omit<
+  TextProps<L>,
+  "children" | "onChange"
+> &
+  InputControl<string>;
 
 const NOMINAL_EXIT_KEYS = ["Escape", "Enter"];
 
 export const TextEditable = <L extends TypographyLevel = "h1">({
   onChange,
-  children,
+  value,
   ...props
 }: TextEditableProps<L>): JSX.Element => {
   const [editable, setEditable] = useState(false);
@@ -56,7 +58,7 @@ export const TextEditable = <L extends TypographyLevel = "h1">({
 
   useLayoutEffect(() => {
     if (ref.current == null || editable) return;
-    ref.current.innerHTML = children as string;
+    ref.current.innerHTML = value;
   });
 
   return (
@@ -71,7 +73,7 @@ export const TextEditable = <L extends TypographyLevel = "h1">({
       suppressContentEditableWarning
       {...props}
     >
-      {children}
+      {value}
     </Text>
   );
 };

@@ -129,3 +129,9 @@ export const selectNavDrawer = (
 
 export const useSelectNavDrawer = (loc: NavdrawerLocation): NavdrawerEntryState =>
   useMemoSelect((state: LayoutStoreState) => selectNavDrawer(state, loc), [loc]);
+
+export const selectActiveMosaicTabKey = (state: LayoutStoreState): string | null =>
+  selectLayoutState(state).mosaic.activeTab;
+
+export const useSelectActiveMosaicTabKey = (): string | null =>
+  useMemoSelect(selectActiveMosaicTabKey, []);

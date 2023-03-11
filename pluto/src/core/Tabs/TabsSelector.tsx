@@ -185,8 +185,7 @@ const TabName = ({
     <Text.Editable<"p">
       level="p"
       onChange={(newText: string) => onRename(tabKey, newText)}
-    >
-      {name}
-    </Text.Editable>
+      value={name}
+    />
   );
 };

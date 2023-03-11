@@ -50,8 +50,10 @@ export type DateComponents = [number?, number?, number?];
  * @example ts = new TimeStamp("2021-01-01T12:30:00Z") // 1/1/2021 at 12:30pm UTC
  */
 export class TimeStamp extends Number {
-  constructor(value: UnparsedTimeStamp, tzInfo: TZInfo = "UTC") {
-    if (value instanceof Date) super(value.getTime() * TimeStamp.MILLISECOND.valueOf());
+  constructor(value?: UnparsedTimeStamp, tzInfo: TZInfo = "UTC") {
+    if (value == null) return TimeStamp.now();
+    else if (value instanceof Date)
+      super(value.getTime() * TimeStamp.MILLISECOND.valueOf());
     else if (typeof value === "string")
       super(TimeStamp.parseDateTimeString(value, tzInfo).valueOf());
     else if (Array.isArray(value)) super(TimeStamp.parseDate(value));
@@ -87,10 +89,9 @@ export class TimeStamp extends Number {
     if (!str.includes("/") && !str.includes("-"))
       return TimeStamp.parseTimeString(str, tzInfo);
     const d = new Date(str);
-    if (!str.includes(":")) {
-      tzInfo = "UTC";
-      d.setUTCHours(0, 0, 0, 0);
-    }
+    // Essentialy to note that this makes the date midnight in UTC! Not local!
+    // As a result, we need to add the tzInfo offset back in.
+    if (!str.includes(":")) d.setUTCHours(0, 0, 0, 0);
     return new TimeStamp(
       d.getTime() * TimeStamp.MILLISECOND.valueOf(),
       tzInfo

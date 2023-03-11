@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Direction, Location, Order } from "@synnaxlabs/x";
+
 import { MosaicNode } from "./types";
 
 import { Tab, Tabs } from "@/core/Tabs";
-import { Direction, Location, Order } from "@synnaxlabs/x";
 
 const TabNotFound = new Error("Tab not found");
 const InvalidMosaic = new Error("Invalid Mosaic");
@@ -71,20 +72,43 @@ const insertAnywhere = (node: MosaicNode, tab: Tab): MosaicNode => {
   return node;
 };
 
-export const autoSelectTabs = (root: MosaicNode): MosaicNode => {
-  // recursively iterate through mosaic and call Tabs.resetSelection on each nodes tabs
-  if (root.tabs != null) root.selected = Tabs.resetSelection(root.selected, root.tabs);
-  if (root.first != null) autoSelectTabs(root.first);
-  if (root.last != null) autoSelectTabs(root.last);
-  return shallowCopyNode(root);
+export const autoSelectTabs = (root: MosaicNode): [MosaicNode, string[]] => {
+  const selected: string[] = [];
+  if (root.tabs != null) {
+    root.selected = Tabs.resetSelection(root.selected, root.tabs);
+    if (root.selected != null) selected.push(root.selected);
+  }
+  if (root.first != null) {
+    const [f, s] = autoSelectTabs(root.first);
+    root.first = f;
+    selected.push(...s);
+  }
+  if (root.last != null) {
+    const [r, l] = autoSelectTabs(root.last);
+    root.last = r;
+    selected.push(...l);
+  }
+  return [shallowCopyNode(root), selected];
 };
 
-export const removeMosaicTab = (root: MosaicNode, tabKey: string): MosaicNode => {
+export const removeMosaicTab = (
+  root: MosaicNode,
+  tabKey: string
+): [MosaicNode, string | null] => {
   const [, node] = findMosaicTab(root, tabKey);
   if (node == null) throw TabNotFound;
   node.tabs = node.tabs?.filter((t) => t.tabKey !== tabKey);
   node.selected = Tabs.resetSelection(node.selected, node.tabs);
-  return shallowCopyNode(gc(root));
+  const gced = gc(root);
+  const selected = node.selected ?? findSelected(root);
+  return [shallowCopyNode(gced), selected];
+};
+
+export const findSelected = (root: MosaicNode): string | null => {
+  if (root.selected != null) return root.selected;
+  if (root.first != null) return findSelected(root.first);
+  if (root.last != null) return findSelected(root.last);
+  return null;
 };
 
 export const selectMosaicTab = (root: MosaicNode, tabKey: string): MosaicNode => {
@@ -99,12 +123,12 @@ export const moveMosaicTab = (
   tabKey: string,
   loc: Location,
   to: number
-): MosaicNode => {
+): [MosaicNode, string | null] => {
   const [tab, entry] = findMosaicTab(root, tabKey);
   if (tab == null || entry == null) throw TabNotFound;
-  const r2 = removeMosaicTab(root, tabKey);
+  const [r2, selected] = removeMosaicTab(root, tabKey);
   const r3 = insertMosaicTab(r2, tab, loc, to);
-  return shallowCopyNode(r3);
+  return [shallowCopyNode(r3), selected];
 };
 
 export const resizeMosaicNode = (
@@ -133,7 +157,8 @@ export const renameMosaicTab = (
 const findNodeOrAncestor = (root: MosaicNode, key: number): MosaicNode => {
   const node = findMosaicNode(root, key);
   if (node != null) return node;
-  return findNodeOrAncestor(root, Math.floor(key / 2));
+  const next = Math.floor(key / 2);
+  return next === 0 ? root : findNodeOrAncestor(root, next);
 };
 
 const gc = (root: MosaicNode): MosaicNode => {

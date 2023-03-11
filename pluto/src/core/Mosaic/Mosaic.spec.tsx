@@ -147,7 +147,7 @@ describe("Mosaic", () => {
             selected: "tab2",
           },
         };
-        const nextTree = Mosaic.removeTab(tree, "tab2");
+        const [nextTree] = Mosaic.removeTab(tree, "tab2");
         expect(nextTree).toEqual({
           key: 1,
           direction: "x",
@@ -190,7 +190,7 @@ describe("Mosaic", () => {
             selected: "tab2",
           },
         };
-        const nextTree = Mosaic.removeTab(tree, "tab1");
+        const [nextTree] = Mosaic.removeTab(tree, "tab1");
         expect(nextTree).toEqual({
           key: 1,
           tabs: [tabTwo, tabThree],
@@ -226,7 +226,7 @@ describe("Mosaic", () => {
             selected: "tab2",
           },
         };
-        const nextTree = Mosaic.moveTab(tree, "tab2", "center", 2);
+        const [nextTree] = Mosaic.moveTab(tree, "tab2", "center", 2);
         expect(nextTree).toEqual({
           key: 1,
           direction: "x",
@@ -271,7 +271,7 @@ describe("Mosaic", () => {
             tabs: [tabTwo, tabThree],
           },
         };
-        const nextTree = Mosaic.moveTab(initialTree, "1", "center", 2);
+        const [nextTree] = Mosaic.moveTab(initialTree, "1", "center", 2);
         expect(nextTree).toEqual({
           key: 1,
           selected: "1",

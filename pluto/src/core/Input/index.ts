@@ -15,6 +15,7 @@ import { InputLabel } from "./InputLabel";
 import { InputNumber } from "./InputNumber";
 import { InputSwitch } from "./InputSwitch";
 import { InputTime } from "./InputTime";
+import { parseDateAndTimeInput } from "./time";
 export type { InputControl, InputBaseProps } from "./types";
 export type { InputItemProps, InputItemControlledProps } from "./InputItem";
 export type { InputProps } from "./Input";
@@ -23,6 +24,7 @@ export type { InputTimeProps } from "./InputTime";
 export type { InputLabelProps } from "./InputLabel";
 export type { InputSwitchProps } from "./InputSwitch";
 export type { InputHelpTextProps } from "./InputHelpText";
+export type { InputNumberProps } from "./InputNumber";
 
 type CoreInputType = typeof CoreInput;
 
@@ -35,6 +37,7 @@ interface InputType extends CoreInputType {
   HelpText: typeof InputHelpText;
   Item: typeof InputItem;
   ItemC: typeof InputItemControlled;
+  combineDateAndTimeValue: typeof parseDateAndTimeInput;
 }
 
 export const Input = CoreInput as InputType;
@@ -47,3 +50,4 @@ Input.Item = InputItem;
 Input.ItemC = InputItemControlled;
 Input.Switch = InputSwitch;
 Input.Number = InputNumber;
+Input.combineDateAndTimeValue = parseDateAndTimeInput;

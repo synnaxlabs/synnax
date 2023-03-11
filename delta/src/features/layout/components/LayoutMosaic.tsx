@@ -19,10 +19,10 @@ import { useLayoutPlacer } from "../hooks";
 import {
   useSelectMosaic,
   moveLayoutMosaicTab,
-  deleteLayoutMosaicTab,
   selectLayoutMosaicTab,
   resizeLayoutMosaicTab,
   renameLayoutMosaicTab,
+  removeLayout,
 } from "../store";
 
 import { LayoutContent } from "./LayoutContent";
@@ -46,7 +46,7 @@ export const LayoutMosaic = (): JSX.Element => {
 
   const handleClose = useCallback(
     (tabKey: string): void => {
-      dispatch(deleteLayoutMosaicTab({ tabKey }));
+      dispatch(removeLayout(tabKey));
     },
     [dispatch]
   );
@@ -65,7 +65,7 @@ export const LayoutMosaic = (): JSX.Element => {
     [dispatch]
   );
 
-  const handleResize: MosaicProps["onResize"] = useDebouncedCallback(
+  const handleResize = useDebouncedCallback(
     (key, size) => {
       dispatch(resizeLayoutMosaicTab({ key, size }));
     },
@@ -73,15 +73,9 @@ export const LayoutMosaic = (): JSX.Element => {
     [dispatch]
   );
 
-  const handleCreate: MosaicProps["onCreate"] = useCallback(
-    (mosaicKey) => {
-      placer(
-        createLineVis({
-          tab: {
-            mosaicKey,
-          },
-        })
-      );
+  const handleCreate = useCallback(
+    (mosaicKey: number) => {
+      placer(createLineVis({ tab: { mosaicKey } }));
     },
     [placer]
   );

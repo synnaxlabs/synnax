@@ -29,8 +29,11 @@ const buttonToggleFactory =
         {...props}
         checked={value}
         onClick={() => props.onChange(!value)}
-        className={CSS(CSS.B("btn-toggle"), props.className)}
-        ariaChecked={value}
+        className={CSS(
+          CSS.B("btn-toggle"),
+          value && CSS.BM("btn-toggle", "checked"),
+          props.className
+        )}
         variant={value ? props.variant : "outlined"}
       />
     );

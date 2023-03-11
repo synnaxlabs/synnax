@@ -14,7 +14,7 @@ import { DataType, Density, Rate, Size, TimeRange, TimeSpan, TimeStamp } from "@
 describe("TimeStamp", () => {
   test("construct", () => {
     const ts = new TimeStamp(1000);
-    expect(ts.equals(TimeSpan.microseconds())).toBeTruthy();
+    expect(ts.equals(TimeSpan.MICROSECOND)).toBeTruthy();
   });
 
   test("construct from TimeStamp", () => {

@@ -119,5 +119,9 @@ export const MacOSControls = ({
 interface MacOSTrafficLightProps extends ButtonIconProps {}
 
 const TrafficLight = ({ className, ...props }: MacOSTrafficLightProps): JSX.Element => (
-  <Button.Icon className={CSS(CSS.B("macos-control"), className)} {...props} />
+  <Button.Icon
+    className={CSS(CSS.B("macos-control"), className)}
+    tabIndex={-1}
+    {...props}
+  />
 );

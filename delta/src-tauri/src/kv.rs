@@ -49,7 +49,7 @@ pub fn open() -> Result<Db, String> {
     path.push(".synnax");
     path.push("delta");
     path.push("data");
-    match sled::open(path) {
+    return match sled::open(path) {
         Ok(db) => Ok(db),
         Err(e) => Err(e.to_string()),
     }

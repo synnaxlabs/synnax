@@ -75,8 +75,8 @@ export const DefineRange = ({
     endDate,
     endTime,
   }: DefineRangeFormProps): void => {
-    const start = startDate + startTime;
-    const end = endDate + endTime;
+    const start = Input.combineDateAndTimeValue(startDate, startTime);
+    const end = Input.combineDateAndTimeValue(endDate, endTime);
     name = name.trim();
     if (name.length === 0) name = range?.name as string;
     const key = range?.key ?? name.replace(/\s/g, "").toLowerCase();
@@ -100,7 +100,7 @@ export const DefineRange = ({
         id="define-range"
       >
         <Space grow className="delta-form" size="small">
-          <Input.ItemC control={control} name="name" />
+          <Input.ItemC control={control} name="name" autoFocus />
           <Space direction="x">
             <Input.ItemC<number, number, InputDateProps, DefineRangeFormProps>
               name="startDate"

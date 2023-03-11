@@ -95,7 +95,7 @@ export const NavLeft = (): JSX.Element => {
   const os = useOS();
   return (
     <Nav.Bar location="left" size={NAV_SIZES.side}>
-      {os != "Windows" && (
+      {os !== "Windows" && (
         <Nav.Bar.Start className="delta-main-nav-left__start" bordered>
           <Logo className="delta-main-nav-left__logo" />
         </Nav.Bar.Start>

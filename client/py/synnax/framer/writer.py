@@ -27,6 +27,7 @@ from synnax.channel.retrieve import ChannelRetriever
 from synnax.exceptions import Field, GeneralError, ValidationError
 from synnax.telem import TimeSpan, TimeStamp, UnparsedTimeStamp, NumpyArray
 from synnax.framer.payload import BinaryFrame, NumpyFrame
+from synnax.util.flatten import flatten
 
 
 class _Command(int, Enum):
@@ -100,10 +101,10 @@ class FrameWriter:
     keys: list[str]
     start: UnparsedTimeStamp
 
-    def __init__(self, client: StreamClient, start: UnparsedTimeStamp, *keys: list[str]) -> None:
+    def __init__(self, client: StreamClient, start: UnparsedTimeStamp, *keys: str  | list[str]) -> None:
         self.client = client
         self.start = start
-        self.keys = keys
+        self.keys = flatten(*keys)
         self._open()
 
     def _open(self):
@@ -258,7 +259,8 @@ class DataFrameWriter(FrameWriter, io.DataFrameWriter):
         suppress_warnings: bool = False,
     ) -> None:
         self._channel_retriever = channels
-        self._channels = self._channel_retriever.retrieve(*keys_or_names)
+        flat = flatten(*keys_or_names)
+        self._channels = self._channel_retriever.retrieve(flat)
         super().__init__(client, start, [ch.key for ch in self._channels])
         self._strict = strict
         self._suppress_warnings = suppress_warnings

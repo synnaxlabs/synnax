@@ -17,7 +17,7 @@ import { ControlledLineVisProps } from "../line/controls/types";
 import { VisIcon, VisToolbarTitle } from "./VisToolbarTitle";
 
 import { ToolbarHeader } from "@/components";
-import { NavDrawerItem } from "@/features/layout";
+import { NavdrawerItem } from "@/features/layout";
 
 const NoVisContent = (): JSX.Element => (
   <Space justify="spaceBetween" style={{ height: "100%" }} empty>
@@ -36,6 +36,7 @@ const NoVisContent = (): JSX.Element => (
 
 const Content = (): JSX.Element => {
   const controlled = useControlledVis<Vis>();
+  console.log(controlled);
   if (controlled == null) return <NoVisContent />;
 
   switch (controlled.vis.variant) {
@@ -44,7 +45,7 @@ const Content = (): JSX.Element => {
   }
 };
 
-export const VisToolbar: NavDrawerItem = {
+export const VisToolbar: NavdrawerItem = {
   key: "visualization",
   content: <Content />,
   icon: <VisIcon />,

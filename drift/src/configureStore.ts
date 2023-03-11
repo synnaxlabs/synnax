@@ -83,9 +83,9 @@ export const configureStore = async <
     middleware: configureMiddleware(middleware, runtime, debug),
   });
 
-  syncInitial(store.getState().drift, store.dispatch, runtime, debug);
+  await syncInitial(store.getState().drift, runtime, debug);
   store.dispatch(setWindowLabel({ label: runtime.label() }));
-  store.dispatch(setWindowStage({ stage: "created", key: runtime.label() }));
+  store.dispatch(setWindowStage({ stage: "created" }));
   runtime.onCloseRequested(() => store?.dispatch(closeWindow({})));
   if (runtime.isMain()) void runtime.setVisible(true);
 

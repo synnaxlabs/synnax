@@ -27,8 +27,9 @@ export interface ProviderProps<
   M extends Middlewares<S> = Middlewares<S>,
   E extends Enhancers = Enhancers
 > extends Omit<BaseProps<A, S>, "store"> {
-  store: Promise<EnhancedStore<S, A, M, E>>;
-  emptyContent?: JSX.Element;
+  store: Promise<EnhancedStore<S, A, M, E>> | EnhancedStore<S, A, M, E>;
+  emptyContent?: JSX.Element | null;
+  errorContent?: (error: Error) => JSX.Element;
 }
 
 /**
@@ -45,15 +46,21 @@ export const DriftProvider = <
   M extends Middlewares<S> = Middlewares<S>,
   E extends Enhancers = Enhancers
 >({
-  store: promise,
-  emptyContent,
+  store: storeOrPromise,
+  errorContent,
+  emptyContent = null,
   children,
 }: ProviderProps<S, A, M, E>): ReactElement | null => {
   const [store, setStore] = useState<EnhancedStore<S, A, M, E> | null>(null);
+  const [error, setError] = useState<Error | null>(null);
   useEffect(() => {
-    promise.then((s) => setStore(s)).catch(console.error);
+    // if the store isn't a promise, then it's already ready
+    if (!(storeOrPromise instanceof Promise)) setStore(storeOrPromise);
+    else storeOrPromise.then((s) => setStore(s)).catch((e) => setError(e));
   }, []);
-  if (store == null) return null;
+  if (error != null)
+    return errorContent?.(error) ?? createElement("h1", {}, error.message);
+  if (store == null) return emptyContent;
   // @ts-expect-error
   return createElement(Provider<A, S>, { store }, children);
 };

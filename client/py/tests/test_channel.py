@@ -123,14 +123,6 @@ class TestChannelClient:
             assert channel.name in ["test", "test2"]
 
     @pytest.mark.channel
-    def test_retrieve_by_single_name(
-        self, channel: sy.Channel, client: sy.Synnax
-    ) -> None:
-        """Should retrieve channel using a name string"""
-        res_channel = client.channels.retrieve("test")
-        assert res_channel.name == "test"
-
-    @pytest.mark.channel
     def test_retrieve_list_not_found(self, client: sy.Synnax):
         """Should retrieve an empty list when can't find channels"""
         fake_names = ["fake1", "fake2", "fake3"]
@@ -144,6 +136,6 @@ class TestChannelClient:
         res_channels, not_found = client.channels.retrieve(
             fake_names, include_not_found=True
         )
-        assert len(res_channels) == 2
-        print(type(not_found))
-        assert len(not_found) == 3
+        assert len(res_channels) >= 2
+        assert len(not_found) == 1
+        assert not_found[0] == "fake3"

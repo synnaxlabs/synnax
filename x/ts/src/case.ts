@@ -9,11 +9,21 @@
 
 import { camelKeys as _camelKeys, snakeKeys as _snakeKeys } from "js-convert-case";
 
+import { UnknownRecord } from "./record";
+
 const options = {
   recursive: true,
   recursiveInArray: true,
   keepTypesOnRecursion: [Number, String, Uint8Array],
 };
 
-export const snakeKeys = (entity: unknown): unknown => _snakeKeys(entity, options);
-export const camelKeys = (entity: unknown): unknown => _camelKeys(entity, options);
+const snakeKeys = <T>(entity: T): Record<string, T[keyof T]> =>
+  _snakeKeys(entity, options) as Record<string, T[keyof T]>;
+
+const camelKeys = <T extends UnknownRecord<T>>(entity: T): Record<string, T[keyof T]> =>
+  _camelKeys(entity, options) as Record<string, T[keyof T]>;
+
+export const Case = {
+  toSnake: snakeKeys,
+  toCamel: camelKeys,
+};

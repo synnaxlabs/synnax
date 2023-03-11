@@ -29,12 +29,13 @@ export const initialState: VisualizationState = {
 };
 
 type SetVisAction = PayloadAction<Vis>;
+type RemoveVisAction = PayloadAction<string>;
 type UpdateVisAction = PayloadAction<Omit<DeepPartial<Vis>, "key"> & { key: string }>;
 
 export const VISUALIZATION_SLICE_NAME = "visualization";
 
 export const {
-  actions: { setVis, updateVis },
+  actions: { setVis, updateVis, removeVis },
   reducer: visualizationReducer,
 } = createSlice({
   name: VISUALIZATION_SLICE_NAME,
@@ -47,6 +48,10 @@ export const {
       const vis = state.visualizations[payload.key];
       const res = Deep.merge(vis, payload);
       state.visualizations[payload.key] = res;
+    },
+    removeVis: (state, { payload }: RemoveVisAction) => {
+      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+      delete state.visualizations[payload.key];
     },
   },
 });

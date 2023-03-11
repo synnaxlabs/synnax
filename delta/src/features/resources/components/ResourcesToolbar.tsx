@@ -14,17 +14,15 @@ import type { OntologyResource } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import type { TreeLeaf } from "@synnaxlabs/pluto";
 import { Tree, Space } from "@synnaxlabs/pluto";
-
-import { ToolbarHeader, ToolbarTitle } from "@/components";
-
 import { useStore } from "react-redux";
 
+import { resourceTypes } from "../resources";
+
+import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { useClusterClient } from "@/features/cluster";
-import { NavDrawerItem, useLayoutPlacer } from "@/features/layout";
+import { NavdrawerItem, useLayoutPlacer } from "@/features/layout";
 import { WorkspaceState } from "@/features/workspace";
 import { useAsyncEffect } from "@/hooks";
-
-import { resourceTypes } from "../resources";
 
 const updateTreeEntry = (
   data: TreeLeaf[],
@@ -107,7 +105,7 @@ const ResourcesTree = (): JSX.Element => {
   );
 };
 
-export const ResourcesToolbar: NavDrawerItem = {
+export const ResourcesToolbar: NavdrawerItem = {
   key: "resources",
   icon: <Icon.Resources />,
   content: <ResourcesTree />,

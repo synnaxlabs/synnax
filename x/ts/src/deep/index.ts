@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { deepCopy } from "@/deep/copy";
 import { deepDelete } from "@/deep/delete";
 import { deepEqual, deepPartialEqual } from "@/deep/equal";
 import { deepMerge } from "@/deep/merge";
@@ -18,4 +19,5 @@ export const Deep = {
   delete: deepDelete,
   equal: deepEqual,
   partialEqual: deepPartialEqual,
+  copy: deepCopy,
 };

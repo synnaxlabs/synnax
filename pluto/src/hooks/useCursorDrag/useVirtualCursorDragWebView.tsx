@@ -71,7 +71,6 @@ export const useVirtualCursorDragWebView = ({
     el.addEventListener("mousedown", onMouseDown);
 
     document.addEventListener("pointerlockchange", () => {
-      console.log("pointerlockchange");
       if (document.pointerLockElement !== el) return;
       const { start, mouseKey } = stateRef.current;
 
