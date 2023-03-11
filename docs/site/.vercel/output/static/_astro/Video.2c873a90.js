@@ -1,1 +1,0 @@
-import{g as e}from"./pluto.es.a1d242b9.js";import{j as r}from"./jsx-runtime.109e40f8.js";import"./index.f1bc5ebf.js";const s="https://synnax.nyc3.cdn.digitaloceanspaces.com/docs",n=({id:t})=>{const o=(localStorage.getItem("theme")??"light")?.toLowerCase().includes("dark")?"dark":"light";return r.jsx(e,{href:`${s}/${t}-${o}.mp4`,loop:!0,autoPlay:!0})};export{n as Video};
