@@ -9,26 +9,32 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-tabs-selector__button {
-    padding: 0 2rem;
+.pluto-tabs-selector__btn {
     margin-bottom: -1px;
     cursor: pointer;
+    padding: 0 2rem;
 }
 
-.pluto-tabs-selector__button--closable {
-    padding: 0.25rem 2rem 0.25rem 3rem;
+.pluto-tabs-selector__btn--closable {
+    padding: 0 2rem 0 3rem;
 }
 
-.pluto-tabs-selector__button--uneditable {
+.pluto-tabs-selector__btn--uneditable {
     user-select: none;
 }
 
-.pluto-tabs-selector__button--selected {
+.pluto-tabs-selector__btn.pluto--selected {
     border-bottom: 2px solid var(--pluto-primary-z);
 }
 
 .pluto-tabs-selector {
-    border-bottom: 1px solid var(--pluto-gray-m2);
+    border-bottom: var(--pluto-border);
     background: var(--pluto-background-color);
     z-index: 7;
 }
+
+.pluto-tabs-selector__actions {
+    margin-left: auto;
+}
+
+

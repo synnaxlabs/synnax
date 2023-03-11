@@ -30,7 +30,7 @@ interface GLCacheBuffer {
   size: Size;
 }
 
-export type GLDemandCacheEntry = DemandCacheEntry<string, WebGLBuffer[]>;
+export type GLDemandCacheEntry = DemandCacheEntry<string, GLCacheBuffer[]>;
 
 /**
  * GLDemandCache controls the creation and buffering of WebGLBuffers. It maintains a

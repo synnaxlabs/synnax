@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Dispatch, useCallback } from "react";
+import { Dispatch, useCallback, useState } from "react";
 
 import type { AnyAction } from "@reduxjs/toolkit";
 import { closeWindow, createWindow, MAIN_WINDOW } from "@synnaxlabs/drift";
@@ -16,25 +16,28 @@ import {
   ThemeProviderProps,
   useDebouncedCallback,
   Theme,
+  useOS,
+  Theming,
 } from "@synnaxlabs/pluto";
 import { appWindow } from "@tauri-apps/api/window";
 import type { Theme as TauriTheme } from "@tauri-apps/api/window";
 import { useDispatch } from "react-redux";
-
-import { useAsyncEffect, AsyncDestructor } from "@/hooks";
 
 import {
   NavdrawerLocation,
   placeLayout,
   removeLayout,
   setActiveTheme,
-  setNavdrawerEntryState,
+  resizeNavdrawer,
+  setNavdrawerVisible,
   toggleActiveTheme,
   useSelectLayout,
   useSelectNavDrawer,
   useSelectTheme,
 } from "../store";
 import { Layout } from "../types";
+
+import { useAsyncEffect, AsyncDestructor } from "@/hooks";
 
 export interface LayoutCreatorProps {
   dispatch: Dispatch<AnyAction>;
@@ -61,6 +64,7 @@ export type LayoutRemover = () => void;
  */
 export const useLayoutPlacer = (): LayoutPlacer => {
   const dispatch = useDispatch();
+  const os = useOS();
   return useCallback(
     (layout_: Layout | LayoutCreator) => {
       const layout = typeof layout_ === "function" ? layout_({ dispatch }) : layout_;
@@ -69,7 +73,7 @@ export const useLayoutPlacer = (): LayoutPlacer => {
       if (location === "window")
         dispatch(
           createWindow({
-            ...{ ...window, navTop: undefined },
+            ...{ ...window, navTop: undefined, decorations: os !== "Windows" },
             url: "/",
             key,
             title,
@@ -94,7 +98,7 @@ export const useLayoutRemover = (key: string): LayoutRemover => {
   if (layout == null) throw new Error(`layout with key ${key} does not exist`);
   return () => {
     dispatch(removeLayout(key));
-    if (layout.location === "window") dispatch(closeWindow(key));
+    if (layout.location === "window") dispatch(closeWindow({ key }));
   };
 };
 
@@ -123,8 +127,30 @@ export const useThemeProvider = (): ThemeProviderProps => {
   };
 };
 
-const matchThemeChange = ({ payload: theme }: { payload: TauriTheme | null }): string =>
-  theme === "dark" ? "synnaxDark" : "synnaxLight";
+export const useErrorThemeProvider = (): ThemeProviderProps => {
+  const [theme, setTheme] = useState<Theme | null>(Theming.themes.synnaxLight);
+  useAsyncEffect(async () => {
+    const theme = matchThemeChange({ payload: await appWindow.theme() });
+    setTheme(Theming.themes[theme]);
+  }, []);
+  return {
+    theme: theme as Theme,
+    setTheme: (key: string) =>
+      setTheme(Theming.themes[key as keyof typeof Theming.themes]),
+    toggleTheme: () =>
+      setTheme((t) =>
+        t === Theming.themes.synnaxLight
+          ? Theming.themes.synnaxDark
+          : Theming.themes.synnaxLight
+      ),
+  };
+};
+
+const matchThemeChange = ({
+  payload: theme,
+}: {
+  payload: TauriTheme | null;
+}): keyof typeof Theming.themes => (theme === "dark" ? "synnaxDark" : "synnaxLight");
 
 const synchronizeWithOS = async (dispatch: Dispatch<AnyAction>): AsyncDestructor => {
   return await appWindow.onThemeChanged((e) =>
@@ -165,7 +191,7 @@ export const useNavDrawer = (
 
   const onResize = useDebouncedCallback(
     (size) => {
-      dispatch(setNavdrawerEntryState({ location: loc, state: { size } }));
+      dispatch(resizeNavdrawer({ location: loc, size }));
     },
     100,
     [dispatch]
@@ -176,15 +202,7 @@ export const useNavDrawer = (
   return {
     activeItem,
     menuItems,
-    onSelect: (key: string) =>
-      dispatch(
-        setNavdrawerEntryState({
-          location: loc,
-          state: {
-            activeItem: key === state.activeItem ? null : key,
-          },
-        })
-      ),
+    onSelect: (key: string) => dispatch(setNavdrawerVisible({ key })),
     onResize,
   };
 };

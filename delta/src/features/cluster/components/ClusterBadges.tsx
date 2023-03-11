@@ -8,13 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import type { Connectivity } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/media";
 import { Text, Status } from "@synnaxlabs/pluto";
 import type { StatusVariant } from "@synnaxlabs/pluto";
 
-import { useSelectCluster } from "../store";
-import { ConnectionState, DEFAULT_CONNECTION_STATE } from "../types";
-
-import { ClusterIcon } from "./ClusterIcon";
+import { useSelectCluster } from "@/features/cluster/store";
+import { ConnectionState, DEFAULT_CONNECTION_STATE } from "@/features/cluster/types";
 
 /** Props for the ConnectionStateBadge component. */
 export interface ConnectionStateBadgeProps {
@@ -55,7 +54,7 @@ export interface ClusterBadgeProps {
 export const ClusterBadge = ({ key }: ClusterBadgeProps): JSX.Element => {
   const cluster = useSelectCluster(key);
   return (
-    <Text.WithIcon level="p" startIcon={<ClusterIcon />}>
+    <Text.WithIcon level="p" startIcon={<Icon.Cluster />}>
       {cluster?.name ?? "No Active Cluster"}
     </Text.WithIcon>
   );

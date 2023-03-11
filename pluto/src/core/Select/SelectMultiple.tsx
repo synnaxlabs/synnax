@@ -9,27 +9,23 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { Icon } from "@synnaxlabs/media";
 import { convertRenderV, RenderableRecord } from "@synnaxlabs/x";
-import clsx from "clsx";
+
+import { Theming } from "../../theming";
+
+import { SelectList } from "./SelectList";
 
 import { Button } from "@/core/Button";
-
-import { AiOutlineClose } from "react-icons/ai";
-
 import { Dropdown, DropdownProps } from "@/core/Dropdown";
 import { Input, InputControl, InputProps } from "@/core/Input";
 import { ListColumn, List } from "@/core/List";
 import { Pack } from "@/core/Pack";
 import { Space } from "@/core/Space";
-
-import { Theming } from "../../theming";
-
 import { Tag } from "@/core/Tag";
-import { visibleCls } from "@/css";
+import { CSS } from "@/css";
 
 import "./SelectMultiple.css";
-
-import { SelectList } from "./SelectList";
 
 export interface SelectMultipleProps<E extends RenderableRecord<E>>
   extends Omit<DropdownProps, "visible" | "onChange" | "children">,
@@ -109,17 +105,18 @@ const SelectMultipleInput = <E extends RenderableRecord<E>>({
     <Pack align="stretch" {...props} grow>
       <Input
         ref={ref}
-        className={clsx(
-          "pluto-select-multiple__input",
-          "pluto-select__input",
-          visibleCls(visible)
-        )}
+        className={CSS(CSS.BE("select-multiple", "input"), CSS.visible(visible))}
         placeholder="Search"
         value={value}
         onChange={handleChange}
         onFocus={onFocus}
       />
-      <Space direction="x" className="pluto-select-multiple__tags" align="center" grow>
+      <Space
+        direction="x"
+        className={CSS.BE("select-multiple", "tags")}
+        align="center"
+        grow
+      >
         {selected
           ?.map((k) => sourceData.find((v) => v.key === k))
           .map((e, i) => {
@@ -138,11 +135,11 @@ const SelectMultipleInput = <E extends RenderableRecord<E>>({
           })}
       </Space>
       <Button.Icon
-        className="pluto-select-multiple__clear"
+        className={CSS.BE("select-multiple", "clear")}
         variant="outlined"
         onClick={clear}
       >
-        <AiOutlineClose aria-label="clear" />
+        <Icon.Close aria-label="clear" />
       </Button.Icon>
     </Pack>
   );

@@ -30,10 +30,11 @@ export const Time = (): JSX.Element => {
   const [value, setValue] = useState(TimeStamp.now().valueOf());
   return (
     <>
-      <Input.Time value={value} onChange={setValue} />;
-      <Text.DateTime level="h1" format="dateTime">
+      <Input.Time value={value} onChange={setValue} />
+      <Text.DateTime level="h1" format="time" suppliedTZ="UTC" displayTZ="local">
         {value}
       </Text.DateTime>
+      <h1>{new TimeStamp(value).fString("ISO", "UTC")}</h1>
     </>
   );
 };
@@ -43,9 +44,10 @@ export const Date = (): JSX.Element => {
   return (
     <>
       <Input.Date value={value} onChange={setValue} />;
-      <Text.DateTime level="h1" format="dateTime">
+      <Text.DateTime level="h1" format="dateTime" suppliedTZ="UTC" displayTZ="UTC">
         {value}
       </Text.DateTime>
+      <h1>{new TimeStamp(value).fString("ISO", "UTC")}</h1>
     </>
   );
 };

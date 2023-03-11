@@ -15,11 +15,8 @@ from synnax import Channel, Synnax
 
 class TestNumpy:
     def test_basic_write(self, channel: Channel, client: Synnax):
-        writer = client.new_writer(start=0, keys=[channel.key])
-        try:
+        with client.new_writer(0, channel.key) as w:
             data = np.random.rand(10).astype(np.float64)
-            writer.write(pd.DataFrame({channel.key: data}))
-            writer.write(pd.DataFrame({channel.key: data}))
-            writer.commit()
-        finally:
-            writer.close()
+            w.write(pd.DataFrame({channel.key: data}))
+            w.write(pd.DataFrame({channel.key: data}))
+            w.commit()

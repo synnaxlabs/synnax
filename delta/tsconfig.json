@@ -3,5 +3,5 @@
   "compilerOptions": {
     "baseUrl": ".",
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "../pluto/src/hooks/useAsyncEffect.tsx"],
 }

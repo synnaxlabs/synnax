@@ -8,13 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import type { UnaryClient } from "@synnaxlabs/freighter";
-import { UnparsedDataType, UnparsedRate } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
   ChannelPayload,
   channelPayloadSchema,
+  parseChannels,
+  UnkeyedChannelPayload,
   unkeyedChannelPayloadSchema,
+  UnparsedChannel,
 } from "./payload";
 
 import { Transport } from "@/transport";
@@ -31,15 +33,6 @@ const ResponseSchema = z.object({
 
 type Response = z.infer<typeof ResponseSchema>;
 
-export interface CreateChannelProps {
-  rate: UnparsedRate;
-  dataType: UnparsedDataType;
-  name?: string;
-  nodeId?: number;
-  index?: string;
-  isIndex?: boolean;
-}
-
 export class ChannelCreator {
   private static readonly ENDPOINT = "/channel/create";
   private readonly client: UnaryClient;
@@ -48,13 +41,20 @@ export class ChannelCreator {
     this.client = transport.postClient();
   }
 
-  async create(props: CreateChannelProps): Promise<ChannelPayload> {
-    const [channel] = await this.createMany([props]);
-    return channel;
-  }
+  async create(channel: UnkeyedChannelPayload): Promise<ChannelPayload>;
 
-  async createMany(channels: CreateChannelProps[]): Promise<ChannelPayload[]> {
-    return (await this.execute({ channels: channels as ChannelPayload[] })).channels;
+  async create(
+    ...channels: Array<UnparsedChannel | UnparsedChannel[]>
+  ): Promise<ChannelPayload[]>;
+
+  async create(
+    ...channels: Array<UnparsedChannel | UnparsedChannel[]>
+  ): Promise<ChannelPayload | ChannelPayload[]> {
+    const single = channels.length === 1 && !Array.isArray(channels[0]);
+    const { channels: ch_ } = await this.execute({
+      channels: parseChannels(channels.flat()),
+    });
+    return single ? ch_[0] : ch_;
   }
 
   private async execute(request: Request): Promise<Response> {

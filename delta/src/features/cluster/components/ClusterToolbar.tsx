@@ -7,36 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Icon } from "@synnaxlabs/media";
 import { Space, Header, List, Text } from "@synnaxlabs/pluto";
 import type { ListItemProps } from "@synnaxlabs/pluto";
-import clsx from "clsx";
-import { AiOutlinePlus } from "react-icons/ai";
 import { useDispatch } from "react-redux";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
-import { Layout, useLayoutPlacer, NavDrawerItem } from "@/features/layout";
-
-import { useSelectCluster, useSelectClusters } from "../store";
+import { CSS } from "@/css";
+import { connectClusterWindowLayout } from "@/features/cluster/components/ConnectCluster";
+import {
+  setActiveCluster,
+  useSelectCluster,
+  useSelectClusters,
+} from "@/features/cluster/store";
+import { RenderableCluster } from "@/features/cluster/types";
+import { useLayoutPlacer, NavDrawerItem } from "@/features/layout";
 
 import "./ClusterToolbar.css";
-
-import { setActiveCluster } from "../store/slice";
-import { RenderableCluster } from "../types";
-
-import { ClusterIcon } from "./ClusterIcon";
-
-const connectClusterWindowLayout: Layout = {
-  key: "connectCluster",
-  type: "connectCluster",
-  name: "Connect a Cluster",
-  location: "window",
-  window: {
-    resizable: false,
-    height: 430,
-    width: 650,
-    navTop: true,
-  },
-};
 
 const Content = (): JSX.Element => {
   const dispatch = useDispatch();
@@ -48,7 +35,7 @@ const Content = (): JSX.Element => {
 
   const actions = [
     {
-      children: <AiOutlinePlus />,
+      children: <Icon.Add />,
       onClick: () => openWindow(connectClusterWindowLayout),
     },
   ];
@@ -60,7 +47,7 @@ const Content = (): JSX.Element => {
   return (
     <Space empty>
       <ToolbarHeader>
-        <ToolbarTitle icon={<ClusterIcon />}>Clusters</ToolbarTitle>
+        <ToolbarTitle icon={<Icon.Cluster />}>Clusters</ToolbarTitle>
         <Header.Actions>{actions}</Header.Actions>
       </ToolbarHeader>
       <List<RenderableCluster> data={data}>
@@ -83,9 +70,9 @@ const ListItem = ({
     align="center"
     justify="spaceBetween"
     onDoubleClick={() => onSelect?.(key)}
-    className={clsx(
-      "delta-cluster-toolbar-list__item",
-      selected && "delta-cluster-toolbar-list__item--selected"
+    className={CSS(
+      CSS.BE("cluster-toolbar-list", "item"),
+      selected && CSS.M("selected")
     )}
     {...props}
   >
@@ -93,10 +80,11 @@ const ListItem = ({
   </Space>
 );
 
+/** Configuration and content for the cluster nav drawer toolbar. */
 export const ClusterToolbar: NavDrawerItem = {
   key: "clusters",
   content: <Content />,
-  icon: <ClusterIcon />,
+  icon: <Icon.Cluster />,
   minSize: 185,
   maxSize: 350,
   initialSize: 250,

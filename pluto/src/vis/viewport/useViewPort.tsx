@@ -9,14 +9,19 @@
 
 import { useCallback, useRef, useState } from "react";
 
-import { comparePrimitiveArrays } from "@synnaxlabs/x";
+import {
+  comparePrimitiveArrays,
+  Box,
+  Dimensions,
+  DECIMAL_BOX,
+  XY,
+  ZERO_BOX,
+  BoxScale,
+} from "@synnaxlabs/x";
 
 import { useMemoCompare } from "@/hooks";
 import { useStateRef } from "@/hooks/useStateRef";
-import { Box, Dimensions, DECIMAL_BOX, XY, ZERO_BOX } from "@/spatial";
-import { BoxScale } from "@/spatial/scale";
 import { Stage, Trigger, TriggerDragCallback, Triggers } from "@/triggers";
-import { useTriggerHeld } from "@/triggers/TriggersContext";
 
 export interface UseViewportEvent {
   box: Box;
@@ -89,8 +94,6 @@ export const useViewport = ({
     [initialTriggers]
   );
 
-  const { triggers } = useTriggerHeld(Object.values(triggerConfig).flat());
-
   const handleDrag = useCallback<TriggerDragCallback>(
     ({ box, triggers, stage, cursor }): void => {
       if (canvasRef.current == null) return;
@@ -161,8 +164,8 @@ export const useViewport = ({
 
   return {
     maskBox,
-    mode: determineMode(triggerConfig, triggers, defaultMode),
     ref: canvasRef,
+    mode: "zoom",
   };
 };
 

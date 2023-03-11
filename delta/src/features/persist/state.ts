@@ -8,58 +8,48 @@
 // included in the file licenses/APL.txt.
 
 import { Middleware } from "@reduxjs/toolkit";
-import {
-  DRIFT_SLICE_NAME,
-  MAIN_WINDOW,
-  initialState as driftInitialState,
-  DriftStoreState,
-} from "@synnaxlabs/drift";
-import { AsyncKV } from "@synnaxlabs/x";
+import { MAIN_WINDOW } from "@synnaxlabs/drift";
+import { Deep, DeepKey } from "@synnaxlabs/x";
 import { getVersion } from "@tauri-apps/api/app";
 import { appWindow } from "@tauri-apps/api/window";
 
 import { VersionStoreState } from "../version";
 
+import { TauriKV } from "./kv";
+
 const PERSISTED_STATE_KEY = "delta-persisted-state";
 
-export interface RequiredState extends VersionStoreState, DriftStoreState {}
+export interface RequiredState extends VersionStoreState {}
 
-/**
- * Returns a function that preloads the state from the given key-value store on the main
- * window.
- *
- * @param db - the key-value store to load the state from.
- * @returns a redux middleware.
- */
-export const newPreloadState =
-  <S extends RequiredState>(db: AsyncKV<string, S>) =>
-  async (): Promise<S | undefined> => {
-    if (appWindow.label !== MAIN_WINDOW) return undefined;
-    const state = await db.get(PERSISTED_STATE_KEY);
-    if (state == null) return undefined;
-    // TODO: (@emilbon99) drift doesn't inspect initial state and fork windows accordingly
-    // so we need to manually set the drift state for now.
-    if (DRIFT_SLICE_NAME in state) state.drift = driftInitialState;
-    return await reconcileVersions(state);
-  };
+export interface PersistConfig<S extends RequiredState> {
+  exclude: Array<DeepKey<S>>;
+}
 
-/**
- * Returns a redux middleware that persists the state to the given key-value store on
- * the main window. NOTE: this key-value store does not encrypt sensitive data! BE CAREFUL!
- *
- * @param db - the key-value store to persist to.
- * @returns a redux middleware.
- */
-export const newPersistStateMiddleware =
-  <S>(db: AsyncKV<string, S>): Middleware<{}, S> =>
-  (store) =>
-  (next) =>
-  (action) => {
-    const result = next(action);
-    if (appWindow.label !== MAIN_WINDOW) return result;
-    void db.set(PERSISTED_STATE_KEY, store.getState());
-    return result;
-  };
+export const openPersist = async <S extends RequiredState>({
+  exclude = [],
+}: PersistConfig<S>): Promise<[S | undefined, Middleware<{}, S>]> => {
+  if (appWindow.label !== MAIN_WINDOW) return [undefined, noOpMiddleware];
+  const db = new TauriKV<S>();
+  await db.openAck();
+  let state = (await db.get(PERSISTED_STATE_KEY)) ?? undefined;
+  if (state != null) state = await reconcileVersions(state);
+
+  return [
+    state,
+    (store) => (next) => (action) => {
+      const result = next(action);
+      if (appWindow.label !== MAIN_WINDOW) return result;
+      // We need to make a deep copy here to make immer happy
+      // when we do exclusions.
+      const deepCopy = Deep.copy(store.getState());
+      const filtered = Deep.delete<S>(deepCopy, ...exclude);
+      void db.set(PERSISTED_STATE_KEY, filtered);
+      return result;
+    },
+  ];
+};
+
+const noOpMiddleware: Middleware<{}, any> = () => (next) => (action) => next(action);
 
 const reconcileVersions = async <S extends RequiredState>(
   state: S

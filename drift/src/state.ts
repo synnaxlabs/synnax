@@ -7,23 +7,31 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type {
-  Action,
-  AnyAction,
+import {
   PreloadedState as BasePreloadedState,
   CombinedState,
   PayloadAction,
+  createSlice,
+  nanoid,
 } from "@reduxjs/toolkit";
-import { createSlice } from "@reduxjs/toolkit";
 import type { NoInfer } from "@reduxjs/toolkit/dist/tsHelpers";
+import { XY, Dimensions, positionInCenter, Box, ZERO_XY, Deep } from "@synnaxlabs/x";
 
-import { Runtime } from "@/runtime";
-import { KeyedWindowProps, Window, WindowProps, WindowState } from "@/window";
+import {
+  WindowState,
+  WindowProps,
+  WindowStage,
+  MAIN_WINDOW,
+  INITIAL_WINDOW_STATE,
+  INITIAL_PRERENDER_WINDOW_STATE,
+} from "@/window";
 
 /** The Slice State */
 export interface DriftState {
-  key: string;
-  windows: Record<string, Window>;
+  label: string;
+  windows: Record<string, WindowState>;
+  labelKeys: Record<string, string>;
+  keyLabels: Record<string, string>;
 }
 
 /** State of a store with a drift slice */
@@ -39,38 +47,150 @@ export type PreloadedState<S extends StoreState> = BasePreloadedState<
 // which raises an error on build.
 // eslint-disable-next-line @typescript-eslint/consistent-type-definitions
 type MaybeKeyPayload = { key?: string };
-interface KeyPayload {
+export interface KeyPayload {
   key: string;
 }
-type CreateWindowPayload = WindowProps;
-type CloseWindowPayload = MaybeKeyPayload;
-type SetWindowKeyPayload = KeyPayload;
-type SetWindowPayload = MaybeKeyPayload & { state: WindowState };
+
+export interface LabelPayload {
+  label: string;
+}
+
+export interface BooleanPayload {
+  value: boolean;
+}
+export interface MaybeBooleanPayload {
+  value?: boolean;
+}
+
+export interface SizePayload {
+  size: Dimensions;
+}
+
+export type CreateWindowPayload = WindowProps & {
+  label?: string;
+  prerenderLabel?: string;
+};
+export type CloseWindowPayload = MaybeKeyPayload;
+export type SetWindowClosedPayload = MaybeKeyPayload;
+export type FocusWindowPayload = MaybeKeyPayload;
+export type SetWindowMinimizedPayload = MaybeKeyPayload & MaybeBooleanPayload;
+export type SetWindowMaximizedPayload = MaybeKeyPayload & MaybeBooleanPayload;
+export type SetWindowVisiblePayload = MaybeKeyPayload & MaybeBooleanPayload;
+export type SetWindowFullScreenPayload = MaybeKeyPayload & MaybeBooleanPayload;
+export type CenterWindowPayload = MaybeKeyPayload;
+export type SetWindowPositionPayload = MaybeKeyPayload & { position: XY };
+export type SetWindowSizePayload = MaybeKeyPayload & SizePayload;
+export type SetWindowMinSizePayload = MaybeKeyPayload & SizePayload;
+export type SetWindowMaxSizePayload = MaybeKeyPayload & SizePayload;
+export type SetWindowResizablePayload = MaybeKeyPayload & MaybeBooleanPayload;
+export type SetWindowSkipTaskbarPayload = MaybeKeyPayload & MaybeBooleanPayload;
+export type SetWindowAlwaysOnTopPayload = MaybeKeyPayload & MaybeBooleanPayload;
+export type SetWindowTitlePayload = MaybeKeyPayload & { title: string };
+export type SetWindowLabelPayload = LabelPayload;
+export type SetWindowStatePayload = MaybeKeyPayload & { stage: WindowStage };
+export type SetWindowPropsPayload = LabelPayload & Partial<WindowProps>;
+export type SetWindowErrorPaylod = KeyPayload & { message: string };
+export type SetWindowDecorationsPayload = KeyPayload & BooleanPayload;
 
 /** Type representing all possible actions that are drift related. */
-export type DriftAction = PayloadAction<
-  CreateWindowPayload | CloseWindowPayload | SetWindowPayload | MaybeKeyPayload
->;
+export type DriftPayload =
+  | CreateWindowPayload
+  | CloseWindowPayload
+  | SetWindowStatePayload
+  | MaybeKeyPayload
+  | SetWindowPropsPayload
+  | SetWindowErrorPaylod
+  | SetWindowLabelPayload
+  | SetWindowClosedPayload
+  | SetWindowMinimizedPayload
+  | SetWindowMaximizedPayload
+  | SetWindowVisiblePayload
+  | SetWindowFullScreenPayload
+  | CenterWindowPayload
+  | SetWindowPositionPayload
+  | SetWindowSizePayload
+  | SetWindowMinSizePayload
+  | SetWindowMaxSizePayload
+  | SetWindowResizablePayload
+  | SetWindowSkipTaskbarPayload
+  | SetWindowAlwaysOnTopPayload
+  | SetWindowTitlePayload
+  | FocusWindowPayload;
+
+/** Type representing all possible actions that are drift related. */
+export type DriftAction = PayloadAction<DriftPayload>;
 
 export const initialState: DriftState = {
-  key: "main",
+  label: MAIN_WINDOW,
   windows: {
     main: {
-      processCount: 0,
-      state: "created",
-      props: {
-        key: "main",
-      },
+      ...INITIAL_WINDOW_STATE,
+      key: MAIN_WINDOW,
+      reserved: true,
     },
+  },
+  labelKeys: {
+    main: MAIN_WINDOW,
+  },
+  keyLabels: {
+    main: MAIN_WINDOW,
   },
 };
 
-const assertKey = <T extends MaybeKeyPayload>(pld: MaybeKeyPayload): T & KeyPayload => {
-  if (pld.key === undefined) {
-    throw new Error("drift - bug - key is undefined");
+export const assignLabel = <T extends MaybeKeyPayload | LabelPayload>(
+  a: PayloadAction<T>,
+  s: DriftState
+): PayloadAction<T & LabelPayload> => {
+  if (a.type === createWindow.type) {
+    if (s.label !== MAIN_WINDOW) return a as PayloadAction<T & LabelPayload>;
+    (a.payload as CreateWindowPayload).label = nanoid();
+    (a.payload as CreateWindowPayload).prerenderLabel = nanoid();
+    return a as PayloadAction<T & LabelPayload>;
   }
-  return pld as T & KeyPayload;
+  if ("label" in a.payload) return a as PayloadAction<T & LabelPayload>;
+  let label = s.label;
+  // eslint-disable-next-line
+  const pld = a.payload as MaybeKeyPayload;
+  if (pld.key != null)
+    if (pld.key in s.windows) label = pld.key;
+    else label = s.keyLabels[pld.key];
+  a.payload = { ...a.payload, label };
+  return a as PayloadAction<T & LabelPayload>;
 };
+
+const assertLabel =
+  <T extends DriftPayload>(
+    f: (state: DriftState, action: PayloadAction<T & LabelPayload>) => void
+  ): ((s: DriftState, a: PayloadAction<T>) => void) =>
+  (s, a) => {
+    if (!("label" in a.payload)) throw new Error("Missing label");
+    f(s, a as PayloadAction<T & LabelPayload>);
+  };
+
+const assignBool = <T extends MaybeKeyPayload & MaybeBooleanPayload>(
+  prop: keyof WindowProps,
+  def_: boolean = false
+): ((s: DriftState, a: PayloadAction<T>) => void) =>
+  assertLabel<T>((s, a) => {
+    let v = def_;
+    const win = s.windows[a.payload.label];
+    if (a.payload.value != null) v = a.payload.value;
+    else {
+      const existing = win[prop] as boolean | undefined;
+      if (existing != null) v = !existing;
+    }
+    s.windows[a.payload.label] = { ...win, [prop]: v };
+  });
+
+const incrementCounter =
+  (prop: keyof WindowState, decrement: boolean = false) =>
+  (s: DriftState, a: PayloadAction<LabelPayload>) => {
+    const win = s.windows[a.payload.label];
+    s.windows[a.payload.label] = {
+      ...win,
+      [prop]: (win[prop] as number) + (decrement ? -1 : 1),
+    };
+  };
 
 export const DRIFT_SLICE_NAME = "drift";
 
@@ -78,120 +198,165 @@ const slice = createSlice({
   name: DRIFT_SLICE_NAME,
   initialState,
   reducers: {
-    setWindowKey: (state, action: PayloadAction<SetWindowKeyPayload>) => {
-      state.key = assertKey<SetWindowKeyPayload>(action.payload).key;
+    setWindowLabel: (s: DriftState, a: PayloadAction<SetWindowLabelPayload>) => {
+      s.label = a.payload.label;
+      if (s.label !== MAIN_WINDOW) return;
+      const prerenderLabel = nanoid();
+      s.windows[prerenderLabel] = INITIAL_PRERENDER_WINDOW_STATE;
     },
-    createWindow: (state, { payload }: PayloadAction<CreateWindowPayload>) => {
-      const { key } = payload;
-      assertKey(payload);
-      if (key == null) return;
-      state.windows[key] = {
-        state: "creating",
-        processCount: 0,
-        props: payload as KeyedWindowProps,
-      };
-    },
-    setWindowState: ({ windows }, { payload }: PayloadAction<SetWindowPayload>) => {
-      const { key, state } = assertKey<SetWindowPayload>(payload);
-      windows[key].state = state;
-    },
-    closeWindow: ({ windows }, { payload }: PayloadAction<CloseWindowPayload>) => {
-      const { key } = assertKey<CloseWindowPayload>(payload);
-      windows[key].state = "closing";
-      if (readyToClose(0, windows[key])) {
-        windows[key].state = "closed";
+    createWindow: (s: DriftState, { payload }: PayloadAction<CreateWindowPayload>) => {
+      const { key, label, prerenderLabel } = payload;
+      if (label == null || prerenderLabel == null)
+        throw new Error("[drift] - bug - missing label and prerender label");
+
+      // If the window already exists, just focus it
+      if (key in s.keyLabels) {
+        const label = s.keyLabels[payload.key];
+        s.windows[label].visible = true;
+        s.windows[label].focusCount += 1;
+        return;
       }
+
+      const mainWin = s.windows.main;
+
+      // If the user hasn't explicitly specified a position, we'll center it in the main
+      // window for the nicest experience.
+      payload = maybePositionInCenter(payload, mainWin);
+
+      const [availableLabel, available] = Object.entries(s.windows).find(
+        ([, w]) => !w.reserved
+      ) ?? [null, null];
+
+      // If we have an available prerendered window,
+      // use it.
+      if (availableLabel != null) {
+        s.windows[availableLabel] = {
+          ...available,
+          visible: true,
+          reserved: true,
+          ...payload,
+        };
+        s.labelKeys[availableLabel] = payload.key;
+        s.keyLabels[payload.key] = availableLabel;
+      } else {
+        // If we don't, just create the window directly.
+        s.windows[label] = {
+          ...INITIAL_WINDOW_STATE,
+          ...payload,
+          reserved: true,
+        };
+        s.labelKeys[label] = key;
+        s.keyLabels[key] = label;
+      }
+
+      // Always prerender a window, regardless of above.
+      s.windows[prerenderLabel] = INITIAL_PRERENDER_WINDOW_STATE;
     },
-    registerProcess: ({ windows }, { payload }: PayloadAction<MaybeKeyPayload>) => {
-      const { key } = assertKey<MaybeKeyPayload>(payload);
-      windows[key].processCount += 1;
+    setWindowStage: assertLabel<SetWindowStatePayload>((s, a) => {
+      s.windows[a.payload.label].stage = a.payload.stage;
+    }),
+    closeWindow: assertLabel<CloseWindowPayload>((s, { payload: { label } }) => {
+      const win = s.windows[label];
+      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+      delete s.windows[label];
+      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+      delete s.labelKeys[label];
+      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+      delete s.keyLabels[win.key];
+    }),
+    registerProcess: assertLabel<MaybeKeyPayload>(incrementCounter("processCount")),
+    completeProcess: assertLabel<MaybeKeyPayload>(
+      incrementCounter("processCount", true)
+    ),
+    setWindowError: (s: DriftState, a: PayloadAction<SetWindowErrorPaylod>) => {
+      s.windows[a.payload.key].error = a.payload.message;
     },
-    completeProcess: ({ windows }, { payload }: PayloadAction<MaybeKeyPayload>) => {
-      const { key } = assertKey<MaybeKeyPayload>(payload);
-      const win = windows[key];
-      win.processCount -= 1;
-      // If the window is closing and there are no more processes, mark it
-      // as closed.
-      if (readyToClose(0, win)) win.state = "closed";
+    focusWindow: assertLabel<FocusWindowPayload>((s, a) => {
+      const win = s.windows[a.payload.label];
+      if (win?.visible !== true) s.windows[a.payload.label].visible = true;
+      incrementCounter("focusCount")(s, a);
+    }),
+    setWindowMinimized: assignBool("minimized"),
+    setWindowMaximized: assignBool("maximized"),
+    setWindowVisible: assignBool("visible", true),
+    setWindowFullscreen: assignBool("fullscreen", true),
+    centerWindow: assertLabel<CenterWindowPayload>(incrementCounter("centerCount")),
+    setWindowPosition: assertLabel<SetWindowPositionPayload>((s, a) => {
+      s.windows[a.payload.label].position = a.payload.position;
+    }),
+    setWindowSize: assertLabel<SetWindowSizePayload>((s, a) => {
+      s.windows[a.payload.label].size = a.payload.size;
+    }),
+    setWindowMinSize: assertLabel<SetWindowMinSizePayload>((s, a) => {
+      s.windows[a.payload.label].minSize = a.payload.size;
+    }),
+    setWindowMaxSize: assertLabel<SetWindowMaxSizePayload>((s, a) => {
+      s.windows[a.payload.label].maxSize = a.payload.size;
+    }),
+    setWindowResizable: assignBool("resizable"),
+    setWindowSkipTaskbar: assignBool("skipTaskbar"),
+    setWindowAlwaysOnTop: assignBool("alwaysOnTop"),
+    setWindowTitle: assertLabel<SetWindowTitlePayload>((s, a) => {
+      s.windows[a.payload.label].title = a.payload.title;
+    }),
+    setWindowDecorations: assignBool("decorations"),
+    setWindowProps: (s: DriftState, a: PayloadAction<SetWindowPropsPayload>) => {
+      const prev = s.windows[a.payload.label];
+      const next = a.payload;
+      const deepPartialEqual = Deep.partialEqual(prev, a.payload);
+      // If the window has shifted or the size is no longer the same and fullscreen is
+      // true, set fullscreen to false.
+      if (
+        prev.fullscreen === true &&
+        prev.size != null &&
+        next.size != null &&
+        (next.size.width < prev.size.width || next.size.height < prev.size.height)
+      )
+        a.payload.fullscreen = false;
+
+      if (!deepPartialEqual) s.windows[a.payload.label] = { ...prev, ...a.payload };
     },
   },
 });
 
-export const { reducer } = slice;
-
-const { actions } = slice;
-
-/**
- * Creates a new window with the given properties. Is a no-op if the window
- * already exists.
- *
- * @param props - The properties of the window to create.
- *
- * @returns an action that can be dispatched.
- */
-export const createWindow = (props: WindowProps): DriftAction =>
-  actions.createWindow(props);
-
-/**
- * Sets the state of the window with the given key.
- *
- * @param state - The state to set.
- * @param key - The key of the window to set the status of.
- * If not provided, the status of the current window is set.
- * @returns an action that can be dispatched.
- */
-export const setWindowState = (state: WindowState, key?: string): DriftAction =>
-  actions.setWindowState({ state, key });
-
-/**
- * Closes the window with the given key.
- *
- * @param key - The key of the window to close.
- * If not provided, the current window is closed.
- * @returns an action that can be dispatched.
- */
-export const closeWindow = (key?: string): DriftAction => actions.closeWindow({ key });
-
-/**
- * Sets the key of the current window.
- *
- * @param key - The key of the window to set as the current window.
- * @returns  an action that can be dispatched.
- */
-export const setWindowKey = (key: string): DriftAction => actions.setWindowKey({ key });
-
-/**
- * Registers a process that is running in the window with the given key.
- * The window will not be closed until the process is completed. This means
- * that completeProcess must be called for the window to be closed. This is
- * useful for shutting down processes gracefully.
- *
- * @param key - The key of the window to register the process in.
- * If not provided, the current window is used.
- * @returns an action that can be dispatched.
- */
-export const registerProcess = (key?: string): DriftAction =>
-  actions.registerProcess({ key });
-
-/**
- * Completes a process that was registered in the window with the given key.
- * Should only be called after registerProcess.
- *
- * @param key - The key of the window to complete the process in.
- * If not provided, the current window is used.
- * @returns an action that can be dispatched.
- */
-export const completeProcess = (key?: string): DriftAction =>
-  actions.completeProcess({ key });
+export const {
+  reducer,
+  actions: {
+    setWindowProps,
+    setWindowLabel,
+    createWindow,
+    setWindowStage,
+    closeWindow,
+    registerProcess,
+    completeProcess,
+    setWindowError,
+    focusWindow,
+    setWindowMinimized,
+    setWindowMaximized,
+    setWindowVisible,
+    setWindowFullscreen,
+    centerWindow,
+    setWindowPosition,
+    setWindowSize,
+    setWindowMinSize,
+    setWindowMaxSize,
+    setWindowResizable,
+    setWindowSkipTaskbar,
+    setWindowAlwaysOnTop,
+    setWindowTitle,
+    setWindowDecorations,
+  },
+} = slice;
 
 /**
  * @returns true if the given action type is a drift action.
  * @param type - The action type to check.
  */
-export const isDrift = (type: string): boolean => type.startsWith(DRIFT_SLICE_NAME);
+export const isDriftAction = (type: string): boolean =>
+  type.startsWith(DRIFT_SLICE_NAME);
 
 /** A list of actions that shouldn't be emitted to other windows. */
-const EXCLUDED_ACTIONS: readonly string[] = [actions.setWindowKey.type];
+const EXCLUDED_ACTIONS: readonly string[] = [setWindowLabel.type];
 
 /**
  * @returns true if the action with the given type should be emitted to other
@@ -203,72 +368,14 @@ const EXCLUDED_ACTIONS: readonly string[] = [actions.setWindowKey.type];
 export const shouldEmit = (emitted: boolean, type: string): boolean =>
   !emitted && !EXCLUDED_ACTIONS.includes(type);
 
-/**
- * Evaluates whether a window is ready to be closed.
- *
- * @param threshold - The maximum number of processes that can be running
- * before the window is considered ready to close.
- * @param state - The current state of the window.
- * @returns true if the window is ready to be closed.
- */
-const readyToClose = (threshold: number, state?: Window): boolean =>
-  state == null || (state.processCount <= threshold && state.state === "closing");
-
-/**
- * Conditionally returns a default key for a given action.
- * @param runtime - The runtime of the current window.
- * @param action - The action to check.
- * @param state - The current state of the store.
- * @returns the correct key for the action.
- */
-export const assignKey = <S extends StoreState, A extends Action>(
-  runtime: Runtime<S, A>,
-  { type, payload: { key } }: DriftAction,
-  { drift: { windows } }: S
-): string => {
-  if (key != null) return key;
-  if (type === actions.createWindow.type)
-    return `window-${Object.keys(windows).length + 1}`;
-  return runtime.key();
-};
-
-/**
- * Executes a drift action on a window.
- *
- * @param runtime - The runtime of the current window.
- * @param action - The action to execute.
- * @param state - The current state of the store.
- */
-export const executeAction = <S extends StoreState, A extends Action = AnyAction>(
-  runtime: Runtime<S, A>,
-  { type, payload }: DriftAction,
-  { drift: { windows } }: S
-): void => {
-  const { key } = payload;
-  if (key == null) throw new Error("[drift] - bug - action doesn't have a key");
-
-  switch (type) {
-    case actions.createWindow.type: {
-      // If we've already created a window with this key, focus it.
-      if (!runtime.exists(key)) runtime.create(payload as KeyedWindowProps);
-      else runtime.focus(key);
-      break;
-    }
-    case actions.closeWindow.type: {
-      // If no processes are running, close the window immediately.
-      // Execute a close request even if we can't find the window in state.
-      // This is mainly to deal with redux state being out of sync with the
-      // window state.
-      const win = windows[key] as Window | undefined;
-      if (win == null || win.processCount <= 0) runtime.close(key);
-      break;
-    }
-    case actions.completeProcess.type: {
-      // If no processes are running, close the window. Threshold
-      // set at 1 because we haven't yet updated the state to include the last
-      // closure.
-      const win = windows[key];
-      if (win.processCount <= 1 && win.state === "closing") runtime.close(key);
-    }
-  }
+const maybePositionInCenter = (
+  pld: CreateWindowPayload,
+  mainWin: WindowState
+): CreateWindowPayload => {
+  if (mainWin.position != null && mainWin.size != null && pld.position == null)
+    pld.position = positionInCenter(
+      new Box(ZERO_XY, pld.size ?? ZERO_XY),
+      new Box(mainWin.position, mainWin.size)
+    ).topLeft;
+  return pld;
 };

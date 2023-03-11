@@ -9,15 +9,18 @@
  * included in the file licenses/APL.txt.
  */
 
-import { defineConfig } from 'astro/config';
-
-// https://astro.build/config
 import mdx from "@astrojs/mdx";
-
-// https://astro.build/config
 import react from "@astrojs/react";
+import { defineConfig } from "astro/config";
 
 // https://astro.build/config
 export default defineConfig({
-  integrations: [react(), mdx()]
+    integrations: [react(), mdx()],
+    output: "server",
+    markdown: {
+        shikiConfig: {
+            theme: "github-dark",
+        },
+    },
+    site: "https://docs.synnaxlabs.com",
 });

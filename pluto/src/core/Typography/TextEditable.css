@@ -9,16 +9,17 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-text-editable {
+.pluto-text--editable {
     cursor: pointer;
     user-select: text;
     -webkit-user-select: text;
 }
 
-.pluto-text-editable:focus {
-    box-shadow: 0 0 0 2px var(--pluto-primary-z);
-    border-radius: 2px;
+.pluto-text--editable:focus {
+    box-shadow: 0 0 0 var(--pluto-border-width) var(--pluto-primary-z);
+    border-radius: var(--pluto-border-radius);
     outline: none;
     display: inline-block;
     cursor: text;
+    padding: 0.25rem 1rem;
 }

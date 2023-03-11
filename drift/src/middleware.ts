@@ -7,15 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { Action, AnyAction, Dispatch, Middleware } from "@reduxjs/toolkit";
+import { Action, AnyAction, Dispatch, Middleware } from "@reduxjs/toolkit";
 import type { CurriedGetDefaultMiddleware } from "@reduxjs/toolkit/dist/getDefaultMiddleware";
 
-import { StoreState, assignKey, executeAction, isDrift, shouldEmit } from "./state";
-import { desugar } from "./sugar";
-
+import { log } from "@/debug";
 import { Runtime } from "@/runtime";
-
-import { validateAction } from "./validate";
+import {
+  StoreState,
+  isDriftAction,
+  shouldEmit,
+  DriftAction,
+  assignLabel,
+  DriftState,
+  setWindowProps,
+  setWindowError,
+} from "@/state";
+import { desugar } from "@/sugar";
+import { sync } from "@/sync";
+import { validateAction } from "@/validate";
 
 export type Middlewares<S> = ReadonlyArray<Middleware<{}, S>>;
 
@@ -30,28 +39,63 @@ export type Middlewares<S> = ReadonlyArray<Middleware<{}, S>>;
  */
 export const middleware =
   <S extends StoreState, A extends Action = AnyAction>(
-    runtime: Runtime<S, A>
-  ): Middleware<Record<string, never>, S, Dispatch<A>> =>
-  ({ getState }) =>
+    runtime: Runtime<S, A>,
+    debug: boolean = false
+  ): Middleware<Record<string, never>, S, Dispatch<A | DriftAction>> =>
+  ({ getState, dispatch }) =>
   (next) =>
   (action_) => {
     // eslint-disable-next-line prefer-const
     let { action, emitted, emitter } = desugar(action_);
 
+    const label = runtime.label();
+
     validateAction({ action: action_, emitted, emitter });
 
-    // The action is recirculating from our own relay.
-    if (emitter === runtime.key()) return;
+    log(debug, "[drift] - middleware", {
+      action,
+      emitted,
+      emitter,
+      host: label,
+    });
 
-    if (isDrift(action.type)) {
-      const state = getState();
-      if (!emitted) action.payload.key = assignKey(runtime, action, state);
-      if (runtime.isMain()) executeAction(runtime, action, state);
+    // The action is recirculating from our own relay.
+    if (emitter === runtime.label()) return;
+
+    const isDrift = isDriftAction(action.type);
+
+    // If the runtime is updating its own props, no need to sync.
+    const shouldSync = isDrift && action.type !== setWindowProps.type;
+
+    let prevS: DriftState | null = null;
+    if (isDrift) {
+      prevS = getState().drift;
+      action = assignLabel(action, prevS);
     }
 
     const res = next(action);
 
-    if (shouldEmit(emitted, action.type)) runtime.emit({ action });
+    const nextS = shouldSync ? getState().drift : null;
+
+    const shouldEmit_ = shouldEmit(emitted, action.type);
+
+    // Wrap everything in an async closure eto ensure that we synchronize before
+    // before emitting to other windows.
+    void (async (): Promise<void> => {
+      try {
+        if (prevS !== null && nextS !== null) await sync(prevS, nextS, runtime, debug);
+        if (shouldEmit_) await runtime.emit({ action });
+      } catch (err) {
+        log(debug, "[drift] - middleware", {
+          error: err,
+          action,
+          emitted,
+          emitter,
+          host: label,
+        });
+        dispatch(setWindowError({ key: label, message: (err as Error).message }));
+      }
+    })();
 
     return res;
   };
@@ -69,10 +113,11 @@ export const configureMiddleware = <
   M extends Middlewares<S> = Middlewares<S>
 >(
   mw: M | ((def: CurriedGetDefaultMiddleware<S>) => M) | undefined,
-  runtime: Runtime<S, A>
+  runtime: Runtime<S, A>,
+  debug: boolean = false
 ): ((def: CurriedGetDefaultMiddleware<S>) => M) => {
   return (def) => {
     const base = mw != null ? (typeof mw === "function" ? mw(def) : mw) : def();
-    return [...base, middleware<S, A>(runtime)] as unknown as M;
+    return [...base, middleware<S, A>(runtime, debug)] as unknown as M;
   };
 };

@@ -9,9 +9,9 @@
 
 import { HTMLAttributes, PropsWithChildren } from "react";
 
-import clsx from "clsx";
+import { Direction } from "@synnaxlabs/x";
 
-import { Direction } from "@/spatial";
+import { CSS } from "@/css";
 
 import "./Divider.css";
 
@@ -35,10 +35,10 @@ export const Divider = ({
   ...props
 }: DividerProps): JSX.Element => (
   <div
-    className={clsx(
-      "pluto-divider",
-      `pluto-divider--${direction}`,
-      padded && "pluto-divider--padded",
+    className={CSS(
+      CSS.B("divider"),
+      CSS.dir(direction),
+      padded && CSS.BM("divider", "padded"),
       className
     )}
     {...props}

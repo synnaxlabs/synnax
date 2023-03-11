@@ -13,7 +13,7 @@
     padding: 1rem;
 }
 
-.pluto-header__actions {
+.pluto-header--divided .pluto-header__actions {
     padding: 0 1rem;
 }
 
@@ -22,6 +22,5 @@
 }
 
 .pluto-header-button-title {
-    border-radius: 0;
     flex-grow: 1;
 }

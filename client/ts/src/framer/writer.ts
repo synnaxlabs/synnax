@@ -18,10 +18,10 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { GeneralError } from "@/errors";
-
 import { Frame } from "./frame";
 import { framePayloadSchema } from "./payload";
+
+import { GeneralError } from "@/errors";
 
 enum Command {
   None = 0,

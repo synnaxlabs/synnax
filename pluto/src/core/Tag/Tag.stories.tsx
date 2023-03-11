@@ -22,8 +22,8 @@ export const Primary: ComponentStory<typeof Tag> = Template.bind({});
 Primary.args = {
   children: "Tag",
   onClose: () => undefined,
-  variant: "filled",
-  size: "medium",
+  variant: "outlined",
+  size: "small",
 };
 
 // eslint-disable-next-line import/no-default-export

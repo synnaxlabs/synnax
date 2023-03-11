@@ -34,7 +34,7 @@ export interface StoreDispatch<A extends Action = AnyAction> {
  */
 export const listen = <S extends StoreState, A extends Action = AnyAction>(
   communicator: Communicator<S, A>,
-  getStore: () => (StoreStateGetter<S> & StoreDispatch<A>) | undefined,
+  getStore: () => (StoreStateGetter<S> & StoreDispatch<A>) | undefined | null,
   resolve: (value: PreloadedState<S>) => void
 ): void =>
   communicator.subscribe(({ action, emitter, state, sendState }) => {

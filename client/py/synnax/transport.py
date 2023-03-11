@@ -24,6 +24,7 @@ from freighter import (
 
 from synnax.telem import TimeSpan
 
+
 class Transport:
     url: URL
     stream: StreamClient
@@ -56,7 +57,9 @@ class Transport:
             url=self.url,
             encoder_decoder=JSONEncoder(),
             secure=secure,
-            timeout=Timeout(connect=open_timeout.seconds(), read=read_timeout.seconds()),
+            timeout=Timeout(
+                connect=open_timeout.seconds(), read=read_timeout.seconds()
+            ),
             retries=Retry(total=max_retries),
         )
 

@@ -9,25 +9,25 @@
 
 import { useEffect, useState } from "react";
 
+import { Location } from "@synnaxlabs/x";
+
 import {
   moveMosaicTab,
   removeMosaicTab,
-  resizeMosaicLeaf,
+  resizeMosaicNode,
   selectMosaicTab,
   renameMosaicTab,
   autoSelectTabs,
 } from "./mosaicTree";
-import { MosaicLeaf } from "./types";
-
-import { Location } from "@/spatial";
+import { MosaicNode } from "./types";
 
 export interface UseMosaicProps {
   allowRename?: boolean;
-  initialTree: MosaicLeaf;
+  initialTree: MosaicNode;
 }
 
 export interface UseMosaicReturn {
-  root: MosaicLeaf;
+  root: MosaicNode;
   onDrop: (key: number, tabKey: string, loc: Location) => void;
   onClose: (tabKey: string) => void;
   onSelect: (tabKey: string) => void;
@@ -41,19 +41,19 @@ export const useMosaic = ({
 }: UseMosaicProps): UseMosaicReturn => {
   const [root, setRoot] = useState(initialTree);
 
-  useEffect(() => setRoot(autoSelectTabs(initialTree)), [initialTree]);
+  useEffect(() => setRoot(autoSelectTabs(initialTree)[0]), [initialTree]);
 
   const handleDrop = (key: number, tabKey: string, loc: Location): void =>
-    setRoot((r) => moveMosaicTab(r, tabKey, loc, key));
+    setRoot((r) => moveMosaicTab(r, tabKey, loc, key)[0]);
 
   const handleClose = (tabKey: string): void =>
-    setRoot((r) => removeMosaicTab(r, tabKey));
+    setRoot((r) => removeMosaicTab(r, tabKey)[0]);
 
   const handleSelect = (tabKey: string): void =>
     setRoot((r) => selectMosaicTab(r, tabKey));
 
   const handleResized = (key: number, size: number): void =>
-    setRoot((r) => resizeMosaicLeaf(r, key, size));
+    setRoot((r) => resizeMosaicNode(r, key, size));
 
   const handleRename = (tabKey: string, title: string): void =>
     setRoot((r) => renameMosaicTab(r, tabKey, title));

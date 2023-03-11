@@ -8,11 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { ComponentMeta } from "@storybook/react";
-import { TimeStamp } from "@synnaxlabs/x";
+import { TimeStamp, Scale } from "@synnaxlabs/x";
 
 import { Axis } from "./Axis";
-
-import { Scale } from "@/spatial";
 
 const story: ComponentMeta<typeof Axis> = {
   title: "Visualization/Axis",

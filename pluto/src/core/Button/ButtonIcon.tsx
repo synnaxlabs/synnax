@@ -7,33 +7,38 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { forwardRef, ReactElement } from "react";
 
 import clsx from "clsx";
 
 import { BaseButtonProps } from "./Button";
+
+import { CSS } from "@/css";
 
 /** The props for the {@link ButtonIcon} */
 export interface ButtonIconProps extends BaseButtonProps {
   children: ReactElement;
 }
 
-export const ButtonIcon = ({
-  children,
-  className,
-  variant = "text",
-  size = "medium",
-  ...props
-}: ButtonIconProps): JSX.Element => (
-  <button
-    className={clsx(
-      "pluto-btn pluto-btn-icon",
-      "pluto--" + size,
-      "pluto-btn--" + variant,
-      className
-    )}
-    {...props}
-  >
-    {children}
-  </button>
+export const ButtonIcon = forwardRef<HTMLButtonElement, ButtonIconProps>(
+  (
+    { children, className, variant = "text", size = "medium", sharp = false, ...props },
+    ref
+  ): JSX.Element => (
+    <button
+      ref={ref}
+      className={clsx(
+        CSS.B("btn"),
+        CSS.B("btn-icon"),
+        CSS.size(size),
+        CSS.sharp(sharp),
+        CSS.BM("btn", variant),
+        className
+      )}
+      {...props}
+    >
+      {children}
+    </button>
+  )
 );
+ButtonIcon.displayName = "ButtonIcon";

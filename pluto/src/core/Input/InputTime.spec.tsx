@@ -20,7 +20,9 @@ describe("Input.Time", () => {
     fireEvent.change(c.getByDisplayValue("00:00:00"), {
       target: { value: "15:00:00" },
     });
-    expect(handleChange).toHaveBeenCalledWith(TimeStamp.hours(15).valueOf());
+    expect(handleChange).toHaveBeenCalledWith(
+      TimeStamp.hours(15).add(TimeStamp.utcOffset).valueOf()
+    );
   });
   it("Should normalize an initial TimeStamp", () => {
     const ts = new TimeStamp([2022, 12, 22]).add(TimeStamp.hours(12));

@@ -9,15 +9,13 @@
 
 import { forwardRef, RefObject, useCallback, useRef, useState } from "react";
 
-import clsx from "clsx";
-
-import { Space, SpaceProps } from "@/core/Space";
+import { YLocation } from "@synnaxlabs/x";
 
 import { Pack } from "../Pack";
 
-import { locationCls, visibleCls } from "@/css";
+import { Space, SpaceProps } from "@/core/Space";
+import { CSS } from "@/css";
 import { useClickOutside } from "@/hooks";
-import { YLocation } from "@/spatial";
 
 import "./Dropdown.css";
 
@@ -66,18 +64,19 @@ export const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
     <Pack
       {...props}
       ref={ref}
-      className="pluto-dropdown__container"
+      className={CSS.B("dropdown")}
       direction="y"
       reverse={location === "top"}
     >
       {children[0]}
       <Space
-        className={clsx(
-          "pluto-bordered",
-          "pluto-dropdown__dialog",
-          locationCls(location),
-          visibleCls(visible)
+        className={CSS(
+          CSS.bordered(),
+          CSS.BE("dropdown", "dialog"),
+          CSS.loc(location),
+          CSS.visible(visible)
         )}
+        role="dialog"
         empty
       >
         {children[1]}
@@ -85,5 +84,4 @@ export const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
     </Pack>
   )
 );
-
 Dropdown.displayName = "Dropdown";

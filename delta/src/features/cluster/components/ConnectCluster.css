@@ -9,22 +9,22 @@
  * included in the file licenses/APL.txt.
  */
 
-.delta-connect-cluster__input--host {
-    flex-grow: 1;
-}
-
-.delta-connect-cluster__input--port {
+.delta-connect-cluster .delta-input__port {
     width: 20rem;
 }
 
-.delta-connect-cluster__input--password {
+.delta-connect-cluster .delta-input__host {
+     width: 20rem;
+}
+
+.delta-connect-cluster .delta-input__password {
     width: 100%;
 }
 
-.delta-connect-cluster-footer__left {
+.delta-connect-cluster .delta-footer__start {
     padding: 0 2rem;
 }
 
-.delta-connect-cluster-footer__right {
-    padding: 1rem;
+.delta-connect-cluster .delta-footer__end {
+        padding: 1rem;
 }

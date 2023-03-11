@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Case } from "@synnaxlabs/x";
 import { addExtension, pack, unpack } from "msgpackr";
 import { ZodSchema } from "zod";
-
-import { camelKeys, snakeKeys } from "@/caseconv";
 
 /**
  * CustomTypeEncoder is an interface for a class that needs to transform its
@@ -63,11 +62,11 @@ export class MsgpackEncoderDecoder implements EncoderDecoder {
   contentType = "application/msgpack";
 
   encode(payload: unknown): ArrayBuffer {
-    return pack(snakeKeys(payload));
+    return pack(Case.toSnake(payload));
   }
 
   decode<P>(data: Uint8Array | ArrayBuffer, schema?: ZodSchema<P>): P {
-    const unpacked = camelKeys(unpack(new Uint8Array(data)));
+    const unpacked = Case.toCamel(unpack(new Uint8Array(data)));
     return schema != null ? schema.parse(unpacked) : (unpacked as P);
   }
 
@@ -81,7 +80,7 @@ export class JSONEncoderDecoder implements EncoderDecoder {
   contentType = "application/json";
 
   encode(payload: unknown): ArrayBuffer {
-    const json = JSON.stringify(snakeKeys(payload), (_, v) => {
+    const json = JSON.stringify(Case.toSnake(payload), (_, v) => {
       if (ArrayBuffer.isView(v)) return Array.from(v as Uint8Array);
       return v;
     });
@@ -89,7 +88,7 @@ export class JSONEncoderDecoder implements EncoderDecoder {
   }
 
   decode<P>(data: Uint8Array | ArrayBuffer, schema?: ZodSchema<P>): P {
-    const unpacked = camelKeys(JSON.parse(new TextDecoder().decode(data)));
+    const unpacked = Case.toCamel(JSON.parse(new TextDecoder().decode(data)));
     return schema != null ? schema.parse(unpacked) : (unpacked as P);
   }
 

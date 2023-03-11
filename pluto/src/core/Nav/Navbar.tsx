@@ -7,12 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createContext, FunctionComponent, useContext } from "react";
+import { FunctionComponent } from "react";
 
-import clsx from "clsx";
+import {
+  Location,
+  Position,
+  swapLoc,
+  swapDir,
+  locToDir,
+  dirToDim,
+} from "@synnaxlabs/x";
 
 import { Space, SpaceProps } from "@/core/Space";
-import { Location, Position, swapLoc, swapDir, locToDir, dirToDim } from "@/spatial";
+import { CSS } from "@/css";
 
 import "./Navbar.css";
 
@@ -20,8 +27,6 @@ export interface NavbarProps extends Omit<SpaceProps, "direction" | "size" | "re
   location?: Location;
   size?: string | number;
 }
-
-const NavbarContext = createContext<Location>("left");
 
 const CoreNavbar = ({
   location = "left",
@@ -31,25 +36,24 @@ const CoreNavbar = ({
   ...props
 }: NavbarProps): JSX.Element => {
   const dir = locToDir(location);
+  const swappedDir = swapDir(locToDir(location));
   return (
-    <NavbarContext.Provider value={location}>
-      <Space
-        className={clsx(
-          "pluto-navbar",
-          `pluto-bordered--${swapLoc(location)}`,
-          `pluto-navbar--${dir}`,
-          className
-        )}
-        direction={swapDir(dir)}
-        style={{
-          [dirToDim(dir)]: size,
-          ...style,
-        }}
-        align="center"
-        empty
-        {...props}
-      />
-    </NavbarContext.Provider>
+    <Space
+      className={CSS(
+        CSS.B("navbar"),
+        CSS.bordered(swapLoc(location)),
+        CSS.dir(swappedDir),
+        className
+      )}
+      direction={swappedDir}
+      style={{
+        [dirToDim(dir)]: size,
+        ...style,
+      }}
+      align="center"
+      empty
+      {...props}
+    />
   );
 };
 
@@ -61,16 +65,15 @@ export interface NavbarContentProps extends Omit<SpaceProps<"div">, "ref"> {
 const contentFactory =
   (pos: Position | ""): FunctionComponent<NavbarContentProps> =>
   // eslint-disable-next-line react/display-name
-  ({ bordered = true, className, ...props }: NavbarContentProps): JSX.Element =>
+  ({ bordered = false, className, ...props }: NavbarContentProps): JSX.Element =>
     (
       <Space
-        className={clsx(
-          "pluto-navbar__content",
-          `pluto-navbar__content--${pos}`,
-          bordered && "pluto-navbar__content--bordered",
+        className={CSS(
+          CSS.BE("navbar", "content"),
+          CSS.pos(pos),
+          bordered && CSS.bordered(pos),
           className
         )}
-        direction={swapDir(locToDir(useContext(NavbarContext)))}
         align="center"
         {...props}
       />
@@ -92,7 +95,6 @@ export interface NavbarType extends CoreNavbarType {
   Center: typeof NavbarCenter;
   End: typeof NavbarEnd;
   Content: typeof NavbarContent;
-  Context: typeof NavbarContext;
 }
 
 export const Navbar = CoreNavbar as NavbarType;

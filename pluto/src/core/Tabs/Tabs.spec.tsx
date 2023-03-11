@@ -52,24 +52,20 @@ describe("Tabs", () => {
     expect(getByText("Tab 1 Content")).toBeTruthy();
   });
   it("should call the onTabDragStart and onTabDragEnd handler when a tab is dragged", () => {
-    const onTabDragStart = vi.fn();
-    const onTabDragEnd = vi.fn();
+    const handleDragStart = vi.fn();
+    const handleDragEnd = vi.fn();
     const tabs: Tab[] = [
       { tabKey: "tab1", name: "Tab 1", content: <span>Tab 1 Content</span> },
       { tabKey: "tab2", name: "Tab 2", content: <span>Tab 2 Content</span> },
     ];
     const { getByText } = render(
-      <StaticTabs
-        tabs={tabs}
-        onTabDragStart={onTabDragStart}
-        onTabDragEnd={onTabDragEnd}
-      />
+      <StaticTabs tabs={tabs} onDragStart={handleDragStart} onDragEnd={handleDragEnd} />
     );
-    expect(onTabDragStart).not.toHaveBeenCalled();
+    expect(handleDragStart).not.toHaveBeenCalled();
     fireEvent.dragStart(getByText("Tab 1"));
-    expect(onTabDragStart).toHaveBeenCalled();
+    expect(handleDragStart).toHaveBeenCalled();
     fireEvent.dragEnd(getByText("Tab 1"));
-    expect(onTabDragEnd).toHaveBeenCalled();
+    expect(handleDragEnd).toHaveBeenCalled();
   });
   it("should render a close button if an onClose prop is passed", () => {
     const onClose = vi.fn();

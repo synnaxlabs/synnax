@@ -7,30 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { forwardRef, useCallback } from "react";
-
-import clsx from "clsx";
-import { TiArrowUnsorted } from "react-icons/ti";
-
-import { Button, ButtonProps } from "../Button";
-
-import { directionCls } from "@/css";
-import { Box, Direction, dirToDim } from "@/spatial";
+import { forwardRef } from "react";
 
 import { Pack } from "../Pack";
 
-import { useCursorDrag } from "@/spatial/useCursorDrag";
-
-import "./InputNumber.css";
-
 import { Input } from "./Input";
+import { InputDragButton, InputDragButtonExtensionProps } from "./InputDragButton";
 import { InputBaseProps } from "./types";
 
-export interface InputNumberProps extends Omit<InputBaseProps<number>, "type"> {
-  showDragHandle?: boolean;
-  dragDirection?: Direction;
-  dragScale?: number;
+export interface InputNumberProps
+  extends Omit<InputBaseProps<number>, "type">,
+    InputDragButtonExtensionProps {
   selectOnFocus?: boolean;
+  showDragHandle?: boolean;
 }
 
 export const InputNumber = forwardRef<HTMLInputElement, InputNumberProps>(
@@ -39,20 +28,14 @@ export const InputNumber = forwardRef<HTMLInputElement, InputNumberProps>(
       size = "medium",
       onChange,
       value,
-      dragDirection = "x",
+      dragDirection,
       showDragHandle = true,
-      dragScale = 1,
+      dragScale,
       selectOnFocus = true,
       ...props
     },
     ref
   ): JSX.Element => {
-    const onStart = useCursorDrag({
-      onMove: useCallback(
-        (box: Box) => onChange?.(box[dirToDim(dragDirection)] * dragScale),
-        [onChange, dragDirection, dragScale]
-      ),
-    });
     const input = (
       <Input
         ref={ref}
@@ -69,33 +52,11 @@ export const InputNumber = forwardRef<HTMLInputElement, InputNumberProps>(
 
     if (!showDragHandle) return input;
     return (
-      <Pack>
+      <Pack {...props}>
         {input}
-        <DragButton direction={dragDirection} onMouseDown={onStart} />
+        <InputDragButton direction={dragDirection} value={value} onChange={onChange} />
       </Pack>
     );
   }
 );
 InputNumber.displayName = "InputNumber";
-
-export interface DragButtonProps extends ButtonProps {
-  direction: Direction;
-}
-
-export const DragButton = ({
-  direction,
-  className,
-  ...props
-}: DragButtonProps): JSX.Element => (
-  <Button.Icon
-    variant="outlined"
-    className={clsx(
-      "pluto-input-number__drag-button",
-      directionCls(direction),
-      className
-    )}
-    {...props}
-  >
-    <TiArrowUnsorted />
-  </Button.Icon>
-);

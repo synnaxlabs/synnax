@@ -27,7 +27,7 @@ from synnax.channel.retrieve import ChannelRetriever
 from synnax.exceptions import Field, GeneralError, ValidationError
 from synnax.telem import TimeSpan, TimeStamp, UnparsedTimeStamp, NumpyArray
 from synnax.framer.payload import BinaryFrame, NumpyFrame
-from synnax.framer.mode import FramingMode, open_framing_mode
+from synnax.util.flatten import flatten
 
 
 class _Command(int, Enum):
@@ -99,11 +99,15 @@ class FrameWriter:
 
     client: StreamClient
     keys: list[str]
+    start: UnparsedTimeStamp
 
-    def __init__(self, client: StreamClient) -> None:
+    def __init__(self, client: StreamClient, start: UnparsedTimeStamp, *keys: str  | list[str]) -> None:
         self.client = client
+        self.start = start
+        self.keys = flatten(*keys)
+        self._open()
 
-    def open(self, start: UnparsedTimeStamp, keys: list[str]):
+    def _open(self):
         """Opens the writer to write a range of telemetry starting at the given time.
 
         :param start: The starting timestamp of the new range to write to. If start
@@ -112,11 +116,11 @@ class FrameWriter:
         All frames written to the writer must have exactly one array for each key in
         this list.
         """
-        self.keys = keys
         self.__stream = self.client.stream(self._ENDPOINT, _Request, _Response)
         self._stream.send(
             _Request(
-                command=_Command.OPEN, config=_Config(keys=keys, start=TimeStamp(start))
+                command=_Command.OPEN,
+                config=_Config(keys=self.keys, start=TimeStamp(self.start))
             )
         )
         _, exc = self._stream.receive()
@@ -206,6 +210,12 @@ class FrameWriter:
         if err is not None and not isinstance(err, EOF):
             raise err
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+
     def _check_keys(self, frame: BinaryFrame):
         missing = set(self.keys) - set(frame.keys)
         extra = set(frame.keys) - set(self.keys)
@@ -234,7 +244,6 @@ class DataFrameWriter(FrameWriter, io.DataFrameWriter):
     """
 
     _channel_retriever: ChannelRetriever
-    _mode: FramingMode
     _strict: bool
     _suppress_warnings: bool
     _skip_invalid: bool
@@ -244,28 +253,17 @@ class DataFrameWriter(FrameWriter, io.DataFrameWriter):
         self,
         client: StreamClient,
         channels: ChannelRetriever,
+        start: UnparsedTimeStamp,
+        *keys_or_names: str | list[str],
         strict: bool = False,
         suppress_warnings: bool = False,
     ) -> None:
-        super().__init__(client)
         self._channel_retriever = channels
-        self._mode = FramingMode.UNOPENED
+        flat = flatten(*keys_or_names)
+        self._channels = self._channel_retriever.retrieve(flat)
+        super().__init__(client, start, [ch.key for ch in self._channels])
         self._strict = strict
         self._suppress_warnings = suppress_warnings
-
-    def open(
-        self,
-        start: UnparsedTimeStamp,
-        keys: list[str] | None = None,
-        names: list[str] | None = None,
-    ):
-        """Opens the writer, acquiring an exclusive lock on the given
-        channels for the duration of the writer's lifetime. open must be called before
-        any other writer methods.
-        """
-        self._mode = open_framing_mode(keys, names)
-        self._channels = self._channel_retriever.retrieve(keys=keys, names=names)
-        super(DataFrameWriter, self).open(start, [ch.key for ch in self._channels])
 
     def write(self, frame: DataFrame):
         super(DataFrameWriter, self).write(self._convert(frame))
@@ -279,20 +277,17 @@ class DataFrameWriter(FrameWriter, io.DataFrameWriter):
         return np_fr.to_binary()
 
     def _retrieve(self, ch: ChannelPayload, df: DataFrame) -> tuple[str, ndarray]:
-        if self._mode == FramingMode.UNOPENED:
-            raise GeneralError(
-                "Writer is not open. Please open before calling write() or close()."
-            )
-        key_or_name = getattr(ch, self._mode.value)
-        v = df.get(key_or_name, None)
+        v = df.get(ch.key, None)
         if v is None:
-            raise ValidationError(
-                Field(
-                    key_or_name,
-                    f"frame is missing {self._mode.value} {key_or_name}",
+            v = df.get(ch.name, None)
+            if v is None:
+                raise ValidationError(
+                    Field(
+                        ch.name,
+                        f"frame is missing {self._mode.value} entry for channel {ch.key}: {ch.name}",
+                    )
                 )
-            )
-        return key_or_name, v.to_numpy()
+        return v, v.to_numpy()
 
     def _prep_arr(self, arr: ndarray, ch: ChannelPayload, col: str):
         ch_dt = ch.data_type.np
@@ -301,15 +296,18 @@ class DataFrameWriter(FrameWriter, io.DataFrameWriter):
                 raise ValidationError(
                     Field(
                         col,
-                        f"""column {col} has type {arr.dtype} but channel {ch.key} expects type {ch_dt}""",
+                        f"""column {col} has type {arr.dtype} but channel {ch.key}
+                        expects type {ch_dt}""",
                     )
                 )
             elif not self._suppress_warnings:
                 warn(
-                    f"""column {col} has type {arr.dtype} but channel {ch.key} expects type {ch_dt}.
-                    We can safely convert between the two, but this can cause performance degradations and is not recccomended.
-                    To suppress this warning, set suppress_warnings=True when constructing the writer. To raise an error instead,
-                    set strict=True when constructing the writer."""
+                    f"""column {col} has type {arr.dtype} but channel {ch.key} expects
+                    type {ch_dt}. We can safely convert between the two, but this can
+                    cause performance degradations and is not recommended. To suppress
+                    this warning, set suppress_warnings=True when constructing the
+                    writer. To raise an error instead, set strict=True when constructing
+                    the writer."""
                 )
         return arr.astype(ch_dt)
 

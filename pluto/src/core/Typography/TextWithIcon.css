@@ -9,53 +9,54 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-text-icon > svg {
+.pluto-text-icon svg {
     fill: var(--pluto-text-color);
+    stroke: var(--pluto-text-color);
 }
 
-.pluto-text-icon--h1 > svg {
-    width: calc(var(--pluto-h1-line-height) * 0.9);
-    min-width: calc(var(--pluto-h1-line-height) * 0.9);
-    height: var(--pluto-h1-line-height);
+.pluto-text-icon--h1 svg {
+    width: var(--pluto-h1-size);
+    min-width: var(--pluto-h1-size);
+    height: var(--pluto-h1-size);
 }
 
-.pluto-text-icon--h2 > svg {
-    width: var(--pluto-h2-line-height);
-    min-width: var(--pluto-h2-line-height);
-    height: var(--pluto-h2-line-height);
+.pluto-text-icon--h2 svg {
+    width: var(--pluto-h2-size);
+    min-width: var(--pluto-h2-size);
+    height: var(--pluto-h2-size);
 }
 
-.pluto-text-icon--h3 > svg {
+.pluto-text-icon--h3 svg {
     width: var(--pluto-h3-line-height);
     min-width: var(--pluto-h3-line-height);
     height: var(--pluto-h3-line-height);
 }
 
-.pluto-text-icon--h4 > svg {
+.pluto-text-icon--h4 svg {
     width: var(--pluto-h4-line-height);
     min-width: var(--pluto-h4-line-height);
     height: var(--pluto-h4-line-height);
 }
 
-.pluto-text-icon--h5 > svg {
+.pluto-text-icon--h5 svg {
     width: var(--pluto-h5-line-height);
     min-width: var(--pluto-h5-line-height);
     height: var(--pluto-h5-line-height);
 }
 
-.pluto-text-icon--p > svg {
+.pluto-text-icon--p svg {
     width: var(--pluto-p-size);
     min-width: var(--pluto-p-size);
     height: var(--pluto-p-size);
 }
 
-.pluto-text-icon--small > svg {
+.pluto-text-icon--small svg {
     width: var(--pluto-small-line-height);
     min-width: var(--pluto-small-line-height);
     height: var(--pluto-small-line-height);
 }
 
-.pluto-text-icon--small > svg {
+.pluto-text-icon--small svg {
     width: var(--pluto-tiny-line-height);
     min-width: var(--pluto-tiny-line-height);
     height: var(--pluto-tiny-line-height);

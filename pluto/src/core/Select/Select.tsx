@@ -11,10 +11,9 @@ import { FocusEventHandler, useEffect, useState } from "react";
 
 import { RenderableRecord } from "@synnaxlabs/x";
 
-import { Dropdown, DropdownProps } from "@/core/Dropdown";
-
 import { SelectList } from "./SelectList";
 
+import { Dropdown, DropdownProps } from "@/core/Dropdown";
 import { InputControl, Input, InputProps } from "@/core/Input";
 import { List, ListColumn } from "@/core/List";
 

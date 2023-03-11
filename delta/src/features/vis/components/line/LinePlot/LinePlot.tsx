@@ -10,43 +10,44 @@
 import { useCallback, useEffect, useState, useTransition } from "react";
 
 import { SampleValue } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/media";
 import {
   hexToRGBA,
-  useResize,
-  Box,
   AxisProps,
   GLLine,
-  ZERO_BOX,
   GLLines,
-  RGBATuple,
   Axis,
   Viewport,
   UseViewportHandler,
-  Scale,
-  Bound,
-  DECIMAL_BOX,
   Theme,
   Space,
   Typography,
   Menu as PMenu,
-  ZERO_BOUND,
   Divider,
+  useResize,
 } from "@synnaxlabs/pluto";
-import { addSamples, TimeRange } from "@synnaxlabs/x";
-
-import { Menu, Icon } from "@/components";
-import { useSelectTheme } from "@/features/layout";
+import {
+  addSamples,
+  Bound,
+  Box,
+  DECIMAL_BOX,
+  Scale,
+  TimeRange,
+  TimeStamp,
+  ZERO_BOUND,
+  ZERO_BOX,
+} from "@synnaxlabs/x";
 
 import { AxisKey, X_AXIS_KEYS, YAxisKey, Y_AXIS_KEYS } from "../../../../vis/types";
 import { TelemetryClient, TelemetryClientResponse } from "../../../telem/client";
+import { useTelemetryClient } from "../../../telem/TelemetryContext";
+import { LineSVis } from "../types";
 
+import { Menu } from "@/components";
+import { useSelectTheme } from "@/features/layout";
 import { useAsyncEffect } from "@/hooks";
 
-import { useTelemetryClient } from "../../../telem/TelemetryContext";
-
 import "./LinePlot.css";
-
-import { LineSVis } from "../types";
 
 export interface LinePlotProps {
   vis: LineSVis;
@@ -90,18 +91,30 @@ export const LinePlot = ({
   const [zoom, setZoom] = useState<Box>(DECIMAL_BOX);
   const [selection, setSelection] = useState<Box | null>(null);
   const [, startDraw] = useTransition();
+  const [tick, setTick] = useState(0);
 
   const valid = isValid(vis);
+
+  const now = TimeStamp.now();
+  const isLive = false;
+
+  useEffect(() => {
+    if (!isLive) return;
+    const i = setInterval(() => {
+      setTick((t) => t + 1);
+    }, 2000);
+    return () => clearInterval(i);
+  }, []);
 
   useAsyncEffect(async () => {
     if (client == null || !valid) return setData(initialDataState());
     try {
-      const data = await fetchData(vis, client);
+      const data = await fetchData(vis, client, isLive);
       setData({ data, error: null });
     } catch (error) {
-      setData({ data: { ...ZERO_DATA }, error: error as Error });
+      setData({ ...initialDataState(), error: error as Error });
     }
-  }, [vis, client]);
+  }, [vis, tick, client]);
 
   useEffect(() => {
     if (theme == null) return;
@@ -126,7 +139,7 @@ export const LinePlot = ({
     []
   );
 
-  const zoomPanSelectProps = Viewport.use({
+  const viewportProps = Viewport.use({
     onChange: handleZoomPanSelect,
   });
 
@@ -140,7 +153,6 @@ export const LinePlot = ({
         <Typography.Text
           level="h4"
           color="var(--pluto-error-z)"
-          wrap
           style={{ padding: "2rem" }}
         >
           {data.error.message}
@@ -174,6 +186,7 @@ export const LinePlot = ({
 
   const ContextMenu = (): JSX.Element => {
     const getTimeRange = (): TimeRange => {
+      console.log("TR");
       if (selection == null) throw new Error("Selection is null");
       const scale = Scale.scale(pkg.xBound)
         .scale(1)
@@ -184,7 +197,7 @@ export const LinePlot = ({
     };
 
     return (
-      <PMenu size="large">
+      <PMenu>
         {selection !== null && (
           <>
             <PMenu.Item
@@ -197,18 +210,19 @@ export const LinePlot = ({
                 void navigator.clipboard.writeText(code);
               }}
             >
-              Copy Time Range as Python
+              Copy Range as Python
             </PMenu.Item>
             <PMenu.Item
               size="small"
               itemKey="copyTS"
+              startIcon={<Icon.Typescript />}
               onClick={() => {
                 const tr = getTimeRange();
                 const code = `new TimeRange(${tr.start.valueOf()}, ${tr.end.valueOf()})`;
                 void navigator.clipboard.writeText(code);
               }}
             >
-              Copy Time Range as TypeScript
+              Copy Range as TypeScript
             </PMenu.Item>
             <PMenu.Item
               size="small"
@@ -223,7 +237,7 @@ export const LinePlot = ({
                 void navigator.clipboard.writeText(code);
               }}
             >
-              Copy Time Range as ISO
+              Copy Range as ISO
             </PMenu.Item>
             <Divider direction="x" padded />
           </>
@@ -248,7 +262,7 @@ export const LinePlot = ({
             width: pkg.glBox.width,
             height: pkg.glBox.height,
           }}
-          {...zoomPanSelectProps}
+          {...viewportProps}
         />
         <GLLines lines={pkg.lines} box={pkg.glBox} />
         <svg className="delta-line-plot__svg">
@@ -272,13 +286,18 @@ const ZERO_DATA: LineVisData = {
 
 const fetchData = async (
   vis: LineSVis,
-  client: TelemetryClient
+  client: TelemetryClient,
+  isLive: boolean
 ): Promise<LineVisData> => {
   const keys = Object.values(vis.channels)
     .flat()
     .filter((key) => key.length > 0);
   const ranges = Object.values(vis.ranges).flat();
-  const entries = await client.retrieve({ keys, ranges, bypassCache: true });
+  const entries = await client.retrieve({
+    keys,
+    ranges,
+    bypassCache: isLive,
+  });
   const data: LineVisData = { ...ZERO_DATA };
   Object.values(vis.ranges).forEach((ranges) =>
     ranges.forEach((range) =>
@@ -345,16 +364,11 @@ const buildGLLines = (data: LineVisData, zoom: Box, theme: Theme): GLLine[] => {
         const xRes = xData[0];
         yRes.arrays.forEach((yArr, j) => {
           lines.push({
-            color: [
-              ...hexToRGBA(theme.colors.visualization.palettes.default[i])
-                .slice(0, 3)
-                .map((c: number) => c / 255),
-              1,
-            ] as RGBATuple,
+            color: hexToRGBA(theme.colors.visualization.palettes.default[i], 1, 255),
             scale,
             offset,
-            y: yRes.buffers.value[j],
-            x: xRes.buffers.value[j],
+            y: yRes.buffers.value[j].buf,
+            x: xRes.buffers.value[j].buf,
             strokeWidth: 3,
             length: yArr.length,
           });

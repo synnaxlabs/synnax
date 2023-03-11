@@ -1,0 +1,25 @@
+/*
+ * Copyright 2023 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.synnax-logo--auto {
+    --logo-color: var(--pluto-logo-color, #ffffff);
+    --text-color: var(--pluto-text-color, #ffffff);
+}
+
+.synnax-logo--auto path {
+    fill: var(--logo-color);
+}
+
+.synnax-logo--auto text {
+    font-size: 252px;
+    fill: var(--text-color);
+    font-family: Roboto-Regular, Roboto, sans-serif;
+}
