@@ -14,19 +14,17 @@ const {
 
 const url = Astro.request.url;
 if (url.includes("noHeader")) {
-    Astro.cookies.set("noHeader", "true");
 }
 if (url.includes("theme")) {
     const theme = url.split("theme=")[1].split("&")[0];
-    Astro.cookies.set("theme", theme);
 }
 
-const noHeader = Astro.cookies.get("noHeader");
+const noHeader = "true";
 let vars: Record<string, any> = {};
-if (noHeader.value == "true") {
+if (noHeader== "true") {
     vars["--docs-header-display"] = "none";
 }
-const theme = Astro.cookies.get("theme");
+const theme = { value: "light" };
 vars = { ...vars, ...Theming.toCSSVars(theme.value === "dark" ? DARK : LIGHT) };
 ---
 

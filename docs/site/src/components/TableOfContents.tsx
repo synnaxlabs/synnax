@@ -21,7 +21,7 @@ interface ItemOffset {
 export const TableOfContents = ({
   headings = [],
 }: {
-  headings: MarkdownHeading[];
+  headings?: MarkdownHeading[];
 }): JSX.Element => {
   const toc = useRef<HTMLDivElement | null>();
   const onThisPageID = "on-this-page-heading";
