@@ -42,7 +42,7 @@ describe("deepMerge", () => {
     };
     expect(Deep.merge(a, b)).toEqual(c);
   });
-  it.only("Should set a value even when its parent is undefined", () => {
+  it("Should set a value even when its parent is undefined", () => {
     const a: TestRecord = {
       a: 1,
     };
