@@ -62,8 +62,10 @@ export const useSelectSVis = <V extends Vis>(layoutKey?: string): V | undefined 
       if (vis == null) return undefined;
       switch (vis.variant) {
         case "linePlot": {
-          const x1Ranges = selectRanges(state, (vis as LineVis).ranges.x1);
-          return { ...vis, ranges: { x1: x1Ranges } };
+          const lineVis = vis as LineVis;
+          const x1Ranges = selectRanges(state, lineVis.ranges.x1);
+          const x2Ranges = selectRanges(state, lineVis.ranges.x2);
+          return { ...vis, ranges: { x1: x1Ranges, x2: x2Ranges } };
         }
       }
       return undefined;

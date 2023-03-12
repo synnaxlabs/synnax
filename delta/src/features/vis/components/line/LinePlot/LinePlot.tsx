@@ -33,9 +33,11 @@ import {
   DECIMAL_BOX,
   Scale,
   TimeRange,
+  XY,
   TimeStamp,
   ZERO_BOUND,
   ZERO_BOX,
+  ZERO_XY,
 } from "@synnaxlabs/x";
 
 import { AxisKey, X_AXIS_KEYS, YAxisKey, Y_AXIS_KEYS } from "../../../../vis/types";
@@ -60,6 +62,7 @@ interface RenderingState {
   lines: GLLine[];
   glBox: Box;
   xBound: Bound;
+  axisOffsets: XY;
 }
 
 interface DataState {
@@ -85,6 +88,7 @@ export const LinePlot = ({
     lines: [],
     glBox: ZERO_BOX,
     xBound: ZERO_BOUND,
+    axisOffsets: ZERO_XY,
   });
   const [box, setBox] = useState<Box>(ZERO_BOX);
 
@@ -96,7 +100,9 @@ export const LinePlot = ({
   const valid = isValid(vis);
 
   const now = TimeStamp.now();
-  const isLive = false;
+  const isLive = [...vis.ranges.x1, ...vis.ranges.x2].some((r) =>
+    new TimeStamp(r.end).after(now)
+  );
 
   useEffect(() => {
     if (!isLive) return;
@@ -104,25 +110,27 @@ export const LinePlot = ({
       setTick((t) => t + 1);
     }, 2000);
     return () => clearInterval(i);
-  }, []);
+  }, [isLive]);
 
   useAsyncEffect(async () => {
     if (client == null || !valid) return setData(initialDataState());
-    try {
-      const data = await fetchData(vis, client, isLive);
-      setData({ data, error: null });
-    } catch (error) {
-      setData({ ...initialDataState(), error: error as Error });
-    }
-  }, [vis, tick, client]);
+    const data = await fetchData(vis, client, isLive);
+    setData({ data, error: null });
+  }, [isLive, vis, tick, client]);
 
   useEffect(() => {
     if (theme == null) return;
     if (data == null)
-      return setPkg({ axes: [], lines: [], glBox: ZERO_BOX, xBound: ZERO_BOUND });
+      return setPkg({
+        axes: [],
+        lines: [],
+        glBox: ZERO_BOX,
+        xBound: ZERO_BOUND,
+        axisOffsets: ZERO_XY,
+      });
     const lines = buildGLLines(data.data, zoom, theme);
-    const [xBound, axes, glBox] = buildAxes(data.data, zoom, box);
-    startDraw(() => setPkg({ lines, axes, glBox, xBound }));
+    const [xBound, axes, glBox, axisOffsets] = buildAxes(data.data, zoom, box);
+    startDraw(() => setPkg({ lines, axes, glBox, xBound, axisOffsets }));
   }, [zoom, theme, box, data]);
 
   const menuProps = PMenu.useContextMenu();
@@ -186,7 +194,6 @@ export const LinePlot = ({
 
   const ContextMenu = (): JSX.Element => {
     const getTimeRange = (): TimeRange => {
-      console.log("TR");
       if (selection == null) throw new Error("Selection is null");
       const scale = Scale.scale(pkg.xBound)
         .scale(1)
@@ -257,8 +264,8 @@ export const LinePlot = ({
         <Viewport.Mask
           style={{
             position: "absolute",
-            top: 10,
-            left: 30,
+            top: pkg.axisOffsets.y,
+            left: pkg.axisOffsets.x,
             width: pkg.glBox.width,
             height: pkg.glBox.height,
           }}
@@ -386,7 +393,7 @@ const buildAxes = (
   data: LineVisData,
   zoom: Box,
   box: Box
-): [Bound, AxisProps[], Box] => {
+): [Bound, AxisProps[], Box, XY] => {
   const axes: AxisProps[] = [];
 
   const leftYAxisWidth =
@@ -461,6 +468,7 @@ const buildAxes = (
       box.width - leftYAxisWidth - rightYAxisWidth,
       box.height - topXAxisHeight - bottomXAxisHeight
     ),
+    { x: leftYAxisWidth, y: topXAxisHeight },
   ];
 };
 
