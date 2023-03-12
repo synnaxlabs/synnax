@@ -36,7 +36,6 @@ const NoVisContent = (): JSX.Element => (
 
 const Content = (): JSX.Element => {
   const controlled = useControlledVis<Vis>();
-  console.log(controlled);
   if (controlled == null) return <NoVisContent />;
 
   switch (controlled.vis.variant) {

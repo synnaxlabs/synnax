@@ -152,8 +152,5 @@ export class LazyArray {
 export const addSamples = (a: SampleValue, b: SampleValue): SampleValue => {
   if (typeof a === "bigint" && typeof b === "bigint") return a + b;
   else if (typeof a === "number" && typeof b === "number") return a + b;
-  console.warn(
-    "adding a number and a bigint is dangerous. we'll let you convert for now, but you should fix this."
-  );
   return Number(a) + Number(b);
 };

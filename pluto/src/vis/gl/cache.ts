@@ -66,14 +66,18 @@ export class GLDemandCache
 
   delete(key: string): void {
     this.gc();
-    const entries = this.internal.get(key);
-    if (entries == null) return;
-    entries.value.forEach((buf) => {
+    const entry = this.internal.get(key);
+    if (entry == null) return;
+    this._delete(entry);
+  }
+
+  private _delete(entry: GLDemandCacheEntry): void {
+    entry.value.forEach((buf) => {
       this.gl.bindBuffer(this.gl.ARRAY_BUFFER, null);
       this.size = this.size.sub(buf.size);
       this.gl.deleteBuffer(buf);
     });
-    this.internal.delete(key);
+    this.internal.delete(entry.key);
   }
 
   private gc(): void {
