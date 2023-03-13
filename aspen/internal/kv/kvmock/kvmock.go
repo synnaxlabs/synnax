@@ -61,6 +61,6 @@ func (b *Builder) New(ctx signal.Context, kvCfg kv.Config, clusterCfg cluster.Co
 	if err != nil {
 		return nil, err
 	}
-	b.KVs[clust.Host().ID] = kve
+	b.KVs[clust.Host().Key] = kve
 	return kve, nil
 }
