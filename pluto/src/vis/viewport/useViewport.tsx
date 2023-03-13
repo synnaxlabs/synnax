@@ -1,16 +1,15 @@
-// copyright 2023 synnax labs, inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
-// use of this software is governed by the business source license included in the file
-// licenses/bsl.txt.
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
 //
-// as of the change date specified in that file, in accordance with the business source
-// license, use of this software will be governed by the apache license, version 2.0,
-// included in the file licenses/apl.txt.
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
 
 import { useCallback, useRef, useState } from "react";
 
 import {
-  comparePrimitiveArrays,
   Box,
   Dimensions,
   DECIMAL_BOX,
@@ -18,6 +17,7 @@ import {
   ZERO_BOX,
   BoxScale,
   ZERO_DIMS,
+  Compare,
 } from "@synnaxlabs/x";
 
 import { useMemoCompare } from "@/hooks";
@@ -60,11 +60,11 @@ type Mode = typeof MODES[number];
 export const MASK_MODES: Mode[] = ["zoom", "select"];
 
 const DEFAULT_TRIGGER_CONFIG: UseViewportTriggers = {
-  zoom: [["MouseLeft", null]],
-  zoomReset: [["MouseDouble", null]],
+  zoom: [["MouseLeft"]],
+  zoomReset: [["MouseLeft", "MouseLeft"]],
   pan: [["MouseLeft", "Shift"]],
   select: [["MouseLeft", "Alt"]],
-  hover: [["MouseOver", "Shift"]],
+  hover: [["t"]],
 };
 
 const compareTriggerConfigs = (
@@ -74,7 +74,7 @@ const compareTriggerConfigs = (
   if (a == null && b == null) return true;
   if (a == null || b == null) return false;
   return Object.entries(a).every(([key, value]) =>
-    comparePrimitiveArrays(value, b[key as keyof UseViewportTriggers] as Trigger[])
+    Compare.primitiveArrays(value, b[key as keyof UseViewportTriggers] as Trigger[])
   );
 };
 
@@ -90,8 +90,8 @@ export const useViewport = ({
 
   const triggerConfig = useMemoCompare(
     () => ({
-      ...initialTriggers,
       ...DEFAULT_TRIGGER_CONFIG,
+      ...initialTriggers,
     }),
     compareTriggerConfigs,
     [initialTriggers]
@@ -208,11 +208,11 @@ const determineMode = (
   triggers: Trigger[],
   defaultMode: Mode
 ): Mode => {
+  if (config.zoomReset != null && Triggers.match(config.zoomReset, triggers))
+    return "zoomReset";
   if (config.zoom != null && Triggers.match(config.zoom, triggers)) return "zoom";
   if (config.pan != null && Triggers.match(config.pan, triggers)) return "pan";
   if (config.select != null && Triggers.match(config.select, triggers)) return "select";
-  if (config.zoomReset != null && Triggers.match(config.zoomReset, triggers))
-    return "zoomReset";
   if (config.hover != null && Triggers.match(config.hover, triggers)) return "hover";
   return defaultMode;
 };

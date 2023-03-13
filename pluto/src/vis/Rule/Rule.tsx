@@ -11,18 +11,17 @@ import { ComponentPropsWithoutRef } from "react";
 
 import { Bound, Direction, swapDir, XY } from "@synnaxlabs/x";
 
-import { Annotation } from "@/vis/Annotation";
+import { Annotation, AnnotationProps } from "@/vis/Annotation";
 
-export interface AnnotationProps {
+export interface RuleAnnotationProps extends Omit<AnnotationProps, "position"> {
   position: number;
-  values: Record<string, string>;
 }
 
 export interface RuleProps {
   position: number;
   size: Bound;
   direction: Direction;
-  annotations?: AnnotationProps[];
+  annotations?: RuleAnnotationProps[];
 }
 
 export const Rule = ({
@@ -33,8 +32,12 @@ export const Rule = ({
 }: RuleProps): JSX.Element => {
   return (
     <g {...gProps(direction, position)}>
-      <line {...lineProps(direction, size)} />
-      {annotations.map(({ position, values }) => (
+      <line
+        {...lineProps(direction, size)}
+        stroke="var(--pluto-gray-m1)"
+        strokeWidth={2}
+      />
+      {annotations.map(({ position, ...rest }) => (
         <Annotation
           key={position}
           position={
@@ -43,14 +46,8 @@ export const Rule = ({
               [swapDir(direction)]: 0,
             } as const as XY
           }
-          dimensions={{ height: Object.keys(values).length * 20, width: 100 }}
-        >
-          {Object.entries(values).map(([key, value]) => (
-            <text key={key} x={0} y={0}>
-              {key}: {value}
-            </text>
-          ))}
-        </Annotation>
+          {...rest}
+        />
       ))}
     </g>
   );
@@ -60,12 +57,12 @@ const gProps = (
   direction: Direction,
   position: number
 ): ComponentPropsWithoutRef<"g"> =>
-  direction === "y"
+  direction === "x"
     ? {
-        transform: `translate(${position}, 0)`,
+        transform: `translate(0, ${position})`,
       }
     : {
-        transform: `translate(0, ${position})`,
+        transform: `translate(${position}, 0)`,
       };
 
 const lineProps = (

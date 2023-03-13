@@ -27,3 +27,4 @@ export * from "@/url";
 export * from "@/toArray";
 export * from "@/case";
 export * from "@/search";
+export * from "@/destructor";

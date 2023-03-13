@@ -24,6 +24,7 @@ input,
 text {
     font-family: var(--pluto-font-family);
     color: var(--pluto-text-color);
+    fill: var(--pluto-text-color);
     --webkit-font-smoothing: antialiased;
     margin: 0;
 }

@@ -11,8 +11,8 @@ import { RefObject, useCallback, useRef } from "react";
 
 import { Box, ClientXY, toXY, XY, ZERO_XY } from "@synnaxlabs/x";
 
-import { TriggerCallback, TriggerEvent, useTrigger } from "./TriggersContext";
-import { Trigger } from "./types";
+import { useTrigger } from "./hooks";
+import { Trigger, TriggerCallback, TriggerEvent } from "./triggers";
 
 export interface TriggerDragEvent extends TriggerEvent {
   box: Box;
@@ -30,10 +30,7 @@ export interface UseCursorDragProps {
 
 export const useTriggerDrag = ({
   onDrag,
-  triggers = [
-    ["MouseLeft", null],
-    ["MouseRight", null],
-  ],
+  triggers = [["MouseLeft"], ["MouseRight"]],
   bound,
 }: UseCursorDragProps): void => {
   const triggerRef = useRef<TriggerEvent | null>(null);

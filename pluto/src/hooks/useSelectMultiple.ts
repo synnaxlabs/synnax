@@ -9,7 +9,7 @@
 
 import { useCallback, useRef } from "react";
 
-import { KeyedRecord } from "@synnaxlabs/x";
+import { KeyedRecord, unique } from "@synnaxlabs/x";
 
 import { Triggers } from "..";
 
@@ -66,7 +66,7 @@ export const useSelectMultiple = <E extends KeyedRecord<E>>({
   onChange,
 }: UseSelectMultipleProps<E>): UseSelectMultipleReturn<E> => {
   const shiftValueRef = useRef<string | null>(null);
-  const shift = Triggers.use([["Shift", null]]);
+  const shift = Triggers.use([["Shift"]]);
 
   const handleSelect = useCallback(
     (key: string): void => {
@@ -92,8 +92,7 @@ export const useSelectMultiple = <E extends KeyedRecord<E>>({
         if (value.includes(key)) nextSelected = value.filter((k) => k !== key);
         else nextSelected = [...value, key];
       }
-      nextSelected = [...new Set(nextSelected)];
-      onChange(nextSelected);
+      onChange(unique(nextSelected as string[]));
     },
     [onChange, value, data, allowMultiple]
   );

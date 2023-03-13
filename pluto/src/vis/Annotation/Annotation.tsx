@@ -7,38 +7,47 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { PropsWithChildren } from "react";
+import { convertRenderV, RenderableValue, XY } from "@synnaxlabs/x";
 
-import { Dimensions, XY } from "@synnaxlabs/x";
-
+import { Space, Typography } from "@/core";
+import { textWidth } from "@/core/Typography/textWidth";
 import { CSS } from "@/css";
-import { Theming } from "@/theming";
+import { useFont } from "@/theming";
 
-export interface AnnotationProps extends PropsWithChildren {
+export interface AnnotationProps {
   position: XY;
-  dimensions: Dimensions;
   stroke?: string;
+  values: Record<string, RenderableValue>;
 }
 
 export const Annotation = ({
-  children,
+  values,
   position,
-  dimensions,
-  stroke = "var(--pluto-gray-m3)",
+  stroke = "var(--pluto-gray-m2)",
 }: AnnotationProps): JSX.Element => {
-  const { theme } = Theming.useContext();
+  const textItems = Object.entries(values).map(
+    ([key, value]) => `${key}: ${convertRenderV(value) as string}`
+  );
+  const font = useFont("small");
+  const maxWidth = Math.max(...textItems.map((t) => textWidth(t, font)));
   return (
-    <g transform={`translate(${position.x}, ${position.y})`}>
-      <rect
-        className={CSS.B("annotation")}
-        x={0}
-        y={0}
-        rx={theme.sizes.border.radius}
-        ry={theme.sizes.border.radius}
-        stroke={stroke}
-        {...dimensions}
-      />
-      {children}
-    </g>
+    <foreignObject x={position.x} y={position.y} height="500" width={maxWidth + 20}>
+      <Space
+        direction="y"
+        style={{
+          backgroundColor: "var(--pluto-gray-m3)",
+          padding: "1rem",
+          borderColor: stroke,
+        }}
+        size="small"
+        className={CSS(CSS.B("annotation"), CSS.bordered(), CSS.rounded())}
+      >
+        {Object.entries(values).map(([key, value]) => (
+          <Typography.Text key={key} level="small">
+            {`${key}: ${convertRenderV(value) as string}`}
+          </Typography.Text>
+        ))}
+      </Space>
+    </foreignObject>
   );
 };

@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Compare, XY } from "@synnaxlabs/x";
+
 export const KEYS = [
-  "MouseOver",
-  "MouseDouble",
   "MouseMiddle",
   "MouseLeft",
   "MouseRight",
@@ -129,9 +129,32 @@ export const KEYS = [
 
 export type Key = typeof KEYS[number];
 
-export const MODIFIERS = ["Shift", "Alt", "Control", null];
-export type Modifier = typeof MODIFIERS[number];
-
-export type Trigger = [Key, Modifier];
+export type Trigger = Key[];
 
 export type Stage = "start" | "during" | "end";
+
+export interface TriggerEvent {
+  target: HTMLElement;
+  triggers: Trigger[];
+  stage: Stage;
+  cursor: XY;
+}
+
+export type TriggerCallback = (e: TriggerEvent) => void;
+
+export const parseEventKey = (e: KeyboardEvent | MouseEvent): Key =>
+  e instanceof KeyboardEvent ? keyboardToKey(e.key) : mouseButtonToKey(e.button);
+
+export const keyboardToKey = (key: string): Key =>
+  (key[0].toUpperCase() + key.slice(1)) as Key;
+
+export const mouseButtonToKey = (button: number): Key => {
+  if (button === 1) return "MouseMiddle";
+  if (button === 2) return "MouseRight";
+  return "MouseLeft";
+};
+
+export const match = (options: Trigger[], triggers: Trigger[]): boolean =>
+  options.some((o) =>
+    triggers.some((t) => Compare.unorderedPrimitiveArrays(o, t) === 0)
+  );
