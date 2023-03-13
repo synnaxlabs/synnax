@@ -26,3 +26,4 @@ export * from "@/spatial";
 export * from "@/url";
 export * from "@/toArray";
 export * from "@/case";
+export * from "@/search";

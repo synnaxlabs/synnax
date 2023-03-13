@@ -9,43 +9,29 @@
 
 import { useCallback, useEffect, useState, useTransition } from "react";
 
-import { SampleValue } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
 import {
-  hexToRGBA,
-  AxisProps,
-  GLLine,
   GLLines,
   Axis,
   Viewport,
   UseViewportHandler,
-  Theme,
-  Space,
-  Typography,
   Menu as PMenu,
-  Divider,
   useResize,
+  Status,
+  Rule,
 } from "@synnaxlabs/pluto";
-import {
-  addSamples,
-  Bound,
-  Box,
-  DECIMAL_BOX,
-  Scale,
-  TimeRange,
-  XY,
-  TimeStamp,
-  ZERO_BOUND,
-  ZERO_BOX,
-  ZERO_XY,
-} from "@synnaxlabs/x";
+import { Box, DECIMAL_BOX, TimeStamp, ZERO_BOX } from "@synnaxlabs/x";
 
-import { AxisKey, X_AXIS_KEYS, YAxisKey, Y_AXIS_KEYS } from "../../../../vis/types";
-import { TelemetryClient, TelemetryClientResponse } from "../../../telem/client";
+import { X_AXIS_KEYS, Y_AXIS_KEYS } from "../../../../vis/types";
 import { useTelemetryClient } from "../../../telem/TelemetryContext";
 import { LineSVis } from "../types";
 
-import { Menu } from "@/components";
+import { Axes, AxesState } from "./axes";
+import { BoundsState, Bounds } from "./bounds";
+import { ContextMenu } from "./ContextMenu";
+import { Data, DataState } from "./data";
+import { GL, GLState } from "./gl";
+import { Scales, ScalesState } from "./scale";
+
 import { useSelectTheme } from "@/features/layout";
 import { useAsyncEffect } from "@/hooks";
 
@@ -57,419 +43,143 @@ export interface LinePlotProps {
   resizeDebounce: number;
 }
 
-interface RenderingState {
-  axes: AxisProps[];
-  lines: GLLine[];
-  glBox: Box;
-  xBound: Bound;
-  axisOffsets: XY;
+interface HoverState {
+  cursor: XY;
+  box: Box;
 }
 
-interface DataState {
-  data: LineVisData;
-  error: Error | null;
-}
-
-const initialDataState = (): DataState => ({
-  data: { ...ZERO_DATA },
-  error: null,
-});
-
-export const LinePlot = ({
-  vis,
-  onChange,
-  resizeDebounce,
-}: LinePlotProps): JSX.Element => {
+export const LinePlot = ({ vis }: LinePlotProps): JSX.Element => {
   const theme = useSelectTheme();
   const client = useTelemetryClient();
-  const [data, setData] = useState<DataState>(initialDataState());
-  const [pkg, setPkg] = useState<RenderingState>({
-    axes: [],
-    lines: [],
-    glBox: ZERO_BOX,
-    xBound: ZERO_BOUND,
-    axisOffsets: ZERO_XY,
-  });
-  const [box, setBox] = useState<Box>(ZERO_BOX);
+
+  const [data, setData] = useState<DataState>(Data.initial());
+  const [scale, setScale] = useState<ScalesState>(Scales.initial());
+  const [axes, setAxes] = useState<AxesState>(Axes.initial());
+  const [gl, setGL] = useState<GLState>(GL.initial());
+
+  const [container, setContainer] = useState<Box>(ZERO_BOX);
 
   const [zoom, setZoom] = useState<Box>(DECIMAL_BOX);
   const [selection, setSelection] = useState<Box | null>(null);
+  const [hover, setHover] = useState<HoverState | null>(null);
+
   const [, startDraw] = useTransition();
   const [tick, setTick] = useState(0);
 
   const valid = isValid(vis);
-
-  const now = TimeStamp.now();
-  const isLive = [...vis.ranges.x1, ...vis.ranges.x2].some((r) =>
-    new TimeStamp(r.end).after(now)
-  );
+  const live = isLive(vis);
 
   useEffect(() => {
-    if (!isLive) return;
+    if (!live) return;
     const i = setInterval(() => {
       setTick((t) => t + 1);
     }, 2000);
     return () => clearInterval(i);
-  }, [isLive]);
+  }, [live]);
 
   useAsyncEffect(async () => {
-    if (client == null || !valid) return setData(initialDataState());
-    const data = await fetchData(vis, client, isLive);
-    setData({ data, error: null });
-  }, [isLive, vis, tick, client]);
+    if (client == null || !valid) return setData(Data.initial());
+    setData(await Data.fetch(vis, client, live));
+  }, [live, vis, tick, client]);
 
   useEffect(() => {
-    if (theme == null) return;
-    if (data == null)
-      return setPkg({
-        axes: [],
-        lines: [],
-        glBox: ZERO_BOX,
-        xBound: ZERO_BOUND,
-        axisOffsets: ZERO_XY,
-      });
-    const lines = buildGLLines(data.data, zoom, theme);
-    const [xBound, axes, glBox, axisOffsets] = buildAxes(data.data, zoom, box);
-    startDraw(() => setPkg({ lines, axes, glBox, xBound, axisOffsets }));
-  }, [zoom, theme, box, data]);
+    let scales: ScalesState, axes: AxesState, gl: GLState, bounds: BoundsState;
+    if (theme == null || data == null || data.error != null) {
+      scales = Scales.initial();
+      axes = Axes.initial();
+      gl = GL.initial();
+      bounds = Bounds.initial();
+    } else {
+      bounds = Bounds.build(data.data, 15);
+      scales = Scales.build(bounds, zoom);
+      axes = Axes.build(container, scales);
+      gl = GL.build(container, data.data, scales, axes, theme);
+    }
+    startDraw(() => {
+      setGL(gl);
+      setScale(scales);
+      setAxes(axes);
+    });
+  }, [zoom, theme, container, data]);
 
   const menuProps = PMenu.useContextMenu();
 
-  const handleZoomPanSelect: UseViewportHandler = useCallback(
-    ({ box, mode, cursor }) => {
-      if (mode === "select") {
-        setSelection(box);
-        return menuProps.open(cursor);
-      }
-      setSelection(null);
-      setZoom(box);
-    },
-    []
-  );
+  const handleViewport: UseViewportHandler = useCallback((props) => {
+    const { box, mode, cursor } = props;
+    if (mode === "hover") {
+      return setHover({ cursor, box });
+    }
+    if (mode === "select") {
+      setSelection(box);
+      return menuProps.open(cursor);
+    }
+    setSelection(null);
+    setZoom(box);
+  }, []);
 
   const viewportProps = Viewport.use({
-    onChange: handleZoomPanSelect,
+    onChange: handleViewport,
   });
 
-  const handleResize = useCallback((box: Box) => setBox(box), [setBox]);
+  const handleResize = useCallback((box: Box) => setContainer(box), [setContainer]);
 
   const resizeRef = useResize(handleResize, { debounce: 100 });
 
   if (data.error != null)
     return (
-      <Space.Centered>
-        <Typography.Text
-          level="h4"
-          color="var(--pluto-error-z)"
-          style={{ padding: "2rem" }}
-        >
-          {data.error.message}
-        </Typography.Text>
-      </Space.Centered>
+      <Status.Text.Centered level="h4" variant="error" hideIcon>
+        {data.error.message}
+      </Status.Text.Centered>
     );
   if (valid && data == null)
     return (
-      <Space.Centered>
-        <Typography.Text level="h4" color="var(--pluto-gray-m0)">
-          Loading...
-        </Typography.Text>
-      </Space.Centered>
+      <Status.Text.Centered level="h4" variant="loading" hideIcon>
+        Loading...
+      </Status.Text.Centered>
     );
   if (!valid)
     return (
-      <Space.Centered>
-        <Typography.Text level="h4" color="var(--pluto-gray-m0)">
-          Invalid Visualization
-        </Typography.Text>
-      </Space.Centered>
+      <Status.Text.Centered level="h4" variant="disabled" hideIcon>
+        Invalid Visualization
+      </Status.Text.Centered>
     );
+
   if (valid && Object.values(data).flat().length === 0)
     return (
-      <Space.Centered>
-        <Typography.Text level="h4" color="var(--pluto-gray-m0)">
-          No Data Found
-        </Typography.Text>
-      </Space.Centered>
+      <Status.Text.Centered level="h4" variant="disabled" hideIcon>
+        No Data Found
+      </Status.Text.Centered>
     );
-
-  const ContextMenu = (): JSX.Element => {
-    const getTimeRange = (): TimeRange => {
-      if (selection == null) throw new Error("Selection is null");
-      const scale = Scale.scale(pkg.xBound)
-        .scale(1)
-        .translate(-selection.left)
-        .magnify(1 / selection.width)
-        .reverse();
-      return new TimeRange(scale.pos(0), scale.pos(1));
-    };
-
-    return (
-      <PMenu>
-        {selection !== null && (
-          <>
-            <PMenu.Item
-              size="small"
-              itemKey="copyPython"
-              startIcon={<Icon.Python />}
-              onClick={() => {
-                const tr = getTimeRange();
-                const code = `synnax.TimeRange(${tr.start.valueOf()}, ${tr.end.valueOf()})`;
-                void navigator.clipboard.writeText(code);
-              }}
-            >
-              Copy Range as Python
-            </PMenu.Item>
-            <PMenu.Item
-              size="small"
-              itemKey="copyTS"
-              startIcon={<Icon.Typescript />}
-              onClick={() => {
-                const tr = getTimeRange();
-                const code = `new TimeRange(${tr.start.valueOf()}, ${tr.end.valueOf()})`;
-                void navigator.clipboard.writeText(code);
-              }}
-            >
-              Copy Range as TypeScript
-            </PMenu.Item>
-            <PMenu.Item
-              size="small"
-              itemKey="copyTS"
-              startIcon={<Icon.Time />}
-              onClick={() => {
-                const tr = getTimeRange();
-                const code = `${tr.start.fString("ISO", "local")} ${tr.end.fString(
-                  "ISO",
-                  "local"
-                )}`;
-                void navigator.clipboard.writeText(code);
-              }}
-            >
-              Copy Range as ISO
-            </PMenu.Item>
-            <Divider direction="x" padded />
-          </>
-        )}
-        <Menu.Item.HardReload />
-      </PMenu>
-    );
-  };
 
   return (
     <PMenu.ContextMenu
       className="delta-line-plot__container"
       {...menuProps}
-      menu={() => <ContextMenu />}
+      menu={() => (
+        <ContextMenu scale={scale.decimal.forward.x1} selection={selection} />
+      )}
     >
       <div className="delta-line-plot__plot" ref={resizeRef}>
         <Viewport.Mask
-          style={{
-            position: "absolute",
-            top: pkg.axisOffsets.y,
-            left: pkg.axisOffsets.x,
-            width: pkg.glBox.width,
-            height: pkg.glBox.height,
-          }}
+          style={{ position: "absolute", ...axes.innerBox.css }}
           {...viewportProps}
         />
-        <GLLines lines={pkg.lines} box={pkg.glBox} />
+        <GLLines lines={gl.lines} box={gl.box} />
         <svg className="delta-line-plot__svg">
-          {pkg.axes.map((axis, i) => (
-            <Axis key={i} {...axis} />
+          {Object.entries(axes.axes).map(([key, axis]) => (
+            <Axis key={key} {...axis} />
           ))}
+          <Tooltip
+            hover={hover}
+            scales={scale}
+            data={data}
+            container={container}
+            axes={axes}
+          />
         </svg>
       </div>
     </PMenu.ContextMenu>
   );
-};
-
-const ZERO_DATA: LineVisData = {
-  y1: [],
-  y2: [],
-  y3: [],
-  y4: [],
-  x1: [],
-  x2: [],
-};
-
-const fetchData = async (
-  vis: LineSVis,
-  client: TelemetryClient,
-  isLive: boolean
-): Promise<LineVisData> => {
-  const keys = Object.values(vis.channels)
-    .flat()
-    .filter((key) => key.length > 0);
-  const ranges = Object.values(vis.ranges).flat();
-  const entries = await client.retrieve({
-    keys,
-    ranges,
-    bypassCache: isLive,
-  });
-  const data: LineVisData = { ...ZERO_DATA };
-  Object.values(vis.ranges).forEach((ranges) =>
-    ranges.forEach((range) =>
-      Object.entries(vis.channels).forEach(([axis, channelKeys]) => {
-        if (!Array.isArray(channelKeys)) channelKeys = [channelKeys as string];
-        data[axis as AxisKey] = data[axis as AxisKey].concat(
-          entries.filter(
-            ({ key, range: r }) => channelKeys.includes(key) && r === range
-          )
-        );
-      })
-    )
-  );
-  return data;
-};
-
-type LineVisData = Record<AxisKey, TelemetryClientResponse[]>;
-
-const calcBound = (
-  data: TelemetryClientResponse[],
-  padding: number,
-  includeOffset: boolean
-): Bound => {
-  const arrays = data.flatMap(({ arrays }) => arrays);
-  const upper = Number(
-    arrays.reduce((acc: SampleValue, arr) => {
-      let max = arr.max;
-      if (!includeOffset) max = addSamples(max, -arr.offset);
-      return max > acc ? max : acc;
-    }, -Infinity)
-  );
-  const lower = Number(
-    arrays.reduce((acc: SampleValue, arr) => {
-      let min = arr.min;
-      if (!includeOffset) min = addSamples(min, -arr.offset);
-      return min < acc ? min : acc;
-    }, Infinity)
-  );
-  const _padding = (upper - lower) * padding;
-  if (upper === lower) return { lower: lower - 1, upper: upper + 1 };
-  return { lower: lower - _padding, upper: upper + _padding };
-};
-
-const buildGLLines = (data: LineVisData, zoom: Box, theme: Theme): GLLine[] => {
-  const lines: GLLine[] = [];
-  X_AXIS_KEYS.forEach((key) => {
-    const xData = data[key];
-    if (xData.length === 0) return;
-    const xBound = calcBound(xData, 0, true);
-    const xScale = Scale.scale(xBound)
-      .scale(1)
-      .translate(-zoom.left)
-      .magnify(1 / zoom.width);
-    Y_AXIS_KEYS.forEach((key) => {
-      const yData = data[key];
-      const yBound = calcBound(yData, 0.01, true);
-      const yScale = Scale.scale(yBound)
-        .scale(1)
-        .translate(-zoom.bottom)
-        .magnify(1 / zoom.height);
-      const scale = { x: xScale.dim(1), y: yScale.dim(1) };
-      const offset = { x: xScale.pos(0), y: yScale.pos(0) };
-      yData.forEach((yRes, i) => {
-        const xRes = xData[0];
-        yRes.arrays.forEach((yArr, j) => {
-          lines.push({
-            color: hexToRGBA(theme.colors.visualization.palettes.default[i], 1, 255),
-            scale,
-            offset,
-            y: yRes.buffers.value[j].buf,
-            x: xRes.buffers.value[j].buf,
-            strokeWidth: 3,
-            length: yArr.length,
-          });
-        });
-      });
-    });
-  });
-  return lines;
-};
-
-const AXIS_WIDTH = 15;
-const BASE_AXIS_PADDING = 12.5;
-
-const buildAxes = (
-  data: LineVisData,
-  zoom: Box,
-  box: Box
-): [Bound, AxisProps[], Box, XY] => {
-  const axes: AxisProps[] = [];
-
-  const leftYAxisWidth =
-    ["y1", "y3"].filter((key) => data[key as YAxisKey].length > 0).length * AXIS_WIDTH +
-    BASE_AXIS_PADDING;
-
-  const rightYAxisWidth =
-    ["y2", "y4"].filter((key) => data[key as YAxisKey].length > 0).length * AXIS_WIDTH +
-    BASE_AXIS_PADDING;
-
-  const topXAxisHeight = (data.x2.length > 0 ? 1 : 0) * AXIS_WIDTH + BASE_AXIS_PADDING;
-  const bottomXAxisHeight =
-    (data.x1.length > 0 ? 1 : 0) * AXIS_WIDTH + BASE_AXIS_PADDING;
-
-  let xBound = ZERO_BOUND;
-  X_AXIS_KEYS.forEach((key, i) => {
-    const res = data[key];
-    if (res.length === 0) return;
-    const location = key === "x1" ? "bottom" : "top";
-    xBound = calcBound(res, 0, false);
-    const xScale = Scale.scale(xBound)
-      .scale(1)
-      .translate(-zoom.left)
-      .magnify(1 / zoom.width);
-    const y =
-      location === "top"
-        ? BASE_AXIS_PADDING
-        : box.height - BASE_AXIS_PADDING - AXIS_WIDTH;
-    axes.push({
-      location,
-      position: { y, x: leftYAxisWidth },
-      size: box.width - leftYAxisWidth - rightYAxisWidth,
-      pixelsPerTick: 40,
-      showGrid: i === 0,
-      scale: xScale,
-      height: box.height - topXAxisHeight - bottomXAxisHeight,
-      type: "time",
-    });
-  });
-
-  Y_AXIS_KEYS.forEach((key) => {
-    const res = data[key];
-    if (res.length === 0) return;
-    const location = ["y1", "y3"].includes(key) ? "left" : "right";
-    const bound = calcBound(res, 0.01, false);
-    const scale = Scale.scale(bound)
-      .scale(1)
-      .translate(-zoom.bottom)
-      .magnify(1 / zoom.height);
-    axes.push({
-      location,
-      position: {
-        x:
-          location === "left"
-            ? BASE_AXIS_PADDING + AXIS_WIDTH
-            : box.width - AXIS_WIDTH - BASE_AXIS_PADDING,
-        y: topXAxisHeight,
-      },
-      size: box.height - topXAxisHeight - bottomXAxisHeight,
-      pixelsPerTick: 40,
-      showGrid: key === "y1",
-      height: box.width - leftYAxisWidth - rightYAxisWidth,
-      scale,
-    });
-  });
-
-  return [
-    xBound,
-    axes,
-    new Box(
-      { x: box.left + leftYAxisWidth, y: box.top + topXAxisHeight },
-      box.width - leftYAxisWidth - rightYAxisWidth,
-      box.height - topXAxisHeight - bottomXAxisHeight
-    ),
-    { x: leftYAxisWidth, y: topXAxisHeight },
-  ];
 };
 
 const isValid = (vis: LineSVis): boolean => {
@@ -487,3 +197,55 @@ const isValid = (vis: LineSVis): boolean => {
   });
   return hasRanges && hasXAxis && hasYAxis;
 };
+
+const isLive = (vis: LineSVis): boolean => {
+  const now = TimeStamp.now();
+  return [...vis.ranges.x1, ...vis.ranges.x2].some((r) =>
+    new TimeStamp(r.end).after(now)
+  );
+};
+
+interface TooltipProps {
+  container: Box;
+  hover: HoverState | null;
+  scales: ScalesState;
+  data: DataState;
+  axes: AxesState;
+}
+
+export const Tooltip = ({
+  hover,
+  scales,
+  axes,
+  data,
+  container,
+}: TooltipProps): JSX.Element => {
+  if (hover == null) return <></>;
+  try {
+    const scale = scales.decimal.reverse.x1;
+    const x = scale?.pos(hover.box.left);
+    if (data.data.x1.length === 0) return <></>;
+    if (data.data.x1[0].arrays.length === 0) return <></>;
+    const index = data.data.x1[0].arrays[0].binarySearch(BigInt(x));
+    const timestamp = data.data.x1[0].arrays[0].data[index];
+    if (index === -1) return <></>;
+    const y = data.data.y1[0].arrays[0].data[index];
+    const xCoord = scales.normal.forward.x1;
+    const left = xCoord.pos(Number(timestamp)) * container.width;
+    console.log(left);
+    return (
+      <Rule
+        direction="y"
+        position={left}
+        size={{
+          upper: axes.innerBox.height + axes.innerBox.top,
+          lower: axes.innerBox.top,
+        }}
+      />
+    );
+  } catch (e) {
+    console.error(e);
+    return <></>;
+  }
+};
+

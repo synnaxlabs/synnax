@@ -33,7 +33,6 @@ export const ViewportMask = forwardRef<HTMLDivElement, ViewportMaskProps>(
           left: maskBox.x,
           width: maskBox.width,
           height: maskBox.height,
-          cursor: mode === "pan" ? "grabbing" : "crosshair",
         }}
         className={CSS.B("viewport-mask")}
       />

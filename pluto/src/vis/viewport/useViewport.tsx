@@ -17,6 +17,7 @@ import {
   XY,
   ZERO_BOX,
   BoxScale,
+  ZERO_DIMS,
 } from "@synnaxlabs/x";
 
 import { useMemoCompare } from "@/hooks";
@@ -37,6 +38,7 @@ export interface UseViewportTriggers {
   zoomReset?: Trigger[];
   pan?: Trigger[];
   select?: Trigger[];
+  hover?: Trigger[];
 }
 
 export interface UseViewportProps {
@@ -53,7 +55,7 @@ export interface UseViewportReturn {
   ref: React.RefObject<HTMLDivElement>;
 }
 
-export const MODES = ["zoom", "pan", "select", "zoomReset", null] as const;
+export const MODES = ["zoom", "pan", "select", "zoomReset", "hover", null] as const;
 type Mode = typeof MODES[number];
 export const MASK_MODES: Mode[] = ["zoom", "select"];
 
@@ -62,6 +64,7 @@ const DEFAULT_TRIGGER_CONFIG: UseViewportTriggers = {
   zoomReset: [["MouseDouble", null]],
   pan: [["MouseLeft", "Shift"]],
   select: [["MouseLeft", "Alt"]],
+  hover: [["MouseOver", "Shift"]],
 };
 
 const compareTriggerConfigs = (
@@ -100,6 +103,14 @@ export const useViewport = ({
       const mode = determineMode(triggerConfig, triggers, defaultMode);
       const canvas = new Box(canvasRef.current);
 
+      if (mode === "hover")
+        return setStateRef((prev) => {
+          // Point box at cursor
+          const next = handleHover(prev, canvas, cursor);
+          onChange?.({ box: next, mode, stage, cursor });
+          return prev;
+        });
+
       if (mode === "zoomReset") {
         setMaskBox(ZERO_BOX);
         onChange?.({ box: DECIMAL_BOX, mode, stage, cursor });
@@ -107,6 +118,7 @@ export const useViewport = ({
       }
 
       if (stage === "end") {
+        // This prevents clicks from being registered as a drag
         if (box.width < 5 && box.height < 5) return;
         return setStateRef((prev) => {
           if (mode === "pan") {
@@ -127,7 +139,7 @@ export const useViewport = ({
         });
       }
 
-      if (MASK_MODES.includes(mode)) {
+      if (MASK_MODES.includes(mode))
         return setMaskBox(
           BoxScale.scale(canvas)
             .clamp(canvas)
@@ -137,7 +149,7 @@ export const useViewport = ({
             })
             .box(fullSize(threshold, box, canvas))
         );
-      }
+
       setMaskBox((prev) => (!prev.isZero ? ZERO_BOX : prev));
       onChange?.({
         box: handlePan(box, stateRef.current, canvas),
@@ -178,6 +190,11 @@ const handlePan = (box: Box, prev: Box, canvas: Box): Box => {
   return BoxScale.translate(dims).box(prev);
 };
 
+const handleHover = (prev: Box, canvas: Box, cursor: XY): Box => {
+  const dims = scale(prev, canvas);
+  return dims.box(new Box(cursor, ZERO_DIMS));
+};
+
 const fullSize = (threshold: Dimensions, box: Box, parent: Box): Box => {
   if (box.height <= threshold.height)
     return new Box(box.left, parent.top, box.width, parent.height);
@@ -196,6 +213,7 @@ const determineMode = (
   if (config.select != null && Triggers.match(config.select, triggers)) return "select";
   if (config.zoomReset != null && Triggers.match(config.zoomReset, triggers))
     return "zoomReset";
+  if (config.hover != null && Triggers.match(config.hover, triggers)) return "hover";
   return defaultMode;
 };
 

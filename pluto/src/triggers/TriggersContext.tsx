@@ -106,6 +106,19 @@ export const TriggersProvider = ({
 
   const handleMouseMove = useCallback((e: MouseEvent): void => {
     cursor.current = toXY(e);
+    if (curr.current != null) return;
+    const modifier = parseModifier(e);
+    const trigger: Trigger = ["MouseOver", modifier];
+    registry.current.forEach((triggers, f) => {
+      const matches = triggers.filter((t) => comparePrimitiveArrays(t, trigger) === 0);
+      if (matches.length > 0)
+        f({
+          target: e.target as HTMLElement,
+          triggers: matches,
+          stage: "start",
+          cursor: cursor.current,
+        });
+    });
   }, []);
 
   const handleKeyDown = useCallback((e: KeyboardEvent | MouseEvent): void => {
@@ -199,10 +212,9 @@ const parseEvent = (e: KeyboardEvent | MouseEvent): Trigger => {
 };
 
 const parseMouseEventKey = (e: MouseEvent): Key => {
-  if (e.button === 0) return "MouseLeft";
   if (e.button === 1) return "MouseMiddle";
   if (e.button === 2) return "MouseRight";
-  throw new Error(`Invalid mouse button: ${e.button}`);
+  return "MouseLeft";
 };
 
 const parseKeyBoardEventKey = (e: KeyboardEvent): Key =>
