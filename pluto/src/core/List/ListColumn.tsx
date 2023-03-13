@@ -10,7 +10,7 @@
 import { CSSProperties, useEffect, useState } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { newObjectFieldCompare, convertRenderV, RenderableRecord } from "@synnaxlabs/x";
+import { Compare, convertRenderV, RenderableRecord } from "@synnaxlabs/x";
 
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "../Menu/ContextMenu";
 
@@ -195,7 +195,7 @@ const sortTransform =
   <E extends RenderableRecord<E>>(k: keyof E, dir: boolean): ArrayTransform<E> =>
   (data: E[]) => {
     if (data.length === 0) return data;
-    return [...data].sort(newObjectFieldCompare(k, data[0], !dir));
+    return [...data].sort(Compare.newFieldF(k, data[0], !dir));
   };
 
 export const ListColumn = {

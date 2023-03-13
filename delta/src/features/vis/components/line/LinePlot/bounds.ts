@@ -3,7 +3,7 @@ import { addSamples, Bound, SampleValue } from "@synnaxlabs/x";
 import { LineVisData } from "./data";
 
 import { TelemetryClientResponse } from "@/features/vis/telem/client";
-import { AxisKey } from "@/features/vis/types";
+import { AxisKey, Y_AXIS_KEYS } from "@/features/vis/types";
 
 export interface BoundsState {
   normal: Partial<Record<AxisKey, Bound>>;
@@ -44,8 +44,9 @@ const build = (data: LineVisData, padding: number): BoundsState => {
   const state: BoundsState = initial();
   (Object.keys(data) as AxisKey[]).forEach((key) => {
     if (data[key].length === 0) return;
-    state.normal[key] = buildBound(data[key], 0, false);
-    state.offset[key] = buildBound(data[key], 0, true);
+    const addPadding = Y_AXIS_KEYS.includes(key);
+    state.normal[key] = buildBound(data[key], addPadding ? padding : 0, false);
+    state.offset[key] = buildBound(data[key], addPadding ? padding : 0, true);
   });
   return state;
 };

@@ -14,8 +14,7 @@ import { XY, ZERO_XY, toXY, Box } from "@synnaxlabs/x";
 import { UseVirtualCursorDragProps } from "./types";
 
 import { useStateRef } from "@/hooks/useStateRef";
-import { Key } from "@/triggers";
-import { mouseButtonKey } from "@/triggers/mouse";
+import { Triggers, Key } from "@/triggers";
 
 interface RefState {
   start: XY;
@@ -45,7 +44,7 @@ export const useVirtualCursorDragWebView = ({
     const onMouseDown = async (e: MouseEvent): Promise<void> => {
       if (document.pointerLockElement != null) return;
       const start = toXY(e);
-      const mouseKey = mouseButtonKey(e);
+      const mouseKey = Triggers.eventKey(e);
       onStart?.(start, mouseKey);
 
       // push a cursor onto the document

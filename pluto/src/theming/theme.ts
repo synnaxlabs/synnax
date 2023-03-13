@@ -88,7 +88,7 @@ const synnaxBase: Theme = {
     },
     gray: {
       p3: "#1D1D1C",
-      p2: "#2c2c2c2b",
+      p2: "#2c2c2c",
       p1: "#474744",
       p0: "#676762",
       m0: "#94938D",

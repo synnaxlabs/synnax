@@ -14,23 +14,19 @@ import {
   useCallback,
   useRef,
   PropsWithChildren,
+  useState,
+  RefObject,
+  MutableRefObject,
 } from "react";
 
-import {
-  Compare,
-  toXY,
-  XY,
-  ZERO_XY,
-  TimeStamp,
-  TimeSpan,
-  Destructor,
-} from "@synnaxlabs/x";
+import { Compare, toXY, XY, ZERO_XY, TimeStamp, TimeSpan } from "@synnaxlabs/x";
 
-import { parseEventKey, Stage, Trigger, TriggerCallback } from "./triggers";
+import { Key, Stage, Trigger } from "./triggers";
 
 import { useStateRef } from "@/hooks/useStateRef";
+import { AsyncDestructor } from "..";
 
-type TriggerListen = (callback: TriggerCallback, sequences: Trigger[]) => Destructor;
+type TriggerListen = (callback: TriggerCallback, sequences: Trigger[]) => ;
 
 interface TriggerContextValue {
   listen: TriggerListen;
@@ -38,10 +34,54 @@ interface TriggerContextValue {
 
 const TriggerContext = createContext<TriggerContextValue | null>(null);
 
-export const useTriggerContext = (): TriggerContextValue => {
+const useTriggerContext = (): TriggerContextValue => {
   const ctx = useContext(TriggerContext);
   if (ctx == null) throw new Error("TriggerContext not available");
   return ctx;
+};
+
+export const useTrigger = (
+  triggers: Trigger[],
+  callback?: TriggerCallback,
+  region?: RefObject<HTMLElement>
+): MutableRefObject<UseTriggerHeldReturn> => {
+  const { listen } = useTriggerContext();
+  const ref = useRef<UseTriggerHeldReturn>({ triggers: [], held: false });
+
+  useEffect(
+    () =>
+      listen((e) => {
+        if (region != null) {
+          if (region.current == null) return;
+          if (
+            (e.stage === "start" || !ref.current.held) &&
+            !region.current.contains(e.target) &&
+            e.target !== region.current
+          )
+            return;
+        }
+        ref.current = {
+          triggers: e.stage === "end" ? [] : triggers,
+          held: e.stage === "start",
+        };
+        callback?.(e);
+      }, triggers),
+    [callback, triggers, listen]
+  );
+  return ref;
+};
+
+export interface UseTriggerHeldReturn {
+  triggers: Trigger[];
+  held: boolean;
+}
+
+export const useTriggerHeld = (triggers: Trigger[]): UseTriggerHeldReturn => {
+  const [held, setHeld] = useState<UseTriggerHeldReturn>({ triggers: [], held: false });
+  useTrigger(triggers, ({ triggers, stage }) =>
+    setHeld({ triggers: stage === "end" ? [] : triggers, held: stage === "start" })
+  );
+  return held;
 };
 
 export interface TriggerProviderProps extends PropsWithChildren {
@@ -147,3 +187,15 @@ export const TriggersProvider = ({
     <TriggerContext.Provider value={{ listen }}>{children}</TriggerContext.Provider>
   );
 };
+
+const parseEventKey = (e: KeyboardEvent | MouseEvent): Key =>
+  e instanceof KeyboardEvent ? parseKeyboardEventKey(e) : parseMouseEventKey(e);
+
+const parseMouseEventKey = (e: MouseEvent): Key => {
+  if (e.button === 1) return "MouseMiddle";
+  if (e.button === 2) return "MouseRight";
+  return "MouseLeft";
+};
+
+const parseKeyboardEventKey = (e: KeyboardEvent): Key =>
+  (e.key[0].toUpperCase() + e.key.slice(1)) as Key;

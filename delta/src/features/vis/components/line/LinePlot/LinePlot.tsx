@@ -18,6 +18,8 @@ import {
   useResize,
   Status,
   Rule,
+  RuleAnnotationProps,
+  Theming,
 } from "@synnaxlabs/pluto";
 import { Box, DECIMAL_BOX, TimeStamp, ZERO_BOX } from "@synnaxlabs/x";
 
@@ -90,7 +92,7 @@ export const LinePlot = ({ vis }: LinePlotProps): JSX.Element => {
       gl = GL.initial();
       bounds = Bounds.initial();
     } else {
-      bounds = Bounds.build(data.data, 15);
+      bounds = Bounds.build(data.data, 0.01);
       scales = Scales.build(bounds, zoom);
       axes = Axes.build(container, scales);
       gl = GL.build(container, data.data, scales, axes, theme);
@@ -119,6 +121,9 @@ export const LinePlot = ({ vis }: LinePlotProps): JSX.Element => {
 
   const viewportProps = Viewport.use({
     onChange: handleViewport,
+    triggers: {
+      hover: [["T"]],
+    },
   });
 
   const handleResize = useCallback((box: Box) => setContainer(box), [setContainer]);
@@ -159,7 +164,7 @@ export const LinePlot = ({ vis }: LinePlotProps): JSX.Element => {
         <ContextMenu scale={scale.decimal.forward.x1} selection={selection} />
       )}
     >
-      <div className="delta-line-plot__plot" ref={resizeRef}>
+      <div className="delta-line-plot__plot pluto--no-select" ref={resizeRef}>
         <Viewport.Mask
           style={{ position: "absolute", ...axes.innerBox.css }}
           {...viewportProps}
@@ -169,6 +174,8 @@ export const LinePlot = ({ vis }: LinePlotProps): JSX.Element => {
           {Object.entries(axes.axes).map(([key, axis]) => (
             <Axis key={key} {...axis} />
           ))}
+        </svg>
+        <svg className="delta-line-plot__svg pluto--no-select" style={{ zIndex: 2 }}>
           <Tooltip
             hover={hover}
             scales={scale}
@@ -221,26 +228,61 @@ export const Tooltip = ({
   container,
 }: TooltipProps): JSX.Element => {
   if (hover == null) return <></>;
+  const annotation: RuleAnnotationProps[] = [];
+  let arrayIndex: number | null = null;
+  let position: number;
+  let value: number;
+
+  const { theme } = Theming.useContext();
+
+  const xScale = scales.decimal.reverse.x1;
+  if (xScale == null) return <></>;
+  const scalePos = xScale.pos(hover.box.left);
+
+  Object.values(data.data.x1).forEach((res) => {
+    res.arrays.forEach((arr, j) => {
+      if (arrayIndex != null) return;
+      const pos = arr.binarySearch(BigInt(scalePos));
+      if (pos !== -1) {
+        arrayIndex = j;
+        value = Number(arr.data[pos]);
+        position = pos;
+      }
+    });
+  });
+
+  if (arrayIndex == null) return <></>;
+
+  const left = scales.normal.forward.x1.pos(value);
+
+  Y_AXIS_KEYS.forEach((key) => {
+    const d = data.data[key];
+    if (d == null) return;
+    const scale = scales.normal.forward[key];
+    if (scale == null) return;
+    Object.values(d).forEach((res, i) => {
+      const value = res.arrays[arrayIndex as number]?.data[position];
+      if (value == null) return;
+      annotation.push({
+        values: {
+          value: value.toString(),
+        },
+        stroke: theme.colors.visualization.palettes.default[i],
+        position: (1 - scale.pos(value as number)) * container.height,
+      });
+    });
+  });
+
   try {
-    const scale = scales.decimal.reverse.x1;
-    const x = scale?.pos(hover.box.left);
-    if (data.data.x1.length === 0) return <></>;
-    if (data.data.x1[0].arrays.length === 0) return <></>;
-    const index = data.data.x1[0].arrays[0].binarySearch(BigInt(x));
-    const timestamp = data.data.x1[0].arrays[0].data[index];
-    if (index === -1) return <></>;
-    const y = data.data.y1[0].arrays[0].data[index];
-    const xCoord = scales.normal.forward.x1;
-    const left = xCoord.pos(Number(timestamp)) * container.width;
-    console.log(left);
     return (
       <Rule
         direction="y"
-        position={left}
+        position={left * container.width}
         size={{
           upper: axes.innerBox.height + axes.innerBox.top,
           lower: axes.innerBox.top,
         }}
+        annotations={annotation}
       />
     );
   } catch (e) {
@@ -248,4 +290,3 @@ export const Tooltip = ({
     return <></>;
   }
 };
-

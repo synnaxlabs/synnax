@@ -14,8 +14,7 @@ import { XY, ZERO_XY, toXY, Box } from "@synnaxlabs/x";
 import { UseVirtualCursorDragProps } from "./types";
 
 import { useStateRef } from "@/hooks/useStateRef";
-import { Key } from "@/triggers";
-import { mouseButtonKey } from "@/triggers/mouse";
+import { Triggers, Key } from "@/triggers";
 
 interface RefState {
   start: XY;
@@ -48,7 +47,7 @@ export const useVirtualCursorDragWebKit = ({
       el.setPointerCapture(e.pointerId);
       el.onpointermove = handleMove;
       const start = toXY(e);
-      const mouseKey = mouseButtonKey(e);
+      const mouseKey = Triggers.eventKey(e);
       setRef({ start, mouseKey });
       onStart?.(start, mouseKey);
       el.addEventListener("pointerup", handleUp, { once: true });

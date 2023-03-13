@@ -9,7 +9,7 @@
 
 import { forwardRef } from "react";
 
-import { UseViewportReturn } from "./useViewPort";
+import { UseViewportReturn } from "./useViewport";
 
 import { CSS } from "@/css";
 

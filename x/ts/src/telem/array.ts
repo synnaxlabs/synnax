@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { newPrimitiveCompare } from "..";
-
 import {
   convertDataType,
   DataType,
@@ -17,6 +15,8 @@ import {
   TimeRange,
   UnparsedDataType,
 } from "./telem";
+
+import { Compare } from "@/compare";
 
 export type SampleValue = number | bigint;
 
@@ -150,15 +150,10 @@ export class LazyArray {
     return addSamples(this.max, -this.min);
   }
 
-  search(value: SampleValue): number {
-    const d = this.data as Float64Array;
-    return d.indexOf(value as number);
-  }
-
   binarySearch(value: SampleValue): number {
     let left = 0;
     let right = this.length - 1;
-    const compare = newPrimitiveCompare(value);
+    const compare = Compare.newF(value);
     while (left <= right) {
       const mid = Math.floor((left + right) / 2);
       const cmp = compare(this.data[mid], value);

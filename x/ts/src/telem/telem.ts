@@ -155,6 +155,15 @@ export class TimeStamp extends Number {
     return new TimeSpan(new Date().getTimezoneOffset() * TimeStamp.MINUTE.valueOf());
   }
 
+  /**
+   * @returns a TimeSpan representing the amount time elapsed since
+   * the other timestamp.
+   * @param other - The other timestamp.
+   */
+  static since(other: TimeStamp): TimeSpan {
+    return new TimeStamp().span(other);
+  }
+
   /** @returns A JavaScript Date object representing the TimeStamp. */
   date(): Date {
     return new Date(this.milliseconds());

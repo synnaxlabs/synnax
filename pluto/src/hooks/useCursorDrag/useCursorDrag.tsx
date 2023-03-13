@@ -11,8 +11,7 @@ import { useCallback } from "react";
 
 import { Box, ClientXY, toXY, XY } from "@synnaxlabs/x";
 
-import { Key } from "@/triggers";
-import { mouseButtonKey } from "@/triggers/mouse";
+import { Triggers, Key } from "@/triggers";
 
 export interface UseCursorDragProps {
   onStart?: (loc: XY, mouseKey: Key) => void;
@@ -33,7 +32,7 @@ export const useCursorDrag = ({
     (e) => {
       e.preventDefault();
       const startLoc = toXY(e);
-      const mouseKey = mouseButtonKey(e);
+      const mouseKey = Triggers.mouseKey(e.button);
       onStart?.(startLoc, mouseKey);
       const handleMove = (e: ClientXY & { buttons: number }): void => {
         if (e.buttons === 0) return handleUp(e);
