@@ -22,6 +22,13 @@ export type CenterLocation = "center";
 export const CORNERS = ["topLeft", "topRight", "bottomLeft", "bottomRight"] as const;
 export type Corner = typeof CORNERS[number];
 
+export const CORNER_LOCATIONS: Record<Corner, [XLocation, YLocation]> = {
+  topLeft: ["left", "top"],
+  topRight: ["right", "top"],
+  bottomLeft: ["left", "bottom"],
+  bottomRight: ["right", "bottom"],
+};
+
 export const OUTER_LOCATIONS = [...Y_LOCATIONS, ...X_LOCATIONS] as const;
 export type OuterLocation = typeof OUTER_LOCATIONS[number];
 
@@ -41,7 +48,7 @@ export const locToDir = (loc: Location | Direction): Direction => {
 export const swapDir = (direction: Direction): Direction =>
   direction === "x" ? "y" : "x";
 
-export const locFromDir = (direction: Direction): Location =>
+export const locFromDir = (direction: Direction): "left" | "top" =>
   direction === "x" ? "left" : "top";
 
 const SWAPPED_LOCS = {
@@ -156,10 +163,3 @@ export const DECIMAL_COORD_ROOT: Corner = "bottomLeft";
 
 export const cornerLocations = (corner: Corner): [XLocation, YLocation] =>
   CORNER_LOCATIONS[corner];
-
-const CORNER_LOCATIONS: Record<Corner, [XLocation, YLocation]> = {
-  topLeft: ["left", "top"],
-  topRight: ["right", "top"],
-  bottomLeft: ["left", "bottom"],
-  bottomRight: ["right", "bottom"],
-};

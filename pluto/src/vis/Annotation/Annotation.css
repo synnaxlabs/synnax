@@ -9,8 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-viewport-mask {
-    position: relative;
-    background-color: rgba(0, 0, 0, 0.5);
-    cursor: crosshair;
+.pluto-annotation {
+    fill: var(--pluto-gray-m3);
+    stroke: var(--pluto-gray-m3);
 }

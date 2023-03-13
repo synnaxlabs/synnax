@@ -39,7 +39,7 @@ export const newPrimitiveCompare = <T extends Primitive>(
       f = (a: T, b: T) => (a as number) - (b as number);
       break;
     case "bigint":
-      f = (a: T, b: T) => Number((a as bigint) - (b as bigint));
+      f = (a: T, b: T) => ((a as bigint) - (b as bigint) > BigInt(0) ? 1 : -1);
       break;
     case "boolean":
       f = (a: T, b: T) => Number(a) - Number(b);

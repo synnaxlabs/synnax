@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export const KEYS = [
+  "MouseOver",
   "MouseDouble",
   "MouseMiddle",
   "MouseLeft",

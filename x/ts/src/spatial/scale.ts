@@ -64,7 +64,6 @@ const curriedScale =
   };
 
 const curriedInvert = (): Operation => (currScale, type, v) => {
-  ("INVERTING");
   if (currScale === null) throw new Error("cannot invert without bounds");
   if (type === "dimension") return [currScale, v];
   const { lower, upper } = currScale;
