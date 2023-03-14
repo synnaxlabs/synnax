@@ -12,18 +12,16 @@ import {
   Box,
   CORNER_LOCATIONS,
   dirToDim,
-  locFromDir,
   OuterLocation,
   Scale,
   swapDir,
-  swapLoc,
   XY,
   ZERO_BOX,
 } from "@synnaxlabs/x";
 
 import { ScalesState } from "./scale";
 
-import { axisDirection, AxisKey, X_AXIS_KEYS } from "@/features/vis/types";
+import { axisDirection, AxisKey } from "@/features/vis/types";
 
 export type AxisOffsets = Record<OuterLocation, number>;
 
@@ -73,8 +71,7 @@ const buildAxes = (container: Box, scale: ScalesState): AxesState => {
   state.offsets = Object.fromEntries(
     Object.entries(LOCATION_AXES).map(([loc, keys]) => [
       loc,
-      keys.filter((key) => key in scale.normal.forward).length * AXIS_WIDTH +
-        BASE_AXIS_PADDING,
+      keys.filter((key) => key in scale.normal).length * AXIS_WIDTH + BASE_AXIS_PADDING,
     ])
   ) as AxisOffsets;
   state.innerBox = new Box(
@@ -86,33 +83,31 @@ const buildAxes = (container: Box, scale: ScalesState): AxesState => {
   );
 
   const axes = Object.fromEntries(
-    (Object.entries(scale.normal.forward) as Array<[AxisKey, Scale]>).map(
-      ([key, scale]) => {
-        const [location, index] = axisInfo(key);
-        const dir = axisDirection(key);
-        const swappedDir = swapDir(dir);
-        let add: number = 0;
-        if (CORNER_LOCATIONS.bottomRight.includes(location)) {
-          add += container[dirToDim(swappedDir)];
-        }
-        const position: XY = {
-          [swappedDir]: Math.abs(BASE_AXIS_PADDING + (index + 1) * AXIS_WIDTH - add),
-          [dir]: state.innerBox[dir],
-        } as const as XY;
-
-        const axis = {
-          location,
-          position,
-          type: dir === "x" ? "time" : "linear",
-          size: state.innerBox[dirToDim(dir)],
-          height: state.innerBox[dirToDim(swappedDir)],
-          pixelsPerTick: 50,
-          showGrid: ["y1", "x1"].includes(key),
-          scale,
-        };
-        return [key, axis];
+    (Object.entries(scale.normal) as Array<[AxisKey, Scale]>).map(([key, scale]) => {
+      const [location, index] = axisInfo(key);
+      const dir = axisDirection(key);
+      const swappedDir = swapDir(dir);
+      let add: number = 0;
+      if (CORNER_LOCATIONS.bottomRight.includes(location)) {
+        add += container[dirToDim(swappedDir)];
       }
-    )
+      const position: XY = {
+        [swappedDir]: Math.abs(BASE_AXIS_PADDING + (index + 1) * AXIS_WIDTH - add),
+        [dir]: state.innerBox[dir],
+      } as const as XY;
+
+      const axis = {
+        location,
+        position,
+        type: dir === "x" ? "time" : "linear",
+        size: state.innerBox[dirToDim(dir)],
+        height: state.innerBox[dirToDim(swappedDir)],
+        pixelsPerTick: 50,
+        showGrid: ["y1", "x1"].includes(key),
+        scale,
+      };
+      return [key, axis];
+    })
   );
 
   return { ...state, axes };
