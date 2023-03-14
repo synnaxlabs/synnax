@@ -21,16 +21,16 @@ import {
   RuleAnnotationProps,
   Theming,
 } from "@synnaxlabs/pluto";
-import { Box, DECIMAL_BOX, TimeStamp, ZERO_BOX } from "@synnaxlabs/x";
+import { XY, Box, DECIMAL_BOX, TimeStamp, ZERO_BOX } from "@synnaxlabs/x";
 
-import { X_AXIS_KEYS, Y_AXIS_KEYS } from "../../../../vis/types";
+import { XAxisKey, X_AXIS_KEYS, Y_AXIS_KEYS } from "../../../../vis/types";
 import { useTelemetryClient } from "../../../telem/TelemetryContext";
 import { LineSVis } from "../types";
 
 import { Axes, AxesState } from "./axes";
 import { BoundsState, Bounds } from "./bounds";
 import { ContextMenu } from "./ContextMenu";
-import { Data, DataState } from "./data";
+import { Data } from "./data";
 import { GL, GLState } from "./gl";
 import { Scales, ScalesState } from "./scale";
 
@@ -38,6 +38,8 @@ import { useSelectTheme } from "@/features/layout";
 import { useAsyncEffect } from "@/hooks";
 
 import "./LinePlot.css";
+
+import { TelemetryClient } from "@/features/vis/telem/client";
 
 export interface LinePlotProps {
   vis: LineSVis;
@@ -54,7 +56,7 @@ export const LinePlot = ({ vis }: LinePlotProps): JSX.Element => {
   const theme = useSelectTheme();
   const client = useTelemetryClient();
 
-  const [data, setData] = useState<DataState>(Data.initial());
+  const [data, setData] = useState<Data>(Data.initial());
   const [scale, setScale] = useState<ScalesState>(Scales.initial());
   const [axes, setAxes] = useState<AxesState>(Axes.initial());
   const [gl, setGL] = useState<GLState>(GL.initial());
@@ -81,7 +83,7 @@ export const LinePlot = ({ vis }: LinePlotProps): JSX.Element => {
 
   useAsyncEffect(async () => {
     if (client == null || !valid) return setData(Data.initial());
-    setData(await Data.fetch(vis, client, live));
+    setData(await Data.fetch(client, vis, live));
   }, [live, vis, tick, client]);
 
   useEffect(() => {
@@ -92,10 +94,10 @@ export const LinePlot = ({ vis }: LinePlotProps): JSX.Element => {
       gl = GL.initial();
       bounds = Bounds.initial();
     } else {
-      bounds = Bounds.build(data.data, 0.01);
+      bounds = Bounds.build(data, 0.01);
       scales = Scales.build(bounds, zoom);
       axes = Axes.build(container, scales);
-      gl = GL.build(container, data.data, scales, axes, theme);
+      gl = GL.build(container, data, scales, axes, theme);
     }
     startDraw(() => {
       setGL(gl);
@@ -160,9 +162,7 @@ export const LinePlot = ({ vis }: LinePlotProps): JSX.Element => {
     <PMenu.ContextMenu
       className="delta-line-plot__container"
       {...menuProps}
-      menu={() => (
-        <ContextMenu scale={scale.decimal.forward.x1} selection={selection} />
-      )}
+      menu={() => <ContextMenu scale={scale.decimal.x1} selection={selection} />}
     >
       <div className="delta-line-plot__plot pluto--no-select" ref={resizeRef}>
         <Viewport.Mask
@@ -216,7 +216,7 @@ interface TooltipProps {
   container: Box;
   hover: HoverState | null;
   scales: ScalesState;
-  data: DataState;
+  data: Data;
   axes: AxesState;
 }
 
@@ -230,16 +230,16 @@ export const Tooltip = ({
   if (hover == null) return <></>;
   const annotation: RuleAnnotationProps[] = [];
   let arrayIndex: number | null = null;
-  let position: number;
-  let value: number;
+  let position: number = 0;
+  let value: number = 0;
 
   const { theme } = Theming.useContext();
 
-  const xScale = scales.decimal.reverse.x1;
+  const xScale = scales.decimal.x1?.reverse();
   if (xScale == null) return <></>;
   const scalePos = xScale.pos(hover.box.left);
 
-  Object.values(data.data.x1).forEach((res) => {
+  Object.values(data.axis("x1")).forEach((res) => {
     res.arrays.forEach((arr, j) => {
       if (arrayIndex != null) return;
       const pos = arr.binarySearch(BigInt(scalePos));
@@ -253,19 +253,18 @@ export const Tooltip = ({
 
   if (arrayIndex == null) return <></>;
 
-  const left = scales.normal.forward.x1.pos(value);
+  const left = scales.normal.x1?.pos(value) as number;
 
-  Y_AXIS_KEYS.forEach((key) => {
-    const d = data.data[key];
-    if (d == null) return;
-    const scale = scales.normal.forward[key];
+  data.forEachChannel((channel, axis, data) => {
+    if (X_AXIS_KEYS.includes(axis as XAxisKey)) return;
+    const scale = scales.normal[axis];
     if (scale == null) return;
-    Object.values(d).forEach((res, i) => {
+    Object.values(data).forEach((res, i) => {
       const value = res.arrays[arrayIndex as number]?.data[position];
       if (value == null) return;
       annotation.push({
         values: {
-          value: value.toString(),
+          [channel.name]: value.toString(),
         },
         stroke: theme.colors.visualization.palettes.default[i],
         position: (1 - scale.pos(value as number)) * container.height,

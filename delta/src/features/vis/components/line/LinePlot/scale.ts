@@ -14,33 +14,15 @@ import { BoundsState } from "./bounds";
 import { axisDirection, AxisKey } from "@/features/vis/types";
 
 export interface ScalesState {
-  normal: {
-    forward: Partial<Record<AxisKey, Scale>>;
-    reverse: Partial<Record<AxisKey, Scale>>;
-  };
-  offset: {
-    forward: Partial<Record<AxisKey, Scale>>;
-    reverse: Partial<Record<AxisKey, Scale>>;
-  };
-  decimal: {
-    forward: Partial<Record<AxisKey, Scale>>;
-    reverse: Partial<Record<AxisKey, Scale>>;
-  };
+  normal: Partial<Record<AxisKey, Scale>>;
+  offset: Partial<Record<AxisKey, Scale>>;
+  decimal: Partial<Record<AxisKey, Scale>>;
 }
 
 const initial = (): ScalesState => ({
-  normal: {
-    forward: {},
-    reverse: {},
-  },
-  offset: {
-    forward: {},
-    reverse: {},
-  },
-  decimal: {
-    forward: {},
-    reverse: {},
-  },
+  normal: {},
+  offset: {},
+  decimal: {},
 });
 
 const build = (bounds: BoundsState, zoom: Box): ScalesState => {
@@ -51,21 +33,14 @@ const build = (bounds: BoundsState, zoom: Box): ScalesState => {
     const dir = axisDirection(key);
     const dim = dirToDim(dir);
     const loc = dir === "x" ? "left" : "bottom";
-    const df = Scale.scale(normalBounds).scale(1);
-    const dr = df.reverse();
-    const nf = df.translate(-zoom[loc]).magnify(1 / zoom[dim]);
-    const nr = nf.reverse();
-    const of = Scale.scale(offsetBounds)
-      .scale(1)
-      .translate(-zoom[loc])
-      .magnify(1 / zoom[dim]);
-    const or = of.reverse();
-    scales.normal.forward[key] = nf;
-    scales.normal.reverse[key] = nr;
-    scales.offset.forward[key] = of;
-    scales.offset.reverse[key] = or;
-    scales.decimal.forward[key] = df;
-    scales.decimal.reverse[key] = dr;
+    const mag = 1 / zoom[dim];
+    const trans = -zoom[loc];
+    const decimal = Scale.scale(normalBounds).scale(1);
+    const normal = decimal.translate(trans).magnify(mag);
+    const offset = Scale.scale(offsetBounds).scale(1).translate(trans).magnify(mag);
+    scales.normal[key] = normal;
+    scales.offset[key] = offset;
+    scales.decimal[key] = decimal;
   });
   return scales;
 };

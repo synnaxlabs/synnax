@@ -7,10 +7,12 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from typing import overload
 from numpy import ndarray
 import pandas as pd
 
 from synnax.channel.retrieve import ChannelRetriever
+from synnax.framer.payload import NumpyFrame
 from synnax.telem import NumpyArray, TimeRange, UnparsedTimeStamp
 from synnax.transport import Transport
 from synnax.framer.iterator import AUTO_SPAN, NumpyIterator
@@ -94,12 +96,32 @@ class FrameClient:
             w.write(pd.DataFrame({key_or_name: data}))
             w.commit()
 
+    @overload
+    def read(
+        self,
+        start: UnparsedTimeStamp,
+        end: UnparsedTimeStamp,
+        *keys_or_name: str,
+    ) -> NumpyFrame:
+        ...
+
+    @overload
     def read(
         self,
         start: UnparsedTimeStamp,
         end: UnparsedTimeStamp,
         key_or_name: str,
     ) -> tuple[ndarray, TimeRange]:
+        ...
+
+
+    def read(
+        self,
+        start: UnparsedTimeStamp,
+        end: UnparsedTimeStamp,
+        key_or_name: str,
+        *keys_or_name: str,
+    ) -> tuple[ndarray, TimeRange] | NumpyFrame:
         """Reads telemetry from the channel between the two timestamps.
 
         :param start: The starting timestamp of the range to read from.

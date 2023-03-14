@@ -86,8 +86,8 @@ class ClusterChannelRetriever:
 
     def retrieve(
         self,
-        key_or_name: str | list[str],
-        *keys_or_names: str | list[str],
+        key_or_name: str | tuple[str] | list[str],
+        *keys_or_names: str | tuple[str] | list[str],
         node_id: int | None = None,
         include_not_found: bool = False,
     ) -> (
@@ -130,8 +130,8 @@ class CacheChannelRetriever:
 
     def retrieve(
         self,
-        key_or_name: str | list[str],
-        *keys_or_names: str | list[str],
+        key_or_name: str | tuple[str] | list[str],
+        *keys_or_names: str | tuple[str] | list[str],
         node_id: int | None = None,
         include_not_found: bool = False,
     ) -> (
@@ -187,7 +187,7 @@ class CacheChannelRetriever:
 
 
 def is_single(
-    key_or_name: str | list[str], keys_or_names: tuple[str | list[str]]
+    key_or_name: str | tuple[str] | list[str], keys_or_names: tuple[str | tuple[str] | list[str]]
 ) -> bool:
     """Determine if a list of keys or names is a single key or name."""
     return isinstance(key_or_name, str) and len(keys_or_names) == 0
