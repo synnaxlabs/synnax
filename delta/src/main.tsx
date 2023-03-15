@@ -32,7 +32,7 @@ import { LayoutMain } from "./layouts/LayoutMain";
 import { newStore } from "./store";
 
 import { Menu } from "@/components";
-import { ConnectCluster } from "@/features/cluster";
+import { ConnectCluster } from "@/cluster";
 import { DocsLayoutRenderer } from "@/features/docs";
 import {
   LayoutRendererProvider,

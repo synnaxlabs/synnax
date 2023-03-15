@@ -64,7 +64,7 @@ const DEFAULT_TRIGGER_CONFIG: UseViewportTriggers = {
   zoomReset: [["MouseLeft", "MouseLeft"]],
   pan: [["MouseLeft", "Shift"]],
   select: [["MouseLeft", "Alt"]],
-  hover: [["t"]],
+  hover: [["T"]],
 };
 
 const compareTriggerConfigs = (

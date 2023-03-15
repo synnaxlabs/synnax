@@ -17,7 +17,7 @@ import {
 import { DeepKey } from "@synnaxlabs/x";
 import { appWindow } from "@tauri-apps/api/window";
 
-import { clusterReducer, CLUSTER_SLICE_NAME } from "@/features/cluster";
+import { clusterReducer, CLUSTER_SLICE_NAME } from "@/cluster";
 import { docsReducer, DOCS_SLICE_NAME } from "@/features/docs";
 import {
   layoutReducer,
