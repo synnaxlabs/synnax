@@ -17,13 +17,9 @@ import { RangesList } from "./RangesList";
 import { VisList } from "./VisList";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
-import {
-  Layout,
-  NavDrawerItem,
-  setNavdrawerVisible,
-  useLayoutPlacer,
-} from "@/features/layout";
-import { createLineVis, VisToolbar } from "@/features/vis";
+import { Layout, NavDrawerItem, setNavdrawerVisible, useLayoutPlacer } from "@/layout";
+import { VisToolbar } from "@/vis";
+import { createLineVis } from "@/vis/line";
 
 const rangeWindowLayout: Layout = {
   key: "defineRange",
@@ -60,7 +56,7 @@ const Content = (): JSX.Element => {
 
   const handleCreateVis = (): void => {
     newLayout(createLineVis({}));
-    dispatch(setNavdrawerVisible({ key: VisToolbar.Key, value: true }));
+    dispatch(setNavdrawerVisible({ key: VisToolbar.key, value: true }));
   };
 
   return (
