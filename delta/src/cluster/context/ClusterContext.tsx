@@ -22,7 +22,7 @@ import {
   setClusterConnectionState,
   useSelectActiveClusterKey,
   useSelectCluster,
-} from "../store";
+} from "@/cluster/store";
 
 interface ClusterContextValue {
   client: Synnax | null;

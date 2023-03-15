@@ -15,10 +15,8 @@ import { useDispatch } from "react-redux";
 import { removeVis, setVis, useSelectSVis } from "../store";
 import { Vis } from "../types";
 
-import { LinePlot } from "./line/LinePlot";
-import { LineSVis } from "./line/types";
-
-import { LayoutRenderer, LayoutRendererProps } from "@/features/layout";
+import { LayoutRenderer, LayoutRendererProps } from "@/layout";
+import { LinePlot, LineVis } from "@/vis/line";
 
 export const VisLayoutRenderer: LayoutRenderer = {
   Renderer: memo(({ layoutKey }: LayoutRendererProps) => {
@@ -33,7 +31,7 @@ export const VisLayoutRenderer: LayoutRenderer = {
     switch (vis.variant) {
       case "linePlot":
         return (
-          <LinePlot vis={vis as LineSVis} onChange={onChange} resizeDebounce={100} />
+          <LinePlot vis={vis as LineVis} onChange={onChange} resizeDebounce={100} />
         );
     }
     return <h1>No Visualization Found</h1>;

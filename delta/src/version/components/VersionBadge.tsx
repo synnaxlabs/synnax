@@ -11,7 +11,7 @@ import { Text } from "@synnaxlabs/pluto";
 import type { TextProps } from "@synnaxlabs/pluto";
 import { Optional } from "@synnaxlabs/x";
 
-import { useSelectVersion } from "../store";
+import { useSelectVersion } from "@/version/store";
 
 type VersionBadgeProps = Optional<TextProps, "level">;
 

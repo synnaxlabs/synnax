@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 
 import { GLLine, hexToRGBA, Theme } from "@synnaxlabs/pluto";
-import { Box, BoxScale } from "@synnaxlabs/x";
+import { Box } from "@synnaxlabs/x";
 
 import { Axes } from "@/vis/line/axes";
 import { Data } from "@/vis/line/data";
@@ -22,10 +22,10 @@ export class Lines {
     data: Data,
     scales: Scales,
     axes: Axes,
-    theme: Theme | null
+    theme: Theme | null | undefined
   ): Lines {
     return useMemo(() => {
-      if (theme === null) return new Lines(container, []);
+      if (theme == null) return new Lines(container, []);
       const lines: GLLine[] = [];
       X_AXIS_KEYS.forEach((xKey) => {
         const xData = data.axis(xKey);
@@ -63,5 +63,9 @@ export class Lines {
 
   get gl(): GLLine[] {
     return this.lines;
+  }
+
+  valid(): boolean {
+    return this.lines.length > 0;
   }
 }

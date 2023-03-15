@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DocsLocation, DocsState, DocsStoreState, DOCS_SLICE_NAME } from "../store";
-
+import { DocsLocation, DocsState, DocsStoreState, DOCS_SLICE_NAME } from "@/docs/store";
 import { useMemoSelect } from "@/hooks";
 
 /** Selects the documentation slice from a larger store state. */

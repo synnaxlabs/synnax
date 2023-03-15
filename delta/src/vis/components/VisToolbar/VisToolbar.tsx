@@ -9,15 +9,14 @@
 
 import { Space, Text } from "@synnaxlabs/pluto";
 
-import { useControlledVis } from "../../hooks";
-import { Vis } from "../../types";
-import { LinePlotToolBar } from "../line/controls/LinePlotToolbar";
-import { ControlledLineVisProps } from "../line/controls/types";
-
 import { VisIcon, VisToolbarTitle } from "./VisToolbarTitle";
 
 import { ToolbarHeader } from "@/components";
-import { NavdrawerItem } from "@/features/layout";
+import { NavDrawerItem } from "@/layout";
+import { useControlledVis } from "@/vis/hooks";
+import { LinePlotToolBar } from "@/vis/line";
+import { ControlledLineVisProps } from "@/vis/line/controls/types";
+import { Vis } from "@/vis/types";
 
 const NoVisContent = (): JSX.Element => (
   <Space justify="spaceBetween" style={{ height: "100%" }} empty>
@@ -44,7 +43,7 @@ const Content = (): JSX.Element => {
   }
 };
 
-export const VisToolbar: NavdrawerItem = {
+export const VisToolbar: NavDrawerItem = {
   key: "visualization",
   content: <Content />,
   icon: <VisIcon />,

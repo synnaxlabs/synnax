@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useState } from "react";
 
 import {
   GLLines,
@@ -23,19 +23,16 @@ import {
 } from "@synnaxlabs/pluto";
 import { XY, Box, DECIMAL_BOX, ZERO_BOX } from "@synnaxlabs/x";
 
-import { Channels } from "../channels";
-import { Lines } from "../lines";
-import { Ranges } from "../ranges";
-
-import { ContextMenu } from "./ContextMenu";
-
-import { useAsyncEffect } from "@/hooks";
 import { useSelectTheme } from "@/layout";
 import { Axes } from "@/vis/line/axes";
 import { Bounds } from "@/vis/line/bounds";
+import { Channels } from "@/vis/line/channels";
 import { Data } from "@/vis/line/data";
+import { ContextMenu } from "@/vis/line/LinePlot/ContextMenu";
+import { Lines } from "@/vis/line/lines";
+import { Ranges } from "@/vis/line/ranges";
 import { Scales } from "@/vis/line/scales";
-import { XAxisKey, X_AXIS_KEYS, Y_AXIS_KEYS } from "@/vis/types";
+import { XAxisKey, X_AXIS_KEYS } from "@/vis/types";
 
 import "./LinePlot.css";
 
@@ -61,17 +58,15 @@ export const LinePlot = ({ key }: { key: string }): JSX.Element => {
   const [selection, setSelection] = useState<Box | null>(null);
   const [hover, setHover] = useState<HoverState | null>(null);
 
-  const [, startDraw] = useTransition();
-
-  const valid = true;
+  const valid = [channels, ranges, data, bounds, scales, axes, lines].every(
+    (x) => x.valid
+  );
 
   const menuProps = PMenu.useContextMenu();
 
   const handleViewport: UseViewportHandler = useCallback((props) => {
     const { box, mode, cursor } = props;
-    if (mode === "hover") {
-      return setHover({ cursor, box });
-    }
+    if (mode === "hover") return setHover({ cursor, box });
     if (mode === "select") {
       setSelection(box);
       return menuProps.open(cursor);
@@ -80,12 +75,7 @@ export const LinePlot = ({ key }: { key: string }): JSX.Element => {
     setZoom(box);
   }, []);
 
-  const viewportProps = Viewport.use({
-    onChange: handleViewport,
-    triggers: {
-      hover: [["T"]],
-    },
-  });
+  const viewportProps = Viewport.use({ onChange: handleViewport });
 
   const handleResize = useCallback((box: Box) => setContainer(box), [setContainer]);
 
@@ -137,31 +127,16 @@ export const LinePlot = ({ key }: { key: string }): JSX.Element => {
         <svg className="delta-line-plot__svg pluto--no-select" style={{ zIndex: 2 }}>
           <Tooltip
             hover={hover}
-            scales={scale}
+            scales={scales}
             data={data}
             container={container}
             axes={axes}
+            channels={channels}
           />
         </svg>
       </div>
     </PMenu.ContextMenu>
   );
-};
-
-const isValid = (vis: LineSVis): boolean => {
-  const hasRanges = X_AXIS_KEYS.some((key) => {
-    const v = vis.ranges[key];
-    return v?.length > 0;
-  });
-  const hasXAxis = X_AXIS_KEYS.some((key) => {
-    const v = vis.channels[key];
-    return v != null && v.length > 0;
-  });
-  const hasYAxis = Y_AXIS_KEYS.some((key) => {
-    const v = vis.channels[key];
-    return v?.length > 0;
-  });
-  return hasRanges && hasXAxis && hasYAxis;
 };
 
 interface TooltipProps {
@@ -170,6 +145,7 @@ interface TooltipProps {
   scales: Scales;
   data: Data;
   axes: Axes;
+  channels: Channels;
 }
 
 export const Tooltip = ({
@@ -178,6 +154,7 @@ export const Tooltip = ({
   axes,
   data,
   container,
+  channels,
 }: TooltipProps): JSX.Element => {
   if (hover == null) return <></>;
   const annotation: RuleAnnotationProps[] = [];
@@ -207,8 +184,9 @@ export const Tooltip = ({
 
   const left = scales.normal("x1")?.pos(value) as number;
 
-  data.forEachChannel((channel, axis, data) => {
+  data.forEachChannel((key, axis, data) => {
     if (X_AXIS_KEYS.includes(axis as XAxisKey)) return;
+    const { name } = channels.getRequired(key);
     const scale = scales.normal(axis);
     if (scale == null) return;
     Object.values(data).forEach((res, i) => {
@@ -216,7 +194,7 @@ export const Tooltip = ({
       if (value == null) return;
       annotation.push({
         values: {
-          [channel.name]: value.toString(),
+          [name]: value.toString(),
         },
         stroke: theme.colors.visualization.palettes.default[i],
         position: (1 - scale.pos(value as number)) * container.height,

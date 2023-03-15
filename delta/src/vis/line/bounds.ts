@@ -62,4 +62,8 @@ export class Bounds {
       callback(key, this.state.normal[key] as Bound, this.state.offset[key] as Bound)
     );
   }
+
+  get valid(): boolean {
+    return Object.keys(this.state.normal).length > 0;
+  }
 }
