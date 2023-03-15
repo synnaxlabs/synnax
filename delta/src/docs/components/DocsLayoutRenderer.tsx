@@ -14,9 +14,9 @@ import { URL, buildQueryString } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
-import { useSelectDocsLocation } from "@/features/docs/hooks";
-import { setDocsLocation } from "@/features/docs/store";
-import { LayoutRenderer } from "@/features/layout";
+import { useSelectDocsLocation } from "@/docs/hooks";
+import { setDocsLocation } from "@/docs/store";
+import { LayoutRenderer } from "@/layout";
 
 import "./DocsLayoutRenderer.css";
 

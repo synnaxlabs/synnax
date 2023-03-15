@@ -59,8 +59,22 @@ export class Channels {
     return Object.values(core).flat();
   }
 
+  get valid(): boolean {
+    return this.channels.length > 0;
+  }
+
   get keys(): string[] {
     return Channels.toKeys(this.core);
+  }
+
+  get(key: string): Channel | undefined {
+    return this.channels.find((c) => c.key === key);
+  }
+
+  getRequired(key: string): Channel {
+    const channel = this.get(key);
+    if (channel === undefined) throw new Error(`Channel ${key} not found`);
+    return channel;
   }
 
   axis(key: AxisKey): Channel[] {

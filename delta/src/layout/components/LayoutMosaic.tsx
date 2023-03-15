@@ -11,7 +11,6 @@ import { useCallback } from "react";
 
 import { Logo } from "@synnaxlabs/media";
 import { Mosaic as PlutoMosaic, useDebouncedCallback } from "@synnaxlabs/pluto";
-import type { MosaicProps } from "@synnaxlabs/pluto";
 import type { Location } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 
@@ -27,7 +26,7 @@ import {
 
 import { LayoutContent } from "./LayoutContent";
 
-import { createLineVis } from "@/features/vis/components/line/types";
+import { createLineVis } from "@/vis/line";
 
 const emptyContent = <Logo.Watermark />;
 

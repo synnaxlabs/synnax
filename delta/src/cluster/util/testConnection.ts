@@ -10,7 +10,7 @@
 import { Synnax } from "@synnaxlabs/client";
 import type { SynnaxProps } from "@synnaxlabs/client";
 
-import type { ConnectionState } from "../types";
+import type { ConnectionState } from "@/cluster/types";
 
 /**
  * Tests the connection to the cluster with the given props.

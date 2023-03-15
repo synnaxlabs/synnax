@@ -14,9 +14,10 @@ import { useDispatch } from "react-redux";
 import { setNavdrawerVisible } from "../store";
 
 import { ClusterToolbar, connectClusterWindowLayout } from "@/cluster";
-import { createDocsLayout } from "@/features/docs";
-import { useLayoutPlacer } from "@/features/layout/hooks";
-import { createLineVis, VisToolbar } from "@/features/vis";
+import { createDocsLayout } from "@/docs";
+import { useLayoutPlacer } from "@/layout/hooks";
+import { VisToolbar } from "@/vis";
+import { createLineVis } from "@/vis/line";
 
 import "./GetStarted.css";
 

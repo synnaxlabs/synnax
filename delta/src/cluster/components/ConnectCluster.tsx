@@ -24,9 +24,9 @@ import { testConnection } from "../util/testConnection";
 
 import { ConnectionStateBadge } from "./ClusterBadges";
 
-import { CSS } from "@/css";
 import type { ConnectionState } from "@/cluster";
-import { Layout, LayoutRendererProps } from "@/features/layout";
+import { CSS } from "@/css";
+import { Layout, LayoutRendererProps } from "@/layout";
 
 import "./ConnectCluster.css";
 

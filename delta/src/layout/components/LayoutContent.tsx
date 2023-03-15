@@ -11,9 +11,9 @@ import { memo } from "react";
 
 import { useDispatch } from "react-redux";
 
-import { useLayoutRenderer } from "../context";
-import { useLayoutRemover } from "../hooks";
-import { useSelectRequiredLayout } from "../store";
+import { useLayoutRenderer } from "@/layout/context";
+import { useLayoutRemover } from "@/layout/hooks";
+import { useSelectRequiredLayout } from "@/layout/store";
 
 /** LayoutContentProps are the props for the LayoutContent component. */
 export interface LayoutContentProps {

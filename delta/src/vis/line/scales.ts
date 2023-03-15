@@ -78,4 +78,8 @@ export class Scales {
   decimal(key: AxisKey): Scale | undefined {
     return this.state.decimal[key];
   }
+
+  get valid(): boolean {
+    return Object.keys(this.state.normal).length > 0;
+  }
 }

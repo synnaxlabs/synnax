@@ -11,14 +11,13 @@ import { useCallback } from "react";
 
 import { Input, InputItemProps } from "@synnaxlabs/pluto";
 
-import { AxisKey, axisLabel } from "../../types";
-
 import {
   SelectChanel,
   SelectChannelProps,
   SelectMultipleChannels,
   SelectMultipleChannelsProps,
 } from "@/components";
+import { AxisKey, axisLabel } from "@/vis/types";
 
 export interface SelectMultipleAxesInputItemProps
   extends Omit<

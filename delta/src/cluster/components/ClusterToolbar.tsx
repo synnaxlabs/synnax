@@ -12,12 +12,12 @@ import { Space, Header, List, Text } from "@synnaxlabs/pluto";
 import type { ListItemProps } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
-import { ToolbarHeader, ToolbarTitle } from "@/components";
-import { CSS } from "@/css";
 import { connectClusterWindowLayout } from "@/cluster/components/ConnectCluster";
 import { setActiveCluster, useSelectCluster, useSelectClusters } from "@/cluster/store";
 import { RenderableCluster } from "@/cluster/types";
-import { useLayoutPlacer, NavDrawerItem } from "@/features/layout";
+import { ToolbarHeader, ToolbarTitle } from "@/components";
+import { CSS } from "@/css";
+import { useLayoutPlacer, NavDrawerItem } from "@/layout";
 
 import "./ClusterToolbar.css";
 

@@ -69,4 +69,8 @@ export class Ranges {
     const now = TimeStamp.now();
     return this.array.some((r) => new TimeStamp(r.end).after(now));
   }
+
+  get valid(): boolean {
+    return this.array.length > 0;
+  }
 }

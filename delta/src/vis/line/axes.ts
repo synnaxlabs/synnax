@@ -124,4 +124,8 @@ export class Axes {
       scale,
     };
   }
+
+  get valid(): boolean {
+    return Object.keys(this.axes).length > 0;
+  }
 }

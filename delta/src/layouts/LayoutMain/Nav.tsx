@@ -20,21 +20,21 @@ import { locToDir } from "@synnaxlabs/x";
 
 import { NAV_SIZES } from "./constants";
 
+import { ClusterBadge, ClusterToolbar, ConnectionBadge } from "@/cluster";
 import { Controls } from "@/components";
 import { CSS } from "@/css";
-import { ClusterBadge, ClusterToolbar, ConnectionBadge } from "@/cluster";
-import { createDocsLayout } from "@/features/docs";
+import { createDocsLayout } from "@/docs";
 import {
   NavDrawerItem,
   NavdrawerLocation,
   useNavDrawer,
   NavMenuItem,
   useLayoutPlacer,
-} from "@/features/layout";
-import { ResourcesToolbar } from "@/features/resources";
-import { VersionBadge } from "@/features/version";
-import { VisToolbar } from "@/features/vis";
-import { WorkspaceToolbar } from "@/features/workspace";
+} from "@/layout";
+import { ResourcesToolbar } from "@/resources";
+import { VersionBadge } from "@/version";
+import { VisToolbar } from "@/vis";
+import { WorkspaceToolbar } from "@/workspace";
 
 import "./Nav.css";
 

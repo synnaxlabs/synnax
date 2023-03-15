@@ -87,17 +87,21 @@ export class Data {
   }
 
   forEachChannel(
-    fn: (ch: Channel, axis: AxisKey, data: TelemetryClientResponse[]) => void
+    fn: (ch: string, axis: AxisKey, data: TelemetryClientResponse[]) => void
   ): void {
     Object.entries(this.entries).forEach(([axis, data]) => {
       const keys = new Set(data.map((d) => d.key));
       keys.forEach((key) =>
         fn(
-          this.channels[key],
+          key,
           axis as AxisKey,
           data.filter((d) => d.key === key)
         )
       );
     });
+  }
+
+  valid(): boolean {
+    return this.error === null;
   }
 }

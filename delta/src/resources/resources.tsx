@@ -12,13 +12,10 @@ import { ReactElement } from "react";
 import { OntologyID } from "@synnaxlabs/client";
 import type { OntologyResourceType } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { ONE_XY, ZERO_XY } from "@synnaxlabs/x";
 
-import { createLineVis, LineVis } from "../vis/components/line/types";
-
-import { LayoutPlacer } from "@/features/layout";
-import { createVis } from "@/features/vis";
-import { WorkspaceState } from "@/features/workspace";
+import { LayoutPlacer } from "@/layout";
+import { createLineVis } from "@/vis/line";
+import { WorkspaceState } from "@/workspace";
 
 export interface SelectionContext {
   id: OntologyID;
