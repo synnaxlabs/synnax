@@ -11,7 +11,7 @@ import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
 import { Optional } from "@synnaxlabs/x";
 
-import { Cluster, ConnectionState, DEFAULT_CONNECTION_STATE } from "../types";
+import { Cluster, ConnectionState, DEFAULT_CONNECTION_STATE } from "@/cluster/core";
 
 /** The state of the cluster slice. */
 export interface ClusterState {

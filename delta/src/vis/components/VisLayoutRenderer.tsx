@@ -9,35 +9,19 @@
 
 import { memo } from "react";
 
-import { UnexpectedError } from "@synnaxlabs/client";
-import { useDispatch } from "react-redux";
-
-import { removeVis, setVis, useSelectSVis } from "../store";
-import { Vis } from "../types";
+import { removeVis, useSelectRequiredVisMeta } from "../store";
 
 import { LayoutRenderer, LayoutRendererProps } from "@/layout";
-import { LinePlot, LineVis } from "@/vis/line";
+import { LinePlot } from "@/vis/line";
 
 export const VisLayoutRenderer: LayoutRenderer = {
   Renderer: memo(({ layoutKey }: LayoutRendererProps) => {
-    const vis = useSelectSVis(layoutKey);
-    if (vis == null) throw new UnexpectedError(`Visualization not found: ${layoutKey}`);
-    const dispatch = useDispatch();
-
-    const onChange = (vis: Vis): void => {
-      dispatch(setVis(vis));
-    };
-
-    switch (vis.variant) {
-      case "linePlot":
-        return (
-          <LinePlot vis={vis as LineVis} onChange={onChange} resizeDebounce={100} />
-        );
+    const { variant } = useSelectRequiredVisMeta(layoutKey);
+    switch (variant) {
+      default:
+        return <LinePlot layoutKey={layoutKey} />;
     }
-    return <h1>No Visualization Found</h1>;
   }),
-  onClose: ({ dispatch, layoutKey }) => {
-    dispatch(removeVis(layoutKey));
-  },
+  onClose: ({ dispatch, layoutKey }) => dispatch(removeVis(layoutKey)),
 };
-VisLayoutRenderer.Renderer.displayName = "VisualizationLayoutRenderer";
+VisLayoutRenderer.Renderer.displayName = "VisLayoutRenderer";

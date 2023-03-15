@@ -13,23 +13,16 @@ import { TimeStamp } from "@synnaxlabs/x";
 
 import { useMemoSelect } from "@/hooks";
 import { LayoutStoreState } from "@/layout";
-import { LineVis } from "@/vis/line/core";
+import { XAxisKey, X_AXIS_KEYS } from "@/vis/axis";
+import { LineVis, RangesState } from "@/vis/line/core";
 import { selectRequiredVis, VisualizationStoreState } from "@/vis/store";
-import { XAxisKey, XAxisRecord, X_AXIS_KEYS } from "@/vis/types";
 import { Range, selectRanges, WorkspaceStoreState } from "@/workspace";
 
-export type RangesCoreState = XAxisRecord<readonly string[]>;
-
-export const ZERO_RANGES_CORE_STATE: RangesCoreState = {
-  x1: [] as string[],
-  x2: [] as string[],
-};
-
 export class Ranges {
-  readonly core: RangesCoreState;
+  readonly core: RangesState;
   readonly ranges: Record<string, Range>;
 
-  private constructor(core: RangesCoreState, ranges: Record<string, Range>) {
+  private constructor(core: RangesState, ranges: Record<string, Range>) {
     this.core = core;
     this.ranges = ranges;
   }
@@ -37,7 +30,7 @@ export class Ranges {
   static use(key: string): Ranges {
     const { core, ranges } = useMemoSelect(
       (state: VisualizationStoreState & LayoutStoreState & WorkspaceStoreState) => {
-        const core = selectRequiredVis<LineVis>(state, "line", key).ranges;
+        const core = selectRequiredVis<LineVis>(state, key, "line").ranges;
         const ranges = Ranges.rangesFromArray(selectRanges(state, Ranges.keys(core)));
         return { core, ranges };
       },
@@ -46,7 +39,7 @@ export class Ranges {
     return useMemo(() => new Ranges(core, ranges), [core, ranges]);
   }
 
-  private static keys(core: RangesCoreState): string[] {
+  private static keys(core: RangesState): string[] {
     return Object.values(core).flat();
   }
 
@@ -59,6 +52,14 @@ export class Ranges {
       const axes = X_AXIS_KEYS.filter((axis) => this.core[axis].includes(key));
       callback(range, axes);
     });
+  }
+
+  axis(key: XAxisKey): Range[] {
+    return this.core[key].map((key) => this.ranges[key]);
+  }
+
+  axisKeys(key: XAxisKey): readonly string[] {
+    return this.core[key];
   }
 
   get array(): Range[] {

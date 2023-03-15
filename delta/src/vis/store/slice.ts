@@ -9,14 +9,13 @@
 
 import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
-import { Deep } from "@synnaxlabs/x";
-import { DeepPartial } from "react-hook-form";
+import { Deep, DeepPartial } from "@synnaxlabs/x";
 
-import { Vis } from "../types";
+import { VisMeta } from "@/vis/core";
 
 export interface VisualizationState {
   warpMode: boolean;
-  visualizations: Record<string, Vis>;
+  visualizations: Record<string, VisMeta>;
 }
 
 export interface VisualizationStoreState {
@@ -28,9 +27,11 @@ export const initialState: VisualizationState = {
   visualizations: {},
 };
 
-type SetVisAction = PayloadAction<Vis>;
+type SetVisAction = PayloadAction<VisMeta>;
 type RemoveVisAction = PayloadAction<string>;
-type UpdateVisAction = PayloadAction<Omit<DeepPartial<Vis>, "key"> & { key: string }>;
+type UpdateVisAction = PayloadAction<
+  Omit<DeepPartial<VisMeta>, "key"> & { key: string }
+>;
 
 export const VISUALIZATION_SLICE_NAME = "visualization";
 
@@ -47,11 +48,12 @@ export const {
     updateVis: (state, { payload }: UpdateVisAction) => {
       const vis = state.visualizations[payload.key];
       const res = Deep.merge(vis, payload);
+      // console.log(payload, Deep.copy(res));
       state.visualizations[payload.key] = res;
     },
     removeVis: (state, { payload }: RemoveVisAction) => {
       // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-      delete state.visualizations[payload.key];
+      delete state.visualizations[payload];
     },
   },
 });

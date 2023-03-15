@@ -3,10 +3,10 @@ import { useMemo } from "react";
 import { GLLine, hexToRGBA, Theme } from "@synnaxlabs/pluto";
 import { Box } from "@synnaxlabs/x";
 
+import { X_AXIS_KEYS, Y_AXIS_KEYS } from "@/vis/axis";
 import { Axes } from "@/vis/line/axes";
 import { Data } from "@/vis/line/data";
 import { Scales } from "@/vis/line/scales";
-import { X_AXIS_KEYS, Y_AXIS_KEYS } from "@/vis/types";
 
 export class Lines {
   readonly box: Box;
@@ -57,7 +57,16 @@ export class Lines {
           });
         });
       });
-      return new Lines(container, lines);
+      return new Lines(
+        new Box(
+          { x: container.x + axes.offsets.left, y: container.y + axes.offsets.top },
+          {
+            width: container.width - axes.offsets.left - axes.offsets.right,
+            height: container.height - axes.offsets.top - axes.offsets.bottom,
+          }
+        ),
+        lines
+      );
     }, [container, data, scales, axes, theme]);
   }
 

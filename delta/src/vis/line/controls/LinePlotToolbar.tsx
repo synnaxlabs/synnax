@@ -12,15 +12,18 @@ import { Space, Tab, Tabs } from "@synnaxlabs/pluto";
 import { VisToolbarTitle } from "../..";
 
 import { LinePlotChannelControls } from "./LinePlotChannelControls";
-import { ControlledLineVisProps } from "./types";
 
 import { ToolbarHeader } from "@/components";
 
-export const LinePlotToolBar = (props: ControlledLineVisProps): JSX.Element => {
+export interface LinePlotToolbarProps {
+  layoutKey: string;
+}
+
+export const LinePlotToolBar = ({ layoutKey }: LinePlotToolbarProps): JSX.Element => {
   const content = ({ tabKey }: Tab): JSX.Element => {
     switch (tabKey) {
       default:
-        return <LinePlotChannelControls {...props} />;
+        return <LinePlotChannelControls layoutKey={layoutKey} />;
     }
   };
 

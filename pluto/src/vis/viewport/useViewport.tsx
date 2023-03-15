@@ -158,7 +158,7 @@ export const useViewport = ({
         cursor,
       });
     },
-    [setMaskBox]
+    [setMaskBox, onChange, triggerConfig]
   );
 
   const handleZoomSelect = useCallback(

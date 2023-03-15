@@ -8,6 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export * from "./store";
-export * from "./types";
+export * from "./core";
 export * from "./components";
 export * from "./context";

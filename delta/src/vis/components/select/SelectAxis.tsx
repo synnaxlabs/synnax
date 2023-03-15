@@ -17,7 +17,7 @@ import {
   SelectMultipleChannels,
   SelectMultipleChannelsProps,
 } from "@/components";
-import { AxisKey, axisLabel } from "@/vis/types";
+import { AxisKey, axisLabel } from "@/vis/axis";
 
 export interface SelectMultipleAxesInputItemProps
   extends Omit<

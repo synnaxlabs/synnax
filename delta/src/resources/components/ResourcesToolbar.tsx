@@ -18,11 +18,11 @@ import { useStore } from "react-redux";
 
 import { resourceTypes } from "../resources";
 
-import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { useClusterClient } from "@/cluster";
-import { NavdrawerItem, useLayoutPlacer } from "@/features/layout";
-import { WorkspaceState } from "@/features/workspace";
+import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { useAsyncEffect } from "@/hooks";
+import { NavDrawerItem, useLayoutPlacer } from "@/layout";
+import { WorkspaceState } from "@/workspace";
 
 const updateTreeEntry = (
   data: TreeLeaf[],
@@ -105,7 +105,7 @@ const ResourcesTree = (): JSX.Element => {
   );
 };
 
-export const ResourcesToolbar: NavdrawerItem = {
+export const ResourcesToolbar: NavDrawerItem = {
   key: "resources",
   icon: <Icon.Resources />,
   content: <ResourcesTree />,

@@ -1,17 +1,16 @@
 import { useState } from "react";
 
-import { Channel } from "@synnaxlabs/client";
 import { useAsyncEffect } from "@synnaxlabs/pluto";
+import { Deep } from "@synnaxlabs/x";
 
-import { Channels } from "./channels";
-import { Ranges } from "./ranges";
-
+import { AxisKey } from "@/vis/axis";
+import { Channels } from "@/vis/line/channels";
+import { Ranges } from "@/vis/line/ranges";
 import {
   useTelemetryClient,
   TelemetryClient,
   TelemetryClientResponse,
 } from "@/vis/telem";
-import { AxisKey } from "@/vis/types";
 
 const ZERO_DATA: InternalState = {
   y1: [],
@@ -27,25 +26,23 @@ type InternalState = Record<AxisKey, TelemetryClientResponse[]>;
 export class Data {
   private readonly entries: InternalState;
   readonly error: Error | null;
+  loading: boolean;
 
-  constructor(entries: InternalState, error: Error | null) {
+  constructor(entries: InternalState, error: Error | null, loading = false) {
     this.entries = entries;
     this.error = error;
-  }
-
-  static zero(): Data {
-    return new Data(ZERO_DATA, null);
+    this.loading = loading;
   }
 
   static use(channels: Channels, ranges: Ranges): Data {
     const client = useTelemetryClient();
-    const [data, setData] = useState<Data>(Data.zero());
+    const [data, setData] = useState<Data>(new Data(ZERO_DATA, null, true));
 
     useAsyncEffect(async () => {
       if (client === null) return;
       const data = await Data.fetch(channels, ranges, client);
       setData(data);
-    }, [channels]);
+    }, [client, channels]);
 
     return data;
   }
@@ -66,12 +63,12 @@ export class Data {
     } catch (err) {
       error = err as Error;
     }
-    const core = { ...ZERO_DATA };
+    const core = Deep.copy(ZERO_DATA);
     ranges.forEach((range) =>
       channels.forEachAxis((channels, axis) => {
         const keys = channels.map((c) => c.key);
         core[axis].push(
-          ...entries.filter((e) => keys.includes(e.key) && e.range === range)
+          ...entries.filter((e) => keys.includes(e.key) && e.range.key === range.key)
         );
       })
     );
@@ -101,7 +98,13 @@ export class Data {
     });
   }
 
-  valid(): boolean {
+  get valid(): boolean {
     return this.error === null;
+  }
+
+  get empty(): boolean {
+    return Object.values(this.entries).every((axis) =>
+      axis.every((response) => response.arrays.every((array) => array.length === 0))
+    );
   }
 }

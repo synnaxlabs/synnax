@@ -7,10 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Cluster } from "../types";
-
-import { ClusterState, ClusterStoreState, CLUSTER_SLICE_NAME } from "./slice";
-
+import { Cluster } from "@/cluster/core";
+import {
+  ClusterState,
+  ClusterStoreState,
+  CLUSTER_SLICE_NAME,
+} from "@/cluster/store/slice";
 import { selectByKey, selectByKeys, useMemoSelect } from "@/hooks";
 
 /**

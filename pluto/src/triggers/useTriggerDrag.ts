@@ -35,31 +35,37 @@ export const useTriggerDrag = ({
 }: UseCursorDragProps): void => {
   const triggerRef = useRef<TriggerEvent | null>(null);
   const startLoc = useRef<XY>(ZERO_XY);
-  const onMove = useCallback((e: ClientXY & { buttons: number }) => {
-    const cursor = toXY(e);
-    if (triggerRef.current === null) return;
-    const { target, triggers } = triggerRef.current;
-    onDrag({
-      target,
-      box: new Box(startLoc.current, cursor),
-      cursor,
-      triggers,
-      stage: "during",
-    });
-  }, []);
-  const handleTrigger = useCallback<TriggerCallback>((event) => {
-    const { stage, cursor } = event;
-    if (stage === "start") {
-      onDrag({ box: new Box(cursor), ...event });
-      window.addEventListener("mousemove", onMove);
-      triggerRef.current = event;
-      startLoc.current = cursor;
-    } else if (stage === "end") {
-      onDrag({ box: new Box(startLoc.current, cursor), ...event });
-      window.removeEventListener("mousemove", onMove);
-      triggerRef.current = null;
-      startLoc.current = ZERO_XY;
-    }
-  }, []);
+  const onMove = useCallback(
+    (e: ClientXY & { buttons: number }) => {
+      const cursor = toXY(e);
+      if (triggerRef.current === null) return;
+      const { target, triggers } = triggerRef.current;
+      onDrag({
+        target,
+        box: new Box(startLoc.current, cursor),
+        cursor,
+        triggers,
+        stage: "during",
+      });
+    },
+    [onDrag]
+  );
+  const handleTrigger = useCallback<TriggerCallback>(
+    (event) => {
+      const { stage, cursor } = event;
+      if (stage === "start") {
+        onDrag({ box: new Box(cursor), ...event });
+        window.addEventListener("mousemove", onMove);
+        triggerRef.current = event;
+        startLoc.current = cursor;
+      } else if (stage === "end") {
+        onDrag({ box: new Box(startLoc.current, cursor), ...event });
+        window.removeEventListener("mousemove", onMove);
+        triggerRef.current = null;
+        startLoc.current = ZERO_XY;
+      }
+    },
+    [onDrag]
+  );
   useTrigger(triggers, handleTrigger, bound);
 };

@@ -3,37 +3,25 @@ import { useState } from "react";
 import { Channel } from "@synnaxlabs/client";
 import { useAsyncEffect } from "@synnaxlabs/pluto";
 
-import { LineVis } from "./core";
-
 import { useClusterClient } from "@/cluster";
 import { useMemoSelect } from "@/hooks";
 import { LayoutStoreState } from "@/layout";
+import { AxisKey, AXIS_KEYS, XAxisKey, YAxisKey, Y_AXIS_KEYS } from "@/vis/axis";
+import { ChannelsState, LineVis, ZERO_CHANNELS_STATE } from "@/vis/line/core";
 import { selectRequiredVis, VisualizationStoreState } from "@/vis/store";
-import { AxisKey, AXIS_KEYS, XAxisRecord, YAxisRecord } from "@/vis/types";
 
 // This is what lives in redux
-export type ChannelsCoreState = XAxisRecord<string> & YAxisRecord<readonly string[]>;
-
-export const ZERO_CORE_CHANNELS_STATE = {
-  x1: "",
-  x2: "",
-  y1: [] as readonly string[],
-  y2: [] as readonly string[],
-  y3: [] as readonly string[],
-  y4: [] as readonly string[],
-};
-
 export class Channels {
-  readonly core: ChannelsCoreState;
+  readonly core: ChannelsState;
   readonly channels: Channel[];
 
-  constructor(core: ChannelsCoreState, channels: Channel[]) {
+  constructor(core: ChannelsState, channels: Channel[]) {
     this.core = core;
     this.channels = channels;
   }
 
   static zero(): Channels {
-    return new Channels(ZERO_CORE_CHANNELS_STATE, []);
+    return new Channels({ ...ZERO_CHANNELS_STATE }, []);
   }
 
   static use(key: string): Channels {
@@ -42,25 +30,37 @@ export class Channels {
 
     const core = useMemoSelect(
       (state: VisualizationStoreState & LayoutStoreState) =>
-        selectRequiredVis<LineVis>(state, "line", key).channels,
+        selectRequiredVis<LineVis>(state, key, "line").channels,
       [key]
     );
 
     useAsyncEffect(async () => {
       if (client === null) return;
-      const channels = await client.channels.retrieve(Channels.toKeys(core));
+      const keys = Channels.toKeys(core);
+      if (keys.length === 0) return;
+      const channels = await client.channels.retrieve(keys);
+      console.log(keys, channels);
       setChannels(new Channels(core, channels));
-    }, [core]);
+    }, [client, core]);
 
     return channels;
   }
 
-  private static toKeys(core: ChannelsCoreState): string[] {
-    return Object.values(core).flat();
+  private static toKeys(core: ChannelsState): string[] {
+    return Object.values(core)
+      .flat()
+      .filter((key) => key != null && key !== "");
   }
 
   get valid(): boolean {
-    return this.channels.length > 0;
+    // assert that we have at least one x channel and one y channel
+    return (
+      Y_AXIS_KEYS.some((axis) => this.core[axis].length > 0) &&
+      Y_AXIS_KEYS.some((axis) => {
+        const v = this.core[axis];
+        return v != null && v.length > 0;
+      })
+    );
   }
 
   get keys(): string[] {
@@ -79,6 +79,14 @@ export class Channels {
 
   axis(key: AxisKey): Channel[] {
     return this.channels.filter((c) => this.core[key].includes(c.key));
+  }
+
+  yAxisKeys(key: YAxisKey): readonly string[] {
+    return this.core[key];
+  }
+
+  xAxisKey(key: XAxisKey): string {
+    return this.core[key];
   }
 
   forEach(callback: (channel: Channel, axes: AxisKey[]) => void): void {
