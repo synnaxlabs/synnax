@@ -24,7 +24,7 @@ import { z } from "zod";
 import { useSelectRange } from "../store";
 import { addRange } from "../store/slice";
 
-import { LayoutRendererProps } from "@/features/layout";
+import { LayoutRendererProps } from "@/layout";
 
 const formSchema = z.object({
   name: z.string(),
@@ -75,13 +75,12 @@ export const DefineRange = ({
     endDate,
     endTime,
   }: DefineRangeFormProps): void => {
-    const start = Input.combineDateAndTimeValue(startDate, startTime);
-    const end = Input.combineDateAndTimeValue(endDate, endTime);
+    const start = Input.combineDateAndTimeValue(startDate, startTime).valueOf();
+    const end = Input.combineDateAndTimeValue(endDate, endTime).valueOf();
     name = name.trim();
     if (name.length === 0) name = range?.name as string;
-    const key = range?.key ?? name.replace(/\s/g, "").toLowerCase();
     // remove leading and trailing whitespace
-
+    const key = range?.key ?? name.replace(/\s/g, "").toLowerCase();
     dispatch(addRange({ name, start, end, key }));
     onClose();
   };

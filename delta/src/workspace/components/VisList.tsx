@@ -16,7 +16,7 @@ import {
   selectLayoutMosaicTab,
   useSelectActiveMosaicTabKey,
   useSelectLayouts,
-} from "@/features/layout";
+} from "@/layout";
 
 export const VisList = (): JSX.Element => {
   const layouts = useSelectLayouts().filter(
