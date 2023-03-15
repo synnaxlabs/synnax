@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ControlledVisProps } from "../../../types";
-import { LineSVis, LineVis } from "../types";
-
-export type ControlledLineVisProps = ControlledVisProps<LineVis, LineSVis>;
+export interface VisMeta {
+  variant: string;
+  key: string;
+}

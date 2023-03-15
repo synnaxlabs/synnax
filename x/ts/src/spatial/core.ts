@@ -68,6 +68,8 @@ export const ZERO_XY: XY = { x: 0, y: 0 };
 export const ZERO_DIMS: Dimensions = { width: 0, height: 0 };
 export const ONE_XY: XY = { x: 1, y: 1 };
 export const INFINITE_XY: XY = { x: Infinity, y: Infinity };
+export const ONE_DIMS: Dimensions = { width: 1, height: 1 };
+export const INFINITE_DIMS: Dimensions = { width: Infinity, height: Infinity };
 
 export interface SignedDimensions {
   signedWidth: number;

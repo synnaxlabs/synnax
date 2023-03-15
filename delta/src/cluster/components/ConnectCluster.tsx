@@ -19,12 +19,10 @@ import { AiFillApi } from "react-icons/ai";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
-import { setActiveCluster, setCluster } from "../store";
-import { testConnection } from "../util/testConnection";
-
-import { ConnectionStateBadge } from "./ClusterBadges";
-
-import type { ConnectionState } from "@/cluster";
+import { ConnectionStateBadge } from "@/cluster/components/ClusterBadges";
+import type { ConnectionState } from "@/cluster/core";
+import { setActiveCluster, setCluster } from "@/cluster/store";
+import { testConnection } from "@/cluster/util/testConnection";
 import { CSS } from "@/css";
 import { Layout, LayoutRendererProps } from "@/layout";
 

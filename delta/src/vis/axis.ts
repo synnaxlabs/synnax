@@ -9,11 +9,6 @@
 
 import { Direction } from "@synnaxlabs/x";
 
-export interface Vis {
-  variant: string;
-  key: string;
-}
-
 export const Y_AXIS_KEYS = ["y1", "y2", "y3", "y4"] as const;
 export type YAxisKey = typeof Y_AXIS_KEYS[number];
 export type YAxisRecord<T> = Record<YAxisKey, T>;

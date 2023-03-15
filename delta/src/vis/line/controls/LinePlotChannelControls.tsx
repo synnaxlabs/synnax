@@ -11,61 +11,73 @@ import { useState } from "react";
 
 import { ChannelPayload } from "@synnaxlabs/client";
 import { Space } from "@synnaxlabs/pluto";
-
-import { SelectAxisInputItem, SelectMultipleAxesInputItem } from "../..";
-import { AxisKey } from "../../../types";
-
-import { ControlledLineVisProps } from "./types";
+import { useDispatch } from "react-redux";
 
 import { useClusterClient } from "@/cluster";
-import { useSelectRanges, SelectMultipleRangesInputItem } from "@/features/workspace";
 import { useAsyncEffect } from "@/hooks";
+import { AxisKey } from "@/vis/axis";
+import { SelectAxisInputItem, SelectMultipleAxesInputItem } from "@/vis/components";
+import { Channels } from "@/vis/line/channels";
+import { Ranges } from "@/vis/line/ranges";
+import { updateVis } from "@/vis/store";
+import { SelectMultipleRangesInputItem, useSelectRanges } from "@/workspace";
+
+export interface LinePlotChannelControlsProps {
+  layoutKey: string;
+}
 
 export const LinePlotChannelControls = ({
-  vis,
-  setVis,
-}: ControlledLineVisProps): JSX.Element | null => {
-  const ranges = useSelectRanges();
+  layoutKey,
+}: LinePlotChannelControlsProps): JSX.Element | null => {
+  const ranges = Ranges.use(layoutKey);
+  const channels = Channels.use(layoutKey);
+  const dispatch = useDispatch();
+  const allRanges = useSelectRanges();
 
   const client = useClusterClient();
 
-  const [channels, setChannels] = useState<ChannelPayload[]>([]);
+  const [allChannels, setAllChannels] = useState<ChannelPayload[]>([]);
 
   useAsyncEffect(async () => {
     if (client == null) return;
-    const ch = await client.channels.retrieve();
-    setChannels(ch.map((ch) => ch.payload));
+    const ch = await client.channels.retrieveAll();
+    setAllChannels(ch.map((ch) => ch.payload));
   }, [client]);
 
-  const handleChannelSelect = (key: AxisKey, value: readonly string[] | string): void =>
-    setVis({ channels: { [key]: value } });
+  const handleChannelSelect = (
+    key: AxisKey,
+    value: readonly string[] | string
+  ): void => {
+    dispatch(updateVis({ key: layoutKey, channels: { [key]: value } }));
+  };
 
-  const handleRangeSelect = (value: readonly string[]): void =>
-    setVis({ ranges: { x1: value } });
+  const handleRangeSelect = (value: readonly string[]): void => {
+    dispatch(updateVis({ key: layoutKey, ranges: { x1: value } }));
+  };
 
   return (
     <Space style={{ padding: "2rem", width: "100%" }}>
       <SelectMultipleAxesInputItem
         axis={"y1"}
         onChange={handleChannelSelect}
-        value={vis.channels.y1}
-        data={channels}
+        value={channels.yAxisKeys("y1")}
+        data={allChannels}
         location="top"
         grow
       />
       <SelectMultipleAxesInputItem
         axis={"y2"}
         onChange={handleChannelSelect}
-        value={vis.channels.y2}
-        data={channels}
+        value={channels.yAxisKeys("y2")}
+        data={allChannels}
         location="top"
         grow
       />
       <Space direction="x" grow wrap>
         <SelectMultipleRangesInputItem
-          data={ranges}
+          data={allRanges}
           onChange={handleRangeSelect}
-          value={vis.ranges.x1.map((v) => v.key)}
+          value={ranges.axisKeys("x1")}
           location="top"
           grow
         />
@@ -73,9 +85,9 @@ export const LinePlotChannelControls = ({
         <SelectAxisInputItem
           axis={"x1"}
           onChange={handleChannelSelect}
-          value={vis.channels.x1}
+          value={channels.xAxisKey("x1")}
           location="top"
-          data={channels}
+          data={allChannels}
           grow
         />
       </Space>

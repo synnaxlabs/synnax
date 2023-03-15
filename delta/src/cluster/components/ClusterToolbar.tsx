@@ -13,8 +13,8 @@ import type { ListItemProps } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { connectClusterWindowLayout } from "@/cluster/components/ConnectCluster";
+import { RenderableCluster } from "@/cluster/core";
 import { setActiveCluster, useSelectCluster, useSelectClusters } from "@/cluster/store";
-import { RenderableCluster } from "@/cluster/types";
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { CSS } from "@/css";
 import { useLayoutPlacer, NavDrawerItem } from "@/layout";

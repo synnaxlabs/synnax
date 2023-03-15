@@ -13,7 +13,7 @@ import { Box, dirToDim, Scale } from "@synnaxlabs/x";
 
 import { Bounds } from "./bounds";
 
-import { axisDirection, AxisKey } from "@/vis/types";
+import { axisDirection, AxisKey } from "@/vis/axis";
 
 export interface InternalState {
   normal: Partial<Record<AxisKey, Scale>>;
@@ -34,22 +34,22 @@ export class Scales {
     this.state = state;
   }
 
-  static use(bounds: Bounds, zoom: Box): Scales {
+  static use(bounds: Bounds, viewport: Box): Scales {
     return useMemo(() => {
       const scales = { ...ZERO_INTERNAL_STATE };
       bounds.forEach((key, normal, offset) => {
         const dir = axisDirection(key);
         const dim = dirToDim(dir);
         const loc = dir === "x" ? "left" : "bottom";
-        const mag = 1 / zoom[dim];
-        const trans = -zoom[loc];
+        const mag = 1 / viewport[dim];
+        const trans = -viewport[loc];
         const decimal = Scale.scale(normal).scale(1);
         scales.decimal[key] = decimal;
         scales.normal[key] = decimal.translate(trans).magnify(mag);
         scales.offset[key] = Scale.scale(offset).scale(1).translate(trans).magnify(mag);
       });
       return new Scales(scales);
-    }, [bounds, zoom]);
+    }, [bounds, viewport]);
   }
 
   forEach(

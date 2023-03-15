@@ -12,8 +12,8 @@ import { Icon } from "@synnaxlabs/media";
 import { Text, Status } from "@synnaxlabs/pluto";
 import type { StatusVariant } from "@synnaxlabs/pluto";
 
+import { ConnectionState, DEFAULT_CONNECTION_STATE } from "@/cluster/core";
 import { useSelectCluster } from "@/cluster/store";
-import { ConnectionState, DEFAULT_CONNECTION_STATE } from "@/cluster/types";
 
 /** Props for the ConnectionStateBadge component. */
 export interface ConnectionStateBadgeProps {

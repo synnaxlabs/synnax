@@ -7,50 +7,55 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ONE_XY, XY, ZERO_XY, Deep, DeepPartial } from "@synnaxlabs/x";
+import { XY, ZERO_XY, Deep, DeepPartial, Dimensions, ONE_DIMS } from "@synnaxlabs/x";
 
 import { Layout, LayoutCreator } from "@/layout";
+import { XAxisRecord, YAxisRecord } from "@/vis/axis";
+import { VisMeta } from "@/vis/core";
 import { createVis } from "@/vis/layout";
-import { Vis, XAxisRecord, YAxisRecord } from "@/vis/types";
 
-export interface LineVis extends Vis {
-  channels: XAxisRecord<string> & YAxisRecord<readonly string[]>;
-  ranges: XAxisRecord<readonly string[]>;
-  viewport: {
-    zoom: XY;
-    pan: XY;
-  };
+export type ChannelsState = XAxisRecord<string> & YAxisRecord<readonly string[]>;
+export type RangesState = XAxisRecord<readonly string[]>;
+export interface ViewportState {
+  zoom: Dimensions;
+  pan: XY;
 }
+
+export interface LineVis extends VisMeta {
+  channels: ChannelsState;
+  ranges: RangesState;
+  viewport: ViewportState;
+}
+
+export const ZERO_CHANNELS_STATE = {
+  x1: "",
+  x2: "",
+  y1: [] as readonly string[],
+  y2: [] as readonly string[],
+  y3: [] as readonly string[],
+  y4: [] as readonly string[],
+};
+
+export const ZERO_RANGES_STATE: RangesState = {
+  x1: [] as string[],
+  x2: [] as string[],
+};
+
+export const ZERO_VIEWPORT_STATE: ViewportState = {
+  zoom: ONE_DIMS,
+  pan: ZERO_XY,
+};
 
 export const ZERO_LINE_VIS: Omit<LineVis, "key"> = {
   variant: "line",
-  channels: {
-    y1: [] as string[],
-    y2: [] as string[],
-    y3: [] as string[],
-    y4: [] as string[],
-    x1: "",
-    x2: "",
-  },
-  ranges: {
-    x1: [] as string[],
-    x2: [] as string[],
-  },
-  viewport: {
-    zoom: ONE_XY,
-    pan: ZERO_XY,
-  },
+  channels: ZERO_CHANNELS_STATE,
+  ranges: ZERO_RANGES_STATE,
+  viewport: ZERO_VIEWPORT_STATE,
 };
 
 export const createLineVis = (
   initial: DeepPartial<LineVis> & Omit<Partial<Layout>, "type">
 ): LayoutCreator =>
   createVis<LineVis>(
-    Deep.merge({ ...ZERO_LINE_VIS }, initial) as LineVis & Omit<Layout, "type">
+    Deep.merge(Deep.copy(ZERO_LINE_VIS), initial) as LineVis & Omit<Layout, "type">
   );
-
-export class LineVisRanges {
-  private constructor() {}
-
-  static use(): LineVisRanges {}
-}

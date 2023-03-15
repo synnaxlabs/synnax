@@ -9,7 +9,9 @@
 
 import { MutableRefObject, RefObject, useEffect, useRef, useState } from "react";
 
-import { Box } from "@synnaxlabs/x";
+import { Box, Compare } from "@synnaxlabs/x";
+
+import { useMemoCompare } from "..";
 
 import { Trigger, TriggerCallback } from "./triggers";
 import { useTriggerContext } from "./TriggersContext";
@@ -21,27 +23,30 @@ export const useTrigger = (
 ): MutableRefObject<UseTriggerHeldReturn> => {
   const { listen } = useTriggerContext();
   const ref = useRef<UseTriggerHeldReturn>({ triggers: [], held: false });
-  useEffect(
-    () =>
-      listen((e) => {
-        if (region != null) {
-          if (region.current == null) return;
-          const box = new Box(region.current);
-          if (
-            (e.stage === "start" || !ref.current.held) &&
-            !box.contains(e.cursor) &&
-            e.target !== region.current
-          )
-            return;
-        }
-        ref.current = {
-          triggers: e.stage === "end" ? [] : triggers,
-          held: e.stage === "start",
-        };
-        callback?.(e);
-      }, triggers),
-    [callback, triggers, listen]
+  const memoTriggers = useMemoCompare(
+    () => triggers,
+    ([a], [b]) => Compare.primitiveArrays(a.flat(), b.flat()) === 0,
+    [triggers]
   );
+  useEffect(() => {
+    return listen((e) => {
+      if (region != null) {
+        if (region.current == null) return;
+        const box = new Box(region.current);
+        if (
+          (e.stage === "start" || !ref.current.held) &&
+          !box.contains(e.cursor) &&
+          e.target !== region.current
+        )
+          return;
+      }
+      ref.current = {
+        triggers: e.stage === "end" ? [] : triggers,
+        held: e.stage === "start",
+      };
+      callback?.(e);
+    }, triggers);
+  }, [callback, memoTriggers, listen]);
   return ref;
 };
 

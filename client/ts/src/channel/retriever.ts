@@ -54,10 +54,14 @@ export class ChannelRetriever {
     ...keysOrNames: Array<string | string[]>
   ): Promise<ChannelPayload | ChannelPayload[]> {
     const single = keysOrNames.length === 1 && typeof keysOrNames[0] === "string";
-    const res = await this.execute(keysOrNames.length > 0 ? { keysOrNames } : {});
+    const res = await this.execute({ keysOrNames });
     if (!single) return res;
     if (res.length === 0) throw new ValidationError("Channel not found");
     if (res.length > 1) throw new ValidationError("Multiple channels found");
     return res[0];
+  }
+
+  async retrieveAll(): Promise<ChannelPayload[]> {
+    return await this.execute({});
   }
 }

@@ -10,7 +10,7 @@
 import { Synnax } from "@synnaxlabs/client";
 import type { SynnaxProps } from "@synnaxlabs/client";
 
-import type { ConnectionState } from "@/cluster/types";
+import type { ConnectionState } from "@/cluster/core";
 
 /**
  * Tests the connection to the cluster with the given props.
@@ -22,14 +22,14 @@ import type { ConnectionState } from "@/cluster/types";
 export const testConnection = async (
   props: SynnaxProps
 ): Promise<{ clusterKey: string | undefined; state: ConnectionState }> => {
-  const conn = new Synnax(props);
-  await conn.connectivity.check();
-  conn.close();
+  const client = new Synnax(props);
+  await client.connectivity.check();
+  client.close();
   return {
-    clusterKey: conn.connectivity.clusterKey,
+    clusterKey: client.connectivity.clusterKey,
     state: {
-      status: conn.connectivity.status(),
-      message: conn.connectivity.statusMessage(),
+      status: client.connectivity.status(),
+      message: client.connectivity.statusMessage(),
     },
   };
 };

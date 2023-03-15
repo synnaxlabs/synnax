@@ -10,4 +10,5 @@
 export * from "./store";
 export * from "./layout";
 export * from "./components";
-export * from "./types";
+export * from "./core";
+export * from "./axis";

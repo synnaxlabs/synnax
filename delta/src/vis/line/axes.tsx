@@ -20,8 +20,8 @@ import {
   XY,
 } from "@synnaxlabs/x";
 
+import { axisDirection, AxisKey } from "@/vis/axis";
 import { Scales } from "@/vis/line/scales";
-import { axisDirection, AxisKey } from "@/vis/types";
 
 type AxisOffsets = Record<OuterLocation, number>;
 
@@ -49,7 +49,7 @@ const BASE_AXIS_PADDING = 12.5;
 
 const axisInfo = (key: AxisKey): [OuterLocation, number] => {
   const loc = Object.entries(LOCATION_AXES).find(([, keys]) => keys.includes(key));
-  if (loc == null) throw new Error(`Invalid axis key: ${key}`);
+  if (loc == null) throw new Error(`Invalid axis key: ${key as string}`);
   return [loc[0] as OuterLocation, loc[1].indexOf(key)];
 };
 

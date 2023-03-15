@@ -172,6 +172,10 @@ export class ChannelClient {
     return single ? res[0] : res;
   }
 
+  async retrieveAll(): Promise<Channel[]> {
+    return this.sugar(await this.retriever.retrieveAll());
+  }
+
   private sugar(payloads: ChannelPayload | ChannelPayload[]): Channel[] {
     const { segmentClient } = this;
     return toArray(payloads).map((p) => new Channel({ ...p, segmentClient }));

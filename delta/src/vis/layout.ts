@@ -10,12 +10,12 @@
 import { nanoid } from "nanoid";
 
 import { setVis as storeCreateVizualization } from "./store";
-import { Vis } from "./types";
 
-import { Layout, LayoutCreator, LayoutCreatorProps } from "@/features/layout";
+import { Layout, LayoutCreator, LayoutCreatorProps } from "@/layout";
+import { VisMeta } from "@/vis/core";
 
 export const createVis =
-  <V extends Vis>(initial: Partial<V> & Omit<Layout, "type">): LayoutCreator =>
+  <V extends VisMeta>(initial: Partial<V> & Omit<Layout, "type">): LayoutCreator =>
   ({ dispatch }: LayoutCreatorProps): Layout => {
     const { name, location, window, tab, ...rest } = initial;
     const key = initial.key ?? nanoid();
@@ -23,7 +23,7 @@ export const createVis =
       storeCreateVizualization({
         ...rest,
         key,
-        variant: "linePlot",
+        variant: "line",
       })
     );
     return {

@@ -7,39 +7,33 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Space, Text } from "@synnaxlabs/pluto";
+import { Space, Status } from "@synnaxlabs/pluto";
 
 import { VisIcon, VisToolbarTitle } from "./VisToolbarTitle";
 
 import { ToolbarHeader } from "@/components";
 import { NavDrawerItem } from "@/layout";
-import { useControlledVis } from "@/vis/hooks";
 import { LinePlotToolBar } from "@/vis/line";
-import { ControlledLineVisProps } from "@/vis/line/controls/types";
-import { Vis } from "@/vis/types";
+import { useSelectVisMeta } from "@/vis/store";
 
 const NoVisContent = (): JSX.Element => (
   <Space justify="spaceBetween" style={{ height: "100%" }} empty>
     <ToolbarHeader>
       <VisToolbarTitle />
     </ToolbarHeader>
-    <Space.Centered>
-      <Space direction="x" align="center" size="small">
-        <Text level="h4" style={{ color: "var(--pluto-gray-m0)" }}>
-          No active visualization. Select a tab or create a new one.
-        </Text>
-      </Space>
-    </Space.Centered>
+    <Status.Text.Centered level="h4" variant="disabled" hideIcon>
+      No active visualization. Select a tab or create a new one.
+    </Status.Text.Centered>
   </Space>
 );
 
 const Content = (): JSX.Element => {
-  const controlled = useControlledVis<Vis>();
-  if (controlled == null) return <NoVisContent />;
-
-  switch (controlled.vis.variant) {
+  const vis = useSelectVisMeta();
+  if (vis == null) return <NoVisContent />;
+  const { key, variant } = vis;
+  switch (variant) {
     default:
-      return <LinePlotToolBar {...(controlled as unknown as ControlledLineVisProps)} />;
+      return <LinePlotToolBar layoutKey={key} />;
   }
 };
 
