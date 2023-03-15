@@ -14,7 +14,7 @@ import { useDispatch } from "react-redux";
 
 import { NavBottom, NavDrawer, NavLeft, NavRight, NavTop } from "./Nav";
 
-import { ClusterProvider } from "@/features/cluster";
+import { ClusterProvider } from "@/cluster";
 import { LayoutMosaic, maybeCreateGetStartedTab } from "@/features/layout";
 import { VisCanvas } from "@/features/vis";
 

@@ -22,7 +22,7 @@ import { NAV_SIZES } from "./constants";
 
 import { Controls } from "@/components";
 import { CSS } from "@/css";
-import { ClusterBadge, ClusterToolbar, ConnectionBadge } from "@/features/cluster";
+import { ClusterBadge, ClusterToolbar, ConnectionBadge } from "@/cluster";
 import { createDocsLayout } from "@/features/docs";
 import {
   NavDrawerItem,
