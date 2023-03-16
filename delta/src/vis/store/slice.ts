@@ -13,16 +13,16 @@ import { Deep, DeepPartial } from "@synnaxlabs/x";
 
 import { VisMeta } from "@/vis/core";
 
-export interface VisualizationState {
+export interface VisState {
   warpMode: boolean;
   visualizations: Record<string, VisMeta>;
 }
 
-export interface VisualizationStoreState {
-  visualization: VisualizationState;
+export interface VisStoreState {
+  visualization: VisState;
 }
 
-export const initialState: VisualizationState = {
+export const initialState: VisState = {
   warpMode: false,
   visualizations: {},
 };
@@ -33,13 +33,13 @@ type UpdateVisAction = PayloadAction<
   Omit<DeepPartial<VisMeta>, "key"> & { key: string }
 >;
 
-export const VISUALIZATION_SLICE_NAME = "visualization";
+export const VIS_SLICE_NAME = "visualization";
 
 export const {
   actions: { setVis, updateVis, removeVis },
-  reducer: visualizationReducer,
+  reducer: visReducer,
 } = createSlice({
-  name: VISUALIZATION_SLICE_NAME,
+  name: VIS_SLICE_NAME,
   initialState,
   reducers: {
     setVis: (state, { payload }: SetVisAction) => {

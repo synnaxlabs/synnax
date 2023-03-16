@@ -113,5 +113,5 @@ const receivePreloadedState = async <
       if (typeof preloadedState === "function")
         preloadedState().then(resolve).catch(console.error);
       else resolve(preloadedState);
-    } else runtime.emit({ sendState: true }, MAIN_WINDOW);
+    } else void runtime.emit({ sendState: true }, MAIN_WINDOW);
   });

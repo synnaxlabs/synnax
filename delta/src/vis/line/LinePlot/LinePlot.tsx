@@ -20,6 +20,7 @@ import {
   RuleAnnotationProps,
   Theming,
 } from "@synnaxlabs/pluto";
+import { StatusTextProps } from "@synnaxlabs/pluto/dist/core/Status/StatusText";
 import { XY, Box, ZERO_BOX } from "@synnaxlabs/x";
 
 import { Viewport } from "../viewport";
@@ -53,41 +54,23 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): JSX.Element => {
   const channels = Channels.use(layoutKey);
   const ranges = Ranges.use(layoutKey);
   const data = Data.use(channels, ranges);
-  const bounds = Bounds.use(data, 0.01);
+  const bounds = Bounds.use(layoutKey, data, 0.01);
   const scales = Scales.use(bounds, viewport);
   const axes = Axes.use(container, scales);
   const lines = Lines.use(container, data, scales, axes, theme);
-  // console.log("LinePlot", { channels, ranges, data, bounds, scales, axes, lines });
 
   const handleResize = useCallback((box: Box) => setContainer(box), [setContainer]);
 
   const resizeRef = useResize(handleResize, { debounce: 100 });
 
-  if (data.error != null)
+  if (data.status.display) {
+    const s = data.status as StatusTextProps;
     return (
-      <Status.Text.Centered level="h4" variant="error" hideIcon>
-        {data.error.message}
+      <Status.Text.Centered level="h4" variant={s.variant} hideIcon>
+        {s.children}
       </Status.Text.Centered>
     );
-  const valid = [channels, ranges].every((x) => x.valid);
-  if (data.loading)
-    return (
-      <Status.Text.Centered level="h4" variant="loading" hideIcon>
-        Loading...
-      </Status.Text.Centered>
-    );
-  if (!valid)
-    return (
-      <Status.Text.Centered level="h4" variant="disabled" hideIcon>
-        Invalid Visualization
-      </Status.Text.Centered>
-    );
-  if (data.empty)
-    return (
-      <Status.Text.Centered level="h4" variant="disabled" hideIcon>
-        No Data Found
-      </Status.Text.Centered>
-    );
+  }
 
   return (
     <PMenu.ContextMenu
@@ -166,19 +149,18 @@ export const Tooltip = ({
 
   const left = scales.normal("x1")?.pos(value) as number;
 
-  data.forEachChannel((key, axis, data) => {
+  data.forEachChannel((key, axis, responses) => {
     if (X_AXIS_KEYS.includes(axis as XAxisKey)) return;
     const ch = channels.get(key);
     const scale = scales.normal(axis);
     if (scale == null || ch == null) return;
-    Object.values(data).forEach((res, i) => {
+    Object.values(responses).forEach((res) => {
       const value = res.arrays[arrayIndex as number]?.data[position];
       if (value == null) return;
       annotation.push({
         values: {
           [ch.name]: value.toString(),
         },
-        stroke: theme.colors.visualization.palettes.default[i],
         position: (1 - scale.pos(value as number)) * container.height,
       });
     });

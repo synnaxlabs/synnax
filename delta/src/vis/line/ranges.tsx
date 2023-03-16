@@ -15,7 +15,7 @@ import { useMemoSelect } from "@/hooks";
 import { LayoutStoreState } from "@/layout";
 import { XAxisKey, X_AXIS_KEYS } from "@/vis/axis";
 import { LineVis, RangesState } from "@/vis/line/core";
-import { selectRequiredVis, VisualizationStoreState } from "@/vis/store";
+import { selectRequiredVis, VisStoreState } from "@/vis/store";
 import { Range, selectRanges, WorkspaceStoreState } from "@/workspace";
 
 export class Ranges {
@@ -29,9 +29,10 @@ export class Ranges {
 
   static use(key: string): Ranges {
     const { core, ranges } = useMemoSelect(
-      (state: VisualizationStoreState & LayoutStoreState & WorkspaceStoreState) => {
+      (state: VisStoreState & LayoutStoreState & WorkspaceStoreState) => {
         const core = selectRequiredVis<LineVis>(state, key, "line").ranges;
         const ranges = Ranges.rangesFromArray(selectRanges(state, Ranges.keys(core)));
+        console.log("ranges", ranges);
         return { core, ranges };
       },
       [key]

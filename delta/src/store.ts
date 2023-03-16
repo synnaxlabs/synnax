@@ -22,7 +22,7 @@ import { docsReducer, DOCS_SLICE_NAME } from "@/docs";
 import { layoutReducer, LAYOUT_PERSIST_EXCLUDE, LAYOUT_SLICE_NAME } from "@/layout";
 import { openPersist } from "@/persist";
 import { versionReducer, VERSION_SLICE_NAME } from "@/version";
-import { VISUALIZATION_SLICE_NAME, visualizationReducer } from "@/vis";
+import { VIS_SLICE_NAME, visReducer } from "@/vis";
 import { workspaceReducer, WORKSPACE_SLICE_NAME } from "@/workspace";
 
 const PERSIST_EXCLUDE: Array<DeepKey<RootState>> = [
@@ -34,7 +34,7 @@ const reducer = combineReducers({
   [DRIFT_SLICE_NAME]: driftReducer,
   [CLUSTER_SLICE_NAME]: clusterReducer,
   [LAYOUT_SLICE_NAME]: layoutReducer,
-  [VISUALIZATION_SLICE_NAME]: visualizationReducer,
+  [VIS_SLICE_NAME]: visReducer,
   [WORKSPACE_SLICE_NAME]: workspaceReducer,
   [VERSION_SLICE_NAME]: versionReducer,
   [DOCS_SLICE_NAME]: docsReducer,

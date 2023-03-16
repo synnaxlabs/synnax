@@ -1,7 +1,10 @@
 import { useState } from "react";
 
 import { useAsyncEffect } from "@synnaxlabs/pluto";
+import { StatusTextProps } from "@synnaxlabs/pluto/dist/core/Status/StatusText";
 import { Deep } from "@synnaxlabs/x";
+
+import { Status, StatusProvider } from "./core";
 
 import { AxisKey } from "@/vis/axis";
 import { Channels } from "@/vis/line/channels";
@@ -23,28 +26,44 @@ const ZERO_DATA: InternalState = {
 
 type InternalState = Record<AxisKey, TelemetryClientResponse[]>;
 
-export class Data {
+export class Data implements StatusProvider {
   private readonly entries: InternalState;
-  readonly error: Error | null;
-  loading: boolean;
+  readonly status: Status;
 
-  constructor(entries: InternalState, error: Error | null, loading = false) {
+  constructor(entries: InternalState, status: Status) {
     this.entries = entries;
-    this.error = error;
-    this.loading = loading;
+    this.status = status;
   }
 
   static use(channels: Channels, ranges: Ranges): Data {
     const client = useTelemetryClient();
-    const [data, setData] = useState<Data>(new Data(ZERO_DATA, null, true));
+    const [data, setData] = useState<Data>(new Data(ZERO_DATA, { display: false }));
 
     useAsyncEffect(async () => {
-      if (client === null) return;
-      const data = await Data.fetch(channels, ranges, client);
-      setData(data);
-    }, [client, channels]);
+      if (client === null)
+        return setData(
+          new Data(ZERO_DATA, {
+            display: true,
+            children: "No active cluster",
+            variant: "info",
+          })
+        );
+      if (data.isZero)
+        setData(
+          new Data(ZERO_DATA, {
+            display: true,
+            variant: "loading",
+            children: "Loading...",
+          })
+        );
+      setData(await Data.fetch(channels, ranges, client));
+    }, [client, channels, ranges]);
 
     return data;
+  }
+
+  get isZero(): boolean {
+    return Object.values(this.entries).every((e) => e.length === 0);
   }
 
   static async fetch(
@@ -72,7 +91,25 @@ export class Data {
         );
       })
     );
-    return new Data(core, error);
+    if (error != null) {
+      return new Data(core, {
+        display: true,
+        variant: "error",
+        children: error.message,
+      });
+    }
+    const empty = Object.values(entries).every((res) =>
+      res.arrays.every((array) => array.length === 0)
+    );
+
+    if (empty)
+      return new Data(core, {
+        display: true,
+        variant: "warning",
+        children: "No data found.",
+      });
+
+    return new Data(core, { display: false });
   }
 
   axis(key: AxisKey): TelemetryClientResponse[] {
@@ -98,13 +135,5 @@ export class Data {
     });
   }
 
-  get valid(): boolean {
-    return this.error === null;
-  }
-
-  get empty(): boolean {
-    return Object.values(this.entries).every((axis) =>
-      axis.every((response) => response.arrays.every((array) => array.length === 0))
-    );
-  }
+  get empty(): boolean {}
 }

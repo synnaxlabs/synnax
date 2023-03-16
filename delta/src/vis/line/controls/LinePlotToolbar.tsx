@@ -9,11 +9,10 @@
 
 import { Space, Tab, Tabs } from "@synnaxlabs/pluto";
 
-import { VisToolbarTitle } from "../..";
-
-import { LinePlotChannelControls } from "./LinePlotChannelControls";
-
 import { ToolbarHeader } from "@/components";
+import { VisToolbarTitle } from "@/vis/components";
+import { LinePlotAxisControls } from "@/vis/line/controls/LinePlotAxisControls";
+import { LinePlotChannelControls } from "@/vis/line/controls/LinePlotChannelControls";
 
 export interface LinePlotToolbarProps {
   layoutKey: string;
@@ -22,6 +21,8 @@ export interface LinePlotToolbarProps {
 export const LinePlotToolBar = ({ layoutKey }: LinePlotToolbarProps): JSX.Element => {
   const content = ({ tabKey }: Tab): JSX.Element => {
     switch (tabKey) {
+      case "axes":
+        return <LinePlotAxisControls layoutKey={layoutKey} />;
       default:
         return <LinePlotChannelControls layoutKey={layoutKey} />;
     }
