@@ -22,7 +22,7 @@ type RenderF<E extends RenderableRecord<E> = RenderableRecord> = RenderProp<{
 
 export interface ListColumn<E extends RenderableRecord<E> = RenderableRecord> {
   /** The key of the object to render. */
-  key: keyof E;
+  key: keyof E | string;
   /** A custom render function for each item in the colummn. */
   render?: RenderF<E>;
   /** The name/title of the column. */

@@ -8,21 +8,29 @@ import { useClusterClient } from "@/cluster";
 import { useMemoSelect } from "@/hooks";
 import { LayoutStoreState } from "@/layout";
 import { AxisKey, AXIS_KEYS, XAxisKey, YAxisKey, Y_AXIS_KEYS } from "@/vis/axis";
-import { ChannelsState, LineVis, ZERO_CHANNELS_STATE } from "@/vis/line/core";
-import { selectRequiredVis, VisualizationStoreState } from "@/vis/store";
+import {
+  ChannelsState,
+  GOOD_STATUS,
+  LineVis,
+  Status,
+  StatusProvider,
+  ZERO_CHANNELS_STATE,
+} from "@/vis/line/core";
+import { selectRequiredVis, VisStoreState } from "@/vis/store";
 
-// This is what lives in redux
-export class Channels {
+export class Channels implements StatusProvider {
   readonly core: ChannelsState;
   readonly channels: Channel[];
+  readonly status: Status;
 
-  constructor(core: ChannelsState, channels: Channel[]) {
+  constructor(core: ChannelsState, channels: Channel[], status: Status) {
     this.core = core;
     this.channels = channels;
+    this.status = status;
   }
 
   static zero(): Channels {
-    return new Channels(Deep.copy(ZERO_CHANNELS_STATE), []);
+    return new Channels(Deep.copy(ZERO_CHANNELS_STATE), [], GOOD_STATUS);
   }
 
   static use(key: string): Channels {
@@ -30,17 +38,31 @@ export class Channels {
     const client = useClusterClient();
 
     const core = useMemoSelect(
-      (state: VisualizationStoreState & LayoutStoreState) =>
+      (state: VisStoreState & LayoutStoreState) =>
         selectRequiredVis<LineVis>(state, key, "line").channels,
       [key]
     );
 
+    const valid =
+      Y_AXIS_KEYS.some((axis) => core[axis].length > 0) &&
+      Y_AXIS_KEYS.some((axis) => {
+        const v = core[axis];
+        return v != null && v.length > 0;
+      });
+
     useAsyncEffect(async () => {
       if (client === null) return;
+      if (!valid)
+        return setChannels(
+          new Channels(core, [], {
+            display: true,
+            children: "Invalid Visualization",
+            variant: "info",
+          })
+        );
       const keys = Channels.toKeys(core);
-      if (keys.length === 0) setChannels(Channels.zero());
       const channels = await client.channels.retrieve(keys);
-      setChannels(new Channels(core, channels));
+      setChannels(new Channels(core, channels, GOOD_STATUS));
     }, [client, core]);
 
     return channels;
@@ -50,17 +72,6 @@ export class Channels {
     return Object.values(core)
       .flat()
       .filter((key) => key != null && key !== "");
-  }
-
-  get valid(): boolean {
-    // assert that we have at least one x channel and one y channel
-    return (
-      Y_AXIS_KEYS.some((axis) => this.core[axis].length > 0) &&
-      Y_AXIS_KEYS.some((axis) => {
-        const v = this.core[axis];
-        return v != null && v.length > 0;
-      })
-    );
   }
 
   get keys(): string[] {

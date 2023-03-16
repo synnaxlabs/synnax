@@ -1,12 +1,19 @@
 import { useMemo } from "react";
 
 import { addSamples, Bound, SampleValue } from "@synnaxlabs/x";
+import { useDispatch } from "react-redux";
 
+import { selectRequiredVis, setVis, VisStoreState } from "../store";
+
+import { BoundsState, BoundState, LineVis } from "./core";
+
+import { useMemoSelect } from "@/hooks";
+import { LayoutStoreState } from "@/layout";
 import { AxisKey, YAxisKey, Y_AXIS_KEYS } from "@/vis/axis";
 import { Data } from "@/vis/line/data";
 import { TelemetryClientResponse } from "@/vis/telem/client";
 
-export interface BoundsCoreState {
+export interface InternalState {
   normal: Partial<Record<AxisKey, Bound>>;
   offset: Partial<Record<AxisKey, Bound>>;
 }
@@ -37,21 +44,52 @@ const buildBound = (
 };
 
 export class Bounds {
-  private readonly core: BoundsCoreState;
+  private readonly core: InternalState;
 
-  constructor(state: BoundsCoreState) {
+  constructor(state: InternalState) {
     this.core = state;
   }
 
-  static use(data: Data, padding: number): Bounds {
+  static useSelect(key: string): BoundsState {
+    return useMemoSelect(
+      (state: VisStoreState & LayoutStoreState) =>
+        selectRequiredVis<LineVis>(state, key, "line").bounds,
+      [key]
+    );
+  }
+
+  static use(key: string, data: Data, padding: number): Bounds {
+    const core = Bounds.useSelect(key);
+    const dispatch = useDispatch();
     return useMemo(() => {
-      const state: BoundsCoreState = { normal: {}, offset: {} };
+      const state: InternalState = { normal: {}, offset: {} };
       data.forEachAxis((key, responses) => {
         if (responses.length === 0) return;
         const addPadding = Y_AXIS_KEYS.includes(key as YAxisKey);
-        state.normal[key] = buildBound(responses, addPadding ? padding : 0, false);
-        state.offset[key] = buildBound(responses, addPadding ? padding : 0, true);
+        const coreBound = core[key];
+        if (!coreBound.driven) {
+          state.normal[key] = buildBound(responses, addPadding ? padding : 0, false);
+          state.offset[key] = buildBound(responses, addPadding ? padding : 0, true);
+        } else {
+          state.normal[key] = coreBound.bound;
+          state.offset[key] = {
+            lower: 0,
+            upper: coreBound.bound.upper - coreBound.bound.lower,
+          };
+        }
       });
+      const toUpdate: Partial<Record<AxisKey, BoundState>> = {};
+      (Object.entries(state.normal) as Array<[AxisKey, Bound]>).forEach(
+        ([key, bound]) => {
+          const coreBound = core[key];
+          if (coreBound.driven) return;
+          toUpdate[key] = {
+            ...coreBound,
+            bound,
+          };
+        }
+      );
+
       return new Bounds(state);
     }, [data, padding]);
   }

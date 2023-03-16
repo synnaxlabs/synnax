@@ -20,6 +20,12 @@ import {
   XY,
 } from "@synnaxlabs/x";
 
+import { selectRequiredVis, VisStoreState } from "../store";
+
+import { AxesState, LineVis } from "./core";
+
+import { useMemoSelect } from "@/hooks";
+import { LayoutStoreState } from "@/layout";
 import { axisDirection, AxisKey } from "@/vis/axis";
 import { Scales } from "@/vis/line/scales";
 
@@ -66,6 +72,14 @@ export class Axes {
     this.innerBox = innerBox;
     this.offsets = offsets;
     this.axes = axes;
+  }
+
+  static useSelect(key: string): AxesState {
+    return useMemoSelect(
+      (state: VisStoreState & LayoutStoreState) =>
+        selectRequiredVis<LineVis>(state, key, "line").axes,
+      [key]
+    );
   }
 
   static use(container: Box, scales: Scales): Axes {

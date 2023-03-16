@@ -80,6 +80,7 @@ const ListColumnHeader = <E extends RenderableRecord<E>>({
         .map(({ key, width, name }) => {
           const [sortKey, dir] = sort;
           let endIcon;
+          const entry = sourceData[0];
           if (key === sortKey) endIcon = dir ? <Icon.Caret.Up /> : <Icon.Caret.Down />;
           return (
             <Text.WithIcon
@@ -89,7 +90,9 @@ const ListColumnHeader = <E extends RenderableRecord<E>>({
               level="p"
               endIcon={endIcon}
               style={{ minWidth: width }}
-              onClick={() => onSort(key)}
+              onClick={() =>
+                entry != null && (key as string) in entry && onSort(key as keyof E)
+              }
             >
               {name}
             </Text.WithIcon>
@@ -162,10 +165,17 @@ const columnWidths = <E extends RenderableRecord<E>>(
   font: string,
   padding = 60
 ): Array<ListColumnT<E>> => {
+  if (data.length === 0) return columns;
+  const entry = data[0];
   const le = longestEntries(data);
   return columns.map((col) => {
+    if (col.width != null) return col;
+    if (!((col.key as string) in entry))
+      throw new Error(
+        `Column ${col.key as string} not in entry must have its width manually set`
+      );
     const labelWidth = textWidth(col.name, font);
-    const entryWidth = textWidth(le[col.key], font);
+    const entryWidth = textWidth(le[col.key as keyof E], font);
     return {
       ...col,
       width: Math.max(labelWidth, entryWidth) + padding,
