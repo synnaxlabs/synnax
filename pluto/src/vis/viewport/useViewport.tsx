@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   Box,
@@ -47,6 +47,7 @@ export interface UseViewportProps {
   onChange?: UseViewportHandler;
   resetOnDoubleClick?: boolean;
   threshold?: Dimensions;
+  initial?: Box;
 }
 
 export interface UseViewportReturn {
@@ -82,11 +83,14 @@ export const useViewport = ({
   onChange,
   defaultMode = "zoom",
   triggers: initialTriggers,
+  initial = DECIMAL_BOX,
   threshold = { width: 30, height: 30 },
 }: UseViewportProps): UseViewportReturn => {
   const [maskBox, setMaskBox] = useState<Box>(ZERO_BOX);
-  const [stateRef, setStateRef] = useStateRef<Box>(DECIMAL_BOX);
+  const [stateRef, setStateRef] = useStateRef<Box>(initial);
   const canvasRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => setStateRef(initial), [initial]);
 
   const triggerConfig = useMemoCompare(
     () => ({
@@ -210,8 +214,8 @@ const determineMode = (
 ): Mode => {
   if (config.zoomReset != null && Triggers.match(config.zoomReset, triggers))
     return "zoomReset";
-  if (config.zoom != null && Triggers.match(config.zoom, triggers)) return "zoom";
   if (config.pan != null && Triggers.match(config.pan, triggers)) return "pan";
+  if (config.zoom != null && Triggers.match(config.zoom, triggers)) return "zoom";
   if (config.select != null && Triggers.match(config.select, triggers)) return "select";
   if (config.hover != null && Triggers.match(config.hover, triggers)) return "hover";
   return defaultMode;

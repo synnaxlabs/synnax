@@ -116,7 +116,7 @@ export const TriggersProvider = ({
         updateListeners(prev.curr, "end", e.target as HTMLElement);
         return {
           ...prev,
-          curr: prev.curr.filter((k) => k !== parseEventKey(e)),
+          curr: [],
           prev: prev.curr,
         };
       }),

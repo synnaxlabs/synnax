@@ -16,11 +16,9 @@ import {
 
 import { Frame } from "./frame";
 import { AUTO_SPAN, FrameIterator } from "./iterator";
-
-import { QueryError } from "@/errors";
-
 import { FrameWriter } from "./writer";
 
+import { QueryError } from "@/errors";
 import { Transport } from "@/transport";
 
 export class FrameClient {

@@ -54,5 +54,6 @@ export const newStore = async (): Promise<Store> => {
     preloadedState,
     middleware: (def) => [...def(), persistMiddleware],
     reducer,
+    enablePrerender: true,
   });
 };

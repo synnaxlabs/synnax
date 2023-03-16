@@ -48,7 +48,6 @@ export const {
     updateVis: (state, { payload }: UpdateVisAction) => {
       const vis = state.visualizations[payload.key];
       const res = Deep.merge(vis, payload);
-      // console.log(payload, Deep.copy(res));
       state.visualizations[payload.key] = res;
     },
     removeVis: (state, { payload }: RemoveVisAction) => {
