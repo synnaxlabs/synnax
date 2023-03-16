@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback, useEffect, useState, useTransition } from "react";
+import {
+  useCallback,
+  useDebugValue,
+  useEffect,
+  useMemo,
+  useState,
+  useTransition,
+} from "react";
 
 import {
   UseViewportReturn as PUseViewportReturn,
@@ -16,7 +23,7 @@ import {
   UseViewportHandler,
   UseContextMenuReturn,
 } from "@synnaxlabs/pluto";
-import { Box, DECIMAL_BOX, XY } from "@synnaxlabs/x";
+import { Box, DECIMAL_BOX, Deep, XY } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 
 import { selectRequiredVis, updateVis, VisualizationStoreState } from "../store";
@@ -40,16 +47,27 @@ export interface UseViewportReturn {
 }
 
 export const use = (key: string): UseViewportReturn => {
-  const [viewport, setViewport] = useState<Box>(DECIMAL_BOX);
+  const [viewport, setViewport] = useState<Box>(Deep.copy(DECIMAL_BOX));
   const [selection, setSelection] = useState<Box | null>(null);
   const [hover, setHover] = useState<HoverState | null>(null);
   const [, startTransition] = useTransition();
 
+  useDebugValue({ viewport, selection, hover });
+
   const core = useMemoSelect(
     (state: VisualizationStoreState & LayoutStoreState) =>
       selectRequiredVis<LineVis>(state, key, "line").viewport,
-    []
+    [key]
   );
+
+  const rdxViewport = useMemo(
+    () => new Box(core.pan, core.zoom).reRoot("bottomLeft"),
+    [core]
+  );
+
+  useEffect(() => {
+    setViewport(rdxViewport);
+  }, [rdxViewport]);
 
   const dispatch = useDispatch();
 
@@ -58,13 +76,6 @@ export const use = (key: string): UseViewportReturn => {
       dispatch(updateVis({ key, viewport: { pan: box.bottomLeft, zoom: box.dims } })),
     [key]
   );
-
-  // We're just using this to persist the viewport state
-  // and only care about loading it back on mount.
-  useEffect(() => {
-    const viewport = new Box(core.pan, core.zoom).reRoot("bottomLeft");
-    setViewport(viewport);
-  }, [core]);
 
   const menuProps = PMenu.useContextMenu();
 
@@ -85,7 +96,10 @@ export const use = (key: string): UseViewportReturn => {
     [updateViewport]
   );
 
-  const viewportProps = PViewport.use({ onChange: handleViewport });
+  const viewportProps = PViewport.use({
+    onChange: handleViewport,
+    initial: rdxViewport,
+  });
 
   return { viewportProps, menuProps, viewport, selection, hover };
 };

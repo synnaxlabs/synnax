@@ -9,7 +9,7 @@
 
 import { useMemo } from "react";
 
-import { Box, dirToDim, Scale } from "@synnaxlabs/x";
+import { Box, Deep, dirToDim, Scale } from "@synnaxlabs/x";
 
 import { Bounds } from "./bounds";
 
@@ -36,7 +36,7 @@ export class Scales {
 
   static use(bounds: Bounds, viewport: Box): Scales {
     return useMemo(() => {
-      const scales = { ...ZERO_INTERNAL_STATE };
+      const scales = Deep.copy(ZERO_INTERNAL_STATE);
       bounds.forEach((key, normal, offset) => {
         const dir = axisDirection(key);
         const dim = dirToDim(dir);

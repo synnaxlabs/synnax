@@ -162,18 +162,17 @@ class CacheChannelRetriever:
             else:
                 results.append(channel)
 
-        if len(to_retrieve) == 0:
-            return results
+        not_found = list()
+        if len(to_retrieve) != 0:
+            retrieved, not_found = self._retriever.retrieve(
+                *to_retrieve,
+                include_not_found=True,
+            )
 
-        retrieved, not_found = self._retriever.retrieve(
-            *to_retrieve,
-            include_not_found=True,
-        )
-
-        for channel in retrieved:
-            self.channels[channel.key] = channel
-            self.names_to_keys[channel.name] = channel.key
-            results.append(channel)
+            for channel in retrieved:
+                self.channels[channel.key] = channel
+                self.names_to_keys[channel.name] = channel.key
+                results.append(channel)
 
         if include_not_found == True:
             return results, not_found

@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import { Channel } from "@synnaxlabs/client";
 import { useAsyncEffect } from "@synnaxlabs/pluto";
+import { Deep } from "@synnaxlabs/x";
 
 import { useClusterClient } from "@/cluster";
 import { useMemoSelect } from "@/hooks";
@@ -21,7 +22,7 @@ export class Channels {
   }
 
   static zero(): Channels {
-    return new Channels({ ...ZERO_CHANNELS_STATE }, []);
+    return new Channels(Deep.copy(ZERO_CHANNELS_STATE), []);
   }
 
   static use(key: string): Channels {
@@ -37,9 +38,8 @@ export class Channels {
     useAsyncEffect(async () => {
       if (client === null) return;
       const keys = Channels.toKeys(core);
-      if (keys.length === 0) return;
+      if (keys.length === 0) setChannels(Channels.zero());
       const channels = await client.channels.retrieve(keys);
-      console.log(keys, channels);
       setChannels(new Channels(core, channels));
     }, [client, core]);
 
