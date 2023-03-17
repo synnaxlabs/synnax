@@ -19,7 +19,11 @@ import {
 
 import { ChannelCreator } from "./creator";
 import { ChannelPayload, channelPayloadSchema, UnparsedChannel } from "./payload";
-import { ChannelRetriever } from "./retriever";
+import {
+  CacheChannelRetriever,
+  ChannelRetriever,
+  ClusterChannelRetriever,
+} from "./retriever";
 
 import { FrameClient } from "@/framer";
 import { Transport } from "@/transport";
@@ -124,7 +128,7 @@ export class ChannelClient {
 
   constructor(segmentClient: FrameClient, transport: Transport) {
     this.segmentClient = segmentClient;
-    this.retriever = new ChannelRetriever(transport);
+    this.retriever = new CacheChannelRetriever(new ClusterChannelRetriever(transport));
     this.creator = new ChannelCreator(transport);
   }
 
@@ -170,6 +174,10 @@ export class ChannelClient {
     const single = keysOrNames.length === 1 && typeof keysOrNames[0] === "string";
     const res = this.sugar(await this.retriever.retrieve(...keysOrNames));
     return single ? res[0] : res;
+  }
+
+  async retrieveAll(): Promise<Channel[]> {
+    return this.sugar(await this.retriever.retrieveAll());
   }
 
   private sugar(payloads: ChannelPayload | ChannelPayload[]): Channel[] {

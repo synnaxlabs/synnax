@@ -15,7 +15,7 @@ export default defineConfig({
   plugins: [lib({ name: "pluto" }), react()],
   build: {
     sourcemap: true,
-    minify: true,
+    minify: false,
     rollupOptions: {
       external: ["react", "react-dom", "react-hook-form"],
       output: {

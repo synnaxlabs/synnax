@@ -17,7 +17,7 @@ import { Viewport } from ".";
 import { Triggers } from "@/triggers";
 
 const story: ComponentMeta<typeof Viewport.Mask> = {
-  title: "Visualization/ZoomPan",
+  title: "Visualization/Viewport",
   component: Viewport.Mask,
 };
 

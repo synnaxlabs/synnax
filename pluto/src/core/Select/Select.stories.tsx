@@ -9,7 +9,7 @@
 
 import { useState } from "@storybook/addons";
 import type { ComponentMeta, ComponentStory } from "@storybook/react";
-import { RenderableRecord } from "@synnaxlabs/x";
+import { KeyedRenderableRecord } from "@synnaxlabs/x";
 
 import { Select, SelectMultipleProps } from ".";
 
@@ -52,7 +52,7 @@ const sampleColumns: Array<ListColumn<SampleRecord>> = [
   },
 ];
 
-const MultipleTemplate = <E extends RenderableRecord<E>>(
+const MultipleTemplate = <E extends KeyedRenderableRecord<E>>(
   args: Omit<SelectMultipleProps<E>, "value" | "onChange">
 ): JSX.Element => {
   const [value, setValue] = useState<readonly string[]>([]);

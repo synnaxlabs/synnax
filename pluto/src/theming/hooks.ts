@@ -13,8 +13,11 @@ import { TypographyLevel } from "@/core";
 
 export const useFont = (level: TypographyLevel): string => {
   const {
-    theme: { typography },
+    theme: {
+      typography,
+      sizes: { base },
+    },
   } = useThemeContext();
-  const { weight, size } = typography[level];
-  return `${weight} ${typography.family} ${size}rem`;
+  const { size } = typography[level];
+  return `${(size as number) * base}px ${typography.family}`;
 };

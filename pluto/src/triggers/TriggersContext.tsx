@@ -14,25 +14,22 @@ import {
   useCallback,
   useRef,
   PropsWithChildren,
-  useState,
-  RefObject,
-  MutableRefObject,
 } from "react";
 
-import { comparePrimitiveArrays, toXY, XY, ZERO_XY } from "@synnaxlabs/x";
+import {
+  Compare,
+  toXY,
+  XY,
+  ZERO_XY,
+  TimeStamp,
+  TimeSpan,
+  Destructor,
+} from "@synnaxlabs/x";
 
-import { Key, Modifier, Stage, Trigger } from "./types";
+import { parseEventKey, Stage, Trigger, TriggerCallback } from "./triggers";
 
-export interface TriggerEvent {
-  target: HTMLElement;
-  triggers: Trigger[];
-  stage: Stage;
-  cursor: XY;
-}
+import { useStateRef } from "@/hooks/useStateRef";
 
-export type TriggerCallback = (e: TriggerEvent) => void;
-
-type Destructor = () => void;
 type TriggerListen = (callback: TriggerCallback, sequences: Trigger[]) => Destructor;
 
 interface TriggerContextValue {
@@ -41,142 +38,103 @@ interface TriggerContextValue {
 
 const TriggerContext = createContext<TriggerContextValue | null>(null);
 
-const useTriggerContext = (): TriggerContextValue => {
+export const useTriggerContext = (): TriggerContextValue => {
   const ctx = useContext(TriggerContext);
   if (ctx == null) throw new Error("TriggerContext not available");
   return ctx;
-};
-
-export const useTrigger = (
-  triggers: Trigger[],
-  callback?: TriggerCallback,
-  bound?: RefObject<HTMLElement>
-): MutableRefObject<UseTriggerHeldReturn> => {
-  const { listen } = useTriggerContext();
-  const ref = useRef<UseTriggerHeldReturn>({ triggers: [], held: false });
-
-  useEffect(
-    () =>
-      listen((e) => {
-        if (bound != null) {
-          if (bound.current == null) return;
-          if (
-            (e.stage === "start" || !ref.current.held) &&
-            !bound.current.contains(e.target) &&
-            e.target !== bound.current
-          )
-            return;
-        }
-        ref.current = {
-          triggers: e.stage === "end" ? [] : triggers,
-          held: e.stage === "start",
-        };
-        callback?.(e);
-      }, triggers),
-    [callback, triggers, listen]
-  );
-  return ref;
-};
-
-export interface UseTriggerHeldReturn {
-  triggers: Trigger[];
-  held: boolean;
-}
-
-export const useTriggerHeld = (triggers: Trigger[]): UseTriggerHeldReturn => {
-  const [held, setHeld] = useState<UseTriggerHeldReturn>({ triggers: [], held: false });
-  useTrigger(triggers, ({ triggers, stage }) =>
-    setHeld({ triggers: stage === "end" ? [] : triggers, held: stage === "start" })
-  );
-  return held;
 };
 
 export interface TriggerProviderProps extends PropsWithChildren {
   ref: React.RefObject<HTMLElement>;
 }
 
+interface TriggerRefState {
+  curr: Trigger;
+  prev: Trigger;
+  last: TimeStamp;
+}
+
+const ZERO_TRIGGER_STATE: TriggerRefState = {
+  curr: [],
+  prev: [],
+  last: new TimeStamp(0),
+};
+
 export const TriggersProvider = ({
   children,
 }: {
   children: React.ReactNode;
 }): JSX.Element => {
-  const registry = useRef<Map<TriggerCallback, Trigger[]>>(new Map());
+  // We track mouse movement to allow for cursor position on keybord events;
   const cursor = useRef<XY>(ZERO_XY);
-  const curr = useRef<Trigger | null>();
-
   const handleMouseMove = useCallback((e: MouseEvent): void => {
     cursor.current = toXY(e);
   }, []);
 
+  // All registered triggers and callbacks
+  const registry = useRef<Map<TriggerCallback, Trigger[]>>(new Map());
+
+  // The current trigger.
+  const [, setCurr] = useStateRef<TriggerRefState>({ ...ZERO_TRIGGER_STATE });
+
+  const updateListeners = useCallback(
+    (trigger: Trigger, stage: Stage, target: HTMLElement): void =>
+      registry.current.forEach((triggers, f) => {
+        const matches = triggers.filter(
+          (t) => Compare.unorderedPrimitiveArrays(t, trigger) === 0
+        );
+        if (matches.length > 0)
+          f({ target, stage, triggers: matches, cursor: cursor.current });
+      }),
+    []
+  );
+
   const handleKeyDown = useCallback((e: KeyboardEvent | MouseEvent): void => {
-    const trigger = parseEvent(e);
-    if (curr.current != null && comparePrimitiveArrays(curr.current, trigger) === 0)
-      return;
-    curr.current = trigger;
-    registry.current.forEach((triggers, f) => {
-      const matches = triggers.filter((t) => comparePrimitiveArrays(t, trigger) === 0);
-      if (matches.length > 0)
-        f({
-          target: e.target as HTMLElement,
-          triggers: matches,
-          stage: "start",
-          cursor: cursor.current,
-        });
+    const key = parseEventKey(e);
+    setCurr((prev) => {
+      const next: Trigger = [...prev.curr, key];
+      if (prev.curr.includes(key)) return prev;
+      // This is considered a double press.
+      if (
+        prev.prev.includes(key) &&
+        TimeStamp.since(prev.last).valueOf() < TimeSpan.milliseconds(400).valueOf()
+      )
+        next.push(key);
+      const nextState: TriggerRefState = {
+        curr: next,
+        prev: prev.curr,
+        last: new TimeStamp(),
+      };
+      updateListeners(nextState.curr, "start", e.target as HTMLElement);
+      return nextState;
     });
   }, []);
 
-  const handleKeyUp = useCallback((e: KeyboardEvent | MouseEvent): void => {
-    const trigger = parseEvent(e);
-    const checkTrigger = curr.current ?? trigger;
-    registry.current.forEach((triggers, f) => {
-      const matches = triggers.filter(
-        (t) => comparePrimitiveArrays(t, checkTrigger) === 0
-      );
-      if (matches.length > 0)
-        f({
-          target: e.target as HTMLElement,
-          triggers: matches,
-          stage: "end",
-          cursor: cursor.current,
-        });
-    });
-    if (curr.current == null) return;
-    curr.current =
-      comparePrimitiveArrays(curr.current, trigger) === 0 ? null : curr.current;
-  }, []);
-
-  const handleDoubleClick = useCallback((e: MouseEvent): void => {
-    const trigger = parseEvent(e);
-    trigger[0] = "MouseDouble";
-    curr.current = null;
-    registry.current.forEach((triggers, f) => {
-      const matches = triggers.filter(
-        (t) => comparePrimitiveArrays(t, trigger) === 0 || t[1] === trigger[0]
-      );
-      if (matches.length > 0)
-        f({
-          target: e.target as HTMLElement,
-          triggers: matches,
-          stage: "end",
-          cursor: cursor.current,
-        });
-    });
-  }, []);
+  const handleKeyUp = useCallback(
+    (e: KeyboardEvent | MouseEvent): void =>
+      setCurr((prev) => {
+        updateListeners(prev.curr, "end", e.target as HTMLElement);
+        return {
+          ...prev,
+          curr: [],
+          prev: prev.curr,
+        };
+      }),
+    []
+  );
 
   useEffect(() => {
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
+    window.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("mousedown", handleKeyDown);
     window.addEventListener("mouseup", handleKeyUp);
-    window.addEventListener("drop", handleKeyUp);
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("dblclick", handleDoubleClick);
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mousedown", handleKeyDown);
       window.removeEventListener("mouseup", handleKeyUp);
-      window.removeEventListener("mousemove", handleMouseMove);
     };
   }, [handleKeyDown, handleKeyUp, handleMouseMove]);
 
@@ -189,27 +147,3 @@ export const TriggersProvider = ({
     <TriggerContext.Provider value={{ listen }}>{children}</TriggerContext.Provider>
   );
 };
-
-const parseEvent = (e: KeyboardEvent | MouseEvent): Trigger => {
-  const modifier = parseModifier(e);
-  const key =
-    e instanceof KeyboardEvent ? parseKeyBoardEventKey(e) : parseMouseEventKey(e);
-  if (key === modifier) return [key, null];
-  return [key, modifier];
-};
-
-const parseMouseEventKey = (e: MouseEvent): Key => {
-  if (e.button === 0) return "MouseLeft";
-  if (e.button === 1) return "MouseMiddle";
-  if (e.button === 2) return "MouseRight";
-  throw new Error(`Invalid mouse button: ${e.button}`);
-};
-
-const parseKeyBoardEventKey = (e: KeyboardEvent): Key =>
-  (e.key[0].toUpperCase() + e.key.slice(1)) as Key;
-
-const parseModifier = (e: KeyboardEvent | MouseEvent): Modifier =>
-  e.shiftKey ? "Shift" : e.ctrlKey ? "Control" : e.altKey ? "Alt" : null;
-
-export const matchTriggers = (triggers: Trigger[], candidates: Trigger[]): boolean =>
-  triggers.some((t) => candidates.some((c) => comparePrimitiveArrays(t, c) === 0));

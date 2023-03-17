@@ -10,7 +10,7 @@
 import { CSSProperties, useEffect, useState } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { newObjectFieldCompare, convertRenderV, RenderableRecord } from "@synnaxlabs/x";
+import { Compare, convertRenderV, KeyedRenderableRecord } from "@synnaxlabs/x";
 
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "../Menu/ContextMenu";
 
@@ -26,15 +26,15 @@ import { ArrayTransform } from "@/util/transform";
 
 import "./ListColumn.css";
 
-type SortState<E extends RenderableRecord<E>> = [keyof E | null, boolean];
+type SortState<E extends KeyedRenderableRecord<E>> = [keyof E | null, boolean];
 
-export interface ListColumnHeaderProps<E extends RenderableRecord<E>> {
+export interface ListColumnHeaderProps<E extends KeyedRenderableRecord<E>> {
   columns: Array<ListColumnT<E>>;
 }
 
 const SORT_TRANSFORM = "sort";
 
-const ListColumnHeader = <E extends RenderableRecord<E>>({
+const ListColumnHeader = <E extends KeyedRenderableRecord<E>>({
   columns: initialColumns,
 }: ListColumnHeaderProps<E>): JSX.Element => {
   const {
@@ -65,7 +65,7 @@ const ListColumnHeader = <E extends RenderableRecord<E>>({
 
   useEffect(() => {
     setColumns((prev) =>
-      columnWidths(prev.length === 0 ? initialColumns : prev, sourceData, font, 60)
+      columnWidths(prev.length === 0 ? initialColumns : prev, sourceData, font)
     );
   }, [sourceData, initialColumns]);
 
@@ -80,6 +80,7 @@ const ListColumnHeader = <E extends RenderableRecord<E>>({
         .map(({ key, width, name }) => {
           const [sortKey, dir] = sort;
           let endIcon;
+          const entry = sourceData[0];
           if (key === sortKey) endIcon = dir ? <Icon.Caret.Up /> : <Icon.Caret.Down />;
           return (
             <Text.WithIcon
@@ -89,7 +90,9 @@ const ListColumnHeader = <E extends RenderableRecord<E>>({
               level="p"
               endIcon={endIcon}
               style={{ minWidth: width }}
-              onClick={() => onSort(key)}
+              onClick={() =>
+                entry != null && (key as string) in entry && onSort(key as keyof E)
+              }
             >
               {name}
             </Text.WithIcon>
@@ -99,7 +102,7 @@ const ListColumnHeader = <E extends RenderableRecord<E>>({
   );
 };
 
-const ListColumnItem = <E extends RenderableRecord<E>>({
+const ListColumnItem = <E extends KeyedRenderableRecord<E>>({
   entry,
   selected,
   columns,
@@ -134,12 +137,12 @@ const ListColumnItem = <E extends RenderableRecord<E>>({
   );
 };
 
-interface ListColumnValueProps<E extends RenderableRecord<E>> {
+interface ListColumnValueProps<E extends KeyedRenderableRecord<E>> {
   entry: E;
   col: ListColumnT<E>;
 }
 
-const ListColumnValue = <E extends RenderableRecord<E>>({
+const ListColumnValue = <E extends KeyedRenderableRecord<E>>({
   entry,
   col: { width, ...col },
 }: ListColumnValueProps<E>): JSX.Element | null => {
@@ -156,16 +159,17 @@ const ListColumnValue = <E extends RenderableRecord<E>>({
   );
 };
 
-const columnWidths = <E extends RenderableRecord<E>>(
+const columnWidths = <E extends KeyedRenderableRecord<E>>(
   columns: Array<ListColumnT<E>>,
   data: E[],
   font: string,
-  padding = 60
+  padding = 30
 ): Array<ListColumnT<E>> => {
   const le = longestEntries(data);
   return columns.map((col) => {
+    if (col.width != null) return col;
     const labelWidth = textWidth(col.name, font);
-    const entryWidth = textWidth(le[col.key], font);
+    const entryWidth = textWidth(le[col.key as keyof E], font);
     return {
       ...col,
       width: Math.max(labelWidth, entryWidth) + padding,
@@ -173,7 +177,7 @@ const columnWidths = <E extends RenderableRecord<E>>(
   });
 };
 
-const longestEntries = <E extends RenderableRecord<E>>(
+const longestEntries = <E extends KeyedRenderableRecord<E>>(
   data: E[]
 ): Record<keyof E, string> => {
   // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
@@ -192,10 +196,10 @@ const longestEntries = <E extends RenderableRecord<E>>(
 };
 
 const sortTransform =
-  <E extends RenderableRecord<E>>(k: keyof E, dir: boolean): ArrayTransform<E> =>
+  <E extends KeyedRenderableRecord<E>>(k: keyof E, dir: boolean): ArrayTransform<E> =>
   (data: E[]) => {
     if (data.length === 0) return data;
-    return [...data].sort(newObjectFieldCompare(k, data[0], !dir));
+    return [...data].sort(Compare.newFieldF(k, data[0], !dir));
   };
 
 export const ListColumn = {
