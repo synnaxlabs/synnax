@@ -11,9 +11,8 @@ import { useCallback, useRef } from "react";
 
 import { KeyedRecord, unique } from "@synnaxlabs/x";
 
-import { Triggers } from "..";
-
 import { InputControl } from "@/core/Input";
+import { Triggers } from "@/triggers";
 import { ArrayTransform } from "@/util/transform";
 
 export type SelectedRecord<E extends KeyedRecord<E>> = E & {

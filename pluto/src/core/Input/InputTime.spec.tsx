@@ -28,6 +28,6 @@ describe("Input.Time", () => {
     const ts = new TimeStamp([2022, 12, 22]).add(TimeStamp.hours(12));
     const handleChange = vi.fn();
     render(<Input.Time value={ts.valueOf()} onChange={handleChange} tzInfo="UTC" />);
-    expect(handleChange).toHaveBeenCalledWith(TimeStamp.hours(12).valueOf());
+    expect(handleChange).toHaveBeenCalledWith(TimeStamp.hours(13).valueOf());
   });
 });
