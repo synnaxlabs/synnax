@@ -41,29 +41,31 @@ export const Table = <E extends RenderableRecord<E>>({
   highlights = [],
 }: TableProps<E>): JSX.Element => {
   return (
-    <table>
-      <thead>
-        <tr>
-          {columns.map(({ key, name, width }) => (
-            <th key={key as string} style={{ width }}>
-              {name ?? (key as string)}
-            </th>
+    <div style={{ overflow: "scroll" }}>
+      <table style={{ overflow: "scroll" }}>
+        <thead>
+          <tr>
+            {columns.map(({ key, name, width }) => (
+              <th key={key as string} style={{ width }}>
+                {name ?? (key as string)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((row, i) => (
+            <TableRow<E>
+              key={i}
+              columns={columns}
+              data={row}
+              highlights={highlights}
+              index={i}
+              dataLength={data.length}
+            />
           ))}
-        </tr>
-      </thead>
-      <tbody>
-        {data.map((row, i) => (
-          <TableRow<E>
-            key={i}
-            columns={columns}
-            data={row}
-            highlights={highlights}
-            index={i}
-            dataLength={data.length}
-          />
-        ))}
-      </tbody>
-    </table>
+        </tbody>
+      </table>
+    </div>
   );
 };
 

@@ -1,6 +1,5 @@
 import { Icon } from "@synnaxlabs/media";
 import { Tabs } from "@synnaxlabs/pluto";
-import { Code } from "astro/components";
 
 const TABS = [
   {
@@ -32,8 +31,8 @@ export const PackageManagerTabs = (props: PackageManagerTabsProps): JSX.Element 
       tabKey,
       name,
       icon,
-      content: <Code code={props[tabKey as keyof PackageManagerTabsProps]} />,
     })
   );
-  return <Tabs {...Tabs.useStatic({ tabs })} />;
+  const tabsProps = Tabs.useStatic({ tabs });
+  return <Tabs {...tabsProps}>{(tab) => props[tab.tabKey]}</Tabs>;
 };

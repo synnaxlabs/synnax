@@ -10,6 +10,8 @@
 import { Icon } from "@synnaxlabs/media";
 import { Text, Header, Space } from "@synnaxlabs/pluto";
 
+import "./GetStartedChip.css";
+
 export interface GetStartedChipProps {
   title: string;
   icon: JSX.Element;
@@ -26,27 +28,20 @@ export const GetStartedChip = ({
   return (
     <a
       href={href}
+      className="docs-get-started-chip"
       style={{
         textDecoration: "none",
       }}
     >
-      <Header
-        level="h2"
-        className="pluto--bordered"
-        style={{
-          padding: "1rem 2rem",
-          borderRadius: "var(--pluto-border-radius)",
-        }}
-        wrap
-      >
+      <Header level="h2" className="pluto--bordered" wrap>
         <Space empty style={{ minWidth: 100, flex: "1 1 100px" }}>
           <Header.Title startIcon={icon}>{title}</Header.Title>
           <Header.Title level="p">{description}</Header.Title>
         </Space>
         <Text.WithIcon
           level="h4"
+          className="call-to-action"
           color="var(--pluto-primary-p1)"
-          style={{ whiteSpace: "nowrap !important" }}
           endIcon={<Icon.Caret.Right />}
           empty
         >
