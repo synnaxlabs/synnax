@@ -53,7 +53,6 @@ export const DefineRange = ({
     };
   } else {
     defaultValues = {
-      name: "",
       startDate: now,
       startTime: now,
       endDate: now,
@@ -80,7 +79,7 @@ export const DefineRange = ({
     name = name.trim();
     if (name.length === 0) name = range?.name as string;
     // remove leading and trailing whitespace
-    const key = range?.key ?? name.replace(/\s/g, "").toLowerCase();
+    const key = range?.key ?? (name ?? "").replace(/\s/g, "").toLowerCase();
     dispatch(addRange({ name, start, end, key }));
     onClose();
   };
@@ -98,9 +97,9 @@ export const DefineRange = ({
         style={{ flexGrow: 1 }}
         id="define-range"
       >
-        <Space grow className="delta-form" size="small">
+        <Space grow className="delta-form">
           <Input.ItemC control={control} name="name" autoFocus />
-          <Space direction="x">
+          <Space direction="x" size="small">
             <Input.ItemC<number, number, InputDateProps, DefineRangeFormProps>
               name="startDate"
               control={control}
@@ -118,7 +117,7 @@ export const DefineRange = ({
             </Input.ItemC>
           </Space>
 
-          <Space direction="x">
+          <Space direction="x" size="small">
             <Input.ItemC<number, number, InputDateProps, DefineRangeFormProps>
               name="endDate"
               control={control}

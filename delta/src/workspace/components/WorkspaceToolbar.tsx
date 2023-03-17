@@ -28,7 +28,7 @@ const rangeWindowLayout: Layout = {
   location: "window",
   window: {
     resizable: false,
-    size: { height: 400, width: 600 },
+    size: { height: 410, width: 625 },
     navTop: true,
   },
 };

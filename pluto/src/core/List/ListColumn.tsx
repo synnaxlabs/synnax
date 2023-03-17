@@ -65,7 +65,7 @@ const ListColumnHeader = <E extends KeyedRenderableRecord<E>>({
 
   useEffect(() => {
     setColumns((prev) =>
-      columnWidths(prev.length === 0 ? initialColumns : prev, sourceData, font, 60)
+      columnWidths(prev.length === 0 ? initialColumns : prev, sourceData, font)
     );
   }, [sourceData, initialColumns]);
 
@@ -163,17 +163,11 @@ const columnWidths = <E extends KeyedRenderableRecord<E>>(
   columns: Array<ListColumnT<E>>,
   data: E[],
   font: string,
-  padding = 60
+  padding = 30
 ): Array<ListColumnT<E>> => {
-  if (data.length === 0) return columns;
-  const entry = data[0];
   const le = longestEntries(data);
   return columns.map((col) => {
     if (col.width != null) return col;
-    if (!((col.key as string) in entry))
-      throw new Error(
-        `Column ${col.key as string} not in entry must have its width manually set`
-      );
     const labelWidth = textWidth(col.name, font);
     const entryWidth = textWidth(le[col.key as keyof E], font);
     return {

@@ -22,6 +22,8 @@ import { CSS } from "@/css";
 
 import "./InputTime.css";
 
+import { tsv } from "d3";
+
 export interface InputTimeProps
   extends InputBaseProps<number>,
     InputDragButtonExtensionProps {
@@ -73,7 +75,7 @@ export const InputTime = forwardRef<HTMLInputElement, InputTimeProps>(
       [onChange, tzInfo]
     );
 
-    const inputValue = ts.fString("time", tzInfo);
+    const inputValue = ts.fString("time", "local");
     const input = (
       <Input
         ref={ref}
