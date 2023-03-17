@@ -17,3 +17,7 @@
     height: 100%;
     max-height: 5rem;
 }
+
+.pluto-tag__close {
+    height: 100%;
+}

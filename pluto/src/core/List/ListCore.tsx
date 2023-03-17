@@ -9,27 +9,26 @@
 
 import { ComponentPropsWithoutRef, useRef } from "react";
 
-import { RenderableRecord } from "@synnaxlabs/x";
+import { KeyedRenderableRecord } from "@synnaxlabs/x";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 import { useListContext } from "./ListContext";
 import { ListItemProps } from "./types";
 
+import { CSS } from "@/css";
 import { SelectedRecord } from "@/hooks/useSelectMultiple";
 import { RenderProp } from "@/util/renderProp";
 
 import "./ListCore.css";
 
-import { CSS } from "@/css";
-
-export interface ListVirtualCoreProps<E extends RenderableRecord<E>>
+export interface ListVirtualCoreProps<E extends KeyedRenderableRecord<E>>
   extends Omit<ComponentPropsWithoutRef<"div">, "children"> {
   itemHeight: number;
   children: RenderProp<ListItemProps<E>>;
   overscan?: number;
 }
 
-const ListVirtualCore = <E extends RenderableRecord<E>>({
+const ListVirtualCore = <E extends KeyedRenderableRecord<E>>({
   itemHeight,
   children,
   overscan = 5,

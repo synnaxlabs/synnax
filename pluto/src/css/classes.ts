@@ -20,7 +20,8 @@ export interface CSSType extends BEM {
   pos: (position: Position) => string;
   dir: (direction?: Direction) => string | false;
   size: (size: ComponentSize | number) => string | false;
-  sharp: (sharp: boolean) => string | false;
+  sharp: (sharp?: boolean) => string | false;
+  rounded: (rounded?: boolean) => string | false;
   bordered: (location?: Location | Position | boolean) => string | false;
   noSelect: string;
   selected: (selected: boolean) => string | false;
@@ -35,7 +36,8 @@ const newCSS = (prefix: string): CSSType => {
   CSS.pos = (position) => CSS.M(position);
   CSS.dir = (direction) => direction != null && CSS.M(direction);
   CSS.size = (size) => typeof size === "string" && CSS.M(size);
-  CSS.sharp = (sharp) => sharp && CSS.M("sharp");
+  CSS.sharp = (sharp) => !(sharp === false) && CSS.M("sharp");
+  CSS.rounded = (rounded) => !(rounded === false) && CSS.M("rounded");
   CSS.bordered = (location) => {
     if (typeof location === "boolean") return location && CSS.M("bordered");
     return location != null ? CSS.M("bordered-" + location) : CSS.M("bordered");

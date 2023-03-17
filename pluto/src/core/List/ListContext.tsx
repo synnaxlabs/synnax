@@ -9,14 +9,15 @@
 
 import { PropsWithChildren, useContext, createContext } from "react";
 
-import { RenderableRecord } from "@synnaxlabs/x";
+import { KeyedRenderableRecord } from "@synnaxlabs/x";
 
 import { ListColumn } from "./types";
 
 import { UseTransformsReturn } from "@/hooks/useTransforms";
 
-export interface ListContextProps<E extends RenderableRecord<E> = RenderableRecord>
-  extends Omit<UseTransformsReturn<E>, "transform"> {
+export interface ListContextProps<
+  E extends KeyedRenderableRecord<E> = KeyedRenderableRecord
+> extends Omit<UseTransformsReturn<E>, "transform"> {
   columnar: {
     columns: Array<ListColumn<E>>;
     setColumns: (cbk: (columns: Array<ListColumn<E>>) => Array<ListColumn<E>>) => void;
@@ -49,17 +50,17 @@ export const ListContext = createContext<ListContextProps>({
 });
 
 export const useListContext = <
-  E extends RenderableRecord<E>
+  E extends KeyedRenderableRecord<E>
 >(): ListContextProps<E> => {
   return useContext(ListContext) as unknown as ListContextProps<E>;
 };
 
-export interface ListContextProviderProps<E extends RenderableRecord<E>>
+export interface ListContextProviderProps<E extends KeyedRenderableRecord<E>>
   extends PropsWithChildren<unknown> {
   value: ListContextProps<E>;
 }
 
-export const ListContextProvider = <E extends RenderableRecord<E>>({
+export const ListContextProvider = <E extends KeyedRenderableRecord<E>>({
   value,
   children,
 }: ListContextProviderProps<E>): JSX.Element => {

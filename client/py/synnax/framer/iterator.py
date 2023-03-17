@@ -15,6 +15,7 @@ from synnax.exceptions import UnexpectedError
 from synnax.telem import TimeRange, TimeSpan, TimeStamp
 from synnax.framer.payload import BinaryFrame, NumpyFrame
 from synnax.channel.retrieve import ChannelRetriever
+from synnax.util.flatten import flatten
 
 AUTO_SPAN = TimeSpan(-1)
 
@@ -232,18 +233,20 @@ class NumpyIterator(CoreIterator):
     """
 
     _channels: ChannelRetriever
+    _keys_or_names: list[str]
 
     def __init__(
         self,
         transport: StreamClient,
         channels: ChannelRetriever,
         tr: TimeRange,
-        *keys_or_names: str | list[str],
+        *keys_or_names: str | tuple[str] | list[str],
         aggregate: bool = False,
     ):
         self._channels = channels
-        channels = self._channels.retrieve(*keys_or_names, node_id=None)
-        super().__init__(transport,  tr, [ch.key for ch in channels], aggregate)
+        self._keys_or_names = flatten(*keys_or_names)
+        channels_ = self._channels.retrieve(flatten(*keys_or_names))
+        super().__init__(transport,  tr, [ch.key for ch in channels_], aggregate)
 
     @property
     def value(self) -> NumpyFrame:
@@ -259,4 +262,11 @@ class NumpyIterator(CoreIterator):
         # We can safely ignore the none case here because we've already
         # checked that all channels can be retrieved.
         channels = self._channels.retrieve(keys)
-        return [ch.name if ch.key != key else key for key, ch in zip(keys, channels)]
+        keys_or_names = []
+        for ch in channels:
+            v = [k for k in self._keys_or_names if k == ch.key or k == ch.name]
+            if len(v) == 0:
+                raise ValueError(f"Unexpected channel key {ch.key}")
+            keys_or_names.append(v[0])
+        return keys_or_names
+
