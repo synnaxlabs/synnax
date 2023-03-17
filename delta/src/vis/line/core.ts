@@ -127,7 +127,7 @@ export const createLineVis = (
     Deep.merge(Deep.copy(ZERO_LINE_VIS), initial) as LineVis & Omit<Layout, "type">
   );
 
-export interface Status extends Partial<StatusTextProps> {
+export interface Status extends Omit<StatusTextProps, "level"> {
   display: boolean;
 }
 
@@ -135,4 +135,10 @@ export interface StatusProvider {
   status: Status;
 }
 
-export const GOOD_STATUS: Status = { display: false };
+export const GOOD_STATUS: Status = { display: false, variant: "success" };
+
+export const INVALID_VIS_STATUS: Status = {
+  display: true,
+  children: "Invalid visualization",
+  variant: "info",
+};

@@ -10,7 +10,7 @@
 import { CSSProperties, useEffect, useState } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { Compare, convertRenderV, RenderableRecord } from "@synnaxlabs/x";
+import { Compare, convertRenderV, KeyedRenderableRecord } from "@synnaxlabs/x";
 
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "../Menu/ContextMenu";
 
@@ -26,15 +26,15 @@ import { ArrayTransform } from "@/util/transform";
 
 import "./ListColumn.css";
 
-type SortState<E extends RenderableRecord<E>> = [keyof E | null, boolean];
+type SortState<E extends KeyedRenderableRecord<E>> = [keyof E | null, boolean];
 
-export interface ListColumnHeaderProps<E extends RenderableRecord<E>> {
+export interface ListColumnHeaderProps<E extends KeyedRenderableRecord<E>> {
   columns: Array<ListColumnT<E>>;
 }
 
 const SORT_TRANSFORM = "sort";
 
-const ListColumnHeader = <E extends RenderableRecord<E>>({
+const ListColumnHeader = <E extends KeyedRenderableRecord<E>>({
   columns: initialColumns,
 }: ListColumnHeaderProps<E>): JSX.Element => {
   const {
@@ -102,7 +102,7 @@ const ListColumnHeader = <E extends RenderableRecord<E>>({
   );
 };
 
-const ListColumnItem = <E extends RenderableRecord<E>>({
+const ListColumnItem = <E extends KeyedRenderableRecord<E>>({
   entry,
   selected,
   columns,
@@ -137,12 +137,12 @@ const ListColumnItem = <E extends RenderableRecord<E>>({
   );
 };
 
-interface ListColumnValueProps<E extends RenderableRecord<E>> {
+interface ListColumnValueProps<E extends KeyedRenderableRecord<E>> {
   entry: E;
   col: ListColumnT<E>;
 }
 
-const ListColumnValue = <E extends RenderableRecord<E>>({
+const ListColumnValue = <E extends KeyedRenderableRecord<E>>({
   entry,
   col: { width, ...col },
 }: ListColumnValueProps<E>): JSX.Element | null => {
@@ -159,7 +159,7 @@ const ListColumnValue = <E extends RenderableRecord<E>>({
   );
 };
 
-const columnWidths = <E extends RenderableRecord<E>>(
+const columnWidths = <E extends KeyedRenderableRecord<E>>(
   columns: Array<ListColumnT<E>>,
   data: E[],
   font: string,
@@ -183,7 +183,7 @@ const columnWidths = <E extends RenderableRecord<E>>(
   });
 };
 
-const longestEntries = <E extends RenderableRecord<E>>(
+const longestEntries = <E extends KeyedRenderableRecord<E>>(
   data: E[]
 ): Record<keyof E, string> => {
   // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
@@ -202,7 +202,7 @@ const longestEntries = <E extends RenderableRecord<E>>(
 };
 
 const sortTransform =
-  <E extends RenderableRecord<E>>(k: keyof E, dir: boolean): ArrayTransform<E> =>
+  <E extends KeyedRenderableRecord<E>>(k: keyof E, dir: boolean): ArrayTransform<E> =>
   (data: E[]) => {
     if (data.length === 0) return data;
     return [...data].sort(Compare.newFieldF(k, data[0], !dir));

@@ -18,11 +18,12 @@ import {
   Status,
   Rule,
   RuleAnnotationProps,
-  Theming,
+  StatusTextProps,
 } from "@synnaxlabs/pluto";
-import { StatusTextProps } from "@synnaxlabs/pluto/dist/core/Status/StatusText";
 import { XY, Box, ZERO_BOX } from "@synnaxlabs/x";
+import { Theme } from "@tauri-apps/api/window";
 
+import { StatusProvider } from "../core";
 import { Viewport } from "../viewport";
 
 import { useSelectTheme } from "@/layout";
@@ -37,7 +38,6 @@ import { Ranges } from "@/vis/line/ranges";
 import { Scales } from "@/vis/line/scales";
 
 import "./LinePlot.css";
-
 interface HoverState {
   cursor: XY;
   box: Box;
@@ -63,13 +63,15 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): JSX.Element => {
 
   const resizeRef = useResize(handleResize, { debounce: 100 });
 
-  if (data.status.display) {
-    const s = data.status as StatusTextProps;
-    return (
-      <Status.Text.Centered level="h4" variant={s.variant} hideIcon>
-        {s.children}
-      </Status.Text.Centered>
-    );
+  for (const item of [channels, ranges, data] as StatusProvider[]) {
+    if (item.status.display) {
+      const s = item.status as StatusTextProps;
+      return (
+        <Status.Text.Centered level="h4" variant={s.variant} hideIcon>
+          {s.children}
+        </Status.Text.Centered>
+      );
+    }
   }
 
   return (
@@ -94,7 +96,6 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): JSX.Element => {
             hover={hover}
             scales={scales}
             data={data}
-            container={container}
             axes={axes}
             channels={channels}
           />
@@ -105,12 +106,12 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): JSX.Element => {
 };
 
 interface TooltipProps {
-  container: Box;
   hover: HoverState | null;
   scales: Scales;
   data: Data;
   axes: Axes;
   channels: Channels;
+  theme: Theme;
 }
 
 export const Tooltip = ({
@@ -118,7 +119,6 @@ export const Tooltip = ({
   scales,
   axes,
   data,
-  container,
   channels,
 }: TooltipProps): JSX.Element => {
   if (hover == null) return <></>;
@@ -126,8 +126,6 @@ export const Tooltip = ({
   let arrayIndex: number | null = null;
   let position: number = 0;
   let value: number = 0;
-
-  const { theme } = Theming.useContext();
 
   const xScale = scales.decimal("x1")?.reverse();
   if (xScale == null) return <></>;
@@ -158,10 +156,12 @@ export const Tooltip = ({
       const value = res.arrays[arrayIndex as number]?.data[position];
       if (value == null) return;
       annotation.push({
+        key: ch.key,
         values: {
           [ch.name]: value.toString(),
         },
-        position: (1 - scale.pos(value as number)) * container.height,
+        position:
+          (1 - scale.pos(value as number)) * axes.innerBox.height + axes.innerBox.top,
       });
     });
   });
@@ -170,7 +170,7 @@ export const Tooltip = ({
     return (
       <Rule
         direction="y"
-        position={left * container.width}
+        position={left * axes.innerBox.width + axes.innerBox.left}
         size={{
           upper: axes.innerBox.height + axes.innerBox.top,
           lower: axes.innerBox.top,

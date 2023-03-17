@@ -9,11 +9,13 @@
 
 import { ComponentPropsWithoutRef } from "react";
 
-import { Bound, Direction, swapDir, XY } from "@synnaxlabs/x";
+import { Bound, clamp, Direction, swapDir, XY } from "@synnaxlabs/x";
 
 import { Annotation, AnnotationProps } from "@/vis/Annotation";
+import { SVG } from "@/vis/svg";
 
 export interface RuleAnnotationProps extends Omit<AnnotationProps, "position"> {
+  key: string;
   position: number;
 }
 
@@ -31,39 +33,34 @@ export const Rule = ({
   annotations = [],
 }: RuleProps): JSX.Element => {
   return (
-    <g {...gProps(direction, position)}>
+    <g transform={SVG.translateIn(position, swapDir(direction))}>
+      {/* Rendering the annotations first puts them below the rule. This looks cleaner */}
+      {annotations.map(({ key, position, values, ...rest }) => {
+        const height = Annotation.height(values);
+        position = clamp(position, size.lower, size.upper - height);
+        return (
+          <Annotation
+            key={key}
+            values={values}
+            position={
+              {
+                [direction]: position,
+                [swapDir(direction)]: 0,
+              } as const as XY
+            }
+            {...rest}
+          />
+        );
+      })}
+
       <line
         {...lineProps(direction, size)}
         stroke="var(--pluto-gray-m1)"
         strokeWidth={2}
       />
-      {annotations.map(({ position, ...rest }) => (
-        <Annotation
-          key={position}
-          position={
-            {
-              [direction]: position,
-              [swapDir(direction)]: 0,
-            } as const as XY
-          }
-          {...rest}
-        />
-      ))}
     </g>
   );
 };
-
-const gProps = (
-  direction: Direction,
-  position: number
-): ComponentPropsWithoutRef<"g"> =>
-  direction === "x"
-    ? {
-        transform: `translate(0, ${position})`,
-      }
-    : {
-        transform: `translate(${position}, 0)`,
-      };
 
 const lineProps = (
   direction: Direction,

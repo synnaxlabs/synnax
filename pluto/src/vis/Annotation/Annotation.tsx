@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { convertRenderV, RenderableValue, XY } from "@synnaxlabs/x";
+import { convertRenderV, RenderableRecord, XY } from "@synnaxlabs/x";
 
 import { Space, Typography } from "@/core";
 import { textWidth } from "@/core/Typography/textWidth";
@@ -17,7 +17,7 @@ import { useFont } from "@/theming";
 export interface AnnotationProps {
   position: XY;
   stroke?: string;
-  values: Record<string, RenderableValue>;
+  values: RenderableRecord;
 }
 
 export const Annotation = ({
@@ -25,13 +25,13 @@ export const Annotation = ({
   position,
   stroke = "var(--pluto-gray-m2)",
 }: AnnotationProps): JSX.Element => {
-  const textItems = Object.entries(values).map(
-    ([key, value]) => `${key}: ${convertRenderV(value) as string}`
-  );
-  const font = useFont("small");
-  const maxWidth = Math.max(...textItems.map((t) => textWidth(t, font)));
   return (
-    <foreignObject x={position.x} y={position.y} height="500" width={maxWidth + 20}>
+    <foreignObject
+      x={position.x}
+      y={position.y}
+      height={annotationHeight(values)}
+      width={annotationWidth(values)}
+    >
       <Space
         direction="y"
         style={{
@@ -49,5 +49,19 @@ export const Annotation = ({
         ))}
       </Space>
     </foreignObject>
+  );
+};
+
+export const annotationHeight = (values: RenderableRecord): number =>
+  Object.entries(values).length * 20 + 10;
+
+export const annotationWidth = (values: RenderableRecord): number => {
+  const font = useFont("small");
+  return (
+    Math.max(
+      ...Object.entries(values).map(([key, value]) =>
+        textWidth(`${key}: ${convertRenderV(value) as string}`, font)
+      )
+    ) + 15
   );
 };

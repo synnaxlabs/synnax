@@ -18,6 +18,7 @@ const story: ComponentMeta<typeof Rule> = {
 
 const annotations: RuleAnnotationProps[] = [
   {
+    key: "1",
     position: 100,
     values: {
       "ec.pressure[7]": "592.2",

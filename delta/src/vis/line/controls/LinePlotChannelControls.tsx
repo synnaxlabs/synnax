@@ -29,8 +29,8 @@ export interface LinePlotChannelControlsProps {
 export const LinePlotChannelControls = ({
   layoutKey,
 }: LinePlotChannelControlsProps): JSX.Element | null => {
-  const ranges = Ranges.use(layoutKey);
-  const channels = Channels.use(layoutKey);
+  const ranges = Ranges.useSelectCore(layoutKey);
+  const channels = Channels.useSelectCore(layoutKey);
   const dispatch = useDispatch();
   const allRanges = useSelectRanges();
 
@@ -60,7 +60,7 @@ export const LinePlotChannelControls = ({
       <SelectMultipleAxesInputItem
         axis={"y1"}
         onChange={handleChannelSelect}
-        value={channels.yAxisKeys("y1")}
+        value={channels.y1}
         data={allChannels}
         location="top"
         grow
@@ -68,7 +68,7 @@ export const LinePlotChannelControls = ({
       <SelectMultipleAxesInputItem
         axis={"y2"}
         onChange={handleChannelSelect}
-        value={channels.yAxisKeys("y2")}
+        value={channels.y2}
         data={allChannels}
         location="top"
         grow
@@ -77,7 +77,7 @@ export const LinePlotChannelControls = ({
         <SelectMultipleRangesInputItem
           data={allRanges}
           onChange={handleRangeSelect}
-          value={ranges.axisKeys("x1")}
+          value={ranges.x1}
           location="top"
           grow
         />
@@ -85,7 +85,7 @@ export const LinePlotChannelControls = ({
         <SelectAxisInputItem
           axis={"x1"}
           onChange={handleChannelSelect}
-          value={channels.xAxisKey("x1")}
+          value={channels.x1}
           location="top"
           data={allChannels}
           grow

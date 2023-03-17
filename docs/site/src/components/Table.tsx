@@ -10,32 +10,32 @@
 
 import {
   convertRenderV,
-  RenderableRecord,
+  KeyedRenderableRecord,
   Bound,
   Direction,
   inBounds,
 } from "@synnaxlabs/x";
 
-export interface TableColumn<E extends RenderableRecord<E>> {
+export interface TableColumn<E extends KeyedRenderableRecord<E>> {
   key: keyof E;
   name?: string;
   width?: number;
 }
 
-export interface TableHighlight<E extends RenderableRecord<E>> {
+export interface TableHighlight<E extends KeyedRenderableRecord<E>> {
   key: string;
   columns?: Array<keyof E>;
   rows?: Bound;
   color: string;
 }
 
-export interface TableProps<E extends RenderableRecord<E>> {
+export interface TableProps<E extends KeyedRenderableRecord<E>> {
   columns: Array<TableColumn<E>>;
   data: E[];
   highlights?: Array<TableHighlight<E>>;
 }
 
-export const Table = <E extends RenderableRecord<E>>({
+export const Table = <E extends KeyedRenderableRecord<E>>({
   columns,
   data,
   highlights = [],
@@ -67,7 +67,7 @@ export const Table = <E extends RenderableRecord<E>>({
   );
 };
 
-interface TableRowProps<E extends RenderableRecord<E>> {
+interface TableRowProps<E extends KeyedRenderableRecord<E>> {
   index: number;
   dataLength: number;
   columns: Array<TableColumn<E>>;
@@ -75,7 +75,7 @@ interface TableRowProps<E extends RenderableRecord<E>> {
   highlights: Array<TableHighlight<E>>;
 }
 
-const TableRow = <E extends RenderableRecord<E>>({
+const TableRow = <E extends KeyedRenderableRecord<E>>({
   index,
   dataLength,
   columns,
@@ -96,7 +96,7 @@ const TableRow = <E extends RenderableRecord<E>>({
   </tr>
 );
 
-interface TableCellProps<E extends RenderableRecord<E>> {
+interface TableCellProps<E extends KeyedRenderableRecord<E>> {
   index: number;
   dataLength: number;
   highlights: Array<TableHighlight<E>>;
@@ -104,7 +104,7 @@ interface TableCellProps<E extends RenderableRecord<E>> {
   column: TableColumn<E>;
 }
 
-const TableCell = <E extends RenderableRecord<E>>({
+const TableCell = <E extends KeyedRenderableRecord<E>>({
   index,
   dataLength,
   highlights,

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useDebugValue, useState } from "react";
 
 import { Channel } from "@synnaxlabs/client";
 import { useAsyncEffect } from "@synnaxlabs/pluto";
@@ -29,30 +29,30 @@ export class Channels implements StatusProvider {
     this.status = status;
   }
 
-  static zero(): Channels {
-    return new Channels(Deep.copy(ZERO_CHANNELS_STATE), [], GOOD_STATUS);
+  static useSelectCore(key: string): ChannelsState {
+    return useMemoSelect(
+      (state: VisStoreState & LayoutStoreState) =>
+        selectRequiredVis<LineVis>(state, key, "line").channels,
+      [key]
+    );
   }
 
   static use(key: string): Channels {
     const [channels, setChannels] = useState<Channels>(Channels.zero());
     const client = useClusterClient();
-
-    const core = useMemoSelect(
-      (state: VisStoreState & LayoutStoreState) =>
-        selectRequiredVis<LineVis>(state, key, "line").channels,
-      [key]
-    );
-
-    const valid =
-      Y_AXIS_KEYS.some((axis) => core[axis].length > 0) &&
-      Y_AXIS_KEYS.some((axis) => {
-        const v = core[axis];
-        return v != null && v.length > 0;
-      });
+    const core = Channels.useSelectCore(key);
+    const isValid = Channels.isValid(core);
 
     useAsyncEffect(async () => {
-      if (client === null) return;
-      if (!valid)
+      if (client === null)
+        return setChannels(
+          new Channels(core, [], {
+            display: true,
+            children: "No Active Cluster",
+            variant: "info",
+          })
+        );
+      if (!isValid)
         return setChannels(
           new Channels(core, [], {
             display: true,
@@ -60,18 +60,23 @@ export class Channels implements StatusProvider {
             variant: "info",
           })
         );
-      const keys = Channels.toKeys(core);
-      const channels = await client.channels.retrieve(keys);
+      const channels = await client.channels.retrieve(Channels.toKeys(core));
       setChannels(new Channels(core, channels, GOOD_STATUS));
     }, [client, core]);
+
+    useDebugValue(channels);
 
     return channels;
   }
 
-  private static toKeys(core: ChannelsState): string[] {
-    return Object.values(core)
-      .flat()
-      .filter((key) => key != null && key !== "");
+  static isValid(core: ChannelsState): boolean {
+    return (
+      Y_AXIS_KEYS.some((axis) => core[axis].length > 0) &&
+      Y_AXIS_KEYS.some((axis) => {
+        const v = core[axis];
+        return v != null && v.length > 0;
+      })
+    );
   }
 
   get keys(): string[] {
@@ -109,5 +114,15 @@ export class Channels implements StatusProvider {
 
   forEachAxis(callback: (channels: Channel[], axis: AxisKey) => void): void {
     AXIS_KEYS.forEach((axis) => callback(this.axis(axis), axis));
+  }
+
+  private static zero(): Channels {
+    return new Channels(Deep.copy(ZERO_CHANNELS_STATE), [], GOOD_STATUS);
+  }
+
+  private static toKeys(core: ChannelsState): string[] {
+    return Object.values(core)
+      .flat()
+      .filter((key) => key != null && key !== "");
   }
 }

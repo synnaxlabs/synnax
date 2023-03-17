@@ -37,15 +37,13 @@ export class Lines {
           if (yData.length === 0 || yScale == null) return;
           const scale = { x: xScale.dim(1), y: yScale.dim(1) };
           const offset = { x: xScale.pos(0), y: yScale.pos(0) };
+          const pallete = theme.colors.visualization.palettes.default;
           yData.forEach((yRes, i) => {
             const xRes = xData[0];
+            const color = pallete[i % pallete.length];
             yRes.arrays.forEach((yArr, j) => {
               lines.push({
-                color: hexToRGBA(
-                  theme.colors.visualization.palettes.default[i],
-                  1,
-                  255
-                ),
+                color: hexToRGBA(color, 1, 255),
                 scale,
                 offset,
                 y: yRes.buffers.value[j].buf,
