@@ -1,12 +1,11 @@
 import { useState } from "react";
 
 import { useAsyncEffect } from "@synnaxlabs/pluto";
-import { StatusTextProps } from "@synnaxlabs/pluto/dist/core/Status/StatusText";
-import { Deep } from "@synnaxlabs/x";
+import { Deep, unique } from "@synnaxlabs/x";
 
-import { Status, StatusProvider } from "./core";
+import { GOOD_STATUS, Status, StatusProvider } from "./core";
 
-import { AxisKey } from "@/vis/axis";
+import { AxisKey, Y_AXIS_KEYS } from "@/vis/axis";
 import { Channels } from "@/vis/line/channels";
 import { Ranges } from "@/vis/line/ranges";
 import {
@@ -30,24 +29,17 @@ export class Data implements StatusProvider {
   private readonly entries: InternalState;
   readonly status: Status;
 
-  constructor(entries: InternalState, status: Status) {
+  constructor(entries: InternalState, status: Status = GOOD_STATUS) {
     this.entries = entries;
     this.status = status;
   }
 
   static use(channels: Channels, ranges: Ranges): Data {
     const client = useTelemetryClient();
-    const [data, setData] = useState<Data>(new Data(ZERO_DATA, { display: false }));
+    const [data, setData] = useState<Data>(new Data(ZERO_DATA));
 
     useAsyncEffect(async () => {
-      if (client === null)
-        return setData(
-          new Data(ZERO_DATA, {
-            display: true,
-            children: "No active cluster",
-            variant: "info",
-          })
-        );
+      if (client === null) return;
       if (data.isZero)
         setData(
           new Data(ZERO_DATA, {
@@ -98,8 +90,8 @@ export class Data implements StatusProvider {
         children: error.message,
       });
     }
-    const empty = Object.values(entries).every((res) =>
-      res.arrays.every((array) => array.length === 0)
+    const empty = Y_AXIS_KEYS.every((axis) =>
+      core[axis].every((res) => res.arrays.every((array) => array.length === 0))
     );
 
     if (empty)
@@ -109,7 +101,7 @@ export class Data implements StatusProvider {
         children: "No data found.",
       });
 
-    return new Data(core, { display: false });
+    return new Data(core, GOOD_STATUS);
   }
 
   axis(key: AxisKey): TelemetryClientResponse[] {
@@ -124,7 +116,7 @@ export class Data implements StatusProvider {
     fn: (ch: string, axis: AxisKey, data: TelemetryClientResponse[]) => void
   ): void {
     Object.entries(this.entries).forEach(([axis, data]) => {
-      const keys = new Set(data.map((d) => d.key));
+      const keys = unique(data.map((d) => d.key));
       keys.forEach((key) =>
         fn(
           key,
@@ -134,6 +126,4 @@ export class Data implements StatusProvider {
       );
     });
   }
-
-  get empty(): boolean {}
 }

@@ -1,9 +1,8 @@
 import { useMemo } from "react";
 
 import { addSamples, Bound, SampleValue } from "@synnaxlabs/x";
-import { useDispatch } from "react-redux";
 
-import { selectRequiredVis, setVis, VisStoreState } from "../store";
+import { selectRequiredVis, VisStoreState } from "../store";
 
 import { BoundsState, BoundState, LineVis } from "./core";
 
@@ -60,7 +59,6 @@ export class Bounds {
 
   static use(key: string, data: Data, padding: number): Bounds {
     const core = Bounds.useSelect(key);
-    const dispatch = useDispatch();
     return useMemo(() => {
       const state: InternalState = { normal: {}, offset: {} };
       data.forEachAxis((key, responses) => {

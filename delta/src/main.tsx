@@ -90,13 +90,6 @@ const Main = (): JSX.Element | null => {
 
 const ErrorBoundary = (): JSX.Element => {
   const theme = useErrorThemeProvider();
-  useAsyncEffect(async () => {
-    await appWindow.setResizable(false);
-    await appWindow.setSize(new LogicalSize(800, 600));
-    await appWindow.center();
-    await appWindow.setFocus();
-    await appWindow.setDecorations(true);
-  });
   const handleClose = (): void => {
     void appWindow.close();
   };

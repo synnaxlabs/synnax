@@ -30,8 +30,12 @@ export interface UseStaticTabsProps {
 export const resetTabSelection = (
   selected = "",
   tabs: Tab[] = []
-): string | undefined =>
-  tabs.find((t) => t.tabKey === selected) != null ? selected : tabs[0]?.tabKey;
+): string | undefined => {
+  if (tabs.length === 0) return undefined;
+  return tabs.find((t) => t.tabKey === selected) != null
+    ? selected
+    : tabs[tabs.length - 1]?.tabKey;
+};
 
 export const renameTab = (key: string, title: string, tabs: Tab[]): Tab[] => {
   title = title.trim();

@@ -14,17 +14,38 @@ import { TimeStamp } from "@synnaxlabs/x";
 import { useMemoSelect } from "@/hooks";
 import { LayoutStoreState } from "@/layout";
 import { XAxisKey, X_AXIS_KEYS } from "@/vis/axis";
-import { LineVis, RangesState } from "@/vis/line/core";
+import {
+  GOOD_STATUS,
+  INVALID_VIS_STATUS,
+  LineVis,
+  RangesState,
+  Status,
+  StatusProvider,
+} from "@/vis/line/core";
 import { selectRequiredVis, VisStoreState } from "@/vis/store";
 import { Range, selectRanges, WorkspaceStoreState } from "@/workspace";
 
-export class Ranges {
+export class Ranges implements StatusProvider {
   readonly core: RangesState;
   readonly ranges: Record<string, Range>;
+  readonly status: Status;
 
-  private constructor(core: RangesState, ranges: Record<string, Range>) {
+  private constructor(
+    core: RangesState,
+    ranges: Record<string, Range>,
+    status: Status = GOOD_STATUS
+  ) {
     this.core = core;
     this.ranges = ranges;
+    this.status = status;
+  }
+
+  static useSelectCore(key: string): RangesState {
+    return useMemoSelect(
+      (state: VisStoreState & LayoutStoreState & WorkspaceStoreState) =>
+        selectRequiredVis<LineVis>(state, key, "line").ranges,
+      [key]
+    );
   }
 
   static use(key: string): Ranges {
@@ -32,12 +53,19 @@ export class Ranges {
       (state: VisStoreState & LayoutStoreState & WorkspaceStoreState) => {
         const core = selectRequiredVis<LineVis>(state, key, "line").ranges;
         const ranges = Ranges.rangesFromArray(selectRanges(state, Ranges.keys(core)));
-        console.log("ranges", ranges);
         return { core, ranges };
       },
       [key]
     );
-    return useMemo(() => new Ranges(core, ranges), [core, ranges]);
+    return useMemo(() => {
+      let status = GOOD_STATUS;
+      if (!Ranges.isValid(core)) status = INVALID_VIS_STATUS;
+      return new Ranges(core, ranges, status);
+    }, [core, ranges]);
+  }
+
+  static isValid(core: RangesState): boolean {
+    return Object.values(core).flat().length > 0;
   }
 
   private static keys(core: RangesState): string[] {

@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { RenderableRecord } from "@synnaxlabs/x";
+import { KeyedRenderableRecord } from "@synnaxlabs/x";
 
 import { useListContext } from "./ListContext";
 
@@ -17,12 +17,12 @@ import { Input as DefaultInput, InputControl } from "@/core/Input";
 import { useSearchTransform, UseSearchTransformProps } from "@/hooks";
 import { RenderProp } from "@/util/renderProp";
 
-export interface ListSearchProps<E extends RenderableRecord<E>>
+export interface ListSearchProps<E extends KeyedRenderableRecord<E>>
   extends Omit<UseSearchTransformProps<E>, "query"> {
   children?: RenderProp<InputControl<string>>;
 }
 
-export const ListSearch = <E extends RenderableRecord<E>>({
+export const ListSearch = <E extends KeyedRenderableRecord<E>>({
   children = (props) => <DefaultInput {...props} />,
   opts,
 }: ListSearchProps<E>): JSX.Element | null => {

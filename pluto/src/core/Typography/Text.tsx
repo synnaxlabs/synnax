@@ -21,13 +21,23 @@ export interface CoreTextProps<L extends TypographyLevel = "h1"> {
   children?: string | number;
   /* The color of the text */
   color?: string;
+  /* NoWrap prevents the text from wrapping */
+  noWrap?: boolean;
 }
 
 export type TextProps<L extends TypographyLevel = "h1"> = Omit<GenericProps<L>, "el"> &
   CoreTextProps<L>;
 
 const CoreText = <L extends TypographyLevel = "h1">(
-  { level = "h1" as L, color, className, style, children, ...props }: TextProps<L>,
+  {
+    level = "h1" as L,
+    color,
+    className,
+    style,
+    children,
+    noWrap = false,
+    ...props
+  }: TextProps<L>,
   ref: ForwardedRef<JSX.IntrinsicElements[L]>
 ): JSX.Element => (
   // @ts-expect-error
@@ -35,7 +45,7 @@ const CoreText = <L extends TypographyLevel = "h1">(
     el={level}
     ref={ref}
     style={{ color, ...style }}
-    className={CSS(CSS.B("text"), CSS.BM("text", level), className)}
+    className={CSS(CSS.B("text"), CSS.BM("text", level), CSS.noWrap(noWrap), className)}
     {...props}
   >
     {children}
