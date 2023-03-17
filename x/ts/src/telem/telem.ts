@@ -123,25 +123,8 @@ export class TimeStamp extends Number {
   }
 
   private timeString(milliseconds: boolean = false, tzInfo: TZInfo = "UTC"): string {
-    const date = this.date();
-    let h, m, s, ms;
-    if (tzInfo === "local")
-      [h, m, s, ms] = [
-        date.getHours(),
-        date.getMinutes(),
-        date.getSeconds(),
-        date.getMilliseconds(),
-      ];
-    else
-      [h, m, s, ms] = [
-        date.getUTCHours(),
-        date.getUTCMinutes(),
-        date.getUTCSeconds(),
-        date.getMilliseconds(),
-      ];
-    let base = `${timeF(h)}:${timeF(m)}:${timeF(s)}`;
-    if (milliseconds) base += `.${timeF(ms, 3)}`;
-    return base;
+    const iso = this.toISOString(tzInfo);
+    return milliseconds ? iso.slice(11, 23) : iso.slice(11, 19);
   }
 
   private dateString(tzInfo: TZInfo = "UTC"): string {
