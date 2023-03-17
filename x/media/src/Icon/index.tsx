@@ -32,6 +32,7 @@ import {
   FaStream,
   FaWindows,
 } from "react-icons/fa";
+import { FiMenu } from "react-icons/fi";
 import { HiChartBar, HiDownload, HiLightningBolt, HiOutlinePlus } from "react-icons/hi";
 import { IoMdRefresh } from "react-icons/io";
 import { IoBookSharp, IoCopySharp, IoTime } from "react-icons/io5";
@@ -90,4 +91,5 @@ export const Icon = {
   PNPM: SiPnpm,
   Yarn: SiYarn,
   QuestionMark: MdQuestionMark,
+  Menu: FiMenu,
 };
