@@ -45,5 +45,5 @@ export const listen = <S extends StoreState, A extends Action = AnyAction>(
       return s.dispatch(sugar(action, emitter));
     }
     if (sendState === true && communicator.isMain())
-      communicator.emit({ state: s.getState() as PreloadedState<S> }, emitter);
+      void communicator.emit({ state: s.getState() as PreloadedState<S> }, emitter);
   });

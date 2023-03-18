@@ -10,3 +10,5 @@
 export * from "./gl";
 export * from "./Axis";
 export * from "./viewport";
+export * from "./Annotation";
+export * from "./Rule";

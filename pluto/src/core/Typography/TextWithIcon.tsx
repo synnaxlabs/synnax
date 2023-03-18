@@ -23,8 +23,8 @@ export type TextWithIconProps<
   L extends TypographyLevel = "h1"
 > = Omit<SpaceProps<E>, "children"> &
   CoreTextProps<L> & {
-    startIcon?: ReactElement | ReactElement[];
-    endIcon?: ReactElement | ReactElement[];
+    startIcon?: false | ReactElement | ReactElement[];
+    endIcon?: false | ReactElement | ReactElement[];
     children?: string | number;
     divided?: boolean;
     noWrap?: boolean;
@@ -75,12 +75,14 @@ export const TextWithIcon = <
 };
 
 const formatIcons = (
-  icon: ReactElement | ReactElement[],
+  icon: false | ReactElement | ReactElement[],
   color?: string
-): JSX.Element[] =>
-  (Children.toArray(icon) as ReactElement[]).map((icon) =>
+): JSX.Element[] => {
+  if (icon === false) return [];
+  return (Children.toArray(icon) as ReactElement[]).map((icon) =>
     cloneElement(icon, {
       ...icon.props,
       style: { fill: color, ...icon.props.style },
     })
   );
+};

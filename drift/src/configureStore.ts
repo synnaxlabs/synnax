@@ -26,6 +26,7 @@ import {
   setWindowLabel,
   setWindowStage,
   closeWindow,
+  setPrererenderEnabled,
 } from "./state";
 import { syncInitial } from "./sync";
 import { MAIN_WINDOW } from "./window";
@@ -45,6 +46,7 @@ export interface ConfigureStoreOptions<
   runtime: Runtime<S, A>;
   debug?: boolean;
   preloadedState?: PreloadedState<S> | (() => Promise<PreloadedState<S> | undefined>);
+  enablePrerender?: boolean;
 }
 
 /**
@@ -72,6 +74,7 @@ export const configureStore = async <
   preloadedState,
   middleware,
   debug = false,
+  enablePrerender = true,
   ...opts
 }: ConfigureStoreOptions<S, A, M, E>): Promise<EnhancedStore<S, A | DriftAction>> => {
   // eslint-disable-next-line prefer-const
@@ -83,6 +86,7 @@ export const configureStore = async <
     middleware: configureMiddleware(middleware, runtime, debug),
   });
 
+  store.dispatch(setPrererenderEnabled({ value: enablePrerender }));
   await syncInitial(store.getState().drift, runtime, debug);
   store.dispatch(setWindowLabel({ label: runtime.label() }));
   store.dispatch(setWindowStage({ stage: "created" }));
@@ -109,5 +113,5 @@ const receivePreloadedState = async <
       if (typeof preloadedState === "function")
         preloadedState().then(resolve).catch(console.error);
       else resolve(preloadedState);
-    } else runtime.emit({ sendState: true }, MAIN_WINDOW);
+    } else void runtime.emit({ sendState: true }, MAIN_WINDOW);
   });

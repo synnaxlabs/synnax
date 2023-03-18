@@ -20,9 +20,11 @@ label,
 li,
 th,
 td,
-input {
+input,
+text {
     font-family: var(--pluto-font-family);
     color: var(--pluto-text-color);
+    fill: var(--pluto-text-color);
     --webkit-font-smoothing: antialiased;
     margin: 0;
 }
@@ -59,7 +61,8 @@ th {
     text-transform: var(--pluto-h5-text-transform);
 }
 
-small {
+small,
+text {
     font-size: var(--pluto-small-size);
     line-height: var(--pluto-small-line-height);
     font-weight: var(--pluto-small-weight);
@@ -74,3 +77,4 @@ td {
     line-height: var(--pluto-p-line-height);
     font-weight: var(--pluto-p-weight);
 }
+
