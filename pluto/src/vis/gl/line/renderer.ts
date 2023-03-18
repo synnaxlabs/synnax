@@ -140,7 +140,7 @@ export class GLLineRenderer
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.translationBuffer);
     const translationBuffer = newTranslationBuffer(aspect, strokeWidth);
-    gl.bufferData(gl.ARRAY_BUFFER, translationBuffer, gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, translationBuffer, gl.DYNAMIC_DRAW);
 
     const loc = gl.getAttribLocation(this.program, shaderVars.translate);
     gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);

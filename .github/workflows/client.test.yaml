@@ -37,6 +37,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install Poetry
+        if: steps.filter.outputs.changed == 'true'
         run: |
           pip install poetry
           poetry config virtualenvs.create false
@@ -45,9 +46,11 @@ jobs:
 
       - name: Test
         run: pytest --cov=freighter --cov-report xml:coverage.xml
+        if: steps.filter.outputs.changed == 'true'
         working-directory: ./client/py
 
       - name: Upload Coverage
+        if: steps.filter.outputs.changed == 'true'
         uses: codecov/codecov-action@v3
         with:
           directory: ./client/py

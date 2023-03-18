@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { RenderableRecord } from "@synnaxlabs/x";
+import { KeyedRenderableRecord } from "@synnaxlabs/x";
 
 import { List, ListColumnHeaderProps, ListSelectorProps } from "@/core/List";
 
-export interface SelectListProps<E extends RenderableRecord<E>>
+export interface SelectListProps<E extends KeyedRenderableRecord<E>>
   extends ListSelectorProps<E>,
     ListColumnHeaderProps<E> {}
 
-export const SelectList = <E extends RenderableRecord>({
+export const SelectList = <E extends KeyedRenderableRecord>({
   value,
   onChange,
   allowMultiple,

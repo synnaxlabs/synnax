@@ -10,7 +10,10 @@
 import { useEffect, useRef, useState } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { convertRenderV, RenderableRecord } from "@synnaxlabs/x";
+import {
+  convertRenderV,
+  KeyedRenderableRecord,
+} from "@synnaxlabs/x";
 
 import { Theming } from "../../theming";
 
@@ -27,7 +30,7 @@ import { CSS } from "@/css";
 
 import "./SelectMultiple.css";
 
-export interface SelectMultipleProps<E extends RenderableRecord<E>>
+export interface SelectMultipleProps<E extends KeyedRenderableRecord<E>>
   extends Omit<DropdownProps, "visible" | "onChange" | "children">,
     InputControl<readonly string[]> {
   data?: E[];
@@ -35,7 +38,7 @@ export interface SelectMultipleProps<E extends RenderableRecord<E>>
   tagKey?: keyof E;
 }
 
-export const SelectMultiple = <E extends RenderableRecord<E>>({
+export const SelectMultiple = <E extends KeyedRenderableRecord<E>>({
   onChange,
   value,
   location,
@@ -66,14 +69,14 @@ export const SelectMultiple = <E extends RenderableRecord<E>>({
   );
 };
 
-interface SelectMultipleInputProps<E extends RenderableRecord<E>>
+interface SelectMultipleInputProps<E extends KeyedRenderableRecord<E>>
   extends Pick<InputProps, "onChange" | "onFocus" | "value"> {
   selected: readonly string[];
   tagKey: keyof E;
   visible: boolean;
 }
 
-const SelectMultipleInput = <E extends RenderableRecord<E>>({
+const SelectMultipleInput = <E extends KeyedRenderableRecord<E>>({
   selected,
   onChange,
   onFocus,

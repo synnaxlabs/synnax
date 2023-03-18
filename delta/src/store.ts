@@ -17,17 +17,13 @@ import {
 import { DeepKey } from "@synnaxlabs/x";
 import { appWindow } from "@tauri-apps/api/window";
 
-import { clusterReducer, CLUSTER_SLICE_NAME } from "@/features/cluster";
-import { docsReducer, DOCS_SLICE_NAME } from "@/features/docs";
-import {
-  layoutReducer,
-  LAYOUT_PERSIST_EXCLUDE,
-  LAYOUT_SLICE_NAME,
-} from "@/features/layout";
-import { openPersist } from "@/features/persist";
-import { versionReducer, VERSION_SLICE_NAME } from "@/features/version";
-import { VISUALIZATION_SLICE_NAME, visualizationReducer } from "@/features/vis";
-import { workspaceReducer, WORKSPACE_SLICE_NAME } from "@/features/workspace";
+import { clusterReducer, CLUSTER_SLICE_NAME } from "@/cluster";
+import { docsReducer, DOCS_SLICE_NAME } from "@/docs";
+import { layoutReducer, LAYOUT_PERSIST_EXCLUDE, LAYOUT_SLICE_NAME } from "@/layout";
+import { openPersist } from "@/persist";
+import { versionReducer, VERSION_SLICE_NAME } from "@/version";
+import { VIS_SLICE_NAME, visReducer } from "@/vis";
+import { workspaceReducer, WORKSPACE_SLICE_NAME } from "@/workspace";
 
 const PERSIST_EXCLUDE: Array<DeepKey<RootState>> = [
   DRIFT_SLICE_NAME,
@@ -38,7 +34,7 @@ const reducer = combineReducers({
   [DRIFT_SLICE_NAME]: driftReducer,
   [CLUSTER_SLICE_NAME]: clusterReducer,
   [LAYOUT_SLICE_NAME]: layoutReducer,
-  [VISUALIZATION_SLICE_NAME]: visualizationReducer,
+  [VIS_SLICE_NAME]: visReducer,
   [WORKSPACE_SLICE_NAME]: workspaceReducer,
   [VERSION_SLICE_NAME]: versionReducer,
   [DOCS_SLICE_NAME]: docsReducer,
@@ -58,5 +54,6 @@ export const newStore = async (): Promise<Store> => {
     preloadedState,
     middleware: (def) => [...def(), persistMiddleware],
     reducer,
+    enablePrerender: true,
   });
 };

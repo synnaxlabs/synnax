@@ -22,6 +22,7 @@ export interface GLBufferController {
   getBufferParameter: (target: number, pname: number) => any;
   ARRAY_BUFFER: number;
   STATIC_DRAW: number;
+  DYNAMIC_DRAW: number;
   BUFFER_SIZE: number;
 }
 
@@ -90,7 +91,7 @@ export class GLDemandCache
     const buf = this.gl.createBuffer();
     if (buf == null) throw new Error("failed to create buffer");
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, buf);
-    this.gl.bufferData(this.gl.ARRAY_BUFFER, arr.data.buffer, this.gl.STATIC_DRAW);
+    this.gl.bufferData(this.gl.ARRAY_BUFFER, arr.data.buffer, this.gl.DYNAMIC_DRAW);
     const size = new Size(
       this.gl.getBufferParameter(this.gl.ARRAY_BUFFER, this.gl.BUFFER_SIZE)
     );
