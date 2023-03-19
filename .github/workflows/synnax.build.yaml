@@ -178,7 +178,7 @@ jobs:
               repo: context.repo.repo,
               release_id: ${{ needs.create-release.outputs.release_id }},t 
               name: `synnax-${{ matrix.platform }}-${{ steps.version.outputs.VERSION }}`,
-              data: fs.readFileSync(`./synnax/synnax`),
+              data: "@./synnax/synnax",
               headers: {
                 'content-type': 'application/octet-stream',
                 'content-length': fs.statSync(`./synnax/synnax`).size
