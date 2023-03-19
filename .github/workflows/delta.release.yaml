@@ -45,13 +45,12 @@ jobs:
         with:
           script: |
             const { data: { id } }  = await github.rest.repos.createRelease({
-                          owner: context.repo.owner,
-                          repo: context.repo.repo,
-                          tag_name: `delta-v${process.env.PACKAGE_VERSION}`,
-                          name: `Synnax Delta v${process.env.PACKAGE_VERSION}`,
-                          body: "Synnax Delta Release",
-                          draft: false,
-                          prerelease: false,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: `delta-v${process.env.PACKAGE_VERSION}`,
+              name: `Synnax Delta v${process.env.PACKAGE_VERSION}`,
+              draft: false,
+              prerelease: false,
             })
             return id
 
