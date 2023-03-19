@@ -74,6 +74,7 @@ jobs:
 
   create-release:
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -109,6 +110,7 @@ jobs:
 
   build:
     needs: create-release
+    if: github.ref == 'refs/heads/main'
     strategy:
       matrix:
         platform: [macos-latest, ubuntu-latest, windows-latest]
