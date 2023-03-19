@@ -75,9 +75,6 @@ jobs:
 
   create-release:
     runs-on: ubuntu-latest
-    outputs:
-      upload_url: ${{ steps.create-release.outputs.result }}
-
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -99,24 +96,17 @@ jobs:
         if: steps.filter.outputs.changed == 'true'
         id: version
         working-directory: ./synnax
-        run: |
-          echo "VERSION=$(cat VERSION)" >> $GITHUB_OUTPUT
+        run: echo "VERSION=$(cat VERSION)" >> $GITHUB_OUTPUT
 
       - name: Create Release
         if: steps.filter.outputs.changed == 'true'
         id: create-release
-        uses: actions/github-script@v6
+        uses: softprops/action-gh-release@v1
         with:
-          script: |
-            const { data: { upload_url } } = await github.rest.repos.createRelease({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              tag_name: `synnax-v${{ steps.version.outputs.VERSION }}`,
-              name: `synnax-v${{ steps.version.outputs.VERSION }}`,
-              draft: false,
-              prerelease: false,
-            });
-            return upload_url;
+          tag_name: synnax-v${{ steps.version.outputs.VERSION }}
+          name: synnax-v${{ steps.version.outputs.VERSION }}
+          draft: false
+          prerelease: false
 
   build:
     needs: create-release
@@ -158,7 +148,7 @@ jobs:
         if: steps.filter.outputs.changed == 'true'
         working-directory: ./synnax
         run: |
-          go build -o synnax .
+          go build -o synnax-v${{ steps.version.outputs.VERSION }}-${{ matrix.platform }} .
 
       - name: Get Version
         if: steps.filter.outputs.changed == 'true'
@@ -169,11 +159,6 @@ jobs:
 
       - name: Upload Release Asset
         if: steps.filter.outputs.changed == 'true'
-        uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        with:
-          upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ./synnax/synnax
-          asset_name: synnax-${{ matrix.platform }}-${{ steps.version.outputs.VERSION }}
-          asset_content_type: application/gzip
+        run: gh release upload synnax-v${{ steps.version.outputs.VERSION }} ./synnax/synnax-v${{ steps.version.outputs.VERSION }}-${{ matrix.platform }}
