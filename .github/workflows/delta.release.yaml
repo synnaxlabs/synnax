@@ -1,4 +1,4 @@
-name: "Delta Release"
+tname: "Delta Release"
 on:
   push:
     branches:
