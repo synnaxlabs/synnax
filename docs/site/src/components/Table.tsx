@@ -41,8 +41,8 @@ export const Table = <E extends KeyedRenderableRecord<E>>({
   highlights = [],
 }: TableProps<E>): JSX.Element => {
   return (
-    <div style={{ overflow: "scroll" }}>
-      <table style={{ overflow: "scroll" }}>
+    <div style={{ overflowX: "auto" }}>
+      <table>
         <thead>
           <tr>
             {columns.map(({ key, name, width }) => (

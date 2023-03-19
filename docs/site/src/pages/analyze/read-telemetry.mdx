@@ -17,8 +17,9 @@ walk you through the details of each.
 
 This page assumes you’ve already:
 
--   Started a cluster.
--   Familiarized yourself with channels, domains, arrays, and frames.
+-   [Started a cluster](/deploy/get-started)
+-   [Familiarized yourself with channels](/concepts/channels)
+-   [Installed the Synnax client in the language of your choice](/analyze/get-started)
 
 If you'd like a formal introduction to how ranges and reads work in Synnax, look here.
 
@@ -40,6 +41,12 @@ end = datetime.datetime("2023-2-12 14:30:00")
 
 data, tr = channel.read(start, end)
 ```
+
+This method returns a numpy `ndarray` containing all data occupying the queried time range.
+The second return value is a `TimeRange` object that provides the timestamp of the first
+sample in the data and the timestamp of the last sample in the data. This is
+particularly useful when the channel contains data for only part of the time range,
+and you're interested in the exact time range of the
 
 ### Multi-Channel Read
 

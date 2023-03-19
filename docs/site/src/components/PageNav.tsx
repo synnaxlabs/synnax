@@ -42,12 +42,17 @@ export const PageNav = ({ currentPage }: TOCProps): JSX.Element | null => {
   return (
     <Dropdown visible={visible} bordered={false} location="top">
       <Button
-        justify="end"
-        startIcon={<Icon.Menu />}
+        justify="spaceBetween"
+        endIcon={<Icon.Menu />}
         variant="text"
         onClick={() => toggle(!visible)}
         size="large"
-      />
+        style={{
+          height: "40px",
+        }}
+      >
+        Menu
+      </Button>
       {tree}
     </Dropdown>
   );

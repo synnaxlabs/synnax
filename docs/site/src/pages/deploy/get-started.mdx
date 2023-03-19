@@ -96,25 +96,25 @@ development.
 To start a single node cluster on macOS, first download the latest Synnax binary
 by running:
 
-```bash
+```cmd
 curl -LO
 ```
 
 Then, remove any previous installations and move the binary to `/usr/local/synnax/bin`:
 
-```bash
+```cmd
 rm -rf /usr/local/synnax && mv synnax /usr/local/synnax/bin
 ```
 
 Next, add `/usr/local/synnax/bin` to your `PATH`:
 
-```bash
+```cmd
 export PATH=$PATH:/usr/local/synnax/bin
 ```
 
 Finally, start the node:
 
-```bash
+```cmd
 synnax start --listen-address=localhost:9090 --mem --insecure
 ```
 
