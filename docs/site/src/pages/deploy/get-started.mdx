@@ -6,8 +6,11 @@ description: "This page will walk you through starting a single node cluster for
 learning, or development."
 ---
 
-import { Tabs } from "@/components/Tabs";
 import { Icon } from "@synnaxlabs/media";
+
+import SynnaxDownloadURL from "@/components/SynnaxDownloadURL.astro";
+import SynnaxMoveCommand from "@/components/SynnaxMoveCommand.astro";
+import { Tabs } from "@/components/Tabs";
 
 This page will walk you through starting a single node cluster for testing, learning, or
 development. To get started, select your operating system below.
@@ -55,20 +58,28 @@ development.
 To start a single node cluster on Linux, first download the latest Synnax binary
 by running:
 
-```cmd
-curl -LO
-```
+<SynnaxDownloadURL os="linux" />
 
 Then, remove any previous installations and move the binary to `/usr/local/synnax/bin`:
 
+<SynnaxMoveCommand os="linux" />
+
+Then, remove any previous installations:
+
 ```cmd
-rm -rf /usr/local/synnax && mv synnax /usr/local/synnax/bin
+sudo rm -rf /usr/local/synnax && sudo mkdir -p /usr/local/synnax
 ```
 
-Next, add `/usr/local/synnax/bin` to your `PATH`:
+Then, give execution permissions to the binary:
 
 ```cmd
-export PATH=$PATH:/usr/local/synnax/bin
+chmod +x /usr/local/synnax/synnax
+```
+
+Next, add `/usr/local/synnax` to your `PATH`:
+
+```cmd
+export PATH=$PATH:/usr/local/synnax
 ```
 
 Finally, start the node:
@@ -96,25 +107,33 @@ development.
 To start a single node cluster on macOS, first download the latest Synnax binary
 by running:
 
-```bash
-curl -LO
+<SynnaxDownloadURL os="macos" />
+
+Then, remove any previous installations:
+
+```cmd
+sudo rm -rf /usr/local/synnax && sudo mkdir -p /usr/local/synnax
 ```
 
-Then, remove any previous installations and move the binary to `/usr/local/synnax/bin`:
+Next, move the binary:
 
-```bash
-rm -rf /usr/local/synnax && mv synnax /usr/local/synnax/bin
+<SynnaxMoveCommand os="macos" />
+
+Then, give execution permissions to the binary:
+
+```cmd
+chmod +x /usr/local/synnax/synnax
 ```
 
-Next, add `/usr/local/synnax/bin` to your `PATH`:
+Next, add `/usr/local/synnax` to your `PATH`:
 
-```bash
-export PATH=$PATH:/usr/local/synnax/bin
+```cmd
+export PATH=$PATH:/usr/local/synnax
 ```
 
 Finally, start the node:
 
-```bash
+```cmd
 synnax start --listen-address=localhost:9090 --mem --insecure
 ```
 
