@@ -48,7 +48,6 @@ jobs:
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
             echo "VERSION=$(cat VERSION)" >> $GITHUB_OUTPUT
           else
-            # we want the short sha
             echo "VERSION=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
           fi
 
@@ -108,12 +107,12 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            const { data: { id } } = await github.repos.createRelease({
+            const { data: { id } } = await github.rest.repos.createRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
               tag_name: synnax-`v${{ steps.version.outputs.VERSION }}`,
               name: synnax-`v${{ steps.version.outputs.VERSION }}`,
-              draft: true,
+              draft: false,
               prerelease: false,
             })
             return id
