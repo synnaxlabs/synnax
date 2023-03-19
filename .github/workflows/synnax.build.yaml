@@ -108,15 +108,14 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            const { data: { id } } = await github.rest.repos.createRelease({
+            return await github.rest.repos.createRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
               tag_name: `synnax-v${{ steps.version.outputs.VERSION }}`,
               name: `synnax-v${{ steps.version.outputs.VERSION }}`,
               draft: false,
               prerelease: false,
-            })
-            return id
+            }).data;
 
   build:
     needs: create-release
