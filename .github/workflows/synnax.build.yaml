@@ -144,18 +144,18 @@ jobs:
         run: |
           go mod download
 
-      - name: Build
-        if: steps.filter.outputs.changed == 'true'
-        working-directory: ./synnax
-        run: |
-          go build -o synnax-v${{ steps.version.outputs.VERSION }}-${{ matrix.platform }} .
-
       - name: Get Version
         if: steps.filter.outputs.changed == 'true'
         id: version
         working-directory: ./synnax
         run: |
           echo "VERSION=$(cat VERSION)" >> $GITHUB_OUTPUT
+
+      - name: Build
+        if: steps.filter.outputs.changed == 'true'
+        working-directory: ./synnax
+        run: |
+          go build -o synnax-v${{ steps.version.outputs.VERSION }}-${{ matrix.platform }} .
 
       - name: Upload Release Asset
         if: steps.filter.outputs.changed == 'true'
