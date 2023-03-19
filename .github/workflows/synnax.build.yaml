@@ -3,7 +3,7 @@ on:
   push:
   workflow_dispatch:
 jobs:
-  build:
+  docker:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -72,3 +72,89 @@ jobs:
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
             docker push synnaxlabs/synnax:latest
           fi
+
+  create-release:
+    needs: docker
+    runs-on: ubuntu-latest
+    outputs:
+      release_id: ${{ steps.create_release.outputs.id }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Diff Changes
+        uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            changed:
+              - 'synnax/**'
+              - 'cesium/**'
+              - 'x/**'
+              - 'delta/**'
+              - 'freighter/go/**'
+              - '.github/workflows/synnax.build.yaml'
+
+      - name: Get Version
+        if: steps.filter.outputs.changed == 'true'
+        id: version
+        run: |
+          echo "VERSION=$(cat VERSION)" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        if: steps.filter.outputs.changed == 'true'
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: synnax-${{ steps.version.outputs.VERSION }}
+          release_name: synnax-${{ steps.version.outputs.VERSION }}
+          draft: false
+          prerelease: false
+
+  build:
+    strategy:
+      matrix:
+        platform: [linux, macos, windows]
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Diff Changes
+        uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            changed:
+              - 'synnax/**'
+              - 'cesium/**'
+              - 'x/**'
+              - 'delta/**'
+              - 'freighter/go/**'
+              - '.github/workflows/synnax.build.yaml'
+
+      - name: Set up Go
+        if: steps.filter.outputs.changed == 'true'
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.20
+
+      - name: Build
+        if: steps.filter.outputs.changed == 'true'
+        run: |
+          go build -o synnax ./synnax/main.go
+
+      - name: Upload Release Asset
+        if: steps.filter.outputs.changed == 'true'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ./synnax
+          asset_name: synnax-${{ matrix.platform }}-${{ steps.version.outputs.VERSION }}
+          asset_content_type: application/octet-stream
