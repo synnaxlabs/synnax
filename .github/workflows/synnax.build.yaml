@@ -120,7 +120,7 @@ jobs:
     needs: create-release
     strategy:
       matrix:
-        platform: [linux, macos, windows]
+        platform: [macos-latest, ubuntu-latest, windows-latest]
 
     runs-on: ${{ matrix.platform }}
     steps:
