@@ -1,8 +1,6 @@
 name: "Synnax Build"
 on:
-  pull_request:
-    branches:
-      - main
+  push:
   workflow_dispatch:
 jobs:
   build:
@@ -43,16 +41,33 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Evaluate Version
+        if: steps.filter.outputs.changed == 'true'
+        id: version
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "VERSION=$(cat VERSION)" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=${{ github.sha }}" >> $GITHUB_OUTPUT
+          fi
+
       - name: Build Image and Push to Github Container Registry
         if: steps.filter.outputs.changed == 'true'
-        run: earthly --push +docker -noui=true
+        run: earthly --push +docker -tag=${{ steps.version.outputs.VERSION }}
         working-directory: ./synnax
 
       - name: Rename Image
         if: steps.filter.outputs.changed == 'true'
-        run: docker tag ghcr.io/synnaxlabs/synnax:latest synnaxlabs/synnax:latest
+        run: |
+          docker tag ghcr.io/synnaxlabs/synnax:${{ steps.version.outputs.VERSION }} synnaxlabs/synnax:${{ steps.version.outputs.VERSION }}
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            docker tag ghcr.io/synnaxlabs/synnax:${{ steps.version.outputs.VERSION }} synnaxlabs/synnax:latest
+          fi
 
       - name: Push to Docker Hub
         if: steps.filter.outputs.changed == 'true'
-        run: docker push synnaxlabs/synnax:latest
-
+        run: |
+          docker push synnaxlabs/synnax:${{ steps.version.outputs.VERSION }}
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            docker push synnaxlabs/synnax:latest
+          fi
