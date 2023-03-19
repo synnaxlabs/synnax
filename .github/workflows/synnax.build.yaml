@@ -118,6 +118,7 @@ jobs:
             return id
 
   build:
+    needs: create-release
     strategy:
       matrix:
         platform: [linux, macos, windows]
