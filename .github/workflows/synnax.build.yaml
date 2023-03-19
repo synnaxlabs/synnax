@@ -98,7 +98,7 @@ jobs:
       - name: Get Version
         if: steps.filter.outputs.changed == 'true'
         id: version
-        working-direction: ./synnax
+        working-directory: ./synnax
         run: |
           echo "VERSION=$(cat VERSION)" >> $GITHUB_OUTPUT
 
@@ -156,7 +156,7 @@ jobs:
       - name: Get Version
         if: steps.filter.outputs.changed == 'true'
         id: version
-        working-direction: ./synnax
+        working-directory: ./synnax
         run: |
           echo "VERSION=$(cat VERSION)" >> $GITHUB_OUTPUT
 
