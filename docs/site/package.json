@@ -24,7 +24,8 @@
     "clsx": "^1.2.1",
     "html-escaper": "^3.0.3",
     "react": "^18.0.0",
-    "react-dom": "^18.0.0"
+    "react-dom": "^18.0.0",
+    "shiki": "^0.14.1"
   },
   "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:*",
