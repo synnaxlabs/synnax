@@ -150,8 +150,9 @@ jobs:
 
       - name: Build
         if: steps.filter.outputs.changed == 'true'
+        working-directory: ./synnax
         run: |
-          go build -o synnax ./synnax/main.go
+          go build -o synnax .
 
       - name: Get Version
         if: steps.filter.outputs.changed == 'true'
