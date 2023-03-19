@@ -76,8 +76,7 @@ jobs:
   create-release:
     runs-on: ubuntu-latest
     outputs:
-      release_id: ${{ steps.create-release.outputs.result.id }}
-      upload_url: ${{ steps.create-release.outputs.result.upload_url }}
+      upload_url: ${{ steps.create-release.outputs.result }}
       
 
     steps:
@@ -110,14 +109,15 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            return await github.rest.repos.createRelease({
+            const { data: { upload_url } } = await github.rest.repos.createRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
               tag_name: `synnax-v${{ steps.version.outputs.VERSION }}`,
               name: `synnax-v${{ steps.version.outputs.VERSION }}`,
               draft: false,
               prerelease: false,
-            }).data;
+            });
+            return upload_url;
 
   build:
     needs: create-release
