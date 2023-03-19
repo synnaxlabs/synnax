@@ -3,10 +3,6 @@ FROM golang:1.19-bullseye
 WORKDIR /synnax
 
 deps:
-    ARG noui=false
-    IF [ "$noui" = "false" ]
-        COPY ./pkg/ui+build/* ./pkg/ui
-    END
     COPY ../x/go+source/* /x/go
     COPY ../cesium+source/* /cesium
     COPY ../aspen+source/* /aspen
@@ -27,6 +23,11 @@ build:
     SAVE ARTIFACT build/synnax /synnax AS LOCAL build/synnax
 
 docker:
+    ARG tag="latest"
     COPY +build/synnax .
     ENTRYPOINT ["/synnax/synnax", "start"]
-    SAVE IMAGE --push ghcr.io/synnaxlabs/synnax:latest
+    IF [ "$branch" != "main" ]
+        ARG commit=$(git rev-parse --short HEAD)
+        ARG tag=$commit
+    END
+    SAVE IMAGE ghcr.io/synnaxlabs/synnax:$tag
