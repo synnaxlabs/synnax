@@ -37,6 +37,10 @@ nyc_output
 
 logs
 
-# |||| WORK ||||    
+# |||| WORK ||||
 
 work
+
+# |||| VERCEL ||||
+
+.vercel

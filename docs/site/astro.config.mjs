@@ -16,8 +16,8 @@ import { defineConfig } from "astro/config";
 
 const shikiResourcePaths = Object.keys(
     import.meta.glob([
-        "./node_modules/.pnpm/shiki@*/node_modules/shiki/languages/*.tmLanguage.json",
-        "./node_modules/.pnpm/shiki@*/node_modules/shiki/themes/*.json",
+        "../../node_modules/.pnpm/shiki@*/node_modules/shiki/languages/*.tmLanguage.json",
+        "../../node_modules/.pnpm/shiki@*/node_modules/shiki/themes/*.json",
     ])
 );
 
