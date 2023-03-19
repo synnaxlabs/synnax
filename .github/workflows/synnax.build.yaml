@@ -76,7 +76,7 @@ jobs:
   create-release:
     runs-on: ubuntu-latest
     outputs:
-      upload_url: ${{ steps.create-release.outputs.result }}
+      release_id: ${{ steps.create-release.outputs.result }}
       
 
     steps:
@@ -109,7 +109,7 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            const { data: { upload_url } } = await github.rest.repos.createRelease({
+            const { data: { id } } = await github.rest.repos.createRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
               tag_name: `synnax-v${{ steps.version.outputs.VERSION }}`,
@@ -117,7 +117,7 @@ jobs:
               draft: false,
               prerelease: false,
             });
-            return upload_url;
+            return id;
 
   build:
     needs: create-release
@@ -170,11 +170,17 @@ jobs:
 
       - name: Upload Release Asset
         if: steps.filter.outputs.changed == 'true'
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: actions/github-script@v6
         with:
-          upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ./synnax/synnax
-          asset_name: synnax-${{ matrix.platform }}-${{ steps.version.outputs.VERSION }}
-          asset_content_type: application/octet-stream
+          script: |
+            await github.rest.repos.uploadReleaseAsset({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: ${{ needs.create-release.outputs.release_id }},t 
+              name: `synnax-${{ matrix.platform }}-${{ steps.version.outputs.VERSION }}`,
+              data: fs.readFileSync(`./synnax/synnax`),
+              headers: {
+                'content-type': 'application/octet-stream',
+                'content-length': fs.statSync(`./synnax/synnax`).size
+              }
+            });
