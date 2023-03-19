@@ -50,7 +50,7 @@ jobs:
                           tag_name: `delta-v${process.env.PACKAGE_VERSION}`,
                           name: `Synnax Delta v${process.env.PACKAGE_VERSION}`,
                           body: "Synnax Delta Release",
-                          draft: true,
+                          draft: false,
                           prerelease: false,
             })
             return id

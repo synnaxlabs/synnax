@@ -14,7 +14,6 @@ build:
     FROM +deps
     COPY . .
     ARG noui=false
-    RUN go env
     IF [ "$noui" = "true" ]
         RUN go build -tags noui -o build/synnax .
     ELSE
