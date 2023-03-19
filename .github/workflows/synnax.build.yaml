@@ -48,7 +48,8 @@ jobs:
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
             echo "VERSION=$(cat VERSION)" >> $GITHUB_OUTPUT
           else
-            echo "VERSION=${{ github.sha }}" >> $GITHUB_OUTPUT
+            # we want the short sha
+            echo "VERSION=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
           fi
 
       - name: Build Image and Push to Github Container Registry
