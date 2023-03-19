@@ -44,7 +44,6 @@ jobs:
       - name: Evaluate Version
         if: steps.filter.outputs.changed == 'true'
         id: version
-
         run: |
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
             echo "VERSION=$(cat VERSION)" >> $GITHUB_OUTPUT
@@ -103,8 +102,8 @@ jobs:
         id: create-release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: synnax-v${{ steps.version.outputs.VERSION }}
-          name: synnax-v${{ steps.version.outputs.VERSION }}
+          tag_name: synnax/v${{ steps.version.outputs.VERSION }}
+          name: Synnax v${{ steps.version.outputs.VERSION }}
           draft: false
           prerelease: false
 
@@ -118,6 +117,18 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
+
+      - name: Determine OS
+        id: os
+        shell: bash
+        run: |
+          if [ "${{ matrix.platform }}" = "macos-latest" ]; then
+            echo "OS=macos" >> $GITHUB_OUTPUT
+          elif [ "${{ matrix.platform }}" = "ubuntu-latest" ]; then
+            echo "OS=linux" >> $GITHUB_OUTPUT
+          elif [ "${{ matrix.platform }}" = "windows-latest" ]; then
+            echo "OS=windows" >> $GITHUB_OUTPUT
+          fi
 
       - name: Diff Changes
         uses: dorny/paths-filter@v2
@@ -148,6 +159,7 @@ jobs:
         if: steps.filter.outputs.changed == 'true'
         id: version
         working-directory: ./synnax
+        shell: bash
         run: |
           echo "VERSION=$(cat VERSION)" >> $GITHUB_OUTPUT
 
@@ -155,10 +167,10 @@ jobs:
         if: steps.filter.outputs.changed == 'true'
         working-directory: ./synnax
         run: |
-          go build -o synnax-v${{ steps.version.outputs.VERSION }}-${{ matrix.platform }} .
+          go build -o synnax-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}
 
       - name: Upload Release Asset
         if: steps.filter.outputs.changed == 'true'
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: gh release upload synnax-v${{ steps.version.outputs.VERSION }} ./synnax/synnax-v${{ steps.version.outputs.VERSION }}-${{ matrix.platform }}
+        run: gh release upload synnax/v${{ steps.version.outputs.VERSION }} ./synnax/synnax-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}
