@@ -14,7 +14,8 @@ const {
 
 const url = Astro.request.url;
 if (url.includes("noHeader")) {
-    Astro.cookies.set("noHeader", "true");
+    const header = url.split("noHeader=")[1].split("&")[0];
+    Astro.cookies.set("noHeader", header);
 }
 if (url.includes("theme")) {
     const theme = url.split("theme=")[1].split("&")[0];

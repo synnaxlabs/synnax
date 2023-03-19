@@ -5,7 +5,7 @@ title: "Analyze"
 
 This section guides you through reading telemetry from a Synnax cluster to perform analysis.
 Guides are available for both Python and TypeScript. If you're interested in quickly
-visualiing data, see the [Visualize](/visualize/get-started) section.
+visualizing data, see the [Visualize](/visualize/get-started) section.
 
 ## Prerequisites
 
@@ -25,7 +25,7 @@ import { PackageManagerTabs } from "@/components/PackageManagerTabs";
 
 The `synnax` client requires Python 3.9 or higher, and can be installed using PyPi.
 
-```bash
+```cmd
 pip install synnax
 ```
 
@@ -88,24 +88,23 @@ plt.show()
 The `@synnaxlabs/client` package can be installed using your package manager of choice.
 
 <PackageManagerTabs client:idle>
+
 <Fragment slot="yarn">
-```bash
+```cmd
 yarn add @synnaxlabs/client
 ```
 </Fragment>
 <Fragment slot="npm">
-```bash
+```cmd
 npm install @synnaxlabs/client
 ```
 </Fragment>
 <Fragment slot="pnpm">
-```bash
+```cmd
 pnpm install @synnaxlabs/client
 ```
 </Fragment>
 </PackageManagerTabs>
-</Fragment>
-</ClientTabs>
 
 ### Instantiate a Client
 
@@ -142,3 +141,6 @@ const timestamps = time.read(start, end);
 
 // Do something interesting with it!
 ```
+
+</Fragment>
+</ClientTabs>
