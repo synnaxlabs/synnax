@@ -10,18 +10,14 @@
 package server
 
 import (
-	"bytes"
 	"github.com/cockroachdb/cmux"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/gofiber/fiber/v2/middleware/filesystem"
 	"github.com/gofiber/fiber/v2/middleware/monitor"
 	"github.com/gofiber/fiber/v2/middleware/pprof"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/synnaxlabs/freighter/fhttp"
-	"github.com/synnaxlabs/synnax/pkg/ui"
 	"github.com/synnaxlabs/x/telem"
-	"net/http"
 	"time"
 )
 
@@ -53,7 +49,6 @@ func (b *SecureHTTPBranch) Serve(ctx BranchContext) error {
 	b.internal = fiber.New(b.getConfig(ctx))
 	b.internal.Use(recover.New())
 	b.maybeRouteDebugUtil(ctx)
-	b.routeUI()
 	b.internal.Use(cors.New(cors.Config{AllowOrigins: "*"}))
 	for _, t := range b.Transports {
 		t.BindTo(b.internal)
@@ -70,20 +65,6 @@ func (b *SecureHTTPBranch) maybeRouteDebugUtil(ctx BranchContext) {
 	}
 	b.internal.Get("/metrics", monitor.New(monitor.Config{Title: "Synnax Metrics"}))
 	b.internal.Use(pprof.New())
-}
-
-func (b *SecureHTTPBranch) routeUI() {
-	if ui.HaveUI {
-		b.internal.Get("/", filesystem.New(filesystem.Config{
-			Root:       http.FS(ui.Dist),
-			PathPrefix: "dist",
-			Browse:     true,
-		}))
-	} else {
-		b.internal.Get("/", func(c *fiber.Ctx) error {
-			return c.SendStream(bytes.NewReader(ui.BareHTML))
-		})
-	}
 }
 
 var baseFiberConfig = fiber.Config{
