@@ -176,9 +176,12 @@ def fetch_sensor_data() -> tuple[np.ndarray, np.ndarray]:
     data = np.randon.rand(n_samples)
     return timestamps, data
 
-writer = client.new_writer(start=start, names=['time', 'my-precise-c'])
+TIME_CHANNEL = "time"
+TC_CHANNEL = "my-precise-tc"
 
-try:
+# Define the starting timestamp of our new domain as well as the
+# channels we'll be writing to.
+with client.new_writer(start, TIME_CHANNEL, TC_CHANNEL) as w:
     # Sample for 50 seconds
     for i in range(10)
         # Sleep 5 seconds to simulate recording
@@ -187,17 +190,15 @@ try:
         timestamps, data = fetch_sensor_data()
         # Write it.
         writer.write(pd.DataFrame.from_dict({
-            "time": timestamps,
-            "my-precise-tc": data,
-        })
+            TIME_CHANNEL: timestamps,
+            TC_CHANNEL: data,
+        }))
     # Commit the domain, persisting all writes to the database
     writer.commit()
-finally:
-    writer.close()
 ```
 
-It’s important to close a writer after you’re done with it, so we reccommend wrapping
-it’s usage in a try-except clause with a call to `close` in the finally block.
+We recommend using a writer as a context manager. This ensures that all writer-related
+resources are freed if an exception is thrown or the context exits.
 
 </Fragment>
 

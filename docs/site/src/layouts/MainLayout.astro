@@ -14,7 +14,8 @@ const {
 
 const url = Astro.request.url;
 if (url.includes("noHeader")) {
-    Astro.cookies.set("noHeader", "true");
+    const header = url.split("noHeader=")[1].split("&")[0];
+    Astro.cookies.set("noHeader", header);
 }
 if (url.includes("theme")) {
     const theme = url.split("theme=")[1].split("&")[0];
@@ -78,7 +79,9 @@ vars = { ...vars, ...Theming.toCSSVars(theme.value === "dark" ? DARK : LIGHT) };
         }}
     >
         <div class="header-content">
-            <Logo style={{ height: "6.5rem" }} />
+            <a href="/">
+                <Logo style={{ height: "6.5rem" }} />
+            </a>
         </div>
     </header>
     <section>
@@ -104,10 +107,23 @@ vars = { ...vars, ...Theming.toCSSVars(theme.value === "dark" ? DARK : LIGHT) };
             margin: 0;
         }
 
+        a {
+            color: var(--pluto-primary-m1);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
         header h1,
         header h2,
         header p {
             margin: 0 !important;
+        }
+
+        li {
+            margin: 0.5rem;
         }
 
         article h1,
@@ -122,10 +138,22 @@ vars = { ...vars, ...Theming.toCSSVars(theme.value === "dark" ? DARK : LIGHT) };
             margin: 2.5rem 0;
         }
 
+        article img {
+            margin: 2.5rem -2.5rem;
+        }
+
+        article .pluto-tabs-selector {
+            margin: 1.5rem 0;
+        }
+
         article video {
             width: 100%;
             border-radius: 1rem !important;
-            border: var(--pluto-border);
+            box-shadow: 0 0 1rem rgba(0, 0, 0, 0.2);
+        }
+
+        article img {
+            width: calc(100% + 5rem);
         }
 
         code:not(.astro-code code) {
@@ -148,6 +176,22 @@ vars = { ...vars, ...Theming.toCSSVars(theme.value === "dark" ? DARK : LIGHT) };
             margin: 2rem 1rem;
             overflow-x: auto !important;
             overflow-y: visible !important;
+        }
+
+        .pluto-dropdown__dialog {
+            border: none;
+            border-top: var(--pluto-border);
+            overflow: auto;
+            max-height: 40vh;
+        }
+
+        .pluto-dropdown > button {
+            border-top: var(--pluto-border) !important;
+            margin-top: 1px;
+        }
+
+        .pluto-pack {
+            border: none !important;
         }
 
         code {
@@ -182,11 +226,14 @@ vars = { ...vars, ...Theming.toCSSVars(theme.value === "dark" ? DARK : LIGHT) };
         }
 
         table {
-            width: 100%;
+            width: calc(100% - 4px);
             border-spacing: 0;
             background-color: transparent;
             border-collapse: collapse;
             overflow-x: auto;
+            border-style: hidden;
+            border-radius: var(--pluto-border-radius);
+            box-shadow: 0 0 0 1px var(--pluto-border-color);
         }
     </style>
 
@@ -246,11 +293,16 @@ vars = { ...vars, ...Theming.toCSSVars(theme.value === "dark" ? DARK : LIGHT) };
 
         @media (max-width: 600px) {
             section {
-                flex-direction: column;
+                flex-direction: column-reverse;
             }
             .docs-nav {
-                border-bottom: var(--pluto-border);
+                overflow-y: inherit;
                 border-right: none;
+                flex-basis: 0px;
+                padding: 0px;
+            }
+            article {
+                padding: 2rem !important;
             }
         }
 
@@ -273,10 +325,6 @@ vars = { ...vars, ...Theming.toCSSVars(theme.value === "dark" ? DARK : LIGHT) };
             flex-grow: 9999;
             padding: 5rem;
             overflow-y: auto;
-        }
-
-        .ytp-chrome {
-            display: none;
         }
     </style>
 </html>

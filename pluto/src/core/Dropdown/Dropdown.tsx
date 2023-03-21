@@ -11,9 +11,8 @@ import { forwardRef, RefObject, useCallback, useRef, useState } from "react";
 
 import { YLocation } from "@synnaxlabs/x";
 
-import { Pack } from "../Pack";
-
-import { Space, SpaceProps } from "@/core/Space";
+import { Pack, PackProps } from "@/core/Pack";
+import { Space } from "@/core/Space";
 import { CSS } from "@/css";
 import { useClickOutside } from "@/hooks";
 
@@ -44,7 +43,7 @@ export const useDropdown = (initialVisible: boolean = false): UseDropdownReturn 
 /** Props for the {@link Dropdown} component. */
 export interface DropdownProps
   extends Pick<UseDropdownReturn, "visible">,
-    Omit<SpaceProps, "ref" | "reverse" | "size" | "empty"> {
+    Omit<PackProps, "ref" | "reverse" | "size" | "empty"> {
   location?: YLocation;
   children: [JSX.Element, JSX.Element];
   keepMounted?: boolean;

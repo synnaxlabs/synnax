@@ -22,5 +22,10 @@ export const acquireNav: PageNavLeaf = {
       url: "/acquire/write-telemetry",
       name: "Write Telemetry",
     },
+    {
+      key: "/acquire/ingest-files",
+      url: "/acquire/ingest-files",
+      name: "Ingest Files",
+    },
   ],
 };

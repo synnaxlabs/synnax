@@ -93,7 +93,7 @@ const synnaxBase: Theme = {
       p0: "#676762",
       m0: "#94938D",
       m1: "#C8C7BF",
-      m2: "#e5e5e5",
+      m2: "#eceaea",
       m3: "#FEFEFD",
     },
     border: "#C8C7BF",

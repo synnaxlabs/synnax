@@ -18,7 +18,12 @@ import "./Pack.css";
 export type PackProps<E extends SpaceElementType = "div"> = Omit<
   SpaceProps<E>,
   "empty"
->;
+> &
+  PackExtensionProps;
+
+export interface PackExtensionProps {
+  bordered?: boolean;
+}
 
 const CorePack = <E extends SpaceElementType = "div">(
   {
@@ -27,6 +32,7 @@ const CorePack = <E extends SpaceElementType = "div">(
     size = "medium",
     reverse = false,
     direction = "x",
+    bordered = true,
     ...props
   }: PackProps<E>,
   // select the correct type for the ref
@@ -42,6 +48,7 @@ const CorePack = <E extends SpaceElementType = "div">(
       CSS.dir(direction),
       typeof size !== "number" && CSS.BM("pack", size),
       reverse && CSS.BM("pack", "reverse"),
+      bordered && CSS.BM("pack", "bordered"),
       className
     )}
     {...props}
