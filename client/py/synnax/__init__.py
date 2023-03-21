@@ -39,6 +39,7 @@ from .telem import (
     UnparsedTimeStamp,
     NumpyArray,
     BinaryArray,
+    convert_time_units,
 )
 from .framer import (
     BinaryFrame,

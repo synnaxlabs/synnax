@@ -18,6 +18,12 @@
     border-radius: var(--pluto-border-radius);
 }
 
+@media (max-width: 600px) {
+    .docs-get-started-chip .call-to-action {
+        display: none;
+    }
+}
+
 .docs-get-started-chip .call-to-action {
     white-space: nowrap !important;
     transition: transform 0.2s;

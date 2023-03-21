@@ -35,12 +35,12 @@ export const useDocumentSize = (): number | null => {
 
 export const PageNav = ({ currentPage }: TOCProps): JSX.Element | null => {
   const width = useDocumentSize();
-  const { visible, toggle } = Dropdown.use(false);
+  const { visible, toggle, ref } = Dropdown.use(false);
   const tree = <Tree data={pages} value={[currentPage]} />;
   if (width == null) return null;
   if (width > 600) return tree;
   return (
-    <Dropdown visible={visible} bordered={false} location="top">
+    <Dropdown visible={visible} bordered={false} ref={ref} location="top">
       <Button
         justify="spaceBetween"
         endIcon={<Icon.Menu />}

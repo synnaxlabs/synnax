@@ -138,6 +138,10 @@ vars = { ...vars, ...Theming.toCSSVars(theme.value === "dark" ? DARK : LIGHT) };
             margin: 2.5rem 0;
         }
 
+        article img {
+            margin: 2.5rem -2.5rem;
+        }
+
         article .pluto-tabs-selector {
             margin: 1.5rem 0;
         }
@@ -145,7 +149,11 @@ vars = { ...vars, ...Theming.toCSSVars(theme.value === "dark" ? DARK : LIGHT) };
         article video {
             width: 100%;
             border-radius: 1rem !important;
-            border: var(--pluto-border);
+            box-shadow: 0 0 1rem rgba(0, 0, 0, 0.2);
+        }
+
+        article img {
+            width: calc(100% + 5rem);
         }
 
         code:not(.astro-code code) {
@@ -173,7 +181,8 @@ vars = { ...vars, ...Theming.toCSSVars(theme.value === "dark" ? DARK : LIGHT) };
         .pluto-dropdown__dialog {
             border: none;
             border-top: var(--pluto-border);
-            overflow: scroll;
+            overflow: auto;
+            max-height: 40vh;
         }
 
         .pluto-dropdown > button {
@@ -217,11 +226,14 @@ vars = { ...vars, ...Theming.toCSSVars(theme.value === "dark" ? DARK : LIGHT) };
         }
 
         table {
-            width: 100%;
+            width: calc(100% - 4px);
             border-spacing: 0;
             background-color: transparent;
             border-collapse: collapse;
             overflow-x: auto;
+            border-style: hidden;
+            border-radius: var(--pluto-border-radius);
+            box-shadow: 0 0 0 1px var(--pluto-border-color);
         }
     </style>
 

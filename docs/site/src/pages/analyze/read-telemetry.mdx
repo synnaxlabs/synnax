@@ -77,8 +77,8 @@ with client.new_iterator(start, end, "my-precise-tc", "time", chunk_size=100) as
         # Do something with the current frame
 ```
 
-It’s important to close an iterator after you’re done with it, so we reccommend wrapping it’s
-usage in a try-except clause with a call to `close` in the finally block.
+We recommend using the iterator as a context manager. This ensures that all iterator-related
+resources are freed if an exception is thrown or the context exits.
 
 </Fragment>
 <Fragment slot="typescript">

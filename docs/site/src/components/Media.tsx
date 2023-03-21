@@ -20,3 +20,10 @@ export const Video = ({ id }: VideoProps): JSX.Element => {
   const modifier = theme?.toLowerCase().includes("dark") ? "dark" : "light";
   return <PVideo href={`${CDN_ROOT}/${id}-${modifier}.mp4`} loop autoPlay />;
 };
+
+export const Image = ({ id }: VideoProps): JSX.Element => {
+  const theme = localStorage.getItem("theme") ?? "light";
+  const modifier = theme?.toLowerCase().includes("dark") ? "dark" : "light";
+  console.log(theme);
+  return <img src={`${CDN_ROOT}/${id}-${modifier}.png`} />;
+};

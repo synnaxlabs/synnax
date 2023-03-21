@@ -10,13 +10,13 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone, tzinfo
-from typing import TypeAlias, Union, get_args, no_type_check
+from typing import TypeAlias, Union, get_args
 from numpy.typing import DTypeLike
 
 import numpy as np
 import pandas as pd
 from freighter import Payload
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 
 from .exceptions import ContiguityError
 
@@ -359,14 +359,17 @@ def convert_time_units(data: np.ndarray, _from: str, to: str):
     :param to: the units to convert to
     :return: the data in the new units
     """
-    if _from == to:
-        return data
-    f = TimeSpan.UNITS.get(_from, None)
+    if _from == "iso":
+        data = datetime.fromisoformat(data).timestamp()
+        f = TimeSpan.SECOND
+    else:
+        f = TimeSpan.UNITS.get(_from, None)
     if f is None:
         raise ValueError(f"Invalid input time unit {_from}")
     t = TimeSpan.UNITS.get(to, None)
     if t is None:
         raise ValueError(f"Invalid output time unit {to}")
+
     converted = data * f / t
     if to == TimeSpan.SECOND_UNITS:
         return converted.astype(np.float64)
