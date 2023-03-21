@@ -15,38 +15,38 @@ func configureRootFlags() {
 	rootCmd.PersistentFlags().StringP(
 		"config",
 		"c",
-		"",
-		"config file (default is $HOME/.synnax.yaml)",
+		"/usr/local/synnax/config.yaml",
+		"config file"
 	)
 
 	rootCmd.PersistentFlags().String(
 		"certs-dir",
 		cert.DefaultLoaderConfig.CertsDir,
-		"The directory to store the certificates in.",
+		"The directory where certificates should be stored and/or written to.",
 	)
 
 	rootCmd.PersistentFlags().String(
 		"ca-key",
 		cert.DefaultLoaderConfig.CAKeyPath,
-		"The path to the CA key.",
+		"The path to the CA key. This is relative to certs-dir.",
 	)
 
 	rootCmd.PersistentFlags().String(
 		"ca-cert",
 		cert.DefaultLoaderConfig.CACertPath,
-		"The path to the CA certificate.",
+		"The path to the CA certificate. This is relative to certs-dir.",
 	)
 
 	rootCmd.PersistentFlags().String(
 		"node-key",
 		cert.DefaultLoaderConfig.NodeKeyPath,
-		"The path to the node key.",
+		"The path to the node key. This is relative to certs-dir.",
 	)
 
 	rootCmd.PersistentFlags().String(
 		"node-cert",
 		cert.DefaultLoaderConfig.NodeCertPath,
-		"The path to the node certificate.",
+		"The path to the node certificate. This is relative to certs-dir.",
 	)
 
 	rootCmd.PersistentFlags().Bool(
