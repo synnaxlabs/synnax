@@ -6,7 +6,6 @@
 // As of the Change Date specified in that file, in accordance with the Business Source
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
-//
 
 import {
   convertRenderV,
@@ -20,6 +19,7 @@ export interface TableColumn<E extends KeyedRenderableRecord<E>> {
   key: keyof E;
   name?: string;
   width?: number;
+  type?: "code";
 }
 
 export interface TableHighlight<E extends KeyedRenderableRecord<E>> {
@@ -41,29 +41,31 @@ export const Table = <E extends KeyedRenderableRecord<E>>({
   highlights = [],
 }: TableProps<E>): JSX.Element => {
   return (
-    <table>
-      <thead>
-        <tr>
-          {columns.map(({ key, name, width }) => (
-            <th key={key as string} style={{ width }}>
-              {name ?? (key as string)}
-            </th>
+    <div style={{ overflowX: "auto", paddingLeft: 2 }}>
+      <table>
+        <thead>
+          <tr>
+            {columns.map(({ key, name, width }) => (
+              <th key={key as string} style={{ width }}>
+                {name ?? (key as string)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((row, i) => (
+            <TableRow<E>
+              key={i}
+              columns={columns}
+              data={row}
+              highlights={highlights}
+              index={i}
+              dataLength={data.length}
+            />
           ))}
-        </tr>
-      </thead>
-      <tbody>
-        {data.map((row, i) => (
-          <TableRow<E>
-            key={i}
-            columns={columns}
-            data={row}
-            highlights={highlights}
-            index={i}
-            dataLength={data.length}
-          />
-        ))}
-      </tbody>
-    </table>
+        </tbody>
+      </table>
+    </div>
   );
 };
 
@@ -81,20 +83,22 @@ const TableRow = <E extends KeyedRenderableRecord<E>>({
   columns,
   data,
   highlights,
-}: TableRowProps<E>): JSX.Element => (
-  <tr>
-    {columns.map((col) => (
-      <TableCell<E>
-        key={col.key as string}
-        index={index}
-        dataLength={dataLength}
-        highlights={highlights}
-        data={data}
-        column={col}
-      />
-    ))}
-  </tr>
-);
+}: TableRowProps<E>): JSX.Element => {
+  return (
+    <tr>
+      {columns.map((col) => (
+        <TableCell<E>
+          key={col.key as string}
+          index={index}
+          dataLength={dataLength}
+          highlights={highlights}
+          data={data}
+          column={col}
+        />
+      ))}
+    </tr>
+  );
+};
 
 interface TableCellProps<E extends KeyedRenderableRecord<E>> {
   index: number;
@@ -110,7 +114,7 @@ const TableCell = <E extends KeyedRenderableRecord<E>>({
   highlights,
   data,
   column,
-}: TableCellProps<E>): JSX.Element => {
+}: TableCellProps<E>): JSX.Element | null => {
   const endings = highlights.filter(({ rows, columns }) => {
     const rowValid = rows != null ? rows.upper === index : index === dataLength - 1;
     const colValid = columns != null ? columns.includes(column.key) : true;
@@ -193,10 +197,13 @@ const TableCell = <E extends KeyedRenderableRecord<E>>({
     );
   }
 
+  let content = convertRenderV(data[column.key]);
+  if (column.type === "code") content = <code>{content}</code>;
+
   return (
     <td>
       {elements}
-      {convertRenderV(data[column.key])}
+      {content}
     </td>
   );
 };

@@ -5,7 +5,7 @@ import SetupTypescript from "./setup-typescript.md";
 const { includeSetup = true } = Astro.props;
 ---
 
-<ClientTabs client:idle>
+<ClientTabs client:only="react">
     {includeSetup && <SetupPython slot="setup-python" />}
     {includeSetup && <SetupTypescript slot="setup-typescript" />}
     <Fragment slot="python">

@@ -75,6 +75,10 @@ export const TableOfContents = ({
     return () => headingsObserver.disconnect();
   }, [toc.current]);
 
+  // If there ar eno headings,
+  // return an empty div.
+  if (headings.length === 0) return <></>;
+
   return (
     <Space
       style={{

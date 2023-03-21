@@ -17,16 +17,16 @@ pages will introduce you to the core concepts needed to work effectively with a 
 
 ### Nodes
 
-A node is an individual, running instance of the Synnax executable. The host machine
+A [node](/concepts/clusters-and-nodes) is an individual, running instance of the Synnax executable. The host machine
 can be an edge device, VM, container, or bare metal server. The only requirement is
 that it can store data on disk and has an address reachable by other nodes in the cluster.
 
 ### Clusters
 
-Nodes communicate with each other to form a cluster. The nodes in a cluster collaborate
-to read, write, and exchange data. Nodes expose the cluster as a monolothic data space,
-meaning that a user can query a single node for the entire cluster’s telemetry without
-being aware of where it is actually stored.
+Nodes communicate with each other to form a [cluster](/concepts/clusters-and-nodes). The
+nodes in a cluster collaborate to read, write, and exchange data. Nodes expose the cluster
+as a monolothic data space, meaning that a user can query a single node for the entire
+cluster’s telemetry without being aware of where it is actually stored.
 
 ## Telemetry Components
 

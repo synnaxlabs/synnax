@@ -48,7 +48,7 @@ def ask_time_units_select(
     if question is not None:
         ctx.console.info(question)
     return ctx.console.select(
-        rows=list(TimeSpan.UNITS.keys()),
+        rows=["iso", *list(TimeSpan.UNITS.keys())],
         type_=str,
         columns=["unit"],
         **kwargs,
