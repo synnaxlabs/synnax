@@ -16,7 +16,7 @@ func configureRootFlags() {
 		"config",
 		"c",
 		"/usr/local/synnax/config.yaml",
-		"config file"
+		"config file",
 	)
 
 	rootCmd.PersistentFlags().String(
