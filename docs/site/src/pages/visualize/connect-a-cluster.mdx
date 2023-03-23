@@ -7,6 +7,7 @@ description: "This page will show you how to connect to a Synnax cluster using D
 import { Space } from "@synnaxlabs/pluto";
 import { DeltaDownloadButton } from "@/components/OSDownloadButton";
 import { Video } from "@/components/Media";
+import { Table } from "@/components/Table";
 
 This page will show you how to connect to a Synnax cluster using Delta.
 
@@ -14,8 +15,8 @@ This page will show you how to connect to a Synnax cluster using Delta.
 
 This page assumes you've already:
 
-1. Started a Synnax cluster.
-2. Installed the Delta UI.
+1. [Started a Synnax cluster.](/deploy/get-started)
+2. [Installed the Delta UI.](/visualize/get-started)
 
 ## Adding a New Cluster
 
@@ -28,19 +29,51 @@ below.
 This will add a new cluster to the list and set it as active. Delta continuously monitors
 the connection to the cluster and displays it in the bottom right corner of the UI.
 
-## Parameters
+### Parameters
 
-1. Name - A human-readable name for the cluster.
-2. Host - The hostname or IP address of the cluster.
-3. Port - The port number of the cluster.
-4. Username - The username to use when connecting to the cluster.
-5. Password - The password to use when connecting to the cluster.
-6. Secure - A boolean value indicating whether to use TLS when connecting to the cluster.
-   This parameter only works with secure clusters.
+<Table
+    columns={[
+        {
+            key: "name",
+            name: "Name",
+        },
+        {
+            key: "description",
+            name: "Description",
+        },
+    ]}
+    data={[
+        {
+            name: "Name",
+            description: "A human-readable name for the cluster.",
+        },
+        {
+            name: "Host",
+            description: "The hostname or IP address of the cluster.",
+        },
+        {
+            name: "Port",
+            description: "The port number of the cluster.",
+        },
+        {
+            name: "Username",
+            description: "The username to use when connecting to the cluster.",
+        },
+        {
+            name: "Password",
+            description: "The password to use when connecting to the cluster.",
+        },
+        {
+            name: "Secure",
+            description:
+                "A boolean value indicating whether to use TLS when connecting to the cluster. This parameter only works with secure clusters.",
+        },
+    ]}
+/>
 
 ## Switching Clusters
 
-Changing the active cluster is as easy as double clicking on the cluster you want to
-in the cluster toolbar.
+If you have multiple clusters, you can switch between them by double clicking on the
+cluster you want to connect to in the cluster toolbar.
 
 <Video client:only="react" id="visualize/switch-clusters" />
