@@ -3,6 +3,87 @@ layout: "@/layouts/MainLayout.astro"
 title: "Create a Visualization"
 ---
 
+This page walks you through creating a new visualization.
+
+## Prerequisites
+
+This page assumes you've already:
+
+1. [Installed the Delta UI.](/visualize/get-started)
+2. [Defined a Range.](/visualize/define-a-range)
+
 import { Video } from "@/components/Media";
+import { Table } from "@/components/Table";
+
+## Create a Visualization
+
+To create a new visualization, click the Add Tab button in the top right corner of the
+central pane. Then, define the channels you want to plot along with the ranges you want to
+query data for.
 
 <Video client:only="react" id="/visualize/create-visualization" />
+
+### Channel Parameters
+
+<Table
+    columns={[
+        {
+            key: "name",
+            name: "Name",
+        },
+        {
+            key: "description",
+            name: "Description",
+        },
+    ]}
+    data={[
+        {
+            name: "Y1",
+            description: "The channels to plot on the left Y axis.",
+        },
+        {
+            name: "Y2",
+            description: "The channels to plot on the right Y axis.",
+        },
+        {
+            name: "Ranges",
+            description:
+                "The ranges to query data for. All channels will be queried for data in each range.",
+        },
+        {
+            name: "X",
+            description: "The channel to plot on the X axis.",
+        },
+    ]}
+/>
+
+## Select a Range for Analysis
+
+If you'd like to perform analysis on a specific section of data using a [client library](/analyze/get-started),
+you can use the selector. To do so, hold the `Alt` key and click and drag
+over the range you'd like to select. After lifting the mouse button, a menu will appear,
+allowing you to copy the time range in the programming language of your choice.
+
+<Video client:only="react" id="/visualize/select-range" />
+
+Then, you can use the selected range in your client library. We've provided the following
+example in Python:
+
+```python
+import synnax
+import matplotlib.pyplot as plt
+
+# Create a client.
+client = synnax.Synnax()
+
+# PASTE THE SELECTED RANGE HERE.
+tr = synnax.TimeRange(1676852636837258200, 1676853185745908500)
+
+# Query data for the selected range.
+pressures, _ = client.read(tr, "ec.pressure[12]")
+times, _ = client.read(tr, "Time")
+
+plt.plot(times, pressures)
+
+plt.show()
+```
