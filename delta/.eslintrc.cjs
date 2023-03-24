@@ -15,12 +15,4 @@ module.exports = {
     parserOptions: {
         project: ["./tsconfig.json", "./tsconfig.vite.json"],
     },
-    rules: {
-        "no-restricted-imports": [
-            "error",
-            {
-                patterns: ["@/features/*/*", "@/hooks/*/*", "@/components/*/*"],
-            },
-        ],
-    },
 };

@@ -1,0 +1,206 @@
+---
+layout: "@/layouts/MainLayout.astro"
+title: "Create Channels"
+description: "This page shows you how to create channels within a Synnax cluster. Channels
+can be created using the Synnax CLI, Delta UI, or any of-the Synnax client libraries."
+---
+
+import ClientTabs from "@/components/ClientTabs/ClientTabs.astro";
+
+This page shows you how to create channels within a Synnax cluster. Channels can be created
+using the Synnax CLI, Delta UI, or any of-the Synnax client libraries.
+
+## Prerequisites
+
+This page assumes you’ve already:
+
+1. [Started a Synnax cluster](/deploy/get-started).
+2. [Familiarized yourself with channels](/concepts/channels).
+
+## Channel Parameters
+
+Channels have a few important parameters that need to be set when creating them. The
+following list summarizes each one. If you’d like deeper descriptions on each, see [here](/concepts/channels)
+
+1. **Name** - A human-readable name for the channel. We recommend keeping channel names
+   unique, although this isn’t a strict requirement by the database.
+2. **Data Type** - The data type of the channel. All samples in a channel must have the
+   same data type. If the channel is an index channel, it's data type must be a timestamp.
+3. **Rate** - The fixed rate at which samples are recorded. If this parameter is specified
+   and index and is index are not, the channel is considered a fixed rate channel.
+4. **Index** - The key of the channel whose timestamp values will be used to index the
+   created channel. If this parameter is specified, then the channel will be an indexed
+   channel. If this parameter is specified, the channel is considered an indexed channel,
+   and Is Index should not be set to true.
+5. **Is Index** - A flag that indicates whether the values in a channel are indexed i.e.
+   the channel's values are time-ordered and can be used to lookup the samples
+   in another channel. Channels with this flag set to true are considered index channels
+   and must have a data type of timestamp. If this parameter is set to true, the channel
+   is considered an index and ‘index’ should not be specified.
+
+## Creating a Channel
+
+Now that you've chosen the correct parameters for your channel, you can create it using
+any of the following methods:
+
+<ClientTabs>
+<Fragment slot="python">
+
+### Creating a Single, Fixed Rate Channel
+
+The simplest channel to create has a fixed rate.
+
+```python
+# Create a fixed rate thermocouple channel that stores 32-bit floats
+my_precise_tc = client.channels.create(
+    name="my-precise-tc",
+    data_type=sy.DataType.FLOAT32,
+    rate=100 * sy.Rate.HZ,
+)
+```
+
+### Creating an Indexed Channel and it's Index
+
+Creating variable rate channels requires us to create first create an index channel to
+store timestamps and then create our data channel.
+
+```python
+# Create a time channel to store the timestamps of our indexed channel
+time_index_channel = client.channels.create(
+    name="time",
+    data_type=sy.DataType.TIMESTAMP, # must be a timestamp channel
+    is_index=True,
+)
+
+# Create an indexed channel that stores 32-bit floats
+my_precise_tc = client.channels.create(
+    name="my-precise-tc"
+    data_type=sy.DataType.FLOAT32,
+    index=time_index_channel.key, # Pass the key of the index channel here.
+)
+```
+
+### Creating Multiple Channels
+
+We can also create multiple channels by passing a list to the `create` method. The
+important thing to keep in mind is that we need to create index channels before creating
+their indexes.
+
+```python
+# We need to create index channels before their index,
+# so we make a separate call to create here.
+time_index = client.channels.create(
+    name="time",
+    data_type=sy.DataType.TIMESTAMP,
+    is_index=true,
+)
+
+sensor_one = sy.Channel(
+    name="sensor-one",
+    data_type=sy.DataType.FLOAT32,
+    index=time_index.key,
+)
+
+sensor_two = sy.Channel(
+    name="sensor-two",
+    data_type=sy.DataType.FLOAT64,
+    index=time_index.key,
+)
+
+sensor_three = sy.Channel(
+    name="sensor-three",
+    data_type=sy.DataType.INT8,
+    rate=25 * sy.Rate.KHZ,
+)
+
+client.channels.create([
+    sensor_one,
+    sensor_two,
+    sensor_three
+])
+```
+
+</Fragment>
+
+<Fragment slot="typescript">
+
+### Creating a Single, Fixed Rate Channel
+
+The simplest channel to create has a fixed rate.
+
+```typescript
+import { DataType, Rate } from "@synnaxlabs/client";
+
+// Create a fixed rate channel that stores 32-bit floats
+const myPreciseTC = client.channels.create({
+    name: "my-precise-tc",
+    dataType: DataType.FLOAT32,
+    rate: 100 * Rate.HZ,
+});
+```
+
+### Creating an Indexed Channel and it’s Index
+
+Creating variable rate channels requires us to first create an index channel to store
+timestamps and then create our data channel.
+
+```typescript
+import { Synnax, DataType, Rate } from "@synnaxlabs/client";
+
+const client = new Synnax();
+
+const timeIndexChannel = client.channels.create({
+    name: "time",
+    dataType: sy.DataType.TIMESTAMP,
+    isIndex: true,
+});
+
+const myPreciseTC = client.channels.create({
+    name: "my-precise-tc",
+    dataType: DataType.FLOAT32,
+    index: timeIndexChannel.key,
+});
+```
+
+### Creating Multiple Channels
+
+We can also create multiple channels by passing an array to the `create` method. The
+important thing to keep in mind is that we need to create index channels before creating
+their indexes.
+
+```typescript
+import { Synnax, DataType, Rate, Channel } from "@synnaxlabs/client";
+
+const client = new Synnax();
+
+// We need to create index channels before their index,
+// so we make a separate call to create here.
+const timeIndex = client.channels.create({
+    name: "time",
+    dataType: DataType.TIMESTAMP,
+    isIndex: true,
+});
+
+const sensorOne = new Channel({
+    name: "sensor-one",
+    dataType: DataType.FLOAT32,
+    index: timeIndex.key,
+});
+
+const sensorTwo = new Channel({
+    name: "sensor-two",
+    dataType: DataType.FLOAT64,
+    index: timeIndex.key,
+});
+
+const sensorThree = new Channel({
+    name: "sensor-three",
+    dataType: DataType.INT8,
+    rate: 25 * Rate.KHZ,
+});
+
+client.channels.create([sensorOne, sensorTwo, sensorThree]);
+```
+
+</Fragment>
+</ClientTabs>

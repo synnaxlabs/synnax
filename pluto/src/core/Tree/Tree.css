@@ -18,7 +18,7 @@
     padding-left: 0;
 }
 
-.pluto-tree__container {
+.pluto-tree-node__container {
     padding: 0 !important;
     margin: 0;
 }
@@ -28,6 +28,6 @@
     border-radius: 0;
 }
 
-.pluto-tree-leaf__button--selected {
+.pluto-tree-leaf__button.pluto--selected {
     background-color: var(--pluto-primary-z-40) !important;
 }

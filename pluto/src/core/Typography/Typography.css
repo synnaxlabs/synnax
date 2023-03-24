@@ -14,14 +14,19 @@ h2,
 h3,
 h4,
 h5,
-h6,
+small,
 p,
 label,
-li {
+li,
+th,
+td,
+input,
+text {
     font-family: var(--pluto-font-family);
     color: var(--pluto-text-color);
+    fill: var(--pluto-text-color);
+    --webkit-font-smoothing: antialiased;
     margin: 0;
-    white-space: nowrap;
 }
 
 h1 {
@@ -48,13 +53,16 @@ h4 {
     font-weight: var(--pluto-h4-weight);
 }
 
-h5 {
+h5,
+th {
     font-size: var(--pluto-h5-size);
     line-height: var(--pluto-h5-line-height);
     font-weight: var(--pluto-h5-weight);
+    text-transform: var(--pluto-h5-text-transform);
 }
 
-h6 {
+small,
+text {
     font-size: var(--pluto-small-size);
     line-height: var(--pluto-small-line-height);
     font-weight: var(--pluto-small-weight);
@@ -63,12 +71,10 @@ h6 {
 p,
 label,
 code,
-li {
+li,
+td {
     font-size: var(--pluto-p-size);
     line-height: var(--pluto-p-line-height);
     font-weight: var(--pluto-p-weight);
 }
 
-.pluto-text--wrap {
-    white-space: normal;
-}

@@ -98,6 +98,7 @@ class Console(Prompt, Print, Protocol):
     """A protocol class for an entity that can print messages to the console and prompt
     the user for input.
     """
+
     ...
 
 
@@ -115,7 +116,7 @@ def assign_default_ask_type(
         if choices is not None:
             type_ = type(choices[0])
         elif default is not None:
-            type_ = type(default) # type: ignore
+            type_ = type(default)  # type: ignore
         else:
             type_ = str  # type: ignore
     return type_  # type: ignore

@@ -7,16 +7,53 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Tree } from "@synnaxlabs/pluto";
-import type { TreeLeaf } from "@synnaxlabs/pluto";
+import { useEffect, useState } from "react";
+
+import { Icon } from "@synnaxlabs/media";
+import { Button, Dropdown, Tree, TreeLeaf } from "@synnaxlabs/pluto";
+
+import { pages } from "@/pages/nav";
 
 export type PageNavLeaf = TreeLeaf;
 
 export interface TOCProps {
-  data: PageNavLeaf[];
   currentPage: string;
 }
 
-export const PageNav = ({ data, currentPage }: TOCProps): JSX.Element => (
-  <Tree data={data} value={[currentPage]} />
-);
+export const useDocumentSize = (): number | null => {
+  const [width, setWidth] = useState<number | null>(null);
+  useEffect(() => {
+    const handleResize = () => {
+      setWidth(document.documentElement.clientWidth);
+    };
+    window.addEventListener("resize", handleResize);
+    handleResize();
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+  return width;
+};
+
+export const PageNav = ({ currentPage }: TOCProps): JSX.Element | null => {
+  const width = useDocumentSize();
+  const { visible, toggle, ref } = Dropdown.use(false);
+  const tree = <Tree data={pages} value={[currentPage]} />;
+  if (width == null) return null;
+  if (width > 600) return tree;
+  return (
+    <Dropdown visible={visible} bordered={false} ref={ref} location="top">
+      <Button
+        justify="spaceBetween"
+        endIcon={<Icon.Menu />}
+        variant="text"
+        onClick={() => toggle(!visible)}
+        size="large"
+        style={{
+          height: "40px",
+        }}
+      >
+        Menu
+      </Button>
+      {tree}
+    </Dropdown>
+  );
+};

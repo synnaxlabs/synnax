@@ -9,43 +9,52 @@
 
 import { Children, cloneElement, ReactElement } from "react";
 
-import clsx from "clsx";
+import { CoreTextProps, Text } from "./Text";
+import { TypographyLevel } from "./types";
 
 import { Divider } from "@/core/Divider";
-
-import { CoreTextProps, Text } from "./Text";
-
 import { Space, SpaceProps, SpaceElementType } from "@/core/Space";
+import { CSS } from "@/css";
 
 import "./TextWithIcon.css";
 
-export type TextWithIconProps<E extends SpaceElementType = "div"> = Omit<
-  SpaceProps<E>,
-  "children"
-> &
-  CoreTextProps & {
-    startIcon?: ReactElement | ReactElement[];
-    endIcon?: ReactElement | ReactElement[];
+export type TextWithIconProps<
+  E extends SpaceElementType = "div",
+  L extends TypographyLevel = "h1"
+> = Omit<SpaceProps<E>, "children"> &
+  CoreTextProps<L> & {
+    startIcon?: false | ReactElement | ReactElement[];
+    endIcon?: false | ReactElement | ReactElement[];
     children?: string | number;
     divided?: boolean;
+    noWrap?: boolean;
   };
 
-export const TextWithIcon = <E extends SpaceElementType = "div">({
-  level = "h1",
+export const TextWithIcon = <
+  E extends SpaceElementType = "div",
+  L extends TypographyLevel = "h1"
+>({
+  level = "h1" as L,
   divided = false,
   startIcon,
   endIcon,
   children,
   color,
   className,
+  noWrap = false,
   ...props
-}: TextWithIconProps<E>): JSX.Element => {
+}: TextWithIconProps<E, L>): JSX.Element => {
   const startIcons = startIcon != null && formatIcons(startIcon, color);
   const endIcons = endIcon != null && formatIcons(endIcon, color);
   return (
     // @ts-expect-error
     <Space<E>
-      className={clsx("pluto-text-icon", `pluto-text-icon--${level}`, className)}
+      className={CSS(
+        CSS.B("text-icon"),
+        CSS.BM("text-icon", level),
+        CSS.noWrap(noWrap),
+        className
+      )}
       direction="x"
       size="small"
       align="center"
@@ -54,7 +63,8 @@ export const TextWithIcon = <E extends SpaceElementType = "div">({
       {startIcons}
       {divided && startIcon != null && <Divider direction="y" />}
       {children != null && (
-        <Text color={color} level={level}>
+        // @ts-expect-error
+        <Text<L> color={color} level={level}>
           {children}
         </Text>
       )}
@@ -65,12 +75,14 @@ export const TextWithIcon = <E extends SpaceElementType = "div">({
 };
 
 const formatIcons = (
-  icon: ReactElement | ReactElement[],
+  icon: false | ReactElement | ReactElement[],
   color?: string
-): JSX.Element[] =>
-  (Children.toArray(icon) as ReactElement[]).map((icon) =>
+): JSX.Element[] => {
+  if (icon === false) return [];
+  return (Children.toArray(icon) as ReactElement[]).map((icon) =>
     cloneElement(icon, {
       ...icon.props,
       style: { fill: color, ...icon.props.style },
     })
   );
+};

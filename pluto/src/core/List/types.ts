@@ -10,19 +10,21 @@
 import type { CSSProperties } from "react";
 import React from "react";
 
-import { RenderableRecord } from "@synnaxlabs/x";
+import { KeyedRenderableRecord } from "@synnaxlabs/x";
 
 import { RenderProp } from "@/util/renderProp";
 
-type RenderF<E extends RenderableRecord<E> = RenderableRecord> = RenderProp<{
+type RenderF<E extends KeyedRenderableRecord<E> = KeyedRenderableRecord> = RenderProp<{
   key: string | number | symbol;
   entry: E;
   style: CSSProperties;
 }>;
 
-export interface ListColumn<E extends RenderableRecord<E> = RenderableRecord> {
+export interface ListColumn<
+  E extends KeyedRenderableRecord<E> = KeyedRenderableRecord
+> {
   /** The key of the object to render. */
-  key: keyof E;
+  key: keyof E | string;
   /** A custom render function for each item in the colummn. */
   render?: RenderF<E>;
   /** The name/title of the column. */
@@ -37,7 +39,7 @@ export interface ListColumn<E extends RenderableRecord<E> = RenderableRecord> {
   width?: number;
 }
 
-export interface ListItemProps<E extends RenderableRecord<E>> {
+export interface ListItemProps<E extends KeyedRenderableRecord<E>> {
   key: string | number;
   entry: E;
   index: number;

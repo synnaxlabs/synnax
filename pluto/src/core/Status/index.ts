@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { StatusText } from "./StatusText";
+export type { StatusTextProps } from "./StatusText";
 export * from "./types";
 
 export const Status = {

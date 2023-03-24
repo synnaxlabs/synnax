@@ -8,4 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export * from "./selectors";
-export * from "./useAsyncEffect";
+export * from "@synnaxlabs/pluto/src/hooks/useAsyncEffect";

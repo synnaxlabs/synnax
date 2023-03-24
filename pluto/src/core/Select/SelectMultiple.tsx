@@ -9,29 +9,28 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { convertRenderV, RenderableRecord } from "@synnaxlabs/x";
-import clsx from "clsx";
+import { Icon } from "@synnaxlabs/media";
+import {
+  convertRenderV,
+  KeyedRenderableRecord,
+} from "@synnaxlabs/x";
+
+import { Theming } from "../../theming";
+
+import { SelectList } from "./SelectList";
 
 import { Button } from "@/core/Button";
-
-import { AiOutlineClose } from "react-icons/ai";
-
 import { Dropdown, DropdownProps } from "@/core/Dropdown";
 import { Input, InputControl, InputProps } from "@/core/Input";
 import { ListColumn, List } from "@/core/List";
 import { Pack } from "@/core/Pack";
 import { Space } from "@/core/Space";
-
-import { Theming } from "../../theming";
-
 import { Tag } from "@/core/Tag";
-import { visibleCls } from "@/css";
+import { CSS } from "@/css";
 
 import "./SelectMultiple.css";
 
-import { SelectList } from "./SelectList";
-
-export interface SelectMultipleProps<E extends RenderableRecord<E>>
+export interface SelectMultipleProps<E extends KeyedRenderableRecord<E>>
   extends Omit<DropdownProps, "visible" | "onChange" | "children">,
     InputControl<readonly string[]> {
   data?: E[];
@@ -39,7 +38,7 @@ export interface SelectMultipleProps<E extends RenderableRecord<E>>
   tagKey?: keyof E;
 }
 
-export const SelectMultiple = <E extends RenderableRecord<E>>({
+export const SelectMultiple = <E extends KeyedRenderableRecord<E>>({
   onChange,
   value,
   location,
@@ -70,14 +69,14 @@ export const SelectMultiple = <E extends RenderableRecord<E>>({
   );
 };
 
-interface SelectMultipleInputProps<E extends RenderableRecord<E>>
+interface SelectMultipleInputProps<E extends KeyedRenderableRecord<E>>
   extends Pick<InputProps, "onChange" | "onFocus" | "value"> {
   selected: readonly string[];
   tagKey: keyof E;
   visible: boolean;
 }
 
-const SelectMultipleInput = <E extends RenderableRecord<E>>({
+const SelectMultipleInput = <E extends KeyedRenderableRecord<E>>({
   selected,
   onChange,
   onFocus,
@@ -109,17 +108,18 @@ const SelectMultipleInput = <E extends RenderableRecord<E>>({
     <Pack align="stretch" {...props} grow>
       <Input
         ref={ref}
-        className={clsx(
-          "pluto-select-multiple__input",
-          "pluto-select__input",
-          visibleCls(visible)
-        )}
+        className={CSS(CSS.BE("select-multiple", "input"), CSS.visible(visible))}
         placeholder="Search"
         value={value}
         onChange={handleChange}
         onFocus={onFocus}
       />
-      <Space direction="x" className="pluto-select-multiple__tags" align="center" grow>
+      <Space
+        direction="x"
+        className={CSS.BE("select-multiple", "tags")}
+        align="center"
+        grow
+      >
         {selected
           ?.map((k) => sourceData.find((v) => v.key === k))
           .map((e, i) => {
@@ -138,11 +138,11 @@ const SelectMultipleInput = <E extends RenderableRecord<E>>({
           })}
       </Space>
       <Button.Icon
-        className="pluto-select-multiple__clear"
+        className={CSS.BE("select-multiple", "clear")}
         variant="outlined"
         onClick={clear}
       >
-        <AiOutlineClose aria-label="clear" />
+        <Icon.Close aria-label="clear" />
       </Button.Icon>
     </Pack>
   );

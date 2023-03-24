@@ -7,49 +7,72 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { XY, Dimensions } from "@synnaxlabs/x";
+
 /** Represents the state of a window in it's lifecycle  */
-export type WindowState = "creating" | "created" | "closing" | "closed";
+export type WindowStage = "creating" | "created" | "closing" | "closed";
 
 export const MAIN_WINDOW = "main";
+export const PRERENDER_WINDOW = "prerender";
 
-/** Properties of a window managed by drift  */
-export interface Window {
-  /** Lifecycle state */
-  state: WindowState;
+export interface WindowStateExtensionProps {
+  /** Lifecycle stage */
+  stage: WindowStage;
   /** Number of active processes */
   processCount: number;
-  /** The props the  was created with */
-  props: KeyedWindowProps;
+  /**
+   * Whether the window has been reserved for use. If this value is false,
+   * the window is a pre-forked window that is not currently in use.
+   */
+  reserved: boolean;
+  /**
+   * If something went wrong while making changes to the window, the error
+   * will be stored here.
+   */
+  error?: string;
+  /** Incremented to focus the window */
+  focusCount: number;
+  /** Incremented to center the window */
+  centerCount: number;
 }
+
+export const INITIAL_WINDOW_STATE: WindowStateExtensionProps = {
+  stage: "creating",
+  processCount: 0,
+  reserved: false,
+  focusCount: 0,
+  centerCount: 0,
+};
+
+export const INITIAL_PRERENDER_WINDOW_STATE: WindowState = {
+  ...INITIAL_WINDOW_STATE,
+  key: PRERENDER_WINDOW,
+  visible: false,
+};
+
+/** State of a window managed by drift  */
+export interface WindowState extends WindowProps, WindowStateExtensionProps {}
 
 /**
  * The properties to provide when creating a window.
  */
 export interface WindowProps {
   /* A unique key for the window. If not provided, a unique key will be generated. */
-  key?: string;
+  key: string;
   /* The url to load in the window. */
   url?: string;
   /* The title of the window. */
   title?: string;
   /* Whether the window should be centered on the screen. */
   center?: boolean;
-  /* X position of the window. */
-  x?: number;
-  /* Y position of the window. */
-  y?: number;
-  /* Width of the window. */
-  width?: number;
-  /* Height of the window. */
-  height?: number;
-  /* The minimum width of the window. */
-  minWidth?: number;
-  /* The minimum height of the window. */
-  minHeight?: number;
-  /* The maximum width of the window. */
-  maxWidth?: number;
-  /* The maximum height of the window. */
-  maxHeight?: number;
+  /* The x and y coordinates of the window. */
+  position?: XY;
+  /* The dimensions of the window. */
+  size?: Dimensions;
+  /* The minimum dimensions of the window. */
+  minSize?: Dimensions;
+  /* The maximum dimensions of the window. */
+  maxSize?: Dimensions;
   /* Whether the window should be resizable. */
   resizable?: boolean;
   /* Whether the window is fullscreen. */
@@ -60,6 +83,8 @@ export interface WindowProps {
   maximized?: boolean;
   /* Whether the window is visible. */
   visible?: boolean;
+  /* Whether the window is minimized. */
+  minimized?: boolean;
   /* Decorations. Runtime specific. */
   decorations?: boolean;
   /* Whether to add the window to the task bar or not. Runtime specific. */
@@ -68,7 +93,6 @@ export interface WindowProps {
   fileDropEnabled?: boolean;
   /* Whether the window is transparent. Runtime specific. */
   transparent?: boolean;
+  /* Whether the window is always on top. Runtime specific. */
+  alwaysOnTop?: boolean;
 }
-
-/* WindowProps but with a key */
-export type KeyedWindowProps = Omit<WindowProps, "key"> & { key: string };

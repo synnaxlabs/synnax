@@ -26,9 +26,11 @@ export const Basic = (): JSX.Element => {
 
 const Child = (): JSX.Element => {
   const { triggers } = Triggers.useHeld([
-    ["ArrowDown", null],
+    ["ArrowDown"],
     ["ArrowUp", "Shift"],
     ["MouseLeft", "Alt"],
+    ["ArrowDown", "ArrowDown"],
+    ["MouseLeft", "MouseLeft"],
   ]);
   return (
     <div>

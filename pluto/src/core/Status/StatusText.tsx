@@ -9,29 +9,26 @@
 
 import { ReactElement } from "react";
 
-import {
-  AiFillInfoCircle,
-  AiFillWarning,
-  AiOutlineCheck,
-  AiOutlineClose,
-  AiOutlineWarning,
-} from "react-icons/ai";
+import { Icon } from "@synnaxlabs/media";
 
 import { StatusVariant } from "./types";
 
+import { Space } from "@/core/Space";
 import { Text, TextProps, TypographyLevel } from "@/core/Typography";
 
-export interface StatusBadgeProps extends Omit<TextProps, "level" | "wrap"> {
+export interface StatusTextProps extends Omit<TextProps, "level" | "wrap"> {
   level?: TypographyLevel;
+  hideIcon?: boolean;
   variant: StatusVariant;
 }
 
 const statusVariantIcons: Record<StatusVariant, ReactElement> = {
-  info: <AiFillInfoCircle />,
-  warning: <AiFillWarning />,
-  error: <AiOutlineClose />,
-  success: <AiOutlineCheck />,
-  loading: <AiOutlineWarning />,
+  info: <Icon.Info />,
+  warning: <Icon.Warning />,
+  error: <Icon.Close />,
+  success: <Icon.Check />,
+  loading: <Icon.Warning />,
+  disabled: <Icon.Warning />,
 };
 
 const statusVariantColors: Record<StatusVariant, string> = {
@@ -40,17 +37,37 @@ const statusVariantColors: Record<StatusVariant, string> = {
   warning: "var(--pluto-text-color)",
   success: "var(--pluto-primary-z)",
   loading: "var(--pluto-text-color)",
+  disabled: "var(--pluto-gray-p0)",
 };
 
-export const StatusText = ({
+const CoreStatusText = ({
   variant = "error",
   level = "p",
+  hideIcon = false,
   ...props
-}: StatusBadgeProps): JSX.Element => (
+}: StatusTextProps): JSX.Element => (
   <Text.WithIcon
     color={statusVariantColors[variant]}
     level={level}
-    startIcon={statusVariantIcons[variant]}
+    startIcon={!hideIcon && statusVariantIcons[variant]}
     {...props}
   />
 );
+
+export interface StatusTextCenteredProps extends StatusTextProps {}
+
+const StatusTextCentered = (props: StatusTextCenteredProps): JSX.Element => (
+  <Space.Centered>
+    <CoreStatusText {...props} />
+  </Space.Centered>
+);
+
+type CoreStatusTextType = typeof CoreStatusText;
+
+export interface StatusTextType extends CoreStatusTextType {
+  Centered: typeof StatusTextCentered;
+}
+
+export const StatusText = CoreStatusText as StatusTextType;
+
+StatusText.Centered = StatusTextCentered;

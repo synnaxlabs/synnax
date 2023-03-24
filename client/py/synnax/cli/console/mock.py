@@ -10,7 +10,13 @@
 from typing import Generic, TextIO, Type
 from pydantic import BaseModel
 
-from synnax.cli.console.protocol import Console, Print, Prompt, R, assign_default_ask_type
+from synnax.cli.console.protocol import (
+    Console,
+    Print,
+    Prompt,
+    R,
+    assign_default_ask_type,
+)
 from synnax.cli.console.rich import RichConsole
 
 
@@ -64,7 +70,6 @@ class MockPrint:
         self.output.append(Entry(message=message))
         if self.verbose is not None:
             self.verbose.error(message)
-
 
     def warn(self, message: str):
         self.output.append(Entry(message=message))
@@ -131,7 +136,12 @@ class MockPrompt:
 class MockConsole(MockPrint, MockPrompt):
     """A mock implementation of the Console protocol for testing purposes."""
 
-    def __init__(self, output: Output = Output(), responses: list | None = None, verbose: bool = False):
+    def __init__(
+        self,
+        output: Output = Output(),
+        responses: list | None = None,
+        verbose: bool = False,
+    ):
         """
         :param output: The output list to append entries to.
         :param responses: A list of responses to return in order. These responses

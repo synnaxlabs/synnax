@@ -9,13 +9,12 @@
 
 import { useMemo } from "react";
 
-import { TimeStamp } from "@synnaxlabs/x";
-import clsx from "clsx";
+import { TimeStamp, OuterLocation, XY, ZERO_XY, Scale } from "@synnaxlabs/x";
 import { scaleLinear, scaleTime } from "d3";
 
 import { fRotate, fTranslate, locationRotations } from "../util/svg";
 
-import { OuterLocation, XY, ZERO_XY, Scale } from "@/spatial";
+import { CSS } from "@/css";
 
 import "./Axis.css";
 
@@ -112,7 +111,10 @@ export const Axis = ({
     );
   }, [size, location, scale, showGrid, height, type]);
   return (
-    <g transform={calcGroupTransform(location, position, size)} className="pluto-axis">
+    <g
+      transform={calcGroupTransform(location, position, size)}
+      className={CSS.B("axis")}
+    >
       <line x2={size} />
       {ticks.map((props: TickProps) => (
         <Tick key={props.offset} {...props} />
@@ -168,7 +170,7 @@ const NumberTickText = ({ value }: { value: number }): JSX.Element => (
 );
 
 const calcTickTextTranslate = (value: string): string =>
-  clsx(fTranslate({ x: value.length * 3, y: -tickYOffset * 2.5 }), fRotate(180));
+  CSS(fTranslate({ x: value.length * 3, y: -tickYOffset * 2.5 }), fRotate(180));
 
 const calcGroupTransform = (
   location: OuterLocation,
@@ -178,5 +180,5 @@ const calcGroupTransform = (
   const adjustedPosition = { ...position };
   if (location === "left") adjustedPosition.y += size;
   else if (location === "bottom") adjustedPosition.x += size;
-  return clsx(fTranslate(adjustedPosition), fRotate(locationRotations[location]));
+  return CSS(fTranslate(adjustedPosition), fRotate(locationRotations[location]));
 };

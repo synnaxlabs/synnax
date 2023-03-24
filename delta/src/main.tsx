@@ -7,70 +7,132 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { StrictMode, useEffect, useState } from "react";
+import { StrictMode } from "react";
 
-import { Theming, Triggers } from "@synnaxlabs/pluto";
+import { Provider } from "@synnaxlabs/drift";
+import { Logo } from "@synnaxlabs/media";
+import "@synnaxlabs/media/dist/style.css";
+import {
+  Theming,
+  Triggers,
+  Menu as PMenu,
+  Space,
+  Typography,
+  useAsyncEffect,
+  addOpacityToHex,
+  Nav,
+  Controls,
+} from "@synnaxlabs/pluto";
 import "@synnaxlabs/pluto/dist/style.css";
+import { appWindow, LogicalSize } from "@tauri-apps/api/window";
 import ReactDOM from "react-dom/client";
 
-import { MainLayout } from "@/components";
-
-import { Provider, useDispatch } from "react-redux";
-
-import { ConnectCluster } from "@/features/cluster";
+import { ConnectCluster } from "@/cluster";
+import { Menu } from "@/components";
+import { DocsLayoutRenderer } from "@/docs";
 import {
   LayoutRendererProvider,
   LayoutWindow,
   useThemeProvider,
   GetStarted,
-  maybeCreateGetStartedTab,
-} from "@/features/layout";
-import { useLoadTauriVersion } from "@/features/version";
-import { VisLayoutRenderer } from "@/features/vis";
-import { DefineRange } from "@/features/workspace";
+  useErrorThemeProvider,
+} from "@/layout";
+import { LayoutMain } from "@/layouts/LayoutMain";
+import { newStore } from "@/store";
+import { useLoadTauriVersion } from "@/version";
+import { VisLayoutRenderer } from "@/vis";
+import { DefineRange } from "@/workspace";
 
 import "./index.css";
 
-import { store as promise } from "./store";
-
 const layoutRenderers = {
-  main: MainLayout,
+  main: LayoutMain,
   connectCluster: ConnectCluster,
   visualization: VisLayoutRenderer,
   defineRange: DefineRange,
   getStarted: GetStarted,
+  docs: DocsLayoutRenderer,
 };
 
+export const DefaultContextMenu = (): JSX.Element => (
+  <PMenu>
+    <Menu.Item.HardReload />
+  </PMenu>
+);
+
 const MainUnderContext = (): JSX.Element => {
-  const d = useDispatch();
   const theme = useThemeProvider();
+  const menuProps = PMenu.useContextMenu();
   useLoadTauriVersion();
-  useEffect(() => {
-    d(maybeCreateGetStartedTab());
-  }, []);
   return (
     <Theming.Provider {...theme}>
       <Triggers.Provider>
-        <LayoutRendererProvider value={layoutRenderers}>
-          <LayoutWindow />
-        </LayoutRendererProvider>
+        <PMenu.ContextMenu menu={() => <DefaultContextMenu />} {...menuProps}>
+          <LayoutRendererProvider value={layoutRenderers}>
+            <LayoutWindow />
+          </LayoutRendererProvider>
+        </PMenu.ContextMenu>
       </Triggers.Provider>
     </Theming.Provider>
   );
 };
 
 const Main = (): JSX.Element | null => {
-  const [store, setStore] = useState<any | null>(null);
-  useEffect(() => {
-    promise.then((s) => setStore(s)).catch(console.error);
-  }, []);
-  if (store == null) return null;
+  const store = newStore();
   return (
     <StrictMode>
-      <Provider store={store}>
+      <Provider store={store} errorContent={() => <ErrorBoundary />}>
         <MainUnderContext />
       </Provider>
     </StrictMode>
+  );
+};
+
+const ErrorBoundary = (): JSX.Element => {
+  const theme = useErrorThemeProvider();
+  const handleClose = (): void => {
+    void appWindow.close();
+  };
+  return (
+    <Theming.Provider {...theme}>
+      <Nav.Bar location="top" data-tauri-drag-region size="6rem">
+        <Nav.Bar.Start className="delta-main-nav-top__start">
+          <Controls
+            visibleIfOS="MacOS"
+            disabled={["minimize", "maximize"]}
+            onClose={handleClose}
+          />
+        </Nav.Bar.Start>
+        <Nav.Bar.End>
+          <Controls visibleIfOS="Windows" />
+        </Nav.Bar.End>
+      </Nav.Bar>
+      <Space.Centered
+        size="large"
+        style={{ height: "calc(100vh - 6rem - var(--os-border-offset, 0px))" }}
+      >
+        <Logo
+          style={{
+            width: 200,
+            height: 200,
+          }}
+        />
+        <div
+          className="pluto--bordered"
+          style={{
+            borderColor: "var(--pluto-error-z)",
+            padding: "2rem",
+            borderRadius: "var(--pluto-border-radius)",
+            backgroundColor: addOpacityToHex(theme.theme.colors.error.m1, 20),
+          }}
+        >
+          <Typography.Text level="h4" style={{ width: 500 }}>
+            It seems you have multiple Synnax windows open. Please close all other
+            windows and try again.
+          </Typography.Text>
+        </div>
+      </Space.Centered>
+    </Theming.Provider>
   );
 };
 

@@ -9,19 +9,19 @@
 
 import { PropsWithChildren, useMemo, useState } from "react";
 
-import { RenderableRecord } from "@synnaxlabs/x";
+import { KeyedRenderableRecord } from "@synnaxlabs/x";
 
 import { ListContextProvider } from "./ListContext";
 import { ListColumn } from "./types";
 
 import { useTransforms } from "@/hooks";
 
-export interface ListProps<E extends RenderableRecord<E>>
+export interface ListProps<E extends KeyedRenderableRecord<E>>
   extends PropsWithChildren<unknown> {
   data: E[];
 }
 
-export const List = <E extends RenderableRecord<E>>({
+export const List = <E extends KeyedRenderableRecord<E>>({
   children,
   data,
 }: ListProps<E>): JSX.Element => {

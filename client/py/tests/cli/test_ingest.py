@@ -22,7 +22,7 @@ from .data import DATA_DIR
 class TestIngest:
     def test_valid_ingest(self, client: Synnax):
         try:
-            ch = client.channels.retrieve(name="ingest-valid-idx")
+            ch = client.channels.retrieve("ingest-valid-idx")
         except QueryError:
             ch = None
         if ch is not None:

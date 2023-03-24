@@ -7,33 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { UnknownRecord } from "@/types/record";
-
-export const isObject = (item?: unknown): boolean =>
-  item != null && typeof item === "object" && !Array.isArray(item);
-
-const deepMerge = <T extends UnknownRecord<T>>(
-  base: T,
-  ...objects: Array<Partial<T>>
-): T => {
-  if (objects.length === 0) return base;
-  const source = objects.shift();
-
-  if (isObject(base) && isObject(source)) {
-    for (const key in source) {
-      if (isObject(source[key])) {
-        // @ts-expect-error
-        if (key in base) deepMerge(base[key], source[key]);
-        else Object.assign(base, { [key]: {} });
-      } else {
-        Object.assign(base, { [key]: source[key] });
-      }
-    }
-  }
-
-  return deepMerge(base, ...objects);
-};
+import { deepCopy } from "@/deep/copy";
+import { deepDelete } from "@/deep/delete";
+import { deepEqual, deepPartialEqual } from "@/deep/equal";
+import { deepMerge } from "@/deep/merge";
+export type { DeepKey } from "@/deep/key";
+export type { DeepPartial } from "@/deep/partial";
 
 export const Deep = {
   merge: deepMerge,
+  delete: deepDelete,
+  equal: deepEqual,
+  partialEqual: deepPartialEqual,
+  copy: deepCopy,
 };

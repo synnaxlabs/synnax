@@ -22,6 +22,7 @@ export interface GLBufferController {
   getBufferParameter: (target: number, pname: number) => any;
   ARRAY_BUFFER: number;
   STATIC_DRAW: number;
+  DYNAMIC_DRAW: number;
   BUFFER_SIZE: number;
 }
 
@@ -30,7 +31,7 @@ interface GLCacheBuffer {
   size: Size;
 }
 
-export type GLDemandCacheEntry = DemandCacheEntry<string, WebGLBuffer[]>;
+export type GLDemandCacheEntry = DemandCacheEntry<string, GLCacheBuffer[]>;
 
 /**
  * GLDemandCache controls the creation and buffering of WebGLBuffers. It maintains a
@@ -66,14 +67,18 @@ export class GLDemandCache
 
   delete(key: string): void {
     this.gc();
-    const entries = this.internal.get(key);
-    if (entries == null) return;
-    entries.value.forEach((buf) => {
+    const entry = this.internal.get(key);
+    if (entry == null) return;
+    this._delete(entry);
+  }
+
+  private _delete(entry: GLDemandCacheEntry): void {
+    entry.value.forEach((buf) => {
       this.gl.bindBuffer(this.gl.ARRAY_BUFFER, null);
       this.size = this.size.sub(buf.size);
       this.gl.deleteBuffer(buf);
     });
-    this.internal.delete(key);
+    this.internal.delete(entry.key);
   }
 
   private gc(): void {
@@ -86,7 +91,7 @@ export class GLDemandCache
     const buf = this.gl.createBuffer();
     if (buf == null) throw new Error("failed to create buffer");
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, buf);
-    this.gl.bufferData(this.gl.ARRAY_BUFFER, arr.data.buffer, this.gl.STATIC_DRAW);
+    this.gl.bufferData(this.gl.ARRAY_BUFFER, arr.data.buffer, this.gl.DYNAMIC_DRAW);
     const size = new Size(
       this.gl.getBufferParameter(this.gl.ARRAY_BUFFER, this.gl.BUFFER_SIZE)
     );

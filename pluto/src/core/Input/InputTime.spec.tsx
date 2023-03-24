@@ -20,12 +20,8 @@ describe("Input.Time", () => {
     fireEvent.change(c.getByDisplayValue("00:00:00"), {
       target: { value: "15:00:00" },
     });
-    expect(handleChange).toHaveBeenCalledWith(TimeStamp.hours(15).valueOf());
-  });
-  it("Should normalize an initial TimeStamp", () => {
-    const ts = new TimeStamp([2022, 12, 22]).add(TimeStamp.hours(12));
-    const handleChange = vi.fn();
-    render(<Input.Time value={ts.valueOf()} onChange={handleChange} tzInfo="UTC" />);
-    expect(handleChange).toHaveBeenCalledWith(TimeStamp.hours(12).valueOf());
+    expect(handleChange).toHaveBeenCalledWith(
+      TimeStamp.hours(15).add(TimeStamp.utcOffset).valueOf()
+    );
   });
 });

@@ -7,31 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { MosaicLeaf } from "./types";
+import { Direction, Location, Order } from "@synnaxlabs/x";
+
+import { MosaicNode } from "./types";
 
 import { Tab, Tabs } from "@/core/Tabs";
-import { Direction, Location, Order } from "@/spatial";
 
 const TabNotFound = new Error("Tab not found");
 const InvalidMosaic = new Error("Invalid Mosaic");
 
-/**
- * Inserts a tab into a node in the mosaic. If the given key is not found,
- * the tab is inserted into the closest ancestor. This is to deal
- * with mosaic garbage collection.
- * @param key - The key of the node to insert the tab into.
- * @param tab - The tab to insert.
- * @param loc - The location where the tab was 'dropped' relative to the node.
- */
 export const insertMosaicTab = (
-  root: MosaicLeaf,
+  root: MosaicNode,
   tab: Tab,
   loc: Location = "center",
   key?: number
-): MosaicLeaf => {
+): MosaicNode => {
   if (key === undefined) return insertAnywhere(root, tab);
 
-  const node = findOrAncestor(root, key);
+  const node = findNodeOrAncestor(root, key);
 
   // In the case where we're dropping the node in the center,
   // simply add the tab, change the selection, and return.
@@ -65,10 +58,10 @@ export const insertMosaicTab = (
   node.size = undefined;
   node.selected = undefined;
 
-  return shallowCopyLeaf(root);
+  return shallowCopyNode(root);
 };
 
-const insertAnywhere = (node: MosaicLeaf, tab: Tab): MosaicLeaf => {
+const insertAnywhere = (node: MosaicNode, tab: Tab): MosaicNode => {
   if (node.tabs != null) {
     node.tabs.push(tab);
     node.selected = tab.tabKey;
@@ -79,124 +72,102 @@ const insertAnywhere = (node: MosaicLeaf, tab: Tab): MosaicLeaf => {
   return node;
 };
 
-/**
- * Automatically selects tabs for all nodes in the mosaic if they don't already have a selection.
- * @param root - The root of the mosaic.
- * @returns A shallow copy of the root with all nodes having a selection.
- */
-export const autoSelectTabs = (root: MosaicLeaf): MosaicLeaf => {
-  // recursively iterate through mosaic and call Tabs.resetSelection on each nodes tabs
-  if (root.tabs != null) root.selected = Tabs.resetSelection(root.selected, root.tabs);
-  if (root.first != null) autoSelectTabs(root.first);
-  if (root.last != null) autoSelectTabs(root.last);
-  return shallowCopyLeaf(root);
+export const autoSelectTabs = (root: MosaicNode): [MosaicNode, string[]] => {
+  const selected: string[] = [];
+  if (root.tabs != null) {
+    root.selected = Tabs.resetSelection(root.selected, root.tabs);
+    if (root.selected != null) selected.push(root.selected);
+  }
+  if (root.first != null) {
+    const [f, s] = autoSelectTabs(root.first);
+    root.first = f;
+    selected.push(...s);
+  }
+  if (root.last != null) {
+    const [r, l] = autoSelectTabs(root.last);
+    root.last = r;
+    selected.push(...l);
+  }
+  return [shallowCopyNode(root), selected];
 };
 
-/**
- * Removes a tab from the mosaic and performs any necessary garbage collection.
- * @param root - The root of the mosaic.
- * @param tabKey - The key of the tab to remove. This tab must exist in the mosaic.
- */
-export const removeMosaicTab = (root: MosaicLeaf, tabKey: string): MosaicLeaf => {
+export const removeMosaicTab = (
+  root: MosaicNode,
+  tabKey: string
+): [MosaicNode, string | null] => {
   const [, node] = findMosaicTab(root, tabKey);
   if (node == null) throw TabNotFound;
   node.tabs = node.tabs?.filter((t) => t.tabKey !== tabKey);
   node.selected = Tabs.resetSelection(node.selected, node.tabs);
-  return shallowCopyLeaf(gc(root));
+  const gced = gc(root);
+  const selected = node.selected ?? findSelected(root);
+  return [shallowCopyNode(gced), selected];
 };
 
-/**
- * Marks the given tab as selected.
- * @param root - The root of the mosaic.
- * @param tabKey - The key of the tab to select. This tab must exist in the mosaic.
- * @returns A shallow copy of the root of the mosaic with the tab selected.
- */
-export const selectMosaicTab = (root: MosaicLeaf, tabKey: string): MosaicLeaf => {
+export const findSelected = (root: MosaicNode): string | null => {
+  if (root.selected != null) return root.selected;
+  if (root.first != null) return findSelected(root.first);
+  if (root.last != null) return findSelected(root.last);
+  return null;
+};
+
+export const selectMosaicTab = (root: MosaicNode, tabKey: string): MosaicNode => {
   const [tab, entry] = findMosaicTab(root, tabKey);
   if (tab == null || entry == null) throw TabNotFound;
   entry.selected = tabKey;
-  return shallowCopyLeaf(root);
+  return shallowCopyNode(root);
 };
 
-/**
- * Moves a tab from one node to another.
- * @param root - The root of the mosaic.
- * @param to - The key of the node to move the tab to.
- * @param tabKey - The key of the tab to move. This tab must exist in the mosaic.
- * @param loc - The location where the tab was 'dropped' relative to the node.
- * @returns A shallow copy of the root of the mosaic with the tab moved.
- */
 export const moveMosaicTab = (
-  root: MosaicLeaf,
+  root: MosaicNode,
   tabKey: string,
   loc: Location,
   to: number
-): MosaicLeaf => {
+): [MosaicNode, string | null] => {
   const [tab, entry] = findMosaicTab(root, tabKey);
   if (tab == null || entry == null) throw TabNotFound;
-  const r2 = removeMosaicTab(root, tabKey);
+  const [r2, selected] = removeMosaicTab(root, tabKey);
   const r3 = insertMosaicTab(r2, tab, loc, to);
-  return shallowCopyLeaf(r3);
+  return [shallowCopyNode(r3), selected];
 };
 
-/**
- * Resizes the given mosaic leaf.
- * @param root - The root of the mosaic.
- * @param key  - The key of the leaf to resize.
- * @param size - The new size distribution for the leaf. Expressed as either a percentage
- * or a number of pixels of the first child.
- * @returns A shallow copy of the root of the mosaic with the leaf resized.
- */
-export const resizeMosaicLeaf = (
-  root: MosaicLeaf,
+export const resizeMosaicNode = (
+  root: MosaicNode,
   key: number,
   size: number
-): MosaicLeaf => {
-  const node = findMosaicLeaf(root, key);
+): MosaicNode => {
+  const node = findMosaicNode(root, key);
   if (node == null) throw new Error("Node not found");
   else node.size = size;
   return root;
 };
 
-/**
- * Sets the title of a tab.
- * @param root - The root of the mosaic.
- * @param tabKey  - The key of the tab to resize.
- * @param name - The new title of the tab.
- * @returns A shallow copy of the root of the mosaic with the tab title changed.
- */
 export const renameMosaicTab = (
-  root: MosaicLeaf,
+  root: MosaicNode,
   tabKey: string,
   name: string
-): MosaicLeaf => {
+): MosaicNode => {
   const [, leaf] = findMosaicTab(root, tabKey);
   if (leaf == null || leaf.tabs == null) throw TabNotFound;
   leaf.tabs = Tabs.rename(tabKey, name, leaf?.tabs ?? []);
-  return shallowCopyLeaf(root);
+  return shallowCopyNode(root);
 };
 
-/**
- * Finds the node with the given key or its closest ancestor.
- * @param root - The root of the mosaic.
- * @param key  - The key of the node to find.
- * @returns The node with the given key, or the closest ancestor.
- */
-const findOrAncestor = (root: MosaicLeaf, key: number): MosaicLeaf => {
-  const node = findMosaicLeaf(root, key);
+/** Finds the node with the given key or its closest ancestor. */
+const findNodeOrAncestor = (root: MosaicNode, key: number): MosaicNode => {
+  const node = findMosaicNode(root, key);
   if (node != null) return node;
-  return findOrAncestor(root, Math.floor(key / 2));
+  const next = Math.floor(key / 2);
+  return next === 0 ? root : findNodeOrAncestor(root, next);
 };
 
-const gc = (root: MosaicLeaf): MosaicLeaf => {
+const gc = (root: MosaicNode): MosaicNode => {
   let gced = true;
-  while (gced) {
-    [root, gced] = _gc(root);
-  }
+  while (gced) [root, gced] = _gc(root);
   return root;
 };
 
-const _gc = (node: MosaicLeaf): [MosaicLeaf, boolean] => {
+const _gc = (node: MosaicNode): [MosaicNode, boolean] => {
   if (node.first == null || node.last == null) return [node, false];
   if (shouldGc(node.first)) return [liftUp(node.last, true), true];
   if (shouldGc(node.last)) return [liftUp(node.first, false), true];
@@ -206,24 +177,21 @@ const _gc = (node: MosaicLeaf): [MosaicLeaf, boolean] => {
   return [node, sGC || eGC];
 };
 
-const liftUp = (node: MosaicLeaf, isLast: boolean): MosaicLeaf => {
+const liftUp = (node: MosaicNode, isLast: boolean): MosaicNode => {
   node.size = undefined;
   node.key = (node.key - Number(isLast)) / 2;
   return node;
 };
 
-const shouldGc = (node: MosaicLeaf): boolean => {
-  return (
-    node.first == null &&
-    node.last == null &&
-    (node.tabs == null || node.tabs.length === 0)
-  );
-};
+const shouldGc = (node: MosaicNode): boolean =>
+  node.first == null &&
+  node.last == null &&
+  (node.tabs == null || node.tabs.length === 0);
 
 const findMosaicTab = (
-  node: MosaicLeaf,
+  node: MosaicNode,
   tabKey: string
-): [Tab | undefined, MosaicLeaf | undefined] => {
+): [Tab | undefined, MosaicNode | undefined] => {
   if (node.tabs != null) {
     const tab = node.tabs.find((t) => t.tabKey === tabKey);
     if (tab != null) return [tab, node];
@@ -235,12 +203,12 @@ const findMosaicTab = (
   return [t2Tab, t2Tree2];
 };
 
-const findMosaicLeaf = (node: MosaicLeaf, key: number): MosaicLeaf | undefined => {
+const findMosaicNode = (node: MosaicNode, key: number): MosaicNode | undefined => {
   if (node.key === key) return node;
   if (node.first == null || node.last == null) return undefined;
-  const n1 = findMosaicLeaf(node.first, key);
+  const n1 = findMosaicNode(node.first, key);
   if (n1 != null) return n1;
-  return findMosaicLeaf(node.last, key);
+  return findMosaicNode(node.last, key);
 };
 
 const splitArrangement = (insertPosition: Location): [Order, Order, Direction] => {
@@ -258,4 +226,4 @@ const splitArrangement = (insertPosition: Location): [Order, Order, Direction] =
   }
 };
 
-const shallowCopyLeaf = (leaf: MosaicLeaf): MosaicLeaf => ({ ...leaf });
+const shallowCopyNode = (node: MosaicNode): MosaicNode => ({ ...node });

@@ -9,6 +9,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { Space, Header, Menu } from "@synnaxlabs/pluto";
 import { MarkdownHeading } from "astro";
 import { unescape } from "html-escaper";
 
@@ -20,9 +21,9 @@ interface ItemOffset {
 export const TableOfContents = ({
   headings = [],
 }: {
-  headings: MarkdownHeading[];
+  headings?: MarkdownHeading[];
 }): JSX.Element => {
-  const toc = useRef<HTMLUListElement | null>();
+  const toc = useRef<HTMLDivElement | null>();
   const onThisPageID = "on-this-page-heading";
   const itemOffsets = useRef<ItemOffset[]>([]);
   const [currentID, setCurrentID] = useState("");
@@ -74,31 +75,40 @@ export const TableOfContents = ({
     return () => headingsObserver.disconnect();
   }, [toc.current]);
 
-  const onLinkClick = (e) => {
-    setCurrentID(e.target.getAttribute("href").replace("#", ""));
-  };
+  // If there ar eno headings,
+  // return an empty div.
+  if (headings.length === 0) return <></>;
 
   return (
-    <>
-      <h2 id={onThisPageID} className="heading">
-        On this page
-      </h2>
-      <ul ref={toc}>
-        {headings
-          .filter(({ depth }) => depth > 1 && depth < 4)
-          .map((heading) => (
-            <li
-              key={heading.slug}
-              className={`header-link depth-${heading.depth} ${
-                currentID === heading.slug ? "current-header-link" : ""
-              }`.trim()}
-            >
-              <a href={`#${heading.slug}`} onClick={onLinkClick}>
+    <Space
+      style={{
+        paddingLeft: "2rem",
+        transition: "0.2s ease-in-out",
+      }}
+    >
+      <Header id={onThisPageID} className="heading">
+        <Header.Title level="h3">On this page</Header.Title>
+      </Header>
+      <div ref={toc}>
+        <Menu value={currentID}>
+          {headings
+            .filter(({ depth }) => depth > 1 && depth < 3)
+            .map((heading) => (
+              <Menu.Item.Link
+                href={`#${heading.slug}`}
+                level="p"
+                key={heading.slug}
+                itemKey={heading.slug}
+                id={heading.slug}
+                className={`header-link depth-${heading.depth} ${
+                  currentID === heading.slug ? "current-header-link" : ""
+                }`.trim()}
+              >
                 {unescape(heading.text)}
-              </a>
-            </li>
-          ))}
-      </ul>
-    </>
+              </Menu.Item.Link>
+            ))}
+        </Menu>
+      </div>
+    </Space>
   );
 };

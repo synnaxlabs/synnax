@@ -7,6 +7,7 @@ on:
     paths:
       - "client/**"
       - ".github/workflows/client.test.yaml"
+  workflow_dispatch:
 jobs:
   test-python:
     runs-on: ubuntu-latest
@@ -36,6 +37,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install Poetry
+        if: steps.filter.outputs.changed == 'true'
         run: |
           pip install poetry
           poetry config virtualenvs.create false
@@ -44,9 +46,11 @@ jobs:
 
       - name: Test
         run: pytest --cov=freighter --cov-report xml:coverage.xml
+        if: steps.filter.outputs.changed == 'true'
         working-directory: ./client/py
 
       - name: Upload Coverage
+        if: steps.filter.outputs.changed == 'true'
         uses: codecov/codecov-action@v3
         with:
           directory: ./client/py
@@ -89,17 +93,19 @@ jobs:
                 - "x/**"
                 - ".github/workflows/client.test.yaml"
 
-      - name: Set up pnpm
-        if: steps.filter.outputs.changed == 'true'
-        uses: pnpm/action-setup@v2
-        with:
-          version: 7
+
 
       - name: Set up Node
         if: steps.filter.outputs.changed == 'true'
         uses: actions/setup-node@v3
         with:
           node-version: "18"
+
+      - name: Set up pnpm
+        if: steps.filter.outputs.changed == 'true'
+        uses: pnpm/action-setup@v2
+        with:
+          version: 7
 
       - name: Install Dependencies
         if: steps.filter.outputs.changed == 'true'

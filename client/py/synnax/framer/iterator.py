@@ -11,13 +11,11 @@ from enum import Enum
 
 from freighter import EOF, ExceptionPayload, Payload, Stream, StreamClient
 
-from pandas import DataFrame
-
-from synnax.exceptions import UnexpectedError, GeneralError
-from synnax.framer.mode import FramingMode, open_framing_mode
+from synnax.exceptions import UnexpectedError
 from synnax.telem import TimeRange, TimeSpan, TimeStamp
 from synnax.framer.payload import BinaryFrame, NumpyFrame
 from synnax.channel.retrieve import ChannelRetriever
+from synnax.util.flatten import flatten
 
 AUTO_SPAN = TimeSpan(-1)
 
@@ -68,15 +66,27 @@ class CoreIterator:
     _ENDPOINT = "/frame/iterate"
 
     aggregate: bool
+    open: bool
+    tr: TimeRange
+    keys: list[str]
     _client: StreamClient
     _stream: Stream[_Request, _Response]
     _value: BinaryFrame
 
-    def __init__(self, client: StreamClient, aggregate: bool = False) -> None:
+    def __init__(
+        self,
+        client: StreamClient,
+        tr: TimeRange,
+        keys: list[str],
+        aggregate: bool = False,
+    ) -> None:
         self._client = client
         self.aggregate = aggregate
+        self.keys = keys
+        self.tr = tr
+        self._open()
 
-    def open(self, tr: TimeRange, keys: list[str]):
+    def _open(self):
         """Opens the iterator, configuring it to iterate over the telemetry in the
         channels with the given keys within the provided time range.
 
@@ -84,7 +94,7 @@ class CoreIterator:
         :param tr: The time range to iterate over.
         """
         self._stream = self._client.stream(self._ENDPOINT, _Request, _Response)
-        self._exec(command=_Command.OPEN, range=tr, keys=keys)
+        self._exec(command=_Command.OPEN, range=self.tr, keys=self.keys)
         self._value = BinaryFrame()
 
     def next(self, span: TimeSpan) -> bool:
@@ -177,6 +187,22 @@ class CoreIterator:
         elif not isinstance(exc, EOF):
             raise exc
 
+    def __iter__(self):
+        if not self.seek_first():
+            raise StopIteration
+        return self
+
+    def __next__(self):
+        if not self.next(AUTO_SPAN):
+            raise StopIteration
+        return self.value
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+
     @property
     def value(self) -> BinaryFrame:
         return self._value.compact()
@@ -207,26 +233,20 @@ class NumpyIterator(CoreIterator):
     """
 
     _channels: ChannelRetriever
-    _mode: FramingMode
+    _keys_or_names: list[str]
 
     def __init__(
         self,
         transport: StreamClient,
         channels: ChannelRetriever,
+        tr: TimeRange,
+        *keys_or_names: str | tuple[str] | list[str],
         aggregate: bool = False,
     ):
-        super().__init__(transport, aggregate)
         self._channels = channels
-
-    def open(
-        self,
-        tr: TimeRange,
-        keys: list[str] | None = None,
-        names: list[str] | None = None,
-    ):
-        self._mode = open_framing_mode(keys, names)
-        channels = self._channels.retrieve(keys=keys, names=names, node_id=None)
-        super().open(tr, [ch.key for ch in channels])
+        self._keys_or_names = flatten(*keys_or_names)
+        channels_ = self._channels.retrieve(flatten(*keys_or_names))
+        super().__init__(transport,  tr, [ch.key for ch in channels_], aggregate)
 
     @property
     def value(self) -> NumpyFrame:
@@ -239,12 +259,14 @@ class NumpyIterator(CoreIterator):
         return NumpyFrame.from_binary(v)
 
     def _value_keys(self, keys: list[str]) -> list[str]:
-        if self._mode == FramingMode.KEY:
-            return keys
-        if self._mode == FramingMode.NAME:
-            # We can safely ignore the none case here because we've already
-            # checked that all channels can be retrieved.
-            return [self._channels.retrieve(k).name for k in keys]  # type: ignore
-        raise GeneralError(
-            "Must call open() before attempting to access iterator value."
-        )
+        # We can safely ignore the none case here because we've already
+        # checked that all channels can be retrieved.
+        channels = self._channels.retrieve(keys)
+        keys_or_names = []
+        for ch in channels:
+            v = [k for k in self._keys_or_names if k == ch.key or k == ch.name]
+            if len(v) == 0:
+                raise ValueError(f"Unexpected channel key {ch.key}")
+            keys_or_names.append(v[0])
+        return keys_or_names
+

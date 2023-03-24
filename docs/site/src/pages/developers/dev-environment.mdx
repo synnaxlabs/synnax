@@ -2,9 +2,6 @@
 sidebar_position: 4
 ---
 
-import Tabs from "@theme/Tabs";
-import TabItem from "@theme/TabItem";
-
 # Setting up your Development Environment
 
 This page takes you through the steps of setting up your computer to develop
@@ -13,11 +10,6 @@ takes you through installing the base tooling necessary for working on any proje
 and then steps into frontend, backend, and client specific tooling. After you've
 installed the base tools, you can skip to the section for the part of the project
 you're working on.
-
-```mdx-code-block
-<Tabs>
-<TabItem value="macOS" label="MacOS">
-```
 
 ## Base Tooling
 
@@ -32,8 +24,8 @@ The easiest way to set up your development environment is by using
 the macOS package manager [**Homebrew**](https://brew.sh/), which you can install by running the following
 command:
 
-```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```cmd
+/bin/cmd -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 ```
 
 ### Clone The Git Repository
@@ -41,14 +33,14 @@ command:
 The next step is to clone the git repository. If you don't already have git installed,
 you can do so by running:
 
-```bash
+```cmd
 brew install git
 ```
 
 After that, clone the repository by running the following command in a direcory
 of your choice (we recommend `~/projects`):
 
-```bash
+```cmd
 git clone https://github.com/synnaxlabs/synnax && cd synnax
 ```
 
@@ -62,19 +54,19 @@ environment. We also use it for all of our builds and CI/CD pipelines.
 This part can be tricky, feel free to reach out if you run into any trouble.
 :::
 
-```bash
+```cmd
 brew install --cask docker
 ```
 
 To make sure docker is working, run the following command:
 
-```bash
+```cmd
 docker run hello-world
 ```
 
 If you see this message as part of the output, you're good to go:
 
-```bash
+```cmd
 Hello from Docker!
 ```
 
@@ -86,13 +78,13 @@ It uses Docker under the hood, and is a nice, modern alternative to Makefiles.
 
 To install Earthly, run the following command:
 
-```bash
+```cmd
 brew install earthly/earthly/earthly && earthly bootstrap
 ```
 
 To verify the installation, run:
 
-```bash
+```cmd
 earthly github.com/earthly/hello-world+hello
 ```
 
@@ -104,19 +96,19 @@ The next step is to install [**Go**](https://golang.org/), which is the programm
 language we use for our backend code. We use the latest version of Go 1.19, which
 you can install by running:
 
-```bash
+```cmd
 brew install go
 ```
 
 To verify the installation, run:
 
-```bash
+```cmd
 go version
 ```
 
 The output should look something like this:
 
-```bash
+```cmd
 go version go1.19 darwin/amd64
 ```
 
@@ -125,7 +117,7 @@ go version go1.19 darwin/amd64
 Next, let's check that the test cases compile and execute correctly. From the
 root level of the repository, run:
 
-```bash
+```cmd
 cd x && go test -v ./...
 ```
 
@@ -139,19 +131,19 @@ The first step is to install [**Node.js**](https://nodejs.org/en/), which is the
 JavaScript runtime we use for our frontend code. We use the latest version,
 which you can install by running:
 
-```bash
+```cmd
 brew install node
 ```
 
 To verify the installation, run:
 
-```bash
+```cmd
 node -v
 ```
 
 The output should look something like this:
 
-```bash
+```cmd
 v18.[X].[Y]
 ```
 
@@ -160,19 +152,19 @@ v18.[X].[Y]
 The next step is to install [**Yarn**](https://yarnpkg.com/), which is the package
 manager we use for managing our frontend dependencies. You can install it by running:
 
-```bash
+```cmd
 npm install --global yarn
 ```
 
 Check the installation by running:
 
-```bash
+```cmd
 yarn --version
 ```
 
 You should see something like this:
 
-```bash
+```cmd
 1.22.[X]
 ```
 
@@ -181,7 +173,7 @@ You should see something like this:
 To ensure that all the frontend tooling is working well, let's run the documentation
 website. From the root level of the repository, run:
 
-```bash
+```cmd
 cd docs/site && earthly +dev
 ```
 
@@ -197,20 +189,20 @@ The first step is to install [**Python**](https://www.python.org/), which is the
 programming language we use for our client code. We use the latest version of Python 3
 (3.10), which you can install by running the following command:
 
-```bash
+```cmd
 brew install python@3.10
 ```
 
 If you get a `permissiond denied` error, you may need to run the command using
 `sudo`. To verify the installation, run:
 
-```bash
+```cmd
 python3 --version
 ```
 
 You should see the following output:
 
-```bash
+```cmd
 Python 3.10.[X]
 ```
 
@@ -222,25 +214,20 @@ If this happens, let us know so we can help you out.
 We use [**Poetry**](https://python-poetry.org/) to manage our Python dependencies.
 To install it, run:
 
-```bash
+```cmd
 pip install poetry
 ```
 
 To verify the installation, run the following command in the root directory of the
 repository:
 
-```bash
+```cmd
 cd client/py && poetry install
 ```
 
 This should install all dependencies for the client. If you get an error
 saying that `poetry` is not a command, you may need to update your `PATH` environment
 variable. If this happens, let us know so we can help you out.
-
-```mdx-code-block
-</TabItem>
-<TabItem value="windows" label="Windows">
-```
 
 ## Base Tooling
 
@@ -251,14 +238,14 @@ already installed it, follow the instructions [here](https://docs.microsoft.com/
 
 If you've already installed WSL, make sure you're using version 2 by running:
 
-```bash
+```cmd
 wsl -l -v
 ```
 
 If you're using an Ubuntu distribution (the default), you should see something
 like this:
 
-```bash
+```cmd
   NAME                   STATE           VERSION
 * Ubuntu                 Running         2
 ```
@@ -268,7 +255,7 @@ like this:
 The next step is to clone the Synnax repository. Make sure you're
 using a WSL terminal. You can do this by running the following command:
 
-```bash
+```cmd
 wsl
 ```
 
@@ -276,14 +263,14 @@ From here on, **assume all commands should be run within WSL**. Now, move
 into a directory of your choice, we recommend making a directory called `projects`
 in your home directory.
 
-```bash
+```cmd
 cd ~ && mkdir projects && cd projects
 ```
 
 You're free to choose any directory you want as long as it's on your WSL filesystem.
 After you've created the directory, clone the git repository by running:
 
-```bash
+```cmd
 git clone https://github.com/synnaxlabs/synnax
 ```
 
@@ -304,13 +291,13 @@ for using Docker with the WSL 2 engine.
 
 After installing, make sure Docker is working by running:
 
-```bash
+```cmd
 docker run hello-world
 ```
 
 You should see the following as part of the output:
 
-```bash
+```cmd
 Hello from Docker!
 ```
 
@@ -322,13 +309,13 @@ It uses Docker under the hood, and is a nice, modern alternative to Makefiles.
 
 To install Earthly, run the following command:
 
-```bash
+```cmd
 sudo /bin/sh -c 'wget https://github.com/earthly/earthly/releases/latest/download/earthly-linux-amd64 -O /usr/local/bin/earthly && chmod +x /usr/local/bin/earthly && /usr/local/bin/earthly bootstrap --with-autocomplete'
 ```
 
 To verify the installation, run:
 
-```bash
+```cmd
 earthly github.com/earthly/hello-world+hello
 ```
 
@@ -340,13 +327,13 @@ The next step is to install [**Go**](https://golang.org/), which is the programm
 language we use for of our backend code. We use the latest version of Go 1.19,
 which you can download by running:
 
-```bash
+```cmd
 wget https://golang.org/dl/go1.19.1.linux-amd64.tar.gz
 ```
 
 Then, to extract the archive and install it, run:
 
-```bash
+```cmd
 sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.19.1.linux-amd64.tar.gz
 ```
 
@@ -355,19 +342,19 @@ You may be prompted for your password.
 The final step is to add `/usr/local/go/bin` to your `PATH` environment variable.
 You can do this by running the following command:
 
-```bash
+```cmd
 echo PATH=$PATH:/usr/local/go/bin >> ~/.profile && source ~/.profile
 ```
 
 To verify the installation, run:
 
-```bash
+```cmd
 go version
 ```
 
 You should see something like this:
 
-```bash
+```cmd
 go version go1.19.1 linux/amd64
 ```
 
@@ -376,7 +363,7 @@ go version go1.19.1 linux/amd64
 Next, let's check that the test cases compile and execute correctly. From the
 root level of the repository (in our case, `~/projects/synnax`), run:
 
-```bash
+```cmd
 cd x && go test -v ./...
 ```
 
@@ -390,25 +377,25 @@ The first step is to install [**Node.js**](https://nodejs.org/en/), which is the
 JavaScript runtime we use for our frontend code. The first step is add the latest
 version of Node.js to your package manager by running:
 
-```bash
-curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+```cmd
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E cmd -
 ```
 
 Then, to install Node.js, run:
 
-```bash
+```cmd
 sudo apt-get install -y nodejs
 ```
 
 To verify the installation, run:
 
-```bash
+```cmd
 node --version
 ```
 
 You should see something like this:
 
-```bash
+```cmd
 v18.[X].[Y]
 ```
 
@@ -417,19 +404,19 @@ v18.[X].[Y]
 We use [**Yarn**](https://yarnpkg.com/) to manage our JavaScript dependencies.
 To install it, run:
 
-```bash
+```cmd
 npm install --global yarn
 ```
 
 To verify the installation, run:
 
-```bash
+```cmd
 yarn --version
 ```
 
 You should see something like this:
 
-```bash
+```cmd
 1.22.[X]
 ```
 
@@ -438,7 +425,7 @@ You should see something like this:
 To ensure that all the frontend tooling is working well, let's run the documentation
 website. From the root level of the repository, run:
 
-```bash
+```cmd
 cd docs/site && earthly +dev
 ```
 
@@ -454,25 +441,25 @@ The first step is to install [**Python**](https://www.python.org/), which is the
 programming language we use for our client code. We use the latest version of Python 3 (3.10).
 To install it, we first need to update our package index by running:
 
-```bash
+```cmd
 sudo apt update && sudo apt install software-properties-common && sudo add-apt-repository ppa:deadsnakes/ppa
 ```
 
 You may need to press `Enter` to continue. Then, to install Python, run:
 
-```bash
+```cmd
 sudo apt install python3.10
 ```
 
 To verify the installation, run:
 
-```bash
+```cmd
 python3.10 --version
 ```
 
 You should see something like this:
 
-```bash
+```cmd
 Python 3.10.[X]
 ```
 
@@ -491,25 +478,20 @@ resolve it.
 We use [**Poetry**](https://python-poetry.org/) to manage our Python dependencies.
 To install it, run:
 
-```bash
+```cmd
 pip install poetry
 ```
 
 To verify the installation, run the following command in the root directory of the
 repository:
 
-```bash
+```cmd
 cd client/py && poetry install
 ```
 
 This should install all dependencies for the client. If you get an error
 saying that `poetry` is not a command, you may need to update your `PATH` environment
 variable. If this happens, let us know so we can help you out.
-
-```mdx-code-block
-</TabItem>
-</Tabs>
-```
 
 ## Next Steps
 

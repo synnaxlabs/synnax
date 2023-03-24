@@ -9,20 +9,20 @@
 
 import { DetailedHTMLProps, HtmlHTMLAttributes, ReactElement, useState } from "react";
 
-import { RenderableRecord } from "@synnaxlabs/x";
-import clsx from "clsx";
-import { AiFillCaretDown, AiFillCaretRight } from "react-icons/ai";
+import { Icon } from "@synnaxlabs/media";
+import { KeyedRenderableRecord } from "@synnaxlabs/x";
 
-import { Button } from "@/core/Button";
+import { ButtonProps } from "../Button/Button";
 
-import { InputControl } from "../Input";
-
+import { Button, ButtonLinkProps } from "@/core/Button";
+import { InputControl } from "@/core/Input";
+import { CSS } from "@/css";
 import { ComponentSize } from "@/util/component";
 import { RenderProp } from "@/util/renderProp";
 
 import "./Tree.css";
 
-export interface TreeProps<E extends RenderableRecord<E> = RenderableRecord>
+export interface TreeProps<E extends KeyedRenderableRecord<E> = KeyedRenderableRecord>
   extends Partial<InputControl<readonly string[], string>>,
     Omit<
       DetailedHTMLProps<HtmlHTMLAttributes<HTMLUListElement>, HTMLUListElement>,
@@ -34,7 +34,7 @@ export interface TreeProps<E extends RenderableRecord<E> = RenderableRecord>
   size?: ComponentSize;
 }
 
-export const Tree = <E extends RenderableRecord<E> = RenderableRecord>({
+export const Tree = <E extends KeyedRenderableRecord<E> = KeyedRenderableRecord>({
   data,
   value = [],
   onChange,
@@ -45,7 +45,7 @@ export const Tree = <E extends RenderableRecord<E> = RenderableRecord>({
 }: TreeProps<E>): JSX.Element => {
   const _nextSiblingsHaveChildren = nextSiblingsHaveChildren(data);
   return (
-    <ul className={clsx("pluto-tree__list pluto-tree__container")} {...props}>
+    <ul className={CSS(CSS.BE("tree", "list"), CSS.BE("tree", "container"))} {...props}>
       {data.map((entry) => (
         <TreeLeafParent
           {...entry}
@@ -64,19 +64,19 @@ export const Tree = <E extends RenderableRecord<E> = RenderableRecord>({
   );
 };
 
-export type TreeLeaf<E extends RenderableRecord<E> = RenderableRecord> = {
+export type TreeLeaf<E extends KeyedRenderableRecord<E> = KeyedRenderableRecord> = {
   hasChildren?: boolean;
   icon?: ReactElement;
   children?: Array<TreeLeaf<E>>;
   url?: string;
 } & RenderableTreeLeaf<E>;
 
-type RenderableTreeLeaf<E extends RenderableRecord<E> = RenderableRecord> = {
+type RenderableTreeLeaf<E extends KeyedRenderableRecord<E> = KeyedRenderableRecord> = {
   key: string;
   name: string;
 } & Omit<E, "name" | "key">;
 
-type TreeLeafProps<E extends RenderableRecord<E>> = TreeLeaf<E> & {
+type TreeLeafProps<E extends KeyedRenderableRecord<E>> = TreeLeaf<E> & {
   selected: readonly string[];
   nodeKey: string;
   hasChildren?: boolean;
@@ -88,7 +88,7 @@ type TreeLeafProps<E extends RenderableRecord<E>> = TreeLeaf<E> & {
   size?: ComponentSize;
 };
 
-const TreeLeafParent = <E extends RenderableRecord>({
+const TreeLeafParent = <E extends KeyedRenderableRecord>({
   nodeKey,
   name,
   icon,
@@ -113,7 +113,7 @@ const TreeLeafParent = <E extends RenderableRecord>({
   if (!hasChildren && siblingsHaveChildren) paddingLeft += 3.25;
   const _nextSiblingsHaveChildren = nextSiblingsHaveChildren(children);
   return (
-    <li className="tree-node__container">
+    <li className={CSS.BE("tree-node", "container")}>
       {render({
         nodeKey,
         style: {
@@ -130,7 +130,7 @@ const TreeLeafParent = <E extends RenderableRecord>({
         ...rest,
       } as const as TreeLeafCProps<E>)}
       {expanded && children.length > 0 && (
-        <ul className="pluto-tree__list">
+        <ul className={CSS.BE("tree", "list")}>
           {children.map((child) => (
             <TreeLeafParent
               {...child}
@@ -150,7 +150,7 @@ const TreeLeafParent = <E extends RenderableRecord>({
   );
 };
 
-type TreeLeafCProps<E extends RenderableRecord<E> = RenderableRecord> = Omit<
+type TreeLeafCProps<E extends KeyedRenderableRecord<E> = KeyedRenderableRecord> = Omit<
   RenderableTreeLeaf<E>,
   "key"
 > & {
@@ -166,7 +166,7 @@ type TreeLeafCProps<E extends RenderableRecord<E> = RenderableRecord> = Omit<
   onSelect?: (key: string) => void;
 };
 
-export const ButtonLeaf = <E extends RenderableRecord<E>>({
+export const ButtonLeaf = <E extends KeyedRenderableRecord<E>>({
   name,
   icon,
   nodeKey,
@@ -179,7 +179,7 @@ export const ButtonLeaf = <E extends RenderableRecord<E>>({
   ...props
 }: TreeLeafCProps<E>): JSX.Element => {
   const icons: ReactElement[] = [];
-  if (hasChildren) icons.push(expanded ? <AiFillCaretDown /> : <AiFillCaretRight />);
+  if (hasChildren) icons.push(expanded ? <Icon.Caret.Down /> : <Icon.Caret.Right />);
   if (icon != null) icons.push(icon);
 
   const handleClick = (): void => {
@@ -187,23 +187,22 @@ export const ButtonLeaf = <E extends RenderableRecord<E>>({
     onExpand(nodeKey);
   };
 
-  const _Button = url != null ? Button.Link : Button;
+  const baseProps: ButtonLinkProps | ButtonProps = {
+    variant: "text",
+    onClick: handleClick,
+    className: CSS(CSS.BE("tree-leaf", "button"), CSS.selected(selected)),
+    startIcon: icons,
+    iconSpacing: "small",
+    noWrap: true,
+    ...props,
+  };
 
-  return (
-    <_Button
-      href={url}
-      variant="text"
-      className={clsx(
-        "pluto-tree-leaf__button",
-        selected && "pluto-tree-leaf__button--selected"
-      )}
-      startIcon={icons}
-      onClick={handleClick}
-      iconSpacing="small"
-      {...props}
-    >
+  return url != null ? (
+    <Button.Link href={url} {...baseProps}>
       {name}
-    </_Button>
+    </Button.Link>
+  ) : (
+    <Button {...baseProps}>{name}</Button>
   );
 };
 

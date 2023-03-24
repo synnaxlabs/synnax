@@ -12,8 +12,19 @@ import { describe, expect, it, vi } from "vitest";
 
 import { configureMiddleware, middleware } from "./middleware";
 import { MockRuntime } from "./mock/runtime";
+import { WindowProps } from "./window";
 
-import { closeWindow, initialState, setWindowState } from "@/state";
+import {
+  initialState,
+  setWindowStage,
+  focusWindow,
+  DriftAction,
+  centerWindow,
+  setWindowFullscreen,
+  setWindowMaximized,
+  setWindowPosition,
+  setWindowMinSize,
+} from "@/state";
 
 const state = {
   drift: initialState,
@@ -61,65 +72,39 @@ describe("middleware", () => {
       });
     });
     describe("key assignment", () => {
-      it("should auto-assign a key to a drift action when it isn't present", () => {
+      it("should auto-assign a label to a drift action when it isn't present", () => {
         const store = { getState: () => state, dispatch: vi.fn() };
         const runtime = new MockRuntime(false);
         const mw = middleware(runtime)(store);
         const next = vi.fn();
-        mw(next)(setWindowState("created"));
+        mw(next)(setWindowStage({ stage: "created" }));
         expect(next).toHaveBeenCalledWith({
-          type: "drift/setWindowState",
+          type: "drift/setWindowStage",
           payload: {
-            key: "mock",
-            state: "created",
+            label: "main",
+            stage: "created",
           },
         });
       });
-      it("should not auto-assign a key to a drift action if it has been emitted", () => {
+      it("should not auto-assign a label to a drift action if it has been emitted", () => {
         const store = { getState: () => state, dispatch: vi.fn() };
         const runtime = new MockRuntime(false);
         const mw = middleware(runtime)(store);
         const next = vi.fn();
         mw(next)({
-          type: "DA@test://drift/setWindowState",
+          type: "DA@test://drift/setWindowStage",
           payload: {
-            key: "mock",
-            state: "created",
+            label: "main",
+            stage: "created",
           },
         });
         expect(next).toHaveBeenCalledWith({
-          type: "drift/setWindowState",
+          type: "drift/setWindowStage",
           payload: {
-            key: "mock",
-            state: "created",
+            label: "main",
+            stage: "created",
           },
         });
-      });
-    });
-    describe("action execution", () => {
-      it("should call executeAction if the runtime is main", () => {
-        const store = { getState: () => state, dispatch: vi.fn() };
-        const runtime = new MockRuntime(true);
-        const mw = middleware(runtime)(store);
-        const next = vi.fn();
-        mw(next)(closeWindow("test"));
-        expect(runtime.hasClosed.includes("test")).toBe(true);
-      });
-      it("should not call executeAction if the runtime is not main", () => {
-        const store = { getState: () => state, dispatch: vi.fn() };
-        const runtime = new MockRuntime(false);
-        const mw = middleware(runtime)(store);
-        const next = vi.fn();
-        mw(next)(closeWindow("test"));
-        expect(runtime.hasClosed.includes("test")).toBe(false);
-      });
-      it("should not call executeAction if the action is not a drift action", () => {
-        const store = { getState: () => state, dispatch: vi.fn() };
-        const runtime = new MockRuntime(true);
-        const mw = middleware(runtime)(store);
-        const next = vi.fn();
-        mw(next)({ type: "test" });
-        expect(runtime.hasClosed.includes("test")).toBe(false);
       });
     });
   });

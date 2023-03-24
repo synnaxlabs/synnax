@@ -9,16 +9,15 @@
 
 import { FocusEventHandler, useEffect, useState } from "react";
 
-import { RenderableRecord } from "@synnaxlabs/x";
-
-import { Dropdown, DropdownProps } from "@/core/Dropdown";
+import { KeyedRenderableRecord } from "@synnaxlabs/x";
 
 import { SelectList } from "./SelectList";
 
+import { Dropdown, DropdownProps } from "@/core/Dropdown";
 import { InputControl, Input, InputProps } from "@/core/Input";
 import { List, ListColumn } from "@/core/List";
 
-export interface SelectProps<E extends RenderableRecord<E>>
+export interface SelectProps<E extends KeyedRenderableRecord<E>>
   extends Omit<DropdownProps, "onChange" | "visible" | "children">,
     InputControl<string> {
   data?: E[];
@@ -26,7 +25,7 @@ export interface SelectProps<E extends RenderableRecord<E>>
   columns?: Array<ListColumn<E>>;
 }
 
-export const Select = <E extends RenderableRecord<E>>({
+export const Select = <E extends KeyedRenderableRecord<E>>({
   onChange,
   value,
   tagKey = "key",
@@ -67,7 +66,7 @@ export const Select = <E extends RenderableRecord<E>>({
   );
 };
 
-export interface SelectInputProps<E extends RenderableRecord<E>>
+export interface SelectInputProps<E extends KeyedRenderableRecord<E>>
   extends Omit<InputProps, "value"> {
   tagKey: keyof E;
   selected: string;
@@ -75,7 +74,7 @@ export interface SelectInputProps<E extends RenderableRecord<E>>
   data: E[];
 }
 
-const SelectInput = <E extends RenderableRecord<E>>({
+const SelectInput = <E extends KeyedRenderableRecord<E>>({
   data,
   tagKey,
   selected,

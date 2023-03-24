@@ -22,7 +22,7 @@ export class ChannelRegistry {
   async get(key: string): Promise<ChannelPayload> {
     let channel = this.channels.get(key);
     if (channel === undefined) {
-      channel = await this.retriever.retrieve({ key });
+      channel = await this.retriever.retrieve(key);
       this.channels.set(key, channel);
     }
     return channel;
@@ -37,7 +37,7 @@ export class ChannelRegistry {
       else results.push(channel);
     });
     if (retrieveKeys.length > 0) {
-      const channels = await this.retriever.filter({ keys: retrieveKeys });
+      const channels = await this.retriever.retrieve(retrieveKeys);
       channels.forEach((channel) => {
         this.channels.set(channel.key, channel);
         results.push(channel);

@@ -9,11 +9,10 @@
 
 import { RefObject, useCallback, useRef } from "react";
 
-import { Box } from "../spatial/box";
-import { ClientXY, toXY, XY, ZERO_XY } from "../spatial/core";
+import { Box, ClientXY, toXY, XY, ZERO_XY } from "@synnaxlabs/x";
 
-import { TriggerCallback, TriggerEvent, useTrigger } from "./TriggersContext";
-import { Trigger } from "./types";
+import { useTrigger } from "./hooks";
+import { Trigger, TriggerCallback, TriggerEvent } from "./triggers";
 
 export interface TriggerDragEvent extends TriggerEvent {
   box: Box;
@@ -31,39 +30,42 @@ export interface UseCursorDragProps {
 
 export const useTriggerDrag = ({
   onDrag,
-  triggers = [
-    ["MouseLeft", null],
-    ["MouseRight", null],
-  ],
+  triggers = [["MouseLeft"], ["MouseRight"]],
   bound,
 }: UseCursorDragProps): void => {
   const triggerRef = useRef<TriggerEvent | null>(null);
   const startLoc = useRef<XY>(ZERO_XY);
-  const onMove = useCallback((e: ClientXY & { buttons: number }) => {
-    const cursor = toXY(e);
-    if (triggerRef.current === null) return;
-    const { target, triggers } = triggerRef.current;
-    onDrag({
-      target,
-      box: new Box(startLoc.current, cursor),
-      cursor,
-      triggers,
-      stage: "during",
-    });
-  }, []);
-  const handleTrigger = useCallback<TriggerCallback>((event) => {
-    const { stage, cursor } = event;
-    if (stage === "start") {
-      onDrag({ box: new Box(cursor), ...event });
-      window.addEventListener("mousemove", onMove);
-      triggerRef.current = event;
-      startLoc.current = cursor;
-    } else if (stage === "end") {
-      onDrag({ box: new Box(startLoc.current, cursor), ...event });
-      window.removeEventListener("mousemove", onMove);
-      triggerRef.current = null;
-      startLoc.current = ZERO_XY;
-    }
-  }, []);
+  const onMove = useCallback(
+    (e: ClientXY & { buttons: number }) => {
+      const cursor = toXY(e);
+      if (triggerRef.current === null) return;
+      const { target, triggers } = triggerRef.current;
+      onDrag({
+        target,
+        box: new Box(startLoc.current, cursor),
+        cursor,
+        triggers,
+        stage: "during",
+      });
+    },
+    [onDrag]
+  );
+  const handleTrigger = useCallback<TriggerCallback>(
+    (event) => {
+      const { stage, cursor } = event;
+      if (stage === "start") {
+        onDrag({ box: new Box(cursor), ...event });
+        window.addEventListener("mousemove", onMove);
+        triggerRef.current = event;
+        startLoc.current = cursor;
+      } else if (stage === "end") {
+        onDrag({ box: new Box(startLoc.current, cursor), ...event });
+        window.removeEventListener("mousemove", onMove);
+        triggerRef.current = null;
+        startLoc.current = ZERO_XY;
+      }
+    },
+    [onDrag]
+  );
   useTrigger(triggers, handleTrigger, bound);
 };

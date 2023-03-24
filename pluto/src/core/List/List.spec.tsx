@@ -115,12 +115,13 @@ describe("List", () => {
         );
       });
     });
-    it("should allow a user to deselect multiple items in the list when holding shift", () => {
+    it("should allow a user to deselect multiple items in the list when holding shift", async () => {
       const c = render(<TestList />);
       fireEvent.keyDown(document.body, { key: "Shift" });
       fireEvent.click(c.getByText("John"));
       fireEvent.click(c.getByText("Jack"));
       fireEvent.keyUp(document.body, { key: "Shift" });
+      await new Promise((resolve) => setTimeout(resolve, 450));
       fireEvent.keyDown(document.body, { key: "Shift" });
       fireEvent.click(c.getByText("John"));
       fireEvent.click(c.getByText("Jack"));

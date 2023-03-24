@@ -21,10 +21,9 @@ export default defineConfig({
   envPrefix: ["VITE_", "TAURI_"],
   plugins: [react(), tsconfigPaths(), svgr()],
   build: {
-    target: ["es2021", "chrome100", "safari13"],
-    // minify: !process.env.TAURI_DEBUG ? "esbuild" : false,
-    minify: false,
-    sourcemap: false,
+    target: process.env.TAURI_PLATFORM === "windows" ? "chrome105" : "safari16",
+    minify: !process.env.TAURI_DEBUG ? "esbuild" : false,
+    sourcemap: !!process.env.TAURI_DEBUG,
     // We don't really care about maintaining a small bundle size right now, as this file
     // is loaded directly from disc instead of OTN
     chunkSizeWarningLimit: 10000 /* kbs */,

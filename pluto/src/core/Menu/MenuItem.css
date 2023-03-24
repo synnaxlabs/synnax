@@ -9,6 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-menu-item--selected {
+.pluto-menu-item.pluto--selected {
     background-color: var(--pluto-primary-z-40);
 }

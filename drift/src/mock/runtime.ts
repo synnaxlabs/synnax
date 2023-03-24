@@ -8,68 +8,144 @@
 // included in the file licenses/APL.txt.
 
 import type { Action, AnyAction } from "@reduxjs/toolkit";
+import { Dimensions, XY } from "@synnaxlabs/x";
 
 import { Event, Runtime } from "@/runtime";
 import { StoreState } from "@/state";
-import { KeyedWindowProps } from "@/window";
+import { WindowProps } from "@/window";
 
 export class MockRuntime<S extends StoreState, A extends Action = AnyAction>
   implements Runtime<S, A>
 {
   _isMain = false;
-  _key = "mock";
+  _label = "mock";
   markedReady = false;
-  emissions: Array<Event<S, A>> = [];
-  hasCreated: KeyedWindowProps[] = [];
   hasClosed: string[] = [];
-  hasFocused: string[] = [];
+  emissions: Array<Event<S, A>> = [];
+  hasCreated: Record<string, Omit<WindowProps, "key">> = {};
   subscribeCallback: (event: Event<S, A>) => void = () => {};
   requestClosure: () => void = () => {};
+  props: WindowProps;
 
-  constructor(isMain: boolean) {
+  constructor(isMain: boolean, initialProps: WindowProps = { key: "mock" }) {
     this._isMain = isMain;
+    this.props = { ...initialProps };
+    this._label = initialProps.key;
   }
 
   isMain(): boolean {
     return this._isMain;
   }
 
-  key(): string {
-    return this._key;
+  label(): string {
+    return this._label;
   }
 
-  emit(event: Omit<Event<S, A>, "emitter">, to?: string): void {
-    this.emissions.push({ ...event, emitter: this.key() });
+  async emit(event: Omit<Event<S, A>, "emitter">, to?: string): Promise<void> {
+    this.emissions.push({ ...event, emitter: this.label() });
+    return await Promise.resolve();
   }
 
   subscribe(lis: (event: Event<S, A>) => void): void {
     this.subscribeCallback = lis;
   }
 
-  ready(): void {
-    this.markedReady = true;
-  }
-
-  create(props: KeyedWindowProps): void {
-    this.hasCreated.push(props);
-  }
-
-  close(key: string): void {
-    this.hasClosed.push(key);
-  }
-
   onCloseRequested(cb: () => void): void {
     this.requestClosure = cb;
   }
 
-  focus(key: string): void {
-    this.hasFocused.push(key);
+  listLabels(): string[] {
+    return [];
   }
 
-  exists(key: string): boolean {
-    // check if in list of created and NOT in list of closed
-    const hasBeenCreated = this.hasCreated.some((w) => w.key === key);
-    const hasBeenClosed = this.hasClosed.some((w) => w === key);
-    return hasBeenCreated && !hasBeenClosed;
+  // |||||| MANAGER IMPLEMENTATION ||||||
+
+  async create(label: string, props: Omit<WindowProps, "key">): Promise<void> {
+    this.hasCreated[label] = props;
+    return await Promise.resolve();
+  }
+
+  async close(key: string): Promise<void> {
+    this.hasClosed.push(key);
+  }
+
+  async focus(): Promise<void> {
+    this.props.focus = true;
+    return await Promise.resolve();
+  }
+
+  async setMinimized(value: boolean): Promise<void> {
+    this.props.visible = !value;
+    return await Promise.resolve();
+  }
+
+  async setMaximized(value: boolean): Promise<void> {
+    this.props.maximized = value;
+    return await Promise.resolve();
+  }
+
+  async setVisible(value: boolean): Promise<void> {
+    this.props.visible = value;
+    return await Promise.resolve();
+  }
+
+  async setFullscreen(value: boolean): Promise<void> {
+    this.props.fullscreen = value;
+    return await Promise.resolve();
+  }
+
+  async center(): Promise<void> {
+    this.props.center = true;
+    return await Promise.resolve();
+  }
+
+  async setPosition(xy: XY): Promise<void> {
+    this.props.position = xy;
+    return await Promise.resolve();
+  }
+
+  async setSize(dims: Dimensions): Promise<void> {
+    this.props.size = dims;
+    return await Promise.resolve();
+  }
+
+  async setMinSize(dims: Dimensions): Promise<void> {
+    this.props.minSize = dims;
+    return await Promise.resolve();
+  }
+
+  async setMaxSize(dims: Dimensions): Promise<void> {
+    this.props.maxSize = dims;
+    return await Promise.resolve();
+  }
+
+  async setResizable(value: boolean): Promise<void> {
+    this.props.resizable = value;
+    return await Promise.resolve();
+  }
+
+  async setSkipTaskbar(value: boolean): Promise<void> {
+    this.props.skipTaskbar = value;
+    return await Promise.resolve();
+  }
+
+  async setAlwaysOnTop(value: boolean): Promise<void> {
+    this.props.alwaysOnTop = value;
+    return await Promise.resolve();
+  }
+
+  async setTitle(title: string): Promise<void> {
+    this.props.title = title;
+    return await Promise.resolve();
+  }
+
+  async show(): Promise<void> {
+    this.props.visible = true;
+    return await Promise.resolve();
+  }
+
+  async setDecorations(value: boolean): Promise<void> {
+    this.props.decorations = value;
+    return await Promise.resolve();
   }
 }

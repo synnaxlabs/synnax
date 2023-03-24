@@ -1,32 +1,100 @@
 ---
 import { PageNav } from "@/components/PageNav";
-import { pages } from "@/pages/nav";
 import "@synnaxlabs/pluto/dist/style.css";
+import "@synnaxlabs/media/dist/style.css";
 import { Theming } from "@synnaxlabs/pluto";
-import { DEFAULT_THEME } from "@/util/theme";
-import { Logo } from "@/components/Logo";
-const vars = Theming.toCSSVars(DEFAULT_THEME);
+import { DARK, LIGHT } from "@/util/theme";
+import { Logo } from "@synnaxlabs/media";
 import { TableOfContents } from "@/components/TableOfContents";
-const { headings } = Astro.props as Props;
+import { SEO } from "astro-seo";
+const {
+    headings,
+    frontmatter: { title, heading, description },
+} = Astro.props;
+
+const url = Astro.request.url;
+if (url.includes("noHeader")) {
+    const header = url.split("noHeader=")[1].split("&")[0];
+    Astro.cookies.set("noHeader", header);
+}
+if (url.includes("theme")) {
+    const theme = url.split("theme=")[1].split("&")[0];
+    Astro.cookies.set("theme", theme);
+}
+
+const noHeader = Astro.cookies.get("noHeader");
+let vars: Record<string, any> = {};
+if (noHeader.value == "true") {
+    vars["--docs-header-display"] = "none";
+}
+const theme = Astro.cookies.get("theme");
+vars = { ...vars, ...Theming.toCSSVars(theme.value === "dark" ? DARK : LIGHT) };
 ---
 
+<script>
+    const updateHref = () => {
+        const url = window.location.href;
+        const path = url
+            .replace(window.location.origin, "")
+            .split("?")[0]
+            .split("#")[0];
+        const maybeHeading = url.split("#");
+        let heading = "";
+        if (maybeHeading.length > 1) {
+            heading = maybeHeading[1].split("&")[0];
+        }
+        window.parent.postMessage({ path, heading }, "*");
+    };
+    window.addEventListener("popstate", updateHref);
+    updateHref();
+</script>
+
 <html style={vars}>
-    <header class="pluto-bordered--bottom">
+    <head>
+        <SEO
+            title={title}
+            titleTemplate="%s | Synnax"
+            titleDefault="Synnax"
+            description={description}
+            extend={{
+                link: [
+                    {
+                        rel: "icon",
+                        href: "/favicon.svg",
+                    },
+                ],
+                meta: [
+                    {
+                        name: "viewport",
+                        content: "width=device-width, initial-scale=1.0",
+                    },
+                ],
+            }}
+        />
+    </head>
+    <header
+        class="pluto--bordered-bottom"
+        style={{
+            display: vars["--docs-header-display"],
+        }}
+    >
         <div class="header-content">
-            <Logo style={{ height: "6.5rem" }} />
+            <a href="/">
+                <Logo style={{ height: "6.5rem" }} />
+            </a>
         </div>
     </header>
     <section>
-        <nav class="pluto-bordered--right pluto-bordered--bottom">
-            <PageNav
-                client:only="react"
-                data={pages}
-                currentPage={Astro.url.pathname}
-            />
+        <nav class="docs-nav">
+            <PageNav client:idle currentPage={Astro.url.pathname} />
         </nav>
         <article>
+            <h1 class="pluto--bordered-bottom">{heading ?? title}</h1>
             <slot />
         </article>
+        <nav class="docs-toc pluto--bordered-left">
+            <TableOfContents client:only="react" headings={headings} />
+        </nav>
     </section>
 
     <script>
@@ -35,12 +103,67 @@ const { headings } = Astro.props as Props;
     </script>
 
     <style is:global>
-        article p {
-            margin: 3rem 0;
+        .pluto-tabs-selector__button p {
+            margin: 0;
         }
 
-        h1,h2,h3,h4,h5,h6,p {
-            white-space: normal !important;
+        a {
+            color: var(--pluto-primary-m1);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        header h1,
+        header h2,
+        header p {
+            margin: 0 !important;
+        }
+
+        li {
+            margin: 0.5rem;
+        }
+
+        article h1,
+        article h2,
+        article h3,
+        article h4,
+        article h5,
+        article h6,
+        article p,
+        article table,
+        article video {
+            margin: 2.5rem 0;
+        }
+
+        article img {
+            margin: 2rem -2rem;
+        }
+
+        article .pluto-tabs-selector {
+            margin: 1.5rem 0;
+        }
+
+        article video {
+            width: 100%;
+            border-radius: 1rem !important;
+            box-shadow: 0 0 1rem rgba(0, 0, 0, 0.2);
+        }
+
+        article img {
+            width: calc(100% + 4rem);
+        }
+
+        code:not(.astro-code code) {
+            padding: 0.25rem 1rem;
+            background-color: var(--pluto-gray-m2);
+            color: var(--pluto-text-color);
+        }
+
+        .pluto-tabs-selector__button p {
+            margin: 1rem 0;
         }
 
         li {
@@ -50,7 +173,31 @@ const { headings } = Astro.props as Props;
         .astro-code {
             padding: 3rem;
             border-radius: var(--pluto-border-radius);
-            margin: 3rem 1rem;
+            margin: 2rem 1rem;
+            overflow-x: auto !important;
+            overflow-y: visible !important;
+        }
+
+        .pluto-dropdown__dialog {
+            border: none;
+            border-top: var(--pluto-border);
+            overflow: auto;
+            max-height: 40vh;
+        }
+
+        .pluto-dropdown > button {
+            border-top: var(--pluto-border) !important;
+            margin-top: 1px;
+        }
+
+        .pluto-pack {
+            border: none !important;
+        }
+
+        code {
+            background: #0d1117;
+            color: rgba(255, 255, 255, 0.9);
+            border-radius: var(--pluto-border-radius);
         }
 
         @media (prefers-color-scheme: dark) {
@@ -59,11 +206,44 @@ const { headings } = Astro.props as Props;
                 --pluto-text-color: #ffffff;
             }
         }
+
+        table > :not(caption) > * {
+            border-width: 1px 0;
+            border-color: var(--pluto-border-color);
+            border-style: solid;
+        }
+
+        table > :not(caption) > * > * {
+            position: relative;
+            border-width: 0 1px;
+            border-color: var(--pluto-border-color);
+            border-style: solid;
+            padding: 0.75rem 1.25rem;
+        }
+
+        table th {
+            text-align: start;
+        }
+
+        table {
+            width: calc(100% - 4px);
+            border-spacing: 0;
+            background-color: transparent;
+            border-collapse: collapse;
+            overflow-x: auto;
+            border-style: hidden;
+            border-radius: var(--pluto-border-radius);
+            box-shadow: 0 0 0 1px var(--pluto-border-color);
+        }
     </style>
 
     <style>
         :root {
             --max-width: 1440px;
+        }
+
+        h1 {
+            padding-bottom: 1rem;
         }
 
         header {
@@ -89,33 +269,62 @@ const { headings } = Astro.props as Props;
             align-items: center;
         }
 
-        @media (max-width: 1440px) {
+        @media (max-width: 1600px) {
             body {
                 align-items: unset;
             }
         }
 
+        @media (max-width: 1100px) {
+            .docs-toc {
+                display: none;
+            }
+        }
+
+        @media (min-width: 1440px) {
+            section {
+                width: var(--max-width);
+            }
+        }
+
+        .docs-nav {
+            border-right: var(--pluto-border);
+        }
+
+        @media (max-width: 600px) {
+            section {
+                flex-direction: column-reverse;
+            }
+            .docs-nav {
+                overflow-y: inherit;
+                border-right: none;
+                flex-basis: 0px;
+                padding: 0px;
+            }
+            article {
+                padding: 2rem !important;
+            }
+        }
+
         section {
-            max-width: var(--max-width);
             display: flex;
-            flex-wrap: wrap;
-            flex-grow: 99999;
+            flex-wrap: nowrap;
+            flex-grow: 9999;
             flex-basis: 0;
+            height: calc(100% - 10rem);
         }
 
         nav {
             padding: 20px 0px;
-            flex-basis: 280px;
-            flex-grow: 1;
+            flex-basis: 240px;
+            overflow-y: auto;
         }
 
         article {
             flex-basis: 0;
             flex-grow: 9999;
-            min-inline-size: 60%;
             padding: 5rem;
+            overflow-y: auto;
         }
     </style>
-
-
 </html>

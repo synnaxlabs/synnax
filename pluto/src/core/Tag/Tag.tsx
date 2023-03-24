@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { AiOutlineClose } from "react-icons/ai";
+import { Icon } from "@synnaxlabs/media";
 
+import { Button } from "@/core/Button";
 import { Typography, Text, TextProps } from "@/core/Typography";
+import { CSS } from "@/css";
 import { ComponentSize } from "@/util/component";
 
 import "./Tag.css";
@@ -34,21 +36,24 @@ export const Tag = ({
 }: TagProps): JSX.Element => {
   const closeIcon =
     onClose == null ? undefined : (
-      <AiOutlineClose
+      <Button.Icon
         aria-label="close"
-        className="pluto-tag__close"
+        className={CSS.BE("tag", "close")}
         onClick={(e) => {
           e.stopPropagation();
           onClose();
         }}
-      />
+      >
+        <Icon.Close />
+      </Button.Icon>
     );
   return (
     <Text.WithIcon
       endIcon={closeIcon}
       startIcon={icon}
-      className="pluto-tag"
+      className={CSS.B("tag")}
       level={Typography.ComponentSizeLevels[size]}
+      noWrap
       style={{
         border: `var(--pluto-border-width) solid ${color}`,
         backgroundColor: variant === "filled" ? color : "transparent",

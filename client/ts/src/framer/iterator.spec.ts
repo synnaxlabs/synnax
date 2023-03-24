@@ -17,7 +17,7 @@ import { randomTypedArray } from "../util/telem";
 const client = newClient();
 
 const newChannel = async (): Promise<Channel> => {
-  return await client.channel.create({
+  return await client.channels.create({
     name: "test",
     nodeId: 1,
     rate: Rate.hz(25),
