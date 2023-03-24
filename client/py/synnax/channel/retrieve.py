@@ -20,7 +20,7 @@ from synnax.util.flatten import flatten
 
 class _Request(Payload):
     keys_or_names: list[str] | None = None
-    node_id: int | None = None
+    node_key: int | None = None
 
 
 class _Response(Payload):
@@ -43,7 +43,7 @@ class ChannelRetriever(Protocol):
         self,
         key_or_name: str | tuple[str] | list[str],
         *keys_or_names: str | tuple[str] | list[str],
-        node_id: int | None = None,
+        node_key: int | None = None,
         include_not_found: Literal[False] = False,
     ) -> list[ChannelPayload]:
         ...
@@ -53,7 +53,7 @@ class ChannelRetriever(Protocol):
         self,
         key_or_name: str | tuple[str] | list[str],
         *keys_or_names: str | tuple[str] | list[str],
-        node_id: int | None = None,
+        node_key: int | None = None,
         include_not_found: Literal[True] = True,
     ) -> tuple[list[ChannelPayload], list[str]]:
         ...
@@ -63,7 +63,7 @@ class ChannelRetriever(Protocol):
         self,
         key_or_name: str | tuple[str] | list[str],
         *keys_or_names: str | tuple[str] |  list[str],
-        node_id: int | None = None,
+        node_key: int | None = None,
         include_not_found: bool = False,
     ) -> (
         tuple[list[ChannelPayload], list[str]]
@@ -88,7 +88,7 @@ class ClusterChannelRetriever:
         self,
         key_or_name: str | tuple[str] | list[str],
         *keys_or_names: str | tuple[str] | list[str],
-        node_id: int | None = None,
+        node_key: int | None = None,
         include_not_found: bool = False,
     ) -> (
         tuple[list[ChannelPayload], list[str]]
@@ -99,7 +99,7 @@ class ClusterChannelRetriever:
         single = is_single(key_or_name, keys_or_names)
         flat = flatten(key_or_name, *keys_or_names)
 
-        req = _Request(keys_or_names=flat, node_id=node_id)
+        req = _Request(keys_or_names=flat, node_key=node_key)
         res, exc = self.client.send(self._ENDPOINT, req, _Response)
         if exc is not None:
             raise exc
@@ -132,7 +132,7 @@ class CacheChannelRetriever:
         self,
         key_or_name: str | tuple[str] | list[str],
         *keys_or_names: str | tuple[str] | list[str],
-        node_id: int | None = None,
+        node_key: int | None = None,
         include_not_found: bool = False,
     ) -> (
         tuple[list[ChannelPayload], list[str]]
@@ -140,11 +140,11 @@ class CacheChannelRetriever:
         | ChannelPayload
         | None
     ):
-        if node_id is not None:
+        if node_key is not None:
             return self._retriever.retrieve(
                 key_or_name,
                 *keys_or_names,
-                node_id=node_id,
+                node_key=node_key,
                 include_not_found=include_not_found,
             )
 

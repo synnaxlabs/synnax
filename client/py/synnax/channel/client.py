@@ -45,7 +45,7 @@ class Channel(ChannelPayload):
         rate: UnparsedRate = 0,
         is_index: bool = False,
         index: str = "",
-        node_id: int = 0,
+        node_key: int = 0,
         key: str = "",
         _frame_client: FrameClient | None = None,
     ):
@@ -62,7 +62,7 @@ class Channel(ChannelPayload):
         :param is_index: Boolean indicating whether or not the channel is an index. Index
         channels should have ax data type of synnax.TIMESTAMP.
         :param index: The key or channel that indexes this channel.
-        :param node_id: The node that holds the lease for this channel. If you don't know
+        :param node_key: The node that holds the lease for this channel. If you don't know
         what this is, leave it at the default value of 0.
         :param _frame_client: The backing client for reading and writing data to and
         from the channel. This is provided by the Synnax client during calls to
@@ -72,7 +72,7 @@ class Channel(ChannelPayload):
             data_type=DataType(data_type),
             rate=Rate(rate),
             name=name,
-            node_id=node_id,
+            node_key=node_key,
             key=key,
             is_index=is_index,
             index=index,
@@ -127,7 +127,7 @@ class Channel(ChannelPayload):
             data_type=self.data_type,
             rate=self.rate,
             name=self.name,
-            node_id=self.node_id,
+            node_key=self.node_key,
             key=self.key,
             index=self.index,
             is_index=self.is_index,
@@ -161,7 +161,7 @@ class ChannelClient:
         rate: UnparsedRate = Rate(0),
         index: str = "",
         is_index: bool = False,
-        node_id: int = 0,
+        node_key: int = 0,
     ) -> Channel:
         ...
 
@@ -182,7 +182,7 @@ class ChannelClient:
         rate: UnparsedRate = Rate(0),
         is_index: bool = False,
         index: str = "",
-        node_id: int = 0,
+        node_key: int = 0,
     ) -> Channel | list[Channel]:
         """Creates a new channel or set of channels in the cluster. Possible arguments
         are as follows:
@@ -196,7 +196,7 @@ class ChannelClient:
         :param is_index: Boolean indicating whether or not the channel is an index. Index
         channels should have ax data type of synnax.TIMESTAMP.
         :param index: The key or channel that indexes this channel.
-        :param node_id: The node that holds the lease for this channel. If you don't know
+        :param node_key: The node that holds the lease for this channel. If you don't know
         what this is, leave it at the default value of 0.
         :returns: The created channel.
 
@@ -215,7 +215,7 @@ class ChannelClient:
             _channels = [
                 ChannelPayload(
                     name=name,
-                    node_id=node_id,
+                    node_key=node_key,
                     rate=Rate(rate),
                     data_type=DataType(data_type),
                     index=index,
@@ -238,7 +238,7 @@ class ChannelClient:
         self,
         key_or_name: str | list[str],
         *keys_or_names: str | list[str],
-        node_id: int | None = None,
+        node_key: int | None = None,
         include_not_found: Literal[False] = False,
     ) -> list[Channel]:
         ...
@@ -248,7 +248,7 @@ class ChannelClient:
         self,
         key_or_name: str | list[str],
         *keys_or_names: str | list[str],
-        node_id: int | None = None,
+        node_key: int | None = None,
         include_not_found: Literal[True] = True,
     ) -> tuple[list[Channel], list[str]]:
         ...
@@ -257,7 +257,7 @@ class ChannelClient:
         self,
         key_or_name: str | list[str],
         *keys_or_names: str | list[str],
-        node_id: int | None = None,
+        node_key: int | None = None,
         include_not_found: bool = False,
     ) -> Channel | list[Channel] | tuple[list[Channel], list[str]]:
         """Retrieves a channel or set of channels from the cluster.
@@ -278,7 +278,7 @@ class ChannelClient:
         :param names: The names of the channels to retrieve. If keys are specified, this is
         ignored.
         Only one of keys or names may be specified.
-        :param node_id: The node that holds the lease for the channels to retrieve. If you
+        :param node_key: The node that holds the lease for the channels to retrieve. If you
         don't know what this is, don't specify it.
         :param include_not_found: Boolean indicating whether or not to include the keys or
         names of the channels that were not found in the result.
@@ -289,7 +289,7 @@ class ChannelClient:
         res = self._retriever.retrieve(
             key_or_name,
             *keys_or_names,
-            node_id=node_id,
+            node_key=node_key,
             include_not_found=include_not_found,
         )
         if res is None:
