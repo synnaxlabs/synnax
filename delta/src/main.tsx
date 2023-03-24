@@ -81,14 +81,14 @@ const Main = (): JSX.Element | null => {
   const store = newStore();
   return (
     <StrictMode>
-      <Provider store={store} errorContent={() => <ErrorBoundary />}>
+      <Provider store={store} errorContent={(e) => <ErrorBoundary err={e} />}>
         <MainUnderContext />
       </Provider>
     </StrictMode>
   );
 };
 
-const ErrorBoundary = (): JSX.Element => {
+const ErrorBoundary = ({ err }: { err: Error }): JSX.Element => {
   const theme = useErrorThemeProvider();
   const handleClose = (): void => {
     void appWindow.close();
@@ -126,9 +126,8 @@ const ErrorBoundary = (): JSX.Element => {
             backgroundColor: addOpacityToHex(theme.theme.colors.error.m1, 20),
           }}
         >
-          <Typography.Text level="h4" style={{ width: 500 }}>
-            It seems you have multiple Synnax windows open. Please close all other
-            windows and try again.
+          <Typography.Text level="h4" style={{ width: 500, textAlign: "center" }}>
+            {JSON.stringify(err.message)}
           </Typography.Text>
         </div>
       </Space.Centered>

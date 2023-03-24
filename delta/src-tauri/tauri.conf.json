@@ -69,7 +69,7 @@
         "fileDropEnabled": false,
         "minWidth": 625,
         "minHeight": 375,
-        "visible": false
+        "visible": true
       }
     ]
   }

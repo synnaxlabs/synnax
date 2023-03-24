@@ -85,6 +85,7 @@ const MosaicTabLeaf = memo(
 
     const handleDrop = (e: React.DragEvent<HTMLDivElement>): void => {
       e.preventDefault();
+      e.stopPropagation();
       setCurrentlyDragging(null);
       setDragMask(null);
       if (!validDrop(tabs, currentlyDragging)) return;
@@ -156,6 +157,7 @@ const maskStyle: Record<
 const getDragLocationPercents = (
   e: React.DragEvent<HTMLDivElement>
 ): { px: number; py: number } => {
+  if (e.currentTarget.className.includes("tabs-selector")) return { px: 0.5, py: 0.5 };
   const rect = e.currentTarget.getBoundingClientRect();
   const x = e.clientX - rect.left;
   const y = e.clientY - rect.top;

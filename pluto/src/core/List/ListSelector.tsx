@@ -27,9 +27,13 @@ export const ListSelector = <E extends KeyedRenderableRecord<E>>({
     setTransform,
     deleteTransform,
     select: { setOnSelect, setClear },
-  } = useListContext();
+  } = useListContext<E>();
 
-  const { onSelect, transform, clear } = useSelectMultiple({ data, value, ...props });
+  const { onSelect, transform, clear } = useSelectMultiple({
+    data,
+    value,
+    ...props,
+  });
 
   useEffect(() => {
     setOnSelect(() => onSelect);

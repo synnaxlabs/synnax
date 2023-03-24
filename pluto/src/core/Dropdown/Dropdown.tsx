@@ -70,7 +70,6 @@ export const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
       {children[0]}
       <Space
         className={CSS(
-          CSS.bordered(),
           CSS.BE("dropdown", "dialog"),
           CSS.loc(location),
           CSS.visible(visible)

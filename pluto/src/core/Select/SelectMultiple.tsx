@@ -10,12 +10,10 @@
 import { useEffect, useRef, useState } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import {
-  convertRenderV,
-  KeyedRenderableRecord,
-} from "@synnaxlabs/x";
+import { convertRenderV, KeyedRenderableRecord } from "@synnaxlabs/x";
 
 import { Theming } from "../../theming";
+import { ListProps } from "../List/List";
 
 import { SelectList } from "./SelectList";
 
@@ -32,8 +30,8 @@ import "./SelectMultiple.css";
 
 export interface SelectMultipleProps<E extends KeyedRenderableRecord<E>>
   extends Omit<DropdownProps, "visible" | "onChange" | "children">,
-    InputControl<readonly string[]> {
-  data?: E[];
+    InputControl<readonly string[]>,
+    Omit<ListProps<E>, "children"> {
   columns?: Array<ListColumn<E>>;
   tagKey?: keyof E;
 }
@@ -45,11 +43,12 @@ export const SelectMultiple = <E extends KeyedRenderableRecord<E>>({
   data = [],
   columns = [],
   tagKey = "key",
+  emptyContent,
   ...props
 }: SelectMultipleProps<E>): JSX.Element => {
   const { ref, visible, open } = Dropdown.use();
   return (
-    <List data={data}>
+    <List data={data} emptyContent={emptyContent}>
       <Dropdown ref={ref} visible={visible} location={location} {...props}>
         <List.Search>
           {({ onChange, value: searchV }) => (
@@ -97,12 +96,14 @@ const SelectMultipleInput = <E extends KeyedRenderableRecord<E>>({
   useEffect(() => {
     if (visible) ref.current?.focus();
     else setValue("");
-  });
+  }, [visible, selected]);
 
   const handleChange = (v: string): void => {
     setValue(v);
     onChange(v);
   };
+
+  console.log(value);
 
   return (
     <Pack align="stretch" {...props} grow>
