@@ -11,6 +11,8 @@ import { FocusEventHandler, useEffect, useState } from "react";
 
 import { KeyedRenderableRecord } from "@synnaxlabs/x";
 
+import { ListProps } from "../List/List";
+
 import { SelectList } from "./SelectList";
 
 import { Dropdown, DropdownProps } from "@/core/Dropdown";
@@ -19,8 +21,8 @@ import { List, ListColumn } from "@/core/List";
 
 export interface SelectProps<E extends KeyedRenderableRecord<E>>
   extends Omit<DropdownProps, "onChange" | "visible" | "children">,
-    InputControl<string> {
-  data?: E[];
+    InputControl<string>,
+    Omit<ListProps<E>, "children"> {
   tagKey?: keyof E;
   columns?: Array<ListColumn<E>>;
 }
@@ -31,6 +33,7 @@ export const Select = <E extends KeyedRenderableRecord<E>>({
   tagKey = "key",
   columns = [],
   data = [],
+  emptyContent,
   ...props
 }: SelectProps<E>): JSX.Element => {
   const { ref, visible, open, close } = Dropdown.use();
@@ -41,7 +44,7 @@ export const Select = <E extends KeyedRenderableRecord<E>>({
   };
 
   return (
-    <List data={data}>
+    <List data={data} emptyContent={emptyContent}>
       <Dropdown ref={ref} visible={visible} {...props}>
         <List.Search>
           {({ onChange }: InputProps) => (
@@ -72,6 +75,7 @@ export interface SelectInputProps<E extends KeyedRenderableRecord<E>>
   selected: string;
   visible: boolean;
   data: E[];
+  debounceSearch?: number;
 }
 
 const SelectInput = <E extends KeyedRenderableRecord<E>>({
@@ -81,6 +85,7 @@ const SelectInput = <E extends KeyedRenderableRecord<E>>({
   visible,
   onChange,
   onFocus,
+  debounceSearch = 250,
   ...props
 }: SelectInputProps<E>): JSX.Element => {
   // We maintain our own value state for two reasons:
@@ -102,7 +107,7 @@ const SelectInput = <E extends KeyedRenderableRecord<E>>({
   }, [selected, data, visible, tagKey]);
 
   const handleChange = (v: string): void => {
-    onChange?.(v);
+    onChange(v);
     setValue(v);
   };
 

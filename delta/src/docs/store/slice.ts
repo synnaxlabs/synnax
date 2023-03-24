@@ -43,18 +43,7 @@ const initialState: DocsState = {
 /** Payload for the setDocsPath action. */
 export type SetDocsLocationPayload = DocsLocation;
 
-export const {
-  actions: {
-    /**
-     * Sets the path of the docs page.
-     * @param path The path to set.
-     * @returns The action to dispatch.
-     * @category Actions
-     */
-    setDocsLocation,
-  },
-  reducer: docsReducer,
-} = createSlice({
+export const { actions, reducer: docsReducer } = createSlice({
   name: DOCS_SLICE_NAME,
   initialState,
   reducers: {
@@ -63,3 +52,16 @@ export const {
     },
   },
 });
+
+export const {
+  /**
+   * Sets the path of the docs page.
+   * @param path The path to set.
+   * @returns The action to dispatch.
+   * @category Actions
+   */
+  setDocsLocation,
+} = actions;
+
+export type DocsAction = ReturnType<typeof actions[keyof typeof actions]>;
+export type DocsPayload = DocsAction["payload"];

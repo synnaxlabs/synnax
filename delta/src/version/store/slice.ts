@@ -26,10 +26,7 @@ const initialState: VersionState = {
 
 export type SetVersionAction = PayloadAction<string>;
 
-export const {
-  actions: { setVersion },
-  reducer: versionReducer,
-} = createSlice({
+export const { actions, reducer: versionReducer } = createSlice({
   name: VERSION_SLICE_NAME,
   initialState,
   reducers: {
@@ -38,3 +35,8 @@ export const {
     },
   },
 });
+
+export const { setVersion } = actions;
+
+export type VersionAction = ReturnType<typeof actions[keyof typeof actions]>;
+export type VersionPayload = VersionAction["payload"];

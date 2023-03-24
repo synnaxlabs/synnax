@@ -12,6 +12,7 @@ import type { PayloadAction } from "@reduxjs/toolkit";
 import { Deep, DeepPartial } from "@synnaxlabs/x";
 
 import { VisMeta } from "@/vis/core";
+import { LineVis } from "@/vis/line/core";
 
 export interface VisState {
   warpMode: boolean;
@@ -27,32 +28,44 @@ export const initialState: VisState = {
   visualizations: {},
 };
 
-type SetVisAction = PayloadAction<VisMeta>;
-type RemoveVisAction = PayloadAction<string>;
-type UpdateVisAction = PayloadAction<
-  Omit<DeepPartial<VisMeta>, "key"> & { key: string }
->;
+type SetVisPayload = VisMeta;
+type RemoveVisPayload = string;
+type UpdateVisPayload = Omit<DeepPartial<VisMeta>, "key"> & { key: string };
 
 export const VIS_SLICE_NAME = "visualization";
 
-export const {
-  actions: { setVis, updateVis, removeVis },
-  reducer: visReducer,
-} = createSlice({
+export const { actions, reducer: visReducer } = createSlice({
   name: VIS_SLICE_NAME,
   initialState,
   reducers: {
-    setVis: (state, { payload }: SetVisAction) => {
+    setVis: (state, { payload }: PayloadAction<SetVisPayload>) => {
       state.visualizations[payload.key] = payload;
     },
-    updateVis: (state, { payload }: UpdateVisAction) => {
+    updateVis: (state, { payload }: PayloadAction<UpdateVisPayload>) => {
       const vis = state.visualizations[payload.key];
       const res = Deep.merge(vis, payload);
       state.visualizations[payload.key] = res;
     },
-    removeVis: (state, { payload }: RemoveVisAction) => {
+    removeVis: (state, { payload }: PayloadAction<RemoveVisPayload>) => {
       // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
       delete state.visualizations[payload];
     },
+    purgeRanges: (state, { payload }: PayloadAction<RemoveVisPayload>) => {
+      // iterate through all vis and remove any that have a range key that matches the payload
+      Object.keys(state.visualizations).forEach((key) => {
+        const vis = state.visualizations[key];
+        if (vis.variant === "line") {
+          const vis_ = vis as LineVis;
+          vis_.ranges.x1 = vis_.ranges.x1.filter((r) => r !== payload);
+          vis_.ranges.x2 = vis_.ranges.x2.filter((r) => r !== payload);
+          state.visualizations[key] = vis_;
+        }
+      });
+    },
   },
 });
+
+export const { setVis, updateVis, removeVis, purgeRanges } = actions;
+
+export type VisAction = ReturnType<typeof actions[keyof typeof actions]>;
+export type VisPayload = VisAction["payload"];

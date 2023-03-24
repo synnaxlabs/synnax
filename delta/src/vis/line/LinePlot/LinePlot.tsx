@@ -21,21 +21,19 @@ import {
   StatusTextProps,
 } from "@synnaxlabs/pluto";
 import { XY, Box, ZERO_BOX } from "@synnaxlabs/x";
-import { Theme } from "@tauri-apps/api/window";
-
-import { StatusProvider } from "../core";
-import { Viewport } from "../viewport";
 
 import { useSelectTheme } from "@/layout";
 import { XAxisKey, X_AXIS_KEYS } from "@/vis/axis";
 import { Axes } from "@/vis/line/axes";
 import { Bounds } from "@/vis/line/bounds";
 import { Channels } from "@/vis/line/channels";
+import { StatusProvider } from "@/vis/line/core";
 import { Data } from "@/vis/line/data";
 import { ContextMenu } from "@/vis/line/LinePlot/ContextMenu";
 import { Lines } from "@/vis/line/lines";
 import { Ranges } from "@/vis/line/ranges";
 import { Scales } from "@/vis/line/scales";
+import { Viewport } from "@/vis/line/viewport";
 
 import "./LinePlot.css";
 interface HoverState {
@@ -111,7 +109,6 @@ interface TooltipProps {
   data: Data;
   axes: Axes;
   channels: Channels;
-  theme: Theme;
 }
 
 export const Tooltip = ({
@@ -127,46 +124,46 @@ export const Tooltip = ({
   let position: number = 0;
   let value: number = 0;
 
-  const xScale = scales.decimal("x1")?.reverse();
-  if (xScale == null) return <></>;
-  const scalePos = xScale.pos(hover.box.left);
+  try {
+    const xScale = scales.decimal("x1")?.reverse();
+    if (xScale == null) return <></>;
+    const scalePos = xScale.pos(hover.box.left);
 
-  Object.values(data.axis("x1")).forEach((res) => {
-    res.arrays.forEach((arr, j) => {
-      if (arrayIndex != null) return;
-      const pos = arr.binarySearch(BigInt(scalePos));
-      if (pos !== -1) {
-        arrayIndex = j;
-        value = Number(arr.data[pos]);
-        position = pos;
-      }
-    });
-  });
-
-  if (arrayIndex == null) return <></>;
-
-  const left = scales.normal("x1")?.pos(value) as number;
-
-  data.forEachChannel((key, axis, responses) => {
-    if (X_AXIS_KEYS.includes(axis as XAxisKey)) return;
-    const ch = channels.get(key);
-    const scale = scales.normal(axis);
-    if (scale == null || ch == null) return;
-    Object.values(responses).forEach((res) => {
-      const value = res.arrays[arrayIndex as number]?.data[position];
-      if (value == null) return;
-      annotation.push({
-        key: ch.key,
-        values: {
-          [ch.name]: value.toString(),
-        },
-        position:
-          (1 - scale.pos(value as number)) * axes.innerBox.height + axes.innerBox.top,
+    Object.values(data.axis("x1")).forEach((res) => {
+      res.arrays.forEach((arr, j) => {
+        if (arrayIndex != null) return;
+        const pos = arr.binarySearch(BigInt(scalePos));
+        if (pos !== -1) {
+          arrayIndex = j;
+          value = Number(arr.data[pos]);
+          position = pos;
+        }
       });
     });
-  });
 
-  try {
+    if (arrayIndex == null) return <></>;
+
+    const left = scales.normal("x1")?.pos(value) as number;
+
+    data.forEachChannel((key, axis, responses) => {
+      if (X_AXIS_KEYS.includes(axis as XAxisKey)) return;
+      const ch = channels.get(key);
+      const scale = scales.normal(axis);
+      if (scale == null || ch == null) return;
+      Object.values(responses).forEach((res) => {
+        const value = res.arrays[arrayIndex as number]?.data[position];
+        if (value == null) return;
+        annotation.push({
+          key: ch.key,
+          values: {
+            [ch.name]: value.toString(),
+          },
+          position:
+            (1 - scale.pos(value as number)) * axes.innerBox.height + axes.innerBox.top,
+        });
+      });
+    });
+
     return (
       <Rule
         direction="y"

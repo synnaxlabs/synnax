@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { KeyedRenderableRecord } from "@synnaxlabs/x";
 
@@ -15,15 +15,18 @@ import { useListContext } from "./ListContext";
 
 import { Input as DefaultInput, InputControl } from "@/core/Input";
 import { useSearchTransform, UseSearchTransformProps } from "@/hooks";
+import { useDebouncedCallback } from "@/util/debounce";
 import { RenderProp } from "@/util/renderProp";
 
 export interface ListSearchProps<E extends KeyedRenderableRecord<E>>
   extends Omit<UseSearchTransformProps<E>, "query"> {
   children?: RenderProp<InputControl<string>>;
+  debounce?: number;
 }
 
 export const ListSearch = <E extends KeyedRenderableRecord<E>>({
   children = (props) => <DefaultInput {...props} />,
+  debounce = 250,
   opts,
 }: ListSearchProps<E>): JSX.Element | null => {
   const [value, setValue] = useState("");
@@ -33,7 +36,7 @@ export const ListSearch = <E extends KeyedRenderableRecord<E>>({
   const { setTransform } = useListContext<E>();
 
   useEffect(() => setTransform("search", search), [search]);
-  const onChange = useCallback((v: any) => setValue(v), []);
+  const onChange = useDebouncedCallback((v: any) => setValue(v), debounce, [setValue]);
 
   return children({ value, onChange });
 };

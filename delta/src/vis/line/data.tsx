@@ -90,6 +90,7 @@ export class Data implements StatusProvider {
         children: error.message,
       });
     }
+
     const empty = Y_AXIS_KEYS.every((axis) =>
       core[axis].every((res) => res.arrays.every((array) => array.length === 0))
     );

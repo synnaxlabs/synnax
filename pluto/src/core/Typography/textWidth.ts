@@ -21,5 +21,7 @@ export const textWidth = (text: string, font: string): number => {
   const context = getCanvas().getContext("2d") as CanvasRenderingContext2D;
   context.font = font;
   const metrics = context.measureText(text);
-  return Math.trunc(metrics.width);
+  return Math.trunc(
+    Math.abs(metrics.actualBoundingBoxLeft) + Math.abs(metrics.actualBoundingBoxRight)
+  );
 };

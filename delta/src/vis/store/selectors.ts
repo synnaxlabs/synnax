@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { VisualizationStoreState } from "./slice";
-
 import { selectByKey, selectByKeys, useMemoSelect } from "@/hooks";
 import { LayoutStoreState, selectLayouts } from "@/layout";
 import { VisMeta } from "@/vis/core";
+import { VisStoreState } from "@/vis/store/slice";
 
 /**
  * Selects a visualization from the store by its key.
@@ -22,12 +21,12 @@ import { VisMeta } from "@/vis/core";
  * does not exist.
  */
 export const selectVis = <V extends VisMeta>(
-  state: VisualizationStoreState & LayoutStoreState,
+  state: VisStoreState & LayoutStoreState,
   layoutKey?: string,
   variant?: V["variant"]
 ): V | undefined | null => {
   const v = selectByKey<V>(
-    state.visualization.visualizations,
+    state.visualization.visualizations as Record<string, V>,
     layoutKey,
     state.layout.mosaic.activeTab
   );
@@ -38,7 +37,7 @@ export const selectVis = <V extends VisMeta>(
 };
 
 export const selectRequiredVis = <V extends VisMeta>(
-  state: VisualizationStoreState & LayoutStoreState,
+  state: VisStoreState & LayoutStoreState,
   layoutKey?: string,
   variant?: V["variant"]
 ): V => {
