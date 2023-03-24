@@ -64,7 +64,7 @@ def select_channel(
     """
     _, i = ctx.console.select(
         type_=str,
-        columns=["name", "key", "data_type", "index", "rate", "node_id"],
+        columns=["name", "key", "data_type", "index", "rate", "node_key"],
         rows=[c.dict() for c in channels],
         **kwargs,
     )
