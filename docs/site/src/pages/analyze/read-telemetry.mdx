@@ -1,0 +1,149 @@
+---
+layout: "@/layouts/MainLayout.astro"
+title: "Read"
+heading: "Read Telemetry"
+description: "Reading telemetry from a cluster is simple. Synnax supports both single
+request reads as well as server side iterators for reading large quantities of data
+easily. This page will walk you through the details of each."
+---
+
+import ClientTabs from "@/components/ClientTabs/ClientTabs.astro";
+
+Reading telemetry from a cluster is simple. Synnax supports both single request reads as
+well as server side iterators for reading large quantities of data easily. This page will
+walk you through the details of each.
+
+## Prerequisites
+
+This page assumes you’ve already:
+
+-   [Started a cluster](/deploy/get-started)
+-   [Familiarized yourself with channels](/concepts/channels)
+-   [Installed the Synnax client in the language of your choice](/analyze/get-started)
+
+If you'd like a formal introduction to how ranges and reads work in Synnax, look here.
+
+<ClientTabs>
+<Fragment slot="python">
+
+### Single Channel Read
+
+Reading from a single channel is easy. Simply retrieve the channel and provide a time
+range to the `read` method on the client.
+
+```python
+from datetime import datetime
+
+channel = client.channels.retrieve("my-precise-tc")
+
+start = datetime.datetime("2023-2-12 12:30:00")
+end = datetime.datetime("2023-2-12 14:30:00")
+
+data, tr = channel.read(start, end)
+```
+
+This method returns a numpy `ndarray` containing all data occupying the queried time range.
+The second return value is a `TimeRange` object that provides the timestamp of the first
+sample in the data and the timestamp of the last sample in the data. This is
+particularly useful when the channel contains data for only part of the time range,
+and you're interested in the exact time range of the
+
+### Multi-Channel Read
+
+Reading from multiple channels is just as easy.
+
+```python
+df = client.read_frame(
+    start,
+    end,
+    ["my-precise-tc", "time"]
+).as_df()
+```
+
+### Reading Large Amounts of Telemetry
+
+Single and multi-channel reads will cover must of your needs, but in some cases, it's
+necessary to process quantities of data that can’t fit in memory. This is where iterators
+come into play. An iterator can efficiently traverse a time range with hundreds of billions
+of samples. You can read conceptually about iterators here.
+
+We can create a new iterator by providing the channels we want to read along with a time
+range. The following code creates an iterator that will read 100 samples at a time
+and reads each frame.
+
+```python
+with client.new_iterator(start, end, "my-precise-tc", "time", chunk_size=100) as i:
+    for frame in iter:
+        # Do something with the current frame
+```
+
+We recommend using the iterator as a context manager. This ensures that all iterator-related
+resources are freed if an exception is thrown or the context exits.
+
+</Fragment>
+<Fragment slot="typescript">
+
+### Single Channel Read
+
+Reading from a channel is easy. Simply retrieve the channel and provide a time range to
+the `read` method on the client:
+
+```typescript
+const channel = client.channels.retrieve("my-precise-tc");
+
+const start = new Date("2023-2-12 12:30:00");
+const end = new Date("2023-2-12 14:30:00");
+
+const [data, tr] = channel.read(start, end);
+```
+
+### Multi-Channel Read
+
+Reading from multiple channels is just as easy.
+
+```typescript
+const frame = client.read_frame(start, end, "my-precise-tc", "time");
+
+const tcData = frame.retrieve("my-precise-tc");
+const timeData = frame.retrieve("time");
+```
+
+### Reading Large Amounts of Telemetry
+
+Single and multi-channel reads will probably cover must of your needs, although in some cases
+it's necessary to process quantities of data that can’t fit in memory. This is where iterators
+come into play. An iterator can efficiently traverse a time range with hundreds of billions
+of samples. You can read conceptually about iterators here.
+
+We can create a new iterator by providing the channels we want to read along with a time
+range.
+
+```typescript
+const iter = client.new_iterator(start, end, "my-precise-tc", "time", {
+    chunkSize: 100,
+});
+```
+
+This opens an iterator configured to read 100 samples at a time. We can iterate through
+each frame of samples easily.
+
+```typescript
+try {
+    if (!iter.seekFirst()) {
+        console.log("Iterator has no data!");
+        return;
+    }
+    while (iter.next()) {
+        const frame = iter.value();
+        // Do something with the current frame.
+    }
+} finally {
+    iter.close();
+}
+```
+
+It’s important to close an iterator after you’re done with it, so we reccommend wrapping
+it’s usage in a try-except clause with a call to `close` in the finally block.
+
+</Fragment>
+</ClientTabs>

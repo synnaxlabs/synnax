@@ -17,12 +17,14 @@
   "dependencies": {
     "@fontsource/inter": "^4.5.14",
     "@juggle/resize-observer": "^3.4.0",
+    "@synnaxlabs/media": "workspace:*",
     "@synnaxlabs/x": "workspace:*",
     "@tanstack/react-virtual": "^3.0.0-beta.18",
+    "@testing-library/dom": ">=7.21.4",
     "clsx": "^1.2.1",
     "d3": "^7.8.2",
     "fuse.js": "^6.6.2",
-    "proxy-memoize": "^1.2.0",
+    "proxy-memoize": "^2.0.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-hook-form": "^7.41.0"
@@ -54,7 +56,7 @@
     "@types/react-dom": "^18.0.6",
     "@types/uuid": "^8.3.4",
     "@vitejs/plugin-react": "^3.0.1",
-    "@vitest/coverage-c8": "^0.24.1",
+    "@vitest/coverage-c8": "^0.24.5",
     "@vitest/ui": "^0.24.1",
     "babel-loader": "^8.2.5",
     "chromatic": "^6.7.1",
@@ -66,6 +68,7 @@
     "stylelint-config-synnaxlabs": "workspace:*",
     "typescript": "^4.9.4",
     "vite": "^4.0.4",
+    "vite-tsconfig-paths": "^4.0.5",
     "vitest": "^0.26.3"
   },
   "files": [
@@ -82,7 +85,7 @@
   },
   "author": {
     "name": "emiliano bonilla",
-    "email": "emilbon99@gmail.com"
+    "email": "ebo@gmail.com"
   },
   "license": "MIT",
   "bugs": {

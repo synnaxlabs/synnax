@@ -1,0 +1,89 @@
+---
+title: "Start Command"
+layout: "@/layouts/MainLayout.astro"
+description: "Reference for the 'synnax start' command"
+---
+
+import { Table } from "@/components/Table";
+
+This page assumes you've already:
+
+-   [Installed Synnax Server.](/deploy/get-started)
+
+## Example Usage
+
+## Reference
+
+<Table
+    columns={[
+        {
+            key: "option",
+            name: "Option",
+            type: "code",
+            width: 150,
+        },
+        { key: "default", name: "Default", type: "code" },
+        { key: "description", name: "Description" },
+    ]}
+    data={[
+        {
+            option: "--listen/-l",
+            default: "localhost:9090",
+            description: `A reachable address and port to listen on for incoming client connections and RPCs from other nodes. This
+                is also the address and port that will be advertised to peers in the cluster.`,
+        },
+        {
+            option: "--data/-d",
+            default: "/usr/local/synnax/data",
+            description:
+                "The file path to the storage device where Synnax will keep its data.",
+        },
+        {
+            option: "--verbose/-v",
+            default: "false",
+            description: "Enables verbose logging for diagnostic purposes.",
+        },
+        {
+            option: "--insecure/-i",
+            default: "false",
+            description:
+                "Starts the node without TLS encryption. This is not recommended for production use.",
+        },
+        {
+            option: "--mem/-m",
+            default: "false",
+            description:
+                "Starts the node with an in-memory data store. When specified, the data flag is ignored. This is not reccomended for production use.",
+        },
+        {
+            option: "--config/c",
+            default: "/usr/local/synnax/config.yaml",
+            description: "Path to a JSON, YAML, or TOML configuration file.",
+        },
+        {
+            option: "--certs-dir",
+            default: "/usr/local/synnax/certs",
+            description:
+                "Path to the directory containing the TLS certificates for the node.",
+        },
+        {
+            option: "--ca-cert",
+            default: "ca.crt",
+            description: "Path to the CA certificate file relative to the certs-dir.",
+        },
+        {
+            option: "--node-cert",
+            default: "node.crt",
+            description: "Path to the node certificate file relative to the certs-dir.",
+        },
+        {
+            option: "--node-key",
+            default: "node.key",
+            description: "Path to the node key file relative to the certs-dir.",
+        },
+    ]}
+/>
+
+## Configuration Priority
+
+## Example Configuration File

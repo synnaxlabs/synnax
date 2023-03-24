@@ -7,21 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { useTrigger, useTriggerHeld } from "./hooks";
 import {
-  matchTriggers,
-  TriggersProvider,
-  useTrigger,
-  useTriggerHeld,
-} from "./TriggersContext";
+  keyboardToKey as keyboardKey,
+  match,
+  mouseButtonToKey as mouseKey,
+  parseEventKey as eventKey,
+} from "./triggers";
+import { TriggersProvider } from "./TriggersContext";
 import { useTriggerDrag } from "./useTriggerDrag";
-export type { Trigger, Modifier, Key, Stage } from "./types";
-export type { TriggerEvent, TriggerCallback } from "./TriggersContext";
+export type { Trigger, Key, Stage, TriggerEvent, TriggerCallback } from "./triggers";
 export type { TriggerDragEvent, TriggerDragCallback } from "./useTriggerDrag";
 
 export const Triggers = {
   Provider: TriggersProvider,
+  match,
   use: useTrigger,
   useHeld: useTriggerHeld,
   useDrag: useTriggerDrag,
-  match: matchTriggers,
+  mouseKey,
+  keyboardKey,
+  eventKey,
 };

@@ -1,4 +1,4 @@
-__version__ = "0.1.0"
+__version__ = "0.2.14"
 
 #  Copyright 2023 Synnax Labs, Inc.
 #

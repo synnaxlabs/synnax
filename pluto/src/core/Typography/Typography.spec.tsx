@@ -9,7 +9,7 @@
 
 import { render, fireEvent } from "@testing-library/react";
 import { AiFillCloseCircle } from "react-icons/ai";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vitest } from "vitest";
 
 import { Text } from ".";
 
@@ -40,7 +40,9 @@ describe("Text", () => {
   });
   describe("Editable", () => {
     it("should focus and select the text when double clicked", () => {
-      const c = render(<Text.Editable level="h1">Hello</Text.Editable>);
+      const c = render(
+        <Text.Editable level="h1" value="Hello" onChange={vitest.fn()} />
+      );
       const text = c.getByText("Hello");
       fireEvent.dblClick(text);
       expect(document.activeElement).toBe(text);

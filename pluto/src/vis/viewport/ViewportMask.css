@@ -9,7 +9,8 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-zoom-pan-mask {
+.pluto-viewport-mask {
     position: relative;
     background-color: rgba(0, 0, 0, 0.5);
+    cursor: crosshair;
 }

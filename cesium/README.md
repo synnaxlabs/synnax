@@ -20,9 +20,9 @@ Cesium is tailored towards a specific class of time-series data:
 2. High Speed - cesium is happiest at sample rates between 10 Hz and 1 MHz. Although it can work with data at any rate,
    it will be far slower than other storage engines for low sample rates.
 
-## Concepts 
+## Concepts
 
-The following is an overview of Cesium concepts from an interface perspective. A detailed design 
+The following is an overview of Cesium concepts from an interface perspective. A detailed design
 [RFC](https://github.com/synnaxlabs/delta/blob/main/docs/rfc/220517-cesium-segment-storage.md) is available for those interested in the implementation.
 
 ### Channels
@@ -85,7 +85,7 @@ Cesium is in Alpha state, and is not ready for production use.
 
 ## Installation
 
-```bash
+```cmd
 go get github.com/synnaxlabs/cesium
 ```
 
@@ -124,7 +124,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Create a new Segment to write. If you don't know what segments are, 
+	// Create a new Segment to write. If you don't know what segments are,
 	// check out the Segment documentation.
 	segments := []cesium.Segment{
 		{
@@ -134,7 +134,7 @@ func main() {
 		},
 	}
 
-	// Open the query. DB.Sync is a helper that turns a typically async write 
+	// Open the query. DB.Sync is a helper that turns a typically async write
 	// into an acknowledged, synchronous write.
 	if err := db.Sync(ctx, db.NewCreate().WhereChannels(ch.Key), &segments); err != nil {
 		log.Fatal(err)

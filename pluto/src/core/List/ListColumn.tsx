@@ -9,31 +9,32 @@
 
 import { CSSProperties, useEffect, useState } from "react";
 
-import { newObjectFieldCompare, convertRenderV, RenderableRecord } from "@synnaxlabs/x";
-import clsx from "clsx";
-import { AiFillCaretDown, AiFillCaretUp } from "react-icons/ai";
+import { Icon } from "@synnaxlabs/media";
+import { Compare, convertRenderV, KeyedRenderableRecord } from "@synnaxlabs/x";
+
+import { CONTEXT_SELECTED, CONTEXT_TARGET } from "../Menu/ContextMenu";
+
+import { useListContext } from "./ListContext";
+import { ListItemProps, ListColumn as ListColumnT } from "./types";
 
 import { Space } from "@/core/Space";
 import { Text } from "@/core/Typography";
 import { textWidth } from "@/core/Typography/textWidth";
+import { CSS } from "@/css";
 import { useFont } from "@/theming";
 import { ArrayTransform } from "@/util/transform";
 
-import { useListContext } from "./ListContext";
-
 import "./ListColumn.css";
 
-import { ListItemProps, ListColumn as ListColumnT } from "./types";
+type SortState<E extends KeyedRenderableRecord<E>> = [keyof E | null, boolean];
 
-type SortState<E extends RenderableRecord<E>> = [keyof E | null, boolean];
-
-export interface ListColumnHeaderProps<E extends RenderableRecord<E>> {
+export interface ListColumnHeaderProps<E extends KeyedRenderableRecord<E>> {
   columns: Array<ListColumnT<E>>;
 }
 
 const SORT_TRANSFORM = "sort";
 
-const ListColumnHeader = <E extends RenderableRecord<E>>({
+const ListColumnHeader = <E extends KeyedRenderableRecord<E>>({
   columns: initialColumns,
 }: ListColumnHeaderProps<E>): JSX.Element => {
   const {
@@ -64,27 +65,34 @@ const ListColumnHeader = <E extends RenderableRecord<E>>({
 
   useEffect(() => {
     setColumns((prev) =>
-      columnWidths(prev.length === 0 ? initialColumns : prev, sourceData, font, 60)
+      columnWidths(prev.length === 0 ? initialColumns : prev, sourceData, font)
     );
   }, [sourceData, initialColumns]);
 
   return (
-    <Space direction="x" size="medium" className="pluto-list-col-header__container">
+    <Space
+      direction="x"
+      size="medium"
+      className={CSS.BE("list-col-header", "container")}
+    >
       {columns
         .filter(({ visible = true }) => visible)
         .map(({ key, width, name }) => {
           const [sortKey, dir] = sort;
           let endIcon;
-          if (key === sortKey) endIcon = dir ? <AiFillCaretUp /> : <AiFillCaretDown />;
+          const entry = sourceData[0];
+          if (key === sortKey) endIcon = dir ? <Icon.Caret.Up /> : <Icon.Caret.Down />;
           return (
             <Text.WithIcon
-              className="pluto-list-col-header__item"
+              className={CSS.BE("list-col-header", "item")}
               key={key.toString()}
               justify="spaceBetween"
               level="p"
               endIcon={endIcon}
               style={{ minWidth: width }}
-              onClick={() => onSort(key)}
+              onClick={() =>
+                entry != null && (key as string) in entry && onSort(key as keyof E)
+              }
             >
               {name}
             </Text.WithIcon>
@@ -94,7 +102,7 @@ const ListColumnHeader = <E extends RenderableRecord<E>>({
   );
 };
 
-const ListColumnItem = <E extends RenderableRecord<E>>({
+const ListColumnItem = <E extends KeyedRenderableRecord<E>>({
   entry,
   selected,
   columns,
@@ -106,12 +114,12 @@ const ListColumnItem = <E extends RenderableRecord<E>>({
   return (
     <Space
       id={entry.key.toString()}
-      className={clsx(
-        "pluto-context-target",
-        "pluto-list-col-item__container",
-        onSelect != null && "pluto-list-col-item__container--selectable",
-        selected && "pluto-list-col-item__container--selected",
-        selected && "pluto-context-selected"
+      className={CSS(
+        CONTEXT_TARGET,
+        CSS.BE("list-col-item", "container"),
+        onSelect != null && CSS.BEM("list-col-item", "container", "selectable"),
+        selected && CSS.BEM("list-col-item", "container", "selected"),
+        selected && CONTEXT_SELECTED
       )}
       direction="x"
       size="medium"
@@ -129,12 +137,12 @@ const ListColumnItem = <E extends RenderableRecord<E>>({
   );
 };
 
-interface ListColumnValueProps<E extends RenderableRecord<E>> {
+interface ListColumnValueProps<E extends KeyedRenderableRecord<E>> {
   entry: E;
   col: ListColumnT<E>;
 }
 
-const ListColumnValue = <E extends RenderableRecord<E>>({
+const ListColumnValue = <E extends KeyedRenderableRecord<E>>({
   entry,
   col: { width, ...col },
 }: ListColumnValueProps<E>): JSX.Element | null => {
@@ -151,16 +159,17 @@ const ListColumnValue = <E extends RenderableRecord<E>>({
   );
 };
 
-const columnWidths = <E extends RenderableRecord<E>>(
+const columnWidths = <E extends KeyedRenderableRecord<E>>(
   columns: Array<ListColumnT<E>>,
   data: E[],
   font: string,
-  padding = 60
+  padding = 30
 ): Array<ListColumnT<E>> => {
   const le = longestEntries(data);
   return columns.map((col) => {
+    if (col.width != null) return col;
     const labelWidth = textWidth(col.name, font);
-    const entryWidth = textWidth(le[col.key], font);
+    const entryWidth = textWidth(le[col.key as keyof E], font);
     return {
       ...col,
       width: Math.max(labelWidth, entryWidth) + padding,
@@ -168,7 +177,7 @@ const columnWidths = <E extends RenderableRecord<E>>(
   });
 };
 
-const longestEntries = <E extends RenderableRecord<E>>(
+const longestEntries = <E extends KeyedRenderableRecord<E>>(
   data: E[]
 ): Record<keyof E, string> => {
   // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
@@ -187,10 +196,10 @@ const longestEntries = <E extends RenderableRecord<E>>(
 };
 
 const sortTransform =
-  <E extends RenderableRecord<E>>(k: keyof E, dir: boolean): ArrayTransform<E> =>
+  <E extends KeyedRenderableRecord<E>>(k: keyof E, dir: boolean): ArrayTransform<E> =>
   (data: E[]) => {
     if (data.length === 0) return data;
-    return [...data].sort(newObjectFieldCompare(k, data[0], !dir));
+    return [...data].sort(Compare.newFieldF(k, data[0], !dir));
   };
 
 export const ListColumn = {

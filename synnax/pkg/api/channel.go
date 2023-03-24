@@ -11,7 +11,7 @@ package api
 
 import (
 	"context"
-
+	roacherrors "github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
@@ -72,6 +72,9 @@ func (s *ChannelService) Create(
 	if err := s.Validate(req); err.Occurred() {
 		return res, err
 	}
+	if err := validateChannelNames(req.Channels); err.Occurred() {
+		return res, err
+	}
 	translated, err := translateChannelsBackward(req.Channels)
 	if err != nil {
 		return res, errors.Parse(err)
@@ -89,9 +92,7 @@ type ChannelRetrieveRequest struct {
 	// Optional parameter that queries a Channel by its node ID.
 	NodeKey distribution.NodeKey `query:"node_key"`
 	// Optional parameter that queries a Channel by its key.
-	Keys []string `query:"keys"`
-	// Optional parameter that queries a Channel by its name.
-	Names []string `query:"names"`
+	KeysOrNames []string `query:"keys_or_names"`
 }
 
 // ChannelRetrieveResponse is the response for a ChannelRetrieveRequest.
@@ -100,7 +101,7 @@ type ChannelRetrieveResponse struct {
 	Channels []Channel `json:"channels" msgpack:"channels"`
 	// NotFound is a slice of strings matching the keys or names of Channels that
 	// were not found.
-	NotFound []string  `json:"not_found" msgpack:"not_found"`
+	NotFound []string `json:"not_found" msgpack:"not_found"`
 }
 
 // Retrieve retrieves a Channel based on the parameters given in the request. If no
@@ -110,24 +111,20 @@ func (s *ChannelService) Retrieve(
 	req ChannelRetrieveRequest,
 ) (ChannelRetrieveResponse, errors.Typed) {
 	var (
+		keys, names = splitKeysAndNames(req.KeysOrNames)
 		resChannels []channel.Channel
-		parsedKeys  channel.Keys
-		notFound channel.Keys
-		q = s.internal.NewRetrieve().Entries(&resChannels)
-		hasKeys = len(req.Keys) > 0
-		hasNames = len(req.Names) > 0
+		notFound    []string
+		q           = s.internal.NewRetrieve().Entries(&resChannels)
+		hasNames    = len(names) > 0
+		hasKeys     = len(keys) > 0
 	)
 
 	if hasKeys {
-		var err error
-		if parsedKeys, err = channel.ParseKeys(req.Keys); err != nil {
-			return ChannelRetrieveResponse{}, errors.Parse(err)
-		}
-		q = q.WhereKeys(parsedKeys...)
+		q = q.WhereKeys(keys...)
 	}
 
 	if hasNames {
-		q = q.WhereNames(req.Names...)
+		q = q.WhereNames(names...)
 	}
 
 	if req.NodeKey != 0 {
@@ -136,16 +133,39 @@ func (s *ChannelService) Retrieve(
 
 	err := errors.MaybeQuery(q.Exec(ctx))
 
+
 	if hasKeys {
-		notFound, _ = lo.Difference(parsedKeys, channel.KeysFromChannels(resChannels))
+		notFound, _ = lo.Difference(
+			keys.Strings(),
+			channel.KeysFromChannels(resChannels).Strings(),
+		)
 	}
 
 	if hasNames {
-		_notFound, _ := lo.Difference(notFound, channel.KeysFromChannels(resChannels))
+		_notFound, _ := lo.Difference(
+			names,
+			lo.Map(resChannels, func(ch channel.Channel, _ int) string { return ch.Name }),
+		)
 		notFound = append(notFound, _notFound...)
 	}
 
-	return ChannelRetrieveResponse{Channels: translateChannelsForward(resChannels), NotFound: notFound.Strings()}, err
+	return ChannelRetrieveResponse{Channels: translateChannelsForward(resChannels), NotFound: notFound}, err
+}
+
+func splitKeysAndNames(keysOrNames []string) (channel.Keys, []string) {
+	var (
+		keys  []string
+		names []string
+	)
+	for _, keyOrName := range keysOrNames {
+		if channel.IsValidStringKey(keyOrName) {
+			keys = append(keys, keyOrName)
+		} else {
+			names = append(names, keyOrName)
+		}
+	}
+	channelKeys, _ := channel.ParseKeys(keys)
+	return channelKeys, names
 }
 
 func translateChannelsForward(channels []channel.Channel) []Channel {
@@ -195,4 +215,16 @@ func translateChannelsBackward(channels []Channel) ([]channel.Channel, error) {
 		translated[i] = tCH
 	}
 	return translated, nil
+}
+
+func validateChannelNames(channels []Channel) errors.Typed {
+	for _, ch := range channels {
+		if channel.IsValidStringKey(ch.Name) {
+			return errors.Validation(roacherrors.Newf(
+				"channel name %s cannot have the same format as a key",
+				ch.Name,
+			))
+		}
+	}
+	return errors.Nil
 }

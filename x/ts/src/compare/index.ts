@@ -7,11 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Primitive, isStringer, PrimitiveRecord } from "@/types/primitive";
+import { Primitive, isStringer, PrimitiveRecord } from "@/primitive";
 
 export type CompareF<T> = (a: T, b: T) => number;
-
-export type PrimitiveCompareF<T extends Primitive> = CompareF<T>;
 
 /**
  * Creates the appropriate compare function for sorting the given
@@ -21,10 +19,10 @@ export type PrimitiveCompareF<T extends Primitive> = CompareF<T>;
  * This is used to determine the type of comparison to perform.
  * @param reverse Whether to reverse the sort order.
  */
-export const newPrimitiveCompare = <T extends Primitive>(
+const newF = <T extends Primitive | PrimitiveRecord | T[]>(
   v: T,
   reverse: boolean = false
-): PrimitiveCompareF<T> => {
+): CompareF<T> => {
   const t = isStringer(v) ? "stringer" : typeof v;
   let f: CompareF<T>;
   switch (t) {
@@ -39,7 +37,7 @@ export const newPrimitiveCompare = <T extends Primitive>(
       f = (a: T, b: T) => (a as number) - (b as number);
       break;
     case "bigint":
-      f = (a: T, b: T) => Number((a as bigint) - (b as bigint));
+      f = (a: T, b: T) => ((a as bigint) - (b as bigint) > BigInt(0) ? 1 : -1);
       break;
     case "boolean":
       f = (a: T, b: T) => Number(a) - Number(b);
@@ -48,7 +46,7 @@ export const newPrimitiveCompare = <T extends Primitive>(
       console.warn("sortFunc: unknown type");
       return () => -1;
   }
-  return reverse ? reverseCompare(f) : f;
+  return reverse ? reverseF(f) : f;
 };
 
 /**
@@ -59,12 +57,12 @@ export const newPrimitiveCompare = <T extends Primitive>(
  * comparison to perform.
  * @param reverse Whether to reverse the sort order.
  */
-export const newObjectFieldCompare = <T extends PrimitiveRecord>(
+const newFieldF = <T extends PrimitiveRecord>(
   key: keyof T,
   value: T,
-  reverse: boolean = false
+  reverse?: boolean
 ): CompareF<T> => {
-  const f = newPrimitiveCompare(value[key], reverse);
+  const f = newF(value[key], reverse);
   return (a: T, b: T) => f(a[key], b[key]);
 };
 
@@ -75,7 +73,7 @@ export const newObjectFieldCompare = <T extends PrimitiveRecord>(
  * @returns The array with the greater length if the array lengths are not equal. If the
  * arrays are the same length, returns 0 if all elements are equal, otherwise returns -1.
  */
-export const comparePrimitiveArrays = <T extends Primitive>(
+const primitiveArrays = <T extends Primitive>(
   a: readonly T[] | T[],
   b: readonly T[] | T[]
 ): number => {
@@ -83,8 +81,28 @@ export const comparePrimitiveArrays = <T extends Primitive>(
   return a.every((v, i) => v === b[i]) ? 0 : -1;
 };
 
+const unorderedPrimitiveArrays = <T extends Primitive>(
+  a: readonly T[] | T[],
+  b: readonly T[] | T[]
+): number => {
+  if (a.length !== b.length) return a.length - b.length;
+  if (a.length === 0) return 0;
+  const compareF = newF(a[0]);
+  const aSorted = [...a].sort(compareF);
+  const bSorted = [...b].sort(compareF);
+  return aSorted.every((v, i) => v === bSorted[i]) ? 0 : -1;
+};
+
 /** @returns the reverse of the given compare function. */
-export const reverseCompare =
+const reverseF =
   <T>(f: CompareF<T>): CompareF<T> =>
   (a: T, b: T) =>
     f(b, a);
+
+export const Compare = {
+  newF,
+  newFieldF,
+  reverseF,
+  primitiveArrays,
+  unorderedPrimitiveArrays,
+};

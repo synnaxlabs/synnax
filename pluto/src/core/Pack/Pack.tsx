@@ -7,27 +7,56 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ForwardedRef, forwardRef, ReactElement } from "react";
-
-import clsx from "clsx";
+import { ForwardedRef, forwardRef } from "react";
 
 import { Space, SpaceElementType, SpaceProps } from "@/core/Space";
-import { ComponentSize } from "@/util/component";
+import { CSS } from "@/css";
 
 import "./Pack.css";
 
-export interface PackChildProps {
-  key: number;
-  className: string;
-  size: ComponentSize;
-}
-
+/** Props for the {@link Pack} component. */
 export type PackProps<E extends SpaceElementType = "div"> = Omit<
   SpaceProps<E>,
-  "children" | "empty"
-> & {
-  children: ReactElement<PackChildProps> | Array<ReactElement<PackChildProps>>;
-};
+  "empty"
+> &
+  PackExtensionProps;
+
+export interface PackExtensionProps {
+  bordered?: boolean;
+}
+
+const CorePack = <E extends SpaceElementType = "div">(
+  {
+    children,
+    className,
+    size = "medium",
+    reverse = false,
+    direction = "x",
+    bordered = true,
+    ...props
+  }: PackProps<E>,
+  // select the correct type for the ref
+  ref: ForwardedRef<JSX.IntrinsicElements[E]>
+): JSX.Element => (
+  // @ts-expect-error
+  <Space<E>
+    ref={ref}
+    direction={direction}
+    reverse={reverse}
+    className={CSS(
+      CSS.B("pack"),
+      CSS.dir(direction),
+      typeof size !== "number" && CSS.BM("pack", size),
+      reverse && CSS.BM("pack", "reverse"),
+      bordered && CSS.BM("pack", "bordered"),
+      className
+    )}
+    {...props}
+    empty
+  >
+    {children}
+  </Space>
+);
 
 /**
  * Packs elements together, setting their size and styling the borders between them so
@@ -42,38 +71,9 @@ export type PackProps<E extends SpaceElementType = "div"> = Omit<
  * "x".
  * @param props.size - The size to set on the children. Any sizes already set on the
  * children will be overridden. Defaults to "medium".
+ * @param props.el  - The element type to use as the root element for the Pack.
+ * Defaults to "div".
  */
-const CorePack = <E extends SpaceElementType = "div">(
-  {
-    children,
-    className,
-    size = "medium",
-    reverse = false,
-    direction = "x",
-    ...props
-  }: PackProps<E>,
-  // select the correct type for the ref
-  ref: ForwardedRef<JSX.IntrinsicElements[E]>
-): JSX.Element => (
-  // @ts-expect-error
-  <Space<E>
-    ref={ref}
-    direction={direction}
-    reverse={reverse}
-    className={clsx(
-      "pluto-pack",
-      `pluto-pack--${direction}`,
-      `pluto-pack--${size}`,
-      reverse && "pluto-pack--reverse",
-      className
-    )}
-    {...props}
-    empty
-  >
-    {children}
-  </Space>
-);
-
 export const Pack = forwardRef(CorePack) as <E extends SpaceElementType = "div">(
   props: PackProps<E>
 ) => JSX.Element;

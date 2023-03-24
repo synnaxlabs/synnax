@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Location, XY } from "@/spatial";
+import { Location, XY } from "@synnaxlabs/x";
 
 export const fTranslate = (v: XY): string => `translate(${v.x}, ${v.y})`;
 

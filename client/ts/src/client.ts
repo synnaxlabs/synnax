@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { URL } from "@synnaxlabs/freighter";
-import { TimeSpan } from "@synnaxlabs/x";
+import { TimeSpan, URL } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { AuthenticationClient } from "@/auth";
@@ -41,7 +40,7 @@ export type SynnaxProps = z.infer<typeof synnaxPropsSchema>;
 export default class Synnax {
   private readonly transport: Transport;
   data: FrameClient;
-  channel: ChannelClient;
+  channels: ChannelClient;
   auth: AuthenticationClient | undefined;
   connectivity: ConnectivityClient;
   ontology: OntologyClient;
@@ -78,7 +77,7 @@ export default class Synnax {
       this.transport.use(this.auth.middleware());
     }
     this.data = new FrameClient(this.transport);
-    this.channel = new ChannelClient(this.data, this.transport);
+    this.channels = new ChannelClient(this.data, this.transport);
     this.connectivity = new ConnectivityClient(
       this.transport.getClient(),
       connectivityPollFrequency

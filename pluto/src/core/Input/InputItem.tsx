@@ -9,7 +9,7 @@
 
 import { forwardRef, Ref } from "react";
 
-import clsx from "clsx";
+import { Direction, toArray } from "@synnaxlabs/x";
 import {
   UseControllerProps,
   useController,
@@ -17,22 +17,18 @@ import {
   FieldPath,
 } from "react-hook-form";
 
+import { Input } from "./Input";
+import { InputHelpText } from "./InputHelpText";
+import { InputLabel } from "./InputLabel";
+import { InputBaseProps, InputControl, InputValue } from "./types";
+
 import { Pack } from "@/core/Pack";
 import { Space, SpaceAlignment, SpaceExtensionProps } from "@/core/Space";
-import { Direction } from "@/spatial";
+import { CSS } from "@/css";
 import { camelToTitle } from "@/util/case";
 import { RenderProp } from "@/util/renderProp";
 
-import { Input } from "./Input";
-
-import { toArray } from "@/util/toArray";
-
-import { InputHelpText } from "./InputHelpText";
-
 import "./InputItem.css";
-
-import { InputLabel } from "./InputLabel";
-import { InputBaseProps, InputControl, InputValue } from "./types";
 
 interface RenderComponent<P> {
   render: RenderProp<P>;
@@ -88,13 +84,14 @@ const CoreInputItem = <
 
   let content: JSX.Element | null;
   if (children_.length === 1) {
-    content = children_[0]({ ref, grow, ...(props as unknown as P) });
+    content = children_[0]({ ref, key: 0, ...(props as unknown as P) });
   } else {
     content = (
       <Pack direction={direction}>
         {
           children_
-            .map((c) => c({ ref, grow, ...(props as unknown as P) }))
+            // Unlikely to change order here so we can use index as key
+            .map((c, i) => c({ key: i, ...(props as unknown as P) }))
             .filter((c) => c != null) as JSX.Element[]
         }
       </Pack>
@@ -108,7 +105,7 @@ const CoreInputItem = <
       empty={empty}
       grow={grow}
       size={size}
-      className={clsx("pluto-input-item", className)}
+      className={CSS(CSS.B("input-item"), className)}
       direction={direction}
       style={style}
     >

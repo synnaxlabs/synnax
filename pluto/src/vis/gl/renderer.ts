@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Box, XY } from "@synnaxlabs/x";
+
 import { Compiler } from "./compiler";
 import { GLRendererRegistry } from "./registry";
 import { ScissoredGLRenderer, ScissoredRenderRequest } from "./scissor";
-
-import { Box, XY } from "@/spatial";
-
 import { RenderingUnits } from "./types";
 
 /**

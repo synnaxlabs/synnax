@@ -9,20 +9,23 @@
 
 import { FunctionComponent } from "react";
 
-import clsx from "clsx";
-
 import { Button, ButtonIconProps, ButtonProps } from "../Button";
 
 import { useMenuContext } from "./Menu";
+
+import { CSS } from "@/css";
 
 import "./MenuItem.css";
 
 const menuItemFactory =
   <E extends Pick<ButtonProps, "className" | "onClick">>(
-    Base: FunctionComponent<E>
+    Base: FunctionComponent<E>,
+    defaultProps?: Partial<E>
   ): FunctionComponent<E & { itemKey: string }> =>
   // eslint-disable-next-line react/display-name
-  ({ itemKey, className, onClick, ...props }): JSX.Element => {
+  (props): JSX.Element => {
+    const { itemKey, className, onClick, ...rest } = { ...defaultProps, ...props };
+
     const { onClick: ctxOnClick, selected } = useMenuContext();
     const handleClick: ButtonProps["onClick"] = (e) => {
       ctxOnClick(itemKey);
@@ -32,14 +35,10 @@ const menuItemFactory =
     return (
       // @ts-expect-error
       <Base
-        {...props}
+        {...rest}
         onClick={handleClick}
         variant="text"
-        className={clsx(
-          "pluto-menu-item",
-          _selected && "pluto-menu-item--selected",
-          className
-        )}
+        className={CSS(CSS.B("menu-item"), CSS.selected(_selected), className)}
       />
     );
   };
@@ -47,9 +46,25 @@ const menuItemFactory =
 export interface MenuItemProps extends ButtonProps {
   itemKey: string;
 }
-export const MenuItem = menuItemFactory(Button);
+export const CoreMenuItem = menuItemFactory(Button, { noWrap: true });
 
 export interface MenuItemIconProps extends ButtonIconProps {
   itemKey: string;
 }
-export const MenuItemIcon = menuItemFactory(Button.Icon);
+const MenuItemIcon = menuItemFactory(Button.Icon);
+
+const MenuItemLink = menuItemFactory(Button.Link, { noWrap: true });
+export interface MenuItemLinkProps extends ButtonProps {
+  itemKey: string;
+}
+
+type CoreMenuItemType = typeof CoreMenuItem;
+
+export interface MenuItemType extends CoreMenuItemType {
+  Icon: typeof MenuItemIcon;
+  Link: typeof MenuItemLink;
+}
+
+export const MenuItem = CoreMenuItem as MenuItemType;
+MenuItem.Icon = MenuItemIcon;
+MenuItem.Link = MenuItemLink;

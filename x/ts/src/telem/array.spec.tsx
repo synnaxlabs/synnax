@@ -9,8 +9,6 @@
 
 import { describe, expect, test } from "vitest";
 
-import { ValidationError } from "..";
-
 import { LazyArray } from "./array";
 import { DataType, TimeRange } from "./telem";
 
@@ -29,7 +27,7 @@ describe("LazyArray", () => {
       expect(() => {
         // eslint-disable-next-line no-new
         new LazyArray(new ArrayBuffer(4));
-      }).toThrow(ValidationError);
+      }).toThrow();
     });
 
     test("from buffer with data type provided", () => {

@@ -108,6 +108,12 @@ func ParseKeys(keys []string) (Keys, error) {
 	return k, nil
 }
 
+// IsValidStringKey returns true if the string represents a valid Key.
+func IsValidStringKey(key string) bool {
+	_, err := ParseKey(key)
+	return err == nil
+}
+
 // StorageKeys calls Key.LocalKey() on each key and returns a slice with the results.
 func (k Keys) StorageKeys() []storage.ChannelKey {
 	keys := make([]storage.ChannelKey, len(k))

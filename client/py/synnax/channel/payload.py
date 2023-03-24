@@ -19,7 +19,6 @@ class ChannelPayload(Payload):
 
     data_type: DataType
     rate: Rate = Rate(0)
-    density: Density = Density(0)
     name: str = ""
     node_id: int = 0
     key: str = ""

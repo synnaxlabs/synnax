@@ -8,17 +8,35 @@
   - License, use of this software will be governed by the Apache License, Version 2.0,
   - included in the file licenses/APL.txt.
   -->
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 189.34" fill="url(#linear-gradient)">
+    <defs>
+      <linearGradient
+        id="linear-gradient"
+        x1="-2.63"
+        y1="56.85"
+        x2="167.19"
+        y2="157.88"
+        gradientUnits="userSpaceOnUse"
+      >
+        <stop offset="0" stopColor="#10007f" />
+        <stop offset="1" stopColor="#0084e9" />
+      </linearGradient>
+    </defs>
+    <g id="Layer_2" data-name="Layer 2">
+      <g id="Layer_1-2" data-name="Layer 1">
+        <path
+          className="cls-1"
+          d="M52.61,168.82A14.81,14.81,0,0,1,39.78,146.6L94.22,52.33c5.7-9.88,20-9.88,25.9.42l51.77,89.67a6.88,6.88,0,0,0,2.48,2.49l15.42,8.9a6.78,6.78,0,0,0,9.26-9.27L119.87,7.41a14.8,14.8,0,0,0-25.65,0L2,167.12a14.81,14.81,0,0,0,12.83,22.22H170.39a6.79,6.79,0,0,0,3.39-12.66l-12.05-7a6.83,6.83,0,0,0-3.39-.91Z"
+        />
+      </g>
+    </g>
+    <style>
+        path { fill: black; }
+        @media (prefers-color-scheme: dark) {
+            path {
+                fill: white;
+            }
+        }
 
-<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 36 36">
-  <path fill="#000" d="M22.25 4h-8.5a1 1 0 0 0-.96.73l-5.54 19.4a.5.5 0 0 0 .62.62l5.05-1.44a2 2 0 0 0 1.38-1.4l3.22-11.66a.5.5 0 0 1 .96 0l3.22 11.67a2 2 0 0 0 1.38 1.39l5.05 1.44a.5.5 0 0 0 .62-.62l-5.54-19.4a1 1 0 0 0-.96-.73Z"/>
-  <path fill="url(#gradient)" d="M18 28a7.63 7.63 0 0 1-5-2c-1.4 2.1-.35 4.35.6 5.55.14.17.41.07.47-.15.44-1.8 2.93-1.22 2.93.6 0 2.28.87 3.4 1.72 3.81.34.16.59-.2.49-.56-.31-1.05-.29-2.46 1.29-3.25 3-1.5 3.17-4.83 2.5-6-.67.67-2.6 2-5 2Z"/>
-  <defs>
-    <linearGradient id="gradient" x1="16" x2="16" y1="32" y2="24" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#000"/>
-      <stop offset="1" stop-color="#000" stop-opacity="0"/>
-    </linearGradient>
-  </defs>
-	<style>
-    @media (prefers-color-scheme:dark){:root{filter:invert(100%)}}
-  </style>
+    </style>
 </svg>

@@ -15,6 +15,10 @@
     padding: 0 1rem;
 }
 
+.pluto-list-col-item__container * {
+    white-space: nowrap;
+}
+
 .pluto-list-col-item__container--selectable {
     cursor: pointer;
 }
@@ -39,5 +43,8 @@
 .pluto-list-col-header__item {
     cursor: pointer;
     user-select: none;
-    font-weight: bold;
+}
+
+.pluto-list-col-header__item * {
+    font-weight: 600;
 }

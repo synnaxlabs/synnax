@@ -15,6 +15,14 @@
     margin: 0;
 }
 
+.pluto-btn:disabled {
+    background-color: var(--pluto-gray-m2);
+}
+
+.pluto-btn:disabled:hover {
+    background-color: var(--pluto-gray-m2);
+}
+
 .pluto-btn {
     cursor: pointer;
     border-radius: var(--pluto-border-radius);
@@ -30,9 +38,13 @@
 /* |||| FILLED |||| */
 
 .pluto-btn--filled {
-    color: var(--pluto-white);
     background-color: var(--pluto-primary-z);
     border: var(--pluto-border-width) solid var(--pluto-primary-z);
+}
+
+.pluto-btn--filled * {
+    color: var(--pluto-white);
+    fill: var(--pluto-white);
 }
 
 .pluto-btn--filled:hover {
@@ -76,7 +88,7 @@
 }
 
 .pluto-btn--text:hover {
-    background-color: var(--pluto-gray-m1);
+    background-color: var(--pluto-gray-m2);
 }
 
 .pluto-btn--text:active {
@@ -91,6 +103,11 @@
     display: flex;
     justify-content: center;
     align-items: center;
+}
+
+.pluto-btn-icon:disabled svg * {
+    fill: var(--pluto-gray-m2);
+    stroke: var(--pluto-gray-m2);
 }
 
 .pluto--medium > svg {

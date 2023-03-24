@@ -9,15 +9,29 @@
  * included in the file licenses/APL.txt.
  */
 
-import { defineConfig } from 'astro/config';
-
-// https://astro.build/config
 import mdx from "@astrojs/mdx";
-
-// https://astro.build/config
 import react from "@astrojs/react";
+import vercel from "@astrojs/vercel/serverless";
+import { defineConfig } from "astro/config";
 
-// https://astro.build/config
+const shikiResourcePaths = Object.keys(
+    import.meta.glob([
+        "../../node_modules/.pnpm/shiki@*/node_modules/shiki/languages/*.tmLanguage.json",
+        "../../node_modules/.pnpm/shiki@*/node_modules/shiki/themes/*.json",
+    ])
+);
+
+// eslint-disable-next-line import/no-default-export
 export default defineConfig({
-  integrations: [react(), mdx()]
+    integrations: [react(), mdx()],
+    output: "server",
+    adapter: vercel({
+        includeFiles: shikiResourcePaths,
+    }),
+    markdown: {
+        shikiConfig: {
+            theme: "github-dark",
+        },
+    },
+    site: "https://docs.synnaxlabs.com",
 });

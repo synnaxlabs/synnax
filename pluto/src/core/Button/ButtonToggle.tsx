@@ -9,32 +9,32 @@
 
 import { FunctionComponent } from "react";
 
-import clsx from "clsx";
-
 import { Button, ButtonProps } from "./Button";
+import { ButtonIcon } from "./ButtonIcon";
 
 import { InputControl } from "@/core/Input";
-
-import { ButtonIcon } from "./ButtonIcon";
+import { CSS } from "@/css";
 
 import "./ButtonToggle.css";
 
 const buttonToggleFactory =
   <E extends Pick<ButtonProps, "className" | "variant">>(
     Base: FunctionComponent<E>
-  ): FunctionComponent<E & InputControl<boolean>> =>
+  ): FunctionComponent<Omit<E, "value"> & InputControl<boolean>> =>
   // eslint-disable-next-line react/display-name
-  (props) =>
+  ({ value, ...props }) =>
     (
+      // @ts-expect-error
       <Base
         {...props}
-        checked={props.value}
-        className={clsx(
-          "pluto-btn-toggle",
-          props.value && "pluto-btn-toggle--checked",
+        checked={value}
+        onClick={() => props.onChange(!value)}
+        className={CSS(
+          CSS.B("btn-toggle"),
+          value && CSS.BM("btn-toggle", "checked"),
           props.className
         )}
-        variant={props.value ? props.variant : "outlined"}
+        variant={value ? props.variant : "outlined"}
       />
     );
 

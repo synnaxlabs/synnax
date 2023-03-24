@@ -18,10 +18,10 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { GeneralError, UnexpectedError } from "@/errors";
-
 import { Frame } from "./frame";
 import { framePayloadSchema } from "./payload";
+
+import { GeneralError, UnexpectedError } from "@/errors";
 
 export const AUTO_SPAN = new TimeSpan(-1);
 

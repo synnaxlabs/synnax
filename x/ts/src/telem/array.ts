@@ -16,6 +16,8 @@ import {
   UnparsedDataType,
 } from "./telem";
 
+import { Compare } from "@/compare";
+
 export type SampleValue = number | bigint;
 
 const validateFieldNotNull = (name: string, field: unknown): void => {
@@ -147,13 +149,24 @@ export class LazyArray {
   get range(): number | bigint {
     return addSamples(this.max, -this.min);
   }
+
+  binarySearch(value: SampleValue): number {
+    let left = 0;
+    let right = this.length - 1;
+    const compare = Compare.newF(value);
+    while (left <= right) {
+      const mid = Math.floor((left + right) / 2);
+      const cmp = compare(this.data[mid], value);
+      if (cmp === 0) return mid;
+      if (cmp < 0) left = mid + 1;
+      else right = mid - 1;
+    }
+    return left;
+  }
 }
 
 export const addSamples = (a: SampleValue, b: SampleValue): SampleValue => {
   if (typeof a === "bigint" && typeof b === "bigint") return a + b;
   else if (typeof a === "number" && typeof b === "number") return a + b;
-  console.warn(
-    "adding a number and a bigint is dangerous. we'll let you convert for now, but you should fix this."
-  );
   return Number(a) + Number(b);
 };

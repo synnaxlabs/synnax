@@ -10,13 +10,13 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone, tzinfo
-from typing import TypeAlias, Union, get_args, no_type_check
+from typing import TypeAlias, Union, get_args
 from numpy.typing import DTypeLike
 
 import numpy as np
 import pandas as pd
 from freighter import Payload
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 
 from .exceptions import ContiguityError
 
@@ -359,14 +359,17 @@ def convert_time_units(data: np.ndarray, _from: str, to: str):
     :param to: the units to convert to
     :return: the data in the new units
     """
-    if _from == to:
-        return data
-    f = TimeSpan.UNITS.get(_from, None)
+    if _from == "iso":
+        data = datetime.fromisoformat(data).timestamp()
+        f = TimeSpan.SECOND
+    else:
+        f = TimeSpan.UNITS.get(_from, None)
     if f is None:
         raise ValueError(f"Invalid input time unit {_from}")
     t = TimeSpan.UNITS.get(to, None)
     if t is None:
         raise ValueError(f"Invalid output time unit {to}")
+
     converted = data * f / t
     if to == TimeSpan.SECOND_UNITS:
         return converted.astype(np.float64)
@@ -612,10 +615,14 @@ class DataType(str):
         :param _raise: If True, raises a TypeError if the DataType is not a numpy type.
         :return: The numpy type
         """
-        npt = self._TO_NUMPY.get(self, None)
+        npt = DataType._TO_NUMPY.get(self, None)
         if npt is None:
             raise TypeError(f"Cannot convert {self} to numpy type")
         return npt
+
+    @property
+    def density(self) -> Density:
+        return DataType._DENSITIES.get(self, Density.UNKNOWN)
 
     def __repr__(self):
         return f"DataType({super().__repr__()})"
@@ -638,6 +645,7 @@ class DataType(str):
     ALL: tuple[DataType, ...]
     _TO_NUMPY: dict[DataType, np.dtype]
     _FROM_NUMPY: dict[np.dtype, DataType]
+    _DENSITIES: dict[DataType, Density]
 
 
 DataType.UNKNOWN = DataType("")
@@ -698,6 +706,19 @@ DataType._TO_NUMPY = {
     DataType.UINT8: np.dtype(np.uint8),
 }
 DataType._FROM_NUMPY = {v: k for k, v in DataType._TO_NUMPY.items()}
+DataType._DENSITIES = {
+    DataType.FLOAT64: Density.BIT64,
+    DataType.FLOAT32: Density.BIT32,
+    DataType.TIMESTAMP: Density.BIT64,
+    DataType.INT64: Density.BIT64,
+    DataType.INT32: Density.BIT32,
+    DataType.INT16: Density.BIT16,
+    DataType.INT8: Density.BIT8,
+    DataType.UINT64: Density.BIT64,
+    DataType.UINT32: Density.BIT32,
+    DataType.UINT16: Density.BIT16,
+    DataType.UINT8: Density.BIT8,
+}
 
 
 class ArrayHeader(Payload):
