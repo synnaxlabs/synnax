@@ -46,7 +46,7 @@ type Response struct {
 	// Ack is the acknowledgement of the command.
 	Ack    bool
 	SeqNum int
-	NodeID dcore.NodeKey
+	NodeKey dcore.NodeKey
 	Err    error
 }
 

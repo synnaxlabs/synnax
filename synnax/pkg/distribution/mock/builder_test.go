@@ -29,9 +29,9 @@ var _ = Describe("Builder", func() {
 			coreTwo := builder.New()
 			coreThree := builder.New()
 
-			Expect(coreOne.Cluster.HostKey()).To(Equal(core.NodeID(1)))
-			Expect(coreTwo.Cluster.HostKey()).To(Equal(core.NodeID(2)))
-			Expect(coreThree.Cluster.HostKey()).To(Equal(core.NodeID(3)))
+			Expect(coreOne.Cluster.HostKey()).To(Equal(core.NodeKey(1)))
+			Expect(coreTwo.Cluster.HostKey()).To(Equal(core.NodeKey(2)))
+			Expect(coreThree.Cluster.HostKey()).To(Equal(core.NodeKey(3)))
 
 			ch := channel.Channel{
 				Name:     "SG_01",
@@ -41,7 +41,7 @@ var _ = Describe("Builder", func() {
 			}
 
 			Expect(coreOne.Channel.Create(&ch)).To(Succeed())
-			Expect(ch.Key().NodeKey()).To(Equal(distribution.NodeID(1)))
+			Expect(ch.Key().NodeKey()).To(Equal(distribution.NodeKey(1)))
 
 			Eventually(func(g Gomega) {
 				var resCH channel.Channel
