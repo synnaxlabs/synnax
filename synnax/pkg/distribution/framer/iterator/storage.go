@@ -29,7 +29,7 @@ func (s *Service) newGateway(cfg Config) (confluence.Segment[Request, Response],
 	reqT := &confluence.LinearTransform[Request, cesium.IteratorRequest]{}
 	reqT.Transform = newStorageRequestTranslator()
 	resT := &confluence.LinearTransform[cesium.IteratorResponse, Response]{}
-	resT.Transform = newStorageResponseTranslator(s.HostResolver.HostID())
+	resT.Transform = newStorageResponseTranslator(s.HostResolver.HostKey())
 	plumber.SetSegment[cesium.IteratorRequest, cesium.IteratorResponse](pipe, "storage", iter)
 	plumber.SetSegment[Request, cesium.IteratorRequest](pipe, "requests", reqT)
 	plumber.SetSegment[cesium.IteratorResponse, Response](pipe, "responses", resT)
