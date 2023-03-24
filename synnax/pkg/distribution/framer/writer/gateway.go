@@ -27,7 +27,7 @@ func (s *Service) newGateway(cfg Config) (StreamWriter, error) {
 	reqT := &confluence.LinearTransform[Request, cesium.WriteRequest]{}
 	reqT.Transform = newRequestTranslator()
 	resT := &confluence.LinearTransform[cesium.WriteResponse, Response]{}
-	resT.Transform = newResponseTranslator(s.HostResolver.HostID())
+	resT.Transform = newResponseTranslator(s.HostResolver.HostKey())
 	plumber.SetSegment[Request, cesium.WriteRequest](pipe, "requests", reqT)
 	plumber.SetSegment[cesium.WriteResponse, Response](pipe, "responses", resT)
 	plumber.MustConnect[cesium.WriteRequest](pipe, "requests", "toStorage", 1)
