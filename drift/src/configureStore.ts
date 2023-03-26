@@ -87,7 +87,7 @@ export const configureStore = async <
   });
 
   store.dispatch(setPrererenderEnabled({ value: enablePrerender }));
-  await syncInitial(store.getState().drift, runtime, debug);
+  await syncInitial(store.getState().drift, store.dispatch, runtime, debug);
   store.dispatch(setWindowLabel({ label: runtime.label() }));
   store.dispatch(setWindowStage({ stage: "created" }));
   runtime.onCloseRequested(() => store?.dispatch(closeWindow({})));

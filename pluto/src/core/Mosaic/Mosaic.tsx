@@ -97,7 +97,6 @@ const MosaicTabLeaf = memo(
 
     const handleDragOver = (e: React.DragEvent<HTMLDivElement>): void => {
       e.preventDefault();
-      console.log(getDragLocationPercents(e));
       const loc = insertLocation(getDragLocationPercents(e));
       // get the tab data, get a boolean value checking whether the length of the tabs
       // in node would be zero if the tab was removed.

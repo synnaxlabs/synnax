@@ -73,6 +73,7 @@ export interface Properties {
    */
   onCloseRequested: (cb: () => void) => void;
   listLabels: () => string[];
+  getProps: () => Promise<Omit<WindowProps, "key">>;
 }
 
 /**

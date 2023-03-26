@@ -17,6 +17,8 @@ import {
   LogicalPosition,
   LogicalSize,
   getAll,
+  PhysicalPosition,
+  PhysicalSize,
 } from "@tauri-apps/api/window";
 
 import { Event, Runtime } from "@/runtime";
@@ -218,6 +220,18 @@ export class TauriRuntime<S extends StoreState, A extends Action = AnyAction>
   async setDecorations(value: boolean): Promise<void> {
     return await this.win.setDecorations(value);
   }
+
+  async getProps(): Promise<Omit<WindowProps, "key">> {
+    const scaleFactor = await this.win.scaleFactor();
+    const visible = await this.win.isVisible();
+    return {
+      position: await parsePosition(await this.win.innerPosition(), scaleFactor),
+      size: await parseSize(await this.win.innerSize(), scaleFactor),
+      maximized: await this.win.isMaximized(),
+      visible,
+      fullscreen: await this.win.isFullscreen(),
+    };
+  }
 }
 
 interface HandlerEntry {
@@ -233,20 +247,17 @@ const newWindowPropsHandlers = (): HandlerEntry[] => [
     debounce: 200,
     handler: async (ev) => {
       const window = WebviewWindow.getByLabel(ev.windowLabel);
-      const scaleFactor = await window?.scaleFactor();
-      if (scaleFactor == null) return null;
-      const position = (await window?.innerPosition())?.toLogical(scaleFactor);
-      const size = (await window?.innerSize())?.toLogical(scaleFactor);
-      const maximized = await window?.isMaximized();
-      const visible = await window?.isVisible();
+      if(window == null) return null;
+      const scaleFactor = await window.scaleFactor();
+      const visible = await window.isVisible();
       const nextProps: SetWindowPropsPayload = {
         label: ev.windowLabel,
-        maximized,
+        maximized: await window.isMaximized(),
         visible,
-        minimized: !(visible ?? false),
+        minimized: !visible,
+        position: await parsePosition(await window.innerPosition(), scaleFactor),
+        size: await parseSize(await window.innerSize(), scaleFactor),
       };
-      if (position != null) nextProps.position = { x: position.x, y: position.y };
-      if (size != null) nextProps.size = { width: size.width, height: size.height };
       return setWindowProps(nextProps);
     },
   },
@@ -255,12 +266,12 @@ const newWindowPropsHandlers = (): HandlerEntry[] => [
     debounce: 200,
     handler: async (ev) => {
       const window = WebviewWindow.getByLabel(ev.windowLabel);
+      if(window == null) return null;
       const scaleFactor = await window?.scaleFactor();
       if (scaleFactor == null) return null;
-      const position = (await window?.innerPosition())?.toLogical(scaleFactor);
-      const visible = await window?.isVisible();
-      const nextProps: SetWindowPropsPayload = { label: ev.windowLabel, visible };
-      if (position != null) nextProps.position = { x: position.x, y: position.y };
+      const position = await parsePosition(await window.innerPosition(), scaleFactor);
+      const visible = await window.isVisible();
+      const nextProps: SetWindowPropsPayload = { label: ev.windowLabel, visible, position };
       return setWindowProps(nextProps);
     },
   },
@@ -281,3 +292,13 @@ const newWindowPropsHandlers = (): HandlerEntry[] => [
       }),
   },
 ];
+
+const parsePosition = async (position: PhysicalPosition, scaleFactor: number): Promise<XY> => {
+  const pos = position.toLogical(scaleFactor)
+  return { x: pos.x, y: pos.y }
+}
+
+const parseSize = async (size: PhysicalSize, scaleFactor: number): Promise<Dimensions> => {
+  const sz = size.toLogical(scaleFactor)
+  return { width: sz.width, height: sz.height }
+}

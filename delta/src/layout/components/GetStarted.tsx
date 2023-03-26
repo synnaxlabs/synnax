@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Icon, Logo } from "@synnaxlabs/media";
-import { Text, Space, Button, useGLScissorRef } from "@synnaxlabs/pluto";
+import { Text, Space, Button } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { setNavdrawerVisible } from "../store";
@@ -39,10 +39,8 @@ export const GetStarted = (): JSX.Element => {
     placer(createDocsLayout());
   };
 
-  const ref = useGLScissorRef({ debounce: 100 })
-
   return (
-    <Space.Centered className="delta-get-started" align="center" size={6} ref={ref}>
+    <Space.Centered className="delta-get-started" align="center" size={6}>
       <Logo variant="title" className="delta-get-started__logo" />
       <Text level="h1">Get Started</Text>
       <Space direction="x" size="large" justify="center" wrap>
@@ -53,7 +51,7 @@ export const GetStarted = (): JSX.Element => {
           Create a Visualization
         </Button>
       </Space>
-      <Text.Link target="_blank" level="h4" onClick={handleDocs}>
+      <Text.Link target="_blank" level="h4"r onClick={handleDocs}>
         Read the Documentation
       </Text.Link>
     </Space.Centered>
