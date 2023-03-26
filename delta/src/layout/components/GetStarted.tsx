@@ -51,7 +51,7 @@ export const GetStarted = (): JSX.Element => {
           Create a Visualization
         </Button>
       </Space>
-      <Text.Link target="_blank" level="h4"r onClick={handleDocs}>
+      <Text.Link target="_blank" level="h4" onClick={handleDocs}>
         Read the Documentation
       </Text.Link>
     </Space.Centered>
