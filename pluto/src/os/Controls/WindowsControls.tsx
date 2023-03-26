@@ -17,6 +17,7 @@ import { CSS } from "@/css";
 import "./WindowsControls.css";
 
 export const WindowsControls = ({
+  disabled = [], 
   onMinimize,
   onMaximize,
   onClose,
@@ -25,15 +26,22 @@ export const WindowsControls = ({
   ...props
 }: OSControlsProps): JSX.Element => (
   <Pack {...props}>
-    <WindowsControlButton onClick={onMinimize}>
+    <WindowsControlButton 
+      onClick={onMinimize}
+      disabled={disabled.includes("minimize")}
+    >
       <Icon.Subtract />
     </WindowsControlButton>
-    <WindowsControlButton onClick={onMaximize}>
+    <WindowsControlButton 
+      onClick={onMaximize}
+      disabled={disabled.includes("maximize")}
+    >
       <Icon.Box />
     </WindowsControlButton>
     <WindowsControlButton
       onClick={onClose}
       className={CSS.BM("windows-control", "close")}
+      disabled={disabled.includes("close")}
     >
       <Icon.Close />
     </WindowsControlButton>
@@ -44,6 +52,6 @@ interface WindowsControlButtonProps extends ButtonIconProps {
   disabled?: boolean;
 }
 
-const WindowsControlButton = (props: WindowsControlButtonProps): JSX.Element => (
-  <Button.Icon tabIndex={-1} {...props} />
+const WindowsControlButton = ({ disabled, ...props }: WindowsControlButtonProps): JSX.Element | null => (
+  !disabled ? <Button.Icon tabIndex={-1} {...props} /> : null
 );
