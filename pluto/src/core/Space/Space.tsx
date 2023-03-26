@@ -67,6 +67,7 @@ export interface SpaceExtensionProps {
   justify?: SpaceJustification;
   align?: SpaceAlignment;
   grow?: boolean | number;
+  shrink?: boolean | number;
   wrap?: boolean;
   el?: SpaceElementType;
 }
@@ -83,6 +84,7 @@ const CoreSpace = <E extends SpaceElementType = "div">(
     align,
     className,
     grow,
+    shrink,
     empty = false,
     size = "medium",
     justify = "start",
@@ -108,6 +110,7 @@ const CoreSpace = <E extends SpaceElementType = "div">(
   };
 
   if (grow != null) style.flexGrow = Number(grow);
+  if (shrink != null) style.flexShrink = Number(shrink);
 
   return (
     // @ts-expect-error

@@ -30,6 +30,7 @@ export interface ListContextProps<
     setOnSelect: (cbk: (key: string) => void) => void;
     setClear: (cbk: () => void) => void;
   };
+  emptyContent?: JSX.Element;
 }
 
 export const ListContext = createContext<ListContextProps>({
@@ -47,6 +48,7 @@ export const ListContext = createContext<ListContextProps>({
     clear: undefined,
     setClear: () => undefined,
   },
+  emptyContent: undefined,
 });
 
 export const useListContext = <

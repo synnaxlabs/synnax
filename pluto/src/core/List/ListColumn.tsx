@@ -67,7 +67,7 @@ const ListColumnHeader = <E extends KeyedRenderableRecord<E>>({
     setColumns((prev) =>
       columnWidths(prev.length === 0 ? initialColumns : prev, sourceData, font)
     );
-  }, [sourceData, initialColumns]);
+  }, [font, sourceData, initialColumns]);
 
   return (
     <Space
@@ -77,7 +77,7 @@ const ListColumnHeader = <E extends KeyedRenderableRecord<E>>({
     >
       {columns
         .filter(({ visible = true }) => visible)
-        .map(({ key, width, name }) => {
+        .map(({ key, cWidth: width, name }) => {
           const [sortKey, dir] = sort;
           let endIcon;
           const entry = sourceData[0];
@@ -89,7 +89,8 @@ const ListColumnHeader = <E extends KeyedRenderableRecord<E>>({
               justify="spaceBetween"
               level="p"
               endIcon={endIcon}
-              style={{ minWidth: width }}
+              style={{ width }}
+              shrink={false}
               onClick={() =>
                 entry != null && (key as string) in entry && onSort(key as keyof E)
               }
@@ -122,11 +123,11 @@ const ListColumnItem = <E extends KeyedRenderableRecord<E>>({
         selected && CONTEXT_SELECTED
       )}
       direction="x"
-      size="medium"
       onClick={handleSelect}
       onContextMenu={handleSelect}
       align="center"
       {...props}
+      size="medium"
     >
       {columns
         .filter(({ visible = true }) => visible)
@@ -146,15 +147,14 @@ const ListColumnValue = <E extends KeyedRenderableRecord<E>>({
   entry,
   col: { width, ...col },
 }: ListColumnValueProps<E>): JSX.Element | null => {
-  const style: CSSProperties = { width, userSelect: "none", padding: 6 };
+  const style: CSSProperties = { width: col.cWidth, userSelect: "none", padding: 6 };
   if (col.render != null) return col.render({ key: col.key, entry, style });
+  let rv: E[keyof E] | string;
+  if (col.stringer != null) rv = col.stringer(entry);
+  else rv = entry[col.key as keyof E];
   return (
-    <Text
-      key={col.key as string}
-      level="p"
-      style={{ minWidth: width, userSelect: "none", padding: 6 }}
-    >
-      {convertRenderV(entry[col.key])}
+    <Text key={col.key as string} level="p" style={style}>
+      {convertRenderV(rv)}
     </Text>
   );
 };
@@ -162,28 +162,30 @@ const ListColumnValue = <E extends KeyedRenderableRecord<E>>({
 const columnWidths = <E extends KeyedRenderableRecord<E>>(
   columns: Array<ListColumnT<E>>,
   data: E[],
-  font: string,
-  padding = 30
+  font: string
 ): Array<ListColumnT<E>> => {
-  const le = longestEntries(data);
+  const le = longestEntries(data, columns);
   return columns.map((col) => {
-    if (col.width != null) return col;
-    const labelWidth = textWidth(col.name, font);
-    const entryWidth = textWidth(le[col.key as keyof E], font);
-    return {
-      ...col,
-      width: Math.max(labelWidth, entryWidth) + padding,
-    };
+    if (col.width != null) col.cWidth = col.width;
+    else {
+      const labelWidth = textWidth(col.name, font);
+      const entryWidth = textWidth(le[col.key as keyof E], font);
+      col.cWidth = Math.max(labelWidth, entryWidth);
+    }
+    return col;
   });
 };
 
 const longestEntries = <E extends KeyedRenderableRecord<E>>(
-  data: E[]
+  data: E[],
+  columns: Array<ListColumnT<E>>
 ): Record<keyof E, string> => {
-  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-  const longest = {} as Record<keyof E, string>;
+  const longest = {} as const as Record<keyof E, string>;
   data.forEach((entry: E) => {
-    Object.entries(entry).forEach(([key, value]) => {
+    columns.forEach(({ key, stringer }) => {
+      const rv = entry[key as keyof E];
+      if (rv == null) return;
+      const value = stringer != null ? stringer(entry) : rv;
       if (
         typeof value === "string" &&
         value.length > (longest[key as keyof E]?.length !== 0 || 0)

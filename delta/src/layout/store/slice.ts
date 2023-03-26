@@ -124,15 +124,12 @@ export type RemoveLayoutPayload = string;
 /** Signature for the setTheme action. */
 export type SetActiveThemePayload = string;
 
-interface DeleteLayoutMosaicTabPayload {
-  tabKey: string;
-}
 interface MoveLayoutMosaicTabPayload {
   tabKey: string;
   key: number;
   loc: Location;
 }
-interface ResizeLayoutMosaicTabPaylod {
+interface ResizeLayoutMosaicTabPayload {
   key: number;
   size: number;
 }
@@ -155,22 +152,7 @@ interface SetNavdrawerVisiblePayload {
   value?: boolean;
 }
 
-export const {
-  actions: {
-    placeLayout,
-    removeLayout,
-    toggleActiveTheme,
-    setActiveTheme,
-    moveLayoutMosaicTab,
-    selectLayoutMosaicTab,
-    resizeLayoutMosaicTab,
-    renameLayoutMosaicTab,
-    resizeNavdrawer,
-    setNavdrawerVisible,
-    maybeCreateGetStartedTab,
-  },
-  reducer: layoutReducer,
-} = createSlice({
+export const { actions, reducer: layoutReducer } = createSlice({
   name: LAYOUT_SLICE_NAME,
   initialState: INITIAL_STATE,
   reducers: {
@@ -244,7 +226,7 @@ export const {
     },
     resizeLayoutMosaicTab: (
       state,
-      { payload: { key, size } }: PayloadAction<ResizeLayoutMosaicTabPaylod>
+      { payload: { key, size } }: PayloadAction<ResizeLayoutMosaicTabPayload>
     ) => {
       state.mosaic.root = Mosaic.resizeNode(state.mosaic.root, key, size);
     },
@@ -315,3 +297,20 @@ export const {
     },
   },
 });
+
+export const {
+  placeLayout,
+  removeLayout,
+  toggleActiveTheme,
+  setActiveTheme,
+  moveLayoutMosaicTab,
+  selectLayoutMosaicTab,
+  resizeLayoutMosaicTab,
+  renameLayoutMosaicTab,
+  resizeNavdrawer,
+  setNavdrawerVisible,
+  maybeCreateGetStartedTab,
+} = actions;
+
+export type LayoutAction = ReturnType<typeof actions[keyof typeof actions]>;
+export type LayoutPayload = LayoutAction["payload"];

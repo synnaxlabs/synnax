@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-pack.pluto--bordered > * {
+.pluto-pack > * {
     border: var(--pluto-border-width) solid var(--pluto-gray-m1);
 }
 

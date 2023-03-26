@@ -83,18 +83,11 @@ export interface LayoutOnCloseProps {
   layoutKey: string;
 }
 
-export type CoreLayoutRenderer = ComponentType<LayoutRendererProps>;
-
-export interface SugaredLayoutRenderer {
-  Renderer: CoreLayoutRenderer;
-  onClose?: (props: LayoutOnCloseProps) => void;
-}
-
 /**
  * A React component that renders a layout for a given type. All layouts in state are
  * rendered by a layout renderer of a specific type.
  */
-export type LayoutRenderer = CoreLayoutRenderer | SugaredLayoutRenderer;
+export type LayoutRenderer = ComponentType<LayoutRendererProps>;
 
 /**
  * An extension of the drift window properties to allow for some custom layout tuning.

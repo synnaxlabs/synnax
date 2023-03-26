@@ -3,8 +3,9 @@ import { toXYEqual, unique } from "@synnaxlabs/x";
 import { log } from "./debug";
 
 import { MainChecker, Manager, Properties } from "@/runtime";
-import { DriftState } from "@/state";
+import { DriftState, setWindowProps, SetWindowPropsPayload } from "@/state";
 import { WindowState, MAIN_WINDOW, INITIAL_WINDOW_STATE, WindowProps } from "@/window";
+import { Dispatch, PayloadAction } from "@reduxjs/toolkit";
 
 type RequiredRuntime = Manager & MainChecker & Properties;
 
@@ -27,6 +28,7 @@ const purgeWinStateToProps = (
 
 export const syncInitial = async (
   state: DriftState,
+  dispatch: Dispatch<PayloadAction<SetWindowPropsPayload>>,
   runtime: RequiredRuntime,
   debug: boolean
 ): Promise<void> => {
@@ -49,6 +51,9 @@ export const syncInitial = async (
   if (next == null) return;
   const initial: WindowState = { ...INITIAL_WINDOW_STATE, key: label };
   await syncCurrent(initial, next, runtime, debug);
+  // Make sure our redux store as up to date.
+  dispatch(setWindowProps({ label: runtime.label(), ...await runtime.getProps() }))
+
 };
 
 export const sync = async (

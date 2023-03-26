@@ -39,7 +39,7 @@ export const NavTop = (): JSX.Element => {
   );
 };
 
-export const LayoutWindow = (): JSX.Element => {
+export const LayoutWindow = (): JSX.Element | null => {
   const { label } = appWindow;
   const win = useSelectWindow(label);
   const layout = useSelectLayout(win?.key ?? "");
@@ -51,7 +51,7 @@ export const LayoutWindow = (): JSX.Element => {
       dispatch(setWindowDecorations({ value: false }));
     }
   }, [os]);
-  if (layout == null) return <h1>{label}</h1>;
+  if (layout == null) return null;
   const content = <LayoutContent layoutKey={layout.key} />;
   return (
     <Space
@@ -67,7 +67,6 @@ export const LayoutWindow = (): JSX.Element => {
 const applyWindowsBorders = (): void => {
   window.document.documentElement.style.boxSizing = "border-box";
   window.document.documentElement.style.border = "var(--pluto-border)";
-  window.document.documentElement.style.borderRadius = "var(--pluto-border-radius)";
   applyCSSVars(window.document.documentElement, {
     "--os-border-offset": "2px",
   });

@@ -30,26 +30,17 @@ export const rangeListColumns: Array<ListColumn<Range>> = [
   {
     key: "start",
     name: "Start",
-    render: ({ entry: { start }, style }) => (
-      <Text.DateTime level="p" style={style}>
-        {start}
-      </Text.DateTime>
-    ),
+    stringer: ({ start }) => new TimeStamp(start).fString("dateTime", "local"),
   },
   {
     key: "end",
     name: "End",
-    render: ({ entry: { start, end }, style }) => {
+    stringer: ({ start, end }) => {
       const startTS = new TimeStamp(start);
       const endTS = new TimeStamp(end);
-      return (
-        <Text.DateTime
-          level="p"
-          style={style}
-          format={endTS.span(startTS) < TimeSpan.DAY ? "time" : "dateTime"}
-        >
-          {endTS}
-        </Text.DateTime>
+      return endTS.fString(
+        endTS.span(startTS) < TimeSpan.DAY ? "time" : "dateTime",
+        "local"
       );
     },
   },
