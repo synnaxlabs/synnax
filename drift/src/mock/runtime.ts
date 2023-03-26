@@ -148,4 +148,9 @@ export class MockRuntime<S extends StoreState, A extends Action = AnyAction>
     this.props.decorations = value;
     return await Promise.resolve();
   }
+
+  async getProps(): Promise<Omit<WindowProps, "key">> {
+    return await Promise.resolve(this.props);
+  }
+
 }

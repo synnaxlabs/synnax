@@ -10,7 +10,7 @@
 import { useCallback, useState } from "react";
 
 import {
-  useGLLines,
+  GLLines,
   Axis,
   Viewport as PViewport,
   Menu as PMenu,
@@ -62,8 +62,6 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): JSX.Element => {
   const resizeRef = useResize(handleResize, { debounce: 100 });
 
 
-  useGLLines({ box: lines.box, lines: lines.gl })
-
   for (const item of [channels, ranges, data] as StatusProvider[]) {
     if (item.status.display) {
       const s = item.status as StatusTextProps;
@@ -87,6 +85,7 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): JSX.Element => {
           style={{ position: "absolute", ...axes.innerBox.css }}
           {...viewportProps}
         />
+        <GLLines lines={lines.gl} box={lines.box} />
         <svg className="delta-line-plot__svg">
           {Object.entries(axes.axes).map(([key, axis]) => (
             <Axis key={key} {...axis} />

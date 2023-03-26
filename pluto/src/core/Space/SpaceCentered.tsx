@@ -7,24 +7,33 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Space, SpaceProps } from "./Space";
+import { ForwardedRef, forwardRef } from "react";
+
+import { Space, SpaceElementType, SpaceProps } from "./Space";
 
 import { CSS } from "@/css";
 
 import "./SpaceCentered.css";
 
-export type SpaceCenteredProps = SpaceProps;
 
-export const SpaceCentered = ({
+export const CoreSpaceCentered = <E extends SpaceElementType = "div">({
   className,
   justify = "center",
   align = "center",
   ...props
-}: SpaceProps): JSX.Element => (
+}: SpaceProps<E>, 
+  ref: ForwardedRef<JSX.IntrinsicElements[E]>
+): JSX.Element => (
+  // @ts-expect-error
   <Space
+    ref={ref}
     justify={justify}
     align={align}
     className={CSS(CSS.BM("space", "centered"), className)}
     {...props}
   />
 );
+
+export const SpaceCentered = forwardRef(CoreSpaceCentered) as <E extends SpaceElementType = "div">(
+  props: SpaceProps<E>,
+) => JSX.Element;
