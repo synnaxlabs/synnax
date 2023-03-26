@@ -44,6 +44,7 @@ jobs:
       - name: Evaluate Version
         if: steps.filter.outputs.changed == 'true'
         id: version
+        working-directory: ./synnax
         run: |
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
             echo "VERSION=$(cat VERSION)" >> $GITHUB_OUTPUT
