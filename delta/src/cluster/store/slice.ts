@@ -45,34 +45,19 @@ const initialState: ClusterState = {
 };
 
 /** Signature for the setCluster action. */
-export type SetClusterAction = PayloadAction<Optional<Cluster, "state">>;
+export type SetClusterAction = Optional<Cluster, "state">;
 /** Signature for the setActiveCluster action. */
-export type SetActiveClusterAction = PayloadAction<string | null>;
+export type SetActiveClusterAction = string | null;
 /** Signature for the setClusterConnectionState action. */
-export type SetClusterConnectionState = PayloadAction<{
+export interface SetClusterConnectionState {
   key: string;
   state: ConnectionState;
-}>;
+}
+
+type PA<P> = PayloadAction<P>;
 
 export const {
-  actions: {
-    /**
-     * Sets the cluster with the given key in state.
-     * @params payload.cluster - The cluster to set.
-     */
-    setCluster,
-    /**
-     * Sets the active cluster key in state.
-     * @params payload - The key of the cluster to set as active.
-     */
-    setActiveCluster,
-    /**
-     * Sets the connection state of the cluster with the given key in state.
-     * @params payload.key - The key of the cluster to set the connection state of.
-     * @params payload.state - The connection state to set.
-     */
-    setClusterConnectionState,
-  },
+  actions,
   /**
    * The reducer for the cluster slice.
    */
@@ -83,15 +68,37 @@ export const {
   reducers: {
     setClusterConnectionState: (
       { clusters },
-      { payload: { key, state } }: SetClusterConnectionState
+      { payload: { key, state } }: PA<SetClusterConnectionState>
     ) => {
       clusters[key].state = state;
     },
-    setCluster: ({ clusters }, { payload: cluster }: SetClusterAction) => {
+    setCluster: ({ clusters }, { payload: cluster }: PA<SetClusterAction>) => {
       clusters[cluster.key] = { state: DEFAULT_CONNECTION_STATE, ...cluster };
     },
-    setActiveCluster: (state, { payload: key }: SetActiveClusterAction) => {
+    setActiveCluster: (state, { payload: key }: PA<SetActiveClusterAction>) => {
       state.activeCluster = key;
     },
   },
 });
+
+export const {
+  /**
+   * Sets the cluster with the given key in state.
+   * @params payload.cluster - The cluster to set.
+   */
+  setCluster,
+  /**
+   * Sets the active cluster key in state.
+   * @params payload - The key of the cluster to set as active.
+   */
+  setActiveCluster,
+  /**
+   * Sets the connection state of the cluster with the given key in state.
+   * @params payload.key - The key of the cluster to set the connection state of.
+   * @params payload.state - The connection state to set.
+   */
+  setClusterConnectionState,
+} = actions;
+
+export type ClusterAction = ReturnType<typeof actions[keyof typeof actions]>;
+export type ClusterPayload = ClusterAction["payload"];

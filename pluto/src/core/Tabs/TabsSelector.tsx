@@ -46,6 +46,7 @@ export const TabsSelector = ({
     closable,
     onDragEnd,
     onDragStart,
+    onDrop,
     onRename,
     onCreate,
   } = useTabsContext();
@@ -55,6 +56,7 @@ export const TabsSelector = ({
       direction="x"
       align="center"
       justify="start"
+      onDrop={onDrop}
       empty
       {...props}
     >
@@ -175,17 +177,22 @@ const TabName = ({
   if (onRename == null || !editable) {
     if (icon != null)
       return (
-        <Text.WithIcon startIcon={icon} level="p">
+        <Text.WithIcon startIcon={icon} level="p" noWrap>
           {name}
         </Text.WithIcon>
       );
-    return <Text level="p">{name}</Text>;
+    return (
+      <Text level="p" noWrap>
+        {name}
+      </Text>
+    );
   }
   return (
     <Text.Editable<"p">
       level="p"
       onChange={(newText: string) => onRename(tabKey, newText)}
       value={name}
+      noWrap
     />
   );
 };

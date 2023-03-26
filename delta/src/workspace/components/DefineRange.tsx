@@ -34,6 +34,18 @@ const formSchema = z.object({
   endTime: z.number().int(),
 });
 
+export const rangeWindowLayout: Layout = {
+  key: "defineRange",
+  type: "defineRange",
+  name: "Define Range",
+  location: "window",
+  window: {
+    resizable: false,
+    size: { height: 410, width: 625 },
+    navTop: true,
+  },
+};
+
 type DefineRangeFormProps = z.infer<typeof formSchema>;
 
 export const DefineRange = ({
@@ -113,7 +125,7 @@ export const DefineRange = ({
               grow
             >
               {Input.Time}
-              {TimeModifierRow}
+              {(props) => <TimeModifierRow {...props} />}
             </Input.ItemC>
           </Space>
 

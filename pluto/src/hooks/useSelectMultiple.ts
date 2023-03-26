@@ -65,7 +65,7 @@ export const useSelectMultiple = <E extends KeyedRecord<E>>({
   onChange,
 }: UseSelectMultipleProps<E>): UseSelectMultipleReturn<E> => {
   const shiftValueRef = useRef<string | null>(null);
-  const shift = Triggers.use([["Shift"]]);
+  const shift = Triggers.useHeldRef({ triggers: [["Shift"]], loose: true });
 
   const handleSelect = useCallback(
     (key: string): void => {
@@ -87,7 +87,7 @@ export const useSelectMultiple = <E extends KeyedRecord<E>>({
         else nextSelected = [...value, ...nextKeys];
         shiftValueRef.current = null;
       } else {
-        if (shift.current.held) shiftValueRef.current = key;
+        shiftValueRef.current = shift.current.held ? key : null;
         if (value.includes(key)) nextSelected = value.filter((k) => k !== key);
         else nextSelected = [...value, key];
       }

@@ -97,8 +97,8 @@ export const useLayoutRemover = (key: string): LayoutRemover => {
   const layout = useSelectLayout(key);
   if (layout == null) throw new Error(`layout with key ${key} does not exist`);
   return () => {
-    dispatch(removeLayout(key));
     if (layout.location === "window") dispatch(closeWindow({ key }));
+    dispatch(removeLayout(key))
   };
 };
 

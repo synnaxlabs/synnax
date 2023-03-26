@@ -19,6 +19,7 @@ import {
   ZERO_DIMS,
   Compare,
 } from "@synnaxlabs/x";
+import { TriggerConfig } from "react-hook-form";
 
 import { useMemoCompare } from "@/hooks";
 import { useStateRef } from "@/hooks/useStateRef";
@@ -92,11 +93,14 @@ export const useViewport = ({
 
   useEffect(() => setStateRef(initial), [initial]);
 
-  const triggerConfig = useMemoCompare(
-    () => ({
-      ...DEFAULT_TRIGGER_CONFIG,
-      ...initialTriggers,
-    }),
+  const [triggerConfig, reducedTriggerConfig] = useMemoCompare(
+    (): [UseViewportTriggers, Trigger[]] => {
+      const config: UseViewportTriggers = {
+        ...DEFAULT_TRIGGER_CONFIG,
+        ...initialTriggers,
+      };
+      return [config, reduceTriggerConfig(config)];
+    },
     compareTriggerConfigs,
     [initialTriggers]
   );
@@ -106,6 +110,7 @@ export const useViewport = ({
       if (canvasRef.current == null) return;
       const mode = determineMode(triggerConfig, triggers, defaultMode);
       const canvas = new Box(canvasRef.current);
+      if (mode == null) return;
 
       if (mode === "hover")
         return setStateRef((prev) => {
@@ -175,7 +180,7 @@ export const useViewport = ({
   Triggers.useDrag({
     bound: canvasRef,
     onDrag: handleDrag,
-    triggers: reduceTriggerConfig(triggerConfig),
+    triggers: reducedTriggerConfig,
   });
 
   return {

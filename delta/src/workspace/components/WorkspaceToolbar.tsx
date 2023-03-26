@@ -13,25 +13,14 @@ import { useDispatch } from "react-redux";
 
 import { removeRange, setActiveRange, useSelectRange, useSelectRanges } from "../store";
 
+import { rangeWindowLayout } from "./DefineRange";
 import { RangesList } from "./RangesList";
 import { VisList } from "./VisList";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
-import { Layout, NavDrawerItem, setNavdrawerVisible, useLayoutPlacer } from "@/layout";
+import { NavDrawerItem, setNavdrawerVisible, useLayoutPlacer } from "@/layout";
 import { VisToolbar } from "@/vis";
 import { createLineVis } from "@/vis/line";
-
-const rangeWindowLayout: Layout = {
-  key: "defineRange",
-  type: "defineRange",
-  name: "Define Range",
-  location: "window",
-  window: {
-    resizable: false,
-    size: { height: 410, width: 625 },
-    navTop: true,
-  },
-};
 
 const Content = (): JSX.Element => {
   const newLayout = useLayoutPlacer();
