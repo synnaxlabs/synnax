@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { StrictMode } from "react";
+import { StrictMode, useEffect, useState } from "react";
 
 import { Provider } from "@synnaxlabs/drift";
 import { Logo } from "@synnaxlabs/media";
@@ -18,13 +18,12 @@ import {
   Menu as PMenu,
   Space,
   Typography,
-  useAsyncEffect,
   addOpacityToHex,
   Nav,
   Controls,
 } from "@synnaxlabs/pluto";
 import "@synnaxlabs/pluto/dist/style.css";
-import { appWindow, LogicalSize } from "@tauri-apps/api/window";
+import { appWindow } from "@tauri-apps/api/window";
 import ReactDOM from "react-dom/client";
 
 import { ConnectCluster } from "@/cluster";
@@ -38,7 +37,7 @@ import {
   useErrorThemeProvider,
 } from "@/layout";
 import { LayoutMain } from "@/layouts/LayoutMain";
-import { newStore } from "@/store";
+import { store } from "@/store";
 import { useLoadTauriVersion } from "@/version";
 import { VisLayoutRenderer } from "@/vis";
 import { DefineRange } from "@/workspace";
@@ -78,7 +77,6 @@ const MainUnderContext = (): JSX.Element => {
 };
 
 const Main = (): JSX.Element | null => {
-  const store = newStore();
   return (
     <StrictMode>
       <Provider store={store} errorContent={(e) => <ErrorBoundary err={e} />}>

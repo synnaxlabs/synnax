@@ -69,7 +69,6 @@ export interface TabsContextValue {
   onClose?: (key: string) => void;
   onDragStart?: (e: React.DragEvent<HTMLDivElement>, tab: TabMeta) => void;
   onDragEnd?: (e: React.DragEvent<HTMLDivElement>, tab: TabMeta) => void;
-  onDragOver?: (e: React.DragEvent<HTMLDivElement>) => void;
   onDrop?: (e: React.DragEvent<HTMLDivElement>) => void;
   onRename?: (key: string, title: string) => void;
   onCreate?: () => void;
@@ -128,7 +127,6 @@ export const Tabs = ({
         onDragEnd,
         onRename,
         onCreate,
-        onDragOver,
         onDrop,
       }}
     >

@@ -7,22 +7,44 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { MutableRefObject, RefObject, useEffect, useRef, useState } from "react";
+import {
+  MutableRefObject,
+  RefObject,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
-import { Box, Compare } from "@synnaxlabs/x";
+import { Box, Compare, XY, unique } from "@synnaxlabs/x";
 
 import { useMemoCompare } from "..";
 
-import { Trigger, TriggerCallback } from "./triggers";
+import { diff, filter, purge, Stage, Trigger } from "./triggers";
 import { useTriggerContext } from "./TriggersContext";
 
-export const useTrigger = (
-  triggers: Trigger[],
-  callback?: TriggerCallback,
-  region?: RefObject<HTMLElement>
-): MutableRefObject<UseTriggerHeldReturn> => {
+import { useStateRef } from "@/hooks/useStateRef";
+
+export interface UseTriggerEvent {
+  triggers: Trigger[];
+  stage: Stage;
+  cursor: XY;
+}
+
+export interface UseTriggerProps {
+  triggers: Trigger[];
+  callback?: (e: UseTriggerEvent) => void;
+  region?: RefObject<HTMLElement>;
+  loose?: boolean;
+}
+
+export const useTrigger = ({
+  triggers,
+  callback: f,
+  region,
+  loose,
+}: UseTriggerProps): void => {
   const { listen } = useTriggerContext();
-  const ref = useRef<UseTriggerHeldReturn>({ triggers: [], held: false });
   const memoTriggers = useMemoCompare(
     () => triggers,
     ([a], [b]) => Compare.primitiveArrays(a.flat(), b.flat()) === 0,
@@ -30,24 +52,20 @@ export const useTrigger = (
   );
   useEffect(() => {
     return listen((e) => {
-      if (region != null) {
-        if (region.current == null) return;
-        const box = new Box(region.current);
-        if (
-          (e.stage === "start" || !ref.current.held) &&
-          !box.contains(e.cursor) &&
-          e.target !== region.current
-        )
-          return;
-      }
-      ref.current = {
-        triggers: e.stage === "end" ? [] : triggers,
-        held: e.stage === "start",
-      };
-      callback?.(e);
-    }, triggers);
-  }, [callback, memoTriggers, listen]);
-  return ref;
+      const prevMatches = filter(memoTriggers, e.prev, /* loose */ loose);
+      const nextMatches = filter(memoTriggers, e.next, /* loose */ loose);
+      const [added, removed] = diff(nextMatches, prevMatches);
+      if (
+        added.length > 0 &&
+        (region == null ||
+          (region.current != null && new Box(region.current).contains(e.cursor)) ||
+          e.target === region.current)
+      )
+        f?.({ stage: "start", triggers: added, cursor: e.cursor });
+      if (removed.length > 0)
+        f?.({ stage: "end", triggers: removed, cursor: e.cursor });
+    });
+  }, [f, memoTriggers, listen, loose]);
 };
 
 export interface UseTriggerHeldReturn {
@@ -55,13 +73,59 @@ export interface UseTriggerHeldReturn {
   held: boolean;
 }
 
-export const useTriggerHeld = (triggers: Trigger[]): UseTriggerHeldReturn => {
+export interface UseTriggerHeldProps {
+  triggers: Trigger[];
+  loose?: boolean;
+}
+
+export const useTriggerHeldRef = ({
+  triggers,
+  loose,
+}: UseTriggerHeldProps): MutableRefObject<UseTriggerHeldReturn> => {
+  const [ref, setRef] = useStateRef<UseTriggerHeldReturn>({
+    triggers: [],
+    held: false,
+  });
+  useTrigger({
+    triggers,
+    callback: (e) => {
+      setRef((prev) => {
+        let next: Trigger[] = [];
+        if (e.stage === "start") {
+          next = unique([...prev.triggers, ...e.triggers]);
+        } else {
+          next = purge(prev.triggers, e.triggers);
+        }
+        return { triggers: next, held: next.length > 0 };
+      });
+    },
+    loose,
+  });
+  return ref;
+};
+
+export const useTriggerHeld = ({
+  triggers,
+  loose,
+}: UseTriggerHeldProps): UseTriggerHeldReturn => {
   const [held, setHeld] = useState<UseTriggerHeldReturn>({
     triggers: [],
     held: false,
   });
-  useTrigger(triggers, ({ triggers, stage }) =>
-    setHeld({ triggers: stage === "end" ? [] : triggers, held: stage === "start" })
-  );
+  useTrigger({
+    triggers,
+    callback: useCallback((e: UseTriggerEvent) => {
+      setHeld((prev) => {
+        let next: Trigger[] = [];
+        if (e.stage === "start") {
+          next = unique([...prev.triggers, ...e.triggers]);
+        } else {
+          next = purge(prev.triggers, e.triggers);
+        }
+        return { triggers: next, held: next.length > 0 };
+      });
+    }, []),
+    loose,
+  });
   return held;
 };

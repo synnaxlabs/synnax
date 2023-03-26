@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Compare, XY } from "@synnaxlabs/x";
+import { Compare, CompareF, XY } from "@synnaxlabs/x";
+
+export const MOUSE_KEYS = ["MouseLeft", "MouseMiddle", "MouseRight"] as const;
+
+export type MouseKey = typeof MOUSE_KEYS[number];
 
 export const KEYS = [
-  "MouseMiddle",
-  "MouseLeft",
-  "MouseRight",
+  ...MOUSE_KEYS,
   "Backspace",
   "Tab",
   "Enter",
@@ -135,8 +137,8 @@ export type Stage = "start" | "during" | "end";
 
 export interface TriggerEvent {
   target: HTMLElement;
-  triggers: Trigger[];
-  stage: Stage;
+  prev: Trigger[];
+  next: Trigger[];
   cursor: XY;
 }
 
@@ -155,6 +157,48 @@ export const mouseButtonToKey = (button: number): Key => {
 };
 
 export const match = (options: Trigger[], triggers: Trigger[]): boolean =>
-  options.some((o) =>
-    triggers.some((t) => Compare.unorderedPrimitiveArrays(o, t) === 0)
+  filter(options, triggers).length > 0;
+
+export const filter = (
+  options: Trigger[],
+  triggers: Trigger[],
+  loose = false
+): Trigger[] => {
+  const f = compareF(loose);
+  return options.filter((o) => triggers.some((t) => f(o, t) === 0));
+};
+
+export const purge = (source: Trigger[], toPurge: Trigger[]): Trigger[] =>
+  source.filter(
+    (t) => !toPurge.some((t2) => Compare.unorderedPrimitiveArrays(t, t2) == 0)
   );
+
+export const diff = (
+  a: Trigger[],
+  b: Trigger[],
+  loose = false
+): [Trigger[], Trigger[]] => {
+  const f = compareF(loose);
+  const added = a.filter((t) => !b.some((t2) => f(t, t2) === 0));
+  const removed = b.filter((t) => !a.some((t2) => f(t, t2) === 0));
+  return [added, removed];
+};
+
+const compareF = (loose: boolean): CompareF<Trigger> =>
+  loose
+    ? (a: Trigger, b: Trigger) => {
+        const aCounts: Record<Key[number], number> = {};
+        a.forEach((k) => (aCounts[k] = (aCounts[k] ?? 0) + 1));
+        const bCounts: Record<Key[number], number> = {};
+        b.forEach((k) => (bCounts[k] = (bCounts[k] ?? 0) + 1));
+        const res = Compare.unorderedPrimitiveArrays(
+          Object.values(aCounts).flat(),
+          Object.values(bCounts).flat()
+        );
+        const res2 = Compare.unorderedPrimitiveArrays(
+          Object.keys(aCounts).flat(),
+          Object.keys(bCounts).flat()
+        );
+        return res === 0 ? res2 : res;
+      }
+    : Compare.unorderedPrimitiveArrays;

@@ -103,8 +103,6 @@ const SelectMultipleInput = <E extends KeyedRenderableRecord<E>>({
     onChange(v);
   };
 
-  console.log(value);
-
   return (
     <Pack align="stretch" {...props} grow>
       <Input

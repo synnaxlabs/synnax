@@ -41,7 +41,7 @@ export interface Receiver<S extends StoreState, A extends Action = AnyAction> {
    * Listens for an event from any window in the application.
    * @param lis - The callback to call when the event is received.
    */
-  subscribe: (lis: (event: Event<S, A>) => void) => void;
+  subscribe: (lis: (event: Event<S, A>) => void) => Promise<void>;
 }
 
 export interface MainChecker {

@@ -46,7 +46,7 @@ export class MockRuntime<S extends StoreState, A extends Action = AnyAction>
     return await Promise.resolve();
   }
 
-  subscribe(lis: (event: Event<S, A>) => void): void {
+  async subscribe(lis: (event: Event<S, A>) => void): Promise<void> {
     this.subscribeCallback = lis;
   }
 

@@ -21,7 +21,7 @@ import {
 
 import { Event, Runtime } from "@/runtime";
 import { decode, encode } from "@/serialization";
-import { setWindowProps, StoreState } from "@/state";
+import { setWindowProps, SetWindowPropsPayload, StoreState } from "@/state";
 import { MAIN_WINDOW, WindowProps } from "@/window";
 
 const actionEvent = "drift://action";
@@ -36,7 +36,9 @@ export class TauriRuntime<S extends StoreState, A extends Action = AnyAction>
   implements Runtime<S, A>
 {
   private readonly win: WebviewWindow;
-  private readonly unsubscribe: Record<string, UnlistenFn>;
+  private unsubscribe: Record<string, UnlistenFn>;
+  private fullscreenPoll: any | null = null;
+  private subscribeCallback: ((action: Event<S, A>) => void) | null = null;
 
   /**
    * @param window - The WebviewWindow to use as the underlying engine for this runtime.
@@ -57,6 +59,7 @@ export class TauriRuntime<S extends StoreState, A extends Action = AnyAction>
 
   release(): void {
     Object.values(this.unsubscribe).forEach((f) => f?.());
+    this.unsubscribe = {};
   }
 
   async emit(event_: Omit<Event<S, A>, "emitter">, to?: string): Promise<void> {
@@ -67,36 +70,25 @@ export class TauriRuntime<S extends StoreState, A extends Action = AnyAction>
     await win.emit(actionEvent, event);
   }
 
-  subscribe(lis: (action: Event<S, A>) => void): void {
-    void listen<string>(actionEvent, (event: TauriEvent<string>) => {
-      lis(decode(event.payload));
-    })
-      .catch(console.error)
-      .then((unlisten) => {
-        if (unlisten != null) this.unsubscribe[actionEvent] = unlisten;
-      });
-
-    newEventHandlers().forEach(({ key, handler, debounce, condition }) => {
-      const lis_ = async (): Promise<void> =>
-        await this.win
-          .listen(
-            key,
-            debounceF((event: TauriEvent<any>) => {
-              if (event.windowLabel !== this.label()) return;
-              void handler(event).then((action) => {
-                if (action != null) lis({ action: action as A, emitter: "WHITELIST" });
-              });
-            }, debounce)
-          )
-          .then((unlisten) => {
-            if (unlisten != null) {
-              this.unsubscribe[key] = unlisten;
-            }
+  async subscribe(lis: (action: Event<S, A>) => void): Promise<void> {
+    this.subscribeCallback = lis;
+    this.release();
+    this.unsubscribe[actionEvent] = await listen<string>(
+      actionEvent,
+      (event: TauriEvent<string>) => lis(decode(event.payload))
+    );
+    const propsHandlers = newWindowPropsHandlers();
+    for (const { key, handler, debounce } of propsHandlers) {
+      this.unsubscribe[key] = await this.win.listen(
+        key,
+        debounceF((event: TauriEvent<any>) => {
+          if (event.windowLabel !== this.label()) return;
+          void handler(event).then((action) => {
+            if (action != null) lis({ action: action as A, emitter: "WHITELIST" });
           });
-      if (condition != null)
-        void condition(this.win).then(async (ok) => await (ok && lis_()));
-      else void lis_();
-    });
+        }, debounce)
+      );
+    }
   }
 
   onCloseRequested(cb: () => void): void {
@@ -158,6 +150,25 @@ export class TauriRuntime<S extends StoreState, A extends Action = AnyAction>
   }
 
   async setFullscreen(value: boolean): Promise<void> {
+    if (this.fullscreenPoll != null) clearInterval(this.fullscreenPoll);
+    if (value)
+      this.fullscreenPoll = setInterval(() => {
+        this.win
+          .isFullscreen()
+          .then((isFullscreen) => {
+            if (!isFullscreen) {
+              this.subscribeCallback?.({
+                action: setWindowProps({
+                  label: this.win.label,
+                  fullscreen: isFullscreen,
+                }) as unknown as A,
+                emitter: "WHITELIST",
+              });
+              if (this.fullscreenPoll != null) clearInterval(this.fullscreenPoll);
+            }
+          })
+          .catch(console.error);
+      }, 250);
     return await this.win.setFullscreen(value);
   }
 
@@ -182,6 +193,8 @@ export class TauriRuntime<S extends StoreState, A extends Action = AnyAction>
   }
 
   async setResizable(value: boolean): Promise<void> {
+    // For some reason, listening to window resize events when the window is not
+    // resizable causes issues. To resolve this, we unmount the listener
     if (TauriEventKey.WINDOW_RESIZED in this.unsubscribe && !value) {
       void this.unsubscribe[TauriEventKey.WINDOW_RESIZED]?.();
       // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
@@ -214,7 +227,7 @@ interface HandlerEntry {
   handler: (ev: TauriEvent<any>) => Promise<AnyAction | null>;
 }
 
-const newEventHandlers = (): HandlerEntry[] => [
+const newWindowPropsHandlers = (): HandlerEntry[] => [
   {
     key: TauriEventKey.WINDOW_RESIZED,
     debounce: 200,
@@ -226,15 +239,15 @@ const newEventHandlers = (): HandlerEntry[] => [
       const size = (await window?.innerSize())?.toLogical(scaleFactor);
       const maximized = await window?.isMaximized();
       const visible = await window?.isVisible();
-      return setWindowProps({
-        // We need to do it this way or else we'll put non-serializable values into the store
-        position: { x: position?.x ?? 0, y: position?.y ?? 0 },
-        size: { width: size?.width ?? 0, height: size?.height ?? 0 },
+      const nextProps: SetWindowPropsPayload = {
+        label: ev.windowLabel,
         maximized,
         visible,
         minimized: !(visible ?? false),
-        label: ev.windowLabel,
-      });
+      };
+      if (position != null) nextProps.position = { x: position.x, y: position.y };
+      if (size != null) nextProps.size = { width: size.width, height: size.height };
+      return setWindowProps(nextProps);
     },
   },
   {
@@ -245,16 +258,10 @@ const newEventHandlers = (): HandlerEntry[] => [
       const scaleFactor = await window?.scaleFactor();
       if (scaleFactor == null) return null;
       const position = (await window?.innerPosition())?.toLogical(scaleFactor);
-      const fullscreen = await window?.isFullscreen();
-      const size = (await window?.innerSize())?.toLogical(scaleFactor);
       const visible = await window?.isVisible();
-      return setWindowProps({
-        label: ev.windowLabel,
-        position: { x: position?.x ?? 0, y: position?.y ?? 0 },
-        fullscreen,
-        size: { width: size?.width ?? 0, height: size?.height ?? 0 },
-        visible,
-      });
+      const nextProps: SetWindowPropsPayload = { label: ev.windowLabel, visible };
+      if (position != null) nextProps.position = { x: position.x, y: position.y };
+      return setWindowProps(nextProps);
     },
   },
   {

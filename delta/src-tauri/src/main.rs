@@ -95,6 +95,11 @@ fn main() {
                 event.window().set_transparent_titlebar(true);
             } 
          },
+         tauri::WindowEvent::Moved(position)=> {
+            if position.x != 0 || position.y != 0 {
+                event.window().set_transparent_titlebar(true);
+            }
+        },
          _ => (),
       })
     .on_page_load(move |window, _| {
