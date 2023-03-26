@@ -52,6 +52,11 @@ interface WindowsControlButtonProps extends ButtonIconProps {
   disabled?: boolean;
 }
 
-const WindowsControlButton = ({ disabled, ...props }: WindowsControlButtonProps): JSX.Element | null => (
-  !disabled ? <Button.Icon tabIndex={-1} {...props} /> : null
+const WindowsControlButton = ({ disabled, className, ...props }: WindowsControlButtonProps): JSX.Element | null => (
+  !disabled ? (
+    <Button.Icon 
+      className={CSS(CSS.B("windows-control"), className)}
+      tabIndex={-1} {...props} 
+    />
+  ): null
 );

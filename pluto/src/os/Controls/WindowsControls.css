@@ -18,3 +18,12 @@
     fill: var(--pluto-white);
     transition: none;
 }
+
+.pluto-windows-control  {
+    border: none;
+    width: 7rem;
+}
+
+.pluto-windows-control svg {
+    font-size: 2.75rem;
+}
