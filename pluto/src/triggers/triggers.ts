@@ -191,14 +191,6 @@ const compareF = (loose: boolean): CompareF<Trigger> =>
         a.forEach((k) => (aCounts[k] = (aCounts[k] ?? 0) + 1));
         const bCounts: Record<Key[number], number> = {};
         b.forEach((k) => (bCounts[k] = (bCounts[k] ?? 0) + 1));
-        const res = Compare.unorderedPrimitiveArrays(
-          Object.values(aCounts).flat(),
-          Object.values(bCounts).flat()
-        );
-        const res2 = Compare.unorderedPrimitiveArrays(
-          Object.keys(aCounts).flat(),
-          Object.keys(bCounts).flat()
-        );
-        return res === 0 ? res2 : res;
+        return a.every((k) => aCounts[k] = bCounts[k]) ? 0 : -1;
       }
     : Compare.unorderedPrimitiveArrays;
