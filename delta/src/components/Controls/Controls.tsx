@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { useLayoutRemover } from "@/layout";
 import {
   useSelectWindow,
   setWindowMaximized,
@@ -26,12 +27,11 @@ export interface ControlsProps extends PControlsProps {}
 export const Controls = (props: ControlsProps): JSX.Element | null => {
   const window = useSelectWindow();
   const dispatch = useDispatch();
+  const remove = useLayoutRemover(window?.key ?? "");
+  if(window == null) return null;
   const maximizedDisabled = window.resizable === false;
   const disabled: ControlVariant[] = [];
   if (maximizedDisabled) disabled.push("maximize");
-  const handleClose = (): void => {
-    dispatch(closeWindow({}));
-  };
   const handleMinimize = (): void => {
     dispatch(setWindowMinimized({ value: true }));
   };
@@ -46,7 +46,7 @@ export const Controls = (props: ControlsProps): JSX.Element | null => {
     <PControls
       disabled={disabled}
       focused={window.focus}
-      onClose={handleClose}
+      onClose={remove}
       onMinimize={handleMinimize}
       onMaximize={handleMaximize}
       onFullscreen={handleFullscreen}
