@@ -37,6 +37,7 @@ const ListVirtualCore = <E extends KeyedRenderableRecord<E>>({
   if (itemHeight <= 0) throw new Error("itemHeight must be greater than 0");
   const {
     data,
+    emptyContent,
     columnar: { columns },
     select: { onSelect },
   } = useListContext<E>();
@@ -47,25 +48,30 @@ const ListVirtualCore = <E extends KeyedRenderableRecord<E>>({
     estimateSize: () => itemHeight,
     overscan,
   });
+
   return (
     <div ref={parentRef} className={CSS.BE("list", "container")} {...props}>
-      <div style={{ height: virtualizer.getTotalSize() }}>
-        {virtualizer.getVirtualItems().map(({ index, start }) => {
-          const entry = data[index];
-          return children({
-            key: index,
-            index,
-            onSelect,
-            entry,
-            columns,
-            selected: (entry as SelectedRecord<E>)?.selected ?? false,
-            style: {
-              transform: `translateY(${start}px)`,
-              position: "absolute",
-            },
-          });
-        })}
-      </div>
+      {data.length === 0 ? (
+        emptyContent
+      ) : (
+        <div style={{ height: virtualizer.getTotalSize() }}>
+          {virtualizer.getVirtualItems().map(({ index, start }) => {
+            const entry = data[index];
+            return children({
+              key: index,
+              index,
+              onSelect,
+              entry,
+              columns,
+              selected: (entry as SelectedRecord<E>)?.selected ?? false,
+              style: {
+                transform: `translateY(${start}px)`,
+                position: "absolute",
+              },
+            });
+          })}
+        </div>
+      )}
     </div>
   );
 };

@@ -43,7 +43,7 @@ export const useSearchTransform = <E extends UnknownRecord<E>>({
   opts,
 }: UseSearchTransformProps<E>): ArrayTransform<E> =>
   useCallback(
-    proxyMemo((data: E[]) => {
+    proxyMemo((data) => {
       if (data?.length === 0 || query.length === 0) return data;
       const fuse = new Fuse(data, {
         keys: Object.keys(data[0]),

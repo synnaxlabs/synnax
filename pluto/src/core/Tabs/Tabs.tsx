@@ -69,6 +69,7 @@ export interface TabsContextValue {
   onClose?: (key: string) => void;
   onDragStart?: (e: React.DragEvent<HTMLDivElement>, tab: TabMeta) => void;
   onDragEnd?: (e: React.DragEvent<HTMLDivElement>, tab: TabMeta) => void;
+  onDrop?: (e: React.DragEvent<HTMLDivElement>) => void;
   onRename?: (key: string, title: string) => void;
   onCreate?: () => void;
 }
@@ -101,10 +102,18 @@ export const Tabs = ({
   onRename,
   emptyContent,
   className,
+  onDragOver,
+  onDrop,
   size = "medium",
   ...props
 }: TabsProps): JSX.Element => (
-  <Space empty className={CSS(CSS.B("tabs"), className)} {...props}>
+  <Space
+    empty
+    className={CSS(CSS.B("tabs"), className)}
+    onDragOver={onDragOver}
+    onDrop={onDrop}
+    {...props}
+  >
     <TabsContext.Provider
       value={{
         tabs,
@@ -118,6 +127,7 @@ export const Tabs = ({
         onDragEnd,
         onRename,
         onCreate,
+        onDrop,
       }}
     >
       <TabsSelector size={size} />

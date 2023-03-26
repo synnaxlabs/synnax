@@ -73,7 +73,7 @@ export const Icon = {
 };
 
 export const MacOSControls = ({
-  disabled,
+  disabled = [],
   className,
   focused = true,
   onMinimize,
@@ -95,21 +95,21 @@ export const MacOSControls = ({
     <TrafficLight
       onClick={onClose}
       className={CSS.BM("macos-control", "close")}
-      disabled={disabled?.includes("close")}
+      disabled={disabled.includes("close")}
     >
       {Icon.Close}
     </TrafficLight>
     <TrafficLight
       onClick={onMinimize}
       className={CSS.BM("macos-control", "minimize")}
-      disabled={disabled?.includes("minimize")}
+      disabled={disabled.includes("minimize")}
     >
       {Icon.Minimize}
     </TrafficLight>
     <TrafficLight
       onClick={onFullscreen}
       className={CSS.BM("macos-control", "maximize")}
-      disabled={disabled?.includes("maximize")}
+      disabled={disabled.includes("maximize")}
     >
       {Icon.Maximize}
     </TrafficLight>

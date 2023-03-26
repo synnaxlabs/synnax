@@ -34,7 +34,10 @@ export const DocsLayoutRenderer: LayoutRenderer = memo(() => {
   // Iframes prevent drop interactions on the mosaic, so we need to listen for
   // the mouse being held down and add a class the docs that adds a mask over the frame
   // to allow for drop interactions.
-  const hover = Triggers.useHeld([["MouseLeft"]]);
+  const hover = Triggers.useHeld({
+    triggers: [["MouseLeft"]],
+    loose: true,
+  });
 
   const { theme } = Theming.useContext();
 
@@ -57,7 +60,7 @@ export const DocsLayoutRenderer: LayoutRenderer = memo(() => {
       noHeader: true,
       theme: theme.key.includes("dark") ? "dark" : "light",
     };
-    setURL(DOCS_HOST.child(path).child(buildQueryString(queryParams)));
+    setURL(DOCS_HOST.child(path ?? "").child(buildQueryString(queryParams)));
     window.addEventListener("message", handleFrameMessage);
     return () => window.removeEventListener("message", handleFrameMessage);
   }, []);

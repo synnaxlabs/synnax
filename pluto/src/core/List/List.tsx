@@ -19,11 +19,13 @@ import { useTransforms } from "@/hooks";
 export interface ListProps<E extends KeyedRenderableRecord<E>>
   extends PropsWithChildren<unknown> {
   data: E[];
+  emptyContent?: JSX.Element;
 }
 
 export const List = <E extends KeyedRenderableRecord<E>>({
   children,
   data,
+  emptyContent,
 }: ListProps<E>): JSX.Element => {
   const [columns, setColumns] = useState<Array<ListColumn<E>>>([]);
   const [onSelect, setOnSelect] = useState<((key: string) => void) | undefined>(
@@ -39,6 +41,7 @@ export const List = <E extends KeyedRenderableRecord<E>>({
         data: transformedData,
         deleteTransform,
         setTransform,
+        emptyContent,
         columnar: {
           columns,
           setColumns,

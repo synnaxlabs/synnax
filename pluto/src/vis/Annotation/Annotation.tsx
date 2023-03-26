@@ -62,6 +62,6 @@ export const annotationWidth = (values: RenderableRecord): number => {
       ...Object.entries(values).map(([key, value]) =>
         textWidth(`${key}: ${convertRenderV(value) as string}`, font)
       )
-    ) + 15
+    ) + 20
   );
 };

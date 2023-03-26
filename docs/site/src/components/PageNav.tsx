@@ -38,17 +38,18 @@ export const PageNav = ({ currentPage }: TOCProps): JSX.Element | null => {
   const { visible, toggle, ref } = Dropdown.use(false);
   const tree = <Tree data={pages} value={[currentPage]} />;
   if (width == null) return null;
-  if (width > 600) return tree;
+  if (width > 700) return tree;
   return (
     <Dropdown visible={visible} bordered={false} ref={ref} location="top">
       <Button
         justify="spaceBetween"
-        endIcon={<Icon.Menu />}
+        endIcon={<Icon.Copy />}
         variant="text"
         onClick={() => toggle(!visible)}
         size="large"
         style={{
           height: "40px",
+          border: "none",
         }}
       >
         Menu

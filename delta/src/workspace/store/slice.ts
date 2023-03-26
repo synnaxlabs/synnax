@@ -28,27 +28,30 @@ export const initialState: WorkspaceState = {
   ranges: {},
 };
 
-type AddRangeAction = PayloadAction<Range>;
-type RemoveRangeAction = PayloadAction<string>;
-type SetActiveRangeAction = PayloadAction<string | null>;
+type AddRangePayload = Range;
+type RemoveRangePayload = string;
+type SetActiveRangePayload = string | null;
 
-export const {
-  actions: { addRange, removeRange, setActiveRange },
-  reducer: workspaceReducer,
-} = createSlice({
+type PA<P> = PayloadAction<P>;
+
+export const { actions, reducer: workspaceReducer } = createSlice({
   name: WORKSPACE_SLICE_NAME,
   initialState,
   reducers: {
-    addRange: (state, { payload }: AddRangeAction) => {
+    addRange: (state, { payload }: PA<AddRangePayload>) => {
       state.activeRange = payload.key;
       state.ranges[payload.key] = payload;
     },
-    removeRange: (state, { payload }: RemoveRangeAction) => {
+    removeRange: (state, { payload }: PA<RemoveRangePayload>) => {
       // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
       delete state.ranges[payload];
     },
-    setActiveRange: (state, { payload }: SetActiveRangeAction) => {
+    setActiveRange: (state, { payload }: PA<SetActiveRangePayload>) => {
       state.activeRange = payload;
     },
   },
 });
+export const { addRange, removeRange, setActiveRange } = actions;
+
+export type WorkspaceAction = ReturnType<typeof actions[keyof typeof actions]>;
+export type WorkspacePayload = WorkspaceAction["payload"];

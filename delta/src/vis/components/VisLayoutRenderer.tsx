@@ -9,19 +9,18 @@
 
 import { memo } from "react";
 
-import { removeVis, useSelectRequiredVisMeta } from "../store";
+import { useSelectRequiredVisMeta } from "../store";
 
 import { LayoutRenderer, LayoutRendererProps } from "@/layout";
 import { LinePlot } from "@/vis/line";
 
-export const VisLayoutRenderer: LayoutRenderer = {
-  Renderer: memo(({ layoutKey }: LayoutRendererProps) => {
+export const VisLayoutRenderer: LayoutRenderer = memo(
+  ({ layoutKey }: LayoutRendererProps) => {
     const { variant } = useSelectRequiredVisMeta(layoutKey);
     switch (variant) {
       default:
         return <LinePlot layoutKey={layoutKey} />;
     }
-  }),
-  onClose: ({ dispatch, layoutKey }) => dispatch(removeVis(layoutKey)),
-};
-VisLayoutRenderer.Renderer.displayName = "VisLayoutRenderer";
+  }
+);
+VisLayoutRenderer.displayName = "VisLayoutRenderer";

@@ -32,12 +32,12 @@ export interface StoreDispatch<A extends Action = AnyAction> {
  * @param resolve - A function that resolves a promise requesting
  * the initial store state.
  */
-export const listen = <S extends StoreState, A extends Action = AnyAction>(
+export const listen = async <S extends StoreState, A extends Action = AnyAction>(
   communicator: Communicator<S, A>,
   getStore: () => (StoreStateGetter<S> & StoreDispatch<A>) | undefined | null,
   resolve: (value: PreloadedState<S>) => void
-): void =>
-  communicator.subscribe(({ action, emitter, state, sendState }) => {
+): Promise<void> =>
+  await communicator.subscribe(({ action, emitter, state, sendState }) => {
     const s = getStore();
     if (s == null) return state != null && resolve(state);
     if (action != null) {

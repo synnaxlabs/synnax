@@ -16,6 +16,7 @@
 }
 
 .pluto-btn:disabled {
+    user-select: none;
     background-color: var(--pluto-gray-m2);
 }
 

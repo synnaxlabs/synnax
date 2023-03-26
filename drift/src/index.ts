@@ -31,7 +31,7 @@ export {
   setWindowDecorations,
   DRIFT_SLICE_NAME,
 } from "@/state";
-export type { StoreState as DriftStoreState, DriftState } from "@/state";
+export type { StoreState as DriftStoreState, DriftState, DriftAction } from "@/state";
 export type {
   WindowProps,
   WindowStage as WindowState,

@@ -11,13 +11,14 @@ package cmd
 
 import (
 	"context"
+	"os"
+	"os/signal"
+	"time"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"google.golang.org/grpc/credentials"
 	insecureGRPC "google.golang.org/grpc/credentials/insecure"
-	"os"
-	"os/signal"
-	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
@@ -116,7 +117,7 @@ func start(cmd *cobra.Command) {
 		// Set up our high level services.
 		gorpDB := dist.Storage.Gorpify()
 		userSvc := &user.Service{DB: gorpDB, Ontology: dist.Ontology}
-		tokenSvc := &token.Service{KeyProvider: secProvider, Expiration: 15 * time.Minute}
+		tokenSvc := &token.Service{KeyProvider: secProvider, Expiration: 24 * time.Hour}
 		authenticator := &auth.KV{DB: gorpDB}
 
 		// Provision the root user.

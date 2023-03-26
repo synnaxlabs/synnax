@@ -34,7 +34,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
   ) => (
     <input
       ref={ref}
-      value={value ?? ""}
+      value={value}
       className={CSS(CSS.B("input"), CSS.size(size), className)}
       onChange={(e) => onChange(e.target.value)}
       onFocus={(e) => {

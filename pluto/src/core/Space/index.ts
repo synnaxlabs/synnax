@@ -16,7 +16,6 @@ import {
 } from "./Space";
 import { SpaceCentered } from "./SpaceCentered";
 export type { SpaceProps, SpaceExtensionProps, SpaceElementType } from "./Space";
-export type { SpaceCenteredProps } from "./SpaceCentered";
 export type { SpaceAlignment, SpaceJustification };
 
 type CoreSpaceType = typeof CoreSpace;

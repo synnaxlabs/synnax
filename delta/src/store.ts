@@ -7,23 +7,52 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import type { Store } from "@reduxjs/toolkit";
 import { combineReducers } from "@reduxjs/toolkit";
 import {
   reducer as driftReducer,
   TauriRuntime,
   configureStore,
   DRIFT_SLICE_NAME,
+  DriftState,
 } from "@synnaxlabs/drift";
 import { DeepKey } from "@synnaxlabs/x";
 import { appWindow } from "@tauri-apps/api/window";
 
-import { clusterReducer, CLUSTER_SLICE_NAME } from "@/cluster";
-import { docsReducer, DOCS_SLICE_NAME } from "@/docs";
-import { layoutReducer, LAYOUT_PERSIST_EXCLUDE, LAYOUT_SLICE_NAME } from "@/layout";
+import { dispatchEffect, effectMiddleware } from "./middleware";
+
+import {
+  ClusterAction,
+  clusterReducer,
+  ClusterState,
+  CLUSTER_SLICE_NAME,
+} from "@/cluster";
+import { DocsAction, docsReducer, DocsState, DOCS_SLICE_NAME } from "@/docs";
+import {
+  LayoutAction,
+  layoutReducer,
+  LayoutState,
+  LAYOUT_PERSIST_EXCLUDE,
+  LAYOUT_SLICE_NAME,
+  removeLayout,
+} from "@/layout";
 import { openPersist } from "@/persist";
-import { versionReducer, VERSION_SLICE_NAME } from "@/version";
-import { VIS_SLICE_NAME, visReducer } from "@/vis";
-import { workspaceReducer, WORKSPACE_SLICE_NAME } from "@/workspace";
+import { versionReducer, VersionState, VERSION_SLICE_NAME } from "@/version";
+import {
+  VIS_SLICE_NAME,
+  visReducer,
+  removeVis,
+  purgeRanges,
+  VisAction,
+  VisState,
+} from "@/vis";
+import {
+  removeRange,
+  WorkspaceAction,
+  workspaceReducer,
+  WorkspaceState,
+  WORKSPACE_SLICE_NAME,
+} from "@/workspace";
 
 const PERSIST_EXCLUDE: Array<DeepKey<RootState>> = [
   DRIFT_SLICE_NAME,
@@ -40,20 +69,43 @@ const reducer = combineReducers({
   [DOCS_SLICE_NAME]: docsReducer,
 });
 
-/** The root state of the application.   */
-export type RootState = ReturnType<typeof reducer>;
+export interface RootState {
+  [DRIFT_SLICE_NAME]: DriftState;
+  [CLUSTER_SLICE_NAME]: ClusterState;
+  [LAYOUT_SLICE_NAME]: LayoutState;
+  [VIS_SLICE_NAME]: VisState;
+  [WORKSPACE_SLICE_NAME]: WorkspaceState;
+  [VERSION_SLICE_NAME]: VersionState;
+  [DOCS_SLICE_NAME]: DocsState;
+}
 
-export type Store = Awaited<ReturnType<typeof configureStore<RootState>>>;
+export type Action =
+  | VisAction
+  | LayoutAction
+  | WorkspaceAction
+  | DocsAction
+  | ClusterAction;
 
-export const newStore = async (): Promise<Store> => {
+export type Payload = Action["payload"];
+
+export type RootStore = Store<RootState, Action>;
+
+const newStore = async (): Promise<RootStore> => {
   const [preloadedState, persistMiddleware] = await openPersist<RootState>({
     exclude: PERSIST_EXCLUDE,
   });
-  return await configureStore({
+  return (await configureStore<RootState, Action>({
     runtime: new TauriRuntime(appWindow),
     preloadedState,
-    middleware: (def) => [...def(), persistMiddleware],
+    middleware: (def) => [
+      ...def(),
+      effectMiddleware([removeLayout.type], [dispatchEffect(removeVis)]),
+      effectMiddleware([removeRange.type], [dispatchEffect(purgeRanges)]),
+      persistMiddleware,
+    ],
     reducer,
     enablePrerender: true,
-  });
+  })) as RootStore;
 };
+
+export const store = newStore();
