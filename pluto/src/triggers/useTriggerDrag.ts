@@ -11,10 +11,11 @@ import { RefObject, useCallback, useRef } from "react";
 
 import { Box, ClientXY, toXY, XY, ZERO_XY } from "@synnaxlabs/x";
 
-import { useTrigger } from "./hooks";
-import { Trigger, TriggerCallback, TriggerEvent } from "./triggers";
+import { useTrigger, UseTriggerEvent } from "./hooks";
+import { Stage, Trigger } from "./triggers";
 
-export interface TriggerDragEvent extends TriggerEvent {
+export interface TriggerDragEvent {
+  stage: Stage;
   box: Box;
   cursor: XY;
   triggers: Trigger[];
@@ -33,15 +34,14 @@ export const useTriggerDrag = ({
   triggers = [["MouseLeft"], ["MouseRight"]],
   bound,
 }: UseCursorDragProps): void => {
-  const triggerRef = useRef<TriggerEvent | null>(null);
+  const triggerRef = useRef<UseTriggerEvent | null>(null);
   const startLoc = useRef<XY>(ZERO_XY);
   const onMove = useCallback(
     (e: ClientXY & { buttons: number }) => {
       const cursor = toXY(e);
       if (triggerRef.current === null) return;
-      const { target, triggers } = triggerRef.current;
+      const { triggers } = triggerRef.current;
       onDrag({
-        target,
         box: new Box(startLoc.current, cursor),
         cursor,
         triggers,
@@ -50,15 +50,15 @@ export const useTriggerDrag = ({
     },
     [onDrag]
   );
-  const handleTrigger = useCallback<TriggerCallback>(
-    (event) => {
+  const handleTrigger = useCallback(
+    (event: UseTriggerEvent): void => {
       const { stage, cursor } = event;
       if (stage === "start") {
         onDrag({ box: new Box(cursor), ...event });
         window.addEventListener("mousemove", onMove);
         triggerRef.current = event;
         startLoc.current = cursor;
-      } else if (stage === "end") {
+      } else if (stage === "end" && triggerRef.current != null) {
         onDrag({ box: new Box(startLoc.current, cursor), ...event });
         window.removeEventListener("mousemove", onMove);
         triggerRef.current = null;
@@ -67,5 +67,5 @@ export const useTriggerDrag = ({
     },
     [onDrag]
   );
-  useTrigger(triggers, handleTrigger, bound);
+  useTrigger({ triggers, callback: handleTrigger, region: bound });
 };

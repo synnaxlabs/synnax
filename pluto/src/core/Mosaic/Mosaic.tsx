@@ -85,7 +85,6 @@ const MosaicTabLeaf = memo(
 
     const handleDrop = (e: React.DragEvent<HTMLDivElement>): void => {
       e.preventDefault();
-      e.stopPropagation();
       setCurrentlyDragging(null);
       setDragMask(null);
       if (!validDrop(tabs, currentlyDragging)) return;
@@ -98,7 +97,7 @@ const MosaicTabLeaf = memo(
 
     const handleDragOver = (e: React.DragEvent<HTMLDivElement>): void => {
       e.preventDefault();
-      e.stopPropagation();
+      console.log(getDragLocationPercents(e));
       const loc = insertLocation(getDragLocationPercents(e));
       // get the tab data, get a boolean value checking whether the length of the tabs
       // in node would be zero if the tab was removed.
@@ -157,10 +156,13 @@ const maskStyle: Record<
 const getDragLocationPercents = (
   e: React.DragEvent<HTMLDivElement>
 ): { px: number; py: number } => {
-  if (e.currentTarget.className.includes("tabs-selector")) return { px: 0.5, py: 0.5 };
   const rect = e.currentTarget.getBoundingClientRect();
   const x = e.clientX - rect.left;
   const y = e.clientY - rect.top;
+  // This means we're in the selector.
+  // TODO: This size depends on the theme and the size of the tabs,
+  // we need to handle this better in the future.
+  if (y < 24) return { px: 0.5, py: 0.5 };
   return { px: x / rect.width, py: y / rect.height };
 };
 

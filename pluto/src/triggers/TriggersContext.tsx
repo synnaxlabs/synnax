@@ -16,21 +16,19 @@ import {
   PropsWithChildren,
 } from "react";
 
-import {
-  Compare,
-  toXY,
-  XY,
-  ZERO_XY,
-  TimeStamp,
-  TimeSpan,
-  Destructor,
-} from "@synnaxlabs/x";
+import { toXY, XY, ZERO_XY, TimeStamp, TimeSpan, Destructor } from "@synnaxlabs/x";
 
-import { parseEventKey, Stage, Trigger, TriggerCallback } from "./triggers";
+import {
+  MouseKey,
+  MOUSE_KEYS,
+  parseEventKey,
+  Trigger,
+  TriggerCallback,
+} from "./triggers";
 
 import { useStateRef } from "@/hooks/useStateRef";
 
-type TriggerListen = (callback: TriggerCallback, sequences: Trigger[]) => Destructor;
+type TriggerListen = (callback: TriggerCallback) => Destructor;
 
 interface TriggerContextValue {
   listen: TriggerListen;
@@ -49,16 +47,18 @@ export interface TriggerProviderProps extends PropsWithChildren {
 }
 
 interface TriggerRefState {
-  curr: Trigger;
+  next: Trigger;
   prev: Trigger;
   last: TimeStamp;
 }
 
 const ZERO_TRIGGER_STATE: TriggerRefState = {
-  curr: [],
+  next: [],
   prev: [],
   last: new TimeStamp(0),
 };
+
+const EXCLUDE_TRIGGERS = ["CapsLock"];
 
 export const TriggersProvider = ({
   children,
@@ -72,28 +72,27 @@ export const TriggersProvider = ({
   }, []);
 
   // All registered triggers and callbacks
-  const registry = useRef<Map<TriggerCallback, Trigger[]>>(new Map());
+  const registry = useRef<Map<TriggerCallback, null>>(new Map());
 
   // The current trigger.
   const [, setCurr] = useStateRef<TriggerRefState>({ ...ZERO_TRIGGER_STATE });
 
   const updateListeners = useCallback(
-    (trigger: Trigger, stage: Stage, target: HTMLElement): void =>
-      registry.current.forEach((triggers, f) => {
-        const matches = triggers.filter(
-          (t) => Compare.unorderedPrimitiveArrays(t, trigger) === 0
-        );
-        if (matches.length > 0)
-          f({ target, stage, triggers: matches, cursor: cursor.current });
-      }),
+    (state: TriggerRefState, target: HTMLElement): void => {
+      const next = state.next.length > 0 ? [state.next] : [];
+      const prev = state.prev.length > 0 ? [state.prev] : [];
+      const event = { target, next, prev, cursor: cursor.current };
+      registry.current.forEach((_, f) => f(event));
+    },
     []
   );
 
   const handleKeyDown = useCallback((e: KeyboardEvent | MouseEvent): void => {
     const key = parseEventKey(e);
+    if (EXCLUDE_TRIGGERS.includes(key as string)) return;
     setCurr((prev) => {
-      const next: Trigger = [...prev.curr, key];
-      if (prev.curr.includes(key)) return prev;
+      const next: Trigger = [...prev.next, key];
+      if (prev.next.includes(key)) return prev;
       // This is considered a double press.
       if (
         prev.prev.includes(key) &&
@@ -101,27 +100,32 @@ export const TriggersProvider = ({
       )
         next.push(key);
       const nextState: TriggerRefState = {
-        curr: next,
-        prev: prev.curr,
+        next,
+        prev: prev.next,
         last: new TimeStamp(),
       };
-      updateListeners(nextState.curr, "start", e.target as HTMLElement);
+      updateListeners(nextState, e.target as HTMLElement);
       return nextState;
     });
   }, []);
 
-  const handleKeyUp = useCallback(
-    (e: KeyboardEvent | MouseEvent): void =>
-      setCurr((prev) => {
-        updateListeners(prev.curr, "end", e.target as HTMLElement);
-        return {
-          ...prev,
-          curr: [],
-          prev: prev.curr,
-        };
-      }),
-    []
-  );
+  const handleKeyUp = useCallback((e: KeyboardEvent | MouseEvent): void => {
+    const key = parseEventKey(e);
+    if (EXCLUDE_TRIGGERS.includes(key as string)) return;
+    setCurr((prevS) => {
+      const next = prevS.next.filter(
+        (k) => k !== key && !MOUSE_KEYS.includes(k as MouseKey)
+      );
+      const prev = prevS.next;
+      const nextS: TriggerRefState = {
+        ...prevS,
+        next,
+        prev,
+      };
+      updateListeners(nextS, e.target as HTMLElement);
+      return nextS;
+    });
+  }, []);
 
   useEffect(() => {
     window.addEventListener("keydown", handleKeyDown);
@@ -129,17 +133,21 @@ export const TriggersProvider = ({
     window.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("mousedown", handleKeyDown);
     window.addEventListener("mouseup", handleKeyUp);
+    window.addEventListener("dragend", handleKeyUp);
+    window.addEventListener("drop", handleKeyUp);
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mousedown", handleKeyDown);
       window.removeEventListener("mouseup", handleKeyUp);
+      window.removeEventListener("dragend", handleKeyUp);
+      window.removeEventListener("drop", handleKeyUp);
     };
   }, [handleKeyDown, handleKeyUp, handleMouseMove]);
 
-  const listen = useCallback<TriggerListen>((callback, triggers) => {
-    registry.current.set(callback, triggers);
+  const listen = useCallback<TriggerListen>((callback) => {
+    registry.current.set(callback, null);
     return () => registry.current.delete(callback);
   }, []);
 

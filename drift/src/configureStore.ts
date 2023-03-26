@@ -108,7 +108,7 @@ const receivePreloadedState = async <
     | undefined
 ): Promise<PreloadedState<S> | undefined> =>
   await new Promise<PreloadedState<S> | undefined>((resolve) => {
-    listen(runtime, store, resolve);
+    void listen(runtime, store, resolve);
     if (runtime.isMain()) {
       if (typeof preloadedState === "function")
         preloadedState().then(resolve).catch(console.error);

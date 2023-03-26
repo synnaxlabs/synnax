@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { CombinedState, Store as BaseStore, Store } from "@reduxjs/toolkit";
+import type { Store } from "@reduxjs/toolkit";
 import { combineReducers } from "@reduxjs/toolkit";
-import { ToolkitStore } from "@reduxjs/toolkit/dist/configureStore";
 import {
   reducer as driftReducer,
   TauriRuntime,
@@ -91,7 +90,7 @@ export type Payload = Action["payload"];
 
 export type RootStore = Store<RootState, Action>;
 
-export const newStore = async (): Promise<RootStore> => {
+const newStore = async (): Promise<RootStore> => {
   const [preloadedState, persistMiddleware] = await openPersist<RootState>({
     exclude: PERSIST_EXCLUDE,
   });
@@ -108,3 +107,5 @@ export const newStore = async (): Promise<RootStore> => {
     enablePrerender: true,
   })) as RootStore;
 };
+
+export const store = newStore();

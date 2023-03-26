@@ -46,7 +46,6 @@ export const TabsSelector = ({
     closable,
     onDragEnd,
     onDragStart,
-    onDragOver,
     onDrop,
     onRename,
     onCreate,
@@ -57,7 +56,6 @@ export const TabsSelector = ({
       direction="x"
       align="center"
       justify="start"
-      onDragOver={onDragOver}
       onDrop={onDrop}
       empty
       {...props}
@@ -183,7 +181,11 @@ const TabName = ({
           {name}
         </Text.WithIcon>
       );
-    return <Text level="p">{name}</Text>;
+    return (
+      <Text level="p" noWrap>
+        {name}
+      </Text>
+    );
   }
   return (
     <Text.Editable<"p">
