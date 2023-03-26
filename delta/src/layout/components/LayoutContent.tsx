@@ -30,19 +30,8 @@ export interface LayoutContentProps {
 export const LayoutContent = memo(
   ({ layoutKey }: LayoutContentProps): JSX.Element | null => {
     const p = useSelectRequiredLayout(layoutKey);
-
-    const _handleClose = useLayoutRemover(layoutKey);
-    const dispatch = useDispatch();
-
-    const renderer = useLayoutRenderer(p.type);
-
-    const Renderer = "Renderer" in renderer ? renderer.Renderer : renderer;
-
-    const handleClose = (): void => {
-      if ("onClose" in renderer) renderer.onClose?.({ layoutKey, dispatch });
-      _handleClose();
-    };
-
+    const handleClose = useLayoutRemover(layoutKey);
+    const Renderer = useLayoutRenderer(p.type);
     if (Renderer == null) throw new Error(`layout renderer ${p.type} not found`);
     return <Renderer layoutKey={layoutKey} onClose={handleClose} />;
   }
