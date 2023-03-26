@@ -67,7 +67,7 @@ export const LayoutWindow = (): JSX.Element => {
 const applyWindowsBorders = (): void => {
   window.document.documentElement.style.boxSizing = "border-box";
   window.document.documentElement.style.border = "var(--pluto-border)";
-  window.document.documentElement.style.borderRadius = "var(--pluto-border-radius)";
+  window.document.documentElement.style.borderRadius = "8px";
   applyCSSVars(window.document.documentElement, {
     "--os-border-offset": "2px",
   });
