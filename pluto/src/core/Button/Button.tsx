@@ -60,6 +60,7 @@ export const Button = ({
     )}
     level={Typography.ComponentSizeLevels[size]}
     size={iconSpacing}
+    noWrap
     {...props}
   >
     {children}

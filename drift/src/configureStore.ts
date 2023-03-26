@@ -87,7 +87,7 @@ export const configureStore = async <
   });
 
   store.dispatch(setPrererenderEnabled({ value: enablePrerender }));
-  await syncInitial(store.getState().drift, runtime, debug);
+  await syncInitial(store.getState().drift, store.dispatch, runtime, debug);
   store.dispatch(setWindowLabel({ label: runtime.label() }));
   store.dispatch(setWindowStage({ stage: "created" }));
   runtime.onCloseRequested(() => store?.dispatch(closeWindow({})));
@@ -108,7 +108,7 @@ const receivePreloadedState = async <
     | undefined
 ): Promise<PreloadedState<S> | undefined> =>
   await new Promise<PreloadedState<S> | undefined>((resolve) => {
-    listen(runtime, store, resolve);
+    void listen(runtime, store, resolve);
     if (runtime.isMain()) {
       if (typeof preloadedState === "function")
         preloadedState().then(resolve).catch(console.error);

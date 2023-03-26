@@ -215,7 +215,7 @@ const slice = createSlice({
     },
     setWindowLabel: (s: DriftState, a: PayloadAction<SetWindowLabelPayload>) => {
       s.label = a.payload.label;
-      if (s.label !== MAIN_WINDOW || !s.prerenderEnabled) return;
+      if (s.label !== MAIN_WINDOW && !s.prerenderEnabled) return;
       const prerenderLabel = nanoid();
       s.windows[prerenderLabel] = INITIAL_PRERENDER_WINDOW_STATE;
     },
@@ -317,18 +317,7 @@ const slice = createSlice({
     setWindowDecorations: assignBool("decorations"),
     setWindowProps: (s: DriftState, a: PayloadAction<SetWindowPropsPayload>) => {
       const prev = s.windows[a.payload.label];
-      const next = a.payload;
       const deepPartialEqual = Deep.partialEqual(prev, a.payload);
-      // If the window has shifted or the size is no longer the same and fullscreen is
-      // true, set fullscreen to false.
-      if (
-        prev.fullscreen === true &&
-        prev.size != null &&
-        next.size != null &&
-        (next.size.width < prev.size.width || next.size.height < prev.size.height)
-      )
-        a.payload.fullscreen = false;
-
       if (!deepPartialEqual) s.windows[a.payload.label] = { ...prev, ...a.payload };
     },
   },

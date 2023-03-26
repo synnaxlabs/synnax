@@ -27,6 +27,7 @@ export interface ListColumn<
   key: keyof E | string;
   /** A custom render function for each item in the colummn. */
   render?: RenderF<E>;
+  stringer?: (entry: E) => string;
   /** The name/title of the column. */
   name: string;
   /** Whether the column is visible by default. */
@@ -37,6 +38,7 @@ export interface ListColumn<
    * always be specified when the render function is provided.
    */
   width?: number;
+  cWidth?: number;
 }
 
 export interface ListItemProps<E extends KeyedRenderableRecord<E>> {

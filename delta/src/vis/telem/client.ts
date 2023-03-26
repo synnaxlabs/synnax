@@ -14,11 +14,10 @@ import {
   DataType,
   Synnax,
   Frame,
-  Channel,
 } from "@synnaxlabs/client";
 import { GLDemandCache, GLDemandCacheEntry } from "@synnaxlabs/pluto";
 
-import { Range } from "@/features/workspace";
+import { Range } from "@/workspace";
 
 export class TelemetryClient {
   private readonly glCache: GLDemandCache;
@@ -36,10 +35,6 @@ export class TelemetryClient {
     for (const r of req.ranges)
       e.push(...(await this.retrieveOne(r, req.keys, req.bypassCache)));
     return e;
-  }
-
-  async retrieveChannels(keys: string[]): Promise<Channel[]> {
-    return await this.client.channels.retrieve(keys);
   }
 
   private async retrieveOne(

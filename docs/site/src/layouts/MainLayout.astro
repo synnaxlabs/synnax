@@ -116,6 +116,27 @@ vars = { ...vars, ...Theming.toCSSVars(theme.value === "dark" ? DARK : LIGHT) };
             text-decoration: underline;
         }
 
+        .copy-code {
+            position: absolute;
+            top: 25%;
+            right: 20px;
+            border-color: var(--pluto-gray-m1);
+            opacity: 0;
+            transition: all 0.15s ease-in-out;
+        }
+
+        pre:hover .copy-code {
+            opacity: 1;
+        }
+
+        .copy-code svg > * {
+            fill: var(--pluto-gray-m1);
+        }
+
+        .copy-code:hover svg > * {
+            fill: var(--pluto-gray-m0);
+        }
+
         header h1,
         header h2,
         header p {
@@ -172,6 +193,7 @@ vars = { ...vars, ...Theming.toCSSVars(theme.value === "dark" ? DARK : LIGHT) };
 
         .astro-code {
             padding: 3rem;
+            position: relative;
             border-radius: var(--pluto-border-radius);
             margin: 2rem 1rem;
             overflow-x: auto !important;
@@ -291,7 +313,7 @@ vars = { ...vars, ...Theming.toCSSVars(theme.value === "dark" ? DARK : LIGHT) };
             border-right: var(--pluto-border);
         }
 
-        @media (max-width: 600px) {
+        @media (max-width: 700px) {
             section {
                 flex-direction: column-reverse;
             }
@@ -316,7 +338,7 @@ vars = { ...vars, ...Theming.toCSSVars(theme.value === "dark" ? DARK : LIGHT) };
 
         nav {
             padding: 20px 0px;
-            flex-basis: 240px;
+            flex-basis: 200px;
             overflow-y: auto;
         }
 

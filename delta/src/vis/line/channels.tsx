@@ -7,7 +7,14 @@ import { Deep } from "@synnaxlabs/x";
 import { useClusterClient } from "@/cluster";
 import { useMemoSelect } from "@/hooks";
 import { LayoutStoreState } from "@/layout";
-import { AxisKey, AXIS_KEYS, XAxisKey, YAxisKey, Y_AXIS_KEYS } from "@/vis/axis";
+import {
+  AxisKey,
+  AXIS_KEYS,
+  XAxisKey,
+  X_AXIS_KEYS,
+  YAxisKey,
+  Y_AXIS_KEYS,
+} from "@/vis/axis";
 import {
   ChannelsState,
   GOOD_STATUS,
@@ -72,7 +79,7 @@ export class Channels implements StatusProvider {
   static isValid(core: ChannelsState): boolean {
     return (
       Y_AXIS_KEYS.some((axis) => core[axis].length > 0) &&
-      Y_AXIS_KEYS.some((axis) => {
+      X_AXIS_KEYS.some((axis) => {
         const v = core[axis];
         return v != null && v.length > 0;
       })

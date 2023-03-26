@@ -24,6 +24,5 @@ export const Video = ({ id }: VideoProps): JSX.Element => {
 export const Image = ({ id }: VideoProps): JSX.Element => {
   const theme = localStorage.getItem("theme") ?? "light";
   const modifier = theme?.toLowerCase().includes("dark") ? "dark" : "light";
-  console.log(theme);
   return <img src={`${CDN_ROOT}/${id}-${modifier}.png`} />;
 };
