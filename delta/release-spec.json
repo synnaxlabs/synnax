@@ -1,19 +1,19 @@
 {
-  "version": "v0.5.2",
+  "version": "v0.6.2",
   "notes": "Synnax Update",
-  "pub_date": "2023-03-17T22:55:44Z",
+  "pub_date": "2023-03-27T21:21:34Z",
   "platforms": {
     "darwin-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRZ3h4ZmpWZnBGeUw3Q0pUOFJaWklHM2hoLzNxWHZTWE0yV0J3R3ZDNFI3NVU0K09waGdpMklNbHVxYVBpeFZGV3VQQWJoN2tZTDFKY2JLakJCTUxlSnVFcGxhcDBiVWdVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNjc5MDkzMjYwCWZpbGU6U3lubmF4LmFwcC50YXIuZ3oKMmxRK3d1RmZYUUNTUVZMZHNxb2N2S1dVSGkzWmpBSGpTaHllaUJEL0dvTjRyVGN6OGxVaE9YUGlKTzZZNElYdUE4TlNQQklNWUNOTVFzV2RpK045REE9PQo=",
-      "url": "https://github.com/synnaxlabs/synnax/releases/download/delta-v0.5.2/Synnax.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRZ3h4ZmpWZnBGeUl0MWpFejl1RjJSL01hb3Ezc2ltT1o4WUJHNmE5T1RVdzVNRFBQVFR3NjBQblNZZnRrWURhelZwVHNEQ0o1dTBiZWV0bFU0cHNtbURXN2pFV29tNEEwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNjc5OTUxNTU5CWZpbGU6U3lubmF4LmFwcC50YXIuZ3oKQ1d4MUxTL0R6VVNhbXdEZ0ZXdUo2Y2NsR0Z5VnpSdVI5M3VLTFpJYWVLMjR0YWZ4dUlES04wYkdDbkN5ZVc2QjFXYlBLQ3F0eHlhMVlBbFhUeW5tRFE9PQo=",
+      "url": "https://github.com/synnaxlabs/synnax/releases/download/delta-v0.6.2/Synnax.app.tar.gz"
     },
     "linux-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRZ3h4ZmpWZnBGeUZPbCs3QXRlOUI2YVhuakVRM25XN0U0VG82SVlUNVdmQnBoTjYweXdteStlWWcxZXdhOU4rZ1VYMXUvWktzamFtY2FnV1ExalYwRFIyMkNkZzBOL0FFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNjc5MDkzNDIyCWZpbGU6c3lubmF4XzAuNS4yX2FtZDY0LkFwcEltYWdlLnRhci5negpTSzB2WmIrUzBDS3NTZHhQNUJHQkRvR3kvcjlrVXd0YzZtTGlOY204SWQ2WkQ2dXc4b1JSV3MvNjZJd3REWXVtYlNFbVF0RDlRbVdTUkxwSGZ1djJDZz09Cg==",
-      "url": "https://github.com/synnaxlabs/synnax/releases/download/delta-v0.5.2/synnax_0.5.2_amd64.AppImage.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRZ3h4ZmpWZnBGeU85QjNZOXF5R0NxaDh1aHBneFZDbjU5WE51d3BrVXllcXZsMU5UYmxiYzEyZXNGSlhLcWhHZStaenkwQldrVnJ4RzJvVVFReGl6Uk81cm5ZK0pZR1FRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNjc5OTUyMDM1CWZpbGU6c3lubmF4XzAuNi4yX2FtZDY0LkFwcEltYWdlLnRhci5negppNkJ1eEhDNG93clB3R2Y4em9GajNPVzFZaVNkSTIwZ3ZqK2Vvd3ZZRHBlckpmZnlVZHFqS09KY251QnloWk5uTlRuMHYvQmlBZmtjUzJoQnZDaHFDdz09Cg==",
+      "url": "https://github.com/synnaxlabs/synnax/releases/download/delta-v0.6.2/synnax_0.6.2_amd64.AppImage.tar.gz"
     },
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRZ3h4ZmpWZnBGeUtXMXluZGhUZmd6SzRDUkd3MlBmdTNudGNyOWlxUTJjTGZsVFBtejlTZGNWUmRuTmNXMjdtK3RIcXdiN3MwR0RBZWxXZFM4WHlEOWQ3MGhvdFpFdUFjPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNjc5MDkzMzI0CWZpbGU6U3lubmF4XzAuNS4yX3g2NF9lbi1VUy5tc2kuemlwCjhpR1N2dnNMaTNESjJ2YitaRnhNYTRnK1BQQkZLb2U5SWVzQlRueUNrMEdSSW9OVVhnbWIvQzdQYmVZYTg4aG84MUl3VU0vT29FMnRNNFN6QjRwTkJBPT0K",
-      "url": "https://github.com/synnaxlabs/synnax/releases/download/delta-v0.5.2/Synnax_0.5.2_x64_en-US.msi.zip"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRZ3h4ZmpWZnBGeUxzeG9KRzA1MUF3YmRwNzBvSmczdmh1MEtzSUZrYlBHeWplVDljNXJzQUN4MmVPQ2YvZk4rKzlqeFJiRTJUVUR4cFNuR3p3VGZEcUo0NUxWeFduUUFjPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNjc5OTUxODE5CWZpbGU6U3lubmF4XzAuNi4yX3g2NF9lbi1VUy5tc2kuemlwCjVuaXlFQTZabUlDcEkvQkRBU1JXeUt2RTV6T05CSzdBRFBaYU55K1BXYTRIdk5oTm9FSEFNNm41Kzhla0pIZkpBeW5OZWFwQzcvRXJ4eVpDNCtoUkNRPT0K",
+      "url": "https://github.com/synnaxlabs/synnax/releases/download/delta-v0.6.2/Synnax_0.6.2_x64_en-US.msi.zip"
     }
   }
 }
