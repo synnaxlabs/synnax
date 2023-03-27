@@ -2,10 +2,9 @@
 import Code from "astro/components/Code.astro";
 const { os } = Astro.props;
 
-const VERSION =
-    "https://raw.githubusercontent.com/synnaxlabs/synnax/221-server-binary/synnax/VERSION";
+const VERSION = "https://raw.githubusercontent.com/synnaxlabs/synnax/main/synnax/VERSION";
 const version = await (await fetch(VERSION)).text();
-const url = `github.com/synnaxlabs/synnax/releases/download/synnax%2Fv0.4.0/synnax-v${version.trim()}-${os.toLowerCase()}`;
+const url = `github.com/synnaxlabs/synnax/releases/download/synnax%2Fv${version.trim()}/synnax-v${version.trim()}-${os.toLowerCase()}`;
 ---
 
 <Code lang="bash" code={`curl -LO ${url}`} />
