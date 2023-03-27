@@ -114,7 +114,7 @@ jobs:
             ${{ runner.os }}-turbo-
 
       - name: Install Dependencies on Ubuntu
-        if: matrix.platform == 'ubuntu-20.04' && steps.filter.outputs.changed == 'true'
+        if: matrix.platform == 'ubuntu-latest' && steps.filter.outputs.changed == 'true'
         run: >-
           sudo apt-get update &&
           sudo apt-get install -y
