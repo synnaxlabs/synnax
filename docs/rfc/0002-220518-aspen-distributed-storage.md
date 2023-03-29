@@ -1,8 +1,3 @@
----
-title: Aspen - Gossip Based Key-Value Store
-layout: "@/layouts/MainLayout.astro"
----
-
 # 2 - Aspen - Gossip Based Key-Value Store
 
 **Feature Name** - Aspen, a Gossip Based Peer to Peer Key-Value Store <br />
