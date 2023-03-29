@@ -1,8 +1,3 @@
----
-title: Cesium - Irregular Columnar Storage
-layout: "@/layouts/MainLayout.astro"
----
-
 # 8 - Columnar Storage for Irregular Data
 
 **Feature Name** - Cesium - Columnar Storage for Irregular Data <br />
@@ -29,7 +24,7 @@ for users.
 # 3 - Design
 
 This design extends and modifies the existing Cesium architecture presented in this
-[rfc](https://github.com/synnaxlabs/delta/blob/main/docs/rfc/1-220517-cesium-segment-storage.md).
+[rfc](https://github.com/synnaxlabs/delta/blob/main/docs/rfc/0001-220517-cesium-segment-storage.md).
 The new architecture (V0.2) introduces the concept of 'indexes' which provide alignment
 between timestamp values and data stored in a segment.
 

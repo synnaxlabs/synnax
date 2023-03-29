@@ -1,8 +1,3 @@
----
-title: Cesium - Channel Storage Engine
-layout: "@/layouts/MainLayout.astro"
----
-
 # 1 - Cesium - Channel Segment Storage Engine
 
 **Feature Name** - Channel Segment Storage Engine <br />
@@ -304,7 +299,7 @@ Core vocabulary for the following technical specification:
 **Stage** - An interface that receives samples from one or more streams, does
 some operation on those samples, and pipes the results to one or more output
 streams. In a [Sawzall](https://research.google/pubs/pub61/) style processing
-engine, an stage would be comparable to an aggregator.
+engine, a stage would be comparable to an aggregator.
 
 **Individual Stage** - An stage that is involved in serving only one request.
 
@@ -435,7 +430,7 @@ It's also relevant to note that Cesium uses a large number of goroutines for a
 single query. This is (kind of)
 intentional, as the database is optimized for high throughput on fewer, large
 queries.
-See [Channel Counts and Segment Merging](#channel-counts-and-segment-merging)
+See [Channel Counts and Segment Merging](#7---channel-counts-and-segment-merging)
 for more information how the number of open queries affects performance.
 :::
 
@@ -462,7 +457,7 @@ columns are samples for a particular channel. The following table is a simple
 representation:
 
 | Timestamp | Channel 1 | Channel 2 | Channel 3 |
-| --------- | --------- | --------- | --------- |
+|-----------|-----------|-----------|-----------|
 | 15:00:00  | 1         | 2         | 3         |
 | 15:00:01  | 4         | 5         | 6         |
 | 15:00:02  | 7         | 8         | 9         |
@@ -478,7 +473,7 @@ samples can be compacted, and a caller often requests data for a small number of
 channels at once. The following is a layout of a columnar segment on disk:
 
 | 1   | 2   | 3   | 4   | 5   | 6   | 7   | 8   | 9   |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+|-----|-----|-----|-----|-----|-----|-----|-----|-----|
 
 This representation omits the following metadata:
 
@@ -489,7 +484,7 @@ This representation omits the following metadata:
 An option is to include this metadata along with the segment:
 
 | Key 1 | 15:00:00 | 25Hz | 1   | 2   | 3   | 4   | 5   | 6   | 7   | 8   | 9   |
-| ----- | -------- | ---- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+|-------|----------|------|-----|-----|-----|-----|-----|-----|-----|-----|-----|
 
 Adding this 'header' is the most intuitive way to represent the data, but has
 implications for retrieving it. When searching for the start of a time range,
