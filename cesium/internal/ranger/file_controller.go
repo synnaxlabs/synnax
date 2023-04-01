@@ -13,7 +13,6 @@ import (
 	atomicx "github.com/synnaxlabs/x/atomic"
 	"github.com/synnaxlabs/x/errutil"
 	xio "github.com/synnaxlabs/x/io"
-	"github.com/synnaxlabs/x/io/fs"
 	"io"
 	"os"
 	"strconv"
@@ -111,7 +110,7 @@ func (fc *fileController) newWriter() (*controlledWriter, error) {
 	if err != nil {
 		return nil, err
 	}
-	baseW, err := fs.OffsetWriteCloser(file, io.SeekEnd)
+	baseW, err := xio.NewOffsetWriteCloser(file, io.SeekEnd)
 	if err != nil {
 		return nil, err
 	}
