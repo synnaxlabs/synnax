@@ -7,26 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package fs
-
-import (
-	xio "github.com/synnaxlabs/x/io"
-)
+package io
 
 type offsetWriteCloser struct {
-	File
+	WriteSeekCloser
 	// offset stores the offset of the write cursor at the start of the write.
 	offset int64
 	// len stores the number of bytes written by the writer.
 	len int64
 }
 
-func OffsetWriteCloser(f File, seek int) (xio.OffsetWriteCloser, error) {
+func NewOffsetWriteCloser(f WriteSeekCloser, seek int) (OffsetWriteCloser, error) {
 	off, err := f.Seek(0, seek)
 	return &offsetWriteCloser{
-		File:   f,
-		offset: off,
-		len:    0,
+		WriteSeekCloser: f,
+		offset:          off,
+		len:             0,
 	}, err
 }
 
@@ -40,7 +36,7 @@ func (o *offsetWriteCloser) Len() int64 { return o.len }
 func (o *offsetWriteCloser) Offset() int64 { return o.offset }
 
 func (o *offsetWriteCloser) Write(p []byte) (n int, err error) {
-	n, err = o.File.Write(p)
+	n, err = o.WriteSeekCloser.Write(p)
 	o.len += int64(n)
 	return n, err
 }
