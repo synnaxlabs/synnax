@@ -13,7 +13,6 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errutil"
-	xio "github.com/synnaxlabs/x/io"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
@@ -21,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
+	"io"
 )
 
 var (
@@ -160,6 +160,6 @@ func (db *DB) newReader(ptr pointer) (*Reader, error) {
 	if err != nil {
 		return nil, err
 	}
-	reader := xio.PartialReaderAt(internal, int64(ptr.offset), int64(ptr.length))
+	reader := io.NewSectionReader(internal, int64(ptr.offset), int64(ptr.length))
 	return &Reader{ptr: ptr, ReaderAt: reader, Closer: internal}, nil
 }
