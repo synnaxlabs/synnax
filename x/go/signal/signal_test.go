@@ -176,9 +176,9 @@ var _ = Describe("Signal", func() {
 
 	Describe("Options", func() {
 
-		Describe("WithLogger", func() {
-			It("Should inject a logger into the context for diagnostics", func() {
-				ctx, cancel := signal.TODO(signal.WithLogger(zap.NewNop()))
+		Describe("WithInstrumentation", func() {
+			It("Should inject a instrumentation into the context for diagnostics", func() {
+				ctx, cancel := signal.TODO(signal.WithInstrumentation(zap.NewNop()))
 				cancel()
 				Expect(ctx.Err()).To(HaveOccurredAs(context.Canceled))
 			})

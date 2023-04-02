@@ -13,9 +13,9 @@ import (
 	"context"
 	"io"
 
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/alamos"
 	"google.golang.org/grpc"
 )
 

@@ -47,7 +47,7 @@ type FrameIteratorResponse struct {
 type FrameIteratorStream = freighter.ServerStream[FrameIteratorRequest, FrameIteratorResponse]
 
 func (s *FrameService) Iterate(_ctx context.Context, stream FrameIteratorStream) errors.Typed {
-	ctx, cancel := signal.WithCancel(_ctx, signal.WithLogger(s.logger.Desugar()))
+	ctx, cancel := signal.WithCancel(_ctx, signal.WithInstrumentation(s.logger.Desugar()))
 	// Cancellation here would occur for one of two reasons. Either we encounter
 	// a fatal error (transport or iterator internal) and we need to free all
 	// resources, OR the client executed the close command on the iterator (in

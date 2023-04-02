@@ -16,8 +16,10 @@
 package kv
 
 import (
+	"context"
 	"github.com/cockroachdb/pebble"
-	"github.com/synnaxlabs/x/alamos"
+	"github.com/synnaxlabs/alamos"
+	"io"
 )
 
 // NotFound is returned when a key is not found in the DB store.
@@ -28,19 +30,19 @@ type IterValidityState = pebble.IterValidityState
 // Reader is a readable key-value store.
 type Reader interface {
 	// Get returns the value for the given key.
-	Get(key []byte, opts ...interface{}) ([]byte, error)
+	Get(ctx context.Context, key []byte, opts ...interface{}) ([]byte, error)
 	// NewIterator returns an Iterator using the given IteratorOptions.
-	NewIterator(opts IteratorOptions) Iterator
+	NewIterator(ctx context.Context, opts IteratorOptions) Iterator
 }
 
 // Writer is a writeable key-value store.
 type Writer interface {
 	// Set sets the value for the given key. It is safe to modify the contents of key
 	// and value after Set returns.
-	Set(key []byte, value []byte, opts ...interface{}) error
+	Set(ctx context.Context, key []byte, value []byte, opts ...interface{}) error
 	// Delete removes the value for the given key. It is safe to modify the contents
 	// of key after Delete returns.
-	Delete(key []byte) error
+	Delete(ctx context.Context, key []byte) error
 }
 
 type BatchWriter interface {
@@ -49,18 +51,11 @@ type BatchWriter interface {
 	NewBatch() Batch
 }
 
-// Closer is a closeable key-value store, which blocks until all pending
-// operations have persisted to disk.
-type Closer interface {
-	// Close closes the DB.
-	Close() error
-}
-
 // DB represents a general key-value store.
 type DB interface {
 	Writer
 	BatchWriter
 	Reader
-	Closer
+	io.Closer
 	alamos.Reporter
 }

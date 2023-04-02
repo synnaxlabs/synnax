@@ -11,7 +11,7 @@ package freighter
 
 import (
 	"errors"
-	"github.com/synnaxlabs/x/alamos"
+	"github.com/synnaxlabs/alamos"
 )
 
 var (

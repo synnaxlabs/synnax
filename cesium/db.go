@@ -10,7 +10,9 @@
 package cesium
 
 import (
+	"context"
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/unary"
@@ -47,33 +49,33 @@ type DB interface {
 }
 
 type Readable interface {
-	Read(tr telem.TimeRange, keys ...string) (Frame, error)
-	NewIterator(cfg IteratorConfig) (Iterator, error)
+	Read(ctx context.Context, tr telem.TimeRange, keys ...string) (Frame, error)
+	NewIterator(ctx context.Context, cfg IteratorConfig) (Iterator, error)
 	StreamIterable
 }
 
 type StreamIterable interface {
-	NewStreamIterator(cfg IteratorConfig) (StreamIterator, error)
+	NewStreamIterator(ctx context.Context, cfg IteratorConfig) (StreamIterator, error)
 }
 
 type Writable interface {
-	Write(start telem.TimeStamp, frame Frame) error
-	WriteArray(start telem.TimeStamp, key string, arr telem.Array) error
-	NewWriter(cfg WriterConfig) (Writer, error)
+	Write(ctx context.Context, start telem.TimeStamp, frame Frame) error
+	WriteArray(ctx context.Context, start telem.TimeStamp, key string, arr telem.Array) error
+	NewWriter(ctx context.Context, cfg WriterConfig) (Writer, error)
 	StreamWritable
 }
 
 type StreamWritable interface {
-	NewStreamWriter(cfg WriterConfig) (StreamWriter, error)
+	NewStreamWriter(ctx context.Context, cfg WriterConfig) (StreamWriter, error)
 }
 
 type ChannelManager interface {
 	// CreateChannel creates the given channels in the DB.
-	CreateChannel(channels ...Channel) error
+	CreateChannel(ctx context.Context, channels ...Channel) error
 	// RetrieveChannel retrieves the channel with the given key.
-	RetrieveChannel(key string) (Channel, error)
+	RetrieveChannel(ctx context.Context, key string) (Channel, error)
 	// RetrieveChannels retrieves the channels with the given keys.
-	RetrieveChannels(keys ...string) ([]Channel, error)
+	RetrieveChannels(ctx context.Context, keys ...string) ([]Channel, error)
 }
 
 type cesium struct {
@@ -83,8 +85,10 @@ type cesium struct {
 }
 
 // Write implements DB.
-func (db *cesium) Write(start telem.TimeStamp, frame Frame) error {
-	w, err := db.NewWriter(WriterConfig{Start: start, Channels: frame.Keys()})
+func (db *cesium) Write(ctx context.Context, start telem.TimeStamp, frame Frame) error {
+	_, span := alamos.Trace(ctx, "write")
+	defer span.End()
+	w, err := db.NewWriter(ctx, WriterConfig{Start: start, Channels: frame.Keys()})
 	if err != nil {
 		return err
 	}
@@ -94,8 +98,8 @@ func (db *cesium) Write(start telem.TimeStamp, frame Frame) error {
 }
 
 // WriteArray implements DB.
-func (db *cesium) WriteArray(start telem.TimeStamp, key string, arr telem.Array) error {
-	return db.Write(start, core.NewFrame([]string{key}, []telem.Array{arr}))
+func (db *cesium) WriteArray(ctx context.Context, start telem.TimeStamp, key string, arr telem.Array) error {
+	return db.Write(ctx, start, core.NewFrame([]string{key}, []telem.Array{arr}))
 }
 
 // Read implements DB.

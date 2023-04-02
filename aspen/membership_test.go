@@ -17,29 +17,20 @@ import (
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/aspen/mock"
 	"github.com/synnaxlabs/x/address"
-	"go.uber.org/zap"
 	"sync"
 	"time"
 )
 
 var _ = Describe("Membership", Serial, Ordered, func() {
-	var logger *zap.SugaredLogger
-
-	BeforeEach(func() {
-		l := zap.NewNop()
-		logger = l.Sugar()
-	})
-
 	Describe("Bootstrap cluster", func() {
 
 		It("Should correctly bootstrap a cluster", func() {
 			db, err := aspen.Open(
-				context.TODO(),
+				ctx,
 				"",
 				"localhost:22546",
 				[]aspen.Address{},
 				aspen.Bootstrap(),
-				aspen.WithLogger(logger),
 				aspen.MemBacked(),
 			)
 
@@ -60,11 +51,10 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 
 		It("Should correctly bootstrap a cluster with peers provided", func() {
 			db, err := aspen.Open(
-				context.TODO(),
+				ctx,
 				"",
 				"localhost:22546",
 				[]aspen.Address{"localhost:22547"},
-				aspen.WithLogger(logger),
 				aspen.MemBacked(),
 				aspen.Bootstrap(),
 			)
@@ -90,7 +80,6 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 					"",
 					"localhost:22546",
 					[]aspen.Address{"localhost:22547"},
-					aspen.WithLogger(logger),
 					aspen.MemBacked(),
 				)
 				defer func() { Expect(db.Close()).To(Succeed()) }()
@@ -102,11 +91,10 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 				Expect(db.HostID()).To(Equal(aspen.NodeID(2)))
 			}()
 			db, err := aspen.Open(
-				context.TODO(),
+				ctx,
 				"",
 				"localhost:22547",
 				[]aspen.Address{},
-				aspen.WithLogger(logger),
 				aspen.MemBacked(),
 				aspen.Bootstrap(),
 			)
@@ -139,7 +127,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 				go func(i int) {
 					defer GinkgoRecover()
 					defer wg.Done()
-					opts := []aspen.Option{aspen.WithLogger(logger), aspen.MemBacked()}
+					opts := []aspen.Option{aspen.MemBacked()}
 					if i == 0 {
 						opts = append(opts, aspen.Bootstrap())
 					}
@@ -181,7 +169,6 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 						PortRangeStart: 22546,
 						DataDir:        "./testdata",
 						DefaultOptions: []aspen.Option{
-							aspen.WithLogger(logger),
 							aspen.WithPropagationConfig(propConfig),
 						},
 						Nodes: make(map[aspen.NodeID]mock.NodeInfo),

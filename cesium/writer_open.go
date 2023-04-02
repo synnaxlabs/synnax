@@ -10,6 +10,7 @@
 package cesium
 
 import (
+	"context"
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/ranger"
@@ -18,20 +19,20 @@ import (
 )
 
 // NewStreamWriter implements DB.
-func (db *cesium) NewStreamWriter(cfg WriterConfig) (StreamWriter, error) {
-	return db.newStreamWriter(cfg)
+func (db *cesium) NewStreamWriter(ctx context.Context, cfg WriterConfig) (StreamWriter, error) {
+	return db.newStreamWriter(ctx, cfg)
 }
 
 // NewWriter implements DB.
-func (db *cesium) NewWriter(cfg WriterConfig) (Writer, error) {
-	internal, err := db.newStreamWriter(cfg)
+func (db *cesium) NewWriter(ctx context.Context, cfg WriterConfig) (Writer, error) {
+	internal, err := db.newStreamWriter(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
 	return wrapStreamWriter(internal), nil
 }
 
-func (db *cesium) newStreamWriter(cfg WriterConfig) (*streamWriter, error) {
+func (db *cesium) newStreamWriter(_ context.Context, cfg WriterConfig) (*streamWriter, error) {
 	var (
 		idx          index.Index
 		writingToIdx bool

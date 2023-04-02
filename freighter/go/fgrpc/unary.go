@@ -12,9 +12,9 @@ package fgrpc
 import (
 	"context"
 	roacherrors "github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/alamos"
 	"google.golang.org/grpc"
 )
 
@@ -113,7 +113,7 @@ func (u *UnaryServer[RQ, RQT, RS, RST]) Exec(ctx context.Context, tReq RQT) (tRe
 		freighter.FinalizerFunc(func(ctx context.Context, md freighter.MD) (freighter.MD, error) {
 			oMD := freighter.MD{Protocol: reporter.Protocol, Target: md.Target, Params: md.Params}
 			if u.handler == nil {
-				return oMD, roacherrors.New("[freighter]- no handler registered")
+				return oMD, roacherrors.New("[freighter] - no handler registered")
 			}
 			req, err := u.RequestTranslator.Backward(tReq)
 			if err != nil {

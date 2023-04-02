@@ -7,4 +7,5 @@ use (
 	./freighter/integration
 	./synnax
 	./x/go
+	./alamos/go
 )

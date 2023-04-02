@@ -10,6 +10,7 @@
 package writer
 
 import (
+	"context"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/x/confluence"
@@ -17,8 +18,8 @@ import (
 )
 
 // newGateway opens a new StreamWriter that writes to the store on the gateway node.
-func (s *Service) newGateway(cfg Config) (StreamWriter, error) {
-	w, err := s.TS.NewStreamWriter(cfg.toStorage())
+func (s *Service) newGateway(ctx context.Context, cfg Config) (StreamWriter, error) {
+	w, err := s.TS.NewStreamWriter(ctx, cfg.toStorage())
 	if err != nil {
 		return nil, err
 	}

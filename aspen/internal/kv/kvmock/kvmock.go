@@ -10,13 +10,14 @@
 package kvmock
 
 import (
+	"context"
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/cluster/clustermock"
 	"github.com/synnaxlabs/aspen/internal/kv"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter/fmock"
+	kvx "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/signal"
 	"go/types"
 )
 
@@ -26,7 +27,7 @@ type Builder struct {
 	OpNet       *fmock.Network[kv.BatchRequest, kv.BatchRequest]
 	FeedbackNet *fmock.Network[kv.FeedbackMessage, types.Nil]
 	LeaseNet    *fmock.Network[kv.BatchRequest, types.Nil]
-	KVs         map[node.ID]kv.DB
+	KVs         map[node.ID]kvx.DB
 }
 
 func NewBuilder(baseKVCfg kv.Config, baseClusterCfg cluster.Config) *Builder {
@@ -36,12 +37,12 @@ func NewBuilder(baseKVCfg kv.Config, baseClusterCfg cluster.Config) *Builder {
 		OpNet:       fmock.NewNetwork[kv.BatchRequest, kv.BatchRequest](),
 		FeedbackNet: fmock.NewNetwork[kv.FeedbackMessage, types.Nil](),
 		LeaseNet:    fmock.NewNetwork[kv.BatchRequest, types.Nil](),
-		KVs:         make(map[node.ID]kv.DB),
+		KVs:         make(map[node.ID]kvx.DB),
 	}
 }
 
-func (b *Builder) New(ctx signal.Context, kvCfg kv.Config, clusterCfg cluster.Config) (kv.DB, error) {
-	clust, err := b.Builder.New(ctx, clusterCfg)
+func (b *Builder) New(ctx context.Context, kvCfg kv.Config, clusterCfg cluster.Config) (kvx.DB, error) {
+	cluster, err := b.Builder.New(ctx, clusterCfg)
 	if err != nil {
 		return nil, err
 	}
@@ -49,8 +50,8 @@ func (b *Builder) New(ctx signal.Context, kvCfg kv.Config, clusterCfg cluster.Co
 	if kvCfg.Engine == nil {
 		kvCfg.Engine = memkv.New()
 	}
-	kvCfg.Cluster = clust
-	addr := clust.Host().Address
+	kvCfg.Cluster = cluster
+	addr := cluster.Host().Address
 	kvCfg.BatchTransportClient = b.OpNet.UnaryClient()
 	kvCfg.BatchTransportServer = b.OpNet.UnaryServer(addr)
 	kvCfg.FeedbackTransportServer = b.FeedbackNet.UnaryServer(addr)
@@ -61,6 +62,6 @@ func (b *Builder) New(ctx signal.Context, kvCfg kv.Config, clusterCfg cluster.Co
 	if err != nil {
 		return nil, err
 	}
-	b.KVs[clust.Host().ID] = kve
+	b.KVs[cluster.Host().ID] = kve
 	return kve, nil
 }

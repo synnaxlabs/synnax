@@ -59,7 +59,7 @@ func newStoreEmitter(s store, cfg Config) source {
 	return se
 }
 
-func (e *storeEmitter) Emit(ctx context.Context) (BatchRequest, error) {
+func (e *storeEmitter) Emit(_ context.Context) (BatchRequest, error) {
 	return e.store.PeekState().toBatchRequest(), nil
 }
 
@@ -74,7 +74,7 @@ func newStoreSink(s store) sink {
 	return ss
 }
 
-func (s *storeSink) Store(ctx context.Context, br BatchRequest) error {
+func (s *storeSink) Store(_ context.Context, br BatchRequest) error {
 	snap := s.store.CopyState()
 	for _, op := range br.Operations {
 		snap[string(op.Key)] = op

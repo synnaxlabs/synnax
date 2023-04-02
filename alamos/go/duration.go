@@ -89,7 +89,7 @@ func (d *duration) Stopwatch() Stopwatch {
 }
 
 // NewSeriesDuration returns a new Duration metric that records all duration values in a Series.
-func NewSeriesDuration(exp Experiment, level Level, key string) Duration {
+func NewSeriesDuration(exp Instrumentation, level Level, key string) Duration {
 	if m := emptyDurationMetric(exp, level, key); m != nil {
 		return m
 	}
@@ -97,7 +97,7 @@ func NewSeriesDuration(exp Experiment, level Level, key string) Duration {
 }
 
 // NewGaugeDuration returns a new Duration metric that records all duration values in a Gauge.
-func NewGaugeDuration(exp Experiment, level Level, key string) Duration {
+func NewGaugeDuration(exp Instrumentation, level Level, key string) Duration {
 	if m := emptyDurationMetric(exp, level, key); m != nil {
 		return m
 	}
@@ -112,7 +112,7 @@ type emptyDuration struct {
 
 func (e emptyDuration) Stopwatch() Stopwatch { return emptyStopwatch{} }
 
-func emptyDurationMetric(exp Experiment, level Level, key string) Duration {
+func emptyDurationMetric(exp Instrumentation, level Level, key string) Duration {
 	if exp != nil && exp.filterTest(level) {
 		return nil
 	}

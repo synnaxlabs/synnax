@@ -12,12 +12,13 @@ package gossip
 import (
 	"context"
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/alamos"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/rand"
 	"github.com/synnaxlabs/x/signal"
+	"go.uber.org/zap"
 	"time"
 )
 
@@ -29,22 +30,21 @@ func New(cfgs ...Config) (*Gossip, error) {
 	if err != nil {
 		return nil, err
 	}
-	cfg.Logger.Infow("starting cluster gossip", cfg.Report().LogArgs()...)
 	g := &Gossip{Config: cfg}
-	alamos.AttachReporter(g.Experiment, "gossip", alamos.Debug, cfg)
 	g.TransportServer.BindHandler(g.process)
 	return g, nil
 }
 
 // GoGossip starts a goroutine that gossips at Config.Interval.
 func (g *Gossip) GoGossip(ctx signal.Context) {
-	g.Logger.Infow("starting periodic cluster gossip")
+	alamos.AttachReporter(ctx, "gossip", alamos.Debug, g.Config)
+	alamos.L(ctx).Info("starting cluster gossip", g.Config.Report().LogArgs()...)
 	signal.GoTick(
 		ctx,
 		g.Interval,
 		func(ctx context.Context, t time.Time) error {
 			if err := g.GossipOnce(ctx); err != nil {
-				g.Logger.Errorw("gossip failed", "err", err)
+				alamos.L(ctx).Error("gossip failed", zap.Error(err))
 			}
 			return nil
 		},
@@ -92,7 +92,7 @@ func (g *Gossip) process(ctx context.Context, msg Message) (Message, error) {
 		return Message{}, nil
 	}
 	err := errors.New("[gossip] - received unknown message variant")
-	g.Logger.Error(err, "msg", msg)
+	alamos.L(ctx).Error(err.Error(), zap.Any("msg", msg))
 	return Message{}, err
 }
 

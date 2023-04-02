@@ -28,7 +28,7 @@ func newRecoveryTransform(cfg Config) segment {
 }
 
 func (r *recoveryTransform) transform(
-	ctx context.Context,
+	_ context.Context,
 	in BatchRequest,
 ) (out BatchRequest, ok bool, err error) {
 	for _, op := range in.Operations {

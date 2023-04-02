@@ -13,7 +13,7 @@ import (
 	"fmt"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/alamos"
+	"github.com/synnaxlabs/alamos"
 	"io"
 )
 

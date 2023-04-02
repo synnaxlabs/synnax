@@ -10,13 +10,13 @@
 package clustermock
 
 import (
+	"context"
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter/fmock"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/signal"
 )
 
 type Builder struct {
@@ -35,7 +35,7 @@ func NewBuilder(cfgs ...cluster.Config) *Builder {
 	}
 }
 
-func (b *Builder) New(ctx signal.Context, cfgs ...cluster.Config) (cluster.Cluster, error) {
+func (b *Builder) New(ctx context.Context, cfgs ...cluster.Config) (cluster.Cluster, error) {
 	gossipServer := b.GossipNet.UnaryServer("")
 	pledgeServer := b.PledgeNet.UnaryServer(gossipServer.Address)
 	cfgs = append(b.Configs, cfgs...)

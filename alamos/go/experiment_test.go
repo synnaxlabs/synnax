@@ -12,12 +12,12 @@ package alamos_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/alamos"
+	"github.com/synnaxlabs/alamos"
 )
 
-var _ = Describe("experiment", func() {
-	Describe("Creating a new experiment", func() {
-		It("Should create the experiment without panicking", func() {
+var _ = Describe("instrumentation", func() {
+	Describe("Creating a new instrumentation", func() {
+		It("Should create the instrumentation without panicking", func() {
 			Expect(func() { alamos.New("test") }).ToNot(Panic())
 		})
 	})

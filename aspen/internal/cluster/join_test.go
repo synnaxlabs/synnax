@@ -19,12 +19,10 @@ import (
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter/fmock"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/alamos"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
-	"go.uber.org/zap"
 	"time"
 )
 
@@ -34,7 +32,6 @@ var _ = Describe("Join", func() {
 		var (
 			gossipNet  *fmock.Network[gossip.Message, gossip.Message]
 			pledgeNet  *fmock.Network[pledge.Request, pledge.Response]
-			logger     *zap.SugaredLogger
 			clusterCtx signal.Context
 			shutdown   context.CancelFunc
 		)
@@ -43,7 +40,6 @@ var _ = Describe("Join", func() {
 			clusterCtx, shutdown = signal.WithCancel(ctx)
 			gossipNet = fmock.NewNetwork[gossip.Message, gossip.Message]()
 			pledgeNet = fmock.NewNetwork[pledge.Request, pledge.Response]()
-			logger = zap.NewNop().Sugar()
 		})
 
 		AfterEach(func() {
@@ -62,20 +58,16 @@ var _ = Describe("Join", func() {
 					clusterCtx,
 					cluster.Config{
 						HostAddress: gossipT1.Address,
-						Logger:      logger,
 						Pledge: pledge.Config{
 							Peers:           []address.Address{},
-							Logger:          logger,
 							TransportClient: pledgeNet.UnaryClient(),
 							TransportServer: pledgeT1,
 						},
 						Gossip: gossip.Config{
-							Logger:          logger,
 							TransportClient: gossipNet.UnaryClient(),
 							TransportServer: gossipT1,
 							Interval:        100 * time.Millisecond,
 						},
-						Experiment: alamos.New("cluster-join-test"),
 					},
 				)
 				Expect(err).ToNot(HaveOccurred())
@@ -88,15 +80,12 @@ var _ = Describe("Join", func() {
 					clusterCtx,
 					cluster.Config{
 						HostAddress: gossipT2.Address,
-						Logger:      logger,
 						Pledge: pledge.Config{
 							Peers:           []address.Address{gossipT1.Address},
-							Logger:          logger,
 							TransportServer: pledgeT2,
 							TransportClient: pledgeNet.UnaryClient(),
 						},
 						Gossip: gossip.Config{
-							Logger:          logger,
 							TransportServer: gossipT2,
 							TransportClient: gossipNet.UnaryClient(),
 							Interval:        100 * time.Millisecond,
@@ -122,15 +111,12 @@ var _ = Describe("Join", func() {
 					clusterCtx,
 					cluster.Config{
 						HostAddress: gossipT1.Address,
-						Logger:      logger,
 						Pledge: pledge.Config{
 							Peers:           []address.Address{},
-							Logger:          logger,
 							TransportClient: pledgeNet.UnaryClient(),
 							TransportServer: pledgeT1,
 						},
 						Gossip: gossip.Config{
-							Logger:          logger,
 							TransportClient: gossipNet.UnaryClient(),
 							TransportServer: gossipT1,
 							Interval:        100 * time.Millisecond,
@@ -147,15 +133,12 @@ var _ = Describe("Join", func() {
 
 				clusterTwoConfig := cluster.Config{
 					HostAddress: gossipT2.Address,
-					Logger:      logger,
 					Pledge: pledge.Config{
 						Peers:           []address.Address{gossipT1.Address},
-						Logger:          logger,
 						TransportClient: pledgeNet.UnaryClient(),
 						TransportServer: pledgeT2,
 					},
 					Gossip: gossip.Config{
-						Logger:          logger,
 						TransportClient: gossipNet.UnaryClient(),
 						TransportServer: gossipT2,
 						Interval:        100 * time.Millisecond,

@@ -24,8 +24,8 @@ import (
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/vfs"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium"
-	"github.com/synnaxlabs/x/alamos"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errutil"
 	"github.com/synnaxlabs/x/gorp"
@@ -106,7 +106,7 @@ type Config struct {
 	// Logger is the witness of it all.
 	Logger *zap.Logger
 	// Experiment is the experiment used by the node for metrics, reports, and tracing.
-	Experiment alamos.Experiment
+	Experiment alamos.Instrumentation
 	// KVEngine is the key-value engine storage will use.
 	KVEngine KVEngine
 	// TSEngine is the time-series engine storage will use.

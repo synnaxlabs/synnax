@@ -10,11 +10,14 @@
 package aspen_test
 
 import (
+	"github.com/synnaxlabs/alamos"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
+
+var ctx, _ = alamos.Nop()
 
 func TestAspen(t *testing.T) {
 	RegisterFailHandler(Fail)

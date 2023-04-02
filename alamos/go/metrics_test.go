@@ -12,12 +12,12 @@ package alamos_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/alamos"
+	"github.com/synnaxlabs/alamos"
 )
 
 var _ = Describe("Metric", func() {
 	var (
-		exp alamos.Experiment
+		exp alamos.Instrumentation
 	)
 	BeforeEach(func() {
 		exp = alamos.New("test")

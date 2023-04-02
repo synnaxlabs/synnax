@@ -10,10 +10,14 @@
 package kv
 
 import (
+	"context"
+	"fmt"
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/binary"
 	kvx "github.com/synnaxlabs/x/kv"
+	"go.uber.org/zap"
 	"sync"
 )
 
@@ -24,12 +28,14 @@ type batch struct {
 	apply   func(reqs []BatchRequest) error
 }
 
-func (b *batch) Set(key []byte, value []byte, maybeLease ...interface{}) error {
+var _ kvx.Batch = (*batch)(nil)
+
+func (b *batch) Set(ctx context.Context, key []byte, value []byte, maybeLease ...interface{}) error {
 	lease, err := validateLeaseOption(maybeLease)
 	if err != nil {
 		return err
 	}
-	return b.applyOp(Operation{
+	return b.applyOp(ctx, Operation{
 		Key:         key,
 		Value:       value,
 		Variant:     Set,
@@ -37,22 +43,22 @@ func (b *batch) Set(key []byte, value []byte, maybeLease ...interface{}) error {
 	})
 }
 
-func (b *batch) Delete(key []byte) error {
-	return b.applyOp(Operation{Key: key, Variant: Delete})
+func (b *batch) Delete(ctx context.Context, key []byte) error {
+	return b.applyOp(ctx, Operation{Key: key, Variant: Delete})
 }
 
-func (b *batch) applyOp(op Operation) error {
+func (b *batch) applyOp(ctx context.Context, op Operation) error {
 	var err error
-	op, err = b.lease.allocate(op)
+	op, err = b.lease.allocate(ctx, op)
 	if err != nil {
 		return err
 	}
 	if op.Variant == Delete {
-		if err := b.Batch.Delete(op.Key); err != nil {
+		if err := b.Batch.Delete(ctx, op.Key); err != nil {
 			return err
 		}
 	} else {
-		if err := b.Batch.Set(op.Key, op.Value); err != nil {
+		if err := b.Batch.Set(ctx, op.Key, op.Value); err != nil {
 			return err
 		}
 	}
@@ -61,25 +67,27 @@ func (b *batch) applyOp(op Operation) error {
 	return nil
 }
 
-func (b *batch) toRequests() ([]BatchRequest, error) {
+func (b *batch) toRequests(ctx context.Context) ([]BatchRequest, error) {
 	dm := make(map[node.ID]BatchRequest)
 	for _, dig := range b.digests {
 		op := dig.Operation()
 		if op.Variant == Set {
-			v, err := b.Get(dig.Key)
+			v, err := b.Get(ctx, dig.Key)
 			if err != nil && err != kvx.NotFound {
 				return nil, err
 			}
 			op.Value = binary.MakeCopy(v)
 		}
-		ob, ok := dm[op.Leaseholder]
+		br, ok := dm[op.Leaseholder]
 		if !ok {
-			ob.Operations = []Operation{op}
+			br.Operations = []Operation{op}
+			br.context = ctx
 		} else {
-			ob.Operations = append(ob.Operations, op)
+			br.Operations = append(br.Operations, op)
 		}
-		ob.Leaseholder = op.Leaseholder
-		dm[op.Leaseholder] = ob
+		br.Leaseholder = op.Leaseholder
+		br.context, br.span = alamos.Trace(ctx, fmt.Sprintf("batch-%d", br.Leaseholder))
+		dm[op.Leaseholder] = br
 	}
 	data := make([]BatchRequest, 0, len(dm))
 	for _, d := range dm {
@@ -90,8 +98,8 @@ func (b *batch) toRequests() ([]BatchRequest, error) {
 
 func (b *batch) Close() error { return b.free() }
 
-func (b *batch) Commit(opts ...interface{}) error {
-	data, err := b.toRequests()
+func (b *batch) Commit(ctx context.Context, _ ...interface{}) error {
+	data, err := b.toRequests(ctx)
 	if err != nil {
 		return err
 	}
@@ -107,44 +115,61 @@ type BatchRequest struct {
 	Leaseholder node.ID
 	Sender      node.ID
 	Operations  []Operation
-	done        func(err error)
+	context     context.Context
+	doneF       func(err error)
+	span        alamos.Span
 }
 
-func (bd BatchRequest) empty() bool { return len(bd.Operations) == 0 }
+func (br BatchRequest) empty() bool { return len(br.Operations) == 0 }
 
-func (bd BatchRequest) size() int { return len(bd.Operations) }
+func (br BatchRequest) size() int { return len(br.Operations) }
 
-func (bd BatchRequest) digests() []Digest {
-	digests := make([]Digest, len(bd.Operations))
-	for i, op := range bd.Operations {
+func (br BatchRequest) logArgs() []zap.Field {
+	return []zap.Field{
+		zap.Int("size", br.size()),
+		zap.Uint64("leaseholder", uint64(br.Leaseholder)),
+		zap.Uint64("sender", uint64(br.Sender)),
+	}
+}
+
+func (br BatchRequest) digests() []Digest {
+	digests := make([]Digest, len(br.Operations))
+	for i, op := range br.Operations {
 		digests[i] = op.Digest()
 	}
 	return digests
 }
 
-func (bd BatchRequest) commitTo(bw kvx.BatchWriter) error {
+func (br BatchRequest) commitTo(bw kvx.BatchWriter) error {
 	var err error
 	b := bw.NewBatch()
 	defer func() {
-		bd.Operations = nil
-		if _err := b.Commit(); _err != nil {
+		br.Operations = nil
+		if _err := b.Commit(br.context); _err != nil {
 			err = _err
 		}
-		if bd.done != nil {
-			bd.done(err)
+		if br.doneF != nil {
+			br.doneF(err)
 		}
 	}()
-	for _, op := range bd.Operations {
-		if _err := op.apply(b); _err != nil {
+	for _, op := range br.Operations {
+		if _err := op.apply(br.context, b); _err != nil {
 			err = _err
 			return err
 		}
-		if _err := op.Digest().apply(b); _err != nil {
+		if _err := op.Digest().apply(br.context, b); _err != nil {
 			err = _err
 			return err
 		}
 	}
 	return err
+}
+
+func (br BatchRequest) done(err error) {
+	if br.doneF != nil {
+		br.doneF(err)
+	}
+	br.span.End()
 }
 
 func validateLeaseOption(maybeLease []interface{}) (node.ID, error) {
@@ -160,8 +185,9 @@ func validateLeaseOption(maybeLease []interface{}) (node.ID, error) {
 }
 
 type batchCoordinator struct {
-	wg sync.WaitGroup
-	mu struct {
+	span alamos.Span
+	wg   sync.WaitGroup
+	mu   struct {
 		sync.Mutex
 		err error
 	}
@@ -183,5 +209,5 @@ func (bc *batchCoordinator) wait() error {
 
 func (bc *batchCoordinator) add(data *BatchRequest) {
 	bc.wg.Add(1)
-	data.done = bc.done
+	data.doneF = bc.done
 }

@@ -33,8 +33,8 @@ import (
 	"context"
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/node"
-	"github.com/synnaxlabs/x/alamos"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/iter"
 	xrand "github.com/synnaxlabs/x/rand"
@@ -77,8 +77,9 @@ func Pledge(ctx context.Context, cfgs ...Config) (res Response, err error) {
 		return res, errors.New("[pledge] - at least one peer required")
 	}
 
-	alamos.AttachReporter(cfg.Experiment, "pledge", alamos.Debug, cfg)
-	cfg.Logger.Infow("beginning pledge process", cfg.Report().LogArgs()...)
+	alamos.AttachReporter(ctx, "pledge", alamos.Debug, cfg)
+	log := alamos.L(ctx)
+	log.Info("beginning pledge process", cfg.Report().LogArgs()...)
 
 	// introduce random jitter to avoid a thundering herd during concurrent pledging.
 	introduceRandomJitter(cfg.RetryInterval)
@@ -94,15 +95,15 @@ func Pledge(ctx context.Context, cfgs ...Config) (res Response, err error) {
 			return Response{}, errors.CombineErrors(ctx.Err(), err)
 		case dur := <-t.C:
 			addr := nextAddr()
-			cfg.Logger.Infow("pledging to peer", "address", addr)
+			log.Info("pledging to peer", zap.Stringer("address", addr))
 			reqCtx, cancel := context.WithTimeout(context.Background(), cfg.RequestTimeout)
 			res, err = cfg.TransportClient.Send(reqCtx, addr, Request{ID: 0})
 			cancel()
 			if err == nil {
-				cfg.Logger.Infow(
+				log.Info(
 					"pledge successful",
-					"assignedHost", res.ID,
-					"clusterKey", res.ClusterKey,
+					zap.Uint32("assignedHost", uint32(res.ID)),
+					zap.Stringer("clusterKey", res.ClusterKey),
 				)
 
 				// If the pledge node has been inducted successfully, allow it to
@@ -113,7 +114,10 @@ func Pledge(ctx context.Context, cfgs ...Config) (res Response, err error) {
 			if ctx.Err() != nil {
 				return res, errors.CombineErrors(ctx.Err(), err)
 			}
-			cfg.Logger.Warnw("failed to pledge, retrying", "nextRetry", dur, "err", err)
+			log.Warn("failed to pledge, retrying",
+				zap.Duration("nextRetry", dur),
+				zap.Error(err),
+			)
 		}
 	}
 }
@@ -124,13 +128,13 @@ func Pledge(ctx context.Context, cfgs ...Config) (res Response, err error) {
 // IDs until cfg.MaxProposals is reached. When processing a responisble's proposal,
 // the node will act a juror, and decide if it approves of the proposed ID
 // or not. To see the required configuration parameters, see the Config struct.
-func Arbitrate(cfgs ...Config) error {
+func Arbitrate(ctx context.Context, cfgs ...Config) error {
 	cfg, err := config.OverrideAndValidate(DefaultConfig, cfgs...)
 	if err != nil {
 		return err
 	}
-	alamos.AttachReporter(cfg.Experiment, "pledge", alamos.Debug, cfg)
-	cfg.Logger.Infow("registering node as pledge arbitrator", cfg.Report().LogArgs()...)
+	alamos.AttachReporter(ctx, "pledge", alamos.Debug, cfg)
+	alamos.L(ctx).Info("registering node as pledge arbitrator", cfg.Report().LogArgs()...)
 	return arbitrate(cfg)
 }
 
@@ -152,7 +156,8 @@ type responsible struct {
 }
 
 func (r *responsible) propose(ctx context.Context) (res Response, err error) {
-	r.Logger.Infow("responsible received pledge. starting proposal process.")
+	log := alamos.L(ctx)
+	log.Info("responsible received pledge. starting proposal process.")
 
 	res.ClusterKey = r.ClusterKey
 
@@ -182,21 +187,26 @@ func (r *responsible) propose(ctx context.Context) (res Response, err error) {
 			break
 		}
 
-		r.Logger.Debugw("responsible proposing", "id", res.ID, "quorumCount", len(quorum))
+		logID := zap.Uint32("id", uint32(res.ID))
+		log.Debug("responsible proposing", logID, zap.Int("quorumCount", len(quorum)))
 
 		// If any node returns an error, it means we need to retry the responsible with a new ID.
 		if err = r.consultQuorum(ctx, res.ID, quorum); err != nil {
-			r.Logger.Errorw("quorum rejected proposal. retrying.", "err", zap.Error(err))
+			log.Error("quorum rejected proposal. retrying.", zap.Error(err))
 			continue
 		}
 
-		r.Logger.Debugw("quorum accepted pledge", "id", res.ID)
+		log.Debug("quorum accepted pledge", logID)
 
 		// If no candidate returned an error, it means we reached a quorum approval,
 		// and we can safely return the new ID to the caller.
 		return res, nil
 	}
-	r.Logger.Errorw("responsible failed to build healthy quorum", "numProposals", propC, "err", err)
+	log.Error(
+		"responsible failed to build healthy quorum",
+		zap.Int("numProposals", propC),
+		zap.Error(err),
+	)
 	return res, err
 }
 
@@ -230,13 +240,20 @@ func (r *responsible) consultQuorum(ctx context.Context, id node.ID, quorum node
 		wg.Go(func() error {
 			_, err := r.TransportClient.Send(reqCtx, n_.Address, Request{ID: id})
 			if errors.Is(err, proposalRejected) {
-				r.Logger.Debugw("quorum rejected proposal", "id", id, "address", n_.Address)
+				alamos.L(ctx).Debug(
+					"quorum rejected proposal",
+					zap.Uint32("id", uint32(id)),
+					zap.Stringer("address", n_.Address),
+				)
 				cancel()
 			}
 			// If any node returns an error, we need to retry the entire responsible,
 			// so we need to cancel all running requests.
 			if err != nil {
-				r.Logger.Errorw("failed to reach juror", "id", id, "err", err)
+				alamos.L(ctx).Error("failed to reach juror",
+					zap.Uint32("id", uint32(id)),
+					zap.Stringer("address", n_.Address),
+				)
 				cancel()
 			}
 			return err
@@ -252,7 +269,9 @@ type juror struct {
 }
 
 func (j *juror) verdict(ctx context.Context, req Request) (err error) {
-	j.Logger.Debugw("juror received proposal. making verdict", "id", req.ID)
+	log := alamos.L(ctx)
+	logID := zap.Uint32("id", uint32(req.ID))
+	log.Debug("juror received proposal. making verdict", logID)
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
@@ -260,16 +279,16 @@ func (j *juror) verdict(ctx context.Context, req Request) (err error) {
 	defer j.mu.Unlock()
 	for _, appID := range j.approvals {
 		if appID == req.ID {
-			j.Logger.Warnw("juror rejected proposal. already approved for a different pledge", "id", req.ID)
+			log.Warn("juror rejected proposal. already approved for a different pledge", logID)
 			return proposalRejected
 		}
 	}
 	if req.ID <= highestNodeID(j.Candidates()) {
-		j.Logger.Warnw("juror rejected proposal. id out of range", "id", req.ID)
+		log.Warn("juror rejected proposal. id out of range", logID)
 		return proposalRejected
 	}
 	j.approvals = append(j.approvals, req.ID)
-	j.Logger.Debugw("juror approved proposal", "id", req.ID)
+	log.Debug("juror approved proposal", logID)
 	return nil
 }
 

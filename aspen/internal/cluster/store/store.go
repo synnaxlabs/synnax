@@ -34,8 +34,6 @@ type Store interface {
 	// Merge merges a node.Group into State.Nodes by selecting nodes from group with heartbeats
 	// that are either not in State or are older than in State.
 	Merge(group node.Group)
-	// Valid returns true if the Store is valid i.e. State.HostID has been set.
-	Valid() bool
 	// GetHost returns the host node of the Store.
 	GetHost() node.Node
 	// SetHost sets the host for the Store.
@@ -93,6 +91,10 @@ type State struct {
 	Nodes      node.Group
 }
 
+func (s *State) IsZero() bool {
+	return s.ClusterKey == uuid.Nil && s.HostID == 0 && len(s.Nodes) == 0
+}
+
 type core struct {
 	store.Observable[State]
 }
@@ -145,6 +147,3 @@ func (c *core) Merge(other node.Group) {
 	}
 	c.Observable.SetState(snap)
 }
-
-// Valid implements Store.
-func (c *core) Valid() bool { return c.GetHost().ID != 0 }

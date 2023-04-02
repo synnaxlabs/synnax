@@ -14,7 +14,6 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen/internal/cluster"
-	"github.com/synnaxlabs/aspen/internal/kv"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/aspen/transport"
 	"github.com/synnaxlabs/x/address"
@@ -35,11 +34,6 @@ type (
 	ClusterState = cluster.State
 )
 
-type KV interface {
-	kv.DB
-	kvx.Closer
-}
-
 const (
 	Healthy = node.StateHealthy
 	Left    = node.StateLeft
@@ -49,21 +43,23 @@ const (
 
 type DB interface {
 	Cluster
-	KV
+	kvx.DB
 }
 
 type db struct {
 	Cluster
-	kv.DB
-	options  *options
-	wg       signal.WaitGroup
-	shutdown context.CancelFunc
+	kvx.DB
+	transport struct {
+		shutdown context.CancelFunc
+		wg       signal.WaitGroup
+	}
 }
 
 func (db *db) Close() error {
-	db.shutdown()
+	db.transport.shutdown()
 	c := errutil.NewCatch(errutil.WithAggregation())
-	c.Exec(db.wg.Wait)
-	c.Exec(db.options.kv.Engine.Close)
+	c.Exec(db.transport.wg.Wait)
+	c.Exec(db.Cluster.Close)
+	c.Exec(db.DB.Close)
 	return lo.Ternary(errors.Is(c.Error(), context.Canceled), nil, c.Error())
 }

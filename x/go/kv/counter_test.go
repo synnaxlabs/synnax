@@ -35,29 +35,29 @@ var _ = Describe("SeqNum", Ordered, func() {
 			var c *kv.PersistedCounter
 			BeforeAll(func() {
 				var err error
-				c, err = kv.OpenCounter(kve, []byte("test"))
+				c, err = kv.OpenCounter(ctx, kve, []byte("test"))
 				Expect(err).NotTo(HaveOccurred())
 			})
 			It("Should create a counter with a starting value of 0", func() {
 				Expect(c.Value()).To(Equal(int64(0)))
 			})
 			It("Should increment the counter correctly", func() {
-				Expect(c.Add()).To(Equal(int64(1)))
+				Expect(c.Add(ctx)).To(Equal(int64(1)))
 			})
 			It("Should increment the number by a set value", func() {
-				Expect(c.Add(10)).To(Equal(int64(11)))
+				Expect(c.Add(ctx, 10)).To(Equal(int64(11)))
 			})
 		})
 		Context("Existing SeqNum", func() {
 			It("Should load the value of the existing counter", func() {
-				c, err := kv.OpenCounter(kve, []byte("test-two"))
+				c, err := kv.OpenCounter(ctx, kve, []byte("test-two"))
 				Expect(err).NotTo(HaveOccurred())
 				Expect(c.Value()).To(Equal(int64(0)))
-				_, err = c.Add(10)
+				_, err = c.Add(ctx, 10)
 				Expect(err).NotTo(HaveOccurred())
-				_, err = c.Add(10)
+				_, err = c.Add(ctx, 10)
 				Expect(err).NotTo(HaveOccurred())
-				cTwo, err := kv.OpenCounter(kve, []byte("test-two"))
+				cTwo, err := kv.OpenCounter(ctx, kve, []byte("test-two"))
 				Expect(err).NotTo(HaveOccurred())
 				Expect(cTwo.Value()).To(Equal(int64(20)))
 			})

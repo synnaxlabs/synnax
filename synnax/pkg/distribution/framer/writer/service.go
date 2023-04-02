@@ -135,7 +135,7 @@ func (s *Service) New(ctx context.Context, cfg Config) (Writer, error) {
 	sCtx, cancel := signal.WithCancel(
 		ctx,
 		signal.WithContextKey("writer"),
-		signal.WithLogger(s.Logger),
+		signal.WithInstrumentation(s.Logger),
 	)
 	seg, err := s.NewStream(ctx, cfg)
 	if err != nil {
@@ -191,7 +191,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamWriter, erro
 
 	if needGatewayRouting {
 		routeBulkheadTo = gatewayWriterAddr
-		w, err := s.newGateway(Config{Start: cfg.Start, Keys: batch.Gateway})
+		w, err := s.newGateway(ctx, Config{Start: cfg.Start, Keys: batch.Gateway})
 		if err != nil {
 			return nil, err
 		}

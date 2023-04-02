@@ -10,9 +10,10 @@
 package fs
 
 import (
-	"github.com/spf13/afero"
 	"os"
 	"path"
+
+	"github.com/spf13/afero"
 )
 
 type File interface {

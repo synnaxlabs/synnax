@@ -13,7 +13,7 @@ import (
 	"bytes"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/alamos"
+	"github.com/synnaxlabs/alamos"
 )
 
 type myReporter struct {
@@ -26,7 +26,7 @@ func (m myReporter) Report() alamos.Report {
 }
 
 var _ = Describe("Report", func() {
-	It("Should write the experiment to JSON", func() {
+	It("Should write the instrumentation to JSON", func() {
 		exp := alamos.New("exp")
 		g := alamos.NewGauge[int](exp, alamos.Debug, "gauge")
 		g.Record(1)
@@ -42,7 +42,7 @@ var _ = Describe("Report", func() {
 		Expect(w.String()).To(ContainSubstring("gauge"))
 		Expect(exp.Report().String()).To(ContainSubstring("gauge"))
 	})
-	It("Should attach reporters to an experiment", func() {
+	It("Should attach reporters to an instrumentation", func() {
 		exp := alamos.New("exp")
 		alamos.AttachReporter(exp, "reporter", alamos.Debug, myReporter{})
 		Expect(exp.Report().String()).To(ContainSubstring("key"))

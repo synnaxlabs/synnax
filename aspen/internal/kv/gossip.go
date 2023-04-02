@@ -11,10 +11,12 @@ package kv
 
 import (
 	"context"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/confluence"
+	"go.uber.org/zap"
 	"go/types"
 )
 
@@ -51,7 +53,7 @@ func (g *operationSender) send(ctx context.Context, sync BatchRequest) (BatchReq
 	sync.Sender = hostID
 	ack, err := g.BatchTransportClient.Send(ctx, peer.Address, sync)
 	if err != nil {
-		g.Logger.Errorw("operation gossip failed", "err", err)
+		alamos.L(ctx).Error("operation gossip failed", zap.Error(err))
 	}
 	// If we have no Operations to apply, avoid the pipeline overhead.
 	return ack, !ack.empty(), nil
@@ -112,7 +114,7 @@ func (f *feedbackSender) send(ctx context.Context, bd BatchRequest) error {
 	msg := FeedbackMessage{Sender: f.Cluster.Host().ID, Digests: bd.digests()}
 	sender, _ := f.Cluster.Node(bd.Sender)
 	if _, err := f.FeedbackTransportClient.Send(context.TODO(), sender.Address, msg); err != nil {
-		f.Logger.Errorw("feedback gossip failed", "err", err)
+		alamos.L(ctx).Error("feedback gossip failed", zap.Error(err))
 	}
 	return nil
 }
@@ -131,7 +133,7 @@ func newFeedbackReceiver(cfg Config) source {
 	return fr
 }
 
-func (f *feedbackReceiver) handle(ctx context.Context, message FeedbackMessage) (types.Nil, error) {
+func (f *feedbackReceiver) handle(_ context.Context, message FeedbackMessage) (types.Nil, error) {
 	f.Out.Inlet() <- message.Digests.toRequest()
 	return types.Nil{}, nil
 }

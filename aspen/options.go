@@ -11,14 +11,13 @@ package aspen
 
 import (
 	"github.com/cockroachdb/pebble/vfs"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/kv"
 	grpct "github.com/synnaxlabs/aspen/transport/grpc"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/alamos"
 	kvx "github.com/synnaxlabs/x/kv"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"time"
@@ -52,14 +51,10 @@ type options struct {
 	// externalTransport is a boolean flag indicating whether the caller provided an external
 	// transport that they control themselves.
 	externalTransport bool
-	// logger is the witness of it all.
-	logger *zap.SugaredLogger
-	// experiment is the experiment that aspen attaches its metrics to.
-	experiment alamos.Experiment
 }
 
 func (o *options) Report() alamos.Report {
-	// The key-value store and cluster state services will attach their own reports to the experiment,
+	// The key-value store and cluster state services will attach their own reports to the instrumentation,
 	// so we only need to report values that they won't.
 	return alamos.Report{
 		"dirname":   o.dirname,
@@ -71,15 +66,6 @@ func (o *options) Report() alamos.Report {
 
 // Bootstrap tells aspen to bootstrap a new cluster. This option automatically assigns the host node and NodeID of 1.
 func Bootstrap() Option { return func(o *options) { o.bootstrap = true } }
-
-// WithLogger sets the logger for aspen.
-func WithLogger(logger *zap.SugaredLogger) Option { return func(o *options) { o.logger = logger } }
-
-// WithExperiment sets the experiment for aspen. Aspen will attach any metrics and reports it generates to this
-// experiment.
-func WithExperiment(experiment alamos.Experiment) Option {
-	return func(o *options) { o.experiment = experiment }
-}
 
 // WithEngine sets the underlying KV engine that aspen uses to store its data. When using this option, the caller
 // should transfer all responsibility for executing queries on the engine to aspen.
@@ -155,7 +141,6 @@ func newOptions(dirname string, addr address.Address, peers []address.Address, o
 		opt(o)
 	}
 	mergeDefaultOptions(o)
-	alamos.AttachReporter(o.experiment, "aspen", alamos.Debug, o)
 	return o
 }
 
@@ -174,7 +159,6 @@ func mergeDefaultOptions(o *options) {
 
 	// |||| CLUSTER ||||
 
-	o.cluster.Experiment = o.experiment
 	o.cluster.Pledge.Peers = o.peerAddresses
 	o.cluster.HostAddress = o.addr
 
@@ -186,14 +170,6 @@ func mergeDefaultOptions(o *options) {
 		o.transport = def.transport
 	}
 
-	// |||| LOGGER ||||
-
-	if o.logger == nil {
-		o.logger = def.logger
-	}
-	o.cluster.Logger = o.logger.Named("cluster")
-	o.kv.Logger = o.logger.Named("kv")
-
 	if o.bootstrap {
 		o.peerAddresses = []address.Address{}
 		o.cluster.Pledge.Peers = []address.Address{}
@@ -202,12 +178,10 @@ func mergeDefaultOptions(o *options) {
 }
 
 func defaultOptions() *options {
-	logger, _ := zap.NewProduction()
 	return &options{
 		dirname:   "",
 		cluster:   cluster.DefaultConfig,
 		kv:        kv.DefaultConfig,
 		transport: grpct.New(fgrpc.NewPool(grpc.WithTransportCredentials(insecure.NewCredentials()))),
-		logger:    logger.Sugar(),
 	}
 }
