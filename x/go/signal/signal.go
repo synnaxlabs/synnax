@@ -28,48 +28,39 @@ type Context interface {
 
 // WithCancel returns a Context derived from core that is canceled by the given cancel
 // function. If any goroutine returns a non-nil error, the Context will be canceled.
-func WithCancel(ctx context.Context, opts ...Option) (Context, context.CancelFunc) {
+func WithCancel(ctx context.Context) (Context, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(ctx)
-	c := newCore(ctx, cancel, opts...)
+	c := newCore(ctx, cancel)
 	return c, cancel
 }
 
 // WithTimeout returns a Context derived from core that is canceled by the given
 // timeout. If any goroutine returns a non-nil error, the Context will be canceled.
-func WithTimeout(ctx context.Context, d time.Duration, opts ...Option) (Context, context.CancelFunc) {
+func WithTimeout(ctx context.Context, d time.Duration) (Context, context.CancelFunc) {
 	ctx, cancel := context.WithTimeout(ctx, d)
-	c := newCore(ctx, cancel, opts...)
+	c := newCore(ctx, cancel)
 	return c, cancel
 }
 
 // TODO wraps context.TODO in a Context that can be cancelled. If any goroutine
 // returns a non-nil error, the Context will be cancelled.
-func TODO(opts ...Option) (Context, context.CancelFunc) {
-	return WithCancel(context.TODO(), opts...)
-}
-
-// Background returns a new signal context wrapping context.Background.
-func Background(opts ...Option) (Context, context.CancelFunc) {
-	return WithCancel(context.Background(), opts...)
+func TODO() (Context, context.CancelFunc) {
+	return WithCancel(context.TODO())
 }
 
 func newCore(
 	ctx context.Context,
 	cancel context.CancelFunc,
-	opts ...Option,
 ) *core {
-	o := newOptions(opts...)
 	c := &core{
 		Context: ctx,
 		cancel:  cancel,
-		options: o,
 	}
 	c.mu.stopped = make(chan struct{})
 	return c
 }
 
 type core struct {
-	*options
 	context.Context
 	cancel   context.CancelFunc
 	internal errgroup.Group

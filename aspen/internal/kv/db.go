@@ -10,8 +10,9 @@
 package kv
 
 import (
+	"context"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/alamos"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
@@ -34,41 +35,35 @@ type (
 	BatchWriter = kvx.BatchWriter
 )
 
-// DB is a readable and writable key-value storeSink.
-type DB interface {
-	Writer
-	Reader
-	BatchWriter
-	alamos.Reporter
-}
-
-type kv struct {
+type db struct {
 	kvx.DB
 	Config
 	leaseAlloc *leaseAllocator
 	confluence.AbstractUnarySource[BatchRequest]
 	confluence.EmptyFlow
+	shutdown context.CancelFunc
+	wg       signal.WaitGroup
 }
 
 // Set implements DB.
-func (k *kv) Set(key []byte, value []byte, maybeLease ...interface{}) error {
+func (k *db) Set(ctx context.Context, key []byte, value []byte, options ...interface{}) error {
 	b := k.NewBatch()
-	if err := b.Set(key, value, maybeLease...); err != nil {
+	if err := b.Set(ctx, key, value, options...); err != nil {
 		return err
 	}
-	return b.Commit()
+	return b.Commit(ctx)
 }
 
 // Delete implements DB.
-func (k *kv) Delete(key []byte) error {
+func (k *db) Delete(ctx context.Context, key []byte) error {
 	b := k.NewBatch()
-	if err := b.Delete(key); err != nil {
+	if err := b.Delete(ctx, key); err != nil {
 		return err
 	}
-	return b.Commit()
+	return b.Commit(ctx)
 }
 
-func (k *kv) apply(b []BatchRequest) (err error) {
+func (k *db) apply(b []BatchRequest) (err error) {
 	c := batchCoordinator{}
 	for _, bd := range b {
 		c.add(&bd)
@@ -77,11 +72,11 @@ func (k *kv) apply(b []BatchRequest) (err error) {
 	return c.wait()
 }
 
-func (k *kv) NewBatch() kvx.Batch {
+func (k *db) NewBatch() kvx.Batch {
 	return &batch{apply: k.apply, lease: k.leaseAlloc, Batch: k.DB.NewBatch()}
 }
 
-func (k *kv) Report() alamos.Report {
+func (k *db) Report() alamos.Report {
 	return alamos.Report{
 		"engine": "aspen-pebble",
 	}
@@ -104,25 +99,30 @@ const (
 	executorAddr          = "executor"
 )
 
-func Open(ctx signal.Context, cfgs ...Config) (DB, error) {
+func Open(ctx context.Context, cfgs ...Config) (kvx.DB, error) {
 	cfg, err := config.OverrideAndValidate(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	db := &kv{
-		Config:     cfg,
-		DB:         cfg.Engine,
-		leaseAlloc: &leaseAllocator{Config: cfg},
-	}
 
-	cfg.Logger.Infow("opening cluster kv", cfg.Report().LogArgs()...)
-
-	va, err := newVersionAssigner(cfg)
+	va, err := newVersionAssigner(ctx, cfg.Engine)
 	if err != nil {
 		return nil, err
 	}
 
+	alamos.L(ctx).Info("opening cluster db", cfg.Report().LogArgs()...)
+
 	st := newStore()
+
+	sCtx, cancel := signal.WithCancel(alamos.Transfer(context.Background(), ctx))
+
+	db := &db{
+		Config:     cfg,
+		DB:         cfg.Engine,
+		leaseAlloc: &leaseAllocator{Config: cfg},
+		shutdown:   cancel,
+		wg:         sCtx,
+	}
 
 	pipe := plumber.New()
 	plumber.SetSource[BatchRequest](pipe, executorAddr, db)
@@ -209,7 +209,12 @@ func Open(ctx signal.Context, cfgs ...Config) (DB, error) {
 		Capacity:     1,
 	}.MustRoute(pipe)
 
-	pipe.Flow(ctx)
+	pipe.Flow(sCtx)
 
 	return db, nil
+}
+
+func (k *db) Close() error {
+	k.shutdown()
+	return k.wg.Wait()
 }

@@ -11,7 +11,9 @@
 package gorp
 
 import (
+	"context"
 	"github.com/cockroachdb/errors"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
@@ -60,19 +62,17 @@ func (r Retrieve[K, E]) Entry(entry *E) Retrieve[K, E] {
 // the query, Retrieve will return a query.NotFound  error if ANY of the keys do not
 // exist in the database. If Where is set on the query, Retrieve will return a query.NotFound
 // if NO keys pass the Where filter.
-func (r Retrieve[K, E]) Exec(txn Txn) error {
+func (r Retrieve[K, E]) Exec(ctx context.Context, txn Txn) error {
 	_, ok := getWhereKeys[K](r)
-	if ok {
-		return keysRetrieve[K, E](r, txn, txn.options())
-	}
-	return filterRetrieve[K, E](r, txn, txn.options())
+	f := lo.Ternary(ok, keysRetrieve[K, E], filterRetrieve[K, E])
+	return f(ctx, r, txn, txn.options())
 }
 
 // Exists checks whether records matching the query exist in the DB. If the WhereKeys method is
 // set on the query, Exists will return true if ANY of the keys exist in the database. If
 // Where is set on the query, Exists will return true if ANY keys pass the Where filter.
-func (r Retrieve[K, E]) Exists(txn Txn) (bool, error) {
-	return checkExists[K, E](r, txn, txn.options())
+func (r Retrieve[K, E]) Exists(ctx context.Context, txn Txn) (bool, error) {
+	return checkExists[K, E](ctx, r, txn, txn.options())
 }
 
 // |||||| FILTERS ||||||
@@ -152,24 +152,29 @@ func getWhereKeys[K Key](q query.Query) (whereKeys[K], bool) {
 	return keys.(whereKeys[K]), true
 }
 
-func checkExists[K Key, E Entry[K]](q query.Query, reader kv.Reader, opts options) (bool, error) {
+func checkExists[K Key, E Entry[K]](ctx context.Context, q query.Query, reader kv.Reader, opts options) (bool, error) {
 	if keys, ok := getWhereKeys[K](q); ok {
 		entries := make([]E, 0, len(keys))
 		SetEntries[K, E](q, &entries)
-		if err := keysRetrieve[K, E](q, reader, opts); err != nil && !errors.Is(err, query.NotFound) {
+		if err := keysRetrieve[K, E](ctx, q, reader, opts); err != nil && !errors.Is(err, query.NotFound) {
 			return false, err
 		}
 		return len(entries) == len(keys), nil
 	}
 	entries := make([]E, 0, 1)
 	SetEntries[K, E](q, &entries)
-	if err := filterRetrieve[K, E](q, reader, opts); err != nil && !errors.Is(err, query.NotFound) {
+	if err := filterRetrieve[K, E](ctx, q, reader, opts); err != nil && !errors.Is(err, query.NotFound) {
 		return false, err
 	}
 	return len(entries) > 0, nil
 }
 
-func keysRetrieve[K Key, E Entry[K]](q query.Query, reader kv.Reader, opts options) error {
+func keysRetrieve[K Key, E Entry[K]](
+	ctx context.Context,
+	q query.Query,
+	reader kv.Reader,
+	opts options,
+) error {
 	var (
 		entry   *E
 		keys, _ = getWhereKeys[K](q)
@@ -183,7 +188,7 @@ func keysRetrieve[K Key, E Entry[K]](q query.Query, reader kv.Reader, opts optio
 	}
 	for _, key := range byteKeys {
 		prefixedKey := append(prefix, key...)
-		b, _err := reader.Get(prefixedKey)
+		b, _err := reader.Get(ctx, prefixedKey)
 		if _err != nil {
 			if errors.Is(_err, kv.NotFound) {
 				err = query.NotFound
@@ -202,12 +207,17 @@ func keysRetrieve[K Key, E Entry[K]](q query.Query, reader kv.Reader, opts optio
 	return err
 }
 
-func filterRetrieve[K Key, E Entry[K]](q query.Query, reader kv.Reader, opts options) error {
+func filterRetrieve[K Key, E Entry[K]](
+	ctx context.Context,
+	q query.Query,
+	reader kv.Reader,
+	opts options,
+) error {
 	var (
 		v       = new(E)
 		f       = getFilters[K, E](q)
 		entries = GetEntries[K, E](q)
-		iter    = WrapKVIter[E](reader.NewIterator(kv.PrefixIter(typePrefix[K, E](opts))))
+		iter    = WrapKVIter[E](reader.NewIterator(ctx, kv.PrefixIter(typePrefix[K, E](opts))))
 		found   = false
 	)
 	for iter.First(); iter.Valid(); iter.Next() {

@@ -10,10 +10,10 @@
 package core
 
 import (
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/alamos"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -27,7 +27,7 @@ type Config struct {
 	// If no addresses are provided and storage is empty, the distribution layer will bootstrap a new Cluster.
 	// If a Cluster already exists in storage, the addresses in this list will be ignored.
 	PeerAddresses []address.Address
-	Experiment    alamos.Experiment
+	Experiment    alamos.Instrumentation
 	// Logger is the witness of it all.
 	Logger *zap.Logger
 	// Pool is a pool for grpc connections to other nodes in the Cluster.

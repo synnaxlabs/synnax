@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter/fmock"
 	"github.com/synnaxlabs/x/signal"
-	"go.uber.org/zap"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -26,12 +25,10 @@ import (
 
 var _ = Describe("OperationSender", func() {
 	var (
-		net    *fmock.Network[gossip.Message, gossip.Message]
-		logger *zap.SugaredLogger
+		net *fmock.Network[gossip.Message, gossip.Message]
 	)
 	BeforeEach(func() {
 		net = fmock.NewNetwork[gossip.Message, gossip.Message]()
-		logger = zap.NewNop().Sugar()
 	})
 	Describe("Two Node", func() {
 		var (
@@ -57,7 +54,6 @@ var _ = Describe("OperationSender", func() {
 				Store:           sOne,
 				TransportClient: net.UnaryClient(),
 				TransportServer: t1,
-				Logger:          logger,
 				Interval:        5 * time.Millisecond,
 			})
 			Expect(err).ToNot(HaveOccurred())
@@ -65,7 +61,6 @@ var _ = Describe("OperationSender", func() {
 				Store:           sTwo,
 				TransportClient: net.UnaryClient(),
 				TransportServer: t2,
-				Logger:          logger,
 				Interval:        5 * time.Millisecond,
 			})
 			Expect(err).ToNot(HaveOccurred())

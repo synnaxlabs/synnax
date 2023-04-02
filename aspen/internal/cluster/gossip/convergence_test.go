@@ -14,13 +14,12 @@ import (
 	"fmt"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/store"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter/fmock"
-	"github.com/synnaxlabs/x/alamos"
 	"github.com/synnaxlabs/x/rand"
-	"go.uber.org/zap"
 	"sync"
 )
 
@@ -55,12 +54,10 @@ var progressiveConvergence = []convergenceVars{
 
 var _ = Describe("Convergence", func() {
 	var (
-		net    *fmock.Network[gossip.Message, gossip.Message]
-		logger *zap.SugaredLogger
+		net *fmock.Network[gossip.Message, gossip.Message]
 	)
 	BeforeEach(func() {
 		net = fmock.NewNetwork[gossip.Message, gossip.Message]()
-		logger = zap.NewNop().Sugar()
 	})
 	p := alamos.NewParametrize(alamos.IterVars(progressiveConvergence))
 	p.Template(func(i int, values convergenceVars) {
@@ -77,7 +74,6 @@ var _ = Describe("Convergence", func() {
 				configs[n.ID] = gossip.Config{
 					TransportServer: server,
 					TransportClient: net.UnaryClient(),
-					Logger:          logger,
 				}
 			}
 			var (

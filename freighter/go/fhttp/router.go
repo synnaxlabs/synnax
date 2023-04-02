@@ -11,8 +11,8 @@ package fhttp
 
 import (
 	"github.com/gofiber/fiber/v2"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/x/alamos"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/httputil"
 	"github.com/synnaxlabs/x/override"
@@ -35,7 +35,7 @@ var _ config.Config[RouterConfig] = RouterConfig{}
 
 func (r RouterConfig) Validate() error {
 	v := validate.New("[fhttp.Router]")
-	validate.NotNil(v, "Logger", r.Logger)
+	validate.NotNil(v, "logger", r.Logger)
 	return v.Error()
 }
 

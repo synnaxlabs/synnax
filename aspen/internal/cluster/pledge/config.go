@@ -11,14 +11,13 @@ package pledge
 
 import (
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/alamos"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 	"time"
 )
 
@@ -65,10 +64,6 @@ type Config struct {
 	// increase during a Pledge to a peer. For example, a value of 2 would result
 	// in a retry interval of 1,2, 4, 8, 16, 32, 64, ... seconds.
 	RetryScale float64
-	// Logger is the witness of it all.
-	Logger *zap.SugaredLogger
-	// Experiment is where the gossip services saves its metrics and reports.
-	Experiment alamos.Experiment
 }
 
 var _ config.Config[Config] = Config{}
@@ -82,7 +77,6 @@ func (cfg Config) Override(other Config) Config {
 	cfg.RetryInterval = override.Numeric(cfg.RetryInterval, other.RetryInterval)
 	cfg.RetryScale = override.Numeric(cfg.RetryScale, other.RetryScale)
 	cfg.MaxProposals = override.Numeric(cfg.MaxProposals, other.MaxProposals)
-	cfg.Logger = override.Nil[*zap.SugaredLogger](cfg.Logger, other.Logger)
 	cfg.Candidates = override.Nil(cfg.Candidates, other.Candidates)
 	cfg.Peers = override.Slice(cfg.Peers, other.Peers)
 	return cfg
@@ -119,7 +113,6 @@ var (
 		RequestTimeout: 5 * time.Second,
 		RetryInterval:  1 * time.Second,
 		RetryScale:     1.25,
-		Logger:         zap.NewNop().Sugar(),
 		MaxProposals:   10,
 		Peers:          []address.Address{},
 	}

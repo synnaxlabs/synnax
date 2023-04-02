@@ -10,6 +10,7 @@
 package gorp
 
 import (
+	"context"
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
@@ -40,13 +41,13 @@ func (d Delete[K, E]) WhereKeys(keys ...K) Delete[K, E] {
 // Exec executes the Query against the provided Txn. If any entries matching WhereKeys
 // do not exist in the database, Delete will assume that the keys do not exist and
 // do nothing.
-func (d Delete[K, E]) Exec(txn Txn) error {
-	return (&del[K, E]{Txn: txn}).exec(d)
+func (d Delete[K, E]) Exec(ctx context.Context, txn Txn) error {
+	return (&del[K, E]{Txn: txn}).exec(ctx, d)
 }
 
 type del[K Key, E Entry[K]] struct{ Txn }
 
-func (d *del[K, E]) exec(q query.Query) error {
+func (d *del[K, E]) exec(ctx context.Context, q query.Query) error {
 	var (
 		opts    = d.Txn.options()
 		entries []E
@@ -65,7 +66,7 @@ func (d *del[K, E]) exec(q query.Query) error {
 		return err
 	}
 	for _, key := range byteKeys {
-		if err = d.Delete(append(prefix, key...)); err != nil && !errors.Is(err, kv.NotFound) {
+		if err = d.Delete(ctx, append(prefix, key...)); err != nil && !errors.Is(err, kv.NotFound) {
 			return err
 		}
 	}

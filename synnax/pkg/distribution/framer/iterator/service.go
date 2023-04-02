@@ -94,7 +94,7 @@ func (s *Service) New(ctx context.Context, cfg Config) (Iterator, error) {
 		return nil, err
 	}
 	sCtx, cancel := signal.Background(
-		signal.WithLogger(s.Logger),
+		signal.WithInstrumentation(s.Logger),
 		signal.WithContextKey("iterator"),
 	)
 	req := confluence.NewStream[Request]()

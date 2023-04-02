@@ -9,7 +9,9 @@
 
 package kv
 
-import "github.com/synnaxlabs/x/binary"
+import (
+	"github.com/synnaxlabs/x/binary"
+)
 
 type IteratorOptions struct {
 	LowerBound []byte

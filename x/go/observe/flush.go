@@ -10,6 +10,7 @@
 package observe
 
 import (
+	"context"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/kv"
@@ -43,18 +44,18 @@ type FlushSubscriber[S any] struct {
 }
 
 // Flush is the handler to bind to the Observable.
-func (f *FlushSubscriber[S]) Flush(state S) {
+func (f *FlushSubscriber[S]) Flush(ctx context.Context, state S) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if time.Since(f.LastFlush) < f.MinInterval {
 		return
 	}
 	f.LastFlush = time.Now()
-	go f.FlushSync(state)
+	go f.FlushSync(ctx, state)
 }
 
-func (f *FlushSubscriber[S]) FlushSync(state S) {
-	if err := f.Store.Set(f.Key, lo.Must(f.Encoder.Encode(state))); err != nil {
+func (f *FlushSubscriber[S]) FlushSync(ctx context.Context, state S) {
+	if err := f.Store.Set(ctx, f.Key, lo.Must(f.Encoder.Encode(state))); err != nil {
 		f.Logger.Errorw("failed to flush", "err", err)
 	}
 }

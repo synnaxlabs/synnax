@@ -11,7 +11,6 @@ package fhttp
 
 import (
 	"context"
-	"github.com/gofiber/fiber/v2"
 	"go/types"
 	"io"
 	"net/http"
@@ -20,10 +19,10 @@ import (
 	roacherrors "github.com/cockroachdb/errors"
 	ws "github.com/fasthttp/websocket"
 	fiberws "github.com/gofiber/websocket/v2"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/ferrors"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/alamos"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/httputil"

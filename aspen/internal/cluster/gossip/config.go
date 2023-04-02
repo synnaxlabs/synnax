@@ -10,11 +10,10 @@
 package gossip
 
 import (
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/cluster/store"
-	"github.com/synnaxlabs/x/alamos"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 	"time"
 )
 
@@ -32,16 +31,11 @@ type Config struct {
 	Store store.Store
 	// Interval is the interval at which a node will gossip its state.
 	Interval time.Duration
-	// Logger is the witness of it all.
-	Logger *zap.SugaredLogger
-	// Experiment is where the gossip services saves its metrics and reports.
-	Experiment alamos.Experiment
 }
 
 // Override implements the config.ServiceConfig interface.
 func (cfg Config) Override(other Config) Config {
 	cfg.Interval = override.Numeric(cfg.Interval, other.Interval)
-	cfg.Logger = override.Nil(cfg.Logger, other.Logger)
 	cfg.TransportClient = override.Nil(cfg.TransportClient, other.TransportClient)
 	cfg.TransportServer = override.Nil(cfg.TransportServer, other.TransportServer)
 	cfg.Store = override.Nil(cfg.Store, other.Store)
@@ -55,7 +49,6 @@ func (cfg Config) Validate() error {
 	validate.NotNil(v, "TransportServer", cfg.TransportServer)
 	validate.NotNil(v, "Store", cfg.Store)
 	validate.Positive(v, "Interval", cfg.Interval)
-	validate.NotNil(v, "Logger", cfg.Logger)
 	return v.Error()
 }
 
@@ -71,7 +64,6 @@ func (cfg Config) Report() alamos.Report {
 var (
 	DefaultConfig = Config{
 		Interval: 1 * time.Second,
-		Logger:   zap.NewNop().Sugar(),
 	}
 	FastConfig = DefaultConfig.Override(Config{
 		Interval: 50 * time.Millisecond,

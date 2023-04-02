@@ -12,6 +12,7 @@ package kv
 import (
 	"context"
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
@@ -20,14 +21,14 @@ import (
 	"go/types"
 )
 
-var ErrLeaseNotTransferable = errors.New("[kv] - cannot transfer leaseAlloc")
+var ErrLeaseNotTransferable = errors.New("[db] - cannot transfer leaseAlloc")
 
 const DefaultLeaseholder node.ID = 0
 
 type leaseAllocator struct{ Config }
 
-func (la *leaseAllocator) allocate(op Operation) (Operation, error) {
-	lh, err := la.getLease(op.Key)
+func (la *leaseAllocator) allocate(ctx context.Context, op Operation) (Operation, error) {
+	lh, err := la.getLease(ctx, op.Key)
 	// If we get a nil error, that means this key has been set before.
 	if err == nil {
 		if op.Leaseholder == DefaultLeaseholder {
@@ -51,8 +52,8 @@ func (la *leaseAllocator) allocate(op Operation) (Operation, error) {
 	return op, nil
 }
 
-func (la *leaseAllocator) getLease(key []byte) (node.ID, error) {
-	digest, err := getDigestFromKV(la.Engine, key)
+func (la *leaseAllocator) getLease(ctx context.Context, key []byte) (node.ID, error) {
+	digest, err := getDigestFromKV(ctx, la.Engine, key)
 	return digest.Leaseholder, err
 }
 
@@ -70,7 +71,7 @@ func newLeaseProxy(cfg Config, localTo address.Address, remoteTo address.Address
 }
 
 func (lp *leaseProxy) _switch(
-	ctx context.Context,
+	_ context.Context,
 	b BatchRequest,
 ) (address.Address, bool, error) {
 	if b.Leaseholder == lp.Cluster.HostID() {
@@ -95,23 +96,12 @@ func newLeaseSender(cfg Config) sink {
 	return ls
 }
 
-func (lf *leaseSender) send(ctx context.Context, br BatchRequest) error {
-	lf.Logger.Debugw("sending leased BatchRequest",
-		"host", lf.Cluster.HostID(),
-		"Leaseholder", br.Leaseholder,
-		"numOps", len(br.Operations),
-	)
-	addr, err := lf.Cluster.Resolve(br.Leaseholder)
-	if err != nil {
-		if br.done != nil {
-			br.done(err)
-		}
-		return err
-	}
+func (lf *leaseSender) send(ctx context.Context, br BatchRequest) (err error) {
+	defer br.done(err)
+	alamos.L(ctx).Debug("sending leased batch", br.logArgs()...)
+	var addr address.Address
+	addr, err = lf.Cluster.Resolve(br.Leaseholder)
 	_, err = lf.Config.LeaseTransportClient.Send(ctx, addr, br)
-	if br.done != nil {
-		br.done(err)
-	}
 	return err
 }
 
@@ -128,11 +118,7 @@ func newLeaseReceiver(cfg Config) source {
 }
 
 func (lr *leaseReceiver) receive(ctx context.Context, br BatchRequest) (types.Nil, error) {
-	lr.Logger.Debugw("received lease operation",
-		"Leaseholder", br.Leaseholder,
-		"host", lr.Cluster.HostID(),
-		"size", br.size(),
-	)
+	alamos.L(ctx).Debug("received leased batch", br.logArgs()...)
 	bc := batchCoordinator{}
 	bc.add(&br)
 	lr.Out.Inlet() <- br

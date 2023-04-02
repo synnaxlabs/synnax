@@ -23,6 +23,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/freighter/fhttp"
 	"github.com/synnaxlabs/synnax/pkg/access"
@@ -36,7 +37,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/user"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/alamos"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xsignal "github.com/synnaxlabs/x/signal"
@@ -80,7 +80,7 @@ func start(cmd *cobra.Command) {
 	// permission mask for all files appropriately.
 	disablePermissionBits()
 
-	sCtx, cancel := xsignal.WithCancel(cmd.Context(), xsignal.WithLogger(logger))
+	sCtx, cancel := xsignal.WithCancel(cmd.Context(), xsignal.WithInstrumentation(logger))
 	defer cancel()
 
 	// Perform the rest of the startup within a separate goroutine so we can properly
@@ -181,7 +181,7 @@ func init() {
 }
 
 func buildStorageConfig(
-	exp alamos.Experiment,
+	exp alamos.Instrumentation,
 	logger *zap.Logger,
 ) storage.Config {
 	return storage.Config{
@@ -203,7 +203,7 @@ func parsePeerAddresses() ([]address.Address, error) {
 
 func buildDistributionConfig(
 	pool *fgrpc.Pool,
-	exp alamos.Experiment,
+	exp alamos.Instrumentation,
 	logger *zap.Logger,
 	storage storage.Config,
 	transports *[]fgrpc.BindableTransport,
@@ -253,7 +253,7 @@ func configureLogging(verbose bool) (*zap.Logger, error) {
 
 var rootExperimentKey = "experiment"
 
-func configureObservability(verbose bool) alamos.Experiment {
+func configureObservability(verbose bool) alamos.Instrumentation {
 	var opt alamos.Option
 	if verbose {
 		opt = alamos.WithFilters(alamos.LevelFilterAll{})

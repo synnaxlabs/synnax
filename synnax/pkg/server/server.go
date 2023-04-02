@@ -15,8 +15,8 @@ import (
 	"github.com/cockroachdb/cmux"
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/alamos"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
@@ -118,7 +118,7 @@ func New(configs ...Config) (*Server, error) {
 // standard shutdown procedure).
 func (s *Server) Serve() (err error) {
 	s.Logger.Sugar().Debugw("starting server", s.Report().LogArgs()...)
-	sCtx, cancel := signal.Background(signal.WithLogger(s.Logger), signal.WithContextKey("server"))
+	sCtx, cancel := signal.Background(signal.WithInstrumentation(s.Logger), signal.WithContextKey("server"))
 	s.wg = sCtx
 	defer cancel()
 	lis, err := net.Listen("tcp", s.ListenAddress.PortString())

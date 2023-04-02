@@ -28,35 +28,35 @@ func Open(
 ) (DB, error) {
 	o := newOptions(dirname, addr, peers, opts...)
 
-	_ctx, shutdown := signal.WithCancel(
-		ctx,
-		signal.WithContextKey("aspen"),
-		signal.WithLogger(o.logger.Desugar()),
-	)
+	d := &db{}
 
-	if err := openKV(o); err != nil {
+	if err := openStorageEngine(o); err != nil {
 		return nil, err
 	}
 
-	if err := configureTransport(_ctx, o); err != nil {
+	transportCtx, cancel := signal.WithCancel(ctx)
+	d.transport.wg = transportCtx
+	d.transport.shutdown = cancel
+
+	if err := configureTransport(transportCtx, o); err != nil {
 		return nil, err
 	}
 
-	clust, err := cluster.Join(_ctx, o.cluster)
+	c, err := cluster.Join(ctx, o.cluster)
 	if err != nil {
 		return nil, err
 	}
-	o.kv.Cluster = clust
+	o.kv.Cluster = c
 
-	kve, err := kv.Open(_ctx, o.kv)
+	d.DB, err = kv.Open(ctx, o.kv)
 	if err != nil {
 		return nil, err
 	}
 
-	return &db{Cluster: clust, DB: kve, wg: _ctx, shutdown: shutdown, options: o}, nil
+	return d, nil
 }
 
-func openKV(opts *options) error {
+func openStorageEngine(opts *options) error {
 	if opts.kv.Engine == nil {
 		pebbleDB, err := pebble.Open(opts.dirname, &pebble.Options{FS: opts.fs})
 		if err != nil {

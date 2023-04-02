@@ -61,7 +61,7 @@ func Open(ctx context.Context, cfg Config) (c Core, err error) {
 		cfg.AdvertiseAddress,
 		cfg.PeerAddresses,
 		aspen.WithEngine(c.Storage.KV),
-		aspen.WithExperiment(cfg.Experiment),
+		aspen.WithInstrumentation(cfg.Experiment),
 		aspen.WithLogger(cfg.Logger.Named("aspen").Sugar()),
 		aspen.WithTransport(clusterTransport),
 	)

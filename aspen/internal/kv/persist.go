@@ -26,7 +26,7 @@ func newPersist(bw kvx.BatchWriter) segment {
 	return ps
 }
 
-func (ps *persist) persist(ctx context.Context, bd BatchRequest) (BatchRequest, bool, error) {
+func (ps *persist) persist(_ context.Context, bd BatchRequest) (BatchRequest, bool, error) {
 	err := bd.commitTo(ps.bw)
 	return bd, err == nil, nil
 }

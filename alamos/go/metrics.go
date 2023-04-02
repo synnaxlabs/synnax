@@ -57,7 +57,7 @@ type gauge[T types.Numeric] struct {
 
 // NewGauge creates a new gauge metric. A gauge records the sum of all recorded values as well as
 // the number of times Frame was called.
-func NewGauge[T types.Numeric](exp Experiment, level Level, key string) Metric[T] {
+func NewGauge[T types.Numeric](exp Instrumentation, level Level, key string) Metric[T] {
 	if m := emptyMetric[T](exp, level, key); m != nil {
 		return m
 	}
@@ -135,7 +135,7 @@ func (s *series[T]) Report() map[string]interface{} {
 }
 
 // NewSeries creates a new series metric. A series stores all recorded values in a slice.
-func NewSeries[T any](exp Experiment, level Level, key string) Metric[T] {
+func NewSeries[T any](exp Instrumentation, level Level, key string) Metric[T] {
 	if m := emptyMetric[T](exp, level, key); m != nil {
 		return m
 	}
@@ -158,7 +158,7 @@ func (e empty[T]) Key() string { return "" }
 
 func (e empty[T]) Report() map[string]interface{} { return nil }
 
-func emptyMetric[T any](exp Experiment, level Level, key string) Metric[T] {
+func emptyMetric[T any](exp Instrumentation, level Level, key string) Metric[T] {
 	if exp != nil && exp.filterTest(level) {
 		return nil
 	}

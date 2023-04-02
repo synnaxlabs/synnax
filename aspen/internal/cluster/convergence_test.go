@@ -17,13 +17,13 @@ import (
 	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter/fmock"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/alamos"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/rand"
 	"github.com/synnaxlabs/x/signal"
@@ -57,7 +57,7 @@ var _ = Describe("Convergence", func() {
 		gossipNet  *fmock.Network[gossip.Message, gossip.Message]
 		pledgeNet  *fmock.Network[pledge.Request, pledge.Response]
 		logger     *zap.SugaredLogger
-		exp        alamos.Experiment
+		exp        alamos.Instrumentation
 		clusterCtx signal.Context
 		shutdown   context.CancelFunc
 	)

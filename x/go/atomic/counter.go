@@ -10,6 +10,8 @@
 package atomic
 
 import (
+	"context"
+	"github.com/synnaxlabs/x/counter"
 	"github.com/synnaxlabs/x/types"
 	"sync/atomic"
 )
@@ -17,8 +19,8 @@ import (
 // Int32Counter is an int32 counter  that is safe for concurrent use.
 type Int32Counter struct{ value int32 }
 
-func (c *Int32Counter) Add(delta ...int32) int32 {
-	return atomic.AddInt32(&c.value, parseDelta(delta...))
+func (c *Int32Counter) Add(_ context.Context, delta ...int32) (int32, error) {
+	return atomic.AddInt32(&c.value, parseDelta(delta...)), nil
 }
 
 func (c *Int32Counter) Value() int32 { return atomic.LoadInt32(&c.value) }
@@ -26,8 +28,10 @@ func (c *Int32Counter) Value() int32 { return atomic.LoadInt32(&c.value) }
 // Int64Counter is an int64 counter  that is safe for concurrent use.
 type Int64Counter struct{ value int64 }
 
-func (c *Int64Counter) Add(delta ...int64) int64 {
-	return atomic.AddInt64(&c.value, parseDelta(delta...))
+var _ counter.Counter[int64] = (*Int64Counter)(nil)
+
+func (c *Int64Counter) Add(_ context.Context, delta ...int64) (int64, error) {
+	return atomic.AddInt64(&c.value, parseDelta(delta...)), nil
 }
 
 func (c *Int64Counter) Value() int64 { return atomic.LoadInt64(&c.value) }

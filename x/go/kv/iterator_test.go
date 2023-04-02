@@ -29,13 +29,13 @@ var _ = Describe("IteratorServer", func() {
 	})
 	Describe("PrefixIter", func() {
 		It("Should iterate over keys with a given prefix", func() {
-			Expect(kv.Set([]byte("a/foo"), []byte("bar"))).To(Succeed())
-			Expect(kv.Set([]byte("a/baz"), []byte("qux"))).To(Succeed())
-			Expect(kv.Set([]byte("a/qux"), []byte("quux"))).To(Succeed())
-			Expect(kv.Set([]byte("b/foo"), []byte("bar"))).To(Succeed())
-			Expect(kv.Set([]byte("b/baz"), []byte("qux"))).To(Succeed())
+			Expect(kv.Set(ctx, []byte("a/foo"), []byte("bar"))).To(Succeed())
+			Expect(kv.Set(ctx, []byte("a/baz"), []byte("qux"))).To(Succeed())
+			Expect(kv.Set(ctx, []byte("a/qux"), []byte("quux"))).To(Succeed())
+			Expect(kv.Set(ctx, []byte("b/foo"), []byte("bar"))).To(Succeed())
+			Expect(kv.Set(ctx, []byte("b/baz"), []byte("qux"))).To(Succeed())
 
-			iter := kv.NewIterator(kvx.PrefixIter([]byte("a")))
+			iter := kv.NewIterator(ctx, kvx.PrefixIter([]byte("a")))
 			c := 0
 			for iter.First(); iter.Valid(); iter.Next() {
 				c++
@@ -50,13 +50,13 @@ var _ = Describe("IteratorServer", func() {
 			for i := 0; i < 10; i++ {
 				b := make([]byte, 4)
 				binary.LittleEndian.PutUint32(b, uint32(i))
-				Expect(kv.Set(b, []byte{1, 2})).To(Succeed())
+				Expect(kv.Set(ctx, b, []byte{1, 2})).To(Succeed())
 			}
 			lower := make([]byte, 4)
 			binary.LittleEndian.PutUint32(lower, uint32(3))
 			upper := make([]byte, 4)
 			binary.LittleEndian.PutUint32(upper, uint32(7))
-			iter := kv.NewIterator(kvx.RangeIter(lower, upper))
+			iter := kv.NewIterator(ctx, kvx.RangeIter(lower, upper))
 			c := 0
 			for iter.First(); iter.Valid(); iter.Next() {
 				c++

@@ -10,16 +10,15 @@
 package kv
 
 import (
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/cluster"
-	"github.com/synnaxlabs/x/alamos"
 	kvx "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 	"time"
 )
 
-// Config is the configuration for the aspen kv service. For default values, see DefaultConfig().
+// Config is the configuration for the aspen db service. For default values, see DefaultConfig().
 type Config struct {
 	// Cluster is the cluster that the DB will use to communicate with other databases.
 	// [Required]
@@ -42,9 +41,6 @@ type Config struct {
 	// LeaseTransportServer is used to send leaseAlloc Operations between nodes.
 	// [Required]
 	LeaseTransportServer LeaseTransportServer
-	// Logger is the witness of it all.
-	// [Not Required]
-	Logger *zap.SugaredLogger
 	// Engine is the underlying key-value engine that DB writes its Operations to.
 	// [Required]
 	Engine kvx.DB
@@ -65,7 +61,6 @@ func (cfg Config) Override(other Config) Config {
 	cfg.FeedbackTransportServer = override.Nil(cfg.FeedbackTransportServer, other.FeedbackTransportServer)
 	cfg.LeaseTransportServer = override.Nil(cfg.LeaseTransportServer, other.LeaseTransportServer)
 	cfg.LeaseTransportClient = override.Nil(cfg.LeaseTransportClient, other.LeaseTransportClient)
-	cfg.Logger = override.Nil(cfg.Logger, other.Logger)
 	cfg.Engine = override.Nil(cfg.Engine, other.Engine)
 	cfg.GossipInterval = override.Numeric(cfg.GossipInterval, other.GossipInterval)
 	cfg.RecoveryThreshold = override.Numeric(cfg.RecoveryThreshold, other.RecoveryThreshold)
@@ -73,7 +68,7 @@ func (cfg Config) Override(other Config) Config {
 }
 
 func (cfg Config) Validate() error {
-	v := validate.New("kv")
+	v := validate.New("db")
 	validate.NotNil(v, "cluster", cfg.Cluster)
 	validate.NotNil(v, "BatchTransportClient", cfg.BatchTransportClient)
 	validate.NotNil(v, "BatchTransportServer", cfg.BatchTransportServer)
