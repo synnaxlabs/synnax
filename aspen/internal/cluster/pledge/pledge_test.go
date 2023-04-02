@@ -141,8 +141,8 @@ var _ = Describe("PledgeServer", func() {
 					candidates = func(i int) func() node.Group {
 						return func() node.Group {
 							if i == 0 {
-								return nodes.Where(func(id node.Key, _ node.Node) bool {
-									return !lo.Contains([]node.Key{8, 9, 10}, id)
+								return nodes.Where(func(key node.Key, _ node.Node) bool {
+									return !lo.Contains([]node.Key{8, 9, 10}, key)
 								})
 							}
 							return nodes

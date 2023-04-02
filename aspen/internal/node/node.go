@@ -18,7 +18,7 @@ import (
 
 type Key uint32
 
-func (i Key) Parse(str string) (Key, error) {
+func (k Key) Parse(str string) (Key, error) {
 	key, err := strconv.Atoi(str)
 	return Key(key), err
 }

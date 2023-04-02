@@ -108,8 +108,8 @@ func (c *core) SetClusterKey(key uuid.UUID) {
 }
 
 // GetNode implements Store.
-func (c *core) GetNode(id node.Key) (node.Node, bool) {
-	n, ok := c.Observable.PeekState().Nodes[id]
+func (c *core) GetNode(key node.Key) (node.Node, bool) {
+	n, ok := c.Observable.PeekState().Nodes[key]
 	return n, ok
 }
 

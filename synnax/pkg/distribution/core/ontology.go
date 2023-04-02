@@ -25,8 +25,8 @@ const (
 
 // NodeOntologyID returns a unique identifier for a Node to use within a resource
 // Ontology.
-func NodeOntologyID(id NodeKey) ontology.ID {
-	return ontology.ID{Type: nodeOntologyType, Key: strconv.Itoa(int(id))}
+func NodeOntologyID(key NodeKey) ontology.ID {
+	return ontology.ID{Type: nodeOntologyType, Key: strconv.Itoa(int(key))}
 }
 
 // ClusterOntologyID returns a unique identifier for a Cluster to use with a
@@ -104,7 +104,7 @@ func (s *NodeOntologyService) RetrieveEntity(key string) (schema.Entity, error) 
 
 func newNodeEntity(n Node) schema.Entity {
 	e := schema.NewEntity(_nodeSchema, fmt.Sprintf("Node %v", n.Key))
-	schema.Set(e, "id", uint32(n.Key))
+	schema.Set(e, "key", uint32(n.Key))
 	schema.Set(e, "address", n.Address.String())
 	schema.Set(e, "state", uint32(n.State))
 	return e
