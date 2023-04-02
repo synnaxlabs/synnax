@@ -60,7 +60,7 @@ type Cluster interface {
 // Resolver is used to resolve a reachable address for a node in the cluster.
 type Resolver interface {
 	// Resolve resolves the address of a node with the given Key.
-	Resolve(id node.Key) (address.Address, error)
+	Resolve(key node.Key) (address.Address, error)
 }
 
 type Host interface {
@@ -174,8 +174,8 @@ func (c *cluster) HostKey() node.Key { return c.Store.PeekState().HostKey }
 func (c *cluster) Nodes() node.Group { return c.Store.PeekState().Nodes }
 
 // Node implements the Cluster interface.
-func (c *cluster) Node(id node.Key) (node.Node, error) {
-	n, ok := c.Store.GetNode(id)
+func (c *cluster) Node(key node.Key) (node.Node, error) {
+	n, ok := c.Store.GetNode(key)
 	if !ok {
 		return n, NodeNotFound
 	}
@@ -183,8 +183,8 @@ func (c *cluster) Node(id node.Key) (node.Node, error) {
 }
 
 // Resolve implements the Cluster interface.
-func (c *cluster) Resolve(id node.Key) (address.Address, error) {
-	n, err := c.Node(id)
+func (c *cluster) Resolve(key node.Key) (address.Address, error) {
+	n, err := c.Node(key)
 	return n.Address, err
 }
 

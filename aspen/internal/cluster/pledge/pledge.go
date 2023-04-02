@@ -221,22 +221,22 @@ func (r *responsible) idToPropose() node.Key {
 	return r._proposedKey
 }
 
-func (r *responsible) consultQuorum(ctx context.Context, id node.Key, quorum node.Group) error {
+func (r *responsible) consultQuorum(ctx context.Context, key node.Key, quorum node.Group) error {
 	reqCtx, cancel := context.WithTimeout(ctx, r.RequestTimeout)
 	defer cancel()
 	wg := errgroup.Group{}
 	for _, n := range quorum {
 		n_ := n
 		wg.Go(func() error {
-			_, err := r.TransportClient.Send(reqCtx, n_.Address, Request{Key: id})
+			_, err := r.TransportClient.Send(reqCtx, n_.Address, Request{Key: key})
 			if errors.Is(err, proposalRejected) {
-				r.Logger.Debugw("quorum rejected proposal", "id", id, "address", n_.Address)
+				r.Logger.Debugw("quorum rejected proposal", "id", key, "address", n_.Address)
 				cancel()
 			}
 			// If any node returns an error, we need to retry the entire responsible,
 			// so we need to cancel all running requests.
 			if err != nil {
-				r.Logger.Errorw("failed to reach juror", "id", id, "err", err)
+				r.Logger.Errorw("failed to reach juror", "id", key, "err", err)
 				cancel()
 			}
 			return err
