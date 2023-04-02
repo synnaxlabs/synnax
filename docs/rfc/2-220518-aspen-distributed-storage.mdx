@@ -84,7 +84,7 @@ amplification, but is useful when it comes to failure detection and membership.
 
 ### 1 - Cluster State Data Structure
 
-Layer 1 holds cluster state in a node map `map[NodeKey]Node`. `NodeKey` is a
+Layer 1 holds cluster state in a node map `map[NodeID]Node`. `NodeID` is a
 unique `int16` identifier for each node.
 `Node` holds various pieces of identifying information about the node along with
 its current state.
@@ -92,11 +92,11 @@ its current state.
 ```go
 package irrelivant
 
-// NodeKey is a unique identifier for a node.
-type NodeKey int16
+// NodeID is a unique identifier for a node.
+type NodeID int16
 
 type Node struct {
-	Key NodeKey
+	ID NodeID
 	// Address is a reachable address for the node.
 	Address address.Address
 	// Version is software version of the node.
@@ -106,7 +106,7 @@ type Node struct {
 	// Various additions such as failure detection state, etc. will go here.
 }
 
-type NodeMap map[NodeKey]Node
+type NodeMap map[NodeID]Node
 ```
 
 A node's Heartbeat tracks two values:
@@ -135,8 +135,8 @@ another node. This message contains a list of node digests.
 package irrelivant
 
 type Digest struct {
-	// NodeKey is the node's unique identifier
-	Key NodeKey
+	// NodeID is the node's unique identifier
+	ID NodeID
 	// Heartbeat is the gossip heartbeat.
 	Heartbeat Heartbeat
 }
@@ -208,11 +208,11 @@ it's up to the application to determine the appropriate balance.
 ## 2 - Adding a Member
 
 Aspen employs a relatively complex process for joining a node to a cluster. This
-is due to a desire to identify nodes using a unique `int16` value. The Key of a
+is due to a desire to identify nodes using a unique `int16` value. The ID of a
 node is propagated with almost every message. By using an `int16` vs. `UUID`, we
 can reduce overall network traffic by a significant amount. Node IDs are also
 used far and wide across the rest of Delta, such as in the key for a
-channel `NodeKey + ChannelID`. This results in a sample that is 40 percent
+channel `NodeID + ChannelID`. This results in a sample that is 40 percent
 smaller than with a `UUID`.
 
 The downside of using `int16` id's for nodes is that we need to design a
@@ -225,34 +225,34 @@ When joining a new node to a cluster, the joining node (known as the **pledge**)
 receives a set of one or more peer addresses of other nodes in the cluster.
 The **pledge** node will choose a peer at random and send a join request to it.
 If the peer acknowledges the request, the joining node will then wait for a
-second message assigning it an Key. If the peer rejects the request or doesn't
+second message assigning it an ID. If the peer rejects the request or doesn't
 respond, it attempts to send the request to another peer. This cycle continues
 until a peer acknowledges the request or a preset threshold is reached.
 
 The peer that accepts the **pledge** join request is known as the **
 responsible**. This node is responsible for safely initiating the **pledge**.
 
-### 2 - Propose an Key
+### 2 - Propose an ID
 
 The **responsible** node will begin the initiation process by finding the
 highest id of the nodes within its state. It will then select a quorum (>50%) of
 its peers and send a proposed id with a value one higher. It will then wait for
 all peers to approve the proposed value (these peers are called **jurors**). A
 juror will approve the value if it does not have a node in its state with the
-given Key. A **juror** tracks the results of all accepted proposals until the
+given ID. A **juror** tracks the results of all accepted proposals until the
 state of the accepted **pledge** has been disseminated. The approval process is
 serialized by a mutex.
 
 If any node rejects the id, the **responsible** node will reissue the proposal
-with an incremented value. This process continues until an Key is accepted. If
+with an incremented value. This process continues until an ID is accepted. If
 the **responsible** node tries to contact an unresponsive peer, it will reselect
-a quorum of peers and try again. Once an Key is selected, the **responsible**
+a quorum of peers and try again. Once an ID is selected, the **responsible**
 node will send it to the **
 pledge**.
 
 ### 3 - Disseminate New Node
 
-Once the **pledge** receives an Key assignment from the **responsible** node, it
+Once the **pledge** receives an ID assignment from the **responsible** node, it
 will begin to gossip its state to the rest of the cluster. As information about
 the new node spreads, **jurors** will remove processed approvals from their
 state.
@@ -260,11 +260,11 @@ state.
 ### 5 - The First Node
 
 The first node to join the cluster is provided with no peer addresses. It will
-automatically assign itself an Key of 1.
+automatically assign itself an ID of 1.
 
 ### 6 - Implications of Algorithm
 
-Using a quorum based approach to Key assignment means that we get a strong
+Using a quorum based approach to ID assignment means that we get a strong
 guarantee that a node will be assigned a unique identifier. It also means that a
 cluster with less than half of its nodes available will not be able to add new
 members. This is an important property to consider in scenarios with extremely
@@ -289,12 +289,12 @@ At the simplest level, the key-value store implements the following interface.
 ```go
 package irrelivant
 
-type NodeKey int16
+type NodeID int16
 
 type KV interface {
-	// Set sets a key to a value. nodeKey specifies the node that holds the lease on the key.
-	// If nodeKey is 0, the lease is assigned to the host node.
-	Set(key []byte, leaseholder NodeKey, value []byte) error
+	// Set sets a key to a value. nodeID specifies the node that holds the lease on the key.
+	// If nodeID is 0, the lease is assigned to the host node.
+	Set(key []byte, leaseholder NodeID, value []byte) error
 	// Rest of interface is the same as github.com/synnaxlabs/x/kv.DB.
 }
 ```
@@ -306,8 +306,8 @@ deletes and sets are both propagated using the same steps.
 
 #### 1 - Forward Request to Leaseholder
 
-If the node Key is non-zero, perform a layer 1 lookup for the leaseholder's
-address. Forward the request to the leaseholder. If the node Key is zero,
+If the node ID is non-zero, perform a layer 1 lookup for the leaseholder's
+address. Forward the request to the leaseholder. If the node ID is zero,
 allocate the least to the host node.
 
 #### 2 - Process the Forwarded Set
@@ -341,8 +341,8 @@ type Update struct {
 	Key []byte
 	// Value is the value for the key-value pair.
 	Value []byte
-	// Leaseholder is the Key of the leaseholder node.
-	Leaseholder NodeKey
+	// Leaseholder is the ID of the leaseholder node.
+	Leaseholder NodeID
 	// State is the SIR state of the update.
 	State UpdateState
 	// Version is incremented every time an existing key is updated.
@@ -568,7 +568,7 @@ the highest version that a node has received from another node. This data
 structure can be represented using the following map:
 
 ```go
-type HighWaterMarks map[node.Key]version.Counter
+type HighWaterMarks map[node.ID]version.Counter
 ```
 
 Assigning an accurate high water mark to a node is far more challenging than it
@@ -584,7 +584,7 @@ Node A will need to track the "gaps" in its high water mark using some sort of
 virtual WAL:
 
 ```go
-type HighWaterMarks map[node.Key]struct{
+type HighWaterMarks map[node.ID]struct{
 // Mark indicates the most recent version whose history is contiguous (i.e. all previous versions have been received).
 Mark version.Counter
 // WAL keeps a log of all versions received non-contiguously. This log can be garbage collected after a contiguous
