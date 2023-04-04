@@ -27,8 +27,7 @@ import (
 //     wide meta-data and state.
 //  3. Cluster - An API for querying information about the Cluster topology.
 type Core struct {
-	// Config is the configuration for the distribution layer.
-	Config Config
+	Config
 	// Cluster is the API for the delta Cluster.
 	Cluster Cluster
 	// Storage is the storage for the node. The distribution layer replaces the original
@@ -61,9 +60,8 @@ func Open(ctx context.Context, cfg Config) (c Core, err error) {
 		cfg.AdvertiseAddress,
 		cfg.PeerAddresses,
 		aspen.WithEngine(c.Storage.KV),
-		aspen.WithInstrumentation(cfg.Experiment),
-		aspen.WithLogger(cfg.Logger.Named("aspen").Sugar()),
 		aspen.WithTransport(clusterTransport),
+		aspen.WithInstrumentation(c),
 	)
 	c.Cluster = clusterKV
 

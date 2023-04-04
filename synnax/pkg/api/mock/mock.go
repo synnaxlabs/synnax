@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	securitymock "github.com/synnaxlabs/synnax/pkg/security/mock"
 	"github.com/synnaxlabs/synnax/pkg/user"
-	"go.uber.org/zap"
 )
 
 type Builder struct {
@@ -38,7 +37,6 @@ func (b *Builder) NewConfig() api.Config {
 		panic(err)
 	}
 	return api.Config{
-		Logger:        zap.NewNop(),
 		Channel:       dist.Channel,
 		Framer:        dist.Framer,
 		Ontology:      dist.Ontology,

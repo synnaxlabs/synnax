@@ -55,7 +55,7 @@ func BindTo(f *fiber.App, logger *zap.SugaredLogger) {
 	router.BindTo(f)
 }
 
-func checkMiddleware(ctx context.Context, md freighter.MD, next freighter.Next) (freighter.MD, error) {
+func checkMiddleware(ctx context.Context, md freighter.Context, next freighter.Next) (freighter.Context, error) {
 	if md.Params["Test"] != "test" {
 		return md, TestError{Message: "test param not found", Code: 1}
 	}

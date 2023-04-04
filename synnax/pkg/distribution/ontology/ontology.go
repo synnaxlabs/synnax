@@ -25,6 +25,7 @@
 package ontology
 
 import (
+	"context"
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"github.com/synnaxlabs/x/gorp"
@@ -48,14 +49,14 @@ type Ontology struct {
 
 // Open opens the ontology stored in the given database. If the Root resource does not
 // exist, it will be created.
-func Open(db *gorp.DB) (*Ontology, error) {
+func Open(ctx context.Context, db *gorp.DB) (*Ontology, error) {
 	o := &Ontology{
 		db:       db,
 		retrieve: retrieve{services: serviceRegistrar{BuiltIn: &builtinService{}}},
 	}
-	err := o.NewRetrieve().WhereIDs(Root).Exec()
+	err := o.NewRetrieve().WhereIDs(Root).Exec(ctx)
 	if errors.Is(err, query.NotFound) {
-		err = o.NewWriter().DefineResource(Root)
+		err = o.NewWriter().DefineResource(ctx, Root)
 	}
 	return o, err
 }
@@ -64,18 +65,18 @@ func Open(db *gorp.DB) (*Ontology, error) {
 type Writer interface {
 	// DefineResource defines a new resource with the given ID. If the resource already
 	// exists, DefineResource does nothing.
-	DefineResource(id ID) error
+	DefineResource(ctx context.Context, id ID) error
 	// DeleteResource deletes the resource with the given ID along with all of its
 	// incoming and outgoing relationships.  If the resource does not exist,
 	// DeleteResource does nothing.
-	DeleteResource(id ID) error
+	DeleteResource(ctx context.Context, id ID) error
 	// DefineRelationship defines a directional relationship of type t between the
 	// resources with the given IDs. If the relationship already exists, DefineRelationship
 	// does nothing.
-	DefineRelationship(from ID, t RelationshipType, to ID) error
+	DefineRelationship(ctx context.Context, from ID, t RelationshipType, to ID) error
 	// DeleteRelationship deletes the relationship with the given IDs and type. If the
 	// relationship does not exist, DeleteRelationship does nothing.
-	DeleteRelationship(from ID, t RelationshipType, to ID) error
+	DeleteRelationship(ctx context.Context, from ID, t RelationshipType, to ID) error
 	// NewRetrieve opens a new Retrieve query that provides a view of pending
 	// operations merged with the underlying database. If the Writer is executing directly
 	// against the underlying database, the Retrieve query behaves exactly as if calling
@@ -88,11 +89,11 @@ type Writer interface {
 func (o *Ontology) NewRetrieve() Retrieve { return newRetrieve(o.db, o.retrieve.exec) }
 
 // NewWriter opens a new Writer.
-func (o *Ontology) NewWriter() Writer { return o.NewWriterUsingTxn(o.db) }
+func (o *Ontology) NewWriter() Writer { return o.NewWriterWithTxn(o.db) }
 
-// NewWriterUsingTxn opens a new Writer using the provided transaction.
+// NewWriterWithTxn opens a new Writer using the provided transaction.
 // Panics if the transaction does not root from the same database as the Ontology.
-func (o *Ontology) NewWriterUsingTxn(txn gorp.Txn) Writer {
+func (o *Ontology) NewWriterWithTxn(txn gorp.Txn) Writer {
 	return dagWriter{txn: txn, retrieve: o.retrieve}
 }
 

@@ -10,10 +10,12 @@
 package mock
 
 import (
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/kv"
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/fmock"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/signal"
@@ -89,3 +91,20 @@ func (t *transport) LeaseServer() kv.LeaseTransportServer { return t.leaseServer
 func (t *transport) FeedbackClient() kv.FeedbackTransportClient { return t.feedbackClient }
 
 func (t *transport) FeedbackServer() kv.FeedbackTransportServer { return t.feedbackServer }
+
+func (t *transport) Use(middleware ...freighter.Middleware) {
+	t.pledgeClient.Use(middleware...)
+	t.pledgeServer.Use(middleware...)
+	t.clusterClient.Use(middleware...)
+	t.clusterServer.Use(middleware...)
+	t.batchClient.Use(middleware...)
+	t.batchServer.Use(middleware...)
+	t.leaseClient.Use(middleware...)
+	t.leaseServer.Use(middleware...)
+	t.feedbackClient.Use(middleware...)
+	t.feedbackServer.Use(middleware...)
+}
+
+func (t *transport) Report() alamos.Report {
+	return t.pledgeClient.Report()
+}

@@ -20,6 +20,7 @@ import (
 // Config sets specific parameters for the gossip service. See DefaultConfig
 // for default values. It implements the config.ServiceConfig interface.
 type Config struct {
+	alamos.Instrumentation
 	// TransportClient is the transport used to exchange gossip between nodes.
 	// [Required]
 	TransportClient TransportClient
@@ -39,6 +40,7 @@ func (cfg Config) Override(other Config) Config {
 	cfg.TransportClient = override.Nil(cfg.TransportClient, other.TransportClient)
 	cfg.TransportServer = override.Nil(cfg.TransportServer, other.TransportServer)
 	cfg.Store = override.Nil(cfg.Store, other.Store)
+	cfg.Instrumentation = override.Nil(cfg.Instrumentation, other.Instrumentation)
 	return cfg
 }
 

@@ -11,7 +11,6 @@ package channel
 
 import "C"
 import (
-	"context"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/storage"
@@ -29,19 +28,16 @@ type service struct {
 }
 
 type Service interface {
-	Reader
-	Writer
+	RetrieveFactory
+	WriterFactory
 	ontology.Service
 }
 
-type Writer interface {
-	Create(channel *Channel) error
-	CreateMany(channels *[]Channel) error
-	CreateWithTxn(txn gorp.Txn, channel *Channel) error
-	CreateManyWithTxn(txn gorp.Txn, channels *[]Channel) error
+type WriterFactory interface {
+	NewWriter() Writer
 }
 
-type Reader interface {
+type RetrieveFactory interface {
 	NewRetrieve() Retrieve
 }
 
@@ -87,24 +83,8 @@ func New(configs ...ServiceConfig) (Service, error) {
 	return &service{clusterDB: cfg.ClusterDB, proxy: proxy}, nil
 }
 
-func (s *service) Create(channel *Channel) error { return s.CreateWithTxn(s.clusterDB, channel) }
+func (s *service) NewWriter() Writer { return Writer{proxy: s.proxy, txn: s.clusterDB} }
 
-func (s *service) CreateMany(channels *[]Channel) error {
-	return s.CreateManyWithTxn(s.clusterDB, channels)
-}
-
-func (s *service) CreateWithTxn(txn gorp.Txn, ch *Channel) error {
-	channels := []Channel{*ch}
-	err := s.proxy.create(context.TODO(), txn, &channels)
-	if err != nil {
-		return err
-	}
-	*ch = channels[0]
-	return nil
-}
-
-func (s *service) CreateManyWithTxn(txn gorp.Txn, channels *[]Channel) error {
-	return s.proxy.create(context.TODO(), txn, channels)
-}
+func (s *service) NewWriterWithTxn(txn gorp.Txn) Writer { return Writer{proxy: s.proxy, txn: txn} }
 
 func (s *service) NewRetrieve() Retrieve { return NewRetrieve(s.clusterDB) }

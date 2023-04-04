@@ -46,12 +46,20 @@ func (v *validator) Flow(ctx signal.Context, opts ...confluence.Option) {
 				}
 				if v.accumulatedError != nil {
 					if req.Command == Error {
-						if err := signal.SendUnderContext(ctx, v.responses.Out.Inlet(), Response{Command: Error, Err: v.accumulatedError}); err != nil {
+						if err := signal.SendUnderContext(
+							ctx,
+							v.responses.Out.Inlet(),
+							Response{Command: Error, Err: v.accumulatedError},
+						); err != nil {
 							return err
 						}
 						v.accumulatedError = nil
 					} else {
-						if err := signal.SendUnderContext(ctx, v.responses.Out.Inlet(), Response{Command: req.Command, Ack: false}); err != nil {
+						if err := signal.SendUnderContext(
+							ctx,
+							v.responses.Out.Inlet(),
+							Response{Command: req.Command, Ack: false},
+						); err != nil {
 							return err
 						}
 					}

@@ -11,6 +11,7 @@ package framer
 
 import (
 	"context"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
@@ -19,7 +20,6 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 )
 
 type Service struct {
@@ -28,16 +28,16 @@ type Service struct {
 }
 
 type ServiceConfig struct {
-	ChannelReader channel.Reader
+	alamos.Instrumentation
+	ChannelReader channel.RetrieveFactory
 	TS            storage.TS
 	Transport     Transport
 	HostResolver  core.HostResolver
-	Logger        *zap.Logger
 }
 
 var (
 	_             config.Config[ServiceConfig] = ServiceConfig{}
-	DefaultConfig                              = ServiceConfig{Logger: zap.NewNop()}
+	DefaultConfig                              = ServiceConfig{}
 )
 
 func (c ServiceConfig) Validate() error {
@@ -46,7 +46,6 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "TS", c.TS)
 	validate.NotNil(v, "Transport", c.Transport)
 	validate.NotNil(v, "HostResolver", c.HostResolver)
-	validate.NotNil(v, "Logger", c.Logger)
 	return v.Error()
 }
 
@@ -55,7 +54,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.TS = override.Nil(c.TS, other.TS)
 	c.Transport = override.Nil(c.Transport, other.Transport)
 	c.HostResolver = override.Nil(c.HostResolver, other.HostResolver)
-	c.Logger = override.Nil(c.Logger, other.Logger)
 	return c
 }
 
@@ -66,21 +64,21 @@ func Open(configs ...ServiceConfig) (*Service, error) {
 	}
 	s := &Service{}
 	s.iterator, err = iterator.OpenService(iterator.ServiceConfig{
-		TS:            cfg.TS,
-		HostResolver:  cfg.HostResolver,
-		Transport:     cfg.Transport.Iterator(),
-		ChannelReader: cfg.ChannelReader,
-		Logger:        cfg.Logger,
+		TS:              cfg.TS,
+		HostResolver:    cfg.HostResolver,
+		Transport:       cfg.Transport.Iterator(),
+		ChannelReader:   cfg.ChannelReader,
+		Instrumentation: cfg.Instrumentation,
 	})
 	if err != nil {
 		return nil, err
 	}
 	s.writer, err = writer.OpenService(writer.ServiceConfig{
-		TS:            cfg.TS,
-		HostResolver:  cfg.HostResolver,
-		Transport:     cfg.Transport.Writer(),
-		ChannelReader: cfg.ChannelReader,
-		Logger:        cfg.Logger,
+		TS:              cfg.TS,
+		HostResolver:    cfg.HostResolver,
+		Transport:       cfg.Transport.Writer(),
+		ChannelReader:   cfg.ChannelReader,
+		Instrumentation: cfg.Instrumentation,
 	})
 	return s, err
 }

@@ -10,6 +10,7 @@
 package api
 
 import (
+	"context"
 	"github.com/go-playground/validator/v10"
 	"github.com/synnaxlabs/synnax/pkg/access"
 	errors "github.com/synnaxlabs/synnax/pkg/api/errors"
@@ -19,14 +20,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/user"
 	"github.com/synnaxlabs/x/gorp"
-	"go.uber.org/zap"
 )
 
 // Provider is a dependency injection container containing essential utilities
 // for particular API services (if they so require them).
 type Provider struct {
-	Config     Config
-	Logging    loggingProvider
+	Config
 	Validation validationProvider
 	db         dbProvider
 	user       userProvider
@@ -38,7 +37,6 @@ type Provider struct {
 
 func NewProvider(cfg Config) Provider {
 	p := Provider{Config: cfg}
-	p.Logging = loggingProvider{logger: cfg.Logger.Sugar()}
 	p.Validation = validationProvider{validator: newValidator()}
 	p.db = dbProvider{db: gorp.Wrap(cfg.Storage.KV)}
 	p.user = userProvider{user: cfg.User}
@@ -47,11 +45,6 @@ func NewProvider(cfg Config) Provider {
 	p.cluster = clusterProvider{cluster: cfg.Cluster}
 	p.ontology = OntologyProvider{Ontology: cfg.Ontology}
 	return p
-}
-
-// loggingProvider provides Logging utilities to services.
-type loggingProvider struct {
-	logger *zap.SugaredLogger
 }
 
 // validationProvider provides the global API validator to services.
@@ -75,7 +68,7 @@ type dbProvider struct {
 // Returns errors.Nil if the commit process is successful. Returns an unexpected
 // error if the abort process fails; otherwise, returns the error returned by the provided
 // function.
-func (db dbProvider) WithTxn(f func(txn gorp.Txn) errors.Typed) (tErr errors.Typed) {
+func (db dbProvider) WithTxn(ctx context.Context, f func(txn gorp.Txn) errors.Typed) (tErr errors.Typed) {
 	txn := db.db.BeginTxn()
 	defer func() {
 		if err := txn.Close(); err != nil {
@@ -84,7 +77,7 @@ func (db dbProvider) WithTxn(f func(txn gorp.Txn) errors.Typed) (tErr errors.Typ
 	}()
 	tErr = f(txn)
 	if !tErr.Occurred() {
-		tErr = errors.MaybeUnexpected(txn.Commit())
+		tErr = errors.MaybeUnexpected(txn.Commit(ctx))
 	}
 	return tErr
 }

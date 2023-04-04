@@ -11,12 +11,10 @@ package index
 
 import (
 	"github.com/synnaxlabs/x/telem"
-	"go.uber.org/zap"
 )
 
 type Rate struct {
-	Rate   telem.Rate
-	Logger *zap.Logger
+	Rate telem.Rate
 }
 
 var _ Index = Rate{}

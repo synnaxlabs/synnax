@@ -40,13 +40,13 @@ var _ ontology.Service = (*service)(nil)
 
 func (s *service) Schema() *schema.Schema { return _schema }
 
-func (s *service) RetrieveEntity(key string) (schema.Entity, error) {
+func (s *service) RetrieveEntity(ctx context.Context, key string) (schema.Entity, error) {
 	k, err := ParseKey(key)
 	if err != nil {
 		return schema.Entity{}, err
 	}
 	var ch Channel
-	err = s.NewRetrieve().WhereKeys(k).Entry(&ch).Exec(context.TODO())
+	err = s.NewRetrieve().WhereKeys(k).Entry(&ch).Exec(ctx)
 	return newEntity(ch), err
 }
 

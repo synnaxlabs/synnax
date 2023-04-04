@@ -37,14 +37,14 @@ func New(cfgs ...Config) (*Gossip, error) {
 
 // GoGossip starts a goroutine that gossips at Config.Interval.
 func (g *Gossip) GoGossip(ctx signal.Context) {
-	alamos.AttachReporter(ctx, "gossip", alamos.Debug, g.Config)
-	alamos.L(ctx).Info("starting cluster gossip", g.Config.Report().LogArgs()...)
+	alamos.AttachReporter(g, "gossip", g.Config)
+	alamos.L(g).Info("starting cluster gossip", g.Config.Report().ZapFields()...)
 	signal.GoTick(
 		ctx,
 		g.Interval,
 		func(ctx context.Context, t time.Time) error {
 			if err := g.GossipOnce(ctx); err != nil {
-				alamos.L(ctx).Error("gossip failed", zap.Error(err))
+				alamos.L(g).Error("gossip failed", zap.Error(err))
 			}
 			return nil
 		},
@@ -53,14 +53,14 @@ func (g *Gossip) GoGossip(ctx signal.Context) {
 }
 
 func (g *Gossip) GossipOnce(ctx context.Context) error {
+	ctx, span := alamos.Trace(ctx, "gossip-client")
 	g.incrementHostHeartbeat()
 	snap := g.Store.CopyState()
 	peer := RandomPeer(snap.Nodes, snap.HostID)
 	if peer.Address == "" {
 		return nil
 	}
-	return g.GossipOnceWith(ctx, peer.Address)
-
+	return span.EndWith(g.GossipOnceWith(ctx, peer.Address))
 }
 
 func (g *Gossip) GossipOnceWith(ctx context.Context, addr address.Address) error {
@@ -84,6 +84,8 @@ func (g *Gossip) incrementHostHeartbeat() {
 }
 
 func (g *Gossip) process(ctx context.Context, msg Message) (Message, error) {
+	ctx, span := alamos.Trace(ctx, "gossip-server")
+	defer span.End()
 	switch msg.variant() {
 	case messageVariantSync:
 		return g.sync(msg), nil
@@ -92,8 +94,8 @@ func (g *Gossip) process(ctx context.Context, msg Message) (Message, error) {
 		return Message{}, nil
 	}
 	err := errors.New("[gossip] - received unknown message variant")
-	alamos.L(ctx).Error(err.Error(), zap.Any("msg", msg))
-	return Message{}, err
+	alamos.L(g).Error(err.Error(), zap.Any("msg", msg))
+	return Message{}, span.EndWith(err)
 }
 
 func (g *Gossip) sync(sync Message) (ack Message) {

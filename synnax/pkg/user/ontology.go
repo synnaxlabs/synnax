@@ -10,6 +10,7 @@
 package user
 
 import (
+	"context"
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
@@ -35,12 +36,12 @@ var _ ontology.Service = (*Service)(nil)
 func (s *Service) Schema() *schema.Schema { return _schema }
 
 // RetrieveEntity implements the ontology.Service interface.
-func (s *Service) RetrieveEntity(key string) (schema.Entity, error) {
+func (s *Service) RetrieveEntity(ctx context.Context, key string) (schema.Entity, error) {
 	uuidKey, err := uuid.Parse(key)
 	if err != nil {
 		return schema.Entity{}, err
 	}
-	u, err := s.Retrieve(uuidKey)
+	u, err := s.Retrieve(ctx, uuidKey)
 	return newEntity(u), err
 }
 

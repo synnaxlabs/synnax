@@ -53,5 +53,5 @@ func (g *GRPCBranch) credentials(ctx BranchContext) grpc.ServerOption {
 	// If we're running insecure mode, use mux credentials that pass TLS handshake
 	// information from the TLS multiplexer to the grpc server, which allows
 	// our services that need mTLS to validate against it.
-	return grpc.Creds(fgrpc.NewMuxCredentials(ctx.Logger, ctx.ServerName))
+	return grpc.Creds(&fgrpc.MuxCredentials{Instrumentation: ctx.Instrumentation})
 }

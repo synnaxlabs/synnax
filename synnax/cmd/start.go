@@ -68,7 +68,7 @@ func start(cmd *cobra.Command) {
 		verbose  = viper.GetBool("verbose")
 	)
 
-	logger, err := configureLogging(verbose)
+	ins, err := configureInstrumentation(verbose)
 	if err != nil {
 		zap.S().Fatal(err)
 	}
@@ -80,16 +80,14 @@ func start(cmd *cobra.Command) {
 	// permission mask for all files appropriately.
 	disablePermissionBits()
 
-	sCtx, cancel := xsignal.WithCancel(cmd.Context(), xsignal.WithInstrumentation(logger))
+	sCtx, cancel := xsignal.WithCancel(cmd.Context())
 	defer cancel()
 
 	// Perform the rest of the startup within a separate goroutine so we can properly
 	// handle signal interrupts.
 	sCtx.Go(func(ctx context.Context) error {
-		// Set up the tracing backend.
-		exp := configureObservability(verbose)
 
-		secProvider, err := configureSecurity(logger, insecure)
+		secProvider, err := configureSecurity(ins, insecure)
 		if err != nil {
 			return err
 		}
@@ -100,11 +98,10 @@ func start(cmd *cobra.Command) {
 		grpcPool := configureClientGRPC(secProvider, insecure)
 
 		// Open the distribution layer.
-		storageCfg := buildStorageConfig(exp, logger)
+		storageCfg := buildStorageConfig(ins)
 		distConfig, err := buildDistributionConfig(
 			grpcPool,
-			exp,
-			logger,
+			ins,
 			storageCfg,
 			grpcTransports,
 		)
@@ -121,34 +118,34 @@ func start(cmd *cobra.Command) {
 		authenticator := &auth.KV{DB: gorpDB}
 
 		// Provision the root user.
-		if err := maybeProvisionRootUser(gorpDB, authenticator, userSvc); err != nil {
+		if err := maybeProvisionRootUser(ctx, gorpDB, authenticator, userSvc); err != nil {
 			return err
 		}
 
 		// Configure the API core.
 		_api := api.New(api.Config{
-			Logger:        logger,
-			Channel:       dist.Channel,
-			Framer:        dist.Framer,
-			Storage:       dist.Storage,
-			User:          userSvc,
-			Token:         tokenSvc,
-			Authenticator: authenticator,
-			Enforcer:      access.AllowAll{},
-			Insecure:      insecure,
-			Cluster:       dist.Cluster,
-			Ontology:      dist.Ontology,
+			Instrumentation: ins,
+			Channel:         dist.Channel,
+			Framer:          dist.Framer,
+			Storage:         dist.Storage,
+			User:            userSvc,
+			Token:           tokenSvc,
+			Authenticator:   authenticator,
+			Enforcer:        access.AllowAll{},
+			Insecure:        insecure,
+			Cluster:         dist.Cluster,
+			Ontology:        dist.Ontology,
 		})
 
 		// Configure the HTTP API Transport.
-		r := fhttp.NewRouter(fhttp.RouterConfig{Logger: logger.Sugar()})
+		r := fhttp.NewRouter(fhttp.RouterConfig{Instrumentation: ins})
 		_api.BindTo(httpapi.New(r))
 
 		srv, err := server.New(buildServerConfig(
 			*grpcTransports,
 			[]fhttp.BindableTransport{r},
 			secProvider,
-			logger,
+			ins,
 		))
 		if err != nil {
 			return err
@@ -163,15 +160,15 @@ func start(cmd *cobra.Command) {
 
 	select {
 	case <-interruptC:
-		logger.Info("received interrupt signal, shutting down")
+		alamos.L(ins).Info("received interrupt signal, shutting down")
 		cancel()
 	case <-sCtx.Stopped():
 	}
 
 	if err := sCtx.Wait(); err != nil && !errors.Is(err, context.Canceled) {
-		logger.Fatal("shutdown failed", zap.Error(err))
+		alamos.L(ins).Fatal("shutdown failed", zap.Error(err))
 	}
-	logger.Info("shutdown successful")
+	alamos.L(ins).Info("shutdown successful")
 }
 
 func init() {
@@ -181,14 +178,12 @@ func init() {
 }
 
 func buildStorageConfig(
-	exp alamos.Instrumentation,
-	logger *zap.Logger,
+	ins alamos.Instrumentation,
 ) storage.Config {
 	return storage.Config{
-		MemBacked:  config.BoolPointer(viper.GetBool("mem")),
-		Dirname:    viper.GetString("data"),
-		Logger:     logger.Named("storage"),
-		Experiment: exp,
+		Instrumentation: ins,
+		MemBacked:       config.BoolPointer(viper.GetBool("mem")),
+		Dirname:         viper.GetString("data"),
 	}
 }
 
@@ -203,15 +198,13 @@ func parsePeerAddresses() ([]address.Address, error) {
 
 func buildDistributionConfig(
 	pool *fgrpc.Pool,
-	exp alamos.Instrumentation,
-	logger *zap.Logger,
+	ins alamos.Instrumentation,
 	storage storage.Config,
 	transports *[]fgrpc.BindableTransport,
 ) (distribution.Config, error) {
 	peers, err := parsePeerAddresses()
 	return distribution.Config{
-		Logger:           logger.Named("distrib"),
-		Experiment:       exp,
+		Instrumentation:  ins,
 		AdvertiseAddress: address.Address(viper.GetString("listen")),
 		PeerAddresses:    peers,
 		Pool:             pool,
@@ -224,7 +217,7 @@ func buildServerConfig(
 	grpcTransports []fgrpc.BindableTransport,
 	httpTransports []fhttp.BindableTransport,
 	sec security.Provider,
-	logger *zap.Logger,
+	ins alamos.Instrumentation,
 ) (cfg server.Config) {
 	cfg.Branches = append(cfg.Branches,
 		&server.SecureHTTPBranch{Transports: httpTransports},
@@ -232,13 +225,13 @@ func buildServerConfig(
 		server.NewHTTPRedirectBranch(),
 	)
 	cfg.ListenAddress = address.Address(viper.GetString("listen"))
-	cfg.Logger = logger.Named("server")
+	cfg.Instrumentation = ins
 	cfg.Security.TLS = sec.TLS()
 	cfg.Security.Insecure = config.BoolPointer(viper.GetBool("insecure"))
 	return cfg
 }
 
-func configureLogging(verbose bool) (*zap.Logger, error) {
+func configureInstrumentation(verbose bool) (alamos.Instrumentation, error) {
 	var cfg zap.Config
 	if verbose {
 		cfg = zap.NewDevelopmentConfig()
@@ -253,46 +246,37 @@ func configureLogging(verbose bool) (*zap.Logger, error) {
 
 var rootExperimentKey = "experiment"
 
-func configureObservability(verbose bool) alamos.Instrumentation {
-	var opt alamos.Option
-	if verbose {
-		opt = alamos.WithFilters(alamos.LevelFilterAll{})
-	} else {
-		opt = alamos.WithFilters(alamos.LevelFilterThreshold{Level: alamos.Production})
-	}
-	return alamos.New(rootExperimentKey, opt)
-}
-
-func configureSecurity(logger *zap.Logger, insecure bool) (security.Provider, error) {
+func configureSecurity(ins alamos.Instrumentation, insecure bool) (security.Provider, error) {
 	return security.NewProvider(security.ProviderConfig{
-		LoaderConfig: buildCertLoaderConfig(logger),
+		LoaderConfig: buildCertLoaderConfig(ins),
 		Insecure:     config.BoolPointer(insecure),
 		KeySize:      viper.GetInt("key-size"),
 	})
 }
 
 func maybeProvisionRootUser(
+	ctx context.Context,
 	db *gorp.DB,
 	authSvc auth.Authenticator,
 	userSvc *user.Service,
 ) error {
 	uname := viper.GetString("username")
 	pass := password.Raw(viper.GetString("password"))
-	exists, err := userSvc.UsernameExists(uname)
+	exists, err := userSvc.UsernameExists(ctx, uname)
 	if err != nil || exists {
 		return err
 	}
 	txn := db.BeginTxn()
-	if err = authSvc.NewWriterUsingTxn(txn).Register(auth.InsecureCredentials{
+	if err = authSvc.NewWriterWithTxn(txn).Register(ctx, auth.InsecureCredentials{
 		Username: uname,
 		Password: pass,
 	}); err != nil {
 		return err
 	}
-	if err = userSvc.NewWriterUsingTxn(txn).Create(&user.User{Username: uname}); err != nil {
+	if err = userSvc.NewWriterWithTxn(txn).Create(ctx, &user.User{Username: uname}); err != nil {
 		return err
 	}
-	return txn.Commit()
+	return txn.Commit(ctx)
 }
 
 func configureClientGRPC(

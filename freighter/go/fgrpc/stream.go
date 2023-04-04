@@ -37,11 +37,11 @@ type StreamServerCore[RQ, RQT, RS, RST freighter.Payload] struct {
 }
 
 func (s *StreamClientCore[RQ, RQT, RS, RST]) Report() alamos.Report {
-	return reporter.Report()
+	return Reporter.Report()
 }
 
 func (s *StreamServerCore[RQ, RQT, RS, RST]) Report() alamos.Report {
-	return reporter.Report()
+	return Reporter.Report()
 }
 
 func (s *StreamServerCore[RQ, RQT, RS, RST]) BindHandler(
@@ -53,14 +53,13 @@ func (s *StreamServerCore[RQ, RQT, RS, RST]) BindHandler(
 func (s *StreamServerCore[RQ, RQT, RS, RST]) Handler(
 	ctx context.Context, stream freighter.ServerStream[RQ, RS],
 ) error {
-	oMD, err := s.MiddlewareCollector.Exec(
-		ctx,
-		parseMetaData(ctx, s.ServiceDesc.ServiceName),
-		freighter.FinalizerFunc(func(ctx context.Context, md freighter.MD) (freighter.MD, error) {
-			return freighter.MD{Protocol: md.Protocol, Params: make(freighter.Params)}, s.handler(ctx, stream)
+	oCtx, err := s.MiddlewareCollector.Exec(
+		parseContext(ctx, s.ServiceDesc.ServiceName, freighter.ServerSide),
+		freighter.FinalizerFunc(func(md freighter.Context) (freighter.Context, error) {
+			return freighter.Context{Protocol: md.Protocol, Params: make(freighter.Params)}, s.handler(ctx, stream)
 		}),
 	)
-	attachMetaData(ctx, oMD)
+	oCtx = attachContext(oCtx)
 	return err
 }
 
@@ -69,16 +68,22 @@ func (s *StreamClientCore[RQ, RQT, RS, RST]) Stream(
 	target address.Address,
 ) (stream freighter.ClientStream[RQ, RS], _ error) {
 	_, err := s.MiddlewareCollector.Exec(
-		ctx,
-		freighter.MD{Target: target, Protocol: reporter.Protocol},
-		freighter.FinalizerFunc(func(ctx context.Context, md freighter.MD) (oMD freighter.MD, err error) {
+		freighter.Context{
+			Context:  ctx,
+			Type:     freighter.Stream,
+			Location: freighter.ClientSide,
+			Target:   target,
+			Protocol: Reporter.Protocol,
+			Params:   make(freighter.Params),
+		},
+		freighter.FinalizerFunc(func(ctx freighter.Context) (oCtx freighter.Context, err error) {
 			conn, err := s.Pool.Acquire(target)
 			if err != nil {
-				return oMD, err
+				return oCtx, err
 			}
 			grpcClient, err := s.ClientFunc(ctx, conn.ClientConn)
 			stream = s.Client(grpcClient)
-			return parseMetaData(ctx, s.ServiceDesc.ServiceName), err
+			return parseContext(ctx, s.ServiceDesc.ServiceName, freighter.ClientSide), err
 		}),
 	)
 	return stream, err

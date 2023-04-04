@@ -10,6 +10,7 @@
 package gorp
 
 import (
+	"context"
 	"github.com/synnaxlabs/x/kv"
 )
 
@@ -34,4 +35,4 @@ func (db *DB) BeginTxn() Txn { return txn{Batch: db.NewBatch(), db: db} }
 
 // Commit does nothing, and is here to implement the Txn interface. If DB is used
 // as a Txn, all queries will be executed directly against the DB.
-func (db *DB) Commit(opts ...interface{}) error { return nil }
+func (db *DB) Commit(_ context.Context, _ ...interface{}) error { return nil }

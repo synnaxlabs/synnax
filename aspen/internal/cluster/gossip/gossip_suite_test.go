@@ -10,7 +10,7 @@
 package gossip_test
 
 import (
-	"github.com/synnaxlabs/alamos"
+	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -18,7 +18,7 @@ import (
 )
 
 var (
-	ctx, _ = alamos.Nop()
+	ctx = context.Background()
 )
 
 func TestGossip(t *testing.T) {

@@ -219,6 +219,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 					Expect(builder.Nodes[1].DB.Close()).To(Succeed())
 					Expect(builder.Nodes[3].DB.Close()).To(Succeed())
 					Expect(db.Close()).To(Succeed())
+					time.Sleep(500 * time.Second)
 				})
 			})
 		})

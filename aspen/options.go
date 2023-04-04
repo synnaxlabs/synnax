@@ -23,9 +23,11 @@ import (
 	"time"
 )
 
+// Option is a function that configures an Aspen instance.
 type Option func(*options)
 
 type options struct {
+	alamos.Instrumentation
 	// dirname is the directory where aspen will store its data.
 	// this option is ignored if a custom kv.ServiceConfig.Engine is set.
 	dirname string
@@ -48,8 +50,8 @@ type options struct {
 	// transport is the transport package for the messages that aspen exchanges.
 	// this setting overrides all other transport settings in sub-configs.
 	transport Transport
-	// externalTransport is a boolean flag indicating whether the caller provided an external
-	// transport that they control themselves.
+	// externalTransport is a boolean flag indicating whether the caller provided an
+	// external transport that they control themselves.
 	externalTransport bool
 }
 
@@ -102,7 +104,10 @@ type PropagationConfig struct {
 	// Aspen will send messages regardless of whether the state has changed, so setting this interval to a low
 	// value may result in very high network traffic.
 	ClusterGossipInterval time.Duration
-	KVGossipInterval      time.Duration
+	// KVGossipInterval sets the interval at which aspen will propagate key-Value operations
+	// to other nodes. It's important to note that KV will not gossip if there are no
+	// operations to propagate.
+	KVGossipInterval time.Duration
 }
 
 // WithPropagationConfig sets the parameters defining how quickly cluster state converges. See PropagationConfig
@@ -132,6 +137,13 @@ func WithTransport(transport Transport) Option {
 	}
 }
 
+// WithInstrumentation sets the instrumentation for aspen.
+func WithInstrumentation(i alamos.Instrumentation) Option {
+	return func(o *options) {
+		o.Instrumentation = i
+	}
+}
+
 func newOptions(dirname string, addr address.Address, peers []address.Address, opts ...Option) *options {
 	o := &options{}
 	o.dirname = dirname
@@ -146,35 +158,21 @@ func newOptions(dirname string, addr address.Address, peers []address.Address, o
 
 func mergeDefaultOptions(o *options) {
 	def := defaultOptions()
-
-	// |||| DIRNAME ||||
-
 	if o.dirname == "" {
 		o.dirname = def.dirname
 	}
-
-	// |||| KV ||||
-
 	o.kv = def.kv.Override(o.kv)
-
-	// |||| CLUSTER ||||
-
-	o.cluster.Pledge.Peers = o.peerAddresses
-	o.cluster.HostAddress = o.addr
-
-	// |||| SHUTDOWN ||||
-
-	// |||| TRANSPORT ||||
-
+	o.cluster = def.cluster.Override(o.cluster)
 	if o.transport == nil {
 		o.transport = def.transport
 	}
-
+	o.cluster.Instrumentation = o.Instrumentation
+	o.kv.Instrumentation = o.Instrumentation
+	// If we're bootstrapping these options are ignored.
 	if o.bootstrap {
 		o.peerAddresses = []address.Address{}
 		o.cluster.Pledge.Peers = []address.Address{}
 	}
-
 }
 
 func defaultOptions() *options {

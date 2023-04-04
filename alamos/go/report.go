@@ -11,7 +11,6 @@ package alamos
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"go.uber.org/zap"
 	"io"
@@ -23,9 +22,15 @@ type Reporter interface {
 
 type Report map[string]interface{}
 
-func AttachReporter(ctx context.Context, key string, level Level, report Reporter) {
-	ins := FromContext(ctx)
-	ins.attachReporter(key, level, report)
+type ReportManager struct {
+}
+
+func AttachReporter(i Instrumentation, key string, report Reporter) {
+	ins, ok := Extract(ctx)
+	if !ok {
+		return
+	}
+	ins.attachReporter(key, report)
 }
 
 // JSON writes the report as JSON as bytes.
@@ -50,31 +55,10 @@ func (r Report) String() string {
 	return string(b)
 }
 
-func (r Report) LogArgs() []zap.Field {
+func (r Report) ZapFields() []zap.Field {
 	args := make([]zap.Field, 0, len(r))
 	for k, v := range r {
 		args = append(args, zap.Any(k, v))
 	}
 	return args
-}
-
-// Report implements Instrumentation.
-func (e *instrumentation) Report() Report {
-	report := make(map[string]interface{})
-	for k, v := range e.measurements {
-		report[k] = v.Report()
-	}
-	for k, v := range e.children {
-		report[k] = v.Report()
-	}
-	for k, v := range e.reporters {
-		report[k] = v.Report()
-	}
-	return report
-}
-
-func (e *instrumentation) attachReporter(key string, level Level, r Reporter) {
-	if e.filterTest(level) {
-		e.reporters[key] = r
-	}
 }

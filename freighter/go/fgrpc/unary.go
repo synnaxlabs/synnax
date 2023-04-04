@@ -62,11 +62,11 @@ type UnaryServer[RQ, RQT, RS, RST freighter.Payload] struct {
 }
 
 func (u *UnaryClient[RQ, RQT, RS, RST]) Report() alamos.Report {
-	return reporter.Report()
+	return Reporter.Report()
 }
 
 func (u *UnaryServer[RQ, RQT, RS, RST]) Report() alamos.Report {
-	return reporter.Report()
+	return Reporter.Report()
 }
 
 // BindTo implements the BindableTransport interface.
@@ -81,10 +81,15 @@ func (u *UnaryClient[RQ, RQT, RS, RST]) Send(
 	req RQ,
 ) (res RS, err error) {
 	_, err = u.MiddlewareCollector.Exec(
-		ctx,
-		freighter.MD{Target: target, Protocol: reporter.Protocol},
-		freighter.FinalizerFunc(func(ctx context.Context, md freighter.MD) (oMD freighter.MD, err error) {
-			attachMetaData(ctx, md)
+		freighter.Context{
+			Context:  ctx,
+			Target:   address.Newf("%s.%s", target, u.ServiceDesc.ServiceName),
+			Location: freighter.ClientSide,
+			Protocol: Reporter.Protocol,
+			Params:   make(freighter.Params),
+		},
+		freighter.FinalizerFunc(func(ctx freighter.Context) (oMD freighter.Context, err error) {
+			ctx = attachContext(ctx)
 			conn, err := u.Pool.Acquire(target)
 			if err != nil {
 				return oMD, err
@@ -94,7 +99,7 @@ func (u *UnaryClient[RQ, RQT, RS, RST]) Send(
 				return oMD, err
 			}
 			tRes, err := u.Client(ctx, conn.ClientConn, tReq)
-			parseMetaData(ctx, u.ServiceDesc.ServiceName)
+			oMD = parseContext(ctx, u.ServiceDesc.ServiceName, freighter.ClientSide)
 			if err != nil {
 				return oMD, err
 			}
@@ -107,28 +112,32 @@ func (u *UnaryClient[RQ, RQT, RS, RST]) Send(
 
 // Exec implements the GRPC service interface.
 func (u *UnaryServer[RQ, RQT, RS, RST]) Exec(ctx context.Context, tReq RQT) (tRes RST, err error) {
-	oMD, err := u.MiddlewareCollector.Exec(
-		ctx,
-		parseMetaData(ctx, u.ServiceDesc.ServiceName),
-		freighter.FinalizerFunc(func(ctx context.Context, md freighter.MD) (freighter.MD, error) {
-			oMD := freighter.MD{Protocol: reporter.Protocol, Target: md.Target, Params: md.Params}
+	oCtx, err := u.MiddlewareCollector.Exec(
+		parseContext(ctx, u.ServiceDesc.ServiceName, freighter.ServerSide),
+		freighter.FinalizerFunc(func(ctx freighter.Context) (freighter.Context, error) {
+			oCtx := freighter.Context{
+				Context:  ctx.Context,
+				Protocol: Reporter.Protocol,
+				Target:   ctx.Target,
+				Params:   ctx.Params,
+			}
 			if u.handler == nil {
-				return oMD, roacherrors.New("[freighter] - no handler registered")
+				return oCtx, roacherrors.New("[freighter] - no handler registered")
 			}
 			req, err := u.RequestTranslator.Backward(tReq)
 			if err != nil {
-				return oMD, err
+				return oCtx, err
 			}
 			res, err := u.handler(ctx, req)
 			if err != nil {
-				return oMD, err
+				return oCtx, err
 			}
 			tRes, err = u.ResponseTranslator.Forward(res)
-			return oMD, err
+			return oCtx, err
 		},
 		),
 	)
-	attachMetaData(ctx, oMD)
+	oCtx = attachContext(oCtx)
 	return tRes, err
 }
 

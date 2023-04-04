@@ -11,6 +11,8 @@ package framer
 
 import (
 	"context"
+	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
@@ -60,6 +62,7 @@ var (
 // New creates a new grpc Transport that opens connections from the given pool.
 func New(pool *fgrpc.Pool) Transport {
 	return Transport{
+		Reporter: fgrpc.Reporter,
 		writer: writerTransport{
 			client: &writerClient{
 				Pool:               pool,
@@ -113,6 +116,7 @@ func (t *iteratorServer) Iterate(server framerv1.IteratorService_IterateServer) 
 
 // Transport is a grpc backed implementation of the framer.Transport interface.
 type Transport struct {
+	alamos.Reporter
 	writer   writerTransport
 	iterator iteratorTransport
 }
@@ -127,6 +131,11 @@ func (t Transport) Iterator() iterator.Transport { return t.iterator }
 func (t Transport) BindTo(server grpc.ServiceRegistrar) {
 	framerv1.RegisterWriterServiceServer(server, t.writer.server)
 	framerv1.RegisterIteratorServiceServer(server, t.iterator.server)
+}
+
+func (t Transport) Use(middleware ...freighter.Middleware) {
+	t.writer.client.Use(middleware...)
+	t.iterator.client.Use(middleware...)
 }
 
 type writerTransport struct {

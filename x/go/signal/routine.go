@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/synnaxlabs/alamos"
+	"go.uber.org/zap"
 	"strconv"
 )
 
@@ -137,7 +138,6 @@ func (r *routine) info() RoutineInfo {
 
 func (r *routine) runPrelude() (ctx context.Context, proceed bool) {
 	r.ctx.mu.Lock()
-	defer r.ctx.mu.Unlock()
 
 	if r.key == "" {
 		r.key = "anonymous-" + strconv.Itoa(len(r.ctx.mu.routines))
@@ -154,8 +154,8 @@ func (r *routine) runPrelude() (ctx context.Context, proceed bool) {
 	r.state.state = Running
 	r.ctx.mu.Unlock()
 
-	alamos.S(r.ctx).Debugw("starting routine", r.diagnosticArgs()...)
-	ctx, r.span = alamos.Trace(r.ctx, r.key)
+	alamos.L(r.ctx).Debug("starting routine", r.logArgs()...)
+	ctx, r.span = alamos.TraceI(r.ctx, r.ctx, r.key)
 
 	return ctx, true
 }
@@ -164,8 +164,8 @@ func (r *routine) runPostlude(err error) {
 	r.maybeRecover()
 	defer r.maybeRecover()
 
-	log := alamos.S(r.ctx)
-	log.Debugw("stopping routine", r.diagnosticArgs()...)
+	log := alamos.L(r.ctx)
+	log.Debug("stopping routine", r.logArgs()...)
 
 	r.ctx.mu.Lock()
 	r.state.state = Stopping
@@ -187,8 +187,8 @@ func (r *routine) runPostlude(err error) {
 			r.span.Status(alamos.Error)
 			r.state.state = Failed
 			r.state.err = err
-			log.Errorw("routine failed", r.diagnosticArgs()...)
-			log.Debugw(routineFailedFormat, r.key, r.state.err, r.ctx.routineDiagnostics())
+			log.Error("routine failed", r.logArgs()...)
+			log.Sugar().Debugf(routineFailedFormat, r.key, r.state.err, r.ctx.routineDiagnostics())
 		}
 		if r.contextPolicy.cancelOnExitErr {
 			r.ctx.cancel()
@@ -205,7 +205,7 @@ func (r *routine) runPostlude(err error) {
 
 	r.ctx.maybeStop()
 
-	log.Debugw("routine stopped", r.diagnosticArgs()...)
+	log.Debug("routine stopped", r.logArgs()...)
 }
 
 func (r *routine) maybeRecover() {
@@ -213,9 +213,9 @@ func (r *routine) maybeRecover() {
 		r.ctx.mu.Lock()
 		defer r.ctx.mu.Unlock()
 		r.state.state = Panicked
-		log := alamos.S(r.ctx)
-		log.Warnw("routine panicked")
-		log.Debugf(routineFailedFormat, r.key, err, r.ctx.routineDiagnostics())
+		log := alamos.L(r.ctx)
+		log.Warn("routine panicked")
+		log.Sugar().Debugf(routineFailedFormat, r.key, err, r.ctx.routineDiagnostics())
 		if err, ok := err.(error); ok {
 			r.state.err = err
 			r.span.Error(err)
@@ -226,12 +226,10 @@ func (r *routine) maybeRecover() {
 	}
 }
 
-func (r *routine) diagnosticArgs() []interface{} {
-	opts := []interface{}{
-		"key",
-		r.key,
-		"state",
-		r.state.state,
+func (r *routine) logArgs() []zap.Field {
+	opts := []zap.Field{
+		zap.String("key", r.key),
+		zap.Uint8("state", uint8(r.state.state)),
 	}
 	deferralKeys := make([]string, len(r.deferrals))
 	for i, def := range r.deferrals {
@@ -240,7 +238,7 @@ func (r *routine) diagnosticArgs() []interface{} {
 		}
 	}
 	if len(deferralKeys) > 0 {
-		opts = append(opts, "deferrals", deferralKeys)
+		opts = append(opts, zap.Strings("deferrals", deferralKeys))
 	}
 	return opts
 }

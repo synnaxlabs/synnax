@@ -10,19 +10,20 @@
 package cesium
 
 import (
+	"context"
 	"github.com/synnaxlabs/cesium/internal/unary"
 )
 
-func (db *cesium) NewIterator(cfg IteratorConfig) (Iterator, error) {
-	internal, err := db.newStreamIterator(cfg)
+func (db *cesium) NewIterator(ctx context.Context, cfg IteratorConfig) (Iterator, error) {
+	internal, err := db.newStreamIterator(ctx, cfg)
 	return wrapStreamIterator(internal), err
 }
 
-func (db *cesium) NewStreamIterator(cfg IteratorConfig) (StreamIterator, error) {
-	return db.newStreamIterator(cfg)
+func (db *cesium) NewStreamIterator(ctx context.Context, cfg IteratorConfig) (StreamIterator, error) {
+	return db.newStreamIterator(ctx, cfg)
 }
 
-func (db *cesium) newStreamIterator(cfg IteratorConfig) (*streamIterator, error) {
+func (db *cesium) newStreamIterator(_ context.Context, cfg IteratorConfig) (*streamIterator, error) {
 	internal := make([]*unary.Iterator, len(cfg.Channels))
 	for i, key := range cfg.Channels {
 		uDB, err := db.getUnary(key)

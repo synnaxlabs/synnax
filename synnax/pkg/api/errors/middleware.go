@@ -10,24 +10,22 @@
 package errors
 
 import (
-	"context"
 	roacherrors "github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/freighter"
 )
 
 func Middleware() freighter.Middleware {
 	return freighter.MiddlewareFunc(func(
-		ctx context.Context,
-		md freighter.MD,
+		ctx freighter.Context,
 		next freighter.Next,
-	) (freighter.MD, error) {
-		oMd, err := next(ctx, md)
+	) (freighter.Context, error) {
+		oCtx, err := next(ctx)
 		var t Typed
 		if roacherrors.As(err, &t) {
 			if !t.Occurred() {
-				return oMd, nil
+				return oCtx, nil
 			}
 		}
-		return oMd, err
+		return oCtx, err
 	})
 }

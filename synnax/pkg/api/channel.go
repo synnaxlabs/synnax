@@ -35,7 +35,6 @@ type Channel struct {
 
 // ChannelService is the central API for all things Channel related.
 type ChannelService struct {
-	loggingProvider
 	validationProvider
 	authProvider
 	dbProvider
@@ -47,7 +46,6 @@ func NewChannelService(p Provider) *ChannelService {
 		internal:           p.Config.Channel,
 		validationProvider: p.Validation,
 		authProvider:       p.auth,
-		loggingProvider:    p.Logging,
 		dbProvider:         p.db,
 	}
 }
@@ -79,7 +77,7 @@ func (s *ChannelService) Create(
 	if err != nil {
 		return res, errors.Parse(err)
 	}
-	return res, s.dbProvider.WithTxn(func(txn gorp.Txn) errors.Typed {
+	return res, s.dbProvider.WithTxn(ctx, func(txn gorp.Txn) errors.Typed {
 		err := s.internal.CreateManyWithTxn(txn, &translated)
 		res = ChannelCreateResponse{Channels: translateChannelsForward(translated)}
 		return errors.MaybeQuery(err)
@@ -132,7 +130,6 @@ func (s *ChannelService) Retrieve(
 	}
 
 	err := errors.MaybeQuery(q.Exec(ctx))
-
 
 	if hasKeys {
 		notFound, _ = lo.Difference(

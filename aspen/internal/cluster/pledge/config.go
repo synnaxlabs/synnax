@@ -34,6 +34,7 @@ type (
 // Config is used for configuring a pledge based membership network. It implements
 // the config.ServiceConfig interface.
 type Config struct {
+	alamos.Instrumentation
 	// Candidates is a Group of nodes to contact as candidates for the formation
 	// of a jury.
 	// [Required]
@@ -79,6 +80,7 @@ func (cfg Config) Override(other Config) Config {
 	cfg.MaxProposals = override.Numeric(cfg.MaxProposals, other.MaxProposals)
 	cfg.Candidates = override.Nil(cfg.Candidates, other.Candidates)
 	cfg.Peers = override.Slice(cfg.Peers, other.Peers)
+	cfg.Instrumentation = override.Nil(cfg.Instrumentation, other.Instrumentation)
 	return cfg
 }
 

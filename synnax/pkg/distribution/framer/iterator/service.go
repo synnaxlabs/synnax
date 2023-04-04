@@ -13,6 +13,7 @@ import (
 	"context"
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
@@ -26,7 +27,6 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 )
 
 type Config struct {
@@ -35,16 +35,16 @@ type Config struct {
 }
 
 type ServiceConfig struct {
+	alamos.Instrumentation
 	TS            storage.StreamIterableTS
-	ChannelReader channel.Reader
+	ChannelReader channel.RetrieveFactory
 	HostResolver  aspen.HostResolver
 	Transport     Transport
-	Logger        *zap.Logger
 }
 
 var (
 	_             config.Config[ServiceConfig] = ServiceConfig{}
-	DefaultConfig                              = ServiceConfig{Logger: zap.NewNop()}
+	DefaultConfig                              = ServiceConfig{}
 )
 
 // Override implements Config.
@@ -53,7 +53,7 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	cfg.ChannelReader = override.Nil(cfg.ChannelReader, other.ChannelReader)
 	cfg.Transport = override.Nil(cfg.Transport, other.Transport)
 	cfg.HostResolver = override.Nil(cfg.HostResolver, other.HostResolver)
-	cfg.Logger = override.Nil(cfg.Logger, other.Logger)
+	cfg.Instrumentation = override.Nil(cfg.Instrumentation, other.Instrumentation)
 	return cfg
 }
 
@@ -64,7 +64,6 @@ func (cfg ServiceConfig) Validate() error {
 	validate.NotNil(v, "ChannelReader", cfg.ChannelReader)
 	validate.NotNil(v, "Transport", cfg.Transport)
 	validate.NotNil(v, "Resolver", cfg.HostResolver)
-	validate.NotNil(v, "Logger", cfg.Logger)
 	return v.Error()
 }
 
@@ -93,10 +92,7 @@ func (s *Service) New(ctx context.Context, cfg Config) (Iterator, error) {
 	if err != nil {
 		return nil, err
 	}
-	sCtx, cancel := signal.Background(
-		signal.WithInstrumentation(s.Logger),
-		signal.WithContextKey("iterator"),
-	)
+	sCtx, cancel := signal.Background(signal.WithInstrumentation(s))
 	req := confluence.NewStream[Request]()
 	res := confluence.NewStream[Response]()
 	stream.InFrom(req)
@@ -137,7 +133,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 
 	if needGatewayRouting {
 		routeInletTo = gatewayIterAddr
-		gatewayIter, err := s.newGateway(Config{Keys: batch.Gateway, Bounds: cfg.Bounds})
+		gatewayIter, err := s.newGateway(ctx, Config{Keys: batch.Gateway, Bounds: cfg.Bounds})
 		if err != nil {
 			return nil, err
 		}

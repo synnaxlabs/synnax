@@ -20,6 +20,7 @@ import (
 
 // Config is the configuration for the aspen db service. For default values, see DefaultConfig().
 type Config struct {
+	alamos.Instrumentation
 	// Cluster is the cluster that the DB will use to communicate with other databases.
 	// [Required]
 	Cluster cluster.Cluster
@@ -49,7 +50,7 @@ type Config struct {
 	GossipInterval time.Duration
 	// Recovery threshold for the SIR gossip protocol i.e. how many times the node must send a redundant operation
 	// for it to stop propagating it.
-	//[Not Required]
+	// [Not Required]
 	RecoveryThreshold int
 }
 

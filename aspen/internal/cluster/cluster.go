@@ -91,7 +91,6 @@ func Join(ctx context.Context, cfgs ...Config) (Cluster, error) {
 	if err != nil {
 		return nil, err
 	}
-	sCtx, cancel := signal.WithCancel(ctx)
 	store_ := store.New()
 	cfg.Gossip.Store = store_
 	cfg.Pledge.Candidates = func() node.Group { return store_.CopyState().Nodes }
@@ -103,40 +102,44 @@ func Join(ctx context.Context, cfgs ...Config) (Cluster, error) {
 	}
 	store_.SetState(state)
 
-	c := &cluster{Store: store_, shutdown: cancel, wg: sCtx, cfg: cfg}
+	sCtx, cancel := signal.WithCancel(alamos.Transfer(ctx, context.Background()))
+
+	c := &cluster{
+		Store:    store_,
+		shutdown: signal.NewShutdown(sCtx, cancel),
+		Config:   cfg,
+	}
 	if err != nil {
 		return nil, err
 	}
-	c.gossip, err = gossip.New(c.cfg.Gossip)
+	c.gossip, err = gossip.New(c.Gossip)
 
-	alamos.AttachReporter(ctx, "cluster", alamos.Debug, c.cfg)
-	log := alamos.L(ctx)
-	log.Info("beginning cluster startup", c.cfg.Report().LogArgs()...)
+	alamos.AttachReporter(c, "cluster", c)
+	log := alamos.L(c)
+	log.Info("beginning cluster startup", c.Report().ZapFields()...)
 
-	// If our store is empty or invalid and peers were provided, attempt to join
-	// the cluster.
 	if !state.IsZero() {
 		// If our store is valid, restart using the existing state.
 		log.Info("existing cluster found in storage. restarting activities")
-
 		host := c.Store.GetHost()
 		host.Heartbeat = host.Heartbeat.Restart()
-		c.Store.SetNode(host)
-		c.cfg.Pledge.ClusterKey = c.Key()
-		if err := pledge_.Arbitrate(ctx, c.cfg.Pledge); err != nil {
+		c.SetNode(host)
+		c.Pledge.ClusterKey = c.Key()
+		if err := pledge_.Arbitrate(ctx, c.Pledge); err != nil {
 			return nil, err
 		}
-	} else if len(c.cfg.Pledge.Peers) != 0 {
+	} else if len(c.Pledge.Peers) > 0 {
+		// If our store is empty or invalid and peers were provided, attempt to join
+		// the cluster.
 		log.Info("no cluster found in storage. pledging to cluster instead")
-		pledgeRes, err := pledge_.Pledge(ctx, c.cfg.Pledge)
+		pledgeRes, err := pledge_.Pledge(ctx, c.Pledge)
 		if err != nil {
 			return nil, err
 		}
-		c.Store.SetHost(node.Node{ID: pledgeRes.ID, Address: c.cfg.HostAddress})
-		c.Store.SetClusterKey(pledgeRes.ClusterKey)
-		// operationSender initial cluster state, so we can contact it for
-		// information on other nodes instead of peers.
-
+		c.SetHost(node.Node{ID: pledgeRes.ID, Address: c.HostAddress})
+		c.SetClusterKey(pledgeRes.ClusterKey)
+		// gossip initial state manually through peers in order to build an
+		// initial view of the cluster.
 		log.Info("gossiping initial state through peer addresses")
 		if err = c.gossipInitialState(ctx); err != nil {
 			return c, err
@@ -144,11 +147,11 @@ func Join(ctx context.Context, cfgs ...Config) (Cluster, error) {
 	} else {
 		// If our store isn't valid, and we haven't received peers, assume we're
 		// bootstrapping a new cluster.
-		c.Store.SetHost(node.Node{ID: 1, Address: c.cfg.HostAddress})
+		c.SetHost(node.Node{ID: 1, Address: c.HostAddress})
 		c.SetClusterKey(uuid.New())
 		log.Info("no peers provided, bootstrapping new cluster")
-		c.cfg.Pledge.ClusterKey = c.Key()
-		if err := pledge_.Arbitrate(ctx, c.cfg.Pledge); err != nil {
+		c.Pledge.ClusterKey = c.Key()
+		if err := pledge_.Arbitrate(ctx, c.Pledge); err != nil {
 			return c, err
 		}
 	}
@@ -163,11 +166,10 @@ func Join(ctx context.Context, cfgs ...Config) (Cluster, error) {
 }
 
 type cluster struct {
+	Config
 	store.Store
-	cfg      Config
 	gossip   *gossip.Gossip
-	shutdown context.CancelFunc
-	wg       signal.WaitGroup
+	shutdown io.Closer
 }
 
 // Key implements the Cluster interface.
@@ -200,12 +202,14 @@ func (c *cluster) Resolve(id node.ID) (address.Address, error) {
 }
 
 func (c *cluster) Close() error {
-	c.shutdown()
-	return c.wg.Wait()
+	return c.shutdown.Close()
 }
 
 func tryLoadPersistedState(ctx context.Context, cfg Config) (store.State, error) {
 	var state store.State
+	if cfg.Storage == nil {
+		return state, nil
+	}
 	encoded, err := cfg.Storage.Get(ctx, cfg.StorageKey)
 	if err != nil {
 		return state, lo.Ternary(errors.Is(err, kv.NotFound), nil, err)
@@ -214,13 +218,13 @@ func tryLoadPersistedState(ctx context.Context, cfg Config) (store.State, error)
 }
 
 func (c *cluster) gossipInitialState(ctx context.Context) error {
-	nextAddr := iter.Endlessly(c.cfg.Pledge.Peers)
+	nextAddr := iter.Endlessly(c.Pledge.Peers)
 	for peerAddr := nextAddr(); peerAddr != ""; peerAddr = nextAddr() {
 		if err := c.gossip.GossipOnceWith(ctx, peerAddr); err != nil {
 			if ctx.Err() != nil {
 				return ctx.Err()
 			}
-			alamos.L(ctx).Error(
+			alamos.L(c).Error(
 				"failed to gossip with peer",
 				zap.String("peer", string(peerAddr)),
 				zap.Error(err),
@@ -234,12 +238,12 @@ func (c *cluster) gossipInitialState(ctx context.Context) error {
 }
 
 func (c *cluster) goFlushStore(ctx signal.Context) {
-	if c.cfg.Storage != nil {
+	if c.Storage != nil {
 		flush := &observe.FlushSubscriber[State]{
-			Key:         c.cfg.StorageKey,
-			MinInterval: c.cfg.StorageFlushInterval,
-			Store:       c.cfg.Storage,
-			Encoder:     c.cfg.EncoderDecoder,
+			Key:         c.StorageKey,
+			MinInterval: c.StorageFlushInterval,
+			Store:       c.Storage,
+			Encoder:     c.EncoderDecoder,
 		}
 		flush.FlushSync(ctx, c.Store.CopyState())
 		c.OnChange(func(state State) { flush.Flush(ctx, state) })

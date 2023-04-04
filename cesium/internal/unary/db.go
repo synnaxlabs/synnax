@@ -77,7 +77,6 @@ func (db *DB) NewIterator(cfg IteratorConfig) *Iterator {
 		idx:            db.index(),
 		Channel:        db.Channel,
 		internal:       iter,
-		logger:         db.Logger,
 		IteratorConfig: cfg,
 	}
 	i.SetBounds(cfg.Bounds)

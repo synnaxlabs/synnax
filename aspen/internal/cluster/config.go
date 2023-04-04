@@ -25,6 +25,7 @@ import (
 const FlushOnEvery = -1 * time.Second
 
 type Config struct {
+	alamos.Instrumentation
 	// HostAddress is the reachable address of the host node.
 	// [REQUIRED]
 	HostAddress address.Address
@@ -58,6 +59,9 @@ func (cfg Config) Override(other Config) Config {
 	cfg.StorageFlushInterval = override.Numeric(cfg.StorageFlushInterval, other.StorageFlushInterval)
 	cfg.StorageKey = override.Slice(cfg.StorageKey, other.StorageKey)
 	cfg.Storage = override.Nil(cfg.Storage, other.Storage)
+	cfg.Instrumentation = override.Nil(cfg.Instrumentation, other.Instrumentation)
+	cfg.Gossip.Instrumentation = cfg.Instrumentation
+	cfg.Pledge.Instrumentation = cfg.Instrumentation
 	cfg.Gossip = cfg.Gossip.Override(other.Gossip)
 	cfg.Pledge = cfg.Pledge.Override(other.Pledge)
 	return cfg
@@ -69,8 +73,6 @@ func (cfg Config) Validate() error {
 	validate.NotNil(v, "EncoderDecoder", cfg.EncoderDecoder)
 	validate.NonZero(v, "StorageFlushInterval", cfg.StorageFlushInterval)
 	validate.NotEmptySlice(v, "StorageKey", cfg.StorageKey)
-	v.Exec(cfg.Gossip.Validate)
-	v.Exec(cfg.Pledge.Validate)
 	return v.Error()
 }
 

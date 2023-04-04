@@ -23,7 +23,7 @@ func (db *cesium) openUnary(ch Channel) error {
 	if err != nil {
 		return err
 	}
-	u, err := unary.Open(unary.Config{FS: fs, Channel: ch, Logger: db.logger})
+	u, err := unary.Open(unary.Config{FS: fs, Channel: ch, Instrumentation: db.Instrumentation})
 	if err != nil {
 		return err
 	}
@@ -65,6 +65,6 @@ func (db *cesium) getUnary(key string) (unary.DB, error) {
 func (db *cesium) unaryIsOpen(key string) bool {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
-	_, ok := db.dbs[key];
+	_, ok := db.dbs[key]
 	return ok
 }

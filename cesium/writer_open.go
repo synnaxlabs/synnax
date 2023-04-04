@@ -53,10 +53,10 @@ func (db *cesium) newStreamWriter(_ context.Context, cfg WriterConfig) (*streamW
 				if err != nil {
 					return nil, err
 				}
-				idx = &index.Ranger{DB: idxU.Ranger, Logger: db.logger}
+				idx = &index.Ranger{DB: idxU.Ranger, Instrumentation: db.Instrumentation}
 				idxChannel = idxU.Channel
 			} else {
-				idx = index.Rate{Rate: u.Channel.Rate, Logger: db.logger}
+				idx = index.Rate{Rate: u.Channel.Rate}
 				idxChannel = u.Channel
 			}
 		} else {

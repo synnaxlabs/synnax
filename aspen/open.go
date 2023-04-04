@@ -12,11 +12,14 @@ package aspen
 import (
 	"context"
 	"github.com/cockroachdb/pebble"
+	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/alamos/falamos"
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/kv"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/kv/pebblekv"
 	"github.com/synnaxlabs/x/signal"
+	"io"
 )
 
 func Open(
@@ -26,34 +29,22 @@ func Open(
 	peers []address.Address,
 	opts ...Option,
 ) (DB, error) {
-	o := newOptions(dirname, addr, peers, opts...)
-
-	d := &db{}
-
-	if err := openStorageEngine(o); err != nil {
+	var (
+		o   = newOptions(dirname, addr, peers, opts...)
+		d   = &db{}
+		err error
+	)
+	if err = openStorageEngine(o); err != nil {
 		return nil, err
 	}
-
-	transportCtx, cancel := signal.WithCancel(ctx)
-	d.transport.wg = transportCtx
-	d.transport.shutdown = cancel
-
-	if err := configureTransport(transportCtx, o); err != nil {
-		return nil, err
-	}
-
-	c, err := cluster.Join(ctx, o.cluster)
+	d.transportShutdown, err = configureTransport(ctx, o)
+	d.Cluster, err = cluster.Join(ctx, o.cluster)
 	if err != nil {
 		return nil, err
 	}
-	o.kv.Cluster = c
-
+	o.kv.Cluster = d.Cluster
 	d.DB, err = kv.Open(ctx, o.kv)
-	if err != nil {
-		return nil, err
-	}
-
-	return d, nil
+	return d, err
 }
 
 func openStorageEngine(opts *options) error {
@@ -68,9 +59,20 @@ func openStorageEngine(opts *options) error {
 	return nil
 }
 
-func configureTransport(ctx signal.Context, o *options) error {
-	if err := o.transport.Configure(ctx, o.addr, o.externalTransport); err != nil {
-		return err
+func configureTransport(ctx context.Context, o *options) (io.Closer, error) {
+	sCtx, cancel := signal.WithCancel(alamos.Transfer(ctx, context.Background()))
+	transportShutdown := signal.NewShutdown(sCtx, cancel)
+	if err := o.transport.Configure(sCtx, o.addr, o.externalTransport); err != nil {
+		return transportShutdown, err
+	}
+	if ins, ok := alamos.Extract(ctx); ok {
+		mw, err := falamos.InstrumentationMiddleware(falamos.InstrumentationMiddlewareConfig{
+			Instrumentation: ins,
+		})
+		if err != nil {
+			return transportShutdown, err
+		}
+		o.transport.Use(mw)
 	}
 	o.cluster.Gossip.TransportClient = o.transport.GossipClient()
 	o.cluster.Gossip.TransportServer = o.transport.GossipServer()
@@ -82,5 +84,5 @@ func configureTransport(ctx signal.Context, o *options) error {
 	o.kv.LeaseTransportClient = o.transport.LeaseClient()
 	o.kv.FeedbackTransportServer = o.transport.FeedbackServer()
 	o.kv.FeedbackTransportClient = o.transport.FeedbackClient()
-	return nil
+	return transportShutdown, nil
 }

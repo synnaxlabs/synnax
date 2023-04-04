@@ -39,7 +39,6 @@ func baseConfigWithAddr(n *fmock.Network[pledge.Request, pledge.Response], logge
 	cfg := pledge.Config{
 		TransportServer: server,
 		TransportClient: n.UnaryClient(),
-		Logger:          logger,
 	}
 	return cfg, server.Address
 }
@@ -62,7 +61,7 @@ func provisionCandidates(
 	}
 	for i := 0; i < n; i++ {
 		cfg, addr := baseConfigWithAddr(net, logger)
-		Expect(pledge.Arbitrate(cfg, pledge.Config{
+		Expect(pledge.Arbitrate(ctx, cfg, pledge.Config{
 			Candidates: candidates(i),
 		})).To(Succeed())
 		id := node.ID(i)

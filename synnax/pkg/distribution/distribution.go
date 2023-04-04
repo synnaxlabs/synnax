@@ -53,20 +53,19 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 
 	gorpDB := d.Storage.Gorpify()
 
-	d.Ontology, err = ontology.Open(gorpDB)
+	d.Ontology, err = ontology.Open(ctx, gorpDB)
 	if err != nil {
 		return d, err
 	}
 
 	nodeOntologySvc := &core.NodeOntologyService{
-		Logger:   cfg.Logger.Sugar(),
 		Ontology: d.Ontology,
 		Cluster:  d.Cluster,
 	}
 	clusterOntologySvc := &core.ClusterOntologyService{Cluster: d.Cluster}
 	d.Ontology.RegisterService(clusterOntologySvc)
 	d.Ontology.RegisterService(nodeOntologySvc)
-	nodeOntologySvc.ListenForChanges()
+	nodeOntologySvc.ListenForChanges(ctx)
 
 	channelTransport := channeltransport.New(cfg.Pool)
 	segmentTransport := segmenttransport.New(cfg.Pool)
@@ -85,11 +84,11 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 	d.Ontology.RegisterService(d.Channel)
 
 	d.Framer, err = framer.Open(framer.ServiceConfig{
-		ChannelReader: d.Channel,
-		TS:            d.Storage.TS,
-		Transport:     segmentTransport,
-		HostResolver:  d.Cluster,
-		Logger:        cfg.Logger,
+		Instrumentation: cfg.Instrumentation,
+		ChannelReader:   d.Channel,
+		TS:              d.Storage.TS,
+		Transport:       segmentTransport,
+		HostResolver:    d.Cluster,
 	})
 
 	return d, err
