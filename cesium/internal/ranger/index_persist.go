@@ -11,7 +11,9 @@ package ranger
 
 import (
 	"encoding/binary"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/telem"
+	"go.uber.org/zap"
 	"io"
 	"os"
 )
@@ -37,12 +39,12 @@ func (f *indexPersist) onChange(update indexUpdate) {
 	f.idx.read(func() {
 		encoded = f.encode(update.afterIndex, f.idx.mu.pointers)
 	})
-	if _, err := f.Seek(int64(update.afterIndex*pointerByteSize), io.SeekStart); err != nil {
-		f.Logger.Error(err.Error())
+	_, err := f.Seek(int64(update.afterIndex*pointerByteSize), io.SeekStart)
+	if err == nil {
+		_, err = f.Write(encoded)
 	}
-	_, err := f.Write(encoded)
 	if err != nil {
-		f.Logger.Error(err.Error())
+		alamos.L(f).Error("failed to write index update", zap.Error(err))
 	}
 }
 

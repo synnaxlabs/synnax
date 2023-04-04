@@ -10,7 +10,7 @@
 package signal
 
 import (
-	"context"
+	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	"strings"
 	"sync"
@@ -28,31 +28,37 @@ type Context interface {
 
 // WithCancel returns a Context derived from core that is canceled by the given cancel
 // function. If any goroutine returns a non-nil error, the Context will be canceled.
-func WithCancel(ctx context.Context) (Context, context.CancelFunc) {
+func WithCancel(ctx context.Context, opts ...Option) (Context, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(ctx)
-	c := newCore(ctx, cancel)
+	c := newCore(ctx, cancel, opts...)
 	return c, cancel
 }
 
 // WithTimeout returns a Context derived from core that is canceled by the given
 // timeout. If any goroutine returns a non-nil error, the Context will be canceled.
-func WithTimeout(ctx context.Context, d time.Duration) (Context, context.CancelFunc) {
+func WithTimeout(ctx context.Context, d time.Duration, opts ...Option) (Context, context.CancelFunc) {
 	ctx, cancel := context.WithTimeout(ctx, d)
 	c := newCore(ctx, cancel)
 	return c, cancel
 }
 
-// TODO wraps context.TODO in a Context that can be cancelled. If any goroutine
-// returns a non-nil error, the Context will be cancelled.
-func TODO() (Context, context.CancelFunc) {
-	return WithCancel(context.TODO())
+// TODO wraps context.TODO in a Context that can be cancelled.
+// If any goroutine returns a non-nil error, the Context will be cancelled.
+func TODO(opts ...Option) (Context, context.CancelFunc) {
+	return WithCancel(context.TODO(), opts...)
+}
+
+func Background(opts ...Option) (Context, context.CancelFunc) {
+	return WithCancel(context.Background(), opts...)
 }
 
 func newCore(
 	ctx context.Context,
 	cancel context.CancelFunc,
+	opts ...Option,
 ) *core {
 	c := &core{
+		options: newOptions(opts),
 		Context: ctx,
 		cancel:  cancel,
 	}
@@ -61,6 +67,7 @@ func newCore(
 }
 
 type core struct {
+	options
 	context.Context
 	cancel   context.CancelFunc
 	internal errgroup.Group

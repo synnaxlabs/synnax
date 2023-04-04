@@ -42,11 +42,13 @@ func (vc *versionFilter) _switch(
 	o map[address.Address]BatchRequest,
 ) error {
 	var (
-		rejected = BatchRequest{Sender: b.Sender, doneF: b.doneF}
-		accepted = BatchRequest{Sender: b.Sender, doneF: b.doneF}
+		rejected = BatchRequest{Sender: b.Sender, doneF: b.doneF, context: b.context, span: b.span}
+		accepted = BatchRequest{Sender: b.Sender, doneF: b.doneF, context: b.context, span: b.span}
 	)
+	ctx, span := alamos.Trace(b.context, "batch-filter")
+	defer span.End()
 	for _, op := range b.Operations {
-		if vc.filter(b.context, op) {
+		if vc.filter(ctx, op) {
 			accepted.Operations = append(accepted.Operations, op)
 		} else {
 			rejected.Operations = append(rejected.Operations, op)
@@ -96,13 +98,14 @@ func getDigestFromKV(ctx context.Context, kve kvx.DB, key []byte) (Digest, error
 const versionCounterKey = "ver"
 
 type versionAssigner struct {
+	Config
 	counter *kvx.PersistedCounter
 	confluence.LinearTransform[BatchRequest, BatchRequest]
 }
 
-func newVersionAssigner(ctx context.Context, db kvx.DB) (segment, error) {
-	c, err := kvx.OpenCounter(ctx, db, []byte(versionCounterKey))
-	v := &versionAssigner{counter: c}
+func newVersionAssigner(ctx context.Context, cfg Config) (segment, error) {
+	c, err := kvx.OpenCounter(ctx, cfg.Engine, []byte(versionCounterKey))
+	v := &versionAssigner{Config: cfg, counter: c}
 	v.LinearTransform.Transform = v.assign
 	return v, err
 }
@@ -110,7 +113,7 @@ func newVersionAssigner(ctx context.Context, db kvx.DB) (segment, error) {
 func (va *versionAssigner) assign(ctx context.Context, br BatchRequest) (BatchRequest, bool, error) {
 	latestVer := va.counter.Value()
 	if _, err := va.counter.Add(ctx, int64(br.size())); err != nil {
-		alamos.L(ctx).Error("failed to assign version", zap.Error(err))
+		alamos.L(va).Error("failed to assign version", zap.Error(err))
 		return BatchRequest{}, false, nil
 	}
 	for i := range br.Operations {

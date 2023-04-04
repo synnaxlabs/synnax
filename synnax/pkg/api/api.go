@@ -15,6 +15,7 @@ package api
 
 import (
 	"context"
+	"github.com/synnaxlabs/alamos"
 	"go/types"
 
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
@@ -29,13 +30,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/user"
-	"go.uber.org/zap"
 )
 
 // Config is all required configuration parameters and services necessary to
 // instantiate the API.
 type Config struct {
-	Logger        *zap.Logger
+	alamos.Instrumentation
 	Channel       channel.Service
 	Framer        *framer.Service
 	Ontology      *ontology.Ontology
@@ -77,9 +77,8 @@ type API struct {
 func (a *API) BindTo(t Transport) {
 	var (
 		err                = errors.Middleware()
-		logger             = logMiddleware(a.provider.Logging.logger)
 		tk                 = tokenMiddleware(a.provider.auth.token)
-		insecureMiddleware = []freighter.Middleware{logger, err}
+		insecureMiddleware = []freighter.Middleware{err}
 		secureMiddleware   = make([]freighter.Middleware, len(insecureMiddleware))
 	)
 	copy(secureMiddleware, insecureMiddleware)

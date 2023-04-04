@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
-	"go.uber.org/zap"
 	"time"
 )
 
@@ -30,14 +29,11 @@ var _ = Describe("cluster", func() {
 		builder    *clustermock.Builder
 		clusterCtx signal.Context
 		shutdown   context.CancelFunc
-		log        *zap.Logger
 	)
 	BeforeEach(func() {
-		log = zap.NewNop()
 		clusterCtx, shutdown = signal.WithCancel(ctx)
 		builder = clustermock.NewBuilder(cluster.Config{
 			Gossip: gossip.Config{Interval: 5 * time.Millisecond},
-			Logger: log.Sugar(),
 			Pledge: pledge.Config{RetryInterval: 1 * time.Millisecond},
 		})
 	})

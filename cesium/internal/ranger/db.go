@@ -11,6 +11,7 @@ package ranger
 
 import (
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errutil"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -19,7 +20,6 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 	"io"
 )
 
@@ -56,6 +56,7 @@ type DB struct {
 
 // Config is the configuration for opening a DB.
 type Config struct {
+	alamos.Instrumentation
 	// FS is the filesystem that the DB will use to store its data. DB will write to the
 	// root of the filesystem, so this should probably be a subdirectory. DB should have
 	// exclusive access, and it should be empty when the DB is first opened.
@@ -70,9 +71,6 @@ type Config struct {
 	// that the exact performance impact of changing this value is still relatively unknown.
 	// [OPTIONAL] Default: 100
 	MaxDescriptors int
-	// Logger is the witness of it all.
-	// [OPTIONAL] Default: zap.NewNop()
-	Logger *zap.Logger
 }
 
 var (

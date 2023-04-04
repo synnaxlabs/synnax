@@ -10,6 +10,7 @@
 package index
 
 import (
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/ranger"
 	"github.com/synnaxlabs/x/logutil"
 	"github.com/synnaxlabs/x/telem"
@@ -18,21 +19,22 @@ import (
 )
 
 type Ranger struct {
-	DB     *ranger.DB
-	Logger *zap.Logger
+	alamos.Instrumentation
+	DB *ranger.DB
 }
 
 var _ Index = (*Ranger)(nil)
 
 // Distance implements Index.
 func (i *Ranger) Distance(tr telem.TimeRange, continuous bool) (approx DistanceApproximation, err error) {
-	i.Logger.Debug("idx distance",
+	log := alamos.L(i)
+	log.Debug("idx distance",
 		zap.Stringer("timeRange", tr),
 		zap.Bool("continuous", continuous),
 	)
 	var startApprox, endApprox DistanceApproximation
 	defer func() {
-		i.Logger.Debug("idx distance done",
+		log.Debug("idx distance done",
 			zap.Stringer("timeRange", tr),
 			zap.Stringer("count", approx),
 			zap.Bool("continuous", continuous),
@@ -112,12 +114,13 @@ func (i *Ranger) Distance(tr telem.TimeRange, continuous bool) (approx DistanceA
 
 // Stamp implements Index.
 func (i *Ranger) Stamp(ref telem.TimeStamp, offset int64, continuous bool) (approx TimeStampApproximation, err error) {
-	i.Logger.Debug("idx stamp",
+	log := alamos.L(i)
+	log.Debug("idx stamp",
 		zap.Stringer("ref", ref),
 		zap.Int64("offset", offset),
 	)
 	defer func() {
-		i.Logger.Debug("idx stamp done",
+		log.Debug("idx stamp done",
 			zap.Stringer("ref", ref),
 			zap.Int64("offset", offset),
 			zap.Stringer("approx", approx),

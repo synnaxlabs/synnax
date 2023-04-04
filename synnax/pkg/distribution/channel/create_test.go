@@ -21,7 +21,7 @@ import (
 	"go.uber.org/zap"
 )
 
-var _ = Describe("Create", Ordered, func() {
+var _ = Describe("Writer", Ordered, func() {
 	var (
 		services map[core.NodeID]channel.Service
 		builder  *mock.CoreBuilder

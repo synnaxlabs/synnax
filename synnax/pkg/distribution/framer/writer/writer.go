@@ -10,10 +10,10 @@
 package writer
 
 import (
-	"context"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
+	"io"
 )
 
 type StreamWriter = confluence.Segment[Request, Response]
@@ -29,7 +29,7 @@ type writer struct {
 	requests          confluence.Inlet[Request]
 	responses         confluence.Outlet[Response]
 	wg                signal.WaitGroup
-	shutdown          context.CancelFunc
+	shutdown          io.Closer
 	hasAccumulatedErr bool
 }
 
@@ -83,7 +83,5 @@ func (w *writer) Close() error {
 	w.requests.Close()
 	for range w.responses.Outlet() {
 	}
-	err := w.wg.Wait()
-	w.shutdown()
-	return err
+	return w.shutdown.Close()
 }

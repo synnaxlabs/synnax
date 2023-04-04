@@ -143,15 +143,15 @@ func (br BatchRequest) digests() []Digest {
 func (br BatchRequest) commitTo(bw kvx.BatchWriter) error {
 	var err error
 	b := bw.NewBatch()
+
 	defer func() {
 		br.Operations = nil
 		if _err := b.Commit(br.context); _err != nil {
 			err = _err
 		}
-		if br.doneF != nil {
-			br.doneF(err)
-		}
+		br.done(err)
 	}()
+
 	for _, op := range br.Operations {
 		if _err := op.apply(br.context, b); _err != nil {
 			err = _err
@@ -162,6 +162,7 @@ func (br BatchRequest) commitTo(bw kvx.BatchWriter) error {
 			return err
 		}
 	}
+
 	return err
 }
 
@@ -185,9 +186,8 @@ func validateLeaseOption(maybeLease []interface{}) (node.ID, error) {
 }
 
 type batchCoordinator struct {
-	span alamos.Span
-	wg   sync.WaitGroup
-	mu   struct {
+	wg sync.WaitGroup
+	mu struct {
 		sync.Mutex
 		err error
 	}

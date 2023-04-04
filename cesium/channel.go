@@ -10,12 +10,16 @@
 package cesium
 
 import (
+	"context"
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
 )
 
 // CreateChannel implements DB.
-func (db *cesium) CreateChannel(ch ...Channel) error {
+func (db *cesium) CreateChannel(_ context.Context, ch ...Channel) error {
 	for _, c := range ch {
 		if err := db.createChannel(c); err != nil {
 			return err
@@ -25,10 +29,10 @@ func (db *cesium) CreateChannel(ch ...Channel) error {
 }
 
 // RetrieveChannels implements DB.
-func (db *cesium) RetrieveChannels(keys ...string) ([]Channel, error) {
+func (db *cesium) RetrieveChannels(ctx context.Context, keys ...string) ([]Channel, error) {
 	chs := make([]Channel, 0, len(keys))
 	for _, key := range keys {
-		ch, err := db.RetrieveChannel(key)
+		ch, err := db.RetrieveChannel(ctx, key)
 		if err != nil {
 			return nil, err
 		}
@@ -38,7 +42,7 @@ func (db *cesium) RetrieveChannels(keys ...string) ([]Channel, error) {
 }
 
 // RetrieveChannel implements DB.
-func (db *cesium) RetrieveChannel(key string) (Channel, error) {
+func (db *cesium) RetrieveChannel(_ context.Context, key string) (Channel, error) {
 	ch, ok := db.dbs[key]
 	if !ok {
 		return Channel{}, ChannelNotFound
@@ -48,13 +52,15 @@ func (db *cesium) RetrieveChannel(key string) (Channel, error) {
 
 func (db *cesium) createChannel(ch Channel) (err error) {
 	defer func() {
-		db.logger.Sugar().Infow("creating channel",
-			"key", ch.Key,
-			"index", ch.Index,
-			"rate", ch.Rate,
-			"datatype", ch.DataType,
-			"isIndex", ch.IsIndex,
-			"error", err,
+		l := alamos.L(db)
+		lo.Ternary(err == nil, l.Info, l.Error)(
+			"creating channel",
+			zap.String("key", ch.Key),
+			zap.String("index", ch.Index),
+			zap.Float64("rate", float64(ch.Rate)),
+			zap.String("datatype", string(ch.DataType)),
+			zap.Bool("isIndex", ch.IsIndex),
+			zap.Error(err),
 		)
 	}()
 

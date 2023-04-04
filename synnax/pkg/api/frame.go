@@ -10,6 +10,7 @@
 package api
 
 import (
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
@@ -37,15 +38,15 @@ func toDistributionFrame(f Frame) (framer.Frame, errors.Typed) {
 }
 
 type FrameService struct {
-	loggingProvider
+	alamos.Instrumentation
 	authProvider
 	Internal *framer.Service
 }
 
 func NewSegmentService(p Provider) *FrameService {
 	return &FrameService{
+		Instrumentation: p.Instrumentation,
 		Internal:        p.Config.Framer,
 		authProvider:    p.auth,
-		loggingProvider: p.Logging,
 	}
 }

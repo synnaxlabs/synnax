@@ -25,7 +25,7 @@ func openMemDB() cesium.DB {
 	return MustSucceed(cesium.Open(
 		"./testdata",
 		cesium.MemBacked(),
-		cesium.WithLogger(logger),
+		cesium.WithInstrumentation(logger),
 	))
 }
 

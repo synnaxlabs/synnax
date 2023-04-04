@@ -52,11 +52,11 @@ func (s *streamImpl[V]) Outlet() <-chan V { return s.values }
 func (s *streamImpl[V]) InletAddress() address.Address { return s.inletAddr }
 
 func (s *streamImpl[V]) Acquire(n int32) {
-	s.c.Add(n)
+	s.c.Add(nil, n)
 }
 
 func (s *streamImpl[V]) Close() {
-	s.c.Add(-1)
+	s.c.Add(nil, -1)
 	if s.c.Value() <= 0 {
 		s.once.Do(func() { close(s.values) })
 	}
@@ -88,11 +88,11 @@ func (i *inletImpl[V]) InletAddress() address.Address { return i.addr }
 func (i *inletImpl[V]) SetInletAddress(addr address.Address) { i.addr = addr }
 
 // Acquire implements Inlet.
-func (i *inletImpl[V]) Acquire(n int32) { i.c.Add(n) }
+func (i *inletImpl[V]) Acquire(n int32) { i.c.Add(nil, n) }
 
 // Close implements inlet.
 func (i *inletImpl[V]) Close() {
-	i.c.Add(-1)
+	i.c.Add(nil, -1)
 	if i.c.Value() <= 0 {
 		i.once.Do(func() {
 			close(i.values)

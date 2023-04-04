@@ -1,8 +1,6 @@
 package alamos
 
 import (
-	"context"
-	"github.com/samber/lo"
 	"go.uber.org/zap"
 )
 
@@ -12,7 +10,14 @@ type Logger struct {
 	*zap.Logger
 }
 
-func L(ctx context.Context) *zap.Logger {
-	ins, ok := fromContext(ctx)
-	return lo.Ternary(ok, ins.logger, nopLogger).Logger
+func L(i Instrumentation) *Logger {
+	ins, ok := Extract(ctx)
+	if !ok {
+		return nopLogger
+	}
+	return ins.L
+}
+
+func newDevLogger(key string) *Logger {
+	return &Logger{Logger: zap.NewNop()}
 }

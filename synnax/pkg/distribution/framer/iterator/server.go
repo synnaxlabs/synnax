@@ -44,7 +44,10 @@ func (sf *server) handle(ctx context.Context, server ServerStream) error {
 	}
 	sender.Transform = newStorageResponseTranslator(sf.HostResolver.HostID())
 
-	iter, err := sf.TS.NewStreamIterator(storage.IteratorConfig{Channels: req.Keys.Strings(), Bounds: req.Bounds})
+	iter, err := sf.TS.NewStreamIterator(
+		ctx,
+		storage.IteratorConfig{Channels: req.Keys.Strings(), Bounds: req.Bounds},
+	)
 	if err != nil {
 		return err
 	}

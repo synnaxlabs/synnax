@@ -10,7 +10,6 @@
 package cluster_test
 
 import (
-	"context"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen/internal/cluster"
@@ -22,7 +21,6 @@ import (
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/signal"
-	. "github.com/synnaxlabs/x/testutil"
 	"time"
 )
 
@@ -30,21 +28,13 @@ var _ = Describe("Join", func() {
 	Context("Valid Configuration", func() {
 
 		var (
-			gossipNet  *fmock.Network[gossip.Message, gossip.Message]
-			pledgeNet  *fmock.Network[pledge.Request, pledge.Response]
-			clusterCtx signal.Context
-			shutdown   context.CancelFunc
+			gossipNet *fmock.Network[gossip.Message, gossip.Message]
+			pledgeNet *fmock.Network[pledge.Request, pledge.Response]
 		)
 
 		BeforeEach(func() {
-			clusterCtx, shutdown = signal.WithCancel(ctx)
 			gossipNet = fmock.NewNetwork[gossip.Message, gossip.Message]()
 			pledgeNet = fmock.NewNetwork[pledge.Request, pledge.Response]()
-		})
-
-		AfterEach(func() {
-			shutdown()
-			Expect(clusterCtx.Wait()).To(HaveOccurredAs(context.Canceled))
 		})
 
 		Context("New cluster", func() {
@@ -55,7 +45,7 @@ var _ = Describe("Join", func() {
 				gossipT1 := gossipNet.UnaryServer("")
 				pledgeT1 := pledgeNet.UnaryServer(gossipT1.Address)
 				clusterOne, err := cluster.Join(
-					clusterCtx,
+					ctx,
 					cluster.Config{
 						HostAddress: gossipT1.Address,
 						Pledge: pledge.Config{
@@ -77,7 +67,7 @@ var _ = Describe("Join", func() {
 				gossipT2 := gossipNet.UnaryServer("")
 				pledgeT2 := pledgeNet.UnaryServer(gossipT2.Address)
 				clusterTwo, err := cluster.Join(
-					clusterCtx,
+					ctx,
 					cluster.Config{
 						HostAddress: gossipT2.Address,
 						Pledge: pledge.Config{
@@ -97,6 +87,9 @@ var _ = Describe("Join", func() {
 				By("Converging cluster state through gossip")
 				Eventually(clusterOne.Nodes).Should(HaveLen(2))
 				Eventually(clusterTwo.Nodes).Should(HaveLen(2))
+
+				Expect(clusterOne.Close()).To(Succeed())
+				Expect(clusterTwo.Close()).To(Succeed())
 			})
 
 		})
@@ -108,7 +101,7 @@ var _ = Describe("Join", func() {
 				gossipT1 := gossipNet.UnaryServer("")
 				pledgeT1 := pledgeNet.UnaryServer(gossipT1.Address)
 				clusterOne, err := cluster.Join(
-					clusterCtx,
+					ctx,
 					cluster.Config{
 						HostAddress: gossipT1.Address,
 						Pledge: pledge.Config{
@@ -126,7 +119,6 @@ var _ = Describe("Join", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(clusterOne.Host().ID).To(Equal(node.ID(1)))
 
-				sCtxTwo, cancelTwo := signal.TODO()
 				kvDB := memkv.New()
 				gossipT2 := gossipNet.UnaryServer("")
 				pledgeT2 := pledgeNet.UnaryServer(gossipT2.Address)
@@ -148,19 +140,18 @@ var _ = Describe("Join", func() {
 					StorageFlushInterval: cluster.FlushOnEvery,
 					EncoderDecoder:       &binary.MsgPackEncoderDecoder{},
 				}
-				clusterTwo, err := cluster.Join(sCtxTwo, clusterTwoConfig)
+				clusterTwo, err := cluster.Join(ctx, clusterTwoConfig)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(clusterTwo.Host().ID).To(Equal(node.ID(2)))
-				cancelTwo()
-				Expect(sCtxTwo.Wait()).To(HaveOccurredAs(context.Canceled))
+				Expect(clusterTwo.Close()).To(Succeed())
 
-				clusterTwoAgain, err := cluster.Join(clusterCtx, clusterTwoConfig)
+				clusterTwoAgain, err := cluster.Join(ctx, clusterTwoConfig)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(clusterTwoAgain.Host().ID).To(Equal(node.ID(2)))
 				Expect(clusterTwoAgain.Nodes()).To(HaveLen(2))
 
-				shutdown()
-				Expect(clusterCtx.Wait()).To(HaveOccurredAs(context.Canceled))
+				Expect(clusterOne.Close()).To(Succeed())
+				Expect(clusterTwoAgain.Close()).To(Succeed())
 				Expect(kvDB.Close()).To(Succeed())
 			})
 

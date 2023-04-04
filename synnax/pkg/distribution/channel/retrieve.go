@@ -65,15 +65,15 @@ func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 func (r Retrieve) WithTxn(txn gorp.Txn) Retrieve { gorp.SetTxn(r.gorp, txn); return r }
 
 // Exec executes the query, binding
-func (r Retrieve) Exec(_ context.Context) error {
-	return r.maybeEnrichError(r.gorp.Exec(gorp.GetTxn(r.gorp, r.db)))
+func (r Retrieve) Exec(ctx context.Context) error {
+	return r.maybeEnrichError(r.gorp.Exec(ctx, gorp.GetTxn(r.gorp, r.db)))
 }
 
 // Exists checks if the query has results matching its parameters. If used in conjunction
 // with WhereKeys, Exists will ONLY return true if ALL the keys have a matching Channel.
 // Otherwise, Exists returns true if the query has ANY results.
 func (r Retrieve) Exists(ctx context.Context) (bool, error) {
-	return r.gorp.Exists(gorp.GetTxn(r.gorp, r.db))
+	return r.gorp.Exists(ctx, gorp.GetTxn(r.gorp, r.db))
 }
 
 func (r Retrieve) maybeEnrichError(err error) error {

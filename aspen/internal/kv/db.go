@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/x/confluence/plumber"
 	kvx "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/signal"
+	"io"
 )
 
 // Writer is a writable key-value storeSink.
@@ -41,8 +42,7 @@ type db struct {
 	leaseAlloc *leaseAllocator
 	confluence.AbstractUnarySource[BatchRequest]
 	confluence.EmptyFlow
-	shutdown context.CancelFunc
-	wg       signal.WaitGroup
+	shutdown io.Closer
 }
 
 // Set implements DB.
@@ -105,27 +105,25 @@ func Open(ctx context.Context, cfgs ...Config) (kvx.DB, error) {
 		return nil, err
 	}
 
-	va, err := newVersionAssigner(ctx, cfg.Engine)
+	sCtx, cancel := signal.Background()
+	db_ := &db{
+		Config:     cfg,
+		DB:         cfg.Engine,
+		leaseAlloc: &leaseAllocator{Config: cfg},
+		shutdown:   signal.NewShutdown(sCtx, cancel),
+	}
+
+	va, err := newVersionAssigner(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	alamos.L(ctx).Info("opening cluster db", cfg.Report().LogArgs()...)
+	alamos.L(db_).Info("opening cluster db", db_.Report().ZapFields()...)
 
 	st := newStore()
 
-	sCtx, cancel := signal.WithCancel(alamos.Transfer(context.Background(), ctx))
-
-	db := &db{
-		Config:     cfg,
-		DB:         cfg.Engine,
-		leaseAlloc: &leaseAllocator{Config: cfg},
-		shutdown:   cancel,
-		wg:         sCtx,
-	}
-
 	pipe := plumber.New()
-	plumber.SetSource[BatchRequest](pipe, executorAddr, db)
+	plumber.SetSource[BatchRequest](pipe, executorAddr, db_)
 	plumber.SetSource[BatchRequest](pipe, leaseReceiverAddr, newLeaseReceiver(cfg))
 	plumber.SetSegment[BatchRequest, BatchRequest](
 		pipe,
@@ -211,10 +209,12 @@ func Open(ctx context.Context, cfgs ...Config) (kvx.DB, error) {
 
 	pipe.Flow(sCtx)
 
-	return db, nil
+	return db_, nil
 }
 
 func (k *db) Close() error {
-	k.shutdown()
-	return k.wg.Wait()
+	if err := k.DB.Close(); err != nil {
+		return err
+	}
+	return k.shutdown.Close()
 }

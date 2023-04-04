@@ -10,14 +10,14 @@
 package kv_test
 
 import (
-	"github.com/synnaxlabs/alamos"
+	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-var ctx, _ = alamos.Nop()
+var ctx = context.Background()
 
 func TestKv(t *testing.T) {
 	RegisterFailHandler(Fail)

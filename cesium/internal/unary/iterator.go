@@ -11,6 +11,7 @@ package unary
 
 import (
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/ranger"
@@ -21,6 +22,7 @@ import (
 )
 
 type Iterator struct {
+	alamos.Instrumentation
 	IteratorConfig
 	Channel  core.Channel
 	internal *ranger.Iterator
@@ -29,7 +31,6 @@ type Iterator struct {
 	idx      index.Index
 	bounds   telem.TimeRange
 	err      error
-	logger   *zap.Logger
 }
 
 const AutoSpan telem.TimeSpan = -1
@@ -314,5 +315,5 @@ func (i *Iterator) log(msg string, fields ...zap.Field) {
 		zap.Stringer("view", i.view),
 		logutil.DebugError(i.err),
 	)
-	i.logger.Debug(msg, fields...)
+	alamos.L(i).Debug(msg, fields...)
 }

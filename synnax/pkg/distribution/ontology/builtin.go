@@ -9,7 +9,10 @@
 
 package ontology
 
-import "github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
+import (
+	"context"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
+)
 
 // BuiltIn is a resource type that is built into the ontology.
 const BuiltIn Type = "builtin"
@@ -29,7 +32,7 @@ func (b *builtinService) Schema() *Schema {
 	}
 }
 
-func (b *builtinService) RetrieveEntity(key string) (Entity, error) {
+func (b *builtinService) RetrieveEntity(ctx context.Context, key string) (Entity, error) {
 	switch key {
 	case "root":
 		return Entity{Name: "root"}, nil

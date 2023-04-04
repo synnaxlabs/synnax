@@ -16,8 +16,6 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/httputil"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 )
 
 type route struct {
@@ -28,19 +26,17 @@ type route struct {
 }
 
 type RouterConfig struct {
-	Logger *zap.SugaredLogger
+	alamos.Instrumentation
 }
 
 var _ config.Config[RouterConfig] = RouterConfig{}
 
 func (r RouterConfig) Validate() error {
-	v := validate.New("[fhttp.Router]")
-	validate.NotNil(v, "logger", r.Logger)
-	return v.Error()
+	return nil
 }
 
 func (r RouterConfig) Override(other RouterConfig) RouterConfig {
-	r.Logger = override.Nil(r.Logger, other.Logger)
+	r.Instrumentation = override.Nil(r.Instrumentation, other.Instrumentation)
 	return r
 }
 
@@ -57,6 +53,8 @@ type Router struct {
 	routes []route
 }
 
+var _ BindableTransport = (*Router)(nil)
+
 func (r *Router) BindTo(app *fiber.App) {
 	for _, route := range r.routes {
 		if route.httpMethod == "GET" {
@@ -69,6 +67,12 @@ func (r *Router) BindTo(app *fiber.App) {
 
 func (r *Router) Report() alamos.Report {
 	return alamos.Report{}
+}
+
+func (r *Router) Use(middleware ...freighter.Middleware) {
+	for _, route := range r.routes {
+		route.transport.Use(middleware...)
+	}
 }
 
 func (r *Router) register(
@@ -87,9 +91,9 @@ func (r *Router) register(
 
 func StreamServer[RQ, RS freighter.Payload](r *Router, path string) freighter.StreamServer[RQ, RS] {
 	s := &streamServer[RQ, RS]{
-		Reporter: streamReporter,
-		path:     path,
-		logger:   r.Logger,
+		Reporter:        streamReporter,
+		path:            path,
+		Instrumentation: r.Instrumentation,
 	}
 	r.register(path, "GET", s, s.fiberHandler)
 	return s

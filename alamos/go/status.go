@@ -2,6 +2,7 @@ package alamos
 
 import "go.opentelemetry.io/otel/codes"
 
+// Status represents the general status of an operation.
 type Status uint8
 
 var _otelStatusCodes = map[Status]codes.Code{
@@ -18,6 +19,8 @@ func (s Status) otel() codes.Code {
 }
 
 const (
-	Ok    Status = iota
-	Error        = 1
+	// Ok represents a successful operation.
+	Ok Status = iota
+	// Error represents a failed operation.
+	Error = 1
 )

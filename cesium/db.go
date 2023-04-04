@@ -84,6 +84,8 @@ type cesium struct {
 	dbs map[string]unary.DB
 }
 
+var _ DB = (*cesium)(nil)
+
 // Write implements DB.
 func (db *cesium) Write(ctx context.Context, start telem.TimeStamp, frame Frame) error {
 	_, span := alamos.Trace(ctx, "write")
@@ -103,8 +105,8 @@ func (db *cesium) WriteArray(ctx context.Context, start telem.TimeStamp, key str
 }
 
 // Read implements DB.
-func (db *cesium) Read(tr telem.TimeRange, keys ...string) (frame Frame, err error) {
-	iter, err := db.NewIterator(IteratorConfig{Channels: keys, Bounds: tr})
+func (db *cesium) Read(ctx context.Context, tr telem.TimeRange, keys ...string) (frame Frame, err error) {
+	iter, err := db.NewIterator(ctx, IteratorConfig{Channels: keys, Bounds: tr})
 	if err != nil {
 		return
 	}

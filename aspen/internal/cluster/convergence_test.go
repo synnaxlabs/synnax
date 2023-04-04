@@ -10,11 +10,9 @@
 package cluster_test
 
 import (
-	"context"
 	"fmt"
 	"time"
 
-	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
@@ -26,8 +24,6 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/rand"
-	"github.com/synnaxlabs/x/signal"
-	"go.uber.org/zap"
 )
 
 type newConvergenceVars struct {
@@ -54,24 +50,13 @@ var progressiveNewConvergence = []newConvergenceVars{
 
 var _ = Describe("Convergence", func() {
 	var (
-		gossipNet  *fmock.Network[gossip.Message, gossip.Message]
-		pledgeNet  *fmock.Network[pledge.Request, pledge.Response]
-		logger     *zap.SugaredLogger
-		exp        alamos.Instrumentation
-		clusterCtx signal.Context
-		shutdown   context.CancelFunc
+		gossipNet *fmock.Network[gossip.Message, gossip.Message]
+		pledgeNet *fmock.Network[pledge.Request, pledge.Response]
 	)
 
 	BeforeEach(func() {
-		clusterCtx, shutdown = signal.WithCancel(ctx)
 		gossipNet = fmock.NewNetwork[gossip.Message, gossip.Message]()
 		pledgeNet = fmock.NewNetwork[pledge.Request, pledge.Response]()
-		logger = zap.NewNop().Sugar()
-	})
-
-	AfterEach(func() {
-		shutdown()
-		Expect(errors.Is(clusterCtx.Wait(), context.Canceled)).To(BeTrue())
 	})
 
 	Context("Serial PledgeServer", func() {
@@ -87,16 +72,14 @@ var _ = Describe("Convergence", func() {
 					clusters  []cluster.Cluster
 					addresses []address.Address
 				)
-				subExp := alamos.Sub(exp, fmt.Sprintf("convergence_test_%v", i))
 				for i := 0; i < values.clusterSize; i++ {
 					gossipT := gossipNet.UnaryServer("")
 					pledgeT := pledgeNet.UnaryServer(gossipT.Address)
 					peerAddresses := rand.SubSlice(addresses, values.peerAddrCount)
 					cluster, err := cluster.Join(
-						clusterCtx,
+						ctx,
 						cluster.Config{
 							HostAddress: gossipT.Address,
-							Logger:      logger,
 							Pledge: pledge.Config{
 								Peers:           peerAddresses,
 								TransportServer: pledgeT,
@@ -109,8 +92,7 @@ var _ = Describe("Convergence", func() {
 								TransportClient: gossipNet.UnaryClient(),
 								Interval:        values.gossipInterval,
 							},
-							Storage:    memkv.New(),
-							Experiment: alamos.Sub(subExp, fmt.Sprintf("cluster_%v", i)),
+							Storage: memkv.New(),
 						},
 					)
 					Expect(err).ToNot(HaveOccurred())
@@ -123,6 +105,9 @@ var _ = Describe("Convergence", func() {
 				}
 				for _, cluster_ := range clusters {
 					Eventually(cluster_.Nodes, values.convergenceThreshold).Should(HaveLen(values.clusterSize))
+				}
+				for _, cluster_ := range clusters {
+					Expect(cluster_.Close()).To(Succeed())
 				}
 			})
 

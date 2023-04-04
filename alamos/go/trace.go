@@ -2,34 +2,46 @@ package alamos
 
 import (
 	"context"
+	"github.com/uptrace/uptrace-go/uptrace"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 	"runtime/pprof"
 )
 
 func Trace(ctx context.Context, key string) (context.Context, Span) {
-	exp := FromContext(ctx)
-	return exp.startTrace(ctx, key)
+	ins, ok := Extract(ctx)
+	if !ok {
+		return ctx, nopSpan{}
+	}
+	return ins.T.startTrace(ctx, key)
 }
 
-type tracer interface {
-	startTrace(ctx context.Context, key string) (context.Context, Span)
+func TraceI(ctx context.Context, i Instrumentation, key string) (context.Context, Span) {
+	return i.T.startTrace(ctx, key)
 }
 
 type Span interface {
-	Error(err error)
+	Error(err error) error
+	EndWith(err error) error
 	Status(status Status)
 	End()
 }
 
-type defaultTracer struct {
-	otel trace.Tracer
+type Tracer struct {
+	Otel       trace.Tracer
+	Propagator propagation.TextMapPropagator
 }
 
-func (t *defaultTracer) startTrace(ctx context.Context, key string) (context.Context, Span) {
+func ExtractTracer(i Instrumentation) *Tracer {
+	return i.t()
+}
+
+func (t *Tracer) startTrace(ctx context.Context, key string) (context.Context, Span) {
 	defer pprof.SetGoroutineLabels(ctx)
-	ctx = pprof.WithLabels(ctx, pprof.Labels(key))
+	ctx = pprof.WithLabels(ctx, pprof.Labels("routine", key))
 	pprof.SetGoroutineLabels(ctx)
-	_, otel := t.otel.Start(ctx, key)
+	ctx, otel := t.Otel.Start(ctx, key)
 	return ctx, span{
 		pprofEnd: func() { pprof.SetGoroutineLabels(ctx) },
 		otel:     otel,
@@ -41,8 +53,12 @@ type span struct {
 	otel     trace.Span
 }
 
-func (s span) Error(err error) {
-	s.otel.RecordError(err)
+func (s span) Error(err error) error {
+	if err != nil {
+		s.otel.RecordError(err)
+		s.Status(Error)
+	}
+	return err
 }
 
 func (s span) Status(status Status) {
@@ -52,4 +68,38 @@ func (s span) Status(status Status) {
 func (s span) End() {
 	s.pprofEnd()
 	s.otel.End()
+}
+
+func (s span) EndWith(err error) error {
+	s.Error(err)
+	s.End()
+	return err
+}
+
+type nopSpan struct{}
+
+func (s nopSpan) Error(err error) error { return err }
+
+func (s nopSpan) ErrorStatus(err error) error { return err }
+
+func (s nopSpan) Status(status Status) {}
+
+func (s nopSpan) End() {}
+
+func (s nopSpan) EndWith(err error) error {
+	return err
+}
+
+func newDevTracer(serviceName string) *Tracer {
+	uptrace.ConfigureOpentelemetry(
+		uptrace.WithDSN("https://Q8rwNMXo9z91P2PhDyUVng@uptrace.dev/1614"),
+		uptrace.WithServiceName(serviceName),
+		uptrace.WithServiceVersion("1.0.0"),
+	)
+
+	// Create a tracer. Usually, tracer is a global variable.
+	return &Tracer{
+		Otel:       otel.Tracer(serviceName),
+		Propagator: otel.GetTextMapPropagator(),
+	}
 }

@@ -110,7 +110,7 @@ func (lp *leaseProxy) maybeSetResources(
 	channels []Channel,
 ) error {
 	if lp.Ontology != nil {
-		w := lp.Ontology.NewWriterUsingTxn(txn)
+		w := lp.Ontology.NewWriterWithTxn(txn)
 		for _, ch := range channels {
 			rtk := OntologyID(ch.Key())
 			if err := w.DefineResource(rtk); err != nil {

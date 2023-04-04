@@ -11,10 +11,12 @@ package grpc
 
 import (
 	"context"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/kv"
 	aspenv1 "github.com/synnaxlabs/aspen/transport/grpc/gen/proto/go/v1"
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/signal"
@@ -103,11 +105,12 @@ var (
 	_ kv.FeedbackTransportClient         = (*feedbackClient)(nil)
 	_ kv.FeedbackTransportServer         = (*feedbackServer)(nil)
 	_ aspenv1.FeedbackServiceServer      = (*feedbackServer)(nil)
-	_ fgrpc.BindableTransport            = (*transport)(nil)
+	_ fgrpc.BindableTransport            = (*Transport)(nil)
+	_ freighter.Transport                = (*Transport)(nil)
 )
 
-func New(pool *fgrpc.Pool) *transport {
-	return &transport{
+func New(pool *fgrpc.Pool) *Transport {
+	return &Transport{
 		pledgeClient: &pledgeClient{
 			Pool:               pool,
 			RequestTranslator:  pledgeTranslator{},
@@ -201,8 +204,8 @@ func New(pool *fgrpc.Pool) *transport {
 	}
 }
 
-// transport implements the aspen.transport interface.
-type transport struct {
+// Transport implements the aspen.Transport interface.
+type Transport struct {
 	pledgeServer   *pledgeServer
 	pledgeClient   *pledgeClient
 	gossipServer   *clusterGossipServer
@@ -215,27 +218,27 @@ type transport struct {
 	feedbackClient *feedbackClient
 }
 
-func (t *transport) PledgeServer() pledge.TransportServer { return t.pledgeServer }
+func (t Transport) PledgeServer() pledge.TransportServer { return t.pledgeServer }
 
-func (t *transport) PledgeClient() pledge.TransportClient { return t.pledgeClient }
+func (t Transport) PledgeClient() pledge.TransportClient { return t.pledgeClient }
 
-func (t *transport) GossipServer() gossip.TransportServer { return t.gossipServer }
+func (t Transport) GossipServer() gossip.TransportServer { return t.gossipServer }
 
-func (t *transport) GossipClient() gossip.TransportClient { return t.gossipClient }
+func (t Transport) GossipClient() gossip.TransportClient { return t.gossipClient }
 
-func (t *transport) BatchServer() kv.BatchTransportServer { return t.batchServer }
+func (t Transport) BatchServer() kv.BatchTransportServer { return t.batchServer }
 
-func (t *transport) BatchClient() kv.BatchTransportClient { return t.batchClient }
+func (t Transport) BatchClient() kv.BatchTransportClient { return t.batchClient }
 
-func (t *transport) LeaseServer() kv.LeaseTransportServer { return t.leaseServer }
+func (t Transport) LeaseServer() kv.LeaseTransportServer { return t.leaseServer }
 
-func (t *transport) LeaseClient() kv.LeaseTransportClient { return t.leaseClient }
+func (t Transport) LeaseClient() kv.LeaseTransportClient { return t.leaseClient }
 
-func (t *transport) FeedbackServer() kv.FeedbackTransportServer { return t.feedbackServer }
+func (t Transport) FeedbackServer() kv.FeedbackTransportServer { return t.feedbackServer }
 
-func (t *transport) FeedbackClient() kv.FeedbackTransportClient { return t.feedbackClient }
+func (t Transport) FeedbackClient() kv.FeedbackTransportClient { return t.feedbackClient }
 
-func (t *transport) BindTo(reg grpc.ServiceRegistrar) {
+func (t Transport) BindTo(reg grpc.ServiceRegistrar) {
 	t.pledgeServer.BindTo(reg)
 	t.gossipServer.BindTo(reg)
 	t.batchServer.BindTo(reg)
@@ -243,7 +246,24 @@ func (t *transport) BindTo(reg grpc.ServiceRegistrar) {
 	t.feedbackServer.BindTo(reg)
 }
 
-func (t *transport) Configure(ctx signal.Context, addr address.Address, external bool) error {
+func (t Transport) Use(middleware ...freighter.Middleware) {
+	t.pledgeServer.Use(middleware...)
+	t.pledgeClient.Use(middleware...)
+	t.gossipServer.Use(middleware...)
+	t.gossipClient.Use(middleware...)
+	t.batchServer.Use(middleware...)
+	t.batchClient.Use(middleware...)
+	t.leaseServer.Use(middleware...)
+	t.leaseClient.Use(middleware...)
+	t.feedbackServer.Use(middleware...)
+	t.feedbackClient.Use(middleware...)
+}
+
+func (t Transport) Report() alamos.Report {
+	return t.pledgeServer.Report()
+}
+
+func (t Transport) Configure(ctx signal.Context, addr address.Address, external bool) error {
 	if external {
 		return nil
 	}
@@ -254,13 +274,15 @@ func (t *transport) Configure(ctx signal.Context, addr address.Address, external
 		return err
 	}
 	ctx.Go(func(ctx context.Context) (err error) {
-		go func() { err = server.Serve(lis) }()
+		go func() {
+			err = server.Serve(lis)
+		}()
 		if err != nil {
 			return err
 		}
 		defer server.Stop()
 		<-ctx.Done()
 		return ctx.Err()
-	})
+	}, signal.CancelOnExitErr())
 	return nil
 }

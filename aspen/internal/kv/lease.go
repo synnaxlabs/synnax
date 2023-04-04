@@ -35,7 +35,7 @@ func (la *leaseAllocator) allocate(ctx context.Context, op Operation) (Operation
 			op.Leaseholder = lh
 		} else if lh != op.Leaseholder {
 			// If the Leaseholder doesn't match the previous Leaseholder,
-			//we return an error.
+			// we return an error.
 			return op, ErrLeaseNotTransferable
 		}
 	} else if err == kvx.NotFound && op.Variant == Set {
@@ -98,11 +98,15 @@ func newLeaseSender(cfg Config) sink {
 
 func (lf *leaseSender) send(ctx context.Context, br BatchRequest) (err error) {
 	defer br.done(err)
-	alamos.L(ctx).Debug("sending leased batch", br.logArgs()...)
+	alamos.L(lf).Debug("sending leased batch", br.logArgs()...)
+	batchCtx, span := alamos.Trace(br.context, "lease-client")
 	var addr address.Address
 	addr, err = lf.Cluster.Resolve(br.Leaseholder)
-	_, err = lf.Config.LeaseTransportClient.Send(ctx, addr, br)
-	return err
+	if err != nil {
+		return err
+	}
+	_, err = lf.Config.LeaseTransportClient.Send(batchCtx, addr, br)
+	return span.EndWith(err)
 }
 
 type leaseReceiver struct {
@@ -118,9 +122,10 @@ func newLeaseReceiver(cfg Config) source {
 }
 
 func (lr *leaseReceiver) receive(ctx context.Context, br BatchRequest) (types.Nil, error) {
-	alamos.L(ctx).Debug("received leased batch", br.logArgs()...)
+	_, br.span = alamos.Trace(ctx, "lease-server")
+	alamos.L(lr).Debug("received leased batch", br.logArgs()...)
 	bc := batchCoordinator{}
 	bc.add(&br)
 	lr.Out.Inlet() <- br
-	return types.Nil{}, bc.wait()
+	return types.Nil{}, br.span.EndWith(bc.wait())
 }

@@ -26,11 +26,10 @@ const tokenRefreshHeader = "Refresh-Token"
 
 func tokenMiddleware(svc *token.Service) freighter.Middleware {
 	return freighter.MiddlewareFunc(func(
-		ctx context.Context,
-		md freighter.MD,
+		ctx freighter.Context,
 		next freighter.Next,
-	) (oMD freighter.MD, err error) {
-		tk, _err := tryParseToken(md.Params)
+	) (oMD freighter.Context, err error) {
+		tk, _err := tryParseToken(ctx.Params)
 		if _err.Occurred() {
 			return oMD, _err
 		}
@@ -38,8 +37,8 @@ func tokenMiddleware(svc *token.Service) freighter.Middleware {
 		if err != nil {
 			return oMD, apierrors.Auth(err)
 		}
-		setSubject(md.Params, user.OntologyID(userKey))
-		oMD, err = next(ctx, md)
+		setSubject(ctx.Params, user.OntologyID(userKey))
+		oMD, err = next(ctx)
 		if newTK != "" {
 			oMD.Params.Set(tokenRefreshHeader, newTK)
 		}

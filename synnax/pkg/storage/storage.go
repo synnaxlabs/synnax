@@ -34,7 +34,6 @@ import (
 	"github.com/synnaxlabs/x/kv/pebblekv"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 	"io"
 	"io/fs"
 	"os"
@@ -68,7 +67,7 @@ var tsEngines = []TSEngine{CesiumTS}
 // used to read and write data. A Store must be closed when it is no longer in use.
 type Store struct {
 	// Config is the configuration for the storage provided to Open.
-	Config Config
+	Config
 	// KV is the key-value store for the node.
 	KV kv.DB
 	// TS is the time-series engine for the node.
@@ -96,6 +95,7 @@ func (s *Store) Close() error {
 
 // Config is used to configure delta's storage layer.
 type Config struct {
+	alamos.Instrumentation
 	// Dirname defines the root directory the Store resides. The given directory
 	// shouldn't be used by another process while the node is running.
 	Dirname string
@@ -103,10 +103,6 @@ type Config struct {
 	Perm fs.FileMode
 	// MemBacked defines whether the node should use a memory-backed file system.
 	MemBacked *bool
-	// Logger is the witness of it all.
-	Logger *zap.Logger
-	// Experiment is the experiment used by the node for metrics, reports, and tracing.
-	Experiment alamos.Instrumentation
 	// KVEngine is the key-value engine storage will use.
 	KVEngine KVEngine
 	// TSEngine is the time-series engine storage will use.
@@ -119,11 +115,10 @@ var _ config.Config[Config] = Config{}
 func (cfg Config) Override(other Config) Config {
 	cfg.Dirname = override.String(cfg.Dirname, other.Dirname)
 	cfg.Perm = override.Numeric(cfg.Perm, other.Perm)
-	cfg.Experiment = override.Nil(cfg.Experiment, other.Experiment)
-	cfg.Logger = override.Nil(cfg.Logger, other.Logger)
 	cfg.KVEngine = override.Numeric(cfg.KVEngine, other.KVEngine)
 	cfg.TSEngine = override.Numeric(cfg.TSEngine, other.TSEngine)
 	cfg.MemBacked = override.Nil(cfg.MemBacked, other.MemBacked)
+	cfg.Instrumentation = override.Nil(cfg.Instrumentation, other.Instrumentation)
 	if *cfg.MemBacked {
 		cfg.Dirname = ""
 	}
@@ -153,12 +148,10 @@ func (cfg Config) Report() alamos.Report {
 
 // DefaultConfig returns the default configuration for the storage layer.
 var DefaultConfig = Config{
-	Perm:       xfs.OS_USER_RWX,
-	MemBacked:  config.BoolPointer(false),
-	Logger:     zap.NewNop(),
-	Experiment: nil,
-	KVEngine:   PebbleKV,
-	TSEngine:   CesiumTS,
+	Perm:      xfs.OS_USER_RWX,
+	MemBacked: config.BoolPointer(false),
+	KVEngine:  PebbleKV,
+	TSEngine:  CesiumTS,
 }
 
 // Open opens a new Store with the given Config. Open acquires a lock on the directory
@@ -171,10 +164,9 @@ func Open(cfg Config) (s *Store, err error) {
 		return nil, err
 	}
 
-	s = &Store{}
+	s = &Store{Config: cfg}
 
-	log := cfg.Logger.Sugar()
-	log.Infow("opening storage", cfg.Report().LogArgs()...)
+	alamos.L(s).Info("opening storage", cfg.Report().ZapFields()...)
 
 	// Open our two file system implementations. We use VFS for acquiring the directory
 	// lock and for the key-value store. We use XFS for the time-series engine, as we
@@ -309,6 +301,6 @@ func openTS(cfg Config, fs xfs.FS) (TS, error) {
 	return cesium.Open(
 		dirname,
 		cesium.WithFS(fs),
-		cesium.WithLogger(cfg.Logger),
+		cesium.WithInstrumentation(cfg),
 	)
 }

@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package mtls
+package fmtls
 
 import (
-	"context"
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter"
@@ -32,15 +31,14 @@ var AuthError = errors.Wrapf(
 // subset of endpoints must be protected by mTLS.
 func GateMiddleware(expectedCNs ...string) freighter.Middleware {
 	return freighter.MiddlewareFunc(func(
-		ctx context.Context,
-		md freighter.MD,
+		ctx freighter.Context,
 		next freighter.Next,
-	) (freighter.MD, error) {
-		if !md.Sec.TLS.Used ||
-			(len(md.Sec.TLS.VerifiedChains) == 0 || len(md.Sec.TLS.VerifiedChains[0]) == 0) ||
-			!lo.Contains(expectedCNs, md.Sec.TLS.VerifiedChains[0][0].Subject.CommonName) {
-			return md, AuthError
+	) (freighter.Context, error) {
+		if !ctx.Sec.TLS.Used ||
+			(len(ctx.Sec.TLS.VerifiedChains) == 0 || len(ctx.Sec.TLS.VerifiedChains[0]) == 0) ||
+			!lo.Contains(expectedCNs, ctx.Sec.TLS.VerifiedChains[0][0].Subject.CommonName) {
+			return ctx, AuthError
 		}
-		return next(ctx, md)
+		return next(ctx)
 	})
 }

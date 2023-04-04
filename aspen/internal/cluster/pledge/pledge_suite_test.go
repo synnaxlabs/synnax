@@ -10,10 +10,13 @@
 package pledge_test
 
 import (
+	"context"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"testing"
 )
+
+var ctx = context.Background()
 
 func TestMembership(t *testing.T) {
 	RegisterFailHandler(Fail)

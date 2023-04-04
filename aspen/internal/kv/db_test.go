@@ -10,7 +10,6 @@
 package kv_test
 
 import (
-	"context"
 	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -20,19 +19,15 @@ import (
 	"github.com/synnaxlabs/aspen/internal/kv"
 	"github.com/synnaxlabs/aspen/internal/kv/kvmock"
 	"github.com/synnaxlabs/aspen/internal/node"
-	"github.com/synnaxlabs/x/signal"
 	"time"
 )
 
 var _ = Describe("txn", func() {
 	var (
-		builder  *kvmock.Builder
-		kvCtx    signal.Context
-		shutdown context.CancelFunc
+		builder *kvmock.Builder
 	)
 
 	BeforeEach(func() {
-		kvCtx, shutdown = signal.WithCancel(ctx)
 		builder = kvmock.NewBuilder(
 			kv.Config{
 				RecoveryThreshold: 12,
@@ -46,14 +41,13 @@ var _ = Describe("txn", func() {
 	})
 
 	AfterEach(func() {
-		shutdown()
-		Expect(errors.Is(kvCtx.Wait(), context.Canceled)).To(BeTrue())
+		Expect(builder.Close()).To(Succeed())
 	})
 
 	Describe("StreamServer", func() {
 
-		It("Should open a new txn storeSink without error", func() {
-			kv, err := builder.New(kvCtx, kv.Config{}, cluster.Config{})
+		It("Should open a new database without error", func() {
+			kv, err := builder.New(ctx, kv.Config{}, cluster.Config{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(kv).ToNot(BeNil())
 		})
@@ -65,7 +59,7 @@ var _ = Describe("txn", func() {
 		Describe("Gateway Leaseholder", func() {
 
 			It("Should commit the operation to storage", func() {
-				kv, err := builder.New(kvCtx, kv.Config{}, cluster.Config{})
+				kv, err := builder.New(ctx, kv.Config{}, cluster.Config{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(kv).ToNot(BeNil())
 				Expect(kv.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
@@ -76,9 +70,9 @@ var _ = Describe("txn", func() {
 
 			It("Should propagate the operation to other members of the cluster",
 				func() {
-					kv1, err := builder.New(kvCtx, kv.Config{}, cluster.Config{})
+					kv1, err := builder.New(ctx, kv.Config{}, cluster.Config{})
 					Expect(err).ToNot(HaveOccurred())
-					kv2, err := builder.New(kvCtx, kv.Config{}, cluster.Config{})
+					kv2, err := builder.New(ctx, kv.Config{}, cluster.Config{})
 					Expect(err).ToNot(HaveOccurred())
 					Expect(kv1.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
 					Eventually(func(g Gomega) {
@@ -89,9 +83,9 @@ var _ = Describe("txn", func() {
 				})
 
 			It("Should forward an update to the Leaseholder", func() {
-				kv1, err := builder.New(kvCtx, kv.Config{}, cluster.Config{})
+				kv1, err := builder.New(ctx, kv.Config{}, cluster.Config{})
 				Expect(err).ToNot(HaveOccurred())
-				kv2, err := builder.New(kvCtx, kv.Config{}, cluster.Config{})
+				kv2, err := builder.New(ctx, kv.Config{}, cluster.Config{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(kv1.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
 				Eventually(func(g Gomega) {
@@ -112,9 +106,9 @@ var _ = Describe("txn", func() {
 
 			It("Should return an error when attempting to transfer the leaseAlloc",
 				func() {
-					kv1, err := builder.New(kvCtx, kv.Config{}, cluster.Config{})
+					kv1, err := builder.New(ctx, kv.Config{}, cluster.Config{})
 					Expect(err).ToNot(HaveOccurred())
-					_, err = builder.New(kvCtx, kv.Config{}, cluster.Config{})
+					_, err = builder.New(ctx, kv.Config{}, cluster.Config{})
 					Expect(err).ToNot(HaveOccurred())
 					Expect(kv1.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
 					err = kv1.Set(ctx, []byte("key"), []byte("value2"), node.ID(2))
@@ -127,9 +121,9 @@ var _ = Describe("txn", func() {
 		Describe("Peers Leaseholder", func() {
 
 			It("Should commit the operation to storage", func() {
-				kv1, err := builder.New(kvCtx, kv.Config{}, cluster.Config{})
+				kv1, err := builder.New(ctx, kv.Config{}, cluster.Config{})
 				Expect(err).ToNot(HaveOccurred())
-				kv2, err := builder.New(kvCtx, kv.Config{}, cluster.Config{})
+				kv2, err := builder.New(ctx, kv.Config{}, cluster.Config{})
 				Expect(err).ToNot(HaveOccurred())
 				waitForClusterStateToConverge(builder)
 				Expect(kv1.Set(ctx, []byte("key"), []byte("value"), node.ID(2))).To(Succeed())
@@ -141,7 +135,7 @@ var _ = Describe("txn", func() {
 			})
 
 			It("Should return an error if the lease option is not a node ID", func() {
-				kv, err := builder.New(kvCtx, kv.Config{}, cluster.Config{})
+				kv, err := builder.New(ctx, kv.Config{}, cluster.Config{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(kv.Set(ctx, []byte("key"), []byte("value"), "2")).To(HaveOccurred())
 			})
@@ -152,7 +146,7 @@ var _ = Describe("txn", func() {
 
 	Describe("Batch", func() {
 		It("Should execute a batch of operations", func() {
-			kv, err := builder.New(kvCtx, kv.Config{}, cluster.Config{})
+			kv, err := builder.New(ctx, kv.Config{}, cluster.Config{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(kv).ToNot(BeNil())
 			b := kv.NewBatch()
@@ -174,7 +168,7 @@ var _ = Describe("txn", func() {
 		Describe("Gateway Leaseholder", func() {
 
 			It("Should applyToAndCommit the operation to storage", func() {
-				kv, err := builder.New(kvCtx, kv.Config{}, cluster.Config{})
+				kv, err := builder.New(ctx, kv.Config{}, cluster.Config{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(kv).ToNot(BeNil())
 				Expect(kv.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
@@ -192,9 +186,9 @@ var _ = Describe("txn", func() {
 		Describe("Peers Leaseholder", func() {
 
 			It("Should apply the operation to storage", func() {
-				kv1, err := builder.New(kvCtx, kv.Config{}, cluster.Config{})
+				kv1, err := builder.New(ctx, kv.Config{}, cluster.Config{})
 				Expect(err).ToNot(HaveOccurred())
-				kv2, err := builder.New(kvCtx, kv.Config{}, cluster.Config{})
+				kv2, err := builder.New(ctx, kv.Config{}, cluster.Config{})
 				Expect(err).ToNot(HaveOccurred())
 				waitForClusterStateToConverge(builder)
 				Expect(kv1.Set(ctx, []byte("key"), []byte("value"), node.ID(2))).To(Succeed())
@@ -213,12 +207,12 @@ var _ = Describe("txn", func() {
 
 		It("Should stop propagating an operation after a set threshold of"+
 			" redundant broadcasts", func() {
-			kv1, err := builder.New(kvCtx, kv.Config{
+			kv1, err := builder.New(ctx, kv.Config{
 				GossipInterval:    20 * time.Millisecond,
 				RecoveryThreshold: 2,
 			}, cluster.Config{})
 			Expect(err).ToNot(HaveOccurred())
-			_, err = builder.New(kvCtx, kv.Config{
+			_, err = builder.New(ctx, kv.Config{
 				GossipInterval:    20 * time.Millisecond,
 				RecoveryThreshold: 2,
 			}, cluster.Config{})

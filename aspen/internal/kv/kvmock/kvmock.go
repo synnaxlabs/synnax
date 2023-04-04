@@ -65,3 +65,17 @@ func (b *Builder) New(ctx context.Context, kvCfg kv.Config, clusterCfg cluster.C
 	b.KVs[cluster.Host().ID] = kve
 	return kve, nil
 }
+
+func (b *Builder) Close() error {
+	for _, db := range b.KVs {
+		if err := db.Close(); err != nil {
+			return err
+		}
+	}
+	for _, n := range b.ClusterAPIs {
+		if err := n.Close(); err != nil {
+			return err
+		}
+	}
+	return nil
+}

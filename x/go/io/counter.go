@@ -10,6 +10,7 @@
 package io
 
 import (
+	"context"
 	"encoding/binary"
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/x/counter"
@@ -18,16 +19,16 @@ import (
 
 type Int32Counter struct {
 	err error
-	counter.Int32
+	counter.Counter[int32]
 	f   ReaderAtWriterAtCloser
 	buf []byte
 }
 
-func NewInt32Counter(f ReaderAtWriterAtCloser, base counter.Int32) (*Int32Counter, error) {
+func NewInt32Counter(f ReaderAtWriterAtCloser, base counter.Counter[int32]) (*Int32Counter, error) {
 	i := &Int32Counter{
-		Int32: base,
-		f:     f,
-		buf:   make([]byte, 4),
+		Counter: base,
+		f:       f,
+		buf:     make([]byte, 4),
 	}
 	i.load()
 	return i, i.Error()
@@ -41,8 +42,8 @@ func (c *Int32Counter) load() int32 {
 	return int32(binary.LittleEndian.Uint32(c.buf))
 }
 
-func (c *Int32Counter) Add(delta ...int32) int32 {
-	v := c.Int32.Add(delta...)
+func (c *Int32Counter) Add(ctx context.Context, delta ...int32) int32 {
+	v, _ := c.Counter.Add(ctx, delta...)
 	binary.LittleEndian.PutUint32(c.buf, uint32(v))
 	_, c.err = c.f.WriteAt(c.buf, 0)
 	return v

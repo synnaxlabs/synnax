@@ -15,9 +15,9 @@ import (
 	"github.com/synnaxlabs/alamos"
 )
 
-var _ = Describe("instrumentation", func() {
-	Describe("Creating a new instrumentation", func() {
-		It("Should create the instrumentation without panicking", func() {
+var _ = Describe("Instrumentation", func() {
+	Describe("Creating a new Instrumentation", func() {
+		It("Should create the Instrumentation without panicking", func() {
 			Expect(func() { alamos.New("test") }).ToNot(Panic())
 		})
 	})

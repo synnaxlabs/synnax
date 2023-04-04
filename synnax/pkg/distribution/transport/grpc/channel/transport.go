@@ -11,6 +11,8 @@ package channel
 
 import (
 	"context"
+	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/gen/proto/go/channel/v1"
@@ -32,6 +34,7 @@ type server = fgrpc.UnaryServer[
 
 // Transport is a grpc backed implementation of the channel.Transport interface.
 type Transport struct {
+	alamos.Reporter
 	client *client
 	server *server
 }
@@ -72,5 +75,10 @@ func New(pool *fgrpc.Pool) Transport {
 		ResponseTranslator: createMessageTranslator{},
 		ServiceDesc:        &channelv1.ChannelService_ServiceDesc,
 	}
-	return Transport{c, s}
+	return Transport{Reporter: fgrpc.Reporter, client: c, server: s}
+}
+
+func (t Transport) Use(middleware ...freighter.Middleware) {
+	t.client.Use(middleware...)
+	t.server.Use(middleware...)
 }

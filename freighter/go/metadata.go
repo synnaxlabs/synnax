@@ -10,12 +10,36 @@
 package freighter
 
 import (
+	"context"
 	"crypto/tls"
 	"github.com/synnaxlabs/x/address"
 )
 
-// MD represents the metadata for a request that is passed to Middleware.
-type MD struct {
+type Location uint8
+
+const (
+	// ClientSide indicates whether the middleware is located on the client side of the request.
+	ClientSide Location = iota + 1
+	// ServerSide indicates whether the middleware is located on the server side of the request.
+	ServerSide
+)
+
+type Type uint8
+
+const (
+	// Unary is set on middleware that is executed for a unary request.
+	Unary Type = iota
+	// Stream is set on middleware that is executed for a streaming request.
+	Stream
+)
+
+// Context represents the metadata for a request that is passed to Middleware.
+type Context struct {
+	context.Context
+	// Location indicates the location of the middleware (client or server).
+	Location Location
+	// Type indicates the type of the middleware (unary or stream).
+	Type Type
 	// Protocol is the protocol that the request is being sent over.
 	Protocol string
 	// Target is the address the request is being sent to.
@@ -24,7 +48,7 @@ type MD struct {
 	Sec SecurityInfo
 	// Params is a set of arbitrary parameters that can be set by client side middleware,
 	// and read by server side middleware.
-	Params Params
+	Params
 }
 
 // SecurityInfo represents the security information for a request.

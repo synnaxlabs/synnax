@@ -257,9 +257,9 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 					c := 0
 					server.Use(freighter.MiddlewareFunc(func(
 						ctx context.Context,
-						md freighter.MD,
+						md freighter.Context,
 						next freighter.Next,
-					) (freighter.MD, error) {
+					) (freighter.Context, error) {
 						c++
 						oMd, err := next(ctx, md)
 						c++

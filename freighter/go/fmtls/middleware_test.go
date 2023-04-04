@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package mtls_test
+package fmtls_test
 
 import (
 	"context"
@@ -16,19 +16,19 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/freighter/mtls"
+	"github.com/synnaxlabs/freighter/fmtls"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Middleware", func() {
 	var (
 		m         freighter.Middleware
-		md        freighter.MD
+		md        freighter.Context
 		collector freighter.MiddlewareCollector
 	)
 	BeforeEach(func() {
-		m = mtls.GateMiddleware("foo")
-		md = freighter.MD{}
+		m = fmtls.GateMiddleware("foo")
+		md = freighter.Context{}
 		collector = freighter.MiddlewareCollector{}
 		collector.Use(m)
 	})
@@ -49,7 +49,7 @@ var _ = Describe("Middleware", func() {
 		It("Should return a SecurityError if no certificate is provided", func() {
 			md.Sec.TLS.Used = true
 			_, err := collector.Exec(context.TODO(), md, freighter.NopFinalizer)
-			Expect(err).To(HaveOccurredAs(mtls.AuthError))
+			Expect(err).To(HaveOccurredAs(fmtls.AuthError))
 		})
 		It("Should return a SecurityError if the CN is not correct", func() {
 			md.Sec.TLS.Used = true
@@ -63,7 +63,7 @@ var _ = Describe("Middleware", func() {
 				},
 			}
 			_, err := collector.Exec(context.TODO(), md, freighter.NopFinalizer)
-			Expect(err).To(HaveOccurredAs(mtls.AuthError))
+			Expect(err).To(HaveOccurredAs(fmtls.AuthError))
 		})
 	})
 })

@@ -71,15 +71,13 @@ func Pledge(ctx context.Context, cfgs ...Config) (res Response, err error) {
 	if err != nil {
 		return res, err
 	}
-	// Because peers are only required whe calling PledgeServer, we need to perform
-	// this validation outside of config.Validate.
-	if len(cfg.Peers) == 0 {
-		return res, errors.New("[pledge] - at least one peer required")
-	}
 
-	alamos.AttachReporter(ctx, "pledge", alamos.Debug, cfg)
-	log := alamos.L(ctx)
-	log.Info("beginning pledge process", cfg.Report().LogArgs()...)
+	log := alamos.L(cfg)
+	alamos.AttachReporter(cfg, "pledge", cfg)
+	log.Debug("beginning pledge process", cfg.Report().ZapFields()...)
+
+	ctx, tracer := alamos.TraceI(ctx, cfg.Instrumentation, "pledge")
+	defer tracer.End()
 
 	// introduce random jitter to avoid a thundering herd during concurrent pledging.
 	introduceRandomJitter(cfg.RetryInterval)
@@ -96,8 +94,11 @@ func Pledge(ctx context.Context, cfgs ...Config) (res Response, err error) {
 		case dur := <-t.C:
 			addr := nextAddr()
 			log.Info("pledging to peer", zap.Stringer("address", addr))
+
 			reqCtx, cancel := context.WithTimeout(context.Background(), cfg.RequestTimeout)
+
 			res, err = cfg.TransportClient.Send(reqCtx, addr, Request{ID: 0})
+
 			cancel()
 			if err == nil {
 				log.Info(
@@ -133,8 +134,8 @@ func Arbitrate(ctx context.Context, cfgs ...Config) error {
 	if err != nil {
 		return err
 	}
-	alamos.AttachReporter(ctx, "pledge", alamos.Debug, cfg)
-	alamos.L(ctx).Info("registering node as pledge arbitrator", cfg.Report().LogArgs()...)
+	alamos.AttachReporter(cfg, "pledge", cfg)
+	alamos.L(cfg).Info("registering node as pledge arbitrator", cfg.Report().ZapFields()...)
 	return arbitrate(cfg)
 }
 
@@ -156,7 +157,7 @@ type responsible struct {
 }
 
 func (r *responsible) propose(ctx context.Context) (res Response, err error) {
-	log := alamos.L(ctx)
+	log := alamos.L(r)
 	log.Info("responsible received pledge. starting proposal process.")
 
 	res.ClusterKey = r.ClusterKey
@@ -240,7 +241,7 @@ func (r *responsible) consultQuorum(ctx context.Context, id node.ID, quorum node
 		wg.Go(func() error {
 			_, err := r.TransportClient.Send(reqCtx, n_.Address, Request{ID: id})
 			if errors.Is(err, proposalRejected) {
-				alamos.L(ctx).Debug(
+				alamos.L(r).Debug(
 					"quorum rejected proposal",
 					zap.Uint32("id", uint32(id)),
 					zap.Stringer("address", n_.Address),
@@ -250,7 +251,7 @@ func (r *responsible) consultQuorum(ctx context.Context, id node.ID, quorum node
 			// If any node returns an error, we need to retry the entire responsible,
 			// so we need to cancel all running requests.
 			if err != nil {
-				alamos.L(ctx).Error("failed to reach juror",
+				alamos.L(r).Error("failed to reach juror",
 					zap.Uint32("id", uint32(id)),
 					zap.Stringer("address", n_.Address),
 				)
@@ -269,12 +270,14 @@ type juror struct {
 }
 
 func (j *juror) verdict(ctx context.Context, req Request) (err error) {
-	log := alamos.L(ctx)
-	logID := zap.Uint32("id", uint32(req.ID))
-	log.Debug("juror received proposal. making verdict", logID)
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
+	ctx, trace := alamos.TraceI(ctx, j, "verdict")
+	defer trace.End()
+	log := alamos.L(j)
+	logID := zap.Uint32("id", uint32(req.ID))
+	log.Debug("juror received proposal. making verdict", logID)
 	j.mu.Lock()
 	defer j.mu.Unlock()
 	for _, appID := range j.approvals {

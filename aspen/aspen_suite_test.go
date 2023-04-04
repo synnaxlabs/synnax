@@ -10,14 +10,13 @@
 package aspen_test
 
 import (
-	"github.com/synnaxlabs/alamos"
-	"testing"
-
+	"context"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"testing"
 )
 
-var ctx, _ = alamos.Nop()
+var ctx = context.Background()
 
 func TestAspen(t *testing.T) {
 	RegisterFailHandler(Fail)

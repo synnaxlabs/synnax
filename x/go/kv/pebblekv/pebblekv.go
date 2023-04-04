@@ -56,7 +56,7 @@ func (db pebbleKV) Delete(_ context.Context, key []byte) error {
 func (db pebbleKV) Close() error { return db.DB.Close() }
 
 // NewIterator implements the kv.db interface.
-func (db pebbleKV) NewIterator(opts kvc.IteratorOptions) kvc.Iterator {
+func (db pebbleKV) NewIterator(_ context.Context, opts kvc.IteratorOptions) kvc.Iterator {
 	return db.DB.NewIter(&pebble.IterOptions{LowerBound: opts.LowerBound, UpperBound: opts.UpperBound})
 }
 
@@ -80,7 +80,7 @@ func (b batch) Delete(_ context.Context, key []byte) error {
 	return b.Batch.Delete(key, defaultWriteOpts)
 }
 
-func (b batch) NewIterator(opts kvc.IteratorOptions) kvc.Iterator {
+func (b batch) NewIterator(_ context.Context, opts kvc.IteratorOptions) kvc.Iterator {
 	return b.Batch.NewIter(&pebble.IterOptions{LowerBound: opts.LowerBound, UpperBound: opts.UpperBound})
 }
 

@@ -21,6 +21,7 @@ package writer
 import (
 	"context"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
@@ -57,13 +58,14 @@ func (c Config) toStorage() storage.WriterConfig {
 
 // ServiceConfig is the configuration for opening a Writer or StreamWriter.
 type ServiceConfig struct {
+	alamos.Instrumentation
 	// TS is the local time series store to write to.
 	// [REQUIRED]
 	TS storage.StreamWritableTS
 	// ChannelReader is used to resolve metadata and routing information for the provided
 	// keys.
 	// [REQUIRED]
-	ChannelReader channel.Reader
+	ChannelReader channel.RetrieveFactory
 	// HostResolver is used to resolve the host address for nodes in the cluster in order
 	// to route writes.
 	// [REQUIRED]
@@ -91,7 +93,7 @@ func (cfg ServiceConfig) Validate() error {
 	validate.NotNil(v, "ChannelReader", cfg.ChannelReader)
 	validate.NotNil(v, "HostResolver", cfg.HostResolver)
 	validate.NotNil(v, "Transport", cfg.Transport)
-	validate.NotNil(v, "Logger", cfg.Logger)
+	validate.NotNil(v, "L", cfg.Logger)
 	return v.Error()
 }
 
@@ -132,11 +134,7 @@ const (
 // control the lifetime of goroutines spawned by the writer. If the given context is cancelled,
 // the writer will immediately abort all pending writes and return an error.
 func (s *Service) New(ctx context.Context, cfg Config) (Writer, error) {
-	sCtx, cancel := signal.WithCancel(
-		ctx,
-		signal.WithContextKey("writer"),
-		signal.WithInstrumentation(s.Logger),
-	)
+	sCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(s))
 	seg, err := s.NewStream(ctx, cfg)
 	if err != nil {
 		return nil, err
@@ -146,7 +144,12 @@ func (s *Service) New(ctx context.Context, cfg Config) (Writer, error) {
 	seg.InFrom(req)
 	seg.OutTo(res)
 	seg.Flow(sCtx, confluence.CloseInletsOnExit(), confluence.CancelOnExitErr())
-	return &writer{requests: req, responses: res, wg: sCtx, shutdown: cancel}, nil
+	return &writer{
+		requests:  req,
+		responses: res,
+		wg:        sCtx,
+		shutdown:  signal.NewShutdown(sCtx, cancel),
+	}, nil
 }
 
 // NewStream opens a new StreamWriter using the given configuration. The provided context

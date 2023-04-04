@@ -10,6 +10,7 @@
 package core
 
 import (
+	"context"
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -64,26 +65,27 @@ var _ ontology.Service = (*NodeOntologyService)(nil)
 
 // ListenForChanges starts listening for changes to the cluster topology (nodes leaving,
 // joining, changing state, etc.)
-func (s *NodeOntologyService) ListenForChanges() {
-	s.update(s.Cluster.PeekState())
-	s.Cluster.OnChange(s.update)
+func (s *NodeOntologyService) ListenForChanges(ctx context.Context) {
+	s.update(ctx, s.Cluster.PeekState())
+	// TODO: emilbon99. See if we want to add context onto observables.
+	s.Cluster.OnChange(func(state ClusterState) { s.update(ctx, state) })
 }
 
-func (s *NodeOntologyService) update(state ClusterState) {
+func (s *NodeOntologyService) update(ctx context.Context, state ClusterState) {
 	w := s.Ontology.NewWriter()
 	clusterID := ClusterOntologyID(s.Cluster.Key())
-	if err := w.DefineResource(clusterID); err != nil {
+	if err := w.DefineResource(ctx, clusterID); err != nil {
 		s.Logger.Errorf("failed to define HostResolver resource: %v", err)
 	}
-	if err := w.DefineRelationship(ontology.Root, ontology.ParentOf, clusterID); err != nil {
+	if err := w.DefineRelationship(ctx, ontology.Root, ontology.ParentOf, clusterID); err != nil {
 		s.Logger.Errorf("failed to define HostResolver relationship: %v", err)
 	}
 	for _, n := range state.Nodes {
 		nodeID := NodeOntologyID(n.ID)
-		if err := w.DefineResource(NodeOntologyID(n.ID)); err != nil {
+		if err := w.DefineResource(ctx, NodeOntologyID(n.ID)); err != nil {
 			s.Logger.Errorf("failed to define node resource: %v", err)
 		}
-		if err := w.DefineRelationship(clusterID, ontology.ParentOf, nodeID); err != nil {
+		if err := w.DefineRelationship(ctx, clusterID, ontology.ParentOf, nodeID); err != nil {
 			s.Logger.Errorf("failed to define HostResolver relationship: %v", err)
 		}
 	}
@@ -93,7 +95,10 @@ func (s *NodeOntologyService) update(state ClusterState) {
 func (s *NodeOntologyService) Schema() *schema.Schema { return _nodeSchema }
 
 // RetrieveEntity implements ontology.Service.
-func (s *NodeOntologyService) RetrieveEntity(key string) (schema.Entity, error) {
+func (s *NodeOntologyService) RetrieveEntity(
+	_ context.Context,
+	key string,
+) (schema.Entity, error) {
 	id, err := strconv.Atoi(key)
 	if err != nil {
 		return schema.Entity{}, err
@@ -122,7 +127,7 @@ var _ ontology.Service = (*ClusterOntologyService)(nil)
 func (s *ClusterOntologyService) Schema() *schema.Schema { return _clusterSchema }
 
 // RetrieveEntity implements ontology.Service.
-func (s *ClusterOntologyService) RetrieveEntity(_ string) (schema.Entity, error) {
+func (s *ClusterOntologyService) RetrieveEntity(_ context.Context, _ string) (schema.Entity, error) {
 	e := schema.NewEntity(_clusterSchema, "Cluster")
 	schema.Set(e, "key", s.Cluster.Key().String())
 	return e, nil

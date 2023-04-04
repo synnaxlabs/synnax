@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errutil"
 	kvx "github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/signal"
+	"io"
 )
 
 type (
@@ -49,16 +49,12 @@ type DB interface {
 type db struct {
 	Cluster
 	kvx.DB
-	transport struct {
-		shutdown context.CancelFunc
-		wg       signal.WaitGroup
-	}
+	transportShutdown io.Closer
 }
 
 func (db *db) Close() error {
-	db.transport.shutdown()
 	c := errutil.NewCatch(errutil.WithAggregation())
-	c.Exec(db.transport.wg.Wait)
+	c.Exec(db.transportShutdown.Close)
 	c.Exec(db.Cluster.Close)
 	c.Exec(db.DB.Close)
 	return lo.Ternary(errors.Is(c.Error(), context.Canceled), nil, c.Error())

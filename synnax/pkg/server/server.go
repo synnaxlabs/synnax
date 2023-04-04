@@ -27,6 +27,7 @@ import (
 
 // Config is the configuration for a Server.
 type Config struct {
+	alamos.Instrumentation
 	// ListenAddress is the address the server will listen on. The server's name will be
 	// set to the host portion of the address.
 	ListenAddress address.Address
@@ -34,8 +35,6 @@ type Config struct {
 	Security SecurityConfig
 	// Branches is a list of branches to serve.
 	Branches []Branch
-	// Logger is the witness of it all.
-	Logger *zap.Logger
 	// Debug is a flag to enable debugging endpoints and utilities.
 	Debug *bool
 }
@@ -84,9 +83,9 @@ func (c Config) Override(other Config) Config {
 	c.ListenAddress = override.String(c.ListenAddress, other.ListenAddress)
 	c.Security.Insecure = override.Nil(c.Security.Insecure, other.Security.Insecure)
 	c.Security.TLS = override.Nil(c.Security.TLS, other.Security.TLS)
-	c.Logger = override.Nil(c.Logger, other.Logger)
 	c.Branches = override.Slice(c.Branches, other.Branches)
 	c.Debug = override.Nil(c.Debug, other.Debug)
+	c.Instrumentation = override.Nil(c.Instrumentation, other.Instrumentation)
 	return c
 }
 
@@ -94,7 +93,6 @@ func (c Config) Override(other Config) Config {
 func (c Config) Validate() error {
 	v := validate.New("server")
 	validate.NotEmptyString(v, "listenAddress", c.ListenAddress)
-	validate.NotNil(v, "logger", c.Logger)
 	return v.Error()
 }
 
@@ -117,8 +115,8 @@ func New(configs ...Config) (*Server, error) {
 // error if the server exits abnormally (i.e. it wil ignore any errors emitted during
 // standard shutdown procedure).
 func (s *Server) Serve() (err error) {
-	s.Logger.Sugar().Debugw("starting server", s.Report().LogArgs()...)
-	sCtx, cancel := signal.Background(signal.WithInstrumentation(s.Logger), signal.WithContextKey("server"))
+	alamos.L(s).Debug("starting server", s.Report().ZapFields()...)
+	sCtx, cancel := signal.Background(signal.WithInstrumentation(s.Instrumentation))
 	s.wg = sCtx
 	defer cancel()
 	lis, err := net.Listen("tcp", s.ListenAddress.PortString())
@@ -184,10 +182,10 @@ func (s *Server) startBranches(
 		return
 	}
 
-	s.Logger.Sugar().Debugw(
+	alamos.L(s).Debug(
 		"starting branches",
-		"branches", branchKeys(branches),
-		"insecureMux", insecureMux,
+		zap.Strings("branches", branchKeys(branches)),
+		zap.Bool("insecureMux", insecureMux),
 	)
 
 	listeners := make([]net.Listener, len(branches))
