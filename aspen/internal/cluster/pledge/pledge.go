@@ -32,7 +32,6 @@ package pledge
 import (
 	"context"
 	"github.com/cockroachdb/errors"
-	"github.com/labstack/gommon/log"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/node"
@@ -92,7 +91,7 @@ func Pledge(ctx context.Context, cfgs ...Config) (res Response, err error) {
 			return Response{}, errors.CombineErrors(ctx.Err(), err)
 		case dur := <-t.C:
 			addr := nextAddr()
-			log.Info("pledging to peer", zap.Stringer("address", addr))
+			cfg.L.Info("pledging to peer", zap.Stringer("address", addr))
 
 			reqCtx, cancel := context.WithTimeout(context.Background(), cfg.RequestTimeout)
 
@@ -100,7 +99,7 @@ func Pledge(ctx context.Context, cfgs ...Config) (res Response, err error) {
 
 			cancel()
 			if err == nil {
-				log.Info(
+				cfg.L.Info(
 					"pledge successful",
 					zap.Uint32("assignedHost", uint32(res.ID)),
 					zap.Stringer("clusterKey", res.ClusterKey),
@@ -114,7 +113,7 @@ func Pledge(ctx context.Context, cfgs ...Config) (res Response, err error) {
 			if ctx.Err() != nil {
 				return res, errors.CombineErrors(ctx.Err(), err)
 			}
-			log.Warn("failed to pledge, retrying",
+			cfg.L.Warn("failed to pledge, retrying",
 				zap.Duration("nextRetry", dur),
 				zap.Error(err),
 			)
@@ -156,7 +155,7 @@ type responsible struct {
 }
 
 func (r *responsible) propose(ctx context.Context) (res Response, err error) {
-	log.Info("responsible received pledge. starting proposal process.")
+	r.L.Info("responsible received pledge. starting proposal process.")
 
 	ctx, span := r.T.Trace(ctx, "responsible.propose", alamos.InfoLevel)
 	defer func() { _ = span.EndWith(err) }()
@@ -190,21 +189,21 @@ func (r *responsible) propose(ctx context.Context) (res Response, err error) {
 		}
 
 		logID := zap.Uint32("id", uint32(res.ID))
-		log.Debug("responsible proposing", logID, zap.Int("quorumCount", len(quorum)))
+		r.L.Debug("responsible proposing", logID, zap.Int("quorumCount", len(quorum)))
 
 		// If any node returns an error, it means we need to retry the responsible with a new ID.
 		if err = r.consultQuorum(ctx, res.ID, quorum); err != nil {
-			log.Error("quorum rejected proposal. retrying.", zap.Error(err))
+			r.L.Error("quorum rejected proposal. retrying.", zap.Error(err))
 			continue
 		}
 
-		log.Debug("quorum accepted pledge", logID)
+		r.L.Debug("quorum accepted pledge", logID)
 
 		// If no candidate returned an error, it means we reached a quorum approval,
 		// and we can safely return the new ID to the caller.
 		return res, nil
 	}
-	log.Error(
+	r.L.Error(
 		"responsible failed to build healthy quorum",
 		zap.Int("numProposals", propC),
 		zap.Error(err),

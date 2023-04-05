@@ -52,15 +52,15 @@ func (g *Gossip) GoGossip(ctx signal.Context) {
 	)
 }
 
-func (g *Gossip) GossipOnce(ctx context.Context) error {
+func (g *Gossip) GossipOnce(ctx context.Context) (err error) {
 	ctx, span := alamos.Trace(ctx, "gossip-client", alamos.DebugLevel)
-	g.incrementHostHeartbeat()
 	snap := g.Store.CopyState()
 	peer := RandomPeer(snap.Nodes, snap.HostID)
-	if peer.Address == "" {
-		return nil
+	g.incrementHostHeartbeat()
+	if peer.Address != "" {
+		err = g.GossipOnceWith(ctx, peer.Address)
 	}
-	return span.EndWith(g.GossipOnceWith(ctx, peer.Address))
+	return span.EndWith(err)
 }
 
 func (g *Gossip) GossipOnceWith(ctx context.Context, addr address.Address) error {

@@ -59,7 +59,7 @@ func (cfg Config) Override(other Config) Config {
 	cfg.StorageFlushInterval = override.Numeric(cfg.StorageFlushInterval, other.StorageFlushInterval)
 	cfg.StorageKey = override.Slice(cfg.StorageKey, other.StorageKey)
 	cfg.Storage = override.Nil(cfg.Storage, other.Storage)
-	cfg.Instrumentation = override.Nil(cfg.Instrumentation, other.Instrumentation)
+	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
 	cfg.Gossip.Instrumentation = cfg.Instrumentation
 	cfg.Pledge.Instrumentation = cfg.Instrumentation
 	cfg.Gossip = cfg.Gossip.Override(other.Gossip)
