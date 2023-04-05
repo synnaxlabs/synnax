@@ -35,7 +35,7 @@ type Service interface {
 }
 
 type Writeable interface {
-	NewWriter(writer gorp.WriteContext) Writer
+	NewWriter(writer gorp.WriteTxn) Writer
 }
 
 type Readable interface {
@@ -84,7 +84,7 @@ func New(configs ...ServiceConfig) (Service, error) {
 	return &service{clusterDB: cfg.ClusterDB, proxy: proxy}, nil
 }
 
-func (s *service) NewWriter(writer gorp.WriteContext) Writer {
+func (s *service) NewWriter(writer gorp.WriteTxn) Writer {
 	return Writer{proxy: s.proxy, writer: writer}
 }
 

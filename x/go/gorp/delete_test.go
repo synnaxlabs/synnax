@@ -21,7 +21,7 @@ var _ = Describe("Delete", Ordered, func() {
 	var (
 		db   *gorp.DB
 		kvDB kv.DB
-		txn  gorp.WriteContext
+		txn  gorp.WriteTxn
 	)
 	BeforeAll(func() {
 		kvDB = memkv.New()

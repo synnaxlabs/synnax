@@ -27,21 +27,34 @@ type DB struct {
 }
 
 // BeginWrite begins a new Writer against the DB.
-func (db *DB) BeginWrite(ctx context.Context) WriteContext {
+func (db *DB) BeginWrite(ctx context.Context) WriteTxn {
 	return writer{Writer: db.BeginWrite(ctx), opts: db.options}
 }
 
-// BeginRead begins a new ReadContext against the DB.
-func (db *DB) BeginRead(ctx context.Context) ReadContext {
+// BeginRead begins a new ReadTxn against the DB.
+func (db *DB) BeginRead(ctx context.Context) ReadTxn {
 	return reader{Reader: db.BeginRead(ctx), opts: db.options}
 }
 
-type ReadContext interface {
+func (db *DB) WithWriteTxn(ctx context.Context, f func(WriteTxn) error) (err error) {
+	txn := db.BeginWrite(ctx)
+	defer func() {
+		if err_ := txn.Close(); err_ != nil {
+			err = err_
+		}
+	}()
+	if err = f(txn); err == nil {
+		err = txn.Commit()
+	}
+	return
+}
+
+type ReadTxn interface {
 	kv.Reader
 	options() options
 }
 
-type WriteContext interface {
+type WriteTxn interface {
 	kv.Writer
 	options() options
 }

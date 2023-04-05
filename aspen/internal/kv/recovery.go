@@ -17,7 +17,7 @@ import (
 
 type recoveryTransform struct {
 	Config
-	confluence.LinearTransform[BatchRequest, BatchRequest]
+	confluence.LinearTransform[WriteRequest, WriteRequest]
 	repetitions map[string]int
 }
 
@@ -29,8 +29,8 @@ func newRecoveryTransform(cfg Config) segment {
 
 func (r *recoveryTransform) transform(
 	_ context.Context,
-	in BatchRequest,
-) (out BatchRequest, ok bool, err error) {
+	in WriteRequest,
+) (out WriteRequest, ok bool, err error) {
 	for _, op := range in.Operations {
 		key, err := kvx.CompositeKey(op.Key, op.Version)
 		if err != nil {

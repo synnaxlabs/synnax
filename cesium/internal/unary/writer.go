@@ -30,7 +30,7 @@ type Writer struct {
 }
 
 func Write(ctx context.Context, db *DB, start telem.TimeStamp, arr telem.Array) error {
-	w, err := db.NewWriter(ranger.WriterConfig{Start: start})
+	w, err := db.NewWriter(ctx, ranger.WriterConfig{Start: start})
 	if err != nil {
 		return err
 	}

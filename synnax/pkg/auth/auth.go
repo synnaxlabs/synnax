@@ -22,7 +22,7 @@ type Authenticator interface {
 	// If the credentials are invalid, an InvalidCredentials error is returned.
 	Authenticate(ctx context.Context, creds InsecureCredentials) error
 	// NewWriter opens a new Writer using the provided write context.
-	NewWriter(ctx gorp.WriteContext) Writer
+	NewWriter(txn gorp.WriteTxn) Writer
 }
 
 type Writer interface {
@@ -30,10 +30,10 @@ type Writer interface {
 	Register(creds InsecureCredentials) error
 	// UpdateUsername updates the username of the given credentials.
 	// If the Authenticator uses the Node's local storage, they can use the provided
-	// ctx to perform the update.
+	// txn to perform the update.
 	UpdateUsername(creds InsecureCredentials, newUser string) error
 	// UpdatePassword updates the password of the given credentials.
 	// If the Authenticator uses the Node's local storage, they can use the provided
-	// ctx to perform the update.
+	// txn to perform the update.
 	UpdatePassword(creds InsecureCredentials, newPass password.Raw) error
 }

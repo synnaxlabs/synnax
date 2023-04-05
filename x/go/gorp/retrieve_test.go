@@ -26,7 +26,7 @@ var _ = Describe("retrieveEntity", Ordered, func() {
 		db      *gorp.DB
 		kv      kv.DB
 		entries []entry
-		txn     gorp.ReadContext
+		txn     gorp.ReadTxn
 	)
 	BeforeAll(func() {
 		kv = memkv.New()

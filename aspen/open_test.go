@@ -49,10 +49,10 @@ var _ = Describe("Open", func() {
 	})
 	FIt("Should be able to join two clusters", func() {
 		Eventually(db1.Nodes).Should(HaveLen(2))
-		b := db1.NewBatch()
+		b := db1.NewWriter(ctx)
 		for i := 0; i < 10; i++ {
-			Expect(b.Set(ctx, []byte("key"), []byte("value"), aspen.NodeID(2))).To(Succeed())
+			Expect(b.Set([]byte("key"), []byte("value"), aspen.NodeID(2))).To(Succeed())
 		}
-		Expect(b.Commit(ctx)).To(Succeed())
+		Expect(b.Commit()).To(Succeed())
 	})
 })

@@ -23,11 +23,11 @@ import (
 type Retrieve struct {
 	gorp gorp.Retrieve[Key, Channel]
 	keys Keys
-	ctx  gorp.ReadContext
+	txn  gorp.ReadTxn
 }
 
-func NewRetrieve(ctx gorp.ReadContext) Retrieve {
-	return Retrieve{gorp: gorp.NewRetrieve[Key, Channel](), ctx: ctx}
+func NewRetrieve(txn gorp.ReadTxn) Retrieve {
+	return Retrieve{gorp: gorp.NewRetrieve[Key, Channel](), txn: txn}
 }
 
 // Entry binds the Channel that Retrieve will fill results into. This is an identical
@@ -61,14 +61,14 @@ func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 
 // Exec executes the query, binding
 func (r Retrieve) Exec() error {
-	return r.maybeEnrichError(r.gorp.Exec(r.ctx))
+	return r.maybeEnrichError(r.gorp.Exec(r.txn))
 }
 
 // Exists checks if the query has results matching its parameters. If used in conjunction
 // with WhereKeys, Exists will ONLY return true if ALL the keys have a matching Channel.
 // Otherwise, Exists returns true if the query has ANY results.
 func (r Retrieve) Exists() (bool, error) {
-	return r.gorp.Exists(r.ctx)
+	return r.gorp.Exists(r.txn)
 }
 
 func (r Retrieve) maybeEnrichError(err error) error {

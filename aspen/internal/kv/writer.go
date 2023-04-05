@@ -21,21 +21,21 @@ import (
 	"sync"
 )
 
-type batch struct {
+type writer struct {
 	kvx.Writer
 	digests []Digest
 	lease   *leaseAllocator
-	apply   func(reqs []BatchRequest) error
+	apply   func(reqs []WriteRequest) error
 }
 
-var _ kvx.Writer = (*batch)(nil)
+var _ kvx.Writer = (*writer)(nil)
 
-func (b *batch) Set(ctx context.Context, key []byte, value []byte, maybeLease ...interface{}) error {
+func (b *writer) Set(key []byte, value []byte, maybeLease ...interface{}) error {
 	lease, err := validateLeaseOption(maybeLease)
 	if err != nil {
 		return err
 	}
-	return b.applyOp(ctx, Operation{
+	return b.applyOp(Operation{
 		Key:         key,
 		Value:       value,
 		Variant:     Set,
@@ -43,22 +43,22 @@ func (b *batch) Set(ctx context.Context, key []byte, value []byte, maybeLease ..
 	})
 }
 
-func (b *batch) Delete(ctx context.Context, key []byte) error {
-	return b.applyOp(ctx, Operation{Key: key, Variant: Delete})
+func (b *writer) Delete(key []byte) error {
+	return b.applyOp(Operation{Key: key, Variant: Delete})
 }
 
-func (b *batch) applyOp(ctx context.Context, op Operation) error {
+func (b *writer) applyOp(op Operation) error {
 	var err error
-	op, err = b.lease.allocate(ctx, op)
+	op, err = b.lease.allocate(b.Writer.Context(), op)
 	if err != nil {
 		return err
 	}
 	if op.Variant == Delete {
-		if err := b.Writer.Delete(ctx, op.Key); err != nil {
+		if err := b.Writer.Delete(op.Key); err != nil {
 			return err
 		}
 	} else {
-		if err := b.Writer.Set(ctx, op.Key, op.Value); err != nil {
+		if err := b.Writer.Set(op.Key, op.Value); err != nil {
 			return err
 		}
 	}
@@ -67,12 +67,12 @@ func (b *batch) applyOp(ctx context.Context, op Operation) error {
 	return nil
 }
 
-func (b *batch) toRequests(ctx context.Context) ([]BatchRequest, error) {
-	dm := make(map[node.ID]BatchRequest)
+func (b *writer) toRequests() ([]WriteRequest, error) {
+	dm := make(map[node.ID]WriteRequest)
 	for _, dig := range b.digests {
 		op := dig.Operation()
 		if op.Variant == Set {
-			v, err := b.Get(ctx, dig.Key)
+			v, err := b.Get(dig.Key)
 			if err != nil && err != kvx.NotFound {
 				return nil, err
 			}
@@ -81,41 +81,41 @@ func (b *batch) toRequests(ctx context.Context) ([]BatchRequest, error) {
 		br, ok := dm[op.Leaseholder]
 		if !ok {
 			br.Operations = []Operation{op}
-			br.context = ctx
+			br.context = b.Context()
 		} else {
 			br.Operations = append(br.Operations, op)
 		}
 		br.Leaseholder = op.Leaseholder
 		br.context, br.span = alamos.Trace(
-			ctx,
-			fmt.Sprintf("batch-%d", br.Leaseholder),
+			b.Context(),
+			fmt.Sprintf("writer-%d", br.Leaseholder),
 			alamos.DebugLevel,
 		)
 		dm[op.Leaseholder] = br
 	}
-	data := make([]BatchRequest, 0, len(dm))
+	data := make([]WriteRequest, 0, len(dm))
 	for _, d := range dm {
 		data = append(data, d)
 	}
 	return data, b.free()
 }
 
-func (b *batch) Close() error { return b.free() }
+func (b *writer) Close() error { return b.free() }
 
-func (b *batch) Commit(ctx context.Context, _ ...interface{}) error {
-	data, err := b.toRequests(ctx)
+func (b *writer) Commit(_ ...interface{}) error {
+	data, err := b.toRequests()
 	if err != nil {
 		return err
 	}
 	return b.apply(data)
 }
 
-func (b *batch) free() error {
+func (b *writer) free() error {
 	b.digests = nil
 	return b.Writer.Close()
 }
 
-type BatchRequest struct {
+type WriteRequest struct {
 	Leaseholder node.ID
 	Sender      node.ID
 	Operations  []Operation
@@ -124,11 +124,11 @@ type BatchRequest struct {
 	span        alamos.Span
 }
 
-func (br BatchRequest) empty() bool { return len(br.Operations) == 0 }
+func (br WriteRequest) empty() bool { return len(br.Operations) == 0 }
 
-func (br BatchRequest) size() int { return len(br.Operations) }
+func (br WriteRequest) size() int { return len(br.Operations) }
 
-func (br BatchRequest) logArgs() []zap.Field {
+func (br WriteRequest) logArgs() []zap.Field {
 	return []zap.Field{
 		zap.Int("size", br.size()),
 		zap.Uint64("leaseholder", uint64(br.Leaseholder)),
@@ -136,7 +136,7 @@ func (br BatchRequest) logArgs() []zap.Field {
 	}
 }
 
-func (br BatchRequest) digests() []Digest {
+func (br WriteRequest) digests() []Digest {
 	digests := make([]Digest, len(br.Operations))
 	for i, op := range br.Operations {
 		digests[i] = op.Digest()
@@ -144,9 +144,9 @@ func (br BatchRequest) digests() []Digest {
 	return digests
 }
 
-func (br BatchRequest) commitTo(bw kvx.BatchWriter) error {
+func (br WriteRequest) commitTo(bw kvx.Writeable) error {
 	var err error
-	b := bw.NewWriter()
+	b := bw.NewWriter(br.context)
 
 	defer func() {
 		br.Operations = nil
@@ -170,7 +170,7 @@ func (br BatchRequest) commitTo(bw kvx.BatchWriter) error {
 	return err
 }
 
-func (br BatchRequest) done(err error) {
+func (br WriteRequest) done(err error) {
 	if br.doneF != nil {
 		br.doneF(err)
 	}
@@ -211,7 +211,7 @@ func (bc *batchCoordinator) wait() error {
 	return bc.mu.err
 }
 
-func (bc *batchCoordinator) add(data *BatchRequest) {
+func (bc *batchCoordinator) add(data *WriteRequest) {
 	bc.wg.Add(1)
 	data.doneF = bc.done
 }

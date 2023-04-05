@@ -17,6 +17,7 @@ package kv
 
 import (
 	"context"
+	"github.com/cockroachdb/errors"
 	"github.com/cockroachdb/pebble"
 	"github.com/synnaxlabs/alamos"
 	"io"
@@ -52,10 +53,26 @@ type DB interface {
 	alamos.ReportProvider
 }
 
-func Get(ctx context.Context, db DB, key []byte) ([]byte, error) {
-	return db.NewReader(ctx).Get(key)
+func Get(ctx context.Context, db DB, key []byte, opts ...interface{}) ([]byte, error) {
+	return db.NewReader(ctx).Get(key, opts...)
 }
 
-func Set(ctx context.Context, db DB, key, value []byte) error {
-	return db.NewWriter(ctx).Set(key, value)
+func Set(ctx context.Context, db DB, key, value []byte, opts ...interface{}) error {
+	txn := db.NewWriter(ctx)
+	err := txn.Set(key, value, opts...)
+	if err != nil {
+		err = errors.CombineErrors(err, txn.Close())
+		return err
+	}
+	return txn.Commit()
+}
+
+func Delete(ctx context.Context, db DB, key []byte) error {
+	txn := db.NewWriter(ctx)
+	err := txn.Delete(key)
+	if err != nil {
+		err = errors.CombineErrors(err, txn.Close())
+		return err
+	}
+	return txn.Commit()
 }

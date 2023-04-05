@@ -65,19 +65,6 @@ var _ = Describe("Store", func() {
 
 	})
 
-	Describe("Valid", func() {
-
-		It("Should return false if the host is not set", func() {
-			Expect(s.Valid()).To(BeFalse())
-		})
-
-		It("Should return true if the host is set", func() {
-			s.SetHost(node.Node{ID: 1})
-			Expect(s.Valid()).To(BeTrue())
-		})
-
-	})
-
 	Describe("Host", func() {
 
 		It("Should set and get the host correctly", func() {

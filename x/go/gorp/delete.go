@@ -40,7 +40,7 @@ func (d Delete[K, E]) WhereKeys(keys ...K) Delete[K, E] {
 // Exec executes the Query against the provided Writer. If any entries matching WhereKeys
 // do not exist in the database, Delete will assume that the keys do not exist and
 // do nothing.
-func (d Delete[K, E]) Exec(writer WriteContext) error {
+func (d Delete[K, E]) Exec(writer WriteTxn) error {
 	var (
 		entries []E
 		err     = (Retrieve[K, E]{Query: d}).Entries(&entries).Exec(writer)

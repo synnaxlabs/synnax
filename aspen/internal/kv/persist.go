@@ -16,17 +16,17 @@ import (
 )
 
 type persist struct {
-	bw kvx.BatchWriter
-	confluence.LinearTransform[BatchRequest, BatchRequest]
+	db kvx.Writeable
+	confluence.LinearTransform[WriteRequest, WriteRequest]
 }
 
-func newPersist(bw kvx.BatchWriter) segment {
-	ps := &persist{bw: bw}
+func newPersist(bw kvx.Writeable) segment {
+	ps := &persist{db: bw}
 	ps.LinearTransform.Transform = ps.persist
 	return ps
 }
 
-func (ps *persist) persist(_ context.Context, br BatchRequest) (BatchRequest, bool, error) {
-	err := br.commitTo(ps.bw)
+func (ps *persist) persist(_ context.Context, br WriteRequest) (WriteRequest, bool, error) {
+	err := br.commitTo(ps.db)
 	return br, err == nil, nil
 }

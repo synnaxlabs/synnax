@@ -243,23 +243,20 @@ func maybeProvisionRootUser(
 	authSvc auth.Authenticator,
 	userSvc *user.Service,
 ) error {
-	uname := viper.GetString("username")
-	pass := password.Raw(viper.GetString("password"))
-	exists, err := userSvc.UsernameExists(ctx, uname)
+	creds := auth.InsecureCredentials{
+		Username: viper.GetString("username"),
+		Password: password.Raw(viper.GetString("password")),
+	}
+	exists, err := userSvc.UsernameExists(ctx, creds.Username)
 	if err != nil || exists {
 		return err
 	}
-	txn := db.BeginWrite()
-	if err = authSvc.NewWriter(txn).Register(ctx, auth.InsecureCredentials{
-		Username: uname,
-		Password: pass,
-	}); err != nil {
-		return err
-	}
-	if err = userSvc.NewWriter(txn).Create(ctx, &user.User{Username: uname}); err != nil {
-		return err
-	}
-	return txn.Commit(ctx)
+	return db.WithWriteTxn(ctx, func(txn gorp.WriteTxn) error {
+		if err = authSvc.NewWriter(txn).Register(creds); err != nil {
+			return err
+		}
+		return userSvc.NewWriter(txn).Create(&user.User{Username: creds.Username})
+	})
 }
 
 func configureClientGRPC(

@@ -60,7 +60,7 @@ type leaseProxy struct {
 	Config
 	localTo  address.Address
 	remoteTo address.Address
-	confluence.Switch[BatchRequest]
+	confluence.Switch[WriteRequest]
 }
 
 func newLeaseProxy(cfg Config, localTo address.Address, remoteTo address.Address) segment {
@@ -71,7 +71,7 @@ func newLeaseProxy(cfg Config, localTo address.Address, remoteTo address.Address
 
 func (lp *leaseProxy) _switch(
 	_ context.Context,
-	b BatchRequest,
+	b WriteRequest,
 ) (address.Address, bool, error) {
 	if b.Leaseholder == lp.Cluster.HostID() {
 		return lp.localTo, true, nil
@@ -80,13 +80,13 @@ func (lp *leaseProxy) _switch(
 }
 
 type (
-	LeaseTransportClient = freighter.UnaryClient[BatchRequest, types.Nil]
-	LeaseTransportServer = freighter.UnaryServer[BatchRequest, types.Nil]
+	LeaseTransportClient = freighter.UnaryClient[WriteRequest, types.Nil]
+	LeaseTransportServer = freighter.UnaryServer[WriteRequest, types.Nil]
 )
 
 type leaseSender struct {
 	Config
-	confluence.UnarySink[BatchRequest]
+	confluence.UnarySink[WriteRequest]
 }
 
 func newLeaseSender(cfg Config) sink {
@@ -95,9 +95,9 @@ func newLeaseSender(cfg Config) sink {
 	return ls
 }
 
-func (lf *leaseSender) send(ctx context.Context, br BatchRequest) (err error) {
+func (lf *leaseSender) send(ctx context.Context, br WriteRequest) (err error) {
 	defer func() { br.done(err) }()
-	lf.L.Debug("sending leased batch", br.logArgs()...)
+	lf.L.Debug("sending leased writer", br.logArgs()...)
 	var addr address.Address
 	addr, err = lf.Cluster.Resolve(br.Leaseholder)
 	if err != nil {
@@ -109,7 +109,7 @@ func (lf *leaseSender) send(ctx context.Context, br BatchRequest) (err error) {
 
 type leaseReceiver struct {
 	Config
-	confluence.AbstractUnarySource[BatchRequest]
+	confluence.AbstractUnarySource[WriteRequest]
 	confluence.EmptyFlow
 }
 
@@ -119,8 +119,8 @@ func newLeaseReceiver(cfg Config) source {
 	return lr
 }
 
-func (lr *leaseReceiver) receive(ctx context.Context, br BatchRequest) (types.Nil, error) {
-	lr.L.Debug("received leased batch", br.logArgs()...)
+func (lr *leaseReceiver) receive(ctx context.Context, br WriteRequest) (types.Nil, error) {
+	lr.L.Debug("received leased writer", br.logArgs()...)
 	bc := batchCoordinator{}
 	bc.add(&br)
 	lr.Out.Inlet() <- br

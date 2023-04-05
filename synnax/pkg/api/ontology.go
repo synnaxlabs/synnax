@@ -49,7 +49,7 @@ func (o *OntologyService) Retrieve(
 	if err := o.Validate(req); err.Occurred() {
 		return OntologyRetrieveResponse{}, err
 	}
-	q := o.Ontology.NewRetrieve().WhereIDs(ids...)
+	q := o.Ontology.NewRetrieve(ctx).WhereIDs(ids...)
 	if req.Children {
 		q = q.TraverseTo(ontology.Children)
 	} else if req.Parents {

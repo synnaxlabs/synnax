@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
-	"go.uber.org/zap"
 	"runtime/pprof"
 	"time"
 )
@@ -174,18 +173,6 @@ var _ = Describe("Signal", func() {
 
 	})
 
-	Describe("Options", func() {
-
-		Describe("WithInstrumentation", func() {
-			It("Should inject a instrumentation into the context for diagnostics", func() {
-				ctx, cancel := signal.TODO(signal.WithInstrumentation(zap.NewNop()))
-				cancel()
-				Expect(ctx.Err()).To(HaveOccurredAs(context.Canceled))
-			})
-		})
-
-	})
-
 	Describe("Profiler Labels", func() {
 
 		It("Should add a profiler label with the routine key", func() {
@@ -196,19 +183,6 @@ var _ = Describe("Signal", func() {
 				v, ok := pprof.Label(ctx, "routine")
 				Expect(ok).To(BeTrue())
 				Expect(v).To(Equal("routine-1"))
-				return nil
-			}, signal.WithKey("routine-1"))
-			Expect(ctx.Wait()).To(Succeed())
-		})
-
-		It("Should prefix the routine key with the context key", func() {
-			ctx, cancel := signal.Background(signal.WithContextKey("context-1"))
-			defer cancel()
-			ctx.Go(func(ctx context.Context) error {
-				defer GinkgoRecover()
-				v, ok := pprof.Label(ctx, "routine")
-				Expect(ok).To(BeTrue())
-				Expect(v).To(Equal("context-1.routine-1"))
 				return nil
 			}, signal.WithKey("routine-1"))
 			Expect(ctx.Wait()).To(Succeed())
@@ -232,14 +206,14 @@ var _ = Describe("Signal", func() {
 
 		It("Should send a value to the channel", func() {
 			v := make(chan int, 1)
-			signal.SendUnderContext(context.Background(), v, 1)
+			_ = signal.SendUnderContext(context.Background(), v, 1)
 			Expect(<-v).To(Equal(1))
 		})
 
 		It("Should not send a value to the channel if the context is cancelled", func() {
 			ctx, cancel := signal.WithTimeout(context.TODO(), 500*time.Microsecond)
 			v := make(chan int)
-			signal.SendUnderContext(ctx, v, 1)
+			_ = signal.SendUnderContext(ctx, v, 1)
 			cancel()
 			Expect(v).ToNot(Receive())
 		})

@@ -27,11 +27,11 @@ var _ = Describe("SeqNum", func() {
 					defer wg.Done()
 					for i := 0; i < 1000; i++ {
 						if i == 0 {
-							c.Add()
+							_, _ = c.Add()
 						} else if i == 1 {
-							c.Add(0, 1)
+							_, _ = c.Add(0, 1)
 						} else {
-							c.Add(1)
+							_, _ = c.Add(1)
 						}
 					}
 				}()
@@ -49,7 +49,7 @@ var _ = Describe("SeqNum", func() {
 				go func() {
 					defer wg.Done()
 					for i := 0; i < 1000; i++ {
-						c.Add(1)
+						_, _ = c.Add(1)
 					}
 				}()
 			}
