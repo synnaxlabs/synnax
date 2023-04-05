@@ -60,20 +60,18 @@ func openStorageEngine(opts *options) error {
 }
 
 func configureTransport(ctx context.Context, o *options) (io.Closer, error) {
-	sCtx, cancel := signal.WithCancel(alamos.Transfer(ctx, context.Background()))
+	sCtx, cancel := signal.WithCancel(alamos.TransferTrace(ctx, context.Background()))
 	transportShutdown := signal.NewShutdown(sCtx, cancel)
 	if err := o.transport.Configure(sCtx, o.addr, o.externalTransport); err != nil {
 		return transportShutdown, err
 	}
-	if ins, ok := alamos.Extract(ctx); ok {
-		mw, err := falamos.InstrumentationMiddleware(falamos.InstrumentationMiddlewareConfig{
-			Instrumentation: ins,
-		})
-		if err != nil {
-			return transportShutdown, err
-		}
-		o.transport.Use(mw)
+	mw, err := falamos.New(falamos.Config{
+		Instrumentation: o.Instrumentation,
+	})
+	if err != nil {
+		return transportShutdown, err
 	}
+	o.transport.Use(mw)
 	o.cluster.Gossip.TransportClient = o.transport.GossipClient()
 	o.cluster.Gossip.TransportServer = o.transport.GossipServer()
 	o.cluster.Pledge.TransportClient = o.transport.PledgeClient()

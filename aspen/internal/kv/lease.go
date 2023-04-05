@@ -12,7 +12,6 @@ package kv
 import (
 	"context"
 	"github.com/cockroachdb/errors"
-	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
@@ -97,16 +96,15 @@ func newLeaseSender(cfg Config) sink {
 }
 
 func (lf *leaseSender) send(ctx context.Context, br BatchRequest) (err error) {
-	defer br.done(err)
-	alamos.L(lf).Debug("sending leased batch", br.logArgs()...)
-	batchCtx, span := alamos.Trace(br.context, "lease-client")
+	defer func() { br.done(err) }()
+	lf.L.Debug("sending leased batch", br.logArgs()...)
 	var addr address.Address
 	addr, err = lf.Cluster.Resolve(br.Leaseholder)
 	if err != nil {
 		return err
 	}
-	_, err = lf.Config.LeaseTransportClient.Send(batchCtx, addr, br)
-	return span.EndWith(err)
+	_, err = lf.Config.LeaseTransportClient.Send(br.context, addr, br)
+	return err
 }
 
 type leaseReceiver struct {
@@ -122,10 +120,9 @@ func newLeaseReceiver(cfg Config) source {
 }
 
 func (lr *leaseReceiver) receive(ctx context.Context, br BatchRequest) (types.Nil, error) {
-	_, br.span = alamos.Trace(ctx, "lease-server")
-	alamos.L(lr).Debug("received leased batch", br.logArgs()...)
+	lr.L.Debug("received leased batch", br.logArgs()...)
 	bc := batchCoordinator{}
 	bc.add(&br)
 	lr.Out.Inlet() <- br
-	return types.Nil{}, br.span.EndWith(bc.wait())
+	return types.Nil{}, bc.wait()
 }

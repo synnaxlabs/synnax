@@ -11,7 +11,6 @@ package ranger
 
 import (
 	"encoding/binary"
-	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 	"io"
@@ -44,7 +43,7 @@ func (f *indexPersist) onChange(update indexUpdate) {
 		_, err = f.Write(encoded)
 	}
 	if err != nil {
-		alamos.L(f).Error("failed to write index update", zap.Error(err))
+		f.L.Error("failed to write index update", zap.Error(err))
 	}
 }
 

@@ -46,15 +46,15 @@ func (db *KV) authenticate(ctx context.Context, creds InsecureCredentials) (Secu
 func (db *KV) NewWriter() Writer { return db.NewWriterWithTxn(db.DB) }
 
 // NewWriterWithTxn implements the Authenticator interface.
-func (db *KV) NewWriterWithTxn(txn gorp.Txn) Writer { return &kvWriter{kv: db, txn: txn} }
+func (db *KV) NewWriterWithTxn(txn gorp.TypedWriter) Writer { return &kvWriter{kv: db, txn: txn} }
 
-func (db *KV) exists(ctx context.Context, txn gorp.Txn, user string) (bool, error) {
+func (db *KV) exists(ctx context.Context, txn gorp.TypedWriter, user string) (bool, error) {
 	return gorp.NewRetrieve[string, SecureCredentials]().
 		WhereKeys(user).
 		Exists(ctx, txn)
 }
 
-func (db *KV) retrieve(ctx context.Context, txn gorp.Txn, user string) (SecureCredentials, error) {
+func (db *KV) retrieve(ctx context.Context, txn gorp.TypedWriter, user string) (SecureCredentials, error) {
 	var creds SecureCredentials
 	return creds, gorp.NewRetrieve[string, SecureCredentials]().
 		WhereKeys(user).
@@ -64,7 +64,7 @@ func (db *KV) retrieve(ctx context.Context, txn gorp.Txn, user string) (SecureCr
 
 type kvWriter struct {
 	kv  *KV
-	txn gorp.Txn
+	txn gorp.TypedWriter
 }
 
 // Register implements the sec.authenticator interface.

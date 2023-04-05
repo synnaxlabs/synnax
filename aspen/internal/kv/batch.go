@@ -22,13 +22,13 @@ import (
 )
 
 type batch struct {
-	kvx.Batch
+	kvx.Writer
 	digests []Digest
 	lease   *leaseAllocator
 	apply   func(reqs []BatchRequest) error
 }
 
-var _ kvx.Batch = (*batch)(nil)
+var _ kvx.Writer = (*batch)(nil)
 
 func (b *batch) Set(ctx context.Context, key []byte, value []byte, maybeLease ...interface{}) error {
 	lease, err := validateLeaseOption(maybeLease)
@@ -54,11 +54,11 @@ func (b *batch) applyOp(ctx context.Context, op Operation) error {
 		return err
 	}
 	if op.Variant == Delete {
-		if err := b.Batch.Delete(ctx, op.Key); err != nil {
+		if err := b.Writer.Delete(ctx, op.Key); err != nil {
 			return err
 		}
 	} else {
-		if err := b.Batch.Set(ctx, op.Key, op.Value); err != nil {
+		if err := b.Writer.Set(ctx, op.Key, op.Value); err != nil {
 			return err
 		}
 	}
@@ -86,7 +86,11 @@ func (b *batch) toRequests(ctx context.Context) ([]BatchRequest, error) {
 			br.Operations = append(br.Operations, op)
 		}
 		br.Leaseholder = op.Leaseholder
-		br.context, br.span = alamos.Trace(ctx, fmt.Sprintf("batch-%d", br.Leaseholder))
+		br.context, br.span = alamos.Trace(
+			ctx,
+			fmt.Sprintf("batch-%d", br.Leaseholder),
+			alamos.DebugLevel,
+		)
 		dm[op.Leaseholder] = br
 	}
 	data := make([]BatchRequest, 0, len(dm))
@@ -108,7 +112,7 @@ func (b *batch) Commit(ctx context.Context, _ ...interface{}) error {
 
 func (b *batch) free() error {
 	b.digests = nil
-	return b.Batch.Close()
+	return b.Writer.Close()
 }
 
 type BatchRequest struct {
@@ -142,7 +146,7 @@ func (br BatchRequest) digests() []Digest {
 
 func (br BatchRequest) commitTo(bw kvx.BatchWriter) error {
 	var err error
-	b := bw.NewBatch()
+	b := bw.NewWriter()
 
 	defer func() {
 		br.Operations = nil

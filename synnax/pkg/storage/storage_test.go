@@ -73,7 +73,7 @@ var _ = Describe("storage", func() {
 		})
 		Describe("Membacked", func() {
 			It("Should open a memory backed version of storage", func() {
-				cfg.MemBacked = config.BoolPointer(true)
+				cfg.MemBacked = config.Bool(true)
 				store, err := storage.Open(cfg)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(store.Close()).To(Succeed())

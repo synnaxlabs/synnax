@@ -10,6 +10,7 @@
 package ranger
 
 import (
+	"context"
 	"github.com/cockroachdb/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/telem"
@@ -42,7 +43,7 @@ func (w WriterConfig) Range() telem.TimeRange {
 // Write writes the given data to the DB new telemetry range occupying the provided time
 // range. If the time range overlaps with any other ranges in the DB, Write will return
 // an error.
-func Write(db *DB, tr telem.TimeRange, data []byte) error {
+func Write(ctx context.Context, db *DB, tr telem.TimeRange, data []byte) error {
 	w, err := db.NewWriter(WriterConfig{Start: tr.Start, End: tr.End})
 	if err != nil {
 		return err
@@ -59,7 +60,7 @@ func Write(db *DB, tr telem.TimeRange, data []byte) error {
 // Writer is used to write a telemetry range to the DB. A Writer is opened using DB.NewWriter
 // and a provided WriterConfig, which defines the starting bound of the range. If no
 // other range overlaps with the starting bound, the caller can write telemetry data the
-// Writer using an io.Writer interface.
+// Writer using an io.TypedWriter interface.
 //
 // Once the caller is done writing telemetry data, they must call Commit and provide the
 // ending bound of the range. If the ending bound of the range overlaps with any other
@@ -85,7 +86,9 @@ func (w *Writer) Len() int64 { return w.internal.Len() }
 // Writer writes binary telemetry to the range. Write is not safe to call concurrently
 // with any other Writer methods. The contents of p are safe to modify after Write
 // returns.
-func (w *Writer) Write(p []byte) (n int, err error) { return w.internal.Write(p) }
+func (w *Writer) Write(p []byte) (n int, err error) {
+	return w.internal.Write(p)
+}
 
 // Commit commits the range to the DB, making it available for reading by other processes.
 // If the WriterConfig.End parameter was set, Commit will ignore the provided timestamp

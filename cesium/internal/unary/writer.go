@@ -10,6 +10,7 @@
 package unary
 
 import (
+	"context"
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/index"
@@ -20,6 +21,7 @@ import (
 
 type Writer struct {
 	Channel    core.Channel
+	ctx        context.Context
 	internal   *ranger.Writer
 	start      telem.TimeStamp
 	idx        index.Index
@@ -27,7 +29,7 @@ type Writer struct {
 	numWritten int64
 }
 
-func Write(db *DB, start telem.TimeStamp, arr telem.Array) error {
+func Write(ctx context.Context, db *DB, start telem.TimeStamp, arr telem.Array) error {
 	w, err := db.NewWriter(ranger.WriterConfig{Start: start})
 	if err != nil {
 		return err
@@ -76,7 +78,7 @@ func (w *Writer) commitWithEnd(end telem.TimeStamp) (telem.TimeStamp, error) {
 	if end.IsZero() {
 		// we're using w.numWritten - 1 here because we want the timestamp of the last
 		// written frame.
-		approx, err := w.idx.Stamp(w.start, w.numWritten-1, true)
+		approx, err := w.idx.Stamp(w.ctx, w.start, w.numWritten-1, true)
 		if err != nil {
 			return 0, err
 		}

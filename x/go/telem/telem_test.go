@@ -71,7 +71,7 @@ var _ = Describe("Telem", func() {
 			})
 		})
 
-		Describe("Sub", func() {
+		Describe("sub", func() {
 			It("Should return a new timestamp with the provided timespan subtracted from it", func() {
 				t0 := telem.TimeStamp(0)
 				t1 := t0.Sub(telem.Second)

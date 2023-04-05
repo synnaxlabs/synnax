@@ -10,6 +10,7 @@
 package unary
 
 import (
+	"context"
 	"fmt"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/ranger"
@@ -70,10 +71,11 @@ func (i IteratorConfig) ranger() ranger.IteratorConfig {
 	return ranger.IteratorConfig{Bounds: i.Bounds}
 }
 
-func (db *DB) NewIterator(cfg IteratorConfig) *Iterator {
+func (db *DB) NewIterator(ctx context.Context, cfg IteratorConfig) *Iterator {
 	cfg = DefaultIteratorConfig.Override(cfg)
-	iter := db.Ranger.NewIterator(cfg.ranger())
+	iter := db.Ranger.NewIterator(ctx, cfg.ranger())
 	i := &Iterator{
+		ctx:            ctx,
 		idx:            db.index(),
 		Channel:        db.Channel,
 		internal:       iter,

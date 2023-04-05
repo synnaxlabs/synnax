@@ -11,7 +11,6 @@ package kv
 
 import (
 	"context"
-	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter"
@@ -53,7 +52,7 @@ func (g *operationSender) send(ctx context.Context, sync BatchRequest) (BatchReq
 	sync.Sender = hostID
 	ack, err := g.BatchTransportClient.Send(ctx, peer.Address, sync)
 	if err != nil {
-		alamos.L(g).Error("operation gossip failed", zap.Error(err))
+		g.L.Error("operation gossip failed", zap.Error(err))
 	}
 	// If we have no Operations to apply, avoid the pipeline overhead.
 	return ack, !ack.empty(), nil
@@ -114,7 +113,7 @@ func (f *feedbackSender) send(ctx context.Context, bd BatchRequest) error {
 	msg := FeedbackMessage{Sender: f.Cluster.Host().ID, Digests: bd.digests()}
 	sender, _ := f.Cluster.Node(bd.Sender)
 	if _, err := f.FeedbackTransportClient.Send(context.TODO(), sender.Address, msg); err != nil {
-		alamos.L(f).Error("feedback gossip failed", zap.Error(err))
+		f.L.Error("feedback gossip failed", zap.Error(err))
 	}
 	return nil
 }

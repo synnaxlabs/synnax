@@ -18,9 +18,9 @@ import (
 	kvc "github.com/synnaxlabs/x/kv"
 )
 
-type pebbleKV struct{ *pebble.DB }
+type db struct{ *pebble.DB }
 
-var _ kvc.DB = (*pebbleKV)(nil)
+var _ kvc.DB = (*db)(nil)
 
 var defaultWriteOpts = pebble.Sync
 
@@ -35,57 +35,69 @@ func parseWriterOpt(opts []interface{}) *pebble.WriteOptions {
 }
 
 // Wrap wraps a pebble.DB to satisfy the kv.db interface.
-func Wrap(db *pebble.DB) kvc.DB { return &pebbleKV{DB: db} }
+func Wrap(db_ *pebble.DB) kvc.DB { return &db{DB: db_} }
 
-// Get implements the kv.db interface.
-func (db pebbleKV) Get(_ context.Context, key []byte, opts ...interface{}) ([]byte, error) {
-	return get(db.DB, key)
+// NewWriter implement kv.DB.
+func (d db) NewWriter(ctx context.Context) kvc.Writer {
+	return writer{ctx: ctx, Batch: d.DB.NewIndexedBatch()}
 }
 
-// Set implements the kv.db interface.
-func (db pebbleKV) Set(_ context.Context, key []byte, value []byte, opts ...interface{}) error {
-	return db.DB.Set(key, value, parseWriterOpt(opts))
+// NewReader implement kv.DB.
+func (d db) NewReader(ctx context.Context) kvc.Reader { return reader{ctx: ctx, Reader: d} }
+
+// Report implement alamos.ReportProvider.
+func (d db) Report() alamos.Report { return alamos.Report{"engine": "pebble"} }
+
+// Close implement io.Closer.
+func (d db) Close() error { return d.DB.Close() }
+
+type writer struct {
+	ctx context.Context
+	*pebble.Batch
 }
 
-// Delete implements the kv.db interface.
-func (db pebbleKV) Delete(_ context.Context, key []byte) error {
-	return db.DB.Delete(key, pebble.NoSync)
-}
+var _ kvc.Writer = writer{}
 
-// Close implements the kv.db interface.
-func (db pebbleKV) Close() error { return db.DB.Close() }
+func (b writer) Context() context.Context { return b.ctx }
 
-// NewIterator implements the kv.db interface.
-func (db pebbleKV) NewIterator(_ context.Context, opts kvc.IteratorOptions) kvc.Iterator {
-	return db.DB.NewIter(&pebble.IterOptions{LowerBound: opts.LowerBound, UpperBound: opts.UpperBound})
-}
-
-func (db pebbleKV) NewBatch() kvc.Batch { return batch{db.DB.NewIndexedBatch()} }
-
-func (db pebbleKV) Report() alamos.Report {
-	return alamos.Report{"engine": "pebble"}
-}
-
-type batch struct{ *pebble.Batch }
-
-func (b batch) Set(_ context.Context, key []byte, value []byte, opts ...interface{}) error {
+// Set implements kv.Writer.
+func (b writer) Set(key []byte, value []byte, opts ...interface{}) error {
 	return b.Batch.Set(key, value, defaultWriteOpts)
 }
 
-func (b batch) Get(_ context.Context, key []byte, opts ...interface{}) ([]byte, error) {
+// Get implements kv.Writer.
+func (b writer) Get(key []byte, opts ...interface{}) ([]byte, error) {
 	return get(b.Batch, key)
 }
 
-func (b batch) Delete(_ context.Context, key []byte) error {
+// Delete implements kv.Writer.
+func (b writer) Delete(key []byte) error {
 	return b.Batch.Delete(key, defaultWriteOpts)
 }
 
-func (b batch) NewIterator(_ context.Context, opts kvc.IteratorOptions) kvc.Iterator {
+// NewIterator implements kv.Writer.
+func (b writer) NewIterator(opts kvc.IteratorOptions) kvc.Iterator {
 	return b.Batch.NewIter(&pebble.IterOptions{LowerBound: opts.LowerBound, UpperBound: opts.UpperBound})
 }
 
-func (b batch) Commit(ctx context.Context, opts ...interface{}) error {
+// Commit implements kv.Writer.
+func (b writer) Commit(opts ...interface{}) error {
 	return b.Batch.Commit(defaultWriteOpts)
+}
+
+type reader struct {
+	ctx context.Context
+	pebble.Reader
+}
+
+func (r reader) Context() context.Context { return r.ctx }
+
+func (r reader) Get(key []byte, opts ...interface{}) ([]byte, error) {
+	return get(r.Reader, key)
+}
+
+func (r reader) NewIterator(opts kvc.IteratorOptions) kvc.Iterator {
+	return r.Reader.NewIter(&pebble.IterOptions{LowerBound: opts.LowerBound, UpperBound: opts.UpperBound})
 }
 
 func get(reader pebble.Reader, key []byte) ([]byte, error) {

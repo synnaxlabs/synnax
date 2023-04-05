@@ -3,23 +3,22 @@ package falamos_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/alamos/falamos"
 	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/x/config"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Falamos", func() {
-	Describe("InstrumentationMiddleware", func() {
+	Describe("New", func() {
 		It("Should correctly attach tracing meta data", func() {
-			clientCtx, _ := alamos.Trace(
-				alamos.Dev("falamos", false, "falamos.test.client"),
-				"falamos.test.client",
-			)
-			clientMw := falamos.InstrumentationMiddleware()
+			clientIns := Instrumentation("falamos", InstrumentationConfig{Trace: config.True()})
+			clientMw := MustSucceed(falamos.New(falamos.Config{
+				Instrumentation: clientIns,
+			}))
 			oCtx := MustSucceed(clientMw.Exec(
 				freighter.Context{
-					Context:  clientCtx,
+					Context:  ctx,
 					Location: freighter.ClientSide,
 					Params:   make(freighter.Params),
 				},
@@ -28,11 +27,13 @@ var _ = Describe("Falamos", func() {
 			_, ok := oCtx.Params.Get("traceparent")
 			Expect(ok).To(BeTrue())
 
-			serverCtx := alamos.Dev("falamos", false, "falamos.test.server")
-			serverMw := MustSucceed(falamos.InstrumentationMiddleware())
+			serverIns := Instrumentation("falamos", InstrumentationConfig{Trace: config.True()})
+			serverMw := MustSucceed(falamos.New(falamos.Config{
+				Instrumentation: serverIns,
+			}))
 			oCtx = MustSucceed(serverMw.Exec(
 				freighter.Context{
-					Context:  serverCtx,
+					Context:  ctx,
 					Location: freighter.ServerSide,
 					Params:   oCtx.Params,
 				},

@@ -22,9 +22,7 @@ type Service struct {
 	Ontology *ontology.Ontology
 }
 
-func (s *Service) NewWriter() Writer { return s.NewWriterWithTxn(s.DB) }
-
-func (s *Service) NewWriterWithTxn(txn gorp.Txn) Writer {
+func (s *Service) NewWriter(txn gorp.TypedWriter) Writer {
 	return Writer{
 		txn:     txn,
 		Service: s,
@@ -36,7 +34,7 @@ func (s *Service) Retrieve(ctx context.Context, key uuid.UUID) (User, error) {
 	return u, gorp.NewRetrieve[uuid.UUID, User]().
 		WhereKeys(key).
 		Entry(&u).
-		Exec(ctx, s.DB)
+		Exec(s.DB.NewReader(ctx))
 }
 
 func (s *Service) RetrieveByUsername(ctx context.Context, username string) (User, error) {
@@ -44,7 +42,7 @@ func (s *Service) RetrieveByUsername(ctx context.Context, username string) (User
 	return u, gorp.NewRetrieve[uuid.UUID, User]().
 		Where(func(u *User) bool { return u.Username == username }).
 		Entry(&u).
-		Exec(ctx, s.DB)
+		Exec(s.DB.NewReader(ctx))
 }
 
 func (s *Service) UsernameExists(ctx context.Context, username string) (bool, error) {
@@ -52,12 +50,12 @@ func (s *Service) UsernameExists(ctx context.Context, username string) (bool, er
 	return gorp.NewRetrieve[uuid.UUID, User]().
 		Where(func(u *User) bool { return u.Username == username }).
 		Entry(&u).
-		Exists(ctx, s.DB)
+		Exists(s.DB.NewReader(ctx))
 }
 
 type Writer struct {
 	*Service
-	txn gorp.Txn
+	writer gorp.Writer
 }
 
 func (w Writer) Create(ctx context.Context, u *User) error {
@@ -74,14 +72,14 @@ func (w Writer) Create(ctx context.Context, u *User) error {
 		return query.UniqueViolation
 	}
 
-	if err = w.Ontology.NewWriterWithTxn(w.txn).
+	if err = w.Ontology.NewWriter(w.writer).
 		DefineResource(ctx, OntologyID(u.Key)); err != nil {
 		return err
 	}
 
-	return gorp.NewCreate[uuid.UUID, User]().Entry(u).Exec(ctx, w.txn)
+	return gorp.NewCreate[uuid.UUID, User]().Entry(u).Exec(w.writer)
 }
 
 func (w Writer) Update(ctx context.Context, u User) error {
-	return gorp.NewCreate[uuid.UUID, User]().Entry(&u).Exec(ctx, w.txn)
+	return gorp.NewCreate[uuid.UUID, User]().Entry(&u).Exec(w.writer)
 }

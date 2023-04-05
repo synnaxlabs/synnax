@@ -44,7 +44,7 @@ func (a MultiAuthenticator) NewWriter() Writer {
 }
 
 // NewWriterWithTxn implements the Authenticator interface.
-func (a MultiAuthenticator) NewWriterWithTxn(txn gorp.Txn) Writer {
+func (a MultiAuthenticator) NewWriterWithTxn(txn gorp.TypedWriter) Writer {
 	var w multiWriter
 	for _, auth := range a {
 		w = append(w, auth.NewWriterWithTxn(txn))

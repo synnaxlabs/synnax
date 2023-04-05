@@ -10,8 +10,8 @@ import (
 	"strings"
 )
 
-// InstrumentationMiddlewareConfig is the configuration for InstrumentationMiddleware.
-type InstrumentationMiddlewareConfig struct {
+// Config is the configuration for New.
+type Config struct {
 	alamos.Instrumentation
 	// EnableTracing sets whether the middleware starts traces. Defaults to true.
 	// [OPTIONAL]
@@ -20,37 +20,42 @@ type InstrumentationMiddlewareConfig struct {
 	// to the request context. Defaults to true.
 	// [OPTIONAL]
 	EnablePropagation *bool
+	// EnableLogging sets whether the middleware logs the trace. Defaults to true.
+	// [OPTIONAL]
+	EnableLogging *bool
+	// Level is the level of the trace. Defaults to alamos.Info.
+	// [OPTIONAL]
+	Level alamos.Level
 }
 
 // Validate implements config.Config
-func (c InstrumentationMiddlewareConfig) Validate() error {
-	v := validate.New("falamos.InstrumentationMiddlewareConfig")
+func (c Config) Validate() error {
+	v := validate.New("falamos.Config")
 	validate.NotNil(v, "Instrumentation", c.Instrumentation)
 	return nil
 }
 
 // Override implements config.Config
-func (c InstrumentationMiddlewareConfig) Override(other InstrumentationMiddlewareConfig) InstrumentationMiddlewareConfig {
+func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Nil(c.Instrumentation, other.Instrumentation)
 	return c
 }
 
-var _ config.Config[InstrumentationMiddlewareConfig] = InstrumentationMiddlewareConfig{}
+var _ config.Config[Config] = Config{}
 
 // DefaultTracingMiddlewareConfig is the default configuration for the tracing middleware.
-var DefaultTracingMiddlewareConfig = InstrumentationMiddlewareConfig{
-	EnableTracing:     config.BoolPointer(true),
-	EnablePropagation: config.BoolPointer(true),
+var DefaultTracingMiddlewareConfig = Config{
+	EnableTracing:     config.True(),
+	EnablePropagation: config.True(),
 }
 
-// InstrumentationMiddleware adds traces to incoming and outgoing requests and ensures that they
+// New adds traces to incoming and outgoing requests and ensures that they
 // are propagated across the network.
-func InstrumentationMiddleware(configs ...InstrumentationMiddlewareConfig) (freighter.Middleware, error) {
-	cfg, err := config.OverrideAndValidate(DefaultTracingMiddlewareConfig, configs...)
+func New(configs ...Config) (freighter.Middleware, error) {
+	cfg, err := config.New(DefaultTracingMiddlewareConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
-	prop := alamos.ExtractTracer(cfg).Propagator
 	return freighter.MiddlewareFunc(func(
 		ctx freighter.Context,
 		next freighter.Next,
@@ -61,21 +66,21 @@ func InstrumentationMiddleware(configs ...InstrumentationMiddlewareConfig) (frei
 		)
 
 		if *cfg.EnablePropagation && ctx.Location == freighter.ServerSide {
-			ctx.Context = prop.Extract(ctx.Context, carrier_)
+			ctx.Context = alamos.Depropagate(ctx, carrier_)
 		}
 
 		if *cfg.EnableTracing {
-			ctx.Context, span = alamos.TraceI(ctx.Context, cfg, ctx.Target.String())
+			ctx.Context, span = cfg.T.Trace(ctx.Context, ctx.Target.String(), cfg.Level)
 		}
 
 		if *cfg.EnableTracing && ctx.Location == freighter.ClientSide {
-			prop.Inject(ctx, carrier_)
+			alamos.Propagate(ctx, carrier_)
 		}
 
 		oCtx, err := next(ctx)
 
 		if *cfg.EnableTracing {
-			span.EndWith(err)
+			_ = span.EndWith(err)
 		}
 
 		return oCtx, err

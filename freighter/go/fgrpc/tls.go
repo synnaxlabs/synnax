@@ -59,12 +59,12 @@ const (
 func (c *MuxCredentials) ServerHandshake(conn net.Conn) (net.Conn, credentials.AuthInfo, error) {
 	muxConn, ok := conn.(*cmux.MuxConn)
 	if !ok {
-		alamos.L(c).DPanic(muxCredentialsNonMuxMsg, zap.String("type", conn.RemoteAddr().Network()))
+		c.L.DPanic(muxCredentialsNonMuxMsg, zap.String("type", conn.RemoteAddr().Network()))
 		return nil, nil, errors.New(muxCredentialsNonMuxMsg)
 	}
 	tlsConn, ok := muxConn.Conn.(*tls.Conn)
 	if !ok {
-		alamos.L(c).DPanic(muxCredentialsNonTLSMsg, zap.String("type", conn.RemoteAddr().Network()))
+		c.L.DPanic(muxCredentialsNonTLSMsg, zap.String("type", conn.RemoteAddr().Network()))
 		return nil, nil, errors.New(muxCredentialsNonTLSMsg)
 	}
 	return conn, credentials.TLSInfo{

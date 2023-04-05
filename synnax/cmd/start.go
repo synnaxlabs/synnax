@@ -41,7 +41,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	xsignal "github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
 )
 
@@ -63,12 +62,9 @@ formed by its peers.
 // start a Synnax node using the configuration specified by the command line flags,
 // environment variables, and configuration files.
 func start(cmd *cobra.Command) {
-	var (
-		insecure = viper.GetBool("insecure")
-		verbose  = viper.GetBool("verbose")
-	)
+	var insecure = viper.GetBool("insecure")
 
-	ins, err := configureInstrumentation(verbose)
+	ins, err := configureInstrumentation()
 	if err != nil {
 		zap.S().Fatal(err)
 	}
@@ -160,15 +156,15 @@ func start(cmd *cobra.Command) {
 
 	select {
 	case <-interruptC:
-		alamos.L(ins).Info("received interrupt signal, shutting down")
+		ins.L.Info("received interrupt signal, shutting down")
 		cancel()
 	case <-sCtx.Stopped():
 	}
 
 	if err := sCtx.Wait(); err != nil && !errors.Is(err, context.Canceled) {
-		alamos.L(ins).Fatal("shutdown failed", zap.Error(err))
+		ins.L.Fatal("shutdown failed", zap.Error(err))
 	}
-	alamos.L(ins).Info("shutdown successful")
+	ins.L.Info("shutdown successful")
 }
 
 func init() {
@@ -182,7 +178,7 @@ func buildStorageConfig(
 ) storage.Config {
 	return storage.Config{
 		Instrumentation: ins,
-		MemBacked:       config.BoolPointer(viper.GetBool("mem")),
+		MemBacked:       config.Bool(viper.GetBool("mem")),
 		Dirname:         viper.GetString("data"),
 	}
 }
@@ -227,21 +223,8 @@ func buildServerConfig(
 	cfg.ListenAddress = address.Address(viper.GetString("listen"))
 	cfg.Instrumentation = ins
 	cfg.Security.TLS = sec.TLS()
-	cfg.Security.Insecure = config.BoolPointer(viper.GetBool("insecure"))
+	cfg.Security.Insecure = config.Bool(viper.GetBool("insecure"))
 	return cfg
-}
-
-func configureInstrumentation(verbose bool) (alamos.Instrumentation, error) {
-	var cfg zap.Config
-	if verbose {
-		cfg = zap.NewDevelopmentConfig()
-		cfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
-		cfg.Encoding = "console"
-	} else {
-		cfg = zap.NewProductionConfig()
-		cfg.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
-	}
-	return cfg.Build()
 }
 
 var rootExperimentKey = "experiment"
@@ -249,7 +232,7 @@ var rootExperimentKey = "experiment"
 func configureSecurity(ins alamos.Instrumentation, insecure bool) (security.Provider, error) {
 	return security.NewProvider(security.ProviderConfig{
 		LoaderConfig: buildCertLoaderConfig(ins),
-		Insecure:     config.BoolPointer(insecure),
+		Insecure:     config.Bool(insecure),
 		KeySize:      viper.GetInt("key-size"),
 	})
 }
@@ -266,14 +249,14 @@ func maybeProvisionRootUser(
 	if err != nil || exists {
 		return err
 	}
-	txn := db.BeginTxn()
+	txn := db.NewWriter()
 	if err = authSvc.NewWriterWithTxn(txn).Register(ctx, auth.InsecureCredentials{
 		Username: uname,
 		Password: pass,
 	}); err != nil {
 		return err
 	}
-	if err = userSvc.NewWriterWithTxn(txn).Create(ctx, &user.User{Username: uname}); err != nil {
+	if err = userSvc.NewWriter(txn).Create(ctx, &user.User{Username: uname}); err != nil {
 		return err
 	}
 	return txn.Commit(ctx)

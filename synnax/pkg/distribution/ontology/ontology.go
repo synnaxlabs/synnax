@@ -25,7 +25,6 @@
 package ontology
 
 import (
-	"context"
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"github.com/synnaxlabs/x/gorp"
@@ -43,20 +42,16 @@ type (
 
 // Ontology exposes an ontology stored in a key-value database for reading and writing.
 type Ontology struct {
-	db       *gorp.DB
-	retrieve retrieve
+	registrar serviceRegistrar
 }
 
 // Open opens the ontology stored in the given database. If the Root resource does not
 // exist, it will be created.
-func Open(ctx context.Context, db *gorp.DB) (*Ontology, error) {
-	o := &Ontology{
-		db:       db,
-		retrieve: retrieve{services: serviceRegistrar{BuiltIn: &builtinService{}}},
-	}
-	err := o.NewRetrieve().WhereIDs(Root).Exec(ctx)
+func Open(reader gorp.Writer) (*Ontology, error) {
+	o := &Ontology{registrar: serviceRegistrar{BuiltIn: &builtinService{}}}
+	err := o.NewRetrieve(reader).WhereIDs(Root).Exec()
 	if errors.Is(err, query.NotFound) {
-		err = o.NewWriter().DefineResource(ctx, Root)
+		err = o.NewWriter(reader).DefineResource(Root)
 	}
 	return o, err
 }
@@ -65,18 +60,18 @@ func Open(ctx context.Context, db *gorp.DB) (*Ontology, error) {
 type Writer interface {
 	// DefineResource defines a new resource with the given ID. If the resource already
 	// exists, DefineResource does nothing.
-	DefineResource(ctx context.Context, id ID) error
+	DefineResource(id ID) error
 	// DeleteResource deletes the resource with the given ID along with all of its
 	// incoming and outgoing relationships.  If the resource does not exist,
 	// DeleteResource does nothing.
-	DeleteResource(ctx context.Context, id ID) error
+	DeleteResource(id ID) error
 	// DefineRelationship defines a directional relationship of type t between the
 	// resources with the given IDs. If the relationship already exists, DefineRelationship
 	// does nothing.
-	DefineRelationship(ctx context.Context, from ID, t RelationshipType, to ID) error
+	DefineRelationship(from ID, t RelationshipType, to ID) error
 	// DeleteRelationship deletes the relationship with the given IDs and type. If the
 	// relationship does not exist, DeleteRelationship does nothing.
-	DeleteRelationship(ctx context.Context, from ID, t RelationshipType, to ID) error
+	DeleteRelationship(from ID, t RelationshipType, to ID) error
 	// NewRetrieve opens a new Retrieve query that provides a view of pending
 	// operations merged with the underlying database. If the Writer is executing directly
 	// against the underlying database, the Retrieve query behaves exactly as if calling
@@ -86,19 +81,16 @@ type Writer interface {
 
 // NewRetrieve opens a new Retrieve query, which can be used to traverse and read resources
 // from the underlying ontology.
-func (o *Ontology) NewRetrieve() Retrieve { return newRetrieve(o.db, o.retrieve.exec) }
+func (o *Ontology) NewRetrieve(reader gorp.Reader) Retrieve { return newRetrieve(o.registrar, reader) }
 
-// NewWriter opens a new Writer.
-func (o *Ontology) NewWriter() Writer { return o.NewWriterWithTxn(o.db) }
-
-// NewWriterWithTxn opens a new Writer using the provided transaction.
+// NewWriter opens a new Writer using the provided transaction.
 // Panics if the transaction does not root from the same database as the Ontology.
-func (o *Ontology) NewWriterWithTxn(txn gorp.Txn) Writer {
-	return dagWriter{txn: txn, retrieve: o.retrieve}
+func (o *Ontology) NewWriter(writer gorp.Writer) Writer {
+	return dagWriter{writer: writer}
 }
 
 // RegisterService registers a Service for a particular [Type] with the [Ontology].
 // Ontology will execute queries for Entity information for the given Type using the
 // provided Service. RegisterService panics if a Service is already registered for
 // the given Type.
-func (o *Ontology) RegisterService(s Service) { o.retrieve.services.register(s) }
+func (o *Ontology) RegisterService(s Service) { o.registrar.register(s) }

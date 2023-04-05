@@ -43,7 +43,7 @@ var _ = Describe("Logging", func() {
 	},
 		Entry("Should open a three node memory backed distribution core"),
 		Entry("Should open a three node file-system backed distribution core", distribution.Config{
-			Storage: storage.Config{MemBacked: config.BoolPointer(false), Dirname: "./tmp"},
+			Storage: storage.Config{MemBacked: config.Bool(false), Dirname: "./tmp"},
 		}),
 	)
 })

@@ -41,7 +41,7 @@ func (r RouterConfig) Override(other RouterConfig) RouterConfig {
 }
 
 func NewRouter(configs ...RouterConfig) *Router {
-	cfg, err := config.OverrideAndValidate(RouterConfig{}, configs...)
+	cfg, err := config.New(RouterConfig{}, configs...)
 	if err != nil {
 		panic(err)
 	}

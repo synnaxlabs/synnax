@@ -27,12 +27,12 @@ var _ = Describe("ChannelKey", Ordered, func() {
 		Describe("Happy Path", func() {
 			It("Should assign an auto-incremented key if a key is not present", func() {
 				ch := cesium.Channel{Key: "chOne", Rate: 10 * telem.Hz, DataType: telem.Float64T}
-				Expect(db.CreateChannel(ch)).To(Succeed())
+				Expect(db.CreateChannel(ctx, ch)).To(Succeed())
 				Expect(ch.Key).To(Equal("chOne"))
 			})
 		})
 		DescribeTable("Validation", func(expected error, channels ...cesium.Channel) {
-			Expect(db.CreateChannel(channels...)).To(HaveOccurredAs(expected))
+			Expect(db.CreateChannel(ctx, channels...)).To(HaveOccurredAs(expected))
 		},
 			Entry("ChannelKey has no datatype",
 				errors.Wrap(validate.Error, "[cesium] - data type must be set"),

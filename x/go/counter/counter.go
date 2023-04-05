@@ -10,11 +10,10 @@
 package counter
 
 import (
-	"context"
 	"github.com/synnaxlabs/x/types"
 )
 
 type Counter[T types.Numeric] interface {
-	Add(ctx context.Context, delta ...T) (T, error)
+	Add(delta ...T) (T, error)
 	Value() T
 }

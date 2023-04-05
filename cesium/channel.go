@@ -12,7 +12,6 @@ package cesium
 import (
 	"context"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -52,8 +51,7 @@ func (db *cesium) RetrieveChannel(_ context.Context, key string) (Channel, error
 
 func (db *cesium) createChannel(ch Channel) (err error) {
 	defer func() {
-		l := alamos.L(db)
-		lo.Ternary(err == nil, l.Info, l.Error)(
+		lo.Ternary(err == nil, db.L.Info, db.L.Error)(
 			"creating channel",
 			zap.String("key", ch.Key),
 			zap.String("index", ch.Index),

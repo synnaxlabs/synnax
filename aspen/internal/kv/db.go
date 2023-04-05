@@ -47,7 +47,7 @@ type db struct {
 
 // Set implements DB.
 func (k *db) Set(ctx context.Context, key []byte, value []byte, options ...interface{}) error {
-	b := k.NewBatch()
+	b := k.NewWriter()
 	if err := b.Set(ctx, key, value, options...); err != nil {
 		return err
 	}
@@ -56,7 +56,7 @@ func (k *db) Set(ctx context.Context, key []byte, value []byte, options ...inter
 
 // Delete implements DB.
 func (k *db) Delete(ctx context.Context, key []byte) error {
-	b := k.NewBatch()
+	b := k.NewWriter()
 	if err := b.Delete(ctx, key); err != nil {
 		return err
 	}
@@ -72,8 +72,8 @@ func (k *db) apply(b []BatchRequest) (err error) {
 	return c.wait()
 }
 
-func (k *db) NewBatch() kvx.Batch {
-	return &batch{apply: k.apply, lease: k.leaseAlloc, Batch: k.DB.NewBatch()}
+func (k *db) NewWriter() kvx.Writer {
+	return &batch{apply: k.apply, lease: k.leaseAlloc, Writer: k.DB.NewBatch()}
 }
 
 func (k *db) Report() alamos.Report {
@@ -100,7 +100,7 @@ const (
 )
 
 func Open(ctx context.Context, cfgs ...Config) (kvx.DB, error) {
-	cfg, err := config.OverrideAndValidate(DefaultConfig, cfgs...)
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +118,7 @@ func Open(ctx context.Context, cfgs ...Config) (kvx.DB, error) {
 		return nil, err
 	}
 
-	alamos.L(db_).Info("opening cluster db", db_.Report().ZapFields()...)
+	db_.L.Info("opening cluster db", db_.Report().ZapFields()...)
 
 	st := newStore()
 

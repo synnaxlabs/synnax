@@ -56,7 +56,7 @@ var (
 	// DefaultServiceConfig is the default configuration for the security secureProvider.
 	DefaultServiceConfig = ProviderConfig{
 		LoaderConfig: cert.DefaultLoaderConfig,
-		Insecure:     config.BoolPointer(true),
+		Insecure:     config.Bool(true),
 		KeySize:      cert.DefaultFactoryConfig.KeySize,
 	}
 )
@@ -78,7 +78,7 @@ func (s ProviderConfig) Validate() error {
 
 // NewProvider opens a new security Provider using the given configuration.
 func NewProvider(configs ...ProviderConfig) (Provider, error) {
-	cfg, err := config.OverrideAndValidate(DefaultServiceConfig, configs...)
+	cfg, err := config.New(DefaultServiceConfig, configs...)
 	if err != nil {
 		return nil, err
 	}

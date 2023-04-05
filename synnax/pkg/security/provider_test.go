@@ -31,7 +31,7 @@ var _ = Describe("Provider", func() {
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 					LoaderConfig: cert.LoaderConfig{FS: fs},
 					KeySize:      mock.SmallKeySize,
-					Insecure:     config.BoolPointer(false),
+					Insecure:     config.Bool(false),
 				}))
 				config := prov.TLS()
 				Expect(config).ToNot(BeNil())
@@ -51,7 +51,7 @@ var _ = Describe("Provider", func() {
 				_, err := security.NewProvider(security.ProviderConfig{
 					LoaderConfig: cert.LoaderConfig{FS: fs},
 					KeySize:      mock.SmallKeySize,
-					Insecure:     config.BoolPointer(false),
+					Insecure:     config.Bool(false),
 				})
 				Expect(err).To(HaveOccurredAs(os.ErrNotExist))
 			})
@@ -63,7 +63,7 @@ var _ = Describe("Provider", func() {
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 					LoaderConfig: cert.LoaderConfig{FS: fs},
 					KeySize:      mock.SmallKeySize,
-					Insecure:     config.BoolPointer(false),
+					Insecure:     config.Bool(false),
 				}))
 				Expect(prov.NodePrivate()).ToNot(BeNil())
 			})
@@ -74,7 +74,7 @@ var _ = Describe("Provider", func() {
 		Describe("TLS Configuration", func() {
 			It("Should return an empty TLS configuration", func() {
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
-					Insecure: config.BoolPointer(true),
+					Insecure: config.Bool(true),
 					KeySize:  mock.SmallKeySize,
 				}))
 				Expect(prov.TLS()).To(BeNil())
@@ -83,7 +83,7 @@ var _ = Describe("Provider", func() {
 		Describe("Node Private", func() {
 			It("Should return the randomly generated private key", func() {
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
-					Insecure: config.BoolPointer(true),
+					Insecure: config.Bool(true),
 					KeySize:  mock.SmallKeySize,
 				}))
 				Expect(prov.NodePrivate()).ToNot(BeNil())

@@ -27,8 +27,8 @@ type Builder struct {
 
 // NewBuilder opens a new Builder that provisions stores using the given configuration.
 func NewBuilder(configs ...storage.Config) *Builder {
-	cfg, err := config.OverrideAndValidate(storage.DefaultConfig, append([]storage.Config{{
-		MemBacked: config.BoolPointer(true),
+	cfg, err := config.New(storage.DefaultConfig, append([]storage.Config{{
+		MemBacked: config.Bool(true),
 		Perm:      xfs.OS_USER_RWX,
 	}}, configs...)...)
 	if err != nil {

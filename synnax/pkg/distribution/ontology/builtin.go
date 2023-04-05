@@ -10,8 +10,8 @@
 package ontology
 
 import (
-	"context"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
+	"github.com/synnaxlabs/x/gorp"
 )
 
 // BuiltIn is a resource type that is built into the ontology.
@@ -32,7 +32,7 @@ func (b *builtinService) Schema() *Schema {
 	}
 }
 
-func (b *builtinService) RetrieveEntity(ctx context.Context, key string) (Entity, error) {
+func (b *builtinService) RetrieveEntity(_ gorp.Reader, key string) (Entity, error) {
 	switch key {
 	case "root":
 		return Entity{Name: "root"}, nil

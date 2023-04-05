@@ -25,7 +25,7 @@ type Authenticator interface {
 	NewWriter() Writer
 	// NewWriterWithTxn opens a new Writer using the provided transaction. Some
 	// implementations may not need the transaction.
-	NewWriterWithTxn(txn gorp.Txn) Writer
+	NewWriterWithTxn(txn gorp.TypedWriter) Writer
 }
 
 type Writer interface {

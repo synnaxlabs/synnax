@@ -16,23 +16,46 @@ import (
 
 // Wrap wraps the provided key-value database in a DB.
 func Wrap(kv kv.DB, opts ...Option) *DB {
-	return &DB{DB: kv, opts: newOptions(opts...)}
+	return &DB{DB: kv, options: newOptions(opts...)}
 }
 
 // DB is a wrapper around a kv.DB that queries can be executed against. DB implements
-// the Txn interface, so it can be provided to Query.Write.
+// the TypedWriter interface, so it can be provided to Query.Write.
 type DB struct {
 	kv.DB
-	opts options
+	options
 }
 
-var _ Txn = (*DB)(nil)
+// NewWriter begins a new TypedWriter against the DB.
+func (db *DB) NewWriter(ctx context.Context) Writer {
+	return writer{Writer: db.NewWriter(ctx), opts: db.options}
+}
 
-func (db *DB) options() options { return db.opts }
+// NewReader begins a new Reader against the DB.
+func (db *DB) NewReader(ctx context.Context) Reader {
+	return reader{Reader: db.NewReader(ctx), opts: db.options}
+}
 
-// BeginTxn begins a new Txn against the DB.
-func (db *DB) BeginTxn() Txn { return txn{Batch: db.NewBatch(), db: db} }
+type Reader interface {
+	kv.Reader
+	options() options
+}
 
-// Commit does nothing, and is here to implement the Txn interface. If DB is used
-// as a Txn, all queries will be executed directly against the DB.
-func (db *DB) Commit(_ context.Context, _ ...interface{}) error { return nil }
+type Writer interface {
+	kv.Writer
+	options() options
+}
+
+type writer struct {
+	opts options
+	kv.Writer
+}
+
+func (w writer) options() options { return w.opts }
+
+type reader struct {
+	opts options
+	kv.Reader
+}
+
+func (r reader) options() options { return r.opts }

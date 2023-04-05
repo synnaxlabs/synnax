@@ -32,6 +32,7 @@ package pledge
 import (
 	"context"
 	"github.com/cockroachdb/errors"
+	"github.com/labstack/gommon/log"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/node"
@@ -67,16 +68,14 @@ func Pledge(ctx context.Context, cfgs ...Config) (res Response, err error) {
 	if ctx.Err() != nil {
 		return res, ctx.Err()
 	}
-	cfg, err := config.OverrideAndValidate(DefaultConfig, cfgs...)
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return res, err
 	}
 
-	log := alamos.L(cfg)
-	alamos.AttachReporter(cfg, "pledge", cfg)
-	log.Debug("beginning pledge process", cfg.Report().ZapFields()...)
-
-	ctx, tracer := alamos.TraceI(ctx, cfg.Instrumentation, "pledge")
+	cfg.R.Attach("pledge", cfg, alamos.InfoLevel)
+	cfg.L.Debug("beginning pledge process", cfg.Report().ZapFields()...)
+	ctx, tracer := cfg.T.Trace(ctx, "pledge", alamos.InfoLevel)
 	defer tracer.End()
 
 	// introduce random jitter to avoid a thundering herd during concurrent pledging.
@@ -130,12 +129,12 @@ func Pledge(ctx context.Context, cfgs ...Config) (res Response, err error) {
 // the node will act a juror, and decide if it approves of the proposed ID
 // or not. To see the required configuration parameters, see the Config struct.
 func Arbitrate(ctx context.Context, cfgs ...Config) error {
-	cfg, err := config.OverrideAndValidate(DefaultConfig, cfgs...)
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return err
 	}
-	alamos.AttachReporter(cfg, "pledge", cfg)
-	alamos.L(cfg).Info("registering node as pledge arbitrator", cfg.Report().ZapFields()...)
+	cfg.R.Attach("pledge", cfg, alamos.InfoLevel)
+	cfg.L.Debug("registering node as pledge arbitrator", cfg.Report().ZapFields()...)
 	return arbitrate(cfg)
 }
 
@@ -157,8 +156,10 @@ type responsible struct {
 }
 
 func (r *responsible) propose(ctx context.Context) (res Response, err error) {
-	log := alamos.L(r)
 	log.Info("responsible received pledge. starting proposal process.")
+
+	ctx, span := r.T.Trace(ctx, "responsible.propose", alamos.InfoLevel)
+	defer func() { span.EndWith(err) }()
 
 	res.ClusterKey = r.ClusterKey
 
@@ -241,7 +242,7 @@ func (r *responsible) consultQuorum(ctx context.Context, id node.ID, quorum node
 		wg.Go(func() error {
 			_, err := r.TransportClient.Send(reqCtx, n_.Address, Request{ID: id})
 			if errors.Is(err, proposalRejected) {
-				alamos.L(r).Debug(
+				r.L.Debug(
 					"quorum rejected proposal",
 					zap.Uint32("id", uint32(id)),
 					zap.Stringer("address", n_.Address),
@@ -251,7 +252,7 @@ func (r *responsible) consultQuorum(ctx context.Context, id node.ID, quorum node
 			// If any node returns an error, we need to retry the entire responsible,
 			// so we need to cancel all running requests.
 			if err != nil {
-				alamos.L(r).Error("failed to reach juror",
+				r.L.Error("failed to reach juror",
 					zap.Uint32("id", uint32(id)),
 					zap.Stringer("address", n_.Address),
 				)
@@ -273,26 +274,26 @@ func (j *juror) verdict(ctx context.Context, req Request) (err error) {
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
-	ctx, trace := alamos.TraceI(ctx, j, "verdict")
-	defer trace.End()
-	log := alamos.L(j)
+	ctx, span := j.T.Trace(ctx, "juror.verdict", alamos.InfoLevel)
+	defer func() { _ = span.EndWith(err, proposalRejected) }()
 	logID := zap.Uint32("id", uint32(req.ID))
-	log.Debug("juror received proposal. making verdict", logID)
+	j.L.Debug("juror received proposal. making verdict", logID)
 	j.mu.Lock()
 	defer j.mu.Unlock()
 	for _, appID := range j.approvals {
 		if appID == req.ID {
-			log.Warn("juror rejected proposal. already approved for a different pledge", logID)
-			return proposalRejected
+			j.L.Warn("juror rejected proposal. already approved for a different pledge", logID)
+			err = proposalRejected
+			return
 		}
 	}
 	if req.ID <= highestNodeID(j.Candidates()) {
-		log.Warn("juror rejected proposal. id out of range", logID)
-		return proposalRejected
+		j.L.Warn("juror rejected proposal. id out of range", logID)
+		err = proposalRejected
 	}
 	j.approvals = append(j.approvals, req.ID)
-	log.Debug("juror approved proposal", logID)
-	return nil
+	j.L.Debug("juror approved proposal", logID)
+	return
 }
 
 func highestNodeID(candidates node.Group) node.ID { return lo.Max(lo.Keys(candidates)) }

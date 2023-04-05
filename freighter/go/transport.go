@@ -25,7 +25,7 @@ var (
 type Payload = any
 
 type Transport interface {
-	alamos.Reporter
+	alamos.ReportProvider
 	Use(...Middleware)
 }
 

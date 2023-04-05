@@ -29,7 +29,7 @@ type Service struct {
 
 type ServiceConfig struct {
 	alamos.Instrumentation
-	ChannelReader channel.RetrieveFactory
+	ChannelReader channel.Readable
 	TS            storage.TS
 	Transport     Transport
 	HostResolver  core.HostResolver
@@ -58,7 +58,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 }
 
 func Open(configs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.OverrideAndValidate(DefaultConfig, configs...)
+	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err
 	}

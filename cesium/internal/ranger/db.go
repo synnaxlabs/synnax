@@ -10,6 +10,7 @@
 package ranger
 
 import (
+	"context"
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/config"
@@ -102,7 +103,7 @@ func (c Config) Override(other Config) Config {
 // Open opens a DB using a merged view of the provided configurations (where the next
 // configuration overrides the previous).
 func Open(configs ...Config) (*DB, error) {
-	cfg, err := config.OverrideAndValidate(DefaultConfig, configs...)
+	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +128,7 @@ func Open(configs ...Config) (*DB, error) {
 
 // NewIterator opens a new invalidated Iterator using the given configuration.
 // A seeking call is required before it can be used.
-func (db *DB) NewIterator(cfg IteratorConfig) *Iterator {
+func (db *DB) NewIterator(_ context.Context, cfg IteratorConfig) *Iterator {
 	i := &Iterator{idx: db.idx, readerFactory: db.newReader}
 	i.SetBounds(cfg.Bounds)
 	return i

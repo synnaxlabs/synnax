@@ -10,7 +10,6 @@
 package gorp
 
 import (
-	"context"
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
@@ -38,21 +37,14 @@ func (d Delete[K, E]) WhereKeys(keys ...K) Delete[K, E] {
 	return d
 }
 
-// Exec executes the Query against the provided Txn. If any entries matching WhereKeys
+// Exec executes the Query against the provided TypedWriter. If any entries matching WhereKeys
 // do not exist in the database, Delete will assume that the keys do not exist and
 // do nothing.
-func (d Delete[K, E]) Exec(ctx context.Context, txn Txn) error {
-	return (&del[K, E]{Txn: txn}).exec(ctx, d)
-}
-
-type del[K Key, E Entry[K]] struct{ Txn }
-
-func (d *del[K, E]) exec(ctx context.Context, q query.Query) error {
+func (d Delete[K, E]) Exec(writer Writer) error {
 	var (
-		opts    = d.Txn.options()
 		entries []E
-		err     = (Retrieve[K, E]{Query: q}).Entries(&entries).Exec(d)
-		prefix  = typePrefix[K, E](opts)
+		err     = (Retrieve[K, E]{Query: d}).Entries(&entries).Exec(writer)
+		prefix  = typePrefix[K, E](writer.options())
 		keys    whereKeys[K]
 	)
 	if err != nil && !errors.Is(err, query.NotFound) {
@@ -61,12 +53,12 @@ func (d *del[K, E]) exec(ctx context.Context, q query.Query) error {
 	for _, entry := range entries {
 		keys = append(keys, entry.GorpKey())
 	}
-	byteKeys, err := keys.bytes(opts.encoder)
+	byteKeys, err := keys.bytes(writer.options().encoder)
 	if err != nil {
 		return err
 	}
 	for _, key := range byteKeys {
-		if err = d.Delete(ctx, append(prefix, key...)); err != nil && !errors.Is(err, kv.NotFound) {
+		if err = writer.Delete(append(prefix, key...)); err != nil && !errors.Is(err, kv.NotFound) {
 			return err
 		}
 	}

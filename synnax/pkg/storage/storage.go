@@ -57,7 +57,7 @@ var kvEngines = []KVEngine{PebbleKV}
 
 //go:generate stringer -type=TSEngine
 const (
-	// CesiumTS uses synnax's cesium time-series engine.
+	// CesiumTS uses Synnax's cesium time-series engine.
 	CesiumTS TSEngine = iota + 1
 )
 
@@ -135,7 +135,7 @@ func (cfg Config) Validate() error {
 	return v.Error()
 }
 
-// Report implements the alamos.Reporter interface.
+// Report implements the alamos.ReportProvider interface.
 func (cfg Config) Report() alamos.Report {
 	return alamos.Report{
 		"dirname":     cfg.Dirname,
@@ -149,7 +149,7 @@ func (cfg Config) Report() alamos.Report {
 // DefaultConfig returns the default configuration for the storage layer.
 var DefaultConfig = Config{
 	Perm:      xfs.OS_USER_RWX,
-	MemBacked: config.BoolPointer(false),
+	MemBacked: config.Bool(false),
 	KVEngine:  PebbleKV,
 	TSEngine:  CesiumTS,
 }
@@ -159,14 +159,14 @@ var DefaultConfig = Config{
 // The lock is released when the Store is/closed. Store MUST be closed when it is no
 // longer in use.
 func Open(cfg Config) (s *Store, err error) {
-	cfg, err = config.OverrideAndValidate(DefaultConfig, cfg)
+	cfg, err = config.New(DefaultConfig, cfg)
 	if err != nil {
 		return nil, err
 	}
 
 	s = &Store{Config: cfg}
 
-	alamos.L(s).Info("opening storage", cfg.Report().ZapFields()...)
+	s.L.Info("opening storage", cfg.Report().ZapFields()...)
 
 	// Open our two file system implementations. We use VFS for acquiring the directory
 	// lock and for the key-value store. We use XFS for the time-series engine, as we
@@ -301,6 +301,6 @@ func openTS(cfg Config, fs xfs.FS) (TS, error) {
 	return cesium.Open(
 		dirname,
 		cesium.WithFS(fs),
-		cesium.WithInstrumentation(cfg),
+		cesium.WithInstrumentation(cfg.Instrumentation),
 	)
 }

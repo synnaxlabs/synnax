@@ -12,26 +12,54 @@ package alamos
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/synnaxlabs/x/config"
 	"go.uber.org/zap"
 	"io"
 )
 
-type Reporter interface {
+type ReportProvider interface {
 	Report() Report
 }
 
-type Report map[string]interface{}
-
-type ReportManager struct {
+type ReporterConfig struct {
 }
 
-func AttachReporter(i Instrumentation, key string, report Reporter) {
-	ins, ok := Extract(ctx)
-	if !ok {
-		return
+var (
+	_                     config.Config[ReporterConfig] = ReporterConfig{}
+	DefaultReporterConfig                               = ReporterConfig{}
+)
+
+func (r ReporterConfig) Validate() error {
+	return nil
+}
+
+func (r ReporterConfig) Override(other ReporterConfig) ReporterConfig {
+	return r
+}
+
+type Reporter struct {
+	meta    InstrumentationMeta
+	reports map[string]ReportProvider
+}
+
+var _ sub[*Reporter] = (*Reporter)(nil)
+
+func NewReporter(configs ...ReporterConfig) (*Reporter, error) {
+	return &Reporter{}, nil
+}
+
+func (r *Reporter) Attach(key string, report ReportProvider, level Level) {
+	if r.reports == nil {
+		r.reports = make(map[string]ReportProvider)
 	}
-	ins.attachReporter(key, report)
+	r.reports[key] = report
 }
+
+func (r *Reporter) sub(meta InstrumentationMeta) *Reporter {
+	return &Reporter{meta: meta, reports: r.reports}
+}
+
+type Report map[string]interface{}
 
 // JSON writes the report as JSON as bytes.
 func (r Report) JSON() ([]byte, error) {

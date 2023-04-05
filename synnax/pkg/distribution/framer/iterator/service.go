@@ -37,7 +37,7 @@ type Config struct {
 type ServiceConfig struct {
 	alamos.Instrumentation
 	TS            storage.StreamIterableTS
-	ChannelReader channel.RetrieveFactory
+	ChannelReader channel.Readable
 	HostResolver  aspen.HostResolver
 	Transport     Transport
 }
@@ -73,7 +73,7 @@ type Service struct {
 }
 
 func OpenService(configs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.OverrideAndValidate(DefaultConfig, configs...)
+	cfg, err := config.New(DefaultConfig, configs...)
 	return &Service{
 		ServiceConfig: cfg,
 		server:        startServer(cfg),
@@ -180,7 +180,7 @@ func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) er
 	if validate.NotEmptySlice(v, "Keys", keys) {
 		return v.Error()
 	}
-	exists, err := s.ChannelReader.NewRetrieve().WhereKeys(keys...).Exists(ctx)
+	exists, err := s.ChannelReader.NewRetrieve(nil).WhereKeys(keys...).Exists(ctx)
 	if err != nil {
 		return err
 	}

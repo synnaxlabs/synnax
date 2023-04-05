@@ -45,7 +45,7 @@ func (vc *versionFilter) _switch(
 		rejected = BatchRequest{Sender: b.Sender, doneF: b.doneF, context: b.context, span: b.span}
 		accepted = BatchRequest{Sender: b.Sender, doneF: b.doneF, context: b.context, span: b.span}
 	)
-	ctx, span := alamos.Trace(b.context, "batch-filter")
+	ctx, span := alamos.Trace(b.context, "batch-filter", alamos.DebugLevel)
 	defer span.End()
 	for _, op := range b.Operations {
 		if vc.filter(ctx, op) {
@@ -113,7 +113,7 @@ func newVersionAssigner(ctx context.Context, cfg Config) (segment, error) {
 func (va *versionAssigner) assign(ctx context.Context, br BatchRequest) (BatchRequest, bool, error) {
 	latestVer := va.counter.Value()
 	if _, err := va.counter.Add(ctx, int64(br.size())); err != nil {
-		alamos.L(va).Error("failed to assign version", zap.Error(err))
+		va.L.Error("failed to assign version", zap.Error(err))
 		return BatchRequest{}, false, nil
 	}
 	for i := range br.Operations {

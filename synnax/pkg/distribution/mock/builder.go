@@ -53,7 +53,7 @@ func (b *Builder) New() distribution.Distribution {
 	d.Ontology = lo.Must(ontology.Open(d.Storage.Gorpify()))
 
 	nodeOntologySvc := &dcore.NodeOntologyService{
-		Logger:   d.Config.Logger.Sugar(),
+		Logger:   d.Config.logger.Sugar(),
 		Cluster:  d.Cluster,
 		Ontology: d.Ontology,
 	}
@@ -74,7 +74,7 @@ func (b *Builder) New() distribution.Distribution {
 		ChannelReader: d.Channel,
 		TS:            d.Storage.TS,
 		HostResolver:  d.Cluster,
-		Logger:        d.Core.Config.Logger,
+		Logger:        d.Core.Config.logger,
 		Transport:     trans,
 	}))
 	return d

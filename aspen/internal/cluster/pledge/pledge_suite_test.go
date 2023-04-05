@@ -13,10 +13,15 @@ import (
 	"context"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/config"
+	. "github.com/synnaxlabs/x/testutil"
 	"testing"
 )
 
-var ctx = context.Background()
+var (
+	ctx = context.Background()
+	ins = Instrumentation("pledge", InstrumentationConfig{Log: config.True()})
+)
 
 func TestMembership(t *testing.T) {
 	RegisterFailHandler(Fail)
