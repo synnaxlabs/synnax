@@ -28,16 +28,6 @@ func Attach(ctx context.Context, ins *Instrumentation) context.Context {
 	return context.WithValue(ctx, contextKey, ins)
 }
 
-// Transfer retrieves the Instrumentation from the source context, and attaches it to
-// a new context with the target context as its parent.
-func Transfer(source, target context.Context) context.Context {
-	ins, ok := Extract(source)
-	if !ok {
-		return target
-	}
-	return Attach(target, ins)
-}
-
 const contextKey = "alamos-instrumentation"
 
 // Extract extracts the Instrumentation from the given context.
