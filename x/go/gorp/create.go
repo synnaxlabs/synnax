@@ -26,7 +26,7 @@ func (c Create[K, E]) Entries(entries *[]E) Create[K, E] { SetEntries[K, E](c, e
 func (c Create[K, E]) Entry(entry *E) Create[K, E] { SetEntry[K, E](c, entry); return c }
 
 // Exec executes the Query against the provided DB. It returns any errors encountered during execution.
-func (c Create[K, E]) Exec(writer WriteContext) error {
+func (c Create[K, E]) Exec(writer WriteTxn) error {
 	var entries = GetEntries[K, E](c)
 	w := NewWriter[K, E](writer)
 	for _, entry := range entries.All() {

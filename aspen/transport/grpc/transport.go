@@ -52,25 +52,25 @@ type (
 		*aspenv1.ClusterGossip,
 	]
 	batchClient = fgrpc.UnaryClient[
-		kv.BatchRequest,
+		kv.WriteRequest,
 		*aspenv1.BatchRequest,
-		kv.BatchRequest,
+		kv.WriteRequest,
 		*aspenv1.BatchRequest,
 	]
 	batchServer = fgrpc.UnaryServer[
-		kv.BatchRequest,
+		kv.WriteRequest,
 		*aspenv1.BatchRequest,
-		kv.BatchRequest,
+		kv.WriteRequest,
 		*aspenv1.BatchRequest,
 	]
 	leaseClient = fgrpc.UnaryClient[
-		kv.BatchRequest,
+		kv.WriteRequest,
 		*aspenv1.BatchRequest,
 		types.Nil,
 		*emptypb.Empty,
 	]
 	leaseServer = fgrpc.UnaryServer[
-		kv.BatchRequest,
+		kv.WriteRequest,
 		*aspenv1.BatchRequest,
 		types.Nil,
 		*emptypb.Empty,

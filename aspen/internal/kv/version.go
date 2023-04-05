@@ -27,7 +27,7 @@ type versionFilter struct {
 	memKV      kvx.DB
 	acceptedTo address.Address
 	rejectedTo address.Address
-	confluence.BatchSwitch[BatchRequest, BatchRequest]
+	confluence.BatchSwitch[WriteRequest, WriteRequest]
 }
 
 func newVersionFilter(cfg Config, acceptedTo address.Address, rejectedTo address.Address) segment {
@@ -38,14 +38,14 @@ func newVersionFilter(cfg Config, acceptedTo address.Address, rejectedTo address
 
 func (vc *versionFilter) _switch(
 	_ context.Context,
-	b BatchRequest,
-	o map[address.Address]BatchRequest,
+	b WriteRequest,
+	o map[address.Address]WriteRequest,
 ) error {
 	var (
-		rejected = BatchRequest{Sender: b.Sender, doneF: b.doneF, context: b.context, span: b.span}
-		accepted = BatchRequest{Sender: b.Sender, doneF: b.doneF, context: b.context, span: b.span}
+		rejected = WriteRequest{Sender: b.Sender, doneF: b.doneF, context: b.context, span: b.span}
+		accepted = WriteRequest{Sender: b.Sender, doneF: b.doneF, context: b.context, span: b.span}
 	)
-	ctx, span := alamos.Trace(b.context, "batch-filter", alamos.DebugLevel)
+	ctx, span := alamos.Trace(b.context, "writer-filter", alamos.DebugLevel)
 	defer span.End()
 	for _, op := range b.Operations {
 		if vc.filter(ctx, op) {
@@ -86,7 +86,7 @@ func getDigestFromKV(ctx context.Context, kve kvx.DB, key []byte) (Digest, error
 	if err != nil {
 		return dig, err
 	}
-	b, err := kve.Get(ctx, key)
+	b, err := kve.NewReader(ctx).Get(key)
 	if err != nil {
 		return dig, err
 	}
@@ -100,21 +100,21 @@ const versionCounterKey = "ver"
 type versionAssigner struct {
 	Config
 	counter *kvx.PersistedCounter
-	confluence.LinearTransform[BatchRequest, BatchRequest]
+	confluence.LinearTransform[WriteRequest, WriteRequest]
 }
 
 func newVersionAssigner(ctx context.Context, cfg Config) (segment, error) {
-	c, err := kvx.OpenCounter(ctx, cfg.Engine, []byte(versionCounterKey))
+	c, err := kvx.OpenCounter(cfg.Engine.NewWriter(ctx), []byte(versionCounterKey))
 	v := &versionAssigner{Config: cfg, counter: c}
 	v.LinearTransform.Transform = v.assign
 	return v, err
 }
 
-func (va *versionAssigner) assign(ctx context.Context, br BatchRequest) (BatchRequest, bool, error) {
+func (va *versionAssigner) assign(_ context.Context, br WriteRequest) (WriteRequest, bool, error) {
 	latestVer := va.counter.Value()
-	if _, err := va.counter.Add(ctx, int64(br.size())); err != nil {
+	if _, err := va.counter.Add(int64(br.size())); err != nil {
 		va.L.Error("failed to assign version", zap.Error(err))
-		return BatchRequest{}, false, nil
+		return WriteRequest{}, false, nil
 	}
 	for i := range br.Operations {
 		br.Operations[i].Version = version.Counter(latestVer + int64(i) + 1)

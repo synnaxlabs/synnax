@@ -24,7 +24,7 @@ import (
 var (
 	_ fgrpc.Translator[pledge.Request, *aspenv1.ClusterPledge]       = pledgeTranslator{}
 	_ fgrpc.Translator[gossip.Message, *aspenv1.ClusterGossip]       = clusterGossipTranslator{}
-	_ fgrpc.Translator[kv.BatchRequest, *aspenv1.BatchRequest]       = batchTranslator{}
+	_ fgrpc.Translator[kv.WriteRequest, *aspenv1.BatchRequest]       = batchTranslator{}
 	_ fgrpc.Translator[kv.FeedbackMessage, *aspenv1.FeedbackMessage] = feedbackTranslator{}
 )
 
@@ -90,7 +90,7 @@ func (c clusterGossipTranslator) Backward(tMsg *aspenv1.ClusterGossip) (gossip.M
 
 type batchTranslator struct{}
 
-func (bt batchTranslator) Forward(msg kv.BatchRequest) (*aspenv1.BatchRequest, error) {
+func (bt batchTranslator) Forward(msg kv.WriteRequest) (*aspenv1.BatchRequest, error) {
 	tMsg := &aspenv1.BatchRequest{Sender: uint32(msg.Sender), Leaseholder: uint32(msg.Leaseholder)}
 	for _, o := range msg.Operations {
 		tMsg.Operations = append(tMsg.Operations, translateOpForward(o))
@@ -98,8 +98,8 @@ func (bt batchTranslator) Forward(msg kv.BatchRequest) (*aspenv1.BatchRequest, e
 	return tMsg, nil
 }
 
-func (bt batchTranslator) Backward(tMsg *aspenv1.BatchRequest) (kv.BatchRequest, error) {
-	msg := kv.BatchRequest{
+func (bt batchTranslator) Backward(tMsg *aspenv1.BatchRequest) (kv.WriteRequest, error) {
+	msg := kv.WriteRequest{
 		Sender:      node.ID(tMsg.Sender),
 		Leaseholder: node.ID(tMsg.Leaseholder),
 		Operations:  make([]kv.Operation, len(tMsg.Operations)),

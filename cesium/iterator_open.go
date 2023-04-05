@@ -23,14 +23,14 @@ func (db *cesium) NewStreamIterator(ctx context.Context, cfg IteratorConfig) (St
 	return db.newStreamIterator(ctx, cfg)
 }
 
-func (db *cesium) newStreamIterator(_ context.Context, cfg IteratorConfig) (*streamIterator, error) {
+func (db *cesium) newStreamIterator(ctx context.Context, cfg IteratorConfig) (*streamIterator, error) {
 	internal := make([]*unary.Iterator, len(cfg.Channels))
 	for i, key := range cfg.Channels {
 		uDB, err := db.getUnary(key)
 		if err != nil {
 			return nil, err
 		}
-		internal[i] = uDB.NewIterator(unary.IteratorConfig{Bounds: cfg.Bounds})
+		internal[i] = uDB.NewIterator(ctx, unary.IteratorConfig{Bounds: cfg.Bounds})
 	}
 
 	return &streamIterator{internal: internal}, nil

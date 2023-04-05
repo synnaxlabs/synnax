@@ -44,7 +44,7 @@ func (w WriterConfig) Range() telem.TimeRange {
 // range. If the time range overlaps with any other ranges in the DB, Write will return
 // an error.
 func Write(ctx context.Context, db *DB, tr telem.TimeRange, data []byte) error {
-	w, err := db.NewWriter(WriterConfig{Start: tr.Start, End: tr.End})
+	w, err := db.NewWriter(ctx, WriterConfig{Start: tr.Start, End: tr.End})
 	if err != nil {
 		return err
 	}

@@ -13,10 +13,10 @@ package gorp
 // an underlying database. DB implements the Writer interface, which will execute
 // queries directly against the DB. To open an isolated transaction against the DB, use
 // DB.BeginWrite.
-type Writer[K Key, E Entry[K]] struct{ WriteContext }
+type Writer[K Key, E Entry[K]] struct{ WriteTxn }
 
-func NewWriter[K Key, E Entry[K]](ctx WriteContext) *Writer[K, E] {
-	return &Writer[K, E]{WriteContext: ctx}
+func NewWriter[K Key, E Entry[K]](ctx WriteTxn) *Writer[K, E] {
+	return &Writer[K, E]{WriteTxn: ctx}
 }
 
 func (w *Writer[K, E]) Write(entry E) error {
@@ -61,7 +61,7 @@ func (w *Writer[K, E]) Delete(key K) error {
 	}
 	// NOTE: We need to be careful with this operation in the future.
 	// Because we aren't copying prefix, we're modifying the underlying slice.
-	if err = w.WriteContext.Delete(append(prefix, data...)); err != nil {
+	if err = w.WriteTxn.Delete(append(prefix, data...)); err != nil {
 		return err
 	}
 	return nil

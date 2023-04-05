@@ -159,7 +159,7 @@ func (r *responsible) propose(ctx context.Context) (res Response, err error) {
 	log.Info("responsible received pledge. starting proposal process.")
 
 	ctx, span := r.T.Trace(ctx, "responsible.propose", alamos.InfoLevel)
-	defer func() { span.EndWith(err) }()
+	defer func() { _ = span.EndWith(err) }()
 
 	res.ClusterKey = r.ClusterKey
 

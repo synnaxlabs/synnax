@@ -6,7 +6,7 @@ import (
 
 type Writer struct {
 	proxy  *leaseProxy
-	writer gorp.WriteContext
+	writer gorp.WriteTxn
 }
 
 func (w Writer) Create(c *Channel) error {

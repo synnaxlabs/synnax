@@ -40,9 +40,9 @@ func (db *DB) index() index.Index {
 
 func (db *DB) SetIndex(idx index.Index) { db._idx = idx }
 
-func (db *DB) NewWriter(cfg ranger.WriterConfig) (*Writer, error) {
-	w, err := db.Ranger.NewWriter(cfg)
-	return &Writer{start: cfg.Start, Channel: db.Channel, internal: w, idx: db.index()}, err
+func (db *DB) NewWriter(ctx context.Context, cfg ranger.WriterConfig) (*Writer, error) {
+	w, err := db.Ranger.NewWriter(ctx, cfg)
+	return &Writer{ctx: ctx, start: cfg.Start, Channel: db.Channel, internal: w, idx: db.index()}, err
 }
 
 type IteratorConfig struct {

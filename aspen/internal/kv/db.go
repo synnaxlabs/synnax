@@ -28,42 +28,22 @@ type Writer interface {
 }
 
 type (
-	// Reader is a readable key-value storeSink.
-	Reader = kvx.Reader
-)
-
-type (
-	BatchWriter = kvx.BatchWriter
+	// Readable is a readable key-value store.
+	Readable = kvx.Readable
+	// Writeable is a writable key-value store.
+	Writeable = kvx.Writeable
 )
 
 type db struct {
 	kvx.DB
 	Config
 	leaseAlloc *leaseAllocator
-	confluence.AbstractUnarySource[BatchRequest]
+	confluence.AbstractUnarySource[WriteRequest]
 	confluence.EmptyFlow
 	shutdown io.Closer
 }
 
-// Set implements DB.
-func (k *db) Set(ctx context.Context, key []byte, value []byte, options ...interface{}) error {
-	b := k.NewWriter()
-	if err := b.Set(ctx, key, value, options...); err != nil {
-		return err
-	}
-	return b.Commit(ctx)
-}
-
-// Delete implements DB.
-func (k *db) Delete(ctx context.Context, key []byte) error {
-	b := k.NewWriter()
-	if err := b.Delete(ctx, key); err != nil {
-		return err
-	}
-	return b.Commit(ctx)
-}
-
-func (k *db) apply(b []BatchRequest) (err error) {
+func (k *db) apply(b []WriteRequest) (err error) {
 	c := batchCoordinator{}
 	for _, bd := range b {
 		c.add(&bd)
@@ -72,8 +52,8 @@ func (k *db) apply(b []BatchRequest) (err error) {
 	return c.wait()
 }
 
-func (k *db) NewWriter() kvx.Writer {
-	return &batch{apply: k.apply, lease: k.leaseAlloc, Writer: k.DB.NewBatch()}
+func (k *db) NewWriter(ctx context.Context) kvx.Writer {
+	return &writer{apply: k.apply, lease: k.leaseAlloc, Writer: k.DB.NewWriter(ctx)}
 }
 
 func (k *db) Report() alamos.Report {
@@ -123,85 +103,85 @@ func Open(ctx context.Context, cfgs ...Config) (kvx.DB, error) {
 	st := newStore()
 
 	pipe := plumber.New()
-	plumber.SetSource[BatchRequest](pipe, executorAddr, db_)
-	plumber.SetSource[BatchRequest](pipe, leaseReceiverAddr, newLeaseReceiver(cfg))
-	plumber.SetSegment[BatchRequest, BatchRequest](
+	plumber.SetSource[WriteRequest](pipe, executorAddr, db_)
+	plumber.SetSource[WriteRequest](pipe, leaseReceiverAddr, newLeaseReceiver(cfg))
+	plumber.SetSegment[WriteRequest, WriteRequest](
 		pipe,
 		leaseProxyAddr,
 		newLeaseProxy(cfg, versionAssignerAddr, leaseSenderAddr),
 	)
-	plumber.SetSource[BatchRequest](pipe, operationReceiverAddr, newOperationReceiver(cfg, st))
-	plumber.SetSegment[BatchRequest](
+	plumber.SetSource[WriteRequest](pipe, operationReceiverAddr, newOperationReceiver(cfg, st))
+	plumber.SetSegment[WriteRequest](
 		pipe,
 		versionFilterAddr,
 		newVersionFilter(cfg, persistAddr, feedbackSenderAddr),
 	)
-	plumber.SetSegment[BatchRequest](pipe, versionAssignerAddr, va)
-	plumber.SetSink[BatchRequest](pipe, leaseSenderAddr, newLeaseSender(cfg))
-	plumber.SetSegment[BatchRequest, BatchRequest](pipe, persistAddr, newPersist(cfg.Engine))
-	plumber.SetSource[BatchRequest](pipe, storeEmitterAddr, newStoreEmitter(st, cfg))
-	plumber.SetSink[BatchRequest](pipe, storeSinkAddr, newStoreSink(st))
-	plumber.SetSegment[BatchRequest, BatchRequest](
+	plumber.SetSegment[WriteRequest](pipe, versionAssignerAddr, va)
+	plumber.SetSink[WriteRequest](pipe, leaseSenderAddr, newLeaseSender(cfg))
+	plumber.SetSegment[WriteRequest, WriteRequest](pipe, persistAddr, newPersist(cfg.Engine))
+	plumber.SetSource[WriteRequest](pipe, storeEmitterAddr, newStoreEmitter(st, cfg))
+	plumber.SetSink[WriteRequest](pipe, storeSinkAddr, newStoreSink(st))
+	plumber.SetSegment[WriteRequest, WriteRequest](
 		pipe,
 		operationSenderAddr,
 		newOperationSender(cfg),
 	)
-	plumber.SetSink[BatchRequest](pipe, feedbackSenderAddr, newFeedbackSender(cfg))
-	plumber.SetSource[BatchRequest](pipe, feedbackReceiverAddr, newFeedbackReceiver(cfg))
-	plumber.SetSegment[BatchRequest, BatchRequest](
+	plumber.SetSink[WriteRequest](pipe, feedbackSenderAddr, newFeedbackSender(cfg))
+	plumber.SetSource[WriteRequest](pipe, feedbackReceiverAddr, newFeedbackReceiver(cfg))
+	plumber.SetSegment[WriteRequest, WriteRequest](
 		pipe,
 		recoveryTransformAddr,
 		newRecoveryTransform(cfg),
 	)
 
-	plumber.MultiRouter[BatchRequest]{
+	plumber.MultiRouter[WriteRequest]{
 		SourceTargets: []address.Address{executorAddr, leaseReceiverAddr},
 		SinkTargets:   []address.Address{leaseProxyAddr},
 		Stitch:        plumber.StitchUnary,
 		Capacity:      1,
 	}.MustRoute(pipe)
 
-	plumber.MultiRouter[BatchRequest]{
+	plumber.MultiRouter[WriteRequest]{
 		SourceTargets: []address.Address{leaseProxyAddr},
 		SinkTargets:   []address.Address{versionAssignerAddr, leaseSenderAddr},
 		Stitch:        plumber.StitchWeave,
 		Capacity:      1,
 	}.MustRoute(pipe)
 
-	plumber.MultiRouter[BatchRequest]{
+	plumber.MultiRouter[WriteRequest]{
 		SourceTargets: []address.Address{operationReceiverAddr, operationSenderAddr},
 		SinkTargets:   []address.Address{versionFilterAddr},
 		Stitch:        plumber.StitchUnary,
 		Capacity:      1,
 	}.MustRoute(pipe)
 
-	plumber.MultiRouter[BatchRequest]{
+	plumber.MultiRouter[WriteRequest]{
 		SourceTargets: []address.Address{versionFilterAddr, versionAssignerAddr},
 		SinkTargets:   []address.Address{persistAddr},
 		Capacity:      1,
 		Stitch:        plumber.StitchUnary,
 	}.MustRoute(pipe)
 
-	plumber.UnaryRouter[BatchRequest]{
+	plumber.UnaryRouter[WriteRequest]{
 		SourceTarget: versionFilterAddr,
 		SinkTarget:   feedbackSenderAddr,
 		Capacity:     1,
 	}.MustRoute(pipe)
 
-	plumber.UnaryRouter[BatchRequest]{
+	plumber.UnaryRouter[WriteRequest]{
 		SourceTarget: feedbackReceiverAddr,
 		SinkTarget:   recoveryTransformAddr,
 		Capacity:     1,
 	}.MustRoute(pipe)
 
-	plumber.MultiRouter[BatchRequest]{
+	plumber.MultiRouter[WriteRequest]{
 		SourceTargets: []address.Address{persistAddr, recoveryTransformAddr},
 		SinkTargets:   []address.Address{storeSinkAddr},
 		Stitch:        plumber.StitchUnary,
 		Capacity:      1,
 	}.MustRoute(pipe)
 
-	plumber.UnaryRouter[BatchRequest]{
+	plumber.UnaryRouter[WriteRequest]{
 		SourceTarget: storeEmitterAddr,
 		SinkTarget:   operationSenderAddr,
 		Capacity:     1,

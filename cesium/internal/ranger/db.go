@@ -135,7 +135,7 @@ func (db *DB) NewIterator(_ context.Context, cfg IteratorConfig) *Iterator {
 }
 
 // NewWriter opens a new Writer using the given configuration.
-func (db *DB) NewWriter(cfg WriterConfig) (*Writer, error) {
+func (db *DB) NewWriter(_ context.Context, cfg WriterConfig) (*Writer, error) {
 	key, internal, err := db.dataFiles.acquireWriter()
 	if err != nil {
 		return nil, err

@@ -10,7 +10,6 @@
 package kv
 
 import (
-	"context"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/confluence"
@@ -52,11 +51,11 @@ func (o Operation) Digest() Digest {
 	}
 }
 
-func (o Operation) apply(ctx context.Context, b kvx.Writer) error {
+func (o Operation) apply(b kvx.Writer) error {
 	if o.Variant == Delete {
-		return b.Delete(ctx, o.Key)
+		return b.Delete(o.Key)
 	}
-	return b.Set(ctx, o.Key, o.Value)
+	return b.Set(o.Key, o.Value)
 }
 
 type Digest struct {
@@ -66,7 +65,7 @@ type Digest struct {
 	Variant     Variant
 }
 
-func (d Digest) apply(ctx context.Context, w kvx.Writer) error {
+func (d Digest) apply(w kvx.Writer) error {
 	key, err := digestKey(d.Key)
 	if err != nil {
 		return err
@@ -75,13 +74,13 @@ func (d Digest) apply(ctx context.Context, w kvx.Writer) error {
 	if err != nil {
 		return err
 	}
-	return w.Set(ctx, key, b)
+	return w.Set(key, b)
 }
 
 type Digests []Digest
 
-func (d Digests) toRequest() BatchRequest {
-	bd := BatchRequest{Operations: make([]Operation, len(d))}
+func (d Digests) toRequest() WriteRequest {
+	bd := WriteRequest{Operations: make([]Operation, len(d))}
 	for i, d := range d {
 		bd.Operations[i] = d.Operation()
 	}
@@ -89,9 +88,9 @@ func (d Digests) toRequest() BatchRequest {
 }
 
 type (
-	segment = confluence.Segment[BatchRequest, BatchRequest]
-	source  = confluence.Source[BatchRequest]
-	sink    = confluence.Sink[BatchRequest]
+	segment = confluence.Segment[WriteRequest, WriteRequest]
+	source  = confluence.Source[WriteRequest]
+	sink    = confluence.Sink[WriteRequest]
 )
 
 func (d Digest) Operation() Operation {

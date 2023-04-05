@@ -22,9 +22,9 @@ type Service struct {
 	Ontology *ontology.Ontology
 }
 
-func (s *Service) NewWriter(ctx gorp.WriteContext) Writer {
+func (s *Service) NewWriter(txn gorp.WriteTxn) Writer {
 	return Writer{
-		ctx:     ctx,
+		txn:     txn,
 		Service: s,
 	}
 }
@@ -54,7 +54,7 @@ func (s *Service) UsernameExists(ctx context.Context, username string) (bool, er
 }
 
 type Writer struct {
-	ctx gorp.WriteContext
+	txn gorp.WriteTxn
 	*Service
 }
 
@@ -64,7 +64,7 @@ func (w Writer) Create(u *User) error {
 		u.Key = uuid.New()
 	}
 
-	exists, err := w.UsernameExists(w.ctx.Context(), u.Username)
+	exists, err := w.UsernameExists(w.txn.Context(), u.Username)
 	if err != nil {
 		return err
 	}
@@ -72,14 +72,14 @@ func (w Writer) Create(u *User) error {
 		return query.UniqueViolation
 	}
 
-	if err = w.Ontology.NewWriter(w.ctx).
+	if err = w.Ontology.NewWriter(w.txn).
 		DefineResource(OntologyID(u.Key)); err != nil {
 		return err
 	}
 
-	return gorp.NewCreate[uuid.UUID, User]().Entry(u).Exec(w.ctx)
+	return gorp.NewCreate[uuid.UUID, User]().Entry(u).Exec(w.txn)
 }
 
 func (w Writer) Update(u User) error {
-	return gorp.NewCreate[uuid.UUID, User]().Entry(&u).Exec(w.ctx)
+	return gorp.NewCreate[uuid.UUID, User]().Entry(&u).Exec(w.txn)
 }

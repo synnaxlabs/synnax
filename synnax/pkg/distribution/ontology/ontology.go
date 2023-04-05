@@ -25,6 +25,7 @@
 package ontology
 
 import (
+	"context"
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"github.com/synnaxlabs/x/gorp"
@@ -43,15 +44,18 @@ type (
 // Ontology exposes an ontology stored in a key-value database for reading and writing.
 type Ontology struct {
 	registrar serviceRegistrar
+	db        *gorp.DB
 }
 
 // Open opens the ontology stored in the given database. If the Root resource does not
 // exist, it will be created.
-func Open(reader gorp.WriteContext) (*Ontology, error) {
+func Open(ctx context.Context, db *gorp.DB) (*Ontology, error) {
 	o := &Ontology{registrar: serviceRegistrar{BuiltIn: &builtinService{}}}
-	err := o.NewRetrieve(reader).WhereIDs(Root).Exec()
+	err := o.NewRetrieve(ctx).WhereIDs(Root).Exec()
 	if errors.Is(err, query.NotFound) {
-		err = o.NewWriter(reader).DefineResource(Root)
+		err = db.WithWriteTxn(ctx, func(w gorp.WriteTxn) error {
+			return o.NewWriter(w).DefineResource(Root)
+		})
 	}
 	return o, err
 }
@@ -81,13 +85,13 @@ type Writer interface {
 
 // NewRetrieve opens a new Retrieve query, which can be used to traverse and read resources
 // from the underlying ontology.
-func (o *Ontology) NewRetrieve(reader gorp.ReadContext) Retrieve {
-	return newRetrieve(o.registrar, reader)
+func (o *Ontology) NewRetrieve(ctx context.Context) Retrieve {
+	return newRetrieve(o.registrar, o.db.BeginRead(ctx))
 }
 
 // NewWriter opens a new Writer using the provided transaction.
 // Panics if the transaction does not root from the same database as the Ontology.
-func (o *Ontology) NewWriter(writer gorp.WriteContext) Writer {
+func (o *Ontology) NewWriter(writer gorp.WriteTxn) Writer {
 	return dagWriter{writer: writer}
 }
 

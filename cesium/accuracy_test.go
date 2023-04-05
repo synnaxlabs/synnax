@@ -38,7 +38,7 @@ var _ = Describe("Accuracy", Ordered, func() {
 					expected []int64,
 				) {
 					frame := MustSucceed(db.Read(ctx, tr, key))
-					actual := []int64{}
+					var actual []int64
 					for _, arr := range frame.Arrays {
 						actual = append(actual, telem.Unmarshal[int64](arr)...)
 					}
@@ -95,8 +95,10 @@ var _ = Describe("Accuracy", Ordered, func() {
 					tr telem.TimeRange,
 					expected []int64,
 				) {
-					frame := MustSucceed(db.Read(ctx, tr, key))
-					actual := []int64{}
+					var (
+						frame  = MustSucceed(db.Read(ctx, tr, key))
+						actual []int64
+					)
 					for _, arr := range frame.Arrays {
 						actual = append(actual, telem.Unmarshal[int64](arr)...)
 					}
@@ -169,9 +171,11 @@ var _ = Describe("Accuracy", Ordered, func() {
 						expected1 []int64,
 						expected2 []int64,
 					) {
-						frame := MustSucceed(db.Read(ctx, tr, key1, key2))
-						actual1 := []int64{}
-						actual2 := []int64{}
+						var (
+							frame   = MustSucceed(db.Read(ctx, tr, key1, key2))
+							actual1 []int64
+							actual2 []int64
+						)
 						for i, arr := range frame.Arrays {
 							if frame.Key(i) == key1 {
 								actual1 = append(actual1, telem.Unmarshal[int64](arr)...)
@@ -242,9 +246,11 @@ var _ = Describe("Accuracy", Ordered, func() {
 						expected1 []int64,
 						expected2 []int64,
 					) {
-						frame := MustSucceed(db.Read(ctx, tr, key1, key2))
-						actual1 := []int64{}
-						actual2 := []int64{}
+						var (
+							frame   = MustSucceed(db.Read(ctx, tr, key1, key2))
+							actual1 []int64
+							actual2 []int64
+						)
 						for i, arr := range frame.Arrays {
 							if frame.Key(i) == key1 {
 								actual1 = append(actual1, telem.Unmarshal[int64](arr)...)

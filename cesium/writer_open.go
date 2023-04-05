@@ -32,7 +32,7 @@ func (db *cesium) NewWriter(ctx context.Context, cfg WriterConfig) (Writer, erro
 	return wrapStreamWriter(internal), nil
 }
 
-func (db *cesium) newStreamWriter(_ context.Context, cfg WriterConfig) (*streamWriter, error) {
+func (db *cesium) newStreamWriter(ctx context.Context, cfg WriterConfig) (*streamWriter, error) {
 	var (
 		idx          index.Index
 		writingToIdx bool
@@ -64,7 +64,7 @@ func (db *cesium) newStreamWriter(_ context.Context, cfg WriterConfig) (*streamW
 				return nil, err
 			}
 		}
-		w, err := u.NewWriter(ranger.WriterConfig{Start: cfg.Start})
+		w, err := u.NewWriter(ctx, ranger.WriterConfig{Start: cfg.Start})
 		if err != nil {
 			return nil, err
 		}

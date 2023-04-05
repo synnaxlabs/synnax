@@ -209,7 +209,7 @@ func tryLoadPersistedState(ctx context.Context, cfg Config) (store.State, error)
 	if cfg.Storage == nil {
 		return state, nil
 	}
-	encoded, err := cfg.Storage.Get(ctx, cfg.StorageKey)
+	encoded, err := cfg.Storage.NewWriter(ctx).Get(cfg.StorageKey)
 	if err != nil {
 		return state, lo.Ternary(errors.Is(err, kv.NotFound), nil, err)
 	}

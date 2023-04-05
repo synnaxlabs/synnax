@@ -19,10 +19,10 @@ import (
 type Retrieve struct {
 	query     *gorp.CompoundRetrieve[ID, Resource]
 	registrar serviceRegistrar
-	ctx       gorp.ReadContext
+	ctx       gorp.ReadTxn
 }
 
-func newRetrieve(registrar serviceRegistrar, txn gorp.ReadContext) Retrieve {
+func newRetrieve(registrar serviceRegistrar, txn gorp.ReadTxn) Retrieve {
 	r := Retrieve{
 		query:     &gorp.CompoundRetrieve[ID, Resource]{},
 		registrar: registrar,

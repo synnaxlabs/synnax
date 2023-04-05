@@ -61,7 +61,7 @@ func (r Retrieve[K, E]) Entry(entry *E) Retrieve[K, E] {
 // the query, Retrieve will return a query.NotFound  error if ANY of the keys do not
 // exist in the database. If Where is set on the query, Retrieve will return a query.NotFound
 // if NO keys pass the Where filter.
-func (r Retrieve[K, E]) Exec(reader ReadContext) error {
+func (r Retrieve[K, E]) Exec(reader ReadTxn) error {
 	_, ok := getWhereKeys[K](r)
 	f := lo.Ternary(ok, keysRetrieve[K, E], filterRetrieve[K, E])
 	return f(r, reader)
@@ -70,7 +70,7 @@ func (r Retrieve[K, E]) Exec(reader ReadContext) error {
 // Exists checks whether records matching the query exist in the DB. If the WhereKeys method is
 // set on the query, Exists will return true if ANY of the keys exist in the database. If
 // Where is set on the query, Exists will return true if ANY keys pass the Where filter.
-func (r Retrieve[K, E]) Exists(reader ReadContext) (bool, error) {
+func (r Retrieve[K, E]) Exists(reader ReadTxn) (bool, error) {
 	return checkExists[K, E](r, reader)
 }
 
@@ -151,7 +151,7 @@ func getWhereKeys[K Key](q query.Query) (whereKeys[K], bool) {
 	return keys.(whereKeys[K]), true
 }
 
-func checkExists[K Key, E Entry[K]](q query.Query, reader ReadContext) (bool, error) {
+func checkExists[K Key, E Entry[K]](q query.Query, reader ReadTxn) (bool, error) {
 	if keys, ok := getWhereKeys[K](q); ok {
 		entries := make([]E, 0, len(keys))
 		SetEntries[K, E](q, &entries)
@@ -170,7 +170,7 @@ func checkExists[K Key, E Entry[K]](q query.Query, reader ReadContext) (bool, er
 
 func keysRetrieve[K Key, E Entry[K]](
 	q query.Query,
-	reader ReadContext,
+	reader ReadTxn,
 ) error {
 	var (
 		opts    = reader.options()
@@ -207,7 +207,7 @@ func keysRetrieve[K Key, E Entry[K]](
 
 func filterRetrieve[K Key, E Entry[K]](
 	q query.Query,
-	reader ReadContext,
+	reader ReadTxn,
 ) error {
 	var (
 		v       = new(E)
