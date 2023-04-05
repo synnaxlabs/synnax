@@ -23,19 +23,19 @@ import (
 var _ = Describe("Middleware", func() {
 	var (
 		m         freighter.Middleware
-		md        freighter.Context
+		ctx       freighter.Context
 		collector freighter.MiddlewareCollector
 	)
 	BeforeEach(func() {
 		m = fmtls.GateMiddleware("foo")
-		md = freighter.Context{}
+		ctx = freighter.Context{Context: context.Background()}
 		collector = freighter.MiddlewareCollector{}
 		collector.Use(m)
 	})
 	Describe("GateMiddleware", func() {
 		It("Should allow a certificate with a valid CN", func() {
-			md.Sec.TLS.Used = true
-			md.Sec.TLS.VerifiedChains = [][]*x509.Certificate{
+			ctx.Sec.TLS.Used = true
+			ctx.Sec.TLS.VerifiedChains = [][]*x509.Certificate{
 				{
 					{
 						Subject: pkix.Name{
@@ -44,16 +44,16 @@ var _ = Describe("Middleware", func() {
 					},
 				},
 			}
-			_ = MustSucceed(collector.Exec(context.TODO(), md, freighter.NopFinalizer))
+			_ = MustSucceed(collector.Exec(ctx, freighter.NopFinalizer))
 		})
 		It("Should return a SecurityError if no certificate is provided", func() {
-			md.Sec.TLS.Used = true
-			_, err := collector.Exec(context.TODO(), md, freighter.NopFinalizer)
+			ctx.Sec.TLS.Used = true
+			_, err := collector.Exec(ctx, freighter.NopFinalizer)
 			Expect(err).To(HaveOccurredAs(fmtls.AuthError))
 		})
 		It("Should return a SecurityError if the CN is not correct", func() {
-			md.Sec.TLS.Used = true
-			md.Sec.TLS.VerifiedChains = [][]*x509.Certificate{
+			ctx.Sec.TLS.Used = true
+			ctx.Sec.TLS.VerifiedChains = [][]*x509.Certificate{
 				{
 					{
 						Subject: pkix.Name{
@@ -62,7 +62,7 @@ var _ = Describe("Middleware", func() {
 					},
 				},
 			}
-			_, err := collector.Exec(context.TODO(), md, freighter.NopFinalizer)
+			_, err := collector.Exec(ctx, freighter.NopFinalizer)
 			Expect(err).To(HaveOccurredAs(fmtls.AuthError))
 		})
 	})

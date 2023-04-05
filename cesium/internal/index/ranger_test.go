@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"go.uber.org/zap"
 )
 
 var _ = Describe("Ranger", func() {
@@ -27,13 +26,14 @@ var _ = Describe("Ranger", func() {
 	)
 	BeforeEach(func() {
 		db = MustSucceed(ranger.Open(ranger.Config{FS: fs.NewMem()}))
-		idx = &index.Ranger{DB: db, Logger: zap.NewNop()}
+		idx = &index.Ranger{DB: db}
 	})
 	AfterEach(func() { Expect(db.Close()).To(Succeed()) })
 	Describe("Distance", func() {
 		Context("Continuous", func() {
 			BeforeEach(func() {
 				Expect(ranger.Write(
+					ctx,
 					db,
 					(1 * telem.SecondTS).Range(20*telem.SecondTS+1),
 					telem.NewSecondsTSV(1, 2, 3, 5, 7, 9, 15, 19, 20).Data,
@@ -45,7 +45,7 @@ var _ = Describe("Ranger", func() {
 					expected index.DistanceApproximation,
 					expectedErr error,
 				) {
-					actual, err := idx.Distance(tr /*continuous*/, true)
+					actual, err := idx.Distance(ctx, tr /*continuous*/, true)
 					if expectedErr != nil {
 						Expect(err).To(HaveOccurredAs(expectedErr))
 					} else {
@@ -130,6 +130,7 @@ var _ = Describe("Ranger", func() {
 		Context("Continuous", func() {
 			BeforeEach(func() {
 				Expect(ranger.Write(
+					ctx,
 					db,
 					(1 * telem.SecondTS).SpanRange(19*telem.Second+1),
 					telem.NewSecondsTSV(1, 2, 3, 5, 7, 9, 15, 19, 20).Data,
@@ -141,7 +142,7 @@ var _ = Describe("Ranger", func() {
 				expected index.TimeStampApproximation,
 				expectedErr error,
 			) {
-				actual, err := idx.Stamp(start, int64(distance), true)
+				actual, err := idx.Stamp(ctx, start, int64(distance), true)
 				if expectedErr != nil {
 					Expect(err).To(HaveOccurredAs(expectedErr))
 				} else {
@@ -184,16 +185,19 @@ var _ = Describe("Ranger", func() {
 		Context("Discontinuous", func() {
 			BeforeEach(func() {
 				Expect(ranger.Write(
+					ctx,
 					db,
 					(1 * telem.SecondTS).Range(20*telem.SecondTS+1),
 					telem.NewSecondsTSV(1, 2, 3, 5, 7, 9, 15, 19, 20).Data,
 				)).To(Succeed())
 				Expect(ranger.Write(
+					ctx,
 					db,
 					(30 * telem.SecondTS).Range(40*telem.SecondTS+1),
 					telem.NewSecondsTSV(30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40).Data,
 				))
 				Expect(ranger.Write(
+					ctx,
 					db,
 					(55 * telem.SecondTS).Range(65*telem.SecondTS+1),
 					telem.NewSecondsTSV(55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65).Data,
@@ -205,7 +209,7 @@ var _ = Describe("Ranger", func() {
 				expected index.TimeStampApproximation,
 				expectedErr error,
 			) {
-				actual, err := idx.Stamp(start, int64(distance), false)
+				actual, err := idx.Stamp(ctx, start, int64(distance), false)
 				if expectedErr != nil {
 					Expect(err).To(HaveOccurredAs(expectedErr))
 				} else {

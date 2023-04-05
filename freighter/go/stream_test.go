@@ -15,13 +15,13 @@ import (
 	"github.com/gofiber/fiber/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/fhttp"
 	"github.com/synnaxlabs/freighter/fmock"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/httputil"
 	. "github.com/synnaxlabs/x/testutil"
-	"go.uber.org/zap"
 	"net/http"
 	"time"
 )
@@ -33,7 +33,7 @@ type (
 )
 
 type streamImplementation interface {
-	start(host address.Address, logger *zap.SugaredLogger) (streamServer, streamClient)
+	start(host address.Address, ins alamos.Instrumentation) (streamServer, streamClient)
 	stop() error
 }
 
@@ -53,8 +53,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 			)
 			BeforeAll(func() {
 				addr = "localhost:8080"
-				l := zap.NewNop()
-				server, client = impl.start(addr, l.Sugar())
+				server, client = impl.start(addr, alamos.Instrumentation{})
 			})
 			AfterAll(func() {
 				Expect(impl.stop()).ToNot(HaveOccurred())
@@ -256,12 +255,11 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 					})
 					c := 0
 					server.Use(freighter.MiddlewareFunc(func(
-						ctx context.Context,
-						md freighter.Context,
+						ctx freighter.Context,
 						next freighter.Next,
 					) (freighter.Context, error) {
 						c++
-						oMd, err := next(ctx, md)
+						oMd, err := next(ctx)
 						c++
 						return oMd, err
 					}))
@@ -292,20 +290,18 @@ type httpStreamImplementation struct {
 
 func (impl *httpStreamImplementation) start(
 	host address.Address,
-	logger *zap.SugaredLogger,
+	ins alamos.Instrumentation,
 ) (streamServer, streamClient) {
 	impl.app = fiber.New(fiber.Config{DisableStartupMessage: true})
-	router := fhttp.NewRouter(fhttp.RouterConfig{Logger: logger})
-	client := fhttp.NewClientFactory(fhttp.ClientFactoryConfig{EncoderDecoder: httputil.MsgPackEncoderDecoder, Logger: logger})
+	router := fhttp.NewRouter(fhttp.RouterConfig{Instrumentation: ins})
+	client := fhttp.NewClientFactory(fhttp.ClientFactoryConfig{EncoderDecoder: httputil.MsgPackEncoderDecoder})
 	impl.app.Get("/health", func(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusOK)
 	})
 	server := fhttp.StreamServer[request, response](router, "/")
 	router.BindTo(impl.app)
 	go func() {
-		if err := impl.app.Listen(host.PortString()); err != nil {
-			logger.Error(err)
-		}
+		Expect(impl.app.Listen(host.PortString())).To(Succeed())
 	}()
 	Eventually(func(g Gomega) {
 		_, err := http.Get("http://" + host.String() + "/health")
@@ -324,7 +320,7 @@ type mockStreamImplementation struct {
 
 func (impl *mockStreamImplementation) start(
 	host address.Address,
-	logger *zap.SugaredLogger,
+	ins alamos.Instrumentation,
 ) (streamServer, streamClient) {
 	return fmock.NewStreamPair[request, response]( /*request buffer */ 11 /* response buffer */, 11)
 }
