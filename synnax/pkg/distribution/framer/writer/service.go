@@ -134,7 +134,7 @@ const (
 // control the lifetime of goroutines spawned by the writer. If the given context is cancelled,
 // the writer will immediately abort all pending writes and return an error.
 func (s *Service) New(ctx context.Context, cfg Config) (Writer, error) {
-	sCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(s))
+	sCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(s.Instrumentation))
 	seg, err := s.NewStream(ctx, cfg)
 	if err != nil {
 		return nil, err
@@ -239,10 +239,10 @@ func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) er
 	}
 	var channels []channel.Channel
 	if err := s.ChannelReader.
-		NewRetrieve().
+		NewRetrieve(ctx).
 		Entries(&channels).
 		WhereKeys(keys...).
-		Exec(ctx); err != nil {
+		Exec(); err != nil {
 		return err
 	}
 	var (

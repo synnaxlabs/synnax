@@ -18,7 +18,7 @@ import (
 // dagWriter is a key-value backed directed acyclic graph that implements the Writer
 // interface.
 type dagWriter struct {
-	writer    gorp.Writer
+	writer    gorp.WriteContext
 	registrar serviceRegistrar
 }
 

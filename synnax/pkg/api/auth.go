@@ -67,14 +67,12 @@ func (s *AuthService) Register(ctx context.Context, req RegistrationRequest) (tr
 	if err := s.Validate(req); err.Occurred() {
 		return tr, err
 	}
-	return tr, s.WithTxn(ctx, func(txn gorp.TypedWriter) errors.Typed {
-		aw := s.authenticator.NewWriterWithTxn(txn)
-		if err := aw.Register(ctx, req.InsecureCredentials); err != nil {
+	return tr, s.WithWrite(ctx, func(ctx gorp.WriteContext) errors.Typed {
+		if err := s.authenticator.NewWriter(ctx).Register(req.InsecureCredentials); err != nil {
 			return errors.General(err)
 		}
 		u := &user.User{Username: req.Username}
-		userWriter := s.user.NewWriter(txn)
-		if err := userWriter.Create(ctx, u); err != nil {
+		if err := s.user.NewWriter(ctx).Create(u); err != nil {
 			return errors.General(err)
 		}
 		var tErr errors.Typed
@@ -94,9 +92,9 @@ func (s *AuthService) ChangePassword(ctx context.Context, cpr ChangePasswordRequ
 	if err := s.Validate(cpr); err.Occurred() {
 		return err
 	}
-	return s.WithTxn(ctx, func(txn gorp.TypedWriter) errors.Typed {
-		return errors.MaybeGeneral(s.authenticator.NewWriterWithTxn(txn).
-			UpdatePassword(ctx, cpr.InsecureCredentials, cpr.NewPassword))
+	return s.WithWrite(ctx, func(ctx gorp.WriteContext) errors.Typed {
+		return errors.MaybeGeneral(s.authenticator.NewWriter(ctx).
+			UpdatePassword(cpr.InsecureCredentials, cpr.NewPassword))
 	})
 }
 
@@ -111,21 +109,19 @@ func (s *AuthService) ChangeUsername(ctx context.Context, cur ChangeUsernameRequ
 	if err := s.Validate(&cur); err.Occurred() {
 		return err
 	}
-	return s.WithTxn(ctx, func(txn gorp.TypedWriter) errors.Typed {
-		authWriter := s.authenticator.NewWriterWithTxn(txn)
-		u, err := s.user.RetrieveByUsername(ctx, cur.InsecureCredentials.Username)
+	return s.WithWrite(ctx, func(ctx gorp.WriteContext) errors.Typed {
+		u, err := s.user.RetrieveByUsername(ctx.Context(), cur.InsecureCredentials.Username)
 		if err != nil {
 			return errors.MaybeQuery(err)
 		}
-		if err := authWriter.UpdateUsername(
-			ctx,
+		if err := s.authenticator.NewWriter(ctx).UpdateUsername(
 			cur.InsecureCredentials,
 			cur.NewUsername,
 		); err != nil {
 			return errors.Unexpected(err)
 		}
 		u.Username = cur.NewUsername
-		return errors.MaybeUnexpected(s.user.NewWriter(txn).Update(ctx, u))
+		return errors.MaybeUnexpected(s.user.NewWriter(ctx).Update(u))
 	})
 }
 

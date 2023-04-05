@@ -21,22 +21,19 @@ type Authenticator interface {
 	// Authenticate validates the identity of the entity with the given credentials.
 	// If the credentials are invalid, an InvalidCredentials error is returned.
 	Authenticate(ctx context.Context, creds InsecureCredentials) error
-	// NewWriter opens a new Writer.
-	NewWriter() Writer
-	// NewWriterWithTxn opens a new Writer using the provided transaction. Some
-	// implementations may not need the transaction.
-	NewWriterWithTxn(txn gorp.TypedWriter) Writer
+	// NewWriter opens a new Writer using the provided write context.
+	NewWriter(ctx gorp.WriteContext) Writer
 }
 
 type Writer interface {
 	// Register registers the given credentials in the authenticator.
-	Register(ctx context.Context, creds InsecureCredentials) error
+	Register(creds InsecureCredentials) error
 	// UpdateUsername updates the username of the given credentials.
 	// If the Authenticator uses the Node's local storage, they can use the provided
-	// txn to perform the update.
-	UpdateUsername(ctx context.Context, creds InsecureCredentials, newUser string) error
+	// ctx to perform the update.
+	UpdateUsername(creds InsecureCredentials, newUser string) error
 	// UpdatePassword updates the password of the given credentials.
 	// If the Authenticator uses the Node's local storage, they can use the provided
-	// txn to perform the update.
-	UpdatePassword(ctx context.Context, creds InsecureCredentials, newPass password.Raw) error
+	// ctx to perform the update.
+	UpdatePassword(creds InsecureCredentials, newPass password.Raw) error
 }

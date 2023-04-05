@@ -9,23 +9,26 @@
 
 package gorp
 
-// TypedWriter represents a generalized key-value transaction that executes atomically against
-// an underlying database. DB implements the TypedWriter interface, which will execute
+// Writer represents a generalized key-value transaction that executes atomically against
+// an underlying database. DB implements the Writer interface, which will execute
 // queries directly against the DB. To open an isolated transaction against the DB, use
-// DB.NewWriter.
-type TypedWriter[K Key, E Entry[K]] struct{ Writer }
+// DB.BeginWrite.
+type Writer[K Key, E Entry[K]] struct{ WriteContext }
 
-func NewTypedWriter[K Key, E Entry[K]](writer Writer) *TypedWriter[K, E] {
-	return &TypedWriter[K, E]{Writer: writer}
+func NewWriter[K Key, E Entry[K]](ctx WriteContext) *Writer[K, E] {
+	return &Writer[K, E]{WriteContext: ctx}
 }
 
-func (w *TypedWriter[K, E]) Write(entry E) error {
-	prefix := typePrefix[K, E](w.options)
-	data, err := w.encoder.Encode(entry)
+func (w *Writer[K, E]) Write(entry E) error {
+	var (
+		opts   = w.options()
+		prefix = typePrefix[K, E](w.options())
+	)
+	data, err := opts.encoder.Encode(entry)
 	if err != nil {
 		return err
 	}
-	key, err := w.encoder.Encode(entry.GorpKey())
+	key, err := opts.encoder.Encode(entry.GorpKey())
 	if err != nil {
 		return err
 	}
@@ -38,7 +41,7 @@ func (w *TypedWriter[K, E]) Write(entry E) error {
 	return nil
 }
 
-func (w *TypedWriter[K, E]) WriteMany(entries []E) error {
+func (w *Writer[K, E]) WriteMany(entries []E) error {
 	for _, entry := range entries {
 		if err := w.Write(entry); err != nil {
 			return err
@@ -47,15 +50,18 @@ func (w *TypedWriter[K, E]) WriteMany(entries []E) error {
 	return nil
 }
 
-func (w *TypedWriter[K, E]) Delete(key K) error {
-	prefix := typePrefix[K, E](w.options)
-	data, err := w.encoder.Encode(key)
+func (w *Writer[K, E]) Delete(key K) error {
+	var (
+		opts   = w.options()
+		prefix = typePrefix[K, E](opts)
+	)
+	data, err := opts.encoder.Encode(key)
 	if err != nil {
 		return err
 	}
 	// NOTE: We need to be careful with this operation in the future.
 	// Because we aren't copying prefix, we're modifying the underlying slice.
-	if err = w.Writer.Delete(append(prefix, data...)); err != nil {
+	if err = w.WriteContext.Delete(append(prefix, data...)); err != nil {
 		return err
 	}
 	return nil

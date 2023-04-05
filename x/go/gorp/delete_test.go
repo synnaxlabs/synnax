@@ -17,48 +17,53 @@ import (
 	"github.com/synnaxlabs/x/kv/memkv"
 )
 
-var _ = Describe("Delete", func() {
+var _ = Describe("Delete", Ordered, func() {
 	var (
 		db   *gorp.DB
 		kvDB kv.DB
+		txn  gorp.WriteContext
 	)
-	BeforeEach(func() {
+	BeforeAll(func() {
 		kvDB = memkv.New()
 		db = gorp.Wrap(kvDB)
 	})
-	AfterEach(func() {
+	AfterAll(func() {
 		Expect(kvDB.Close()).To(Succeed())
+	})
+	BeforeEach(func() { txn = db.BeginWrite(ctx) })
+	AfterEach(func() {
+		Expect(txn.Close()).To(Succeed())
 	})
 	Describe("WhereKeys", func() {
 		It("Should delete an entry by key in the db", func() {
 			Expect(gorp.NewCreate[int, entry]().
 				Entry(&entry{ID: 1, Data: "Synnax"}).
-				Exec(db)).To(Succeed())
-			Expect(gorp.NewDelete[int, entry]().WhereKeys(1).Exec(db)).To(Succeed())
-			exists, err := gorp.NewRetrieve[int, entry]().WhereKeys(1).Exists(db)
+				Exec(txn)).To(Succeed())
+			Expect(gorp.NewDelete[int, entry]().WhereKeys(1).Exec(txn)).To(Succeed())
+			exists, err := gorp.NewRetrieve[int, entry]().WhereKeys(1).Exists(txn)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(exists).To(BeFalse())
 		})
 		It("Should NOT return an error if the entry does not exist", func() {
-			Expect(gorp.NewDelete[int, entry]().WhereKeys(1).Exec(db)).To(Succeed())
+			Expect(gorp.NewDelete[int, entry]().WhereKeys(1).Exec(txn)).To(Succeed())
 		})
 	})
 	Describe("Where", func() {
 		It("Should delete an entry by predicate in the db", func() {
 			Expect(gorp.NewCreate[int, entry]().
 				Entry(&entry{ID: 1, Data: "Synnax"}).
-				Exec(db)).To(Succeed())
+				Exec(txn)).To(Succeed())
 			Expect(gorp.NewDelete[int, entry]().Where(func(e *entry) bool {
 				return e.Data == "Synnax"
-			}).Exec(db)).To(Succeed())
-			exists, err := gorp.NewRetrieve[int, entry]().WhereKeys(1).Exists(db)
+			}).Exec(txn)).To(Succeed())
+			exists, err := gorp.NewRetrieve[int, entry]().WhereKeys(1).Exists(txn)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(exists).To(BeFalse())
 		})
 		It("Should not return an error if the entry does not exist", func() {
 			Expect(gorp.NewDelete[int, entry]().Where(func(e *entry) bool {
 				return e.Data == "Synnax"
-			}).Exec(db)).To(Succeed())
+			}).Exec(txn)).To(Succeed())
 		})
 	})
 })

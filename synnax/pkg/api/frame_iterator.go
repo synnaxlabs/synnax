@@ -46,23 +46,24 @@ type FrameIteratorResponse struct {
 
 type FrameIteratorStream = freighter.ServerStream[FrameIteratorRequest, FrameIteratorResponse]
 
-func (s *FrameService) Iterate(_ctx context.Context, stream FrameIteratorStream) errors.Typed {
-	ctx, cancel := signal.WithCancel(_ctx, signal.WithInstrumentation(s))
+func (s *FrameService) Iterate(ctx context.Context, stream FrameIteratorStream) errors.Typed {
+	iter, err := s.openIterator(ctx, stream)
+	if err.Occurred() {
+		return err
+	}
+
+	sCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(s.Instrumentation))
 	// Cancellation here would occur for one of two reasons. Either we encounter
 	// a fatal error (transport or iterator internal) and we need to free all
 	// resources, OR the client executed the close command on the iterator (in
 	// which case resources have already been freed and cancel does nothing).
 	defer cancel()
 
-	iter, err := s.openIterator(ctx, stream)
-	if err.Occurred() {
-		return err
-	}
 	requests := confluence.NewStream[iterator.Request]()
 	iter.InFrom(requests)
 	responses := confluence.NewStream[iterator.Response](1)
 	iter.OutTo(responses)
-	iter.Flow(ctx, confluence.CloseInletsOnExit(), confluence.CancelOnExitErr())
+	iter.Flow(sCtx, confluence.CloseInletsOnExit(), confluence.CancelOnExitErr())
 
 	go func() {
 		for {
@@ -85,7 +86,7 @@ func (s *FrameService) Iterate(_ctx context.Context, stream FrameIteratorStream)
 
 	for {
 		select {
-		case <-ctx.Done():
+		case <-sCtx.Done():
 			return errors.Canceled
 		case res, ok := <-responses.Outlet():
 			if !ok {

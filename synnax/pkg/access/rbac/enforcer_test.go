@@ -33,7 +33,7 @@ var _ = Describe("enforcer", func() {
 			DefaultEffect: access.Deny,
 			Legislator:    legislator,
 		}
-		txn := db.NewWriter()
+		txn := db.BeginWrite()
 		Expect(legislator.Create(txn, changePasswordPolicy)).To(Succeed())
 		Expect(txn.Commit()).To(Succeed())
 	})

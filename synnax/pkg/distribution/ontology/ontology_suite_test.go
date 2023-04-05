@@ -45,7 +45,7 @@ func (s *emptyService) RetrieveEntity(key string) (ontology.Entity, error) {
 var (
 	db  *gorp.DB
 	otg *ontology.Ontology
-	txn gorp.TypedWriter
+	txn gorp.Writer
 )
 
 var _ = BeforeSuite(func() {
@@ -61,7 +61,7 @@ var _ = AfterSuite(func() {
 })
 
 var _ = BeforeEach(func() {
-	txn = db.NewWriter()
+	txn = db.BeginWrite()
 })
 
 var _ = AfterEach(func() {

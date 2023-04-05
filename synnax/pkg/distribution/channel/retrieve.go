@@ -21,13 +21,13 @@ import (
 // Retrieve is used to retrieve information about Channel(s) in delta's distribution
 // layer.
 type Retrieve struct {
-	gorp   gorp.Retrieve[Key, Channel]
-	keys   Keys
-	reader gorp.Reader
+	gorp gorp.Retrieve[Key, Channel]
+	keys Keys
+	ctx  gorp.ReadContext
 }
 
-func NewRetrieve(reader gorp.Reader) Retrieve {
-	return Retrieve{gorp: gorp.NewRetrieve[Key, Channel](), reader: reader}
+func NewRetrieve(ctx gorp.ReadContext) Retrieve {
+	return Retrieve{gorp: gorp.NewRetrieve[Key, Channel](), ctx: ctx}
 }
 
 // Entry binds the Channel that Retrieve will fill results into. This is an identical
@@ -61,14 +61,14 @@ func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 
 // Exec executes the query, binding
 func (r Retrieve) Exec() error {
-	return r.maybeEnrichError(r.gorp.Exec(r.reader))
+	return r.maybeEnrichError(r.gorp.Exec(r.ctx))
 }
 
 // Exists checks if the query has results matching its parameters. If used in conjunction
 // with WhereKeys, Exists will ONLY return true if ALL the keys have a matching Channel.
 // Otherwise, Exists returns true if the query has ANY results.
-func (r Retrieve) Exists(reader gorp.Reader) (bool, error) {
-	return r.gorp.Exists(reader)
+func (r Retrieve) Exists() (bool, error) {
+	return r.gorp.Exists(r.ctx)
 }
 
 func (r Retrieve) maybeEnrichError(err error) error {
