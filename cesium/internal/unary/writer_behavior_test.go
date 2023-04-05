@@ -37,7 +37,7 @@ var _ = Describe("TypedWriter Behavior", func() {
 			Expect(db.Close()).To(Succeed())
 		})
 		Specify("Happy Path", func() {
-			w := MustSucceed(db.NewWriter(ranger.WriterConfig{
+			w := MustSucceed(db.NewWriter(ctx, ranger.WriterConfig{
 				Start: telem.TimeStamp(0),
 			}))
 			Expect(w.Write(telem.NewSecondsTSV(0, 1, 2, 3, 4, 5))).To(Succeed())
@@ -75,8 +75,8 @@ var _ = Describe("TypedWriter Behavior", func() {
 			Expect(indexDB.Close()).To(Succeed())
 		})
 		Specify("Happy Path", func() {
-			Expect(unary.Write(indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20))).To(Succeed())
-			w := MustSucceed(db.NewWriter(ranger.WriterConfig{Start: 10 * telem.SecondTS}))
+			Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20))).To(Succeed())
+			w := MustSucceed(db.NewWriter(ctx, ranger.WriterConfig{Start: 10 * telem.SecondTS}))
 			Expect(w.Write(telem.NewArray([]int64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}))).To(Succeed())
 			Expect(MustSucceed(w.Commit())).To(Equal(20*telem.SecondTS + 1))
 			Expect(w.Close()).To(Succeed())

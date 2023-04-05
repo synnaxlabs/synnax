@@ -15,11 +15,12 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/fhttp"
+	"github.com/synnaxlabs/x/testutil"
 	"go.uber.org/zap"
 )
 
 func BindTo(f *fiber.App, logger *zap.SugaredLogger) {
-	router := fhttp.NewRouter(fhttp.RouterConfig{Logger: logger})
+	router := fhttp.NewRouter(fhttp.RouterConfig{Instrumentation: testutil.Instrumentation("freighter-integration")})
 	echoServer := fhttp.StreamServer[Message, Message](router, "/stream/echo")
 	echoServer.BindHandler(streamEcho)
 
@@ -55,11 +56,11 @@ func BindTo(f *fiber.App, logger *zap.SugaredLogger) {
 	router.BindTo(f)
 }
 
-func checkMiddleware(ctx context.Context, md freighter.Context, next freighter.Next) (freighter.Context, error) {
-	if md.Params["Test"] != "test" {
-		return md, TestError{Message: "test param not found", Code: 1}
+func checkMiddleware(ctx freighter.Context, next freighter.Next) (freighter.Context, error) {
+	if ctx.Params["Test"] != "test" {
+		return ctx, TestError{Message: "test param not found", Code: 1}
 	}
-	return next(ctx, md)
+	return next(ctx)
 }
 
 func unaryEcho(ctx context.Context, req Message) (Message, error) {

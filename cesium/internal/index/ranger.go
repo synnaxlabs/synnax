@@ -44,7 +44,7 @@ func (i *Ranger) Distance(ctx context.Context, tr telem.TimeRange, continuous bo
 		)
 	}()
 
-	iter := i.DB.NewIterator(ranger.IteratorConfig{Bounds: tr})
+	iter := i.DB.NewIterator(ctx, ranger.IteratorConfig{Bounds: tr})
 
 	if !iter.SeekFirst() || (!iter.Range().ContainsRange(tr) && continuous) {
 		err = ErrDiscontinuous
@@ -133,7 +133,7 @@ func (i *Ranger) Stamp(
 		)
 	}()
 
-	iter := i.DB.NewIterator(ranger.IterRange(ref.SpanRange(telem.TimeSpanMax)))
+	iter := i.DB.NewIterator(ctx, ranger.IterRange(ref.SpanRange(telem.TimeSpanMax)))
 
 	if !iter.SeekFirst() ||
 		!iter.Range().ContainsStamp(ref) ||
