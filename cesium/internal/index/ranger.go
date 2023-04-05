@@ -10,9 +10,9 @@
 package index
 
 import (
+	"context"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/ranger"
-	"github.com/synnaxlabs/x/logutil"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 	"io"
@@ -26,21 +26,21 @@ type Ranger struct {
 var _ Index = (*Ranger)(nil)
 
 // Distance implements Index.
-func (i *Ranger) Distance(tr telem.TimeRange, continuous bool) (approx DistanceApproximation, err error) {
-	log := alamos.L(i)
-	log.Debug("idx distance",
+func (i *Ranger) Distance(ctx context.Context, tr telem.TimeRange, continuous bool) (approx DistanceApproximation, err error) {
+	i.L.Debug("distance",
 		zap.Stringer("timeRange", tr),
 		zap.Bool("continuous", continuous),
 	)
 	var startApprox, endApprox DistanceApproximation
+	ctx, span := i.T.Trace(ctx, "distance", alamos.DebugLevel)
 	defer func() {
-		log.Debug("idx distance done",
+		i.L.Debug("idx distance done",
 			zap.Stringer("timeRange", tr),
 			zap.Stringer("count", approx),
 			zap.Bool("continuous", continuous),
 			zap.Stringer("startApprox", startApprox),
 			zap.Stringer("endApprox", endApprox),
-			logutil.DebugError(err),
+			alamos.DebugError(span.EndWith(err, ErrDiscontinuous)),
 		)
 	}()
 
@@ -113,18 +113,23 @@ func (i *Ranger) Distance(tr telem.TimeRange, continuous bool) (approx DistanceA
 }
 
 // Stamp implements Index.
-func (i *Ranger) Stamp(ref telem.TimeStamp, offset int64, continuous bool) (approx TimeStampApproximation, err error) {
-	log := alamos.L(i)
-	log.Debug("idx stamp",
+func (i *Ranger) Stamp(
+	ctx context.Context,
+	ref telem.TimeStamp,
+	offset int64,
+	continuous bool,
+) (approx TimeStampApproximation, err error) {
+	i.L.Debug("stamp",
 		zap.Stringer("ref", ref),
 		zap.Int64("offset", offset),
 	)
+	ctx, span := i.T.Trace(ctx, "stamp", alamos.DebugLevel)
 	defer func() {
-		log.Debug("idx stamp done",
+		i.L.Debug("idx stamp done",
 			zap.Stringer("ref", ref),
 			zap.Int64("offset", offset),
 			zap.Stringer("approx", approx),
-			logutil.DebugError(err),
+			alamos.DebugError(span.EndWith(err, ErrDiscontinuous)),
 		)
 	}()
 

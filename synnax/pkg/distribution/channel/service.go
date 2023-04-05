@@ -28,17 +28,17 @@ type service struct {
 }
 
 type Service interface {
-	RetrieveFactory
-	WriterFactory
+	Readable
+	Writeable
 	ontology.Service
 }
 
-type WriterFactory interface {
-	NewWriter() Writer
+type Writeable interface {
+	NewWriter(writer gorp.Writer) Writer
 }
 
-type RetrieveFactory interface {
-	NewRetrieve() Retrieve
+type Readable interface {
+	NewRetrieve(reader gorp.Reader) Retrieve
 }
 
 type ServiceConfig struct {
@@ -72,7 +72,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 var DefaultConfig = ServiceConfig{}
 
 func New(configs ...ServiceConfig) (Service, error) {
-	cfg, err := config.OverrideAndValidate(DefaultConfig, configs...)
+	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
@@ -83,8 +83,6 @@ func New(configs ...ServiceConfig) (Service, error) {
 	return &service{clusterDB: cfg.ClusterDB, proxy: proxy}, nil
 }
 
-func (s *service) NewWriter() Writer { return Writer{proxy: s.proxy, txn: s.clusterDB} }
+func (s *service) NewWriter(writer gorp.Writer) Writer { return Writer{proxy: s.proxy, writer: writer} }
 
-func (s *service) NewWriterWithTxn(txn gorp.Txn) Writer { return Writer{proxy: s.proxy, txn: txn} }
-
-func (s *service) NewRetrieve() Retrieve { return NewRetrieve(s.clusterDB) }
+func (s *service) NewRetrieve(reader gorp.Reader) Retrieve { return NewRetrieve(reader) }

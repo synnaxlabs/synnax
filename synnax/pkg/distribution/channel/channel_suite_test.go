@@ -41,7 +41,7 @@ func provisionServices(logger *zap.Logger) (*mock.CoreBuilder, map[core.NodeID]c
 		net      = tmock.NewChannelNetwork()
 		builder  = mock.NewCoreBuilder(distribution.Config{
 			Logger:  logger,
-			Storage: storage.Config{MemBacked: config.BoolPointer(true)},
+			Storage: storage.Config{MemBacked: config.Bool(true)},
 		})
 		core1 = builder.New()
 		core2 = builder.New()

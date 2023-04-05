@@ -20,7 +20,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Writer Behavior", func() {
+var _ = Describe("TypedWriter Behavior", func() {
 	Describe("Index", func() {
 		var db *unary.DB
 		BeforeEach(func() {

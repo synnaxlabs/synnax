@@ -67,13 +67,13 @@ var _ = Describe("Create", func() {
 			Expect(exists).To(BeTrue())
 		})
 	})
-	Describe("txn", func() {
+	Describe("TypedWriter", func() {
 		It("Should execute operations within a transaction", func() {
 			var (
 				entries []entry
 				keys    []int
 			)
-			txn := db.BeginTxn()
+			txn := db.NewWriter()
 			for i := 0; i < 10; i++ {
 				entries = append(entries, entry{ID: i, Data: "data"})
 				keys = append(keys, i)

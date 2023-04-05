@@ -38,7 +38,7 @@ var _ = Describe("Store", func() {
 	})
 	Describe("Observable", func() {
 		It("Should initialize an observable store correctly", func() {
-			s := store.ObservableWrap(store.New(copyState), store.ObservableConfig[state]{GoNotify: config.BoolPointer(false)})
+			s := store.ObservableWrap(store.New(copyState), store.ObservableConfig[state]{GoNotify: config.Bool(false)})
 			var changedState state
 			s.OnChange(func(s state) { changedState = s })
 			s.SetState(state{value: 2})

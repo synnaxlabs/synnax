@@ -29,33 +29,33 @@ type IterValidityState = pebble.IterValidityState
 
 // Reader is a readable key-value store.
 type Reader interface {
+	Context() context.Context
 	// Get returns the value for the given key.
-	Get(ctx context.Context, key []byte, opts ...interface{}) ([]byte, error)
+	Get(key []byte, opts ...interface{}) ([]byte, error)
 	// NewIterator returns an Iterator using the given IteratorOptions.
-	NewIterator(ctx context.Context, opts IteratorOptions) Iterator
+	NewIterator(opts IteratorOptions) Iterator
 }
 
-// Writer is a writeable key-value store.
-type Writer interface {
-	// Set sets the value for the given key. It is safe to modify the contents of key
-	// and value after Set returns.
-	Set(ctx context.Context, key []byte, value []byte, opts ...interface{}) error
-	// Delete removes the value for the given key. It is safe to modify the contents
-	// of key after Delete returns.
-	Delete(ctx context.Context, key []byte) error
+type Readable interface {
+	NewReader(ctx context.Context) Reader
 }
 
-type BatchWriter interface {
-	// NewBatch returns a read-write batch. Any reads on the batch will read both from
-	// the batch and the DB. If the batch is committed it will be applied to the DB.
-	NewBatch() Batch
+type Writeable interface {
+	NewWriter(ctx context.Context) Writer
 }
 
 // DB represents a general key-value store.
 type DB interface {
-	Writer
-	BatchWriter
-	Reader
+	Readable
+	Writeable
 	io.Closer
-	alamos.Reporter
+	alamos.ReportProvider
+}
+
+func Get(ctx context.Context, db DB, key []byte) ([]byte, error) {
+	return db.NewReader(ctx).Get(key)
+}
+
+func Set(ctx context.Context, db DB, key, value []byte) error {
+	return db.NewWriter(ctx).Set(key, value)
 }

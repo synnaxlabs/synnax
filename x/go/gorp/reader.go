@@ -14,34 +14,34 @@ import (
 	"github.com/synnaxlabs/x/kv"
 )
 
-// KVIterator provides a simple wrapper around a kv.Write that decodes a byte-value
+// TypedIterator provides a simple wrapper around a kv.Write that decodes a byte-value
 // before returning it to the caller. It provides no abstracted utilities for the
 // iteration itself, and is focused only on maintaining a nearly identical interface to
-// the underlying iterator. To create a new KVIterator, call WrapKVIter.
-type KVIterator[E any] struct {
+// the underlying iterator. To create a new TypedIterator, call NewTypedIter.
+type TypedIterator[E any] struct {
 	kv.Iterator
 	error error
 	options
 }
 
-// WrapKVIter wraps the provided iterator. All valid calls to iter.Value are
+// NewTypedIter wraps the provided iterator. All valid calls to iter.Value are
 // decoded into the entry type E.
-func WrapKVIter[E any](iter kv.Iterator, opts ...Option) *KVIterator[E] {
-	return &KVIterator[E]{Iterator: iter, options: newOptions(opts...)}
+func NewTypedIter[E any](wrapped kv.Iterator, opts ...Option) *TypedIterator[E] {
+	return &TypedIterator[E]{Iterator: wrapped, options: newOptions(opts...)}
 }
 
 // Value returns the decoded value from the iterator. Iter.Alive must be true
 // for calls to return a valid value.
-func (k *KVIterator[E]) Value() (entry E) { k.BindValue(&entry); return entry }
+func (k *TypedIterator[E]) Value() (entry E) { k.BindValue(&entry); return entry }
 
-func (k *KVIterator[E]) BindValue(entry *E) {
+func (k *TypedIterator[E]) BindValue(entry *E) {
 	k.error = k.decoder.Decode(k.Iterator.Value(), entry)
 }
 
-func (k *KVIterator[E]) Error() error {
+func (k *TypedIterator[E]) Error() error {
 	return lo.Ternary(k.error != nil, k.error, k.Iterator.Error())
 }
 
-func (k *KVIterator[E]) Valid() bool {
+func (k *TypedIterator[E]) Valid() bool {
 	return lo.Ternary(k.error != nil, false, k.Iterator.Valid())
 }

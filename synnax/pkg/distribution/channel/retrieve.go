@@ -10,7 +10,6 @@
 package channel
 
 import (
-	"context"
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/x/query"
 
@@ -22,13 +21,13 @@ import (
 // Retrieve is used to retrieve information about Channel(s) in delta's distribution
 // layer.
 type Retrieve struct {
-	gorp gorp.Retrieve[Key, Channel]
-	keys Keys
-	db   *gorp.DB
+	gorp   gorp.Retrieve[Key, Channel]
+	keys   Keys
+	reader gorp.Reader
 }
 
-func NewRetrieve(DB *gorp.DB) Retrieve {
-	return Retrieve{gorp: gorp.NewRetrieve[Key, Channel](), db: DB}
+func NewRetrieve(reader gorp.Reader) Retrieve {
+	return Retrieve{gorp: gorp.NewRetrieve[Key, Channel](), reader: reader}
 }
 
 // Entry binds the Channel that Retrieve will fill results into. This is an identical
@@ -60,20 +59,16 @@ func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 	return r
 }
 
-// WithTxn binds a transaction the query will be executed within. If the option is not set,
-// the query will be executed directly against the service database.
-func (r Retrieve) WithTxn(txn gorp.Txn) Retrieve { gorp.SetTxn(r.gorp, txn); return r }
-
 // Exec executes the query, binding
-func (r Retrieve) Exec(ctx context.Context) error {
-	return r.maybeEnrichError(r.gorp.Exec(ctx, gorp.GetTxn(r.gorp, r.db)))
+func (r Retrieve) Exec() error {
+	return r.maybeEnrichError(r.gorp.Exec(r.reader))
 }
 
 // Exists checks if the query has results matching its parameters. If used in conjunction
 // with WhereKeys, Exists will ONLY return true if ALL the keys have a matching Channel.
 // Otherwise, Exists returns true if the query has ANY results.
-func (r Retrieve) Exists(ctx context.Context) (bool, error) {
-	return r.gorp.Exists(ctx, gorp.GetTxn(r.gorp, r.db))
+func (r Retrieve) Exists(reader gorp.Reader) (bool, error) {
+	return r.gorp.Exists(reader)
 }
 
 func (r Retrieve) maybeEnrichError(err error) error {

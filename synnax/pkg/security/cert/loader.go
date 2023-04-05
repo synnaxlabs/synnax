@@ -87,7 +87,7 @@ type Loader struct{ LoaderConfig }
 // configuration is invalid. If the directory at LoaderConfig.CertsDir does not exist,
 // it is created.
 func NewLoader(configs ...LoaderConfig) (*Loader, error) {
-	cfg, err := config.OverrideAndValidate(DefaultLoaderConfig, configs...)
+	cfg, err := config.New(DefaultLoaderConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +179,7 @@ func (l *Loader) readAll(path string) ([]byte, error) {
 	}
 	defer func() {
 		if err := f.Close(); err != nil {
-			alamos.L(l).Error("failed to close file", zap.String("path", path), zap.Error(err))
+			l.L.Error("failed to close file", zap.String("path", path), zap.Error(err))
 		}
 	}()
 	return io.ReadAll(f)

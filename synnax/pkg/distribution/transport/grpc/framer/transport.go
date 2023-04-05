@@ -62,7 +62,7 @@ var (
 // New creates a new grpc Transport that opens connections from the given pool.
 func New(pool *fgrpc.Pool) Transport {
 	return Transport{
-		Reporter: fgrpc.Reporter,
+		ReportProvider: fgrpc.Reporter,
 		writer: writerTransport{
 			client: &writerClient{
 				Pool:               pool,
@@ -116,7 +116,7 @@ func (t *iteratorServer) Iterate(server framerv1.IteratorService_IterateServer) 
 
 // Transport is a grpc backed implementation of the framer.Transport interface.
 type Transport struct {
-	alamos.Reporter
+	alamos.ReportProvider
 	writer   writerTransport
 	iterator iteratorTransport
 }

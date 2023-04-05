@@ -9,62 +9,54 @@
 
 package gorp
 
-import (
-	"context"
-	"github.com/synnaxlabs/x/kv"
-)
+// TypedWriter represents a generalized key-value transaction that executes atomically against
+// an underlying database. DB implements the TypedWriter interface, which will execute
+// queries directly against the DB. To open an isolated transaction against the DB, use
+// DB.NewWriter.
+type TypedWriter[K Key, E Entry[K]] struct{ Writer }
 
-type KVBatch[K Key, E Entry[K]] struct {
-	kv.Batch
-	opts options
+func NewTypedWriter[K Key, E Entry[K]](writer Writer) *TypedWriter[K, E] {
+	return &TypedWriter[K, E]{Writer: writer}
 }
 
-func WrapKVBatch[K Key, E Entry[K]](batch kv.Batch, opts ...Option) *KVBatch[K, E] {
-	return &KVBatch[K, E]{Batch: batch, opts: newOptions(opts...)}
-}
-
-func (w *KVBatch[K, E]) Write(ctx context.Context, entry E) error {
-	prefix := typePrefix[K, E](w.opts)
-	data, err := w.opts.encoder.Encode(entry)
+func (w *TypedWriter[K, E]) Write(entry E) error {
+	prefix := typePrefix[K, E](w.options)
+	data, err := w.encoder.Encode(entry)
 	if err != nil {
 		return err
 	}
-	key, err := w.opts.encoder.Encode(entry.GorpKey())
+	key, err := w.encoder.Encode(entry.GorpKey())
 	if err != nil {
 		return err
 	}
 	// NOTE: We need to be careful with this operation in the future.
 	// Because we aren't copying prefix, we're modifying the underlying slice.
 	prefixedKey := append(prefix, key...)
-	if err = w.Set(ctx, prefixedKey, data, entry.SetOptions()...); err != nil {
+	if err = w.Set(prefixedKey, data, entry.SetOptions()...); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (w *KVBatch[K, E]) WriteMany(ctx context.Context, entries []E) error {
+func (w *TypedWriter[K, E]) WriteMany(entries []E) error {
 	for _, entry := range entries {
-		if err := w.Write(ctx, entry); err != nil {
+		if err := w.Write(entry); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (w *KVBatch[K, E]) Delete(ctx context.Context, key K) error {
-	prefix := typePrefix[K, E](w.opts)
-	data, err := w.opts.encoder.Encode(key)
+func (w *TypedWriter[K, E]) Delete(key K) error {
+	prefix := typePrefix[K, E](w.options)
+	data, err := w.encoder.Encode(key)
 	if err != nil {
 		return err
 	}
 	// NOTE: We need to be careful with this operation in the future.
 	// Because we aren't copying prefix, we're modifying the underlying slice.
-	if err = w.Batch.Delete(ctx, append(prefix, data...)); err != nil {
+	if err = w.Writer.Delete(append(prefix, data...)); err != nil {
 		return err
 	}
 	return nil
-}
-
-func (w *KVBatch[K, E]) options() options {
-	return w.opts
 }

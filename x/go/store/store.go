@@ -124,8 +124,8 @@ func (o ObservableConfig[S]) Validate() error {
 }
 
 func ObservableWrap[S State](store Store[S], cfgs ...ObservableConfig[S]) Observable[S] {
-	cfg, _ := config.OverrideAndValidate(ObservableConfig[S]{
-		GoNotify: config.BoolPointer(true),
+	cfg, _ := config.New(ObservableConfig[S]{
+		GoNotify: config.Bool(true),
 	}, cfgs...)
 	return &observable[S]{ObservableConfig: cfg, Store: store, Observer: observe.New[S]()}
 }

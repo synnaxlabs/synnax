@@ -154,8 +154,8 @@ func (r *routine) runPrelude() (ctx context.Context, proceed bool) {
 	r.state.state = Running
 	r.ctx.mu.Unlock()
 
-	alamos.L(r.ctx).Debug("starting routine", r.logArgs()...)
-	ctx, r.span = alamos.TraceI(r.ctx, r.ctx, r.key)
+	r.ctx.L.Debug("starting routine", r.zapFields()...)
+	ctx, r.span = r.ctx.T.Trace(r.ctx, r.key, alamos.InfoLevel)
 
 	return ctx, true
 }
@@ -164,8 +164,7 @@ func (r *routine) runPostlude(err error) {
 	r.maybeRecover()
 	defer r.maybeRecover()
 
-	log := alamos.L(r.ctx)
-	log.Debug("stopping routine", r.logArgs()...)
+	r.ctx.L.Debug("stopping routine", r.zapFields()...)
 
 	r.ctx.mu.Lock()
 	r.state.state = Stopping
@@ -179,16 +178,15 @@ func (r *routine) runPostlude(err error) {
 	defer r.ctx.mu.Unlock()
 
 	if err != nil {
-		r.span.Error(err)
+		r.span.Error(err, context.Canceled)
 		// Only non-context errors are considered failures.
 		if err == context.Canceled || err == context.DeadlineExceeded {
 			r.state.state = ContextCanceled
 		} else {
-			r.span.Status(alamos.Error)
 			r.state.state = Failed
 			r.state.err = err
-			log.Error("routine failed", r.logArgs()...)
-			log.Sugar().Debugf(routineFailedFormat, r.key, r.state.err, r.ctx.routineDiagnostics())
+			r.ctx.L.Error("routine failed", r.zapFields()...)
+			r.ctx.L.Debugf(routineFailedFormat, r.key, r.state.err, r.ctx.routineDiagnostics())
 		}
 		if r.contextPolicy.cancelOnExitErr {
 			r.ctx.cancel()
@@ -205,7 +203,7 @@ func (r *routine) runPostlude(err error) {
 
 	r.ctx.maybeStop()
 
-	log.Debug("routine stopped", r.logArgs()...)
+	r.ctx.L.Debug("routine stopped", r.zapFields()...)
 }
 
 func (r *routine) maybeRecover() {
@@ -213,20 +211,18 @@ func (r *routine) maybeRecover() {
 		r.ctx.mu.Lock()
 		defer r.ctx.mu.Unlock()
 		r.state.state = Panicked
-		log := alamos.L(r.ctx)
-		log.Warn("routine panicked")
-		log.Sugar().Debugf(routineFailedFormat, r.key, err, r.ctx.routineDiagnostics())
+		r.ctx.L.Error("routine panicked")
+		r.ctx.L.Debugf(routineFailedFormat, r.key, err, r.ctx.routineDiagnostics())
 		if err, ok := err.(error); ok {
 			r.state.err = err
 			r.span.Error(err)
 		}
-		r.span.Status(alamos.Error)
 		r.span.End()
 		panic(err)
 	}
 }
 
-func (r *routine) logArgs() []zap.Field {
+func (r *routine) zapFields() []zap.Field {
 	opts := []zap.Field{
 		zap.String("key", r.key),
 		zap.Uint8("state", uint8(r.state.state)),

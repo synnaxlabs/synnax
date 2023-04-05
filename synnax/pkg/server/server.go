@@ -39,7 +39,7 @@ type Config struct {
 	Debug *bool
 }
 
-// Report implements the alamos.Reporter interface.
+// Report implements the alamos.ReportProvider interface.
 func (c Config) Report() alamos.Report {
 	base := c.Security.Report()
 	base["listenAddress"] = c.ListenAddress
@@ -60,20 +60,20 @@ type SecurityConfig struct {
 	TLS *tls.Config
 }
 
-// Report implements the alamos.Reporter interface.
+// Report implements the alamos.ReportProvider interface.
 func (s SecurityConfig) Report() alamos.Report {
 	return alamos.Report{"insecure": *s.Insecure}
 }
 
 var (
-	_ alamos.Reporter       = Config{}
-	_ alamos.Reporter       = SecurityConfig{}
+	_ alamos.ReportProvider = Config{}
+	_ alamos.ReportProvider = SecurityConfig{}
 	_ config.Config[Config] = Config{}
 	// DefaultConfig is the default server configuration.
 	DefaultConfig = Config{
-		Debug: config.BoolPointer(false),
+		Debug: config.Bool(false),
 		Security: SecurityConfig{
-			Insecure: config.BoolPointer(false),
+			Insecure: config.Bool(false),
 		},
 	}
 )
@@ -107,7 +107,7 @@ type Server struct {
 // New creates a new server using the specified configuration. The server must be started
 // using the Serve method. If the configuration is invalid, an error is returned.
 func New(configs ...Config) (*Server, error) {
-	cfg, err := config.OverrideAndValidate(DefaultConfig, configs...)
+	cfg, err := config.New(DefaultConfig, configs...)
 	return &Server{Config: cfg}, err
 }
 
@@ -115,7 +115,7 @@ func New(configs ...Config) (*Server, error) {
 // error if the server exits abnormally (i.e. it wil ignore any errors emitted during
 // standard shutdown procedure).
 func (s *Server) Serve() (err error) {
-	alamos.L(s).Debug("starting server", s.Report().ZapFields()...)
+	s.L.Debug("starting server", s.Report().ZapFields()...)
 	sCtx, cancel := signal.Background(signal.WithInstrumentation(s.Instrumentation))
 	s.wg = sCtx
 	defer cancel()
@@ -182,7 +182,7 @@ func (s *Server) startBranches(
 		return
 	}
 
-	alamos.L(s).Debug(
+	s.L.Debug(
 		"starting branches",
 		zap.Strings("branches", branchKeys(branches)),
 		zap.Bool("insecureMux", insecureMux),

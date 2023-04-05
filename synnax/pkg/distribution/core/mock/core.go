@@ -41,8 +41,8 @@ type CoreBuilder struct {
 // NewCoreBuilder opens a new CoreBuilder that provisions cores using the given
 // configuration.
 func NewCoreBuilder(configs ...distribution.Config) *CoreBuilder {
-	cfg, err := config.OverrideAndValidate(distribution.DefaultConfig, append([]distribution.Config{{
-		Storage: storage.Config{MemBacked: config.BoolPointer(true)},
+	cfg, err := config.New(distribution.DefaultConfig, append([]distribution.Config{{
+		Storage: storage.Config{MemBacked: config.Bool(true)},
 	}}, configs...)...)
 	if err != nil {
 		panic(err)
@@ -73,7 +73,7 @@ func (cb *CoreBuilder) New() core.Core {
 		cb.peerAddresses(),
 		aspen.WithEngine(store.KV),
 		aspen.WithInstrumentation(cb.Config.Experiment),
-		aspen.WithLogger(cb.Config.Logger.Named("aspen").Sugar()),
+		aspen.WithLogger(cb.Config.logger.Named("aspen").Sugar()),
 		aspen.WithTransport(trans),
 		aspen.WithPropagationConfig(aspen.FastPropagationConfig),
 	))

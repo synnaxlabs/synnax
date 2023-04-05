@@ -23,11 +23,15 @@ type Config[C any] interface {
 	Validate() error
 }
 
-func OverrideAndValidate[C Config[C]](base C, overrides ...C) (C, error) {
+func New[C Config[C]](base C, overrides ...C) (C, error) {
 	for _, override := range overrides {
 		base = base.Override(override)
 	}
 	return base, base.Validate()
 }
 
-func BoolPointer(b bool) *bool { return &b }
+func Bool(b bool) *bool { return &b }
+
+func True() *bool { return Bool(true) }
+
+func False() *bool { return Bool(false) }

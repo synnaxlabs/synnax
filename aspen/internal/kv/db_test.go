@@ -144,7 +144,7 @@ var _ = Describe("txn", func() {
 
 	})
 
-	Describe("Batch", func() {
+	Describe("TypedWriter", func() {
 		It("Should execute a batch of operations", func() {
 			kv, err := builder.New(ctx, kv.Config{}, cluster.Config{})
 			Expect(err).ToNot(HaveOccurred())

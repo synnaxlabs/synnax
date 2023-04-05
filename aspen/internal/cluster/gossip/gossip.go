@@ -26,7 +26,7 @@ type Gossip struct{ Config }
 
 // New opens a new Gossip that will spread cluster state to and from the given store.
 func New(cfgs ...Config) (*Gossip, error) {
-	cfg, err := config.OverrideAndValidate(DefaultConfig, cfgs...)
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -37,14 +37,14 @@ func New(cfgs ...Config) (*Gossip, error) {
 
 // GoGossip starts a goroutine that gossips at Config.Interval.
 func (g *Gossip) GoGossip(ctx signal.Context) {
-	alamos.AttachReporter(g, "gossip", g.Config)
-	alamos.L(g).Info("starting cluster gossip", g.Config.Report().ZapFields()...)
+	g.R.Attach("gossip", g.Config, alamos.InfoLevel)
+	g.L.Info("starting cluster gossip", g.Config.Report().ZapFields()...)
 	signal.GoTick(
 		ctx,
 		g.Interval,
 		func(ctx context.Context, t time.Time) error {
 			if err := g.GossipOnce(ctx); err != nil {
-				alamos.L(g).Error("gossip failed", zap.Error(err))
+				g.L.Error("gossip failed", zap.Error(err))
 			}
 			return nil
 		},
@@ -53,7 +53,7 @@ func (g *Gossip) GoGossip(ctx signal.Context) {
 }
 
 func (g *Gossip) GossipOnce(ctx context.Context) error {
-	ctx, span := alamos.Trace(ctx, "gossip-client")
+	ctx, span := alamos.Trace(ctx, "gossip-client", alamos.DebugLevel)
 	g.incrementHostHeartbeat()
 	snap := g.Store.CopyState()
 	peer := RandomPeer(snap.Nodes, snap.HostID)
@@ -84,7 +84,7 @@ func (g *Gossip) incrementHostHeartbeat() {
 }
 
 func (g *Gossip) process(ctx context.Context, msg Message) (Message, error) {
-	ctx, span := alamos.Trace(ctx, "gossip-server")
+	ctx, span := alamos.Trace(ctx, "gossip-server", alamos.DebugLevel)
 	defer span.End()
 	switch msg.variant() {
 	case messageVariantSync:
@@ -94,7 +94,7 @@ func (g *Gossip) process(ctx context.Context, msg Message) (Message, error) {
 		return Message{}, nil
 	}
 	err := errors.New("[gossip] - received unknown message variant")
-	alamos.L(g).Error(err.Error(), zap.Any("msg", msg))
+	g.L.Error(err.Error(), zap.Any("msg", msg))
 	return Message{}, span.EndWith(err)
 }
 

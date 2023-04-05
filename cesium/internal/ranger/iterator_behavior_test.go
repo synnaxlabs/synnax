@@ -26,7 +26,7 @@ var _ = Describe("Iterator Behavior", func() {
 	AfterEach(func() { Expect(db.Close()).To(Succeed()) })
 	Describe("Valid", func() {
 		It("Should return false on an iterator with zero span bounds", func() {
-			r := db.NewIterator(ranger.IteratorConfig{
+			r := db.NewIterator(ctx, ranger.IteratorConfig{
 				Bounds: (10 * telem.SecondTS).SpanRange(0),
 			})
 			Expect(r.Valid()).To(BeFalse())
@@ -34,8 +34,8 @@ var _ = Describe("Iterator Behavior", func() {
 	})
 	Describe("SeekFirst + SeekLast", func() {
 		BeforeEach(func() {
-			Expect(ranger.Write(db, (10 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
-			Expect(ranger.Write(db, (30 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
+			Expect(ranger.Write(ctx, db, (10 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
+			Expect(ranger.Write(ctx, db, (30 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
 		})
 		DescribeTable("SeekFirst",
 			func(
@@ -43,7 +43,7 @@ var _ = Describe("Iterator Behavior", func() {
 				expectedResult bool,
 				expectedFirst telem.TimeRange,
 			) {
-				r := db.NewIterator(ranger.IterRange(ts.SpanRange(telem.TimeSpanMax)))
+				r := db.NewIterator(ctx, ranger.IterRange(ts.SpanRange(telem.TimeSpanMax)))
 				Expect(r.SeekFirst()).To(Equal(expectedResult))
 				if expectedResult {
 					Expect(r.Range()).To(Equal(expectedFirst))
@@ -85,7 +85,7 @@ var _ = Describe("Iterator Behavior", func() {
 				expectedLast telem.TimeRange,
 			) {
 				tr := telem.TimeRange{Start: 0, End: ts}
-				r := db.NewIterator(ranger.IterRange(tr))
+				r := db.NewIterator(ctx, ranger.IterRange(tr))
 				Expect(r.SeekLast()).To(Equal(expectedResult))
 				Expect(r.Range()).To(Equal(expectedLast))
 			},
@@ -112,14 +112,14 @@ var _ = Describe("Iterator Behavior", func() {
 
 	Describe("Exhaustion", func() {
 		BeforeEach(func() {
-			Expect(ranger.Write(db, (50 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
-			Expect(ranger.Write(db, (60 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
-			Expect(ranger.Write(db, (10 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
-			Expect(ranger.Write(db, (30 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
+			Expect(ranger.Write(ctx, db, (50 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
+			Expect(ranger.Write(ctx, db, (60 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
+			Expect(ranger.Write(ctx, db, (10 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
+			Expect(ranger.Write(ctx, db, (30 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
 		})
 		Context("Forward", func() {
 			It("Should return false when the iterator is exhausted", func() {
-				iter := db.NewIterator(ranger.IteratorConfig{
+				iter := db.NewIterator(ctx, ranger.IteratorConfig{
 					Bounds: (15 * telem.SecondTS).SpanRange(45 * telem.Second),
 				})
 				Expect(iter.SeekFirst()).To(BeTrue())
@@ -133,7 +133,7 @@ var _ = Describe("Iterator Behavior", func() {
 		})
 		Context("Reverse", func() {
 			It("Should return false when the iterator is exhausted", func() {
-				iter := db.NewIterator(ranger.IteratorConfig{
+				iter := db.NewIterator(ctx, ranger.IteratorConfig{
 					Bounds: (15 * telem.SecondTS).SpanRange(45 * telem.Second),
 				})
 				Expect(iter.SeekLast()).To(BeTrue())

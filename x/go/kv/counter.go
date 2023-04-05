@@ -21,7 +21,8 @@ import (
 // PersistedCounter, call OpenCounter.
 type PersistedCounter struct {
 	atomicx.Int64Counter
-	kve    DB
+	ctx    context.Context
+	writer Writer
 	key    []byte
 	buffer []byte
 }
@@ -29,11 +30,11 @@ type PersistedCounter struct {
 // OpenCounter opens or creates a persisted counter at the given key. If
 // the counter value is found in storage, sets its internal state. If the counter
 // value is not found in storage, sets the value to 0.
-func OpenCounter(ctx context.Context, kv DB, key []byte) (*PersistedCounter, error) {
-	c := &PersistedCounter{kve: kv, key: key, buffer: make([]byte, 8)}
-	b, err := kv.Get(ctx, key)
+func OpenCounter(writer Writer, key []byte) (*PersistedCounter, error) {
+	c := &PersistedCounter{writer: writer, key: key, buffer: make([]byte, 8)}
+	b, err := writer.Get(key)
 	if err == nil {
-		_, _ = c.Int64Counter.Add(ctx, int64(binary.LittleEndian.Uint64(b)))
+		_, _ = c.Int64Counter.Add(int64(binary.LittleEndian.Uint64(b)))
 	} else if errors.Is(err, NotFound) {
 		err = nil
 	}
@@ -43,8 +44,8 @@ func OpenCounter(ctx context.Context, kv DB, key []byte) (*PersistedCounter, err
 // Add increments the counter by the sum of the given values. If no values are
 // provided, increments the counter by 1.
 // as well as any errors encountered while flushing the counter to storage.
-func (c *PersistedCounter) Add(ctx context.Context, delta ...int64) (int64, error) {
-	next, _ := c.Int64Counter.Add(ctx, delta...)
+func (c *PersistedCounter) Add(delta ...int64) (int64, error) {
+	next, _ := c.Int64Counter.Add(delta...)
 	binary.LittleEndian.PutUint64(c.buffer, uint64(next))
-	return next, c.kve.Set(ctx, c.key, c.buffer)
+	return next, c.writer.Set(c.key, c.buffer)
 }

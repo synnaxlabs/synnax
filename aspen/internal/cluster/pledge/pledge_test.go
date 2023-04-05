@@ -101,8 +101,9 @@ var _ = Describe("PledgeServer", func() {
 				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 				defer cancel()
 				res, err := pledge.Pledge(ctx, baseConfig(net, logger), pledge.Config{
-					Peers:      peers,
-					Candidates: func() node.Group { return node.Group{} },
+					Instrumentation: ins.Sub("no-nodes-responding"),
+					Peers:           peers,
+					Candidates:      func() node.Group { return node.Group{} },
 				}, pledge.BlazingFastConfig)
 				Expect(err).To(HaveOccurredAs(context.DeadlineExceeded))
 				Expect(res.ID).To(Equal(node.ID(0)))
@@ -126,8 +127,9 @@ var _ = Describe("PledgeServer", func() {
 				ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
 				defer cancel()
 				res, err := pledge.Pledge(ctx, baseConfig(net, logger), pledge.Config{
-					Peers:      nodes.Addresses(),
-					Candidates: candidates,
+					Instrumentation: ins.Sub("cluster-state-synchronized"),
+					Peers:           nodes.Addresses(),
+					Candidates:      candidates,
 				}, pledge.BlazingFastConfig)
 				Expect(err).To(BeNil())
 				Expect(res.ID).To(Equal(node.ID(10)))
@@ -184,8 +186,9 @@ var _ = Describe("PledgeServer", func() {
 					ctx,
 					baseConfig(net, logger),
 					pledge.Config{
-						Peers:      []address.Address{allCandidates()[0].Address},
-						Candidates: extraCandidates,
+						Instrumentation: ins.Sub("one-juror-aware-of-new-node"),
+						Peers:           []address.Address{allCandidates()[0].Address},
+						Candidates:      extraCandidates,
 					},
 					pledge.BlazingFastConfig,
 				)
@@ -262,8 +265,9 @@ var _ = Describe("PledgeServer", func() {
 							ctx,
 							cfg,
 							pledge.Config{
-								Candidates: candidates(0),
-								Peers:      nodes.Addresses(),
+								Instrumentation: ins.Sub("concurrent-pledges"),
+								Candidates:      candidates(0),
+								Peers:           nodes.Addresses(),
 							},
 							pledge.BlazingFastConfig,
 						)

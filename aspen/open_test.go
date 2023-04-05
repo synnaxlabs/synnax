@@ -12,7 +12,6 @@ package aspen_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/x/address"
 )
@@ -25,7 +24,7 @@ var _ = Describe("Open", func() {
 	BeforeEach(func() {
 		var err error
 		db1, err = aspen.Open(
-			alamos.Dev("aspen", false, "aspen.test.open.db1"),
+			ctx,
 			"",
 			"localhost:22646",
 			[]address.Address{},
@@ -35,7 +34,7 @@ var _ = Describe("Open", func() {
 		)
 		Expect(err).ToNot(HaveOccurred())
 		db2, err = aspen.Open(
-			alamos.Dev("aspen", false, "aspen.test.open.db2"),
+			ctx,
 			"",
 			"localhost:22647",
 			[]address.Address{"localhost:22646"},
@@ -51,7 +50,6 @@ var _ = Describe("Open", func() {
 	FIt("Should be able to join two clusters", func() {
 		Eventually(db1.Nodes).Should(HaveLen(2))
 		b := db1.NewBatch()
-		ctx := alamos.Dev("aspen", false, "aspen.test.open.db1.batch")
 		for i := 0; i < 10; i++ {
 			Expect(b.Set(ctx, []byte("key"), []byte("value"), aspen.NodeID(2))).To(Succeed())
 		}

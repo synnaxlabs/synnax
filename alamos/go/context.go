@@ -11,31 +11,19 @@ package alamos
 
 import (
 	"context"
+	"github.com/samber/lo"
 )
 
-// Sub returns new Instrumentation with the given key and options and a context
-// with the Instrumentation attached.
-func Sub(ctx context.Context, key string) context.Context {
-	ins, ok := Extract(ctx)
-	if !ok {
-		return ctx
-	}
-	return Attach(ctx, ins.Sub(key))
-}
-
-// Attach attaches the given Instrumentation to the given context.
-func Attach(ctx context.Context, ins *Instrumentation) context.Context {
+// attach attaches the given Instrumentation to the given context.
+func attach(ctx context.Context, ins Instrumentation) context.Context {
 	return context.WithValue(ctx, contextKey, ins)
 }
 
 const contextKey = "alamos-instrumentation"
 
-// Extract extracts the Instrumentation from the given context.
+// extract extracts the Instrumentation from the given context.
 // If the Instrumentation is not present, ok will be false.
-func Extract(ctx context.Context) (*Instrumentation, bool) {
+func extract(ctx context.Context) Instrumentation {
 	v := ctx.Value(contextKey)
-	if v == nil {
-		return nil, false
-	}
-	return v.(*Instrumentation), true
+	return lo.Ternary(v != nil, v.(Instrumentation), Instrumentation{})
 }

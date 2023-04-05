@@ -54,7 +54,7 @@ func (cfg Config) Validate() error {
 	return v.Error()
 }
 
-// Report implements the alamos.Reporter interface. Assumes the config is valid.
+// Report implements the alamos.ReportProvider interface. Assumes the config is valid.
 func (cfg Config) Report() alamos.Report {
 	return alamos.Report{
 		"interval":        cfg.Interval,

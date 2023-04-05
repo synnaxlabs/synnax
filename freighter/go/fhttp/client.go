@@ -45,7 +45,7 @@ type ClientFactory struct {
 }
 
 func NewClientFactory(configs ...ClientFactoryConfig) *ClientFactory {
-	cfg, err := config.OverrideAndValidate(DefaultClientConfig, configs...)
+	cfg, err := config.New(DefaultClientConfig, configs...)
 	if err != nil {
 		panic(err)
 	}

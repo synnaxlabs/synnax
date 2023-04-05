@@ -10,12 +10,12 @@
 package unary
 
 import (
+	"context"
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/ranger"
-	"github.com/synnaxlabs/x/logutil"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 	"io"
@@ -25,6 +25,7 @@ type Iterator struct {
 	alamos.Instrumentation
 	IteratorConfig
 	Channel  core.Channel
+	ctx      context.Context
 	internal *ranger.Iterator
 	view     telem.TimeRange
 	frame    core.Frame
@@ -112,7 +113,7 @@ func (i *Iterator) Next(span telem.TimeSpan) (ok bool) {
 
 func (i *Iterator) autoNext() bool {
 	i.view.Start = i.view.End
-	endApprox, err := i.idx.Stamp(i.view.Start, i.IteratorConfig.AutoChunkSize, false)
+	endApprox, err := i.idx.Stamp(i.ctx, i.view.Start, i.IteratorConfig.AutoChunkSize, false)
 	if err != nil {
 		i.err = err
 		return false
@@ -265,7 +266,7 @@ func (i *Iterator) sliceRange() (telem.Offset, telem.Size, error) {
 func (i *Iterator) approximateStart() (startApprox index.DistanceApproximation, err error) {
 	if i.internal.Range().Start.Before(i.view.Start) {
 		target := i.internal.Range().Start.Range(i.view.Start)
-		startApprox, err = i.idx.Distance(target, true)
+		startApprox, err = i.idx.Distance(i.ctx, target, true)
 	}
 	return
 }
@@ -278,7 +279,7 @@ func (i *Iterator) approximateEnd() (endApprox index.DistanceApproximation, err 
 	endApprox = index.Exactly(i.Channel.DataType.Density().SampleCount(telem.Size(i.internal.Len())))
 	if i.internal.Range().End.After(i.view.End) {
 		target := i.internal.Range().Start.Range(i.view.End)
-		endApprox, err = i.idx.Distance(target, true)
+		endApprox, err = i.idx.Distance(i.ctx, target, true)
 	}
 	return
 }
@@ -309,11 +310,10 @@ func (i *Iterator) atStart() bool { return i.view.Start == i.bounds.Start }
 func (i *Iterator) atEnd() bool { return i.view.End == i.bounds.End }
 
 func (i *Iterator) log(msg string, fields ...zap.Field) {
-	fields = append(
+	i.L.Debug(msg, append(
 		fields,
 		zap.String("channel", i.Channel.Key),
 		zap.Stringer("view", i.view),
-		logutil.DebugError(i.err),
-	)
-	alamos.L(i).Debug(msg, fields...)
+		alamos.DebugError(i.err),
+	)...)
 }

@@ -68,8 +68,8 @@ type dbProvider struct {
 // Returns errors.Nil if the commit process is successful. Returns an unexpected
 // error if the abort process fails; otherwise, returns the error returned by the provided
 // function.
-func (db dbProvider) WithTxn(ctx context.Context, f func(txn gorp.Txn) errors.Typed) (tErr errors.Typed) {
-	txn := db.db.BeginTxn()
+func (db dbProvider) WithTxn(ctx context.Context, f func(txn gorp.Writer) errors.Typed) (tErr errors.Typed) {
+	txn := db.db.NewWriter(ctx)
 	defer func() {
 		if err := txn.Close(); err != nil {
 			tErr = errors.Unexpected(err)

@@ -76,7 +76,7 @@ func (cfg Config) Validate() error {
 	return v.Error()
 }
 
-// Report implements the alamos.Reporter interface.
+// Report implements the alamos.ReportProvider interface.
 func (cfg Config) Report() alamos.Report {
 	report := make(alamos.Report)
 	if cfg.Storage != nil {

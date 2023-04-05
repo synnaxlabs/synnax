@@ -65,7 +65,7 @@ type ServiceConfig struct {
 	// ChannelReader is used to resolve metadata and routing information for the provided
 	// keys.
 	// [REQUIRED]
-	ChannelReader channel.RetrieveFactory
+	ChannelReader channel.Readable
 	// HostResolver is used to resolve the host address for nodes in the cluster in order
 	// to route writes.
 	// [REQUIRED]
@@ -117,7 +117,7 @@ type Service struct {
 // OpenService opens the writer service using the given configuration. Also binds a server
 // to the given transport for receiving writes from other nodes in the cluster.
 func OpenService(configs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.OverrideAndValidate(DefaultConfig, configs...)
+	cfg, err := config.New(DefaultConfig, configs...)
 	return &Service{ServiceConfig: cfg, server: startServer(cfg)}, err
 }
 

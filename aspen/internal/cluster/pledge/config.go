@@ -96,7 +96,7 @@ func (cfg Config) Validate() error {
 	return v.Error()
 }
 
-// Report implements the alamos.Reporter interface. Assumes the Config is valid.
+// Report implements the alamos.ReportProvider interface. Assumes the Config is valid.
 func (cfg Config) Report() alamos.Report {
 	report := make(alamos.Report)
 	report["clusterKey"] = cfg.ClusterKey.String()

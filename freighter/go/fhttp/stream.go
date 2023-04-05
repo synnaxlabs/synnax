@@ -296,7 +296,7 @@ func (s *streamServer[RQ, RS]) fiberHandler(c *fiber.Ctx) error {
 								return
 							}
 							if err != nil {
-								alamos.L(s).Error("expected normal closure, received error instead", zap.Error(err))
+								s.L.Error("expected normal closure, received error instead", zap.Error(err))
 								return
 							}
 						}
@@ -306,7 +306,7 @@ func (s *streamServer[RQ, RS]) fiberHandler(c *fiber.Ctx) error {
 					case <-stream.ctx.Done():
 						break
 					case <-time.After(500 * time.Millisecond):
-						alamos.L(s).Warn("timed out waiting for client to acknowledge closure")
+						s.L.Warn("timed out waiting for client to acknowledge closure")
 						break
 					case <-clientCloseAck:
 						break
@@ -315,7 +315,7 @@ func (s *streamServer[RQ, RS]) fiberHandler(c *fiber.Ctx) error {
 					stream.cancel()
 					return nil
 				}(); err != nil {
-					alamos.L(s).Error("stream server handler error", zap.Error(err))
+					s.L.Error("stream server handler error", zap.Error(err))
 				}
 			})(c)
 		}))

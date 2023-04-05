@@ -25,7 +25,7 @@ import (
 	"io"
 )
 
-var _ = Describe("Writer", func() {
+var _ = Describe("TypedWriter", func() {
 	Describe("Happy Path", Ordered, func() {
 		scenarios := []func() scenario{
 			gatewayOnlyScenario,

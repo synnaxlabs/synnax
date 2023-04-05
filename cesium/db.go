@@ -88,7 +88,7 @@ var _ DB = (*cesium)(nil)
 
 // Write implements DB.
 func (db *cesium) Write(ctx context.Context, start telem.TimeStamp, frame Frame) error {
-	_, span := alamos.Trace(ctx, "write")
+	_, span := alamos.Trace(ctx, "write", alamos.DebugLevel)
 	defer span.End()
 	w, err := db.NewWriter(ctx, WriterConfig{Start: start, Channels: frame.Keys()})
 	if err != nil {

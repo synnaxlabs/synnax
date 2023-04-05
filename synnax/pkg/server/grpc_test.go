@@ -25,9 +25,9 @@ var _ = Describe("Grpc", func() {
 		b := MustSucceed(server.New(server.Config{
 			ListenAddress: "localhost:26260",
 			Security: server.SecurityConfig{
-				Insecure: config.BoolPointer(true),
+				Insecure: config.Bool(true),
 			},
-			Debug:  config.BoolPointer(true),
+			Debug:  config.Bool(true),
 			Logger: zap.NewNop(),
 			Branches: []server.Branch{
 				&server.GRPCBranch{},

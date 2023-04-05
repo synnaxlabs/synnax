@@ -42,12 +42,12 @@ var _ = Describe("Legislator", func() {
 		Expect(db.Close()).To(Succeed())
 	})
 	It("Should save a new policy", func() {
-		txn := db.BeginTxn()
+		txn := db.NewWriter()
 		// Giving a user the rights to change their own password
 		Expect(legislator.Create(txn, changePasswordPolicy)).To(Succeed())
 	})
 	It("Should retrieve a policy", func() {
-		txn := db.BeginTxn()
+		txn := db.NewWriter()
 		// Giving a user the rights to change their own password
 		Expect(legislator.Create(txn, changePasswordPolicy)).To(Succeed())
 		Expect(txn.Commit()).To(Succeed())

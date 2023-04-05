@@ -10,7 +10,6 @@
 package ontology
 
 import (
-	"context"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 )
@@ -18,16 +17,16 @@ import (
 // Retrieve implements a set of methods for retrieving resources and traversing their
 // relationships in teh ontology.
 type Retrieve struct {
-	txn   gorp.Txn
-	exec  func(ctx context.Context, r Retrieve) error
-	query *gorp.CompoundRetrieve[ID, Resource]
+	query     *gorp.CompoundRetrieve[ID, Resource]
+	registrar serviceRegistrar
+	txn       gorp.Reader
 }
 
-func newRetrieve(txn gorp.Txn, exec func(ctx context.Context, r Retrieve) error) Retrieve {
+func newRetrieve(registrar serviceRegistrar, txn gorp.Reader) Retrieve {
 	r := Retrieve{
-		txn:   txn,
-		query: &gorp.CompoundRetrieve[ID, Resource]{},
-		exec:  exec,
+		query:     &gorp.CompoundRetrieve[ID, Resource]{},
+		registrar: registrar,
+		txn:       txn,
 	}
 	r.query.Next()
 	return r
@@ -115,12 +114,27 @@ func (r Retrieve) Entries(res *[]Resource) Retrieve {
 	return r
 }
 
-// WithTxn sets the transaction that the query will use. If not called,
-// Retrieve uses the Ontology's database.
-func (r Retrieve) WithTxn(txn gorp.Txn) Retrieve { r.txn = txn; return r }
-
 // Exec executes the query.
-func (r Retrieve) Exec(ctx context.Context) error { return r.exec(ctx, r) }
+func (r Retrieve) Exec() error {
+	var nextIDs []ID
+	for i, clause := range r.query.Clauses {
+		if i != 0 {
+			clause.WhereKeys(nextIDs...)
+		}
+		if err := clause.Exec(r.txn); err != nil {
+			return err
+		}
+		atLast := len(r.query.Clauses) == i+1
+		resources, err := r.retrieveEntities(clause)
+		if err != nil || len(resources) == 0 || atLast {
+			return err
+		}
+		if nextIDs, err = r.traverse(getTraverser(clause), resources); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 const traverseOptKey = "traverse"
 
@@ -132,35 +146,12 @@ func getTraverser(q query.Query) Traverser {
 	return q.GetRequired(traverseOptKey).(Traverser)
 }
 
-type retrieve struct {
-	services serviceRegistrar
-}
-
-func (r retrieve) exec(ctx context.Context, q Retrieve) error {
-	var nextIDs []ID
-	for i, clause := range q.query.Clauses {
-		if i != 0 {
-			clause.WhereKeys(nextIDs...)
-		}
-		if err := clause.Exec(ctx, q.txn); err != nil {
-			return err
-		}
-		atLast := len(q.query.Clauses) == i+1
-		resources, err := r.retrieveEntities(ctx, clause)
-		if err != nil || len(resources) == 0 || atLast {
-			return err
-		}
-		if nextIDs, err = r.traverse(ctx, q.txn, getTraverser(clause), resources); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (r retrieve) retrieveEntities(ctx context.Context, clause gorp.Retrieve[ID, Resource]) ([]Resource, error) {
+func (r Retrieve) retrieveEntities(
+	clause gorp.Retrieve[ID, Resource],
+) ([]Resource, error) {
 	entries := gorp.GetEntries[ID, Resource](clause)
 	for j, res := range entries.All() {
-		data, err := r.services.retrieveEntity(ctx, res.ID)
+		data, err := r.registrar.retrieveEntity(r.txn, res.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -170,9 +161,7 @@ func (r retrieve) retrieveEntities(ctx context.Context, clause gorp.Retrieve[ID,
 	return entries.All(), nil
 }
 
-func (r retrieve) traverse(
-	ctx context.Context,
-	txn gorp.Txn,
+func (r Retrieve) traverse(
 	traverse Traverser,
 	resources []Resource,
 ) ([]ID, error) {
@@ -185,5 +174,5 @@ func (r retrieve) traverse(
 				}
 			}
 			return false
-		}).Exec(ctx, txn)
+		}).Exec(r.txn)
 }

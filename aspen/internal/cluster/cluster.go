@@ -87,7 +87,7 @@ type HostResolver interface {
 // If provisioning a new cluster, ensure that all storage for previous clusters
 // is removed and provide no peers.
 func Join(ctx context.Context, cfgs ...Config) (Cluster, error) {
-	cfg, err := config.OverrideAndValidate(DefaultConfig, cfgs...)
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +102,7 @@ func Join(ctx context.Context, cfgs ...Config) (Cluster, error) {
 	}
 	store_.SetState(state)
 
-	sCtx, cancel := signal.WithCancel(alamos.Transfer(ctx, context.Background()))
+	sCtx, cancel := signal.WithCancel(alamos.TransferTrace(ctx, context.Background()))
 
 	c := &cluster{
 		Store:    store_,
@@ -114,13 +114,12 @@ func Join(ctx context.Context, cfgs ...Config) (Cluster, error) {
 	}
 	c.gossip, err = gossip.New(c.Gossip)
 
-	alamos.AttachReporter(c, "cluster", c)
-	log := alamos.L(c)
-	log.Info("beginning cluster startup", c.Report().ZapFields()...)
+	c.R.Attach("cluster", c, alamos.InfoLevel)
+	c.L.Info("beginning cluster startup", c.Report().ZapFields()...)
 
 	if !state.IsZero() {
 		// If our store is valid, restart using the existing state.
-		log.Info("existing cluster found in storage. restarting activities")
+		c.L.Info("existing cluster found in storage. restarting activities")
 		host := c.Store.GetHost()
 		host.Heartbeat = host.Heartbeat.Restart()
 		c.SetNode(host)
@@ -131,7 +130,7 @@ func Join(ctx context.Context, cfgs ...Config) (Cluster, error) {
 	} else if len(c.Pledge.Peers) > 0 {
 		// If our store is empty or invalid and peers were provided, attempt to join
 		// the cluster.
-		log.Info("no cluster found in storage. pledging to cluster instead")
+		c.L.Info("no cluster found in storage. pledging to cluster instead")
 		pledgeRes, err := pledge_.Pledge(ctx, c.Pledge)
 		if err != nil {
 			return nil, err
@@ -140,7 +139,7 @@ func Join(ctx context.Context, cfgs ...Config) (Cluster, error) {
 		c.SetClusterKey(pledgeRes.ClusterKey)
 		// gossip initial state manually through peers in order to build an
 		// initial view of the cluster.
-		log.Info("gossiping initial state through peer addresses")
+		c.L.Info("gossiping initial state through peer addresses")
 		if err = c.gossipInitialState(ctx); err != nil {
 			return c, err
 		}
@@ -149,7 +148,7 @@ func Join(ctx context.Context, cfgs ...Config) (Cluster, error) {
 		// bootstrapping a new cluster.
 		c.SetHost(node.Node{ID: 1, Address: c.HostAddress})
 		c.SetClusterKey(uuid.New())
-		log.Info("no peers provided, bootstrapping new cluster")
+		c.L.Info("no peers provided, bootstrapping new cluster")
 		c.Pledge.ClusterKey = c.Key()
 		if err := pledge_.Arbitrate(ctx, c.Pledge); err != nil {
 			return c, err
@@ -224,7 +223,7 @@ func (c *cluster) gossipInitialState(ctx context.Context) error {
 			if ctx.Err() != nil {
 				return ctx.Err()
 			}
-			alamos.L(c).Error(
+			c.L.Error(
 				"failed to gossip with peer",
 				zap.String("peer", string(peerAddr)),
 				zap.Error(err),

@@ -64,7 +64,7 @@ func (c Config) Override(other Config) Config {
 }
 
 func Open(configs ...Config) (*DB, error) {
-	cfg, err := config.OverrideAndValidate(DefaultConfig, configs...)
+	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err
 	}

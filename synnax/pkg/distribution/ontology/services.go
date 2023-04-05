@@ -9,7 +9,9 @@
 
 package ontology
 
-import "context"
+import (
+	"github.com/synnaxlabs/x/gorp"
+)
 
 // Service represents a service that exposes a set of entities to the ontology (such
 // as a channel, node, user, etc.). Because the ontology only stores the relationships
@@ -20,7 +22,7 @@ type Service interface {
 	Schema() *Schema
 	// RetrieveEntity returns the entity with the give key (ID.Key). If the entity
 	// does not exist, a query.NotFound error should be returned.
-	RetrieveEntity(cts context.Context, key string) (Entity, error)
+	RetrieveEntity(reader gorp.Reader, key string) (Entity, error)
 }
 
 type serviceRegistrar map[Type]Service
@@ -33,10 +35,10 @@ func (s serviceRegistrar) register(svc Service) {
 	s[t] = svc
 }
 
-func (s serviceRegistrar) retrieveEntity(ctx context.Context, id ID) (Entity, error) {
+func (s serviceRegistrar) retrieveEntity(reader gorp.Reader, id ID) (Entity, error) {
 	svc, ok := s[id.Type]
 	if !ok {
 		panic("[ontology] - service not found")
 	}
-	return svc.RetrieveEntity(ctx, id.Key)
+	return svc.RetrieveEntity(reader, id.Key)
 }

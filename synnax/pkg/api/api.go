@@ -9,7 +9,7 @@
 
 // Package api implements the client interfaces for interacting with the delta cluster.
 // The top level package is completely transport agnostic, and provides freighter compatible
-// interfaces for all of its services. Sub-packages in this directory wrap the core API
+// interfaces for all of its services. sub-packages in this directory wrap the core API
 // services to provide transport specific implementations.
 package api
 

@@ -36,7 +36,7 @@ var _ = Describe("IteratorServer", func() {
 		Expect(kv.Close()).To(Succeed())
 	})
 	It("Should decode values before returning them to the caller", func() {
-		iter := gorp.WrapKVIter[map[string]string](
+		iter := gorp.NewTypedIter[map[string]string](
 			kv.NewIterator(kvx.PrefixIter([]byte("key"))),
 			gorp.WithEncoderDecoder(ecdc),
 		)

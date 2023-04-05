@@ -23,7 +23,7 @@ var _ = Describe("Write", func() {
 		id ontology.ID
 	)
 	BeforeEach(func() {
-		w = otg.NewWriterWithTxn(txn)
+		w = otg.NewWriter(txn)
 		id = newEmptyID("foo")
 	})
 	Describe("Resources", func() {

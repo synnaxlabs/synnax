@@ -10,7 +10,6 @@
 package cesium
 
 import (
-	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/unary"
 )
 
@@ -20,7 +19,7 @@ func Open(dirname string, opts ...Option) (DB, error) {
 		return nil, err
 	}
 
-	alamos.L(o).Info("opening cesium time series engine", o.Report().ZapFields()...)
+	o.L.Info("opening cesium time series engine", o.Report().ZapFields()...)
 
 	info, err := o.fs.List()
 	if err != nil {

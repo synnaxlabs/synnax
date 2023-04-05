@@ -86,7 +86,7 @@ func buildCertLoaderConfig(ins alamos.Instrumentation) cert.LoaderConfig {
 func buildCertFactoryConfig(ins alamos.Instrumentation) cert.FactoryConfig {
 	return cert.FactoryConfig{
 		LoaderConfig:  buildCertLoaderConfig(ins),
-		AllowKeyReuse: config.BoolPointer(viper.GetBool("allow-key-reuse")),
+		AllowKeyReuse: config.Bool(viper.GetBool("allow-key-reuse")),
 		KeySize:       viper.GetInt("key-size"),
 	}
 }

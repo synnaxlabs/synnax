@@ -28,7 +28,7 @@ var _ = Describe("storage", func() {
 			Expect(b.Cleanup()).To(Succeed())
 		},
 			Entry("Memory-backed storage implementation"),
-			Entry("Stamp-backed storage implementation", storage.Config{MemBacked: config.BoolPointer(false), Dirname: "./tmp"}),
+			Entry("Stamp-backed storage implementation", storage.Config{MemBacked: config.Bool(false), Dirname: "./tmp"}),
 		)
 	})
 })

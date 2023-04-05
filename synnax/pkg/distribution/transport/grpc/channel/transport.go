@@ -34,7 +34,7 @@ type server = fgrpc.UnaryServer[
 
 // Transport is a grpc backed implementation of the channel.Transport interface.
 type Transport struct {
-	alamos.Reporter
+	alamos.ReportProvider
 	client *client
 	server *server
 }
@@ -75,7 +75,7 @@ func New(pool *fgrpc.Pool) Transport {
 		ResponseTranslator: createMessageTranslator{},
 		ServiceDesc:        &channelv1.ChannelService_ServiceDesc,
 	}
-	return Transport{Reporter: fgrpc.Reporter, client: c, server: s}
+	return Transport{ReportProvider: fgrpc.Reporter, client: c, server: s}
 }
 
 func (t Transport) Use(middleware ...freighter.Middleware) {
