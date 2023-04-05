@@ -13,17 +13,23 @@ import (
 	"context"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/config"
 	. "github.com/synnaxlabs/x/testutil"
 	"testing"
 )
 
 var (
-	ctx = context.Background()
-	ins = Instrumentation("pledge", InstrumentationConfig{Log: config.True()})
+	ctx context.Context
+	ins alamos.Instrumentation
 )
 
 func TestMembership(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Membership Suite")
 }
+
+var _ = BeforeSuite(func() {
+	ins = Instrumentation("pledge", InstrumentationConfig{Log: config.True()})
+	ctx = context.Background()
+})

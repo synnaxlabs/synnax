@@ -40,7 +40,7 @@ func (cfg Config) Override(other Config) Config {
 	cfg.TransportClient = override.Nil(cfg.TransportClient, other.TransportClient)
 	cfg.TransportServer = override.Nil(cfg.TransportServer, other.TransportServer)
 	cfg.Store = override.Nil(cfg.Store, other.Store)
-	cfg.Instrumentation = override.Nil(cfg.Instrumentation, other.Instrumentation)
+	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
 	return cfg
 }
 

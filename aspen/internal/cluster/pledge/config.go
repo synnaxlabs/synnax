@@ -80,7 +80,7 @@ func (cfg Config) Override(other Config) Config {
 	cfg.MaxProposals = override.Numeric(cfg.MaxProposals, other.MaxProposals)
 	cfg.Candidates = override.Nil(cfg.Candidates, other.Candidates)
 	cfg.Peers = override.Slice(cfg.Peers, other.Peers)
-	cfg.Instrumentation = override.Nil(cfg.Instrumentation, other.Instrumentation)
+	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
 	return cfg
 }
 
