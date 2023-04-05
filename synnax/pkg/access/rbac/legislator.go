@@ -19,7 +19,7 @@ type Legislator struct {
 	DB *gorp.DB
 }
 
-func (l *Legislator) Create(ctx context.Context, txn gorp.TypedWriter, p Policy) error {
+func (l *Legislator) Create(ctx context.Context, txn gorp.Writer, p Policy) error {
 	return gorp.NewCreate[string, Policy]().Entry(&p).Exec(ctx, txn)
 }
 

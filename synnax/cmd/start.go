@@ -249,8 +249,8 @@ func maybeProvisionRootUser(
 	if err != nil || exists {
 		return err
 	}
-	txn := db.NewWriter()
-	if err = authSvc.NewWriterWithTxn(txn).Register(ctx, auth.InsecureCredentials{
+	txn := db.BeginWrite()
+	if err = authSvc.NewWriter(txn).Register(ctx, auth.InsecureCredentials{
 		Username: uname,
 		Password: pass,
 	}); err != nil {

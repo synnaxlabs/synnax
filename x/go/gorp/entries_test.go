@@ -25,7 +25,7 @@ var _ = Describe("Entries", func() {
 			entries := gorp.GetEntries[int, entry](q)
 			Expect(entries.All()).To(HaveLen(0))
 		})
-		It("Should panick if a caller attempts to set multiple entries on a single entry query", func() {
+		It("Should panic if a caller attempts to set multiple entries on a single entry query", func() {
 			q := query.New()
 			gorp.SetEntry[int, entry](q, &entry{})
 			e := gorp.GetEntries[int, entry](q)
@@ -42,12 +42,12 @@ var _ = Describe("Entries", func() {
 			)
 			Expect(gorp.NewCreate[int, entry]().
 				Entries(&[]entry{{ID: 1, Data: "data"}}).
-				Exec(gorpDB)).To(Succeed())
+				Exec(gorpDB.BeginWrite(ctx))).To(Succeed())
 			// use msgpack to encode the entry int 1  into a byte slice
 			ecd := &binary.MsgPackEncoderDecoder{}
 			b, err := ecd.Encode(1)
 			Expect(err).To(Not(HaveOccurred()))
-			_, err = db.Get(b)
+			_, err = db.NewReader(ctx).Get(b)
 			Expect(err).To(Not(HaveOccurred()))
 		})
 	})

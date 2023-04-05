@@ -92,7 +92,7 @@ func (s *Service) New(ctx context.Context, cfg Config) (Iterator, error) {
 	if err != nil {
 		return nil, err
 	}
-	sCtx, cancel := signal.Background(signal.WithInstrumentation(s))
+	sCtx, cancel := signal.Background(signal.WithInstrumentation(s.Instrumentation))
 	req := confluence.NewStream[Request]()
 	res := confluence.NewStream[Response]()
 	stream.InFrom(req)
@@ -180,7 +180,7 @@ func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) er
 	if validate.NotEmptySlice(v, "Keys", keys) {
 		return v.Error()
 	}
-	exists, err := s.ChannelReader.NewRetrieve(nil).WhereKeys(keys...).Exists(ctx)
+	exists, err := s.ChannelReader.NewRetrieve(ctx).WhereKeys(keys...).Exists()
 	if err != nil {
 		return err
 	}

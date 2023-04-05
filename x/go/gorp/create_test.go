@@ -26,26 +26,27 @@ func (m entry) GorpKey() int { return m.ID }
 
 func (m entry) SetOptions() []interface{} { return nil }
 
-var _ = Describe("Create", func() {
+var _ = Describe("Create", Ordered, func() {
 	var (
 		db   *gorp.DB
 		kvDB kv.DB
+		txn  gorp.WriteContext
 	)
-	BeforeEach(func() {
+	BeforeAll(func() {
 		kvDB = memkv.New()
 		db = gorp.Wrap(kvDB)
 	})
-	AfterEach(func() {
-		Expect(kvDB.Close()).To(Succeed())
-	})
+	AfterAll(func() { Expect(kvDB.Close()).To(Succeed()) })
+	BeforeEach(func() { txn = db.BeginWrite(ctx) })
+	AfterEach(func() { Expect(txn.Close()).To(Succeed()) })
 	Context("Single entry", func() {
 		It("Should create the entry in the db", func() {
 			e := &entry{
 				ID:   42,
 				Data: "The answer to life, the universe, and everything",
 			}
-			Expect(gorp.NewCreate[int, entry]().Entry(e).Exec(db)).To(Succeed())
-			exists, err := gorp.NewRetrieve[int, entry]().WhereKeys(42).Exists(db)
+			Expect(gorp.NewCreate[int, entry]().Entry(e).Exec(txn)).To(Succeed())
+			exists, err := gorp.NewRetrieve[int, entry]().WhereKeys(42).Exists(txn)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(exists).To(BeTrue())
 		})
@@ -56,34 +57,33 @@ var _ = Describe("Create", func() {
 			for i := 0; i < 10; i++ {
 				entries = append(entries, entry{ID: i, Data: "data"})
 			}
-			Expect(gorp.NewCreate[int, entry]().Entries(&entries).Exec(db)).To(Succeed())
+			Expect(gorp.NewCreate[int, entry]().Entries(&entries).Exec(txn)).To(Succeed())
 			var keys []int
 			for _, e := range entries {
 				keys = append(keys, e.ID)
 			}
 			exists, err := gorp.NewRetrieve[int, entry]().
-				WhereKeys(keys...).Exists(db)
+				WhereKeys(keys...).Exists(txn)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(exists).To(BeTrue())
 		})
 	})
-	Describe("TypedWriter", func() {
+	Describe("Writer", func() {
 		It("Should execute operations within a transaction", func() {
 			var (
 				entries []entry
 				keys    []int
 			)
-			txn := db.NewWriter()
 			for i := 0; i < 10; i++ {
 				entries = append(entries, entry{ID: i, Data: "data"})
 				keys = append(keys, i)
 			}
 			Expect(gorp.NewCreate[int, entry]().Entries(&entries).Exec(txn)).To(Succeed())
-			exists, err := gorp.NewRetrieve[int, entry]().WhereKeys(keys...).Exists(db)
+			exists, err := gorp.NewRetrieve[int, entry]().WhereKeys(keys...).Exists(txn)
 			Expect(err).To(BeNil())
 			Expect(exists).To(BeFalse())
 			Expect(txn.Commit()).To(Succeed())
-			exists, err = gorp.NewRetrieve[int, entry]().WhereKeys(keys...).Exists(db)
+			exists, err = gorp.NewRetrieve[int, entry]().WhereKeys(keys...).Exists(txn)
 			Expect(err).To(BeNil())
 			Expect(exists).To(BeTrue())
 		})

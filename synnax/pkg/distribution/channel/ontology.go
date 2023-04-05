@@ -10,9 +10,9 @@
 package channel
 
 import (
+	"context"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 const ontologyType ontology.Type = "channel"
@@ -40,13 +40,13 @@ var _ ontology.Service = (*service)(nil)
 
 func (s *service) Schema() *schema.Schema { return _schema }
 
-func (s *service) RetrieveEntity(reader gorp.Reader, key string) (schema.Entity, error) {
+func (s *service) RetrieveEntity(ctx context.Context, key string) (schema.Entity, error) {
 	k, err := ParseKey(key)
 	if err != nil {
 		return schema.Entity{}, err
 	}
 	var ch Channel
-	err = s.NewRetrieve(reader).WhereKeys(k).Entry(&ch).Exec()
+	err = s.NewRetrieve(ctx).WhereKeys(k).Entry(&ch).Exec()
 	return newEntity(ch), err
 }
 

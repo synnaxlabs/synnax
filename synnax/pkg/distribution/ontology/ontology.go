@@ -47,7 +47,7 @@ type Ontology struct {
 
 // Open opens the ontology stored in the given database. If the Root resource does not
 // exist, it will be created.
-func Open(reader gorp.Writer) (*Ontology, error) {
+func Open(reader gorp.WriteContext) (*Ontology, error) {
 	o := &Ontology{registrar: serviceRegistrar{BuiltIn: &builtinService{}}}
 	err := o.NewRetrieve(reader).WhereIDs(Root).Exec()
 	if errors.Is(err, query.NotFound) {
@@ -81,11 +81,13 @@ type Writer interface {
 
 // NewRetrieve opens a new Retrieve query, which can be used to traverse and read resources
 // from the underlying ontology.
-func (o *Ontology) NewRetrieve(reader gorp.Reader) Retrieve { return newRetrieve(o.registrar, reader) }
+func (o *Ontology) NewRetrieve(reader gorp.ReadContext) Retrieve {
+	return newRetrieve(o.registrar, reader)
+}
 
 // NewWriter opens a new Writer using the provided transaction.
 // Panics if the transaction does not root from the same database as the Ontology.
-func (o *Ontology) NewWriter(writer gorp.Writer) Writer {
+func (o *Ontology) NewWriter(writer gorp.WriteContext) Writer {
 	return dagWriter{writer: writer}
 }
 

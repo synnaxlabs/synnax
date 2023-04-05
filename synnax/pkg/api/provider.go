@@ -63,13 +63,13 @@ type dbProvider struct {
 	db *gorp.DB
 }
 
-// WithTxn wraps the provided function in a gorp transaction. If the function returns
+// WithWrite wraps the provided function in a gorp transaction. If the function returns
 // errors.Nil, the transaction is committed. Otherwise, the transaction is aborted.
 // Returns errors.Nil if the commit process is successful. Returns an unexpected
 // error if the abort process fails; otherwise, returns the error returned by the provided
 // function.
-func (db dbProvider) WithTxn(ctx context.Context, f func(txn gorp.Writer) errors.Typed) (tErr errors.Typed) {
-	txn := db.db.NewWriter(ctx)
+func (db dbProvider) WithWrite(ctx context.Context, f func(txn gorp.WriteContext) errors.Typed) (tErr errors.Typed) {
+	txn := db.db.BeginWrite(ctx)
 	defer func() {
 		if err := txn.Close(); err != nil {
 			tErr = errors.Unexpected(err)

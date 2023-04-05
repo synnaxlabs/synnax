@@ -20,28 +20,28 @@ func Wrap(kv kv.DB, opts ...Option) *DB {
 }
 
 // DB is a wrapper around a kv.DB that queries can be executed against. DB implements
-// the TypedWriter interface, so it can be provided to Query.Write.
+// the Writer interface, so it can be provided to Query.Write.
 type DB struct {
 	kv.DB
 	options
 }
 
-// NewWriter begins a new TypedWriter against the DB.
-func (db *DB) NewWriter(ctx context.Context) Writer {
-	return writer{Writer: db.NewWriter(ctx), opts: db.options}
+// BeginWrite begins a new Writer against the DB.
+func (db *DB) BeginWrite(ctx context.Context) WriteContext {
+	return writer{Writer: db.BeginWrite(ctx), opts: db.options}
 }
 
-// NewReader begins a new Reader against the DB.
-func (db *DB) NewReader(ctx context.Context) Reader {
-	return reader{Reader: db.NewReader(ctx), opts: db.options}
+// BeginRead begins a new ReadContext against the DB.
+func (db *DB) BeginRead(ctx context.Context) ReadContext {
+	return reader{Reader: db.BeginRead(ctx), opts: db.options}
 }
 
-type Reader interface {
+type ReadContext interface {
 	kv.Reader
 	options() options
 }
 
-type Writer interface {
+type WriteContext interface {
 	kv.Writer
 	options() options
 }

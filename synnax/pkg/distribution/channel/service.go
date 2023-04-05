@@ -11,6 +11,7 @@ package channel
 
 import "C"
 import (
+	"context"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/storage"
@@ -34,11 +35,11 @@ type Service interface {
 }
 
 type Writeable interface {
-	NewWriter(writer gorp.Writer) Writer
+	NewWriter(writer gorp.WriteContext) Writer
 }
 
 type Readable interface {
-	NewRetrieve(reader gorp.Reader) Retrieve
+	NewRetrieve(ctx context.Context) Retrieve
 }
 
 type ServiceConfig struct {
@@ -83,6 +84,10 @@ func New(configs ...ServiceConfig) (Service, error) {
 	return &service{clusterDB: cfg.ClusterDB, proxy: proxy}, nil
 }
 
-func (s *service) NewWriter(writer gorp.Writer) Writer { return Writer{proxy: s.proxy, writer: writer} }
+func (s *service) NewWriter(writer gorp.WriteContext) Writer {
+	return Writer{proxy: s.proxy, writer: writer}
+}
 
-func (s *service) NewRetrieve(reader gorp.Reader) Retrieve { return NewRetrieve(reader) }
+func (s *service) NewRetrieve(ctx context.Context) Retrieve {
+	return NewRetrieve(s.clusterDB.BeginRead(ctx))
+}

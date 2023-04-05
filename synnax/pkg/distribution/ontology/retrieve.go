@@ -19,14 +19,14 @@ import (
 type Retrieve struct {
 	query     *gorp.CompoundRetrieve[ID, Resource]
 	registrar serviceRegistrar
-	txn       gorp.Reader
+	ctx       gorp.ReadContext
 }
 
-func newRetrieve(registrar serviceRegistrar, txn gorp.Reader) Retrieve {
+func newRetrieve(registrar serviceRegistrar, txn gorp.ReadContext) Retrieve {
 	r := Retrieve{
 		query:     &gorp.CompoundRetrieve[ID, Resource]{},
 		registrar: registrar,
-		txn:       txn,
+		ctx:       txn,
 	}
 	r.query.Next()
 	return r
@@ -121,7 +121,7 @@ func (r Retrieve) Exec() error {
 		if i != 0 {
 			clause.WhereKeys(nextIDs...)
 		}
-		if err := clause.Exec(r.txn); err != nil {
+		if err := clause.Exec(r.ctx); err != nil {
 			return err
 		}
 		atLast := len(r.query.Clauses) == i+1
@@ -151,7 +151,7 @@ func (r Retrieve) retrieveEntities(
 ) ([]Resource, error) {
 	entries := gorp.GetEntries[ID, Resource](clause)
 	for j, res := range entries.All() {
-		data, err := r.registrar.retrieveEntity(r.txn, res.ID)
+		data, err := r.registrar.retrieveEntity(r.ctx.Context(), res.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -174,5 +174,5 @@ func (r Retrieve) traverse(
 				}
 			}
 			return false
-		}).Exec(r.txn)
+		}).Exec(r.ctx)
 }
