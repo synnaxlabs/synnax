@@ -27,13 +27,9 @@ var _ = Describe("Delete", Ordered, func() {
 		kvDB = memkv.New()
 		db = gorp.Wrap(kvDB)
 	})
-	AfterAll(func() {
-		Expect(kvDB.Close()).To(Succeed())
-	})
+	AfterAll(func() { Expect(kvDB.Close()).To(Succeed()) })
 	BeforeEach(func() { txn = db.BeginWrite(ctx) })
-	AfterEach(func() {
-		Expect(txn.Close()).To(Succeed())
-	})
+	AfterEach(func() { Expect(txn.Close()).To(Succeed()) })
 	Describe("WhereKeys", func() {
 		It("Should delete an entry by key in the db", func() {
 			Expect(gorp.NewCreate[int, entry]().

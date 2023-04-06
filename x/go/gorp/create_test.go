@@ -79,11 +79,11 @@ var _ = Describe("Create", Ordered, func() {
 				keys = append(keys, i)
 			}
 			Expect(gorp.NewCreate[int, entry]().Entries(&entries).Exec(txn)).To(Succeed())
-			exists, err := gorp.NewRetrieve[int, entry]().WhereKeys(keys...).Exists(txn)
+			exists, err := gorp.NewRetrieve[int, entry]().WhereKeys(keys...).Exists(db.BeginRead(ctx))
 			Expect(err).To(BeNil())
 			Expect(exists).To(BeFalse())
 			Expect(txn.Commit()).To(Succeed())
-			exists, err = gorp.NewRetrieve[int, entry]().WhereKeys(keys...).Exists(txn)
+			exists, err = gorp.NewRetrieve[int, entry]().WhereKeys(keys...).Exists(db.BeginRead(ctx))
 			Expect(err).To(BeNil())
 			Expect(exists).To(BeTrue())
 		})

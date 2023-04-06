@@ -28,12 +28,12 @@ type DB struct {
 
 // BeginWrite begins a new Writer against the DB.
 func (db *DB) BeginWrite(ctx context.Context) WriteTxn {
-	return writer{Writer: db.BeginWrite(ctx), opts: db.options}
+	return writer{Writer: db.DB.NewWriter(ctx), opts: db.options}
 }
 
 // BeginRead begins a new ReadTxn against the DB.
 func (db *DB) BeginRead(ctx context.Context) ReadTxn {
-	return reader{Reader: db.BeginRead(ctx), opts: db.options}
+	return reader{Reader: db.DB.NewReader(ctx), opts: db.options}
 }
 
 func (db *DB) WithWriteTxn(ctx context.Context, f func(WriteTxn) error) (err error) {

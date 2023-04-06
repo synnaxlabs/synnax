@@ -213,7 +213,7 @@ func filterRetrieve[K Key, E Entry[K]](
 		v       = new(E)
 		f       = getFilters[K, E](q)
 		entries = GetEntries[K, E](q)
-		iter    = NewIterator[E](reader.NewIterator(kv.PrefixIter(typePrefix[K, E](reader.options()))))
+		iter    = NewIterator[E](reader.Iterate(kv.PrefixIter(typePrefix[K, E](reader.options()))))
 		found   = false
 	)
 	for iter.First(); iter.Valid(); iter.Next() {

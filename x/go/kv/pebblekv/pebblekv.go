@@ -76,7 +76,7 @@ func (b writer) Delete(key []byte) error {
 }
 
 // NewIterator implements kv.Writer.
-func (b writer) NewIterator(opts kvc.IteratorOptions) kvc.Iterator {
+func (b writer) Iterate(opts kvc.IteratorOptions) kvc.Iterator {
 	return b.Batch.NewIter(&pebble.IterOptions{LowerBound: opts.LowerBound, UpperBound: opts.UpperBound})
 }
 
@@ -96,7 +96,7 @@ func (r reader) Get(key []byte, opts ...interface{}) ([]byte, error) {
 	return get(r.Reader, key)
 }
 
-func (r reader) NewIterator(opts kvc.IteratorOptions) kvc.Iterator {
+func (r reader) Iterate(opts kvc.IteratorOptions) kvc.Iterator {
 	return r.Reader.NewIter(&pebble.IterOptions{LowerBound: opts.LowerBound, UpperBound: opts.UpperBound})
 }
 
