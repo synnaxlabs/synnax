@@ -48,6 +48,7 @@ type DB interface {
 	io.Closer
 }
 
+// Readable is a DB that can read data.
 type Readable interface {
 	Read(ctx context.Context, tr telem.TimeRange, keys ...string) (Frame, error)
 	NewIterator(ctx context.Context, cfg IteratorConfig) (Iterator, error)
@@ -58,6 +59,7 @@ type StreamIterable interface {
 	NewStreamIterator(ctx context.Context, cfg IteratorConfig) (StreamIterator, error)
 }
 
+// Writable is a DB that can write data.
 type Writable interface {
 	Write(ctx context.Context, start telem.TimeStamp, frame Frame) error
 	WriteArray(ctx context.Context, start telem.TimeStamp, key string, arr telem.Array) error

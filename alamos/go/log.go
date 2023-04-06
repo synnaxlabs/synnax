@@ -37,63 +37,63 @@ func NewLogger(configs ...LoggerConfig) (*Logger, error) {
 var _ sub[*Logger] = (*Logger)(nil)
 
 func (l *Logger) sub(meta InstrumentationMeta) *Logger {
-	if l.zap == nil {
+	if l == nil {
 		return nil
 	}
 	return &Logger{zap: l.zap.Named(meta.Key)}
 }
 
 func (l *Logger) Debug(msg string, fields ...zap.Field) {
-	if l.zap == nil {
+	if l == nil {
 		return
 	}
 	l.zap.Debug(msg, fields...)
 }
 
 func (l *Logger) Debugf(format string, args ...interface{}) {
-	if l.zap == nil {
+	if l == nil {
 		return
 	}
 	l.zap.Sugar().Debugf(format, args...)
 }
 
 func (l *Logger) Info(msg string, fields ...zap.Field) {
-	if l.zap == nil {
+	if l == nil {
 		return
 	}
 	l.zap.Info(msg, fields...)
 }
 
 func (l *Logger) Warn(msg string, fields ...zap.Field) {
-	if l.zap == nil {
+	if l == nil {
 		return
 	}
 	l.zap.Warn(msg, fields...)
 }
 
 func (l *Logger) Error(msg string, fields ...zap.Field) {
-	if l.zap == nil {
+	if l == nil {
 		return
 	}
 	l.zap.Error(msg, fields...)
 }
 
 func (l *Logger) Fatal(msg string, fields ...zap.Field) {
-	if l.zap == nil {
+	if l == nil {
 		return
 	}
 	l.zap.Fatal(msg, fields...)
 }
 
 func (l *Logger) Panic(msg string, fields ...zap.Field) {
-	if l.zap == nil {
+	if l == nil {
 		return
 	}
 	l.zap.Panic(msg, fields...)
 }
 
 func (l *Logger) DPanic(msg string, fields ...zap.Field) {
-	if l.zap == nil {
+	if l == nil {
 		return
 	}
 	l.zap.DPanic(msg, fields...)

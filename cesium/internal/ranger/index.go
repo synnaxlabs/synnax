@@ -10,6 +10,8 @@
 package ranger
 
 import (
+	"context"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/telem"
 	"sync"
@@ -33,7 +35,9 @@ var _ observe.Observable[indexUpdate] = (*index)(nil)
 func (idx *index) OnChange(f func(update indexUpdate)) { idx.observer.OnChange(f) }
 
 // insert adds a new pointer to the index.
-func (idx *index) insert(p pointer) error {
+func (idx *index) insert(ctx context.Context, p pointer) error {
+	_, span := alamos.Trace(ctx, "insert", alamos.DebugLevel)
+	defer span.End()
 	idx.mu.RLock()
 	insertAt := 0
 	if p.fileKey == 0 {
@@ -64,11 +68,13 @@ func (idx *index) overlap(tr telem.TimeRange) bool {
 	return overlap
 }
 
-func (idx *index) update(p pointer) error {
+func (idx *index) update(ctx context.Context, p pointer) (err error) {
+	_, span := alamos.Trace(ctx, "update", alamos.DebugLevel)
+	defer span.End()
 	idx.mu.RLock()
 	if len(idx.mu.pointers) == 0 {
 		idx.mu.RUnlock()
-		return RangeNotFound
+		return span.Error(RangeNotFound)
 	}
 	lastI := len(idx.mu.pointers) - 1
 	updateAt := lastI
@@ -76,7 +82,7 @@ func (idx *index) update(p pointer) error {
 		updateAt, _ = idx.unprotectedSearch(p.Start.SpanRange(0))
 	}
 	idx.mu.RUnlock()
-	return idx.updateAt(updateAt, p)
+	return span.Error(idx.updateAt(updateAt, p))
 }
 
 func (idx *index) afterLast(ts telem.TimeStamp) bool {

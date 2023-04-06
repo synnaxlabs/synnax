@@ -28,7 +28,7 @@ type FlushSubscriber[S any] struct {
 	// Key is the key to flush the contents of the observable into.
 	Key []byte
 	// Store is the store to flush the contents of the observable into.
-	Store kv.DB
+	Store kv.Writeable
 	// MinInterval specifies the minimum interval between flushes. If the observable
 	// updates more quickly than min interval, the FlushSubscriber will not flush the
 	// contents.
@@ -55,7 +55,7 @@ func (f *FlushSubscriber[S]) Flush(ctx context.Context, state S) {
 }
 
 func (f *FlushSubscriber[S]) FlushSync(ctx context.Context, state S) {
-	if err := f.Store.Set(ctx, f.Key, lo.Must(f.Encoder.Encode(state))); err != nil {
+	if err := kv.Set(ctx, f.Store, f.Key, lo.Must(f.Encoder.Encode(state))); err != nil {
 		f.Logger.Errorw("failed to flush", "err", err)
 	}
 }

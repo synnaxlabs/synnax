@@ -45,22 +45,22 @@ var (
 )
 
 // Validate implements config.Config.
-func (c Config) Validate() error {
+func (cfg Config) Validate() error {
 	v := validate.New("cesium.unary")
-	validate.NotNil(v, "FS", c.FS)
-	validate.NotNil(v, "MetaECD", c.MetaECD)
+	validate.NotNil(v, "FS", cfg.FS)
+	validate.NotNil(v, "MetaECD", cfg.MetaECD)
 	return v.Error()
 }
 
 // Override implements config.Config.
-func (c Config) Override(other Config) Config {
-	c.FS = override.Nil(c.FS, other.FS)
-	c.MetaECD = override.Nil(c.MetaECD, other.MetaECD)
-	if c.Channel.Key == "" {
-		c.Channel = other.Channel
+func (cfg Config) Override(other Config) Config {
+	cfg.FS = override.Nil(cfg.FS, other.FS)
+	cfg.MetaECD = override.Nil(cfg.MetaECD, other.MetaECD)
+	if cfg.Channel.Key == "" {
+		cfg.Channel = other.Channel
 	}
-	c.Instrumentation = override.Nil(c.Instrumentation, other.Instrumentation)
-	return c
+	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
+	return cfg
 }
 
 func Open(configs ...Config) (*DB, error) {

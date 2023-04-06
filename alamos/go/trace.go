@@ -34,7 +34,7 @@ func Trace(ctx context.Context, key string, level Level) (context.Context, Span)
 //	}
 func TransferTrace(source context.Context, target context.Context) context.Context {
 	ins := extract(source)
-	return lo.Ternary(ins.valid(), attach(target, ins), target)
+	return lo.Ternary(ins.IsZero(), attach(target, ins), target)
 }
 
 // Span is a span in a trace.
@@ -42,7 +42,7 @@ type Span interface {
 	// Error records the given error as an error on the span, setting the span's status
 	// to Error if the error is non-nil. If exclude is provided, the status will only be
 	// set if the error is not one of the excluded errors.
-	Error(err error, exclude ...error)
+	Error(err error, exclude ...error) error
 	// Status sets the span's status.
 	Status(status Status)
 	// EndWith combines Error and End, and also returns the given err unmodified.
@@ -117,14 +117,15 @@ type span struct {
 var _ Span = span{}
 
 // Error implements Span.
-func (s span) Error(err error, exclude ...error) {
+func (s span) Error(err error, exclude ...error) error {
 	if err == nil {
-		return
+		return err
 	}
 	s.otel.RecordError(err)
 	if !errutil.IsAny(err, exclude...) {
 		s.Status(Error)
 	}
+	return err
 }
 
 // Status implements Span.
@@ -151,7 +152,7 @@ type nopSpan struct{}
 var _ Span = nopSpan{}
 
 // Error implements Span.
-func (s nopSpan) Error(_ error, _ ...error) {}
+func (s nopSpan) Error(err error, _ ...error) error { return err }
 
 // Status implements Span.
 func (s nopSpan) Status(_ Status) {}

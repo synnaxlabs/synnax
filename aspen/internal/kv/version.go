@@ -42,10 +42,10 @@ func (vc *versionFilter) _switch(
 	o map[address.Address]WriteRequest,
 ) error {
 	var (
-		rejected = WriteRequest{Sender: b.Sender, doneF: b.doneF, context: b.context, span: b.span}
-		accepted = WriteRequest{Sender: b.Sender, doneF: b.doneF, context: b.context, span: b.span}
+		rejected = WriteRequest{Sender: b.Sender, doneF: b.doneF, ctx: b.ctx, span: b.span}
+		accepted = WriteRequest{Sender: b.Sender, doneF: b.doneF, ctx: b.ctx, span: b.span}
 	)
-	ctx, span := alamos.Trace(b.context, "writer-filter", alamos.DebugLevel)
+	ctx, span := alamos.Trace(b.ctx, "writer-filter", alamos.DebugLevel)
 	defer span.End()
 	for _, op := range b.Operations {
 		if vc.filter(ctx, op) {

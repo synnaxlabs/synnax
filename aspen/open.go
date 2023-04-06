@@ -62,12 +62,10 @@ func openStorageEngine(opts *options) error {
 func configureTransport(ctx context.Context, o *options) (io.Closer, error) {
 	sCtx, cancel := signal.WithCancel(alamos.TransferTrace(ctx, context.Background()))
 	transportShutdown := signal.NewShutdown(sCtx, cancel)
-	if err := o.transport.Configure(sCtx, o.addr, o.externalTransport); err != nil {
+	if err := o.transport.Configure(sCtx, o.addr, o.transport.external); err != nil {
 		return transportShutdown, err
 	}
-	mw, err := falamos.New(falamos.Config{
-		Instrumentation: o.Instrumentation,
-	})
+	mw, err := falamos.New(falamos.Config{Instrumentation: o.Instrumentation})
 	if err != nil {
 		return transportShutdown, err
 	}

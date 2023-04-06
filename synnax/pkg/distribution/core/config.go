@@ -45,7 +45,7 @@ func (cfg Config) Override(other Config) Config {
 	cfg.Pool = override.Nil(cfg.Pool, other.Pool)
 	cfg.Storage = cfg.Storage.Override(other.Storage)
 	cfg.Transports = override.Nil(cfg.Transports, other.Transports)
-	cfg.Instrumentation = override.Nil(cfg.Instrumentation, other.Instrumentation)
+	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
 	cfg.Storage.Instrumentation = cfg.Instrumentation
 	return cfg
 }

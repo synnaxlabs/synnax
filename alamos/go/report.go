@@ -49,6 +49,9 @@ func NewReporter(configs ...ReporterConfig) (*Reporter, error) {
 }
 
 func (r *Reporter) Attach(key string, report ReportProvider, level Level) {
+	if r == nil {
+		return
+	}
 	if r.reports == nil {
 		r.reports = make(map[string]ReportProvider)
 	}
@@ -56,6 +59,9 @@ func (r *Reporter) Attach(key string, report ReportProvider, level Level) {
 }
 
 func (r *Reporter) sub(meta InstrumentationMeta) *Reporter {
+	if r == nil {
+		return nil
+	}
 	return &Reporter{meta: meta, reports: r.reports}
 }
 

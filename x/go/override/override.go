@@ -27,8 +27,8 @@ func String[T ~string](value T, override T) T {
 	return lo.Ternary(override != "", override, value)
 }
 
-func Zero[T ~struct{}](value T, override T) T {
-	return lo.Ternary(reflect.DeepEqual(override, T{}), value, override)
+func Zero[T Zeroable](value T, override T) T {
+	return lo.Ternary(!override.IsZero(), value, override)
 }
 
 func Nil[T any](value T, override T) T {
@@ -49,4 +49,8 @@ func BooleanTrue(value bool, override bool) bool {
 
 func isInterface[T any]() bool {
 	return reflect.TypeOf((*T)(nil)).Elem().Kind() == reflect.Interface
+}
+
+type Zeroable interface {
+	IsZero() bool
 }

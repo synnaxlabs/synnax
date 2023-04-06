@@ -135,7 +135,7 @@ func (db *DB) NewIterator(_ context.Context, cfg IteratorConfig) *Iterator {
 }
 
 // NewWriter opens a new Writer using the given configuration.
-func (db *DB) NewWriter(_ context.Context, cfg WriterConfig) (*Writer, error) {
+func (db *DB) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
 	key, internal, err := db.dataFiles.acquireWriter()
 	if err != nil {
 		return nil, err
@@ -143,7 +143,7 @@ func (db *DB) NewWriter(_ context.Context, cfg WriterConfig) (*Writer, error) {
 	if db.idx.overlap(cfg.Range()) {
 		return nil, ErrRangeOverlap
 	}
-	return &Writer{fileKey: key, internal: internal, idx: db.idx, cfg: cfg}, nil
+	return &Writer{ctx: ctx, fileKey: key, internal: internal, idx: db.idx, cfg: cfg}, nil
 }
 
 // Close closes the DB. Close should not be called concurrently with any other DB methods.

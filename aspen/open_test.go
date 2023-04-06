@@ -47,7 +47,7 @@ var _ = Describe("Open", func() {
 		Expect(db1.Close()).To(Succeed())
 		Expect(db2.Close()).To(Succeed())
 	})
-	FIt("Should be able to join two clusters", func() {
+	It("Should be able to join two clusters", func() {
 		Eventually(db1.Nodes).Should(HaveLen(2))
 		b := db1.NewWriter(ctx)
 		for i := 0; i < 10; i++ {

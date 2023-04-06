@@ -25,8 +25,8 @@ func (s storeState) Copy() storeState {
 	return mCopy
 }
 
-func (s storeState) toBatchRequest() WriteRequest {
-	b := WriteRequest{Operations: make([]Operation, 0, len(s))}
+func (s storeState) toBatchRequest(ctx context.Context) WriteRequest {
+	b := WriteRequest{ctx: ctx, Operations: make([]Operation, 0, len(s))}
 	for _, op := range s {
 		if op.state != infected {
 			continue
@@ -59,8 +59,8 @@ func newStoreEmitter(s store, cfg Config) source {
 	return se
 }
 
-func (e *storeEmitter) Emit(_ context.Context) (WriteRequest, error) {
-	return e.store.PeekState().toBatchRequest(), nil
+func (e *storeEmitter) Emit(ctx context.Context) (WriteRequest, error) {
+	return e.store.PeekState().toBatchRequest(ctx), nil
 }
 
 type storeSink struct {
