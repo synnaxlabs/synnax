@@ -12,6 +12,8 @@ package ranger
 import (
 	"context"
 	"github.com/cockroachdb/errors"
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -73,6 +75,7 @@ func Write(ctx context.Context, db *DB, tr telem.TimeRange, data []byte) error {
 // A Writer is not safe for concurrent use, but it is safe to have multiple writer and
 // iterators open concurrently over the same DB.
 type Writer struct {
+	ctx        context.Context
 	cfg        WriterConfig
 	prevCommit telem.TimeStamp
 	idx        *index
@@ -86,9 +89,7 @@ func (w *Writer) Len() int64 { return w.internal.Len() }
 // Writer writes binary telemetry to the range. Write is not safe to call concurrently
 // with any other Writer methods. The contents of p are safe to modify after Write
 // returns.
-func (w *Writer) Write(p []byte) (n int, err error) {
-	return w.internal.Write(p)
-}
+func (w *Writer) Write(p []byte) (n int, err error) { return w.internal.Write(p) }
 
 // Commit commits the range to the DB, making it available for reading by other processes.
 // If the WriterConfig.End parameter was set, Commit will ignore the provided timestamp
@@ -99,6 +100,8 @@ func (w *Writer) Write(p []byte) (n int, err error) {
 // and the provided timestamp overlaps with any other ranges within the DB, Commit will
 // return an error.
 func (w *Writer) Commit(end telem.TimeStamp) error {
+	ctx, span := alamos.Trace(w.ctx, "commit", alamos.DebugLevel)
+	defer span.End()
 	if !w.cfg.End.IsZero() {
 		end = w.cfg.End
 	}
@@ -111,11 +114,9 @@ func (w *Writer) Commit(end telem.TimeStamp) error {
 		length:    uint32(w.internal.Len()),
 		fileKey:   w.fileKey,
 	}
-	if w.prevCommit.IsZero() {
-		w.prevCommit = end
-		return w.idx.insert(ptr)
-	}
-	return w.idx.update(ptr)
+	f := lo.Ternary(w.prevCommit.IsZero(), w.idx.insert, w.idx.update)
+	w.prevCommit = end
+	return span.EndWith(f(ctx, ptr))
 }
 
 // Close closes the writer, releasing any resources it may have been holding. Any

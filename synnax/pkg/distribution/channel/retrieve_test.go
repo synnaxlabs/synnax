@@ -64,10 +64,10 @@ var _ = Describe("getAttributes", Ordered, func() {
 				var resChannelsTwo []channel.Channel
 
 				err = services[2].
-					NewRetrieve().
+					NewRetrieve(ctx).
 					WhereNodeID(1).
 					Entries(&resChannelsTwo).
-					Exec(ctx)
+					Exec()
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(resChannelsTwo).To(HaveLen(len(created)))
 			})
@@ -86,15 +86,15 @@ var _ = Describe("getAttributes", Ordered, func() {
 					Name:     "SG03",
 				},
 			}
-			err := services[1].CreateMany(&created)
+			err := services[1].NewWriter().CreateMany(&created)
 			Expect(err).ToNot(HaveOccurred())
 			var resChannels []channel.Channel
 
 			err = services[1].
-				NewRetrieve().
+				NewRetrieve(ctx).
 				WhereKeys(created[0].Key()).
 				Entries(&resChannels).
-				Exec(ctx)
+				Exec()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(resChannels).To(HaveLen(1))
 			Expect(resChannels[0].Key()).To(Equal(created[0].Key()))

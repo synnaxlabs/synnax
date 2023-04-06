@@ -79,7 +79,7 @@ func (g *operationReceiver) handle(ctx context.Context, req WriteRequest) (Write
 		return WriteRequest{}, ctx.Err()
 	case g.Out.Inlet() <- req:
 	}
-	br := g.store.PeekState().toBatchRequest()
+	br := g.store.PeekState().toBatchRequest(ctx)
 	br.Sender = g.Cluster.HostID()
 	return br, nil
 }
@@ -132,7 +132,7 @@ func newFeedbackReceiver(cfg Config) source {
 	return fr
 }
 
-func (f *feedbackReceiver) handle(_ context.Context, message FeedbackMessage) (types.Nil, error) {
-	f.Out.Inlet() <- message.Digests.toRequest()
+func (f *feedbackReceiver) handle(ctx context.Context, message FeedbackMessage) (types.Nil, error) {
+	f.Out.Inlet() <- message.Digests.toRequest(ctx)
 	return types.Nil{}, nil
 }

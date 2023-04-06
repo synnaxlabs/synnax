@@ -25,7 +25,7 @@ type Instrumentation struct {
 	R *Reporter
 }
 
-func (i Instrumentation) valid() bool { return i.meta.valid() }
+func (i Instrumentation) IsZero() bool { return i.meta.IsZero() }
 
 func (i Instrumentation) Sub(key string) Instrumentation {
 	meta := i.meta.sub(key)
@@ -53,7 +53,7 @@ func (m InstrumentationMeta) sub(key string) InstrumentationMeta {
 	}
 }
 
-func (m InstrumentationMeta) valid() bool {
+func (m InstrumentationMeta) IsZero() bool {
 	return m.Key != ""
 }
 

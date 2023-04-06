@@ -81,12 +81,12 @@ func (b *writer) toRequests() ([]WriteRequest, error) {
 		br, ok := dm[op.Leaseholder]
 		if !ok {
 			br.Operations = []Operation{op}
-			br.context = b.Context()
+			br.ctx = b.Context()
 		} else {
 			br.Operations = append(br.Operations, op)
 		}
 		br.Leaseholder = op.Leaseholder
-		br.context, br.span = alamos.Trace(
+		br.ctx, br.span = alamos.Trace(
 			b.Context(),
 			fmt.Sprintf("writer-%d", br.Leaseholder),
 			alamos.DebugLevel,
@@ -119,7 +119,7 @@ type WriteRequest struct {
 	Leaseholder node.ID
 	Sender      node.ID
 	Operations  []Operation
-	context     context.Context
+	ctx         context.Context
 	doneF       func(err error)
 	span        alamos.Span
 }
@@ -146,22 +146,22 @@ func (br WriteRequest) digests() []Digest {
 
 func (br WriteRequest) commitTo(bw kvx.Writeable) error {
 	var err error
-	b := bw.NewWriter(br.context)
+	b := bw.NewWriter(br.ctx)
 
 	defer func() {
 		br.Operations = nil
-		if _err := b.Commit(br.context); _err != nil {
+		if _err := b.Commit(br.ctx); _err != nil {
 			err = _err
 		}
 		br.done(err)
 	}()
 
 	for _, op := range br.Operations {
-		if _err := op.apply(br.context, b); _err != nil {
+		if _err := op.apply(b); _err != nil {
 			err = _err
 			return err
 		}
-		if _err := op.Digest().apply(br.context, b); _err != nil {
+		if _err := op.Digest().apply(b); _err != nil {
 			err = _err
 			return err
 		}
@@ -174,7 +174,9 @@ func (br WriteRequest) done(err error) {
 	if br.doneF != nil {
 		br.doneF(err)
 	}
-	br.span.End()
+	if br.span != nil {
+		br.span.End()
+	}
 }
 
 func validateLeaseOption(maybeLease []interface{}) (node.ID, error) {

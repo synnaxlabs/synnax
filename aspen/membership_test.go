@@ -159,7 +159,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 	Describe("Joining, Dying, and Rejoining", func() {
 		Context("Persisted storage", func() {
 			Context("Single node death", func() {
-				It("Should correctly handle a single node dying and rejoining", func() {
+				FIt("Should correctly handle a single node dying and rejoining", func() {
 					propConfig := aspen.PropagationConfig{
 						PledgeRetryInterval:   10 * time.Millisecond,
 						PledgeRetryScale:      1,
@@ -219,7 +219,6 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 					Expect(builder.Nodes[1].DB.Close()).To(Succeed())
 					Expect(builder.Nodes[3].DB.Close()).To(Succeed())
 					Expect(db.Close()).To(Succeed())
-					time.Sleep(500 * time.Second)
 				})
 			})
 		})

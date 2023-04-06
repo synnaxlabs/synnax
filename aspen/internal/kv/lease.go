@@ -103,7 +103,7 @@ func (lf *leaseSender) send(ctx context.Context, br WriteRequest) (err error) {
 	if err != nil {
 		return err
 	}
-	_, err = lf.Config.LeaseTransportClient.Send(br.context, addr, br)
+	_, err = lf.Config.LeaseTransportClient.Send(br.ctx, addr, br)
 	return err
 }
 

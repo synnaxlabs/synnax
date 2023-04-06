@@ -11,7 +11,6 @@ package alamos
 
 import (
 	"context"
-	"github.com/samber/lo"
 )
 
 // attach attaches the given Instrumentation to the given context.
@@ -25,5 +24,8 @@ const contextKey = "alamos-instrumentation"
 // If the Instrumentation is not present, ok will be false.
 func extract(ctx context.Context) Instrumentation {
 	v := ctx.Value(contextKey)
-	return lo.Ternary(v != nil, v.(Instrumentation), Instrumentation{})
+	if v == nil {
+		return Instrumentation{}
+	}
+	return v.(Instrumentation)
 }

@@ -53,11 +53,11 @@ type DB interface {
 	alamos.ReportProvider
 }
 
-func Get(ctx context.Context, db DB, key []byte, opts ...interface{}) ([]byte, error) {
+func Get(ctx context.Context, db Readable, key []byte, opts ...interface{}) ([]byte, error) {
 	return db.NewReader(ctx).Get(key, opts...)
 }
 
-func Set(ctx context.Context, db DB, key, value []byte, opts ...interface{}) error {
+func Set(ctx context.Context, db Writeable, key, value []byte, opts ...interface{}) error {
 	txn := db.NewWriter(ctx)
 	err := txn.Set(key, value, opts...)
 	if err != nil {
@@ -67,7 +67,7 @@ func Set(ctx context.Context, db DB, key, value []byte, opts ...interface{}) err
 	return txn.Commit()
 }
 
-func Delete(ctx context.Context, db DB, key []byte) error {
+func Delete(ctx context.Context, db Writeable, key []byte) error {
 	txn := db.NewWriter(ctx)
 	err := txn.Delete(key)
 	if err != nil {

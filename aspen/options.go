@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/x/address"
 	kvx "github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/override"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"time"
@@ -49,10 +50,12 @@ type options struct {
 	bootstrap bool
 	// transport is the transport package for the messages that aspen exchanges.
 	// this setting overrides all other transport settings in sub-configs.
-	transport Transport
-	// externalTransport is a boolean flag indicating whether the caller provided an
-	// external transport that they control themselves.
-	externalTransport bool
+	transport struct {
+		Transport
+		// external is a boolean flag indicating whether the caller provided an
+		// external transport that they control themselves.
+		external bool
+	}
 }
 
 func (o *options) Report() alamos.Report {
@@ -75,6 +78,21 @@ func WithEngine(engine kvx.DB) Option {
 	return func(o *options) {
 		o.externalKV = true
 		o.kv.Engine = engine
+	}
+}
+
+// WithTransport sets a custom network transport.
+func WithTransport(transport Transport) Option {
+	return func(o *options) {
+		o.transport.external = true
+		o.transport.Transport = transport
+	}
+}
+
+// WithInstrumentation sets the instrumentation for aspen.
+func WithInstrumentation(i alamos.Instrumentation) Option {
+	return func(o *options) {
+		o.Instrumentation = i
 	}
 }
 
@@ -129,21 +147,6 @@ var FastPropagationConfig = PropagationConfig{
 	KVGossipInterval:      10 * time.Millisecond,
 }
 
-// WithTransport sets a custom network transport.
-func WithTransport(transport Transport) Option {
-	return func(o *options) {
-		o.externalTransport = true
-		o.transport = transport
-	}
-}
-
-// WithInstrumentation sets the instrumentation for aspen.
-func WithInstrumentation(i alamos.Instrumentation) Option {
-	return func(o *options) {
-		o.Instrumentation = i
-	}
-}
-
 func newOptions(dirname string, addr address.Address, peers []address.Address, opts ...Option) *options {
 	o := &options{}
 	o.dirname = dirname
@@ -158,15 +161,13 @@ func newOptions(dirname string, addr address.Address, peers []address.Address, o
 
 func mergeDefaultOptions(o *options) {
 	def := defaultOptions()
-	if o.dirname == "" {
-		o.dirname = def.dirname
-	}
+	o.dirname = override.String(def.dirname, o.dirname)
 	o.kv = def.kv.Override(o.kv)
 	o.cluster = def.cluster.Override(o.cluster)
-	if o.transport == nil {
-		o.transport = def.transport
-	}
+	o.transport.Transport = override.Nil(def.transport.Transport, o.transport.Transport)
 	o.cluster.Instrumentation = o.Instrumentation
+	o.cluster.HostAddress = o.addr
+	o.cluster.Pledge.Peers = o.peerAddresses
 	o.kv.Instrumentation = o.Instrumentation
 	// If we're bootstrapping these options are ignored.
 	if o.bootstrap {
@@ -176,10 +177,13 @@ func mergeDefaultOptions(o *options) {
 }
 
 func defaultOptions() *options {
-	return &options{
-		dirname:   "",
-		cluster:   cluster.DefaultConfig,
-		kv:        kv.DefaultConfig,
-		transport: grpct.New(fgrpc.NewPool(grpc.WithTransportCredentials(insecure.NewCredentials()))),
+	o := &options{
+		dirname: "aspen",
+		cluster: cluster.DefaultConfig,
+		kv:      kv.DefaultConfig,
 	}
+	o.transport.Transport = grpct.New(
+		fgrpc.NewPool(grpc.WithTransportCredentials(insecure.NewCredentials())),
+	)
+	return o
 }

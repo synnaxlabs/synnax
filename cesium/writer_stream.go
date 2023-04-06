@@ -57,11 +57,11 @@ type WriteResponse struct {
 
 // StreamWriter provides a streaming interface for writing telemetry to the DB.
 // StreamWriter provides the underlying functionality for Writer, and has almost exactly
-// the same semantics. The streaming interface is exposed as a confluence Framer that
+// the same semantics. The streaming interface is exposed as a confluence segment that
 // can accept one input stream and one output stream.
 //
-// To write a record, issue a WriteRequest to the StreamWriter's inlet. If the write fails
-// for any reason, the StreamWriter will send a WriteResponse with a negative WriteResponse.Ack
+// To write a record, issue a WriteRequest to the StreamWriter's inlet. If the write fails,
+// the StreamWriter will send a WriteResponse with a negative WriteResponse.Ack
 // frame. All future writes will fail until the error is resolved. To resolve the error,
 // issue a WriteRequest with a WriterError command to the StreamWriter's inlet. The StreamWriter
 // will increment WriteResponse.SeqNum and send a WriteResponse with the error. The error will
@@ -124,7 +124,7 @@ func (w *streamWriter) Flow(ctx signal.Context, opts ...confluence.Option) {
 				}
 				if req.Command == WriterCommit {
 					w.seqNum++
-					w.err = w.commit()
+					w.err = w.commit(ctx)
 					w.sendRes(req, w.err == nil, nil)
 				} else {
 					if w.err = w.write(req); w.err != nil {
@@ -183,8 +183,8 @@ func (w *streamWriter) write(req WriteRequest) error {
 	return nil
 }
 
-func (w *streamWriter) commit() (err error) {
-	end, err := w.resolveCommitEnd()
+func (w *streamWriter) commit(ctx context.Context) (err error) {
+	end, err := w.resolveCommitEnd(ctx)
 	if err != nil {
 		return err
 	}
@@ -206,11 +206,11 @@ func (w *streamWriter) updateHighWater(col telem.Array) error {
 	return nil
 }
 
-func (w *streamWriter) resolveCommitEnd() (index.TimeStampApproximation, error) {
+func (w *streamWriter) resolveCommitEnd(ctx context.Context) (index.TimeStampApproximation, error) {
 	if w.writingToIdx {
 		return index.Exactly(w.idx.highWaterMark), nil
 	}
-	return w.idx.Stamp(w.Start, w.sampleCount-1, true)
+	return w.idx.Stamp(ctx, w.Start, w.sampleCount-1, true)
 }
 
 func (w *streamWriter) close() error {

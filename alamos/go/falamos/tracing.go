@@ -29,16 +29,16 @@ type Config struct {
 }
 
 // Validate implements config.Config
-func (c Config) Validate() error {
+func (cfg Config) Validate() error {
 	v := validate.New("falamos.Config")
-	validate.NotNil(v, "Instrumentation", c.Instrumentation)
+	validate.NotNil(v, "Instrumentation", cfg.Instrumentation)
 	return nil
 }
 
 // Override implements config.Config
-func (c Config) Override(other Config) Config {
-	c.Instrumentation = override.Nil(c.Instrumentation, other.Instrumentation)
-	return c
+func (cfg Config) Override(other Config) Config {
+	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
+	return cfg
 }
 
 var _ config.Config[Config] = Config{}

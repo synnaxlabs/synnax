@@ -10,6 +10,7 @@
 package kv
 
 import (
+	"context"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/confluence"
@@ -79,8 +80,8 @@ func (d Digest) apply(w kvx.Writer) error {
 
 type Digests []Digest
 
-func (d Digests) toRequest() WriteRequest {
-	bd := WriteRequest{Operations: make([]Operation, len(d))}
+func (d Digests) toRequest(ctx context.Context) WriteRequest {
+	bd := WriteRequest{ctx: ctx, Operations: make([]Operation, len(d))}
 	for i, d := range d {
 		bd.Operations[i] = d.Operation()
 	}
