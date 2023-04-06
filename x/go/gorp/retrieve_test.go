@@ -26,7 +26,7 @@ var _ = Describe("retrieveEntity", Ordered, func() {
 		db      *gorp.DB
 		kv      kv.DB
 		entries []entry
-		txn     gorp.ReadTxn
+		txn     gorp.WriteTxn
 	)
 	BeforeAll(func() {
 		kv = memkv.New()
@@ -34,11 +34,15 @@ var _ = Describe("retrieveEntity", Ordered, func() {
 		for i := 0; i < 10; i++ {
 			entries = append(entries, entry{ID: i, Data: "data"})
 		}
+
+	})
+	AfterAll(func() { Expect(kv.Close()).To(Succeed()) })
+	BeforeEach(func() {
 		txn_ := db.BeginWrite(ctx)
 		Expect(gorp.NewCreate[int, entry]().Entries(&entries).Exec(txn_)).To(Succeed())
 		txn = txn_
 	})
-	AfterAll(func() { Expect(kv.Close()).To(Succeed()) })
+	AfterEach(func() { Expect(txn.Close()).To(Succeed()) })
 	Describe("WhereKeys", func() {
 		Context("Multiple Entries", func() {
 			It("Should retrieve the entry by key", func() {

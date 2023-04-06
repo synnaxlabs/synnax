@@ -34,7 +34,7 @@ type Reader interface {
 	// Get returns the value for the given key.
 	Get(key []byte, opts ...interface{}) ([]byte, error)
 	// NewIterator returns an Iterator using the given IteratorOptions.
-	NewIterator(opts IteratorOptions) Iterator
+	Iterate(opts IteratorOptions) Iterator
 }
 
 type Readable interface {

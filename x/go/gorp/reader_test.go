@@ -16,28 +16,30 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	kvx "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("IteratorServer", func() {
+var _ = Describe("Reader", Ordered, func() {
 	var (
-		kv   kvx.DB
+		db   kvx.DB
 		ecdc binary.EncoderDecoder
+		txn  kvx.Writer
 	)
-	BeforeEach(func() {
-		kv = memkv.New()
+	BeforeAll(func() {
+		db = memkv.New()
 		ecdc = &binary.GobEncoderDecoder{}
-		val, err := ecdc.Encode(map[string]string{"key1": "value1", "key2": "value2"})
-		Expect(err).To(BeNil())
-		Expect(kv.Set([]byte("key1"), val)).To(Succeed())
-		Expect(kv.Set([]byte("key2"), val)).To(Succeed())
-
 	})
-	AfterEach(func() {
-		Expect(kv.Close()).To(Succeed())
+	AfterAll(func() { Expect(db.Close()).To(Succeed()) })
+	BeforeEach(func() {
+		txn = db.NewWriter(ctx)
+		val := MustSucceed(ecdc.Encode(map[string]string{"key1": "value1", "key2": "value2"}))
+		Expect(txn.Set([]byte("key1"), val)).To(Succeed())
+		Expect(txn.Set([]byte("key2"), val)).To(Succeed())
 	})
+	AfterEach(func() { Expect(txn.Close()).To(Succeed()) })
 	It("Should decode values before returning them to the caller", func() {
 		iter := gorp.NewIterator[map[string]string](
-			kv.NewIterator(kvx.PrefixIter([]byte("key"))),
+			db.NewReader(ctx).Iterate(kvx.PrefixIter([]byte("key"))),
 			gorp.WithEncoderDecoder(ecdc),
 		)
 		for iter.First(); iter.Valid(); iter.Next() {

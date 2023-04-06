@@ -40,15 +40,17 @@ var _ = Describe("Entries", func() {
 			gorpDB := gorp.Wrap(db,
 				gorp.WithoutTypePrefix(),
 			)
+			txn := gorpDB.BeginWrite(ctx)
 			Expect(gorp.NewCreate[int, entry]().
 				Entries(&[]entry{{ID: 1, Data: "data"}}).
-				Exec(gorpDB.BeginWrite(ctx))).To(Succeed())
+				Exec(txn)).To(Succeed())
 			// use msgpack to encode the entry int 1  into a byte slice
 			ecd := &binary.MsgPackEncoderDecoder{}
 			b, err := ecd.Encode(1)
 			Expect(err).To(Not(HaveOccurred()))
-			_, err = db.NewReader(ctx).Get(b)
+			_, err = txn.Get(b)
 			Expect(err).To(Not(HaveOccurred()))
+			Expect(txn.Close()).To(Succeed())
 		})
 	})
 
