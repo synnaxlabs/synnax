@@ -239,10 +239,10 @@ func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) er
 	}
 	var channels []channel.Channel
 	if err := s.ChannelReader.
-		NewRetrieve(ctx).
+		NewRetrieve().
 		Entries(&channels).
 		WhereKeys(keys...).
-		Exec(); err != nil {
+		Exec(ctx, nil); err != nil {
 		return err
 	}
 	var (

@@ -14,7 +14,7 @@ from threading import Thread
 from typing import AsyncIterator, Optional, Type
 from freighter.exceptions import StreamClosed
 
-from freighter.metadata import MetaData
+from freighter.metadata import Context
 from freighter.util.asyncio import cancel_all_tasks
 from janus import Queue
 
@@ -126,6 +126,7 @@ class SyncStream(Thread, Stream[RQ, RS]):
     and exposes a synchronous interface.
     """
 
+    _ctx: Context
     _client: AsyncStreamClient
     _target: str
     _open_exception: Notification[Optional[Exception]]
@@ -134,7 +135,6 @@ class SyncStream(Thread, Stream[RQ, RS]):
     _response_factory: Type[RS]
     _request_type: Type[RQ]
     _collector: MiddlewareCollector
-    _in_md: MetaData
     _internal: Optional[AsyncStream[RQ, RS]]
 
     def __init__(
@@ -156,8 +156,8 @@ class SyncStream(Thread, Stream[RQ, RS]):
         self.start()
         self._ack_open()
 
-    async def _mw(self, md: MetaData, _next: AsyncNext):
-        md.params.update(self._in_md.params)
+    async def _mw(self, md: Context, _next: AsyncNext):
+        md.params.update(self._ctx.params)
         return await _next(md)
 
     def run(self) -> None:
@@ -165,11 +165,11 @@ class SyncStream(Thread, Stream[RQ, RS]):
         try:
             events.set_event_loop(loop)
 
-            def finalizer(_: MetaData) -> tuple[MetaData, Exception | None]:
+            def finalizer(_: Context) -> tuple[Context, Exception | None]:
                 return loop.run_until_complete(self._connect())
 
-            self._in_md = MetaData("sync_stream", self._target)
-            _, exc = self._collector.exec(self._in_md, finalizer)
+            self._ctx = Context("sync_stream", self._target)
+            _, exc = self._collector.exec(self._ctx, finalizer)
             if exc is not None:
                 self._open_exception.notify(exc)
                 return
@@ -202,17 +202,17 @@ class SyncStream(Thread, Stream[RQ, RS]):
         """Implement the Stream protocol."""
         return self._sender.close_send()
 
-    async def _connect(self) -> tuple[MetaData, Exception | None]:
-        out_md = MetaData("sync_stream", self._target)
+    async def _connect(self) -> tuple[Context, Exception | None]:
+        ctx = Context("sync_stream", self._target)
         try:
             self._internal = await self._client.stream(
                 self._target,
                 self._request_type,
                 self._response_factory,
             )
-            return out_md, None
+            return ctx, None
         except Exception as e:
-            return out_md, e
+            return ctx, e
 
     async def _run(self):
         assert self._internal is not None

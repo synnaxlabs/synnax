@@ -21,7 +21,7 @@ from .exceptions import ExceptionPayload, decode_exception, Unreachable
 from .transport import RQ, RS
 from .url import URL
 from .transport import MiddlewareCollector
-from .metadata import MetaData
+from .metadata import Context
 
 
 class HTTPClientPool(MiddlewareCollector):
@@ -105,15 +105,15 @@ class _Core(MiddlewareCollector):
         request: RQ | None = None,
         res_t: Type[RS] | None = None,
     ) -> tuple[RS | None, Exception | None]:
-        in_meta_data = MetaData(url, self.endpoint.protocol)
+        in_crtx = Context(url, self.endpoint.protocol)
 
-        def finalizer(md: MetaData) -> tuple[MetaData, Exception | None]:
-            out_meta_data = MetaData(url, self.endpoint.protocol)
+        def finalizer(ctx: Context) -> tuple[Context, Exception | None]:
+            out_meta_data = Context(url, self.endpoint.protocol)
             data = None
             if request is not None:
                 data = self.encoder_decoder.encode(request)
 
-            head = {**self.headers, **md.params}
+            head = {**self.headers, **ctx.params}
 
             http_res: HTTPResponse
             try:
@@ -137,7 +137,7 @@ class _Core(MiddlewareCollector):
             self.res = self.encoder_decoder.decode(http_res.data, res_t)
             return out_meta_data, None
 
-        _, exc = self.exec(in_meta_data, finalizer)
+        _, exc = self.exec(in_crtx, finalizer)
         return self.res, exc
 
 

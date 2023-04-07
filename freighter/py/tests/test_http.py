@@ -18,7 +18,7 @@ import pytest
 
 from freighter import URL, encoder
 from freighter.http import GETClient, HTTPClientPool, POSTClient
-from freighter.metadata import MetaData
+from freighter.metadata import Context
 from freighter.transport import Next
 
 from .interface import Message
@@ -44,7 +44,7 @@ class TestGETClient:
     def test_middleware(self, http_factory: HTTPClientPool):
         dct = {"called": False}
 
-        def mw(md: MetaData, next: Next) -> tuple[MetaData, Exception | None]:
+        def mw(md: Context, next: Next) -> tuple[Context, Exception | None]:
             md.params["Test"] = "test"
             dct["called"] = True
             return next(md)

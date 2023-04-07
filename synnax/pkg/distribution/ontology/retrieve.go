@@ -20,7 +20,7 @@ import (
 type Retrieve struct {
 	query     *gorp.CompoundRetrieve[ID, Resource]
 	registrar serviceRegistrar
-	ctx       gorp.Tx
+	tx        gorp.Tx
 }
 
 // NewRetrieve opens a new Retrieve query, which can be used to traverse and read resources
@@ -121,6 +121,7 @@ func (r Retrieve) Entries(res *[]Resource) Retrieve {
 // Exec executes the query.
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	var nextIDs []ID
+	tx = gorp.OverrideTx(r.tx, tx)
 	for i, clause := range r.query.Clauses {
 		if i != 0 {
 			clause.WhereKeys(nextIDs...)

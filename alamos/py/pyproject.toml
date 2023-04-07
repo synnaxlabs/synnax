@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "alamos"
+version = "0.1.0"
+description = ""
+authors = ["Emiliano Bonilla <ebonilla@synnaxlabs.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+opentelemetry-api = "^1.17.0"
+opentelemetry-sdk = "^1.17.0"
+
+
+[tool.poetry.group.dev.dependencies]
+black = "^23.3.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

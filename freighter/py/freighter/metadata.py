@@ -12,8 +12,8 @@ from typing import MutableMapping, Any
 
 
 @dataclass
-class MetaData:
-    """MetaData is the metadata associated with a freighter transport request.
+class Context:
+    """Context is the metadata associated with a freighter transport request.
 
     :param protocol: The protocol to use for the transport request.
     :param target: The target to use for the transport request.

@@ -10,6 +10,7 @@
 package ontology_test
 
 import (
+	"context"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -43,15 +44,16 @@ func (s *emptyService) RetrieveEntity(key string) (ontology.Entity, error) {
 }
 
 var (
+	ctx = context.Background()
 	db  *gorp.DB
 	otg *ontology.Ontology
-	txn gorp.Writer
+	tx  gorp.Tx
 )
 
 var _ = BeforeSuite(func() {
 	var err error
 	db = gorp.Wrap(memkv.New())
-	otg, err = ontology.Open(gorp.Wrap(db))
+	otg, err = ontology.Open(ctx, db)
 	Expect(err).ToNot(HaveOccurred())
 	otg.RegisterService(&emptyService{})
 })
@@ -61,11 +63,11 @@ var _ = AfterSuite(func() {
 })
 
 var _ = BeforeEach(func() {
-	txn = db.OpenTx()
+	tx = db.OpenTx()
 })
 
 var _ = AfterEach(func() {
-	Expect(txn.Close()).To(Succeed())
+	Expect(tx.Close()).To(Succeed())
 })
 
 func TestOntology(t *testing.T) {

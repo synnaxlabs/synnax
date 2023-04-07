@@ -13,7 +13,7 @@ import { z } from "zod";
 
 import { JSONEncoderDecoder } from "@/encoder";
 import { BaseTypedError, EOF, TypedError, registerError } from "@/errors";
-import { MetaData } from "@/middleware";
+import { Context } from "@/middleware";
 import { WebSocketClient } from "@/websocket";
 
 const url = new URL({
@@ -101,7 +101,7 @@ describe("websocket", () => {
   test("middleware", async () => {
     const myClient = new WebSocketClient(url, new JSONEncoderDecoder());
     let c = 0;
-    myClient.use(async (md, next): Promise<[MetaData, Error | undefined]> => {
+    myClient.use(async (md, next): Promise<[Context, Error | undefined]> => {
       if (md.params !== undefined) {
         c++;
         md.params.Test = "test";

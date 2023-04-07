@@ -83,7 +83,9 @@ type Writer interface {
 
 // OpenWriter opens a new Writer using the provided transaction.
 // Panics if the transaction does not root from the same database as the Ontology.
-func (o *Ontology) OpenWriter(tx gorp.Tx) Writer { return dagWriter{tx: tx} }
+func (o *Ontology) OpenWriter(tx gorp.Tx) Writer {
+	return dagWriter{tx: gorp.OverrideTx(o.DB, tx)}
+}
 
 // RegisterService registers a Service for a particular [Type] with the [Ontology].
 // Ontology will execute queries for Entity information for the given Type using the

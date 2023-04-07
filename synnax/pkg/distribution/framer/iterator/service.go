@@ -181,7 +181,7 @@ func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) er
 		return v.Error()
 	}
 	q := s.ChannelReader.NewRetrieve().WhereKeys(keys...)
-	exists, err := q.Exists(s.ChannelReader.ReadTxn(ctx))
+	exists, err := q.Exists(ctx, nil)
 	if err != nil {
 		return err
 	}

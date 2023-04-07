@@ -39,11 +39,11 @@ TOKEN_REFRESH_HEADER = "Refresh-Token"
 def token_middleware(
     token_provider: Callable[[], str], set_token: Callable[[str], None]
 ) -> Middleware:
-    def mw(md: MetaData, _next: Next):
-        md.set(AUTHORIZATION_HEADER, "Bearer " + token_provider())
-        out_md, exc = _next(md)
-        maybe_refresh_token(out_md, set_token)
-        return out_md, exc
+    def mw(ctx: MetaData, _next: Next):
+        ctx.set(AUTHORIZATION_HEADER, "Bearer " + token_provider())
+        out_ctx, exc = _next(ctx)
+        maybe_refresh_token(out_ctx, set_token)
+        return out_ctx, exc
 
     return mw
 
@@ -51,20 +51,20 @@ def token_middleware(
 def async_token_middleware(
     token_provider: Callable[[], str], set_token: Callable[[str], None]
 ) -> AsyncMiddleware:
-    async def mw(md: MetaData, _next: AsyncNext):
-        md.set(AUTHORIZATION_HEADER, "Bearer " + token_provider())
-        out_md, exc = await _next(md)
-        maybe_refresh_token(out_md, set_token)
-        return out_md, exc
+    async def mw(ctx: MetaData, _next: AsyncNext):
+        ctx.set(AUTHORIZATION_HEADER, "Bearer " + token_provider())
+        out_ctx, exc = await _next(ctx)
+        maybe_refresh_token(out_ctx, set_token)
+        return out_ctx, exc
 
     return mw
 
 
 def maybe_refresh_token(
-    md: MetaData,
+    ctx: MetaData,
     set_token: Callable[[str], None],
 ) -> None:
-    refresh = md.get(TOKEN_REFRESH_HEADER, None)
+    refresh = ctx.get(TOKEN_REFRESH_HEADER, None)
     if refresh is not None:
         set_token(refresh)
 

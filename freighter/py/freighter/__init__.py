@@ -20,7 +20,7 @@ from .transport import (
     AsyncFinalizer,
     MiddlewareCollector,
 )
-from .metadata import MetaData
+from .metadata import Context
 from .exceptions import EOF, ExceptionPayload, StreamClosed
 from .stream import AsyncStream, AsyncStreamClient, Stream, StreamClient
 from .unary import UnaryClient

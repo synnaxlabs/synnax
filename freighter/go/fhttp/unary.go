@@ -13,10 +13,11 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
-	"github.com/gofiber/fiber/v2"
-	"github.com/samber/lo"
 	"net/http"
 	"strings"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/samber/lo"
 
 	"github.com/gofiber/fiber/v2/utils"
 	"github.com/synnaxlabs/freighter"
@@ -149,7 +150,7 @@ func parseRequestCtx(c *fiber.Ctx, target address.Address) freighter.Context {
 	}
 	for k, v := range parseQueryString(c) {
 		if isFreighterQueryStringParam(k) {
-			md.Params[strings.TrimPrefix(k, freighterMDPrefix)] = v
+			md.Params[strings.TrimPrefix(k, freighterCtxPrefix)] = v
 		}
 	}
 	return md
@@ -166,7 +167,7 @@ func parseSecurityInfo(c *fiber.Ctx) (info freighter.SecurityInfo) {
 func setRequestCtx(c *http.Request, ctx freighter.Context) {
 	for k, v := range ctx.Params {
 		if vStr, ok := v.(string); ok {
-			c.Header.Set(freighterMDPrefix+k, vStr)
+			c.Header.Set(freighterCtxPrefix+k, vStr)
 		}
 	}
 }
@@ -174,7 +175,7 @@ func setRequestCtx(c *http.Request, ctx freighter.Context) {
 func setResponseCtx(c *fiber.Ctx, md freighter.Context) {
 	for k, v := range md.Params {
 		if vStr, ok := v.(string); ok {
-			c.Set(freighterMDPrefix+k, vStr)
+			c.Set(freighterCtxPrefix+k, vStr)
 		}
 	}
 }
@@ -207,9 +208,9 @@ func parseQueryString(c *fiber.Ctx) map[string]string {
 	return data
 }
 
-const freighterMDPrefix = "freightermd"
+const freighterCtxPrefix = "freighterctx"
 
 func isFreighterQueryStringParam(k string) bool {
 	// check if the key has the md prefix
-	return strings.HasPrefix(k, freighterMDPrefix)
+	return strings.HasPrefix(k, freighterCtxPrefix)
 }

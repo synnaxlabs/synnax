@@ -12,7 +12,7 @@ from __future__ import annotations
 import typing
 from typing import TypeAlias, TypeVar, Protocol
 
-from .metadata import MetaData
+from .metadata import Context
 
 from pydantic import BaseModel
 
@@ -53,31 +53,31 @@ class AsyncTransport(Protocol):
         ...
 
 
-Next = typing.Callable[[MetaData], tuple[MetaData, Exception | None]]
+Next = typing.Callable[[Context], tuple[Context, Exception | None]]
 """Executes the next middleware in the chain"""
 
 AsyncNext = typing.Callable[
-    [MetaData], typing.Awaitable[tuple[MetaData, Exception | None]]
+    [Context], typing.Awaitable[tuple[Context, Exception | None]]
 ]
 """Executes the next middleware in the chain"""
 
 
-Middleware = typing.Callable[[MetaData, Next], tuple[MetaData, Exception | None]]
+Middleware = typing.Callable[[Context, Next], tuple[Context, Exception | None]]
 """"Middleware is a general middleware function that can be used to parse/attach
 metadata to a request or alter its behvaior."""
 
 AsyncMiddleware = typing.Callable[
-    [MetaData, AsyncNext], typing.Awaitable[tuple[MetaData, Exception | None]]
+    [Context, AsyncNext], typing.Awaitable[tuple[Context, Exception | None]]
 ]
 """Middleware is a general middleware function that can be used to parse/attach
 metadata to a request or alter its behvaior."""
 
-Finalizer = typing.Callable[[MetaData], tuple[MetaData, Exception | None]]
+Finalizer = typing.Callable[[Context], tuple[Context, Exception | None]]
 """Finalizer is a middleware that is executed as the last step in a chain.
 It is used to finalize the request and return the response."""
 
 AsyncFinalizer = typing.Callable[
-    [MetaData], typing.Awaitable[tuple[MetaData, Exception | None]]
+    [Context], typing.Awaitable[tuple[Context, Exception | None]]
 ]
 """Finalizer is a middleware that is executed as the last step in a chain.
 It is used to finalize the request and return the response."""
@@ -97,7 +97,7 @@ class MiddlewareCollector:
 
     def exec(
         self,
-        md: MetaData,
+        ctx: Context,
         finalizer: Finalizer,
     ):
         """Executes the middleware in order, passing metadata to each
@@ -109,12 +109,12 @@ class MiddlewareCollector:
         """
         middleware = self._middleware.copy()
 
-        def _next(_md: MetaData) -> tuple[MetaData, Exception | None]:
+        def _next(ctx: Context) -> tuple[Context, Exception | None]:
             if len(middleware) == 0:
-                return finalizer(_md)
-            return middleware.pop()(_md, _next)
+                return finalizer(ctx)
+            return middleware.pop()(ctx, _next)
 
-        return _next(md)
+        return _next(ctx)
 
 
 class AsyncMiddlewareCollector:
@@ -131,7 +131,7 @@ class AsyncMiddlewareCollector:
 
     async def exec(
         self,
-        md: MetaData,
+        md: Context,
         finalizer: AsyncFinalizer,
     ):
         """Executes the middleware in order, passing metadata to each
@@ -143,7 +143,7 @@ class AsyncMiddlewareCollector:
         """
         middleware = self._middleware.copy()
 
-        async def _next(_md: MetaData) -> tuple[MetaData, Exception | None]:
+        async def _next(_md: Context) -> tuple[Context, Exception | None]:
             if len(middleware) == 0:
                 return await finalizer(_md)
             return await middleware.pop()(_md, _next)

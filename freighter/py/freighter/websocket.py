@@ -9,7 +9,7 @@
 
 from typing import Generic, Type, Any
 
-from freighter.metadata import MetaData
+from freighter.metadata import Context
 from pydantic import BaseModel
 from websockets.exceptions import ConnectionClosedOK
 from websockets.client import connect, WebSocketClientProtocol
@@ -166,10 +166,10 @@ class WebsocketClient(AsyncMiddlewareCollector):
         headers = {"Content-Type": self._encoder.content_type()}
         socket: WebsocketStream[RQ, RS] | None = None
 
-        async def finalizer(md: MetaData) -> tuple[MetaData, Exception | None]:
+        async def finalizer(ctx: Context) -> tuple[Context, Exception | None]:
             nonlocal socket
-            out_meta_data = MetaData(target, "websocket")
-            headers.update(md.params)
+            out_meta_data = Context(target, "websocket")
+            headers.update(ctx.params)
             try:
                 ws = await connect(
                     self._endpoint.child(target).stringify(),
@@ -183,7 +183,7 @@ class WebsocketClient(AsyncMiddlewareCollector):
                 return out_meta_data, e
             return out_meta_data, None
 
-        _, exc = await self.exec(MetaData(target, "websocket"), finalizer)
+        _, exc = await self.exec(Context(target, "websocket"), finalizer)
         if exc is not None:
             raise exc
 
