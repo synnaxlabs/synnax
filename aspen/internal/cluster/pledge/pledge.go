@@ -127,7 +127,7 @@ func Pledge(ctx context.Context, cfgs ...Config) (res Response, err error) {
 // IDs until cfg.MaxProposals is reached. When processing a responisble's proposal,
 // the node will act a juror, and decide if it approves of the proposed ID
 // or not. To see the required configuration parameters, see the Config struct.
-func Arbitrate(ctx context.Context, cfgs ...Config) error {
+func Arbitrate(cfgs ...Config) error {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return err

@@ -13,8 +13,10 @@ import (
 	"context"
 	"fmt"
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
+	"github.com/synnaxlabs/x/gorp"
 	"go.uber.org/zap"
 	"strconv"
 )
@@ -56,7 +58,7 @@ var (
 // NodeOntologyService implements the ontology.Service interface to provide resource access
 // to a cluster's nodes.
 type NodeOntologyService struct {
-	Logger   *zap.SugaredLogger
+	alamos.Instrumentation
 	Ontology *ontology.Ontology
 	Cluster  Cluster
 }
@@ -72,22 +74,28 @@ func (s *NodeOntologyService) ListenForChanges(ctx context.Context) {
 }
 
 func (s *NodeOntologyService) update(ctx context.Context, state ClusterState) {
-	w := s.Ontology.NewWriter()
-	clusterID := ClusterOntologyID(s.Cluster.Key())
-	if err := w.DefineResource(ctx, clusterID); err != nil {
-		s.Logger.Errorf("failed to define HostResolver resource: %v", err)
-	}
-	if err := w.DefineRelationship(ctx, ontology.Root, ontology.ParentOf, clusterID); err != nil {
-		s.Logger.Errorf("failed to define HostResolver relationship: %v", err)
-	}
-	for _, n := range state.Nodes {
-		nodeID := NodeOntologyID(n.ID)
-		if err := w.DefineResource(ctx, NodeOntologyID(n.ID)); err != nil {
-			s.Logger.Errorf("failed to define node resource: %v", err)
+	err := s.Ontology.DB.WithTx(ctx, func(txn gorp.Tx) error {
+		w := s.Ontology.OpenWriter(txn)
+		clusterID := ClusterOntologyID(s.Cluster.Key())
+		if err := w.DefineResource(ctx, clusterID); err != nil {
+			return err
 		}
-		if err := w.DefineRelationship(ctx, clusterID, ontology.ParentOf, nodeID); err != nil {
-			s.Logger.Errorf("failed to define HostResolver relationship: %v", err)
+		if err := w.DefineRelationship(ctx, ontology.Root, ontology.ParentOf, clusterID); err != nil {
+			return err
 		}
+		for _, n := range state.Nodes {
+			nodeID := NodeOntologyID(n.ID)
+			if err := w.DefineResource(ctx, NodeOntologyID(n.ID)); err != nil {
+				return err
+			}
+			if err := w.DefineRelationship(ctx, clusterID, ontology.ParentOf, nodeID); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		s.L.Error("failed to update node ontology", zap.Error(err))
 	}
 }
 

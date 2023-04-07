@@ -72,8 +72,7 @@ func (cb *CoreBuilder) New() core.Core {
 		addr,
 		cb.peerAddresses(),
 		aspen.WithEngine(store.KV),
-		aspen.WithInstrumentation(cb.Config.Experiment),
-		aspen.WithLogger(cb.Config.logger.Named("aspen").Sugar()),
+		aspen.WithInstrumentation(cb.Config.Instrumentation),
 		aspen.WithTransport(trans),
 		aspen.WithPropagationConfig(aspen.FastPropagationConfig),
 	))

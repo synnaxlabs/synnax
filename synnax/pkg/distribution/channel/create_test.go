@@ -48,7 +48,7 @@ var _ = Describe("TypedWriter", Ordered, func() {
 				DataType: telem.Float64T,
 				NodeID:   channelLeaseNodeID,
 			}
-			err = services[1].Create(&ch)
+			err = services[1].NewWriter(nil).Create(ctx, &ch)
 			Expect(err).ToNot(HaveOccurred())
 		})
 		Context("Node is local", func() {
@@ -58,7 +58,7 @@ var _ = Describe("TypedWriter", Ordered, func() {
 				Expect(ch.Key().LocalKey()).To(Equal(storage.ChannelKey(1)))
 			})
 			It("Should create the channel in the cesium gorpDB", func() {
-				channels, err := builder.Cores[1].Storage.TS.RetrieveChannels(ch.Key().String())
+				channels, err := builder.Cores[1].Storage.TS.RetrieveChannels(ctx, ch.Key().String())
 				Expect(err).ToNot(HaveOccurred())
 				Expect(channels).To(HaveLen(1))
 				cesiumCH := channels[0]
@@ -74,7 +74,7 @@ var _ = Describe("TypedWriter", Ordered, func() {
 				Expect(ch.Key().LocalKey()).To(Equal(storage.ChannelKey(1)))
 			})
 			It("Should create the channel in the cesium gorpDB", func() {
-				channels, err := builder.Cores[2].Storage.TS.RetrieveChannels(ch.Key().String())
+				channels, err := builder.Cores[2].Storage.TS.RetrieveChannels(ctx, ch.Key().String())
 				Expect(err).ToNot(HaveOccurred())
 				Expect(channels).To(HaveLen(1))
 				cesiumCH := channels[0]
@@ -83,7 +83,7 @@ var _ = Describe("TypedWriter", Ordered, func() {
 				Expect(cesiumCH.Rate).To(Equal(5 * telem.Hz))
 			})
 			It("Should not create the channel on another nodes DB", func() {
-				channels, err := builder.Cores[1].Storage.TS.RetrieveChannels(ch.Key().String())
+				channels, err := builder.Cores[1].Storage.TS.RetrieveChannels(ctx, ch.Key().String())
 				Expect(err).To(HaveOccurred())
 				Expect(channels).To(HaveLen(0))
 			})
@@ -95,7 +95,7 @@ var _ = Describe("TypedWriter", Ordered, func() {
 						DataType: telem.Float64T,
 						NodeID:   1,
 					}
-					err := services[1].Create(ch2)
+					err := services[1].NewWriter(nil).Create(ctx, ch2)
 					Expect(err).To(BeNil())
 					Expect(ch2.Key().NodeID()).To(Equal(aspen.NodeID(1)))
 					Expect(ch2.Key().LocalKey()).To(Equal(storage.ChannelKey(3)))

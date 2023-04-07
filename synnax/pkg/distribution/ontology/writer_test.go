@@ -17,13 +17,13 @@ import (
 	"github.com/synnaxlabs/x/query"
 )
 
-var _ = Describe("Write", func() {
+var _ = Describe("set", func() {
 	var (
 		w  ontology.Writer
 		id ontology.ID
 	)
 	BeforeEach(func() {
-		w = otg.NewWriter(txn)
+		w = otg.OpenWriter(txn)
 		id = newEmptyID("foo")
 	})
 	Describe("Resources", func() {

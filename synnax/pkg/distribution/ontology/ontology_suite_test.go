@@ -61,7 +61,7 @@ var _ = AfterSuite(func() {
 })
 
 var _ = BeforeEach(func() {
-	txn = db.BeginWrite()
+	txn = db.OpenTx()
 })
 
 var _ = AfterEach(func() {

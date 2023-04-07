@@ -55,7 +55,7 @@ func (f *FlushSubscriber[S]) Flush(ctx context.Context, state S) {
 }
 
 func (f *FlushSubscriber[S]) FlushSync(ctx context.Context, state S) {
-	if err := kv.Set(ctx, f.Store, f.Key, lo.Must(f.Encoder.Encode(state))); err != nil {
+	if err := kv.Set(ctx, f.Store, f.Key, lo.Must(f.Encoder.Encode(nil, state))); err != nil {
 		f.Logger.Errorw("failed to flush", "err", err)
 	}
 }

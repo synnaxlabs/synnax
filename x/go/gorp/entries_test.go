@@ -19,7 +19,7 @@ import (
 )
 
 var _ = Describe("Entries", func() {
-	Describe("Get and Set", func() {
+	Describe("Get and set", func() {
 		It("Should return an empty slice if no entries were set on the query", func() {
 			q := gorp.NewRetrieve[int, entry]()
 			entries := gorp.GetEntries[int, entry](q)
@@ -30,7 +30,7 @@ var _ = Describe("Entries", func() {
 			gorp.SetEntry[int, entry](q, &entry{})
 			e := gorp.GetEntries[int, entry](q)
 			Expect(func() {
-				e.Set(2, entry{})
+				e.Replace(2, entry{})
 			}).To(Panic())
 		})
 	})
@@ -38,15 +38,15 @@ var _ = Describe("Entries", func() {
 		It("Should not append a type prefix to a particular key when type prefix is off", func() {
 			db := memkv.New()
 			gorpDB := gorp.Wrap(db,
-				gorp.WithoutTypePrefix(),
+				gorp.WithNoPrefix(),
 			)
-			txn := gorpDB.BeginWrite(ctx)
+			txn := gorpDB.OpenTx(ctx)
 			Expect(gorp.NewCreate[int, entry]().
 				Entries(&[]entry{{ID: 1, Data: "data"}}).
 				Exec(txn)).To(Succeed())
 			// use msgpack to encode the entry int 1  into a byte slice
 			ecd := &binary.MsgPackEncoderDecoder{}
-			b, err := ecd.Encode(1)
+			b, err := ecd.Encode(nil, 1)
 			Expect(err).To(Not(HaveOccurred()))
 			_, err = txn.Get(b)
 			Expect(err).To(Not(HaveOccurred()))

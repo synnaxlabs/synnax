@@ -46,7 +46,7 @@ func (s *service) RetrieveEntity(ctx context.Context, key string) (schema.Entity
 		return schema.Entity{}, err
 	}
 	var ch Channel
-	err = s.NewRetrieve(ctx).WhereKeys(k).Entry(&ch).Exec()
+	err = s.NewRetrieve().WhereKeys(k).Entry(&ch).Exec(ctx, nil)
 	return newEntity(ch), err
 }
 

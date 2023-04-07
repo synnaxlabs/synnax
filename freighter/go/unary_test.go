@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/freighter/fhttp"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/httputil"
-	"go.uber.org/zap"
+	"log"
 	"net/http"
 	"time"
 )
@@ -29,7 +29,7 @@ type (
 )
 
 type unaryImplementation interface {
-	start(host address.Address, logger *zap.SugaredLogger) (unaryServer, unaryClient)
+	start(host address.Address) (unaryServer, unaryClient)
 	stop() error
 }
 
@@ -48,8 +48,7 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 			)
 			BeforeAll(func() {
 				addr = "localhost:8080"
-				l := zap.NewNop()
-				server, client = impl.start(addr, l.Sugar())
+				server, client = impl.start(addr)
 			})
 			AfterAll(func() {
 				Expect(impl.stop()).To(Succeed())
@@ -81,9 +80,9 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 			Describe("Middleware", func() {
 				It("Should correctly call the middleware", func() {
 					c := 0
-					server.Use(freighter.MiddlewareFunc(func(ctx context.Context, md freighter.Context, next freighter.Next) (freighter.Context, error) {
+					server.Use(freighter.MiddlewareFunc(func(ctx freighter.Context, next freighter.Next) (freighter.Context, error) {
 						c++
-						oMd, err := next(ctx, md)
+						oMd, err := next(ctx)
 						c++
 						return oMd, err
 					}))
@@ -104,12 +103,11 @@ type httpUnaryImplementation struct {
 	app *fiber.App
 }
 
-func (h *httpUnaryImplementation) start(host address.Address, logger *zap.SugaredLogger) (unaryServer, unaryClient) {
+func (h *httpUnaryImplementation) start(host address.Address) (unaryServer, unaryClient) {
 	h.app = fiber.New(fiber.Config{DisableStartupMessage: true})
-	router := fhttp.NewRouter(fhttp.RouterConfig{Logger: logger})
+	router := fhttp.NewRouter(fhttp.RouterConfig{})
 	factory := fhttp.NewClientFactory(fhttp.ClientFactoryConfig{
 		EncoderDecoder: httputil.JSONEncoderDecoder,
-		Logger:         logger,
 	})
 	server := fhttp.UnaryPostServer[request, response](router, "/")
 	client := fhttp.UnaryPostClient[request, response](factory)
@@ -119,7 +117,7 @@ func (h *httpUnaryImplementation) start(host address.Address, logger *zap.Sugare
 	})
 	go func() {
 		if err := h.app.Listen(host.PortString()); err != nil {
-			logger.Error(err)
+			log.Fatal(err)
 		}
 	}()
 	Eventually(func(g Gomega) {

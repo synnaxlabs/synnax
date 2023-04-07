@@ -43,19 +43,17 @@ type (
 
 // Ontology exposes an ontology stored in a key-value database for reading and writing.
 type Ontology struct {
+	DB        *gorp.DB
 	registrar serviceRegistrar
-	db        *gorp.DB
 }
 
 // Open opens the ontology stored in the given database. If the Root resource does not
 // exist, it will be created.
 func Open(ctx context.Context, db *gorp.DB) (*Ontology, error) {
 	o := &Ontology{registrar: serviceRegistrar{BuiltIn: &builtinService{}}}
-	err := o.NewRetrieve(ctx).WhereIDs(Root).Exec()
+	err := o.NewRetrieve().WhereIDs(Root).Exec(ctx, db)
 	if errors.Is(err, query.NotFound) {
-		err = db.WithWriteTxn(ctx, func(w gorp.WriteTxn) error {
-			return o.NewWriter(w).DefineResource(Root)
-		})
+		err = o.OpenWriter(db).DefineResource(ctx, Root)
 	}
 	return o, err
 }
@@ -64,18 +62,18 @@ func Open(ctx context.Context, db *gorp.DB) (*Ontology, error) {
 type Writer interface {
 	// DefineResource defines a new resource with the given ID. If the resource already
 	// exists, DefineResource does nothing.
-	DefineResource(id ID) error
+	DefineResource(ctx context.Context, id ID) error
 	// DeleteResource deletes the resource with the given ID along with all of its
 	// incoming and outgoing relationships.  If the resource does not exist,
 	// DeleteResource does nothing.
-	DeleteResource(id ID) error
+	DeleteResource(ctx context.Context, id ID) error
 	// DefineRelationship defines a directional relationship of type t between the
 	// resources with the given IDs. If the relationship already exists, DefineRelationship
 	// does nothing.
-	DefineRelationship(from ID, t RelationshipType, to ID) error
+	DefineRelationship(ctx context.Context, from ID, t RelationshipType, to ID) error
 	// DeleteRelationship deletes the relationship with the given IDs and type. If the
 	// relationship does not exist, DeleteRelationship does nothing.
-	DeleteRelationship(from ID, t RelationshipType, to ID) error
+	DeleteRelationship(ctx context.Context, from ID, t RelationshipType, to ID) error
 	// NewRetrieve opens a new Retrieve query that provides a view of pending
 	// operations merged with the underlying database. If the Writer is executing directly
 	// against the underlying database, the Retrieve query behaves exactly as if calling
@@ -83,17 +81,9 @@ type Writer interface {
 	NewRetrieve() Retrieve
 }
 
-// NewRetrieve opens a new Retrieve query, which can be used to traverse and read resources
-// from the underlying ontology.
-func (o *Ontology) NewRetrieve(ctx context.Context) Retrieve {
-	return newRetrieve(o.registrar, o.db.BeginRead(ctx))
-}
-
-// NewWriter opens a new Writer using the provided transaction.
+// OpenWriter opens a new Writer using the provided transaction.
 // Panics if the transaction does not root from the same database as the Ontology.
-func (o *Ontology) NewWriter(writer gorp.WriteTxn) Writer {
-	return dagWriter{writer: writer}
-}
+func (o *Ontology) OpenWriter(tx gorp.Tx) Writer { return dagWriter{tx: tx} }
 
 // RegisterService registers a Service for a particular [Type] with the [Ontology].
 // Ontology will execute queries for Entity information for the given Type using the

@@ -79,7 +79,7 @@ type core[I, O freighter.Payload] struct {
 }
 
 func (c *core[I, O]) send(msg message[O]) error {
-	b, err := c.ecd.Encode(msg)
+	b, err := c.ecd.Encode(nil, msg)
 	if err != nil {
 		return err
 	}
@@ -92,7 +92,7 @@ func (c *core[I, O]) receive() (msg message[I], err error) {
 	if err != nil {
 		return msg, err
 	}
-	return msg, c.ecd.DecodeStream(r, &msg)
+	return msg, c.ecd.DecodeStream(nil, r, &msg)
 }
 
 func (c *core[I, O]) cancelStream() error {

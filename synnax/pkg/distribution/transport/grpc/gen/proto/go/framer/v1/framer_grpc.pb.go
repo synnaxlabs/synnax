@@ -34,7 +34,7 @@ func NewIteratorServiceClient(cc grpc.ClientConnInterface) IteratorServiceClient
 }
 
 func (c *iteratorServiceClient) Iterate(ctx context.Context, opts ...grpc.CallOption) (IteratorService_IterateClient, error) {
-	stream, err := c.cc.NewStream(ctx, &IteratorService_ServiceDesc.Streams[0], "/segment.v1.IteratorService/Iterate", opts...)
+	stream, err := c.cc.NewStream(ctx, &IteratorService_ServiceDesc.Streams[0], "/segment.v1.IteratorService/OpenIterator", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +76,7 @@ type UnimplementedIteratorServiceServer struct {
 }
 
 func (UnimplementedIteratorServiceServer) Iterate(IteratorService_IterateServer) error {
-	return status.Errorf(codes.Unimplemented, "method Iterate not implemented")
+	return status.Errorf(codes.Unimplemented, "method OpenIterator not implemented")
 }
 
 // UnsafeIteratorServiceServer may be embedded to opt out of forward compatibility for this service.
@@ -125,7 +125,7 @@ var IteratorService_ServiceDesc = grpc.ServiceDesc{
 	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "Iterate",
+			StreamName:    "OpenIterator",
 			Handler:       _IteratorService_Iterate_Handler,
 			ServerStreams: true,
 			ClientStreams: true,
@@ -150,7 +150,7 @@ func NewWriterServiceClient(cc grpc.ClientConnInterface) WriterServiceClient {
 }
 
 func (c *writerServiceClient) Write(ctx context.Context, opts ...grpc.CallOption) (WriterService_WriteClient, error) {
-	stream, err := c.cc.NewStream(ctx, &WriterService_ServiceDesc.Streams[0], "/segment.v1.WriterService/Write", opts...)
+	stream, err := c.cc.NewStream(ctx, &WriterService_ServiceDesc.Streams[0], "/segment.v1.WriterService/set", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +192,7 @@ type UnimplementedWriterServiceServer struct {
 }
 
 func (UnimplementedWriterServiceServer) Write(WriterService_WriteServer) error {
-	return status.Errorf(codes.Unimplemented, "method Write not implemented")
+	return status.Errorf(codes.Unimplemented, "method set not implemented")
 }
 
 // UnsafeWriterServiceServer may be embedded to opt out of forward compatibility for this service.
@@ -241,7 +241,7 @@ var WriterService_ServiceDesc = grpc.ServiceDesc{
 	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "Write",
+			StreamName:    "set",
 			Handler:       _WriterService_Write_Handler,
 			ServerStreams: true,
 			ClientStreams: true,

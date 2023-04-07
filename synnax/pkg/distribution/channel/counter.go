@@ -10,6 +10,7 @@
 package channel
 
 import (
+	"context"
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/x/counter"
 	"github.com/synnaxlabs/x/kv"
@@ -33,8 +34,12 @@ func (c *keyCounter) Add(delta ...uint16) (uint16, error) {
 
 func (c *keyCounter) Value() uint16 { return uint16(c.internal.Value()) }
 
-func openCounter(nodeID dcore.NodeID, kve kv.Writer) (counter.Counter[uint16], error) {
-	c, err := kv.OpenCounter(kve, []byte(strconv.Itoa(int(nodeID))+counterKey))
+func openCounter(nodeID dcore.NodeID, tx kv.Tx) (counter.Counter[uint16], error) {
+	c, err := kv.OpenCounter(
+		context.TODO(),
+		tx,
+		[]byte(strconv.Itoa(int(nodeID))+counterKey),
+	)
 	if err != nil {
 		return nil, err
 	}

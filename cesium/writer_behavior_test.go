@@ -24,7 +24,7 @@ var _ = Describe("TypedWriter Behavior", Ordered, func() {
 	AfterAll(func() { Expect(db.Close()).To(Succeed()) })
 	Describe("Happy Path", func() {
 		Context("Indexed", func() {
-			Specify("Basic Write", func() {
+			Specify("Basic set", func() {
 				By("Creating a channel")
 				Expect(db.CreateChannel(
 					ctx,

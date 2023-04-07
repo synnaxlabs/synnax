@@ -19,8 +19,8 @@ type Legislator struct {
 	DB *gorp.DB
 }
 
-func (l *Legislator) Create(ctx context.Context, txn gorp.Writer, p Policy) error {
-	return gorp.NewCreate[string, Policy]().Entry(&p).Exec(ctx, txn)
+func (l *Legislator) Create(txn gorp.WriteTxn, p Policy) error {
+	return gorp.NewCreate[string, Policy]().Entry(&p).Exec(txn)
 }
 
 func (l *Legislator) Retrieve(ctx context.Context, subject, object ontology.ID) ([]Policy, error) {
@@ -28,5 +28,5 @@ func (l *Legislator) Retrieve(ctx context.Context, subject, object ontology.ID) 
 	return p, gorp.NewRetrieve[string, Policy]().
 		WhereKeys(NewPolicyKey(subject, object)).
 		Entries(&p).
-		Exec(ctx, l.DB)
+		Exec(l.DB.ReadTxn(ctx))
 }

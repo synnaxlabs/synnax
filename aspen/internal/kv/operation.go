@@ -71,7 +71,7 @@ func (d Digest) apply(w kvx.Writer) error {
 	if err != nil {
 		return err
 	}
-	b, err := ecd.Encode(d)
+	b, err := ecd.Encode(nil, d)
 	if err != nil {
 		return err
 	}

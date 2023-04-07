@@ -39,8 +39,8 @@ var _ = Describe("Errors", func() {
 		Entry("AuthService", errors.Auth(roacherrors.New("error")), errors.TypeAuth, roacherrors.New("error")),
 		Entry("MaybeAuth Nil", errors.MaybeAuth(nil), errors.TypeNil, nil),
 		Entry("MaybeAuth", errors.MaybeAuth(roacherrors.New("error")), errors.TypeAuth, roacherrors.New("error")),
-		Entry("Query", errors.Query(query.NotFound), errors.TypeQuery, query.NotFound),
-		Entry("Query", errors.Query(query.UniqueViolation), errors.TypeQuery, query.UniqueViolation),
+		Entry("Params", errors.Query(query.NotFound), errors.TypeQuery, query.NotFound),
+		Entry("Params", errors.Query(query.UniqueViolation), errors.TypeQuery, query.UniqueViolation),
 		Entry("MaybeQuery Nil", errors.MaybeQuery(nil), errors.TypeNil, nil),
 		Entry("MaybeQuery", errors.MaybeQuery(roacherrors.New("error")), errors.TypeGeneral, roacherrors.New("error")),
 	)

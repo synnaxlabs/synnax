@@ -29,15 +29,13 @@ var _ = Describe("IteratorServer", func() {
 	})
 	Describe("PrefixIter", func() {
 		It("Should iterate over keys with a given prefix", func() {
-			w := kv.NewWriter(ctx)
-			Expect(w.Set([]byte("a/foo"), []byte("bar"))).To(Succeed())
-			Expect(w.Set([]byte("a/baz"), []byte("qux"))).To(Succeed())
-			Expect(w.Set([]byte("a/qux"), []byte("quux"))).To(Succeed())
-			Expect(w.Set([]byte("b/foo"), []byte("bar"))).To(Succeed())
-			Expect(w.Set([]byte("b/baz"), []byte("qux"))).To(Succeed())
-			Expect(w.Commit()).To(Succeed())
+			Expect(kv.Set(ctx, []byte("a/foo"), []byte("bar"))).To(Succeed())
+			Expect(kv.Set(ctx, []byte("a/baz"), []byte("qux"))).To(Succeed())
+			Expect(kv.Set(ctx, []byte("a/qux"), []byte("quux"))).To(Succeed())
+			Expect(kv.Set(ctx, []byte("b/foo"), []byte("bar"))).To(Succeed())
+			Expect(kv.Set(ctx, []byte("b/baz"), []byte("qux"))).To(Succeed())
 
-			iter := kv.NewReader(ctx).Iterate(kvx.PrefixIter([]byte("a")))
+			iter := kv.OpenIterator(kvx.PrefixIter([]byte("a")))
 			c := 0
 			for iter.First(); iter.Valid(); iter.Next() {
 				c++
@@ -48,19 +46,16 @@ var _ = Describe("IteratorServer", func() {
 	})
 	Describe("Bounds Iter", func() {
 		It("Should iterate over keys in a given range", func() {
-
-			w := kv.NewWriter(ctx)
 			for i := 0; i < 10; i++ {
 				b := make([]byte, 4)
 				binary.LittleEndian.PutUint32(b, uint32(i))
-				Expect(w.Set(b, []byte{1, 2})).To(Succeed())
+				Expect(kv.Set(ctx, b, []byte{1, 2})).To(Succeed())
 			}
-			Expect(w.Commit()).To(Succeed())
 			lower := make([]byte, 4)
 			binary.LittleEndian.PutUint32(lower, uint32(3))
 			upper := make([]byte, 4)
 			binary.LittleEndian.PutUint32(upper, uint32(7))
-			iter := kv.NewReader(ctx).Iterate(kvx.RangeIter(lower, upper))
+			iter := kv.OpenIterator(kvx.RangeIter(lower, upper))
 			c := 0
 			for iter.First(); iter.Valid(); iter.Next() {
 				c++

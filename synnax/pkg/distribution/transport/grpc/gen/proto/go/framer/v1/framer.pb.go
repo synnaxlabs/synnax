@@ -691,10 +691,10 @@ var file_framer_v1_framer_proto_depIdxs = []int32{
 	5,  // 5: segment.v1.WriterRequest.config:type_name -> segment.v1.WriterConfig
 	1,  // 6: segment.v1.WriterRequest.frame:type_name -> segment.v1.Frame
 	8,  // 7: segment.v1.WriterResponse.error:type_name -> ferrors.v1.ErrorPayload
-	0,  // 8: segment.v1.IteratorService.Iterate:input_type -> segment.v1.IteratorRequest
-	4,  // 9: segment.v1.WriterService.Write:input_type -> segment.v1.WriterRequest
-	3,  // 10: segment.v1.IteratorService.Iterate:output_type -> segment.v1.IteratorResponse
-	6,  // 11: segment.v1.WriterService.Write:output_type -> segment.v1.WriterResponse
+	0,  // 8: segment.v1.IteratorService.OpenIterator:input_type -> segment.v1.IteratorRequest
+	4,  // 9: segment.v1.WriterService.set:input_type -> segment.v1.WriterRequest
+	3,  // 10: segment.v1.IteratorService.OpenIterator:output_type -> segment.v1.IteratorResponse
+	6,  // 11: segment.v1.WriterService.set:output_type -> segment.v1.WriterResponse
 	10, // [10:12] is the sub-list for method output_type
 	8,  // [8:10] is the sub-list for method input_type
 	8,  // [8:8] is the sub-list for extension type_name

@@ -94,7 +94,7 @@ func (g *Gossip) process(ctx context.Context, msg Message) (Message, error) {
 		return Message{}, nil
 	}
 	err := errors.New("[gossip] - received unknown message variant")
-	g.L.Error(err.Error(), zap.Any("msg", msg))
+	g.L.DPanic(err.Error(), zap.Any("msg", msg))
 	return Message{}, span.EndWith(err)
 }
 

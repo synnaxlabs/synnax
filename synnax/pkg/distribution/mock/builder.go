@@ -53,9 +53,9 @@ func (b *Builder) New() distribution.Distribution {
 	d.Ontology = lo.Must(ontology.Open(d.Storage.Gorpify()))
 
 	nodeOntologySvc := &dcore.NodeOntologyService{
-		Logger:   d.Config.logger.Sugar(),
-		Cluster:  d.Cluster,
-		Ontology: d.Ontology,
+		Instrumentation: d.Config.logger.Sugar(),
+		Cluster:         d.Cluster,
+		Ontology:        d.Ontology,
 	}
 	clusterOntologySvc := &dcore.ClusterOntologyService{Cluster: d.Cluster}
 	d.Ontology.RegisterService(nodeOntologySvc)

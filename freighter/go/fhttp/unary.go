@@ -45,16 +45,17 @@ func (s *unaryServer[RQ, RS]) fiberHandler(c *fiber.Ctx) error {
 		return err
 	}
 	c.Set(fiber.HeaderContentType, ecd.ContentType())
-	req, err := s.requestParser(c, ecd)
-	if err != nil {
-		return err
-	}
 	var res RS
 	oMD, err := s.MiddlewareCollector.Exec(
 		parseRequestCtx(c, address.Address(c.Path())),
-		freighter.FinalizerFunc(func(ctx freighter.Context) (oMD freighter.Context, err error) {
+		freighter.FinalizerFunc(func(ctx freighter.Context) (freighter.Context, error) {
+			req, err := s.requestParser(c, ecd)
+			oCtx := freighter.Context{Protocol: ctx.Protocol, Params: make(freighter.Params)}
+			if err != nil {
+				return oCtx, err
+			}
 			res, err = s.handle(ctx, req)
-			return freighter.Context{Protocol: ctx.Protocol, Params: make(freighter.Params)}, err
+			return oCtx, err
 		}),
 	)
 	setResponseCtx(c, oMD)
@@ -84,7 +85,7 @@ func (u *unaryClient[RQ, RS]) Send(
 			Target:   target,
 		},
 		freighter.FinalizerFunc(func(iMD freighter.Context) (oMD freighter.Context, err error) {
-			b, err := u.ecd.Encode(req)
+			b, err := u.ecd.Encode(nil, req)
 			if err != nil {
 				return oMD, err
 			}
@@ -108,19 +109,19 @@ func (u *unaryClient[RQ, RS]) Send(
 
 			if httpRes.StatusCode < 200 || httpRes.StatusCode >= 300 {
 				var pld ferrors.Payload
-				if err := u.ecd.DecodeStream(httpRes.Body, &pld); err != nil {
+				if err := u.ecd.DecodeStream(nil, httpRes.Body, &pld); err != nil {
 					return oMD, err
 				}
 				return oMD, ferrors.Decode(pld)
 			}
-			return oMD, u.ecd.DecodeStream(httpRes.Body, &res)
+			return oMD, u.ecd.DecodeStream(nil, httpRes.Body, &res)
 		}),
 	)
 	return res, err
 }
 
 func encodeAndWrite(c *fiber.Ctx, ecd httputil.EncoderDecoder, v interface{}) error {
-	b, err := ecd.Encode(v)
+	b, err := ecd.Encode(nil, v)
 	if err != nil {
 		return err
 	}

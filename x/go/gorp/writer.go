@@ -9,60 +9,63 @@
 
 package gorp
 
+import "context"
+
 // Writer represents a generalized key-value transaction that executes atomically against
 // an underlying database. DB implements the Writer interface, which will execute
 // queries directly against the DB. To open an isolated transaction against the DB, use
 // DB.BeginWrite.
-type Writer[K Key, E Entry[K]] struct{ WriteTxn }
-
-func NewWriter[K Key, E Entry[K]](ctx WriteTxn) *Writer[K, E] {
-	return &Writer[K, E]{WriteTxn: ctx}
+type Writer[K Key, E Entry[K]] struct {
+	Tx
+	prefix []byte
 }
 
-func (w *Writer[K, E]) Write(entry E) error {
-	var (
-		opts   = w.options()
-		prefix = typePrefix[K, E](w.options())
-	)
-	data, err := opts.encoder.Encode(entry)
-	if err != nil {
-		return err
-	}
-	key, err := opts.encoder.Encode(entry.GorpKey())
-	if err != nil {
-		return err
-	}
-	// NOTE: We need to be careful with this operation in the future.
-	// Because we aren't copying prefix, we're modifying the underlying slice.
-	prefixedKey := append(prefix, key...)
-	if err = w.Set(prefixedKey, data, entry.SetOptions()...); err != nil {
-		return err
-	}
-	return nil
+func NewWriter[K Key, E Entry[K]](tx Tx) *Writer[K, E] {
+	return &Writer[K, E]{Tx: tx, prefix: prefix[K, E](tx)}
 }
 
-func (w *Writer[K, E]) WriteMany(entries []E) error {
+func (w *Writer[K, E]) Set(ctx context.Context, entries ...E) error {
 	for _, entry := range entries {
-		if err := w.Write(entry); err != nil {
+		if err := w.set(ctx, entry); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (w *Writer[K, E]) Delete(key K) error {
-	var (
-		opts   = w.options()
-		prefix = typePrefix[K, E](opts)
-	)
-	data, err := opts.encoder.Encode(key)
+func (w *Writer[K, E]) Delete(ctx context.Context, keys ...K) error {
+	for _, key := range keys {
+		if err := w.delete(ctx, key); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
+	data, err := w.encoder().Encode(nil, entry)
+	if err != nil {
+		return err
+	}
+	key, err := w.encoder().Encode(nil, entry.GorpKey())
 	if err != nil {
 		return err
 	}
 	// NOTE: We need to be careful with this operation in the future.
 	// Because we aren't copying prefix, we're modifying the underlying slice.
-	if err = w.WriteTxn.Delete(append(prefix, data...)); err != nil {
+	prefixedKey := append(w.prefix, key...)
+	if err = w.Tx.Set(ctx, prefixedKey, data, entry.SetOptions()...); err != nil {
 		return err
 	}
 	return nil
+}
+
+func (w *Writer[K, E]) delete(ctx context.Context, key K) error {
+	data, err := w.encoder().Encode(nil, key)
+	if err != nil {
+		return err
+	}
+	// NOTE: We need to be careful with this operation in the future.
+	// Because we aren't copying prefix, we're modifying the underlying slice.
+	return w.Tx.Delete(ctx, append(w.prefix, data...))
 }

@@ -65,6 +65,7 @@ func (cfg Config) Override(other Config) Config {
 	cfg.Engine = override.Nil(cfg.Engine, other.Engine)
 	cfg.GossipInterval = override.Numeric(cfg.GossipInterval, other.GossipInterval)
 	cfg.RecoveryThreshold = override.Numeric(cfg.RecoveryThreshold, other.RecoveryThreshold)
+	cfg.Instrumentation = override.Nil(cfg.Instrumentation, other.Instrumentation)
 	return cfg
 }
 

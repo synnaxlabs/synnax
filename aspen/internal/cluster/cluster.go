@@ -124,7 +124,7 @@ func Join(ctx context.Context, cfgs ...Config) (Cluster, error) {
 		host.Heartbeat = host.Heartbeat.Restart()
 		c.SetNode(host)
 		c.Pledge.ClusterKey = c.Key()
-		if err := pledge_.Arbitrate(ctx, c.Pledge); err != nil {
+		if err := pledge_.Arbitrate(c.Pledge); err != nil {
 			return nil, err
 		}
 	} else if len(c.Pledge.Peers) > 0 {
@@ -150,7 +150,7 @@ func Join(ctx context.Context, cfgs ...Config) (Cluster, error) {
 		c.SetClusterKey(uuid.New())
 		c.L.Info("no peers provided, bootstrapping new cluster")
 		c.Pledge.ClusterKey = c.Key()
-		if err := pledge_.Arbitrate(ctx, c.Pledge); err != nil {
+		if err := pledge_.Arbitrate(c.Pledge); err != nil {
 			return c, err
 		}
 	}
@@ -213,7 +213,7 @@ func tryLoadPersistedState(ctx context.Context, cfg Config) (store.State, error)
 	if err != nil {
 		return state, lo.Ternary(errors.Is(err, kv.NotFound), nil, err)
 	}
-	return state, cfg.EncoderDecoder.Decode(encoded, &state)
+	return state, cfg.EncoderDecoder.Decode(ctx, encoded, &state)
 }
 
 func (c *cluster) gossipInitialState(ctx context.Context) error {
