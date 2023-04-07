@@ -8,7 +8,14 @@
 #  included in the file licenses/APL.txt.
 
 from dataclasses import dataclass
+from enum import Enum
 from typing import MutableMapping, Any
+
+
+class Location(Enum):
+    """Location is the location of the request."""
+    CLIENT = 1
+    SERVER = 2
 
 
 @dataclass
@@ -24,6 +31,9 @@ class Context:
 
     target: str
     """Target is the target of the request."""
+
+    location: Location
+    """Location is the location of the request."""
 
     params: MutableMapping[str, str]
     """Arbitrary string parameters that can be set by clinet side middleware

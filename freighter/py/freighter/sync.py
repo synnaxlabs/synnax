@@ -12,13 +12,11 @@ import contextlib
 from asyncio import events
 from threading import Thread
 from typing import AsyncIterator, Optional, Type
-from freighter.exceptions import StreamClosed
 
-from freighter.metadata import Context
-from freighter.util.asyncio import cancel_all_tasks
 from janus import Queue
 
-from freighter.transport import RQ, RS, P, MiddlewareCollector, AsyncNext
+from freighter.context import Context
+from freighter.exceptions import StreamClosed
 from freighter.stream import (
     AsyncStreamClient,
     AsyncStreamReceiver,
@@ -29,6 +27,8 @@ from freighter.stream import (
     StreamReceiver,
     StreamSender,
 )
+from freighter.transport import RQ, RS, P, MiddlewareCollector, AsyncNext
+from freighter.util.asyncio import cancel_all_tasks
 from freighter.util.threading import Notification
 
 

@@ -11,7 +11,7 @@ from typing import Protocol, Type, TypeVar
 
 import msgpack
 
-from .transport import P, Payload
+from freighter.transport import P, Payload
 
 
 class EncoderDecoder(Protocol):

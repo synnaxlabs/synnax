@@ -9,14 +9,14 @@
 
 from typing import Generic, Type, Any
 
-from freighter.metadata import Context
 from pydantic import BaseModel
-from websockets.exceptions import ConnectionClosedOK
 from websockets.client import connect, WebSocketClientProtocol
+from websockets.exceptions import ConnectionClosedOK
 
-from freighter.stream import AsyncStream, AsyncStreamClient
+from freighter.context import Context
 from freighter.encoder import EncoderDecoder
 from freighter.exceptions import EOF, ExceptionPayload, StreamClosed, decode_exception
+from freighter.stream import AsyncStream, AsyncStreamClient
 from freighter.transport import RQ, RS, P, AsyncMiddlewareCollector
 from freighter.url import URL
 
@@ -118,7 +118,7 @@ class WebsocketStream(AsyncStream[RQ, RS]):
         await self.internal.close()
 
 
-DEFAULT_MAX_SIZE = 2**20
+DEFAULT_MAX_SIZE = 2 ** 20
 
 
 class WebsocketClient(AsyncMiddlewareCollector):

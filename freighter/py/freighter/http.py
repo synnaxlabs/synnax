@@ -16,12 +16,12 @@ import urllib3
 from urllib3 import HTTPResponse, PoolManager
 from urllib3.exceptions import HTTPError, MaxRetryError
 
-from .encoder import EncoderDecoder
-from .exceptions import ExceptionPayload, decode_exception, Unreachable
-from .transport import RQ, RS
-from .url import URL
-from .transport import MiddlewareCollector
-from .metadata import Context
+from freighter.context import Context
+from freighter.encoder import EncoderDecoder
+from freighter.exceptions import ExceptionPayload, decode_exception, Unreachable
+from freighter.transport import MiddlewareCollector
+from freighter.transport import RQ, RS
+from freighter.url import URL
 
 
 class HTTPClientPool(MiddlewareCollector):
