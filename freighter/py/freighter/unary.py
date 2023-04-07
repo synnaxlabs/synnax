@@ -9,7 +9,7 @@
 
 from typing import Protocol, Type
 
-from .transport import RQ, RS, Transport, AsyncTransport
+from freighter.transport import RQ, RS, Transport, AsyncTransport
 
 
 class UnaryClient(Transport, Protocol):

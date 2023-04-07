@@ -10,7 +10,7 @@
 from dataclasses import dataclass
 from typing import Callable
 
-from .transport import Payload
+from freighter.transport import Payload
 
 TYPE_UNKNOWN = "unknown"
 TYPE_NONE = "nil"

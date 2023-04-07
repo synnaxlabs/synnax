@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from threading import Event
-from typing import Generic, Optional, TypeVar
+from typing import Generic, TypeVar
 
 T = TypeVar("T")
 

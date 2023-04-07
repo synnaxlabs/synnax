@@ -12,9 +12,9 @@ from __future__ import annotations
 import typing
 from typing import TypeAlias, TypeVar, Protocol
 
-from .metadata import Context
-
 from pydantic import BaseModel
+
+from freighter.context import Context
 
 Payload: TypeAlias = BaseModel
 
@@ -60,7 +60,6 @@ AsyncNext = typing.Callable[
     [Context], typing.Awaitable[tuple[Context, Exception | None]]
 ]
 """Executes the next middleware in the chain"""
-
 
 Middleware = typing.Callable[[Context, Next], tuple[Context, Exception | None]]
 """"Middleware is a general middleware function that can be used to parse/attach

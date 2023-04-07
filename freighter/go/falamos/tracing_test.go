@@ -3,8 +3,8 @@ package falamos_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/alamos/falamos"
 	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/freighter/falamos"
 	"github.com/synnaxlabs/x/config"
 	. "github.com/synnaxlabs/x/testutil"
 )
