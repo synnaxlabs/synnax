@@ -13,7 +13,7 @@ import { ZodSchema, z } from "zod";
 import type { EncoderDecoder } from "@/encoder";
 import { EOF, ErrorPayloadSchema, StreamClosed, decodeError } from "@/errors";
 import { CONTENT_TYPE_HEADER_KEY } from "@/http";
-import { MiddlewareCollector, MetaData } from "@/middleware";
+import { MiddlewareCollector, Context } from "@/middleware";
 import type { Stream, StreamClient } from "@/stream";
 
 const resolveWebSocketConstructor = (): typeof WebSocket =>
@@ -122,7 +122,7 @@ class WebSocketStream<RQ, RS> implements Stream<RQ, RS> {
   }
 }
 
-export const FREIGHTER_METADATA_PREFIX = "freightermd";
+export const FREIGHTER_METADATA_PREFIX = "freighterctx";
 
 const CloseNormal = 1000;
 const CloseGoingAway = 1001;
@@ -161,25 +161,25 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
     let stream: Stream<RQ, RS> | undefined;
     const [, error] = await this.executeMiddleware(
       { target, protocol: "websocket", params: {} },
-      async (md: MetaData): Promise<[MetaData, Error | undefined]> => {
-        const ws = new SocketConstructor(this.buildURL(target, md));
-        const outMD: MetaData = { ...md, params: {} };
+      async (ctx: Context): Promise<[Context, Error | undefined]> => {
+        const ws = new SocketConstructor(this.buildURL(target, ctx));
+        const outCtx: Context = { ...ctx, params: {} };
         ws.binaryType = WebSocketClient.MESSAGE_TYPE;
         const streamOrErr = await this.wrapSocket(ws, reqSchema, resSchema);
-        if (streamOrErr instanceof Error) return [outMD, streamOrErr];
+        if (streamOrErr instanceof Error) return [outCtx, streamOrErr];
         stream = streamOrErr;
-        return [outMD, undefined];
+        return [outCtx, undefined];
       }
     );
     if (error != null) throw error;
     return stream as Stream<RQ, RS>;
   }
 
-  private buildURL(target: string, md: MetaData): string {
+  private buildURL(target: string, ctx: Context): string {
     const qs = buildQueryString(
       {
         [CONTENT_TYPE_HEADER_KEY]: this.encoder.contentType,
-        ...md.params,
+        ...ctx.params,
       },
       FREIGHTER_METADATA_PREFIX
     );

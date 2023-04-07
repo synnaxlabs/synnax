@@ -11,7 +11,7 @@ import pytest
 
 import freighter.exceptions
 from freighter.encoder import MsgpackEncoder
-from freighter.metadata import MetaData
+from freighter.metadata import Context
 from freighter.sync import SyncStreamClient
 from freighter.transport import Next, AsyncNext
 from freighter.url import URL
@@ -72,7 +72,7 @@ class TestWS:
     async def test_middleware(self, async_client):
         dct = {"called": False}
 
-        async def mw(md: MetaData, next: AsyncNext) -> Exception | None:
+        async def mw(md: Context, next: AsyncNext) -> Exception | None:
             md.params["Test"] = "test"
             dct["called"] = True
             return await next(md)
@@ -118,7 +118,7 @@ class TestSyncWebsocket:
         """Should receive ten messages from the server."""
         dct = {"called": False}
 
-        def mw(md: MetaData, next: Next) -> Exception | None:
+        def mw(md: Context, next: Next) -> Exception | None:
             md.params["Test"] = "test"
             dct["called"] = True
             return next(md)

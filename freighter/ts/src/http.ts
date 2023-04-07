@@ -14,7 +14,7 @@ import { ZodSchema } from "zod";
 
 import { EncoderDecoder } from "@/encoder";
 import { ErrorPayloadSchema, decodeError } from "@/errors";
-import { MetaData, MiddlewareCollector } from "@/middleware";
+import { Context, MiddlewareCollector } from "@/middleware";
 import { UnaryClient } from "@/unary";
 
 /**
@@ -87,30 +87,30 @@ class Core extends MiddlewareCollector {
 
     const [, err] = await this.executeMiddleware(
       { target: request.url, protocol: "http", params: {} },
-      async (md: MetaData): Promise<[MetaData, Error | undefined]> => {
-        const outMD: MetaData = { ...md, params: {} };
+      async (ctx: Context): Promise<[Context, Error | undefined]> => {
+        const outCtx: Context = { ...ctx, params: {} };
         request.headers = {
           ...(request.headers as RawAxiosRequestHeaders),
           ...this.headers,
-          ...md.params,
+          ...ctx.params,
         };
         let httpRes: AxiosResponse;
         try {
           httpRes = await axios.request(request);
         } catch (err) {
-          return [outMD, err as Error];
+          return [outCtx, err as Error];
         }
-        outMD.params = httpRes.headers as Record<string, string>;
+        outCtx.params = httpRes.headers as Record<string, string>;
         if (httpRes.status < 200 || httpRes.status >= 300) {
           try {
             const err = this.encoder.decode(httpRes.data, ErrorPayloadSchema);
-            return [outMD, decodeError(err)];
+            return [outCtx, decodeError(err)];
           } catch {
-            return [outMD, new Error(httpRes.data)];
+            return [outCtx, new Error(httpRes.data)];
           }
         }
         if (resSchema != null) rs = this.encoder.decode(httpRes.data, resSchema);
-        return [outMD, undefined];
+        return [outCtx, undefined];
       }
     );
 
