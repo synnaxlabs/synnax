@@ -48,7 +48,7 @@ func (b *Builder) New(ctx context.Context, cfgs ...cluster.Config) (cluster.Clus
 			Peers:           b.MemberAddresses(),
 		},
 	})
-	clust, err := cluster.Join(ctx, cfgs...)
+	clust, err := cluster.Open(ctx, cfgs...)
 	if err != nil {
 		return nil, err
 	}

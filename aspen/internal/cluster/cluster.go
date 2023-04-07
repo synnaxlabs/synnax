@@ -11,7 +11,7 @@
 // exchanging state through an SI gossip model. nodes can join the cluster without
 // needing to know all members. Cluster will automatically manage the membership of
 // new nodes by assigning them unique IDs and keeping them in sync with their peers.
-// To Join a cluster, simply use cluster.Join.
+// To Open a cluster, simply use cluster.Open.
 package cluster
 
 import (
@@ -78,15 +78,15 @@ type HostResolver interface {
 	Host
 }
 
-// Join joins the host node to the cluster and begins gossiping its state. The
+// Open joins the host node to the cluster and begins gossiping its state. The
 // node will spread addr as its listening address. A set of peer addresses
 // (other nodes in the cluster) must be provided when joining an existing cluster
 // for the first time. If restarting a node that is already a member of a cluster,
-// the peer addresses can be left empty; Join will attempt to load the existing
+// the peer addresses can be left empty; Open will attempt to load the existing
 // cluster state from storage (see Config.Storage and Config.StorageKey).
 // If provisioning a new cluster, ensure that all storage for previous clusters
 // is removed and provide no peers.
-func Join(ctx context.Context, cfgs ...Config) (Cluster, error) {
+func Open(ctx context.Context, cfgs ...Config) (Cluster, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
@@ -209,7 +209,7 @@ func tryLoadPersistedState(ctx context.Context, cfg Config) (store.State, error)
 	if cfg.Storage == nil {
 		return state, nil
 	}
-	encoded, err := cfg.Storage.NewWriter(ctx).Get(cfg.StorageKey)
+	encoded, err := cfg.Storage.Get(ctx, cfg.StorageKey)
 	if err != nil {
 		return state, lo.Ternary(errors.Is(err, kv.NotFound), nil, err)
 	}

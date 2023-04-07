@@ -76,7 +76,7 @@ var _ = Describe("Convergence", func() {
 					gossipT := gossipNet.UnaryServer("")
 					pledgeT := pledgeNet.UnaryServer(gossipT.Address)
 					peerAddresses := rand.SubSlice(addresses, values.peerAddrCount)
-					cluster, err := cluster.Join(
+					cluster, err := cluster.Open(
 						ctx,
 						cluster.Config{
 							HostAddress: gossipT.Address,

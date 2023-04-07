@@ -31,7 +31,7 @@ type Config struct {
 	HostAddress address.Address
 	// Storage is a key-value storage backend for the cluster. Cluster will flush
 	// changes to its state to this backend based on Config.StorageFlushInterval.
-	// Join will also attempt to load an existing cluster from this backend.
+	// Open will also attempt to load an existing cluster from this backend.
 	// If Config.Storage is not provided, Cluster state will only be stored in memory.
 	Storage kv.DB
 	// StorageKey is the key used to store the cluster state in the backend.
@@ -43,7 +43,7 @@ type Config struct {
 	// Gossip is the configuration for propagating Cluster state through gossip.
 	// See the gossip package for more details on how to configure this.
 	Gossip gossip.Config
-	// Pledge is the configuration for pledging to the cluster upon a Join call.
+	// Pledge is the configuration for pledging to the cluster upon a Open call.
 	// See the pledge package for more details on how to configure this.
 	Pledge pledge_.Config
 	// EncoderDecoder is the encoder/decoder to use for encoding and decoding the

@@ -80,8 +80,8 @@ func (d Digest) apply(w kvx.Writer) error {
 
 type Digests []Digest
 
-func (d Digests) toRequest(ctx context.Context) WriteRequest {
-	bd := WriteRequest{ctx: ctx, Operations: make([]Operation, len(d))}
+func (d Digests) toRequest(ctx context.Context) TxRequest {
+	bd := TxRequest{ctx: ctx, Operations: make([]Operation, len(d))}
 	for i, d := range d {
 		bd.Operations[i] = d.Operation()
 	}
@@ -89,9 +89,9 @@ func (d Digests) toRequest(ctx context.Context) WriteRequest {
 }
 
 type (
-	segment = confluence.Segment[WriteRequest, WriteRequest]
-	source  = confluence.Source[WriteRequest]
-	sink    = confluence.Sink[WriteRequest]
+	segment = confluence.Segment[TxRequest, TxRequest]
+	source  = confluence.Source[TxRequest]
+	sink    = confluence.Sink[TxRequest]
 )
 
 func (d Digest) Operation() Operation {

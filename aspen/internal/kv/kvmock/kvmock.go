@@ -24,9 +24,9 @@ import (
 type Builder struct {
 	clustermock.Builder
 	BaseCfg     kv.Config
-	OpNet       *fmock.Network[kv.WriteRequest, kv.WriteRequest]
+	OpNet       *fmock.Network[kv.TxRequest, kv.TxRequest]
 	FeedbackNet *fmock.Network[kv.FeedbackMessage, types.Nil]
-	LeaseNet    *fmock.Network[kv.WriteRequest, types.Nil]
+	LeaseNet    *fmock.Network[kv.TxRequest, types.Nil]
 	KVs         map[node.ID]kvx.DB
 }
 
@@ -34,9 +34,9 @@ func NewBuilder(baseKVCfg kv.Config, baseClusterCfg cluster.Config) *Builder {
 	return &Builder{
 		BaseCfg:     baseKVCfg,
 		Builder:     *clustermock.NewBuilder(baseClusterCfg),
-		OpNet:       fmock.NewNetwork[kv.WriteRequest, kv.WriteRequest](),
+		OpNet:       fmock.NewNetwork[kv.TxRequest, kv.TxRequest](),
 		FeedbackNet: fmock.NewNetwork[kv.FeedbackMessage, types.Nil](),
-		LeaseNet:    fmock.NewNetwork[kv.WriteRequest, types.Nil](),
+		LeaseNet:    fmock.NewNetwork[kv.TxRequest, types.Nil](),
 		KVs:         make(map[node.ID]kvx.DB),
 	}
 }

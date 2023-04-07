@@ -22,15 +22,15 @@ import (
 // |||||| OPERATION ||||||
 
 type (
-	BatchTransportClient = freighter.UnaryClient[WriteRequest, WriteRequest]
-	BatchTransportServer = freighter.UnaryServer[WriteRequest, WriteRequest]
+	BatchTransportClient = freighter.UnaryClient[TxRequest, TxRequest]
+	BatchTransportServer = freighter.UnaryServer[TxRequest, TxRequest]
 )
 
 // |||| SENDER ||||
 
 type operationSender struct {
 	Config
-	confluence.LinearTransform[WriteRequest, WriteRequest]
+	confluence.LinearTransform[TxRequest, TxRequest]
 }
 
 func newOperationSender(cfg Config) segment {
@@ -39,7 +39,7 @@ func newOperationSender(cfg Config) segment {
 	return os
 }
 
-func (g *operationSender) send(ctx context.Context, sync WriteRequest) (WriteRequest, bool, error) {
+func (g *operationSender) send(ctx context.Context, sync TxRequest) (TxRequest, bool, error) {
 	// If we have no Operations to propagate, it's best to avoid the network chatter.
 	if sync.empty() {
 		return sync, false, nil
@@ -63,7 +63,7 @@ func (g *operationSender) send(ctx context.Context, sync WriteRequest) (WriteReq
 type operationReceiver struct {
 	Config
 	store store
-	confluence.AbstractUnarySource[WriteRequest]
+	confluence.AbstractUnarySource[TxRequest]
 	confluence.EmptyFlow
 }
 
@@ -73,10 +73,10 @@ func newOperationReceiver(cfg Config, s store) source {
 	return or
 }
 
-func (g *operationReceiver) handle(ctx context.Context, req WriteRequest) (WriteRequest, error) {
+func (g *operationReceiver) handle(ctx context.Context, req TxRequest) (TxRequest, error) {
 	select {
 	case <-ctx.Done():
-		return WriteRequest{}, ctx.Err()
+		return TxRequest{}, ctx.Err()
 	case g.Out.Inlet() <- req:
 	}
 	br := g.store.PeekState().toBatchRequest(ctx)
@@ -100,7 +100,7 @@ type (
 
 type feedbackSender struct {
 	Config
-	confluence.UnarySink[WriteRequest]
+	confluence.UnarySink[TxRequest]
 }
 
 func newFeedbackSender(cfg Config) sink {
@@ -109,7 +109,7 @@ func newFeedbackSender(cfg Config) sink {
 	return fs
 }
 
-func (f *feedbackSender) send(ctx context.Context, bd WriteRequest) error {
+func (f *feedbackSender) send(ctx context.Context, bd TxRequest) error {
 	msg := FeedbackMessage{Sender: f.Cluster.Host().ID, Digests: bd.digests()}
 	sender, _ := f.Cluster.Node(bd.Sender)
 	if _, err := f.FeedbackTransportClient.Send(context.TODO(), sender.Address, msg); err != nil {
@@ -122,7 +122,7 @@ func (f *feedbackSender) send(ctx context.Context, bd WriteRequest) error {
 
 type feedbackReceiver struct {
 	Config
-	confluence.AbstractUnarySource[WriteRequest]
+	confluence.AbstractUnarySource[TxRequest]
 	confluence.EmptyFlow
 }
 

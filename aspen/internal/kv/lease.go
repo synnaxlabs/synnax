@@ -60,7 +60,7 @@ type leaseProxy struct {
 	Config
 	localTo  address.Address
 	remoteTo address.Address
-	confluence.Switch[WriteRequest]
+	confluence.Switch[TxRequest]
 }
 
 func newLeaseProxy(cfg Config, localTo address.Address, remoteTo address.Address) segment {
@@ -71,7 +71,7 @@ func newLeaseProxy(cfg Config, localTo address.Address, remoteTo address.Address
 
 func (lp *leaseProxy) _switch(
 	_ context.Context,
-	b WriteRequest,
+	b TxRequest,
 ) (address.Address, bool, error) {
 	if b.Leaseholder == lp.Cluster.HostID() {
 		return lp.localTo, true, nil
@@ -80,13 +80,13 @@ func (lp *leaseProxy) _switch(
 }
 
 type (
-	LeaseTransportClient = freighter.UnaryClient[WriteRequest, types.Nil]
-	LeaseTransportServer = freighter.UnaryServer[WriteRequest, types.Nil]
+	LeaseTransportClient = freighter.UnaryClient[TxRequest, types.Nil]
+	LeaseTransportServer = freighter.UnaryServer[TxRequest, types.Nil]
 )
 
 type leaseSender struct {
 	Config
-	confluence.UnarySink[WriteRequest]
+	confluence.UnarySink[TxRequest]
 }
 
 func newLeaseSender(cfg Config) sink {
@@ -95,9 +95,9 @@ func newLeaseSender(cfg Config) sink {
 	return ls
 }
 
-func (lf *leaseSender) send(ctx context.Context, br WriteRequest) (err error) {
+func (lf *leaseSender) send(ctx context.Context, br TxRequest) (err error) {
 	defer func() { br.done(err) }()
-	lf.L.Debug("sending leased writer", br.logArgs()...)
+	lf.L.Debug("sending leased tx", br.logArgs()...)
 	var addr address.Address
 	addr, err = lf.Cluster.Resolve(br.Leaseholder)
 	if err != nil {
@@ -109,7 +109,7 @@ func (lf *leaseSender) send(ctx context.Context, br WriteRequest) (err error) {
 
 type leaseReceiver struct {
 	Config
-	confluence.AbstractUnarySource[WriteRequest]
+	confluence.AbstractUnarySource[TxRequest]
 	confluence.EmptyFlow
 }
 
@@ -119,9 +119,9 @@ func newLeaseReceiver(cfg Config) source {
 	return lr
 }
 
-func (lr *leaseReceiver) receive(ctx context.Context, br WriteRequest) (types.Nil, error) {
-	lr.L.Debug("received leased writer", br.logArgs()...)
-	bc := batchCoordinator{}
+func (lr *leaseReceiver) receive(ctx context.Context, br TxRequest) (types.Nil, error) {
+	lr.L.Debug("received leased tx", br.logArgs()...)
+	bc := txCoordinator{}
 	bc.add(&br)
 	lr.Out.Inlet() <- br
 	return types.Nil{}, bc.wait()
