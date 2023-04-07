@@ -17,7 +17,7 @@ import (
 
 type persist struct {
 	db kvx.Writeable
-	confluence.LinearTransform[WriteRequest, WriteRequest]
+	confluence.LinearTransform[TxRequest, TxRequest]
 }
 
 func newPersist(bw kvx.Writeable) segment {
@@ -26,7 +26,7 @@ func newPersist(bw kvx.Writeable) segment {
 	return ps
 }
 
-func (ps *persist) persist(_ context.Context, br WriteRequest) (WriteRequest, bool, error) {
+func (ps *persist) persist(_ context.Context, br TxRequest) (TxRequest, bool, error) {
 	err := br.commitTo(ps.db)
 	return br, err == nil, nil
 }

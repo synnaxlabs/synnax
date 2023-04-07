@@ -25,8 +25,8 @@ import (
 type Network struct {
 	pledge     *fmock.Network[pledge.Request, pledge.Response]
 	cluster    *fmock.Network[gossip.Message, gossip.Message]
-	operations *fmock.Network[kv.WriteRequest, kv.WriteRequest]
-	lease      *fmock.Network[kv.WriteRequest, types.Nil]
+	operations *fmock.Network[kv.TxRequest, kv.TxRequest]
+	lease      *fmock.Network[kv.TxRequest, types.Nil]
 	feedback   *fmock.Network[kv.FeedbackMessage, types.Nil]
 }
 
@@ -34,8 +34,8 @@ func NewNetwork() *Network {
 	return &Network{
 		pledge:     fmock.NewNetwork[pledge.Request, pledge.Response](),
 		cluster:    fmock.NewNetwork[gossip.Message, gossip.Message](),
-		operations: fmock.NewNetwork[kv.WriteRequest, kv.WriteRequest](),
-		lease:      fmock.NewNetwork[kv.WriteRequest, types.Nil](),
+		operations: fmock.NewNetwork[kv.TxRequest, kv.TxRequest](),
+		lease:      fmock.NewNetwork[kv.TxRequest, types.Nil](),
 		feedback:   fmock.NewNetwork[kv.FeedbackMessage, types.Nil](),
 	}
 }
@@ -49,10 +49,10 @@ type transport struct {
 	pledgeClient   *fmock.UnaryClient[pledge.Request, pledge.Response]
 	clusterServer  *fmock.UnaryServer[gossip.Message, gossip.Message]
 	clusterClient  *fmock.UnaryClient[gossip.Message, gossip.Message]
-	batchServer    *fmock.UnaryServer[kv.WriteRequest, kv.WriteRequest]
-	batchClient    *fmock.UnaryClient[kv.WriteRequest, kv.WriteRequest]
-	leaseServer    *fmock.UnaryServer[kv.WriteRequest, types.Nil]
-	leaseClient    *fmock.UnaryClient[kv.WriteRequest, types.Nil]
+	batchServer    *fmock.UnaryServer[kv.TxRequest, kv.TxRequest]
+	batchClient    *fmock.UnaryClient[kv.TxRequest, kv.TxRequest]
+	leaseServer    *fmock.UnaryServer[kv.TxRequest, types.Nil]
+	leaseClient    *fmock.UnaryClient[kv.TxRequest, types.Nil]
 	feedbackServer *fmock.UnaryServer[kv.FeedbackMessage, types.Nil]
 	feedbackClient *fmock.UnaryClient[kv.FeedbackMessage, types.Nil]
 }

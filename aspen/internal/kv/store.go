@@ -25,8 +25,8 @@ func (s storeState) Copy() storeState {
 	return mCopy
 }
 
-func (s storeState) toBatchRequest(ctx context.Context) WriteRequest {
-	b := WriteRequest{ctx: ctx, Operations: make([]Operation, 0, len(s))}
+func (s storeState) toBatchRequest(ctx context.Context) TxRequest {
+	b := TxRequest{ctx: ctx, Operations: make([]Operation, 0, len(s))}
 	for _, op := range s {
 		if op.state != infected {
 			continue
@@ -48,7 +48,7 @@ func newStore() store {
 }
 
 type storeEmitter struct {
-	confluence.Emitter[WriteRequest]
+	confluence.Emitter[TxRequest]
 	store store
 }
 
@@ -59,12 +59,12 @@ func newStoreEmitter(s store, cfg Config) source {
 	return se
 }
 
-func (e *storeEmitter) Emit(ctx context.Context) (WriteRequest, error) {
+func (e *storeEmitter) Emit(ctx context.Context) (TxRequest, error) {
 	return e.store.PeekState().toBatchRequest(ctx), nil
 }
 
 type storeSink struct {
-	confluence.UnarySink[WriteRequest]
+	confluence.UnarySink[TxRequest]
 	store store
 }
 
@@ -74,7 +74,7 @@ func newStoreSink(s store) sink {
 	return ss
 }
 
-func (s *storeSink) Store(_ context.Context, br WriteRequest) error {
+func (s *storeSink) Store(_ context.Context, br TxRequest) error {
 	snap := s.store.CopyState()
 	for _, op := range br.Operations {
 		snap[string(op.Key)] = op

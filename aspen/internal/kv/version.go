@@ -27,7 +27,7 @@ type versionFilter struct {
 	memKV      kvx.DB
 	acceptedTo address.Address
 	rejectedTo address.Address
-	confluence.BatchSwitch[WriteRequest, WriteRequest]
+	confluence.BatchSwitch[TxRequest, TxRequest]
 }
 
 func newVersionFilter(cfg Config, acceptedTo address.Address, rejectedTo address.Address) segment {
@@ -38,14 +38,14 @@ func newVersionFilter(cfg Config, acceptedTo address.Address, rejectedTo address
 
 func (vc *versionFilter) _switch(
 	_ context.Context,
-	b WriteRequest,
-	o map[address.Address]WriteRequest,
+	b TxRequest,
+	o map[address.Address]TxRequest,
 ) error {
 	var (
-		rejected = WriteRequest{Sender: b.Sender, doneF: b.doneF, ctx: b.ctx, span: b.span}
-		accepted = WriteRequest{Sender: b.Sender, doneF: b.doneF, ctx: b.ctx, span: b.span}
+		rejected = TxRequest{Sender: b.Sender, doneF: b.doneF, ctx: b.ctx, span: b.span}
+		accepted = TxRequest{Sender: b.Sender, doneF: b.doneF, ctx: b.ctx, span: b.span}
 	)
-	ctx, span := alamos.Trace(b.ctx, "writer-filter", alamos.DebugLevel)
+	ctx, span := alamos.Trace(b.ctx, "tx-filter", alamos.DebugLevel)
 	defer span.End()
 	for _, op := range b.Operations {
 		if vc.filter(ctx, op) {
@@ -100,7 +100,7 @@ const versionCounterKey = "ver"
 type versionAssigner struct {
 	Config
 	counter *kvx.PersistedCounter
-	confluence.LinearTransform[WriteRequest, WriteRequest]
+	confluence.LinearTransform[TxRequest, TxRequest]
 }
 
 func newVersionAssigner(ctx context.Context, cfg Config) (segment, error) {
@@ -110,11 +110,11 @@ func newVersionAssigner(ctx context.Context, cfg Config) (segment, error) {
 	return v, err
 }
 
-func (va *versionAssigner) assign(_ context.Context, br WriteRequest) (WriteRequest, bool, error) {
+func (va *versionAssigner) assign(_ context.Context, br TxRequest) (TxRequest, bool, error) {
 	latestVer := va.counter.Value()
 	if _, err := va.counter.Add(int64(br.size())); err != nil {
 		va.L.Error("failed to assign version", zap.Error(err))
-		return WriteRequest{}, false, nil
+		return TxRequest{}, false, nil
 	}
 	for i := range br.Operations {
 		br.Operations[i].Version = version.Counter(latestVer + int64(i) + 1)

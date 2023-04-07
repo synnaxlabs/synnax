@@ -24,7 +24,7 @@ import (
 	"time"
 )
 
-var _ = Describe("Join", func() {
+var _ = Describe("Open", func() {
 	Context("Valid Configuration", func() {
 
 		var (
@@ -44,7 +44,7 @@ var _ = Describe("Join", func() {
 				By("Initializing the cluster correctly")
 				gossipT1 := gossipNet.UnaryServer("")
 				pledgeT1 := pledgeNet.UnaryServer(gossipT1.Address)
-				clusterOne, err := cluster.Join(
+				clusterOne, err := cluster.Open(
 					ctx,
 					cluster.Config{
 						HostAddress: gossipT1.Address,
@@ -66,7 +66,7 @@ var _ = Describe("Join", func() {
 				By("Pledging a new node to the cluster")
 				gossipT2 := gossipNet.UnaryServer("")
 				pledgeT2 := pledgeNet.UnaryServer(gossipT2.Address)
-				clusterTwo, err := cluster.Join(
+				clusterTwo, err := cluster.Open(
 					ctx,
 					cluster.Config{
 						HostAddress: gossipT2.Address,
@@ -100,7 +100,7 @@ var _ = Describe("Join", func() {
 
 				gossipT1 := gossipNet.UnaryServer("")
 				pledgeT1 := pledgeNet.UnaryServer(gossipT1.Address)
-				clusterOne, err := cluster.Join(
+				clusterOne, err := cluster.Open(
 					ctx,
 					cluster.Config{
 						HostAddress: gossipT1.Address,
@@ -140,12 +140,12 @@ var _ = Describe("Join", func() {
 					StorageFlushInterval: cluster.FlushOnEvery,
 					EncoderDecoder:       &binary.MsgPackEncoderDecoder{},
 				}
-				clusterTwo, err := cluster.Join(ctx, clusterTwoConfig)
+				clusterTwo, err := cluster.Open(ctx, clusterTwoConfig)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(clusterTwo.Host().ID).To(Equal(node.ID(2)))
 				Expect(clusterTwo.Close()).To(Succeed())
 
-				clusterTwoAgain, err := cluster.Join(ctx, clusterTwoConfig)
+				clusterTwoAgain, err := cluster.Open(ctx, clusterTwoConfig)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(clusterTwoAgain.Host().ID).To(Equal(node.ID(2)))
 				Expect(clusterTwoAgain.Nodes()).To(HaveLen(2))
@@ -164,7 +164,7 @@ var _ = Describe("Join", func() {
 			cfg := cluster.Config{}
 			ctx, cancel := signal.TODO()
 			defer cancel()
-			_, err := cluster.Join(ctx, cfg)
+			_, err := cluster.Open(ctx, cfg)
 			Expect(err).To(HaveOccurred())
 		})
 	})

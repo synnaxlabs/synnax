@@ -21,21 +21,21 @@ import (
 	"sync"
 )
 
-type writer struct {
-	kvx.Writer
+type tx struct {
+	kvx.Tx
 	digests []Digest
 	lease   *leaseAllocator
-	apply   func(reqs []WriteRequest) error
+	apply   func(reqs []TxRequest) error
 }
 
-var _ kvx.Writer = (*writer)(nil)
+var _ kvx.Tx = (*tx)(nil)
 
-func (b *writer) Set(key []byte, value []byte, maybeLease ...interface{}) error {
-	lease, err := validateLeaseOption(maybeLease)
+func (b *tx) Set(ctx context.Context, key, value []byte, options ...interface{}) error {
+	lease, err := validateLeaseOption(options)
 	if err != nil {
 		return err
 	}
-	return b.applyOp(Operation{
+	return b.applyOp(ctx, Operation{
 		Key:         key,
 		Value:       value,
 		Variant:     Set,
@@ -43,22 +43,22 @@ func (b *writer) Set(key []byte, value []byte, maybeLease ...interface{}) error 
 	})
 }
 
-func (b *writer) Delete(key []byte) error {
-	return b.applyOp(Operation{Key: key, Variant: Delete})
+func (b *tx) Delete(ctx context.Context, key []byte, _ ...interface{}) error {
+	return b.applyOp(ctx, Operation{Key: key, Variant: Delete})
 }
 
-func (b *writer) applyOp(op Operation) error {
+func (b *tx) applyOp(ctx context.Context, op Operation) error {
 	var err error
-	op, err = b.lease.allocate(b.Writer.Context(), op)
+	op, err = b.lease.allocate(ctx, op)
 	if err != nil {
 		return err
 	}
 	if op.Variant == Delete {
-		if err := b.Writer.Delete(op.Key); err != nil {
+		if err := b.Tx.Delete(ctx, op.Key); err != nil {
 			return err
 		}
 	} else {
-		if err := b.Writer.Set(op.Key, op.Value); err != nil {
+		if err := b.Tx.Set(ctx, op.Key, op.Value); err != nil {
 			return err
 		}
 	}
@@ -67,12 +67,12 @@ func (b *writer) applyOp(op Operation) error {
 	return nil
 }
 
-func (b *writer) toRequests() ([]WriteRequest, error) {
-	dm := make(map[node.ID]WriteRequest)
+func (b *tx) toRequests(ctx context.Context) ([]TxRequest, error) {
+	dm := make(map[node.ID]TxRequest)
 	for _, dig := range b.digests {
 		op := dig.Operation()
 		if op.Variant == Set {
-			v, err := b.Get(dig.Key)
+			v, err := b.Tx.Get(ctx, dig.Key)
 			if err != nil && err != kvx.NotFound {
 				return nil, err
 			}
@@ -81,41 +81,40 @@ func (b *writer) toRequests() ([]WriteRequest, error) {
 		br, ok := dm[op.Leaseholder]
 		if !ok {
 			br.Operations = []Operation{op}
-			br.ctx = b.Context()
 		} else {
 			br.Operations = append(br.Operations, op)
 		}
 		br.Leaseholder = op.Leaseholder
 		br.ctx, br.span = alamos.Trace(
-			b.Context(),
-			fmt.Sprintf("writer-%d", br.Leaseholder),
+			ctx,
+			fmt.Sprintf("tx-%d", br.Leaseholder),
 			alamos.DebugLevel,
 		)
 		dm[op.Leaseholder] = br
 	}
-	data := make([]WriteRequest, 0, len(dm))
+	data := make([]TxRequest, 0, len(dm))
 	for _, d := range dm {
 		data = append(data, d)
 	}
 	return data, b.free()
 }
 
-func (b *writer) Close() error { return b.free() }
+func (b *tx) Close() error { return b.free() }
 
-func (b *writer) Commit(_ ...interface{}) error {
-	data, err := b.toRequests()
+func (b *tx) Commit(ctx context.Context, _ ...interface{}) error {
+	data, err := b.toRequests(ctx)
 	if err != nil {
 		return err
 	}
 	return b.apply(data)
 }
 
-func (b *writer) free() error {
+func (b *tx) free() error {
 	b.digests = nil
-	return b.Writer.Close()
+	return b.Tx.Close()
 }
 
-type WriteRequest struct {
+type TxRequest struct {
 	Leaseholder node.ID
 	Sender      node.ID
 	Operations  []Operation
@@ -124,11 +123,11 @@ type WriteRequest struct {
 	span        alamos.Span
 }
 
-func (br WriteRequest) empty() bool { return len(br.Operations) == 0 }
+func (br TxRequest) empty() bool { return len(br.Operations) == 0 }
 
-func (br WriteRequest) size() int { return len(br.Operations) }
+func (br TxRequest) size() int { return len(br.Operations) }
 
-func (br WriteRequest) logArgs() []zap.Field {
+func (br TxRequest) logArgs() []zap.Field {
 	return []zap.Field{
 		zap.Int("size", br.size()),
 		zap.Uint64("leaseholder", uint64(br.Leaseholder)),
@@ -136,7 +135,7 @@ func (br WriteRequest) logArgs() []zap.Field {
 	}
 }
 
-func (br WriteRequest) digests() []Digest {
+func (br TxRequest) digests() []Digest {
 	digests := make([]Digest, len(br.Operations))
 	for i, op := range br.Operations {
 		digests[i] = op.Digest()
@@ -144,18 +143,17 @@ func (br WriteRequest) digests() []Digest {
 	return digests
 }
 
-func (br WriteRequest) commitTo(bw kvx.Writeable) error {
-	var err error
-	b := bw.NewWriter(br.ctx)
-
+func (br TxRequest) commitTo(db kvx.TxnFactory) (err error) {
+	b := db.OpenTx()
 	defer func() {
 		br.Operations = nil
-		if _err := b.Commit(br.ctx); _err != nil {
+		if err != nil {
+			err = b.Close()
+		} else if _err := b.Commit(br.ctx); _err != nil {
 			err = _err
 		}
 		br.done(err)
 	}()
-
 	for _, op := range br.Operations {
 		if _err := op.apply(b); _err != nil {
 			err = _err
@@ -166,11 +164,10 @@ func (br WriteRequest) commitTo(bw kvx.Writeable) error {
 			return err
 		}
 	}
-
 	return err
 }
 
-func (br WriteRequest) done(err error) {
+func (br TxRequest) done(err error) {
 	if br.doneF != nil {
 		br.doneF(err)
 	}
@@ -191,7 +188,7 @@ func validateLeaseOption(maybeLease []interface{}) (node.ID, error) {
 	return lease, nil
 }
 
-type batchCoordinator struct {
+type txCoordinator struct {
 	wg sync.WaitGroup
 	mu struct {
 		sync.Mutex
@@ -199,7 +196,7 @@ type batchCoordinator struct {
 	}
 }
 
-func (bc *batchCoordinator) done(err error) {
+func (bc *txCoordinator) done(err error) {
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
 	if err != nil {
@@ -208,12 +205,12 @@ func (bc *batchCoordinator) done(err error) {
 	bc.wg.Done()
 }
 
-func (bc *batchCoordinator) wait() error {
+func (bc *txCoordinator) wait() error {
 	bc.wg.Wait()
 	return bc.mu.err
 }
 
-func (bc *batchCoordinator) add(data *WriteRequest) {
+func (bc *txCoordinator) add(data *TxRequest) {
 	bc.wg.Add(1)
 	data.doneF = bc.done
 }
