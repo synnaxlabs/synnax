@@ -61,7 +61,7 @@ func provisionCandidates(
 	}
 	for i := 0; i < n; i++ {
 		cfg, addr := baseConfigWithAddr(net, logger)
-		Expect(pledge.Arbitrate(ctx, cfg, pledge.Config{
+		Expect(pledge.Arbitrate(cfg, pledge.Config{
 			Candidates: candidates(i),
 		})).To(Succeed())
 		id := node.ID(i)

@@ -10,6 +10,7 @@
 package channel
 
 import (
+	"context"
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/x/query"
 
@@ -21,13 +22,13 @@ import (
 // Retrieve is used to retrieve information about Channel(s) in delta's distribution
 // layer.
 type Retrieve struct {
+	tx   gorp.Tx
 	gorp gorp.Retrieve[Key, Channel]
 	keys Keys
-	txn  gorp.ReadTxn
 }
 
-func NewRetrieve(txn gorp.ReadTxn) Retrieve {
-	return Retrieve{gorp: gorp.NewRetrieve[Key, Channel](), txn: txn}
+func NewRetrieve() Retrieve {
+	return Retrieve{gorp: gorp.NewRetrieve[Key, Channel]()}
 }
 
 // Entry binds the Channel that Retrieve will fill results into. This is an identical
@@ -60,15 +61,15 @@ func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 }
 
 // Exec executes the query, binding
-func (r Retrieve) Exec() error {
-	return r.maybeEnrichError(r.gorp.Exec(r.txn))
+func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
+	return r.maybeEnrichError(r.gorp.Exec(ctx, gorp.OverrideTx(r.tx, tx)))
 }
 
 // Exists checks if the query has results matching its parameters. If used in conjunction
 // with WhereKeys, Exists will ONLY return true if ALL the keys have a matching Channel.
 // Otherwise, Exists returns true if the query has ANY results.
-func (r Retrieve) Exists() (bool, error) {
-	return r.gorp.Exists(r.txn)
+func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error) {
+	return r.gorp.Exists(ctx, gorp.OverrideTx(r.tx, tx))
 }
 
 func (r Retrieve) maybeEnrichError(err error) error {
@@ -76,7 +77,7 @@ func (r Retrieve) maybeEnrichError(err error) error {
 		return nil
 	}
 	if errors.Is(err, query.NotFound) && len(r.keys) > 0 {
-		channels := gorp.GetEntries[Key, Channel](r.gorp).All()
+		channels := gorp.GetEntries[Key, Channel](r.gorp.Params).All()
 		diff, _ := r.keys.Difference(KeysFromChannels(channels))
 		return errors.Wrapf(query.NotFound, "channels with keys %v not found", diff)
 	}

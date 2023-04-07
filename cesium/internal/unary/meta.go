@@ -43,7 +43,7 @@ func readMeta(fs xfs.FS, ecd binary.EncoderDecoder) (core.Channel, error) {
 	if err != nil {
 		return ch, err
 	}
-	if err := ecd.DecodeStream(metaF, &ch); err != nil {
+	if err := ecd.DecodeStream(nil, metaF, &ch); err != nil {
 		return ch, err
 	}
 	return ch, metaF.Close()
@@ -54,7 +54,7 @@ func createMeta(fs xfs.FS, ecd binary.EncoderDecoder, ch core.Channel) error {
 	if err != nil {
 		return err
 	}
-	b, err := ecd.Encode(ch)
+	b, err := ecd.Encode(nil, ch)
 	if err != nil {
 		return err
 	}

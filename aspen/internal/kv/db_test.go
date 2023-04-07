@@ -164,7 +164,7 @@ var _ = Describe("txn", func() {
 
 	})
 
-	Describe("Delete", func() {
+	Describe("delete", func() {
 
 		Describe("Gateway Leaseholder", func() {
 

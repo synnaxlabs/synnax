@@ -17,7 +17,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Query", func() {
+var _ = Describe("Params", func() {
 	Describe("SetTimeRange", func() {
 		It("Should set and get the time range on a query", func() {
 			q := query.New()

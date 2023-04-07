@@ -180,7 +180,8 @@ func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) er
 	if validate.NotEmptySlice(v, "Keys", keys) {
 		return v.Error()
 	}
-	exists, err := s.ChannelReader.NewRetrieve(ctx).WhereKeys(keys...).Exists()
+	q := s.ChannelReader.NewRetrieve().WhereKeys(keys...)
+	exists, err := q.Exists(s.ChannelReader.ReadTxn(ctx))
 	if err != nil {
 		return err
 	}

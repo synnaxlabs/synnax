@@ -89,7 +89,7 @@ type IteratorRequest struct {
 	Bounds telem.TimeRange
 }
 
-// IteratorResponse is a response containing segments satisfying a RetrieveP Query as
+// IteratorResponse is a response containing segments satisfying a RetrieveP Params as
 // well as any errors encountered during the retrieval.
 type IteratorResponse struct {
 	// Variant is the type of response being issued.

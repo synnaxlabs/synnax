@@ -24,6 +24,17 @@ var _ kvc.DB = (*db)(nil)
 
 var defaultWriteOpts = pebble.Sync
 
+func parseOpts(opts []interface{}) *pebble.WriteOptions {
+	if len(opts) > 0 {
+		for _, o := range opts {
+			if o, ok := o.(*pebble.WriteOptions); ok {
+				return o
+			}
+		}
+	}
+	return defaultWriteOpts
+}
+
 func parseWriterOpt(opts []interface{}) *pebble.WriteOptions {
 	if len(opts) == 0 {
 		return defaultWriteOpts
@@ -37,13 +48,26 @@ func parseWriterOpt(opts []interface{}) *pebble.WriteOptions {
 // Wrap wraps a pebble.DB to satisfy the kv.db interface.
 func Wrap(db_ *pebble.DB) kvc.DB { return &db{DB: db_} }
 
-// NewWriter implement kv.DB.
-func (d db) NewWriter(ctx context.Context) kvc.Writer {
-	return writer{ctx: ctx, Batch: d.DB.NewIndexedBatch()}
+// OpenTx implement kv.DB.
+func (d db) OpenTx() kvc.Tx {
+	return tx{Batch: d.DB.NewIndexedBatch()}
 }
 
-// NewReader implement kv.DB.
-func (d db) NewReader(ctx context.Context) kvc.Reader { return reader{ctx: ctx, Reader: d} }
+func (d db) Set(ctx context.Context, key, value []byte, opts ...interface{}) error {
+	return d.DB.Set(key, value, parseOpts(opts))
+}
+
+func (d db) Get(ctx context.Context, key []byte, opts ...interface{}) ([]byte, error) {
+	return get(d.DB, key)
+}
+
+func (d db) Delete(ctx context.Context, key []byte, opts ...interface{}) error {
+	return d.DB.Delete(key, parseOpts(opts))
+}
+
+func (d db) OpenIterator(opts kvc.IteratorOptions) kvc.Iterator {
+	return d.DB.NewIter(parseIterOpts(opts))
+}
 
 // Report implement alamos.ReportProvider.
 func (d db) Report() alamos.Report { return alamos.Report{"engine": "pebble"} }
@@ -51,53 +75,35 @@ func (d db) Report() alamos.Report { return alamos.Report{"engine": "pebble"} }
 // Close implement io.Closer.
 func (d db) Close() error { return d.DB.Close() }
 
-type writer struct {
-	ctx context.Context
+type tx struct {
 	*pebble.Batch
 }
 
-var _ kvc.Writer = writer{}
-
-func (b writer) Context() context.Context { return b.ctx }
+var _ kvc.Tx = tx{}
 
 // Set implements kv.Writer.
-func (b writer) Set(key []byte, value []byte, opts ...interface{}) error {
-	return b.Batch.Set(key, value, defaultWriteOpts)
+func (b tx) Set(_ context.Context, key, value []byte, opts ...interface{}) error {
+	return b.Batch.Set(key, value, parseOpts(opts))
 }
 
 // Get implements kv.Writer.
-func (b writer) Get(key []byte, opts ...interface{}) ([]byte, error) {
+func (b tx) Get(_ context.Context, key []byte, opts ...interface{}) ([]byte, error) {
 	return get(b.Batch, key)
 }
 
 // Delete implements kv.Writer.
-func (b writer) Delete(key []byte) error {
-	return b.Batch.Delete(key, defaultWriteOpts)
+func (b tx) Delete(_ context.Context, key []byte, opts ...interface{}) error {
+	return b.Batch.Delete(key, parseOpts(opts))
 }
 
-// NewIterator implements kv.Writer.
-func (b writer) Iterate(opts kvc.IteratorOptions) kvc.Iterator {
-	return b.Batch.NewIter(&pebble.IterOptions{LowerBound: opts.LowerBound, UpperBound: opts.UpperBound})
+// OpenIterator implements kv.Writer.
+func (b tx) OpenIterator(opts kvc.IteratorOptions) kvc.Iterator {
+	return b.Batch.NewIter(parseIterOpts(opts))
 }
 
 // Commit implements kv.Writer.
-func (b writer) Commit(opts ...interface{}) error {
+func (b tx) Commit(_ context.Context, opts ...interface{}) error {
 	return b.Batch.Commit(defaultWriteOpts)
-}
-
-type reader struct {
-	ctx context.Context
-	pebble.Reader
-}
-
-func (r reader) Context() context.Context { return r.ctx }
-
-func (r reader) Get(key []byte, opts ...interface{}) ([]byte, error) {
-	return get(r.Reader, key)
-}
-
-func (r reader) Iterate(opts kvc.IteratorOptions) kvc.Iterator {
-	return r.Reader.NewIter(&pebble.IterOptions{LowerBound: opts.LowerBound, UpperBound: opts.UpperBound})
 }
 
 func get(reader pebble.Reader, key []byte) ([]byte, error) {
@@ -106,4 +112,11 @@ func get(reader pebble.Reader, key []byte) ([]byte, error) {
 		return v, err
 	}
 	return v, c.Close()
+}
+
+func parseIterOpts(opts kvc.IteratorOptions) *pebble.IterOptions {
+	return &pebble.IterOptions{
+		LowerBound: opts.LowerBound,
+		UpperBound: opts.UpperBound,
+	}
 }

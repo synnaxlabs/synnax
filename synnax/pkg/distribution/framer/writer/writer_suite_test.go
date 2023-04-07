@@ -27,7 +27,7 @@ var ctx = context.Background()
 
 func TestWriter(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Write Suite")
+	RunSpecs(t, "set Suite")
 }
 
 type serviceContainer struct {

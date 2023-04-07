@@ -26,6 +26,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errutil"
 	"github.com/synnaxlabs/x/gorp"
@@ -77,7 +78,16 @@ type Store struct {
 }
 
 // Gorpify returns a gorp.DB that can be used to interact with the storage key-value store.
-func (s *Store) Gorpify() *gorp.DB { return gorp.Wrap(s.KV) }
+func (s *Store) Gorpify() *gorp.DB {
+	return gorp.Wrap(
+		s.KV,
+		gorp.WithEncoderDecoder(&binary.TracingEncoderDecoder{
+			Level:           alamos.DebugLevel,
+			Instrumentation: s.Instrumentation,
+			EncoderDecoder:  &binary.MsgPackEncoderDecoder{},
+		}),
+	)
+}
 
 // Close closes the Store, releasing the lock on the storage directory. Close
 // MUST be called when the Store is no longer in use. The caller must ensure that

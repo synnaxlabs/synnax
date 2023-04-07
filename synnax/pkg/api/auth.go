@@ -67,7 +67,7 @@ func (s *AuthService) Register(ctx context.Context, req RegistrationRequest) (tr
 	if err := s.Validate(req); err.Occurred() {
 		return tr, err
 	}
-	return tr, s.WithWriteTxn(ctx, func(txn gorp.WriteTxn) errors.Typed {
+	return tr, s.WithTxn(ctx, func(txn gorp.WriteTxn) errors.Typed {
 		if err := s.authenticator.NewWriter(txn).Register(req.InsecureCredentials); err != nil {
 			return errors.General(err)
 		}
@@ -92,7 +92,7 @@ func (s *AuthService) ChangePassword(ctx context.Context, cpr ChangePasswordRequ
 	if err := s.Validate(cpr); err.Occurred() {
 		return err
 	}
-	return s.WithWriteTxn(ctx, func(txn gorp.WriteTxn) errors.Typed {
+	return s.WithTxn(ctx, func(txn gorp.WriteTxn) errors.Typed {
 		return errors.MaybeGeneral(s.authenticator.NewWriter(txn).
 			UpdatePassword(cpr.InsecureCredentials, cpr.NewPassword))
 	})
@@ -109,7 +109,7 @@ func (s *AuthService) ChangeUsername(ctx context.Context, cur ChangeUsernameRequ
 	if err := s.Validate(&cur); err.Occurred() {
 		return err
 	}
-	return s.WithWriteTxn(ctx, func(txn gorp.WriteTxn) errors.Typed {
+	return s.WithTxn(ctx, func(txn gorp.WriteTxn) errors.Typed {
 		u, err := s.user.RetrieveByUsername(txn.Context(), cur.InsecureCredentials.Username)
 		if err != nil {
 			return errors.MaybeQuery(err)

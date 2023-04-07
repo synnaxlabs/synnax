@@ -32,7 +32,7 @@ func (db *KV) Authenticate(ctx context.Context, creds InsecureCredentials) error
 }
 
 func (db *KV) authenticate(ctx context.Context, creds InsecureCredentials) (SecureCredentials, error) {
-	secureCreds, err := db.retrieve(db.DB.BeginRead(ctx), creds.Username)
+	secureCreds, err := db.retrieve(db.DB.ReadTxn(ctx), creds.Username)
 	if err != nil {
 		if err == query.NotFound {
 			return secureCreds, InvalidCredentials
@@ -44,13 +44,13 @@ func (db *KV) authenticate(ctx context.Context, creds InsecureCredentials) (Secu
 
 func (db *KV) NewWriter(txn gorp.WriteTxn) Writer { return &kvWriter{kv: db, txn: txn} }
 
-func (db *KV) exists(txn gorp.ReadTxn, user string) (bool, error) {
+func (db *KV) exists(txn gorp.Tx, user string) (bool, error) {
 	return gorp.NewRetrieve[string, SecureCredentials]().
 		WhereKeys(user).
 		Exists(txn)
 }
 
-func (db *KV) retrieve(txn gorp.ReadTxn, user string) (SecureCredentials, error) {
+func (db *KV) retrieve(txn gorp.Tx, user string) (SecureCredentials, error) {
 	var creds SecureCredentials
 	return creds, gorp.NewRetrieve[string, SecureCredentials]().
 		WhereKeys(user).

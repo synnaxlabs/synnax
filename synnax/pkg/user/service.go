@@ -34,7 +34,7 @@ func (s *Service) Retrieve(ctx context.Context, key uuid.UUID) (User, error) {
 	return u, gorp.NewRetrieve[uuid.UUID, User]().
 		WhereKeys(key).
 		Entry(&u).
-		Exec(s.DB.BeginRead(ctx))
+		Exec(s.DB.ReadTxn(ctx))
 }
 
 func (s *Service) RetrieveByUsername(ctx context.Context, username string) (User, error) {
@@ -42,7 +42,7 @@ func (s *Service) RetrieveByUsername(ctx context.Context, username string) (User
 	return u, gorp.NewRetrieve[uuid.UUID, User]().
 		Where(func(u *User) bool { return u.Username == username }).
 		Entry(&u).
-		Exec(s.DB.BeginRead(ctx))
+		Exec(s.DB.ReadTxn(ctx))
 }
 
 func (s *Service) UsernameExists(ctx context.Context, username string) (bool, error) {
@@ -50,7 +50,7 @@ func (s *Service) UsernameExists(ctx context.Context, username string) (bool, er
 	return gorp.NewRetrieve[uuid.UUID, User]().
 		Where(func(u *User) bool { return u.Username == username }).
 		Entry(&u).
-		Exists(s.DB.BeginRead(ctx))
+		Exists(s.DB.ReadTxn(ctx))
 }
 
 type Writer struct {
@@ -72,7 +72,7 @@ func (w Writer) Create(u *User) error {
 		return query.UniqueViolation
 	}
 
-	if err = w.Ontology.NewWriter(w.txn).
+	if err = w.Ontology.OpenWriter(w.txn).
 		DefineResource(OntologyID(u.Key)); err != nil {
 		return err
 	}

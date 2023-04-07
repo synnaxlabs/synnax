@@ -17,9 +17,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/config"
+	kvx "github.com/synnaxlabs/x/kv"
 )
 
-var _ = Describe("Logging", func() {
+var _ = Describe("Mock", func() {
 	DescribeTable("New", func(cfg ...distribution.Config) {
 		builder := mock.NewCoreBuilder(cfg...)
 		coreOne := builder.New()
@@ -30,10 +31,10 @@ var _ = Describe("Logging", func() {
 		Expect(coreTwo.Cluster.HostID()).To(Equal(core.NodeID(2)))
 		Expect(coreThree.Cluster.HostID()).To(Equal(core.NodeID(3)))
 
-		Expect(coreOne.Storage.KV.Set([]byte("foo"), []byte("bar"))).To(Succeed())
+		Expect(kvx.Set(ctx, coreOne.Storage.KV, []byte("foo"), []byte("bar"))).To(Succeed())
 
 		Eventually(func(g Gomega) {
-			v, err := coreOne.Storage.KV.Get([]byte("foo"))
+			v, err := kvx.Get(ctx, coreOne.Storage.KV, []byte("foo"))
 			g.Expect(err).To(Succeed())
 			g.Expect(v).To(Equal([]byte("bar")))
 		}).Should(Succeed())

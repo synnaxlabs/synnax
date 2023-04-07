@@ -62,12 +62,10 @@ formed by its peers.
 // start a Synnax node using the configuration specified by the command line flags,
 // environment variables, and configuration files.
 func start(cmd *cobra.Command) {
-	var insecure = viper.GetBool("insecure")
-
-	ins, err := configureInstrumentation()
-	if err != nil {
-		zap.S().Fatal(err)
-	}
+	var (
+		insecure = viper.GetBool("insecure")
+		ins      = configureInstrumentation()
+	)
 
 	interruptC := make(chan os.Signal, 1)
 	signal.Notify(interruptC, os.Interrupt)
@@ -107,7 +105,7 @@ func start(cmd *cobra.Command) {
 		}
 		defer func() { err = dist.Close() }()
 
-		// Set up our high level services.
+		// set up our high level services.
 		gorpDB := dist.Storage.Gorpify()
 		userSvc := &user.Service{DB: gorpDB, Ontology: dist.Ontology}
 		tokenSvc := &token.Service{KeyProvider: secProvider, Expiration: 24 * time.Hour}
@@ -251,7 +249,7 @@ func maybeProvisionRootUser(
 	if err != nil || exists {
 		return err
 	}
-	return db.WithWriteTxn(ctx, func(txn gorp.WriteTxn) error {
+	return db.WithTx(ctx, func(txn gorp.WriteTxn) error {
 		if err = authSvc.NewWriter(txn).Register(creds); err != nil {
 			return err
 		}

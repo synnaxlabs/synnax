@@ -67,7 +67,7 @@ type WriteResponse struct {
 // will increment WriteResponse.SeqNum and send a WriteResponse with the error. The error will
 // be considered resolved, and the StreamWriter will resume normal operation.
 //
-// StreamWriter is atomic, meaning the caller must issue a Write with a WriterCommit
+// StreamWriter is atomic, meaning the caller must issue a set with a WriterCommit
 // command to commit the write. If the commit fails, the StreamWriter will send a WriteResponse
 // with a negative WriteResponse.Ack frame. All future writes will fail until the error is
 // resolved. To resolve the error, see the above paragraph.

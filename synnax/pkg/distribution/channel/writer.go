@@ -1,17 +1,18 @@
 package channel
 
 import (
+	"context"
 	"github.com/synnaxlabs/x/gorp"
 )
 
 type Writer struct {
-	proxy  *leaseProxy
-	writer gorp.WriteTxn
+	proxy *leaseProxy
+	tx    gorp.Tx
 }
 
-func (w Writer) Create(c *Channel) error {
+func (w Writer) Create(ctx context.Context, c *Channel) error {
 	channels := []Channel{*c}
-	err := w.proxy.create(w.writer, &channels)
+	err := w.proxy.create(ctx, w.tx, &channels)
 	if err != nil {
 		return err
 	}
@@ -19,6 +20,6 @@ func (w Writer) Create(c *Channel) error {
 	return nil
 }
 
-func (w Writer) CreateMany(channels *[]Channel) error {
-	return w.proxy.create(w.writer, channels)
+func (w Writer) CreateMany(ctx context.Context, channels *[]Channel) error {
+	return w.proxy.create(ctx, w.tx, channels)
 }

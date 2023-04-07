@@ -61,17 +61,6 @@ type Iterator interface {
 	Close() error
 }
 
-func prefixUpperBound(lower []byte) []byte {
-	upper := binary.MakeCopy(lower)
-	for i := len(upper) - 1; i >= 0; i-- {
-		upper[i] = upper[i] + 1
-		if upper[i] != 0 {
-			return upper[:i+1]
-		}
-	}
-	return nil
-}
-
 // PrefixIter returns IteratorOptions, that when passed to writer.NewStreamIterator, will
 // return an Iterator that only iterates over keys with the given prefix.
 func PrefixIter(prefix []byte) IteratorOptions {
@@ -82,4 +71,15 @@ func PrefixIter(prefix []byte) IteratorOptions {
 // iterator through the range of keys between start and end.
 func RangeIter(start, end []byte) IteratorOptions {
 	return IteratorOptions{LowerBound: start, UpperBound: end}
+}
+
+func prefixUpperBound(lower []byte) []byte {
+	upper := binary.MakeCopy(lower)
+	for i := len(upper) - 1; i >= 0; i-- {
+		upper[i] = upper[i] + 1
+		if upper[i] != 0 {
+			return upper[:i+1]
+		}
+	}
+	return nil
 }

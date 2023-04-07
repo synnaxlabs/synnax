@@ -77,8 +77,8 @@ func (s *ChannelService) Create(
 	if err != nil {
 		return res, errors.Parse(err)
 	}
-	return res, s.WithWriteTxn(ctx, func(txn gorp.WriteTxn) errors.Typed {
-		err := s.internal.NewWriter(txn).CreateMany(&translated)
+	return res, s.WithTxn(ctx, func(tx gorp.Tx) errors.Typed {
+		err := s.internal.NewWriter(tx).CreateMany(ctx, &translated)
 		res = ChannelCreateResponse{Channels: translateChannelsForward(translated)}
 		return errors.MaybeQuery(err)
 	})
@@ -112,7 +112,7 @@ func (s *ChannelService) Retrieve(
 		keys, names = splitKeysAndNames(req.KeysOrNames)
 		resChannels []channel.Channel
 		notFound    []string
-		q           = s.internal.NewRetrieve(ctx).Entries(&resChannels)
+		q           = s.internal.NewRetrieve().Entries(&resChannels)
 		hasNames    = len(names) > 0
 		hasKeys     = len(keys) > 0
 	)
@@ -129,7 +129,7 @@ func (s *ChannelService) Retrieve(
 		q = q.WhereNodeID(req.NodeID)
 	}
 
-	err := errors.MaybeQuery(q.Exec())
+	err := errors.MaybeQuery(q.Exec(ctx, nil))
 
 	if hasKeys {
 		notFound, _ = lo.Difference(

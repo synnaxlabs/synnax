@@ -9,9 +9,7 @@
 
 package channel
 
-import "C"
 import (
-	"context"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/storage"
@@ -24,8 +22,8 @@ import (
 // service is central entity for managing channels within delta's distribution layer. It provides facilities for creating
 // and retrieving channels.
 type service struct {
-	clusterDB *gorp.DB
-	proxy     *leaseProxy
+	*gorp.DB
+	proxy *leaseProxy
 }
 
 type Service interface {
@@ -35,11 +33,11 @@ type Service interface {
 }
 
 type Writeable interface {
-	NewWriter(writer gorp.WriteTxn) Writer
+	NewWriter(tx gorp.Tx) Writer
 }
 
 type Readable interface {
-	NewRetrieve(ctx context.Context) Retrieve
+	NewRetrieve() Retrieve
 }
 
 type ServiceConfig struct {
@@ -81,13 +79,11 @@ func New(configs ...ServiceConfig) (Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &service{clusterDB: cfg.ClusterDB, proxy: proxy}, nil
+	return &service{DB: cfg.ClusterDB, proxy: proxy}, nil
 }
 
-func (s *service) NewWriter(writer gorp.WriteTxn) Writer {
-	return Writer{proxy: s.proxy, writer: writer}
+func (s *service) NewWriter(tx gorp.Tx) Writer {
+	return Writer{proxy: s.proxy, tx: s.DB.OverrideTx(tx)}
 }
 
-func (s *service) NewRetrieve(ctx context.Context) Retrieve {
-	return NewRetrieve(s.clusterDB.BeginRead(ctx))
-}
+func (s *service) NewRetrieve() Retrieve { return NewRetrieve() }

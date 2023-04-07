@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/server"
 	"github.com/synnaxlabs/x/config"
 	. "github.com/synnaxlabs/x/testutil"
-	"go.uber.org/zap"
 	"net/http"
 	"sync"
 )
@@ -42,8 +41,7 @@ var _ = Describe("HTTP", func() {
 			Security: server.SecurityConfig{
 				Insecure: config.Bool(true),
 			},
-			Debug:  config.Bool(true),
-			Logger: zap.NewNop(),
+			Debug: config.Bool(true),
 			Branches: []server.Branch{
 				&server.SecureHTTPBranch{
 					Transports: []fhttp.BindableTransport{r},

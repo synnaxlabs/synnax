@@ -6,17 +6,21 @@ import (
 	"github.com/synnaxlabs/x/errutil"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"log"
 )
 
-func configureInstrumentation() (ins alamos.Instrumentation, err error) {
+func configureInstrumentation() alamos.Instrumentation {
 	c := errutil.NewCatch()
 	logger := errutil.Exec1(c, configureLogger)
 	tracer := errutil.Exec1(c, configureTracer)
+	if c.Error() != nil {
+		log.Fatal(c.Error())
+	}
 	return alamos.New(
 		"synnax",
 		alamos.WithLogger(logger),
 		alamos.WithTracer(tracer),
-	), c.Error()
+	)
 }
 
 func configureLogger() (*alamos.Logger, error) {

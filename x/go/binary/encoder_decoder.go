@@ -11,8 +11,10 @@ package binary
 
 import (
 	"bytes"
+	"context"
 	"encoding/gob"
 	"encoding/json"
+	"github.com/synnaxlabs/alamos"
 	"github.com/vmihailenco/msgpack/v5"
 	"io"
 )
@@ -27,15 +29,15 @@ type EncoderDecoder interface {
 type Encoder interface {
 	// Encode encodes the value into binary. It returns the encoded value along
 	// with any errors encountered.
-	Encode(value interface{}) ([]byte, error)
+	Encode(ctx context.Context, value interface{}) ([]byte, error)
 }
 
 // Decoder decodes values from binary.
 type Decoder interface {
 	// Decode decodes data into a pointer value.
-	Decode(data []byte, value interface{}) error
+	Decode(ctx context.Context, data []byte, value interface{}) error
 	// DecodeStream decodes data from the given reader into a pointer value.;
-	DecodeStream(r io.Reader, value interface{}) error
+	DecodeStream(ctx context.Context, r io.Reader, value interface{}) error
 }
 
 var (
@@ -48,7 +50,7 @@ var (
 type GobEncoderDecoder struct{}
 
 // Encode implements the Encoder interface.
-func (e *GobEncoderDecoder) Encode(value interface{}) ([]byte, error) {
+func (e *GobEncoderDecoder) Encode(_ context.Context, value interface{}) ([]byte, error) {
 	var buff bytes.Buffer
 	err := gob.NewEncoder(&buff).Encode(value)
 	b := buff.Bytes()
@@ -56,12 +58,12 @@ func (e *GobEncoderDecoder) Encode(value interface{}) ([]byte, error) {
 }
 
 // Decode implements the Decoder interface.
-func (e *GobEncoderDecoder) Decode(data []byte, value interface{}) error {
-	return e.DecodeStream(bytes.NewReader(data), value)
+func (e *GobEncoderDecoder) Decode(_ context.Context, data []byte, value interface{}) error {
+	return e.DecodeStream(nil, bytes.NewReader(data), value)
 }
 
 // DecodeStream implements the Decoder interface.
-func (e *GobEncoderDecoder) DecodeStream(r io.Reader, value interface{}) error {
+func (e *GobEncoderDecoder) DecodeStream(_ context.Context, r io.Reader, value interface{}) error {
 	return gob.NewDecoder(r).Decode(value)
 }
 
@@ -69,24 +71,24 @@ func (e *GobEncoderDecoder) DecodeStream(r io.Reader, value interface{}) error {
 type JSONEncoderDecoder struct{}
 
 // Encode implements the Encoder interface.
-func (j *JSONEncoderDecoder) Encode(value interface{}) ([]byte, error) {
+func (j *JSONEncoderDecoder) Encode(_ context.Context, value interface{}) ([]byte, error) {
 	return json.Marshal(value)
 }
 
 // Decode implements the Decoder interface.
-func (j *JSONEncoderDecoder) Decode(data []byte, value interface{}) error {
+func (j *JSONEncoderDecoder) Decode(_ context.Context, data []byte, value interface{}) error {
 	return json.Unmarshal(data, value)
 }
 
 // DecodeStream implements the Decoder interface.
-func (j *JSONEncoderDecoder) DecodeStream(r io.Reader, value interface{}) error {
+func (j *JSONEncoderDecoder) DecodeStream(_ context.Context, r io.Reader, value interface{}) error {
 	return json.NewDecoder(r).Decode(value)
 }
 
 type JSONIdentEncoderDecoder struct{ JSONEncoderDecoder }
 
 // Encode implements the Encoder interface.
-func (j *JSONIdentEncoderDecoder) Encode(value interface{}) ([]byte, error) {
+func (j *JSONIdentEncoderDecoder) Encode(_ context.Context, value interface{}) ([]byte, error) {
 	return json.MarshalIndent(value, "", "  ")
 }
 
@@ -94,44 +96,69 @@ func (j *JSONIdentEncoderDecoder) Encode(value interface{}) ([]byte, error) {
 type MsgPackEncoderDecoder struct{}
 
 // Encode implements the Encoder interface.
-func (m *MsgPackEncoderDecoder) Encode(value interface{}) ([]byte, error) {
+func (m *MsgPackEncoderDecoder) Encode(_ context.Context, value interface{}) ([]byte, error) {
 	return msgpack.Marshal(value)
 }
 
 // Decode implements the Decoder interface.
-func (m *MsgPackEncoderDecoder) Decode(data []byte, value interface{}) error {
-	return m.DecodeStream(bytes.NewReader(data), value)
+func (m *MsgPackEncoderDecoder) Decode(ctx context.Context, data []byte, value interface{}) error {
+	return m.DecodeStream(ctx, bytes.NewReader(data), value)
 }
 
 // DecodeStream implements the Decoder interface.
-func (m *MsgPackEncoderDecoder) DecodeStream(r io.Reader, value interface{}) error {
+func (m *MsgPackEncoderDecoder) DecodeStream(_ context.Context, r io.Reader, value interface{}) error {
 	return msgpack.NewDecoder(r).Decode(value)
 }
 
 // PassThroughEncoderDecoder wraps an EncoderDecoder and checks for values
 // that are already encoded ([]byte) and returns them as is.
-type PassThroughEncoderDecoder struct {
-	EncoderDecoder
-}
+type PassThroughEncoderDecoder struct{ EncoderDecoder }
 
 // Encode implements the Encoder interface.
-func (enc *PassThroughEncoderDecoder) Encode(value interface{}) ([]byte, error) {
+func (enc *PassThroughEncoderDecoder) Encode(_ context.Context, value interface{}) ([]byte, error) {
 	if bv, ok := value.([]byte); ok {
 		return bv, nil
 	}
-	return enc.EncoderDecoder.Encode(value)
+	return enc.EncoderDecoder.Encode(nil, value)
 }
 
 // Decode implements the Decoder interface.
-func (enc *PassThroughEncoderDecoder) Decode(data []byte, value interface{}) error {
-	return enc.DecodeStream(bytes.NewReader(data), value)
+func (enc *PassThroughEncoderDecoder) Decode(_ context.Context, data []byte, value interface{}) error {
+	return enc.DecodeStream(nil, bytes.NewReader(data), value)
 }
 
 // DecodeStream implements the Decoder interface.
-func (enc *PassThroughEncoderDecoder) DecodeStream(r io.Reader, value interface{}) error {
+func (enc *PassThroughEncoderDecoder) DecodeStream(_ context.Context, r io.Reader, value interface{}) error {
 	if bv, ok := value.(*[]byte); ok {
 		*bv, _ = io.ReadAll(r)
 		return nil
 	}
-	return enc.EncoderDecoder.DecodeStream(r, value)
+	return enc.EncoderDecoder.DecodeStream(nil, r, value)
+}
+
+// TracingEncoderDecoder wraps an EncoderDecoder and traces the encoding and decoding
+// operations.
+type TracingEncoderDecoder struct {
+	alamos.Instrumentation
+	Level alamos.Level
+	EncoderDecoder
+}
+
+// Encode implements the Encoder interface.
+func (enc *TracingEncoderDecoder) Encode(ctx context.Context, value interface{}) ([]byte, error) {
+	ctx, span := enc.T.Trace(ctx, "encode", enc.Level)
+	b, err := enc.EncoderDecoder.Encode(ctx, value)
+	return b, span.EndWith(err)
+}
+
+// Decode implements the Decoder interface.
+func (enc *TracingEncoderDecoder) Decode(ctx context.Context, data []byte, value interface{}) error {
+	ctx, span := enc.T.Trace(ctx, "decode", enc.Level)
+	return span.EndWith(enc.EncoderDecoder.Decode(ctx, data, value))
+}
+
+// DecodeStream implements the Decoder interface.
+func (enc *TracingEncoderDecoder) DecodeStream(ctx context.Context, r io.Reader, value interface{}) error {
+	ctx, span := enc.T.Trace(ctx, "decode_stream", enc.Level)
+	return span.EndWith(enc.EncoderDecoder.DecodeStream(ctx, r, value))
 }

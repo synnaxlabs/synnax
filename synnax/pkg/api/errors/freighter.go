@@ -27,7 +27,7 @@ func encode(err error) string {
 	if !tErr.Occurred() {
 		return string(ferrors.Nil)
 	}
-	return string(lo.Must(ecd.Encode(tErr)))
+	return string(lo.Must(ecd.Encode(nil, tErr)))
 }
 
 type rawError struct {
@@ -37,7 +37,7 @@ type rawError struct {
 
 func decode(encoded string) error {
 	var decoded rawError
-	lo.Must0(ecd.Decode([]byte(encoded), &decoded))
+	lo.Must0(ecd.Decode(nil, []byte(encoded), &decoded))
 	switch decoded.Type {
 	case TypeValidation:
 		return parseValidationError(decoded)

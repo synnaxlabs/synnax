@@ -10,6 +10,7 @@
 package ontology
 
 import (
+	"context"
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -18,7 +19,7 @@ import (
 // dagWriter is a key-value backed directed acyclic graph that implements the Writer
 // interface.
 type dagWriter struct {
-	writer    gorp.WriteTxn
+	tx        gorp.Tx
 	registrar serviceRegistrar
 }
 
@@ -26,59 +27,59 @@ type dagWriter struct {
 var ErrCycle = errors.New("[ontology] - cyclic dependency")
 
 // DefineResource implements the Writer interface.
-func (d dagWriter) DefineResource(tk ID) error {
+func (d dagWriter) DefineResource(ctx context.Context, tk ID) error {
 	if err := tk.Validate(); err != nil {
 		return err
 	}
 	return gorp.NewCreate[ID, Resource]().
 		Entry(&Resource{ID: tk}).
-		Exec(d.writer)
+		Exec(ctx, d.tx)
 }
 
 // DeleteResource implements the Writer interface.
-func (d dagWriter) DeleteResource(tk ID) error {
-	if err := d.deleteIncomingRelationships(tk); err != nil {
+func (d dagWriter) DeleteResource(ctx context.Context, tk ID) error {
+	if err := d.deleteIncomingRelationships(ctx, tk); err != nil {
 		return err
 	}
-	if err := d.deleteOutgoingRelationships(tk); err != nil {
+	if err := d.deleteOutgoingRelationships(ctx, tk); err != nil {
 		return err
 	}
-	return gorp.NewDelete[ID, Resource]().WhereKeys(tk).Exec(d.writer)
+	return gorp.NewDelete[ID, Resource]().WhereKeys(tk).Exec(ctx, d.tx)
 }
 
 // DefineRelationship implements the Writer interface.
-func (d dagWriter) DefineRelationship(from ID, t RelationshipType, to ID) error {
+func (d dagWriter) DefineRelationship(ctx context.Context, from ID, t RelationshipType, to ID) error {
 	rel := Relationship{From: from, To: to, Type: t}
-	exists, err := d.checkRelationshipExists(rel)
+	exists, err := d.checkRelationshipExists(ctx, rel)
 	if err != nil || exists {
 		return err
 	}
-	if err := d.validateResourcesExist(from, to); err != nil {
+	if err := d.validateResourcesExist(ctx, from, to); err != nil {
 		return err
 	}
-	descendants, err := d.retrieveDescendants(to)
+	descendants, err := d.retrieveDescendants(ctx, to)
 	if err != nil {
 		return err
 	}
 	if _, exists := descendants[from]; exists {
 		return ErrCycle
 	}
-	return gorp.NewCreate[string, Relationship]().Entry(&rel).Exec(d.writer)
+	return gorp.NewCreate[string, Relationship]().Entry(&rel).Exec(ctx, d.tx)
 
 }
 
 // DeleteRelationship implements the Writer interface.
-func (d dagWriter) DeleteRelationship(from ID, t RelationshipType, to ID) error {
+func (d dagWriter) DeleteRelationship(ctx context.Context, from ID, t RelationshipType, to ID) error {
 	return gorp.NewDelete[string, Relationship]().
 		WhereKeys(Relationship{From: from, To: to, Type: t}.GorpKey()).
-		Exec(d.writer)
+		Exec(ctx, d.tx)
 }
 
 // NewRetrieve implements the Writer interface.
-func (d dagWriter) NewRetrieve() Retrieve { return newRetrieve(d.registrar, d.writer) }
+func (d dagWriter) NewRetrieve() Retrieve { return newRetrieve(d.registrar) }
 
-func (d dagWriter) retrieveOutgoingRelationships(key ID) ([]Resource, error) {
-	relationships, err := d.retrieveRelationships(func(rel *Relationship) bool {
+func (d dagWriter) retrieveOutgoingRelationships(ctx context.Context, key ID) ([]Resource, error) {
+	relationships, err := d.retrieveRelationships(ctx, func(rel *Relationship) bool {
 		return rel.From == key
 	})
 	if err != nil {
@@ -88,28 +89,28 @@ func (d dagWriter) retrieveOutgoingRelationships(key ID) ([]Resource, error) {
 	for _, rel := range relationships {
 		keys = append(keys, rel.To)
 	}
-	return d.retrieveResources(keys)
+	return d.retrieveResources(ctx, keys)
 }
 
-func (d dagWriter) retrieveRelationships(matcher func(*Relationship) bool) ([]Relationship, error) {
+func (d dagWriter) retrieveRelationships(ctx context.Context, matcher func(*Relationship) bool) ([]Relationship, error) {
 	var relationships []Relationship
 	return relationships, gorp.NewRetrieve[string, Relationship]().
 		Where(matcher).
 		Entries(&relationships).
-		Exec(d.writer)
+		Exec(ctx, d.tx)
 }
 
-func (d dagWriter) retrieveResources(keys []ID) ([]Resource, error) {
+func (d dagWriter) retrieveResources(ctx context.Context, keys []ID) ([]Resource, error) {
 	var resources []Resource
 	return resources, gorp.NewRetrieve[ID, Resource]().
 		WhereKeys(keys...).
 		Entries(&resources).
-		Exec(d.writer)
+		Exec(ctx, d.tx)
 }
 
-func (d dagWriter) retrieveDescendants(key ID) (map[ID]Resource, error) {
+func (d dagWriter) retrieveDescendants(ctx context.Context, key ID) (map[ID]Resource, error) {
 	descendants := make(map[ID]Resource)
-	children, err := d.retrieveOutgoingRelationships(key)
+	children, err := d.retrieveOutgoingRelationships(ctx, key)
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +118,7 @@ func (d dagWriter) retrieveDescendants(key ID) (map[ID]Resource, error) {
 		return nil, nil
 	}
 	for _, child := range children {
-		childDescendants, err := d.retrieveDescendants(child.ID)
+		childDescendants, err := d.retrieveDescendants(ctx, child.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -129,29 +130,29 @@ func (d dagWriter) retrieveDescendants(key ID) (map[ID]Resource, error) {
 	return descendants, nil
 }
 
-func (d dagWriter) deleteIncomingRelationships(tk ID) error {
+func (d dagWriter) deleteIncomingRelationships(ctx context.Context, tk ID) error {
 	return gorp.NewDelete[string, Relationship]().Where(func(rel *Relationship) bool {
 		return rel.To == tk
-	}).Exec(d.writer)
+	}).Exec(ctx, d.tx)
 }
 
-func (d dagWriter) deleteOutgoingRelationships(tk ID) error {
+func (d dagWriter) deleteOutgoingRelationships(ctx context.Context, tk ID) error {
 	return gorp.NewDelete[string, Relationship]().Where(func(rel *Relationship) bool {
 		return rel.From == tk
-	}).Exec(d.writer)
+	}).Exec(ctx, d.tx)
 }
 
-func (d dagWriter) checkRelationshipExists(rel Relationship) (bool, error) {
+func (d dagWriter) checkRelationshipExists(ctx context.Context, rel Relationship) (bool, error) {
 	exists, err := gorp.NewRetrieve[string, Relationship]().
 		WhereKeys(rel.GorpKey()).
-		Exists(d.writer)
+		Exists(ctx, d.tx)
 	if err != nil {
 		return false, err
 	}
 	reverseRel := Relationship{From: rel.To, To: rel.From, Type: rel.Type}
 	reverseExists, err := gorp.NewRetrieve[string, Relationship]().
 		WhereKeys(reverseRel.GorpKey()).
-		Exists(d.writer)
+		Exists(ctx, d.tx)
 	if err != nil {
 		return false, err
 	}
@@ -161,8 +162,8 @@ func (d dagWriter) checkRelationshipExists(rel Relationship) (bool, error) {
 	return exists, nil
 }
 
-func (d dagWriter) validateResourcesExist(ids ...ID) error {
-	ok, err := gorp.NewRetrieve[ID, Resource]().WhereKeys(ids...).Exists(d.writer)
+func (d dagWriter) validateResourcesExist(ctx context.Context, ids ...ID) error {
+	ok, err := gorp.NewRetrieve[ID, Resource]().WhereKeys(ids...).Exists(ctx, d.tx)
 	if err != nil {
 		return err
 	}
