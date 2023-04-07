@@ -8,7 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 from contextlib import contextmanager
-from typing import Callable, Protocol, TypeVar
 
 from opentelemetry import trace as otel_trace
 from opentelemetry.propagators.textmap import TextMapPropagator
@@ -26,24 +25,3 @@ class Tracer:
     def trace(self, key: str):
         with self.otel.start_as_current_span(key) as span:
             yield span
-
-
-class Traceable(Protocol):
-    t: Tracer
-
-
-A = TypeVar("A")
-R = TypeVar("R")
-
-
-def trace(
-    key: str | None,
-) -> Callable[[Callable[[Traceable, A], R]], Callable[[Traceable, A], R]]:
-    def decorator(f: Callable[[Traceable, A], R]) -> Callable[[Traceable, A], R]:
-        def wrapper(self, *args, **kwargs):
-            with self.t.trace(key if key is not None else f.__name__):
-                return f(self, *args, **kwargs)
-
-        return wrapper
-
-    return decorator
