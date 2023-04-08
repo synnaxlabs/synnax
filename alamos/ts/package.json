@@ -1,0 +1,47 @@
+{
+    "name": "@synnaxlabs/alamos",
+    "private": false,
+    "version": "0.1.0",
+    "type": "module",
+    "description": "Distributed instrumentation for Synnax",
+    "repository": "https://github.com/synnaxlabs/synnax/tree/main/freighter/ts",
+    "license": "MIT",
+    "keywords": [
+        "synnax",
+        "grpc",
+        "transport",
+        "data acquisition",
+        "big data",
+        "telemetry",
+        "control systems"
+    ],
+    "scripts": {
+        "build": "tsc --noEmit && vite build",
+        "watch": "tsc --noEmit && vite build --watch",
+        "test": "vitest",
+        "cov": "vitest --coverage",
+        "lint": "eslint \"src/**/*.ts*\"",
+        "fix": "eslint \"src/**/*.ts*\" --fix"
+    },
+    "engines": {
+        "node": ">=18"
+    },
+    "dependencies": {
+        "@opentelemetry/api": "^1.4.1",
+        "@opentelemetry/context-zone": "^1.11.0",
+        "@opentelemetry/instrumentation-document-load": "^0.32.0",
+        "@opentelemetry/sdk-trace-web": "^1.11.0",
+        "@synnaxlabs/x": "workspace:*"
+    },
+    "devDependencies": {
+        "@synnaxlabs/tsconfig": "workspace:*",
+        "@synnaxlabs/vite-plugin": "workspace:*",
+        "eslint-config-synnaxlabs": "workspace:*",
+        "typescript": "^4.9.4",
+        "vite": "^4.0.4",
+        "vitest": "^0.26.3"
+    },
+    "main": "dist/alamos.cjs.js",
+    "module": "dist/alamos.es.js",
+    "types": "dist/alamos.d.ts"
+}
