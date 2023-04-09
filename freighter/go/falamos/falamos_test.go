@@ -13,7 +13,7 @@ var _ = Describe("Falamos", func() {
 	Describe("New", func() {
 		It("Should correctly attach tracing meta data", func() {
 			clientIns := Instrumentation("falamos", InstrumentationConfig{Trace: config.True()})
-			clientMw := MustSucceed(falamos.New(falamos.Config{
+			clientMw := MustSucceed(falamos.Middleware(falamos.Config{
 				Instrumentation: clientIns,
 			}))
 			oCtx := MustSucceed(clientMw.Exec(
@@ -28,7 +28,7 @@ var _ = Describe("Falamos", func() {
 			Expect(ok).To(BeTrue())
 
 			serverIns := Instrumentation("falamos", InstrumentationConfig{Trace: config.True()})
-			serverMw := MustSucceed(falamos.New(falamos.Config{
+			serverMw := MustSucceed(falamos.Middleware(falamos.Config{
 				Instrumentation: serverIns,
 			}))
 			oCtx = MustSucceed(serverMw.Exec(

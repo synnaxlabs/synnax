@@ -1,16 +1,17 @@
 package falamos
 
 import (
+	"strings"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 	"go.opentelemetry.io/otel/propagation"
-	"strings"
 )
 
-// Config is the configuration for New.
+// Config is the configuration for the instrumentation Middleware.
 type Config struct {
 	alamos.Instrumentation
 	// EnableTracing sets whether the middleware starts traces. Defaults to true.
@@ -43,16 +44,17 @@ func (cfg Config) Override(other Config) Config {
 
 var _ config.Config[Config] = Config{}
 
-// DefaultTracingMiddlewareConfig is the default configuration for the tracing middleware.
-var DefaultTracingMiddlewareConfig = Config{
+// Default is the default configuration for the tracing middleware.
+var Default = Config{
+	Level:             alamos.InfoLevel,
 	EnableTracing:     config.True(),
 	EnablePropagation: config.True(),
 }
 
-// New adds traces to incoming and outgoing requests and ensures that they
+// Middleware adds traces to incoming and outgoing requests and ensures that they
 // are propagated across the network.
-func New(configs ...Config) (freighter.Middleware, error) {
-	cfg, err := config.New(DefaultTracingMiddlewareConfig, configs...)
+func Middleware(configs ...Config) (freighter.Middleware, error) {
+	cfg, err := config.New(Default, configs...)
 	if err != nil {
 		return nil, err
 	}

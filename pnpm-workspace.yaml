@@ -11,4 +11,5 @@ packages:
   - "docs/site"
   - "x/ts"
   - "x/media"
+  - "alamos/ts"
   - "drift/examples/tauri"
