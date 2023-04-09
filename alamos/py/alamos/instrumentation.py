@@ -5,12 +5,12 @@ from alamos.tracer import Tracer
 
 
 class Instrumentation:
-    l: Logger
-    t: Tracer
+    L: Logger
+    T: Tracer
 
-    def __init__(self, l: Logger, t: Tracer):
-        self.l = l
-        self.t = t
+    def __init__(self, logger: Logger, tracer: Tracer):
+        self.L = logger
+        self.T = tracer
 
 
 class Traceable(Protocol):
@@ -26,7 +26,7 @@ def trace(
 ) -> Callable[[Callable[[Traceable, A], R]], Callable[[Traceable, A], R]]:
     def decorator(f: Callable[[Traceable, A], R]) -> Callable[[Traceable, A], R]:
         def wrapper(self, *args, **kwargs):
-            with self.instrumentation.t.trace(key if key is not None else f.__name__):
+            with self.instrumentation.T.trace(key if key is not None else f.__name__):
                 return f(self, *args, **kwargs)
 
         return wrapper

@@ -29,7 +29,7 @@ def propagate(
     carrier: CarrierT,
     setter: Callable[[CarrierT, str, str], None],
 ):
-    ins.t.propagator.inject(carrier, setter=_Setter(setter))
+    ins.T.propagator.inject(carrier, setter=_Setter(setter))
 
 
 def depropagate(
@@ -37,4 +37,4 @@ def depropagate(
     carrier: CarrierT,
     getter: Getter[CarrierT],
 ):
-    ins.t.propagator.extract(carrier)
+    ins.T.propagator.extract(carrier)

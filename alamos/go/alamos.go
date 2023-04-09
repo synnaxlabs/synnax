@@ -17,11 +17,11 @@ type sub[L any] interface {
 
 type Instrumentation struct {
 	meta InstrumentationMeta
-	// L is the L used by this instrumentation.
+	// L is the Logger used by this instrumentation.
 	L *Logger
-	// T is the T used by this instrumentation.
+	// T is the Tracer used by this instrumentation.
 	T *Tracer
-	// R is the report manager used by this instrumentation.
+	// R is the Reporter used by this instrumentation.
 	R *Reporter
 }
 
