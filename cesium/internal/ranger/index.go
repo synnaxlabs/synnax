@@ -18,6 +18,7 @@ import (
 )
 
 type index struct {
+	alamos.Instrumentation
 	mu struct {
 		sync.RWMutex
 		pointers []pointer
@@ -36,7 +37,7 @@ func (idx *index) OnChange(f func(update indexUpdate)) { idx.observer.OnChange(f
 
 // insert adds a new pointer to the index.
 func (idx *index) insert(ctx context.Context, p pointer) error {
-	_, span := alamos.Trace(ctx, "insert", alamos.DebugLevel)
+	_, span := idx.T.Trace(ctx, "insert", alamos.DebugLevel)
 	defer span.End()
 	idx.mu.RLock()
 	insertAt := 0
@@ -69,12 +70,11 @@ func (idx *index) overlap(tr telem.TimeRange) bool {
 }
 
 func (idx *index) update(ctx context.Context, p pointer) (err error) {
-	_, span := alamos.Trace(ctx, "update", alamos.DebugLevel)
-	defer span.End()
+	_, span := idx.T.Trace(ctx, "update", alamos.DebugLevel)
 	idx.mu.RLock()
 	if len(idx.mu.pointers) == 0 {
 		idx.mu.RUnlock()
-		return span.Error(RangeNotFound)
+		return span.EndWith(RangeNotFound)
 	}
 	lastI := len(idx.mu.pointers) - 1
 	updateAt := lastI
@@ -82,7 +82,7 @@ func (idx *index) update(ctx context.Context, p pointer) (err error) {
 		updateAt, _ = idx.unprotectedSearch(p.Start.SpanRange(0))
 	}
 	idx.mu.RUnlock()
-	return span.Error(idx.updateAt(updateAt, p))
+	return span.EndWith(idx.updateAt(updateAt, p))
 }
 
 func (idx *index) afterLast(ts telem.TimeStamp) bool {

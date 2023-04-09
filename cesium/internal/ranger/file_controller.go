@@ -10,6 +10,8 @@
 package ranger
 
 import (
+	"context"
+	"github.com/synnaxlabs/alamos"
 	atomicx "github.com/synnaxlabs/x/atomic"
 	"github.com/synnaxlabs/x/errutil"
 	xio "github.com/synnaxlabs/x/io"
@@ -67,7 +69,9 @@ func openFileController(cfg Config) (*fileController, error) {
 	return fc, nil
 }
 
-func (fc *fileController) acquireWriter() (uint16, xio.OffsetWriteCloser, error) {
+func (fc *fileController) acquireWriter(ctx context.Context) (uint16, xio.OffsetWriteCloser, error) {
+	ctx, span := fc.T.Trace(ctx, "acquireWriter", alamos.InfoLevel)
+	defer span.End()
 	// attempt to pull a writer from the pool of open writers
 	fc.writers.RLock()
 	for _, w := range fc.writers.open {
@@ -81,21 +85,21 @@ func (fc *fileController) acquireWriter() (uint16, xio.OffsetWriteCloser, error)
 	// if we aren't at the descriptor limit, create a new writer
 	if !fc.atDescriptorLimit() {
 		w, err := fc.newWriter()
-		return w.fileKey, w, err
+		return w.fileKey, w, span.Error(err)
 	}
 
 	// otherwise, do a best effort garbage collection of the readers
 	ok, err := fc.gcReaders()
 	if err != nil {
-		return 0, nil, err
+		return 0, nil, span.Error(err)
 	}
 	if ok {
-		return fc.acquireWriter()
+		return fc.acquireWriter(ctx)
 	}
 
 	// if we still can't acquire a writer, wait for one to be released
 	<-fc.writers.release
-	return fc.acquireWriter()
+	return fc.acquireWriter(ctx)
 }
 
 func (fc *fileController) newWriter() (*controlledWriter, error) {
