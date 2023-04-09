@@ -1,0 +1,56 @@
+version: '3'
+
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    restart: on-failure
+    environment:
+      CLICKHOUSE_DB: uptrace
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'localhost:8123/ping']
+      interval: 1s
+      timeout: 1s
+      retries: 30
+    volumes:
+      - ./data/clickhouse:/var/lib/clickhouse
+    ports:
+      - '8123:8123'
+      - '9000:9000'
+
+  postgres:
+    image: postgres:latest
+    restart: on-failure
+    environment:
+      PGDATA: /var/lib/postgresql/data/pgdata
+      POSTGRES_USER: uptrace
+      POSTGRES_PASSWORD: uptrace
+      POSTGRES_DB: uptrace
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U uptrace']
+      interval: 1s
+      timeout: 1s
+      retries: 30
+    volumes:
+      - './data/postgres:/var/lib/postgresql/data/pgdata'
+    ports:
+      - '5432:5432'
+
+  uptrace:
+    image: 'uptrace/uptrace-dev:latest'
+    restart: on-failure
+    volumes:
+      - uptrace_data:/var/lib/uptrace
+      - ./uptrace.yaml:/etc/uptrace/uptrace.yml
+    ports:
+      - '14317:14317'
+      - '14318:14318'
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+volumes:
+  uptrace_data:
+  ch_data5:
+  pg_data2:

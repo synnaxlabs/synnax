@@ -75,6 +75,7 @@ func Write(ctx context.Context, db *DB, tr telem.TimeRange, data []byte) error {
 // A Writer is not safe for concurrent use, but it is safe to have multiple writer and
 // iterators open concurrently over the same DB.
 type Writer struct {
+	alamos.Instrumentation
 	ctx        context.Context
 	cfg        WriterConfig
 	prevCommit telem.TimeStamp
@@ -100,7 +101,7 @@ func (w *Writer) Write(p []byte) (n int, err error) { return w.internal.Write(p)
 // and the provided timestamp overlaps with any other ranges within the DB, Commit will
 // return an error.
 func (w *Writer) Commit(end telem.TimeStamp) error {
-	ctx, span := alamos.Trace(w.ctx, "commit", alamos.DebugLevel)
+	ctx, span := w.T.Trace(w.ctx, "commit", alamos.DebugLevel)
 	defer span.End()
 	if !w.cfg.End.IsZero() {
 		end = w.cfg.End

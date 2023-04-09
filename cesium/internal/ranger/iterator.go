@@ -10,6 +10,7 @@
 package ranger
 
 import (
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -37,6 +38,7 @@ func IterRange(tr telem.TimeRange) IteratorConfig { return IteratorConfig{Bounds
 // This means that the position of an iterator may shift unexpectedly. There are plans
 // to implement MVCC in the future, but until then you have been warned.
 type Iterator struct {
+	alamos.Instrumentation
 	// position stores the current position of the iterator in the idx. NOTE: At the
 	// moment, this position may not hold a consistent reference to the same value
 	// if the idx is modified during iteration.

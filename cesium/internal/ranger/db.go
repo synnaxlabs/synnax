@@ -51,6 +51,7 @@ var (
 //
 // A DB must be closed after use to avoid leaking any underlying resources/locks.
 type DB struct {
+	Config
 	idx       *index
 	dataFiles *fileController
 }
@@ -97,6 +98,7 @@ func (c Config) Override(other Config) Config {
 	c.MaxDescriptors = override.Numeric(c.MaxDescriptors, other.MaxDescriptors)
 	c.FileSize = override.Numeric(c.FileSize, other.FileSize)
 	c.FS = override.Nil(c.FS, other.FS)
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
 
@@ -123,27 +125,38 @@ func Open(configs ...Config) (*DB, error) {
 		return nil, err
 	}
 
-	return &DB{idx: idx, dataFiles: controller}, nil
+	return &DB{Config: cfg, idx: idx, dataFiles: controller}, nil
 }
 
 // NewIterator opens a new invalidated Iterator using the given configuration.
 // A seeking call is required before it can be used.
 func (db *DB) NewIterator(_ context.Context, cfg IteratorConfig) *Iterator {
-	i := &Iterator{idx: db.idx, readerFactory: db.newReader}
+	i := &Iterator{
+		Instrumentation: db.Instrumentation,
+		idx:             db.idx,
+		readerFactory:   db.newReader,
+	}
 	i.SetBounds(cfg.Bounds)
 	return i
 }
 
 // NewWriter opens a new Writer using the given configuration.
 func (db *DB) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
-	key, internal, err := db.dataFiles.acquireWriter()
+	key, internal, err := db.dataFiles.acquireWriter(ctx)
 	if err != nil {
 		return nil, err
 	}
 	if db.idx.overlap(cfg.Range()) {
 		return nil, ErrRangeOverlap
 	}
-	return &Writer{ctx: ctx, fileKey: key, internal: internal, idx: db.idx, cfg: cfg}, nil
+	return &Writer{
+		Instrumentation: db.Instrumentation,
+		ctx:             ctx,
+		fileKey:         key,
+		internal:        internal,
+		idx:             db.idx,
+		cfg:             cfg,
+	}, nil
 }
 
 // Close closes the DB. Close should not be called concurrently with any other DB methods.
