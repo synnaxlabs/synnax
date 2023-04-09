@@ -84,7 +84,7 @@ func (fc *fileController) acquireWriter(ctx context.Context) (uint16, xio.Offset
 
 	// if we aren't at the descriptor limit, create a new writer
 	if !fc.atDescriptorLimit() {
-		w, err := fc.newWriter()
+		w, err := fc.newWriter(ctx)
 		return w.fileKey, w, span.Error(err)
 	}
 
@@ -102,33 +102,37 @@ func (fc *fileController) acquireWriter(ctx context.Context) (uint16, xio.Offset
 	return fc.acquireWriter(ctx)
 }
 
-func (fc *fileController) newWriter() (*controlledWriter, error) {
+func (fc *fileController) newWriter(ctx context.Context) (*controlledWriter, error) {
+	ctx, span := fc.T.Trace(ctx, "newWriter", alamos.InfoLevel)
+	defer span.End()
 	nextKey := uint16(fc.counter.Add(1))
-	if fc.counter.Error() != nil {
-		return nil, fc.counter.Error()
+	if err := fc.counter.Error(); err != nil {
+		return nil, span.Error(err)
 	}
 	file, err := fc.FS.Open(
 		fileKeyName(nextKey),
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY,
 	)
 	if err != nil {
-		return nil, err
+		return nil, span.Error(err)
 	}
-	baseW, err := xio.NewOffsetWriteCloser(file, io.SeekEnd)
+	base, err := xio.NewOffsetWriteCloser(file, io.SeekEnd)
 	if err != nil {
-		return nil, err
+		return nil, span.Error(err)
 	}
 	w := controlledWriter{
-		OffsetWriteCloser: baseW,
+		OffsetWriteCloser: base,
 		controllerEntry:   newPoolEntry(nextKey, fc.writers.release),
 	}
 	fc.writers.Lock()
 	fc.writers.open = append(fc.writers.open, w)
 	fc.writers.Unlock()
-	return &w, nil
+	return nil, err
 }
 
-func (fc *fileController) acquireReader(key uint16) (xio.ReaderAtCloser, error) {
+func (fc *fileController) acquireReader(ctx context.Context, key uint16) (xio.ReaderAtCloser, error) {
+	ctx, span := fc.T.Trace(ctx, "acquireReader", alamos.InfoLevel)
+	defer span.End()
 	fc.readers.RLock()
 	if opts, ok := fc.readers.open[key]; ok {
 		// iterate over the open and find the first available reader
@@ -141,20 +145,20 @@ func (fc *fileController) acquireReader(key uint16) (xio.ReaderAtCloser, error) 
 	}
 	fc.readers.RUnlock()
 	if !fc.atDescriptorLimit() {
-		return fc.newReader(key)
+		return fc.newReader(ctx, key)
 	}
 	ok, err := fc.gcWriters()
 	if err != nil {
-		return nil, err
+		return nil, span.Error(err)
 	}
 	if ok {
-		return fc.acquireReader(key)
+		return fc.acquireReader(ctx, key)
 	}
 	<-fc.readers.release
-	return fc.acquireReader(key)
+	return fc.acquireReader(ctx, key)
 }
 
-func (fc *fileController) newReader(key uint16) (*controlledReader, error) {
+func (fc *fileController) newReader(ctx context.Context, key uint16) (*controlledReader, error) {
 	file, err := fc.FS.Open(
 		fileKeyName(key),
 		os.O_RDONLY,
