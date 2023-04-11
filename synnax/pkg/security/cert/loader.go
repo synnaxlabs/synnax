@@ -64,7 +64,7 @@ func (l LoaderConfig) Override(other LoaderConfig) LoaderConfig {
 	l.NodeKeyPath = override.String(l.NodeKeyPath, other.NodeKeyPath)
 	l.NodeCertPath = override.String(l.NodeCertPath, other.NodeCertPath)
 	l.FS = override.Nil(l.FS, other.FS)
-	l.Instrumentation = override.Nil(l.Instrumentation, other.Instrumentation)
+	l.Instrumentation = override.Zero(l.Instrumentation, other.Instrumentation)
 	return l
 }
 
