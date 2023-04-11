@@ -69,7 +69,10 @@ func (i *Iterator) SeekGE(ctx context.Context, ts telem.TimeStamp) bool {
 
 func (i *Iterator) Next(ctx context.Context, span telem.TimeSpan) (ok bool) {
 	ctx, span_ := i.T.Trace(ctx, "Next", alamos.DebugLevel)
-	defer span_.End()
+	defer func() {
+		ok = i.Valid()
+		span_.End()
+	}()
 	if i.atEnd() {
 		i.reset(i.bounds.End.SpanRange(0))
 		return
@@ -146,7 +149,11 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 
 func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
 	ctx, span_ := i.T.Trace(ctx, "Prev", alamos.DebugLevel)
-	defer span_.End()
+	defer func() {
+		ok = i.Valid()
+		span_.End()
+	}()
+
 	if i.atStart() {
 		i.reset(i.bounds.Start.SpanRange(0))
 		return

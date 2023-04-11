@@ -56,11 +56,11 @@ func (f *indexPersist) load() ([]pointer, error) {
 	if err != nil {
 		return nil, err
 	}
-	if _, err := f.Seek(0, io.SeekStart); err != nil {
+	if _, err = f.Seek(0, io.SeekStart); err != nil {
 		return nil, err
 	}
 	b := make([]byte, size)
-	if _, err := f.Read(b); err != nil {
+	if _, err = f.Read(b); err != nil {
 		return nil, err
 	}
 	return f.decode(b), nil
