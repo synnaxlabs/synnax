@@ -29,10 +29,12 @@ func configureLogger() (*alamos.Logger, error) {
 	if verbose {
 		cfg = zap.NewDevelopmentConfig()
 		cfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+		cfg.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout("15:04:05.000")
 		cfg.Encoding = "console"
 	} else {
 		cfg = zap.NewProductionConfig()
 		cfg.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
+
 	}
 	z, err := cfg.Build()
 	if err != nil {

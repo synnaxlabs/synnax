@@ -52,7 +52,8 @@ var startCmd = &cobra.Command{
 Starts a Synnax Node using the data directory specified by the --data flag,
 and listening on the address specified by the --listen flag. If --peers
 is specified and no existing data is found, the node will attempt to join the cluster
-formed by its peers.
+formed by its peers. If no peers are specified and no existing data is found, the node
+will bootstrap a new cluster.
 	`,
 	Example: `synnax start --listen [host:port] --data /mnt/ssd1 --peers [host:port],[host:port] --insecure`,
 	Args:    cobra.NoArgs,
@@ -64,6 +65,7 @@ formed by its peers.
 func start(cmd *cobra.Command) {
 	var (
 		insecure = viper.GetBool("insecure")
+		verbose  = viper.GetBool("verbose")
 		ins      = configureInstrumentation()
 	)
 
@@ -140,6 +142,7 @@ func start(cmd *cobra.Command) {
 			[]fhttp.BindableTransport{r},
 			secProvider,
 			ins,
+			verbose,
 		))
 		if err != nil {
 			return err
@@ -198,7 +201,7 @@ func buildDistributionConfig(
 ) (distribution.Config, error) {
 	peers, err := parsePeerAddresses()
 	return distribution.Config{
-		Instrumentation:  ins,
+		Instrumentation:  ins.Sub("distribution"),
 		AdvertiseAddress: address.Address(viper.GetString("listen")),
 		PeerAddresses:    peers,
 		Pool:             pool,
@@ -212,14 +215,16 @@ func buildServerConfig(
 	httpTransports []fhttp.BindableTransport,
 	sec security.Provider,
 	ins alamos.Instrumentation,
+	debug bool,
 ) (cfg server.Config) {
 	cfg.Branches = append(cfg.Branches,
 		&server.SecureHTTPBranch{Transports: httpTransports},
 		&server.GRPCBranch{Transports: grpcTransports},
 		server.NewHTTPRedirectBranch(),
 	)
+	cfg.Debug = config.Bool(debug)
 	cfg.ListenAddress = address.Address(viper.GetString("listen"))
-	cfg.Instrumentation = ins
+	cfg.Instrumentation = ins.Sub("server")
 	cfg.Security.TLS = sec.TLS()
 	cfg.Security.Insecure = config.Bool(viper.GetBool("insecure"))
 	return cfg
