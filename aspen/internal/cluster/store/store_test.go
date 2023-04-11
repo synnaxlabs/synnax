@@ -21,7 +21,7 @@ var _ = Describe("Store", func() {
 
 	var s store.Store
 
-	BeforeEach(func() { s = store.New() })
+	BeforeEach(func() { s = store.New(ctx) })
 
 	Describe("New", func() {
 
@@ -34,10 +34,10 @@ var _ = Describe("Store", func() {
 	Describe("SetNode and Node", func() {
 
 		It("Should set a node in Store", func() {
-			s.SetNode(node.Node{ID: 1})
+			s.SetNode(ctx, node.Node{Key: 1})
 			n, ok := s.GetNode(1)
 			Expect(ok).To(BeTrue())
-			Expect(n.ID).To(Equal(node.ID(1)))
+			Expect(n.Key).To(Equal(node.Key(1)))
 		})
 
 	})
@@ -45,21 +45,21 @@ var _ = Describe("Store", func() {
 	Describe("Apply", func() {
 
 		It("Should add nonexistent nodes", func() {
-			s.Merge(node.Group{1: node.Node{ID: 1}})
+			s.Merge(ctx, node.Group{1: node.Node{Key: 1}})
 			n, ok := s.GetNode(1)
 			Expect(ok).To(BeTrue())
-			Expect(n.ID).To(Equal(node.ID(1)))
+			Expect(n.Key).To(Equal(node.Key(1)))
 		})
 
 		It("Should replaces nodes with an old heartbeat", func() {
-			s.SetNode(node.Node{ID: 1})
-			s.Merge(node.Group{1: node.Node{ID: 1, Heartbeat: version.Heartbeat{
+			s.SetNode(ctx, node.Node{Key: 1})
+			s.Merge(ctx, node.Group{1: node.Node{Key: 1, Heartbeat: version.Heartbeat{
 				Version:    1,
 				Generation: 0,
 			}}})
 			n, ok := s.GetNode(1)
 			Expect(ok).To(BeTrue())
-			Expect(n.ID).To(Equal(node.ID(1)))
+			Expect(n.Key).To(Equal(node.Key(1)))
 			Expect(n.Heartbeat.Version).To(Equal(uint32(1)))
 		})
 
@@ -68,8 +68,8 @@ var _ = Describe("Store", func() {
 	Describe("Host", func() {
 
 		It("Should set and get the host correctly", func() {
-			s.SetHost(node.Node{ID: 1})
-			Expect(s.GetHost().ID).To(Equal(node.ID(1)))
+			s.SetHost(ctx, node.Node{Key: 1})
+			Expect(s.GetHost().Key).To(Equal(node.Key(1)))
 		})
 
 		It("Should return an empty host when not set", func() {

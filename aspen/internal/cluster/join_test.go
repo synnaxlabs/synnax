@@ -61,7 +61,7 @@ var _ = Describe("Open", func() {
 					},
 				)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(clusterOne.Host().ID).To(Equal(node.ID(1)))
+				Expect(clusterOne.Host().Key).To(Equal(node.Key(1)))
 
 				By("Pledging a new node to the cluster")
 				gossipT2 := gossipNet.UnaryServer("")
@@ -83,7 +83,7 @@ var _ = Describe("Open", func() {
 					},
 				)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(clusterTwo.Host().ID).To(Equal(node.ID(2)))
+				Expect(clusterTwo.Host().Key).To(Equal(node.Key(2)))
 				By("Converging cluster state through gossip")
 				Eventually(clusterOne.Nodes).Should(HaveLen(2))
 				Eventually(clusterTwo.Nodes).Should(HaveLen(2))
@@ -117,7 +117,7 @@ var _ = Describe("Open", func() {
 					},
 				)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(clusterOne.Host().ID).To(Equal(node.ID(1)))
+				Expect(clusterOne.Host().Key).To(Equal(node.Key(1)))
 
 				kvDB := memkv.New()
 				gossipT2 := gossipNet.UnaryServer("")
@@ -142,12 +142,12 @@ var _ = Describe("Open", func() {
 				}
 				clusterTwo, err := cluster.Open(ctx, clusterTwoConfig)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(clusterTwo.Host().ID).To(Equal(node.ID(2)))
+				Expect(clusterTwo.Host().Key).To(Equal(node.Key(2)))
 				Expect(clusterTwo.Close()).To(Succeed())
 
 				clusterTwoAgain, err := cluster.Open(ctx, clusterTwoConfig)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(clusterTwoAgain.Host().ID).To(Equal(node.ID(2)))
+				Expect(clusterTwoAgain.Host().Key).To(Equal(node.Key(2)))
 				Expect(clusterTwoAgain.Nodes()).To(HaveLen(2))
 
 				Expect(clusterOne.Close()).To(Succeed())

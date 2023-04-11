@@ -113,7 +113,7 @@ var _ = Describe("txn", func() {
 					_, err = builder.New(ctx, kv.Config{}, cluster.Config{})
 					Expect(err).ToNot(HaveOccurred())
 					Expect(kv1.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
-					err = kv1.Set(ctx, []byte("key"), []byte("value2"), node.ID(2))
+					err = kv1.Set(ctx, []byte("key"), []byte("value2"), node.Key(2))
 					Expect(err).To(HaveOccurred())
 					Expect(errors.Is(err, kv.ErrLeaseNotTransferable)).To(BeTrue())
 				})
@@ -128,7 +128,7 @@ var _ = Describe("txn", func() {
 				kv2, err := builder.New(ctx, kv.Config{}, cluster.Config{})
 				Expect(err).ToNot(HaveOccurred())
 				waitForClusterStateToConverge(builder)
-				Expect(kv1.Set(ctx, []byte("key"), []byte("value"), node.ID(2))).To(Succeed())
+				Expect(kv1.Set(ctx, []byte("key"), []byte("value"), node.Key(2))).To(Succeed())
 				Eventually(func(g Gomega) {
 					v, err := kv2.Get(ctx, []byte("key"))
 					g.Expect(err).ToNot(HaveOccurred())
@@ -136,7 +136,7 @@ var _ = Describe("txn", func() {
 				}).Should(Succeed())
 			})
 
-			It("Should return an error if the lease option is not a node ID", func() {
+			It("Should return an error if the lease option is not a node Key", func() {
 				kv, err := builder.New(ctx, kv.Config{}, cluster.Config{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(kv.Set(ctx, []byte("key"), []byte("value"), "2")).To(HaveOccurred())
@@ -193,7 +193,7 @@ var _ = Describe("txn", func() {
 				kv2, err := builder.New(ctx, kv.Config{}, cluster.Config{})
 				Expect(err).ToNot(HaveOccurred())
 				waitForClusterStateToConverge(builder)
-				Expect(kv1.Set(ctx, []byte("key"), []byte("value"), node.ID(2))).To(Succeed())
+				Expect(kv1.Set(ctx, []byte("key"), []byte("value"), node.Key(2))).To(Succeed())
 				Eventually(func(g Gomega) {
 					v, err := kv2.Get(ctx, []byte("key"))
 					g.Expect(err).ToNot(HaveOccurred())

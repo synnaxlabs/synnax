@@ -39,7 +39,7 @@ type Operation struct {
 	Value       []byte
 	Variant     Variant
 	Version     version.Counter
-	Leaseholder node.ID
+	Leaseholder node.Key
 	state       gossipState
 }
 
@@ -62,7 +62,7 @@ func (o Operation) apply(ctx context.Context, b kvx.Writer) error {
 type Digest struct {
 	Key         []byte
 	Version     version.Counter
-	Leaseholder node.ID
+	Leaseholder node.Key
 	Variant     Variant
 }
 

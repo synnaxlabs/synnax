@@ -15,7 +15,7 @@ export const channelPayloadSchema = z.object({
   rate: z.number().transform((n) => new Rate(n)),
   dataType: z.string().transform((s) => new DataType(s)),
   name: z.string(),
-  nodeId: z.number().default(0).optional(),
+  nodeKey: z.number().default(0).optional(),
   index: z.string().default("").optional(),
   isIndex: z.boolean().default(false).optional(),
 });
@@ -33,7 +33,7 @@ export interface UnparsedChannel {
   name: string;
   dataType: UnparsedDataType;
   rate?: UnparsedRate;
-  nodeId?: number;
+  nodeKey?: number;
   index?: string;
   isIndex?: boolean;
 }
@@ -43,7 +43,7 @@ export const parseChannels = (channels: UnparsedChannel[]): UnkeyedChannelPayloa
     name: channel.name,
     dataType: new DataType(channel.dataType),
     rate: new Rate(channel.rate ?? 0),
-    nodeId: channel.nodeId,
+    nodeKey: channel.nodeKey,
     index: channel.index,
     isIndex: channel.isIndex,
   }));

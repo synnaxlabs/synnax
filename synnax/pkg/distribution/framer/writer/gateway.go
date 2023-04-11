@@ -28,7 +28,7 @@ func (s *Service) newGateway(ctx context.Context, cfg Config) (StreamWriter, err
 	reqT := &confluence.LinearTransform[Request, storage.TSWriteRequest]{}
 	reqT.Transform = newRequestTranslator()
 	resT := &confluence.LinearTransform[storage.TSWriteResponse, Response]{}
-	resT.Transform = newResponseTranslator(s.HostResolver.HostID())
+	resT.Transform = newResponseTranslator(s.HostResolver.HostKey())
 	plumber.SetSegment[Request, storage.TSWriteRequest](pipe, "requests", reqT)
 	plumber.SetSegment[storage.TSWriteResponse, Response](pipe, "responses", resT)
 	plumber.MustConnect[storage.TSWriteRequest](pipe, "requests", "toStorage", 1)

@@ -24,14 +24,14 @@ func newRequestTranslator() func(ctx context.Context, in Request) (cesium.WriteR
 	}
 }
 
-func newResponseTranslator(host core.NodeID) func(ctx context.Context, in cesium.WriteResponse) (Response, bool, error) {
+func newResponseTranslator(host core.NodeKey) func(ctx context.Context, in cesium.WriteResponse) (Response, bool, error) {
 	return func(ctx context.Context, in storage.TSWriteResponse) (Response, bool, error) {
 		return Response{
 			Command: Command(in.Command),
 			Ack:     in.Ack,
 			Err:     in.Err,
 			SeqNum:  in.SeqNum,
-			NodeID:  host,
+			NodeKey:  host,
 		}, true, nil
 	}
 }

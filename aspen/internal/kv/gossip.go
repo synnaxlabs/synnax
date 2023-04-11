@@ -44,7 +44,7 @@ func (g *operationSender) send(ctx context.Context, sync TxRequest) (TxRequest, 
 	if sync.empty() {
 		return sync, false, nil
 	}
-	hostID := g.Cluster.HostID()
+	hostID := g.Cluster.HostKey()
 	peer := gossip.RandomPeer(g.Cluster.Nodes(), hostID)
 	if peer.Address == "" {
 		return sync, false, nil
@@ -80,14 +80,14 @@ func (g *operationReceiver) handle(ctx context.Context, req TxRequest) (TxReques
 	case g.Out.Inlet() <- req:
 	}
 	br := g.store.PeekState().toBatchRequest(ctx)
-	br.Sender = g.Cluster.HostID()
+	br.Sender = g.Cluster.HostKey()
 	return br, nil
 }
 
 // |||||| FEEDBACK ||||||
 
 type FeedbackMessage struct {
-	Sender  node.ID
+	Sender  node.Key
 	Digests Digests
 }
 
@@ -110,7 +110,7 @@ func newFeedbackSender(cfg Config) sink {
 }
 
 func (f *feedbackSender) send(ctx context.Context, bd TxRequest) error {
-	msg := FeedbackMessage{Sender: f.Cluster.Host().ID, Digests: bd.digests()}
+	msg := FeedbackMessage{Sender: f.Cluster.Host().Key, Digests: bd.digests()}
 	sender, _ := f.Cluster.Node(bd.Sender)
 	if _, err := f.FeedbackTransportClient.Send(ctx, sender.Address, msg); err != nil {
 		f.L.Error("feedback gossip failed", zap.Error(err))

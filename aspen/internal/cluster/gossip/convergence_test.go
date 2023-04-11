@@ -66,12 +66,12 @@ var _ = Describe("Convergence", func() {
 			values.convergenceThreshold,
 		), func() {
 			group := make(node.Group)
-			configs := make(map[node.ID]gossip.Config)
+			configs := make(map[node.Key]gossip.Config)
 			for i := 1; i <= values.nodeCount; i++ {
 				server := net.UnaryServer("")
-				n := node.Node{ID: node.ID(i), Address: server.Address}
-				group[n.ID] = n
-				configs[n.ID] = gossip.Config{
+				n := node.Node{Key: node.Key(i), Address: server.Address}
+				group[n.Key] = n
+				configs[n.Key] = gossip.Config{
 					TransportServer: server,
 					TransportClient: net.UnaryClient(),
 				}
@@ -81,11 +81,11 @@ var _ = Describe("Convergence", func() {
 				stores  []store.Store
 			)
 			for _, n := range group {
-				subNodes := rand.SubMap(group.WhereNot(n.ID), values.initialViewCount)
-				subNodes[n.ID] = n
+				subNodes := rand.SubMap(group.WhereNot(n.Key), values.initialViewCount)
+				subNodes[n.Key] = n
 				s := store.New()
-				s.SetState(store.State{Nodes: subNodes, HostID: n.ID})
-				cfg := configs[n.ID]
+				s.SetState(store.State{Nodes: subNodes, HostKey: n.Key})
+				cfg := configs[n.Key]
 				cfg.Store = s
 				g, err := gossip.New(cfg)
 				Expect(err).ToNot(HaveOccurred())

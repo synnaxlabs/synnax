@@ -23,7 +23,7 @@ import (
 
 func (s *Service) openManyPeers(
 	ctx context.Context,
-	targets map[core.NodeID][]channel.Key,
+	targets map[core.NodeKey][]channel.Key,
 ) (confluence.Sink[Request], []*freightfluence.Receiver[Response], []address.Address, error) {
 	var (
 		receivers         = make([]*freightfluence.Receiver[Response], 0, len(targets))
@@ -33,19 +33,19 @@ func (s *Service) openManyPeers(
 		receiverAddresses = make([]address.Address, 0, len(targets))
 	)
 
-	for nodeID, keys := range targets {
-		target, err := s.HostResolver.Resolve(nodeID)
+	for nodeKey, keys := range targets {
+		target, err := s.HostResolver.Resolve(nodeKey)
 		if err != nil {
 			return sender, receivers, receiverAddresses, err
 		}
-		addrMap[nodeID] = target
+		addrMap[nodeKey] = target
 		client, err := s.openPeerClient(ctx, target, Config{Keys: keys})
 		if err != nil {
 			return sender, receivers, receiverAddresses, err
 		}
 		senders[target] = client
 		receivers = append(receivers, &freightfluence.Receiver[Response]{Receiver: client})
-		receiverAddresses = append(receiverAddresses, address.Address("receiver-"+strconv.Itoa(int(nodeID))))
+		receiverAddresses = append(receiverAddresses, address.Address("receiver-"+strconv.Itoa(int(nodeKey))))
 	}
 
 	return sender, receivers, receiverAddresses, nil

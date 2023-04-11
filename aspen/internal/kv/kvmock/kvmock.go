@@ -27,7 +27,7 @@ type Builder struct {
 	OpNet       *fmock.Network[kv.TxRequest, kv.TxRequest]
 	FeedbackNet *fmock.Network[kv.FeedbackMessage, types.Nil]
 	LeaseNet    *fmock.Network[kv.TxRequest, types.Nil]
-	KVs         map[node.ID]kvx.DB
+	KVs         map[node.Key]kvx.DB
 }
 
 func NewBuilder(baseKVCfg kv.Config, baseClusterCfg cluster.Config) *Builder {
@@ -37,7 +37,7 @@ func NewBuilder(baseKVCfg kv.Config, baseClusterCfg cluster.Config) *Builder {
 		OpNet:       fmock.NewNetwork[kv.TxRequest, kv.TxRequest](),
 		FeedbackNet: fmock.NewNetwork[kv.FeedbackMessage, types.Nil](),
 		LeaseNet:    fmock.NewNetwork[kv.TxRequest, types.Nil](),
-		KVs:         make(map[node.ID]kvx.DB),
+		KVs:         make(map[node.Key]kvx.DB),
 	}
 }
 
@@ -62,7 +62,7 @@ func (b *Builder) New(ctx context.Context, kvCfg kv.Config, clusterCfg cluster.C
 	if err != nil {
 		return nil, err
 	}
-	b.KVs[c.Host().ID] = kve
+	b.KVs[c.Host().Key] = kve
 	return kve, nil
 }
 

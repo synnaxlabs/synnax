@@ -28,7 +28,7 @@ var _schema = &ontology.Schema{
 	Fields: map[string]schema.Field{
 		"key":      {Type: schema.String},
 		"name":     {Type: schema.String},
-		"nodeID":   {Type: schema.Uint32},
+		"nodeKey":   {Type: schema.Uint32},
 		"rate":     {Type: schema.Float64},
 		"isIndex":  {Type: schema.Bool},
 		"index":    {Type: schema.String},
@@ -54,7 +54,7 @@ func newEntity(c Channel) schema.Entity {
 	e := schema.NewEntity(_schema, c.Name)
 	schema.Set(e, "key", c.Key().String())
 	schema.Set(e, "name", c.Name)
-	schema.Set(e, "nodeID", uint32(c.NodeID))
+	schema.Set(e, "nodeKey", uint32(c.NodeKey))
 	schema.Set(e, "rate", float64(c.Rate))
 	schema.Set(e, "isIndex", c.IsIndex)
 	schema.Set(e, "index", c.Index().String())

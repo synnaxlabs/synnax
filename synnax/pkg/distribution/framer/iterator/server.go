@@ -42,7 +42,7 @@ func (sf *server) handle(ctx context.Context, server ServerStream) error {
 	sender := &freightfluence.TransformSender[storage.TSIteratorResponse, Response]{
 		Sender: freighter.SenderNopCloser[Response]{StreamSender: server},
 	}
-	sender.Transform = newStorageResponseTranslator(sf.HostResolver.HostID())
+	sender.Transform = newStorageResponseTranslator(sf.HostResolver.HostKey())
 
 	iter, err := sf.TS.NewStreamIterator(storage.IteratorConfig{
 		Channels: req.Keys.Strings(),

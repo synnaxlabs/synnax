@@ -34,11 +34,11 @@ func (c *keyCounter) Add(delta ...uint16) (uint16, error) {
 
 func (c *keyCounter) Value() uint16 { return uint16(c.internal.Value()) }
 
-func openCounter(nodeID dcore.NodeID, tx kv.ReadWriter) (counter.Counter[uint16], error) {
+func openCounter(nodeKey dcore.NodeKey, tx kv.ReadWriter) (counter.Counter[uint16], error) {
 	c, err := kv.OpenCounter(
 		context.TODO(),
 		tx,
-		[]byte(strconv.Itoa(int(nodeID))+counterKey),
+		[]byte(strconv.Itoa(int(nodeKey))+counterKey),
 	)
 	if err != nil {
 		return nil, err

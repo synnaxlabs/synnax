@@ -34,9 +34,9 @@ func TestChannel(t *testing.T) {
 	RunSpecs(t, "channel Suite")
 }
 
-func provisionServices() (*mock.CoreBuilder, map[core.NodeID]channel.Service) {
+func provisionServices() (*mock.CoreBuilder, map[core.NodeKey]channel.Service) {
 	var (
-		services = make(map[aspen.NodeID]channel.Service)
+		services = make(map[aspen.NodeKey]channel.Service)
 		net      = tmock.NewChannelNetwork()
 		builder  = mock.NewCoreBuilder(distribution.Config{
 			Storage: storage.Config{MemBacked: config.Bool(true)},

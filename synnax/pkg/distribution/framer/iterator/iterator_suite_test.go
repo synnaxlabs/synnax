@@ -36,10 +36,10 @@ type serviceContainer struct {
 	iter    *iterator.Service
 }
 
-func provision(n int) (*mock.CoreBuilder, map[core.NodeID]serviceContainer) {
+func provision(n int) (*mock.CoreBuilder, map[core.NodeKey]serviceContainer) {
 	var (
 		builder    = mock.NewCoreBuilder(core.Config{})
-		services   = make(map[core.NodeID]serviceContainer)
+		services   = make(map[core.NodeKey]serviceContainer)
 		channelNet = tmock.NewChannelNetwork()
 		iterNet    = tmock.NewFramerIteratorNetwork()
 	)
@@ -60,7 +60,7 @@ func provision(n int) (*mock.CoreBuilder, map[core.NodeID]serviceContainer) {
 			HostResolver:  c.Cluster,
 			Transport:     iterNet.New(c.Config.AdvertiseAddress),
 		}))
-		services[c.Cluster.HostID()] = cont
+		services[c.Cluster.HostKey()] = cont
 	}
 	return builder, services
 }
