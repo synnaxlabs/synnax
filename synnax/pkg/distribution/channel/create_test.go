@@ -23,7 +23,7 @@ import (
 
 var _ = Describe("Create", Ordered, func() {
 	var (
-		services map[core.NodeID]channel.Service
+		services map[core.NodeKey]channel.Service
 		builder  *mock.CoreBuilder
 		log      *zap.Logger
 	)
@@ -37,8 +37,8 @@ var _ = Describe("Create", Ordered, func() {
 	})
 	Context("Single channel", func() {
 		var (
-			channelLeaseNodeID aspen.NodeID
-			ch                 channel.Channel
+			channelLeaseNodeKey aspen.NodeKey
+			ch                  channel.Channel
 		)
 		JustBeforeEach(func() {
 			var err error
@@ -46,15 +46,15 @@ var _ = Describe("Create", Ordered, func() {
 				Rate:     5 * telem.Hz,
 				Name:     "SG01",
 				DataType: telem.Float64T,
-				NodeID:   channelLeaseNodeID,
+				NodeKey:  channelLeaseNodeKey,
 			}
 			err = services[1].Create(&ch)
 			Expect(err).ToNot(HaveOccurred())
 		})
 		Context("Node is local", func() {
-			BeforeEach(func() { channelLeaseNodeID = 1 })
+			BeforeEach(func() { channelLeaseNodeKey = 1 })
 			It("Should create the channel without error", func() {
-				Expect(ch.Key().NodeID()).To(Equal(aspen.NodeID(1)))
+				Expect(ch.Key().NodeKey()).To(Equal(aspen.NodeKey(1)))
 				Expect(ch.Key().LocalKey()).To(Equal(storage.ChannelKey(1)))
 			})
 			It("Should create the channel in the cesium gorpDB", func() {
@@ -68,9 +68,9 @@ var _ = Describe("Create", Ordered, func() {
 			})
 		})
 		Context("Node is remote", func() {
-			BeforeEach(func() { channelLeaseNodeID = 2 })
+			BeforeEach(func() { channelLeaseNodeKey = 2 })
 			It("Should create the channel without error", func() {
-				Expect(ch.Key().NodeID()).To(Equal(aspen.NodeID(2)))
+				Expect(ch.Key().NodeKey()).To(Equal(aspen.NodeKey(2)))
 				Expect(ch.Key().LocalKey()).To(Equal(storage.ChannelKey(1)))
 			})
 			It("Should create the channel in the cesium gorpDB", func() {
@@ -93,11 +93,11 @@ var _ = Describe("Create", Ordered, func() {
 						Rate:     5 * telem.Hz,
 						Name:     "SG01",
 						DataType: telem.Float64T,
-						NodeID:   1,
+						NodeKey:  1,
 					}
 					err := services[1].Create(ch2)
 					Expect(err).To(BeNil())
-					Expect(ch2.Key().NodeID()).To(Equal(aspen.NodeID(1)))
+					Expect(ch2.Key().NodeKey()).To(Equal(aspen.NodeKey(1)))
 					Expect(ch2.Key().LocalKey()).To(Equal(storage.ChannelKey(3)))
 				})
 		})

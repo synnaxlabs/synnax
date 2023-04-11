@@ -39,10 +39,10 @@ type serviceContainer struct {
 	}
 }
 
-func provision(n int, logger *zap.Logger) (*mock.CoreBuilder, map[core.NodeID]serviceContainer) {
+func provision(n int, logger *zap.Logger) (*mock.CoreBuilder, map[core.NodeKey]serviceContainer) {
 	var (
 		builder    = mock.NewCoreBuilder(core.Config{Logger: logger})
-		services   = make(map[core.NodeID]serviceContainer)
+		services   = make(map[core.NodeKey]serviceContainer)
 		channelNet = tmock.NewChannelNetwork()
 		writerNet  = tmock.NewFramerWriterNetwork()
 	)
@@ -64,7 +64,7 @@ func provision(n int, logger *zap.Logger) (*mock.CoreBuilder, map[core.NodeID]se
 			Transport:     writerNet.New(c.Config.AdvertiseAddress /*buffer*/, 10),
 			Logger:        logger,
 		}))
-		services[c.Cluster.HostID()] = container
+		services[c.Cluster.HostKey()] = container
 	}
 	builder.WaitForTopologyToStabilize()
 	return builder, services

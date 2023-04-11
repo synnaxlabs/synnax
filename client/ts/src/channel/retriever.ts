@@ -16,7 +16,7 @@ import { ValidationError } from "@/errors";
 import { Transport } from "@/transport";
 
 const requestSchema = z.object({
-  nodeId: z.number().optional(),
+  nodeKey: z.number().optional(),
   keysOrNames: z.array(z.union([z.string().array(), z.string()])).optional(),
 });
 

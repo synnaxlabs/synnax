@@ -26,25 +26,25 @@ func (f Frame) Keys() channel.Keys { return f.keys }
 
 func (f Frame) Vertical() bool { return len(f.keys.Unique()) == len(f.Arrays) }
 
-func (f Frame) SplitByNodeID() map[core.NodeID]Frame {
-	frames := make(map[core.NodeID]Frame)
+func (f Frame) SplitByNodeKey() map[core.NodeKey]Frame {
+	frames := make(map[core.NodeKey]Frame)
 	for i, key := range f.keys {
-		nodeID := key.NodeID()
-		nf, ok := frames[nodeID]
+		nodeKey := key.NodeKey()
+		nf, ok := frames[nodeKey]
 		if !ok {
-			frames[nodeID] = NewFrame([]channel.Key{key}, []telem.Array{f.Arrays[i]})
+			frames[nodeKey] = NewFrame([]channel.Key{key}, []telem.Array{f.Arrays[i]})
 		} else {
 			nf.keys = append(nf.keys, key)
 			nf.Arrays = append(nf.Arrays, f.Arrays[i])
-			frames[nodeID] = nf
+			frames[nodeKey] = nf
 		}
 	}
 	return frames
 }
 
-func (f Frame) SplitByHost(host core.NodeID) (local Frame, remote Frame) {
+func (f Frame) SplitByHost(host core.NodeKey) (local Frame, remote Frame) {
 	for i, key := range f.keys {
-		if key.NodeID() == host {
+		if key.NodeKey() == host {
 			local.keys = append(local.keys, key)
 			local.Arrays = append(local.Arrays, f.Arrays[i])
 		} else {

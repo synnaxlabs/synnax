@@ -17,13 +17,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage"
 )
 
-func newStorageResponseTranslator(host dcore.NodeID) func(ctx context.Context, in storage.TSIteratorResponse) (Response, bool, error) {
+func newStorageResponseTranslator(host dcore.NodeKey) func(ctx context.Context, in storage.TSIteratorResponse) (Response, bool, error) {
 	return func(ctx context.Context, res storage.TSIteratorResponse) (Response, bool, error) {
 		return Response{
 			Ack:     res.Ack,
 			Variant: ResponseVariant(res.Variant),
 			SeqNum:  res.SeqNum,
-			NodeID:  host,
+			NodeKey:  host,
 			Err:     res.Err,
 			Command: Command(res.Command),
 			Frame:   core.NewFrameFromStorage(res.Frame),
