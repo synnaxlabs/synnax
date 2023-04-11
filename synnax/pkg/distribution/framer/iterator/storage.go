@@ -10,7 +10,6 @@
 package iterator
 
 import (
-	"context"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/storage"
@@ -18,8 +17,8 @@ import (
 	"github.com/synnaxlabs/x/confluence/plumber"
 )
 
-func (s *Service) newGateway(ctx context.Context, cfg Config) (confluence.Segment[Request, Response], error) {
-	iter, err := s.TS.NewStreamIterator(ctx, cesium.IteratorConfig{
+func (s *Service) newGateway(cfg Config) (confluence.Segment[Request, Response], error) {
+	iter, err := s.TS.NewStreamIterator(cesium.IteratorConfig{
 		Bounds:   cfg.Bounds,
 		Channels: cfg.Keys.Strings(),
 	})

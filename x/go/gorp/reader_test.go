@@ -43,7 +43,7 @@ var _ = Describe("Tx", Ordered, func() {
 			ecdc,
 		)
 		for iter.First(); iter.Valid(); iter.Next() {
-			Expect(iter.Value()).To(Equal(map[string]string{"key1": "value1", "key2": "value2"}))
+			Expect(iter.Value(ctx)).To(Equal(map[string]string{"key1": "value1", "key2": "value2"}))
 		}
 		Expect(iter.Error()).To(BeNil())
 		Expect(iter.Close()).To(Succeed())
