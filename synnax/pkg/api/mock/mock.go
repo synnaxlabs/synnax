@@ -10,6 +10,7 @@
 package mock
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"time"
@@ -28,10 +29,12 @@ type Builder struct {
 	mock.Builder
 }
 
-func (b *Builder) New() api.Provider { return api.NewProvider(b.NewConfig()) }
+func (b *Builder) New(ctx context.Context) api.Provider {
+	return api.NewProvider(b.NewConfig(ctx))
+}
 
-func (b *Builder) NewConfig() api.Config {
-	dist := b.Builder.New()
+func (b *Builder) NewConfig(ctx context.Context) api.Config {
+	dist := b.Builder.New(ctx)
 	key, err := rsa.GenerateKey(rand.Reader, 1024)
 	if err != nil {
 		panic(err)
@@ -50,7 +53,7 @@ func (b *Builder) NewConfig() api.Config {
 
 }
 
-func New(cfg ...distribution.Config) *Builder {
+func Open(cfg ...distribution.Config) *Builder {
 	builder := &Builder{}
 	builder.Builder = *mock.NewBuilder(cfg...)
 	return builder
