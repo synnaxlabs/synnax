@@ -52,11 +52,11 @@ func (o Operation) Digest() Digest {
 	}
 }
 
-func (o Operation) apply(b kvx.Writer) error {
+func (o Operation) apply(ctx context.Context, b kvx.Writer) error {
 	if o.Variant == Delete {
-		return b.Delete(o.Key)
+		return b.Delete(ctx, o.Key)
 	}
-	return b.Set(o.Key, o.Value)
+	return b.Set(ctx, o.Key, o.Value)
 }
 
 type Digest struct {
@@ -66,16 +66,16 @@ type Digest struct {
 	Variant     Variant
 }
 
-func (d Digest) apply(w kvx.Writer) error {
+func (d Digest) apply(ctx context.Context, w kvx.Writer) error {
 	key, err := digestKey(d.Key)
 	if err != nil {
 		return err
 	}
-	b, err := ecd.Encode(nil, d)
+	b, err := ecd.Encode(ctx, d)
 	if err != nil {
 		return err
 	}
-	return w.Set(key, b)
+	return w.Set(ctx, key, b)
 }
 
 type Digests []Digest

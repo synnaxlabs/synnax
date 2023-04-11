@@ -87,7 +87,7 @@ type HostResolver interface {
 // If provisioning a new cluster, ensure that all storage for previous clusters
 // is removed and provide no peers.
 func Open(ctx context.Context, configs ...Config) (Cluster, error) {
-	cfg, err := newConfig(configs)
+	cfg, err := newConfig(ctx, configs)
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +105,7 @@ func Open(ctx context.Context, configs ...Config) (Cluster, error) {
 	if err != nil && !errors.Is(err, kv.NotFound) {
 		return nil, err
 	}
-	c.Store.SetState(state)
+	c.Store.SetState(ctx, state)
 
 	c.gossip, err = gossip.New(c.Gossip)
 	if err != nil {
@@ -120,7 +120,7 @@ func Open(ctx context.Context, configs ...Config) (Cluster, error) {
 		c.L.Info("existing cluster found in storage. restarting activities")
 		host := c.Store.GetHost()
 		host.Heartbeat = host.Heartbeat.Restart()
-		c.SetNode(host)
+		c.SetNode(ctx, host)
 		c.Pledge.ClusterKey = c.Key()
 		if err := pledge_.Arbitrate(c.Pledge); err != nil {
 			return nil, err
@@ -133,8 +133,8 @@ func Open(ctx context.Context, configs ...Config) (Cluster, error) {
 		if err != nil {
 			return nil, err
 		}
-		c.SetHost(node.Node{ID: pledgeRes.ID, Address: c.HostAddress})
-		c.SetClusterKey(pledgeRes.ClusterKey)
+		c.SetHost(ctx, node.Node{ID: pledgeRes.ID, Address: c.HostAddress})
+		c.SetClusterKey(ctx, pledgeRes.ClusterKey)
 		// gossip initial state manually through peers in order to build an
 		// initial view of the cluster.
 		c.L.Info("gossiping initial state through peer addresses")
@@ -144,8 +144,8 @@ func Open(ctx context.Context, configs ...Config) (Cluster, error) {
 	} else {
 		// If our store isn't valid, and we haven't received peers, assume we're
 		// bootstrapping a new cluster.
-		c.SetHost(node.Node{ID: 1, Address: c.HostAddress})
-		c.SetClusterKey(uuid.New())
+		c.SetHost(ctx, node.Node{ID: 1, Address: c.HostAddress})
+		c.SetClusterKey(ctx, uuid.New())
 		c.L.Info("no peers provided, bootstrapping new cluster")
 		c.Pledge.ClusterKey = c.Key()
 		if err := pledge_.Arbitrate(c.Pledge); err != nil {
@@ -231,7 +231,7 @@ func (c *cluster) goFlushStore(ctx signal.Context) {
 			Encoder:     c.EncoderDecoder,
 		}
 		flush.FlushSync(ctx, c.Store.CopyState())
-		c.OnChange(func(state State) { flush.Flush(ctx, state) })
+		c.OnChange(func(ctx context.Context, state State) { flush.Flush(ctx, state) })
 		ctx.Go(func(ctx context.Context) error {
 			<-ctx.Done()
 			flush.FlushSync(ctx, c.Store.CopyState())
@@ -252,12 +252,12 @@ func tryLoadPersistedState(ctx context.Context, cfg Config) (store.State, error)
 	return state, cfg.EncoderDecoder.Decode(ctx, encoded, &state)
 }
 
-func newConfig(configs []Config) (Config, error) {
+func newConfig(ctx context.Context, configs []Config) (Config, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return Config{}, err
 	}
-	store_ := store.New()
+	store_ := store.New(ctx)
 	cfg.Gossip.Store = store_
 	cfg.Pledge.Candidates = func() node.Group { return store_.CopyState().Nodes }
 	cfg.Gossip.Instrumentation = cfg.Instrumentation.Sub("gossip")

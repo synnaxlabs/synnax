@@ -14,6 +14,7 @@
 package store
 
 import (
+	"context"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
@@ -38,7 +39,7 @@ type Writer[S State] interface {
 	// SetState sets the state of the store. This is NOT a copy-on write operation,
 	// so make sure to provide a copy of the state (i.e. use Reader.CopyState when
 	// reading for write).
-	SetState(S)
+	SetState(context.Context, S)
 }
 
 // Store is a simple copy-on-read in memory store.
@@ -65,7 +66,7 @@ func New[S State](copy func(S) S) Store[S] {
 }
 
 // SetState implements Store.
-func (c *core[S]) SetState(state S) {
+func (c *core[S]) SetState(_ context.Context, state S) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.state = state
@@ -130,16 +131,16 @@ func ObservableWrap[S State](store Store[S], cfgs ...ObservableConfig[S]) Observ
 	return &observable[S]{ObservableConfig: cfg, Store: store, Observer: observe.New[S]()}
 }
 
-// SetState implements Store.CopyState.
-func (o *observable[S]) SetState(state S) {
+// SetState implements Store.
+func (o *observable[S]) SetState(ctx context.Context, state S) {
 	if o.ShouldNotify == nil || o.ShouldNotify(o.PeekState(), state) {
 		if *o.ObservableConfig.GoNotify {
-			o.Observer.GoNotify(state)
+			o.Observer.GoNotify(ctx, state)
 		} else {
-			o.Observer.Notify(state)
+			o.Observer.Notify(ctx, state)
 		}
 	}
-	o.Store.SetState(state)
+	o.Store.SetState(ctx, state)
 }
 
 // |||||| FLUSHABLE ||||||

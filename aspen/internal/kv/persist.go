@@ -16,11 +16,11 @@ import (
 )
 
 type persist struct {
-	db kvx.Writeable
+	db kvx.TxnFactory
 	confluence.LinearTransform[TxRequest, TxRequest]
 }
 
-func newPersist(bw kvx.Writeable) segment {
+func newPersist(bw kvx.TxnFactory) segment {
 	ps := &persist{db: bw}
 	ps.LinearTransform.Transform = ps.persist
 	return ps

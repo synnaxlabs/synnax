@@ -12,6 +12,7 @@
 package store
 
 import (
+	"context"
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/store"
@@ -26,18 +27,18 @@ type Store interface {
 	// ClusterKey returns the cluster key.
 	ClusterKey() uuid.UUID
 	// SetClusterKey sets the cluster key.
-	SetClusterKey(key uuid.UUID)
+	SetClusterKey(ctx context.Context, key uuid.UUID)
 	// SetNode sets a node in state.
-	SetNode(node.Node)
+	SetNode(context.Context, node.Node)
 	// GetNode returns a node from state. Returns false if the node is not found.
 	GetNode(node.ID) (node.Node, bool)
 	// Merge merges a node.Group into State.Nodes by selecting nodes from group with heartbeats
 	// that are either not in State or are older than in State.
-	Merge(group node.Group)
+	Merge(ctx context.Context, group node.Group)
 	// GetHost returns the host node of the Store.
 	GetHost() node.Node
 	// SetHost sets the host for the Store.
-	SetHost(node.Node)
+	SetHost(ctx context.Context, node node.Node)
 }
 
 func _copy(s State) State {
@@ -73,14 +74,14 @@ func shouldNotify(prevState, nextState State) bool {
 }
 
 // New opens a new empty, invalid Store.
-func New() Store {
+func New(ctx context.Context) Store {
 	c := &core{
 		Observable: store.ObservableWrap[State](
 			store.New(_copy),
 			store.ObservableConfig[State]{ShouldNotify: shouldNotify},
 		),
 	}
-	c.Observable.SetState(State{Nodes: make(node.Group)})
+	c.Observable.SetState(ctx, State{Nodes: make(node.Group)})
 	return c
 }
 
@@ -103,10 +104,10 @@ type core struct {
 func (c *core) ClusterKey() uuid.UUID { return c.Observable.PeekState().ClusterKey }
 
 // SetClusterKey implements Store.
-func (c *core) SetClusterKey(key uuid.UUID) {
+func (c *core) SetClusterKey(ctx context.Context, key uuid.UUID) {
 	s := c.Observable.PeekState()
 	s.ClusterKey = key
-	c.Observable.SetState(s)
+	c.Observable.SetState(ctx, s)
 }
 
 // GetNode implements Store.
@@ -122,22 +123,22 @@ func (c *core) GetHost() node.Node {
 }
 
 // SetHost implements Store.
-func (c *core) SetHost(n node.Node) {
+func (c *core) SetHost(ctx context.Context, n node.Node) {
 	snap := c.Observable.CopyState()
 	snap.Nodes[n.ID] = n
 	snap.HostID = n.ID
-	c.Observable.SetState(snap)
+	c.Observable.SetState(ctx, snap)
 }
 
 // SetNode implements Store.
-func (c *core) SetNode(n node.Node) {
+func (c *core) SetNode(ctx context.Context, n node.Node) {
 	snap := c.Observable.CopyState()
 	snap.Nodes[n.ID] = n
-	c.Observable.SetState(snap)
+	c.Observable.SetState(ctx, snap)
 }
 
 // Merge implements Store.
-func (c *core) Merge(other node.Group) {
+func (c *core) Merge(ctx context.Context, other node.Group) {
 	snap := c.Observable.CopyState()
 	for _, n := range other {
 		in, ok := snap.Nodes[n.ID]
@@ -145,5 +146,5 @@ func (c *core) Merge(other node.Group) {
 			snap.Nodes[n.ID] = n
 		}
 	}
-	c.Observable.SetState(snap)
+	c.Observable.SetState(ctx, snap)
 }
