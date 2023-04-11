@@ -77,7 +77,7 @@ func (s *ChannelService) Create(
 	if err != nil {
 		return res, errors.Parse(err)
 	}
-	return res, s.WithTxn(ctx, func(tx gorp.Tx) errors.Typed {
+	return res, s.WithTx(ctx, func(tx gorp.Tx) errors.Typed {
 		err := s.internal.NewWriter(tx).CreateMany(ctx, &translated)
 		res = ChannelCreateResponse{Channels: translateChannelsForward(translated)}
 		return errors.MaybeQuery(err)

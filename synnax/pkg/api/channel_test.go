@@ -26,27 +26,25 @@ var _ = Describe("ChannelReader", Ordered, func() {
 		svc     *api.ChannelService
 	)
 	BeforeAll(func() {
-		builder = mock.New()
-		prov = builder.New()
+		builder = mock.Open()
+		prov = builder.New(ctx)
 		svc = api.NewChannelService(prov)
+		res, err := svc.Create(context.TODO(), api.ChannelCreateRequest{
+			Channels: []api.Channel{{
+				Name:     "test",
+				NodeID:   1,
+				DataType: telem.Float64T,
+				Rate:     25 * telem.Hz,
+			}},
+		})
+		Expect(err).To(Equal(errors.Nil))
+		Expect(res.Channels).To(HaveLen(1))
 	})
 	AfterAll(func() {
 		Expect(builder.Close()).To(Succeed())
 		Expect(builder.Cleanup()).To(Succeed())
 	})
 	Describe("Create", func() {
-		It("Should create a new Channel", func() {
-			res, err := svc.Create(context.TODO(), api.ChannelCreateRequest{
-				Channels: []api.Channel{{
-					Name:     "test",
-					NodeID:   1,
-					DataType: telem.Float64T,
-					Rate:     25 * telem.Hz,
-				}},
-			})
-			Expect(err).To(Equal(errors.Nil))
-			Expect(res.Channels).To(HaveLen(1))
-		})
 		DescribeTable("Validation Errors", func(
 			ch api.Channel,
 			field string,

@@ -67,12 +67,12 @@ func (s *AuthService) Register(ctx context.Context, req RegistrationRequest) (tr
 	if err := s.Validate(req); err.Occurred() {
 		return tr, err
 	}
-	return tr, s.WithTxn(ctx, func(txn gorp.WriteTxn) errors.Typed {
-		if err := s.authenticator.NewWriter(txn).Register(req.InsecureCredentials); err != nil {
+	return tr, s.WithTx(ctx, func(txn gorp.Tx) errors.Typed {
+		if err := s.authenticator.NewWriter(txn).Register(ctx, req.InsecureCredentials); err != nil {
 			return errors.General(err)
 		}
 		u := &user.User{Username: req.Username}
-		if err := s.user.NewWriter(txn).Create(u); err != nil {
+		if err := s.user.NewWriter(txn).Create(ctx, u); err != nil {
 			return errors.General(err)
 		}
 		var tErr errors.Typed
@@ -92,9 +92,9 @@ func (s *AuthService) ChangePassword(ctx context.Context, cpr ChangePasswordRequ
 	if err := s.Validate(cpr); err.Occurred() {
 		return err
 	}
-	return s.WithTxn(ctx, func(txn gorp.WriteTxn) errors.Typed {
+	return s.WithTx(ctx, func(txn gorp.Tx) errors.Typed {
 		return errors.MaybeGeneral(s.authenticator.NewWriter(txn).
-			UpdatePassword(cpr.InsecureCredentials, cpr.NewPassword))
+			UpdatePassword(ctx, cpr.InsecureCredentials, cpr.NewPassword))
 	})
 }
 
@@ -109,19 +109,20 @@ func (s *AuthService) ChangeUsername(ctx context.Context, cur ChangeUsernameRequ
 	if err := s.Validate(&cur); err.Occurred() {
 		return err
 	}
-	return s.WithTxn(ctx, func(txn gorp.WriteTxn) errors.Typed {
-		u, err := s.user.RetrieveByUsername(txn.Context(), cur.InsecureCredentials.Username)
+	return s.WithTx(ctx, func(txn gorp.Tx) errors.Typed {
+		u, err := s.user.RetrieveByUsername(ctx, cur.InsecureCredentials.Username)
 		if err != nil {
 			return errors.MaybeQuery(err)
 		}
 		if err := s.authenticator.NewWriter(txn).UpdateUsername(
+			ctx,
 			cur.InsecureCredentials,
 			cur.NewUsername,
 		); err != nil {
 			return errors.Unexpected(err)
 		}
 		u.Username = cur.NewUsername
-		return errors.MaybeUnexpected(s.user.NewWriter(txn).Update(u))
+		return errors.MaybeUnexpected(s.user.NewWriter(txn).Update(ctx, u))
 	})
 }
 
