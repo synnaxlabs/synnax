@@ -11,6 +11,7 @@ package kv
 
 import (
 	"context"
+	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
@@ -30,19 +31,53 @@ type db struct {
 	shutdown io.Closer
 }
 
-func (k *db) apply(b []TxRequest) (err error) {
+var _ kvx.DB = (*db)(nil)
+
+func (d *db) Set(
+	ctx context.Context,
+	key, value []byte,
+	maybeLease ...interface{},
+) (err error) {
+	b := d.OpenTx()
+	defer func() { err = errors.CombineErrors(err, b.Close()) }()
+	if err = b.Set(ctx, key, value, maybeLease...); err != nil {
+		return err
+	}
+	err = b.Commit(ctx)
+	return
+}
+
+func (d *db) Delete(
+	ctx context.Context,
+	key []byte,
+	maybeLease ...interface{},
+) (err error) {
+	b := d.OpenTx()
+	defer func() { err = errors.CombineErrors(err, b.Close()) }()
+	if err = b.Delete(ctx, key, maybeLease...); err != nil {
+		return err
+	}
+	err = b.Commit(ctx)
+	return
+}
+
+func (d *db) OpenTx() kvx.Tx {
+	return &tx{apply: d.apply, lease: d.leaseAlloc, Tx: d.DB.OpenTx()}
+}
+
+func (d *db) apply(b []TxRequest) (err error) {
 	c := txCoordinator{}
 	for _, bd := range b {
 		c.add(&bd)
-		k.Out.Inlet() <- bd
+		d.Out.Inlet() <- bd
 	}
 	return c.wait()
 }
 
-func (k *db) Report() alamos.Report {
+func (d *db) Report() alamos.Report {
 	return alamos.Report{
 		"engine": "aspen",
-		"Tx":     k.DB.Report(),
+		"Tx":     d.DB.Report(),
 	}
 }
 
@@ -176,9 +211,9 @@ func Open(ctx context.Context, cfgs ...Config) (kvx.DB, error) {
 	return db_, nil
 }
 
-func (k *db) Close() error {
-	if err := k.DB.Close(); err != nil {
+func (d *db) Close() error {
+	if err := d.DB.Close(); err != nil {
 		return err
 	}
-	return k.shutdown.Close()
+	return d.shutdown.Close()
 }
