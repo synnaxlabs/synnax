@@ -10,6 +10,7 @@
 package mock
 
 import (
+	"context"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -41,7 +42,7 @@ func NewBuilder(cfg ...distribution.Config) *Builder {
 	}
 }
 
-func (b *Builder) New() distribution.Distribution {
+func (b *Builder) New(ctx context.Context) distribution.Distribution {
 	core := b.CoreBuilder.New()
 	d := distribution.Distribution{Core: core}
 
@@ -50,17 +51,16 @@ func (b *Builder) New() distribution.Distribution {
 		writer: b.writerNet.New(core.Config.AdvertiseAddress, 1),
 	}
 
-	d.Ontology = lo.Must(ontology.Open(d.Storage.Gorpify()))
+	d.Ontology = lo.Must(ontology.Open(ctx, d.Storage.Gorpify()))
 
 	nodeOntologySvc := &dcore.NodeOntologyService{
-		Instrumentation: d.Config.logger.Sugar(),
-		Cluster:         d.Cluster,
-		Ontology:        d.Ontology,
+		Cluster:  d.Cluster,
+		Ontology: d.Ontology,
 	}
 	clusterOntologySvc := &dcore.ClusterOntologyService{Cluster: d.Cluster}
 	d.Ontology.RegisterService(nodeOntologySvc)
 	d.Ontology.RegisterService(clusterOntologySvc)
-	nodeOntologySvc.ListenForChanges()
+	nodeOntologySvc.ListenForChanges(ctx)
 
 	d.Channel = lo.Must(channel.New(channel.ServiceConfig{
 		HostResolver: d.Cluster,
@@ -74,7 +74,6 @@ func (b *Builder) New() distribution.Distribution {
 		ChannelReader: d.Channel,
 		TS:            d.Storage.TS,
 		HostResolver:  d.Cluster,
-		Logger:        d.Core.Config.logger,
 		Transport:     trans,
 	}))
 	return d

@@ -43,14 +43,13 @@ var (
 	DefaultFactoryConfig = FactoryConfig{
 		LoaderConfig:  DefaultLoaderConfig,
 		KeySize:       2048,
-		AllowKeyReuse: config.Bool(false),
+		AllowKeyReuse: config.False(),
 	}
 )
 
 // Override implements [config.Config].
 func (f FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 	f.KeySize = override.Numeric(f.KeySize, other.KeySize)
-	f.logger = override.Nil(f.logger, other.logger)
 	f.Hosts = override.Slice(f.Hosts, other.Hosts)
 	f.AllowKeyReuse = override.Nil(f.AllowKeyReuse, other.AllowKeyReuse)
 	f.LoaderConfig = f.LoaderConfig.Override(other.LoaderConfig)

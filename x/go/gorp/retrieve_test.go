@@ -178,4 +178,14 @@ var _ = Describe("retrieveEntity", Ordered, func() {
 			})
 		})
 	})
+	Describe("No Parameters", func() {
+		It("Should return all entries for the given type", func() {
+			var res []entry
+			Expect(gorp.NewRetrieve[int, entry]().
+				Entries(&res).
+				Exec(ctx, tx),
+			).To(Succeed())
+			Expect(res).To(Equal(entries))
+		})
+	})
 })

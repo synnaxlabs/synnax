@@ -50,7 +50,10 @@ type Ontology struct {
 // Open opens the ontology stored in the given database. If the Root resource does not
 // exist, it will be created.
 func Open(ctx context.Context, db *gorp.DB) (*Ontology, error) {
-	o := &Ontology{registrar: serviceRegistrar{BuiltIn: &builtinService{}}}
+	o := &Ontology{
+		DB:        db,
+		registrar: serviceRegistrar{BuiltIn: &builtinService{}},
+	}
 	err := o.NewRetrieve().WhereIDs(Root).Exec(ctx, db)
 	if errors.Is(err, query.NotFound) {
 		err = o.OpenWriter(db).DefineResource(ctx, Root)

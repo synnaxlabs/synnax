@@ -25,9 +25,9 @@ var _ = Describe("Builder", func() {
 
 			builder := mock.NewBuilder()
 
-			coreOne := builder.New()
-			coreTwo := builder.New()
-			coreThree := builder.New()
+			coreOne := builder.New(ctx)
+			coreTwo := builder.New(ctx)
+			coreThree := builder.New(ctx)
 
 			Expect(coreOne.Cluster.HostID()).To(Equal(core.NodeID(1)))
 			Expect(coreTwo.Cluster.HostID()).To(Equal(core.NodeID(2)))
