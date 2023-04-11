@@ -79,7 +79,7 @@ func (b *tx) applyOp(ctx context.Context, op Operation) error {
 }
 
 func (b *tx) toRequests(ctx context.Context) ([]TxRequest, error) {
-	dm := make(map[node.ID]TxRequest)
+	dm := make(map[node.Key]TxRequest)
 	for _, dig := range b.digests {
 		op := dig.Operation()
 		if op.Variant == Set {
@@ -126,8 +126,8 @@ func (b *tx) free() error {
 }
 
 type TxRequest struct {
-	Leaseholder node.ID
-	Sender      node.ID
+	Leaseholder node.Key
+	Sender      node.Key
 	Operations  []Operation
 	ctx         context.Context
 	doneF       func(err error)
@@ -187,12 +187,12 @@ func (br TxRequest) done(err error) {
 	}
 }
 
-func validateLeaseOption(maybeLease []interface{}) (node.ID, error) {
+func validateLeaseOption(maybeLease []interface{}) (node.Key, error) {
 	lease := DefaultLeaseholder
 	if len(maybeLease) == 1 {
-		l, ok := maybeLease[0].(node.ID)
+		l, ok := maybeLease[0].(node.Key)
 		if !ok {
-			return 0, errors.New("[aspen] - Leaseholder option must be of type node.ID")
+			return 0, errors.New("[aspen] - Leaseholder option must be of type node.Key")
 		}
 		lease = l
 	}
