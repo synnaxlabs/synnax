@@ -22,7 +22,7 @@ import (
 
 var ErrLeaseNotTransferable = errors.New("[db] - cannot transfer leaseAlloc")
 
-const DefaultLeaseholder node.ID = 0
+const DefaultLeaseholder node.Key = 0
 
 type leaseAllocator struct{ Config }
 
@@ -41,7 +41,7 @@ func (la *leaseAllocator) allocate(ctx context.Context, op Operation) (Operation
 		if op.Leaseholder == DefaultLeaseholder {
 			// If we can't find the Leaseholder, and the op doesn't have a Leaseholder assigned,
 			// we assign the leaseAlloc to the cluster host.
-			op.Leaseholder = la.Cluster.HostID()
+			op.Leaseholder = la.Cluster.HostKey()
 		}
 		// If we can't find the Leaseholder, and the op has a Leaseholder assigned,
 		// that means it's a new key, so we let it choose its own leaseAlloc.
@@ -51,7 +51,7 @@ func (la *leaseAllocator) allocate(ctx context.Context, op Operation) (Operation
 	return op, nil
 }
 
-func (la *leaseAllocator) getLease(ctx context.Context, key []byte) (node.ID, error) {
+func (la *leaseAllocator) getLease(ctx context.Context, key []byte) (node.Key, error) {
 	digest, err := getDigestFromKV(ctx, la.Engine, key)
 	return digest.Leaseholder, err
 }
@@ -73,7 +73,7 @@ func (lp *leaseProxy) _switch(
 	_ context.Context,
 	b TxRequest,
 ) (address.Address, bool, error) {
-	if b.Leaseholder == lp.Cluster.HostID() {
+	if b.Leaseholder == lp.Cluster.HostKey() {
 		return lp.localTo, true, nil
 	}
 	return lp.remoteTo, true, nil

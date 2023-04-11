@@ -101,7 +101,7 @@ var _ = Describe("Convergence", func() {
 				}
 				Expect(len(clusters)).To(Equal(values.clusterSize))
 				for j, cluster_ := range clusters {
-					Expect(cluster_.HostID()).To(Equal(node.ID(j + 1)))
+					Expect(cluster_.HostKey()).To(Equal(node.Key(j + 1)))
 				}
 				for _, cluster_ := range clusters {
 					Eventually(cluster_.Nodes, values.convergenceThreshold).Should(HaveLen(values.clusterSize))

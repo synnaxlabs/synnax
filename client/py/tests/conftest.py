@@ -27,7 +27,7 @@ def client() -> synnax.Synnax:
 def channel(client: synnax.Synnax) -> Channel:
     return client.channels.create(
         name="test",
-        node_id=1,
+        node_key=1,
         rate=25 * telem.Rate.HZ,
         data_type=telem.DataType.FLOAT64,
     )

@@ -16,7 +16,7 @@ import (
 )
 
 type Entry interface {
-	Lease() aspen.NodeID
+	Lease() aspen.NodeKey
 }
 
 type BatchFactory[E Entry] interface {
@@ -24,18 +24,18 @@ type BatchFactory[E Entry] interface {
 }
 
 type batchFactory[E Entry] struct {
-	host aspen.NodeID
+	host aspen.NodeKey
 }
 
 type Batch[E Entry] struct {
 	Gateway []E
-	Peers   map[core.NodeID][]E
+	Peers   map[core.NodeKey][]E
 }
 
-func NewBatchFactory[E Entry](host aspen.NodeID) BatchFactory[E] { return batchFactory[E]{host} }
+func NewBatchFactory[E Entry](host aspen.NodeKey) BatchFactory[E] { return batchFactory[E]{host} }
 
 func (p batchFactory[E]) Batch(entries []E) Batch[E] {
-	b := Batch[E]{Peers: make(map[core.NodeID][]E)}
+	b := Batch[E]{Peers: make(map[core.NodeKey][]E)}
 	for _, entry := range entries {
 		lease := entry.Lease()
 		if lease == p.host {
@@ -47,4 +47,4 @@ func (p batchFactory[E]) Batch(entries []E) Batch[E] {
 	return b
 }
 
-type AddressMap map[core.NodeID]address.Address
+type AddressMap map[core.NodeKey]address.Address

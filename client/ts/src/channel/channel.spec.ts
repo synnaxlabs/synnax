@@ -18,12 +18,12 @@ const client = newClient();
 test("Channel - create", async () => {
   const channel = await client.channels.create({
     name: "test",
-    nodeId: 1,
+    nodeKey: 1,
     rate: Rate.hz(1),
     dataType: DataType.FLOAT32,
   });
   expect(channel.name, "test").toEqual("test");
-  expect(channel.nodeId).toEqual(1);
+  expect(channel.nodeKey).toEqual(1);
   expect(channel.rate).toEqual(Rate.hz(1));
   expect(channel.dataType).toEqual(DataType.FLOAT32);
 });
@@ -31,13 +31,13 @@ test("Channel - create", async () => {
 test("Channel - retrieve by key", async () => {
   const channel = await client.channels.create({
     name: "test",
-    nodeId: 1,
+    nodeKey: 1,
     rate: Rate.hz(1),
     dataType: DataType.FLOAT32,
   });
   const retrieved = await client.channels.retrieve(channel.key);
   expect(retrieved.name).toEqual("test");
-  expect(retrieved.nodeId).toEqual(1);
+  expect(retrieved.nodeKey).toEqual(1);
   expect(retrieved.rate).toEqual(Rate.hz(1));
   expect(retrieved.dataType).toEqual(DataType.FLOAT32);
 });

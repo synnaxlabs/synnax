@@ -11,6 +11,7 @@ package distribution
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
@@ -24,7 +25,7 @@ type (
 	Config       = core.Config
 	Core         = core.Core
 	Node         = core.Node
-	NodeID       = core.NodeID
+	NodeKey       = core.NodeKey
 	NodeState    = core.NodeState
 	Cluster      = core.Cluster
 	Resolver     = aspen.Resolver

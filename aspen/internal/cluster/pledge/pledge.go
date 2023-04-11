@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 // Package pledge provides a system for pledging a node to a jury of Candidates.
-// The pledge uses quorum consensus to assign the node a unique ID.
+// The pledge uses quorum consensus to assign the node a unique Key.
 //
 // To pledge a new node to a jury, call Pledge() with a set of peer addresses.
 // To register a node as a candidate, use Arbitrate().
@@ -17,7 +17,7 @@
 //
 //	Pledge - Used as both a verb and noun. A "PledgeServer" is a node that has
 //	'pledged' itself to the cluster. 'Pledging' is the entire process of
-//	contacting a peer, proposing an ID to a jury, and returning it to the pledge.
+//	contacting a peer, proposing an Key to a jury, and returning it to the pledge.
 //	Responsible - A node that is responsible for coordinating the Pledge process.
 //	A responsible node is the first peer that accepts the Pledge request from
 //	the pledge node.
@@ -56,7 +56,7 @@ var (
 
 // Pledge pledges a new node to the cluster. This node, called the Pledge,
 // submits a request for id assignment to a peer in peers. If the cluster approves
-// the request, the node will be assigned an ID and registered to arbitrate in
+// the request, the node will be assigned an Key and registered to arbitrate in
 // future pledge (see the Arbitrate function for more on how this works). IDs
 // of nodes in the cluster are guaranteed to be unique, but are not guaranteed
 // to be sequential. Pledge will continue to contact peers at a scaling interval
@@ -95,13 +95,13 @@ func Pledge(ctx context.Context, cfgs ...Config) (res Response, err error) {
 
 			reqCtx, cancel := context.WithTimeout(context.Background(), cfg.RequestTimeout)
 
-			res, err = cfg.TransportClient.Send(reqCtx, addr, Request{ID: 0})
+			res, err = cfg.TransportClient.Send(reqCtx, addr, Request{Key: 0})
 
 			cancel()
 			if err == nil {
 				cfg.L.Info(
 					"pledge successful",
-					zap.Uint32("assignedHost", uint32(res.ID)),
+					zap.Uint32("assignedHost", uint32(res.Key)),
 					zap.Stringer("clusterKey", res.ClusterKey),
 				)
 
@@ -125,7 +125,7 @@ func Pledge(ctx context.Context, cfgs ...Config) (res Response, err error) {
 // request, the node will act as responsible for the pledge and submit proposed
 // IDs to a jury of candidate nodes. The responsible node will continue to propose
 // IDs until cfg.MaxProposals is reached. When processing a responisble's proposal,
-// the node will act a juror, and decide if it approves of the proposed ID
+// the node will act a juror, and decide if it approves of the proposed Key
 // or not. To see the required configuration parameters, see the Config struct.
 func Arbitrate(cfgs ...Config) error {
 	cfg, err := config.New(DefaultConfig, cfgs...)
@@ -140,7 +140,7 @@ func Arbitrate(cfgs ...Config) error {
 func arbitrate(cfg Config) error {
 	j := &juror{Config: cfg}
 	cfg.TransportServer.BindHandler(func(ctx context.Context, req Request) (Response, error) {
-		if req.ID == 0 {
+		if req.Key == 0 {
 			return (&responsible{Config: cfg}).propose(ctx)
 		}
 		return Response{}, j.verdict(ctx, req)
@@ -151,7 +151,7 @@ func arbitrate(cfg Config) error {
 type responsible struct {
 	Config
 	candidateSnapshot node.Group
-	_proposedID       node.ID
+	_proposedKey      node.Key
 }
 
 func (r *responsible) propose(ctx context.Context) (res Response, err error) {
@@ -173,14 +173,14 @@ func (r *responsible) propose(ctx context.Context) (res Response, err error) {
 		// to provide a consistent view through the lifetime of the proposal.
 		r.refreshCandidates()
 
-		// Add the proposed ID unconditionally. Quorum juror's store each
+		// Add the proposed Key unconditionally. Quorum juror's store each
 		// approved request. If one node in the quorum is unreachable, other
 		// Candidates may have already approved the request. This means that
-		// if we retry the request without incrementing the proposed ID, we'll
+		// if we retry the request without incrementing the proposed Key, we'll
 		// get a rejection from the candidate that approved the request last time.
 		// This will result in marginally higher IDs being assigned, but it's
 		// better than adding a lot of extra logic to the proposal process.
-		res.ID = r.idToPropose()
+		res.Key = r.idToPropose()
 
 		quorum, qErr := r.buildQuorum()
 		if qErr != nil {
@@ -188,19 +188,19 @@ func (r *responsible) propose(ctx context.Context) (res Response, err error) {
 			break
 		}
 
-		logID := zap.Uint32("id", uint32(res.ID))
-		r.L.Debug("responsible proposing", logID, zap.Int("quorumCount", len(quorum)))
+		logKey := zap.Uint32("key", uint32(res.Key))
+		r.L.Debug("responsible proposing", logKey, zap.Int("quorumCount", len(quorum)))
 
 		// If any node returns an error, it means we need to retry the responsible with a new ID.
-		if err = r.consultQuorum(ctx, res.ID, quorum); err != nil {
+		if err = r.consultQuorum(ctx, res.Key, quorum); err != nil {
 			r.L.Error("quorum rejected proposal. retrying.", zap.Error(err))
 			continue
 		}
 
-		r.L.Debug("quorum accepted pledge", logID)
+		r.L.Debug("quorum accepted pledge", logKey)
 
 		// If no candidate returned an error, it means we reached a quorum approval,
-		// and we can safely return the new ID to the caller.
+		// and we can safely return the new Key to the caller.
 		return res, nil
 	}
 	r.L.Error(
@@ -223,27 +223,27 @@ func (r *responsible) buildQuorum() (node.Group, error) {
 	return xrand.SubMap(healthy, size), nil
 }
 
-func (r *responsible) idToPropose() node.ID {
-	if r._proposedID == 0 {
-		r._proposedID = highestNodeID(r.candidateSnapshot) + 1
+func (r *responsible) idToPropose() node.Key {
+	if r._proposedKey == 0 {
+		r._proposedKey = highestNodeID(r.candidateSnapshot) + 1
 	} else {
-		r._proposedID++
+		r._proposedKey++
 	}
-	return r._proposedID
+	return r._proposedKey
 }
 
-func (r *responsible) consultQuorum(ctx context.Context, id node.ID, quorum node.Group) error {
+func (r *responsible) consultQuorum(ctx context.Context, key node.Key, quorum node.Group) error {
 	reqCtx, cancel := context.WithTimeout(ctx, r.RequestTimeout)
 	defer cancel()
 	wg := errgroup.Group{}
 	for _, n := range quorum {
 		n_ := n
 		wg.Go(func() error {
-			_, err := r.TransportClient.Send(reqCtx, n_.Address, Request{ID: id})
+			_, err := r.TransportClient.Send(reqCtx, n_.Address, Request{Key: key})
 			if errors.Is(err, proposalRejected) {
 				r.L.Debug(
 					"quorum rejected proposal",
-					zap.Uint32("id", uint32(id)),
+					zap.Uint32("key", uint32(key)),
 					zap.Stringer("address", n_.Address),
 				)
 				cancel()
@@ -252,7 +252,7 @@ func (r *responsible) consultQuorum(ctx context.Context, id node.ID, quorum node
 			// so we need to cancel all running requests.
 			if err != nil {
 				r.L.Error("failed to reach juror",
-					zap.Uint32("id", uint32(id)),
+					zap.Uint32("key", uint32(key)),
 					zap.Stringer("address", n_.Address),
 				)
 				cancel()
@@ -266,7 +266,7 @@ func (r *responsible) consultQuorum(ctx context.Context, id node.ID, quorum node
 type juror struct {
 	Config
 	mu        sync.Mutex
-	approvals []node.ID
+	approvals []node.Key
 }
 
 func (j *juror) verdict(ctx context.Context, req Request) (err error) {
@@ -280,22 +280,22 @@ func (j *juror) verdict(ctx context.Context, req Request) (err error) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 	for _, appID := range j.approvals {
-		if appID == req.ID {
+		if appID == req.Key {
 			j.L.Warn("juror rejected proposal. already approved for a different pledge", logID)
 			err = proposalRejected
 			return
 		}
 	}
-	if req.ID <= highestNodeID(j.Candidates()) {
+	if req.Key <= highestNodeID(j.Candidates()) {
 		j.L.Warn("juror rejected proposal. id out of range", logID)
 		err = proposalRejected
 	}
-	j.approvals = append(j.approvals, req.ID)
+	j.approvals = append(j.approvals, req.Key)
 	j.L.Debug("juror approved proposal", logID)
 	return
 }
 
-func highestNodeID(candidates node.Group) node.ID { return lo.Max(lo.Keys(candidates)) }
+func highestNodeID(candidates node.Group) node.Key { return lo.Max(lo.Keys(candidates)) }
 
 func introduceRandomJitter(retryInterval time.Duration) {
 	// sleep for a random percentage of the retry interval, somewhere between
