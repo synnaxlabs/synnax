@@ -68,7 +68,7 @@ func Middleware(configs ...Config) (freighter.Middleware, error) {
 		)
 
 		if *cfg.EnablePropagation && ctx.Location == freighter.ServerSide {
-			ctx.Context = alamos.Depropagate(ctx, carrier_)
+			ctx.Context = cfg.T.Depropagate(ctx, carrier_)
 		}
 
 		if *cfg.EnableTracing {
@@ -76,7 +76,7 @@ func Middleware(configs ...Config) (freighter.Middleware, error) {
 		}
 
 		if *cfg.EnableTracing && ctx.Location == freighter.ClientSide {
-			alamos.Propagate(ctx, carrier_)
+			cfg.T.Propagate(ctx, carrier_)
 		}
 
 		oCtx, err := next(ctx)

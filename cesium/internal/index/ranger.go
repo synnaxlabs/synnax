@@ -14,7 +14,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/ranger"
 	"github.com/synnaxlabs/x/telem"
-	"go.uber.org/zap"
 	"io"
 )
 
@@ -27,26 +26,13 @@ var _ Index = (*Ranger)(nil)
 
 // Distance implements Index.
 func (i *Ranger) Distance(ctx context.Context, tr telem.TimeRange, continuous bool) (approx DistanceApproximation, err error) {
-	i.L.Debug("distance",
-		zap.Stringer("timeRange", tr),
-		zap.Bool("continuous", continuous),
-	)
 	var startApprox, endApprox DistanceApproximation
 	ctx, span := i.T.Trace(ctx, "distance", alamos.DebugLevel)
-	defer func() {
-		i.L.Debug("idx distance done",
-			zap.Stringer("timeRange", tr),
-			zap.Stringer("count", approx),
-			zap.Bool("continuous", continuous),
-			zap.Stringer("startApprox", startApprox),
-			zap.Stringer("endApprox", endApprox),
-			alamos.DebugError(span.EndWith(err, ErrDiscontinuous)),
-		)
-	}()
+	defer func() { span.EndWith(err, ErrDiscontinuous) }()
 
-	iter := i.DB.NewIterator(ctx, ranger.IteratorConfig{Bounds: tr})
+	iter := i.DB.NewIterator(ranger.IteratorConfig{Bounds: tr})
 
-	if !iter.SeekFirst() || (!iter.Range().ContainsRange(tr) && continuous) {
+	if !iter.SeekFirst(ctx) || (!iter.Range().ContainsRange(tr) && continuous) {
 		err = ErrDiscontinuous
 		return
 	}
@@ -55,7 +41,7 @@ func (i *Ranger) Distance(ctx context.Context, tr telem.TimeRange, continuous bo
 		return
 	}
 
-	r, err := iter.NewReader()
+	r, err := iter.NewReader(ctx)
 	if err != nil {
 		return
 	}
@@ -94,7 +80,7 @@ func (i *Ranger) Distance(ctx context.Context, tr telem.TimeRange, continuous bo
 			return
 		}
 		if iter.Range().ContainsStamp(tr.End) {
-			r, err = iter.NewReader()
+			r, err = iter.NewReader(ctx)
 			if err != nil {
 				return
 			}
@@ -119,23 +105,12 @@ func (i *Ranger) Stamp(
 	offset int64,
 	continuous bool,
 ) (approx TimeStampApproximation, err error) {
-	i.L.Debug("stamp",
-		zap.Stringer("ref", ref),
-		zap.Int64("offset", offset),
-	)
 	ctx, span := i.T.Trace(ctx, "stamp", alamos.DebugLevel)
-	defer func() {
-		i.L.Debug("idx stamp done",
-			zap.Stringer("ref", ref),
-			zap.Int64("offset", offset),
-			zap.Stringer("approx", approx),
-			alamos.DebugError(span.EndWith(err, ErrDiscontinuous)),
-		)
-	}()
+	defer func() { span.EndWith(err, ErrDiscontinuous) }()
 
-	iter := i.DB.NewIterator(ctx, ranger.IterRange(ref.SpanRange(telem.TimeSpanMax)))
+	iter := i.DB.NewIterator(ranger.IterRange(ref.SpanRange(telem.TimeSpanMax)))
 
-	if !iter.SeekFirst() ||
+	if !iter.SeekFirst(ctx) ||
 		!iter.Range().ContainsStamp(ref) ||
 		(offset >= iter.Len()/8 && continuous) {
 		err = ErrDiscontinuous
@@ -147,7 +122,7 @@ func (i *Ranger) Stamp(
 		return
 	}
 
-	r, err := iter.NewReader()
+	r, err := iter.NewReader(ctx)
 	if err != nil {
 		return
 	}
@@ -170,7 +145,7 @@ func (i *Ranger) Stamp(
 			}
 			gap += iter.Len() / 8
 			if endOffset < gap {
-				r, err = iter.NewReader()
+				r, err = iter.NewReader(ctx)
 				if err != nil {
 					return
 				}

@@ -134,7 +134,7 @@ func (s *streamIterator) Flow(ctx signal.Context, opts ...confluence.Option) {
 				if !ok {
 					return s.close()
 				}
-				ok, err := s.exec(req)
+				ok, err := s.exec(ctx, req)
 				s.seqNum++
 				s.Out.Inlet() <- IteratorResponse{
 					Variant: IteratorAckResponse,
@@ -148,20 +148,20 @@ func (s *streamIterator) Flow(ctx signal.Context, opts ...confluence.Option) {
 	}, o.Signal...)
 }
 
-func (s *streamIterator) exec(req IteratorRequest) (ok bool, err error) {
+func (s *streamIterator) exec(ctx context.Context, req IteratorRequest) (ok bool, err error) {
 	switch req.Command {
 	case IterNext:
-		ok = s.execWithOps(func(i *unary.Iterator) bool { return i.Next(req.Span) })
+		ok = s.execWithOps(func(i *unary.Iterator) bool { return i.Next(ctx, req.Span) })
 	case IterPrev:
-		ok = s.execWithOps(func(i *unary.Iterator) bool { return i.Prev(req.Span) })
+		ok = s.execWithOps(func(i *unary.Iterator) bool { return i.Prev(ctx, req.Span) })
 	case IterSeekFirst:
-		ok = s.execWithoutOps(func(i *unary.Iterator) bool { return i.SeekFirst() })
+		ok = s.execWithoutOps(func(i *unary.Iterator) bool { return i.SeekFirst(ctx) })
 	case IterSeekLast:
-		ok = s.execWithoutOps(func(i *unary.Iterator) bool { return i.SeekLast() })
+		ok = s.execWithoutOps(func(i *unary.Iterator) bool { return i.SeekLast(ctx) })
 	case IterSeekLE:
-		ok = s.execWithoutOps(func(i *unary.Iterator) bool { return i.SeekLE(req.Stamp) })
+		ok = s.execWithoutOps(func(i *unary.Iterator) bool { return i.SeekLE(ctx, req.Stamp) })
 	case IterSeekGE:
-		ok = s.execWithoutOps(func(i *unary.Iterator) bool { return i.SeekGE(req.Stamp) })
+		ok = s.execWithoutOps(func(i *unary.Iterator) bool { return i.SeekGE(ctx, req.Stamp) })
 	case IterValid:
 		ok = s.execWithoutOps(func(i *unary.Iterator) bool { return i.Valid() })
 	case IterError:

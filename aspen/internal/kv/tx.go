@@ -21,7 +21,16 @@ import (
 	"sync"
 )
 
+// tx is an aspen-managed key-value transaction. It's important to note that aspen
+// does not support atomicity on transactions with lease cardinality greater than
+// one i.e. if a transaction contains operations with different leaseholders, then
+// the transaction is not guaranteed to be atomic. See https://github.com/synnaxlabs/synnax/issues/102
+// for more details.
 type tx struct {
+	alamos.Instrumentation
+	// Tx is the underlying key-value transaction. This transaction is not actually
+	// applied, and simply serves as a cache for the operations that are applied.
+	// It also serves all read operations.
 	kvx.Tx
 	digests []Digest
 	lease   *leaseAllocator
@@ -30,6 +39,7 @@ type tx struct {
 
 var _ kvx.Tx = (*tx)(nil)
 
+// Set implements kvx.Tx.
 func (b *tx) Set(ctx context.Context, key, value []byte, options ...interface{}) error {
 	lease, err := validateLeaseOption(options)
 	if err != nil {
@@ -43,6 +53,7 @@ func (b *tx) Set(ctx context.Context, key, value []byte, options ...interface{})
 	})
 }
 
+// Delete implements kvx.Tx.
 func (b *tx) Delete(ctx context.Context, key []byte, _ ...interface{}) error {
 	return b.applyOp(ctx, Operation{Key: key, Variant: Delete})
 }
@@ -85,7 +96,7 @@ func (b *tx) toRequests(ctx context.Context) ([]TxRequest, error) {
 			br.Operations = append(br.Operations, op)
 		}
 		br.Leaseholder = op.Leaseholder
-		br.ctx, br.span = alamos.Trace(
+		br.ctx, br.span = b.T.Trace(
 			ctx,
 			fmt.Sprintf("tx-%d", br.Leaseholder),
 			alamos.DebugLevel,

@@ -110,7 +110,7 @@ func Open(configs ...Config) (*DB, error) {
 		return nil, err
 	}
 	idx := &index{
-		observer: observe.New[indexUpdate](),
+		Observer: observe.New[indexUpdate](),
 	}
 	idxPst, err := openIndexPersist(idx, cfg)
 	if err != nil {
@@ -130,9 +130,9 @@ func Open(configs ...Config) (*DB, error) {
 
 // NewIterator opens a new invalidated Iterator using the given configuration.
 // A seeking call is required before it can be used.
-func (db *DB) NewIterator(_ context.Context, cfg IteratorConfig) *Iterator {
+func (db *DB) NewIterator(cfg IteratorConfig) *Iterator {
 	i := &Iterator{
-		Instrumentation: db.Instrumentation,
+		Instrumentation: db.Instrumentation.Sub("iterator"),
 		idx:             db.idx,
 		readerFactory:   db.newReader,
 	}
@@ -150,12 +150,11 @@ func (db *DB) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) 
 		return nil, ErrRangeOverlap
 	}
 	return &Writer{
-		Instrumentation: db.Instrumentation,
-		ctx:             ctx,
+		WriterConfig:    cfg,
+		Instrumentation: db.Instrumentation.Sub("writer"),
 		fileKey:         key,
 		internal:        internal,
 		idx:             db.idx,
-		cfg:             cfg,
 	}, nil
 }
 
@@ -167,8 +166,8 @@ func (db *DB) Close() error {
 	return w.Error()
 }
 
-func (db *DB) newReader(ptr pointer) (*Reader, error) {
-	internal, err := db.dataFiles.acquireReader(ptr.fileKey)
+func (db *DB) newReader(ctx context.Context, ptr pointer) (*Reader, error) {
+	internal, err := db.dataFiles.acquireReader(ctx, ptr.fileKey)
 	if err != nil {
 		return nil, err
 	}

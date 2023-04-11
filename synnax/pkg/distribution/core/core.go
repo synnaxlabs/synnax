@@ -44,6 +44,7 @@ func Open(ctx context.Context, cfg Config) (c Core, err error) {
 		return c, err
 	}
 
+	cfg.Storage.Instrumentation = cfg.Instrumentation.Sub("storage")
 	c.Storage, err = storage.Open(cfg.Storage)
 	if err != nil {
 		return c, err
@@ -61,7 +62,7 @@ func Open(ctx context.Context, cfg Config) (c Core, err error) {
 		cfg.PeerAddresses,
 		aspen.WithEngine(c.Storage.KV),
 		aspen.WithTransport(clusterTransport),
-		aspen.WithInstrumentation(c.Instrumentation),
+		aspen.WithInstrumentation(c.Instrumentation.Sub("aspen")),
 	)
 	c.Cluster = clusterKV
 

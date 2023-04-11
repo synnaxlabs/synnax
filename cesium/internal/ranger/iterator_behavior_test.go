@@ -26,7 +26,7 @@ var _ = Describe("Iterator Behavior", func() {
 	AfterEach(func() { Expect(db.Close()).To(Succeed()) })
 	Describe("Valid", func() {
 		It("Should return false on an iterator with zero span bounds", func() {
-			r := db.NewIterator(ctx, ranger.IteratorConfig{
+			r := db.NewIterator(ranger.IteratorConfig{
 				Bounds: (10 * telem.SecondTS).SpanRange(0),
 			})
 			Expect(r.Valid()).To(BeFalse())
@@ -43,8 +43,8 @@ var _ = Describe("Iterator Behavior", func() {
 				expectedResult bool,
 				expectedFirst telem.TimeRange,
 			) {
-				r := db.NewIterator(ctx, ranger.IterRange(ts.SpanRange(telem.TimeSpanMax)))
-				Expect(r.SeekFirst()).To(Equal(expectedResult))
+				r := db.NewIterator(ranger.IterRange(ts.SpanRange(telem.TimeSpanMax)))
+				Expect(r.SeekFirst(ctx)).To(Equal(expectedResult))
 				if expectedResult {
 					Expect(r.Range()).To(Equal(expectedFirst))
 				}
@@ -85,8 +85,8 @@ var _ = Describe("Iterator Behavior", func() {
 				expectedLast telem.TimeRange,
 			) {
 				tr := telem.TimeRange{Start: 0, End: ts}
-				r := db.NewIterator(ctx, ranger.IterRange(tr))
-				Expect(r.SeekLast()).To(Equal(expectedResult))
+				r := db.NewIterator(ranger.IterRange(tr))
+				Expect(r.SeekLast(ctx)).To(Equal(expectedResult))
 				Expect(r.Range()).To(Equal(expectedLast))
 			},
 			Entry("Bound end equal to range end",
@@ -119,10 +119,10 @@ var _ = Describe("Iterator Behavior", func() {
 		})
 		Context("Forward", func() {
 			It("Should return false when the iterator is exhausted", func() {
-				iter := db.NewIterator(ctx, ranger.IteratorConfig{
+				iter := db.NewIterator(ranger.IteratorConfig{
 					Bounds: (15 * telem.SecondTS).SpanRange(45 * telem.Second),
 				})
-				Expect(iter.SeekFirst()).To(BeTrue())
+				Expect(iter.SeekFirst(ctx)).To(BeTrue())
 				Expect(iter.Range()).To(Equal((10 * telem.SecondTS).SpanRange(10 * telem.Second)))
 				Expect(iter.Next()).To(BeTrue())
 				Expect(iter.Range()).To(Equal((30 * telem.SecondTS).SpanRange(10 * telem.Second)))
@@ -133,10 +133,10 @@ var _ = Describe("Iterator Behavior", func() {
 		})
 		Context("Reverse", func() {
 			It("Should return false when the iterator is exhausted", func() {
-				iter := db.NewIterator(ctx, ranger.IteratorConfig{
+				iter := db.NewIterator(ranger.IteratorConfig{
 					Bounds: (15 * telem.SecondTS).SpanRange(45 * telem.Second),
 				})
-				Expect(iter.SeekLast()).To(BeTrue())
+				Expect(iter.SeekLast(ctx)).To(BeTrue())
 				Expect(iter.Range()).To(Equal((50 * telem.SecondTS).SpanRange(10 * telem.Second)))
 				Expect(iter.Prev()).To(BeTrue())
 				Expect(iter.Range()).To(Equal((30 * telem.SecondTS).SpanRange(10 * telem.Second)))

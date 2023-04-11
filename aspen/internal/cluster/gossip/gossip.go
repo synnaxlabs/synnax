@@ -53,7 +53,7 @@ func (g *Gossip) GoGossip(ctx signal.Context) {
 }
 
 func (g *Gossip) GossipOnce(ctx context.Context) (err error) {
-	ctx, span := alamos.Trace(ctx, "gossip-client", alamos.DebugLevel)
+	ctx, span := g.T.Trace(ctx, "gossip-client", alamos.DebugLevel)
 	snap := g.Store.CopyState()
 	peer := RandomPeer(snap.Nodes, snap.HostID)
 	g.incrementHostHeartbeat()
@@ -84,7 +84,7 @@ func (g *Gossip) incrementHostHeartbeat() {
 }
 
 func (g *Gossip) process(ctx context.Context, msg Message) (Message, error) {
-	ctx, span := alamos.Trace(ctx, "gossip-server", alamos.DebugLevel)
+	ctx, span := g.T.Trace(ctx, "gossip-server", alamos.DebugLevel)
 	defer span.End()
 	switch msg.variant() {
 	case messageVariantSync:

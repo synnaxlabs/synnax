@@ -39,7 +39,7 @@ services:
     image: 'uptrace/uptrace-dev:latest'
     restart: on-failure
     volumes:
-      - uptrace_data:/var/lib/uptrace
+      - ./data/uptrace:/var/lib/uptrace
       - ./uptrace.yaml:/etc/uptrace/uptrace.yml
     ports:
       - '14317:14317'

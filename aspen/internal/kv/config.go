@@ -54,6 +54,7 @@ type Config struct {
 	RecoveryThreshold int
 }
 
+// Override implements config.Config.
 func (cfg Config) Override(other Config) Config {
 	cfg.Cluster = override.Nil(cfg.Cluster, other.Cluster)
 	cfg.BatchTransportClient = override.Nil(cfg.BatchTransportClient, other.BatchTransportClient)
@@ -65,13 +66,14 @@ func (cfg Config) Override(other Config) Config {
 	cfg.Engine = override.Nil(cfg.Engine, other.Engine)
 	cfg.GossipInterval = override.Numeric(cfg.GossipInterval, other.GossipInterval)
 	cfg.RecoveryThreshold = override.Numeric(cfg.RecoveryThreshold, other.RecoveryThreshold)
-	cfg.Instrumentation = override.Nil(cfg.Instrumentation, other.Instrumentation)
+	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
 	return cfg
 }
 
+// Validate implements config.Config.
 func (cfg Config) Validate() error {
 	v := validate.New("db")
-	validate.NotNil(v, "cluster", cfg.Cluster)
+	validate.NotNil(v, "Cluster", cfg.Cluster)
 	validate.NotNil(v, "BatchTransportClient", cfg.BatchTransportClient)
 	validate.NotNil(v, "BatchTransportServer", cfg.BatchTransportServer)
 	validate.NotNil(v, "FeedbackTransportClient", cfg.FeedbackTransportClient)
@@ -82,6 +84,7 @@ func (cfg Config) Validate() error {
 	return v.Error()
 }
 
+// Report implements alamos.ReportProvider.
 func (cfg Config) Report() alamos.Report {
 	report := make(alamos.Report)
 	report["recoveryThreshold"] = cfg.RecoveryThreshold
@@ -95,6 +98,7 @@ func (cfg Config) Report() alamos.Report {
 	return report
 }
 
+// DefaultConfig is the default configuration for the key-value service.
 var DefaultConfig = Config{
 	GossipInterval:    1 * time.Second,
 	RecoveryThreshold: 5,

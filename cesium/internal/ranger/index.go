@@ -23,7 +23,7 @@ type index struct {
 		sync.RWMutex
 		pointers []pointer
 	}
-	observer observe.Observer[indexUpdate]
+	observe.Observer[indexUpdate]
 }
 
 type indexUpdate struct {
@@ -31,9 +31,6 @@ type indexUpdate struct {
 }
 
 var _ observe.Observable[indexUpdate] = (*index)(nil)
-
-// OnChange implements the Observable interface.
-func (idx *index) OnChange(f func(update indexUpdate)) { idx.observer.OnChange(f) }
 
 // insert adds a new pointer to the index.
 func (idx *index) insert(ctx context.Context, p pointer) error {
@@ -52,13 +49,13 @@ func (idx *index) insert(ctx context.Context, p pointer) error {
 			i, overlap := idx.unprotectedSearch(p.TimeRange)
 			if overlap {
 				idx.mu.RUnlock()
-				return ErrRangeOverlap
+				return span.EndWith(ErrRangeOverlap)
 			}
 			insertAt = i + 1
 		}
 	}
 	idx.mu.RUnlock()
-	idx.insertAt(insertAt, p)
+	idx.insertAt(ctx, insertAt, p)
 	return nil
 }
 
@@ -82,7 +79,7 @@ func (idx *index) update(ctx context.Context, p pointer) (err error) {
 		updateAt, _ = idx.unprotectedSearch(p.Start.SpanRange(0))
 	}
 	idx.mu.RUnlock()
-	return span.EndWith(idx.updateAt(updateAt, p))
+	return span.EndWith(idx.updateAt(ctx, updateAt, p))
 }
 
 func (idx *index) afterLast(ts telem.TimeStamp) bool {
@@ -93,8 +90,8 @@ func (idx *index) beforeFirst(ts telem.TimeStamp) bool {
 	return ts.Before(idx.mu.pointers[0].Start)
 }
 
-func (idx *index) insertAt(i int, p pointer) {
-	idx.modifyAfter(i, func() {
+func (idx *index) insertAt(ctx context.Context, i int, p pointer) {
+	idx.modifyAfter(ctx, i, func() {
 		if i == 0 {
 			idx.mu.pointers = append([]pointer{p}, idx.mu.pointers...)
 		} else if i == len(idx.mu.pointers) {
@@ -105,8 +102,8 @@ func (idx *index) insertAt(i int, p pointer) {
 	})
 }
 
-func (idx *index) updateAt(i int, p pointer) (err error) {
-	idx.modifyAfter(i, func() {
+func (idx *index) updateAt(ctx context.Context, i int, p pointer) (err error) {
+	idx.modifyAfter(ctx, i, func() {
 		oldP := idx.mu.pointers[i]
 		if oldP.Start != p.Start {
 			err = RangeNotFound
@@ -120,24 +117,27 @@ func (idx *index) updateAt(i int, p pointer) (err error) {
 	return
 }
 
-func (idx *index) modifyAfter(i int, f func()) {
+func (idx *index) modifyAfter(ctx context.Context, i int, f func()) {
 	update := indexUpdate{afterIndex: i}
 	defer func() {
-		idx.observer.Notify(update)
+		idx.Observer.Notify(ctx, update)
 	}()
 	idx.mu.Lock()
 	defer idx.mu.Unlock()
 	f()
 }
 
-func (idx *index) searchLE(ts telem.TimeStamp) (i int) {
+func (idx *index) searchLE(ctx context.Context, ts telem.TimeStamp) (i int) {
+	_, span := idx.T.Trace(ctx, "searchLE", alamos.DebugLevel)
 	idx.read(func() {
 		i, _ = idx.unprotectedSearch(ts.SpanRange(0))
 	})
+	span.End()
 	return
 }
 
-func (idx *index) searchGE(ts telem.TimeStamp) (i int) {
+func (idx *index) searchGE(ctx context.Context, ts telem.TimeStamp) (i int) {
+	_, span := idx.T.Trace(ctx, "searchGE", alamos.DebugLevel)
 	idx.read(func() {
 		var exact bool
 		i, exact = idx.unprotectedSearch(ts.SpanRange(0))
@@ -149,6 +149,7 @@ func (idx *index) searchGE(ts telem.TimeStamp) (i int) {
 			}
 		}
 	})
+	span.End()
 	return
 }
 

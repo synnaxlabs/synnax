@@ -192,7 +192,7 @@ func (w *streamWriter) commit(ctx context.Context) (err error) {
 	end.Lower++
 	c := errutil.NewCatch(errutil.WithAggregation())
 	for _, chW := range w.internal {
-		c.Exec(func() error { return chW.CommitWithEnd(end.Lower) })
+		c.Exec(func() error { return chW.CommitWithEnd(ctx, end.Lower) })
 	}
 	w.err = c.Error()
 	return

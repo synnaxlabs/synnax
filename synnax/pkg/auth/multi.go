@@ -35,10 +35,10 @@ func (a MultiAuthenticator) Authenticate(ctx context.Context, creds InsecureCred
 }
 
 // NewWriter implements the Authenticator interface.
-func (a MultiAuthenticator) NewWriter(txn gorp.WriteTxn) Writer {
+func (a MultiAuthenticator) NewWriter(x gorp.Tx) Writer {
 	var w multiWriter
 	for _, auth := range a {
-		w = append(w, auth.NewWriter(txn))
+		w = append(w, auth.NewWriter(x))
 	}
 	return w
 }
@@ -47,11 +47,12 @@ type multiWriter []Writer
 
 // Register implements the Authenticator interface.
 func (w multiWriter) Register(
+	ctx context.Context,
 	creds InsecureCredentials,
 ) error {
 	var err error
 	for _, auth := range w {
-		if err = auth.Register(creds); err == nil {
+		if err = auth.Register(ctx, creds); err == nil {
 			return nil
 		}
 	}
@@ -60,12 +61,13 @@ func (w multiWriter) Register(
 
 // UpdateUsername implements the Authenticator interface.
 func (w multiWriter) UpdateUsername(
+	ctx context.Context,
 	creds InsecureCredentials,
 	newUser string,
 ) error {
 	var err error
 	for _, auth := range w {
-		if err = auth.UpdateUsername(creds, newUser); err == nil {
+		if err = auth.UpdateUsername(ctx, creds, newUser); err == nil {
 			return nil
 		}
 	}
@@ -74,12 +76,13 @@ func (w multiWriter) UpdateUsername(
 
 // UpdatePassword implements the Authenticator interface.
 func (w multiWriter) UpdatePassword(
+	ctx context.Context,
 	creds InsecureCredentials,
 	newPass password.Raw,
 ) error {
 	var err error
 	for _, auth := range w {
-		if err = auth.UpdatePassword(creds, newPass); err == nil {
+		if err = auth.UpdatePassword(ctx, creds, newPass); err == nil {
 			return nil
 		}
 	}

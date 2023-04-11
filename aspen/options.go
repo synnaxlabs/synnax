@@ -53,7 +53,7 @@ type options struct {
 	transport struct {
 		Transport
 		// external is a boolean flag indicating whether the caller provided an
-		// external transport that they control themselves.
+		// external transport they control themselves.
 		external bool
 	}
 }
@@ -165,10 +165,10 @@ func mergeDefaultOptions(o *options) {
 	o.kv = def.kv.Override(o.kv)
 	o.cluster = def.cluster.Override(o.cluster)
 	o.transport.Transport = override.Nil(def.transport.Transport, o.transport.Transport)
-	o.cluster.Instrumentation = o.Instrumentation
+	o.cluster.Instrumentation = o.Instrumentation.Sub("cluster")
+	o.kv.Instrumentation = o.Instrumentation.Sub("kv")
 	o.cluster.HostAddress = o.addr
 	o.cluster.Pledge.Peers = o.peerAddresses
-	o.kv.Instrumentation = o.Instrumentation
 	// If we're bootstrapping these options are ignored.
 	if o.bootstrap {
 		o.peerAddresses = []address.Address{}

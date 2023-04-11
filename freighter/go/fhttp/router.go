@@ -31,12 +31,14 @@ type RouterConfig struct {
 
 var _ config.Config[RouterConfig] = RouterConfig{}
 
+// Validate implements config.Config.
 func (r RouterConfig) Validate() error {
 	return nil
 }
 
+// Override implements config.Config.
 func (r RouterConfig) Override(other RouterConfig) RouterConfig {
-	r.Instrumentation = override.Nil(r.Instrumentation, other.Instrumentation)
+	r.Instrumentation = override.Zero(r.Instrumentation, other.Instrumentation)
 	return r
 }
 

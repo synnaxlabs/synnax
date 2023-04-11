@@ -21,7 +21,6 @@ import (
 
 type Writer struct {
 	Channel    core.Channel
-	ctx        context.Context
 	internal   *ranger.Writer
 	start      telem.TimeStamp
 	idx        index.Index
@@ -37,7 +36,7 @@ func Write(ctx context.Context, db *DB, start telem.TimeStamp, arr telem.Array) 
 	if err = w.Write(arr); err != nil {
 		return err
 	}
-	_, err = w.Commit()
+	_, err = w.Commit(ctx)
 	return err
 }
 
@@ -62,23 +61,23 @@ func (w *Writer) updateHwm(arr telem.Array) {
 }
 
 // Commit commits the written Array to the database.
-func (w *Writer) Commit() (telem.TimeStamp, error) {
+func (w *Writer) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	if w.Channel.IsIndex {
-		return w.commitWithEnd(w.hwm + 1)
+		return w.commitWithEnd(ctx, w.hwm+1)
 	}
-	return w.commitWithEnd(telem.TimeStamp(0))
+	return w.commitWithEnd(ctx, telem.TimeStamp(0))
 }
 
-func (w *Writer) CommitWithEnd(end telem.TimeStamp) (err error) {
-	_, err = w.commitWithEnd(end)
+func (w *Writer) CommitWithEnd(ctx context.Context, end telem.TimeStamp) (err error) {
+	_, err = w.commitWithEnd(ctx, end)
 	return err
 }
 
-func (w *Writer) commitWithEnd(end telem.TimeStamp) (telem.TimeStamp, error) {
+func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.TimeStamp, error) {
 	if end.IsZero() {
 		// we're using w.numWritten - 1 here because we want the timestamp of the last
 		// written frame.
-		approx, err := w.idx.Stamp(w.ctx, w.start, w.numWritten-1, true)
+		approx, err := w.idx.Stamp(ctx, w.start, w.numWritten-1, true)
 		if err != nil {
 			return 0, err
 		}
@@ -88,7 +87,7 @@ func (w *Writer) commitWithEnd(end telem.TimeStamp) (telem.TimeStamp, error) {
 		// Add 1 to the end timestamp because the end timestamp is exclusive.
 		end = approx.Lower + 1
 	}
-	return end, w.internal.Commit(end)
+	return end, w.internal.Commit(ctx, end)
 }
 
 func (w *Writer) Close() error { return w.internal.Close() }

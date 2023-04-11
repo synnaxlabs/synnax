@@ -86,33 +86,31 @@ type HostResolver interface {
 // cluster state from storage (see Config.Storage and Config.StorageKey).
 // If provisioning a new cluster, ensure that all storage for previous clusters
 // is removed and provide no peers.
-func Open(ctx context.Context, cfgs ...Config) (Cluster, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+func Open(ctx context.Context, configs ...Config) (Cluster, error) {
+	cfg, err := newConfig(configs)
 	if err != nil {
 		return nil, err
 	}
-	store_ := store.New()
-	cfg.Gossip.Store = store_
-	cfg.Pledge.Candidates = func() node.Group { return store_.CopyState().Nodes }
+
+	sCtx, cancel := signal.WithCancel(cfg.T.Transfer(ctx, context.Background()))
+
+	c := &cluster{
+		Store:    cfg.Gossip.Store,
+		shutdown: signal.NewShutdown(sCtx, cancel),
+		Config:   cfg,
+	}
 
 	// Attempt to open the cluster store from kv. It's ok if we don't find it.
 	state, err := tryLoadPersistedState(ctx, cfg)
 	if err != nil && !errors.Is(err, kv.NotFound) {
 		return nil, err
 	}
-	store_.SetState(state)
+	c.Store.SetState(state)
 
-	sCtx, cancel := signal.WithCancel(alamos.TransferTrace(ctx, context.Background()))
-
-	c := &cluster{
-		Store:    store_,
-		shutdown: signal.NewShutdown(sCtx, cancel),
-		Config:   cfg,
-	}
+	c.gossip, err = gossip.New(c.Gossip)
 	if err != nil {
 		return nil, err
 	}
-	c.gossip, err = gossip.New(c.Gossip)
 
 	c.R.Attach("cluster", c, alamos.InfoLevel)
 	c.L.Info("beginning cluster startup", c.Report().ZapFields()...)
@@ -204,18 +202,6 @@ func (c *cluster) Close() error {
 	return c.shutdown.Close()
 }
 
-func tryLoadPersistedState(ctx context.Context, cfg Config) (store.State, error) {
-	var state store.State
-	if cfg.Storage == nil {
-		return state, nil
-	}
-	encoded, err := cfg.Storage.Get(ctx, cfg.StorageKey)
-	if err != nil {
-		return state, lo.Ternary(errors.Is(err, kv.NotFound), nil, err)
-	}
-	return state, cfg.EncoderDecoder.Decode(ctx, encoded, &state)
-}
-
 func (c *cluster) gossipInitialState(ctx context.Context) error {
 	nextAddr := iter.Endlessly(c.Pledge.Peers)
 	for peerAddr := nextAddr(); peerAddr != ""; peerAddr = nextAddr() {
@@ -252,4 +238,29 @@ func (c *cluster) goFlushStore(ctx signal.Context) {
 			return ctx.Err()
 		}, signal.WithKey("flush"))
 	}
+}
+
+func tryLoadPersistedState(ctx context.Context, cfg Config) (store.State, error) {
+	var state store.State
+	if cfg.Storage == nil {
+		return state, nil
+	}
+	encoded, err := cfg.Storage.Get(ctx, cfg.StorageKey)
+	if err != nil {
+		return state, lo.Ternary(errors.Is(err, kv.NotFound), nil, err)
+	}
+	return state, cfg.EncoderDecoder.Decode(ctx, encoded, &state)
+}
+
+func newConfig(configs []Config) (Config, error) {
+	cfg, err := config.New(DefaultConfig, configs...)
+	if err != nil {
+		return Config{}, err
+	}
+	store_ := store.New()
+	cfg.Gossip.Store = store_
+	cfg.Pledge.Candidates = func() node.Group { return store_.CopyState().Nodes }
+	cfg.Gossip.Instrumentation = cfg.Instrumentation.Sub("gossip")
+	cfg.Pledge.Instrumentation = cfg.Instrumentation.Sub("pledge")
+	return cfg, nil
 }

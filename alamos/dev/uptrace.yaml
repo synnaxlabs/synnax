@@ -22,8 +22,8 @@ projects:
     group_by_env: false
     group_funcs_by_service: false
   - id: 2
-    name: My project
-    token: project2_secret_token
+    name: Synnax Dev
+    token: synnax_dev
     pinned_attrs:
       - service
       - host.name

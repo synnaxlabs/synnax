@@ -18,21 +18,21 @@ import (
 )
 
 // KV is a simple key-value backed Authenticator. It saves data to the provided
-// gorp DB. It's important to note that all gorp.txn(s) provided to the Authenticator
+// gorp DB. It's important to note that all gorp.tx(s) provided to the Authenticator
 // interface must be spawned from the same gorp DB.
 type KV struct{ DB *gorp.DB }
 
 var _ Authenticator = (*KV)(nil)
 var _ Authenticator = (*KV)(nil)
 
-// Authenticate implements the Authenticator interface.
+// Authenticate Authenticator.
 func (db *KV) Authenticate(ctx context.Context, creds InsecureCredentials) error {
 	_, err := db.authenticate(ctx, creds)
 	return err
 }
 
 func (db *KV) authenticate(ctx context.Context, creds InsecureCredentials) (SecureCredentials, error) {
-	secureCreds, err := db.retrieve(db.DB.ReadTxn(ctx), creds.Username)
+	secureCreds, err := db.retrieve(ctx, db.DB, creds.Username)
 	if err != nil {
 		if err == query.NotFound {
 			return secureCreds, InvalidCredentials
@@ -42,30 +42,31 @@ func (db *KV) authenticate(ctx context.Context, creds InsecureCredentials) (Secu
 	return secureCreds, secureCreds.Password.Validate(creds.Password)
 }
 
-func (db *KV) NewWriter(txn gorp.WriteTxn) Writer { return &kvWriter{kv: db, txn: txn} }
+// NewWriter implements Authenticator.
+func (db *KV) NewWriter(tx gorp.Tx) Writer { return &kvWriter{service: db, tx: db.DB.OverrideTx(tx)} }
 
-func (db *KV) exists(txn gorp.Tx, user string) (bool, error) {
+func (db *KV) exists(ctx context.Context, tx gorp.Tx, user string) (bool, error) {
 	return gorp.NewRetrieve[string, SecureCredentials]().
 		WhereKeys(user).
-		Exists(txn)
+		Exists(ctx, gorp.OverrideTx(db.DB, tx))
 }
 
-func (db *KV) retrieve(txn gorp.Tx, user string) (SecureCredentials, error) {
+func (db *KV) retrieve(ctx context.Context, tx gorp.Tx, user string) (SecureCredentials, error) {
 	var creds SecureCredentials
 	return creds, gorp.NewRetrieve[string, SecureCredentials]().
 		WhereKeys(user).
 		Entry(&creds).
-		Exec(txn)
+		Exec(ctx, gorp.OverrideTx(db.DB, tx))
 }
 
 type kvWriter struct {
-	kv  *KV
-	txn gorp.WriteTxn
+	service *KV
+	tx      gorp.Tx
 }
 
-// Register implements the sec.authenticator interface.
-func (w *kvWriter) Register(creds InsecureCredentials) error {
-	err := w.checkUsernameExists(creds.Username)
+// Register implements Authenticator.
+func (w *kvWriter) Register(ctx context.Context, creds InsecureCredentials) error {
+	err := w.checkUsernameExists(ctx, creds.Username)
 	if err != nil {
 		return err
 	}
@@ -74,33 +75,25 @@ func (w *kvWriter) Register(creds InsecureCredentials) error {
 	if err != nil {
 		return err
 	}
-	return w.set(sec)
+	return w.set(ctx, sec)
 }
 
-// UpdateUsername implements the sec.authenticator interface.
-func (w *kvWriter) UpdateUsername(creds InsecureCredentials, newUser string) error {
-	secureCreds, err := w.kv.authenticate(w.txn.Context(), creds)
+// UpdateUsername implements Authenticator.
+func (w *kvWriter) UpdateUsername(ctx context.Context, creds InsecureCredentials, newUser string) error {
+	secureCreds, err := w.service.authenticate(ctx, creds)
 	if err != nil {
 		return err
 	}
-	if err = w.checkUsernameExists(newUser); err != nil {
+	if err = w.checkUsernameExists(ctx, newUser); err != nil {
 		return err
 	}
 	secureCreds.Username = newUser
-	return w.set(secureCreds)
+	return w.set(ctx, secureCreds)
 }
 
-func (w *kvWriter) checkUsernameExists(user string) error {
-	exists, err := w.kv.exists(w.txn, user)
-	if exists {
-		return errors.New("[auth] - username already registered")
-	}
-	return err
-}
-
-// UpdatePassword implements the sec.authenticator interface.
-func (w *kvWriter) UpdatePassword(creds InsecureCredentials, newPass password.Raw) error {
-	secureCreds, err := w.kv.authenticate(w.txn.Context(), creds)
+// UpdatePassword implements Authenticator.
+func (w *kvWriter) UpdatePassword(ctx context.Context, creds InsecureCredentials, newPass password.Raw) error {
+	secureCreds, err := w.service.authenticate(ctx, creds)
 	if err != nil {
 		return err
 	}
@@ -108,9 +101,17 @@ func (w *kvWriter) UpdatePassword(creds InsecureCredentials, newPass password.Ra
 	if err != nil {
 		return err
 	}
-	return w.set(secureCreds)
+	return w.set(ctx, secureCreds)
 }
 
-func (w *kvWriter) set(creds SecureCredentials) error {
-	return gorp.NewCreate[string, SecureCredentials]().Entry(&creds).Exec(w.txn)
+func (w *kvWriter) set(ctx context.Context, creds SecureCredentials) error {
+	return gorp.NewCreate[string, SecureCredentials]().Entry(&creds).Exec(ctx, w.tx)
+}
+
+func (w *kvWriter) checkUsernameExists(ctx context.Context, user string) error {
+	exists, err := w.service.exists(ctx, w.tx, user)
+	if exists {
+		return errors.New("[auth] - username already registered")
+	}
+	return err
 }
