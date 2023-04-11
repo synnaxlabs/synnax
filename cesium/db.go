@@ -51,12 +51,12 @@ type DB interface {
 // Readable is a DB that can read data.
 type Readable interface {
 	Read(ctx context.Context, tr telem.TimeRange, keys ...string) (Frame, error)
-	NewIterator(ctx context.Context, cfg IteratorConfig) (Iterator, error)
+	NewIterator(cfg IteratorConfig) (Iterator, error)
 	StreamIterable
 }
 
 type StreamIterable interface {
-	NewStreamIterator(ctx context.Context, cfg IteratorConfig) (StreamIterator, error)
+	NewStreamIterator(cfg IteratorConfig) (StreamIterator, error)
 }
 
 // Writable is a DB that can write data.
@@ -108,7 +108,7 @@ func (db *cesium) WriteArray(ctx context.Context, start telem.TimeStamp, key str
 
 // Read implements DB.
 func (db *cesium) Read(ctx context.Context, tr telem.TimeRange, keys ...string) (frame Frame, err error) {
-	iter, err := db.NewIterator(ctx, IteratorConfig{Channels: keys, Bounds: tr})
+	iter, err := db.NewIterator(IteratorConfig{Channels: keys, Bounds: tr})
 	if err != nil {
 		return
 	}

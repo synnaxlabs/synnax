@@ -50,7 +50,7 @@ var _ = Describe("Iterator Behavior", func() {
 			Expect(indexDB.Close()).To(Succeed())
 		})
 		Describe("Forward Exhaustion", func() {
-			FSpecify("Single Range", func() {
+			Specify("Single Range", func() {
 				Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15))).To(Succeed())
 				Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewArrayV[int64](1, 2, 3, 4, 5, 6))).To(Succeed())
 				iter := db.NewIterator(unary.IterRange((5 * telem.SecondTS).SpanRange(10 * telem.Second)))
