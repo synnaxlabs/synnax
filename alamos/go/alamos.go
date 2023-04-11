@@ -15,6 +15,25 @@ type sub[L any] interface {
 	sub(meta InstrumentationMeta) L
 }
 
+// Instrumentation is the alamos core data type, and represents a collection of
+// instrumentation tools: a logger, a tracer, and a reporter.
+//
+// The zero-value represents a no-op instrumentation that does no logging, tracing,
+// or reporting. As a result, we recommend embedding Instrumentation within the configs
+// of your services, like the following:
+//
+//	type MyServiceConfig struct {
+//		alamos.Instrumentation
+//	     ...other fields
+//	}
+//
+// This provides access to instrumentation tools directly in the config:
+//
+//	cfg := MyServiceConfig{}
+//	// cfg.L is a no-op logger
+//	cfg.L.Debug("hello world")
+//
+// To instantiate the config with instrumentation, use the alamos.New function:
 type Instrumentation struct {
 	meta InstrumentationMeta
 	// L is the Logger used by this instrumentation.
@@ -25,6 +44,7 @@ type Instrumentation struct {
 	R *Reporter
 }
 
+// IsZero returns true if the instrumentation is the zero value for its type.
 func (i Instrumentation) IsZero() bool { return i.meta.IsZero() }
 
 func (i Instrumentation) Sub(key string) Instrumentation {
@@ -65,15 +85,15 @@ func WithTracer(tracer *Tracer) Option {
 	}
 }
 
-func WithLogger(logger *Logger) Option {
-	return func(ins *Instrumentation) {
-		ins.L = logger
-	}
-}
-
 func WithReports(reports *Reporter) Option {
 	return func(ins *Instrumentation) {
 		ins.R = reports
+	}
+}
+
+func WithLogger(logger *Logger) Option {
+	return func(ins *Instrumentation) {
+		ins.L = logger
 	}
 }
 

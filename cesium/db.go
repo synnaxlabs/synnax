@@ -62,7 +62,7 @@ type StreamIterable interface {
 // Writable is a DB that can write data.
 type Writable interface {
 	Write(ctx context.Context, start telem.TimeStamp, frame Frame) error
-	WriteArray(start telem.TimeStamp, key string, arr telem.Array) error
+	WriteArray(ctx context.Context, start telem.TimeStamp, key string, arr telem.Array) error
 	NewWriter(ctx context.Context, cfg WriterConfig) (Writer, error)
 	StreamWritable
 }
@@ -90,7 +90,7 @@ var _ DB = (*cesium)(nil)
 
 // Write implements DB.
 func (db *cesium) Write(ctx context.Context, start telem.TimeStamp, frame Frame) error {
-	_, span := alamos.Trace(ctx, "write", alamos.DebugLevel)
+	_, span := db.T.Trace(ctx, "write", alamos.DebugLevel)
 	defer span.End()
 	w, err := db.NewWriter(ctx, WriterConfig{Start: start, Channels: frame.Keys()})
 	if err != nil {

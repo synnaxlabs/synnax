@@ -12,6 +12,7 @@ package observe
 import (
 	"context"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/kv"
 	"go.uber.org/zap"
@@ -19,16 +20,14 @@ import (
 	"time"
 )
 
-// |||||| FLUSH ||||||
-
-// FlushSubscriber is used to flush an observable whose contents implement
-//
-//	the kv.Flusher interface.
+// FlushSubscriber is used to flush an observable that flushes changes
+// to an underlying key-value store.
 type FlushSubscriber[S any] struct {
+	alamos.Instrumentation
 	// Key is the key to flush the contents of the observable into.
 	Key []byte
 	// Store is the store to flush the contents of the observable into.
-	Store kv.Writeable
+	Store kv.Writer
 	// MinInterval specifies the minimum interval between flushes. If the observable
 	// updates more quickly than min interval, the FlushSubscriber will not flush the
 	// contents.
@@ -37,8 +36,6 @@ type FlushSubscriber[S any] struct {
 	LastFlush time.Time
 	// Encoder is the encoder to use when flushing the contents of the state
 	Encoder binary.Encoder
-	// Logger is the witness of it all.
-	Logger *zap.SugaredLogger
 	// mu is used to prevent multiple flushes from racing over each other.
 	mu sync.Mutex
 }
@@ -54,8 +51,9 @@ func (f *FlushSubscriber[S]) Flush(ctx context.Context, state S) {
 	go f.FlushSync(ctx, state)
 }
 
+// FlushSync synchronously flushes the givens tate to the store.
 func (f *FlushSubscriber[S]) FlushSync(ctx context.Context, state S) {
-	if err := kv.Set(ctx, f.Store, f.Key, lo.Must(f.Encoder.Encode(nil, state))); err != nil {
-		f.Logger.Errorw("failed to flush", "err", err)
+	if err := f.Store.Set(ctx, f.Key, lo.Must(f.Encoder.Encode(nil, state))); err != nil {
+		f.L.Error("failed to flush", zap.Error(err))
 	}
 }

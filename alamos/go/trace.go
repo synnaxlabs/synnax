@@ -3,7 +3,6 @@ package alamos
 import (
 	"context"
 	"fmt"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errutil"
 	"github.com/synnaxlabs/x/override"
@@ -12,30 +11,6 @@ import (
 	oteltrace "go.opentelemetry.io/otel/trace"
 	"runtime/pprof"
 )
-
-var nopTracer = &Tracer{}
-
-// Trace starts a new span with the given insKey. If the context already contains a span,
-// the new span will be a child of the existing span. If the context does not contain
-// a span, a no-op span will be returned.
-func Trace(ctx context.Context, key string, level Level) (context.Context, Span) {
-	return extract(ctx).T.Trace(ctx, key, level)
-}
-
-// TransferTrace transfers the trace from the source context to the target context.
-// TransferTrace should be used sparingly, and is typically only used when preventing
-// the propagation of context cancellation but the preservation of tracing:
-//
-//	def myFunc(ctx context.Context) {
-//		// Transfer the trace so the given context cant be used for cancellation,
-//		ctx = alamos.TransferTrace(ctx, context.Background())
-//		// Will never return.
-//		<-ctx.Done()
-//	}
-func TransferTrace(source context.Context, target context.Context) context.Context {
-	ins := extract(source)
-	return lo.Ternary(ins.IsZero(), attach(target, ins), target)
-}
 
 // Span is a span in a trace.
 type Span interface {
@@ -52,21 +27,23 @@ type Span interface {
 }
 
 type TracingConfig struct {
-	Otel       oteltrace.Tracer
+	Provider   oteltrace.TracerProvider
 	Propagator propagation.TextMapPropagator
 }
 
 var _ config.Config[TracingConfig] = (*TracingConfig)(nil)
 
+// Validate implements config.Config.
 func (c TracingConfig) Validate() error {
 	v := validate.New("alamos.TracingConfig")
-	validate.NotNil(v, "Otel", c.Otel)
+	validate.NotNil(v, "Provider", c.Provider)
 	validate.NotNil(v, "Propagator", c.Propagator)
 	return v.Error()
 }
 
+// Override implements config.Config.
 func (c TracingConfig) Override(other TracingConfig) TracingConfig {
-	c.Otel = override.Nil(c.Otel, other.Otel)
+	c.Provider = override.Nil(c.Provider, other.Provider)
 	c.Propagator = override.Nil(c.Propagator, other.Propagator)
 	return c
 }
@@ -84,15 +61,6 @@ func NewTracer(configs ...TracingConfig) (*Tracer, error) {
 	return &Tracer{config: cfg}, nil
 }
 
-var _ sub[*Tracer] = (*Tracer)(nil)
-
-func (t *Tracer) sub(meta InstrumentationMeta) *Tracer {
-	if t == nil {
-		return nil
-	}
-	return &Tracer{meta: meta, config: t.config}
-}
-
 func (t *Tracer) Trace(ctx context.Context, key string, level Level) (context.Context, Span) {
 	if t == nil || !t.meta.Filter(level, key) {
 		return ctx, nopSpan{}
@@ -102,11 +70,34 @@ func (t *Tracer) Trace(ctx context.Context, key string, level Level) (context.Co
 	ctx = pprof.WithLabels(ctx, pprof.Labels("routine", key))
 	pprof.SetGoroutineLabels(ctx)
 
-	ctx, otel := t.config.Otel.Start(ctx, fmt.Sprintf("%s.%s", t.meta.Key, key))
+	ctx, otel := t.config.Provider.Tracer(t.meta.Key).Start(ctx, fmt.Sprintf("%s.%s", t.meta.Key, key))
 	return ctx, span{
 		pprofEnd: func() { pprof.SetGoroutineLabels(ctx) },
 		otel:     otel,
 	}
+}
+
+// Transfer transfers the trace from the source context to the target context.
+// Transfer should be used sparingly, and is typically only used when preventing
+// the propagation of context cancellation but the preservation of tracing:
+//
+//	def myFunc(ctx context.Context) {
+//		// Transfer the trace so the given context cant be used for cancellation,
+//		ctx = alamos.Transfer(ctx, context.Background())
+//		// Will never return.
+//		<-ctx.Done()
+//	}
+func (t *Tracer) Transfer(source, target context.Context) context.Context {
+	return oteltrace.ContextWithSpan(target, oteltrace.SpanFromContext(source))
+}
+
+var _ sub[*Tracer] = (*Tracer)(nil)
+
+func (t *Tracer) sub(meta InstrumentationMeta) *Tracer {
+	if t == nil {
+		return nil
+	}
+	return &Tracer{meta: meta, config: t.config}
 }
 
 type span struct {

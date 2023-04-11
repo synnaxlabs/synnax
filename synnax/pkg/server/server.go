@@ -85,7 +85,7 @@ func (c Config) Override(other Config) Config {
 	c.Security.TLS = override.Nil(c.Security.TLS, other.Security.TLS)
 	c.Branches = override.Slice(c.Branches, other.Branches)
 	c.Debug = override.Nil(c.Debug, other.Debug)
-	c.Instrumentation = override.Nil(c.Instrumentation, other.Instrumentation)
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
 

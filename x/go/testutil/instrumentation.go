@@ -1,8 +1,10 @@
 package testutil
 
 import (
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/git"
 	"github.com/synnaxlabs/x/override"
 	"github.com/uptrace/uptrace-go/uptrace"
 	"go.opentelemetry.io/otel"
@@ -45,14 +47,16 @@ func serviceName() string {
 	return host
 }
 
+const devDSN = "http://project2_secret_token@localhost:14317/2"
+
 func newTracer(serviceName string) *alamos.Tracer {
 	uptrace.ConfigureOpentelemetry(
-		uptrace.WithDSN("https://Q8rwNMXo9z91P2PhDyUVng@uptrace.dev/1614"),
+		uptrace.WithDSN(devDSN),
 		uptrace.WithServiceName(serviceName),
-		uptrace.WithServiceVersion("1.0.0"),
+		uptrace.WithServiceVersion(lo.Must(git.CurrentCommit())),
 	)
 	return MustSucceed(alamos.NewTracer(alamos.TracingConfig{
-		Otel:       otel.Tracer(""),
+		Provider:   otel.GetTracerProvider(),
 		Propagator: otel.GetTextMapPropagator(),
 	}))
 }

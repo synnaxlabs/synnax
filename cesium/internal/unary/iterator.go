@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/ranger"
 	"github.com/synnaxlabs/x/telem"
-	"go.uber.org/zap"
 	"io"
 )
 
@@ -25,7 +24,6 @@ type Iterator struct {
 	alamos.Instrumentation
 	IteratorConfig
 	Channel  core.Channel
-	ctx      context.Context
 	internal *ranger.Iterator
 	view     telem.TimeRange
 	frame    core.Frame
@@ -47,52 +45,38 @@ func (i *Iterator) Value() core.Frame { return i.frame }
 
 func (i *Iterator) View() telem.TimeRange { return i.view }
 
-func (i *Iterator) SeekFirst() bool {
-	i.log("unary seek first")
-	ok := i.internal.SeekFirst()
+func (i *Iterator) SeekFirst(ctx context.Context) bool {
+	ok := i.internal.SeekFirst(ctx)
 	i.seekReset(i.internal.Range().Start)
-	i.log("unary seek first done", zap.Bool("ok", ok))
 	return ok
 }
 
-func (i *Iterator) SeekLast() bool {
-	i.log("unary seek first")
-	ok := i.internal.SeekLast()
+func (i *Iterator) SeekLast(ctx context.Context) bool {
+	ok := i.internal.SeekLast(ctx)
 	i.seekReset(i.internal.Range().End)
-	i.log("unary seek first done", zap.Bool("ok", ok))
 	return ok
 }
 
-func (i *Iterator) SeekLE(ts telem.TimeStamp) bool {
-	i.log("unary seek le", zap.Stringer("ts", ts))
+func (i *Iterator) SeekLE(ctx context.Context, ts telem.TimeStamp) bool {
 	i.seekReset(ts)
-	ok := i.internal.SeekLE(ts)
-	i.log("unary seek le done", zap.Bool("ok", ok))
-	return ok
+	return i.internal.SeekLE(ctx, ts)
 }
 
-func (i *Iterator) SeekGE(ts telem.TimeStamp) bool {
-	i.log("unary seek ge", zap.Stringer("ts", ts))
+func (i *Iterator) SeekGE(ctx context.Context, ts telem.TimeStamp) bool {
 	i.seekReset(ts)
-	ok := i.internal.SeekGE(ts)
-	i.log("unary seek ge done", zap.Stringer("ts", ts))
-	return ok
+	return i.internal.SeekGE(ctx, ts)
 }
 
-func (i *Iterator) Next(span telem.TimeSpan) (ok bool) {
-	i.log("unary next", zap.Stringer("span", span))
-	defer func() {
-		ok = i.Valid()
-		i.log("unary next done", zap.Bool("ok", ok))
-	}()
-
+func (i *Iterator) Next(ctx context.Context, span telem.TimeSpan) (ok bool) {
+	ctx, span_ := i.T.Trace(ctx, "Next", alamos.DebugLevel)
+	defer span_.End()
 	if i.atEnd() {
 		i.reset(i.bounds.End.SpanRange(0))
 		return
 	}
 
 	if span == AutoSpan {
-		return i.autoNext()
+		return i.autoNext(ctx)
 	}
 
 	i.reset(i.view.End.SpanRange(span).BoundBy(i.bounds))
@@ -101,25 +85,25 @@ func (i *Iterator) Next(span telem.TimeSpan) (ok bool) {
 		return
 	}
 
-	i.accumulate()
+	i.accumulate(ctx)
 	if i.satisfied() || i.err != nil {
 		return
 	}
 
-	for i.internal.Next() && i.accumulate() {
+	for i.internal.Next() && i.accumulate(ctx) {
 	}
 	return
 }
 
-func (i *Iterator) autoNext() bool {
+func (i *Iterator) autoNext(ctx context.Context) bool {
 	i.view.Start = i.view.End
-	endApprox, err := i.idx.Stamp(i.ctx, i.view.Start, i.IteratorConfig.AutoChunkSize, false)
+	endApprox, err := i.idx.Stamp(ctx, i.view.Start, i.IteratorConfig.AutoChunkSize, false)
 	if err != nil {
 		i.err = err
 		return false
 	}
 	if endApprox.Lower.After(i.bounds.End) {
-		return i.Next(i.view.Start.Span(i.bounds.End))
+		return i.Next(ctx, i.view.Start.Span(i.bounds.End))
 	}
 	i.view.End = endApprox.Lower
 	i.reset(i.view.BoundBy(i.bounds))
@@ -132,13 +116,17 @@ func (i *Iterator) autoNext() bool {
 			}
 			continue
 		}
-		startApprox, err := i.approximateStart()
+		startApprox, err := i.approximateStart(ctx)
 		if err != nil {
 			i.err = err
 			return false
 		}
 		startOffset := i.Channel.DataType.Density().Size(startApprox.Upper)
-		arr, n, err := i.read(startOffset, i.Channel.DataType.Density().Size(nRemaining))
+		arr, n, err := i.read(
+			ctx,
+			startOffset,
+			i.Channel.DataType.Density().Size(nRemaining),
+		)
 		nRead := i.Channel.DataType.Density().SampleCount(telem.Size(n))
 		nRemaining -= arr.Len()
 		if err != nil && !errors.Is(err, io.EOF) {
@@ -156,13 +144,9 @@ func (i *Iterator) autoNext() bool {
 	return i.partiallySatisfied()
 }
 
-func (i *Iterator) Prev(span telem.TimeSpan) (ok bool) {
-	i.log("unary prev", zap.Stringer("span", span))
-	defer func() {
-		ok = i.Valid()
-		i.log("unary prev done", zap.Stringer("span", span), zap.Bool("ok", ok))
-	}()
-
+func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
+	ctx, span_ := i.T.Trace(ctx, "Prev", alamos.DebugLevel)
+	defer span_.End()
 	if i.atStart() {
 		i.reset(i.bounds.Start.SpanRange(0))
 		return
@@ -174,12 +158,12 @@ func (i *Iterator) Prev(span telem.TimeSpan) (ok bool) {
 		return
 	}
 
-	i.accumulate()
+	i.accumulate(ctx)
 	if i.satisfied() || i.err != nil {
 		return
 	}
 
-	for i.internal.Prev() && i.accumulate() {
+	for i.internal.Prev() && i.accumulate(ctx) {
 	}
 	return
 }
@@ -199,16 +183,16 @@ func (i *Iterator) Close() error {
 	return i.internal.Close()
 }
 
-func (i *Iterator) accumulate() bool {
+func (i *Iterator) accumulate(ctx context.Context) bool {
 	if !i.internal.Range().OverlapsWith(i.view) {
 		return false
 	}
-	start, size, err := i.sliceRange()
+	start, size, err := i.sliceRange(ctx)
 	if err != nil {
 		i.err = err
 		return false
 	}
-	arr, _, err := i.read(start, size)
+	arr, _, err := i.read(ctx, start, size)
 	if err != nil && !errors.Is(err, io.EOF) {
 		i.err = err
 		return false
@@ -228,11 +212,11 @@ func (i *Iterator) insert(arr telem.Array) {
 	}
 }
 
-func (i *Iterator) read(start telem.Offset, size telem.Size) (arr telem.Array, n int, err error) {
+func (i *Iterator) read(ctx context.Context, start telem.Offset, size telem.Size) (arr telem.Array, n int, err error) {
 	arr.DataType = i.Channel.DataType
 	arr.TimeRange = i.internal.Range().BoundBy(i.view)
 	arr.Data = make([]byte, size)
-	r, err := i.internal.NewReader()
+	r, err := i.internal.NewReader(ctx)
 	if err != nil {
 		return
 	}
@@ -246,12 +230,12 @@ func (i *Iterator) read(start telem.Offset, size telem.Size) (arr telem.Array, n
 	return
 }
 
-func (i *Iterator) sliceRange() (telem.Offset, telem.Size, error) {
-	startApprox, err := i.approximateStart()
+func (i *Iterator) sliceRange(ctx context.Context) (telem.Offset, telem.Size, error) {
+	startApprox, err := i.approximateStart(ctx)
 	if err != nil {
 		return 0, 0, err
 	}
-	endApprox, err := i.approximateEnd()
+	endApprox, err := i.approximateEnd(ctx)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -263,10 +247,10 @@ func (i *Iterator) sliceRange() (telem.Offset, telem.Size, error) {
 // approximateStart approximates the number of samples between the start of the current
 // range and the start of the current iterator view. If the start of the current view is
 // before the start of the range, the returned value will be zero.
-func (i *Iterator) approximateStart() (startApprox index.DistanceApproximation, err error) {
+func (i *Iterator) approximateStart(ctx context.Context) (startApprox index.DistanceApproximation, err error) {
 	if i.internal.Range().Start.Before(i.view.Start) {
 		target := i.internal.Range().Start.Range(i.view.Start)
-		startApprox, err = i.idx.Distance(i.ctx, target, true)
+		startApprox, err = i.idx.Distance(ctx, target, true)
 	}
 	return
 }
@@ -275,11 +259,11 @@ func (i *Iterator) approximateStart() (startApprox index.DistanceApproximation, 
 // range and the end of the current iterator view. If the end of the current view is
 // after the end of the range, the returned value will be the number of samples in the
 // range.
-func (i *Iterator) approximateEnd() (endApprox index.DistanceApproximation, err error) {
+func (i *Iterator) approximateEnd(ctx context.Context) (endApprox index.DistanceApproximation, err error) {
 	endApprox = index.Exactly(i.Channel.DataType.Density().SampleCount(telem.Size(i.internal.Len())))
 	if i.internal.Range().End.After(i.view.End) {
 		target := i.internal.Range().Start.Range(i.view.End)
-		endApprox, err = i.idx.Distance(i.ctx, target, true)
+		endApprox, err = i.idx.Distance(ctx, target, true)
 	}
 	return
 }
@@ -308,12 +292,3 @@ func (i *Iterator) seekReset(ts telem.TimeStamp) {
 func (i *Iterator) atStart() bool { return i.view.Start == i.bounds.Start }
 
 func (i *Iterator) atEnd() bool { return i.view.End == i.bounds.End }
-
-func (i *Iterator) log(msg string, fields ...zap.Field) {
-	i.L.Debug(msg, append(
-		fields,
-		zap.String("channel", i.Channel.Key),
-		zap.Stringer("view", i.view),
-		alamos.DebugError(i.err),
-	)...)
-}

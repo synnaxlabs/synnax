@@ -74,7 +74,7 @@ func start(cmd *cobra.Command) {
 	// permission mask for all files appropriately.
 	disablePermissionBits()
 
-	sCtx, cancel := xsignal.WithCancel(cmd.Context())
+	sCtx, cancel := xsignal.WithCancel(cmd.Context(), xsignal.WithInstrumentation(ins))
 	defer cancel()
 
 	// Perform the rest of the startup within a separate goroutine so we can properly
@@ -118,15 +118,15 @@ func start(cmd *cobra.Command) {
 
 		// Configure the API core.
 		_api := api.New(api.Config{
-			Instrumentation: ins,
+			Instrumentation: ins.Sub("api"),
+			Authenticator:   authenticator,
+			Enforcer:        access.AllowAll{},
+			Insecure:        insecure,
 			Channel:         dist.Channel,
 			Framer:          dist.Framer,
 			Storage:         dist.Storage,
 			User:            userSvc,
 			Token:           tokenSvc,
-			Authenticator:   authenticator,
-			Enforcer:        access.AllowAll{},
-			Insecure:        insecure,
 			Cluster:         dist.Cluster,
 			Ontology:        dist.Ontology,
 		})
@@ -249,11 +249,11 @@ func maybeProvisionRootUser(
 	if err != nil || exists {
 		return err
 	}
-	return db.WithTx(ctx, func(txn gorp.WriteTxn) error {
-		if err = authSvc.NewWriter(txn).Register(creds); err != nil {
+	return db.WithTx(ctx, func(tx gorp.Tx) error {
+		if err = authSvc.NewWriter(tx).Register(ctx, creds); err != nil {
 			return err
 		}
-		return userSvc.NewWriter(txn).Create(&user.User{Username: creds.Username})
+		return userSvc.NewWriter(tx).Create(ctx, &user.User{Username: creds.Username})
 	})
 }
 

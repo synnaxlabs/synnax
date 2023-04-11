@@ -311,6 +311,6 @@ func openTS(cfg Config, fs xfs.FS) (TS, error) {
 	return cesium.Open(
 		dirname,
 		cesium.WithFS(fs),
-		cesium.WithInstrumentation(cfg.Instrumentation),
+		cesium.WithInstrumentation(cfg.Instrumentation.Sub("cesium")),
 	)
 }

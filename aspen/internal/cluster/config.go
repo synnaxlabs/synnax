@@ -53,6 +53,7 @@ type Config struct {
 
 var _ config.Config[Config] = Config{}
 
+// Override implements config.Config.
 func (cfg Config) Override(other Config) Config {
 	cfg.HostAddress = override.String(cfg.HostAddress, other.HostAddress)
 	cfg.EncoderDecoder = override.Nil(cfg.EncoderDecoder, other.EncoderDecoder)
@@ -60,13 +61,12 @@ func (cfg Config) Override(other Config) Config {
 	cfg.StorageKey = override.Slice(cfg.StorageKey, other.StorageKey)
 	cfg.Storage = override.Nil(cfg.Storage, other.Storage)
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
-	cfg.Gossip.Instrumentation = cfg.Instrumentation
-	cfg.Pledge.Instrumentation = cfg.Instrumentation
 	cfg.Gossip = cfg.Gossip.Override(other.Gossip)
 	cfg.Pledge = cfg.Pledge.Override(other.Pledge)
 	return cfg
 }
 
+// Validate implements config.Config.
 func (cfg Config) Validate() error {
 	v := validate.New("cluster")
 	validate.NotEmptyString(v, "HostAddress", cfg.HostAddress)

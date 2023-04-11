@@ -12,10 +12,9 @@ package aspen
 import (
 	"context"
 	"github.com/cockroachdb/pebble"
-	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/alamos/falamos"
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/kv"
+	"github.com/synnaxlabs/freighter/falamos"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/kv/pebblekv"
 	"github.com/synnaxlabs/x/signal"
@@ -60,12 +59,15 @@ func openStorageEngine(opts *options) error {
 }
 
 func configureTransport(ctx context.Context, o *options) (io.Closer, error) {
-	sCtx, cancel := signal.WithCancel(alamos.TransferTrace(ctx, context.Background()))
+	sCtx, cancel := signal.WithCancel(
+		o.T.Transfer(ctx, context.Background()),
+		signal.WithInstrumentation(o.Instrumentation),
+	)
 	transportShutdown := signal.NewShutdown(sCtx, cancel)
 	if err := o.transport.Configure(sCtx, o.addr, o.transport.external); err != nil {
 		return transportShutdown, err
 	}
-	mw, err := falamos.New(falamos.Config{Instrumentation: o.Instrumentation})
+	mw, err := falamos.Middleware(falamos.Config{Instrumentation: o.Instrumentation})
 	if err != nil {
 		return transportShutdown, err
 	}

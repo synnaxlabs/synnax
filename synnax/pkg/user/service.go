@@ -22,9 +22,9 @@ type Service struct {
 	Ontology *ontology.Ontology
 }
 
-func (s *Service) NewWriter(txn gorp.WriteTxn) Writer {
+func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		txn:     txn,
+		tx:      gorp.OverrideTx(s.DB, tx),
 		Service: s,
 	}
 }
@@ -34,7 +34,7 @@ func (s *Service) Retrieve(ctx context.Context, key uuid.UUID) (User, error) {
 	return u, gorp.NewRetrieve[uuid.UUID, User]().
 		WhereKeys(key).
 		Entry(&u).
-		Exec(s.DB.ReadTxn(ctx))
+		Exec(ctx, s.DB)
 }
 
 func (s *Service) RetrieveByUsername(ctx context.Context, username string) (User, error) {
@@ -42,7 +42,7 @@ func (s *Service) RetrieveByUsername(ctx context.Context, username string) (User
 	return u, gorp.NewRetrieve[uuid.UUID, User]().
 		Where(func(u *User) bool { return u.Username == username }).
 		Entry(&u).
-		Exec(s.DB.ReadTxn(ctx))
+		Exec(ctx, s.DB)
 }
 
 func (s *Service) UsernameExists(ctx context.Context, username string) (bool, error) {
@@ -50,21 +50,20 @@ func (s *Service) UsernameExists(ctx context.Context, username string) (bool, er
 	return gorp.NewRetrieve[uuid.UUID, User]().
 		Where(func(u *User) bool { return u.Username == username }).
 		Entry(&u).
-		Exists(s.DB.ReadTxn(ctx))
+		Exists(ctx, s.DB)
 }
 
 type Writer struct {
-	txn gorp.WriteTxn
+	tx gorp.Tx
 	*Service
 }
 
-func (w Writer) Create(u *User) error {
-
+func (w Writer) Create(ctx context.Context, u *User) error {
 	if u.Key == uuid.Nil {
 		u.Key = uuid.New()
 	}
 
-	exists, err := w.UsernameExists(w.txn.Context(), u.Username)
+	exists, err := w.UsernameExists(ctx, u.Username)
 	if err != nil {
 		return err
 	}
@@ -72,14 +71,14 @@ func (w Writer) Create(u *User) error {
 		return query.UniqueViolation
 	}
 
-	if err = w.Ontology.OpenWriter(w.txn).
-		DefineResource(OntologyID(u.Key)); err != nil {
+	if err = w.Ontology.OpenWriter(w.tx).
+		DefineResource(ctx, OntologyID(u.Key)); err != nil {
 		return err
 	}
 
-	return gorp.NewCreate[uuid.UUID, User]().Entry(u).Exec(w.txn)
+	return gorp.NewCreate[uuid.UUID, User]().Entry(u).Exec(ctx, w.tx)
 }
 
-func (w Writer) Update(u User) error {
-	return gorp.NewCreate[uuid.UUID, User]().Entry(&u).Exec(w.txn)
+func (w Writer) Update(ctx context.Context, u User) error {
+	return gorp.NewCreate[uuid.UUID, User]().Entry(&u).Exec(ctx, w.tx)
 }

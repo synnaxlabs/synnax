@@ -6,26 +6,34 @@ import (
 	"go.uber.org/zap"
 )
 
+// LoggerConfig is the config for a Logger.
 type LoggerConfig struct {
+	// Zap sets the underlying zap.Logger. If nil, a no-op logger is used.
 	Zap *zap.Logger
 }
 
 var (
-	_                   config.Config[LoggerConfig] = LoggerConfig{}
-	DefaultLoggerConfig                             = LoggerConfig{}
+	_ config.Config[LoggerConfig] = LoggerConfig{}
+	// DefaultLoggerConfig is the default config for a Logger.
+	DefaultLoggerConfig = LoggerConfig{}
 )
 
+// Validate implements config.Config.
 func (c LoggerConfig) Validate() error { return nil }
 
+// Override implements config.Config.
 func (c LoggerConfig) Override(other LoggerConfig) LoggerConfig {
 	c.Zap = override.Nil(c.Zap, other.Zap)
 	return c
 }
 
+// Logger provides logging functionality. It's an enhanced wrapper around a zap.Logger
+// that provides no-lop logging when nil.
 type Logger struct {
 	zap *zap.Logger
 }
 
+// NewLogger creates a new Logger with the given configuration.
 func NewLogger(configs ...LoggerConfig) (*Logger, error) {
 	cfg, err := config.New(DefaultLoggerConfig, configs...)
 	if err != nil {

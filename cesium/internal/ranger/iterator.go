@@ -10,6 +10,7 @@
 package ranger
 
 import (
+	"context"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -38,6 +39,7 @@ func IterRange(tr telem.TimeRange) IteratorConfig { return IteratorConfig{Bounds
 // This means that the position of an iterator may shift unexpectedly. There are plans
 // to implement MVCC in the future, but until then you have been warned.
 type Iterator struct {
+	IteratorConfig
 	alamos.Instrumentation
 	// position stores the current position of the iterator in the idx. NOTE: At the
 	// moment, this position may not hold a consistent reference to the same value
@@ -45,99 +47,100 @@ type Iterator struct {
 	position int
 	// idx is the index that the iterator is iterating over.
 	idx *index
-	// bounds stores the bounds of the iterator.
-	bounds telem.TimeRange
 	// value stores the current value of the iterator. This value is only valid if
 	// the iterator is valid.
 	value pointer
 	// valid stores whether the iterator is currently valid.
-	valid         bool
-	readerFactory func(ptr pointer) (*Reader, error)
+	valid bool
+	// readerFactory gets a new reader for the given range pointer.
+	readerFactory func(ctx context.Context, ptr pointer) (*Reader, error)
 }
 
 // SetBounds sets the iterator's bounds. The iterator is invalidated, and will not be
 // valid until a seeking call is made.
-func (it *Iterator) SetBounds(bounds telem.TimeRange) {
-	it.bounds = bounds
-	it.valid = false
+func (i *Iterator) SetBounds(bounds telem.TimeRange) {
+	i.Bounds = bounds
+	i.valid = false
 }
 
 // SeekFirst seeks to the first range in the iterator's bounds. If no such range exists,
 // SeekFirst returns false.
-func (it *Iterator) SeekFirst() bool { return it.SeekGE(it.bounds.Start) }
+func (i *Iterator) SeekFirst(ctx context.Context) bool { return i.SeekGE(ctx, i.Bounds.Start) }
 
 // SeekLast seeks to the last range in the iterator's bounds. If no such range exists,
 // SeekLast returns false.
-func (it *Iterator) SeekLast() bool { return it.SeekLE(it.bounds.End - 1) }
+func (i *Iterator) SeekLast(ctx context.Context) bool { return i.SeekLE(ctx, i.Bounds.End-1) }
 
 // SeekLE seeks to the range whose Range contain the provided timestamp. If no such range
 // exists, SeekLE seeks to the closes range whose ending timestamp is less than the provided
 // timestamp. If no such range exists, SeekLE returns false.
-func (it *Iterator) SeekLE(stamp telem.TimeStamp) bool {
-	it.valid = true
-	it.position = it.idx.searchLE(stamp)
-	return it.reload()
+func (i *Iterator) SeekLE(ctx context.Context, stamp telem.TimeStamp) bool {
+	i.valid = true
+	i.position = i.idx.searchLE(ctx, stamp)
+	return i.reload()
 }
 
 // SeekGE seeks to the range whose Range contain the provided timestamp. If no such range
 // exists, SeekGE seeks to the closes range whose starting timestamp is greater than the
 // provided timestamp. If no such range exists, SeekGE returns false.
-func (it *Iterator) SeekGE(stamp telem.TimeStamp) bool {
-	it.valid = true
-	it.position = it.idx.searchGE(stamp)
-	return it.reload()
+func (i *Iterator) SeekGE(ctx context.Context, stamp telem.TimeStamp) bool {
+	i.valid = true
+	i.position = i.idx.searchGE(ctx, stamp)
+	return i.reload()
 }
 
 // Next advances the iterator to the next range. If the iterator has been exhausted, Next
 // returns false.
-func (it *Iterator) Next() bool {
-	if !it.valid {
+func (i *Iterator) Next() bool {
+	if !i.valid {
 		return false
 	}
-	it.position++
-	return it.reload()
+	i.position++
+	return i.reload()
 }
 
 // Prev advances the iterator to the previous range. If the iterator has been exhausted,
 // Prev returns false.
-func (it *Iterator) Prev() bool {
-	if !it.valid {
+func (i *Iterator) Prev() bool {
+	if !i.valid {
 		return false
 	}
-	it.position--
-	return it.reload()
+	i.position--
+	return i.reload()
 }
 
 // Valid returns true if the iterator is currently pointing to a valid range and has
 // not accumulated an error. Returns false otherwise.
-func (it *Iterator) Valid() bool { return it.valid }
+func (i *Iterator) Valid() bool { return i.valid }
 
 // Range returns the time interval occupied by current range.
-func (it *Iterator) Range() telem.TimeRange { return it.value.TimeRange }
+func (i *Iterator) Range() telem.TimeRange { return i.value.TimeRange }
 
 // NewReader returns a new Reader that can be used to read telemetry from the current
 // range. The returned Reader is not safe for concurrent use, but it is safe to have
 // multiple Readers open over the same range.
-func (it *Iterator) NewReader() (*Reader, error) { return it.readerFactory(it.value) }
+func (i *Iterator) NewReader(ctx context.Context) (*Reader, error) {
+	return i.readerFactory(ctx, i.value)
+}
 
 // Len returns the number of bytes occupied by the telemetry in the current range.
-func (it *Iterator) Len() int64 { return int64(it.value.length) }
+func (i *Iterator) Len() int64 { return int64(i.value.length) }
 
 // Close closes the iterator.
-func (it *Iterator) Close() error { return nil }
+func (i *Iterator) Close() error { return nil }
 
-func (it *Iterator) reload() bool {
-	if it.position == -1 {
-		it.valid = false
-		return it.valid
+func (i *Iterator) reload() bool {
+	if i.position == -1 {
+		i.valid = false
+		return i.valid
 	}
-	ptr, ok := it.idx.get(it.position)
-	if !ok || !ptr.OverlapsWith(it.bounds) {
-		it.valid = false
-		// it's important that we return here, so we don't clear the current value
+	ptr, ok := i.idx.get(i.position)
+	if !ok || !ptr.OverlapsWith(i.Bounds) {
+		i.valid = false
+		// i's important that we return here, so we don't clear the current value
 		// of the iterator.
-		return it.valid
+		return i.valid
 	}
-	it.value = ptr
-	return it.valid
+	i.value = ptr
+	return i.valid
 }

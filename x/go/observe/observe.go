@@ -9,23 +9,25 @@
 
 package observe
 
+import "context"
+
 // Observable is an interface that represents an entity whose state can be observed.
 type Observable[T any] interface {
 	// OnChange is called when the state of the observable changes.
-	OnChange(handler func(T))
+	OnChange(handler func(context.Context, T))
 }
 
 // Observer is an interface that can notify subscribers of changes to an observable.
 type Observer[T any] interface {
 	Observable[T]
 	// Notify notifies all subscribers of the Value.
-	Notify(T)
+	Notify(context.Context, T)
 	// GoNotify starts a goroutine to notify all subscribers of the Value.
-	GoNotify(T)
+	GoNotify(context.Context, T)
 }
 
 type base[T any] struct {
-	handlers []func(T)
+	handlers []func(context.Context, T)
 }
 
 // New creates a new observer with the given options.
@@ -34,16 +36,16 @@ func New[T any]() Observer[T] {
 }
 
 // OnChange implements the Observable interface.
-func (b *base[T]) OnChange(handler func(T)) {
+func (b *base[T]) OnChange(handler func(context.Context, T)) {
 	b.handlers = append(b.handlers, handler)
 }
 
 // Notify implements the Observer interface.
-func (b *base[T]) Notify(v T) {
+func (b *base[T]) Notify(ctx context.Context, v T) {
 	for _, handler := range b.handlers {
-		handler(v)
+		handler(ctx, v)
 	}
 }
 
 // GoNotify implements the Observer interface.
-func (b *base[T]) GoNotify(v T) { go b.Notify(v) }
+func (b *base[T]) GoNotify(ctx context.Context, v T) { go b.Notify(ctx, v) }

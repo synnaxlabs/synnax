@@ -53,7 +53,7 @@ func Write(ctx context.Context, db *DB, tr telem.TimeRange, data []byte) error {
 	if _, err = w.Write(data); err != nil {
 		return err
 	}
-	if err = w.Commit( /* ignored */ 0); err != nil {
+	if err = w.Commit(ctx /* ignored */, 0); err != nil {
 		return err
 	}
 	return w.Close()
@@ -76,8 +76,7 @@ func Write(ctx context.Context, db *DB, tr telem.TimeRange, data []byte) error {
 // iterators open concurrently over the same DB.
 type Writer struct {
 	alamos.Instrumentation
-	ctx        context.Context
-	cfg        WriterConfig
+	WriterConfig
 	prevCommit telem.TimeStamp
 	idx        *index
 	fileKey    uint16
@@ -100,17 +99,16 @@ func (w *Writer) Write(p []byte) (n int, err error) { return w.internal.Write(p)
 // commit, Commit will return an error. If the range formed by the WriterConfig.Start
 // and the provided timestamp overlaps with any other ranges within the DB, Commit will
 // return an error.
-func (w *Writer) Commit(end telem.TimeStamp) error {
-	ctx, span := w.T.Trace(w.ctx, "commit", alamos.DebugLevel)
-	defer span.End()
-	if !w.cfg.End.IsZero() {
-		end = w.cfg.End
+func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp) error {
+	ctx, span := w.T.Trace(ctx, "commit", alamos.DebugLevel)
+	if !w.End.IsZero() {
+		end = w.End
 	}
 	if err := w.validateCommitRange(end); err != nil {
-		return err
+		return span.EndWith(err)
 	}
 	ptr := pointer{
-		TimeRange: telem.TimeRange{Start: w.cfg.Start, End: end},
+		TimeRange: telem.TimeRange{Start: w.Start, End: end},
 		offset:    uint32(w.internal.Offset()),
 		length:    uint32(w.internal.Len()),
 		fileKey:   w.fileKey,
@@ -129,7 +127,7 @@ func (w *Writer) validateCommitRange(end telem.TimeStamp) error {
 	if !w.prevCommit.IsZero() && end.Before(w.prevCommit) {
 		return errors.Wrap(validate.Error, "commit timestamp must be strictly greater than the previous commit")
 	}
-	if !w.cfg.Start.Before(end) {
+	if !w.Start.Before(end) {
 		return errors.Wrap(validate.Error, "commit timestamp must be strictly greater than the starting timestamp")
 	}
 	return nil

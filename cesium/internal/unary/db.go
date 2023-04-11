@@ -42,7 +42,7 @@ func (db *DB) SetIndex(idx index.Index) { db._idx = idx }
 
 func (db *DB) NewWriter(ctx context.Context, cfg ranger.WriterConfig) (*Writer, error) {
 	w, err := db.Ranger.NewWriter(ctx, cfg)
-	return &Writer{ctx: ctx, start: cfg.Start, Channel: db.Channel, internal: w, idx: db.index()}, err
+	return &Writer{start: cfg.Start, Channel: db.Channel, internal: w, idx: db.index()}, err
 }
 
 type IteratorConfig struct {
@@ -71,11 +71,10 @@ func (i IteratorConfig) ranger() ranger.IteratorConfig {
 	return ranger.IteratorConfig{Bounds: i.Bounds}
 }
 
-func (db *DB) NewIterator(ctx context.Context, cfg IteratorConfig) *Iterator {
+func (db *DB) NewIterator(cfg IteratorConfig) *Iterator {
 	cfg = DefaultIteratorConfig.Override(cfg)
-	iter := db.Ranger.NewIterator(ctx, cfg.ranger())
+	iter := db.Ranger.NewIterator(cfg.ranger())
 	i := &Iterator{
-		ctx:            ctx,
 		idx:            db.index(),
 		Channel:        db.Channel,
 		internal:       iter,

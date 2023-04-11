@@ -43,7 +43,7 @@ var _ = Describe("WriterBehavior", func() {
 					ranger.WriterConfig{
 						Start: 10 * telem.SecondTS,
 					}))
-				Expect(w.Commit(15 * telem.SecondTS)).To(Succeed())
+				Expect(w.Commit(ctx, 15*telem.SecondTS)).To(Succeed())
 				Expect(w.Close()).To(Succeed())
 				_, err := db.NewWriter(ctx, ranger.WriterConfig{
 					Start: 10 * telem.SecondTS,
@@ -59,7 +59,7 @@ var _ = Describe("WriterBehavior", func() {
 					Start: 10 * telem.SecondTS,
 				}))
 				MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
-				Expect(w.Commit(20 * telem.SecondTS)).To(Succeed())
+				Expect(w.Commit(ctx, 20*telem.SecondTS)).To(Succeed())
 				Expect(w.Close()).To(Succeed())
 			})
 		})
@@ -69,13 +69,13 @@ var _ = Describe("WriterBehavior", func() {
 					Start: 10 * telem.SecondTS,
 				}))
 				MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
-				Expect(w.Commit(20 * telem.SecondTS)).To(Succeed())
+				Expect(w.Commit(ctx, 20*telem.SecondTS)).To(Succeed())
 				Expect(w.Close()).To(Succeed())
 				w = MustSucceed(db.NewWriter(ctx, ranger.WriterConfig{
 					Start: 4 * telem.SecondTS,
 				}))
 				MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
-				Expect(w.Commit(15 * telem.SecondTS)).To(HaveOccurredAs(ranger.ErrRangeOverlap))
+				Expect(w.Commit(ctx, 15*telem.SecondTS)).To(HaveOccurredAs(ranger.ErrRangeOverlap))
 				Expect(w.Close()).To(Succeed())
 			})
 		})
@@ -85,7 +85,7 @@ var _ = Describe("WriterBehavior", func() {
 					Start: 10 * telem.SecondTS,
 				}))
 				MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
-				Expect(w.Commit(5 * telem.SecondTS)).To(HaveOccurredAs(validate.Error))
+				Expect(w.Commit(ctx, 5*telem.SecondTS)).To(HaveOccurredAs(validate.Error))
 				Expect(w.Close()).To(Succeed())
 			})
 		})
@@ -95,13 +95,13 @@ var _ = Describe("WriterBehavior", func() {
 					Start: 10 * telem.SecondTS,
 				}))
 				MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
-				Expect(w.Commit(20 * telem.SecondTS)).To(Succeed())
+				Expect(w.Commit(ctx, 20*telem.SecondTS)).To(Succeed())
 				Expect(w.Close()).To(Succeed())
 				w = MustSucceed(db.NewWriter(ctx, ranger.WriterConfig{
 					Start: 20 * telem.SecondTS,
 				}))
 				MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
-				Expect(w.Commit(30 * telem.SecondTS)).To(Succeed())
+				Expect(w.Commit(ctx, 30*telem.SecondTS)).To(Succeed())
 				Expect(w.Close()).To(Succeed())
 			})
 		})
@@ -111,9 +111,9 @@ var _ = Describe("WriterBehavior", func() {
 					Start: 10 * telem.SecondTS,
 				}))
 				MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
-				Expect(w.Commit(20 * telem.SecondTS)).To(Succeed())
+				Expect(w.Commit(ctx, 20*telem.SecondTS)).To(Succeed())
 				MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
-				Expect(w.Commit(30 * telem.SecondTS)).To(Succeed())
+				Expect(w.Commit(ctx, 30*telem.SecondTS)).To(Succeed())
 				Expect(w.Close()).To(Succeed())
 			})
 			Context("Commit before previous commit", func() {
@@ -122,8 +122,8 @@ var _ = Describe("WriterBehavior", func() {
 						Start: 10 * telem.SecondTS,
 					}))
 					MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
-					Expect(w.Commit(15 * telem.SecondTS)).To(Succeed())
-					Expect(w.Commit(14 * telem.SecondTS)).To(HaveOccurredAs(validate.Error))
+					Expect(w.Commit(ctx, 15*telem.SecondTS)).To(Succeed())
+					Expect(w.Commit(ctx, 14*telem.SecondTS)).To(HaveOccurredAs(validate.Error))
 					Expect(w.Close()).To(Succeed())
 				})
 			})
@@ -144,7 +144,7 @@ var _ = Describe("WriterBehavior", func() {
 					go func(i int, w *ranger.Writer) {
 						defer wg.Done()
 						MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
-						errors[i] = w.Commit(15 * telem.SecondTS)
+						errors[i] = w.Commit(ctx, 15*telem.SecondTS)
 					}(i, w)
 				}
 				wg.Wait()

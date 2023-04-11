@@ -127,7 +127,7 @@ func (fc *fileController) newWriter(ctx context.Context) (*controlledWriter, err
 	fc.writers.Lock()
 	fc.writers.open = append(fc.writers.open, w)
 	fc.writers.Unlock()
-	return nil, err
+	return &w, err
 }
 
 func (fc *fileController) acquireReader(ctx context.Context, key uint16) (xio.ReaderAtCloser, error) {
