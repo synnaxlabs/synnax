@@ -86,4 +86,4 @@ func (s *service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{proxy: s.proxy, tx: s.DB.OverrideTx(tx)}
 }
 
-func (s *service) NewRetrieve() Retrieve { return NewRetrieve() }
+func (s *service) NewRetrieve() Retrieve { return newRetrieve(s.DB) }

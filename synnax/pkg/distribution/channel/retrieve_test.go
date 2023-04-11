@@ -16,19 +16,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
 	"github.com/synnaxlabs/x/telem"
-	"go.uber.org/zap"
 )
 
 var _ = Describe("getAttributes", Ordered, func() {
 	var (
 		services map[aspen.NodeID]channel.Service
 		builder  *mock.CoreBuilder
-		log      *zap.Logger
 	)
-	BeforeAll(func() {
-		log = zap.NewNop()
-		builder, services = provisionServices(log)
-	})
+	BeforeAll(func() { builder, services = provisionServices() })
 	AfterAll(func() {
 		Expect(builder.Close()).To(Succeed())
 		Expect(builder.Cleanup()).To(Succeed())

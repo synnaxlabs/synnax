@@ -27,8 +27,8 @@ type Retrieve struct {
 	keys Keys
 }
 
-func NewRetrieve() Retrieve {
-	return Retrieve{gorp: gorp.NewRetrieve[Key, Channel]()}
+func newRetrieve(tx gorp.Tx) Retrieve {
+	return Retrieve{gorp: gorp.NewRetrieve[Key, Channel](), tx: tx}
 }
 
 // Entry binds the Channel that Retrieve will fill results into. This is an identical
