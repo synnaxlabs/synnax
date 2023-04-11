@@ -42,7 +42,7 @@ func (sf *server) handle(ctx context.Context, server ServerStream) error {
 	receiver := &freightfluence.TransformReceiver[cesium.WriteRequest, Request]{Receiver: server}
 	receiver.Transform = newRequestTranslator()
 	sender := &freightfluence.TransformSender[cesium.WriteResponse, Response]{Sender: freighter.SenderNopCloser[Response]{StreamSender: server}}
-	sender.Transform = newResponseTranslator(sf.HostResolver.HostID())
+	sender.Transform = newResponseTranslator(sf.HostResolver.HostKey())
 
 	w, err := sf.TS.NewStreamWriter(req.Config.toStorage())
 	if err != nil {

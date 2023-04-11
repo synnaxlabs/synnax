@@ -39,7 +39,7 @@ var _ = Describe("ChannelReader", Ordered, func() {
 			res, err := svc.Create(context.TODO(), api.ChannelCreateRequest{
 				Channels: []api.Channel{{
 					Name:     "test",
-					NodeID:   1,
+					NodeKey:   1,
 					DataType: telem.Float64T,
 					Rate:     25 * telem.Hz,
 				}},
@@ -65,7 +65,7 @@ var _ = Describe("ChannelReader", Ordered, func() {
 		},
 			Entry("No Data Type", api.Channel{
 				Name:   "test",
-				NodeID: 1,
+				NodeKey: 1,
 				Rate:   25 * telem.Hz,
 			}, "channels[0].data_type", "required"),
 		)
@@ -85,7 +85,7 @@ var _ = Describe("ChannelReader", Ordered, func() {
 		})
 		It("Should retrieve channels by their node ID", func() {
 			res, err := svc.Retrieve(context.TODO(), api.ChannelRetrieveRequest{
-				NodeID: 1,
+				NodeKey: 1,
 			})
 			Expect(err).To(Equal(errors.Nil))
 			Expect(res.Channels).To(HaveLen(1))

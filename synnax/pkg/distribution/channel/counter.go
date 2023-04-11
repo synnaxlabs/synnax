@@ -10,10 +10,11 @@
 package channel
 
 import (
+	"strconv"
+
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/x/counter"
 	"github.com/synnaxlabs/x/kv"
-	"strconv"
 )
 
 const counterKey = ".distribution.channel.counter"
@@ -36,8 +37,8 @@ func (c *keyCounter) Value() uint16 { return uint16(c.internal.Value()) }
 
 func (c *keyCounter) Error() error { return c.err }
 
-func openCounter(nodeID dcore.NodeID, kve kv.DB) (counter.Uint16Error, error) {
-	c, err := kv.OpenCounter(kve, []byte(strconv.Itoa(int(nodeID))+counterKey))
+func openCounter(nodeKey dcore.NodeKey, kve kv.DB) (counter.Uint16Error, error) {
+	c, err := kv.OpenCounter(kve, []byte(strconv.Itoa(int(nodeKey))+counterKey))
 	if err != nil {
 		return nil, err
 	}

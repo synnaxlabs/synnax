@@ -21,7 +21,7 @@ import (
 
 var _ = Describe("getAttributes", Ordered, func() {
 	var (
-		services map[aspen.NodeID]channel.Service
+		services map[aspen.NodeKey]channel.Service
 		builder  *mock.CoreBuilder
 		log      *zap.Logger
 	)
@@ -54,7 +54,7 @@ var _ = Describe("getAttributes", Ordered, func() {
 
 			err = services[1].
 				NewRetrieve().
-				WhereNodeID(1).
+				WhereNodeKey(1).
 				Entries(&resChannels).
 				Exec(ctx)
 			Expect(err).ToNot(HaveOccurred())
@@ -65,7 +65,7 @@ var _ = Describe("getAttributes", Ordered, func() {
 
 				err = services[2].
 					NewRetrieve().
-					WhereNodeID(1).
+					WhereNodeKey(1).
 					Entries(&resChannelsTwo).
 					Exec(ctx)
 				g.Expect(err).ToNot(HaveOccurred())

@@ -19,7 +19,7 @@ const client = newClient();
 const newChannel = async (): Promise<Channel> => {
   return await client.channels.create({
     name: "test",
-    nodeId: 1,
+    nodeKey: 1,
     rate: Rate.hz(25),
     dataType: DataType.FLOAT64,
   });

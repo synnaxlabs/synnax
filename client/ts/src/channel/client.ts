@@ -40,7 +40,7 @@ export class Channel {
     dataType,
     rate,
     name = "",
-    nodeId = 0,
+    nodeKey = 0,
     key = "",
     density = 0,
     isIndex = false,
@@ -54,7 +54,7 @@ export class Channel {
       dataType: new DataType(dataType).valueOf(),
       rate: new Rate(rate ?? 0).valueOf(),
       name,
-      nodeId,
+      nodeKey,
       key,
       density: new Density(density).valueOf(),
       isIndex,
@@ -79,9 +79,9 @@ export class Channel {
     return this.payload.name;
   }
 
-  get nodeId(): number {
-    if (this.payload.nodeId === undefined) throw new Error("chanel nodeId is not set");
-    return this.payload.nodeId;
+  get nodeKey(): number {
+    if (this.payload.nodeKey === undefined) throw new Error("chanel nodeKey is not set");
+    return this.payload.nodeKey;
   }
 
   get rate(): Rate {
@@ -144,7 +144,7 @@ export class ChannelClient {
    * @param props.rate - The rate of the channel.
    * @param props.dataType - The data type of the channel.
    * @param props.name - The name of the channel. Optional.
-   * @param props.nodeId - The ID of the node that holds the lease on the
+   * @param props.nodeKey - The ID of the node that holds the lease on the
    *   channel. If you don't know what this is, don't worry about it.
    * @returns The created channel.
    */

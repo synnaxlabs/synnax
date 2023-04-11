@@ -11,6 +11,8 @@ package kv_test
 
 import (
 	"context"
+	"time"
+
 	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -22,7 +24,6 @@ import (
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
-	"time"
 )
 
 var _ = Describe("txn", func() {
@@ -121,7 +122,7 @@ var _ = Describe("txn", func() {
 					_, err = builder.New(kvCtx, kv.Config{}, cluster.Config{})
 					Expect(err).ToNot(HaveOccurred())
 					Expect(kv1.Set([]byte("key"), []byte("value"))).To(Succeed())
-					err = kv1.Set([]byte("key"), []byte("value2"), node.ID(2))
+					err = kv1.Set([]byte("key"), []byte("value2"), node.Key(2))
 					Expect(err).To(HaveOccurred())
 					Expect(errors.Is(err, kv.ErrLeaseNotTransferable)).To(BeTrue())
 				})
@@ -136,7 +137,7 @@ var _ = Describe("txn", func() {
 				kv2, err := builder.New(kvCtx, kv.Config{}, cluster.Config{})
 				Expect(err).ToNot(HaveOccurred())
 				waitForClusterStateToConverge(builder)
-				Expect(kv1.Set([]byte("key"), []byte("value"), node.ID(2))).To(Succeed())
+				Expect(kv1.Set([]byte("key"), []byte("value"), node.Key(2))).To(Succeed())
 				Eventually(func(g Gomega) {
 					v, err := kv2.Get([]byte("key"))
 					g.Expect(err).ToNot(HaveOccurred())
@@ -144,7 +145,7 @@ var _ = Describe("txn", func() {
 				}).Should(Succeed())
 			})
 
-			It("Should return an error if the lease option is not a node ID", func() {
+			It("Should return an error if the lease option is not a node Key", func() {
 				kv, err := builder.New(kvCtx, kv.Config{}, cluster.Config{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(kv.Set([]byte("key"), []byte("value"), "2")).To(HaveOccurred())
@@ -201,7 +202,7 @@ var _ = Describe("txn", func() {
 				kv2, err := builder.New(kvCtx, kv.Config{}, cluster.Config{})
 				Expect(err).ToNot(HaveOccurred())
 				waitForClusterStateToConverge(builder)
-				Expect(kv1.Set([]byte("key"), []byte("value"), node.ID(2))).To(Succeed())
+				Expect(kv1.Set([]byte("key"), []byte("value"), node.Key(2))).To(Succeed())
 				Eventually(func(g Gomega) {
 					v, err := kv2.Get([]byte("key"))
 					g.Expect(err).ToNot(HaveOccurred())

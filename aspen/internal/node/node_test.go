@@ -20,10 +20,10 @@ import (
 var _ = Describe("Node", func() {
 
 	Describe("Parse", func() {
-		It("Should parse the ID of a node from a string", func() {
-			id, err := node.ID(0).Parse("1")
+		It("Should parse the Key of a node from a string", func() {
+			id, err := node.Key(0).Parse("1")
 			Expect(err).ToNot(HaveOccurred())
-			Expect(id).To(Equal(node.ID(1)))
+			Expect(id).To(Equal(node.Key(1)))
 		})
 	})
 
@@ -34,11 +34,11 @@ var _ = Describe("Node", func() {
 			It("Should filter nodes correctly", func() {
 				g := node.Group{
 					1: node.Node{
-						ID:    1,
+						Key:    1,
 						State: node.StateHealthy,
 					},
 					2: node.Node{
-						ID:    2,
+						Key:    2,
 						State: node.StateSuspect,
 					},
 				}
@@ -54,12 +54,12 @@ var _ = Describe("Node", func() {
 			It("Should return the addresses of the nodes in the cluster", func() {
 				g := node.Group{
 					1: node.Node{
-						ID:      1,
+						Key:      1,
 						State:   node.StateHealthy,
 						Address: "localhost:0",
 					},
 					2: node.Node{
-						ID:      2,
+						Key:      2,
 						State:   node.StateSuspect,
 						Address: "localhost:1",
 					},
@@ -76,7 +76,7 @@ var _ = Describe("Node", func() {
 			It("Should return the digests of the nodes", func() {
 				g := node.Group{
 					1: node.Node{
-						ID:    1,
+						Key:    1,
 						State: node.StateHealthy,
 						Heartbeat: version.Heartbeat{
 							Version:    1,
@@ -84,7 +84,7 @@ var _ = Describe("Node", func() {
 						},
 					},
 					2: node.Node{
-						ID:      2,
+						Key:      2,
 						State:   node.StateSuspect,
 						Address: "localhost:1",
 						Heartbeat: version.Heartbeat{
@@ -106,7 +106,7 @@ var _ = Describe("Node", func() {
 		It("Should copy a group of nodes", func() {
 			g := node.Group{
 				1: node.Node{
-					ID:    1,
+					Key:    1,
 					State: node.StateHealthy,
 					Heartbeat: version.Heartbeat{
 						Version:    1,
@@ -114,7 +114,7 @@ var _ = Describe("Node", func() {
 					},
 				},
 				2: node.Node{
-					ID:      2,
+					Key:      2,
 					State:   node.StateSuspect,
 					Address: "localhost:1",
 					Heartbeat: version.Heartbeat{
