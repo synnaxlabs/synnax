@@ -40,7 +40,7 @@ var _ = Describe("Builder", func() {
 				NodeID:   1,
 			}
 
-			Expect(coreOne.Channel.Create(&ch)).To(Succeed())
+			Expect(coreOne.Channel.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
 			Expect(ch.Key().NodeID()).To(Equal(distribution.NodeID(1)))
 
 			Eventually(func(g Gomega) {
@@ -48,7 +48,7 @@ var _ = Describe("Builder", func() {
 				g.Expect(coreThree.Channel.NewRetrieve().
 					WhereKeys(ch.Key()).
 					Entry(&resCH).
-					Exec(ctx)).To(Succeed())
+					Exec(ctx, nil)).To(Succeed())
 
 				g.Expect(resCH.Key()).To(Equal(ch.Key()))
 			}).Should(Succeed())

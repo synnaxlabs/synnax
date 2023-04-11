@@ -56,7 +56,7 @@ func (g *Gossip) GossipOnce(ctx context.Context) (err error) {
 	ctx, span := g.T.Trace(ctx, "gossip-client", alamos.DebugLevel)
 	snap := g.Store.CopyState()
 	peer := RandomPeer(snap.Nodes, snap.HostID)
-	g.incrementHostHeartbeat()
+	g.incrementHostHeartbeat(ctx)
 	if peer.Address != "" {
 		err = g.GossipOnceWith(ctx, peer.Address)
 	}
@@ -69,7 +69,7 @@ func (g *Gossip) GossipOnceWith(ctx context.Context, addr address.Address) error
 	if err != nil {
 		return err
 	}
-	ack2 := g.ack(ack)
+	ack2 := g.ack(ctx, ack)
 	if len(ack2.Nodes) == 0 {
 		return nil
 	}
@@ -77,10 +77,10 @@ func (g *Gossip) GossipOnceWith(ctx context.Context, addr address.Address) error
 	return err
 }
 
-func (g *Gossip) incrementHostHeartbeat() {
+func (g *Gossip) incrementHostHeartbeat(ctx context.Context) {
 	host := g.Store.GetHost()
 	host.Heartbeat = host.Heartbeat.Increment()
-	g.Store.SetNode(host)
+	g.Store.SetNode(ctx, host)
 }
 
 func (g *Gossip) process(ctx context.Context, msg Message) (Message, error) {
@@ -90,7 +90,7 @@ func (g *Gossip) process(ctx context.Context, msg Message) (Message, error) {
 	case messageVariantSync:
 		return g.sync(msg), nil
 	case messageVariantAck2:
-		g.ack2(msg)
+		g.ack2(ctx, msg)
 		return Message{}, nil
 	}
 	err := errors.New("[gossip] - received unknown message variant")
@@ -127,10 +127,10 @@ func (g *Gossip) sync(sync Message) (ack Message) {
 	return ack
 }
 
-func (g *Gossip) ack(ack Message) (ack2 Message) {
+func (g *Gossip) ack(ctx context.Context, ack Message) (ack2 Message) {
 	// Take a snapshot before we merge the peer's nodes.
 	snap := g.Store.CopyState()
-	g.Store.Merge(ack.Nodes)
+	g.Store.Merge(ctx, ack.Nodes)
 	ack2 = Message{Nodes: make(node.Group)}
 	for _, dig := range ack.Digests {
 		// If we have the node, and our version is newer, return it to the
@@ -142,7 +142,7 @@ func (g *Gossip) ack(ack Message) (ack2 Message) {
 	return ack2
 }
 
-func (g *Gossip) ack2(ack2 Message) { g.Store.Merge(ack2.Nodes) }
+func (g *Gossip) ack2(ctx context.Context, ack2 Message) { g.Store.Merge(ctx, ack2.Nodes) }
 
 func RandomPeer(nodes node.Group, host node.ID) node.Node {
 	return rand.MapValue(nodes.WhereState(node.StateHealthy).WhereNot(host))

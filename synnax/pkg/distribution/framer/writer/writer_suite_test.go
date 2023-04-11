@@ -41,7 +41,7 @@ type serviceContainer struct {
 
 func provision(n int, logger *zap.Logger) (*mock.CoreBuilder, map[core.NodeID]serviceContainer) {
 	var (
-		builder    = mock.NewCoreBuilder(core.Config{Logger: logger})
+		builder    = mock.NewCoreBuilder()
 		services   = make(map[core.NodeID]serviceContainer)
 		channelNet = tmock.NewChannelNetwork()
 		writerNet  = tmock.NewFramerWriterNetwork()

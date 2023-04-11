@@ -45,7 +45,7 @@ func (vc *versionFilter) _switch(
 		rejected = TxRequest{Sender: b.Sender, doneF: b.doneF, ctx: b.ctx, span: b.span}
 		accepted = TxRequest{Sender: b.Sender, doneF: b.doneF, ctx: b.ctx, span: b.span}
 	)
-	ctx, span := alamos.Trace(b.ctx, "tx-filter", alamos.DebugLevel)
+	ctx, span := vc.T.Trace(b.ctx, "tx-filter", alamos.DebugLevel)
 	defer span.End()
 	for _, op := range b.Operations {
 		if vc.filter(ctx, op) {
@@ -86,11 +86,11 @@ func getDigestFromKV(ctx context.Context, kve kvx.DB, key []byte) (Digest, error
 	if err != nil {
 		return dig, err
 	}
-	b, err := kve.NewReader(ctx).Get(key)
+	b, err := kve.Get(ctx, key)
 	if err != nil {
 		return dig, err
 	}
-	return dig, ecd.Decode(b, &dig)
+	return dig, ecd.Decode(ctx, b, &dig)
 }
 
 // |||||| ASSIGNER ||||||
@@ -104,7 +104,7 @@ type versionAssigner struct {
 }
 
 func newVersionAssigner(ctx context.Context, cfg Config) (segment, error) {
-	c, err := kvx.OpenCounter(cfg.Engine.NewWriter(ctx), []byte(versionCounterKey))
+	c, err := kvx.OpenCounter(ctx, cfg.Engine, []byte(versionCounterKey))
 	v := &versionAssigner{Config: cfg, counter: c}
 	v.LinearTransform.Transform = v.assign
 	return v, err

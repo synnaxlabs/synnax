@@ -79,7 +79,7 @@ var _ = Describe("TypedWriter", func() {
 			Expect(err.Error()).To(ContainSubstring("keys"))
 		})
 		It("Should return an error if the channel can't be found", func() {
-			_, err := s.service.New(context.TODO(), writer.Config{
+			_, err := s.service.New(ctx, writer.Config{
 				Keys: []channel.Key{
 					channel.NewKey(0, 22),
 					s.keys[0],
@@ -93,7 +93,7 @@ var _ = Describe("TypedWriter", func() {
 		})
 		It("Should return an error if two keys do not share the same rate", func() {
 			ch := channel.Channel{Rate: 2 * telem.Hz, DataType: telem.Int64T}
-			Expect(s.channel.Create(&ch)).To(Succeed())
+			Expect(s.channel.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
 			_, err := s.service.New(context.TODO(), writer.Config{
 				Keys: []channel.Key{s.keys[0], ch.Key()},
 			})
@@ -105,12 +105,12 @@ var _ = Describe("TypedWriter", func() {
 				{DataType: telem.TimeStampT, IsIndex: true},
 				{DataType: telem.TimeStampT, IsIndex: true},
 			}
-			Expect(s.channel.CreateMany(&indexes)).To(Succeed())
+			Expect(s.channel.NewWriter(nil).CreateMany(ctx, &indexes)).To(Succeed())
 			channels := []channel.Channel{
 				{DataType: telem.Int64T, LocalIndex: indexes[0].StorageKey},
 				{DataType: telem.Int64T, LocalIndex: indexes[1].StorageKey},
 			}
-			Expect(s.channel.CreateMany(&channels)).To(Succeed())
+			Expect(s.channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 			_, err := s.service.New(context.TODO(), writer.Config{
 				Keys: []channel.Key{
 					channels[0].Key(),
@@ -179,7 +179,7 @@ func gatewayOnlyScenario() scenario {
 	channels := newChannelSet()
 	builder, services := provision(1, zap.NewNop())
 	svc := services[1]
-	Expect(svc.channel.CreateMany(&channels)).To(Succeed())
+	Expect(svc.channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	keys := channel.KeysFromChannels(channels)
 	return scenario{
 		keys:    keys,
@@ -197,10 +197,10 @@ func peerOnlyScenario() scenario {
 		ch.NodeID = dcore.NodeID(i + 2)
 		channels[i] = ch
 	}
-	Expect(svc.channel.CreateMany(&channels)).To(Succeed())
+	Expect(svc.channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	Eventually(func(g Gomega) {
 		var chs []channel.Channel
-		err := svc.channel.NewRetrieve().Entries(&chs).WhereKeys(channel.KeysFromChannels(channels)...).Exec(context.TODO())
+		err := svc.channel.NewRetrieve().Entries(&chs).WhereKeys(channel.KeysFromChannels(channels)...).Exec(ctx, nil)
 		g.Expect(err).To(Succeed())
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())
@@ -221,10 +221,10 @@ func mixedScenario() scenario {
 		ch.NodeID = dcore.NodeID(i + 1)
 		channels[i] = ch
 	}
-	Expect(svc.channel.CreateMany(&channels)).To(Succeed())
+	Expect(svc.channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	Eventually(func(g Gomega) {
 		var chs []channel.Channel
-		err := svc.channel.NewRetrieve().Entries(&chs).WhereKeys(channel.KeysFromChannels(channels)...).Exec(context.TODO())
+		err := svc.channel.NewRetrieve().Entries(&chs).WhereKeys(channel.KeysFromChannels(channels)...).Exec(ctx, nil)
 		g.Expect(err).To(Succeed())
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())

@@ -166,11 +166,11 @@ func (br TxRequest) commitTo(db kvx.TxnFactory) (err error) {
 		br.done(err)
 	}()
 	for _, op := range br.Operations {
-		if _err := op.apply(b); _err != nil {
+		if _err := op.apply(br.ctx, b); _err != nil {
 			err = _err
 			return err
 		}
-		if _err := op.Digest().apply(b); _err != nil {
+		if _err := op.Digest().apply(br.ctx, b); _err != nil {
 			err = _err
 			return err
 		}

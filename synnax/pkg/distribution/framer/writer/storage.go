@@ -13,10 +13,11 @@ import (
 	"context"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/storage"
 )
 
 func newRequestTranslator() func(ctx context.Context, in Request) (cesium.WriteRequest, bool, error) {
-	return func(ctx context.Context, in Request) (cesium.WriteRequest, bool, error) {
+	return func(ctx context.Context, in Request) (storage.TSWriteRequest, bool, error) {
 		return cesium.WriteRequest{
 			Command: cesium.WriterCommand(in.Command), Frame: in.Frame.ToStorage(),
 		}, true, nil
@@ -24,7 +25,7 @@ func newRequestTranslator() func(ctx context.Context, in Request) (cesium.WriteR
 }
 
 func newResponseTranslator(host core.NodeID) func(ctx context.Context, in cesium.WriteResponse) (Response, bool, error) {
-	return func(ctx context.Context, in cesium.WriteResponse) (Response, bool, error) {
+	return func(ctx context.Context, in storage.TSWriteResponse) (Response, bool, error) {
 		return Response{
 			Command: Command(in.Command),
 			Ack:     in.Ack,

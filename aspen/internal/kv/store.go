@@ -74,11 +74,11 @@ func newStoreSink(s store) sink {
 	return ss
 }
 
-func (s *storeSink) Store(_ context.Context, br TxRequest) error {
+func (s *storeSink) Store(ctx context.Context, br TxRequest) error {
 	snap := s.store.CopyState()
 	for _, op := range br.Operations {
 		snap[string(op.Key)] = op
 	}
-	s.store.SetState(snap)
+	s.store.SetState(ctx, snap)
 	return nil
 }
