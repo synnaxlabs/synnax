@@ -48,7 +48,7 @@ func TODO(opts ...Option) (Context, context.CancelFunc) {
 	return WithCancel(context.TODO(), opts...)
 }
 
-func Background(opts ...Option) (Context, context.CancelFunc) {
+func Isolated(opts ...Option) (Context, context.CancelFunc) {
 	return WithCancel(context.Background(), opts...)
 }
 

@@ -41,7 +41,7 @@ var _ = Describe("Builder", func() {
 			}
 
 			Expect(coreOne.Channel.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
-			Expect(ch.Key().NodeKey()).To(Equal(distribution.NodeID(1)))
+			Expect(ch.Key().NodeKey()).To(Equal(distribution.NodeKey(1)))
 
 			Eventually(func(g Gomega) {
 				var resCH channel.Channel

@@ -92,7 +92,7 @@ func (s *Service) New(ctx context.Context, cfg Config) (Iterator, error) {
 	if err != nil {
 		return nil, err
 	}
-	sCtx, cancel := signal.Background(signal.WithInstrumentation(s.Instrumentation))
+	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.Instrumentation))
 	req := confluence.NewStream[Request]()
 	res := confluence.NewStream[Response]()
 	stream.InFrom(req)
