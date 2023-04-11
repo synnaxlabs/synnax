@@ -19,8 +19,7 @@ import (
 	"github.com/synnaxlabs/aspen/internal/kv"
 	"github.com/synnaxlabs/aspen/internal/kv/kvmock"
 	"github.com/synnaxlabs/aspen/internal/node"
-	kvx "github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/testutil"
+	. "github.com/synnaxlabs/x/testutil"
 	"time"
 )
 
@@ -72,7 +71,9 @@ var _ = Describe("txn", func() {
 
 			It("Should propagate the operation to other members of the cluster",
 				func() {
-					kv1, err := builder.New(ctx, kv.Config{}, cluster.Config{})
+					kv1, err := builder.New(ctx, kv.Config{
+						Instrumentation: Instrumentation("kv1"),
+					}, cluster.Config{})
 					Expect(err).ToNot(HaveOccurred())
 					kv2, err := builder.New(ctx, kv.Config{}, cluster.Config{})
 					Expect(err).ToNot(HaveOccurred())
@@ -83,7 +84,6 @@ var _ = Describe("txn", func() {
 						g.Expect(v).To(Equal([]byte("value")))
 					}).Should(Succeed())
 				})
-
 			It("Should forward an update to the Leaseholder", func() {
 				kv1, err := builder.New(ctx, kv.Config{}, cluster.Config{})
 				Expect(err).ToNot(HaveOccurred())
@@ -190,14 +190,14 @@ var _ = Describe("txn", func() {
 			It("Should apply the operation to storage", func() {
 				kv1, err := builder.New(ctx, kv.Config{}, cluster.Config{})
 				Expect(err).ToNot(HaveOccurred())
-				_, err = builder.New(ctx, kv.Config{}, cluster.Config{})
+				kv2, err := builder.New(ctx, kv.Config{}, cluster.Config{})
 				Expect(err).ToNot(HaveOccurred())
 				waitForClusterStateToConverge(builder)
 				Expect(kv1.Set(ctx, []byte("key"), []byte("value"), node.ID(2))).To(Succeed())
-				Expect(kv1.Delete(ctx, []byte("key"))).To(Succeed())
 				Eventually(func(g Gomega) {
-					_, err := kv1.Get(ctx, []byte("key"))
-					g.Expect(err).To(testutil.HaveOccurredAs(kvx.NotFound))
+					v, err := kv2.Get(ctx, []byte("key"))
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(v).To(Equal([]byte("value")))
 				}).Should(Succeed())
 			})
 

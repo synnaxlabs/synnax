@@ -69,7 +69,7 @@ var _ = Describe("TypedWriter", Ordered, func() {
 				Expect(ch.Key().LocalKey()).To(Equal(storage.ChannelKey(1)))
 			})
 			It("Should create the channel in the cesium gorpDB", func() {
-				channels, err := builder.Cores[2].Storage.TS.RetrieveChannels(ctx, ch.Key().String())
+				channels, err := builder.Cores[1].Storage.TS.RetrieveChannels(ctx, ch.Key().String())
 				Expect(err).ToNot(HaveOccurred())
 				Expect(channels).To(HaveLen(1))
 				cesiumCH := channels[0]
