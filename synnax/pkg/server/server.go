@@ -116,7 +116,7 @@ func New(configs ...Config) (*Server, error) {
 // standard shutdown procedure).
 func (s *Server) Serve() (err error) {
 	s.L.Info("starting server", s.Report().ZapFields()...)
-	sCtx, cancel := signal.Background(signal.WithInstrumentation(s.Instrumentation))
+	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.Instrumentation))
 	s.wg = sCtx
 	defer cancel()
 	lis, err := net.Listen("tcp", s.ListenAddress.PortString())

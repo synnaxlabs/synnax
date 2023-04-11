@@ -40,7 +40,7 @@ type writer struct {
 const unexpectedSteamClosure = "[cesium] - unexpected early closure of response stream"
 
 func wrapStreamWriter(internal StreamWriter) *writer {
-	sCtx, _ := signal.Background()
+	sCtx, _ := signal.Isolated()
 	req := confluence.NewStream[WriteRequest](1)
 	res := confluence.NewStream[WriteResponse](1)
 	internal.InFrom(req)

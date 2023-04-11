@@ -275,7 +275,7 @@ func (j *juror) verdict(ctx context.Context, req Request) (err error) {
 	}
 	ctx, span := j.T.Trace(ctx, "juror.verdict", alamos.InfoLevel)
 	defer func() { _ = span.EndWith(err, proposalRejected) }()
-	logID := zap.Uint32("id", uint32(req.ID))
+	logID := zap.Uint32("key", uint32(req.Key))
 	j.L.Debug("juror received proposal. making verdict", logID)
 	j.mu.Lock()
 	defer j.mu.Unlock()

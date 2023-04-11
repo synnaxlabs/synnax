@@ -104,7 +104,7 @@ func Open(ctx context.Context, cfgs ...Config) (kvx.DB, error) {
 		return nil, err
 	}
 
-	sCtx, cancel := signal.Background(signal.WithInstrumentation(cfg.Instrumentation))
+	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
 	db_ := &db{
 		Config:     cfg,
 		DB:         cfg.Engine,

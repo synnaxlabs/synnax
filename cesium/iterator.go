@@ -44,7 +44,7 @@ type iterator struct {
 }
 
 func wrapStreamIterator(wrap *streamIterator) Iterator {
-	ctx, cancel := signal.Background()
+	ctx, cancel := signal.Isolated()
 	requests := confluence.NewStream[IteratorRequest](1)
 	responses := confluence.NewStream[IteratorResponse](1)
 	wrap.InFrom(requests)
