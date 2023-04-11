@@ -76,8 +76,8 @@ func (d *db) apply(b []TxRequest) (err error) {
 
 func (d *db) Report() alamos.Report {
 	return alamos.Report{
-		"engine": "aspen",
-		"Tx":     d.DB.Report(),
+		"engine":  "aspen",
+		"wrapped": d.DB.Report(),
 	}
 }
 
@@ -104,7 +104,7 @@ func Open(ctx context.Context, cfgs ...Config) (kvx.DB, error) {
 		return nil, err
 	}
 
-	sCtx, cancel := signal.Background()
+	sCtx, cancel := signal.Background(signal.WithInstrumentation(cfg.Instrumentation))
 	db_ := &db{
 		Config:     cfg,
 		DB:         cfg.Engine,

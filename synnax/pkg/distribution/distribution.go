@@ -84,7 +84,7 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 	d.Ontology.RegisterService(d.Channel)
 
 	d.Framer, err = framer.Open(framer.ServiceConfig{
-		Instrumentation: cfg.Instrumentation,
+		Instrumentation: cfg.Instrumentation.Sub("framer"),
 		ChannelReader:   d.Channel,
 		TS:              d.Storage.TS,
 		Transport:       segmentTransport,

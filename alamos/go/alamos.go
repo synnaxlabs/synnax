@@ -9,8 +9,6 @@
 
 package alamos
 
-import "fmt"
-
 type sub[L any] interface {
 	sub(meta InstrumentationMeta) L
 }
@@ -50,15 +48,22 @@ func (i Instrumentation) IsZero() bool { return i.meta.IsZero() }
 func (i Instrumentation) Sub(key string) Instrumentation {
 	meta := i.meta.sub(key)
 	return Instrumentation{
-		L: i.L.sub(meta),
-		T: i.T.sub(meta),
-		R: i.R.sub(meta),
+		meta: meta,
+		L:    i.L.sub(meta),
+		T:    i.T.sub(meta),
+		R:    i.R.sub(meta),
 	}
 }
 
 type InstrumentationMeta struct {
-	// Key is the key used to identify this instrumentation.
+	// Key is the key used to identify this instrumentation. This key should be
+	// unique within the context of its parent instrumentation (in a similar manner
+	// to a file in a directory).
 	Key string
+	// Path is a keychain representing the parents of this instrumentation. For
+	// example, an instrumentation created from 'distribution' with a key of
+	// 'storage' would have a path of 'distribution.storage'.
+	Path string
 	// ServiceName is the name of the service.
 	ServiceName string
 	// Filter is the filter used by this instrumentation.
@@ -67,15 +72,15 @@ type InstrumentationMeta struct {
 
 func (m InstrumentationMeta) sub(key string) InstrumentationMeta {
 	return InstrumentationMeta{
-		Key:         fmt.Sprintf("%s.%s", m.Key, key),
+		Key:         key,
+		Path:        m.Path + "." + key,
 		ServiceName: m.ServiceName,
 		Filter:      m.Filter,
 	}
 }
 
-func (m InstrumentationMeta) IsZero() bool {
-	return m.Key != ""
-}
+// IsZero returns true if the instrumentation is the zero value for its type.
+func (m InstrumentationMeta) IsZero() bool { return m.Key != "" }
 
 type Option func(*Instrumentation)
 

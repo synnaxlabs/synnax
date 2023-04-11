@@ -165,6 +165,7 @@ func mergeDefaultOptions(o *options) {
 	o.kv = def.kv.Override(o.kv)
 	o.cluster = def.cluster.Override(o.cluster)
 	o.transport.Transport = override.Nil(def.transport.Transport, o.transport.Transport)
+	o.Instrumentation = override.Zero(def.Instrumentation, o.Instrumentation)
 	o.cluster.Instrumentation = o.Instrumentation.Sub("cluster")
 	o.kv.Instrumentation = o.Instrumentation.Sub("kv")
 	o.cluster.HostAddress = o.addr

@@ -45,6 +45,7 @@ func Open(ctx context.Context, cfg Config) (c Core, err error) {
 	}
 
 	cfg.Storage.Instrumentation = cfg.Instrumentation.Sub("storage")
+	c.Config = cfg
 	c.Storage, err = storage.Open(cfg.Storage)
 	if err != nil {
 		return c, err

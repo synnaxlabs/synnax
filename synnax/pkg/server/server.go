@@ -115,7 +115,7 @@ func New(configs ...Config) (*Server, error) {
 // error if the server exits abnormally (i.e. it wil ignore any errors emitted during
 // standard shutdown procedure).
 func (s *Server) Serve() (err error) {
-	s.L.Debug("starting server", s.Report().ZapFields()...)
+	s.L.Info("starting server", s.Report().ZapFields()...)
 	sCtx, cancel := signal.Background(signal.WithInstrumentation(s.Instrumentation))
 	s.wg = sCtx
 	defer cancel()

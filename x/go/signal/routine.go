@@ -225,7 +225,7 @@ func (r *routine) maybeRecover() {
 func (r *routine) zapFields() []zap.Field {
 	opts := []zap.Field{
 		zap.String("key", r.key),
-		zap.Uint8("state", uint8(r.state.state)),
+		zap.Stringer("state", r.state.state),
 	}
 	deferralKeys := make([]string, len(r.deferrals))
 	for i, def := range r.deferrals {
