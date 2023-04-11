@@ -41,16 +41,18 @@ func (r *Reader[K, E]) Get(ctx context.Context, key K) (e E, err error) {
 
 func (r *Reader[K, E]) GetMany(ctx context.Context, keys []K) ([]E, error) {
 	var (
-		err     error
-		entries = make([]E, len(keys))
+		err_    error
+		entries = make([]E, 0, len(keys))
 	)
 	for i := range keys {
-		entries[i], err = r.Get(ctx, keys[i])
+		e, err := r.Get(ctx, keys[i])
 		if err != nil {
-			return nil, err
+			err_ = err
+		} else {
+			entries = append(entries, e)
 		}
 	}
-	return entries, nil
+	return entries, err_
 }
 
 func (r *Reader[K, E]) OpenIterator() *Iterator[E] {
@@ -76,7 +78,7 @@ func OpenIterator[E any](wrapped kv.Iterator, decoder binary.Decoder) *Iterator[
 
 // Value returns the decoded value from the iterator. Iter.Alive must be true
 // for calls to return a valid value.
-func (k *Iterator[E]) Value() (entry *E) {
+func (k *Iterator[E]) Value(ctx context.Context) (entry *E) {
 	if k.value == nil {
 		k.value = new(E)
 	}

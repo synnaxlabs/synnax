@@ -59,7 +59,7 @@ func (e *Entries[K, E]) Replace(entries []E) {
 		*e.entries = entries
 		return
 	}
-	if len(entries) != 0 {
+	if len(entries) != 0 && e.entry != nil {
 		*e.entry = entries[0]
 	}
 }

@@ -43,13 +43,13 @@ func newOptions(opts ...Option) options {
 	for _, opt := range opts {
 		opt(&o)
 	}
-	return mergeDefaultOptions(o)
+	return overrideOptions(o)
 }
 
-func mergeDefaultOptions(o options) options {
+func overrideOptions(o options) options {
 	base := defaultOptions()
-	base.encoder = override.Nil(base.encoder, o.encoder)
-	base.decoder = override.Nil(base.decoder, o.decoder)
+	o.encoder = override.Nil(base.encoder, o.encoder)
+	o.decoder = override.Nil(base.decoder, o.decoder)
 	return o
 }
 

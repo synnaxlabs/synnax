@@ -9,7 +9,9 @@
 
 package gorp
 
-import "context"
+import (
+	"context"
+)
 
 // Writer represents a generalized key-value transaction that executes atomically against
 // an underlying database. DB implements the Writer interface, which will execute

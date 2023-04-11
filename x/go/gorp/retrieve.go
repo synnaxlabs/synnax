@@ -171,7 +171,7 @@ func keysRetrieve[K Key, E Entry[K]](
 }
 
 func filterRetrieve[K Key, E Entry[K]](
-	_ context.Context,
+	ctx context.Context,
 	q query.Parameters,
 	tx Tx,
 ) error {
@@ -181,7 +181,7 @@ func filterRetrieve[K Key, E Entry[K]](
 		iter    = NewReader[K, E](tx).OpenIterator()
 	)
 	for iter.First(); iter.Valid(); iter.Next() {
-		v := iter.Value()
+		v := iter.Value(ctx)
 		if f.exec(v) {
 			entries.Add(*v)
 		}

@@ -133,7 +133,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 
 	if needGatewayRouting {
 		routeInletTo = gatewayIterAddr
-		gatewayIter, err := s.newGateway(ctx, Config{Keys: batch.Gateway, Bounds: cfg.Bounds})
+		gatewayIter, err := s.newGateway(Config{Keys: batch.Gateway, Bounds: cfg.Bounds})
 		if err != nil {
 			return nil, err
 		}

@@ -15,23 +15,14 @@ import (
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/query"
 )
 
 var _ = Describe("Entries", func() {
 	Describe("Get and set", func() {
 		It("Should return an empty slice if no entries were set on the query", func() {
 			q := gorp.NewRetrieve[int, entry]()
-			entries := gorp.GetEntries[int, entry](q)
+			entries := gorp.GetEntries[int, entry](q.Params)
 			Expect(entries.All()).To(HaveLen(0))
-		})
-		It("Should panic if a caller attempts to set multiple entries on a single entry query", func() {
-			q := query.New()
-			gorp.SetEntry[int, entry](q, &entry{})
-			e := gorp.GetEntries[int, entry](q)
-			Expect(func() {
-				e.Replace(2, entry{})
-			}).To(Panic())
 		})
 	})
 	Describe("TypePrefix", func() {
@@ -40,15 +31,15 @@ var _ = Describe("Entries", func() {
 			gorpDB := gorp.Wrap(db,
 				gorp.WithNoPrefix(),
 			)
-			txn := gorpDB.OpenTx(ctx)
+			txn := gorpDB.OpenTx()
 			Expect(gorp.NewCreate[int, entry]().
 				Entries(&[]entry{{ID: 1, Data: "data"}}).
-				Exec(txn)).To(Succeed())
+				Exec(ctx, txn)).To(Succeed())
 			// use msgpack to encode the entry int 1  into a byte slice
 			ecd := &binary.MsgPackEncoderDecoder{}
 			b, err := ecd.Encode(nil, 1)
 			Expect(err).To(Not(HaveOccurred()))
-			_, err = txn.Get(b)
+			_, err = txn.Get(ctx, b)
 			Expect(err).To(Not(HaveOccurred()))
 			Expect(txn.Close()).To(Succeed())
 		})
