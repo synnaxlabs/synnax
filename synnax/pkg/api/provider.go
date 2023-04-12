@@ -13,7 +13,7 @@ import (
 	"context"
 	"github.com/go-playground/validator/v10"
 	"github.com/synnaxlabs/synnax/pkg/access"
-	errors "github.com/synnaxlabs/synnax/pkg/api/errors"
+	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/auth"
 	"github.com/synnaxlabs/synnax/pkg/auth/token"
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"

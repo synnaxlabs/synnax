@@ -28,7 +28,7 @@ var _ Index = (*Ranger)(nil)
 func (i *Ranger) Distance(ctx context.Context, tr telem.TimeRange, continuous bool) (approx DistanceApproximation, err error) {
 	var startApprox, endApprox DistanceApproximation
 	ctx, span := i.T.Trace(ctx, "distance", alamos.DebugLevel)
-	defer func() { span.EndWith(err, ErrDiscontinuous) }()
+	defer func() { _ = span.EndWith(err, ErrDiscontinuous) }()
 
 	iter := i.DB.NewIterator(ranger.IteratorConfig{Bounds: tr})
 
@@ -106,7 +106,7 @@ func (i *Ranger) Stamp(
 	continuous bool,
 ) (approx TimeStampApproximation, err error) {
 	ctx, span := i.T.Trace(ctx, "stamp", alamos.DebugLevel)
-	defer func() { span.EndWith(err, ErrDiscontinuous) }()
+	defer func() { _ = span.EndWith(err, ErrDiscontinuous) }()
 
 	iter := i.DB.NewIterator(ranger.IterRange(ref.SpanRange(telem.TimeSpanMax)))
 

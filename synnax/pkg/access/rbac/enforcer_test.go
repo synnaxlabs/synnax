@@ -33,9 +33,9 @@ var _ = Describe("enforcer", func() {
 			DefaultEffect: access.Deny,
 			Legislator:    legislator,
 		}
-		txn := db.OpenTx(ctx)
+		txn := db.OpenTx()
 		Expect(legislator.Create(txn, changePasswordPolicy)).To(Succeed())
-		Expect(txn.Commit()).To(Succeed())
+		Expect(txn.Commit(ctx)).To(Succeed())
 	})
 	AfterEach(func() {
 		Expect(db.Close()).To(Succeed())

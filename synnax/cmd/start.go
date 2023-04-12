@@ -79,7 +79,7 @@ func start(cmd *cobra.Command) {
 	sCtx, cancel := xsignal.WithCancel(cmd.Context(), xsignal.WithInstrumentation(ins))
 	defer cancel()
 
-	// Perform the rest of the startup within a separate goroutine so we can properly
+	// Perform the rest of the startup within a separate goroutine, so we can properly
 	// handle signal interrupts.
 	sCtx.Go(func(ctx context.Context) error {
 
@@ -229,8 +229,6 @@ func buildServerConfig(
 	cfg.Security.Insecure = config.Bool(viper.GetBool("insecure"))
 	return cfg
 }
-
-var rootExperimentKey = "experiment"
 
 func configureSecurity(ins alamos.Instrumentation, insecure bool) (security.Provider, error) {
 	return security.NewProvider(security.ProviderConfig{

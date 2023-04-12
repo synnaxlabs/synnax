@@ -33,8 +33,8 @@ func configureInstrumentation() alamos.Instrumentation {
 }
 
 func configureLogger() (*alamos.Logger, error) {
-	var cfg zap.Config
 	verbose := viper.GetBool("verbose")
+	var cfg zap.Config
 	if verbose {
 		cfg = zap.NewDevelopmentConfig()
 		cfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
@@ -43,7 +43,6 @@ func configureLogger() (*alamos.Logger, error) {
 	} else {
 		cfg = zap.NewProductionConfig()
 		cfg.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
-
 	}
 	z, err := cfg.Build()
 	if err != nil {
