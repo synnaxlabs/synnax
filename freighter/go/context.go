@@ -15,22 +15,28 @@ import (
 	"github.com/synnaxlabs/x/address"
 )
 
+// Location indicates whether the middleware is located on the client or server side of
+// the request.
 type Location uint8
 
 //go:generate stringer -type=Location
 const (
-	// ClientSide indicates whether the middleware is located on the client side of the request.
+	// ClientSide indicates whether the middleware is located on the client side of the
+	// request.
 	ClientSide Location = iota + 1
-	// ServerSide indicates whether the middleware is located on the server side of the request.
+	// ServerSide indicates whether the middleware is located on the server side of the
+	// request.
 	ServerSide
 )
 
-type Type uint8
+// Variant indicates the variant of transport (unary or streaming) that the middleware
+// is being executed for.
+type Variant uint8
 
-//go:generate stringer -type=Type
+//go:generate stringer -type=Variant
 const (
 	// Unary is set on middleware that is executed for a unary request.
-	Unary Type = iota + 1
+	Unary Variant = iota + 1
 	// Stream is set on middleware that is executed for a streaming request.
 	Stream
 )
@@ -40,8 +46,8 @@ type Context struct {
 	context.Context
 	// Location indicates the location of the middleware (client or server).
 	Location Location
-	// Type indicates the type of the middleware (unary or stream).
-	Type Type
+	// Variant indicates the variant of the middleware (unary or stream).
+	Variant Variant
 	// Protocol is the protocol that the request is being sent over.
 	Protocol string
 	// Target is the address the request is being sent to.

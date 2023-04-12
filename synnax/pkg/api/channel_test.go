@@ -32,7 +32,7 @@ var _ = Describe("ChannelReader", Ordered, func() {
 		res, err := svc.Create(context.TODO(), api.ChannelCreateRequest{
 			Channels: []api.Channel{{
 				Name:     "test",
-				NodeKey:   1,
+				NodeKey:  1,
 				DataType: telem.Float64T,
 				Rate:     25 * telem.Hz,
 			}},
@@ -61,10 +61,10 @@ var _ = Describe("ChannelReader", Ordered, func() {
 			Expect(flds[0].Message).To(Equal(message))
 			Expect(len(res.Channels)).To(Equal(0))
 		},
-			Entry("No Data Type", api.Channel{
-				Name:   "test",
+			Entry("No Data Variant", api.Channel{
+				Name:    "test",
 				NodeKey: 1,
-				Rate:   25 * telem.Hz,
+				Rate:    25 * telem.Hz,
 			}, "channels[0].data_type", "required"),
 		)
 	})

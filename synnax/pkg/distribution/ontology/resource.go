@@ -19,7 +19,7 @@ import (
 //
 //	userKey := ID{
 //	    ID:  "748d31e2-5732-4cb5-8bc9-64d4ad51efe8",
-//	    Type: "user",
+//	    Variant: "user",
 //	}
 //
 // The key has two elements for several reasons. First, by storing the Type we know which

@@ -70,7 +70,7 @@ func (s *StreamClientCore[RQ, RQT, RS, RST]) Stream(
 	_, err := s.MiddlewareCollector.Exec(
 		freighter.Context{
 			Context:  ctx,
-			Type:     freighter.Stream,
+			Variant:  freighter.Stream,
 			Location: freighter.ClientSide,
 			Target:   target,
 			Protocol: Reporter.Protocol,

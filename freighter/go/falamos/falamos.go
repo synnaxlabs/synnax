@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
-	"go.opentelemetry.io/otel/propagation"
 )
 
 // Config is the configuration for the instrumentation Middleware.
@@ -108,18 +107,15 @@ func Middleware(configs ...Config) (freighter.Middleware, error) {
 	}), nil
 }
 
-type carrier struct {
-	freighter.Context
-}
+type carrier struct{ freighter.Context }
 
-var _ propagation.TextMapCarrier = carrier{}
+var _ alamos.TraceCarrier = carrier{}
 
 const keyPrefix = "alamos"
 
-func keyF(k string) string {
-	return keyPrefix + "-" + k
-}
+func keyF(k string) string { return keyPrefix + "-" + k }
 
+// Get implements TextMapCarrier.
 func (c carrier) Get(key string) string {
 	v, ok := c.Context.Get(keyF(key))
 	if !ok {
@@ -132,10 +128,10 @@ func (c carrier) Get(key string) string {
 	return vStr
 }
 
-func (c carrier) Set(key, value string) {
-	c.Context.Params.Set(keyF(key), value)
-}
+// Set implements TextMapCarrier.
+func (c carrier) Set(key, value string) { c.Context.Params.Set(keyF(key), value) }
 
+// Keys implements TextMapCarrier.
 func (c carrier) Keys() []string {
 	keys := make([]string, 0, len(c.Context.Params))
 	for k := range c.Context.Params {
@@ -151,7 +147,7 @@ func log(ctx freighter.Context, err error, cfg Config) {
 	logF(fmt.Sprintf("%s", ctx.Location),
 		zap.Stringer("target", ctx.Target),
 		zap.String("protocol", ctx.Protocol),
-		zap.String("type", ctx.Type),
+		zap.Stringer("variant", ctx.Variant),
 		zap.Error(err),
 	)
 }
