@@ -25,7 +25,7 @@ func MapKey[K comparable, V any](m map[K]V) (key K) {
 		return key
 	}
 	i, ri := 0, rand.Intn(l)
-	for k, _ := range m {
+	for k := range m {
 		if i == ri {
 			key = k
 			break

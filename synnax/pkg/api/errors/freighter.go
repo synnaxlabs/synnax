@@ -25,7 +25,7 @@ var ecd = &binary.JSONEncoderDecoder{}
 func encode(err error) string {
 	tErr := err.(Typed)
 	if !tErr.Occurred() {
-		return string(ferrors.Nil)
+		return ferrors.Nil
 	}
 	return string(lo.Must(ecd.Encode(nil, tErr)))
 }

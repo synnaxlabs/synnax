@@ -19,7 +19,7 @@ import (
 // message. If the error is nil, returns a payload with type Nil.
 func EncodeError(err error) *v1.ErrorPayload {
 	pld := ferrors.Encode(err)
-	return &v1.ErrorPayload{Type: string(pld.Type), Data: pld.Data}
+	return &v1.ErrorPayload{Type: pld.Type, Data: pld.Data}
 }
 
 // DecodeError decodes the given protobuf error payload into an error. If the payload's

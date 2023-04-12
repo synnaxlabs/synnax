@@ -128,7 +128,7 @@ func (c carrier) Set(key, value string) {
 
 func (c carrier) Keys() []string {
 	keys := make([]string, 0, len(c.Context.Params))
-	for k, _ := range c.Context.Params {
+	for k := range c.Context.Params {
 		if strings.HasPrefix(k, keyPrefix) {
 			keys = append(keys, strings.TrimPrefix(k, keyPrefix+"-"))
 		}

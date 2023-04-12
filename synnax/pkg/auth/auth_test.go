@@ -37,7 +37,7 @@ var _ = Describe("KV", Ordered, func() {
 	Describe("New", func() {
 		It("Should register the credentials in the key-value store", func() {
 			w := authenticator.NewWriter(tx)
-			err := w.Register(creds)
+			err := w.Register(ctx, creds)
 			Expect(err).To(BeNil())
 			var c auth.SecureCredentials
 			Expect(gorp.NewRetrieve[string, auth.SecureCredentials]().
@@ -47,9 +47,9 @@ var _ = Describe("KV", Ordered, func() {
 		})
 		It("Should return a UniqueViolation error when the username is already registered", func() {
 			w := authenticator.NewWriter(tx)
-			err := w.Register(creds)
+			err := w.Register(ctx, creds)
 			Expect(err).To(BeNil())
-			err = w.Register(creds)
+			err = w.Register(ctx, creds)
 			Expect(errors.Is(err, errors.New("[auth] - username already registered"))).To(BeTrue())
 
 		})
@@ -79,7 +79,7 @@ var _ = Describe("KV", Ordered, func() {
 	Describe("UpdateUsername", func() {
 		It("Should update the username", func() {
 			w := authenticator.NewWriter(tx)
-			Expect(w.UpdateUsername(creds, "new-user")).To(Succeed())
+			Expect(w.UpdateUsername(ctx, creds, "new-user")).To(Succeed())
 			var c auth.SecureCredentials
 			Expect(gorp.NewRetrieve[string, auth.SecureCredentials]().
 				WhereKeys("new-user").
@@ -92,16 +92,16 @@ var _ = Describe("KV", Ordered, func() {
 				Username: creds.Username,
 				Password: "invalid",
 			}
-			Expect(authenticator.NewWriter(tx).UpdateUsername(invalidCreds, "new-user")).
+			Expect(authenticator.NewWriter(tx).UpdateUsername(ctx, invalidCreds, "new-user")).
 				To(MatchError(auth.InvalidCredentials))
 		})
 		It("Should return a UniqueViolation error when the username is already registered", func() {
 			w := authenticator.NewWriter(tx)
-			Expect(w.Register(auth.InsecureCredentials{
+			Expect(w.Register(ctx, auth.InsecureCredentials{
 				Username: "old-user",
 				Password: "pass",
 			})).To(Succeed())
-			Expect(errors.Is(w.UpdateUsername(creds, "old-user"),
+			Expect(errors.Is(w.UpdateUsername(ctx, creds, "old-user"),
 				errors.New("[auth] - username already registered"))).To(BeTrue())
 		})
 	})
@@ -109,7 +109,7 @@ var _ = Describe("KV", Ordered, func() {
 		It("Should update the users password", func() {
 			w := authenticator.NewWriter(tx)
 			var newPass password.Raw = "new-pass"
-			Expect(w.UpdatePassword(creds, newPass)).To(Succeed())
+			Expect(w.UpdatePassword(ctx, creds, newPass)).To(Succeed())
 			Expect(tx.Commit(ctx)).To(Succeed())
 			Expect(authenticator.Authenticate(ctx, creds)).ToNot(Succeed())
 			creds.Password = newPass
@@ -122,7 +122,7 @@ var _ = Describe("KV", Ordered, func() {
 			}
 			w := authenticator.NewWriter(tx)
 			var newPass password.Raw = "new-pass"
-			Expect(w.UpdatePassword(invalidCreds, newPass)).To(MatchError(auth.InvalidCredentials))
+			Expect(w.UpdatePassword(ctx, invalidCreds, newPass)).To(MatchError(auth.InvalidCredentials))
 		})
 		It("Should return an InvalidCredentials error when the user can't be found", func() {
 			invalidCreds := auth.InsecureCredentials{
@@ -131,7 +131,7 @@ var _ = Describe("KV", Ordered, func() {
 			}
 			w := authenticator.NewWriter(tx)
 			var newPass password.Raw = "new-pass"
-			Expect(w.UpdatePassword(invalidCreds, newPass)).To(MatchError(auth.InvalidCredentials))
+			Expect(w.UpdatePassword(ctx, invalidCreds, newPass)).To(MatchError(auth.InvalidCredentials))
 		})
 	})
 })
