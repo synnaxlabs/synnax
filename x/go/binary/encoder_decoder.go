@@ -68,10 +68,16 @@ func (e *GobEncoderDecoder) DecodeStream(_ context.Context, r io.Reader, value i
 }
 
 // JSONEncoderDecoder is a JSON implementation of EncoderDecoder.
-type JSONEncoderDecoder struct{}
+type JSONEncoderDecoder struct {
+	// Pretty indicates whether the JSON should be pretty printed.
+	Pretty bool
+}
 
 // Encode implements the Encoder interface.
 func (j *JSONEncoderDecoder) Encode(_ context.Context, value interface{}) ([]byte, error) {
+	if j.Pretty {
+		return json.MarshalIndent(value, "", "  ")
+	}
 	return json.Marshal(value)
 }
 
@@ -83,13 +89,6 @@ func (j *JSONEncoderDecoder) Decode(_ context.Context, data []byte, value interf
 // DecodeStream implements the Decoder interface.
 func (j *JSONEncoderDecoder) DecodeStream(_ context.Context, r io.Reader, value interface{}) error {
 	return json.NewDecoder(r).Decode(value)
-}
-
-type JSONIdentEncoderDecoder struct{ JSONEncoderDecoder }
-
-// Encode implements the Encoder interface.
-func (j *JSONIdentEncoderDecoder) Encode(_ context.Context, value interface{}) ([]byte, error) {
-	return json.MarshalIndent(value, "", "  ")
 }
 
 // MsgPackEncoderDecoder is a msgpack implementation of EncoderDecoder.
