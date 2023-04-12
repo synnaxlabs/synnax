@@ -43,7 +43,7 @@ var _ = Describe("ChannelKey", Ordered, func() {
 				cesium.Channel{Key: "11", DataType: telem.Float32T, Rate: 10 * telem.Hz},
 				cesium.Channel{Key: "11", Rate: 10 * telem.Hz, DataType: telem.Float64T},
 			),
-			Entry("ChannelKey IsIndex - Non Int64 Array Type",
+			Entry("ChannelKey IsIndex - Non Int64 Array Variant",
 				errors.Wrap(validate.Error, "[cesium] - index channel must be of type timestamp"),
 				cesium.Channel{Key: "12", IsIndex: true, DataType: telem.Float32T},
 			),

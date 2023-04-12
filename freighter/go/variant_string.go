@@ -12,14 +12,14 @@ func _() {
 	_ = x[Stream-2]
 }
 
-const _Type_name = "UnaryStream"
+const _Variant_name = "UnaryStream"
 
-var _Type_index = [...]uint8{0, 5, 11}
+var _Variant_index = [...]uint8{0, 5, 11}
 
 func (i Variant) String() string {
 	i -= 1
-	if i >= Variant(len(_Type_index)-1) {
+	if i >= Variant(len(_Variant_index)-1) {
 		return "Variant(" + strconv.FormatInt(int64(i+1), 10) + ")"
 	}
-	return _Type_name[_Type_index[i]:_Type_index[i+1]]
+	return _Variant_name[_Variant_index[i]:_Variant_index[i+1]]
 }

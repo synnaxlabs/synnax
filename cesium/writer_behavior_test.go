@@ -262,8 +262,8 @@ var _ = Describe("TypedWriter Behavior", Ordered, func() {
 			})
 		})
 	})
-	Describe("Data Type Errors", func() {
-		Specify("Invalid Data Type for Array", func() {
+	Describe("Data Variant Errors", func() {
+		Specify("Invalid Data Variant for Array", func() {
 			Expect(db.CreateChannel(
 				ctx,
 				cesium.Channel{
@@ -294,7 +294,7 @@ var _ = Describe("TypedWriter Behavior", Ordered, func() {
 			Expect(err).To(MatchError(validate.Error))
 			Expect(err.Error()).To(ContainSubstring("expected int64, got float64"))
 		})
-		Specify("Invalid Data Type for Index", func() {
+		Specify("Invalid Data Variant for Index", func() {
 			Expect(db.CreateChannel(
 				ctx,
 				cesium.Channel{
