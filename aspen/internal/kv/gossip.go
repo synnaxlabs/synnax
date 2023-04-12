@@ -19,14 +19,10 @@ import (
 	"go/types"
 )
 
-// |||||| OPERATION ||||||
-
 type (
 	BatchTransportClient = freighter.UnaryClient[TxRequest, TxRequest]
 	BatchTransportServer = freighter.UnaryServer[TxRequest, TxRequest]
 )
-
-// |||| SENDER ||||
 
 type operationSender struct {
 	Config
@@ -54,11 +50,9 @@ func (g *operationSender) send(ctx context.Context, sync TxRequest) (TxRequest, 
 	if err != nil {
 		g.L.Error("operation gossip failed", zap.Error(err))
 	}
-	// If we have no Operations to apply, avoid the pipeline overhead.
+	// If we have no Operatios to apply, avoid the pipeline overhead.
 	return ack, !ack.empty(), nil
 }
-
-// |||| RECEIVER ||||
 
 type operationReceiver struct {
 	Config
@@ -84,8 +78,6 @@ func (g *operationReceiver) handle(ctx context.Context, req TxRequest) (TxReques
 	return br, nil
 }
 
-// |||||| FEEDBACK ||||||
-
 type FeedbackMessage struct {
 	Sender  node.Key
 	Digests Digests
@@ -95,8 +87,6 @@ type (
 	FeedbackTransportClient = freighter.UnaryClient[FeedbackMessage, types.Nil]
 	FeedbackTransportServer = freighter.UnaryServer[FeedbackMessage, types.Nil]
 )
-
-// |||| SENDER ||||
 
 type feedbackSender struct {
 	Config
@@ -117,8 +107,6 @@ func (f *feedbackSender) send(ctx context.Context, bd TxRequest) error {
 	}
 	return nil
 }
-
-// |||| RECEIVER ||||
 
 type feedbackReceiver struct {
 	Config

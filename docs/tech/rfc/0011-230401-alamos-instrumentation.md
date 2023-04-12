@@ -9,11 +9,11 @@
 
 As we move towards the Beta release of Synnax, the core architectural components
 will begin to solidify, and, for the more stable components, we will shift focus
-from building something function to building stable and performant software. To
-improve these qualities, we will need to profile the execution state of the cluster.
+from building functional to stable and performant software. To improve these qualities,
+we will need to profile the execution state of the cluster.
 
 In this RFC I propose a high-level plan for implementing distributed instrumentation
-across the Synnax verticals. This plan outlines methods for handling traces, metrics, and
+across all of Synnax's components. This plan outlines methods for handling traces, metrics, and
 logs from the storage engine to the user interface.
 
 # 1 - Vocabulary
@@ -69,7 +69,7 @@ over time. For example, we need to measure the growth of the cesium's range poin
 or track the network load on the distribution layer.
 
 On the tracing side, Synnax starts a number of goroutines on server startup. The goroutines cannot
-be tied to a specific request, but intimate knowledge of their state is essential in debugging several
+be tied to a specific request, but knowledge of their state is essential in debugging several
 classes of issues, most notably behavioral integrity on server startup, shutdown, or failure.
 
 ### 3.0.1 - Vertical Instrumentation
@@ -87,7 +87,7 @@ is extensive literature on the subject.
 
 Instead, I'm focused on describing the specific requirements for each. These requirements are not
 organized by type, but rather by grouping of related requirements. For example, all three types
-require some means of persistence; the persistence requirements for each are grouped together.
+need some means of persistence; the persistence requirements for each are grouped together.
 
 ## 4.1 - Distribution
 
@@ -96,44 +96,103 @@ instrumentation system is to provide an aggregated view of the execution state f
 
 ### 4.1.0 - Instrumentation Must Support Clients
 
-A considerable amount of the features Synnax delivers exist above the server-side waterline. Our Python
-and Typescript libraries, Synnax CLI, and User Interfaces all play an essential role in delivering a quality
-user experience. When designing a distributed instrumentation system, we must keep in mind how we tie
-together the execution state of the server and the client.
+Many features exist above the server-side waterline. Our Python and Typescript libraries, Synnax CLI,
+and User Interfaces all play an essential role in delivering a quality user experience. When
+designing a distributed instrumentation system, we must keep in mind how we tie together the
+execution state of the server and the client.
 
 ### 4.1.1 - Instrumentation Must Distribute Across Nodes
 
 Requests and cluster synchronization tasks typically take place across several nodes. To effectively improve
-these processes, we must be able to not only understand the execution state within several nodes, but also
+these processes, we must not only understand execution state within several nodes, but also
 how they interact with each other. Supporting distributed traces and metrics is essential.
 
 ## 4.2 - Meta-Data
 
 ### 4.2.0 - Categorization
 
-Collecting telemetry is only useful if we can correlate it with meta-data about the cluster's configuration. If we don't know
-critical information about the cluster, such as the version of the software, we place ourselves at a significant disadvantage
-when it comes to debugging issues and improving performance.
+Collecting telemetry is only useful if we can correlate it with meta-data about the cluster's
+configuration. If we don't know critical information about the cluster, such as the version
+of the software, we place ourselves at a significant disadvantage when it comes to debugging
+issues and improving performance.
 
-The two classes of meta-data we need to collect closely parallel the classes of instrumentation introduced in [Section 3](#3-philosophy).
-The first class covers layer specific configuration, such as the storage engine's maximum cache size. The second class covers request
-specific meta-data, such as the requesting user or the protocol used.
+The two classes of meta-data we need to collect closely parallel the classes of instrumentation
+introduced in [Section 3](#3-philosophy). The first class covers layer specific configuration,
+such as the storage engine's maximum cache size. The second class covers request specific meta-data,
+such as the requesting user or the protocol used.
 
 ### 4.2.1 - Vertical Meta-Data - Tracing
 
-Vertical meta-data should be available on spans.
+Vertical meta-data is bound to a specific request, and should be viewable at the level of an individual
+trace or an aggregated view of all traces.
 
 ### 4.2.2 - Horizontal Meta-Data
 
+Horizontal meta-data is bound to a specific layer, and describes that layer's configuration i.e. the
+protocols supported, storage directories, maximum cache sizes etc.
+
 ## 4.3 - Filtering
+
+As with any instrumentation system, we should be able to filter the instrumentation data we collect
+depending on the environment we're running in. In a development environment, we focus on collecting
+data for debugging and correctness purposes. In a benchmarking environment, we collect critical performance
+metrics and traces.
+
+### 4.3.0 - Levels
+
+#### 4.3.0.1 - Logs
+
+<table>
+<tr>
+<th>Level</th>
+<th>Meaning</th>
+</tr>
+<tr>
+<td>debug</td>
+<td>Debugging information</td>
+</tr>
+<tr>
+<td>info</td>
+<td>Informational messages</td>
+</tr>
+<tr>
+<td>warn</td>
+<td>Warnings</td>
+</tr>
+<tr>
+<td>error</td>
+<td>Errors</td>
+</tr>
+<tr>
+<td>fatal</td>
+<td>Fatal errors</td>
+</tr>
+<tr>
+<td>panic</td>
+<td>Panic errors</td>
+</tr>
+</table>
+
+Log-filtering levels are as follows:
+
+- `debug` - Debugging information
+- `info` - Informational messages
+- `warn` - Warnings
+- `error` - Errors
+- `fatal` - Fatal errors
+- `panic` - Panic errors
+
+### 4.3.1 - Tracing
+
+Tracing
 
 ## 4.4 - Analytics
 
 ## 4.5 - Persistence
 
-## 4.6 - Instrumentation in Development
+## 4.6 - Development
 
-## 4.7 - Instrumentation in Production
+## 4.7 - Production
 
 # 5 - Design
 
@@ -200,7 +259,7 @@ transaction through a context. This reduces interface footprint, but also makes 
 transaction and which are not. As a result, we've generally avoided using `context.WithValue` in the Synnax code base. It's much more
 challenging to abuse if it's not available.
 
-Instrumentation poses a particularly powerful use case for context propagation. It will be so widely accessed and documented that its implicit nature
+Instrumentation poses a particularly powerful use case for context propagation. It's so widely accessed and documented that its implicit nature
 will stay apparent to the reader. Our key-value interface will now look like this:
 
 ```go
