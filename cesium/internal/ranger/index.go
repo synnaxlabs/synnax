@@ -34,7 +34,7 @@ var _ observe.Observable[indexUpdate] = (*index)(nil)
 
 // insert adds a new pointer to the index.
 func (idx *index) insert(ctx context.Context, p pointer) error {
-	_, span := idx.T.Trace(ctx, "insert", alamos.DebugLevel)
+	_, span := idx.T.Bench(ctx, "insert")
 	defer span.End()
 	idx.mu.RLock()
 	insertAt := 0
@@ -67,7 +67,7 @@ func (idx *index) overlap(tr telem.TimeRange) bool {
 }
 
 func (idx *index) update(ctx context.Context, p pointer) (err error) {
-	_, span := idx.T.Trace(ctx, "update", alamos.DebugLevel)
+	_, span := idx.T.Bench(ctx, "update")
 	idx.mu.RLock()
 	if len(idx.mu.pointers) == 0 {
 		idx.mu.RUnlock()
@@ -128,7 +128,7 @@ func (idx *index) modifyAfter(ctx context.Context, i int, f func()) {
 }
 
 func (idx *index) searchLE(ctx context.Context, ts telem.TimeStamp) (i int) {
-	_, span := idx.T.Trace(ctx, "searchLE", alamos.DebugLevel)
+	_, span := idx.T.Bench(ctx, "searchLE")
 	idx.read(func() {
 		i, _ = idx.unprotectedSearch(ts.SpanRange(0))
 	})
@@ -137,7 +137,7 @@ func (idx *index) searchLE(ctx context.Context, ts telem.TimeStamp) (i int) {
 }
 
 func (idx *index) searchGE(ctx context.Context, ts telem.TimeStamp) (i int) {
-	_, span := idx.T.Trace(ctx, "searchGE", alamos.DebugLevel)
+	_, span := idx.T.Bench(ctx, "searchGE")
 	idx.read(func() {
 		var exact bool
 		i, exact = idx.unprotectedSearch(ts.SpanRange(0))

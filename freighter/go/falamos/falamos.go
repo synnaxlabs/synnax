@@ -35,9 +35,9 @@ type Config struct {
 	// EnableLogging sets whether the middleware logs the trace. Defaults to true.
 	// [OPTIONAL]
 	EnableLogging *bool
-	// Level is the level of the trace. Defaults to alamos.Info.
+	// Level is the level of the trace. Defaults to alamos.Prod.
 	// [OPTIONAL]
-	Level alamos.Level
+	Level alamos.Environment
 }
 
 // Validate implements config.Config
@@ -60,7 +60,7 @@ var _ config.Config[Config] = Config{}
 
 // Default is the default configuration for the tracing middleware.
 var Default = Config{
-	Level:             alamos.InfoLevel,
+	Level:             alamos.Prod,
 	EnableTracing:     config.True(),
 	EnablePropagation: config.True(),
 }

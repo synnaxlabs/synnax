@@ -12,7 +12,6 @@ package cesium
 import (
 	"context"
 	"github.com/cockroachdb/errors"
-	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/unary"
@@ -90,7 +89,7 @@ var _ DB = (*cesium)(nil)
 
 // Write implements DB.
 func (db *cesium) Write(ctx context.Context, start telem.TimeStamp, frame Frame) error {
-	_, span := db.T.Trace(ctx, "write", alamos.DebugLevel)
+	_, span := db.T.Debug(ctx, "write")
 	defer span.End()
 	w, err := db.NewWriter(ctx, WriterConfig{Start: start, Channels: frame.Keys()})
 	if err != nil {

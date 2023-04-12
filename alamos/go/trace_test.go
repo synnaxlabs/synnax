@@ -34,7 +34,7 @@ var _ = Describe("Trace", func() {
 		It("Should not panic when calling methods on a nil tracer", func() {
 			var tracer *alamos.Tracer
 			Expect(func() {
-				_, sp := tracer.Trace(context.Background(), "test", alamos.InfoLevel)
+				_, sp := tracer.Trace(context.Background(), "test", alamos.TradeInfo)
 				sp.End()
 			}).ToNot(Panic())
 		})
@@ -45,7 +45,7 @@ var _ = Describe("Trace", func() {
 				Provider:   otel.GetTracerProvider(),
 				Propagator: otel.GetTextMapPropagator(),
 			}))
-			ctx, sp := tracer.Trace(context.Background(), "test", alamos.InfoLevel)
+			ctx, sp := tracer.Trace(context.Background(), "test", alamos.TradeInfo)
 			sp1 := trace.SpanFromContext(ctx)
 			ctx2 := tracer.Transfer(ctx, context.Background())
 			sp2 := trace.SpanFromContext(ctx2)

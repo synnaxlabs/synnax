@@ -96,10 +96,9 @@ func (b *tx) toRequests(ctx context.Context) ([]TxRequest, error) {
 			br.Operations = append(br.Operations, op)
 		}
 		br.Leaseholder = op.Leaseholder
-		br.ctx, br.span = b.T.Trace(
+		br.ctx, br.span = b.T.Debug(
 			ctx,
 			fmt.Sprintf("tx-%d", br.Leaseholder),
-			alamos.DebugLevel,
 		)
 		dm[op.Leaseholder] = br
 	}

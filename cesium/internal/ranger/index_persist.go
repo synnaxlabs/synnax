@@ -12,7 +12,6 @@ package ranger
 import (
 	"context"
 	"encoding/binary"
-	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 	"io"
@@ -36,7 +35,7 @@ func openIndexPersist(idx *index, cfg Config) (*indexPersist, error) {
 }
 
 func (f *indexPersist) onChange(ctx context.Context, update indexUpdate) {
-	ctx, span := f.T.Trace(ctx, "onChange", alamos.DebugLevel)
+	ctx, span := f.T.Bench(ctx, "onChange")
 	var encoded []byte
 	f.idx.read(func() {
 		encoded = f.encode(update.afterIndex, f.idx.mu.pointers)

@@ -70,7 +70,27 @@ func NewTracer(configs ...TracingConfig) (*Tracer, error) {
 	return &Tracer{config: cfg}, nil
 }
 
-func (t *Tracer) Trace(ctx context.Context, key string, level Level) (context.Context, Span) {
+// Debug starts a span at the debug level with the given key. If the context is already
+// wrapped in a span, the span will be a child of the existing span.
+func (t *Tracer) Debug(ctx context.Context, key string) (context.Context, Span) {
+	return t.Trace(ctx, key, Debug)
+}
+
+// Prod starts a span at the production level. If the context is already wrapped in a
+// span, the span will be a child of the existing span.
+func (t *Tracer) Prod(ctx context.Context, key string) (context.Context, Span) {
+	return t.Trace(ctx, key, Prod)
+}
+
+// Bench starts a span at the benchmark level. If the context is already wrapped in a
+// span, the span will be a child of the existing span.
+func (t *Tracer) Bench(ctx context.Context, key string) (context.Context, Span) {
+	return t.Trace(ctx, key, Bench)
+}
+
+// Trace wraps the given context in a span with the given key and level. If the context
+// is already wrapped in a span, the span will be a child of the existing span.
+func (t *Tracer) Trace(ctx context.Context, key string, level Environment) (context.Context, Span) {
 	if t == nil || !t.meta.Filter(level, key) {
 		return ctx, nopSpan{}
 	}
@@ -141,7 +161,7 @@ func (s span) End() {
 
 // EndWith implements Span.
 func (s span) EndWith(err error, exclude ...error) error {
-	s.Error(err, exclude...)
+	_ = s.Error(err, exclude...)
 	s.End()
 	return err
 }
@@ -161,6 +181,4 @@ func (s nopSpan) Status(_ Status) {}
 func (s nopSpan) End() {}
 
 // EndWith implements Span.
-func (s nopSpan) EndWith(err error, _ ...error) error {
-	return err
-}
+func (s nopSpan) EndWith(err error, _ ...error) error { return err }

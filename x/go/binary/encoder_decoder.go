@@ -140,7 +140,7 @@ func (enc *PassThroughEncoderDecoder) DecodeStream(_ context.Context, r io.Reade
 // operations.
 type TracingEncoderDecoder struct {
 	alamos.Instrumentation
-	Level alamos.Level
+	Level alamos.Environment
 	EncoderDecoder
 }
 
