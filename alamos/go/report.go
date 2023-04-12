@@ -48,7 +48,19 @@ func NewReporter(configs ...ReporterConfig) (*Reporter, error) {
 	return &Reporter{}, nil
 }
 
-func (r *Reporter) Attach(key string, report ReportProvider, level Level) {
+func (r *Reporter) Debug(key string, report ReportProvider) {
+	r.Attach(key, report, Debug)
+}
+
+func (r *Reporter) Prod(key string, report ReportProvider) {
+	r.Attach(key, report, Prod)
+}
+
+func (r *Reporter) Bench(key string, report ReportProvider) {
+	r.Attach(key, report, Bench)
+}
+
+func (r *Reporter) Attach(key string, report ReportProvider, env Environment) {
 	if r == nil {
 		return
 	}

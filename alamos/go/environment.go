@@ -9,17 +9,18 @@
 
 package alamos
 
-type Level uint8
+type Environment uint8
 
 const (
-	DebugLevel Level = iota + 1
-	InfoLevel
+	Bench Environment = iota + 1
+	Debug
+	Prod
 )
 
-type Filter func(level Level, key string) bool
+type Filter func(level Environment, key string) bool
 
 func CompoundFilter(filters ...Filter) Filter {
-	return func(level Level, key string) bool {
+	return func(level Environment, key string) bool {
 		for _, f := range filters {
 			if f(level, key) {
 				return true
@@ -29,8 +30,8 @@ func CompoundFilter(filters ...Filter) Filter {
 	}
 }
 
-func ThresholdFilter(level Level) Filter {
-	return func(l Level, _ string) bool {
+func ThresholdFilter(level Environment) Filter {
+	return func(l Environment, _ string) bool {
 		return l < level
 	}
 }

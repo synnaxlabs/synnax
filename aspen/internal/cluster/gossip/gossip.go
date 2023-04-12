@@ -12,7 +12,6 @@ package gossip
 import (
 	"context"
 	"github.com/cockroachdb/errors"
-	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
@@ -37,7 +36,7 @@ func New(cfgs ...Config) (*Gossip, error) {
 
 // GoGossip starts a goroutine that gossips at Config.Interval.
 func (g *Gossip) GoGossip(ctx signal.Context) {
-	g.R.Attach("gossip", g.Config, alamos.InfoLevel)
+	g.R.Prod("gossip", g.Config)
 	g.L.Info("starting cluster gossip", g.Config.Report().ZapFields()...)
 	signal.GoTick(
 		ctx,
@@ -53,7 +52,7 @@ func (g *Gossip) GoGossip(ctx signal.Context) {
 }
 
 func (g *Gossip) GossipOnce(ctx context.Context) (err error) {
-	ctx, span := g.T.Trace(ctx, "gossip-client", alamos.DebugLevel)
+	ctx, span := g.T.Debug(ctx, "gossip-client")
 	snap := g.Store.CopyState()
 	peer := RandomPeer(snap.Nodes, snap.HostKey)
 	g.incrementHostHeartbeat(ctx)
@@ -84,7 +83,7 @@ func (g *Gossip) incrementHostHeartbeat(ctx context.Context) {
 }
 
 func (g *Gossip) process(ctx context.Context, msg Message) (Message, error) {
-	ctx, span := g.T.Trace(ctx, "gossip-server", alamos.DebugLevel)
+	ctx, span := g.T.Debug(ctx, "gossip-server")
 	defer span.End()
 	switch msg.variant() {
 	case messageVariantSync:

@@ -11,7 +11,6 @@ package ranger
 
 import (
 	"context"
-	"github.com/synnaxlabs/alamos"
 	atomicx "github.com/synnaxlabs/x/atomic"
 	"github.com/synnaxlabs/x/errutil"
 	xio "github.com/synnaxlabs/x/io"
@@ -70,7 +69,7 @@ func openFileController(cfg Config) (*fileController, error) {
 }
 
 func (fc *fileController) acquireWriter(ctx context.Context) (uint16, xio.OffsetWriteCloser, error) {
-	ctx, span := fc.T.Trace(ctx, "acquireWriter", alamos.InfoLevel)
+	ctx, span := fc.T.Bench(ctx, "acquireWriter")
 	defer span.End()
 	// attempt to pull a writer from the pool of open writers
 	fc.writers.RLock()
@@ -103,7 +102,7 @@ func (fc *fileController) acquireWriter(ctx context.Context) (uint16, xio.Offset
 }
 
 func (fc *fileController) newWriter(ctx context.Context) (*controlledWriter, error) {
-	ctx, span := fc.T.Trace(ctx, "newWriter", alamos.InfoLevel)
+	ctx, span := fc.T.Bench(ctx, "newWriter")
 	defer span.End()
 	nextKey := uint16(fc.counter.Add(1))
 	if err := fc.counter.Error(); err != nil {
@@ -131,7 +130,7 @@ func (fc *fileController) newWriter(ctx context.Context) (*controlledWriter, err
 }
 
 func (fc *fileController) acquireReader(ctx context.Context, key uint16) (xio.ReaderAtCloser, error) {
-	ctx, span := fc.T.Trace(ctx, "acquireReader", alamos.InfoLevel)
+	ctx, span := fc.T.Bench(ctx, "acquireReader")
 	defer span.End()
 	fc.readers.RLock()
 	if opts, ok := fc.readers.open[key]; ok {

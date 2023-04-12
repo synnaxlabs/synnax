@@ -100,7 +100,7 @@ func (w *Writer) Write(p []byte) (n int, err error) { return w.internal.Write(p)
 // and the provided timestamp overlaps with any other ranges within the DB, Commit will
 // return an error.
 func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp) error {
-	ctx, span := w.T.Trace(ctx, "commit", alamos.DebugLevel)
+	ctx, span := w.T.Prod(ctx, "commit")
 	if !w.End.IsZero() {
 		end = w.End
 	}

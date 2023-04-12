@@ -155,7 +155,7 @@ func (r *routine) runPrelude() (ctx context.Context, proceed bool) {
 	r.ctx.mu.Unlock()
 
 	r.ctx.L.Debug("starting routine", r.zapFields()...)
-	ctx, r.span = r.ctx.T.Trace(r.ctx, r.key, alamos.InfoLevel)
+	ctx, r.span = r.ctx.T.Prod(r.ctx, r.key)
 
 	return ctx, true
 }

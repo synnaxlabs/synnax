@@ -33,7 +33,6 @@ import (
 	"context"
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/iter"
@@ -72,9 +71,9 @@ func Pledge(ctx context.Context, cfgs ...Config) (res Response, err error) {
 		return res, err
 	}
 
-	cfg.R.Attach("pledge", cfg, alamos.InfoLevel)
+	cfg.R.Prod("pledge", cfg)
 	cfg.L.Debug("beginning pledge process", cfg.Report().ZapFields()...)
-	ctx, tracer := cfg.T.Trace(ctx, "pledge", alamos.InfoLevel)
+	ctx, tracer := cfg.T.Prod(ctx, "pledge")
 	defer tracer.End()
 
 	// introduce random jitter to avoid a thundering herd during concurrent pledging.
@@ -132,7 +131,7 @@ func Arbitrate(cfgs ...Config) error {
 	if err != nil {
 		return err
 	}
-	cfg.R.Attach("pledge", cfg, alamos.InfoLevel)
+	cfg.R.Prod("pledge", cfg)
 	cfg.L.Debug("registering node as pledge arbitrator", cfg.Report().ZapFields()...)
 	return arbitrate(cfg)
 }
@@ -157,7 +156,7 @@ type responsible struct {
 func (r *responsible) propose(ctx context.Context) (res Response, err error) {
 	r.L.Info("responsible received pledge. starting proposal process.")
 
-	ctx, span := r.T.Trace(ctx, "responsible.propose", alamos.InfoLevel)
+	ctx, span := r.T.Prod(ctx, "responsible.propose")
 	defer func() { _ = span.EndWith(err) }()
 
 	res.ClusterKey = r.ClusterKey
@@ -273,7 +272,7 @@ func (j *juror) verdict(ctx context.Context, req Request) (err error) {
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
-	ctx, span := j.T.Trace(ctx, "juror.verdict", alamos.InfoLevel)
+	ctx, span := j.T.Prod(ctx, "juror.verdict")
 	defer func() { _ = span.EndWith(err, proposalRejected) }()
 	logID := zap.Uint32("key", uint32(req.Key))
 	j.L.Debug("juror received proposal. making verdict", logID)

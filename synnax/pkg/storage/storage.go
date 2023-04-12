@@ -82,7 +82,7 @@ func (s *Store) Gorpify() *gorp.DB {
 	return gorp.Wrap(
 		s.KV,
 		gorp.WithEncoderDecoder(&binary.TracingEncoderDecoder{
-			Level:           alamos.DebugLevel,
+			Level:           alamos.Debug,
 			Instrumentation: s.Instrumentation,
 			EncoderDecoder:  &binary.MsgPackEncoderDecoder{},
 		}),

@@ -19,7 +19,6 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	pledge_ "github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/cluster/store"
@@ -112,7 +111,7 @@ func Open(ctx context.Context, configs ...Config) (Cluster, error) {
 		return nil, err
 	}
 
-	c.R.Attach("cluster", c, alamos.InfoLevel)
+	c.R.Prod("cluster", c)
 	c.L.Info("beginning cluster startup", c.Report().ZapFields()...)
 
 	if !state.IsZero() {

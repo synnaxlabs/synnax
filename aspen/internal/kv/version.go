@@ -12,7 +12,6 @@ package kv
 import (
 	"context"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/confluence"
 	kvx "github.com/synnaxlabs/x/kv"
@@ -45,7 +44,7 @@ func (vc *versionFilter) _switch(
 		rejected = TxRequest{Sender: b.Sender, doneF: b.doneF, ctx: b.ctx, span: b.span}
 		accepted = TxRequest{Sender: b.Sender, doneF: b.doneF, ctx: b.ctx, span: b.span}
 	)
-	ctx, span := vc.T.Trace(b.ctx, "tx-filter", alamos.DebugLevel)
+	ctx, span := vc.T.Debug(b.ctx, "tx-filter")
 	defer span.End()
 	for _, op := range b.Operations {
 		if vc.filter(ctx, op) {
