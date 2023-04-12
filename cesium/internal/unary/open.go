@@ -40,7 +40,7 @@ var (
 	_ config.Config[Config] = (*Config)(nil)
 	// DefaultConfig is the default configuration for a DB.
 	DefaultConfig = Config{
-		MetaECD: &binary.JSONIdentEncoderDecoder{},
+		MetaECD: &binary.JSONEncoderDecoder{Pretty: true},
 	}
 )
 
