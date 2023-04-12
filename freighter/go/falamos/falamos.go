@@ -10,6 +10,9 @@
 package falamos
 
 import (
+	"fmt"
+	"github.com/samber/lo"
+	"go.uber.org/zap"
 	"strings"
 
 	"github.com/synnaxlabs/alamos"
@@ -42,12 +45,15 @@ type Config struct {
 func (cfg Config) Validate() error {
 	v := validate.New("falamos.Config")
 	validate.NotNil(v, "Instrumentation", cfg.Instrumentation)
-	return nil
+	return v.Error()
 }
 
 // Override implements config.Config
 func (cfg Config) Override(other Config) Config {
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
+	cfg.EnablePropagation = override.Nil(cfg.EnableLogging, other.EnableLogging)
+	cfg.EnableLogging = override.Nil(cfg.EnablePropagation, other.EnablePropagation)
+	cfg.EnableTracing = override.Nil(cfg.EnableTracing, other.EnableTracing)
 	return cfg
 }
 
@@ -89,6 +95,10 @@ func Middleware(configs ...Config) (freighter.Middleware, error) {
 		}
 
 		oCtx, err := next(ctx)
+
+		if *cfg.EnableLogging {
+			log(ctx, err, cfg)
+		}
 
 		if *cfg.EnableTracing {
 			_ = span.EndWith(err)
@@ -134,4 +144,14 @@ func (c carrier) Keys() []string {
 		}
 	}
 	return keys
+}
+
+func log(ctx freighter.Context, err error, cfg Config) {
+	logF := lo.Ternary(err != nil, cfg.L.Info, cfg.L.Error)
+	logF(fmt.Sprintf("%s", ctx.Location),
+		zap.Stringer("target", ctx.Target),
+		zap.String("protocol", ctx.Protocol),
+		zap.String("type", ctx.Type),
+		zap.Error(err),
+	)
 }

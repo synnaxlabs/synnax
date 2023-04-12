@@ -17,6 +17,7 @@ import (
 
 type Location uint8
 
+//go:generate stringer -type=Location
 const (
 	// ClientSide indicates whether the middleware is located on the client side of the request.
 	ClientSide Location = iota + 1
@@ -26,9 +27,10 @@ const (
 
 type Type uint8
 
+//go:generate stringer -type=Type
 const (
 	// Unary is set on middleware that is executed for a unary request.
-	Unary Type = iota
+	Unary Type = iota + 1
 	// Stream is set on middleware that is executed for a streaming request.
 	Stream
 )
