@@ -70,7 +70,7 @@ func (s ProviderConfig) Override(other ProviderConfig) ProviderConfig {
 
 // Validate implements Config.
 func (s ProviderConfig) Validate() error {
-	v := validate.New("security.Provider")
+	v := validate.New("security.OtelProvider")
 	validate.NotNil(v, "Insecure", s.Insecure)
 	v.Exec(s.LoaderConfig.Validate)
 	return v.Error()

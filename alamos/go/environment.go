@@ -17,9 +17,9 @@ const (
 	Prod
 )
 
-type Filter func(level Environment, key string) bool
+type EnvironmentFilter func(env Environment, key string) bool
 
-func CompoundFilter(filters ...Filter) Filter {
+func CompoundEnvFilter(filters ...EnvironmentFilter) EnvironmentFilter {
 	return func(level Environment, key string) bool {
 		for _, f := range filters {
 			if f(level, key) {
@@ -30,7 +30,7 @@ func CompoundFilter(filters ...Filter) Filter {
 	}
 }
 
-func ThresholdFilter(level Environment) Filter {
+func ThresholdEnvFilter(level Environment) EnvironmentFilter {
 	return func(l Environment, _ string) bool {
 		return l < level
 	}

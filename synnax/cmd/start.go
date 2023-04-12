@@ -120,7 +120,7 @@ func start(cmd *cobra.Command) {
 
 		// Configure the API core.
 		_api := api.New(api.Config{
-			Instrumentation: ins.Sub("api"),
+			Instrumentation: ins.Child("api"),
 			Authenticator:   authenticator,
 			Enforcer:        access.AllowAll{},
 			Insecure:        insecure,
@@ -201,7 +201,7 @@ func buildDistributionConfig(
 ) (distribution.Config, error) {
 	peers, err := parsePeerAddresses()
 	return distribution.Config{
-		Instrumentation:  ins.Sub("distribution"),
+		Instrumentation:  ins.Child("distribution"),
 		AdvertiseAddress: address.Address(viper.GetString("listen")),
 		PeerAddresses:    peers,
 		Pool:             pool,
@@ -224,7 +224,7 @@ func buildServerConfig(
 	)
 	cfg.Debug = config.Bool(debug)
 	cfg.ListenAddress = address.Address(viper.GetString("listen"))
-	cfg.Instrumentation = ins.Sub("server")
+	cfg.Instrumentation = ins.Child("server")
 	cfg.Security.TLS = sec.TLS()
 	cfg.Security.Insecure = config.Bool(viper.GetBool("insecure"))
 	return cfg

@@ -22,7 +22,7 @@ import (
 	"os"
 )
 
-var _ = Describe("Provider", func() {
+var _ = Describe("OtelProvider", func() {
 	Describe("Secure", func() {
 		Describe("TLS Configuration", func() {
 			It("Should load and return the correct TLS configuration", func() {

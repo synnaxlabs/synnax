@@ -23,8 +23,8 @@ var _ = Describe("Trace", func() {
 	Describe("NewTracer", func() {
 		It("Should correctly create a new tracer", func() {
 			cfg := alamos.TracingConfig{
-				Provider:   otel.GetTracerProvider(),
-				Propagator: otel.GetTextMapPropagator(),
+				OtelProvider:   otel.GetTracerProvider(),
+				OtelPropagator: otel.GetTextMapPropagator(),
 			}
 			tracer := MustSucceed(alamos.NewTracer(cfg))
 			Expect(tracer).ToNot(BeNil())
@@ -42,8 +42,8 @@ var _ = Describe("Trace", func() {
 	Describe("Transfer", func() {
 		It("Should correctly transfer the span from one context to another", func() {
 			tracer := MustSucceed(alamos.NewTracer(alamos.TracingConfig{
-				Provider:   otel.GetTracerProvider(),
-				Propagator: otel.GetTextMapPropagator(),
+				OtelProvider:   otel.GetTracerProvider(),
+				OtelPropagator: otel.GetTextMapPropagator(),
 			}))
 			ctx, sp := tracer.Trace(context.Background(), "test", alamos.TradeInfo)
 			sp1 := trace.SpanFromContext(ctx)

@@ -27,7 +27,7 @@ func (t *Tracer) Propagate(ctx context.Context, carrier TraceCarrier) {
 	if t == nil {
 		return
 	}
-	t.config.Propagator.Inject(ctx, carrier)
+	t.config.OtelPropagator.Inject(ctx, carrier)
 }
 
 // Depropagate extracts a span from the given carrier and returns a new context with the
@@ -36,5 +36,5 @@ func (t *Tracer) Depropagate(ctx context.Context, carrier TraceCarrier) context.
 	if t == nil {
 		return ctx
 	}
-	return t.config.Propagator.Extract(ctx, carrier)
+	return t.config.OtelPropagator.Extract(ctx, carrier)
 }
