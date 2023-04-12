@@ -132,7 +132,7 @@ func Open(configs ...Config) (*DB, error) {
 // A seeking call is required before it can be used.
 func (db *DB) NewIterator(cfg IteratorConfig) *Iterator {
 	i := &Iterator{
-		Instrumentation: db.Instrumentation.Sub("iterator"),
+		Instrumentation: db.Instrumentation.Child("iterator"),
 		idx:             db.idx,
 		readerFactory:   db.newReader,
 	}
@@ -151,7 +151,7 @@ func (db *DB) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) 
 	}
 	return &Writer{
 		WriterConfig:    cfg,
-		Instrumentation: db.Instrumentation.Sub("writer"),
+		Instrumentation: db.Instrumentation.Child("writer"),
 		fileKey:         key,
 		internal:        internal,
 		idx:             db.idx,

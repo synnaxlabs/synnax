@@ -25,7 +25,7 @@ type (
 	Config       = core.Config
 	Core         = core.Core
 	Node         = core.Node
-	NodeKey       = core.NodeKey
+	NodeKey      = core.NodeKey
 	NodeState    = core.NodeState
 	Cluster      = core.Cluster
 	Resolver     = aspen.Resolver
@@ -85,7 +85,7 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 	d.Ontology.RegisterService(d.Channel)
 
 	d.Framer, err = framer.Open(framer.ServiceConfig{
-		Instrumentation: cfg.Instrumentation.Sub("framer"),
+		Instrumentation: cfg.Instrumentation.Child("framer"),
 		ChannelReader:   d.Channel,
 		TS:              d.Storage.TS,
 		Transport:       segmentTransport,

@@ -65,8 +65,8 @@ func newTracer(serviceName string) *alamos.Tracer {
 		uptrace.WithServiceVersion(lo.Must(git.CurrentCommit())),
 	)
 	return MustSucceed(alamos.NewTracer(alamos.TracingConfig{
-		Provider:   otel.GetTracerProvider(),
-		Propagator: otel.GetTextMapPropagator(),
+		OtelProvider:   otel.GetTracerProvider(),
+		OtelPropagator: otel.GetTextMapPropagator(),
 	}))
 }
 
@@ -90,7 +90,7 @@ func Instrumentation(key string, configs ...InstrumentationConfig) alamos.Instru
 		options = append(options, alamos.WithLogger(newLogger()))
 	}
 	if *cfg.Report {
-		options = append(options, alamos.WithReports(newReports()))
+		options = append(options, alamos.WithReporter(newReports()))
 	}
 
 	return alamos.New(key, options...)

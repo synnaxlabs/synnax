@@ -51,71 +51,61 @@ func NewLogger(configs ...LoggerConfig) (*Logger, error) {
 	return &Logger{zap: cfg.Zap}, nil
 }
 
-var _ sub[*Logger] = (*Logger)(nil)
-
 func (l *Logger) sub(meta InstrumentationMeta) *Logger {
-	if l == nil {
+	if l != nil {
 		return nil
 	}
 	return &Logger{zap: l.zap.Named(meta.Key)}
 }
 
+// Debug logs a message at the Debug level with the given fields.
 func (l *Logger) Debug(msg string, fields ...zap.Field) {
 	if l == nil {
-		return
+		l.zap.Debug(msg, fields...)
 	}
-	l.zap.Debug(msg, fields...)
 }
 
+// Debugf logs a message at the Debug level using the given format. This is a slower
+// method that should not be used in hot paths.
 func (l *Logger) Debugf(format string, args ...interface{}) {
 	if l == nil {
-		return
+		l.zap.Sugar().Debugf(format, args...)
 	}
-	l.zap.Sugar().Debugf(format, args...)
 }
 
+// Info logs a message at the Info level with the given fields.
 func (l *Logger) Info(msg string, fields ...zap.Field) {
 	if l == nil {
-		return
+		l.zap.Info(msg, fields...)
 	}
-	l.zap.Info(msg, fields...)
 }
 
+// Warn logs a message at the Warn level with the given fields.
 func (l *Logger) Warn(msg string, fields ...zap.Field) {
 	if l == nil {
-		return
+		l.zap.Warn(msg, fields...)
 	}
-	l.zap.Warn(msg, fields...)
 }
 
+// Error logs a message at the Error level with the given fields.
 func (l *Logger) Error(msg string, fields ...zap.Field) {
 	if l == nil {
-		return
+		l.zap.Error(msg, fields...)
 	}
-	l.zap.Error(msg, fields...)
 }
 
+// Fatal logs a message at the Fatal level with the given fields and then exits the
+// process with status code 1.
 func (l *Logger) Fatal(msg string, fields ...zap.Field) {
 	if l == nil {
-		return
+		l.zap.Fatal(msg, fields...)
 	}
-	l.zap.Fatal(msg, fields...)
 }
 
-func (l *Logger) Panic(msg string, fields ...zap.Field) {
-	if l == nil {
-		return
-	}
-	l.zap.Panic(msg, fields...)
-}
-
+// DPanic logs a message with the given fields that  panics in development mode and logs
+// to the Error level in production mode.
 func (l *Logger) DPanic(msg string, fields ...zap.Field) {
 	if l == nil {
-		return
+		l.zap.DPanic(msg, fields...)
 	}
-	l.zap.DPanic(msg, fields...)
-}
-
-func newDevLogger(key string) *Logger {
-	return &Logger{zap: zap.NewNop()}
 }

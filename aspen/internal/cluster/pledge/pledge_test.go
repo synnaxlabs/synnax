@@ -101,7 +101,7 @@ var _ = Describe("PledgeServer", func() {
 				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 				defer cancel()
 				res, err := pledge.Pledge(ctx, baseConfig(net, logger), pledge.Config{
-					Instrumentation: ins.Sub("no-nodes-responding"),
+					Instrumentation: ins.Child("no-nodes-responding"),
 					Peers:           peers,
 					Candidates:      func() node.Group { return node.Group{} },
 				}, pledge.BlazingFastConfig)
@@ -127,7 +127,7 @@ var _ = Describe("PledgeServer", func() {
 				ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
 				defer cancel()
 				res, err := pledge.Pledge(ctx, baseConfig(net, logger), pledge.Config{
-					Instrumentation: ins.Sub("cluster-state-synchronized"),
+					Instrumentation: ins.Child("cluster-state-synchronized"),
 					Peers:           nodes.Addresses(),
 					Candidates:      candidates,
 				}, pledge.BlazingFastConfig)
@@ -186,7 +186,7 @@ var _ = Describe("PledgeServer", func() {
 					ctx,
 					baseConfig(net, logger),
 					pledge.Config{
-						Instrumentation: ins.Sub("one-juror-aware-of-new-node"),
+						Instrumentation: ins.Child("one-juror-aware-of-new-node"),
 						Peers:           []address.Address{allCandidates()[0].Address},
 						Candidates:      extraCandidates,
 					},
@@ -265,7 +265,7 @@ var _ = Describe("PledgeServer", func() {
 							ctx,
 							cfg,
 							pledge.Config{
-								Instrumentation: ins.Sub("concurrent-pledges"),
+								Instrumentation: ins.Child("concurrent-pledges"),
 								Candidates:      candidates(0),
 								Peers:           nodes.Addresses(),
 							},

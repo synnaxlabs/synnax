@@ -10,56 +10,88 @@
 package alamos
 
 import (
-	"bytes"
-	"encoding/json"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
-	"io"
 )
 
+// ReportProvider is an entity that can provide a Report to a Reporter.
 type ReportProvider interface {
+	// Report generates and returns a Report.
 	Report() Report
 }
 
+// ReporterConfig is the configuration for a Reporter.
 type ReporterConfig struct {
+	// Filter is a function called to determine whether a report should be included
+	// for the given key and environment. If the filter returns false, the report
+	// will not be included.
+	Filter EnvironmentFilter
 }
 
 var (
-	_                     config.Config[ReporterConfig] = ReporterConfig{}
-	DefaultReporterConfig                               = ReporterConfig{}
+	_ config.Config[ReporterConfig] = ReporterConfig{}
+	// DefaultReporterConfig is the default configuration for a Reporter.
+	DefaultReporterConfig = ReporterConfig{}
 )
 
+// Validate implements config.Config.
 func (r ReporterConfig) Validate() error {
-	return nil
+	v := validate.New("alamos.ReporterConfig")
+	validate.NotNil(v, "Filter", r.Filter)
+	return v.Error()
 }
 
+// Override implement config.Config.
 func (r ReporterConfig) Override(other ReporterConfig) ReporterConfig {
+	r.Filter = override.Nil(r.Filter, other.Filter)
 	return r
 }
 
+// Reporter is used to attach reports (key-value metadata) to Instrumentation. It's
+// typically used for recording the configuration of a service.
 type Reporter struct {
 	meta    InstrumentationMeta
 	reports map[string]ReportProvider
+	config  ReporterConfig
 }
 
-var _ sub[*Reporter] = (*Reporter)(nil)
-
+// NewReporter instantiates a new Reporter using the given configurations. If no configurations
+// are provided, the function will return an error. To use a no-op reporter, simply
+// pass a nil-pointer.
 func NewReporter(configs ...ReporterConfig) (*Reporter, error) {
-	return &Reporter{}, nil
+	cfg, err := config.New(DefaultReporterConfig, configs...)
+	if err != nil {
+		return nil, err
+	}
+	return &Reporter{config: cfg}, nil
 }
 
+// Debug attaches the given ReportProvider to the Reporter with the given key in the
+// Debug environment . The Report is lazily evaluated, and will only be called
+// when the instrumentation report is generated.
 func (r *Reporter) Debug(key string, report ReportProvider) {
 	r.Attach(key, report, Debug)
 }
 
+// Prod attaches the given ReportProvider to the Reporter with the given key in the
+// production (Prod) environment . The Report is lazily evaluated, and will only be called
+// when the instrumentation report is generated.
 func (r *Reporter) Prod(key string, report ReportProvider) {
 	r.Attach(key, report, Prod)
 }
 
+// Bench attaches the given ReportProvider to the Reporter with the given key in the
+// benchmark (Bench) environment . The Report is lazily evaluated, and will only be called
+// when the instrumentation report is generated.
 func (r *Reporter) Bench(key string, report ReportProvider) {
 	r.Attach(key, report, Bench)
 }
 
+// Attach attaches the given ReportProvider to the Reporter with the given key under
+// the Environment env. The Report is lazily evaluated, and will only be called
+// when the instrumentation report is generated.
 func (r *Reporter) Attach(key string, report ReportProvider, env Environment) {
 	if r == nil {
 		return
@@ -70,37 +102,12 @@ func (r *Reporter) Attach(key string, report ReportProvider, env Environment) {
 	r.reports[key] = report
 }
 
-func (r *Reporter) sub(meta InstrumentationMeta) *Reporter {
-	if r == nil {
-		return nil
-	}
-	return &Reporter{meta: meta, reports: r.reports}
-}
-
+// Report is key-value meta-data that can be attached to an Instrumentation. All values
+// stores in a report must be JSON-serializable. Otherwise, it's up to the user to
+// decide what to do store. We recommend using snake_case for keys.
 type Report map[string]interface{}
 
-// JSON writes the report as JSON as bytes.
-func (r Report) JSON() ([]byte, error) {
-	b := bytes.NewBuffer([]byte{})
-	err := r.WriteJSON(b)
-	return b.Bytes(), err
-}
-
-// WriteJSON writes the report as JSON to the given writer.
-func (r Report) WriteJSON(w io.Writer) error {
-	e := json.NewEncoder(w)
-	e.SetIndent("", "")
-	return e.Encode(r)
-}
-
-func (r Report) String() string {
-	b, err := r.JSON()
-	if err != nil {
-		return err.Error()
-	}
-	return string(b)
-}
-
+// ZapFields generates a set of zap.Fields that can be used to log the report.
 func (r Report) ZapFields() []zap.Field { return r.zapFields("") }
 
 func (r Report) zapFields(prefix string) []zap.Field {
@@ -113,4 +120,11 @@ func (r Report) zapFields(prefix string) []zap.Field {
 		args = append(args, zap.Any(prefix+k, v))
 	}
 	return args
+}
+
+func (r *Reporter) sub(meta InstrumentationMeta) *Reporter {
+	if r == nil {
+		return nil
+	}
+	return &Reporter{meta: meta, reports: r.reports}
 }
