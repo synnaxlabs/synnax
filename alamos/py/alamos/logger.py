@@ -7,12 +7,23 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from logging import Logger as BaseLogger
+
+
 class Logger:
-    def debug(self, msg: str):
-        pass
+    base: BaseLogger
+    def __init__(self, name: str):
 
-    def info(self, msg: str):
-        pass
 
-    def warn(self, msg: str):
-        pass
+    def debug(self, msg: str, *args, **kwargs):
+        self.base.debug(msg, *args, **kwargs)
+
+    def info(self, msg: str, *args, **kwargs):
+        self.base.info(msg, *args, **kwargs)
+
+    def warn(self, msg: str, *args, **kwargs):
+        self.base.warning(msg, *args, **kwargs)
+
+    def error(self, msg: str, *args, **kwargs):
+        self.base.error(msg, *args, **kwargs)
+

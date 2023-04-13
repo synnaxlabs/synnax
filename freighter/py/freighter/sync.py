@@ -100,9 +100,6 @@ class _SenderCloser(StreamSender[RQ]):
             self._requests.sync_q.put((None, True))
         return self._gate_stream_closed(self._exc.read(block))
 
-    def _gate_stream_closed(self, exc: Exception | None) -> None | Exception:
-        return exc if not isinstance(exc, StreamClosed) else None
-
     async def run(self) -> None:
         while True:
             async with process(self._requests, self._req_t) as req:
@@ -119,6 +116,10 @@ class _SenderCloser(StreamSender[RQ]):
                     exc = e
                 if exc is not None:
                     return self._exc.notify(exc)
+
+    @staticmethod
+    def _gate_stream_closed(self, exc: Exception | None) -> None | Exception:
+        return exc if not isinstance(exc, StreamClosed) else None
 
 
 class SyncStream(Thread, Stream[RQ, RS]):
