@@ -17,7 +17,8 @@ user experience.
 # 2 - Motivation
 
 Cesium works quite well for irregular time-series data, but as we start to roll out
-Synnax to more users, we're starting to see more and more requests for handling irregularly
+Synnax to more users, we're starting to see more and more requests for handling
+irregularly
 sampled data. In many cases, a lock of support for irregular data is a deal breaker
 for users.
 
@@ -38,7 +39,8 @@ excel spreadsheet.
 ### 3.0.0 - Root Index
 
 The root index can be though of as the row # in the spreadsheet. It's a channel that
-represents the `array index` of a particular value. It's useful to think of it as a column
+represents the `array index` of a particular value. It's useful to think of it as a
+column
 of ordered nanosecond timestamps. The root index is used as an intermediary translator
 between other indexes (i.e. channel or rate based indexes) and the actual data stored
 in the segments. When a segment is written to disk, it contains an `Alignment` field
@@ -59,7 +61,7 @@ and we're writing ten values to disk starting at timestamp 10 seconds. The data 
 resemble the following:
 
 | Root Index | Time Stamp | Value |
-| ---------- | ---------- | ----- |
+|------------|------------|-------|
 | 100        | 10s        | 0     |
 | 101        | 10.1s      | 1     |
 | 102        | 10.2s      | 2     |
@@ -75,7 +77,7 @@ If we were to write another five sample segment starting at timestamp 11.5s, the
 would be appended as follows:
 
 | Root Index | Time Stamp | Value |
-| ---------- | ---------- | ----- |
+|------------|------------|-------|
 | 100        | 10s        | 0     |
 | 101        | 10.1s      | 1     |
 | 102        | 10.2s      | 2     |
@@ -94,19 +96,22 @@ would be appended as follows:
 
 ### 3.0.2 - Channel Based Index
 
-Channel based indexes use a channel to align timestamps with the root index. This channel
-is called the `index channel`. The index channel contains ordered timestamps. To translate
+Channel based indexes use a channel to align timestamps with the root index. This
+channel
+is called the `index channel`. The index channel contains ordered timestamps. To
+translate
 between a timestamp and a position on the root index, a lookup is performed on the index
 channel.
 
-Indexed channels are useful for irregularly sampled data. A user can create an index channel,
+Indexed channels are useful for irregularly sampled data. A user can create an index
+channel,
 write timestamp values to it, and then write to the data channel.
 
 As an example, let's say we have a timestamp and temperature sensor channel that starts
 at timestamp 10s:
 
 | Root Index  | Time Stamp | Temperature |
-| ----------- | ---------- | ----------- |
+|-------------|------------|-------------|
 | 10000000000 | 10s        | 0           |
 | 10000000001 | 13s        | 1           |
 | 10000000002 | 14s        | 2           |
@@ -134,12 +139,14 @@ With the introduction of indexes, channels are now split into three separate typ
 
 Index channels store ordered int64 timestamp values. They are used to align timestamps
 with the root index. Extensive validation is performed on index channels, which means
-write performance is the slowest of the three channel types. Index channels must be written
+write performance is the slowest of the three channel types. Index channels must be
+written
 to before any data channels that use the index.
 
 ### 3.1.1 - Indexed Data Channels
 
-Indexed data channels are data channels that rely on an index channel to align timestamps
+Indexed data channels are data channels that rely on an index channel to align
+timestamps
 with the root index. Validation is performed on indexed data channels to ensure that
 timestamps are properly defined for all values, which means write performance is slower
 that rate based data channels. Indexed data channels must be written to after the index
@@ -166,7 +173,8 @@ three channel types, because no lookup is required to resolve timestamps.
 ### 3.3.1 - Indexed Segment Validation
 
 1. The index must be defined and contiguous for all values in the segment.
-2. The `Start` timestamp of the segment must exactly align with a timestamp in the index.
+2. The `Start` timestamp of the segment must exactly align with a timestamp in the
+   index.
 3. Cannot overlap with other segments.
 
 ### 3.3.2 - Rate Segment Validation

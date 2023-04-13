@@ -32,6 +32,6 @@ func CompoundEnvFilter(filters ...EnvironmentFilter) EnvironmentFilter {
 
 func ThresholdEnvFilter(level Environment) EnvironmentFilter {
 	return func(l Environment, _ string) bool {
-		return l < level
+		return l <= level
 	}
 }

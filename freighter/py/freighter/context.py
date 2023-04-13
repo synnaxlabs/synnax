@@ -49,3 +49,6 @@ class Context:
 
     def get(self, key: str, default: Any = None) -> Any:
         return self.params.get(key, default)
+
+    def keys(self) -> list[str]:
+        return list(self.params.keys())
