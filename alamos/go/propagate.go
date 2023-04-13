@@ -24,10 +24,9 @@ type TraceCarrier interface {
 
 // Propagate injects the current span into the given carrier, if it exists.
 func (t *Tracer) Propagate(ctx context.Context, carrier TraceCarrier) {
-	if t == nil {
-		return
+	if t != nil {
+		t.config.OtelPropagator.Inject(ctx, carrier)
 	}
-	t.config.OtelPropagator.Inject(ctx, carrier)
 }
 
 // Depropagate extracts a span from the given carrier and returns a new context with the

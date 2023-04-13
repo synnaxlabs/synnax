@@ -91,14 +91,14 @@ package irrelivant
 type NodeID int16
 
 type Node struct {
-	ID NodeID
-	// Address is a reachable address for the node.
-	Address address.Address
-	// Version is software version of the node.
-	Version version.MajorMinor
-	// Heartbeat is the gossip heartbeat of the node. See [Heartbeat] for more.
-	Heartbeat Heartbeat
-	// Various additions such as failure detection state, etc. will go here.
+    ID NodeID
+    // Address is a reachable address for the node.
+    Address address.Address
+    // Version is software version of the node.
+    Version version.MajorMinor
+    // Heartbeat is the gossip heartbeat of the node. See [Heartbeat] for more.
+    Heartbeat Heartbeat
+    // Various additions such as failure detection state, etc. will go here.
 }
 
 type NodeMap map[NodeID]Node
@@ -110,12 +110,12 @@ A node's Heartbeat tracks two values:
 package irrelivant
 
 type Heartbeat struct {
-	// Version is incremented every time the node gossips information about its state. This is
-	//used to merge differing versions of cluster state during gossip.
-	Version uint32
-	// Generation is incremented every time the node is restarted. This is useful for bringing a node
-	// back up to speed after a long period of absence.
-	Generation uint16
+    // Version is incremented every time the node gossips information about its state. This is
+    //used to merge differing versions of cluster state during gossip.
+    Version uint32
+    // Generation is incremented every time the node is restarted. This is useful for bringing a node
+    // back up to speed after a long period of absence.
+    Generation uint16
 }
 ```
 
@@ -130,14 +130,14 @@ another node. This message contains a list of node digests.
 package irrelivant
 
 type Digest struct {
-	// NodeID is the node's unique identifier
-	ID NodeID
-	// Heartbeat is the gossip heartbeat.
-	Heartbeat Heartbeat
+    // NodeID is the node's unique identifier
+    ID NodeID
+    // Heartbeat is the gossip heartbeat.
+    Heartbeat Heartbeat
 }
 
 type SyncMessage struct {
-	Digests []Digest
+    Digests []Digest
 }
 ```
 
@@ -152,17 +152,17 @@ respond with an ack message:
 package irrelivant
 
 type AckMessage struct {
-	// A list of digests for nodes in the peer's state that:
-	//
-	//    1. The peer node has not seen.
-	//    2. Have an older heartbeat than in the sender's Digest.
-	//
-	Digests []Digest
-	// A NodeMap of nodes in the peer's state that:
-	//
-	//    1. The initiating node has not seen.
-	//    2. Have an older heartbeat than in the sender's Digest.
-	NodeMap NodeMap
+    // A list of digests for nodes in the peer's state that:
+    //
+    //    1. The peer node has not seen.
+    //    2. Have an older heartbeat than in the sender's Digest.
+    //
+    Digests []Digest
+    // A NodeMap of nodes in the peer's state that:
+    //
+    //    1. The initiating node has not seen.
+    //    2. Have an older heartbeat than in the sender's Digest.
+    NodeMap NodeMap
 }
 
 ```
@@ -182,9 +182,9 @@ a new message:
 package irrelivant
 
 type Ack2Message struct {
-	// A NodeMap of nodes in the initiator's state that:
-	//  1. Are in the peer's ack digests.
-	NodeMap NodeMap
+    // A NodeMap of nodes in the initiator's state that:
+    //  1. Are in the peer's ack digests.
+    NodeMap NodeMap
 }
 ```
 
@@ -287,10 +287,10 @@ package irrelivant
 type NodeID int16
 
 type KV interface {
-	// Set sets a key to a value. nodeID specifies the node that holds the lease on the key.
-	// If nodeID is 0, the lease is assigned to the host node.
-	Set(key []byte, leaseholder NodeID, value []byte) error
-	// Rest of interface is the same as github.com/synnaxlabs/x/kv.DB.
+    // Set sets a key to a value. nodeID specifies the node that holds the lease on the key.
+    // If nodeID is 0, the lease is assigned to the host node.
+    Set(key []byte, leaseholder NodeID, value []byte) error
+    // Rest of interface is the same as github.com/synnaxlabs/x/kv.DB.
 }
 ```
 
@@ -316,34 +316,34 @@ package irrelivant
 type UpdateState byte
 
 const (
-	// StateInfected means the node is actively gossiping the update to other nodes in the cluster.
-	StateInfected UpdateState = iota
-	// StateRecovered means the node is no longer gossiping the update.
-	StateRecovered
+    // StateInfected means the node is actively gossiping the update to other nodes in the cluster.
+    StateInfected UpdateState = iota
+    // StateRecovered means the node is no longer gossiping the update.
+    StateRecovered
 )
 
 type Operation byte
 
 const (
-	// OperationSet represents a kv set operation.
-	OperationSet Operation = iota
-	// OperationDelete represents a kv delete operation.
-	OperationDelete
+    // OperationSet represents a kv set operation.
+    OperationSet Operation = iota
+    // OperationDelete represents a kv delete operation.
+    OperationDelete
 )
 
 type Update struct {
-	// Key is the key for the key-value pair.
-	Key []byte
-	// Value is the value for the key-value pair.
-	Value []byte
-	// Leaseholder is the ID of the leaseholder node.
-	Leaseholder NodeID
-	// State is the SIR state of the update.
-	State UpdateState
-	// Version is incremented every time an existing key is updated.
-	Version int32
-	// Operation is the operation type of the update.
-	Operation Operation
+    // Key is the key for the key-value pair.
+    Key []byte
+    // Value is the value for the key-value pair.
+    Value []byte
+    // Leaseholder is the ID of the leaseholder node.
+    Leaseholder NodeID
+    // State is the SIR state of the update.
+    State UpdateState
+    // Version is incremented every time an existing key is updated.
+    Version int32
+    // Operation is the operation type of the update.
+    Operation Operation
 }
 
 type UpdatePropagationList map[interface{}]Update
@@ -367,9 +367,9 @@ The initiating node selects a random peer from layer 1, and set
 package irrelivant
 
 type SyncMessage struct {
-	// Updates contains a list of all updates in the nodes current state where:
-	// 1. Update.State == StateInfected
-	Updates UpdatePropagationList
+    // Updates contains a list of all updates in the nodes current state where:
+    // 1. Update.State == StateInfected
+    Updates UpdatePropagationList
 }
 ```
 
@@ -384,19 +384,19 @@ package irrelivant
 
 // Feedback is a struct representing an update that has already been processed by a node.
 type Feedback struct {
-	Key     []byte
-	Version int32
+    Key     []byte
+    Version int32
 }
 
 type AckMessage struct {
-	// Updates contains a list of all updates in the nodes current state that:
-	//   1. Update.State == StateInfected
-	//   2. Are not already in the peer node's update list.
-	//   3. Have a higher version than the peer node's update.
-	Updates UpdatePropagationList
-	// Feedback is a list of Feedback for the updates a node already has
-	// (versions must be identical).
-	Feedback []Feedback
+    // Updates contains a list of all updates in the nodes current state that:
+    //   1. Update.State == StateInfected
+    //   2. Are not already in the peer node's update list.
+    //   3. Have a higher version than the peer node's update.
+    Updates UpdatePropagationList
+    // Feedback is a list of Feedback for the updates a node already has
+    // (versions must be identical).
+    Feedback []Feedback
 }
 ```
 

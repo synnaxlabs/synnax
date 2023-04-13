@@ -41,7 +41,8 @@ details.
 # 2 - Motivation
 
 The pivot from alpha V1 to V2 is the main driver behind this RFC. Synnax was built as
-a database proxy that merged and synchronized network requests into several databases. V2
+a database proxy that merged and synchronized network requests into several databases.
+V2
 is a single binary that implements an entire database including a storage engine.
 This means we must:
 
@@ -181,15 +182,15 @@ channel that accepts `float64` samples by setting the byte density to 8:
 ```go
 // Setting the byte density manually.
 cesiun.NewCreateChannel().
-   WithRate(100 * cesium.Hz).
-   WithType(8 * cesium.Byte).
-   Exec(ctx)
+WithRate(100 * cesium.Hz).
+WithType(8 * cesium.Byte).
+Exec(ctx)
 
 // Using a pre-defined type alias.
 cesium.NewCreateChannel().
-   WithRate(100 * cesium.Hz).
-   WithType(cesium.Float64).
-   Exec(ctx)
+WithRate(100 * cesium.Hz).
+WithType(cesium.Float64).
+Exec(ctx)
 ```
 
 ### 2 - Segments
@@ -472,8 +473,8 @@ sequentially. This is ideal for Delta's use case, as the timestamps of regular
 samples can be compacted, and a caller often requests data for a small number of
 channels at once. The following is a layout of a columnar segment on disk:
 
-| 1   | 2   | 3   | 4   | 5   | 6   | 7   | 8   | 9   |
-|-----|-----|-----|-----|-----|-----|-----|-----|-----|
+| 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
+|---|---|---|---|---|---|---|---|---|
 
 This representation omits the following metadata:
 
@@ -483,8 +484,8 @@ This representation omits the following metadata:
 
 An option is to include this metadata along with the segment:
 
-| Key 1 | 15:00:00 | 25Hz | 1   | 2   | 3   | 4   | 5   | 6   | 7   | 8   | 9   |
-|-------|----------|------|-----|-----|-----|-----|-----|-----|-----|-----|-----|
+| Key 1 | 15:00:00 | 25Hz | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
+|-------|----------|------|---|---|---|---|---|---|---|---|---|
 
 Adding this 'header' is the most intuitive way to represent the data, but has
 implications for retrieving it. When searching for the start of a time range,

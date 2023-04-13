@@ -492,20 +492,20 @@ closing a writer gracefully resembles the following:
 package irrelivant
 
 func main() {
-	// Write a segment to disk.
-	writer.Requests() <- writer.Request{Segments: MY_SEGMENTS}
-	// Once we're done writing, close the input channel.
-	close(writer.Requests())
-	// Wait for the writer to return  all errors and close
-	// its response channel.
-	for res := range writer.Responses() {
-		// Do something with the error here
-		if res.Error != nil {
-			log.Error(res.Error)
-		}
-	}
-	// Ensures all writer resources have been freed.
-	err := writer.Close()
+    // Write a segment to disk.
+    writer.Requests() <- writer.Request{Segments: MY_SEGMENTS}
+    // Once we're done writing, close the input channel.
+    close(writer.Requests())
+    // Wait for the writer to return  all errors and close
+    // its response channel.
+    for res := range writer.Responses() {
+        // Do something with the error here
+        if res.Error != nil {
+            log.Error(res.Error)
+        }
+    }
+    // Ensures all writer resources have been freed.
+    err := writer.Close()
 }
 ```
 
