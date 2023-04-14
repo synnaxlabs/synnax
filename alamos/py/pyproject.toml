@@ -9,6 +9,8 @@ readme = "README.md"
 python = "^3.11"
 opentelemetry-api = "^1.17.0"
 opentelemetry-sdk = "^1.17.0"
+pydantic = "^1.10.7"
+mypy = "^1.2.0"
 
 
 [tool.poetry.group.dev.dependencies]
