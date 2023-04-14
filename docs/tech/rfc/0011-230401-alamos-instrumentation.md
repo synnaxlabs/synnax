@@ -12,13 +12,11 @@ will begin to solidify, and, for the more stable areas of the codebase, we will 
 focus from building functional to stable and performant software. To improve these
 qualities, we'll need to profile the execution state of the cluster from various
 perspectives. This includes improving the logging infrastructure, and updating the
-`alamos` metrics package to include tracing. Instrumentation also allows our users to
+`alamos` metrics package to include tracing. Instrumentation also enables our users to
 monitor their own Synnax deployments, an essential feature for operations-critical
-software.
-
-In this RFC I propose a high-level plan for implementing distributed instrumentation
-across all of Synnax's components as well as providing a means for exporting and
-accessing this data.
+software. In this RFC I propose a high-level plan for implementing distributed
+instrumentation across all of Synnax's components. As with all other RFCs, it's always
+important to note that while this document is not living, the code is describes is. Th
 
 # 1 - Vocabulary
 
@@ -156,8 +154,7 @@ the protocols supported, storage directories, maximum cache sizes etc.
 As with any instrumentation system, we should be able to filter the data we collect
 depending on the environment we're running in. In a development environment, we focus
 on collecting data for debugging and correctness purposes. In a benchmarking
-environment,
-we collect critical performance metrics and traces.
+environment, we collect critical performance metrics and traces.
 
 ### 4.3.0 - Log Levels
 
@@ -221,13 +218,38 @@ Instead, they should be filtered based on the environment they're collected in.
 <td>Traces specifically used for tracking program performance during benchmarking</td>
 </table>
 
-## 4.4 - Analytics
-
 ## 4.5 - Persistence
+
+### 4.5.0 - Log Persistence
+
+### 4.5.1 - Trace Persistence
 
 ## 4.6 - Development
 
+Instrumentation is as critical in development as it is in production. Along with the
+debugger, traces and logs are the primary means of understanding the correctness of
+our algorithms. We need to find a way to provide our developers with a means of
+collecting and viewing instrumentation data in a development environment. Ideally this
+does not involve a cloud hosted server, as aggregating data from all developers would
+cost a lot of money and be difficult to navigate. Instead, our developers should be able
+to run a self-hosted tracing tool to maintain control over their environment.
+
 ## 4.7 - Production
+
+Instrumentation in production allows us to view and collect telemetry from the deployments
+of our users. Ideally we'd have a cloud hosted solution that enables us to detect and
+debug issues in near-real time.
+
+### 4.7.0 - Privacy and Security
+
+Synnax is designed to operate in scenarios are operations critical and closely controlled
+by regulations such as ITAR or EAR. We're also holding confidential data and personally
+identifiable information (PII). When collecting telemetry, we **must** ensure that no
+sensitive or controlled data is collected or transmitted to our servers.
+
+Telemetry must also be completely opt-in. This has been a hot-topic of debate in the
+software world recently, and it's essential for any open source project to specifically
+ask for consent before collecting and reporting any telemetry.
 
 # 5 - Design
 
@@ -412,12 +434,9 @@ func (w *writer) Set(ctx context.Context, key []byte, value []byte) error {
 This pattern allows us to develop an integrated view of X and Y instrumentation. We can
 bind traces to both request verticals and layer bound-services. The most notable method
 for doing is adding the instrumentation key to the name of the span. So, instead
-of `Set`
-our span would be named `writer.Set`. This allows us to evaluate the performance of a
-specific
-service over time, giving valuable insight into where our performance improvement
-efforts
-should be focused.
+of `Set` our span would be named `writer.Set`. This allows us to evaluate the performance
+of a specific service over time, giving valuable insight into where our performance improvement
+efforts should be focused.
 
 ## 5.3 - Application Critical Metrics
 
@@ -472,5 +491,26 @@ type Tracer interface {
 ```
 
 `Carrier` is a simple string key-value setter and getter that a transport must
-implemenent
-in order to propagate headers. This is trivial.
+implement in order to propagate headers. This is trivial.
+
+# 6 - Future Work
+
+## 6.0 - Analytics
+
+As I started working on this RFC, I began to think about the relationship between software
+observability and analytics, such as tracking the number of active users and what
+features are the most popular. This is obviously relevant for improving the product,
+and defining the actual requirements for what we'd like to collect is the subject of a
+different document.
+
+The (slightly) more relevant question for this RFC is whether analytics should
+(eventually) be included in the scope of Alamos. Observability and analytics instrumentation
+share enough similarities that it's worth seriously considering integrating them as part
+of the alamos interface.
+
+This is a topic that has few implications on the design of the system, and should be
+addressed in a future RFC.
+
+## 6.1 - Log and Trace Grouping/Channels
+
+

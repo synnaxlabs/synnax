@@ -10,24 +10,38 @@
 from contextlib import contextmanager
 from typing import Callable
 
-from opentelemetry import trace as otel_trace
 from opentelemetry.propagators.textmap import CarrierT, Setter, Getter
 from opentelemetry.propagators.textmap import TextMapPropagator
 from opentelemetry.sdk.trace import Tracer as OtelTracer
 
+from alamos.noop import noop as noopd, Noop
+
 
 class Tracer:
+    noop: bool = True
     _otel_tracer: OtelTracer
     _otel_propagator: TextMapPropagator
 
-    def __init__(self):
-        self._otel_tracer = otel_trace.get_tracer(__name__)
+    def _(self) -> Noop:
+        ...
 
+    def __init__(
+        self,
+        otel_tracer: OtelTracer | None = None,
+        otel_propagator: TextMapPropagator | None = None,
+        noop: bool = True,
+    ):
+        self.noop = noop
+        self._otel_tracer = otel_tracer
+        self._otel_propagator = otel_propagator
+
+    @noopd
     @contextmanager
     def trace(self, key: str):
         with self._otel_tracer.start_as_current_span(key) as span:
             yield span
 
+    @noopd
     def propagate(
         self,
         carrier: CarrierT,
@@ -35,6 +49,7 @@ class Tracer:
     ):
         self._otel_propagator.inject(carrier, setter=_Setter(setter))
 
+    @noopd
     def depropagate(
         self,
         carrier: CarrierT,

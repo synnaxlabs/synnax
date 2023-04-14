@@ -9,21 +9,29 @@
 
 from logging import Logger as BaseLogger
 
+from alamos.noop import noop as noopd
+
 
 class Logger:
+    noop: bool = True
     base: BaseLogger
-    def __init__(self, name: str):
 
-
+    @noopd
     def debug(self, msg: str, *args, **kwargs):
+        """Logs a message at the Debug level"""
         self.base.debug(msg, *args, **kwargs)
 
+    @noopd
     def info(self, msg: str, *args, **kwargs):
+        """Logs a message at the Info level"""
         self.base.info(msg, *args, **kwargs)
 
+    @noopd
     def warn(self, msg: str, *args, **kwargs):
+        """Logs a message at the Warn level"""
         self.base.warning(msg, *args, **kwargs)
 
+    @noopd
     def error(self, msg: str, *args, **kwargs):
+        """Logs a message at the Error level"""
         self.base.error(msg, *args, **kwargs)
-

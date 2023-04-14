@@ -7,7 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Callable, TypeVar, Protocol
+from typing import Callable, TypeVar, Protocol, Concatenate, ParamSpec
+
+from pydantic import BaseModel
 
 from alamos.logger import Logger
 from alamos.tracer import Tracer
@@ -15,26 +17,48 @@ from alamos.tracer import Tracer
 
 class Instrumentation:
     L: Logger
-    T: Tracer
+    T: Tracer | None
 
-    def __init__(self, logger: Logger, tracer: Tracer):
-        self.L = logger
-        self.T = tracer
+    def __init__(
+        self,
+        key: str,
+        logger: Logger | None = None,
+        tracer: Tracer | None = None,
+    ):
+        self.L = logger if logger is not None else Logger()
+        self.T = tracer if tracer is not None else Tracer()
+
+
+class InstrumentationMeta(BaseModel):
+    """"
+    """
+    key: str
+    path: str
+    service_name: str | None = None
 
 
 class Traceable(Protocol):
     instrumentation: Instrumentation
 
 
-A = TypeVar("A")
+P = ParamSpec("P")
 R = TypeVar("R")
 
 
 def trace(
     key: str | None = None
-) -> Callable[[Callable[[Traceable, A], R]], Callable[[Traceable, A], R]]:
-    def decorator(f: Callable[[Traceable, A], R]) -> Callable[[Traceable, A], R]:
-        def wrapper(self, *args, **kwargs):
+) -> Callable[
+    [Callable[Concatenate[Traceable, P], R]], Callable[Concatenate[Traceable, P], R]]:
+    """Trace the given method. The method must be used on a class that implements
+    the Traceable protocol and has a non-None instrumentation field.
+
+    :param key:
+    :return:
+    """
+
+    def decorator(f: Callable[Concatenate[Traceable, P], R]) -> Callable[
+        Concatenate[Traceable, P], R]:
+        def wrapper(self: Traceable, *args: P.args, **kwargs: P.kwargs):
             with self.instrumentation.T.trace(key if key is not None else f.__name__):
                 return f(self, *args, **kwargs)
 
