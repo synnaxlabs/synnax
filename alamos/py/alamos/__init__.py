@@ -7,7 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from alamos.instrumentation import Instrumentation, trace
-from alamos.logger import Logger
-from alamos.propagate import propagate, depropagate
-from alamos.tracer import Tracer
+from alamos.instrumentation import Instrumentation, trace, NOOP
+from alamos.log import Logger
+from alamos.trace import Tracer

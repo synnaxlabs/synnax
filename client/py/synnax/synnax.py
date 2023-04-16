@@ -7,7 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from alamos import Instrumentation, NOOP
 from freighter import URL
+from freighter.alamos import instrumentation_middleware
 
 from synnax.auth import AuthenticationClient
 from synnax.channel import ChannelClient
@@ -16,8 +18,8 @@ from synnax.channel.retrieve import ClusterChannelRetriever, CacheChannelRetriev
 from synnax.config import try_load_options_if_none_provided
 from synnax.framer import FrameClient
 from synnax.options import SynnaxOptions
-from synnax.transport import Transport
 from synnax.telem import TimeSpan
+from synnax.transport import Transport
 
 
 class Synnax(FrameClient):
@@ -55,6 +57,7 @@ class Synnax(FrameClient):
         read_timeout: TimeSpan = TimeSpan.SECOND * 5,
         keep_alive: TimeSpan = TimeSpan.SECOND * 30,
         max_retries: int = 3,
+        instrumentation: Instrumentation = NOOP,
     ):
         """Creates a new client. Connection parameters can be provided as arguments, or,
         if none are provided, the client will attempt to load them from the Synnax
@@ -101,6 +104,7 @@ class Synnax(FrameClient):
         read_timeout: TimeSpan,
         keep_alive: TimeSpan,
         max_retries: int,
+        instrumentation: Instrumentation = NOOP,
     ) -> Transport:
         t = Transport(
             url=URL(host=opts.host, port=opts.port),
@@ -118,4 +122,5 @@ class Synnax(FrameClient):
             )
             auth.authenticate()
             t.use(*auth.middleware())
+        t.use(instrumentation_middleware(instrumentation))
         return t

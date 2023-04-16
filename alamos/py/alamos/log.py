@@ -7,14 +7,22 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from __future__ import annotations
+
 from logging import Logger as BaseLogger
 
+from alamos.meta import InstrumentationMeta
 from alamos.noop import noop as noopd
 
 
 class Logger:
     noop: bool = True
     base: BaseLogger
+    meta: InstrumentationMeta
+
+    def __init__(self, noop: bool = True, base: BaseLogger = None):
+        self.noop = noop
+        self.base = base
 
     @noopd
     def debug(self, msg: str, *args, **kwargs):
@@ -35,3 +43,14 @@ class Logger:
     def error(self, msg: str, *args, **kwargs):
         """Logs a message at the Error level"""
         self.base.error(msg, *args, **kwargs)
+
+    def sub(self, meta: InstrumentationMeta) -> Logger:
+        l = Logger(
+            noop=self.noop,
+            base=self.base,
+        )
+        l.meta = meta
+        return l
+
+
+NOOP_LOGGER = Logger()

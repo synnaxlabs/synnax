@@ -7,34 +7,49 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from __future__ import annotations
+
 from typing import Callable, TypeVar, Protocol, Concatenate, ParamSpec
 
-from pydantic import BaseModel
-
-from alamos.logger import Logger
-from alamos.tracer import Tracer
+from alamos.log import Logger, NOOP_LOGGER
+from alamos.meta import InstrumentationMeta
+from alamos.trace import Tracer, NOOP_TRACER
 
 
 class Instrumentation:
-    L: Logger
-    T: Tracer | None
+    meta: InstrumentationMeta
+    L: Logger = NOOP_LOGGER
+    T: Tracer = NOOP_TRACER
 
     def __init__(
         self,
         key: str,
-        logger: Logger | None = None,
-        tracer: Tracer | None = None,
+        service_name: str | None = None,
+        logger: Logger = NOOP_LOGGER,
+        tracer: Tracer = NOOP_TRACER,
     ):
-        self.L = logger if logger is not None else Logger()
-        self.T = tracer if tracer is not None else Tracer()
+        self.meta = InstrumentationMeta(
+            key=key,
+            path=key,
+            service_name=service_name,
+        )
+        self.L = logger
+        self.L.meta = self.meta
+        self.T = tracer
+        self.T.meta = self.meta
+
+    def sub(self, key: str) -> Instrumentation:
+        meta = self.meta.sub(key)
+        ins = Instrumentation(
+            key=meta.key,
+            logger=self.L.sub(meta),
+            tracer=self.T.sub(meta),
+        )
+        ins.meta = meta
+        return ins
 
 
-class InstrumentationMeta(BaseModel):
-    """"
-    """
-    key: str
-    path: str
-    service_name: str | None = None
+NOOP = Instrumentation("")
 
 
 class Traceable(Protocol):
