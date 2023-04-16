@@ -84,6 +84,8 @@ func New(key string, options ...Option) Instrumentation {
 	for _, option := range options {
 		option(&ins)
 	}
+	ins.T.meta = ins.meta
+	ins.R.meta = ins.meta
 	return ins
 }
 

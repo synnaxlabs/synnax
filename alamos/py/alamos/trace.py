@@ -8,36 +8,61 @@
 #  included in the file licenses/APL.txt.
 
 from contextlib import contextmanager
-from typing import Callable
+from typing import Callable, Protocol, Iterator
 
 from opentelemetry.propagators.textmap import CarrierT, Setter, Getter
 from opentelemetry.propagators.textmap import TextMapPropagator
-from opentelemetry.sdk.trace import Tracer as OtelTracer
+from opentelemetry.sdk.trace import (
+    TracerProvider as OtelTraceProvider,
+    Tracer as OtelTracer,
+)
 
+from alamos.meta import InstrumentationMeta
 from alamos.noop import noop as noopd, Noop
+
+
+class Span(Protocol):
+    ...
+
+
+class NoopSpan(Span):
+    ...
+
+
+NOOP_SPAN = NoopSpan()
 
 
 class Tracer:
     noop: bool = True
-    _otel_tracer: OtelTracer
+    meta: InstrumentationMeta
+    _otel_provider: OtelTraceProvider
     _otel_propagator: TextMapPropagator
+    __otel_tracer: OtelTracer | None
 
     def _(self) -> Noop:
         ...
 
     def __init__(
         self,
-        otel_tracer: OtelTracer | None = None,
+        otel_provider: OtelTraceProvider | None = None,
         otel_propagator: TextMapPropagator | None = None,
-        noop: bool = True,
     ):
-        self.noop = noop
-        self._otel_tracer = otel_tracer
+        self.noop = otel_provider is None and otel_propagator is None
+        self._otel_provider = otel_provider
         self._otel_propagator = otel_propagator
+        self.__otel_tracer = None
 
-    @noopd
+    @property
+    def _otel_tracer(self) -> OtelTracer:
+        if self.__otel_tracer is None:
+            self.__otel_tracer = self._otel_provider.get_tracer(self.meta.key)
+        return self.__otel_tracer
+
     @contextmanager
-    def trace(self, key: str):
+    def trace(self, key: str) -> Iterator[Span]:
+        if self.noop:
+            yield NOOP_SPAN
+            return
         with self._otel_tracer.start_as_current_span(key) as span:
             yield span
 
@@ -56,7 +81,18 @@ class Tracer:
         getter: Callable[[CarrierT, str], str],
         keys: Callable[[CarrierT], list[str]],
     ):
-        self._otel_propagator.extract(carrier, getter=_Getter(getter, keys))
+        return self._otel_propagator.extract(carrier, getter=_Getter(getter, keys))
+
+    def sub(self, meta: InstrumentationMeta) -> "Tracer":
+        t = Tracer(
+            otel_provider=self._otel_provider,
+            otel_propagator=self._otel_propagator,
+        )
+        t.meta = meta
+        return t
+
+
+NOOP_TRACER = Tracer()
 
 
 class _Setter(Setter):
@@ -70,7 +106,7 @@ class _Setter(Setter):
 
 
 class _Getter(Getter):
-    getter: Callable[[CarrierT, str], str]
+    getter: Callable[[CarrierT, str], str | None]
     keys: Callable[[CarrierT], list[str]]
 
     def __init__(
@@ -81,7 +117,7 @@ class _Getter(Getter):
         self.getter = getter
         self.keys = keys
 
-    def get(self, carrier: CarrierT, key: str) -> str:
+    def get(self, carrier: CarrierT, key: str) -> str | None:
         return self.getter(carrier, key)
 
     def keys(self, carrier: CarrierT) -> list[str]:

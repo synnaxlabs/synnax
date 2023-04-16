@@ -56,7 +56,7 @@ func serviceName() string {
 	return host
 }
 
-const devDSN = "http://project2_secret_token@localhost:14317/2"
+const devDSN = "http://synnax_dev@localhost:14317/2"
 
 func newTracer(serviceName string) *alamos.Tracer {
 	uptrace.ConfigureOpentelemetry(
