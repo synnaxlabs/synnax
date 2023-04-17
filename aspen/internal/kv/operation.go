@@ -81,11 +81,11 @@ func (d Digest) apply(ctx context.Context, w kvx.Writer) error {
 type Digests []Digest
 
 func (d Digests) toRequest(ctx context.Context) TxRequest {
-	bd := TxRequest{ctx: ctx, Operations: make([]Operation, len(d))}
+	txr := TxRequest{Context: ctx, Operations: make([]Operation, len(d))}
 	for i, d := range d {
-		bd.Operations[i] = d.Operation()
+		txr.Operations[i] = d.Operation()
 	}
-	return bd
+	return txr
 }
 
 type (

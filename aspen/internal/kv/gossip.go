@@ -35,7 +35,7 @@ func newOperationSender(cfg Config) segment {
 	return os
 }
 
-func (g *operationSender) send(ctx context.Context, sync TxRequest) (TxRequest, bool, error) {
+func (g *operationSender) send(_ context.Context, sync TxRequest) (TxRequest, bool, error) {
 	// If we have no Operations to propagate, it's best to avoid the network chatter.
 	if sync.empty() {
 		return sync, false, nil
@@ -46,11 +46,12 @@ func (g *operationSender) send(ctx context.Context, sync TxRequest) (TxRequest, 
 		return sync, false, nil
 	}
 	sync.Sender = hostID
-	ack, err := g.BatchTransportClient.Send(ctx, peer.Address, sync)
+	ack, err := g.BatchTransportClient.Send(sync.Context, peer.Address, sync)
+	ack.Context = sync.Context
 	if err != nil {
 		g.L.Error("operation gossip failed", zap.Error(err))
 	}
-	// If we have no Operatios to apply, avoid the pipeline overhead.
+	// If we have no operations to apply, avoid the pipeline overhead.
 	return ack, !ack.empty(), nil
 }
 
@@ -68,6 +69,9 @@ func newOperationReceiver(cfg Config, s store) source {
 }
 
 func (g *operationReceiver) handle(ctx context.Context, req TxRequest) (TxRequest, error) {
+	// The handler context is cancelled after it returns, so we need to use a separate
+	// context for executing the tx.
+	req.Context = context.TODO()
 	select {
 	case <-ctx.Done():
 		return TxRequest{}, ctx.Err()
@@ -120,7 +124,9 @@ func newFeedbackReceiver(cfg Config) source {
 	return fr
 }
 
-func (f *feedbackReceiver) handle(ctx context.Context, message FeedbackMessage) (types.Nil, error) {
-	f.Out.Inlet() <- message.Digests.toRequest(ctx)
+func (f *feedbackReceiver) handle(_ context.Context, msg FeedbackMessage) (types.Nil, error) {
+	// The handler context is cancelled after it returns, so we need to use a separate
+	// context for passing the feedback to the pipeline.
+	f.Out.Inlet() <- msg.Digests.toRequest(context.TODO())
 	return types.Nil{}, nil
 }

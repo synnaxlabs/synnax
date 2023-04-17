@@ -10,7 +10,6 @@
 package falamos
 
 import (
-	"fmt"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"strings"
@@ -63,6 +62,7 @@ var Default = Config{
 	Level:             alamos.Prod,
 	EnableTracing:     config.True(),
 	EnablePropagation: config.True(),
+	EnableLogging:     config.True(),
 }
 
 // Middleware adds traces to incoming and outgoing requests and ensures that they
@@ -81,7 +81,7 @@ func Middleware(configs ...Config) (freighter.Middleware, error) {
 			carrier_ = carrier{Context: ctx}
 		)
 
-		if *cfg.EnablePropagation && ctx.Location == freighter.ServerSide {
+		if *cfg.EnablePropagation && ctx.Role == freighter.Server {
 			ctx.Context = cfg.T.Depropagate(ctx, carrier_)
 		}
 
@@ -89,7 +89,7 @@ func Middleware(configs ...Config) (freighter.Middleware, error) {
 			ctx.Context, span = cfg.T.Trace(ctx.Context, ctx.Target.String(), cfg.Level)
 		}
 
-		if *cfg.EnableTracing && ctx.Location == freighter.ClientSide {
+		if *cfg.EnableTracing && ctx.Role == freighter.Client {
 			cfg.T.Propagate(ctx, carrier_)
 		}
 
@@ -143,11 +143,11 @@ func (c carrier) Keys() []string {
 }
 
 func log(ctx freighter.Context, err error, cfg Config) {
-	logF := lo.Ternary(err != nil, cfg.L.Info, cfg.L.Error)
-	logF(fmt.Sprintf("%s", ctx.Location),
-		zap.Stringer("target", ctx.Target),
+	logF := lo.Ternary(err == nil, cfg.L.Debug, cfg.L.Error)
+	logF(ctx.Target.String(),
 		zap.String("protocol", ctx.Protocol),
 		zap.Stringer("variant", ctx.Variant),
+		zap.Stringer("role", ctx.Role),
 		zap.Error(err),
 	)
 }

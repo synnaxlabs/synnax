@@ -67,7 +67,7 @@ type Response struct {
 	Command Command
 	// Frame is only relevant for DataResponse. It is the data returned by the iterator.
 	Frame core.Frame
-	// NodeKey is the node ID where the remote iterator lives.
+	// NodeKey is the node Key where the remote iterator lives.
 	NodeKey dcore.NodeKey
 	// Ack is only relevant for variant AckResponse. Is true if the iterator successfully
 	// executed the request.

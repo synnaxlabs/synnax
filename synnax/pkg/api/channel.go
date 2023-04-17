@@ -23,14 +23,14 @@ import (
 // Channel is an API-friendly version of the channel.Channel type. It is simplified for
 // use purely as a data container.
 type Channel struct {
-	Key      string              `json:"key" msgpack:"key"`
-	Name     string              `json:"name" msgpack:"name"`
-	NodeKey   distribution.NodeKey `json:"node_key" msgpack:"node_key"`
-	Rate     telem.Rate          `json:"rate" msgpack:"rate"`
-	DataType telem.DataType      `json:"data_type" msgpack:"data_type" validate:"required"`
-	Density  telem.Density       `json:"density" msgpack:"density"`
-	IsIndex  bool                `json:"is_index" msgpack:"is_index"`
-	Index    string              `json:"index" msgpack:"index"`
+	Key      string               `json:"key" msgpack:"key"`
+	Name     string               `json:"name" msgpack:"name"`
+	NodeKey  distribution.NodeKey `json:"node_key" msgpack:"node_key"`
+	Rate     telem.Rate           `json:"rate" msgpack:"rate"`
+	DataType telem.DataType       `json:"data_type" msgpack:"data_type" validate:"required"`
+	Density  telem.Density        `json:"density" msgpack:"density"`
+	IsIndex  bool                 `json:"is_index" msgpack:"is_index"`
+	Index    string               `json:"index" msgpack:"index"`
 }
 
 // ChannelService is the central API for all things Channel related.
@@ -87,7 +87,7 @@ func (s *ChannelService) Create(
 // ChannelRetrieveRequest is a request for retrieving information about a Channel
 // from the cluster.
 type ChannelRetrieveRequest struct {
-	// Optional parameter that queries a Channel by its node ID.
+	// Optional parameter that queries a Channel by its node Key.
 	NodeKey distribution.NodeKey `query:"node_key"`
 	// Optional parameter that queries a Channel by its key.
 	KeysOrNames []string `query:"keys_or_names"`
@@ -171,7 +171,7 @@ func translateChannelsForward(channels []channel.Channel) []Channel {
 		translated[i] = Channel{
 			Key:      ch.Key().String(),
 			Name:     ch.Name,
-			NodeKey:   ch.NodeKey,
+			NodeKey:  ch.NodeKey,
 			Rate:     ch.Rate,
 			DataType: ch.DataType,
 			IsIndex:  ch.IsIndex,

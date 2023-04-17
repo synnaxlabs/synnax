@@ -190,7 +190,7 @@ func (r *responsible) propose(ctx context.Context) (res Response, err error) {
 		logKey := zap.Uint32("key", uint32(res.Key))
 		r.L.Debug("responsible proposing", logKey, zap.Int("quorumCount", len(quorum)))
 
-		// If any node returns an error, it means we need to retry the responsible with a new ID.
+		// If any node returns an error, it means we need to retry the responsible with a new Key.
 		if err = r.consultQuorum(ctx, res.Key, quorum); err != nil {
 			r.L.Error("quorum rejected proposal. retrying.", zap.Error(err))
 			continue

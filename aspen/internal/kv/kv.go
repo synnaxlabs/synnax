@@ -62,7 +62,12 @@ func (d *db) Delete(
 }
 
 func (d *db) OpenTx() kvx.Tx {
-	return &tx{apply: d.apply, lease: d.leaseAlloc, Tx: d.DB.OpenTx()}
+	return &tx{
+		Instrumentation: d.Instrumentation,
+		apply:           d.apply,
+		lease:           d.leaseAlloc,
+		Tx:              d.DB.OpenTx(),
+	}
 }
 
 func (d *db) apply(b []TxRequest) (err error) {

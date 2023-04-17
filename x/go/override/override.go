@@ -28,7 +28,7 @@ func String[T ~string](value T, override T) T {
 }
 
 func Zero[T Zeroable](value T, override T) T {
-	return lo.Ternary(!override.IsZero(), value, override)
+	return lo.Ternary(override.IsZero(), value, override)
 }
 
 func Nil[T any](value T, override T) T {

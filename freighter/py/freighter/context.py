@@ -36,7 +36,7 @@ class Context:
     """Location is the location of the request."""
 
     params: MutableMapping[str, str]
-    """Arbitrary string parameters that can be set by clinet side middleware
+    """Arbitrary string parameters that can be set by client side middleware
     and read by server side middleware"""
 
     def __init__(self, protocol: str, target: str):

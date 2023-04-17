@@ -12,6 +12,7 @@ package kv
 import (
 	"context"
 	"github.com/cockroachdb/errors"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
@@ -73,10 +74,8 @@ func (lp *leaseProxy) _switch(
 	_ context.Context,
 	b TxRequest,
 ) (address.Address, bool, error) {
-	if b.Leaseholder == lp.Cluster.HostKey() {
-		return lp.localTo, true, nil
-	}
-	return lp.remoteTo, true, nil
+	route := lo.Ternary(b.Leaseholder == lp.Cluster.HostKey(), lp.localTo, lp.remoteTo)
+	return route, true, nil
 }
 
 type (
@@ -95,16 +94,14 @@ func newLeaseSender(cfg Config) sink {
 	return ls
 }
 
-func (lf *leaseSender) send(ctx context.Context, br TxRequest) (err error) {
+func (lf *leaseSender) send(_ context.Context, br TxRequest) error {
+	addr, err := lf.Cluster.Resolve(br.Leaseholder)
 	defer func() { br.done(err) }()
-	lf.L.Debug("sending leased tx", br.logArgs()...)
-	var addr address.Address
-	addr, err = lf.Cluster.Resolve(br.Leaseholder)
 	if err != nil {
-		return err
+		return nil
 	}
-	_, err = lf.Config.LeaseTransportClient.Send(br.ctx, addr, br)
-	return err
+	_, err = lf.Config.LeaseTransportClient.Send(br.Context, addr, br)
+	return nil
 }
 
 type leaseReceiver struct {
@@ -119,8 +116,7 @@ func newLeaseReceiver(cfg Config) source {
 	return lr
 }
 
-func (lr *leaseReceiver) receive(ctx context.Context, br TxRequest) (types.Nil, error) {
-	lr.L.Debug("received leased tx", br.logArgs()...)
+func (lr *leaseReceiver) receive(_ context.Context, br TxRequest) (types.Nil, error) {
 	bc := txCoordinator{}
 	bc.add(&br)
 	lr.Out.Inlet() <- br

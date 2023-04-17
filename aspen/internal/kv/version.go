@@ -41,10 +41,10 @@ func (vc *versionFilter) _switch(
 	o map[address.Address]TxRequest,
 ) error {
 	var (
-		rejected = TxRequest{Sender: b.Sender, doneF: b.doneF, ctx: b.ctx, span: b.span}
-		accepted = TxRequest{Sender: b.Sender, doneF: b.doneF, ctx: b.ctx, span: b.span}
+		rejected = TxRequest{Sender: b.Sender, doneF: b.doneF, Context: b.Context, span: b.span}
+		accepted = TxRequest{Sender: b.Sender, doneF: b.doneF, Context: b.Context, span: b.span}
 	)
-	ctx, span := vc.T.Debug(b.ctx, "tx-filter")
+	ctx, span := vc.T.Debug(b.Context, "tx-filter")
 	defer span.End()
 	for _, op := range b.Operations {
 		if vc.filter(ctx, op) {

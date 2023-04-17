@@ -10,6 +10,7 @@
 package framer
 
 import (
+	"context"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -31,7 +32,10 @@ var (
 type writerRequestTranslator struct{}
 
 // Backward implements the fgrpc.Translator interface.
-func (w writerRequestTranslator) Backward(req *fv1.WriterRequest) (writer.Request, error) {
+func (w writerRequestTranslator) Backward(
+	_ context.Context,
+	req *fv1.WriterRequest,
+) (writer.Request, error) {
 	keys, err := channel.ParseKeys(req.Config.Keys)
 	return writer.Request{
 		Command: writer.Command(req.Command),
@@ -44,7 +48,10 @@ func (w writerRequestTranslator) Backward(req *fv1.WriterRequest) (writer.Reques
 }
 
 // Forward implements the fgrpc.Translator interface.
-func (w writerRequestTranslator) Forward(req writer.Request) (*fv1.WriterRequest, error) {
+func (w writerRequestTranslator) Forward(
+	_ context.Context,
+	req writer.Request,
+) (*fv1.WriterRequest, error) {
 	return &fv1.WriterRequest{
 		Command: int32(req.Command),
 		Config: &fv1.WriterConfig{
@@ -58,7 +65,10 @@ func (w writerRequestTranslator) Forward(req writer.Request) (*fv1.WriterRequest
 type writerResponseTranslator struct{}
 
 // Backward implements the fgrpc.Translator interface.
-func (w writerResponseTranslator) Backward(res *fv1.WriterResponse) (writer.Response, error) {
+func (w writerResponseTranslator) Backward(
+	_ context.Context,
+	res *fv1.WriterResponse,
+) (writer.Response, error) {
 	return writer.Response{
 		Command: writer.Command(res.Command),
 		SeqNum:  int(res.Counter),
@@ -68,7 +78,10 @@ func (w writerResponseTranslator) Backward(res *fv1.WriterResponse) (writer.Resp
 }
 
 // Forward implements the fgrpc.Translator interface.
-func (w writerResponseTranslator) Forward(res writer.Response) (*fv1.WriterResponse, error) {
+func (w writerResponseTranslator) Forward(
+	_ context.Context,
+	res writer.Response,
+) (*fv1.WriterResponse, error) {
 	return &fv1.WriterResponse{
 		Command: int32(res.Command),
 		Counter: int32(res.SeqNum),
@@ -80,7 +93,10 @@ func (w writerResponseTranslator) Forward(res writer.Response) (*fv1.WriterRespo
 type iteratorRequestTranslator struct{}
 
 // Backward implements the fgrpc.Translator interface.
-func (w iteratorRequestTranslator) Backward(req *fv1.IteratorRequest) (iterator.Request, error) {
+func (w iteratorRequestTranslator) Backward(
+	_ context.Context,
+	req *fv1.IteratorRequest,
+) (iterator.Request, error) {
 	keys, err := channel.ParseKeys(req.Keys)
 	return iterator.Request{
 		Command: iterator.Command(req.Command),
@@ -95,7 +111,10 @@ func (w iteratorRequestTranslator) Backward(req *fv1.IteratorRequest) (iterator.
 }
 
 // Forward implements the fgrpc.Translator interface.
-func (w iteratorRequestTranslator) Forward(req iterator.Request) (*fv1.IteratorRequest, error) {
+func (w iteratorRequestTranslator) Forward(
+	_ context.Context,
+	req iterator.Request,
+) (*fv1.IteratorRequest, error) {
 	return &fv1.IteratorRequest{
 		Command: int32(req.Command),
 		Span:    int64(req.Span),
@@ -111,10 +130,13 @@ func (w iteratorRequestTranslator) Forward(req iterator.Request) (*fv1.IteratorR
 type iteratorResponseTranslator struct{}
 
 // Backward implements the fgrpc.Translator interface.
-func (w iteratorResponseTranslator) Backward(res *fv1.IteratorResponse) (iterator.Response, error) {
+func (w iteratorResponseTranslator) Backward(
+	_ context.Context,
+	res *fv1.IteratorResponse,
+) (iterator.Response, error) {
 	return iterator.Response{
 		Variant: iterator.ResponseVariant(res.Variant),
-		NodeKey:  dcore.NodeKey(res.NodeId),
+		NodeKey: dcore.NodeKey(res.NodeId),
 		Ack:     res.Ack,
 		SeqNum:  int(res.Counter),
 		Command: iterator.Command(res.Command),
@@ -124,7 +146,10 @@ func (w iteratorResponseTranslator) Backward(res *fv1.IteratorResponse) (iterato
 }
 
 // Forward implements the fgrpc.Translator interface.
-func (w iteratorResponseTranslator) Forward(res iterator.Response) (*fv1.IteratorResponse, error) {
+func (w iteratorResponseTranslator) Forward(
+	_ context.Context,
+	res iterator.Response,
+) (*fv1.IteratorResponse, error) {
 	return &fv1.IteratorResponse{
 		Variant: int32(res.Variant),
 		NodeId:  int32(res.NodeKey),
@@ -135,8 +160,6 @@ func (w iteratorResponseTranslator) Forward(res iterator.Response) (*fv1.Iterato
 		Frame:   tranFrmBwd(res.Frame),
 	}, nil
 }
-
-// |||||| SEGMENTS ||||||
 
 func tranFrameFwd(frame *fv1.Frame) framer.Frame {
 	keys := lo.Must(channel.ParseKeys(frame.Keys))

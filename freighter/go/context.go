@@ -15,18 +15,18 @@ import (
 	"github.com/synnaxlabs/x/address"
 )
 
-// Location indicates whether the middleware is located on the client or server side of
+// Role indicates whether the middleware is located on the client or server side of
 // the request.
-type Location uint8
+type Role uint8
 
-//go:generate stringer -type=Location
+//go:generate stringer -type=Role
 const (
-	// ClientSide indicates whether the middleware is located on the client side of the
+	// Client indicates whether the middleware is located on the client side of the
 	// request.
-	ClientSide Location = iota + 1
-	// ServerSide indicates whether the middleware is located on the server side of the
+	Client Role = iota + 1
+	// Server indicates whether the middleware is located on the server side of the
 	// request.
-	ServerSide
+	Server
 )
 
 // Variant indicates the variant of transport (unary or streaming) that the middleware
@@ -44,8 +44,8 @@ const (
 // Context represents the metadata for a request that is passed to Middleware.
 type Context struct {
 	context.Context
-	// Location indicates the location of the middleware (client or server).
-	Location Location
+	// Role indicates the location of the middleware (client or server).
+	Role Role
 	// Variant indicates the variant of the middleware (unary or stream).
 	Variant Variant
 	// Protocol is the protocol that the request is being sent over.

@@ -10,6 +10,7 @@
 package grpc
 
 import (
+	"context"
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
@@ -30,11 +31,11 @@ var (
 
 type pledgeTranslator struct{}
 
-func (p pledgeTranslator) Forward(req pledge.Request) (*aspenv1.ClusterPledge, error) {
+func (p pledgeTranslator) Forward(_ context.Context, req pledge.Request) (*aspenv1.ClusterPledge, error) {
 	return &aspenv1.ClusterPledge{NodeKey: uint32(req.Key), ClusterKey: req.ClusterKey.String()}, nil
 }
 
-func (p pledgeTranslator) Backward(msg *aspenv1.ClusterPledge) (pledge.Request, error) {
+func (p pledgeTranslator) Backward(_ context.Context, msg *aspenv1.ClusterPledge) (pledge.Request, error) {
 	cKey, err := uuid.Parse(msg.ClusterKey)
 	if err != nil {
 		return pledge.Request{}, err
@@ -44,7 +45,7 @@ func (p pledgeTranslator) Backward(msg *aspenv1.ClusterPledge) (pledge.Request, 
 
 type clusterGossipTranslator struct{}
 
-func (c clusterGossipTranslator) Forward(msg gossip.Message) (*aspenv1.ClusterGossip, error) {
+func (c clusterGossipTranslator) Forward(_ context.Context, msg gossip.Message) (*aspenv1.ClusterGossip, error) {
 	tMsg := &aspenv1.ClusterGossip{Digests: make(map[uint32]*aspenv1.NodeDigest), Nodes: make(map[uint32]*aspenv1.Node)}
 	for _, d := range msg.Digests {
 		tMsg.Digests[uint32(d.Key)] = &aspenv1.NodeDigest{
@@ -54,7 +55,7 @@ func (c clusterGossipTranslator) Forward(msg gossip.Message) (*aspenv1.ClusterGo
 	}
 	for _, n := range msg.Nodes {
 		tMsg.Nodes[uint32(n.Key)] = &aspenv1.Node{
-			Key:        uint32(n.Key),
+			Key:       uint32(n.Key),
 			Address:   string(n.Address),
 			State:     uint32(n.State),
 			Heartbeat: &aspenv1.Heartbeat{Version: n.Heartbeat.Version, Generation: n.Heartbeat.Generation},
@@ -63,7 +64,7 @@ func (c clusterGossipTranslator) Forward(msg gossip.Message) (*aspenv1.ClusterGo
 	return tMsg, nil
 }
 
-func (c clusterGossipTranslator) Backward(tMsg *aspenv1.ClusterGossip) (gossip.Message, error) {
+func (c clusterGossipTranslator) Backward(_ context.Context, tMsg *aspenv1.ClusterGossip) (gossip.Message, error) {
 	var msg gossip.Message
 	if len(tMsg.Digests) > 0 {
 		msg.Digests = make(map[node.Key]node.Digest)
@@ -79,7 +80,7 @@ func (c clusterGossipTranslator) Backward(tMsg *aspenv1.ClusterGossip) (gossip.M
 	}
 	for _, n := range tMsg.Nodes {
 		msg.Nodes[node.Key(n.Key)] = node.Node{
-			Key:        node.Key(n.Key),
+			Key:       node.Key(n.Key),
 			Address:   address.Address(n.Address),
 			State:     node.State(n.State),
 			Heartbeat: version.Heartbeat{Version: n.Heartbeat.Version, Generation: n.Heartbeat.Generation},
@@ -90,7 +91,7 @@ func (c clusterGossipTranslator) Backward(tMsg *aspenv1.ClusterGossip) (gossip.M
 
 type batchTranslator struct{}
 
-func (bt batchTranslator) Forward(msg kv.TxRequest) (*aspenv1.BatchRequest, error) {
+func (bt batchTranslator) Forward(_ context.Context, msg kv.TxRequest) (*aspenv1.BatchRequest, error) {
 	tMsg := &aspenv1.BatchRequest{Sender: uint32(msg.Sender), Leaseholder: uint32(msg.Leaseholder)}
 	for _, o := range msg.Operations {
 		tMsg.Operations = append(tMsg.Operations, translateOpForward(o))
@@ -98,8 +99,9 @@ func (bt batchTranslator) Forward(msg kv.TxRequest) (*aspenv1.BatchRequest, erro
 	return tMsg, nil
 }
 
-func (bt batchTranslator) Backward(tMsg *aspenv1.BatchRequest) (kv.TxRequest, error) {
+func (bt batchTranslator) Backward(ctx context.Context, tMsg *aspenv1.BatchRequest) (kv.TxRequest, error) {
 	msg := kv.TxRequest{
+		Context:     ctx,
 		Sender:      node.Key(tMsg.Sender),
 		Leaseholder: node.Key(tMsg.Leaseholder),
 		Operations:  make([]kv.Operation, len(tMsg.Operations)),
@@ -132,7 +134,7 @@ func translateOpBackward(msg *aspenv1.Operation) (tMsg kv.Operation) {
 
 type feedbackTranslator struct{}
 
-func (ft feedbackTranslator) Forward(msg kv.FeedbackMessage) (*aspenv1.FeedbackMessage, error) {
+func (ft feedbackTranslator) Forward(_ context.Context, msg kv.FeedbackMessage) (*aspenv1.FeedbackMessage, error) {
 	tMsg := &aspenv1.FeedbackMessage{Sender: uint32(msg.Sender)}
 	for _, f := range msg.Digests {
 		tMsg.Digests = append(tMsg.Digests, &aspenv1.OperationDigest{
@@ -144,7 +146,7 @@ func (ft feedbackTranslator) Forward(msg kv.FeedbackMessage) (*aspenv1.FeedbackM
 	return tMsg, nil
 }
 
-func (ft feedbackTranslator) Backward(tMsg *aspenv1.FeedbackMessage) (kv.FeedbackMessage, error) {
+func (ft feedbackTranslator) Backward(_ context.Context, tMsg *aspenv1.FeedbackMessage) (kv.FeedbackMessage, error) {
 	msg := kv.FeedbackMessage{
 		Sender:  node.Key(tMsg.Sender),
 		Digests: make([]kv.Digest, len(tMsg.Digests)),

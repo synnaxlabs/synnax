@@ -27,9 +27,9 @@ var _ = Describe("Falamos", func() {
 			}))
 			oCtx := MustSucceed(clientMw.Exec(
 				freighter.Context{
-					Context:  ctx,
-					Location: freighter.ClientSide,
-					Params:   make(freighter.Params),
+					Context: ctx,
+					Role:    freighter.Client,
+					Params:  make(freighter.Params),
 				},
 				freighter.NopFinalizer,
 			))
@@ -42,9 +42,9 @@ var _ = Describe("Falamos", func() {
 			}))
 			oCtx = MustSucceed(serverMw.Exec(
 				freighter.Context{
-					Context:  ctx,
-					Location: freighter.ServerSide,
-					Params:   oCtx.Params,
+					Context: ctx,
+					Role:    freighter.Server,
+					Params:  oCtx.Params,
 				},
 				freighter.NopFinalizer,
 			))

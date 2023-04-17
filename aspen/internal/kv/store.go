@@ -26,7 +26,7 @@ func (s storeState) Copy() storeState {
 }
 
 func (s storeState) toBatchRequest(ctx context.Context) TxRequest {
-	b := TxRequest{ctx: ctx, Operations: make([]Operation, 0, len(s))}
+	b := TxRequest{Context: ctx, Operations: make([]Operation, 0, len(s))}
 	for _, op := range s {
 		if op.state != infected {
 			continue

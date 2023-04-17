@@ -10,26 +10,42 @@
 package cmd
 
 import (
+	"context"
+	"github.com/samber/lo"
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/x/errutil"
+	"github.com/synnaxlabs/x/git"
+	"github.com/uptrace/uptrace-go/uptrace"
+	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"log"
+	"time"
 )
 
 func configureInstrumentation() alamos.Instrumentation {
-	c := errutil.NewCatch()
-	logger := errutil.Exec1(c, configureLogger)
-	tracer := errutil.Exec1(c, configureTracer)
-	if c.Error() != nil {
-		log.Fatal(c.Error())
+	logger, err := configureLogger()
+	if err != nil {
+		log.Fatal(err)
+	}
+	tracer, err := configureTracer(logger)
+	if err != nil {
+		log.Fatal(err)
 	}
 	return alamos.New(
-		"synnax",
+		"sy",
 		alamos.WithLogger(logger),
 		alamos.WithTracer(tracer),
 	)
+}
+
+func cleanupInstrumentation(ctx context.Context, i alamos.Instrumentation) {
+	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
+	defer cancel()
+	// Force flush to uptrace so we can understand the shutdown life cycle
+	if err := uptrace.ForceFlush(ctx); err != nil {
+		i.L.Warn("failed to flush instrumentation", zap.Error(err))
+	}
 }
 
 func configureLogger() (*alamos.Logger, error) {
@@ -51,6 +67,17 @@ func configureLogger() (*alamos.Logger, error) {
 	return alamos.NewLogger(alamos.LoggerConfig{Zap: z})
 }
 
-func configureTracer() (tracer *alamos.Tracer, err error) {
-	return tracer, err
+func configureTracer(logger *alamos.Logger) (*alamos.Tracer, error) {
+	uptrace.ConfigureOpentelemetry(
+		uptrace.WithDSN("http://synnax_dev@localhost:14317/2"),
+		uptrace.WithServiceName("synnax"),
+		uptrace.WithServiceVersion(lo.Must(git.CurrentCommit())),
+	)
+	otel.SetErrorHandler(otel.ErrorHandlerFunc(func(err error) {
+		logger.Info("opentelemetry", alamos.DebugError(err))
+	}))
+	return alamos.NewTracer(alamos.TracingConfig{
+		OtelProvider:   otel.GetTracerProvider(),
+		OtelPropagator: otel.GetTextMapPropagator(),
+	})
 }

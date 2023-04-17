@@ -20,7 +20,7 @@ var _ = Describe("retrieveEntity", func() {
 	var w ontology.Writer
 	BeforeEach(func() { w = otg.OpenWriter(tx) })
 	Describe("Single Clause", func() {
-		It("Should retrieve a resource by its ID", func() {
+		It("Should retrieve a resource by its Key", func() {
 			id := newEmptyID("A")
 			Expect(w.DefineResource(ctx, id)).To(Succeed())
 			var r ontology.Resource
@@ -33,7 +33,7 @@ var _ = Describe("retrieveEntity", func() {
 			Expect(ok).To(BeTrue())
 			Expect(v).To(Equal("A"))
 		})
-		It("Should retrieve multiple resources by their ID", func() {
+		It("Should retrieve multiple resources by their Key", func() {
 			ids := []ontology.ID{newEmptyID("A"), newEmptyID("B")}
 			Expect(w.DefineResource(ctx, ids[0])).To(Succeed())
 			Expect(w.DefineResource(ctx, ids[1])).To(Succeed())

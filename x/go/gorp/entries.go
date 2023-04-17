@@ -10,6 +10,7 @@
 package gorp
 
 import (
+	"context"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/query"
@@ -111,16 +112,21 @@ func GetEntries[K Key, E Entry[K]](q query.Parameters) *Entries[K, E] {
 	return re.(*Entries[K, E])
 }
 
-func prefix[K Key, E Entry[K]](tx Tx) []byte {
+func prefix[K Key, E Entry[K]](ctx context.Context, tx Tx) []byte {
 	if tx.noPrefix() {
 		return []byte{}
 	}
 	mName := reflect.TypeOf(*new(E)).Name()
-	return lo.Must(tx.encoder().Encode(nil, mName))
+	return lo.Must(tx.encoder().Encode(ctx, mName))
 }
 
-func encodeKey[K Key](encoder binary.Encoder, prefix []byte, key K) ([]byte, error) {
-	byteKey, err := encoder.Encode(nil, key)
+func encodeKey[K Key](
+	ctx context.Context,
+	encoder binary.Encoder,
+	prefix []byte,
+	key K,
+) ([]byte, error) {
+	byteKey, err := encoder.Encode(ctx, key)
 	if err != nil {
 		return nil, err
 	}

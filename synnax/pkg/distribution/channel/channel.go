@@ -23,7 +23,7 @@ import (
 )
 
 // Key represents a unique identifier for a Channel. This value is guaranteed to be
-// unique across the entire cluster. It is composed of a uint32 ID representing the
+// unique across the entire cluster. It is composed of a uint32 Key representing the
 // node holding the lease on the channel, and a uint16 key representing a unique
 // node-local identifier.
 type Key [6]byte

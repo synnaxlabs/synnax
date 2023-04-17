@@ -68,6 +68,7 @@ func start(cmd *cobra.Command) {
 		verbose  = viper.GetBool("verbose")
 		ins      = configureInstrumentation()
 	)
+	defer cleanupInstrumentation(cmd.Context(), ins)
 
 	interruptC := make(chan os.Signal, 1)
 	signal.Notify(interruptC, os.Interrupt)
@@ -178,14 +179,14 @@ func buildStorageConfig(
 	ins alamos.Instrumentation,
 ) storage.Config {
 	return storage.Config{
-		Instrumentation: ins,
+		Instrumentation: ins.Child("storage"),
 		MemBacked:       config.Bool(viper.GetBool("mem")),
 		Dirname:         viper.GetString("data"),
 	}
 }
 
 func parsePeerAddresses() ([]address.Address, error) {
-	peerStrings := viper.GetStringSlice("peer-addresses")
+	peerStrings := viper.GetStringSlice("peers")
 	peerAddresses := make([]address.Address, len(peerStrings))
 	for i, listenString := range peerStrings {
 		peerAddresses[i] = address.Address(listenString)

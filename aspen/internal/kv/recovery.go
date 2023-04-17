@@ -31,6 +31,7 @@ func (r *recoveryTransform) transform(
 	_ context.Context,
 	in TxRequest,
 ) (out TxRequest, ok bool, err error) {
+	out.Context = in.Context
 	for _, op := range in.Operations {
 		key, err := kvx.CompositeKey(op.Key, op.Version)
 		if err != nil {

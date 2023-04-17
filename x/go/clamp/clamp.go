@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package overflow
+package clamp
 
 import "math"
 
-// CapInt64 caps the addition of two int64 values
+// AddInt64 caps the addition of two int64 values
 // to the max/min of int64.
-func CapInt64(a, b int64) int64 {
+func AddInt64(a, b int64) int64 {
 	if b > 0 && a > math.MaxInt64-b {
 		return math.MaxInt64
 	}
