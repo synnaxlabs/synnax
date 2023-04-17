@@ -22,6 +22,7 @@ import (
 
 // Span is a span in a trace.
 type Span interface {
+	// Key returns the key provided when the span was created.
 	Key() string
 	// Error records the given error as an error on the span, setting the span's status
 	// to Error if the error is non-nil. If exclude is provided, the status will only be
