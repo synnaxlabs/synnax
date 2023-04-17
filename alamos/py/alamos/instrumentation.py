@@ -17,7 +17,7 @@ from alamos.trace import Tracer, NOOP_TRACER
 
 
 class Instrumentation:
-    meta: InstrumentationMeta
+    Meta: InstrumentationMeta
     L: Logger = NOOP_LOGGER
     T: Tracer = NOOP_TRACER
 
@@ -28,31 +28,34 @@ class Instrumentation:
         logger: Logger = NOOP_LOGGER,
         tracer: Tracer = NOOP_TRACER,
     ):
-        self.meta = InstrumentationMeta(
+        self.Meta = InstrumentationMeta(
             key=key,
             path=key,
             service_name=service_name,
         )
         self.L = logger
-        self.L.meta = self.meta
+        self.L.meta = self.Meta
         self.T = tracer
-        self.T.meta = self.meta
+        self.T.meta = self.Meta
 
     def sub(self, key: str) -> Instrumentation:
-        meta = self.meta.sub(key)
+        meta = self.Meta.child(key)
         ins = Instrumentation(
             key=meta.key,
             logger=self.L.sub(meta),
             tracer=self.T.sub(meta),
         )
-        ins.meta = meta
+        ins.Meta = meta
         return ins
 
 
 NOOP = Instrumentation("")
+"""Noop is instrumentation that does nothing. We highly recommend using this as a
+default value for instrumentation fields or function arguments."""
 
 
 class Traceable(Protocol):
+    """A protocol for classes that whose methods can be traced using the trace deecorator"""
     instrumentation: Instrumentation
 
 
@@ -62,8 +65,7 @@ R = TypeVar("R")
 
 def trace(
     key: str | None = None
-) -> Callable[
-    [Callable[Concatenate[Traceable, P], R]], Callable[Concatenate[Traceable, P], R]]:
+) -> Callable[[Callable[Concatenate[Traceable, P], R]], Callable[P, R]]:
     """Trace the given method. The method must be used on a class that implements
     the Traceable protocol and has a non-None instrumentation field.
 
@@ -71,8 +73,7 @@ def trace(
     :return:
     """
 
-    def decorator(f: Callable[Concatenate[Traceable, P], R]) -> Callable[
-        Concatenate[Traceable, P], R]:
+    def decorator(f: Callable[Concatenate[Traceable, P], R]) -> Callable[P, R]:
         def wrapper(self: Traceable, *args: P.args, **kwargs: P.kwargs):
             with self.instrumentation.T.trace(key if key is not None else f.__name__):
                 return f(self, *args, **kwargs)
