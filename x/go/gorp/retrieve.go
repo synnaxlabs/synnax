@@ -73,8 +73,6 @@ func (r Retrieve[K, E]) Exists(ctx context.Context, tx Tx) (bool, error) {
 	return checkExists[K, E](ctx, r.Params, tx)
 }
 
-// |||||| FILTERS ||||||
-
 const filtersKey query.Parameter = "filters"
 
 type filters[K Key, E Entry[K]] []func(*E) bool
@@ -110,8 +108,6 @@ func getFilters[K Key, E Entry[K]](q query.Parameters) filters[K, E] {
 	}
 	return rf.(filters[K, E])
 }
-
-// |||||| WHERE KEYS ||||||
 
 const whereKeysKey query.Parameter = "retrieveByKeys"
 

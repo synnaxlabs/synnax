@@ -13,17 +13,11 @@ import (
 	"io"
 )
 
-// |||||| CONFIG ||||||
-
 type ParametrizeConfig[V ParametrizeVars] interface {
 	Next() (V, error)
 }
 
-// |||||| VARS ||||||
-
 type ParametrizeVars interface{}
-
-// |||||| PARAMETRIZE ||||||
 
 func NewParametrize[V ParametrizeVars](config ParametrizeConfig[V]) *Parametrize[V] {
 	return &Parametrize[V]{config: config}
@@ -49,8 +43,6 @@ func (p *Parametrize[V]) Construct() {
 		i++
 	}
 }
-
-// |||||| ITERVARS ||||||
 
 type iterVars[T ParametrizeVars] struct {
 	i    int

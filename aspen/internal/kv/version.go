@@ -19,8 +19,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// |||||| FILTER ||||||
-
 type versionFilter struct {
 	Config
 	memKV      kvx.DB
@@ -91,8 +89,6 @@ func getDigestFromKV(ctx context.Context, kve kvx.DB, key []byte) (Digest, error
 	}
 	return dig, ecd.Decode(ctx, b, &dig)
 }
-
-// |||||| ASSIGNER ||||||
 
 const versionCounterKey = "ver"
 

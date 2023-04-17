@@ -49,8 +49,6 @@ type Store[S State] interface {
 	Writer[S]
 }
 
-// |||||| CORE ||||||
-
 type core[S State] struct {
 	copy  func(S) S
 	mu    sync.RWMutex
@@ -85,8 +83,6 @@ func (c *core[S]) PeekState() S {
 	defer c.mu.RUnlock()
 	return c.state
 }
-
-// |||||| OBSERVABLE ||||||
 
 // Observable is a wrapper around a Store that allows the caller to observe
 // State changes. SinkTarget create a new store.Observable, called store.ObservableWrap().
@@ -142,8 +138,6 @@ func (o *observable[S]) SetState(ctx context.Context, state S) {
 	}
 	o.Store.SetState(ctx, state)
 }
-
-// |||||| FLUSHABLE ||||||
 
 type Flushable[S State] interface {
 	Store[S]

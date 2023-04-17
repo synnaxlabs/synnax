@@ -34,15 +34,6 @@ func (c *Catch) Exec(ca func() error) {
 	}
 }
 
-func Exec1[T any](c *Catch, ca func() (T, error)) T {
-	var t T
-	c.Exec(func() (err error) {
-		t, err = ca()
-		return err
-	})
-	return t
-}
-
 // ExecWithCtx executes a function with the given context and catches any errors that it may return.
 func (c *Catch) ExecWithCtx(ctx context.Context, ca func(ctx context.Context) error) {
 	if !c.opts.aggregate && len(c.errors) > 0 {
@@ -71,8 +62,6 @@ func (c *Catch) HasError() bool {
 // Errors returns all errors caught. Will only have len > 1 if WithAggregation
 // opt is used on instantiation.
 func (c *Catch) Errors() []error { return c.errors }
-
-// |||| OPTS ||||
 
 type catchOpts struct {
 	aggregate bool

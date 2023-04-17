@@ -13,8 +13,6 @@ import (
 	"fmt"
 )
 
-// |||||| OPTIONS ||||||
-
 // Parameter is a type representing the key for a given option. Parameter should be unique for each option.
 // If writing a new option, ensure that the key is unique, or else unpredictable behavior may occur.
 type Parameter string
