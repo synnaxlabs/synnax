@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import Callable, TypeVar, Protocol, Concatenate, ParamSpec
 
+from alamos.environment import Environment
 from alamos.log import Logger, NOOP_LOGGER
 from alamos.meta import InstrumentationMeta
 from alamos.trace import Tracer, NOOP_TRACER
@@ -36,14 +37,14 @@ class Instrumentation:
         self.L = logger
         self.L.meta = self.Meta
         self.T = tracer
-        self.T.meta = self.Meta
+        self.T._meta = self.Meta
 
     def sub(self, key: str) -> Instrumentation:
         meta = self.Meta.child(key)
         ins = Instrumentation(
             key=meta.key,
-            logger=self.L.sub(meta),
-            tracer=self.T.sub(meta),
+            logger=self.L.child(meta),
+            tracer=self.T.child(meta),
         )
         ins.Meta = meta
         return ins
@@ -55,7 +56,8 @@ default value for instrumentation fields or function arguments."""
 
 
 class Traceable(Protocol):
-    """A protocol for classes that whose methods can be traced using the trace deecorator"""
+    """A protocol for classes whose methods can be traced using the trace
+    decorator"""
     instrumentation: Instrumentation
 
 
@@ -64,18 +66,17 @@ R = TypeVar("R")
 
 
 def trace(
+    env: Environment,
     key: str | None = None
 ) -> Callable[[Callable[Concatenate[Traceable, P], R]], Callable[P, R]]:
     """Trace the given method. The method must be used on a class that implements
     the Traceable protocol and has a non-None instrumentation field.
-
-    :param key:
-    :return:
     """
 
     def decorator(f: Callable[Concatenate[Traceable, P], R]) -> Callable[P, R]:
         def wrapper(self: Traceable, *args: P.args, **kwargs: P.kwargs):
-            with self.instrumentation.T.trace(key if key is not None else f.__name__):
+            _key = f.__name__ if key is None else key
+            with self.instrumentation.T.trace(_key, env):
                 return f(self, *args, **kwargs)
 
         return wrapper

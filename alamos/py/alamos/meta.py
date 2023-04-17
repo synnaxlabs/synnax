@@ -25,6 +25,9 @@ class InstrumentationMeta(BaseModel):
     def child(self, key: str) -> InstrumentationMeta:
         return InstrumentationMeta(
             key=key,
-            path=f"{self.path}.{key}",
+            path=self.extend_path(key),
             service_name=self.service_name
         )
+
+    def extend_path(self, key: str) -> str:
+        return f"{self.path}.{key}"

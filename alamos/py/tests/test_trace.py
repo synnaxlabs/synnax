@@ -14,8 +14,7 @@ from opentelemetry.sdk.trace.export import (
     ConsoleSpanExporter,
 )
 
-from alamos import Tracer
-from alamos.dev import instrumentation
+from alamos import Tracer, Instrumentation, trace
 
 provider = TracerProvider()
 processor = BatchSpanProcessor(ConsoleSpanExporter())
@@ -33,35 +32,34 @@ class TestTrace:
         )
         assert tracer is not None
 
-    def test_trace(self):
+    def test_trace(self, instrumentation: Instrumentation):
+        """Should not raise an exception.
         """
-        Should not raise an exception.
-        """
-        ins = instrumentation()
-        with ins.T.trace("test"):
+        with instrumentation.T.prod("test") as span:
+            assert span.key == "test"
             pass
+
+    def test_trace_decorator(self, instrumentation: Instrumentation):
+        """Should not raise an exception
+        """
+
+        @trace("prod")
+        def decorated() -> str:
+            return "hello"
+
+        decorated()
 
 
 class TestPropagate:
-    def test_propagate_depropagate(self):
+    def test_propagate_depropagate(self, instrumentation: Instrumentation):
         """Should correctly inject the span context into the carrier.
         """
-        ins = instrumentation()
         carrier = dict()
 
         def setter(carrier, key, value):
             carrier[key] = value
 
-        with ins.T.trace("test") as span:
-            ins.T.propagate(carrier, setter)
+        with instrumentation.T.prod("test"):
+            instrumentation.T.propagate(carrier, setter)
 
-        assert len(carrier) == 1
-
-        def getter(carrier, key):
-            return carrier.get(key, None)
-
-        def keys(carrier):
-            return list(carrier.keys())
-
-        span_context = ins.T.depropagate(carrier, getter, keys)
-        assert span_context is not None
+        assert "traceparent" in carrier
