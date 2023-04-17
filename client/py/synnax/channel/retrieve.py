@@ -8,13 +8,15 @@
 #  included in the file licenses/APL.txt.
 
 from __future__ import annotations
+
 from typing import Protocol, overload
+
 from typing_extensions import Literal
 
+from alamos import Instrumentation, trace, NOOP
 from freighter import HTTPClientPool, Payload, UnaryClient
-
-from synnax.exceptions import QueryError
 from synnax.channel.payload import ChannelPayload
+from synnax.exceptions import QueryError
 from synnax.util.flatten import flatten
 
 
@@ -58,11 +60,10 @@ class ChannelRetriever(Protocol):
     ) -> tuple[list[ChannelPayload], list[str]]:
         ...
 
-    @overload
     def retrieve(
         self,
         key_or_name: str | tuple[str] | list[str],
-        *keys_or_names: str | tuple[str] |  list[str],
+        *keys_or_names: str | tuple[str] | list[str],
         node_key: int | None = None,
         include_not_found: bool = False,
     ) -> (
@@ -77,15 +78,23 @@ class ChannelRetriever(Protocol):
 class ClusterChannelRetriever:
     _ENDPOINT = "/channel/retrieve"
     client: UnaryClient
+    instrumentation: Instrumentation
 
-    def __init__(self, client: HTTPClientPool):
+    def __init__(
+        self,
+        client: HTTPClientPool,
+        instrumentation: Instrumentation = NOOP,
+    ) -> None:
         self.client = client.get_client()
+        self.instrumentation = instrumentation
 
     def _(self) -> ChannelRetriever:
         return self
 
+    @trace("debug")
     def retrieve(
         self,
+
         key_or_name: str | tuple[str] | list[str],
         *keys_or_names: str | tuple[str] | list[str],
         node_key: int | None = None,
@@ -119,15 +128,22 @@ class CacheChannelRetriever:
     _retriever: ChannelRetriever
     channels: dict[str, ChannelPayload]
     names_to_keys: dict[str, str]
+    instrumentation: Instrumentation
 
-    def __init__(self, retriever: ChannelRetriever) -> None:
+    def __init__(
+        self,
+        retriever: ChannelRetriever,
+        instrumentation: Instrumentation,
+    ) -> None:
         self.channels = dict()
         self.names_to_keys = dict()
+        self.instrumentation = instrumentation
         self._retriever = retriever
 
     def _(self) -> ChannelRetriever:
         return self
 
+    @trace("debug")
     def retrieve(
         self,
         key_or_name: str | tuple[str] | list[str],
@@ -186,7 +202,8 @@ class CacheChannelRetriever:
 
 
 def is_single(
-    key_or_name: str | tuple[str] | list[str], keys_or_names: tuple[str | tuple[str] | list[str]]
+    key_or_name: str | tuple[str] | list[str],
+    keys_or_names: tuple[str | tuple[str] | list[str]]
 ) -> bool:
     """Determine if a list of keys or names is a single key or name."""
     return isinstance(key_or_name, str) and len(keys_or_names) == 0
