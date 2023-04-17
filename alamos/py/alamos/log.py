@@ -16,6 +16,9 @@ from alamos.noop import noop as noopd, Noop
 
 
 class Logger:
+    """Logger wraps pythons logging implementation to provide an opinionated formatter
+    and no-op logging functionality.
+    """
     noop: bool = True
     base: BaseLogger
     meta: InstrumentationMeta
@@ -47,11 +50,8 @@ class Logger:
         """Logs a message at the Error level"""
         self.base.error(msg, *args, **kwargs)
 
-    def sub(self, meta: InstrumentationMeta) -> Logger:
-        l = Logger(
-            noop=self.noop,
-            base=self.base,
-        )
+    def child(self, meta: InstrumentationMeta) -> Logger:
+        l = Logger(noop=self.noop, base=self.base)
         l.meta = meta
         return l
 
