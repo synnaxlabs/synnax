@@ -10,6 +10,7 @@
 package channel
 
 import (
+	"context"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
@@ -23,7 +24,10 @@ type createMessageTranslator struct{}
 var _ fgrpc.Translator[channel.CreateMessage, *channelv1.CreateMessage] = (*createMessageTranslator)(nil)
 
 // Forward implements the fgrpc.Translator interface.
-func (c createMessageTranslator) Forward(msg channel.CreateMessage) (*channelv1.CreateMessage, error) {
+func (c createMessageTranslator) Forward(
+	_ context.Context,
+	msg channel.CreateMessage,
+) (*channelv1.CreateMessage, error) {
 	tr := &channelv1.CreateMessage{}
 	for _, ch := range msg.Channels {
 		tr.Channels = append(tr.Channels, &channelv1.Channel{
@@ -40,7 +44,10 @@ func (c createMessageTranslator) Forward(msg channel.CreateMessage) (*channelv1.
 }
 
 // Backward implements the fgrpc.Translator interface.
-func (c createMessageTranslator) Backward(msg *channelv1.CreateMessage) (channel.CreateMessage, error) {
+func (c createMessageTranslator) Backward(
+	_ context.Context,
+	msg *channelv1.CreateMessage,
+) (channel.CreateMessage, error) {
 	var tr channel.CreateMessage
 	for _, ch := range msg.Channels {
 		tr.Channels = append(tr.Channels, channel.Channel{

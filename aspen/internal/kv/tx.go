@@ -58,6 +58,19 @@ func (b *tx) Delete(ctx context.Context, key []byte, _ ...interface{}) error {
 	return b.applyOp(ctx, Operation{Key: key, Variant: Delete})
 }
 
+// Close implements kv.Tx.
+func (b *tx) Close() error { return b.free() }
+
+// Commit implements kv.Tx.
+func (b *tx) Commit(ctx context.Context, _ ...interface{}) error {
+	ctx, span := b.T.Prod(ctx, "tx-commit")
+	data, err := b.toRequests(ctx)
+	if err != nil {
+		return span.EndWith(err)
+	}
+	return span.EndWith(b.apply(data))
+}
+
 func (b *tx) applyOp(ctx context.Context, op Operation) error {
 	var err error
 	op, err = b.lease.allocate(ctx, op)
@@ -96,7 +109,7 @@ func (b *tx) toRequests(ctx context.Context) ([]TxRequest, error) {
 			br.Operations = append(br.Operations, op)
 		}
 		br.Leaseholder = op.Leaseholder
-		br.ctx, br.span = b.T.Debug(
+		br.Context, br.span = b.T.Debug(
 			ctx,
 			fmt.Sprintf("tx-%d", br.Leaseholder),
 		)
@@ -109,26 +122,19 @@ func (b *tx) toRequests(ctx context.Context) ([]TxRequest, error) {
 	return data, b.free()
 }
 
-func (b *tx) Close() error { return b.free() }
-
-func (b *tx) Commit(ctx context.Context, _ ...interface{}) error {
-	data, err := b.toRequests(ctx)
-	if err != nil {
-		return err
-	}
-	return b.apply(data)
-}
-
 func (b *tx) free() error {
 	b.digests = nil
 	return b.Tx.Close()
 }
 
 type TxRequest struct {
+	// Context is the context for the transaction. This context is important for
+	// cancellation and tracing, but is extremely easy to misuse. If you don't know
+	// what you're doing, be careful when passing this context around.
+	Context     context.Context
 	Leaseholder node.Key
 	Sender      node.Key
 	Operations  []Operation
-	ctx         context.Context
 	doneF       func(err error)
 	span        alamos.Span
 }
@@ -137,7 +143,7 @@ func (br TxRequest) empty() bool { return len(br.Operations) == 0 }
 
 func (br TxRequest) size() int { return len(br.Operations) }
 
-func (br TxRequest) logArgs() []zap.Field {
+func (br TxRequest) logFields() []zap.Field {
 	return []zap.Field{
 		zap.Int("size", br.size()),
 		zap.Uint64("leaseholder", uint64(br.Leaseholder)),
@@ -159,17 +165,17 @@ func (br TxRequest) commitTo(db kvx.TxnFactory) (err error) {
 		br.Operations = nil
 		if err != nil {
 			err = b.Close()
-		} else if _err := b.Commit(br.ctx); _err != nil {
+		} else if _err := b.Commit(br.Context); _err != nil {
 			err = _err
 		}
 		br.done(err)
 	}()
 	for _, op := range br.Operations {
-		if _err := op.apply(br.ctx, b); _err != nil {
+		if _err := op.apply(br.Context, b); _err != nil {
 			err = _err
 			return err
 		}
-		if _err := op.Digest().apply(br.ctx, b); _err != nil {
+		if _err := op.Digest().apply(br.Context, b); _err != nil {
 			err = _err
 			return err
 		}
@@ -207,16 +213,18 @@ type txCoordinator struct {
 }
 
 func (bc *txCoordinator) done(err error) {
-	bc.mu.Lock()
-	defer bc.mu.Unlock()
 	if err != nil {
-		bc.mu.err = err
+		bc.mu.Lock()
+		bc.mu.err = errors.CombineErrors(bc.mu.err, err)
+		bc.mu.Unlock()
 	}
 	bc.wg.Done()
 }
 
 func (bc *txCoordinator) wait() error {
 	bc.wg.Wait()
+	// At this point no other processes are writing to bc.mu.err, so no need to
+	// lock.
 	return bc.mu.err
 }
 

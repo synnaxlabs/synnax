@@ -49,11 +49,11 @@ func NewLogger(configs ...LoggerConfig) (*Logger, error) {
 	return &Logger{zap: cfg.Zap}, nil
 }
 
-func (l *Logger) sub(meta InstrumentationMeta) *Logger {
+func (l *Logger) child(meta InstrumentationMeta) (nl *Logger) {
 	if l != nil {
-		return nil
+		nl = &Logger{zap: l.zap.Named(meta.Key)}
 	}
-	return &Logger{zap: l.zap.Named(meta.Key)}
+	return
 }
 
 // Debug logs a message at the Debug level with the given fields.
@@ -106,4 +106,15 @@ func (l *Logger) DPanic(msg string, fields ...zap.Field) {
 	if l != nil {
 		l.zap.DPanic(msg, fields...)
 	}
+}
+
+// DebugError returns a zap field that can be used to log an error whose presence
+// is not exceptional i.e. it does not deserve a stack trace. zap.Error has no way
+// to disable stack traces in debug logging, so we use this instead. DebugError should
+// only be used in debug logging, and NOT for production errors that are exceptional.
+func DebugError(err error) zap.Field {
+	if err == nil {
+		return zap.Skip()
+	}
+	return zap.String("error", err.Error())
 }

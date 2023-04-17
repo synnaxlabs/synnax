@@ -54,7 +54,7 @@ func (s *StreamServerCore[RQ, RQT, RS, RST]) Handler(
 	ctx context.Context, stream freighter.ServerStream[RQ, RS],
 ) error {
 	oCtx, err := s.MiddlewareCollector.Exec(
-		parseContext(ctx, s.ServiceDesc.ServiceName, freighter.ServerSide),
+		parseContext(ctx, s.ServiceDesc.ServiceName, freighter.Server, freighter.Stream),
 		freighter.FinalizerFunc(func(md freighter.Context) (freighter.Context, error) {
 			return freighter.Context{Protocol: md.Protocol, Params: make(freighter.Params)}, s.handler(ctx, stream)
 		}),
@@ -71,7 +71,7 @@ func (s *StreamClientCore[RQ, RQT, RS, RST]) Stream(
 		freighter.Context{
 			Context:  ctx,
 			Variant:  freighter.Stream,
-			Location: freighter.ClientSide,
+			Role:     freighter.Client,
 			Target:   target,
 			Protocol: Reporter.Protocol,
 			Params:   make(freighter.Params),
@@ -83,7 +83,12 @@ func (s *StreamClientCore[RQ, RQT, RS, RST]) Stream(
 			}
 			grpcClient, err := s.ClientFunc(ctx, conn.ClientConn)
 			stream = s.Client(grpcClient)
-			return parseContext(ctx, s.ServiceDesc.ServiceName, freighter.ClientSide), err
+			return parseContext(
+				ctx,
+				s.ServiceDesc.ServiceName,
+				freighter.Client,
+				freighter.Stream,
+			), err
 		}),
 	)
 	return stream, err
@@ -122,12 +127,12 @@ func (s *ServerStream[RQ, RQT, RS, RST]) Receive() (req RQ, err error) {
 	if err != nil {
 		return req, translateGRPCError(err)
 	}
-	return s.requestTranslator.Backward(tReq)
+	return s.requestTranslator.Backward(s.internal.Context(), tReq)
 }
 
 // Send implements the freighter.ClientStream interface.
 func (s *ServerStream[RQ, RQT, RS, RST]) Send(res RS) error {
-	tRes, err := s.responseTranslator.Forward(res)
+	tRes, err := s.responseTranslator.Forward(s.internal.Context(), res)
 	if err != nil {
 		return err
 	}
@@ -147,12 +152,12 @@ func (c *ClientStream[RQ, RQT, RS, RST]) Receive() (res RS, err error) {
 	if err != nil {
 		return res, translateGRPCError(err)
 	}
-	return c.responseTranslator.Backward(tRes)
+	return c.responseTranslator.Backward(c.internal.Context(), tRes)
 }
 
 // Send implements the freighter.ClientStream interface.
 func (c *ClientStream[RQ, RQT, RS, RST]) Send(req RQ) error {
-	tReq, err := c.requestTranslator.Forward(req)
+	tReq, err := c.requestTranslator.Forward(c.internal.Context(), req)
 	if err != nil {
 		return err
 	}
@@ -165,6 +170,7 @@ func (c *ClientStream[RQ, RQT, RS, RST]) CloseSend() error {
 }
 
 type grpcServerStream[RQ, RS freighter.Payload] interface {
+	Context() context.Context
 	Send(msg RS) error
 	Recv() (RQ, error)
 }

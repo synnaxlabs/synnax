@@ -84,9 +84,10 @@ func (u *UnaryClient[RQ, RQT, RS, RST]) Send(
 		freighter.Context{
 			Context:  ctx,
 			Target:   address.Newf("%s.%s", target, u.ServiceDesc.ServiceName),
-			Location: freighter.ClientSide,
+			Role:     freighter.Client,
 			Protocol: Reporter.Protocol,
 			Params:   make(freighter.Params),
+			Variant:  freighter.Unary,
 		},
 		freighter.FinalizerFunc(func(ctx freighter.Context) (oMD freighter.Context, err error) {
 			ctx = attachContext(ctx)
@@ -94,16 +95,21 @@ func (u *UnaryClient[RQ, RQT, RS, RST]) Send(
 			if err != nil {
 				return oMD, err
 			}
-			tReq, err := u.RequestTranslator.Forward(req)
+			tReq, err := u.RequestTranslator.Forward(ctx, req)
 			if err != nil {
 				return oMD, err
 			}
 			tRes, err := u.Client(ctx, conn.ClientConn, tReq)
-			oMD = parseContext(ctx, u.ServiceDesc.ServiceName, freighter.ClientSide)
+			oMD = parseContext(
+				ctx,
+				u.ServiceDesc.ServiceName,
+				freighter.Client,
+				freighter.Unary,
+			)
 			if err != nil {
 				return oMD, err
 			}
-			res, err = u.ResponseTranslator.Backward(tRes)
+			res, err = u.ResponseTranslator.Backward(ctx, tRes)
 			return oMD, err
 		}),
 	)
@@ -113,18 +119,20 @@ func (u *UnaryClient[RQ, RQT, RS, RST]) Send(
 // Exec implements the GRPC service interface.
 func (u *UnaryServer[RQ, RQT, RS, RST]) Exec(ctx context.Context, tReq RQT) (tRes RST, err error) {
 	oCtx, err := u.MiddlewareCollector.Exec(
-		parseContext(ctx, u.ServiceDesc.ServiceName, freighter.ServerSide),
+		parseContext(ctx, u.ServiceDesc.ServiceName, freighter.Server, freighter.Unary),
 		freighter.FinalizerFunc(func(ctx freighter.Context) (freighter.Context, error) {
 			oCtx := freighter.Context{
 				Context:  ctx.Context,
 				Protocol: Reporter.Protocol,
 				Target:   ctx.Target,
 				Params:   ctx.Params,
+				Role:     freighter.Server,
+				Variant:  freighter.Unary,
 			}
 			if u.handler == nil {
 				return oCtx, roacherrors.New("[freighter] - no handler registered")
 			}
-			req, err := u.RequestTranslator.Backward(tReq)
+			req, err := u.RequestTranslator.Backward(ctx, tReq)
 			if err != nil {
 				return oCtx, err
 			}
@@ -132,7 +140,7 @@ func (u *UnaryServer[RQ, RQT, RS, RST]) Exec(ctx context.Context, tReq RQT) (tRe
 			if err != nil {
 				return oCtx, err
 			}
-			tRes, err = u.ResponseTranslator.Forward(res)
+			tRes, err = u.ResponseTranslator.Forward(ctx, res)
 			return oCtx, err
 		},
 		),

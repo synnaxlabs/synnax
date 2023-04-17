@@ -10,8 +10,8 @@ services:
       interval: 1s
       timeout: 1s
       retries: 30
-    volumes:
-      - ./data/clickhouse:/var/lib/clickhouse
+    #volumes:
+    #  - ./data/clickhouse:/var/lib/clickhouse
     ports:
       - '8123:8123'
       - '9000:9000'
@@ -29,8 +29,8 @@ services:
       interval: 1s
       timeout: 1s
       retries: 30
-    volumes:
-      - './data/postgres:/var/lib/postgresql/data/pgdata'
+    #volumes:
+    #  - './data/postgres:/var/lib/postgresql/data/pgdata'
     ports:
       - '5432:5432'
 
@@ -38,7 +38,7 @@ services:
     image: 'uptrace/uptrace-dev:latest'
     restart: on-failure
     volumes:
-      - ./data/uptrace:/var/lib/uptrace
+    #  - ./data/uptrace:/var/lib/uptrace
       - ./uptrace.yaml:/etc/uptrace/uptrace.yml
     ports:
       - '14317:14317'

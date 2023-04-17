@@ -4,12 +4,12 @@ from opentelemetry.trace import get_tracer_provider
 
 from alamos import Instrumentation, Tracer
 
-DSN = "http://synnax_dev@localhost:14317/2"
+DEV_DSN = "http://synnax_dev@localhost:14317/2"
 
 
 def instrumentation() -> Instrumentation:
     uptrace.configure_opentelemetry(
-        dsn=DSN,
+        dsn=DEV_DSN,
         service_name="dog",
         deployment_environment="dev",
     )

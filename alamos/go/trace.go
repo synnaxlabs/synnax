@@ -11,7 +11,6 @@ package alamos
 
 import (
 	"context"
-	"fmt"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errutil"
 	"github.com/synnaxlabs/x/override"
@@ -23,6 +22,7 @@ import (
 
 // Span is a span in a trace.
 type Span interface {
+	Key() string
 	// Error records the given error as an error on the span, setting the span's status
 	// to Error if the error is non-nil. If exclude is provided, the status will only be
 	// set if the error is not one of the excluded errors.
@@ -49,13 +49,20 @@ type TracingConfig struct {
 	Filter EnvironmentFilter
 }
 
-var _ config.Config[TracingConfig] = (*TracingConfig)(nil)
+var (
+	_ config.Config[TracingConfig] = (*TracingConfig)(nil)
+	// DefaultTracingConfig is the default configuration for a Tracer.
+	DefaultTracingConfig = TracingConfig{
+		Filter: ThresholdEnvFilter(Bench),
+	}
+)
 
 // Validate implements config.Config.
 func (c TracingConfig) Validate() error {
 	v := validate.New("alamos.TracingConfig")
 	validate.NotNil(v, "OtelProvider", c.OtelProvider)
 	validate.NotNil(v, "OtelPropagator", c.OtelPropagator)
+	validate.NotNil(v, "Filter", c.Filter)
 	return v.Error()
 }
 
@@ -63,6 +70,7 @@ func (c TracingConfig) Validate() error {
 func (c TracingConfig) Override(other TracingConfig) TracingConfig {
 	c.OtelProvider = override.Nil(c.OtelProvider, other.OtelProvider)
 	c.OtelPropagator = override.Nil(c.OtelPropagator, other.OtelPropagator)
+	c.Filter = override.Nil(c.Filter, other.Filter)
 	return c
 }
 
@@ -71,15 +79,16 @@ func (c TracingConfig) Override(other TracingConfig) TracingConfig {
 // be used as part of Instrumentation. To creat a Tracer, use NewTracer and pass
 // it in a call to alamos.New using the WithTracer option.
 type Tracer struct {
-	meta   InstrumentationMeta
-	config TracingConfig
+	meta        InstrumentationMeta
+	_otelTracer oteltrace.Tracer
+	config      TracingConfig
 }
 
-// NewTracer initializes a new tracer using the given configuration. If no configuration
-// is provided, NewTracer will return a validation error. If you want a no-op tracer,
+// NewTracer initializes a new devTracer using the given configuration. If no configuration
+// is provided, NewTracer will return a validation error. If you want a no-op devTracer,
 // simply use a nil pointer.
 func NewTracer(configs ...TracingConfig) (*Tracer, error) {
-	cfg, err := config.New(TracingConfig{}, configs...)
+	cfg, err := config.New(DefaultTracingConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
@@ -110,16 +119,25 @@ func (t *Tracer) Trace(ctx context.Context, key string, env Environment) (contex
 	if t == nil || !t.config.Filter(env, key) {
 		return ctx, nopSpanV
 	}
+	spanKey := t.meta.extendPath(key)
 	// Pulled from go implementation of pprof.Do:
 	// https://cs.opensource.google/go/go/+/master:src/runtime/pprof/runtime.go;l=40?q=Do%20pprof&sq=&ss=go%2Fgo
 	ctx = pprof.WithLabels(ctx, pprof.Labels("routine", key))
 	pprof.SetGoroutineLabels(ctx)
 
-	ctx, otel := t.config.OtelProvider.Tracer(t.meta.Key).Start(ctx, fmt.Sprintf("%s.%s", t.meta.Key, key))
+	ctx, otel := t.otelTracer().Start(ctx, spanKey)
 	return ctx, span{
+		key:      spanKey,
 		pprofEnd: func() { pprof.SetGoroutineLabels(ctx) },
 		otel:     otel,
 	}
+}
+
+func (t *Tracer) otelTracer() oteltrace.Tracer {
+	if t._otelTracer == nil {
+		t._otelTracer = t.config.OtelProvider.Tracer(t.meta.Key)
+	}
+	return t._otelTracer
 }
 
 // Transfer transfers the trace from the source context to the target context.
@@ -136,19 +154,23 @@ func (t *Tracer) Transfer(source, target context.Context) context.Context {
 	return oteltrace.ContextWithSpan(target, oteltrace.SpanFromContext(source))
 }
 
-func (t *Tracer) sub(meta InstrumentationMeta) *Tracer {
-	if t == nil {
-		return nil
+func (t *Tracer) child(meta InstrumentationMeta) (nt *Tracer) {
+	if t != nil {
+		nt = &Tracer{meta: meta, config: t.config}
 	}
-	return &Tracer{meta: meta, config: t.config}
+	return
 }
 
 type span struct {
+	key      string
 	pprofEnd func()
 	otel     oteltrace.Span
 }
 
 var _ Span = span{}
+
+// Key implements Span.
+func (s span) Key() string { return s.key }
 
 // Error implements Span.
 func (s span) Error(err error, exclude ...error) error {
@@ -184,6 +206,8 @@ func (s span) EndWith(err error, exclude ...error) error {
 type nopSpan struct{}
 
 var nopSpanV Span = nopSpan{}
+
+func (s nopSpan) Key() string { return "" }
 
 // Error implements Span.
 func (s nopSpan) Error(err error, _ ...error) error { return err }

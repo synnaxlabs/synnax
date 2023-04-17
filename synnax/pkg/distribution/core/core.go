@@ -38,8 +38,8 @@ type Core struct {
 
 // Open opens a new  core distribution layer. The caller is responsible for closing the
 // distribution layer when it is no longer in use.
-func Open(ctx context.Context, cfg Config) (c Core, err error) {
-	cfg, err = config.New(DefaultConfig, cfg)
+func Open(ctx context.Context, configs ...Config) (c Core, err error) {
+	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return c, err
 	}

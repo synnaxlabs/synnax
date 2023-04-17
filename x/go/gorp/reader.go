@@ -19,16 +19,23 @@ import (
 )
 
 type Reader[K Key, E Entry[K]] struct {
-	prefix []byte
+	_prefix []byte
 	Tx
 }
 
 func NewReader[K Key, E Entry[K]](tx Tx) *Reader[K, E] {
-	return &Reader[K, E]{Tx: tx, prefix: prefix[K, E](tx)}
+	return &Reader[K, E]{Tx: tx}
+}
+
+func (r *Reader[K, E]) prefix(ctx context.Context) []byte {
+	if r._prefix == nil {
+		r._prefix = prefix[K, E](ctx, r.Tx)
+	}
+	return r._prefix
 }
 
 func (r *Reader[K, E]) Get(ctx context.Context, key K) (e E, err error) {
-	bKey, err := encodeKey(r.Tx.encoder(), r.prefix, key)
+	bKey, err := encodeKey(ctx, r.Tx.encoder(), r.prefix(ctx), key)
 	if err != nil {
 		return e, err
 	}
@@ -56,7 +63,8 @@ func (r *Reader[K, E]) GetMany(ctx context.Context, keys []K) ([]E, error) {
 }
 
 func (r *Reader[K, E]) OpenIterator() *Iterator[E] {
-	return OpenIterator[E](r.Tx.OpenIterator(kv.PrefixIter(r.prefix)), r.Tx.decoder())
+	// TODO (emilbon99): Figure out if we want to use a proper context here.
+	return OpenIterator[E](r.Tx.OpenIterator(kv.PrefixIter(r.prefix(context.TODO()))), r.Tx.decoder())
 }
 
 // Iterator provides a simple wrapper around a kv.Iterator that decodes a byte-value

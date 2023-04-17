@@ -11,7 +11,6 @@ package alamos_test
 
 import (
 	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
@@ -22,7 +21,7 @@ import (
 
 var _ = Describe("Trace", func() {
 	Describe("NewTracer", func() {
-		It("Should correctly create a new tracer", func() {
+		It("Should correctly create a new devTracer", func() {
 			cfg := alamos.TracingConfig{
 				OtelProvider:   otel.GetTracerProvider(),
 				OtelPropagator: otel.GetTextMapPropagator(),
@@ -33,7 +32,7 @@ var _ = Describe("Trace", func() {
 		})
 	})
 	Describe("No-op", func() {
-		It("Should not panic when calling methods on a nil tracer", func() {
+		It("Should not panic when calling methods on a nil devTracer", func() {
 			var tracer *alamos.Tracer
 			Expect(func() {
 				_, sp := tracer.Debug(context.Background(), "test")
@@ -43,16 +42,19 @@ var _ = Describe("Trace", func() {
 	})
 	Describe("Transfer", func() {
 		It("Should correctly transfer the span from one context to another", func() {
-			tracer := MustSucceed(alamos.NewTracer(alamos.TracingConfig{
-				OtelProvider:   otel.GetTracerProvider(),
-				OtelPropagator: otel.GetTextMapPropagator(),
-				Filter:         alamos.ThresholdEnvFilter(alamos.Debug),
-			}))
-			ctx, sp := tracer.Debug(context.Background(), "test")
+			ctx, sp := devIns.T.Debug(context.Background(), "test")
 			sp1 := trace.SpanFromContext(ctx)
-			ctx2 := tracer.Transfer(ctx, context.Background())
+			ctx2 := devIns.T.Transfer(ctx, context.Background())
 			sp2 := trace.SpanFromContext(ctx2)
 			Expect(sp1).To(BeIdenticalTo(sp2))
+			sp.End()
+		})
+	})
+	Describe("Child", func() {
+		It("Should inject the child path into the span key", func() {
+			ch := devIns.Child("trace-child")
+			_, sp := ch.T.Debug(context.Background(), "test")
+			Expect(sp.Key()).To(Equal("alamos-test.trace-child.test"))
 			sp.End()
 		})
 	})

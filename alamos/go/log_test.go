@@ -13,14 +13,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
+	. "github.com/synnaxlabs/x/testutil"
 	"go.uber.org/zap"
 )
 
 var _ = Describe("Log", func() {
 	Describe("NewLogger", func() {
 		It("Should correctly attach a new logger to the Instrumentation", func() {
-			cfg := alamos.LoggerConfig{Zap: zap.NewNop()}
-			i := alamos.New("test", alamos.NewLogger(cfg))
+			logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{Zap: zap.NewNop()}))
+			i := alamos.New("test", alamos.WithLogger(logger))
 			Expect(i.L).ToNot(BeNil())
 		})
 	})

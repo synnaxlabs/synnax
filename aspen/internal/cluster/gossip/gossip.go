@@ -52,14 +52,13 @@ func (g *Gossip) GoGossip(ctx signal.Context) {
 }
 
 func (g *Gossip) GossipOnce(ctx context.Context) (err error) {
-	ctx, span := g.T.Debug(ctx, "gossip-client")
 	snap := g.Store.CopyState()
 	peer := RandomPeer(snap.Nodes, snap.HostKey)
 	g.incrementHostHeartbeat(ctx)
 	if peer.Address != "" {
 		err = g.GossipOnceWith(ctx, peer.Address)
 	}
-	return span.EndWith(err)
+	return
 }
 
 func (g *Gossip) GossipOnceWith(ctx context.Context, addr address.Address) error {

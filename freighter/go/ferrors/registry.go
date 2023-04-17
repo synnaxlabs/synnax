@@ -104,7 +104,7 @@ func (r *registry) encode(e error) Payload {
 
 	// If the caller has a nil representation of an error type, we expect them
 	// to return a Nil payload so we can convert it to a freighter payload.
-	if data == Nil {
+	if Type(data) == Nil {
 		return Payload{Type: Nil}
 	}
 

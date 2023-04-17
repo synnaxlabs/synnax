@@ -10,13 +10,24 @@
 package alamos_test
 
 import (
+	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/x/config"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
 )
+
+var devIns alamos.Instrumentation
 
 func TestAlamos(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Alamos Suite")
 }
+
+var _ = BeforeSuite(func() {
+	devIns = Instrumentation("alamos-test", InstrumentationConfig{
+		Trace: config.True(),
+	})
+})

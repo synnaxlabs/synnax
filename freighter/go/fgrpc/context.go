@@ -22,15 +22,17 @@ import (
 func parseContext(
 	ctx context.Context,
 	serviceName string,
-	location freighter.Location,
+	location freighter.Role,
+	variant freighter.Variant,
 ) freighter.Context {
 
 	oCtx := freighter.Context{
 		Context:  ctx,
-		Location: location,
+		Role:     location,
 		Target:   address.Address(serviceName),
 		Protocol: Reporter.Protocol,
 		Params:   make(freighter.Params),
+		Variant:  variant,
 	}
 
 	p, ok := peer.FromContext(ctx)

@@ -40,6 +40,9 @@ func (g *GRPCBranch) Key() string { return "grpc" }
 func (g *GRPCBranch) Serve(ctx BranchContext) error {
 	opts := []grpc.ServerOption{g.credentials(ctx)}
 	g.server = grpc.NewServer(opts...)
+	for _, t := range g.Transports {
+		t.BindTo(g.server)
+	}
 	return filterCloserError(g.server.Serve(ctx.Lis))
 }
 

@@ -19,11 +19,18 @@ import (
 // DB.BeginWrite.
 type Writer[K Key, E Entry[K]] struct {
 	Tx
-	prefix []byte
+	_prefix []byte
 }
 
 func NewWriter[K Key, E Entry[K]](tx Tx) *Writer[K, E] {
-	return &Writer[K, E]{Tx: tx, prefix: prefix[K, E](tx)}
+	return &Writer[K, E]{Tx: tx}
+}
+
+func (w *Writer[K, E]) prefix(ctx context.Context) []byte {
+	if w._prefix == nil {
+		w._prefix = prefix[K, E](ctx, w.Tx)
+	}
+	return w._prefix
 }
 
 func (w *Writer[K, E]) Set(ctx context.Context, entries ...E) error {
@@ -45,17 +52,17 @@ func (w *Writer[K, E]) Delete(ctx context.Context, keys ...K) error {
 }
 
 func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
-	data, err := w.encoder().Encode(nil, entry)
+	data, err := w.encoder().Encode(ctx, entry)
 	if err != nil {
 		return err
 	}
-	key, err := w.encoder().Encode(nil, entry.GorpKey())
+	key, err := w.encoder().Encode(ctx, entry.GorpKey())
 	if err != nil {
 		return err
 	}
 	// NOTE: We need to be careful with this operation in the future.
 	// Because we aren't copying prefix, we're modifying the underlying slice.
-	prefixedKey := append(w.prefix, key...)
+	prefixedKey := append(w.prefix(ctx), key...)
 	if err = w.Tx.Set(ctx, prefixedKey, data, entry.SetOptions()...); err != nil {
 		return err
 	}
@@ -69,5 +76,5 @@ func (w *Writer[K, E]) delete(ctx context.Context, key K) error {
 	}
 	// NOTE: We need to be careful with this operation in the future.
 	// Because we aren't copying prefix, we're modifying the underlying slice.
-	return w.Tx.Delete(ctx, append(w.prefix, data...))
+	return w.Tx.Delete(ctx, append(w.prefix(ctx), data...))
 }

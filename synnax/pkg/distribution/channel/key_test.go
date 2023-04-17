@@ -21,14 +21,14 @@ import (
 var _ = Describe("Keys", func() {
 	Describe("Keys", func() {
 		Describe("New", func() {
-			It("Should create a new key with the given node ID and cesium key", func() {
+			It("Should create a new key with the given node Key and cesium key", func() {
 				k := channel.NewKey(core.NodeKey(1), storage.ChannelKey(2))
 				Expect(k.NodeKey()).To(Equal(core.NodeKey(1)))
 				Expect(k.LocalKey()).To(Equal(storage.ChannelKey(2)))
 			})
 		})
 		Describe("Lease", func() {
-			It("Should return the leaseholder node ID", func() {
+			It("Should return the leaseholder node Key", func() {
 				k := channel.NewKey(core.NodeKey(1), storage.ChannelKey(2))
 				Expect(k.Lease()).To(Equal(k.NodeKey()))
 			})
@@ -50,11 +50,11 @@ var _ = Describe("Keys", func() {
 			},
 				Entry("Invalid number of sections", "1-2-3"),
 				Entry("Invalid cesium key", "1-"),
-				Entry("Invalid node ID", "-2"),
+				Entry("Invalid node Key", "-2"),
 			)
 		})
 		Describe("OntologyID", func() {
-			It("Should return the ontology ID for the channel", func() {
+			It("Should return the ontology Key for the channel", func() {
 				ok := channel.OntologyID(channel.NewKey(core.NodeKey(1), storage.ChannelKey(2)))
 				Expect(ok).To(Equal(ontology.ID{
 					Type: "channel",
