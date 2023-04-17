@@ -16,7 +16,7 @@ from alamos.noop import noop as noopd, Noop
 
 
 class Logger:
-    """Logger wraps pythons logging implementation to provide an opinionated formatter
+    """Logger wraps Python's logging implementation to provide an opinionated formatter
     and no-op logging functionality.
     """
     noop: bool = True
