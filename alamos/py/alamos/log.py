@@ -12,13 +12,16 @@ from __future__ import annotations
 from logging import Logger as BaseLogger
 
 from alamos.meta import InstrumentationMeta
-from alamos.noop import noop as noopd
+from alamos.noop import noop as noopd, Noop
 
 
 class Logger:
     noop: bool = True
     base: BaseLogger
     meta: InstrumentationMeta
+
+    def _(self) -> Noop:
+        return self
 
     def __init__(self, noop: bool = True, base: BaseLogger = None):
         self.noop = noop

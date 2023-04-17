@@ -26,10 +26,9 @@ P = ParamSpec('P')
 
 def noop(
     f: Callable[Concatenate[Noop, P], None],
-) -> Callable[Concatenate[Noop, P], None]:
+) -> Callable[P, None]:
     """Decorator around a Noop class that will not call the decorated function if the
     class is marked as noop
-
     """
 
     def wrapper(self: Noop, *args: P.args, **kwargs: P.kwargs) -> None:

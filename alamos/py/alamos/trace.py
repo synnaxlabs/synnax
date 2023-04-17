@@ -15,6 +15,7 @@ from opentelemetry.propagators.textmap import TextMapPropagator
 from opentelemetry.sdk.trace import (
     TracerProvider as OtelTraceProvider,
     Tracer as OtelTracer,
+    Span as OtelSpan,
 )
 
 from alamos.meta import InstrumentationMeta
@@ -22,11 +23,28 @@ from alamos.noop import noop as noopd, Noop
 
 
 class Span(Protocol):
-    ...
+    otel: OtelSpan
+
+    def record_exception(self, exc: Exception) -> None:
+        ...
 
 
-class NoopSpan(Span):
-    ...
+class _Span:
+    otel: OtelSpan
+
+    def _(self) -> Span:
+        return self
+
+    def record_exception(self, exc: Exception) -> None:
+        self.otel.record_exception(exc)
+
+
+class NoopSpan:
+    def _(self) -> Span:
+        return self
+
+    def record_exception(self, exc: Exception) -> None:
+        ...
 
 
 NOOP_SPAN = NoopSpan()
@@ -60,9 +78,6 @@ class Tracer:
 
     @contextmanager
     def trace(self, key: str) -> Iterator[Span]:
-        if self.noop:
-            yield NOOP_SPAN
-            return
         with self._otel_tracer.start_as_current_span(key) as span:
             yield span
 
