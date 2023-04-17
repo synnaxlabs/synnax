@@ -105,8 +105,6 @@ export class TauriRuntime<S extends StoreState, A extends Action = AnyAction>
     });
   }
 
-  // |||||| MANAGER IMPLEMENTATION ||||||
-
   async create(label: string, props: Omit<WindowProps, "key">): Promise<void> {
     const { size, minSize, maxSize, position, ...rest } = props;
     const w = new WebviewWindow(label, {

@@ -217,8 +217,6 @@ const (
 	Hour          = 60 * Minute
 )
 
-// |||||| SIZE ||||||
-
 // Size represents the size of an element in bytes.
 type Size int64
 
@@ -233,8 +231,6 @@ type Offset = Size
 
 // String implements fmt.Stringer.
 func (s Size) String() string { return strconv.Itoa(int(s)) + "B" }
-
-// |||||| DATA RATE ||||||
 
 // Rate represents a rate in Hz.
 type Rate float64

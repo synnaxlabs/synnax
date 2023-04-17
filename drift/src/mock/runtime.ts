@@ -58,8 +58,6 @@ export class MockRuntime<S extends StoreState, A extends Action = AnyAction>
     return [];
   }
 
-  // |||||| MANAGER IMPLEMENTATION ||||||
-
   async create(label: string, props: Omit<WindowProps, "key">): Promise<void> {
     this.hasCreated[label] = props;
     return await Promise.resolve();
@@ -150,7 +148,7 @@ export class MockRuntime<S extends StoreState, A extends Action = AnyAction>
   }
 
   async getProps(): Promise<Omit<WindowProps, "key">> {
-    return await Promise.resolve(this.props);
+    return this.props
   }
 
 }
