@@ -8,13 +8,62 @@
 #  included in the file licenses/APL.txt.
 
 from alamos import Instrumentation
-from freighter.context import Context, Location
+from freighter.context import Context, Role
 from freighter.transport import (
     Middleware,
     Next,
     AsyncMiddleware,
     AsyncNext,
 )
+
+
+def middleware(instrumentation: Instrumentation) -> Middleware:
+    """Adds logs and traces to requests made by the client, and ensures that they are
+    propagated to the server.
+
+    :param instrumentation: the instrumentation to use for logging and tracing.
+    """
+
+    def _middleware(context: Context, next_: Next):
+        if context.role == Role.CLIENT:
+            instrumentation.T.propagate(context, _setter)
+        with instrumentation.T.trace(context.target) as span:
+            res, exc = next_(context)
+            span.record_exception(exc)
+        _log(context, instrumentation, exc)
+        return res, exc
+
+    return _middleware
+
+
+def async_middleware(instrumentation: Instrumentation) -> AsyncMiddleware:
+    """Adds logs and traces to requests made by the client, and ensures that they are
+    propagated to the server.
+
+    :param instrumentation: the instrumentation to use for logging and tracing.
+    """
+
+    async def _middleware(context: Context, next_: AsyncNext):
+        if context.role == Role.CLIENT:
+            instrumentation.T.propagate(context, _setter)
+        with instrumentation.T.trace(context.target) as span:
+            res, exc = await next_(context)
+            span.record_exception(exc)
+        _log(context, instrumentation, exc)
+        return res, exc
+
+    return _middleware
+
+
+def _log(
+    context: Context,
+    instrumentation: Instrumentation,
+    exc: Exception = None,
+):
+    if exc:
+        instrumentation.L.error(f"{context.target} {exc}")
+    else:
+        instrumentation.L.debug(f"{context.target}")
 
 
 def _setter(carrier: Context, key: str, value: str) -> None:
@@ -27,28 +76,3 @@ def _getter(carrier: Context, key: str) -> str:
 
 def _keys(carrier: Context) -> list[str]:
     return carrier.keys()
-
-
-def _core(context: Context, instrumentation: Instrumentation):
-    if context.location == Location.CLIENT:
-        instrumentation.T.propagate(context, _setter)
-
-
-def instrumentation_middleware(
-    instrumentation: Instrumentation,
-) -> Middleware:
-    def middleware(context: Context, next_: Next):
-        _core(context, instrumentation)
-        return next_(context)
-
-    return middleware
-
-
-def async_instrumentation_middleware(
-    instrumentation: Instrumentation,
-) -> AsyncMiddleware:
-    async def middleware(context: Context, next_: AsyncNext):
-        _core(context, instrumentation)
-        return await next_(context)
-
-    return middleware

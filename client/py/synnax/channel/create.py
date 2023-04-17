@@ -8,7 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 from freighter import HTTPClientPool, Payload, UnaryClient
-
 from synnax.channel.payload import ChannelPayload
 
 
@@ -24,7 +23,10 @@ class ChannelCreator:
     _ENDPOINT = "/channel/create"
     client: UnaryClient
 
-    def __init__(self, client: HTTPClientPool):
+    def __init__(
+        self,
+        client: HTTPClientPool,
+    ):
         self.client = client.post_client()
 
     def create(

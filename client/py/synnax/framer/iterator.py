@@ -9,12 +9,12 @@
 
 from enum import Enum
 
+from alamos import trace, Instrumentation, NOOP
 from freighter import EOF, ExceptionPayload, Payload, Stream, StreamClient
-
-from synnax.exceptions import UnexpectedError
-from synnax.telem import TimeRange, TimeSpan, TimeStamp
-from synnax.framer.payload import BinaryFrame, NumpyFrame
 from synnax.channel.retrieve import ChannelRetriever
+from synnax.exceptions import UnexpectedError
+from synnax.framer.payload import BinaryFrame, NumpyFrame
+from synnax.telem import TimeRange, TimeSpan, TimeStamp
 from synnax.util.flatten import flatten
 
 AUTO_SPAN = TimeSpan(-1)
@@ -69,6 +69,7 @@ class CoreIterator:
     open: bool
     tr: TimeRange
     keys: list[str]
+    instrumentation: Instrumentation
     _client: StreamClient
     _stream: Stream[_Request, _Response]
     _value: BinaryFrame
@@ -79,13 +80,16 @@ class CoreIterator:
         tr: TimeRange,
         keys: list[str],
         aggregate: bool = False,
+        instrumentation: Instrumentation = NOOP,
     ) -> None:
         self._client = client
         self.aggregate = aggregate
         self.keys = keys
         self.tr = tr
+        self.instrumentation = instrumentation
         self._open()
 
+    @trace("debug", "open")
     def _open(self):
         """Opens the iterator, configuring it to iterate over the telemetry in the
         channels with the given keys within the provided time range.
@@ -97,6 +101,7 @@ class CoreIterator:
         self._exec(command=_Command.OPEN, range=self.tr, keys=self.keys)
         self._value = BinaryFrame()
 
+    @trace("debug")
     def next(self, span: TimeSpan) -> bool:
         """Reads the next time span of telemetry for each channel in the iterator.
 
@@ -110,6 +115,7 @@ class CoreIterator:
         """
         return self._exec(command=_Command.NEXT, span=span)
 
+    @trace("debug")
     def prev(self, span: TimeSpan) -> bool:
         """Reads the previous time span of telemetry for each channel in the iterator.
 
@@ -123,6 +129,7 @@ class CoreIterator:
         """
         return self._exec(command=_Command.NEXT, span=span)
 
+    @trace("debug")
     def seek_first(self) -> bool:
         """Seeks the iterator to the first segment in the time range, but does not read
         it. Also invalidates the iterator. The iterator will not be considered valid
@@ -133,6 +140,7 @@ class CoreIterator:
         """
         return self._exec(command=_Command.SEEK_FIRST)
 
+    @trace("debug")
     def seek_last(self) -> bool:
         """Seeks the iterator to the last segment in the time range, but does not read it.
         Also invalidates the iterator. The iterator will not be considered valid
@@ -143,6 +151,7 @@ class CoreIterator:
         """
         return self._exec(command=_Command.SEEK_LAST)
 
+    @trace("debug")
     def seek_lt(self, stamp: TimeStamp) -> bool:
         """Seeks the iterator to the first segment whose start is less than or equal to
         the provided timestamp. Also invalidates the iterator. The iterator will not be
@@ -153,6 +162,7 @@ class CoreIterator:
         """
         return self._exec(command=_Command.SEEK_LE, stamp=stamp)
 
+    @trace("debug")
     def seek_ge(self, stamp: TimeStamp) -> bool:
         """Seeks the iterator to the first segment whose start is greater than or equal to
         the provided timestamp. Also invalidates the iterator. The iterator will not be
@@ -163,6 +173,7 @@ class CoreIterator:
         """
         return self._exec(command=_Command.SEEK_GE, stamp=stamp)
 
+    @trace("debug")
     def valid(self) -> bool:
         """Returns true if the iterator value contains a valid segment, and False otherwise.
         valid most commonly returns false when the iterator is exhausted or has accumulated
@@ -170,6 +181,7 @@ class CoreIterator:
         """
         return self._exec(command=_Command.VALID)
 
+    @trace("debug")
     def close(self):
         """Close closes the iterator. An iterator MUST be closed after use, and this method
         should probably be placed in a 'finally' block. If the iterator is not closed, it make
@@ -245,8 +257,14 @@ class NumpyIterator(CoreIterator):
     ):
         self._channels = channels
         self._keys_or_names = flatten(*keys_or_names)
-        channels_ = self._channels.retrieve(flatten(*keys_or_names))
-        super().__init__(transport,  tr, [ch.key for ch in channels_], aggregate)
+        channels_, not_found = self._channels.retrieve(
+            flatten(*keys_or_names),
+            include_not_found=True,
+        )
+        if len(not_found) > 0:
+            raise ValueError(f"Unable to find channels {not_found}")
+
+        super().__init__(transport, tr, [ch.key for ch in channels_], aggregate)
 
     @property
     def value(self) -> NumpyFrame:
@@ -269,4 +287,3 @@ class NumpyIterator(CoreIterator):
                 raise ValueError(f"Unexpected channel key {ch.key}")
             keys_or_names.append(v[0])
         return keys_or_names
-

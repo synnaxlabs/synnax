@@ -65,8 +65,8 @@ var Default = Config{
 	EnableLogging:     config.True(),
 }
 
-// Middleware adds traces to incoming and outgoing requests and ensures that they
-// are propagated across the network.
+// Middleware adds traces and logs to incoming and outgoing requests and ensures
+// that they are propagated across the network.
 func Middleware(configs ...Config) (freighter.Middleware, error) {
 	cfg, err := config.New(Default, configs...)
 	if err != nil {
@@ -89,7 +89,7 @@ func Middleware(configs ...Config) (freighter.Middleware, error) {
 			ctx.Context, span = cfg.T.Trace(ctx.Context, ctx.Target.String(), cfg.Level)
 		}
 
-		if *cfg.EnableTracing && ctx.Role == freighter.Client {
+		if *cfg.EnablePropagation && ctx.Role == freighter.Client {
 			cfg.T.Propagate(ctx, carrier_)
 		}
 

@@ -8,15 +8,17 @@
 #  included in the file licenses/APL.txt.
 
 from typing import overload
-from numpy import ndarray
-import pandas as pd
 
+import pandas as pd
+from numpy import ndarray
+
+from alamos import trace, Instrumentation, NOOP
 from synnax.channel.retrieve import ChannelRetriever
+from synnax.framer.iterator import NumpyIterator
 from synnax.framer.payload import NumpyFrame
-from synnax.telem import NumpyArray, TimeRange, UnparsedTimeStamp
-from synnax.transport import Transport
-from synnax.framer.iterator import AUTO_SPAN, NumpyIterator
 from synnax.framer.writer import DataFrameWriter
+from synnax.telem import TimeRange, UnparsedTimeStamp
+from synnax.transport import Transport
 
 
 class FrameClient:
@@ -27,10 +29,17 @@ class FrameClient:
 
     _transport: Transport
     _channels: ChannelRetriever
+    instrumentation: Instrumentation
 
-    def __init__(self, transport: Transport, registry: ChannelRetriever):
+    def __init__(
+        self,
+        transport: Transport,
+        registry: ChannelRetriever,
+        instrumentation: Instrumentation = NOOP,
+    ):
         self._transport = transport
         self._channels = registry
+        self.instrumentation = instrumentation
 
     def new_writer(
         self,
@@ -101,6 +110,7 @@ class FrameClient:
         self,
         start: UnparsedTimeStamp,
         end: UnparsedTimeStamp,
+        key_or_name: str,
         *keys_or_name: str,
     ) -> NumpyFrame:
         ...
@@ -114,13 +124,12 @@ class FrameClient:
     ) -> tuple[ndarray, TimeRange]:
         ...
 
-
     def read(
         self,
         start: UnparsedTimeStamp,
         end: UnparsedTimeStamp,
         key_or_name: str,
-        *keys_or_name: str,
+        *keys_or_names: str,
     ) -> tuple[ndarray, TimeRange] | NumpyFrame:
         """Reads telemetry from the channel between the two timestamps.
 
@@ -131,16 +140,21 @@ class FrameClient:
         and the second item is the time range occupied by that array.
         :raises ContiguityError: If the telemetry between start and end is non-contiguous.
         """
-        arr = self.read_array(start, end, key_or_name)
+        keys_or_names = [key_or_name, *keys_or_names]
+        frame = self.read_frame(start, end, *keys_or_names)
+        if len(keys_or_names) > 1:
+            return frame
+        arr = frame[key_or_name]
         assert arr.time_range is not None
         return arr.data, arr.time_range
 
-    def read_array(
+    @trace("prod")
+    def read_frame(
         self,
         start: UnparsedTimeStamp,
         end: UnparsedTimeStamp,
-        key_or_name: str,
-    ) -> NumpyArray:
+        *key_or_names: str,
+    ) -> NumpyFrame:
         """Reads a Segment from the given channel between the two timestamps.
 
         :param start: The starting timestamp of the range to read from.
@@ -149,7 +163,8 @@ class FrameClient:
         :returns: A NumpySegment containing the read telemetry.
         :raises ContiguityError: If the telemetry between start and end is non-contiguous.
         """
-        with self.new_iterator(TimeRange(start, end), key_or_name, aggregate=True) as i:
+        tr = TimeRange(start, end)
+        with self.new_iterator(tr, *key_or_names, aggregate=True) as i:
             # exhaust the iterator
-            [_ for _ in i]
-            return i.value[key_or_name]
+            (_ for _ in i)
+            return i.value

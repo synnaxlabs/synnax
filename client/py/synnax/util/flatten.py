@@ -1,4 +1,3 @@
-
 #  Copyright 2023 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
@@ -11,6 +10,7 @@
 from typing import TypeVar
 
 T = TypeVar("T")
+
 
 def flatten(*args: T | tuple[T] | list[T]) -> list[T]:
     """Flatten a list of lists into a single list.
