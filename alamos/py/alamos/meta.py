@@ -22,12 +22,12 @@ class InstrumentationMeta(BaseModel):
     service_name: str | None = None
     """An optional service name eg. "synnax"""
 
-    def child(self, key: str) -> InstrumentationMeta:
+    def child_(self, key: str) -> InstrumentationMeta:
         return InstrumentationMeta(
             key=key,
-            path=self.extend_path(key),
+            path=self.extend_path_(key),
             service_name=self.service_name
         )
 
-    def extend_path(self, key: str) -> str:
+    def extend_path_(self, key: str) -> str:
         return f"{self.path}.{key}"

@@ -65,6 +65,8 @@ class _Span:
 
 
 class NoopSpan:
+    """Span that does nothing.
+    """
     key: str
 
     def _(self) -> Span:
@@ -74,7 +76,7 @@ class NoopSpan:
         ...
 
 
-NOOP_SPAN = NoopSpan()
+_NOOP_SPAN = NoopSpan()
 
 
 class Tracer:
@@ -111,7 +113,8 @@ class Tracer:
 
     @contextmanager
     def trace(self, key: str, env: Environment) -> Iterator[Span]:
-        """Context manager that starts a new trace with the given key and environment.
+        """Context manager that starts a new span with the given key and environment. If
+        a span already exists on the current context, the new span is made as its child.
 
         :param key: The key of the span.
         :param env: The environment to run the span under.
@@ -119,14 +122,15 @@ class Tracer:
         rejects the provided env or the Tracer is noop, a no-op span is provided.
         """
         if self.noop or not self._filter(env):
-            yield NOOP_SPAN
+            yield _NOOP_SPAN
             return
         with self._otel_tracer.start_as_current_span(key) as span:
-            yield _Span(otel=span, key=self._meta.extend_path(key))
+            yield _Span(otel=span, key=self._meta.extend_path_(key))
 
     @contextmanager
     def debug(self, key: str) -> Iterator[Span]:
-        """Starts a new span at the 'debug' level.
+        """Starts a new span at the 'debug' level. If a span already exists on the current
+        context, the new span is made as its child.
 
         :param key: The key of the span.
         :return: A span that tracks program execution. If the Tracer's environment filter
@@ -137,7 +141,8 @@ class Tracer:
 
     @contextmanager
     def bench(self, key: str) -> Iterator[Span]:
-        """Starts a new span at the 'debug' level.
+        """Starts a new span at the 'debug' level. If a span already exists on the current
+        context, the new span is made as its child.
 
         :param key: The key of the span.
         :return: A span that tracks program execution. If the Tracer's environment filter
@@ -148,7 +153,8 @@ class Tracer:
 
     @contextmanager
     def prod(self, key: str) -> Iterator[Span]:
-        """Starts a new span at the 'debug' level.
+        """Starts a new span at the 'debug' level. If a span already exists on the current
+        context, the new span is made as its child.
 
         :param key: The key of the span.
         :return: A span that tracks program execution. If the Tracer's environment filter
@@ -174,7 +180,7 @@ class Tracer:
         """
         self._otel_propagator.inject(carrier, setter=_Setter(setter))
 
-    def child(self, meta: InstrumentationMeta) -> "Tracer":
+    def child_(self, meta: InstrumentationMeta) -> "Tracer":
         t = Tracer(
             otel_provider=self._otel_provider,
             otel_propagator=self._otel_propagator,
