@@ -50,7 +50,7 @@ class Logger:
         """Logs a message at the Error level"""
         self.base.error(msg, *args, **kwargs)
 
-    def child(self, meta: InstrumentationMeta) -> Logger:
+    def child_(self, meta: InstrumentationMeta) -> Logger:
         l = Logger(noop=self.noop, base=self.base)
         l.meta = meta
         return l

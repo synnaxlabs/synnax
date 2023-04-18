@@ -109,7 +109,7 @@ func (i Instrumentation) Child(key string) Instrumentation {
 	if i.children == nil {
 		i.children = map[string]Instrumentation{}
 	}
-	meta := i.Meta.sub(key)
+	meta := i.Meta.child(key)
 	ins := Instrumentation{
 		Meta: meta,
 		L:    i.L.child(meta),
@@ -120,7 +120,7 @@ func (i Instrumentation) Child(key string) Instrumentation {
 	return ins
 }
 
-// InstrumentationMeta is general Meta data bout the given instrumentation.
+// InstrumentationMeta is general metadata about the given instrumentation.
 type InstrumentationMeta struct {
 	// Key is the key used to identify this instrumentation. This key should be
 	// unique within the context of its parent instrumentation (in a similar manner
@@ -144,7 +144,7 @@ func (im InstrumentationMeta) Report() Report {
 	}
 }
 
-func (im InstrumentationMeta) sub(key string) InstrumentationMeta {
+func (im InstrumentationMeta) child(key string) InstrumentationMeta {
 	return InstrumentationMeta{
 		Key:         key,
 		Path:        im.extendPath(key),
