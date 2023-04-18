@@ -59,8 +59,8 @@ type options struct {
 }
 
 func (o *options) Report() alamos.Report {
-	// The key-value store and cluster state services will attach their own reports to the instrumentation,
-	// so we only need to report values that they won't.
+	// The key-value store and cluster state services will attach their own reports to
+	// the instrumentation, so we only need to report values that they won't.
 	return alamos.Report{
 		"dirname":   o.dirname,
 		"addr":      o.addr,
@@ -69,11 +69,13 @@ func (o *options) Report() alamos.Report {
 	}
 }
 
-// Bootstrap tells aspen to bootstrap a new cluster. This option automatically assigns the host node and NodeID of 1.
+// Bootstrap tells aspen to bootstrap a new cluster. This option automatically assigns
+// the host node and NodeID of 1.
 func Bootstrap() Option { return func(o *options) { o.bootstrap = true } }
 
-// WithEngine sets the underlying KV engine that aspen uses to store its data. When using this option, the caller
-// should transfer all responsibility for executing queries on the engine to aspen.
+// WithEngine sets the underlying KV engine that aspen uses to store its data. When
+// using this option, the caller should transfer all responsibility for executing queries
+// on the engine to aspen.
 func WithEngine(engine kvx.DB) Option {
 	return func(o *options) {
 		o.externalKV = true
@@ -96,8 +98,8 @@ func WithInstrumentation(i alamos.Instrumentation) Option {
 	}
 }
 
-// MemBacked sets aspen to use a memory-backed KV engine. This option is ignored if a custom KV engine is set (using
-// WithEngine).
+// MemBacked sets aspen to use a memory-backed KV engine. This option is ignored if a
+// custom KV engine is set (using WithEngine).
 func MemBacked() Option {
 	return func(o *options) {
 		o.dirname = ""
@@ -105,31 +107,34 @@ func MemBacked() Option {
 	}
 }
 
-// PropagationConfig is a set of configurable values that tune how quickly state converges across the cluster.
-// Lower intervals typically bring faster convergence, but also use considerably more network traffic.
+// PropagationConfig is a set of configurable values that tune how quickly state converges
+// across the cluster. Lower intervals typically bring faster convergence, but also use
+// considerably more network traffic.
 type PropagationConfig struct {
-	// PledgeRetryInterval is the interval at which aspen will retry sending a pledge to a peer.
-	// Pledges are sent at a scaled interval (see PledgeRetryScale).
+	// PledgeRetryInterval is the interval at which aspen will retry sending a pledge to
+	// a peer. Pledges are sent at a scaled interval (see PledgeRetryScale).
 	PledgeRetryInterval time.Duration
-	// PledgeRetryScale is the factory at which the interval increases after failed pledges. For example, a
-	// PledgeRetryInterval of 2 seconds and a PledgeRetryScale of 2 will result in pledge intervals of
-	// 2, 4, 8, 16, 32, and so on until the pledge is accepted.
+	// PledgeRetryScale is the factory at which the interval increases after failed
+	// pledges. For example, a PledgeRetryInterval of 2 seconds and a PledgeRetryScale
+	// of 2 will result in pledge intervals of 2, 4, 8, 16, 32, and so on until the
+	// pledge is accepted.
 	PledgeRetryScale float64
-	// PledgeRequestTimeout is the maximum amount of time aspen will wait for a pledge request to be accepted before
-	// moving on to the next peer.
+	// PledgeRequestTimeout is the maximum amount of time aspen will wait for a pledge
+	// request to be accepted before moving on to the next peer.
 	PledgeRequestTimeout time.Duration
-	// ClusterGossipInterval is the interval at which aspen will propagate cluster state to other nodes.
-	// Aspen will send messages regardless of whether the state has changed, so setting this interval to a low
-	// value may result in very high network traffic.
+	// ClusterGossipInterval is the interval at which aspen will propagate cluster state
+	// to other nodes. Aspen will send messages regardless of whether the state has
+	// changed, so setting this interval to a low value may result in very high network
+	// traffic.
 	ClusterGossipInterval time.Duration
-	// KVGossipInterval sets the interval at which aspen will propagate key-Value operations
-	// to other nodes. It's important to note that KV will not gossip if there are no
-	// operations to propagate.
+	// KVGossipInterval sets the interval at which aspen will propagate key-Value
+	// operations to other nodes. It's important to note that KV will not gossip if
+	// there are no operations to propagate.
 	KVGossipInterval time.Duration
 }
 
-// WithPropagationConfig sets the parameters defining how quickly cluster state converges. See PropagationConfig
-// for more details.
+// WithPropagationConfig sets the parameters defining how quickly cluster state converges.
+// See PropagationConfig for more details.
 func WithPropagationConfig(config PropagationConfig) Option {
 	return func(o *options) {
 		o.cluster.Pledge.RetryInterval = config.PledgeRetryInterval
@@ -147,11 +152,17 @@ var FastPropagationConfig = PropagationConfig{
 	KVGossipInterval:      10 * time.Millisecond,
 }
 
-func newOptions(dirname string, addr address.Address, peers []address.Address, opts ...Option) *options {
-	o := &options{}
-	o.dirname = dirname
-	o.addr = addr
-	o.peerAddresses = peers
+func newOptions(
+	dirname string,
+	addr address.Address,
+	peers []address.Address,
+	opts ...Option,
+) *options {
+	o := &options{
+		dirname:       dirname,
+		addr:          addr,
+		peerAddresses: peers,
+	}
 	for _, opt := range opts {
 		opt(o)
 	}

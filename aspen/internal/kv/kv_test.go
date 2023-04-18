@@ -10,6 +10,7 @@
 package kv_test
 
 import (
+	"context"
 	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -19,6 +20,7 @@ import (
 	"github.com/synnaxlabs/aspen/internal/kv"
 	"github.com/synnaxlabs/aspen/internal/kv/kvmock"
 	"github.com/synnaxlabs/aspen/internal/node"
+	kvx "github.com/synnaxlabs/x/kv"
 	. "github.com/synnaxlabs/x/testutil"
 	"time"
 )
@@ -226,6 +228,25 @@ var _ = Describe("txn", func() {
 				WithPolling(250 * time.Millisecond).
 				WithTimeout(500 * time.Millisecond).
 				Should(BeElementOf([]int{5, 6, 7}))
+		})
+
+	})
+
+	Describe("Observable", func() {
+
+		It("Should allow for a caller to listen to key-value changes", func() {
+			kv, err := builder.New(ctx, kv.Config{}, cluster.Config{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(kv).ToNot(BeNil())
+			var v []byte
+			kv.OnChange(func(ctx context.Context, pairs []kvx.Pair) {
+				v = pairs[0].Value
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(kv.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
+			Eventually(func() []byte {
+				return v
+			}).Should(Equal([]byte("value")))
 		})
 
 	})

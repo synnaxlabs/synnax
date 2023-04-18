@@ -28,7 +28,7 @@ type (
 	Resolver     = cluster.Resolver
 	HostResolver = cluster.HostResolver
 	Node         = node.Node
-	NodeKey       = node.Key
+	NodeKey      = node.Key
 	Address      = address.Address
 	NodeState    = node.State
 	ClusterState = cluster.State
@@ -41,18 +41,17 @@ const (
 	Suspect = node.StateSuspect
 )
 
-type DB interface {
-	Cluster
+type DB struct {
+	Cluster Cluster
 	kvx.DB
-}
-
-type db struct {
-	Cluster
-	kvx.DB
+	kvx.Observable
 	transportShutdown io.Closer
 }
 
-func (db *db) Close() error {
+// Close implements kvx.DB, shutting down the key-value store, cluster and transport.
+// Close is not safe to call concurrently with any other DB method. All DB methods
+// called after Close will panic.
+func (db *DB) Close() error {
 	c := errutil.NewCatch(errutil.WithAggregation())
 	c.Exec(db.transportShutdown.Close)
 	c.Exec(db.Cluster.Close)

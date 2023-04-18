@@ -22,7 +22,7 @@ type SwitchFunc[V Value] struct {
 	ApplySwitch func(context.Context, V) (address.Address, bool, error)
 }
 
-// Switch is a Segment that reads a value from Inlet(s), resolves its address,
+// Switch is a Segment that reads a value from Inlet(sink), resolves its address,
 // and writes the value to the matching Outlet.
 type Switch[V Value] struct {
 	SwitchFunc[V]

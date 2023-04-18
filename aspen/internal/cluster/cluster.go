@@ -51,7 +51,7 @@ type Cluster interface {
 	Nodes() node.Group
 	// Node returns the member Node with the given Key.
 	Node(id node.Key) (node.Node, error)
-	// Observable returns can be used to monitor changes to the cluster state. Be careful not to modify the
+	// Observable can be used to monitor changes to the cluster state. Be careful not to modify the
 	// contents of the returned State.
 	observe.Observable[State]
 	// Reader allows reading the current state of the cluster.
@@ -197,9 +197,9 @@ func (c *cluster) Resolve(key node.Key) (address.Address, error) {
 	return n.Address, err
 }
 
-func (c *cluster) Close() error {
-	return c.shutdown.Close()
-}
+func (c *cluster) Close() error { return c.shutdown.Close() }
+
+func (c *cluster) ClusterObservable() observe.Observable[State] { return c.Store }
 
 func (c *cluster) gossipInitialState(ctx context.Context) error {
 	nextAddr := iter.Endlessly(c.Pledge.Peers)
@@ -223,7 +223,7 @@ func (c *cluster) gossipInitialState(ctx context.Context) error {
 
 func (c *cluster) goFlushStore(ctx signal.Context) {
 	if c.Storage != nil {
-		flush := &observe.FlushSubscriber[State]{
+		flush := &kv.Subscriber[State]{
 			Key:         c.StorageKey,
 			MinInterval: c.StorageFlushInterval,
 			Store:       c.Storage,

@@ -22,18 +22,21 @@ import (
 	"io"
 )
 
-type db struct {
+type DB struct {
 	kvx.DB
-	Config
+	kvx.Observable
+	config     Config
 	leaseAlloc *leaseAllocator
-	confluence.AbstractUnarySource[TxRequest]
-	confluence.EmptyFlow
+	source     struct {
+		confluence.AbstractUnarySource[TxRequest]
+		confluence.EmptyFlow
+	}
 	shutdown io.Closer
 }
 
-var _ kvx.DB = (*db)(nil)
+var _ kvx.DB = (*DB)(nil)
 
-func (d *db) Set(
+func (d *DB) Set(
 	ctx context.Context,
 	key, value []byte,
 	maybeLease ...interface{},
@@ -47,7 +50,7 @@ func (d *db) Set(
 	return
 }
 
-func (d *db) Delete(
+func (d *DB) Delete(
 	ctx context.Context,
 	key []byte,
 	maybeLease ...interface{},
@@ -61,25 +64,25 @@ func (d *db) Delete(
 	return
 }
 
-func (d *db) OpenTx() kvx.Tx {
+func (d *DB) OpenTx() kvx.Tx {
 	return &tx{
-		Instrumentation: d.Instrumentation,
+		Instrumentation: d.config.Instrumentation,
 		apply:           d.apply,
 		lease:           d.leaseAlloc,
 		Tx:              d.DB.OpenTx(),
 	}
 }
 
-func (d *db) apply(b []TxRequest) (err error) {
+func (d *DB) apply(b []TxRequest) (err error) {
 	c := txCoordinator{}
 	for _, bd := range b {
 		c.add(&bd)
-		d.Out.Inlet() <- bd
+		d.source.Out.Inlet() <- bd
 	}
 	return c.wait()
 }
 
-func (d *db) Report() alamos.Report {
+func (d *DB) Report() alamos.Report {
 	return alamos.Report{
 		"engine":  "aspen",
 		"wrapped": d.DB.Report(),
@@ -90,8 +93,10 @@ const (
 	versionFilterAddr     = "versionFilter"
 	versionAssignerAddr   = "versionAssigner"
 	persistAddr           = "persist"
+	persistDeltaAddr      = "persistDelta"
 	storeEmitterAddr      = "storeEmitter"
 	storeSinkAddr         = "storeSink"
+	observableAddr        = "observable"
 	operationSenderAddr   = "opSender"
 	operationReceiverAddr = "opReceiver"
 	feedbackSenderAddr    = "feedbackSender"
@@ -103,15 +108,15 @@ const (
 	executorAddr          = "executor"
 )
 
-func Open(ctx context.Context, cfgs ...Config) (kvx.DB, error) {
+func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
-	db_ := &db{
-		Config:     cfg,
+	db_ := &DB{
+		config:     cfg,
 		DB:         cfg.Engine,
 		leaseAlloc: &leaseAllocator{Config: cfg},
 		shutdown:   signal.NewShutdown(sCtx, cancel),
@@ -122,12 +127,12 @@ func Open(ctx context.Context, cfgs ...Config) (kvx.DB, error) {
 		return nil, err
 	}
 
-	db_.L.Info("opening cluster db", db_.Report().ZapFields()...)
+	db_.config.L.Info("opening cluster DB", db_.config.Report().ZapFields()...)
 
 	st := newStore()
 
 	pipe := plumber.New()
-	plumber.SetSource[TxRequest](pipe, executorAddr, db_)
+	plumber.SetSource[TxRequest](pipe, executorAddr, &db_.source)
 	plumber.SetSource[TxRequest](pipe, leaseReceiverAddr, newLeaseReceiver(cfg))
 	plumber.SetSegment[TxRequest, TxRequest](
 		pipe,
@@ -158,6 +163,19 @@ func Open(ctx context.Context, cfgs ...Config) (kvx.DB, error) {
 		newRecoveryTransform(cfg),
 	)
 
+	plumber.SetSegment[TxRequest, TxRequest](
+		pipe,
+		persistDeltaAddr,
+		&confluence.DeltaMultiplier[TxRequest]{},
+	)
+
+	observable := confluence.NewTransformObservable[TxRequest, []kvx.Pair](
+		func(ctx context.Context, b TxRequest) ([]kvx.Pair, bool, error) {
+			return b.pairs(), true, nil
+		})
+	plumber.SetSink[TxRequest](pipe, observableAddr, observable)
+	db_.Observable = observable
+
 	plumber.MultiRouter[TxRequest]{
 		SourceTargets: []address.Address{executorAddr, leaseReceiverAddr},
 		SinkTargets:   []address.Address{leaseProxyAddr},
@@ -182,8 +200,14 @@ func Open(ctx context.Context, cfgs ...Config) (kvx.DB, error) {
 	plumber.MultiRouter[TxRequest]{
 		SourceTargets: []address.Address{versionFilterAddr, versionAssignerAddr},
 		SinkTargets:   []address.Address{persistAddr},
-		Capacity:      1,
 		Stitch:        plumber.StitchUnary,
+		Capacity:      1,
+	}.MustRoute(pipe)
+
+	plumber.UnaryRouter[TxRequest]{
+		SourceTarget: persistAddr,
+		SinkTarget:   persistDeltaAddr,
+		Capacity:     1,
 	}.MustRoute(pipe)
 
 	plumber.UnaryRouter[TxRequest]{
@@ -199,10 +223,16 @@ func Open(ctx context.Context, cfgs ...Config) (kvx.DB, error) {
 	}.MustRoute(pipe)
 
 	plumber.MultiRouter[TxRequest]{
-		SourceTargets: []address.Address{persistAddr, recoveryTransformAddr},
+		SourceTargets: []address.Address{persistDeltaAddr, recoveryTransformAddr},
 		SinkTargets:   []address.Address{storeSinkAddr},
 		Stitch:        plumber.StitchUnary,
 		Capacity:      1,
+	}.MustRoute(pipe)
+
+	plumber.UnaryRouter[TxRequest]{
+		SourceTarget: persistDeltaAddr,
+		SinkTarget:   observableAddr,
+		Capacity:     1,
 	}.MustRoute(pipe)
 
 	plumber.UnaryRouter[TxRequest]{
@@ -216,7 +246,7 @@ func Open(ctx context.Context, cfgs ...Config) (kvx.DB, error) {
 	return db_, nil
 }
 
-func (d *db) Close() error {
+func (d *DB) Close() error {
 	if err := d.DB.Close(); err != nil {
 		return err
 	}

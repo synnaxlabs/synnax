@@ -31,7 +31,7 @@ type FilterFunc[V Value] struct {
 	Apply func(ctx context.Context, v V) (ok bool, err error)
 }
 
-// OutTo implements the Segment interface. It accepts either one or two Inlet(s).
+// OutTo implements the Segment interface. It accepts either one or two Inlet(sink).
 // The first Inlet is where accepted values are sent, and the second Inlet (if provided)
 // is where Rejected values are sent.
 func (f *Filter[V]) OutTo(inlets ...Inlet[V]) {

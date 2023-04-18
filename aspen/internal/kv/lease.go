@@ -21,7 +21,7 @@ import (
 	"go/types"
 )
 
-var ErrLeaseNotTransferable = errors.New("[db] - cannot transfer leaseAlloc")
+var ErrLeaseNotTransferable = errors.New("[DB] - cannot transfer leaseAlloc")
 
 const DefaultLeaseholder node.Key = 0
 

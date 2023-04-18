@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package observe_test
+package kv_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
@@ -27,7 +27,7 @@ var _ = Describe("Flush", func() {
 		o := observe.New[dataStruct]()
 		kv := memkv.New()
 		ecd := &binary.GobEncoderDecoder{}
-		flush := &observe.FlushSubscriber[dataStruct]{
+		flush := &kv.FlushSubscriber[dataStruct]{
 			Key:         []byte("key"),
 			Store:       kv,
 			MinInterval: 5 * time.Millisecond,
