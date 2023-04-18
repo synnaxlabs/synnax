@@ -75,7 +75,7 @@ class Synnax(FrameClient):
         :param secure: Whether to use TLS when connnecting to the cluster.
         """
         opts = try_load_options_if_none_provided(host, port, username, password, secure)
-        self._transport = self._configure_transport(
+        self._transport = _configure_transport(
             opts=opts,
             open_timeout=open_timeout,
             read_timeout=read_timeout,
@@ -83,7 +83,8 @@ class Synnax(FrameClient):
             max_retries=max_retries,
         )
         ch_retriever = CacheChannelRetriever(
-            ClusterChannelRetriever(self._transport.http)
+            ClusterChannelRetriever(self._transport.http),
+            instrumentation,
         )
         ch_creator = ChannelCreator(self._transport.http)
         super().__init__(self._transport, ch_retriever)
@@ -97,30 +98,30 @@ class Synnax(FrameClient):
         # good to have this API defined.
         ...
 
-    def _configure_transport(
-        self,
-        opts: SynnaxOptions,
-        open_timeout: TimeSpan,
-        read_timeout: TimeSpan,
-        keep_alive: TimeSpan,
-        max_retries: int,
-        instrumentation: Instrumentation = NOOP,
-    ) -> Transport:
-        t = Transport(
-            url=URL(host=opts.host, port=opts.port),
-            secure=opts.secure,
-            open_timeout=open_timeout,
-            read_timeout=read_timeout,
-            keep_alive=keep_alive,
-            max_retries=max_retries,
+
+def _configure_transport(
+    opts: SynnaxOptions,
+    open_timeout: TimeSpan,
+    read_timeout: TimeSpan,
+    keep_alive: TimeSpan,
+    max_retries: int,
+    instrumentation: Instrumentation = NOOP,
+) -> Transport:
+    t = Transport(
+        url=URL(host=opts.host, port=opts.port),
+        secure=opts.secure,
+        open_timeout=open_timeout,
+        read_timeout=read_timeout,
+        keep_alive=keep_alive,
+        max_retries=max_retries,
+    )
+    if opts.username != "" or opts.password != "":
+        auth = AuthenticationClient(
+            transport=t.http.post_client(),
+            username=opts.username,
+            password=opts.password,
         )
-        if opts.username != "" or opts.password != "":
-            auth = AuthenticationClient(
-                transport=t.http.post_client(),
-                username=opts.username,
-                password=opts.password,
-            )
-            auth.authenticate()
-            t.use(*auth.middleware())
-        t.use(middleware(instrumentation))
-        return t
+        auth.authenticate()
+        t.use(*auth.middleware())
+    t.use(middleware(instrumentation))
+    return t
