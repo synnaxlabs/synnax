@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/cockroachdb/errors"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/binary"
@@ -139,43 +140,35 @@ type TxRequest struct {
 	span        alamos.Span
 }
 
-func (br TxRequest) empty() bool { return len(br.Operations) == 0 }
+func (tr TxRequest) empty() bool { return len(tr.Operations) == 0 }
 
-func (br TxRequest) size() int { return len(br.Operations) }
+func (tr TxRequest) size() int { return len(tr.Operations) }
 
-func (br TxRequest) logFields() []zap.Field {
+func (tr TxRequest) logFields() []zap.Field {
 	return []zap.Field{
-		zap.Int("size", br.size()),
-		zap.Uint64("leaseholder", uint64(br.Leaseholder)),
-		zap.Uint64("sender", uint64(br.Sender)),
+		zap.Int("size", tr.size()),
+		zap.Uint64("leaseholder", uint64(tr.Leaseholder)),
+		zap.Uint64("sender", uint64(tr.Sender)),
 	}
 }
 
-func (br TxRequest) digests() []Digest {
-	digests := make([]Digest, len(br.Operations))
-	for i, op := range br.Operations {
-		digests[i] = op.Digest()
-	}
-	return digests
-}
-
-func (br TxRequest) commitTo(db kvx.TxnFactory) (err error) {
+func (tr TxRequest) commitTo(db kvx.TxnFactory) (err error) {
 	b := db.OpenTx()
 	defer func() {
-		br.Operations = nil
+		tr.Operations = nil
 		if err != nil {
 			err = b.Close()
-		} else if _err := b.Commit(br.Context); _err != nil {
+		} else if _err := b.Commit(tr.Context); _err != nil {
 			err = _err
 		}
-		br.done(err)
+		tr.done(err)
 	}()
-	for _, op := range br.Operations {
-		if _err := op.apply(br.Context, b); _err != nil {
+	for _, op := range tr.Operations {
+		if _err := op.apply(tr.Context, b); _err != nil {
 			err = _err
 			return err
 		}
-		if _err := op.Digest().apply(br.Context, b); _err != nil {
+		if _err := op.Digest().apply(tr.Context, b); _err != nil {
 			err = _err
 			return err
 		}
@@ -183,13 +176,21 @@ func (br TxRequest) commitTo(db kvx.TxnFactory) (err error) {
 	return err
 }
 
-func (br TxRequest) done(err error) {
-	if br.doneF != nil {
-		br.doneF(err)
+func (tr TxRequest) done(err error) {
+	if tr.doneF != nil {
+		tr.doneF(err)
 	}
-	if br.span != nil {
-		br.span.End()
+	if tr.span != nil {
+		tr.span.End()
 	}
+}
+
+func (tr TxRequest) pairs() []kvx.Pair {
+	return lo.Map(tr.Operations, func(op Operation, _ int) kvx.Pair { return op.pair() })
+}
+
+func (tr TxRequest) digests() []Digest {
+	return lo.Map(tr.Operations, func(o Operation, _ int) Digest { return o.Digest() })
 }
 
 func validateLeaseOption(maybeLease []interface{}) (node.Key, error) {

@@ -18,8 +18,8 @@ import (
 
 var _ = Describe("Open", func() {
 	var (
-		db1 aspen.DB
-		db2 aspen.DB
+		db1 *aspen.DB
+		db2 *aspen.DB
 	)
 	BeforeEach(func() {
 		var err error
@@ -48,10 +48,10 @@ var _ = Describe("Open", func() {
 		Expect(db2.Close()).To(Succeed())
 	})
 	It("Should be able to join two clusters", func() {
-		Eventually(db1.Nodes).Should(HaveLen(2))
+		Eventually(db1.Cluster.Nodes).Should(HaveLen(2))
 		tx := db1.OpenTx()
 		for i := 0; i < 10; i++ {
-			Expect(tx.Set(ctx, []byte("key"), []byte("value"), aspen.NodeID(2))).To(Succeed())
+			Expect(tx.Set(ctx, []byte("key"), []byte("value"), aspen.NodeKey(2))).To(Succeed())
 		}
 		Expect(tx.Commit(ctx)).To(Succeed())
 	})

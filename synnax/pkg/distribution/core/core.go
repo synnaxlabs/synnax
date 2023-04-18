@@ -22,7 +22,8 @@ import (
 // Core is the foundational primitive for distributed compute in a synnax Cluster. It
 // exposes the following services:
 //
-//  1. Storage.TSChannel - A time-series storage engine for writing node-local telemetry frames.
+//  1. Storage.TSChannel - A time-series storage engine for writing node-local telemetry
+//     frames.
 //  2. Storage.KV - An eventually consistent, key-value store for maintaining cluster
 //     wide meta-data and state.
 //  3. Cluster - An API for querying information about the Cluster topology.
@@ -56,7 +57,7 @@ func Open(ctx context.Context, configs ...Config) (c Core, err error) {
 
 	// Since we're using our own key-value engine, the value we use for 'dirname'
 	// doesn't matter.
-	clusterKV, err := aspen.Open(
+	clusterDB, err := aspen.Open(
 		ctx,
 		/* dirname */ "",
 		cfg.AdvertiseAddress,
@@ -65,10 +66,9 @@ func Open(ctx context.Context, configs ...Config) (c Core, err error) {
 		aspen.WithTransport(clusterTransport),
 		aspen.WithInstrumentation(c.Instrumentation.Child("aspen")),
 	)
-	c.Cluster = clusterKV
-
+	c.Cluster = clusterDB.Cluster
 	// Replace storage's key-value store with a distributed version.
-	c.Storage.KV = clusterKV
+	c.Storage.KV = clusterDB
 
 	return c, err
 }

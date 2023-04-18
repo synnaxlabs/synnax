@@ -59,6 +59,8 @@ func (o Operation) apply(ctx context.Context, b kvx.Writer) error {
 	return b.Set(ctx, o.Key, o.Value)
 }
 
+func (o Operation) pair() kvx.Pair { return kvx.Pair{Key: o.Key, Value: o.Value} }
+
 type Digest struct {
 	Key         []byte
 	Version     version.Counter

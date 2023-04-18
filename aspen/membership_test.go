@@ -38,13 +38,13 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Assigning a valid Key of 1")
-			Expect(db.HostKey()).To(Equal(aspen.NodeKey(1)))
+			Expect(db.Cluster.HostKey()).To(Equal(aspen.NodeKey(1)))
 
 			By("Adding itself to the node list")
-			Expect(db.Nodes()).To(HaveLen(1))
+			Expect(db.Cluster.Nodes()).To(HaveLen(1))
 
 			By("By setting its state to healthy")
-			Expect(db.Host().State).To(Equal(aspen.Healthy))
+			Expect(db.Cluster.Host().State).To(Equal(aspen.Healthy))
 
 			Expect(db.Close()).To(Succeed())
 		})
@@ -64,7 +64,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Assigning a valid Key of 1")
-			Expect(db.HostKey()).To(Equal(aspen.NodeKey(1)))
+			Expect(db.Cluster.HostKey()).To(Equal(aspen.NodeKey(1)))
 		})
 
 		It("Should correctly join a node that is already looking for peers", func() {
@@ -88,7 +88,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Assigning a unique Key of 2")
-				Expect(db.HostKey()).To(Equal(aspen.NodeKey(2)))
+				Expect(db.Cluster.HostKey()).To(Equal(aspen.NodeKey(2)))
 			}()
 			db, err := aspen.Open(
 				ctx,
@@ -103,7 +103,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Assigning a unique Key of 1")
-			Expect(db.HostKey()).To(Equal(aspen.NodeKey(1)))
+			Expect(db.Cluster.HostKey()).To(Equal(aspen.NodeKey(1)))
 			wg.Wait()
 
 			By("Safely closing the database")
@@ -121,7 +121,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 			var (
 				addresses = address.NewLocalFactory(22546).NextN(numNodes)
 				ids       = make([]aspen.NodeKey, numNodes)
-				dbs       = make([]aspen.DB, numNodes)
+				dbs       = make([]*aspen.DB, numNodes)
 			)
 			for i := 0; i < numNodes; i++ {
 				go func(i int) {
@@ -137,7 +137,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 						addresses,
 						opts...,
 					)
-					ids[i] = db.HostKey()
+					ids[i] = db.Cluster.HostKey()
 					dbs[i] = db
 					By("Joining the node to the cluster without error")
 					Expect(err).ToNot(HaveOccurred())
@@ -159,7 +159,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 	Describe("Joining, Dying, and Rejoining", func() {
 		Context("Persisted storage", func() {
 			Context("Single node death", func() {
-				FIt("Should correctly handle a single node dying and rejoining", func() {
+				It("Should correctly handle a single node dying and rejoining", func() {
 					propConfig := aspen.PropagationConfig{
 						PledgeRetryInterval:   10 * time.Millisecond,
 						PledgeRetryScale:      1,
@@ -185,7 +185,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 
 					By("Assigning the correct generation")
 					node := builder.Nodes[2]
-					Expect(node.DB.Host().Heartbeat.Generation).To(Equal(uint32(0)))
+					Expect(node.DB.Cluster.Host().Heartbeat.Generation).To(Equal(uint32(0)))
 
 					By("Closing the database")
 					Expect(node.DB.Close()).To(Succeed())
@@ -201,15 +201,15 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					By("Assigning the correct Key")
-					Expect(db.HostKey()).To(Equal(aspen.NodeKey(2)))
+					Expect(db.Cluster.HostKey()).To(Equal(aspen.NodeKey(2)))
 
 					By("Incrementing the heartbeat generation")
-					Expect(db.Host().Heartbeat.Generation).To(Equal(uint32(1)))
+					Expect(db.Cluster.Host().Heartbeat.Generation).To(Equal(uint32(1)))
 
 					By("Propagating the incremented heartbeat to other nodes")
 					ctx1 := builder.Nodes[1]
 					Eventually(func(g Gomega) {
-						n2, err := ctx1.DB.Node(2)
+						n2, err := ctx1.DB.Cluster.Node(2)
 						g.Expect(err).ToNot(HaveOccurred())
 						g.Expect(n2.State).To(Equal(aspen.Healthy))
 						g.Expect(n2.Heartbeat.Generation).To(Equal(uint32(1)))

@@ -69,8 +69,9 @@ var _ ontology.Service = (*NodeOntologyService)(nil)
 // joining, changing state, etc.)
 func (s *NodeOntologyService) ListenForChanges(ctx context.Context) {
 	s.update(ctx, s.Cluster.PeekState())
-	// TODO: emilbon99. See if we want to add context onto observables.
-	s.Cluster.OnChange(func(ctx context.Context, state ClusterState) { s.update(ctx, state) })
+	s.Cluster.OnChange(func(ctx context.Context, state ClusterState) {
+		s.update(ctx, state)
+	})
 }
 
 func (s *NodeOntologyService) update(ctx context.Context, state ClusterState) {

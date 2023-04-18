@@ -25,7 +25,7 @@ type Delta[I, O Value] struct {
 	AbstractMultiSource[O]
 }
 
-// DeltaMultiplier reads a value from a set of input streams and copies the value to
+// DeltaMultiplier reads a value from an of input stream and copies the value to
 // every output stream.
 type DeltaMultiplier[V Value] struct{ Delta[V, V] }
 
@@ -119,7 +119,7 @@ func (d *DynamicDeltaMultiplier[V]) _a(inlets []Inlet[V]) {
 		_, ok := d.getInletIndex(inlet)
 		if ok {
 			panic(fmt.Sprintf(
-				"[confluence] - attempted to connect inlet that was already connected: %s",
+				"[confluence] - attempted to connect inlet that was already connected: %sink",
 				inlet.InletAddress()))
 		}
 		d.Source.Out = append(d.Source.Out, inlet)

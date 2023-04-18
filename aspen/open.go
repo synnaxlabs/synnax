@@ -27,10 +27,10 @@ func Open(
 	addr address.Address,
 	peers []address.Address,
 	opts ...Option,
-) (DB, error) {
+) (*DB, error) {
 	var (
 		o   = newOptions(dirname, addr, peers, opts...)
-		d   = &db{}
+		d   = &DB{}
 		err error
 	)
 	if err = openStorageEngine(o); err != nil {
@@ -42,7 +42,9 @@ func Open(
 		return nil, err
 	}
 	o.kv.Cluster = d.Cluster
-	d.DB, err = kv.Open(ctx, o.kv)
+	db, err := kv.Open(ctx, o.kv)
+	d.DB = db
+	d.Observable = db
 	return d, err
 }
 

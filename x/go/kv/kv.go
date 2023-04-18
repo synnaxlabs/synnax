@@ -19,6 +19,7 @@ import (
 	"context"
 	"github.com/cockroachdb/pebble"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/x/observe"
 	"io"
 )
 
@@ -76,3 +77,14 @@ type DB interface {
 	alamos.ReportProvider
 	io.Closer
 }
+
+// Pair is a key-value pair.
+type Pair struct {
+	// Key is the key for the key-value pair.
+	Key []byte
+	// Value is the value for the key-value pair.
+	Value []byte
+}
+
+// Observable allows the caller to observe changes to key-value pairs in the DB.
+type Observable = observe.Observable[[]Pair]

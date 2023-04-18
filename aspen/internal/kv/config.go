@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-// Config is the configuration for the aspen db service. For default values, see DefaultConfig().
+// Config is the configuration for the aspen DB service. For default values, see DefaultConfig().
 type Config struct {
 	alamos.Instrumentation
 	// Cluster is the cluster that the DB will use to communicate with other databases.
@@ -72,7 +72,7 @@ func (cfg Config) Override(other Config) Config {
 
 // Validate implements config.Config.
 func (cfg Config) Validate() error {
-	v := validate.New("db")
+	v := validate.New("DB")
 	validate.NotNil(v, "Cluster", cfg.Cluster)
 	validate.NotNil(v, "BatchTransportClient", cfg.BatchTransportClient)
 	validate.NotNil(v, "BatchTransportServer", cfg.BatchTransportServer)
