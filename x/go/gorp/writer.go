@@ -28,7 +28,7 @@ func NewWriter[K Key, E Entry[K]](tx Tx) *Writer[K, E] {
 
 func (w *Writer[K, E]) prefix(ctx context.Context) []byte {
 	if w._prefix == nil {
-		w._prefix = prefix[K, E](ctx, w.Tx)
+		w._prefix = prefix[K, E](ctx, w.Tx.noPrefix())
 	}
 	return w._prefix
 }

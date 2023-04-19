@@ -17,10 +17,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/observe"
 	"testing"
 )
 
-type emptyService struct{}
+type emptyService struct {
+	observe.Noop[[]ontology.Resource]
+}
 
 const emptyType ontology.Type = "empty"
 
@@ -37,7 +40,7 @@ func (s *emptyService) Schema() *ontology.Schema {
 	}
 }
 
-func (s *emptyService) RetrieveEntity(ctx context.Context, key string) (ontology.Entity, error) {
+func (s *emptyService) RetrieveResource(ctx context.Context, key string) (ontology.Resource, error) {
 	e := schema.NewEntity(s.Schema(), "empty")
 	schema.Set(e, "key", key)
 	return e, nil

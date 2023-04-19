@@ -61,6 +61,9 @@ type TxnFactory interface {
 // for its changes to be persisted.
 type Tx interface {
 	ReadWriter
+	// NewReader returns an TxReader that can be used to iterate over the operations
+	// executed in the transaction.
+	NewReader() TxReader
 	// Commit persists the batch to the underlying DB. Commit will panic if called
 	// more than once.
 	Commit(ctx context.Context, opts ...interface{}) error
@@ -71,20 +74,42 @@ type Tx interface {
 
 // DB represents a general key-value store.
 type DB interface {
-	Writer
-	Reader
+	// Tx allows the DB to behave as a transaction, although all operations are directly
+	// executed without atomic guarantees.
+	Tx
 	TxnFactory
+	Observable
 	alamos.ReportProvider
 	io.Closer
 }
 
-// Pair is a key-value pair.
-type Pair struct {
+// OperationVariant is an enum that indicates the type of Operation executed.
+type OperationVariant uint8
+
+const (
+	// SetOperation indicates that the operation is a set operation.
+	SetOperation OperationVariant = iota + 1
+	// DeleteOperation indicates that the operation is a delete operation.
+	DeleteOperation
+)
+
+// Operation is a key-value pair. The contents of Key and Value should be considered
+// read-only, and modifications to them may cause unexpected behavior.
+type Operation struct {
+	// Variant is the type of operation.
+	Variant OperationVariant
 	// Key is the key for the key-value pair.
 	Key []byte
 	// Value is the value for the key-value pair.
 	Value []byte
 }
 
+// TxReader is used to read the operations in a Tx.
+type TxReader interface {
+	// Next returns the next operation in the reader. If there are no more operations,
+	// Next returns false.
+	Next() (Operation, bool)
+}
+
 // Observable allows the caller to observe changes to key-value pairs in the DB.
-type Observable = observe.Observable[[]Pair]
+type Observable = observe.Observable[TxReader]

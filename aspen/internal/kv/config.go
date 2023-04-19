@@ -24,10 +24,10 @@ type Config struct {
 	// Cluster is the cluster that the DB will use to communicate with other databases.
 	// [Required]
 	Cluster cluster.Cluster
-	// BatchTransportClient is used to send key-value Operations to nodes.
+	// BatchTransportClient is used to send key-value NewReader to nodes.
 	// [Required]
 	BatchTransportClient BatchTransportClient
-	// BatchTransportServer is used to receive key-value Operations from nodes.
+	// BatchTransportServer is used to receive key-value NewReader from nodes.
 	// [Required]
 	BatchTransportServer BatchTransportServer
 	// FeedbackTransportClient is used to send gossip feedback to nodes.
@@ -36,13 +36,13 @@ type Config struct {
 	// FeedbackTransportServer is used to receive gossip feedback from nodes.
 	// [Required]
 	FeedbackTransportServer FeedbackTransportServer
-	// LeaseTransportClient is used to receive leaseAlloc Operations between nodes.
+	// LeaseTransportClient is used to receive leaseAlloc NewReader between nodes.
 	// [Required]
 	LeaseTransportClient LeaseTransportClient
-	// LeaseTransportServer is used to send leaseAlloc Operations between nodes.
+	// LeaseTransportServer is used to send leaseAlloc NewReader between nodes.
 	// [Required]
 	LeaseTransportServer LeaseTransportServer
-	// Engine is the underlying key-value engine that DB writes its Operations to.
+	// Engine is the underlying key-value engine that DB writes its NewReader to.
 	// [Required]
 	Engine kvx.DB
 	// GossipInterval is how often a node initiates gossip with a peer.

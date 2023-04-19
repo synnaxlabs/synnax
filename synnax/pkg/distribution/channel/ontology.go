@@ -13,6 +13,8 @@ import (
 	"context"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
+	"github.com/synnaxlabs/x/gorp"
+	kvx "github.com/synnaxlabs/x/kv"
 )
 
 const ontologyType ontology.Type = "channel"
@@ -28,7 +30,7 @@ var _schema = &ontology.Schema{
 	Fields: map[string]schema.Field{
 		"key":      {Type: schema.String},
 		"name":     {Type: schema.String},
-		"nodeKey":   {Type: schema.Uint32},
+		"nodeKey":  {Type: schema.Uint32},
 		"rate":     {Type: schema.Float64},
 		"isIndex":  {Type: schema.Bool},
 		"index":    {Type: schema.String},
@@ -38,19 +40,34 @@ var _schema = &ontology.Schema{
 
 var _ ontology.Service = (*service)(nil)
 
+// Schema implements ontology.Service.
 func (s *service) Schema() *schema.Schema { return _schema }
 
-func (s *service) RetrieveEntity(ctx context.Context, key string) (schema.Entity, error) {
+// RetrieveResource implements ontology.Service.
+func (s *service) RetrieveResource(ctx context.Context, key string) (schema.Resource, error) {
 	k, err := ParseKey(key)
 	if err != nil {
-		return schema.Entity{}, err
+		return schema.Resource{}, err
 	}
 	var ch Channel
 	err = s.NewRetrieve().WhereKeys(k).Entry(&ch).Exec(ctx, nil)
-	return newEntity(ch), err
+	return newResource(ch), err
 }
 
-func newEntity(c Channel) schema.Entity {
+// Iterate implements ontology.Service.
+func (s *service) Iterate(ctx context.Context, f func(schema.Resource) error) error {
+	return gorp.NewReader[Key, Channel](s.DB).Exhaust(ctx, func(ch Channel) error {
+		return f(newResource(ch))
+	})
+}
+
+func (s *service) OnChange(f func(context.Context, schema.Resource)) {
+	s.DB.OnChange(func(ctx context.Context, reader kvx.TxReader) {
+		f(ctx, newResource(ch))
+	})
+}
+
+func newResource(c Channel) schema.Resource {
 	e := schema.NewEntity(_schema, c.Name)
 	schema.Set(e, "key", c.Key().String())
 	schema.Set(e, "name", c.Name)

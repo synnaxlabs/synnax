@@ -43,12 +43,12 @@ var _ = Describe("Ontology", Ordered, func() {
 			Expect(schema.Fields).To(HaveKey("username"))
 		})
 	})
-	Describe("retrieveEntity", func() {
+	Describe("retrieveResource", func() {
 		It("Should retrieve a users schema entity by its key", func() {
 			u := &user.User{Username: "test", Key: userKey}
 			w := svc.NewWriter()
 			Expect(w.Create(u)).To(Succeed())
-			entity, err := svc.RetrieveEntity(userKey.String())
+			entity, err := svc.RetrieveResource(userKey.String())
 			Expect(err).ToNot(HaveOccurred())
 			key, ok := schema.Get[uuid.UUID](entity, "key")
 			Expect(ok).To(BeTrue())

@@ -11,6 +11,7 @@ package ontology
 
 import (
 	"context"
+	"github.com/synnaxlabs/x/observe"
 )
 
 // Service represents a service that exposes a set of entities to the ontology (such
@@ -20,9 +21,16 @@ import (
 type Service interface {
 	// Schema returns the schema of the entities returned by this service.
 	Schema() *Schema
-	// RetrieveEntity returns the entity with the give key (ID.Key). If the entity
-	// does not exist, a query.NotFound error should be returned.
-	RetrieveEntity(ctx context.Context, key string) (Entity, error)
+	// RetrieveResource returns the resource with the give key (ID.Key). If the resource
+	// does not exist, returns a query.NotFound error.
+	RetrieveResource(ctx context.Context, key string) (Resource, error)
+	// Observable is used by the ontology to subscribe to changes in the entities.
+	// This functionality is primarily used for search indexing. If the service's entities
+	// are static, use observe.Noop.
+	observe.Observable[[]Resource]
+	// Iterate iterates over all resources of this service. This is primarily used to
+	// build initially search indexes on ontology startup.
+	Iterate(context.Context, func(resource Resource) error) error
 }
 
 type serviceRegistrar map[Type]Service
@@ -35,10 +43,10 @@ func (s serviceRegistrar) register(svc Service) {
 	s[t] = svc
 }
 
-func (s serviceRegistrar) retrieveEntity(ctx context.Context, id ID) (Entity, error) {
+func (s serviceRegistrar) retrieveResource(ctx context.Context, id ID) (Resource, error) {
 	svc, ok := s[id.Type]
 	if !ok {
 		panic("[ontology] - service not found")
 	}
-	return svc.RetrieveEntity(ctx, id.Key)
+	return svc.RetrieveResource(ctx, id.Key)
 }

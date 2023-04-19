@@ -29,7 +29,7 @@ func NewReader[K Key, E Entry[K]](tx Tx) *Reader[K, E] {
 
 func (r *Reader[K, E]) prefix(ctx context.Context) []byte {
 	if r._prefix == nil {
-		r._prefix = prefix[K, E](ctx, r.Tx)
+		r._prefix = prefix[K, E](ctx, r.Tx.noPrefix(), r.Tx.encoder())
 	}
 	return r._prefix
 }
@@ -64,7 +64,21 @@ func (r *Reader[K, E]) GetMany(ctx context.Context, keys []K) ([]E, error) {
 
 func (r *Reader[K, E]) OpenIterator() *Iterator[E] {
 	// TODO (emilbon99): Figure out if we want to use a proper context here.
-	return OpenIterator[E](r.Tx.OpenIterator(kv.PrefixIter(r.prefix(context.TODO()))), r.Tx.decoder())
+	return OpenIterator[E](r.Tx.OpenIterator(kv.IterPrefix(r.prefix(context.TODO()))), r.Tx.decoder())
+}
+
+func (r *Reader[K, E]) Exhaust(ctx context.Context, f func(e E) error) error {
+	iter := r.OpenIterator()
+	for iter.First(); iter.Valid(); iter.Next() {
+		v := iter.Value(ctx)
+		if err := iter.Error(); err != nil {
+			return err
+		}
+		if err := f(*v); err != nil {
+			return err
+		}
+	}
+	return iter.Close()
 }
 
 // Iterator provides a simple wrapper around a kv.Iterator that decodes a byte-value
@@ -84,7 +98,7 @@ func OpenIterator[E any](wrapped kv.Iterator, decoder binary.Decoder) *Iterator[
 	return &Iterator[E]{Iterator: wrapped, decoder: decoder}
 }
 
-// Value returns the decoded value from the iterator. Iter.Alive must be true
+// Value returns the decoded value from the iterator. Iterate.Alive must be true
 // for calls to return a valid value.
 func (k *Iterator[E]) Value(ctx context.Context) (entry *E) {
 	if k.value == nil {

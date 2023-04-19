@@ -29,5 +29,5 @@ func CompositeKey(elems ...interface{}) ([]byte, error) {
 			c.Exec(func() error { return binary.Write(b, binary.LittleEndian, e) })
 		}
 	}
-	return b.Bytes(), nil
+	return b.Bytes(), c.Error()
 }

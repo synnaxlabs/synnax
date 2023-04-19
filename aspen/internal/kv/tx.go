@@ -47,16 +47,15 @@ func (b *tx) Set(ctx context.Context, key, value []byte, options ...interface{})
 		return err
 	}
 	return b.applyOp(ctx, Operation{
-		Key:         key,
-		Value:       value,
-		Variant:     Set,
+		Operation:   kvx.Operation{Key: key, Value: value, Variant: kvx.SetOperation},
 		Leaseholder: lease,
 	})
 }
 
 // Delete implements kvx.Tx.
 func (b *tx) Delete(ctx context.Context, key []byte, _ ...interface{}) error {
-	return b.applyOp(ctx, Operation{Key: key, Variant: Delete})
+	op := Operation{Operation: kvx.Operation{Key: key, Variant: kvx.DeleteOperation}}
+	return b.applyOp(ctx, op)
 }
 
 // Close implements kv.Tx.
@@ -78,7 +77,7 @@ func (b *tx) applyOp(ctx context.Context, op Operation) error {
 	if err != nil {
 		return err
 	}
-	if op.Variant == Delete {
+	if op.Variant == kvx.DeleteOperation {
 		if err := b.Tx.Delete(ctx, op.Key); err != nil {
 			return err
 		}
@@ -96,7 +95,7 @@ func (b *tx) toRequests(ctx context.Context) ([]TxRequest, error) {
 	dm := make(map[node.Key]TxRequest)
 	for _, dig := range b.digests {
 		op := dig.Operation()
-		if op.Variant == Set {
+		if op.Variant == kvx.SetOperation {
 			v, err := b.Tx.Get(ctx, dig.Key)
 			if err != nil && err != kvx.NotFound {
 				return nil, err
@@ -185,9 +184,7 @@ func (tr TxRequest) done(err error) {
 	}
 }
 
-func (tr TxRequest) pairs() []kvx.Pair {
-	return lo.Map(tr.Operations, func(op Operation, _ int) kvx.Pair { return op.pair() })
-}
+func (tr TxRequest) reader() kvx.TxReader { return &txReader{ops: tr.Operations} }
 
 func (tr TxRequest) digests() []Digest {
 	return lo.Map(tr.Operations, func(o Operation, _ int) Digest { return o.Digest() })
@@ -232,4 +229,20 @@ func (bc *txCoordinator) wait() error {
 func (bc *txCoordinator) add(data *TxRequest) {
 	bc.wg.Add(1)
 	data.doneF = bc.done
+}
+
+type txReader struct {
+	curr int
+	ops  []Operation
+}
+
+var _ kvx.TxReader = (*txReader)(nil)
+
+func (r *txReader) Next() (kvx.Operation, bool) {
+	if r.curr >= len(r.ops) {
+		return kvx.Operation{}, false
+	}
+	op := r.ops[r.curr]
+	r.curr++
+	return op.Operation, true
 }

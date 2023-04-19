@@ -27,37 +27,85 @@ package ontology
 import (
 	"context"
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
 )
 
 type (
 	// Schema is a set of definitions that describe the structure of a resource.
 	Schema = schema.Schema
 	// Entity is the underlying data structure of a resource.
-	Entity = schema.Entity
+	Resource = schema.Resource
+	ID       = schema.ID
 	// Type is a unique identifier for a particular class of resources (channel, user, etc.)
 	Type = schema.Type
 )
 
 // Ontology exposes an ontology stored in a key-value database for reading and writing.
 type Ontology struct {
-	DB        *gorp.DB
+	Config
+	search struct {
+		signal.Go
+		*search.Index
+	}
 	registrar serviceRegistrar
 }
 
-// Open opens the ontology stored in the given database. If the Root resource does not
+type Config struct {
+	alamos.Instrumentation
+	DB           *gorp.DB
+	EnableSearch *bool
+}
+
+var (
+	_             config.Config[Config] = Config{}
+	DefaultConfig                       = Config{
+		EnableSearch: config.True(),
+	}
+)
+
+// Validate implements config.Config.
+func (c Config) Validate() error {
+	v := validate.New("ontology")
+	validate.NotNil(v, "DB", c.DB)
+	return v.Error()
+}
+
+// Override implements config.Config.
+func (c Config) Override(other Config) Config {
+	c.DB = override.Nil(c.DB, other.DB)
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
+	return c
+}
+
+// Open opens the ontology using the given configuration. If the RootID resource does not
 // exist, it will be created.
-func Open(ctx context.Context, db *gorp.DB) (*Ontology, error) {
+func Open(ctx context.Context, configs ...Config) (*Ontology, error) {
+	cfg, err := config.New(DefaultConfig, configs...)
 	o := &Ontology{
-		DB:        db,
+		Config:    cfg,
 		registrar: serviceRegistrar{BuiltIn: &builtinService{}},
 	}
-	err := o.NewRetrieve().WhereIDs(Root).Exec(ctx, db)
+
+	err = o.NewRetrieve().WhereIDs(RootID).Exec(ctx, cfg.DB)
 	if errors.Is(err, query.NotFound) {
-		err = o.OpenWriter(db).DefineResource(ctx, Root)
+		err = o.OpenWriter(cfg.DB).DefineResource(ctx, RootID)
+	} else if err != nil {
+		return nil, err
 	}
+
+	if *o.Config.EnableSearch {
+		o.search.Index, err = search.New()
+	}
+
 	return o, err
 }
 
@@ -94,4 +142,27 @@ func (o *Ontology) OpenWriter(tx gorp.Tx) Writer {
 // Ontology will execute queries for Entity information for the given Type using the
 // provided Service. RegisterService panics if a Service is already registered for
 // the given Type.
-func (o *Ontology) RegisterService(s Service) { o.registrar.register(s) }
+func (o *Ontology) RegisterService(s Service) {
+	o.registrar.register(s)
+
+	if !*o.Config.EnableSearch {
+		return
+	}
+
+	// Fork a new goroutine to index existing resource.
+	o.search.Go.Go(func(ctx context.Context) error {
+		return s.Iterate(func(r Resource) error {
+			return o.search.Index.Index(ctx, []Resource{r})
+		})
+	}, signal.WithKeyf("startup-index-%s", s.Schema().Type))
+
+	// Set up a change handler to index new resources.
+	s.OnChange(func(ctx context.Context, r []Resource) {
+		if err := o.search.Index.Index(ctx, r); err != nil {
+			o.L.Error("failed to index resource",
+				zap.String("type", s.Schema().Type),
+				zap.Error(err),
+			)
+		}
+	})
+}
