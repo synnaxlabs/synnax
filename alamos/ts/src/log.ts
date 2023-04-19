@@ -7,31 +7,30 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-
 export class Logger {
-    noop: boolean
+  noop: boolean;
 
-    constructor(noop: boolean = false) {
-        this.noop = noop
-    }
+  constructor(noop: boolean = false) {
+    this.noop = noop;
+  }
 
-    debug(msg: string): void {
-        if (this.noop) return
-        console.log(msg)
-    }
+  debug(msg: string): void {
+    if (this.noop) return;
+    console.log(msg);
+  }
 
-    info(msg: string): void {
-        if (this.noop) return
-        console.log(msg)
-    }
+  info(msg: string): void {
+    if (this.noop) return;
+    console.log(msg);
+  }
 
-    warn(msg: string): void {
-        if (this.noop) return
-        console.warn(msg)
-    }
+  warn(msg: string): void {
+    if (this.noop) return;
+    console.warn(msg);
+  }
 
-    error(msg: string): void {
-        if (this.noop) return
-        console.error(msg)
-    }
+  error(msg: string): void {
+    if (this.noop) return;
+    console.error(msg);
+  }
 }
