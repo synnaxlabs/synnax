@@ -10,8 +10,8 @@ __version__ = "0.2.14"
 #  included in the file licenses/APL.txt.
 
 from freighter.alamos import (
-    middleware,
-    async_middleware
+    instrumentation_middleware,
+    async_instrumentation_middleware,
 )
 from freighter.context import Context, Role
 from freighter.encoder import EncoderDecoder, MsgpackEncoder, JSONEncoder

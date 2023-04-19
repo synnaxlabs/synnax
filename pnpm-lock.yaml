@@ -305,6 +305,7 @@ importers:
 
   freighter/ts:
     specifiers:
+      '@synnaxlabs/alamos': workspace:*
       '@synnaxlabs/tsconfig': workspace:*
       '@synnaxlabs/vite-plugin': workspace:*
       '@synnaxlabs/x': workspace:*
@@ -319,6 +320,7 @@ importers:
       ws: ^8.8.1
       zod: 3.19.1
     dependencies:
+      '@synnaxlabs/alamos': link:../../alamos/ts
       '@synnaxlabs/x': link:../../x/ts
       axios: 1.3.4
       js-convert-case: 4.2.0

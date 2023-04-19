@@ -17,7 +17,7 @@ from freighter.transport import (
 )
 
 
-def middleware(instrumentation: Instrumentation) -> Middleware:
+def instrumentation_middleware(instrumentation: Instrumentation) -> Middleware:
     """Adds logs and traces to requests made by the client, and ensures that they are
     propagated to the server.
 
@@ -26,8 +26,8 @@ def middleware(instrumentation: Instrumentation) -> Middleware:
 
     def _middleware(context: Context, next_: Next):
         if context.role == Role.CLIENT:
-            instrumentation.T.propagate(context, _setter)
-        with instrumentation.T.trace(context.target) as span:
+            instrumentation.T.propagate(context)
+        with instrumentation.T.debug(context.target) as span:
             res, exc = next_(context)
             span.record_exception(exc)
         _log(context, instrumentation, exc)
@@ -36,7 +36,9 @@ def middleware(instrumentation: Instrumentation) -> Middleware:
     return _middleware
 
 
-def async_middleware(instrumentation: Instrumentation) -> AsyncMiddleware:
+def async_instrumentation_middleware(
+    instrumentation: Instrumentation,
+) -> AsyncMiddleware:
     """Adds logs and traces to requests made by the client, and ensures that they are
     propagated to the server.
 
@@ -45,7 +47,7 @@ def async_middleware(instrumentation: Instrumentation) -> AsyncMiddleware:
 
     async def _middleware(context: Context, next_: AsyncNext):
         if context.role == Role.CLIENT:
-            instrumentation.T.propagate(context, _setter)
+            instrumentation.T.propagate(context)
         with instrumentation.T.trace(context.target) as span:
             res, exc = await next_(context)
             span.record_exception(exc)
@@ -64,15 +66,3 @@ def _log(
         instrumentation.L.error(f"{context.target} {exc}")
     else:
         instrumentation.L.debug(f"{context.target}")
-
-
-def _setter(carrier: Context, key: str, value: str) -> None:
-    carrier.set(key, value)
-
-
-def _getter(carrier: Context, key: str) -> str:
-    return carrier.get(key)
-
-
-def _keys(carrier: Context) -> list[str]:
-    return carrier.keys()

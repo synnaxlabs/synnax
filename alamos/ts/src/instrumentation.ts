@@ -8,11 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { Tracer } from "@/trace";
+import { Logger } from "@/log";
 
 export class Instrumentation {
     readonly T: Tracer
+    readonly L: Logger
 
-    constructor(tracer: Tracer) {
+    constructor(tracer: Tracer, logger: Logger) {
         this.T = tracer
+        this.L = logger
     }
 }
