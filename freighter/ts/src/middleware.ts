@@ -17,9 +17,13 @@
  */
 export interface Context {
   target: string;
+  role: Role;
   protocol: string;
   params: Record<string, string>;
 }
+
+export const ROLES = ["client", "server"] as const;
+export type Role = typeof ROLES[number];
 
 /** Next executes the next middleware in the chain. */
 export type Next = (ctx: Context) => Promise<[Context, Error | undefined]>;

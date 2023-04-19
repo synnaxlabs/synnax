@@ -8,9 +8,9 @@
 #  included in the file licenses/APL.txt.
 
 from contextlib import contextmanager
-from typing import Callable, Protocol, Iterator
+from typing import Protocol, Iterator
 
-from opentelemetry.propagators.textmap import CarrierT, Setter
+from opentelemetry.propagators.textmap import Setter
 from opentelemetry.propagators.textmap import TextMapPropagator
 from opentelemetry.sdk.trace import (
     TracerProvider as OtelTraceProvider,
@@ -24,9 +24,14 @@ from alamos.meta import InstrumentationMeta
 from alamos.noop import noop as noopd, Noop
 
 
+class Carrier(Protocol):
+    def set(self, key: str, value: str) -> None:
+        ...
+
+
 class Span(Protocol):
-    """A protocol class a Span that is part of a trace.
-    """
+    """A protocol class a Span that is part of a trace."""
+
     key: str
     """The key identifying the span. This is the name of the key passed into 'trace'
     combined with the path of the instrumentation that started the span. For example,
@@ -44,11 +49,10 @@ class Span(Protocol):
 
 
 class _Span:
-    """Base implementation of the Span protocol
-    """
+    """Base implementation of the Span protocol"""
+
     otel: OtelSpan
     key: str
-    noop: bool
 
     def __init__(self, otel: OtelSpan, key: str):
         self.otel = otel
@@ -65,8 +69,8 @@ class _Span:
 
 
 class NoopSpan:
-    """Span that does nothing.
-    """
+    """Span that does nothing."""
+
     key: str
 
     def _(self) -> Span:
@@ -83,6 +87,7 @@ class Tracer:
     """Tracer wraps an open-telemetry tracer to provide an opinionated interface for
     tracing within the Synnax stack.
     """
+
     noop: bool = True
     _meta: InstrumentationMeta
     _filter: EnvironmentFilter
@@ -97,7 +102,7 @@ class Tracer:
         self,
         otel_provider: OtelTraceProvider | None = None,
         otel_propagator: TextMapPropagator | None = None,
-        filter_: EnvironmentFilter = env_threshold_filter("debug")
+        filter_: EnvironmentFilter = env_threshold_filter("debug"),
     ):
         self.noop = otel_provider is None and otel_propagator is None
         self._filter = filter_ or self._filter
@@ -163,22 +168,21 @@ class Tracer:
         with self.trace(key, "prod") as span:
             yield span
 
+    class _Setter(Setter):
+        @staticmethod
+        def set(carrier: Carrier, key: str, value: str) -> None:
+            carrier.set(key, value)
+
     @noopd
-    def propagate(
-        self,
-        carrier: CarrierT,
-        setter: Callable[[CarrierT, str, str], None],
-    ) -> None:
+    def propagate(self, carrier: Carrier) -> None:
         """Injects meta-data about the current trace into the provided carrier using
         the given setter function. This meta-data can be parsed on the other side
         of a network or IPC request using depropagate, allowing the trace to propagate
         across services.
 
         :param carrier: The carrier to set the trace meta-data on.
-        :param setter: A function that takes the carrier and sets the trace meta-data
-        on it.
         """
-        self._otel_propagator.inject(carrier, setter=_Setter(setter))
+        self._otel_propagator.inject(carrier, setter=Tracer._Setter)
 
     def child_(self, meta: InstrumentationMeta) -> "Tracer":
         t = Tracer(
@@ -190,13 +194,4 @@ class Tracer:
 
 
 NOOP_TRACER = Tracer()
-
-
-class _Setter(Setter):
-    f: Callable[[CarrierT, str, str], None]
-
-    def __init__(self, f: Callable[[CarrierT, str, str], None]):
-        self.f = f
-
-    def set(self, carrier: CarrierT, key: str, value: str) -> None:
-        self.f(carrier, key, value)
+"""A tracer that does nothing."""

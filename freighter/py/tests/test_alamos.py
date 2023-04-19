@@ -16,7 +16,7 @@ class TestAlamos:
         """
         Should propagate the context to the server.
         """
-        middleware = alamos.middleware(instrumentation)
+        middleware = alamos.instrumentation_middleware(instrumentation)
         context = Context(protocol="http", target="test", role=Role.CLIENT)
         res, exc = middleware(context, lambda c: (None, None))
         assert res is None

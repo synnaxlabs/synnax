@@ -43,5 +43,5 @@
     },
     "main": "dist/alamos.cjs.js",
     "module": "dist/alamos.es.js",
-    "types": "dist/alamos.d.ts"
+    "types": "dist/index.d.ts"
 }
