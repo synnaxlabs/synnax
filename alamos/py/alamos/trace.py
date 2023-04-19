@@ -30,7 +30,7 @@ class Carrier(Protocol):
 
 
 class Span(Protocol):
-    """A protocol class a Span that is part of a trace."""
+    """A protocol for a Span that is part of a trace."""
 
     key: str
     """The key identifying the span. This is the name of the key passed into 'trace'
@@ -76,7 +76,7 @@ class NoopSpan:
     def _(self) -> Span:
         return self
 
-    def record_exception(self, exc: Exception) -> None:
+    def record_exception(self, exc: Exception | None) -> None:
         ...
 
 
@@ -96,7 +96,7 @@ class Tracer:
     __otel_tracer: OtelTracer | None
 
     def _(self) -> Noop:
-        ...
+        return self
 
     def __init__(
         self,
@@ -118,7 +118,7 @@ class Tracer:
 
     @contextmanager
     def trace(self, key: str, env: Environment) -> Iterator[Span]:
-        """Context manager that starts a new span with the given key and environment. If
+        """Starts a new span with the given key and environment. If
         a span already exists on the current context, the new span is made as its child.
 
         :param key: The key of the span.
@@ -175,10 +175,9 @@ class Tracer:
 
     @noopd
     def propagate(self, carrier: Carrier) -> None:
-        """Injects meta-data about the current trace into the provided carrier using
-        the given setter function. This meta-data can be parsed on the other side
-        of a network or IPC request using depropagate, allowing the trace to propagate
-        across services.
+        """Injects meta-data about the current trace into the provided carrier.
+        This meta-data can be parsed on the other side of a network or IPC request using 
+        allowing the trace to propagate across services.
 
         :param carrier: The carrier to set the trace meta-data on.
         """
