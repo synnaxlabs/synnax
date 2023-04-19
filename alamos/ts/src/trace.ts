@@ -12,6 +12,7 @@ import {
   Tracer as OtelTracer,
   TextMapPropagator,
   context,
+  SpanStatusCode,
 } from "@opentelemetry/api";
 
 import { Environment, EnvironmentFilter, envThresholdFilter } from "@/environment";
@@ -30,15 +31,14 @@ export class Tracer {
   private readonly filter: EnvironmentFilter;
 
   constructor(
-    tracer: OtelTracer,
-    propagator: TextMapPropagator,
+    tracer?: OtelTracer,
+    propagator?: TextMapPropagator,
     filter: EnvironmentFilter = envThresholdFilter("debug"),
-    noop: boolean = false
   ) {
-    this.tracer = tracer;
-    this.propagator = propagator;
+    this.noop = tracer == null || propagator == null;
+    this.tracer = tracer as OtelTracer;
+    this.propagator = propagator as TextMapPropagator;
     this.filter = filter;
-    this.noop = noop;
   }
 
   /**
@@ -118,9 +118,20 @@ export class Tracer {
   }
 }
 
+
+/** A span in a trace that can be used to track function execution */
 export interface Span {
+  /** The key identifying the span. This is the name of the key 
+   * passed into the tracing method combined with the path of the 
+   * instrumentation that started the span. For example, take the 
+   * instrumentation titled 'synnax' and call to trace with 'test. 
+   * The span key would be 'synnax.test'.
+   */
   key: string;
-  recordException: (error: Error) => void;
+  /** If the error is not null, records the error in the span and sets
+   * its status to error.
+   */
+  recordError: (error?: Error | null) => void;
 }
 
 export class _Span implements Span {
@@ -132,11 +143,17 @@ export class _Span implements Span {
     this.otel = span;
   }
 
-  recordException(error: Error): void {
+  recordError(error?: Error | null): void {
+    if (error == null) return;
     this.otel.recordException(error);
+    this.otel.setStatus({ code: SpanStatusCode.ERROR })
   }
 }
 
+/** Tracer implementation that does nothing */
+export const NOOP_TRACER = new Tracer();
+
+/** Span implementation that does nothing */
 export class NoopSpan implements Span {
   key: string;
 
@@ -144,5 +161,5 @@ export class NoopSpan implements Span {
     this.key = key;
   }
 
-  recordException(_: Error): void { }
+  recordError(_?: Error | null): void { }
 }

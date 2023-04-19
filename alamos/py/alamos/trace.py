@@ -88,7 +88,7 @@ class Tracer:
     tracing within the Synnax stack.
     """
 
-    noop: bool = True
+    noop: bool
     _meta: InstrumentationMeta
     _filter: EnvironmentFilter
     _otel_provider: OtelTraceProvider
