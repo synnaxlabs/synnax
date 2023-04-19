@@ -52,6 +52,10 @@ func Isolated(opts ...Option) (Context, context.CancelFunc) {
 	return WithCancel(context.Background(), opts...)
 }
 
+func Wrap(ctx context.Context, opts ...Option) Context {
+	return newCore(ctx, func() {}, opts...)
+}
+
 func newCore(
 	ctx context.Context,
 	cancel context.CancelFunc,

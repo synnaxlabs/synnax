@@ -239,7 +239,7 @@ var _ = Describe("txn", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(kv).ToNot(BeNil())
 			var v []byte
-			kv.OnChange(func(ctx context.Context, pairs []kvx.Pair) {
+			kv.OnChange(func(ctx context.Context, pairs []kvx.Operation) {
 				v = pairs[0].Value
 			})
 			Expect(err).ToNot(HaveOccurred())

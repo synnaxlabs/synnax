@@ -35,17 +35,17 @@ var _ ontology.Service = (*Service)(nil)
 // Schema implements the ontology.Service interface.
 func (s *Service) Schema() *schema.Schema { return _schema }
 
-// RetrieveEntity implements the ontology.Service interface.
-func (s *Service) RetrieveEntity(ctx context.Context, key string) (schema.Entity, error) {
+// RetrieveResource implements the ontology.Service interface.
+func (s *Service) RetrieveResource(ctx context.Context, key string) (schema.Resource, error) {
 	uuidKey, err := uuid.Parse(key)
 	if err != nil {
-		return schema.Entity{}, err
+		return schema.Resource{}, err
 	}
 	u, err := s.Retrieve(ctx, uuidKey)
 	return newEntity(u), err
 }
 
-func newEntity(u User) schema.Entity {
+func newEntity(u User) schema.Resource {
 	e := schema.NewEntity(_schema, u.Username)
 	schema.Set[uuid.UUID](e, "key", u.Key)
 	schema.Set[string](e, "username", u.Username)

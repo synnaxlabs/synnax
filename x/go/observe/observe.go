@@ -31,9 +31,7 @@ type base[T any] struct {
 }
 
 // New creates a new observer with the given options.
-func New[T any]() Observer[T] {
-	return &base[T]{}
-}
+func New[T any]() Observer[T] { return &base[T]{} }
 
 // OnChange implements the Observable interface.
 func (b *base[T]) OnChange(handler func(context.Context, T)) {
@@ -49,3 +47,13 @@ func (b *base[T]) Notify(ctx context.Context, v T) {
 
 // GoNotify implements the Observer interface.
 func (b *base[T]) GoNotify(ctx context.Context, v T) { go b.Notify(ctx, v) }
+
+// Noop is an observable that never calls it's OnChange function and does
+// not store any handlers. Use this when you want to implement the Observable
+// interface and do nothing.
+type Noop[T any] struct{}
+
+var _ Observable[any] = Noop[any]{}
+
+// OnChange implements Observable.
+func (Noop[T]) OnChange(_ func(context.Context, T)) {}

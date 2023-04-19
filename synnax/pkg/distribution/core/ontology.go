@@ -81,7 +81,7 @@ func (s *NodeOntologyService) update(ctx context.Context, state ClusterState) {
 		if err := w.DefineResource(ctx, clusterID); err != nil {
 			return err
 		}
-		if err := w.DefineRelationship(ctx, ontology.Root, ontology.ParentOf, clusterID); err != nil {
+		if err := w.DefineRelationship(ctx, ontology.RootID, ontology.ParentOf, clusterID); err != nil {
 			return err
 		}
 		for _, n := range state.Nodes {
@@ -103,20 +103,20 @@ func (s *NodeOntologyService) update(ctx context.Context, state ClusterState) {
 // Schema implements ontology.Service.
 func (s *NodeOntologyService) Schema() *schema.Schema { return _nodeSchema }
 
-// RetrieveEntity implements ontology.Service.
-func (s *NodeOntologyService) RetrieveEntity(
+// RetrieveResource implements ontology.Service.
+func (s *NodeOntologyService) RetrieveResource(
 	_ context.Context,
 	key string,
-) (schema.Entity, error) {
+) (schema.Resource, error) {
 	id, err := strconv.Atoi(key)
 	if err != nil {
-		return schema.Entity{}, err
+		return schema.Resource{}, err
 	}
 	n, err := s.Cluster.Node(NodeKey(id))
 	return newNodeEntity(n), err
 }
 
-func newNodeEntity(n Node) schema.Entity {
+func newNodeEntity(n Node) schema.Resource {
 	e := schema.NewEntity(_nodeSchema, fmt.Sprintf("Node %v", n.Key))
 	schema.Set(e, "key", uint32(n.Key))
 	schema.Set(e, "address", n.Address.String())
@@ -135,8 +135,8 @@ var _ ontology.Service = (*ClusterOntologyService)(nil)
 // Schema implements ontology.Service.
 func (s *ClusterOntologyService) Schema() *schema.Schema { return _clusterSchema }
 
-// RetrieveEntity implements ontology.Service.
-func (s *ClusterOntologyService) RetrieveEntity(_ context.Context, _ string) (schema.Entity, error) {
+// RetrieveResource implements ontology.Service.
+func (s *ClusterOntologyService) RetrieveResource(_ context.Context, _ string) (schema.Resource, error) {
 	e := schema.NewEntity(_clusterSchema, "Cluster")
 	schema.Set(e, "key", s.Cluster.Key().String())
 	return e, nil

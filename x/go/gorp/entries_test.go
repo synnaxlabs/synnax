@@ -28,9 +28,7 @@ var _ = Describe("Entries", func() {
 	Describe("TypePrefix", func() {
 		It("Should not append a type prefix to a particular key when type prefix is off", func() {
 			db := memkv.New()
-			gorpDB := gorp.Wrap(db,
-				gorp.WithNoPrefix(),
-			)
+			gorpDB := gorp.Wrap(db, gorp.WithNoPrefix())
 			txn := gorpDB.OpenTx()
 			Expect(gorp.NewCreate[int, entry]().
 				Entries(&[]entry{{ID: 1, Data: "data"}}).

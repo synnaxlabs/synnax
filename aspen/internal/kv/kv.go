@@ -169,9 +169,9 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 		&confluence.DeltaMultiplier[TxRequest]{},
 	)
 
-	observable := confluence.NewTransformObservable[TxRequest, []kvx.Pair](
-		func(ctx context.Context, b TxRequest) ([]kvx.Pair, bool, error) {
-			return b.pairs(), true, nil
+	observable := confluence.NewTransformObservable[TxRequest, kvx.TxReader](
+		func(ctx context.Context, tx TxRequest) (kvx.TxReader, bool, error) {
+			return tx.reader(), true, nil
 		})
 	plumber.SetSink[TxRequest](pipe, observableAddr, observable)
 	db_.Observable = observable
@@ -232,7 +232,9 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 	plumber.UnaryRouter[TxRequest]{
 		SourceTarget: persistDeltaAddr,
 		SinkTarget:   observableAddr,
-		Capacity:     1,
+		// Setting the capacity higher here allows us to unclog the pipeline in case
+		// we have a slow observer.
+		Capacity: 10,
 	}.MustRoute(pipe)
 
 	plumber.UnaryRouter[TxRequest]{

@@ -13,6 +13,7 @@ import (
 	"context"
 	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 )
 
 type OntologyService struct {
@@ -42,7 +43,7 @@ func (o *OntologyService) Retrieve(
 	req OntologyRetrieveRequest,
 ) (res OntologyRetrieveResponse, err errors.Typed) {
 	res.Resources = []ontology.Resource{}
-	ids, _err := ontology.ParseIDs(req.IDs)
+	ids, _err := schema.ParseIDs(req.IDs)
 	if _err != nil {
 		return res, errors.Parse(_err)
 	}

@@ -32,9 +32,7 @@ type DB struct {
 var _ Tx = (*DB)(nil)
 
 // OpenTx begins a new Tx against the DB.
-func (db *DB) OpenTx() Tx {
-	return tx{Tx: db.DB.OpenTx(), opts: db.opts}
-}
+func (db *DB) OpenTx() Tx { return tx{Tx: db.DB.OpenTx(), opts: db.opts} }
 
 func (db *DB) WithTx(ctx context.Context, f func(tx Tx) error) (err error) {
 	txn := db.OpenTx()
@@ -52,10 +50,6 @@ func (db *DB) WithTx(ctx context.Context, f func(tx Tx) error) (err error) {
 func (db *DB) OverrideTx(override Tx) Tx { return lo.Ternary[Tx](override != nil, override, db) }
 
 func OverrideTx(base Tx, override Tx) Tx { return lo.Ternary[Tx](override != nil, override, base) }
-
-// Commit implements the Tx interface, and is a noop as all writes are committed
-// immediately.
-func (db *DB) Commit(ctx context.Context, opts ...interface{}) error { return nil }
 
 func (db *DB) encoder() binary.Encoder { return db.opts.encoder }
 

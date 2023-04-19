@@ -18,13 +18,6 @@ import (
 	"github.com/synnaxlabs/x/version"
 )
 
-type Variant uint32
-
-const (
-	Set Variant = iota
-	Delete
-)
-
 type gossipState byte
 
 const (
@@ -35,9 +28,7 @@ const (
 var ecd = &binary.GobEncoderDecoder{}
 
 type Operation struct {
-	Key         []byte
-	Value       []byte
-	Variant     Variant
+	kvx.Operation
 	Version     version.Counter
 	Leaseholder node.Key
 	state       gossipState
@@ -53,19 +44,17 @@ func (o Operation) Digest() Digest {
 }
 
 func (o Operation) apply(ctx context.Context, b kvx.Writer) error {
-	if o.Variant == Delete {
+	if o.Variant == kvx.DeleteOperation {
 		return b.Delete(ctx, o.Key)
 	}
 	return b.Set(ctx, o.Key, o.Value)
 }
 
-func (o Operation) pair() kvx.Pair { return kvx.Pair{Key: o.Key, Value: o.Value} }
-
 type Digest struct {
 	Key         []byte
 	Version     version.Counter
 	Leaseholder node.Key
-	Variant     Variant
+	Variant     kvx.OperationVariant
 }
 
 func (d Digest) apply(ctx context.Context, w kvx.Writer) error {
@@ -98,10 +87,9 @@ type (
 
 func (d Digest) Operation() Operation {
 	return Operation{
-		Key:         d.Key,
+		Operation:   kvx.Operation{Key: d.Key, Variant: d.Variant},
 		Version:     d.Version,
 		Leaseholder: d.Leaseholder,
-		Variant:     d.Variant,
 	}
 }
 

@@ -61,15 +61,15 @@ type Iterator interface {
 	Close() error
 }
 
-// PrefixIter returns IteratorOptions, that when passed to writer.NewStreamIterator, will
+// IterPrefix returns IteratorOptions, that when passed to writer.NewStreamIterator, will
 // return an Iterator that only iterates over keys with the given prefix.
-func PrefixIter(prefix []byte) IteratorOptions {
+func IterPrefix(prefix []byte) IteratorOptions {
 	return IteratorOptions{LowerBound: prefix, UpperBound: prefixUpperBound(prefix)}
 }
 
-// RangeIter returns IteratorOptions, that when passed to writer.NewStreamIterator, will
+// IterRange returns IteratorOptions, that when passed to writer.NewStreamIterator, will
 // iterator through the range of keys between start and end.
-func RangeIter(start, end []byte) IteratorOptions {
+func IterRange(start, end []byte) IteratorOptions {
 	return IteratorOptions{LowerBound: start, UpperBound: end}
 }
 
