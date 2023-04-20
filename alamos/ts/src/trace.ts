@@ -17,7 +17,10 @@ import {
 
 import { Environment, EnvironmentFilter, envThresholdFilter } from "@/environment";
 
+/** Carrier is an entitty that can carry trace meta-data across process bounds */
 export type Carrier = Record<string, string>;
+
+/** Function that executes under the given span */
 export type SpanF = (span: Span) => unknown;
 
 /**
