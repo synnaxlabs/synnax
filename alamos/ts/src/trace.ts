@@ -10,12 +10,13 @@
 import {
   Span as OtelSpan,
   Tracer as OtelTracer,
-  TextMapPropagator,
   context,
   SpanStatusCode,
+  propagation,
 } from "@opentelemetry/api";
 
 import { Environment, EnvironmentFilter, envThresholdFilter } from "@/environment";
+import { InstrumentationMeta } from "./meta";
 
 /** Carrier is an entitty that can carry trace meta-data across process bounds */
 export type Carrier = Record<string, string>;
@@ -30,18 +31,19 @@ export type SpanF = (span: Span) => unknown;
 export class Tracer {
   private readonly noop: boolean;
   private readonly tracer: OtelTracer;
-  private readonly propagator: TextMapPropagator;
   private readonly filter: EnvironmentFilter;
 
   constructor(
     tracer?: OtelTracer,
-    propagator?: TextMapPropagator,
     filter: EnvironmentFilter = envThresholdFilter("debug"),
   ) {
-    this.noop = tracer == null || propagator == null;
+    this.noop = tracer == null;
     this.tracer = tracer as OtelTracer;
-    this.propagator = propagator as TextMapPropagator;
     this.filter = filter;
+  }
+
+  child(_: InstrumentationMeta): Tracer {
+    return new Tracer(this.tracer, this.filter);
   }
 
   /**
@@ -113,7 +115,7 @@ export class Tracer {
   propagate(carrier: Carrier): void {
     if (this.noop) return;
     const ctx = context.active();
-    this.propagator.inject(ctx, carrier, {
+    propagation.inject(ctx, carrier, {
       set: (carrier, key, value) => {
         carrier[key] = value;
       },

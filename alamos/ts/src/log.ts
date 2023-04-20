@@ -7,12 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { InstrumentationMeta } from "./meta";
+
 export class Logger {
   noop: boolean;
 
   constructor(noop: boolean = false) {
     this.noop = noop;
   }
+
+  child(_: InstrumentationMeta): Logger {
+    if (this.noop) return NOOP_LOGGER;
+    return new Logger();
+  }
+
 
   debug(msg: string): void {
     if (this.noop) return;
@@ -34,3 +42,5 @@ export class Logger {
     console.error(msg);
   }
 }
+
+const NOOP_LOGGER = new Logger(true);
