@@ -40,12 +40,13 @@ class TestTrace:
         """Should not raise an exception"""
 
         class Foo:
+            instrumentation: Instrumentation
 
             def _(self) -> Traceable:
                 return self
 
             def __init__(self, ins: Instrumentation):
-                self.instrumentation = ins
+                self.instrumentation = instrumentation
 
             @trace("prod")
             def decorated(self) -> str:
@@ -59,7 +60,7 @@ class TestPropagate:
         """Should correctly inject the span context into the carrier."""
 
         class Carrier(dict):
-            def set(key, value):
+            def set(self, key, value):
                 self[key] = value
 
         carrier = Carrier()
