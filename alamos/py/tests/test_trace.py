@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from alamos.instrumentation import Traceable
 from opentelemetry.propagate import get_global_textmap
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import (
@@ -38,11 +39,19 @@ class TestTrace:
     def test_trace_decorator(self, instrumentation: Instrumentation):
         """Should not raise an exception"""
 
-        @trace("prod")
-        def decorated() -> str:
-            return "hello"
+        class Foo:
 
-        decorated()
+            def _(self) -> Traceable:
+                return self
+
+            def __init__(self, ins: Instrumentation):
+                self.instrumentation = ins
+
+            @trace("prod")
+            def decorated(self) -> str:
+                return "hello"
+
+        Foo(instrumentation).decorated()
 
 
 class TestPropagate:
