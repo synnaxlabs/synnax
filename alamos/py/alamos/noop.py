@@ -11,7 +11,8 @@ from typing import (
     Protocol,
     ParamSpec,
     Concatenate,
-    Callable
+    Callable,
+    TypeVar
 )
 
 
@@ -22,16 +23,17 @@ class Noop(Protocol):
 
 
 P = ParamSpec('P')
+T = TypeVar('T', bound = Noop)
 
 
 def noop(
-    f: Callable[Concatenate[Noop, P], None],
-) -> Callable[P, None]:
+    f: Callable[Concatenate[T, P], None],
+) -> Callable[Concatenate[T, P], None]:
     """Decorator around a Noop class that will not call the decorated function if the
     Noop.noop is True.
     """
 
-    def wrapper(self: Noop, *args: P.args, **kwargs: P.kwargs) -> None:
+    def wrapper(self: T, *args: P.args, **kwargs: P.kwargs) -> None:
         if self.noop:
             return
         return f(self, *args, **kwargs)
