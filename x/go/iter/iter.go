@@ -94,3 +94,15 @@ func ExhaustNext[V any](iter Next[V]) (values []V, err error) {
 		values = append(values, val)
 	}
 }
+
+func ForEach[V any](iter Next[V], f func(V) error) error {
+	for {
+		val, ok, err := iter.Next(context.Background())
+		if err != nil || !ok {
+			return err
+		}
+		if err := f(val); err != nil {
+			return err
+		}
+	}
+}

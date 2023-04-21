@@ -123,7 +123,6 @@ var _ = Describe("txn", func() {
 		})
 
 		Describe("Peers Leaseholder", func() {
-
 			It("Should commit the operation to storage", func() {
 				kv1, err := builder.New(ctx, kv.Config{}, cluster.Config{})
 				Expect(err).ToNot(HaveOccurred())
@@ -143,7 +142,6 @@ var _ = Describe("txn", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(kv.Set(ctx, []byte("key"), []byte("value"), "2")).To(HaveOccurred())
 			})
-
 		})
 
 	})
@@ -170,7 +168,6 @@ var _ = Describe("txn", func() {
 	Describe("delete", func() {
 
 		Describe("Gateway Leaseholder", func() {
-
 			It("Should apply the operation to storage", func() {
 				kv, err := builder.New(ctx, kv.Config{}, cluster.Config{})
 				Expect(err).ToNot(HaveOccurred())
@@ -184,11 +181,9 @@ var _ = Describe("txn", func() {
 				Expect(err).To(HaveOccurred())
 				Expect(v).To(BeNil())
 			})
-
 		})
 
 		Describe("Peer Leaseholder", func() {
-
 			It("Should apply the operation to storage", func() {
 				kv1, err := builder.New(ctx, kv.Config{}, cluster.Config{})
 				Expect(err).ToNot(HaveOccurred())
@@ -202,13 +197,11 @@ var _ = Describe("txn", func() {
 					g.Expect(v).To(Equal([]byte("value")))
 				}).Should(Succeed())
 			})
-
 		})
 
 	})
 
 	Describe("Request Recovery", func() {
-
 		It("Should stop propagating an operation after a set threshold of"+
 			" redundant broadcasts", func() {
 			kv1, err := builder.New(ctx, kv.Config{
@@ -229,11 +222,9 @@ var _ = Describe("txn", func() {
 				WithTimeout(500 * time.Millisecond).
 				Should(BeElementOf([]int{5, 6, 7}))
 		})
-
 	})
 
 	Describe("Observable", func() {
-
 		It("Should allow for a caller to listen to key-value changes", func() {
 			kv, err := builder.New(ctx, kv.Config{}, cluster.Config{})
 			Expect(err).ToNot(HaveOccurred())
@@ -252,7 +243,6 @@ var _ = Describe("txn", func() {
 				g.Expect(op.Value).To(Equal([]byte("value")))
 			}).Should(Succeed())
 		})
-
 	})
 
 })

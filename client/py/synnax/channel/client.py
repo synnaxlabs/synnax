@@ -15,10 +15,8 @@ from synnax.exceptions import ValidationError, QueryError
 from synnax.framer import FrameClient
 from synnax.telem import (
     Rate,
-    Density,
     TimeRange,
     UnparsedDataType,
-    UnparsedDensity,
     UnparsedRate,
     UnparsedTimeStamp,
     DataType,

@@ -29,11 +29,19 @@ type DB struct {
 	options
 }
 
-var _ Tx = (*DB)(nil)
+var (
+	_ Tx             = (*DB)(nil)
+	_ BaseReader     = (*DB)(nil)
+	_ BaseWriter     = (*DB)(nil)
+	_ BaseObservable = (*DB)(nil)
+)
 
 // OpenTx begins a new Tx against the DB.
 func (db *DB) OpenTx() Tx { return tx{Tx: db.DB.OpenTx(), options: db.options} }
 
+// WithTx executes the callback within the provided transation Tx. If the callback
+// returns an error, the transaction is aborted, no writes are comitted, and the
+// error is returned. If the callback returns nil, the transaction is comitted.
 func (db *DB) WithTx(ctx context.Context, f func(tx Tx) error) (err error) {
 	txn := db.OpenTx()
 	defer func() {
@@ -47,35 +55,29 @@ func (db *DB) WithTx(ctx context.Context, f func(tx Tx) error) (err error) {
 	return
 }
 
+// OverrideTx replaces the given Tx with the DB if the given Tx is nil. This
+// method is useful for allowing a caller to execute directly agains the underlying
+// DB if they choose to do so, or to execute against a transaction if they provide one.
 func (db *DB) OverrideTx(override Tx) Tx { return OverrideTx(override, db) }
 
-func OverrideTx(base Tx, override Tx) Tx {
+// OverrideTx returns the override transaction if it is not nil. Otherwise,
+// it returns the base transaction.
+func OverrideTx(base, override Tx) Tx {
 	return lo.Ternary(override != nil, override, base)
 }
 
+// Tx extends the kv.Tx interface to provide gorp-required utilities for
+// executing a strongly-typed, atomic transaction against a DB. To open a
+// new transactiohn, call gorp.OpenTx and pass it to the required queries
+// or readers/writers.
+//
+// DB itself implements the Tx interface, meaning it can be used as a
+// transaction that directly commits its operations in a non-atomic manner. This is
+// ideal for allowing a caller to execute operations within an atomic transaction
+// if they desire to do so, or simply use the DB directly otherwise.
 type Tx interface {
 	kv.Tx
-	Options
-}
-
-type Options interface {
-	binary.EncoderDecoder
-	noPrefix() bool
-}
-
-type BaseReader interface {
-	kv.Reader
-	Options
-}
-
-type BaseWriter interface {
-	kv.Writer
-	Options
-}
-
-type BaseObservable interface {
-	kv.Observable
-	Options
+	Tools
 }
 
 type tx struct {
@@ -84,3 +86,32 @@ type tx struct {
 }
 
 var _ Tx = (*tx)(nil)
+
+// Tools provides the tools that gorp needs to translate key-value operations
+// to strongly-typed requests. It doesn't provide any functionality itself,
+// and is instead designed to be passed to the various other types that gorp uses.
+type Tools interface{ binary.EncoderDecoder }
+
+// BaseReader is a simple extension of the kv.Reader interface that adds
+// gorp-required tooling. For semantic purposes, it can be considered as
+// equivalent to a kv.Reader.
+type BaseReader interface {
+	kv.Reader
+	Tools
+}
+
+// BaseWriter is a simple extension of the kv.Writer interface that
+// adds gorp-required tooling. For semantic purposes, it can be considered
+// as equivalent to a kv.Writer.
+type BaseWriter interface {
+	kv.Writer
+	Tools
+}
+
+// BaseObservable is a simple extension of the kv.Writer interface that
+// adds gorp-required tooling. For semantic purposes, it can be considered
+// as equivalent to a kv.Observable.
+type BaseObservable interface {
+	kv.Observable
+	Tools
+}
