@@ -95,20 +95,17 @@ class Traceable(Protocol):
     """A protocol for classes whose methods can be traced using the trace
     decorator"""
 
-    @property
-    def instrumentation(self) -> Instrumentation:
-        """Returns the instrumentation used by the class"""
-        return NOOP
-
+    instrumentation: Instrumentation
 
 P = ParamSpec("P")
 R = TypeVar("R")
+T = TypeVar("T", bound = Traceable)
 
 
 def trace(
     env: Environment,
     key: str | None = None
-) -> Callable[[Callable[Concatenate[Traceable, P], R]], Callable[P, R]]:
+) -> Callable[[Callable[Concatenate[T, P], R]], Callable[Concatenate[T, P], R]]:
     """Trace the given method on the class. This method can only be used on a class that
     implements the Traceable protocol.
 
@@ -117,8 +114,8 @@ def trace(
     filter rejects the env, a no-op span is returned.
     """
 
-    def decorator(f: Callable[Concatenate[Traceable, P], R]) -> Callable[P, R]:
-        def wrapper(self: Traceable, *args: P.args, **kwargs: P.kwargs):
+    def decorator(f: Callable[Concatenate[T, P], R]) -> Callable[Concatenate[T, P], R]:
+        def wrapper(self: T, *args: P.args, **kwargs: P.kwargs):
             _key = f.__name__ if key is None else key
             with self.instrumentation.T.trace(_key, env):
                 return f(self, *args, **kwargs)

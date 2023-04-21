@@ -7,12 +7,45 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Logger } from "@/log";
 import { Tracer } from "@/trace";
+import { Meta } from "@/meta";
+
+export interface InstrumentationOptions {
+  key?: string;
+  serviceName?: string;
+  logger?: Logger;
+  tracer?: Tracer;
+}
 
 export class Instrumentation {
-    readonly T: Tracer
+  private meta: Meta;
+  readonly T: Tracer;
+  readonly L: Logger;
 
-    constructor(tracer: Tracer) {
-        this.T = tracer
-    }
+  constructor({
+    key = "",
+    serviceName = "",
+    logger = Logger.NOOP,
+    tracer = Tracer.NOOP,
+  }: InstrumentationOptions) {
+    this.meta = new Meta(key, "", serviceName);
+    this.T = tracer.child(this.meta);
+    this.L = logger.child(this.meta);
+  }
+
+  child(key: string): Instrumentation {
+    const meta = this.meta.child(key);
+    const ins = new Instrumentation({
+      key: meta.key,
+      logger: this.L.child(meta),
+      tracer: this.T.child(meta),
+    })
+    ins.meta = meta;
+    return ins
+  }
+
+  static readonly NOOP = new Instrumentation({});
 }
+
+

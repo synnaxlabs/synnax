@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from alamos.instrumentation import Traceable
 from opentelemetry.propagate import get_global_textmap
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import (
@@ -26,40 +27,45 @@ class TestTrace:
         """
         Should initialize the tracer.
         """
-        tracer = Tracer(
-            otel_provider=provider,
-            otel_propagator=get_global_textmap()
-        )
+        tracer = Tracer(otel_provider=provider, otel_propagator=get_global_textmap())
         assert tracer is not None
 
     def test_trace(self, instrumentation: Instrumentation):
-        """Should not raise an exception.
-        """
+        """Should not raise an exception."""
         with instrumentation.T.prod("test") as span:
             assert span.key == "test"
             pass
 
     def test_trace_decorator(self, instrumentation: Instrumentation):
-        """Should not raise an exception
-        """
+        """Should not raise an exception"""
 
-        @trace("prod")
-        def decorated() -> str:
-            return "hello"
+        class Foo:
+            instrumentation: Instrumentation
 
-        decorated()
+            def _(self) -> Traceable:
+                return self
+
+            def __init__(self, ins: Instrumentation):
+                self.instrumentation = instrumentation
+
+            @trace("prod")
+            def decorated(self) -> str:
+                return "hello"
+
+        Foo(instrumentation).decorated()
 
 
 class TestPropagate:
     def test_propagate_depropagate(self, instrumentation: Instrumentation):
-        """Should correctly inject the span context into the carrier.
-        """
-        carrier = dict()
+        """Should correctly inject the span context into the carrier."""
 
-        def setter(carrier, key, value):
-            carrier[key] = value
+        class Carrier(dict):
+            def set(self, key, value):
+                self[key] = value
+
+        carrier = Carrier()
 
         with instrumentation.T.prod("test"):
-            instrumentation.T.propagate(carrier, setter)
+            instrumentation.T.propagate(carrier)
 
         assert "traceparent" in carrier
