@@ -16,7 +16,7 @@ import {
 } from "@opentelemetry/api";
 
 import { Environment, EnvironmentFilter, envThresholdFilter } from "@/environment";
-import { InstrumentationMeta } from "./meta";
+import { Meta as Meta } from "@/meta";
 
 /** Carrier is an entitty that can carry trace meta-data across process bounds */
 export type Carrier = Record<string, string>;
@@ -25,11 +25,11 @@ export type Carrier = Record<string, string>;
 export type SpanF = (span: Span) => unknown;
 
 /**
- * Tracer wraps an opentelemetry tracer to provide an opinionated intreface 
- * for tracing within the Synnax stack.
- */
+* Tracer wraps an opentelemetry tracer to provide an opinionated intreface 
+* for tracing within the Synnax stack.
+*/
 export class Tracer {
-  private readonly noop: boolean;
+  private meta: Meta = Meta.NOOP;
   private readonly tracer: OtelTracer;
   private readonly filter: EnvironmentFilter;
 
@@ -37,33 +37,14 @@ export class Tracer {
     tracer?: OtelTracer,
     filter: EnvironmentFilter = envThresholdFilter("debug"),
   ) {
-    this.noop = tracer == null;
     this.tracer = tracer as OtelTracer;
     this.filter = filter;
   }
 
-  child(_: InstrumentationMeta): Tracer {
-    return new Tracer(this.tracer, this.filter);
-  }
-
-  /**
-  * Stars a new span with the given key and environment. If a span already
-  * exists in the current context, it will be used as the parent span.
-  *
-  * @param key - The name of the span.
-  * @param env - The environment to run the span under.
-  * @param  f -  The function to run under the span.
-  * @returns A span that tracks program execution. If the Tracer's environment
-  * rejects the provided span or the Tracer is noop, a NoopSpan is returned.
-  */
-  trace<F extends SpanF>(key: string, env: Environment, f: F): ReturnType<F> {
-    if (this.noop || !this.filter(env)) f(new NoopSpan(key));
-    return this.tracer.startActiveSpan(key, (otelSpan) => {
-      const span = new _Span(key, otelSpan);
-      const result = f(span);
-      otelSpan.end();
-      return result as ReturnType<F>;
-    });
+  child(meta: Meta): Tracer {
+    const t = new Tracer(this.tracer, this.filter);
+    t.meta = meta;
+    return t;
   }
 
   /**
@@ -71,7 +52,7 @@ export class Tracer {
   * current context, it will be used as the parent span.
   *
   * @param key - The name of the span.
-  * @param f -  The function to run under the span.
+  * @param f - The function to run under the span.
   * @returns A span that tracks program execution. If the Tracer's environment
   * rejects the 'debug' environment or the Tracer is noop, a NoopSpan is returned.
   */
@@ -84,7 +65,7 @@ export class Tracer {
   * current context, it will be used as the parent span.
   *
   * @param key - The name of the span.
-  * @param f -  The function to run under the span.
+  * @param f - The function to run under the span.
   * @returns A span that tracks program execution. If the Tracer's environment
   * rejects the 'bench' environment or the Tracer is noop, a NoopSpan is returned.
   */
@@ -97,13 +78,34 @@ export class Tracer {
   * current context, it will be used as the parent span.
   *
   * @param key - The name of the span.
-  * @param f -  The function to run under the span.
+  * @param f - The function to run under the span.
   * @returns A span that tracks program execution. If the Tracer's environment
   * rejects the 'prod' environment or the Tracer is noop, a NoopSpan is returned.
   */
   prod<F extends SpanF>(key: string, f: F): ReturnType<F> {
     return this.trace(key, "prod", f);
   }
+
+  /**
+  * Stars a new span with the given key and environment. If a span already
+  * exists in the current context, it will be used as the parent span.
+  *
+  * @param key - The name of the span.
+  * @param env - The environment to run the span under.
+  * @param f - The function to run under the span.
+  * @returns A span that tracks program execution. If the Tracer's environment
+  * rejects the provided span or the Tracer is noop, a NoopSpan is returned.
+  */
+  trace<F extends SpanF>(key: string, env: Environment, f: F): ReturnType<F> {
+    if (this.meta.noop || !this.filter(env)) f(new NoopSpan(key));
+    return this.tracer.startActiveSpan(key, (otelSpan) => {
+      const span = new _Span(key, otelSpan);
+      const result = f(span);
+      otelSpan.end();
+      return result as ReturnType<F>;
+    });
+  }
+
 
   /**
   * Injects meta-data about the current trace into the provided carrier. This 
@@ -113,7 +115,7 @@ export class Tracer {
   * @param carrier - The carrier to inject the meta-data into.
   */
   propagate(carrier: Carrier): void {
-    if (this.noop) return;
+    if (this.meta.noop) return;
     const ctx = context.active();
     propagation.inject(ctx, carrier, {
       set: (carrier, key, value) => {
@@ -121,6 +123,9 @@ export class Tracer {
       },
     });
   }
+
+  /** Tracer implementation that does nothing */
+  static readonly NOOP = new Tracer();
 }
 
 
@@ -153,10 +158,8 @@ export class _Span implements Span {
     this.otel.recordException(error);
     this.otel.setStatus({ code: SpanStatusCode.ERROR })
   }
-}
 
-/** Tracer implementation that does nothing */
-export const NOOP_TRACER = new Tracer();
+}
 
 /** Span implementation that does nothing */
 export class NoopSpan implements Span {
