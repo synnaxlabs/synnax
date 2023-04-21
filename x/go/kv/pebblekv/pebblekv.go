@@ -13,6 +13,8 @@ package pebblekv
 
 import (
 	"context"
+
+	"github.com/cockroachdb/errors"
 	"github.com/cockroachdb/pebble"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/kv"
@@ -55,17 +57,18 @@ func (d db) NewReader() kv.TxReader { return d.OpenTx().NewReader() }
 
 // Set implement kv.DB.
 func (d db) Set(ctx context.Context, key, value []byte, opts ...interface{}) error {
-	return d.DB.Set(key, value, parseOpts(opts))
+	return translateError(d.DB.Set(key, value, parseOpts(opts)))
 }
 
 // Get implement kv.DB.
 func (d db) Get(ctx context.Context, key []byte, opts ...interface{}) ([]byte, error) {
-	return get(d.DB, key)
+	b, err := get(d.DB, key)
+	return b, translateError(err)
 }
 
 // Delete implement kv.DB.
 func (d db) Delete(ctx context.Context, key []byte, opts ...interface{}) error {
-	return d.DB.Delete(key, parseOpts(opts))
+	return translateError(d.DB.Delete(key, parseOpts(opts)))
 }
 
 // OpenIterator implement kv.DB.
@@ -76,7 +79,7 @@ func (d db) OpenIterator(opts kv.IteratorOptions) kv.Iterator {
 func (d db) apply(ctx context.Context, txn tx) error {
 	err := d.DB.Apply(txn.Batch, nil)
 	if err != nil {
-		return err
+		return translateError(err)
 	}
 	d.Notify(ctx, txn.NewReader())
 	return nil
@@ -97,17 +100,18 @@ var _ kv.Tx = tx{}
 
 // Set implements kv.Writer.
 func (txn tx) Set(_ context.Context, key, value []byte, opts ...interface{}) error {
-	return txn.Batch.Set(key, value, parseOpts(opts))
+	return translateError(txn.Batch.Set(key, value, parseOpts(opts)))
 }
 
 // Get implements kv.Writer.
 func (txn tx) Get(_ context.Context, key []byte, opts ...interface{}) ([]byte, error) {
-	return get(txn.Batch, key)
+	b, err := get(txn.Batch, key)
+	return b, translateError(err)
 }
 
 // Delete implements kv.Writer.
 func (txn tx) Delete(_ context.Context, key []byte, opts ...interface{}) error {
-	return txn.Batch.Delete(key, parseOpts(opts))
+	return translateError(txn.Batch.Delete(key, parseOpts(opts)))
 }
 
 // OpenIterator implements kv.Writer.
@@ -148,11 +152,22 @@ type txReader struct{ pebble.BatchReader }
 var _ kv.TxReader = txReader{}
 
 // Next implements kv.TxReader.
-func (r txReader) Next() (kv.Operation, bool) {
+func (r txReader) Next(_ context.Context) (kv.Operation, bool, error) {
 	kind, k, v, ok := r.BatchReader.Next()
 	variant, ok := kindsToVariant[kind]
 	if !ok {
-		return kv.Operation{}, false
+		return kv.Operation{}, false, nil
 	}
-	return kv.Operation{Variant: variant, Key: k, Value: v}, true
+	return kv.Operation{Variant: variant, Key: k, Value: v}, true, nil
+}
+
+func translateError(err error) error {
+	if err == nil {
+		return err
+	}
+	if errors.Is(err, pebble.ErrNotFound) {
+		return kv.NotFound
+	}
+	return err
+
 }

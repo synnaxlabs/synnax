@@ -213,7 +213,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 						g.Expect(err).ToNot(HaveOccurred())
 						g.Expect(n2.State).To(Equal(aspen.Healthy))
 						g.Expect(n2.Heartbeat.Generation).To(Equal(uint32(1)))
-					})
+					}).Should(Succeed())
 
 					By("Closing the databases")
 					Expect(builder.Nodes[1].DB.Close()).To(Succeed())

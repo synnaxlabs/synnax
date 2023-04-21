@@ -19,6 +19,7 @@ import (
 	aspenv1 "github.com/synnaxlabs/aspen/transport/grpc/gen/proto/go/v1"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/x/address"
+	kvx "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/version"
 )
 
@@ -124,9 +125,11 @@ func translateOpForward(msg kv.Operation) (tMsg *aspenv1.Operation) {
 
 func translateOpBackward(msg *aspenv1.Operation) (tMsg kv.Operation) {
 	return kv.Operation{
-		Key:         msg.Key,
-		Value:       msg.Value,
-		Variant:     kv.Variant(msg.Variant),
+		Operation: kvx.Operation{
+			Key:     msg.Key,
+			Value:   msg.Value,
+			Variant: kvx.OperationVariant(msg.Variant),
+		},
 		Leaseholder: node.Key(msg.Leaseholder),
 		Version:     version.Counter(msg.Version),
 	}

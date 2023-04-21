@@ -44,7 +44,6 @@ func Open(
 	o.kv.Cluster = d.Cluster
 	db, err := kv.Open(ctx, o.kv)
 	d.DB = db
-	d.Observable = db
 	return d, err
 }
 

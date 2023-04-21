@@ -53,13 +53,13 @@ var _ = Describe("Create", Ordered, func() {
 	})
 	Describe("Multiple entries", func() {
 		It("Should create the entries in the db", func() {
-			var entries []entry
+			var e []entry
 			for i := 0; i < 10; i++ {
-				entries = append(entries, entry{ID: i, Data: "data"})
+				e = append(e, entry{ID: i, Data: "data"})
 			}
-			Expect(gorp.NewCreate[int, entry]().Entries(&entries).Exec(ctx, tx)).To(Succeed())
+			Expect(gorp.NewCreate[int, entry]().Entries(&e).Exec(ctx, tx)).To(Succeed())
 			var keys []int
-			for _, e := range entries {
+			for _, e := range e {
 				keys = append(keys, e.ID)
 			}
 			exists, err := gorp.NewRetrieve[int, entry]().

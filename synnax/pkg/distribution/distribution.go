@@ -53,7 +53,7 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 
 	gorpDB := d.Storage.Gorpify()
 
-	d.Ontology, err = ontology.Open(ctx, gorpDB)
+	d.Ontology, err = ontology.Open(ctx, ontology.Config{DB: gorpDB})
 	if err != nil {
 		return d, err
 	}

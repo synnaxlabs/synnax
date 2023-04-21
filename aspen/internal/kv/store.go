@@ -41,7 +41,7 @@ func (s storeState) toBatchRequest(ctx context.Context) TxRequest {
 type store xstore.Observable[storeState]
 
 func newStore() store {
-	return xstore.ObservableWrap[storeState](xstore.New(func(
+	return xstore.ObservableWrap(xstore.New(func(
 		m storeState) storeState {
 		return m.Copy()
 	}))

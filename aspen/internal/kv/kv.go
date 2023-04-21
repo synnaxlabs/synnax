@@ -73,6 +73,10 @@ func (d *DB) OpenTx() kvx.Tx {
 	}
 }
 
+func (d *DB) OnChange(f func(ctx context.Context, reader kvx.TxReader)) {
+	d.Observable.OnChange(f)
+}
+
 func (d *DB) apply(b []TxRequest) (err error) {
 	c := txCoordinator{}
 	for _, bd := range b {

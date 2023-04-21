@@ -245,7 +245,6 @@ type BatchSwitchSender[I, O freighter.Payload] struct {
 	Senders TargetedSender[O]
 	BatchSwitchFunc[I, O]
 	UnarySink[I]
-	TransientProvider
 }
 
 type TargetedSender[M freighter.Payload] interface {
@@ -275,15 +274,13 @@ o:
 			if !ok {
 				break o
 			}
-			if swErr := bsw.MaybeTransient(bsw.ApplySwitch(ctx, msg, addrMap)); swErr != nil {
-				err = swErr
-				break o
+			if err := bsw.ApplySwitch(ctx, msg, addrMap); err != nil {
+				return err
 			}
 			for target, batch := range addrMap {
 				sErr := bsw.Senders.Send(ctx, target, batch)
-				if sErr = bsw.MaybeTransient(sErr); sErr != nil {
-					err = sErr
-					break o
+				if sErr != nil {
+					return sErr
 				}
 			}
 		}

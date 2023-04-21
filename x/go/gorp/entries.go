@@ -107,30 +107,38 @@ func SetEntries[K Key, E Entry[K]](q query.Parameters, e *[]E) {
 func GetEntries[K Key, E Entry[K]](q query.Parameters) *Entries[K, E] {
 	re, ok := q.Get(entriesOptKey)
 	if !ok {
-		SetEntries[K, E](q, &[]E{})
+		SetEntries[K](q, &[]E{})
 		return GetEntries[K, E](q)
 	}
 	return re.(*Entries[K, E])
 }
 
-func prefix[K Key, E Entry[K]](
-	ctx context.Context,
-	noPrefix bool,
-	encoder binary.Encoder,
-) []byte {
-	if noPrefix {
+func prefix[K Key, E Entry[K]](ctx context.Context, opts Options) []byte {
+	if opts.noPrefix() {
 		return []byte{}
 	}
 	mName := reflect.TypeOf(*new(E)).Name()
-	return lo.Must(encoder.Encode(ctx, mName))
+	return lo.Must(opts.Encode(ctx, mName))
 }
 
-func prefixMatcher[K Key, E Entry[K]](encoder binary.Encoder) func(ctx context.Context, b []byte) bool {
+type lazyPrefix[K Key, E Entry[K]] struct {
+	_prefix []byte
+	Options
+}
+
+func (lp *lazyPrefix[K, E]) prefix(ctx context.Context) []byte {
+	if lp._prefix == nil {
+		lp._prefix = prefix[K, E](ctx, lp)
+	}
+	return lp._prefix
+}
+
+func prefixMatcher[K Key, E Entry[K]](opts Options) func(ctx context.Context, b []byte) bool {
 	var (
 		prefix_   []byte
 		getPrefix = func(ctx context.Context) []byte {
 			if prefix_ == nil {
-				prefix_ = prefix[K, E](ctx, false, encoder)
+				prefix_ = prefix[K, E](ctx, opts)
 			}
 			return prefix_
 		}

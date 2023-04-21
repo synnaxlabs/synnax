@@ -11,6 +11,8 @@ package ontology
 
 import (
 	"context"
+
+	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
 )
 
@@ -27,10 +29,8 @@ type Service interface {
 	// Observable is used by the ontology to subscribe to changes in the entities.
 	// This functionality is primarily used for search indexing. If the service's entities
 	// are static, use observe.Noop.
-	observe.Observable[[]Resource]
-	// Iterate iterates over all resources of this service. This is primarily used to
-	// build initially search indexes on ontology startup.
-	Iterate(context.Context, func(resource Resource) error) error
+	observe.Observable[iter.Next[Resource]]
+	OpenNext() iter.NextCloser[Resource]
 }
 
 type serviceRegistrar map[Type]Service

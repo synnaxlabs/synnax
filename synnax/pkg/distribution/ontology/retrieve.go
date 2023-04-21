@@ -162,11 +162,10 @@ func (r Retrieve) retrieveEntities(
 ) ([]Resource, error) {
 	entries := gorp.GetEntries[ID, Resource](clause.Params)
 	for j, res := range entries.All() {
-		data, err := r.registrar.retrieveResource(ctx, res.ID)
+		res, err := r.registrar.retrieveResource(ctx, res.ID)
 		if err != nil {
 			return nil, err
 		}
-		res.Entity = data
 		entries.Set(j, res)
 	}
 	return entries.All(), nil

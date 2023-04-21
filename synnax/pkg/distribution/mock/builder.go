@@ -51,7 +51,7 @@ func (b *Builder) New(ctx context.Context) distribution.Distribution {
 		writer: b.writerNet.New(core.Config.AdvertiseAddress, 1),
 	}
 
-	d.Ontology = lo.Must(ontology.Open(ctx, d.Storage.Gorpify()))
+	d.Ontology = lo.Must(ontology.Open(ctx, ontology.Config{DB: d.Storage.Gorpify()}))
 
 	nodeOntologySvc := &dcore.NodeOntologyService{
 		Cluster:  d.Cluster,

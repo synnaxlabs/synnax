@@ -10,8 +10,10 @@
 package schema
 
 import (
-	"github.com/cockroachdb/errors"
 	"strings"
+
+	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/x/gorp"
 )
 
 // ID is a unique identifier for a Resource. An example:
@@ -81,8 +83,17 @@ type Resource struct {
 	Data map[string]any `json:"data" msgpack:"data"`
 }
 
-// Type returns the type of the Resource.
-func (r Resource) Type() string { return r.Schema.Type }
+// BleveType returns the type of the entity for use search indexing,
+// implementing the bleve.bleveClassifier interface.
+func (r Resource) BleveType() string { return string(r.Schema.Type) }
+
+var _ gorp.Entry[ID] = Resource{}
+
+// GorpKey implements gorp.Entry.
+func (r Resource) GorpKey() ID { return r.ID }
+
+// SetOptions implements gorp.Entry.
+func (r Resource) SetOptions() []interface{} { return nil }
 
 // Get is a strongly-typed getter for a [Resource] field value. Returns true if the
 // value was found, false otherwise. Panics if the value is not of the asserted type (
@@ -113,9 +124,9 @@ func Set[V Value](D Resource, k string, v V) {
 	D.Data[k] = v
 }
 
-// NewEntity creates a new entity with the given schema and name and an empty set of
+// NewResource creates a new entity with the given schema and name and an empty set of
 // field data.
-func NewEntity(schema *Schema, name string) Resource {
+func NewResource(schema *Schema, name string) Resource {
 	return Resource{
 		Schema: schema,
 		Name:   name,

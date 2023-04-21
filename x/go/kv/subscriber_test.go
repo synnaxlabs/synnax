@@ -10,12 +10,14 @@
 package kv_test
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/observe"
-	"time"
 )
 
 type dataStruct struct {
@@ -25,24 +27,24 @@ type dataStruct struct {
 var _ = Describe("Flush", func() {
 	It("Should flush the observable contents", func() {
 		o := observe.New[dataStruct]()
-		kv := memkv.New()
+		db := memkv.New()
 		ecd := &binary.GobEncoderDecoder{}
-		flush := &kv.FlushSubscriber[dataStruct]{
+		flush := &kv.Subscriber[dataStruct]{
 			Key:         []byte("key"),
-			Store:       kv,
+			Store:       db,
 			MinInterval: 5 * time.Millisecond,
 			Encoder:     ecd,
 		}
 		o.OnChange(flush.Flush)
 
-		o.Notify(dataStruct{Value: []byte("hello")})
-		o.Notify(dataStruct{Value: []byte("world")})
+		o.Notify(ctx, dataStruct{Value: []byte("hello")})
+		o.Notify(ctx, dataStruct{Value: []byte("world")})
 
 		Eventually(func(g Gomega) {
-			b, err := kv.Get([]byte("key"))
+			b, err := db.Get(ctx, []byte("key"))
 			g.Expect(err).ToNot(HaveOccurred())
 			var ds dataStruct
-			g.Expect(ecd.Decode(b, &ds)).To(Succeed())
+			g.Expect(ecd.Decode(ctx, b, &ds)).To(Succeed())
 			g.Expect(ds.Value).To(Equal([]byte("hello")))
 		}).Should(Succeed())
 	})

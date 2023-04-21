@@ -238,15 +238,19 @@ var _ = Describe("txn", func() {
 			kv, err := builder.New(ctx, kv.Config{}, cluster.Config{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(kv).ToNot(BeNil())
-			var v []byte
-			kv.OnChange(func(ctx context.Context, pairs []kvx.Operation) {
-				v = pairs[0].Value
+			var (
+				op kvx.Operation
+				ok bool
+			)
+			kv.OnChange(func(ctx context.Context, r kvx.TxReader) {
+				op, ok, err = r.Next(ctx)
 			})
-			Expect(err).ToNot(HaveOccurred())
 			Expect(kv.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
-			Eventually(func() []byte {
-				return v
-			}).Should(Equal([]byte("value")))
+			Eventually(func(g Gomega) {
+				g.Expect(ok).To(BeTrue())
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(op.Value).To(Equal([]byte("value")))
+			}).Should(Succeed())
 		})
 
 	})
