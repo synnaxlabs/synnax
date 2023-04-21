@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/x/config"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
-	"go.uber.org/zap"
 	"net/http"
 	"sync"
 )
@@ -41,7 +40,6 @@ var _ = Describe("HttpRedirect", func() {
 				Insecure: config.Bool(false),
 				TLS:      prov.TLS(),
 			},
-			Logger: zap.NewNop(),
 			Branches: []server.Branch{
 				server.NewHTTPRedirectBranch(),
 				server.NewSimpleHTTPBranch(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

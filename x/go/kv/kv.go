@@ -7,24 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package kv defines a general interface for a key-value store that provides support for get/set/delete operations
-// as well as basic read-iteration. This package should be used as a boundary for separating an application from a
-// specific storage implementation.
+// Package kv defines a general interface for a key-value store that provides support
+// for get/set/delete operations as well as basic read-iteration. This package should
+// be used as a boundary for separating an application from a specific storage implementation.
 //
-// For a general implementation of DB, see the pebblekv package.
-// For an in-memory implementation of DB, see the memkv package.
+// It also provides additional utilites that leverage these interfaces to extend a key-value
+// store's functilonality.
 package kv
 
 import (
 	"context"
-	"github.com/cockroachdb/pebble"
-	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/x/observe"
 	"io"
+
+	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/x/iter"
+	"github.com/synnaxlabs/x/observe"
 )
 
-// NotFound is returned when a key is not found in the DB store.
-var NotFound = pebble.ErrNotFound
+// NotFound is returned when a key is not found in the DB.
+var NotFound = errors.New("[kv] - not found")
 
 // Reader is a readable key-value store.
 type Reader interface {
@@ -34,9 +36,7 @@ type Reader interface {
 	OpenIterator(opts IteratorOptions) Iterator
 }
 
-// Writer is an ordered collection of key-value operations on the DB. Writer implements
-// the Reader interface, and will read key-value pairs from both the Writer and underlying DB.
-// A batch must be committed for its changes to be persisted.
+// Writer as a writable key-value store.
 type Writer interface {
 	// Set sets the value for the given key. It is safe to modify the contents of key
 	// and value after Set returns.
@@ -46,19 +46,21 @@ type Writer interface {
 	Delete(ctx context.Context, key []byte, opts ...interface{}) error
 }
 
+// ReadWriter is a read-writeable key-value store.
 type ReadWriter interface {
 	Reader
 	Writer
 }
 
-type TxnFactory interface {
+/** Atomic is a key-value store that supports executing atomic transations */
+type Atomic interface {
 	// OpenTx opens a new transaction on the DB.
 	OpenTx() Tx
 }
 
-// Tx is a transaction on the DB.Tx implements the Reader interface, and will read
-// key-value pairs from both the Tx and underlying DB. A transaction must be committed
-// for its changes to be persisted.
+// Tx is a transaction of ordered key-value operations on a DB that are committed atomically.
+// Tx implements the Reader interface,and will read key-value pairs from both the Tx and
+// underlying DB. A transaction must be committed for its changes to be persisted.
 type Tx interface {
 	ReadWriter
 	// NewReader returns an TxReader that can be used to iterate over the operations
@@ -77,7 +79,7 @@ type DB interface {
 	// Tx allows the DB to behave as a transaction, although all operations are directly
 	// executed without atomic guarantees.
 	Tx
-	TxnFactory
+	Atomic
 	Observable
 	alamos.ReportProvider
 	io.Closer
@@ -104,12 +106,8 @@ type Operation struct {
 	Value []byte
 }
 
-// TxReader is used to read the operations in a Tx.
-type TxReader interface {
-	// Next returns the next operation in the reader. If there are no more operations,
-	// Next returns false.
-	Next() (Operation, bool)
-}
+// TxReader is used to read the operations in a transaction.
+type TxReader = iter.Next[Operation]
 
 // Observable allows the caller to observe changes to key-value pairs in the DB.
 type Observable = observe.Observable[TxReader]

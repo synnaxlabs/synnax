@@ -27,7 +27,7 @@ var (
 )
 
 type builtinService struct {
-	observe.Noop[[]Resource]
+	observe.Noop[iter.Next[Resource]]
 }
 
 var _ Service = (*builtinService)(nil)
@@ -51,6 +51,6 @@ func (b *builtinService) RetrieveResource(_ context.Context, key string) (Resour
 }
 
 // Iterate implements Service.
-func (b *builtinService) Iterate(f func(Resource) error) error {
-	return iter.ForEachUntilError([]Resource{rootResource}, f)
+func (b *builtinService) OpenNext() iter.NextCloser[Resource] {
+	return iter.NopNextCloser[Resource]{Wrap: iter.All([]Resource{rootResource})}
 }

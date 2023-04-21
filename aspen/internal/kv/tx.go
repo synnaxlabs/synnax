@@ -151,7 +151,7 @@ func (tr TxRequest) logFields() []zap.Field {
 	}
 }
 
-func (tr TxRequest) commitTo(db kvx.TxnFactory) (err error) {
+func (tr TxRequest) commitTo(db kvx.Atomic) (err error) {
 	b := db.OpenTx()
 	defer func() {
 		tr.Operations = nil
@@ -238,11 +238,11 @@ type txReader struct {
 
 var _ kvx.TxReader = (*txReader)(nil)
 
-func (r *txReader) Next() (kvx.Operation, bool) {
+func (r *txReader) Next(_ context.Context) (kvx.Operation, bool, error) {
 	if r.curr >= len(r.ops) {
-		return kvx.Operation{}, false
+		return kvx.Operation{}, false, nil
 	}
 	op := r.ops[r.curr]
 	r.curr++
-	return op.Operation, true
+	return op.Operation, true, nil
 }

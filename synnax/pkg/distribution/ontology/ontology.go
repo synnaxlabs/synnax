@@ -26,12 +26,14 @@ package ontology
 
 import (
 	"context"
+
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
@@ -149,18 +151,26 @@ func (o *Ontology) RegisterService(s Service) {
 		return
 	}
 
-	// Fork a new goroutine to index existing resource.
-	o.search.Go.Go(func(ctx context.Context) error {
-		return s.Iterate(func(r Resource) error {
-			return o.search.Index.Index(ctx, []Resource{r})
-		})
-	}, signal.WithKeyf("startup-index-%s", s.Schema().Type))
+	o.search.Go.Go(func(ctx context.Context) (err error) {
+		i := s.OpenNext()
+		defer func() { err = i.Close() }()
+		var resources []Resource
+		resources, err = iter.ExhaustNext[Resource](i)
+		if err == nil {
+			err = o.search.Index.Index(resources)
+		}
+		return err
+	})
 
 	// Set up a change handler to index new resources.
-	s.OnChange(func(ctx context.Context, r []Resource) {
-		if err := o.search.Index.Index(ctx, r); err != nil {
+	s.OnChange(func(ctx context.Context, i iter.Next[Resource]) {
+		resources, err := iter.ExhaustNext(i)
+		if err == nil {
+			err = o.search.Index.Index(resources)
+		}
+		if err != nil {
 			o.L.Error("failed to index resource",
-				zap.String("type", s.Schema().Type),
+				zap.String("type", string(s.Schema().Type)),
 				zap.Error(err),
 			)
 		}

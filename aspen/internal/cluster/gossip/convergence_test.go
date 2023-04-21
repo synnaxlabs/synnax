@@ -83,8 +83,8 @@ var _ = Describe("Convergence", func() {
 			for _, n := range group {
 				subNodes := rand.SubMap(group.WhereNot(n.Key), values.initialViewCount)
 				subNodes[n.Key] = n
-				s := store.New()
-				s.SetState(store.State{Nodes: subNodes, HostKey: n.Key})
+				s := store.New(ctx)
+				s.SetState(ctx, store.State{Nodes: subNodes, HostKey: n.Key})
 				cfg := configs[n.Key]
 				cfg.Store = s
 				g, err := gossip.New(cfg)

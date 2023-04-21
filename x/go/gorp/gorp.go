@@ -19,20 +19,20 @@ import (
 
 // Wrap wraps the provided key-value database in a DB.
 func Wrap(kv kv.DB, opts ...Option) *DB {
-	return &DB{DB: kv, opts: newOptions(opts...)}
+	return &DB{DB: kv, options: newOptions(opts...)}
 }
 
 // DB is a wrapper around a kv.DB that queries can be executed against. DB implements
 // the Writer interface, so it can be provided to Params.set.
 type DB struct {
 	kv.DB
-	opts options
+	options
 }
 
 var _ Tx = (*DB)(nil)
 
 // OpenTx begins a new Tx against the DB.
-func (db *DB) OpenTx() Tx { return tx{Tx: db.DB.OpenTx(), opts: db.opts} }
+func (db *DB) OpenTx() Tx { return tx{Tx: db.DB.OpenTx(), options: db.options} }
 
 func (db *DB) WithTx(ctx context.Context, f func(tx Tx) error) (err error) {
 	txn := db.OpenTx()
@@ -47,30 +47,40 @@ func (db *DB) WithTx(ctx context.Context, f func(tx Tx) error) (err error) {
 	return
 }
 
-func (db *DB) OverrideTx(override Tx) Tx { return lo.Ternary[Tx](override != nil, override, db) }
+func (db *DB) OverrideTx(override Tx) Tx { return OverrideTx(override, db) }
 
-func OverrideTx(base Tx, override Tx) Tx { return lo.Ternary[Tx](override != nil, override, base) }
-
-func (db *DB) encoder() binary.Encoder { return db.opts.encoder }
-
-func (db *DB) decoder() binary.Decoder { return db.opts.decoder }
-
-func (db *DB) noPrefix() bool { return db.opts.noPrefix }
+func OverrideTx(base Tx, override Tx) Tx {
+	return lo.Ternary(override != nil, override, base)
+}
 
 type Tx interface {
 	kv.Tx
-	encoder() binary.Encoder
-	decoder() binary.Decoder
+	Options
+}
+
+type Options interface {
+	binary.EncoderDecoder
 	noPrefix() bool
+}
+
+type BaseReader interface {
+	kv.Reader
+	Options
+}
+
+type BaseWriter interface {
+	kv.Writer
+	Options
+}
+
+type BaseObservable interface {
+	kv.Observable
+	Options
 }
 
 type tx struct {
 	kv.Tx
-	opts options
+	options
 }
 
-func (tx tx) encoder() binary.Encoder { return tx.opts.encoder }
-
-func (tx tx) decoder() binary.Decoder { return tx.opts.decoder }
-
-func (tx tx) noPrefix() bool { return tx.opts.noPrefix }
+var _ Tx = (*tx)(nil)

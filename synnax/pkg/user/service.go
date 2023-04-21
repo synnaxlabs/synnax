@@ -29,6 +29,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	}
 }
 
+// Retreve retrieves a User by its key.
 func (s *Service) Retrieve(ctx context.Context, key uuid.UUID) (User, error) {
 	var u User
 	return u, gorp.NewRetrieve[uuid.UUID, User]().
@@ -37,6 +38,7 @@ func (s *Service) Retrieve(ctx context.Context, key uuid.UUID) (User, error) {
 		Exec(ctx, s.DB)
 }
 
+// RetrieveByUsername retrieves a User by its username.
 func (s *Service) RetrieveByUsername(ctx context.Context, username string) (User, error) {
 	var u User
 	return u, gorp.NewRetrieve[uuid.UUID, User]().
@@ -45,6 +47,7 @@ func (s *Service) RetrieveByUsername(ctx context.Context, username string) (User
 		Exec(ctx, s.DB)
 }
 
+// UsernameExists checks if a user with the given username exists.
 func (s *Service) UsernameExists(ctx context.Context, username string) (bool, error) {
 	var u User
 	return gorp.NewRetrieve[uuid.UUID, User]().

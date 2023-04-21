@@ -44,7 +44,6 @@ const (
 type DB struct {
 	Cluster Cluster
 	kvx.DB
-	kvx.Observable
 	transportShutdown io.Closer
 }
 

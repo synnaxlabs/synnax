@@ -23,7 +23,7 @@ var _ = Describe("storage", func() {
 			b := mock.NewBuilder(cfg...)
 			store := b.New()
 			Expect(store).NotTo(BeNil())
-			Expect(store.KV.Set([]byte("foo"), []byte("bar"))).To(Succeed())
+			Expect(store.KV.Set(ctx, []byte("foo"), []byte("bar"))).To(Succeed())
 			Expect(b.Close()).To(Succeed())
 			Expect(b.Cleanup()).To(Succeed())
 		},

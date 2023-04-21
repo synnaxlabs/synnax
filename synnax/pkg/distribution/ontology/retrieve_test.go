@@ -29,7 +29,7 @@ var _ = Describe("retrieveResource", func() {
 				Entry(&r).
 				Exec(ctx, tx),
 			).To(Succeed())
-			v, ok := schema.Get[string](r.Entity, "key")
+			v, ok := schema.Get[string](r, "key")
 			Expect(ok).To(BeTrue())
 			Expect(v).To(Equal("A"))
 		})
@@ -43,16 +43,17 @@ var _ = Describe("retrieveResource", func() {
 				Entries(&r).
 				Exec(ctx, nil),
 			).To(Succeed())
-			v, ok := schema.Get[string](r[0].Entity, "key")
+			v, ok := schema.Get[string](r[0], "key")
 			Expect(ok).To(BeTrue())
 			Expect(v).To(Equal("A"))
-			v, ok = schema.Get[string](r[1].Entity, "key")
+			v, ok = schema.Get[string](r[1], "key")
 			Expect(ok).To(BeTrue())
 			Expect(v).To(Equal("B"))
 		})
 	})
 	Describe("Multi Clause", func() {
 		Describe("Parental Traversal", func() {
+
 			It("Should retrieve the parent of a resource", func() {
 				a := newEmptyID("A")
 				b := newEmptyID("B")
@@ -66,10 +67,11 @@ var _ = Describe("retrieveResource", func() {
 					Entry(&r).
 					Exec(ctx, nil),
 				).To(Succeed())
-				v, ok := schema.Get[string](r.Entity, "key")
+				v, ok := schema.Get[string](r, "key")
 				Expect(ok).To(BeTrue())
 				Expect(v).To(Equal("B"))
 			})
+
 			It("Should retrieve the parents of multiple resources", func() {
 				a := newEmptyID("A")
 				b := newEmptyID("B")
@@ -86,13 +88,14 @@ var _ = Describe("retrieveResource", func() {
 					Entries(&r).
 					Exec(ctx, tx),
 				).To(Succeed())
-				v, ok := schema.Get[string](r[0].Entity, "key")
+				v, ok := schema.Get[string](r[0], "key")
 				Expect(ok).To(BeTrue())
 				Expect(v).To(Equal("B"))
-				v, ok = schema.Get[string](r[1].Entity, "key")
+				v, ok = schema.Get[string](r[1], "key")
 				Expect(ok).To(BeTrue())
 				Expect(v).To(Equal("C"))
 			})
+
 			It("Should retrieve the grandparents of a resource", func() {
 				a := newEmptyID("A")
 				b := newEmptyID("B")
@@ -110,10 +113,11 @@ var _ = Describe("retrieveResource", func() {
 					Entry(&r).
 					Exec(ctx, tx),
 				).To(Succeed())
-				v, ok := schema.Get[string](r.Entity, "key")
+				v, ok := schema.Get[string](r, "key")
 				Expect(ok).To(BeTrue())
 				Expect(v).To(Equal("C"))
 			})
+
 		})
 	})
 })

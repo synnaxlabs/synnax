@@ -46,7 +46,7 @@ func (s *Index) Register(sch schema.Schema) {
 	for k, f := range sch.Fields {
 		dm.AddFieldMappingsAt(k, fieldMappings[f.Type]())
 	}
-	s.mapping.AddDocumentMapping(sch.Type, dm)
+	s.mapping.AddDocumentMapping(string(sch.Type), dm)
 }
 
 func (s *Index) Search(term string) ([]schema.ID, error) {

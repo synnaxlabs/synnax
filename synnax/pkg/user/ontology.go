@@ -11,9 +11,12 @@ package user
 
 import (
 	"context"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/iter"
 )
 
 const ontologyType ontology.Type = "user"
@@ -32,22 +35,41 @@ var _schema = &ontology.Schema{
 
 var _ ontology.Service = (*Service)(nil)
 
-// Schema implements the ontology.Service interface.
+// Schema implements ontology.Service.
 func (s *Service) Schema() *schema.Schema { return _schema }
 
-// RetrieveResource implements the ontology.Service interface.
+// RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(ctx context.Context, key string) (schema.Resource, error) {
 	uuidKey, err := uuid.Parse(key)
 	if err != nil {
 		return schema.Resource{}, err
 	}
 	u, err := s.Retrieve(ctx, uuidKey)
-	return newEntity(u), err
+	return newResource(u), err
 }
 
-func newEntity(u User) schema.Resource {
-	e := schema.NewEntity(_schema, u.Username)
-	schema.Set[uuid.UUID](e, "key", u.Key)
-	schema.Set[string](e, "username", u.Username)
+// OnChange implements ontology.Service.
+func (s *Service) OnChange(f func(context.Context, iter.Next[schema.Resource])) {
+	gorp.Observe[uuid.UUID, User](s.DB).OnChange(func(ctx context.Context, reader gorp.TxReader[uuid.UUID, User]) {
+		f(ctx, newNextCloser(iter.NopNextCloser[User]{Wrap: reader}))
+	})
+}
+
+// OpenNext implements ontology.Service.
+func (s *Service) OpenNext() iter.NextCloser[schema.Resource] {
+	return newNextCloser(gorp.NewReader[uuid.UUID, User](s.DB).OpenNext())
+}
+
+func newNextCloser(i iter.NextCloser[User]) iter.NextCloser[schema.Resource] {
+	return iter.NextCloserTranslator[User, schema.Resource]{
+		Wrap:      i,
+		Translate: newResource,
+	}
+}
+
+func newResource(u User) schema.Resource {
+	e := schema.NewResource(_schema, u.Username)
+	schema.Set(e, "key", u.Key)
+	schema.Set(e, "username", u.Username)
 	return e
 }

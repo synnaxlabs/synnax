@@ -202,8 +202,8 @@ func (c *cluster) Close() error { return c.shutdown.Close() }
 func (c *cluster) ClusterObservable() observe.Observable[State] { return c.Store }
 
 func (c *cluster) gossipInitialState(ctx context.Context) error {
-	nextAddr := iter.Endlessly(c.Pledge.Peers)
-	for peerAddr := nextAddr(); peerAddr != ""; peerAddr = nextAddr() {
+	i := iter.Endlessly(c.Pledge.Peers)
+	for peerAddr, _, _ := i.Next(ctx); peerAddr != ""; peerAddr, _, _ = i.Next(ctx) {
 		if err := c.gossip.GossipOnceWith(ctx, peerAddr); err != nil {
 			if ctx.Err() != nil {
 				return ctx.Err()

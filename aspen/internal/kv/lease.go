@@ -38,7 +38,7 @@ func (la *leaseAllocator) allocate(ctx context.Context, op Operation) (Operation
 			// we return an error.
 			return op, ErrLeaseNotTransferable
 		}
-	} else if err == kvx.NotFound && op.Variant == Set {
+	} else if errors.Is(err, kvx.NotFound) && op.Variant == kvx.SetOperation {
 		if op.Leaseholder == DefaultLeaseholder {
 			// If we can't find the Leaseholder, and the op doesn't have a Leaseholder assigned,
 			// we assign the leaseAlloc to the cluster host.
