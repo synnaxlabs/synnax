@@ -76,7 +76,7 @@ func (s *service) OnChange(f func(context.Context, iter.Next[schema.Resource])) 
 
 // OpenNext implements ontology.service.
 func (s *service) OpenNext() iter.NextCloser[schema.Resource] {
-	return newNextCloser(gorp.NewReader[Key, Channel](s.DB).OpenNext())
+	return newNextCloser(gorp.WrapReader[Key, Channel](s.DB).OpenNext())
 }
 
 func newNextCloser(i iter.NextCloser[Channel]) iter.NextCloser[schema.Resource] {

@@ -30,6 +30,6 @@ func (c Create[K, E]) Entry(entry *E) Create[K, E] { SetEntry[K](c.params, entry
 
 // Exec executes the Params against the provided DB. It returns any errors encountered during execution.
 func (c Create[K, E]) Exec(ctx context.Context, tx Tx) error {
-	entries, w := GetEntries[K, E](c.params), NewWriter[K, E](tx)
+	entries, w := GetEntries[K, E](c.params), WrapWriter[K, E](tx)
 	return w.Set(ctx, entries.All()...)
 }

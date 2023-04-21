@@ -18,14 +18,17 @@ import (
 // queries directly against the DB. To open an isolated transaction against the DB, use
 // DB.BeginWrite.
 type Writer[K Key, E Entry[K]] struct {
-	Tx
+	BaseWriter
 	lazyPrefix[K, E]
 }
 
-func NewWriter[K Key, E Entry[K]](tx Tx) *Writer[K, E] {
-	return &Writer[K, E]{Tx: tx}
+// WrapWriter wraps the given key-value writer to provide a strongly
+// typed interface for writing entries to the DB.
+func WrapWriter[K Key, E Entry[K]](base BaseWriter) *Writer[K, E] {
+	return &Writer[K, E]{BaseWriter: base}
 }
 
+// Set writes the provided entries to the DB.
 func (w *Writer[K, E]) Set(ctx context.Context, entries ...E) error {
 	for _, entry := range entries {
 		if err := w.set(ctx, entry); err != nil {
@@ -35,6 +38,7 @@ func (w *Writer[K, E]) Set(ctx context.Context, entries ...E) error {
 	return nil
 }
 
+// Delete deletes the provided keys from the DB.
 func (w *Writer[K, E]) Delete(ctx context.Context, keys ...K) error {
 	for _, key := range keys {
 		if err := w.delete(ctx, key); err != nil {
@@ -56,7 +60,7 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 	// NOTE: We need to be careful with this operation in the future.
 	// Because we aren't copying prefix, we're modifying the underlying slice.
 	prefixedKey := append(w.prefix(ctx), key...)
-	if err = w.Tx.Set(ctx, prefixedKey, data, entry.SetOptions()...); err != nil {
+	if err = w.BaseWriter.Set(ctx, prefixedKey, data, entry.SetOptions()...); err != nil {
 		return err
 	}
 	return nil
@@ -69,5 +73,5 @@ func (w *Writer[K, E]) delete(ctx context.Context, key K) error {
 	}
 	// NOTE: We need to be careful with this operation in the future.
 	// Because we aren't copying prefix, we're modifying the underlying slice.
-	return w.Tx.Delete(ctx, append(w.prefix(ctx), data...))
+	return w.BaseWriter.Delete(ctx, append(w.prefix(ctx), data...))
 }

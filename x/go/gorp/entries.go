@@ -18,11 +18,12 @@ import (
 	"reflect"
 )
 
+// Key is a unique key for an entry of a particular type.
 type Key any
 
-// Entry is a go type that can be queried against a DB.
-// All go types must implement the Entry interface so that they can be
-// stored. Entry must be serializable by the Encodings and decoder provided to the DB.
+// Entry is a go type that can be queried against a DB. All go types must implement the Entry
+// interface so that they can be stored. Entry must be serializable by the Encodings and decoder
+// provided to the WithEncoderDecoder option when instantiating a DB.
 type Entry[K Key] interface {
 	// GorpKey returns a unique key for the entry. gorp.DB will not raise
 	// an error if the key is a duplicate. Key must be serializable by encoder and decoder.
@@ -113,17 +114,13 @@ func GetEntries[K Key, E Entry[K]](q query.Parameters) *Entries[K, E] {
 	return re.(*Entries[K, E])
 }
 
-func prefix[K Key, E Entry[K]](ctx context.Context, opts Options) []byte {
-	if opts.noPrefix() {
-		return []byte{}
-	}
-	mName := reflect.TypeOf(*new(E)).Name()
-	return lo.Must(opts.Encode(ctx, mName))
+func prefix[K Key, E Entry[K]](ctx context.Context, encoder binary.Encoder) []byte {
+	return lo.Must(encoder.Encode(ctx, reflect.TypeOf(*new(E)).Name()))
 }
 
 type lazyPrefix[K Key, E Entry[K]] struct {
 	_prefix []byte
-	Options
+	Tools
 }
 
 func (lp *lazyPrefix[K, E]) prefix(ctx context.Context) []byte {
@@ -133,7 +130,7 @@ func (lp *lazyPrefix[K, E]) prefix(ctx context.Context) []byte {
 	return lp._prefix
 }
 
-func prefixMatcher[K Key, E Entry[K]](opts Options) func(ctx context.Context, b []byte) bool {
+func prefixMatcher[K Key, E Entry[K]](opts Tools) func(ctx context.Context, b []byte) bool {
 	var (
 		prefix_   []byte
 		getPrefix = func(ctx context.Context) []byte {

@@ -12,6 +12,7 @@ package gorp
 
 import (
 	"context"
+
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/query"
@@ -28,7 +29,7 @@ func NewRetrieve[K Key, E Entry[K]]() Retrieve[K, E] {
 // Where adds the provided filter to the query. If filtering by the key of the Entry,
 // use the far more efficient WhereKeys method instead.
 func (r Retrieve[K, E]) Where(filter func(*E) bool) Retrieve[K, E] {
-	addFilter[K, E](r.Params, filter)
+	addFilter[K](r.Params, filter)
 	return r
 }
 
@@ -44,7 +45,7 @@ func (r Retrieve[K, E]) WhereKeys(keys ...K) Retrieve[K, E] {
 // Entries binds a slice that the Params will fill results into. Repeated calls to Entry
 // or Entries will override all previous calls to Entries or Entry.
 func (r Retrieve[K, E]) Entries(entries *[]E) Retrieve[K, E] {
-	SetEntries[K, E](r.Params, entries)
+	SetEntries[K](r.Params, entries)
 	return r
 }
 
@@ -52,7 +53,7 @@ func (r Retrieve[K, E]) Entries(entries *[]E) Retrieve[K, E] {
 // or Entries will override All previous calls to Entries or Entry. If  multiple results
 // are returned by the query, entry will be set to the last result.
 func (r Retrieve[K, E]) Entry(entry *E) Retrieve[K, E] {
-	SetEntry[K, E](r.Params, entry)
+	SetEntry[K](r.Params, entry)
 	return r
 }
 
@@ -137,14 +138,14 @@ func getWhereKeys[K Key](q query.Parameters) (whereKeys[K], bool) {
 func checkExists[K Key, E Entry[K]](ctx context.Context, q query.Parameters, reader Tx) (bool, error) {
 	if keys, ok := getWhereKeys[K](q); ok {
 		entries := make([]E, 0, len(keys))
-		SetEntries[K, E](q, &entries)
+		SetEntries[K](q, &entries)
 		if err := keysRetrieve[K, E](ctx, q, reader); err != nil && !errors.Is(err, query.NotFound) {
 			return false, err
 		}
 		return len(entries) == len(keys), nil
 	}
 	entries := make([]E, 0, 1)
-	SetEntries[K, E](q, &entries)
+	SetEntries[K](q, &entries)
 	if err := filterRetrieve[K, E](ctx, q, reader); err != nil && !errors.Is(err, query.NotFound) {
 		return false, err
 	}
@@ -160,7 +161,7 @@ func keysRetrieve[K Key, E Entry[K]](
 		keys, _ = getWhereKeys[K](q)
 		f       = getFilters[K, E](q)
 		entries = GetEntries[K, E](q)
-		e, err  = NewReader[K, E](tx).GetMany(ctx, keys)
+		e, err  = WrapReader[K, E](tx).GetMany(ctx, keys)
 	)
 	entries.Replace(lo.Filter(e, func(v E, _ int) bool { return f.exec(&v) }))
 	return err
@@ -174,13 +175,13 @@ func filterRetrieve[K Key, E Entry[K]](
 	var (
 		f       = getFilters[K, E](q)
 		entries = GetEntries[K, E](q)
-		iter    = NewReader[K, E](tx).OpenIterator()
+		i       = WrapReader[K, E](tx).OpenIterator()
 	)
-	for iter.First(); iter.Valid(); iter.Next() {
-		v := iter.Value(ctx)
+	for i.First(); i.Valid(); i.Next() {
+		v := i.Value(ctx)
 		if f.exec(v) {
 			entries.Add(*v)
 		}
 	}
-	return iter.Close()
+	return i.Close()
 }

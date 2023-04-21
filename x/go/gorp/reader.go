@@ -21,20 +21,31 @@ import (
 )
 
 type Reader[K Key, E Entry[K]] struct {
-	lazyPrefix[K, E]
+	*lazyPrefix[K, E]
 	BaseReader
 }
 
-func NewReader[K Key, E Entry[K]](base BaseReader) *Reader[K, E] {
+// WrapReader wraps the given key-value reader to provide a strongly
+// typed interface for writing entries to the DB. It's important to note
+// that the Reader only access to the entries provided as the type arguments
+// to this function. The returned reader is safe for concurrent use.
+// The following example reads from a DB:
+//
+//	r := gor.WrapReader[MyKey, MyEntry](db)
+//
+// The next example reads from a Tx:
+//
+//	r := gor.WrapReader[MyKey, MyEntry](tx)
+func WrapReader[K Key, E Entry[K]](base BaseReader) *Reader[K, E] {
 	return &Reader[K, E]{
 		BaseReader: base,
-		lazyPrefix: lazyPrefix[K, E]{Options: base},
+		lazyPrefix: &lazyPrefix[K, E]{Tools: base},
 	}
 }
 
 // Get retrieves a single entry from the database. If the entry does not exist,
 // query.NotFound is returned.
-func (r *Reader[K, E]) Get(ctx context.Context, key K) (e E, err error) {
+func (r Reader[K, E]) Get(ctx context.Context, key K) (e E, err error) {
 	bKey, err := encodeKey(ctx, r, r.prefix(ctx), key)
 	if err != nil {
 		return e, err
@@ -48,7 +59,7 @@ func (r *Reader[K, E]) Get(ctx context.Context, key K) (e E, err error) {
 
 // GetMany retrieves multiple entries from the database. Entries that are not
 // found are simply omitted from the returned slice.
-func (r *Reader[K, E]) GetMany(ctx context.Context, keys []K) ([]E, error) {
+func (r Reader[K, E]) GetMany(ctx context.Context, keys []K) ([]E, error) {
 	var (
 		err_    error
 		entries = make([]E, 0, len(keys))
@@ -64,15 +75,18 @@ func (r *Reader[K, E]) GetMany(ctx context.Context, keys []K) ([]E, error) {
 	return entries, err_
 }
 
-func (r *Reader[K, E]) OpenIterator() *Iterator[E] {
+// OpenIterator opens a new Iterator over the entries in the Reader.
+func (r Reader[K, E]) OpenIterator() *Iterator[E] {
 	return WrapIterator[E](r.BaseReader.OpenIterator(kv.IterPrefix(
 		r.prefix(context.TODO()))),
 		r.BaseReader,
 	)
 }
 
-func (r *Reader[K, E]) OpenNext() iter.NextCloser[E] {
-	return &Next[E]{Iterator: r.OpenIterator()}
+// OpenNext opens a new Next that can be used to iterate over
+// the entries in the reader in sequential order.
+func (r Reader[K, E]) OpenNext() iter.NextCloser[E] {
+	return &next[E]{Iterator: r.OpenIterator()}
 }
 
 // Iterator provides a simple wrapper around a kv.Iterator that decodes a byte-value
@@ -104,24 +118,15 @@ func (k *Iterator[E]) Value(ctx context.Context) (entry *E) {
 	return k.value
 }
 
+// Error returns the error accumulated by the Iterator.
 func (k *Iterator[E]) Error() error {
 	return lo.Ternary(k.error != nil, k.error, k.Iterator.Error())
 }
 
+// Valid returns true if the current iterator Value is pointing
+// to a valid entry and the iterator has not accumulated an error.
 func (k *Iterator[E]) Valid() bool {
 	return lo.Ternary(k.error != nil, false, k.Iterator.Valid())
-}
-
-type Next[E any] struct{ *Iterator[E] }
-
-var _ iter.NextCloser[any] = (*Next[any])(nil)
-
-func (n Next[E]) Next(ctx context.Context) (e E, ok bool, err error) {
-	ok = n.Iterator.Next()
-	if !ok {
-		return e, ok, n.Iterator.Error()
-	}
-	return *n.Iterator.Value(ctx), ok, n.Iterator.Error()
 }
 
 type TxReader[K Key, E Entry[K]] interface{ iter.Next[E] }
@@ -132,7 +137,7 @@ type txReader[K Key, E Entry[K]] struct {
 	prefixMatcher func(ctx context.Context, key []byte) bool
 }
 
-func WrapTxReader[K Key, E Entry[K]](reader kv.TxReader, opts Options) TxReader[K, E] {
+func WrapTxReader[K Key, E Entry[K]](reader kv.TxReader, opts Tools) TxReader[K, E] {
 	return txReader[K, E]{
 		TxReader:      reader,
 		decoder:       opts,
@@ -147,4 +152,17 @@ func (t txReader[K, E]) Next(ctx context.Context) (e E, ok bool, err error) {
 	}
 	t.decoder.Decode(ctx, op.Value, &e)
 	return e, ok, err
+}
+
+type next[E any] struct{ *Iterator[E] }
+
+var _ iter.NextCloser[any] = (*next[any])(nil)
+
+// Next implements the iter.Next interface.
+func (n next[E]) Next(ctx context.Context) (e E, ok bool, err error) {
+	ok = n.Iterator.Next()
+	if !ok {
+		return e, ok, n.Iterator.Error()
+	}
+	return *n.Iterator.Value(ctx), ok, n.Iterator.Error()
 }

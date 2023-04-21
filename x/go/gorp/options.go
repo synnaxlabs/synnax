@@ -14,15 +14,6 @@ import (
 	"github.com/synnaxlabs/x/override"
 )
 
-type options struct {
-	binary.EncoderDecoder
-	_noPrefix bool
-}
-
-var _ Options = options{}
-
-func (o options) noPrefix() bool { return o._noPrefix }
-
 type Option func(o *options)
 
 // WithEncoderDecoder sets the encoder (and decoder) used to serialize entries. It's
@@ -32,11 +23,11 @@ func WithEncoderDecoder(ecd binary.EncoderDecoder) Option {
 	return func(opts *options) { opts.EncoderDecoder = ecd }
 }
 
-// WithNoPrefix disables the use of type prefixes for different entries in the
-// database. This should be used with caution, as it may result in collisions.
-func WithNoPrefix() Option {
-	return func(opts *options) { opts._noPrefix = true }
+type options struct {
+	binary.EncoderDecoder
 }
+
+var _ Tools = options{}
 
 func newOptions(opts ...Option) options {
 	o := options{}

@@ -169,9 +169,7 @@ type cluster struct {
 }
 
 // Key implements the Cluster interface.
-func (c *cluster) Key() uuid.UUID {
-	return c.Store.PeekState().ClusterKey
-}
+func (c *cluster) Key() uuid.UUID { return c.Store.PeekState().ClusterKey }
 
 // Host implements the Cluster interface.
 func (c *cluster) Host() node.Node { return c.Store.GetHost() }
