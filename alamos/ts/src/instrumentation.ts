@@ -9,24 +9,29 @@
 
 import { Logger } from "@/log";
 import { Tracer } from "@/trace";
-import { InstrumentationMeta } from "@/meta";
+import { Meta } from "@/meta";
 
 export interface InstrumentationOptions {
-  key: string;
+  key?: string;
   serviceName?: string;
-  logger: Logger;
-  tracer: Tracer;
+  logger?: Logger;
+  tracer?: Tracer;
 }
 
 export class Instrumentation {
-  private meta: InstrumentationMeta;
+  private meta: Meta;
   readonly T: Tracer;
   readonly L: Logger;
 
-  constructor({ key, serviceName, logger, tracer }: InstrumentationOptions) {
-    this.meta = new InstrumentationMeta(key, "", serviceName);
-    this.T = tracer;
-    this.L = logger;
+  constructor({
+    key = "",
+    serviceName = "",
+    logger = Logger.NOOP,
+    tracer = Tracer.NOOP,
+  }: InstrumentationOptions) {
+    this.meta = new Meta(key, "", serviceName);
+    this.T = tracer.child(this.meta);
+    this.L = logger.child(this.meta);
   }
 
   child(key: string): Instrumentation {
@@ -40,6 +45,7 @@ export class Instrumentation {
     return ins
   }
 
+  static readonly NOOP = new Instrumentation({});
 }
 
 

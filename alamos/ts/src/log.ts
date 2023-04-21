@@ -7,40 +7,50 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { InstrumentationMeta } from "./meta";
+import { Meta } from "./meta";
+
+const LOG_LEVELS = ["debug", "info", "warn", "error"] as const;
+export type LogLevel = typeof LOG_LEVELS[number];
+
+export type LogLevelFilter = (level: LogLevel) => boolean;
+
+export const logThresholdFilter = (thresh: LogLevel): LogLevelFilter => {
+  const threshIdx = LOG_LEVELS.indexOf(thresh);
+  return (level) => LOG_LEVELS.indexOf(level) >= threshIdx;
+}
+
 
 export class Logger {
-  noop: boolean;
+  meta: Meta = Meta.NOOP;
+  filter: LogLevelFilter;
 
-  constructor(noop: boolean = false) {
-    this.noop = noop;
+  constructor(filter: LogLevelFilter = logThresholdFilter("info")) {
+    this.filter = filter;
   }
 
-  child(_: InstrumentationMeta): Logger {
-    if (this.noop) return NOOP_LOGGER;
+  child(_: Meta): Logger {
     return new Logger();
   }
 
-
   debug(msg: string): void {
-    if (this.noop) return;
+    if (this.meta.noop) return;
     console.log(msg);
   }
 
   info(msg: string): void {
-    if (this.noop) return;
+    if (this.meta.noop) return;
     console.log(msg);
   }
 
   warn(msg: string): void {
-    if (this.noop) return;
+    if (this.meta.noop) return;
     console.warn(msg);
   }
 
   error(msg: string): void {
-    if (this.noop) return;
+    if (this.meta.noop) return;
     console.error(msg);
   }
-}
 
-const NOOP_LOGGER = new Logger(true);
+  static readonly NOOP = new Logger();
+}
