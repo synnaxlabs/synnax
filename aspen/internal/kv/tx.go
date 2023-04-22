@@ -47,14 +47,14 @@ func (b *tx) Set(ctx context.Context, key, value []byte, options ...interface{})
 		return err
 	}
 	return b.applyOp(ctx, Operation{
-		Operation:   kvx.Operation{Key: key, Value: value, Variant: kvx.SetOperation},
+		Change:      kvx.Change{Key: key, Value: value, Variant: kvx.SetOperation},
 		Leaseholder: lease,
 	})
 }
 
 // Delete implements kvx.Tx.
 func (b *tx) Delete(ctx context.Context, key []byte, _ ...interface{}) error {
-	op := Operation{Operation: kvx.Operation{Key: key, Variant: kvx.DeleteOperation}}
+	op := Operation{Change: kvx.Change{Key: key, Variant: kvx.DeleteOperation}}
 	return b.applyOp(ctx, op)
 }
 
@@ -238,11 +238,11 @@ type txReader struct {
 
 var _ kvx.TxReader = (*txReader)(nil)
 
-func (r *txReader) Next(_ context.Context) (kvx.Operation, bool, error) {
+func (r *txReader) Next(_ context.Context) (kvx.Change, bool, error) {
 	if r.curr >= len(r.ops) {
-		return kvx.Operation{}, false, nil
+		return kvx.Change{}, false, nil
 	}
 	op := r.ops[r.curr]
 	r.curr++
-	return op.Operation, true, nil
+	return op.Change, true, nil
 }

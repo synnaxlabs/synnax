@@ -16,7 +16,6 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/binary"
-	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
 )
 
@@ -32,15 +31,6 @@ type Entry[K Key] interface {
 	GorpKey() K
 	// SetOptions returns a slice of options passed to kv.db.set.
 	SetOptions() []interface{}
-}
-
-type Operation[K Key, E Entry[K]] struct {
-	// Key is the key of the entry modified by this operation.
-	Key K
-	// Entry is the entry modified by this operation.
-	Entry E
-	// Variant is the variant of the operaetion being executed.
-	Variant kv.OperationVariant
 }
 
 const entriesOptKey query.Parameter = "entries"

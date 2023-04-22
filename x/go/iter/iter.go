@@ -83,6 +83,16 @@ func (n NextCloserTranslator[I, O]) Next(ctx context.Context) (O, bool, error) {
 	return n.Translate(val), ok, err
 }
 
+type NextTranslator[I, O any] struct {
+	Wrap      Next[I]
+	Translate func(I) O
+}
+
+func (n NextTranslator[I, O]) Next(ctx context.Context) (O, bool, error) {
+	val, ok, err := n.Wrap.Next(ctx)
+	return n.Translate(val), ok, err
+}
+
 func (n NextCloserTranslator[I, O]) Close() error { return n.Wrap.Close() }
 
 func ExhaustNext[V any](iter Next[V]) (values []V, err error) {

@@ -21,6 +21,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
 )
@@ -58,9 +59,10 @@ type Atomic interface {
 	OpenTx() Tx
 }
 
-// Tx is a transaction of ordered key-value operations on a DB that are committed atomically.
-// Tx implements the Reader interface,and will read key-value pairs from both the Tx and
-// underlying DB. A transaction must be committed for its changes to be persisted.
+// Tx is a transaction of ordered key-value operations on a DB that are committed
+// atomically. Tx implements the Reader interface,and will read key-value pairs from
+// both the Tx and underlying DB. A transaction must be committed for its changes to
+// be persisted.
 type Tx interface {
 	ReadWriter
 	// NewReader returns an TxReader that can be used to iterate over the operations
@@ -85,29 +87,13 @@ type DB interface {
 	io.Closer
 }
 
-// OperationVariant is an enum that indicates the type of Operation executed.
-type OperationVariant uint8
-
-const (
-	// SetOperation indicates that the operation is a set operation.
-	SetOperation OperationVariant = iota + 1
-	// DeleteOperation indicates that the operation is a delete operation.
-	DeleteOperation
-)
-
-// Operation is a key-value pair. The contents of Key and Value should be considered
-// read-only, and modifications to them may cause unexpected behavior.
-type Operation struct {
-	// Variant is the type of operation.
-	Variant OperationVariant
-	// Key is the key for the key-value pair.
-	Key []byte
-	// Value is the value for the key-value pair.
-	Value []byte
-}
+// Change represents a change to a key-value pair. The contents of Key and Value
+// should be considered read-only, and modifications to them may cause unexpected
+// behavior.
+type Change = change.Change[[]byte, []byte]
 
 // TxReader is used to read the operations in a transaction.
-type TxReader = iter.Next[Operation]
+type TxReader = iter.Next[Change]
 
 // Observable allows the caller to observe changes to key-value pairs in the DB.
 type Observable = observe.Observable[TxReader]

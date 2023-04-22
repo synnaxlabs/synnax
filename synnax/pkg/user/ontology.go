@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
+	changex "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/iter"
 )
@@ -48,11 +49,26 @@ func (s *Service) RetrieveResource(ctx context.Context, key string) (schema.Reso
 	return newResource(u), err
 }
 
+type change = changex.Change[uuid.UUID, User]
+
 // OnChange implements ontology.Service.
-func (s *Service) OnChange(f func(context.Context, iter.Next[schema.Resource])) {
-	gorp.Observe[uuid.UUID, User](s.DB).OnChange(func(ctx context.Context, reader gorp.TxReader[uuid.UUID, User]) {
-		f(ctx, newNextCloser(iter.NopNextCloser[User]{Wrap: reader}))
-	})
+func (s *Service) OnChange(f func(context.Context, iter.Next[schema.Change])) {
+	var (
+		translate = func(ch change) schema.Change {
+			return schema.Change{
+				Variant: ch.Variant,
+				Key:     OntologyID(ch.Key),
+				Value:   newResource(ch.Value),
+			}
+		}
+		onChange = func(ctx context.Context, reader gorp.TxReader[uuid.UUID, User]) {
+			f(ctx, iter.NextTranslator[change, schema.Change]{
+				Wrap:      reader,
+				Translate: translate,
+			})
+		}
+	)
+	gorp.Observe[uuid.UUID, User](s.DB).OnChange(onChange)
 }
 
 // OpenNext implements ontology.Service.

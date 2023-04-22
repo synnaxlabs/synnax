@@ -13,6 +13,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
@@ -181,10 +182,7 @@ type GRPCClientStream[RQ, RS freighter.Payload] interface {
 }
 
 func translateGRPCError(err error) error {
-	if err == nil {
-		return nil
-	}
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		return freighter.EOF
 	}
 	return err

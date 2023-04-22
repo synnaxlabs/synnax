@@ -27,7 +27,7 @@ var (
 )
 
 type builtinService struct {
-	observe.Noop[iter.Next[Resource]]
+	observe.Noop[iter.Next[schema.Change]]
 }
 
 var _ Service = (*builtinService)(nil)

@@ -17,6 +17,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/cockroachdb/pebble"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/observe"
 )
@@ -127,9 +128,9 @@ func (txn tx) Commit(ctx context.Context, opts ...interface{}) error {
 // NewReader implements kv.Writer.
 func (txn tx) NewReader() kv.TxReader { return txReader{BatchReader: txn.Batch.Reader()} }
 
-var kindsToVariant = map[pebble.InternalKeyKind]kv.OperationVariant{
-	pebble.InternalKeyKindSet:    kv.SetOperation,
-	pebble.InternalKeyKindDelete: kv.DeleteOperation,
+var kindsToVariant = map[pebble.InternalKeyKind]change.Variant{
+	pebble.InternalKeyKindSet:    change.Set,
+	pebble.InternalKeyKindDelete: change.Delete,
 }
 
 func get(reader pebble.Reader, key []byte) ([]byte, error) {
@@ -152,13 +153,13 @@ type txReader struct{ pebble.BatchReader }
 var _ kv.TxReader = txReader{}
 
 // Next implements kv.TxReader.
-func (r txReader) Next(_ context.Context) (kv.Operation, bool, error) {
+func (r txReader) Next(_ context.Context) (kv.Change, bool, error) {
 	kind, k, v, ok := r.BatchReader.Next()
 	variant, ok := kindsToVariant[kind]
 	if !ok {
-		return kv.Operation{}, false, nil
+		return kv.Change{}, false, nil
 	}
-	return kv.Operation{Variant: variant, Key: k, Value: v}, true, nil
+	return kv.Change{Variant: variant, Key: k, Value: v}, true, nil
 }
 
 func translateError(err error) error {

@@ -15,30 +15,62 @@ import (
 	"github.com/blevesearch/bleve/search"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
+	"github.com/synnaxlabs/x/change"
 )
 
 type Index struct {
 	mapping *mapping.IndexMappingImpl
-	index   bleve.Index
+	idx     bleve.Index
 }
 
 func New() (*Index, error) {
 	s := &Index{}
 	s.mapping = bleve.NewIndexMapping()
 	var err error
-	s.index, err = bleve.NewMemOnly(s.mapping)
+	s.idx, err = bleve.NewMemOnly(s.mapping)
 	return s, err
 }
 
+func (s *Index) OpenTx() Tx { return Tx{idx: s.idx, batch: s.idx.NewBatch()} }
+
 func (s *Index) Index(resources []schema.Resource) error {
-	b := s.index.NewBatch()
-	for _, e := range resources {
-		if err := b.Index(e.ID.String(), e); err != nil {
+	t := s.OpenTx()
+	defer t.Close()
+	for _, r := range resources {
+		if err := t.Index(r); err != nil {
 			return err
 		}
 	}
-	return s.index.Batch(b)
+	return t.Commit()
 }
+
+type Tx struct {
+	idx   bleve.Index
+	batch *bleve.Batch
+}
+
+func (t *Tx) Apply(changes ...schema.Change) error {
+	for _, ch := range changes {
+		if ch.Variant == change.Set {
+			if err := t.batch.Index(ch.Key.String(), ch.Value); err != nil {
+				return err
+			}
+		} else {
+			t.batch.Delete(ch.Key.String())
+		}
+	}
+	return nil
+}
+
+func (t *Tx) Commit() error { return t.idx.Batch(t.batch) }
+
+func (t *Tx) Index(resource schema.Resource) error {
+	return t.batch.Index(resource.ID.String(), resource)
+}
+
+func (t *Tx) Delete(id schema.ID) { t.batch.Delete(id.String()) }
+
+func (t *Tx) Close() { t.idx = nil; t.batch = nil }
 
 func (s *Index) Register(sch schema.Schema) {
 	dm := bleve.NewDocumentMapping()
@@ -53,7 +85,7 @@ func (s *Index) Search(term string) ([]schema.ID, error) {
 	q := bleve.NewQueryStringQuery(term)
 	search_ := bleve.NewSearchRequest(q)
 	search_.Fields = []string{"*"}
-	searchResults, err := s.index.Search(search_)
+	searchResults, err := s.idx.Search(search_)
 	if err != nil {
 		return nil, err
 	}

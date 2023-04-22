@@ -125,7 +125,7 @@ func translateOpForward(msg kv.Operation) (tMsg *aspenv1.Operation) {
 
 func translateOpBackward(msg *aspenv1.Operation) (tMsg kv.Operation) {
 	return kv.Operation{
-		Operation: kvx.Operation{
+		Change: kvx.Change{
 			Key:     msg.Key,
 			Value:   msg.Value,
 			Variant: kvx.OperationVariant(msg.Variant),

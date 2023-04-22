@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
+	changex "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/iter"
 )
@@ -53,6 +54,8 @@ func newResource(c Channel) schema.Resource {
 
 var _ ontology.Service = (*service)(nil)
 
+type change = changex.Change[Key, Channel]
+
 // Schema implements ontology.Service.
 func (s *service) Schema() *schema.Schema { return _schema }
 
@@ -67,11 +70,23 @@ func (s *service) RetrieveResource(ctx context.Context, key string) (schema.Reso
 }
 
 // OnChange implements ontology.Service.
-func (s *service) OnChange(f func(context.Context, iter.Next[schema.Resource])) {
-	gorp.Observe[Key, Channel](s.DB).OnChange(
-		func(ctx context.Context, reader gorp.TxReader[Key, Channel]) {
-			f(ctx, newNextCloser(iter.NopNextCloser[Channel]{Wrap: reader.Sets()}))
-		})
+func (s *service) OnChange(f func(context.Context, iter.Next[schema.Change])) {
+	var (
+		translate = func(ch change) schema.Change {
+			return schema.Change{
+				Variant: ch.Variant,
+				Key:     OntologyID(ch.Key),
+				Value:   newResource(ch.Value),
+			}
+		}
+		onChange = func(ctx context.Context, reader gorp.TxReader[Key, Channel]) {
+			f(ctx, iter.NextTranslator[change, schema.Change]{
+				Wrap:      reader,
+				Translate: translate,
+			})
+		}
+	)
+	gorp.Observe[Key, Channel](s.DB).OnChange(onChange)
 }
 
 // OpenNext implements ontology.service.

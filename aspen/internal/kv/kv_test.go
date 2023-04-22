@@ -230,7 +230,7 @@ var _ = Describe("txn", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(kv).ToNot(BeNil())
 			var (
-				op kvx.Operation
+				op kvx.Change
 				ok bool
 			)
 			kv.OnChange(func(ctx context.Context, r kvx.TxReader) {
