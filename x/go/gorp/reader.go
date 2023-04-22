@@ -20,13 +20,17 @@ import (
 	"github.com/synnaxlabs/x/query"
 )
 
+// Reader wraps a key-value reader to provide a strongly typed interface for
+// reading entries from the DB. Readonly only accesses entries that match
+// it's type arguments.
 type Reader[K Key, E Entry[K]] struct {
 	*lazyPrefix[K, E]
+	// BaseReader is the underlying key-value reader that the Reader is wrapping.
 	BaseReader
 }
 
 // WrapReader wraps the given key-value reader to provide a strongly
-// typed interface for writing entries to the DB. It's important to note
+// typed interface for reading entries from the DB. It's important to note
 // that the Reader only access to the entries provided as the type arguments
 // to this function. The returned reader is safe for concurrent use.
 // The following example reads from a DB:
@@ -129,36 +133,86 @@ func (k *Iterator[E]) Valid() bool {
 	return lo.Ternary(k.error != nil, false, k.Iterator.Valid())
 }
 
-type TxReader[K Key, E Entry[K]] interface{ iter.Next[E] }
+// WrapTxReader wraps the given key-value reader to provide a strongly
+// typed interface for iterating over a Tx's entries in order. The given
+// tools are used to implement gorp-specific functionality, such as
+// decoding. Typically, the Tools interface is satisfied by a gorp.Tx
+// or a gorp.Db. The following example reads from a tx;
+//
+//	tx := db.OpenTx()
+//	defer tx.Close()
+//
+//	r := gor.WrapTxReader[MyKey, MyEntry](tx.NeReader(), tx)
+//
+//	r, ok, err := r.Next(ctx)
+func WrapTxReader[K Key, E Entry[K]](reader kv.TxReader, tools Tools) TxReader[K, E] {
+	return TxReader[K, E]{
+		TxReader:      reader,
+		Tools:         tools,
+		prefixMatcher: prefixMatcher[K, E](tools),
+	}
+}
 
-type txReader[K Key, E Entry[K]] struct {
+// TxReader is a thin-wrapper around a key-value transaction reader
+// that provides a strongly typed interface for iterating over a
+// Tx's entries in order.
+type TxReader[K Key, E Entry[K]] struct {
 	kv.TxReader
-	decoder       binary.Decoder
+	Tools
 	prefixMatcher func(ctx context.Context, key []byte) bool
 }
 
-func WrapTxReader[K Key, E Entry[K]](reader kv.TxReader, opts Tools) TxReader[K, E] {
-	return txReader[K, E]{
-		TxReader:      reader,
-		decoder:       opts,
-		prefixMatcher: prefixMatcher[K, E](opts),
+// Next implements TxReader.
+func (t TxReader[K, E]) Next(ctx context.Context) (op Operation[K, E], ok bool, err error) {
+	var kvOp kv.Operation
+	kvOp, ok, err = t.TxReader.Next(ctx)
+	if !ok || err != nil || !t.prefixMatcher(ctx, kvOp.Key) {
+		return
 	}
+	op.Variant = kvOp.Variant
+	if op.Variant != kv.SetOperation {
+		return
+	}
+	t.Decode(ctx, kvOp.Value, &op.Entry)
+	op.Key = op.Entry.GorpKey()
+	return op, ok, err
 }
 
-func (t txReader[K, E]) Next(ctx context.Context) (e E, ok bool, err error) {
-	op, ok, err := t.TxReader.Next(ctx)
-	if !ok || err != nil || !t.prefixMatcher(ctx, op.Key) {
-		return e, ok, err
+func (t TxReader[K, E]) Sets() iter.Next[E] { return &setReader[K, E]{TxReader: t} }
+
+func (t TxReader[K, E]) Deletes() iter.Next[K] { return &deleteReader[K, E]{TxReader: t} }
+
+type setReader[K Key, E Entry[K]] struct{ TxReader[K, E] }
+
+func (s *setReader[K, E]) Next(ctx context.Context) (E, bool, error) {
+	op, ok, err := s.TxReader.Next(ctx)
+	if !ok || err != nil {
+		return op.Entry, ok, err
 	}
-	t.decoder.Decode(ctx, op.Value, &e)
-	return e, ok, err
+	if op.Variant != kv.SetOperation {
+		return s.Next(ctx)
+	}
+	return op.Entry, ok, err
+}
+
+type deleteReader[K Key, E Entry[K]] struct{ TxReader[K, E] }
+
+func (d *deleteReader[K, E]) Next(ctx context.Context) (K, bool, error) {
+	op, ok, err := d.TxReader.Next(ctx)
+	if !ok || err != nil {
+		return op.Key, ok, err
+	}
+	if op.Variant != kv.DeleteOperation {
+		return d.Next(ctx)
+	}
+	return op.Key, ok, err
 }
 
 type next[E any] struct{ *Iterator[E] }
 
 var _ iter.NextCloser[any] = (*next[any])(nil)
 
-// Next implements the iter.Next interface.
+// Next implements iter.Next.
 func (n next[E]) Next(ctx context.Context) (e E, ok bool, err error) {
 	ok = n.Iterator.Next()
 	if !ok {

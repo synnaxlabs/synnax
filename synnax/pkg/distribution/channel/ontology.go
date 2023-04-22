@@ -70,7 +70,7 @@ func (s *service) RetrieveResource(ctx context.Context, key string) (schema.Reso
 func (s *service) OnChange(f func(context.Context, iter.Next[schema.Resource])) {
 	gorp.Observe[Key, Channel](s.DB).OnChange(
 		func(ctx context.Context, reader gorp.TxReader[Key, Channel]) {
-			f(ctx, newNextCloser(iter.NopNextCloser[Channel]{Wrap: reader}))
+			f(ctx, newNextCloser(iter.NopNextCloser[Channel]{Wrap: reader.Sets()}))
 		})
 }
 

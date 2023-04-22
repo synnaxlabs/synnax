@@ -11,6 +11,7 @@ package ontology
 
 import (
 	"context"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 )
@@ -60,13 +61,7 @@ const (
 
 // GetID returns the directional ID of the relationship.
 func (d Direction) GetID(rel *Relationship) ID {
-	if d == Forward {
-		return rel.To
-	}
-	if d == Backward {
-		return rel.From
-	}
-	panic("invalid direction")
+	return lo.Ternary(d == Forward, rel.To, rel.From)
 }
 
 // Traverser is a struct that defines the traversal of a relationship between entities
