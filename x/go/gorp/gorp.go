@@ -18,9 +18,7 @@ import (
 )
 
 // Wrap wraps the provided key-value database in a DB.
-func Wrap(kv kv.DB, opts ...Option) *DB {
-	return &DB{DB: kv, options: newOptions(opts...)}
-}
+func Wrap(kv kv.DB, opts ...Option) *DB { return &DB{DB: kv, options: newOptions(opts)} }
 
 // DB is a wrapper around a kv.DB that queries can be executed against. DB implements
 // the Writer interface, so it can be provided to Params.set.

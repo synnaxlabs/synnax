@@ -29,8 +29,10 @@ type options struct {
 
 var _ Tools = options{}
 
-func newOptions(opts ...Option) options {
-	o := options{}
+var defaultOptions = options{EncoderDecoder: &binary.MsgPackEncoderDecoder{}}
+
+func newOptions(opts []Option) options {
+	o := defaultOptions
 	for _, opt := range opts {
 		opt(&o)
 	}
@@ -38,12 +40,6 @@ func newOptions(opts ...Option) options {
 }
 
 func overrideOptions(o options) options {
-	base := defaultOptions()
-	o.EncoderDecoder = override.Nil(base.EncoderDecoder, o.EncoderDecoder)
+	o.EncoderDecoder = override.Nil(defaultOptions.EncoderDecoder, o.EncoderDecoder)
 	return o
-}
-
-func defaultOptions() options {
-	ed := &binary.MsgPackEncoderDecoder{}
-	return options{EncoderDecoder: ed, _noPrefix: false}
 }

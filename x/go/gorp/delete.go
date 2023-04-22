@@ -27,7 +27,7 @@ func NewDelete[K Key, E Entry[K]]() Delete[K, E] {
 // Where adds the provided filter to the query. If filtering by the key of the Entry,
 // use the far more efficient WhereKeys method instead.
 func (d Delete[K, E]) Where(filter func(*E) bool) Delete[K, E] {
-	addFilter[K, E](d.params, filter)
+	addFilter[K](d.params, filter)
 	return d
 }
 
@@ -36,7 +36,7 @@ func (d Delete[K, E]) Where(filter func(*E) bool) Delete[K, E] {
 // If called in conjunction with Where, the WhereKeys filter will be applied first.
 // Subsequent calls to WhereKeys will append the keys to the existing filter.
 func (d Delete[K, E]) WhereKeys(keys ...K) Delete[K, E] {
-	setWhereKeys[K](d.params, keys...)
+	setWhereKeys(d.params, keys...)
 	return d
 }
 

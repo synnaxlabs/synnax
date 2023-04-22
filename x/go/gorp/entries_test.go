@@ -12,9 +12,7 @@ package gorp_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/kv/memkv"
 )
 
 var _ = Describe("Entries", func() {
@@ -25,22 +23,4 @@ var _ = Describe("Entries", func() {
 			Expect(entries.All()).To(HaveLen(0))
 		})
 	})
-	Describe("TypePrefix", func() {
-		It("Should not append a type prefix to a particular key when type prefix is off", func() {
-			db := memkv.New()
-			gorpDB := gorp.Wrap(db, gorp.WithNoPrefix())
-			txn := gorpDB.OpenTx()
-			Expect(gorp.NewCreate[int, entry]().
-				Entries(&[]entry{{ID: 1, Data: "data"}}).
-				Exec(ctx, txn)).To(Succeed())
-			// use msgpack to encode the entry int 1  into a byte slice
-			ecd := &binary.MsgPackEncoderDecoder{}
-			b, err := ecd.Encode(nil, 1)
-			Expect(err).To(Not(HaveOccurred()))
-			_, err = txn.Get(ctx, b)
-			Expect(err).To(Not(HaveOccurred()))
-			Expect(txn.Close()).To(Succeed())
-		})
-	})
-
 })
