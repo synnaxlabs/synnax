@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -82,6 +83,8 @@ type Resource struct {
 	// Data is the data for the entity. Data must match [Schema.Fields].
 	Data map[string]any `json:"data" msgpack:"data"`
 }
+
+type Change = change.Change[ID, Resource]
 
 // BleveType returns the type of the entity for use search indexing,
 // implementing the bleve.bleveClassifier interface.

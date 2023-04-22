@@ -28,7 +28,7 @@ const (
 var ecd = &binary.GobEncoderDecoder{}
 
 type Operation struct {
-	kvx.Operation
+	kvx.Change
 	Version     version.Counter
 	Leaseholder node.Key
 	state       gossipState
@@ -87,7 +87,7 @@ type (
 
 func (d Digest) Operation() Operation {
 	return Operation{
-		Operation:   kvx.Operation{Key: d.Key, Variant: d.Variant},
+		Change:      kvx.Change{Key: d.Key, Variant: d.Variant},
 		Version:     d.Version,
 		Leaseholder: d.Leaseholder,
 	}

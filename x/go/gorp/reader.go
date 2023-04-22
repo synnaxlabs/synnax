@@ -15,6 +15,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
@@ -99,7 +100,7 @@ func (r Reader[K, E]) OpenNext() iter.NextCloser[E] {
 // the underlying iterator. To create a new Iterator, call OpenIterator.
 type Iterator[E any] struct {
 	kv.Iterator
-	error   error
+	err     error
 	value   *E
 	decoder binary.Decoder
 }
@@ -117,20 +118,20 @@ func (k *Iterator[E]) Value(ctx context.Context) (entry *E) {
 		k.value = new(E)
 	}
 	if err := k.decoder.Decode(ctx, k.Iterator.Value(), k.value); err != nil {
-		k.error = err
+		k.err = err
 	}
 	return k.value
 }
 
 // Error returns the error accumulated by the Iterator.
 func (k *Iterator[E]) Error() error {
-	return lo.Ternary(k.error != nil, k.error, k.Iterator.Error())
+	return lo.Ternary(k.err != nil, k.err, k.Iterator.Error())
 }
 
 // Valid returns true if the current iterator Value is pointing
 // to a valid entry and the iterator has not accumulated an error.
 func (k *Iterator[E]) Valid() bool {
-	return lo.Ternary(k.error != nil, false, k.Iterator.Valid())
+	return lo.Ternary(k.err != nil, false, k.Iterator.Valid())
 }
 
 // WrapTxReader wraps the given key-value reader to provide a strongly
@@ -163,49 +164,19 @@ type TxReader[K Key, E Entry[K]] struct {
 }
 
 // Next implements TxReader.
-func (t TxReader[K, E]) Next(ctx context.Context) (op Operation[K, E], ok bool, err error) {
-	var kvOp kv.Operation
+func (t TxReader[K, E]) Next(ctx context.Context) (op change.Change[K, E], ok bool, err error) {
+	var kvOp kv.Change
 	kvOp, ok, err = t.TxReader.Next(ctx)
 	if !ok || err != nil || !t.prefixMatcher(ctx, kvOp.Key) {
 		return
 	}
 	op.Variant = kvOp.Variant
-	if op.Variant != kv.SetOperation {
+	if op.Variant != change.Set {
 		return
 	}
-	t.Decode(ctx, kvOp.Value, &op.Entry)
-	op.Key = op.Entry.GorpKey()
+	t.Decode(ctx, kvOp.Value, &op.Value)
+	op.Key = op.Value.GorpKey()
 	return op, ok, err
-}
-
-func (t TxReader[K, E]) Sets() iter.Next[E] { return &setReader[K, E]{TxReader: t} }
-
-func (t TxReader[K, E]) Deletes() iter.Next[K] { return &deleteReader[K, E]{TxReader: t} }
-
-type setReader[K Key, E Entry[K]] struct{ TxReader[K, E] }
-
-func (s *setReader[K, E]) Next(ctx context.Context) (E, bool, error) {
-	op, ok, err := s.TxReader.Next(ctx)
-	if !ok || err != nil {
-		return op.Entry, ok, err
-	}
-	if op.Variant != kv.SetOperation {
-		return s.Next(ctx)
-	}
-	return op.Entry, ok, err
-}
-
-type deleteReader[K Key, E Entry[K]] struct{ TxReader[K, E] }
-
-func (d *deleteReader[K, E]) Next(ctx context.Context) (K, bool, error) {
-	op, ok, err := d.TxReader.Next(ctx)
-	if !ok || err != nil {
-		return op.Key, ok, err
-	}
-	if op.Variant != kv.DeleteOperation {
-		return d.Next(ctx)
-	}
-	return op.Key, ok, err
 }
 
 type next[E any] struct{ *Iterator[E] }

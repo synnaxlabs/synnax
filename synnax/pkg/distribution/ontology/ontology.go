@@ -163,10 +163,15 @@ func (o *Ontology) RegisterService(s Service) {
 	})
 
 	// Set up a change handler to index new resources.
-	s.OnChange(func(ctx context.Context, i iter.Next[Resource]) {
-		resources, err := iter.ExhaustNext(i)
+	s.OnChange(func(ctx context.Context, i iter.Next[schema.Change]) {
+		t := o.search.OpenTx()
+		defer t.Close()
+		ch, ok, err := i.Next(ctx)
+		for ; ok && err != nil; ch, ok, err = i.Next(ctx) {
+			t.Apply(ch)
+		}
 		if err == nil {
-			err = o.search.Index.Index(resources)
+			err = t.Commit()
 		}
 		if err != nil {
 			o.L.Error("failed to index resource",
