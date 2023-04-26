@@ -38,13 +38,10 @@ func (s storeState) toBatchRequest(ctx context.Context) TxRequest {
 	return b
 }
 
-type store xstore.Observable[storeState]
+type store xstore.Store[storeState]
 
 func newStore() store {
-	return xstore.ObservableWrap(xstore.New(func(
-		m storeState) storeState {
-		return m.Copy()
-	}))
+	return xstore.New(func(m storeState) storeState { return m.Copy() })
 }
 
 type storeEmitter struct {

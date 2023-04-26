@@ -42,9 +42,9 @@ func configureInstrumentation() alamos.Instrumentation {
 func cleanupInstrumentation(ctx context.Context, i alamos.Instrumentation) {
 	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
 	defer cancel()
-	// Force flush to uptrace so we can understand the shutdown life cycle
+	// Force flush to uptrace, so we can trace the shutdown life cycle
 	if err := uptrace.ForceFlush(ctx); err != nil {
-		i.L.Warn("failed to flush instrumentation", zap.Error(err))
+		i.L.Info("failed to flush instrumentation", zap.Error(err))
 	}
 }
 

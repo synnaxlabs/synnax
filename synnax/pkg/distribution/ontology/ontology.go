@@ -26,8 +26,8 @@ package ontology
 
 import (
 	"context"
-
 	"github.com/cockroachdb/errors"
+	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
@@ -78,6 +78,7 @@ var (
 func (c Config) Validate() error {
 	v := validate.New("ontology")
 	validate.NotNil(v, "DB", c.DB)
+	validate.NotNil(v, "EnableSearch", c.EnableSearch)
 	return v.Error()
 }
 
@@ -85,6 +86,7 @@ func (c Config) Validate() error {
 func (c Config) Override(other Config) Config {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
+	c.EnableSearch = override.Nil(c.EnableSearch, other.EnableSearch)
 	return c
 }
 
@@ -105,7 +107,8 @@ func Open(ctx context.Context, configs ...Config) (*Ontology, error) {
 	}
 
 	if *o.Config.EnableSearch {
-		o.search.Index, err = search.New()
+		o.search.Index, err = search.New(search.Config{Instrumentation: cfg.Instrumentation})
+		o.search.Go = signal.Wrap(ctx, signal.WithInstrumentation(cfg.Instrumentation))
 	}
 
 	return o, err
@@ -134,6 +137,16 @@ type Writer interface {
 	NewRetrieve() Retrieve
 }
 
+func (o *Ontology) Search(ctx context.Context, query string) ([]Resource, error) {
+	ids, err := o.search.Index.Search(query)
+	if err != nil {
+		return nil, err
+	}
+	logrus.Info(ids)
+	var resources []Resource
+	return resources, o.NewRetrieve().WhereIDs(ids...).Entries(&resources).Exec(ctx, o.DB)
+}
+
 // OpenWriter opens a new Writer using the provided transaction.
 // Panics if the transaction does not root from the same database as the Ontology.
 func (o *Ontology) OpenWriter(tx gorp.Tx) Writer {
@@ -145,34 +158,38 @@ func (o *Ontology) OpenWriter(tx gorp.Tx) Writer {
 // provided Service. RegisterService panics if a Service is already registered for
 // the given Type.
 func (o *Ontology) RegisterService(s Service) {
+	o.L.Debug("registering service", zap.Stringer("type", s.Schema().Type))
 	o.registrar.register(s)
 
 	if !*o.Config.EnableSearch {
 		return
 	}
 
-	o.search.Go.Go(func(ctx context.Context) (err error) {
+	o.search.Go.Go(func(ctx context.Context) error {
 		i := s.OpenNext()
-		defer func() { err = i.Close() }()
-		var resources []Resource
-		resources, err = iter.ExhaustNext[Resource](i)
-		if err == nil {
-			err = o.search.Index.Index(resources)
-		}
-		return err
-	})
+		err := o.search.Index.WithTx(func(tx search.Tx) error {
+			r, ok, err := i.Next(ctx)
+			for ; ok && err != nil; r, ok, err = i.Next(ctx) {
+				if err = tx.Index(r); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+		return errors.CombineErrors(err, i.Close())
+	}, signal.WithKeyf("startup-indexing-%s", s.Schema().Type))
 
 	// Set up a change handler to index new resources.
 	s.OnChange(func(ctx context.Context, i iter.Next[schema.Change]) {
-		t := o.search.OpenTx()
-		defer t.Close()
-		ch, ok, err := i.Next(ctx)
-		for ; ok && err != nil; ch, ok, err = i.Next(ctx) {
-			t.Apply(ch)
-		}
-		if err == nil {
-			err = t.Commit()
-		}
+		err := o.search.Index.WithTx(func(tx search.Tx) error {
+			ch, ok, err := i.Next(ctx)
+			for ; ok && err != nil; ch, ok, err = i.Next(ctx) {
+				if err = tx.Apply(ch); err != nil {
+					break
+				}
+			}
+			return err
+		})
 		if err != nil {
 			o.L.Error("failed to index resource",
 				zap.String("type", string(s.Schema().Type)),

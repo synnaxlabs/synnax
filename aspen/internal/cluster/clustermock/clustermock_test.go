@@ -26,7 +26,7 @@ var _ = Describe("Clustermock", func() {
 		It("Should provision a set of cluster ClusterAPIs correctly", func() {
 			cfg := cluster.Config{Gossip: gossip.Config{Interval: 50 * time.Millisecond}}
 			builder := clustermock.NewBuilder(cfg)
-			ctx, cancel := signal.TODO()
+			ctx, cancel := signal.Isolated()
 			defer cancel()
 			c1, err := builder.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())

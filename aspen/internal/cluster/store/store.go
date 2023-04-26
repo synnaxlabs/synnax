@@ -13,17 +13,25 @@ package store
 
 import (
 	"context"
+
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen/internal/node"
+	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/store"
 )
+
+type Change struct {
+	State   State
+	Changes []node.Change
+}
 
 // Store is an interface representing a copy-on-read Store for managing cluster state.
 type Store interface {
 	// Observable allows the caller to react to state changes. This state is not diffed i.e.
 	// any call that modifies the state, even if no actual change occurs, will get sent to the
 	// Observable.
-	store.Observable[State]
+	store.Observable[State, Change]
 	// ClusterKey returns the cluster key.
 	ClusterKey() uuid.UUID
 	// SetClusterKey sets the cluster key.
@@ -45,7 +53,7 @@ func _copy(s State) State {
 	return State{Nodes: s.Nodes.Copy(), HostKey: s.HostKey, ClusterKey: s.ClusterKey}
 }
 
-// shouldNotify decides whether we should notify observers
+// transform decides whether we should notify observers
 // of the cluster state change. We only notify if:
 //
 //  1. The cluster key has been set.
@@ -54,33 +62,28 @@ func _copy(s State) State {
 //  4. The state of a node has changed.
 //
 // We DO NOT notify on heartbeat increments.
-func shouldNotify(prevState, nextState State) bool {
-	if prevState.ClusterKey != nextState.ClusterKey {
-		return false
+func transform(
+	prevState,
+	nextState State,
+) (Change, bool) {
+	// This means aspen hasn't been initialized yet.
+	if prevState.ClusterKey != nextState.ClusterKey || nextState.HostKey == 0 {
+		return Change{}, false
 	}
-	if nextState.HostKey == 0 {
-		return false
-	}
-	if len(prevState.Nodes) != len(nextState.Nodes) {
-		return true
-	}
-	for id, n := range nextState.Nodes {
-		pn, ok := prevState.Nodes[id]
-		if !ok || pn.State != n.State {
-			return true
-		}
-	}
-	return false
+	changes := change.Map(
+		prevState.Nodes,
+		nextState.Nodes,
+		node.BasicallyEqual,
+	)
+	return Change{State: nextState, Changes: changes}, len(changes) > 0
 }
 
 // New opens a new empty, invalid Store.
 func New(ctx context.Context) Store {
-	c := &core{
-		Observable: store.ObservableWrap[State](
-			store.New(_copy),
-			store.ObservableConfig[State]{ShouldNotify: shouldNotify},
-		),
-	}
+	c := &core{Observable: lo.Must(store.WrapObservable(store.ObservableConfig[State, Change]{
+		Store:     store.New(_copy),
+		Transform: transform,
+	}))}
 	c.Observable.SetState(ctx, State{Nodes: make(node.Group)})
 	return c
 }
@@ -97,7 +100,7 @@ func (s *State) IsZero() bool {
 }
 
 type core struct {
-	store.Observable[State]
+	store.Observable[State, Change]
 }
 
 // ClusterKey implements Store.

@@ -25,7 +25,7 @@ type Writer[K Key, E Entry[K]] struct {
 // WrapWriter wraps the given key-value writer to provide a strongly
 // typed interface for writing entries to the DB.
 func WrapWriter[K Key, E Entry[K]](base BaseWriter) *Writer[K, E] {
-	return &Writer[K, E]{BaseWriter: base}
+	return &Writer[K, E]{BaseWriter: base, lazyPrefix: lazyPrefix[K, E]{Tools: base}}
 }
 
 // Set writes the provided entries to the DB.

@@ -11,6 +11,7 @@ package grpc
 
 import (
 	"context"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
@@ -19,6 +20,7 @@ import (
 	aspenv1 "github.com/synnaxlabs/aspen/transport/grpc/gen/proto/go/v1"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/change"
 	kvx "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/version"
 )
@@ -128,7 +130,7 @@ func translateOpBackward(msg *aspenv1.Operation) (tMsg kv.Operation) {
 		Change: kvx.Change{
 			Key:     msg.Key,
 			Value:   msg.Value,
-			Variant: kvx.OperationVariant(msg.Variant),
+			Variant: change.Variant(msg.Variant),
 		},
 		Leaseholder: node.Key(msg.Leaseholder),
 		Version:     version.Counter(msg.Version),

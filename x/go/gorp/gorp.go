@@ -66,7 +66,7 @@ func OverrideTx(base, override Tx) Tx {
 
 // Tx extends the kv.Tx interface to provide gorp-required utilities for
 // executing a strongly-typed, atomic transaction against a DB. To open a
-// new transactiohn, call gorp.OpenTx and pass it to the required queries
+// new transaction, call gorp.OpenTx and pass it to the required queries
 // or readers/writers.
 //
 // DB itself implements the Tx interface, meaning it can be used as a

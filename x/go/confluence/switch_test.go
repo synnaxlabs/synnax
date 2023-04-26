@@ -32,7 +32,7 @@ var _ = Describe("Switch", func() {
 				sw     *Switch[int]
 			)
 			BeforeEach(func() {
-				ctx, cancel = signal.TODO()
+				ctx, cancel = signal.Isolated()
 				input = NewStream[int](3)
 				double = NewStream[int](3)
 				single = NewStream[int](3)
@@ -98,7 +98,7 @@ var _ = Describe("Switch", func() {
 			sw     *BatchSwitch[[]int, int]
 		)
 		BeforeEach(func() {
-			ctx, cancel = signal.TODO()
+			ctx, cancel = signal.Isolated()
 			input = NewStream[[]int](3)
 			first = NewStream[int](3)
 			first.SetInletAddress("first")

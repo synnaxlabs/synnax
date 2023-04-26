@@ -43,7 +43,7 @@ var _ = Describe("Signal", func() {
 
 		Describe("CancelOnExit", func() {
 			It("Should cancel the context when the first routine exits", func() {
-				ctx, cancel := signal.TODO()
+				ctx, cancel := signal.Isolated()
 				ctx.Go(immediatelyReturnNil, signal.CancelOnExit())
 				ctx.Go(returnErrAfterContextCancel)
 				cancel()
@@ -54,7 +54,7 @@ var _ = Describe("Signal", func() {
 
 		Describe("CancelOnExitErr", func() {
 			It("Should cancel the context when the first routine exits with an error", func() {
-				ctx, cancel := signal.TODO()
+				ctx, cancel := signal.Isolated()
 				ctx.Go(immediatelyReturnNil, signal.CancelOnExitErr())
 				Expect(ctx.Stopped()).ToNot(BeClosed())
 				ctx.Go(immediatelyReturnError, signal.CancelOnExitErr())
@@ -66,7 +66,7 @@ var _ = Describe("Signal", func() {
 
 		Context("Context already cancelled", func() {
 			It("Shouldn't start a new routine", func() {
-				ctx, cancel := signal.TODO()
+				ctx, cancel := signal.Isolated()
 				cancel()
 				c := 0
 				ctx.Go(func(ctx context.Context) error {
@@ -87,7 +87,7 @@ var _ = Describe("Signal", func() {
 
 			It("Should range over a channel until the context is cancelled", func() {
 				v := make(chan int, 3)
-				ctx, cancel := signal.TODO()
+				ctx, cancel := signal.Isolated()
 				c := 0
 				signal.GoRange(ctx, v, func(ctx context.Context, v int) error {
 					c++
@@ -104,7 +104,7 @@ var _ = Describe("Signal", func() {
 
 			It("Should exit when the channel is closed", func() {
 				v := make(chan int, 3)
-				ctx, cancel := signal.TODO()
+				ctx, cancel := signal.Isolated()
 				defer cancel()
 				c := 0
 				signal.GoRange(ctx, v, func(ctx context.Context, v int) error {
@@ -121,7 +121,7 @@ var _ = Describe("Signal", func() {
 
 			It("Should exit if the function returns a non-nil error", func() {
 				v := make(chan int, 3)
-				ctx, cancel := signal.TODO()
+				ctx, cancel := signal.Isolated()
 				defer cancel()
 				c := 0
 				signal.GoRange(ctx, v, func(ctx context.Context, v int) error {
@@ -139,7 +139,7 @@ var _ = Describe("Signal", func() {
 
 		Describe("GoTick", func() {
 			It("Should tick until the context is cancelled", func() {
-				ctx, cancel := signal.TODO()
+				ctx, cancel := signal.Isolated()
 				defer cancel()
 				c := 0
 				signal.GoTick(ctx, 500*time.Microsecond, func(ctx context.Context, t time.Time) error {
@@ -159,7 +159,7 @@ var _ = Describe("Signal", func() {
 
 		Describe("Defer", func() {
 			It("Should defer a function until the routine exit", func() {
-				ctx, cancel := signal.TODO()
+				ctx, cancel := signal.Isolated()
 				defer cancel()
 				c := 0
 				ctx.Go(immediatelyReturnNil, signal.Defer(func() {
@@ -176,7 +176,7 @@ var _ = Describe("Signal", func() {
 	Describe("Profiler Labels", func() {
 
 		It("Should add a profiler label with the routine key", func() {
-			ctx, cancel := signal.TODO()
+			ctx, cancel := signal.Isolated()
 			defer cancel()
 			ctx.Go(func(ctx context.Context) error {
 				defer GinkgoRecover()
@@ -193,7 +193,7 @@ var _ = Describe("Signal", func() {
 	Describe("Census", func() {
 
 		It("Should return the routines running under the context", func() {
-			ctx, cancel := signal.TODO()
+			ctx, cancel := signal.Isolated()
 			defer cancel()
 			ctx.Go(immediatelyReturnNil)
 			Expect(ctx.Wait()).ToNot(HaveOccurred())

@@ -42,12 +42,6 @@ func WithTimeout(ctx context.Context, d time.Duration, opts ...Option) (Context,
 	return c, cancel
 }
 
-// TODO wraps context.TODO in a Context that can be cancelled.
-// If any goroutine returns a non-nil error, the Context will be cancelled.
-func TODO(opts ...Option) (Context, context.CancelFunc) {
-	return WithCancel(context.TODO(), opts...)
-}
-
 func Isolated(opts ...Option) (Context, context.CancelFunc) {
 	return WithCancel(context.Background(), opts...)
 }

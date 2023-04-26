@@ -23,15 +23,17 @@ import (
 )
 
 type (
-	Transport    = transport.Transport
-	Cluster      = cluster.Cluster
-	Resolver     = cluster.Resolver
-	HostResolver = cluster.HostResolver
-	Node         = node.Node
-	NodeKey      = node.Key
-	Address      = address.Address
-	NodeState    = node.State
-	ClusterState = cluster.State
+	Transport     = transport.Transport
+	Cluster       = cluster.Cluster
+	Resolver      = cluster.Resolver
+	HostResolver  = cluster.HostResolver
+	Node          = node.Node
+	NodeKey       = node.Key
+	NodeChange    = node.Change
+	Address       = address.Address
+	NodeState     = node.State
+	ClusterState  = cluster.State
+	ClusterChange = cluster.Change
 )
 
 const (

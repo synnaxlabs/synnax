@@ -13,7 +13,9 @@ import "github.com/google/uuid"
 
 // Field represents a dynamically typed field in a Schema.
 type Field struct {
-	Type FieldType `json:"type" msgpack:"type"`
+	// Type is the type of field.
+	Type   FieldType `json:"type" msgpack:"type"`
+	Schema *Schema
 }
 
 // FieldType represents the type of a Field in a Schema.
@@ -50,13 +52,15 @@ func (f FieldType) AssertValue(v any) bool {
 		return assertValueType[bool](v)
 	case UUID:
 		return assertValueType[uuid.UUID](v)
+	case SchemaT:
+		return assertValueType[Schema](v)
 	default:
 		panic("[FieldType]")
 	}
 }
 
 const (
-	String FieldType = iota
+	String FieldType = iota + 1
 	Int
 	Int8
 	Int16
@@ -70,6 +74,7 @@ const (
 	Float64
 	Bool
 	UUID
+	SchemaT
 )
 
 type Value interface {
@@ -86,7 +91,8 @@ type Value interface {
 		float32 |
 		float64 |
 		bool |
-		uuid.UUID
+		uuid.UUID |
+		Schema
 }
 
 func assertValueType[V Value](v any) bool { _, ok := v.(V); return ok }

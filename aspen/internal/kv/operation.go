@@ -11,8 +11,10 @@ package kv
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/confluence"
 	kvx "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/version"
@@ -44,7 +46,7 @@ func (o Operation) Digest() Digest {
 }
 
 func (o Operation) apply(ctx context.Context, b kvx.Writer) error {
-	if o.Variant == kvx.DeleteOperation {
+	if o.Variant == change.Delete {
 		return b.Delete(ctx, o.Key)
 	}
 	return b.Set(ctx, o.Key, o.Value)
@@ -52,9 +54,9 @@ func (o Operation) apply(ctx context.Context, b kvx.Writer) error {
 
 type Digest struct {
 	Key         []byte
+	Variant     change.Variant
 	Version     version.Counter
 	Leaseholder node.Key
-	Variant     kvx.OperationVariant
 }
 
 func (d Digest) apply(ctx context.Context, w kvx.Writer) error {

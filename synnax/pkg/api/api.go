@@ -15,9 +15,7 @@ package api
 
 import (
 	"context"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/freighter/falamos"
 	"go/types"
 
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
@@ -61,6 +59,7 @@ type Transport struct {
 	FrameWriter        freighter.StreamServer[FrameWriterRequest, FrameWriterResponse]
 	FrameReader        freighter.StreamServer[FrameIteratorRequest, FrameIteratorResponse]
 	OntologyRetrieve   freighter.UnaryServer[OntologyRetrieveRequest, OntologyRetrieveResponse]
+	OntologySearch     freighter.UnaryServer[OntologySearchRequest, OntologySearchResponse]
 }
 
 // API wraps all implemented API services into a single container. Protocol-specific
@@ -78,10 +77,10 @@ type API struct {
 // BindTo binds the API to the provided Transport implementation.
 func (a *API) BindTo(t Transport) {
 	var (
-		err                = errors.Middleware()
-		tk                 = tokenMiddleware(a.provider.auth.token)
-		instrumentation    = lo.Must(falamos.Middleware(falamos.Config{Instrumentation: a.config.Instrumentation}))
-		insecureMiddleware = []freighter.Middleware{instrumentation, err}
+		err = errors.Middleware()
+		tk  = tokenMiddleware(a.provider.auth.token)
+		//instrumentation    = lo.Must(falamos.Middleware(falamos.Config{Instrumentation: a.config.Instrumentation}))
+		insecureMiddleware = []freighter.Middleware{err}
 		secureMiddleware   = make([]freighter.Middleware, len(insecureMiddleware))
 	)
 	copy(secureMiddleware, insecureMiddleware)
@@ -106,6 +105,7 @@ func (a *API) BindTo(t Transport) {
 		t.FrameReader,
 		t.ConnectivityCheck,
 		t.OntologyRetrieve,
+		t.OntologySearch,
 	)
 
 	t.AuthLogin.BindHandler(typedUnaryWrapper(a.Auth.Login))
@@ -118,6 +118,7 @@ func (a *API) BindTo(t Transport) {
 	t.FrameWriter.BindHandler(typedStreamWrapper(a.Segment.Write))
 	t.FrameReader.BindHandler(typedStreamWrapper(a.Segment.Iterate))
 	t.OntologyRetrieve.BindHandler(typedUnaryWrapper(a.Ontology.Retrieve))
+	t.OntologySearch.BindHandler(typedUnaryWrapper(a.Ontology.Search))
 }
 
 // New instantiates the delta API using the provided Config. This should probably

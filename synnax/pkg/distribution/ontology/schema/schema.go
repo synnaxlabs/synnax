@@ -16,6 +16,9 @@ package schema
 // [Schema] in the cluster. in the cluster. in the cluster. in the cluster.
 type Type string
 
+// String implements fmt.Stringer.
+func (t Type) String() string { return string(t) }
+
 // Schema represents a dynamically defined schema for an arbitrary entity. This can be
 // though of as a dynamically defined struct that allows entities of different types
 // to be assembled into composite data structures (such as an ontology).

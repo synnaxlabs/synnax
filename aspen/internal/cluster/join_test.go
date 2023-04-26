@@ -162,7 +162,7 @@ var _ = Describe("Open", func() {
 	Context("Invalid Configuration", func() {
 		It("Should return an error ", func() {
 			cfg := cluster.Config{}
-			ctx, cancel := signal.TODO()
+			ctx, cancel := signal.Isolated()
 			defer cancel()
 			_, err := cluster.Open(ctx, cfg)
 			Expect(err).To(HaveOccurred())

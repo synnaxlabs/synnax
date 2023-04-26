@@ -48,7 +48,7 @@ func Wrap(db_ *pebble.DB) kv.DB {
 }
 
 // OpenTx implement kv.DB.
-func (d db) OpenTx() kv.Tx { return tx{Batch: d.DB.NewIndexedBatch()} }
+func (d db) OpenTx() kv.Tx { return tx{Batch: d.DB.NewIndexedBatch(), db: d} }
 
 // Commit implements kv.DB.
 func (d db) Commit(ctx context.Context, opts ...interface{}) error { return nil }
