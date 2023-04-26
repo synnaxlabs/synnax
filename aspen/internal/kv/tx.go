@@ -12,14 +12,16 @@ package kv
 import (
 	"context"
 	"fmt"
+	"sync"
+
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/change"
 	kvx "github.com/synnaxlabs/x/kv"
 	"go.uber.org/zap"
-	"sync"
 )
 
 // tx is an aspen-managed key-value transaction. It's important to note that aspen
@@ -47,14 +49,14 @@ func (b *tx) Set(ctx context.Context, key, value []byte, options ...interface{})
 		return err
 	}
 	return b.applyOp(ctx, Operation{
-		Change:      kvx.Change{Key: key, Value: value, Variant: kvx.SetOperation},
+		Change:      kvx.Change{Key: key, Value: value, Variant: change.Set},
 		Leaseholder: lease,
 	})
 }
 
 // Delete implements kvx.Tx.
 func (b *tx) Delete(ctx context.Context, key []byte, _ ...interface{}) error {
-	op := Operation{Change: kvx.Change{Key: key, Variant: kvx.DeleteOperation}}
+	op := Operation{Change: kvx.Change{Key: key, Variant: change.Delete}}
 	return b.applyOp(ctx, op)
 }
 
@@ -77,7 +79,7 @@ func (b *tx) applyOp(ctx context.Context, op Operation) error {
 	if err != nil {
 		return err
 	}
-	if op.Variant == kvx.DeleteOperation {
+	if op.Variant == change.Delete {
 		if err := b.Tx.Delete(ctx, op.Key); err != nil {
 			return err
 		}
@@ -95,7 +97,7 @@ func (b *tx) toRequests(ctx context.Context) ([]TxRequest, error) {
 	dm := make(map[node.Key]TxRequest)
 	for _, dig := range b.digests {
 		op := dig.Operation()
-		if op.Variant == kvx.SetOperation {
+		if op.Variant == change.Set {
 			v, err := b.Tx.Get(ctx, dig.Key)
 			if err != nil && err != kvx.NotFound {
 				return nil, err

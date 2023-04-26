@@ -24,7 +24,7 @@ import (
 )
 
 type emptyService struct {
-	observe.Noop[iter.Next[ontology.Resource]]
+	observe.Noop[iter.Next[schema.Change]]
 }
 
 const emptyType ontology.Type = "empty"

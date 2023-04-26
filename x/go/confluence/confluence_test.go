@@ -21,7 +21,7 @@ var _ = Describe("Confluence", func() {
 	Describe("EmptyFlow", func() {
 
 		It("Should do nothing", func() {
-			ctx, cancel := signal.TODO()
+			ctx, cancel := signal.Isolated()
 			defer cancel()
 			Expect(func() {
 				EmptyFlow{}.Flow(ctx)

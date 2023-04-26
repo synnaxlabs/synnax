@@ -58,3 +58,23 @@ func (o *OntologyService) Retrieve(
 	}
 	return res, errors.MaybeQuery(q.Entries(&res.Resources).Exec(ctx, nil))
 }
+
+type OntologySearchRequest struct {
+	Query string `json:"query" msgpack:"query" validate:"required"`
+}
+
+type OntologySearchResponse struct {
+	Resources []ontology.Resource `json:"resources" msgpack:"resources"`
+}
+
+func (o *OntologyService) Search(
+	ctx context.Context,
+	req OntologySearchRequest,
+) (res OntologySearchResponse, err errors.Typed) {
+	if err = o.Validate(req); err.Occurred() {
+		return res, err
+	}
+	resources, err_ := o.Ontology.Search(ctx, req.Query)
+	res.Resources = resources
+	return res, errors.MaybeQuery(err_)
+}

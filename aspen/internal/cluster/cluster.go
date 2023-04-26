@@ -37,6 +37,9 @@ import (
 // State represents the current state of the cluster as seen from the host node.
 type State = store.State
 
+// Change is information about a change to the cluster's state.
+type Change = store.Change
+
 // NodeNotFound is returned when a node cannot be found in the cluster.
 var NodeNotFound = errors.New("[cluster] - node not found")
 
@@ -53,7 +56,7 @@ type Cluster interface {
 	Node(id node.Key) (node.Node, error)
 	// Observable can be used to monitor changes to the cluster state. Be careful not to modify the
 	// contents of the returned State.
-	observe.Observable[State]
+	observe.Observable[store.Change]
 	// Reader allows reading the current state of the cluster.
 	storex.Reader[State]
 	io.Closer
@@ -197,8 +200,6 @@ func (c *cluster) Resolve(key node.Key) (address.Address, error) {
 
 func (c *cluster) Close() error { return c.shutdown.Close() }
 
-func (c *cluster) ClusterObservable() observe.Observable[State] { return c.Store }
-
 func (c *cluster) gossipInitialState(ctx context.Context) error {
 	i := iter.Endlessly(c.Pledge.Peers)
 	for peerAddr, _, _ := i.Next(ctx); peerAddr != ""; peerAddr, _, _ = i.Next(ctx) {
@@ -228,7 +229,7 @@ func (c *cluster) goFlushStore(ctx signal.Context) {
 			Encoder:     c.EncoderDecoder,
 		}
 		flush.FlushSync(ctx, c.Store.CopyState())
-		c.OnChange(func(ctx context.Context, state State) { flush.Flush(ctx, state) })
+		c.OnChange(func(ctx context.Context, change Change) { flush.Flush(ctx, change.State) })
 		ctx.Go(func(ctx context.Context) error {
 			<-ctx.Done()
 			flush.FlushSync(ctx, c.Store.CopyState())

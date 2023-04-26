@@ -20,7 +20,7 @@ import (
 func Observe[K Key, E Entry[K]](kvo BaseObservable) observe.Observable[TxReader[K, E]] {
 	obs := observe.New[TxReader[K, E]]()
 	kvo.OnChange(func(ctx context.Context, reader kv.TxReader) {
-		obs.Notify(ctx, NewTxReader[K, E](reader, kvo))
+		obs.Notify(ctx, WrapTxReader[K, E](reader, kvo))
 	})
 	return obs
 }

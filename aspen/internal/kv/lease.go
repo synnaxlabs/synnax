@@ -11,14 +11,16 @@ package kv
 
 import (
 	"context"
+	"go/types"
+
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/confluence"
 	kvx "github.com/synnaxlabs/x/kv"
-	"go/types"
 )
 
 var ErrLeaseNotTransferable = errors.New("[DB] - cannot transfer leaseAlloc")
@@ -38,7 +40,7 @@ func (la *leaseAllocator) allocate(ctx context.Context, op Operation) (Operation
 			// we return an error.
 			return op, ErrLeaseNotTransferable
 		}
-	} else if errors.Is(err, kvx.NotFound) && op.Variant == kvx.SetOperation {
+	} else if errors.Is(err, kvx.NotFound) && op.Variant == change.Set {
 		if op.Leaseholder == DefaultLeaseholder {
 			// If we can't find the Leaseholder, and the op doesn't have a Leaseholder assigned,
 			// we assign the leaseAlloc to the cluster host.

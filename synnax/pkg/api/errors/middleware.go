@@ -11,6 +11,7 @@ package errors
 
 import (
 	roacherrors "github.com/cockroachdb/errors"
+	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/freighter"
 )
 
@@ -20,6 +21,7 @@ func Middleware() freighter.Middleware {
 		next freighter.Next,
 	) (freighter.Context, error) {
 		oCtx, err := next(ctx)
+		logrus.Info(err)
 		var t Typed
 		if roacherrors.As(err, &t) {
 			if !t.Occurred() {

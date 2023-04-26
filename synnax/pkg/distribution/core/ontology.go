@@ -46,7 +46,7 @@ var (
 	_nodeSchema = &ontology.Schema{
 		Type: nodeOntologyType,
 		Fields: map[string]schema.Field{
-			"id":      {Type: schema.Uint32},
+			"key":     {Type: schema.Uint32},
 			"address": {Type: schema.String},
 			"state":   {Type: schema.Uint32},
 		},
@@ -73,27 +73,34 @@ var _ ontology.Service = (*NodeOntologyService)(nil)
 // joining, changing state, etc.) and updates the ontolgoy accordinly.
 func (s *NodeOntologyService) ListenForChanges(ctx context.Context) {
 	s.update(ctx, s.Cluster.PeekState())
-	s.Cluster.OnChange(func(ctx context.Context, state ClusterState) {
-		s.update(ctx, state)
+	s.Cluster.OnChange(func(ctx context.Context, change ClusterChange) {
+		s.update(ctx, change.State)
 	})
 }
 
 // OnChange implements ontology.Service.
-func (s *NodeOntologyService) OnChange(f func(context.Context, iter.Next[ontology.Resource])) {
-	s.Cluster.OnChange(func(ctx context.Context, state ClusterState) {
-		f(ctx, newNodeIter(state))
-	})
+func (s *NodeOntologyService) OnChange(f func(context.Context, iter.Next[schema.Change])) {
+	var (
+		translate = func(ch NodeChange, _ int) schema.Change {
+			return schema.Change{
+				Variant: ch.Variant,
+				Key:     NodeOntologyID(ch.Key),
+				Value:   newNodeResource(ch.Value),
+			}
+		}
+		onChange = func(ctx context.Context, ch ClusterChange) {
+			f(ctx, iter.All(lo.Map(ch.Changes, translate)))
+		}
+	)
+	s.Cluster.OnChange(onChange)
 }
 
 // OpenNext implements ontology.Service.
 func (s *NodeOntologyService) OpenNext() iter.NextCloser[ontology.Resource] {
-	return iter.NopNextCloser[ontology.Resource]{Wrap: newNodeIter(s.Cluster.PeekState())}
-}
-
-func newNodeIter(state ClusterState) iter.Next[ontology.Resource] {
-	return iter.All(lo.MapToSlice(state.Nodes, func(_ NodeKey, n Node) ontology.Resource {
-		return newNodeResource(n)
-	}))
+	return iter.NopNextCloser[ontology.Resource]{
+		Wrap: iter.All(lo.MapToSlice(s.Cluster.PeekState().Nodes, func(_ NodeKey, n Node) ontology.Resource {
+			return newNodeResource(n)
+		}))}
 }
 
 func (s *NodeOntologyService) update(ctx context.Context, state ClusterState) {
@@ -139,11 +146,15 @@ func (s *NodeOntologyService) RetrieveResource(
 }
 
 func newNodeResource(n Node) schema.Resource {
-	e := schema.NewResource(_nodeSchema, fmt.Sprintf("Node %v", n.Key))
-	schema.Set(e, "key", uint32(n.Key))
-	schema.Set(e, "address", n.Address.String())
-	schema.Set(e, "state", uint32(n.State))
-	return e
+	r := schema.NewResource(
+		_nodeSchema,
+		NodeOntologyID(n.Key),
+		fmt.Sprintf("Node %v", n.Key),
+	)
+	schema.Set(r, "key", uint32(n.Key))
+	schema.Set(r, "address", n.Address.String())
+	schema.Set(r, "state", uint32(n.State))
+	return r
 }
 
 // ClusterOntologyService implements the ontology.Service to provide resource access
@@ -151,7 +162,7 @@ func newNodeResource(n Node) schema.Resource {
 type ClusterOntologyService struct {
 	Cluster Cluster
 	// Nothing will ever change about the cluster.
-	observe.Noop[iter.Next[ontology.Resource]]
+	observe.Noop[iter.Next[schema.Change]]
 }
 
 var _ ontology.Service = (*ClusterOntologyService)(nil)
@@ -161,9 +172,7 @@ func (s *ClusterOntologyService) Schema() *schema.Schema { return _clusterSchema
 
 // RetrieveResource implements ontology.Service.
 func (s *ClusterOntologyService) RetrieveResource(_ context.Context, _ string) (schema.Resource, error) {
-	r := schema.NewResource(_clusterSchema, "Cluster")
-	schema.Set(r, "key", s.Cluster.Key())
-	return r, nil
+	return newClusterResource(s.Cluster.Key()), nil
 }
 
 // OpenNext implements ontology.Service.Relationship
@@ -176,7 +185,7 @@ func (s *ClusterOntologyService) OpenNext() iter.NextCloser[schema.Resource] {
 }
 
 func newClusterResource(key uuid.UUID) ontology.Resource {
-	e := schema.NewResource(_clusterSchema, "Cluster")
-	schema.Set(e, "key", key.String())
-	return e
+	r := schema.NewResource(_clusterSchema, ClusterOntologyID(key), "Cluster")
+	schema.Set(r, "key", key.String())
+	return r
 }

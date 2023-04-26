@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/x/kv/pebblekv"
 )
 
-var _ = Describe("SeqNum", Ordered, func() {
+var _ = Describe("Counter", Ordered, func() {
 	var (
 		db kv.DB
 	)
@@ -31,7 +31,7 @@ var _ = Describe("SeqNum", Ordered, func() {
 		Expect(db.Close()).To(Succeed())
 	})
 	Describe("PersistedCounter", func() {
-		Context("Requests SeqNum", Ordered, func() {
+		Context("New Counter", Ordered, func() {
 			var c *kv.PersistedCounter
 			BeforeAll(func() {
 				var err error
@@ -48,7 +48,7 @@ var _ = Describe("SeqNum", Ordered, func() {
 				Expect(c.Add(10)).To(Equal(int64(11)))
 			})
 		})
-		Context("Existing SeqNum", func() {
+		Context("Existing Counter", func() {
 			It("Should load the value of the existing counter", func() {
 				c, err := kv.OpenCounter(ctx, db, []byte("test-two"))
 				Expect(err).NotTo(HaveOccurred())

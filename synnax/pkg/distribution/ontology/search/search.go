@@ -10,28 +10,56 @@
 package search
 
 import (
+	"context"
 	"github.com/blevesearch/bleve"
 	"github.com/blevesearch/bleve/mapping"
 	"github.com/blevesearch/bleve/search"
 	"github.com/samber/lo"
+	"github.com/sirupsen/logrus"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/config"
+	"go.uber.org/zap"
 )
 
 type Index struct {
+	Config
 	mapping *mapping.IndexMappingImpl
 	idx     bleve.Index
 }
 
-func New() (*Index, error) {
-	s := &Index{}
+type Config struct {
+	alamos.Instrumentation
+}
+
+var _ config.Config[Config] = Config{}
+
+func (c Config) Validate() error { return nil }
+
+func (c Config) Override(other Config) Config { return c }
+
+func New(configs ...Config) (*Index, error) {
+	cfg, err := config.New(Config{}, configs...)
+	if err != nil {
+		return nil, err
+	}
+	s := &Index{Config: cfg}
 	s.mapping = bleve.NewIndexMapping()
-	var err error
 	s.idx, err = bleve.NewMemOnly(s.mapping)
 	return s, err
 }
 
 func (s *Index) OpenTx() Tx { return Tx{idx: s.idx, batch: s.idx.NewBatch()} }
+
+func (s *Index) WithTx(f func(Tx) error) error {
+	t := s.OpenTx()
+	defer t.Close()
+	if err := f(t); err != nil {
+		return err
+	}
+	return t.Commit()
+}
 
 func (s *Index) Index(resources []schema.Resource) error {
 	t := s.OpenTx()
@@ -72,7 +100,10 @@ func (t *Tx) Delete(id schema.ID) { t.batch.Delete(id.String()) }
 
 func (t *Tx) Close() { t.idx = nil; t.batch = nil }
 
-func (s *Index) Register(sch schema.Schema) {
+func (s *Index) Register(ctx context.Context, sch schema.Schema) {
+	s.L.Debug("registering schema", zap.String("type", string(sch.Type)))
+	ctx, span := s.T.Prod(ctx, "register")
+	defer span.End()
 	dm := bleve.NewDocumentMapping()
 	dm.AddFieldMappingsAt("Name", bleve.NewTextFieldMapping())
 	for k, f := range sch.Fields {
@@ -82,17 +113,22 @@ func (s *Index) Register(sch schema.Schema) {
 }
 
 func (s *Index) Search(term string) ([]schema.ID, error) {
+	ctx, span := s.T.Prod(context.Background(), "search")
 	q := bleve.NewQueryStringQuery(term)
 	search_ := bleve.NewSearchRequest(q)
 	search_.Fields = []string{"*"}
-	searchResults, err := s.idx.Search(search_)
+	searchResults, err := s.idx.SearchInContext(ctx, search_)
 	if err != nil {
-		return nil, err
+		return nil, span.EndWith(err)
 	}
-	return schema.ParseIDs(lo.Map(
+	ids, err := schema.ParseIDs(lo.Map(
 		searchResults.Hits,
-		func(hit *search.DocumentMatch, _ int) string { return hit.ID },
+		func(hit *search.DocumentMatch, _ int) string {
+			logrus.Info(hit.ID)
+			return hit.ID
+		},
 	))
+	return ids, span.EndWith(err)
 }
 
 var fieldMappings = map[schema.FieldType]func() *mapping.FieldMapping{

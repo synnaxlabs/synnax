@@ -84,7 +84,7 @@ func newNextCloser(i iter.NextCloser[User]) iter.NextCloser[schema.Resource] {
 }
 
 func newResource(u User) schema.Resource {
-	e := schema.NewResource(_schema, u.Username)
+	e := schema.NewResource(_schema, OntologyID(u.Key), u.Username)
 	schema.Set(e, "key", u.Key)
 	schema.Set(e, "username", u.Username)
 	return e

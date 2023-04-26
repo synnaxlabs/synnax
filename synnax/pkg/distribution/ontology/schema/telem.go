@@ -7,20 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package core
+package schema
 
-import (
-	"github.com/synnaxlabs/aspen"
-)
+const TimeRangeType Type = "time-range"
 
-type (
-	Node          = aspen.Node
-	NodeKey       = aspen.NodeKey
-	NodeState     = aspen.NodeState
-	NodeChange    = aspen.NodeChange
-	Cluster       = aspen.Cluster
-	HostResolver  = aspen.HostResolver
-	Resolver      = aspen.Resolver
-	ClusterState  = aspen.ClusterState
-	ClusterChange = aspen.ClusterChange
-)
+var TimeRange = &Schema{
+	Type: TimeRangeType,
+	Fields: map[string]Field{
+		"start": {Type: Int64},
+		"end":   {Type: Int64},
+	},
+}

@@ -15,18 +15,18 @@ package store
 
 import (
 	"context"
+	"io"
+	"sync"
+
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
-	"io"
-	"sync"
+	"github.com/synnaxlabs/x/validate"
 )
 
-// State is the contents of a Store.
-type State = any
-
 // Reader is a readable Store.
-type Reader[S State] interface {
+type Reader[S any] interface {
 	// CopyState returns a copy of the current state.
 	CopyState() S
 	// PeekState returns a read-only view of the current state.
@@ -35,7 +35,7 @@ type Reader[S State] interface {
 }
 
 // Writer is a writable Store.
-type Writer[S State] interface {
+type Writer[S any] interface {
 	// SetState sets the state of the store. This is NOT a copy-on write operation,
 	// so make sure to provide a copy of the state (i.e. use Reader.CopyState when
 	// reading for write).
@@ -44,12 +44,12 @@ type Writer[S State] interface {
 
 // Store is a simple copy-on-read in memory store.
 // SinkTarget create a new Store, called store.New().
-type Store[S State] interface {
+type Store[S any] interface {
 	Reader[S]
 	Writer[S]
 }
 
-type core[S State] struct {
+type core[S any] struct {
 	copy  func(S) S
 	mu    sync.RWMutex
 	state S
@@ -59,8 +59,8 @@ type core[S State] struct {
 // It's up to the caller to determine the depth of the copy. Store
 // serves as a proxy to the state, so it's important to yield access
 // control to the Store (i.e. only alter the state through Store.SetState calls).
-func New[S State](copy func(S) S) Store[S] {
-	return &core[S]{copy: copy}
+func New[S any](_copy func(S) S) Store[S] {
+	return &core[S]{copy: _copy}
 }
 
 // SetState implements Store.
@@ -86,60 +86,80 @@ func (c *core[S]) PeekState() S {
 
 // Observable is a wrapper around a Store that allows the caller to observe
 // State changes. SinkTarget create a new store.Observable, called store.ObservableWrap().
-type Observable[S State] interface {
+type Observable[S, O any] interface {
 	Store[S]
-	observe.Observable[S]
+	observe.Observable[O]
 }
 
-type observable[S State] struct {
-	ObservableConfig[S]
+type observable[S, O any] struct {
+	ObservableConfig[S, O]
 	Store[S]
-	observe.Observer[S]
+	observe.Observer[O]
 	mu sync.Mutex
 }
 
-type ObservableConfig[S State] struct {
-	// ShouldNotify is a function that diffs the old and new state and returns
-	// true if subscribers of the state should be notified.
-	ShouldNotify func(prevState S, nextState S) bool
+type ObservableConfig[S, O any] struct {
+	// Store is the store to wrap.
+	// [REQUIRED]
+	Store Store[S]
+	// Transform is a function that receives the previous and new state and returns
+	// the object that should be sent to observers. If the retruned boolean is false,
+	// the observer will not be triggered, and noone will be notified. If this value is
+	// [REQUIRED]
+	Transform func(prev, next S) (O, bool)
 	// GoNotify is a boolean indicating whether to notify subscribers in a goroutine.
+	// [NOT REQUIRED]
 	GoNotify *bool
 }
 
-var _ config.Config[ObservableConfig[any]] = ObservableConfig[any]{}
+var (
+	_ config.Config[ObservableConfig[any, any]] = ObservableConfig[any, any]{}
+)
 
-func (o ObservableConfig[S]) Override(
-	other ObservableConfig[S],
-) ObservableConfig[S] {
-	o.ShouldNotify = override.Nil(o.ShouldNotify, other.ShouldNotify)
+func PassthroughTransform[S any](prev, next S) (S, bool) { return next, true }
+
+func (o ObservableConfig[S, O]) Override(
+	other ObservableConfig[S, O],
+) ObservableConfig[S, O] {
+	o.Transform = override.Nil(o.Transform, other.Transform)
 	o.GoNotify = override.Nil(o.GoNotify, other.GoNotify)
+	o.Store = override.Nil(o.Store, other.Store)
 	return o
 }
 
-func (o ObservableConfig[S]) Validate() error {
-	return nil
+func (o ObservableConfig[S, O]) Validate() error {
+	v := validate.New("Observable")
+	validate.NotNil(v, "Store", o.Store)
+	validate.NotNil(v, "Transform", o.Transform)
+	return v.Error()
 }
 
-func ObservableWrap[S State](store Store[S], cfgs ...ObservableConfig[S]) Observable[S] {
-	cfg, _ := config.New(ObservableConfig[S]{
-		GoNotify: config.Bool(true),
-	}, cfgs...)
-	return &observable[S]{ObservableConfig: cfg, Store: store, Observer: observe.New[S]()}
+func WrapObservable[S, O any](
+	cfgs ...ObservableConfig[S, O],
+) (Observable[S, O], error) {
+	defaultConfig := ObservableConfig[S, O]{GoNotify: config.Bool(true)}
+	cfg, err := config.New(defaultConfig, cfgs...)
+	return &observable[S, O]{
+		ObservableConfig: cfg,
+		Store:            cfg.Store,
+		Observer:         observe.New[O](),
+	}, err
 }
 
 // SetState implements Store.
-func (o *observable[S]) SetState(ctx context.Context, state S) {
-	if o.ShouldNotify == nil || o.ShouldNotify(o.PeekState(), state) {
-		if *o.ObservableConfig.GoNotify {
-			o.Observer.GoNotify(ctx, state)
-		} else {
-			o.Observer.Notify(ctx, state)
-		}
+func (o *observable[S, O]) SetState(ctx context.Context, state S) {
+	notify, shouldNotify := o.Transform(o.PeekState(), state)
+	if shouldNotify {
+		lo.Ternary(
+			*o.ObservableConfig.GoNotify,
+			o.Observer.GoNotify,
+			o.Observer.Notify,
+		)(ctx, notify)
 	}
 	o.Store.SetState(ctx, state)
 }
 
-type Flushable[S State] interface {
+type Flushable[S any] interface {
 	Store[S]
 	io.WriterTo
 	io.ReaderFrom

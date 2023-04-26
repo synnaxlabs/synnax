@@ -94,25 +94,3 @@ func (n NextTranslator[I, O]) Next(ctx context.Context) (O, bool, error) {
 }
 
 func (n NextCloserTranslator[I, O]) Close() error { return n.Wrap.Close() }
-
-func ExhaustNext[V any](iter Next[V]) (values []V, err error) {
-	for {
-		val, ok, err := iter.Next(context.Background())
-		if err != nil || !ok {
-			return values, err
-		}
-		values = append(values, val)
-	}
-}
-
-func ForEach[V any](iter Next[V], f func(V) error) error {
-	for {
-		val, ok, err := iter.Next(context.Background())
-		if err != nil || !ok {
-			return err
-		}
-		if err := f(val); err != nil {
-			return err
-		}
-	}
-}

@@ -41,7 +41,7 @@ var _schema = &ontology.Schema{
 }
 
 func newResource(c Channel) schema.Resource {
-	e := schema.NewResource(_schema, c.Name)
+	e := schema.NewResource(_schema, OntologyID(c.Key()), c.Name)
 	schema.Set(e, "key", c.Key().String())
 	schema.Set(e, "name", c.Name)
 	schema.Set(e, "node_key", uint32(c.NodeKey))
@@ -91,12 +91,8 @@ func (s *service) OnChange(f func(context.Context, iter.Next[schema.Change])) {
 
 // OpenNext implements ontology.service.
 func (s *service) OpenNext() iter.NextCloser[schema.Resource] {
-	return newNextCloser(gorp.WrapReader[Key, Channel](s.DB).OpenNext())
-}
-
-func newNextCloser(i iter.NextCloser[Channel]) iter.NextCloser[schema.Resource] {
 	return iter.NextCloserTranslator[Channel, schema.Resource]{
-		Wrap:      i,
+		Wrap:      gorp.WrapReader[Key, Channel](s.DB).OpenNext(),
 		Translate: newResource,
 	}
 }

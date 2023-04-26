@@ -129,9 +129,10 @@ func Set[V Value](D Resource, k string, v V) {
 
 // NewResource creates a new entity with the given schema and name and an empty set of
 // field data.
-func NewResource(schema *Schema, name string) Resource {
+func NewResource(schema *Schema, id ID, name string) Resource {
 	return Resource{
 		Schema: schema,
+		ID:     id,
 		Name:   name,
 		Data:   make(map[string]any),
 	}

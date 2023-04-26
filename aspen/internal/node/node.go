@@ -13,6 +13,7 @@ import (
 	"strconv"
 
 	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/version"
 )
 
@@ -24,7 +25,7 @@ func (k Key) Parse(str string) (Key, error) {
 }
 
 type Node struct {
-	Key        Key
+	Key       Key
 	Address   address.Address
 	State     State
 	Heartbeat version.Heartbeat
@@ -32,7 +33,14 @@ type Node struct {
 
 func (n Node) Digest() Digest { return Digest{Key: n.Key, Heartbeat: n.Heartbeat} }
 
+type Change = change.Change[Key, Node]
+
 type State uint32
+
+func BasicallyEqual(prev, next Node) bool {
+	prev.Heartbeat = next.Heartbeat
+	return prev == next
+}
 
 const (
 	StateHealthy State = iota

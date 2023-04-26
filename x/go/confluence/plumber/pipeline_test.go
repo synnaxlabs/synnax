@@ -80,7 +80,7 @@ var _ = Describe("Pipeline", func() {
 			seg.InFrom(input)
 			seg.OutTo(output)
 
-			ctx, cancel := signal.TODO()
+			ctx, cancel := signal.Isolated()
 			defer cancel()
 			seg.Flow(ctx)
 
@@ -212,7 +212,7 @@ var _ = Describe("Pipeline", func() {
 				Stitch:        StitchWeave,
 			}.MustRoute(pipe)
 
-			ctx, cancel := signal.TODO()
+			ctx, cancel := signal.Isolated()
 			defer cancel()
 			pipe.Flow(ctx, confluence.CloseInletsOnExit())
 

@@ -15,7 +15,6 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/monitor"
 	"github.com/gofiber/fiber/v2/middleware/pprof"
-	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/synnaxlabs/freighter/fhttp"
 	"github.com/synnaxlabs/x/telem"
 	"time"
@@ -47,7 +46,6 @@ func (b *SecureHTTPBranch) Key() string { return "http" }
 // Serve implements Branch.
 func (b *SecureHTTPBranch) Serve(ctx BranchContext) error {
 	b.internal = fiber.New(b.getConfig(ctx))
-	b.internal.Use(recover.New())
 	b.maybeRouteDebugUtil(ctx)
 	b.internal.Use(cors.New(cors.Config{AllowOrigins: "*"}))
 	for _, t := range b.Transports {

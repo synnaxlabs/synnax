@@ -135,7 +135,7 @@ func (k *Iterator[E]) Valid() bool {
 }
 
 // WrapTxReader wraps the given key-value reader to provide a strongly
-// typed interface for iterating over a Tx's entries in order. The given
+// typed interface for iterating over a transactions operations in order. The given
 // tools are used to implement gorp-specific functionality, such as
 // decoding. Typically, the Tools interface is satisfied by a gorp.Tx
 // or a gorp.Db. The following example reads from a tx;
@@ -143,7 +143,7 @@ func (k *Iterator[E]) Valid() bool {
 //	tx := db.OpenTx()
 //	defer tx.Close()
 //
-//	r := gor.WrapTxReader[MyKey, MyEntry](tx.NeReader(), tx)
+//	r := gor.WrapTxReader[MyKey, MyEntry](tx.NewReader(), tx)
 //
 //	r, ok, err := r.Next(ctx)
 func WrapTxReader[K Key, E Entry[K]](reader kv.TxReader, tools Tools) TxReader[K, E] {
@@ -156,7 +156,7 @@ func WrapTxReader[K Key, E Entry[K]](reader kv.TxReader, tools Tools) TxReader[K
 
 // TxReader is a thin-wrapper around a key-value transaction reader
 // that provides a strongly typed interface for iterating over a
-// Tx's entries in order.
+// transactions operations in order.
 type TxReader[K Key, E Entry[K]] struct {
 	kv.TxReader
 	Tools
@@ -174,9 +174,11 @@ func (t TxReader[K, E]) Next(ctx context.Context) (op change.Change[K, E], ok bo
 	if op.Variant != change.Set {
 		return
 	}
-	t.Decode(ctx, kvOp.Value, &op.Value)
+	if err = t.Decode(ctx, kvOp.Value, &op.Value); err != nil {
+		return
+	}
 	op.Key = op.Value.GorpKey()
-	return op, ok, err
+	return
 }
 
 type next[E any] struct{ *Iterator[E] }
