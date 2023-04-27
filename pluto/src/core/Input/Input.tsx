@@ -17,6 +17,7 @@ import "./Input.css";
 
 export interface InputProps extends InputBaseProps<string> {
   selectOnFocus?: boolean;
+  centerPlaceholder?: boolean;
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
@@ -28,6 +29,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
       className,
       onFocus,
       selectOnFocus = false,
+      centerPlaceholder = false,
       ...props
     },
     ref
@@ -35,7 +37,12 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     <input
       ref={ref}
       value={value}
-      className={CSS(CSS.B("input"), CSS.size(size), className)}
+      className={CSS(
+        CSS.B("input"),
+        CSS.size(size),
+        centerPlaceholder && CSS.BM("input", "placeholder-centered"),
+        className,
+      )}
       onChange={(e) => onChange(e.target.value)}
       onFocus={(e) => {
         if (selectOnFocus) e.target.select();

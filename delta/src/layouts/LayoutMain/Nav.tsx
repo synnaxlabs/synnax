@@ -15,6 +15,7 @@ import {
   MenuProps as PMenuProps,
   Button,
   useOS,
+  Select,
 } from "@synnaxlabs/pluto";
 import { locToDir } from "@synnaxlabs/x";
 
@@ -37,6 +38,7 @@ import { VisToolbar } from "@/vis";
 import { WorkspaceToolbar } from "@/workspace";
 
 import "./Nav.css";
+import { useState } from "react";
 
 export const NAV_DRAWERS: NavDrawerItem[] = [
   ClusterToolbar,
@@ -44,6 +46,20 @@ export const NAV_DRAWERS: NavDrawerItem[] = [
   WorkspaceToolbar,
   VisToolbar,
 ];
+
+const SearchBox = () => {
+  const [value, setValue] = useState<string>("")
+  return <Select
+    value={value}
+    onChange={setValue}
+    data={[]}
+    style={{ width: "100%" }}
+    inputProps={{
+      centerPlaceholder: true,
+      placeholder: "Search Synnax", style: { backgroundColor: "var(--pluto-primary-z-40)", borderColor: "var(--pluto-primary-z-60)" }
+    }}
+  />
+}
 
 /**
  * NavTop is the top navigation bar for the Delta UI. Try to keep this component
@@ -61,6 +77,9 @@ export const NavTop = (): JSX.Element => {
         <Controls className="delta-controls--macos" visibleIfOS="MacOS" />
         {os === "Windows" && <Logo className="delta-main-nav-top__logo" />}
       </Nav.Bar.Start>
+      <Nav.Bar.Content style={{ position: "absolute", left: "25%", width: "50%", zIndex: 10, height: NAV_SIZES.top }}>
+        <SearchBox />
+      </Nav.Bar.Content>
       <Nav.Bar.End className="delta-main-nav-top__end">
         <Button.Icon size="small" onClick={handleDocs}>
           <Icon.QuestionMark />

@@ -13,7 +13,6 @@ import {
   setWindowMaximized,
   setWindowMinimized,
   setWindowFullscreen,
-  closeWindow,
 } from "@synnaxlabs/drift";
 import {
   Controls as PControls,
@@ -22,13 +21,13 @@ import {
 } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
-export interface ControlsProps extends PControlsProps {}
+export interface ControlsProps extends PControlsProps { }
 
 export const Controls = (props: ControlsProps): JSX.Element | null => {
   const window = useSelectWindow();
   const dispatch = useDispatch();
   const remove = useLayoutRemover(window?.key ?? "");
-  if(window == null) return null;
+  if (window == null) return null;
   const maximizedDisabled = window.resizable === false;
   const disabled: ControlVariant[] = [];
   if (maximizedDisabled) disabled.push("maximize");

@@ -102,7 +102,6 @@ export const Resize = ({
 
   return (
     <ResizeCore
-      draggable
       location={location}
       size={size}
       onDragStart={handleDragStart}
