@@ -21,10 +21,11 @@ import { List, ListColumn } from "@/core/List";
 
 export interface SelectProps<E extends KeyedRenderableRecord<E>>
   extends Omit<DropdownProps, "onChange" | "visible" | "children">,
-    InputControl<string>,
-    Omit<ListProps<E>, "children"> {
+  InputControl<string>,
+  Omit<ListProps<E>, "children"> {
   tagKey?: keyof E;
   columns?: Array<ListColumn<E>>;
+  inputProps?: Omit<InputProps, "onChange">;
 }
 
 export const Select = <E extends KeyedRenderableRecord<E>>({
@@ -34,6 +35,7 @@ export const Select = <E extends KeyedRenderableRecord<E>>({
   columns = [],
   data = [],
   emptyContent,
+  inputProps,
   ...props
 }: SelectProps<E>): JSX.Element => {
   const { ref, visible, open, close } = Dropdown.use();
@@ -55,6 +57,7 @@ export const Select = <E extends KeyedRenderableRecord<E>>({
               onFocus={open}
               visible={visible}
               onChange={onChange}
+              {...inputProps}
             />
           )}
         </List.Search>

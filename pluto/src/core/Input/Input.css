@@ -47,3 +47,7 @@ input[type="number"]::-webkit-inner-spin-button {
     /* stylelint-disable-next-line property-no-vendor-prefix */
     -webkit-appearance: none;
 }
+
+.pluto-input--placeholder-centered::placeholder {
+  text-align: center;
+}

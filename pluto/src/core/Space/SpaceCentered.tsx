@@ -21,10 +21,10 @@ export const CoreSpaceCentered = <E extends SpaceElementType = "div">({
   justify = "center",
   align = "center",
   ...props
-}: SpaceProps<E>, 
+}: SpaceProps<E>,
   ref: ForwardedRef<JSX.IntrinsicElements[E]>
 ): JSX.Element => (
-  // @ts-expect-error
+  // @ts-ignore
   <Space
     ref={ref}
     justify={justify}
