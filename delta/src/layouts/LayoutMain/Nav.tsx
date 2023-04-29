@@ -16,6 +16,7 @@ import {
   Button,
   useOS,
   Select,
+  Triggers,
 } from "@synnaxlabs/pluto";
 import { locToDir } from "@synnaxlabs/x";
 
@@ -36,9 +37,9 @@ import { ResourcesToolbar } from "@/resources";
 import { VersionBadge } from "@/version";
 import { VisToolbar } from "@/vis";
 import { WorkspaceToolbar } from "@/workspace";
+import { useState } from "react";
 
 import "./Nav.css";
-import { useState } from "react";
 
 export const NAV_DRAWERS: NavDrawerItem[] = [
   ClusterToolbar,
@@ -157,8 +158,10 @@ export const NavRight = (): JSX.Element | null => {
 export const NavBottom = (): JSX.Element => {
   return (
     <Nav.Bar location="bottom" size={NAV_SIZES.bottom}>
-      <Nav.Bar.End className="delta-main-nav-bottom__end" bordered>
-        <VersionBadge />
+      <Nav.Bar.End className="delta-main-nav-bottom__end">
+        <Triggers.Status />
+        <Divider />
+        <VersionBadge level="p" />
         <Divider />
         <ClusterBadge />
         <Divider />

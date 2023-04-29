@@ -15,6 +15,8 @@ import { AiFillDatabase, AiFillPhone } from "react-icons/ai";
 import { Tree, TreeLeaf } from ".";
 
 import { useSelectMultiple } from "@/hooks/useSelectMultiple";
+import { Triggers } from "@/triggers";
+import { Haul } from "@/haul";
 
 const story: ComponentMeta<typeof Tree> = {
   title: "Core/Tree",
@@ -53,7 +55,7 @@ const nodes: TreeLeaf[] = [
   },
 ];
 
-export const Primary: ComponentStory<typeof Tree> = () => {
+const Component = () => {
   const [value, setValue] = useState<readonly string[]>([]);
   const { onSelect } = useSelectMultiple({
     allowMultiple: false,
@@ -61,8 +63,18 @@ export const Primary: ComponentStory<typeof Tree> = () => {
     onChange: setValue,
     data: nodes,
   });
-  return <Tree data={nodes} value={value} onChange={onSelect} />;
-};
+  return <Tree data={nodes} value={value} onChange={onSelect} />
+}
+
+export const Primary: ComponentStory<typeof Tree> = () => {
+  return (
+    <Haul.Provider>
+      <Triggers.Provider>
+        <Component />
+      </Triggers.Provider>
+    </Haul.Provider>
+  )
+}
 
 // eslint-disable-next-line import/no-default-export
 export default story;

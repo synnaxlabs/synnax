@@ -30,7 +30,7 @@ import { RenderProp } from "@/util/renderProp";
 
 import "./InputItem.css";
 
-interface RenderComponent<P> {
+interface RenderComponent<P extends Record<string, any>> {
   render: RenderProp<P>;
 }
 
@@ -43,9 +43,9 @@ interface InputItemExtensionProps<
   showLabel?: boolean;
   helpText?: string;
   children?:
-    | RenderProp<P>
-    | RenderComponent<P>
-    | Array<RenderProp<P> | RenderComponent<P>>;
+  | RenderProp<P>
+  | RenderComponent<P>
+  | Array<RenderProp<P> | RenderComponent<P>>;
   className?: string;
   style?: React.CSSProperties;
 }

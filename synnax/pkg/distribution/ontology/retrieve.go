@@ -49,6 +49,16 @@ func (r Retrieve) Where(filter func(r *Resource) bool) Retrieve {
 	return r
 }
 
+func (r Retrieve) IncludeSchema(includeSchema bool) Retrieve {
+	setIncludeSchema(r.query.Current().Params, includeSchema)
+	return r
+}
+
+func (r Retrieve) IncludeFieldData(includeFieldData bool) Retrieve {
+	setIncludeFieldData(r.query.Current().Params, includeFieldData)
+	return r
+}
+
 // Direction is the direction of a relationship traversal.
 type Direction uint8
 
@@ -151,15 +161,51 @@ func getTraverser(q query.Parameters) Traverser {
 	return q.GetRequired(traverseOptKey).(Traverser)
 }
 
+const includeFieldDataOptKey = "includeFieldData"
+
+func setIncludeFieldData(q query.Parameters, b bool) {
+	q.Set(includeFieldDataOptKey, b)
+}
+
+func getIncludeFieldData(q query.Parameters) bool {
+	v, ok := q.Get(includeFieldDataOptKey)
+	if !ok {
+		return true
+	}
+	return v.(bool)
+}
+
+const includeScheamOptKey = "includeSchema"
+
+func setIncludeSchema(q query.Parameters, b bool) {
+	q.Set(includeScheamOptKey, b)
+}
+
+func getIncludeSchema(q query.Parameters) bool {
+	v, ok := q.Get(includeScheamOptKey)
+	if !ok {
+		return true
+	}
+	return v.(bool)
+}
+
 func (r Retrieve) retrieveEntities(
 	ctx context.Context,
 	clause gorp.Retrieve[ID, Resource],
 ) ([]Resource, error) {
 	entries := gorp.GetEntries[ID, Resource](clause.Params)
+	includeFieldData := getIncludeFieldData(clause.Params)
+	includeSchema := getIncludeSchema(clause.Params)
 	for j, res := range entries.All() {
 		res, err := r.registrar.retrieveResource(ctx, res.ID)
 		if err != nil {
 			return nil, err
+		}
+		if !includeFieldData {
+			res.Data = nil
+		}
+		if !includeSchema {
+			res.Schema = nil
 		}
 		entries.Set(j, res)
 	}

@@ -9,16 +9,16 @@
 
 import { ReactElement } from "react";
 
-import { OntologyID } from "@synnaxlabs/client";
+import { Synnax } from "@synnaxlabs/client";
 import type { OntologyResourceType } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 
 import { LayoutPlacer } from "@/layout";
-import { createLineVis } from "@/vis/line";
 import { WorkspaceState } from "@/workspace";
+import { Hauled } from "@synnaxlabs/pluto";
 
-export interface SelectionContext {
-  id: OntologyID;
+export interface ResourceContext {
+  client: Synnax;
   placer: LayoutPlacer;
   workspace: WorkspaceState;
 }
@@ -26,8 +26,10 @@ export interface SelectionContext {
 export interface ResourceType {
   type: OntologyResourceType;
   icon: ReactElement;
-  onSelect?: (ctx: SelectionContext) => void;
   hasChildren: boolean;
+  acceptsDrop: (hauled: Hauled[]) => boolean;
+  onDrop: (ctx: ResourceContext, hauled: Hauled[]) => void;
+  contextMenu: (ctx: ResourceContext, hauled: Hauled[]) => ReactElement;
 }
 
 export const resourceTypes: Record<string, ResourceType> = {
@@ -35,32 +37,40 @@ export const resourceTypes: Record<string, ResourceType> = {
     type: "builtin",
     icon: <Icon.Cluster />,
     hasChildren: true,
+    acceptsDrop: () => false,
+    onDrop: () => { },
   },
   cluster: {
     type: "cluster",
     icon: <Icon.Cluster />,
     hasChildren: true,
+    acceptsDrop: () => false,
+    onDrop: () => { },
   },
   node: {
     type: "node",
     icon: <Icon.Node />,
     hasChildren: true,
+    acceptsDrop: () => false,
+    onDrop: () => { },
   },
   channel: {
     type: "channel",
     icon: <Icon.Channel />,
     hasChildren: false,
-    onSelect: ({ placer, id, workspace }: SelectionContext) => {
-      placer(
-        createLineVis({
-          channels: {
-            y1: [id.key],
-          },
-          ranges: {
-            x1: workspace.activeRange != null ? [workspace.activeRange] : [],
-          },
-        })
-      );
-    },
+    acceptsDrop: () => false,
+    onDrop: () => { },
   },
+  group: {
+    type: "group",
+    hasChildren: true,
+    acceptsDrop: () => true,
+    onDrop: () => { },
+  },
+  range: {
+    type: "range",
+    hasChildren: true,
+    acceptsDrop: () => true,
+    onDrop: () => { },
+  }
 };

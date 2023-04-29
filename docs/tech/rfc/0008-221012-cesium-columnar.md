@@ -3,7 +3,7 @@
 **Feature Name** - Cesium - Columnar Storage for Irregular Data <br />
 **Status** - Complete <br />
 **Start Date** - 2022-10-12 <br />
-**Authors** - emilbon99 <br />
+**Authors** - Emiliano Bonilla <br />
 
 # 0 - Summary
 

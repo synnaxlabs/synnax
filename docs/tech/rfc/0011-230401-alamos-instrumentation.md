@@ -2,7 +2,7 @@
 
 **Feature Name**: Alamos Instrumentation <br />
 **Start Date**: 2023-04-01 <br />
-**Authors**: emilbon99 <br />
+**Authors**: Emiliano Bonilla <br />
 **Status**: Draft <br />
 
 # 0 - Summary

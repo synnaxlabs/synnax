@@ -1,5 +1,6 @@
 // Copyright 2023 Synnax Labs, Inc.
 //
+//
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
 //
@@ -18,12 +19,15 @@ import {
   diff,
 } from "./triggers";
 import { TriggersProvider } from "./TriggersContext";
+import { TriggerStatus } from "./TriggerStatus";
 import { useTriggerDrag } from "./useTriggerDrag";
+export type { TriggersProviderProps } from "./TriggersContext";
 export type { Trigger, Key, Stage, TriggerEvent, TriggerCallback } from "./triggers";
 export type { TriggerDragEvent, TriggerDragCallback } from "./useTriggerDrag";
 
 export const Triggers = {
   Provider: TriggersProvider,
+  Status: TriggerStatus,
   match,
   filter,
   purge,

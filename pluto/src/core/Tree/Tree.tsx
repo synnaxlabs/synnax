@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DetailedHTMLProps, HtmlHTMLAttributes, ReactElement, useState } from "react";
+import {
+  DetailedHTMLProps,
+  HtmlHTMLAttributes,
+  ReactElement,
+  useEffect,
+  useState,
+} from "react";
 
 import { Icon } from "@synnaxlabs/media";
 import { KeyedRenderableRecord } from "@synnaxlabs/x";
@@ -18,19 +24,35 @@ import { Button, ButtonLinkProps } from "@/core/Button";
 import { InputControl } from "@/core/Input";
 import { CSS } from "@/css";
 import { ComponentSize } from "@/util/component";
-import { RenderProp } from "@/util/renderProp";
+import { List, ListItemProps } from "../List";
+
+import { componentRenderProp } from "@/util/renderProp";
+import { Haul } from "@/haul";
 
 import "./Tree.css";
 
+export type TreeLeaf<E extends KeyedRenderableRecord<E> = KeyedRenderableRecord> = {
+  hasChildren?: boolean;
+  icon?: ReactElement;
+  children?: Array<TreeLeaf<E>>;
+  url?: string;
+  expanded?: boolean;
+} & RenderableTreeLeaf<E>;
+
+type RenderableTreeLeaf<E extends KeyedRenderableRecord<E> = KeyedRenderableRecord> = {
+  key: string;
+  name: string;
+} & Omit<E, "name" | "key">;
+
+
 export interface TreeProps<E extends KeyedRenderableRecord<E> = KeyedRenderableRecord>
   extends Partial<InputControl<readonly string[], string>>,
-    Omit<
-      DetailedHTMLProps<HtmlHTMLAttributes<HTMLUListElement>, HTMLUListElement>,
-      "children" | "onChange"
-    > {
+  Omit<
+    DetailedHTMLProps<HtmlHTMLAttributes<HTMLDivElement>, HTMLDivElement>,
+    "children" | "onChange"
+  > {
   data: Array<TreeLeaf<E>>;
   onExpand?: (key: string) => void;
-  children?: RenderProp<TreeLeafCProps<E>>;
   size?: ComponentSize;
 }
 
@@ -39,153 +61,96 @@ export const Tree = <E extends KeyedRenderableRecord<E> = KeyedRenderableRecord>
   value = [],
   onChange,
   onExpand,
-  children = ButtonLeaf,
   size,
   ...props
 }: TreeProps<E>): JSX.Element => {
-  const _nextSiblingsHaveChildren = nextSiblingsHaveChildren(data);
+  const [tree, setTree] = useState<TreeLeaf<E>>({ key: "root", name: "Root" } as TreeLeaf<E>);
+
+  const normalized = tree.children?.map((t) => normalize(t, 1)).flat() ?? [];
+
+  useEffect(() => {
+    setTree(merge(tree, { key: "root", name: "Root", children: data } as TreeLeaf<E>))
+  }, [data])
+
+  const handleSelect = ([key]: readonly string[]) => {
+    const next = update(tree, key, ({ expanded, ...prev }) => ({ ...prev, expanded: !expanded } as TreeLeaf<E>));
+    setTree(next)
+  }
+
   return (
-    <ul className={CSS(CSS.BE("tree", "list"), CSS.BE("tree", "container"))} {...props}>
-      {data.map((entry) => (
-        <TreeLeafParent
-          {...entry}
-          key={entry.key}
-          prevPaddingLeft={-1.5}
-          siblingsHaveChildren={_nextSiblingsHaveChildren}
-          selected={value}
-          nodeKey={entry.key}
-          onSelect={onChange}
-          onExpand={onExpand}
-          render={children}
-          size={size}
-        />
-      ))}
-    </ul>
-  );
+    <List<TreeLeafListItem<E>> data={normalized}>
+      <List.Selector onChange={handleSelect} value={[]} />
+      <List.Core.Virtual<TreeLeafListItem<E>> itemHeight={24} {...props}>
+        {componentRenderProp(TreeLeafListItemC<E>)}
+      </List.Core.Virtual>
+    </List>
+
+  )
 };
 
-export type TreeLeaf<E extends KeyedRenderableRecord<E> = KeyedRenderableRecord> = {
-  hasChildren?: boolean;
-  icon?: ReactElement;
-  children?: Array<TreeLeaf<E>>;
-  url?: string;
-} & RenderableTreeLeaf<E>;
+export type TreeLeafListItem<E extends KeyedRenderableRecord<E> = KeyedRenderableRecord> = {
+  padding: number;
+} & TreeLeaf<E>;
 
-type RenderableTreeLeaf<E extends KeyedRenderableRecord<E> = KeyedRenderableRecord> = {
-  key: string;
-  name: string;
-} & Omit<E, "name" | "key">;
+export const normalize = <E extends KeyedRenderableRecord<E>>(tree: TreeLeaf<E>, padding: number): TreeLeafListItem<E>[] => {
+  tree.hasChildren = tree.hasChildren || (tree.children != null && tree.children.length) > 0
+  const items: TreeLeafListItem<E>[] = [{
+    ...tree,
+    padding,
+  }];
+  const nextPadding = padding + 2;
+  if (tree.hasChildren === true && tree.expanded === true) {
+    tree.children?.forEach((child) => {
+      items.push(...normalize(child, nextPadding))
+    })
+  }
+  return items;
+}
 
-type TreeLeafProps<E extends KeyedRenderableRecord<E>> = TreeLeaf<E> & {
-  selected: readonly string[];
-  nodeKey: string;
-  hasChildren?: boolean;
-  prevPaddingLeft: number;
-  onExpand?: (key: string) => void;
-  onSelect?: (key: string) => void;
-  render: RenderProp<TreeLeafCProps<E>>;
-  siblingsHaveChildren: boolean;
-  size?: ComponentSize;
-};
+export const update = <E extends KeyedRenderableRecord<E>>(tree: TreeLeaf<E>, key: string, set: (leaf: TreeLeaf<E>) => TreeLeaf<E>): TreeLeaf<E> => {
+  if (tree.key == key) return set(tree);
+  else if (tree.children?.length ?? 0 > 0) return {
+    ...tree,
+    children: tree.children?.map((child) => update(child, key, set))
+  }
+  return tree;
+}
 
-const TreeLeafParent = <E extends KeyedRenderableRecord>({
-  nodeKey,
-  name,
-  icon,
+export const merge = <E extends KeyedRenderableRecord<E>>(prev: TreeLeaf<E>, next: TreeLeaf<E>): TreeLeaf<E> => {
+  const merged = { ...prev, ...next };
+  if (prev.children == null || next.children == null) return merged;
+  merged.children = prev.children.map((child) => {
+    const nextChild = next.children?.find((c) => c.key === child.key);
+    return nextChild != null ? merge(child, nextChild) : child;
+  })
+  const keys = merged.children.map((c) => c.key)
+  merged.children.push(...next.children.filter((c) => !keys.includes(c.key)))
+  return merged;
+}
+
+const DRAGGING_TYPE = "pluto-tree-list-item"
+
+export const TreeLeafListItemC = <E extends KeyedRenderableRecord<E>>({
+  entry: { padding, hasChildren, icon, name, url, expanded, key: nodeKey },
   onSelect,
   selected,
-  children = [],
-  hasChildren = false,
-  onExpand,
-  prevPaddingLeft,
-  render,
-  siblingsHaveChildren,
-  size,
-  ...rest
-}: TreeLeafProps<E>): JSX.Element => {
-  const [expanded, setExpanded] = useState(recursiveSelected(children, selected));
-  const handleExpand = (key: string): void => {
-    onExpand?.(key);
-    setExpanded(!expanded);
-  };
-  hasChildren = children.length > 0 || hasChildren;
-  let paddingLeft = prevPaddingLeft + 2.5;
-  if (!hasChildren && siblingsHaveChildren) paddingLeft += 3.25;
-  const _nextSiblingsHaveChildren = nextSiblingsHaveChildren(children);
-  return (
-    <li className={CSS.BE("tree-node", "container")}>
-      {render({
-        nodeKey,
-        style: {
-          paddingLeft: `${paddingLeft}rem`,
-        },
-        selected: selected.includes(nodeKey),
-        name,
-        icon,
-        expanded,
-        hasChildren,
-        onExpand: handleExpand,
-        onSelect,
-        size,
-        ...rest,
-      } as const as TreeLeafCProps<E>)}
-      {expanded && children.length > 0 && (
-        <ul className={CSS.BE("tree", "list")}>
-          {children.map((child) => (
-            <TreeLeafParent
-              {...child}
-              key={child.key}
-              nodeKey={child.key}
-              siblingsHaveChildren={_nextSiblingsHaveChildren}
-              onSelect={onSelect}
-              prevPaddingLeft={paddingLeft}
-              selected={selected}
-              onExpand={onExpand}
-              render={render}
-            />
-          ))}
-        </ul>
-      )}
-    </li>
-  );
-};
-
-type TreeLeafCProps<E extends KeyedRenderableRecord<E> = KeyedRenderableRecord> = Omit<
-  RenderableTreeLeaf<E>,
-  "key"
-> & {
-  nodeKey: string;
-  name: string;
-  expanded: boolean;
-  selected: boolean;
-  hasChildren: boolean;
-  icon?: ReactElement;
-  url?: string;
-  style: React.CSSProperties;
-  onExpand: (key: string) => void;
-  onSelect?: (key: string) => void;
-};
-
-export const ButtonLeaf = <E extends KeyedRenderableRecord<E>>({
-  name,
-  icon,
-  nodeKey,
-  selected,
-  expanded,
-  hasChildren = true,
-  onSelect,
-  onExpand,
-  url,
   ...props
-}: TreeLeafCProps<E>): JSX.Element => {
+}: ListItemProps<TreeLeafListItem<E>>): JSX.Element => {
   const icons: ReactElement[] = [];
   if (hasChildren) icons.push(expanded ? <Icon.Caret.Down /> : <Icon.Caret.Right />);
   if (icon != null) icons.push(icon);
 
-  const handleClick = (): void => {
-    onSelect?.(nodeKey);
-    onExpand(nodeKey);
-  };
+  const handleClick = (): void => onSelect?.(nodeKey);
+
+  const { startDrag, endDrag, dragging } = Haul.useRef();
+
+  const [draggedOver, setDraggedOver] = useState<boolean>(false);
+
+  const handleDragOver = () => dragging.current.some((v) => v.type === DRAGGING_TYPE) && setDraggedOver(true)
+
+  const handleDragLeave = () => setDraggedOver(false)
+
+  const handleDragStart = () => startDrag([{ key: nodeKey, type: DRAGGING_TYPE }])
 
   const baseProps: ButtonLinkProps | ButtonProps = {
     variant: "text",
@@ -194,7 +159,17 @@ export const ButtonLeaf = <E extends KeyedRenderableRecord<E>>({
     startIcon: icons,
     iconSpacing: "small",
     noWrap: true,
+    draggable: true,
+    onDragLeave: handleDragLeave,
+    onDragOver: handleDragOver,
+    onDragStart: handleDragStart,
+    onDragEnd: endDrag,
     ...props,
+    style: {
+      paddingLeft: `${padding}rem`,
+      ...props.style,
+      backgroundColor: draggedOver ? "red" : undefined,
+    },
   };
 
   return url != null ? (
@@ -203,21 +178,7 @@ export const ButtonLeaf = <E extends KeyedRenderableRecord<E>>({
     </Button.Link>
   ) : (
     <Button {...baseProps}>{name}</Button>
-  );
-};
+  )
+}
 
-const recursiveSelected = (data: TreeLeaf[], selected: readonly string[]): boolean => {
-  for (const entry of data) {
-    if (selected.includes(entry.key)) return true;
-    if (entry.children != null && recursiveSelected(entry.children, selected))
-      return true;
-  }
-  return false;
-};
 
-const nextSiblingsHaveChildren = (data: TreeLeaf[]): boolean =>
-  data.some(
-    (child) =>
-      child.hasChildren === true ||
-      (child.children != null && child.children.length > 0)
-  );
