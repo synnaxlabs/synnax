@@ -28,7 +28,7 @@ const responseSchema = z.object({
 
 export interface ChannelRetriever {
   retrieve: ((keyOrName: string) => Promise<ChannelPayload>) &
-    ((...keysOrNames: Array<string | string[]>) => Promise<ChannelPayload[]>);
+  ((...keysOrNames: Array<string | string[]>) => Promise<ChannelPayload[]>);
   retrieveAll: () => Promise<ChannelPayload[]>;
 }
 

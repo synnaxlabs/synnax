@@ -7,7 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { OntologyRetriever } from "@/ontology/retriever";
+import { HaulProvider, useHaulRef, useHaulState } from "@/haul/HaulContext"
+export type { UseHaulStateReturn as UseHaulReturn, Hauled } from "@/haul/HaulContext"
 
-/** The core client class for executing queries against a Synnax cluster ontology */
-export class OntologyClient extends OntologyRetriever { }
+export const Haul = {
+  Provider: HaulProvider,
+  useState: useHaulState,
+  useRef: useHaulRef,
+}

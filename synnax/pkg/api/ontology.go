@@ -29,9 +29,11 @@ func NewOntologyService(p Provider) *OntologyService {
 }
 
 type OntologyRetrieveRequest struct {
-	IDs      []string `json:"ids" msgpack:"ids" validate:"required"`
-	Children bool     `json:"children" msgpack:"children"`
-	Parents  bool     `json:"parents" msgpack:"parents"`
+	IDs              []string `json:"ids" msgpack:"ids" validate:"required"`
+	Children         bool     `json:"children" msgpack:"children"`
+	Parents          bool     `json:"parents" msgpack:"parents"`
+	IncludeSchema    bool     `json:"include_schema" msgpack:"include_schema" default:"true"`
+	IncludeFieldData bool     `json:"include_field_data" msgpack:"include_field_data" default:"true"`
 }
 
 type OntologyRetrieveResponse struct {
@@ -50,12 +52,18 @@ func (o *OntologyService) Retrieve(
 	if err := o.Validate(req); err.Occurred() {
 		return OntologyRetrieveResponse{}, err
 	}
-	q := o.Ontology.NewRetrieve().WhereIDs(ids...)
+	q := o.Ontology.NewRetrieve().
+		WhereIDs(ids...).
+		IncludeSchema(req.IncludeSchema).
+		IncludeFieldData(req.IncludeFieldData)
+
 	if req.Children {
 		q = q.TraverseTo(ontology.Children)
 	} else if req.Parents {
 		q = q.TraverseTo(ontology.Parents)
 	}
+	q = q.IncludeSchema(req.IncludeSchema).IncludeFieldData(req.IncludeFieldData)
+
 	return res, errors.MaybeQuery(q.Entries(&res.Resources).Exec(ctx, nil))
 }
 

@@ -12,22 +12,20 @@ import { useEffect } from "react";
 import { Space } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
-import { NavBottom, NavDrawer, NavLeft, NavRight, NavTop } from "./Nav";
-
+import { NavBottom, NavDrawer, NavLeft, NavRight, NavTop } from "@/layouts/LayoutMain/Nav";
 import { ClusterProvider } from "@/cluster";
 import { LayoutMosaic, maybeCreateGetStartedTab } from "@/layout";
 import { VisCanvas } from "@/vis";
 
 import "./LayoutMain.css";
+
 /**
  * The center of it all. This is the main layout for the Delta UI. Try to keep this
  * component as simple, presentational, and navigatable as possible.
  */
 export const LayoutMain = (): JSX.Element => {
   const d = useDispatch();
-  useEffect(() => {
-    d(maybeCreateGetStartedTab());
-  }, []);
+  useEffect(() => { d(maybeCreateGetStartedTab()) }, []);
   return (
     <ClusterProvider>
       <NavTop />

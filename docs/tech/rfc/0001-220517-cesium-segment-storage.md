@@ -3,7 +3,7 @@
 **Feature Name** - Channel Segment Storage Engine <br />
 **Status** - Complete <br />
 **Start Date** - 2022-05-17 <br />
-**Authors** - emilbon99 <br />
+**Authors** - Emiliano Bonilla <br />
 
 # 0 - Summary
 

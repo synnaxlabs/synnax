@@ -19,7 +19,7 @@ import { Text, TextProps, TypographyLevel } from "@/core/Typography";
 export interface StatusTextProps extends Omit<TextProps, "level" | "wrap"> {
   level?: TypographyLevel;
   hideIcon?: boolean;
-  variant: StatusVariant;
+  variant?: StatusVariant;
 }
 
 const statusVariantIcons: Record<StatusVariant, ReactElement> = {
@@ -41,7 +41,7 @@ const statusVariantColors: Record<StatusVariant, string> = {
 };
 
 const CoreStatusText = ({
-  variant = "error",
+  variant = "info",
   level = "p",
   hideIcon = false,
   ...props
@@ -54,7 +54,7 @@ const CoreStatusText = ({
   />
 );
 
-export interface StatusTextCenteredProps extends StatusTextProps {}
+export interface StatusTextCenteredProps extends StatusTextProps { }
 
 const StatusTextCentered = (props: StatusTextCenteredProps): JSX.Element => (
   <Space.Centered>

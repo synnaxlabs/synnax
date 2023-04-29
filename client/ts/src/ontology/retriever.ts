@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import type { UnaryClient } from "@synnaxlabs/freighter";
+import { QueryError } from "@/errors";
+import { toArray } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { OntologyID, OntologyResource, ontologyResourceSchema } from "./payload";
@@ -18,6 +20,8 @@ const requestSchema = z.object({
   ids: z.string().array(),
   children: z.boolean().optional(),
   parents: z.boolean().optional(),
+  includeSchema: z.boolean().optional(),
+  includeFieldData: z.boolean().optional(),
 });
 
 type Request = z.infer<typeof requestSchema>;
@@ -34,7 +38,60 @@ export class OntologyRetriever {
     this.client = transport.getClient();
   }
 
-  async execute(request: Request): Promise<OntologyResource[]> {
+  async retrieve(
+    id: OntologyID,
+    includeSchema?: boolean,
+    includeFieldData?: boolean
+  ): Promise<OntologyResource>;
+
+  async retrieve(
+    ids: OntologyID[],
+    includeSchema?: boolean,
+    includeFieldData?: boolean
+  ): Promise<OntologyResource[]>
+
+  async retrieve(
+    ids: OntologyID | OntologyID[],
+    includeSchema?: boolean,
+    includeFieldData?: boolean
+  ): Promise<OntologyResource | OntologyResource[]> {
+    const resources = await this.execute({
+      ids: toArray(ids).map((id) => id.toString()),
+      includeFieldData,
+      includeSchema,
+    })
+    if (Array.isArray(ids)) return resources
+    if (resources.length == 0) throw new QueryError(`No resource found with ID ${ids}`);
+    return resources[0]
+  }
+
+  async retrieveChildren(
+    ids: OntologyID | OntologyID[],
+    includeSchema?: boolean,
+    includeFieldData?: boolean,
+  ): Promise<OntologyResource[]> {
+    return await this.execute({
+      ids: toArray(ids).map((id) => id.toString()),
+      children: true,
+      includeSchema,
+      includeFieldData,
+    });
+  }
+
+  async retrieveParents(
+    ids: OntologyID | OntologyID[],
+    includeSchema?: boolean,
+    includeFieldData?: boolean,
+  ): Promise<OntologyResource[]> {
+    return await this.execute({
+      ids: toArray(ids).map((id) => id.toString()),
+      parents: true,
+      includeSchema,
+      includeFieldData,
+    });
+  }
+
+  private async execute(request: Request): Promise<OntologyResource[]> {
     const [res, err] = await this.client.send(
       OntologyRetriever.ENDPOINT,
       request,
@@ -42,27 +99,5 @@ export class OntologyRetriever {
     );
     if (err != null) throw err;
     return res?.resources as OntologyResource[];
-  }
-
-  async retrieve(id: OntologyID): Promise<OntologyResource> {
-    return (await this.execute({ ids: [id.toString()] }))[0];
-  }
-
-  async retrieveMany(...ids: OntologyID[]): Promise<OntologyResource[]> {
-    return await this.execute({ ids: ids.map((id) => id.toString()) });
-  }
-
-  async retrieveChildren(...ids: OntologyID[]): Promise<OntologyResource[]> {
-    return await this.execute({
-      ids: ids.map((id) => id.toString()),
-      children: true,
-    });
-  }
-
-  async retrieveParents(...ids: OntologyID[]): Promise<OntologyResource[]> {
-    return await this.execute({
-      ids: ids.map((id) => id.toString()),
-      parents: true,
-    });
   }
 }

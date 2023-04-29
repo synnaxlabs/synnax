@@ -10,7 +10,6 @@
 import { TimeSpan, TimeStamp } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
-  Text,
   List,
   ListColumn,
   Menu as PMenu,

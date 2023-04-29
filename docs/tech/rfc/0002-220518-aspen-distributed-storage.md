@@ -3,7 +3,7 @@
 **Feature Name** - Aspen, a Gossip Based Peer to Peer Key-Value Store <br />
 **Status** - Complete <br />
 **Start Date** - 2022-05-18 <br />
-**Authors** - emilbon99 <br />
+**Authors** - Emiliano Bonilla <br />
 
 # 0 - Summary
 

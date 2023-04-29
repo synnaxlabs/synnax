@@ -30,7 +30,7 @@ import { useStateRef } from "@/hooks/useStateRef";
 
 type TriggerListen = (callback: TriggerCallback) => Destructor;
 
-interface TriggerContextValue {
+export interface TriggerContextValue {
   listen: TriggerListen;
 }
 
@@ -41,10 +41,6 @@ export const useTriggerContext = (): TriggerContextValue => {
   if (ctx == null) throw new Error("TriggerContext not available");
   return ctx;
 };
-
-export interface TriggerProviderProps extends PropsWithChildren {
-  ref: React.RefObject<HTMLElement>;
-}
 
 interface TriggerRefState {
   next: Trigger;
@@ -60,11 +56,9 @@ const ZERO_TRIGGER_STATE: TriggerRefState = {
 
 const EXCLUDE_TRIGGERS = ["CapsLock"];
 
-export const TriggersProvider = ({
-  children,
-}: {
-  children: React.ReactNode;
-}): JSX.Element => {
+export interface TriggersProviderProps extends PropsWithChildren { }
+
+export const TriggersProvider = ({ children }: TriggersProviderProps): JSX.Element => {
   // We track mouse movement to allow for cursor position on keybord events;
   const cursor = useRef<XY>(ZERO_XY);
   const handleMouseMove = useCallback((e: MouseEvent): void => {

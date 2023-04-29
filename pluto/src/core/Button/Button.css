@@ -9,9 +9,8 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-btn,
-.pluto-btn * {
-    transition: 0.15s ease-in-out;
+.pluto-btn {
+    transition: 0.15s background-color;
     margin: 0;
 }
 

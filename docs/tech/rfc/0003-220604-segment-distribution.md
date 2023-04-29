@@ -8,6 +8,7 @@ layout: "@/layouts/MainLayout.astro"
 **Feature Name**: Delta - Segment Distribution <br />
 **Status**: Complete <br />
 **Start Date**: 2022-06-04 <br />
+**Authors**: Emiliano Bonilla <br />
 
 # 0 - Summary
 

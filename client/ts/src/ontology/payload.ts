@@ -14,6 +14,8 @@ const ontologyResourceTypeSchema = z.union([
   z.literal("cluster"),
   z.literal("channel"),
   z.literal("node"),
+  z.literal("group"),
+  z.literal("range")
 ]);
 
 export type OntologyResourceType = z.infer<typeof ontologyResourceTypeSchema>;
@@ -59,11 +61,9 @@ export type OntologySchema = z.infer<typeof ontologySchemaSchema>;
 
 export const ontologyResourceSchema = z.object({
   id: ontologyIdSchema.transform((id) => new OntologyID(id.type, id.key)),
-  entity: z.object({
-    schema: ontologySchemaSchema,
-    name: z.string(),
-    data: z.record(z.unknown()),
-  }),
+  name: z.string(),
+  schema: ontologySchemaSchema.optional(),
+  data: z.record(z.unknown()).optional(),
 });
 
 export type OntologyResource = z.infer<typeof ontologyResourceSchema>;

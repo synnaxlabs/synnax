@@ -10,12 +10,13 @@
 import { KeyedRenderableRecord } from "@synnaxlabs/x";
 
 import { List, ListColumnHeaderProps, ListSelectorProps } from "@/core/List";
+import { componentRenderProp } from "@/util/renderProp";
 
 export interface SelectListProps<E extends KeyedRenderableRecord<E>>
   extends ListSelectorProps<E>,
-    ListColumnHeaderProps<E> {}
+  ListColumnHeaderProps<E> { }
 
-export const SelectList = <E extends KeyedRenderableRecord>({
+export const SelectList = <E extends KeyedRenderableRecord<E>>({
   value,
   onChange,
   allowMultiple,
@@ -25,7 +26,7 @@ export const SelectList = <E extends KeyedRenderableRecord>({
     <List.Selector value={value} onChange={onChange} allowMultiple={allowMultiple} />
     <List.Column.Header {...props} />
     <List.Core.Virtual itemHeight={List.Column.itemHeight}>
-      {List.Column.Item}
+      {componentRenderProp(List.Column.Item)}
     </List.Core.Virtual>
   </>
 );
