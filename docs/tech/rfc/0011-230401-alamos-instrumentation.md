@@ -3,7 +3,7 @@
 **Feature Name**: Alamos Instrumentation <br />
 **Start Date**: 2023-04-01 <br />
 **Authors**: Emiliano Bonilla <br />
-**Status**: Draft <br />
+**Status**: Complete <br />
 
 # 0 - Summary
 
@@ -33,9 +33,8 @@ request. <br />
 
 Synnax is in stable Alpha (v0.4.2 as of this writing), and we're beginning to plan the
 road to Beta. This involves shifting our mindset from building a technical
-proof-of-concept
-to creating a stable, performant, and maintainable product. These qualities are not
-emergent.
+proof-of-concept to creating a stable, performant, and maintainable product. These
+qualities are not emergent.
 
 Improving these characteristics starts with having a clear, on-demand picture of the
 execution state of the entire cluster. Proper observability allows us to find critical
