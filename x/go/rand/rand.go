@@ -12,12 +12,7 @@ package rand
 import (
 	"github.com/samber/lo"
 	"math/rand"
-	"time"
 )
-
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
 
 func MapKey[K comparable, V any](m map[K]V) (key K) {
 	l := len(m)

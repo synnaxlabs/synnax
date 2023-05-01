@@ -18,14 +18,7 @@ import (
 
 type StreamWriter = confluence.Segment[Request, Response]
 
-type Writer interface {
-	Write(frame core.Frame) bool
-	Commit() bool
-	Error() error
-	Close() error
-}
-
-type writer struct {
+type Writer struct {
 	requests          confluence.Inlet[Request]
 	responses         confluence.Outlet[Response]
 	wg                signal.WaitGroup
@@ -34,7 +27,7 @@ type writer struct {
 }
 
 // Write implements Writer.
-func (w *writer) Write(frame core.Frame) bool {
+func (w *Writer) Write(frame core.Frame) bool {
 	if w.hasAccumulatedErr {
 		return false
 	}
@@ -49,7 +42,7 @@ func (w *writer) Write(frame core.Frame) bool {
 	}
 }
 
-func (w *writer) Commit() bool {
+func (w *Writer) Commit() bool {
 	if w.hasAccumulatedErr {
 		return false
 	}
@@ -69,7 +62,7 @@ func (w *writer) Commit() bool {
 	return false
 }
 
-func (w *writer) Error() error {
+func (w *Writer) Error() error {
 	w.requests.Inlet() <- Request{Command: Error}
 	for res := range w.responses.Outlet() {
 		if res.Command == Error {
@@ -79,7 +72,7 @@ func (w *writer) Error() error {
 	return nil
 }
 
-func (w *writer) Close() error {
+func (w *Writer) Close() error {
 	w.requests.Close()
 	for range w.responses.Outlet() {
 	}

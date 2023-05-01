@@ -11,6 +11,7 @@ package writer
 
 import (
 	"context"
+
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/confluence"
@@ -24,7 +25,7 @@ type validator struct {
 	keys      channel.Keys
 	responses struct {
 		confluence.AbstractUnarySource[Response]
-		confluence.EmptyFlow
+		confluence.NopFlow
 	}
 	confluence.AbstractLinear[Request, Request]
 	accumulatedError error

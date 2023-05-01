@@ -20,9 +20,7 @@ import (
 // multiple Outlet(sink). It implements an empty Flow method, as sources are typically
 // driven by external events. The user can define a custom Flow method if they wish to
 // drive the source themselves.
-type AbstractMultiSource[V Value] struct {
-	Out []Inlet[V]
-}
+type AbstractMultiSource[V Value] struct{ Out []Inlet[V] }
 
 // OutTo implements the Source interface.
 func (ams *AbstractMultiSource[V]) OutTo(inlets ...Inlet[V]) { ams.Out = append(ams.Out, inlets...) }

@@ -11,12 +11,13 @@ package kv
 
 import (
 	"context"
+	"go/types"
+
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/confluence"
 	"go.uber.org/zap"
-	"go/types"
 )
 
 type (
@@ -31,7 +32,7 @@ type operationSender struct {
 
 func newOperationSender(cfg Config) segment {
 	os := &operationSender{Config: cfg}
-	os.TransformFunc.Transform = os.send
+	os.Transform = os.send
 	return os
 }
 
@@ -59,7 +60,7 @@ type operationReceiver struct {
 	Config
 	store store
 	confluence.AbstractUnarySource[TxRequest]
-	confluence.EmptyFlow
+	confluence.NopFlow
 }
 
 func newOperationReceiver(cfg Config, s store) source {
@@ -115,7 +116,7 @@ func (f *feedbackSender) send(ctx context.Context, bd TxRequest) error {
 type feedbackReceiver struct {
 	Config
 	confluence.AbstractUnarySource[TxRequest]
-	confluence.EmptyFlow
+	confluence.NopFlow
 }
 
 func newFeedbackReceiver(cfg Config) source {

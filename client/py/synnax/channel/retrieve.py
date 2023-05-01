@@ -11,23 +11,28 @@ from __future__ import annotations
 
 from typing import Protocol, overload
 
+from freighter import HTTPClientPool, Payload, UnaryClient
 from typing_extensions import Literal
 
 from alamos import Instrumentation, trace, NOOP
-from freighter import HTTPClientPool, Payload, UnaryClient
 from synnax.channel.payload import ChannelPayload
 from synnax.exceptions import QueryError
-from synnax.util.flatten import flatten
 
 
 class _Request(Payload):
-    keys_or_names: list[str] | None = None
+    names: list[str] | None = None
+    keys: list[int] | None = None
     node_key: int | None = None
 
 
 class _Response(Payload):
     channels: list[ChannelPayload] = []
     not_found: list[str] | None = []
+
+
+Keys = int | tuple[int] | list[int]
+Names = str | tuple[str] | list[str]
+KeysOrNames = Keys | Names
 
 
 class ChannelRetriever(Protocol):
@@ -43,8 +48,8 @@ class ChannelRetriever(Protocol):
     @overload
     def retrieve(
         self,
-        key_or_name: str | tuple[str] | list[str],
-        *keys_or_names: str | tuple[str] | list[str],
+        key_or_name: KeysOrNames,
+        *keys_or_names: KeysOrNames,
         node_key: int | None = None,
         include_not_found: Literal[False] = False,
     ) -> list[ChannelPayload]:
@@ -53,8 +58,18 @@ class ChannelRetriever(Protocol):
     @overload
     def retrieve(
         self,
-        key_or_name: str | tuple[str] | list[str],
-        *keys_or_names: str | tuple[str] | list[str],
+        key_or_name: Keys,
+        *keys_or_names: Keys,
+        node_key: int | None = None,
+        include_not_found: Literal[True] = True,
+    ) -> tuple[list[ChannelPayload], list[int]]:
+        ...
+
+    @overload
+    def retrieve(
+        self,
+        key_or_name: Names,
+        *keys_or_names: Names,
         node_key: int | None = None,
         include_not_found: Literal[True] = True,
     ) -> tuple[list[ChannelPayload], list[str]]:
@@ -62,8 +77,8 @@ class ChannelRetriever(Protocol):
 
     def retrieve(
         self,
-        key_or_name: str | tuple[str] | list[str],
-        *keys_or_names: str | tuple[str] | list[str],
+        key_or_name: KeysOrNames,
+        *keys_or_names: KeysOrNames,
         node_key: int | None = None,
         include_not_found: bool = False,
     ) -> (
@@ -94,26 +109,24 @@ class ClusterChannelRetriever:
     @trace("debug")
     def retrieve(
         self,
-
-        key_or_name: str | tuple[str] | list[str],
-        *keys_or_names: str | tuple[str] | list[str],
+        key_or_name: KeysOrNames,
+        *keys_or_names: KeysOrNames,
         node_key: int | None = None,
         include_not_found: bool = False,
     ) -> (
-        tuple[list[ChannelPayload], list[str]]
+        tuple[list[ChannelPayload], list[str] | list[int]]
         | list[ChannelPayload]
         | ChannelPayload
         | None
     ):
         single = is_single(key_or_name, keys_or_names)
-        flat = flatten(key_or_name, *keys_or_names)
-
-        req = _Request(keys_or_names=flat, node_key=node_key)
+        keys, names = split_keys_and_names(key_or_name, keys_or_names)
+        req = _Request(keys=keys, names=names, node_key=node_key)
         res, exc = self.client.send(self._ENDPOINT, req, _Response)
         if exc is not None:
             raise exc
         assert res is not None
-        if include_not_found == True:
+        if include_not_found:
             return res.channels, res.not_found or list()
         if single:
             if len(res.channels) == 1:
@@ -126,8 +139,8 @@ class ClusterChannelRetriever:
 
 class CacheChannelRetriever:
     _retriever: ChannelRetriever
-    channels: dict[str, ChannelPayload]
-    names_to_keys: dict[str, str]
+    channels: dict[int, ChannelPayload]
+    names_to_keys: dict[str, int]
     instrumentation: Instrumentation
 
     def __init__(
@@ -146,8 +159,8 @@ class CacheChannelRetriever:
     @trace("debug")
     def retrieve(
         self,
-        key_or_name: str | tuple[str] | list[str],
-        *keys_or_names: str | tuple[str] | list[str],
+        key_or_name: KeysOrNames,
+        *keys_or_names: KeysOrNames,
         node_key: int | None = None,
         include_not_found: bool = False,
     ) -> (
@@ -165,18 +178,22 @@ class CacheChannelRetriever:
             )
 
         single = is_single(key_or_name, keys_or_names)
-        flat = flatten(key_or_name, *keys_or_names)
+        keys, names = split_keys_and_names(key_or_name, keys_or_names)
 
         results = list()
         to_retrieve = list()
 
-        for entry in flat:
-            key = self.names_to_keys.get(entry, entry)
-            channel = self.channels.get(key, None)
+        for name in names:
+            key = self.names_to_keys.get(name)
+            if key is None:
+                to_retrieve.append(name)
+            results.append(self.channels.get(key))
+
+        for key in keys:
+            channel = self.channels.get(key)
             if channel is None:
                 to_retrieve.append(key)
-            else:
-                results.append(channel)
+            results.append(channel)
 
         not_found = list()
         if len(to_retrieve) != 0:
@@ -190,7 +207,7 @@ class CacheChannelRetriever:
                 self.names_to_keys[channel.name] = channel.key
                 results.append(channel)
 
-        if include_not_found == True:
+        if include_not_found:
             return results, not_found
         if single:
             if len(results) == 0:
@@ -202,8 +219,23 @@ class CacheChannelRetriever:
 
 
 def is_single(
-    key_or_name: str | tuple[str] | list[str],
-    keys_or_names: tuple[str | tuple[str] | list[str]]
+    key_or_name: KeysOrNames,
+    keys_or_names: tuple[KeysOrNames],
 ) -> bool:
     """Determine if a list of keys or names is a single key or name."""
-    return isinstance(key_or_name, str) and len(keys_or_names) == 0
+    return isinstance(key_or_name, (str, int)) and len(keys_or_names) == 0
+
+
+def split_keys_and_names(
+    key_or_name: KeysOrNames,
+    keys_or_names: tuple[KeysOrNames],
+) -> tuple[list[int], list[str]]:
+    """Split a list of keys or names into a list of keys and a list of names."""
+    keys = list()
+    names = list()
+    for entry in (key_or_name, *keys_or_names):
+        if isinstance(entry, int):
+            keys.append(entry)
+        else:
+            names.append(entry)
+    return keys, names

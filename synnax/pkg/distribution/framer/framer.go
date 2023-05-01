@@ -18,13 +18,17 @@ import (
 )
 
 type (
-	Frame          = core.Frame
-	Iterator       = iterator.Iterator
-	StreamIterator = iterator.StreamIterator
-	Writer         = writer.Writer
-	StreamWriter   = writer.StreamWriter
-	WriterConfig   = writer.Config
-	IteratorConfig = iterator.Config
+	Frame            = core.Frame
+	Iterator         = iterator.Iterator
+	IteratorRequest  = iterator.Request
+	IteratorResponse = iterator.Response
+	StreamIterator   = iterator.StreamIterator
+	Writer           = writer.Writer
+	WriteRequest     = writer.Request
+	WriteResponse    = writer.Response
+	StreamWriter     = writer.StreamWriter
+	WriterConfig     = writer.Config
+	IteratorConfig   = iterator.Config
 )
 
 func NewFrame(keys channel.Keys, arrays []telem.Array) Frame {

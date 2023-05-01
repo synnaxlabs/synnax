@@ -59,7 +59,7 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 // Validate implements Config.
 func (cfg ServiceConfig) Validate() error {
-	v := validate.New("distribution.framer.iterator")
+	v := validate.New("distribution.framer.Iterator")
 	validate.NotNil(v, "TS", cfg.TS)
 	validate.NotNil(v, "ChannelReader", cfg.ChannelReader)
 	validate.NotNil(v, "Transport", cfg.Transport)
@@ -87,7 +87,7 @@ const (
 	synchronizerAddr address.Address = "synchronizer"
 )
 
-func (s *Service) New(ctx context.Context, cfg Config) (Iterator, error) {
+func (s *Service) New(ctx context.Context, cfg Config) (*Iterator, error) {
 	stream, err := s.NewStream(ctx, cfg)
 	if err != nil {
 		return nil, err
@@ -98,7 +98,7 @@ func (s *Service) New(ctx context.Context, cfg Config) (Iterator, error) {
 	stream.InFrom(req)
 	stream.OutTo(res)
 	stream.Flow(sCtx, confluence.CloseInletsOnExit(), confluence.CancelOnExitErr())
-	return &iterator{requests: req, responses: res, shutdown: cancel, wg: sCtx}, nil
+	return &Iterator{requests: req, responses: res, shutdown: cancel, wg: sCtx}, nil
 }
 
 func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, error) {
@@ -176,7 +176,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 }
 
 func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) error {
-	v := validate.New("distribution.framer.iterator")
+	v := validate.New("distribution.framer.Iterator")
 	if validate.NotEmptySlice(v, "Keys", keys) {
 		return v.Error()
 	}

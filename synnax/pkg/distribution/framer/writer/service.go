@@ -34,7 +34,6 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 )
 
 // Config is the configuration necessary for opening a Writer or StreamWriter.
@@ -74,16 +73,13 @@ type ServiceConfig struct {
 	// nodes in the cluster.
 	// [REQUIRED]
 	Transport Transport
-	// Logger is the witness of it all.
-	// [OPTIONAL]
-	Logger *zap.Logger
 }
 
 var (
 	_ config.Config[ServiceConfig] = ServiceConfig{}
 	// DefaultConfig is the default configuration for opening a Writer or StreamWriter. It
 	// is not complete and must be supplemented with the required fields.
-	DefaultConfig = ServiceConfig{Logger: zap.NewNop()}
+	DefaultConfig = ServiceConfig{}
 )
 
 // Validate implements config.Config.
@@ -93,7 +89,6 @@ func (cfg ServiceConfig) Validate() error {
 	validate.NotNil(v, "ChannelReader", cfg.ChannelReader)
 	validate.NotNil(v, "HostResolver", cfg.HostResolver)
 	validate.NotNil(v, "Transport", cfg.Transport)
-	validate.NotNil(v, "L", cfg.Logger)
 	return v.Error()
 }
 
@@ -103,7 +98,7 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	cfg.ChannelReader = override.Nil(cfg.ChannelReader, other.ChannelReader)
 	cfg.HostResolver = override.Nil(cfg.HostResolver, other.HostResolver)
 	cfg.Transport = override.Nil(cfg.Transport, other.Transport)
-	cfg.Logger = override.Nil(cfg.Logger, other.Logger)
+	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
 	return cfg
 }
 
@@ -133,7 +128,7 @@ const (
 // New opens a new writer using the given configuration. The provided context is used to
 // control the lifetime of goroutines spawned by the writer. If the given context is cancelled,
 // the writer will immediately abort all pending writes and return an error.
-func (s *Service) New(ctx context.Context, cfg Config) (Writer, error) {
+func (s *Service) New(ctx context.Context, cfg Config) (*Writer, error) {
 	sCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(s.Instrumentation))
 	seg, err := s.NewStream(ctx, cfg)
 	if err != nil {
@@ -144,7 +139,7 @@ func (s *Service) New(ctx context.Context, cfg Config) (Writer, error) {
 	seg.InFrom(req)
 	seg.OutTo(res)
 	seg.Flow(sCtx, confluence.CloseInletsOnExit(), confluence.CancelOnExitErr())
-	return &writer{
+	return &Writer{
 		requests:  req,
 		responses: res,
 		wg:        sCtx,
@@ -161,9 +156,9 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamWriter, erro
 	}
 
 	var (
-		hostKey = s.HostResolver.HostKey()
-		batch   = proxy.NewBatchFactory[channel.Key](hostKey).Batch(cfg.Keys)
-		pipe    = plumber.New()
+		hostKey            = s.HostResolver.HostKey()
+		batch              = proxy.NewBatchFactory[channel.Key](hostKey).Batch(cfg.Keys)
+		pipe               = plumber.New()
 		needPeerRouting    = len(batch.Peers) > 0
 		needGatewayRouting = len(batch.Gateway) > 0
 		receiverAddresses  []address.Address

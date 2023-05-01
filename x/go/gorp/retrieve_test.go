@@ -52,7 +52,7 @@ var _ = Describe("retrieveResource", Ordered, func() {
 					Exec(ctx, tx)).To(Succeed())
 				Expect(res).To(Equal([]entry{entries[0]}))
 			})
-			It("Should return a query.NotFound error if ANY key is not found", func() {
+			It("Should return a query.NamesNotFound error if ANY key is not found", func() {
 				var res []entry
 				err := gorp.NewRetrieve[int, entry]().
 					WhereKeys(entries[0].GorpKey(), 444444).
@@ -104,7 +104,7 @@ var _ = Describe("retrieveResource", Ordered, func() {
 					Entry(res).
 					Exec(ctx, tx)).To(Succeed())
 			})
-			It("Should return a query.NotFound error if the key is not found", func() {
+			It("Should return a query.NamesNotFound error if the key is not found", func() {
 				err := gorp.NewRetrieve[int, entry]().
 					WhereKeys(444444).
 					Entry(&entry{}).
@@ -150,7 +150,7 @@ var _ = Describe("retrieveResource", Ordered, func() {
 			).To(Succeed())
 			Expect(res).To(Equal([]entry{entries[1], entries[2]}))
 		})
-		It("Should NOT return a query.NotFound error if no entries are found", func() {
+		It("Should NOT return a query.NamesNotFound error if no entries are found", func() {
 			var res []entry
 			Expect(gorp.NewRetrieve[int, entry]().
 				Entries(&res).

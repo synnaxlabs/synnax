@@ -10,6 +10,7 @@
 package core
 
 import (
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
@@ -53,6 +54,20 @@ func (f Frame) SplitByHost(host core.NodeKey) (local Frame, remote Frame) {
 		}
 	}
 	return local, remote
+}
+
+func (f Frame) FilterKeys(keys channel.Keys) Frame {
+	var (
+		filteredKeys   = make(channel.Keys, 0, len(f.keys))
+		filteredArrays = make([]telem.Array, 0, len(f.Arrays))
+	)
+	for i, key := range f.keys {
+		if lo.Contains(keys, key) {
+			filteredKeys = append(filteredKeys, key)
+			filteredArrays = append(filteredArrays, f.Arrays[i])
+		}
+	}
+	return NewFrame(filteredKeys, filteredArrays)
 }
 
 func (f Frame) ToStorage() storage.Frame { return cesium.NewFrame(f.keys.Strings(), f.Arrays) }

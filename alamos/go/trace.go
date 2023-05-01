@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/x/validate"
 	"go.opentelemetry.io/otel/propagation"
 	oteltrace "go.opentelemetry.io/otel/trace"
-	"runtime/pprof"
 )
 
 // Span is a span in a trace.
@@ -121,16 +120,10 @@ func (t *Tracer) Trace(ctx context.Context, key string, env Environment) (contex
 		return ctx, nopSpanV
 	}
 	spanKey := t.meta.extendPath(key)
-	// Pulled from go implementation of pprof.Do:
-	// https://cs.opensource.google/go/go/+/master:src/runtime/pprof/runtime.go;l=40?q=Do%20pprof&sq=&ss=go%2Fgo
-	ctx = pprof.WithLabels(ctx, pprof.Labels("routine", key))
-	pprof.SetGoroutineLabels(ctx)
-
 	ctx, otel := t.otelTracer().Start(ctx, spanKey)
 	return ctx, span{
-		key:      spanKey,
-		pprofEnd: func() { pprof.SetGoroutineLabels(ctx) },
-		otel:     otel,
+		key:  spanKey,
+		otel: otel,
 	}
 }
 
@@ -163,9 +156,8 @@ func (t *Tracer) child(meta InstrumentationMeta) (nt *Tracer) {
 }
 
 type span struct {
-	key      string
-	pprofEnd func()
-	otel     oteltrace.Span
+	key  string
+	otel oteltrace.Span
 }
 
 var _ Span = span{}
@@ -192,7 +184,6 @@ func (s span) Status(status Status) {
 
 // End implements Span.
 func (s span) End() {
-	s.pprofEnd()
 	s.otel.End()
 }
 

@@ -11,7 +11,7 @@
 // configurations.
 package config
 
-// Config represents a configuration for a service that can be validated and
+// Config is a configuration for a service that can be validated and
 // override. Config is a recursive type, meaning that the type argument to C
 // must be the config itself.
 type Config[C any] interface {
@@ -23,6 +23,10 @@ type Config[C any] interface {
 	Validate() error
 }
 
+// New creates a new configuration from a base configuration and a set of
+// overrides. The overrides are applied in order, with the last override
+// taking precedence. After the overrides are applied, the configuration is
+// validated, returning an error if the configuration is invalid.
 func New[C Config[C]](base C, overrides ...C) (C, error) {
 	for _, override := range overrides {
 		base = base.Override(override)
@@ -30,8 +34,11 @@ func New[C Config[C]](base C, overrides ...C) (C, error) {
 	return base, base.Validate()
 }
 
+// Bool returns a pointer to a boolean.
 func Bool(b bool) *bool { return &b }
 
+// True returns a pointer to a true boolean.
 func True() *bool { return Bool(true) }
 
+// False returns a pointer to a false boolean.
 func False() *bool { return Bool(false) }

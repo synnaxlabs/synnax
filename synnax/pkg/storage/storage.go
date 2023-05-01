@@ -184,7 +184,7 @@ func Open(cfg Config) (s *Store, err error) {
 	baseVFS, baseXFS := openBaseFS(cfg)
 
 	// Configure our storage directory with the correct permissions.
-	if err := configureStorageDir(cfg, baseVFS); err != nil {
+	if err = configureStorageDir(cfg, baseVFS); err != nil {
 		return s, err
 	}
 

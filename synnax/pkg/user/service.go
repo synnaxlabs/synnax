@@ -29,7 +29,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	}
 }
 
-// Retreve retrieves a User by its key.
+// Retrieve retrieves a User by its key.
 func (s *Service) Retrieve(ctx context.Context, key uuid.UUID) (User, error) {
 	var u User
 	return u, gorp.NewRetrieve[uuid.UUID, User]().

@@ -11,44 +11,43 @@ package channel
 
 import (
 	"encoding/binary"
-	"strconv"
-	"strings"
-
-	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/telem"
+	"strconv"
 )
 
 // Key represents a unique identifier for a Channel. This value is guaranteed to be
 // unique across the entire cluster. It is composed of a uint32 Key representing the
 // node holding the lease on the channel, and a uint16 key representing a unique
 // node-local identifier.
-type Key [6]byte
+type Key uint32
 
 // NewKey generates a new Key from the provided components.
 func NewKey(nodeKey core.NodeKey, localKey storage.ChannelKey) (key Key) {
-	binary.LittleEndian.PutUint32(key[0:4], uint32(nodeKey))
-	binary.LittleEndian.PutUint16(key[4:6], uint16(localKey))
-	return key
+	return Key(nodeKey)<<16 | Key(localKey)
 }
 
 // NodeKey returns the id of the node embedded in the key. This node is the leaseholder
 // node for the Channel.
-func (c Key) NodeKey() core.NodeKey { return core.NodeKey(binary.LittleEndian.Uint32(c[0:4])) }
+func (c Key) NodeKey() core.NodeKey { return core.NodeKey(c >> 16) }
 
 // LocalKey returns a unique identifier for the Channel within the leaseholder node's
 // storage.TS db. This value is NOT guaranteed to be unique across the entire cluster.
 func (c Key) LocalKey() storage.ChannelKey {
-	return storage.ChannelKey(binary.LittleEndian.Uint16(c[4:6]))
+	return storage.ChannelKey(c & 0x0000FFFF)
 }
 
 // Lease implements the proxy.Entry interface.
 func (c Key) Lease() core.NodeKey { return c.NodeKey() }
 
-func (c Key) Bytes() []byte { return c[:] }
+// Bytes returns the Key as a byte slice.
+func (c Key) Bytes() []byte {
+	b := make([]byte, 4)
+	binary.BigEndian.PutUint32(b, uint32(c))
+	return b
+}
 
 const strKeySep = "-"
 
@@ -56,32 +55,6 @@ const strKeySep = "-"
 // a channel with a NodeKey of 1 and a CesiumKey of 2 would return "1-2".
 func (c Key) String() string {
 	return strconv.Itoa(int(c.NodeKey())) + strKeySep + strconv.Itoa(int(c.LocalKey()))
-}
-
-// ParseKey parses a string representation of a Key into a Key. The key must be in
-// the format outlined in Key.String().
-func ParseKey(s string) (k Key, err error) {
-	split := strings.Split(s, "-")
-	if len(split) != 2 {
-		return k, errors.New("[channel] - invalid key format")
-	}
-	nodeKey, err := strconv.Atoi(split[0])
-	if err != nil {
-		return k, errors.Wrapf(err, "[channel] - key - invalid node id")
-	}
-	cesiumKey, err := strconv.Atoi(split[1])
-	if err != nil {
-		return k, errors.Wrapf(err, "[channel] - invalid cesium key")
-	}
-	return NewKey(aspen.NodeKey(nodeKey), storage.ChannelKey(cesiumKey)), nil
-}
-
-func MustParseKey(s string) Key {
-	key, err := ParseKey(s)
-	if err != nil {
-		panic(err)
-	}
-	return key
 }
 
 // Keys extends []Keys with a few convenience methods.
@@ -93,25 +66,6 @@ func KeysFromChannels(channels []Channel) (keys Keys) {
 		keys = append(keys, channel.Key())
 	}
 	return keys
-}
-
-// ParseKeys parses a slice of strings into a slice of Keys.
-func ParseKeys(keys []string) (Keys, error) {
-	var err error
-	k := make(Keys, len(keys))
-	for i, key := range keys {
-		k[i], err = ParseKey(key)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return k, nil
-}
-
-// IsValidStringKey returns true if the string represents a valid Key.
-func IsValidStringKey(key string) bool {
-	_, err := ParseKey(key)
-	return err == nil
 }
 
 // StorageKeys calls Key.LocalKey() on each key and returns a slice with the results.

@@ -40,7 +40,7 @@ func (d *DeltaMultiplier[V]) Flow(ctx signal.Context, opts ...Option) {
 // transformation on it, and writes the transformed value to every output stream.
 type DeltaTransformMultiplier[I, O Value] struct {
 	Delta[I, O]
-	TransformFunc[I, O]
+	Transform TransformFunc[I, O]
 }
 
 // Flow implements the Segment interface.

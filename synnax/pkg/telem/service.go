@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package counter
+package telem
 
 import (
-	"github.com/synnaxlabs/x/types"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/relay"
 )
 
-type Counter[T types.Numeric] interface {
-	Add(delta ...T) (T, error)
-	Value() T
+type Service struct {
+	relay  *relay.Relay
+	framer *framer.Service
 }

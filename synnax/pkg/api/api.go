@@ -58,6 +58,8 @@ type Transport struct {
 	ConnectivityCheck  freighter.UnaryServer[types.Nil, ConnectivityCheckResponse]
 	FrameWriter        freighter.StreamServer[FrameWriterRequest, FrameWriterResponse]
 	FrameReader        freighter.StreamServer[FrameIteratorRequest, FrameIteratorResponse]
+	LiveWriter         freighter.StreamServer[LiveWriterRequest, LiveWriterResponse]
+	LiveReader         freighter.StreamServer[LiveReaderRequest, LiveReaderResponse]
 	OntologyRetrieve   freighter.UnaryServer[OntologyRetrieveRequest, OntologyRetrieveResponse]
 	OntologySearch     freighter.UnaryServer[OntologySearchRequest, OntologySearchResponse]
 }
@@ -68,7 +70,7 @@ type API struct {
 	provider     Provider
 	config       Config
 	Auth         *AuthService
-	Segment      *FrameService
+	Telem        *TelemService
 	Channel      *ChannelService
 	Connectivity *ConnectivityService
 	Ontology     *OntologyService
@@ -106,6 +108,8 @@ func (a *API) BindTo(t Transport) {
 		t.ConnectivityCheck,
 		t.OntologyRetrieve,
 		t.OntologySearch,
+		t.LiveReader,
+		t.LiveWriter,
 	)
 
 	t.AuthLogin.BindHandler(typedUnaryWrapper(a.Auth.Login))
@@ -115,10 +119,12 @@ func (a *API) BindTo(t Transport) {
 	t.ChannelCreate.BindHandler(typedUnaryWrapper(a.Channel.Create))
 	t.ChannelRetrieve.BindHandler(typedUnaryWrapper(a.Channel.Retrieve))
 	t.ConnectivityCheck.BindHandler(typedUnaryWrapper(a.Connectivity.Check))
-	t.FrameWriter.BindHandler(typedStreamWrapper(a.Segment.Write))
-	t.FrameReader.BindHandler(typedStreamWrapper(a.Segment.Iterate))
+	t.FrameWriter.BindHandler(typedStreamWrapper(a.Telem.Write))
+	t.FrameReader.BindHandler(typedStreamWrapper(a.Telem.Iterate))
 	t.OntologyRetrieve.BindHandler(typedUnaryWrapper(a.Ontology.Retrieve))
 	t.OntologySearch.BindHandler(typedUnaryWrapper(a.Ontology.Search))
+	t.LiveWriter.BindHandler(typedStreamWrapper(a.Telem.LiveWrite))
+	t.LiveReader.BindHandler(typedStreamWrapper(a.Telem.LiveRead))
 }
 
 // New instantiates the delta API using the provided Config. This should probably
@@ -126,7 +132,7 @@ func (a *API) BindTo(t Transport) {
 func New(cfg Config) API {
 	api := API{config: cfg, provider: NewProvider(cfg)}
 	api.Auth = NewAuthServer(api.provider)
-	api.Segment = NewSegmentService(api.provider)
+	api.Telem = NewTelemService(api.provider)
 	api.Channel = NewChannelService(api.provider)
 	api.Connectivity = NewConnectivityService(api.provider)
 	api.Ontology = NewOntologyService(api.provider)

@@ -22,7 +22,7 @@ type persist struct {
 
 func newPersist(bw kvx.Atomic) segment {
 	ps := &persist{db: bw}
-	ps.LinearTransform.Transform = ps.persist
+	ps.Transform = ps.persist
 	return ps
 }
 

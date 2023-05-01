@@ -24,6 +24,9 @@ type Payload struct {
 	Data string `json:"data" msgpack:"data"`
 }
 
+// Error implements the error interface.
+func (p Payload) Error() string { return p.Data }
+
 var _registry = newRegistry()
 
 type EncodeFunc func(error) string

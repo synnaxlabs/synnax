@@ -24,7 +24,7 @@ var _ = Describe("Confluence", func() {
 			ctx, cancel := signal.Isolated()
 			defer cancel()
 			Expect(func() {
-				EmptyFlow{}.Flow(ctx)
+				NopFlow{}.Flow(ctx)
 			}).ToNot(Panic())
 		})
 

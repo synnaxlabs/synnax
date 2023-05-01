@@ -12,20 +12,20 @@ package io
 import (
 	"encoding/binary"
 	"github.com/cockroachdb/errors"
-	"github.com/synnaxlabs/x/counter"
+	"github.com/synnaxlabs/x/atomic"
 	"io"
 )
 
 type Int32Counter struct {
-	err error
-	counter.Counter[int32]
-	f   ReaderAtWriterAtCloser
-	buf []byte
+	err     error
+	wrapped *atomic.Int32Counter
+	f       ReaderAtWriterAtCloser
+	buf     []byte
 }
 
-func NewInt32Counter(f ReaderAtWriterAtCloser, base counter.Counter[int32]) (*Int32Counter, error) {
+func NewInt32Counter(f ReaderAtWriterAtCloser) (*Int32Counter, error) {
 	i := &Int32Counter{
-		Counter: base,
+		wrapped: &atomic.Int32Counter{},
 		f:       f,
 		buf:     make([]byte, 4),
 	}
@@ -41,8 +41,8 @@ func (c *Int32Counter) load() int32 {
 	return int32(binary.LittleEndian.Uint32(c.buf))
 }
 
-func (c *Int32Counter) Add(delta ...int32) int32 {
-	v, _ := c.Counter.Add(delta...)
+func (c *Int32Counter) Add(delta int32) int32 {
+	v := c.wrapped.Add(delta)
 	binary.LittleEndian.PutUint32(c.buf, uint32(v))
 	_, c.err = c.f.WriteAt(c.buf, 0)
 	return v

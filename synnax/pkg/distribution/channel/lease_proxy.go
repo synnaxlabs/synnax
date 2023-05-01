@@ -15,14 +15,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/synnax/pkg/storage"
-	"github.com/synnaxlabs/x/counter"
 	"github.com/synnaxlabs/x/gorp"
 )
 
 type leaseProxy struct {
 	ServiceConfig
 	router  proxy.BatchFactory[Channel]
-	counter counter.Counter[uint16]
+	counter *keyCounter
 }
 
 func newLeaseProxy(cfg ServiceConfig) (*leaseProxy, error) {

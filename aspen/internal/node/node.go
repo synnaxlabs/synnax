@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/x/version"
 )
 
-type Key uint32
+type Key uint16
 
 func (k Key) Parse(str string) (Key, error) {
 	key, err := strconv.Atoi(str)

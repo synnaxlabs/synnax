@@ -80,7 +80,7 @@ var _ = Describe("set", func() {
 				Expect(res[0].ID).To(Equal(idTwo))
 			})
 			Context("Resources are not defined", func() {
-				It("Should return a query.NotFound error", func() {
+				It("Should return a query.NamesNotFound error", func() {
 					err := w.DefineRelationship(
 						ctx,
 						idOne,

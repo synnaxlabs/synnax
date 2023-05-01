@@ -27,7 +27,7 @@ type Service struct {
 	iterator *iterator.Service
 }
 
-type ServiceConfig struct {
+type Config struct {
 	alamos.Instrumentation
 	ChannelReader channel.Readable
 	TS            storage.TS
@@ -36,11 +36,11 @@ type ServiceConfig struct {
 }
 
 var (
-	_             config.Config[ServiceConfig] = ServiceConfig{}
-	DefaultConfig                              = ServiceConfig{}
+	_             config.Config[Config] = Config{}
+	DefaultConfig                       = Config{}
 )
 
-func (c ServiceConfig) Validate() error {
+func (c Config) Validate() error {
 	v := validate.New("distribution.framer")
 	validate.NotNil(v, "ChannelReader", c.ChannelReader)
 	validate.NotNil(v, "TS", c.TS)
@@ -49,7 +49,7 @@ func (c ServiceConfig) Validate() error {
 	return v.Error()
 }
 
-func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+func (c Config) Override(other Config) Config {
 	c.ChannelReader = override.Nil(c.ChannelReader, other.ChannelReader)
 	c.TS = override.Nil(c.TS, other.TS)
 	c.Transport = override.Nil(c.Transport, other.Transport)
@@ -57,7 +57,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	return c
 }
 
-func Open(configs ...ServiceConfig) (*Service, error) {
+func Open(configs ...Config) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err
@@ -83,7 +83,7 @@ func Open(configs ...ServiceConfig) (*Service, error) {
 	return s, err
 }
 
-func (s *Service) NewIterator(ctx context.Context, cfg IteratorConfig) (Iterator, error) {
+func (s *Service) NewIterator(ctx context.Context, cfg IteratorConfig) (*Iterator, error) {
 	return s.iterator.New(ctx, cfg)
 }
 
@@ -91,7 +91,7 @@ func (s *Service) NewStreamIterator(ctx context.Context, cfg IteratorConfig) (St
 	return s.iterator.NewStream(ctx, cfg)
 }
 
-func (s *Service) NewWriter(ctx context.Context, cfg WriterConfig) (Writer, error) {
+func (s *Service) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
 	return s.writer.New(ctx, cfg)
 }
 

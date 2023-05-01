@@ -27,7 +27,7 @@ func newSynchronizer(nodeCount int, bulkheadSig chan bool) confluence.Segment[Re
 	s := &synchronizer{}
 	s.internal.NodeCount = nodeCount
 	s.internal.SeqNum = 1
-	s.LinearTransform.Transform = s.sync
+	s.Transform = s.sync
 	s.bulkheadSignal = bulkheadSig
 	return s
 }
