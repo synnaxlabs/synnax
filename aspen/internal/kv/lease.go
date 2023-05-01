@@ -68,7 +68,7 @@ type leaseProxy struct {
 
 func newLeaseProxy(cfg Config, localTo address.Address, remoteTo address.Address) segment {
 	lp := &leaseProxy{Config: cfg, localTo: localTo, remoteTo: remoteTo}
-	lp.Switch.ApplySwitch = lp._switch
+	lp.Switch.Switch = lp._switch
 	return lp
 }
 
@@ -109,7 +109,7 @@ func (lf *leaseSender) send(_ context.Context, br TxRequest) error {
 type leaseReceiver struct {
 	Config
 	confluence.AbstractUnarySource[TxRequest]
-	confluence.EmptyFlow
+	confluence.NopFlow
 }
 
 func newLeaseReceiver(cfg Config) source {

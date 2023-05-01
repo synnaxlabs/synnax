@@ -11,6 +11,7 @@ package confluence_test
 
 import (
 	"context"
+
 	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -39,11 +40,11 @@ var _ = Describe("Filter", func() {
 		ctx, cancel := signal.WithCancel(context.Background())
 		inlet := NewStream[int](3)
 		outlet := NewStream[int](3)
-		filter := Filter[int]{}
-		filter.Apply = func(ctx context.Context, x int) (bool, error) {
-			return x%3 == 0, nil
+		filter := Filter[int]{
+			Filter: func(ctx context.Context, x int) (bool, error) {
+				return x%3 == 0, nil
+			},
 		}
-		filter.InFrom(inlet)
 		filter.OutTo(outlet)
 		filter.Flow(ctx)
 		inlet.Inlet() <- 1
@@ -58,9 +59,10 @@ var _ = Describe("Filter", func() {
 		inlet := NewStream[int](3)
 		outlet := NewStream[int](3)
 		rejects := NewStream[int](3)
-		filter := Filter[int]{}
-		filter.Apply = func(ctx context.Context, x int) (bool, error) {
-			return x%3 == 0, nil
+		filter := Filter[int]{
+			Filter: func(ctx context.Context, x int) (bool, error) {
+				return x%3 == 0, nil
+			},
 		}
 		filter.InFrom(inlet)
 		filter.OutTo(outlet, rejects)
@@ -79,11 +81,11 @@ var _ = Describe("Filter", func() {
 		defer cancel()
 		inlet := NewStream[int](3)
 		outlet := NewStream[int](3)
-		filter := Filter[int]{}
-		filter.Apply = func(ctx context.Context, x int) (bool, error) {
-			return x%3 == 0, errors.New("error")
+		filter := Filter[int]{
+			Filter: func(ctx context.Context, x int) (bool, error) {
+				return x%3 == 0, errors.New("error")
+			},
 		}
-		filter.InFrom(inlet)
 		filter.OutTo(outlet)
 		filter.Flow(ctx)
 		inlet.Inlet() <- 1

@@ -70,7 +70,7 @@ func (b *Builder) New(ctx context.Context) distribution.Distribution {
 		Ontology:     d.Ontology,
 	}))
 
-	d.Framer = lo.Must(framer.Open(framer.ServiceConfig{
+	d.Framer = lo.Must(framer.Open(framer.Config{
 		ChannelReader: d.Channel,
 		TS:            d.Storage.TS,
 		HostResolver:  d.Cluster,

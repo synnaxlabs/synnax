@@ -11,6 +11,7 @@ package confluence
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/x/signal"
 )
 
@@ -18,34 +19,28 @@ import (
 // function, and optionally discards them to an output Stream.
 type Filter[V Value] struct {
 	AbstractLinear[V, V]
-	FilterFunc[V]
+	Filter FilterFunc[V]
 	// Rejects is the Inlet that receives values that were discarded by Apply.
 	Rejects Inlet[V]
 }
 
-type FilterFunc[V Value] struct {
-	// Apply is called on each value passing through the Filter. If it returns false,
-	// the value is discarded or sent to the Rejects Inlet. If it returns true,
-	// the value is sent through the standard Inlet. If an error is returned,
-	// the Filter is closed and a fatal error is returned to the context.
-	Apply func(ctx context.Context, v V) (ok bool, err error)
-}
+// FilterFunc is called on each value passing through the Filter. If it returns false,
+// the value is discarded or sent to the Rejects Inlet. If it returns true,
+// the value is sent through the standard Inlet. If an error is returned,
+// the Filter is closed and a fatal error is returned to the context.
+type FilterFunc[V Value] func(ctx context.Context, v V) (ok bool, err error)
 
 // OutTo implements the Segment interface. It accepts either one or two Inlet(sink).
 // The first Inlet is where accepted values are sent, and the second Inlet (if provided)
 // is where Rejected values are sent.
 func (f *Filter[V]) OutTo(inlets ...Inlet[V]) {
 	if len(inlets) > 2 || len(inlets) == 0 {
-		panic("[confluence.ApplySink] - provide at most two and at least one inlet")
+		panic("[confluence.Filter] - provide at most two and at least one inlet")
 	}
-
-	if len(inlets) == 1 {
-		if f.AbstractLinear.Out != nil {
-			f.Rejects = inlets[0]
-			return
-		}
+	if len(inlets) == 1 && f.AbstractLinear.Out != nil {
+		f.Rejects = inlets[0]
+		return
 	}
-
 	f.AbstractLinear.OutTo(inlets[0])
 	if len(inlets) == 2 {
 		f.Rejects = inlets[1]
@@ -60,7 +55,7 @@ func (f *Filter[V]) Flow(ctx signal.Context, opts ...Option) {
 }
 
 func (f *Filter[V]) filter(ctx context.Context, v V) error {
-	ok, err := f.Apply(ctx, v)
+	ok, err := f.Filter(ctx, v)
 	if err != nil {
 		return err
 	}

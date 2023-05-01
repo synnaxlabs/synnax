@@ -32,12 +32,12 @@ func newRequestSwitchSender(
 ) confluence.Sink[Request] {
 	rs := &peerSwitchSender{addresses: addresses}
 	rs.Senders = freightfluence.MapTargetedSender[Request](senders)
-	rs.BatchSwitchSender.ApplySwitch = rs._switch
+	rs.Switch = rs._switch
 	return rs
 }
 
 func (rs *peerSwitchSender) _switch(
-	ctx context.Context,
+	_ context.Context,
 	r Request,
 	oReqs map[address.Address]Request,
 ) error {
@@ -66,7 +66,7 @@ type peerGatewaySwitch struct {
 
 func newPeerGatewaySwitch(host core.NodeKey) *peerGatewaySwitch {
 	rl := &peerGatewaySwitch{host: host}
-	rl.ApplySwitch = rl._switch
+	rl.Switch = rl._switch
 	return rl
 }
 

@@ -29,7 +29,7 @@ type versionFilter struct {
 
 func newVersionFilter(cfg Config, acceptedTo address.Address, rejectedTo address.Address) segment {
 	s := &versionFilter{Config: cfg, acceptedTo: acceptedTo, rejectedTo: rejectedTo, memKV: cfg.Engine}
-	s.BatchSwitch.ApplySwitch = s._switch
+	s.Switch = s._switch
 	return s
 }
 
@@ -101,7 +101,7 @@ type versionAssigner struct {
 func newVersionAssigner(ctx context.Context, cfg Config) (segment, error) {
 	c, err := kvx.OpenCounter(ctx, cfg.Engine, []byte(versionCounterKey))
 	v := &versionAssigner{Config: cfg, counter: c}
-	v.LinearTransform.Transform = v.assign
+	v.Transform = v.assign
 	return v, err
 }
 

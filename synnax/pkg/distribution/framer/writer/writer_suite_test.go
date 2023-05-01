@@ -13,17 +13,20 @@ import (
 	"context"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	tmock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock"
 	. "github.com/synnaxlabs/x/testutil"
-	"go.uber.org/zap"
 	"testing"
 )
 
-var ctx = context.Background()
+var (
+	ctx = context.Background()
+	ins alamos.Instrumentation
+)
 
 func TestWriter(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -39,7 +42,7 @@ type serviceContainer struct {
 	}
 }
 
-func provision(n int, logger *zap.Logger) (*mock.CoreBuilder, map[core.NodeKey]serviceContainer) {
+func provision(n int) (*mock.CoreBuilder, map[core.NodeKey]serviceContainer) {
 	var (
 		builder    = mock.NewCoreBuilder()
 		services   = make(map[core.NodeKey]serviceContainer)
@@ -58,11 +61,11 @@ func provision(n int, logger *zap.Logger) (*mock.CoreBuilder, map[core.NodeKey]s
 			Transport:    channelNet.New(c.Config.AdvertiseAddress),
 		}))
 		container.writer = MustSucceed(writer.OpenService(writer.ServiceConfig{
-			TS:            c.Storage.TS,
-			ChannelReader: container.channel,
-			HostResolver:  c.Cluster,
-			Transport:     writerNet.New(c.Config.AdvertiseAddress /*buffer*/, 10),
-			Logger:        logger,
+			Instrumentation: ins,
+			TS:              c.Storage.TS,
+			ChannelReader:   container.channel,
+			HostResolver:    c.Cluster,
+			Transport:       writerNet.New(c.Config.AdvertiseAddress /*buffer*/, 10),
 		}))
 		services[c.Cluster.HostKey()] = container
 	}

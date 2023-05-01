@@ -24,7 +24,7 @@ func newSynchronizer(nodeCount int) confluence.Segment[Response, Response] {
 	s := &synchronizer{}
 	s.internal.NodeCount = nodeCount
 	s.internal.SeqNum = 1
-	s.LinearTransform.Transform = s.sync
+	s.Transform = s.sync
 	return s
 }
 

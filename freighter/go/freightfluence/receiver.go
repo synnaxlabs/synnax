@@ -42,9 +42,6 @@ func (r *Receiver[M]) receive(ctx context.Context) error {
 				return nil
 			}
 			if rErr != nil {
-				if rErr.Error() == "EOF" {
-					return nil
-				}
 				return rErr
 			}
 			if err := signal.SendUnderContext(ctx, r.Out.Inlet(), msg); err != nil {

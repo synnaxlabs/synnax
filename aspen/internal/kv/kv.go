@@ -11,6 +11,8 @@ package kv
 
 import (
 	"context"
+	"io"
+
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/address"
@@ -19,7 +21,6 @@ import (
 	"github.com/synnaxlabs/x/confluence/plumber"
 	kvx "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/signal"
-	"io"
 )
 
 type DB struct {
@@ -29,7 +30,7 @@ type DB struct {
 	leaseAlloc *leaseAllocator
 	source     struct {
 		confluence.AbstractUnarySource[TxRequest]
-		confluence.EmptyFlow
+		confluence.NopFlow
 	}
 	shutdown io.Closer
 }

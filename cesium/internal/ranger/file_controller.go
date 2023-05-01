@@ -11,7 +11,6 @@ package ranger
 
 import (
 	"context"
-	atomicx "github.com/synnaxlabs/x/atomic"
 	"github.com/synnaxlabs/x/errutil"
 	xio "github.com/synnaxlabs/x/io"
 	"io"
@@ -53,14 +52,11 @@ func openFileController(cfg Config) (*fileController, error) {
 	if err != nil {
 		return nil, err
 	}
-	counter, err := xio.NewInt32Counter(counterF, &atomicx.Int32Counter{})
+	c, err := xio.NewInt32Counter(counterF)
 	if err != nil {
 		return nil, err
 	}
-	fc := &fileController{
-		Config:  cfg,
-		counter: counter,
-	}
+	fc := &fileController{Config: cfg, counter: c}
 	fc.writers.open = make([]controlledWriter, 0, cfg.MaxDescriptors)
 	fc.writers.release = make(chan struct{}, cfg.MaxDescriptors)
 	fc.readers.open = make(map[uint16][]controlledReader)

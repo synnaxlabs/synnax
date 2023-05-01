@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"github.com/synnaxlabs/alamos"
 	"go.uber.org/zap"
+	"runtime/pprof"
 	"strconv"
 )
 
@@ -241,10 +242,12 @@ func (r *routine) zapFields() []zap.Field {
 
 func (r *routine) goRun(f func(context.Context) error) {
 	if ctx, proceed := r.runPrelude(); proceed {
-		r.ctx.internal.Go(func() (err error) {
-			defer func() { r.runPostlude(err) }()
-			err = f(ctx)
-			return err
+		pprof.Do(ctx, pprof.Labels("routine", r.key), func(ctx context.Context) {
+			r.ctx.internal.Go(func() (err error) {
+				defer func() { r.runPostlude(err) }()
+				err = f(ctx)
+				return err
+			})
 		})
 	}
 }

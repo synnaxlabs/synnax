@@ -22,16 +22,16 @@
 // This is not to say that the functionality of a Segment cannot extend beyond a
 // simple transformation.
 //
-// For example, a Segment can route values from a set of inputs (called Outlet(sink)) to
-// a set of outputs (called Inlet(sink)). The input-Outlet, outlet-Inlet naming convention
+// For example, a Segment can route values from a set of inputs (called Outlets) to
+// a set of outputs (called Inlets). The input-Outlet, outlet-Inlet naming convention
 // might seem strange at first, but the general idea is that an Outlet is the end of a
 // stream that emits values (i.e. <-chan Value) and an Inlet is a stream that receives
 // values (i.e. chan<- Value). Inlets and Outlets are also addressable, which allows you
 // to send messages to segments with different addresses based on some criteria.
 //
-// Collections of Frame can also be composed into a pipeline using the plumber
-// package'sink plumber.Pipeline. The Pipeline type is itself a Segment that can be
-// connected to other Segment(sink). This allows for a flexible and powerful
+// Collections of segments also be composed into a pipeline using the plumber
+// package's plumber.Pipeline. The Pipeline type is itself a Segment that can be
+// connected to other Segments. This allows for a flexible and powerful
 // composition capabilities.
 //
 // The confluence package provides a number of built-in Frame that can be used
@@ -55,19 +55,16 @@
 // All of this flexibility comes at the cost of needing to follow a few important rules
 // and principles when writing programs based on confluence:
 //
-//  1. All input streams (Outlet(sink)) must be bound to a Segment by using
+//  1. All input streams (Outlets) must be bound to a Segment by using
 //     the InFrom() method.
 //
-//  2. All output streams (Inlet(sink)) must be bound to a Segment by using
+//  2. All output streams (Inlets) must be bound to a Segment by using
 //     the OutTo() method.
 //
 //  3. The only way to start a Segment is by calling the Flow.Flow method. A single
 //     instance of a Segment (if passed as a pointer) should generally only be running
-//     once at a time. This is not to say that Segment(sink) shouldn't be restarted. This
+//     once at a time. This is not to say that Segments shouldn't be restarted. This
 //     rule is more of a guideline, and can be broken when you know what you're doing.
-//     If you're worried about this happening, check out the Gate, GateSource,
-//     and GateSink functions; these implement locks that prevent the segment from
-//     being started while already running).
 //
 // Related packages:
 //
@@ -80,6 +77,7 @@ package confluence
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/signal"
 )
@@ -121,14 +119,10 @@ type Source[I Value] interface {
 	Flow
 }
 
-// TransformFunc is a template for a function  that transforms a value from one type to
+// TransformFunc is a function that transforms a value from one type to
 // another. A TransformFunc can perform IO, Network InfectedBatch, Aggregations, or any other
 // type of operation.
-type TransformFunc[I, O Value] struct {
-	//	Transform is the function that performs the transformation. The user of the LinearTransform
-	//	should define this function before Flow is called.
-	Transform func(ctx context.Context, i I) (o O, ok bool, err error)
-}
+type TransformFunc[I, O Value] func(ctx context.Context, i I) (o O, ok bool, err error)
 
 // Stream represents a streamImpl of values. Each streamImpl has an addressable Outlet
 // and an addressable Inlet. These addresses are best represented as unique locations where values
@@ -167,8 +161,8 @@ type Outlet[V Value] interface {
 	SetOutletAddress(address.Address)
 }
 
-// EmptyFlow is a Flow that does nothing.
-type EmptyFlow struct{}
+// NopFlow implements Flow and does nothing.
+type NopFlow struct{}
 
-// Flow implements the Flow interface.
-func (ef EmptyFlow) Flow(signal.Context, ...Option) {}
+// Flow implements Flow.
+func (NopFlow) Flow(signal.Context, ...Option) {}

@@ -21,6 +21,6 @@ class ChannelPayload(Payload):
     rate: Rate = Rate(0)
     name: str = ""
     node_key: int = 0
-    key: str = ""
+    key: int = 0
     is_index: bool = False
     index: str = ""

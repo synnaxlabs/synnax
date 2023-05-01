@@ -26,9 +26,8 @@ func NewStream[V Value](buffer ...int) Stream[V] {
 
 // NewInlet returns an Inlet that wraps the provided channel.
 func NewInlet[V Value](ch chan<- V) Inlet[V] {
-	return &inletImpl[V]{
-		values: ch,
-		c:      &atomicx.Int32Counter{},
+	return &inletImpl[V]{values: ch,
+		c: &atomicx.Int32Counter{},
 	}
 }
 
@@ -51,12 +50,10 @@ func (s *streamImpl[V]) Outlet() <-chan V { return s.values }
 // InletAddress implements Stream.
 func (s *streamImpl[V]) InletAddress() address.Address { return s.inletAddr }
 
-func (s *streamImpl[V]) Acquire(n int32) {
-	_, _ = s.c.Add(n)
-}
+func (s *streamImpl[V]) Acquire(n int32) { s.c.Add(n) }
 
 func (s *streamImpl[V]) Close() {
-	_, _ = s.c.Add(-1)
+	s.c.Add(-1)
 	if s.c.Value() <= 0 {
 		s.once.Do(func() { close(s.values) })
 	}
@@ -88,11 +85,11 @@ func (i *inletImpl[V]) InletAddress() address.Address { return i.addr }
 func (i *inletImpl[V]) SetInletAddress(addr address.Address) { i.addr = addr }
 
 // Acquire implements Inlet.
-func (i *inletImpl[V]) Acquire(n int32) { _, _ = i.c.Add(n) }
+func (i *inletImpl[V]) Acquire(n int32) { i.c.Add(n) }
 
 // Close implements inlet.
 func (i *inletImpl[V]) Close() {
-	_, _ = i.c.Add(-1)
+	i.c.Add(-1)
 	if i.c.Value() <= 0 {
 		i.once.Do(func() { close(i.values) })
 	}

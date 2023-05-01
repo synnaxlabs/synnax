@@ -11,6 +11,7 @@ package confluence
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/x/signal"
 )
 
@@ -26,7 +27,7 @@ type AbstractLinear[I, O Value] struct {
 // transformation, and writes the result to a single Outlet.
 type LinearTransform[I, O Value] struct {
 	AbstractLinear[I, O]
-	TransformFunc[I, O]
+	Transform TransformFunc[I, O]
 }
 
 // Flow implements the Segment interface.

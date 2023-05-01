@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/api/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -76,7 +77,7 @@ var _ = Describe("ChannelReader", Ordered, func() {
 		})
 		It("Should retrieve a Channel by its key", func() {
 			res, err := svc.Retrieve(context.TODO(), api.ChannelRetrieveRequest{
-				KeysOrNames: []string{"1-1"},
+				Keys: channel.Keys{channel.NewKey(1, 1)},
 			})
 			Expect(err).To(Equal(errors.Nil))
 			Expect(res.Channels).To(HaveLen(1))
@@ -90,7 +91,7 @@ var _ = Describe("ChannelReader", Ordered, func() {
 		})
 		It("Should retrieve channels by their name", func() {
 			res, err := svc.Retrieve(context.TODO(), api.ChannelRetrieveRequest{
-				KeysOrNames: []string{"test"},
+				Names: []string{"test"},
 			})
 			Expect(err).To(Equal(errors.Nil))
 			Expect(res.Channels).To(HaveLen(1))

@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 	"io"
 )
 
@@ -177,7 +176,7 @@ func newChannelSet() []channel.Channel {
 
 func gatewayOnlyScenario() scenario {
 	channels := newChannelSet()
-	builder, services := provision(1, zap.NewNop())
+	builder, services := provision(1)
 	svc := services[1]
 	Expect(svc.channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	keys := channel.KeysFromChannels(channels)
@@ -191,7 +190,7 @@ func gatewayOnlyScenario() scenario {
 
 func peerOnlyScenario() scenario {
 	channels := newChannelSet()
-	builder, services := provision(4, zap.NewNop())
+	builder, services := provision(4)
 	svc := services[1]
 	for i, ch := range channels {
 		ch.NodeKey = dcore.NodeKey(i + 2)
@@ -215,7 +214,7 @@ func peerOnlyScenario() scenario {
 
 func mixedScenario() scenario {
 	channels := newChannelSet()
-	builder, services := provision(3, zap.NewNop())
+	builder, services := provision(3)
 	svc := services[1]
 	for i, ch := range channels {
 		ch.NodeKey = dcore.NodeKey(i + 1)
