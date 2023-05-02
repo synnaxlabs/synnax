@@ -103,12 +103,16 @@ func (idx *index) insertAt(ctx context.Context, i int, p pointer) {
 }
 
 func (idx *index) updateAt(ctx context.Context, i int, p pointer) (err error) {
+	ptrs := idx.mu.pointers
 	idx.modifyAfter(ctx, i, func() {
-		oldP := idx.mu.pointers[i]
+		oldP := ptrs[i]
 		if oldP.Start != p.Start {
 			err = RangeNotFound
-		} else if i != len(idx.mu.pointers)-1 && idx.mu.pointers[i+1].OverlapsWith(p.TimeRange) ||
-			i != 0 && idx.mu.pointers[i-1].OverlapsWith(p.TimeRange) {
+			return
+		}
+		overlapsWithNext := i != len(ptrs)-1 && ptrs[i+1].OverlapsWith(p.TimeRange)
+		overlapsWithPrev := i != 0 && ptrs[i-1].OverlapsWith(p.TimeRange)
+		if overlapsWithPrev || overlapsWithNext {
 			err = ErrRangeOverlap
 		} else {
 			idx.mu.pointers[i] = p
