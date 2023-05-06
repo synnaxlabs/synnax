@@ -11,43 +11,39 @@ package io
 
 import (
 	"encoding/binary"
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/x/atomic"
-	"io"
 )
 
+// Int32Counter is an atomic, file backed counter.
 type Int32Counter struct {
-	err     error
 	wrapped *atomic.Int32Counter
 	f       ReaderAtWriterAtCloser
 	buf     []byte
 }
 
-func NewInt32Counter(f ReaderAtWriterAtCloser) (*Int32Counter, error) {
+// NewInt32Counter opens a new, atomic counter backed by the given file. The counter
+// must have exclusive write access to the file.
+func NewInt32Counter(f ReaderAtWriterAtCloser) *Int32Counter {
 	i := &Int32Counter{
 		wrapped: &atomic.Int32Counter{},
 		f:       f,
 		buf:     make([]byte, 4),
 	}
-	i.load()
-	return i, i.Error()
+	return i
 }
 
-func (c *Int32Counter) load() int32 {
-	_, err := c.f.ReadAt(c.buf, 0)
-	if !errors.Is(err, io.EOF) {
-		c.err = err
-	}
-	return int32(binary.LittleEndian.Uint32(c.buf))
-}
-
-func (c *Int32Counter) Add(delta int32) int32 {
+// Add increments the counter by the provided delta.
+func (c *Int32Counter) Add(delta int32) (int32, error) {
 	v := c.wrapped.Add(delta)
 	binary.LittleEndian.PutUint32(c.buf, uint32(v))
-	_, c.err = c.f.WriteAt(c.buf, 0)
-	return v
+	_, err := c.f.WriteAt(c.buf, 0)
+	return v, err
 }
 
-func (c *Int32Counter) Error() error { return c.err }
+// Value returns the current counter value.
+func (c *Int32Counter) Value() int32 { return c.wrapped.Value() }
 
-func (c *Int32Counter) Close() error { return c.f.Close() }
+func (c *Int32Counter) load() (int32, error) {
+	_, err := c.f.ReadAt(c.buf, 0)
+	return int32(binary.LittleEndian.Uint32(c.buf)), err
+}
