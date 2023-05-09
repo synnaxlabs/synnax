@@ -84,8 +84,8 @@ func (cfg Config) Report() alamos.Report {
 	} else {
 		report["storage"] = "not provided"
 	}
-	report["storageKey"] = string(cfg.StorageKey)
-	report["storageFlushInterval"] = cfg.StorageFlushInterval
+	report["storage_key"] = string(cfg.StorageKey)
+	report["storage_flush_interval"] = cfg.StorageFlushInterval
 	return report
 }
 

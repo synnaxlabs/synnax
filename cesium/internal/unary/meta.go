@@ -26,7 +26,7 @@ func readOrCreateMeta(cfg Config) (core.Channel, error) {
 		return cfg.Channel, err
 	}
 	if !exists {
-		if cfg.Channel.Key == "" {
+		if cfg.Channel.Key == 0 {
 			return cfg.Channel, errors.Wrap(
 				validate.Error,
 				"[unary] - a channel is required when creating a new database",

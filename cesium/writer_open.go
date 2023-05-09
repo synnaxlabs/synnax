@@ -12,6 +12,7 @@ package cesium
 import (
 	"context"
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/ranger"
 	"github.com/synnaxlabs/cesium/internal/unary"
@@ -37,7 +38,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfg WriterConfig) (*streamWri
 		idx          index.Index
 		writingToIdx bool
 		idxChannel   Channel
-		internal     = make(map[string]unary.Writer, len(cfg.Channels))
+		internal     = make(map[core.ChannelKey]unary.Writer, len(cfg.Channels))
 	)
 	for i, key := range cfg.Channels {
 		u, ok := db.dbs[key]
@@ -48,7 +49,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfg WriterConfig) (*streamWri
 			writingToIdx = true
 		}
 		if i == 0 {
-			if u.Channel.Index != "" {
+			if u.Channel.Index != 0 {
 				idxU, err := db.getUnary(u.Channel.Index)
 				if err != nil {
 					return nil, err
@@ -81,7 +82,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfg WriterConfig) (*streamWri
 }
 
 func validateSameIndex(chOne, chTwo Channel) error {
-	if chOne.Index == "" && chTwo.Index == "" {
+	if chOne.Index == 0 && chTwo.Index == 0 {
 		if chOne.Rate != chTwo.Rate {
 			return errors.Wrapf(validate.Error, "channels must have the same rate")
 		}

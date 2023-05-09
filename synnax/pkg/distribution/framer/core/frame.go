@@ -104,7 +104,7 @@ func MergeFrames(frames []Frame) (f Frame) {
 func NewFrameFromStorage(frame ts.Frame) Frame {
 	keys := make(channel.Keys, len(frame.Arrays))
 	for i := range frame.Arrays {
-		keys[i] = channel.MustParseKey(frame.Keys[i])
+		keys[i] = channel.Key(frame.Keys[i])
 	}
 	return Frame{Keys: keys, Arrays: frame.Arrays}
 }

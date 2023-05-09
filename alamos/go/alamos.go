@@ -137,7 +137,7 @@ func (im InstrumentationMeta) Report() Report {
 	return Report{
 		"key":          im.Key,
 		"path":         im.Path,
-		"service-name": im.ServiceName,
+		"service_name": im.ServiceName,
 	}
 }
 

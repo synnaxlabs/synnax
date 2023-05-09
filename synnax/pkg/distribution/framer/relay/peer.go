@@ -11,6 +11,7 @@ package relay
 
 import (
 	"context"
+	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/x/signal"
 
 	"github.com/samber/lo"
@@ -48,6 +49,7 @@ func newReceiveCoordinator(config Config) confluence.Segment[demand, Response] {
 }
 
 func (c *receiveCoordinator) sink(ctx context.Context, ch demand) error {
+	logrus.Info(ch)
 	// update our demands, so we know what channels we want from what nodes
 	nodeKeys := c.updateDemands(ch)
 	// make sure we have open receivers to all demanded nodes/channels

@@ -99,13 +99,13 @@ func (cfg Config) Validate() error {
 // Report implements the alamos.ReportProvider interface. Assumes the Config is valid.
 func (cfg Config) Report() alamos.Report {
 	report := make(alamos.Report)
-	report["clusterKey"] = cfg.ClusterKey.String()
-	report["transportClient"] = cfg.TransportClient.Report()
-	report["transportServer"] = cfg.TransportServer.Report()
-	report["requestTimeout"] = cfg.RequestTimeout
-	report["pledgeBaseRetry"] = cfg.RetryInterval
-	report["pledgeRetryScale"] = cfg.RetryScale
-	report["maxProposals"] = cfg.MaxProposals
+	report["cluster_key"] = cfg.ClusterKey.String()
+	report["transport_client"] = cfg.TransportClient.Report()
+	report["transport_server"] = cfg.TransportServer.Report()
+	report["request_timeout"] = cfg.RequestTimeout
+	report["pledge_retry_interval"] = cfg.RetryInterval
+	report["pledge_retry_scale"] = cfg.RetryScale
+	report["max_proposals"] = cfg.MaxProposals
 	report["peers"] = cfg.Peers
 	return report
 }

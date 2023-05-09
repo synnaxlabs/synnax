@@ -14,13 +14,18 @@ ch = client.channels.create(
     rate=1 * sy.Rate.HZ,
 )
 
+latencies = []
+
 with client.new_writer(sy.TimeStamp.now(), "my_chan") as w:
     with client.stream(sy.TimeStamp.now(), "my_chan") as r:
-        for i in range(100000):
+        for i in range(10000):
             df = pd.DataFrame.from_dict({"my_chan": [i]})
             start = datetime.now()
             if not w.write(df):
                 break
             v = r.read()
-            print(f"write {i} in {(datetime.now() - start)} {v}")
+            end = datetime.now()
+            latencies.append((end - start).total_seconds())
             time.sleep(0.01)
+
+        print(f"Mean latency: {np.mean(latencies)}")

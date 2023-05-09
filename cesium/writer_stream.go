@@ -12,6 +12,7 @@ package cesium
 import (
 	"context"
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/confluence"
@@ -84,14 +85,14 @@ type streamWriter struct {
 	confluence.UnarySink[WriterRequest]
 	confluence.AbstractUnarySource[WriterResponse]
 	// internal contains writers for each channel
-	internal map[string]unary.Writer
+	internal map[core.ChannelKey]unary.Writer
 	// writingToIdx is true when the write is writing to the index
 	// channel. This is typically true, which allows us to avoid
 	// unnecessary lookups.
 	writingToIdx bool
 	idx          struct {
 		index.Index
-		key           string
+		key           core.ChannelKey
 		highWaterMark telem.TimeStamp
 	}
 	sampleCount int64
@@ -165,7 +166,7 @@ func (w *streamWriter) write(req WriterRequest) error {
 
 	for i, arr := range req.Frame.Arrays {
 		key := req.Frame.Key(i)
-		_chW, ok := w.internal[req.Frame.Key(i)]
+		_chW, ok := w.internal[req.Frame.Keys[i]]
 		if !ok {
 			return errors.Wrapf(
 				validate.Error,
