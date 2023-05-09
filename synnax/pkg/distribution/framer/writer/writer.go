@@ -66,7 +66,7 @@ func (w *Writer) Error() error {
 	w.requests.Inlet() <- Request{Command: Error}
 	for res := range w.responses.Outlet() {
 		if res.Command == Error {
-			return res.Err
+			return res.Error
 		}
 	}
 	return nil

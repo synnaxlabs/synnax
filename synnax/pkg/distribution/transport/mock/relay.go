@@ -11,22 +11,21 @@ package mock
 
 import (
 	"github.com/synnaxlabs/freighter/fmock"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/relay"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/x/address"
 )
 
-type RelayNetwork struct {
-	internal *fmock.Network[relay.ReadRequest, framer.Frame]
+type FramerRelayNetwork struct {
+	internal *fmock.Network[relay.Request, relay.Response]
 }
 
-func NewRelayNetwork() *RelayNetwork {
-	return &RelayNetwork{
-		internal: fmock.NewNetwork[relay.ReadRequest, framer.Frame](),
+func NewRelayNetwork() *FramerRelayNetwork {
+	return &FramerRelayNetwork{
+		internal: fmock.NewNetwork[relay.Request, relay.Response](),
 	}
 }
 
-func (r *RelayNetwork) New(addr address.Address, buffers ...int) relay.Transport {
+func (r *FramerRelayNetwork) New(addr address.Address, buffers ...int) relay.Transport {
 	return &RelayTransport{
 		client: r.internal.StreamClient(buffers...),
 		server: r.internal.StreamServer(addr, buffers...),

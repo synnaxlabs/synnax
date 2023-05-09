@@ -14,14 +14,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
-	"github.com/synnaxlabs/synnax/pkg/storage"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/telem"
 )
 
 //go:generate stringer -type=Command
 type Command uint8
 
-const AutoSpan = storage.AutoSpan
+const AutoSpan = ts.AutoSpan
 
 const (
 	Next Command = iota + 1
@@ -74,9 +74,9 @@ type Response struct {
 	Ack bool `json:"ack" msgpack:"ack"`
 	// SeqNum
 	SeqNum int `json:"seq_num" msgpack:"seq_num"`
-	// Err is only relevant for variant AckResponse. It is an error returned during a call to
+	// Error is only relevant for variant AckResponse. It is an error returned during a call to
 	// Iterator.Error
-	Err error `json:"err" msgpack:"err"`
+	Error error `json:"error" msgpack:"error"`
 }
 
 type (

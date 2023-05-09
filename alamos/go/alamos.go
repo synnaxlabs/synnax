@@ -80,10 +80,7 @@ type Instrumentation struct {
 // instrumentation is considered the 'root' instrumentation, and can be used to create
 // child instrumentation with the Child method.
 func New(key string, options ...Option) Instrumentation {
-	ins := Instrumentation{Meta: InstrumentationMeta{
-		Key:  key,
-		Path: key,
-	}}
+	ins := Instrumentation{Meta: InstrumentationMeta{Key: key, Path: key}}
 	for _, option := range options {
 		option(&ins)
 	}

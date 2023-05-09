@@ -106,8 +106,8 @@ var _ = Describe("TypedWriter", func() {
 			}
 			Expect(s.channel.NewWriter(nil).CreateMany(ctx, &indexes)).To(Succeed())
 			channels := []channel.Channel{
-				{DataType: telem.Int64T, LocalIndex: indexes[0].StorageKey},
-				{DataType: telem.Int64T, LocalIndex: indexes[1].StorageKey},
+				{DataType: telem.Int64T, LocalIndex: indexes[0].LocalKey},
+				{DataType: telem.Int64T, LocalIndex: indexes[1].LocalKey},
 			}
 			Expect(s.channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 			_, err := s.service.New(context.TODO(), writer.Config{
@@ -193,7 +193,7 @@ func peerOnlyScenario() scenario {
 	builder, services := provision(4)
 	svc := services[1]
 	for i, ch := range channels {
-		ch.NodeKey = dcore.NodeKey(i + 2)
+		ch.Leaseholder = dcore.NodeKey(i + 2)
 		channels[i] = ch
 	}
 	Expect(svc.channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
@@ -217,7 +217,7 @@ func mixedScenario() scenario {
 	builder, services := provision(3)
 	svc := services[1]
 	for i, ch := range channels {
-		ch.NodeKey = dcore.NodeKey(i + 1)
+		ch.Leaseholder = dcore.NodeKey(i + 1)
 		channels[i] = ch
 	}
 	Expect(svc.channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())

@@ -11,11 +11,13 @@ package channel
 
 import (
 	"encoding/binary"
+	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
-	"github.com/synnaxlabs/synnax/pkg/storage"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/telem"
 	"strconv"
+	"strings"
 )
 
 // Key represents a unique identifier for a Channel. This value is guaranteed to be
@@ -25,22 +27,39 @@ import (
 type Key uint32
 
 // NewKey generates a new Key from the provided components.
-func NewKey(nodeKey core.NodeKey, localKey storage.ChannelKey) (key Key) {
+func NewKey(nodeKey core.NodeKey, localKey uint16) (key Key) {
 	return Key(nodeKey)<<16 | Key(localKey)
 }
 
-// NodeKey returns the id of the node embedded in the key. This node is the leaseholder
-// node for the Channel.
-func (c Key) NodeKey() core.NodeKey { return core.NodeKey(c >> 16) }
+func MustParseKey(key string) Key { return lo.Must(ParseKey(key)) }
 
-// LocalKey returns a unique identifier for the Channel within the leaseholder node's
-// storage.TS db. This value is NOT guaranteed to be unique across the entire cluster.
-func (c Key) LocalKey() storage.ChannelKey {
-	return storage.ChannelKey(c & 0x0000FFFF)
+func ParseKey(s string) (k Key, err error) {
+	split := strings.Split(s, "-")
+	if len(split) != 2 {
+		return k, errors.New("[channel] - invalid key format")
+	}
+	nodeID, err := strconv.Atoi(split[0])
+	if err != nil {
+		return k, errors.Wrapf(err, "[channel] - key - invalid node id")
+	}
+	localKey, err := strconv.Atoi(split[1])
+	if err != nil {
+		return k, errors.Wrapf(err, "[channel] - invalid local key")
+	}
+	return NewKey(core.NodeKey(nodeID), uint16(localKey)), nil
 }
 
+// Leaseholder returns the id of the node embedded in the key. This node is the leaseholder
+// node for the Channel.
+func (c Key) Leaseholder() core.NodeKey { return core.NodeKey(c >> 16) }
+
+// StorageKey returns a unique identifier for the Channel to use with a ts.DB.
+func (c Key) StorageKey() string { return c.String() }
+
+func (c Key) LocalKey() uint16 { return uint16(c & 0xFFFF) }
+
 // Lease implements the proxy.Entry interface.
-func (c Key) Lease() core.NodeKey { return c.NodeKey() }
+func (c Key) Lease() core.NodeKey { return c.Leaseholder() }
 
 // Bytes returns the Key as a byte slice.
 func (c Key) Bytes() []byte {
@@ -51,10 +70,13 @@ func (c Key) Bytes() []byte {
 
 const strKeySep = "-"
 
-// String returns the Key as a string in the format of "NodeKey-CesiumKey", so
-// a channel with a NodeKey of 1 and a CesiumKey of 2 would return "1-2".
+// String returns the Key as a string in the format of "Leaseholder-CesiumKey", so
+// a channel with a Leaseholder of 1 and a CesiumKey of 2 would return "1-2".
 func (c Key) String() string {
-	return strconv.Itoa(int(c.NodeKey())) + strKeySep + strconv.Itoa(int(c.LocalKey()))
+	if c == 0 {
+		return ""
+	}
+	return strconv.Itoa(int(c.Leaseholder())) + strKeySep + strconv.Itoa(int(c.LocalKey()))
 }
 
 // Keys extends []Keys with a few convenience methods.
@@ -62,17 +84,35 @@ type Keys []Key
 
 // KeysFromChannels returns a slice of Keys from a slice of Channel(s).
 func KeysFromChannels(channels []Channel) (keys Keys) {
-	for _, channel := range channels {
-		keys = append(keys, channel.Key())
+	nKeys := make(Keys, len(channels))
+	for i, channel := range channels {
+		nKeys[i] = channel.Key()
+	}
+	return nKeys
+}
+
+func KeysFromUint32(keys []uint32) Keys {
+	nKeys := make(Keys, len(keys))
+	for i, key := range keys {
+		nKeys[i] = Key(key)
+	}
+	return nKeys
+}
+
+// Storage calls Key.StorageKey() on each key and returns a slice with the results.
+func (k Keys) Storage() []string {
+	keys := make([]string, len(k))
+	for i, key := range k {
+		keys[i] = key.StorageKey()
 	}
 	return keys
 }
 
-// StorageKeys calls Key.LocalKey() on each key and returns a slice with the results.
-func (k Keys) StorageKeys() []storage.ChannelKey {
-	keys := make([]storage.ChannelKey, len(k))
+// Uint32 converts the Keys to a slice of uint32.
+func (k Keys) Uint32() []uint32 {
+	keys := make([]uint32, len(k))
 	for i, key := range k {
-		keys[i] = key.LocalKey()
+		keys[i] = uint32(key)
 	}
 	return keys
 }
@@ -80,7 +120,7 @@ func (k Keys) StorageKeys() []storage.ChannelKey {
 // UniqueNodeKeys returns a slice of all UNIQUE node Keys for the given keys.
 func (k Keys) UniqueNodeKeys() (keys []core.NodeKey) {
 	for _, key := range k {
-		keys = append(keys, key.NodeKey())
+		keys = append(keys, key.Leaseholder())
 	}
 	return lo.Uniq(keys)
 }
@@ -92,6 +132,15 @@ func (k Keys) Strings() []string {
 		s[i] = key.String()
 	}
 	return s
+}
+
+func (k Keys) Contains(key Key) bool {
+	for _, k := range k {
+		if k == key {
+			return true
+		}
+	}
+	return false
 }
 
 // Unique removes duplicate keys from the slice and returns the result.
@@ -121,8 +170,8 @@ type Channel struct {
 	// Name is a human-readable name for the channel. This name does not have to be
 	// unique.
 	Name string `json:"name" msgpack:"name"`
-	// NodeKey is the leaseholder node for the channel.
-	NodeKey core.NodeKey `json:"node_id" msgpack:"node_id"`
+	// Leaseholder is the leaseholder node for the channel.
+	Leaseholder core.NodeKey `json:"node_id" msgpack:"node_id"`
 	// DataType is the data type for the channel.
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 	// IsIndex is set to true if the channel is an index channel. LocalIndex channels must
@@ -132,20 +181,25 @@ type Channel struct {
 	// Rate sets the rate at which the channels values are written. This is used to
 	// determine the timestamp of each sample.
 	Rate telem.Rate `json:"rate" msgpack:"rate"`
-	// Key is a unique identifier for the channel within a cesium.DB. If not set when
-	// creating a channel, a unique key will be generated.
-	StorageKey storage.ChannelKey `json:"storage_key" msgpack:"storage_key"`
-	// LocalIndex is the channel used to index the channel's values. The LocalIndex is used to
-	// associate a value with a timestamp. If zero, the channel's data will be indexed
-	// using its rate. One of LocalIndex or Rate must be non-zero.
-	LocalIndex storage.ChannelKey `json:"local_index" msgpack:"local_index"`
+	// LocalKey is a unique identifier for the channel within the storage ts.DB. If not set
+	// when creating a channel, a unique key will be generated.
+	LocalKey uint16 `json:"local_key" msgpack:"local_key"`
+	// LocalIndex is the channel used to index the channel's values. The LocalIndex is
+	// used to associate a value with a timestamp. If zero, the channel's data will be
+	// indexed using its rate. One of LocalIndex or Rate must be non-zero.
+	LocalIndex uint16 `json:"local_index" msgpack:"local_index"`
 }
 
 // Key returns the key for the Channel.
-func (c Channel) Key() Key { return NewKey(c.NodeKey, c.StorageKey) }
+func (c Channel) Key() Key { return NewKey(c.Leaseholder, c.LocalKey) }
 
 // Index returns the key for the Channel's index channel.
-func (c Channel) Index() Key { return NewKey(c.NodeKey, c.LocalIndex) }
+func (c Channel) Index() Key {
+	if c.LocalIndex == 0 {
+		return 0
+	}
+	return NewKey(c.Leaseholder, c.LocalIndex)
+}
 
 // GorpKey implements the gorp.Entry interface.
 func (c Channel) GorpKey() Key { return c.Key() }
@@ -156,23 +210,20 @@ func (c Channel) GorpKey() Key { return c.Key() }
 func (c Channel) SetOptions() []interface{} { return []interface{}{c.Lease()} }
 
 // Lease implements the proxy.UnaryServer interface.
-func (c Channel) Lease() core.NodeKey { return c.NodeKey }
+func (c Channel) Lease() core.NodeKey { return c.Leaseholder }
 
-func (c Channel) Storage() storage.Channel {
-	s := storage.Channel{
+func (c Channel) Storage() ts.Channel {
+	return ts.Channel{
 		Key:      c.Key().String(),
 		DataType: c.DataType,
 		IsIndex:  c.IsIndex,
 		Rate:     c.Rate,
+		Index:    c.Index().String(),
 	}
-	if c.LocalIndex != 0 {
-		s.Index = c.Index().String()
-	}
-	return s
 }
 
-func toStorage(channels []Channel) []storage.Channel {
-	return lo.Map(channels, func(channel Channel, _ int) storage.Channel {
+func toStorage(channels []Channel) []ts.Channel {
+	return lo.Map(channels, func(channel Channel, _ int) ts.Channel {
 		return channel.Storage()
 	})
 }

@@ -11,9 +11,9 @@ package writer
 
 import (
 	"context"
-	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/freightfluence"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/signal"
@@ -39,9 +39,9 @@ func (sf *server) handle(ctx context.Context, server ServerStream) error {
 
 	// Senders and receivers must be set up to distribution requests and responses
 	// to their storage counterparts.
-	receiver := &freightfluence.TransformReceiver[cesium.WriteRequest, Request]{Receiver: server}
+	receiver := &freightfluence.TransformReceiver[ts.WriterRequest, Request]{Receiver: server}
 	receiver.Transform = newRequestTranslator()
-	sender := &freightfluence.TransformSender[cesium.WriteResponse, Response]{Sender: freighter.SenderNopCloser[Response]{StreamSender: server}}
+	sender := &freightfluence.TransformSender[ts.WriterResponse, Response]{Sender: freighter.SenderNopCloser[Response]{StreamSender: server}}
 	sender.Transform = newResponseTranslator(sf.HostResolver.HostKey())
 
 	w, err := sf.TS.NewStreamWriter(ctx, req.Config.toStorage())
@@ -50,11 +50,11 @@ func (sf *server) handle(ctx context.Context, server ServerStream) error {
 	}
 
 	pipe := plumber.New()
-	plumber.SetSegment[cesium.WriteRequest, cesium.WriteResponse](pipe, "toStorage", w)
-	plumber.SetSource[cesium.WriteRequest](pipe, "receiver", receiver)
-	plumber.SetSink[cesium.WriteResponse](pipe, "sender", sender)
-	plumber.MustConnect[cesium.WriteRequest](pipe, "receiver", "toStorage", 1)
-	plumber.MustConnect[cesium.WriteResponse](pipe, "toStorage", "sender", 1)
+	plumber.SetSegment[ts.WriterRequest, ts.WriterResponse](pipe, "toStorage", w)
+	plumber.SetSource[ts.WriterRequest](pipe, "receiver", receiver)
+	plumber.SetSink[ts.WriterResponse](pipe, "sender", sender)
+	plumber.MustConnect[ts.WriterRequest](pipe, "receiver", "toStorage", 1)
+	plumber.MustConnect[ts.WriterResponse](pipe, "toStorage", "sender", 1)
 	pipe.Flow(sCtx, confluence.CloseInletsOnExit())
 
 	return sCtx.Wait()

@@ -9,10 +9,9 @@
 
 from __future__ import annotations
 
+import urllib3
 from typing import Type
 from urllib.parse import urlencode
-
-import urllib3
 from urllib3 import HTTPResponse, PoolManager
 from urllib3.exceptions import HTTPError, MaxRetryError
 
@@ -77,6 +76,7 @@ class _Core(MiddlewareCollector):
     endpoint: URL
     encoder_decoder: EncoderDecoder
     res: RS | None
+    role: Role
 
     def __init__(
         self,
@@ -102,13 +102,14 @@ class _Core(MiddlewareCollector):
         self,
         method: str,
         url: str,
+        role: Role,
         request: RQ | None = None,
         res_t: Type[RS] | None = None,
     ) -> tuple[RS | None, Exception | None]:
-        in_crtx = Context(url, self.endpoint.protocol)
+        in_ctx = Context(url, self.endpoint.protocol, role)
 
         def finalizer(ctx: Context) -> tuple[Context, Exception | None]:
-            out_meta_data = Context(url, self.endpoint.protocol)
+            out_meta_data = Context(url, self.endpoint.protocol, role)
             data = None
             if request is not None:
                 data = self.encoder_decoder.encode(request)
@@ -137,7 +138,7 @@ class _Core(MiddlewareCollector):
             self.res = self.encoder_decoder.decode(http_res.data, res_t)
             return out_meta_data, None
 
-        _, exc = self.exec(in_crtx, finalizer)
+        _, exc = self.exec(in_ctx, finalizer)
         return self.res, exc
 
 
@@ -150,7 +151,7 @@ class GETClient(_Core):
         self, target: str, req: RQ, res_t: Type[RS]
     ) -> tuple[RS | None, Exception | None]:
         """Implements the UnaryClient protocol."""
-        return self.request("GET", self._build_url(target, req), None, res_t)
+        return self.request("GET", self._build_url(target, req), "client", None, res_t)
 
     def client_post(self) -> POSTClient:
         """Creates a POST client for the same endpoint and request and response types.
@@ -168,9 +169,9 @@ class GETClient(_Core):
         raw_dct = req.dict()
         parsed_dct = dict()
         for key, val in raw_dct.items():
-            if type(val) is list:
+            if isinstance(val, list):
                 if len(val) > 0:
-                    parsed_dct[key] = ",".join(val)
+                    parsed_dct[key] = ",".join([str(item) for item in val])
             elif val is not None:
                 parsed_dct[key] = val
         return urlencode(parsed_dct)
@@ -185,7 +186,13 @@ class POSTClient(_Core):
         self, target: str, req: RQ, res_t: Type[RS]
     ) -> tuple[RS | None, Exception | None]:
         """Implements the UnaryClient protocol."""
-        return self.request("POST", self.endpoint.child(target).stringify(), req, res_t)
+        return self.request(
+            "POST",
+            self.endpoint.child(target).stringify(),
+            "client",
+            req,
+            res_t,
+        )
 
     def client_get(self) -> GETClient:
         """Creates a GET client for the same endpoint and request and response types.

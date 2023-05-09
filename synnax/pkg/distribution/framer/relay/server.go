@@ -11,11 +11,8 @@ package relay
 
 import (
 	"context"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/freightfluence"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/signal"
@@ -23,12 +20,12 @@ import (
 
 type server struct {
 	Config
-	newReader func(keys ...channel.Key) confluence.Segment[ReadRequest, Data]
+	newReader func(ctx context.Context, cfg ReaderConfig) (confluence.Segment[Request, Response], error)
 }
 
 func startServer(
 	cfg Config,
-	newReader func(keys ...channel.Key) confluence.Segment[ReadRequest, Data],
+	newReader func(ctx context.Context, cfg ReaderConfig) (confluence.Segment[Request, Response], error),
 ) *server {
 	s := &server{Config: cfg, newReader: newReader}
 	cfg.Transport.Server().BindHandler(s.handle)
@@ -38,19 +35,22 @@ func startServer(
 func (s *server) handle(ctx context.Context, server ServerStream) error {
 	var (
 		sCtx, cancel = signal.WithCancel(ctx)
-		receiver     = &freightfluence.Receiver[ReadRequest]{Receiver: server}
-		sender       = &freightfluence.Sender[Data]{
-			Sender: freighter.SenderNopCloser[Data]{StreamSender: server},
+		rcv          = &freightfluence.Receiver[Request]{Receiver: server}
+		sender       = &freightfluence.Sender[Response]{
+			Sender: freighter.SenderNopCloser[Response]{StreamSender: server},
 		}
-		reader = s.newReader()
-		pipe   = plumber.New()
+		reader, err = s.newReader(ctx, ReaderConfig{})
+		pipe        = plumber.New()
 	)
 	defer cancel()
+	if err != nil {
+		return err
+	}
 	plumber.SetSegment(pipe, "reader", reader)
-	plumber.SetSource[ReadRequest](pipe, "receiver", receiver)
-	plumber.SetSink[framer.Frame](pipe, "sender", sender)
-	plumber.MustConnect[ReadRequest](pipe, "receiver", "reader", 1)
-	plumber.MustConnect[framer.Frame](pipe, "reader", "sender", 1)
+	plumber.SetSource[Request](pipe, "rcv", rcv)
+	plumber.SetSink[Response](pipe, "sender", sender)
+	plumber.MustConnect[Request](pipe, "rcv", "reader", 1)
+	plumber.MustConnect[Response](pipe, "reader", "sender", 1)
 	pipe.Flow(sCtx, confluence.CloseInletsOnExit())
 	return sCtx.Wait()
 }

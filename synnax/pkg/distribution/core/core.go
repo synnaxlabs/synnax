@@ -34,7 +34,7 @@ type Core struct {
 	// Storage is the storage for the node. The distribution layer replaces the original
 	// key-value store with a distributed key-value store. The caller should NOT call
 	// Close on the storage engine.
-	Storage *storage.Store
+	Storage *storage.Storage
 }
 
 // Open opens a new  core distribution layer. The caller is responsible for closing the

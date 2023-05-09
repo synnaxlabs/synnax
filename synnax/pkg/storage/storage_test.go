@@ -117,13 +117,6 @@ var _ = Describe("storage", func() {
 				},
 				false,
 			),
-			Entry("Invalid time-series engine",
-				func(cfg storage.Config) storage.Config {
-					cfg.TSEngine = 12
-					return cfg
-				},
-				false,
-			),
 			Entry("Invalid permissions",
 				func(cfg storage.Config) storage.Config {
 					cfg.Perm = 0

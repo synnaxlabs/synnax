@@ -15,7 +15,6 @@ import (
 	"github.com/blevesearch/bleve/mapping"
 	"github.com/blevesearch/bleve/search"
 	"github.com/samber/lo"
-	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"github.com/synnaxlabs/x/change"
@@ -124,7 +123,6 @@ func (s *Index) Search(term string) ([]schema.ID, error) {
 	ids, err := schema.ParseIDs(lo.Map(
 		searchResults.Hits,
 		func(hit *search.DocumentMatch, _ int) string {
-			logrus.Info(hit.ID)
 			return hit.ID
 		},
 	))

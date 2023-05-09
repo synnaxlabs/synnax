@@ -15,8 +15,7 @@ perspectives. This includes improving the logging infrastructure, and updating t
 `alamos` metrics package to include tracing. Instrumentation also enables our users to
 monitor their own Synnax deployments, an essential feature for operations-critical
 software. In this RFC I propose a high-level plan for implementing distributed
-instrumentation across all of Synnax's components. As with all other RFCs, it's always
-important to note that while this document is not living, the code is describes is. Th
+instrumentation across all of Synnax's components.
 
 # 1 - Vocabulary
 
@@ -68,12 +67,9 @@ especially in regard to error handling.
 
 Horizontal, or`X`, instrumentation collects and reports data about different layers (and
 partitions of those layers) of the Synnax architecture. Its role is to build a picture
-of
-how a layer behaves over time. For example, we need to measure the growth of the
-cesium's
-range pointer cache over time, track the network load on the distribution layer, or
-track
-the balance of leased KV operations on different nodes over time.
+of how a layer behaves over time. For example, we need to measure the growth of the
+cesium's range pointer cache over time, track the network load on the distribution
+layer, or track the balance of leased KV operations on different nodes over time.
 
 The tracing side of X instrumentation tracks goroutines and processes that aren't
 associated with a particular request.
@@ -99,9 +95,8 @@ a layer above, and should not expose shallow interfaces to layers above.
 
 Alamos must handle three types of instrumentation: logs, metrics, and traces. These are
 widely referred to as the three pillars of observability. I'm omitting an argument for
-why
-these types exist and why each is important; this should be obvious to you, and, if it
-isn't, there is extensive literature on the subject.
+why these types exist and why each is important; this should be obvious to you, and,
+if it isn't, there is extensive literature on the subject.
 
 Instead, I'm focused on describing the specific requirements for each. These are not
 organized by pillar, but rather by type of requirement. For example, all three pillars
@@ -116,10 +111,9 @@ execution state for several machines.
 ### 4.1.0 - Instrumentation Must Support Clients
 
 Many features exist above the server-side waterline. Our Python and Typescript
-libraries,
-Synnax CLI, and User Interfaces play a role in delivering a quality user experience.
-When designing a distributed instrumentation system, we must keep in mind how we tie
-together the execution state of both the server and client.
+libraries, Synnax CLI, and User Interfaces play a role in delivering a quality user
+experience. When designing a distributed instrumentation system, we must keep in mind
+how we tie together the execution state of both the server and client.
 
 ### 4.1.1 - Instrumentation Must Distribute Across Nodes
 
@@ -235,16 +229,16 @@ to run a self-hosted tracing tool to maintain control over their environment.
 
 ## 4.7 - Production
 
-Instrumentation in production allows us to view and collect telemetry from the deployments
-of our users. Ideally we'd have a cloud hosted solution that enables us to detect and
-debug issues in near-real time.
+Instrumentation in production allows us to view and collect telemetry from the
+deployments of our users. Ideally we'd have a cloud hosted solution that enables us
+to detect and debug issues in near-real time.
 
 ### 4.7.0 - Privacy and Security
 
-Synnax is designed to operate in scenarios are operations critical and closely controlled
-by regulations such as ITAR or EAR. We're also holding confidential data and personally
-identifiable information (PII). When collecting telemetry, we **must** ensure that no
-sensitive or controlled data is collected or transmitted to our servers.
+Synnax is designed to operate in scenarios are operations critical and closely
+controlled by regulations such as ITAR or EAR. We're also holding confidential data
+and personally identifiable information (PII). When collecting telemetry, we **must**
+ensure that no sensitive or controlled data is collected or transmitted to our servers.
 
 Telemetry must also be completely opt-in. This has been a hot-topic of debate in the
 software world recently, and it's essential for any open source project to specifically
@@ -405,12 +399,11 @@ func (w *writer) Set(ctx context.Context, key []byte, value []byte) error {
 ```
 
 This pattern allows us to effectively move a trace through the call stack, but it
-creates
-a separation between X and Y instrumentation. We're now passing Y instrumentation down
-through the call stack, so where should we use X instrumentation? The solution is to
-only
-propagate traces through the callstack, and rely on the instrumentation stored in the
-service configuration to extend those traces. Our implementation now looks like this:
+creates a separation between X and Y instrumentation. We're now passing Y
+instrumentation down through the call stack, so where should we use X instrumentation?
+The solution is to only propagate traces through the callstack, and rely on the
+instrumentation stored in the service configuration to extend those traces. Our
+implementation now looks like this:
 
 ```go
 package irrelivant
@@ -433,9 +426,9 @@ func (w *writer) Set(ctx context.Context, key []byte, value []byte) error {
 This pattern allows us to develop an integrated view of X and Y instrumentation. We can
 bind traces to both request verticals and layer bound-services. The most notable method
 for doing is adding the instrumentation key to the name of the span. So, instead
-of `Set` our span would be named `writer.Set`. This allows us to evaluate the performance
-of a specific service over time, giving valuable insight into where our performance improvement
-efforts should be focused.
+of `Set` our span would be named `writer.Set`. This allows us to evaluate the
+performance of a specific service over time, giving valuable insight into where our
+performance improvement efforts should be focused.
 
 ## 5.3 - Application Critical Metrics
 
@@ -457,14 +450,11 @@ The alternative is to use a more explicit method of exposing metrics. For exampl
 eventually need to collect information on latency between nodes. Piggybacking on top of
 Aspen's gossip system is an ideal way to do this. We can use lightweight, regular
 payloads to accumulate latency information. We can use this latency information to
-throttle
-the priority of less important services in operations critical scenarios. This process
-could occur in different parts of the code base that are unrelated to aspen. As a
-result,
-Aspen would expose this metric through its top level interface, such as a struct,
-interface,
-or observable. The issue here is that we'd need to explicitly define and implement
-infrastructure for exposing metrics.
+throttle the priority of less important services in operations critical scenarios. This
+process could occur in different parts of the code base that are unrelated to aspen. As
+a result, Aspen would expose this metric through its top level interface, such as a
+struct, interface, or observable. The issue here is that we'd need to explicitly define
+and implement infrastructure for exposing metrics.
 
 Alamos would not be out of the picture entirely. It would still be considered a consumer
 of these explicit metrics, and would be responsible for exporting them to uptrace. This
@@ -474,10 +464,9 @@ the ontology.
 ## 5.4 - Distribution
 
 Propagating metrics across services and client/server boundaries is easier than I
-originally
-assumed. We only need to attach a trace id to the meta-data of each OTN message. At a
-high level, this involves attaching a `Propage` and `Depropagate` method to the
-`alamos.Tracer` type, as follows:
+originally assumed. We only need to attach a trace id to the meta-data of each OTN
+message. At a high level, this involves attaching a `Propage` and `Depropagate` method
+to the`alamos.Tracer` type, as follows:
 
 ```go
 package alamos
@@ -496,20 +485,16 @@ implement in order to propagate headers. This is trivial.
 
 ## 6.0 - Analytics
 
-As I started working on this RFC, I began to think about the relationship between software
-observability and analytics, such as tracking the number of active users and what
-features are the most popular. This is obviously relevant for improving the product,
-and defining the actual requirements for what we'd like to collect is the subject of a
-different document.
+As I started working on this RFC, I began to think about the relationship between
+software observability and analytics, such as tracking the number of active users and
+what features are the most popular. This is obviously relevant for improving the
+product, and defining the actual requirements for what we'd like to collect is the
+subject of a different document.
 
 The (slightly) more relevant question for this RFC is whether analytics should
-(eventually) be included in the scope of Alamos. Observability and analytics instrumentation
-share enough similarities that it's worth seriously considering integrating them as part
-of the alamos interface.
+(eventually) be included in the scope of Alamos. Observability and analytics
+instrumentation share enough similarities that it's worth seriously considering
+integrating them as part of the alamos interface.
 
 This is a topic that has few implications on the design of the system, and should be
 addressed in a future RFC.
-
-## 6.1 - Log and Trace Grouping/Channels
-
-

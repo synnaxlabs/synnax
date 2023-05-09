@@ -42,7 +42,8 @@ type fileController struct {
 		release chan struct{}
 		open    map[uint16][]controlledReader
 	}
-	counter *xio.Int32Counter
+	counter     *xio.Int32Counter
+	counterFile io.Closer
 }
 
 const counterFile = "counter"
@@ -52,11 +53,11 @@ func openFileController(cfg Config) (*fileController, error) {
 	if err != nil {
 		return nil, err
 	}
-	c, err := xio.NewInt32Counter(counterF)
-	if err != nil {
-		return nil, err
+	fc := &fileController{
+		Config:      cfg,
+		counter:     xio.NewInt32Counter(counterF),
+		counterFile: counterF,
 	}
-	fc := &fileController{Config: cfg, counter: c}
 	fc.writers.open = make([]controlledWriter, 0, cfg.MaxDescriptors)
 	fc.writers.release = make(chan struct{}, cfg.MaxDescriptors)
 	fc.readers.open = make(map[uint16][]controlledReader)
@@ -100,10 +101,11 @@ func (fc *fileController) acquireWriter(ctx context.Context) (uint16, xio.Offset
 func (fc *fileController) newWriter(ctx context.Context) (*controlledWriter, error) {
 	ctx, span := fc.T.Bench(ctx, "newWriter")
 	defer span.End()
-	nextKey := uint16(fc.counter.Add(1))
-	if err := fc.counter.Error(); err != nil {
+	nextKey_, err := fc.counter.Add(1)
+	if err != nil {
 		return nil, span.Error(err)
 	}
+	nextKey := uint16(nextKey_)
 	file, err := fc.FS.Open(
 		fileKeyName(nextKey),
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY,
@@ -225,7 +227,7 @@ func (fc *fileController) close() error {
 			c.Exec(r.ReaderAtCloser.Close)
 		}
 	}
-	c.Exec(fc.counter.Close)
+	c.Exec(fc.counterFile.Close)
 	return c.Error()
 }
 

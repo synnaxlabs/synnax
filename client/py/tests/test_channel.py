@@ -7,10 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import numpy as np
 import pytest
 
 import synnax as sy
-import numpy as np
 
 
 class TestChannelClient:
@@ -33,6 +33,7 @@ class TestChannelClient:
         )
 
     @pytest.mark.channel
+    @pytest.mark.focus
     def test_write_read(self, client: sy.Synnax):
         """Should create a channel and write then read from it"""
         channel = client.channels.create(
@@ -42,14 +43,14 @@ class TestChannelClient:
                 data_type=sy.DataType.INT64,
             )
         )
-        input = np.array([1, 2, 3, 4, 5], dtype=np.int64)
+        d = np.array([1, 2, 3, 4, 5], dtype=np.int64)
         start = 1 * sy.TimeSpan.SECOND
-        channel.write(start, input)
-        data, tr = channel.read(start, (start + len(input)) * sy.TimeSpan.SECOND)
-        assert len(input) == len(data)
-        assert input[0] == data[0]
+        channel.write(start, d)
+        data, tr = channel.read(start, (start + len(d)) * sy.TimeSpan.SECOND)
         assert tr.start == start
-        assert tr.end == start + (len(input) - 1) * sy.TimeSpan.SECOND + 1
+        assert len(d) == len(data)
+        assert tr.end == start + (len(d) - 1) * sy.TimeSpan.SECOND + 1
+        assert d[0] == data[0]
 
     @pytest.mark.channel
     def test_create_list(self, two_channels: list[sy.Channel]):

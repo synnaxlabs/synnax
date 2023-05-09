@@ -16,7 +16,7 @@ import (
 )
 
 var _ = Describe("Typed", func() {
-	Describe("Err", func() {
+	Describe("Error", func() {
 		It("Should return a string representation of the error", func() {
 			err := errors.Typed{Type: "type", Err: errors.Field{Field: "field", Message: "Message"}}
 			Expect(err.Error()).To(Equal("field: Message"))

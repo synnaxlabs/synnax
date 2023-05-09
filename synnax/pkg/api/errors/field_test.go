@@ -16,13 +16,13 @@ import (
 )
 
 var _ = Describe("Field", func() {
-	Describe("Err", func() {
+	Describe("Error", func() {
 		It("Should return a string representation of the Field error", func() {
 			Expect(errors.Field{Field: "field", Message: "Message"}.Error()).To(Equal("field: Message"))
 		})
 	})
 	Describe("Fields", func() {
-		Describe("Err", func() {
+		Describe("Error", func() {
 			It("Should return a string representation of the Field error", func() {
 				Expect(errors.Fields{
 					{Field: "field", Message: "Message"},

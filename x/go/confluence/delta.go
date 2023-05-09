@@ -86,6 +86,7 @@ func (d *DynamicDeltaMultiplier[v]) Flow(ctx signal.Context, opts ...Option) {
 		for {
 			select {
 			case <-ctx.Done():
+				panic(ctx.Err())
 				return ctx.Err()
 			case inlets := <-d.connections:
 				d.Source.Out = append(d.Source.Out, inlets...)
@@ -93,7 +94,7 @@ func (d *DynamicDeltaMultiplier[v]) Flow(ctx signal.Context, opts ...Option) {
 				d.performDisconnect(inlets)
 			case v := <-d.In.Outlet():
 				if err := d.Source.SendToEach(ctx, v); err != nil {
-					return err
+					panic(err)
 				}
 			}
 		}

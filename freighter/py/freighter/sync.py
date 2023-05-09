@@ -10,10 +10,9 @@
 import asyncio
 import contextlib
 from asyncio import events
+from janus import Queue
 from threading import Thread
 from typing import AsyncIterator, Optional, Type
-
-from janus import Queue
 
 from freighter.context import Context
 from freighter.exceptions import StreamClosed
@@ -118,7 +117,7 @@ class _SenderCloser(StreamSender[RQ]):
                     return self._exc.notify(exc)
 
     @staticmethod
-    def _gate_stream_closed(self, exc: Exception | None) -> None | Exception:
+    def _gate_stream_closed(exc: Exception | None) -> None | Exception:
         return exc if not isinstance(exc, StreamClosed) else None
 
 
@@ -169,7 +168,7 @@ class SyncStream(Thread, Stream[RQ, RS]):
             def finalizer(_: Context) -> tuple[Context, Exception | None]:
                 return loop.run_until_complete(self._connect())
 
-            self._ctx = Context("sync_stream", self._target)
+            self._ctx = Context("sync_stream", self._target, "client")
             _, exc = self._collector.exec(self._ctx, finalizer)
             if exc is not None:
                 self._open_exception.notify(exc)
@@ -204,7 +203,7 @@ class SyncStream(Thread, Stream[RQ, RS]):
         return self._sender.close_send()
 
     async def _connect(self) -> tuple[Context, Exception | None]:
-        ctx = Context("sync_stream", self._target)
+        ctx = Context("sync_stream", self._target, "client")
         try:
             self._internal = await self._client.stream(
                 self._target,

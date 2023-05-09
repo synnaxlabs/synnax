@@ -18,7 +18,7 @@ import (
 // the only property that needs to be set on the channel is its key (as the existing database
 // is assumed to live in a subdirectory named by the key). If the database does not
 // exist, the channel must be fully populated and the database will be created.
-func (db *cesium) openUnary(ch Channel) error {
+func (db *DB) openUnary(ch Channel) error {
 	fs, err := db.fs.Sub(ch.Key)
 	if err != nil {
 		return err
@@ -52,7 +52,7 @@ func (db *cesium) openUnary(ch Channel) error {
 	return nil
 }
 
-func (db *cesium) getUnary(key string) (unary.DB, error) {
+func (db *DB) getUnary(key string) (unary.DB, error) {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 	u, ok := db.dbs[key]
@@ -62,7 +62,7 @@ func (db *cesium) getUnary(key string) (unary.DB, error) {
 	return u, nil
 }
 
-func (db *cesium) unaryIsOpen(key string) bool {
+func (db *DB) unaryIsOpen(key string) bool {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 	_, ok := db.dbs[key]

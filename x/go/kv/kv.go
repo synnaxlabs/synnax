@@ -53,7 +53,7 @@ type ReadWriter interface {
 	Writer
 }
 
-/** Atomic is a key-value store that supports executing atomic transations */
+// Atomic is a key-value store that supports executing atomic transactions.
 type Atomic interface {
 	// OpenTx opens a new transaction on the DB.
 	OpenTx() Tx

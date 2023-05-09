@@ -252,7 +252,7 @@ var _ = Describe("Accuracy", Ordered, func() {
 							actual2 = make([]int64, 0, len(expected2))
 						)
 						for i, arr := range frame.Arrays {
-							if frame.Key(i) == key1 {
+							if frame.Keys[i] == key1 {
 								actual1 = append(actual1, telem.Unmarshal[int64](arr)...)
 							} else {
 								actual2 = append(actual2, telem.Unmarshal[int64](arr)...)

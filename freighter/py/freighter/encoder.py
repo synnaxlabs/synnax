@@ -7,9 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Protocol, Type
-
 import msgpack
+from typing import Protocol, Type
 
 from alamos import Instrumentation, trace
 from freighter.transport import P, Payload
@@ -83,10 +82,10 @@ class TracingEncoderDecoder(EncoderDecoder):
     def content_type(self):
         return self.wrapped.content_type()
 
-    @trace()
+    @trace("debug")
     def encode(self, payload: Payload) -> bytes:
         return self.wrapped.encode(payload)
 
-    @trace()
+    @trace("debug")
     def decode(self, data: bytes, pld_t: Type[P]) -> P:
         return self.wrapped.decode(data, pld_t)

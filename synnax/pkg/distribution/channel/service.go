@@ -12,7 +12,7 @@ package channel
 import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/storage"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
@@ -43,7 +43,7 @@ type Readable interface {
 type ServiceConfig struct {
 	HostResolver core.HostResolver
 	ClusterDB    *gorp.DB
-	TSChannel    storage.TSChannelManager
+	TSChannel    *ts.DB
 	Transport    Transport
 	Ontology     *ontology.Ontology
 }

@@ -14,7 +14,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
-	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -50,8 +49,8 @@ func (lp *leaseProxy) handle(ctx context.Context, msg CreateMessage) (CreateMess
 func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Channel) error {
 	channels := *_channels
 	for i := range channels {
-		if channels[i].NodeKey == 0 {
-			channels[i].NodeKey = lp.HostResolver.HostKey()
+		if channels[i].Leaseholder == 0 {
+			channels[i].Leaseholder = lp.HostResolver.HostKey()
 		}
 	}
 	batch := lp.router.Batch(channels)
@@ -78,7 +77,7 @@ func (lp *leaseProxy) createLocal(ctx context.Context, tx gorp.Tx, channels *[]C
 	}
 	for i, ch := range *channels {
 		if ch.IsIndex {
-			ch.LocalIndex = ch.StorageKey
+			ch.LocalIndex = ch.LocalKey
 			(*channels)[i] = ch
 		}
 	}
@@ -98,7 +97,7 @@ func (lp *leaseProxy) assignLocalKeys(channels *[]Channel) error {
 		return err
 	}
 	for i, ch := range *channels {
-		ch.StorageKey = storage.ChannelKey(v - uint16(i))
+		ch.LocalKey = v - uint16(i)
 		(*channels)[i] = ch
 	}
 	return nil
@@ -116,7 +115,7 @@ func (lp *leaseProxy) maybeSetResources(
 			if err := w.DefineResource(ctx, rtk); err != nil {
 				return err
 			}
-			if err := w.DefineRelationship(ctx, core.NodeOntologyID(ch.NodeKey), ontology.ParentOf, rtk); err != nil {
+			if err := w.DefineRelationship(ctx, core.NodeOntologyID(ch.Leaseholder), ontology.ParentOf, rtk); err != nil {
 				return err
 			}
 		}

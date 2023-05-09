@@ -8,9 +8,13 @@
 #  included in the file licenses/APL.txt.
 
 from typing import overload, Literal
+
 from numpy import ndarray
 from pydantic import PrivateAttr
 
+from synnax.channel.create import ChannelCreator
+from synnax.channel.payload import ChannelPayload, KeysOrNames
+from synnax.channel.retrieve import ChannelRetriever
 from synnax.exceptions import ValidationError, QueryError
 from synnax.framer import FrameClient
 from synnax.telem import (
@@ -21,10 +25,6 @@ from synnax.telem import (
     UnparsedTimeStamp,
     DataType,
 )
-
-from synnax.channel.create import ChannelCreator
-from synnax.channel.payload import ChannelPayload
-from synnax.channel.retrieve import ChannelRetriever
 
 
 class Channel(ChannelPayload):
@@ -43,8 +43,8 @@ class Channel(ChannelPayload):
         rate: UnparsedRate = 0,
         is_index: bool = False,
         index: str = "",
-        node_key: int = 0,
-        key: str = "",
+        leaseholder: int = 0,
+        key: int = 0,
         _frame_client: FrameClient | None = None,
     ):
         """Initializes a new Channel using the given parameters. It's important to note
@@ -60,7 +60,7 @@ class Channel(ChannelPayload):
         :param is_index: Boolean indicating whether or not the channel is an index. Index
         channels should have ax data type of synnax.TIMESTAMP.
         :param index: The key or channel that indexes this channel.
-        :param node_key: The node that holds the lease for this channel. If you don't know
+        :param leaseholder: The node that holds the lease for this channel. If you don't know
         what this is, leave it at the default value of 0.
         :param _frame_client: The backing client for reading and writing data to and
         from the channel. This is provided by the Synnax client during calls to
@@ -70,7 +70,7 @@ class Channel(ChannelPayload):
             data_type=DataType(data_type),
             rate=Rate(rate),
             name=name,
-            node_key=node_key,
+            leaseholder=leaseholder,
             key=key,
             is_index=is_index,
             index=index,
@@ -125,7 +125,7 @@ class Channel(ChannelPayload):
             data_type=self.data_type,
             rate=self.rate,
             name=self.name,
-            node_key=self.node_key,
+            leaseholder=self.leaseholder,
             key=self.key,
             index=self.index,
             is_index=self.is_index,
@@ -159,7 +159,7 @@ class ChannelClient:
         rate: UnparsedRate = Rate(0),
         index: str = "",
         is_index: bool = False,
-        node_key: int = 0,
+        leaseholder: int = 0,
     ) -> Channel:
         ...
 
@@ -180,7 +180,7 @@ class ChannelClient:
         rate: UnparsedRate = Rate(0),
         is_index: bool = False,
         index: str = "",
-        node_key: int = 0,
+        leaseholder: int = 0,
     ) -> Channel | list[Channel]:
         """Creates a new channel or set of channels in the cluster. Possible arguments
         are as follows:
@@ -194,7 +194,7 @@ class ChannelClient:
         :param is_index: Boolean indicating whether or not the channel is an index. Index
         channels should have ax data type of synnax.TIMESTAMP.
         :param index: The key or channel that indexes this channel.
-        :param node_key: The node that holds the lease for this channel. If you don't know
+        :param leaseholder: The node that holds the lease for this channel. If you don't know
         what this is, leave it at the default value of 0.
         :returns: The created channel.
 
@@ -213,7 +213,7 @@ class ChannelClient:
             _channels = [
                 ChannelPayload(
                     name=name,
-                    node_key=node_key,
+                    leaseholder=leaseholder,
                     rate=Rate(rate),
                     data_type=DataType(data_type),
                     index=index,
@@ -234,9 +234,9 @@ class ChannelClient:
     @overload
     def retrieve(
         self,
-        key_or_name: str | list[str],
-        *keys_or_names: str | list[str],
-        node_key: int | None = None,
+        key_or_name: KeysOrNames,
+        *keys_or_names: KeysOrNames,
+        leaseholder: int | None = None,
         include_not_found: Literal[False] = False,
     ) -> list[Channel]:
         ...
@@ -244,18 +244,18 @@ class ChannelClient:
     @overload
     def retrieve(
         self,
-        key_or_name: str | list[str],
-        *keys_or_names: str | list[str],
-        node_key: int | None = None,
+        key_or_name: KeysOrNames,
+        *keys_or_names: KeysOrNames,
+        leaseholder: int | None = None,
         include_not_found: Literal[True] = True,
     ) -> tuple[list[Channel], list[str]]:
         ...
 
     def retrieve(
         self,
-        key_or_name: str | list[str],
-        *keys_or_names: str | list[str],
-        node_key: int | None = None,
+        key_or_name: KeysOrNames,
+        *keys_or_names: KeysOrNames,
+        leaseholder: int | None = None,
         include_not_found: bool = False,
     ) -> Channel | list[Channel] | tuple[list[Channel], list[str]]:
         """Retrieves a channel or set of channels from the cluster.
@@ -276,7 +276,7 @@ class ChannelClient:
         :param names: The names of the channels to retrieve. If keys are specified, this is
         ignored.
         Only one of keys or names may be specified.
-        :param node_key: The node that holds the lease for the channels to retrieve. If you
+        :param leaseholder: The node that holds the lease for the channels to retrieve. If you
         don't know what this is, don't specify it.
         :param include_not_found: Boolean indicating whether or not to include the keys or
         names of the channels that were not found in the result.
@@ -287,7 +287,7 @@ class ChannelClient:
         res = self._retriever.retrieve(
             key_or_name,
             *keys_or_names,
-            node_key=node_key,
+            leaseholder=leaseholder,
             include_not_found=include_not_found,
         )
         if res is None:

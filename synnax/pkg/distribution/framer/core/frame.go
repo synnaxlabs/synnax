@@ -10,32 +10,31 @@
 package core
 
 import (
-	"github.com/samber/lo"
-	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
-	"github.com/synnaxlabs/synnax/pkg/storage"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/telem"
 )
 
 type Frame struct {
-	keys channel.Keys
-	telem.Frame
+	Keys   channel.Keys  `json:"keys" msgpack:"keys"`
+	Arrays []telem.Array `json:"arrays" msgpack:"arrays"`
 }
 
-func (f Frame) Keys() channel.Keys { return f.keys }
-
-func (f Frame) Vertical() bool { return len(f.keys.Unique()) == len(f.Arrays) }
+func (f Frame) Vertical() bool { return len(f.Keys.Unique()) == len(f.Arrays) }
 
 func (f Frame) SplitByNodeKey() map[core.NodeKey]Frame {
 	frames := make(map[core.NodeKey]Frame)
-	for i, key := range f.keys {
-		nodeKey := key.NodeKey()
+	for i, key := range f.Keys {
+		nodeKey := key.Leaseholder()
 		nf, ok := frames[nodeKey]
 		if !ok {
-			frames[nodeKey] = NewFrame([]channel.Key{key}, []telem.Array{f.Arrays[i]})
+			frames[nodeKey] = Frame{
+				Keys:   channel.Keys{key},
+				Arrays: []telem.Array{f.Arrays[i]},
+			}
 		} else {
-			nf.keys = append(nf.keys, key)
+			nf.Keys = append(nf.Keys, key)
 			nf.Arrays = append(nf.Arrays, f.Arrays[i])
 			frames[nodeKey] = nf
 		}
@@ -44,39 +43,48 @@ func (f Frame) SplitByNodeKey() map[core.NodeKey]Frame {
 }
 
 func (f Frame) SplitByHost(host core.NodeKey) (local Frame, remote Frame) {
-	for i, key := range f.keys {
-		if key.NodeKey() == host {
-			local.keys = append(local.keys, key)
+	for i, key := range f.Keys {
+		if key.Leaseholder() == host {
+			local.Keys = append(local.Keys, key)
 			local.Arrays = append(local.Arrays, f.Arrays[i])
 		} else {
-			remote.keys = append(remote.keys, key)
+			remote.Keys = append(remote.Keys, key)
 			remote.Arrays = append(remote.Arrays, f.Arrays[i])
 		}
 	}
 	return local, remote
 }
 
-func (f Frame) FilterKeys(keys channel.Keys) Frame {
-	var (
-		filteredKeys   = make(channel.Keys, 0, len(f.keys))
-		filteredArrays = make([]telem.Array, 0, len(f.Arrays))
-	)
-	for i, key := range f.keys {
-		if lo.Contains(keys, key) {
-			filteredKeys = append(filteredKeys, key)
-			filteredArrays = append(filteredArrays, f.Arrays[i])
+func (f Frame) Even() bool {
+	for i := 1; i < len(f.Arrays); i++ {
+		if f.Arrays[i].Len() != f.Arrays[0].Len() {
+			return false
+		}
+		if f.Arrays[i].TimeRange != f.Arrays[0].TimeRange {
+			return false
 		}
 	}
-	return NewFrame(filteredKeys, filteredArrays)
+	return true
 }
 
-func (f Frame) ToStorage() storage.Frame { return cesium.NewFrame(f.keys.Strings(), f.Arrays) }
+func (f Frame) ToStorage() (fr ts.Frame) {
+	fr.Arrays = f.Arrays
+	fr.Keys = f.Keys.Storage()
+	return fr
+}
 
-func NewFrame(keys channel.Keys, arrays []telem.Array) Frame {
-	return Frame{
-		keys:  keys,
-		Frame: telem.Frame{Arrays: arrays},
+func (f Frame) FilterKeys(keys channel.Keys) Frame {
+	var (
+		fKeys   = make(channel.Keys, 0, len(keys))
+		fArrays = make([]telem.Array, 0, len(keys))
+	)
+	for i, key := range f.Keys {
+		if keys.Contains(key) {
+			fKeys = append(fKeys, key)
+			fArrays = append(fArrays, f.Arrays[i])
+		}
 	}
+	return Frame{Keys: fKeys, Arrays: fArrays}
 }
 
 func MergeFrames(frames []Frame) (f Frame) {
@@ -87,20 +95,16 @@ func MergeFrames(frames []Frame) (f Frame) {
 		return frames[0]
 	}
 	for _, frame := range frames {
-		f.keys = append(f.keys, frame.keys...)
+		f.Keys = append(f.Keys, frame.Keys...)
 		f.Arrays = append(f.Arrays, frame.Arrays...)
 	}
 	return f
 }
 
-func NewFrameFromStorage(frame storage.Frame) Frame {
+func NewFrameFromStorage(frame ts.Frame) Frame {
 	keys := make(channel.Keys, len(frame.Arrays))
 	for i := range frame.Arrays {
-		keys[i] = channel.MustParseKey(frame.Key(i))
+		keys[i] = channel.MustParseKey(frame.Keys[i])
 	}
-	return NewFrame(keys, frame.Arrays)
-}
-
-func UnaryFrame(key channel.Key, array telem.Array) Frame {
-	return NewFrame(channel.Keys{key}, []telem.Array{array})
+	return Frame{Keys: keys, Arrays: frame.Arrays}
 }

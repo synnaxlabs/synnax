@@ -15,41 +15,75 @@ import (
 )
 
 type Frame struct {
-	keys []string
-	telem.Frame
+	Keys   []string
+	Arrays []telem.Array
 }
 
 func NewFrame(keys []string, arrays []telem.Array) Frame {
 	if len(keys) != len(arrays) {
-		panic("[cesium] - keys and telemetry arrays in a frame must be of the same length")
+		panic("[cesium] - Keys and telemetry arrays in a frame must be of the same length")
 	}
-	kf := Frame{keys: keys}
-	kf.Arrays = arrays
+	kf := Frame{Keys: keys, Arrays: arrays}
 	return kf
 }
 
-func (f Frame) Keys() []string { return f.keys }
+func (f Frame) UniqueKeys() []string { return lo.Uniq(f.Keys) }
 
-func (f Frame) UniqueKeys() []string { return lo.Uniq(f.keys) }
-
-func (f Frame) Unary() bool { return len(f.keys) == len(f.UniqueKeys()) }
-
-func (f Frame) Key(i int) string { return f.keys[i] }
+func (f Frame) Key(i int) string { return f.Keys[i] }
 
 func (f Frame) Append(key string, arr telem.Array) Frame {
-	return NewFrame(append(f.keys, key), append(f.Arrays, arr))
+	return NewFrame(append(f.Keys, key), append(f.Arrays, arr))
 }
 
 func (f Frame) Prepend(key string, arr telem.Array) Frame {
-	return NewFrame(append([]string{key}, f.keys...), append([]telem.Array{arr}, f.Arrays...))
+	return NewFrame(append([]string{key}, f.Keys...), append([]telem.Array{arr}, f.Arrays...))
 }
 
 func (f Frame) AppendMany(keys []string, arrays []telem.Array) Frame {
-	return NewFrame(append(f.keys, keys...), append(f.Arrays, arrays...))
+	return NewFrame(append(f.Keys, keys...), append(f.Arrays, arrays...))
 }
 
 func (f Frame) PrependMany(keys []string, arrays []telem.Array) Frame {
-	return NewFrame(append(keys, f.keys...), append(arrays, f.Arrays...))
+	return NewFrame(append(keys, f.Keys...), append(arrays, f.Arrays...))
 }
 
-func (f Frame) AppendFrame(frame Frame) Frame { return f.AppendMany(frame.keys, frame.Arrays) }
+func (f Frame) AppendFrame(frame Frame) Frame { return f.AppendMany(frame.Keys, frame.Arrays) }
+
+func (f Frame) FilterKeys(keys []string) Frame {
+	var (
+		filteredKeys   = make([]string, 0, len(keys))
+		filteredArrays = make([]telem.Array, 0, len(keys))
+	)
+	for i, key := range f.Keys {
+		if lo.Contains(keys, key) {
+			filteredKeys = append(filteredKeys, key)
+			filteredArrays = append(filteredArrays, f.Arrays[i])
+		}
+	}
+	return NewFrame(filteredKeys, filteredArrays)
+}
+
+func (f Frame) Unary() bool { return len(f.Keys) == len(f.UniqueKeys()) }
+
+func (f Frame) Even() bool {
+	for i := 1; i < len(f.Arrays); i++ {
+		if f.Arrays[i].Len() != f.Arrays[0].Len() {
+			return false
+		}
+		if f.Arrays[i].TimeRange != f.Arrays[0].TimeRange {
+			return false
+		}
+	}
+	return true
+}
+
+func (f Frame) Len() int64 {
+	f.assertEven("Len")
+	return f.Arrays[0].Len()
+}
+
+func (f Frame) assertEven(method string) {
+	if !f.Even() {
+		panic("[telem] - cannot call " + method + " on uneven frame")
+	}
+}

@@ -54,7 +54,7 @@ func (r *Receiver[M]) receive(ctx context.Context) error {
 type TransformReceiver[I Value, M freighter.Payload] struct {
 	Receiver freighter.StreamReceiver[M]
 	AbstractUnarySource[I]
-	TransformFunc[M, I]
+	Transform TransformFunc[M, I]
 }
 
 // Flow implements Flow.
@@ -95,7 +95,7 @@ o:
 type FilterReceiver[I freighter.Payload] struct {
 	Receiver freighter.StreamReceiver[I]
 	AbstractUnarySource[I]
-	FilterFunc[I]
+	Filter  FilterFunc[I]
 	Rejects Inlet[I]
 }
 
@@ -144,7 +144,7 @@ func (f *FilterReceiver[I]) receive(ctx context.Context) error {
 }
 
 func (f *FilterReceiver[I]) filter(ctx context.Context, res I) error {
-	ok, err := f.Apply(ctx, res)
+	ok, err := f.Filter(ctx, res)
 	if err != nil {
 		return err
 	}

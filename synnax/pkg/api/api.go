@@ -39,7 +39,7 @@ type Config struct {
 	Channel       channel.Service
 	Framer        *framer.Service
 	Ontology      *ontology.Ontology
-	Storage       *storage.Store
+	Storage       *storage.Storage
 	User          *user.Service
 	Token         *token.Service
 	Authenticator auth.Authenticator
@@ -57,9 +57,8 @@ type Transport struct {
 	ChannelRetrieve    freighter.UnaryServer[ChannelRetrieveRequest, ChannelRetrieveResponse]
 	ConnectivityCheck  freighter.UnaryServer[types.Nil, ConnectivityCheckResponse]
 	FrameWriter        freighter.StreamServer[FrameWriterRequest, FrameWriterResponse]
-	FrameReader        freighter.StreamServer[FrameIteratorRequest, FrameIteratorResponse]
-	LiveWriter         freighter.StreamServer[LiveWriterRequest, LiveWriterResponse]
-	LiveReader         freighter.StreamServer[LiveReaderRequest, LiveReaderResponse]
+	FrameIterator      freighter.StreamServer[FrameIteratorRequest, FrameIteratorResponse]
+	FrameReader        freighter.StreamServer[FrameReaderRequest, FrameReaderResponse]
 	OntologyRetrieve   freighter.UnaryServer[OntologyRetrieveRequest, OntologyRetrieveResponse]
 	OntologySearch     freighter.UnaryServer[OntologySearchRequest, OntologySearchResponse]
 }
@@ -104,12 +103,12 @@ func (a *API) BindTo(t Transport) {
 		t.ChannelRetrieve,
 		t.ConnectivityCheck,
 		t.FrameWriter,
-		t.FrameReader,
+		t.FrameIterator,
 		t.ConnectivityCheck,
 		t.OntologyRetrieve,
 		t.OntologySearch,
-		t.LiveReader,
-		t.LiveWriter,
+		t.FrameReader,
+		t.FrameReader,
 	)
 
 	t.AuthLogin.BindHandler(typedUnaryWrapper(a.Auth.Login))
@@ -120,11 +119,10 @@ func (a *API) BindTo(t Transport) {
 	t.ChannelRetrieve.BindHandler(typedUnaryWrapper(a.Channel.Retrieve))
 	t.ConnectivityCheck.BindHandler(typedUnaryWrapper(a.Connectivity.Check))
 	t.FrameWriter.BindHandler(typedStreamWrapper(a.Telem.Write))
-	t.FrameReader.BindHandler(typedStreamWrapper(a.Telem.Iterate))
+	t.FrameIterator.BindHandler(typedStreamWrapper(a.Telem.Iterate))
 	t.OntologyRetrieve.BindHandler(typedUnaryWrapper(a.Ontology.Retrieve))
 	t.OntologySearch.BindHandler(typedUnaryWrapper(a.Ontology.Search))
-	t.LiveWriter.BindHandler(typedStreamWrapper(a.Telem.LiveWrite))
-	t.LiveReader.BindHandler(typedStreamWrapper(a.Telem.LiveRead))
+	t.FrameReader.BindHandler(typedStreamWrapper(a.Telem.Read))
 }
 
 // New instantiates the delta API using the provided Config. This should probably

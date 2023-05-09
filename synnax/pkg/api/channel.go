@@ -22,14 +22,14 @@ import (
 // Channel is an API-friendly version of the channel.Channel type. It is simplified for
 // use purely as a data container.
 type Channel struct {
-	Key      channel.Key          `json:"key" msgpack:"key"`
-	Name     string               `json:"name" msgpack:"name"`
-	NodeKey  distribution.NodeKey `json:"node_key" msgpack:"node_key"`
-	Rate     telem.Rate           `json:"rate" msgpack:"rate"`
-	DataType telem.DataType       `json:"data_type" msgpack:"data_type" validate:"required"`
-	Density  telem.Density        `json:"density" msgpack:"density"`
-	IsIndex  bool                 `json:"is_index" msgpack:"is_index"`
-	Index    string               `json:"index" msgpack:"index"`
+	Key         channel.Key          `json:"key" msgpack:"key"`
+	Name        string               `json:"name" msgpack:"name"`
+	Leaseholder distribution.NodeKey `json:"leaseholder" msgpack:"leaseholder"`
+	Rate        telem.Rate           `json:"rate" msgpack:"rate"`
+	DataType    telem.DataType       `json:"data_type" msgpack:"data_type" validate:"required"`
+	Density     telem.Density        `json:"density" msgpack:"density"`
+	IsIndex     bool                 `json:"is_index" msgpack:"is_index"`
+	Index       string               `json:"index" msgpack:"index"`
 }
 
 // ChannelService is the central API for all things Channel related.
@@ -157,14 +157,14 @@ func translateChannelsForward(channels []channel.Channel) []Channel {
 	translated := make([]Channel, len(channels))
 	for i, ch := range channels {
 		translated[i] = Channel{
-			Key:      ch.Key(),
-			Name:     ch.Name,
-			NodeKey:  ch.NodeKey,
-			Rate:     ch.Rate,
-			DataType: ch.DataType,
-			IsIndex:  ch.IsIndex,
-			Index:    ch.Index().String(),
-			Density:  ch.DataType.Density(),
+			Key:         ch.Key(),
+			Name:        ch.Name,
+			Leaseholder: ch.Leaseholder,
+			Rate:        ch.Rate,
+			DataType:    ch.DataType,
+			IsIndex:     ch.IsIndex,
+			Index:       ch.Index().String(),
+			Density:     ch.DataType.Density(),
 		}
 	}
 	return translated
@@ -174,14 +174,14 @@ func translateChannelsBackward(channels []Channel) ([]channel.Channel, error) {
 	translated := make([]channel.Channel, len(channels))
 	for i, ch := range channels {
 		tCH := channel.Channel{
-			Name:     ch.Name,
-			NodeKey:  ch.NodeKey,
-			Rate:     ch.Rate,
-			DataType: ch.DataType,
-			IsIndex:  ch.IsIndex,
+			Name:        ch.Name,
+			Leaseholder: ch.Leaseholder,
+			Rate:        ch.Rate,
+			DataType:    ch.DataType,
+			IsIndex:     ch.IsIndex,
 		}
 		if ch.IsIndex {
-			tCH.LocalIndex = tCH.StorageKey
+			tCH.LocalIndex = tCH.LocalKey
 		}
 		translated[i] = tCH
 	}

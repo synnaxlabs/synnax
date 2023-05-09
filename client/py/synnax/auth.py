@@ -12,13 +12,12 @@ from typing import Callable
 from freighter import (
     AsyncMiddleware,
     AsyncNext,
-    MetaData,
+    Context,
     Middleware,
     Next,
     Payload,
     UnaryClient,
 )
-
 from synnax.user.payload import UserPayload
 
 
@@ -39,7 +38,7 @@ TOKEN_REFRESH_HEADER = "Refresh-Token"
 def token_middleware(
     token_provider: Callable[[], str], set_token: Callable[[str], None]
 ) -> Middleware:
-    def mw(ctx: MetaData, _next: Next):
+    def mw(ctx: Context, _next: Next):
         ctx.set(AUTHORIZATION_HEADER, "Bearer " + token_provider())
         out_ctx, exc = _next(ctx)
         maybe_refresh_token(out_ctx, set_token)
@@ -51,7 +50,7 @@ def token_middleware(
 def async_token_middleware(
     token_provider: Callable[[], str], set_token: Callable[[str], None]
 ) -> AsyncMiddleware:
-    async def mw(ctx: MetaData, _next: AsyncNext):
+    async def mw(ctx: Context, _next: AsyncNext):
         ctx.set(AUTHORIZATION_HEADER, "Bearer " + token_provider())
         out_ctx, exc = await _next(ctx)
         maybe_refresh_token(out_ctx, set_token)
@@ -61,7 +60,7 @@ def async_token_middleware(
 
 
 def maybe_refresh_token(
-    ctx: MetaData,
+    ctx: Context,
     set_token: Callable[[str], None],
 ) -> None:
     refresh = ctx.get(TOKEN_REFRESH_HEADER, None)

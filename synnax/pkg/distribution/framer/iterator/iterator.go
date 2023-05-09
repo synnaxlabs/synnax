@@ -113,7 +113,7 @@ func (i *Iterator) execErr(req Request) (bool, error) {
 	i.requests.Inlet() <- req
 	for res := range i.responses.Outlet() {
 		if res.Variant == AckResponse {
-			return res.Ack, res.Err
+			return res.Ack, res.Error
 		}
 		i.value = append(i.value, res)
 	}

@@ -57,7 +57,7 @@ func IterRange(tr telem.TimeRange) IteratorConfig {
 }
 
 var (
-	DefaultIteratorConfig = IteratorConfig{AutoChunkSize: 1000000}
+	DefaultIteratorConfig = IteratorConfig{AutoChunkSize: 5e5}
 )
 
 func (i IteratorConfig) Override(other IteratorConfig) IteratorConfig {

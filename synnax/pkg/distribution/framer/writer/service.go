@@ -25,7 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
-	"github.com/synnaxlabs/synnax/pkg/storage"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
@@ -51,8 +51,8 @@ type Config struct {
 	Start telem.TimeStamp `json:"start" msgpack:"start"`
 }
 
-func (c Config) toStorage() storage.WriterConfig {
-	return storage.WriterConfig{Channels: c.Keys.Strings(), Start: c.Start}
+func (c Config) toStorage() ts.WriterConfig {
+	return ts.WriterConfig{Channels: c.Keys.Storage(), Start: c.Start}
 }
 
 // ServiceConfig is the configuration for opening a Writer or StreamWriter.
@@ -60,7 +60,7 @@ type ServiceConfig struct {
 	alamos.Instrumentation
 	// TS is the local time series store to write to.
 	// [REQUIRED]
-	TS storage.StreamWritableTS
+	TS *ts.DB
 	// ChannelReader is used to resolve metadata and routing information for the provided
 	// keys.
 	// [REQUIRED]

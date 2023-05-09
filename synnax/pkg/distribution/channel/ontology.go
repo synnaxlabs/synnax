@@ -44,7 +44,7 @@ func newResource(c Channel) schema.Resource {
 	e := schema.NewResource(_schema, OntologyID(c.Key()), c.Name)
 	schema.Set(e, "key", c.Key().String())
 	schema.Set(e, "name", c.Name)
-	schema.Set(e, "node_key", uint32(c.NodeKey))
+	schema.Set(e, "node_key", uint32(c.Leaseholder))
 	schema.Set(e, "rate", float64(c.Rate))
 	schema.Set(e, "is_index", c.IsIndex)
 	schema.Set(e, "index", c.Index().String())
@@ -61,10 +61,7 @@ func (s *service) Schema() *schema.Schema { return _schema }
 
 // RetrieveResource implements ontology.Service.
 func (s *service) RetrieveResource(ctx context.Context, key string) (schema.Resource, error) {
-	k, err := ParseKey(key)
-	if err != nil {
-		return schema.Resource{}, err
-	}
+	k := MustParseKey(key)
 	var ch Channel
 	return newResource(ch), s.NewRetrieve().WhereKeys(k).Entry(&ch).Exec(ctx, nil)
 }
