@@ -12,14 +12,15 @@ package core
 import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/telem"
+	"golang.org/x/exp/slices"
 )
 
 type Frame struct {
-	Keys   []string
+	Keys   []ChannelKey
 	Arrays []telem.Array
 }
 
-func NewFrame(keys []string, arrays []telem.Array) Frame {
+func NewFrame(keys []ChannelKey, arrays []telem.Array) Frame {
 	if len(keys) != len(arrays) {
 		panic("[cesium] - Keys and telemetry arrays in a frame must be of the same length")
 	}
@@ -27,31 +28,34 @@ func NewFrame(keys []string, arrays []telem.Array) Frame {
 	return kf
 }
 
-func (f Frame) UniqueKeys() []string { return lo.Uniq(f.Keys) }
+func (f Frame) UniqueKeys() []ChannelKey { return lo.Uniq(f.Keys) }
 
-func (f Frame) Key(i int) string { return f.Keys[i] }
+func (f Frame) Key(i int) ChannelKey { return f.Keys[i] }
 
-func (f Frame) Append(key string, arr telem.Array) Frame {
+func (f Frame) Append(key ChannelKey, arr telem.Array) Frame {
 	return NewFrame(append(f.Keys, key), append(f.Arrays, arr))
 }
 
-func (f Frame) Prepend(key string, arr telem.Array) Frame {
-	return NewFrame(append([]string{key}, f.Keys...), append([]telem.Array{arr}, f.Arrays...))
+func (f Frame) Prepend(key ChannelKey, arr telem.Array) Frame {
+	return NewFrame(append([]uint32{key}, f.Keys...), append([]telem.Array{arr}, f.Arrays...))
 }
 
-func (f Frame) AppendMany(keys []string, arrays []telem.Array) Frame {
+func (f Frame) AppendMany(keys []ChannelKey, arrays []telem.Array) Frame {
 	return NewFrame(append(f.Keys, keys...), append(f.Arrays, arrays...))
 }
 
-func (f Frame) PrependMany(keys []string, arrays []telem.Array) Frame {
+func (f Frame) PrependMany(keys []ChannelKey, arrays []telem.Array) Frame {
 	return NewFrame(append(keys, f.Keys...), append(arrays, f.Arrays...))
 }
 
 func (f Frame) AppendFrame(frame Frame) Frame { return f.AppendMany(frame.Keys, frame.Arrays) }
 
-func (f Frame) FilterKeys(keys []string) Frame {
+func (f Frame) FilterKeys(keys []ChannelKey) Frame {
+	if slices.Equal(keys, f.Keys) {
+		return f
+	}
 	var (
-		filteredKeys   = make([]string, 0, len(keys))
+		filteredKeys   = make([]ChannelKey, 0, len(keys))
 		filteredArrays = make([]telem.Array, 0, len(keys))
 	)
 	for i, key := range f.Keys {

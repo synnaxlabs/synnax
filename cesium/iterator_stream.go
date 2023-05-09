@@ -11,6 +11,7 @@ package cesium
 
 import (
 	"context"
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
@@ -118,7 +119,7 @@ type streamIterator struct {
 
 type IteratorConfig struct {
 	Bounds   telem.TimeRange
-	Channels []string
+	Channels []core.ChannelKey
 }
 
 // Flow implements the confluence.Segment interface.

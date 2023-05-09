@@ -56,7 +56,7 @@ func (cfg Config) Validate() error {
 func (cfg Config) Override(other Config) Config {
 	cfg.FS = override.Nil(cfg.FS, other.FS)
 	cfg.MetaECD = override.Nil(cfg.MetaECD, other.MetaECD)
-	if cfg.Channel.Key == "" {
+	if cfg.Channel.Key == 0 {
 		cfg.Channel = other.Channel
 	}
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
@@ -77,7 +77,7 @@ func Open(configs ...Config) (*DB, error) {
 	db := &DB{Config: cfg, Ranger: rangerDB}
 	if cfg.Channel.IsIndex {
 		db._idx = &index.Ranger{DB: rangerDB, Instrumentation: cfg.Instrumentation}
-	} else if cfg.Channel.Index == "" {
+	} else if cfg.Channel.Index == 0 {
 		db._idx = index.Rate{Rate: cfg.Channel.Rate}
 	}
 	return db, err

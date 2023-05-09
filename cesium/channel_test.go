@@ -14,21 +14,22 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
-var _ = Describe("ChannelKey", Ordered, func() {
+var _ = Describe("Channel", Ordered, func() {
 	var db cesium.DB
 	BeforeAll(func() { db = openMemDB() })
 	AfterAll(func() { Expect(db.Close()).To(Succeed()) })
 	Describe("Create", func() {
 		Describe("Happy Path", func() {
 			It("Should assign an auto-incremented key if a key is not present", func() {
-				ch := cesium.Channel{Key: "chOne", Rate: 10 * telem.Hz, DataType: telem.Float64T}
+				ch := cesium.Channel{Key: 1, Rate: 10 * telem.Hz, DataType: telem.Float64T}
 				Expect(db.CreateChannel(ctx, ch)).To(Succeed())
-				Expect(ch.Key).To(Equal("chOne"))
+				Expect(ch.Key).To(Equal(core.ChannelKey(1)))
 			})
 		})
 		DescribeTable("Validation", func(expected error, channels ...cesium.Channel) {

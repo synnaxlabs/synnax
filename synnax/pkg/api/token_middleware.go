@@ -49,9 +49,9 @@ func tokenMiddleware(svc *token.Service) freighter.Middleware {
 const tokenParamPrefix = "Bearer "
 
 var (
-	invalidAuthenticationParam = apierrors.Auth(errors.New(
+	invalidAuthenticationParam = apierrors.Auth(errors.Newf(
 		`invalid authorization token. Format should be
-		'Authorization: Bearer <token>'`,
+		'Authorization: %s <token>'`, tokenParamPrefix,
 	))
 	noAuthenticationParam = apierrors.Auth(errors.New("no authentication token provided"))
 )

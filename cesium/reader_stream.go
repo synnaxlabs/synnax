@@ -11,16 +11,17 @@ package cesium
 
 import (
 	"context"
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 )
 
 type StreamReaderRequest struct {
-	Channels []string
+	Channels []core.ChannelKey
 }
 
 type StreamReaderConfig struct {
-	Channels        []string
+	Channels        []core.ChannelKey
 	RelayBufferSize int
 }
 

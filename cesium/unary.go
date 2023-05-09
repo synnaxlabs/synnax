@@ -11,7 +11,9 @@ package cesium
 
 import (
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/unary"
+	"strconv"
 )
 
 // openUnary opens the unary database for the given channel. If the database already exists,
@@ -19,7 +21,7 @@ import (
 // is assumed to live in a subdirectory named by the key). If the database does not
 // exist, the channel must be fully populated and the database will be created.
 func (db *DB) openUnary(ch Channel) error {
-	fs, err := db.fs.Sub(ch.Key)
+	fs, err := db.fs.Sub(strconv.Itoa(int(ch.Key)))
 	if err != nil {
 		return err
 	}
@@ -31,7 +33,7 @@ func (db *DB) openUnary(ch Channel) error {
 	// In the case where we index the data using a separate index database, we
 	// need to set the index on the unary database. Otherwise, we assume the database
 	// is self-indexing.
-	if u.Channel.Index != "" && !u.Channel.IsIndex {
+	if u.Channel.Index != 0 && !u.Channel.IsIndex {
 		idxDB, err := db.getUnary(u.Channel.Index)
 		if errors.Is(err, ChannelNotFound) {
 			err = db.openUnary(Channel{Key: u.Channel.Index})
@@ -52,7 +54,7 @@ func (db *DB) openUnary(ch Channel) error {
 	return nil
 }
 
-func (db *DB) getUnary(key string) (unary.DB, error) {
+func (db *DB) getUnary(key core.ChannelKey) (unary.DB, error) {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 	u, ok := db.dbs[key]
@@ -62,7 +64,7 @@ func (db *DB) getUnary(key string) (unary.DB, error) {
 	return u, nil
 }
 
-func (db *DB) unaryIsOpen(key string) bool {
+func (db *DB) unaryIsOpen(key core.ChannelKey) bool {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 	_, ok := db.dbs[key]

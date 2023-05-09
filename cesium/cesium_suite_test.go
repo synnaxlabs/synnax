@@ -21,7 +21,7 @@ import (
 
 var ctx = context.Background()
 
-func openMemDB() cesium.DB {
+func openMemDB() *cesium.DB {
 	return MustSucceed(cesium.Open(
 		"./testdata",
 		cesium.MemBacked(),

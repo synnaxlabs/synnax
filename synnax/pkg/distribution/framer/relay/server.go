@@ -47,9 +47,9 @@ func (s *server) handle(ctx context.Context, server ServerStream) error {
 		return err
 	}
 	plumber.SetSegment(pipe, "reader", reader)
-	plumber.SetSource[Request](pipe, "rcv", rcv)
+	plumber.SetSource[Request](pipe, "receiver", rcv)
 	plumber.SetSink[Response](pipe, "sender", sender)
-	plumber.MustConnect[Request](pipe, "rcv", "reader", 1)
+	plumber.MustConnect[Request](pipe, "receiver", "reader", 1)
 	plumber.MustConnect[Response](pipe, "reader", "sender", 1)
 	pipe.Flow(sCtx, confluence.CloseInletsOnExit())
 	return sCtx.Wait()

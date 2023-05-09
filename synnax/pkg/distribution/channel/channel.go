@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/unsafe"
 	"strconv"
 	"strings"
 )
@@ -54,7 +55,7 @@ func ParseKey(s string) (k Key, err error) {
 func (c Key) Leaseholder() core.NodeKey { return core.NodeKey(c >> 16) }
 
 // StorageKey returns a unique identifier for the Channel to use with a ts.DB.
-func (c Key) StorageKey() string { return c.String() }
+func (c Key) StorageKey() uint32 { return uint32(c) }
 
 func (c Key) LocalKey() uint16 { return uint16(c & 0xFFFF) }
 
@@ -100,21 +101,11 @@ func KeysFromUint32(keys []uint32) Keys {
 }
 
 // Storage calls Key.StorageKey() on each key and returns a slice with the results.
-func (k Keys) Storage() []string {
-	keys := make([]string, len(k))
-	for i, key := range k {
-		keys[i] = key.StorageKey()
-	}
-	return keys
-}
+func (k Keys) Storage() []uint32 { return k.Uint32() }
 
 // Uint32 converts the Keys to a slice of uint32.
 func (k Keys) Uint32() []uint32 {
-	keys := make([]uint32, len(k))
-	for i, key := range k {
-		keys[i] = uint32(key)
-	}
-	return keys
+	return unsafe.ConvertSlice[Key, uint32](k)
 }
 
 // UniqueNodeKeys returns a slice of all UNIQUE node Keys for the given keys.
@@ -214,11 +205,11 @@ func (c Channel) Lease() core.NodeKey { return c.Leaseholder }
 
 func (c Channel) Storage() ts.Channel {
 	return ts.Channel{
-		Key:      c.Key().String(),
+		Key:      uint32(c.Key()),
 		DataType: c.DataType,
 		IsIndex:  c.IsIndex,
 		Rate:     c.Rate,
-		Index:    c.Index().String(),
+		Index:    uint32(c.Index()),
 	}
 }
 

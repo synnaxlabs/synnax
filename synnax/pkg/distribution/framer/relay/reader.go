@@ -35,14 +35,14 @@ func (r *reader) Flow(ctx signal.Context, opts ...confluence.Option) {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
-			case req := <-r.requests.In.Outlet():
-				r.keys = req.Keys
-				r.requests.Out.Inlet() <- demand{Variant: change.Set, Key: r.addr, Value: req}
-			case f, ok := <-r.responses.In.Outlet():
+			case req, ok := <-r.requests.In.Outlet():
 				if !ok {
-					r.requests.Out.Inlet() <- change.Change[address.Address, Request]{Variant: change.Delete, Key: r.addr}
+					r.requests.Out.Inlet() <- demand{Variant: change.Delete, Key: r.addr}
 					return nil
 				}
+				r.keys = req.Keys
+				r.requests.Out.Inlet() <- demand{Variant: change.Set, Key: r.addr, Value: req}
+			case f := <-r.responses.In.Outlet():
 				filtered := f.Frame.FilterKeys(r.keys)
 				if len(filtered.Keys) != 0 {
 					r.responses.Out.Inlet() <- Response{

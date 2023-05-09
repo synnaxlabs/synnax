@@ -87,14 +87,14 @@ func (cfg Config) Validate() error {
 // Report implements alamos.ReportProvider.
 func (cfg Config) Report() alamos.Report {
 	report := make(alamos.Report)
-	report["recoveryThreshold"] = cfg.RecoveryThreshold
-	report["gossipInterval"] = cfg.GossipInterval.String()
-	report["batchTransportClient"] = cfg.BatchTransportClient.Report()
-	report["batchTransportServer"] = cfg.BatchTransportServer.Report()
-	report["feedbackTransportClient"] = cfg.FeedbackTransportClient.Report()
-	report["feedbackTransportServer"] = cfg.FeedbackTransportServer.Report()
-	report["leaseTransportClient"] = cfg.LeaseTransportClient.Report()
-	report["leaseTransportServer"] = cfg.LeaseTransportServer.Report()
+	report["recovery_threshold"] = cfg.RecoveryThreshold
+	report["gossip_interval"] = cfg.GossipInterval.String()
+	report["batch_transport_client"] = cfg.BatchTransportClient.Report()
+	report["batch_transport_server"] = cfg.BatchTransportServer.Report()
+	report["feedback_transport_client"] = cfg.FeedbackTransportClient.Report()
+	report["feedback_transport_server"] = cfg.FeedbackTransportServer.Report()
+	report["lease_transport_client"] = cfg.LeaseTransportClient.Report()
+	report["lease_transport_server"] = cfg.LeaseTransportServer.Report()
 	return report
 }
 

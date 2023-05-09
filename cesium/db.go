@@ -32,13 +32,13 @@ type (
 	Frame   = core.Frame
 )
 
-func NewFrame(keys []string, arrays []telem.Array) Frame { return core.NewFrame(keys, arrays) }
+func NewFrame(keys []core.ChannelKey, arrays []telem.Array) Frame { return core.NewFrame(keys, arrays) }
 
 type DB struct {
 	*options
 	mu    sync.RWMutex
 	relay *relay
-	dbs   map[string]unary.DB
+	dbs   map[uint32]unary.DB
 }
 
 // Write implements DB.
@@ -55,12 +55,12 @@ func (db *DB) Write(ctx context.Context, start telem.TimeStamp, frame Frame) err
 }
 
 // WriteArray implements DB.
-func (db *DB) WriteArray(ctx context.Context, start telem.TimeStamp, key string, arr telem.Array) error {
-	return db.Write(ctx, start, core.NewFrame([]string{key}, []telem.Array{arr}))
+func (db *DB) WriteArray(ctx context.Context, start telem.TimeStamp, key core.ChannelKey, arr telem.Array) error {
+	return db.Write(ctx, start, core.NewFrame([]core.ChannelKey{key}, []telem.Array{arr}))
 }
 
 // Read implements DB.
-func (db *DB) Read(ctx context.Context, tr telem.TimeRange, keys ...string) (frame Frame, err error) {
+func (db *DB) Read(ctx context.Context, tr telem.TimeRange, keys ...core.ChannelKey) (frame Frame, err error) {
 	iter, err := db.NewIterator(IteratorConfig{Channels: keys, Bounds: tr})
 	if err != nil {
 		return

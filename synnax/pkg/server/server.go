@@ -42,7 +42,7 @@ type Config struct {
 // Report implements the alamos.ReportProvider interface.
 func (c Config) Report() alamos.Report {
 	base := c.Security.Report()
-	base["listenAddress"] = c.ListenAddress
+	base["listen_address"] = c.ListenAddress
 	base["branches"] = branchKeys(c.Branches)
 	base["debug"] = *c.Debug
 	return base

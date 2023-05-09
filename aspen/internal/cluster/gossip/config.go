@@ -57,9 +57,9 @@ func (cfg Config) Validate() error {
 // Report implements the alamos.ReportProvider interface. Assumes the config is valid.
 func (cfg Config) Report() alamos.Report {
 	return alamos.Report{
-		"interval":        cfg.Interval,
-		"transportClient": cfg.TransportClient.Report(),
-		"transportServer": cfg.TransportServer.Report(),
+		"interval":         cfg.Interval,
+		"transport_client": cfg.TransportClient.Report(),
+		"transport_server": cfg.TransportServer.Report(),
 	}
 }
 
