@@ -31,7 +31,7 @@ var _ config.Config[Config] = Config{}
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("ranger")
-	validate.NotNil(v, "DB", c.DB)
+	validate.NotNil(v, "cesium", c.DB)
 	return v.Error()
 }
 

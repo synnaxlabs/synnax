@@ -43,9 +43,8 @@ and control it in real-time. Perhaps one of the best documented examples is the
 was responsible for controlling the Space Shuttle's main engines during flight.
 
 Telemetry in Synnax most closely relates to the third definition. While it can be used
-in the first two scenarios, Synnax most closely resembles a real-time test and
-measurement system that is designed to acquire telemetry from sensors and send commands
-to actuators in real-time.
+in the first two scenarios, Synnax resembles a test and measurement system
+that is designed to acquire telemetry from sensors and send commands to actuators in real-time.
 
 # 3 - Fundamental Properties
 
@@ -74,14 +73,16 @@ arriving over an extended period of time (most commonly a sensor).
 ### 3.1.1 - Reads
 
 Read patterns typically come in one of two flavors. The most common, and simplest is
-a time-range based lookup. These reads often contain a large number of consecutive samples.
+a time-range based lookup. These reads often contain a large number of consecutive
+samples.
 Range based reads are far more common than point lookups; so much so that the Synnax
 storage engine, Cesium, intentionally sacrifices point lookup performance for range
 lookup performance.
 
 The second type of read is a value filter. This pattern returns all samples that match
 a set of criteria, such as a threshold. While more expensive to execute, this pattern is
-also less common than range based lookups. Despite its relative rarity, it still plays an
+also less common than range based lookups. Despite its relative rarity, it still plays
+an
 important role in long-term data analysis.
 
 ### 3.1.2 - Frequency and Volume
@@ -120,8 +121,7 @@ the way we handle transaction control within Synnax's storage engine.
 Unlike software events, sensor data is typically constrained to a small subset of highly
 predictable data types: numbers. You'd be hard-pressed to find a physical sensor that
 doesn't produce a number or collection of numbers. Numeric data types have a fixed
-length
-and can be encoded/decoded very efficiently. Fixed data types mean we can predict
+length and can be encoded/decoded very efficiently. Fixed data types mean we can predict
 memory allocations and perform more efficient storage lookups.
 
 ### 4.1.1 - Regularity
@@ -228,12 +228,11 @@ for these channels, we don't really need to.
 ### 3.3.1 - Large, Variably Sized Data Types
 
 Supervisory commands are often complex, containing many different parameters with
-variable
-size data types such as strings. These commands can also be very large; it wouldn't be
-surprising to see a supervisory command that is hundreds of kilobytes in size, several
-orders of magnitude larger than a typical sensor value. Commands can also vary in size
-for the same channel, and we can't make assumptions about the size of a command based on
-the channel it's sent to.
+variable size data types such as strings. These commands can also be very large; it
+wouldn't be surprising to see a supervisory command that is hundreds of kilobytes in
+size, several orders of magnitude larger than a typical sensor value. Commands can also
+vary in size for the same channel, and we can't make assumptions about the size of a
+command based on the channel it's sent to.
 
 ### 3.3.2 - Latency and Jitter Tolerance
 

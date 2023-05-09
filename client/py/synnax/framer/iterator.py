@@ -9,8 +9,10 @@
 
 from enum import Enum
 
-from alamos import trace, Instrumentation, NOOP
 from freighter import EOF, ExceptionPayload, Payload, Stream, StreamClient
+
+from alamos import trace, Instrumentation, NOOP
+from synnax.channel.payload import Keys, KeysOrNames
 from synnax.channel.retrieve import ChannelRetriever
 from synnax.exceptions import UnexpectedError
 from synnax.framer.payload import BinaryFrame, NumpyFrame
@@ -41,20 +43,20 @@ class _ResponseVariant(int, Enum):
 class _Request(Payload):
     command: _Command
     span: TimeSpan | None = None
-    range: TimeRange | None = None
+    bounds: TimeRange | None = None
     stamp: TimeStamp | None = None
-    keys: list[str] | None = None
+    keys: Keys | None = None
 
 
 class _Response(Payload):
     variant: _ResponseVariant
     command: _Command
     ack: bool
-    error: ExceptionPayload
+    error: ExceptionPayload | None
     frame: BinaryFrame
 
 
-class CoreIterator:
+class FrameIterator:
     """Used to iterate over a databases telemetry in time-order. It should not be
     instantiated directly, and should instead be instantiated using the segment Client.
 
@@ -98,7 +100,7 @@ class CoreIterator:
         :param tr: The time range to iterate over.
         """
         self._stream = self._client.stream(self._ENDPOINT, _Request, _Response)
-        self._exec(command=_Command.OPEN, range=self.tr, keys=self.keys)
+        self._exec(command=_Command.OPEN, bounds=self.tr, keys=self.keys)
         self._value = BinaryFrame()
 
     @trace("debug")
@@ -235,7 +237,7 @@ class CoreIterator:
             self._value.append_frame(r.frame)
 
 
-class NumpyIterator(CoreIterator):
+class NumpyIterator(FrameIterator):
     """Used to iterate over a databases telemetry in time-order. It should not be
     instantiated directly, and should instead be instantiated using the segment Client.
 
@@ -276,7 +278,7 @@ class NumpyIterator(CoreIterator):
         v.keys = self._value_keys(v.keys)
         return NumpyFrame.from_binary(v)
 
-    def _value_keys(self, keys: list[str]) -> list[str]:
+    def _value_keys(self, keys: Keys) -> KeysOrNames:
         # We can safely ignore the none case here because we've already
         # checked that all channels can be retrieved.
         channels = self._channels.retrieve(keys)

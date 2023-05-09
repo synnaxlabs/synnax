@@ -17,9 +17,9 @@ from synnax.telem import BinaryArray, NumpyArray, TimeRange
 
 
 class FrameHeader(Payload):
-    keys: list[str]
+    keys: list[int] | list[str]
 
-    def __init__(self, keys: list[str] | None = None, **kwargs):
+    def __init__(self, keys: list[int] | list[str] | None = None, **kwargs):
         # This is a workaround to allow for a None value to be
         # passed to the keys field, but still have required
         # type hinting.

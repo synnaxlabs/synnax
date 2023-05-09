@@ -19,12 +19,12 @@ import (
 )
 
 // NewStreamWriter implements DB.
-func (db *cesium) NewStreamWriter(ctx context.Context, cfg WriterConfig) (StreamWriter, error) {
+func (db *DB) NewStreamWriter(ctx context.Context, cfg WriterConfig) (StreamWriter, error) {
 	return db.newStreamWriter(ctx, cfg)
 }
 
 // NewWriter implements DB.
-func (db *cesium) NewWriter(ctx context.Context, cfg WriterConfig) (Writer, error) {
+func (db *DB) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
 	internal, err := db.newStreamWriter(ctx, cfg)
 	if err != nil {
 		return nil, err
@@ -32,7 +32,7 @@ func (db *cesium) NewWriter(ctx context.Context, cfg WriterConfig) (Writer, erro
 	return wrapStreamWriter(internal), nil
 }
 
-func (db *cesium) newStreamWriter(ctx context.Context, cfg WriterConfig) (*streamWriter, error) {
+func (db *DB) newStreamWriter(ctx context.Context, cfg WriterConfig) (*streamWriter, error) {
 	var (
 		idx          index.Index
 		writingToIdx bool
@@ -71,7 +71,7 @@ func (db *cesium) newStreamWriter(ctx context.Context, cfg WriterConfig) (*strea
 		internal[key] = *w
 	}
 
-	w := &streamWriter{internal: internal}
+	w := &streamWriter{internal: internal, relay: db.relay.inlet}
 	w.Start = cfg.Start
 	w.idx.key = idxChannel.Key
 	w.writingToIdx = writingToIdx

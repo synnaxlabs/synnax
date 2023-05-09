@@ -18,7 +18,7 @@ import (
 )
 
 // CreateChannel implements DB.
-func (db *cesium) CreateChannel(_ context.Context, ch ...Channel) error {
+func (db *DB) CreateChannel(_ context.Context, ch ...Channel) error {
 	for _, c := range ch {
 		if err := db.createChannel(c); err != nil {
 			return err
@@ -28,7 +28,7 @@ func (db *cesium) CreateChannel(_ context.Context, ch ...Channel) error {
 }
 
 // RetrieveChannels implements DB.
-func (db *cesium) RetrieveChannels(ctx context.Context, keys ...string) ([]Channel, error) {
+func (db *DB) RetrieveChannels(ctx context.Context, keys ...string) ([]Channel, error) {
 	chs := make([]Channel, 0, len(keys))
 	for _, key := range keys {
 		ch, err := db.RetrieveChannel(ctx, key)
@@ -41,7 +41,7 @@ func (db *cesium) RetrieveChannels(ctx context.Context, keys ...string) ([]Chann
 }
 
 // RetrieveChannel implements DB.
-func (db *cesium) RetrieveChannel(_ context.Context, key string) (Channel, error) {
+func (db *DB) RetrieveChannel(_ context.Context, key string) (Channel, error) {
 	ch, ok := db.dbs[key]
 	if !ok {
 		return Channel{}, ChannelNotFound
@@ -49,7 +49,7 @@ func (db *cesium) RetrieveChannel(_ context.Context, key string) (Channel, error
 	return ch.Channel, nil
 }
 
-func (db *cesium) createChannel(ch Channel) (err error) {
+func (db *DB) createChannel(ch Channel) (err error) {
 	defer func() {
 		lo.Ternary(err == nil, db.L.Info, db.L.Error)(
 			"creating channel",
@@ -72,8 +72,8 @@ func (db *cesium) createChannel(ch Channel) (err error) {
 	return
 }
 
-func (db *cesium) validateNewChannel(ch Channel) error {
-	v := validate.New("cesium")
+func (db *DB) validateNewChannel(ch Channel) error {
+	v := validate.New("DB")
 	validate.NotEmptyString(v, "key", ch.Key)
 	validate.NotEmptyString(v, "data type", ch.DataType)
 	validate.MapDoesNotContainF(v, ch.Key, db.dbs, "channel %s already exists", ch.Key)

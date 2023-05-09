@@ -11,27 +11,27 @@ package writer
 
 import (
 	"context"
-	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
-	"github.com/synnaxlabs/synnax/pkg/storage"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 )
 
-func newRequestTranslator() func(ctx context.Context, in Request) (cesium.WriteRequest, bool, error) {
-	return func(ctx context.Context, in Request) (storage.TSWriteRequest, bool, error) {
-		return cesium.WriteRequest{
-			Command: cesium.WriterCommand(in.Command), Frame: in.Frame.ToStorage(),
+func newRequestTranslator() func(ctx context.Context, in Request) (ts.WriterRequest, bool, error) {
+	return func(ctx context.Context, in Request) (ts.WriterRequest, bool, error) {
+		return ts.WriterRequest{
+			Command: ts.WriterCommand(in.Command),
+			Frame:   in.Frame.ToStorage(),
 		}, true, nil
 	}
 }
 
-func newResponseTranslator(host core.NodeKey) func(ctx context.Context, in cesium.WriteResponse) (Response, bool, error) {
-	return func(ctx context.Context, in storage.TSWriteResponse) (Response, bool, error) {
+func newResponseTranslator(host core.NodeKey) func(ctx context.Context, in ts.WriterResponse) (Response, bool, error) {
+	return func(ctx context.Context, in ts.WriterResponse) (Response, bool, error) {
 		return Response{
 			Command: Command(in.Command),
 			Ack:     in.Ack,
-			Err:     in.Err,
+			Error:   in.Err,
 			SeqNum:  in.SeqNum,
-			NodeKey:  host,
+			NodeKey: host,
 		}, true, nil
 	}
 }

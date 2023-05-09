@@ -13,7 +13,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/unary"
 )
 
-func Open(dirname string, opts ...Option) (DB, error) {
+func Open(dirname string, opts ...Option) (*DB, error) {
 	o := newOptions(dirname, opts...)
 	if err := openFS(o); err != nil {
 		return nil, err
@@ -25,7 +25,11 @@ func Open(dirname string, opts ...Option) (DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	_db := &cesium{options: o, dbs: make(map[string]unary.DB, len(info))}
+	_db := &DB{
+		options: o,
+		dbs:     make(map[string]unary.DB, len(info)),
+		relay:   newRelay(o),
+	}
 	for _, i := range info {
 		if i.IsDir() && !_db.unaryIsOpen(i.Name()) {
 			if err = _db.openUnary(Channel{Key: i.Name()}); err != nil {

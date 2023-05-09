@@ -27,7 +27,6 @@ package ontology
 import (
 	"context"
 	"github.com/cockroachdb/errors"
-	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
@@ -77,7 +76,7 @@ var (
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("ontology")
-	validate.NotNil(v, "DB", c.DB)
+	validate.NotNil(v, "cesium", c.DB)
 	validate.NotNil(v, "EnableSearch", c.EnableSearch)
 	return v.Error()
 }
@@ -142,7 +141,6 @@ func (o *Ontology) Search(ctx context.Context, query string) ([]Resource, error)
 	if err != nil {
 		return nil, err
 	}
-	logrus.Info(ids)
 	var resources []Resource
 	return resources, o.NewRetrieve().WhereIDs(ids...).Entries(&resources).Exec(ctx, o.DB)
 }

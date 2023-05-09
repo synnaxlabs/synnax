@@ -11,13 +11,14 @@ package iterator
 
 import (
 	"context"
+
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
-	"github.com/synnaxlabs/synnax/pkg/storage"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
@@ -30,13 +31,13 @@ import (
 )
 
 type Config struct {
-	Keys   channel.Keys
-	Bounds telem.TimeRange
+	Keys   channel.Keys    `json:"keys" msgpack:"keys"`
+	Bounds telem.TimeRange `json:"bounds" msgpack:"bounds"`
 }
 
 type ServiceConfig struct {
 	alamos.Instrumentation
-	TS            storage.StreamIterableTS
+	TS            *ts.DB
 	ChannelReader channel.Readable
 	HostResolver  aspen.HostResolver
 	Transport     Transport

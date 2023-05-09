@@ -39,10 +39,10 @@ func (r Retrieve) Entry(ch *Channel) Retrieve { r.gorp.Entry(ch); return r }
 // interface to gorp.Retrieve.
 func (r Retrieve) Entries(ch *[]Channel) Retrieve { r.gorp.Entries(ch); return r }
 
-// WhereNodeKey filters for channels whose NodeKey attribute matches the provided
+// WhereNodeKey filters for channels whose Leaseholder attribute matches the provided
 // leaseholder node Key.
 func (r Retrieve) WhereNodeKey(nodeKey core.NodeKey) Retrieve {
-	r.gorp.Where(func(ch *Channel) bool { return ch.NodeKey == nodeKey })
+	r.gorp.Where(func(ch *Channel) bool { return ch.Leaseholder == nodeKey })
 	return r
 }
 

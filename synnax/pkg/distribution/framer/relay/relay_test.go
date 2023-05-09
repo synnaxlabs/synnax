@@ -5,7 +5,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/relay"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -18,9 +18,9 @@ var _ = Describe("Relay", func() {
 			builder, services := provision(1)
 
 			ch := &channel.Channel{
-				NodeKey:  1,
-				DataType: telem.Int64T,
-				Rate:     1 * telem.Hz,
+				Leaseholder: 1,
+				DataType:    telem.Int64T,
+				Rate:        1 * telem.Hz,
 			}
 			Expect(services[1].channel.NewWriter(nil).Create(ctx, ch)).To(Succeed())
 
@@ -30,7 +30,7 @@ var _ = Describe("Relay", func() {
 			defer cancel()
 			reader.Flow(sCtx)
 
-			requests := confluence.NewStream[relay.ReadRequest](1)
+			requests := confluence.NewStream[relay.Request](1)
 			reader.InFrom(requests)
 			frames := confluence.NewStream[framer.Frame](1)
 			reader.OutTo(frames)

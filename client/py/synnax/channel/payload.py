@@ -9,7 +9,11 @@
 
 from freighter import Payload
 
-from synnax.telem import DataType, Density, Rate
+from synnax.telem import DataType, Rate
+
+Keys = int | tuple[int] | list[int]
+Names = str | tuple[str] | list[str]
+KeysOrNames = Keys | Names
 
 
 class ChannelPayload(Payload):
@@ -20,7 +24,7 @@ class ChannelPayload(Payload):
     data_type: DataType
     rate: Rate = Rate(0)
     name: str = ""
-    node_key: int = 0
+    leaseholder: int = 0
     key: int = 0
     is_index: bool = False
     index: str = ""

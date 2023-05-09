@@ -11,28 +11,24 @@ from __future__ import annotations
 
 from typing import Protocol, overload
 
-from freighter import HTTPClientPool, Payload, UnaryClient
 from typing_extensions import Literal
 
 from alamos import Instrumentation, trace, NOOP
-from synnax.channel.payload import ChannelPayload
+from freighter import HTTPClientPool, Payload, UnaryClient
+from synnax.channel.payload import ChannelPayload, Keys, Names, KeysOrNames
 from synnax.exceptions import QueryError
+from synnax.util.flatten import flatten
 
 
 class _Request(Payload):
     names: list[str] | None = None
     keys: list[int] | None = None
-    node_key: int | None = None
+    leaseholder: int | None = None
 
 
 class _Response(Payload):
     channels: list[ChannelPayload] = []
     not_found: list[str] | None = []
-
-
-Keys = int | tuple[int] | list[int]
-Names = str | tuple[str] | list[str]
-KeysOrNames = Keys | Names
 
 
 class ChannelRetriever(Protocol):
@@ -50,7 +46,7 @@ class ChannelRetriever(Protocol):
         self,
         key_or_name: KeysOrNames,
         *keys_or_names: KeysOrNames,
-        node_key: int | None = None,
+        leaseholder: int | None = None,
         include_not_found: Literal[False] = False,
     ) -> list[ChannelPayload]:
         ...
@@ -60,7 +56,7 @@ class ChannelRetriever(Protocol):
         self,
         key_or_name: Keys,
         *keys_or_names: Keys,
-        node_key: int | None = None,
+        leaseholder: int | None = None,
         include_not_found: Literal[True] = True,
     ) -> tuple[list[ChannelPayload], list[int]]:
         ...
@@ -70,7 +66,7 @@ class ChannelRetriever(Protocol):
         self,
         key_or_name: Names,
         *keys_or_names: Names,
-        node_key: int | None = None,
+        leaseholder: int | None = None,
         include_not_found: Literal[True] = True,
     ) -> tuple[list[ChannelPayload], list[str]]:
         ...
@@ -79,7 +75,7 @@ class ChannelRetriever(Protocol):
         self,
         key_or_name: KeysOrNames,
         *keys_or_names: KeysOrNames,
-        node_key: int | None = None,
+        leaseholder: int | None = None,
         include_not_found: bool = False,
     ) -> (
         tuple[list[ChannelPayload], list[str]]
@@ -111,7 +107,7 @@ class ClusterChannelRetriever:
         self,
         key_or_name: KeysOrNames,
         *keys_or_names: KeysOrNames,
-        node_key: int | None = None,
+        leaseholder: int | None = None,
         include_not_found: bool = False,
     ) -> (
         tuple[list[ChannelPayload], list[str] | list[int]]
@@ -121,7 +117,7 @@ class ClusterChannelRetriever:
     ):
         single = is_single(key_or_name, keys_or_names)
         keys, names = split_keys_and_names(key_or_name, keys_or_names)
-        req = _Request(keys=keys, names=names, node_key=node_key)
+        req = _Request(keys=keys, names=names, leaseholder=leaseholder)
         res, exc = self.client.send(self._ENDPOINT, req, _Response)
         if exc is not None:
             raise exc
@@ -161,7 +157,7 @@ class CacheChannelRetriever:
         self,
         key_or_name: KeysOrNames,
         *keys_or_names: KeysOrNames,
-        node_key: int | None = None,
+        leaseholder: int | None = None,
         include_not_found: bool = False,
     ) -> (
         tuple[list[ChannelPayload], list[str]]
@@ -169,11 +165,11 @@ class CacheChannelRetriever:
         | ChannelPayload
         | None
     ):
-        if node_key is not None:
+        if leaseholder is not None:
             return self._retriever.retrieve(
                 key_or_name,
                 *keys_or_names,
-                node_key=node_key,
+                leaseholder=leaseholder,
                 include_not_found=include_not_found,
             )
 
@@ -187,13 +183,15 @@ class CacheChannelRetriever:
             key = self.names_to_keys.get(name)
             if key is None:
                 to_retrieve.append(name)
-            results.append(self.channels.get(key))
+            else:
+                results.append(self.channels.get(key))
 
         for key in keys:
             channel = self.channels.get(key)
             if channel is None:
                 to_retrieve.append(key)
-            results.append(channel)
+            else:
+                results.append(channel)
 
         not_found = list()
         if len(to_retrieve) != 0:
@@ -233,7 +231,8 @@ def split_keys_and_names(
     """Split a list of keys or names into a list of keys and a list of names."""
     keys = list()
     names = list()
-    for entry in (key_or_name, *keys_or_names):
+    flat = flatten(key_or_name, *keys_or_names)
+    for entry in flat:
         if isinstance(entry, int):
             keys.append(entry)
         else:

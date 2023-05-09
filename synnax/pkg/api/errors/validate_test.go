@@ -24,7 +24,7 @@ type structToValidate struct {
 
 var _ = Describe("Validate", func() {
 	Describe("validation", func() {
-		Context("validator Err", func() {
+		Context("validator Error", func() {
 			It("Should return a Response with a single Field error", func() {
 				err := validator.New().Struct(structToValidate{Field: "", Email: ""})
 				Expect(err).To(HaveOccurred())

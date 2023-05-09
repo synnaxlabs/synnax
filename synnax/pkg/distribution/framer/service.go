@@ -15,8 +15,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	"github.com/synnaxlabs/synnax/pkg/storage"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -25,12 +26,13 @@ import (
 type Service struct {
 	writer   *writer.Service
 	iterator *iterator.Service
+	relay    *relay.Relay
 }
 
 type Config struct {
 	alamos.Instrumentation
 	ChannelReader channel.Readable
-	TS            storage.TS
+	TS            *ts.DB
 	Transport     Transport
 	HostResolver  core.HostResolver
 }
@@ -79,6 +81,12 @@ func Open(configs ...Config) (*Service, error) {
 		Transport:       cfg.Transport.Writer(),
 		ChannelReader:   cfg.ChannelReader,
 		Instrumentation: cfg.Instrumentation,
+	})
+	s.relay, err = relay.Open(relay.Config{
+		Instrumentation: cfg.Instrumentation,
+		TS:              cfg.TS,
+		HostResolver:    cfg.HostResolver,
+		Transport:       cfg.Transport.Relay(),
 	})
 	return s, err
 }

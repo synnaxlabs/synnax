@@ -34,6 +34,6 @@ func TestCaesium(t *testing.T) {
 }
 
 var _ = AfterSuite(func() {
-	Expect(os.RemoveAll("./testdata/cesium")).To(Succeed())
+	Expect(os.RemoveAll("./testdata/DB")).To(Succeed())
 	Expect(os.RemoveAll("./testdata/kv")).To(Succeed())
 })

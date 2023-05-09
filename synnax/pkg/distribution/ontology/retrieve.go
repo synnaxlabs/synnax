@@ -63,9 +63,9 @@ func (r Retrieve) IncludeFieldData(includeFieldData bool) Retrieve {
 type Direction uint8
 
 const (
-	// Forward represents a forward traversal i.e. From -> To.
+	// Forward represents a forward traversal i.e. Start -> To.
 	Forward Direction = iota + 1
-	// Backward represents a backward traversal i.e. To -> From.
+	// Backward represents a backward traversal i.e. To -> Start.
 	Backward Direction = 2
 )
 

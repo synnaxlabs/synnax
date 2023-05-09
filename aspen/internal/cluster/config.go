@@ -72,7 +72,7 @@ func (cfg Config) Validate() error {
 	validate.NotEmptyString(v, "HostAddress", cfg.HostAddress)
 	validate.NotNil(v, "EncoderDecoder", cfg.EncoderDecoder)
 	validate.NonZero(v, "StorageFlushInterval", cfg.StorageFlushInterval)
-	validate.NotEmptySlice(v, "StorageKey", cfg.StorageKey)
+	validate.NotEmptySlice(v, "LocalKey", cfg.StorageKey)
 	return v.Error()
 }
 

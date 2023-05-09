@@ -67,7 +67,7 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 					Expect(res).To(Equal(response{ID: 1, Message: "hello"}))
 				})
 			})
-			Describe("Err Handling", func() {
+			Describe("Error Handling", func() {
 				It("Should correctly return a custom error to the client", func() {
 					server.BindHandler(func(ctx context.Context, req request) (response, error) {
 						return response{}, myCustomError

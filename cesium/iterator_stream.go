@@ -36,7 +36,7 @@ import (
 // provided to Flow.
 type StreamIterator = confluence.Segment[IteratorRequest, IteratorResponse]
 
-// IteratorResponseVariant is the type of the response an iterator will return.
+// IteratorResponseVariant is the type of the response an Iterator will return.
 type IteratorResponseVariant uint8
 
 const (
@@ -48,7 +48,7 @@ const (
 	IteratorDataResponse
 )
 
-// IteratorCommand is an enumeration of commands that can be sent to an iterator.
+// IteratorCommand is an enumeration of commands that can be sent to an Iterator.
 type IteratorCommand uint8
 
 const (

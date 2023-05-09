@@ -13,9 +13,11 @@ import pandas as pd
 from numpy import ndarray
 
 from alamos import trace, Instrumentation, NOOP
+from synnax.channel.payload import KeysOrNames
 from synnax.channel.retrieve import ChannelRetriever
 from synnax.framer.iterator import NumpyIterator
 from synnax.framer.payload import NumpyFrame
+from synnax.framer.stream_reader import NumpyStreamReader
 from synnax.framer.writer import DataFrameWriter
 from synnax.telem import TimeRange, UnparsedTimeStamp
 from synnax.transport import Transport
@@ -44,7 +46,7 @@ class FrameClient:
     def new_writer(
         self,
         start: UnparsedTimeStamp,
-        *keys_or_names: str | list[str],
+        *keys_or_names: KeysOrNames,
         strict: bool = False,
         suppress_warnings: bool = False,
     ) -> DataFrameWriter:
@@ -67,7 +69,7 @@ class FrameClient:
     def new_iterator(
         self,
         tr: TimeRange,
-        *keys_or_names: str | list[str],
+        *keys_or_names: KeysOrNames,
         aggregate: bool = False,
     ) -> NumpyIterator:
         """Opens a new iterator over the given channels within the provided time range.
@@ -128,8 +130,8 @@ class FrameClient:
         self,
         start: UnparsedTimeStamp,
         end: UnparsedTimeStamp,
-        key_or_name: str,
-        *keys_or_names: str,
+        key_or_name: KeysOrNames,
+        *keys_or_names: KeysOrNames,
     ) -> tuple[ndarray, TimeRange] | NumpyFrame:
         """Reads telemetry from the channel between the two timestamps.
 
@@ -153,7 +155,7 @@ class FrameClient:
         self,
         start: UnparsedTimeStamp,
         end: UnparsedTimeStamp,
-        *key_or_names: str,
+        *key_or_names: KeysOrNames,
     ) -> NumpyFrame:
         """Reads a Segment from the given channel between the two timestamps.
 
@@ -166,5 +168,17 @@ class FrameClient:
         tr = TimeRange(start, end)
         with self.new_iterator(tr, *key_or_names, aggregate=True) as i:
             # exhaust the iterator
-            (_ for _ in i)
+            _ = [value for value in i]
             return i.value
+
+    def stream(
+        self,
+        start: UnparsedTimeStamp,
+        *keys_or_names: KeysOrNames,
+    ) -> NumpyStreamReader:
+        return NumpyStreamReader(
+            self._transport.stream,
+            self._channels,
+            start,
+            *keys_or_names,
+        )

@@ -11,51 +11,52 @@ package framer
 
 import (
 	"context"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	fv1 "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/gen/proto/go/framer/v1"
+	tsv1 "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/gen/proto/go/framer/v1"
 	"github.com/synnaxlabs/x/telem"
 )
 
 var (
-	_ fgrpc.Translator[writer.Request, *fv1.WriterRequest]       = (*writerRequestTranslator)(nil)
-	_ fgrpc.Translator[writer.Response, *fv1.WriterResponse]     = (*writerResponseTranslator)(nil)
-	_ fgrpc.Translator[iterator.Request, *fv1.IteratorRequest]   = (*iteratorRequestTranslator)(nil)
-	_ fgrpc.Translator[iterator.Response, *fv1.IteratorResponse] = (*iteratorResponseTranslator)(nil)
+	_ fgrpc.Translator[writer.Request, *tsv1.WriterRequest]       = (*writerRequestTranslator)(nil)
+	_ fgrpc.Translator[writer.Response, *tsv1.WriterResponse]     = (*writerResponseTranslator)(nil)
+	_ fgrpc.Translator[iterator.Request, *tsv1.IteratorRequest]   = (*iteratorRequestTranslator)(nil)
+	_ fgrpc.Translator[iterator.Response, *tsv1.IteratorResponse] = (*iteratorResponseTranslator)(nil)
+	_ fgrpc.Translator[relay.Request, *tsv1.RelayRequest]         = (*relayRequestTranslator)(nil)
+	_ fgrpc.Translator[relay.Response, *tsv1.RelayResponse]       = (*relayResponseTranslator)(nil)
 )
 
 type writerRequestTranslator struct{}
 
 // Backward implements the fgrpc.Translator interface.
-func (w writerRequestTranslator) Backward(
+func (writerRequestTranslator) Backward(
 	_ context.Context,
-	req *fv1.WriterRequest,
+	req *tsv1.WriterRequest,
 ) (writer.Request, error) {
-	keys, err := channel.ParseKeys(req.Config.Keys)
 	return writer.Request{
 		Command: writer.Command(req.Command),
 		Config: writer.Config{
-			Keys:  keys,
+			Keys:  channel.KeysFromUint32(req.Config.Keys),
 			Start: telem.TimeStamp(req.Config.Start),
 		},
 		Frame: tranFrameFwd(req.Frame),
-	}, err
+	}, nil
 }
 
 // Forward implements the fgrpc.Translator interface.
-func (w writerRequestTranslator) Forward(
+func (writerRequestTranslator) Forward(
 	_ context.Context,
 	req writer.Request,
-) (*fv1.WriterRequest, error) {
-	return &fv1.WriterRequest{
+) (*tsv1.WriterRequest, error) {
+	return &tsv1.WriterRequest{
 		Command: int32(req.Command),
-		Config: &fv1.WriterConfig{
-			Keys:  req.Config.Keys.Strings(),
+		Config: &tsv1.WriterConfig{
+			Keys:  req.Config.Keys.Uint32(),
 			Start: int64(req.Config.Start),
 		},
 		Frame: tranFrmBwd(req.Frame),
@@ -65,39 +66,38 @@ func (w writerRequestTranslator) Forward(
 type writerResponseTranslator struct{}
 
 // Backward implements the fgrpc.Translator interface.
-func (w writerResponseTranslator) Backward(
+func (writerResponseTranslator) Backward(
 	_ context.Context,
-	res *fv1.WriterResponse,
+	res *tsv1.WriterResponse,
 ) (writer.Response, error) {
 	return writer.Response{
 		Command: writer.Command(res.Command),
 		SeqNum:  int(res.Counter),
 		Ack:     res.Ack,
-		Err:     fgrpc.DecodeError(res.Error),
+		Error:   fgrpc.DecodeError(res.Error),
 	}, nil
 }
 
 // Forward implements the fgrpc.Translator interface.
-func (w writerResponseTranslator) Forward(
+func (writerResponseTranslator) Forward(
 	_ context.Context,
 	res writer.Response,
-) (*fv1.WriterResponse, error) {
-	return &fv1.WriterResponse{
+) (*tsv1.WriterResponse, error) {
+	return &tsv1.WriterResponse{
 		Command: int32(res.Command),
 		Counter: int32(res.SeqNum),
 		Ack:     res.Ack,
-		Error:   fgrpc.EncodeError(res.Err),
+		Error:   fgrpc.EncodeError(res.Error),
 	}, nil
 }
 
 type iteratorRequestTranslator struct{}
 
 // Backward implements the fgrpc.Translator interface.
-func (w iteratorRequestTranslator) Backward(
+func (iteratorRequestTranslator) Backward(
 	_ context.Context,
-	req *fv1.IteratorRequest,
+	req *tsv1.IteratorRequest,
 ) (iterator.Request, error) {
-	keys, err := channel.ParseKeys(req.Keys)
 	return iterator.Request{
 		Command: iterator.Command(req.Command),
 		Span:    telem.TimeSpan(req.Span),
@@ -106,33 +106,33 @@ func (w iteratorRequestTranslator) Backward(
 			End:   telem.TimeStamp(req.Range.End),
 		},
 		Stamp: telem.TimeStamp(req.Stamp),
-		Keys:  keys,
-	}, err
+		Keys:  channel.KeysFromUint32(req.Keys),
+	}, nil
 }
 
 // Forward implements the fgrpc.Translator interface.
-func (w iteratorRequestTranslator) Forward(
+func (iteratorRequestTranslator) Forward(
 	_ context.Context,
 	req iterator.Request,
-) (*fv1.IteratorRequest, error) {
-	return &fv1.IteratorRequest{
+) (*tsv1.IteratorRequest, error) {
+	return &tsv1.IteratorRequest{
 		Command: int32(req.Command),
 		Span:    int64(req.Span),
-		Range: &fv1.TimeRange{
+		Range: &tsv1.TimeRange{
 			Start: int64(req.Bounds.Start),
 			End:   int64(req.Bounds.End),
 		},
 		Stamp: int64(req.Stamp),
-		Keys:  req.Keys.Strings(),
+		Keys:  req.Keys.Uint32(),
 	}, nil
 }
 
 type iteratorResponseTranslator struct{}
 
 // Backward implements the fgrpc.Translator interface.
-func (w iteratorResponseTranslator) Backward(
+func (iteratorResponseTranslator) Backward(
 	_ context.Context,
-	res *fv1.IteratorResponse,
+	res *tsv1.IteratorResponse,
 ) (iterator.Response, error) {
 	return iterator.Response{
 		Variant: iterator.ResponseVariant(res.Variant),
@@ -140,41 +140,79 @@ func (w iteratorResponseTranslator) Backward(
 		Ack:     res.Ack,
 		SeqNum:  int(res.Counter),
 		Command: iterator.Command(res.Command),
-		Err:     fgrpc.DecodeError(res.Error),
+		Error:   fgrpc.DecodeError(res.Error),
 		Frame:   tranFrameFwd(res.Frame),
 	}, nil
 }
 
 // Forward implements the fgrpc.Translator interface.
-func (w iteratorResponseTranslator) Forward(
+func (iteratorResponseTranslator) Forward(
 	_ context.Context,
 	res iterator.Response,
-) (*fv1.IteratorResponse, error) {
-	return &fv1.IteratorResponse{
+) (*tsv1.IteratorResponse, error) {
+	return &tsv1.IteratorResponse{
 		Variant: int32(res.Variant),
 		NodeId:  int32(res.NodeKey),
 		Ack:     res.Ack,
 		Counter: int32(res.SeqNum),
 		Command: int32(res.Command),
-		Error:   fgrpc.EncodeError(res.Err),
+		Error:   fgrpc.EncodeError(res.Error),
 		Frame:   tranFrmBwd(res.Frame),
 	}, nil
 }
 
-func tranFrameFwd(frame *fv1.Frame) framer.Frame {
-	keys := lo.Must(channel.ParseKeys(frame.Keys))
-	arrays := tranArrayFwd(frame.Arrays)
-	return framer.NewFrame(keys, arrays)
+type relayRequestTranslator struct{}
+
+func (w relayRequestTranslator) Backward(
+	_ context.Context,
+	req *tsv1.RelayRequest,
+) (relay.Request, error) {
+	return relay.Request{Keys: channel.KeysFromUint32(req.Keys)}, nil
 }
 
-func tranFrmBwd(frame framer.Frame) *fv1.Frame {
-	return &fv1.Frame{
-		Keys:   frame.Keys().Strings(),
+func (w relayRequestTranslator) Forward(
+	_ context.Context,
+	req relay.Request,
+) (*tsv1.RelayRequest, error) {
+	return &tsv1.RelayRequest{Keys: req.Keys.Uint32()}, nil
+}
+
+type relayResponseTranslator struct{}
+
+func (w relayResponseTranslator) Backward(
+	_ context.Context,
+	res *tsv1.RelayResponse,
+) (relay.Response, error) {
+	return relay.Response{
+		Frame: tranFrameFwd(res.Frame),
+		Error: fgrpc.DecodeError(res.Error),
+	}, nil
+}
+
+func (w relayResponseTranslator) Forward(
+	_ context.Context,
+	res relay.Response,
+) (*tsv1.RelayResponse, error) {
+	return &tsv1.RelayResponse{
+		Frame: tranFrmBwd(res.Frame),
+		Error: fgrpc.EncodeError(res.Error),
+	}, nil
+}
+
+func tranFrameFwd(frame *tsv1.Frame) framer.Frame {
+	keys := channel.KeysFromUint32(frame.Keys)
+	arrays := tranArrayFwd(frame.Arrays)
+	return framer.Frame{Keys: keys, Arrays: arrays}
+}
+
+func tranFrmBwd(frame framer.Frame) *tsv1.Frame {
+	return &tsv1.Frame{
+		Keys:   frame.Keys.Uint32(),
 		Arrays: tranArrBwd(frame.Arrays),
 	}
 }
 
-func tranArrayFwd(arrays []*fv1.Array) []telem.Array {
+func tranArrayFwd(arrays []*tsv1.Array) []telem.Array {
 	LazyArrays := make([]telem.Array, len(arrays))
 	for i, arr := range arrays {
 		LazyArrays[i] = telem.Array{
@@ -189,12 +227,12 @@ func tranArrayFwd(arrays []*fv1.Array) []telem.Array {
 	return LazyArrays
 }
 
-func tranArrBwd(arrays []telem.Array) []*fv1.Array {
-	LazyArrays := make([]*fv1.Array, len(arrays))
+func tranArrBwd(arrays []telem.Array) []*tsv1.Array {
+	LazyArrays := make([]*tsv1.Array, len(arrays))
 	for i, arr := range arrays {
-		LazyArrays[i] = &fv1.Array{
+		LazyArrays[i] = &tsv1.Array{
 			DataType: string(arr.DataType),
-			Range: &fv1.TimeRange{
+			Range: &tsv1.TimeRange{
 				Start: int64(arr.TimeRange.Start),
 				End:   int64(arr.TimeRange.End),
 			},

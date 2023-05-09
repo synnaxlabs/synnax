@@ -32,10 +32,10 @@ var _ = Describe("ChannelReader", Ordered, func() {
 		svc = api.NewChannelService(prov)
 		res, err := svc.Create(context.TODO(), api.ChannelCreateRequest{
 			Channels: []api.Channel{{
-				Name:     "test",
-				NodeKey:  1,
-				DataType: telem.Float64T,
-				Rate:     25 * telem.Hz,
+				Name:        "test",
+				Leaseholder: 1,
+				DataType:    telem.Float64T,
+				Rate:        25 * telem.Hz,
 			}},
 		})
 		Expect(err).To(Equal(errors.Nil))
@@ -63,9 +63,9 @@ var _ = Describe("ChannelReader", Ordered, func() {
 			Expect(len(res.Channels)).To(Equal(0))
 		},
 			Entry("No Data Variant", api.Channel{
-				Name:    "test",
-				NodeKey: 1,
-				Rate:    25 * telem.Hz,
+				Name:        "test",
+				Leaseholder: 1,
+				Rate:        25 * telem.Hz,
 			}, "channels[0].data_type", "required"),
 		)
 	})

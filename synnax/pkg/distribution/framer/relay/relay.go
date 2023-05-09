@@ -10,7 +10,9 @@
 package relay
 
 import (
+	"context"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"io"
 
 	"github.com/google/uuid"
@@ -28,6 +30,7 @@ type Config struct {
 	alamos.Instrumentation
 	Transport    Transport
 	HostResolver core.HostResolver
+	TS           *ts.DB
 }
 
 var (
@@ -40,6 +43,7 @@ func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Transport = override.Nil(c.Transport, other.Transport)
 	c.HostResolver = override.Nil(c.HostResolver, other.HostResolver)
+	c.TS = override.Nil(c.TS, other.TS)
 	return c
 }
 
@@ -53,9 +57,9 @@ func (c Config) Validate() error {
 
 type Relay struct {
 	io.Closer
-	delta       *confluence.DynamicDeltaMultiplier[Data]
+	delta       *confluence.DynamicDeltaMultiplier[Response]
 	peerDemands confluence.Inlet[demand]
-	writes      confluence.Inlet[Data]
+	writes      confluence.Inlet[Response]
 }
 
 func Open(configs ...Config) (*Relay, error) {
@@ -67,33 +71,37 @@ func Open(configs ...Config) (*Relay, error) {
 	s := &Relay{}
 	startServer(cfg, s.NewReader)
 
-	peerReceiver := newPeerReceiver(cfg)
+	coord := newReceiveCoordinator(cfg)
 	peerDemands := confluence.NewStream[demand](1)
-	peerReceiver.InFrom(peerDemands)
+	coord.InFrom(peerDemands)
 	s.peerDemands = peerDemands
 
-	s.delta = confluence.NewDynamicDeltaMultiplier[Data]()
-	writes := confluence.NewStream[Data](10)
+	s.delta = confluence.NewDynamicDeltaMultiplier[Response]()
+	writes := confluence.NewStream[Response](10)
 	s.delta.InFrom(writes)
-	peerReceiver.OutTo(writes)
+	coord.OutTo(writes)
 	s.writes = writes
 
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
 	s.Closer = signal.NewShutdown(sCtx, cancel)
 
 	s.delta.Flow(sCtx, confluence.WithAddress("delta"))
-	peerReceiver.Flow(sCtx, confluence.WithAddress("peerReceiver"))
+	coord.Flow(sCtx, confluence.WithAddress("coord"))
 
 	return s, nil
 }
 
-type Reader = confluence.Segment[ReadRequest, Data]
+type Reader = confluence.Segment[Request, Response]
 
-func (s *Relay) NewReader(keys ...channel.Key) Reader {
-	data := confluence.NewStream[Data](10)
+type ReaderConfig struct {
+	Keys channel.Keys
+}
+
+func (s *Relay) NewReader(_ context.Context, cfg ReaderConfig) (Reader, error) {
+	data := confluence.NewStream[Response](10)
 	s.delta.Connect(data)
 	r := &reader{
-		keys: keys,
+		keys: cfg.Keys,
 		addr: address.Address(uuid.NewString()),
 	}
 	data.SetInletAddress(r.addr)
@@ -101,7 +109,8 @@ func (s *Relay) NewReader(keys ...channel.Key) Reader {
 	r.Sink = &r.requests
 	r.requests.OutTo(s.peerDemands)
 	r.responses.InFrom(data)
-	return r
+	s.peerDemands.Inlet() <- demand{Key: r.addr, Value: Request{
+		Keys: cfg.Keys,
+	}}
+	return r, nil
 }
-
-func (s *Relay) Writes() confluence.Inlet[Data] { return s.writes }

@@ -11,7 +11,6 @@ package relay
 
 import (
 	"context"
-
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/change"
@@ -21,11 +20,11 @@ import (
 
 type reader struct {
 	addr      address.Address
-	requests  confluence.AbstractLinear[ReadRequest, demand]
-	responses confluence.AbstractLinear[Data, Data]
+	requests  confluence.AbstractLinear[Request, demand]
+	responses confluence.AbstractLinear[Response, Response]
 	keys      channel.Keys
-	confluence.Source[Data]
-	confluence.Sink[ReadRequest]
+	confluence.Source[Response]
+	confluence.Sink[Request]
 }
 
 func (r *reader) Flow(ctx signal.Context, opts ...confluence.Option) {
@@ -41,12 +40,15 @@ func (r *reader) Flow(ctx signal.Context, opts ...confluence.Option) {
 				r.requests.Out.Inlet() <- demand{Variant: change.Set, Key: r.addr, Value: req}
 			case f, ok := <-r.responses.In.Outlet():
 				if !ok {
-					r.requests.Out.Inlet() <- change.Change[address.Address, ReadRequest]{Variant: change.Delete, Key: r.addr}
+					r.requests.Out.Inlet() <- change.Change[address.Address, Request]{Variant: change.Delete, Key: r.addr}
 					return nil
 				}
-				r.responses.Out.Inlet() <- Data{
-					Error: f.Error,
-					Frame: f.Frame.FilterKeys(r.keys),
+				filtered := f.Frame.FilterKeys(r.keys)
+				if len(filtered.Keys) != 0 {
+					r.responses.Out.Inlet() <- Response{
+						Error: f.Error,
+						Frame: f.Frame.FilterKeys(r.keys),
+					}
 				}
 			}
 		}

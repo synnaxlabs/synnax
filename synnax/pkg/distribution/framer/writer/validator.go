@@ -11,7 +11,6 @@ package writer
 
 import (
 	"context"
-
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/confluence"
@@ -50,7 +49,7 @@ func (v *validator) Flow(ctx signal.Context, opts ...confluence.Option) {
 						if err := signal.SendUnderContext(
 							ctx,
 							v.responses.Out.Inlet(),
-							Response{Command: Error, Err: v.accumulatedError},
+							Response{Command: Error, Error: v.accumulatedError},
 						); err != nil {
 							return err
 						}
@@ -101,7 +100,7 @@ func (v *validator) validate(req Request) error {
 		return errors.Wrapf(validate.Error, "invalid writer command: %d", req.Command)
 	}
 	if req.Command == Data {
-		missing, extra := v.keys.Difference(req.Frame.Keys())
+		missing, extra := v.keys.Difference(req.Frame.Keys)
 		if len(missing) > 0 || len(extra) > 0 {
 			return errors.Wrapf(validate.Error,
 				"invalid frame: missing keys: %v, has extra keys: %v",

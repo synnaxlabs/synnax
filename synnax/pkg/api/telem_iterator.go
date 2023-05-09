@@ -24,8 +24,7 @@ import (
 
 type FrameIteratorRequest = framer.IteratorRequest
 type FrameIteratorResponse = framer.IteratorResponse
-
-type FrameIteratorStream = freighter.ServerStream[framer.IteratorRequest, framer.IteratorResponse]
+type FrameIteratorStream = freighter.ServerStream[FrameIteratorRequest, FrameIteratorResponse]
 
 func (s *TelemService) Iterate(ctx context.Context, stream FrameIteratorStream) errors.Typed {
 	iter, err := s.openIterator(ctx, stream)
@@ -41,11 +40,11 @@ func (s *TelemService) Iterate(ctx context.Context, stream FrameIteratorStream) 
 	defer cancel()
 
 	receiver := &freightfluence.Receiver[iterator.Request]{Receiver: stream}
-	sender := &freightfluence.TransformSender[iterator.Response, iterator.Response]{}
+	sender := &freightfluence.TransformSender[iterator.Response, iterator.Response]{
+		Sender: freighter.SenderNopCloser[iterator.Response]{StreamSender: stream},
+	}
 	sender.Transform = func(ctx context.Context, res iterator.Response) (iterator.Response, bool, error) {
-		if res.Err != nil {
-			res.Err = ferrors.Encode(res.Err)
-		}
+		res.Error = ferrors.Encode(res.Error)
 		return res, true, nil
 	}
 	pipe := plumber.New()
@@ -71,5 +70,8 @@ func (s *TelemService) openIterator(ctx context.Context, srv FrameIteratorStream
 	if err != nil {
 		return nil, errors.Query(err)
 	}
-	return iter, errors.MaybeUnexpected(srv.Send(framer.IteratorResponse{Variant: iterator.AckResponse, Ack: true}))
+	return iter, errors.MaybeUnexpected(srv.Send(framer.IteratorResponse{
+		Variant: iterator.AckResponse,
+		Ack:     true,
+	}))
 }

@@ -7,7 +7,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
-	"github.com/synnaxlabs/synnax/pkg/distribution/relay"
+	relay2 "github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	tmock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock"
 	"github.com/synnaxlabs/x/config"
 	"testing"
@@ -29,9 +29,9 @@ func TestRelay(t *testing.T) {
 
 type serviceContainer struct {
 	channel   channel.Service
-	relay     *relay.Relay
+	relay     *relay2.Relay
 	transport struct {
-		relay relay.Transport
+		relay relay2.Transport
 	}
 }
 
@@ -60,7 +60,7 @@ func provision(n int) (*mock.CoreBuilder, map[core.NodeKey]serviceContainer) {
 			TSChannel:    c.Storage.TS,
 			Transport:    channelNet.New(c.Config.AdvertiseAddress),
 		}))
-		container.relay = MustSucceed(relay.Open(relay.Config{
+		container.relay = MustSucceed(relay2.Open(relay2.Config{
 			Instrumentation: ins,
 			HostResolver:    c.Cluster,
 			Transport:       relayNet.New(c.Config.AdvertiseAddress),

@@ -72,7 +72,7 @@ func (cfg Config) Override(other Config) Config {
 
 // Validate implements config.Config.
 func (cfg Config) Validate() error {
-	v := validate.New("DB")
+	v := validate.New("cesium")
 	validate.NotNil(v, "Cluster", cfg.Cluster)
 	validate.NotNil(v, "BatchTransportClient", cfg.BatchTransportClient)
 	validate.NotNil(v, "BatchTransportServer", cfg.BatchTransportServer)

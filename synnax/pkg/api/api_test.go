@@ -21,7 +21,7 @@ var _ = Describe("Api", func() {
 		It("Should open a new API without panicking", func() {
 			Expect(func() {
 				api.New(api.Config{
-					Storage: &storage.Store{},
+					Storage: &storage.Storage{},
 				})
 			}).ToNot(Panic())
 		})

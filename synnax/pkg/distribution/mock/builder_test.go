@@ -34,14 +34,14 @@ var _ = Describe("Builder", func() {
 			Expect(coreThree.Cluster.HostKey()).To(Equal(core.NodeKey(3)))
 
 			ch := channel.Channel{
-				Name:     "SG_01",
-				DataType: telem.Float64T,
-				Rate:     25 * telem.Hz,
-				NodeKey:  1,
+				Name:        "SG_01",
+				DataType:    telem.Float64T,
+				Rate:        25 * telem.Hz,
+				Leaseholder: 1,
 			}
 
 			Expect(coreOne.Channel.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
-			Expect(ch.Key().NodeKey()).To(Equal(distribution.NodeKey(1)))
+			Expect(ch.Key().Leaseholder()).To(Equal(distribution.NodeKey(1)))
 
 			Eventually(func(g Gomega) {
 				var resCH channel.Channel

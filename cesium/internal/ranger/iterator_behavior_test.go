@@ -117,7 +117,7 @@ var _ = Describe("Iterator Behavior", func() {
 			Expect(ranger.Write(ctx, db, (10 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
 			Expect(ranger.Write(ctx, db, (30 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
 		})
-		Context("Forward", func() {
+		Context("Requests", func() {
 			It("Should return false when the iterator is exhausted", func() {
 				iter := db.NewIterator(ranger.IteratorConfig{
 					Bounds: (15 * telem.SecondTS).SpanRange(45 * telem.Second),
@@ -131,7 +131,7 @@ var _ = Describe("Iterator Behavior", func() {
 				Expect(iter.Next()).To(BeFalse())
 			})
 		})
-		Context("Reverse", func() {
+		Context("Responses", func() {
 			It("Should return false when the iterator is exhausted", func() {
 				iter := db.NewIterator(ranger.IteratorConfig{
 					Bounds: (15 * telem.SecondTS).SpanRange(45 * telem.Second),

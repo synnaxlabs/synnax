@@ -2,9 +2,9 @@
 // versions:
 // - protoc-gen-go-grpc v1.2.0
 // - protoc             (unknown)
-// source: framer/v1/framer.proto
+// source: framer/v1/ts.proto
 
-package segmentv1
+package tsv1
 
 import (
 	context "context"
@@ -34,7 +34,7 @@ func NewIteratorServiceClient(cc grpc.ClientConnInterface) IteratorServiceClient
 }
 
 func (c *iteratorServiceClient) Iterate(ctx context.Context, opts ...grpc.CallOption) (IteratorService_IterateClient, error) {
-	stream, err := c.cc.NewStream(ctx, &IteratorService_ServiceDesc.Streams[0], "/segment.v1.IteratorService/Iterate", opts...)
+	stream, err := c.cc.NewStream(ctx, &IteratorService_ServiceDesc.Streams[0], "/ts.v1.IteratorService/Iterate", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +120,7 @@ func (x *iteratorServiceIterateServer) Recv() (*IteratorRequest, error) {
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var IteratorService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "segment.v1.IteratorService",
+	ServiceName: "ts.v1.IteratorService",
 	HandlerType: (*IteratorServiceServer)(nil),
 	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
@@ -131,7 +131,123 @@ var IteratorService_ServiceDesc = grpc.ServiceDesc{
 			ClientStreams: true,
 		},
 	},
-	Metadata: "framer/v1/framer.proto",
+	Metadata: "framer/v1/ts.proto",
+}
+
+// RelayServiceClient is the client API for RelayService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type RelayServiceClient interface {
+	Relay(ctx context.Context, opts ...grpc.CallOption) (RelayService_RelayClient, error)
+}
+
+type relayServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewRelayServiceClient(cc grpc.ClientConnInterface) RelayServiceClient {
+	return &relayServiceClient{cc}
+}
+
+func (c *relayServiceClient) Relay(ctx context.Context, opts ...grpc.CallOption) (RelayService_RelayClient, error) {
+	stream, err := c.cc.NewStream(ctx, &RelayService_ServiceDesc.Streams[0], "/ts.v1.RelayService/Relay", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &relayServiceRelayClient{stream}
+	return x, nil
+}
+
+type RelayService_RelayClient interface {
+	Send(*RelayRequest) error
+	Recv() (*RelayResponse, error)
+	grpc.ClientStream
+}
+
+type relayServiceRelayClient struct {
+	grpc.ClientStream
+}
+
+func (x *relayServiceRelayClient) Send(m *RelayRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *relayServiceRelayClient) Recv() (*RelayResponse, error) {
+	m := new(RelayResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// RelayServiceServer is the server API for RelayService service.
+// All implementations should embed UnimplementedRelayServiceServer
+// for forward compatibility
+type RelayServiceServer interface {
+	Relay(RelayService_RelayServer) error
+}
+
+// UnimplementedRelayServiceServer should be embedded to have forward compatible implementations.
+type UnimplementedRelayServiceServer struct {
+}
+
+func (UnimplementedRelayServiceServer) Relay(RelayService_RelayServer) error {
+	return status.Errorf(codes.Unimplemented, "method Relay not implemented")
+}
+
+// UnsafeRelayServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to RelayServiceServer will
+// result in compilation errors.
+type UnsafeRelayServiceServer interface {
+	mustEmbedUnimplementedRelayServiceServer()
+}
+
+func RegisterRelayServiceServer(s grpc.ServiceRegistrar, srv RelayServiceServer) {
+	s.RegisterService(&RelayService_ServiceDesc, srv)
+}
+
+func _RelayService_Relay_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(RelayServiceServer).Relay(&relayServiceRelayServer{stream})
+}
+
+type RelayService_RelayServer interface {
+	Send(*RelayResponse) error
+	Recv() (*RelayRequest, error)
+	grpc.ServerStream
+}
+
+type relayServiceRelayServer struct {
+	grpc.ServerStream
+}
+
+func (x *relayServiceRelayServer) Send(m *RelayResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *relayServiceRelayServer) Recv() (*RelayRequest, error) {
+	m := new(RelayRequest)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// RelayService_ServiceDesc is the grpc.ServiceDesc for RelayService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var RelayService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "ts.v1.RelayService",
+	HandlerType: (*RelayServiceServer)(nil),
+	Methods:     []grpc.MethodDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Relay",
+			Handler:       _RelayService_Relay_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+	},
+	Metadata: "framer/v1/ts.proto",
 }
 
 // WriterServiceClient is the client API for WriterService service.
@@ -150,7 +266,7 @@ func NewWriterServiceClient(cc grpc.ClientConnInterface) WriterServiceClient {
 }
 
 func (c *writerServiceClient) Write(ctx context.Context, opts ...grpc.CallOption) (WriterService_WriteClient, error) {
-	stream, err := c.cc.NewStream(ctx, &WriterService_ServiceDesc.Streams[0], "/segment.v1.WriterService/Write", opts...)
+	stream, err := c.cc.NewStream(ctx, &WriterService_ServiceDesc.Streams[0], "/ts.v1.WriterService/Write", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -236,7 +352,7 @@ func (x *writerServiceWriteServer) Recv() (*WriterRequest, error) {
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var WriterService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "segment.v1.WriterService",
+	ServiceName: "ts.v1.WriterService",
 	HandlerType: (*WriterServiceServer)(nil),
 	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
@@ -247,5 +363,5 @@ var WriterService_ServiceDesc = grpc.ServiceDesc{
 			ClientStreams: true,
 		},
 	},
-	Metadata: "framer/v1/framer.proto",
+	Metadata: "framer/v1/ts.proto",
 }

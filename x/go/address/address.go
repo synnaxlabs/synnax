@@ -12,6 +12,8 @@ package address
 import (
 	"fmt"
 	"strings"
+
+	"github.com/google/uuid"
 )
 
 type Address string
@@ -34,4 +36,8 @@ func (a Address) HostString() string {
 
 type Addressable interface {
 	Address() Address
+}
+
+func Rand() Address {
+	return Address(uuid.New().String())
 }

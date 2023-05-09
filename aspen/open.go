@@ -36,7 +36,7 @@ func Open(
 	if err = openStorageEngine(o); err != nil {
 		return nil, err
 	}
-	d.transportShutdown, err = configureTransport(ctx, o)
+	d.transportCloser, err = configureTransport(ctx, o)
 	d.Cluster, err = cluster.Open(ctx, o.cluster)
 	if err != nil {
 		return nil, err

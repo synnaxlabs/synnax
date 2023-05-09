@@ -46,7 +46,7 @@ const (
 type DB struct {
 	Cluster Cluster
 	kvx.DB
-	transportShutdown io.Closer
+	transportCloser io.Closer
 }
 
 // Close implements kvx.DB, shutting down the key-value store, cluster and transport.
@@ -54,7 +54,7 @@ type DB struct {
 // called after Close will panic.
 func (db *DB) Close() error {
 	c := errutil.NewCatch(errutil.WithAggregation())
-	c.Exec(db.transportShutdown.Close)
+	c.Exec(db.transportCloser.Close)
 	c.Exec(db.Cluster.Close)
 	c.Exec(db.DB.Close)
 	return lo.Ternary(errors.Is(c.Error(), context.Canceled), nil, c.Error())

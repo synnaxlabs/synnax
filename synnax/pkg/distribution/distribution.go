@@ -16,9 +16,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/relay"
 	channeltransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel"
-	segmenttransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer"
+	frametransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer"
 )
 
 type (
@@ -38,7 +37,6 @@ type Distribution struct {
 	Core
 	Channel  channel.Service
 	Framer   *framer.Service
-	Relay    *relay.Relay
 	Ontology *ontology.Ontology
 }
 
@@ -73,8 +71,8 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 	nodeOntologySvc.ListenForChanges(ctx)
 
 	channelTransport := channeltransport.New(cfg.Pool)
-	segmentTransport := segmenttransport.New(cfg.Pool)
-	*cfg.Transports = append(*cfg.Transports, channelTransport, segmentTransport)
+	frameTransport := frametransport.New(cfg.Pool)
+	*cfg.Transports = append(*cfg.Transports, channelTransport, frameTransport)
 
 	d.Channel, err = channel.New(channel.ServiceConfig{
 		HostResolver: d.Cluster,
@@ -92,12 +90,7 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 		Instrumentation: cfg.Instrumentation.Child("framer"),
 		ChannelReader:   d.Channel,
 		TS:              d.Storage.TS,
-		Transport:       segmentTransport,
-		HostResolver:    d.Cluster,
-	})
-
-	d.Relay, err = relay.Open(relay.Config{
-		Instrumentation: cfg.Instrumentation.Child("relay"),
+		Transport:       frameTransport,
 		HostResolver:    d.Cluster,
 	})
 

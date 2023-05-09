@@ -45,6 +45,7 @@ var _ = Describe("Filter", func() {
 				return x%3 == 0, nil
 			},
 		}
+		filter.InFrom(inlet)
 		filter.OutTo(outlet)
 		filter.Flow(ctx)
 		inlet.Inlet() <- 1
@@ -86,6 +87,7 @@ var _ = Describe("Filter", func() {
 				return x%3 == 0, errors.New("error")
 			},
 		}
+		filter.InFrom(inlet)
 		filter.OutTo(outlet)
 		filter.Flow(ctx)
 		inlet.Inlet() <- 1

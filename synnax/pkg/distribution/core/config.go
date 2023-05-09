@@ -43,9 +43,9 @@ func (cfg Config) Override(other Config) Config {
 	cfg.AdvertiseAddress = override.String(cfg.AdvertiseAddress, other.AdvertiseAddress)
 	cfg.PeerAddresses = override.Slice(cfg.PeerAddresses, other.PeerAddresses)
 	cfg.Pool = override.Nil(cfg.Pool, other.Pool)
-	cfg.Storage = cfg.Storage.Override(other.Storage)
 	cfg.Transports = override.Nil(cfg.Transports, other.Transports)
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
+	cfg.Storage = cfg.Storage.Override(other.Storage)
 	return cfg
 }
 

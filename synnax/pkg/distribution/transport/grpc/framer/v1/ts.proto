@@ -2,7 +2,7 @@ syntax = "proto3";
 
 import "ferrors/v1/ferrors.proto";
 
-package segment.v1;
+package ts.v1;
 
 service IteratorService {
   rpc Iterate(stream IteratorRequest) returns (stream IteratorResponse) {}
@@ -13,11 +13,35 @@ message IteratorRequest {
   int64 span = 2;
   TimeRange range = 3;
   int64 stamp = 4;
-  repeated string keys = 5;
+  repeated uint32 keys = 5;
+}
+
+message IteratorResponse {
+    int32 variant = 1;
+    int32 node_id = 2;
+    bool ack = 3;
+    int32 command = 4;
+    int32 counter = 5;
+    ferrors.v1.ErrorPayload error = 6;
+    Frame frame = 7;
+}
+
+
+service RelayService {
+    rpc Relay(stream RelayRequest) returns (stream RelayResponse);
+}
+
+message RelayRequest {
+    repeated uint32 keys = 1;
+}
+
+message RelayResponse {
+    Frame frame = 1;
+    ferrors.v1.ErrorPayload error = 2;
 }
 
 message Frame {
-  repeated string keys = 1;
+  repeated uint32 keys = 1;
   repeated Array arrays = 2;
 }
 
@@ -27,15 +51,6 @@ message Array {
   bytes data = 3;
 }
 
-message IteratorResponse {
-  int32 variant = 1;
-  int32 node_id = 2;
-  bool ack = 3;
-  int32 command = 4;
-  int32 counter = 5;
-  ferrors.v1.ErrorPayload error = 6;
-  Frame frame = 7;
-}
 
 service WriterService {
   rpc Write(stream WriterRequest) returns (stream WriterResponse) {}
@@ -48,7 +63,7 @@ message WriterRequest {
 }
 
 message WriterConfig {
-  repeated string keys = 1;
+  repeated uint32 keys = 1;
   int64 start = 2;
 }
 

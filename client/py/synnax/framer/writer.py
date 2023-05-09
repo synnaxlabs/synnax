@@ -10,8 +10,6 @@
 from enum import Enum
 from warnings import warn
 
-from pandas import DataFrame, concat as pd_concat
-from numpy import can_cast as np_can_cast, ndarray
 from freighter import (
     EOF,
     ExceptionPayload,
@@ -20,13 +18,15 @@ from freighter import (
     StreamClient,
     decode_exception,
 )
+from numpy import can_cast as np_can_cast, ndarray
+from pandas import DataFrame, concat as pd_concat
 
 from synnax import io
-from synnax.channel.payload import ChannelPayload
+from synnax.channel.payload import ChannelPayload, Keys
 from synnax.channel.retrieve import ChannelRetriever
 from synnax.exceptions import Field, GeneralError, ValidationError
-from synnax.telem import TimeSpan, TimeStamp, UnparsedTimeStamp, NumpyArray
 from synnax.framer.payload import BinaryFrame, NumpyFrame
+from synnax.telem import TimeSpan, TimeStamp, UnparsedTimeStamp, NumpyArray
 from synnax.util.flatten import flatten
 
 
@@ -38,7 +38,7 @@ class _Command(int, Enum):
 
 
 class _Config(Payload):
-    keys: list[str]
+    keys: Keys
     start: TimeStamp
 
 
@@ -51,7 +51,7 @@ class _Request(Payload):
 class _Response(Payload):
     command: _Command
     ack: bool
-    error: ExceptionPayload
+    error: ExceptionPayload | None
 
 
 class FrameWriter:
@@ -97,17 +97,20 @@ class FrameWriter:
 
     __stream: Stream[_Request, _Response] | None
 
-    client: StreamClient
-    keys: list[str]
+    keys: Keys
     start: UnparsedTimeStamp
 
-    def __init__(self, client: StreamClient, start: UnparsedTimeStamp, *keys: str  | list[str]) -> None:
-        self.client = client
+    def __init__(
+        self,
+        client: StreamClient,
+        start: UnparsedTimeStamp,
+        *keys: Keys,
+    ) -> None:
         self.start = start
         self.keys = flatten(*keys)
-        self._open()
+        self._open(client)
 
-    def _open(self):
+    def _open(self, client: StreamClient):
         """Opens the writer to write a range of telemetry starting at the given time.
 
         :param start: The starting timestamp of the new range to write to. If start
@@ -116,7 +119,7 @@ class FrameWriter:
         All frames written to the writer must have exactly one array for each key in
         this list.
         """
-        self.__stream = self.client.stream(self._ENDPOINT, _Request, _Response)
+        self.__stream = client.stream(self._ENDPOINT, _Request, _Response)
         self._stream.send(
             _Request(
                 command=_Command.OPEN,
@@ -165,7 +168,6 @@ class FrameWriter:
         should acknowledge the error by calling the error method or closing the writer.
         After the error is acknowledged, the caller can attempt to commit again.
         """
-        self._assert_open()
         if self._stream.received():
             return False
         err = self._stream.send(_Request(command=_Command.COMMIT))
@@ -266,7 +268,7 @@ class DataFrameWriter(FrameWriter, io.DataFrameWriter):
         self._suppress_warnings = suppress_warnings
 
     def write(self, frame: DataFrame):
-        super(DataFrameWriter, self).write(self._convert(frame))
+        return super(DataFrameWriter, self).write(self._convert(frame))
 
     def _convert(self, df: DataFrame) -> BinaryFrame:
         np_fr = NumpyFrame()
@@ -284,7 +286,7 @@ class DataFrameWriter(FrameWriter, io.DataFrameWriter):
                 raise ValidationError(
                     Field(
                         ch.name,
-                        f"frame is missing {self._mode.value} entry for channel {ch.key}: {ch.name}",
+                        f"frame is missing {self._mode.next} entry for channel {ch.key}: {ch.name}",
                     )
                 )
         return v, v.to_numpy()

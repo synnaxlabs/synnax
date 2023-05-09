@@ -9,7 +9,7 @@
 
 from alamos import Instrumentation, NOOP
 from freighter import URL
-from freighter.alamos import middleware
+from freighter.alamos import instrumentation_middleware
 
 from synnax.auth import AuthenticationClient
 from synnax.channel import ChannelClient
@@ -123,5 +123,5 @@ def _configure_transport(
         )
         auth.authenticate()
         t.use(*auth.middleware())
-    t.use(middleware(instrumentation))
+    t.use(instrumentation_middleware(instrumentation))
     return t

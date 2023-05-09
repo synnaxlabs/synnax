@@ -16,7 +16,7 @@ import (
 // Writer represents a generalized key-value transaction that executes atomically against
 // an underlying database. DB implements the Writer interface, which will execute
 // queries directly against the DB. To open an isolated transaction against the DB, use
-// DB.BeginWrite.
+// cesium.BeginWrite.
 type Writer[K Key, E Entry[K]] struct {
 	BaseWriter
 	lazyPrefix[K, E]

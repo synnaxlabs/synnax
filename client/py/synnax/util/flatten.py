@@ -23,7 +23,7 @@ def flatten(*args: T | tuple[T] | list[T]) -> list[T]:
     """
     results = list()
     for arg in args:
-        if isinstance(arg, list):
+        if isinstance(arg, (list, tuple)):
             results.extend(arg)
         else:
             results.append(arg)

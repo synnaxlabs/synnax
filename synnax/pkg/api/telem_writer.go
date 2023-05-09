@@ -41,7 +41,7 @@ type (
 	FrameWriterResponse = framer.WriteResponse
 )
 
-type SegmentWriterStream = freighter.ServerStream[FrameWriterRequest, framer.WriteResponse]
+type FrameWriterStream = freighter.ServerStream[FrameWriterRequest, framer.WriteResponse]
 
 // Write exposes a high level api for writing segmented telemetry to the delta
 // cluster. The client is expected to send an initial request containing the
@@ -60,14 +60,14 @@ type SegmentWriterStream = freighter.ServerStream[FrameWriterRequest, framer.Wri
 // of its own.
 //
 // Concrete api implementations (GRPC, Websocket, etc.) are expected to
-// implement the SegmentWriterStream interface according to the protocol defined in
+// implement the FrameWriterStream interface according to the protocol defined in
 // the freighter.StreamServer interface.
 //
 // When Write returns an error that is not errors.Canceled, the api
 // implementation is expected to return a FrameWriterResponse.CloseMsg with the error,
 // and then wait for a reasonable amount of time for the client to close the
 // connection before forcibly terminating the connection.
-func (s *TelemService) Write(_ctx context.Context, stream SegmentWriterStream) errors.Typed {
+func (s *TelemService) Write(_ctx context.Context, stream FrameWriterStream) errors.Typed {
 	ctx, cancel := signal.WithCancel(_ctx, signal.WithInstrumentation(s.Instrumentation))
 	// cancellation here would occur for one of two reasons. Either we encounter
 	// a fatal error (transport or writer internal) and we need to free all
@@ -80,23 +80,27 @@ func (s *TelemService) Write(_ctx context.Context, stream SegmentWriterStream) e
 		return err
 	}
 
-	receiver := &freightfluence.TransformReceiver[framer.WriteRequest, FrameWriterRequest]{}
-	receiver.Transform = func(ctx context.Context, req FrameWriterRequest) (framer.WriteRequest, bool, error) {
-		return framer.WriteRequest{Command: req.Command, Frame: req.Frame}, false, nil
+	receiver := &freightfluence.TransformReceiver[framer.WriteRequest, FrameWriterRequest]{
+		Receiver: stream,
 	}
-	sender := &freightfluence.TransformSender[framer.WriteResponse, framer.WriteResponse]{}
+	receiver.Transform = func(ctx context.Context, req FrameWriterRequest) (framer.WriteRequest, bool, error) {
+		return framer.WriteRequest{Command: req.Command, Frame: req.Frame}, true, nil
+	}
+	sender := &freightfluence.TransformSender[framer.WriteResponse, framer.WriteResponse]{
+		Sender: freighter.SenderNopCloser[framer.WriteResponse]{StreamSender: stream},
+	}
 	sender.Transform = func(ctx context.Context, resp framer.WriteResponse) (framer.WriteResponse, bool, error) {
-		if resp.Err != nil {
-			resp.Err = ferrors.Encode(errors.Unexpected(resp.Err))
+		if resp.Error != nil {
+			resp.Error = ferrors.Encode(errors.Unexpected(resp.Error))
 		}
-		return resp, false, nil
+		return resp, true, nil
 	}
 
 	pipe := plumber.New()
 
 	plumber.SetSegment(pipe, "writer", w)
 	plumber.SetSource[framer.WriteRequest](pipe, "receiver", receiver)
-	plumber.SetSink(pipe, "sender", sender)
+	plumber.SetSink[framer.WriteResponse](pipe, "sender", sender)
 	plumber.MustConnect[framer.WriteRequest](pipe, "receiver", "writer", 1)
 	plumber.MustConnect[FrameWriterResponse](pipe, "writer", "sender", 1)
 
@@ -104,13 +108,14 @@ func (s *TelemService) Write(_ctx context.Context, stream SegmentWriterStream) e
 	return errors.MaybeUnexpected(ctx.Wait())
 }
 
-func (s *TelemService) openWriter(ctx context.Context, srv SegmentWriterStream) (framer.StreamWriter, errors.Typed) {
+func (s *TelemService) openWriter(ctx context.Context, srv FrameWriterStream) (framer.StreamWriter, errors.Typed) {
 	req, err := srv.Receive()
 	if err != nil {
 		return nil, errors.Unexpected(err)
 	}
 	w, err := s.Framer.NewStreamWriter(ctx, writer.Config{
-		Keys: req.Config.Keys,
+		Start: req.Config.Start,
+		Keys:  req.Config.Keys,
 	})
 	if err != nil {
 		return nil, errors.Query(err)

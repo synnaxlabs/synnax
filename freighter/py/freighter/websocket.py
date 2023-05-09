@@ -7,9 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Generic, Type, Any
-
 from pydantic import BaseModel
+from typing import Generic, Type, Any
 from websockets.client import connect, WebSocketClientProtocol
 from websockets.exceptions import ConnectionClosedOK
 
@@ -168,7 +167,7 @@ class WebsocketClient(AsyncMiddlewareCollector):
 
         async def finalizer(ctx: Context) -> tuple[Context, Exception | None]:
             nonlocal socket
-            out_meta_data = Context(target, "websocket")
+            out_ctx = Context(target, "websocket", "client")
             headers.update(ctx.params)
             try:
                 ws = await connect(
@@ -180,10 +179,10 @@ class WebsocketClient(AsyncMiddlewareCollector):
 
                 socket = WebsocketStream[RQ, RS](self._encoder, ws, res_t)
             except Exception as e:
-                return out_meta_data, e
-            return out_meta_data, None
+                return out_ctx, e
+            return out_ctx, None
 
-        _, exc = await self.exec(Context(target, "websocket"), finalizer)
+        _, exc = await self.exec(Context(target, "websocket", "client"), finalizer)
         if exc is not None:
             raise exc
 

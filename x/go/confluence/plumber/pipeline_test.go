@@ -186,7 +186,7 @@ var _ = Describe("Pipeline", func() {
 			SetSink[int](pipe, "odd", oddSink)
 
 			sw := &confluence.Switch[int]{}
-			sw.ApplySwitch = func(ctx context.Context, v int) (address.Address, bool, error) {
+			sw.Switch = func(ctx context.Context, v int) (address.Address, bool, error) {
 				if v%2 == 0 {
 					return "even", true, nil
 				}
