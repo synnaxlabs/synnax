@@ -37,8 +37,8 @@ func NewFrame(keys []core.ChannelKey, arrays []telem.Array) Frame { return core.
 
 type DB struct {
 	*options
-	mu    sync.RWMutex
 	relay *relay
+	mu    sync.RWMutex
 	dbs   map[uint32]unary.DB
 }
 

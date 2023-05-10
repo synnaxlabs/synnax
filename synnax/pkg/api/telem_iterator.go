@@ -42,10 +42,10 @@ func (s *TelemService) Iterate(ctx context.Context, stream FrameIteratorStream) 
 	receiver := &freightfluence.Receiver[iterator.Request]{Receiver: stream}
 	sender := &freightfluence.TransformSender[iterator.Response, iterator.Response]{
 		Sender: freighter.SenderNopCloser[iterator.Response]{StreamSender: stream},
-	}
-	sender.Transform = func(ctx context.Context, res iterator.Response) (iterator.Response, bool, error) {
-		res.Error = ferrors.Encode(res.Error)
-		return res, true, nil
+		Transform: func(ctx context.Context, res iterator.Response) (iterator.Response, bool, error) {
+			res.Error = ferrors.Encode(res.Error)
+			return res, true, nil
+		},
 	}
 	pipe := plumber.New()
 	plumber.SetSegment(pipe, "iterator", iter)

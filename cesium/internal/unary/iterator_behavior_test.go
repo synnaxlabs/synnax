@@ -24,23 +24,25 @@ var _ = Describe("Iterator Behavior", func() {
 		var (
 			db      *unary.DB
 			indexDB *unary.DB
+			index   uint32 = 1
+			data    uint32 = 2
 		)
 		BeforeEach(func() {
 			indexDB = MustSucceed(unary.Open(unary.Config{
 				FS: fs.NewMem(),
 				Channel: core.Channel{
-					Key:      "index",
+					Key:      index,
 					DataType: telem.TimeStampT,
 					IsIndex:  true,
-					Index:    "index",
+					Index:    index,
 				},
 			}))
 			db = MustSucceed(unary.Open(unary.Config{
 				FS: fs.NewMem(),
 				Channel: core.Channel{
-					Key:      "data",
+					Key:      data,
 					DataType: telem.Int64T,
-					Index:    "index",
+					Index:    index,
 				},
 			}))
 			db.SetIndex(indexDB.Index())

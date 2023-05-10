@@ -55,6 +55,7 @@ func (w Writer) Create(
 ) (r Range, err error) {
 	r.Key = uuid.New()
 	r.Name = name
+	r.TimeRange = tr
 	if err = gorp.NewCreate[uuid.UUID, Range]().Entry(&r).Exec(ctx, w.tx); err != nil {
 		return
 	}

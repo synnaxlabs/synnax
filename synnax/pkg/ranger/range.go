@@ -19,6 +19,7 @@ type Range struct {
 	Key       uuid.UUID
 	Name      string
 	TimeRange telem.TimeRange
+	Open      bool
 }
 
 var _ gorp.Entry[uuid.UUID] = Range{}

@@ -17,15 +17,15 @@ import (
 	"io"
 )
 
-type Ranger struct {
+type Domain struct {
 	alamos.Instrumentation
 	DB *domain.DB
 }
 
-var _ Index = (*Ranger)(nil)
+var _ Index = (*Domain)(nil)
 
 // Distance implements Index.
-func (i *Ranger) Distance(ctx context.Context, tr telem.TimeRange, continuous bool) (approx DistanceApproximation, err error) {
+func (i *Domain) Distance(ctx context.Context, tr telem.TimeRange, continuous bool) (approx DistanceApproximation, err error) {
 	var startApprox, endApprox DistanceApproximation
 	ctx, span := i.T.Bench(ctx, "distance")
 	defer func() { _ = span.EndWith(err, ErrDiscontinuous) }()
@@ -99,7 +99,7 @@ func (i *Ranger) Distance(ctx context.Context, tr telem.TimeRange, continuous bo
 }
 
 // Stamp implements Index.
-func (i *Ranger) Stamp(
+func (i *Domain) Stamp(
 	ctx context.Context,
 	ref telem.TimeStamp,
 	offset int64,
@@ -167,7 +167,7 @@ func (i *Ranger) Stamp(
 	return Between(lowerTs, upperTs), nil
 }
 
-func (i *Ranger) search(ts telem.TimeStamp, r *domain.Reader) (DistanceApproximation, error) {
+func (i *Domain) search(ts telem.TimeStamp, r *domain.Reader) (DistanceApproximation, error) {
 	var (
 		start int64 = 0
 		end         = (r.Len() / 8) - 1

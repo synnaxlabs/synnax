@@ -54,7 +54,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfg WriterConfig) (*streamWri
 				if err != nil {
 					return nil, err
 				}
-				idx = &index.Ranger{DB: idxU.Ranger, Instrumentation: db.Instrumentation}
+				idx = &index.Domain{DB: idxU.Ranger, Instrumentation: db.Instrumentation}
 				idxChannel = idxU.Channel
 			} else {
 				idx = index.Rate{Rate: u.Channel.Rate}
