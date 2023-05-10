@@ -61,20 +61,21 @@ type WriterResponse struct {
 // the same semantics. The streaming interface is exposed as a confluence segment that
 // can accept one input stream and one output stream.
 //
-// To write a record, issue a WriterRequest to the StreamWriter's inlet. If the write fails,
-// the StreamWriter will send a WriterResponse with a negative WriterResponse.Ack
+// To write a record, issue a WriterRequest to the StreamWriter's inlet. If the write
+// fails, the StreamWriter will send a WriterResponse with a negative WriterResponse.Ack
 // frame. All future writes will fail until the error is resolved. To resolve the error,
-// issue a WriterRequest with a WriterError command to the StreamWriter's inlet. The StreamWriter
-// will increment WriterResponse.SeqNum and send a WriterResponse with the error. The error will
-// be considered resolved, and the StreamWriter will resume normal operation.
+// issue a WriterRequest with a WriterError command to the StreamWriter's inlet. The
+// StreamWriter will increment WriterResponse.SeqNum and send a WriterResponse with the
+// error. The error will be considered resolved, and the StreamWriter will resume normal
+// operation.
 //
 // StreamWriter is atomic, meaning the caller must issue a set with a WriterCommit
-// command to commit the write. If the commit fails, the StreamWriter will send a WriterResponse
-// with a negative WriterResponse.Ack frame. All future writes will fail until the error is
-// resolved. To resolve the error, see the above paragraph.
+// command to commit the write. If the commit fails, the StreamWriter will send a
+// WriterResponse with a negative WriterResponse.Ack frame. All future writes will fail
+// until the error is resolved. To resolve the error, see the above paragraph.
 //
-// To close the StreamWriter, simply close the inlet. The StreamWriter will ensure that all
-// in-progress requests have been served before closing the outlet. Closing the Writer
+// To close the StreamWriter, simply close the inlet. The StreamWriter will ensure that
+// all in-progress requests have been served before closing the outlet. Closing the Writer
 // will NOT commit any pending writes. Once the StreamWriter has released all resources,
 // the output stream will be closed and the StreamWriter will return any accumulated error
 // through the signal context provided to Flow.
@@ -196,7 +197,7 @@ func (w *streamWriter) commit(ctx context.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	// because the range is exclusive, we need to add 1 to the end
+	// because the range is exclusive, we need to add 1 nanosecond to the end
 	end.Lower++
 	c := errutil.NewCatch(errutil.WithAggregation())
 	for _, chW := range w.internal {

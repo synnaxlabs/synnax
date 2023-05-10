@@ -18,13 +18,13 @@ import (
 )
 
 var _ = Describe("Accuracy", Ordered, func() {
-	var db cesium.DB
+	var db *cesium.DB
 	BeforeAll(func() { db = openMemDB() })
 	AfterAll(func() { Expect(db.Close()).To(Succeed()) })
 	Context("Single Channel", func() {
 
 		Context("Rate Based", Ordered, func() {
-			key := "rateTest"
+			var key cesium.ChannelKey = 1
 			first := []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
 			second := []int64{13, 14, 15, 16, 17, 18, 19, 20, 21, 22}
 			BeforeAll(func() {
@@ -72,13 +72,15 @@ var _ = Describe("Accuracy", Ordered, func() {
 		})
 
 		Context("Indexed", Ordered, func() {
-			key := "idx1Test"
-			idxKey := "idx1TestIdx"
-			first := []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
-			second := []int64{13, 14, 15, 16, 17, 18, 19, 20, 21, 22}
-			// Converted to seconds on write
-			firstTS := []telem.TimeStamp{2, 4, 6, 8, 10, 12, 13, 17, 18, 20}
-			secondTS := []telem.TimeStamp{22, 24, 29, 32, 33, 34, 35, 36, 38, 40}
+			var (
+				key    cesium.ChannelKey = 2
+				idxKey cesium.ChannelKey = 3
+				first                    = []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+				second                   = []int64{13, 14, 15, 16, 17, 18, 19, 20, 21, 22}
+				// Converted to seconds on write
+				firstTS  = []telem.TimeStamp{2, 4, 6, 8, 10, 12, 13, 17, 18, 20}
+				secondTS = []telem.TimeStamp{22, 24, 29, 32, 33, 34, 35, 36, 38, 40}
+			)
 			BeforeAll(func() {
 				Expect(db.CreateChannel(
 					ctx,
@@ -151,10 +153,12 @@ var _ = Describe("Accuracy", Ordered, func() {
 	Context("Multi Channel", func() {
 		Context("Rate Based", func() {
 			Context("Shared Rate", Ordered, func() {
-				key1 := "multiChRateShared1"
-				key2 := "multiChRateShared2"
-				data1 := []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
-				data2 := []int64{11, 12, 13, 14, 15, 16, 17, 18, 19, 20}
+				var (
+					key1  cesium.ChannelKey = 4
+					key2  cesium.ChannelKey = 5
+					data1                   = []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+					data2                   = []int64{11, 12, 13, 14, 15, 16, 17, 18, 19, 20}
+				)
 				BeforeAll(func() {
 					Expect(db.CreateChannel(
 						ctx,
@@ -217,12 +221,12 @@ var _ = Describe("Accuracy", Ordered, func() {
 		Context("Indexed", func() {
 			Context("Different Indexes", Ordered, func() {
 				var (
-					idxKey1 = "multiChIdxDiffIdx1"
-					idxKey2 = "multiChIdxDiffIdx2"
-					key1    = "multiChIdxDiff1"
-					key2    = "multiChIdxDiff2"
-					data1   = []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
-					data2   = []int64{11, 12, 13, 14, 15, 16, 17, 18, 19, 20}
+					idxKey1 cesium.ChannelKey = 6
+					idxKey2 cesium.ChannelKey = 7
+					key1    cesium.ChannelKey = 8
+					key2    cesium.ChannelKey = 9
+					data1                     = []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+					data2                     = []int64{11, 12, 13, 14, 15, 16, 17, 18, 19, 20}
 					// converted to seconds on write
 					idxData1 = []telem.TimeStamp{1, 3, 5, 7, 9, 11, 18, 22, 31, 35}
 					idxData2 = []telem.TimeStamp{1, 2, 6, 7, 12, 14, 17, 21, 27, 33}

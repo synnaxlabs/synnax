@@ -19,26 +19,30 @@ import (
 )
 
 var _ = Describe("TypedWriter Behavior", Ordered, func() {
-	var db cesium.DB
+	var db *cesium.DB
 	BeforeAll(func() { db = openMemDB() })
 	AfterAll(func() { Expect(db.Close()).To(Succeed()) })
 	Describe("Happy Path", func() {
 		Context("Indexed", func() {
 			Specify("Basic set", func() {
+				var (
+					basic1      cesium.ChannelKey = 1
+					basic1Index cesium.ChannelKey = 2
+				)
 				By("Creating a channel")
 				Expect(db.CreateChannel(
 					ctx,
-					cesium.Channel{Key: "basic1Index", IsIndex: true, DataType: telem.TimeStampT},
-					cesium.Channel{Key: "basic1", Index: "basic1Index", DataType: telem.Int64T},
+					cesium.Channel{Key: basic1Index, IsIndex: true, DataType: telem.TimeStampT},
+					cesium.Channel{Key: basic1, Index: basic1Index, DataType: telem.Int64T},
 				)).To(Succeed())
 				w := MustSucceed(db.NewWriter(ctx, cesium.WriterConfig{
-					Channels: []string{"basic1", "basic1Index"},
+					Channels: []cesium.ChannelKey{basic1, basic1Index},
 					Start:    10 * telem.SecondTS,
 				}))
 
 				By("Writing data to the channel")
 				Expect(w.Write(cesium.NewFrame(
-					[]string{"basic1Index", "basic1"},
+					[]cesium.ChannelKey{basic1Index, basic1},
 					[]telem.Array{
 						telem.NewSecondsTSV(10, 11, 12, 13),
 						telem.NewArrayV[int64](1, 2, 3, 4),
@@ -48,54 +52,68 @@ var _ = Describe("TypedWriter Behavior", Ordered, func() {
 				Expect(w.Close()).To(Succeed())
 
 				By("Reading the data back")
-				frame := MustSucceed(db.Read(ctx, telem.TimeRangeMax, "basic1"))
+				frame := MustSucceed(db.Read(ctx, telem.TimeRangeMax, basic1))
 				Expect(frame.Arrays[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(13*telem.SecondTS + 1)))
-				tsFrame := MustSucceed(db.Read(ctx, telem.TimeRangeMax, "basic1Index"))
+				tsFrame := MustSucceed(db.Read(ctx, telem.TimeRangeMax, basic1Index))
 				Expect(tsFrame.Arrays[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(13*telem.SecondTS + 1)))
 			})
 		})
 	})
 	Describe("Open Errors", func() {
 		Specify("Channels with different indexes", func() {
+			var (
+				diffIndex1 cesium.ChannelKey = 3
+				diffIndex2 cesium.ChannelKey = 4
+				diffIndex3 cesium.ChannelKey = 5
+				diffIndex4 cesium.ChannelKey = 6
+			)
 			Expect(db.CreateChannel(
 				ctx,
-				cesium.Channel{Key: "diffIndex1", IsIndex: true, DataType: telem.TimeStampT},
-				cesium.Channel{Key: "diffIndex2", IsIndex: true, DataType: telem.TimeStampT},
-				cesium.Channel{Key: "diffIndex3", Index: "diffIndex1", DataType: telem.Int64T},
-				cesium.Channel{Key: "diffIndex4", Index: "diffIndex2", DataType: telem.Int64T},
+				cesium.Channel{Key: diffIndex1, IsIndex: true, DataType: telem.TimeStampT},
+				cesium.Channel{Key: diffIndex2, IsIndex: true, DataType: telem.TimeStampT},
+				cesium.Channel{Key: diffIndex3, Index: diffIndex1, DataType: telem.Int64T},
+				cesium.Channel{Key: diffIndex4, Index: diffIndex2, DataType: telem.Int64T},
 			)).To(Succeed())
 			_, err := db.NewWriter(ctx, cesium.WriterConfig{
-				Channels: []string{"diffIndex3", "diffIndex4"},
+				Channels: []cesium.ChannelKey{diffIndex3, diffIndex4},
 				Start:    10 * telem.SecondTS,
 			})
 			Expect(err).To(MatchError(validate.Error))
 			Expect(err.Error()).To(ContainSubstring("channels must have the same index"))
 		})
 		Specify("Channels with different data rates", func() {
+			var (
+				diffRate2 cesium.ChannelKey = 7
+				diffRate3 cesium.ChannelKey = 8
+			)
 			Expect(db.CreateChannel(
 				ctx,
-				cesium.Channel{Key: "diffRate2", DataType: telem.Int64T, Rate: 1},
-				cesium.Channel{Key: "diffRate3", DataType: telem.Int64T, Rate: 2},
+				cesium.Channel{Key: diffRate2, DataType: telem.Int64T, Rate: 1},
+				cesium.Channel{Key: diffRate3, DataType: telem.Int64T, Rate: 2},
 			)).To(Succeed())
 			_, err := db.NewWriter(
 				ctx,
 				cesium.WriterConfig{
-					Channels: []string{"diffRate2", "diffRate3"},
+					Channels: []cesium.ChannelKey{diffRate2, diffRate3},
 					Start:    10 * telem.SecondTS,
 				})
 			Expect(err).To(MatchError(validate.Error))
 			Expect(err.Error()).To(ContainSubstring("channels must have the same rate"))
 		})
 		Specify("Channel with index and channel with rate", func() {
+			var (
+				indexRate1 cesium.ChannelKey = 9
+				indexRate2 cesium.ChannelKey = 10
+			)
 			Expect(db.CreateChannel(
 				ctx,
-				cesium.Channel{Key: "indexRate1", IsIndex: true, DataType: telem.TimeStampT},
-				cesium.Channel{Key: "indexRate2", DataType: telem.Int64T, Rate: 1},
+				cesium.Channel{Key: indexRate1, IsIndex: true, DataType: telem.TimeStampT},
+				cesium.Channel{Key: indexRate2, DataType: telem.Int64T, Rate: 1},
 			)).To(Succeed())
 			_, err := db.NewWriter(
 				ctx,
 				cesium.WriterConfig{
-					Channels: []string{"indexRate1", "indexRate2"},
+					Channels: []cesium.ChannelKey{indexRate1, indexRate2},
 					Start:    10 * telem.SecondTS,
 				})
 			Expect(err).To(MatchError(validate.Error))
@@ -105,30 +123,34 @@ var _ = Describe("TypedWriter Behavior", Ordered, func() {
 			_, err := db.NewWriter(
 				ctx,
 				cesium.WriterConfig{
-					Channels: []string{"doesNotExist"},
+					Channels: []cesium.ChannelKey{55000},
 					Start:    10 * telem.SecondTS,
 				})
 			Expect(err).To(MatchError(cesium.ChannelNotFound))
 		})
 	})
 	Describe("Frame Errors", Ordered, func() {
+		var (
+			frameErr1 cesium.ChannelKey = 11
+			frameErr2 cesium.ChannelKey = 12
+		)
 		BeforeAll(func() {
 			Expect(db.CreateChannel(
 				ctx,
-				cesium.Channel{Key: "frameErr1", DataType: telem.Int64T, Rate: 1 * telem.Hz},
-				cesium.Channel{Key: "frameErr2", DataType: telem.Int64T, Rate: 1 * telem.Hz},
+				cesium.Channel{Key: frameErr1, DataType: telem.Int64T, Rate: 1 * telem.Hz},
+				cesium.Channel{Key: frameErr2, DataType: telem.Int64T, Rate: 1 * telem.Hz},
 			))
 		})
 		Specify("Uneven Frame", func() {
 			w := MustSucceed(
 				db.NewWriter(ctx,
 					cesium.WriterConfig{
-						Channels: []string{"frameErr1", "frameErr2"},
+						Channels: []cesium.ChannelKey{frameErr1, frameErr2},
 						Start:    10 * telem.SecondTS,
 					}),
 			)
 			Expect(w.Write(cesium.NewFrame(
-				[]string{"frameErr1", "frameErr2"},
+				[]cesium.ChannelKey{frameErr1, frameErr2},
 				[]telem.Array{
 					telem.NewArrayV[int64](1, 2, 3, 4),
 					telem.NewArrayV[int64](1, 2, 3),
@@ -143,11 +165,11 @@ var _ = Describe("TypedWriter Behavior", Ordered, func() {
 			w := MustSucceed(db.NewWriter(
 				ctx,
 				cesium.WriterConfig{
-					Channels: []string{"frameErr1", "frameErr2"},
+					Channels: []cesium.ChannelKey{frameErr1, frameErr2},
 					Start:    10 * telem.SecondTS,
 				}))
 			Expect(w.Write(cesium.NewFrame(
-				[]string{"frameErr1"},
+				[]cesium.ChannelKey{frameErr1},
 				[]telem.Array{
 					telem.NewArrayV[int64](1, 2, 3, 4),
 				},
@@ -161,11 +183,11 @@ var _ = Describe("TypedWriter Behavior", Ordered, func() {
 			w := MustSucceed(db.NewWriter(
 				ctx,
 				cesium.WriterConfig{
-					Channels: []string{"frameErr1", "frameErr2"},
+					Channels: []cesium.ChannelKey{frameErr1, frameErr2},
 					Start:    10 * telem.SecondTS,
 				}))
 			Expect(w.Write(cesium.NewFrame(
-				[]string{"frameErr1", "frameErr1"},
+				[]cesium.ChannelKey{frameErr1, frameErr1},
 				[]telem.Array{
 					telem.NewArrayV[int64](1, 2, 3, 4),
 					telem.NewArrayV[int64](1, 2, 3, 4),
@@ -180,11 +202,11 @@ var _ = Describe("TypedWriter Behavior", Ordered, func() {
 			w := MustSucceed(db.NewWriter(
 				ctx,
 				cesium.WriterConfig{
-					Channels: []string{"frameErr1", "frameErr2"},
+					Channels: []cesium.ChannelKey{frameErr1, frameErr2},
 					Start:    10 * telem.SecondTS,
 				}))
 			Expect(w.Write(cesium.NewFrame(
-				[]string{"frameErr1", "frameErr3"},
+				[]cesium.ChannelKey{frameErr1, 223},
 				[]telem.Array{
 					telem.NewArrayV[int64](1, 2, 3, 4),
 					telem.NewArrayV[int64](1, 2, 3, 4),
@@ -193,28 +215,34 @@ var _ = Describe("TypedWriter Behavior", Ordered, func() {
 			Expect(w.Commit()).To(BeFalse())
 			err := w.Close()
 			Expect(err).To(MatchError(validate.Error))
-			Expect(err.Error()).To(ContainSubstring("frameErr3"))
+			Expect(err.Error()).To(ContainSubstring("223"))
 			Expect(err.Error()).To(ContainSubstring("not specified"))
 		})
 	})
 	Describe("Index Errors", func() {
 		Context("Discontinuous Index", func() {
+			var (
+				disc1      cesium.ChannelKey = 14
+				disc1Index cesium.ChannelKey = 15
+				disc2      cesium.ChannelKey = 16
+				disc2Index cesium.ChannelKey = 17
+			)
 			Specify("Last sample is not the index", func() {
 				Expect(db.CreateChannel(
 					ctx,
-					cesium.Channel{Key: "disc1Index", IsIndex: true, DataType: telem.TimeStampT},
-					cesium.Channel{Key: "disc1", Index: "disc1Index", DataType: telem.Int64T},
+					cesium.Channel{Key: disc1Index, IsIndex: true, DataType: telem.TimeStampT},
+					cesium.Channel{Key: disc1, Index: disc1Index, DataType: telem.Int64T},
 				)).To(Succeed())
 				w := MustSucceed(db.NewWriter(
 					ctx,
 					cesium.WriterConfig{
-						Channels: []string{"disc1Index"},
+						Channels: []cesium.ChannelKey{disc1Index},
 						Start:    10 * telem.SecondTS,
 					}))
 
 				By("Writing data to the index correctly")
 				Expect(w.Write(cesium.NewFrame(
-					[]string{"disc1Index"},
+					[]cesium.ChannelKey{disc1Index},
 					[]telem.Array{
 						telem.NewSecondsTSV(10, 11, 12, 13),
 					}),
@@ -226,11 +254,11 @@ var _ = Describe("TypedWriter Behavior", Ordered, func() {
 				w = MustSucceed(db.NewWriter(
 					ctx,
 					cesium.WriterConfig{
-						Channels: []string{"disc1"},
+						Channels: []cesium.ChannelKey{disc1},
 						Start:    10 * telem.SecondTS,
 					}))
 				Expect(w.Write(cesium.NewFrame(
-					[]string{"disc1"},
+					[]cesium.ChannelKey{disc1},
 					[]telem.Array{
 						telem.NewArrayV[int64](1, 2, 3, 4, 5),
 					},
@@ -242,17 +270,17 @@ var _ = Describe("TypedWriter Behavior", Ordered, func() {
 			Specify("Index not defined at all", func() {
 				Expect(db.CreateChannel(
 					ctx,
-					cesium.Channel{Key: "disc2Index", IsIndex: true, DataType: telem.TimeStampT},
-					cesium.Channel{Key: "disc2", Index: "disc2Index", DataType: telem.Int64T},
+					cesium.Channel{Key: disc2Index, IsIndex: true, DataType: telem.TimeStampT},
+					cesium.Channel{Key: disc2, Index: disc2Index, DataType: telem.Int64T},
 				)).To(Succeed())
 				w := MustSucceed(db.NewWriter(
 					ctx,
 					cesium.WriterConfig{
-						Channels: []string{"disc2"},
+						Channels: []cesium.ChannelKey{disc2},
 						Start:    10 * telem.SecondTS,
 					}))
 				Expect(w.Write(cesium.NewFrame(
-					[]string{"disc2"},
+					[]cesium.ChannelKey{disc2},
 					[]telem.Array{
 						telem.NewArrayV[int64](1, 2, 3, 4, 5),
 					},
@@ -264,27 +292,28 @@ var _ = Describe("TypedWriter Behavior", Ordered, func() {
 	})
 	Describe("Data Variant Errors", func() {
 		Specify("Invalid Data Variant for Array", func() {
+			var dtErr cesium.ChannelKey = 18
 			Expect(db.CreateChannel(
 				ctx,
 				cesium.Channel{
-					Key:      "dtErr",
+					Key:      dtErr,
 					DataType: telem.Int64T,
 					Rate:     1,
 				})).To(Succeed())
 			w := MustSucceed(db.NewWriter(
 				ctx,
 				cesium.WriterConfig{
-					Channels: []string{"dtErr"},
+					Channels: []cesium.ChannelKey{dtErr},
 					Start:    10 * telem.SecondTS,
 				}))
 			w = MustSucceed(db.NewWriter(
 				ctx,
 				cesium.WriterConfig{
-					Channels: []string{"dtErr"},
+					Channels: []cesium.ChannelKey{dtErr},
 					Start:    15 * telem.SecondTS,
 				}))
 			Expect(w.Write(cesium.NewFrame(
-				[]string{"dtErr"},
+				[]cesium.ChannelKey{dtErr},
 				[]telem.Array{
 					telem.NewArrayV[float64](1, 2, 3, 4, 5),
 				},
@@ -295,21 +324,22 @@ var _ = Describe("TypedWriter Behavior", Ordered, func() {
 			Expect(err.Error()).To(ContainSubstring("expected int64, got float64"))
 		})
 		Specify("Invalid Data Variant for Index", func() {
+			var dtErrIndex cesium.ChannelKey = 19
 			Expect(db.CreateChannel(
 				ctx,
 				cesium.Channel{
-					Key:      "dtErrIndex",
+					Key:      dtErrIndex,
 					DataType: telem.TimeStampT,
 					IsIndex:  true,
 				})).To(Succeed())
 			w := MustSucceed(db.NewWriter(
 				ctx,
 				cesium.WriterConfig{
-					Channels: []string{"dtErrIndex"},
+					Channels: []cesium.ChannelKey{dtErrIndex},
 					Start:    10 * telem.SecondTS,
 				}))
 			Expect(w.Write(cesium.NewFrame(
-				[]string{"dtErrIndex"},
+				[]cesium.ChannelKey{dtErrIndex},
 				[]telem.Array{
 					telem.NewArrayV[int64](1, 2, 3, 4, 5),
 				},

@@ -39,7 +39,12 @@ func (r *relay) connect(buffer int) (confluence.Outlet[Frame], func()) {
 	frames := confluence.NewStream[Frame](buffer)
 	frames.SetInletAddress(address.Rand())
 	r.delta.Connect(frames)
-	return frames, func() { r.delta.Disconnect(frames) }
+	return frames, func() {
+		r.delta.Disconnect(frames)
+		// We need to make sure we drain any remaining frames before exiting to
+		// avoid blocking the relay.
+		confluence.Drain[Frame](frames)
+	}
 }
 
 func (r *relay) close() error { return r.shutdown.Close() }

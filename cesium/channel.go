@@ -77,15 +77,15 @@ func (db *DB) validateNewChannel(ch Channel) error {
 	v := validate.New("DB")
 	validate.Positive(v, "key", ch.Key)
 	validate.NotEmptyString(v, "data type", ch.DataType)
-	validate.MapDoesNotContainF(v, ch.Key, db.dbs, "channel %s already exists", ch.Key)
+	validate.MapDoesNotContainF(v, ch.Key, db.dbs, "channel %v already exists", ch.Key)
 	if ch.IsIndex {
 		v.Ternary(ch.DataType != telem.TimeStampT, "index channel must be of type timestamp")
 		v.Ternaryf(ch.Index != 0 && ch.Index != ch.Key, "index channel cannot be indexed by another channel")
 	} else if ch.Index != 0 {
-		validate.MapContainsf(v, ch.Index, db.dbs, "index %s does not exist", ch.Index)
+		validate.MapContainsf(v, ch.Index, db.dbs, "index %v does not exist", ch.Index)
 		v.Funcf(func() bool {
 			return !db.dbs[ch.Index].Channel.IsIndex
-		}, "channel %s is not an index", ch.Index)
+		}, "channel %v is not an index", ch.Index)
 	} else {
 		validate.Positive(v, "rate", ch.Rate)
 	}

@@ -21,7 +21,7 @@ import (
 )
 
 var _ = Describe("Channel", Ordered, func() {
-	var db cesium.DB
+	var db *cesium.DB
 	BeforeAll(func() { db = openMemDB() })
 	AfterAll(func() { Expect(db.Close()).To(Succeed()) })
 	Describe("Create", func() {
@@ -37,34 +37,34 @@ var _ = Describe("Channel", Ordered, func() {
 		},
 			Entry("ChannelKey has no datatype",
 				errors.Wrap(validate.Error, "[DB] - data type must be set"),
-				cesium.Channel{Key: "10", Rate: 10 * telem.Hz},
+				cesium.Channel{Key: 10, Rate: 10 * telem.Hz},
 			),
 			Entry("ChannelKey key already exists",
 				errors.Wrap(validate.Error, "[DB] - channel 11 already exists"),
-				cesium.Channel{Key: "11", DataType: telem.Float32T, Rate: 10 * telem.Hz},
-				cesium.Channel{Key: "11", Rate: 10 * telem.Hz, DataType: telem.Float64T},
+				cesium.Channel{Key: 11, DataType: telem.Float32T, Rate: 10 * telem.Hz},
+				cesium.Channel{Key: 11, Rate: 10 * telem.Hz, DataType: telem.Float64T},
 			),
 			Entry("ChannelKey IsIndex - Non Int64 Array Variant",
 				errors.Wrap(validate.Error, "[DB] - index channel must be of type timestamp"),
-				cesium.Channel{Key: "12", IsIndex: true, DataType: telem.Float32T},
+				cesium.Channel{Key: 12, IsIndex: true, DataType: telem.Float32T},
 			),
 			Entry("ChannelKey IsIndex - LocalIndex non-zero",
 				errors.Wrap(validate.Error, "[DB] - index channel cannot be indexed by another channel"),
-				cesium.Channel{Key: "45", IsIndex: true, DataType: telem.TimeStampT},
-				cesium.Channel{Key: "46", IsIndex: true, Index: "45", DataType: telem.TimeStampT},
+				cesium.Channel{Key: 45, IsIndex: true, DataType: telem.TimeStampT},
+				cesium.Channel{Key: 46, IsIndex: true, Index: 45, DataType: telem.TimeStampT},
 			),
 			Entry("ChannelKey has index - LocalIndex does not exist",
 				errors.Wrapf(validate.Error, "[DB] - index %s does not exist", "40000"),
-				cesium.Channel{Key: "47", Index: "40000", DataType: telem.Float64T},
+				cesium.Channel{Key: 47, Index: 40000, DataType: telem.Float64T},
 			),
 			Entry("ChannelKey has no index - fixed rate not provided",
 				errors.Wrap(validate.Error, "[DB] - rate must be positive"),
-				cesium.Channel{Key: "48", DataType: telem.Float32T},
+				cesium.Channel{Key: 48, DataType: telem.Float32T},
 			),
 			Entry("ChannelKey has index - provided index key is not an indexed channel",
 				errors.Wrap(validate.Error, "[DB] - channel 60 is not an index"),
-				cesium.Channel{Key: "60", DataType: telem.Float32T, Rate: 1 * telem.Hz},
-				cesium.Channel{Key: "61", Index: "60", DataType: telem.Float32T},
+				cesium.Channel{Key: 60, DataType: telem.Float32T, Rate: 1 * telem.Hz},
+				cesium.Channel{Key: 61, Index: 60, DataType: telem.Float32T},
 			),
 		)
 	})

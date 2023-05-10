@@ -21,14 +21,14 @@ import (
 // StreamIterator provides a streaming interface for iterating over a DB's segments
 // in time order. StreamIterator provides the underlying functionality for Iterator,
 // and has almost exactly the same semantics. The streaming interface is exposed
-// as a confluence Framer that can accept one input stream and one output stream.
+// as a confluence segment that can accept one input stream and one output stream.
 //
-// To read segments, issue an IteratorRequest to the StreamIterator's inlet. The
+// To read frames, issue an IteratorRequest to the StreamIterator's inlet. The
 // StreamIterator will respond by sending one or more IteratorResponse messages to
-// the outlet. All responses containing Framer data will have a type of
-// IteratorDataResponse and will contain one or more segments. The last response
+// the outlet. All responses containing frame data will have a type of
+// IteratorDataResponse and will contain one or more frames. The last response
 // for any request will have a type of IteratorAckResponse and will contain
-// the name of the command that was acknowledged, and incremented sequence number,
+// the name of the command that was acknowledged, an incremented sequence number,
 // and ack boolean indicating whether the command was successfully processed.
 //
 // To close the StreamIterator, simply close the inlet. The StreamIterator will ensure
