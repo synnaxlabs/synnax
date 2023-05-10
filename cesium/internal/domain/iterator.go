@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package ranger
+package domain
 
 import (
 	"context"
@@ -18,17 +18,17 @@ import (
 // IteratorConfig is the configuration for opening a new iterator.
 type IteratorConfig struct {
 	// Bounds represent the interval of time that the iterator will be able to access.
-	// Any ranges whose Bounds overlap with the iterator's Bounds will be accessible.
-	// A zero span range is valid, but is relatively useless.
+	// Any domains whose Bounds overlap with the iterator's Bounds will be accessible.
+	// A zero span domain is valid, but is relatively useless.
 	// [REQUIRED]
 	Bounds telem.TimeRange
 }
 
-// IterRange generates an IteratorConfig that iterates over the provided time range.
+// IterRange generates an IteratorConfig that iterates over the provided time domain.
 func IterRange(tr telem.TimeRange) IteratorConfig { return IteratorConfig{Bounds: tr} }
 
-// Iterator iterates over the telemetry ranges of a DB in time order. Iterator does
-// not read any of the underlying data of a range, but instead provides a means to access
+// Iterator iterates over the telemetry domains of a DB in time order. Iterator does
+// not read any of the underlying data of a domain, but instead provides a means to access
 // it via calls to Iterator.NewReader.
 //
 // Iterator is not safe for concurrent use, but it is safe to have multiple iterators over
@@ -52,7 +52,7 @@ type Iterator struct {
 	value pointer
 	// valid stores whether the iterator is currently valid.
 	valid bool
-	// readerFactory gets a new reader for the given range pointer.
+	// readerFactory gets a new reader for the given domain pointer.
 	readerFactory func(ctx context.Context, ptr pointer) (*Reader, error)
 }
 
@@ -63,33 +63,33 @@ func (i *Iterator) SetBounds(bounds telem.TimeRange) {
 	i.valid = false
 }
 
-// SeekFirst seeks to the first range in the iterator's bounds. If no such range exists,
+// SeekFirst seeks to the first domain in the iterator's bounds. If no such domain exists,
 // SeekFirst returns false.
 func (i *Iterator) SeekFirst(ctx context.Context) bool { return i.SeekGE(ctx, i.Bounds.Start) }
 
-// SeekLast seeks to the last range in the iterator's bounds. If no such range exists,
+// SeekLast seeks to the last domain in the iterator's bounds. If no such domain exists,
 // SeekLast returns false.
 func (i *Iterator) SeekLast(ctx context.Context) bool { return i.SeekLE(ctx, i.Bounds.End-1) }
 
-// SeekLE seeks to the range whose Range contain the provided timestamp. If no such range
-// exists, SeekLE seeks to the closes range whose ending timestamp is less than the provided
-// timestamp. If no such range exists, SeekLE returns false.
+// SeekLE seeks to the domain whose Range contain the provided timestamp. If no such domain
+// exists, SeekLE seeks to the closes domain whose ending timestamp is less than the provided
+// timestamp. If no such domain exists, SeekLE returns false.
 func (i *Iterator) SeekLE(ctx context.Context, stamp telem.TimeStamp) bool {
 	i.valid = true
 	i.position = i.idx.searchLE(ctx, stamp)
 	return i.reload()
 }
 
-// SeekGE seeks to the range whose Range contain the provided timestamp. If no such range
-// exists, SeekGE seeks to the closes range whose starting timestamp is greater than the
-// provided timestamp. If no such range exists, SeekGE returns false.
+// SeekGE seeks to the domain whose Range contain the provided timestamp. If no such domain
+// exists, SeekGE seeks to the closes domain whose starting timestamp is greater than the
+// provided timestamp. If no such domain exists, SeekGE returns false.
 func (i *Iterator) SeekGE(ctx context.Context, stamp telem.TimeStamp) bool {
 	i.valid = true
 	i.position = i.idx.searchGE(ctx, stamp)
 	return i.reload()
 }
 
-// Next advances the iterator to the next range. If the iterator has been exhausted, Next
+// Next advances the iterator to the next domain. If the iterator has been exhausted, Next
 // returns false.
 func (i *Iterator) Next() bool {
 	if !i.valid {
@@ -99,7 +99,7 @@ func (i *Iterator) Next() bool {
 	return i.reload()
 }
 
-// Prev advances the iterator to the previous range. If the iterator has been exhausted,
+// Prev advances the iterator to the previous domain. If the iterator has been exhausted,
 // Prev returns false.
 func (i *Iterator) Prev() bool {
 	if !i.valid {
@@ -109,21 +109,21 @@ func (i *Iterator) Prev() bool {
 	return i.reload()
 }
 
-// Valid returns true if the iterator is currently pointing to a valid range and has
+// Valid returns true if the iterator is currently pointing to a valid domain and has
 // not accumulated an error. Returns false otherwise.
 func (i *Iterator) Valid() bool { return i.valid }
 
-// Range returns the time interval occupied by current range.
+// Range returns the time interval occupied by current domain.
 func (i *Iterator) Range() telem.TimeRange { return i.value.TimeRange }
 
 // NewReader returns a new Reader that can be used to read telemetry from the current
-// range. The returned Reader is not safe for concurrent use, but it is safe to have
-// multiple Readers open over the same range.
+// domain. The returned Reader is not safe for concurrent use, but it is safe to have
+// multiple Readers open over the same domain.
 func (i *Iterator) NewReader(ctx context.Context) (*Reader, error) {
 	return i.readerFactory(ctx, i.value)
 }
 
-// Len returns the number of bytes occupied by the telemetry in the current range.
+// Len returns the number of bytes occupied by the telemetry in the current domain.
 func (i *Iterator) Len() int64 { return int64(i.value.length) }
 
 // Close closes the iterator.

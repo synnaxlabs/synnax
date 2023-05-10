@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package ranger
+package domain
 
 import (
 	"context"
@@ -21,29 +21,29 @@ import (
 
 // WriterConfig is the configuration for opening a writer.
 type WriterConfig struct {
-	// Start marks the starting bound of the range. This starting bound must not
-	// overlap with any existing ranges within the DB.
+	// Start marks the starting bound of the domain. This starting bound must not
+	// overlap with any existing domains within the DB.
 	// [REQUIRED]
 	Start telem.TimeStamp
-	// End is an optional parameter that marks the ending bound of the range. Defining this
-	// parameter will allow the writer to write data to the range without needing to
+	// End is an optional parameter that marks the ending bound of the domain. Defining this
+	// parameter will allow the writer to write data to the domain without needing to
 	// validate each call to Commit. If this parameter is not defined, Commit must
 	// be called with a strictly increasing timestamp.
 	// [OPTIONAL]
 	End telem.TimeStamp
 }
 
-// Range returns the Range occupied by the theoretical range formed by the configuration.
-// If End is not set, assumes the Range has a zero span starting at Start.
-func (w WriterConfig) Range() telem.TimeRange {
+// Domain returns the Domain occupied by the theoretical domain formed by the configuration.
+// If End is not set, assumes the Domain has a zero span starting at Start.
+func (w WriterConfig) Domain() telem.TimeRange {
 	if w.End.IsZero() {
 		return w.Start.SpanRange(0)
 	}
 	return telem.TimeRange{Start: w.Start, End: w.End}
 }
 
-// Write writes the given data to the DB new telemetry range occupying the provided time
-// range. If the time range overlaps with any other ranges in the DB, Write will return
+// Write writes the given data to the DB new telemetry domain occupying the provided time
+// domain. If the time domain overlaps with any other domains in the DB, Write will return
 // an error.
 func Write(ctx context.Context, db *DB, tr telem.TimeRange, data []byte) error {
 	w, err := db.NewWriter(ctx, WriterConfig{Start: tr.Start, End: tr.End})
@@ -59,16 +59,16 @@ func Write(ctx context.Context, db *DB, tr telem.TimeRange, data []byte) error {
 	return w.Close()
 }
 
-// Writer is used to write a telemetry range to the DB. A Writer is opened using DB.NewWriter
-// and a provided WriterConfig, which defines the starting bound of the range. If no
-// other range overlaps with the starting bound, the caller can write telemetry data the
+// Writer is used to write a telemetry domain to the DB. A Writer is opened using DB.NewWriter
+// and a provided WriterConfig, which defines the starting bound of the domain. If no
+// other domain overlaps with the starting bound, the caller can write telemetry data the
 // Writer using an io.TypedWriter interface.
 //
 // Once the caller is done writing telemetry data, they must call Commit and provide the
-// ending bound of the range. If the ending bound of the range overlaps with any other
-// ranges within the DB, Commit will return an error, and the range will not be committed.
-// If the caller explicitly knows the ending bound of the range, they can set the WriterConfig.End
-// parameter to pre-validate the ending bound of the range. If the WriterConfig.End parameter
+// ending bound of the domain. If the ending bound of the domain overlaps with any other
+// domains within the DB, Commit will return an error, and the domain will not be committed.
+// If the caller explicitly knows the ending bound of the domain, they can set the WriterConfig.End
+// parameter to pre-validate the ending bound of the domain. If the WriterConfig.End parameter
 // is set, Commit will ignore the provided timestamp and use the WriterConfig.End parameter
 // instead.
 //
@@ -83,21 +83,21 @@ type Writer struct {
 	internal   xio.OffsetWriteCloser
 }
 
-// Len returns the number of bytes written to the range.
+// Len returns the number of bytes written to the domain.
 func (w *Writer) Len() int64 { return w.internal.Len() }
 
-// Writer writes binary telemetry to the range. Write is not safe to call concurrently
+// Writer writes binary telemetry to the domain. Write is not safe to call concurrently
 // with any other Writer methods. The contents of p are safe to modify after Write
 // returns.
 func (w *Writer) Write(p []byte) (n int, err error) { return w.internal.Write(p) }
 
-// Commit commits the range to the DB, making it available for reading by other processes.
+// Commit commits the domain to the DB, making it available for reading by other processes.
 // If the WriterConfig.End parameter was set, Commit will ignore the provided timestamp
 // and use the WriterConfig.End parameter instead. If the WriterConfig.End parameter was
 // not set, Commit will validate that the provided timestamp is strictly greater than the
 // previous commit. If the provided timestamp is not strictly greater than the previous
-// commit, Commit will return an error. If the range formed by the WriterConfig.Start
-// and the provided timestamp overlaps with any other ranges within the DB, Commit will
+// commit, Commit will return an error. If the domain formed by the WriterConfig.Start
+// and the provided timestamp overlaps with any other domains within the DB, Commit will
 // return an error.
 func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp) error {
 	ctx, span := w.T.Prod(ctx, "commit")

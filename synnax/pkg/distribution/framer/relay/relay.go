@@ -77,7 +77,7 @@ func Open(configs ...Config) (*Relay, error) {
 	s.peerDemands = peerDemands
 
 	s.delta = confluence.NewDynamicDeltaMultiplier[Response]()
-	writes := confluence.NewStream[Response](10)
+	writes := confluence.NewStream[Response](1)
 	s.delta.InFrom(writes)
 	coord.OutTo(writes)
 	s.writes = writes
@@ -98,19 +98,25 @@ type ReaderConfig struct {
 }
 
 func (s *Relay) NewReader(_ context.Context, cfg ReaderConfig) (Reader, error) {
-	data := confluence.NewStream[Response](10)
-	s.delta.Connect(data)
 	r := &reader{
-		keys: cfg.Keys,
-		addr: address.Address(uuid.NewString()),
+		keys:     cfg.Keys,
+		addr:     address.Address(uuid.NewString()),
+		requests: s.peerDemands,
+		relay:    s,
 	}
-	data.SetInletAddress(r.addr)
-	r.Source = &r.responses
-	r.Sink = &r.requests
-	r.requests.OutTo(s.peerDemands)
-	r.responses.InFrom(data)
-	s.peerDemands.Inlet() <- demand{Key: r.addr, Value: Request{
-		Keys: cfg.Keys,
-	}}
+	s.peerDemands.Inlet() <- demand{
+		Key:   r.addr,
+		Value: Request{Keys: cfg.Keys},
+	}
 	return r, nil
+}
+
+func (s *Relay) connect(buf int) (confluence.Outlet[Response], func()) {
+	data := confluence.NewStream[Response](buf)
+	data.SetInletAddress(address.Rand())
+	s.delta.Connect(data)
+	return data, func() {
+		s.delta.Disconnect(data)
+		confluence.Drain[Response](data)
+	}
 }

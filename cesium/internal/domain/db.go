@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package ranger
+package domain
 
 import (
 	"context"
@@ -25,21 +25,21 @@ import (
 )
 
 var (
-	// ErrRangeOverlap is returned when a range overlaps with an existing range in the DB.
-	ErrRangeOverlap = errors.Wrap(validate.Error, "range overlaps with an existing range")
-	// RangeNotFound is returned when a requested range is not found in the DB.
-	RangeNotFound = errors.Wrap(query.NotFound, "range not found")
+	// ErrDomainOverlap is returned when a domain overlaps with an existing domain in the DB.
+	ErrDomainOverlap = errors.Wrap(validate.Error, "domain overlaps with an existing domain")
+	// RangeNotFound is returned when a requested domain is not found in the DB.
+	RangeNotFound = errors.Wrap(query.NotFound, "domain not found")
 )
 
-// DB provides a persistent, concurrent store for reading and writing ranges of telemetry
+// DB provides a persistent, concurrent store for reading and writing domains of telemetry
 // to and from an underlying file system.
 //
 // A DB provides two types for accessing data:
 //
 //   - Writer allows the caller to write a blob of telemetry occupying a particular time
-//     range.
+//     domain.
 //
-//   - Iterator allows the caller ot iterate over the telemetry ranges in a DB in time order,
+//   - Iterator allows the caller ot iterate over the telemetry domains in a DB in time order,
 //     and provides an io.Reader like interface for accessing the data.
 //
 // A DB is safe for concurrent use, and multiple writers and iterators can access the DB
@@ -86,7 +86,7 @@ var (
 
 // Validate implements config.Config.
 func (c Config) Validate() error {
-	v := validate.New("ranger")
+	v := validate.New("domain")
 	validate.Positive(v, "fileSize", c.FileSize)
 	validate.Positive(v, "maxDescriptors", c.MaxDescriptors)
 	validate.NotNil(v, "fs", c.FS)
@@ -146,8 +146,8 @@ func (db *DB) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) 
 	if err != nil {
 		return nil, err
 	}
-	if db.idx.overlap(cfg.Range()) {
-		return nil, ErrRangeOverlap
+	if db.idx.overlap(cfg.Domain()) {
+		return nil, ErrDomainOverlap
 	}
 	return &Writer{
 		WriterConfig:    cfg,

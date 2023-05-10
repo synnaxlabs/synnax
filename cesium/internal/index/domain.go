@@ -12,14 +12,14 @@ package index
 import (
 	"context"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/cesium/internal/ranger"
+	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/x/telem"
 	"io"
 )
 
 type Ranger struct {
 	alamos.Instrumentation
-	DB *ranger.DB
+	DB *domain.DB
 }
 
 var _ Index = (*Ranger)(nil)
@@ -30,7 +30,7 @@ func (i *Ranger) Distance(ctx context.Context, tr telem.TimeRange, continuous bo
 	ctx, span := i.T.Bench(ctx, "distance")
 	defer func() { _ = span.EndWith(err, ErrDiscontinuous) }()
 
-	iter := i.DB.NewIterator(ranger.IteratorConfig{Bounds: tr})
+	iter := i.DB.NewIterator(domain.IteratorConfig{Bounds: tr})
 
 	if !iter.SeekFirst(ctx) || (!iter.Range().ContainsRange(tr) && continuous) {
 		err = ErrDiscontinuous
@@ -108,7 +108,7 @@ func (i *Ranger) Stamp(
 	ctx, span := i.T.Bench(ctx, "stamp")
 	defer func() { _ = span.EndWith(err, ErrDiscontinuous) }()
 
-	iter := i.DB.NewIterator(ranger.IterRange(ref.SpanRange(telem.TimeSpanMax)))
+	iter := i.DB.NewIterator(domain.IterRange(ref.SpanRange(telem.TimeSpanMax)))
 
 	if !iter.SeekFirst(ctx) ||
 		!iter.Range().ContainsStamp(ref) ||
@@ -167,7 +167,7 @@ func (i *Ranger) Stamp(
 	return Between(lowerTs, upperTs), nil
 }
 
-func (i *Ranger) search(ts telem.TimeStamp, r *ranger.Reader) (DistanceApproximation, error) {
+func (i *Ranger) search(ts telem.TimeStamp, r *domain.Reader) (DistanceApproximation, error) {
 	var (
 		start int64 = 0
 		end         = (r.Len() / 8) - 1

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package ranger
+package domain
 
 import (
 	"context"
@@ -49,7 +49,7 @@ func (idx *index) insert(ctx context.Context, p pointer) error {
 			i, overlap := idx.unprotectedSearch(p.TimeRange)
 			if overlap {
 				idx.mu.RUnlock()
-				return span.EndWith(ErrRangeOverlap)
+				return span.EndWith(ErrDomainOverlap)
 			}
 			insertAt = i + 1
 		}
@@ -113,7 +113,7 @@ func (idx *index) updateAt(ctx context.Context, i int, p pointer) (err error) {
 		overlapsWithNext := i != len(ptrs)-1 && ptrs[i+1].OverlapsWith(p.TimeRange)
 		overlapsWithPrev := i != 0 && ptrs[i-1].OverlapsWith(p.TimeRange)
 		if overlapsWithPrev || overlapsWithNext {
-			err = ErrRangeOverlap
+			err = ErrDomainOverlap
 		} else {
 			idx.mu.pointers[i] = p
 		}

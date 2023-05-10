@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package ranger
+package domain
 
 import (
 	"github.com/synnaxlabs/x/telem"
 	"io"
 )
 
-// Reader is a readable range of telemetry within the DB implementing the io.ReaderAt
+// Reader is a readable domain of telemetry within the DB implementing the io.ReaderAt
 // and io.Closer interfaces.
 type Reader struct {
 	ptr pointer
@@ -22,8 +22,8 @@ type Reader struct {
 	io.Closer
 }
 
-// Len returns the number of bytes in the entire range.
+// Len returns the number of bytes in the entire domain.
 func (r *Reader) Len() int64 { return int64(r.ptr.length) }
 
-// Range returns the time interval occupied by the range.
-func (r *Reader) Range() telem.TimeRange { return r.ptr.TimeRange }
+// Domain returns the time interval occupied by the domain.
+func (r *Reader) Domain() telem.TimeRange { return r.ptr.TimeRange }

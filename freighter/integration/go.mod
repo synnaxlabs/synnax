@@ -1,6 +1,6 @@
 module github.com/synnaxlabs/freighter/integration
 
-go 1.19
+go 1.20
 
 replace (
 	github.com/synnaxlabs/freighter => ../go
