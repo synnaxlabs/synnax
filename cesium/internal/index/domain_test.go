@@ -19,14 +19,14 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Ranger", func() {
+var _ = Describe("Domain", func() {
 	var (
 		db  *domain.DB
 		idx index.Index
 	)
 	BeforeEach(func() {
 		db = MustSucceed(domain.Open(domain.Config{FS: fs.NewMem()}))
-		idx = &index.Ranger{DB: db}
+		idx = &index.Domain{DB: db}
 	})
 	AfterEach(func() { Expect(db.Close()).To(Succeed()) })
 	Describe("Distance", func() {

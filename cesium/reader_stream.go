@@ -57,7 +57,7 @@ type StreamReader = confluence.Segment[StreamReaderRequest, StreamReaderResponse
 // receiving frames, call StreamReader.Flow. The provided context is only used for
 // opening the reader, and cancelling it has no implications after NewStreamReader
 // returns.
-func (db *DB) NewStreamReader(_ context.Context, cfg StreamReaderConfig) (StreamReader, error) {
+func (db *DB) NewStreamReader(ctx context.Context, cfg StreamReaderConfig) (StreamReader, error) {
 	return &streamReader{
 		StreamReaderConfig: cfg,
 		relay:              db.relay,
@@ -78,12 +78,7 @@ func (r *streamReader) Flow(ctx signal.Context, opts ...confluence.Option) {
 	o.AttachClosables(r.Out)
 	frames, disconnect := r.relay.connect(1)
 	ctx.Go(func(ctx context.Context) error {
-		defer func() {
-			disconnect()
-			// We need to make sure we drain any remaining frames before exiting to
-			// avoid blocking the relay.
-			confluence.Drain(frames)
-		}()
+		defer disconnect()
 		for {
 			select {
 			case <-ctx.Done():

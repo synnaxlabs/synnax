@@ -140,13 +140,12 @@ var _ = Describe("WriterBehavior", func() {
 						Start: 10 * telem.SecondTS,
 					}))
 				}
-				for i, w := domain
-				writers{
-					go func (i int, w *domain.Writer){
-					defer wg.Done()
-					MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
-					errors[i] = w.Commit(ctx, 15*telem.SecondTS)
-				}(i, w)
+				for i, w := range writers {
+					go func(i int, w *domain.Writer) {
+						defer wg.Done()
+						MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
+						errors[i] = w.Commit(ctx, 15*telem.SecondTS)
+					}(i, w)
 				}
 				wg.Wait()
 
@@ -154,9 +153,8 @@ var _ = Describe("WriterBehavior", func() {
 					return err != nil
 				})
 				Expect(occurred).To(HaveLen(writerCount - 1))
-				for _, err := domain
-				occurred{
-					Expect(err).To(HaveOccurredAs(domain.ErrDomainOverlap)),
+				for _, err := range occurred {
+					Expect(err).To(HaveOccurredAs(domain.ErrDomainOverlap))
 				}
 			})
 		})

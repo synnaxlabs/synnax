@@ -76,7 +76,7 @@ func Open(configs ...Config) (*DB, error) {
 
 	db := &DB{Config: cfg, Ranger: rangerDB}
 	if cfg.Channel.IsIndex {
-		db._idx = &index.Ranger{DB: rangerDB, Instrumentation: cfg.Instrumentation}
+		db._idx = &index.Domain{DB: rangerDB, Instrumentation: cfg.Instrumentation}
 	} else if cfg.Channel.Index == 0 {
 		db._idx = index.Rate{Rate: cfg.Channel.Rate}
 	}

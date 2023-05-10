@@ -82,18 +82,18 @@ func (s *TelemService) Write(_ctx context.Context, stream FrameWriterStream) err
 
 	receiver := &freightfluence.TransformReceiver[framer.WriteRequest, FrameWriterRequest]{
 		Receiver: stream,
-	}
-	receiver.Transform = func(ctx context.Context, req FrameWriterRequest) (framer.WriteRequest, bool, error) {
-		return framer.WriteRequest{Command: req.Command, Frame: req.Frame}, true, nil
+		Transform: func(_ context.Context, req FrameWriterRequest) (framer.WriteRequest, bool, error) {
+			return framer.WriteRequest{Command: req.Command, Frame: req.Frame}, true, nil
+		},
 	}
 	sender := &freightfluence.TransformSender[framer.WriteResponse, framer.WriteResponse]{
 		Sender: freighter.SenderNopCloser[framer.WriteResponse]{StreamSender: stream},
-	}
-	sender.Transform = func(ctx context.Context, resp framer.WriteResponse) (framer.WriteResponse, bool, error) {
-		if resp.Error != nil {
-			resp.Error = ferrors.Encode(errors.Unexpected(resp.Error))
-		}
-		return resp, true, nil
+		Transform: func(ctx context.Context, resp framer.WriteResponse) (framer.WriteResponse, bool, error) {
+			if resp.Error != nil {
+				resp.Error = ferrors.Encode(errors.Unexpected(resp.Error))
+			}
+			return resp, true, nil
+		},
 	}
 
 	pipe := plumber.New()

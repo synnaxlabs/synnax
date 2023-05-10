@@ -26,7 +26,7 @@ type DB struct {
 
 func (db *DB) Index() index.Index {
 	if !db.Channel.IsIndex {
-		panic(fmt.Sprintf("[ranger.unary] - database %s does not support indexing", db.Channel.Key))
+		panic(fmt.Sprintf("[domain.unary] - database %v does not support indexing", db.Channel.Key))
 	}
 	return db.index()
 }
