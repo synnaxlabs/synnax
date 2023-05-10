@@ -28,8 +28,9 @@ var (
 )
 
 type (
-	Channel = core.Channel
-	Frame   = core.Frame
+	Channel    = core.Channel
+	ChannelKey = core.ChannelKey
+	Frame      = core.Frame
 )
 
 func NewFrame(keys []core.ChannelKey, arrays []telem.Array) Frame { return core.NewFrame(keys, arrays) }

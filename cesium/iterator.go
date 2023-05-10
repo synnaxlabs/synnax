@@ -45,7 +45,8 @@ func wrapStreamIterator(wrap *streamIterator) *Iterator {
 	}
 }
 
-// Next implements Iterator.
+// Next reads all data occupying the next span of time, returning true
+// if the iterator has not been exhausted and has not accumulated an error.
 func (i *Iterator) Next(span telem.TimeSpan) bool {
 	return i.exec(IteratorRequest{Command: IterNext, Span: span})
 }

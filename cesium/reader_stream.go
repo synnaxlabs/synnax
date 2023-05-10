@@ -16,52 +16,84 @@ import (
 	"github.com/synnaxlabs/x/signal"
 )
 
+// StreamReaderRequest can be used to update the channel set a StreamReader subscribes
+// to.
 type StreamReaderRequest struct {
+	// Channels sets the channels the StreamReader subscribes to.
 	Channels []core.ChannelKey
 }
 
+// StreamReaderConfig sets the configuration parameters used when opening the StreamReader.
 type StreamReaderConfig struct {
-	Channels        []core.ChannelKey
-	RelayBufferSize int
+	// Channels sets the channels the StreamReader subscribes to.
+	Channels []core.ChannelKey
 }
 
+// StreamReaderResponse contains a frame representing the arrays of all subscribed channels.
+// This Frame is guaranteed to only contain data for the channels that are currently
+// subscribed to.
 type StreamReaderResponse struct {
+	// Frame is the frame containing the channel data.
 	Frame Frame
 }
 
+// StreamReader allows the caller to tap into the DB's write pipeline using a confluence
+// Segment based interface. To use a StreamReader, call DB.NewStreamReader with a list
+// of channels whose arrays you'd like to receive. Then, call StreamReader.Flow to start
+// receiving frames.
+//
+// StreamReader must be used carefully, as it can clog the write pipeline if the caller
+// does not receive the incoming frames fast enough. It's recommended that you use a
+// buffered channel for the readers output.
+//
+// Issuing a new StreamReaderRequest updates the set of channels the stream reader
+// subscribes to.
+//
+// To stop receiving values, simply close the inlet of the reader. The reader will then
+// gracefully exit and close its output channel.
 type StreamReader = confluence.Segment[StreamReaderRequest, StreamReaderResponse]
 
-func (db *DB) NewStreamReader(ctx context.Context, cfg StreamReaderConfig) (StreamReader, error) {
-	frames, disconnect := db.relay.connect(cfg.RelayBufferSize)
+// NewStreamReader opens a new StreamReader using the given configuration. To start
+// receiving frames, call StreamReader.Flow. The provided context is only used for
+// opening the reader, and cancelling it has no implications after NewStreamReader
+// returns.
+func (db *DB) NewStreamReader(_ context.Context, cfg StreamReaderConfig) (StreamReader, error) {
 	return &streamReader{
 		StreamReaderConfig: cfg,
-		relay:              frames,
-		disconnect:         disconnect,
+		relay:              db.relay,
 	}, nil
 }
 
 type streamReader struct {
 	StreamReaderConfig
 	confluence.AbstractLinear[StreamReaderRequest, StreamReaderResponse]
-	relay      confluence.Outlet[Frame]
-	disconnect func()
+	relay *relay
 }
 
+var _ StreamReader = (*streamReader)(nil)
+
+// Flow implements confluence.Flow.
 func (r *streamReader) Flow(ctx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
 	o.AttachClosables(r.Out)
+	frames, disconnect := r.relay.connect(1)
 	ctx.Go(func(ctx context.Context) error {
-		defer r.disconnect()
+		defer func() {
+			disconnect()
+			// We need to make sure we drain any remaining frames before exiting to
+			// avoid blocking the relay.
+			confluence.Drain(frames)
+		}()
 		for {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
-			case req := <-r.In.Outlet():
-				r.Channels = req.Channels
-			case f, ok := <-r.relay.Outlet():
+			case req, ok := <-r.In.Outlet():
 				if !ok {
 					return nil
 				}
+				r.Channels = req.Channels
+			case f := <-frames.Outlet():
 				filtered := f.FilterKeys(r.Channels)
 				if len(filtered.Keys) != 0 {
 					r.Out.Inlet() <- StreamReaderResponse{Frame: filtered}
