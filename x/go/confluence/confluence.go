@@ -166,3 +166,9 @@ type NopFlow struct{}
 
 // Flow implements Flow.
 func (NopFlow) Flow(signal.Context, ...Option) {}
+
+// Drain drains the provided Outlet.
+func Drain[V Value](out Outlet[V]) {
+	for range out.Outlet() {
+	}
+}

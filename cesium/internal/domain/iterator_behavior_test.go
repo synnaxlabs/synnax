@@ -7,26 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package ranger_test
+package domain_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/cesium/internal/ranger"
+	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Iterator Behavior", func() {
-	var db *ranger.DB
+	var db *domain.DB
 	BeforeEach(func() {
-		db = MustSucceed(ranger.Open(ranger.Config{FS: fs.NewMem()}))
+		db = MustSucceed(domain.Open(domain.Config{FS: fs.NewMem()}))
 	})
 	AfterEach(func() { Expect(db.Close()).To(Succeed()) })
 	Describe("Valid", func() {
 		It("Should return false on an iterator with zero span bounds", func() {
-			r := db.NewIterator(ranger.IteratorConfig{
+			r := db.NewIterator(domain.IteratorConfig{
 				Bounds: (10 * telem.SecondTS).SpanRange(0),
 			})
 			Expect(r.Valid()).To(BeFalse())
@@ -34,8 +34,8 @@ var _ = Describe("Iterator Behavior", func() {
 	})
 	Describe("SeekFirst + SeekLast", func() {
 		BeforeEach(func() {
-			Expect(ranger.Write(ctx, db, (10 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
-			Expect(ranger.Write(ctx, db, (30 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
+			Expect(domain.Write(ctx, db, (10 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
+			Expect(domain.Write(ctx, db, (30 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
 		})
 		DescribeTable("SeekFirst",
 			func(
@@ -43,36 +43,36 @@ var _ = Describe("Iterator Behavior", func() {
 				expectedResult bool,
 				expectedFirst telem.TimeRange,
 			) {
-				r := db.NewIterator(ranger.IterRange(ts.SpanRange(telem.TimeSpanMax)))
+				r := db.NewIterator(domain.IterRange(ts.SpanRange(telem.TimeSpanMax)))
 				Expect(r.SeekFirst(ctx)).To(Equal(expectedResult))
 				if expectedResult {
 					Expect(r.Range()).To(Equal(expectedFirst))
 				}
 			},
-			Entry("Bound start equal to range start",
+			Entry("Bound start equal to domain start",
 				10*telem.SecondTS,
 				true,
 				(10*telem.SecondTS).SpanRange(10*telem.Second),
 			),
-			Entry("Bound end equal to range start",
+			Entry("Bound end equal to domain start",
 				20*telem.SecondTS,
 				true,
 				(30*telem.SecondTS).SpanRange(10*telem.Second),
 			),
 			Entry(`
-				Bound start strictly greater than range start and strictly less than
-				range end
+				Bound start strictly greater than domain start and strictly less than
+				domain end
 			`,
 				15*telem.SecondTS,
 				true,
 				(10*telem.SecondTS).SpanRange(10*telem.Second),
 			),
-			Entry("Bound start strictly less than start of first defined range",
+			Entry("Bound start strictly less than start of first defined domain",
 				5*telem.SecondTS,
 				true,
 				(10*telem.SecondTS).SpanRange(10*telem.Second),
 			),
-			Entry("Bound start strictly greater than end of last defined range",
+			Entry("Bound start strictly greater than end of last defined domain",
 				40*telem.SecondTS,
 				false,
 				telem.TimeRangeZero,
@@ -85,23 +85,23 @@ var _ = Describe("Iterator Behavior", func() {
 				expectedLast telem.TimeRange,
 			) {
 				tr := telem.TimeRange{Start: 0, End: ts}
-				r := db.NewIterator(ranger.IterRange(tr))
+				r := db.NewIterator(domain.IterRange(tr))
 				Expect(r.SeekLast(ctx)).To(Equal(expectedResult))
 				Expect(r.Range()).To(Equal(expectedLast))
 			},
-			Entry("Bound end equal to range end",
+			Entry("Bound end equal to domain end",
 				40*telem.SecondTS,
 				true,
 				(30*telem.SecondTS).SpanRange(10*telem.Second),
 			),
-			Entry("Bound end equal to range start",
+			Entry("Bound end equal to domain start",
 				30*telem.SecondTS,
 				true,
 				(10*telem.SecondTS).SpanRange(10*telem.Second),
 			),
 			Entry(`
-					Bound end strictly greater than range start and strictly less than
-					range end
+					Bound end strictly greater than domain start and strictly less than
+					domain end
 			`,
 				35*telem.SecondTS,
 				true,
@@ -112,14 +112,14 @@ var _ = Describe("Iterator Behavior", func() {
 
 	Describe("Exhaustion", func() {
 		BeforeEach(func() {
-			Expect(ranger.Write(ctx, db, (50 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
-			Expect(ranger.Write(ctx, db, (60 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
-			Expect(ranger.Write(ctx, db, (10 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
-			Expect(ranger.Write(ctx, db, (30 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
+			Expect(domain.Write(ctx, db, (50 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
+			Expect(domain.Write(ctx, db, (60 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
+			Expect(domain.Write(ctx, db, (10 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
+			Expect(domain.Write(ctx, db, (30 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
 		})
 		Context("Requests", func() {
 			It("Should return false when the iterator is exhausted", func() {
-				iter := db.NewIterator(ranger.IteratorConfig{
+				iter := db.NewIterator(domain.IteratorConfig{
 					Bounds: (15 * telem.SecondTS).SpanRange(45 * telem.Second),
 				})
 				Expect(iter.SeekFirst(ctx)).To(BeTrue())
@@ -133,7 +133,7 @@ var _ = Describe("Iterator Behavior", func() {
 		})
 		Context("Responses", func() {
 			It("Should return false when the iterator is exhausted", func() {
-				iter := db.NewIterator(ranger.IteratorConfig{
+				iter := db.NewIterator(domain.IteratorConfig{
 					Bounds: (15 * telem.SecondTS).SpanRange(45 * telem.Second),
 				})
 				Expect(iter.SeekLast(ctx)).To(BeTrue())

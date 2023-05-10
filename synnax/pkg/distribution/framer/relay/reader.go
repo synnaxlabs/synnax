@@ -19,33 +19,34 @@ import (
 )
 
 type reader struct {
-	addr      address.Address
-	requests  confluence.AbstractLinear[Request, demand]
-	responses confluence.AbstractLinear[Response, Response]
-	keys      channel.Keys
-	confluence.Source[Response]
-	confluence.Sink[Request]
+	confluence.AbstractLinear[Request, Response]
+	addr     address.Address
+	requests confluence.Inlet[demand]
+	keys     channel.Keys
+	relay    *Relay
 }
 
 func (r *reader) Flow(ctx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
-	o.AttachClosables(r.responses.Out)
+	o.AttachClosables(r.Out)
+	responses, disconnect := r.relay.connect(1)
 	ctx.Go(func(ctx context.Context) error {
+		defer disconnect()
 		for {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
-			case req, ok := <-r.requests.In.Outlet():
+			case req, ok := <-r.In.Outlet():
 				if !ok {
-					r.requests.Out.Inlet() <- demand{Variant: change.Delete, Key: r.addr}
+					r.requests.Inlet() <- demand{Variant: change.Delete, Key: r.addr}
 					return nil
 				}
 				r.keys = req.Keys
-				r.requests.Out.Inlet() <- demand{Variant: change.Set, Key: r.addr, Value: req}
-			case f := <-r.responses.In.Outlet():
+				r.requests.Inlet() <- demand{Variant: change.Set, Key: r.addr, Value: req}
+			case f := <-responses.Outlet():
 				filtered := f.Frame.FilterKeys(r.keys)
 				if len(filtered.Keys) != 0 {
-					r.responses.Out.Inlet() <- Response{
+					r.Out.Inlet() <- Response{
 						Error: f.Error,
 						Frame: f.Frame.FilterKeys(r.keys),
 					}

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package ranger
+package domain
 
 import (
 	"context"
@@ -20,7 +20,7 @@ import (
 	"sync/atomic"
 )
 
-const extension = ".ranger"
+const extension = ".domain"
 
 func fileName(name string) string {
 	return name + extension

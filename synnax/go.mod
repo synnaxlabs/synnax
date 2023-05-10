@@ -1,6 +1,6 @@
 module github.com/synnaxlabs/synnax
 
-go 1.19
+go 1.20
 
 require (
 	github.com/cockroachdb/cmux v0.0.0-20170110192607-30d10be49292

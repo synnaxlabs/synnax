@@ -12,8 +12,8 @@ package unary
 import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
-	"github.com/synnaxlabs/cesium/internal/ranger"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -72,7 +72,7 @@ func Open(configs ...Config) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	rangerDB, err := ranger.Open(ranger.Config{FS: cfg.FS, Instrumentation: cfg.Instrumentation})
+	rangerDB, err := domain.Open(domain.Config{FS: cfg.FS, Instrumentation: cfg.Instrumentation})
 
 	db := &DB{Config: cfg, Ranger: rangerDB}
 	if cfg.Channel.IsIndex {

@@ -13,8 +13,8 @@ import (
 	"context"
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
-	"github.com/synnaxlabs/cesium/internal/ranger"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -65,7 +65,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfg WriterConfig) (*streamWri
 				return nil, err
 			}
 		}
-		w, err := u.NewWriter(ctx, ranger.WriterConfig{Start: cfg.Start})
+		w, err := u.NewWriter(ctx, domain.WriterConfig{Start: cfg.Start})
 		if err != nil {
 			return nil, err
 		}

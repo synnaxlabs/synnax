@@ -12,8 +12,8 @@ package index_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
-	"github.com/synnaxlabs/cesium/internal/ranger"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -21,18 +21,18 @@ import (
 
 var _ = Describe("Ranger", func() {
 	var (
-		db  *ranger.DB
+		db  *domain.DB
 		idx index.Index
 	)
 	BeforeEach(func() {
-		db = MustSucceed(ranger.Open(ranger.Config{FS: fs.NewMem()}))
+		db = MustSucceed(domain.Open(domain.Config{FS: fs.NewMem()}))
 		idx = &index.Ranger{DB: db}
 	})
 	AfterEach(func() { Expect(db.Close()).To(Succeed()) })
 	Describe("Distance", func() {
 		Context("Continuous", func() {
 			BeforeEach(func() {
-				Expect(ranger.Write(
+				Expect(domain.Write(
 					ctx,
 					db,
 					(1 * telem.SecondTS).Range(20*telem.SecondTS+1),
@@ -129,7 +129,7 @@ var _ = Describe("Ranger", func() {
 	Describe("Stamp", func() {
 		Context("Continuous", func() {
 			BeforeEach(func() {
-				Expect(ranger.Write(
+				Expect(domain.Write(
 					ctx,
 					db,
 					(1 * telem.SecondTS).SpanRange(19*telem.Second+1),
@@ -184,19 +184,19 @@ var _ = Describe("Ranger", func() {
 		})
 		Context("Discontinuous", func() {
 			BeforeEach(func() {
-				Expect(ranger.Write(
+				Expect(domain.Write(
 					ctx,
 					db,
 					(1 * telem.SecondTS).Range(20*telem.SecondTS+1),
 					telem.NewSecondsTSV(1, 2, 3, 5, 7, 9, 15, 19, 20).Data,
 				)).To(Succeed())
-				Expect(ranger.Write(
+				Expect(domain.Write(
 					ctx,
 					db,
 					(30 * telem.SecondTS).Range(40*telem.SecondTS+1),
 					telem.NewSecondsTSV(30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40).Data,
 				))
-				Expect(ranger.Write(
+				Expect(domain.Write(
 					ctx,
 					db,
 					(55 * telem.SecondTS).Range(65*telem.SecondTS+1),

@@ -12,15 +12,15 @@ package unary
 import (
 	"context"
 	"fmt"
+	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
-	"github.com/synnaxlabs/cesium/internal/ranger"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 )
 
 type DB struct {
 	Config
-	Ranger *ranger.DB
+	Ranger *domain.DB
 	_idx   index.Index
 }
 
@@ -40,7 +40,7 @@ func (db *DB) index() index.Index {
 
 func (db *DB) SetIndex(idx index.Index) { db._idx = idx }
 
-func (db *DB) NewWriter(ctx context.Context, cfg ranger.WriterConfig) (*Writer, error) {
+func (db *DB) NewWriter(ctx context.Context, cfg domain.WriterConfig) (*Writer, error) {
 	w, err := db.Ranger.NewWriter(ctx, cfg)
 	return &Writer{start: cfg.Start, Channel: db.Channel, internal: w, idx: db.index()}, err
 }
@@ -53,7 +53,7 @@ type IteratorConfig struct {
 }
 
 func IterRange(tr telem.TimeRange) IteratorConfig {
-	return IteratorConfig{Bounds: ranger.IterRange(tr).Bounds, AutoChunkSize: 0}
+	return IteratorConfig{Bounds: domain.IterRange(tr).Bounds, AutoChunkSize: 0}
 }
 
 var (
@@ -67,8 +67,8 @@ func (i IteratorConfig) Override(other IteratorConfig) IteratorConfig {
 	return i
 }
 
-func (i IteratorConfig) ranger() ranger.IteratorConfig {
-	return ranger.IteratorConfig{Bounds: i.Bounds}
+func (i IteratorConfig) ranger() domain.IteratorConfig {
+	return domain.IteratorConfig{Bounds: i.Bounds}
 }
 
 func (db *DB) NewIterator(cfg IteratorConfig) *Iterator {

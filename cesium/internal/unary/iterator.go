@@ -14,8 +14,8 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
-	"github.com/synnaxlabs/cesium/internal/ranger"
 	"github.com/synnaxlabs/x/telem"
 	"io"
 )
@@ -24,7 +24,7 @@ type Iterator struct {
 	alamos.Instrumentation
 	IteratorConfig
 	Channel  core.Channel
-	internal *ranger.Iterator
+	internal *domain.Iterator
 	view     telem.TimeRange
 	frame    core.Frame
 	idx      index.Index

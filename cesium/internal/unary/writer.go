@@ -13,15 +13,15 @@ import (
 	"context"
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
-	"github.com/synnaxlabs/cesium/internal/ranger"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
 type Writer struct {
 	Channel    core.Channel
-	internal   *ranger.Writer
+	internal   *domain.Writer
 	start      telem.TimeStamp
 	idx        index.Index
 	hwm        telem.TimeStamp
@@ -29,7 +29,7 @@ type Writer struct {
 }
 
 func Write(ctx context.Context, db *DB, start telem.TimeStamp, arr telem.Array) error {
-	w, err := db.NewWriter(ctx, ranger.WriterConfig{Start: start})
+	w, err := db.NewWriter(ctx, domain.WriterConfig{Start: start})
 	if err != nil {
 		return err
 	}

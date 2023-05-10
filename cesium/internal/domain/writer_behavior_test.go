@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package ranger_test
+package domain_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/cesium/internal/ranger"
+	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -22,15 +22,15 @@ import (
 )
 
 var _ = Describe("WriterBehavior", func() {
-	var db *ranger.DB
+	var db *domain.DB
 	BeforeEach(func() {
-		db = MustSucceed(ranger.Open(ranger.Config{FS: fs.NewMem()}))
+		db = MustSucceed(domain.Open(domain.Config{FS: fs.NewMem()}))
 	})
 	AfterEach(func() { Expect(db.Close()).To(Succeed()) })
 	Describe("Start Validation", func() {
-		Context("No range overlap", func() {
+		Context("No domain overlap", func() {
 			It("Should successfully open the writer", func() {
-				w := MustSucceed(db.NewWriter(ctx, ranger.WriterConfig{
+				w := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
 					Start: 10 * telem.SecondTS,
 				}))
 				Expect(w.Close()).To(Succeed())
@@ -40,22 +40,22 @@ var _ = Describe("WriterBehavior", func() {
 			It("Should fail to open the writer", func() {
 				w := MustSucceed(db.NewWriter(
 					ctx,
-					ranger.WriterConfig{
+					domain.WriterConfig{
 						Start: 10 * telem.SecondTS,
 					}))
 				Expect(w.Commit(ctx, 15*telem.SecondTS)).To(Succeed())
 				Expect(w.Close()).To(Succeed())
-				_, err := db.NewWriter(ctx, ranger.WriterConfig{
+				_, err := db.NewWriter(ctx, domain.WriterConfig{
 					Start: 10 * telem.SecondTS,
 				})
-				Expect(err).To(HaveOccurredAs(ranger.ErrRangeOverlap))
+				Expect(err).To(HaveOccurredAs(domain.ErrDomainOverlap))
 			})
 		})
 	})
 	Describe("End Validation", func() {
-		Context("No range overlap", func() {
+		Context("No domain overlap", func() {
 			It("Should successfully commit", func() {
-				w := MustSucceed(db.NewWriter(ctx, ranger.WriterConfig{
+				w := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
 					Start: 10 * telem.SecondTS,
 				}))
 				MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
@@ -65,23 +65,23 @@ var _ = Describe("WriterBehavior", func() {
 		})
 		Context("TimeRange overlap", func() {
 			It("Should fail to commit", func() {
-				w := MustSucceed(db.NewWriter(ctx, ranger.WriterConfig{
+				w := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
 					Start: 10 * telem.SecondTS,
 				}))
 				MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
 				Expect(w.Commit(ctx, 20*telem.SecondTS)).To(Succeed())
 				Expect(w.Close()).To(Succeed())
-				w = MustSucceed(db.NewWriter(ctx, ranger.WriterConfig{
+				w = MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
 					Start: 4 * telem.SecondTS,
 				}))
 				MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
-				Expect(w.Commit(ctx, 15*telem.SecondTS)).To(HaveOccurredAs(ranger.ErrRangeOverlap))
+				Expect(w.Commit(ctx, 15*telem.SecondTS)).To(HaveOccurredAs(domain.ErrDomainOverlap))
 				Expect(w.Close()).To(Succeed())
 			})
 		})
 		Context("Commit before start", func() {
 			It("Should fail to commit", func() {
-				w := MustSucceed(db.NewWriter(ctx, ranger.WriterConfig{
+				w := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
 					Start: 10 * telem.SecondTS,
 				}))
 				MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
@@ -89,15 +89,15 @@ var _ = Describe("WriterBehavior", func() {
 				Expect(w.Close()).To(Succeed())
 			})
 		})
-		Describe("End of one range is the start of another", func() {
+		Describe("End of one domain is the start of another", func() {
 			It("Should successfully commit", func() {
-				w := MustSucceed(db.NewWriter(ctx, ranger.WriterConfig{
+				w := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
 					Start: 10 * telem.SecondTS,
 				}))
 				MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
 				Expect(w.Commit(ctx, 20*telem.SecondTS)).To(Succeed())
 				Expect(w.Close()).To(Succeed())
-				w = MustSucceed(db.NewWriter(ctx, ranger.WriterConfig{
+				w = MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
 					Start: 20 * telem.SecondTS,
 				}))
 				MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
@@ -107,7 +107,7 @@ var _ = Describe("WriterBehavior", func() {
 		})
 		Context("Multi Commit", func() {
 			It("Should correctly commit a writer multiple times", func() {
-				w := MustSucceed(db.NewWriter(ctx, ranger.WriterConfig{
+				w := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
 					Start: 10 * telem.SecondTS,
 				}))
 				MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
@@ -118,7 +118,7 @@ var _ = Describe("WriterBehavior", func() {
 			})
 			Context("Commit before previous commit", func() {
 				It("Should fail to commit", func() {
-					w := MustSucceed(db.NewWriter(ctx, ranger.WriterConfig{
+					w := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
 						Start: 10 * telem.SecondTS,
 					}))
 					MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
@@ -132,20 +132,21 @@ var _ = Describe("WriterBehavior", func() {
 			It("Should fail to commit one of the writes", func() {
 				writerCount := 20
 				errors := make([]error, writerCount)
-				writers := make([]*ranger.Writer, writerCount)
+				writers := make([]*domain.Writer, writerCount)
 				var wg sync.WaitGroup
 				wg.Add(writerCount)
 				for i := 0; i < writerCount; i++ {
-					writers[i] = MustSucceed(db.NewWriter(ctx, ranger.WriterConfig{
+					writers[i] = MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
 						Start: 10 * telem.SecondTS,
 					}))
 				}
-				for i, w := range writers {
-					go func(i int, w *ranger.Writer) {
-						defer wg.Done()
-						MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
-						errors[i] = w.Commit(ctx, 15*telem.SecondTS)
-					}(i, w)
+				for i, w := domain
+				writers{
+					go func (i int, w *domain.Writer){
+					defer wg.Done()
+					MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
+					errors[i] = w.Commit(ctx, 15*telem.SecondTS)
+				}(i, w)
 				}
 				wg.Wait()
 
@@ -153,8 +154,9 @@ var _ = Describe("WriterBehavior", func() {
 					return err != nil
 				})
 				Expect(occurred).To(HaveLen(writerCount - 1))
-				for _, err := range occurred {
-					Expect(err).To(HaveOccurredAs(ranger.ErrRangeOverlap))
+				for _, err := domain
+				occurred{
+					Expect(err).To(HaveOccurredAs(domain.ErrDomainOverlap)),
 				}
 			})
 		})
