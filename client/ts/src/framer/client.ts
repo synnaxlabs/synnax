@@ -20,6 +20,7 @@ import { FrameWriter } from "./writer";
 
 import { QueryError } from "@/errors";
 import { Transport } from "@/transport";
+import { ChannelKey, ChannelKeys } from "@/channel/payload";
 
 export class FrameClient {
   private readonly transport: Transport;
@@ -39,7 +40,7 @@ export class FrameClient {
    */
   async newIterator(
     tr: TimeRange,
-    keys: string[],
+    keys: ChannelKeys,
     aggregate: boolean
   ): Promise<FrameIterator> {
     const i = new FrameIterator(this.transport.streamClient, aggregate);
@@ -55,7 +56,7 @@ export class FrameClient {
    * for more information.
    * @returns a new {@link RecordWriter}.
    */
-  async newWriter(start: UnparsedTimeStamp, ...keys: string[]): Promise<FrameWriter> {
+  async newWriter(start: UnparsedTimeStamp, ...keys: ChannelKeys): Promise<FrameWriter> {
     const w = new FrameWriter(this.transport.streamClient);
     await w.open(start, keys);
     return w;
@@ -71,7 +72,7 @@ export class FrameClient {
    * @throws if the channel does not exist.
    */
   async write(
-    to: string,
+    to: ChannelKey,
     start: UnparsedTimeStamp,
     data: NativeTypedArray
   ): Promise<void> {
@@ -97,7 +98,7 @@ export class FrameClient {
    * @throws if the telemetry between start and end is not contiguous.
    */
   async read(
-    from: string,
+    from: ChannelKey,
     start: UnparsedTimeStamp,
     end: UnparsedTimeStamp,
     throwOnEmpty = true
@@ -116,7 +117,7 @@ export class FrameClient {
    * @throws if the telemetry between start and end is not contiguous.
    */
   async readArray(
-    from: string,
+    from: ChannelKey,
     start: UnparsedTimeStamp,
     end: UnparsedTimeStamp,
     throwOnEmpty = true
@@ -131,7 +132,7 @@ export class FrameClient {
     return arrs[0];
   }
 
-  async readFrame(tr: TimeRange, keys: string[]): Promise<Frame> {
+  async readFrame(tr: TimeRange, keys: ChannelKeys): Promise<Frame> {
     const i = await this.newIterator(tr, keys, /* accumulate */ true);
     try {
       if (await i.seekFirst()) while (await i.next(AUTO_SPAN));

@@ -19,9 +19,10 @@ import {
 import { z } from "zod";
 
 import { Frame } from "./frame";
-import { framePayloadSchema } from "./payload";
+import { framePayload } from "./payload";
 
 import { GeneralError, UnexpectedError } from "@/errors";
+import { ChannelKeys } from "@/channel/payload";
 
 export const AUTO_SPAN = new TimeSpan(-1);
 
@@ -47,25 +48,25 @@ const NOT_OPEN = new GeneralError(
   "iterator.open() must be called before any other method"
 );
 
-const RequestSchema = z.object({
+const request = z.object({
   command: z.nativeEnum(Command),
   span: z.instanceof(TimeSpan).optional(),
   range: z.instanceof(TimeRange).optional(),
   stamp: z.instanceof(TimeStamp).optional(),
-  keys: z.string().array().optional(),
+  keys: z.number().array().optional(),
 });
 
-type Request = z.infer<typeof RequestSchema>;
+type Request = z.infer<typeof request>;
 
-const ResponseSchema = z.object({
+const response = z.object({
   variant: z.nativeEnum(ResponseVariant),
   ack: z.boolean(),
   command: z.nativeEnum(Command),
   error: ErrorPayloadSchema.optional(),
-  frame: framePayloadSchema.optional(),
+  frame: framePayload.optional(),
 });
 
-type Response = z.infer<typeof ResponseSchema>;
+type Response = z.infer<typeof response>;
 
 /**
  * Used to iterate over a clusters telemetry in time-order. It should not be
@@ -95,13 +96,13 @@ export class FrameIterator {
    * @param tr - The time range to iterate over.
    * @param keys - The keys of the channels to iterate over.
    */
-  async open(tr: TimeRange, keys: string[]): Promise<void> {
+  async open(tr: TimeRange, keys: ChannelKeys): Promise<void> {
     this.stream = await this.client.stream(
       FrameIterator.ENDPOINT,
-      RequestSchema,
+      request,
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-expect-error
-      ResponseSchema
+      response
     );
     await this.execute({ command: Command.Open, keys, range: tr });
     this.value = new Frame();

@@ -12,9 +12,10 @@ import { Size, LazyArray, TimeRange } from "@synnaxlabs/x";
 import { arrayFromPayload, arrayToPayload, FramePayload } from "./payload";
 
 import { UnexpectedError, ValidationError } from "@/errors";
+import { ChannelKeyOrName } from "@/channel/payload";
 
 export class Frame {
-  private readonly _entries: Record<string, LazyArray[]>;
+  private readonly _entries: Record<ChannelKeyOrName, LazyArray[]>
 
   constructor(
     data: FramePayload | Record<string, LazyArray[]> | LazyArray[] | LazyArray = [],
@@ -83,7 +84,7 @@ export class Frame {
    * this will return an array of length 1. If the frame is horiztonal, returns all
    * arrays in the frame.
    */
-  getA(key: string): LazyArray[] {
+  getA(key: ChannelKeyOrName): LazyArray[] {
     return this._entries[key] ?? [];
   }
 
@@ -105,7 +106,7 @@ export class Frame {
    *
    * @param key - the key to filter by.
    */
-  pushA(key: string, ...v: LazyArray[]): void {
+  pushA(key: ChannelKeyOrName, ...v: LazyArray[]): void {
     this._entries[key] = (this._entries[key] ?? []).concat(v);
   }
 
@@ -113,7 +114,7 @@ export class Frame {
    * @returns a shallow copy of this frame with the given key overridden with the
    * provided typed arrays.
    */
-  overrideA(key: string, ...v: LazyArray[]): Frame {
+  overrideA(key: ChannelKeyOrName, ...v: LazyArray[]): Frame {
     const next = this.shallowCopy();
     next._entries[key] = v;
     return next;
@@ -167,7 +168,7 @@ export class Frame {
     return Object.values(this._entries).flat();
   }
 
-  map(fn: (k: string, arr: LazyArray, i: number) => LazyArray): Frame {
+  map(fn: (k: ChannelKeyOrName, arr: LazyArray, i: number) => LazyArray): Frame {
     const frame = new Frame();
     for (const [k, a] of this.entries) {
       frame._entries[k] = a.map((arr, i) => fn(k, arr, i));
@@ -175,7 +176,7 @@ export class Frame {
     return frame;
   }
 
-  filter(fn: (k: string, arr: LazyArray, i: number) => boolean): Frame {
+  filter(fn: (k: ChannelKeyOrName, arr: LazyArray, i: number) => boolean): Frame {
     const f = new Frame();
     for (const [k, a] of this.entries) {
       if (a == null) throw new UnexpectedError(`a is null for key ${k}`);

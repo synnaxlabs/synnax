@@ -37,7 +37,7 @@ class ChannelRetriever(Protocol):
     @overload
     def retrieve(
         self,
-        key_or_name: str,
+        key_or_name: str | int,
     ) -> ChannelPayload | None:
         ...
 

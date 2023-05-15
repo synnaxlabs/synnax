@@ -31,12 +31,12 @@ export const arrayPayloadSchema = z.object({
 
 export type ArrayPayload = z.infer<typeof arrayPayloadSchema>;
 
-export const framePayloadSchema = z.object({
-  keys: z.string().array().nullable().default([]),
+export const framePayload = z.object({
+  keys: z.string().array().nullable().default([]).or(z.number().array().nullable().default([])),
   arrays: arrayPayloadSchema.array().nullable().default([]),
 });
 
-export type FramePayload = z.infer<typeof framePayloadSchema>;
+export type FramePayload = z.infer<typeof framePayload>;
 
 export const arrayFromPayload = (payload: ArrayPayload): LazyArray => {
   const { dataType, data, timeRange } = payload;
