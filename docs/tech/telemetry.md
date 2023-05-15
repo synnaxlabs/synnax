@@ -23,28 +23,32 @@ particular feature set, ask how it relates to this concept.
 
 # 2 - Telemetry in Synnax
 
-As we continue to develop advanced technologies and deeply connected systems, the
+As humanity continues to develop advanced technologies and deeply connected systems, the
 technical scope telemetry encompasses continues to widen, and the definition above
 becomes less meaningful. The following are a few of the common contexts in which
 telemetry is used:
 
-In agriculture, telemetry is characterized by low-frequency readings across vast areas
-to study the effects of various factors on crop growth.
+- In **agriculture**, telemetry is characterized by low-frequency readings across vast
+  areas
+  to study the effects of various factors on crop growth.
 
-In software, telemetry takes a variety of forms from reading hardware metrics such as
-CPU usage to tracking user behavior and interactions. For example, Synnax uses a tool
-called [opentelemetry](https://opentelemetry.io/) to collect and transmit logs, metrics,
-and traces so that we can better understand the state of the software we're developing.
+- In **software**, telemetry takes a variety of forms from reading hardware metrics such
+  as CPU usage to tracking user behavior and interactions. For example, Synnax uses a
+  tool called [opentelemetry](https://opentelemetry.io/) to collect and transmit logs,
+  metrics, and traces so that we can better understand the state of the software we're
+  developing.
 
-In aerospace, telemetry typically represents high-rate data collection from sensors and
-actuators all over a vehicle. This data is used to monitor the health of the vehicle
-and control it in real-time. Perhaps one of the best documented examples is the
-[Space Shuttle's RS-25 engine controller](https://en.wikipedia.org/wiki/RS-25), which
-was responsible for controlling the Space Shuttle's main engines during flight.
+- In **aerospace**, telemetry typically represents high-rate data collection from
+  sensors and
+  actuators all over a vehicle. This data is used to monitor the health of the vehicle
+  and control it in real-time. Perhaps one of the best documented examples is the
+  [Space Shuttle's RS-25 engine controller](https://en.wikipedia.org/wiki/RS-25), which
+  was responsible for controlling the Space Shuttle's main engines during flight.
 
 Telemetry in Synnax most closely relates to the third definition. While it can be used
 in the first two scenarios, Synnax resembles a test and measurement system
-that is designed to acquire telemetry from sensors and send commands to actuators in real-time.
+that is designed to acquire telemetry from sensors and send commands to actuators in
+real-time.
 
 # 3 - Fundamental Properties
 
@@ -53,13 +57,15 @@ that is designed to acquire telemetry from sensors and send commands to actuator
 A sample is the most basic unit of telemetry, and is simply a time-associated value.
 Time-association is done with a timestamp, or number that represents a particular
 duration of time since a fixed epoch. Values, on the other hand, can be almost anything
-that can be represented as binary, whether it be a single number, a JSON file, or a
+that can be represented as binary, whether it be a single number, JSON file, or a
 video frame.
 
 ## 3.1 - Read and Write Patterns
 
 The read and write patterns of time-series data are perhaps some of the most predictable
-and constrained in the database world.
+and constrained in the database world. These patterns allow us to make various
+optimizations
+to increase database performance.
 
 ### 3.1.0 - Writes
 
@@ -74,16 +80,15 @@ arriving over an extended period of time (most commonly a sensor).
 
 Read patterns typically come in one of two flavors. The most common, and simplest is
 a time-range based lookup. These reads often contain a large number of consecutive
-samples.
-Range based reads are far more common than point lookups; so much so that the Synnax
-storage engine, Cesium, intentionally sacrifices point lookup performance for range
-lookup performance.
+samples. Range based reads are far more common than point lookups; so much so that the
+Synnax storage engine, Cesium, intentionally sacrifices point lookup performance for
+range lookup performance.
 
-The second type of read is a value filter. This pattern returns all samples that match
+Value filters are the second read flavor. This pattern returns samples that match
 a set of criteria, such as a threshold. While more expensive to execute, this pattern is
-also less common than range based lookups. Despite its relative rarity, it still plays
-an
-important role in long-term data analysis.
+also less common than range based lookups. Despite their relative rarity, these reads
+play an especially important role in queries that look for specific events over long
+periods of time.
 
 ### 3.1.2 - Frequency and Volume
 
@@ -98,7 +103,6 @@ handle. They're organized from highest to lowest level of predictability. The ea
 categories are easy to optimize for, while the latter categories are more challenging.
 Some of these categories share characteristics; in those cases, I'll note the
 similarities but won't repeat the details.
-and
 
 ## 4.1 - Sensor Data
 
@@ -154,14 +158,14 @@ challenges for data compression and storage, as well as analysis.
 
 ## 3.2 - Real-Time Commands
 
-Real-time commands are used to control the precision positions of actuators at discrete
+Real-time commands are used to control the precise positions of actuators at discrete
 points in time. This telemetry variant is similar to sensor data in that it has
 predictable, fixed length data types, but differs in that emission rates can have a high
 degree of variance. This is especially true when a human operator is involved, as they
 can issue commands at arbitrary times.
 
 Perhaps the most demanding example of real-time command would be something along the
-lines of other the network PID control. Sensor data must be processed and analyzed in
+lines of over the network PID control. Sensor data must be processed and analyzed in
 real-time, often at rates exceeding several hundred hertz.
 
 ### 3.2.0 - Multi-Source
@@ -169,12 +173,13 @@ real-time, often at rates exceeding several hundred hertz.
 Commands can be issued by multiple sources concurrently. For example, an operator can
 issue a manual command while an auto-sequence (programmatic control) is running. In
 order to deal with multi-source writes, we need some way of clearly defining who has
-the authority to issue commands, and how we handle ordering from multiple sources.
+the authority to issue commands, and how we handle ordering from multiple sources for
+both reads and writes.
 
 ### 3.2.1 - Highly-Variable Emission Rates
 
 Real-time commands can be issued at arbitrary intervals. In the PID control example,
-this isn't the case, and the commands are probably issued at a very predictable rate.
+this isn't the case, and the commands are probably issued at predictable rates.
 However, in the case of a human operator, commands can be issued at any time, and at
 any rate. For writes, this variability means it's more difficult to pre-allocate buffers
 and size caches, and, for reads, lookups become far more expensive.
@@ -183,7 +188,8 @@ and size caches, and, for reads, lookups become far more expensive.
 
 In most cases, commands for different channels are issued independently or in
 relatively small batches of less than 10 actuators. As a result, timestamp cardinality
-across multiple command channels is very high, and we need to store more timestamps for
+across multiple command channels is very high, and we need to store more timestamps per
+channel than with sensor data.
 
 ### 3.2.4 - Low Latency and Jitter
 
@@ -277,3 +283,15 @@ One of the simplifying properties of software signals is that they are emergent,
 are typically triggered by some command or sensor value. These emergent events aren't
 useful to query in hindsight, and, as a result, most software signals are completely
 virtual and don't need to be persisted to disk.
+
+## 3.5 - Summary
+
+The main differences these variants can be broken down into:
+
+- Emission Rates
+- Emission Regularity
+- Payload Sizes and Variation
+- Persistence Requirements
+- Latency and Jitter Tolerance
+
+Events vs. Metrics

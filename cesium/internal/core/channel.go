@@ -15,6 +15,15 @@ import (
 
 type ChannelKey = uint32
 
+type ChannelVariant uint8
+
+const (
+	Index ChannelVariant = iota + 1
+	Indexed
+	Fixed
+	Event
+)
+
 // Channel is a logical collection of telemetry samples across a time-range. The data
 // within a channel typically arrives from a single source. This can be a physical sensor,
 // metric, event, or other entity that emits regular, consistent, and time-order values.
@@ -23,7 +32,8 @@ type ChannelKey = uint32
 type Channel struct {
 	// Key is a unique identifier to the channel within the cesium.
 	// [REQUIRED]
-	Key ChannelKey `json:"key" msgpack:"key"`
+	Key     ChannelKey `json:"key" msgpack:"key"`
+	Variant ChannelVariant
 	// DataType is the type of data stored in the channel.
 	// [REQUIRED]
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
@@ -36,7 +46,4 @@ type Channel struct {
 	// used to associate a value with a timestamp. If zero, the channel's data will be
 	// indexed using its rate. One of Index or Rate must be non-zero.
 	Index ChannelKey `json:"index" msgpack:"index"`
-	// IsIndex should be set to true if the channel should be indexed. Index channels
-	// must use int64 nanosecond timestamps in ascending order.
-	IsIndex bool `json:"is_index" msgpack:"is_index"`
 }
