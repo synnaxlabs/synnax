@@ -101,12 +101,10 @@ func KeysFromUint32(keys []uint32) Keys {
 }
 
 // Storage calls Key.StorageKey() on each key and returns a slice with the results.
-func (k Keys) Storage() []uint32 { return k.Uint32() }
+func (k Keys) Storage() []ts.ChannelKey { return k.Uint32() }
 
 // Uint32 converts the Keys to a slice of uint32.
-func (k Keys) Uint32() []uint32 {
-	return unsafe.ConvertSlice[Key, uint32](k)
-}
+func (k Keys) Uint32() []uint32 { return unsafe.ConvertSlice[Key, uint32](k) }
 
 // UniqueNodeKeys returns a slice of all UNIQUE node Keys for the given keys.
 func (k Keys) UniqueNodeKeys() (keys []core.NodeKey) {

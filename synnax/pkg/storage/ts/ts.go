@@ -21,6 +21,7 @@ type (
 	DB                   = cesium.DB
 	Frame                = cesium.Frame
 	Channel              = cesium.Channel
+	ChannelKey           = cesium.ChannelKey
 	WriterConfig         = cesium.WriterConfig
 	Writer               = cesium.Writer
 	StreamWriter         = cesium.StreamWriter
