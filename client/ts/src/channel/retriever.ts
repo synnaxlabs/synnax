@@ -10,25 +10,26 @@
 import type { UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
-import { ChannelPayload, channelPayloadSchema } from "./payload";
+import { ChannelKeyOrName, ChannelKeys, ChannelNames, ChannelParams, ChannelPayload, channelPayload } from "./payload";
 
 import { ValidationError } from "@/errors";
 import { Transport } from "@/transport";
 
 const requestSchema = z.object({
   nodeKey: z.number().optional(),
-  keysOrNames: z.array(z.union([z.string().array(), z.string()])).optional(),
+  keys: z.number().array().optional(),
+  names: z.string().array().optional(),
 });
 
 type Request = z.infer<typeof requestSchema>;
 
 const responseSchema = z.object({
-  channels: channelPayloadSchema.array(),
+  channels: channelPayload.array(),
 });
 
 export interface ChannelRetriever {
-  retrieve: ((keyOrName: string) => Promise<ChannelPayload>) &
-  ((...keysOrNames: Array<string | string[]>) => Promise<ChannelPayload[]>);
+  retrieve: ((keyOrName: ChannelKeyOrName) => Promise<ChannelPayload>) &
+  ((...keysOrNames: Array<ChannelParams>) => Promise<ChannelPayload[]>);
   retrieveAll: () => Promise<ChannelPayload[]>;
 }
 
@@ -52,15 +53,16 @@ export class ClusterChannelRetriever implements ChannelRetriever {
     return res?.channels as ChannelPayload[];
   }
 
-  async retrieve(keyOrName: string): Promise<ChannelPayload>;
+  async retrieve(keyOrName: string | number): Promise<ChannelPayload>;
 
-  async retrieve(...keysOrNames: Array<string | string[]>): Promise<ChannelPayload[]>;
+  async retrieve(...keysOrNames: Array<ChannelParams>): Promise<ChannelPayload[]>;
 
   async retrieve(
-    ...keysOrNames: Array<string | string[]>
+    ...keysOrNames: Array<ChannelParams>
   ): Promise<ChannelPayload | ChannelPayload[]> {
-    const single = keysOrNames.length === 1 && typeof keysOrNames[0] === "string";
-    const res = await this.execute({ keysOrNames });
+    const single = isSingle(keysOrNames);
+    const [keys, names] = splitChannelparams(keysOrNames);
+    const res = await this.execute({ keys, names });
     if (!single) return res;
     if (res.length === 0) throw new ValidationError("Channel not found");
     if (res.length > 1) throw new ValidationError("Multiple channels found");
@@ -73,8 +75,8 @@ export class ClusterChannelRetriever implements ChannelRetriever {
 }
 
 export class CacheChannelRetriever implements ChannelRetriever {
-  private readonly cache: Map<string, ChannelPayload>;
-  private readonly namesToKeys: Map<string, string>;
+  private readonly cache: Map<number, ChannelPayload>;
+  private readonly namesToKeys: Map<string, number>;
   private readonly wrapped: ChannelRetriever;
 
   constructor(wrapped: ChannelRetriever) {
@@ -83,36 +85,59 @@ export class CacheChannelRetriever implements ChannelRetriever {
     this.wrapped = wrapped;
   }
 
-  async retrieve(keyOrName: string): Promise<ChannelPayload>;
+  async retrieve(keyOrName: string | number): Promise<ChannelPayload>;
 
-  async retrieve(...keysOrNames: Array<string | string[]>): Promise<ChannelPayload[]>;
+  async retrieve(...keysOrNames: Array<ChannelParams>): Promise<ChannelPayload[]>;
 
   async retrieve(
-    ...keysOrNames: Array<string | string[]>
+    ...keysOrNames: Array<ChannelParams>
   ): Promise<ChannelPayload | ChannelPayload[]> {
-    const single = keysOrNames.length === 1 && typeof keysOrNames[0] === "string";
-    const flat = keysOrNames.flat();
+    const single = isSingle(keysOrNames);
+    const [keys, names] = splitChannelparams(keysOrNames);
+
+
     const results: ChannelPayload[] = [];
-    const toFetch: string[] = [];
-    flat.forEach((keyOrName) => {
-      const key = this.namesToKeys.get(keyOrName) ?? keyOrName;
+    const toFetch: Array<string | number> = [];
+
+    names.forEach((name) => {
+      const key = this.namesToKeys.get(name);
+      if (key == null) toFetch.push(name);
+      else keys.push(key)
+    });
+
+    keys.forEach((key) => {
       const channel = this.cache.get(key);
       if (channel != null) results.push(channel);
       else toFetch.push(key);
-    });
+    })
+
+
     if (toFetch.length > 0) {
-      const fetched = await this.wrapped.retrieve(toFetch);
+      const fetched = await this.wrapped.retrieve(...toFetch);
       fetched.forEach((channel) => {
         this.cache.set(channel.key, channel);
         this.namesToKeys.set(channel.name, channel.key);
       });
       results.push(...fetched);
     }
-    if (!single) return results;
-    return results[0];
+    return single ? results[0] : results;
   }
 
   async retrieveAll(): Promise<ChannelPayload[]> {
     return await this.wrapped.retrieveAll();
   }
+}
+
+const splitChannelparams = (keysOrNames: Array<ChannelParams>): [number[], string[]] => {
+  const keys: ChannelKeys = [];
+  const names: ChannelNames = [];
+  keysOrNames.flat().forEach((keyOrName) => {
+    if (typeof keyOrName === "number") keys.push(keyOrName);
+    else names.push(keyOrName);
+  });
+  return [keys, names];
+}
+
+const isSingle = (keysOrNames: Array<ChannelParams>): boolean => {
+  return keysOrNames.length === 1 && (typeof keysOrNames[0] === "string" || typeof keysOrNames[0] === "number");
 }

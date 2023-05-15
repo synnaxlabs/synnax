@@ -19,9 +19,10 @@ import {
 import { z } from "zod";
 
 import { Frame } from "./frame";
-import { framePayloadSchema } from "./payload";
+import { framePayload } from "./payload";
 
 import { GeneralError } from "@/errors";
+import { ChannelKeys } from "@/channel/payload";
 
 enum Command {
   None = 0,
@@ -32,13 +33,13 @@ enum Command {
 
 const configSchema = z.object({
   start: z.instanceof(TimeStamp).optional(),
-  keys: z.string().array().optional(),
+  keys: z.number().array().optional(),
 });
 
 const requestSchema = z.object({
   command: z.nativeEnum(Command),
   config: configSchema.optional(),
-  frame: framePayloadSchema.optional(),
+  frame: framePayload.optional(),
 });
 
 type Request = z.infer<typeof requestSchema>;
@@ -111,7 +112,7 @@ export class FrameWriter {
    * @param keys - A list of keys representing the channels the writer will write to. All
    * frames written to the writer must have channel keys in this list.
    */
-  async open(start: UnparsedTimeStamp, keys: string[]): Promise<void> {
+  async open(start: UnparsedTimeStamp, keys: ChannelKeys): Promise<void> {
     this.stream = await this.client.stream(
       FrameWriter.ENDPOINT,
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment

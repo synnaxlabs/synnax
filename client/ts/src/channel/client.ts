@@ -18,7 +18,7 @@ import {
 } from "@synnaxlabs/x";
 
 import { ChannelCreator } from "./creator";
-import { ChannelPayload, channelPayloadSchema, UnparsedChannel } from "./payload";
+import { ChannelPayload, channelPayload, UnparsedChannel } from "./payload";
 import {
   CacheChannelRetriever,
   ChannelRetriever,
@@ -41,7 +41,7 @@ export class Channel {
     rate,
     name = "",
     nodeKey = 0,
-    key = "",
+    key = 0,
     density = 0,
     isIndex = false,
     index = "",
@@ -50,7 +50,7 @@ export class Channel {
     segmentClient?: FrameClient;
     density?: UnparsedDensity;
   }) {
-    this.payload = channelPayloadSchema.parse({
+    this.payload = channelPayload.parse({
       dataType: new DataType(dataType).valueOf(),
       rate: new Rate(rate ?? 0).valueOf(),
       name,
@@ -63,13 +63,13 @@ export class Channel {
     this._frameClient = segmentClient ?? null;
   }
 
-  private get segmentClient(): FrameClient {
+  private get framer(): FrameClient {
     if (this._frameClient == null)
       throw new Error("cannot read from a channel that has not been created");
     return this._frameClient;
   }
 
-  get key(): string {
+  get key(): number {
     if (this.payload.key == null) throw new Error("channel key is not set");
     return this.payload.key;
   }
@@ -103,7 +103,7 @@ export class Channel {
     start: UnparsedTimeStamp,
     end: UnparsedTimeStamp
   ): Promise<NativeTypedArray | undefined> {
-    return await this.segmentClient.read(this.key, start, end);
+    return await this.framer.read(this.key, start, end);
   }
 
   /**
@@ -113,7 +113,7 @@ export class Channel {
    * @param data - THe telemetry to write to the channel.
    */
   async write(start: UnparsedTimeStamp, data: NativeTypedArray): Promise<void> {
-    return await this.segmentClient.write(this.key, start, data);
+    return await this.framer.write(this.key, start, data);
   }
 }
 

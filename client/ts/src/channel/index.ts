@@ -10,8 +10,8 @@
 export { ChannelCreator } from "./creator";
 export { Channel, ChannelClient } from "./client";
 export {
-  channelPayloadSchema,
-  unkeyedChannelPayloadSchema as keyedChannelPayloadSchema,
+  channelPayload as channelPayloadSchema,
+  unkeyedChannelPayload as keyedChannelPayloadSchema,
 } from "./payload";
 export type {
   ChannelPayload,

@@ -10,8 +10,18 @@
 import { DataType, Rate, UnparsedDataType, UnparsedRate } from "@synnaxlabs/x";
 import { z } from "zod";
 
-export const channelPayloadSchema = z.object({
-  key: z.string(),
+
+export type ChannelKey = number;
+export type ChannelKeys = number[];
+export type ChannelName = string;
+export type ChannelNames = string[];
+export type ChannelKeyOrName = ChannelKey | ChannelName;
+export type ChannelKeysOrNames = ChannelKeys | ChannelNames;
+export type ChannelParams = ChannelKey | ChannelName | ChannelKeys | ChannelNames;
+
+
+export const channelPayload = z.object({
+  key: z.number(),
   rate: z.number().transform((n) => new Rate(n)),
   dataType: z.string().transform((s) => new DataType(s)),
   name: z.string(),
@@ -20,16 +30,16 @@ export const channelPayloadSchema = z.object({
   isIndex: z.boolean().default(false).optional(),
 });
 
-export type ChannelPayload = z.infer<typeof channelPayloadSchema>;
+export type ChannelPayload = z.infer<typeof channelPayload>;
 
-export const unkeyedChannelPayloadSchema = channelPayloadSchema.extend({
-  key: z.string().optional(),
+export const unkeyedChannelPayload = channelPayload.extend({
+  key: z.number().optional(),
 });
 
-export type UnkeyedChannelPayload = z.infer<typeof unkeyedChannelPayloadSchema>;
+export type UnkeyedChannelPayload = z.infer<typeof unkeyedChannelPayload>;
 
 export interface UnparsedChannel {
-  key?: string;
+  key?: number;
   name: string;
   dataType: UnparsedDataType;
   rate?: UnparsedRate;

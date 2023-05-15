@@ -12,23 +12,22 @@ import { z } from "zod";
 
 import {
   ChannelPayload,
-  channelPayloadSchema,
+  channelPayload,
   parseChannels,
-  UnkeyedChannelPayload,
-  unkeyedChannelPayloadSchema,
+  unkeyedChannelPayload,
   UnparsedChannel,
 } from "./payload";
 
 import { Transport } from "@/transport";
 
 const RequestSchema = z.object({
-  channels: unkeyedChannelPayloadSchema.array(),
+  channels: unkeyedChannelPayload.array(),
 });
 
 type Request = z.infer<typeof RequestSchema>;
 
 const ResponseSchema = z.object({
-  channels: channelPayloadSchema.array(),
+  channels: channelPayload.array(),
 });
 
 type Response = z.infer<typeof ResponseSchema>;
@@ -41,7 +40,7 @@ export class ChannelCreator {
     this.client = transport.postClient();
   }
 
-  async create(channel: UnkeyedChannelPayload): Promise<ChannelPayload>;
+  async create(channel: UnparsedChannel): Promise<ChannelPayload>;
 
   async create(
     ...channels: Array<UnparsedChannel | UnparsedChannel[]>
