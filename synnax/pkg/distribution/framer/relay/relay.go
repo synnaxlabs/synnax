@@ -10,20 +10,16 @@
 package relay
 
 import (
-	"context"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
-	"io"
-
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/validate"
+	"io"
 )
 
 type Config struct {
@@ -86,37 +82,17 @@ func Open(configs ...Config) (*Relay, error) {
 	s.Closer = signal.NewShutdown(sCtx, cancel)
 
 	s.delta.Flow(sCtx, confluence.WithAddress("delta"))
-	coord.Flow(sCtx, confluence.WithAddress("coord"))
+	coord.Flow(sCtx, confluence.WithAddress("receive-coordinator"))
 
 	return s, nil
 }
 
-type Reader = confluence.Segment[Request, Response]
-
-type ReaderConfig struct {
-	Keys channel.Keys
-}
-
-func (s *Relay) NewReader(_ context.Context, cfg ReaderConfig) (Reader, error) {
-	r := &reader{
-		keys:     cfg.Keys,
-		addr:     address.Address(uuid.NewString()),
-		requests: s.peerDemands,
-		relay:    s,
-	}
-	s.peerDemands.Inlet() <- demand{
-		Key:   r.addr,
-		Value: Request{Keys: cfg.Keys},
-	}
-	return r, nil
-}
-
-func (s *Relay) connect(buf int) (confluence.Outlet[Response], func()) {
+func (r *Relay) connect(buf int) (confluence.Outlet[Response], func()) {
 	data := confluence.NewStream[Response](buf)
 	data.SetInletAddress(address.Rand())
-	s.delta.Connect(data)
+	r.delta.Connect(data)
 	return data, func() {
-		s.delta.Disconnect(data)
+		r.delta.Disconnect(data)
 		confluence.Drain[Response](data)
 	}
 }

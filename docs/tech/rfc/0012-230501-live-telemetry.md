@@ -187,6 +187,16 @@ may be executing at several kilohertz for extended periods of time.
 
 ## 5.5 - Relay - Distribution Layer
 
+The distribution layer extends the storage layer to relay telemetry from other nodes. It
+leverages similar routing functionality to both the `framer.iterator` and `framer.writer`
+services, using channel keys to resolve leaseholders and open streaming connections. It's
+interface exposes a cluster-wide monolithic relay that allows callers in the service
+and API layers to access live channel data without being aware of the cluster topology.
+
+The distribution layer relay has one crucial difference from the two services mentioned
+above: it multiplexes requests for live telemetry across a single stream.
+
+
 # 6 - Future Work
 
 ## 6.0 - Anti-Jitter

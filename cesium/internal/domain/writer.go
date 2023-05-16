@@ -43,7 +43,7 @@ func (w WriterConfig) Domain() telem.TimeRange {
 }
 
 // Write writes the given data to the DB new telemetry domain occupying the provided time
-// domain. If the time domain overlaps with any other domains in the DB, Write will return
+// range. If the time domain overlaps with any other domains in the DB, Write will return
 // an error.
 func Write(ctx context.Context, db *DB, tr telem.TimeRange, data []byte) error {
 	w, err := db.NewWriter(ctx, WriterConfig{Start: tr.Start, End: tr.End})

@@ -28,7 +28,7 @@ func openMemDB() *cesium.DB {
 	))
 }
 
-func TestCaesium(t *testing.T) {
+func TestCesium(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Cesium Suite")
 }

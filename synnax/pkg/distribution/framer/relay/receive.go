@@ -24,13 +24,25 @@ import (
 	"github.com/synnaxlabs/x/confluence/plumber"
 )
 
+// demand represents a demand for streaming data from a specific entity.
+// this entity should generate a unique address (preferrably through address.Rand)
+// and use it throughout it's lifecycle. To update the requested keys, the entity
+// should send a a demand with variant Set, and to remove the demand, it should
+// send a demand with variant Delete.
 type demand = changex.Change[address.Address, Request]
 
+// receiveCoordinator tracks demands for streaming channel data from other
+// nodes and from the gateway node. It implements the confluence.Segment
+// interfaces, where entities can send demands. The receiveCoordinator
+// will open connections to the correct peers or to the storage layer
+// and return responses to the entities.
 type receiveCoordinator struct {
 	Config
-	sGo signal.Context
+	// sCtx is used to control the lifecycle of receiver goroutines.
+	sCtx signal.Context
 	confluence.UnarySink[demand]
 	confluence.AbstractUnarySource[Response]
+	// demands track the current channels demanded by each entity.
 	demands   map[address.Address]channel.Keys
 	receivers map[core.NodeKey]confluence.Inlet[Request]
 }
@@ -41,15 +53,15 @@ func newReceiveCoordinator(config Config) confluence.Segment[demand, Response] {
 		Config:    config,
 		demands:   make(map[address.Address]channel.Keys),
 		receivers: make(map[core.NodeKey]confluence.Inlet[Request]),
-		sGo:       sCtx,
+		sCtx:      sCtx,
 	}
 	r.Sink = r.sink
 	return r
 }
 
-func (c *receiveCoordinator) sink(ctx context.Context, ch demand) error {
+func (c *receiveCoordinator) sink(ctx context.Context, d demand) error {
 	// update our demands, so we know what channels we want from what nodes
-	nodeKeys := c.updateDemands(ch)
+	nodeKeys := c.updateDemands(d)
 	// make sure we have open receivers to all demanded nodes/channels
 	c.updateConnections(ctx, nodeKeys)
 	return nil
@@ -84,7 +96,7 @@ func (c *receiveCoordinator) updateConnections(
 			requests := confluence.NewStream[Request](1)
 			rcv.InFrom(requests)
 			rcv.OutTo(c.AbstractUnarySource.Out)
-			rcv.Flow(c.sGo, confluence.CloseInletsOnExit())
+			rcv.Flow(c.sCtx, confluence.CloseInletsOnExit())
 			c.receivers[node] = requests
 		}
 	}
@@ -117,7 +129,7 @@ func (c *receiveCoordinator) openReceiver(
 		if err != nil {
 			return nil, err
 		}
-		return newHostReceiver(sr), nil
+		return newGatewayReceiver(sr), nil
 	}
 	addr, err := c.HostResolver.Resolve(nodeKey)
 	if err != nil {
@@ -133,6 +145,8 @@ func (c *receiveCoordinator) openReceiver(
 // receiver receives written telemetry from peer nodes or from the host's storage layer.
 type receiver = confluence.Segment[Request, Response]
 
+// newPeerReceiver opens a new receiver that sends requests and receives responses
+// over the given stream.
 func newPeerReceiver(stream ClientStream) receiver {
 	receiver := &freightfluence.Receiver[Response]{Receiver: stream}
 	sender := &freightfluence.Sender[Request]{Sender: stream}
@@ -145,7 +159,9 @@ func newPeerReceiver(stream ClientStream) receiver {
 	return seg
 }
 
-func newHostReceiver(reader ts.StreamReader) receiver {
+// newGatewayReceiver opens a new receiver over the given storage layer
+// reader.
+func newGatewayReceiver(reader ts.StreamReader) receiver {
 	return confluence.NewTranslator(
 		reader,
 		reqToStorage,

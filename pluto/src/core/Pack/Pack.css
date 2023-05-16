@@ -129,14 +129,17 @@
 
 .pluto-pack.pluto--x.pluto-pack--small > * {
     height: var(--pluto-height-small);
+    line-height: var(--pluto-height-small);
 }
 
 .pluto-pack.pluto--x.pluto-pack--medium > * {
     height: var(--pluto-height-medium);
+    line-height: var(--pluto-height-medium);
 }
 
 .pluto-pack.pluto--x.pluto-pack--large > * {
     height: var(--pluto-height-large);
+    line-height: var(--pluto-height-large);
 }
 
 .pluto-pack.pluto--y > .pluto-pack.pluto--x {

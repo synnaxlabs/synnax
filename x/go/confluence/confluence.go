@@ -124,15 +124,6 @@ type Source[I Value] interface {
 // type of operation.
 type TransformFunc[I, O Value] func(ctx context.Context, i I) (o O, ok bool, err error)
 
-// Stream represents a streamImpl of values. Each streamImpl has an addressable Outlet
-// and an addressable Inlet. These addresses are best represented as unique locations where values
-// are received from (Inlet) and sent to (Outlet). It is also generally OK to share a streamImpl across multiple
-// Frame, as long as those segments perform are replicates of one another.
-type Stream[V Value] interface {
-	Inlet[V]
-	Outlet[V]
-}
-
 // Inlet is the end of a Stream that accepts values and can be addressed.
 type Inlet[V Value] interface {
 	// Inlet pipes a value through the Stream.
