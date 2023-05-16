@@ -194,8 +194,29 @@ interface exposes a cluster-wide monolithic relay that allows callers in the ser
 and API layers to access live channel data without being aware of the cluster topology.
 
 The distribution layer relay has one crucial difference from the two services mentioned
-above: it multiplexes requests for live telemetry across a single stream.
+above: it multiplexes requests for live telemetry across a single stream. Unlike writers
+or iterators, relay reads have no-cross node state to maintain, and all consumers of
+the relay are accessing filtered views of the same data. Instead of opening a socket
+for each reader that needs to consume from the relay, we keep track of the channels each
+reader wants to receive data for. These channels are called demands. When a new reader
+wants to consume frames, it sends the relay a demand request. The gateway relay
+normalizes the demands from each reader, and opens a new socket to a peer relay or the
+gateway's storage layer relay. Responses are then multiplied to each consumer relay,
+where they are filtered only for the channels that the reader requested.
 
+<br />
+<p align="middle">
+    <img
+        src="./img/0012-230501-telemetry-streaming/distribution-relay.png"
+        width="70%"
+    />
+    <h5 align="middle">Distribution Relay</h5>
+</p>
+
+
+The impetus is that the **number of telemetry readers is much larger than the number of
+writers**. With this approach we can drastically reduce read amplification between peers
+in the cluster, and hopefully reduce congestion in the storage layer write pipeline as well.
 
 # 6 - Future Work
 
@@ -218,9 +239,9 @@ between nodes and to clients.
 ### Working Notes
 
 - What are the big remaining challenges here.
-    - Variable size payloads and well-defined data types. -> Might just cover this with
-      a catch-all 'json' or 'binary' type for now.
-    - Out of order inserts into event based indexes. -> Goes back to optimizing for
-      append only writes. It might be ok for writes before a certain point to be
-      much slower.
-    - Durability of event channels.
+- Variable size payloads and well-defined data types. -> Might just cover this with
+  a catch-all 'json' or 'binary' type for now.
+- Out of order inserts into event based indexes. -> Goes back to optimizing for
+  append only writes. It might be ok for writes before a certain point to be
+  much slower.
+- Durability of event channels.

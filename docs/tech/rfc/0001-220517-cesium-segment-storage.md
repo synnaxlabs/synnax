@@ -374,7 +374,7 @@ multiple workers don't access the same file in parallel. This stage is also
 shared with the create query pipe.
 
 <p align="middle">
-    <img src="/img/rfc/220517-cesium-segment-storage/retrieve-pipe.png" width="50%" />
+    <img src="img/0001-220517-cesium-segment-storage/retrieve-pipe.png" width="50%" />
     <h6 align="middle">Retrieve Query Pipe</h6>
 </p>
 
@@ -411,14 +411,14 @@ for [Retrieve](#retrieve-query-execution). This stage is shared with the
 retrieve query pipe.
 
 <p align="middle">
-    <img src="/img/rfc/220517-cesium-segment-storage/create-pipe.png" width="50%" />
+    <img src="img/0001-220517-cesium-segment-storage/create-pipe.png" width="50%" />
     <h6 align="middle">Create Query Pipe</h6>
 </p>
 
 ### 3 - Combined Pipe Architecture
 
 <p align="middle">
-    <img src="/img/rfc/220517-cesium-segment-storage/pipe.png" width="100%" />
+    <img src="img/0001-220517-cesium-segment-storage/pipe.png" width="100%" />
     <h6 align="middle">Combined Cesium Pipe Architecture</h6>
 </p>
 
