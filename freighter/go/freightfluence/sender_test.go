@@ -41,8 +41,8 @@ var _ = Describe("Sender", func() {
 		var (
 			server         freighter.StreamServer[int, int]
 			client         freighter.StreamClient[int, int]
-			receiverStream confluence.Stream[int]
-			senderStream   confluence.Stream[int]
+			receiverStream *confluence.Stream[int]
+			senderStream   *confluence.Stream[int]
 		)
 		BeforeEach(func() {
 			server = net.StreamServer("", 10)
@@ -120,8 +120,8 @@ var _ = Describe("Sender", func() {
 			sCtx            signal.Context
 			cancel          context.CancelFunc
 			nStreams        = 5
-			senderStream    confluence.Stream[int]
-			receiverStreams map[address.Address]confluence.Stream[int]
+			senderStream    *confluence.Stream[int]
+			receiverStreams map[address.Address]*confluence.Stream[int]
 			clientSender    freightfluence.MapTargetedSender[int]
 		)
 		BeforeEach(func() {
@@ -129,7 +129,7 @@ var _ = Describe("Sender", func() {
 			senderStream = confluence.NewStream[int](nStreams)
 			clientTransport := net.StreamClient(1)
 			clientSender = make(map[address.Address]freighter.StreamSenderCloser[int], nStreams)
-			receiverStreams = make(map[address.Address]confluence.Stream[int], nStreams)
+			receiverStreams = make(map[address.Address]*confluence.Stream[int], nStreams)
 			for i := 0; i < nStreams; i++ {
 				stream := net.StreamServer("", 1)
 				receiverStream := confluence.NewStream[int](1)

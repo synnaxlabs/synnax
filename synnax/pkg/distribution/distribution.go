@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	channeltransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel"
 	frametransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer"
+	"github.com/synnaxlabs/x/errutil"
 )
 
 type (
@@ -41,7 +42,12 @@ type Distribution struct {
 }
 
 // Close closes the distribution layer.
-func (d Distribution) Close() error { return d.Storage.Close() }
+func (d Distribution) Close() error {
+	e := errutil.NewCatch(errutil.WithAggregation())
+	e.Exec(d.Framer.Close)
+	e.Exec(d.Storage.Close)
+	return e.Error()
+}
 
 // Open opens the distribution layer for the node using the provided Config. The caller
 // is responsible for closing the distribution layer when it is no longer in use.

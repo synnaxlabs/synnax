@@ -21,7 +21,7 @@ import (
 
 type StreamReader = confluence.Segment[StreamReaderRequest, StreamReaderResponse]
 
-type liveReader struct {
+type streamReader struct {
 	confluence.AbstractUnarySink[StreamReaderRequest]
 	confluence.AbstractUnarySource[StreamReaderResponse]
 	iter struct {
@@ -36,7 +36,8 @@ type liveReader struct {
 	}
 }
 
-func (l *liveReader) Flow(sCtx signal.Context, opts ...confluence.Option) {
+// Flow implements confluence.Flow.
+func (l *streamReader) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	l.iter.flow.Flow(sCtx, opts...)
 	l.relay.flow.Flow(sCtx, opts...)
 	o := confluence.NewOptions(opts)
@@ -66,10 +67,9 @@ func (l *liveReader) Flow(sCtx signal.Context, opts ...confluence.Option) {
 
 		// Close the iterator and drain the response channel
 		l.iter.requests.Close()
-		for range l.iter.responses.Outlet() {
-		}
+		confluence.Drain(l.iter.responses)
 
-		// then we'll tap into the relay for live updates
+		// Then we'll tap into the relay for stream updates
 		for {
 			select {
 			case <-ctx.Done():
@@ -100,7 +100,7 @@ type StreamReaderConfig struct {
 type StreamReaderRequest = StreamReaderConfig
 
 func (s *Service) NewStreamReader(ctx context.Context, cfg StreamReaderConfig) (StreamReader, error) {
-	l := &liveReader{}
+	l := &streamReader{}
 	iter, err := s.NewStreamIterator(ctx, IteratorConfig{
 		Keys:   cfg.Keys,
 		Bounds: cfg.Start.Range(telem.Now().Add(5 * telem.Second)),

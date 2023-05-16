@@ -12,6 +12,7 @@
 import React from "react";
 import { Theming, Triggers } from "../src";
 import "./index.css";
+import 'reactflow/dist/style.css';
 
 export const parameters = {
     actions: { argTypesRegex: "^on[A-Z].*" },

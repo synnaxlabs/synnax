@@ -27,14 +27,10 @@ var _ = Describe("ReaderBehavior", Ordered, func() {
 				Channels: []cesium.ChannelKey{basic1},
 				Start:    10 * telem.SecondTS,
 			}))
-
 			r := MustSucceed(db.NewStreamReader(ctx, cesium.StreamReaderConfig{
 				Channels: []cesium.ChannelKey{basic1},
 			}))
-			req := confluence.NewStream[cesium.StreamReaderRequest](1)
-			res := confluence.NewStream[cesium.StreamReaderResponse](1)
-			r.InFrom(req)
-			r.OutTo(res)
+			i, o := confluence.Attach(r, 1)
 			sCtx, cancel := signal.WithCancel(ctx)
 			defer cancel()
 			r.Flow(sCtx, confluence.CloseInletsOnExit())
@@ -45,11 +41,11 @@ var _ = Describe("ReaderBehavior", Ordered, func() {
 				[]telem.Array{d},
 			))).To(BeTrue())
 
-			f := <-res.Outlet()
+			f := <-o.Outlet()
 			Expect(f.Frame.Keys).To(HaveLen(1))
 			Expect(f.Frame.Arrays).To(HaveLen(1))
 			Expect(f.Frame.Arrays[0]).To(Equal(d))
-			req.Close()
+			i.Close()
 			Expect(sCtx.Wait()).To(Succeed())
 		})
 	})

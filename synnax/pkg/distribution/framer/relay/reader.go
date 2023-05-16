@@ -18,14 +18,36 @@ import (
 	"github.com/synnaxlabs/x/signal"
 )
 
+type Reader = confluence.Segment[Request, Response]
+
 type reader struct {
 	confluence.AbstractLinear[Request, Response]
-	addr     address.Address
-	requests confluence.Inlet[demand]
-	keys     channel.Keys
-	relay    *Relay
+	addr    address.Address
+	demands confluence.Inlet[demand]
+	keys    channel.Keys
+	relay   *Relay
 }
 
+type ReaderConfig struct {
+	Keys channel.Keys
+}
+
+func (r *Relay) NewReader(_ context.Context, cfg ReaderConfig) (Reader, error) {
+	rd := &reader{
+		keys:    cfg.Keys,
+		addr:    address.Rand(),
+		demands: r.peerDemands,
+		relay:   r,
+	}
+	r.peerDemands.Inlet() <- demand{
+		Variant: change.Set,
+		Key:     rd.addr,
+		Value:   Request{Keys: cfg.Keys},
+	}
+	return rd, nil
+}
+
+// Flow implements confluence.Flow.
 func (r *reader) Flow(ctx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
 	o.AttachClosables(r.Out)
@@ -38,11 +60,11 @@ func (r *reader) Flow(ctx signal.Context, opts ...confluence.Option) {
 				return ctx.Err()
 			case req, ok := <-r.In.Outlet():
 				if !ok {
-					r.requests.Inlet() <- demand{Variant: change.Delete, Key: r.addr}
+					r.demands.Inlet() <- demand{Variant: change.Delete, Key: r.addr}
 					return nil
 				}
 				r.keys = req.Keys
-				r.requests.Inlet() <- demand{Variant: change.Set, Key: r.addr, Value: req}
+				r.demands.Inlet() <- demand{Variant: change.Set, Key: r.addr, Value: req}
 			case f := <-responses.Outlet():
 				filtered := f.Frame.FilterKeys(r.keys)
 				if len(filtered.Keys) != 0 {

@@ -106,3 +106,6 @@ func (s *Service) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, err
 func (s *Service) NewStreamWriter(ctx context.Context, cfg WriterConfig) (StreamWriter, error) {
 	return s.writer.NewStream(ctx, cfg)
 }
+
+// Close closes the Service.
+func (s *Service) Close() error { return s.relay.Close() }
