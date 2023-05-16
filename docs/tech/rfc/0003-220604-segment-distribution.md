@@ -1,5 +1,5 @@
 ---
-title: Delta - Segment Distribution
+title: Synnax - Segment Distribution
 layout: "@/layouts/MainLayout.astro"
 ---
 
@@ -156,7 +156,7 @@ any specific networking APIs.
 
 Delta's distribution layer directly interacts with two storage engines: Cesium
 and Aspen. DL
-uses [Aspen](https://github.com/synnaxlabs/delta/blob/main/docs/rfc/2-220518-aspen-distributed-storage.md)
+uses [Aspen](https://github.com/synnaxlabs/synnax/blob/main/docs/tech/rfc/0002-220518-aspen-distributed-storage.md)
 for querying cluster topology as well as storing distributed key-value data. It
 uses one or
 more [Cesium](https://github.com/synnaxlabs/delta/blob/main/docs/rfc/1-220517-cesium-segment-storage.md)
@@ -168,7 +168,7 @@ for [channels](#Channels)).
 
 <p align="middle">
     <img
-        src="/img/rfc/220604-segment-distribution/distributed-storage-high-level.png"
+        src="img/0003-220604-segment-distribution/distributed-storage-high-level.png"
         width="80%"
     />
     <h5 align="middle">(Very) High Level Distributed Storage Architecture</h5>
@@ -227,7 +227,7 @@ consistent, and time-ordered values. Channels have a few important fields:
 
 1. Data Rate - The number of samples per second of data (Hz). This data rate is
    fixed, and cannot be changed without deleting and recreating a channel. All
-   data written to the channel will have the same data rate.
+   data written to the channel have the same data rate.
 2. Name - A human-readable name for the channel. This name is not used for
    internal purposes.
 3. Data Type - An alias for a channel's _density_ i.e. the number of bytes used
@@ -300,7 +300,7 @@ Internally, the `segment.Iterator` implementation has the following structure:
 
 <p align="middle">
     <img
-        src="/img/rfc/220604-segment-distribution/segment-iterator-gateway.png"
+        src="img/0003-220604-segment-distribution/segment-iterator-gateway.png"
         width="60%"
     />
     <h5 align="middle">Segment Iterator - Gateway Node </h5>
@@ -308,7 +308,7 @@ Internally, the `segment.Iterator` implementation has the following structure:
 
 <p align="middle">
     <img
-        src="/img/rfc/220604-segment-distribution/segment-iterator-peer.png"
+        src="img/0003-220604-segment-distribution/segment-iterator-peer.png"
         width="40%"
     />
     <h5 align="middle">Segment Iterator - Peer Node </h5>
@@ -426,7 +426,7 @@ Internally, the `segment.Writer` implementation has the following structure:
 
 <p align="middle">
     <img
-        src="/img/rfc/220604-segment-distribution/segment-writer-gateway.png"
+        src="img/0003-220604-segment-distribution/segment-writer-gateway.png"
         width="60%"
     />
     <h5 align="middle">Segment Writer - Gateway Node </h5>
@@ -434,7 +434,7 @@ Internally, the `segment.Writer` implementation has the following structure:
 
 <p align="middle">
     <img
-        src="/img/rfc/220604-segment-distribution/segment-writer-peer.png"
+        src="img/0003-220604-segment-distribution/segment-writer-peer.png"
         width="40%"
     />
     <h5 align="middle">Segment Writer - Peer Node </h5>
