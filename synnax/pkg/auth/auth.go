@@ -15,8 +15,8 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// Authenticator is an interface for validating the identity of a particular entity (
-// i.e. they are who they say they are).
+// Authenticator validates the identity of a particular entity (i.e. they are who they
+// say they are).
 type Authenticator interface {
 	// Authenticate validates the identity of the entity with the given credentials.
 	// If the credentials are invalid, an InvalidCredentials error is returned.
@@ -25,6 +25,7 @@ type Authenticator interface {
 	NewWriter(tx gorp.Tx) Writer
 }
 
+// Writer registers new sets of credentials within an authentication service.
 type Writer interface {
 	// Register registers the given credentials in the authenticator.
 	Register(ctx context.Context, creds InsecureCredentials) error

@@ -13,10 +13,10 @@ retrieval. While it has been used for plotting in real-time scenarios at rates o
 1Hz, dedicated real-time infrastructure is necessary for supporting active control and
 live visualization/analysis at higher data rates.
 
-In this RFC I propose an architecture for integrating live telemetry into the existing
-Synnax ecosystem. I'll discuss modifications to several existing components, including
-the core read and write pipeline, as well as establishing several new components to
-support real-time needs.
+In this RFC I propose an architecture for integrating telemetry streaming into the
+existing Synnax ecosystem. I'll discuss modifications to several existing components,
+including the core read and write pipeline, as well as establishing several new
+components to support real-time needs.
 
 # 1 - Vocabulary
 
@@ -47,11 +47,11 @@ I've decided these are so important that they deserve a page of their own,
 
 ## 5.1 - Event Channels
 
-Event channels are build for two workloads: highly irregular, low volume telemetry
+Event channels are built for two workloads: highly irregular, low volume telemetry
 and multi-writer scenarios. The former allows us to support
 [supervisory](/docs/tech/telemetry.md#33---supervisory-commands) control, and the latter
 enables [real-time](/docs/tech/telemetry.md#32---real-time-commands) control by multiple
-clients. Supporting this use cases is critical for allowing human and auto-sequence
+clients. Supporting this use case is critical for allowing human and auto-sequence
 interoperability.
 
 Event channels manage their own, independent index. As opposed to sensor data,
@@ -73,13 +73,11 @@ taking considerable performance hits. Take, for example, the following scenario:
 1. Clients A and B open writers to the event channel `ch` with a cache size that holds
    50 samples.
 2. Writer A sends 40 samples with the timestamp of the last sample being `30`, and
-   writer
-   B sends ten with the last timestamp being `25`. Samples are ordered within the cache
-   on write.
+   writer B sends ten with the last timestamp being `25`. Samples are ordered within the
+   cache on write.
 3. The database flushes the write to disk.
 4. Writer B sends another timestamp with the value `26`. Now our cache is holding a
-   value
-   that was sent before the final write on the previous flush. What do we do?
+   value that was sent before the final write on the previous flush. What do we do?
 
 ## 5.2 - Virtual Channels
 
@@ -115,8 +113,7 @@ exposing a monolithic telemetry streaming system to the service layer.
 
 The storage level relay listens to incoming writes to cesium. The simplest way to
 accomplish this is to have cesium implement the `observe.Observable` interface and
-notify
-arbitrary subscribers of changes via `Notify` and the `OnChange` handlers.
+notify arbitrary subscribers of changes via `Notify` and the `OnChange` handlers.
 
 Unfortunately, depending on which handlers are bound, synchronously notifying
 subscribers on every frame write could cause considerable performance regressions under
@@ -188,10 +185,12 @@ may be executing at several kilohertz for extended periods of time.
 ## 5.5 - Relay - Distribution Layer
 
 The distribution layer extends the storage layer to relay telemetry from other nodes. It
-leverages similar routing functionality to both the `framer.iterator` and `framer.writer`
-services, using channel keys to resolve leaseholders and open streaming connections. It's
-interface exposes a cluster-wide monolithic relay that allows callers in the service
-and API layers to access live channel data without being aware of the cluster topology.
+leverages similar routing functionality to both the `framer.iterator` and
+`framer.writer` services, using channel keys to resolve leaseholders and open streaming
+connections.
+It's interface exposes a cluster-wide monolithic relay that allows callers in the
+service and API layers to access live channel data without being aware of the cluster
+topology.
 
 The distribution layer relay has one crucial difference from the two services mentioned
 above: it multiplexes requests for live telemetry across a single stream. Unlike writers
@@ -216,32 +215,34 @@ where they are filtered only for the channels that the reader requested.
 
 The impetus is that the **number of telemetry readers is much larger than the number of
 writers**. With this approach we can drastically reduce read amplification between peers
-in the cluster, and hopefully reduce congestion in the storage layer write pipeline as well.
+in the cluster, and hopefully minimize congestion in the storage layer write pipeline as
+well.
 
 # 6 - Future Work
 
-## 6.0 - Anti-Jitter
+## 6.0 - Framing Flight Protocol
 
-Implementing a robust anti-jitter
+Profiling Synnax in production since the `v0.1.0` release has shown that
+serialization/deserialization has the greates impact on frame read and write
+performance. Telemetry streaming leads to many more, considerably smaller frames than
+post-processed writes and bulk ingestion. Implementing an efficient flight protocol for
+telemetry frames is a priority for achieving high throughput and efficient resource utilization.
 
-## 6.1 - Framing Flight Protocol
+## 6.1 - Anti-Jitter
 
-## 6.2 - Anti-Jitter
+Latency and jitter play a critical role in over the network real-time control. In
+uncontrolled networks, latency and jitter are largely out of the control of the
+software. As network conditions improve, the software design itself begins to play a
+more important role. As a highly concurrent, garbage collected language, Go is not ideal
+for maintaining low jitter. As a result, we may need to implement jitter reduction
+algorithms in order to provide stronger guarantees on execution time. Naturally, these
+algorithms should be accompanied by extensive profiling.
 
-Question here deals with lease holding. We generally don't want to tie general cluster
-change capture across.
+## 6.3 - Variable Size Samples
 
-What if we have live readers that relay through the key-value store? Do CDC that way.
-
-We need to put channels into perspective -> They're just a way of passing messages
-between nodes and to clients.
-
-### Working Notes
-
-- What are the big remaining challenges here.
-- Variable size payloads and well-defined data types. -> Might just cover this with
-  a catch-all 'json' or 'binary' type for now.
-- Out of order inserts into event based indexes. -> Goes back to optimizing for
-  append only writes. It might be ok for writes before a certain point to be
-  much slower.
-- Durability of event channels.
+While relevant for supervisory control, I've left handling channels with variably sized
+samples out of scope for this RFC. I think it's important to consider the level of
+granularity with which we need to handle these data types: should they have a strongly
+typed schema? Or should we only accept variably sized binary or JSON type channels, and
+leave it up to the user to enforce any schema they may require? This is a question that
+requires gathering user feedback.
