@@ -9,7 +9,7 @@
 
 import { useState } from "react";
 
-import type { ComponentMeta, ComponentStory } from "@storybook/react";
+import type { Meta, StoryFn } from "@storybook/react";
 import { AiFillDatabase, AiFillPhone } from "react-icons/ai";
 
 import { Tree, TreeLeaf } from ".";
@@ -18,7 +18,7 @@ import { useSelectMultiple } from "@/hooks/useSelectMultiple";
 import { Triggers } from "@/triggers";
 import { Haul } from "@/haul";
 
-const story: ComponentMeta<typeof Tree> = {
+const story: Meta<typeof Tree> = {
   title: "Core/Tree",
   component: Tree,
 };
@@ -66,7 +66,7 @@ const Component = () => {
   return <Tree data={nodes} value={value} onChange={onSelect} />
 }
 
-export const Primary: ComponentStory<typeof Tree> = () => {
+export const Primary: StoryFn<typeof Tree> = () => {
   return (
     <Haul.Provider>
       <Triggers.Provider>

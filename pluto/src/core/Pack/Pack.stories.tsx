@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { ComponentMeta, ComponentStory } from "@storybook/react";
+import type { Meta, StoryFn } from "@storybook/react";
 
 import { Pack } from ".";
 
 import { Button } from "@/core/Button";
 
-const story: ComponentMeta<typeof Pack> = {
+const story: Meta<typeof Pack> = {
   title: "Core/Pack",
   component: Pack,
   argTypes: {
@@ -24,7 +24,7 @@ const story: ComponentMeta<typeof Pack> = {
   },
 };
 
-export const Horizontal: ComponentStory<typeof Pack> = (args) => (
+export const Horizontal: StoryFn<typeof Pack> = (args) => (
   <Pack {...args} reverse>
     <Button variant="text">Button 1</Button>
     <Button variant="text">Button 2</Button>
@@ -32,7 +32,7 @@ export const Horizontal: ComponentStory<typeof Pack> = (args) => (
   </Pack>
 );
 
-export const Vertical: ComponentStory<typeof Pack> = (args) => (
+export const Vertical: StoryFn<typeof Pack> = (args) => (
   <Pack {...args} direction="y">
     <Button variant="text">Button 1</Button>
     <Button variant="text">Button 2</Button>
@@ -40,7 +40,7 @@ export const Vertical: ComponentStory<typeof Pack> = (args) => (
   </Pack>
 );
 
-export const Nested: ComponentStory<typeof Pack> = (args) => (
+export const Nested: StoryFn<typeof Pack> = (args) => (
   <Pack direction="y">
     <Pack {...args}>
       <Button variant="text">Button</Button>

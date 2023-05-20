@@ -1,13 +1,14 @@
-// Copyright 2023 Synnax Labs, Inc.
+// copyright 2023 synnax labs, inc.
 //
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
+// use of this software is governed by the business source license included in the file
+// licenses/bsl.txt.
 //
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
+// as of the change date specified in that file, in accordance with the business source
+// license, use of this software will be governed by the apache license, version 2.0,
+// included in the file licenses/apl.txt.
 
-import { Direction, toXY, UnparsedXY } from "@synnaxlabs/x";
+import { XY, ZERO_XY, Direction, toXY, UnparsedXY } from "@synnaxlabs/x";
+import { Dimensions } from "reactflow";
 
 export const SVG = {
   translate: (xy: UnparsedXY) => {
@@ -21,4 +22,6 @@ export const SVG = {
     const two_ = toXY(two);
     return { x1: one_.x, y1: one_.y, x2: two_.x, y2: two_.y };
   },
+  viewBox: (dims: Dimensions, offset: XY = ZERO_XY) =>
+    `${offset.x} ${offset.y} ${dims.width} ${dims.height}`,
 };

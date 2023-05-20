@@ -17,16 +17,17 @@ import (
 )
 
 type (
-	Frame                = core.Frame
-	Iterator             = iterator.Iterator
-	IteratorRequest      = iterator.Request
-	IteratorResponse     = iterator.Response
-	StreamIterator       = iterator.StreamIterator
-	Writer               = writer.Writer
-	WriteRequest         = writer.Request
-	WriteResponse        = writer.Response
-	StreamWriter         = writer.StreamWriter
-	WriterConfig         = writer.Config
-	IteratorConfig       = iterator.Config
+	Frame            = core.Frame
+	Iterator         = iterator.Iterator
+	IteratorRequest  = iterator.Request
+	IteratorResponse = iterator.Response
+	StreamIterator   = iterator.StreamIterator
+	Writer           = writer.Writer
+	WriteRequest     = writer.Request
+	WriteResponse    = writer.Response
+	StreamWriter     = writer.StreamWriter
+	WriterConfig     = writer.Config
+	IteratorConfig   = iterator.Config
+
 	StreamReaderResponse = relay.Response
 )

@@ -10,8 +10,10 @@
 import { TimeSpan, URL } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { CacheChannelRetriever, ClusterChannelRetriever } from "./channel/retriever";
+
 import { AuthenticationClient } from "@/auth";
-import { ChannelClient } from "@/channel";
+import { ChannelClient, ChannelCreator } from "@/channel";
 import { ConnectivityClient } from "@/connectivity";
 import { FrameClient } from "@/framer";
 import { OntologyClient } from "@/ontology";
@@ -39,7 +41,7 @@ export type SynnaxProps = z.infer<typeof synnaxPropsSchema>;
 // eslint-disable-next-line import/no-default-export
 export default class Synnax {
   private readonly transport: Transport;
-  data: FrameClient;
+  telem: FrameClient;
   channels: ChannelClient;
   auth: AuthenticationClient | undefined;
   connectivity: ConnectivityClient;
@@ -76,8 +78,12 @@ export default class Synnax {
       });
       this.transport.use(this.auth.middleware());
     }
-    this.data = new FrameClient(this.transport);
-    this.channels = new ChannelClient(this.data, this.transport);
+    const retriever = new CacheChannelRetriever(
+      new ClusterChannelRetriever(this.transport)
+    );
+    const creator = new ChannelCreator(this.transport);
+    this.telem = new FrameClient(this.transport, retriever);
+    this.channels = new ChannelClient(this.telem, retriever, creator);
     this.connectivity = new ConnectivityClient(
       this.transport.getClient(),
       connectivityPollFrequency

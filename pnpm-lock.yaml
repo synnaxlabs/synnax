@@ -53,6 +53,7 @@ importers:
       '@synnaxlabs/x': workspace:*
       '@types/node': ^18.11.18
       eslint-config-synnaxlabs: workspace:*
+      rxjs: ^7.8.1
       typescript: ^4.9.4
       vite: ^4.0.4
       vitest: ^0.27.1
@@ -60,6 +61,7 @@ importers:
     dependencies:
       '@synnaxlabs/freighter': link:../../freighter/ts
       '@synnaxlabs/x': link:../../x/ts
+      rxjs: 7.8.1
       typescript: 4.9.5
       zod: 3.19.1
     devDependencies:
@@ -360,11 +362,12 @@ importers:
       '@storybook/preview-web': ^7.0.12
       '@storybook/react': ^7.0.12
       '@storybook/react-vite': ^7.0.12
+      '@synnaxlabs/client': workspace:*
       '@synnaxlabs/media': workspace:*
       '@synnaxlabs/tsconfig': workspace:*
       '@synnaxlabs/vite-plugin': workspace:*
       '@synnaxlabs/x': workspace:*
-      '@tanstack/react-virtual': 3.0.0-alpha.0
+      '@tanstack/react-virtual': 3.0.0-beta.54
       '@testing-library/dom': ^9.3.0
       '@testing-library/react': ^14.0.0
       '@testing-library/user-event': ^14.4.3
@@ -390,18 +393,21 @@ importers:
       react-hook-form: ^7.43.9
       react-icons: ^4.8.0
       reactflow: ^11.7.1
+      rxjs: ^7.8.1
       storybook: ^7.0.12
       stylelint-config-synnaxlabs: workspace:*
       typescript: ^5.0.4
       vite: ^4.3.6
       vite-tsconfig-paths: ^4.2.0
       vitest: ^0.31.0
+      zod: 3.19.1
     dependencies:
       '@fontsource/inter': 4.5.15
       '@juggle/resize-observer': 3.4.0
+      '@synnaxlabs/client': link:../client/ts
       '@synnaxlabs/media': link:../x/media
       '@synnaxlabs/x': link:../x/ts
-      '@tanstack/react-virtual': 3.0.0-alpha.0_react@18.2.0
+      '@tanstack/react-virtual': 3.0.0-beta.54_react@18.2.0
       '@testing-library/dom': 9.3.0
       clsx: 1.2.1
       d3: 7.8.4
@@ -411,6 +417,8 @@ importers:
       react-dom: 18.2.0_react@18.2.0
       react-hook-form: 7.43.9_react@18.2.0
       reactflow: 11.7.1_biqbaboplfbrettd7655fr4n2y
+      rxjs: 7.8.1
+      zod: 3.19.1
     devDependencies:
       '@babel/core': 7.21.8
       '@storybook/addon-actions': 7.0.12_biqbaboplfbrettd7655fr4n2y
@@ -495,8 +503,10 @@ importers:
       js-convert-case: ^4.2.0
       vite: ^4.0.4
       vitest: ^0.27.1
+      zod: 3.19.1
     dependencies:
       js-convert-case: 4.2.0
+      zod: 3.19.1
     devDependencies:
       '@synnaxlabs/tsconfig': link:../../configs/ts
       '@synnaxlabs/vite-plugin': link:../../configs/vite
@@ -2810,10 +2820,6 @@ packages:
     resolution: {integrity: sha512-a5Sab1C4/icpTZVzZc5Ghpz88yQtGOyNqYXcZgOssB2uuAr+wF/MvN6bgtW32q7HHrvBki+BsZ0OuNv6EV3K9g==}
     dev: true
 
-  /@reach/observe-rect/1.2.0:
-    resolution: {integrity: sha512-Ba7HmkFgfQxZqqaeIWWkNK0rEhpxVQHIoVyW1YDSkGsGIXzcaW4deC8B0pZrNSSyLTdIk7y+5olKt5+g0GmFIQ==}
-    dev: false
-
   /@reactflow/background/11.2.1_biqbaboplfbrettd7655fr4n2y:
     resolution: {integrity: sha512-Wk6+9Xx5gteM84/QSsnKLR5PriH5Y8f8uPHb4EWcVmKQl5jR4aIqW8ckUGL8RSyaF3q1XPOElkZTDjxaLX8p5g==}
     peerDependencies:
@@ -4059,15 +4065,17 @@ packages:
       defer-to-connect: 2.0.1
     dev: true
 
-  /@tanstack/react-virtual/3.0.0-alpha.0_react@18.2.0:
-    resolution: {integrity: sha512-WpHU/dt34NwZZ8qtiE05TF+nX/b1W6qrWZarO+s8jJFpPVicrTbJKp5Bjt4eSJuk7aYw272oEfsH3ABBRgj+3A==}
-    engines: {node: '>=12'}
+  /@tanstack/react-virtual/3.0.0-beta.54_react@18.2.0:
+    resolution: {integrity: sha512-D1mDMf4UPbrtHRZZriCly5bXTBMhylslm4dhcHqTtDJ6brQcgGmk8YD9JdWBGWfGSWPKoh2x1H3e7eh+hgPXtQ==}
     peerDependencies:
-      react: '>=16'
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0
     dependencies:
-      '@babel/runtime': 7.21.5
-      '@reach/observe-rect': 1.2.0
+      '@tanstack/virtual-core': 3.0.0-beta.54
       react: 18.2.0
+    dev: false
+
+  /@tanstack/virtual-core/3.0.0-beta.54:
+    resolution: {integrity: sha512-jtkwqdP2rY2iCCDVAFuaNBH3fiEi29aTn2RhtIoky8DTTiCdc48plpHHreLwmv1PICJ4AJUUESaq3xa8fZH8+g==}
     dev: false
 
   /@tauri-apps/api/1.2.0:
@@ -11624,6 +11632,12 @@ packages:
 
   /rw/1.3.3:
     resolution: {integrity: sha512-PdhdWy89SiZogBLaw42zdeqtRJ//zFd2PgQavcICDUgJT5oW10QCRKbJ6bg4r0/UY2M6BWd5tkxuGFRvCkgfHQ==}
+    dev: false
+
+  /rxjs/7.8.1:
+    resolution: {integrity: sha512-AA3TVj+0A2iuIoQkWEK/tqFjBq2j+6PO6Y0zJcvzLAFhEFIO3HL0vls9hWLncZbAAbK0mar7oZ4V079I/qPMxg==}
+    dependencies:
+      tslib: 2.5.0
     dev: false
 
   /s.color/0.0.15:

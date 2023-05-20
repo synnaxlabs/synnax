@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { RGBATuple } from "./core";
+import { RGBATuple, hex, sixCharHex } from "./core";
 
 const invalidHexError = (hex: string): Error => new Error(`Invalid hex color: ${hex}`);
 
@@ -34,11 +34,10 @@ export const hexToRGBA = (
 
 /**
  * Validates a hex color with 6 or 8 characters and with or without a leading `#`.
- * @param hex - The hex color to validate.
+ * @param v - The hex color to validate.
  * @returns `true` if the hex color is valid, `false` otherwise.
  */
-export const validateHex = (hex: string): boolean =>
-  /^#?([0-9a-f]{6}|[0-9a-f]{8})$/i.test(hex);
+export const validateHex = (v: string): boolean => hex.safeParse(v).success;
 
 /**
  * Validates a hex color with 6 characters and with or without a leading `#`.
@@ -46,7 +45,7 @@ export const validateHex = (hex: string): boolean =>
  * @returns `true` if the hex color is valid, `false` otherwise.
  */
 export const validateSixCharHex = (hex: string): boolean =>
-  /^#?([0-9a-f]{6})$/i.test(hex);
+  sixCharHex.safeParse(hex).success;
 
 const stripHash = (hex: string): string => (hex.startsWith("#") ? hex.slice(1) : hex);
 

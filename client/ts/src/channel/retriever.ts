@@ -10,7 +10,14 @@
 import type { UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
-import { ChannelKeyOrName, ChannelKeys, ChannelNames, ChannelParams, ChannelPayload, channelPayload } from "./payload";
+import {
+  ChannelKeyOrName,
+  ChannelKeys,
+  ChannelNames,
+  ChannelParams,
+  ChannelPayload,
+  channelPayload,
+} from "./payload";
 
 import { ValidationError } from "@/errors";
 import { Transport } from "@/transport";
@@ -28,8 +35,8 @@ const responseSchema = z.object({
 });
 
 export interface ChannelRetriever {
-  retrieve: ((keyOrName: ChannelKeyOrName) => Promise<ChannelPayload>) &
-  ((...keysOrNames: Array<ChannelParams>) => Promise<ChannelPayload[]>);
+  retrieve: ((channel: ChannelKeyOrName) => Promise<ChannelPayload>) &
+    ((...channels: ChannelParams[]) => Promise<ChannelPayload[]>);
   retrieveAll: () => Promise<ChannelPayload[]>;
 }
 
@@ -53,15 +60,15 @@ export class ClusterChannelRetriever implements ChannelRetriever {
     return res?.channels as ChannelPayload[];
   }
 
-  async retrieve(keyOrName: string | number): Promise<ChannelPayload>;
+  async retrieve(channel: ChannelKeyOrName): Promise<ChannelPayload>;
 
-  async retrieve(...keysOrNames: Array<ChannelParams>): Promise<ChannelPayload[]>;
+  async retrieve(...cahnnels: ChannelParams[]): Promise<ChannelPayload[]>;
 
   async retrieve(
-    ...keysOrNames: Array<ChannelParams>
+    ...channels: ChannelParams[]
   ): Promise<ChannelPayload | ChannelPayload[]> {
-    const single = isSingle(keysOrNames);
-    const [keys, names] = splitChannelparams(keysOrNames);
+    const single = isSingle(channels);
+    const [keys, names] = splitChannelParams(channels);
     const res = await this.execute({ keys, names });
     if (!single) return res;
     if (res.length === 0) throw new ValidationError("Channel not found");
@@ -85,16 +92,15 @@ export class CacheChannelRetriever implements ChannelRetriever {
     this.wrapped = wrapped;
   }
 
-  async retrieve(keyOrName: string | number): Promise<ChannelPayload>;
+  async retrieve(channel: ChannelKeyOrName): Promise<ChannelPayload>;
 
-  async retrieve(...keysOrNames: Array<ChannelParams>): Promise<ChannelPayload[]>;
+  async retrieve(...channels: ChannelParams[]): Promise<ChannelPayload[]>;
 
   async retrieve(
-    ...keysOrNames: Array<ChannelParams>
+    ...channels: ChannelParams[]
   ): Promise<ChannelPayload | ChannelPayload[]> {
-    const single = isSingle(keysOrNames);
-    const [keys, names] = splitChannelparams(keysOrNames);
-
+    const single = isSingle(channels);
+    const [keys, names] = splitChannelParams(channels);
 
     const results: ChannelPayload[] = [];
     const toFetch: Array<string | number> = [];
@@ -102,15 +108,14 @@ export class CacheChannelRetriever implements ChannelRetriever {
     names.forEach((name) => {
       const key = this.namesToKeys.get(name);
       if (key == null) toFetch.push(name);
-      else keys.push(key)
+      else keys.push(key);
     });
 
     keys.forEach((key) => {
       const channel = this.cache.get(key);
       if (channel != null) results.push(channel);
       else toFetch.push(key);
-    })
-
+    });
 
     if (toFetch.length > 0) {
       const fetched = await this.wrapped.retrieve(...toFetch);
@@ -128,16 +133,19 @@ export class CacheChannelRetriever implements ChannelRetriever {
   }
 }
 
-const splitChannelparams = (keysOrNames: Array<ChannelParams>): [number[], string[]] => {
+const splitChannelParams = (channels: ChannelParams[]): [number[], string[]] => {
   const keys: ChannelKeys = [];
   const names: ChannelNames = [];
-  keysOrNames.flat().forEach((keyOrName) => {
-    if (typeof keyOrName === "number") keys.push(keyOrName);
-    else names.push(keyOrName);
+  channels.flat().forEach((channel) => {
+    if (typeof channel === "number") keys.push(channel);
+    else names.push(channel);
   });
   return [keys, names];
-}
+};
 
-const isSingle = (keysOrNames: Array<ChannelParams>): boolean => {
-  return keysOrNames.length === 1 && (typeof keysOrNames[0] === "string" || typeof keysOrNames[0] === "number");
-}
+const isSingle = (channels: ChannelParams[]): boolean => {
+  return (
+    channels.length === 1 &&
+    (typeof channels[0] === "string" || typeof channels[0] === "number")
+  );
+};

@@ -26,9 +26,9 @@ const newChannel = async (): Promise<Channel> => {
 };
 
 describe("Iterator", () => {
-  test("basic iteration", async () => {
+  test("happy path", async () => {
     const ch = await newChannel();
-    const writer = await client.data.newWriter(TimeStamp.SECOND, ch.key);
+    const writer = await client.telem.newWriter(TimeStamp.SECOND, ch.key);
     const data = randomTypedArray(25, ch.dataType);
     try {
       await writer.writeArray(ch.key, data);
@@ -39,7 +39,7 @@ describe("Iterator", () => {
       await writer.close();
     }
 
-    const iter = await client.data.newIterator(
+    const iter = await client.telem.newIterator(
       new TimeRange(TimeSpan.ZERO, TimeSpan.seconds(4)),
       [ch.key],
       false

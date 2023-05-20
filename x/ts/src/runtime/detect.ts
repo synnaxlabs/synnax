@@ -17,7 +17,7 @@ export const detectRuntime = (): Runtime => {
   )
     return "node";
 
-  if (window === undefined || window.document === undefined)
+  if (typeof window === "undefined" || window.document === undefined)
     console.warn("unable to safely detect runtime, assuming browser");
 
   return "browser";

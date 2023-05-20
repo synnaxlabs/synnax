@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { ComponentMeta, ComponentStory } from "@storybook/react";
+import type { Meta, StoryFn } from "@storybook/react";
 
 import { useStaticTabs } from "./Tabs";
 
 import { Tabs } from ".";
 
-const story: ComponentMeta<typeof Tabs> = {
+const story: Meta<typeof Tabs> = {
   title: "Core/Tabs",
   component: Tabs,
 };
@@ -31,7 +31,7 @@ const exampleTabs = [
   },
 ];
 
-export const Primary: ComponentStory<typeof Tabs> = () => {
+export const Primary: StoryFn<typeof Tabs> = () => {
   const props = useStaticTabs({ tabs: exampleTabs });
   return (
     <Tabs {...props} size="small" closable>

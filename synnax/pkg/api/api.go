@@ -69,7 +69,7 @@ type API struct {
 	provider     Provider
 	config       Config
 	Auth         *AuthService
-	Telem        *TelemService
+	Telem        *FrameService
 	Channel      *ChannelService
 	Connectivity *ConnectivityService
 	Ontology     *OntologyService

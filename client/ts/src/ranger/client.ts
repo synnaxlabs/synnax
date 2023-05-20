@@ -7,8 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export type Join<K, P> = K extends string | number
-  ? P extends string | number
-    ? `${K}${"" extends P ? "" : "."}${P}`
-    : never
-  : never;
+export class RangeClient {
+  retrieve(range: string): Promise<Range>;
+  retrieve(...ranges: string[]): Promise<Range[]>;
+
+  async retrieve(...ranges: string[]): Promise<Range | Range[]> {
+    return [];
+  }
+}

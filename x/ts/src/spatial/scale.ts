@@ -9,7 +9,7 @@
 
 import { Box } from "./box";
 import {
-  bound,
+  toBound,
   Bound,
   Corner,
   cornerLocations as cornerLocs,
@@ -118,7 +118,7 @@ export class Scale {
   }
 
   scale(lowerOrBound: number | Bound, upper?: number): Scale {
-    const b = bound(lowerOrBound, upper);
+    const b = toBound(lowerOrBound, upper);
     const next = this.new();
     const f = curriedScale(b) as TypedOperation;
     f.type = "scale";
@@ -127,7 +127,7 @@ export class Scale {
   }
 
   clamp(lowerOrBound: number | Bound, upper?: number): Scale {
-    const b = bound(lowerOrBound, upper);
+    const b = toBound(lowerOrBound, upper);
     const next = this.new();
     const f = curriedClamp(b) as TypedOperation;
     f.type = "clamp";

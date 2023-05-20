@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { z } from "zod";
+
 import {
   convertDataType,
   DataType,
@@ -150,6 +152,11 @@ export class LazyArray {
     return addSamples(this.max, -this.min);
   }
 
+  /**
+   * @returns the index of the first sample that is greater than or equal to the given value.
+   * The underlying array must be sorted. If it is not, the behavior of this method is undefined.
+   * @param value the value to search for.
+   */
   binarySearch(value: SampleValue): number {
     let left = 0;
     let right = this.length - 1;

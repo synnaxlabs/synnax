@@ -7,18 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, LazyArray, TimeRange, TimeStamp } from "@synnaxlabs/x";
+import { DataType, LazyArray, TimeRange } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const arrayPayloadSchema = z.object({
-  timeRange: z
-    .object({
-      start: z.number().transform((n) => new TimeStamp(n)),
-      end: z.number().transform((n) => new TimeStamp(n)),
-    })
-    .transform((o) => new TimeRange(o.start, o.end))
-    .optional(),
-  dataType: z.string().transform((s) => new DataType(s)),
+  timeRange: TimeRange.z.optional(),
+  dataType: DataType.z,
   data: z.string().transform(
     (s) =>
       new Uint8Array(
@@ -32,7 +26,7 @@ export const arrayPayloadSchema = z.object({
 export type ArrayPayload = z.infer<typeof arrayPayloadSchema>;
 
 export const framePayload = z.object({
-  keys: z.string().array().nullable().default([]).or(z.number().array().nullable().default([])),
+  keys: z.number().array().nullable().default([]),
   arrays: arrayPayloadSchema.array().nullable().default([]),
 });
 

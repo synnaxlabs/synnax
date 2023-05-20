@@ -33,7 +33,7 @@ type Channel struct {
 	// Key is a unique identifier to the channel within the cesium.
 	// [REQUIRED]
 	Key     ChannelKey `json:"key" msgpack:"key"`
-	Variant ChannelVariant
+	IsIndex bool
 	// DataType is the type of data stored in the channel.
 	// [REQUIRED]
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`

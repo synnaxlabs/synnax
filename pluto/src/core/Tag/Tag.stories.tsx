@@ -7,18 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { ComponentMeta, ComponentStory } from "@storybook/react";
+import type { Meta, StoryFn } from "@storybook/react";
 
 import { Tag } from ".";
 
-const story: ComponentMeta<typeof Tag> = {
+const story: Meta<typeof Tag> = {
   title: "Core/Tag",
   component: Tag,
 };
 
-const Template: ComponentStory<typeof Tag> = (props) => <Tag {...props} />;
+const Template: StoryFn<typeof Tag> = (props) => <Tag {...props} />;
 
-export const Primary: ComponentStory<typeof Tag> = Template.bind({});
+export const Primary: StoryFn<typeof Tag> = Template.bind({});
 Primary.args = {
   children: "Tag",
   onClose: () => undefined,

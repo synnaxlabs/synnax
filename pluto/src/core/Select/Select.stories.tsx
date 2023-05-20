@@ -8,14 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { useState } from "@storybook/addons";
-import type { ComponentMeta, ComponentStory } from "@storybook/react";
+import type { Meta, StoryFn } from "@storybook/react";
 import { KeyedRenderableRecord } from "@synnaxlabs/x";
 
 import { Select, SelectMultipleProps } from ".";
 
 import { ListColumn } from "@/core/List";
 
-const story: ComponentMeta<typeof Select.Multiple> = {
+const story: Meta<typeof Select.Multiple> = {
   title: "Core/Select",
   component: Select.Multiple,
 };
@@ -59,7 +59,7 @@ const MultipleTemplate = <E extends KeyedRenderableRecord<E>>(
   return <Select.Multiple {...args} value={value} onChange={setValue} />;
 };
 
-export const Multiple: ComponentStory<typeof Select.Multiple<SampleRecord>> =
+export const Multiple: StoryFn<typeof Select.Multiple<SampleRecord>> =
   MultipleTemplate.bind({});
 
 Multiple.args = {
@@ -76,7 +76,7 @@ const Template = (
   return <Select {...props} value={value} onChange={setValue} />;
 };
 
-export const Default: ComponentStory<typeof Template> = Template.bind({});
+export const Default: StoryFn<typeof Template> = Template.bind({});
 
 Default.args = {
   columns: sampleColumns,

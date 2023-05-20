@@ -7,19 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { ComponentMeta, ComponentStory } from "@storybook/react";
+import type { Meta, StoryFn } from "@storybook/react";
 import { MdGrain } from "react-icons/md";
 
 import { Nav } from ".";
 
 import { Menu } from "@/core/Menu";
 
-const story: ComponentMeta<typeof Nav.Bar> = {
+const story: Meta<typeof Nav.Bar> = {
   title: "Core/Nav",
   component: Nav.Bar,
 };
 
-export const LeftBar: ComponentStory<typeof Nav.Bar> = () => (
+export const LeftBar: StoryFn<typeof Nav.Bar> = () => (
   <Nav.Bar>
     <Nav.Bar.Start>
       <Menu>
@@ -45,7 +45,7 @@ export const LeftBar: ComponentStory<typeof Nav.Bar> = () => (
   </Nav.Bar>
 );
 
-export const LeftDrawer: ComponentStory<typeof Nav.Drawer> = () => {
+export const LeftDrawer: StoryFn<typeof Nav.Drawer> = () => {
   const props = Nav.useDrawer({
     initialKey: "2",
     items: [

@@ -34,4 +34,3 @@ describe("deepDelete", () => {
     expect(Deep.delete<TestRecord, 2>(a, "b.c")).toEqual(b);
   });
 });
-  

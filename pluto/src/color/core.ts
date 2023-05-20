@@ -7,6 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { z } from "zod";
+
+export const hexRegex = /^#?([0-9a-f]{6}|[0-9a-f]{8})$/i;
+export const sixCharHexRegex = /^#?([0-9a-f]{6})$/i;
+export const hex = z.string().regex(hexRegex);
+export const sixCharHex = z.string().regex(sixCharHexRegex);
+
 /** A completely transparent zero value color. */
 export const ZERO_COLOR: RGBATuple = [0, 0, 0, 0];
 

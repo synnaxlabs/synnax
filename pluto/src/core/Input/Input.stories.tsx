@@ -9,14 +9,14 @@
 
 import { useState } from "react";
 
-import type { ComponentMeta } from "@storybook/react";
+import type { Meta } from "@storybook/react";
 import { TimeStamp } from "@synnaxlabs/x";
 
 import { Text } from "../Typography";
 
 import { Input } from ".";
 
-const story: ComponentMeta<typeof Input> = {
+const story: Meta<typeof Input> = {
   title: "Core/Input",
   component: Input,
 };

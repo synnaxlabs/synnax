@@ -86,7 +86,7 @@ class Core extends MiddlewareCollector {
       throw new Error("[freighter.http] - expected valid request url");
 
     const [, err] = await this.executeMiddleware(
-      { target: request.url, protocol: "http", params: {} },
+      { target: request.url, protocol: "http", params: {}, role: "client" },
       async (ctx: Context): Promise<[Context, Error | undefined]> => {
         const outCtx: Context = { ...ctx, params: {} };
         request.headers = {

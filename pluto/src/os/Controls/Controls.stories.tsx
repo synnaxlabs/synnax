@@ -7,23 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { ComponentMeta, ComponentStory } from "@storybook/react";
+import type { Meta, StoryFn } from "@storybook/react";
 
 import { Controls } from ".";
 
-const story: ComponentMeta<typeof Controls> = {
+const story: Meta<typeof Controls> = {
   title: "OS/Controls",
   component: Controls,
   argTypes: {},
 };
 
-export const MacOS: ComponentStory<typeof Controls> = () => (
-  <Controls forceOS="MacOS" />
-);
+export const MacOS: StoryFn<typeof Controls> = () => <Controls forceOS="MacOS" />;
 
-export const Windows: ComponentStory<typeof Controls> = () => (
-  <Controls forceOS="Windows" />
-);
+export const Windows: StoryFn<typeof Controls> = () => <Controls forceOS="Windows" />;
 
 // eslint-disable-next-line import/no-default-export
 export default story;
