@@ -11,7 +11,7 @@ import (
 	"github.com/synnaxlabs/cesium"
 )
 
-var _ = Describe("ReaderBehavior", Ordered, func() {
+var _ = Describe("Streamer Behavior", Ordered, func() {
 	var db *cesium.DB
 	BeforeAll(func() { db = openMemDB() })
 	AfterAll(func() { Expect(db.Close()).To(Succeed()) })
@@ -27,7 +27,7 @@ var _ = Describe("ReaderBehavior", Ordered, func() {
 				Channels: []cesium.ChannelKey{basic1},
 				Start:    10 * telem.SecondTS,
 			}))
-			r := MustSucceed(db.NewStreamReader(ctx, cesium.StreamReaderConfig{
+			r := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
 				Channels: []cesium.ChannelKey{basic1},
 			}))
 			i, o := confluence.Attach(r, 1)

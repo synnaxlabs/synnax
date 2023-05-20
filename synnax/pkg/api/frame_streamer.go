@@ -21,23 +21,23 @@ import (
 	"github.com/synnaxlabs/x/signal"
 )
 
-type FrameReaderRequest = framer.StreamReaderRequest
-type FrameReaderResponse = framer.StreamReaderResponse
-type FrameReaderStream = freighter.ServerStream[FrameReaderRequest, FrameReaderResponse]
+type FrameStreamerRequest = framer.StreamerRequest
+type FrameStreamerResponse = framer.StreamerResponse
+type StreamerStream = freighter.ServerStream[FrameStreamerRequest, FrameStreamerResponse]
 
-func (s *FrameService) Read(ctx context.Context, stream FrameReaderStream) errors.Typed {
+func (s *FrameService) Stream(ctx context.Context, stream StreamerStream) errors.Typed {
 	reader, err := s.openReader(ctx, stream)
 	if err.Occurred() {
 		return err
 	}
 	sCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(s.Instrumentation))
 	defer cancel()
-	receiver := &freightfluence.Receiver[FrameReaderRequest]{
+	receiver := &freightfluence.Receiver[FrameStreamerRequest]{
 		Receiver: stream,
 	}
-	sender := &freightfluence.TransformSender[FrameReaderResponse, FrameReaderResponse]{
-		Sender: freighter.SenderNopCloser[FrameReaderResponse]{StreamSender: stream},
-		Transform: func(ctx context.Context, res FrameReaderResponse) (FrameReaderResponse, bool, error) {
+	sender := &freightfluence.TransformSender[FrameStreamerResponse, FrameStreamerResponse]{
+		Sender: freighter.SenderNopCloser[FrameStreamerResponse]{StreamSender: stream},
+		Transform: func(ctx context.Context, res FrameStreamerResponse) (FrameStreamerResponse, bool, error) {
 			if res.Error != nil {
 				res.Error = ferrors.Encode(res.Error)
 			}
@@ -45,21 +45,21 @@ func (s *FrameService) Read(ctx context.Context, stream FrameReaderStream) error
 		},
 	}
 	pipe := plumber.New()
-	plumber.SetSegment[FrameReaderRequest, FrameReaderResponse](pipe, "reader", reader)
-	plumber.SetSink[FrameReaderResponse](pipe, "sender", sender)
-	plumber.SetSource[FrameReaderRequest](pipe, "receiver", receiver)
-	plumber.MustConnect[FrameReaderResponse](pipe, "reader", "sender", 1)
-	plumber.MustConnect[FrameReaderRequest](pipe, "receiver", "reader", 1)
+	plumber.SetSegment[FrameStreamerRequest, FrameStreamerResponse](pipe, "reader", reader)
+	plumber.SetSink[FrameStreamerResponse](pipe, "sender", sender)
+	plumber.SetSource[FrameStreamerRequest](pipe, "receiver", receiver)
+	plumber.MustConnect[FrameStreamerResponse](pipe, "reader", "sender", 1)
+	plumber.MustConnect[FrameStreamerRequest](pipe, "receiver", "reader", 1)
 	pipe.Flow(sCtx, confluence.CloseInletsOnExit())
 	return errors.MaybeUnexpected(sCtx.Wait())
 }
 
-func (s *FrameService) openReader(ctx context.Context, stream FrameReaderStream) (framer.StreamReader, errors.Typed) {
+func (s *FrameService) openReader(ctx context.Context, stream StreamerStream) (framer.Streamer, errors.Typed) {
 	req, err := stream.Receive()
 	if err != nil {
 		return nil, errors.Unexpected(err)
 	}
-	reader, err := s.Internal.NewStreamReader(ctx, framer.StreamReaderConfig{
+	reader, err := s.Internal.NewStreamer(ctx, framer.StreamerConfig{
 		Start: req.Start,
 		Keys:  req.Keys,
 	})

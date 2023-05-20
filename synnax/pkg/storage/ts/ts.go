@@ -34,10 +34,10 @@ type (
 	IteratorRequest      = cesium.IteratorRequest
 	IteratorResponse     = cesium.IteratorResponse
 	IteratorCommand      = cesium.IteratorCommand
-	StreamReader         = cesium.StreamReader
-	StreamReaderConfig   = cesium.StreamReaderConfig
-	StreamReaderRequest  = cesium.StreamReaderRequest
-	StreamReaderResponse = cesium.StreamReaderResponse
+	StreamReader         = cesium.Streamer
+	StreamReaderConfig   = cesium.StreamerConfig
+	StreamReaderRequest  = cesium.StreamerRequest
+	StreamReaderResponse = cesium.StreamerResponse
 )
 
 const AutoSpan = cesium.AutoSpan

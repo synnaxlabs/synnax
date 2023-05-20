@@ -23,7 +23,6 @@ import (
 type KV struct{ DB *gorp.DB }
 
 var _ Authenticator = (*KV)(nil)
-var _ Authenticator = (*KV)(nil)
 
 // Authenticate Authenticator.
 func (db *KV) Authenticate(ctx context.Context, creds InsecureCredentials) error {
