@@ -21,8 +21,8 @@ import { z } from "zod";
 import { Frame } from "./frame";
 import { framePayload } from "./payload";
 
-import { GeneralError, UnexpectedError } from "@/errors";
 import { ChannelKeys } from "@/channel/payload";
+import { GeneralError, UnexpectedError } from "@/errors";
 
 export const AUTO_SPAN = new TimeSpan(-1);
 
@@ -76,7 +76,7 @@ type Response = z.infer<typeof response>;
  * is relatively complex and difficult to use. If you're looking to retrieve
  *  telemetry between two timestamps, see the SegmentClient.read method.
  */
-export class FrameIterator {
+export class Iterator {
   private static readonly ENDPOINT = "/frame/iterate";
   private readonly client: StreamClient;
   private stream: Stream<Request, Response> | undefined;
@@ -98,7 +98,7 @@ export class FrameIterator {
    */
   async open(tr: TimeRange, keys: ChannelKeys): Promise<void> {
     this.stream = await this.client.stream(
-      FrameIterator.ENDPOINT,
+      Iterator.ENDPOINT,
       request,
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-expect-error

@@ -7,15 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { ComponentMeta, ComponentStory } from "@storybook/react";
+import type { Meta, StoryFn } from "@storybook/react";
 
 import { MosaicNode } from "./types";
+import { useMosaic } from "./useMosaic";
 
 import { Mosaic } from ".";
 
-import { useMosaic } from "./useMosaic";
-
-const story: ComponentMeta<typeof Mosaic> = {
+const story: Meta<typeof Mosaic> = {
   title: "Core/Mosaic",
   component: Mosaic,
 };
@@ -50,7 +49,7 @@ const initialTree: MosaicNode = {
   },
 };
 
-export const Primary: ComponentStory<typeof Mosaic> = () => {
+export const Primary: StoryFn<typeof Mosaic> = () => {
   const props = useMosaic({ initialTree, allowRename: true });
   return <Mosaic {...props} />;
 };

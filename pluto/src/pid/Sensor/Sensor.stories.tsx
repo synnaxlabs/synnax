@@ -7,38 +7,69 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { ComponentMeta, ComponentStory } from "@storybook/react"
-import { Background, Controls, Node, ReactFlow } from "reactflow"
+import type { Meta, StoryFn } from "@storybook/react";
+import { Background, Controls, Node, ReactFlow, useViewport } from "reactflow";
 
-import { Sensor } from "."
-import { SensorNumeric } from "./SensorNumeric"
+import { PIDProvider } from "../PIDProvider";
+import { ValveBody } from "../Valve/ValveBody";
 
-const story: ComponentMeta<typeof Sensor.Numeric> = {
+import { SensorNumeric } from "./SensorNumeric";
+
+import { Sensor } from ".";
+
+const story: Meta<typeof Sensor.Numeric> = {
   title: "PID/Sensor",
   component: Sensor.Numeric,
-}
+};
 
 const nodeTypes = {
   numericSensor: Sensor.Numeric,
-}
+  valveBody: (data) => {
+    const viewPort = useViewport();
+    return (
+      <ValveBody
+        id={data.id}
+        dimensions={{
+          height: 25 * (viewPort.zoom / window.devicePixelRatio),
+          width: 50 * (viewPort.zoom / window.devicePixelRatio),
+        }}
+        position={{
+          x: (data.xPos + viewPort.x) / window.devicePixelRatio,
+          y: (data.yPos + viewPort.y) / window.devicePixelRatio,
+        }}
+        stroke="white"
+        fill=""
+      />
+    );
+  },
+};
 
 const nodes: Node[] = [
   {
-    id: 'sensor-1',
-    type: "numericSensor",
-    position: { x: 0, y: 0 },
-    data: { label: "Cryo Fill", units: "psi" }
-  }
-]
+    id: "sensor-1",
+    type: "valveBody",
+    position: { x: 50, y: 50 },
+    data: { label: "Cryo Fill", units: "psi" },
+  },
+  {
+    id: "sensor-2",
+    type: "valveBody",
+    position: { x: 100, y: 100 },
+    data: { label: "Cryo Fill", units: "psi" },
+  },
+];
 
-export const Numeric: ComponentStory<typeof SensorNumeric> = () => (
-  <div style={{ width: "100%", height: "100%" }}>
-    <ReactFlow nodeTypes={nodeTypes} nodes={nodes}>
-      <Background />
-      <Controls />
-    </ReactFlow>
+export const Numeric: StoryFn<typeof SensorNumeric> = () => (
+  <div style={{ width: window.innerWidth, height: window.innerHeight }}>
+    <PIDProvider engine="canvas" renderers={{}}>
+      <ReactFlow nodeTypes={nodeTypes} nodes={nodes}>
+        <Background />
+
+        <Controls />
+      </ReactFlow>
+    </PIDProvider>
   </div>
-)
+);
 
 // eslint-disable-next-line import/no-default-export
-export default story
+export default story;

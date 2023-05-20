@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ComponentMeta } from "@storybook/react";
+import { Meta } from "@storybook/react";
 import { TimeStamp, Scale } from "@synnaxlabs/x";
 
 import { Axis } from "./Axis";
 
-const story: ComponentMeta<typeof Axis> = {
+const story: Meta<typeof Axis> = {
   title: "Visualization/Axis",
   component: Axis,
 };

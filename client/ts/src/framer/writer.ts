@@ -18,11 +18,10 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { Frame } from "./frame";
-import { framePayload } from "./payload";
-
+import { ChannelKey, ChannelKeys } from "@/channel/payload";
 import { GeneralError } from "@/errors";
-import { ChannelKeys } from "@/channel/payload";
+import { Frame } from "@/framer/frame";
+import { framePayload } from "@/framer/payload";
 
 enum Command {
   None = 0,
@@ -57,9 +56,9 @@ const NOT_OPEN = new GeneralError(
 );
 
 /**
- * CoreWriter is used to write a range of telemetry to a set of channels in time order.
+ * Writer is used to write telemetry to a set of channels in time order.
  * It should not be instantiated directly, and should instead be instantited via the
- * FramerClient {@link FramerClient#openWriter}.
+ * FramerClient {@link FrameClient#openWriter}.
  *
  * The writer is a streaming protocol that is heavily optimized for prerformance. This
  * comes at the cost of icnreased complexity, and should only be used directly when
@@ -94,7 +93,7 @@ const NOT_OPEN = new GeneralError(
  * typically be called in a 'finally' block. If the writer has accumulated an error,
  * close will throw the error.
  */
-export class FrameWriter {
+export class Writer {
   private static readonly ENDPOINT = "/frame/write";
   private readonly client: StreamClient;
   private stream: Stream<Request, Response> | undefined;
@@ -114,7 +113,7 @@ export class FrameWriter {
    */
   async open(start: UnparsedTimeStamp, keys: ChannelKeys): Promise<void> {
     this.stream = await this.client.stream(
-      FrameWriter.ENDPOINT,
+      Writer.ENDPOINT,
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-expect-error
       requestSchema,
@@ -151,7 +150,7 @@ export class FrameWriter {
     return true;
   }
 
-  async writeArray(key: string, data: NativeTypedArray): Promise<boolean> {
+  async writeArray(key: ChannelKey, data: NativeTypedArray): Promise<boolean> {
     return await this.write(new Frame(new LazyArray(data), key));
   }
 

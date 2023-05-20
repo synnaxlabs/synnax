@@ -30,7 +30,7 @@ describe("Frame", () => {
     });
     test("from payload", () => {
       const f = new Frame({
-        keys: ["a"],
+        keys: [12],
         arrays: [
           {
             dataType: new DataType("float32"),
@@ -42,8 +42,10 @@ describe("Frame", () => {
       expect(f.keys.length).toEqual(1);
       expect(f.arrays.length).toEqual(1);
     });
-    test("from record", () => {
-      const f = new Frame({ a: [new LazyArray(new Float32Array([1, 2, 3]))] });
+    test("from map", () => {
+      const f = new Frame(
+        new Map([[12, [new LazyArray(new Float32Array([1, 2, 3]))]]])
+      );
       expect(f.size.valueOf()).toEqual(12);
       expect(f.keys.length).toEqual(1);
       expect(f.arrays.length).toEqual(1);
@@ -52,65 +54,88 @@ describe("Frame", () => {
 
   describe("vertical", () => {
     it("should return false if a key has more than one array", () => {
-      const f = new Frame({
-        a: [new LazyArray(new Float32Array([1, 2, 3]))],
-        b: [
-          new LazyArray(new Float32Array([1, 2, 3])),
-          new LazyArray(new Float32Array([1, 2, 3])),
-        ],
-      });
+      const f = new Frame(
+        new Map([
+          [12, [new LazyArray(new Float32Array([1, 2, 3]))]],
+          [
+            13,
+            [
+              new LazyArray(new Float32Array([1, 2, 3])),
+              new LazyArray(new Float32Array([1, 2, 3])),
+            ],
+          ],
+        ])
+      );
       expect(f.isVertical).toEqual(false);
     });
   });
 
   describe("horizontal", () => {
     it("should return false if there is more than one key", () => {
-      const f = new Frame({
-        a: [new LazyArray(new Float32Array([1, 2, 3]))],
-        b: [new LazyArray(new Float32Array([1, 2, 3]))],
-      });
+      const f = new Frame(
+        new Map([
+          [12, [new LazyArray(new Float32Array([1, 2, 3]))]],
+          [13, [new LazyArray(new Float32Array([1, 2, 3]))]],
+        ])
+      );
       expect(f.isHorizontal).toEqual(false);
     });
   });
 
   describe("weaklyAligned", () => {
     it("should return true if all keys have the same timerange", () => {
-      const f = new Frame({
-        a: [
-          new LazyArray(
-            new Float32Array([1, 2, 3]),
-            undefined,
-            new TimeRange(500, 50000)
-          ),
-        ],
-        b: [
-          new LazyArray(
-            new Float32Array([1, 2, 3]),
-            undefined,
-            new TimeRange(500, 50000)
-          ),
-        ],
-      });
+      const f = new Frame(
+        new Map([
+          [
+            12,
+            [
+              new LazyArray(
+                new Float32Array([1, 2, 3]),
+                undefined,
+                new TimeRange(500, 50000)
+              ),
+            ],
+          ],
+          [
+            13,
+            [
+              new LazyArray(
+                new Float32Array([1, 2, 3]),
+                undefined,
+                new TimeRange(500, 50000)
+              ),
+            ],
+          ],
+        ])
+      );
       expect(f.isWeaklyAligned).toEqual(true);
     });
 
     it("should return false if any key has a different timerange", () => {
-      const f = new Frame({
-        a: [
-          new LazyArray(
-            new Float32Array([1, 2, 3]),
-            undefined,
-            new TimeRange(500, 50000)
-          ),
-        ],
-        b: [
-          new LazyArray(
-            new Float32Array([1, 2, 3]),
-            undefined,
-            new TimeRange(500, 50001)
-          ),
-        ],
-      });
+      const f = new Frame(
+        new Map([
+          [
+            12,
+            [
+              new LazyArray(
+                new Float32Array([1, 2, 3]),
+                undefined,
+                new TimeRange(500, 50000)
+              ),
+            ],
+          ],
+          [
+            13,
+            [
+              new LazyArray(
+                new Float32Array([1, 2, 3]),
+                undefined,
+                new TimeRange(500, 50001)
+              ),
+            ],
+          ],
+        ])
+      );
       expect(f.isWeaklyAligned).toEqual(false);
     });
   });
@@ -118,66 +143,90 @@ describe("Frame", () => {
   describe("timeRange", () => {
     describe("no key provided", () => {
       it("should return the maxium time range of the frame", () => {
-        const f = new Frame({
-          a: [
-            new LazyArray(
-              new Float32Array([1, 2, 3]),
-              undefined,
-              new TimeRange(40, 50000)
-            ),
-          ],
-          b: [
-            new LazyArray(
-              new Float32Array([1, 2, 3]),
-              undefined,
-              new TimeRange(500, 50001)
-            ),
-          ],
-        });
+        const f = new Frame(
+          new Map([
+            [
+              12,
+              [
+                new LazyArray(
+                  new Float32Array([1, 2, 3]),
+                  undefined,
+                  new TimeRange(40, 50000)
+                ),
+              ],
+            ],
+            [
+              13,
+              [
+                new LazyArray(
+                  new Float32Array([1, 2, 3]),
+                  undefined,
+                  new TimeRange(500, 50001)
+                ),
+              ],
+            ],
+          ])
+        );
         expect(f.timeRange()).toEqual(new TimeRange(40, 50001));
       });
     });
 
     describe("key provided", () => {
       it("should return the time range of the key", () => {
-        const f = new Frame({
-          a: [
-            new LazyArray(
-              new Float32Array([1, 2, 3]),
-              undefined,
-              new TimeRange(40, 50000)
-            ),
-          ],
-          b: [
-            new LazyArray(
-              new Float32Array([1, 2, 3]),
-              undefined,
-              new TimeRange(500, 50001)
-            ),
-          ],
-        });
+        const f = new Frame(
+          new Map([
+            [
+              12,
+              [
+                new LazyArray(
+                  new Float32Array([1, 2, 3]),
+                  undefined,
+                  new TimeRange(40, 50000)
+                ),
+              ],
+            ],
+            [
+              13,
+              [
+                new LazyArray(
+                  new Float32Array([1, 2, 3]),
+                  undefined,
+                  new TimeRange(500, 50001)
+                ),
+              ],
+            ],
+          ])
+        );
         expect(f.timeRange("a")).toEqual(new TimeRange(40, 50000));
       });
     });
 
     describe("filter", () => {
       it("should return a frame filtered on a particular condition", () => {
-        const f = new Frame({
-          a: [
-            new LazyArray(
-              new Float32Array([1, 2, 3]),
-              undefined,
-              new TimeRange(40, 50000)
-            ),
-          ],
-          b: [
-            new LazyArray(
-              new Float32Array([1, 2, 3]),
-              undefined,
-              new TimeRange(500, 50001)
-            ),
-          ],
-        });
+        const f = new Frame(
+          new Map([
+            [
+              12,
+              [
+                new LazyArray(
+                  new Float32Array([1, 2, 3]),
+                  undefined,
+                  new TimeRange(40, 50000)
+                ),
+              ],
+            ],
+            [
+              13,
+              [
+                new LazyArray(
+                  new Float32Array([1, 2, 3]),
+                  undefined,
+                  new TimeRange(500, 50001)
+                ),
+              ],
+            ],
+          ])
+        );
         expect(f.filter((k) => k === "a").keys).toEqual(["a"]);
       });
     });
@@ -185,22 +234,30 @@ describe("Frame", () => {
 
   describe("toPayload", () => {
     it("should return the frame as FramePayload", () => {
-      const f = new Frame({
-        a: [
-          new LazyArray(
-            new Float32Array([1, 2, 3]),
-            undefined,
-            new TimeRange(40, 50000)
-          ),
-        ],
-        b: [
-          new LazyArray(
-            new Float32Array([1, 2, 3]),
-            undefined,
-            new TimeRange(500, 50001)
-          ),
-        ],
-      });
+      const f = new Frame(
+        new Map([
+          [
+            12,
+            [
+              new LazyArray(
+                new Float32Array([1, 2, 3]),
+                undefined,
+                new TimeRange(40, 50000)
+              ),
+            ],
+          ],
+          [
+            13,
+            [
+              new LazyArray(
+                new Float32Array([1, 2, 3]),
+                undefined,
+                new TimeRange(500, 50001)
+              ),
+            ],
+          ],
+        ])
+      );
       const pld = f.toPayload();
       expect(pld.keys).toEqual(["a", "b"]);
       expect(pld.arrays?.[0].data.byteLength).toEqual(12);

@@ -29,7 +29,7 @@ type FrameWriterConfig struct {
 	Keys  channel.Keys    `json:"keys" msgpack:"keys"`
 }
 
-// FrameWriterRequest represents a request to write Framer data for a set of channels.
+// FrameWriterRequest represents a request to write Internal data for a set of channels.
 type FrameWriterRequest struct {
 	Config  FrameWriterConfig `json:"config" msgpack:"config"`
 	Command WriterCommand     `json:"command" msgpack:"command"`
@@ -67,7 +67,7 @@ type FrameWriterStream = freighter.ServerStream[FrameWriterRequest, framer.Write
 // implementation is expected to return a FrameWriterResponse.CloseMsg with the error,
 // and then wait for a reasonable amount of time for the client to close the
 // connection before forcibly terminating the connection.
-func (s *TelemService) Write(_ctx context.Context, stream FrameWriterStream) errors.Typed {
+func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) errors.Typed {
 	ctx, cancel := signal.WithCancel(_ctx, signal.WithInstrumentation(s.Instrumentation))
 	// cancellation here would occur for one of two reasons. Either we encounter
 	// a fatal error (transport or writer internal) and we need to free all
@@ -108,12 +108,12 @@ func (s *TelemService) Write(_ctx context.Context, stream FrameWriterStream) err
 	return errors.MaybeUnexpected(ctx.Wait())
 }
 
-func (s *TelemService) openWriter(ctx context.Context, srv FrameWriterStream) (framer.StreamWriter, errors.Typed) {
+func (s *FrameService) openWriter(ctx context.Context, srv FrameWriterStream) (framer.StreamWriter, errors.Typed) {
 	req, err := srv.Receive()
 	if err != nil {
 		return nil, errors.Unexpected(err)
 	}
-	w, err := s.Framer.NewStreamWriter(ctx, writer.Config{
+	w, err := s.Internal.NewStreamWriter(ctx, writer.Config{
 		Start: req.Config.Start,
 		Keys:  req.Config.Keys,
 	})

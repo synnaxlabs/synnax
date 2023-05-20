@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { ComponentMeta, ComponentStory } from "@storybook/react";
+import type { Meta, StoryFn } from "@storybook/react";
 
 import { Space, SpaceProps } from ".";
 
 import { Button } from "@/core/Button";
 import { ComponentSizes } from "@/util/component";
 
-const story: ComponentMeta<typeof Space> = {
+const story: Meta<typeof Space> = {
   title: "Core/Space",
   component: Space,
   argTypes: {
@@ -37,7 +37,7 @@ const story: ComponentMeta<typeof Space> = {
   },
 };
 
-const Template: ComponentStory<typeof Space> = (args: SpaceProps) => (
+const Template: StoryFn<typeof Space> = (args: SpaceProps) => (
   <Space {...args}>
     <Button>Button 1</Button>
     <Button>Button 1</Button>

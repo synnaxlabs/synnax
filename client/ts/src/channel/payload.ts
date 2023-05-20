@@ -10,7 +10,6 @@
 import { DataType, Rate, UnparsedDataType, UnparsedRate } from "@synnaxlabs/x";
 import { z } from "zod";
 
-
 export type ChannelKey = number;
 export type ChannelKeys = number[];
 export type ChannelName = string;
@@ -18,7 +17,6 @@ export type ChannelNames = string[];
 export type ChannelKeyOrName = ChannelKey | ChannelName;
 export type ChannelKeysOrNames = ChannelKeys | ChannelNames;
 export type ChannelParams = ChannelKey | ChannelName | ChannelKeys | ChannelNames;
-
 
 export const channelPayload = z.object({
   key: z.number(),

@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { ComponentMeta, ComponentStory } from "@storybook/react";
+import type { Meta, StoryFn } from "@storybook/react";
 
 import { Accordion, AccordionEntry } from ".";
 
-const story: ComponentMeta<typeof Accordion> = {
+const story: Meta<typeof Accordion> = {
   title: "Core/Accordion",
   component: Accordion,
 };
@@ -29,9 +29,7 @@ const data: AccordionEntry[] = [
   },
 ];
 
-export const Primary: ComponentStory<typeof Accordion> = () => (
-  <Accordion data={data} />
-);
+export const Primary: StoryFn<typeof Accordion> = () => <Accordion data={data} />;
 
 // eslint-disable-next-line import/no-default-export
 export default story;

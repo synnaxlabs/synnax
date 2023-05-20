@@ -25,11 +25,11 @@ export const parameters = {
 };
 
 export const decorators = [
-    (Story) => (
+    (StoryFn) => (
         <React.StrictMode>
             <Theming.Provider theme={Theming.themes.synnaxDark}>
                 <Triggers.Provider>
-                    {Story()}
+                    {StoryFn()}
                 </Triggers.Provider>
             </Theming.Provider>
         </React.StrictMode>

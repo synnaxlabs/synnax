@@ -9,19 +9,19 @@
 
 import { useState } from "react";
 
-import type { ComponentMeta, ComponentStory } from "@storybook/react";
+import type { Meta, StoryFn } from "@storybook/react";
 import { AiFillDatabase, AiOutlineDelete } from "react-icons/ai";
 
 import { Text } from ".";
 
-const story: ComponentMeta<typeof Text> = {
+const story: Meta<typeof Text> = {
   title: "Core/Text",
   component: Text,
 };
 
-export const Basic: ComponentStory<typeof Text> = () => <Text level="h2">Hello</Text>;
+export const Basic: StoryFn<typeof Text> = () => <Text level="h2">Hello</Text>;
 
-export const WithIcon: ComponentStory<typeof Text> = () => (
+export const WithIcon: StoryFn<typeof Text> = () => (
   <Text.WithIcon
     startIcon={<AiOutlineDelete />}
     endIcon={<AiFillDatabase />}
@@ -32,7 +32,7 @@ export const WithIcon: ComponentStory<typeof Text> = () => (
   </Text.WithIcon>
 );
 
-export const Editable: ComponentStory<typeof Text> = () => {
+export const Editable: StoryFn<typeof Text> = () => {
   const [text, setText] = useState("My Text");
   return (
     <>

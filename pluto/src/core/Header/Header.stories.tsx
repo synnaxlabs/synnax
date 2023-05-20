@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ComponentMeta } from "@storybook/react";
+import { Meta } from "@storybook/react";
 
 import { Header } from ".";
 
-const story: ComponentMeta<typeof Header> = {
+const story: Meta<typeof Header> = {
   title: "Core/Header",
   component: Header,
 };

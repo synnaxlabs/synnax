@@ -22,11 +22,13 @@ import (
 	"github.com/synnaxlabs/x/signal"
 )
 
-type FrameIteratorRequest = framer.IteratorRequest
-type FrameIteratorResponse = framer.IteratorResponse
-type FrameIteratorStream = freighter.ServerStream[FrameIteratorRequest, FrameIteratorResponse]
+type (
+	FrameIteratorRequest  = framer.IteratorRequest
+	FrameIteratorResponse = framer.IteratorResponse
+	FrameIteratorStream   = freighter.ServerStream[FrameIteratorRequest, FrameIteratorResponse]
+)
 
-func (s *TelemService) Iterate(ctx context.Context, stream FrameIteratorStream) errors.Typed {
+func (s *FrameService) Iterate(ctx context.Context, stream FrameIteratorStream) errors.Typed {
 	iter, err := s.openIterator(ctx, stream)
 	if err.Occurred() {
 		return err
@@ -58,12 +60,12 @@ func (s *TelemService) Iterate(ctx context.Context, stream FrameIteratorStream) 
 	return errors.MaybeUnexpected(sCtx.Wait())
 }
 
-func (s *TelemService) openIterator(ctx context.Context, srv FrameIteratorStream) (framer.StreamIterator, errors.Typed) {
+func (s *FrameService) openIterator(ctx context.Context, srv FrameIteratorStream) (framer.StreamIterator, errors.Typed) {
 	req, err := srv.Receive()
 	if err != nil {
 		return nil, errors.Unexpected(err)
 	}
-	iter, err := s.Framer.NewStreamIterator(ctx, framer.IteratorConfig{
+	iter, err := s.Internal.NewStreamIterator(ctx, framer.IteratorConfig{
 		Bounds: req.Bounds,
 		Keys:   req.Keys,
 	})

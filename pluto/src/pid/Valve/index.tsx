@@ -7,8 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export type Join<K, P> = K extends string | number
-  ? P extends string | number
-    ? `${K}${"" extends P ? "" : "."}${P}`
-    : never
-  : never;
+import { valveBodyRenderSet } from "./ValveBody";
+
+const rendererRegistry = {
+  valveBody: valveBodyRenderSet,
+};
+
+export const Valve = {
+  registry: rendererRegistry,
+};

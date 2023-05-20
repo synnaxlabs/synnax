@@ -30,7 +30,7 @@ func newLeaseProxy(cfg ServiceConfig) (*leaseProxy, error) {
 	}
 	p := &leaseProxy{
 		ServiceConfig: cfg,
-		router:        proxy.NewBatchFactory[Channel](cfg.HostResolver.HostKey()),
+		router:        proxy.BatchFactory[Channel]{Host: cfg.HostResolver.HostKey()},
 		counter:       c,
 	}
 	p.Transport.CreateServer().BindHandler(p.handle)

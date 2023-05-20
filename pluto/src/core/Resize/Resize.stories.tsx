@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { ComponentMeta, ComponentStory } from "@storybook/react";
+import type { Meta, StoryFn } from "@storybook/react";
 
 import { ResizeProps } from "./Resize";
 
 import { Resize } from ".";
 
-const story: ComponentMeta<typeof Resize> = {
+const story: Meta<typeof Resize> = {
   title: "Core/Resize",
   component: Resize,
 };
@@ -24,7 +24,7 @@ const Template = (args: ResizeProps): JSX.Element => (
   </Resize>
 );
 
-export const Primary: ComponentStory<typeof Resize> = Template.bind({});
+export const Primary: StoryFn<typeof Resize> = Template.bind({});
 Primary.args = {
   style: {
     height: "100%",
@@ -33,7 +33,7 @@ Primary.args = {
   },
 };
 
-export const Multiple: ComponentStory<typeof Resize.Multiple> = () => {
+export const Multiple: StoryFn<typeof Resize.Multiple> = () => {
   const { props } = Resize.useMultiple({
     count: 3,
   });

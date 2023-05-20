@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { z } from "zod";
+
 export type TZInfo = "UTC" | "local";
 
 export type TimeStampStringFormat =
@@ -18,8 +20,6 @@ export type TimeStampStringFormat =
   | "date"
   | "shortDate"
   | "dateTime";
-
-const timeF = (time: number, pad = 2): string => time.toString().padStart(pad, "0");
 
 export type DateComponents = [number?, number?, number?];
 
@@ -386,6 +386,9 @@ export class TimeStamp extends Number {
 
   /** The unix epoch */
   static readonly ZERO = new TimeStamp(0);
+
+  /** A zod schema for validating timestamps */
+  static readonly z = z.number().transform((n) => new TimeStamp(n));
 }
 
 /** TimeSpan represents a nanosecond precision duration. */
@@ -540,6 +543,9 @@ export class TimeSpan extends Number {
 
   /** The zero value for a TimeSpan. */
   static readonly ZERO = new TimeSpan(0);
+
+  /** A zod schema for validating and transforming timespans */
+  static readonly z = z.number().transform((n) => new TimeSpan(n));
 }
 
 /** Rate represents a data rate in Hz. */
@@ -629,6 +635,9 @@ export class Rate extends Number {
   static khz(value: number): Rate {
     return Rate.hz(value * 1000);
   }
+
+  /** A zod schema for validating and transforming rates */
+  static readonly z = z.number().transform((n) => new Rate(n));
 }
 
 /** Density represents the number of bytes in a value. */
@@ -667,6 +676,9 @@ export class Density extends Number {
 
   /** 8 bits per value. */
   static readonly BIT8 = new Density(1);
+
+  /** A zod schema for validating and transforming densities */
+  static readonly z = z.number().transform((n) => new Density(n));
 }
 
 /**
@@ -755,6 +767,11 @@ export class TimeRange {
 
   /** A zero time range. */
   static readonly ZERO = new TimeRange(TimeStamp.ZERO, TimeStamp.ZERO);
+
+  /** A zod schema for validating and transforming time ranges */
+  static readonly z = z
+    .object({ start: TimeStamp.z, end: TimeStamp.z })
+    .transform((v) => new TimeRange(v.start, v.end));
 }
 
 /** DataType is a string that represents a data type. */
@@ -888,6 +905,9 @@ export class DataType extends String {
   ]);
 
   static readonly BIG_INT_TYPES = [DataType.INT64, DataType.UINT64, DataType.TIMESTAMP];
+
+  /** A zod schema for a DataType. */
+  static readonly z = z.string().transform((v) => new DataType(v));
 }
 
 /**
@@ -981,7 +1001,15 @@ export class Size extends Number {
   /** A terabyte. */
   static readonly TERABYTE = Size.terabytes(1);
 
+  /** The zero value for Size */
   static readonly ZERO = new Size(0);
+
+  /** A zod schema for a Size. */
+  static readonly SCHEMA = z.number().transform((v) => new Size(v));
+
+  isZero(): boolean {
+    return this.valueOf() === 0;
+  }
 }
 
 export type UnparsedTimeStamp =

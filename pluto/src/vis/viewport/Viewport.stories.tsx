@@ -9,14 +9,14 @@
 
 import { useState } from "react";
 
-import { ComponentMeta } from "@storybook/react";
+import { Meta } from "@storybook/react";
 import { Box, DECIMAL_BOX, BoxScale } from "@synnaxlabs/x";
 
 import { Viewport } from ".";
 
 import { Triggers } from "@/triggers";
 
-const story: ComponentMeta<typeof Viewport.Mask> = {
+const story: Meta<typeof Viewport.Mask> = {
   title: "Visualization/Viewport",
   component: Viewport.Mask,
 };

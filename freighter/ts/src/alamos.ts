@@ -19,9 +19,9 @@ export const middleware =
       context.target,
       "debug",
       async (span): Promise<[Context, Error | undefined]> => {
-        const [ctx, exc] = await next(context);
-        if (exc != null) span.recordException(exc);
-        return [ctx, exc];
+        const [ctx, err] = await next(context);
+        if (err != null) span.recordError(err);
+        return [ctx, err];
       }
     );
     log(context, instrumentation, exc);

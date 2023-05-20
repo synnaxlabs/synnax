@@ -7,18 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export const POSITIONS = ["start", "center", "end"];
+import { z } from "zod";
+
+export const position = z.enum(["start", "center", "end"]);
+export const POSITIONS = ["start", "center", "end"] as const;
 export type Position = typeof POSITIONS[number];
 
+export const order = z.enum(["first", "last"]);
 export const ORDERS = ["first", "last"] as const;
 export type Order = typeof ORDERS[number];
 
+export const yLocation = z.enum(["top", "bottom"]);
 export const Y_LOCATIONS = ["top", "bottom"] as const;
 export type YLocation = typeof Y_LOCATIONS[number];
 export const X_LOCATIONS = ["left", "right"] as const;
+export const xLocation = z.enum(["left", "right"]);
 export type XLocation = typeof X_LOCATIONS[number];
 export type CenterLocation = "center";
 
+export const corner = z.enum(["topLeft", "topRight", "bottomLeft", "bottomRight"]);
 export const CORNERS = ["topLeft", "topRight", "bottomLeft", "bottomRight"] as const;
 export type Corner = typeof CORNERS[number];
 
@@ -29,12 +36,15 @@ export const CORNER_LOCATIONS: Record<Corner, [XLocation, YLocation]> = {
   bottomRight: ["right", "bottom"],
 };
 
+export const outerLocatios = z.enum([...Y_LOCATIONS, ...X_LOCATIONS]);
 export const OUTER_LOCATIONS = [...Y_LOCATIONS, ...X_LOCATIONS] as const;
 export type OuterLocation = typeof OUTER_LOCATIONS[number];
 
+export const locations = z.enum([...OUTER_LOCATIONS, "center"]);
 export const LOCATIONS = [...OUTER_LOCATIONS, "center"] as const;
 export type Location = typeof LOCATIONS[number];
 
+export const direction = z.enum(["x", "y"]);
 export const DIRECTIONS = ["x", "y"] as const;
 export type Direction = typeof DIRECTIONS[number];
 export const isDirection = (v: string): v is Direction =>
@@ -63,6 +73,7 @@ export const swapLoc = (location: Location): Location => SWAPPED_LOCS[location];
 
 /** A generic 2D point, scale, or offset. */
 export interface XY extends Record<Direction, number> {}
+export const xy = z.object({ x: z.number(), y: z.number() });
 
 export const ZERO_XY: XY = { x: 0, y: 0 };
 export const ZERO_DIMS: Dimensions = { width: 0, height: 0 };
@@ -75,21 +86,28 @@ export interface SignedDimensions {
   signedWidth: number;
   signedHeight: number;
 }
+export const signedDimensions = z.object({
+  signedWidth: z.number(),
+  signedHeight: z.number(),
+});
 
 export interface Dimensions {
   width: number;
   height: number;
 }
+export const dimensions = z.object({ width: z.number(), height: z.number() });
 
 export interface Transform {
   offset: XY;
   scale: XY;
 }
+export const transform = z.object({ offset: xy, scale: xy });
 
 export interface ClientXY {
   clientX: number;
   clientY: number;
 }
+export const clientXY = z.object({ clientX: z.number(), clientY: z.number() });
 
 export type UnparsedXY = number | XY | ClientXY | Dimensions | SignedDimensions;
 
@@ -122,11 +140,13 @@ export interface Bound {
   lower: number;
   upper: number;
 }
+export const bound = z.object({ lower: z.number(), upper: z.number() });
 
 export interface XYBound {
   x: Bound;
   y: Bound;
 }
+export const xyBound = z.object({ x: bound, y: bound });
 
 export const ZERO_BOUND = { lower: 0, upper: 0 };
 export const INFINITE_BOUND = { lower: -Infinity, upper: Infinity };
@@ -143,7 +163,7 @@ export const isBound = (v: any): v is Bound =>
 export const makeValidBound = (bound: Bound): Bound =>
   bound.lower > bound.upper ? { lower: bound.upper, upper: bound.lower } : bound;
 
-export const bound = (v1: number | Bound, v2?: number): Bound => {
+export const toBound = (v1: number | Bound, v2?: number): Bound => {
   if (isBound(v1)) return makeValidBound(v1);
   if (typeof v1 === "number") {
     if (v2 != null) return { lower: v1, upper: v2 };

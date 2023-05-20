@@ -19,12 +19,8 @@ type Entry interface {
 	Lease() aspen.NodeKey
 }
 
-type BatchFactory[E Entry] interface {
-	Batch(entries []E) Batch[E]
-}
-
-type batchFactory[E Entry] struct {
-	host aspen.NodeKey
+type BatchFactory[E Entry] struct {
+	Host aspen.NodeKey
 }
 
 type Batch[E Entry] struct {
@@ -32,13 +28,11 @@ type Batch[E Entry] struct {
 	Peers   map[core.NodeKey][]E
 }
 
-func NewBatchFactory[E Entry](host aspen.NodeKey) BatchFactory[E] { return batchFactory[E]{host} }
-
-func (p batchFactory[E]) Batch(entries []E) Batch[E] {
+func (f BatchFactory[E]) Batch(entries []E) Batch[E] {
 	b := Batch[E]{Peers: make(map[core.NodeKey][]E)}
 	for _, entry := range entries {
 		lease := entry.Lease()
-		if lease == p.host {
+		if lease == f.Host {
 			b.Gateway = append(b.Gateway, entry)
 		} else {
 			b.Peers[lease] = append(b.Peers[lease], entry)

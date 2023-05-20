@@ -17,9 +17,10 @@
   "dependencies": {
     "@fontsource/inter": "^4.5.15",
     "@juggle/resize-observer": "^3.4.0",
+    "@synnaxlabs/client": "workspace:*",
     "@synnaxlabs/media": "workspace:*",
     "@synnaxlabs/x": "workspace:*",
-    "@tanstack/react-virtual": "3.0.0-alpha.0",
+    "@tanstack/react-virtual": "3.0.0-beta.54",
     "@testing-library/dom": "^9.3.0",
     "clsx": "^1.2.1",
     "d3": "^7.8.4",
@@ -28,7 +29,9 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-hook-form": "^7.43.9",
-    "reactflow": "^11.7.1"
+    "reactflow": "^11.7.1",
+    "rxjs": "^7.8.1",
+    "zod": "3.19.1"
   },
   "devDependencies": {
     "@babel/core": "^7.21.8",

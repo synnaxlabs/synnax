@@ -160,7 +160,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
     const SocketConstructor = resolveWebSocketConstructor();
     let stream: Stream<RQ, RS> | undefined;
     const [, error] = await this.executeMiddleware(
-      { target, protocol: "websocket", params: {} },
+      { target, protocol: "websocket", params: {}, role: "client" },
       async (ctx: Context): Promise<[Context, Error | undefined]> => {
         const ws = new SocketConstructor(this.buildURL(target, ctx));
         const outCtx: Context = { ...ctx, params: {} };

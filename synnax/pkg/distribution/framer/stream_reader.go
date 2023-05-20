@@ -108,24 +108,18 @@ func (s *Service) NewStreamReader(ctx context.Context, cfg StreamReaderConfig) (
 	if err != nil {
 		return nil, err
 	}
-	iterRequests := confluence.NewStream[IteratorRequest](1)
-	iterResponses := confluence.NewStream[IteratorResponse](1)
-	iter.InFrom(iterRequests)
-	iter.OutTo(iterResponses)
+	iterReq, iterRes := confluence.Attach(iter, 1)
 	l.iter.flow = iter
-	l.iter.requests = iterRequests
-	l.iter.responses = iterResponses
+	l.iter.requests = iterReq
+	l.iter.responses = iterRes
 
 	rel, err := s.relay.NewReader(ctx, relay.ReaderConfig{Keys: cfg.Keys})
 	if err != nil {
 		return nil, err
 	}
-	relayRequests := confluence.NewStream[relay.Request](1)
-	relayResponses := confluence.NewStream[relay.Response](1)
-	rel.InFrom(relayRequests)
-	rel.OutTo(relayResponses)
+	relayReq, relayRes := confluence.Attach(rel, 1)
 	l.relay.flow = rel
-	l.relay.requests = relayRequests
-	l.relay.responses = relayResponses
+	l.relay.requests = relayReq
+	l.relay.responses = relayRes
 	return l, err
 }

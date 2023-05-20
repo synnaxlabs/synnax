@@ -7,21 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { ComponentMeta, ComponentStory } from "@storybook/react";
+import type { Meta, StoryFn } from "@storybook/react";
 
 import { Video, VideoProps } from ".";
 
-const story: ComponentMeta<typeof Video> = {
+const story: Meta<typeof Video> = {
   title: "Core/Video",
   component: Video,
   argTypes: {},
 };
 
-const Template: ComponentStory<typeof Video> = (args: VideoProps) => (
-  <Video {...args} />
-);
+const Template: StoryFn<typeof Video> = (args: VideoProps) => <Video {...args} />;
 
-export const Default: ComponentStory<typeof Video> = Template.bind({});
+export const Default: StoryFn<typeof Video> = Template.bind({});
 Default.args = {
   href: "https://www.w3schools.com/html/mov_bbb.mp4",
   autoPlay: true,

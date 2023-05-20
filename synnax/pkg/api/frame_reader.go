@@ -25,7 +25,7 @@ type FrameReaderRequest = framer.StreamReaderRequest
 type FrameReaderResponse = framer.StreamReaderResponse
 type FrameReaderStream = freighter.ServerStream[FrameReaderRequest, FrameReaderResponse]
 
-func (s *TelemService) Read(ctx context.Context, stream FrameReaderStream) errors.Typed {
+func (s *FrameService) Read(ctx context.Context, stream FrameReaderStream) errors.Typed {
 	reader, err := s.openReader(ctx, stream)
 	if err.Occurred() {
 		return err
@@ -54,12 +54,12 @@ func (s *TelemService) Read(ctx context.Context, stream FrameReaderStream) error
 	return errors.MaybeUnexpected(sCtx.Wait())
 }
 
-func (s *TelemService) openReader(ctx context.Context, stream FrameReaderStream) (framer.StreamReader, errors.Typed) {
+func (s *FrameService) openReader(ctx context.Context, stream FrameReaderStream) (framer.StreamReader, errors.Typed) {
 	req, err := stream.Receive()
 	if err != nil {
 		return nil, errors.Unexpected(err)
 	}
-	reader, err := s.Framer.NewStreamReader(ctx, framer.StreamReaderConfig{
+	reader, err := s.Internal.NewStreamReader(ctx, framer.StreamReaderConfig{
 		Start: req.Start,
 		Keys:  req.Keys,
 	})

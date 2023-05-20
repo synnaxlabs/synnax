@@ -9,11 +9,11 @@
 
 import { useState } from "react";
 
-import type { ComponentMeta, ComponentStory } from "@storybook/react";
+import type { Meta, StoryFn } from "@storybook/react";
 
 import { List } from ".";
 
-const story: ComponentMeta<typeof List> = {
+const story: Meta<typeof List> = {
   title: "Core/List",
   component: List,
 };
@@ -58,7 +58,7 @@ const columns = [
   },
 ];
 
-export const Column: ComponentStory<typeof List> = () => (
+export const Column: StoryFn<typeof List> = () => (
   <List data={data}>
     <List.Column.Header columns={columns} />
     <List.Core.Virtual itemHeight={List.Column.itemHeight} style={{ height: "80vh" }}>
@@ -67,7 +67,7 @@ export const Column: ComponentStory<typeof List> = () => (
   </List>
 );
 
-export const Search: ComponentStory<typeof List> = () => (
+export const Search: StoryFn<typeof List> = () => (
   <List data={data}>
     <List.Search />
     <List.Column.Header columns={columns} />
@@ -77,7 +77,7 @@ export const Search: ComponentStory<typeof List> = () => (
   </List>
 );
 
-export const Selectable: ComponentStory<typeof List> = () => {
+export const Selectable: StoryFn<typeof List> = () => {
   const [selected, setSelected] = useState<readonly string[]>([]);
   return (
     <List data={data}>

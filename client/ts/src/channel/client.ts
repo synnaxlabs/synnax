@@ -15,18 +15,21 @@ import {
   UnparsedDensity,
   UnparsedTimeStamp,
   toArray,
+  LazyArray,
+  TimeRange,
 } from "@synnaxlabs/x";
 
 import { ChannelCreator } from "./creator";
-import { ChannelPayload, channelPayload, UnparsedChannel } from "./payload";
 import {
-  CacheChannelRetriever,
-  ChannelRetriever,
-  ClusterChannelRetriever,
-} from "./retriever";
+  ChannelKeyOrName,
+  ChannelParams,
+  ChannelPayload,
+  channelPayload,
+  UnparsedChannel,
+} from "./payload";
+import { ChannelRetriever } from "./retriever";
 
 import { FrameClient } from "@/framer";
-import { Transport } from "@/transport";
 
 /**
  * Represents a Channel in a Synnax database. It should not be instantiated
@@ -80,7 +83,8 @@ export class Channel {
   }
 
   get nodeKey(): number {
-    if (this.payload.nodeKey === undefined) throw new Error("chanel nodeKey is not set");
+    if (this.payload.nodeKey === undefined)
+      throw new Error("chanel nodeKey is not set");
     return this.payload.nodeKey;
   }
 
@@ -99,11 +103,8 @@ export class Channel {
    * @param end - The ending timestamp of the range to read from.
    * @returns A typed array containing the retrieved
    */
-  async read(
-    start: UnparsedTimeStamp,
-    end: UnparsedTimeStamp
-  ): Promise<NativeTypedArray | undefined> {
-    return await this.framer.read(this.key, start, end);
+  async read(tr: TimeRange): Promise<LazyArray | undefined> {
+    return await this.framer.read(tr, this.key);
   }
 
   /**
@@ -126,10 +127,14 @@ export class ChannelClient {
   private readonly retriever: ChannelRetriever;
   private readonly creator: ChannelCreator;
 
-  constructor(segmentClient: FrameClient, transport: Transport) {
+  constructor(
+    segmentClient: FrameClient,
+    retriever: ChannelRetriever,
+    creator: ChannelCreator
+  ) {
     this.segmentClient = segmentClient;
-    this.retriever = new CacheChannelRetriever(new ClusterChannelRetriever(transport));
-    this.creator = new ChannelCreator(transport);
+    this.retriever = retriever;
+    this.creator = creator;
   }
 
   async create(channel: UnparsedChannel): Promise<Channel>;
@@ -156,9 +161,9 @@ export class ChannelClient {
     return single ? res[0] : res;
   }
 
-  async retrieve(keyOrName: string): Promise<Channel>;
+  async retrieve(channel: ChannelKeyOrName): Promise<Channel>;
 
-  async retrieve(...keysOrNames: Array<string | string[]>): Promise<Channel[]>;
+  async retrieve(...channels: ChannelParams[]): Promise<Channel[]>;
 
   /**
    * Retrieves a channel from the database using the given parameters.
@@ -168,11 +173,9 @@ export class ChannelClient {
    * @returns The retrieved channel.
    * @raises {QueryError} If the channel does not exist or if multiple results are returned.
    */
-  async retrieve(
-    ...keysOrNames: Array<string | string[]>
-  ): Promise<Channel | Channel[]> {
-    const single = keysOrNames.length === 1 && typeof keysOrNames[0] === "string";
-    const res = this.sugar(await this.retriever.retrieve(...keysOrNames));
+  async retrieve(...channels: ChannelParams[]): Promise<Channel | Channel[]> {
+    const single = channels.length === 1 && typeof channels[0] === "string";
+    const res = this.sugar(await this.retriever.retrieve(...channels));
     return single ? res[0] : res;
   }
 

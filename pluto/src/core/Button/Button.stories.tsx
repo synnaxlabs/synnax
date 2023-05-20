@@ -9,12 +9,12 @@
 
 import { useState } from "react";
 
-import type { ComponentMeta, ComponentStory } from "@storybook/react";
+import type { Meta, StoryFn } from "@storybook/react";
 import { AiOutlineDelete } from "react-icons/ai";
 
 import { Button, ButtonProps } from ".";
 
-const story: ComponentMeta<typeof Button> = {
+const story: Meta<typeof Button> = {
   title: "Core/Button",
   component: Button,
   argTypes: {
@@ -27,7 +27,7 @@ const story: ComponentMeta<typeof Button> = {
 
 const Template = (args: ButtonProps): JSX.Element => <Button {...args} />;
 
-export const Primary: ComponentStory<typeof Button> = Template.bind({});
+export const Primary: StoryFn<typeof Button> = Template.bind({});
 Primary.args = {
   size: "medium",
   startIcon: <AiOutlineDelete />,
