@@ -19,11 +19,11 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-type StreamReader = confluence.Segment[StreamReaderRequest, StreamReaderResponse]
+type Streamer = confluence.Segment[StreamerRequest, StreamerResponse]
 
-type streamReader struct {
-	confluence.AbstractUnarySink[StreamReaderRequest]
-	confluence.AbstractUnarySource[StreamReaderResponse]
+type streamer struct {
+	confluence.AbstractUnarySink[StreamerRequest]
+	confluence.AbstractUnarySource[StreamerResponse]
 	iter struct {
 		flow      confluence.Flow
 		requests  confluence.Inlet[IteratorRequest]
@@ -37,7 +37,7 @@ type streamReader struct {
 }
 
 // Flow implements confluence.Flow.
-func (l *streamReader) Flow(sCtx signal.Context, opts ...confluence.Option) {
+func (l *streamer) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	l.iter.flow.Flow(sCtx, opts...)
 	l.relay.flow.Flow(sCtx, opts...)
 	o := confluence.NewOptions(opts)
@@ -58,7 +58,7 @@ func (l *streamReader) Flow(sCtx signal.Context, opts ...confluence.Option) {
 					}
 					break
 				}
-				l.Out.Inlet() <- StreamReaderResponse{
+				l.Out.Inlet() <- StreamerResponse{
 					Frame: res.Frame,
 					Error: res.Error,
 				}
@@ -78,7 +78,7 @@ func (l *streamReader) Flow(sCtx signal.Context, opts ...confluence.Option) {
 				if !ok {
 					return nil
 				}
-				l.Out.Inlet() <- StreamReaderResponse{
+				l.Out.Inlet() <- StreamerResponse{
 					Frame: res.Frame,
 				}
 			case req, ok := <-l.In.Outlet():
@@ -92,15 +92,15 @@ func (l *streamReader) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	}, o.Signal...)
 }
 
-type StreamReaderConfig struct {
+type StreamerConfig struct {
 	Start telem.TimeStamp `json:"start" msgpack:"start"`
 	Keys  channel.Keys    `json:"keys" msgpack:"keys"`
 }
 
-type StreamReaderRequest = StreamReaderConfig
+type StreamerRequest = StreamerConfig
 
-func (s *Service) NewStreamReader(ctx context.Context, cfg StreamReaderConfig) (StreamReader, error) {
-	l := &streamReader{}
+func (s *Service) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer, error) {
+	l := &streamer{}
 	iter, err := s.NewStreamIterator(ctx, IteratorConfig{
 		Keys:   cfg.Keys,
 		Bounds: cfg.Start.Range(telem.Now().Add(5 * telem.Second)),

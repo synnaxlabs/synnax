@@ -28,6 +28,5 @@ type (
 	StreamWriter     = writer.StreamWriter
 	WriterConfig     = writer.Config
 	IteratorConfig   = iterator.Config
-
-	StreamReaderResponse = relay.Response
+	StreamerResponse = relay.Response
 )

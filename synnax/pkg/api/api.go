@@ -58,7 +58,7 @@ type Transport struct {
 	ConnectivityCheck  freighter.UnaryServer[types.Nil, ConnectivityCheckResponse]
 	FrameWriter        freighter.StreamServer[FrameWriterRequest, FrameWriterResponse]
 	FrameIterator      freighter.StreamServer[FrameIteratorRequest, FrameIteratorResponse]
-	FrameReader        freighter.StreamServer[FrameReaderRequest, FrameReaderResponse]
+	FrameStreamer      freighter.StreamServer[FrameStreamerRequest, FrameStreamerResponse]
 	OntologyRetrieve   freighter.UnaryServer[OntologyRetrieveRequest, OntologyRetrieveResponse]
 	OntologySearch     freighter.UnaryServer[OntologySearchRequest, OntologySearchResponse]
 }
@@ -107,8 +107,7 @@ func (a *API) BindTo(t Transport) {
 		t.ConnectivityCheck,
 		t.OntologyRetrieve,
 		t.OntologySearch,
-		t.FrameReader,
-		t.FrameReader,
+		t.FrameStreamer,
 	)
 
 	t.AuthLogin.BindHandler(typedUnaryWrapper(a.Auth.Login))
@@ -122,7 +121,7 @@ func (a *API) BindTo(t Transport) {
 	t.FrameIterator.BindHandler(typedStreamWrapper(a.Telem.Iterate))
 	t.OntologyRetrieve.BindHandler(typedUnaryWrapper(a.Ontology.Retrieve))
 	t.OntologySearch.BindHandler(typedUnaryWrapper(a.Ontology.Search))
-	t.FrameReader.BindHandler(typedStreamWrapper(a.Telem.Read))
+	t.FrameStreamer.BindHandler(typedStreamWrapper(a.Telem.Stream))
 }
 
 // New instantiates the delta API using the provided Config. This should probably

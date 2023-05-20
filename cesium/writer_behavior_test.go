@@ -290,8 +290,8 @@ var _ = Describe("TypedWriter Behavior", Ordered, func() {
 			})
 		})
 	})
-	Describe("Data Variant Errors", func() {
-		Specify("Invalid Data Variant for Array", func() {
+	Describe("Data Type Errors", func() {
+		Specify("Invalid Data Type for Array", func() {
 			var dtErr cesium.ChannelKey = 18
 			Expect(db.CreateChannel(
 				ctx,
