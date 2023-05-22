@@ -79,15 +79,15 @@ class Core extends MiddlewareCollector {
   async execute<RS>(
     request: AxiosRequestConfig,
     resSchema: ZodSchema<RS> | null
-  ): Promise<[RS | undefined, Error | undefined]> {
-    let rs: RS | undefined;
+  ): Promise<[RS | null, Error | null]> {
+    let rs: RS | null = null;
 
     if (request.url == null)
       throw new Error("[freighter.http] - expected valid request url");
 
     const [, err] = await this.executeMiddleware(
       { target: request.url, protocol: "http", params: {}, role: "client" },
-      async (ctx: Context): Promise<[Context, Error | undefined]> => {
+      async (ctx: Context): Promise<[Context, Error | null]> => {
         const outCtx: Context = { ...ctx, params: {} };
         request.headers = {
           ...(request.headers as RawAxiosRequestHeaders),
@@ -110,7 +110,7 @@ class Core extends MiddlewareCollector {
           }
         }
         if (resSchema != null) rs = this.encoder.decode(httpRes.data, resSchema);
-        return [outCtx, undefined];
+        return [outCtx, null];
       }
     );
 
@@ -127,7 +127,7 @@ export class GETClient extends Core implements UnaryClient {
     target: string,
     req: RQ | null,
     resSchema: ZodSchema<RS> | null
-  ): Promise<[RS | undefined, Error | undefined]> {
+  ): Promise<[RS | null, Error | null]> {
     const request = this.requestConfig();
     request.method = "GET";
     request.url =
@@ -147,7 +147,7 @@ export class POSTClient extends Core implements UnaryClient {
     target: string,
     req: RQ | null,
     resSchema: ZodSchema<RS> | null
-  ): Promise<[RS | undefined, Error | undefined]> {
+  ): Promise<[RS | null, Error | null]> {
     const url = this.endpoint.child(target).toString();
     const request = this.requestConfig();
     request.method = "POST";

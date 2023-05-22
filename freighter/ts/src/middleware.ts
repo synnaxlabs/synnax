@@ -26,22 +26,19 @@ export const ROLES = ["client", "server"] as const;
 export type Role = typeof ROLES[number];
 
 /** Next executes the next middleware in the chain. */
-export type Next = (ctx: Context) => Promise<[Context, Error | undefined]>;
+export type Next = (ctx: Context) => Promise<[Context, Error | null]>;
 
 /**
  * Middleware represents a general middleware function that can be used to
  * parse/attach metadata to a request or alter its behavior.
  */
-export type Middleware = (
-  ctx: Context,
-  next: Next
-) => Promise<[Context, Error | undefined]>;
+export type Middleware = (ctx: Context, next: Next) => Promise<[Context, Error | null]>;
 
 /**
  * Finalizer is a middleware that is executed as the last step in the chain.
  * Finalizer middleware should be used to execute the request.
  */
-type Finalizer = (ctx: Context) => Promise<[Context, Error | undefined]>;
+type Finalizer = (ctx: Context) => Promise<[Context, Error | null]>;
 
 /**
  * MiddlewareCollector is a class that can be used to collect and execute
@@ -67,9 +64,9 @@ export class MiddlewareCollector {
   async executeMiddleware(
     ctx: Context,
     finalizer: Finalizer
-  ): Promise<[Context, Error | undefined]> {
+  ): Promise<[Context, Error | null]> {
     let i = 0;
-    const next = async (md: Context): Promise<[Context, Error | undefined]> => {
+    const next = async (md: Context): Promise<[Context, Error | null]> => {
       if (i === this.middleware.length) return await finalizer(md);
       const _mw = this.middleware[i];
       i++;

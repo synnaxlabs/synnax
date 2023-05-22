@@ -18,7 +18,7 @@ export const middleware =
     const [res, exc] = await instrumentation.T.trace(
       context.target,
       "debug",
-      async (span): Promise<[Context, Error | undefined]> => {
+      async (span): Promise<[Context, Error | null]> => {
         const [ctx, err] = await next(context);
         if (err != null) span.recordError(err);
         return [ctx, err];
@@ -31,10 +31,10 @@ export const middleware =
 const log = (
   context: Context,
   instrumentation: Instrumentation,
-  exc: Error | undefined
+  err: Error | null
 ): void =>
-  exc != null
+  err != null
     ? instrumentation.L.error(
-        `${context.target} ${context.protocol} failed: ${exc.message}`
+        `${context.target} ${context.protocol} failed: ${err.message}`
       )
     : instrumentation.L.debug(`${context.target} ${context.protocol}`);
