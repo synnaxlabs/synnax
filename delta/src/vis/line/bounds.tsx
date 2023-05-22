@@ -11,12 +11,11 @@ import { useMemo } from "react";
 
 import { addSamples, Bound, SampleValue } from "@synnaxlabs/x";
 
-import { selectRequiredVis, VisStoreState } from "../store";
-
-import { BoundsState, BoundState, LineVis } from "./core";
+import { BoundsState, BoundState, LineVis } from "./LinePlot/core";
 
 import { useMemoSelect } from "@/hooks";
 import { LayoutStoreState } from "@/layout";
+import { selectRequiredVis, VisStoreState } from "@/store";
 import { AxisKey, YAxisKey, Y_AXIS_KEYS } from "@/vis/axis";
 import { Data } from "@/vis/line/data";
 import { TelemetryClientResponse } from "@/vis/telem/client";

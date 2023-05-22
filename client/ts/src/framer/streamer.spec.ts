@@ -18,7 +18,7 @@ const client = newClient();
 const newChannel = async (): Promise<Channel> =>
   await client.channels.create({
     name: "test",
-    nodeKey: 1,
+    leaseholder: 1,
     rate: Rate.hz(25),
     dataType: DataType.FLOAT64,
   });
@@ -34,6 +34,6 @@ describe("Streamer", () => {
       await writer.close();
     }
     const d = await streamer.read();
-    expect(d.getA(ch.key)).toEqual(new Float64Array([1, 2, 3]));
+    expect(d.get(ch.key)).toEqual(new Float64Array([1, 2, 3]));
   });
 });

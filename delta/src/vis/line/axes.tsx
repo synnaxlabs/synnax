@@ -22,7 +22,7 @@ import {
 
 import { selectRequiredVis, VisStoreState } from "../store";
 
-import { AxesState, LineVis } from "./core";
+import { AxesState, LineVis } from "./LinePlot/core";
 
 import { useMemoSelect } from "@/hooks";
 import { LayoutStoreState } from "@/layout";

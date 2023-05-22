@@ -11,6 +11,7 @@ package cesium
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
@@ -21,7 +22,6 @@ import (
 const AutoSpan = unary.AutoSpan
 
 type Iterator struct {
-	internal *streamIterator
 	inlet    confluence.Inlet[IteratorRequest]
 	outlet   confluence.Outlet[IteratorResponse]
 	frame    Frame
@@ -32,14 +32,10 @@ type Iterator struct {
 
 func wrapStreamIterator(wrap *streamIterator) *Iterator {
 	ctx, cancel := signal.Isolated()
-	requests := confluence.NewStream[IteratorRequest](1)
-	responses := confluence.NewStream[IteratorResponse](1)
-	wrap.InFrom(requests)
-	wrap.OutTo(responses)
-	wrap.Flow(ctx)
+	req, res := confluence.Attach[IteratorRequest, IteratorResponse](wrap, 1)
 	return &Iterator{
-		inlet:    requests,
-		outlet:   responses,
+		inlet:    req,
+		outlet:   res,
 		shutdown: cancel,
 		wg:       ctx,
 	}

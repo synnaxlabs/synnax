@@ -53,7 +53,6 @@ importers:
       '@synnaxlabs/x': workspace:*
       '@types/node': ^18.11.18
       eslint-config-synnaxlabs: workspace:*
-      rxjs: ^7.8.1
       typescript: ^4.9.4
       vite: ^4.0.4
       vitest: ^0.27.1
@@ -61,7 +60,6 @@ importers:
     dependencies:
       '@synnaxlabs/freighter': link:../../freighter/ts
       '@synnaxlabs/x': link:../../x/ts
-      rxjs: 7.8.1
       typescript: 4.9.5
       zod: 3.19.1
     devDependencies:

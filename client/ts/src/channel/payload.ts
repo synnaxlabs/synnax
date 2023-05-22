@@ -16,14 +16,19 @@ export type ChannelName = string;
 export type ChannelNames = string[];
 export type ChannelKeyOrName = ChannelKey | ChannelName;
 export type ChannelKeysOrNames = ChannelKeys | ChannelNames;
-export type ChannelParams = ChannelKey | ChannelName | ChannelKeys | ChannelNames;
+export type ChannelParams =
+  | ChannelKey
+  | ChannelName
+  | ChannelKeys
+  | ChannelNames
+  | Array<ChannelKey | ChannelName>;
 
 export const channelPayload = z.object({
   key: z.number(),
   rate: Rate.z,
   dataType: DataType.z,
   name: z.string(),
-  nodeKey: z.number().default(0).optional(),
+  leaseholder: z.number().default(0).optional(),
   index: z.string().default("").optional(),
   isIndex: z.boolean().default(false).optional(),
 });
@@ -41,7 +46,7 @@ export interface UnparsedChannel {
   name: string;
   dataType: UnparsedDataType;
   rate?: UnparsedRate;
-  nodeKey?: number;
+  leaseholder?: number;
   index?: string;
   isIndex?: boolean;
 }
@@ -51,7 +56,7 @@ export const parseChannels = (channels: UnparsedChannel[]): UnkeyedChannelPayloa
     name: channel.name,
     dataType: new DataType(channel.dataType),
     rate: new Rate(channel.rate ?? 0),
-    nodeKey: channel.nodeKey,
+    leaseholder: channel.leaseholder,
     index: channel.index,
     isIndex: channel.isIndex,
   }));

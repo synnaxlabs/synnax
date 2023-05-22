@@ -31,7 +31,7 @@ import {
   Status,
   StatusProvider,
   ZERO_CHANNELS_STATE,
-} from "@/vis/line/core";
+} from "@/vis/line/LinePlot/core";
 import { selectRequiredVis, VisStoreState } from "@/vis/store";
 
 export class Channels implements StatusProvider {

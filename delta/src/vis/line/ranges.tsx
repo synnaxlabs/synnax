@@ -21,7 +21,7 @@ import {
   RangesState,
   Status,
   StatusProvider,
-} from "@/vis/line/core";
+} from "@/vis/line/LinePlot/core";
 import { selectRequiredVis, VisStoreState } from "@/vis/store";
 import { Range, selectRanges, WorkspaceStoreState } from "@/workspace";
 

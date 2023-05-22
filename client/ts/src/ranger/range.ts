@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { LazyArray, TimeRange } from "@synnaxlabs/x";
-import { Observable, Subscriber } from "rxjs";
+import { LazyArray, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { ChannelKeyOrName, ChannelParams } from "@/channel";
@@ -50,78 +49,44 @@ export class Range {
   async read(...channels: ChannelParams[]): Promise<LazyArray | Frame> {
     return await this.frameClient.read(this.timeRange, ...channels);
   }
-
-  // async stream(...channels: ChannelParams[]): Promise<FrameStreamReader> {
-  //   return await this.frameClient.stream(this.timeRange.start, ...channels);
-  // }
 }
 
-export interface RangeCache {
-  read: (...channels: number[]) => Promise<LazyArray>;
-}
+export class DynamicRange {
+  span: TimeSpan;
+  gcResolution: TimeSpan;
+  private _streamer: Streamer | null;
+  private readonly frameClient: FrameClient;
 
-export class DynamicRangeCache {
-  range: Range;
-  cache: Map<number, ChannelCache>;
-  stream: Streamer;
-
-  constructor(range: Range, stream: Streamer) {
-    this.range = range;
-    this.cache = new Map();
-    this.stream = stream;
-    new Observable<Frame>((s) => {
-      void this.readLoop(s);
-    }).subscribe((fr) => this.process(fr));
+  constructor(
+    span: TimeSpan,
+    frameClient: FrameClient,
+    gcResolution: TimeSpan = TimeSpan.seconds(30)
+  ) {
+    this.span = span;
+    this.frameClient = frameClient;
+    this.gcResolution = gcResolution;
+    this._streamer = null;
+    void this.start();
   }
 
-  async readLoop(sub: Subscriber<Frame>): Promise<void> {
-    while (true) sub.next(await this.stream.read());
-  }
-
-  async acquire(...channels: number[]): Promise<void> {
-    for (const channel of channels) {
-      const cache = this.cache.get(channel);
-      if (cache != null) cache.acquire();
-      else {
-        this.cache.set(channel, new ChannelCache());
-        await this.stream.update(channels);
-      }
+  private async start(): Promise<void> {
+    const from = TimeStamp.now().sub(this.span);
+    this._streamer = await this.frameClient.newStreamer(from);
+    for await (const fr of this._streamer) {
+      console.log(fr);
     }
   }
 
-  async release(...channels: number[]): Promise<void> {
-    for (const channel of channels) {
-      const cache = this.cache.get(channel);
-      if (cache != null) cache.release();
-    }
+  private get streamer(): Streamer {
+    if (this._streamer == null) throw new Error("streamer is null");
+    return this._streamer;
   }
 
-  private process(fr: Frame): void {
-    fr.channelKeys.forEach((key) => {
-      const cache = this.cache.get(key);
-      if (cache != null) cache.write(fr.arrays[key]);
-    });
-  }
-}
-
-class ChannelCache {
-  demand: number;
-  arrays: LazyArray[];
-
-  constructor() {
-    this.demand = 0;
-    this.arrays = [];
+  async update(...channels: ChannelParams[]): Promise<void> {
+    await this.streamer.update(...channels);
   }
 
-  write(array: LazyArray): void {
-    this.arrays.push(array);
-  }
-
-  acquire(): void {
-    this.demand++;
-  }
-
-  release(): void {
-    this.demand--;
+  close(): void {
+    this.streamer.close();
   }
 }

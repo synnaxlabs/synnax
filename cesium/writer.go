@@ -31,7 +31,7 @@ type Writer struct {
 	hasAccumulatedErr bool
 }
 
-const unexpectedSteamClosure = "[DB] - unexpected early closure of response stream"
+const unexpectedSteamClosure = "[cesium] - unexpected early closure of response stream"
 
 func wrapStreamWriter(internal StreamWriter) *Writer {
 	sCtx, _ := signal.Isolated()

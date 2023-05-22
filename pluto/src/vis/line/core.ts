@@ -7,25 +7,30 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { StatusTextProps } from "@synnaxlabs/pluto/dist/core/Status/StatusText";
+import { ChannelKey } from "@synnaxlabs/client";
 import {
   XY,
   ZERO_XY,
-  Deep,
-  DeepPartial,
   Dimensions,
   ONE_DIMS,
   Bound,
   ZERO_BOUND,
+  TimeRange,
 } from "@synnaxlabs/x";
 
-import { Layout, LayoutCreator } from "@/layout";
+import { StatusTextProps } from "@/core";
 import { AxisKey, XAxisRecord, YAxisKey, YAxisRecord } from "@/vis/axis";
-import { VisMeta } from "@/vis/core";
-import { createVis } from "@/vis/layout";
 
-export type ChannelsState = XAxisRecord<string> & YAxisRecord<readonly string[]>;
-export type RangesState = XAxisRecord<readonly string[]>;
+export interface Range {
+  key: string;
+  range: TimeRange;
+}
+
+export type ChannelsState = XAxisRecord<ChannelKey> &
+  YAxisRecord<readonly ChannelKey[]>;
+
+export type RangesState = XAxisRecord<readonly Range[]>;
+
 export interface ViewportState {
   zoom: Dimensions;
   pan: XY;
@@ -53,7 +58,7 @@ export interface LineState {
 
 export type LineStylesState = LineState[];
 
-export interface LineVis extends VisMeta {
+export interface LineVis {
   channels: ChannelsState;
   ranges: RangesState;
   viewport: ViewportState;
@@ -63,17 +68,17 @@ export interface LineVis extends VisMeta {
 }
 
 export const ZERO_CHANNELS_STATE = {
-  x1: "",
-  x2: "",
-  y1: [] as readonly string[],
-  y2: [] as readonly string[],
-  y3: [] as readonly string[],
-  y4: [] as readonly string[],
+  x1: 0,
+  x2: 0,
+  y1: [] as readonly ChannelKey[],
+  y2: [] as readonly ChannelKey[],
+  y3: [] as readonly ChannelKey[],
+  y4: [] as readonly ChannelKey[],
 };
 
 export const ZERO_RANGES_STATE: RangesState = {
-  x1: [] as string[],
-  x2: [] as string[],
+  x1: [] as Range[],
+  x2: [] as Range[],
 };
 
 export const ZERO_VIEWPORT_STATE: ViewportState = {
@@ -110,8 +115,7 @@ export const ZERO_AXES_STATE: AxesState = {
   x2: ZERO_AXIS_STATE,
 };
 
-export const ZERO_LINE_VIS: Omit<LineVis, "key"> = {
-  variant: "line",
+export const ZERO_LINE_VIS: LineVis = {
   channels: ZERO_CHANNELS_STATE,
   ranges: ZERO_RANGES_STATE,
   viewport: ZERO_VIEWPORT_STATE,
@@ -119,13 +123,6 @@ export const ZERO_LINE_VIS: Omit<LineVis, "key"> = {
   axes: ZERO_AXES_STATE,
   bounds: ZERO_BOUNDS_STATE,
 };
-
-export const createLineVis = (
-  initial: DeepPartial<LineVis> & Omit<Partial<Layout>, "type">
-): LayoutCreator =>
-  createVis<LineVis>(
-    Deep.merge(Deep.copy(ZERO_LINE_VIS), initial) as LineVis & Omit<Layout, "type">
-  );
 
 export interface Status extends Omit<StatusTextProps, "level"> {
   display: boolean;

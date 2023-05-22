@@ -27,7 +27,7 @@ import {
   channelPayload,
   UnparsedChannel,
 } from "./payload";
-import { ChannelRetriever } from "./retriever";
+import { ChannelRetriever, isSingle } from "./retriever";
 
 import { FrameClient } from "@/framer";
 
@@ -43,7 +43,7 @@ export class Channel {
     dataType,
     rate,
     name = "",
-    nodeKey = 0,
+    leaseholder = 0,
     key = 0,
     density = 0,
     isIndex = false,
@@ -57,7 +57,7 @@ export class Channel {
       dataType: new DataType(dataType).valueOf(),
       rate: new Rate(rate ?? 0).valueOf(),
       name,
-      nodeKey,
+      leaseholder,
       key,
       density: new Density(density).valueOf(),
       isIndex,
@@ -82,10 +82,9 @@ export class Channel {
     return this.payload.name;
   }
 
-  get nodeKey(): number {
-    if (this.payload.nodeKey === undefined)
-      throw new Error("chanel nodeKey is not set");
-    return this.payload.nodeKey;
+  get leaseholder(): number {
+    if (this.payload.leaseholder == null) throw new Error("chanel nodeKey is not set");
+    return this.payload.leaseholder;
   }
 
   get rate(): Rate {
@@ -174,8 +173,9 @@ export class ChannelClient {
    * @raises {QueryError} If the channel does not exist or if multiple results are returned.
    */
   async retrieve(...channels: ChannelParams[]): Promise<Channel | Channel[]> {
-    const single = channels.length === 1 && typeof channels[0] === "string";
-    const res = this.sugar(await this.retriever.retrieve(...channels));
+    const single = isSingle(channels);
+    const resChannels = await this.retriever.retrieve(...channels);
+    const res = this.sugar(resChannels);
     return single ? res[0] : res;
   }
 

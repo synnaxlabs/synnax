@@ -11,6 +11,8 @@ package cesium
 
 import (
 	"context"
+	"sync"
+
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/index"
@@ -18,12 +20,11 @@ import (
 	"github.com/synnaxlabs/x/errutil"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
-	"sync"
 )
 
 var (
 	// ChannelNotFound is returned when a channel or a range of data cannot be found in the DB.
-	ChannelNotFound  = errors.Wrap(query.NotFound, "[DB] - channel not found")
+	ChannelNotFound  = errors.Wrap(query.NotFound, "[cesium] - channel not found")
 	ErrDiscontinuous = index.ErrDiscontinuous
 )
 
@@ -82,5 +83,6 @@ func (db *DB) Close() error {
 	for _, u := range db.dbs {
 		c.Exec(u.Close)
 	}
+	c.Exec(db.relay.close)
 	return nil
 }

@@ -18,7 +18,9 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ChannelKeys } from "@/channel/payload";
+import { ChannelParams } from "@/channel/payload";
+import { ChannelRetriever } from "@/channel/retriever";
+import { BackwardFrameAdapter } from "@/framer/adapter";
 import { Frame, frameZ } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
 
@@ -56,7 +58,7 @@ const resZ = z.object({
   variant: z.nativeEnum(ResponseVariant),
   ack: z.boolean(),
   command: z.nativeEnum(Command),
-  error: errorZ.optional(),
+  error: errorZ.optional().nullable(),
   frame: frameZ.optional(),
 });
 
@@ -74,12 +76,16 @@ export class Iterator {
   private static readonly ENDPOINT = "/frame/iterate";
   private readonly client: StreamClient;
   private readonly stream: StreamProxy<Request, Response>;
+  private adapter: BackwardFrameAdapter;
+  private readonly channels: ChannelRetriever;
   value: Frame;
 
-  constructor(client: StreamClient) {
+  constructor(client: StreamClient, channels: ChannelRetriever) {
     this.stream = new StreamProxy("Iterator");
     this.client = client;
     this.value = new Frame();
+    this.adapter = new BackwardFrameAdapter();
+    this.channels = channels;
   }
 
   /**
@@ -89,11 +95,11 @@ export class Iterator {
    * @param tr - The time range to iterate over.
    * @param keys - The keys of the channels to iterate over.
    */
-  async open(tr: TimeRange, keys: ChannelKeys): Promise<void> {
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  async _open(tr: TimeRange, ...channels: ChannelParams[]): Promise<void> {
+    this.adapter = await BackwardFrameAdapter.fromParams(this.channels, ...channels);
     // @ts-expect-error
     this.stream.strean = await this.client.stream(Iterator.ENDPOINT, reqZ, resZ);
-    await this.execute({ command: Command.Open, keys, range: tr });
+    await this.execute({ command: Command.Open, keys: this.adapter.keys, range: tr });
     this.value = new Frame();
   }
 
@@ -197,7 +203,7 @@ export class Iterator {
     while (true) {
       const res = await this.stream.receive();
       if (res.variant === ResponseVariant.Ack) return res.ack;
-      this.value = new Frame(res.frame);
+      this.value = this.adapter.adapt(new Frame(res.frame));
     }
   }
 }

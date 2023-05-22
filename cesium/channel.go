@@ -74,7 +74,7 @@ func (db *DB) createChannel(ch Channel) (err error) {
 }
 
 func (db *DB) validateNewChannel(ch Channel) error {
-	v := validate.New("DB")
+	v := validate.New("cesium")
 	validate.Positive(v, "key", ch.Key)
 	validate.NotEmptyString(v, "data type", ch.DataType)
 	validate.MapDoesNotContainF(v, ch.Key, db.dbs, "channel %v already exists", ch.Key)
