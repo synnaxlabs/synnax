@@ -8,7 +8,7 @@ func _() {
 	// An "invalid array index" compiler error signifies that the constant values have changed.
 	// Re-run the stringer command to generate them again.
 	var x [1]struct{}
-	_ = x[open-0]
+	_ = x[Open-0]
 	_ = x[Data-1]
 	_ = x[Commit-2]
 	_ = x[Error-3]

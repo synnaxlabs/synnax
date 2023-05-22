@@ -105,8 +105,7 @@ export const ENCODER_CLASSES: StaticEncoderDecoder[] = [
   JSONEncoderDecoder,
 ];
 
-export const registerCustomTypeEncoder = (encoder: CustomTypeEncoder): void => {
+export const registerCustomTypeEncoder = (encoder: CustomTypeEncoder): void =>
   ENCODER_CLASSES.forEach((encoderClass) => {
     encoderClass.registerCustomType(encoder);
   });
-};

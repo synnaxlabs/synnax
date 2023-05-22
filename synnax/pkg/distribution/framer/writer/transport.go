@@ -19,7 +19,7 @@ import (
 type Command uint8
 
 const (
-	open Command = iota
+	Open Command = iota
 	// Data represents a call to Writer.Write.
 	Data
 	// Commit represents a call to Writer.Commit.

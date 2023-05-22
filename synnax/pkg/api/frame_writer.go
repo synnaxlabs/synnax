@@ -11,6 +11,7 @@ package api
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/ferrors"
 	"github.com/synnaxlabs/freighter/freightfluence"
@@ -38,10 +39,9 @@ type FrameWriterRequest struct {
 
 type (
 	WriterCommand       = writer.Command
-	FrameWriterResponse = framer.WriteResponse
+	FrameWriterResponse = framer.WriterResponse
+	FrameWriterStream   = freighter.ServerStream[FrameWriterRequest, FrameWriterResponse]
 )
-
-type FrameWriterStream = freighter.ServerStream[FrameWriterRequest, framer.WriteResponse]
 
 // Write exposes a high level api for writing segmented telemetry to the delta
 // cluster. The client is expected to send an initial request containing the
@@ -80,15 +80,15 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 		return err
 	}
 
-	receiver := &freightfluence.TransformReceiver[framer.WriteRequest, FrameWriterRequest]{
+	receiver := &freightfluence.TransformReceiver[framer.WriterRequest, FrameWriterRequest]{
 		Receiver: stream,
-		Transform: func(_ context.Context, req FrameWriterRequest) (framer.WriteRequest, bool, error) {
-			return framer.WriteRequest{Command: req.Command, Frame: req.Frame}, true, nil
+		Transform: func(_ context.Context, req FrameWriterRequest) (framer.WriterRequest, bool, error) {
+			return framer.WriterRequest{Command: req.Command, Frame: req.Frame}, true, nil
 		},
 	}
-	sender := &freightfluence.TransformSender[framer.WriteResponse, framer.WriteResponse]{
-		Sender: freighter.SenderNopCloser[framer.WriteResponse]{StreamSender: stream},
-		Transform: func(ctx context.Context, resp framer.WriteResponse) (framer.WriteResponse, bool, error) {
+	sender := &freightfluence.TransformSender[framer.WriterResponse, framer.WriterResponse]{
+		Sender: freighter.SenderNopCloser[framer.WriterResponse]{StreamSender: stream},
+		Transform: func(ctx context.Context, resp framer.WriterResponse) (framer.WriterResponse, bool, error) {
 			if resp.Error != nil {
 				resp.Error = ferrors.Encode(errors.Unexpected(resp.Error))
 			}
@@ -99,9 +99,9 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 	pipe := plumber.New()
 
 	plumber.SetSegment(pipe, "writer", w)
-	plumber.SetSource[framer.WriteRequest](pipe, "receiver", receiver)
-	plumber.SetSink[framer.WriteResponse](pipe, "sender", sender)
-	plumber.MustConnect[framer.WriteRequest](pipe, "receiver", "writer", 1)
+	plumber.SetSource[framer.WriterRequest](pipe, "receiver", receiver)
+	plumber.SetSink[framer.WriterResponse](pipe, "sender", sender)
+	plumber.MustConnect[framer.WriterRequest](pipe, "receiver", "writer", 1)
 	plumber.MustConnect[FrameWriterResponse](pipe, "writer", "sender", 1)
 
 	pipe.Flow(ctx, confluence.CloseInletsOnExit())
@@ -121,5 +121,8 @@ func (s *FrameService) openWriter(ctx context.Context, srv FrameWriterStream) (f
 		return nil, errors.Query(err)
 	}
 	// Let the client know the writer is ready to receive segments.
-	return w, errors.MaybeUnexpected(srv.Send(FrameWriterResponse{}))
+	return w, errors.MaybeUnexpected(srv.Send(FrameWriterResponse{
+		Command: writer.Open,
+		Ack:     true,
+	}))
 }

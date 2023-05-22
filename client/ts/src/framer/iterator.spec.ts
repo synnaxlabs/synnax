@@ -31,9 +31,9 @@ describe("Iterator", () => {
     const writer = await client.telem.newWriter(TimeStamp.SECOND, ch.key);
     const data = randomTypedArray(25, ch.dataType);
     try {
-      await writer.writeArray(ch.key, data);
-      await writer.writeArray(ch.key, data);
-      await writer.writeArray(ch.key, data);
+      await writer.write(ch.key, data);
+      await writer.write(ch.key, data);
+      await writer.write(ch.key, data);
       await writer.commit();
     } finally {
       await writer.close();
@@ -41,8 +41,7 @@ describe("Iterator", () => {
 
     const iter = await client.telem.newIterator(
       new TimeRange(TimeSpan.ZERO, TimeSpan.seconds(4)),
-      [ch.key],
-      false
+      [ch.key]
     );
 
     try {

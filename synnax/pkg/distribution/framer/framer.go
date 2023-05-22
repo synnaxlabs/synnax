@@ -23,8 +23,8 @@ type (
 	IteratorResponse = iterator.Response
 	StreamIterator   = iterator.StreamIterator
 	Writer           = writer.Writer
-	WriteRequest     = writer.Request
-	WriteResponse    = writer.Response
+	WriterRequest    = writer.Request
+	WriterResponse   = writer.Response
 	StreamWriter     = writer.StreamWriter
 	WriterConfig     = writer.Config
 	IteratorConfig   = iterator.Config

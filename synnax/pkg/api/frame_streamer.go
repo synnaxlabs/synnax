@@ -21,9 +21,11 @@ import (
 	"github.com/synnaxlabs/x/signal"
 )
 
-type FrameStreamerRequest = framer.StreamerRequest
-type FrameStreamerResponse = framer.StreamerResponse
-type StreamerStream = freighter.ServerStream[FrameStreamerRequest, FrameStreamerResponse]
+type (
+	FrameStreamerRequest  = framer.StreamerRequest
+	FrameStreamerResponse = framer.StreamerResponse
+	StreamerStream        = freighter.ServerStream[FrameStreamerRequest, FrameStreamerResponse]
+)
 
 func (s *FrameService) Stream(ctx context.Context, stream StreamerStream) errors.Typed {
 	reader, err := s.openReader(ctx, stream)

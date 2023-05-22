@@ -31,7 +31,7 @@ describe("Writer", () => {
       const ch = await newChannel();
       const writer = await client.telem.newWriter(0, ch.key);
       try {
-        await writer.writeArray(ch.key, randomTypedArray(10, ch.dataType));
+        await writer.write(ch.key, randomTypedArray(10, ch.dataType));
         await writer.commit();
       } finally {
         await writer.close();

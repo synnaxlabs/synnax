@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Size, LazyArray, TimeRange, toArray } from "@synnaxlabs/x";
-
-import { arrayFromPayload, arrayToPayload, FramePayload } from "./payload";
+import { Size, LazyArray, TimeRange, toArray, DataType } from "@synnaxlabs/x";
+import { z } from "zod";
 
 import { ChannelKeyOrName, ChannelParams } from "@/channel/payload";
 import { UnexpectedError, ValidationError } from "@/errors";
@@ -216,9 +215,42 @@ export class Frame {
 
   shallowCopy(): Frame {
     const fr = new Frame();
-    for (const [k, a] of this.entries) {
-      fr._entries.set(k, a.slice());
-    }
+    this.entries.forEach(([k, a]) => fr._entries.set(k, a.slice()));
     return fr;
   }
 }
+
+export const array = z.object({
+  timeRange: TimeRange.z.optional(),
+  dataType: DataType.z,
+  data: z.string().transform(
+    (s) =>
+      new Uint8Array(
+        atob(s)
+          .split("")
+          .map((c) => c.charCodeAt(0))
+      ).buffer
+  ),
+});
+
+export type ArrayPayload = z.infer<typeof array>;
+
+export const frameZ = z.object({
+  keys: z.number().array().nullable().default([]),
+  arrays: array.array().nullable().default([]),
+});
+
+export type FramePayload = z.infer<typeof frameZ>;
+
+export const arrayFromPayload = (payload: ArrayPayload): LazyArray => {
+  const { dataType, data, timeRange } = payload;
+  return new LazyArray(data, dataType, timeRange);
+};
+
+export const arrayToPayload = (array: LazyArray): ArrayPayload => {
+  return {
+    timeRange: array._timeRange,
+    dataType: array.dataType,
+    data: new Uint8Array(array.data.buffer),
+  };
+};
