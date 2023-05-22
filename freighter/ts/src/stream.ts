@@ -24,7 +24,7 @@ export interface StreamReceiver<RS> {
    *  returns the error the server returned.
    *  @raises Error: if the transport fails.
    */
-  receive: () => Promise<[RS | undefined, Error | undefined]>;
+  receive: () => Promise<[RS | null, Error | null]>;
 
   /**
    * @returns true if the stream has received a response
@@ -47,7 +47,7 @@ export interface StreamSender<RQ> {
   * @raises freighter.StreamClosed: if the client called close_send()
   * @raises Error: if the transport fails.
   */
-  send: (req: RQ) => Error | undefined;
+  send: (req: RQ) => Error | null;
 }
 
 /**

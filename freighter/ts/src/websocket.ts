@@ -38,7 +38,7 @@ class WebSocketStream<RQ, RS> implements Stream<RQ, RS> {
   private readonly reqSchema: z.ZodSchema<RQ>;
   private readonly resSchema: z.ZodSchema<RS>;
   private readonly ws: WebSocket;
-  private serverClosed?: Error;
+  private serverClosed: Error | null;
   private sendClosed: boolean;
   private readonly receiveDataQueue: Message[] = [];
   private readonly receiveCallbacksQueue: ReceiveCallbacksQueue = [];
@@ -54,27 +54,28 @@ class WebSocketStream<RQ, RS> implements Stream<RQ, RS> {
     this.resSchema = resSchema;
     this.ws = ws;
     this.sendClosed = false;
+    this.serverClosed = null;
     this.listenForMessages();
   }
 
   /** Implements the Stream protocol */
-  send(req: RQ): Error | undefined {
+  send(req: RQ): Error | null {
     if (this.serverClosed != null) return new EOF();
     if (this.sendClosed) throw new StreamClosed();
     this.ws.send(this.encoder.encode({ type: "data", payload: req }));
-    return undefined;
+    return null;
   }
 
   /** Implements the Stream protocol */
-  async receive(): Promise<[RS | undefined, Error | undefined]> {
-    if (this.serverClosed != null) return [undefined, this.serverClosed];
+  async receive(): Promise<[RS | null, Error | null]> {
+    if (this.serverClosed != null) return [null, this.serverClosed];
     const msg = await this.receiveMsg();
     if (msg.type === "close") {
       if (msg.error == null) throw new Error("Message error must be defined");
       this.serverClosed = decodeError(msg.error);
-      return [undefined, this.serverClosed];
+      return [null, this.serverClosed];
     }
-    return [this.resSchema.parse(msg.payload), undefined];
+    return [this.resSchema.parse(msg.payload), null];
   }
 
   /** Implements the Stream protocol */
@@ -161,14 +162,14 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
     let stream: Stream<RQ, RS> | undefined;
     const [, error] = await this.executeMiddleware(
       { target, protocol: "websocket", params: {}, role: "client" },
-      async (ctx: Context): Promise<[Context, Error | undefined]> => {
+      async (ctx: Context): Promise<[Context, Error | null]> => {
         const ws = new SocketConstructor(this.buildURL(target, ctx));
         const outCtx: Context = { ...ctx, params: {} };
         ws.binaryType = WebSocketClient.MESSAGE_TYPE;
         const streamOrErr = await this.wrapSocket(ws, reqSchema, resSchema);
         if (streamOrErr instanceof Error) return [outCtx, streamOrErr];
         stream = streamOrErr;
-        return [outCtx, undefined];
+        return [outCtx, null];
       }
     );
     if (error != null) throw error;

@@ -101,7 +101,7 @@ describe("websocket", () => {
   test("middleware", async () => {
     const myClient = new WebSocketClient(url, new JSONEncoderDecoder());
     let c = 0;
-    myClient.use(async (md, next): Promise<[Context, Error | undefined]> => {
+    myClient.use(async (md, next): Promise<[Context, Error | null]> => {
       if (md.params !== undefined) {
         c++;
         md.params.Test = "test";

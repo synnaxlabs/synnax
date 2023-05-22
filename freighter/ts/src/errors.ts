@@ -30,7 +30,7 @@ export class BaseTypedError extends Error implements TypedError {
   }
 }
 
-type ErrorDecoder = (encoded: string) => Error | undefined;
+type ErrorDecoder = (encoded: string) => Error | null;
 type ErrorEncoder = (error: TypedError) => string;
 
 export const isTypedError = (error: unknown): error is TypedError => {
@@ -44,7 +44,7 @@ export const isTypedError = (error: unknown): error is TypedError => {
   return true;
 };
 
-export const assertErrorType = <T>(type: string, error?: Error): T => {
+export const assertErrorType = <T>(type: string, error?: Error | null): T => {
   if (error == null)
     throw new Error(`Expected error of type ${type} but got nothing instead`);
   if (!isTypedError(error))
@@ -90,8 +90,8 @@ class Registry {
     return { type: UNKNOWN, data: JSON.stringify(error) };
   }
 
-  decode(payload: ErrorZ): Error | undefined {
-    if (payload.type === NONE) return undefined;
+  decode(payload?: ErrorZ | null): Error | null {
+    if (payload == null || payload.type === NONE) return null;
     if (payload.type === UNKNOWN) return new UnknownError(payload.data);
     const provider = this.entries[payload.type];
     return provider == null
@@ -126,7 +126,9 @@ export const registerError = ({
  * @param error - The error to encode.
  * @returns The encoded error.
  */
-export const encodeError = REGISTRY.encode;
+export const encodeError = (error: unknown): ErrorZ => {
+  return REGISTRY.encode(error);
+};
 
 /**
  * Decodes an error payload into an exception. If a custom decoder can be found
@@ -136,7 +138,9 @@ export const encodeError = REGISTRY.encode;
  * @param payload - The encoded error payload.
  * @returns The decoded error.
  */
-export const decodeError = REGISTRY.decode;
+export const decodeError = (payload: ErrorZ): Error | null => {
+  return REGISTRY.decode(payload);
+};
 
 export class UnknownError extends BaseTypedError implements TypedError {
   constructor(message: string) {

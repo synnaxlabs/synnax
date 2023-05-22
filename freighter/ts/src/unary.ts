@@ -26,5 +26,5 @@ export interface UnaryClient extends Transport {
     target: string,
     req: RQ | null,
     resSchema: ZodSchema<RS> | null
-  ) => Promise<[RS | undefined, Error | undefined]>;
+  ) => Promise<[RS | null, Error | null]>;
 }
