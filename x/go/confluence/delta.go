@@ -12,6 +12,7 @@ package confluence
 import (
 	"context"
 	"fmt"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/signal"
 )
@@ -86,7 +87,6 @@ func (d *DynamicDeltaMultiplier[v]) Flow(ctx signal.Context, opts ...Option) {
 		for {
 			select {
 			case <-ctx.Done():
-				panic(ctx.Err())
 				return ctx.Err()
 			case inlets := <-d.connections:
 				d.Source.Out = append(d.Source.Out, inlets...)

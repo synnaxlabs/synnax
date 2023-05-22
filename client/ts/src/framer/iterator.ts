@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { EOF, ErrorPayloadSchema } from "@synnaxlabs/freighter";
-import type { Stream, StreamClient } from "@synnaxlabs/freighter";
+import { errorZ } from "@synnaxlabs/freighter";
+import type { StreamClient } from "@synnaxlabs/freighter";
 import {
   TimeRange,
   TimeSpan,
@@ -18,11 +18,9 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { Frame } from "./frame";
-import { framePayload } from "./payload";
-
 import { ChannelKeys } from "@/channel/payload";
-import { GeneralError, UnexpectedError } from "@/errors";
+import { Frame, frameZ } from "@/framer/frame";
+import { StreamProxy } from "@/framer/streamProxy";
 
 export const AUTO_SPAN = new TimeSpan(-1);
 
@@ -44,29 +42,25 @@ enum ResponseVariant {
   Data = 2,
 }
 
-const NOT_OPEN = new GeneralError(
-  "iterator.open() must be called before any other method"
-);
-
-const request = z.object({
+const reqZ = z.object({
   command: z.nativeEnum(Command),
-  span: z.instanceof(TimeSpan).optional(),
-  range: z.instanceof(TimeRange).optional(),
-  stamp: z.instanceof(TimeStamp).optional(),
+  span: TimeSpan.z.optional(),
+  range: TimeRange.z.optional(),
+  stamp: TimeStamp.z.optional(),
   keys: z.number().array().optional(),
 });
 
-type Request = z.infer<typeof request>;
+type Request = z.infer<typeof reqZ>;
 
-const response = z.object({
+const resZ = z.object({
   variant: z.nativeEnum(ResponseVariant),
   ack: z.boolean(),
   command: z.nativeEnum(Command),
-  error: ErrorPayloadSchema.optional(),
-  frame: framePayload.optional(),
+  error: errorZ.optional(),
+  frame: frameZ.optional(),
 });
 
-type Response = z.infer<typeof response>;
+type Response = z.infer<typeof resZ>;
 
 /**
  * Used to iterate over a clusters telemetry in time-order. It should not be
@@ -79,13 +73,12 @@ type Response = z.infer<typeof response>;
 export class Iterator {
   private static readonly ENDPOINT = "/frame/iterate";
   private readonly client: StreamClient;
-  private stream: Stream<Request, Response> | undefined;
-  private readonly aggregate: boolean = false;
+  private readonly stream: StreamProxy<Request, Response>;
   value: Frame;
 
-  constructor(client: StreamClient, aggregate = false) {
+  constructor(client: StreamClient) {
+    this.stream = new StreamProxy("Iterator");
     this.client = client;
-    this.aggregate = aggregate;
     this.value = new Frame();
   }
 
@@ -97,13 +90,9 @@ export class Iterator {
    * @param keys - The keys of the channels to iterate over.
    */
   async open(tr: TimeRange, keys: ChannelKeys): Promise<void> {
-    this.stream = await this.client.stream(
-      Iterator.ENDPOINT,
-      request,
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-expect-error
-      response
-    );
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-expect-error
+    this.stream.strean = await this.client.stream(Iterator.ENDPOINT, reqZ, resZ);
     await this.execute({ command: Command.Open, keys, range: tr });
     this.value = new Frame();
   }
@@ -200,30 +189,15 @@ export class Iterator {
    * it may leak resources.
    */
   async close(): Promise<void> {
-    if (this.stream == null) throw NOT_OPEN;
-    this.stream.closeSend();
-    const [, exc] = await this.stream.receive();
-    if (exc == null)
-      throw new UnexpectedError("received null response on iterator closure");
-    if (!(exc instanceof EOF)) throw exc;
-  }
-
-  private resetValue(): void {
-    if (this.value == null || !this.aggregate) this.value = new Frame();
+    await this.stream.closeAndAck();
   }
 
   private async execute(request: Request): Promise<boolean> {
-    this.resetValue();
-    if (this.stream == null) throw NOT_OPEN;
-    const err = this.stream.send(request);
-    if (err != null) throw err;
+    this.stream.send(request);
     while (true) {
-      const [res, err] = await this.stream.receive();
-      if (err != null) throw err;
-      if (res == null)
-        throw new UnexpectedError("received null response from iterator");
+      const res = await this.stream.receive();
       if (res.variant === ResponseVariant.Ack) return res.ack;
-      if (res.frame != null) this.value = this.value.concatF(new Frame(res.frame));
+      this.value = new Frame(res.frame);
     }
   }
 }

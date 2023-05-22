@@ -7,71 +7,48 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  ErrorPayloadSchema as errorPayload,
-  Stream as FStream,
-  StreamClient,
-} from "@synnaxlabs/freighter";
+import { errorZ, StreamClient } from "@synnaxlabs/freighter";
 import { TimeStamp, UnparsedTimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { Frame, GeneralError, UnexpectedError } from "..";
+import { Frame, frameZ } from "@/framer/frame";
+import { StreamProxy } from "@/framer/streamProxy";
 
-import { framePayload } from "@/framer/payload";
-
-const request = z.object({
-  start: z.instanceof(TimeStamp).optional(),
+const reqZ = z.object({
+  start: TimeStamp.z.optional(),
   keys: z.number().array(),
 });
 
-type Request = z.infer<typeof request>;
+type Request = z.infer<typeof reqZ>;
 
-const NOT_OPEN = new GeneralError(
-  "FrameStreamReader.open() must be called before any other method"
-);
-
-const response = z.object({
-  frame: framePayload,
-  error: errorPayload.optional(),
+const resZ = z.object({
+  frame: frameZ,
+  error: errorZ.optional(),
 });
 
-type Response = z.infer<typeof response>;
+type Response = z.infer<typeof resZ>;
 
 export class Streamer {
   private static readonly ENDPOINT = "/frame/read";
-  private stream: FStream<Request, Response> | undefined;
+  private readonly stream: StreamProxy<Request, Response>;
   private readonly client: StreamClient;
 
   constructor(client: StreamClient) {
     this.client = client;
+    this.stream = new StreamProxy("Streamer");
   }
 
   async open(start: UnparsedTimeStamp, keys: number[]): Promise<void> {
-    this.stream = await this.client.stream(
-      Streamer.ENDPOINT,
-      request,
-      // @ts-expect-error
-      response
-    );
-    await this.execute({ start: new TimeStamp(start), keys });
+    // @ts-expect-error
+    this.stream.stream = await this.client.stream(Streamer.ENDPOINT, reqZ, resZ);
+    await this.stream.send({ start: new TimeStamp(start), keys });
   }
 
   async read(): Promise<Frame> {
-    if (this.stream == null) throw NOT_OPEN;
-    const [res, exc] = await this.stream.receive();
-    if (exc != null) throw exc;
-    if (res == null)
-      throw new UnexpectedError("received null response from stream reader");
-    return new Frame(res.frame);
+    return new Frame((await this.stream.receive()).frame);
   }
 
   async update(keys: number[]): Promise<void> {
-    if (this.stream == null) throw NOT_OPEN;
-    await this.execute({ keys });
-  }
-
-  private async execute(request: Request): Promise<void> {
-    if (this.stream == null) throw NOT_OPEN;
-    this.stream.send(request);
+    this.stream.send({ keys });
   }
 }

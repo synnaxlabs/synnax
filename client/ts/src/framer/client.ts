@@ -43,16 +43,10 @@ export class FrameClient {
    *
    * @param tr - A time range to iterate over.
    * @param keys - A list of channel keys to iterate over.
-   * @param aggregate - Whether to accumulate iteration results or reset them
-   * on every iterator method call.
    * @returns a new {@link TypedIterator}.
    */
-  async newIterator(
-    tr: TimeRange,
-    keys: ChannelKeys,
-    aggregate: boolean
-  ): Promise<Iterator> {
-    const i = new Iterator(this.transport.streamClient, aggregate);
+  async newIterator(tr: TimeRange, keys: ChannelKeys): Promise<Iterator> {
+    const i = new Iterator(this.transport.streamClient);
     await i.open(tr, keys);
     return i;
   }
@@ -109,15 +103,16 @@ export class FrameClient {
     const channels = await this.retriever.retrieve(...params);
     const i = await this.newIterator(
       tr,
-      channels.map((c) => c.key),
-      /* accumulate */ true
+      channels.map((c) => c.key)
     );
+    let frame = new Frame();
     try {
-      if (await i.seekFirst()) while (await i.next(AUTO_SPAN));
+      if (await i.seekFirst())
+        while (await i.next(AUTO_SPAN)) frame = frame.concatF(i.value);
     } finally {
       await i.close();
     }
-    return i.value;
+    return frame;
   }
 
   async newStreamer(...params: ChannelParams[]): Promise<StreamReader>;

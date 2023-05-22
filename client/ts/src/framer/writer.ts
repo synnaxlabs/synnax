@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 /* eslint-disable @typescript-eslint/no-throw-literal */
-import type { Stream, StreamClient } from "@synnaxlabs/freighter";
-import { decodeError, EOF, ErrorPayloadSchema } from "@synnaxlabs/freighter";
+import type { StreamClient } from "@synnaxlabs/freighter";
+import { decodeError, errorZ } from "@synnaxlabs/freighter";
 import {
   NativeTypedArray,
   LazyArray,
@@ -18,13 +18,15 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { ValidationError } from "..";
+
+import { StreamProxy } from "./streamProxy";
+
 import { ChannelKey, ChannelKeys } from "@/channel/payload";
-import { GeneralError } from "@/errors";
-import { Frame } from "@/framer/frame";
-import { framePayload } from "@/framer/payload";
+import { Frame, frameZ } from "@/framer/frame";
 
 enum Command {
-  None = 0,
+  Open = 0,
   Write = 1,
   Commit = 2,
   Error = 3,
@@ -35,25 +37,21 @@ const configSchema = z.object({
   keys: z.number().array().optional(),
 });
 
-const requestSchema = z.object({
+const reqZ = z.object({
   command: z.nativeEnum(Command),
   config: configSchema.optional(),
-  frame: framePayload.optional(),
+  frame: frameZ.optional(),
 });
 
-type Request = z.infer<typeof requestSchema>;
+type Request = z.infer<typeof reqZ>;
 
-const responseSchema = z.object({
+const resZ = z.object({
   ack: z.boolean(),
   command: z.nativeEnum(Command),
-  error: ErrorPayloadSchema.optional(),
+  error: errorZ.optional(),
 });
 
-type Response = z.infer<typeof responseSchema>;
-
-const NOT_OPEN = new GeneralError(
-  "Writer has not been opened. Please open before calling write() or close()."
-);
+type Response = z.infer<typeof resZ>;
 
 /**
  * Writer is used to write telemetry to a set of channels in time order.
@@ -96,10 +94,11 @@ const NOT_OPEN = new GeneralError(
 export class Writer {
   private static readonly ENDPOINT = "/frame/write";
   private readonly client: StreamClient;
-  private stream: Stream<Request, Response> | undefined;
+  private readonly stream: StreamProxy<Request, Response>;
 
   constructor(client: StreamClient) {
     this.client = client;
+    this.stream = new StreamProxy("Writer");
   }
 
   /**
@@ -112,20 +111,17 @@ export class Writer {
    * frames written to the writer must have channel keys in this list.
    */
   async open(start: UnparsedTimeStamp, keys: ChannelKeys): Promise<void> {
-    this.stream = await this.client.stream(
-      Writer.ENDPOINT,
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-expect-error
-      requestSchema,
-      responseSchema
-    );
-    this.stream.send({
-      command: Command.None,
+    // @ts-expect-error
+    this.stream.stream = await this.client.stream(Writer.ENDPOINT, reqZ, resZ);
+    await this.execute({
+      command: Command.Open,
       config: { start: new TimeStamp(start), keys },
     });
-    const [, err] = await this.stream.receive();
-    if (err != null) throw err;
   }
+
+  async write(key: ChannelKey, data: NativeTypedArray): Promise<boolean>;
+
+  async write(frame: Frame): Promise<boolean>;
 
   /**
    * Writes the given frame to the database.
@@ -141,17 +137,15 @@ export class Writer {
    * @returns false if the writer has accumulated an error. In this case, the caller
    * should acknowledge the error by calling the error method or closing the writer.
    */
-  async write(frame: Frame): Promise<boolean> {
-    if (this.stream == null) throw NOT_OPEN;
+  async write(frame: Frame | ChannelKey, data?: NativeTypedArray): Promise<boolean> {
+    const isFrame = frame instanceof Frame;
+    if (!isFrame) {
+      if (data == null) throw new ValidationError("data must be provided");
+      frame = new Frame(new LazyArray(data), frame as ChannelKey);
+    }
     if (this.stream.received()) return false;
-
-    const err = this.stream.send({ command: Command.Write, frame: frame.toPayload() });
-    if (err != null) throw err;
+    this.stream.send({ command: Command.Write, frame: (frame as Frame).toPayload() });
     return true;
-  }
-
-  async writeArray(key: ChannelKey, data: NativeTypedArray): Promise<boolean> {
-    return await this.write(new Frame(new LazyArray(data), key));
   }
 
   /**
@@ -163,37 +157,19 @@ export class Writer {
    * After the caller acknowledges the error, they can attempt to commit again.
    */
   async commit(): Promise<boolean> {
-    if (this.stream == null) throw NOT_OPEN;
     if (this.stream.received()) return false;
-
-    const err = this.stream.send({ command: Command.Commit });
-    if (err != null) throw err;
-
-    while (true) {
-      const [res, err] = await this.stream.receive();
-      if (err != null) throw err;
-      if (res != null && res?.command === Command.Commit) return res.ack;
-      this.warnUnexpectedResponse(res);
-    }
+    const res = await this.execute({ command: Command.Commit });
+    return res.ack;
   }
 
   /**
-   * @returns  The accumulated error, if any. This method will clear the writer's erorr
+   * @returns  The accumulated error, if any. This method will clear the writer's error
    * state, allowing the writer to be used again.
    */
   async error(): Promise<Error | undefined> {
-    if (this.stream == null) throw NOT_OPEN;
-
-    const err = this.stream.send({ command: Command.Error });
-    if (err != null) throw err;
-
-    while (true) {
-      const [res, err] = await this.stream.receive();
-      if (err != null) throw err;
-      if (res != null && res?.command === Command.Error && res.error != null)
-        return decodeError(res.error);
-      this.warnUnexpectedResponse(res);
-    }
+    this.stream.send({ command: Command.Error });
+    const res = await this.execute({ command: Command.Error });
+    return res.error == null ? undefined : decodeError(res.error);
   }
 
   /**
@@ -202,15 +178,15 @@ export class Writer {
    * in a 'finally' block.
    */
   async close(): Promise<void> {
-    if (this.stream == null) throw NOT_OPEN;
-    this.stream.closeSend();
-    const [res, err] = await this.stream.receive();
-    if (err == null && res?.error != null) throw decodeError(res.error);
-    if (!(err instanceof EOF)) throw err;
+    await this.stream.closeAndAck();
   }
 
-  private warnUnexpectedResponse(res?: Response): void {
-    if (res == null) console.warn("writer received unexpected null response");
-    console.warn("writer received unexpected response", res);
+  async execute(req: Request): Promise<Response> {
+    this.stream.send(req);
+    while (true) {
+      const res = await this.stream.receive();
+      if (res.command === req.command) return res;
+      console.warn("writer received unexpected response", res);
+    }
   }
 }

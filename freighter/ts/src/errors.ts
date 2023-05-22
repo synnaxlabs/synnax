@@ -126,9 +126,7 @@ export const registerError = ({
  * @param error - The error to encode.
  * @returns The encoded error.
  */
-export const encodeError = (error: unknown): ErrorPayload => {
-  return REGISTRY.encode(error);
-};
+export const encodeError = REGISTRY.encode;
 
 /**
  * Decodes an error payload into an exception. If a custom decoder can be found
@@ -138,9 +136,7 @@ export const encodeError = (error: unknown): ErrorPayload => {
  * @param payload - The encoded error payload.
  * @returns The decoded error.
  */
-export const decodeError = (payload: ErrorPayload): Error | undefined => {
-  return REGISTRY.decode(payload);
-};
+export const decodeError = REGISTRY.decode;
 
 export class UnknownError extends BaseTypedError implements TypedError {
   constructor(message: string) {

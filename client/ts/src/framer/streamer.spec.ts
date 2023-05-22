@@ -10,8 +10,7 @@
 import { DataType, Rate } from "@synnaxlabs/x";
 import { describe, test, expect } from "vitest";
 
-import { Channel, Frame } from "..";
-
+import { Channel } from "@/channel";
 import { newClient } from "@/setupspecs";
 
 const client = newClient();
@@ -24,13 +23,13 @@ const newChannel = async (): Promise<Channel> =>
     dataType: DataType.FLOAT64,
   });
 
-describe("StreamReader", () => {
+describe("Streamer", () => {
   test("happy path", async () => {
     const ch = await newChannel();
     const streamer = await client.telem.newStreamer(ch.key);
     const writer = await client.telem.newWriter(ch.key);
     try {
-      await writer.writeArray(ch.key, new Float64Array([1, 2, 3]));
+      await writer.write(ch.key, new Float64Array([1, 2, 3]));
     } finally {
       await writer.close();
     }
