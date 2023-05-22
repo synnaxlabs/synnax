@@ -13,7 +13,7 @@ import type { AxiosRequestConfig, AxiosResponse, RawAxiosRequestHeaders } from "
 import { ZodSchema } from "zod";
 
 import { EncoderDecoder } from "@/encoder";
-import { ErrorPayloadSchema, decodeError } from "@/errors";
+import { errorZ, decodeError } from "@/errors";
 import { Context, MiddlewareCollector } from "@/middleware";
 import { UnaryClient } from "@/unary";
 
@@ -103,7 +103,7 @@ class Core extends MiddlewareCollector {
         outCtx.params = httpRes.headers as Record<string, string>;
         if (httpRes.status < 200 || httpRes.status >= 300) {
           try {
-            const err = this.encoder.decode(httpRes.data, ErrorPayloadSchema);
+            const err = this.encoder.decode(httpRes.data, errorZ);
             return [outCtx, decodeError(err)];
           } catch {
             return [outCtx, new Error(httpRes.data)];

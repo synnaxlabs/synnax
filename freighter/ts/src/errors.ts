@@ -60,9 +60,9 @@ export const UNKNOWN = "unknown";
 export const NONE = "nil";
 export const FREIGHTER = "freighter";
 
-export const ErrorPayloadSchema = z.object({ type: z.string(), data: z.string() });
+export const errorZ = z.object({ type: z.string(), data: z.string() });
 
-export type ErrorPayload = z.infer<typeof ErrorPayloadSchema>;
+export type ErrorZ = z.infer<typeof errorZ>;
 
 interface errorProvider {
   encode: ErrorEncoder;
@@ -83,14 +83,14 @@ class Registry {
     this.entries[_type] = provider;
   }
 
-  encode(error: unknown): ErrorPayload {
+  encode(error: unknown): ErrorZ {
     if (error == null) return { type: NONE, data: "" };
     if (isTypedError(error) && this.entries[error.type] !== null)
       return { type: error.type, data: this.entries[error.type].encode(error) };
     return { type: UNKNOWN, data: JSON.stringify(error) };
   }
 
-  decode(payload: ErrorPayload): Error | undefined {
+  decode(payload: ErrorZ): Error | undefined {
     if (payload.type === NONE) return undefined;
     if (payload.type === UNKNOWN) return new UnknownError(payload.data);
     const provider = this.entries[payload.type];

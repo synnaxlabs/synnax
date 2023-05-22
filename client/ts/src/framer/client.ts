@@ -17,7 +17,7 @@ import {
 
 import { Frame } from "./frame";
 import { AUTO_SPAN, Iterator } from "./iterator";
-import { Streamer as StreamReader } from "./streamer";
+import { Streamer } from "./streamer";
 import { Writer } from "./writer";
 
 import {
@@ -115,17 +115,17 @@ export class FrameClient {
     return frame;
   }
 
-  async newStreamer(...params: ChannelParams[]): Promise<StreamReader>;
+  async newStreamer(...params: ChannelParams[]): Promise<Streamer>;
 
-  async newStreamer(from: TimeStamp, ...params: ChannelParams[]): Promise<StreamReader>;
+  async newStreamer(from: TimeStamp, ...params: ChannelParams[]): Promise<Streamer>;
 
   async newStreamer(
     from: TimeStamp | ChannelParams,
     ...params: ChannelParams[]
-  ): Promise<StreamReader> {
+  ): Promise<Streamer> {
     const channels = await this.retriever.retrieve(...params);
     const start = from instanceof TimeStamp ? from : TimeStamp.now();
-    const i = new StreamReader(this.transport.streamClient);
+    const i = new Streamer(this.transport.streamClient);
     await i.open(
       start,
       channels.map((c) => c.key)
