@@ -19,7 +19,6 @@ import {
   ZERO_DIMS,
   Compare,
 } from "@synnaxlabs/x";
-import { TriggerConfig } from "react-hook-form";
 
 import { useMemoCompare } from "@/hooks";
 import { useStateRef } from "@/hooks/useStateRef";

@@ -19,7 +19,7 @@ const client = newClient();
 const newChannel = async (): Promise<Channel> => {
   return await client.channels.create({
     name: "test",
-    nodeKey: 1,
+    leaseholder: 1,
     rate: Rate.hz(1),
     dataType: DataType.FLOAT64,
   });
@@ -27,7 +27,7 @@ const newChannel = async (): Promise<Channel> => {
 
 describe("Writer", () => {
   describe("Writer", () => {
-    test("basic write", async () => {
+    test.only("basic write", async () => {
       const ch = await newChannel();
       const writer = await client.telem.newWriter(0, ch.key);
       try {

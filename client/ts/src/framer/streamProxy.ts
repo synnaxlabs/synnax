@@ -39,7 +39,7 @@ export class StreamProxy<RQ, RS> {
     if (err != null) throw err;
     if (res == null)
       throw new UnexpectedError(
-        `${this.name} received unexpected null response from the stream iterator.
+        `${this.name} received unexpected null response from the stream.
         Please report this error to Synnax team.
       `
       );
@@ -60,6 +60,10 @@ export class StreamProxy<RQ, RS> {
       `
       );
     if (!(err instanceof EOF)) throw err;
+  }
+
+  closeSend(): void {
+    this.stream.closeSend();
   }
 
   send(req: RQ): void {

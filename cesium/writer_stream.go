@@ -11,6 +11,7 @@ package cesium
 
 import (
 	"context"
+
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/index"
@@ -116,7 +117,7 @@ func (w *streamWriter) Flow(ctx signal.Context, opts ...confluence.Option) {
 					return w.close()
 				}
 				if req.Command < WriterWrite || req.Command > WriterError {
-					panic("invalid command")
+					panic("[cesium.streamWriter] - invalid command")
 				}
 				if req.Command == WriterError {
 					w.seqNum++

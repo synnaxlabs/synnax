@@ -27,9 +27,9 @@ import { XAxisKey, X_AXIS_KEYS } from "@/vis/axis";
 import { Axes } from "@/vis/line/axes";
 import { Bounds } from "@/vis/line/bounds";
 import { Channels } from "@/vis/line/channels";
-import { StatusProvider } from "@/vis/line/core";
 import { Data } from "@/vis/line/data";
 import { ContextMenu } from "@/vis/line/LinePlot/ContextMenu";
+import { StatusProvider } from "@/vis/line/LinePlot/core";
 import { Lines } from "@/vis/line/lines";
 import { Ranges } from "@/vis/line/ranges";
 import { Scales } from "@/vis/line/scales";
@@ -61,7 +61,6 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): JSX.Element => {
 
   const resizeRef = useResize(handleResize, { debounce: 100 });
 
-
   for (const item of [channels, ranges, data] as StatusProvider[]) {
     if (item.status.display) {
       const s = item.status as StatusTextProps;
@@ -72,7 +71,6 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): JSX.Element => {
       );
     }
   }
-
 
   return (
     <PMenu.ContextMenu

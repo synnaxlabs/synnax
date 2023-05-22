@@ -18,11 +18,11 @@ import {
   ChannelPayload,
   channelPayload,
 } from "@/channel/payload";
-import { ValidationError } from "@/errors";
+import { QueryError, ValidationError } from "@/errors";
 import { Transport } from "@/transport";
 
 const requestSchema = z.object({
-  nodeKey: z.number().optional(),
+  leaseholder: z.number().optional(),
   keys: z.number().array().optional(),
   names: z.string().array().optional(),
 });
@@ -70,7 +70,7 @@ export class ClusterChannelRetriever implements ChannelRetriever {
     const [keys, names] = splitChannelParams(channels);
     const res = await this.execute({ keys, names });
     if (!single) return res;
-    if (res.length === 0) throw new ValidationError("Channel not found");
+    if (res.length === 0) throw new QueryError("Channel not found");
     if (res.length > 1) throw new ValidationError("Multiple channels found");
     return res[0];
   }
@@ -117,14 +117,17 @@ export class CacheChannelRetriever implements ChannelRetriever {
     });
 
     if (toFetch.length > 0) {
-      const fetched = await this.wrapped.retrieve(...toFetch);
+      const fetched = await this.wrapped.retrieve(toFetch);
       fetched.forEach((channel) => {
         this.cache.set(channel.key, channel);
         this.namesToKeys.set(channel.name, channel.key);
       });
       results.push(...fetched);
     }
-    return single ? results[0] : results;
+    if (!single) return results;
+    if (results.length === 0) throw new QueryError("Channel not found");
+    else if (results.length > 1) throw new QueryError("Multiple channels found");
+    return results[0];
   }
 
   async retrieveAll(): Promise<ChannelPayload[]> {
@@ -132,7 +135,7 @@ export class CacheChannelRetriever implements ChannelRetriever {
   }
 }
 
-const splitChannelParams = (channels: ChannelParams[]): [number[], string[]] => {
+export const splitChannelParams = (channels: ChannelParams[]): [number[], string[]] => {
   const keys: ChannelKeys = [];
   const names: ChannelNames = [];
   channels.flat().forEach((channel) => {
@@ -142,7 +145,7 @@ const splitChannelParams = (channels: ChannelParams[]): [number[], string[]] => 
   return [keys, names];
 };
 
-const isSingle = (channels: ChannelParams[]): boolean => {
+export const isSingle = (channels: ChannelParams[]): boolean => {
   return (
     channels.length === 1 &&
     (typeof channels[0] === "string" || typeof channels[0] === "number")

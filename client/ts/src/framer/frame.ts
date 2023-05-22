@@ -7,14 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Size, LazyArray, TimeRange, toArray, DataType } from "@synnaxlabs/x";
+import { Size, LazyArray, TimeRange, toArray, DataType, unique } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ChannelKeyOrName, ChannelParams } from "@/channel/payload";
+import {
+  ChannelKeyOrName,
+  ChannelKeys,
+  ChannelNames,
+  ChannelParams,
+} from "@/channel/payload";
 import { UnexpectedError, ValidationError } from "@/errors";
 
 export class Frame {
-  private readonly _entries: Map<ChannelKeyOrName, LazyArray[]>;
+  readonly keys: ChannelKeyOrName[];
+  readonly arrays: LazyArray[];
 
   constructor(
     data:
@@ -24,24 +30,25 @@ export class Frame {
       | LazyArray = [],
     keys: ChannelParams = []
   ) {
-    this._entries = new Map();
+    this.keys = [];
+    this.arrays = [];
     if (Array.isArray(data)) {
       const arrKeys = toArray(keys);
       if (arrKeys.length !== data.length)
         throw new ValidationError("keys and data must be the same length");
-      data.forEach((d, i) => this.pushA(arrKeys[i], d));
+      data.forEach((d, i) => this.push(arrKeys[i], d));
     } else if ("keys" in data) {
       const v = data as FramePayload;
       if (v.arrays == null || v.keys == null || v.keys.length !== v.arrays.length)
         throw new ValidationError("arrays and keys must be defined");
       v.keys.forEach((key, i) =>
-        this.pushA(key, arrayFromPayload((v.arrays as LazyArray[])[i]))
+        this.push(key, arrayFromPayload((v.arrays as LazyArray[])[i]))
       );
-    } else if (data instanceof LazyArray) {
-      this.pushA(keys as string, data);
-    } else {
-      this._entries = data;
-    }
+    } else if (data instanceof LazyArray) this.push(keys as string, data);
+    else
+      (data as Map<ChannelKeyOrName, LazyArray[]>).forEach(
+        (v: LazyArray[], k: ChannelKeyOrName) => this.push(k, ...v)
+      );
   }
 
   private get keyVariant(): "key" | "name" | null {
@@ -68,11 +75,11 @@ export class Frame {
   }
 
   get isVertical(): boolean {
-    return Object.values(this._entries).every((v) => v.length === 1);
+    return unique(this.keys).length === this.keys.length;
   }
 
   get isHorizontal(): boolean {
-    return Object.keys(this._entries).length === 1;
+    return unique(this.keys).length === 1;
   }
 
   get isWeaklyAligned(): boolean {
@@ -87,7 +94,7 @@ export class Frame {
       const end = Math.max(...this.arrays.map((a) => a.timeRange.end.valueOf()));
       return new TimeRange(start, end);
     }
-    const group = this.getA(key);
+    const group = this.get(key);
     if (group == null) return TimeRange.ZERO;
     return new TimeRange(
       group[0].timeRange.start,
@@ -99,71 +106,40 @@ export class Frame {
     return this.keys.map((key) => this.timeRange(key));
   }
 
+  get(key: ChannelKeyOrName): LazyArray[];
+
+  get(keys: ChannelKeys | ChannelNames): Frame;
+
   /**
    * @returns all typed arrays matching the given key. If the frame is vertical,
    * this will return an array of length 1. If the frame is horiztonal, returns all
    * arrays in the frame.
    */
-  getA(key: ChannelKeyOrName): LazyArray[] {
-    return this._entries.get(key) ?? [];
+  get(key: ChannelKeyOrName | ChannelKeys | ChannelNames): LazyArray[] | Frame {
+    if (Array.isArray(key)) return this.filter((k) => key.includes(k));
+    return this.arrays.filter((_, i) => this.keys[i] === key);
   }
 
-  /**
-   * @returns a new frame containing only the typed arrays matching the given keys.
-   * @param keys - the keys to filter by.
-   */
-  getF(keys: string[]): Frame {
-    const frame = new Frame();
-    for (const key of keys) {
-      const e = this._entries.get(key);
-      if (e == null) continue;
-      frame._entries.set(key, e);
+  push(key: ChannelKeyOrName, ...v: LazyArray[]): void;
+
+  push(frame: Frame): void;
+
+  push(keyOrFrame: ChannelKeyOrName | Frame, ...v: LazyArray[]): void {
+    if (keyOrFrame instanceof Frame) {
+      this.arrays.push(...keyOrFrame.arrays);
+      this.keys.push(...keyOrFrame.keys);
+    } else {
+      this.arrays.push(...v);
+      this.keys.push(...Array.from({ length: v.length }, () => keyOrFrame));
     }
-    return frame;
-  }
-
-  /**
-   *
-   * @param key - the key to filter by.
-   */
-  pushA(key: ChannelKeyOrName, ...v: LazyArray[]): void {
-    this._entries.set(key, (this._entries.get(key) ?? []).concat(v));
-  }
-
-  /**
-   * @returns a shallow copy of this frame with the given key overridden with the
-   * provided typed arrays.
-   */
-  overrideA(key: ChannelKeyOrName, ...v: LazyArray[]): Frame {
-    const next = this.shallowCopy();
-    next._entries.set(key, v);
-    return next;
   }
 
   /**
    * @returns a shallow copy of this frame containing all typed arrays in the current frame and the
    * provided frame.
    */
-  concatF(frame: Frame): Frame {
-    const next = this.shallowCopy();
-    for (const [key, arrays] of frame.entries) {
-      next._entries.set(key, (next._entries.get(key) ?? []).concat(arrays));
-    }
-    return next;
-  }
-
-  /**
-   * @returns a shallow copy of the frame with the provided frame's entries
-   * overriding the current frame's entries i.e. all typed arrays in the
-   * provided frame will replace the current frame's typed arrays with the
-   * same key.
-   */
-  overrideF(frame: Frame): Frame {
-    const next = this.shallowCopy();
-    for (const [key, arrays] of frame.entries) {
-      next._entries.set(key, arrays);
-    }
-    return next;
+  concat(frame: Frame): Frame {
+    return new Frame([...this.arrays, ...frame.arrays], [...this.keys, ...frame.keys]);
   }
 
   /**
@@ -176,47 +152,32 @@ export class Frame {
     return this.keys.includes(key);
   }
 
-  get keys(): ChannelKeyOrName[] {
-    return Object.keys(this._entries);
-  }
-
-  get entries(): Array<[string, LazyArray[]]> {
-    return Object.entries(this._entries);
-  }
-
-  get arrays(): LazyArray[] {
-    return Object.values(this._entries).flat();
-  }
-
-  map(fn: (k: ChannelKeyOrName, arr: LazyArray, i: number) => LazyArray): Frame {
+  map(
+    fn: (
+      k: ChannelKeyOrName,
+      arr: LazyArray,
+      i: number
+    ) => [ChannelKeyOrName, LazyArray]
+  ): Frame {
     const frame = new Frame();
-    for (const [k, a] of this.entries) {
-      frame._entries.set(
-        k,
-        a.map((arr, i) => fn(k, arr, i))
-      );
-    }
+    this.keys.forEach((k, i) => {
+      const a = this.arrays[i];
+      frame.push(...fn(k, a, i));
+    });
     return frame;
   }
 
   filter(fn: (k: ChannelKeyOrName, arr: LazyArray, i: number) => boolean): Frame {
-    const f = new Frame();
-    for (const [k, a] of this.entries) {
-      if (a == null) throw new UnexpectedError(`a is null for key ${k}`);
-      const filtered = a.filter((arr, i) => fn(k, arr, i));
-      if (filtered.length > 0) f._entries.set(k, filtered);
-    }
-    return f;
+    const frame = new Frame();
+    this.keys.forEach((k, i) => {
+      const a = this.arrays[i];
+      if (fn(k, a, i)) frame.push(k, a);
+    });
+    return frame;
   }
 
   get size(): Size {
     return new Size(this.arrays.reduce((acc, v) => acc.add(v.size), Size.ZERO));
-  }
-
-  shallowCopy(): Frame {
-    const fr = new Frame();
-    this.entries.forEach(([k, a]) => fr._entries.set(k, a.slice()));
-    return fr;
   }
 }
 

@@ -15,18 +15,12 @@ import {
   TimeStamp,
 } from "@synnaxlabs/x";
 
-import { Frame } from "./frame";
-import { AUTO_SPAN, Iterator } from "./iterator";
-import { Streamer } from "./streamer";
-import { Writer } from "./writer";
-
-import {
-  ChannelKey,
-  ChannelKeyOrName,
-  ChannelKeys,
-  ChannelParams,
-} from "@/channel/payload";
+import { ChannelKeyOrName, ChannelParams } from "@/channel/payload";
 import { ChannelRetriever } from "@/channel/retriever";
+import { Frame } from "@/framer/frame";
+import { AUTO_SPAN, Iterator } from "@/framer/iterator";
+import { Streamer } from "@/framer/streamer";
+import { Writer } from "@/framer/writer";
 import { Transport } from "@/transport";
 
 export class FrameClient {
@@ -45,9 +39,9 @@ export class FrameClient {
    * @param keys - A list of channel keys to iterate over.
    * @returns a new {@link TypedIterator}.
    */
-  async newIterator(tr: TimeRange, keys: ChannelKeys): Promise<Iterator> {
-    const i = new Iterator(this.transport.streamClient);
-    await i.open(tr, keys);
+  async newIterator(tr: TimeRange, ...channels: ChannelParams[]): Promise<Iterator> {
+    const i = new Iterator(this.transport.streamClient, this.retriever);
+    await i._open(tr, ...channels);
     return i;
   }
 
@@ -59,9 +53,12 @@ export class FrameClient {
    * for more information.
    * @returns a new {@link RecordWriter}.
    */
-  async newWriter(start: UnparsedTimeStamp, ...keys: ChannelKeys): Promise<Writer> {
-    const w = new Writer(this.transport.streamClient);
-    await w.open(start, keys);
+  async newWriter(
+    start: UnparsedTimeStamp,
+    ...channels: ChannelParams[]
+  ): Promise<Writer> {
+    const w = new Writer(this.transport.streamClient, this.retriever);
+    await w._open(start, ...channels);
     return w;
   }
 
@@ -75,16 +72,14 @@ export class FrameClient {
    * @throws if the channel does not exist.
    */
   async write(
-    to: ChannelKey,
+    to: ChannelKeyOrName,
     start: UnparsedTimeStamp,
     data: NativeTypedArray
   ): Promise<void> {
-    const f = new Frame();
-    f.pushA(to, new LazyArray(data));
     const w = await this.newWriter(start, to);
     try {
-      await w.write(f);
-      if (!(await w.commit())) throw new Error("failed to commit");
+      await w.write(to, data);
+      if (!(await w.commit())) throw (await w.error()) as Error;
     } catch {
       await w.close();
     }
@@ -108,7 +103,7 @@ export class FrameClient {
     let frame = new Frame();
     try {
       if (await i.seekFirst())
-        while (await i.next(AUTO_SPAN)) frame = frame.concatF(i.value);
+        while (await i.next(AUTO_SPAN)) frame = frame.concat(i.value);
     } finally {
       await i.close();
     }
@@ -123,13 +118,9 @@ export class FrameClient {
     from: TimeStamp | ChannelParams,
     ...params: ChannelParams[]
   ): Promise<Streamer> {
-    const channels = await this.retriever.retrieve(...params);
     const start = from instanceof TimeStamp ? from : TimeStamp.now();
-    const i = new Streamer(this.transport.streamClient);
-    await i.open(
-      start,
-      channels.map((c) => c.key)
-    );
+    const i = new Streamer(this.transport.streamClient, this.retriever);
+    await i._open(start, ...params);
     return i;
   }
 }

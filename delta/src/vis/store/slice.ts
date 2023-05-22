@@ -12,7 +12,7 @@ import type { PayloadAction } from "@reduxjs/toolkit";
 import { Deep, DeepPartial } from "@synnaxlabs/x";
 
 import { VisMeta } from "@/vis/core";
-import { LineVis } from "@/vis/line/core";
+import { LineVis } from "@/vis/line/LinePlot/core";
 
 export interface VisState {
   warpMode: boolean;

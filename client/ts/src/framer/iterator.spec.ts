@@ -19,7 +19,7 @@ const client = newClient();
 const newChannel = async (): Promise<Channel> => {
   return await client.channels.create({
     name: "test",
-    nodeKey: 1,
+    leaseholder: 1,
     rate: Rate.hz(25),
     dataType: DataType.FLOAT64,
   });
@@ -49,7 +49,7 @@ describe("Iterator", () => {
       let c = 0;
       while (await iter.next(TimeSpan.seconds(1))) {
         c++;
-        expect(iter.value.getA(ch.key)[0]).toHaveLength(25);
+        expect(iter.value.get(ch.key)[0]).toHaveLength(25);
       }
       expect(c).toEqual(3);
     } finally {

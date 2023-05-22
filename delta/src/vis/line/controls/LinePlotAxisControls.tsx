@@ -13,7 +13,7 @@ import { Input, List } from "@synnaxlabs/pluto";
 
 import { Axes } from "../axes";
 import { Bounds } from "../bounds";
-import { AxisState, BoundState } from "../core";
+import { AxisState, BoundState } from "../LinePlot/core";
 
 import { AxisKey } from "@/vis/axis";
 

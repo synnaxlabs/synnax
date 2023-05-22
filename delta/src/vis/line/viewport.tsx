@@ -28,7 +28,7 @@ import { useDispatch } from "react-redux";
 
 import { selectRequiredVis, updateVis, VisualizationStoreState } from "../store";
 
-import { LineVis } from "./core";
+import { LineVis } from "./LinePlot/core";
 
 import { useMemoSelect } from "@/hooks";
 import { LayoutStoreState } from "@/layout";

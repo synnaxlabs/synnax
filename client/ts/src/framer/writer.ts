@@ -18,8 +18,10 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ChannelKey, ChannelKeys } from "@/channel/payload";
-import { ValidationError } from "@/errors";
+import { ForwardFrameAdapter } from "./adapter";
+
+import { ChannelKeyOrName, ChannelParams } from "@/channel/payload";
+import { ChannelRetriever } from "@/channel/retriever";
 import { Frame, frameZ } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
 
@@ -46,7 +48,7 @@ type Request = z.infer<typeof reqZ>;
 const resZ = z.object({
   ack: z.boolean(),
   command: z.nativeEnum(Command),
-  error: errorZ.optional(),
+  error: errorZ.optional().nullable(),
 });
 
 type Response = z.infer<typeof resZ>;
@@ -93,10 +95,14 @@ export class Writer {
   private static readonly ENDPOINT = "/frame/write";
   private readonly client: StreamClient;
   private readonly stream: StreamProxy<Request, Response>;
+  private readonly channels: ChannelRetriever;
+  private adapter: ForwardFrameAdapter;
 
-  constructor(client: StreamClient) {
+  constructor(client: StreamClient, retriever: ChannelRetriever) {
     this.client = client;
     this.stream = new StreamProxy("Writer");
+    this.adapter = new ForwardFrameAdapter();
+    this.channels = retriever;
   }
 
   /**
@@ -108,16 +114,17 @@ export class Writer {
    * @param keys - A list of keys representing the channels the writer will write to. All
    * frames written to the writer must have channel keys in this list.
    */
-  async open(start: UnparsedTimeStamp, keys: ChannelKeys): Promise<void> {
+  async _open(start: UnparsedTimeStamp, ...channels: ChannelParams[]): Promise<void> {
+    this.adapter = await ForwardFrameAdapter.fromParams(this.channels, ...channels);
     // @ts-expect-error
     this.stream.stream = await this.client.stream(Writer.ENDPOINT, reqZ, resZ);
     await this.execute({
       command: Command.Open,
-      config: { start: new TimeStamp(start), keys },
+      config: { start: new TimeStamp(start), keys: this.adapter.keys },
     });
   }
 
-  async write(key: ChannelKey, data: NativeTypedArray): Promise<boolean>;
+  async write(channel: ChannelKeyOrName, data: NativeTypedArray): Promise<boolean>;
 
   async write(frame: Frame): Promise<boolean>;
 
@@ -135,14 +142,16 @@ export class Writer {
    * @returns false if the writer has accumulated an error. In this case, the caller
    * should acknowledge the error by calling the error method or closing the writer.
    */
-  async write(frame: Frame | ChannelKey, data?: NativeTypedArray): Promise<boolean> {
-    const isFrame = frame instanceof Frame;
-    if (!isFrame) {
-      if (data == null) throw new ValidationError("data must be provided");
-      frame = new Frame(new LazyArray(data), frame as ChannelKey);
+  async write(
+    frame: Frame | ChannelKeyOrName,
+    data?: NativeTypedArray
+  ): Promise<boolean> {
+    if (!(frame instanceof Frame)) {
+      frame = new Frame(new LazyArray(data as NativeTypedArray), frame);
     }
-    if (this.stream.received()) return false;
-    this.stream.send({ command: Command.Write, frame: (frame as Frame).toPayload() });
+    frame = this.adapter.adapt(frame);
+    if (this.errorAccumulated) return false;
+    this.stream.send({ command: Command.Write, frame: frame.toPayload() });
     return true;
   }
 
@@ -155,7 +164,7 @@ export class Writer {
    * After the caller acknowledges the error, they can attempt to commit again.
    */
   async commit(): Promise<boolean> {
-    if (this.stream.received()) return false;
+    if (this.errorAccumulated) return false;
     const res = await this.execute({ command: Command.Commit });
     return res.ack;
   }
@@ -164,10 +173,10 @@ export class Writer {
    * @returns  The accumulated error, if any. This method will clear the writer's error
    * state, allowing the writer to be used again.
    */
-  async error(): Promise<Error | undefined> {
+  async error(): Promise<Error | null> {
     this.stream.send({ command: Command.Error });
     const res = await this.execute({ command: Command.Error });
-    return res.error == null ? undefined : decodeError(res.error);
+    return res.error != null ? decodeError(res.error) : null;
   }
 
   /**
@@ -186,5 +195,9 @@ export class Writer {
       if (res.command === req.command) return res;
       console.warn("writer received unexpected response", res);
     }
+  }
+
+  private get errorAccumulated(): boolean {
+    return this.stream.received();
   }
 }

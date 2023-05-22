@@ -10,10 +10,11 @@
 package cesium
 
 import (
+	"io"
+
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
-	"io"
 )
 
 type relay struct {

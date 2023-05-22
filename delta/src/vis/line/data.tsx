@@ -12,7 +12,7 @@ import { useState } from "react";
 import { useAsyncEffect } from "@synnaxlabs/pluto";
 import { Deep, unique } from "@synnaxlabs/x";
 
-import { GOOD_STATUS, Status, StatusProvider } from "./core";
+import { GOOD_STATUS, Status, StatusProvider } from "./LinePlot/core";
 
 import { AxisKey, Y_AXIS_KEYS } from "@/vis/axis";
 import { Channels } from "@/vis/line/channels";

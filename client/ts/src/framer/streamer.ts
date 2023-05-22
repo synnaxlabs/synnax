@@ -11,6 +11,9 @@ import { errorZ, StreamClient } from "@synnaxlabs/freighter";
 import { TimeStamp, UnparsedTimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { ChannelParams } from "@/channel/payload";
+import { ChannelRetriever } from "@/channel/retriever";
+import { BackwardFrameAdapter } from "@/framer/adapter";
 import { Frame, frameZ } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
 
@@ -23,32 +26,59 @@ type Request = z.infer<typeof reqZ>;
 
 const resZ = z.object({
   frame: frameZ,
-  error: errorZ.optional(),
+  error: errorZ.optional().nullable(),
 });
 
 type Response = z.infer<typeof resZ>;
 
-export class Streamer {
+export class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
   private static readonly ENDPOINT = "/frame/read";
   private readonly stream: StreamProxy<Request, Response>;
   private readonly client: StreamClient;
+  private readonly retriever: ChannelRetriever;
+  private adapter: BackwardFrameAdapter;
 
-  constructor(client: StreamClient) {
+  constructor(client: StreamClient, retriever: ChannelRetriever) {
     this.client = client;
     this.stream = new StreamProxy("Streamer");
+    this.retriever = retriever;
+    this.adapter = new BackwardFrameAdapter();
   }
 
-  async open(start: UnparsedTimeStamp, keys: number[]): Promise<void> {
+  throw?(e?: any): Promise<IteratorResult<Frame, any>> {
+    throw new Error("Method not implemented.");
+  }
+
+  async next(): Promise<IteratorResult<Frame, any>> {
+    try {
+      const frame = await this.read();
+      return { done: false, value: frame };
+    } catch (EOF) {
+      return { done: true, value: undefined };
+    }
+  }
+
+  [Symbol.asyncIterator](): AsyncIterator<Frame, any, undefined> {
+    return this;
+  }
+
+  async _open(start: UnparsedTimeStamp, ...params: ChannelParams[]): Promise<void> {
+    this.adapter = await BackwardFrameAdapter.fromParams(this.retriever, ...params);
     // @ts-expect-error
     this.stream.stream = await this.client.stream(Streamer.ENDPOINT, reqZ, resZ);
-    this.stream.send({ start: new TimeStamp(start), keys });
+    this.stream.send({ start: new TimeStamp(start), keys: this.adapter.keys });
   }
 
   async read(): Promise<Frame> {
-    return new Frame((await this.stream.receive()).frame);
+    return this.adapter.adapt(new Frame((await this.stream.receive()).frame));
   }
 
-  async update(keys: number[]): Promise<void> {
-    this.stream.send({ keys });
+  async update(...params: ChannelParams[]): Promise<void> {
+    this.adapter = await BackwardFrameAdapter.fromParams(this.retriever, ...params);
+    this.stream.send({ keys: this.adapter.keys });
+  }
+
+  close(): void {
+    this.stream.closeSend();
   }
 }
