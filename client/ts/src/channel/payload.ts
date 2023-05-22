@@ -20,8 +20,8 @@ export type ChannelParams = ChannelKey | ChannelName | ChannelKeys | ChannelName
 
 export const channelPayload = z.object({
   key: z.number(),
-  rate: z.number().transform((n) => new Rate(n)),
-  dataType: z.string().transform((s) => new DataType(s)),
+  rate: Rate.z,
+  dataType: DataType.z,
   name: z.string(),
   nodeKey: z.number().default(0).optional(),
   index: z.string().default("").optional(),

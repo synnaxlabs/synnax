@@ -11,7 +11,7 @@ import { RUNTIME, URL, buildQueryString } from "@synnaxlabs/x";
 import { ZodSchema, z } from "zod";
 
 import type { EncoderDecoder } from "@/encoder";
-import { EOF, ErrorPayloadSchema, StreamClosed, decodeError } from "@/errors";
+import { EOF, errorZ, StreamClosed, decodeError } from "@/errors";
 import { CONTENT_TYPE_HEADER_KEY } from "@/http";
 import { MiddlewareCollector, Context } from "@/middleware";
 import type { Stream, StreamClient } from "@/stream";
@@ -22,7 +22,7 @@ const resolveWebSocketConstructor = (): typeof WebSocket =>
 const MessageSchema = z.object({
   type: z.union([z.literal("data"), z.literal("close")]),
   payload: z.unknown().optional(),
-  error: z.optional(ErrorPayloadSchema),
+  error: z.optional(errorZ),
 });
 
 type Message = z.infer<typeof MessageSchema>;

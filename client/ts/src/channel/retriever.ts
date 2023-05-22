@@ -17,8 +17,7 @@ import {
   ChannelParams,
   ChannelPayload,
   channelPayload,
-} from "./payload";
-
+} from "@/channel/payload";
 import { ValidationError } from "@/errors";
 import { Transport } from "@/transport";
 

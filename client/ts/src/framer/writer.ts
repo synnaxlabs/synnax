@@ -18,12 +18,10 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ValidationError } from "..";
-
-import { StreamProxy } from "./streamProxy";
-
 import { ChannelKey, ChannelKeys } from "@/channel/payload";
+import { ValidationError } from "@/errors";
 import { Frame, frameZ } from "@/framer/frame";
+import { StreamProxy } from "@/framer/streamProxy";
 
 enum Command {
   Open = 0,
@@ -32,14 +30,14 @@ enum Command {
   Error = 3,
 }
 
-const configSchema = z.object({
-  start: z.instanceof(TimeStamp).optional(),
+const configZ = z.object({
+  start: TimeStamp.z,
   keys: z.number().array().optional(),
 });
 
 const reqZ = z.object({
   command: z.nativeEnum(Command),
-  config: configSchema.optional(),
+  config: configZ.optional(),
   frame: frameZ.optional(),
 });
 

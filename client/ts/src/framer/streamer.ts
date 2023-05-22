@@ -41,7 +41,7 @@ export class Streamer {
   async open(start: UnparsedTimeStamp, keys: number[]): Promise<void> {
     // @ts-expect-error
     this.stream.stream = await this.client.stream(Streamer.ENDPOINT, reqZ, resZ);
-    await this.stream.send({ start: new TimeStamp(start), keys });
+    this.stream.send({ start: new TimeStamp(start), keys });
   }
 
   async read(): Promise<Frame> {
