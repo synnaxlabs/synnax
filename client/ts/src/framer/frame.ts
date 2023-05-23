@@ -142,14 +142,8 @@ export class Frame {
     return new Frame([...this.arrays, ...frame.arrays], [...this.keys, ...frame.keys]);
   }
 
-  /**
-   * Checks whether the frame has a typed array matching the given key.
-   *
-   * @param key - the key to check for.
-   * @returns true if the frame has a typed array matching the given key.
-   */
-  has(key: string): boolean {
-    return this.keys.includes(key);
+  has(channel: ChannelKeyOrName): boolean {
+    return this.keys.includes(channel);
   }
 
   map(

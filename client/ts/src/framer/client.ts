@@ -40,9 +40,12 @@ export class FrameClient {
    * @returns a new {@link TypedIterator}.
    */
   async newIterator(tr: TimeRange, ...channels: ChannelParams[]): Promise<Iterator> {
-    const i = new Iterator(this.transport.streamClient, this.retriever);
-    await i._open(tr, ...channels);
-    return i;
+    return await Iterator._open(
+      tr,
+      channels,
+      this.retriever,
+      this.transport.streamClient
+    );
   }
 
   /**
@@ -57,9 +60,29 @@ export class FrameClient {
     start: UnparsedTimeStamp,
     ...channels: ChannelParams[]
   ): Promise<Writer> {
-    const w = new Writer(this.transport.streamClient, this.retriever);
-    await w._open(start, ...channels);
-    return w;
+    return await Writer._open(
+      start,
+      channels,
+      this.retriever,
+      this.transport.streamClient
+    );
+  }
+
+  async newStreamer(...params: ChannelParams[]): Promise<Streamer>;
+
+  async newStreamer(from: TimeStamp, ...params: ChannelParams[]): Promise<Streamer>;
+
+  async newStreamer(
+    from: TimeStamp | ChannelParams,
+    ...params: ChannelParams[]
+  ): Promise<Streamer> {
+    const start = from instanceof TimeStamp ? from : TimeStamp.now();
+    return await Streamer._open(
+      start,
+      params,
+      this.retriever,
+      this.transport.streamClient
+    );
   }
 
   /**
@@ -108,19 +131,5 @@ export class FrameClient {
       await i.close();
     }
     return frame;
-  }
-
-  async newStreamer(...params: ChannelParams[]): Promise<Streamer>;
-
-  async newStreamer(from: TimeStamp, ...params: ChannelParams[]): Promise<Streamer>;
-
-  async newStreamer(
-    from: TimeStamp | ChannelParams,
-    ...params: ChannelParams[]
-  ): Promise<Streamer> {
-    const start = from instanceof TimeStamp ? from : TimeStamp.now();
-    const i = new Streamer(this.transport.streamClient, this.retriever);
-    await i._open(start, ...params);
-    return i;
   }
 }

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { errorZ, StreamClient } from "@synnaxlabs/freighter";
+import { errorZ, Stream, StreamClient } from "@synnaxlabs/freighter";
 import { TimeStamp, UnparsedTimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -34,19 +34,28 @@ type Response = z.infer<typeof resZ>;
 export class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
   private static readonly ENDPOINT = "/frame/read";
   private readonly stream: StreamProxy<Request, Response>;
-  private readonly client: StreamClient;
-  private readonly retriever: ChannelRetriever;
-  private adapter: BackwardFrameAdapter;
+  private readonly adapter: BackwardFrameAdapter;
 
-  constructor(client: StreamClient, retriever: ChannelRetriever) {
-    this.client = client;
-    this.stream = new StreamProxy("Streamer");
-    this.retriever = retriever;
-    this.adapter = new BackwardFrameAdapter();
+  private constructor(
+    stream: Stream<Request, Response>,
+    adapter: BackwardFrameAdapter
+  ) {
+    this.stream = new StreamProxy("Streamer", stream);
+    this.adapter = adapter;
   }
 
-  throw?(e?: any): Promise<IteratorResult<Frame, any>> {
-    throw new Error("Method not implemented.");
+  static async _open(
+    start: UnparsedTimeStamp,
+    channels: ChannelParams[],
+    retriever: ChannelRetriever,
+    client: StreamClient
+  ): Promise<Streamer> {
+    const adapter = await BackwardFrameAdapter.open(retriever, channels);
+    // @ts-expect-error
+    const stream = await client.stream(Streamer.ENDPOINT, reqZ, resZ);
+    const streamer = new Streamer(stream, adapter);
+    stream.send({ start: new TimeStamp(start), keys: adapter.keys });
+    return streamer;
   }
 
   async next(): Promise<IteratorResult<Frame, any>> {
@@ -62,19 +71,12 @@ export class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
     return this;
   }
 
-  async _open(start: UnparsedTimeStamp, ...params: ChannelParams[]): Promise<void> {
-    this.adapter = await BackwardFrameAdapter.fromParams(this.retriever, ...params);
-    // @ts-expect-error
-    this.stream.stream = await this.client.stream(Streamer.ENDPOINT, reqZ, resZ);
-    this.stream.send({ start: new TimeStamp(start), keys: this.adapter.keys });
-  }
-
   async read(): Promise<Frame> {
     return this.adapter.adapt(new Frame((await this.stream.receive()).frame));
   }
 
   async update(...params: ChannelParams[]): Promise<void> {
-    this.adapter = await BackwardFrameAdapter.fromParams(this.retriever, ...params);
+    await this.adapter.update(params);
     this.stream.send({ keys: this.adapter.keys });
   }
 
