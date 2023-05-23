@@ -57,7 +57,7 @@ func (db *DB) Write(ctx context.Context, start telem.TimeStamp, frame Frame) err
 }
 
 // WriteArray implements DB.
-func (db *DB) WriteArray(ctx context.Context, start telem.TimeStamp, key core.ChannelKey, arr telem.Array) error {
+func (db *DB) WriteArray(ctx context.Context, key core.ChannelKey, start telem.TimeStamp, arr telem.Array) error {
 	return db.Write(ctx, start, core.NewFrame([]core.ChannelKey{key}, []telem.Array{arr}))
 }
 

@@ -8,12 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import type { UnaryClient } from "@synnaxlabs/freighter";
-import { QueryError } from "@/errors";
 import { toArray } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { OntologyID, OntologyResource, ontologyResourceSchema } from "./payload";
-
+import { QueryError } from "@/errors";
+import {
+  OntologyID,
+  OntologyResource,
+  ontologyResourceSchema,
+} from "@/ontology/payload";
 import { Transport } from "@/transport";
 
 const requestSchema = z.object({
@@ -48,7 +51,7 @@ export class OntologyRetriever {
     ids: OntologyID[],
     includeSchema?: boolean,
     includeFieldData?: boolean
-  ): Promise<OntologyResource[]>
+  ): Promise<OntologyResource[]>;
 
   async retrieve(
     ids: OntologyID | OntologyID[],
@@ -59,16 +62,16 @@ export class OntologyRetriever {
       ids: toArray(ids).map((id) => id.toString()),
       includeFieldData,
       includeSchema,
-    })
-    if (Array.isArray(ids)) return resources
+    });
+    if (Array.isArray(ids)) return resources;
     if (resources.length == 0) throw new QueryError(`No resource found with ID ${ids}`);
-    return resources[0]
+    return resources[0];
   }
 
   async retrieveChildren(
     ids: OntologyID | OntologyID[],
     includeSchema?: boolean,
-    includeFieldData?: boolean,
+    includeFieldData?: boolean
   ): Promise<OntologyResource[]> {
     return await this.execute({
       ids: toArray(ids).map((id) => id.toString()),
@@ -81,7 +84,7 @@ export class OntologyRetriever {
   async retrieveParents(
     ids: OntologyID | OntologyID[],
     includeSchema?: boolean,
-    includeFieldData?: boolean,
+    includeFieldData?: boolean
   ): Promise<OntologyResource[]> {
     return await this.execute({
       ids: toArray(ids).map((id) => id.toString()),

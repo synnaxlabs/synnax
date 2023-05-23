@@ -36,6 +36,12 @@ func (f Frame) Append(key ChannelKey, arr telem.Array) Frame {
 	return NewFrame(append(f.Keys, key), append(f.Arrays, arr))
 }
 
+func (f Frame) Get(key ChannelKey) []telem.Array {
+	return lo.Filter(f.Arrays, func(_ telem.Array, i int) bool {
+		return f.Keys[i] == key
+	})
+}
+
 func (f Frame) Prepend(key ChannelKey, arr telem.Array) Frame {
 	return NewFrame(append([]uint32{key}, f.Keys...), append([]telem.Array{arr}, f.Arrays...))
 }
