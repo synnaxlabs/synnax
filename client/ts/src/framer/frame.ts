@@ -116,6 +116,7 @@ export class Frame {
    * arrays in the frame.
    */
   get(key: ChannelKeyOrName | ChannelKeys | ChannelNames): LazyArray[] | Frame {
+    // @ts-expect-error
     if (Array.isArray(key)) return this.filter((k) => key.includes(k));
     return this.arrays.filter((_, i) => this.keys[i] === key);
   }

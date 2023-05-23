@@ -21,7 +21,7 @@ export {
   UnexpectedError,
   ValidationError,
 } from "@/errors";
-export { Frame } from "@/framer";
+export * from "@/framer";
 export { OntologyID, OntologyRoot } from "@/ontology";
 export type {
   OntologyResource,

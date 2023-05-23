@@ -1,27 +1,4 @@
-# Cesium
-
-Cesium is a storage engine designed for high throughput streaming of time-series data.
-Designed as Synnax's primary telemetry store, it's optimized for hardware sensors,
-actuators, and some event classes.
-
-## Installation
-
-Cesium requires Synnax's `x/telem` package for core telemetry types:
-
-```bash
-go get github.com/synnaxlabs/x/telem
-```
-
-Then, to install Cesium:
-
-```bash
-go get github.com/synnaxlabs/cesium
-```
-
-## Basic Read and Write
-
-```go
-package irrelevant
+package cesium_test
 
 import (
 	"context"
@@ -30,7 +7,7 @@ import (
 	"log"
 )
 
-func main() {
+func Example_basicReadWrite() {
 	ctx := context.TODO()
 	db, err := cesium.Open("", cesium.MemBacked())
 	if err != nil {
@@ -68,14 +45,10 @@ func main() {
 	sensorData := telem.NewArrayV[float64](1, 2, 3, 4)
 
 	// Write our data.
-	if err := db.WriteArray(
-		ctx, timeChannel.Key, firstSampleTimeStamp, timestamps,
-	); err != nil {
+	if err := db.WriteArray(ctx, timeChannel.Key, firstSampleTimeStamp, timestamps); err != nil {
 		log.Fatal(err)
 	}
-	if err := db.WriteArray(
-		ctx, sensorChannel.Key, firstSampleTimeStamp, sensorData,
-	); err != nil {
+	if err := db.WriteArray(ctx, sensorChannel.Key, firstSampleTimeStamp, sensorData); err != nil {
 		log.Fatal(err)
 	}
 
@@ -94,4 +67,3 @@ func main() {
 	log.Println(fetchedTimeData)
 	log.Println(fetchedSensorData)
 }
-```

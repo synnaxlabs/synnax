@@ -118,7 +118,7 @@ export class Iterator {
    * @returns false if a segment satisfying the request can't be found for a
    * particular channel or the iterator has accumulated an error.
    */
-  async next(span: UnparsedTimeSpan): Promise<boolean> {
+  async next(span: UnparsedTimeSpan = AUTO_SPAN): Promise<boolean> {
     return await this.execute({ command: Command.Next, span: new TimeSpan(span) });
   }
 
@@ -133,7 +133,7 @@ export class Iterator {
    * @returns false if a segment satisfying the request can't be found for a particular
    * channel or the iterator has accumulated an error.
    */
-  async prev(span: UnparsedTimeSpan): Promise<boolean> {
+  async prev(span: UnparsedTimeSpan = AUTO_SPAN): Promise<boolean> {
     return await this.execute({ command: Command.Prev, span: new TimeSpan(span) });
   }
 

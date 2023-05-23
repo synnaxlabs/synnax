@@ -10,8 +10,8 @@
 import { DataType, Rate } from "@synnaxlabs/x";
 import { test, expect } from "vitest";
 
-import { QueryError } from "../errors";
-import { newClient } from "../setupspecs";
+import { QueryError } from "@/errors";
+import { newClient } from "@/setupspecs";
 
 const client = newClient();
 
