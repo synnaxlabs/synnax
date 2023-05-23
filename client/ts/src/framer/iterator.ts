@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { errorZ } from "@synnaxlabs/freighter";
-import type { StreamClient } from "@synnaxlabs/freighter";
+import { errorZ, Stream, StreamClient } from "@synnaxlabs/freighter";
 import {
   TimeRange,
   TimeSpan,
@@ -74,18 +73,17 @@ type Response = z.infer<typeof resZ>;
  */
 export class Iterator {
   private static readonly ENDPOINT = "/frame/iterate";
-  private readonly client: StreamClient;
   private readonly stream: StreamProxy<Request, Response>;
-  private adapter: BackwardFrameAdapter;
-  private readonly channels: ChannelRetriever;
+  private readonly adapter: BackwardFrameAdapter;
   value: Frame;
 
-  constructor(client: StreamClient, channels: ChannelRetriever) {
-    this.stream = new StreamProxy("Iterator");
-    this.client = client;
+  private constructor(
+    stream: Stream<Request, Response>,
+    adapter: BackwardFrameAdapter
+  ) {
+    this.stream = new StreamProxy("Iterator", stream);
     this.value = new Frame();
-    this.adapter = new BackwardFrameAdapter();
-    this.channels = channels;
+    this.adapter = adapter;
   }
 
   /**
@@ -95,12 +93,18 @@ export class Iterator {
    * @param tr - The time range to iterate over.
    * @param keys - The keys of the channels to iterate over.
    */
-  async _open(tr: TimeRange, ...channels: ChannelParams[]): Promise<void> {
-    this.adapter = await BackwardFrameAdapter.fromParams(this.channels, ...channels);
+  static async _open(
+    tr: TimeRange,
+    channels: ChannelParams[],
+    retriever: ChannelRetriever,
+    client: StreamClient
+  ): Promise<Iterator> {
+    const adapter = await BackwardFrameAdapter.open(retriever, channels);
     // @ts-expect-error
-    this.stream.strean = await this.client.stream(Iterator.ENDPOINT, reqZ, resZ);
-    await this.execute({ command: Command.Open, keys: this.adapter.keys, range: tr });
-    this.value = new Frame();
+    const stream = await client.stream(Iterator.ENDPOINT, reqZ, resZ);
+    const iter = new Iterator(stream, adapter);
+    await iter.execute({ command: Command.Open, keys: adapter.keys, range: tr });
+    return iter;
   }
 
   /**

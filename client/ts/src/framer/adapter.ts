@@ -3,34 +3,41 @@ import { ChannelRetriever, splitChannelParams } from "@/channel/retriever";
 import { Frame } from "@/framer/frame";
 
 export class BackwardFrameAdapter {
-  private readonly adapter: Map<ChannelKey, ChannelName> | null;
-  readonly keys: ChannelKey[];
+  private adapter: Map<ChannelKey, ChannelName> | null;
+  retriever: ChannelRetriever;
+  keys: ChannelKey[];
 
-  constructor(
-    adapter: Map<ChannelKey, ChannelName> | null = null,
-    keys: ChannelKey[] = []
-  ) {
-    this.adapter = adapter;
-    this.keys = keys;
+  private constructor(retriever: ChannelRetriever) {
+    this.retriever = retriever;
+    this.adapter = null;
+    this.keys = [];
   }
 
-  static async fromParams(
+  static async open(
     retriever: ChannelRetriever,
-    ...params: ChannelParams[]
+    channels: ChannelParams[]
   ): Promise<BackwardFrameAdapter> {
-    const [keys, names] = splitChannelParams(params);
-    if (names.length === 0) return new BackwardFrameAdapter(null, keys);
-    const channels = await retriever.retrieve(...params);
-    const adapter = new Map<ChannelKey, ChannelName>();
+    const adapter = new BackwardFrameAdapter(retriever);
+    await adapter.update(channels);
+    return adapter;
+  }
+
+  async update(channels: ChannelParams[]): Promise<void> {
+    const [keys, names] = splitChannelParams(channels);
+    if (names.length === 0) {
+      this.adapter = null;
+      this.keys = keys;
+      return;
+    }
+    const fetched = await this.retriever.retrieve(...channels);
+    this.adapter = new Map<ChannelKey, ChannelName>();
     names.forEach((name) => {
-      const channel = channels.find((channel) => channel.name === name);
+      const channel = fetched.find((channel) => channel.name === name);
       if (channel == null) throw new Error(`Channel ${name} not found`);
-      adapter.set(channel.key, channel.name);
+      // @ts-expect-error;
+      this.adapter.set(channel.key, channel.name);
     });
-    return new BackwardFrameAdapter(
-      adapter,
-      channels.map((c) => c.key)
-    );
+    this.keys = fetched.map((c) => c.key);
   }
 
   adapt(fr: Frame): Frame {
@@ -48,46 +55,53 @@ export class BackwardFrameAdapter {
 }
 
 export class ForwardFrameAdapter {
-  private readonly adapter: Map<ChannelName, ChannelKey> | null;
-  readonly keys: ChannelKey[];
+  private adapter: Map<ChannelName, ChannelKey> | null;
+  retriever: ChannelRetriever;
+  keys: ChannelKey[];
 
-  constructor(
-    adapter: Map<ChannelName, ChannelKey> | null = null,
-    keys: ChannelKey[] = []
-  ) {
-    this.adapter = adapter;
-    this.keys = keys;
+  private constructor(retriever: ChannelRetriever) {
+    this.retriever = retriever;
+    this.adapter = null;
+    this.keys = [];
   }
 
-  static async fromParams(
+  static async open(
     retriever: ChannelRetriever,
-    ...params: ChannelParams[]
+    channels: ChannelParams[]
   ): Promise<ForwardFrameAdapter> {
-    const [keys] = splitChannelParams(params);
-    if (keys.length === 0) return new ForwardFrameAdapter();
-    const channels = await retriever.retrieve(...params);
-    const adapter = new Map<ChannelName, ChannelKey>();
-    keys.forEach((key) => {
-      const channel = channels.find((channel) => channel.key === key);
-      if (channel == null) throw new Error(`Channel ${key} not found`);
-      adapter.set(channel.name, channel.key);
+    const adapter = new ForwardFrameAdapter(retriever);
+    await adapter.update(channels);
+    return adapter;
+  }
+
+  async update(channels: ChannelParams[]): Promise<void> {
+    const [keys, names] = splitChannelParams(channels);
+    if (names.length === 0) {
+      this.adapter = null;
+      this.keys = keys;
+      return;
+    }
+    const fetched = await this.retriever.retrieve(...channels);
+    this.adapter = new Map<ChannelName, ChannelKey>();
+    names.forEach((name) => {
+      const channel = fetched.find((channel) => channel.name === name);
+      if (channel == null) throw new Error(`Channel ${name} not found`);
+      // @ts-expect-error;
+      this.adapter.set(channel.name, channel.key);
     });
-    return new ForwardFrameAdapter(
-      adapter,
-      channels.map((c) => c.key)
-    );
+    this.keys = fetched.map((c) => c.key);
   }
 
   adapt(fr: Frame): Frame {
     if (this.adapter == null) return fr;
-    return fr.map((keyOrName, arr) => {
-      if (typeof keyOrName === "string") {
+    return fr.map((k, arr) => {
+      if (typeof k === "string") {
         // @ts-expect-error
-        const key = this.adapter.get(keyOrName);
-        if (key == null) throw new Error(`Channel ${keyOrName} not found`);
+        const key = this.adapter.get(k);
+        if (key == null) throw new Error(`Channel ${k} not found`);
         return [key, arr];
       }
-      return [keyOrName, arr];
+      return [k, arr];
     });
   }
 }

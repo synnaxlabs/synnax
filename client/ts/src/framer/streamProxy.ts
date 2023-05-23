@@ -13,25 +13,11 @@ import { UnexpectedError } from "@/errors";
 
 export class StreamProxy<RQ, RS> {
   readonly name: string;
-  private _stream: Stream<RQ, RS> | null;
+  private readonly stream: Stream<RQ, RS>;
 
-  constructor(name: string) {
-    this._stream = null;
+  constructor(name: string, stream: Stream<RQ, RS>) {
+    this.stream = stream;
     this.name = name;
-  }
-
-  set stream(stream: Stream<RQ, RS>) {
-    this._stream = stream;
-  }
-
-  get stream(): Stream<RQ, RS> {
-    if (this._stream == null)
-      throw new UnexpectedError(
-        `Attempted to use uninitialized stream on ${this.name}. 
-        This probably means you initialized ${this.name} instead of using the frame client.
-        `
-      );
-    return this._stream;
   }
 
   async receive(): Promise<RS> {

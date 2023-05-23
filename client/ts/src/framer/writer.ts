@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 /* eslint-disable @typescript-eslint/no-throw-literal */
-import type { StreamClient } from "@synnaxlabs/freighter";
+import type { Stream, StreamClient } from "@synnaxlabs/freighter";
 import { decodeError, errorZ } from "@synnaxlabs/freighter";
 import {
   NativeTypedArray,
@@ -93,16 +93,12 @@ type Response = z.infer<typeof resZ>;
  */
 export class Writer {
   private static readonly ENDPOINT = "/frame/write";
-  private readonly client: StreamClient;
   private readonly stream: StreamProxy<Request, Response>;
-  private readonly channels: ChannelRetriever;
-  private adapter: ForwardFrameAdapter;
+  private readonly adapter: ForwardFrameAdapter;
 
-  constructor(client: StreamClient, retriever: ChannelRetriever) {
-    this.client = client;
-    this.stream = new StreamProxy("Writer");
-    this.adapter = new ForwardFrameAdapter();
-    this.channels = retriever;
+  private constructor(stream: Stream<Request, Response>, adapter: ForwardFrameAdapter) {
+    this.stream = new StreamProxy("Writer", stream);
+    this.adapter = adapter;
   }
 
   /**
@@ -114,14 +110,21 @@ export class Writer {
    * @param keys - A list of keys representing the channels the writer will write to. All
    * frames written to the writer must have channel keys in this list.
    */
-  async _open(start: UnparsedTimeStamp, ...channels: ChannelParams[]): Promise<void> {
-    this.adapter = await ForwardFrameAdapter.fromParams(this.channels, ...channels);
+  static async _open(
+    start: UnparsedTimeStamp,
+    channels: ChannelParams[],
+    retriever: ChannelRetriever,
+    client: StreamClient
+  ): Promise<Writer> {
+    const adapter = await ForwardFrameAdapter.open(retriever, channels);
     // @ts-expect-error
-    this.stream.stream = await this.client.stream(Writer.ENDPOINT, reqZ, resZ);
-    await this.execute({
+    const stream = await client.stream(Writer.ENDPOINT, reqZ, resZ);
+    const writer = new Writer(stream, adapter);
+    await writer.execute({
       command: Command.Open,
-      config: { start: new TimeStamp(start), keys: this.adapter.keys },
+      config: { start: new TimeStamp(start), keys: adapter.keys },
     });
+    return writer;
   }
 
   async write(channel: ChannelKeyOrName, data: NativeTypedArray): Promise<boolean>;
