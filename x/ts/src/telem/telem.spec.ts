@@ -258,6 +258,31 @@ describe("TimeRange", () => {
       tr.swap().equals(new TimeRange(new TimeStamp(1000), new TimeStamp(0)))
     ).toBeTruthy();
   });
+  describe("contains", () => {
+    test("TimeStamp", () => {
+      const tr = new TimeRange(new TimeStamp(0), new TimeStamp(1000));
+      expect(tr.contains(new TimeStamp(500))).toBeTruthy();
+      expect(tr.contains(new TimeStamp(1001))).toBeFalsy();
+    });
+    test("TimeRange", () => {
+      const tr = new TimeRange(new TimeStamp(0), new TimeStamp(1000));
+      expect(
+        tr.contains(new TimeRange(new TimeStamp(500), new TimeStamp(600)))
+      ).toBeTruthy();
+      expect(
+        tr.contains(new TimeRange(new TimeStamp(500), new TimeStamp(1001)))
+      ).toBeFalsy();
+    });
+  });
+  describe("overlapsWith", () => {
+    const tr = new TimeRange(new TimeStamp(0), new TimeStamp(1000));
+    const one = new TimeRange(new TimeStamp(500), new TimeStamp(600));
+    expect(tr.overlapsWith(one)).toBeTruthy();
+    expect(one.overlapsWith(tr)).toBeTruthy();
+    const two = new TimeRange(new TimeStamp(1001), new TimeStamp(2000));
+    expect(tr.overlapsWith(two)).toBeFalsy();
+    expect(two.overlapsWith(tr)).toBeFalsy();
+  });
 });
 
 describe("DataType", () => {

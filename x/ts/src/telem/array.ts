@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
-
 import {
   convertDataType,
   DataType,
@@ -34,17 +32,26 @@ const validateFieldNotNull = (name: string, field: unknown): void => {
  */
 export class LazyArray {
   readonly dataType: DataType;
-  offset: SampleValue;
+  sampleOffset: SampleValue;
   private readonly _data: ArrayBufferLike;
   readonly _timeRange?: TimeRange;
   private _min?: SampleValue;
   private _max?: SampleValue;
 
+  static alloc(
+    length: number,
+    dataType: UnparsedDataType,
+    timeRange?: TimeRange
+  ): LazyArray {
+    const data = new new DataType(dataType).Array(length);
+    return new LazyArray(data.buffer, dataType, timeRange);
+  }
+
   constructor(
     data: ArrayBufferLike | NativeTypedArray,
     dataType?: UnparsedDataType,
     timeRange?: TimeRange,
-    offset?: SampleValue
+    sampleOffset?: SampleValue
   ) {
     if (
       dataType == null &&
@@ -59,9 +66,15 @@ export class LazyArray {
         "must provide a data type when constructing a LazyArray from a buffer"
       );
     }
-    this.offset = offset ?? 0;
+    this.sampleOffset = sampleOffset ?? 0;
     this._data = data;
     this._timeRange = timeRange;
+  }
+
+  set(buffer: NativeTypedArray, offset: number): void {
+    if (!new DataType(buffer).equals(this.dataType))
+      throw new Error("buffer must be of the same type as this array");
+    this.data.set(buffer as any, offset);
   }
 
   /** @returns the underlying buffer backing this array. */
@@ -82,13 +95,13 @@ export class LazyArray {
   }
 
   /** @returns the size of the underlying buffer in bytes. */
-  get size(): Size {
+  get cap(): Size {
     return new Size(this.buffer.byteLength);
   }
 
   /** @returns the number of samples in this array. */
   get length(): number {
-    return this.dataType.density.length(this.size);
+    return this.dataType.density.length(this.cap);
   }
 
   /**
@@ -112,7 +125,8 @@ export class LazyArray {
     return n;
   }
 
-  get max(): number | bigint {
+  /** Returns the maximum value in the array */
+  get max(): SampleValue {
     if (this._max == null) {
       if (this.dataType.equals(DataType.TIMESTAMP)) {
         this._max = this.data[this.data.length - 1];
@@ -124,9 +138,10 @@ export class LazyArray {
         this._max = d.reduce((a, b) => (a > b ? a : b));
       }
     }
-    return addSamples(this._max, this.offset);
+    return addSamples(this._max, this.sampleOffset);
   }
 
+  /** Returns the minimum value in the array */
   get min(): number | bigint {
     if (this._min == null) {
       if (this.dataType.equals(DataType.TIMESTAMP)) {
@@ -139,7 +154,7 @@ export class LazyArray {
         this._min = d.reduce((a, b) => (a < b ? a : b));
       }
     }
-    return addSamples(this._min, this.offset);
+    return addSamples(this._min, this.sampleOffset);
   }
 
   enrich(): void {
@@ -148,7 +163,7 @@ export class LazyArray {
     _ = this.min;
   }
 
-  get range(): number | bigint {
+  get range(): SampleValue {
     return addSamples(this.max, -this.min);
   }
 

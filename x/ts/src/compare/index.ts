@@ -19,10 +19,7 @@ export type CompareF<T> = (a: T, b: T) => number;
  * This is used to determine the type of comparison to perform.
  * @param reverse Whether to reverse the sort order.
  */
-const newF = <T extends Primitive | PrimitiveRecord | T[]>(
-  v: T,
-  reverse: boolean = false
-): CompareF<T> => {
+const newF = <T extends Primitive>(v: T, reverse: boolean = false): CompareF<T> => {
   const t = isStringer(v) ? "stringer" : typeof v;
   let f: CompareF<T>;
   switch (t) {

@@ -22,13 +22,5 @@ export interface GLLinesProps {
 }
 
 export const GLLines = ({ box, lines, clearOverscan }: GLLinesProps): null => {
-  const ctx = useGLContext();
-  useEffect(() => {
-    if (ctx == null) return;
-    const base = ctx.registry.get<LineRenderRequest>("line");
-    const scissor = ctx.scissor(base, clearOverscan);
-    scissor.render(ctx, { box, lines });
-    return () => scissor.clear(ctx, box);
-  }, [box, lines]);
   return null;
 };

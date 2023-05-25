@@ -9,23 +9,6 @@
 
 import { LazyArray, DemandCache, DemandCacheEntry, Size, KV } from "@synnaxlabs/x";
 
-/**
- * GLBufferController is an interface for controlling the creation and buffering of
- * WebGLBuffers. It is used by GLDemandCache to create and manage WebGLBuffers.
- * It is implemented by WebGLRenderingContext.
- */
-export interface GLBufferController {
-  createBuffer: () => WebGLBuffer | null;
-  bindBuffer: (target: number, buffer: WebGLBuffer | null) => void;
-  bufferData: (target: number, size: ArrayBufferLike, usage: number) => void;
-  deleteBuffer: (buffer: WebGLBuffer) => void;
-  getBufferParameter: (target: number, pname: number) => any;
-  ARRAY_BUFFER: number;
-  STATIC_DRAW: number;
-  DYNAMIC_DRAW: number;
-  BUFFER_SIZE: number;
-}
-
 interface GLCacheBuffer {
   buf: WebGLBuffer;
   size: Size;

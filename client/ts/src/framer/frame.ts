@@ -155,11 +155,15 @@ export class Frame {
     ) => [ChannelKeyOrName, LazyArray]
   ): Frame {
     const frame = new Frame();
+    this.forEach((k, arr, i) => frame.push(...fn(k, arr, i)));
+    return frame;
+  }
+
+  forEach(fn: (k: ChannelKeyOrName, arr: LazyArray, i: number) => void): void {
     this.keys.forEach((k, i) => {
       const a = this.arrays[i];
-      frame.push(...fn(k, a, i));
+      fn(k, a, i);
     });
-    return frame;
   }
 
   filter(fn: (k: ChannelKeyOrName, arr: LazyArray, i: number) => boolean): Frame {
@@ -172,7 +176,9 @@ export class Frame {
   }
 
   get size(): Size {
-    return new Size(this.arrays.reduce((acc, v) => acc.add(v.size), Size.ZERO));
+    return new Size(
+      this.arrays.reduce((acc, v) => acc.add(new Size(v.buffer.byteLength)), Size.ZERO)
+    );
   }
 }
 
