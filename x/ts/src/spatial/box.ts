@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { z } from "zod";
+
 import {
   Dimensions,
   OuterLocation,
@@ -18,6 +20,8 @@ import {
   X_LOCATIONS,
   XLocation,
   Bound,
+  corner,
+  xy,
 } from "./core";
 
 import { Stringer } from "@/primitive";
@@ -28,14 +32,6 @@ export interface DOMRect {
   top: number;
   right: number;
   bottom: number;
-}
-
-export interface BoxCopyProps {
-  leftRectOrPoint?: number | DOMRect | XY;
-  topPointWidthOrDims?: number | XY | Dimensions;
-  widthOrHeight?: number;
-  height?: number;
-  preserveSign?: boolean;
 }
 
 /** BoxProps represents the properties of a Box. */
@@ -106,7 +102,13 @@ export class Box implements Stringer {
   readonly isBox: true = true;
 
   constructor(
-    first: number | DOMRect | XY | Box | { getBoundingClientRect: () => DOMRect },
+    first:
+      | number
+      | DOMRect
+      | XY
+      | Box
+      | { getBoundingClientRect: () => DOMRect }
+      | BoxT,
     second?: number | XY | Dimensions | SignedDimensions,
     width: number = 0,
     height: number = 0,
@@ -133,6 +135,13 @@ export class Box implements Stringer {
     if ("left" in first) {
       this.one = { x: first.left, y: first.top };
       this.two = { x: first.right, y: first.bottom };
+      return;
+    }
+
+    if ("one" in first) {
+      this.one = first.one;
+      this.two = first.two;
+      this.root = first.root;
       return;
     }
 
@@ -296,11 +305,19 @@ export class Box implements Stringer {
   reRoot(corner: Corner): Box {
     return this.copy(corner);
   }
+
+  static readonly z = z.object({
+    one: xy,
+    two: xy,
+    root: corner,
+  });
+
+  static readonly ZERO = new Box(ZERO_XY, ZERO_XY);
+  static readonly DECIMAL = new Box(0, 0, 1, 1, "bottomLeft");
 }
 
 export type BoxF = (box: Box) => void;
-export const ZERO_BOX: Box = new Box(ZERO_XY, ZERO_XY);
-export const DECIMAL_BOX = new Box(0, 0, 1, 1, "bottomLeft");
+export type BoxT = z.infer<typeof Box.z>;
 
 /**
  * Reposition a box so that it is visible within a given bound.

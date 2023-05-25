@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Channel, ChannelKey, Synnax } from "@synnaxlabs/client";
-import { Deep } from "@synnaxlabs/x";
+import { Channel, ChannelKey, ChannelKeys } from "@synnaxlabs/client";
+import { Deep, unique } from "@synnaxlabs/x";
 
 import {
   AxisKey,
@@ -17,29 +17,48 @@ import {
   X_AXIS_KEYS,
   YAxisKey,
   Y_AXIS_KEYS,
-} from "@/vis/axis";
-import {
-  ChannelsState,
-  GOOD_STATUS,
-  Status,
-  StatusProvider,
-  ZERO_CHANNELS_STATE,
-} from "@/vis/line/core";
+  XAxisRecord,
+  YAxisRecord,
+} from "@/vis/Axis";
+import { VisContext } from "@/vis/context";
 
-export class Channels implements StatusProvider {
-  readonly core: ChannelsState;
-  readonly channels: Channel[];
-  readonly status: Status;
+export type ChannelsState = XAxisRecord<ChannelKey> &
+  YAxisRecord<readonly ChannelKey[]>;
 
-  constructor(core: ChannelsState, channels: Channel[], status: Status) {
-    this.core = core;
-    this.channels = channels;
-    this.status = status;
+export const ZERO_CHANNELS_STATE = {
+  x1: 0,
+  x2: 0,
+  y1: [] as readonly ChannelKey[],
+  y2: [] as readonly ChannelKey[],
+  y3: [] as readonly ChannelKey[],
+  y4: [] as readonly ChannelKey[],
+};
+
+export class Channels {
+  private state: ChannelsState;
+  channels: Channel[];
+
+  constructor() {
+    this.state = Deep.copy(ZERO_CHANNELS_STATE);
+    this.channels = [];
   }
 
-  static async use(client: Synnax, state: ChannelsState): Promise<Channels> {
-    const channels = await client.channels.retrieve(...Channels.toKeys(state));
-    return new Channels(state, channels, GOOD_STATUS);
+  static zeroState(): ChannelsState {
+    return Deep.copy(ZERO_CHANNELS_STATE);
+  }
+
+  update(state: ChannelsState): void {
+    this.state = state;
+  }
+
+  async build(ctx: VisContext): Promise<void> {
+    const keysToFetch = this.uniqueKeys;
+    const channels = await ctx.client.core.channels.retrieve(keysToFetch);
+    if (channels.length !== keysToFetch.length)
+      throw new Error(
+        `Failed to fetch all channels. Expected ${keysToFetch.length}, got ${channels.length}`
+      );
+    this.channels = channels;
   }
 
   static isValid(core: ChannelsState): boolean {
@@ -50,10 +69,6 @@ export class Channels implements StatusProvider {
         return v != null && v !== 0;
       })
     );
-  }
-
-  get keys(): readonly ChannelKey[] {
-    return Channels.toKeys(this.core);
   }
 
   get(key: ChannelKey): Channel | undefined {
@@ -68,24 +83,24 @@ export class Channels implements StatusProvider {
 
   axis(key: AxisKey): Channel[] {
     return this.channels.filter((c) => {
-      const v = this.core[key];
+      const v = this.state[key];
       if (Array.isArray(v)) return v.includes(c.key);
       return v === c.key;
     });
   }
 
   yAxisKeys(key: YAxisKey): readonly ChannelKey[] {
-    return this.core[key];
+    return this.state[key];
   }
 
   xAxisKey(key: XAxisKey): ChannelKey {
-    return this.core[key];
+    return this.state[key];
   }
 
   forEach(callback: (channel: Channel, axes: AxisKey[]) => void): void {
     this.channels.forEach((channel) => {
       const axes = AXIS_KEYS.filter((axis) => {
-        const v = this.core[axis];
+        const v = this.state[axis];
         if (Array.isArray(v)) return v.includes(channel.key);
         return v === channel.key;
       });
@@ -97,13 +112,11 @@ export class Channels implements StatusProvider {
     AXIS_KEYS.forEach((axis) => callback(this.axis(axis), axis));
   }
 
-  static zero(): Channels {
-    return new Channels(Deep.copy(ZERO_CHANNELS_STATE), [], GOOD_STATUS);
-  }
-
-  private static toKeys(core: ChannelsState): readonly ChannelKey[] {
-    return Object.values(core)
-      .flat()
-      .filter((key) => key != null && key !== 0);
+  get uniqueKeys(): ChannelKeys {
+    return unique(
+      Object.values(this.state)
+        .flat()
+        .filter((k) => k !== 0)
+    );
   }
 }

@@ -759,6 +759,29 @@ export class TimeRange {
     return `${this.start.toString()} - ${this.end.toString()}`;
   }
 
+  overlapsWith(other: TimeRange): boolean {
+    other = other.makeValid();
+    const rng = this.makeValid();
+    if (other.start.equals(rng.start)) return true;
+    if (other.end.equals(this.start) || other.start.equals(this.end)) return false;
+    return (
+      this.contains(other.end) ||
+      this.contains(other.start) ||
+      other.contains(this.start) ||
+      other.contains(this.end)
+    );
+  }
+
+  contains(other: TimeRange): boolean;
+
+  contains(ts: UnparsedTimeStamp): boolean;
+
+  contains(other: TimeRange | UnparsedTimeStamp): boolean {
+    if (other instanceof TimeRange)
+      return this.contains(other.start) && this.contains(other.end);
+    return this.start.beforeEq(other) && this.end.after(other);
+  }
+
   /** The maximum possible time range. */
   static readonly MAX = new TimeRange(TimeStamp.MIN, TimeStamp.MAX);
 
@@ -1019,11 +1042,21 @@ export type UnparsedTimeStamp =
   | Date
   | string
   | DateComponents;
+export type TimeStampT = number;
 export type UnparsedTimeSpan = TimeSpan | TimeStamp | number;
+export type TimeSpanT = number;
 export type UnparsedRate = Rate | number;
+export type RateT = number;
 export type UnparsedDensity = Density | number;
+export type DensityT = number;
 export type UnparsedDataType = DataType | string | NativeTypedArray;
+export type DataTypeT = string;
 export type UnparsedSize = Size | number;
+export type SizeT = number;
+export interface TimeRangeT {
+  start: TimeStampT;
+  end: TimeStampT;
+}
 
 export type NativeTypedArray =
   | Uint8Array

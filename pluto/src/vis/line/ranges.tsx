@@ -7,66 +7,49 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Deep, TimeStamp } from "@synnaxlabs/x";
+import { Deep } from "@synnaxlabs/x";
 
-import { XAxisKey, X_AXIS_KEYS } from "@/vis/axis";
-import {
-  ZERO_RANGES_STATE,
-  GOOD_STATUS,
-  RangesState,
-  Status,
-  StatusProvider,
-  Range,
-} from "@/vis/line/core";
+import { Range, RangePayload, rangeFromPayload } from "@/telem/range";
+import { XAxisKey, XAxisRecord, X_AXIS_KEYS } from "@/vis/Axis";
 
-export class Ranges implements StatusProvider {
-  readonly ranges: RangesState;
-  readonly status: Status;
+export type RangesState = XAxisRecord<readonly RangePayload[]>;
 
-  private constructor(state: RangesState, status: Status = GOOD_STATUS) {
-    this.ranges = state;
-    this.status = status;
+const ZERO_RANGES_STATE: RangesState = {
+  x1: [] as RangePayload[],
+  x2: [] as RangePayload[],
+};
+
+export class Ranges {
+  private state: RangesState;
+
+  constructor() {
+    this.state = Deep.copy(ZERO_RANGES_STATE);
   }
 
-  static use(state: RangesState): Ranges {
-    return new Ranges(state);
+  static zeroState(): RangesState {
+    return Deep.copy(ZERO_RANGES_STATE);
   }
 
-  static isValid(core: RangesState): boolean {
-    return Object.values(core).flat().length > 0;
-  }
-
-  private static rangesFromArray(ranges: Range[]): Record<string, Range> {
-    return Object.fromEntries(ranges.map((r) => [r.key, r]));
+  update(state: RangesState): void {
+    this.state = state;
   }
 
   forEach(callback: (range: Range, axes: XAxisKey[]) => void): void {
     this.array.forEach((range) => {
       const axes = X_AXIS_KEYS.filter((axis) =>
-        this.ranges[axis].map((r) => r.key).includes(range.key)
+        this.state[axis].map((r) => r.key).includes(range.key)
       );
       callback(range, axes);
     });
   }
 
   axis(key: XAxisKey): readonly Range[] {
-    return this.ranges[key];
+    return this.state[key].map((r) => rangeFromPayload(r));
   }
 
   get array(): Range[] {
-    return Object.values(this.ranges).flat();
-  }
-
-  get isLive(): boolean {
-    const now = TimeStamp.now();
-    return this.array.some((r) => r.range.end.after(now));
-  }
-
-  get valid(): boolean {
-    return this.array.length > 0;
-  }
-
-  static zero(): Ranges {
-    return new Ranges(Deep.copy(ZERO_RANGES_STATE));
+    return Object.values(this.state)
+      .flat()
+      .map((r) => rangeFromPayload(r));
   }
 }
