@@ -11,8 +11,7 @@ import { useEffect } from "react";
 
 import { KeyedRenderableRecord } from "@synnaxlabs/x";
 
-import { useListContext } from "./ListContext";
-
+import { useListContext } from "@/core/List/ListContext";
 import { useSelectMultiple, UseSelectMultipleProps } from "@/hooks/useSelectMultiple";
 
 export interface ListSelectorProps<E extends KeyedRenderableRecord<E>>

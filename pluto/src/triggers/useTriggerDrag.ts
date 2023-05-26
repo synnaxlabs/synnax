@@ -11,8 +11,8 @@ import { RefObject, useCallback, useRef } from "react";
 
 import { Box, ClientXY, toXY, XY, ZERO_XY } from "@synnaxlabs/x";
 
-import { useTrigger, UseTriggerEvent } from "./hooks";
-import { Stage, Trigger } from "./triggers";
+import { useTrigger, UseTriggerEvent } from "@/triggers/hooks";
+import { Stage, Trigger } from "@/triggers/triggers";
 
 export interface TriggerDragEvent {
   stage: Stage;

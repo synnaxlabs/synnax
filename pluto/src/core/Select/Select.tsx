@@ -11,18 +11,15 @@ import { FocusEventHandler, useEffect, useState } from "react";
 
 import { KeyedRenderableRecord } from "@synnaxlabs/x";
 
-import { ListProps } from "../List/List";
-
-import { SelectList } from "./SelectList";
-
 import { Dropdown, DropdownProps } from "@/core/Dropdown";
 import { InputControl, Input, InputProps } from "@/core/Input";
-import { List, ListColumn } from "@/core/List";
+import { List, ListColumn, ListProps } from "@/core/List";
+import { SelectList } from "@/core/Select/SelectList";
 
 export interface SelectProps<E extends KeyedRenderableRecord<E>>
   extends Omit<DropdownProps, "onChange" | "visible" | "children">,
-  InputControl<string>,
-  Omit<ListProps<E>, "children"> {
+    InputControl<string>,
+    Omit<ListProps<E>, "children"> {
   tagKey?: keyof E;
   columns?: Array<ListColumn<E>>;
   inputProps?: Omit<InputProps, "onChange">;

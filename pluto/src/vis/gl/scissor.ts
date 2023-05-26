@@ -9,7 +9,7 @@
 
 import { Box, XY, Transform, ZERO_XY } from "@synnaxlabs/x";
 
-import { GLRenderer, GLContext } from "./renderer";
+import { GLRenderer, GLRenderContext } from "./renderer";
 
 import { ZERO_COLOR } from "@/color";
 
@@ -37,7 +37,7 @@ export class ScissoredGLRenderer<R extends ScissoredRenderRequest>
     this.wrapped.compile(gl);
   }
 
-  render(ctx: GLContext, req: R): void {
+  render(ctx: GLRenderContext, req: R): void {
     ctx.refreshCanvas();
     ctx.gl.enable(ctx.gl.SCISSOR_TEST);
     this.scissor(ctx, req.box);
@@ -46,11 +46,14 @@ export class ScissoredGLRenderer<R extends ScissoredRenderRequest>
     ctx.gl.disable(ctx.gl.SCISSOR_TEST);
   }
 
-  private calculateTransform(ctx: GLContext, box: Box): { offset: XY; scale: XY } {
+  private calculateTransform(
+    ctx: GLRenderContext,
+    box: Box
+  ): { offset: XY; scale: XY } {
     return { scale: ctx.scale(box), offset: ctx.offset(box, "decimal") };
   }
 
-  clear(ctx: GLContext, box: Box): void {
+  clear(ctx: GLRenderContext, box: Box): void {
     ctx.gl.enable(ctx.gl.SCISSOR_TEST);
     this.scissor(ctx, box);
     ctx.gl.clearColor(...ZERO_COLOR);
@@ -58,7 +61,7 @@ export class ScissoredGLRenderer<R extends ScissoredRenderRequest>
     ctx.gl.disable(ctx.gl.SCISSOR_TEST);
   }
 
-  private scissor(ctx: GLContext, box: Box): void {
+  private scissor(ctx: GLRenderContext, box: Box): void {
     const { x, y } = ctx.offset(box, "px");
     const { width, height } = box;
     const { x: ox, y: oy } = this.overscan;

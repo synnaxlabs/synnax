@@ -12,9 +12,8 @@ import { ComponentPropsWithoutRef, useRef } from "react";
 import { KeyedRenderableRecord } from "@synnaxlabs/x";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
-import { useListContext } from "./ListContext";
-import { ListItemProps } from "./types";
-
+import { useListContext } from "@/core/List/ListContext";
+import { ListItemProps } from "@/core/List/types";
 import { CSS } from "@/css";
 import { SelectedRecord } from "@/hooks/useSelectMultiple";
 import { RenderProp } from "@/util/renderProp";

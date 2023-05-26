@@ -14,7 +14,7 @@ import userEvent from "@testing-library/user-event";
 import { AiOutlineAim } from "react-icons/ai";
 import { describe, expect, it, vitest } from "vitest";
 
-import { Button } from ".";
+import { Button } from "@/core/Button";
 
 describe("Button", () => {
   describe("Default", () => {

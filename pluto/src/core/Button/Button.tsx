@@ -9,12 +9,11 @@
 
 import { ComponentPropsWithoutRef, ReactElement } from "react";
 
+import "@/core/Button/Button.css";
 import { SpaceProps } from "@/core/Space";
 import { Typography, Text, TextWithIconProps } from "@/core/Typography";
 import { CSS } from "@/css";
 import { ComponentSize } from "@/util/component";
-
-import "./Button.css";
 
 /** The variant of button */
 export type ButtonVariant = "filled" | "outlined" | "text";

@@ -9,9 +9,8 @@
 
 import { Direction, Location, Position } from "@synnaxlabs/x";
 
-import { ComponentSize } from "..";
-
-import { BEM, newBEM } from "./bem";
+import { BEM, newBEM } from "@/css/bem";
+import { ComponentSize } from "@/util/component";
 
 export interface CSSType extends BEM {
   visible: (visible: boolean) => string;

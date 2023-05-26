@@ -6,11 +6,8 @@
 export interface GLBufferController {
   createBuffer: () => WebGLBuffer | null;
   bindBuffer: (target: number, buffer: WebGLBuffer | null) => void;
-  bufferData: (
-    target: number,
-    sizeOrData: number | ArrayBufferLike,
-    usage: number
-  ) => void;
+  bufferData: ((target: number, size: number, usage: number) => void) &
+    ((target: number, srcData: ArrayBufferLike, usage: number) => void);
   bufferSubData: (
     target: number,
     offset: number,

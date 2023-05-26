@@ -14,7 +14,7 @@ import { componentRenderProp } from "@/util/renderProp";
 
 export interface SelectListProps<E extends KeyedRenderableRecord<E>>
   extends ListSelectorProps<E>,
-  ListColumnHeaderProps<E> { }
+    ListColumnHeaderProps<E> {}
 
 export const SelectList = <E extends KeyedRenderableRecord<E>>({
   value,

@@ -10,11 +10,9 @@
 import { Optional } from "@synnaxlabs/x";
 import clsx from "clsx";
 
-import { useHeaderContext } from "./Header";
-
+import { useHeaderContext } from "@/core/Header/Header";
+import "@/core/Header/Header.css";
 import { TextWithIconProps, Text } from "@/core/Typography";
-
-import "./Header.css";
 
 export interface HeaderTitleProps
   extends Optional<Omit<TextWithIconProps, "divided">, "level"> {}

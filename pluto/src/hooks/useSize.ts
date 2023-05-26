@@ -9,14 +9,7 @@
 
 import { RefCallback, useCallback, useEffect, useRef, useState } from "react";
 
-import {
-  debounce as debounceF,
-  Box,
-  BoxF,
-  ZERO_BOX,
-  Direction,
-  isDirection,
-} from "@synnaxlabs/x";
+import { debounce as debounceF, Box, Direction, isDirection } from "@synnaxlabs/x";
 
 import { compareArrayDeps, useMemoCompare } from "@/hooks";
 
@@ -41,10 +34,10 @@ export interface UseResizeOpts {
  * @returns a ref callback to attach to the desire element.
  */
 export const useResize = <E extends HTMLElement>(
-  onResize: BoxF,
+  onResize: (box: Box, el: E) => void,
   { triggers: _triggers = [], debounce = 0 }: UseResizeOpts
 ): RefCallback<E> => {
-  const prev = useRef<Box>(ZERO_BOX);
+  const prev = useRef<Box>(Box.ZERO);
   const ref = useRef<E | null>(null);
   const obs = useRef<ResizeObserver | null>(null);
   const triggers = useMemoCompare(
@@ -61,7 +54,7 @@ export const useResize = <E extends HTMLElement>(
         const next = new Box(el.getBoundingClientRect());
         if (shouldResize(triggers, prev.current, next)) {
           prev.current = next;
-          onResize(next);
+          onResize(next, ref.current as E);
         }
       }, debounce);
       obs.current = new ResizeObserver(deb);

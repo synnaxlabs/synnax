@@ -10,14 +10,11 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 
-import { InputControl } from "../Input";
-
-import { Text, TextProps } from "./Text";
-import { TypographyLevel } from "./types";
-
+import { InputControl } from "@/core/Input";
+import { Text, TextProps } from "@/core/Typography/Text";
+import "@/core/Typography/TextEditable.css";
+import { TypographyLevel } from "@/core/Typography/types";
 import { CSS } from "@/css";
-
-import "./TextEditable.css";
 
 export type TextEditableProps<L extends TypographyLevel = "h1"> = Omit<
   TextProps<L>,

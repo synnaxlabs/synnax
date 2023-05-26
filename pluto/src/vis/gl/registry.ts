@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { GLLineRenderer, LINE_RENDERER_TYPE } from "./line/renderer";
-import { GLRenderer } from "./renderer";
+import { GLLineRenderer, LINE_RENDERER_TYPE } from "@/vis/gl/line";
+import { GLRenderer } from "@/vis/gl/renderer";
 
 export class GLRendererRegistry {
   private readonly renderers: Record<string, GLRenderer<any>> = {};

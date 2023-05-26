@@ -11,8 +11,7 @@ import { PropsWithChildren, useContext, createContext } from "react";
 
 import { KeyedRenderableRecord } from "@synnaxlabs/x";
 
-import { ListColumn } from "./types";
-
+import { ListColumn } from "@/core/List/types";
 import { UseTransformsReturn } from "@/hooks/useTransforms";
 
 export interface ListContextProps<

@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/core/Input/InputHelpText.css";
 import { StatusVariant } from "@/core/Status";
 import { Text, TextProps } from "@/core/Typography";
 import { CSS } from "@/css";
-
-import "./InputHelpText.css";
 
 export interface InputHelpTextProps extends Omit<TextProps<"small">, "level" | "ref"> {
   variant?: StatusVariant;

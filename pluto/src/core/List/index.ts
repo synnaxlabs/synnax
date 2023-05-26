@@ -7,16 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { List as CoreList } from "./List";
-import { ListColumn } from "./ListColumn";
-import { useListContext } from "./ListContext";
-import { ListCore } from "./ListCore";
-import { ListSearch } from "./ListSearch";
-import { ListSelector } from "./ListSelector";
-export type { ListSelectorProps } from "./ListSelector";
-export type { ListColumnHeaderProps } from "./ListColumn";
+import { List as CoreList } from "@/core/List/List";
+import { ListColumn } from "@/core/List/ListColumn";
+import { useListContext } from "@/core/List/ListContext";
+import { ListCore } from "@/core/List/ListCore";
+import { ListSearch } from "@/core/List/ListSearch";
+import { ListSelector } from "@/core/List/ListSelector";
 
-export type { ListColumn, ListItemProps } from "./types";
+export type { ListSelectorProps } from "@/core/List/ListSelector";
+export type { ListColumnHeaderProps } from "@/core/List/ListColumn";
+export type { ListProps } from "@/core/List/List";
+export type { ListColumn, ListItemProps } from "@/core/List/types";
 
 type CoreListType = typeof CoreList;
 

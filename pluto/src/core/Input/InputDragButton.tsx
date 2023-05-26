@@ -15,10 +15,9 @@ import { GrDrag } from "react-icons/gr";
 import { InputControl } from "./types";
 
 import { Button, ButtonIconProps } from "@/core/Button";
+import "@/core/Input/InputDragButton.css";
 import { CSS } from "@/css";
 import { useVirtualCursorDrag } from "@/hooks/useCursorDrag";
-
-import "./InputDragButton.css";
 
 export interface InputDragButtonExtensionProps {
   direction?: Direction;

@@ -7,16 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { forwardRef, useCallback, useEffect } from "react";
+import { forwardRef, useEffect } from "react";
 
-import { TimeStamp, TZInfo } from "@synnaxlabs/x";
+import { TimeStamp } from "@synnaxlabs/x";
 
-import { Pack } from "../Pack";
-
-import { Input } from "./Input";
-import { InputDragButton, InputDragButtonExtensionProps } from "./InputDragButton";
-import { InputBaseProps } from "./types";
-
+import { Input } from "@/core/Input";
+import {
+  InputDragButton,
+  InputDragButtonExtensionProps,
+} from "@/core/Input/InputDragButton";
+import { Pack } from "@/core/Pack";
+import { InputBaseProps } from "@/core/types";
 import { CSS } from "@/css";
 
 import "./InputDate.css";

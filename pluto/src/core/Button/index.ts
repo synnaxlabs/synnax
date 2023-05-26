@@ -6,13 +6,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button as CoreButton } from "./Button";
-import { ButtonIcon } from "./ButtonIcon";
-import { ButtonLink } from "./ButtonLink";
-import { ButtonToggle, ButtonToggleIcon } from "./ButtonToggle";
-export type { ButtonProps } from "./Button";
-export type { ButtonIconProps } from "./ButtonIcon";
-export type { ButtonLinkProps } from "./ButtonLink";
+import { Button as CoreButton } from "@/core/Button/Button";
+import { ButtonIcon } from "@/core/Button/ButtonIcon";
+import { ButtonLink } from "@/core/BUtton/ButtonLink";
+import { ButtonToggle, ButtonToggleIcon } from "@/core/ButtonToggle";
+export type { ButtonProps } from "@/core/Button?Button";
+export type { ButtonIconProps } from "@/core/Button/ButtonIcon";
+export type { ButtonLinkProps } from "@/core/Button/ButtonLink";
 
 type CoreButtonType = typeof CoreButton;
 

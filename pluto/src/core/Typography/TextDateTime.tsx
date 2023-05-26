@@ -16,9 +16,9 @@ import {
   TZInfo,
 } from "@synnaxlabs/x";
 
-import { Text } from "./Text";
-import type { TextProps } from "./Text";
-import { TypographyLevel } from "./types";
+import { Text } from "@/core/Typography/Text";
+import type { TextProps } from "@/core/Typography/Text";
+import { TypographyLevel } from "@/core/Typography/types";
 
 export type TextDateTimeProps<L extends TypographyLevel = "h1"> = Omit<
   TextProps<L>,

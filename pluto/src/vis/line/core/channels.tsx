@@ -20,7 +20,7 @@ import {
   XAxisRecord,
   YAxisRecord,
 } from "@/vis/Axis";
-import { VisContext } from "@/vis/context";
+import { VisBuilderContext } from "@/vis/context";
 
 export type ChannelsState = XAxisRecord<ChannelKey> &
   YAxisRecord<readonly ChannelKey[]>;
@@ -51,7 +51,7 @@ export class Channels {
     this.state = state;
   }
 
-  async build(ctx: VisContext): Promise<void> {
+  async build(ctx: VisBuilderContext): Promise<void> {
     const keysToFetch = this.uniqueKeys;
     const channels = await ctx.client.core.channels.retrieve(keysToFetch);
     if (channels.length !== keysToFetch.length)

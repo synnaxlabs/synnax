@@ -13,13 +13,12 @@ import { Location } from "@synnaxlabs/x";
 
 import { MosaicNode } from "./types";
 
+import "@/core/Mosaic/Mosaic.css";
 import { Resize } from "@/core/Resize";
 import { Tab, Tabs, TabsProps } from "@/core/Tabs";
 import { CSS } from "@/css";
-import { preventDefault } from "@/util/event";
-
-import "./Mosaic.css";
 import { Haul, Hauled } from "@/haul";
+import { preventDefault } from "@/util/event";
 
 /** Props for the {@link Mosaic} component */
 export interface MosaicProps
@@ -50,54 +49,56 @@ export const Mosaic = memo((props: MosaicProps): JSX.Element | null => {
     initialSizes: size != null ? [size] : undefined,
   });
 
-  let content: JSX.Element | null
+  let content: JSX.Element | null;
   if (tabs !== undefined)
     content = <MosaicTabLeaf emptyContent={emptyContent} {...tabsProps} />;
   else if (first != null && last != null)
-    content = (<Resize.Multiple
-      align="stretch"
-      className={CSS.BE("mosaic", "resize")}
-      {...resizeProps}
-    >
-      <Mosaic key={first.key} {...childProps} root={first} onResize={onResize} />
-      <Mosaic key={last.key} {...childProps} root={last} onResize={onResize} />
-    </Resize.Multiple>)
+    content = (
+      <Resize.Multiple
+        align="stretch"
+        className={CSS.BE("mosaic", "resize")}
+        {...resizeProps}
+      >
+        <Mosaic key={first.key} {...childProps} root={first} onResize={onResize} />
+        <Mosaic key={last.key} {...childProps} root={last} onResize={onResize} />
+      </Resize.Multiple>
+    );
   else {
-    content = null
+    content = null;
     console.warn("Mosaic tree is malformed");
   }
 
-  return key == 1 ? <Haul.Provider>{content}</Haul.Provider> : content
+  return key == 1 ? <Haul.Provider>{content}</Haul.Provider> : content;
 });
 Mosaic.displayName = "Mosaic";
 
-interface MosaicTabLeafProps extends Omit<MosaicProps, "onResize"> { }
+interface MosaicTabLeafProps extends Omit<MosaicProps, "onResize"> {}
 
-const DRAGGING_TYPE = "pluto-mosaic-tab"
+const DRAGGING_TYPE = "pluto-mosaic-tab";
 
 /** Checks whether the tab can actually be dropped in this location or not */
 const validDrop = (tabs: Tab[], dragging: Hauled[]): boolean => {
-  const keys = dragging.filter(({ type }) => type == DRAGGING_TYPE).map((t) => t.key)
+  const keys = dragging.filter(({ type }) => type == DRAGGING_TYPE).map((t) => t.key);
   return keys.length > 0 && tabs.filter((t) => !keys.includes(t.tabKey)).length > 0;
-}
+};
 
 const MosaicTabLeaf = memo(
   ({ root: node, onDrop, onCreate, ...props }: MosaicTabLeafProps): JSX.Element => {
     const { key, tabs } = node as Omit<MosaicNode, "tabs"> & { tabs: Tab[] };
 
     const [dragMask, setDragMask] = useState<Location | null>(null);
-    const { dragging, startDrag: onDragStart, endDrag: handleDragEnd } = Haul.useState()
+    const {
+      dragging,
+      startDrag: onDragStart,
+      endDrag: handleDragEnd,
+    } = Haul.useState();
 
     const handleDrop = (e: React.DragEvent<HTMLDivElement>): void => {
       e.preventDefault();
       setDragMask(null);
       if (!validDrop(tabs, dragging)) return;
-      const tabKey = dragging.map(({ key }) => key)[0]
-      onDrop(
-        key,
-        tabKey,
-        insertLocation(getDragLocationPercents(e))
-      );
+      const tabKey = dragging.map(({ key }) => key)[0];
+      onDrop(key, tabKey, insertLocation(getDragLocationPercents(e)));
     };
 
     const handleDragOver = (e: React.DragEvent<HTMLDivElement>): void => {
@@ -113,7 +114,7 @@ const MosaicTabLeaf = memo(
     const handleDragStart = (
       _: React.DragEvent<HTMLDivElement>,
       { tabKey }: Tab
-    ): void => onDragStart([{ key: tabKey, type: DRAGGING_TYPE }])
+    ): void => onDragStart([{ key: tabKey, type: DRAGGING_TYPE }]);
 
     const handleCreate = (): void => onCreate?.(key);
 

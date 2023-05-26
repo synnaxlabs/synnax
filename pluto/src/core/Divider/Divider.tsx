@@ -11,9 +11,8 @@ import { HTMLAttributes, PropsWithChildren } from "react";
 
 import { Direction } from "@synnaxlabs/x";
 
+import "@/core/Divider/Divider.css";
 import { CSS } from "@/css";
-
-import "./Divider.css";
 
 /** The props for the {@link Divider} component. */
 export interface DividerProps

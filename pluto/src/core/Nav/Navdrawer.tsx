@@ -11,12 +11,10 @@ import { ReactElement, useCallback, useState } from "react";
 
 import { locToDir } from "@synnaxlabs/x";
 
-import { NavbarProps } from "./Navbar";
-
+import { NavbarProps } from "@/core/Nav/Navbar";
+import "@/core/Nav/Navdrawer.css";
 import { Resize, ResizeProps } from "@/core/Resize";
 import { CSS } from "@/css";
-
-import "./Navdrawer.css";
 
 export interface NavDrawerItem {
   key: string;

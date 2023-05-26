@@ -9,7 +9,7 @@
 
 import type { Meta, StoryFn } from "@storybook/react";
 
-import { Accordion, AccordionEntry } from ".";
+import { Accordion, AccordionEntry } from "@/core/Accordion";
 
 const story: Meta<typeof Accordion> = {
   title: "Core/Accordion",

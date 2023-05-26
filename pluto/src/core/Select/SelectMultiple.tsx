@@ -12,21 +12,17 @@ import { useEffect, useRef, useState } from "react";
 import { Icon } from "@synnaxlabs/media";
 import { convertRenderV, KeyedRenderableRecord } from "@synnaxlabs/x";
 
-import { Theming } from "../../theming";
-import { ListProps } from "../List/List";
-
-import { SelectList } from "./SelectList";
-
 import { Button } from "@/core/Button";
 import { Dropdown, DropdownProps } from "@/core/Dropdown";
 import { Input, InputControl, InputProps } from "@/core/Input";
-import { ListColumn, List } from "@/core/List";
+import { ListColumn, List, ListProps } from "@/core/List";
 import { Pack } from "@/core/Pack";
+import { SelectList } from "@/core/Select/SelectList";
+import "@/core/Select/SelectMultiple.css";
 import { Space } from "@/core/Space";
 import { Tag } from "@/core/Tag";
 import { CSS } from "@/css";
-
-import "./SelectMultiple.css";
+import { Theming } from "@/theming";
 
 export interface SelectMultipleProps<E extends KeyedRenderableRecord<E>>
   extends Omit<DropdownProps, "visible" | "onChange" | "children">,

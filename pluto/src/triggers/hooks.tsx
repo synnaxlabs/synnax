@@ -7,22 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  MutableRefObject,
-  RefObject,
-  useCallback,
-  useEffect,
-  useState,
-} from "react";
+import { MutableRefObject, RefObject, useCallback, useEffect, useState } from "react";
 
 import { Box, Compare, XY, unique } from "@synnaxlabs/x";
 
-import { useMemoCompare } from "..";
-
-import { diff, filter, purge, Stage, Trigger } from "./triggers";
-import { useTriggerContext } from "./TriggersContext";
-
 import { useStateRef } from "@/hooks/useStateRef";
+import { useMemoCompare } from "@/memo";
+import { diff, filter, purge, Stage, Trigger } from "@/triggers/triggers";
+import { useTriggerContext } from "@/triggers/TriggersContext";
 
 export interface UseTriggerEvent {
   triggers: Trigger[];

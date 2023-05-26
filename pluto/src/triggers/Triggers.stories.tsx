@@ -9,7 +9,7 @@
 
 import { Meta } from "@storybook/react";
 
-import { Triggers } from ".";
+import { Triggers } from "@/triggers";
 
 const story: Meta<typeof Triggers.Provider> = {
   title: "Triggers/Triggers",

@@ -10,7 +10,7 @@
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Accordion, AccordionEntry } from ".";
+import { Accordion, AccordionEntry } from "@/core/Accordion";
 
 describe("Accordion", () => {
   const data: AccordionEntry[] = [

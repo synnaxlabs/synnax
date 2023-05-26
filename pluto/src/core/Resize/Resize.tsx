@@ -12,12 +12,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { clamp, Box, locToDir, Location } from "@synnaxlabs/x";
 import { clsx } from "clsx";
 
-import { ResizeCore, ResizeCoreProps } from "./ResizeCore";
-
+import "@/core/Resize/Resize.css";
+import { ResizeCore, ResizeCoreProps } from "@/core/Resize/ResizeCore";
 import { CSS } from "@/css";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
-
-import "./Resize.css";
 
 /** Props for the {@link Resize} component. */
 export interface ResizeProps

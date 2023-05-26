@@ -11,9 +11,8 @@ import { useEffect, useState } from "react";
 
 import { KeyedRenderableRecord } from "@synnaxlabs/x";
 
-import { useListContext } from "./ListContext";
-
 import { Input as DefaultInput, InputControl } from "@/core/Input";
+import { useListContext } from "@/core/List/ListContext";
 import { useSearchTransform, UseSearchTransformProps } from "@/hooks";
 import { useDebouncedCallback } from "@/util/debounce";
 import { RenderProp } from "@/util/renderProp";

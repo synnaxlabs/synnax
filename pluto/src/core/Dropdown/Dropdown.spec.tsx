@@ -11,9 +11,8 @@ import { render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
-import { Dropdown } from ".";
-
 import { Button } from "@/core/Button";
+import { Dropdown } from "@/core/Dropdown";
 
 const TestDropdown = (): JSX.Element => {
   const { toggle, visible } = Dropdown.use();

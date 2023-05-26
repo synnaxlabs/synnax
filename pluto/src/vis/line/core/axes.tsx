@@ -19,8 +19,8 @@ import {
 } from "@synnaxlabs/x";
 
 import { axisDirection, AxisKey, AxisProps } from "@/vis/Axis";
-import { Scales } from "@/vis/line/scales";
-import { Viewport } from "@/vis/line/viewport";
+import { Scales } from "@/vis/line/core/scales";
+import { Viewport } from "@/vis/line/core/viewport";
 
 type AxisOffsets = Record<OuterLocation, number>;
 

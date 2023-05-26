@@ -2,9 +2,9 @@ import { ReadResponse } from "@/telem/client";
 import { ChannelRange } from "@/telem/range";
 import { VisTelem } from "@/telem/telem";
 import { AxisKey } from "@/vis/Axis";
-import { VisContext } from "@/vis/context";
-import { Channels } from "@/vis/line/channels";
-import { Ranges } from "@/vis/line/ranges";
+import { VisBuilderContext } from "@/vis/context";
+import { Channels } from "@/vis/line/core/channels";
+import { Ranges } from "@/vis/line/core/ranges";
 
 export class Telem {
   internal: VisTelem;
@@ -22,7 +22,11 @@ export class Telem {
     }));
   }
 
-  async build(ctx: VisContext, channels: Channels, ranges: Ranges): Promise<void> {
+  async build(
+    ctx: VisBuilderContext,
+    channels: Channels,
+    ranges: Ranges
+  ): Promise<void> {
     const cRanges = this.constructChannelRanges(channels, ranges);
     this.channels = channels;
     await this.internal.update(ctx.client, cRanges);

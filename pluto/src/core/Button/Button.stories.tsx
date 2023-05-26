@@ -12,7 +12,7 @@ import { useState } from "react";
 import type { Meta, StoryFn } from "@storybook/react";
 import { AiOutlineDelete } from "react-icons/ai";
 
-import { Button, ButtonProps } from ".";
+import { Button, ButtonProps } from "@/core/Button";
 
 const story: Meta<typeof Button> = {
   title: "Core/Button",

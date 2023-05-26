@@ -11,7 +11,7 @@ import { Transform, XY } from "@synnaxlabs/x";
 
 import { StaticCompiler } from "../compiler";
 import { errorUnsupported } from "../errors";
-import { GLContext, GLRenderer } from "../renderer";
+import { GLRenderContext, GLRenderer } from "../renderer";
 import { ScissoredRenderRequest } from "../scissor";
 
 // eslint-disable-next-line import/no-unresolved
@@ -101,7 +101,7 @@ export class GLLineRenderer
     this.translationBuffer = gl.createBuffer() as WebGLBuffer;
   }
 
-  render(ctx: GLContext, req: LineRenderRequest): void {
+  render(ctx: GLRenderContext, req: LineRenderRequest): void {
     ctx.refreshCanvas();
     const { gl } = ctx;
     this.use(gl);
@@ -135,7 +135,7 @@ export class GLLineRenderer
    * below. This is done by using the `ANGLE_instanced_arrays` extension. We can repeat
    * this process to make the line thicker.
    */
-  private attrStrokeWidth(ctx: GLContext, strokeWidth: number): number {
+  private attrStrokeWidth(ctx: GLRenderContext, strokeWidth: number): number {
     const { gl, aspect } = ctx;
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.translationBuffer);
@@ -152,7 +152,7 @@ export class GLLineRenderer
     return numInstances;
   }
 
-  private applyScissor(ctx: GLContext, scissor: Transform): void {
+  private applyScissor(ctx: GLRenderContext, scissor: Transform): void {
     this.uniformXY(ctx.gl, shaderVars.scissor.scale, scissor.scale);
     this.uniformXY(ctx.gl, shaderVars.scissor.offset, scissor.offset);
   }

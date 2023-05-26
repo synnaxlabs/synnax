@@ -18,11 +18,10 @@ import {
 
 import { unique, ClientXY, toXY, XY, ZERO_XY, positionSoVisible } from "@synnaxlabs/x";
 
+import "@/core/Menu/ContextMenu.css";
 import { CSS } from "@/css";
 import { useClickOutside } from "@/hooks";
 import { RenderProp } from "@/util/renderProp";
-
-import "./ContextMenu.css";
 
 interface ContextMenuState {
   visible: boolean;

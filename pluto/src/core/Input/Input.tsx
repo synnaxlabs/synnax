@@ -9,11 +9,9 @@
 
 import { forwardRef } from "react";
 
-import { InputBaseProps } from "./types";
-
+import "@/core/Input/Input.css";
+import { InputBaseProps } from "@/core/Input/types";
 import { CSS } from "@/css";
-
-import "./Input.css";
 
 export interface InputProps extends InputBaseProps<string> {
   selectOnFocus?: boolean;
@@ -41,7 +39,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         CSS.B("input"),
         CSS.size(size),
         centerPlaceholder && CSS.BM("input", "placeholder-centered"),
-        className,
+        className
       )}
       onChange={(e) => onChange(e.target.value)}
       onFocus={(e) => {

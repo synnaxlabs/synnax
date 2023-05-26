@@ -9,12 +9,10 @@
 
 import { ForwardedRef, forwardRef } from "react";
 
-import { Text, TextProps } from "./Text";
-import { TypographyLevel } from "./types";
-
+import { Text, TextProps } from "@/core/Typography/Text";
+import "@/core/Typography/TextLink.css";
+import { TypographyLevel } from "@/core/Typography/types";
 import { CSS } from "@/css";
-
-import "./TextLink.css";
 
 export type TextLinkProps<L extends TypographyLevel = "h1"> = Omit<
   TextProps<L>,

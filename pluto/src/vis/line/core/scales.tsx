@@ -12,7 +12,7 @@ import { Deep, dirToDim, Scale } from "@synnaxlabs/x";
 import { Bounds } from "./bounds";
 
 import { axisDirection, AxisKey } from "@/vis/Axis";
-import { Viewport } from "@/vis/line/viewport";
+import { Viewport } from "@/vis/line/core/viewport";
 
 export interface InternalState {
   normal: Partial<Record<AxisKey, Scale>>;

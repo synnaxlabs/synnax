@@ -9,10 +9,9 @@
 
 import { Icon } from "@synnaxlabs/media";
 
-import { useTabsContext } from "./Tabs";
-
 import { Button } from "@/core/Button";
 import { Space, SpaceProps } from "@/core/Space";
+import { useTabsContext } from "@/core/Tabs/Tabs";
 import { Text } from "@/core/Typography";
 import { CSS } from "@/css";
 import { ComponentSize } from "@/util/component";

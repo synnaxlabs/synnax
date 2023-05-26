@@ -9,10 +9,10 @@
 
 import { Box, XY } from "@synnaxlabs/x";
 
-import { Compiler } from "./compiler";
-import { GLRendererRegistry } from "./registry";
-import { ScissoredGLRenderer, ScissoredRenderRequest } from "./scissor";
-import { RenderingUnits } from "./types";
+import { Compiler } from "@/vis/gl/compiler";
+import { GLRendererRegistry } from "@/vis/gl/registry";
+import { ScissoredGLRenderer, ScissoredRenderRequest } from "@/vis/gl/scissor";
+import { RenderingUnits } from "@/vis/gl/types";
 
 /**
  * A renderer for a specific type of entity. A renderer should not maintain any internal
@@ -24,30 +24,40 @@ export interface GLRenderer<R> extends Compiler {
   /** Type is a unique type for the renderer. */
   type: string;
   /** Renders the given entity under the RenderingContext.  */
-  render: (ctx: GLContext, req: R) => void;
+  render: (ctx: GLRenderContext, req: R) => void;
 }
 
-export class GLContext {
-  readonly gl: WebGLRenderingContext;
+export class GLRenderContext {
+  readonly gl: WebGL2RenderingContext;
   readonly registry: GLRendererRegistry;
-  private readonly canvas: HTMLCanvasElement;
+  readonly canvas: OffscreenCanvas;
+  canvasBox: Box;
+  dpr: number;
 
-  constructor(canvas: HTMLCanvasElement, registry: GLRendererRegistry) {
+  constructor(
+    canvas: OffscreenCanvas,
+    registry: GLRendererRegistry,
+    canvasBox: Box,
+    dpr: number
+  ) {
     this.canvas = canvas;
-    const gl = canvas.getContext("webgl", { preserveDrawingBuffer: true });
+    const gl = canvas.getContext("webgl2", { preserveDrawingBuffer: true });
     if (gl == null) throw new Error("Could not get WebGL context");
     this.gl = gl;
     this.registry = registry;
     this.registry.compile(this.gl);
+    this.canvasBox = canvasBox;
+    this.dpr = dpr;
+  }
+
+  updateCanvasDims(box: Box, dpr: number): void {
+    this.canvasBox = box;
+    this.dpr = dpr;
   }
 
   get aspect(): number {
     const b = this.canvasBox;
     return b.width / b.height;
-  }
-
-  get dpr(): number {
-    return window.devicePixelRatio ?? 1;
   }
 
   scale(box: Box): XY {
@@ -80,22 +90,5 @@ export class GLContext {
     overscan?: XY
   ): ScissoredGLRenderer<R> {
     return new ScissoredGLRenderer<R>(wrap, overscan);
-  }
-
-  private get canvasBox(): Box {
-    return new Box(this.canvas);
-  }
-
-  refreshCanvas(): void {
-    if (this.maybeResetDisplaySize())
-      this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-  }
-
-  private maybeResetDisplaySize(): boolean {
-    const { canvas } = this;
-    const { clientWidth: cw, clientHeight: ch, width: w, height: h } = this.canvas;
-    const needResize = w !== cw || h !== ch;
-    if (needResize) [canvas.width, canvas.height] = [cw * this.dpr, ch * this.dpr];
-    return needResize;
   }
 }

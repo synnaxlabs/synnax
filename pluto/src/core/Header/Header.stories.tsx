@@ -9,7 +9,7 @@
 
 import { Meta } from "@storybook/react";
 
-import { Header } from ".";
+import { Header } from "@/core/Header";
 
 const story: Meta<typeof Header> = {
   title: "Core/Header",

@@ -11,10 +11,9 @@ import { Fragment, isValidElement, ReactElement } from "react";
 
 import { toArray } from "@synnaxlabs/x";
 
-import { useHeaderContext } from "./Header";
-
 import { Button, ButtonIconProps } from "@/core/Button";
 import { Divider } from "@/core/Divider";
+import { useHeaderContext } from "@/core/Header/Header";
 import { Space } from "@/core/Space";
 import { Typography, TypographyLevel } from "@/core/Typography";
 import { CSS } from "@/css";
@@ -69,7 +68,7 @@ const HeaderActionC = ({
       size={Typography.LevelComponentSizes[level]}
       {...children}
     >
-      {children.children}
+      {children}
     </Button.Icon>
   );
   return (

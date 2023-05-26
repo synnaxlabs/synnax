@@ -9,14 +9,12 @@
 
 import { Children, cloneElement, ReactElement } from "react";
 
-import { CoreTextProps, Text } from "./Text";
-import { TypographyLevel } from "./types";
-
 import { Divider } from "@/core/Divider";
 import { Space, SpaceProps, SpaceElementType } from "@/core/Space";
+import { CoreTextProps, Text } from "@/core/Typography/Text";
+import "@/core/Typography/TextWithIcon.css";
+import { TypographyLevel } from "@/core/Typography/types";
 import { CSS } from "@/css";
-
-import "./TextWithIcon.css";
 
 export type TextWithIconProps<
   E extends SpaceElementType = "div",

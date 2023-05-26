@@ -9,9 +9,8 @@
 
 import React, { createContext, ReactElement, useContext, useState } from "react";
 
-import { TabMeta, TabsSelector } from "./TabsSelector";
-
 import { Space, SpaceProps } from "@/core/Space";
+import { TabMeta, TabsSelector } from "@/core/Tabs/TabsSelector";
 import { CSS } from "@/css";
 import { ComponentSize } from "@/util/component";
 import { RenderProp } from "@/util/renderProp";

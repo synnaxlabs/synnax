@@ -7,12 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { OSControlsProps } from "./types";
-
 import { Button, ButtonIconProps, Space } from "@/core";
 import { CSS } from "@/css";
-
-import "./MacOSControls.css";
+import "@/os/Controls/MacOSControls.css";
+import { OSControlsProps } from "@/os/Controls/types";
 
 export const Icon = {
   Close: (
