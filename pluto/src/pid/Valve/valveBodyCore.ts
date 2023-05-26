@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { CanvasRenderContext } from "../PIDContext";
 
-import { hex } from "@/color";
+import { hex } from "@/core/color";
 import { Canvas } from "@/vis/canvas";
 
 export const valveBodySpec = {

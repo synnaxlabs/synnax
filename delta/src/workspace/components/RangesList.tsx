@@ -59,10 +59,10 @@ export const RangesList = ({
   onAddOrEdit,
   onSelect,
   onRemove,
-}: RangesListProps): JSX.Element => {
+}: RangesListProps): ReactElement => {
   const contextMenProps = PMenu.useContextMenu();
 
-  const RangesContextMenu = ({ keys }: ContextMenuMenuProps): JSX.Element => {
+  const RangesContextMenu = ({ keys }: ContextMenuMenuProps): ReactElement => {
     const handleClick = (key: string): void => {
       switch (key) {
         case "create":

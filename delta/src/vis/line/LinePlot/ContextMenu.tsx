@@ -18,7 +18,7 @@ interface ContextMenuProps {
   selection: Box | null;
 }
 
-export const ContextMenu = ({ selection, scale }: ContextMenuProps): JSX.Element => {
+export const ContextMenu = ({ selection, scale }: ContextMenuProps): ReactElement => {
   const getTimeRange = (): TimeRange => {
     if (selection == null) throw new Error("Selection is null");
     if (scale == null) throw new Error("Scale is null");

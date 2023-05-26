@@ -1,7 +1,7 @@
 import { GLRenderContext } from "./gl/renderer";
 
 import { Client } from "@/telem/client";
-import { Theme } from "@/theming";
+import { Theme } from "@/core/theming";
 
 export interface VisBuilderContext {
   theme: Theme;

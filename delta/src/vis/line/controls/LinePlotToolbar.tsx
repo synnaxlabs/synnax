@@ -18,8 +18,8 @@ export interface LinePlotToolbarProps {
   layoutKey: string;
 }
 
-export const LinePlotToolBar = ({ layoutKey }: LinePlotToolbarProps): JSX.Element => {
-  const content = ({ tabKey }: Tab): JSX.Element => {
+export const LinePlotToolBar = ({ layoutKey }: LinePlotToolbarProps): ReactElement => {
+  const content = ({ tabKey }: Tab): ReactElement => {
     switch (tabKey) {
       case "axes":
         return <LinePlotAxisControls layoutKey={layoutKey} />;

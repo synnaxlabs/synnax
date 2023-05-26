@@ -41,7 +41,7 @@ interface HoverState {
   box: Box;
 }
 
-export const LinePlot = ({ layoutKey }: { layoutKey: string }): JSX.Element => {
+export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   const theme = useSelectTheme();
 
   const [container, setContainer] = useState<Box>(ZERO_BOX);
@@ -117,7 +117,7 @@ export const Tooltip = ({
   axes,
   data,
   channels,
-}: TooltipProps): JSX.Element => {
+}: TooltipProps): ReactElement => {
   if (hover == null) return <></>;
   const annotation: RuleAnnotationProps[] = [];
   let arrayIndex: number | null = null;

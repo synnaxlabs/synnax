@@ -9,7 +9,7 @@
 
 import { XY } from "@synnaxlabs/x";
 
-import { RGBATuple } from "@/color";
+import { RGBATuple } from "@/core/color";
 import { errorCompile, ERROR_BAD_SHADER, ERROR_NOT_COMPILED } from "@/vis/gl/errors";
 
 export interface Compiler {

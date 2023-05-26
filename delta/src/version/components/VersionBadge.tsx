@@ -18,7 +18,7 @@ type VersionBadgeProps = Optional<TextProps, "level">;
 export const VersionBadge = ({
   level = "p",
   ...props
-}: VersionBadgeProps): JSX.Element => {
+}: VersionBadgeProps): ReactElement => {
   const v = useSelectVersion();
   return (
     <Text level={level} {...props}>

@@ -7,17 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/css";
+export * from "@/core/css";
 export * from "@/core";
-export * from "@/hooks";
-export * from "@/theming";
-export * from "@/color";
+export * from "@/core/hooks";
+export * from "@/core/theming";
+export * from "@/core/color";
 export * from "@/util/component";
 export * from "@/util/transform";
 export * from "@/util/debounce";
 export * from "@/util/renderProp";
 export * from "@/vis";
-export * from "@/triggers";
-export * from "@/memo";
-export * from "@/os";
-export * from "@/haul";
+export * from "@/core/triggers";
+export * from "@/core/memo";
+export * from "@/core/os";
+export * from "@/core/haul";

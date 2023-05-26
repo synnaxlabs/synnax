@@ -51,7 +51,7 @@ const convertOntologyResources = (resources: OntologyResource[]): TreeLeaf[] => 
   });
 };
 
-const ResourcesTree = (): JSX.Element => {
+const ResourcesTree = (): ReactElement => {
   const client = useClusterClient();
   const [selected, setSelected] = useState<readonly string[]>([]);
   const [data, setData] = useState<TreeLeaf[]>([]);

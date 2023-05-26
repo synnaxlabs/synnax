@@ -18,7 +18,7 @@ import "./index.css";
 
 import promise from "./store";
 
-const Main = (): JSX.Element => {
+const Main = (): ReactElement => {
   return (
     <React.StrictMode>
       <Provider store={promise}>

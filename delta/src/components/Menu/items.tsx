@@ -11,7 +11,7 @@ import { Icon } from "@synnaxlabs/media";
 import { Menu } from "@synnaxlabs/pluto";
 import type { MenuItemProps } from "@synnaxlabs/pluto";
 
-const HardReload = (props: Omit<MenuItemProps, "itemKey">): JSX.Element => (
+const HardReload = (props: Omit<MenuItemProps, "itemKey">): ReactElement => (
   <Menu.Item
     onClick={() => window.location.reload()}
     startIcon={<Icon.Refresh />}

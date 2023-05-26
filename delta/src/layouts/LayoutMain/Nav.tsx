@@ -66,7 +66,7 @@ const SearchBox = () => {
  * NavTop is the top navigation bar for the Delta UI. Try to keep this component
  * presentational.
  */
-export const NavTop = (): JSX.Element => {
+export const NavTop = (): ReactElement => {
   const placer = useLayoutPlacer();
 
   const os = useOS();
@@ -96,7 +96,7 @@ export const NavMenu = ({
   ...props
 }: {
   children: NavMenuItem[];
-} & Omit<PMenuProps, "children">): JSX.Element => (
+} & Omit<PMenuProps, "children">): ReactElement => (
   <PMenu {...props}>
     {children.map((item) => (
       <PMenu.Item.Icon key={item.key} itemKey={item.key}>
@@ -110,7 +110,7 @@ export const NavMenu = ({
  * NavLeft is the left navigation drawer for the Delta UI. Try to keep this component
  * presentational.
  */
-export const NavLeft = (): JSX.Element => {
+export const NavLeft = (): ReactElement => {
   const { onSelect, menuItems } = useNavDrawer("left", NAV_DRAWERS);
   const os = useOS();
   return (
@@ -131,7 +131,7 @@ export const NavLeft = (): JSX.Element => {
  * NavRight is the right navigation bar for the Delta UI. Try to keep this component
  * presentational.
  */
-export const NavRight = (): JSX.Element | null => {
+export const NavRight = (): ReactElement | null => {
   const { menuItems, onSelect } = useNavDrawer("right", NAV_DRAWERS);
   const { menuItems: bottomMenuItems, onSelect: onBottomSelect } = useNavDrawer(
     "bottom",
@@ -155,7 +155,7 @@ export const NavRight = (): JSX.Element | null => {
  * NavBottom is the bottom navigation bar for the Delta UI. Try to keep this component
  * presentational.
  */
-export const NavBottom = (): JSX.Element => {
+export const NavBottom = (): ReactElement => {
   return (
     <Nav.Bar location="bottom" size={NAV_SIZES.bottom}>
       <Nav.Bar.End className="delta-main-nav-bottom__end">
@@ -175,7 +175,7 @@ export interface NavDrawerProps {
   location: NavdrawerLocation;
 }
 
-export const NavDrawer = ({ location, ...props }: NavDrawerProps): JSX.Element => {
+export const NavDrawer = ({ location, ...props }: NavDrawerProps): ReactElement => {
   const { activeItem, onResize, onSelect } = useNavDrawer(location, NAV_DRAWERS);
   return (
     <Nav.Drawer

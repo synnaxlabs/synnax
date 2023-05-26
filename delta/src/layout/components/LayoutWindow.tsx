@@ -24,7 +24,7 @@ import { CSS } from "@/css";
 
 import "./LayoutWindow.css";
 
-export const NavTop = (): JSX.Element => {
+export const NavTop = (): ReactElement => {
   const os = useOS();
   return (
     <Nav.Bar data-tauri-drag-region location="top" size={"6rem"}>
@@ -39,7 +39,7 @@ export const NavTop = (): JSX.Element => {
   );
 };
 
-export const LayoutWindow = (): JSX.Element | null => {
+export const LayoutWindow = (): ReactElement | null => {
   const { label } = appWindow;
   const win = useSelectWindow(label);
   const layout = useSelectLayout(win?.key ?? "");

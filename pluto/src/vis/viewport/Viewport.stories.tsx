@@ -14,7 +14,7 @@ import { Box, DECIMAL_BOX, BoxScale } from "@synnaxlabs/x";
 
 import { Viewport } from ".";
 
-import { Triggers } from "@/triggers";
+import { Triggers } from "@/core/triggers";
 
 const story: Meta<typeof Viewport.Mask> = {
   title: "Visualization/Viewport",

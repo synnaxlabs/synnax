@@ -29,13 +29,13 @@ import { useLayoutPlacer } from "@/layout";
 export interface SelectMultipleRangesProps
   extends Omit<SelectMultipleProps<Range>, "columns"> {}
 
-export const SelectMultipleRanges = (props: SelectMultipleRangesProps): JSX.Element => (
+export const SelectMultipleRanges = (props: SelectMultipleRangesProps): ReactElement => (
   <Select.Multiple columns={rangeListColumns} tagKey="name" {...props} />
 );
 
 export interface SelectRangeProps extends Omit<SelectProps<Range>, "columns"> {}
 
-export const SelectRange = (props: SelectRangeProps): JSX.Element => (
+export const SelectRange = (props: SelectRangeProps): ReactElement => (
   <Select columns={rangeListColumns} {...props} tagKey="name" />
 );
 
@@ -45,7 +45,7 @@ export interface SelectMultipleRangesInputItemProps
     "label"
   > {}
 
-const SelectRangesEmptyContent = (): JSX.Element => {
+const SelectRangesEmptyContent = (): ReactElement => {
   const newLayout = useLayoutPlacer();
   return (
     <Space.Centered style={{ height: 150 }} direction="x">
@@ -69,7 +69,7 @@ const SelectRangesEmptyContent = (): JSX.Element => {
 
 export const SelectMultipleRangesInputItem = (
   props: SelectMultipleRangesInputItemProps
-): JSX.Element => (
+): ReactElement => (
   <Input.Item<readonly string[], readonly string[], SelectMultipleRangesProps>
     direction="x"
     label="Ranges:"
@@ -83,7 +83,7 @@ export const SelectMultipleRangesInputItem = (
 export interface SelectRangeInputItemProps
   extends Omit<InputItemProps<string, string, SelectRangeProps>, "label"> {}
 
-export const SelectRangeInputItem = (props: SelectRangeInputItemProps): JSX.Element => (
+export const SelectRangeInputItem = (props: SelectRangeInputItemProps): ReactElement => (
   <Input.Item<string, string, SelectRangeProps> label="Range:" {...props}>
     {SelectRange}
   </Input.Item>

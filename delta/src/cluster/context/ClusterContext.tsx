@@ -46,7 +46,7 @@ export interface ClusterProviderProps extends PropsWithChildren<any> {}
  * @param props - The props of the component.
  * @param props.children - The children of the component.
  */
-export const ClusterProvider = ({ children }: ClusterProviderProps): JSX.Element => {
+export const ClusterProvider = ({ children }: ClusterProviderProps): ReactElement => {
   const [state, setState] = useState<{ client: Synnax | null }>({ client: null });
   const dispatch = useDispatch();
   const activeCluster = useSelectCluster();

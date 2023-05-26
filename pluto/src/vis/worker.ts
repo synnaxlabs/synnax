@@ -13,7 +13,7 @@ import { Box, BoxT } from "@synnaxlabs/x";
 import { newDefaultRendererRegistry } from "./gl/registry";
 
 import { Client } from "@/telem/client";
-import { Theme } from "@/theming";
+import { Theme } from "@/core/theming";
 import { GLRenderContext } from "@/vis/gl/renderer";
 import { LineVis, LineVisState } from "@/vis/line/core/line";
 

@@ -19,7 +19,7 @@ import fragShader from "./frag.glsl?raw";
 // eslint-disable-next-line import/no-unresolved
 import vertShader from "./vert.glsl?raw";
 
-import { RGBATuple } from "@/color";
+import { RGBATuple } from "@/core/color";
 
 const shaderVars = {
   scissor: {

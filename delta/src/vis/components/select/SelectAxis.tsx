@@ -32,7 +32,7 @@ export const SelectMultipleAxesInputItem = ({
   axis,
   onChange,
   ...props
-}: SelectMultipleAxesInputItemProps): JSX.Element => (
+}: SelectMultipleAxesInputItemProps): ReactElement => (
   <Input.Item<readonly string[], readonly string[], SelectMultipleChannelsProps>
     direction="x"
     label={axisLabel(axis) + ":"}
@@ -57,7 +57,7 @@ export const SelectAxisInputItem = ({
   axis,
   onChange,
   ...props
-}: SelectAxisInputItemProps): JSX.Element => (
+}: SelectAxisInputItemProps): ReactElement => (
   <Input.Item<string, string, SelectChannelProps>
     direction="x"
     label={axisLabel(axis) + ":"}

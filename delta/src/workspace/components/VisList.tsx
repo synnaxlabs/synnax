@@ -18,7 +18,7 @@ import {
   useSelectLayouts,
 } from "@/layout";
 
-export const VisList = (): JSX.Element => {
+export const VisList = (): ReactElement => {
   const layouts = useSelectLayouts().filter(
     (layout) => layout.type === "visualization"
   );

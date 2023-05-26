@@ -17,7 +17,7 @@ import "./LogoWatermark.css";
  *
  * @param props - The same props as Logo.
  */
-export const LogoWatermark = (props: LogoProps): JSX.Element => (
+export const LogoWatermark = (props: LogoProps): ReactElement => (
   <div className="synnax-logo-watermark__container">
     <Logo className="synnax-logo-watermark" {...props} />
   </div>

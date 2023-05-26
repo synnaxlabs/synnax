@@ -31,7 +31,7 @@ import { createLineVis } from "@/vis/line";
 const emptyContent = <Logo.Watermark />;
 
 /** LayoutMosaic renders the central layout mosaic of the application. */
-export const LayoutMosaic = (): JSX.Element => {
+export const LayoutMosaic = (): ReactElement => {
   const dispatch = useDispatch();
   const mosaic = useSelectMosaic();
   const placer = useLayoutPlacer();

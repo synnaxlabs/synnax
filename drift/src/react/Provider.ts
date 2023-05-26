@@ -28,8 +28,8 @@ export interface ProviderProps<
   E extends Enhancers = Enhancers
 > extends Omit<BaseProps<A, S>, "store"> {
   store: Promise<EnhancedStore<S, A, M, E>> | EnhancedStore<S, A, M, E>;
-  emptyContent?: JSX.Element | null;
-  errorContent?: (error: Error) => JSX.Element;
+  emptyContent?: ReactElement | null;
+  errorContent?: (error: Error) => ReactElement;
 }
 
 /**

@@ -23,7 +23,7 @@ import { useDispatch } from "react-redux";
 
 export interface ControlsProps extends PControlsProps { }
 
-export const Controls = (props: ControlsProps): JSX.Element | null => {
+export const Controls = (props: ControlsProps): ReactElement | null => {
   const window = useSelectWindow();
   const dispatch = useDispatch();
   const remove = useLayoutRemover(window?.key ?? "");

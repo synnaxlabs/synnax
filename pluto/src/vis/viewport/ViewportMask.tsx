@@ -11,7 +11,7 @@ import { forwardRef } from "react";
 
 import { UseViewportReturn } from "./useViewport";
 
-import { CSS } from "@/css";
+import { CSS } from "@/core/css";
 
 import "./ViewportMask.css";
 

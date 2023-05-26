@@ -16,7 +16,7 @@ import { NavDrawerItem } from "@/layout";
 import { LinePlotToolBar } from "@/vis/line";
 import { useSelectVisMeta } from "@/vis/store";
 
-const NoVisContent = (): JSX.Element => (
+const NoVisContent = (): ReactElement => (
   <Space justify="spaceBetween" style={{ height: "100%" }} empty>
     <ToolbarHeader>
       <VisToolbarTitle />
@@ -27,7 +27,7 @@ const NoVisContent = (): JSX.Element => (
   </Space>
 );
 
-const Content = (): JSX.Element => {
+const Content = (): ReactElement => {
   const vis = useSelectVisMeta();
   if (vis == null) return <NoVisContent />;
   const { key, variant } = vis;

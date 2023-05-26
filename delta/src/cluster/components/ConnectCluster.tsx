@@ -48,7 +48,7 @@ export const connectClusterWindowLayout: Layout = {
  *
  * @param props - The standard LayoutRendererProps.
  */
-export const ConnectCluster = ({ onClose }: LayoutRendererProps): JSX.Element => {
+export const ConnectCluster = ({ onClose }: LayoutRendererProps): ReactElement => {
   const dispatch = useDispatch();
   const [connState, setConnState] = useState<ConnectionState | null>(null);
 
