@@ -14,9 +14,9 @@ import { AiFillDatabase, AiFillPhone } from "react-icons/ai";
 
 import { Tree, TreeLeaf } from ".";
 
+import { Haul } from "@/core/haul";
 import { useSelectMultiple } from "@/core/hooks/useSelectMultiple";
 import { Triggers } from "@/core/triggers";
-import { Haul } from "@/core/haul";
 
 const story: Meta<typeof Tree> = {
   title: "Core/Tree",
@@ -63,8 +63,8 @@ const Component = () => {
     onChange: setValue,
     data: nodes,
   });
-  return <Tree data={nodes} value={value} onChange={onSelect} />
-}
+  return <Tree data={nodes} value={value} onChange={onSelect} />;
+};
 
 export const Primary: StoryFn<typeof Tree> = () => {
   return (
@@ -73,8 +73,8 @@ export const Primary: StoryFn<typeof Tree> = () => {
         <Component />
       </Triggers.Provider>
     </Haul.Provider>
-  )
-}
+  );
+};
 
 // eslint-disable-next-line import/no-default-export
 export default story;

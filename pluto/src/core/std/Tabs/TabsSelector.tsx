@@ -9,11 +9,11 @@
 
 import { Icon } from "@synnaxlabs/media";
 
+import { CSS } from "@/core/css";
 import { Button } from "@/core/std/Button";
 import { Space, SpaceProps } from "@/core/std/Space";
 import { useTabsContext } from "@/core/std/Tabs/Tabs";
 import { Text } from "@/core/std/Typography";
-import { CSS } from "@/core/css";
 import { ComponentSize } from "@/util/component";
 
 import "./TabsSelector.css";

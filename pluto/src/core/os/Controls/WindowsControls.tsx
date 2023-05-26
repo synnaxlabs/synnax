@@ -14,6 +14,7 @@ import { Icon } from "@synnaxlabs/media";
 import { Button, ButtonIconProps, Pack } from "@/core";
 import { CSS } from "@/core/css";
 import { OSControlsProps } from "@/core/os/Controls/types";
+
 import "@/os/Controls/WindowsControls.css";
 
 export const WindowsControls = ({

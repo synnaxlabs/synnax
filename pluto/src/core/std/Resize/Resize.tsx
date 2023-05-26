@@ -14,8 +14,9 @@ import { clsx } from "clsx";
 
 import { CSS } from "@/core/css";
 import { useCursorDrag } from "@/core/hooks/useCursorDrag";
-import "@/core/std/Resize/Resize.css";
 import { ResizeCore, ResizeCoreProps } from "@/core/std/Resize/ResizeCore";
+
+import "@/core/std/Resize/Resize.css";
 
 /** Props for the {@link Resize} component. */
 export interface ResizeProps

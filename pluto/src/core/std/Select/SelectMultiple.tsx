@@ -19,10 +19,11 @@ import { Input, InputControl, InputProps } from "@/core/std/Input";
 import { ListColumn, List, ListProps } from "@/core/std/List";
 import { Pack } from "@/core/std/Pack";
 import { SelectList } from "@/core/std/Select/SelectList";
-import "@/core/std/Select/SelectMultiple.css";
 import { Space } from "@/core/std/Space";
 import { Tag } from "@/core/std/Tag";
 import { Theming } from "@/core/theming";
+
+import "@/core/std/Select/SelectMultiple.css";
 
 export interface SelectMultipleProps<E extends KeyedRenderableRecord<E>>
   extends Omit<DropdownProps, "visible" | "onChange" | "children">,

@@ -10,7 +10,7 @@
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Nav, NavDrawerItem } from ".";
+import { Nav, NavDrawerItem } from "@/core/std/Nav";
 
 describe("Nav", () => {
   describe("Nav.Bar", () => {

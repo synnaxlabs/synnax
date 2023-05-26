@@ -13,8 +13,9 @@ import { locToDir } from "@synnaxlabs/x";
 
 import { CSS } from "@/core/css";
 import { NavbarProps } from "@/core/std/Nav/Navbar";
-import "@/core/std/Nav/Navdrawer.css";
 import { Resize, ResizeProps } from "@/core/std/Resize";
+
+import "@/core/std/Nav/Navdrawer.css";
 
 export interface NavDrawerItem {
   key: string;

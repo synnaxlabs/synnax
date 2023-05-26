@@ -11,6 +11,7 @@ import { forwardRef, useEffect } from "react";
 
 import { TimeStamp } from "@synnaxlabs/x";
 
+import { CSS } from "@/core/css";
 import { Input } from "@/core/std/Input";
 import {
   InputDragButton,
@@ -18,7 +19,6 @@ import {
 } from "@/core/std/Input/InputDragButton";
 import { InputBaseProps } from "@/core/std/Input/types";
 import { Pack } from "@/core/std/Pack";
-import { CSS } from "@/core/css";
 
 import "./InputDate.css";
 

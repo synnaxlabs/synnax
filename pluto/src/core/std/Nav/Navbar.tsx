@@ -19,8 +19,9 @@ import {
 } from "@synnaxlabs/x";
 
 import { CSS } from "@/core/css";
-import "@/core/std/Nav/Navbar.css";
 import { Space, SpaceProps } from "@/core/std/Space";
+
+import "@/core/std/Nav/Navbar.css";
 
 export interface NavbarProps extends Omit<SpaceProps, "direction" | "size" | "ref"> {
   location?: Location;

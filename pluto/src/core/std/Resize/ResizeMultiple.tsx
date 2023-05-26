@@ -22,8 +22,9 @@ import { Box, ClientXY, Direction, locFromDir } from "@synnaxlabs/x";
 
 import { CSS } from "@/core/css";
 import { ResizeCore } from "@/core/std/Resize/ResizeCore";
-import "@/core/std/Resize/ResizeMultiple.css";
 import { Space, SpaceProps } from "@/core/std/Space";
+
+import "@/core/std/Resize/ResizeMultiple.css";
 
 /** Props for the {@link Resize.Multiple} component. */
 export interface ResizeMultipleProps extends SpaceProps {

@@ -13,7 +13,9 @@ import { Location } from "@synnaxlabs/x";
 
 import { CSS } from "@/core/css";
 import { Haul, Hauled } from "@/core/haul";
+
 import "@/core/Mosaic/Mosaic.css";
+
 import { MosaicNode } from "@/core/std/Mosaic/types";
 import { Resize } from "@/core/std/Resize";
 import { Tab, Tabs, TabsProps } from "@/core/std/Tabs";

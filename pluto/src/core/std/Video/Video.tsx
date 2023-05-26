@@ -10,6 +10,7 @@
 import { ComponentPropsWithoutRef, ReactElement } from "react";
 
 import { CSS } from "@/core/css";
+
 import "@/core/Video/Video.css";
 
 export interface VideoProps extends ComponentPropsWithoutRef<"video"> {

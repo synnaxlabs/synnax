@@ -10,11 +10,9 @@ import { SensorNumeric } from "@/pid/Sensor/SensorNumeric";
 export type { SensorNumericProps } from "@/pid/Sensor/SensorNumeric";
 
 interface SensorType {
-  Numeric: typeof SensorNumeric,
+  Numeric: typeof SensorNumeric;
 }
 
 export const Sensor: SensorType = {
   Numeric: SensorNumeric,
-}
-
-
+};

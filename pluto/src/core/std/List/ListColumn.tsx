@@ -13,7 +13,6 @@ import { Icon } from "@synnaxlabs/media";
 import { Compare, convertRenderV, KeyedRenderableRecord } from "@synnaxlabs/x";
 
 import { CSS } from "@/core/css";
-import "@/core/List/ListColumn.css";
 import { useListContext } from "@/core/std/List/ListContext";
 import { ListItemProps, ListColumn as ListColumnT } from "@/core/std/List/types";
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/core/std/Menu/ContextMenu";
@@ -22,6 +21,8 @@ import { Text } from "@/core/std/Typography";
 import { textWidth } from "@/core/std/Typography/textWidth";
 import { useFont } from "@/core/theming";
 import { ArrayTransform } from "@/util/transform";
+
+import "@/core/List/ListColumn.css";
 
 type SortState<E extends KeyedRenderableRecord<E>> = [keyof E | null, boolean];
 
