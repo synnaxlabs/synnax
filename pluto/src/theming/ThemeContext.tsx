@@ -76,7 +76,7 @@ export const ThemeProvider = ({
   theme,
   children,
   ...props
-}: ThemeProviderProps): JSX.Element => {
+}: ThemeProviderProps): ReactElement => {
   useEffect(
     () => applyCSSVars(document.documentElement, convertThemeToCSSVars(theme)),
     [theme]
@@ -90,7 +90,7 @@ export const ThemeProvider = ({
 
 export const ThemeSwitch = ({
   ...props
-}: Omit<InputSwitchProps, "onChange" | "value">): JSX.Element => {
+}: Omit<InputSwitchProps, "onChange" | "value">): ReactElement => {
   const { toggleTheme } = useContext(ThemeContext);
   const [checked, setChecked] = useState(false);
   return (

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DetailedHTMLProps, HTMLAttributes } from "react";
+import { DetailedHTMLProps, HTMLAttributes, ReactElement } from "react";
 
 import "@/core/Input/InputLabel.css";
 import { CSS } from "@/css";
@@ -17,6 +17,6 @@ export interface InputLabelProps
   label?: string;
 }
 
-export const InputLabel = ({ className, ...props }: InputLabelProps): JSX.Element => {
+export const InputLabel = ({ className, ...props }: InputLabelProps): ReactElement => {
   return <label className={CSS(CSS.B("input-label"), className)} {...props} />;
 };

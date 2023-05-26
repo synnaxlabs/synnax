@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ReactElement } from "react";
+
 import { render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
@@ -14,7 +16,7 @@ import { describe, expect, it } from "vitest";
 import { Button } from "@/core/Button";
 import { Dropdown } from "@/core/Dropdown";
 
-const TestDropdown = (): JSX.Element => {
+const TestDropdown = (): ReactElement => {
   const { toggle, visible } = Dropdown.use();
 
   return (

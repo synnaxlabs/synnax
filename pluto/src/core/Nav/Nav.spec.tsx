@@ -41,7 +41,7 @@ describe("Nav", () => {
           content: <h1>Item 2 Content</h1>,
         },
       ];
-      const TestNavDrawer = (): JSX.Element => {
+      const TestNavDrawer = (): ReactElement => {
         const props = Nav.useDrawer({ items, initialKey: "1" });
         return <Nav.Drawer {...props} />;
       };

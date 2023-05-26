@@ -24,7 +24,7 @@ export interface HeaderActionsProps {
   children?: HeaderAction | HeaderAction[];
 }
 
-export const HeaderActions = ({ children = [] }: HeaderActionsProps): JSX.Element => {
+export const HeaderActions = ({ children = [] }: HeaderActionsProps): ReactElement => {
   const { level, divided } = useHeaderContext();
   return (
     <Space
@@ -54,7 +54,7 @@ const HeaderActionC = ({
   level,
   children,
   divided,
-}: HeaderActionCProps): JSX.Element => {
+}: HeaderActionCProps): ReactElement => {
   const content = isValidElement(children) ? (
     children
   ) : (

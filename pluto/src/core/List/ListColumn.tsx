@@ -33,7 +33,7 @@ const SORT_TRANSFORM = "sort";
 
 const ListColumnHeader = <E extends KeyedRenderableRecord<E>>({
   columns: initialColumns,
-}: ListColumnHeaderProps<E>): JSX.Element => {
+}: ListColumnHeaderProps<E>): ReactElement => {
   const {
     columnar: { columns, setColumns },
     sourceData,
@@ -107,7 +107,7 @@ const ListColumnItem = <E extends KeyedRenderableRecord<E>>({
   onSelect,
   index,
   ...props
-}: ListItemProps<E>): JSX.Element => {
+}: ListItemProps<E>): ReactElement => {
   const handleSelect = (): void => onSelect?.(entry.key);
   return (
     <Space
@@ -143,7 +143,7 @@ interface ListColumnValueProps<E extends KeyedRenderableRecord<E>> {
 const ListColumnValue = <E extends KeyedRenderableRecord<E>>({
   entry,
   col: { width, ...col },
-}: ListColumnValueProps<E>): JSX.Element | null => {
+}: ListColumnValueProps<E>): ReactElement | null => {
   const style: CSSProperties = { width: col.cWidth, userSelect: "none", padding: 6 };
   if (col.render != null) return col.render({ key: col.key, entry, style });
   let rv: E[keyof E] | string;

@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { forwardRef, RefObject, useCallback, useRef, useState } from "react";
+import {
+  forwardRef,
+  ReactElement,
+  RefObject,
+  useCallback,
+  useRef,
+  useState,
+} from "react";
 
 import { YLocation } from "@synnaxlabs/x";
 
@@ -44,7 +51,7 @@ export interface DropdownProps
   extends Pick<UseDropdownReturn, "visible">,
     Omit<PackProps, "ref" | "reverse" | "size" | "empty"> {
   location?: YLocation;
-  children: [JSX.Element, JSX.Element];
+  children: [ReactElement, ReactElement];
   keepMounted?: boolean;
 }
 
@@ -58,7 +65,7 @@ export const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
       ...props
     }: DropdownProps,
     ref
-  ): JSX.Element => (
+  ): ReactElement => (
     <Pack
       {...props}
       ref={ref}

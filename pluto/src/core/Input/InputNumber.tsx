@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { forwardRef } from "react";
+import { ReactElement, forwardRef } from "react";
 
 import { Pack } from "../Pack";
 
@@ -38,7 +38,7 @@ export const InputNumber = forwardRef<HTMLInputElement, InputNumberProps>(
       ...props
     },
     ref
-  ): JSX.Element => {
+  ): ReactElement => {
     const input = (
       <Input
         ref={ref}

@@ -22,7 +22,7 @@ const end = start.add(TimeStamp.seconds(120));
 const startTwo = new TimeStamp([2020, 2, 22]);
 const endTwo = start.add(TimeStamp.milliseconds(120));
 
-export const Basic = (): JSX.Element => (
+export const Basic = (): ReactElement => (
   <svg width="100%" height="100%" style={{ width: "100%", height: "100%" }}>
     <Axis
       scale={Scale.scale(0, 100)}

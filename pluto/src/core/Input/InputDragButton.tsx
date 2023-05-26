@@ -7,15 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback, useMemo, useRef } from "react";
+import { ReactElement, useCallback, useMemo, useRef } from "react";
 
 import { Box, Direction, toXY, XY } from "@synnaxlabs/x";
 import { GrDrag } from "react-icons/gr";
 
-import { InputControl } from "./types";
-
 import { Button, ButtonIconProps } from "@/core/Button";
 import "@/core/Input/InputDragButton.css";
+import { InputControl } from "@/core/Input/types";
 import { CSS } from "@/css";
 import { useVirtualCursorDrag } from "@/hooks/useCursorDrag";
 
@@ -43,7 +42,7 @@ export const InputDragButton = ({
   onChange,
   value,
   ...props
-}: InputDragButtonProps): JSX.Element => {
+}: InputDragButtonProps): ReactElement => {
   const vRef = useRef({
     dragging: false,
     curr: value,

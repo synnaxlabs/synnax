@@ -27,7 +27,7 @@ export const ListSearch = <E extends KeyedRenderableRecord<E>>({
   children = (props) => <DefaultInput {...props} />,
   debounce = 250,
   opts,
-}: ListSearchProps<E>): JSX.Element | null => {
+}: ListSearchProps<E>): ReactElement | null => {
   const [value, setValue] = useState("");
 
   const search = useSearchTransform<E>({ query: value, opts });

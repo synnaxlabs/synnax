@@ -58,7 +58,7 @@ const EXCLUDE_TRIGGERS = ["CapsLock"];
 
 export interface TriggersProviderProps extends PropsWithChildren { }
 
-export const TriggersProvider = ({ children }: TriggersProviderProps): JSX.Element => {
+export const TriggersProvider = ({ children }: TriggersProviderProps): ReactElement => {
   // We track mouse movement to allow for cursor position on keybord events;
   const cursor = useRef<XY>(ZERO_XY);
   const handleMouseMove = useCallback((e: MouseEvent): void => {

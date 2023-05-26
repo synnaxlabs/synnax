@@ -47,7 +47,7 @@ export const Button = ({
   iconSpacing,
   sharp = false,
   ...props
-}: ButtonProps): JSX.Element => (
+}: ButtonProps): ReactElement => (
   <Text.WithIcon
     el="button"
     className={CSS(

@@ -25,7 +25,7 @@ export interface MenuProps extends Partial<InputControl<string>>, PropsWithChild
 
 export const useMenuContext = (): MenuContextValue => useContext(MenuContext);
 
-export const Menu = ({ children, onChange, value = "" }: MenuProps): JSX.Element => {
+export const Menu = ({ children, onChange, value = "" }: MenuProps): ReactElement => {
   const handleClick: MenuProps["onChange"] = (key) => onChange?.(key);
   return (
     <MenuContext.Provider value={{ onClick: handleClick, selected: value }}>

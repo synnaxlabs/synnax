@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useState } from "react";
+import { ReactElement, useState } from "react";
 
 import { render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -42,7 +42,7 @@ describe("Button", () => {
   describe("Toggle", () => {
     it("should a button that can be toggled", async () => {
       const onChange = vitest.fn();
-      const ToggleTest = (): JSX.Element => {
+      const ToggleTest = (): ReactElement => {
         const [value, setValue] = useState(false);
         return (
           <Button.Toggle

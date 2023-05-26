@@ -54,7 +54,7 @@ const data: SampleRecord[] = [
   },
 ];
 
-const TestList = (): JSX.Element => {
+const TestList = (): ReactElement => {
   const [selected, setSelected] = useState<readonly string[]>([]);
   return (
     <Triggers.Provider>

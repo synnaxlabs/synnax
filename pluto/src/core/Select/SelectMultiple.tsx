@@ -41,7 +41,7 @@ export const SelectMultiple = <E extends KeyedRenderableRecord<E>>({
   tagKey = "key",
   emptyContent,
   ...props
-}: SelectMultipleProps<E>): JSX.Element => {
+}: SelectMultipleProps<E>): ReactElement => {
   const { ref, visible, open } = Dropdown.use();
   return (
     <List data={data} emptyContent={emptyContent}>
@@ -78,7 +78,7 @@ const SelectMultipleInput = <E extends KeyedRenderableRecord<E>>({
   visible,
   tagKey,
   ...props
-}: SelectMultipleInputProps<E>): JSX.Element => {
+}: SelectMultipleInputProps<E>): ReactElement => {
   const {
     sourceData,
     select: { onSelect, clear },

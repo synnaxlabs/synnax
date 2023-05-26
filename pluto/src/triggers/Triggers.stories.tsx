@@ -16,7 +16,7 @@ const story: Meta<typeof Triggers.Provider> = {
   component: Triggers.Provider,
 };
 
-export const Basic = (): JSX.Element => {
+export const Basic = (): ReactElement => {
   return (
     <Triggers.Provider>
       <Child />
@@ -24,7 +24,7 @@ export const Basic = (): JSX.Element => {
   );
 };
 
-const Child = (): JSX.Element => {
+const Child = (): ReactElement => {
   const { triggers } = Triggers.useHeld({
     triggers: [
       ["ArrowDown"],

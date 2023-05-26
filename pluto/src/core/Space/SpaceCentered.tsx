@@ -17,7 +17,7 @@ import { CSS } from "@/css";
 export const CoreSpaceCentered = <E extends SpaceElementType = "div">(
   { className, justify = "center", align = "center", ...props }: SpaceProps<E>,
   ref: ForwardedRef<JSX.IntrinsicElements[E]>
-): JSX.Element => (
+): ReactElement => (
   // @ts-expect-error
   <Space
     ref={ref}
@@ -32,4 +32,4 @@ export const SpaceCentered = forwardRef(CoreSpaceCentered) as <
   E extends SpaceElementType = "div"
 >(
   props: SpaceProps<E>
-) => JSX.Element;
+) => ReactElement;

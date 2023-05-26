@@ -15,7 +15,7 @@ import { useTriggerContext } from "@/triggers/TriggersContext";
 
 export interface TriggerStatusProps extends StatusTextProps {}
 
-export const TriggerStatus = (props: TriggerStatusProps): JSX.Element => {
+export const TriggerStatus = (props: TriggerStatusProps): ReactElement => {
   const { listen } = useTriggerContext();
   const [trigger, setTrigger] = useState<Trigger>([]);
 

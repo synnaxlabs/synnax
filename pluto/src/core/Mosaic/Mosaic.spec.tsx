@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 
 import { Mosaic, MosaicNode, UseMosaicProps } from ".";
 
-const TestMosaic = (props: UseMosaicProps): JSX.Element => {
+const TestMosaic = (props: UseMosaicProps): ReactElement => {
   const props_ = Mosaic.use(props);
   return <Mosaic {...props_} />;
 };

@@ -97,7 +97,7 @@ export const Axis = ({
   pixelsPerTick = 30,
   showGrid = false,
   height = 0,
-}: AxisProps): JSX.Element => {
+}: AxisProps): ReactElement => {
   const ticks: TickProps[] = useMemo(() => {
     const f = type === "time" ? timeTicks : linearTicks;
     const pxScale = scale.scale(size).reverse();
@@ -134,7 +134,7 @@ interface TickProps {
 
 const tickYOffset = 4;
 
-const Tick = ({ value, offset, showGrid, height, type }: TickProps): JSX.Element => (
+const Tick = ({ value, offset, showGrid, height, type }: TickProps): ReactElement => (
   <g transform={fTranslate({ x: offset, y: -tickYOffset })}>
     {!showGrid ? <line y2={tickYOffset} /> : <line y2={height + tickYOffset} />}
     {type === "time" ? (
@@ -145,7 +145,7 @@ const Tick = ({ value, offset, showGrid, height, type }: TickProps): JSX.Element
   </g>
 );
 
-const DateTickText = ({ value: _value }: { value: number }): JSX.Element => {
+const DateTickText = ({ value: _value }: { value: number }): ReactElement => {
   const value = new TimeStamp(_value).date();
   // remove trailing 0s
 
@@ -165,7 +165,7 @@ const DateTickText = ({ value: _value }: { value: number }): JSX.Element => {
   return <text transform={calcTickTextTranslate(formatted)}>{formatted}</text>;
 };
 
-const NumberTickText = ({ value }: { value: number }): JSX.Element => (
+const NumberTickText = ({ value }: { value: number }): ReactElement => (
   <text transform={calcTickTextTranslate(value.toString())}>{value}</text>
 );
 

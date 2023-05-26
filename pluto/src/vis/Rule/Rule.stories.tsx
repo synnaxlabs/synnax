@@ -26,7 +26,7 @@ const annotations: RuleAnnotationProps[] = [
   },
 ];
 
-export const Default = (): JSX.Element => (
+export const Default = (): ReactElement => (
   <svg width="100%" height="100%">
     <Rule
       position={200}

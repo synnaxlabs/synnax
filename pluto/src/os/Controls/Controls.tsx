@@ -31,7 +31,7 @@ export const Controls = ({
   forceOS,
   visibleIfOS,
   ...props
-}: ControlsProps): JSX.Element | null => {
+}: ControlsProps): ReactElement | null => {
   const os = useOS(forceOS, DEFAULT_OS) as OS;
   const C = OSControls[os];
   if (visibleIfOS != null && visibleIfOS !== os) return null;

@@ -79,7 +79,7 @@ export const MacOSControls = ({
   onFullscreen,
   onClose,
   ...props
-}: OSControlsProps): JSX.Element => (
+}: OSControlsProps): ReactElement => (
   <Space
     size={1.5}
     direction="x"
@@ -116,7 +116,7 @@ export const MacOSControls = ({
 
 interface MacOSTrafficLightProps extends ButtonIconProps {}
 
-const TrafficLight = ({ className, ...props }: MacOSTrafficLightProps): JSX.Element => (
+const TrafficLight = ({ className, ...props }: MacOSTrafficLightProps): ReactElement => (
   <Button.Icon
     className={CSS(CSS.B("macos-control"), className)}
     tabIndex={-1}

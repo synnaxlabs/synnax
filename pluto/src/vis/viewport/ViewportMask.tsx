@@ -25,7 +25,7 @@ export interface ViewportMaskProps
     Omit<DivProps, "onDragStart" | "onDragEnd" | "onDrag" | "ref" | "onDoubleClick"> {}
 
 export const ViewportMask = forwardRef<HTMLDivElement, ViewportMaskProps>(
-  ({ className, mode, maskBox, ...props }, ref): JSX.Element | null => (
+  ({ className, mode, maskBox, ...props }, ref): ReactElement | null => (
     <div ref={ref} className={CSS(CSS.noSelect, className)} {...props}>
       <div
         style={{

@@ -41,7 +41,7 @@ export const TextWithIcon = <
   className,
   noWrap = false,
   ...props
-}: TextWithIconProps<E, L>): JSX.Element => {
+}: TextWithIconProps<E, L>): ReactElement => {
   const startIcons = startIcon != null && formatIcons(startIcon, color);
   const endIcons = endIcon != null && formatIcons(endIcon, color);
   return (
@@ -75,7 +75,7 @@ export const TextWithIcon = <
 const formatIcons = (
   icon: false | ReactElement | ReactElement[],
   color?: string
-): JSX.Element[] => {
+): ReactElement[] => {
   if (icon === false) return [];
   return (Children.toArray(icon) as ReactElement[]).map((icon) =>
     cloneElement(icon, {

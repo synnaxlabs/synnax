@@ -93,7 +93,7 @@ const CoreSpace = <E extends SpaceElementType = "div">(
     ...props
   }: SpaceProps<E>,
   ref: ForwardedRef<JSX.IntrinsicElements[E]>
-): JSX.Element => {
+): ReactElement => {
   let gap: number | string | undefined;
   if (empty) [size, gap] = [0, 0];
   else if (typeof size === "number") gap = `${size}rem`;
@@ -130,7 +130,7 @@ CoreSpace.displayName = "Space";
 
 export const Space = forwardRef(CoreSpace) as <E extends SpaceElementType = "div">(
   props: SpaceProps<E>
-) => JSX.Element;
+) => ReactElement;
 
 type FlexDirection = CSSProperties["flexDirection"];
 

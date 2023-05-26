@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { forwardRef, Ref } from "react";
+import { forwardRef, ReactElement, Ref } from "react";
 
 import { Direction, toArray } from "@synnaxlabs/x";
 import {
@@ -76,12 +76,12 @@ const CoreInputItem = <
     ...props
   }: InputItemProps<I, O, P>,
   ref: Ref<HTMLInputElement>
-): JSX.Element => {
+): ReactElement => {
   const children_ = toArray(children).map((c) =>
     typeof c === "object" ? c.render : c
   );
 
-  let content: JSX.Element | null;
+  let content: ReactElement | null;
   if (children_.length === 1) {
     content = children_[0]({ ref, key: 0, ...(props as unknown as P) });
   } else {
@@ -91,7 +91,7 @@ const CoreInputItem = <
           children_
             // Unlikely to change order here so we can use index as key
             .map((c, i) => c({ key: i, ...(props as unknown as P) }))
-            .filter((c) => c != null) as JSX.Element[]
+            .filter((c) => c != null) as ReactElement[]
         }
       </Pack>
     );
@@ -139,7 +139,7 @@ export const InputItem = forwardRef(CoreInputItem) as <
   P extends InputControl<I, O> = InputBaseProps<I, O>
 >(
   props: InputItemProps<I, O, P> & { ref?: Ref<HTMLInputElement> }
-) => JSX.Element;
+) => ReactElement;
 // @ts-expect-error
 InputItem.displayName = "InputItem";
 
@@ -157,7 +157,7 @@ export const InputItemControlled = <
   defaultValue,
   label,
   ...props
-}: InputItemControlledProps<I, O, P, F, TName>): JSX.Element => {
+}: InputItemControlledProps<I, O, P, F, TName>): ReactElement => {
   const { field, fieldState } = useController<F, TName>({
     control,
     rules,

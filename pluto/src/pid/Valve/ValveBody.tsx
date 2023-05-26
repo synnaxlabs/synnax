@@ -11,7 +11,7 @@ import { usePIDContext } from "@/pid/PIDContext";
 import { ValveBodyProps, valveBodySpec } from "@/pid/Valve/valveBodyCore";
 import { SVG } from "@/vis/svg";
 
-export const ValveBody = (props: ValveBodyProps): JSX.Element | null => {
+export const ValveBody = (props: ValveBodyProps): ReactElement | null => {
   return usePIDContext().render("valveBody", props);
 };
 
@@ -20,7 +20,7 @@ const valveBodySvg = ({
   dimensions: { width, height },
   fill,
   stroke,
-}: ValveBodyProps): JSX.Element => (
+}: ValveBodyProps): ReactElement => (
   <svg
     width={width}
     height={height}

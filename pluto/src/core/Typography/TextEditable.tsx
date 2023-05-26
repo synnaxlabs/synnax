@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { useLayoutEffect, useRef, useState } from "react";
-import type { KeyboardEvent } from "react";
+import type { KeyboardEvent, ReactElement } from "react";
 
 import { InputControl } from "@/core/Input";
 import { Text, TextProps } from "@/core/Typography/Text";
@@ -28,7 +28,7 @@ export const TextEditable = <L extends TypographyLevel = "h1">({
   onChange,
   value,
   ...props
-}: TextEditableProps<L>): JSX.Element => {
+}: TextEditableProps<L>): ReactElement => {
   const [editable, setEditable] = useState(false);
   const ref = useRef<HTMLElement>(null);
 

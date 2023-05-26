@@ -20,7 +20,7 @@ const menuItemFactory =
     defaultProps?: Partial<E>
   ): FunctionComponent<E & { itemKey: string }> =>
   // eslint-disable-next-line react/display-name
-  (props): JSX.Element => {
+  (props): ReactElement => {
     const { itemKey, className, onClick, ...rest } = { ...defaultProps, ...props };
 
     const { onClick: ctxOnClick, selected } = useMenuContext();

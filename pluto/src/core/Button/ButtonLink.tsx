@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ReactElement } from "react";
+
 import { Button, ButtonProps } from "@/core/Button";
 import { TextLinkProps } from "@/core/Typography";
 
@@ -18,9 +20,8 @@ export interface ButtonLinkProps
 export const ButtonLink = ({
   href,
   target,
-  results,
   ...props
-}: ButtonLinkProps): JSX.Element => {
+}: ButtonLinkProps): ReactElement => {
   return (
     <form action={href} target={target} rel={target}>
       <Button {...props} />

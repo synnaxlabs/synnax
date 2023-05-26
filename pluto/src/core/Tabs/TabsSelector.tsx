@@ -22,7 +22,7 @@ export interface TabMeta {
   tabKey: string;
   name: string;
   closable?: boolean;
-  icon?: JSX.Element;
+  icon?: ReactElement;
   editable?: boolean;
 }
 
@@ -36,7 +36,7 @@ export const TabsSelector = ({
   className,
   size = "medium",
   ...props
-}: TabsSelectorProps): JSX.Element | null => {
+}: TabsSelectorProps): ReactElement | null => {
   const {
     tabs,
     selected,
@@ -97,7 +97,7 @@ const TabC = ({
   icon,
   size,
   editable = true,
-}: TabSelectorButtonProps): JSX.Element => {
+}: TabSelectorButtonProps): ReactElement => {
   const ohandleDragStart = (e: React.DragEvent<HTMLDivElement>): void =>
     onDragStart?.(e, { tabKey, name });
 
@@ -162,7 +162,7 @@ interface TabnameProps {
   onRename?: (key: string, name: string) => void;
   name: string;
   tabKey: string;
-  icon?: JSX.Element;
+  icon?: ReactElement;
   editable?: boolean;
 }
 
@@ -172,7 +172,7 @@ const TabName = ({
   tabKey,
   icon,
   editable = true,
-}: TabnameProps): JSX.Element => {
+}: TabnameProps): ReactElement => {
   if (onRename == null || !editable) {
     if (icon != null)
       return (

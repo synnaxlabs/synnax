@@ -44,7 +44,7 @@ const CoreStatusText = ({
   level = "p",
   hideIcon = false,
   ...props
-}: StatusTextProps): JSX.Element => (
+}: StatusTextProps): ReactElement => (
   <Text.WithIcon
     color={statusVariantColors[variant]}
     level={level}
@@ -55,7 +55,7 @@ const CoreStatusText = ({
 
 export interface StatusTextCenteredProps extends StatusTextProps {}
 
-const StatusTextCentered = (props: StatusTextCenteredProps): JSX.Element => (
+const StatusTextCentered = (props: StatusTextCenteredProps): ReactElement => (
   <Space.Centered>
     <CoreStatusText {...props} />
   </Space.Centered>

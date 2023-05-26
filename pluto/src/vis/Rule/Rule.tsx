@@ -31,7 +31,7 @@ export const Rule = ({
   position,
   size,
   annotations = [],
-}: RuleProps): JSX.Element => {
+}: RuleProps): ReactElement => {
   return (
     <g transform={SVG.translateIn(position, swapDir(direction))}>
       {/* Rendering the annotations first puts them below the rule. This looks cleaner */}

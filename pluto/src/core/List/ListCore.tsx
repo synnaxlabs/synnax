@@ -32,7 +32,7 @@ const ListVirtualCore = <E extends KeyedRenderableRecord<E>>({
   children,
   overscan = 5,
   ...props
-}: ListVirtualCoreProps<E>): JSX.Element => {
+}: ListVirtualCoreProps<E>): ReactElement => {
   if (itemHeight <= 0) throw new Error("itemHeight must be greater than 0");
   const {
     data,

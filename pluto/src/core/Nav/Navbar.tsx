@@ -34,7 +34,7 @@ const CoreNavbar = ({
   className,
   style,
   ...props
-}: NavbarProps): JSX.Element => {
+}: NavbarProps): ReactElement => {
   const dir = locToDir(location);
   const swappedDir = swapDir(locToDir(location));
   return (
@@ -65,7 +65,7 @@ export interface NavbarContentProps extends Omit<SpaceProps<"div">, "ref"> {
 const contentFactory =
   (pos: Position | ""): FunctionComponent<NavbarContentProps> =>
   // eslint-disable-next-line react/display-name
-  ({ bordered = false, className, ...props }: NavbarContentProps): JSX.Element =>
+  ({ bordered = false, className, ...props }: NavbarContentProps): ReactElement =>
     (
       <Space
         className={CSS(

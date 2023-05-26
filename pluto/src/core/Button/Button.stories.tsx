@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useState } from "react";
+import { ReactElement, useState } from "react";
 
 import type { Meta, StoryFn } from "@storybook/react";
 import { AiOutlineDelete } from "react-icons/ai";
@@ -25,7 +25,7 @@ const story: Meta<typeof Button> = {
   },
 };
 
-const Template = (args: ButtonProps): JSX.Element => <Button {...args} />;
+const Template = (args: ButtonProps): ReactElement => <Button {...args} />;
 
 export const Primary: StoryFn<typeof Button> = Template.bind({});
 Primary.args = {
@@ -34,13 +34,13 @@ Primary.args = {
   children: "Button",
 };
 
-export const Outlined = (): JSX.Element => (
+export const Outlined = (): ReactElement => (
   <Button variant="outlined" endIcon={<AiOutlineDelete />}>
     Button
   </Button>
 );
 
-export const Toggle = (): JSX.Element => {
+export const Toggle = (): ReactElement => {
   const [value, setValue] = useState(false);
   return (
     <Button.ToggleIcon value={value} onChange={() => setValue((c) => !c)}>
@@ -49,7 +49,7 @@ export const Toggle = (): JSX.Element => {
   );
 };
 
-export const IconOnly = (): JSX.Element => (
+export const IconOnly = (): ReactElement => (
   <Button.Icon>
     <AiOutlineDelete />
   </Button.Icon>

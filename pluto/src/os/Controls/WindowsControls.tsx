@@ -22,7 +22,7 @@ export const WindowsControls = ({
   // no-op on windows
   onFullscreen: _,
   ...props
-}: OSControlsProps): JSX.Element => (
+}: OSControlsProps): ReactElement => (
   <Pack {...props}>
     <WindowsControlButton onClick={onMinimize} disabled={disabled.includes("minimize")}>
       <Icon.Subtract />
@@ -48,7 +48,7 @@ const WindowsControlButton = ({
   disabled,
   className,
   ...props
-}: WindowsControlButtonProps): JSX.Element | null =>
+}: WindowsControlButtonProps): ReactElement | null =>
   !disabled ? (
     <Button.Icon
       className={CSS(CSS.B("windows-control"), className)}

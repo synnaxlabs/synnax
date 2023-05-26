@@ -9,7 +9,7 @@
 
 export type RenderProp<P extends Record<string, any>> = (
   props: P
-) => JSX.Element | null;
+) => ReactElement | null;
 
 /**
  * Component prop takes in a component and turns it into a render prop.
