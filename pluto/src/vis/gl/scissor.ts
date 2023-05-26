@@ -11,7 +11,7 @@ import { Box, XY, Transform, ZERO_XY } from "@synnaxlabs/x";
 
 import { GLRenderer, GLRenderContext } from "./renderer";
 
-import { ZERO_COLOR } from "@/color";
+import { ZERO_COLOR } from "@/core/color";
 
 export interface ScissoredRenderRequest {
   box: Box;

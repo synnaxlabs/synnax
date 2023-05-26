@@ -39,7 +39,7 @@ export const Table = <E extends KeyedRenderableRecord<E>>({
   columns,
   data,
   highlights = [],
-}: TableProps<E>): JSX.Element => {
+}: TableProps<E>): ReactElement => {
   return (
     <div style={{ overflowX: "auto", paddingLeft: 2 }}>
       <table>
@@ -83,7 +83,7 @@ const TableRow = <E extends KeyedRenderableRecord<E>>({
   columns,
   data,
   highlights,
-}: TableRowProps<E>): JSX.Element => {
+}: TableRowProps<E>): ReactElement => {
   return (
     <tr>
       {columns.map((col) => (
@@ -114,7 +114,7 @@ const TableCell = <E extends KeyedRenderableRecord<E>>({
   highlights,
   data,
   column,
-}: TableCellProps<E>): JSX.Element | null => {
+}: TableCellProps<E>): ReactElement | null => {
   const endings = highlights.filter(({ rows, columns }) => {
     const rowValid = rows != null ? rows.upper === index : index === dataLength - 1;
     const colValid = columns != null ? columns.includes(column.key) : true;

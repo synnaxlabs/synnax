@@ -23,7 +23,7 @@ const TABS = [
   },
 ];
 
-export const ClientTabs = (props: any): JSX.Element => {
+export const ClientTabs = (props: any): ReactElement => {
   const tabsProps = Tabs.useStatic({ tabs: TABS });
   return (
     <Tabs {...tabsProps}>

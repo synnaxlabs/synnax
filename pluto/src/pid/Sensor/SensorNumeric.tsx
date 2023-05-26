@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Pack, Typography } from "@/core";
-import { CSS } from "@/css";
+import { CSS } from "@/core/css";
 import { Handle, Position } from "reactflow"
 
 import "./SensorNumeric.css"

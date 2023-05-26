@@ -10,8 +10,8 @@
 import { ChannelKey } from "@synnaxlabs/client";
 import { Box, Deep } from "@synnaxlabs/x";
 
-import { hexToRGBA } from "@/color";
-import { Theme } from "@/theming";
+import { hexToRGBA } from "@/core/color";
+import { Theme } from "@/core/theming";
 import { AxisKey, X_AXIS_KEYS, Y_AXIS_KEYS } from "@/vis/Axis";
 import { VisRenderContext } from "@/vis/context";
 import { GLLine } from "@/vis/gl";

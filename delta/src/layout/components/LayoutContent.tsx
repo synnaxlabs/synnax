@@ -28,7 +28,7 @@ export interface LayoutContentProps {
  * and a renderer for the layout type must be registered in the LayoutContext.
  */
 export const LayoutContent = memo(
-  ({ layoutKey }: LayoutContentProps): JSX.Element | null => {
+  ({ layoutKey }: LayoutContentProps): ReactElement | null => {
     const p = useSelectRequiredLayout(layoutKey);
     const handleClose = useLayoutRemover(layoutKey);
     const Renderer = useLayoutRenderer(p.type);

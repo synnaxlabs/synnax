@@ -21,7 +21,7 @@ import { createLineVis } from "@/vis/line";
 
 import "./GetStarted.css";
 
-export const GetStarted = (): JSX.Element => {
+export const GetStarted = (): ReactElement => {
   const placer = useLayoutPlacer();
   const dispatch = useDispatch();
 

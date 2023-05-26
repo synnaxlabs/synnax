@@ -27,7 +27,7 @@ export interface AxisListEntry extends BoundState, AxisState {
 
 export const LinePlotAxisControls = ({
   layoutKey,
-}: LinePlotAxisControlsProps): JSX.Element => {
+}: LinePlotAxisControlsProps): ReactElement => {
   const bounds = Bounds.useSelect(layoutKey);
   const axes = Axes.useSelect(layoutKey);
   const entries = useMemo(

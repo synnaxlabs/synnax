@@ -41,7 +41,7 @@ export interface SelectMultipleChannelsProps
 export const SelectMultipleChannels = ({
   verbose = false,
   ...props
-}: SelectMultipleChannelsProps): JSX.Element => (
+}: SelectMultipleChannelsProps): ReactElement => (
   <Select.Multiple
     columns={verbose ? verboseChannelColumns : channelColumns}
     {...props}
@@ -56,6 +56,6 @@ export interface SelectChannelProps
 export const SelectChanel = ({
   verbose = false,
   ...props
-}: SelectChannelProps): JSX.Element => (
+}: SelectChannelProps): ReactElement => (
   <Select columns={verbose ? verboseChannelColumns : channelColumns} {...props} />
 );

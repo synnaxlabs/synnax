@@ -33,7 +33,7 @@ export const useDocumentSize = (): number | null => {
   return width;
 };
 
-export const PageNav = ({ currentPage }: TOCProps): JSX.Element | null => {
+export const PageNav = ({ currentPage }: TOCProps): ReactElement | null => {
   const width = useDocumentSize();
   const { visible, toggle, ref } = Dropdown.use(false);
   const tree = <Tree data={pages} value={[currentPage]} />;

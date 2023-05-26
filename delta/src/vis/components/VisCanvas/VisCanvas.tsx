@@ -15,7 +15,7 @@ import { TelemetryProvider } from "@/vis/telem";
 
 import "./VisCanvas.css";
 
-export const VisCanvas = ({ children }: PropsWithChildren): JSX.Element => (
+export const VisCanvas = ({ children }: PropsWithChildren): ReactElement => (
   <GLCanvas className="delta-vis__canvas">
     <TelemetryProvider>{children}</TelemetryProvider>
   </GLCanvas>

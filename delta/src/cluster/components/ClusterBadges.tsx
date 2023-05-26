@@ -35,7 +35,7 @@ const statusVariants: Record<Connectivity, StatusVariant> = {
  */
 export const ConnectionStateBadge = ({
   state: { message, status },
-}: ConnectionStateBadgeProps): JSX.Element => (
+}: ConnectionStateBadgeProps): ReactElement => (
   <Status.Text variant={statusVariants[status]}>{message}</Status.Text>
 );
 
@@ -51,7 +51,7 @@ export interface ClusterBadgeProps {
  * @param props.key - The key of the cluster to display. If not provided, the active
  * cluster will be used.
  */
-export const ClusterBadge = ({ key }: ClusterBadgeProps): JSX.Element => {
+export const ClusterBadge = ({ key }: ClusterBadgeProps): ReactElement => {
   const cluster = useSelectCluster(key);
   return (
     <Text.WithIcon level="p" startIcon={<Icon.Cluster />}>
@@ -70,7 +70,7 @@ type ConnectionBadgeProps = ClusterBadgeProps;
  * @param props.key - The key of the cluster to display. If not provided, the active
  * cluster will be used.
  */
-export const ConnectionBadge = ({ key }: ConnectionBadgeProps): JSX.Element => {
+export const ConnectionBadge = ({ key }: ConnectionBadgeProps): ReactElement => {
   const cluster = useSelectCluster(key);
   return <ConnectionStateBadge state={cluster?.state ?? DEFAULT_CONNECTION_STATE} />;
 };

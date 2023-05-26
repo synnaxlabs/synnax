@@ -13,6 +13,6 @@ import { ToolbarTitle } from "@/components";
 
 export const VisIcon = HiChartBar;
 
-export const VisToolbarTitle = (): JSX.Element => (
+export const VisToolbarTitle = (): ReactElement => (
   <ToolbarTitle icon={<VisIcon />}>Visualization</ToolbarTitle>
 );

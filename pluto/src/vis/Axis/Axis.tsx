@@ -14,7 +14,7 @@ import { scaleLinear, scaleTime } from "d3";
 
 import { fRotate, fTranslate, locationRotations } from "../util/svg";
 
-import { CSS } from "@/css";
+import { CSS } from "@/core/css";
 
 import "./Axis.css";
 

@@ -54,13 +54,13 @@ const layoutRenderers = {
   docs: DocsLayoutRenderer,
 };
 
-export const DefaultContextMenu = (): JSX.Element => (
+export const DefaultContextMenu = (): ReactElement => (
   <PMenu>
     <Menu.Item.HardReload />
   </PMenu>
 );
 
-const MainUnderContext = (): JSX.Element => {
+const MainUnderContext = (): ReactElement => {
   const theme = useThemeProvider();
   const menuProps = PMenu.useContextMenu();
   useLoadTauriVersion();
@@ -79,7 +79,7 @@ const MainUnderContext = (): JSX.Element => {
   );
 };
 
-const Main = (): JSX.Element | null => {
+const Main = (): ReactElement | null => {
   return (
     <StrictMode>
       <Provider store={store} errorContent={(e) => <ErrorBoundary err={e} />}>
@@ -89,7 +89,7 @@ const Main = (): JSX.Element | null => {
   );
 };
 
-const ErrorBoundary = ({ err }: { err: Error }): JSX.Element => {
+const ErrorBoundary = ({ err }: { err: Error }): ReactElement => {
   const theme = useErrorThemeProvider();
   const handleClose = (): void => {
     void appWindow.close();

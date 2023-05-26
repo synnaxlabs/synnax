@@ -11,9 +11,9 @@ import { Tab, Tabs as PTabs } from "@synnaxlabs/pluto";
 
 export type TabsProps = {
   tabs: Tab[];
-} & Record<string, JSX.Element | any>;
+} & Record<string, ReactElement | any>;
 
-export const Tabs = ({ tabs, ...props }: TabsProps): JSX.Element => {
+export const Tabs = ({ tabs, ...props }: TabsProps): ReactElement => {
   tabs = tabs.map((tab) => ({ ...tab, icon: props[`${tab.tabKey}-icon`] }));
   const staticProps = PTabs.useStatic({ tabs });
 

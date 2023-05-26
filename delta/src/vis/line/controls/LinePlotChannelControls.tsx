@@ -28,7 +28,7 @@ export interface LinePlotChannelControlsProps {
 
 export const LinePlotChannelControls = ({
   layoutKey,
-}: LinePlotChannelControlsProps): JSX.Element | null => {
+}: LinePlotChannelControlsProps): ReactElement | null => {
   const ranges = Ranges.useSelectCore(layoutKey);
   const channels = Channels.useSelectCore(layoutKey);
   const dispatch = useDispatch();

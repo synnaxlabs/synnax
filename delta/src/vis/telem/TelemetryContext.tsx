@@ -35,7 +35,7 @@ export const useTelemetryClient = (): TelemetryClient | null =>
 
 export const TelemetryProvider = ({
   children,
-}: TelemetryProviderProps): JSX.Element => {
+}: TelemetryProviderProps): ReactElement => {
   const glCtx = useGLContext();
   const clusterClient = useClusterClient();
   const [client, setClient] = useState<TelemetryClient | null>(null);

@@ -34,7 +34,7 @@ export interface PackageManagerTabsProps {
   pnpm?: string;
 }
 
-export const PackageManagerTabs = (props: PackageManagerTabsProps): JSX.Element => {
+export const PackageManagerTabs = (props: PackageManagerTabsProps): ReactElement => {
   const tabs = TABS.filter(({ tabKey }) => tabKey in props).map(
     ({ tabKey, name, icon }) => ({
       tabKey,

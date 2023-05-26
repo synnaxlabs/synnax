@@ -23,7 +23,7 @@ export const Logo = ({
   color = "auto",
   className,
   ...props
-}: LogoProps): JSX.Element => {
+}: LogoProps): ReactElement => {
   const logo = variant === "icon" ? icon : title;
   return cloneElement(logo, {
     className: clsx(`synnax-logo--${color}`, className),

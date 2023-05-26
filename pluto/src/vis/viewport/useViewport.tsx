@@ -20,9 +20,9 @@ import {
   Compare,
 } from "@synnaxlabs/x";
 
-import { useMemoCompare } from "@/hooks";
-import { useStateRef } from "@/hooks/useStateRef";
-import { Stage, Trigger, TriggerDragCallback, Triggers } from "@/triggers";
+import { useMemoCompare } from "@/core/hooks";
+import { useStateRef } from "@/core/hooks/useStateRef";
+import { Stage, Trigger, TriggerDragCallback, Triggers } from "@/core/triggers";
 
 export interface UseViewportEvent {
   box: Box;

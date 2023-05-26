@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ReactElement } from "react";
+
 import { convertRenderV, RenderableRecord, XY } from "@synnaxlabs/x";
 
 import { Space, Typography } from "@/core";
-import { textWidth } from "@/core/Typography/textWidth";
-import { CSS } from "@/css";
-import { useFont } from "@/theming";
+import { textWidth } from "@/core/std/Typography/textWidth";
+import { CSS } from "@/core/css";
+import { useFont } from "@/core/theming";
 
 export interface AnnotationProps {
   position: XY;

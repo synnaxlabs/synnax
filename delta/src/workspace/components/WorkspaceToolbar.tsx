@@ -22,7 +22,7 @@ import { NavDrawerItem, setNavdrawerVisible, useLayoutPlacer } from "@/layout";
 import { VisToolbar } from "@/vis";
 import { createLineVis } from "@/vis/line";
 
-const Content = (): JSX.Element => {
+const Content = (): ReactElement => {
   const newLayout = useLayoutPlacer();
   const dispatch = useDispatch();
   const ranges = useSelectRanges();

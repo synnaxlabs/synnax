@@ -22,7 +22,7 @@ export const TableOfContents = ({
   headings = [],
 }: {
   headings?: MarkdownHeading[];
-}): JSX.Element => {
+}): ReactElement => {
   const toc = useRef<HTMLDivElement | null>();
   const onThisPageID = "on-this-page-heading";
   const itemOffsets = useRef<ItemOffset[]>([]);

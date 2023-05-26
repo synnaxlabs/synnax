@@ -21,7 +21,7 @@ import { useLayoutPlacer, NavDrawerItem } from "@/layout";
 
 import "./ClusterToolbar.css";
 
-const Content = (): JSX.Element => {
+const Content = (): ReactElement => {
   const dispatch = useDispatch();
   const data = Object.values(useSelectClusters());
   const active = useSelectCluster();
@@ -60,7 +60,7 @@ const ListItem = ({
   selected,
   onSelect,
   ...props
-}: ListItemProps<RenderableCluster>): JSX.Element => (
+}: ListItemProps<RenderableCluster>): ReactElement => (
   <Space
     direction="x"
     align="center"

@@ -51,7 +51,7 @@ type DefineRangeFormProps = z.infer<typeof formSchema>;
 export const DefineRange = ({
   layoutKey,
   onClose,
-}: LayoutRendererProps): JSX.Element => {
+}: LayoutRendererProps): ReactElement => {
   const now = TimeStamp.now().valueOf();
   const range = useSelectRange(layoutKey);
   let defaultValues;
@@ -167,7 +167,7 @@ const TimeModifierRow = ({
   op,
   value,
   onChange,
-}: TimeModifierRowProps): JSX.Element => {
+}: TimeModifierRowProps): ReactElement => {
   const onClickFactory =
     (span?: TimeSpan): ButtonProps["onChange"] =>
     (e) => {
