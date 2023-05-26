@@ -11,8 +11,7 @@ import { forwardRef, ReactElement } from "react";
 
 import clsx from "clsx";
 
-import { BaseButtonProps } from "./Button";
-
+import type { BaseButtonProps } from "@/core/Button/Button";
 import { CSS } from "@/css";
 
 /** The props for the {@link ButtonIcon} */

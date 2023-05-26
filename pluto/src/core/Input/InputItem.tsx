@@ -17,11 +17,10 @@ import {
   FieldPath,
 } from "react-hook-form";
 
-import { Input } from "./Input";
-import { InputHelpText } from "./InputHelpText";
-import { InputLabel } from "./InputLabel";
-import { InputBaseProps, InputControl, InputValue } from "./types";
-
+import { Input } from "@/core/Input/Input";
+import { InputHelpText } from "@/core/Input/InputHelpText";
+import { InputLabel } from "@/core/Input/InputLabel";
+import { InputBaseProps, InputControl, InputValue } from "@/core/Input/types";
 import { Pack } from "@/core/Pack";
 import { Space, SpaceAlignment, SpaceExtensionProps } from "@/core/Space";
 import { CSS } from "@/css";
@@ -43,9 +42,9 @@ interface InputItemExtensionProps<
   showLabel?: boolean;
   helpText?: string;
   children?:
-  | RenderProp<P>
-  | RenderComponent<P>
-  | Array<RenderProp<P> | RenderComponent<P>>;
+    | RenderProp<P>
+    | RenderComponent<P>
+    | Array<RenderProp<P> | RenderComponent<P>>;
   className?: string;
   style?: React.CSSProperties;
 }

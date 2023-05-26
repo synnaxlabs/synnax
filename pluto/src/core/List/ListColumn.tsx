@@ -12,19 +12,16 @@ import { CSSProperties, useEffect, useState } from "react";
 import { Icon } from "@synnaxlabs/media";
 import { Compare, convertRenderV, KeyedRenderableRecord } from "@synnaxlabs/x";
 
-import { CONTEXT_SELECTED, CONTEXT_TARGET } from "../Menu/ContextMenu";
-
-import { useListContext } from "./ListContext";
-import { ListItemProps, ListColumn as ListColumnT } from "./types";
-
+import "@/core/List/ListColumn.css";
+import { useListContext } from "@/core/List/ListContext";
+import { ListItemProps, ListColumn as ListColumnT } from "@/core/List/types";
+import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/core/Menu/ContextMenu";
 import { Space } from "@/core/Space";
 import { Text } from "@/core/Typography";
 import { textWidth } from "@/core/Typography/textWidth";
 import { CSS } from "@/css";
 import { useFont } from "@/theming";
 import { ArrayTransform } from "@/util/transform";
-
-import "./ListColumn.css";
 
 type SortState<E extends KeyedRenderableRecord<E>> = [keyof E | null, boolean];
 

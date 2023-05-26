@@ -11,12 +11,10 @@ import { CSSProperties, ForwardedRef, forwardRef } from "react";
 
 import { Direction } from "@synnaxlabs/x";
 
-import { Generic, GenericProps } from "../Generic";
-
+import { Generic, GenericProps } from "@/core/Generic";
+import "@/core/Space/Space.css";
 import { CSS } from "@/css";
 import { ComponentSize } from "@/util/component";
-
-import "./Space.css";
 
 /** The alignments for the cross axis of a space */
 export type SpaceAlignment = "start" | "center" | "end" | "stretch";

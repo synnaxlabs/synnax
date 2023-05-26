@@ -11,9 +11,12 @@ import { forwardRef } from "react";
 
 import { Pack } from "../Pack";
 
-import { Input } from "./Input";
-import { InputDragButton, InputDragButtonExtensionProps } from "./InputDragButton";
-import { InputBaseProps } from "./types";
+import { Input } from "@/core/Input/Input";
+import {
+  InputDragButton,
+  InputDragButtonExtensionProps,
+} from "@/core/Input/InputDragButton";
+import { InputBaseProps } from "@/core/Input/types";
 
 export interface InputNumberProps
   extends Omit<InputBaseProps<number>, "type">,

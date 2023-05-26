@@ -9,15 +9,13 @@
 
 import { Icon } from "@synnaxlabs/media";
 
-import { OSControlsProps } from "./types";
-
 import { Button, ButtonIconProps, Pack } from "@/core";
 import { CSS } from "@/css";
-
-import "./WindowsControls.css";
+import { OSControlsProps } from "@/os/Controls/types";
+import "@/os/Controls/WindowsControls.css";
 
 export const WindowsControls = ({
-  disabled = [], 
+  disabled = [],
   onMinimize,
   onMaximize,
   onClose,
@@ -26,16 +24,10 @@ export const WindowsControls = ({
   ...props
 }: OSControlsProps): JSX.Element => (
   <Pack {...props}>
-    <WindowsControlButton 
-      onClick={onMinimize}
-      disabled={disabled.includes("minimize")}
-    >
+    <WindowsControlButton onClick={onMinimize} disabled={disabled.includes("minimize")}>
       <Icon.Subtract />
     </WindowsControlButton>
-    <WindowsControlButton 
-      onClick={onMaximize}
-      disabled={disabled.includes("maximize")}
-    >
+    <WindowsControlButton onClick={onMaximize} disabled={disabled.includes("maximize")}>
       <Icon.Box />
     </WindowsControlButton>
     <WindowsControlButton
@@ -52,11 +44,15 @@ interface WindowsControlButtonProps extends ButtonIconProps {
   disabled?: boolean;
 }
 
-const WindowsControlButton = ({ disabled, className, ...props }: WindowsControlButtonProps): JSX.Element | null => (
+const WindowsControlButton = ({
+  disabled,
+  className,
+  ...props
+}: WindowsControlButtonProps): JSX.Element | null =>
   !disabled ? (
-    <Button.Icon 
+    <Button.Icon
       className={CSS(CSS.B("windows-control"), className)}
-      tabIndex={-1} {...props} 
+      tabIndex={-1}
+      {...props}
     />
-  ): null
-);
+  ) : null;

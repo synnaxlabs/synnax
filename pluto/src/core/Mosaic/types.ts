@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Tab } from "@/core/Tabs";
 import { Direction } from "@synnaxlabs/x";
+
+import { Tab } from "@/core/Tabs";
 
 /**
  * Represents the data for a node in the Mosaic binary tree. Nodes can be either leaf

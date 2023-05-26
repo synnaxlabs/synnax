@@ -11,9 +11,8 @@ import { ReactElement } from "react";
 
 import { Icon } from "@synnaxlabs/media";
 
-import { StatusVariant } from "./types";
-
 import { Space } from "@/core/Space";
+import { StatusVariant } from "@/core/Status/types";
 import { Text, TextProps, TypographyLevel } from "@/core/Typography";
 
 export interface StatusTextProps extends Omit<TextProps, "level" | "wrap"> {
@@ -54,7 +53,7 @@ const CoreStatusText = ({
   />
 );
 
-export interface StatusTextCenteredProps extends StatusTextProps { }
+export interface StatusTextCenteredProps extends StatusTextProps {}
 
 const StatusTextCentered = (props: StatusTextCenteredProps): JSX.Element => (
   <Space.Centered>

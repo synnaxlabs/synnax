@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TextLinkProps } from "../Typography";
-
-import { Button, ButtonProps } from "./Button";
+import { Button, ButtonProps } from "@/core/Button";
+import { TextLinkProps } from "@/core/Typography";
 
 /** Props for the {@link ButtonLink} component. */
 export interface ButtonLinkProps

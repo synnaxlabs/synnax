@@ -1,10 +1,13 @@
-import { GLContext } from "./gl/renderer";
+import { GLRenderContext } from "./gl/renderer";
 
 import { Client } from "@/telem/client";
 import { Theme } from "@/theming";
 
-export interface VisContext {
+export interface VisBuilderContext {
   theme: Theme;
   client: Client;
-  gl: GLContext;
+}
+
+export interface VisRenderContext {
+  gl: GLRenderContext;
 }

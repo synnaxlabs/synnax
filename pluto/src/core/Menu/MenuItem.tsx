@@ -9,13 +9,10 @@
 
 import { FunctionComponent } from "react";
 
-import { Button, ButtonIconProps, ButtonProps } from "../Button";
-
-import { useMenuContext } from "./Menu";
-
+import { Button, ButtonIconProps, ButtonProps } from "@/core/Button";
+import { useMenuContext } from "@/core/Menu/Menu";
+import "@/core/Menu/MenuItem.css";
 import { CSS } from "@/css";
-
-import "./MenuItem.css";
 
 const menuItemFactory =
   <E extends Pick<ButtonProps, "className" | "onClick">>(

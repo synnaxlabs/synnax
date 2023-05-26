@@ -10,17 +10,16 @@
 import { ChannelKey } from "@synnaxlabs/client";
 import { Box, Deep } from "@synnaxlabs/x";
 
-import { VisContext } from "../context";
-import { LineRenderRequest } from "../gl/line";
-
 import { hexToRGBA } from "@/color";
 import { Theme } from "@/theming";
 import { AxisKey, X_AXIS_KEYS, Y_AXIS_KEYS } from "@/vis/Axis";
+import { VisRenderContext } from "@/vis/context";
 import { GLLine } from "@/vis/gl";
-import { Axes } from "@/vis/line/axes";
-import { Scales } from "@/vis/line/scales";
-import { Telem } from "@/vis/line/telem";
-import { Viewport } from "@/vis/line/viewport";
+import { LineRenderRequest } from "@/vis/gl/line";
+import { Axes } from "@/vis/line/core/axes";
+import { Scales } from "@/vis/line/core/scales";
+import { Telem } from "@/vis/line/core/telem";
+import { Viewport } from "@/vis/line/core/viewport";
 
 export interface LineState {
   axis: AxisKey;
@@ -98,13 +97,13 @@ export class Lines {
     );
   }
 
-  render(ctx: VisContext): void {
+  render(ctx: VisRenderContext): void {
     const base = ctx.gl.registry.get<LineRenderRequest>("line");
     const scissor = ctx.gl.scissor(base);
     scissor.render(ctx.gl, { box: this.box, lines: this.lines });
   }
 
-  cleanup(ctx: VisContext): void {
+  cleanup(ctx: VisRenderContext): void {
     const scissor = ctx.gl.scissor(ctx.gl.registry.get<LineRenderRequest>("line"));
     scissor.clear(ctx.gl, this.box);
   }

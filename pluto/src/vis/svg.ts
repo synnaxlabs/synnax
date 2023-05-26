@@ -1,4 +1,4 @@
-// copyright 2023 synnax labs, inc.
+// Copyright 2023 synnax labs, inc.
 //
 // use of this software is governed by the business source license included in the file
 // licenses/bsl.txt.

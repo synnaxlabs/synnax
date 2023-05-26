@@ -9,10 +9,7 @@
 
 import type { Meta, StoryFn } from "@storybook/react";
 
-import { MosaicNode } from "./types";
-import { useMosaic } from "./useMosaic";
-
-import { Mosaic } from ".";
+import { Mosaic, MosaicNode } from "@/core/Mosaic/";
 
 const story: Meta<typeof Mosaic> = {
   title: "Core/Mosaic",
@@ -50,7 +47,7 @@ const initialTree: MosaicNode = {
 };
 
 export const Primary: StoryFn<typeof Mosaic> = () => {
-  const props = useMosaic({ initialTree, allowRename: true });
+  const props = Mosaic.use({ initialTree, allowRename: true });
   return <Mosaic {...props} />;
 };
 

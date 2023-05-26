@@ -9,7 +9,7 @@
 
 import type { Meta, StoryFn } from "@storybook/react";
 
-import { Video, VideoProps } from ".";
+import { Video, VideoProps } from "@/core/Video";
 
 const story: Meta<typeof Video> = {
   title: "Core/Video",

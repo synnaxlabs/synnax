@@ -9,11 +9,10 @@
 
 import { OS } from "@synnaxlabs/x";
 
-import { MacOSControls } from "./MacOSControls";
-import { OSControlsProps } from "./types";
-import { WindowsControls } from "./WindowsControls";
-
 import { useOS } from "@/hooks";
+import { MacOSControls } from "@/os/Controls/MacOSControls";
+import { OSControlsProps } from "@/os/Controls/types";
+import { WindowsControls } from "@/os/Controls/WindowsControls";
 
 const OSControls: Record<OS, React.FC<OSControlsProps>> = {
   MacOS: MacOSControls,

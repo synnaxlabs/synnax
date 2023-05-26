@@ -7,9 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export { GLCanvas, useGLContext } from "./GLCanvas";
-export type { GLCanvasProps } from "./GLCanvas";
-export { GLLines } from "./line";
-export type { GLLinesProps, GLLine } from "./line";
-export { GLDemandCache } from "./cache";
-export type { GLDemandCacheEntry } from "./cache";
+export { GLLines } from "@/vis/gl/line";
+export type { GLLinesProps, GLLine } from "@/vis/gl/line";

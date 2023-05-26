@@ -9,9 +9,8 @@
 
 import { ForwardedRef, forwardRef } from "react";
 
-import { TypographyLevel } from "./types";
-
 import { Generic, GenericProps } from "@/core/Generic";
+import { TypographyLevel } from "@/core/Typography/types";
 import { CSS } from "@/css";
 
 export interface CoreTextProps<L extends TypographyLevel = "h1"> {

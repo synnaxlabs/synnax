@@ -11,7 +11,7 @@ import { render, fireEvent } from "@testing-library/react";
 import { AiFillCloseCircle } from "react-icons/ai";
 import { describe, expect, it, vitest } from "vitest";
 
-import { Text } from ".";
+import { Text } from "@/core/Typography";
 
 describe("Text", () => {
   describe("Basic", () => {

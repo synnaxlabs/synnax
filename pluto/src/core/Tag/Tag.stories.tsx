@@ -9,7 +9,7 @@
 
 import type { Meta, StoryFn } from "@storybook/react";
 
-import { Tag } from ".";
+import { Tag } from "@/core/Tag";
 
 const story: Meta<typeof Tag> = {
   title: "Core/Tag",

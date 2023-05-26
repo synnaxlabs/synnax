@@ -7,20 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Status, StatusTextProps } from "@/core/Status";
 import { useEffect, useState } from "react";
-import { Trigger } from "./triggers";
-import { useTriggerContext } from "./TriggersContext";
 
-export interface TriggerStatusProps extends StatusTextProps { }
+import { Status, StatusTextProps } from "@/core/Status";
+import { Trigger } from "@/triggers/triggers";
+import { useTriggerContext } from "@/triggers/TriggersContext";
+
+export interface TriggerStatusProps extends StatusTextProps {}
 
 export const TriggerStatus = (props: TriggerStatusProps): JSX.Element => {
   const { listen } = useTriggerContext();
   const [trigger, setTrigger] = useState<Trigger>([]);
 
-  useEffect(() => listen(({ next: [trigger] }) => {
-    setTrigger(trigger ?? [])
-  }), [listen, setTrigger])
+  useEffect(
+    () =>
+      listen(({ next: [trigger] }) => {
+        setTrigger(trigger ?? []);
+      }),
+    [listen, setTrigger]
+  );
 
-  return <Status.Text hideIcon {...props}>{trigger.join(" ")}</Status.Text>;
-}
+  return (
+    <Status.Text hideIcon {...props}>
+      {trigger.join(" ")}
+    </Status.Text>
+  );
+};

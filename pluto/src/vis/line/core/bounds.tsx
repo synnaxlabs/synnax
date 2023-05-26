@@ -11,7 +11,7 @@ import { addSamples, Bound, Deep, SampleValue, ZERO_BOUND } from "@synnaxlabs/x"
 
 import { VisArray } from "@/telem/visArray";
 import { AxisKey, Y_AXIS_KEYS, YAxisKey } from "@/vis/Axis";
-import { Telem } from "@/vis/line/telem";
+import { Telem } from "@/vis/line/core/telem";
 
 export interface InternalState {
   normal: Partial<Record<AxisKey, Bound>>;
@@ -88,7 +88,7 @@ export class Bounds {
     telem.forEachAxis((key, data) => {
       if (data.length === 0) return;
       const flat = data.flatMap((d) => d.data);
-      const addPadding = Y_AXIS_KEYS.includes(key as YAxisKey) as boolean;
+      const addPadding = Y_AXIS_KEYS.includes(key as YAxisKey);
       const coreBound = this.state[key];
       if (!coreBound.driven) {
         this.internal.normal[key] = buildBound(flat, addPadding ? padding : 0, false);

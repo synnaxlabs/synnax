@@ -11,9 +11,8 @@ import { PropsWithChildren, useMemo, useState } from "react";
 
 import { KeyedRenderableRecord } from "@synnaxlabs/x";
 
-import { ListContextProvider } from "./ListContext";
-import { ListColumn } from "./types";
-
+import { ListContextProvider } from "@/core/List/ListContext";
+import { ListColumn } from "@/core/List/types";
 import { useTransforms } from "@/hooks";
 
 export interface ListProps<E extends KeyedRenderableRecord<E>>

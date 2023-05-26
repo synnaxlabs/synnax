@@ -12,12 +12,11 @@ import { ReactElement, RefObject } from "react";
 import { Icon } from "@synnaxlabs/media";
 import { Box, Direction } from "@synnaxlabs/x";
 
+import "@/core/Accordion/Accordion.css";
 import { ButtonIconProps } from "@/core/Button";
 import { Header } from "@/core/Header";
 import { Resize, ResizeMultipleProps } from "@/core/Resize";
 import { CSS } from "@/css";
-
-import "./Accordion.css";
 
 /** The props for a single entry in the {@link Accordion} component. */
 export interface AccordionEntry {

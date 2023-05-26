@@ -11,12 +11,11 @@ import { forwardRef, RefObject, useCallback, useRef, useState } from "react";
 
 import { YLocation } from "@synnaxlabs/x";
 
+import "@/core/Dropdown/Dropdown.css";
 import { Pack, PackProps } from "@/core/Pack";
 import { Space } from "@/core/Space";
 import { CSS } from "@/css";
 import { useClickOutside } from "@/hooks";
-
-import "./Dropdown.css";
 
 /** Return type for the {@link useDropdown} hook. */
 export interface UseDropdownReturn {
