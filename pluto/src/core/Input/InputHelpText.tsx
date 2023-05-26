@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ReactElement } from "react";
+
 import "@/core/Input/InputHelpText.css";
 import { StatusVariant } from "@/core/Status";
 import { Text, TextProps } from "@/core/Typography";
@@ -20,7 +22,7 @@ export const InputHelpText = ({
   className,
   variant = "error",
   ...props
-}: InputHelpTextProps): JSX.Element => (
+}: InputHelpTextProps): ReactElement => (
   <Text<"small">
     className={CSS(
       CSS.B("input-help-text"),

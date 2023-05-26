@@ -29,7 +29,7 @@ export interface MosaicProps
   onCreate?: (key: number) => void;
 }
 
-export const Mosaic = memo((props: MosaicProps): JSX.Element | null => {
+export const Mosaic = memo((props: MosaicProps): ReactElement | null => {
   const { onResize, ...tabsProps } = props;
   const {
     root: { tabs, direction, first, last, key, size },
@@ -49,7 +49,7 @@ export const Mosaic = memo((props: MosaicProps): JSX.Element | null => {
     initialSizes: size != null ? [size] : undefined,
   });
 
-  let content: JSX.Element | null;
+  let content: ReactElement | null;
   if (tabs !== undefined)
     content = <MosaicTabLeaf emptyContent={emptyContent} {...tabsProps} />;
   else if (first != null && last != null)
@@ -83,7 +83,7 @@ const validDrop = (tabs: Tab[], dragging: Hauled[]): boolean => {
 };
 
 const MosaicTabLeaf = memo(
-  ({ root: node, onDrop, onCreate, ...props }: MosaicTabLeafProps): JSX.Element => {
+  ({ root: node, onDrop, onCreate, ...props }: MosaicTabLeafProps): ReactElement => {
     const { key, tabs } = node as Omit<MosaicNode, "tabs"> & { tabs: Tab[] };
 
     const [dragMask, setDragMask] = useState<Location | null>(null);

@@ -142,7 +142,7 @@ const ContextMenuCore = (
     ...props
   }: ContextMenuProps,
   ref: ForwardedRef<HTMLDivElement>
-): JSX.Element => {
+): ReactElement => {
   return (
     <div
       className={CSS(CONTEXT_MENU_CONTAINER, className)}

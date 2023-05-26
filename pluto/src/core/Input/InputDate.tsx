@@ -16,8 +16,8 @@ import {
   InputDragButton,
   InputDragButtonExtensionProps,
 } from "@/core/Input/InputDragButton";
+import { InputBaseProps } from "@/core/Input/types";
 import { Pack } from "@/core/Pack";
-import { InputBaseProps } from "@/core/types";
 import { CSS } from "@/css";
 
 import "./InputDate.css";

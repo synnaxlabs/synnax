@@ -12,7 +12,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Tab, Tabs, TabsProps } from ".";
 
-const StaticTabs = ({ tabs, ...tProps }: TabsProps): JSX.Element => {
+const StaticTabs = ({ tabs, ...tProps }: TabsProps): ReactElement => {
   const props = Tabs.useStatic({ tabs });
   return <Tabs {...tProps} {...props} />;
 };

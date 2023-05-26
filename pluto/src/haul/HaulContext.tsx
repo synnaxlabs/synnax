@@ -44,7 +44,7 @@ interface HaulState {
 
 const ZERO_HAUL_STATE = { dragging: [] };
 
-export const HaulProvider = ({ children }: HaulProviderProps): JSX.Element => {
+export const HaulProvider = ({ children }: HaulProviderProps): ReactElement => {
   const ctx = useOptionalHaulContext();
   const [state, setState] = useState<HaulState>(Deep.copy(ZERO_HAUL_STATE));
 

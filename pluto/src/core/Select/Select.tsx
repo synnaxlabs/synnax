@@ -34,7 +34,7 @@ export const Select = <E extends KeyedRenderableRecord<E>>({
   emptyContent,
   inputProps,
   ...props
-}: SelectProps<E>): JSX.Element => {
+}: SelectProps<E>): ReactElement => {
   const { ref, visible, open, close } = Dropdown.use();
 
   const handleChange = ([key]: readonly string[]): void => {
@@ -87,7 +87,7 @@ const SelectInput = <E extends KeyedRenderableRecord<E>>({
   onFocus,
   debounceSearch = 250,
   ...props
-}: SelectInputProps<E>): JSX.Element => {
+}: SelectInputProps<E>): ReactElement => {
   // We maintain our own value state for two reasons:
   //
   //  1. So we can avoid executing a search when the user selects an item and hides the

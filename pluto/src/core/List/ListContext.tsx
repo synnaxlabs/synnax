@@ -29,7 +29,7 @@ export interface ListContextProps<
     setOnSelect: (cbk: (key: string) => void) => void;
     setClear: (cbk: () => void) => void;
   };
-  emptyContent?: JSX.Element;
+  emptyContent?: ReactElement;
 }
 
 export const ListContext = createContext<ListContextProps>({
@@ -64,7 +64,7 @@ export interface ListContextProviderProps<E extends KeyedRenderableRecord<E>>
 export const ListContextProvider = <E extends KeyedRenderableRecord<E>>({
   value,
   children,
-}: ListContextProviderProps<E>): JSX.Element => {
+}: ListContextProviderProps<E>): ReactElement => {
   return (
     <ListContext.Provider value={value as unknown as ListContextProps}>
       {children}

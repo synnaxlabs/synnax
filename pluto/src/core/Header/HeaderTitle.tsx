@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ReactElement } from "react";
+
 import { Optional } from "@synnaxlabs/x";
-import clsx from "clsx";
 
 import { useHeaderContext } from "@/core/Header/Header";
 import "@/core/Header/Header.css";
 import { TextWithIconProps, Text } from "@/core/Typography";
+import { CSS } from "@/css";
 
 export interface HeaderTitleProps
   extends Optional<Omit<TextWithIconProps, "divided">, "level"> {}
@@ -21,11 +23,11 @@ export const HeaderTitle = ({
   className,
   level: propsLevel,
   ...props
-}: HeaderTitleProps): JSX.Element => {
+}: HeaderTitleProps): ReactElement => {
   const { level, divided } = useHeaderContext();
   return (
     <Text.WithIcon
-      className={clsx("pluto-header__text", className)}
+      className={CSS(CSS.BE("header", "text"), className)}
       level={propsLevel ?? level}
       divided={divided}
       {...props}

@@ -23,7 +23,7 @@ export const ButtonIcon = forwardRef<HTMLButtonElement, ButtonIconProps>(
   (
     { children, className, variant = "text", size = "medium", sharp = false, ...props },
     ref
-  ): JSX.Element => (
+  ): ReactElement => (
     <button
       ref={ref}
       className={clsx(

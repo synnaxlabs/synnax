@@ -33,7 +33,7 @@ export const ResizeCore = ({
   sizeUnits = "px",
   showHandle = true,
   ...props
-}: ResizeCoreProps): JSX.Element => {
+}: ResizeCoreProps): ReactElement => {
   const dir = locToDir(location);
   return (
     <div

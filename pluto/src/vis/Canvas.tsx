@@ -44,7 +44,7 @@ export const useCanvas = (): VisCanvasContextValue => {
   return ctx;
 };
 
-export const Canvas = ({ children, ...props }: CanvasProps): JSX.Element | null => {
+export const Canvas = ({ children, ...props }: CanvasProps): ReactElement | null => {
   const [worker, setWorker] = useState<Worker | null>(null);
   const theme = Theming.useContext();
 

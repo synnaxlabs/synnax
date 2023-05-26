@@ -41,7 +41,7 @@ export const Resize = ({
   collapseThreshold = Infinity,
   className,
   ...props
-}: ResizeProps): JSX.Element => {
+}: ResizeProps): ReactElement => {
   const [size, setSize] = useState(clamp(initialSize, minSize, maxSize));
   const marker = useRef<number | null>(null);
 

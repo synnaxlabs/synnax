@@ -21,7 +21,7 @@ const story: Meta<typeof Viewport.Mask> = {
   component: Viewport.Mask,
 };
 
-const Basic_ = (): JSX.Element => {
+const Basic_ = (): ReactElement => {
   const [box, setBox] = useState<Box>(DECIMAL_BOX);
   const props = Viewport.use({
     onChange: ({ box: newBox }) => setBox(newBox),
@@ -44,7 +44,7 @@ const Basic_ = (): JSX.Element => {
   );
 };
 
-export const Basic = (): JSX.Element => {
+export const Basic = (): ReactElement => {
   return (
     <Triggers.Provider>
       <Basic_ />
@@ -55,7 +55,7 @@ export const Basic = (): JSX.Element => {
 // eslint-disable-next-line import/no-default-export
 export default story;
 
-const ZoomMiniMap = ({ box }: { box: Box }): JSX.Element => {
+const ZoomMiniMap = ({ box }: { box: Box }): ReactElement => {
   const scaled = BoxScale.scale(DECIMAL_BOX)
     .scale(new Box(0, 0, 400, 400))
     .box(box)

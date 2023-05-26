@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ForwardedRef, forwardRef } from "react";
+import { ForwardedRef, forwardRef, ReactElement } from "react";
 
 import { Generic, GenericProps } from "@/core/Generic";
 import { TypographyLevel } from "@/core/Typography/types";
@@ -38,7 +38,7 @@ const CoreText = <L extends TypographyLevel = "h1">(
     ...props
   }: TextProps<L>,
   ref: ForwardedRef<JSX.IntrinsicElements[L]>
-): JSX.Element => (
+): ReactElement => (
   // @ts-expect-error
   <Generic<L>
     el={level}
@@ -53,4 +53,4 @@ const CoreText = <L extends TypographyLevel = "h1">(
 
 export const Text = forwardRef(CoreText) as <L extends TypographyLevel = "h1">(
   props: TextProps<L> & { ref?: ForwardedRef<JSX.IntrinsicElements[L]> }
-) => JSX.Element;
+) => ReactElement;

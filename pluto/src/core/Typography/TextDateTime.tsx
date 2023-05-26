@@ -39,7 +39,7 @@ export const CoreTextDateTime = <L extends TypographyLevel = "h1">(
     ...props
   }: TextDateTimeProps<L>,
   ref: ForwardedRef<JSX.IntrinsicElements[L]>
-): JSX.Element => (
+): ReactElement => (
   // @ts-expect-error
   <Text<L> ref={ref} {...props}>
     {new TimeStamp(children, suppliedTZ).fString(format, displayTZ)}
@@ -51,4 +51,4 @@ export const TextDateTime = forwardRef(CoreTextDateTime) as <
   L extends TypographyLevel = "h1"
 >(
   props: TextDateTimeProps<L> & { ref?: React.Ref<L> }
-) => JSX.Element;
+) => ReactElement;

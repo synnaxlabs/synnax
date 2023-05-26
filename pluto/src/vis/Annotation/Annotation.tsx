@@ -24,7 +24,7 @@ export const Annotation = ({
   values,
   position,
   stroke = "var(--pluto-gray-m2)",
-}: AnnotationProps): JSX.Element => {
+}: AnnotationProps): ReactElement => {
   return (
     <foreignObject
       x={position.x}

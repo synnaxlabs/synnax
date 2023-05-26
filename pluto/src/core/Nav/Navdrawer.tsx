@@ -58,7 +58,7 @@ export const Navdrawer = ({
   collapseThreshold = 0.65,
   className,
   ...props
-}: NavDrawerProps): JSX.Element | null => {
+}: NavDrawerProps): ReactElement | null => {
   if (activeItem == null) return null;
   const dir = locToDir(location);
   const { key, content, ...rest } = activeItem;

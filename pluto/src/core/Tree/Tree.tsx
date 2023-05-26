@@ -59,7 +59,7 @@ export const Tree = <E extends KeyedRenderableRecord<E> = KeyedRenderableRecord>
   onExpand,
   size,
   ...props
-}: TreeProps<E>): JSX.Element => {
+}: TreeProps<E>): ReactElement => {
   const [tree, setTree] = useState<TreeLeaf<E>>({
     key: "root",
     name: "Root",
@@ -153,7 +153,7 @@ export const TreeLeafListItemC = <E extends KeyedRenderableRecord<E>>({
   onSelect,
   selected,
   ...props
-}: ListItemProps<TreeLeafListItem<E>>): JSX.Element => {
+}: ListItemProps<TreeLeafListItem<E>>): ReactElement => {
   const icons: ReactElement[] = [];
   if (hasChildren) icons.push(expanded ? <Icon.Caret.Down /> : <Icon.Caret.Right />);
   if (icon != null) icons.push(icon);

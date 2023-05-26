@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useHeaderContext } from "./Header";
+import { ReactElement } from "react";
 
 import { Button, ButtonProps } from "@/core/Button";
+import { useHeaderContext } from "@/core/Header/Header";
 import { Typography } from "@/core/Typography";
 import { CSS } from "@/css";
 
@@ -20,7 +21,7 @@ export const HeaderButtonTitle = ({
   className,
   onClick,
   ...props
-}: HeaderButtonTitleProps): JSX.Element => {
+}: HeaderButtonTitleProps): ReactElement => {
   const { level } = useHeaderContext();
   return (
     <Button

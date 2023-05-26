@@ -16,7 +16,7 @@ import { ComponentSize } from "@/util/component";
 import { RenderProp } from "@/util/renderProp";
 
 export interface Tab extends TabMeta {
-  content?: JSX.Element;
+  content?: ReactElement;
 }
 
 export type TabRenderProp = RenderProp<Tab>;
@@ -105,7 +105,7 @@ export const Tabs = ({
   onDrop,
   size = "medium",
   ...props
-}: TabsProps): JSX.Element => (
+}: TabsProps): ReactElement => (
   <Space
     empty
     className={CSS(CSS.B("tabs"), className)}
@@ -135,9 +135,9 @@ export const Tabs = ({
   </Space>
 );
 
-export const TabsContent = (): JSX.Element | null => {
+export const TabsContent = (): ReactElement | null => {
   const { tabs, selected, content: renderProp, emptyContent } = useTabsContext();
-  let content: JSX.Element | string | null = null;
+  let content: ReactElement | string | null = null;
   const selectedTab = tabs.find((tab) => tab.tabKey === selected);
   if (selectedTab != null) {
     if (renderProp != null) content = renderProp(selectedTab);

@@ -32,7 +32,7 @@ export const Tag = ({
   onClose,
   style,
   ...props
-}: TagProps): JSX.Element => {
+}: TagProps): ReactElement => {
   const closeIcon =
     onClose == null ? undefined : (
       <Button.Icon

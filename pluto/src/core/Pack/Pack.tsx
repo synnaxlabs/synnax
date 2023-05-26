@@ -36,7 +36,7 @@ const CorePack = <E extends SpaceElementType = "div">(
   }: PackProps<E>,
   // select the correct type for the ref
   ref: ForwardedRef<JSX.IntrinsicElements[E]>
-): JSX.Element => (
+): ReactElement => (
   // @ts-expect-error
   <Space<E>
     ref={ref}
@@ -75,4 +75,4 @@ const CorePack = <E extends SpaceElementType = "div">(
  */
 export const Pack = forwardRef(CorePack) as <E extends SpaceElementType = "div">(
   props: PackProps<E>
-) => JSX.Element;
+) => ReactElement;

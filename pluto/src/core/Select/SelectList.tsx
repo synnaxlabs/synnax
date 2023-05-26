@@ -21,7 +21,7 @@ export const SelectList = <E extends KeyedRenderableRecord<E>>({
   onChange,
   allowMultiple,
   ...props
-}: SelectListProps<E>): JSX.Element => (
+}: SelectListProps<E>): ReactElement => (
   <>
     <List.Selector value={value} onChange={onChange} allowMultiple={allowMultiple} />
     <List.Column.Header {...props} />

@@ -21,12 +21,12 @@ const story: Meta<typeof Input> = {
   component: Input,
 };
 
-export const Basic = (): JSX.Element => {
+export const Basic = (): ReactElement => {
   const [value, setValue] = useState("");
   return <Input value={value} onChange={setValue} />;
 };
 
-export const Time = (): JSX.Element => {
+export const Time = (): ReactElement => {
   const [value, setValue] = useState(TimeStamp.now().valueOf());
   return (
     <>
@@ -39,7 +39,7 @@ export const Time = (): JSX.Element => {
   );
 };
 
-export const Date = (): JSX.Element => {
+export const Date = (): ReactElement => {
   const [value, setValue] = useState(TimeStamp.now().valueOf());
   return (
     <>
@@ -52,7 +52,7 @@ export const Date = (): JSX.Element => {
   );
 };
 
-export const Number = (): JSX.Element => {
+export const Number = (): ReactElement => {
   const [value, setValue] = useState<number>(0);
   return <Input.Number value={value} onChange={setValue} />;
 };

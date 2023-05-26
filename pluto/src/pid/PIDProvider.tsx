@@ -7,7 +7,7 @@ export interface PIDContextProviderProps extends PropsWithChildren<{}> {
   renderers: Record<string, RenderSet<unknown>>;
 }
 
-export const PIDProvider = ({ children }: PIDContextProviderProps): JSX.Element => {
+export const PIDProvider = ({ children }: PIDContextProviderProps): ReactElement => {
   const [worker, setWorker] = useState<Worker | null>(null);
   const [canbasTransferred, setCanvasTransferred] = useState<boolean>(false);
   return (

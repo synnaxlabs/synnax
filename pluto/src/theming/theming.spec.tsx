@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 
 import { Theming } from ".";
 
-const TestThemeContent = (): JSX.Element => {
+const TestThemeContent = (): ReactElement => {
   const { theme } = Theming.useContext();
   return (
     <div>
@@ -22,7 +22,7 @@ const TestThemeContent = (): JSX.Element => {
   );
 };
 
-const TestTheme = (): JSX.Element => {
+const TestTheme = (): ReactElement => {
   const a = Theming.useProvider({
     themes: Theming.themes,
     defaultTheme: "synnaxDark",

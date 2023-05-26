@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { HTMLAttributes, PropsWithChildren } from "react";
+import { HTMLAttributes, PropsWithChildren, ReactElement } from "react";
 
 import { Direction } from "@synnaxlabs/x";
 
@@ -32,7 +32,7 @@ export const Divider = ({
   className,
   padded = false,
   ...props
-}: DividerProps): JSX.Element => (
+}: DividerProps): ReactElement => (
   <div
     className={CSS(
       CSS.B("divider"),

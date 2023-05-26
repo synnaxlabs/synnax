@@ -18,14 +18,14 @@ import { useTransforms } from "@/hooks";
 export interface ListProps<E extends KeyedRenderableRecord<E>>
   extends PropsWithChildren<unknown> {
   data: E[];
-  emptyContent?: JSX.Element;
+  emptyContent?: ReactElement;
 }
 
 export const List = <E extends KeyedRenderableRecord<E>>({
   children,
   data,
   emptyContent,
-}: ListProps<E>): JSX.Element => {
+}: ListProps<E>): ReactElement => {
   const [columns, setColumns] = useState<Array<ListColumn<E>>>([]);
   const [onSelect, setOnSelect] = useState<((key: string) => void) | undefined>(
     undefined

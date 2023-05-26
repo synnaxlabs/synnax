@@ -16,7 +16,7 @@ const story: Meta<typeof Resize> = {
   component: Resize,
 };
 
-const Template = (args: ResizeProps): JSX.Element => (
+const Template = (args: ResizeProps): ReactElement => (
   <Resize {...args}>
     <h1>Resize</h1>
   </Resize>

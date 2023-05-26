@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createContext, ReactNode, useContext } from "react";
+import { createContext, ReactElement, ReactNode, useContext } from "react";
 
 import { Space, SpaceProps } from "@/core/Space";
 import { TypographyLevel } from "@/core/Typography";
@@ -37,7 +37,7 @@ export const Header = ({
   level = "h1",
   divided = false,
   ...props
-}: HeaderProps): JSX.Element => (
+}: HeaderProps): ReactElement => (
   <HeaderContext.Provider value={{ level, divided }}>
     <Space
       el="header"

@@ -64,7 +64,7 @@ const DEFAULT_EXPAND_SIZE = 0.5;
  * @param props.entries - The entries to display in the accordion. See the
  * {@link AccordionEntry} interface for more details.
  */
-export const Accordion = ({ data, ...props }: AccordionProps): JSX.Element => {
+export const Accordion = ({ data, ...props }: AccordionProps): ReactElement => {
   const {
     setSize,
     props: { sizeDistribution: sizes, ref, ...resizeProps },
@@ -122,7 +122,7 @@ const AccordionEntryC = ({
   size,
   parent,
   onExpand,
-}: AccordionEntryCProps): JSX.Element => {
+}: AccordionEntryCProps): ReactElement => {
   let expanded = true;
   if (parent.current != null) {
     const parentSize = new Box(parent.current).dim(DIRECTION);

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ForwardedRef, forwardRef } from "react";
+import { ForwardedRef, forwardRef, ReactElement } from "react";
 
 import { Text, TextProps } from "@/core/Typography/Text";
 import "@/core/Typography/TextLink.css";
@@ -27,7 +27,7 @@ export type TextLinkProps<L extends TypographyLevel = "h1"> = Omit<
 const CoreTextLink = <L extends TypographyLevel = "h1">(
   { href, download, target, rel, ...props }: TextLinkProps<L>,
   ref: ForwardedRef<HTMLAnchorElement>
-): JSX.Element => (
+): ReactElement => (
   <a
     className={CSS.B("text-link")}
     ref={ref}
@@ -44,4 +44,4 @@ const CoreTextLink = <L extends TypographyLevel = "h1">(
 // @ts-expect-error
 export const TextLink = forwardRef(CoreTextLink) as <L extends TypographyLevel = "h1">(
   props: TextLinkProps<L> & { ref?: ForwardedRef<HTMLAnchorElement> }
-) => JSX.Element;
+) => ReactElement;

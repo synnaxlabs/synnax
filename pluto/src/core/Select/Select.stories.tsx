@@ -54,7 +54,7 @@ const sampleColumns: Array<ListColumn<SampleRecord>> = [
 
 const MultipleTemplate = <E extends KeyedRenderableRecord<E>>(
   args: Omit<SelectMultipleProps<E>, "value" | "onChange">
-): JSX.Element => {
+): ReactElement => {
   const [value, setValue] = useState<readonly string[]>([]);
   return <Select.Multiple {...args} value={value} onChange={setValue} />;
 };
@@ -71,7 +71,7 @@ Multiple.args = {
 
 const Template = (
   props: Omit<SelectMultipleProps<SampleRecord>, "value" | "onChange">
-): JSX.Element => {
+): ReactElement => {
   const [value, setValue] = useState<string>("");
   return <Select {...props} value={value} onChange={setValue} />;
 };

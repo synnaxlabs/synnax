@@ -14,7 +14,7 @@ import { describe, expect, it } from "vitest";
 
 import { Tree, TreeLeaf } from ".";
 
-const ControlledTree = ({ data }: { data: TreeLeaf[] }): JSX.Element => {
+const ControlledTree = ({ data }: { data: TreeLeaf[] }): ReactElement => {
   const [value, setValue] = useState<readonly string[]>([]);
   return (
     <Tree
