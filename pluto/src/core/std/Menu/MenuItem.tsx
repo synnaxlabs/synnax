@@ -12,6 +12,7 @@ import { FunctionComponent, ReactElement } from "react";
 import { CSS } from "@/core/css";
 import { Button, ButtonIconProps, ButtonProps } from "@/core/std/Button";
 import { useMenuContext } from "@/core/std/Menu/Menu";
+
 import "@/core/std/Menu/MenuItem.css";
 
 const menuItemFactory =

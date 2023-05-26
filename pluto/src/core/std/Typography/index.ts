@@ -17,7 +17,6 @@ import {
   TypographyLevelComponentSizes,
   TypographyLevels,
 } from "./types";
-
 import "./Typography.css";
 
 export type { CoreTextProps, TextProps } from "./Text";

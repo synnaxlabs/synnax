@@ -12,8 +12,8 @@ import { ReactElement } from "react";
 import { convertRenderV, RenderableRecord, XY } from "@synnaxlabs/x";
 
 import { Space, Typography } from "@/core";
-import { textWidth } from "@/core/std/Typography/textWidth";
 import { CSS } from "@/core/css";
+import { textWidth } from "@/core/std/Typography/textWidth";
 import { useFont } from "@/core/theming";
 
 export interface AnnotationProps {

@@ -12,7 +12,9 @@ import { CSSProperties, ForwardedRef, forwardRef } from "react";
 import { Direction } from "@synnaxlabs/x";
 
 import { Generic, GenericProps } from "@/core/std/Generic";
+
 import "@/core/std/Space/Space.css";
+
 import { CSS } from "@/core/css";
 import { ComponentSize } from "@/util/component";
 

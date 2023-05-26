@@ -13,7 +13,9 @@ import { Box, Direction, toXY, XY } from "@synnaxlabs/x";
 import { GrDrag } from "react-icons/gr";
 
 import { Button, ButtonIconProps } from "@/core/std/Button";
+
 import "@/core/std/Input/InputDragButton.css";
+
 import { InputControl } from "@/core/std/Input/types";
 import { CSS } from "@/core/css";
 import { useVirtualCursorDrag } from "@/core/hooks/useCursorDrag";

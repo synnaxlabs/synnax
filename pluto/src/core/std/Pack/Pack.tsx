@@ -10,8 +10,9 @@
 import { ForwardedRef, ReactElement, forwardRef } from "react";
 
 import { CSS } from "@/core/css";
-import "@/core/std/Pack/Pack.css";
 import { Space, SpaceElementType, SpaceProps } from "@/core/std/Space";
+
+import "@/core/std/Pack/Pack.css";
 
 /** Props for the {@link Pack} component. */
 export type PackProps<E extends SpaceElementType = "div"> = Omit<

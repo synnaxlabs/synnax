@@ -19,9 +19,9 @@ import {
 import { convertThemeToCSSVars } from "./css";
 import { Theme, synnaxLight } from "./theme";
 
+import { applyCSSVars } from "@/core/css";
 import { Input } from "@/core/std/Input";
 import { InputSwitchProps } from "@/core/std/Input/InputSwitch";
-import { applyCSSVars } from "@/core/css";
 
 import "./theme.css";
 

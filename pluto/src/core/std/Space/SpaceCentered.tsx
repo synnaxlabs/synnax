@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ForwardedRef, forwardRef } from "react";
+import { ForwardedRef, ReactElement, forwardRef } from "react";
 
 import { Space, SpaceElementType, SpaceProps } from "./Space";
 
-import "@/core/std/Space/SpaceCentered.css";
 import { CSS } from "@/core/css";
+
+import "@/core/std/Space/SpaceCentered.css";
 
 export const CoreSpaceCentered = <E extends SpaceElementType = "div">(
   { className, justify = "center", align = "center", ...props }: SpaceProps<E>,

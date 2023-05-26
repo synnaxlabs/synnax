@@ -12,6 +12,7 @@ import { forwardRef } from "react";
 import { InputBaseProps } from "./types";
 
 import "@/core/std/Input/InputSwitch.css";
+
 import { CSS } from "@/core/css";
 
 export interface InputSwitchProps extends InputBaseProps<boolean> {}

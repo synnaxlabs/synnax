@@ -15,8 +15,8 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { Select } from ".";
 
 import { ListColumn } from "@/core/std/List";
-import { mockBoundingClientRect } from "@/testutil/dom";
 import { Triggers } from "@/core/triggers";
+import { mockBoundingClientRect } from "@/testutil/dom";
 
 interface MockRecord {
   key: string;

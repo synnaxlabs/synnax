@@ -10,7 +10,9 @@
 import { Icon } from "@synnaxlabs/media";
 
 import { Button } from "@/core/std/Button";
+
 import "@/core/Tag/Tag.css";
+
 import { Typography, Text, TextProps } from "@/core/std/Typography";
 import { CSS } from "@/core/css";
 import { ComponentSize } from "@/util/component";

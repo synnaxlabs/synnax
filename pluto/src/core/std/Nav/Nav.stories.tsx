@@ -10,9 +10,8 @@
 import type { Meta, StoryFn } from "@storybook/react";
 import { MdGrain } from "react-icons/md";
 
-import { Nav } from ".";
-
 import { Menu } from "@/core/std/Menu";
+import { Nav } from "@/core/std/Nav";
 
 const story: Meta<typeof Nav.Bar> = {
   title: "Core/Nav",

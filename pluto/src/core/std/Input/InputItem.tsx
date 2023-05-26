@@ -17,17 +17,17 @@ import {
   FieldPath,
 } from "react-hook-form";
 
+import "./InputItem.css";
+
+import { CSS } from "@/core/css";
 import { Input } from "@/core/std/Input/Input";
 import { InputHelpText } from "@/core/std/Input/InputHelpText";
 import { InputLabel } from "@/core/std/Input/InputLabel";
 import { InputBaseProps, InputControl, InputValue } from "@/core/std/Input/types";
 import { Pack } from "@/core/std/Pack";
 import { Space, SpaceAlignment, SpaceExtensionProps } from "@/core/std/Space";
-import { CSS } from "@/core/css";
 import { camelToTitle } from "@/util/case";
 import { RenderProp } from "@/util/renderProp";
-
-import "./InputItem.css";
 
 interface RenderComponent<P extends Record<string, any>> {
   render: RenderProp<P>;
