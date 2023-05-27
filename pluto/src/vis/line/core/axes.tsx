@@ -18,7 +18,7 @@ import {
   XY,
 } from "@synnaxlabs/x";
 
-import { axisDirection, AxisKey, AxisProps } from "@/vis/Axis";
+import { axisDirection, AxisKey, AxisProps } from "@/core/vis/Axis";
 import { Scales } from "@/vis/line/core/scales";
 import { Viewport } from "@/vis/line/core/viewport";
 

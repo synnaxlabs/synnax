@@ -9,7 +9,7 @@
 
 import { Handle, Position } from "reactflow";
 
-import { Pack, Typography } from "@/core";
+import { Pack, Typography } from "@/core/std";
 import { CSS } from "@/core/css";
 
 import "./SensorNumeric.css";

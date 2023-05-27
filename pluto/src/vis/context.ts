@@ -1,4 +1,4 @@
-import { GLRenderContext } from "./gl/renderer";
+import { GLRenderContext } from "../core/vis/gl/renderer";
 
 import { Theme } from "@/core/theming";
 import { Client } from "@/telem/client";

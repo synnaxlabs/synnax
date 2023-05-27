@@ -9,7 +9,7 @@
 
 import { useThemeContext } from "./ThemeContext";
 
-import { TypographyLevel } from "@/core";
+import { TypographyLevel } from "@/core/std";
 
 export const useFont = (level: TypographyLevel): string => {
   const {

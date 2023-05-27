@@ -9,7 +9,7 @@
 
 import { OS } from "@synnaxlabs/x";
 
-import { SpaceProps } from "@/core";
+import { SpaceProps } from "@/core/std";
 
 export type ControlVariant = "close" | "minimize" | "maximize";
 

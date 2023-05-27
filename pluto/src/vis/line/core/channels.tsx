@@ -19,7 +19,7 @@ import {
   Y_AXIS_KEYS,
   XAxisRecord,
   YAxisRecord,
-} from "@/vis/Axis";
+} from "@/core/vis/Axis";
 import { VisBuilderContext } from "@/vis/context";
 
 export type ChannelsState = XAxisRecord<ChannelKey> &

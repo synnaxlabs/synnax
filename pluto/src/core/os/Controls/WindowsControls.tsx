@@ -11,7 +11,7 @@ import { ReactElement } from "react";
 
 import { Icon } from "@synnaxlabs/media";
 
-import { Button, ButtonIconProps, Pack } from "@/core";
+import { Button, ButtonIconProps, Pack } from "@/core/std";
 import { CSS } from "@/core/css";
 import { OSControlsProps } from "@/core/os/Controls/types";
 

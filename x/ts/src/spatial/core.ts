@@ -185,3 +185,13 @@ export const DECIMAL_COORD_ROOT: Corner = "bottomLeft";
 
 export const cornerLocations = (corner: Corner): [XLocation, YLocation] =>
   CORNER_LOCATIONS[corner];
+
+export const maxBound = (bounds: Bound[]): Bound => ({
+  lower: Math.max(...bounds.map((b) => b.upper)),
+  upper: Math.max(...bounds.map((b) => b.lower)),
+});
+
+export const minBound = (bounds: Bound[]): Bound => ({
+  lower: Math.min(...bounds.map((b) => b.lower)),
+  upper: Math.min(...bounds.map((b) => b.upper)),
+});
