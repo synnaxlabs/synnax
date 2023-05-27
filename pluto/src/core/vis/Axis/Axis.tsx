@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useMemo } from "react";
+import { ReactElement, useMemo } from "react";
 
 import { TimeStamp, OuterLocation, XY, ZERO_XY, Scale } from "@synnaxlabs/x";
 import { scaleLinear, scaleTime } from "d3";
@@ -97,7 +97,7 @@ export const Axis = ({
   pixelsPerTick = 30,
   showGrid = false,
   height = 0,
-}: AxisProps): ReactElement => {
+}: AxisProps): ReactElement | null => {
   const ticks: TickProps[] = useMemo(() => {
     const f = type === "time" ? timeTicks : linearTicks;
     const pxScale = scale.scale(size).reverse();

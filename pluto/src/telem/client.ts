@@ -14,7 +14,7 @@ import { ChannelRange, Range } from "./range";
 import { VisArray } from "./visArray";
 
 import { Cache } from "@/telem/cache";
-import { GLBufferController } from "@/vis/gl/bufferController";
+import { GLBufferController } from "@/core/vis/gl/bufferController";
 
 export type StreamHandler = (data: ReadResponse[] | null) => void;
 

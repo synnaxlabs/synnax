@@ -9,9 +9,8 @@
 
 import { Box, XY, Transform, ZERO_XY } from "@synnaxlabs/x";
 
-import { GLRenderer, GLRenderContext } from "./renderer";
-
 import { ZERO_COLOR } from "@/core/color";
+import { GLRenderer, GLRenderContext } from "@/core/vis/gl/renderer";
 
 export interface ScissoredRenderRequest {
   box: Box;
@@ -33,12 +32,11 @@ export class ScissoredGLRenderer<R extends ScissoredRenderRequest>
     return this.wrapped.type;
   }
 
-  compile(gl: WebGLRenderingContext): void {
+  compile(gl: WebGL2RenderingContext): void {
     this.wrapped.compile(gl);
   }
 
   render(ctx: GLRenderContext, req: R): void {
-    ctx.refreshCanvas();
     ctx.gl.enable(ctx.gl.SCISSOR_TEST);
     this.scissor(ctx, req.box);
     req.scissor = this.calculateTransform(ctx, req.box);

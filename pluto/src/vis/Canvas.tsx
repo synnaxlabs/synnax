@@ -10,6 +10,7 @@
 import {
   CanvasHTMLAttributes,
   DetailedHTMLProps,
+  ReactElement,
   createContext,
   useCallback,
   useContext,
@@ -27,14 +28,7 @@ export interface VisCanvasContextValue {
   update: (d: any) => void;
 }
 
-type HTMLCanvasProps = DetailedHTMLProps<
-  CanvasHTMLAttributes<HTMLCanvasElement>,
-  HTMLCanvasElement
->;
-
 export const CanvasContext = createContext<VisCanvasContextValue | null>(null);
-
-export interface CanvasProps extends Omit<HTMLCanvasProps, "ref"> {}
 
 export const useCanvas = (): VisCanvasContextValue => {
   const ctx = useContext(CanvasContext);

@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { forwardRef } from "react";
+import { ReactElement, forwardRef } from "react";
 
 import { UseViewportReturn } from "./useViewport";
 
 import { CSS } from "@/core/css";
 
-import "./ViewportMask.css";
+import "@/core/vis/viewport/ViewportMask.css";
 
 type DivProps = React.DetailedHTMLProps<
   React.HTMLAttributes<HTMLDivElement>,

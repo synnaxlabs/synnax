@@ -3,7 +3,7 @@ import { Channel, LazyArray, TimeRange } from "@synnaxlabs/client";
 import { DynamicCache } from "@/telem/cache/dynamic";
 import { StaticCache } from "@/telem/cache/static";
 import { VisArray } from "@/telem/visArray";
-import { GLBufferController } from "@/vis/gl/bufferController";
+import { GLBufferController } from "@/core/vis/gl/bufferController";
 
 export class Cache {
   channel: Channel;

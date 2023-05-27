@@ -12,10 +12,10 @@ import { Box, Deep } from "@synnaxlabs/x";
 
 import { hexToRGBA } from "@/core/color";
 import { Theme } from "@/core/theming";
-import { AxisKey, X_AXIS_KEYS, Y_AXIS_KEYS } from "@/vis/Axis";
+import { AxisKey, X_AXIS_KEYS, Y_AXIS_KEYS } from "@/core/vis/Axis";
+import { GLLine } from "@/core/vis/gl";
+import { LineRenderRequest } from "@/core/vis/gl/line";
 import { VisRenderContext } from "@/vis/context";
-import { GLLine } from "@/vis/gl";
-import { LineRenderRequest } from "@/vis/gl/line";
 import { Axes } from "@/vis/line/core/axes";
 import { Scales } from "@/vis/line/core/scales";
 import { Telem } from "@/vis/line/core/telem";

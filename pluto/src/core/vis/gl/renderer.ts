@@ -9,10 +9,10 @@
 
 import { Box, XY } from "@synnaxlabs/x";
 
-import { Compiler } from "@/vis/gl/compiler";
-import { GLRendererRegistry } from "@/vis/gl/registry";
-import { ScissoredGLRenderer, ScissoredRenderRequest } from "@/vis/gl/scissor";
-import { RenderingUnits } from "@/vis/gl/types";
+import { Compiler } from "@/core/vis/gl/program";
+import { GLRendererRegistry } from "@/core/vis/gl/registry";
+import { ScissoredGLRenderer, ScissoredRenderRequest } from "@/core/vis/gl/scissor";
+import { RenderingUnits } from "@/core/vis/gl/types";
 
 /**
  * A renderer for a specific type of entity. A renderer should not maintain any internal

@@ -1,7 +1,7 @@
 import { DataType, LazyArray, TimeRange, TimeStamp } from "@synnaxlabs/x";
 
 import { VisArray } from "@/telem/visArray";
-import { GLBufferController } from "@/vis/gl/bufferController";
+import { GLBufferController } from "@/core/vis/gl/bufferController";
 
 export class DynamicCache {
   private readonly dataType: DataType;

@@ -10,7 +10,7 @@
 import { Deep } from "@synnaxlabs/x";
 
 import { Range, RangePayload, rangeFromPayload } from "@/telem/range";
-import { XAxisKey, XAxisRecord, X_AXIS_KEYS } from "@/vis/Axis";
+import { XAxisKey, XAxisRecord, X_AXIS_KEYS } from "@/core/vis/Axis";
 
 export type RangesState = XAxisRecord<readonly RangePayload[]>;
 

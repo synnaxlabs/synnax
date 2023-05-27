@@ -1,7 +1,7 @@
 import { ReadResponse } from "@/telem/client";
 import { ChannelRange } from "@/telem/range";
 import { VisTelem } from "@/telem/telem";
-import { AxisKey } from "@/vis/Axis";
+import { AxisKey } from "@/core/vis/Axis";
 import { VisBuilderContext } from "@/vis/context";
 import { Channels } from "@/vis/line/core/channels";
 import { Ranges } from "@/vis/line/core/ranges";

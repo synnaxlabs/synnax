@@ -9,8 +9,8 @@
 
 import { Transform, XY } from "@synnaxlabs/x";
 
-import { StaticCompiler } from "../compiler";
 import { errorUnsupported } from "../errors";
+import { Program } from "../program";
 import { GLRenderContext, GLRenderer } from "../renderer";
 import { ScissoredRenderRequest } from "../scissor";
 
@@ -21,20 +21,7 @@ import vertShader from "./vert.glsl?raw";
 
 import { RGBATuple } from "@/core/color";
 
-const shaderVars = {
-  scissor: {
-    scale: "u_scale_scissor",
-    offset: "u_offset_scissor",
-  },
-  scale: "u_scale",
-  offset: "u_offset",
-  color: "u_color",
-  aspect: "u_aspect",
-  mod: "a_mod",
-  translate: "a_translate",
-  x: "a_x",
-  y: "a_y",
-};
+const shaderVars = {};
 
 /** A line requested for rendering. */
 export interface GLLine {
@@ -63,8 +50,6 @@ export interface GLLine {
   y: WebGLBuffer;
 }
 
-/** Just makes sure that the lines we draw to make stuff thick are really close together. */
-const THICKNESS_DIVISOR = 12000;
 const ANGLE_INSTANCED_ARRAYS_FEATURE = "ANGLE_instanced_arrays";
 
 export interface LineRenderRequest extends ScissoredRenderRequest {
@@ -74,12 +59,9 @@ export interface LineRenderRequest extends ScissoredRenderRequest {
 export const LINE_RENDERER_TYPE = "line";
 
 /* Draws lines with variable stroke width onto the canvas. */
-export class GLLineRenderer
-  extends StaticCompiler
-  implements GLRenderer<LineRenderRequest>
-{
-  private translationBuffer: WebGLBuffer | null;
-  private _extension: ANGLE_instanced_arrays | null;
+export class GLLineRenderer extends Program implements GLRenderer<LineRenderRequest> {
+  private readonly translationBuffer: WebGLBuffer | null;
+  private readonly _extension: ANGLE_instanced_arrays | null;
 
   type: string = LINE_RENDERER_TYPE;
 
@@ -96,9 +78,6 @@ export class GLLineRenderer
 
   compile(gl: WebGLRenderingContext): void {
     super.compile(gl);
-    this._extension = gl.getExtension(ANGLE_INSTANCED_ARRAYS_FEATURE);
-    if (this._extension == null) throw errorUnsupported(ANGLE_INSTANCED_ARRAYS_FEATURE);
-    this.translationBuffer = gl.createBuffer() as WebGLBuffer;
   }
 
   render(ctx: GLRenderContext, req: LineRenderRequest): void {

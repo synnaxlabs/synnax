@@ -9,8 +9,8 @@
 
 import { addSamples, Bound, Deep, SampleValue, ZERO_BOUND } from "@synnaxlabs/x";
 
+import { AxisKey, Y_AXIS_KEYS, YAxisKey } from "@/core/vis/Axis";
 import { VisArray } from "@/telem/visArray";
-import { AxisKey, Y_AXIS_KEYS, YAxisKey } from "@/vis/Axis";
 import { Telem } from "@/vis/line/core/telem";
 
 export interface InternalState {

@@ -9,16 +9,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import {
-  Box,
-  Dimensions,
-  DECIMAL_BOX,
-  XY,
-  ZERO_BOX,
-  BoxScale,
-  ZERO_DIMS,
-  Compare,
-} from "@synnaxlabs/x";
+import { Box, Dimensions, XY, BoxScale, ZERO_DIMS, Compare } from "@synnaxlabs/x";
 
 import { useMemoCompare } from "@/core/hooks";
 import { useStateRef } from "@/core/hooks/useStateRef";
@@ -83,10 +74,10 @@ export const useViewport = ({
   onChange,
   defaultMode = "zoom",
   triggers: initialTriggers,
-  initial = DECIMAL_BOX,
+  initial = Box.DECIMAL,
   threshold = { width: 30, height: 30 },
 }: UseViewportProps): UseViewportReturn => {
-  const [maskBox, setMaskBox] = useState<Box>(ZERO_BOX);
+  const [maskBox, setMaskBox] = useState<Box>(Box.ZERO);
   const [stateRef, setStateRef] = useStateRef<Box>(initial);
   const canvasRef = useRef<HTMLDivElement>(null);
 
@@ -120,9 +111,9 @@ export const useViewport = ({
         });
 
       if (mode === "zoomReset") {
-        setMaskBox(ZERO_BOX);
-        onChange?.({ box: DECIMAL_BOX, mode, stage, cursor });
-        return setStateRef(DECIMAL_BOX);
+        setMaskBox(Box.ZERO);
+        onChange?.({ box: Box.DECIMAL, mode, stage, cursor });
+        return setStateRef(Box.DECIMAL);
       }
 
       if (stage === "end") {
@@ -140,7 +131,7 @@ export const useViewport = ({
           onChange?.({ box: next, mode, stage, cursor });
 
           if (mode === "zoom") {
-            setMaskBox(ZERO_BOX);
+            setMaskBox(Box.ZERO);
             return next;
           }
           return prev;
@@ -158,7 +149,7 @@ export const useViewport = ({
             .box(fullSize(threshold, box, canvas))
         );
 
-      setMaskBox((prev) => (!prev.isZero ? ZERO_BOX : prev));
+      setMaskBox((prev) => (!prev.isZero ? Box.ZERO : prev));
       onChange?.({
         box: handlePan(box, stateRef.current, canvas),
         mode,

@@ -22,6 +22,8 @@ import {
 } from "@synnaxlabs/pluto";
 import { XY, Box, ZERO_BOX } from "@synnaxlabs/x";
 
+import "./LinePlot.css";
+
 import { useSelectTheme } from "@/layout";
 import { XAxisKey, X_AXIS_KEYS } from "@/vis/axis";
 import { Axes } from "@/vis/line/axes";
@@ -35,7 +37,6 @@ import { Ranges } from "@/vis/line/ranges";
 import { Scales } from "@/vis/line/scales";
 import { Viewport } from "@/vis/line/viewport";
 
-import "./LinePlot.css";
 interface HoverState {
   cursor: XY;
   box: Box;

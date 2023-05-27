@@ -9,7 +9,7 @@
 
 import { ReactElement } from "react";
 
-import { Button, ButtonIconProps, Space } from "@/core";
+import { Button, ButtonIconProps, Space } from "@/core/std";
 import { CSS } from "@/core/css";
 import { OSControlsProps } from "@/core/os/Controls/types";
 

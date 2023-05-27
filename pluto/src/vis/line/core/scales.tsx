@@ -11,7 +11,7 @@ import { Deep, dirToDim, Scale } from "@synnaxlabs/x";
 
 import { Bounds } from "./bounds";
 
-import { axisDirection, AxisKey } from "@/vis/Axis";
+import { axisDirection, AxisKey } from "@/core/vis/Axis";
 import { Viewport } from "@/vis/line/core/viewport";
 
 export interface InternalState {

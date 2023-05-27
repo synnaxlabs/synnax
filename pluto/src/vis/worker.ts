@@ -10,11 +10,11 @@
 import { Synnax, SynnaxProps } from "@synnaxlabs/client";
 import { Box, BoxT } from "@synnaxlabs/x";
 
-import { newDefaultRendererRegistry } from "./gl/registry";
+import { newDefaultRendererRegistry } from "../core/vis/gl/registry";
 
 import { Theme } from "@/core/theming";
+import { GLRenderContext } from "@/core/vis/gl/renderer";
 import { Client } from "@/telem/client";
-import { GLRenderContext } from "@/vis/gl/renderer";
 import { LineVis, LineVisState } from "@/vis/line/core/line";
 
 class CanvasWorker {

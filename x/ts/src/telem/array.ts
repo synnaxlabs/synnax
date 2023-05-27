@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Bound } from "..";
+
 import {
   convertDataType,
   DataType,
@@ -28,7 +30,7 @@ const validateFieldNotNull = (name: string, field: unknown): void => {
 
 /**
  * A strongly typed array of telemetry samples backed
- * by an underlying binary buffer
+ * by an underlying binary buffer.
  */
 export class LazyArray {
   readonly dataType: DataType;
@@ -142,7 +144,7 @@ export class LazyArray {
   }
 
   /** Returns the minimum value in the array */
-  get min(): number | bigint {
+  get min(): SampleValue {
     if (this._min == null) {
       if (this.dataType.equals(DataType.TIMESTAMP)) {
         this._min = this.data[0];
@@ -155,6 +157,10 @@ export class LazyArray {
       }
     }
     return addSamples(this._min, this.sampleOffset);
+  }
+
+  get bound(): Bound {
+    return { lower: Number(this.min), upper: Number(this.max) };
   }
 
   enrich(): void {

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/core/css";
-export * from "@/core";
+export * from "@/core/std";
 export * from "@/core/hooks";
 export * from "@/core/theming";
 export * from "@/core/color";
