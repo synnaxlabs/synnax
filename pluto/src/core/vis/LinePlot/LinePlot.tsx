@@ -1,7 +1,7 @@
 import { BoxT } from "@synnaxlabs/x";
 
-import { WLine, WLineProgram } from "../Line/WLine";
-import { TelemProvider } from "../telem";
+import { GLLine, LineProgram, GLLineFactory } from "../Line/WLine";
+import { TelemService } from "../telem";
 import { WComponent, WorkerMessage } from "../worker/worker";
 
 import { WYAxis } from "./YAxis";
@@ -10,22 +10,25 @@ import { WXAxis } from "@/core/vis/LinePlot/XAxis";
 
 export interface WLinePlotProps {
   key: string;
+  /** The region the plot is being renderered in. */
   region: BoxT;
+  /** Viewport  represents the zoom and pan state of the plot. */
   viewport: BoxT;
 }
 
-export class WLinePlot implements WComponent {
+export class LinePlot implements WComponent {
   props: WLinePlotProps;
   axes: WXAxis[];
-  key: string;
-  telemProv: TelemProvider;
-  lineProgram: WLineProgram;
-  requestRender: (cbk: () => Promise<void>) => void;
+  lineService: GLLineFactory;
 
-  constructor(props: WLinePlotProps, telemProv: TelemProvider) {
-    this.key = props.key;
+  constructor(props: WLinePlotProps, lineService: GLLineFactory) {
     this.props = props;
     this.axes = [];
+    this.lineService = lineService;
+  }
+
+  get key(): string {
+    return this.props.key;
   }
 
   setProps(props: WLinePlotProps): void {
@@ -36,7 +39,7 @@ export class WLinePlot implements WComponent {
 
   handle(msg: WorkerMessage): void {
     switch (msg.type) {
-      case WLine.TYPE:
+      case GLLine.TYPE:
         return this.udpateLine(msg);
       case WXAxis.TYPE:
         return this.udpateXAxis(msg);
@@ -54,18 +57,16 @@ export class WLinePlot implements WComponent {
     this.axes.forEach((a) =>
       a.axes.forEach((a) =>
         a.lines.forEach((l) => {
-          if (l.key === msg.key) {
-            l.setProps(msg.props);
-          } else {
+          if (l.key === msg.key) l.setProps(msg.props);
+          else
             a.lines.push(
-              new WLine(
+              new GLLine(
                 msg.props,
                 this.lineProgram,
                 this._requestRender,
-                this.telemProv
+                this.telem.provider()
               )
             );
-          }
         })
       )
     );
@@ -73,23 +74,17 @@ export class WLinePlot implements WComponent {
 
   private udpateXAxis(msg: WorkerMessage): void {
     this.axes.forEach((a) => {
-      if (a.key === msg.key) {
-        a.setProps(msg.props);
-      } else {
-        this.axes.push(new WXAxis(msg.props));
-      }
+      if (a.key === msg.key) a.setProps(msg.props);
+      else this.axes.push(new WXAxis(msg.props));
     });
   }
 
   private udpateYAxis(msg: WorkerMessage): void {
-    this.axes.forEach((xAxis) => {
+    this.axes.forEach((xAxis) =>
       xAxis.axes.forEach((a) => {
-        if (a.key === msg.key) {
-          a.setProps(msg.props);
-        } else {
-          xAxis.axes.push(new WYAxis(msg.props));
-        }
-      });
-    });
+        if (a.key === msg.key) a.setProps(msg.props);
+        else xAxis.axes.push(new WYAxis(msg.props));
+      })
+    );
   }
 }

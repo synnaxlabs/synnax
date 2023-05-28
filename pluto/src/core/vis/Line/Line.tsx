@@ -2,10 +2,10 @@ import { ReactElement } from "react";
 
 import { useVisElement } from "../Context";
 
-import { WLineProps } from "@/core/vis/Line/WLine";
+import { LineProps } from "@/core/vis/Line/WLine";
 import { DynamicXYTelemMeta, XYTelemMeta } from "@/core/vis/telem";
 
-export interface LineProps extends Omit<WLineProps, "telem"> {
+export interface LineProps extends Omit<LineProps, "telem"> {
   telem: XYTelemMeta | DynamicXYTelemMeta;
   color: string;
   strokeWidth: number;

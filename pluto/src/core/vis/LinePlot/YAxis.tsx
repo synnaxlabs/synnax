@@ -1,29 +1,28 @@
-import { Bound, Box, Scale, maxBound } from "@synnaxlabs/x";
+import { Bound, Box, Scale, XY, maxBound, } from "@synnaxlabs/x";
 
-import { TelemProvider } from "../telem";
-import { WComponent, WorkerMessage } from "../worker/worker";
+import { WComponent } from "../worker/worker";
 
-import { WLine, WLineContext, WLineProgram } from "@/core/vis/Line/WLine";
+import { GLLine, GLLienContext } from "@/core/vis/Line/WLine";
 
 export interface YAxisProps {
   key: string;
-  bound?: Bound;
   boundPadding: number;
   label: string;
   tickSpacing: number;
   type: "time" | "linear";
+  bound?: Bound;
 }
 
 export interface YAxisContext {
-  aspect: number;
+  region: Box;
   viewport: Box;
-  xOffset: number;
-  xScale: number;
+  xScale: Scale;
+  position: XY;
 }
 
 export class WYAxis implements WComponent {
   props: YAxisProps;
-  lines: WLine[];
+  lines: GLLine[];
 
   static readonly TYPE = "y-axis";
 
@@ -53,36 +52,25 @@ export class WYAxis implements WComponent {
 
   private async renderLines(ctx: YAxisContext): Promise<void> {
     const yOffsetScale = await this.yOffsetScale(ctx);
-    const lineCtx: WLineContext = {
-      aspect: ctx.aspect,
-      transform: {
-        offset: {
-          x: ctx.xOffset,
-          y: yOffsetScale.pos(0),
-        },
-        scale: {
-          x: ctx.xScale,
-          y: yOffsetScale.dim(1),
-        },
-      },
+    const lineCtx: GLLienContext = {
+      region: ctx.region,
+      scale: { x: ctx.xScale, y: yOffsetScale }
     };
     await Promise.all(this.lines.map(async (el) => await el.render(lineCtx)));
   }
 
-  private async yBound(): Promise<Bound> {
-    if (this.props.bound != null) return this.props.bound;
+  private async yBound(): Promise<[Bound, number]> {
+    if (this.props.bound != null) return [this.props.bound, this.props.bound.lower];
     const { upper, lower } = maxBound(
       await Promise.all(this.lines.map(async (el) => await el.yBound()))
     );
-    if (upper === lower) return { lower: lower - 1, upper: upper - 1 };
+    if (upper === lower) return [{ lower: lower - 1, upper: upper - 1 }, lower];
     const _padding = (upper - lower) * this.props.boundPadding;
-    return { lower: lower - _padding, upper: upper + _padding };
+    return [{ lower: lower - _padding, upper: upper + _padding }, lower];
   }
 
   private async yOffsetScale(ctx: YAxisContext): Promise<Scale> {
-    const bound = await this.yBound();
-    const mag = 1 / ctx.viewport.y;
-    const trans = -ctx.viewport.x;
-    return Scale.scale(bound).translate(-bound.lower).translate(trans).magnify(mag);
+    const [offset, bound] = await this.yBound();
+    return Scale.scale(bound).translate(-offset).translate(-ctx.viewport.y).magnify(1 / ctx.viewport.height);
   }
 }

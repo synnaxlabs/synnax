@@ -10,20 +10,20 @@
 import { Synnax, SynnaxProps } from "@synnaxlabs/client";
 import { Box, BoxT } from "@synnaxlabs/x";
 
-import { newDefaultRendererRegistry } from "../core/vis/gl/registry";
+import { newDefaultRendererRegistry } from "../core/vis/render/registry";
 
 import { Theme } from "@/core/theming";
-import { GLRenderContext } from "@/core/vis/gl/renderer";
+import { RenderContext } from "@/core/vis/render/RenderContext";
 import { Client } from "@/telem/client";
 import { LineVis, LineVisState } from "@/vis/line/core/line";
 
 class CanvasWorker {
   telem: Client;
-  glContext: GLRenderContext;
+  glContext: RenderContext;
   plots: Map<String, LineVis>;
   theme: Theme;
 
-  constructor(telem: Client, glContext: GLRenderContext, theme: Theme) {
+  constructor(telem: Client, glContext: RenderContext, theme: Theme) {
     this.telem = telem;
     this.glContext = glContext;
     this.plots = new Map();
@@ -47,7 +47,7 @@ class CanvasWorker {
     dpr: number,
     viewport: [number, number] | null
   ): Promise<void> {
-    this.glContext.updateCanvasDims(box, dpr);
+    this.glContext.updateCanvasRegion(box, dpr);
     if (viewport != null) {
       this.glContext.gl.viewport(0, 0, ...viewport);
     }
@@ -101,7 +101,7 @@ onmessage = async (e: MessageEvent<WorkerMessage>): Promise<void> => {
   const msg = e.data;
   if (msg.type === "bootstrap") {
     const data = msg.data as WorkerBootstrap;
-    const ctx = new GLRenderContext(
+    const ctx = new RenderContext(
       data.canvas,
       newDefaultRendererRegistry(),
       new Box(data.box),

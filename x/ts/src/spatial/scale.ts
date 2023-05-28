@@ -17,6 +17,8 @@ import {
   SignedDimensions,
   toXY,
   XY,
+  Direction,
+  XYTransform,
 } from "./core";
 
 import { clamp } from "@/clamp";
@@ -35,7 +37,7 @@ type Operation = (
 type OperationReturn = [Bound | null, number];
 
 interface TypedOperation extends Operation {
-  type: "translate" | "magnify" | "scale" | "invert" | "clamp";
+  type: "translate" | "magnify" | "scale" | "invert" | "clamp" | "re-bound";
 }
 
 const curriedTranslate =
@@ -62,6 +64,11 @@ const curriedScale =
     const nextV = (v - prevLower) * (nextRange / prevRange) + nextLower;
     return [bound, nextV];
   };
+
+const curriedReBound =
+  (bound: Bound): Operation =>
+  (currScale, type, v) =>
+    [bound, v];
 
 const curriedInvert = (): Operation => (currScale, type, v) => {
   if (currScale === null) throw new Error("cannot invert without bounds");
@@ -135,6 +142,15 @@ export class Scale {
     return next;
   }
 
+  reBound(lowerOrBound: number | Bound, upper?: number): Scale {
+    const b = toBound(lowerOrBound, upper);
+    const next = this.new();
+    const f = curriedReBound(b) as TypedOperation;
+    f.type = "re-bound";
+    next.ops.push(f);
+    return next;
+  }
+
   invert(): Scale {
     const f = curriedInvert() as TypedOperation;
     f.type = "invert";
@@ -192,89 +208,15 @@ export class Scale {
   }
 }
 
-export class BoxScale {
-  x: Scale;
-  y: Scale;
-  currRoot: Corner | null;
+export type XYScale = Record<Direction, Scale>;
 
-  constructor() {
-    this.x = new Scale();
-    this.y = new Scale();
-    this.currRoot = null;
-  }
-
-  static translate(xy: XY | Dimensions | SignedDimensions): BoxScale {
-    return new BoxScale().translate(xy);
-  }
-
-  static clamp(box: Box): BoxScale {
-    return new BoxScale().clamp(box);
-  }
-
-  static magnify(xy: XY): BoxScale {
-    return new BoxScale().magnify(xy);
-  }
-
-  static scale(box: Box): BoxScale {
-    return new BoxScale().scale(box);
-  }
-
-  translate(xy: XY | Dimensions | SignedDimensions): BoxScale {
-    const _xy = toXY(xy);
-    const next = this.new();
-    next.x = this.x.translate(_xy.x);
-    next.y = this.y.translate(_xy.y);
-    return next;
-  }
-
-  magnify(xy: XY): BoxScale {
-    const next = this.new();
-    next.x = this.x.magnify(xy.x);
-    next.y = this.y.magnify(xy.y);
-    return next;
-  }
-
-  scale(box: Box): BoxScale {
-    const next = this.new();
-    const prevRoot = this.currRoot;
-    next.currRoot = box.root;
-    if (prevRoot != null && prevRoot !== box.root) {
-      const [prevX, prevY] = cornerLocs(prevRoot);
-      const [currX, currY] = cornerLocs(box.root);
-      if (prevX !== currX) next.x = next.x.invert();
-      if (prevY !== currY) next.y = next.y.invert();
-    }
-    next.x = next.x.scale(box.xBound);
-    next.y = next.y.scale(box.yBound);
-    return next;
-  }
-
-  clamp(box: Box): BoxScale {
-    const next = this.new();
-    next.x = this.x.clamp(box.xBound);
-    next.y = this.y.clamp(box.yBound);
-    return next;
-  }
-
-  private new(): BoxScale {
-    const n = new BoxScale();
-    n.currRoot = this.currRoot;
-    n.x = this.x;
-    n.y = this.y;
-    return n;
-  }
-
-  pos(xy: XY): XY {
-    return { x: this.x.pos(xy.x), y: this.y.pos(xy.y) };
-  }
-
-  box(box: Box): Box {
-    return new Box(
-      this.pos(box.one),
-      this.pos(box.two),
-      0,
-      0,
-      this.currRoot ?? box.root
-    );
-  }
-}
+export const xyScaleToTransform = (scale: XYScale): XYTransform => ({
+  scale: {
+    x: scale.x.pos(1),
+    y: scale.y.pos(1),
+  },
+  offset: {
+    x: scale.x.pos(0),
+    y: scale.y.pos(0),
+  },
+});

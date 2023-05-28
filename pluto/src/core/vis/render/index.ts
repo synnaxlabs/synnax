@@ -7,4 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export type RenderingUnits = "px" | "decimal";
+export { RenderContext } from "@/core/vis/render/RenderContext";
+export { GLProgram } from "@/core/vis/render/glProgram";
+export { errorUnsupported } from "@/core/vis/render/errors";

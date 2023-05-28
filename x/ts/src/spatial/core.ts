@@ -97,11 +97,18 @@ export interface Dimensions {
 }
 export const dimensions = z.object({ width: z.number(), height: z.number() });
 
-export interface Transform {
+export interface XYTransform {
   offset: XY;
   scale: XY;
 }
-export const transform = z.object({ offset: xy, scale: xy });
+export const xyTransform = z.object({ offset: xy, scale: xy });
+
+export interface Transform {
+  offset: number;
+  scale: number;
+}
+
+export const transform = z.object({ offset: z.number(), scale: z.number() });
 
 export interface ClientXY {
   clientX: number;
