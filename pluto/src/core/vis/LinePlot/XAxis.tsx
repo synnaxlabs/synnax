@@ -1,8 +1,6 @@
 import { Bound, Box } from "@synnaxlabs/x";
 
-import { WLineProgram } from "../Line/WLine";
-import { TelemProvider } from "../telem";
-import { WComponent, WorkerMessage } from "../worker/worker";
+import { WComponent } from "../worker/worker";
 
 import { WYAxis } from "@/core/vis/LinePlot/YAxis";
 
@@ -15,8 +13,7 @@ export interface XAxisProps {
 }
 
 export interface WXAxisContext {
-  viewport: Box;
-  aspect: number;
+  region: Box;
 }
 
 export class WXAxis implements WComponent {
