@@ -1,9 +1,8 @@
 import { Channel, LazyArray, TimeRange } from "@synnaxlabs/client";
 
+import { GLBufferController } from "@/telem/cache/bufferController";
 import { DynamicCache } from "@/telem/cache/dynamic";
 import { StaticCache } from "@/telem/cache/static";
-import { VisArray } from "@/telem/visArray";
-import { GLBufferController } from "@/core/vis/telem/bufferController";
 
 export class Cache {
   channel: Channel;
@@ -18,7 +17,7 @@ export class Cache {
     this.channel = channel;
   }
 
-  writeDynamic(arrs: LazyArray[]): VisArray[] {
+  writeDynamic(arrs: LazyArray[]): LazyArray[] {
     const flushed = this.dynamic.write(arrs);
     if (flushed.length > 0)
       this.static.write(
@@ -31,19 +30,12 @@ export class Cache {
     return [...flushed, this.dynamic.curr];
   }
 
-  writeStatic(tr: TimeRange, arrs: LazyArray[]): VisArray[] {
-    const vis = arrs.map((arr) => {
-      const buf = this.gl.createBuffer();
-      if (buf == null) throw new Error("Failed to create buffer");
-      this.gl.bindBuffer(this.gl.ARRAY_BUFFER, buf);
-      this.gl.bufferData(this.gl.ARRAY_BUFFER, arr.buffer, this.gl.STATIC_DRAW);
-      return new VisArray(buf, arr);
-    });
-    this.static.write(tr, vis);
-    return vis;
+  writeStatic(tr: TimeRange, arrs: LazyArray[]): void {
+    arrs.forEach((arr) => arr.updateGLBuffer(this.gl));
+    this.static.write(tr, arrs);
   }
 
-  read(tr: TimeRange): [VisArray[], TimeRange[]] {
+  read(tr: TimeRange): [LazyArray[], TimeRange[]] {
     const dynamic = this.dynamic.read(tr);
     const [staticRes, gaps] = this.static.read(tr);
     return [dynamic != null ? staticRes.concat(dynamic) : staticRes, gaps];

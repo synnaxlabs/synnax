@@ -7,25 +7,30 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ZERO_COLOR } from "@/core/color";
 import { Box, Scale, XY, XYScale, ZERO_XY } from "@synnaxlabs/x";
+
+import { ZERO_COLOR } from "@/core/color";
 
 export class RenderContext {
   /* The canvas element */
-  readonly canvas: OffscreenCanvas;
+  readonly rootCanvas: OffscreenCanvas;
   /** The webgl rendering context extracted from the canvas */
   readonly gl: WebGL2RenderingContext;
+  readonly canvas: OffscreenCanvasRenderingContext2D;
   /** The region the canvas occupies in pixel space */
   region: Box;
   /** The device pixel ratio of the canvas */
   dpr: number;
 
   constructor(canvas: OffscreenCanvas, region: Box, dpr: number) {
-    this.canvas = canvas;
+    this.rootCanvas = canvas;
     this.region = region;
     const gl = canvas.getContext("webgl2", { preserveDrawingBuffer: true });
     if (gl == null) throw new Error("Could not get WebGL context");
     this.gl = gl;
+    const ctx = canvas.getContext("2d");
+    if (ctx == null) throw new Error("Could not get 2D context");
+    this.canvas = ctx;
     this.dpr = dpr;
   }
 

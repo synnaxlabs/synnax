@@ -9,9 +9,10 @@
 
 import { XY } from "@synnaxlabs/x";
 
+import { RenderContext } from "./RenderContext";
+
 import { RGBATuple } from "@/core/color";
 import { errorCompile, ERROR_BAD_SHADER } from "@/core/vis/render/errors";
-import { RenderContext } from "./RenderContext";
 
 export class GLProgram {
   readonly ctx: RenderContext;
@@ -33,7 +34,7 @@ export class GLProgram {
     const gl = this.ctx.gl;
     this.compileShader(this.vertShader, gl.VERTEX_SHADER);
     this.compileShader(this.fragShader, gl.FRAGMENT_SHADER);
-    gl.linkProgram(this.prog as WebGLProgram);
+    gl.linkProgram(this.prog);
   }
 
   private compileShader(shader: string, type: number): void {
@@ -51,8 +52,8 @@ export class GLProgram {
     gl.attachShader(this.prog, vs);
   }
 
-  use(gl: WebGLRenderingContext): void {
-    gl.useProgram(this.prog);
+  setAsActive(): void {
+    this.ctx.gl.useProgram(this.prog);
   }
 
   uniformXY(name: string, value: XY): void {
