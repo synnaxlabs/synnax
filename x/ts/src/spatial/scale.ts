@@ -220,3 +220,90 @@ export const xyScaleToTransform = (scale: XYScale): XYTransform => ({
     y: scale.y.pos(0),
   },
 });
+
+export class BoxScale {
+  x: Scale;
+  y: Scale;
+  currRoot: Corner | null;
+
+  constructor() {
+    this.x = new Scale();
+    this.y = new Scale();
+    this.currRoot = null;
+  }
+
+  static translate(xy: XY | Dimensions | SignedDimensions): BoxScale {
+    return new BoxScale().translate(xy);
+  }
+
+  static clamp(box: Box): BoxScale {
+    return new BoxScale().clamp(box);
+  }
+
+  static magnify(xy: XY): BoxScale {
+    return new BoxScale().magnify(xy);
+  }
+
+  static scale(box: Box): BoxScale {
+    return new BoxScale().scale(box);
+  }
+
+  translate(xy: XY | Dimensions | SignedDimensions): BoxScale {
+    const _xy = toXY(xy);
+    const next = this.new();
+    next.x = this.x.translate(_xy.x);
+    next.y = this.y.translate(_xy.y);
+    return next;
+  }
+
+  magnify(xy: XY): BoxScale {
+    const next = this.new();
+    next.x = this.x.magnify(xy.x);
+    next.y = this.y.magnify(xy.y);
+    return next;
+  }
+
+  scale(box: Box): BoxScale {
+    const next = this.new();
+    const prevRoot = this.currRoot;
+    next.currRoot = box.root;
+    if (prevRoot != null && prevRoot !== box.root) {
+      const [prevX, prevY] = cornerLocs(prevRoot);
+      const [currX, currY] = cornerLocs(box.root);
+      if (prevX !== currX) next.x = next.x.invert();
+      if (prevY !== currY) next.y = next.y.invert();
+    }
+    next.x = next.x.scale(box.xBound);
+    next.y = next.y.scale(box.yBound);
+    return next;
+  }
+
+  clamp(box: Box): BoxScale {
+    const next = this.new();
+    next.x = this.x.clamp(box.xBound);
+    next.y = this.y.clamp(box.yBound);
+    return next;
+  }
+
+  private new(): BoxScale {
+    const n = new BoxScale();
+    n.currRoot = this.currRoot;
+    n.x = this.x;
+    n.y = this.y;
+    return n;
+  }
+
+  pos(xy: XY): XY {
+    return { x: this.x.pos(xy.x), y: this.y.pos(xy.y) };
+  }
+
+  box(box: Box): Box {
+    return new Box(
+      this.pos(box.one),
+      this.pos(box.two),
+      0,
+      0,
+      this.currRoot ?? box.root
+    );
+  }
+}

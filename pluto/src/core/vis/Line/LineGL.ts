@@ -1,52 +1,23 @@
-import {
-  Direction,
-  Bound,
-  Box,
-  Scale,
-  XYScale,
-  XYTransform,
-  xyScaleToTransform,
-} from "@synnaxlabs/x";
+// Copyright 2023 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { Direction, Bound, xyScaleToTransform, LazyArray } from "@synnaxlabs/x";
 
 import { hexToRGBA } from "@/core/color";
-import { GLProgram, errorUnsupported } from "@/core/vis/render";
-import {
-  DynamicXYTelem,
-  DynamicXYTelemMeta,
-  TelemProvider,
-  XYTelem,
-  XYTelemMeta,
-} from "@/core/vis/telem";
+import { LineRenderer, LineProps, LineContext } from "@/core/vis/Line/core";
+import { GLProgram, errorUnsupported, RenderContext } from "@/core/vis/render";
+import { DynamicXYTelemSource, XYTelemSource } from "@/core/vis/telem";
+import { TelemProvider } from "@/core/vis/telem/TelemService";
 // eslint-disable-next-line import/no-unresolved
 import FRAG_SHADER from "@/vis/core/Line/frag.glsl?raw";
 // eslint-disable-next-line import/no-unresolved
 import VERT_SHADER from "@/vis/core/Line/vert.glsl?raw";
-import { RenderContext } from "../render/RenderContext";
-
-export interface LineProps {
-  /** A unique key identifying the line within the worker DOM */
-  key: string;
-  /** The telemetry to read from */
-  telem: XYTelemMeta | DynamicXYTelemMeta;
-  /** A hex color string to color the line */
-  color: string;
-  /** The stroke width of the line in pixels */
-  strokeWidth: number;
-}
-
-export interface LineContext {
-  /**
-   * A box in pixel space representing the region of the display that the line
-   * should be rendered in. The root of the pixel coordinate system is the top
-   * left of the canvas.
-   */
-  region: Box;
-  /**
-   * An XY scale that maps from the data space to decimal space rooted in the
-   * bottom of the region.
-   */
-  scale: XYScale;
-}
 
 const ANGLE_INSTANCED_ARRAYS_FEATURE = "ANGLE_instanced_arrays";
 
@@ -54,7 +25,7 @@ const ANGLE_INSTANCED_ARRAYS_FEATURE = "ANGLE_instanced_arrays";
  * A factory for creating webgl rendered lines.
  */
 export class LineFactory {
-  private readonly program: GLLineProgram;
+  private readonly program: LineGLProgram;
   private readonly telem: TelemProvider;
 
   /**
@@ -62,7 +33,7 @@ export class LineFactory {
    * @param telem - A function that returns the telemetry provider.
    */
   constructor(ctx: RenderContext, telem: TelemProvider) {
-    this.program = new GLLineProgram(ctx);
+    this.program = new LineGLProgram(ctx);
     this.telem = telem;
   }
 
@@ -71,29 +42,14 @@ export class LineFactory {
    * @param props - The properties of the line.
    * @param requestRender - A function that allows the line to request that its parent re-render it.
    */
-  new(props: LineProps, requestRender: () => void): GLLine {
-    return new GLLine(props, this.program, requestRender, this.telem);
+  new(props: LineProps, requestRender: () => void): LineRenderer {
+    return new LineGL(props, this.program, requestRender, this.telem);
   }
 }
 
-class GLLineProgram extends GLProgram {
+class LineGLProgram extends GLProgram {
   extension: ANGLE_instanced_arrays;
   translationBuffer: WebGLBuffer;
-
-  static readonly VARS = {
-    viewport: {
-      scale: "u_scale_viewport",
-      offset: "u_offset_viewport",
-    },
-    scale: "u_scale",
-    offset: "u_offset",
-    color: "u_color",
-    aspect: "u_aspect",
-    mod: "a_mod",
-    translate: "a_translate",
-    x: "a_x",
-    y: "a_y",
-  };
 
   constructor(ctx: RenderContext) {
     super(ctx, VERT_SHADER, FRAG_SHADER);
@@ -103,10 +59,27 @@ class GLLineProgram extends GLProgram {
     this.translationBuffer = ctx.gl.createBuffer() as WebGLBuffer;
   }
 
-  bindAttrBuffer(dir: Direction, buffer: WebGLBuffer): void {
-    const gl = this.ctx.gl;
+  bindPropsAndContext(ctx: LineContext, props: LineProps): number {
+    const regionTransform = xyScaleToTransform(this.ctx.scaleRegion(ctx.region));
+    const scaleTransform = xyScaleToTransform(ctx.scale);
+    this.uniformXY("u_region_scale", regionTransform.scale);
+    this.uniformXY("u_region_offset", regionTransform.offset);
+    this.uniformColor("u_color", hexToRGBA(props.color));
+    this.uniformXY("u_scale", scaleTransform.scale);
+    this.uniformXY("u_offset", scaleTransform.offset);
+    return this.attrStrokeWidth(props.strokeWidth);
+  }
+
+  draw(x: LazyArray, y: LazyArray, count: number): void {
+    this.bindAttrBuffer("x", x.buffer);
+    this.bindAttrBuffer("y", y.buffer);
+    this.extension.drawArraysInstancedANGLE(this.ctx.gl.LINE_STRIP, 0, x.length, count);
+  }
+
+  private bindAttrBuffer(dir: Direction, buffer: WebGLBuffer): void {
+    const { gl } = this.ctx;
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    const n = gl.getAttribLocation(gl, GLLineProgram.VARS[dir]);
+    const n = gl.getAttribLocation(gl, `a_${dir}`);
     gl.vertexAttribPointer(n, 1, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(n);
   }
@@ -118,42 +91,39 @@ class GLLineProgram extends GLProgram {
    * below. This is done by using the `ANGLE_instanced_arrays` extension. We can repeat
    * this process to make the line thicker.
    */
-  attrStrokeWidth(aspect: number, strokeWidth: number): number {
-    const gl = this.ctx.gl;
+  private attrStrokeWidth(strokeWidth: number): number {
+    const { gl } = this.ctx;
     gl.bindBuffer(gl.ARRAY_BUFFER, this.translationBuffer);
-    const translationBuffer = newTranslationBuffer(aspect, strokeWidth);
+    const translationBuffer = newTranslationBuffer(this.ctx.aspect, strokeWidth);
     gl.bufferData(gl.ARRAY_BUFFER, translationBuffer, gl.DYNAMIC_DRAW);
-
-    const loc = gl.getAttribLocation(this.prog, GLLineProgram.VARS.translate);
+    const loc = gl.getAttribLocation(this.prog, "a_translate");
     gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(loc);
     this.extension.vertexAttribDivisorANGLE(loc, 1);
-
-    const numInstances = translationBuffer.length / 2;
-    return numInstances;
+    return translationBuffer.length / 2;
   }
 }
 
-export class GLLine {
+export class LineGL implements LineRenderer {
   props: LineProps;
-  prog: GLLineProgram;
+  prog: LineGLProgram;
   requestRender: () => void;
   telemProv: TelemProvider;
-  telem: XYTelem | DynamicXYTelem;
+  telem: XYTelemSource | DynamicXYTelemSource;
 
   static readonly TYPE = "line";
 
   constructor(
-    initialProps: LineProps,
-    program: GLLineProgram,
+    props: LineProps,
+    program: LineGLProgram,
     requestRender: () => void,
     telemProv: TelemProvider
   ) {
-    this.props = initialProps;
+    this.props = props;
     this.prog = program;
     this.requestRender = requestRender;
     this.telemProv = telemProv;
-    this.telem = this.telemProv<XYTelem>(this.props.key);
+    this.telem = this.telemProv.get(props.telem.key);
   }
 
   get key(): string {
@@ -162,7 +132,7 @@ export class GLLine {
 
   setProps(props: LineProps): void {
     if (props.telem.key !== this.props.telem.key)
-      this.telem = this.telemProv<XYTelem>(props.telem.key);
+      this.telem = this.telemProv.get(props.telem.key);
     this.props = props;
     if ("onChange" in this.telem) this.telem.onChange(() => this.requestRender());
     this.requestRender();
@@ -177,32 +147,11 @@ export class GLLine {
   }
 
   async render(ctx: LineContext): Promise<void> {
+    this.prog.setAsActive();
     const xData = await this.telem.x();
     const yData = await this.telem.y();
-    const regionTransform = xyScaleToTransform(this.prog.ctx.scaleRegion(ctx.region));
-    const scaleTransform = xyScaleToTransform(ctx.scale);
-
-    this.prog.uniformXY(GLLineProgram.VARS.viewport.scale, regionTransform.scale);
-    this.prog.uniformXY(GLLineProgram.VARS.viewport.offset, regionTransform.offset);
-    this.prog.uniformColor(GLLineProgram.VARS.color, hexToRGBA(this.props.color));
-    this.prog.uniformXY(GLLineProgram.VARS.scale, scaleTransform.scale);
-    this.prog.uniformXY(GLLineProgram.VARS.offset, scaleTransform.offset);
-
-    const numInstances = this.prog.attrStrokeWidth(
-      this.prog.ctx.aspect,
-      this.props.strokeWidth
-    );
-    xData.forEach((x, i) => {
-      const y = yData[i];
-      this.prog.bindAttrBuffer("x", x.buffer);
-      this.prog.bindAttrBuffer("y", y.buffer);
-      this.prog.extension.drawArraysInstancedANGLE(
-        this.prog.ctx.gl.LINE_STRIP,
-        0,
-        x.length,
-        numInstances
-      );
-    });
+    const count = this.prog.bindPropsAndContext(ctx, this.props);
+    xData.forEach((x, i) => this.prog.draw(x, yData[i], count));
   }
 }
 

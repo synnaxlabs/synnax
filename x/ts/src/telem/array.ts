@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Bound } from "..";
-
+import { Compare } from "@/compare";
+import { Bound } from "@/spatial";
 import {
   convertDataType,
   DataType,
@@ -16,9 +16,7 @@ import {
   Size,
   TimeRange,
   UnparsedDataType,
-} from "./telem";
-
-import { Compare } from "@/compare";
+} from "@/telem/telem";
 
 export type SampleValue = number | bigint;
 
@@ -28,6 +26,26 @@ const validateFieldNotNull = (name: string, field: unknown): void => {
   }
 };
 
+interface GL {
+  updated: boolean;
+  buffer: WebGLBuffer | null;
+  bufferUsage: GLBufferUsage;
+}
+
+interface GLBufferControl {
+  bufferData: (target: number, data: ArrayBufferLike, usage: number) => void;
+  bufferSubData: (target: number, offset: number, data: ArrayBufferLike) => void;
+  bindBuffer: (target: number, buffer: WebGLBuffer | null) => void;
+  createBuffer: () => WebGLBuffer | null;
+  ARRAY_BUFFER: number;
+  STATIC_DRAW: number;
+  DYNAMIC_DRAW: number;
+}
+
+type GLBufferUsage = "static" | "dynamic";
+
+const FULL_BUFFER = -1;
+
 /**
  * A strongly typed array of telemetry samples backed
  * by an underlying binary buffer.
@@ -35,10 +53,12 @@ const validateFieldNotNull = (name: string, field: unknown): void => {
 export class LazyArray {
   readonly dataType: DataType;
   sampleOffset: SampleValue;
+  private readonly gl: GL;
   private readonly _data: ArrayBufferLike;
   readonly _timeRange?: TimeRange;
   private _min?: SampleValue;
   private _max?: SampleValue;
+  private readonly pos: number = FULL_BUFFER;
 
   static alloc(
     length: number,
@@ -53,7 +73,8 @@ export class LazyArray {
     data: ArrayBufferLike | NativeTypedArray,
     dataType?: UnparsedDataType,
     timeRange?: TimeRange,
-    sampleOffset?: SampleValue
+    sampleOffset?: SampleValue,
+    glBufferUsage: GLBufferUsage = "static"
   ) {
     if (
       dataType == null &&
@@ -71,12 +92,26 @@ export class LazyArray {
     this.sampleOffset = sampleOffset ?? 0;
     this._data = data;
     this._timeRange = timeRange;
+    this.gl = {
+      updated: false,
+      buffer: null,
+      bufferUsage: glBufferUsage,
+    };
   }
 
-  set(buffer: NativeTypedArray, offset: number): void {
-    if (!new DataType(buffer).equals(this.dataType))
+  write(other: LazyArray): number {
+    if (!other.dataType.equals(this.dataType))
       throw new Error("buffer must be of the same type as this array");
-    this.data.set(buffer as any, offset);
+    // Mark the GL buffer as needing to be updated
+    this.gl.updated = false;
+    if (this.pos === FULL_BUFFER) return 0;
+    const available = this.length - this.pos;
+    if (available < other.length) {
+      this.data.set(other.data.slice(0, available) as any, this.pos);
+      return available;
+    }
+    this.data.set(other.data as any, this.pos);
+    return other.length;
   }
 
   /** @returns the underlying buffer backing this array. */
@@ -86,13 +121,12 @@ export class LazyArray {
 
   /** @returns a native typed array with the proper data type. */
   get data(): NativeTypedArray {
-    validateFieldNotNull("dataType", this._data);
     return new this.dataType.Array(this._data);
   }
 
   /** @returns the time range of this array. */
   get timeRange(): TimeRange {
-    validateFieldNotNull("_timeRange", this._timeRange);
+    validateFieldNotNull("timeRange", this._timeRange);
     return this._timeRange as TimeRange;
   }
 
@@ -191,10 +225,41 @@ export class LazyArray {
     }
     return left;
   }
+
+  updateGLBuffer(gl: GLBufferControl): void {
+    const { buffer, updated, bufferUsage } = this.gl;
+    if (updated) return;
+    if (buffer == null) this.gl.buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.gl.buffer);
+    if (this.pos !== FULL_BUFFER) {
+      gl.bufferSubData(
+        gl.ARRAY_BUFFER,
+        this.dataType.density.size(this.pos).valueOf(),
+        this.buffer
+      );
+    } else
+      gl.bufferData(
+        gl.ARRAY_BUFFER,
+        this.buffer,
+        bufferUsage === "static" ? gl.STATIC_DRAW : gl.DYNAMIC_DRAW
+      );
+    this.gl.updated = true;
+  }
+
+  get glBuffer(): WebGLBuffer {
+    if (this.gl.buffer == null) throw new Error("gl buffer not initialized");
+    if (!this.gl.updated) console.warn("gl buffer not updated");
+    return this.gl.buffer;
+  }
+
+  slice(start: number, end?: number): LazyArray {
+    const data = this.data.slice(start, end);
+    return new LazyArray(data.buffer, this.dataType, this._timeRange);
+  }
 }
 
 export const addSamples = (a: SampleValue, b: SampleValue): SampleValue => {
   if (typeof a === "bigint" && typeof b === "bigint") return a + b;
-  else if (typeof a === "number" && typeof b === "number") return a + b;
+  if (typeof a === "number" && typeof b === "number") return a + b;
   return Number(a) + Number(b);
 };

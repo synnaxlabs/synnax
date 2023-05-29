@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { DynamicCache } from "./dynamic";
 
-import { MockGLBufferController } from "@/core/vis/telem/bufferController";
+import { MockGLBufferController } from "@/telem/cache/bufferController";
 
 describe("DynamicReadCache", () => {
   it("Should correctly allocate a buffer", () => {

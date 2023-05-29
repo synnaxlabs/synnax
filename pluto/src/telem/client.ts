@@ -8,13 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { Channel, ChannelKey, ChannelKeys, Streamer, Synnax } from "@synnaxlabs/client";
-import { TimeRange } from "@synnaxlabs/x";
-
-import { ChannelRange, Range } from "./range";
-import { VisArray } from "./visArray";
+import { LazyArray, TimeRange } from "@synnaxlabs/x";
 
 import { Cache } from "@/telem/cache";
-import { GLBufferController } from "@/core/vis/telem/bufferController";
+import { GLBufferController } from "@/telem/cache/bufferController";
+import { ChannelRange, Range } from "@/telem/range";
 
 export type StreamHandler = (data: ReadResponse[] | null) => void;
 
@@ -45,26 +43,24 @@ export class Client {
 
   async read(range: ChannelRange): Promise<ReadResponse[]> {
     const toFetch = new Map<string, [TimeRange, ChannelKeys]>();
-    const responses: Record<ChannelKey, [Channel, VisArray[]]> = {};
+    const responses: Record<ChannelKey, [Channel, LazyArray[]]> = {};
     for (const key of range.channels) {
       const cache = await this.getCache(key);
       const [data, gaps] = cache.read(range.timeRange);
       responses[key] = [cache.channel, data];
       for (const gap of gaps) {
         const exists = toFetch.get(gap.toString());
-        if (exists == null) {
-          toFetch.set(gap.toString(), [gap, [key]]);
-        } else {
-          toFetch.set(gap.toString(), [gap, [...exists[1], key]]);
-        }
+        if (exists == null) toFetch.set(gap.toString(), [gap, [key]]);
+        else toFetch.set(gap.toString(), [gap, [...exists[1], key]]);
       }
     }
     for (const [, [range, keys]] of toFetch) {
       const frame = await this.core.telem.read(range, ...keys);
       for (const key of keys) {
         const cache = await this.getCache(key);
-        const out = cache.writeStatic(range, frame.get(key));
-        responses[key] = [cache.channel, responses[key][1].concat(out)];
+        const arrays = frame.get(key);
+        cache.writeStatic(range, frame.get(key));
+        responses[key] = [cache.channel, responses[key][1].concat(arrays)];
       }
     }
     return Object.values(responses).map(
@@ -94,7 +90,7 @@ export class Client {
   }
 
   private async start(streamer: Streamer): Promise<void> {
-    const changed = new Map<ChannelKey, [Channel, VisArray[]]>();
+    const changed = new Map<ChannelKey, [Channel, LazyArray[]]>();
     for await (const frame of streamer) {
       for (const k of frame.channelKeys) {
         const arrays = frame.get(k);
@@ -120,9 +116,9 @@ export class Client {
 export class ReadResponse {
   channel: Channel;
   range: Range;
-  data: VisArray[];
+  data: LazyArray[];
 
-  constructor(channel: Channel, range: Range, data: VisArray[]) {
+  constructor(channel: Channel, range: Range, data: LazyArray[]) {
     this.channel = channel;
     this.range = range;
     this.data = data;
@@ -133,13 +129,5 @@ export class ReadResponse {
     const first = this.data[0].timeRange;
     const last = this.data[this.data.length - 1].timeRange;
     return new TimeRange(first.start, last.end);
-  }
-
-  acquire(): void {
-    this.data.forEach((e) => e.acquire());
-  }
-
-  release(): void {
-    this.data.forEach((e) => e.release());
   }
 }

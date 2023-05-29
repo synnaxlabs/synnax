@@ -1,38 +1,41 @@
-import { RenderContext } from "../render/RenderContext";
-import { LinePlot } from "../LinePlot/LinePlot";
-import { TelemProvider, TelemService } from "../telem";
+import { LineFactory } from "../Line";
+import { LinePlot, LinePlotProps } from "../LinePlot/LinePlot";
+import { RenderContext } from "../render";
+import { RenderQueue } from "../render/RenderQueue";
+import { TelemProvider } from "../telem/TelemService";
 
-export interface WComponent {
-  key: string;
-}
-
-export interface WorkerMessage {
-  root: string;
-  key: string;
+export interface WorkerUpdate {
+  path: string;
   type: string;
   props: any;
 }
 
 export class Worker {
+  ctx: RenderContext;
+  queue: RenderQueue;
   plots: LinePlot[];
-  telem: TelemService;
+  telem: TelemProvider;
+  lines: LineFactory;
 
-  constructor(telem: TelemService) {
+  constructor(
+    ctx: RenderContext,
+    queue: RenderQueue,
+    telem: TelemProvider,
+    lines: LineFactory
+  ) {
     this.telem = telem;
-    this.plot = [];
+    this.plots = [];
+    this.ctx = ctx;
+    this.queue = queue;
+    this.lines = lines;
   }
 
-  handle(msg: WorkerMessage): void {
-    const plot = this.plots.find((p) => p.key === msg.root);
-    if (plot != null) plot.handle(msg);
-    else this.plots.push(new LinePlot(msg, this.telem.provider()));
+  handle(u: WorkerUpdate): void {
+    const plot = this.plots.find((p) => p.key === u.root);
+    if (plot != null) plot.handle(u);
+    else
+      this.plots.push(
+        new LinePlot(this.ctx, u.props as LinePlotProps, this.lines, this.queue)
+      );
   }
 }
-
-const worker: Worker | null = null;
-
-onmessage = (msg: MessageEvent<WorkerMessage>) => {
-  if (msg.type === "worker") {
-    const telem = new TelemService();
-  }
-};
