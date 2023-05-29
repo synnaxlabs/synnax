@@ -13,7 +13,7 @@ import { CSS } from "@/core/css";
 import { Text, TextProps } from "@/core/std/Typography/Text";
 import { TypographyLevel } from "@/core/std/Typography/types";
 
-import "@/core/Typography/TextLink.css";
+import "@/core/std/Typography/TextLink.css";
 
 export type TextLinkProps<L extends TypographyLevel = "h1"> = Omit<
   TextProps<L>,

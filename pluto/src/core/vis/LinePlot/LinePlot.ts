@@ -2,7 +2,7 @@ import { Box, BoxT, OuterLocation, XY, clamp } from "@synnaxlabs/x";
 
 import { RenderContext } from "../render";
 import { RenderQueue } from "../render/RenderQueue";
-import { WorkerUpdate } from "../worker/worker";
+import { WorkerMessage } from "../worker";
 
 import { YAxis } from "./YAxis";
 
@@ -16,6 +16,11 @@ export interface LinePlotProps {
   /** Viewport  represents the zoom and pan state of the plot. */
   viewport: BoxT;
   clearOverscan: number | XY;
+}
+
+export interface LinePlotUpdate {
+  path: string;
+  props: any;
 }
 
 const AXIS_WIDTH = 15;
@@ -47,7 +52,7 @@ export class LinePlot {
 
   private setProps(props: LinePlotProps): void {
     this.props = props;
-    this._requestRender();
+    this.requestRender();
   }
 
   private async render(): Promise<void> {
@@ -75,8 +80,8 @@ export class LinePlot {
     );
   }
 
-  handle(update: WorkerUpdate): void {
-    if (update.key === this.key) return this.setProps(update.props);
+  update(update: LinePlotUpdate): void {
+    if (update.key === this.key) return this.setProps(update.data);
     switch (update.type) {
       case Line.TYPE:
         return this.udpateLine(update);
@@ -85,36 +90,27 @@ export class LinePlot {
       case YAxis.TYPE:
         return this.udpateYAxis(update);
     }
-    this._requestRender();
+    this.requestRender();
   }
 
-  private _requestRender(): void {
+  requestRender(): void {
     this.renderQueue.push(async () => await this.render());
   }
 
-  private udpateLine(u: WorkerUpdate): void {
-    this.axes.forEach((a) =>
-      a.axes.forEach((a) =>
-        a.lines.forEach((l) => {
-          if (l.key === u.key) l.setProps(u.props);
-          else a.lines.push(this.lines.new(u.props, this._requestRender));
-        })
-      )
-    );
-  }
+  private udpateLine(u: WorkerMessage): void {}
 
-  private updateXAxis(u: WorkerUpdate): void {
+  private updateXAxis(u: WorkerMessage): void {
     this.axes.forEach((a) => {
-      if (a.key === u.key) a.setProps(u.props);
-      else this.axes.push(new XAxis(this.ctx, u.props));
+      if (a.key === u.key) a.setProps(u.data);
+      else this.axes.push(new XAxis(this.ctx, u.data));
     });
   }
 
-  private udpateYAxis(u: WorkerUpdate): void {
+  private udpateYAxis(u: WorkerMessage): void {
     this.axes.forEach((xAxis) =>
       xAxis.axes.forEach((a) => {
-        if (a.key === u.key) a.setProps(u.props);
-        else xAxis.axes.push(new YAxis(this.ctx, u.props));
+        if (a.key === u.key) a.setProps(u.data);
+        else xAxis.axes.push(new YAxis(this.ctx, u.data));
       })
     );
   }

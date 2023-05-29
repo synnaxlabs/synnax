@@ -11,18 +11,17 @@ import { forwardRef, useCallback, useEffect } from "react";
 
 import { TimeSpan, TimeStamp, TZInfo } from "@synnaxlabs/x";
 
-import { Input } from "@/core/Inpu/Inputt";
+import { CSS } from "@/core/css";
+import { Input } from "@/core/std/Input/Input";
 import {
   InputDragButton,
   InputDragButtonExtensionProps,
 } from "@/core/std/Input/InputDragButton";
 import { InputNumberProps } from "@/core/std/Input/InputNumber";
-
-import "@/core/std/Input/InputTime.css";
-
 import { InputBaseProps } from "@/core/std/Input/types";
 import { Pack } from "@/core/std/Pack";
-import { CSS } from "@/core/css";
+
+import "@/core/std/Input/InputTime.css";
 
 export interface InputTimeProps
   extends InputBaseProps<number>,

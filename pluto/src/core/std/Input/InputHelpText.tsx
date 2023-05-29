@@ -9,11 +9,11 @@
 
 import { ReactElement } from "react";
 
-import "@/core/std/Input/InputHelpText.css";
-
+import { CSS } from "@/core/css";
 import { StatusVariant } from "@/core/std/Status";
 import { Text, TextProps } from "@/core/std/Typography";
-import { CSS } from "@/core/css";
+
+import "@/core/std/Input/InputHelpText.css";
 
 export interface InputHelpTextProps extends Omit<TextProps<"small">, "level" | "ref"> {
   variant?: StatusVariant;

@@ -9,9 +9,9 @@
 
 import { DetailedHTMLProps, HTMLAttributes, ReactElement } from "react";
 
-import "@/core/std/Input/InputLabel.css";
-
 import { CSS } from "@/core/css";
+
+import "@/core/std/Input/InputLabel.css";
 
 export interface InputLabelProps
   extends DetailedHTMLProps<HTMLAttributes<HTMLLabelElement>, HTMLLabelElement> {

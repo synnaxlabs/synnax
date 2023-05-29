@@ -15,7 +15,7 @@ import { Space, SpaceProps, SpaceElementType } from "@/core/std/Space";
 import { CoreTextProps, Text } from "@/core/std/Typography/Text";
 import { TypographyLevel } from "@/core/std/Typography/types";
 
-import "@/core/Typography/TextWithIcon.css";
+import "@/core/std/Typography/TextWithIcon.css";
 
 export type TextWithIconProps<
   E extends SpaceElementType = "div",

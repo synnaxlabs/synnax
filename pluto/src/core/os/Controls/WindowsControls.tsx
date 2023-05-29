@@ -11,11 +11,11 @@ import { ReactElement } from "react";
 
 import { Icon } from "@synnaxlabs/media";
 
-import { Button, ButtonIconProps, Pack } from "@/core/std";
 import { CSS } from "@/core/css";
 import { OSControlsProps } from "@/core/os/Controls/types";
+import { Button, ButtonIconProps, Pack } from "@/core/std";
 
-import "@/os/Controls/WindowsControls.css";
+import "@/core/os/Controls/WindowsControls.css";
 
 export const WindowsControls = ({
   disabled = [],

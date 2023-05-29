@@ -9,12 +9,12 @@
 
 import { FunctionComponent } from "react";
 
-import "@/core/Button/ButtonToggle.css";
-
 import { CSS } from "@/core/css";
 import { Button, ButtonProps } from "@/core/std/Button/Button";
 import { ButtonIcon } from "@/core/std/Button/ButtonIcon";
 import { InputControl } from "@/core/std/Input";
+
+import "@/core/std/Button/ButtonToggle.css";
 
 const buttonToggleFactory =
   <E extends Pick<ButtonProps, "className" | "variant">>(

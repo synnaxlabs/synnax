@@ -11,13 +11,11 @@ import { Direction, Bound, xyScaleToTransform, LazyArray } from "@synnaxlabs/x";
 
 import { hexToRGBA } from "@/core/color";
 import { LineRenderer, LineProps, LineContext } from "@/core/vis/Line/core";
+import FRAG_SHADER from "@/core/vis/Line/frag.glsl?raw";
+import VERT_SHADER from "@/core/vis/Line/vert.glsl?raw";
 import { GLProgram, errorUnsupported, RenderContext } from "@/core/vis/render";
 import { DynamicXYTelemSource, XYTelemSource } from "@/core/vis/telem";
 import { TelemProvider } from "@/core/vis/telem/TelemService";
-// eslint-disable-next-line import/no-unresolved
-import FRAG_SHADER from "@/vis/core/Line/frag.glsl?raw";
-// eslint-disable-next-line import/no-unresolved
-import VERT_SHADER from "@/vis/core/Line/vert.glsl?raw";
 
 const ANGLE_INSTANCED_ARRAYS_FEATURE = "ANGLE_instanced_arrays";
 
@@ -71,8 +69,8 @@ class LineGLProgram extends GLProgram {
   }
 
   draw(x: LazyArray, y: LazyArray, count: number): void {
-    this.bindAttrBuffer("x", x.buffer);
-    this.bindAttrBuffer("y", y.buffer);
+    this.bindAttrBuffer("x", x.glBuffer);
+    this.bindAttrBuffer("y", y.glBuffer);
     this.extension.drawArraysInstancedANGLE(this.ctx.gl.LINE_STRIP, 0, x.length, count);
   }
 
@@ -148,8 +146,8 @@ export class LineGL implements LineRenderer {
 
   async render(ctx: LineContext): Promise<void> {
     this.prog.setAsActive();
-    const xData = await this.telem.x();
-    const yData = await this.telem.y();
+    const xData = await this.telem.x(this.prog.ctx.gl);
+    const yData = await this.telem.y(this.prog.ctx.gl);
     const count = this.prog.bindPropsAndContext(ctx, this.props);
     xData.forEach((x, i) => this.prog.draw(x, yData[i], count));
   }

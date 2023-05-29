@@ -20,11 +20,10 @@ import { YLocation } from "@synnaxlabs/x";
 
 import { CSS } from "@/core/css";
 import { useClickOutside } from "@/core/hooks";
-
-import "@/core/std/Dropdown/Dropdown.css";
-
 import { Pack, PackProps } from "@/core/std/Pack";
 import { Space } from "@/core/std/Space";
+
+import "@/core/std/Dropdown/Dropdown.css";
 
 /** Return type for the {@link useDropdown} hook. */
 export interface UseDropdownReturn {

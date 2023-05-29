@@ -1,4 +1,4 @@
-import { Bound, LazyArray, ZERO_BOUND } from "@synnaxlabs/x";
+import { GLBufferControl, Bound, LazyArray, ZERO_BOUND } from "@synnaxlabs/x";
 
 /**
  * Metadata about a telemetry source. This metadata can be thought of as a pointer
@@ -21,8 +21,8 @@ export interface XYTelemSourceMeta {
 }
 
 export interface XYTelemSource extends TelemSourceMeta {
-  x: () => Promise<LazyArray[]>;
-  y: () => Promise<LazyArray[]>;
+  x: (gl?: GLBufferControl) => Promise<LazyArray[]>;
+  y: (gl?: GLBufferControl) => Promise<LazyArray[]>;
   xBound: () => Promise<Bound>;
   yBound: () => Promise<Bound>;
 }
