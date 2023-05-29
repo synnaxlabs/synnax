@@ -15,7 +15,7 @@ import { InputControl } from "@/core/std/Input";
 import { Text, TextProps } from "@/core/std/Typography/Text";
 import { TypographyLevel } from "@/core/std/Typography/types";
 
-import "@/core/Typography/TextEditable.css";
+import "@/core/std/Typography/TextEditable.css";
 
 export type TextEditableProps<L extends TypographyLevel = "h1"> = Omit<
   TextProps<L>,

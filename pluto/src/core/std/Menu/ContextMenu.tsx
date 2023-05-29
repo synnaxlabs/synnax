@@ -20,11 +20,9 @@ import { unique, ClientXY, toXY, XY, ZERO_XY, positionSoVisible } from "@synnaxl
 
 import { CSS } from "@/core/css";
 import { useClickOutside } from "@/core/hooks";
-
-import "@/core/std/Menu/ContextMenu.css";
-
 import { RenderProp } from "@/util/renderProp";
 
+import "@/core/std/Menu/ContextMenu.css";
 interface ContextMenuState {
   visible: boolean;
   keys: string[];

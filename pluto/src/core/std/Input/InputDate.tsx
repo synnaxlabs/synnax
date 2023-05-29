@@ -20,7 +20,7 @@ import {
 import { InputBaseProps } from "@/core/std/Input/types";
 import { Pack } from "@/core/std/Pack";
 
-import "./InputDate.css";
+import "@/core/std/Input/InputDate.css";
 
 export interface InputDateProps
   extends InputBaseProps<number>,

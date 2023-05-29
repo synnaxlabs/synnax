@@ -14,7 +14,7 @@ export type TickType = "linear" | "time";
 
 export interface TickFactoryProps {
   location: OuterLocation;
-  pixelsPerTick: number;
+  tickSpacing: number;
   type: TickType;
 }
 
@@ -46,7 +46,7 @@ class TimeTickFactory implements TickFactory {
       new TimeStamp(scale.pos(1)).date(),
     ];
     const d3Scale = scaleTime().domain(domain).range(range);
-    const ticks = d3Scale.ticks(calcTickCount(size, this.props.pixelsPerTick));
+    const ticks = d3Scale.ticks(calcTickCount(size, this.props.tickSpacing));
     return ticks.map((tick) => ({
       label: this.tickLabel(tick),
       position: d3Scale(tick),
@@ -87,7 +87,7 @@ class LinearTickFactory implements TickFactory {
     const range = [0, size];
     const domain = [scale.pos(0), scale.pos(1)];
     const d3Scale = scaleLinear().domain(domain).range(range);
-    const ticks = d3Scale.ticks(calcTickCount(size, this.props.pixelsPerTick));
+    const ticks = d3Scale.ticks(calcTickCount(size, this.props.tickSpacing));
     return ticks.map((tick) => ({
       label: this.tickLabel(tick),
       position: d3Scale(tick),

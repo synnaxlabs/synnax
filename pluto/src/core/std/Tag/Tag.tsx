@@ -9,13 +9,12 @@
 
 import { Icon } from "@synnaxlabs/media";
 
-import { Button } from "@/core/std/Button";
-
-import "@/core/Tag/Tag.css";
-
-import { Typography, Text, TextProps } from "@/core/std/Typography";
 import { CSS } from "@/core/css";
+import { Button } from "@/core/std/Button";
+import { Typography, Text, TextProps } from "@/core/std/Typography";
 import { ComponentSize } from "@/util/component";
+
+import "@/core/std/Tag/Tag.css";
 
 export interface TagProps extends Omit<TextProps, "level" | "size" | "wrap"> {
   icon?: React.ReactElement;

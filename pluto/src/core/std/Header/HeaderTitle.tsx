@@ -12,11 +12,10 @@ import { ReactElement } from "react";
 import { Optional } from "@synnaxlabs/x";
 
 import { CSS } from "@/core/css";
-
-import "@/core/Header/Header.css";
-
 import { useHeaderContext } from "@/core/std/Header/Header";
 import { TextWithIconProps, Text } from "@/core/std/Typography";
+
+import "@/core/std/Header/Header.css";
 
 export interface HeaderTitleProps
   extends Optional<Omit<TextWithIconProps, "divided">, "level"> {}

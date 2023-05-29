@@ -10,5 +10,3 @@
 export * from "../core/vis/render";
 export * from "../core/vis/Axis";
 export * from "../core/vis/viewport";
-export * from "./Annotation";
-export * from "./Rule";

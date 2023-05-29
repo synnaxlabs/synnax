@@ -12,24 +12,26 @@ import { useResize } from "../hooks";
 
 import { VisContext } from "./Context";
 
+import { WorkerMessage } from "@/core/vis/worker";
+import { useTypedWorker } from "@/worker/Context";
+
 type HTMLCanvasProps = DetailedHTMLProps<
   CanvasHTMLAttributes<HTMLCanvasElement>,
   HTMLCanvasElement
 >;
 
-export interface CanvasProps extends Omit<HTMLCanvasProps, "ref"> {
-  worker: Worker;
-}
+export interface CanvasProps extends Omit<HTMLCanvasProps, "ref"> {}
 
-export const Canvas = ({ worker }: CanvasProps): ReactElement => {
+export const Canvas = ({ children }: CanvasProps): ReactElement => {
+  const worker = useTypedWorker<WorkerMessage>("vis");
   const handleResize = useCallback(
     (box: Box, canvas: HTMLCanvasElement) => {
       const dpr = window.devicePixelRatio;
       const { clientWidth: cw, clientHeight: ch, width: w, height: h } = canvas;
       const needResize = w !== cw || h !== ch;
       if (needResize) [canvas.width, canvas.height] = [cw * dpr, ch * dpr];
-      worker.postMessage({
-        type: "canvas-resize",
+      worker.send({
+        type: "resize",
         data: {
           box,
           dpr,
@@ -42,7 +44,7 @@ export const Canvas = ({ worker }: CanvasProps): ReactElement => {
 
   const handleSetProps = useCallback(
     (path: string, props: unknown) => {
-      worker.postMessage({ type: "canvas-set-props", data: { path, props } });
+      worker.send({ type: "set-props", data: { path, props } });
     },
     [worker]
   );
@@ -59,8 +61,9 @@ export const Canvas = ({ worker }: CanvasProps): ReactElement => {
       if (canvas == null) return;
       resizeRef(canvas);
       const box = canvas.getBoundingClientRect();
+      // transfer control of the canvas to the worker
       worker.postMessage({
-        type: "canvas-bootstrap",
+        type: "bootstrap",
         data: { box, dpr: window.devicePixelRatio },
       });
     },
@@ -70,6 +73,7 @@ export const Canvas = ({ worker }: CanvasProps): ReactElement => {
   return (
     <VisContext.Provider value={value}>
       <canvas ref={refCallback} />
+      {childre}
     </VisContext.Provider>
   );
 };

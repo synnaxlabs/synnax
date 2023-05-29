@@ -18,17 +18,16 @@ import {
 export interface AxisProps extends TickFactoryProps {
   color: string;
   label: string;
-  tickSpacing: number;
   type: TickType;
   tickFont: string;
   showGrid?: boolean;
-  gridSize?: number;
   location: OuterLocation;
 }
 
 export interface AxisContext extends TickFactoryContext {
   region: Box;
   position: XY;
+  gridSize: number;
 }
 
 export interface Axis {

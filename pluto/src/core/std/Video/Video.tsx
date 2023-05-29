@@ -11,7 +11,7 @@ import { ComponentPropsWithoutRef, ReactElement } from "react";
 
 import { CSS } from "@/core/css";
 
-import "@/core/Video/Video.css";
+import "@/core/std/Video/Video.css";
 
 export interface VideoProps extends ComponentPropsWithoutRef<"video"> {
   href: string;

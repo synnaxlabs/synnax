@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { CSSProperties, useEffect, useState } from "react";
+import { CSSProperties, ReactElement, useEffect, useState } from "react";
 
 import { Icon } from "@synnaxlabs/media";
 import { Compare, convertRenderV, KeyedRenderableRecord } from "@synnaxlabs/x";
@@ -22,7 +22,7 @@ import { textWidth } from "@/core/std/Typography/textWidth";
 import { useFont } from "@/core/theming";
 import { ArrayTransform } from "@/util/transform";
 
-import "@/core/List/ListColumn.css";
+import "@/core/std/List/ListColumn.css";
 
 type SortState<E extends KeyedRenderableRecord<E>> = [keyof E | null, boolean];
 

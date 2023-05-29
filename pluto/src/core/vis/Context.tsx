@@ -6,6 +6,8 @@ import {
   ReactElement,
 } from "react";
 
+import { UnknownRecord } from "@synnaxlabs/x";
+
 export interface VisCanvasContextValue {
   parent: string;
   setProps: <P>(path: string, el: string, props: P, root?: string) => void;
@@ -29,13 +31,13 @@ export interface UseVisElementReturn {
   key: string;
 }
 
-export const useVisElement = <P extends unknown>(
+export const useVisElement = <P extends UnknownRecord>(
   el: string,
   props: P
 ): UseVisElementReturn => {
   const ctx = useVisContext();
   const key = useId();
-  ctx.setProps(`${ctx.parent}.${key}`, el, props);
+  ctx.setProps(`${ctx.parent}.${key}`, el, { key, ...props });
   return { key };
 };
 

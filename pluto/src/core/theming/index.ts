@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { convertThemeToCSSVars } from "./css";
-import { synnaxDark, synnaxLight } from "./theme";
+import { synnaxDark, synnaxLight, Theme } from "./theme";
 import {
   ThemeProvider,
   ThemeSwitch,
@@ -24,6 +24,7 @@ export const Theming = {
   Switch: ThemeSwitch,
   useContext: useThemeContext,
   useProvider: useThemeProvider,
+  use: (): Theme => useThemeContext().theme,
   themes: { synnaxDark, synnaxLight },
   toCSSVars: convertThemeToCSSVars,
 };

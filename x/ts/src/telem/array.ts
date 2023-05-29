@@ -27,12 +27,12 @@ const validateFieldNotNull = (name: string, field: unknown): void => {
 };
 
 interface GL {
-  updated: boolean;
   buffer: WebGLBuffer | null;
+  prevBuffer: number;
   bufferUsage: GLBufferUsage;
 }
 
-interface GLBufferControl {
+export interface GLBufferControl {
   bufferData: (target: number, data: ArrayBufferLike, usage: number) => void;
   bufferSubData: (target: number, offset: number, data: ArrayBufferLike) => void;
   bindBuffer: (target: number, buffer: WebGLBuffer | null) => void;
@@ -93,8 +93,8 @@ export class LazyArray {
     this._data = data;
     this._timeRange = timeRange;
     this.gl = {
-      updated: false,
       buffer: null,
+      prevBuffer: 0,
       bufferUsage: glBufferUsage,
     };
   }
@@ -103,7 +103,6 @@ export class LazyArray {
     if (!other.dataType.equals(this.dataType))
       throw new Error("buffer must be of the same type as this array");
     // Mark the GL buffer as needing to be updated
-    this.gl.updated = false;
     if (this.pos === FULL_BUFFER) return 0;
     const available = this.length - this.pos;
     if (available < other.length) {
@@ -227,34 +226,42 @@ export class LazyArray {
   }
 
   updateGLBuffer(gl: GLBufferControl): void {
-    const { buffer, updated, bufferUsage } = this.gl;
-    if (updated) return;
+    const { buffer, bufferUsage, prevBuffer } = this.gl;
+    if (this.pos === prevBuffer) return;
     if (buffer == null) this.gl.buffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, this.gl.buffer);
     if (this.pos !== FULL_BUFFER) {
       gl.bufferSubData(
         gl.ARRAY_BUFFER,
-        this.dataType.density.size(this.pos).valueOf(),
-        this.buffer
+        this.dataType.density.size(prevBuffer).valueOf(),
+        this.buffer.slice(this.gl.prevBuffer, this.pos)
       );
-    } else
+      this.gl.prevBuffer = this.pos;
+    } else {
       gl.bufferData(
         gl.ARRAY_BUFFER,
         this.buffer,
         bufferUsage === "static" ? gl.STATIC_DRAW : gl.DYNAMIC_DRAW
       );
-    this.gl.updated = true;
+      this.gl.prevBuffer = FULL_BUFFER;
+    }
   }
 
   get glBuffer(): WebGLBuffer {
     if (this.gl.buffer == null) throw new Error("gl buffer not initialized");
-    if (!this.gl.updated) console.warn("gl buffer not updated");
+    if (!(this.gl.prevBuffer === this.pos)) console.warn("buffer not updated");
     return this.gl.buffer;
   }
 
   slice(start: number, end?: number): LazyArray {
     const data = this.data.slice(start, end);
-    return new LazyArray(data.buffer, this.dataType, this._timeRange);
+    const n = new LazyArray(
+      data.buffer,
+      this.dataType,
+      this._timeRange,
+      this.sampleOffset
+    );
+    return n;
   }
 }
 

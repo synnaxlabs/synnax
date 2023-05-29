@@ -9,7 +9,7 @@
 
 import { Bound, Box, XYScale } from "@synnaxlabs/x";
 
-import { DynamicXYTelemSourceMeta, XYTelemSourceMeta } from "../telem/TelemService";
+import type { DynamicXYTelemSourceMeta, XYTelemSourceMeta } from "@/core/vis/telem";
 
 export interface LineProps {
   /** A unique key identifying the line within the worker DOM */

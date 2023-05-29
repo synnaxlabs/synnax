@@ -9,10 +9,10 @@
 
 import { forwardRef } from "react";
 
-import "@/core/std/Input/Input.css";
-
-import { InputBaseProps } from "@/core/std/Input/types";
 import { CSS } from "@/core/css";
+import { InputBaseProps } from "@/core/std/Input/types";
+
+import "@/core/std/Input/Input.css";
 
 export interface InputProps extends InputBaseProps<string> {
   selectOnFocus?: boolean;
