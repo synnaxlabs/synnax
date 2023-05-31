@@ -4,9 +4,10 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useState,
 } from "react";
 
-import { useState } from "@storybook/addons";
+import { PsuedoSetStateArg } from "../hooks/useStateRef";
 
 import { WorkerMessage } from "@/core/bob/message";
 import { useUniqueKey } from "@/core/hooks/useUniqueKey";
@@ -44,8 +45,9 @@ export const BobContext = createContext<BobContextValue>({
 });
 
 export interface UseBobComponentReturn<S extends unknown> {
+  key: string;
   path: string[];
-  state: [S, (state: S, transfer?: Transferable[]) => void];
+  state: [S, (state: PsuedoSetStateArg<S>, transfer?: Transferable[]) => void];
 }
 
 export const useBobContext = (): BobContextValue => {
@@ -54,12 +56,12 @@ export const useBobContext = (): BobContextValue => {
   return ctx;
 };
 
-export const useBobComponent = <P extends unknown>(
+export const useBobComponent = <S extends unknown>(
   type: string,
-  initialState: P,
+  initialState: S,
   key?: string,
   initialTransfer: Transferable[] = []
-): UseBobComponentReturn<P> => {
+): UseBobComponentReturn<S> => {
   const oKey = useUniqueKey(key);
   const ctx = useBobContext();
   const path = [...ctx.path, oKey];
@@ -68,15 +70,22 @@ export const useBobComponent = <P extends unknown>(
     return initialState;
   });
   const setState = useCallback(
-    (state: P, transfer: Transferable[] = []): void => {
-      _setState(state);
-      ctx.setState(path, type, state, transfer);
+    (next: PsuedoSetStateArg<S>, transfer: Transferable[] = []): void => {
+      if (typeof next === "function") {
+        _setState((prev) => {
+          const nextS = (next as (prev: S) => S)(prev);
+          ctx.setState(path, type, nextS, transfer);
+          return nextS;
+        });
+      } else {
+        _setState(next);
+        ctx.setState(path, type, next, transfer);
+      }
     },
     [ctx, path, type]
   );
-  setState(initialState);
   useEffect(() => () => ctx.delete(path), []);
-  return { path, state: [state, setState] };
+  return { key: oKey, path, state: [state, setState] };
 };
 
 export const useBobBootstrap = <P extends unknown>(): ((
@@ -107,9 +116,11 @@ export const BobProvider = ({ workerKey, children }: BobProviderProps): JSX.Elem
     [worker]
   );
 
-  const bootstrap = useCallback((state: any, transfer: Transferable[] = []): void => {
-    worker.send({ variant: "bootstrap", data: state }, transfer);
-  }, []);
+  const bootstrap = useCallback(
+    (state: any, transfer: Transferable[] = []): void =>
+      worker.send({ variant: "bootstrap", data: state }, transfer),
+    []
+  );
 
   return (
     <BobContext.Provider value={{ path: [], setState, delete: delete_, bootstrap }}>

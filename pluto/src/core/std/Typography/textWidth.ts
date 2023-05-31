@@ -16,9 +16,14 @@ const getCanvas = (): HTMLCanvasElement => {
   return canvas;
 };
 
-export const textWidth = (text: string, font: string): number => {
+export const textWidth = (
+  text: string,
+  font: string,
+  context?: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D
+): number => {
   if (RUNTIME === "node") return 0;
-  const context = getCanvas().getContext("2d") as CanvasRenderingContext2D;
+  if (context == null)
+    context = getCanvas().getContext("2d") as CanvasRenderingContext2D;
   context.font = font;
   const metrics = context.measureText(text);
   return Math.trunc(

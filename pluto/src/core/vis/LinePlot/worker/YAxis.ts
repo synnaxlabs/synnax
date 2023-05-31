@@ -3,11 +3,11 @@ import { z } from "zod";
 
 import { WComposite, WComponentFactory } from "@/core/bob/worker";
 import { Axis, AxisCanvas } from "@/core/vis/Axis";
-import { axisProps } from "@/core/vis/Axis/core";
+import { axisState } from "@/core/vis/Axis/core";
 import { LineComponent, LineContext } from "@/core/vis/Line/core";
 import { RenderContext } from "@/core/vis/render";
 
-export const yAxisProps = axisProps.extend({
+export const yAxisProps = axisState.extend({
   location: xLocation.optional().default("left"),
   bound: bound.optional(),
   autoBoundPadding: z.number().optional().default(0.1),
@@ -58,7 +58,10 @@ export class YAxis extends WComposite<LineComponent, YAxisState, ParsedYAxisStat
     super(YAxis.TYPE, key, lineFactory, yAxisProps, props);
     this.ctx = ctx;
     this.core = new AxisCanvas(ctx, this.state);
-    this.setHook(requestRender);
+    this.setHook(() => {
+      this.core.setState(this.state);
+      requestRender();
+    });
   }
 
   async xBound(): Promise<Bound> {
@@ -100,7 +103,9 @@ export class YAxis extends WComposite<LineComponent, YAxisState, ParsedYAxisStat
       Scale.scale(bound)
         .scale(1)
         .translate(-ctx.viewport.y)
-        .magnify(1 / ctx.viewport.height),
+        .magnify(1 / ctx.viewport.height)
+        .invert()
+        .reverse(),
       Scale.scale(bound)
         .translate(-offset)
         .scale(1)

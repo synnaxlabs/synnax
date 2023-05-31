@@ -17,7 +17,7 @@ import {
   tickType,
 } from "@/core/vis/Axis/TickFactory";
 
-export const axisProps = tickFactoryProps.extend({
+export const axisState = tickFactoryProps.extend({
   color: hex,
   position: xy,
   label: z.string().optional().default(""),
@@ -27,13 +27,13 @@ export const axisProps = tickFactoryProps.extend({
   location: outerLocation,
 });
 
-export type AxisProps = z.infer<typeof axisProps>;
+export type AxisState = z.infer<typeof axisState>;
 
 export interface AxisContext extends Omit<TickFactoryContext, "size"> {
   plottingRegion: Box;
 }
 
 export interface Axis {
-  setProps: (props: AxisProps) => void;
+  setState: (state: AxisState) => void;
   render: (ctx: AxisContext) => void;
 }

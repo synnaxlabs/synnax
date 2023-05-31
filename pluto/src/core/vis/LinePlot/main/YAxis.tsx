@@ -2,7 +2,10 @@ import { PropsWithChildren, ReactElement, memo } from "react";
 
 import { Optional, ZERO_XY } from "@synnaxlabs/x";
 
+import { useAxisPosition } from "./LinePlot";
+
 import { Bob } from "@/core/bob/main";
+import { useResize } from "@/core/hooks";
 import { Theming } from "@/core/theming";
 import {
   YAxisState as WorkerYAxisState,
@@ -13,19 +16,39 @@ export interface YAxisProps
   extends PropsWithChildren,
     Optional<Omit<WorkerYAxisState, "position">, "color" | "font"> {}
 
-export const YAxis = memo(({ children, ...props }: YAxisProps): ReactElement => {
-  const theme = Theming.use();
-  const { path } = Bob.useComponent<WorkerYAxisState>(
-    WorkerYAxis.TYPE,
-    {
+export const YAxis = memo(
+  ({ children, location = "left", ...props }: YAxisProps): ReactElement => {
+    const theme = Theming.use();
+    const font = `${theme.typography.tiny.size * theme.sizes.base}px ${
+      theme.typography.family
+    }`;
+    const {
+      key,
+      path,
+      state: [, setState],
+    } = Bob.useComponent<WorkerYAxisState>(WorkerYAxis.TYPE, {
       position: ZERO_XY,
       color: theme.colors.gray.p2,
-      font: `${theme.typography.tiny.size}px ${theme.typography.family}`,
+      location,
+      font,
       ...props,
-    },
-    [],
-    "y-axis"
-  );
-  return <Bob.Composite path={path}>{children}</Bob.Composite>;
-});
+    });
+    const gridStyle = useAxisPosition(location, key);
+    const resizeRef = useResize(
+      (box) => {
+        setState((state) => ({
+          ...state,
+          position: box.topRight,
+        }));
+      },
+      { debounce: 100 }
+    );
+    return (
+      <Bob.Composite path={path}>
+        <div className="y-axis" style={gridStyle} ref={resizeRef}></div>
+        {children}
+      </Bob.Composite>
+    );
+  }
+);
 YAxis.displayName = "YAxisC";

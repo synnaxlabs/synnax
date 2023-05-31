@@ -39,7 +39,7 @@ export interface LineContext {
 }
 
 export interface LineComponent extends WComponent {
-  props: LineProps;
+  state: LineProps;
   render: (ctx: LineContext) => void;
   xBound: () => Promise<Bound>;
   yBound: () => Promise<Bound>;

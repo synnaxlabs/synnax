@@ -1,23 +1,23 @@
 import { locToDir, swapDir } from "@synnaxlabs/x";
 
-import { AxisContext, AxisProps } from "@/core/vis/Axis/core";
+import { AxisContext, AxisState } from "@/core/vis/Axis/core";
 import { TickFactory, newTickFactory } from "@/core/vis/Axis/TickFactory";
 import { RenderContext } from "@/core/vis/render";
 
 export class AxisCanvas {
   ctx: RenderContext;
-  props: AxisProps;
+  props: AxisState;
   tickFactory: TickFactory;
 
-  constructor(ctx: RenderContext, props: AxisProps) {
+  constructor(ctx: RenderContext, props: AxisState) {
     this.ctx = ctx;
     this.props = props;
     this.tickFactory = newTickFactory(this.props);
   }
 
-  setProps(props: AxisProps): void {
-    this.props = props;
-    this.tickFactory = newTickFactory(props);
+  setState(state: AxisState): void {
+    this.props = state;
+    this.tickFactory = newTickFactory(state);
   }
 
   render(ctx: AxisContext): void {
@@ -61,7 +61,7 @@ export class AxisCanvas {
           if (showGrid) {
             canvas.beginPath();
             canvas.moveTo(pos.x + tick.position, pos.y);
-            canvas.lineTo(pos.x + tick.position, pos.y + gridSize);
+            canvas.lineTo(pos.x + tick.position, pos.y - gridSize);
             canvas.stroke();
           }
         }
@@ -73,7 +73,7 @@ export class AxisCanvas {
           if (showGrid) {
             canvas.beginPath();
             canvas.moveTo(pos.x, pos.y + tick.position);
-            canvas.lineTo(pos.x - gridSize, pos.y + tick.position);
+            canvas.lineTo(pos.x + gridSize, pos.y + tick.position);
             canvas.stroke();
           }
         } else {

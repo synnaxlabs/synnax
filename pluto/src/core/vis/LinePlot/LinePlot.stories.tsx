@@ -46,14 +46,16 @@ const Example = (): ReactElement => {
             color="#FFFFFF"
             location="bottom"
             bound={{ lower: 500, upper: 1000 }}
+            showGrid
           >
-            {/* <LinePlot.YAxis
+            <LinePlot.YAxis
               type="linear"
               label="Value"
               color="#FFFFFF"
               location="left"
               bound={{ lower: 500, upper: 1000 }}
-            /> */}
+              showGrid
+            />
           </LinePlot.XAxis>
         </LinePlot>
       </VisCanvas>
