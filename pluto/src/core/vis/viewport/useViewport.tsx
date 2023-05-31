@@ -44,7 +44,7 @@ export interface UseViewportProps {
 export interface UseViewportReturn {
   mode: Mode;
   maskBox: Box;
-  ref: React.RefObject<HTMLDivElement>;
+  ref: React.MutableRefObject<HTMLDivElement | null>;
 }
 
 export const MODES = ["zoom", "pan", "select", "zoomReset", "hover", null] as const;
@@ -79,7 +79,7 @@ export const useViewport = ({
 }: UseViewportProps): UseViewportReturn => {
   const [maskBox, setMaskBox] = useState<Box>(Box.ZERO);
   const [stateRef, setStateRef] = useStateRef<Box>(initial);
-  const canvasRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => setStateRef(initial), [initial]);
 

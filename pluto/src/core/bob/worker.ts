@@ -92,7 +92,7 @@ export class WComposite<C extends WComponent, EP, IP extends unknown>
       throw new Error(
         `[Composite.setState] - ${this.type}:${this.key} could not find child with key ${key}:${type}`
       );
-    this.children.push(this.factory.create(subPath[0], type, state));
+    this.children.push(this.factory.create(type, childKey, state));
   }
 
   delete(path: string[]): void {

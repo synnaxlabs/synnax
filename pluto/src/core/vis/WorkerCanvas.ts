@@ -27,10 +27,10 @@ export class Canvas extends WComposite<LinePlot, CanvasState, ParsedCanvasState>
     key: string,
     linePlotFactory: LinePlotFactory,
     telem: TelemProvider,
-    props: CanvasState,
+    state: CanvasState,
     queue: RenderQueue
   ) {
-    super(Canvas.TYPE, key, linePlotFactory, canvasState, props);
+    super(Canvas.TYPE, key, linePlotFactory, canvasState, state);
     this.ctx = ctx;
     this.telem = telem;
     this.queue = queue;

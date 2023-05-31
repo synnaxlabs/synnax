@@ -9,7 +9,8 @@ import { RenderContext, RenderQueue } from "@/core/vis/render";
 import { TelemProvider } from "@/core/vis/telem/TelemService";
 
 export const linePlotState = z.object({
-  plottingRegion: Box.z,
+  plot: Box.z,
+  container: Box.z,
   viewport: Box.z,
   clearOverscan: z.union([z.number(), xy]).optional().default(0),
 });
@@ -44,7 +45,7 @@ export class LinePlot extends WComposite<XAxis, LinePlotState, ParsedLinePlotSta
   constructor(
     ctx: RenderContext,
     key: string,
-    props: LinePlotState,
+    state: LinePlotState,
     lines: LineGLProgram,
     renderQueue: RenderQueue,
     telem: TelemProvider
@@ -54,14 +55,18 @@ export class LinePlot extends WComposite<XAxis, LinePlotState, ParsedLinePlotSta
     const xAxisFactory = new XAxisFactory(ctx, yAxisFactory, () =>
       this.requestRender()
     );
-    super(LinePlot.TYPE, key, xAxisFactory, linePlotState, props);
+    super(LinePlot.TYPE, key, xAxisFactory, linePlotState, state);
     this.ctx = ctx;
     this.renderQueue = renderQueue;
     this.setHook(() => this.requestRender());
   }
 
+  private get plottingRegion(): Box {
+    return new Box(this.state.plot);
+  }
+
   private get region(): Box {
-    return new Box(this.state.plottingRegion);
+    return new Box(this.state.container);
   }
 
   private get viewport(): Box {
@@ -83,7 +88,7 @@ export class LinePlot extends WComposite<XAxis, LinePlotState, ParsedLinePlotSta
     await Promise.all(
       this.children.map(async (xAxis) => {
         const ctx: XAxisProps = {
-          plottingRegion: this.region,
+          plottingRegion: this.plottingRegion,
           viewport: this.viewport,
         };
         await xAxis.render(ctx);
@@ -92,6 +97,6 @@ export class LinePlot extends WComposite<XAxis, LinePlotState, ParsedLinePlotSta
   }
 
   requestRender(): void {
-    this.renderQueue.push(async () => await this.render());
+    this.renderQueue.push(this.key, async () => await this.render());
   }
 }

@@ -1,27 +1,29 @@
 export type RenderFunction = () => Promise<void>;
 
 export class RenderQueue {
-  queue: RenderFunction[];
+  queue: Record<string, RenderFunction>;
   requested: boolean = false;
 
   constructor() {
-    this.queue = [];
+    this.queue = {};
+    setInterval(() => {
+      if (Object.keys(this.queue).length === 0) return;
+      void this.render();
+    }, 1000 / 60);
   }
 
-  push(render: RenderFunction): void {
-    this.queue.push(render);
-    if (!this.requested) {
-      this.requested = true;
-      requestAnimationFrame(() => {
-        void this.render();
-      });
-    }
+  push(key: string, render: RenderFunction): void {
+    this.queue[key] = render;
   }
 
   async render(): Promise<void> {
+    const queue = this.queue;
+    this.queue = {};
+    const keys = Object.keys(queue);
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i];
+      await queue[key]();
+    }
     this.requested = false;
-    const toRender = this.queue;
-    this.queue = [];
-    for (const render of toRender) await render();
   }
 }
