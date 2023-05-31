@@ -6,25 +6,12 @@ import {
   maxBound,
 } from "@synnaxlabs/x";
 
-import { useTelemSourceControl } from "./Context";
+import { XYTelemSource } from "@/core/vis/telem/TelemSource";
 
-import { XYTelemSource, XYTelemSourceMeta } from "@/core/vis/telem/TelemSource";
-
-export interface UseStaticTelemProps {
+export interface StaticTelemProps {
   x: NativeTypedArray[];
   y: NativeTypedArray[];
 }
-
-export const useStaticTelem = (props: UseStaticTelemProps): XYTelemSourceMeta => {
-  const key = useTelemSourceControl("static", props, [
-    ...props.x.map((x) => x.buffer),
-    ...props.y.map((y) => y.buffer),
-  ]);
-  return {
-    type: "xy",
-    key,
-  };
-};
 
 export class StaticTelem implements XYTelemSource {
   _x: LazyArray[];
@@ -33,7 +20,7 @@ export class StaticTelem implements XYTelemSource {
 
   type = "xy";
 
-  constructor(key: string, props: UseStaticTelemProps) {
+  constructor(key: string, props: StaticTelemProps) {
     this.key = key;
     this._x = props.x.map((x) => new LazyArray(x));
     this._y = props.y.map((y) => new LazyArray(y));
@@ -57,14 +44,14 @@ export class StaticTelem implements XYTelemSource {
     return maxBound(this._y.map((y) => y.bound));
   }
 
-  setProps(props: UseStaticTelemProps): void {
+  setProps(props: StaticTelemProps): void {
     this._x = props.x.map((x) => new LazyArray(x));
     this._y = props.y.map((y) => new LazyArray(y));
   }
 }
 
 export class StaticTelemFactory {
-  new(key: string, props: UseStaticTelemProps): StaticTelem {
+  new(key: string, props: StaticTelemProps): StaticTelem {
     return new StaticTelem(key, props);
   }
 }

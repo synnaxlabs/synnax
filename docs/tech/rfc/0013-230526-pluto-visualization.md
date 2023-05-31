@@ -1,4 +1,82 @@
+# 13 - Pluto Visualization
+
+**Feature Name**: Pluto Visualization <br />
+**Start Date**: 2023-05-30 <br />
+**Authors**: Emiliano Bonilla <br />
+**Status**: Draft <br />
+
+# 0 - Summary
+
+Usable, high performance data visualization is at the core of what Synnax is offering.
+The implementation of [telemetry streaming](./0012-230501-telemetry-streaming.md) demands
+a significant change to how we approach the data fetching and rendering process. The
+current design is also highly monolithic and tightly coupled. In this RFC I propose a
+new architecture for Synnax's visualization system, that implements a modular component
+based framework that shifts the responsibility of data fetching and rendering completely
+off of the main thread. The goal is to keep the user facing API 'reacty' while leveraging
+all the benefits of shifting the fetching and rendering process out of reacts control.
+
+# 1 - Vocabulary
+
+# 2 - Motivation
+
+Line based visualization is by far the primary means of accessing the data that Synnax
+stores. Many existing data visualization systems feel clunky, and are typically intended
+for static, small data sets. By providing an interface that allows access and exploration
+of large, live data sets, we're empowering our users to take advantage of all the advanced
+tooling Synnax has to offer, ultimately providing them a much better understanding of
+how their systems are performing.
+
+The current rendering pipeline requires reloading the entire data set on every update.
+Now that we'll be updating at rates of 100Hz or more, this approach is no longer
+sustainable. We need a method that only receives new data, and only renders the areas
+of the canvas that have changed.
+
+It also turns out that rendering lines and axes on a screen is remarkably complex,
+requiring many coordinate transformations, GPU memory management, caching mechanisms,
+and more. The current design decisions were made when we had far less knowledge of
+the problem space and resulted in unorganized, tightly coupled code. We need a design
+that provides clear isolation between different areas of the rendering process, allowing
+us to make incremental improvements to each area without affecting others.
+
+# 3 - Philosophy
+
+# API should be component based, modular, and 'reacty'
+
+# Data fetching should be kept independent of rendering
+
+# Move expensive operations off the main thread
+
+# 5 - Detailed Design
+
+## 5.0 - Line Plot Component Structure
+
+The line plot component is designed as a tree of subcomponents that allows the user
+to customize its structure. The idea here is that we let React and the DOM define both
+the structure and the layout of the plot. We then mirror this DOM structure on the
+worker thread, and, when our React components update, we send messages to the worker
+thread to re-render. Ideally the worker thread would not send any messages back to
+the main thread in order to reduce data transfer. The worker thread can also independently
+re-render the plot on receiving updates from arbitrary telemetry sources.
+
+The structure of a simple line plot would resemble the following:
+
+```typescript jsx
+<LinePlot>
+    <LinePlot.Title>My Line Plot</LinePlot.Title>
+    <LinePlot.XAxis name="x1" label="Time" location="bottom" >
+        <LinePlot.YAxis name="y1" label="Value" location="left">
+            <LinePlot.Line name="line1" telem={someTelemSource} />
+        </LinePlot.Line>
+    </LinePlot.XAxis>
+</LinePlot>
+```
+
+## 5.1 - Defining the Worker Component Tree - Composite
+
 ## Defining Data Sources
+
+## Dealing with Int64 Timestamps
 
 Problem is less of a behavioral and more of a structural one.
 

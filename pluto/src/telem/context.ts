@@ -1,15 +1,4 @@
-import {
-  PropsWithChildren,
-  ReactElement,
-  createContext,
-  useCallback,
-  useContext,
-  useId,
-} from "react";
-
-import { WorkerMessage } from "./worker";
-
-import { useTypedWorker } from "@/worker/Context";
+import { createContext, useContext, useId } from "react";
 
 export interface TelemContextValue {
   set: <P>(key: string, type: string, props: P, transfer?: Transferable[]) => void;
@@ -23,18 +12,6 @@ export const TelemContext = createContext({
     transfer?: Transferable[]
   ) => {},
 });
-
-export interface TelemProviderProps extends PropsWithChildren<any> {}
-
-export const TelemProvider = ({ children }: TelemProviderProps): ReactElement => {
-  const w = useTypedWorker<WorkerMessage>("telem");
-  const set = useCallback(
-    <P extends any>(key: string, type: string, props: P, transfer?: Transferable[]) =>
-      w.send({ key, type, props }, transfer),
-    [w]
-  );
-  return <TelemContext.Provider value={{ set }}>{children}</TelemContext.Provider>;
-};
 
 export const useTelemContext = (): TelemContextValue => {
   return useContext(TelemContext);

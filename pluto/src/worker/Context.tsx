@@ -29,10 +29,8 @@ export const WorkerProvider = ({
 }: WorkerProviderProps): ReactElement => {
   const { worker, router } = useMemo(() => {
     const worker = new Worker(new URL(url), { type: "module" });
-    const router = new RoutedWorker(
-      (e, a = []) => worker.postMessage(e, a),
-      (cbk: (e: MessageEvent) => void) => (worker.onmessage = cbk)
-    );
+    const router = new RoutedWorker((e, a = []) => worker.postMessage(e, a));
+    worker.onmessage = (e) => router.handle(e);
     return { worker, router };
   }, []);
 

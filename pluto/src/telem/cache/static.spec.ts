@@ -11,7 +11,6 @@ describe("StaticReadCache", () => {
     c.write(tr, [new VisArray(1, LazyArray.alloc(1, DataType.FLOAT32, tr))]);
     const [res, gaps] = c.read(TimeStamp.seconds(1).spanRange(TimeSpan.seconds(3)));
     expect(res).toHaveLength(1);
-    console.log(gaps);
     expect(gaps).toHaveLength(0);
   });
   it("should correctly return leading and trailing gaps", () => {

@@ -13,30 +13,44 @@ import { ZERO_COLOR } from "@/core/color";
 
 export class RenderContext {
   /* The canvas element */
-  readonly rootCanvas: OffscreenCanvas;
+  readonly glCanvas: OffscreenCanvas;
   /** The webgl rendering context extracted from the canvas */
   readonly gl: WebGL2RenderingContext;
   readonly canvas: OffscreenCanvasRenderingContext2D;
+  readonly canvasCanvas: OffscreenCanvas;
   /** The region the canvas occupies in pixel space */
   region: Box;
   /** The device pixel ratio of the canvas */
   dpr: number;
 
-  constructor(canvas: OffscreenCanvas, region: Box, dpr: number) {
-    this.rootCanvas = canvas;
+  constructor(
+    glCanvas: OffscreenCanvas,
+    canvasCanvas: OffscreenCanvas,
+    region: Box,
+    dpr: number
+  ) {
+    this.canvasCanvas = canvasCanvas;
+    this.glCanvas = glCanvas;
     this.region = region;
-    const gl = canvas.getContext("webgl2", { preserveDrawingBuffer: true });
-    if (gl == null) throw new Error("Could not get WebGL context");
-    this.gl = gl;
-    const ctx = canvas.getContext("2d");
+    const ctx = canvasCanvas.getContext("2d");
     if (ctx == null) throw new Error("Could not get 2D context");
     this.canvas = ctx;
+    const gl = glCanvas.getContext("webgl2", { preserveDrawingBuffer: true });
+    if (gl == null) throw new Error("Could not get WebGL context");
+    this.gl = gl;
     this.dpr = dpr;
+    this.resize(region, dpr);
   }
 
-  updateCanvasRegion(region: Box, dpr: number): void {
+  resize(region: Box, dpr: number): void {
     this.region = region;
     this.dpr = dpr;
+    this.glCanvas.width = region.width * dpr;
+    this.glCanvas.height = region.height * dpr;
+    this.canvasCanvas.width = region.width * dpr;
+    this.canvasCanvas.height = region.height * dpr;
+    this.canvas.scale(dpr, dpr);
+    this.gl.viewport(0, 0, region.width * dpr, region.height * dpr);
   }
 
   get aspect(): number {
@@ -78,6 +92,11 @@ export class RenderContext {
   }
 
   erase(box: Box, overscan: XY = ZERO_XY): void {
+    this.eraseGL(box, overscan);
+    this.eraseCanvas(box, overscan);
+  }
+
+  private eraseGL(box: Box, overscan: XY = ZERO_XY): void {
     const { gl } = this;
     const os = new Box(
       box.left - overscan.x,
@@ -91,5 +110,16 @@ export class RenderContext {
     gl.clearColor(...ZERO_COLOR);
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.disable(gl.SCISSOR_TEST);
+  }
+
+  private eraseCanvas(box: Box, overscan: XY = ZERO_XY): void {
+    const { canvas } = this;
+    const os = new Box(
+      box.left - overscan.x,
+      box.top - overscan.y,
+      box.width + overscan.x * 2,
+      box.height + overscan.y * 2
+    );
+    canvas.clearRect(os.left, os.top, os.width, os.height);
   }
 }

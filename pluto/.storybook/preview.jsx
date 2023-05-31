@@ -26,12 +26,10 @@ export const parameters = {
 
 export const decorators = [
     (StoryFn) => (
-        <React.StrictMode>
             <Theming.Provider theme={Theming.themes.synnaxDark}>
                 <Triggers.Provider>
                     {StoryFn()}
                 </Triggers.Provider>
             </Theming.Provider>
-        </React.StrictMode>
     ),
 ];

@@ -3,77 +3,94 @@ import {
   DetailedHTMLProps,
   ReactElement,
   useCallback,
-  useMemo,
+  useEffect,
+  useState,
 } from "react";
 
 import { Box } from "@synnaxlabs/x";
 
+import { Bob } from "../bob/main";
 import { useResize } from "../hooks";
 
-import { VisContext } from "./Context";
-
-import { WorkerMessage } from "@/core/vis/worker";
-import { useTypedWorker } from "@/worker/Context";
+import {
+  Bootstrap,
+  Canvas as WorkerCanvas,
+  CanvasState as WorkerCanvasProps,
+} from "@/core/vis/WorkerCanvas";
 
 type HTMLCanvasProps = DetailedHTMLProps<
   CanvasHTMLAttributes<HTMLCanvasElement>,
   HTMLCanvasElement
 >;
 
-export interface CanvasProps extends Omit<HTMLCanvasProps, "ref"> {}
+export interface VisCanvasProps extends Omit<HTMLCanvasProps, "ref"> {}
 
-export const Canvas = ({ children }: CanvasProps): ReactElement => {
-  const worker = useTypedWorker<WorkerMessage>("vis");
+export const VisCanvas = ({ children, ...props }: VisCanvasProps): ReactElement => {
+  const bootstrap = Bob.useBootstrap<Bootstrap>();
+  const {
+    path,
+    state: [, setCanvas],
+  } = Bob.useComponent<WorkerCanvasProps>(
+    WorkerCanvas.TYPE,
+    {
+      region: Box.ZERO,
+      dpr: 1,
+    },
+    "canvas-key"
+  );
+
+  const [glCanvas, setGlCanvas] = useState<HTMLCanvasElement | null>(null);
+  const [canvasCanvas, setCanvasCanvas] = useState<HTMLCanvasElement | null>(null);
+  const [bootstrapped, setBootstrapped] = useState(false);
+
   const handleResize = useCallback(
-    (box: Box, canvas: HTMLCanvasElement) => {
+    (box: Box) => {
+      if (!bootstrapped) return;
       const dpr = window.devicePixelRatio;
-      const { clientWidth: cw, clientHeight: ch, width: w, height: h } = canvas;
-      const needResize = w !== cw || h !== ch;
-      if (needResize) [canvas.width, canvas.height] = [cw * dpr, ch * dpr];
-      worker.send({
-        type: "resize",
-        data: {
-          box,
-          dpr,
-          viewport: needResize ? [canvas.width, canvas.height] : null,
-        },
+      setCanvas({
+        region: box,
+        dpr,
       });
     },
-    [worker]
+    [bootstrapped]
   );
 
-  const handleSetProps = useCallback(
-    (path: string, props: unknown) => {
-      worker.send({ type: "set-props", data: { path, props } });
-    },
-    [worker]
-  );
-
-  const value = useMemo(
-    () => ({ parent: "", setProps: handleSetProps }),
-    [handleSetProps]
-  );
+  useEffect(() => {
+    if (glCanvas == null || canvasCanvas == null) return;
+    const glOffscreen = glCanvas.transferControlToOffscreen();
+    const canvasOffscreen = canvasCanvas.transferControlToOffscreen();
+    const region = new Box(glCanvas.getBoundingClientRect());
+    bootstrap(
+      {
+        key: path[0],
+        glCanvas: glOffscreen,
+        canvasCanvas: canvasOffscreen,
+        region,
+        dpr: window.devicePixelRatio,
+      },
+      [glOffscreen, canvasOffscreen]
+    );
+    setBootstrapped(true);
+  }, [glCanvas, canvasCanvas]);
 
   const resizeRef = useResize(handleResize, { debounce: 100 });
 
-  const refCallback = useCallback(
-    (canvas: HTMLCanvasElement | null) => {
-      if (canvas == null) return;
-      resizeRef(canvas);
-      const box = canvas.getBoundingClientRect();
-      // transfer control of the canvas to the worker
-      worker.postMessage({
-        type: "bootstrap",
-        data: { box, dpr: window.devicePixelRatio },
-      });
-    },
-    [worker]
-  );
+  const glRefCallback = useCallback((canvas: HTMLCanvasElement | null) => {
+    resizeRef(canvas);
+    if (glCanvas != null || canvas == null) return;
+    setGlCanvas(canvas);
+  }, []);
+
+  const canvasRefCallback = useCallback((canvas: HTMLCanvasElement | null) => {
+    if (canvasCanvas != null || canvas == null) return;
+    setCanvasCanvas(canvas);
+  }, []);
 
   return (
-    <VisContext.Provider value={value}>
-      <canvas ref={refCallback} />
-      {childre}
-    </VisContext.Provider>
+    <>
+      <canvas ref={glRefCallback} {...props} />
+      <canvas ref={canvasRefCallback} {...props} />
+      <Bob.Composite path={path}>{bootstrapped && children}</Bob.Composite>
+    </>
   );
 };

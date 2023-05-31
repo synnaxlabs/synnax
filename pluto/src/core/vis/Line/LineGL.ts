@@ -9,55 +9,58 @@
 
 import { Direction, Bound, xyScaleToTransform, LazyArray } from "@synnaxlabs/x";
 
+import { WComponentFactory, WLeaf } from "../../bob/worker";
+
 import { hexToRGBA } from "@/core/color";
-import { LineRenderer, LineProps, LineContext } from "@/core/vis/Line/core";
+import {
+  LineComponent,
+  LineProps,
+  LineContext,
+  lineProps,
+  ParsedLineProps,
+} from "@/core/vis/Line/core";
 import FRAG_SHADER from "@/core/vis/Line/frag.glsl?raw";
 import VERT_SHADER from "@/core/vis/Line/vert.glsl?raw";
-import { GLProgram, errorUnsupported, RenderContext } from "@/core/vis/render";
+import { GLProgram, RenderContext } from "@/core/vis/render";
 import { DynamicXYTelemSource, XYTelemSource } from "@/core/vis/telem";
 import { TelemProvider } from "@/core/vis/telem/TelemService";
-
-const ANGLE_INSTANCED_ARRAYS_FEATURE = "ANGLE_instanced_arrays";
 
 /**
  * A factory for creating webgl rendered lines.
  */
-export class LineFactory {
+export class LineFactory implements WComponentFactory<LineComponent> {
   private readonly program: LineGLProgram;
   private readonly telem: TelemProvider;
+  requestRender: () => void;
 
   /**
-   * @param ctx - The webgl rendering context to use.
+   * @param prog - The webgl rendering context to use.
    * @param telem - A function that returns the telemetry provider.
    */
-  constructor(ctx: RenderContext, telem: TelemProvider) {
-    this.program = new LineGLProgram(ctx);
+  constructor(prog: LineGLProgram, telem: TelemProvider, requestRender: () => void) {
+    this.program = prog;
     this.telem = telem;
+    this.requestRender = requestRender;
   }
 
-  /**
-   * Creates a new line.
-   * @param props - The properties of the line.
-   * @param requestRender - A function that allows the line to request that its parent re-render it.
-   */
-  new(props: LineProps, requestRender: () => void): LineRenderer {
-    return new LineGL(props, this.program, requestRender, this.telem);
+  create(key: string, type: string, props: any): LineComponent {
+    if (type !== LineGL.TYPE)
+      throw new Error(
+        `[LineFactory.create] - Expected type ${LineGL.TYPE} but got ${type}`
+      );
+    return new LineGL(key, props, this.program, this.requestRender, this.telem);
   }
 }
 
-class LineGLProgram extends GLProgram {
-  extension: ANGLE_instanced_arrays;
+export class LineGLProgram extends GLProgram {
   translationBuffer: WebGLBuffer;
 
   constructor(ctx: RenderContext) {
     super(ctx, VERT_SHADER, FRAG_SHADER);
-    const ext = ctx.gl.getExtension(ANGLE_INSTANCED_ARRAYS_FEATURE);
-    if (ext == null) throw errorUnsupported(ANGLE_INSTANCED_ARRAYS_FEATURE);
-    this.extension = ext;
     this.translationBuffer = ctx.gl.createBuffer() as WebGLBuffer;
   }
 
-  bindPropsAndContext(ctx: LineContext, props: LineProps): number {
+  bindPropsAndContext(ctx: LineContext, props: ParsedLineProps): number {
     const regionTransform = xyScaleToTransform(this.ctx.scaleRegion(ctx.region));
     const scaleTransform = xyScaleToTransform(ctx.scale);
     this.uniformXY("u_region_scale", regionTransform.scale);
@@ -71,7 +74,7 @@ class LineGLProgram extends GLProgram {
   draw(x: LazyArray, y: LazyArray, count: number): void {
     this.bindAttrBuffer("x", x.glBuffer);
     this.bindAttrBuffer("y", y.glBuffer);
-    this.extension.drawArraysInstancedANGLE(this.ctx.gl.LINE_STRIP, 0, x.length, count);
+    this.ctx.gl.drawArraysInstanced(this.ctx.gl.LINE_STRIP, 0, x.length, count);
   }
 
   private bindAttrBuffer(dir: Direction, buffer: WebGLBuffer): void {
@@ -97,13 +100,12 @@ class LineGLProgram extends GLProgram {
     const loc = gl.getAttribLocation(this.prog, "a_translate");
     gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(loc);
-    this.extension.vertexAttribDivisorANGLE(loc, 1);
+    this.ctx.gl.vertexAttribDivisor(loc, 1);
     return translationBuffer.length / 2;
   }
 }
 
-export class LineGL implements LineRenderer {
-  props: LineProps;
+export class LineGL extends WLeaf<LineProps, ParsedLineProps> {
   prog: LineGLProgram;
   requestRender: () => void;
   telemProv: TelemProvider;
@@ -112,28 +114,18 @@ export class LineGL implements LineRenderer {
   static readonly TYPE = "line";
 
   constructor(
+    key: string,
     props: LineProps,
     program: LineGLProgram,
     requestRender: () => void,
     telemProv: TelemProvider
   ) {
-    this.props = props;
+    super(key, LineGL.TYPE, props, lineProps);
     this.prog = program;
     this.requestRender = requestRender;
     this.telemProv = telemProv;
     this.telem = this.telemProv.get(props.telem.key);
-  }
-
-  get key(): string {
-    return this.props.key;
-  }
-
-  setProps(props: LineProps): void {
-    if (props.telem.key !== this.props.telem.key)
-      this.telem = this.telemProv.get(props.telem.key);
-    this.props = props;
-    if ("onChange" in this.telem) this.telem.onChange(() => this.requestRender());
-    this.requestRender();
+    this.setHook(() => this.requestRender());
   }
 
   async xBound(): Promise<Bound> {
@@ -148,7 +140,7 @@ export class LineGL implements LineRenderer {
     this.prog.setAsActive();
     const xData = await this.telem.x(this.prog.ctx.gl);
     const yData = await this.telem.y(this.prog.ctx.gl);
-    const count = this.prog.bindPropsAndContext(ctx, this.props);
+    const count = this.prog.bindPropsAndContext(ctx, this.state);
     xData.forEach((x, i) => this.prog.draw(x, yData[i], count));
   }
 }

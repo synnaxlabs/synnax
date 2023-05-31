@@ -8,19 +8,21 @@
 // included in the file licenses/APL.txt.
 
 import { Bound, Box, XYScale } from "@synnaxlabs/x";
+import { z } from "zod";
 
-import type { DynamicXYTelemSourceMeta, XYTelemSourceMeta } from "@/core/vis/telem";
+import { WComponent } from "../../bob/worker";
+import { dynamicXYTelemSourceMeta, xyTelemSourceMeta } from "../telem/TelemSource";
 
-export interface LineProps {
-  /** A unique key identifying the line within the worker DOM */
-  key: string;
-  /** The telemetry to read from */
-  telem: XYTelemSourceMeta | DynamicXYTelemSourceMeta;
-  /** A hex color string to color the line */
-  color: string;
-  /** The stroke width of the line in pixels */
-  strokeWidth: number;
-}
+import { hex } from "@/core/color";
+
+export const lineProps = z.object({
+  telem: z.union([xyTelemSourceMeta, dynamicXYTelemSourceMeta]),
+  color: hex,
+  strokeWidth: z.number().default(1),
+});
+
+export type LineProps = z.input<typeof lineProps>;
+export type ParsedLineProps = z.output<typeof lineProps>;
 
 export interface LineContext {
   /**
@@ -36,9 +38,8 @@ export interface LineContext {
   scale: XYScale;
 }
 
-export interface LineRenderer {
-  key: string;
-  setProps: (props: LineProps) => void;
+export interface LineComponent extends WComponent {
+  props: LineProps;
   render: (ctx: LineContext) => void;
   xBound: () => Promise<Bound>;
   yBound: () => Promise<Bound>;
