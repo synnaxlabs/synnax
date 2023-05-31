@@ -384,6 +384,7 @@ importers:
       eslint-config-synnaxlabs: workspace:*
       fuse.js: ^6.6.2
       jsdom: ^22.0.0
+      nanoid: ^4.0.1
       prettier: 2.8.8
       proxy-memoize: ^2.0.4
       react: ^18.2.0
@@ -410,6 +411,7 @@ importers:
       clsx: 1.2.1
       d3: 7.8.4
       fuse.js: 6.6.2
+      nanoid: 4.0.1
       proxy-memoize: 2.0.4
       react: 18.2.0
       react-dom: 18.2.0_react@18.2.0

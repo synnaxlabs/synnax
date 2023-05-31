@@ -11,11 +11,12 @@ import { ReactElement } from "react";
 
 import type { Meta, StoryFn } from "@storybook/react";
 
-import { Line } from "../Line";
+import { VisCanvas } from "../Canvas";
+// import { Line } from "../Line";
 
 import { LinePlot } from "@/core/vis/LinePlot";
 import { Pluto } from "@/Pluto";
-import { useStaticTelem } from "@/telem/staticTelem";
+import { useStaticTelem } from "@/telem/useStaticTelem";
 
 const story: Meta<typeof LinePlot> = {
   title: "Vis/LinePlot",
@@ -29,13 +30,33 @@ const Example = (): ReactElement => {
   });
   return (
     <Pluto>
-      <LinePlot>
-        <LinePlot.XAxis label="Time" color="#FFFFFF">
-          <LinePlot.YAxis label="PSI" color="#FFFFFF">
-            <Line telem={telem} color="#FFFFFF" />
-          </LinePlot.YAxis>
-        </LinePlot.XAxis>
-      </LinePlot>
+      <VisCanvas
+        style={{
+          width: "100%",
+          height: "100%",
+          position: "fixed",
+          top: 0,
+          left: 0,
+        }}
+      >
+        <LinePlot>
+          <LinePlot.XAxis
+            type="linear"
+            label="Time"
+            color="#FFFFFF"
+            location="bottom"
+            bound={{ lower: 500, upper: 1000 }}
+          >
+            {/* <LinePlot.YAxis
+              type="linear"
+              label="Value"
+              color="#FFFFFF"
+              location="left"
+              bound={{ lower: 500, upper: 1000 }}
+            /> */}
+          </LinePlot.XAxis>
+        </LinePlot>
+      </VisCanvas>
     </Pluto>
   );
 };

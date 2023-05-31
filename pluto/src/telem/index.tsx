@@ -1,4 +1,4 @@
-import { TelemProvider } from "./Context";
+import { TelemProvider } from "./Provider";
 
 export const Telem = {
   Provider: TelemProvider,

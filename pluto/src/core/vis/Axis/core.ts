@@ -7,27 +7,30 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Box, OuterLocation, XY } from "@synnaxlabs/x";
+import { Box, outerLocation, xy } from "@synnaxlabs/x";
+import { z } from "zod";
 
+import { hex } from "@/core/color";
 import {
-  TickType,
-  TickFactoryProps,
   TickFactoryContext,
+  tickFactoryProps,
+  tickType,
 } from "@/core/vis/Axis/TickFactory";
 
-export interface AxisProps extends TickFactoryProps {
-  color: string;
-  label: string;
-  type: TickType;
-  tickFont: string;
-  showGrid?: boolean;
-  location: OuterLocation;
-}
+export const axisProps = tickFactoryProps.extend({
+  color: hex,
+  position: xy,
+  label: z.string().optional().default(""),
+  type: tickType,
+  font: z.string(),
+  showGrid: z.boolean().optional().default(false),
+  location: outerLocation,
+});
 
-export interface AxisContext extends TickFactoryContext {
-  region: Box;
-  position: XY;
-  gridSize: number;
+export type AxisProps = z.infer<typeof axisProps>;
+
+export interface AxisContext extends Omit<TickFactoryContext, "size"> {
+  plottingRegion: Box;
 }
 
 export interface Axis {

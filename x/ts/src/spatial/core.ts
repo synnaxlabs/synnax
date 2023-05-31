@@ -36,11 +36,11 @@ export const CORNER_LOCATIONS: Record<Corner, [XLocation, YLocation]> = {
   bottomRight: ["right", "bottom"],
 };
 
-export const outerLocatios = z.enum([...Y_LOCATIONS, ...X_LOCATIONS]);
+export const outerLocation = z.enum([...Y_LOCATIONS, ...X_LOCATIONS]);
 export const OUTER_LOCATIONS = [...Y_LOCATIONS, ...X_LOCATIONS] as const;
 export type OuterLocation = typeof OUTER_LOCATIONS[number];
 
-export const locations = z.enum([...OUTER_LOCATIONS, "center"]);
+export const location = z.enum([...OUTER_LOCATIONS, "center"]);
 export const LOCATIONS = [...OUTER_LOCATIONS, "center"] as const;
 export type Location = typeof LOCATIONS[number];
 

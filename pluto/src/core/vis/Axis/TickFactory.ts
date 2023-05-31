@@ -1,5 +1,6 @@
-import { OuterLocation, Scale, TimeStamp } from "@synnaxlabs/x";
+import { Scale, TimeStamp } from "@synnaxlabs/x";
 import { scaleLinear, scaleTime } from "d3";
+import { z } from "zod";
 
 export interface Tick {
   position: number;
@@ -10,13 +11,17 @@ export interface TickFactory {
   generate: (ctx: TickFactoryContext) => Tick[];
 }
 
-export type TickType = "linear" | "time";
+export const tickType = z.enum(["linear", "time"]);
 
-export interface TickFactoryProps {
-  location: OuterLocation;
-  tickSpacing: number;
-  type: TickType;
-}
+export type TickType = z.infer<typeof tickType>;
+
+export const tickFactoryProps = z.object({
+  tickSpacing: z.number().default(50),
+  type: tickType.optional().default("linear"),
+});
+
+export type TickFactoryProps = z.input<typeof tickFactoryProps>;
+type ParsedTickFactoryProps = z.output<typeof tickFactoryProps>;
 
 export interface TickFactoryContext {
   /**
@@ -29,13 +34,15 @@ export interface TickFactoryContext {
   size: number;
 }
 
-export const newTickFactory = (props: TickFactoryProps): TickFactory =>
-  TICK_FACTORIES[props.type](props);
+export const newTickFactory = (props: TickFactoryProps): TickFactory => {
+  const parsed = tickFactoryProps.parse(props);
+  return TICK_FACTORIES[parsed.type](parsed);
+};
 
 class TimeTickFactory implements TickFactory {
-  private readonly props: TickFactoryProps;
+  private readonly props: ParsedTickFactoryProps;
 
-  constructor(props: TickFactoryProps) {
+  constructor(props: ParsedTickFactoryProps) {
     this.props = props;
   }
 
@@ -77,9 +84,9 @@ class TimeTickFactory implements TickFactory {
 }
 
 class LinearTickFactory implements TickFactory {
-  private readonly props: TickFactoryProps;
+  private readonly props: ParsedTickFactoryProps;
 
-  constructor(props: TickFactoryProps) {
+  constructor(props: ParsedTickFactoryProps) {
     this.props = props;
   }
 
@@ -87,7 +94,8 @@ class LinearTickFactory implements TickFactory {
     const range = [0, size];
     const domain = [scale.pos(0), scale.pos(1)];
     const d3Scale = scaleLinear().domain(domain).range(range);
-    const ticks = d3Scale.ticks(calcTickCount(size, this.props.tickSpacing));
+    const count = calcTickCount(size, this.props.tickSpacing);
+    const ticks = d3Scale.ticks(count);
     return ticks.map((tick) => ({
       label: this.tickLabel(tick),
       position: d3Scale(tick),
@@ -104,7 +112,8 @@ const calcTickCount = (size: number, pixelsPerTick: number): number => {
   return tickCount > 0 ? tickCount : 1;
 };
 
-const TICK_FACTORIES: Record<TickType, (props: TickFactoryProps) => TickFactory> = {
-  linear: (p) => new LinearTickFactory(p),
-  time: (p) => new TimeTickFactory(p),
-};
+const TICK_FACTORIES: Record<TickType, (props: ParsedTickFactoryProps) => TickFactory> =
+  {
+    linear: (p) => new LinearTickFactory(p),
+    time: (p) => new TimeTickFactory(p),
+  };

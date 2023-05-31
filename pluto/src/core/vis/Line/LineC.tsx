@@ -2,9 +2,8 @@ import { ReactElement } from "react";
 
 import { Optional } from "@synnaxlabs/x";
 
-import { useVisElement } from "../Context";
-
 import { LineProps } from "@/core/vis/Line/core";
+import { useVisElement } from "@/core/vis/useVisElement";
 
 export interface LineCProps extends Optional<Omit<LineProps, "key">, "strokeWidth"> {}
 

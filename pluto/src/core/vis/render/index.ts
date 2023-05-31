@@ -8,5 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export { RenderContext } from "@/core/vis/render/RenderContext";
+export { RenderQueue } from "@/core/vis/render/RenderQueue";
 export { GLProgram } from "@/core/vis/render/GLProgram";
 export { errorUnsupported } from "@/core/vis/render/errors";
