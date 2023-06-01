@@ -9,7 +9,7 @@
 
 import { useEffect } from "react";
 
-import { XY, ZERO_XY, toXY, Box } from "@synnaxlabs/x";
+import { XY, Box } from "@synnaxlabs/x";
 
 import { UseVirtualCursorDragProps } from "./types";
 
@@ -22,7 +22,7 @@ interface RefState {
 }
 
 const INITIAL_STATE: RefState = {
-  start: ZERO_XY,
+  start: XY.ZERO,
   mouseKey: "MouseLeft",
 };
 
@@ -38,7 +38,7 @@ export const useVirtualCursorDragWebKit = ({
     const { current: el } = ref;
 
     const handleMove = (e: MouseEvent): void => {
-      const next = toXY(e);
+      const next = new XY(e);
       const { mouseKey, start } = stateRef.current;
       onMove?.(new Box(start, next), mouseKey);
     };
@@ -46,7 +46,7 @@ export const useVirtualCursorDragWebKit = ({
     const handleDown = (e: PointerEvent): void => {
       el.setPointerCapture(e.pointerId);
       el.onpointermove = handleMove;
-      const start = toXY(e);
+      const start = new XY(e);
       const mouseKey = Triggers.eventKey(e);
       setRef({ start, mouseKey });
       onStart?.(start, mouseKey);
@@ -58,7 +58,7 @@ export const useVirtualCursorDragWebKit = ({
       el.onpointermove = null;
       el.releasePointerCapture(e.pointerId);
       const { start, mouseKey } = stateRef.current;
-      onEnd?.(new Box(start, toXY(e)), mouseKey);
+      onEnd?.(new Box(start, new XY(e)), mouseKey);
     };
 
     return () => el.removeEventListener("pointerdown", handleDown);

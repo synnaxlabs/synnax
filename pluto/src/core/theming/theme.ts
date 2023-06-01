@@ -9,48 +9,48 @@
 
 import "@fontsource/inter";
 
-import { addOpacityToHex } from "@/core/color";
+import { ColorT, Color } from "../color";
+
 import { TypographySpec } from "@/core/std/Typography";
 
 export type Size = number | string;
-export type Color = string;
 
 export interface Theme {
   name: string;
   key: string;
   colors: {
-    border: Color;
+    border: ColorT;
     primary: {
-      m1: Color;
-      z: Color;
-      p1: Color;
+      m1: ColorT;
+      z: ColorT;
+      p1: ColorT;
     };
     gray: {
-      m3: Color;
-      m2: Color;
-      m1: Color;
-      m0: Color;
-      p0: Color;
-      p1: Color;
-      p2: Color;
-      p3: Color;
+      m3: ColorT;
+      m2: ColorT;
+      m1: ColorT;
+      m0: ColorT;
+      p0: ColorT;
+      p1: ColorT;
+      p2: ColorT;
+      p3: ColorT;
     };
     error: {
-      m1: Color;
-      z: Color;
-      p1: Color;
+      m1: ColorT;
+      z: ColorT;
+      p1: ColorT;
     };
     visualization: {
       palettes: {
-        default: Color[];
-        [key: string]: Color[];
+        default: ColorT[];
+        [key: string]: ColorT[];
       };
     };
-    white: Color;
-    black: Color;
-    background: Color;
-    text: Color;
-    logo: Color;
+    white: ColorT;
+    black: ColorT;
+    background: ColorT;
+    text: ColorT;
+    logo: ColorT;
   };
   sizes: {
     base: number;
@@ -72,8 +72,8 @@ export interface Theme {
   };
 }
 
-const white: Color = "#FFFFFF";
-const black: Color = "#171716";
+const white: ColorT = "#FFFFFF";
+const black: ColorT = "#171716";
 const fontFamily = "Inter, sans-serif";
 const baseSize: Size = 6;
 
@@ -126,7 +126,7 @@ const synnaxBase: Theme = {
     white,
     black,
     background: white,
-    text: addOpacityToHex(black, 85),
+    text: new Color(black).setOpacity(85).hex,
   },
   sizes: {
     base: baseSize,
@@ -205,6 +205,6 @@ export const synnaxDark = {
     logo: "var(--pluto-text-color)",
     border: synnaxBase.colors.gray.p1,
     background: synnaxBase.colors.black,
-    text: addOpacityToHex(synnaxBase.colors.white, 90),
+    text: new Color(synnaxBase.colors.white).setOpacity(90),
   },
 };

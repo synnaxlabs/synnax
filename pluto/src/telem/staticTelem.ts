@@ -1,10 +1,4 @@
-import {
-  Bound,
-  GLBufferControl,
-  LazyArray,
-  NativeTypedArray,
-  maxBound,
-} from "@synnaxlabs/x";
+import { Bound, GLBufferControl, LazyArray, NativeTypedArray } from "@synnaxlabs/x";
 
 import { XYTelemSource } from "@/core/vis/telem/TelemSource";
 
@@ -37,11 +31,11 @@ export class StaticTelem implements XYTelemSource {
   }
 
   async xBound(): Promise<Bound> {
-    return maxBound(this._x.map((x) => x.bound));
+    return Bound.max(this._x.map((x) => x.bound));
   }
 
   async yBound(): Promise<Bound> {
-    return maxBound(this._y.map((y) => y.bound));
+    return Bound.max(this._y.map((y) => y.bound));
   }
 
   setProps(props: StaticTelemProps): void {

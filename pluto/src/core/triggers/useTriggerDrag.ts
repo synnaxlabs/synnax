@@ -9,7 +9,7 @@
 
 import { RefObject, useCallback, useRef } from "react";
 
-import { Box, ClientXY, toXY, XY, ZERO_XY } from "@synnaxlabs/x";
+import { Box, ClientXYT, XY } from "@synnaxlabs/x";
 
 import { useTrigger, UseTriggerEvent } from "@/core/triggers/hooks";
 import { Stage, Trigger } from "@/core/triggers/triggers";
@@ -35,10 +35,10 @@ export const useTriggerDrag = ({
   bound,
 }: UseCursorDragProps): void => {
   const triggerRef = useRef<UseTriggerEvent | null>(null);
-  const startLoc = useRef<XY>(ZERO_XY);
+  const startLoc = useRef<XY>(XY.ZERO);
   const onMove = useCallback(
-    (e: ClientXY & { buttons: number }) => {
-      const cursor = toXY(e);
+    (e: ClientXYT & { buttons: number }) => {
+      const cursor = new XY(e);
       if (triggerRef.current === null) return;
       const { triggers } = triggerRef.current;
       onDrag({
@@ -62,7 +62,7 @@ export const useTriggerDrag = ({
         onDrag({ box: new Box(startLoc.current, cursor), ...event });
         window.removeEventListener("mousemove", onMove);
         triggerRef.current = null;
-        startLoc.current = ZERO_XY;
+        startLoc.current = XY.ZERO;
       }
     },
     [onDrag]

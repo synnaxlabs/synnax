@@ -51,6 +51,7 @@ const order = z.enum(ORDERS);
 const corner = z.enum(CORNERS);
 const transform = z.object({ offset: z.number(), scale: z.number() });
 export const xyTransform = z.object({ offset: xy, scale: xy });
+const boundZ = z.object({ lower: z.number(), upper: z.number() });
 
 // Loose definitions
 
@@ -58,10 +59,9 @@ const looseDirection = z.union([direction, location]);
 const looseYLocation = z.union([yLocation, yDirection]);
 const looseXLocation = z.union([xLocation, xDirection]);
 const looseOuterLocation = z.union([outerLocation, direction]);
-const looseXY = z.union([xy, dimensions, signedDimensions, couple]);
+const looseXY = z.union([xy, clientXY, dimensions, signedDimensions, couple]);
 const looseLocation = looseDirection;
-const strictBoundZ = z.object({ lower: z.number(), upper: z.number() });
-const looseBoundZ = z.union([strictBoundZ, couple]);
+const looseBoundZ = z.union([boundZ, couple]);
 const looseXYTransform = z.object({ offset: looseXY, scale: looseXY });
 const looseDimensions = z.union([dimensions, signedDimensions, xy, couple]);
 
@@ -93,6 +93,7 @@ export type LooseDirectionT = z.infer<typeof looseDirection> | Direction;
 export type LooseLocationT = z.infer<typeof looseLocation> | Location;
 export type LooseOuterLocation = z.infer<typeof looseOuterLocation>;
 export type LooseDimensionsT = z.infer<typeof looseDimensions>;
+export type LooseBoundT = z.infer<typeof looseBoundZ> | Bound;
 
 export const DECIMAL_COORD_ROOT: CornerT = "bottomLeft";
 
@@ -123,12 +124,16 @@ export class Direction extends String {
 
   static readonly DIRECTIONS = DIRECTIONS;
 
-  static get x(): Direction {
-    return new Direction("x");
-  }
+  static readonly x = new Direction("x");
 
-  static get y(): Direction {
-    return new Direction("y");
+  static readonly y = new Direction("y");
+
+  static readonly looseZ = looseDirection.transform((v) => new Direction(v));
+
+  static readonly z = direction.transform((v) => new Direction(v));
+
+  static isValid(other: any): boolean {
+    return Direction.looseZ.safeParse(other).success;
   }
 }
 
@@ -160,6 +165,12 @@ export class Location extends String {
     return this.valueOf() === "x" ? "width" : "height";
   }
 
+  static readonly top = new Location("top");
+  static readonly bottom = new Location("bottom");
+  static readonly left = new Location("left");
+  static readonly right = new Location("right");
+  static readonly center = new Location("center");
+
   static readonly X = X_LOCATIONS;
   static readonly xz = xLocation;
 
@@ -173,6 +184,8 @@ export class Location extends String {
   static readonly centerZ = centerLocation;
 
   static readonly cornerZ = corner;
+
+  static readonly z = location;
 
   private static readonly SWAPPED: Record<LocationT, LocationT> = {
     top: "bottom",
@@ -209,26 +222,23 @@ export class XY {
     } else if ("width" in x) {
       this.x = x.width;
       this.y = x.height;
+    } else if ("clientX" in x) {
+      this.x = x.clientX;
+      this.y = x.clientY;
     } else {
       this.x = x.x;
       this.y = x.y;
     }
   }
 
-  /** @returns an x and y coordinate of zero */
-  static get zero(): XY {
-    return new XY(0, 0);
-  }
+  /** An x and y coordinate of zero */
+  static readonly ZERO = new XY(0, 0);
 
-  /** @returns an x and y coordinate of one */
-  static get one(): XY {
-    return new XY(1, 1);
-  }
+  /** An x and y coordinate of one */
+  static readonly ONE = new XY(1, 1);
 
-  /** @returns an x and y coordinate of infinity */
-  static get infinite(): XY {
-    return new XY(Infinity, Infinity);
-  }
+  /** An x and y coordinate of infinity */
+  static readonly INFINITE = new XY(Infinity, Infinity);
 
   /** @returns an XY coordinate translated by the given x value */
   translateX(x: number): XY {
@@ -246,7 +256,8 @@ export class XY {
     return new XY(this.x + t.x, this.y + t.y);
   }
 
-  equals(other: XY | LooseXYT): boolean {
+  equals(other?: XY | LooseXYT): boolean {
+    if (other == null) return false;
     const o = new XY(other);
     return this.x === o.x && this.y === o.y;
   }
@@ -291,16 +302,16 @@ export class Dimensions {
     }
   }
 
-  static get zero(): Dimensions {
-    return new Dimensions(0, 0);
-  }
+  static readonly ZERO = new Dimensions(0, 0);
 
-  static get one(): Dimensions {
-    return new Dimensions(1, 1);
-  }
+  static readonly DECIMAL = new Dimensions(1, 1);
 
-  static get infinite(): Dimensions {
-    return new Dimensions(Infinity, Infinity);
+  static readonly INFINITE = new Dimensions(Infinity, Infinity);
+
+  equals(other?: LooseDimensionsT): boolean {
+    if (other == null) return false;
+    const o = new Dimensions(other);
+    return this.width === o.width && this.height === o.height;
   }
 }
 
@@ -321,40 +332,43 @@ export class Bound {
    * The constructor does NOT validate that the lower bound is less than the upper bound, so its
    * possible to create an inverted bound.
    */
-  constructor(lower: number | BoundT, upper?: number) {
+  constructor(lower: number | LooseBoundT, upper?: number) {
     if (typeof lower === "number") {
-      this.lower = lower;
-      this.upper = upper ?? lower;
+      if (upper != null) {
+        this.lower = lower;
+        this.upper = upper;
+      } else {
+        this.lower = 0;
+        this.upper = lower;
+      }
     } else if (Array.isArray(lower)) {
       [this.lower, this.upper] = lower;
     } else {
       this.lower = lower.lower;
       this.upper = lower.upper;
     }
+    [this.lower, this.upper] = this.makeValid();
   }
 
-  /** @returns an upper and lower bound of zero */
-  static get zero(): Bound {
-    return new Bound(0);
+  private makeValid(): [number, number] {
+    if (this.lower > this.upper) return [this.upper, this.lower];
+    return [this.lower, this.upper];
   }
+
+  /** An upper and lower bound of zero */
+  static readonly ZERO = new Bound(0, 0);
 
   /**
-   * @returns an upper and lower bound of negative and positive infinity.
+   * An upper and lower bound of negative and positive infinity.
    * An infinite bound contains all values except for positive infinity.
    */
-  static get infinite(): Bound {
-    return new Bound(-Infinity, Infinity);
-  }
+  static readonly INFINITE = new Bound(-Infinity, Infinity);
 
-  /** @returns a lower bound of zero and an upper bound of one */
-  static get decimal(): Bound {
-    return new Bound(0, 1);
-  }
+  /** A lower bound of zero and an upper bound of one */
+  static readonly DECIMAL = new Bound(1);
 
   /** @returns clip space with a lower bound of -1 and an upper bound of 1 */
-  static get clip(): Bound {
-    return new Bound(-1, 1);
-  }
+  static readonly CLIP = new Bound(-1, 1);
 
   /**
    * @returns true if the bound contains the value. Note that this bound
@@ -412,5 +426,5 @@ export class Bound {
    * strictZ is a zod schema for parsing a bound. This schema is strict in that it will
    * only accept a bound as an input.
    * */
-  static readonly strictZ = strictBoundZ.transform((v) => new Bound(v));
+  static readonly strictZ = boundZ.transform((v) => new Bound(v));
 }

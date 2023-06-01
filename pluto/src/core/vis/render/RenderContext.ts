@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Box, Destructor, Scale, XY, XYScale, ZERO_XY } from "@synnaxlabs/x";
+import { Box, Destructor, Scale, XY, XYScale } from "@synnaxlabs/x";
 
 import { Color } from "@/core/color";
 
@@ -98,12 +98,12 @@ export class RenderContext {
     return () => this.gl.disable(this.gl.SCISSOR_TEST);
   }
 
-  erase(box: Box, overscan: XY = ZERO_XY): void {
+  erase(box: Box, overscan: XY = XY.ZERO): void {
     this.eraseGL(box, overscan);
     this.eraseCanvas(box, overscan);
   }
 
-  private eraseGL(box: Box, overscan: XY = ZERO_XY): void {
+  private eraseGL(box: Box, overscan: XY = XY.ZERO): void {
     const { gl } = this;
     const os = new Box(
       box.left - overscan.x,
@@ -117,7 +117,7 @@ export class RenderContext {
     removeScissor();
   }
 
-  private eraseCanvas(box: Box, overscan: XY = ZERO_XY): void {
+  private eraseCanvas(box: Box, overscan: XY = XY.ZERO): void {
     const { canvas } = this;
     const os = new Box(
       box.left - overscan.x,

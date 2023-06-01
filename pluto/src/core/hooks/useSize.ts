@@ -9,7 +9,7 @@
 
 import { RefCallback, useCallback, useEffect, useRef, useState } from "react";
 
-import { debounce as debounceF, Box, Direction, isDirection } from "@synnaxlabs/x";
+import { debounce as debounceF, Box, Direction, LooseDirectionT } from "@synnaxlabs/x";
 
 import { compareArrayDeps, useMemoCompare } from "@/core/hooks";
 
@@ -49,7 +49,7 @@ export const useResize = <E extends HTMLElement>(
   const startObserving = useCallback(
     (el: HTMLElement) => {
       if (obs.current != null) obs.current.disconnect();
-      if (prev.current == null) prev.current = ZERO_BOX;
+      if (prev.current == null) prev.current = Box.ZERO;
       const deb = debounceF(() => {
         const next = new Box(el.getBoundingClientRect());
         if (shouldResize(triggers, prev.current, next)) {
@@ -90,7 +90,7 @@ export type UseSizeOpts = UseResizeOpts;
 export const useSize = <E extends HTMLElement>(
   opts: UseSizeOpts
 ): [Box, RefCallback<E>] => {
-  const [size, onResize] = useState<Box>(ZERO_BOX);
+  const [size, onResize] = useState<Box>(Box.ZERO);
   const ref = useResize<E>(onResize, opts);
   return [size, ref];
 };
@@ -100,9 +100,11 @@ const normalizeTriggers = (
 ): DirectionTrigger[] =>
   triggers
     .map((t): DirectionTrigger | DirectionTrigger[] => {
-      if (isDirection(t))
-        return t === "x" ? ["moveX", "resizeX"] : ["moveY", "resizeY"];
-      return t;
+      if (Direction.isValid(t))
+        return new Direction(t as LooseDirectionT).equals("x")
+          ? ["moveX", "resizeX"]
+          : ["moveY", "resizeY"];
+      return t as DirectionTrigger;
     })
     .flat();
 

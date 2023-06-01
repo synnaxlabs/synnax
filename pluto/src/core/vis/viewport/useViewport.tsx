@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { Box, Dimensions, XY, BoxScale, Compare } from "@synnaxlabs/x";
+import { Box, Dimensions, XY, BoxScale, Compare, DimensionsT } from "@synnaxlabs/x";
 
 import { useMemoCompare } from "@/core/hooks";
 import { useStateRef } from "@/core/hooks/useStateRef";
@@ -37,7 +37,7 @@ export interface UseViewportProps {
   triggers?: UseViewportTriggers;
   onChange?: UseViewportHandler;
   resetOnDoubleClick?: boolean;
-  threshold?: Dimensions;
+  threshold?: DimensionsT;
   initial?: Box;
 }
 
@@ -74,12 +74,13 @@ export const useViewport = ({
   onChange,
   defaultMode = "zoom",
   triggers: initialTriggers,
-  initial = Box.decimal,
-  threshold = { width: 30, height: 30 },
+  initial = Box.DECIMAL,
+  threshold: threshold_ = { width: 30, height: 30 },
 }: UseViewportProps): UseViewportReturn => {
-  const [maskBox, setMaskBox] = useState<Box>(Box.zero);
+  const [maskBox, setMaskBox] = useState<Box>(Box.ZERO);
   const [stateRef, setStateRef] = useStateRef<Box>(initial);
   const canvasRef = useRef<HTMLDivElement | null>(null);
+  const threshold = new Dimensions(threshold_);
 
   useEffect(() => setStateRef(initial), [initial]);
 
@@ -111,9 +112,9 @@ export const useViewport = ({
         });
 
       if (mode === "zoomReset") {
-        setMaskBox(Box.zero);
-        onChange?.({ box: Box.decimal, mode, stage, cursor });
-        return setStateRef(Box.decimal);
+        setMaskBox(Box.ZERO);
+        onChange?.({ box: Box.DECIMAL, mode, stage, cursor });
+        return setStateRef(Box.DECIMAL);
       }
 
       if (stage === "end") {
@@ -131,7 +132,7 @@ export const useViewport = ({
           onChange?.({ box: next, mode, stage, cursor });
 
           if (mode === "zoom") {
-            setMaskBox(Box.zero);
+            setMaskBox(Box.ZERO);
             return next;
           }
           return prev;
@@ -149,7 +150,7 @@ export const useViewport = ({
             .box(fullSize(threshold, box, canvas))
         );
 
-      setMaskBox((prev) => (!prev.isZero ? Box.zero : prev));
+      setMaskBox((prev) => (!prev.isZero ? Box.ZERO : prev));
       onChange?.({
         box: handlePan(box, stateRef.current, canvas),
         mode,
@@ -191,7 +192,7 @@ const handlePan = (box: Box, prev: Box, canvas: Box): Box => {
 
 const handleHover = (prev: Box, canvas: Box, cursor: XY): Box => {
   const dims = scale(prev, canvas);
-  return dims.box(new Box(cursor, Dimensions.zero));
+  return dims.box(new Box(cursor, Dimensions.ZERO));
 };
 
 const fullSize = (threshold: Dimensions, box: Box, parent: Box): Box => {

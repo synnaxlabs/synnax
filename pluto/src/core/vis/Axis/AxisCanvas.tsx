@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Text } from "@/core/std/Typography";
+import { textDimensions } from "@/core/std/Typography/textDimensions";
 import {
   AxisContext,
   axisState,
@@ -37,9 +37,9 @@ export class AxisCanvas {
 
   render(ctx: AxisContext): void {
     const { canvas } = this.ctx;
-    canvas.strokeStyle = this.state.color.hex;
     canvas.font = this.state.font;
     canvas.fillStyle = this.state.color.hex;
+    canvas.strokeStyle = this.state.color.hex;
 
     switch (this.state.location) {
       case "left":
@@ -71,8 +71,10 @@ export class AxisCanvas {
 
     const ticks = this.tickFactory.generate({ ...ctx, size });
 
+    console.log(canvas.strokeStyle, this.state.color.hex);
+
     ticks.forEach((tick) => {
-      const { width, height } = Text.dimensions(
+      const { width, height } = textDimensions(
         tick.label,
         this.state.font,
         this.ctx.canvas
@@ -81,13 +83,16 @@ export class AxisCanvas {
       canvas.lineTo(p.x + tick.position, p.y + TICK_LINE_SIZE);
       canvas.stroke();
       canvas.fillText(tick.label, p.x + tick.position - width / 2, p.y + 5 + height);
-      if (showGrid) {
+    });
+    if (showGrid) {
+      canvas.strokeStyle = this.state.gridColor.hex;
+      ticks.forEach((tick) => {
         canvas.beginPath();
         canvas.moveTo(p.x + tick.position, p.y);
         canvas.lineTo(p.x + tick.position, p.y - gridSize);
         canvas.stroke();
-      }
-    });
+      });
+    }
   }
 
   drawTop(ctx: AxisContext): void {
@@ -107,7 +112,7 @@ export class AxisCanvas {
     const ticks = this.tickFactory.generate({ ...ctx, size });
 
     ticks.forEach((tick) => {
-      const { width, height } = Text.dimensions(
+      const { width, height } = textDimensions(
         tick.label,
         this.state.font,
         this.ctx.canvas
@@ -117,13 +122,19 @@ export class AxisCanvas {
       canvas.stroke();
 
       canvas.fillText(tick.label, p.x + tick.position - width / 2, p.y - 5 - height);
-      if (showGrid) {
-        canvas.beginPath();
-        canvas.moveTo(p.x + tick.position, p.y);
-        canvas.lineTo(p.x + tick.position, p.y + gridSize);
-        canvas.stroke();
-      }
     });
+
+    if (showGrid) {
+      canvas.strokeStyle = this.state.gridColor.hex;
+      ticks
+        .filter((tick) => tick.position !== 0 && tick.position !== size)
+        .forEach((tick) => {
+          canvas.beginPath();
+          canvas.moveTo(p.x + tick.position, p.y);
+          canvas.lineTo(p.x + tick.position, p.y + gridSize);
+          canvas.stroke();
+        });
+    }
   }
 
   drawLeft(ctx: AxisContext): void {
@@ -142,7 +153,7 @@ export class AxisCanvas {
     const ticks = this.tickFactory.generate({ ...ctx, size });
 
     ticks.forEach((tick) => {
-      const { height, width } = Text.dimensions(
+      const { height, width } = textDimensions(
         tick.label,
         this.state.font,
         this.ctx.canvas
@@ -155,13 +166,18 @@ export class AxisCanvas {
         p.x - width - TICK_LINE_SIZE * 2,
         p.y + tick.position + height / 2
       );
-      if (showGrid) {
-        canvas.beginPath();
-        canvas.moveTo(p.x, p.y + tick.position);
-        canvas.lineTo(p.x + gridSize, p.y + tick.position);
-        canvas.stroke();
-      }
     });
+    if (showGrid) {
+      canvas.strokeStyle = this.state.gridColor.hex;
+      ticks
+        .filter((tick) => tick.position !== 0 && tick.position !== size)
+        .forEach((tick) => {
+          canvas.beginPath();
+          canvas.moveTo(p.x, p.y + tick.position);
+          canvas.lineTo(p.x + gridSize, p.y + tick.position);
+          canvas.stroke();
+        });
+    }
   }
 
   drawRight(ctx: AxisContext): void {
@@ -184,12 +200,18 @@ export class AxisCanvas {
       canvas.lineTo(p.x + 5, p.y + tick.position);
       canvas.stroke();
       canvas.fillText(tick.label, p.x + 10, p.y + tick.position + 5);
-      if (showGrid) {
-        canvas.beginPath();
-        canvas.moveTo(p.x, p.y + tick.position);
-        canvas.lineTo(p.x - gridSize, p.y + tick.position);
-        canvas.stroke();
-      }
     });
+
+    if (showGrid) {
+      canvas.strokeStyle = this.state.gridColor.hex;
+      ticks
+        .filter((tick) => tick.position !== 0 && tick.position !== size)
+        .forEach((tick) => {
+          canvas.beginPath();
+          canvas.moveTo(p.x, p.y + tick.position);
+          canvas.lineTo(p.x - gridSize, p.y + tick.position);
+          canvas.stroke();
+        });
+    }
   }
 }

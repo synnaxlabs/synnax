@@ -1,6 +1,7 @@
 import { RoutedWorker } from "@synnaxlabs/x";
 
-import { WorkerRoot } from "@/core/bob/worker";
+import { WorkerRoot } from "./core/bob/worker";
+
 import { newBootstrapFn } from "@/core/vis/WorkerCanvas";
 import { TelemWorker } from "@/telem/worker";
 

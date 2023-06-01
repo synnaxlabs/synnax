@@ -9,7 +9,7 @@
 
 import { useEffect } from "react";
 
-import { XY, ZERO_XY, toXY, Box } from "@synnaxlabs/x";
+import { XY, Box } from "@synnaxlabs/x";
 
 import { UseVirtualCursorDragProps } from "./types";
 
@@ -24,8 +24,8 @@ interface RefState {
 }
 
 const INITIAL_STATE: RefState = {
-  start: ZERO_XY,
-  current: ZERO_XY,
+  start: XY.ZERO,
+  current: XY.ZERO,
   mouseKey: "MouseLeft",
   cursor: null,
 };
@@ -43,7 +43,7 @@ export const useVirtualCursorDragWebView = ({
 
     const onMouseDown = async (e: MouseEvent): Promise<void> => {
       if (document.pointerLockElement != null) return;
-      const start = toXY(e);
+      const start = new XY(e);
       const mouseKey = Triggers.eventKey(e);
       onStart?.(start, mouseKey);
 
@@ -90,7 +90,7 @@ export const useVirtualCursorDragWebView = ({
           prev.cursor.style.top = `${current.y}px`;
           prev.cursor.style.left = `${current.x}px`;
           onMove?.(new Box(start, current), mouseKey);
-          return { ...prev, current };
+          return { ...prev, current: new XY(current) };
         });
       };
       document.addEventListener("mousemove", handleMove);
@@ -100,7 +100,7 @@ export const useVirtualCursorDragWebView = ({
         document.getElementById("cursor")?.remove();
         document.body.style.cursor = "";
         document.exitPointerLock();
-        onEnd?.(new Box(stateRef.current.start, toXY(e)), mouseKey);
+        onEnd?.(new Box(stateRef.current.start, new XY(e)), mouseKey);
       };
       document.addEventListener("mouseup", handleUp, { once: true });
     });

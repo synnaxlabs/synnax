@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Direction, Location, Order } from "@synnaxlabs/x";
+import { DirectionT, Location, LocationT, LooseLocationT, OrderT } from "@synnaxlabs/x";
 
 import { MosaicNode } from "@/core/std/Mosaic/types";
 import { Tab, Tabs } from "@/core/std/Tabs";
@@ -18,16 +18,17 @@ const InvalidMosaic = new Error("Invalid Mosaic");
 export const insertMosaicTab = (
   root: MosaicNode,
   tab: Tab,
-  loc: Location = "center",
+  loc_: LooseLocationT = "center",
   key?: number
 ): MosaicNode => {
+  const loc = new Location(loc_);
   if (key === undefined) return insertAnywhere(root, tab);
 
   const node = findNodeOrAncestor(root, key);
 
   // In the case where we're dropping the node in the center,
   // simply add the tab, change the selection, and return.
-  if (loc === "center") {
+  if (loc.equals("center")) {
     node.tabs?.push(tab);
     node.selected = tab.tabKey;
     return root;
@@ -39,7 +40,7 @@ export const insertMosaicTab = (
   // so we do nothing.
   if (node.tabs == null || node.tabs.length === 0) return root;
 
-  const [insertOrder, siblingOrder, dir] = splitArrangement(loc);
+  const [insertOrder, siblingOrder, dir] = splitArrangement(loc.v);
   node.direction = dir;
 
   node[insertOrder] = { key: 0, tabs: [tab], selected: tab.tabKey };
@@ -210,7 +211,7 @@ const findMosaicNode = (node: MosaicNode, key: number): MosaicNode | undefined =
   return findMosaicNode(node.last, key);
 };
 
-const splitArrangement = (insertPosition: Location): [Order, Order, Direction] => {
+const splitArrangement = (insertPosition: LocationT): [OrderT, OrderT, DirectionT] => {
   switch (insertPosition) {
     case "top":
       return ["first", "last", "y"];

@@ -22,7 +22,8 @@ import {
   XYT,
   LooseDirectionT,
   Direction,
-} from "@/spatial";
+  DimensionsT,
+} from "@/spatial/core";
 
 const cssBox = z.object({
   top: z.number(),
@@ -81,7 +82,7 @@ export class Box implements Stringer {
       | Box
       | { getBoundingClientRect: () => DOMRect }
       | BoxT,
-    second?: number | XYT | Dimensions | SignedDimensionsT,
+    second?: number | XYT | DimensionsT | SignedDimensionsT,
     width: number = 0,
     height: number = 0,
     coordinateRoot?: CornerT
@@ -155,7 +156,7 @@ export class Box implements Stringer {
   }
 
   get dims(): Dimensions {
-    return { width: this.width, height: this.height };
+    return new Dimensions({ width: this.width, height: this.height });
   }
 
   get signedDims(): SignedDimensionsT {
@@ -262,7 +263,7 @@ export class Box implements Stringer {
   }
 
   get yBound(): Bound {
-    return new Bound(this.one.x, this.two.x);
+    return new Bound(this.one.y, this.two.y);
   }
 
   copy(root?: CornerT): Box {
@@ -277,13 +278,11 @@ export class Box implements Stringer {
     return this.copy(corner);
   }
 
-  static get zero(): Box {
-    return new Box(0, 0, 0, 0);
-  }
+  static readonly ZERO = new Box(0, 0, 0, 0);
 
-  static get decimal(): Box {
-    return new Box(0, 0, 1, 1, "bottomLeft");
-  }
+  static readonly DECIMAL = new Box(0, 0, 1, 1, "bottomLeft");
+
+  static readonly z = box;
 }
 
 /**

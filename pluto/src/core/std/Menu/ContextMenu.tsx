@@ -11,18 +11,20 @@ import {
   ComponentPropsWithoutRef,
   ForwardedRef,
   forwardRef,
+  ReactElement,
   RefCallback,
   useRef,
   useState,
 } from "react";
 
-import { unique, ClientXY, toXY, XY, ZERO_XY, positionSoVisible } from "@synnaxlabs/x";
+import { unique, positionSoVisible, ClientXYT, XYT, XY } from "@synnaxlabs/x";
 
 import { CSS } from "@/core/css";
 import { useClickOutside } from "@/core/hooks";
 import { RenderProp } from "@/util/renderProp";
 
 import "@/core/std/Menu/ContextMenu.css";
+
 interface ContextMenuState {
   visible: boolean;
   keys: string[];
@@ -30,7 +32,7 @@ interface ContextMenuState {
 }
 
 /** Supported event types for triggering a context menu. */
-export type ContextMenuEvent = ClientXY & {
+export type ContextMenuEvent = ClientXYT & {
   preventDefault: () => void;
   stopPropagation: () => void;
   target: Element;
@@ -38,7 +40,7 @@ export type ContextMenuEvent = ClientXY & {
 
 /** Opens the context menu. See {@link Menu.useContextMenu} for more details. */
 export type ContextMenuOpen = (
-  pos: XY | ClientXY | ContextMenuEvent,
+  pos: XYT | ClientXYT | ContextMenuEvent,
   keys?: string[]
 ) => void;
 
@@ -53,7 +55,7 @@ export interface UseContextMenuReturn extends ContextMenuState {
 const INITIAL_STATE: ContextMenuState = {
   visible: false,
   keys: [],
-  xy: ZERO_XY,
+  xy: XY.ZERO,
 };
 
 export const CONTEXT_SELECTED = CSS.BM("context", "selected");
@@ -82,7 +84,7 @@ export const useContextMenu = (): UseContextMenuReturn => {
   const [state, setMenuState] = useState<ContextMenuState>(INITIAL_STATE);
 
   const handleOpen: ContextMenuOpen = (e, keys) => {
-    const xy = toXY(e);
+    const xy = new XY(e);
     if ("preventDefault" in e) {
       e.preventDefault();
       // Prevent parent context menus from opening.

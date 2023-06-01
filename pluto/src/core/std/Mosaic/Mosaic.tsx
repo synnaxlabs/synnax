@@ -9,7 +9,7 @@
 
 import React, { useState, memo, useCallback, ReactElement } from "react";
 
-import { Location } from "@synnaxlabs/x";
+import { Location, LocationT } from "@synnaxlabs/x";
 
 import { CSS } from "@/core/css";
 import { Haul, Hauled } from "@/core/haul";
@@ -78,7 +78,7 @@ const DRAGGING_TYPE = "pluto-mosaic-tab";
 
 /** Checks whether the tab can actually be dropped in this location or not */
 const validDrop = (tabs: Tab[], dragging: Hauled[]): boolean => {
-  const keys = dragging.filter(({ type }) => type == DRAGGING_TYPE).map((t) => t.key);
+  const keys = dragging.filter(({ type }) => type === DRAGGING_TYPE).map((t) => t.key);
   return keys.length > 0 && tabs.filter((t) => !keys.includes(t.tabKey)).length > 0;
 };
 
@@ -133,7 +133,7 @@ const MosaicTabLeaf = memo(
           {...props}
         />
         {dragMask != null && (
-          <div className={CSS.BE("mosaic", "mask")} style={maskStyle[dragMask]} />
+          <div className={CSS.BE("mosaic", "mask")} style={maskStyle[dragMask.v]} />
         )}
       </div>
     );
@@ -143,7 +143,7 @@ const MosaicTabLeaf = memo(
 MosaicTabLeaf.displayName = "MosaicTabLeaf";
 
 const maskStyle: Record<
-  Location,
+  LocationT,
   { left: string; top: string; width: string; height: string }
 > = {
   top: { left: "0%", top: "0%", width: "100%", height: "50%" },
@@ -171,11 +171,11 @@ const crossHairA = (px: number): number => px;
 const crossHairB = (px: number): number => 1 - px;
 
 const insertLocation = ({ px, py }: { px: number; py: number }): Location => {
-  if (px > 0.33 && px < 0.66 && py > 0.33 && py < 0.66) return "center";
+  if (px > 0.33 && px < 0.66 && py > 0.33 && py < 0.66) return Location.center;
   const [aY, bY] = [crossHairA(px), crossHairB(px)];
-  if (py > aY && py > bY) return "bottom";
-  if (py < aY && py < bY) return "top";
-  if (py > aY && py < bY) return "left";
-  if (py < aY && py > bY) return "right";
+  if (py > aY && py > bY) return Location.bottom;
+  if (py < aY && py < bY) return Location.top;
+  if (py > aY && py < bY) return Location.left;
+  if (py < aY && py > bY) return Location.right;
   throw new Error("[bug] - invalid insert position");
 };

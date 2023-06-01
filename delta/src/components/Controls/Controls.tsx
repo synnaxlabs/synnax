@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useLayoutRemover } from "@/layout";
+import { ReactElement } from "react";
+
 import {
   useSelectWindow,
   setWindowMaximized,
@@ -21,7 +22,9 @@ import {
 } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
-export interface ControlsProps extends PControlsProps { }
+import { useLayoutRemover } from "@/layout";
+
+export interface ControlsProps extends PControlsProps {}
 
 export const Controls = (props: ControlsProps): ReactElement | null => {
   const window = useSelectWindow();

@@ -7,21 +7,23 @@
 // license, use of this software will be governed by the apache license, version 2.0,
 // included in the file licenses/apl.txt.
 
-import { XY, ZERO_XY, Direction, toXY, UnparsedXY } from "@synnaxlabs/x";
+import { XY, Direction, LooseXYT, LooseDirectionT } from "@synnaxlabs/x";
 import { Dimensions } from "reactflow";
 
 export const SVG = {
-  translate: (xy: UnparsedXY) => {
-    const xy_ = toXY(xy);
+  translate: (xy: LooseXYT) => {
+    const xy_ = new XY(xy);
     return `translate(${xy_.x}, ${xy_.y})`;
   },
-  translateIn: (amount: number, dir: Direction) =>
-    dir === "x" ? `translate(${amount}, 0)` : `translate(0, ${amount})`,
-  line: (one: UnparsedXY, two: UnparsedXY) => {
-    const one_ = toXY(one);
-    const two_ = toXY(two);
+  translateIn: (amount: number, dir: LooseDirectionT) =>
+    new Direction(dir).equals("x")
+      ? `translate(${amount}, 0)`
+      : `translate(0, ${amount})`,
+  line: (one: LooseXYT, two: LooseXYT) => {
+    const one_ = new XY(one);
+    const two_ = new XY(two);
     return { x1: one_.x, y1: one_.y, x2: two_.x, y2: two_.y };
   },
-  viewBox: (dims: Dimensions, offset: XY = ZERO_XY) =>
+  viewBox: (dims: Dimensions, offset: XY = XY.ZERO) =>
     `${offset.x} ${offset.y} ${dims.width} ${dims.height}`,
 };

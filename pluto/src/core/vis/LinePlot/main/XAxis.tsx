@@ -36,9 +36,9 @@ export const XAxis = memo(
       path,
       state: [, setState],
     } = Bob.useComponent<WorkerXAxisState>(WorkerXAxis.TYPE, {
-      color: theme.colors.gray.p3,
-      gridColor: theme.colors.gray.m2,
-      position: XY.zero,
+      color: theme.colors.gray.p2,
+      gridColor: theme.colors.gray.m1,
+      position: XY.ZERO,
       font,
       location,
       ...props,

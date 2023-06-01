@@ -11,21 +11,20 @@ import { StrictMode } from "react";
 
 import { Provider } from "@synnaxlabs/drift";
 import { Logo } from "@synnaxlabs/media";
-import "@synnaxlabs/media/dist/style.css";
 import {
   Theming,
   Triggers,
   Menu as PMenu,
   Space,
   Typography,
-  addOpacityToHex,
   Nav,
   Controls,
   Haul,
 } from "@synnaxlabs/pluto";
-import "@synnaxlabs/pluto/dist/style.css";
 import { appWindow } from "@tauri-apps/api/window";
 import ReactDOM from "react-dom/client";
+
+import "./index.css";
 
 import { ConnectCluster } from "@/cluster";
 import { Menu } from "@/components";
@@ -43,7 +42,8 @@ import { useLoadTauriVersion } from "@/version";
 import { VisLayoutRenderer } from "@/vis";
 import { DefineRange } from "@/workspace";
 
-import "./index.css";
+import "@synnaxlabs/media/dist/style.css";
+import "@synnaxlabs/pluto/dist/style.css";
 
 const layoutRenderers = {
   main: LayoutMain,

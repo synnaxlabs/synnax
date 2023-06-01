@@ -16,7 +16,7 @@ const rgba = z.array(z.number()).length(4).min(0).max(255);
 export type RGBA = [number, number, number, number];
 export type Hex = z.infer<typeof hex>;
 
-export type ColorT = Hex | RGBA | Color;
+export type ColorT = Hex | RGBA | Color | string;
 
 const invalidHexError = (hex: string): Error => new Error(`Invalid hex color: ${hex}`);
 
@@ -31,8 +31,10 @@ export class Color {
     return new Color([0, 0, 0, 0]);
   }
 
-  constructor(color: RGBA | string, alpha?: number) {
-    if (typeof color === "string") {
+  constructor(color: ColorT, alpha?: number) {
+    if (color instanceof Color) {
+      this.internal = color.internal;
+    } else if (typeof color === "string") {
       this.internal = Color.fromHex(color, alpha);
     } else {
       if (color.length < 3 || color.length > 4)
@@ -85,6 +87,7 @@ export class Color {
 
   setOpacity(opacity: number): Color {
     const [r, g, b] = this.internal;
+    if (opacity > 1) opacity = opacity / 100;
     return new Color([r, g, b, opacity]);
   }
 
