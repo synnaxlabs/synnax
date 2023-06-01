@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useState } from "react";
+import { ReactElement, useState } from "react";
 
 import { Meta } from "@storybook/react";
-import { Box, DECIMAL_BOX, BoxScale } from "@synnaxlabs/x";
+import { Box, BoxScale } from "@synnaxlabs/x";
 
 import { Viewport } from ".";
 
@@ -22,7 +22,7 @@ const story: Meta<typeof Viewport.Mask> = {
 };
 
 const Basic_ = (): ReactElement => {
-  const [box, setBox] = useState<Box>(DECIMAL_BOX);
+  const [box, setBox] = useState<Box>(Box.DECIMAL);
   const props = Viewport.use({
     onChange: ({ box: newBox }) => setBox(newBox),
   });
@@ -56,7 +56,7 @@ export const Basic = (): ReactElement => {
 export default story;
 
 const ZoomMiniMap = ({ box }: { box: Box }): ReactElement => {
-  const scaled = BoxScale.scale(DECIMAL_BOX)
+  const scaled = BoxScale.scale(Box.DECIMAL)
     .scale(new Box(0, 0, 400, 400))
     .box(box)
     .reRoot("topLeft");

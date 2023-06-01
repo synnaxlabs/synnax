@@ -12,7 +12,6 @@ import { ReactElement } from "react";
 import type { Meta, StoryFn } from "@storybook/react";
 
 import { VisCanvas } from "../Canvas";
-// import { Line } from "../Line";
 
 import { LinePlot } from "@/core/vis/LinePlot";
 import { Pluto } from "@/Pluto";
@@ -39,7 +38,7 @@ const Example = (): ReactElement => {
           left: 0,
         }}
       >
-        <LinePlot>
+        <LinePlot style={{ height: "50%", padding: 10 }}>
           <LinePlot.XAxis
             type="linear"
             label="Time"
@@ -52,9 +51,70 @@ const Example = (): ReactElement => {
               type="linear"
               label="Value"
               color="#FFFFFF"
-              location="left"
+              location="right"
               bound={{ lower: 500, upper: 1000 }}
               showGrid
+            />
+            <LinePlot.YAxis
+              type="linear"
+              label="Value"
+              color="#FFFFFF"
+              location="left"
+              bound={{ lower: 500, upper: 1000 }}
+            />
+            <LinePlot.YAxis
+              type="linear"
+              label="Value"
+              color="#FFFFFF"
+              location="left"
+              bound={{ lower: 2000, upper: 90000 }}
+            />
+            <LinePlot.YAxis
+              type="linear"
+              label="Value"
+              color="#FFFFFF"
+              location="left"
+              bound={{ lower: 500, upper: 1000 }}
+            />
+          </LinePlot.XAxis>
+        </LinePlot>
+        <LinePlot style={{ height: "50%", padding: 10 }}>
+          <LinePlot.XAxis
+            type="linear"
+            label="Time"
+            color="#FFFFFF"
+            location="bottom"
+            bound={{ lower: 500, upper: 1000 }}
+            showGrid
+          >
+            <LinePlot.YAxis
+              type="linear"
+              label="Value"
+              color="#FFFFFF"
+              location="right"
+              bound={{ lower: 500, upper: 1000 }}
+              showGrid
+            />
+            <LinePlot.YAxis
+              type="linear"
+              label="Value"
+              color="#FFFFFF"
+              location="left"
+              bound={{ lower: 500, upper: 1000 }}
+            />
+            <LinePlot.YAxis
+              type="linear"
+              label="Value"
+              color="#FFFFFF"
+              location="left"
+              bound={{ lower: 2000, upper: 90000 }}
+            />
+            <LinePlot.YAxis
+              type="linear"
+              label="Value"
+              color="#FFFFFF"
+              location="left"
+              bound={{ lower: 500, upper: 1000 }}
             />
           </LinePlot.XAxis>
         </LinePlot>

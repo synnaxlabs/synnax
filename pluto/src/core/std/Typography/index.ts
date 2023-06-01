@@ -7,22 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Text as CoreText } from "./Text";
-import { TextDateTime } from "./TextDateTime";
-import { TextEditable } from "./TextEditable";
-import { TextLink } from "./TextLink";
-import { TextWithIcon } from "./TextWithIcon";
+import { Text as CoreText } from "@/core/std/Typography/Text";
+import { TextDateTime } from "@/core/std/Typography/TextDateTime";
+import { textDimensions } from "@/core/std/Typography/textDimensions";
+import { TextEditable } from "@/core/std/Typography/TextEditable";
+import { TextLink } from "@/core/std/Typography/TextLink";
+import { TextWithIcon } from "@/core/std/Typography/TextWithIcon";
 import {
   ComponentSizeTypographyLevels,
   TypographyLevelComponentSizes,
   TypographyLevels,
-} from "./types";
-import "./Typography.css";
+} from "@/core/std/Typography/types";
 
-export type { CoreTextProps, TextProps } from "./Text";
-export type { Size, TypographySpec, TypographyLevel } from "./types";
-export type { TextWithIconProps } from "./TextWithIcon";
-export type { TextLinkProps } from "./TextLink";
+import "@/core/std/Typography/Typography.css";
+
+export type { CoreTextProps, TextProps } from "@/core/std/Typography/Text";
+export type {
+  Size,
+  TypographySpec,
+  TypographyLevel,
+} from "@/core/std/Typography/types";
+export type { TextWithIconProps } from "@/core/std/Typography/TextWithIcon";
+export type { TextLinkProps } from "@/core/std/Typography/TextLink";
 
 type CoreTextType = typeof CoreText;
 
@@ -31,6 +37,7 @@ interface TextType extends CoreTextType {
   Editable: typeof TextEditable;
   DateTime: typeof TextDateTime;
   Link: typeof TextLink;
+  dimensions: typeof textDimensions;
 }
 
 export const Text = CoreText as TextType;
@@ -48,8 +55,6 @@ export const Typography = {
   LevelComponentSizes: TypographyLevelComponentSizes,
   /** A list of all typography levels. */
   Levels: TypographyLevels,
-  /**
-   * Renders text of a given typography level.
-   */
+  /** Renders text of a given typography level. */
   Text,
 };

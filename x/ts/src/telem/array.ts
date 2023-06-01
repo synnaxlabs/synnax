@@ -193,7 +193,7 @@ export class LazyArray {
   }
 
   get bound(): Bound {
-    return { lower: Number(this.min), upper: Number(this.max) };
+    return new Bound(Number(this.min), Number(this.max));
   }
 
   enrich(): void {

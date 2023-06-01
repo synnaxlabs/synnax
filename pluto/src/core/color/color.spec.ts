@@ -7,15 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { easeQuad } from "d3";
 import { describe, expect, it } from "vitest";
 
-import { addOpacityToHex, hexToRGBA, normalizeRGBA, validateHex } from "./convert";
-import type { Opacity } from "./convert";
-import { RGBATuple } from "./core";
+import { Color, RGBA } from "./color";
 
 describe("convert", () => {
   describe("hexToRGBA", () => {
-    const TESTS: Array<[string, RGBATuple]> = [
+    const TESTS: Array<[string, RGBA]> = [
       ["#000000", [0, 0, 0, 1]],
       ["#00000000", [0, 0, 0, 0]],
       ["#000000ff", [0, 0, 0, 1]],
@@ -23,15 +22,12 @@ describe("convert", () => {
     ];
     for (const [hex, expected] of TESTS) {
       it(`should convert ${hex} to ${expected}`, () => {
-        const actual = hexToRGBA(hex);
-        expected.forEach((v, i) => {
-          expect(actual[i]).toBeCloseTo(v);
-        });
+        expect(new Color(hex).equals(new Color(expected))).toBe(true);
       });
     }
   });
   describe("normalizeRGBA", () => {
-    const TESTS: Array<[number, RGBATuple, RGBATuple]> = [
+    const TESTS: Array<[number, RGBA, RGBA]> = [
       [255, [0, 0, 0, 1], [0, 0, 0, 1]],
       [255, [0, 0, 0, 0], [0, 0, 0, 0]],
       [255, [0, 0, 0, 0.5], [0, 0, 0, 0.5]],

@@ -23,9 +23,9 @@ export interface BEM extends CoreBEMType {
   extend: (prefix: string) => BEM;
 }
 
+const BLOCK = "-";
 const ELEMENT = "__";
 const MODIFIER = "--";
-const BLOCK = "-";
 
 export const newBEM = (prefix: string): BEM => {
   // We need to define a new function to avoid reassigning the original

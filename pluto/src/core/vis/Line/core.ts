@@ -10,19 +10,19 @@
 import { Bound, Box, XYScale } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { WComponent } from "../../bob/worker";
 import { dynamicXYTelemSourceMeta, xyTelemSourceMeta } from "../telem/TelemSource";
 
+import { WComponent } from "@/core/bob/worker";
 import { hex } from "@/core/color";
 
-export const lineProps = z.object({
+export const lineState = z.object({
   telem: z.union([xyTelemSourceMeta, dynamicXYTelemSourceMeta]),
   color: hex,
   strokeWidth: z.number().default(1),
 });
 
-export type LineProps = z.input<typeof lineProps>;
-export type ParsedLineProps = z.output<typeof lineProps>;
+export type LineState = z.input<typeof lineState>;
+export type ParsedLineState = z.output<typeof lineState>;
 
 export interface LineContext {
   /**
@@ -39,7 +39,7 @@ export interface LineContext {
 }
 
 export interface LineComponent extends WComponent {
-  state: LineProps;
+  state: LineState;
   render: (ctx: LineContext) => void;
   xBound: () => Promise<Bound>;
   yBound: () => Promise<Bound>;

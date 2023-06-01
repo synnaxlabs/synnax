@@ -9,15 +9,14 @@
 
 import { Direction, Bound, xyScaleToTransform, LazyArray } from "@synnaxlabs/x";
 
-import { WComponentFactory, WLeaf } from "../../bob/worker";
-
+import { WComponentFactory, WLeaf } from "@/core/bob/worker";
 import { hexToRGBA } from "@/core/color";
 import {
   LineComponent,
-  LineProps,
+  LineState,
   LineContext,
-  lineProps,
-  ParsedLineProps,
+  lineState,
+  ParsedLineState,
 } from "@/core/vis/Line/core";
 import FRAG_SHADER from "@/core/vis/Line/frag.glsl?raw";
 import VERT_SHADER from "@/core/vis/Line/vert.glsl?raw";
@@ -60,7 +59,7 @@ export class LineGLProgram extends GLProgram {
     this.translationBuffer = ctx.gl.createBuffer() as WebGLBuffer;
   }
 
-  bindPropsAndContext(ctx: LineContext, props: ParsedLineProps): number {
+  bindPropsAndContext(ctx: LineContext, props: ParsedLineState): number {
     const regionTransform = xyScaleToTransform(this.ctx.scaleRegion(ctx.region));
     const scaleTransform = xyScaleToTransform(ctx.scale);
     this.uniformXY("u_region_scale", regionTransform.scale);
@@ -105,7 +104,7 @@ export class LineGLProgram extends GLProgram {
   }
 }
 
-export class LineGL extends WLeaf<LineProps, ParsedLineProps> {
+export class LineGL extends WLeaf<LineState, ParsedLineState> {
   prog: LineGLProgram;
   requestRender: () => void;
   telemProv: TelemProvider;
@@ -115,12 +114,12 @@ export class LineGL extends WLeaf<LineProps, ParsedLineProps> {
 
   constructor(
     key: string,
-    props: LineProps,
+    props: LineState,
     program: LineGLProgram,
     requestRender: () => void,
     telemProv: TelemProvider
   ) {
-    super(key, LineGL.TYPE, props, lineProps);
+    super(key, LineGL.TYPE, props, lineState);
     this.prog = program;
     this.requestRender = requestRender;
     this.telemProv = telemProv;

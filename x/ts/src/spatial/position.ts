@@ -13,13 +13,14 @@ export const posititonSoVisible = (target: HTMLElement, xy: XY): [XY, boolean] =
   const { width, height } = target.getBoundingClientRect();
   const { innerWidth, innerHeight } = window;
   let changed = false;
+  let nextXY = new XY(xy);
   if (xy.x + width > innerWidth) {
-    xy.x -= width;
+    nextXY = nextXY.translateX(-width);
     changed = true;
   }
   if (xy.y + height > innerHeight) {
-    xy.y -= height;
+    nextXY = nextXY.translateY(-height);
     changed = true;
   }
-  return [xy, changed];
+  return [nextXY, changed];
 };
