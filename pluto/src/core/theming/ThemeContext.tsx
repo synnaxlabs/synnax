@@ -9,6 +9,7 @@
 
 import {
   PropsWithChildren,
+  ReactElement,
   createContext,
   useContext,
   useEffect,
@@ -23,7 +24,7 @@ import { applyCSSVars } from "@/core/css";
 import { Input } from "@/core/std/Input";
 import { InputSwitchProps } from "@/core/std/Input/InputSwitch";
 
-import "./theme.css";
+import "@/core/theming/theme.css";
 
 export interface ThemeContextValue {
   theme: Theme;

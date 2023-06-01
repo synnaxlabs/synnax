@@ -15,7 +15,6 @@ import { VisCanvas } from "../Canvas";
 
 import { LinePlot } from "@/core/vis/LinePlot";
 import { Pluto } from "@/Pluto";
-import { useStaticTelem } from "@/telem/useStaticTelem";
 
 const story: Meta<typeof LinePlot> = {
   title: "Vis/LinePlot",
@@ -23,10 +22,6 @@ const story: Meta<typeof LinePlot> = {
 };
 
 const Example = (): ReactElement => {
-  const telem = useStaticTelem({
-    x: [new Int32Array([1, 2, 3])],
-    y: [new Int32Array([1, 2, 3])],
-  });
   return (
     <Pluto>
       <VisCanvas

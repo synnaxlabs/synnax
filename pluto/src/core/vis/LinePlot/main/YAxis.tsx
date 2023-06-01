@@ -9,7 +9,7 @@
 
 import { PropsWithChildren, ReactElement, memo } from "react";
 
-import { Optional, ZERO_XY } from "@synnaxlabs/x";
+import { Optional, XY } from "@synnaxlabs/x";
 
 import { useAxisPosition } from "./LinePlot";
 
@@ -23,7 +23,7 @@ import {
 
 export interface YAxisProps
   extends PropsWithChildren,
-    Optional<Omit<WorkerYAxisState, "position">, "color" | "font"> {}
+    Optional<Omit<WorkerYAxisState, "position">, "color" | "font" | "gridColor"> {}
 
 export const YAxis = memo(
   ({ children, location = "left", ...props }: YAxisProps): ReactElement => {
@@ -36,8 +36,9 @@ export const YAxis = memo(
       path,
       state: [, setState],
     } = Bob.useComponent<WorkerYAxisState>(WorkerYAxis.TYPE, {
-      position: ZERO_XY,
+      position: XY.zero,
       color: theme.colors.gray.p2,
+      gridColor: theme.colors.gray.m2,
       location,
       font,
       ...props,

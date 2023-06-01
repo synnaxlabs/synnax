@@ -183,10 +183,7 @@ const longestEntries = <E extends KeyedRenderableRecord<E>>(
       const rv = entry[key as keyof E];
       if (rv == null) return;
       const value = stringer != null ? stringer(entry) : rv;
-      if (
-        typeof value === "string" &&
-        value.length > (longest[key as keyof E]?.length !== 0 || 0)
-      ) {
+      if (typeof value === "string" && value.length > longest[key as keyof E]?.length) {
         longest[key as keyof E] = value;
       }
     });
