@@ -9,13 +9,13 @@
 
 import { ReactElement, useCallback, useState } from "react";
 
-import { locToDir } from "@synnaxlabs/x";
-
 import { CSS } from "@/core/css";
 import { NavbarProps } from "@/core/std/Nav/Navbar";
 import { Resize, ResizeProps } from "@/core/std/Resize";
 
 import "@/core/std/Nav/Navdrawer.css";
+
+import { Location } from "@synnaxlabs/x";
 
 export interface NavDrawerItem {
   key: string;
@@ -61,7 +61,7 @@ export const Navdrawer = ({
   ...props
 }: NavDrawerProps): ReactElement | null => {
   if (activeItem == null) return null;
-  const dir = locToDir(location);
+  const dir = new Location(location).direction;
   const { key, content, ...rest } = activeItem;
   const handleCollapse = useCallback(() => onSelect?.(key), [onSelect, key]);
   return (

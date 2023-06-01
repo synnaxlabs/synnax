@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Bound, Box, Scale, bound, maxBound, xLocation } from "@synnaxlabs/x";
+import { Bound, Box, Location, Scale } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { WComposite, WComponentFactory } from "@/core/bob/worker";
@@ -17,8 +17,8 @@ import { LineComponent, LineContext } from "@/core/vis/Line/core";
 import { RenderContext } from "@/core/vis/render";
 
 export const yAxisProps = axisState.extend({
-  location: xLocation.optional().default("left"),
-  bound: bound.optional(),
+  location: Location.xz.optional().default("left"),
+  bound: Bound.z.optional(),
   autoBoundPadding: z.number().optional().default(0.1),
 });
 
@@ -74,7 +74,7 @@ export class YAxis extends WComposite<LineComponent, YAxisState, ParsedYAxisStat
   }
 
   async xBound(): Promise<Bound> {
-    return maxBound(
+    return Bound.max(
       await Promise.all(this.children.map(async (el) => await el.xBound()))
     );
   }
@@ -125,9 +125,10 @@ export class YAxis extends WComposite<LineComponent, YAxisState, ParsedYAxisStat
 }
 
 export const autoBounds = (padding: number, bounds: Bound[]): [Bound, number] => {
-  if (bounds.length === 0) return [{ lower: 0, upper: 1 }, 0];
-  const { upper, lower } = maxBound(bounds);
-  if (upper === lower) return [{ lower: lower - 1, upper: upper - 1 }, lower];
+  if (bounds.length === 0) return [new Bound({ lower: 0, upper: 1 }), 0];
+  const { upper, lower } = Bound.max(bounds);
+  if (upper === lower)
+    return [new Bound({ lower: lower - 1, upper: upper - 1 }), lower];
   const _padding = (upper - lower) * padding;
-  return [{ lower: lower - _padding, upper: upper + _padding }, lower];
+  return [new Bound({ lower: lower - _padding, upper: upper + _padding }), lower];
 };

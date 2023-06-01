@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Box, XY, xy } from "@synnaxlabs/x";
+import { Box, XY } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { WComponentFactory, WComposite } from "@/core/bob/worker";
@@ -21,7 +21,7 @@ export const linePlotState = z.object({
   plot: Box.z,
   container: Box.z,
   viewport: Box.z,
-  clearOverscan: z.union([z.number(), xy]).optional().default(0),
+  clearOverscan: z.union([z.number(), XY.z]).optional().default(0),
 });
 
 export type LinePlotState = z.input<typeof linePlotState>;
@@ -83,9 +83,11 @@ export class LinePlot extends WComposite<XAxis, LinePlotState, ParsedLinePlotSta
   }
 
   private get clearOverScan(): XY {
-    return typeof this.state.clearOverscan === "number"
-      ? { x: this.state.clearOverscan, y: this.state.clearOverscan }
-      : this.state.clearOverscan;
+    return new XY(
+      typeof this.state.clearOverscan === "number"
+        ? { x: this.state.clearOverscan, y: this.state.clearOverscan }
+        : this.state.clearOverscan
+    );
   }
 
   private erase(): void {

@@ -84,9 +84,9 @@ export const LinePlotC = ({
     path,
     state: [, setState],
   } = Bob.useComponent<WorkerLinePlotState>(WorkerLinePlot.TYPE, {
-    plot: Box.zero,
-    container: Box.zero,
-    viewport: Box.decimal,
+    plot: Box.ZERO,
+    container: Box.ZERO,
+    viewport: Box.DECIMAL,
     clearOverscan: { x: 10, y: 10 },
     ...props,
   });

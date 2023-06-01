@@ -37,7 +37,6 @@ const Example = (): ReactElement => {
           <LinePlot.XAxis
             type="linear"
             label="Time"
-            color="#FFFFFF"
             location="bottom"
             bound={{ lower: 500, upper: 1000 }}
             showGrid
@@ -45,7 +44,6 @@ const Example = (): ReactElement => {
             <LinePlot.YAxis
               type="linear"
               label="Value"
-              color="#FFFFFF"
               location="right"
               bound={{ lower: 500, upper: 1000 }}
               showGrid
@@ -53,21 +51,18 @@ const Example = (): ReactElement => {
             <LinePlot.YAxis
               type="linear"
               label="Value"
-              color="#FFFFFF"
               location="left"
               bound={{ lower: 500, upper: 1000 }}
             />
             <LinePlot.YAxis
               type="linear"
               label="Value"
-              color="#FFFFFF"
               location="left"
               bound={{ lower: 2000, upper: 90000 }}
             />
             <LinePlot.YAxis
               type="linear"
               label="Value"
-              color="#FFFFFF"
               location="left"
               bound={{ lower: 500, upper: 1000 }}
             />
@@ -77,7 +72,6 @@ const Example = (): ReactElement => {
           <LinePlot.XAxis
             type="linear"
             label="Time"
-            color="#FFFFFF"
             location="bottom"
             bound={{ lower: 500, upper: 1000 }}
             showGrid
@@ -85,7 +79,6 @@ const Example = (): ReactElement => {
             <LinePlot.YAxis
               type="linear"
               label="Value"
-              color="#FFFFFF"
               location="right"
               bound={{ lower: 500, upper: 1000 }}
               showGrid
@@ -93,14 +86,12 @@ const Example = (): ReactElement => {
             <LinePlot.YAxis
               type="linear"
               label="Value"
-              color="#FFFFFF"
               location="left"
               bound={{ lower: 500, upper: 1000 }}
             />
             <LinePlot.YAxis
               type="linear"
               label="Value"
-              color="#FFFFFF"
               location="left"
               bound={{ lower: 2000, upper: 90000 }}
             />

@@ -1,11 +1,10 @@
 import { Box } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { WComposite } from "../bob/worker";
-
-import { LinePlot, LinePlotFactory } from "./LinePlot/worker";
-import { RenderContext, RenderQueue } from "./render";
-import { TelemProvider } from "./telem/TelemService";
+import { WComposite } from "@/core/bob/worker";
+import { LinePlot, LinePlotFactory } from "@/core/vis/LinePlot/worker";
+import { RenderContext, RenderQueue } from "@/core/vis/render";
+import { TelemProvider } from "@/core/vis/telem/TelemService";
 
 export const canvasState = z.object({
   dpr: z.number(),

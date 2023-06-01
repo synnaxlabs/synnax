@@ -1,4 +1,4 @@
-import { GLBufferControl, Bound, LazyArray, ZERO_BOUND } from "@synnaxlabs/x";
+import { GLBufferControl, Bound, LazyArray } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const telemSourceMeta = z.object({
@@ -54,11 +54,11 @@ class EmptyStaticXYTelem implements XYTelemSource {
   }
 
   async xBound(): Promise<Bound> {
-    return ZERO_BOUND;
+    return Bound.ZERO;
   }
 
   async yBound(): Promise<Bound> {
-    return ZERO_BOUND;
+    return Bound.ZERO;
   }
 }
 

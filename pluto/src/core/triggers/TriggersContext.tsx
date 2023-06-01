@@ -17,7 +17,7 @@ import {
   ReactElement,
 } from "react";
 
-import { toXY, XY, ZERO_XY, TimeStamp, TimeSpan, Destructor } from "@synnaxlabs/x";
+import { XY, TimeStamp, TimeSpan, Destructor } from "@synnaxlabs/x";
 
 import {
   MouseKey,
@@ -61,9 +61,9 @@ export interface TriggersProviderProps extends PropsWithChildren {}
 
 export const TriggersProvider = ({ children }: TriggersProviderProps): ReactElement => {
   // We track mouse movement to allow for cursor position on keybord events;
-  const cursor = useRef<XY>(ZERO_XY);
+  const cursor = useRef<XY>(XY.ZERO);
   const handleMouseMove = useCallback((e: MouseEvent): void => {
-    cursor.current = toXY(e);
+    cursor.current = new XY(e);
   }, []);
 
   // All registered triggers and callbacks

@@ -41,7 +41,7 @@ export const VisCanvas = ({ children, ...props }: VisCanvasProps): ReactElement 
   } = Bob.useComponent<WorkerCanvasProps>(
     WorkerCanvas.TYPE,
     {
-      region: Box.zero,
+      region: Box.ZERO,
       dpr: 1,
     },
     "canvas-key"

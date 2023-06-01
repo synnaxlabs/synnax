@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ReactElement, useState } from "react";
+
 import { Icon, Logo } from "@synnaxlabs/media";
 import {
   Divider,
@@ -18,9 +20,10 @@ import {
   Select,
   Triggers,
 } from "@synnaxlabs/pluto";
-import { locToDir } from "@synnaxlabs/x";
+import { Location } from "@synnaxlabs/x";
 
 import { NAV_SIZES } from "./constants";
+import "./Nav.css";
 
 import { ClusterBadge, ClusterToolbar, ConnectionBadge } from "@/cluster";
 import { Controls } from "@/components";
@@ -37,9 +40,6 @@ import { ResourcesToolbar } from "@/resources";
 import { VersionBadge } from "@/version";
 import { VisToolbar } from "@/vis";
 import { WorkspaceToolbar } from "@/workspace";
-import { useState } from "react";
-
-import "./Nav.css";
 
 export const NAV_DRAWERS: NavDrawerItem[] = [
   ClusterToolbar,
@@ -48,19 +48,25 @@ export const NAV_DRAWERS: NavDrawerItem[] = [
   VisToolbar,
 ];
 
-const SearchBox = () => {
-  const [value, setValue] = useState<string>("")
-  return <Select
-    value={value}
-    onChange={setValue}
-    data={[]}
-    style={{ width: "100%" }}
-    inputProps={{
-      centerPlaceholder: true,
-      placeholder: "Search Synnax", style: { backgroundColor: "var(--pluto-primary-z-40)", borderColor: "var(--pluto-primary-z-60)" }
-    }}
-  />
-}
+const SearchBox = (): ReactElement => {
+  const [value, setValue] = useState<string>("");
+  return (
+    <Select
+      value={value}
+      onChange={setValue}
+      data={[]}
+      style={{ width: "100%" }}
+      inputProps={{
+        centerPlaceholder: true,
+        placeholder: "Search Synnax",
+        style: {
+          backgroundColor: "var(--pluto-primary-z-40)",
+          borderColor: "var(--pluto-primary-z-60)",
+        },
+      }}
+    />
+  );
+};
 
 /**
  * NavTop is the top navigation bar for the Delta UI. Try to keep this component
@@ -78,7 +84,15 @@ export const NavTop = (): ReactElement => {
         <Controls className="delta-controls--macos" visibleIfOS="MacOS" />
         {os === "Windows" && <Logo className="delta-main-nav-top__logo" />}
       </Nav.Bar.Start>
-      <Nav.Bar.Content style={{ position: "absolute", left: "25%", width: "50%", zIndex: 10, height: NAV_SIZES.top }}>
+      <Nav.Bar.Content
+        style={{
+          position: "absolute",
+          left: "25%",
+          width: "50%",
+          zIndex: 10,
+          height: NAV_SIZES.top,
+        }}
+      >
         <SearchBox />
       </Nav.Bar.Content>
       <Nav.Bar.End className="delta-main-nav-top__end">
@@ -182,7 +196,7 @@ export const NavDrawer = ({ location, ...props }: NavDrawerProps): ReactElement 
       location={location}
       className={CSS(
         CSS.B("main-nav-drawer"),
-        CSS.BM("main-nav-drawer", locToDir(location))
+        CSS.BM("main-nav-drawer", new Location(location).direction)
       )}
       activeItem={activeItem}
       onResize={onResize}

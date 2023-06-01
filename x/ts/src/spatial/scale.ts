@@ -17,6 +17,7 @@ import {
   DirectionT,
   XYTransformT,
   LooseXYT,
+  LooseBoundT,
 } from "@/spatial/core";
 
 export type ScaleBound = "domain" | "range";
@@ -100,7 +101,7 @@ export class Scale {
     return new Scale().magnify(value);
   }
 
-  static scale(lowerOrBound: number | Bound, upper?: number): Scale {
+  static scale(lowerOrBound: number | LooseBoundT, upper?: number): Scale {
     return new Scale().scale(lowerOrBound, upper);
   }
 
@@ -120,7 +121,7 @@ export class Scale {
     return next;
   }
 
-  scale(lowerOrBound: number | Bound, upper?: number): Scale {
+  scale(lowerOrBound: number | LooseBoundT, upper?: number): Scale {
     const b = new Bound(lowerOrBound, upper);
     const next = this.new();
     const f = curriedScale(b) as TypedOperation;
@@ -129,7 +130,7 @@ export class Scale {
     return next;
   }
 
-  clamp(lowerOrBound: number | Bound, upper?: number): Scale {
+  clamp(lowerOrBound: number | LooseBoundT, upper?: number): Scale {
     const b = new Bound(lowerOrBound, upper);
     const next = this.new();
     const f = curriedClamp(b) as TypedOperation;
@@ -138,7 +139,7 @@ export class Scale {
     return next;
   }
 
-  reBound(lowerOrBound: number | Bound, upper?: number): Scale {
+  reBound(lowerOrBound: number | LooseBoundT, upper?: number): Scale {
     const b = new Bound(lowerOrBound, upper);
     const next = this.new();
     const f = curriedReBound(b) as TypedOperation;

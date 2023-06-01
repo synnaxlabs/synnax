@@ -9,7 +9,7 @@
 
 import { useCallback } from "react";
 
-import { Box, ClientXY, toXY, XY } from "@synnaxlabs/x";
+import { Box, ClientXYT, XY } from "@synnaxlabs/x";
 
 import { Triggers, Key } from "@/core/triggers";
 
@@ -20,7 +20,7 @@ export interface UseCursorDragProps {
 }
 
 export type UseCursorDragStart = (
-  e: ClientXY & { button: number; preventDefault: () => void }
+  e: ClientXYT & { button: number; preventDefault: () => void }
 ) => void;
 
 export const useCursorDrag = ({
@@ -31,18 +31,18 @@ export const useCursorDrag = ({
   useCallback(
     (e) => {
       e.preventDefault();
-      const startLoc = toXY(e);
+      const startLoc = new XY(e);
       const mouseKey = Triggers.mouseKey(e.button);
       onStart?.(startLoc, mouseKey);
-      const handleMove = (e: ClientXY & { buttons: number }): void => {
+      const handleMove = (e: ClientXYT & { buttons: number }): void => {
         if (e.buttons === 0) return handleUp(e);
-        const next = toXY(e);
+        const next = new XY(e);
         onMove?.(new Box(startLoc, next), mouseKey);
       };
       window.addEventListener("mousemove", handleMove);
-      const handleUp = (e: ClientXY): void => {
+      const handleUp = (e: ClientXYT): void => {
         window.removeEventListener("mousemove", handleMove);
-        onEnd?.(new Box(startLoc, toXY(e)), mouseKey);
+        onEnd?.(new Box(startLoc, new XY(e)), mouseKey);
       };
       window.addEventListener("mouseup", handleUp, { once: true });
     },
