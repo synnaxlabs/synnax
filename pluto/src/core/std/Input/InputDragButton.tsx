@@ -9,7 +9,7 @@
 
 import { ReactElement, useCallback, useMemo, useRef } from "react";
 
-import { Box, Direction, toXY, XY } from "@synnaxlabs/x";
+import { Box, DirectionT, LooseXYT, XY } from "@synnaxlabs/x";
 import { GrDrag } from "react-icons/gr";
 
 import { CSS } from "@/core/css";
@@ -20,10 +20,10 @@ import { InputControl } from "@/core/std/Input/types";
 import "@/core/std/Input/InputDragButton.css";
 
 export interface InputDragButtonExtensionProps {
-  direction?: Direction;
-  dragDirection?: Direction;
-  dragScale?: XY | number;
-  dragThreshold?: XY | number;
+  direction?: DirectionT;
+  dragDirection?: DirectionT;
+  dragScale?: LooseXYT | number;
+  dragThreshold?: LooseXYT | number;
 }
 
 export interface InputDragButtonProps
@@ -54,12 +54,15 @@ export const InputDragButton = ({
   if (!vRef.current.dragging) vRef.current.prev = value;
 
   const normalDragScale = useMemo(() => {
-    const scale = toXY(dragScale);
-    if (dragDirection === "x") scale.y = 0;
-    else if (dragDirection === "y") scale.x = 0;
+    const scale = new XY(dragScale);
+    if (dragDirection === "x") return new XY(scale.x, 0);
+    if (dragDirection === "y") return new XY(0, scale.y);
     return scale;
   }, [dragScale, dragDirection]);
-  const normalDragThreshold = useMemo(() => toXY(dragThreshold ?? 0), [dragThreshold]);
+  const normalDragThreshold = useMemo(
+    () => new XY(dragThreshold ?? 0),
+    [dragThreshold]
+  );
 
   useVirtualCursorDrag({
     ref: elRef,

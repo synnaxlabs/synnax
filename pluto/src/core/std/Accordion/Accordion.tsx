@@ -48,7 +48,7 @@ export interface AccordionProps
   data: AccordionEntry[];
 }
 
-const DIRECTION: Direction = "y";
+const DIRECTION = Direction.y;
 const MIN_SIZE = 28;
 const COLLAPSED_THRESHOLD = 32;
 const EXPAND_THRESHOLD = 40;

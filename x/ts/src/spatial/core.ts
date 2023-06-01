@@ -58,7 +58,7 @@ const looseDirection = z.union([direction, location]);
 const looseYLocation = z.union([yLocation, yDirection]);
 const looseXLocation = z.union([xLocation, xDirection]);
 const looseOuterLocation = z.union([outerLocation, direction]);
-const looseXY = z.union([xy, couple]);
+const looseXY = z.union([xy, dimensions, signedDimensions, couple]);
 const looseLocation = looseDirection;
 const strictBoundZ = z.object({ lower: z.number(), upper: z.number() });
 const looseBoundZ = z.union([strictBoundZ, couple]);
@@ -67,6 +67,7 @@ const looseDimensions = z.union([dimensions, signedDimensions, xy, couple]);
 
 // Type exports
 
+export type Couple = z.infer<typeof couple>;
 export type YLocationT = z.infer<typeof yLocation>;
 export type XLocationT = z.infer<typeof xLocation>;
 export type OuterLocationT = z.infer<typeof outerLocation>;
@@ -74,7 +75,6 @@ export type CenterLocationT = typeof CENTER_LOCATION;
 export type LocationT = z.infer<typeof location>;
 export type DirectionT = z.infer<typeof direction>;
 export type XYT = z.infer<typeof xy>;
-export type LooseXYT = z.input<typeof looseXY>;
 export type DimensionsT = z.infer<typeof dimensions>;
 export type SignedDimensionsT = z.infer<typeof signedDimensions>;
 export type BoundT = z.input<typeof looseBoundZ>;
@@ -85,11 +85,12 @@ export type XYTransformT = z.infer<typeof xyTransform>;
 export type ClientXYT = z.infer<typeof clientXY>;
 export type TransformT = z.infer<typeof transform>;
 
+export type LooseXYT = z.input<typeof looseXY> | XY;
 export type LooseYLocationT = z.infer<typeof looseYLocation>;
 export type LooseXLocationT = z.infer<typeof looseXLocation>;
 export type LooseXYTransformT = z.infer<typeof looseXYTransform>;
-export type LooseDirectionT = z.infer<typeof looseDirection>;
-export type LooseLocationT = z.infer<typeof looseLocation>;
+export type LooseDirectionT = z.infer<typeof looseDirection> | Direction;
+export type LooseLocationT = z.infer<typeof looseLocation> | Location;
 export type LooseOuterLocation = z.infer<typeof looseOuterLocation>;
 export type LooseDimensionsT = z.infer<typeof looseDimensions>;
 
@@ -105,17 +106,30 @@ export class Direction extends String {
     else super("x");
   }
 
+  equals(other: LooseDirectionT): boolean {
+    const o = new Direction(other);
+    return this.valueOf() === o.valueOf();
+  }
+
   /** @returns "x" if the direction is "y" and "y" if the direction is "x" */
-  swap(): Direction {
+  get inverse(): Direction {
     return new Direction(this.valueOf() === "x" ? "y" : "x");
   }
 
   /** @returns "top" if the direction is "y" and "left" if the direction is "x" */
-  location(): Location {
+  get location(): Location {
     return new Location(this.valueOf() as DirectionT);
   }
 
   static readonly DIRECTIONS = DIRECTIONS;
+
+  static get x(): Direction {
+    return new Direction("x");
+  }
+
+  static get y(): Direction {
+    return new Direction("y");
+  }
 }
 
 export class Location extends String {
@@ -125,7 +139,16 @@ export class Location extends String {
     else super("top");
   }
 
-  swap(): Location {
+  equals(other: LooseLocationT): boolean {
+    const o = new Location(other);
+    return this.valueOf() === o.valueOf();
+  }
+
+  get v(): LocationT {
+    return this.valueOf() as LocationT;
+  }
+
+  get inverse(): Location {
     return new Location(Location.SWAPPED[this.valueOf() as LocationT]);
   }
 
@@ -133,7 +156,7 @@ export class Location extends String {
     return new Direction(this.valueOf() as DirectionT);
   }
 
-  dimension(): "width" | "height" {
+  get dimension(): "width" | "height" {
     return this.valueOf() === "x" ? "width" : "height";
   }
 
@@ -173,16 +196,19 @@ export class XY {
    * @param y - An optional y coordinate that is only used if a numeric x coordinate
    * is provided. If x is numeric and y is not provided, y will be set to x.
    */
-  constructor(x: number | LooseXYT | XY, y?: number) {
-    if (x instanceof XY) {
-      this.x = x.x;
-      this.y = x.y;
-    } else if (typeof x === "number") {
+  constructor(x: number | LooseXYT, y?: number) {
+    if (typeof x === "number") {
       this.x = x;
       this.y = y ?? x;
     } else if (Array.isArray(x)) {
       this.x = x[0];
       this.y = x[1];
+    } else if ("signedWidth" in x) {
+      this.x = x.signedWidth;
+      this.y = x.signedHeight;
+    } else if ("width" in x) {
+      this.x = x.width;
+      this.y = x.height;
     } else {
       this.x = x.x;
       this.y = x.y;
@@ -223,6 +249,10 @@ export class XY {
   equals(other: XY | LooseXYT): boolean {
     const o = new XY(other);
     return this.x === o.x && this.y === o.y;
+  }
+
+  get couple(): Couple {
+    return [this.x, this.y];
   }
 
   /**

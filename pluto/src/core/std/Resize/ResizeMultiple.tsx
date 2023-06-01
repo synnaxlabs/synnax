@@ -18,7 +18,7 @@ import {
   RefObject,
 } from "react";
 
-import { Box, ClientXY, Direction, locFromDir } from "@synnaxlabs/x";
+import { Box, ClientXYT, Direction, LooseDirectionT } from "@synnaxlabs/x";
 
 import { CSS } from "@/core/css";
 import { ResizeCore } from "@/core/std/Resize/ResizeCore";
@@ -32,13 +32,13 @@ export interface ResizeMultipleProps extends SpaceProps {
   onDragHandle: (e: ResizeStartEvent, i: number) => void;
 }
 
-export type ResizeStartEvent = ClientXY & { preventDefault: () => void };
+export type ResizeStartEvent = ClientXYT & { preventDefault: () => void };
 
 /** Props for the {@link Resize.useMultiple} hook. */
 export interface UseResizeMultipleProps {
   count: number;
   onResize?: (sizes: number[]) => void;
-  direction?: Direction;
+  direction?: LooseDirectionT;
   initialSizes?: number[];
   minSize?: number;
 }
@@ -123,7 +123,7 @@ export const useResizeMultiple = ({
 export const ResizeMultiple = forwardRef(
   (
     {
-      direction = "x",
+      direction: direction_ = "x",
       children: _children,
       sizeDistribution,
       onDragHandle: onDrag,
@@ -132,8 +132,8 @@ export const ResizeMultiple = forwardRef(
     }: ResizeMultipleProps,
     ref: ForwardedRef<HTMLDivElement>
   ) => {
+    const direction = new Direction(direction_);
     const children = Children.toArray(_children);
-    const location = locFromDir(direction);
 
     return (
       <Space
@@ -148,7 +148,7 @@ export const ResizeMultiple = forwardRef(
           <ResizeCore
             onDragStart={(e) => onDrag(e, i)}
             key={i}
-            location={location}
+            location={direction.location}
             size={sizeDistribution[i] * 100}
             sizeUnits="%"
             showHandle={i !== children.length - 1}

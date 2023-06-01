@@ -9,14 +9,7 @@
 
 import { FunctionComponent, ReactElement } from "react";
 
-import {
-  Location,
-  Position,
-  swapLoc,
-  swapDir,
-  locToDir,
-  dirToDim,
-} from "@synnaxlabs/x";
+import { Location, LooseLocationT, PositionT } from "@synnaxlabs/x";
 
 import { CSS } from "@/core/css";
 import { Space, SpaceProps } from "@/core/std/Space";
@@ -24,30 +17,29 @@ import { Space, SpaceProps } from "@/core/std/Space";
 import "@/core/std/Nav/Navbar.css";
 
 export interface NavbarProps extends Omit<SpaceProps, "direction" | "size" | "ref"> {
-  location?: Location;
+  location?: LooseLocationT;
   size?: string | number;
 }
 
 const CoreNavbar = ({
-  location = "left",
+  location: location_ = "left",
   size = "9rem",
   className,
   style,
   ...props
 }: NavbarProps): ReactElement => {
-  const dir = locToDir(location);
-  const swappedDir = swapDir(locToDir(location));
+  const location = new Location(location_);
   return (
     <Space
       className={CSS(
         CSS.B("navbar"),
-        CSS.bordered(swapLoc(location)),
-        CSS.dir(swappedDir),
+        CSS.bordered(location.inverse.v),
+        CSS.dir(location.direction.inverse),
         className
       )}
-      direction={swappedDir}
+      direction={location.direction.inverse}
       style={{
-        [dirToDim(dir)]: size,
+        [location.dimension]: size,
         ...style,
       }}
       align="center"
@@ -63,7 +55,7 @@ export interface NavbarContentProps extends Omit<SpaceProps<"div">, "ref"> {
 }
 
 const contentFactory =
-  (pos: Position | ""): FunctionComponent<NavbarContentProps> =>
+  (pos: PositionT | ""): FunctionComponent<NavbarContentProps> =>
   // eslint-disable-next-line react/display-name
   ({ bordered = false, className, ...props }: NavbarContentProps): ReactElement =>
     (
