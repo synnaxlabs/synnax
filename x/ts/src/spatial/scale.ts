@@ -7,21 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Box } from "./box";
-import {
-  toBound,
-  Bound,
-  Corner,
-  cornerLocations as cornerLocs,
-  Dimensions,
-  SignedDimensions,
-  toXY,
-  XY,
-  Direction,
-  XYTransform,
-} from "./core";
-
 import { clamp } from "@/clamp";
+import { Box } from "@/spatial/box";
+import {
+  Bound,
+  CornerT,
+  cornerLocations as cornerLocs,
+  XY,
+  DirectionT,
+  XYTransformT,
+  LooseXYT,
+} from "@/spatial/core";
 
 export type ScaleBound = "domain" | "range";
 
@@ -125,7 +121,7 @@ export class Scale {
   }
 
   scale(lowerOrBound: number | Bound, upper?: number): Scale {
-    const b = toBound(lowerOrBound, upper);
+    const b = new Bound(lowerOrBound, upper);
     const next = this.new();
     const f = curriedScale(b) as TypedOperation;
     f.type = "scale";
@@ -134,7 +130,7 @@ export class Scale {
   }
 
   clamp(lowerOrBound: number | Bound, upper?: number): Scale {
-    const b = toBound(lowerOrBound, upper);
+    const b = new Bound(lowerOrBound, upper);
     const next = this.new();
     const f = curriedClamp(b) as TypedOperation;
     f.type = "clamp";
@@ -143,7 +139,7 @@ export class Scale {
   }
 
   reBound(lowerOrBound: number | Bound, upper?: number): Scale {
-    const b = toBound(lowerOrBound, upper);
+    const b = new Bound(lowerOrBound, upper);
     const next = this.new();
     const f = curriedReBound(b) as TypedOperation;
     f.type = "re-bound";
@@ -208,9 +204,9 @@ export class Scale {
   }
 }
 
-export type XYScale = Record<Direction, Scale>;
+export type XYScale = Record<DirectionT, Scale>;
 
-export const xyScaleToTransform = (scale: XYScale): XYTransform => ({
+export const xyScaleToTransform = (scale: XYScale): XYTransformT => ({
   scale: {
     x: scale.x.pos(1),
     y: scale.y.pos(1),
@@ -224,7 +220,7 @@ export const xyScaleToTransform = (scale: XYScale): XYTransform => ({
 export class BoxScale {
   x: Scale;
   y: Scale;
-  currRoot: Corner | null;
+  currRoot: CornerT | null;
 
   constructor() {
     this.x = new Scale();
@@ -232,7 +228,7 @@ export class BoxScale {
     this.currRoot = null;
   }
 
-  static translate(xy: XY | Dimensions | SignedDimensions): BoxScale {
+  static translate(xy: LooseXYT): BoxScale {
     return new BoxScale().translate(xy);
   }
 
@@ -248,8 +244,8 @@ export class BoxScale {
     return new BoxScale().scale(box);
   }
 
-  translate(xy: XY | Dimensions | SignedDimensions): BoxScale {
-    const _xy = toXY(xy);
+  translate(xy: LooseXYT): BoxScale {
+    const _xy = new XY(xy);
     const next = this.new();
     next.x = this.x.translate(_xy.x);
     next.y = this.y.translate(_xy.y);
@@ -293,8 +289,9 @@ export class BoxScale {
     return n;
   }
 
-  pos(xy: XY): XY {
-    return { x: this.x.pos(xy.x), y: this.y.pos(xy.y) };
+  pos(xy: LooseXYT): XY {
+    const xy_ = new XY(xy);
+    return new XY({ x: this.x.pos(xy_.x), y: this.y.pos(xy_.y) });
   }
 
   box(box: Box): Box {

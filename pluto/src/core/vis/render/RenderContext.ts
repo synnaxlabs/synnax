@@ -9,7 +9,7 @@
 
 import { Box, Destructor, Scale, XY, XYScale, ZERO_XY } from "@synnaxlabs/x";
 
-import { ZERO_COLOR } from "@/core/color";
+import { Color } from "@/core/color";
 
 export class RenderContext {
   /* The canvas element */
@@ -112,7 +112,7 @@ export class RenderContext {
       box.height + overscan.y * 2
     );
     const removeScissor = this.scissor(os);
-    gl.clearColor(...ZERO_COLOR);
+    gl.clearColor(...Color.zero.rgba1);
     gl.clear(gl.COLOR_BUFFER_BIT);
     removeScissor();
   }

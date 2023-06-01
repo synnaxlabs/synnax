@@ -9,196 +9,378 @@
 
 import { z } from "zod";
 
-export const position = z.enum(["start", "center", "end"]);
-export const POSITIONS = ["start", "center", "end"] as const;
-export type Position = typeof POSITIONS[number];
-
-export const order = z.enum(["first", "last"]);
-export const ORDERS = ["first", "last"] as const;
-export type Order = typeof ORDERS[number];
-
-export const yLocation = z.enum(["top", "bottom"]);
-export const Y_LOCATIONS = ["top", "bottom"] as const;
-export type YLocation = typeof Y_LOCATIONS[number];
-export const X_LOCATIONS = ["left", "right"] as const;
-export const xLocation = z.enum(["left", "right"]);
-export type XLocation = typeof X_LOCATIONS[number];
-export type CenterLocation = "center";
-
-export const corner = z.enum(["topLeft", "topRight", "bottomLeft", "bottomRight"]);
-export const CORNERS = ["topLeft", "topRight", "bottomLeft", "bottomRight"] as const;
-export type Corner = typeof CORNERS[number];
-
-export const CORNER_LOCATIONS: Record<Corner, [XLocation, YLocation]> = {
+export const CORNER_LOCATIONS: Record<CornerT, [XLocationT, YLocationT]> = {
   topLeft: ["left", "top"],
   topRight: ["right", "top"],
   bottomLeft: ["left", "bottom"],
   bottomRight: ["right", "bottom"],
 };
 
-export const outerLocation = z.enum([...Y_LOCATIONS, ...X_LOCATIONS]);
-export const OUTER_LOCATIONS = [...Y_LOCATIONS, ...X_LOCATIONS] as const;
-export type OuterLocation = typeof OUTER_LOCATIONS[number];
+// Options
 
-export const location = z.enum([...OUTER_LOCATIONS, "center"]);
+const DIRECTIONS = ["x", "y"] as const;
+export const Y_LOCATIONS = ["top", "bottom"] as const;
+const X_LOCATIONS = ["left", "right"] as const;
+const CENTER_LOCATION = "center";
+export const POSITIONS = ["start", "center", "end"] as const;
+export const ORDERS = ["first", "last"] as const;
+export const CORNERS = ["topLeft", "topRight", "bottomLeft", "bottomRight"] as const;
+const OUTER_LOCATIONS = [...Y_LOCATIONS, ...X_LOCATIONS] as const;
 export const LOCATIONS = [...OUTER_LOCATIONS, "center"] as const;
-export type Location = typeof LOCATIONS[number];
 
-export const direction = z.enum(["x", "y"]);
-export const DIRECTIONS = ["x", "y"] as const;
-export type Direction = typeof DIRECTIONS[number];
-export const isDirection = (v: string): v is Direction =>
-  DIRECTIONS.includes(v as Direction);
+// Strict definitions
 
-export const locToDir = (loc: Location | Direction): Direction => {
-  if (isDirection(loc)) return loc;
-  return Y_LOCATIONS.includes(loc as YLocation) ? "y" : "x";
-};
-
-export const swapDir = (direction: Direction): Direction =>
-  direction === "x" ? "y" : "x";
-
-export const locFromDir = (direction: Direction): "left" | "top" =>
-  direction === "x" ? "left" : "top";
-
-const SWAPPED_LOCS = {
-  top: "bottom",
-  bottom: "top",
-  left: "right",
-  right: "left",
-  center: "center",
-} as const;
-
-export const swapLoc = (location: Location): Location => SWAPPED_LOCS[location];
-
-/** A generic 2D point, scale, or offset. */
-export interface XY extends Record<Direction, number> {}
-export const xy = z.object({ x: z.number(), y: z.number() });
-
-export const ZERO_XY: XY = { x: 0, y: 0 };
-export const ZERO_DIMS: Dimensions = { width: 0, height: 0 };
-export const ONE_XY: XY = { x: 1, y: 1 };
-export const INFINITE_XY: XY = { x: Infinity, y: Infinity };
-export const ONE_DIMS: Dimensions = { width: 1, height: 1 };
-export const INFINITE_DIMS: Dimensions = { width: Infinity, height: Infinity };
-
-export interface SignedDimensions {
-  signedWidth: number;
-  signedHeight: number;
-}
-export const signedDimensions = z.object({
+const couple = z.tuple([z.number(), z.number()]);
+const direction = z.enum(["x", "y"]);
+const yDirection = z.literal("y");
+const xDirection = z.literal("x");
+const yLocation = z.enum(Y_LOCATIONS);
+const xLocation = z.enum(X_LOCATIONS);
+const centerLocation = z.literal(CENTER_LOCATION);
+const outerLocation = z.enum(OUTER_LOCATIONS);
+const location = z.enum(LOCATIONS);
+const xy = z.object({ x: z.number(), y: z.number() });
+const clientXY = z.object({ clientX: z.number(), clientY: z.number() });
+const dimensions = z.object({ width: z.number(), height: z.number() });
+const signedDimensions = z.object({
   signedWidth: z.number(),
   signedHeight: z.number(),
 });
-
-export interface Dimensions {
-  width: number;
-  height: number;
-}
-export const dimensions = z.object({ width: z.number(), height: z.number() });
-
-export interface XYTransform {
-  offset: XY;
-  scale: XY;
-}
+const position = z.enum(POSITIONS);
+const order = z.enum(ORDERS);
+const corner = z.enum(CORNERS);
+const transform = z.object({ offset: z.number(), scale: z.number() });
 export const xyTransform = z.object({ offset: xy, scale: xy });
 
-export interface Transform {
-  offset: number;
-  scale: number;
-}
+// Loose definitions
 
-export const transform = z.object({ offset: z.number(), scale: z.number() });
+const looseDirection = z.union([direction, location]);
+const looseYLocation = z.union([yLocation, yDirection]);
+const looseXLocation = z.union([xLocation, xDirection]);
+const looseOuterLocation = z.union([outerLocation, direction]);
+const looseXY = z.union([xy, couple]);
+const looseLocation = looseDirection;
+const strictBoundZ = z.object({ lower: z.number(), upper: z.number() });
+const looseBoundZ = z.union([strictBoundZ, couple]);
+const looseXYTransform = z.object({ offset: looseXY, scale: looseXY });
+const looseDimensions = z.union([dimensions, signedDimensions, xy, couple]);
 
-export interface ClientXY {
-  clientX: number;
-  clientY: number;
-}
-export const clientXY = z.object({ clientX: z.number(), clientY: z.number() });
+// Type exports
 
-export type UnparsedXY = number | XY | ClientXY | Dimensions | SignedDimensions;
+export type YLocationT = z.infer<typeof yLocation>;
+export type XLocationT = z.infer<typeof xLocation>;
+export type OuterLocationT = z.infer<typeof outerLocation>;
+export type CenterLocationT = typeof CENTER_LOCATION;
+export type LocationT = z.infer<typeof location>;
+export type DirectionT = z.infer<typeof direction>;
+export type XYT = z.infer<typeof xy>;
+export type LooseXYT = z.input<typeof looseXY>;
+export type DimensionsT = z.infer<typeof dimensions>;
+export type SignedDimensionsT = z.infer<typeof signedDimensions>;
+export type BoundT = z.input<typeof looseBoundZ>;
+export type PositionT = z.infer<typeof position>;
+export type OrderT = z.infer<typeof order>;
+export type CornerT = z.infer<typeof corner>;
+export type XYTransformT = z.infer<typeof xyTransform>;
+export type ClientXYT = z.infer<typeof clientXY>;
+export type TransformT = z.infer<typeof transform>;
 
-export const toXY = (pt: UnparsedXY): XY => {
-  if (typeof pt === "number") return { x: pt, y: pt };
-  if ("clientX" in pt) return { x: pt.clientX, y: pt.clientY };
-  if ("width" in pt) return { x: pt.width, y: pt.height };
-  if ("signedWidth" in pt) return { x: pt.signedWidth, y: pt.signedHeight };
-  return { x: pt.x, y: pt.y };
-};
+export type LooseYLocationT = z.infer<typeof looseYLocation>;
+export type LooseXLocationT = z.infer<typeof looseXLocation>;
+export type LooseXYTransformT = z.infer<typeof looseXYTransform>;
+export type LooseDirectionT = z.infer<typeof looseDirection>;
+export type LooseLocationT = z.infer<typeof looseLocation>;
+export type LooseOuterLocation = z.infer<typeof looseOuterLocation>;
+export type LooseDimensionsT = z.infer<typeof looseDimensions>;
 
-export const toXYEqual = (one?: UnparsedXY, two?: UnparsedXY): boolean => {
-  if (one == null || two == null) return one == null && two == null;
-  const oneXY = toXY(one);
-  const twoXY = toXY(two);
-  return oneXY.x === twoXY.x && oneXY.y === twoXY.y;
-};
+export const DECIMAL_COORD_ROOT: CornerT = "bottomLeft";
 
-export const locDim = (
-  location: Location | Direction,
-  point: XY | Dimensions
-): number => toXY(point)[locToDir(location)];
-
-export type ClientXYF = (e: ClientXY) => void;
-
-export const dirToDim = (direction: Direction): "width" | "height" =>
-  direction === "x" ? "width" : "height";
-
-export interface Bound {
-  lower: number;
-  upper: number;
-}
-export const bound = z.object({ lower: z.number(), upper: z.number() });
-
-export interface XYBound {
-  x: Bound;
-  y: Bound;
-}
-export const xyBound = z.object({ x: bound, y: bound });
-
-export const ZERO_BOUND = { lower: 0, upper: 0 };
-export const INFINITE_BOUND = { lower: -Infinity, upper: Infinity };
-export const DECIMAL_BOUND = { lower: 0, upper: 1 };
-export const CLIP_BOUND = { lower: -1, upper: 1 };
-export const ZERO_XY_BOUND = { x: ZERO_BOUND, y: ZERO_BOUND };
-export const INFINITE_XY_BOUND = { x: INFINITE_BOUND, y: INFINITE_BOUND };
-export const DECIMAL_XY_BOUND = { x: DECIMAL_BOUND, y: DECIMAL_BOUND };
-export const CLIP_XY_BOUND = { x: CLIP_BOUND, y: CLIP_BOUND };
-
-export const isBound = (v: any): v is Bound =>
-  typeof v === "object" && "lower" in v && "upper" in v;
-
-export const makeValidBound = (bound: Bound): Bound =>
-  bound.lower > bound.upper ? { lower: bound.upper, upper: bound.lower } : bound;
-
-export const toBound = (v1: number | Bound, v2?: number): Bound => {
-  if (isBound(v1)) return makeValidBound(v1);
-  if (typeof v1 === "number") {
-    if (v2 != null) return { lower: v1, upper: v2 };
-    return { lower: 0, upper: v1 };
-  }
-  throw new Error("Invalid bound");
-};
-
-export const inBounds = (v: number, bound: Bound): boolean =>
-  v >= bound.lower && v <= bound.upper;
-
-export const dimInBounds = (dim: number, bound: Bound): boolean =>
-  bound.upper - bound.lower >= dim;
-
-export const isZeroBound = (bound: Bound): boolean =>
-  bound.lower === 0 && bound.upper === 0;
-
-export const DECIMAL_COORD_ROOT: Corner = "bottomLeft";
-
-export const cornerLocations = (corner: Corner): [XLocation, YLocation] =>
+export const cornerLocations = (corner: CornerT): [XLocationT, YLocationT] =>
   CORNER_LOCATIONS[corner];
 
-export const maxBound = (bounds: Bound[]): Bound => ({
-  lower: Math.max(...bounds.map((b) => b.upper)),
-  upper: Math.max(...bounds.map((b) => b.lower)),
-});
+export class Direction extends String {
+  constructor(direction: LooseDirectionT) {
+    if (DIRECTIONS.includes(direction as DirectionT)) super(direction);
+    else if (Y_LOCATIONS.includes(direction as YLocationT)) super("y");
+    else super("x");
+  }
 
-export const minBound = (bounds: Bound[]): Bound => ({
-  lower: Math.min(...bounds.map((b) => b.lower)),
-  upper: Math.min(...bounds.map((b) => b.upper)),
-});
+  /** @returns "x" if the direction is "y" and "y" if the direction is "x" */
+  swap(): Direction {
+    return new Direction(this.valueOf() === "x" ? "y" : "x");
+  }
+
+  /** @returns "top" if the direction is "y" and "left" if the direction is "x" */
+  location(): Location {
+    return new Location(this.valueOf() as DirectionT);
+  }
+
+  static readonly DIRECTIONS = DIRECTIONS;
+}
+
+export class Location extends String {
+  constructor(location: LooseLocationT) {
+    if (!Direction.DIRECTIONS.includes(location as DirectionT)) super(location);
+    else if (location === "x") super("left");
+    else super("top");
+  }
+
+  swap(): Location {
+    return new Location(Location.SWAPPED[this.valueOf() as LocationT]);
+  }
+
+  get direction(): Direction {
+    return new Direction(this.valueOf() as DirectionT);
+  }
+
+  dimension(): "width" | "height" {
+    return this.valueOf() === "x" ? "width" : "height";
+  }
+
+  static readonly X = X_LOCATIONS;
+  static readonly xz = xLocation;
+
+  static readonly Y = Y_LOCATIONS;
+  static readonly yz = yLocation;
+
+  static readonly OUTER = OUTER_LOCATIONS;
+  static readonly outerZ = outerLocation;
+
+  static readonly CENTER = CENTER_LOCATION;
+  static readonly centerZ = centerLocation;
+
+  static readonly cornerZ = corner;
+
+  private static readonly SWAPPED: Record<LocationT, LocationT> = {
+    top: "bottom",
+    bottom: "top",
+    left: "right",
+    right: "left",
+    center: "center",
+  };
+}
+
+/**
+ * A point in 2D space.
+ */
+export class XY {
+  readonly x: number;
+  readonly y: number;
+
+  /**
+   * @constructor
+   * @param x - The x coordinate OR an object or array that can be parsed into an XY.
+   * @param y - An optional y coordinate that is only used if a numeric x coordinate
+   * is provided. If x is numeric and y is not provided, y will be set to x.
+   */
+  constructor(x: number | LooseXYT | XY, y?: number) {
+    if (x instanceof XY) {
+      this.x = x.x;
+      this.y = x.y;
+    } else if (typeof x === "number") {
+      this.x = x;
+      this.y = y ?? x;
+    } else if (Array.isArray(x)) {
+      this.x = x[0];
+      this.y = x[1];
+    } else {
+      this.x = x.x;
+      this.y = x.y;
+    }
+  }
+
+  /** @returns an x and y coordinate of zero */
+  static get zero(): XY {
+    return new XY(0, 0);
+  }
+
+  /** @returns an x and y coordinate of one */
+  static get one(): XY {
+    return new XY(1, 1);
+  }
+
+  /** @returns an x and y coordinate of infinity */
+  static get infinite(): XY {
+    return new XY(Infinity, Infinity);
+  }
+
+  /** @returns an XY coordinate translated by the given x value */
+  translateX(x: number): XY {
+    return new XY(this.x + x, this.y);
+  }
+
+  /** @returns an XY coordinate translated by the given y value */
+  translateY(y: number): XY {
+    return new XY(this.x, this.y + y);
+  }
+
+  /** @returns an XY coordinate translated by the given x and y values */
+  translate(xy: XY | LooseXYT): XY {
+    const t = new XY(xy);
+    return new XY(this.x + t.x, this.y + t.y);
+  }
+
+  equals(other: XY | LooseXYT): boolean {
+    const o = new XY(other);
+    return this.x === o.x && this.y === o.y;
+  }
+
+  /**
+   * z is a zod schema for parsing an XY. This schema is loose in that it will
+   * accept and convert a variety of inputs into an XY. If you only want to accept
+   * strict XYs, use z.
+   */
+  static readonly looseZ = looseXY.transform((v) => new XY(v));
+
+  /**
+   * z is a zod schema for parsing an XY. This schema is strict in that it will
+   * only accept an XY as an input.
+   */
+  static readonly z = xy.transform((v) => new XY(v));
+}
+
+export class Dimensions {
+  readonly width: number;
+  readonly height: number;
+
+  constructor(width: number | LooseDimensionsT, height?: number) {
+    if (typeof width === "number") {
+      this.width = width;
+      this.height = height ?? width;
+    } else if (Array.isArray(width)) {
+      [this.width, this.height] = width;
+    } else if ("x" in width) {
+      this.width = width.x;
+      this.height = width.y;
+    } else if ("signedWidth" in width) {
+      this.width = width.signedWidth;
+      this.height = width.signedHeight;
+    } else {
+      this.width = width.width;
+      this.height = width.height;
+    }
+  }
+
+  static get zero(): Dimensions {
+    return new Dimensions(0, 0);
+  }
+
+  static get one(): Dimensions {
+    return new Dimensions(1, 1);
+  }
+
+  static get infinite(): Dimensions {
+    return new Dimensions(Infinity, Infinity);
+  }
+}
+
+/**
+ * A lower and upper bound of values, where the lower bound is inclusive
+ * and the upper bound is exclusive.
+ */
+export class Bound {
+  readonly lower: number;
+  readonly upper: number;
+
+  /**
+   * @constructor
+   * @param lower - The lower bound OR an object or array that can be parsed into a bound.
+   * @param upper - An optional upper bound that is only used if a numeric lower bound is provided.
+   * If lower is numeric and upper is not provided, upper will be set to lower.
+   *
+   * The constructor does NOT validate that the lower bound is less than the upper bound, so its
+   * possible to create an inverted bound.
+   */
+  constructor(lower: number | BoundT, upper?: number) {
+    if (typeof lower === "number") {
+      this.lower = lower;
+      this.upper = upper ?? lower;
+    } else if (Array.isArray(lower)) {
+      [this.lower, this.upper] = lower;
+    } else {
+      this.lower = lower.lower;
+      this.upper = lower.upper;
+    }
+  }
+
+  /** @returns an upper and lower bound of zero */
+  static get zero(): Bound {
+    return new Bound(0);
+  }
+
+  /**
+   * @returns an upper and lower bound of negative and positive infinity.
+   * An infinite bound contains all values except for positive infinity.
+   */
+  static get infinite(): Bound {
+    return new Bound(-Infinity, Infinity);
+  }
+
+  /** @returns a lower bound of zero and an upper bound of one */
+  static get decimal(): Bound {
+    return new Bound(0, 1);
+  }
+
+  /** @returns clip space with a lower bound of -1 and an upper bound of 1 */
+  static get clip(): Bound {
+    return new Bound(-1, 1);
+  }
+
+  /**
+   * @returns true if the bound contains the value. Note that this bound
+   * is lower inclusive and upper exclusive.
+   * */
+  contains(v: number): boolean {
+    return v >= this.lower && v < this.upper;
+  }
+
+  /** @returns a number representing the distance between the upper and lower bounds */
+  span(): number {
+    return this.upper - this.lower;
+  }
+
+  /** @returns true if both the upper and lower bounds are zero */
+  get isZero(): boolean {
+    return this.lower === 0 && this.upper === 0;
+  }
+
+  /** @returns true if the span of the bound is zero */
+  get spanIsZero(): boolean {
+    return this.span() === 0;
+  }
+
+  /**
+   * Finds the combination of upper and lower bounds from the given set that result
+   * in the bound with the maximum possible span.
+   * */
+  static max(bounds: Bound[]): Bound {
+    return new Bound({
+      lower: Math.max(...bounds.map((b) => b.upper)),
+      upper: Math.max(...bounds.map((b) => b.lower)),
+    });
+  }
+
+  /**
+   * Finds the combination of upper and lower bounds from the given set that result
+   * in the bound with the minimum possible span.
+   * */
+  static min(bounds: Bound[]): Bound {
+    return new Bound({
+      lower: Math.min(...bounds.map((b) => b.lower)),
+      upper: Math.min(...bounds.map((b) => b.upper)),
+    });
+  }
+
+  /**
+   * z is a zod schema for parsing a bound. This schema is loose in that it will
+   * accept and convert a variety of inputs into a bound. If you only want to accept
+   * strict bounds, use strictZ.
+   */
+  static readonly z = looseBoundZ.transform((v) => new Bound(v));
+
+  /**
+   * strictZ is a zod schema for parsing a bound. This schema is strict in that it will
+   * only accept a bound as an input.
+   * */
+  static readonly strictZ = strictBoundZ.transform((v) => new Bound(v));
+}

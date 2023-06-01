@@ -18,7 +18,6 @@ import { ListItemProps, ListColumn as ListColumnT } from "@/core/std/List/types"
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/core/std/Menu/ContextMenu";
 import { Space } from "@/core/std/Space";
 import { Text } from "@/core/std/Typography";
-import { textWidth } from "@/core/std/Typography/textWidth";
 import { useFont } from "@/core/theming";
 import { ArrayTransform } from "@/util/transform";
 
@@ -166,8 +165,8 @@ const columnWidths = <E extends KeyedRenderableRecord<E>>(
   return columns.map((col) => {
     if (col.width != null) col.cWidth = col.width;
     else {
-      const labelWidth = textWidth(col.name, font);
-      const entryWidth = textWidth(le[col.key as keyof E], font);
+      const { width: labelWidth } = Text.dimensions(col.name, font);
+      const { width: entryWidth } = Text.dimensions(le[col.key as keyof E], font);
       col.cWidth = Math.max(labelWidth, entryWidth);
     }
     return col;

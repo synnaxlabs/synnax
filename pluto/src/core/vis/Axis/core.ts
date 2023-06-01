@@ -10,7 +10,7 @@
 import { Box, outerLocation, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { hex } from "@/core/color";
+import { Color } from "@/core/color";
 import {
   TickFactoryContext,
   tickFactoryProps,
@@ -18,16 +18,18 @@ import {
 } from "@/core/vis/Axis/TickFactory";
 
 export const axisState = tickFactoryProps.extend({
-  color: hex,
+  color: Color.z,
   position: xy,
   label: z.string().optional().default(""),
   type: tickType,
   font: z.string(),
   showGrid: z.boolean().optional().default(false),
   location: outerLocation,
+  gridColor: Color.z,
 });
 
-export type AxisState = z.infer<typeof axisState>;
+export type AxisState = z.input<typeof axisState>;
+export type ParsedAxisState = z.output<typeof axisState>;
 
 export interface AxisContext extends Omit<TickFactoryContext, "size"> {
   plottingRegion: Box;

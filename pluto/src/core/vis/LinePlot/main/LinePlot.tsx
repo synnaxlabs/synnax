@@ -1,5 +1,16 @@
+// Copyright 2023 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import {
   CSSProperties,
+  DetailedHTMLProps,
+  HTMLAttributes,
   PropsWithChildren,
   ReactElement,
   createContext,
@@ -22,9 +33,12 @@ import { UseViewportHandler, Viewport } from "@/core/vis/viewport";
 
 import "@/core/vis/LinePlot/main/LinePlot.css";
 
+type HTMLDivProps = DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement>;
+
 export interface LinePlotCProps
   extends PropsWithChildren,
-    Pick<WorkerLinePlotState, "clearOverscan"> {}
+    Pick<WorkerLinePlotState, "clearOverscan">,
+    HTMLDivProps {}
 
 export interface LinePlotContextValue {
   setAxis: (loc: OuterLocation, key: string) => void;
@@ -60,22 +74,22 @@ export const useAxisPosition = (loc: OuterLocation, key: string): CSSProperties 
 
 type AxisState = Array<[OuterLocation, string]>;
 
-export const LinePlotC = ({ children, ...props }: LinePlotCProps): ReactElement => {
+export const LinePlotC = ({
+  children,
+  style,
+  ...props
+}: LinePlotCProps): ReactElement => {
   const [axes, setAxes] = useState<AxisState>([]);
   const {
     path,
     state: [, setState],
-  } = Bob.useComponent<WorkerLinePlotState>(
-    WorkerLinePlot.TYPE,
-    {
-      plot: Box.ZERO,
-      container: Box.ZERO,
-      viewport: Box.DECIMAL,
-      clearOverscan: { x: 15, y: 15 },
-      ...props,
-    },
-    "line-plot"
-  );
+  } = Bob.useComponent<WorkerLinePlotState>(WorkerLinePlot.TYPE, {
+    plot: Box.ZERO,
+    container: Box.ZERO,
+    viewport: Box.DECIMAL,
+    clearOverscan: { x: 10, y: 10 },
+    ...props,
+  });
 
   const onViewportChange = useCallback<UseViewportHandler>(
     ({ box }) => setState((prev) => ({ ...prev, viewport: box })),
@@ -123,7 +137,12 @@ export const LinePlotC = ({ children, ...props }: LinePlotCProps): ReactElement 
   );
 
   return (
-    <div className={CSS.B("line-plot")} style={grid} ref={containerResizeRef}>
+    <div
+      className={CSS.B("line-plot")}
+      style={{ ...style, ...grid }}
+      ref={containerResizeRef}
+      {...props}
+    >
       <Bob.Composite path={path}>
         <LinePlotContext.Provider value={{ setAxis, deleteAxis }}>
           {children}
@@ -138,7 +157,8 @@ export const LinePlotC = ({ children, ...props }: LinePlotCProps): ReactElement 
   );
 };
 
-export const AXIS_WIDTH = 15;
+export const X_AXIS_WIDTH = 20;
+export const Y_AXIS_WIDTH = 40;
 
 const buildPlotGrid = (axisCounts: AxisState): CSSProperties => {
   const grid = new CSSGridBuilder();
@@ -148,7 +168,7 @@ const buildPlotGrid = (axisCounts: AxisState): CSSProperties => {
     grid.addRow({
       startLabel: `axis-start-${key}`,
       endLabel: `axis-end-${key}`,
-      size: AXIS_WIDTH,
+      size: X_AXIS_WIDTH,
     });
   });
   grid.addRow({ startLabel: "plot-start", endLabel: "plot-end", size: "auto" });
@@ -156,14 +176,14 @@ const buildPlotGrid = (axisCounts: AxisState): CSSProperties => {
     grid.addRow({
       startLabel: `axis-start-${key}`,
       endLabel: `axis-end-${key}`,
-      size: AXIS_WIDTH,
+      size: X_AXIS_WIDTH,
     });
   });
   filterAxisLoc("left").forEach(([loc, key]) => {
     grid.addColumn({
       startLabel: `axis-start-${key}`,
       endLabel: `axis-end-${key}`,
-      size: AXIS_WIDTH,
+      size: Y_AXIS_WIDTH,
     });
   });
   grid.addColumn({ startLabel: "plot-start", endLabel: "plot-end", size: "auto" });
@@ -171,7 +191,7 @@ const buildPlotGrid = (axisCounts: AxisState): CSSProperties => {
     grid.addColumn({
       startLabel: `axis-start-${key}`,
       endLabel: `axis-end-${key}`,
-      size: AXIS_WIDTH,
+      size: Y_AXIS_WIDTH,
     });
   });
   return grid.build();

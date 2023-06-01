@@ -11,7 +11,7 @@ import { XY } from "@synnaxlabs/x";
 
 import { RenderContext } from "./RenderContext";
 
-import { RGBATuple } from "@/core/color";
+import { Color } from "@/core/color";
 import { errorCompile, ERROR_BAD_SHADER } from "@/core/vis/render/errors";
 
 export class GLProgram {
@@ -60,8 +60,8 @@ export class GLProgram {
     this.ctx.gl.uniform2fv(this.getUniformLoc(name), [value.x, value.y]);
   }
 
-  uniformColor(name: string, value: RGBATuple): void {
-    this.ctx.gl.uniform4fv(this.getUniformLoc(name), value);
+  uniformColor(name: string, value: Color): void {
+    this.ctx.gl.uniform4fv(this.getUniformLoc(name), value.rgba1);
   }
 
   private getUniformLoc(name: string): WebGLUniformLocation {

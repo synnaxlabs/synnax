@@ -1,4 +1,13 @@
-import { Bound, Box, Scale, bound, yLocation } from "@synnaxlabs/x";
+// Copyright 2023 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { Bound, Box, Scale, yLocation } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { WComponentFactory, WComposite } from "@/core/bob/worker";
@@ -9,7 +18,7 @@ import { RenderContext } from "@/core/vis/render";
 
 export const xAxisState = axisState.extend({
   location: yLocation.optional().default("bottom"),
-  bound: bound.optional(),
+  bound: Bound.z.optional(),
   autoBoundPadding: z.number().optional().default(0.1),
 });
 
@@ -91,13 +100,7 @@ export class XAxis extends WComposite<YAxis, XAxisState, ParsedXAxisState> {
       this.children.map(async (el) => await el.xBound())
     );
     if (bounds.every((bound) => !isFinite(bound.lower) || !isFinite(bound.upper)))
-      return [
-        {
-          lower: 0,
-          upper: 1,
-        },
-        0,
-      ];
+      return [new Bound({ lower: 0, upper: 1 }), 0];
     const { autoBoundPadding = 0.1 } = this.state;
     return autoBounds(autoBoundPadding, bounds);
   }

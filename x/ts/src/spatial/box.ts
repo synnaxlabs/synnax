@@ -9,80 +9,51 @@
 
 import { z } from "zod";
 
+import { Stringer } from "@/primitive";
 import {
   Dimensions,
-  OuterLocation,
-  Corner,
+  CornerT,
   XY,
-  ZERO_XY,
-  Direction,
-  SignedDimensions,
-  X_LOCATIONS,
-  XLocation,
+  DirectionT,
+  SignedDimensionsT,
   Bound,
-  corner,
-  xy,
-} from "./core";
+  OuterLocationT,
+  Location,
+  XLocationT,
+  XYT,
+} from "@/spatial";
 
-import { Stringer } from "@/primitive";
+const cssBox = z.object({
+  top: z.number(),
+  left: z.number(),
+  width: z.number(),
+  height: z.number(),
+});
+const domRect = z.object({
+  left: z.number(),
+  top: z.number(),
+  right: z.number(),
+  bottom: z.number(),
+});
+const box = z.object({
+  one: XY.z,
+  two: XY.z,
+  root: Location.cornerZ,
+});
+const looseBox = z.union([
+  cssBox,
+  domRect,
+  z.object({
+    one: XY.looseZ,
+    two: XY.looseZ,
+    root: Location.cornerZ,
+  }),
+]);
 
-/** represents a partial JS DOMRect */
-export interface DOMRect {
-  left: number;
-  top: number;
-  right: number;
-  bottom: number;
-}
-
-/** BoxProps represents the properties of a Box. */
-export interface BoxProps {
-  /** y coordinate of the numerically lowest y value in the box. */
-  readonly y: number;
-  /** x coordinate of the numerically lowest x value in the box. */
-  readonly x: number;
-  /** y coordinate of the top of the box. */
-  readonly top: number;
-  /** x coordinate of the left side of the box. */
-  readonly left: number;
-  /** y coordinate of the bottom of the box. */
-  readonly bottom: number;
-  /** x coordinate of the right side of the box. */
-  readonly right: number;
-  /** point representing the top left corner of the box. */
-  readonly topLeft: XY;
-  /** point representing the top right corner of the box. */
-  readonly bottomRight: XY;
-  /** point representing the bottom left corner of the box. */
-  readonly bottomLeft: XY;
-  /** point representing the bottom right corner of the box. */
-  readonly topRight: XY;
-  /** the absolute width of the box. */
-  readonly width: number;
-  /** the absolute height of the box. */
-  readonly height: number;
-  /** the signed width of the box. */
-  readonly signedWidth: number;
-  /** the signed height of the box. */
-  readonly signedHeight: number;
-  /** the absolute dimensions of the box. */
-  readonly dims: Dimensions;
-  /** the signed dimensions of the box. */
-  readonly signedDims: SignedDimensions;
-}
-
-export interface CSSPosition {
-  top: number;
-  left: number;
-  width: number;
-  height: number;
-}
-
-export type BoxConstructorProps = [
-  leftRectOrPoint: number | DOMRect | XY,
-  topPointWidthOrDims?: number | XY | Dimensions,
-  widthOrHeight?: number,
-  height?: number
-];
+export type BoxT = z.infer<typeof box>;
+export type LooseBoxT = z.infer<typeof looseBox>;
+export type CSSBox = z.infer<typeof cssBox>;
+export type DOMRect = z.infer<typeof domRect>;
 
 /**
  * Box represents a general box in 2D space. It typically represents a bounding box
@@ -97,7 +68,7 @@ export type BoxConstructorProps = [
 export class Box implements Stringer {
   readonly one: XY;
   readonly two: XY;
-  readonly root: Corner;
+  readonly root: CornerT;
 
   readonly isBox: true = true;
 
@@ -105,14 +76,14 @@ export class Box implements Stringer {
     first:
       | number
       | DOMRect
-      | XY
+      | XYT
       | Box
       | { getBoundingClientRect: () => DOMRect }
       | BoxT,
-    second?: number | XY | Dimensions | SignedDimensions,
+    second?: number | XYT | Dimensions | SignedDimensionsT,
     width: number = 0,
     height: number = 0,
-    coordinateRoot?: Corner
+    coordinateRoot?: CornerT
   ) {
     if (first instanceof Box) {
       this.one = first.one;
@@ -126,15 +97,15 @@ export class Box implements Stringer {
     if (typeof first === "number") {
       if (typeof second !== "number")
         throw new Error("Box constructor called with invalid arguments");
-      this.one = { x: first, y: second };
-      this.two = { x: this.one.x + width, y: this.one.y + height };
+      this.one = new XY({ x: first, y: second });
+      this.two = new XY({ x: this.one.x + width, y: this.one.y + height });
       return;
     }
 
     if ("getBoundingClientRect" in first) first = first.getBoundingClientRect();
     if ("left" in first) {
-      this.one = { x: first.left, y: first.top };
-      this.two = { x: first.right, y: first.bottom };
+      this.one = new XY({ x: first.left, y: first.top });
+      this.two = new XY({ x: first.right, y: first.bottom });
       return;
     }
 
@@ -145,25 +116,25 @@ export class Box implements Stringer {
       return;
     }
 
-    this.one = first;
+    this.one = new XY(first);
     if (second == null) {
-      this.two = { x: this.one.x + width, y: this.one.y + height };
+      this.two = new XY({ x: this.one.x + width, y: this.one.y + height });
     } else if (typeof second === "number")
-      this.two = {
+      this.two = new XY({
         x: this.one.x + second,
         y: this.one.y + width,
-      };
+      });
     else if ("width" in second)
-      this.two = {
+      this.two = new XY({
         x: this.one.x + second.width,
         y: this.one.y + second.height,
-      };
+      });
     else if ("signedWidth" in second)
-      this.two = {
+      this.two = new XY({
         x: this.one.x + second.signedWidth,
         y: this.one.y + second.signedHeight,
-      };
-    else this.two = second;
+      });
+    else this.two = new XY(second);
   }
 
   contains(box: Box | XY): boolean {
@@ -186,11 +157,11 @@ export class Box implements Stringer {
     return { width: this.width, height: this.height };
   }
 
-  get signedDims(): SignedDimensions {
+  get signedDims(): SignedDimensionsT {
     return { signedWidth: this.signedWidth, signedHeight: this.signedHeight };
   }
 
-  get css(): CSSPosition {
+  get css(): CSSBox {
     return {
       top: this.top,
       left: this.left,
@@ -199,27 +170,27 @@ export class Box implements Stringer {
     };
   }
 
-  dim(dir: Direction, signed: boolean = false): number {
+  dim(dir: DirectionT, signed: boolean = false): number {
     const dim: number = dir === "y" ? this.signedHeight : this.signedWidth;
     return signed ? dim : Math.abs(dim);
   }
 
-  corner(corner: Corner): XY {
+  corner(corner: CornerT): XY {
     switch (corner) {
       case "topLeft":
-        return { x: this.left, y: this.top };
+        return new XY({ x: this.left, y: this.top });
       case "bottomRight":
-        return { x: this.right, y: this.bottom };
+        return new XY({ x: this.right, y: this.bottom });
       case "topRight":
-        return { x: this.right, y: this.top };
+        return new XY({ x: this.right, y: this.top });
       case "bottomLeft":
-        return { x: this.left, y: this.bottom };
+        return new XY({ x: this.left, y: this.bottom });
     }
   }
 
-  loc(loc: OuterLocation): number {
+  loc(loc: OuterLocationT): number {
     const f = this.root.toLowerCase().includes(loc) ? Math.min : Math.max;
-    return X_LOCATIONS.includes(loc as XLocation)
+    return Location.X.includes(loc as XLocationT)
       ? f(this.one.x, this.two.x)
       : f(this.one.y, this.two.y);
   }
@@ -285,16 +256,14 @@ export class Box implements Stringer {
   }
 
   get xBound(): Bound {
-    const [lower, upper] = [this.one.x, this.two.x].sort((a, b) => a - b);
-    return { lower, upper };
+    return new Bound(this.one.x, this.two.x);
   }
 
   get yBound(): Bound {
-    const [lower, upper] = [this.one.y, this.two.y].sort((a, b) => a - b);
-    return { lower, upper };
+    return new Bound(this.one.x, this.two.x);
   }
 
-  copy(root?: Corner): Box {
+  copy(root?: CornerT): Box {
     return new Box(this.one, this.two, 0, 0, root ?? this.root);
   }
 
@@ -302,22 +271,18 @@ export class Box implements Stringer {
     return `Top Left: ${this.topLeft.x}, ${this.topLeft.y} Bottom Right: ${this.bottomRight.x}, ${this.bottomRight.y}`;
   }
 
-  reRoot(corner: Corner): Box {
+  reRoot(corner: CornerT): Box {
     return this.copy(corner);
   }
 
-  static readonly z = z.object({
-    one: xy,
-    two: xy,
-    root: corner,
-  });
+  static get zero(): Box {
+    return new Box(0, 0, 0, 0);
+  }
 
-  static readonly ZERO = new Box(ZERO_XY, ZERO_XY);
-  static readonly DECIMAL = new Box(0, 0, 1, 1, "bottomLeft");
+  static get decimal(): Box {
+    return new Box(0, 0, 1, 1, "bottomLeft");
+  }
 }
-
-export type BoxF = (box: Box) => void;
-export type BoxT = z.infer<typeof Box.z>;
 
 /**
  * Reposition a box so that it is visible within a given bound.
@@ -337,11 +302,11 @@ export const positionSoVisible = (
   if (bound.contains(target)) return [target, false];
   let nextPos: XY;
   if (target.right > bound.width)
-    nextPos = {
+    nextPos = new XY({
       x: target.x - target.width,
       y: target.y,
-    };
-  else nextPos = { x: target.x, y: target.y - target.height };
+    });
+  else nextPos = new XY({ x: target.x, y: target.y - target.height });
   return [new Box(nextPos, target.dims), true];
 };
 

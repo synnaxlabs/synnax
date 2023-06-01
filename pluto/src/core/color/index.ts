@@ -7,5 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "./convert";
-export * from "./core";
+export { Color } from "@/core/color/color";
+export type { ColorT, Hex, RGBA } from "@/core/color/color";

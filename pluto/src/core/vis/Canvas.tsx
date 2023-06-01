@@ -9,9 +9,8 @@ import {
 
 import { Box } from "@synnaxlabs/x";
 
-import { Bob } from "../bob/main";
-import { useResize } from "../hooks";
-
+import { Bob } from "@/core/bob/main";
+import { useResize } from "@/core/hooks";
 import {
   Bootstrap,
   Canvas as WorkerCanvas,
