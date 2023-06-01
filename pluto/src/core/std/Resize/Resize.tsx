@@ -9,7 +9,7 @@
 
 import { ReactElement, useCallback, useEffect, useRef, useState } from "react";
 
-import { clamp, Box, locToDir, Location } from "@synnaxlabs/x";
+import { clamp, Box, Location } from "@synnaxlabs/x";
 import { clsx } from "clsx";
 
 import { CSS } from "@/core/css";
@@ -21,7 +21,6 @@ import "@/core/std/Resize/Resize.css";
 /** Props for the {@link Resize} component. */
 export interface ResizeProps
   extends Omit<ResizeCoreProps, "showHandle" | "size" | "onResize" | "onDragStart"> {
-  location: Location;
   initialSize?: number;
   minSize?: number;
   maxSize?: number;
@@ -35,7 +34,7 @@ const COLLAPSED_SIZE = 2;
 export const Resize = ({
   onCollapse,
   onResize,
-  location = "left",
+  location: location_ = "left",
   minSize = 100,
   maxSize = Infinity,
   initialSize = 200,
@@ -45,13 +44,14 @@ export const Resize = ({
 }: ResizeProps): ReactElement => {
   const [size, setSize] = useState(clamp(initialSize, minSize, maxSize));
   const marker = useRef<number | null>(null);
+  const location = new Location(location_);
 
   const calcNextSize = useCallback(
     (box: Box) => {
       if (marker.current === null) return 0;
-      const dir = locToDir(location);
+      const dir = location.direction;
       const dim =
-        box.dim(dir, true) * (1 - 2 * Number(["bottom", "right"].includes(location)));
+        box.dim(dir, true) * (1 - 2 * Number(["bottom", "right"].includes(location.v)));
       const rawNextSize = marker.current + dim;
       const nextSize = clamp(rawNextSize, minSize, maxSize);
       if ((nextSize - rawNextSize) / minSize > collapseThreshold) return COLLAPSED_SIZE;

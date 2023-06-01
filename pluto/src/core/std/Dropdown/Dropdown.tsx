@@ -16,7 +16,7 @@ import {
   useState,
 } from "react";
 
-import { YLocation } from "@synnaxlabs/x";
+import { YLocationT } from "@synnaxlabs/x";
 
 import { CSS } from "@/core/css";
 import { useClickOutside } from "@/core/hooks";
@@ -51,7 +51,7 @@ export const useDropdown = (initialVisible: boolean = false): UseDropdownReturn 
 export interface DropdownProps
   extends Pick<UseDropdownReturn, "visible">,
     Omit<PackProps, "ref" | "reverse" | "size" | "empty"> {
-  location?: YLocation;
+  location?: YLocationT;
   children: [ReactElement, ReactElement];
   keepMounted?: boolean;
 }

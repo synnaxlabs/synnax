@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Direction, Bound, xyScaleToTransform, LazyArray } from "@synnaxlabs/x";
+import { Bound, xyScaleToTransform, LazyArray, DirectionT } from "@synnaxlabs/x";
 
 import { WComponentFactory, WLeaf } from "@/core/bob/worker";
-import { hexToRGBA } from "@/core/color";
 import {
   LineComponent,
   LineState,
@@ -64,7 +63,7 @@ export class LineGLProgram extends GLProgram {
     const scaleTransform = xyScaleToTransform(ctx.scale);
     this.uniformXY("u_region_scale", regionTransform.scale);
     this.uniformXY("u_region_offset", regionTransform.offset);
-    this.uniformColor("u_color", hexToRGBA(props.color));
+    this.uniformColor("u_color", props.color);
     this.uniformXY("u_scale", scaleTransform.scale);
     this.uniformXY("u_offset", scaleTransform.offset);
     return this.attrStrokeWidth(props.strokeWidth);
@@ -76,7 +75,7 @@ export class LineGLProgram extends GLProgram {
     this.ctx.gl.drawArraysInstanced(this.ctx.gl.LINE_STRIP, 0, x.length, count);
   }
 
-  private bindAttrBuffer(dir: Direction, buffer: WebGLBuffer): void {
+  private bindAttrBuffer(dir: DirectionT, buffer: WebGLBuffer): void {
     const { gl } = this.ctx;
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     const n = gl.getAttribLocation(gl, `a_${dir}`);

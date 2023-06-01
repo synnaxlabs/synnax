@@ -13,11 +13,11 @@ import { z } from "zod";
 import { dynamicXYTelemSourceMeta, xyTelemSourceMeta } from "../telem/TelemSource";
 
 import { WComponent } from "@/core/bob/worker";
-import { hex } from "@/core/color";
+import { Color } from "@/core/color";
 
 export const lineState = z.object({
   telem: z.union([xyTelemSourceMeta, dynamicXYTelemSourceMeta]),
-  color: hex,
+  color: Color.z,
   strokeWidth: z.number().default(1),
 });
 

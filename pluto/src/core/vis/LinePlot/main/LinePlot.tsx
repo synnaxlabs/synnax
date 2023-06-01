@@ -20,7 +20,7 @@ import {
   useState,
 } from "react";
 
-import { Box, OuterLocation, locToDir, swapDir } from "@synnaxlabs/x";
+import { Box, Location, OuterLocationT } from "@synnaxlabs/x";
 
 import { Bob } from "@/core/bob/main";
 import { CSS } from "@/core/css";
@@ -41,7 +41,7 @@ export interface LinePlotCProps
     HTMLDivProps {}
 
 export interface LinePlotContextValue {
-  setAxis: (loc: OuterLocation, key: string) => void;
+  setAxis: (loc: OuterLocationT, key: string) => void;
   deleteAxis: (key: string) => void;
 }
 
@@ -50,14 +50,14 @@ const LinePlotContext = createContext<LinePlotContextValue>({
   deleteAxis: () => {},
 });
 
-export const useAxisPosition = (loc: OuterLocation, key: string): CSSProperties => {
+export const useAxisPosition = (loc: OuterLocationT, key: string): CSSProperties => {
   const { setAxis: addAxis, deleteAxis } = useContext(LinePlotContext);
   useEffect(() => {
     addAxis(loc, key);
     return () => deleteAxis(key);
   }, [addAxis, deleteAxis, loc]);
-  const dir = swapDir(locToDir(loc));
-  if (dir === "x")
+  const dir = new Location(loc).direction.inverse;
+  if (dir.equals("x"))
     return {
       gridColumnStart: "plot-start",
       gridColumnEnd: "plot-end",
@@ -72,7 +72,7 @@ export const useAxisPosition = (loc: OuterLocation, key: string): CSSProperties 
   };
 };
 
-type AxisState = Array<[OuterLocation, string]>;
+type AxisState = Array<[OuterLocationT, string]>;
 
 export const LinePlotC = ({
   children,
@@ -84,9 +84,9 @@ export const LinePlotC = ({
     path,
     state: [, setState],
   } = Bob.useComponent<WorkerLinePlotState>(WorkerLinePlot.TYPE, {
-    plot: Box.ZERO,
-    container: Box.ZERO,
-    viewport: Box.DECIMAL,
+    plot: Box.zero,
+    container: Box.zero,
+    viewport: Box.decimal,
     clearOverscan: { x: 10, y: 10 },
     ...props,
   });
@@ -116,7 +116,7 @@ export const LinePlotC = ({
   });
 
   const setAxis = useCallback(
-    (loc: OuterLocation, key: string) =>
+    (loc: OuterLocationT, key: string) =>
       setAxes((prev) => [...prev.filter(([, k]) => k !== key), [loc, key]]),
     []
   );
@@ -162,7 +162,7 @@ export const Y_AXIS_WIDTH = 40;
 
 const buildPlotGrid = (axisCounts: AxisState): CSSProperties => {
   const grid = new CSSGridBuilder();
-  const filterAxisLoc = (loc: OuterLocation): AxisState =>
+  const filterAxisLoc = (loc: OuterLocationT): AxisState =>
     axisCounts.filter(([l]) => l === loc);
   filterAxisLoc("top").forEach(([loc, key]) => {
     grid.addRow({

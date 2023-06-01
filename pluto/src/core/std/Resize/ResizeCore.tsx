@@ -7,16 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DetailedHTMLProps, HTMLAttributes } from "react";
+import { DetailedHTMLProps, HTMLAttributes, ReactElement } from "react";
 
-import { Location, locToDir, swapLoc, dirToDim } from "@synnaxlabs/x";
+import { Location, LooseLocationT } from "@synnaxlabs/x";
 
 import { CSS } from "@/core/css";
 import { preventDefault } from "@/util/event";
 
 export interface ResizeCoreProps
   extends DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement> {
-  location: Location;
+  location: LooseLocationT;
   size: number;
   onDragStart: (e: React.DragEvent<HTMLDivElement>) => void;
   sizeUnits?: "px" | "%";
@@ -24,7 +24,7 @@ export interface ResizeCoreProps
 }
 
 export const ResizeCore = ({
-  location,
+  location: location_,
   style = {},
   size,
   className,
@@ -34,18 +34,23 @@ export const ResizeCore = ({
   showHandle = true,
   ...props
 }: ResizeCoreProps): ReactElement => {
-  const dir = locToDir(location);
+  const location = new Location(location_);
   return (
     <div
-      className={CSS(CSS.B("resize"), CSS.loc(location), CSS.dir(dir), className)}
-      style={{ [dirToDim(dir)]: `${size}${sizeUnits}`, ...style }}
+      className={CSS(
+        CSS.B("resize"),
+        CSS.loc(location),
+        CSS.dir(location.direction),
+        className
+      )}
+      style={{ [location.dimension]: `${size}${sizeUnits}`, ...style }}
       {...props}
     >
       {children}
       {showHandle && (
         <div
           draggable
-          className={CSS(CSS.BE("resize", "handle"), CSS.bordered(swapLoc(location)))}
+          className={CSS(CSS.BE("resize", "handle"), CSS.bordered(location.swap()))}
           onDragStart={onDragStart}
           onDrag={preventDefault}
           onDragEnd={preventDefault}

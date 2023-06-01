@@ -14,13 +14,14 @@ import {
   Dimensions,
   CornerT,
   XY,
-  DirectionT,
   SignedDimensionsT,
   Bound,
   OuterLocationT,
   Location,
   XLocationT,
   XYT,
+  LooseDirectionT,
+  Direction,
 } from "@/spatial";
 
 const cssBox = z.object({
@@ -170,8 +171,9 @@ export class Box implements Stringer {
     };
   }
 
-  dim(dir: DirectionT, signed: boolean = false): number {
-    const dim: number = dir === "y" ? this.signedHeight : this.signedWidth;
+  dim(dir: LooseDirectionT, signed: boolean = false): number {
+    const dir_ = new Direction(dir);
+    const dim: number = dir_.valueOf() === "y" ? this.signedHeight : this.signedWidth;
     return signed ? dim : Math.abs(dim);
   }
 

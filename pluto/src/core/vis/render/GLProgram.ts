@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { XY } from "@synnaxlabs/x";
+import { LooseXYT, XY } from "@synnaxlabs/x";
 
 import { RenderContext } from "./RenderContext";
 
@@ -56,8 +56,8 @@ export class GLProgram {
     this.ctx.gl.useProgram(this.prog);
   }
 
-  uniformXY(name: string, value: XY): void {
-    this.ctx.gl.uniform2fv(this.getUniformLoc(name), [value.x, value.y]);
+  uniformXY(name: string, value: LooseXYT): void {
+    this.ctx.gl.uniform2fv(this.getUniformLoc(name), new XY(value).couple);
   }
 
   uniformColor(name: string, value: Color): void {

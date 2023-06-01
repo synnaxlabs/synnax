@@ -7,16 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { CSSProperties, ForwardedRef, forwardRef } from "react";
+import { CSSProperties, ForwardedRef, ReactElement, forwardRef } from "react";
 
-import { Direction } from "@synnaxlabs/x";
-
-import { Generic, GenericProps } from "@/core/std/Generic";
-
-import "@/core/std/Space/Space.css";
+import { Direction, LooseDirectionT } from "@synnaxlabs/x";
 
 import { CSS } from "@/core/css";
+import { Generic, GenericProps } from "@/core/std/Generic";
 import { ComponentSize } from "@/util/component";
+
+import "@/core/std/Space/Space.css";
 
 /** The alignments for the cross axis of a space */
 export type SpaceAlignment = "start" | "center" | "end" | "stretch";
@@ -62,7 +61,7 @@ export type SpaceElementType =
 export interface SpaceExtensionProps {
   empty?: boolean;
   size?: ComponentSize | number;
-  direction?: Direction;
+  direction?: LooseDirectionT;
   reverse?: boolean;
   justify?: SpaceJustification;
   align?: SpaceAlignment;
@@ -89,13 +88,15 @@ const CoreSpace = <E extends SpaceElementType = "div">(
     size = "medium",
     justify = "start",
     reverse = false,
-    direction = "y",
+    direction: direction_ = "y",
     wrap = false,
     el = "div" as E,
     ...props
   }: SpaceProps<E>,
   ref: ForwardedRef<JSX.IntrinsicElements[E]>
 ): ReactElement => {
+  const direction = new Direction(direction_);
+
   let gap: number | string | undefined;
   if (empty) [size, gap] = [0, 0];
   else if (typeof size === "number") gap = `${size}rem`;
@@ -137,7 +138,7 @@ export const Space = forwardRef(CoreSpace) as <E extends SpaceElementType = "div
 type FlexDirection = CSSProperties["flexDirection"];
 
 const flexDirection = (direction: Direction, reverse: boolean): FlexDirection => {
-  const base = direction === "x" ? "row" : "column";
+  const base = direction.equals("x") ? "row" : "column";
   return reverse ? ((base + "-reverse") as FlexDirection) : base;
 };
 

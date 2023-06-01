@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { Box, Dimensions, XY, BoxScale, ZERO_DIMS, Compare } from "@synnaxlabs/x";
+import { Box, Dimensions, XY, BoxScale, Compare } from "@synnaxlabs/x";
 
 import { useMemoCompare } from "@/core/hooks";
 import { useStateRef } from "@/core/hooks/useStateRef";
@@ -74,10 +74,10 @@ export const useViewport = ({
   onChange,
   defaultMode = "zoom",
   triggers: initialTriggers,
-  initial = Box.DECIMAL,
+  initial = Box.decimal,
   threshold = { width: 30, height: 30 },
 }: UseViewportProps): UseViewportReturn => {
-  const [maskBox, setMaskBox] = useState<Box>(Box.ZERO);
+  const [maskBox, setMaskBox] = useState<Box>(Box.zero);
   const [stateRef, setStateRef] = useStateRef<Box>(initial);
   const canvasRef = useRef<HTMLDivElement | null>(null);
 
@@ -111,9 +111,9 @@ export const useViewport = ({
         });
 
       if (mode === "zoomReset") {
-        setMaskBox(Box.ZERO);
-        onChange?.({ box: Box.DECIMAL, mode, stage, cursor });
-        return setStateRef(Box.DECIMAL);
+        setMaskBox(Box.zero);
+        onChange?.({ box: Box.decimal, mode, stage, cursor });
+        return setStateRef(Box.decimal);
       }
 
       if (stage === "end") {
@@ -131,7 +131,7 @@ export const useViewport = ({
           onChange?.({ box: next, mode, stage, cursor });
 
           if (mode === "zoom") {
-            setMaskBox(Box.ZERO);
+            setMaskBox(Box.zero);
             return next;
           }
           return prev;
@@ -149,7 +149,7 @@ export const useViewport = ({
             .box(fullSize(threshold, box, canvas))
         );
 
-      setMaskBox((prev) => (!prev.isZero ? Box.ZERO : prev));
+      setMaskBox((prev) => (!prev.isZero ? Box.zero : prev));
       onChange?.({
         box: handlePan(box, stateRef.current, canvas),
         mode,
@@ -191,7 +191,7 @@ const handlePan = (box: Box, prev: Box, canvas: Box): Box => {
 
 const handleHover = (prev: Box, canvas: Box, cursor: XY): Box => {
   const dims = scale(prev, canvas);
-  return dims.box(new Box(cursor, ZERO_DIMS));
+  return dims.box(new Box(cursor, Dimensions.zero));
 };
 
 const fullSize = (threshold: Dimensions, box: Box, parent: Box): Box => {
