@@ -9,10 +9,9 @@
 
 import { Color, Size, Theme } from "./theme";
 
-import { Opacity } from "@/core/color";
 import { createHexOpacityVariants, unitProperty } from "@/core/css";
 
-const OPACITIES: readonly Opacity[] = [80, 60, 40, 20];
+const OPACITIES: readonly number[] = [80, 60, 40, 20];
 
 export const convertThemeToCSSVars = (
   theme: Theme

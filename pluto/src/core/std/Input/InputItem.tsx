@@ -17,8 +17,6 @@ import {
   FieldPath,
 } from "react-hook-form";
 
-import "./InputItem.css";
-
 import { CSS } from "@/core/css";
 import { Input } from "@/core/std/Input/Input";
 import { InputHelpText } from "@/core/std/Input/InputHelpText";
@@ -28,6 +26,8 @@ import { Pack } from "@/core/std/Pack";
 import { Space, SpaceAlignment, SpaceExtensionProps } from "@/core/std/Space";
 import { camelToTitle } from "@/util/case";
 import { RenderProp } from "@/util/renderProp";
+
+import "@/core/std/Input/InputItem.css";
 
 interface RenderComponent<P extends Record<string, any>> {
   render: RenderProp<P>;
@@ -64,7 +64,7 @@ const CoreInputItem = <
     label,
     helpText,
     children = Input as unknown as RenderProp<P>,
-    direction = "y",
+    direction: direction_ = "y",
     size = "small",
     empty,
     style,
@@ -80,6 +80,7 @@ const CoreInputItem = <
   const children_ = toArray(children).map((c) =>
     typeof c === "object" ? c.render : c
   );
+  const direction = new Direction(direction_);
 
   let content: ReactElement | null;
   if (children_.length === 1) {
@@ -120,7 +121,7 @@ const maybeDefaultAlignment = (
   direction?: Direction
 ): SpaceAlignment => {
   if (align != null) return align;
-  return direction === "y" ? "stretch" : "center";
+  return direction?.equals("y") ?? false ? "stretch" : "center";
 };
 
 export type InputItemControlledProps<

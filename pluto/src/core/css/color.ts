@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Opacity, addOpacityToHex } from "@/core/color";
+import { ColorT, Color } from "@/core/color";
 
 /**
  * Generates a set of CSS variables representing different opacities of a given
@@ -19,7 +19,11 @@ import { Opacity, addOpacityToHex } from "@/core/color";
  */
 export const createHexOpacityVariants = (
   prefix: string,
-  hex: string,
-  opacities: readonly Opacity[]
-): Record<string, string> =>
-  Object.fromEntries(opacities.map((o) => [`${prefix}-${o}`, addOpacityToHex(hex, o)]));
+  hex: ColorT,
+  opacities: readonly number[]
+): Record<string, string> => {
+  const color = Color.z.parse(hex);
+  return Object.fromEntries(
+    opacities.map((o) => [`${prefix}-${o}`, color.setOpacity(o).hex])
+  );
+};
