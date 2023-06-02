@@ -115,8 +115,7 @@ export class XAxis extends WComposite<YAxis, XAxisState, ParsedXAxisState> {
         .reverse(),
       Scale.scale(bound)
         .scale(1)
-        .translate(-offset)
-        .translate(ctx.viewport.x)
+        .translate(-ctx.viewport.x)
         .magnify(1 / ctx.viewport.width),
     ];
   }

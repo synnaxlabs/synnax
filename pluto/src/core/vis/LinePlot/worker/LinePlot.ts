@@ -96,6 +96,7 @@ export class LinePlot extends WComposite<XAxis, LinePlotState, ParsedLinePlotSta
 
   private async render(): Promise<void> {
     this.erase();
+    const removeScissor = this.ctx.scissor(this.plottingRegion);
     await Promise.all(
       this.children.map(async (xAxis) => {
         const ctx: XAxisProps = {
@@ -105,6 +106,7 @@ export class LinePlot extends WComposite<XAxis, LinePlotState, ParsedLinePlotSta
         await xAxis.render(ctx);
       })
     );
+    removeScissor();
   }
 
   requestRender(): void {

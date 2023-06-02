@@ -16,27 +16,22 @@ export const CORNER_LOCATIONS: Record<CornerT, [XLocationT, YLocationT]> = {
   bottomRight: ["right", "bottom"],
 };
 
-// Options
-
-const DIRECTIONS = ["x", "y"] as const;
-export const Y_LOCATIONS = ["top", "bottom"] as const;
-const X_LOCATIONS = ["left", "right"] as const;
-const CENTER_LOCATION = "center";
 export const POSITIONS = ["start", "center", "end"] as const;
 export const ORDERS = ["first", "last"] as const;
 export const CORNERS = ["topLeft", "topRight", "bottomLeft", "bottomRight"] as const;
+const DIRECTIONS = ["x", "y"] as const;
+const Y_LOCATIONS = ["top", "bottom"] as const;
+const X_LOCATIONS = ["left", "right"] as const;
+const CENTER_LOCATION = "center";
 const OUTER_LOCATIONS = [...Y_LOCATIONS, ...X_LOCATIONS] as const;
-export const LOCATIONS = [...OUTER_LOCATIONS, "center"] as const;
+const LOCATIONS = [...OUTER_LOCATIONS, "center"] as const;
 
-// Strict definitions
-
-const couple = z.tuple([z.number(), z.number()]);
+const numberCouple = z.tuple([z.number(), z.number()]);
 const direction = z.enum(["x", "y"]);
 const yDirection = z.literal("y");
 const xDirection = z.literal("x");
 const yLocation = z.enum(Y_LOCATIONS);
 const xLocation = z.enum(X_LOCATIONS);
-const centerLocation = z.literal(CENTER_LOCATION);
 const outerLocation = z.enum(OUTER_LOCATIONS);
 const location = z.enum(LOCATIONS);
 const xy = z.object({ x: z.number(), y: z.number() });
@@ -53,21 +48,17 @@ const transform = z.object({ offset: z.number(), scale: z.number() });
 export const xyTransform = z.object({ offset: xy, scale: xy });
 const boundZ = z.object({ lower: z.number(), upper: z.number() });
 
-// Loose definitions
-
 const looseDirection = z.union([direction, location]);
 const looseYLocation = z.union([yLocation, yDirection]);
 const looseXLocation = z.union([xLocation, xDirection]);
 const looseOuterLocation = z.union([outerLocation, direction]);
-const looseXY = z.union([xy, clientXY, dimensions, signedDimensions, couple]);
+const looseXY = z.union([xy, clientXY, dimensions, signedDimensions, numberCouple]);
 const looseLocation = looseDirection;
-const looseBoundZ = z.union([boundZ, couple]);
+const looseBoundZ = z.union([boundZ, numberCouple]);
 const looseXYTransform = z.object({ offset: looseXY, scale: looseXY });
-const looseDimensions = z.union([dimensions, signedDimensions, xy, couple]);
+const looseDimensions = z.union([dimensions, signedDimensions, xy, numberCouple]);
 
-// Type exports
-
-export type Couple = z.infer<typeof couple>;
+export type NumberCouple = z.infer<typeof numberCouple>;
 export type YLocationT = z.infer<typeof yLocation>;
 export type XLocationT = z.infer<typeof xLocation>;
 export type OuterLocationT = z.infer<typeof outerLocation>;
@@ -85,21 +76,26 @@ export type XYTransformT = z.infer<typeof xyTransform>;
 export type ClientXYT = z.infer<typeof clientXY>;
 export type TransformT = z.infer<typeof transform>;
 
-export type LooseXYT = z.input<typeof looseXY> | XY;
+export type LooseXYT = z.input<typeof looseXY>;
 export type LooseYLocationT = z.infer<typeof looseYLocation>;
 export type LooseXLocationT = z.infer<typeof looseXLocation>;
 export type LooseXYTransformT = z.infer<typeof looseXYTransform>;
-export type LooseDirectionT = z.infer<typeof looseDirection> | Direction;
-export type LooseLocationT = z.infer<typeof looseLocation> | Location;
 export type LooseOuterLocation = z.infer<typeof looseOuterLocation>;
 export type LooseDimensionsT = z.infer<typeof looseDimensions>;
-export type LooseBoundT = z.infer<typeof looseBoundZ> | Bound;
-
-export const DECIMAL_COORD_ROOT: CornerT = "bottomLeft";
+export type LooseBoundT = z.infer<typeof looseBoundZ>;
+/**
+ * Location and Direction classes don't satisfy their primitive type interface,
+ * so we need to include them in the loose type.
+ */
+export type LooseDirectionT = z.infer<typeof looseDirection> | Direction;
+export type LooseLocationT = z.infer<typeof looseLocation> | Location;
 
 export const cornerLocations = (corner: CornerT): [XLocationT, YLocationT] =>
   CORNER_LOCATIONS[corner];
 
+/**
+ * A direction on the screen: "x" or "y".
+ */
 export class Direction extends String {
   constructor(direction: LooseDirectionT) {
     if (DIRECTIONS.includes(direction as DirectionT)) super(direction);
@@ -107,36 +103,54 @@ export class Direction extends String {
     else super("x");
   }
 
+  /**
+   * @returns true if the direction and provided direction are semantically
+   * equal, converting the provided type to a direction if necessary.
+   */
   equals(other: LooseDirectionT): boolean {
     const o = new Direction(other);
     return this.valueOf() === o.valueOf();
   }
 
-  /** @returns "x" if the direction is "y" and "y" if the direction is "x" */
+  /** @returns "x" if the direction is "y" and "y" if the direction is "x". */
   get inverse(): Direction {
     return new Direction(this.valueOf() === "x" ? "y" : "x");
   }
 
-  /** @returns "top" if the direction is "y" and "left" if the direction is "x" */
+  /** @returns "top" if the direction is "y" and "left" if the direction is "x". */
   get location(): Location {
     return new Location(this.valueOf() as DirectionT);
   }
 
-  static readonly DIRECTIONS = DIRECTIONS;
-
+  /** The "x" direction. */
   static readonly x = new Direction("x");
 
+  /** The "y" direction. */
   static readonly y = new Direction("y");
 
+  /** A list of all the direction options. */
+  static readonly DIRECTIONS = DIRECTIONS;
+
+  /**
+   * A Zod schema to parse a loose direction i.e any type that can be
+   * converted to a direction.
+   */
   static readonly looseZ = looseDirection.transform((v) => new Direction(v));
 
-  static readonly z = direction.transform((v) => new Direction(v));
+  /** A Zod schema to parse a strict direction i.e. either "x" or "y". */
+  static readonly strictZ = direction.transform((v) => new Direction(v));
 
+  /** Returns true if the provided value can be parsed as a direction. */
   static isValid(other: any): boolean {
     return Direction.looseZ.safeParse(other).success;
   }
 }
 
+/**
+ * A general location of an element on the screen or regio * of the screen:
+ * "top", "left", "right", "bottom", "center". For a type that represents a
+ * specific position, see XY.
+ */
 export class Location extends String {
   constructor(location: LooseLocationT) {
     if (!Direction.DIRECTIONS.includes(location as DirectionT)) super(location);
@@ -144,48 +158,78 @@ export class Location extends String {
     else super("top");
   }
 
-  equals(other: LooseLocationT): boolean {
+  /**
+   * @returns true if the location and provided location are semantically
+   * equal, converting the provided type to a direction if necessary.
+   */
+  equal(other: LooseLocationT): boolean {
     const o = new Location(other);
     return this.valueOf() === o.valueOf();
   }
 
+  /** @returns the value of a location as a primitive javascript scring. */
   get v(): LocationT {
     return this.valueOf() as LocationT;
   }
 
+  /**
+   * @returns the semantic inverse of the location i.e. the inverse of "left"
+   * is "right".
+   */
   get inverse(): Location {
     return new Location(Location.SWAPPED[this.valueOf() as LocationT]);
   }
 
+  /**
+   * @returns the direction best representing the location, where "top" and "bottom"
+   * are "y" and "left" and "right" are "x". To get the inverse of this behavior, simply
+   * call the "inverse" getter on the returned direction.
+   */
   get direction(): Direction {
     return new Direction(this.valueOf() as DirectionT);
   }
 
-  get dimension(): "width" | "height" {
-    return this.valueOf() === "x" ? "width" : "height";
-  }
-
+  /** The "top" location. */
   static readonly top = new Location("top");
+
+  /** The "bottom" location. */
   static readonly bottom = new Location("bottom");
+
+  /** The "left" location. */
   static readonly left = new Location("left");
+
+  /** The "right" location. */
   static readonly right = new Location("right");
+
+  /** The "center" location. */
   static readonly center = new Location("center");
 
-  static readonly X = X_LOCATIONS;
-  static readonly xz = xLocation;
+  /**
+   * A list of all locations represented by the "x" direction i.e. "left" and "right".
+   */
+  static readonly X_LOCATIONS = X_LOCATIONS;
 
-  static readonly Y = Y_LOCATIONS;
-  static readonly yz = yLocation;
+  /**
+   * A list of all locations represented by the "y" direction i.e. "top" and "bottom".
+   */
+  static readonly Y_LOCATIONS = Y_LOCATIONS;
 
+  /**
+   * A list of all locations represented by the "x" and "y" directions i.e. "top",
+   */
   static readonly OUTER = OUTER_LOCATIONS;
-  static readonly outerZ = outerLocation;
 
-  static readonly CENTER = CENTER_LOCATION;
-  static readonly centerZ = centerLocation;
+  /**
+   * A zod schema to parse a strict location i.e. one of "top", "bottom", "left",
+   * "right",
+   */
+  static readonly strictZ = location.transform((v) => new Location(v));
 
-  static readonly cornerZ = corner;
-
-  static readonly z = location;
+  /**
+   * A zod schema to parse a loose location i.e. any type that can be converted
+   * to a location.
+   */
+  static readonly looseZ = looseLocation.transform((v) => new Location(v));
 
   private static readonly SWAPPED: Record<LocationT, LocationT> = {
     top: "bottom",
@@ -200,7 +244,9 @@ export class Location extends String {
  * A point in 2D space.
  */
 export class XY {
+  /** The x coordinate. */
   readonly x: number;
+  /** The y coordinate. */
   readonly y: number;
 
   /**
@@ -231,15 +277,6 @@ export class XY {
     }
   }
 
-  /** An x and y coordinate of zero */
-  static readonly ZERO = new XY(0, 0);
-
-  /** An x and y coordinate of one */
-  static readonly ONE = new XY(1, 1);
-
-  /** An x and y coordinate of infinity */
-  static readonly INFINITE = new XY(Infinity, Infinity);
-
   /** @returns an XY coordinate translated by the given x value */
   translateX(x: number): XY {
     return new XY(this.x + x, this.y);
@@ -251,37 +288,56 @@ export class XY {
   }
 
   /** @returns an XY coordinate translated by the given x and y values */
-  translate(xy: XY | LooseXYT): XY {
+  translate(xy: LooseXYT): XY {
     const t = new XY(xy);
     return new XY(this.x + t.x, this.y + t.y);
   }
 
-  equals(other?: XY | LooseXYT): boolean {
+  /** @returns true if the XY is semantically equal to the provided XY. */
+  equals(other?: LooseXYT | number, y?: number): boolean {
     if (other == null) return false;
-    const o = new XY(other);
+    const o = new XY(other, y);
     return this.x === o.x && this.y === o.y;
   }
 
-  get couple(): Couple {
+  /**
+   * @returns the XY represented as a couple, where the first item is the x coordinate,
+   * and the second item is the y coordinate.
+   */
+  get couple(): NumberCouple {
     return [this.x, this.y];
   }
 
+  /** An x and y coordinate of zero */
+  static readonly ZERO = new XY(0, 0);
+
+  /** An x and y coordinate of one */
+  static readonly ONE = new XY(1, 1);
+
+  /** An x and y coordinate of infinity */
+  static readonly INFINITE = new XY(Infinity, Infinity);
+
   /**
-   * z is a zod schema for parsing an XY. This schema is loose in that it will
+   * A zod schema for parsing an XY. This schema is loose in that it will
    * accept and convert a variety of inputs into an XY. If you only want to accept
    * strict XYs, use z.
    */
   static readonly looseZ = looseXY.transform((v) => new XY(v));
 
   /**
-   * z is a zod schema for parsing an XY. This schema is strict in that it will
+   * A zod schema for parsing an XY. This schema is strict in that it will
    * only accept an XY as an input.
    */
   static readonly z = xy.transform((v) => new XY(v));
 }
 
+/**
+ * A width and height in 2D space.
+ */
 export class Dimensions {
+  /** The width. */
   readonly width: number;
+  /** The height. */
   readonly height: number;
 
   constructor(width: number | LooseDimensionsT, height?: number) {
@@ -302,16 +358,29 @@ export class Dimensions {
     }
   }
 
+  /** Dimensions with zero width and height. */
   static readonly ZERO = new Dimensions(0, 0);
-
+  /** Dimensions with a width and height of 1. */
   static readonly DECIMAL = new Dimensions(1, 1);
-
+  /** Dimensions with a width and height of infinity. */
   static readonly INFINITE = new Dimensions(Infinity, Infinity);
 
+  /**
+   * @returns true the dimensions and provided dimensions are semantically equal,
+   * converting the provided type to dimensions if necessary.
+   */
   equals(other?: LooseDimensionsT): boolean {
     if (other == null) return false;
     const o = new Dimensions(other);
     return this.width === o.width && this.height === o.height;
+  }
+
+  /**
+   * @returns the dimensions as a couple, where the first item is the width and the second
+   * is the height.
+   */
+  get couple(): NumberCouple {
+    return [this.width, this.height];
   }
 }
 
@@ -355,6 +424,53 @@ export class Bound {
     return [this.lower, this.upper];
   }
 
+  /**
+   * @returns true if the bound contains the value. Note that this bound
+   * is lower inclusive and upper exclusive.
+   * */
+  contains(v: number): boolean {
+    return v >= this.lower && v < this.upper;
+  }
+
+  /** @returns a number representing the distance between the upper and lower bounds */
+  get span(): number {
+    return this.upper - this.lower;
+  }
+
+  /** @returns true if both the upper and lower bounds are zero */
+  get isZero(): boolean {
+    return this.lower === 0 && this.upper === 0;
+  }
+
+  /** @returns true if the span of the bound is zero */
+  get spanIsZero(): boolean {
+    return this.span === 0;
+  }
+
+  /**
+   * Finds the combination of upper and lower bounds from the given set that result
+   * in the bound with the maximum possible span.
+   * */
+  static max(bounds: LooseBoundT[]): Bound {
+    const parsed = bounds.map((b) => new Bound(b));
+    return new Bound({
+      lower: Math.min(...parsed.map((b) => b.lower)),
+      upper: Math.max(...parsed.map((b) => b.upper)),
+    });
+  }
+
+  /**
+   * Finds the combination of upper and lower bounds from the given set that result
+   * in the bound with the minimum possible span.
+   * */
+  static min(bounds: LooseBoundT[]): Bound {
+    const parsed = bounds.map((b) => new Bound(b));
+    return new Bound({
+      lower: Math.max(...parsed.map((b) => b.lower)),
+      upper: Math.min(...parsed.map((b) => b.upper)),
+    });
+  }
+
   /** An upper and lower bound of zero */
   static readonly ZERO = new Bound(0, 0);
 
@@ -369,51 +485,6 @@ export class Bound {
 
   /** @returns clip space with a lower bound of -1 and an upper bound of 1 */
   static readonly CLIP = new Bound(-1, 1);
-
-  /**
-   * @returns true if the bound contains the value. Note that this bound
-   * is lower inclusive and upper exclusive.
-   * */
-  contains(v: number): boolean {
-    return v >= this.lower && v < this.upper;
-  }
-
-  /** @returns a number representing the distance between the upper and lower bounds */
-  span(): number {
-    return this.upper - this.lower;
-  }
-
-  /** @returns true if both the upper and lower bounds are zero */
-  get isZero(): boolean {
-    return this.lower === 0 && this.upper === 0;
-  }
-
-  /** @returns true if the span of the bound is zero */
-  get spanIsZero(): boolean {
-    return this.span() === 0;
-  }
-
-  /**
-   * Finds the combination of upper and lower bounds from the given set that result
-   * in the bound with the maximum possible span.
-   * */
-  static max(bounds: Bound[]): Bound {
-    return new Bound({
-      lower: Math.max(...bounds.map((b) => b.upper)),
-      upper: Math.max(...bounds.map((b) => b.lower)),
-    });
-  }
-
-  /**
-   * Finds the combination of upper and lower bounds from the given set that result
-   * in the bound with the minimum possible span.
-   * */
-  static min(bounds: Bound[]): Bound {
-    return new Bound({
-      lower: Math.min(...bounds.map((b) => b.lower)),
-      upper: Math.min(...bounds.map((b) => b.upper)),
-    });
-  }
 
   /**
    * z is a zod schema for parsing a bound. This schema is loose in that it will

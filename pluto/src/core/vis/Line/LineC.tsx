@@ -17,9 +17,6 @@ import { LineState } from "@/core/vis/Line/core";
 export interface LineProps extends Optional<Omit<LineState, "key">, "strokeWidth"> {}
 
 export const Line = (props: LineProps): ReactElement | null => {
-  Bob.useComponent<LineState>("line", {
-    ...props,
-    strokeWidth: 1,
-  });
+  Bob.useComponent<LineState>("line", props);
   return null;
 };

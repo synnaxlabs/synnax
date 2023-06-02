@@ -209,8 +209,8 @@ export type XYScale = Record<DirectionT, Scale>;
 
 export const xyScaleToTransform = (scale: XYScale): XYTransformT => ({
   scale: {
-    x: scale.x.pos(1),
-    y: scale.y.pos(1),
+    x: scale.x.dim(1),
+    y: scale.y.dim(1),
   },
   offset: {
     x: scale.x.pos(0),

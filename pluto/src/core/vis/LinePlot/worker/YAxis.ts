@@ -116,7 +116,6 @@ export class YAxis extends WComposite<LineComponent, YAxisState, ParsedYAxisStat
         .invert()
         .reverse(),
       Scale.scale(bound)
-        .translate(-offset)
         .scale(1)
         .translate(-ctx.viewport.y)
         .magnify(1 / ctx.viewport.height),

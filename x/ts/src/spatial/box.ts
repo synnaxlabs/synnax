@@ -193,7 +193,7 @@ export class Box implements Stringer {
 
   loc(loc: OuterLocationT): number {
     const f = this.root.toLowerCase().includes(loc) ? Math.min : Math.max;
-    return Location.X.includes(loc as XLocationT)
+    return Location.X_LOCATIONS.includes(loc as XLocationT)
       ? f(this.one.x, this.two.x)
       : f(this.one.y, this.two.y);
   }
