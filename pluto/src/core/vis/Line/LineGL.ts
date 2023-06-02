@@ -9,7 +9,7 @@
 
 import { Bound, xyScaleToTransform, LazyArray, DirectionT } from "@synnaxlabs/x";
 
-import { WComponentFactory, WLeaf } from "@/core/bob/worker";
+import { BobComponentFactory, BobLeaf } from "@/core/bob/worker";
 import {
   LineComponent,
   LineState,
@@ -26,7 +26,7 @@ import { TelemProvider } from "@/core/vis/telem/TelemService";
 /**
  * A factory for creating webgl rendered lines.
  */
-export class LineFactory implements WComponentFactory<LineComponent> {
+export class LineFactory implements BobComponentFactory<LineComponent> {
   private readonly program: LineGLProgram;
   private readonly telem: TelemProvider;
   requestRender: () => void;
@@ -87,8 +87,9 @@ export class LineGLProgram extends GLProgram {
    * We apply stroke width by drawing the line multiple times, each time with a slight
    * transformation. This is done as simply as possible. We draw the "centered" line
    * and then four more lines: one to the left, one to the right, one above, and one
-   * below. This is done by using the `ANGLE_instanced_arrays` extension. We can repeat
-   * this process to make the line thicker.
+   * below. We can repeat this process an arbitrary number of times to make the line
+   * thicker. As we increase the stroke width, we also increase the cost of drawing the
+   * line.
    */
   private attrStrokeWidth(strokeWidth: number): number {
     const { gl } = this.ctx;
@@ -103,7 +104,10 @@ export class LineGLProgram extends GLProgram {
   }
 }
 
-export class LineGL extends WLeaf<LineState, ParsedLineState> {
+export class LineGL
+  extends BobLeaf<LineState, ParsedLineState>
+  implements LineComponent
+{
   prog: LineGLProgram;
   requestRender: () => void;
   telemProv: TelemProvider;
@@ -124,9 +128,7 @@ export class LineGL extends WLeaf<LineState, ParsedLineState> {
     this.telemProv = telemProv;
     this.telem = this.telemProv.get(props.telem.key);
     this.setHook(() => this.requestRender());
-    if ("onChange" in this.telem) {
-      this.telem.onChange(() => this.requestRender());
-    }
+    if ("onChange" in this.telem) this.telem.onChange(() => this.requestRender());
   }
 
   async xBound(): Promise<Bound> {

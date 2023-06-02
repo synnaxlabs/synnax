@@ -10,15 +10,15 @@
 import { Bound, Box, Location, Scale } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { WComposite, WComponentFactory } from "@/core/bob/worker";
+import { BobComposite, BobComponentFactory } from "@/core/bob/worker";
 import { Axis, AxisCanvas } from "@/core/vis/Axis";
 import { axisState } from "@/core/vis/Axis/core";
 import { LineComponent, LineContext } from "@/core/vis/Line/core";
 import { RenderContext } from "@/core/vis/render";
 
 export const yAxisProps = axisState.extend({
-  location: Location.xz.optional().default("left"),
-  bound: Bound.z.optional(),
+  location: Location.strictXZ.optional().default("left"),
+  bound: Bound.looseZ.optional(),
   autoBoundPadding: z.number().optional().default(0.1),
 });
 
@@ -31,14 +31,14 @@ export interface YAxisContext {
   xScale: Scale;
 }
 
-export class YAxisFactory implements WComponentFactory<YAxis> {
+export class YAxisFactory implements BobComponentFactory<YAxis> {
   ctx: RenderContext;
-  lineFactory: WComponentFactory<LineComponent>;
+  lineFactory: BobComponentFactory<LineComponent>;
   requestRender: () => void;
 
   constructor(
     ctx: RenderContext,
-    lineFactory: WComponentFactory<LineComponent>,
+    lineFactory: BobComponentFactory<LineComponent>,
     requestRender: () => void
   ) {
     this.ctx = ctx;
@@ -51,7 +51,7 @@ export class YAxisFactory implements WComponentFactory<YAxis> {
   }
 }
 
-export class YAxis extends WComposite<LineComponent, YAxisState, ParsedYAxisState> {
+export class YAxis extends BobComposite<LineComponent, YAxisState, ParsedYAxisState> {
   ctx: RenderContext;
   core: Axis;
 
@@ -59,7 +59,7 @@ export class YAxis extends WComposite<LineComponent, YAxisState, ParsedYAxisStat
 
   constructor(
     ctx: RenderContext,
-    lineFactory: WComponentFactory<LineComponent>,
+    lineFactory: BobComponentFactory<LineComponent>,
     key: string,
     props: YAxisState,
     requestRender: () => void
@@ -107,7 +107,7 @@ export class YAxis extends WComposite<LineComponent, YAxisState, ParsedYAxisStat
   }
 
   private async scales(ctx: YAxisContext): Promise<[Scale, Scale]> {
-    const [bound, offset] = await this.yBound();
+    const [bound] = await this.yBound();
     return [
       Scale.scale(bound)
         .scale(1)

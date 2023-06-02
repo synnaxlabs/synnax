@@ -11,12 +11,11 @@ import { ReactElement } from "react";
 
 import type { Meta, StoryFn } from "@storybook/react";
 
-import { VisCanvas } from "../Canvas";
-import { Line } from "../Line/LineC";
-
+import { VisCanvas } from "@/core/vis/Canvas";
+import { Line } from "@/core/vis/Line/LineC";
 import { LinePlot } from "@/core/vis/LinePlot";
 import { Pluto } from "@/Pluto";
-import { useDynamicTelem, useStaticTelem } from "@/telem/useStaticTelem";
+import { useDynamicTelem } from "@/telem/useStaticTelem";
 
 const story: Meta<typeof LinePlot> = {
   title: "Vis/LinePlot",

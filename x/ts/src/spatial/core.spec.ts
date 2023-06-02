@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { deepStrictEqual } from "assert";
+
 import { describe, expect, test, it } from "vitest";
 
 import {
@@ -181,6 +183,16 @@ describe.only("Spatial Core", () => {
         const bound = Bound.min(bounds);
         expect(bound.lower).toEqual(1);
         expect(bound.upper).toEqual(1);
+      });
+    });
+    describe("isFinite", () => {
+      it("should return false if either bound is infinite", () => {
+        const bound = new Bound([1, Infinity]);
+        expect(bound.isFinite).toEqual(false);
+      });
+      it("should return true if both bounds are finite", () => {
+        const bound = new Bound([1, 2]);
+        expect(bound.isFinite).toEqual(true);
       });
     });
   });

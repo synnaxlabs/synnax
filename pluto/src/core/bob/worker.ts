@@ -12,18 +12,18 @@ import { ZodSchema, ZodTypeDef } from "zod";
 
 import { WorkerMessage } from "@/core/bob/message";
 
-export interface WComponent {
+export interface BobComponent {
   type: string;
   key: string;
   setState: (path: string[], type: string, state: any) => void;
   delete: (path: string[]) => void;
 }
 
-export interface WComponentFactory<C extends WComponent> {
+export interface BobComponentFactory<C extends BobComponent> {
   create: (type: string, key: string, state: any) => C;
 }
 
-export class WLeaf<EP, IP extends unknown> {
+export class BobLeaf<EP, IP extends unknown> {
   readonly type: string;
   readonly key: string;
   readonly schema: ZodSchema<IP, ZodTypeDef, EP>;
@@ -71,17 +71,17 @@ export class WLeaf<EP, IP extends unknown> {
   }
 }
 
-export class WComposite<C extends WComponent, EP, IP extends unknown>
-  extends WLeaf<EP, IP>
-  implements WComponent
+export class BobComposite<C extends BobComponent, EP, IP extends unknown>
+  extends BobLeaf<EP, IP>
+  implements BobComponent
 {
   readonly children: C[];
-  readonly factory: WComponentFactory<C>;
+  readonly factory: BobComponentFactory<C>;
 
   constructor(
     type: string,
     key: string,
-    factory: WComponentFactory<C>,
+    factory: BobComponentFactory<C>,
     schema: ZodSchema<IP, ZodTypeDef, EP>,
     state: EP
   ) {
@@ -142,12 +142,12 @@ export class WComposite<C extends WComponent, EP, IP extends unknown>
   }
 }
 
-export class CompositeComponentFactory<C extends WComponent>
-  implements WComponentFactory<C>
+export class CompositeComponentFactory<C extends BobComponent>
+  implements BobComponentFactory<C>
 {
-  readonly factories: Record<string, WComponentFactory<C>>;
+  readonly factories: Record<string, BobComponentFactory<C>>;
 
-  constructor(factories: Record<string, WComponentFactory<C>>) {
+  constructor(factories: Record<string, BobComponentFactory<C>>) {
     this.factories = factories;
   }
 
@@ -161,12 +161,12 @@ export class CompositeComponentFactory<C extends WComponent>
   }
 }
 
-export class WorkerRoot<B extends unknown> {
+export class BobRoot<B extends unknown> {
   wrap: TypedWorker<WorkerMessage>;
-  root: WComponent | null;
-  bootstrap: (data: B) => WComponent;
+  root: BobComponent | null;
+  bootstrap: (data: B) => BobComponent;
 
-  constructor(wrap: TypedWorker<WorkerMessage>, bootstrap: (data: B) => WComponent) {
+  constructor(wrap: TypedWorker<WorkerMessage>, bootstrap: (data: B) => BobComponent) {
     this.wrap = wrap;
     this.root = null;
     this.wrap.handle((msg) => this.handle(msg));
@@ -178,7 +178,7 @@ export class WorkerRoot<B extends unknown> {
       this.root = this.bootstrap(msg.data as B);
     }
     if (this.root == null) {
-      console.warn(`[WorkerRoot.handle] - Received message before root was set`, msg);
+      console.warn(`[BobRoot.handle] - Received message before root was set`, msg);
       return;
     }
     switch (msg.variant) {

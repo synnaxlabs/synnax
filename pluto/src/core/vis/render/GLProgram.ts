@@ -9,17 +9,35 @@
 
 import { LooseXYT, XY } from "@synnaxlabs/x";
 
-import { RenderContext } from "./RenderContext";
-
 import { Color } from "@/core/color";
-import { errorCompile, ERROR_BAD_SHADER } from "@/core/vis/render/errors";
+import { RenderContext } from "@/core/vis/render/RenderContext";
 
+const errorCompile = (msg: string): Error =>
+  new Error(`failed to compile webgl program: ${msg}`);
+
+const ERROR_BAD_SHADER = new Error("null shader encountered");
+
+/**
+ * A general purpose compiler and utility container for workign with WebGL programs.
+ */
 export class GLProgram {
+  /** The render context used by this program. */
   readonly ctx: RenderContext;
+  /** The underlying webgl program. */
   readonly prog: WebGLProgram;
+  /** The code for the vertex shader. */
   private readonly vertShader: string;
+  /** The code for the fragment shader. */
   private readonly fragShader: string;
 
+  /**
+   * @constructor compiles the given vertex and fragment shaders under the given
+   * render context into a program.
+   *
+   * @param ctx - The render context to use.
+   * @param vertShader - The vertex shader code.
+   * @param fragShader - The fragment shader code.
+   */
   constructor(ctx: RenderContext, vertShader: string, fragShader: string) {
     this.ctx = ctx;
     const prog = ctx.gl.createProgram();
@@ -28,6 +46,37 @@ export class GLProgram {
     this.vertShader = vertShader;
     this.fragShader = fragShader;
     this.compile();
+  }
+
+  /** Sets the current program as the active program used by the context. */
+  setAsActive(): void {
+    this.ctx.gl.useProgram(this.prog);
+  }
+
+  /**
+   * Sets a uniform XY coordinate value.
+   *
+   * @param name - The name of the uniform.
+   * @param value - The value to set.
+   */
+  uniformXY(name: string, value: LooseXYT): void {
+    this.ctx.gl.uniform2fv(this.getUniformLoc(name), new XY(value).couple);
+  }
+
+  /**
+   * Sets a uniform color value.
+   *
+   * @param name - The name of the uniform.
+   * @param value - The value to set.
+   */
+  uniformColor(name: string, value: Color): void {
+    this.ctx.gl.uniform4fv(this.getUniformLoc(name), value.rgba1);
+  }
+
+  private getUniformLoc(name: string): WebGLUniformLocation {
+    const loc = this.ctx.gl.getUniformLocation(this.prog, name);
+    if (loc == null) throw new Error(`unexpected missing uniform ${name}`);
+    return loc;
   }
 
   private compile(): void {
@@ -50,23 +99,5 @@ export class GLProgram {
       throw errorCompile(error ?? "unknown");
     }
     gl.attachShader(this.prog, vs);
-  }
-
-  setAsActive(): void {
-    this.ctx.gl.useProgram(this.prog);
-  }
-
-  uniformXY(name: string, value: LooseXYT): void {
-    this.ctx.gl.uniform2fv(this.getUniformLoc(name), new XY(value).couple);
-  }
-
-  uniformColor(name: string, value: Color): void {
-    this.ctx.gl.uniform4fv(this.getUniformLoc(name), value.rgba1);
-  }
-
-  private getUniformLoc(name: string): WebGLUniformLocation {
-    const loc = this.ctx.gl.getUniformLocation(this.prog, name);
-    if (loc == null) throw new Error(`unexpected missing uniform ${name}`);
-    return loc;
   }
 }
