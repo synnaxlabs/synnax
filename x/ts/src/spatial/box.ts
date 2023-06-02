@@ -40,7 +40,7 @@ const domRect = z.object({
 const box = z.object({
   one: XY.z,
   two: XY.z,
-  root: Location.cornerZ,
+  root: Location.strictCornerZ,
 });
 const looseBox = z.union([
   cssBox,
@@ -48,7 +48,7 @@ const looseBox = z.union([
   z.object({
     one: XY.looseZ,
     two: XY.looseZ,
-    root: Location.cornerZ,
+    root: Location.strictCornerZ,
   }),
 ]);
 

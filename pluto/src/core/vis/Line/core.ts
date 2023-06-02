@@ -12,7 +12,7 @@ import { z } from "zod";
 
 import { dynamicXYTelemSourceMeta, xyTelemSourceMeta } from "../telem/TelemSource";
 
-import { WComponent } from "@/core/bob/worker";
+import { BobComponent } from "@/core/bob/worker";
 import { Color } from "@/core/color";
 
 export const lineState = z.object({
@@ -38,7 +38,7 @@ export interface LineContext {
   scale: XYScale;
 }
 
-export interface LineComponent extends WComponent {
+export interface LineComponent extends BobComponent {
   state: LineState;
   render: (ctx: LineContext) => void;
   xBound: () => Promise<Bound>;

@@ -231,6 +231,21 @@ export class Location extends String {
    */
   static readonly looseZ = looseLocation.transform((v) => new Location(v));
 
+  /**
+   * A zod schema to parse a corner i.e. one of "topLeft", "topRight", "bottomLeft",
+   */
+  static readonly strictCornerZ = corner;
+
+  /**
+   * A zod schema to parse an X location i.e. one of "left" or "right".
+   */
+  static readonly strictXZ = xLocation.transform((v) => new Location(v));
+
+  /**
+   * A zod schema to parse a Y location i.e. one of "top" or "bottom".
+   */
+  static readonly strictYZ = yLocation.transform((v) => new Location(v));
+
   private static readonly SWAPPED: Record<LocationT, LocationT> = {
     top: "bottom",
     bottom: "top",
@@ -447,6 +462,11 @@ export class Bound {
     return this.span === 0;
   }
 
+  /** @returns true if both the lower and upper bounds are finite */
+  get isFinite(): boolean {
+    return isFinite(this.lower) && isFinite(this.upper);
+  }
+
   /**
    * Finds the combination of upper and lower bounds from the given set that result
    * in the bound with the maximum possible span.
@@ -491,7 +511,7 @@ export class Bound {
    * accept and convert a variety of inputs into a bound. If you only want to accept
    * strict bounds, use strictZ.
    */
-  static readonly z = looseBoundZ.transform((v) => new Bound(v));
+  static readonly looseZ = looseBoundZ.transform((v) => new Bound(v));
 
   /**
    * strictZ is a zod schema for parsing a bound. This schema is strict in that it will

@@ -10,7 +10,7 @@
 import { Box, XY } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { WComponentFactory, WComposite } from "@/core/bob/worker";
+import { BobComponentFactory, BobComposite } from "@/core/bob/worker";
 import { LineFactory, LineGLProgram } from "@/core/vis/Line/LineGL";
 import { XAxis, XAxisProps, XAxisFactory } from "@/core/vis/LinePlot/worker/XAxis";
 import { YAxisFactory } from "@/core/vis/LinePlot/worker/YAxis";
@@ -27,7 +27,7 @@ export const linePlotState = z.object({
 export type LinePlotState = z.input<typeof linePlotState>;
 export type ParsedLinePlotState = z.output<typeof linePlotState>;
 
-export class LinePlotFactory implements WComponentFactory<LinePlot> {
+export class LinePlotFactory implements BobComponentFactory<LinePlot> {
   ctx: RenderContext;
   lines: LineGLProgram;
   renderQueue: RenderQueue;
@@ -45,7 +45,7 @@ export class LinePlotFactory implements WComponentFactory<LinePlot> {
   }
 }
 
-export class LinePlot extends WComposite<XAxis, LinePlotState, ParsedLinePlotState> {
+export class LinePlot extends BobComposite<XAxis, LinePlotState, ParsedLinePlotState> {
   ctx: RenderContext;
   renderQueue: RenderQueue;
 
@@ -96,7 +96,7 @@ export class LinePlot extends WComposite<XAxis, LinePlotState, ParsedLinePlotSta
 
   private async render(): Promise<void> {
     this.erase();
-    const removeScissor = this.ctx.scissor(this.plottingRegion);
+    const removeScissor = this.ctx.scissorGL(this.plottingRegion);
     await Promise.all(
       this.children.map(async (xAxis) => {
         const ctx: XAxisProps = {

@@ -7,19 +7,32 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Box, Destructor, Scale, XY, XYScale, BoxScale } from "@synnaxlabs/x";
+import { Box, Destructor, Scale, XY, XYScale } from "@synnaxlabs/x";
 
 import { Color } from "@/core/color";
 
+/**
+ * A hybrid rendering context containing both 2D and WebGL canvases and contexts.
+ * Implements several utility methods for correctly scaling the canvas, restricting
+ * drawing to a region, and erasing portions of the canvas.
+ */
 export class RenderContext {
-  /* The canvas element */
+  /* The canvas element used by WebGL. */
   readonly glCanvas: OffscreenCanvas;
-  /** The webgl rendering context extracted from the canvas */
-  readonly gl: WebGL2RenderingContext;
-  readonly canvas: OffscreenCanvasRenderingContext2D;
+
+  /** The canvas element used by the 2D canvas. */
   readonly canvasCanvas: OffscreenCanvas;
+  /** The webgl rendering context extracted from the canvas */
+
+  /** The WebGL rendering context.  */
+  readonly gl: WebGL2RenderingContext;
+
+  /** The 2D canvas rendering context. */
+  readonly canvas: OffscreenCanvasRenderingContext2D;
+
   /** The region the canvas occupies in pixel space */
   region: Box;
+
   /** The device pixel ratio of the canvas */
   dpr: number;
 
@@ -32,27 +45,35 @@ export class RenderContext {
     this.canvasCanvas = canvasCanvas;
     this.glCanvas = glCanvas;
     this.region = region;
+
     const ctx = canvasCanvas.getContext("2d");
     if (ctx == null) throw new Error("Could not get 2D context");
     this.canvas = ctx;
+
     const gl = glCanvas.getContext("webgl2", { preserveDrawingBuffer: true });
     if (gl == null) throw new Error("Could not get WebGL context");
     this.gl = gl;
+
     this.dpr = dpr;
     this.resize(region, dpr);
   }
 
+  /**
+   * Resizes the canvas to the given region and device pixel ratio. Ensuring
+   * that all drawing operations and viewports are scaled correctly.
+   */
   resize(region: Box, dpr: number): void {
     this.region = region;
     this.dpr = dpr;
-    this.glCanvas.width = region.width * dpr;
-    this.glCanvas.height = region.height * dpr;
-    this.canvasCanvas.width = region.width * dpr;
-    this.canvasCanvas.height = region.height * dpr;
-    this.canvas.scale(dpr, dpr);
+    this.glCanvas.width = region.width * this.dpr;
+    this.glCanvas.height = region.height * this.dpr;
+    this.canvasCanvas.width = region.width * this.dpr;
+    this.canvasCanvas.height = region.height * this.dpr;
+    this.canvas.scale(this.dpr, this.dpr);
     this.gl.viewport(0, 0, region.width * dpr, region.height * dpr);
   }
 
+  /** @returns the aspect ratio of the canvas. */
   get aspect(): number {
     return this.region.width / this.region.height;
   }
@@ -91,20 +112,36 @@ export class RenderContext {
     };
   }
 
-  scissor(box: Box): Destructor {
+  /**
+   * Scissors the WebGL rendering canvas to the given region.
+   *
+   * @param region - The region to scissor to. The region should be in
+   * pixel space relative to the screen.
+   * @returns a destructor that must be called to remove the scissor.
+   */
+  scissorGL(region: Box): Destructor {
     this.gl.enable(this.gl.SCISSOR_TEST);
     this.gl.scissor(
-      (box.left - this.region.left) * this.dpr,
-      (this.region.bottom - box.bottom) * this.dpr,
-      box.width * this.dpr,
-      box.height * this.dpr
+      (region.left - this.region.left) * this.dpr,
+      (this.region.bottom - region.bottom) * this.dpr,
+      region.width * this.dpr,
+      region.height * this.dpr
     );
     return () => this.gl.disable(this.gl.SCISSOR_TEST);
   }
 
-  erase(box: Box, overscan: XY = XY.ZERO): void {
-    this.eraseGL(box, overscan);
-    this.eraseCanvas(box, overscan);
+  /**
+   * Erases the given portion of both the 2D and the WebGL canvases.
+   *
+   * @param region - The region to erase. The region should be in
+   * pixel space relative to the screen.
+   * @param overscan - The amount to overscan (in pixels) the region by.
+   * This is useful for ensuring that the edges of the canvas are cleared
+   * when the canvas is scaled.
+   */
+  erase(region: Box, overscan: XY = XY.ZERO): void {
+    this.eraseGL(region, overscan);
+    this.eraseCanvas(region, overscan);
   }
 
   private eraseGL(box: Box, overscan: XY = XY.ZERO): void {
@@ -115,7 +152,7 @@ export class RenderContext {
       (box.width + overscan.x * 2) * this.dpr,
       (box.height + overscan.y * 2) * this.dpr
     );
-    const removeScissor = this.scissor(os);
+    const removeScissor = this.scissorGL(os);
     gl.clearColor(...Color.zero.rgba1);
     gl.clear(gl.COLOR_BUFFER_BIT);
     removeScissor();

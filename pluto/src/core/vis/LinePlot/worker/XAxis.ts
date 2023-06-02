@@ -10,15 +10,15 @@
 import { Bound, Box, Location, Scale } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { WComponentFactory, WComposite } from "@/core/bob/worker";
+import { BobComponentFactory, BobComposite } from "@/core/bob/worker";
 import { AxisCanvas } from "@/core/vis/Axis/AxisCanvas";
 import { Axis, axisState } from "@/core/vis/Axis/core";
 import { YAxis, YAxisContext, autoBounds } from "@/core/vis/LinePlot/worker/YAxis";
 import { RenderContext } from "@/core/vis/render";
 
 export const xAxisState = axisState.extend({
-  location: Location.yz.optional().default("bottom"),
-  bound: Bound.z.optional(),
+  location: Location.strictYZ.optional().default("bottom"),
+  bound: Bound.looseZ.optional(),
   autoBoundPadding: z.number().optional().default(0.1),
 });
 
@@ -30,14 +30,14 @@ export interface XAxisProps {
   viewport: Box;
 }
 
-export class XAxisFactory implements WComponentFactory<XAxis> {
+export class XAxisFactory implements BobComponentFactory<XAxis> {
   ctx: RenderContext;
-  yAxisFactory: WComponentFactory<YAxis>;
+  yAxisFactory: BobComponentFactory<YAxis>;
   requestRender: () => void;
 
   constructor(
     ctx: RenderContext,
-    yAxisFactory: WComponentFactory<YAxis>,
+    yAxisFactory: BobComponentFactory<YAxis>,
     requestRender: () => void
   ) {
     this.ctx = ctx;
@@ -50,14 +50,14 @@ export class XAxisFactory implements WComponentFactory<XAxis> {
   }
 }
 
-export class XAxis extends WComposite<YAxis, XAxisState, ParsedXAxisState> {
+export class XAxis extends BobComposite<YAxis, XAxisState, ParsedXAxisState> {
   ctx: RenderContext;
   core: Axis;
   static readonly TYPE = "x-axis";
 
   constructor(
     ctx: RenderContext,
-    yAxisFactory: WComponentFactory<YAxis>,
+    yAxisFactory: BobComponentFactory<YAxis>,
     key: string,
     props: XAxisState,
     requestRender: () => void
@@ -99,14 +99,14 @@ export class XAxis extends WComposite<YAxis, XAxisState, ParsedXAxisState> {
     const bounds = await Promise.all(
       this.children.map(async (el) => await el.xBound())
     );
-    if (bounds.every((bound) => !isFinite(bound.lower) || !isFinite(bound.upper)))
+    if (bounds.every((bound) => !bound.isFinite))
       return [new Bound({ lower: 0, upper: 1 }), 0];
     const { autoBoundPadding = 0.1 } = this.state;
     return autoBounds(autoBoundPadding, bounds);
   }
 
   private async scales(ctx: XAxisProps): Promise<[Scale, Scale]> {
-    const [bound, offset] = await this.xBound();
+    const [bound] = await this.xBound();
     return [
       Scale.scale(bound)
         .scale(1)
