@@ -1,6 +1,7 @@
 # |||| INTELLIJ ||||
 
 .idea/
+.fleet/
 
 # |||| DARWIN ||||
 
@@ -52,4 +53,4 @@ work
 # |||| PYTHON ||||
 
 __pycache__
-*cache/
+*_cache/
