@@ -71,8 +71,6 @@ export class AxisCanvas {
 
     const ticks = this.tickFactory.generate({ ...ctx, size });
 
-    console.log(canvas.strokeStyle, this.state.color.hex);
-
     ticks.forEach((tick) => {
       const { width, height } = textDimensions(
         tick.label,

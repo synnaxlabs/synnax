@@ -1,4 +1,5 @@
 import { TypedWorker } from "@synnaxlabs/x";
+import { nanoid } from "nanoid";
 
 import { StaticTelemFactory } from "./staticTelem";
 
@@ -16,10 +17,12 @@ export interface BaseTelemSourceMeta extends TelemSourceMeta {
 }
 
 export class TelemWorker implements TelemProvider {
+  key: string;
   telem: Map<string, BaseTelemSourceMeta> = new Map();
   staticFactory: StaticTelemFactory;
 
   constructor(wrap: TypedWorker<WorkerMessage>) {
+    this.key = nanoid();
     wrap.handle((message) => this.handle(message));
     this.staticFactory = new StaticTelemFactory();
   }
@@ -36,8 +39,8 @@ export class TelemWorker implements TelemProvider {
   }
 
   newSource(key: string, type: string, props: any): void {
-    if (type !== "static") throw new Error(`Unknown telem source type: ${type}`);
-    const n = this.staticFactory.new(key, props);
-    this.telem.set(key, n);
+    // if (type !== "static") throw new Error(`Unknown telem source type: ${type}`);
+    const n = this.staticFactory.new(key, type, props);
+    this.telem.set(key, n as BaseTelemSourceMeta);
   }
 }

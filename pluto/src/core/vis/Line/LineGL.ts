@@ -41,7 +41,7 @@ export class LineFactory implements WComponentFactory<LineComponent> {
     this.requestRender = requestRender;
   }
 
-  create(key: string, type: string, props: any): LineComponent {
+  create(type: string, key: string, props: any): LineComponent {
     if (type !== LineGL.TYPE)
       throw new Error(
         `[LineFactory.create] - Expected type ${LineGL.TYPE} but got ${type}`
@@ -59,10 +59,10 @@ export class LineGLProgram extends GLProgram {
   }
 
   bindPropsAndContext(ctx: LineContext, props: ParsedLineState): number {
-    const regionTransform = xyScaleToTransform(this.ctx.scaleRegion(ctx.region));
     const scaleTransform = xyScaleToTransform(ctx.scale);
-    this.uniformXY("u_region_scale", regionTransform.scale);
-    this.uniformXY("u_region_offset", regionTransform.offset);
+    const transform = xyScaleToTransform(this.ctx.scaleRegion(ctx.region));
+    this.uniformXY("u_region_scale", transform.scale);
+    this.uniformXY("u_region_offset", transform.offset);
     this.uniformColor("u_color", props.color);
     this.uniformXY("u_scale", scaleTransform.scale);
     this.uniformXY("u_offset", scaleTransform.offset);
@@ -78,7 +78,7 @@ export class LineGLProgram extends GLProgram {
   private bindAttrBuffer(dir: DirectionT, buffer: WebGLBuffer): void {
     const { gl } = this.ctx;
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    const n = gl.getAttribLocation(gl, `a_${dir}`);
+    const n = gl.getAttribLocation(this.prog, `a_${dir}`);
     gl.vertexAttribPointer(n, 1, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(n);
   }
@@ -124,6 +124,9 @@ export class LineGL extends WLeaf<LineState, ParsedLineState> {
     this.telemProv = telemProv;
     this.telem = this.telemProv.get(props.telem.key);
     this.setHook(() => this.requestRender());
+    if ("onChange" in this.telem) {
+      this.telem.onChange(() => this.requestRender());
+    }
   }
 
   async xBound(): Promise<Bound> {

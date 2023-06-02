@@ -54,7 +54,7 @@ export class LazyArray {
   readonly dataType: DataType;
   sampleOffset: SampleValue;
   private readonly gl: GL;
-  private readonly _data: ArrayBufferLike;
+  private readonly _data: ArrayBuffer;
   readonly _timeRange?: TimeRange;
   private _min?: SampleValue;
   private _max?: SampleValue;
@@ -70,17 +70,13 @@ export class LazyArray {
   }
 
   constructor(
-    data: ArrayBufferLike | NativeTypedArray,
+    data: ArrayBuffer | NativeTypedArray,
     dataType?: UnparsedDataType,
     timeRange?: TimeRange,
     sampleOffset?: SampleValue,
     glBufferUsage: GLBufferUsage = "static"
   ) {
-    if (
-      dataType == null &&
-      !(data instanceof ArrayBuffer) &&
-      !(data instanceof SharedArrayBuffer)
-    ) {
+    if (dataType == null && !(data instanceof ArrayBuffer)) {
       this.dataType = new DataType(data);
     } else if (dataType != null) {
       this.dataType = new DataType(dataType);
@@ -261,6 +257,9 @@ export class LazyArray {
       this._timeRange,
       this.sampleOffset
     );
+    n.gl.buffer = this.gl.buffer;
+    n.gl.prevBuffer = this.gl.prevBuffer;
+    n.gl.bufferUsage = this.gl.bufferUsage;
     return n;
   }
 }

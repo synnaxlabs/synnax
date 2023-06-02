@@ -1,4 +1,4 @@
-import { createContext, useContext, useId } from "react";
+import { createContext, useContext, useEffect, useId } from "react";
 
 export interface TelemContextValue {
   set: <P>(key: string, type: string, props: P, transfer?: Transferable[]) => void;
@@ -24,6 +24,8 @@ export const useTelemSourceControl = <P extends any>(
 ): string => {
   const key = useId();
   const { set } = useTelemContext();
-  set(key, type, props, transferral);
+  useEffect(() => {
+    set(key, type, props, transferral);
+  }, [key, set, type, props, transferral]);
   return key;
 };

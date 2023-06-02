@@ -12,9 +12,11 @@ import { ReactElement } from "react";
 import type { Meta, StoryFn } from "@storybook/react";
 
 import { VisCanvas } from "../Canvas";
+import { Line } from "../Line/LineC";
 
 import { LinePlot } from "@/core/vis/LinePlot";
 import { Pluto } from "@/Pluto";
+import { useDynamicTelem, useStaticTelem } from "@/telem/useStaticTelem";
 
 const story: Meta<typeof LinePlot> = {
   title: "Vis/LinePlot",
@@ -22,94 +24,54 @@ const story: Meta<typeof LinePlot> = {
 };
 
 const Example = (): ReactElement => {
+  const telem = useDynamicTelem({
+    x: [Float32Array.from({ length: 1000 }, (_, i) => i)],
+    y: [
+      Float32Array.from(
+        { length: 1000 },
+        (_, i) => Math.sin(i / 100) * 20 + Math.random()
+      ),
+    ],
+    updateRate: 30,
+  });
+  const telem2 = useDynamicTelem({
+    x: [Float32Array.from({ length: 1000 }, (_, i) => i)],
+    y: [
+      Float32Array.from(
+        { length: 1000 },
+        (_, i) => Math.cos(i / 100) * 20 + Math.random()
+      ),
+    ],
+    updateRate: 30,
+  });
+
   return (
-    <Pluto>
-      <VisCanvas
-        style={{
-          width: "100%",
-          height: "100%",
-          position: "fixed",
-          top: 0,
-          left: 0,
-        }}
-      >
-        <LinePlot style={{ height: "50%", padding: 10 }}>
-          <LinePlot.XAxis
-            type="linear"
-            label="Time"
-            location="bottom"
-            bound={{ lower: 500, upper: 1000 }}
-            showGrid
-          >
-            <LinePlot.YAxis
-              type="linear"
-              label="Value"
-              location="right"
-              bound={{ lower: 500, upper: 1000 }}
-              showGrid
-            />
-            <LinePlot.YAxis
-              type="linear"
-              label="Value"
-              location="left"
-              bound={{ lower: 500, upper: 1000 }}
-            />
-            <LinePlot.YAxis
-              type="linear"
-              label="Value"
-              location="left"
-              bound={{ lower: 2000, upper: 90000 }}
-            />
-            <LinePlot.YAxis
-              type="linear"
-              label="Value"
-              location="left"
-              bound={{ lower: 500, upper: 1000 }}
-            />
-          </LinePlot.XAxis>
-        </LinePlot>
-        <LinePlot style={{ height: "50%", padding: 10 }}>
-          <LinePlot.XAxis
-            type="linear"
-            label="Time"
-            location="bottom"
-            bound={{ lower: 500, upper: 1000 }}
-            showGrid
-          >
-            <LinePlot.YAxis
-              type="linear"
-              label="Value"
-              location="right"
-              bound={{ lower: 500, upper: 1000 }}
-              showGrid
-            />
-            <LinePlot.YAxis
-              type="linear"
-              label="Value"
-              location="left"
-              bound={{ lower: 500, upper: 1000 }}
-            />
-            <LinePlot.YAxis
-              type="linear"
-              label="Value"
-              location="left"
-              bound={{ lower: 2000, upper: 90000 }}
-            />
-            <LinePlot.YAxis
-              type="linear"
-              label="Value"
-              color="#FFFFFF"
-              location="left"
-              bound={{ lower: 500, upper: 1000 }}
-            />
-          </LinePlot.XAxis>
-        </LinePlot>
-      </VisCanvas>
-    </Pluto>
+    <VisCanvas
+      style={{
+        width: "100%",
+        height: "100%",
+        position: "fixed",
+        top: 0,
+        left: 0,
+      }}
+    >
+      <LinePlot style={{ padding: 10 }}>
+        <LinePlot.XAxis type="linear" label="Time" location="bottom" showGrid>
+          <LinePlot.YAxis type="linear" label="Value" location="left" showGrid>
+            <Line telem={telem} color="#F733FF" strokeWidth={10} />
+            <Line telem={telem2} color="#D5E04E" strokeWidth={10} />
+          </LinePlot.YAxis>
+        </LinePlot.XAxis>
+      </LinePlot>
+    </VisCanvas>
   );
 };
 
-export const Primary: StoryFn<typeof LinePlot> = () => <Example />;
+export const Primary: StoryFn<typeof LinePlot> = () => (
+  <Pluto>
+    <Example />
+  </Pluto>
+);
 
 // eslint-disable-next-line import/no-default-export
 export default story;

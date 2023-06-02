@@ -96,8 +96,8 @@ export const VisCanvas = ({ children, ...props }: VisCanvasProps): ReactElement 
 
   return (
     <>
-      <canvas ref={glRefCallback} {...props} />
       <canvas ref={canvasRefCallback} {...props} />
+      <canvas ref={glRefCallback} {...props} />
       <Bob.Composite path={path}>{bootstrapped && children}</Bob.Composite>
     </>
   );

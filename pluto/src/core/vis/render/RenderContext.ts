@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Box, Destructor, Scale, XY, XYScale } from "@synnaxlabs/x";
+import { Box, Destructor, Scale, XY, XYScale, BoxScale } from "@synnaxlabs/x";
 
 import { Color } from "@/core/color";
 
@@ -69,7 +69,7 @@ export class RenderContext {
         // Turn it to pixels relative to the child width.
         .scale(box.width)
         // Translate the value to the left based on the parent and childs position.
-        .translate(this.region.left + box.left)
+        .translate(box.left)
         // Rebound the scale to the canvas width.
         .reBound(this.region.width)
         // Rescale the value to clip space.
@@ -81,7 +81,7 @@ export class RenderContext {
         // Invert the scale since we read pixels from the top.
         .invert()
         // Translate the value to the top based on the parent and childs position.
-        .translate(this.region.top + box.top)
+        .translate(box.top)
         // Rebound the scale to the canvas height.
         .reBound(this.region.height)
         // Rescale the value to clip space.
@@ -92,9 +92,13 @@ export class RenderContext {
   }
 
   scissor(box: Box): Destructor {
-    const scale = this.scaleRegion(box);
     this.gl.enable(this.gl.SCISSOR_TEST);
-    this.gl.scissor(scale.x.pos(0), scale.y.pos(0), scale.x.dim(1), scale.y.dim(1));
+    this.gl.scissor(
+      (box.left - this.region.left) * this.dpr,
+      (this.region.bottom - box.bottom) * this.dpr,
+      box.width * this.dpr,
+      box.height * this.dpr
+    );
     return () => this.gl.disable(this.gl.SCISSOR_TEST);
   }
 
@@ -106,10 +110,10 @@ export class RenderContext {
   private eraseGL(box: Box, overscan: XY = XY.ZERO): void {
     const { gl } = this;
     const os = new Box(
-      box.left - overscan.x,
-      box.top - overscan.y,
-      box.width + overscan.x * 2,
-      box.height + overscan.y * 2
+      (box.left - overscan.x) * this.dpr,
+      (box.top - overscan.y) * this.dpr,
+      (box.width + overscan.x * 2) * this.dpr,
+      (box.height + overscan.y * 2) * this.dpr
     );
     const removeScissor = this.scissor(os);
     gl.clearColor(...Color.zero.rgba1);

@@ -33,17 +33,7 @@ export interface BobContextValue {
   delete: (path: string[]) => void;
 }
 
-export const BobContext = createContext<BobContextValue>({
-  path: [],
-  setState: (
-    path: string[],
-    type: string,
-    state: any,
-    transfer: Transferable[] = []
-  ) => {},
-  delete: (path: string[]) => {},
-  bootstrap: (state: any, transfer: Transferable[] = []) => {},
-});
+export const BobContext = createContext<BobContextValue | null>(null);
 
 export interface UseBobComponentReturn<S extends unknown> {
   key: string;
